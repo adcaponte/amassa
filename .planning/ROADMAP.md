@@ -62,7 +62,16 @@ Drizzle, banco de testes, GitHub Actions, `/api/health`) tornam-se os planos des
   8. Um deploy não recria o container do Postgres
   9. Um deploy com teste quebrado é barrado pelo pipeline e não vai ao ar
   10. Migrações podem ser aplicadas à mão no servidor, com um comando, fora do pipeline automático
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Traçado ponta a ponta: página mínima da marca, `/api/health` com consulta real e Postgres em contêiner
+- [ ] 01-02-PLAN.md — Repositório público `amassa` com higiene de segredos ligada antes do primeiro push
+- [ ] 01-03-PLAN.md — Imagem de produção: Dockerfile em quatro estágios, compose completo, Caddy no apex e migração pelo `ferramentas`
+- [ ] 01-04-PLAN.md — Postgres de teste separado e efêmero + testes ponta a ponta no desktop e no celular
+- [ ] 01-05-PLAN.md — Pipeline no GitHub Actions: qualidade → E2E → imagem no GHCR → deploy por SSH
+- [ ] 01-06-PLAN.md — Roteiros comentados do servidor: endurecimento do VPS, DNS, HTTPS, Auto Backup e monitor
+- [ ] 01-07-PLAN.md — Theo executa os roteiros e o ciclo completo de publicação é provado no domínio público
 **UI hint**: no (nenhuma tela de usuário nesta fase — só infraestrutura)
 
 ### Phase 2: Login, Banco Base e Casca da Aplicação
@@ -231,7 +240,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fundação e Primeiro Deploy | 0/TBD | Not started | - |
+| 1. Fundação e Primeiro Deploy | 0/7 | Planned | - |
 | 2. Login, Banco Base e Casca da Aplicação | 0/TBD | Not started | - |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |
