@@ -18,6 +18,10 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Ferramentas do GSD e documentos de planejamento não são código da aplicação.
+      ".claude/**",
+      ".planning/**",
+      "amassa-plataforma/**",
     ],
   },
 ];
