@@ -24,6 +24,8 @@ coverage/
 playwright-report/
 test-results/
 .turbo/
+next-env.d.ts
+*.tsbuildinfo
 
 # Sistema operacional e editor
 .DS_Store

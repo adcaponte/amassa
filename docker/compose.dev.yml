@@ -1,0 +1,8 @@
+# Sobreposição usada APENAS na máquina do desenvolvedor. Nunca vai para o servidor.
+# Publica o Postgres em 127.0.0.1:5433 para que `npm run dev` no host alcance o banco.
+#
+# Uso: docker compose -f docker/compose.yml -f docker/compose.dev.yml up -d postgres
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5433:5432"
