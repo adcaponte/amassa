@@ -29,6 +29,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -43,6 +44,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 ## Phase Details
 
 ### Phase 1: Fundação e Primeiro Deploy
+
 **Goal**: Ter um endereço `https://` no ar, com deploy automático funcionando — sem nenhuma
 funcionalidade, só o caminho do código até a internet. Resolvendo isso primeiro, cada milestone
 seguinte já nasce publicada.
@@ -52,6 +54,7 @@ Drizzle, banco de testes, GitHub Actions, `/api/health`) tornam-se os planos des
 **Depends on**: Nothing (first phase)
 **Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05, INFRA-06, INFRA-07, INFRA-08, INFRA-09, INFRA-10
 **Success Criteria** (what must be TRUE):
+
   1. Nenhum arquivo `.env` com valores reais aparece no repositório público (`git log --all --full-history -- .env` não mostra nada)
   2. `https://seudominio.com.br` abre com cadeado e sem aviso de segurança
   3. Alterar um texto, dar `git push` na `main`, e a mudança aparece sozinha em poucos minutos
@@ -62,30 +65,37 @@ Drizzle, banco de testes, GitHub Actions, `/api/health`) tornam-se os planos des
   8. Um deploy não recria o container do Postgres
   9. Um deploy com teste quebrado é barrado pelo pipeline e não vai ao ar
   10. Migrações podem ser aplicadas à mão no servidor, com um comando, fora do pipeline automático
-**Plans**: 7 plans
+
+**Plans**: 1/7 plans executed
 
 Plans:
-- [ ] 01-01-PLAN.md — Traçado ponta a ponta: página mínima da marca, `/api/health` com consulta real e Postgres em contêiner
+
+- [x] 01-01-PLAN.md — Traçado ponta a ponta: página mínima da marca, `/api/health` com consulta real e Postgres em contêiner
 - [ ] 01-02-PLAN.md — Repositório público `amassa` com higiene de segredos ligada antes do primeiro push
 - [ ] 01-03-PLAN.md — Imagem de produção: Dockerfile em quatro estágios, compose completo, Caddy no apex e migração pelo `ferramentas`
 - [ ] 01-04-PLAN.md — Postgres de teste separado e efêmero + testes ponta a ponta no desktop e no celular
 - [ ] 01-05-PLAN.md — Pipeline no GitHub Actions: qualidade → E2E → imagem no GHCR → deploy por SSH
 - [ ] 01-06-PLAN.md — Roteiros comentados do servidor: endurecimento do VPS, DNS, HTTPS, Auto Backup e monitor
 - [ ] 01-07-PLAN.md — Theo executa os roteiros e o ciclo completo de publicação é provado no domínio público
+
 **UI hint**: no (nenhuma tela de usuário nesta fase — só infraestrutura)
 
 ### Phase 2: Login, Banco Base e Casca da Aplicação
+
 **Goal**: Entrar com e-mail e senha e navegar por telas vazias de todos os módulos, já com a
 identidade visual do AMASSA aplicada — e com o backup automático do banco funcionando, a fase
 mais importante deste milestone, porque sem serviço gerenciado é a única rede de proteção que
 existe.
 **Corresponde a**: M1 do `03-ROADMAP.md`. As 9 fases do milestone (migração base + `usuarios`,
 Auth.js/argon2id, `exigirUsuario()` + scripts de linha de comando, tela de login, design system
+
 + mapeamento shadcn, casca de navegação, painel inicial com placeholders, backup automático via
+
 `cron` do host, teste ponta a ponta) tornam-se os planos desta fase.
 **Depends on**: Phase 1
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07, AUTH-08, AUTH-09, AUTH-10, BKP-01, BKP-02, BKP-03, BKP-04, BKP-05, BKP-06, BKP-07, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, UI-09
 **Success Criteria** (what must be TRUE):
+
   1. Abrir qualquer endereço sem estar logado leva para `/login`
   2. Login com senha errada mostra uma mensagem clara em português, igual à de e-mail inexistente
   3. Errar a senha 5 vezes no mesmo e-mail em 15 minutos bloqueia por 15 minutos
@@ -97,10 +107,12 @@ Auth.js/argon2id, `exigirUsuario()` + scripts de linha de comando, tela de login
   9. O backup de ontem existe no servidor e também no armazenamento externo
   10. Toda tela (mesmo vazia, como as deste milestone) tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto e estado de erro em linguagem humana; toda remoção pede confirmação nomeando o que será perdido
   11. Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 3: Gestor de Encomendas
+
 **Goal**: Substituir o protótipo HTML por um módulo real, multiusuário, com itens — cada
 encomenda mostra suas 6 etapas com datas calculadas em cascata, em Gantt no desktop ou lista
 vertical no celular.
@@ -111,6 +123,7 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
 **Depends on**: Phase 2
 **Requirements**: ENC-01, ENC-02, ENC-03, ENC-04, ENC-05, ENC-06, ENC-07, ENC-08, ENC-09, ENC-10, ENC-11, ENC-12, ENC-13
 **Success Criteria** (what must be TRUE):
+
   1. Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
   2. Mudar a duração de uma etapa (ex.: "secagem") desloca todas as etapas seguintes
   3. Os três marcos (queima 1, queima 2, entrega) aparecem como losango e são um interruptor (acontece / não acontece), nunca um campo numérico; desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda
@@ -122,10 +135,12 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
   9. Uma encomenda criada em um dispositivo aparece no outro ao recarregar a página (sem atualização em tempo real, deliberadamente)
   10. Excluir uma encomenda pede confirmação
   11. O estado vazio mostra "A roda ainda não gira"
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 4: Contador de Queima
+
 **Goal**: Controlar a vida útil das resistências dos fornos — saber quantas queimas cada um
 acumulou desde a última manutenção, e ser avisado antes de estourar. Esta fase é antecipada para
 antes da Agenda porque o módulo é menor e mais simples, o fluxo principal (registrar queima) é o
@@ -141,6 +156,7 @@ entre si; a sequência Fase 3 → Fase 4 é uma decisão de produto documentada,
 técnica)
 **Requirements**: FOR-01, FOR-02, FOR-03, FOR-04, FOR-05, FOR-06, FOR-07, FOR-08, FOR-09, FOR-10, FOR-11, FOR-12, FOR-13
 **Success Criteria** (what must be TRUE):
+
   1. Registrar uma queima leva dois toques e menos de 5 segundos no celular
   2. O aviso com "Desfazer", por 7 segundos, remove a queima registrada por engano
   3. Os três tipos aparecem: biscoito, esmalte e ouro
@@ -150,22 +166,27 @@ técnica)
   7. O cartão mostra quantas queimas o forno já fez na vida, além do contador desde a última manutenção
   8. Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
   9. Um forno em atenção ou crítico aparece no painel inicial
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 5: Agenda de Aulas
+
 **Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
 aulas com data concreta por materialização preguiçosa, e presença é marcada por aluna.
 **Corresponde a**: M3 do `03-ROADMAP.md` (numeração de milestone preservada; a ordem de execução
 foi deslocada para depois da M4 — é a milestone mais complexa do projeto e ganha em ser
 enfrentada com o sistema já em uso real). As 11 fases do milestone (migração `0003_agenda` +
 `garantir_aulas_da_semana`/`alunas_da_aula`, `lib/agenda/semana.ts` com testes, `nome_normalizado`
+
 + índice, CRUD de turmas, cadastro/matrícula de alunas, grade desktop, grade mobile, navegação
+
 por semana com geração preguiçosa, tela de presença, cancelamento com motivo, aba Alunos, teste
 ponta a ponta) tornam-se os planos desta fase.
 **Depends on**: Phase 2 (independente das Fases 3 e 4)
 **Requirements**: AGD-01, AGD-02, AGD-03, AGD-04, AGD-05, AGD-06, AGD-07, AGD-08, AGD-09, AGD-10, AGD-11, AGD-12, AGD-13, AGD-14, AGD-15, AGD-16
 **Success Criteria** (what must be TRUE):
+
   1. A grade reproduz o protótipo: cores por modalidade, contagem de assentos, três níveis (aberta, completa, excedida)
   2. Turma com mais alunas do que vagas aparece em vermelho e continua permitida
   3. Passar uma aluna de experimental para matriculada funciona e some o aviso
@@ -175,10 +196,12 @@ ponta a ponta) tornam-se os planos desta fase.
   7. Encerrar a matrícula de uma aluna a remove das aulas seguintes, mas não das passadas
   8. Cancelar uma aula por feriado mantém o registro e o motivo
   9. O histórico de uma aluna mostra todas as presenças e faltas dela
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 6: Estoque
+
 **Goal**: Saber o que existe, o que está acabando e para onde o material foi — saldo sempre
 derivado das movimentações, nunca uma coluna editável.
 **Corresponde a**: M5 do `03-ROADMAP.md`. As 9 fases do milestone (migração `0005_estoque` +
@@ -189,16 +212,19 @@ ponta a ponta) tornam-se os planos desta fase.
 **Depends on**: Phase 2 (independente das Fases 3, 4 e 5)
 **Requirements**: EST-01, EST-02, EST-03, EST-04, EST-05, EST-06, EST-07, EST-08, EST-09, EST-10, EST-11, EST-12
 **Success Criteria** (what must be TRUE):
+
   1. Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
   2. Material abaixo do mínimo aparece destacado na lista e no painel inicial
   3. O histórico mostra toda movimentação com autor e data
   4. Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
   5. Registrar uma baixa no celular leva menos de 15 segundos
   6. O saldo mostrado bate com a soma manual do histórico
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 7: Polimento e Entrega
+
 **Goal**: Transformar algo que funciona em algo que se pode confiar — painel inicial de
 verdade, restauração de backup testada de ponta a ponta, e documentação para operar sozinho num
 dia ruim.
@@ -211,12 +237,14 @@ roadmap).
 **Depends on**: Phases 1-6 (M0 a M5 — não depende da M6)
 **Requirements**: UI-10, UI-11, PNL-01, PNL-02, PNL-03, PNL-04, PNL-05, PNL-06, PNL-07
 **Success Criteria** (what must be TRUE):
+
   1. O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique, mostrando encomendas por etapa, aulas de hoje, fornos em atenção ou crítico e alertas de estoque baixo
   2. Um backup foi restaurado de verdade, a partir do armazenamento externo, num Postgres limpo, e os dados conferem — e existe um documento em português que permite repetir isso num dia ruim
   3. Existe um manual de uso curto, com imagens, que uma pessoa nova consegue seguir sozinha
   4. Existe um documento de operação cobrindo criar usuário, redefinir senha, restaurar backup e o que fazer se o site cair, deixando explícito qual backup usar em cada caso
   5. Nenhum erro aparece no console do navegador em uso normal
   6. O sistema carrega em menos de 3 segundos em 4G
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -240,7 +268,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fundação e Primeiro Deploy | 0/7 | Planned | - |
+| 1. Fundação e Primeiro Deploy | 1/7 | In Progress|  |
 | 2. Login, Banco Base e Casca da Aplicação | 0/TBD | Not started | - |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |

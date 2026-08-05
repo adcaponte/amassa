@@ -12,7 +12,7 @@
 
 - [ ] **INFRA-01**: O sistema abre em `https://` no domínio próprio, com cadeado e sem aviso de segurança
 - [ ] **INFRA-02**: Alterar um texto e dar `git push` na `main` publica a mudança sozinho em poucos minutos
-- [ ] **INFRA-03**: `/api/health` responde `ok` e confirma uma consulta real ao banco
+- [x] **INFRA-03**: `/api/health` responde `ok` e confirma uma consulta real ao banco
 - [ ] **INFRA-04**: A porta 5432 do IP do VPS não aceita conexão de fora — o banco não está exposto
 - [ ] **INFRA-05**: Reiniciar o VPS traz a aplicação de volta sozinha, com os dados intactos
 - [ ] **INFRA-06**: Um deploy publica a aplicação sem recriar o container do Postgres
@@ -202,7 +202,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 — Fundação e Primeiro Deploy | Pending |
 | INFRA-02 | Phase 1 — Fundação e Primeiro Deploy | Pending |
-| INFRA-03 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-03 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-04 | Phase 1 — Fundação e Primeiro Deploy | Pending |
 | INFRA-05 | Phase 1 — Fundação e Primeiro Deploy | Pending |
 | INFRA-06 | Phase 1 — Fundação e Primeiro Deploy | Pending |
@@ -301,6 +301,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | PNL-07 | Phase 7 — Polimento e Entrega | Pending |
 
 **Coverage:**
+
 - v1 requirements: 99 total
 - Mapped to phases: 99/99
 - Unmapped: 0
