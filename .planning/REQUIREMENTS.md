@@ -196,17 +196,128 @@ Reconhecidos e adiados. Não estão no roadmap atual.
 
 ## Traceability
 
-Preenchida durante a criação do roadmap.
+Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (preenchido pelo roadmapper) | | |
+| INFRA-01 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-02 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-03 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-04 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-05 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-06 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-07 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-08 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-09 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-10 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| AUTH-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-10 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| ENC-01 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-02 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-03 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-04 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-05 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-06 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-07 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-08 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-09 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-10 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-11 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-12 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-13 | Phase 3 — Gestor de Encomendas | Pending |
+| FOR-01 | Phase 4 — Contador de Queima | Pending |
+| FOR-02 | Phase 4 — Contador de Queima | Pending |
+| FOR-03 | Phase 4 — Contador de Queima | Pending |
+| FOR-04 | Phase 4 — Contador de Queima | Pending |
+| FOR-05 | Phase 4 — Contador de Queima | Pending |
+| FOR-06 | Phase 4 — Contador de Queima | Pending |
+| FOR-07 | Phase 4 — Contador de Queima | Pending |
+| FOR-08 | Phase 4 — Contador de Queima | Pending |
+| FOR-09 | Phase 4 — Contador de Queima | Pending |
+| FOR-10 | Phase 4 — Contador de Queima | Pending |
+| FOR-11 | Phase 4 — Contador de Queima | Pending |
+| FOR-12 | Phase 4 — Contador de Queima | Pending |
+| FOR-13 | Phase 4 — Contador de Queima | Pending |
+| AGD-01 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-02 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-03 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-04 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-05 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-06 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-07 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-08 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-09 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-10 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-11 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-12 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-13 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-14 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-15 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-16 | Phase 5 — Agenda de Aulas | Pending |
+| EST-01 | Phase 6 — Estoque | Pending |
+| EST-02 | Phase 6 — Estoque | Pending |
+| EST-03 | Phase 6 — Estoque | Pending |
+| EST-04 | Phase 6 — Estoque | Pending |
+| EST-05 | Phase 6 — Estoque | Pending |
+| EST-06 | Phase 6 — Estoque | Pending |
+| EST-07 | Phase 6 — Estoque | Pending |
+| EST-08 | Phase 6 — Estoque | Pending |
+| EST-09 | Phase 6 — Estoque | Pending |
+| EST-10 | Phase 6 — Estoque | Pending |
+| EST-11 | Phase 6 — Estoque | Pending |
+| EST-12 | Phase 6 — Estoque | Pending |
+| UI-10 | Phase 7 — Polimento e Entrega | Pending |
+| UI-11 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-01 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-02 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-03 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-04 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-05 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-06 | Phase 7 — Polimento e Entrega | Pending |
+| PNL-07 | Phase 7 — Polimento e Entrega | Pending |
 
 **Coverage:**
 - v1 requirements: 99 total
-- Mapped to phases: (preenchido pelo roadmapper)
-- Unmapped: (preenchido pelo roadmapper)
+- Mapped to phases: 99/99
+- Unmapped: 0
+
+**Distribuição por fase:**
+
+| Phase | Milestone fonte | Requisitos | Contagem |
+|-------|------------------|------------|----------|
+| Phase 1 | M0 | INFRA-01..10 | 10 |
+| Phase 2 | M1 | AUTH-01..10, BKP-01..07, UI-01..09 | 26 |
+| Phase 3 | M2 | ENC-01..13 | 13 |
+| Phase 4 | M4 | FOR-01..13 | 13 |
+| Phase 5 | M3 | AGD-01..16 | 16 |
+| Phase 6 | M5 | EST-01..12 | 12 |
+| Phase 7 | M7 | UI-10..11, PNL-01..07 | 9 |
+| — | M6 (bloqueada, fora do roadmap) | ORC-01..05 (v2) | 0 |
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-08-05 after initial definition*
+*Last updated: 2026-08-05 after roadmap creation — traceability filled, 99/99 requirements mapped*

@@ -1,0 +1,33 @@
+# Segredos — o repositório é público. Nada com valor real entra aqui, nunca.
+.env
+.env.*
+!.env.example
+
+# Backups do banco
+backups/
+*.sql.gz
+*.dump
+
+# Chaves e certificados
+*.pem
+*.key
+id_rsa*
+*.p12
+
+# Dependências e build
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.turbo/
+
+# Sistema operacional e editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
