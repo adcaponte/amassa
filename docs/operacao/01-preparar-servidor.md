@@ -123,13 +123,53 @@ PermitRootLogin no
 PasswordAuthentication no
 ```
 
-Salve (`Ctrl+O`, `Enter`) e saia (`Ctrl+X`). Recarregue o serviço:
+Salve (`Ctrl+O`, `Enter`) e saia (`Ctrl+X`).
+
+> **Antes de recarregar, confira se algo está sobrescrevendo o que você acabou de escrever.**
+> Imagens de VPS costumam vir com arquivos extras em `/etc/ssh/sshd_config.d/`, e o que está
+> lá **vence** o arquivo principal. O mais comum é um `50-cloud-init.conf` com
+> `PasswordAuthentication yes` dentro. Se ele existir e você não olhar, vai terminar este passo
+> achando que desligou a senha — e ela continua ligada.
+>
+> ```bash
+> ls /etc/ssh/sshd_config.d/ 2>/dev/null
+> grep -r -i "PasswordAuthentication\|PermitRootLogin" /etc/ssh/sshd_config.d/ 2>/dev/null
+> ```
+>
+> **O que você deve ver:** ou nada (a pasta não existe ou está vazia — pode seguir), ou uma ou
+> mais linhas mostrando o arquivo e o valor. Se aparecer qualquer linha com `yes`, edite aquele
+> arquivo com `nano` e troque para `no`, ou apague a linha. Não adianta corrigir só o arquivo
+> principal.
+
+Recarregue o serviço:
 
 ```bash
-systemctl reload sshd
+sudo systemctl reload ssh
 ```
 
-**O que você deve ver:** nenhuma saída — sucesso silencioso.
+**O que faz:** faz o SSH reler a configuração sem derrubar as sessões abertas.
+
+**O que você deve ver:** nenhuma saída — sucesso silencioso. Se responder
+`Failed to reload ssh.service: Unit ssh.service not found`, tente `sudo systemctl reload sshd`
+— o nome do serviço varia conforme a versão do Ubuntu, e um dos dois vai existir.
+
+Confirme que a configuração **efetiva** é mesmo a que você quer — este comando mostra o valor
+final, já considerando todos os arquivos:
+
+```bash
+sudo sshd -T | grep -i "permitrootlogin\|passwordauthentication"
+```
+
+**O que você deve ver:** exatamente estas duas linhas, ambas com `no`:
+
+```
+permitrootlogin no
+passwordauthentication no
+```
+
+Se qualquer uma delas disser `yes`, algum arquivo em `sshd_config.d/` ainda está mandando —
+volte na caixa acima. Não siga adiante enquanto as duas não estiverem em `no`: seguir aqui
+significa deixar o servidor aceitando senha sem você saber.
 
 Agora confirme, **pela segunda sessão** (a do `theo`, ainda aberta), que ela continua viva:
 
@@ -389,10 +429,16 @@ e cadastre três secrets, com estes nomes exatos (são os mesmos que
 **O que você deve ver:** depois de salvar cada um, o GitHub lista o nome do secret na página
 (o valor nunca aparece de novo — se errar, apague e cadastre outra vez).
 
-Agora, na mesma seção, aba **Variables**, mude `DEPLOY_ATIVO` de `false` para `true`.
+Agora, na mesma seção, aba **Variables**: se a variável `DEPLOY_ATIVO` já existir, mude o valor
+para `true`; se ainda não existir, crie com **New repository variable**, nome `DEPLOY_ATIVO` e
+valor `true`.
 
 **O que você deve ver:** a variável `DEPLOY_ATIVO` listada com o valor `true`. É essa mudança que
-libera o job `implantar` do pipeline — antes disso ele aparecia como *skipped*, nunca vermelho.
+libera o job `implantar` do pipeline — até aqui ele aparecia como *skipped*, nunca vermelho, de
+propósito: um pipeline que nasce vermelho por um motivo esperado ensina a ignorar vermelho.
+
+> **Só ligue isto depois dos passos anteriores estarem prontos.** Com `DEPLOY_ATIVO=true` e os
+> três secrets cadastrados, o próximo push na `main` vai tentar entrar no servidor de verdade.
 
 ---
 
