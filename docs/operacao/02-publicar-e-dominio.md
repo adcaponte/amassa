@@ -24,7 +24,15 @@ Espere alguns minutos e confirme a propagação **antes de seguir para o próxim
 só consegue emitir o certificado HTTPS depois que o nome resolve, e tentar antes gasta uma
 tentativa no limite do Let's Encrypt (a conta de tentativas malsucedidas é curta).
 
-Na sua máquina:
+Na sua máquina, **no PowerShell** (o `dig` não vem instalado no Windows; o `Resolve-DnsName` é
+nativo e faz o mesmo):
+
+```powershell
+Resolve-DnsName amassacerrado.com.br -Type A | Select-Object Name, IPAddress
+Resolve-DnsName www.amassacerrado.com.br | Select-Object Name, IPAddress, NameHost
+```
+
+Se estiver num terminal Linux ou macOS, o equivalente é:
 
 ```bash
 dig +short amassacerrado.com.br
@@ -35,9 +43,31 @@ dig +short www.amassacerrado.com.br
 seu VPS (o mesmo que você anotou no Roteiro 1). Se vier vazio ou um IP diferente, aguarde mais e
 tente de novo — não siga em frente sem essa confirmação.
 
+> Se o `Resolve-DnsName` devolver um IP antigo mesmo depois de você ter mudado o registro, limpe
+> o cache local com `Clear-DnsClientCache` e tente outra vez. O Windows guarda respostas de DNS
+> por um tempo, e isso já fez muita gente achar que a propagação não aconteceu.
+
 ---
 
 ## 2. Primeira subida da pilha completa
+
+> **Antes de rodar isto, a imagem precisa existir no GHCR.** O `compose.yml` do servidor não
+> constrói nada — ele **baixa** `ghcr.io/adcaponte/amassa:latest`, que é publicada pelo job
+> `imagem` do pipeline. Se o pipeline nunca fechou verde, essa imagem não existe e este passo
+> falha com `manifest unknown` ou `pull access denied`, o que parece um problema de permissão e
+> não é.
+>
+> Confira antes, na sua máquina:
+>
+> ```bash
+> docker manifest inspect ghcr.io/adcaponte/amassa:latest
+> ```
+>
+> **O que você deve ver:** um bloco JSON descrevendo a imagem. Se vier `manifest unknown`, pare:
+> vá em [github.com/adcaponte/amassa/actions](https://github.com/adcaponte/amassa/actions),
+> confirme que a execução mais recente fechou com os jobs `qualidade`, `e2e` e `imagem` em verde,
+> e só volte aqui depois disso. Se vier erro de autenticação, o pacote ainda está privado — é o
+> passo 10 do Roteiro 1.
 
 > **Isto acontece uma única vez.** É a única vez em todo este projeto que o comando sobe **todos**
 > os serviços de uma vez, sem nomear nenhum. Dali em diante — no roteiro, no pipeline, sempre —
@@ -149,23 +179,29 @@ respondeu depois de falar com o Postgres").
 > **Este é o critério INFRA-04, e ele só vale se for conferido de fora do servidor.** Rodar o
 > teste de dentro do próprio VPS não prova nada — de dentro, a porta sempre parece acessível.
 
-Na sua máquina (não no servidor):
+Na sua máquina (não no servidor), **no PowerShell** — o `nmap` e o `telnet` não vêm instalados no
+Windows, e o `Test-NetConnection` é nativo:
 
-```bash
-nmap -p 5432 amassacerrado.com.br
+```powershell
+Test-NetConnection -ComputerName amassacerrado.com.br -Port 5432 -InformationLevel Detailed
 ```
 
-**O que você deve ver:** a porta `5432/tcp` aparecendo como `filtered` (o firewall descarta a
-tentativa sem responder) ou `closed` — nunca `open`.
+**O que você deve ver:** `TcpTestSucceeded : False`. Ele demora alguns segundos antes de
+responder — essa demora é o próprio firewall descartando a tentativa em silêncio, e é o
+comportamento correto.
 
-Se não tiver o `nmap` instalado, o mesmo teste com `telnet`:
+Para contraste, confirme que a porta que **deve** estar aberta está:
 
-```bash
-telnet amassacerrado.com.br 5432
+```powershell
+Test-NetConnection -ComputerName amassacerrado.com.br -Port 443
 ```
 
-**O que você deve ver:** a conexão trava tentando conectar (`Trying ...`) e nunca chega a
-imprimir `Connected to`. Depois de alguns segundos, cancele com `Ctrl+C`.
+**O que você deve ver:** `TcpTestSucceeded : True`. Fazer os dois testes é o que separa "o banco
+está protegido" de "o servidor está fora do ar" — sem este segundo teste, um servidor desligado
+passaria pelo primeiro critério parecendo seguro.
+
+Num terminal Linux ou macOS, os equivalentes são `nmap -p 5432 amassacerrado.com.br` (deve
+mostrar `filtered` ou `closed`, nunca `open`) e `nc -vz amassacerrado.com.br 443`.
 
 ---
 
