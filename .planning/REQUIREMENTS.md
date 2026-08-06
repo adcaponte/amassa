@@ -17,7 +17,7 @@
 - [x] **INFRA-05**: Reiniciar o VPS traz a aplicação de volta sozinha, com os dados intactos
 - [x] **INFRA-06**: Um deploy publica a aplicação sem recriar o container do Postgres
 - [ ] **INFRA-07**: Um deploy com teste quebrado é barrado pelo pipeline e não vai ao ar
-- [ ] **INFRA-08**: Nenhum arquivo `.env` com valores reais existe no histórico do repositório público
+- [x] **INFRA-08**: Nenhum arquivo `.env` com valores reais existe no histórico do repositório público
 - [x] **INFRA-09**: Migrações podem ser aplicadas à mão no servidor, com um comando, fora do pipeline
 - [ ] **INFRA-10**: O Auto Backup da Contabo aparece ativo no painel
 
@@ -207,7 +207,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | INFRA-05 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-06 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-07 | Phase 1 — Fundação e Primeiro Deploy | Pending |
-| INFRA-08 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-08 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-09 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-10 | Phase 1 — Fundação e Primeiro Deploy | Pending |
 | AUTH-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
