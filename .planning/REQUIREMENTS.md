@@ -10,7 +10,7 @@
 
 ### Infraestrutura e Deploy
 
-- [ ] **INFRA-01**: O sistema abre em `https://` no domínio próprio, com cadeado e sem aviso de segurança
+- [x] **INFRA-01**: O sistema abre em `https://` no domínio próprio, com cadeado e sem aviso de segurança
 - [x] **INFRA-02**: Alterar um texto e dar `git push` na `main` publica a mudança sozinho em poucos minutos
 - [x] **INFRA-03**: `/api/health` responde `ok` e confirma uma consulta real ao banco
 - [x] **INFRA-04**: A porta 5432 do IP do VPS não aceita conexão de fora — o banco não está exposto
@@ -19,7 +19,7 @@
 - [x] **INFRA-07**: Um deploy com teste quebrado é barrado pelo pipeline e não vai ao ar
 - [x] **INFRA-08**: Nenhum arquivo `.env` com valores reais existe no histórico do repositório público
 - [x] **INFRA-09**: Migrações podem ser aplicadas à mão no servidor, com um comando, fora do pipeline
-- [ ] **INFRA-10**: O Auto Backup da Contabo aparece ativo no painel
+- [x] **INFRA-10**: O Auto Backup da Contabo aparece ativo no painel
 
 ### Backup e Recuperação
 
@@ -200,7 +200,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-01 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-02 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-03 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-04 | Phase 1 — Fundação e Primeiro Deploy | Complete |
@@ -209,7 +209,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | INFRA-07 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-08 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-09 | Phase 1 — Fundação e Primeiro Deploy | Complete |
-| INFRA-10 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-10 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | AUTH-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | AUTH-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | AUTH-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |

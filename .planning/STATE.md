@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Fundação e Primeiro Deploy
 status: executing
-stopped_at: Completed 01-05-PLAN.md (Task 1 completa; Task 2 parcial — cadastro de variaveis/PR de prova requerem gh CLI, ver User Setup Required)
-last_updated: "2026-08-06T18:38:39.061Z"
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-08-06T18:51:40.128Z"
 last_activity: 2026-08-05
 last_activity_desc: ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 1 of 7 (Fundação e Primeiro Deploy)
-Plan: 5 of 7 in current phase
+Plan: 6 of 7 in current phase
 Status: Ready to execute
 Last activity: 2026-08-05 — ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [███████░░░] 71%
 | Phase 01-funda-o-e-primeiro-deploy P02 | 20min | 2 tasks | 1 files |
 | Phase 01 P04 | 45min | 2 tasks | 7 files |
 | Phase 01 P05 | ~50min | 2 tasks | 3 files |
+| Phase 01-funda-o-e-primeiro-deploy P06 | 35min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase ?]: E2E de CI constroi e roda a imagem Docker real (alvo app), nunca next start — corrige lacuna entre o que o gate testa e o que sobe em producao
 - [Phase ?]: Migracao do banco de teste em CI chama db/migrate.ts diretamente, nao npm run db:migrate, para manter o workflow livre de qualquer mencao ao comando reservado a migracao de producao
 - [Phase ?]: Deploy por SSH sem action de terceiro — cliente ssh nativo do runner, para respeitar a mitigacao do threat model (so actions oficiais do GitHub/Docker)
+- [Phase ?]: POSTGRES_USER=amassa_owner e POSTGRES_DB=amassa fixados como convenção nos roteiros de servidor (não são segredo), permitindo que o Roteiro 2 referencie esses nomes diretamente
+- [Phase ?]: Linha de prova gravada na tabela verificacao_infraestrutura durante a migração do Roteiro 2, reconferida depois do reinício do VPS, como prova concreta de dados intactos (INFRA-05)
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-06T18:38:39.040Z
-Stopped at: Completed 01-05-PLAN.md (Task 1 completa; Task 2 parcial — cadastro de variaveis/PR de prova requerem gh CLI, ver User Setup Required)
+Last session: 2026-08-06T18:51:40.107Z
+Stopped at: Completed 01-06-PLAN.md
 Resume file: None
