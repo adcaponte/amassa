@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Fundação e Primeiro Deploy
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-08-05T22:55:16.533Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-08-06T17:38:17.190Z"
 last_activity: 2026-08-05
 last_activity_desc: ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 1 of 7 (Fundação e Primeiro Deploy)
-Plan: 1 of 7 in current phase
+Plan: 2 of 7 in current phase
 Status: Ready to execute
 Last activity: 2026-08-05 — ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [███░░░░░░░] 29%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [█░░░░░░░░░] 14%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 45min | 2 tasks | 26 files |
+| Phase 01 P03 | 45min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,8 @@ Recent decisions affecting current work:
 - Roadmap: M0 e M1 mantidas como fases separadas (não fundidas) — decisão estrutural do documento fonte para isolar toda a dor de infraestrutura antes dos módulos de produto
 - [Phase ?]: FRASE_NO_AR vive em app/frase-no-ar.ts (nao em app/page.tsx) porque o Next.js 15 rejeita exports extras em arquivos de pagina
 - [Phase ?]: db/migrate.ts e drizzle.config.ts carregam .env.local via process.loadEnvFile() quando o arquivo existe, ja que scripts soltos nao herdam o .env do runtime do Next.js
+- [Phase ?]: node:24.19.0-alpine fixado como imagem base do Dockerfile — mesma versao exata do Node local, confirmado por digest identico ao de node:24-alpine
+- [Phase ?]: NPM_CONFIG_OFFLINE=true na imagem app — garante que a falha do drizzle-kit na imagem de producao seja deterministica mesmo com rede disponivel no container
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T22:55:16.490Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-08-06T17:38:17.169Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
