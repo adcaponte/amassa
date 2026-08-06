@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Fundação e Primeiro Deploy
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-08-06T17:44:16.031Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-08-06T18:21:52.440Z"
 last_activity: 2026-08-05
 last_activity_desc: ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 1 of 7 (Fundação e Primeiro Deploy)
-Plan: 3 of 7 in current phase
+Plan: 4 of 7 in current phase
 Status: Ready to execute
 Last activity: 2026-08-05 — ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 
-Progress: [████░░░░░░] 43%
+Progress: [██████░░░░] 57%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████░░░░░░] 43%
 | Phase 01 P01 | 45min | 2 tasks | 26 files |
 | Phase 01 P03 | 45min | 3 tasks | 8 files |
 | Phase 01-funda-o-e-primeiro-deploy P02 | 20min | 2 tasks | 1 files |
+| Phase 01 P04 | 45min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Recent decisions affecting current work:
 - [Phase ?]: NPM_CONFIG_OFFLINE=true na imagem app — garante que a falha do drizzle-kit na imagem de producao seja deterministica mesmo com rede disponivel no container
 - [Phase ?]: Repositorio ja existia (criado pelo dono, publico, secret scanning e push protection ligados); Task 2 adaptada para git puro (remote add + push) sem gh CLI
 - [Phase ?]: Protecao de branch main (force-push/exclusao) nao configurada nesta execucao por falta de gh CLI e credenciais de API; registrada como acao pendente do dono
+- [Phase ?]: docker/compose.teste.yml sem ports: (D-09 ao pe da letra); scripts/testar-e2e.mjs publica porta so via CLI (docker compose run -p) durante a execucao do teste
+- [Phase ?]: Projeto celular do Playwright usa preset Pixel 7 (Chromium) em vez de iPhone (WebKit), para nao instalar um segundo motor
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-06T17:44:16.008Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-08-06T18:21:52.420Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None
