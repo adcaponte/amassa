@@ -1,0 +1,228 @@
+name: Entrega contínua
+
+# Fecha o caminho automático entre um `git push` na `main` e uma imagem publicada e
+# implantada. Ver amassa-plataforma/01-ARQUITETURA.md §6 — a sequência de deploy e as
+# armadilhas do build. Quatro portões encadeados por `needs`, nesta ordem:
+# qualidade -> e2e -> imagem -> implantar. Um teste quebrado interrompe a fila antes de
+# qualquer publicação.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancela uma execução em andamento quando outra começa na mesma ref — dois deploys
+# simultâneos na mesma máquina é uma corrida sem vencedor.
+concurrency:
+  group: entrega-${{ github.ref }}
+  cancel-in-progress: true
+
+# Escopo mínimo: ler o conteúdo do repositório e escrever pacotes no GHCR. Nada além disso.
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGEM_BASE: ghcr.io/${{ github.repository_owner }}/amassa
+
+jobs:
+  # Portão mais barato, roda primeiro: lint e testes unitários.
+  qualidade:
+    name: Qualidade — lint e testes unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+  # Depende de `qualidade`. O Postgres de teste chega como service container do runner —
+  # mesma imagem e versão do banco de produção (postgres:17-alpine), sem publicar porta para
+  # fora do runner. O E2E roda só aqui, no GitHub Actions (D-10): o VPS não carrega peso
+  # extra e o pipeline continua sendo o único portão antes da publicação.
+  e2e:
+    name: E2E contra a imagem real
+    needs: qualidade
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres_teste:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: amassa_teste
+          POSTGRES_PASSWORD: efemero_de_teste_sem_valor_real
+          POSTGRES_DB: amassa_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U amassa_teste -d amassa_teste"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL_TESTE: postgresql://amassa_teste:efemero_de_teste_sem_valor_real@127.0.0.1:5432/amassa_teste
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      - run: npm ci
+
+      # Aplica o schema diretamente pelo módulo do Drizzle usado por trás do script de
+      # migração, sem passar pelo alias de npm reservado à migração do banco de produção —
+      # mantém este arquivo livre de qualquer menção ao comando que migra o banco real
+      # (01-ARQUITETURA.md §8: migração é sempre manual, nunca pelo pipeline). Aqui o alvo é
+      # só o Postgres de teste efêmero deste job.
+      - name: Aplicar schema no banco de teste
+        run: npx tsx db/migrate.ts
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TESTE }}
+
+      - name: Instalar navegadores do Playwright
+        run: npx playwright install --with-deps chromium
+
+      # A imagem testada aqui é a MESMA que o job `imagem` publica logo depois — mesmo
+      # Dockerfile, mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
+      # `standalone`). Testar com `next start` validaria um processo diferente do que sobe em
+      # produção — "next start" nem é compatível com `output: "standalone"` (o Next avisa e
+      # ignora a saída standalone). Ver a seção "Deviations" do SUMMARY deste plano.
+      - name: Build da imagem app (mesmo Dockerfile do job imagem, sem publicar)
+        run: |
+          docker build \
+            --target app \
+            --build-arg NEXT_PUBLIC_SITE_URL="${{ vars.NEXT_PUBLIC_SITE_URL }}" \
+            -t amassa-app:e2e \
+            -f docker/Dockerfile .
+
+      # --network host: o contêiner enxerga o Postgres do runner em 127.0.0.1:5432 do mesmo
+      # jeito que os passos deste job enxergam, e a porta 3000 fica exposta direto para o
+      # Playwright rodar sem publicação extra.
+      - name: Subir o contêiner da imagem app
+        run: |
+          docker run -d --name amassa_app_e2e --network host \
+            -e DATABASE_URL="${{ env.DATABASE_URL_TESTE }}" \
+            -e PORT=3000 \
+            amassa-app:e2e
+
+      - name: Esperar /api/health responder
+        run: |
+          for tentativa in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/health > /dev/null; then
+              echo "Contêiner app respondendo."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Contêiner app não respondeu a tempo." >&2
+          docker logs amassa_app_e2e || true
+          exit 1
+
+      # playwright.config.ts está com `reuseExistingServer: true`: como já existe um servidor
+      # respondendo em http://127.0.0.1:3000 (o contêiner acima), o Playwright reaproveita e
+      # NUNCA chega a rodar o comando de fallback `npm run build && npm run start`.
+      - name: Rodar Playwright contra o contêiner
+        run: npx playwright test
+
+      - name: Derrubar o contêiner da imagem app
+        if: always()
+        run: docker rm -f amassa_app_e2e || true
+
+  # Depende de `e2e`. Publica duas tags a partir do mesmo Dockerfile: o alvo `app` e o alvo
+  # `ferramentas`. NEXT_PUBLIC_SITE_URL entra como build-arg — é embutida no JavaScript
+  # durante o `next build`, nunca lida em tempo de execução; tratá-la como variável de
+  # runtime faria tudo funcionar em localhost e falhar em produção, porque a imagem nasce
+  # aqui e o .env vive no VPS. Nenhum segredo de runtime (conexão com o banco, chave de
+  # sessão) aparece em lugar nenhum deste job — esses vivem só no .env do servidor.
+  imagem:
+    name: Publicar imagens no GHCR
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR com o token efêmero do runner
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e publicar imagem app
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: app
+          push: true
+          tags: ${{ env.IMAGEM_BASE }}:latest
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build e publicar imagem ferramentas
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: ferramentas
+          push: true
+          tags: ${{ env.IMAGEM_BASE }}:ferramentas
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Depende de `imagem` e só roda quando a variável de repositório DEPLOY_ATIVO vale "true" —
+  # o dono liga isso no plano 01-07, depois de preparar o servidor. Antes disso, este job
+  # aparece pulado (skipped), nunca vermelho, porque o VPS ainda não existe.
+  #
+  # Sem `docker login` aqui: o package do GHCR é público (D-07), o VPS baixa a imagem sem
+  # autenticar em registro nenhum. Nenhuma migração roda neste job nem em nenhum outro deste
+  # arquivo — migração é aplicada à mão, depois de um backup, por alguém que está olhando.
+  implantar:
+    name: Implantar no VPS
+    needs: imagem
+    if: vars.DEPLOY_ATIVO == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configurar chave SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_CHAVE }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      # O nome do serviço é obrigatório: `up -d` sem ele recria todos os contêineres
+      # declarados, inclusive o postgres — e é exatamente isso que INFRA-06 proíbe.
+      - name: Publicar — pull e up nomeando o serviço app
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
+            "${{ secrets.VPS_USUARIO }}@${{ secrets.VPS_HOST }}" '
+              cd /opt/amassa &&
+              docker compose pull app &&
+              docker compose up -d app
+            '
+
+      - name: Verificar /api/health pelo domínio
+        run: |
+          for tentativa in $(seq 1 10); do
+            if curl -sf https://amassacerrado.com.br/api/health > /dev/null; then
+              echo "Produção respondendo."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Produção não respondeu a tempo." >&2
+          exit 1
