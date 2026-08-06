@@ -12,6 +12,12 @@ A documentação completa de arquitetura, modelo de dados, roadmap e design syst
 [`amassa-plataforma/`](./amassa-plataforma). Este README cobre só o que é preciso para rodar
 e operar o sistema no dia a dia.
 
+Os roteiros comentados para preparar e publicar o servidor de produção vivem em
+[`docs/operacao/`](./docs/operacao): [`01-preparar-servidor.md`](./docs/operacao/01-preparar-servidor.md)
+(endurecimento do VPS, Docker, `/opt/amassa` e chave de deploy) e
+[`02-publicar-e-dominio.md`](./docs/operacao/02-publicar-e-dominio.md) (DNS, primeira
+publicação, HTTPS e monitor externo).
+
 ## Stack
 
 Next.js 15+ (App Router, TypeScript estrito), React 19, Tailwind CSS v4, PostgreSQL em
