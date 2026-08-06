@@ -1,0 +1,3 @@
+# O Next.js serve arquivos estaticos daqui (favicon, imagens).
+# Este arquivo existe para o diretorio ir versionado mesmo vazio: o Git nao
+# rastreia diretorio, so arquivo — e o COPY do docker/Dockerfile depende dele.
