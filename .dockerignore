@@ -1,0 +1,24 @@
+# Só o necessário para construir chega à imagem — o resto é o de sempre: dependências
+# que o `npm ci` reinstala, artefatos de build antigos, controle de versão e as pastas de
+# planejamento (que não são código da aplicação e não têm por que viajar dentro da imagem).
+node_modules
+.next
+.git
+.planning
+amassa-plataforma
+playwright-report
+test-results
+coverage
+
+# Arquivos de ambiente com valor real nunca entram na imagem — a imagem do GHCR é pública
+# (D-07). `.env.example` não tem valor nenhum, por isso fica fora desta exclusão.
+.env
+.env.*
+!.env.example
+
+# Sistema operacional e editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
