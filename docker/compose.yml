@@ -14,5 +14,48 @@ services:
       timeout: 5s
       retries: 5
 
+  # Serve o site. Nunca publica porta no host — quem fala com o mundo é o Caddy.
+  app:
+    image: ${IMAGEM_APP}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
+      # Fuso de Brasília. Existe só aqui — nunca no serviço postgres (ver 02-MODELO-DE-DADOS.md §0).
+      TZ: ${TZ}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Única porta aberta ao mundo. Termina TLS e renova o certificado sozinho.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_dados:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  # Nunca fica rodando. Invocado sob demanda: docker compose run --rm ferramentas ...
+  ferramentas:
+    image: ${IMAGEM_FERRAMENTAS}
+    profiles: ["ferramentas"]
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+
 volumes:
   dados_postgres:
+  caddy_dados:
+  caddy_config:

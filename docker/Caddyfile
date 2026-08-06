@@ -1,0 +1,10 @@
+# HTTPS automático (Let's Encrypt), renovação sozinha — nenhuma configuração manual de TLS.
+# Serve o apex e redireciona o www para ele (D-04/D-05).
+
+amassacerrado.com.br {
+	reverse_proxy app:3000
+}
+
+www.amassacerrado.com.br {
+	redir https://amassacerrado.com.br{uri} permanent
+}

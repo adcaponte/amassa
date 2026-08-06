@@ -1,8 +1,24 @@
 # Sobreposição usada APENAS na máquina do desenvolvedor. Nunca vai para o servidor.
-# Publica o Postgres em 127.0.0.1:5433 para que `npm run dev` no host alcance o banco.
+# Publica o Postgres em 127.0.0.1:5433 para que `npm run dev` no host alcance o banco, e
+# constrói `app`/`ferramentas` localmente a partir do Dockerfile — o compose.yml de
+# produção só sabe baixar uma imagem já pronta, nunca construir uma.
 #
 # Uso: docker compose -f docker/compose.yml -f docker/compose.dev.yml up -d postgres
 services:
   postgres:
     ports:
       - "127.0.0.1:5433:5432"
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: app
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+
+  ferramentas:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: ferramentas
