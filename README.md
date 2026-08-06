@@ -85,6 +85,34 @@ docker compose restart
 `postgres`, `app` e `caddy` têm `restart: unless-stopped` — voltam sozinhos, com os dados
 intactos, sem intervenção manual.
 
+## Produção
+
+A plataforma roda em `https://amassacerrado.com.br` — domínio dedicado, separado do site
+institucional `amassaceramica.com.br`. Serve no apex, com `www.amassacerrado.com.br`
+redirecionando para o apex no Caddyfile.
+
+## Variáveis de ambiente
+
+A lista completa de variáveis, pelo nome, vive em [`.env.example`](./.env.example) — o arquivo
+nunca tem valor real, só os nomes. Valores reais existem em exatamente dois lugares:
+
+- os **secrets do GitHub**, usados pelo pipeline em tempo de build e deploy;
+- o arquivo `/opt/amassa/.env` **no servidor**, com permissão `600`, lido pelo `compose.yml` em
+  tempo de execução.
+
+Nunca em um terceiro lugar, e nunca num commit.
+
+## Secrets e variáveis do pipeline
+
+O GitHub Actions (configurado na fase seguinte) espera os seguintes secrets e variáveis já
+cadastrados no repositório — só os nomes ficam aqui, os valores nunca:
+
+- `VPS_HOST` — endereço do servidor de produção
+- `VPS_USUARIO` — usuário SSH de deploy no VPS
+- `VPS_SSH_CHAVE` — chave privada SSH usada pelo pipeline para conectar no VPS
+- `NEXT_PUBLIC_SITE_URL` — passada como build-arg, nunca como variável de runtime
+- `DEPLOY_ATIVO` — liga/desliga o passo de deploy sem desativar o restante do pipeline
+
 ## Estrutura do repositório
 
 ```
