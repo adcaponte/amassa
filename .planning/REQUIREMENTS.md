@@ -11,7 +11,7 @@
 ### Infraestrutura e Deploy
 
 - [ ] **INFRA-01**: O sistema abre em `https://` no domínio próprio, com cadeado e sem aviso de segurança
-- [ ] **INFRA-02**: Alterar um texto e dar `git push` na `main` publica a mudança sozinho em poucos minutos
+- [x] **INFRA-02**: Alterar um texto e dar `git push` na `main` publica a mudança sozinho em poucos minutos
 - [x] **INFRA-03**: `/api/health` responde `ok` e confirma uma consulta real ao banco
 - [x] **INFRA-04**: A porta 5432 do IP do VPS não aceita conexão de fora — o banco não está exposto
 - [x] **INFRA-05**: Reiniciar o VPS traz a aplicação de volta sozinha, com os dados intactos
@@ -201,7 +201,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | INFRA-01 | Phase 1 — Fundação e Primeiro Deploy | Pending |
-| INFRA-02 | Phase 1 — Fundação e Primeiro Deploy | Pending |
+| INFRA-02 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-03 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-04 | Phase 1 — Fundação e Primeiro Deploy | Complete |
 | INFRA-05 | Phase 1 — Fundação e Primeiro Deploy | Complete |

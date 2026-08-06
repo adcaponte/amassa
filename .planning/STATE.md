@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Fundação e Primeiro Deploy
 status: executing
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-08-06T18:21:52.440Z"
+stopped_at: Completed 01-05-PLAN.md (Task 1 completa; Task 2 parcial — cadastro de variaveis/PR de prova requerem gh CLI, ver User Setup Required)
+last_updated: "2026-08-06T18:38:39.061Z"
 last_activity: 2026-08-05
 last_activity_desc: ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 1 of 7 (Fundação e Primeiro Deploy)
-Plan: 4 of 7 in current phase
+Plan: 5 of 7 in current phase
 Status: Ready to execute
 Last activity: 2026-08-05 — ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 
-Progress: [██████░░░░] 57%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [██████░░░░] 57%
 | Phase 01 P03 | 45min | 3 tasks | 8 files |
 | Phase 01-funda-o-e-primeiro-deploy P02 | 20min | 2 tasks | 1 files |
 | Phase 01 P04 | 45min | 2 tasks | 7 files |
+| Phase 01 P05 | ~50min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Protecao de branch main (force-push/exclusao) nao configurada nesta execucao por falta de gh CLI e credenciais de API; registrada como acao pendente do dono
 - [Phase ?]: docker/compose.teste.yml sem ports: (D-09 ao pe da letra); scripts/testar-e2e.mjs publica porta so via CLI (docker compose run -p) durante a execucao do teste
 - [Phase ?]: Projeto celular do Playwright usa preset Pixel 7 (Chromium) em vez de iPhone (WebKit), para nao instalar um segundo motor
+- [Phase ?]: E2E de CI constroi e roda a imagem Docker real (alvo app), nunca next start — corrige lacuna entre o que o gate testa e o que sobe em producao
+- [Phase ?]: Migracao do banco de teste em CI chama db/migrate.ts diretamente, nao npm run db:migrate, para manter o workflow livre de qualquer mencao ao comando reservado a migracao de producao
+- [Phase ?]: Deploy por SSH sem action de terceiro — cliente ssh nativo do runner, para respeitar a mitigacao do threat model (so actions oficiais do GitHub/Docker)
 
 ### Pending Todos
 
@@ -94,6 +98,7 @@ None yet.
 - Lista real de materiais do ateliê precisa ser levantada durante a Fase 6 (Estoque), senão o módulo nasce vazio.
 - Pré-requisitos de conta (domínio, VPS Contabo, GitHub, armazenamento externo de backup) precisam existir antes de a Fase 1 poder começar de fato.
 - Protecao da branch main (bloquear force-push e exclusao) pendente de configuracao manual pelo dono via GitHub Settings > Branches
+- 01-05 Task 2 parcial: falta cadastrar NEXT_PUBLIC_SITE_URL e DEPLOY_ATIVO no repositorio GitHub, observar a primeira execucao real do workflow e provar o portao com um PR de teste quebrado — requer gh CLI/credenciais que a sessao de execucao nao tinha (ver 01-05-SUMMARY.md User Setup Required)
 
 ## Deferred Items
 
@@ -107,6 +112,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-06T18:21:52.420Z
-Stopped at: Completed 01-04-PLAN.md
+Last session: 2026-08-06T18:38:39.040Z
+Stopped at: Completed 01-05-PLAN.md (Task 1 completa; Task 2 parcial — cadastro de variaveis/PR de prova requerem gh CLI, ver User Setup Required)
 Resume file: None
