@@ -102,16 +102,41 @@ nunca tem valor real, só os nomes. Valores reais existem em exatamente dois lug
 
 Nunca em um terceiro lugar, e nunca num commit.
 
-## Secrets e variáveis do pipeline
+## Pipeline (GitHub Actions)
 
-O GitHub Actions (configurado na fase seguinte) espera os seguintes secrets e variáveis já
-cadastrados no repositório — só os nomes ficam aqui, os valores nunca:
+`.github/workflows/entrega.yml` dispara em todo `git push` na `main` (e também sob
+acionamento manual) e roda quatro jobs encadeados por `needs`, nesta ordem — um teste
+quebrado interrompe a fila antes de qualquer publicação:
+
+1. **`qualidade`** — `npm run lint` e `npm test`. O portão mais barato, vem primeiro.
+2. **`e2e`** — sobe um Postgres de teste como *service container* do runner (D-10), aplica o
+   schema nele, constrói a imagem Docker do alvo `app` (o mesmo `docker/Dockerfile` que o job
+   seguinte publica) e roda o Playwright **contra essa imagem rodando de verdade** — nunca
+   contra `next start`, que não é compatível com a saída `standalone` usada em produção.
+3. **`imagem`** — publica duas tags no GHCR a partir do mesmo Dockerfile: o alvo `app`
+   (`ghcr.io/<dono>/amassa:latest`) e o alvo `ferramentas`
+   (`ghcr.io/<dono>/amassa:ferramentas`). `NEXT_PUBLIC_SITE_URL` entra como build-arg, nunca
+   como variável de runtime — é embutida no JavaScript durante o `next build`, e a imagem
+   nasce aqui, não no servidor.
+4. **`implantar`** — só roda quando a variável de repositório `DEPLOY_ATIVO` vale `true`.
+   Conecta por SSH no VPS e executa `docker compose pull app && docker compose up -d app`
+   (sempre nomeando o serviço, nunca `up -d` sozinho) e confere `/api/health` pelo domínio.
+   Nenhum passo deste pipeline aplica migração — migração é sempre manual, depois de um
+   backup, por alguém que está olhando.
+
+O GitHub Actions espera os seguintes secrets e variáveis já cadastrados no repositório — só
+os nomes ficam aqui, os valores nunca:
 
 - `VPS_HOST` — endereço do servidor de produção
 - `VPS_USUARIO` — usuário SSH de deploy no VPS
 - `VPS_SSH_CHAVE` — chave privada SSH usada pelo pipeline para conectar no VPS
 - `NEXT_PUBLIC_SITE_URL` — passada como build-arg, nunca como variável de runtime
-- `DEPLOY_ATIVO` — liga/desliga o passo de deploy sem desativar o restante do pipeline
+- `DEPLOY_ATIVO` — liga/desliga o job `implantar` sem desativar o restante do pipeline;
+  começa em `false` até o servidor existir (plano 01-07)
+
+O *package* do GHCR precisa ficar **público** para o VPS baixar a imagem sem autenticar em
+registro nenhum (D-07) — passo de configuração no GitHub que o dono executa no roteiro do
+plano 01-06, depois da primeira publicação.
 
 ## Estrutura do repositório
 
