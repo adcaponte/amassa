@@ -1,0 +1,33 @@
+# Banco de testes — fisicamente separado do banco real, nunca uma convenção de nome (D-09).
+# Um único serviço, `postgres_teste`. Armazenamento em `tmpfs`: vive em memória e some quando o
+# contêiner morre — nada sobrevive a um `down`. Sem porta publicada aqui: subir este arquivo com
+# `docker compose up` não abre nada para o host. Quem precisa alcançar o banco durante os testes
+# (ver `scripts/testar-e2e.mjs`) publica uma porta pontual, só para a duração da execução, via
+# `docker compose run -p 127.0.0.1:...` — nunca através deste arquivo.
+#
+# Este arquivo NÃO é referenciado por `docker/compose.yml` e nunca é copiado para o servidor
+# (D-11). O E2E do GitHub Actions (plano 01-05) usa seu próprio serviço de banco, nativo do
+# runner — não este arquivo (D-10).
+name: amassa_teste
+
+services:
+  postgres_teste:
+    image: postgres:17-alpine
+    environment:
+      # Credenciais e nome de banco só de teste — de propósito diferentes dos de produção
+      # (que vivem em `${POSTGRES_USER}` etc., nunca com valor literal em nenhum arquivo
+      # versionado). Uma string de conexão trocada por engano aqui falha alto, não escreve
+      # no lugar errado.
+      POSTGRES_USER: amassa_teste
+      POSTGRES_PASSWORD: efemero_de_teste_sem_valor_real
+      POSTGRES_DB: amassa_teste
+      # Evita o conflito clássico entre tmpfs e o diretório que o Postgres espera vazio no
+      # primeiro boot (o próprio ponto de montagem ganha entradas do kernel).
+      PGDATA: /var/lib/postgresql/data/pgdata
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amassa_teste -d amassa_teste"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
