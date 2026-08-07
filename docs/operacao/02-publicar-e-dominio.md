@@ -298,8 +298,35 @@ Confira o identificador de novo:
 docker compose ps -q postgres
 ```
 
-**O que você deve ver:** o **mesmo** identificador hexadecimal de antes. Se mudou, algo nomeou o
-comando errado — pare e revise antes de repetir em produção de novo.
+**O que você deve ver:** o **mesmo** identificador hexadecimal de antes.
+
+> **Uma exceção conhecida: o primeiro comando do Compose depois de um reinício da máquina.**
+> Quando o servidor reinicia, os contêineres voltam pela política `restart: unless-stopped`, e
+> não pelo Compose. O primeiro `up -d app` seguinte encontra uma divergência entre o que está
+> em execução e o que o arquivo declara, e reconcilia — o que pode recriar o Postgres uma vez.
+>
+> Isso foi observado na execução real deste roteiro, logo após o passo 7. **Os dados não se
+> perdem**: eles vivem no volume nomeado `dados_postgres`, que sobrevive à recriação do
+> contêiner. Mas o identificador muda, e parece falha do critério.
+>
+> **Como distinguir de um problema real:** rode a mesma sequência uma segunda vez, sem mudar
+> nada. Se o identificador se mantiver, era a reconciliação única e o critério está satisfeito.
+> Se mudar de novo, aí sim há algo no `compose.yml` fazendo o serviço ser considerado
+> desatualizado a cada execução — pare e investigue antes de seguir.
+>
+> Se você acabou de reiniciar a máquina no passo 7, considere rodar um `docker compose up -d app`
+> antes de começar este passo, só para deixar a reconciliação para trás e medir o comportamento
+> em regime.
+
+Depois de qualquer recriação do Postgres, confirme que os dados continuam lá:
+
+```bash
+docker compose exec postgres psql -U amassa_owner -d amassa -c "select nota from verificacao_infraestrutura;"
+```
+
+**O que você deve ver:** a linha `roteiro-02-linha-de-prova` e `(1 row)`. É a diferença entre
+"o contêiner foi recriado" e "os dados se perderam" — duas coisas muito diferentes, e só a
+segunda é grave.
 
 ---
 
