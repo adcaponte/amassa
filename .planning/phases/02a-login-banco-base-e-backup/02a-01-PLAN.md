@@ -154,6 +154,13 @@ Decisões travadas que valem para TODAS as tarefas deste plano:
 
 <task type="checkpoint:human-verify" gate="blocking-human">
   <name>Tarefa 1: Conferir a legitimidade dos três pacotes antes de instalar</name>
+  <read_first>
+    - `amassa-plataforma/01-ARQUITETURA.md` §2 (a lista de tecnologias e a seção "O que **não**
+      usar") e §4 (Auth.js v5, o provedor de credenciais e o hash argon2id)
+    - `package.json` (as versões fixadas hoje e o padrão de fixação sem faixa já em uso)
+    - `.planning/phases/02a-login-banco-base-e-backup/02a-CONTEXT.md`, lista de decisões fechadas
+      (a exigência de fixar a versão exata da biblioteca de autenticação)
+  </read_first>
   <what-built>
     Nada ainda. Este é o portão de legitimidade de pacote, obrigatório antes de qualquer
     instalação pelo gerenciador de pacotes. A pesquisa está desativada por configuração do
@@ -181,7 +188,16 @@ Decisões travadas que valem para TODAS as tarefas deste plano:
     4. O nome está escrito exatamente como na tabela — sem hífen extra, sem letra trocada,
        sem escopo diferente.
   </how-to-verify>
+  <acceptance_criteria>
+    - Os três pacotes foram conferidos no registro público e o repositório de origem de cada um
+      corresponde ao esperado.
+    - Nenhum pacote adicional entra nesta fase sem passar por esta mesma conferência — se a
+      implementação descobrir que precisa de um quarto, ela para e pede o portão de novo.
+    - O SUMMARY registra, para cada pacote, o repositório de origem observado e a versão exata
+      fixada.
+  </acceptance_criteria>
   <resume-signal>Responda "aprovado" para liberar a instalação, ou nomeie o pacote que não conferiu.</resume-signal>
+  <done>Os três pacotes estão conferidos como legítimos e a instalação está liberada.</done>
 </task>
 
 <task type="tracer">
