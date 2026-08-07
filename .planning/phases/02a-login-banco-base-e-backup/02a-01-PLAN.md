@@ -272,12 +272,17 @@ Decisões travadas que valem para TODAS as tarefas deste plano:
     e-mail inventados (domínio `exemplo.test`), lê a senha da linha de formato fixo e publica
     e-mail e senha em variáveis de ambiente para as specs. Isso faz o E2E exercitar AUTH-07 de
     verdade em vez de semear a tabela por fora. Em `playwright.config.ts`, registre o
-    `globalSetup` e acrescente ao ambiente do `webServer` a chave de sessão e a confiança no host
-    — com um valor de teste explicitamente descartável, no mesmo espírito da senha efêmera que já
-    existe em `docker/compose.teste.yml`. No job `e2e` do workflow, passe as mesmas duas variáveis
-    ao `docker run` do contêiner da imagem real; sem a confiança no host, o Auth.js monta URLs de
-    callback erradas atrás de proxy, e esse é exatamente o modo de falha que funciona em
-    `localhost` e quebra em produção.
+    `globalSetup` e acrescente ao ambiente do `webServer` as variáveis `AUTH_SECRET` e
+    `AUTH_TRUST_HOST=true` — a primeira com um valor de teste explicitamente descartável, no mesmo
+    espírito da senha efêmera que já existe em `docker/compose.teste.yml`. No job `e2e` do
+    workflow, passe as mesmas duas variáveis ao `docker run` do contêiner da imagem real.
+
+    **`AUTH_TRUST_HOST=true` não é opcional e precisa ser exercitado aqui.** Ela já existe no
+    `.env` do servidor desde a Fase 1, mas nunca foi usada — não havia autenticação. Sem ela o
+    Auth.js v5 ignora os cabeçalhos `X-Forwarded-*` e monta URLs de callback erradas atrás do
+    Caddy: o login funciona em `localhost` e falha em produção. É a mesma classe dos três defeitos
+    que a Fase 1 só encontrou fora da máquina de desenvolvimento, e o E2E rodando contra a imagem
+    real é o lugar mais barato de pegá-la.
 
     Reescreva `tests/e2e/fundacao.spec.ts`: o caso que hoje afirma que a raiz é pública passa a
     afirmar que **sem sessão a raiz redireciona para `/login`**, e ganha um caso que entra com a
@@ -301,6 +306,9 @@ Decisões travadas que valem para TODAS as tarefas deste plano:
       arquivo — a raiz deixou de ser pública.
     - `node -e "const p=require('./package.json');for(const d of ['next-auth','@node-rs/argon2','zod']){if(!/^[0-9]/.test(p.dependencies[d]))throw new Error(d)}"` sai 0 — as três
       versões estão fixadas sem faixa.
+    - `grep -c 'AUTH_TRUST_HOST' playwright.config.ts` devolve pelo menos `1` e
+      `grep -c 'AUTH_TRUST_HOST' .github/workflows/entrega.yml` devolve pelo menos `1` — a
+      variável é exercitada nos dois ambientes de teste, não só declarada no `.env` do servidor.
     - Nenhum e-mail ou nome real aparece em arquivo algum: o e-mail usado nos testes termina em
       `exemplo.test`.
   </acceptance_criteria>
