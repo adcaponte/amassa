@@ -97,8 +97,18 @@ ssh root@<IP_DO_SEU_VPS>
 
 **O que faz:** abre uma sessão remota como root, usando a senha que a Contabo enviou por e-mail.
 
-**O que você deve ver:** um pedido de senha e, depois de digitá-la, um prompt parecido com
-`root@nome-do-servidor:~#`.
+**O que você deve ver:** na primeira vez, uma pergunta sobre a autenticidade do servidor —
+responda `yes` por extenso (só a letra `y` não serve aqui). Depois, o pedido de senha:
+`root@... password:`. E, depois de digitá-la, um prompt parecido com `root@nome-do-servidor:~#`.
+
+> **A senha não aparece enquanto você digita.** Nada: nem os caracteres, nem asteriscos, nem
+> pontinhos. O cursor fica parado como se o teclado não funcionasse. É assim de propósito, em
+> todo terminal — e é o ponto onde mais gente acha que travou. Digite às cegas e aperte Enter.
+>
+> Para colar em vez de digitar, no PowerShell clique com o **botão direito** do mouse. Também
+> não vai aparecer nada na tela.
+>
+> Se errar, ele responde `Permission denied, please try again` e pede outra vez.
 
 Agora, já dentro do servidor, crie o usuário comum:
 
