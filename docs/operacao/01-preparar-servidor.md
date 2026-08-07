@@ -542,6 +542,21 @@ propósito: um pipeline que nasce vermelho por um motivo esperado ensina a ignor
 O VPS baixa a imagem do GitHub Container Registry **sem autenticar** — por isso o pacote
 precisa estar público (sem essa configuração, o primeiro deploy trava sem mensagem clara).
 
+**Confira primeiro: talvez já esteja resolvido.** Um pacote publicado a partir de repositório
+público costuma nascer público. Rode isto **na sua máquina** (o teste é anônimo, não usa
+credencial nenhuma):
+
+```bash
+docker manifest inspect ghcr.io/adcaponte/amassa:latest
+docker manifest inspect ghcr.io/adcaponte/amassa:ferramentas
+```
+
+**O que você deve ver:** um bloco JSON para cada. Se os dois responderem, **pule o resto deste
+passo** — o pacote já está público. Se vier erro de autenticação ou `denied`, siga abaixo.
+
+> **Os comandos abaixo rodam na sua máquina, não no servidor.** O `gh` não está instalado no VPS
+> e não deve ser — ele precisa de uma credencial do GitHub, que não tem por que existir lá.
+
 Pela API do GitHub, usando o `gh` CLI autenticado na sua própria máquina:
 
 ```bash
