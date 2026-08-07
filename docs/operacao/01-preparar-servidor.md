@@ -132,16 +132,38 @@ usermod -aG sudo theo
 
 **O que você deve ver:** nenhuma saída — silêncio aqui é sucesso.
 
-Instale sua chave pública para o usuário `theo`:
+Instale sua chave pública para o usuário `theo`. Primeiro a pasta:
 
 ```bash
 mkdir -p /home/theo/.ssh
 chmod 700 /home/theo/.ssh
-nano /home/theo/.ssh/authorized_keys
 ```
 
-Cole o conteúdo do seu arquivo `.pub` (uma linha só, começa com `ssh-ed25519` ou `ssh-rsa`),
-salve com `Ctrl+O`, `Enter`, e saia com `Ctrl+X`. Depois ajuste o dono e a permissão:
+Agora grave a chave. Pegue a linha inteira do seu `id_ed25519.pub` (o passo 0 mostra como) e
+monte o comando abaixo, **mantendo as aspas simples** — elas impedem o shell de interpretar
+qualquer caractere do conteúdo:
+
+```bash
+echo 'COLE_AQUI_A_LINHA_INTEIRA_DA_SUA_CHAVE_PUBLICA' > /home/theo/.ssh/authorized_keys
+```
+
+> **Por que não usar um editor aqui.** O `nano` só grava o arquivo quando você salva com
+> `Ctrl+O` seguido de `Enter`, e sair com `Ctrl+X` sem esse passo fecha o editor sem criar nada
+> — sem erro, sem aviso. O comando acima grava de uma vez, e o próximo passo confirma o
+> resultado.
+
+Confira que a chave chegou inteira e numa linha só:
+
+```bash
+wc -l < /home/theo/.ssh/authorized_keys && cat /home/theo/.ssh/authorized_keys
+```
+
+**O que você deve ver:** o número `1`, e abaixo a chave idêntica à que você copiou, começando
+com `ssh-ed25519` e terminando no comentário que você usou no `-C`. Se vier `No such file or
+directory`, o arquivo não foi criado — repita o `echo`. Se o número for `2` ou mais, a chave
+quebrou em várias linhas e nenhuma delas vai funcionar: refaça o `echo`, que sobrescreve.
+
+Depois ajuste o dono e a permissão:
 
 ```bash
 chown -R theo:theo /home/theo/.ssh
