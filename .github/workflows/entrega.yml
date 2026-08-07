@@ -197,12 +197,44 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # A chave viaja por copiar-e-colar de um terminal para a tela de secrets do GitHub, e é
+      # nesse trajeto que ela costuma se corromper: uma linha que quebra, um retorno de carro
+      # do Windows, a linha -----END----- que fica de fora. O sintoma nativo disso é
+      # "error in libcrypto" no meio do ssh, que não diz nada sobre a causa. Este passo aceita
+      # os dois formatos e, se a chave estiver inválida, para aqui com uma mensagem que
+      # explica o que fazer.
       - name: Configurar chave SSH
         run: |
           install -d -m 700 ~/.ssh
-          printf '%s\n' "${{ secrets.VPS_SSH_CHAVE }}" > ~/.ssh/id_ed25519
+          CHAVE='${{ secrets.VPS_SSH_CHAVE }}'
+
+          if printf '%s' "$CHAVE" | grep -q 'BEGIN .*PRIVATE KEY'; then
+            # Formato normal, com as linhas BEGIN/END. Remove retornos de carro do Windows.
+            printf '%s\n' "$CHAVE" | tr -d '\r' > ~/.ssh/id_ed25519
+          else
+            # Linha única: assume base64 do arquivo inteiro. É o formato recomendado no
+            # roteiro justamente por não ter como quebrar linha no meio.
+            printf '%s' "$CHAVE" | tr -d '\r\n ' | base64 -d > ~/.ssh/id_ed25519 2>/dev/null || true
+          fi
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+          if ! ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null 2>&1; then
+            echo "::error::O secret VPS_SSH_CHAVE não contém uma chave privada SSH válida."
+            echo "A chave provavelmente se corrompeu ao ser copiada do terminal (linha quebrada,"
+            echo "retorno de carro do Windows, ou a linha -----END----- faltando)."
+            echo "Refaça o secret seguindo docs/operacao/01-preparar-servidor.md, passo 9 —"
+            echo "ele agora usa base64 em linha única, que não tem como quebrar no caminho."
+            exit 1
+          fi
+          echo "Chave privada válida. Impressão digital da pública correspondente:"
+          ssh-keygen -y -f ~/.ssh/id_ed25519 | ssh-keygen -lf -
+
+          if ! ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "::error::ssh-keyscan não obteve a chave de host de VPS_HOST."
+            echo "Confira se o secret VPS_HOST tem o endereço certo e se a porta 22 aceita conexão."
+            exit 1
+          fi
+          test -s ~/.ssh/known_hosts || { echo "::error::known_hosts vazio — VPS_HOST não respondeu."; exit 1; }
 
       # O nome do serviço é obrigatório: `up -d` sem ele recria todos os contêineres
       # declarados, inclusive o postgres — e é exatamente isso que INFRA-06 proíbe.

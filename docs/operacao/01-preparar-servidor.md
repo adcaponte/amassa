@@ -504,14 +504,32 @@ cat ~/.ssh/deploy_amassa.pub >> ~/.ssh/authorized_keys
 **O que você deve ver:** o `ssh-keygen` imprime o "fingerprint" e um desenho em ASCII da chave;
 o `cat` não imprime nada (só acrescenta a linha no arquivo).
 
-Mostre a chave privada, para copiar o conteúdo inteiro:
+Agora transforme a chave privada em **uma única linha**, para copiar sem risco:
 
 ```bash
-cat ~/.ssh/deploy_amassa
+base64 -w 0 ~/.ssh/deploy_amassa; echo
 ```
 
-**O que você deve ver:** um bloco de texto de várias linhas. Copie o bloco inteiro, do começo ao
-fim, sem cortar nenhuma linha — vai virar um secret no GitHub daqui a pouco.
+**O que você deve ver:** um bloco longo de letras e números, **sem espaços e sem quebras de
+linha** (o terminal pode exibi-lo dobrado na tela, mas é uma linha só). Selecione do primeiro ao
+último caractere.
+
+> **Por que uma linha só, e não o arquivo original.** A chave em formato normal tem sete linhas,
+> incluindo `-----BEGIN OPENSSH PRIVATE KEY-----` e `-----END OPENSSH PRIVATE KEY-----`. Copiar
+> isso de um terminal para a tela do GitHub corrompe com facilidade: uma linha se perde, o
+> Windows insere retorno de carro, a linha final fica de fora. O erro que isso produz é
+> `error in libcrypto` no meio do deploy — uma mensagem que não diz nada sobre a causa.
+>
+> **Isso aconteceu na execução real deste roteiro.** O formato de linha única elimina o
+> problema: não há linha para quebrar. O workflow decodifica sozinho e aceita os dois formatos,
+> mas este é o recomendado.
+
+Se preferir conferir antes, o comando abaixo mostra quantas linhas o arquivo original tem
+(devem ser 7) e confirma que a chave é válida:
+
+```bash
+wc -l < ~/.ssh/deploy_amassa && ssh-keygen -y -f ~/.ssh/deploy_amassa > /dev/null && echo "chave valida"
+```
 
 No GitHub, vá em **Settings → Secrets and variables → Actions → Secrets** do repositório `amassa`
 e cadastre três secrets, com estes nomes exatos (são os mesmos que
