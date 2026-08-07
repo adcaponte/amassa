@@ -33,7 +33,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Fundação e Primeiro Deploy** - Endereço `https://` no ar com deploy automático, sem nenhuma funcionalidade
+- [x] **Phase 1: Fundação e Primeiro Deploy** - Endereço `https://` no ar com deploy automático, sem nenhuma funcionalidade (completed 2026-08-08)
 - [ ] **Phase 2: Login, Banco Base e Casca da Aplicação** - Entrar com e-mail/senha, navegar por telas vazias com a identidade AMASSA, e backup automático rodando
 - [ ] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata
 - [ ] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques
@@ -76,7 +76,7 @@ Plans:
 - [x] 01-04-PLAN.md — Postgres de teste separado e efêmero + testes ponta a ponta no desktop e no celular
 - [x] 01-05-PLAN.md — Pipeline no GitHub Actions: qualidade → E2E → imagem no GHCR → deploy por SSH
 - [x] 01-06-PLAN.md — Roteiros comentados do servidor: endurecimento do VPS, DNS, HTTPS, Auto Backup e monitor
-- [ ] 01-07-PLAN.md — Theo executa os roteiros e o ciclo completo de publicação é provado no domínio público
+- [x] 01-07-PLAN.md — Theo executa os roteiros e o ciclo completo de publicação é provado no domínio público
 
 **UI hint**: no (nenhuma tela de usuário nesta fase — só infraestrutura)
 
@@ -268,7 +268,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Fundação e Primeiro Deploy | 6/7 | In Progress|  |
+| 1. Fundação e Primeiro Deploy | 7/7 | Complete    | 2026-08-08 |
 | 2. Login, Banco Base e Casca da Aplicação | 0/TBD | Not started | - |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |

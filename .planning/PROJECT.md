@@ -33,14 +33,13 @@ dar baixa em material não for confortável no celular, o sistema não é usado 
 
 ### Validated
 
-(Nenhum ainda — só depois de estar no ar e em uso real)
+- ✓ Aplicação no ar em `https://amassacerrado.com.br`, com deploy automático a partir de `git push` na `main` — Fase 1
+- ✓ Postgres próprio no VPS Contabo, sem porta publicada, acessível só pela aplicação — Fase 1 (conferido de fora: porta 5432 fechada, 443 aberta)
 
 ### Active
 
 **Fundação e operação**
 
-- [ ] Aplicação no ar em `https://` próprio, com deploy automático a partir de `git push` na `main`
-- [ ] Postgres próprio no VPS Contabo, sem porta publicada, acessível só pela aplicação
 - [ ] Backup diário do banco com envio para armazenamento externo gratuito, verificado por endpoint
 - [ ] Login por e-mail e senha (argon2id), sessão de 30 dias, sem tela de cadastro
 - [ ] Contas criadas e senhas redefinidas por linha de comando no servidor
@@ -203,8 +202,13 @@ Orçamento não é planejada. Nada mais depende dela — o polimento final **nã
 | Ajuste de estoque pede o **saldo contado**, não a diferença | Ninguém que acabou de contar 3,2 kg sabe de cabeça que a diferença é −0,8. Erro de sinal aqui é invisível. | — Pendente |
 | Fornos e usuários são desativados, nunca apagados | Apagar destrói o histórico de vida útil do equipamento e a autoria de cada registro. | — Pendente |
 | Três tipos de queima, incluindo **ouro** | Correção sobre a versão anterior do plano, que só previa dois. A douração é uma terceira passagem pelo forno. | — Pendente |
-| Caddy no lugar de Nginx | Obtém e renova o certificado sozinho — sem certbot, sem cron esquecido que derruba o site. | — Pendente |
-| Build no GitHub Actions, nunca no servidor | Um `next build` consome bastante RAM. Se estourar a memória do VPS durante um deploy, o site cai — e cai junto com o banco, que agora mora na mesma máquina. | — Pendente |
+| Caddy no lugar de Nginx | Obtém e renova o certificado sozinho — sem certbot, sem cron esquecido que derruba o site. | ✓ Boa — certificado emitido de primeira na Fase 1, sem nenhuma configuração de TLS |
+| Build no GitHub Actions, nunca no servidor | Um `next build` consome bastante RAM. Se estourar a memória do VPS durante um deploy, o site cai — e cai junto com o banco, que agora mora na mesma máquina. | ✓ Boa — Fase 1 |
+| Repositório e package do GHCR públicos, sem `docker login` no VPS | A imagem não carrega segredo (eles vivem só no `.env` do servidor, em runtime). Elimina uma credencial para manter e renovar, e o modo de falha "primeiro deploy trava sem mensagem óbvia". | ✓ Boa — Fase 1, o VPS baixa anonimamente |
+| Estágio `ferramentas` separado no Dockerfile | A imagem `standalone` não tem `drizzle-kit` nem `tsx` — `docker compose exec app npm run db:migrate` falha. Migrar e criar usuário são as operações mais frequentes da vida do sistema. | ✓ Boa — provado empiricamente: `ferramentas` sai 0, `app` sai 1 |
+| Roteiros de servidor executados pelo dono, não pelo agente por SSH | Mantém o controle da máquina com quem responde por ela, e cada comando com "o que faz" e "o que você deve ver" torna a falha localizável no passo em que acontece. | ✓ Boa — Fase 1. A execução real produziu 9 correções nos roteiros que nenhuma revisão pegaria |
+| Verificar de fora, nunca aceitar o relato de quem executou | Nove dos dez critérios da Fase 1 foram conferidos pelo orquestrador contra o domínio público (curl, API do GitHub, Test-NetConnection), não pelo que foi reportado. | ✓ Boa — pegou o ruleset da `main` criado mas com enforcement desligado |
+| Teste de porta sempre em par (fechada + aberta) | Só verificar que a 5432 está fechada é ambíguo: um servidor desligado também passa nesse teste. A 443 aberta ao lado distingue "banco protegido" de "nada no ar". | ✓ Boa — Fase 1 |
 | Excesso de alunas sobre as vagas é permitido | Na prática do ateliê, encaixar alguém acontece. É estado visual ("excedida", em vermelho), não erro. | — Pendente |
 | Coluna `papel` na tabela `usuarios` mesmo com um único papel hoje | Adicionar "professora" ou "aluna" no futuro vira mudança de autorização, não reescrita. Custa quase nada agora. | — Pendente |
 | Ordem de execução M0→M1→M2→**M4**→M3→M5→M7 | O módulo de fornos é o menor, não depende de nada além do login e entrega o fluxo mais usado do sistema. A Agenda é a mais complexa e ganha em ser enfrentada depois de o sistema já estar em uso. | — Pendente |
@@ -228,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-05 after initialization*
+*Last updated: 2026-08-08 after Fase 1 (Fundação e Primeiro Deploy)*
