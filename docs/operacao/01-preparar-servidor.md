@@ -292,11 +292,18 @@ segunda linha abre uma tela pedindo para confirmar que isso fique ativado — es
 `/etc/apt/apt.conf.d/20auto-upgrades` criado com as automatizações ligadas. Confira com:
 
 ```bash
-systemctl status unattended-upgrades.service
+systemctl status unattended-upgrades.service --no-pager
 ```
 
 **O que você deve ver:** uma linha com `Active: active (running)` (ou `active (exited)`,
-dependendo da versão do Ubuntu — o que importa é não ver `failed` nem `inactive`).
+dependendo da versão do Ubuntu — o que importa é não ver `failed` nem `inactive`). Um aviso
+sobre *journal files* no fim é normal para usuário comum e não é erro.
+
+> **O `--no-pager` não é detalhe.** Sem ele, o `systemctl status` joga a saída num paginador
+> (`less`) quando o texto não cabe na tela: você vê linhas com `~`, um `(END)` no rodapé, e as
+> setas do teclado viram códigos como `ESCOD` na tela. Parece travado e não está — a saída para
+> sair é a tecla **`q`**. Vale lembrar disso sempre que um comando parecer não devolver o
+> controle: tente `q` antes de fechar a janela.
 
 ---
 
