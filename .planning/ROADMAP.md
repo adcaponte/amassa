@@ -102,8 +102,19 @@ automático via `cron` do host).
   7. O backup de ontem existe no servidor e também no armazenamento externo
   8. `/api/health/backup` responde `ok` quando o último backup tem menos de 26 horas, e falha quando não tem
 
-**Plans**: TBD
-**UI hint**: no (a tela de login usa estilo mínimo; nenhum componente shadcn é instalado — ver D-03 do 02-CONTEXT.md)
+**Plans**: 8 plans
+
+Plans:
+- [ ] 02a-01-PLAN.md — Tracer: da migração ao login que abre uma rota protegida (onda 1)
+- [ ] 02a-02-PLAN.md — Base comum do banco e os dois papéis de banco (onda 2)
+- [ ] 02a-03-PLAN.md — Proteções de login: mensagem única, hash sempre, limite de tentativas (onda 2)
+- [ ] 02a-04-PLAN.md — Sessão de 30 dias, sair de verdade e `exigirUsuario()` (onda 3)
+- [ ] 02a-05-PLAN.md — Scripts de conta e o portão de máquina do `exigirUsuario()` (onda 3)
+- [ ] 02a-06-PLAN.md — Vigia do backup: `execucoes_backup` e `/api/health/backup` (onda 4)
+- [ ] 02a-07-PLAN.md — `backup.sh` e `restaurar.sh` provados sem servidor (onda 5)
+- [ ] 02a-08-PLAN.md — Roteiro 3 e a virada no servidor, com restauração real (onda 6)
+
+**UI hint**: no (a tela de login usa estilo mínimo; nenhum componente shadcn é instalado — ver D-03 do 02a-CONTEXT.md)
 
 ### Phase 2b: Design System e Casca da Aplicação
 
