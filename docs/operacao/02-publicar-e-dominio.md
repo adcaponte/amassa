@@ -8,6 +8,13 @@ critérios de aceite da fase, para você conferir um a um.
 **o que você deve ver**. Os comandos marcados "na sua máquina" rodam no seu computador; os
 marcados "no servidor" rodam dentro da sessão SSH como `theo`.
 
+> **Por que `curl.exe` e não `curl` nos comandos da sua máquina.** No Windows PowerShell, `curl`
+> é **apelido para `Invoke-WebRequest`** — um comando diferente, que tenta interpretar a página
+> como HTML e interrompe pedindo confirmação de segurança. O curl de verdade também está
+> instalado, e é chamado por `curl.exe`. Escrever o `.exe` contorna o apelido.
+>
+> Nos comandos que rodam **no servidor**, é `curl` normal — lá é Linux e não há apelido nenhum.
+
 ---
 
 ## 1. Apontar o DNS
@@ -164,7 +171,7 @@ aviso de "conexão não segura" — o Caddy emitiu o certificado sozinho, via Le
 Confira também pela linha de comando, na sua máquina:
 
 ```bash
-curl -I https://amassacerrado.com.br
+curl.exe -I https://amassacerrado.com.br
 ```
 
 **O que você deve ver:** a primeira linha da resposta começando com `HTTP/2 200` (ou `HTTP/1.1
@@ -173,7 +180,7 @@ curl -I https://amassacerrado.com.br
 Confira o redirecionamento do `www`:
 
 ```bash
-curl -I https://www.amassacerrado.com.br
+curl.exe -I https://www.amassacerrado.com.br
 ```
 
 **O que você deve ver:** um código de redirecionamento (`301` ou `308`) e um cabeçalho
@@ -187,7 +194,7 @@ diretamente, só redireciona para o apex.
 Na sua máquina:
 
 ```bash
-curl https://amassacerrado.com.br/api/health
+curl.exe https://amassacerrado.com.br/api/health
 ```
 
 **O que você deve ver:** exatamente `{"status":"ok","banco":"ok"}` — a aplicação está no ar **e**
@@ -244,7 +251,7 @@ esperado, a máquina está reiniciando).
 Espere cerca de um minuto e confira, na sua máquina:
 
 ```bash
-curl https://amassacerrado.com.br/api/health
+curl.exe https://amassacerrado.com.br/api/health
 ```
 
 **O que você deve ver:** de novo `{"status":"ok","banco":"ok"}`, sem ter rodado nenhum comando
