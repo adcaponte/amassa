@@ -17,6 +17,17 @@ grave o valor real de volta num arquivo do repositório):
   termina em `.pub`, nunca o arquivo sem essa extensão — esse é o privado e nunca sai da sua
   máquina)
 
+> **Os sinais `<` e `>` fazem parte do marcador e saem junto.** Substitua o marcador inteiro,
+> incluindo os dois sinais. Se um dia o IP for `203.0.113.10`:
+>
+> | Errado | Certo |
+> |---|---|
+> | `ssh root@<203.0.113.10>` | `ssh root@203.0.113.10` |
+> | `ssh root@<IP_DO_SEU_VPS>` | `ssh root@203.0.113.10` |
+>
+> Deixar os sinais faz o SSH procurar uma máquina cujo nome é literalmente `<203.0.113.10>`, e
+> a mensagem é `Could not resolve hostname`.
+
 Este roteiro usa `theo` como nome do usuário comum (o usuário do deploy) e `amassa_owner` /
 `amassa` como nome de usuário e nome do banco no Postgres — são convenções, não segredos, e o
 Roteiro 2 vai usar os mesmos nomes. As senhas de verdade (do Postgres e da aplicação) são geradas
