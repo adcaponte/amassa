@@ -91,8 +91,30 @@ docker compose ps
 ```
 
 **O que você deve ver:** uma tabela com `postgres`, `app` e `caddy` listados, todos com estado
-`Up` (o `postgres` e o `app` também mostram `(healthy)` depois de alguns segundos — dê um tempo e
-rode o comando de novo se ainda estiverem `starting`).
+`Up`. O `postgres` mostra `(healthy)` depois de alguns segundos. O `caddy` aparece com as portas
+`0.0.0.0:80->80` e `0.0.0.0:443->443` — é o único serviço com porta publicada. O `ferramentas`
+não aparece, e está certo: ele fica atrás de um `profile` e só roda sob demanda.
+
+> **O `app` vai ficar em `health: starting` e depois `unhealthy` — e isso é esperado agora.**
+> O `/api/health` consulta a tabela `verificacao_infraestrutura`, que só é criada pela migração
+> do passo 3. Antes dela, a rota responde 503 corretamente, dizendo que o banco não está pronto,
+> e o `healthcheck` reflete isso.
+>
+> Se você olhar `docker compose logs app`, vai ver um erro do Postgres mencionando
+> `parserOpenTable` — é a mensagem de "tabela não existe". Não é defeito: é a aplicação sendo
+> honesta sobre o estado do banco em vez de responder 200 sem consultar nada.
+>
+> **O `app` só passa a `(healthy)` depois do passo 3.** Confira lá, não aqui.
+
+Confirme também que o Postgres **não** publicou porta nenhuma:
+
+```bash
+docker compose ps postgres
+```
+
+**O que você deve ver:** na coluna `PORTS`, apenas `5432/tcp` — sem nenhum `0.0.0.0:5432->`. Se
+aparecer um mapeamento para o host, pare: o banco está exposto à internet, e isso contraria o
+critério INFRA-04. O teste definitivo, feito de fora, é o passo 6.
 
 ---
 
