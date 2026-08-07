@@ -34,7 +34,8 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Fundação e Primeiro Deploy** - Endereço `https://` no ar com deploy automático, sem nenhuma funcionalidade (completed 2026-08-08)
-- [ ] **Phase 2: Login, Banco Base e Casca da Aplicação** - Entrar com e-mail/senha, navegar por telas vazias com a identidade AMASSA, e backup automático rodando
+- [ ] **Phase 2a: Login, Banco Base e Backup** - Entrar com e-mail/senha, contas por linha de comando, e backup automático rodando
+- [ ] **Phase 2b: Design System e Casca da Aplicação** - Navegar por telas vazias já com a identidade visual do AMASSA, no celular e no desktop
 - [ ] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata
 - [ ] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques
 - [ ] **Phase 5: Agenda de Aulas** - Turmas recorrentes materializam aulas com data real e presença por aluna
@@ -66,7 +67,7 @@ Drizzle, banco de testes, GitHub Actions, `/api/health`) tornam-se os planos des
   9. Um deploy com teste quebrado é barrado pelo pipeline e não vai ao ar
   10. Migrações podem ser aplicadas à mão no servidor, com um comando, fora do pipeline automático
 
-**Plans**: 6/7 plans executed
+**Plans**: 7/7 plans executed
 
 Plans:
 
@@ -80,33 +81,49 @@ Plans:
 
 **UI hint**: no (nenhuma tela de usuário nesta fase — só infraestrutura)
 
-### Phase 2: Login, Banco Base e Casca da Aplicação
+### Phase 2a: Login, Banco Base e Backup
 
-**Goal**: Entrar com e-mail e senha e navegar por telas vazias de todos os módulos, já com a
-identidade visual do AMASSA aplicada — e com o backup automático do banco funcionando, a fase
-mais importante deste milestone, porque sem serviço gerenciado é a única rede de proteção que
-existe.
-**Corresponde a**: M1 do `03-ROADMAP.md`. As 9 fases do milestone (migração base + `usuarios`,
-Auth.js/argon2id, `exigirUsuario()` + scripts de linha de comando, tela de login, design system
-
-+ mapeamento shadcn, casca de navegação, painel inicial com placeholders, backup automático via
-
-`cron` do host, teste ponta a ponta) tornam-se os planos desta fase.
+**Goal**: Entrar com e-mail e senha, e ter o backup automático do banco funcionando — a parte
+mais importante deste milestone, porque sem serviço gerenciado o dump é a única rede de proteção
+que existe.
+**Corresponde a**: M1 do `03-ROADMAP.md`, fases 1 a 4 e 8 (migração base + `usuarios`,
+Auth.js/argon2id, `exigirUsuario()` + scripts de linha de comando, tela de login, backup
+automático via `cron` do host).
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07, AUTH-08, AUTH-09, AUTH-10, BKP-01, BKP-02, BKP-03, BKP-04, BKP-05, BKP-06, BKP-07, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, UI-09
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07, AUTH-08, AUTH-09, AUTH-10, BKP-01, BKP-02, BKP-03, BKP-04, BKP-05, BKP-06, BKP-07
 **Success Criteria** (what must be TRUE):
 
   1. Abrir qualquer endereço sem estar logado leva para `/login`
   2. Login com senha errada mostra uma mensagem clara em português, igual à de e-mail inexistente
   3. Errar a senha 5 vezes no mesmo e-mail em 15 minutos bloqueia por 15 minutos
   4. Depois de entrar, a sessão persiste por 30 dias ao fechar e reabrir o navegador, e sair encerra a sessão de verdade (voltar no histórico não devolve o acesso)
-  5. Os 5 itens da barra inferior (Início, Encomendas, Agenda, Queimas, Estoque) abrem cada um a sua tela no celular; no desktop a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé; Orçamentos aparece só no menu do usuário
-  6. A navegação funciona confortavelmente com o polegar no celular, e nenhuma tela exige rolagem horizontal
-  7. As cores e fontes já são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
-  8. Criar e desativar um usuário pela linha de comando funciona
-  9. O backup de ontem existe no servidor e também no armazenamento externo
-  10. Toda tela (mesmo vazia, como as deste milestone) tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto e estado de erro em linguagem humana; toda remoção pede confirmação nomeando o que será perdido
-  11. Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`
+  5. Criar e desativar um usuário pela linha de comando funciona
+  6. O `middleware.ts` carrega sem erro em produção — a divisão `auth.config.ts` / `auth.ts` está correta e o argon2 não é importado no runtime Edge
+  7. O backup de ontem existe no servidor e também no armazenamento externo
+  8. `/api/health/backup` responde `ok` quando o último backup tem menos de 26 horas, e falha quando não tem
+
+**Plans**: TBD
+**UI hint**: no (a tela de login usa estilo mínimo; nenhum componente shadcn é instalado — ver D-03 do 02-CONTEXT.md)
+
+### Phase 2b: Design System e Casca da Aplicação
+
+**Goal**: Navegar por telas vazias de todos os módulos já com a identidade visual do AMASSA
+aplicada, no celular e no desktop.
+**Corresponde a**: M1 do `03-ROADMAP.md`, fases 5 a 7 (design system + mapeamento shadcn, casca
+de navegação, painel inicial com espaços reservados).
+**Depends on**: Phase 2a
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, UI-09
+**Success Criteria** (what must be TRUE):
+
+  1. As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
+  2. Os 5 itens da barra inferior (Início, Encomendas, Agenda, Queimas, Estoque) abrem cada um a sua tela no celular; no desktop a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé; Orçamentos aparece só no menu do usuário
+  3. A navegação funciona confortavelmente com o polegar no celular, e nenhuma tela exige rolagem horizontal
+  4. Toda tela (mesmo vazia, como as deste milestone) tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto e estado de erro em linguagem humana; toda remoção pede confirmação nomeando o que será perdido
+  5. Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`
+
+> **UI-10 (nenhum erro no console) e UI-11 (carrega em menos de 3s em 4G) não pertencem a esta
+> fase.** São critérios de polimento, medidos sobre o sistema completo, e ficam na Fase 7 — onde
+> já estavam mapeados. Cada requisito pertence a exatamente uma fase.
 
 **Plans**: TBD
 **UI hint**: yes
@@ -120,7 +137,7 @@ vertical no celular.
 `lib/encomendas/cronograma.ts` com testes escritos antes do código, Server Actions de CRUD
 transacional, Gantt desktop, lista vertical mobile, formulário com pré-visualização, filtros,
 estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fase.
-**Depends on**: Phase 2
+**Depends on**: Phase 2b
 **Requirements**: ENC-01, ENC-02, ENC-03, ENC-04, ENC-05, ENC-06, ENC-07, ENC-08, ENC-09, ENC-10, ENC-11, ENC-12, ENC-13
 **Success Criteria** (what must be TRUE):
 
@@ -151,7 +168,7 @@ em `PROJECT.md`). As 11 fases do milestone (migração `0004_queimas`, `lib/quei
 com testes, cadastro de fornos sem exclusão, cartão do forno com medidor, registro em dois
 toques com "Desfazer", registro de manutenção, detalhe do forno, banner agregado, relatórios
 Recharts, alerta no painel inicial, teste ponta a ponta) tornam-se os planos desta fase.
-**Depends on**: Phase 2 (independente da Fase 3 — Encomendas e Fornos são módulos independentes
+**Depends on**: Phase 2b (independente da Fase 3 — Encomendas e Fornos são módulos independentes
 entre si; a sequência Fase 3 → Fase 4 é uma decisão de produto documentada, não uma dependência
 técnica)
 **Requirements**: FOR-01, FOR-02, FOR-03, FOR-04, FOR-05, FOR-06, FOR-07, FOR-08, FOR-09, FOR-10, FOR-11, FOR-12, FOR-13
@@ -183,7 +200,7 @@ enfrentada com o sistema já em uso real). As 11 fases do milestone (migração 
 
 por semana com geração preguiçosa, tela de presença, cancelamento com motivo, aba Alunos, teste
 ponta a ponta) tornam-se os planos desta fase.
-**Depends on**: Phase 2 (independente das Fases 3 e 4)
+**Depends on**: Phase 2b (independente das Fases 3 e 4)
 **Requirements**: AGD-01, AGD-02, AGD-03, AGD-04, AGD-05, AGD-06, AGD-07, AGD-08, AGD-09, AGD-10, AGD-11, AGD-12, AGD-13, AGD-14, AGD-15, AGD-16
 **Success Criteria** (what must be TRUE):
 
@@ -209,7 +226,7 @@ view `saldos_materiais`, `lib/estoque/saldo.ts` com testes, CRUD de materiais po
 registro de movimentação pensado para celular, lista de saldos com busca/filtro, histórico por
 material, bloco de alertas no painel inicial, vínculo opcional com aula/fornada/encomenda, teste
 ponta a ponta) tornam-se os planos desta fase.
-**Depends on**: Phase 2 (independente das Fases 3, 4 e 5)
+**Depends on**: Phase 2b (independente das Fases 3, 4 e 5)
 **Requirements**: EST-01, EST-02, EST-03, EST-04, EST-05, EST-06, EST-07, EST-08, EST-09, EST-10, EST-11, EST-12
 **Success Criteria** (what must be TRUE):
 
@@ -253,12 +270,13 @@ roadmap).
 | Fase GSD | Milestone (`03-ROADMAP.md`) | Ordem de execução |
 |----------|------------------------------|--------------------|
 | Phase 1 | M0 — Fundação e primeiro deploy | 1ª |
-| Phase 2 | M1 — Login, banco base e casca | 2ª |
-| Phase 3 | M2 — Gestor de Encomendas | 3ª |
-| Phase 4 | M4 — Contador de Queima | 4ª (antecipada — ver nota na Fase 4) |
-| Phase 5 | M3 — Agenda de Aulas | 5ª (deslocada — ver nota na Fase 5) |
-| Phase 6 | M5 — Estoque | 6ª |
-| Phase 7 | M7 — Polimento e entrega | 7ª (não espera M6) |
+| Phase 2a | M1 (fases 1–4 e 8) — Login, banco base e backup | 2ª |
+| Phase 2b | M1 (fases 5–7) — Design system e casca | 3ª |
+| Phase 3 | M2 — Gestor de Encomendas | 4ª |
+| Phase 4 | M4 — Contador de Queima | 5ª (antecipada — ver nota na Fase 4) |
+| Phase 5 | M3 — Agenda de Aulas | 6ª (deslocada — ver nota na Fase 5) |
+| Phase 6 | M5 — Estoque | 7ª |
+| Phase 7 | M7 — Polimento e entrega | 8ª (não espera M6) |
 | — | M6 — Calculadora de Orçamento 🔴 | Excluída — bloqueada, requisitos em v2 |
 
 ## Progress
