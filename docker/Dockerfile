@@ -51,6 +51,12 @@ COPY --from=construtor --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
+# O server.js da saída `standalone` faz listen(PORT, process.env.HOSTNAME || '0.0.0.0'), e o
+# Docker define HOSTNAME dentro do contêiner (o ID dele, ou o nome da máquina quando se usa
+# --network host). Sem esta linha a aplicação escuta só no endereço daquele nome, e tanto o
+# healthcheck do compose (wget em localhost:3000) quanto o curl do job de E2E falham sem
+# nenhum erro visível no log — o processo sobe normalmente, só não atende onde se procura.
+ENV HOSTNAME=0.0.0.0
 CMD ["node", "server.js"]
 
 # ---------------------------------------------------------------------------------------

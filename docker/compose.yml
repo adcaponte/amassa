@@ -28,7 +28,11 @@ services:
       # Fuso de Brasília. Existe só aqui — nunca no serviço postgres (ver 02-MODELO-DE-DADOS.md §0).
       TZ: ${TZ}
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:3000/api/health || exit 1"]
+      # 127.0.0.1 e não `localhost`: dentro do contêiner, `localhost` resolve para ::1 (IPv6),
+      # e o servidor do Next escuta em 0.0.0.0 (IPv4). Com `localhost` este teste falha sempre,
+      # o contêiner nunca fica `healthy` e o caddy, que depende dele, herda o problema — tudo
+      # isso sem nenhuma mensagem de erro que aponte para a causa.
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
