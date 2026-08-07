@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 1
 current_phase_name: Fundação e Primeiro Deploy
 status: executing
-stopped_at: Completed 01-06-PLAN.md
-last_updated: "2026-08-06T18:51:40.128Z"
+stopped_at: "Fase 1: planos 01-01 a 01-06 completos e verificados; pipeline verde de ponta a ponta e imagens publicas no GHCR. Falta 01-07 (dono executa os roteiros no VPS)."
+last_updated: "2026-08-07T17:16:46.917Z"
 last_activity: 2026-08-05
 last_activity_desc: ROADMAP.md criado a partir de `amassa-plataforma/03-ROADMAP.md`, mapeando 99/99 requisitos v1 em 7 fases (M0, M1, M2, M4, M3, M5, M7 — M6 excluída por bloqueio de informação)
 progress:
@@ -115,6 +115,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-06T18:51:40.107Z
-Stopped at: Completed 01-06-PLAN.md
-Resume file: None
+Last session: 2026-08-07T17:16:46.884Z
+Stopped at: Fase 1: planos 01-01 a 01-06 completos e verificados; pipeline verde de ponta a ponta e imagens publicas no GHCR. Falta 01-07 (dono executa os roteiros no VPS).
+Resume file: docs/operacao/01-preparar-servidor.md
