@@ -24,6 +24,51 @@ no passo 8, na hora, e nunca aparecem neste documento.
 
 ---
 
+## 0. Ter uma chave SSH na sua máquina
+
+Se você nunca gerou uma chave SSH neste computador, faça agora — o passo 1 depende dela. Para
+saber se já tem, rode no PowerShell:
+
+```powershell
+Get-ChildItem "$env:USERPROFILE\.ssh" -Filter "id_*" -ErrorAction SilentlyContinue
+```
+
+**O que você deve ver:** ou uma listagem com arquivos `id_ed25519` e `id_ed25519.pub` (já tem
+chave, pode pular para o passo 1), ou nada (precisa criar).
+
+Para criar:
+
+```powershell
+ssh-keygen -t ed25519 -C "theo-amassa"
+```
+
+**O que faz:** gera o par de chaves. Ele pergunta onde salvar — aperte Enter para aceitar o
+padrão. Depois pergunta uma "passphrase": você pode deixar em branco (Enter duas vezes) ou
+definir uma senha; se definir, ela será pedida a cada conexão.
+
+**O que você deve ver:** duas linhas confirmando os arquivos criados e um desenho em ASCII.
+Foram gerados dois arquivos:
+
+- `id_ed25519` — a chave **privada**. Nunca sai desta máquina, nunca é colada em lugar nenhum,
+  nunca vai para o GitHub.
+- `id_ed25519.pub` — a chave **pública**. É esta que você copia para o servidor.
+
+Mostre a pública para copiar:
+
+```powershell
+Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub"
+```
+
+**O que você deve ver:** uma única linha começando com `ssh-ed25519` e terminando com o
+comentário que você passou no `-C`. É esse texto inteiro que substitui
+`<SUA_CHAVE_SSH_PUBLICA>` mais adiante.
+
+> A diferença entre os dois arquivos é a única coisa deste roteiro que não tem desfazer: se a
+> chave **privada** vazar, qualquer pessoa com ela entra no servidor como você. Se você não tem
+> certeza de qual é qual, é a que **não** termina em `.pub`.
+
+---
+
 ## 1. Primeira e única entrada como root
 
 > **Isso é feito uma única vez.** A senha de root que a Contabo mandou por e-mail é usada agora,
