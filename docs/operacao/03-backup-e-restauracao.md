@@ -148,8 +148,31 @@ significa que o comando anterior falhou em silêncio; pare e refaça antes de co
 
 ## 3. Aplicar as migrações desta fase
 
-À mão, pelo estágio `ferramentas`, com a saída na tela — a mesma regra do Roteiro 2, passo 3. Como
-você já tem o dump de segurança do passo anterior, pode seguir.
+Antes do comando de migração, puxe a imagem `ferramentas`. O job `implantar` do pipeline roda
+`docker compose pull app` — **só o serviço `app`**. A imagem `ferramentas` nunca é puxada
+automaticamente, e ela é publicada numa tag móvel (`:ferramentas`, sem versão). O
+`docker compose run` usa a cópia local quando a tag já existe, então sem este passo você rodaria a
+imagem da fase anterior.
+
+```bash
+docker compose pull ferramentas
+```
+
+**O que faz:** baixa a versão da imagem `ferramentas` que o pipeline acabou de publicar, com as
+migrações e os scripts desta fase dentro.
+
+**O que você deve ver:** as camadas sendo baixadas e, ao final, `Pulled`. Se aparecer
+`Image is up to date`, a cópia local já era a mais nova — siga normalmente.
+
+> Este `pull` não serve só para o passo 3. Os passos 5 (`criar-usuario`) e 6 (extrair
+> `backup.sh` e `restaurar.sh` de dentro da imagem) usam o mesmo estágio, e com uma imagem
+> velha falhariam de três jeitos diferentes: a migração diria "nada a aplicar" e sairia com
+> código `0` sem ter feito nada; `criar-usuario` reclamaria que o arquivo não existe; e os dois
+> `cat` do passo 6 escreveriam **arquivos de zero byte** em `/opt/amassa/scripts/`, porque o
+> redirecionamento cria o arquivo mesmo quando o `cat` não tem o que ler.
+
+Agora sim, à mão, pelo estágio `ferramentas`, com a saída na tela — a mesma regra do Roteiro 2,
+passo 3. Como você já tem o dump de segurança do passo anterior, pode seguir.
 
 ```bash
 docker compose run --rm ferramentas npm run db:migrate
@@ -318,11 +341,21 @@ docker compose run --rm -T ferramentas cat scripts/restaurar.sh > /opt/amassa/sc
 ```
 
 **O que você deve ver:** nenhuma saída no terminal — o conteúdo foi para os arquivos, não para a
-tela. Confira que chegou inteiro, olhando a primeira linha de cada um:
+tela. Confira que chegou inteiro, olhando o tamanho e a primeira linha de cada um:
 
 ```bash
+ls -l /opt/amassa/scripts/backup.sh /opt/amassa/scripts/restaurar.sh
 head -n 1 /opt/amassa/scripts/backup.sh /opt/amassa/scripts/restaurar.sh
 ```
+
+**O que você deve ver:** `backup.sh` com cerca de 7,8 kB e `restaurar.sh` com cerca de 4,2 kB, e a
+primeira linha de cada um sendo `#!/bin/sh`.
+
+**Se algum vier com `0` byte:** o `cat` não encontrou o arquivo dentro da imagem e o
+redirecionamento criou um arquivo vazio assim mesmo — o `>` cria o arquivo antes de o comando
+rodar, então um `cat` que falha ainda deixa um arquivo de zero byte para trás. Quase sempre
+significa que a imagem `ferramentas` local é de uma fase anterior. Volte ao passo 3, rode
+`docker compose pull ferramentas`, e refaça a extração.
 
 **O que você deve ver:** `#!/bin/sh` no topo dos dois. Se vier qualquer outra coisa (uma mensagem
 do Docker, uma linha em branco), o arquivo veio contaminado — apague e repita o comando de
