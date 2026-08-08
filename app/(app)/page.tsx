@@ -1,10 +1,11 @@
-import { sair } from "@/lib/auth/acoes";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
 // Rota protegida provisória: só existe para provar que uma sessão válida chega até aqui
 // depois do login (critério 6 do ROADMAP). A Fase 2b substitui pelo painel inicial de
-// verdade, com a casca de navegação. `exigirUsuario()` na primeira linha do componente —
-// é o padrão que toda página protegida futura segue.
+// verdade, com a casca de navegação (plano 03). `exigirUsuario()` na primeira linha do
+// componente — é o padrão que toda página protegida futura segue. O botão de sair mudou de
+// endereço (D-15): agora vive no menu do usuário da casca, não mais aqui — deixá-lo nos dois
+// lugares faria getByRole("button", { name: "Sair" }) casar com dois elementos.
 export default async function Painel() {
   const usuario = await exigirUsuario();
 
@@ -14,15 +15,6 @@ export default async function Painel() {
         <h1 className="text-4xl font-semibold">AMASSA</h1>
         <p className="mt-4 text-lg">Olá, {usuario.nome}. Você está autenticado.</p>
       </div>
-
-      <form action={sair}>
-        <button
-          type="submit"
-          className="min-h-[44px] rounded-md border border-[#D8D2CB] bg-white px-6 text-base text-[#1D2221]"
-        >
-          Sair
-        </button>
-      </form>
     </main>
   );
 }
