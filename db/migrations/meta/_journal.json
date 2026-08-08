@@ -29,6 +29,13 @@
       "when": 1786149967672,
       "tag": "0003_papel-amassa-app-e-grants",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786155554052,
+      "tag": "0004_curved_colossus",
+      "breakpoints": true
     }
   ]
 }

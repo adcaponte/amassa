@@ -20,8 +20,8 @@ const BANCO = "amassa_teste";
 
 // Lista exata de tabelas que devem existir no schema público depois das migrações. Cada fase
 // que acrescentar uma tabela de produto atualiza esta constante — é o que impede uma tabela
-// nova de aparecer sem ninguém notar. O plano 06 (execuções de backup) é o próximo a mexer aqui.
-const TABELAS_ESPERADAS = ["verificacao_infraestrutura", "usuarios"];
+// nova de aparecer sem ninguém notar.
+const TABELAS_ESPERADAS = ["verificacao_infraestrutura", "usuarios", "execucoes_backup"];
 
 // docker.exe é executável direto em qualquer plataforma — sem shell.
 function rodarDocker(args, opcoes = {}) {
@@ -126,6 +126,61 @@ async function conferirTabelas(cliente) {
       "Se uma fase acabou de acrescentar uma tabela de produto, atualize a constante " +
       "TABELAS_ESPERADAS no topo deste arquivo.",
   );
+}
+
+// Confere a tabela execucoes_backup (plano 06): as colunas certas, nenhum atualizado_em nem
+// trigger (exceção deliberada de tabela só de inserção), o índice sobre `quando` e o padrão
+// pessimista de destino_externo_ok.
+async function conferirTabelaExecucoesBackup(cliente) {
+  const colunas = await cliente.query(
+    `select column_name from information_schema.columns
+     where table_schema = 'public' and table_name = 'execucoes_backup'`,
+  );
+  const nomes = new Set(colunas.rows.map((linha) => linha.column_name));
+  const esperadas = ["id", "quando", "sucesso", "bytes", "destino_externo_ok", "mensagem"];
+  for (const coluna of esperadas) {
+    afirmar(nomes.has(coluna), `execucoes_backup não tem a coluna esperada "${coluna}".`);
+  }
+  afirmar(
+    !nomes.has("atualizado_em"),
+    "execucoes_backup tem uma coluna atualizado_em — ela é uma tabela só de inserção " +
+      "(cada execução do script de backup escreve uma linha nova) e não deveria ter essa " +
+      "coluna, a mesma exceção que 02-MODELO-DE-DADOS.md §0 abre para movimentacoes_estoque.",
+  );
+
+  const trigger = await cliente.query(
+    "select 1 from pg_trigger where tgrelid = 'execucoes_backup'::regclass and not tgisinternal",
+  );
+  afirmar(
+    trigger.rowCount === 0,
+    "execucoes_backup tem um trigger — ela é uma tabela só de inserção e não deveria ter " +
+      "nenhum trigger de atualizado_em.",
+  );
+
+  const indice = await cliente.query(
+    `select 1 from pg_indexes where schemaname = 'public' and tablename = 'execucoes_backup'
+     and indexname = 'execucoes_backup_quando_idx'`,
+  );
+  afirmar(
+    indice.rowCount === 1,
+    "O índice execucoes_backup_quando_idx não existe — /api/health/backup sempre pede a " +
+      "última linha por quando decrescente, e essa é a única consulta que a tabela recebe.",
+  );
+
+  const inserida = await cliente.query(
+    "insert into execucoes_backup (sucesso) values (true) returning id, destino_externo_ok",
+  );
+  const { id, destino_externo_ok: destinoExternoOk } = inserida.rows[0];
+  try {
+    afirmar(
+      destinoExternoOk === false,
+      "destino_externo_ok deveria sair falso por padrão ao inserir só sucesso (o padrão " +
+        `pessimista é deliberado) — veio ${destinoExternoOk}.`,
+    );
+  } finally {
+    // Registro operacional de teste, não histórico de autoria — apagar aqui é aceitável.
+    await cliente.query("delete from execucoes_backup where id = $1", [id]);
+  }
 }
 
 async function conferirExtensaoEFuncoes(cliente) {
@@ -365,6 +420,7 @@ async function conferirBanco() {
   try {
     await conferirFusoDoBanco(cliente);
     await conferirTabelas(cliente);
+    await conferirTabelaExecucoesBackup(cliente);
     await conferirExtensaoEFuncoes(cliente);
     await conferirTriggerFuncionando(cliente);
     await conferirPapelEPrivilegios(cliente);
