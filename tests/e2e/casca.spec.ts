@@ -249,4 +249,35 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     // botões (avatar/menu do usuário), que não são o que este critério mede.
     await expect(page.locator("main").getByRole("button")).toHaveCount(0);
   });
+
+  test("no celular, o cabeçalho mostra o título da tela atual, não um valor fixo (UI-07)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    // <header> aqui é um descendente só de <div>s (nenhum article/aside/main/nav/section entre
+    // ele e o body), então mantém o papel implícito "banner" — sem precisar de aria-label
+    // próprio para localizá-lo.
+    const cabecalho = page.getByRole("banner");
+
+    // Duas rotas, não uma: o próprio defeito era um valor que por acaso ficava constante
+    // ("AMASSA" fixo). Uma rota só não distingue um título derivado de uma string fixa que
+    // coincide com o esperado.
+    const rotasEtitulos = [
+      { href: "/encomendas", titulo: "Encomendas" },
+      { href: "/queimas", titulo: "Queimas" },
+    ];
+
+    for (const { href, titulo } of rotasEtitulos) {
+      await page.goto(href);
+
+      if (!(await cabecalho.isVisible())) {
+        // No desktop o cabeçalho móvel fica oculto por CSS (md:hidden) — nada a conferir aqui
+        // neste viewport, mesmo princípio do teste de largura da barra lateral acima.
+        return;
+      }
+
+      await expect(cabecalho).toContainText(titulo);
+    }
+  });
 });

@@ -1,9 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { CircleUserRound } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
+import { ehItemAtivo, ITENS_NAVEGACAO } from "@/lib/navegacao/itens";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MenuUsuario } from "@/components/amassa/menu-usuario";
 
@@ -26,7 +28,25 @@ export type CabecalhoMovelProps = {
   className?: string;
 };
 
-export function CabecalhoMovel({ nome, titulo = "AMASSA", className }: CabecalhoMovelProps) {
+// Deriva o título da tela atual a partir do mesmo caminho que a barra inferior usa para
+// decidir o item ativo (ehItemAtivo/ITENS_NAVEGACAO) — uma só fonte de verdade para "em que
+// tela eu estou". Orçamentos fica fora de ITENS_NAVEGACAO de propósito (UI-04, é item do menu
+// do usuário, não da navegação principal), mas ainda precisa de um título aqui; reaproveita
+// ehItemAtivo com o mesmo href da página em vez de inventar uma segunda forma de comparação de
+// rota. Qualquer caminho sem casamento (ex.: /login, antes do redirect) cai no `undefined` e
+// quem chama decide o retrocesso.
+function derivarTituloDaTela(caminho: string): string | undefined {
+  if (ehItemAtivo(caminho, "/orcamentos")) {
+    return "Orçamentos";
+  }
+
+  return ITENS_NAVEGACAO.find((item) => ehItemAtivo(caminho, item.href))?.rotulo;
+}
+
+export function CabecalhoMovel({ nome, titulo, className }: CabecalhoMovelProps) {
+  const pathname = usePathname();
+  const tituloExibido = titulo ?? derivarTituloDaTela(pathname) ?? "AMASSA";
+
   return (
     <header
       className={cn(
@@ -34,7 +54,7 @@ export function CabecalhoMovel({ nome, titulo = "AMASSA", className }: Cabecalho
         className,
       )}
     >
-      <span className="truncate text-titulo text-foreground">{titulo}</span>
+      <span className="truncate text-titulo text-foreground">{tituloExibido}</span>
 
       <Sheet>
         <SheetTrigger asChild>
