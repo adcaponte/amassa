@@ -29,7 +29,7 @@
 - [x] **BKP-04**: `/api/health/backup` só responde `ok` se o último backup tiver menos de 26 horas, e é monitorado externamente
 - [x] **BKP-05**: Um backup pode ser disparado sob demanda antes de qualquer migração
 - [x] **BKP-06**: Um dump do armazenamento externo é restaurado de verdade num Postgres limpo e os dados conferem
-- [ ] **BKP-07**: Existe um documento em português que permite repetir a restauração sozinho num dia ruim
+- [x] **BKP-07**: Existe um documento em português que permite repetir a restauração sozinho num dia ruim
 
 ### Autenticação e Acesso
 
@@ -226,7 +226,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | BKP-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| BKP-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |

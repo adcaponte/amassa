@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: "02a-08: Tarefas 1-2 commitadas. Roteiro 3 passos 1-9 e 12 concluidos em producao: publicado, dump manual, migracoes 0001-0004, DATABASE_URL em amassa_app, primeiro login real (criterios 5 e 6), scripts no host, rclone para o Drive, primeiro backup real nos tres lugares, cron agendado 06:15 UTC, monitor externo cadastrado e ALERTA POR E-MAIL PROVADO (D4 completa), e ENSAIO DE RESTAURACAO PROVADO (D-11/D5: dump do Drive restaurado em Postgres limpo, usuarios 1=1 e verificacao_infraestrutura 1=1). Pendente: re-extrair restaurar.sh corrigido, e passo 11 amanha (primeiro backup automatico do cron). Roteiro corrigido em 7 pontos durante a execucao real; 1 defeito de codigo achado e corrigido (restaurar.sh listava so a primeira tabela)"
-last_updated: "2026-08-08T09:52:00.000Z"
+stopped_at: "02a-08 completo: roteiro 3 executado de ponta a ponta em producao (D1-D5 provadas); verificacao formal de fase pendente pelo orquestrador"
+last_updated: "2026-08-08T14:47:31.354Z"
 last_activity: 2026-08-08
-last_activity_desc: Phase 02a execution started
+last_activity_desc: "02a-08 concluído: roteiro 3 executado de ponta a ponta em produção, SUMMARY.md commitado"
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
-Plan: 8 of 8
-Status: Paused at checkpoint — Tarefa 3 (human-action) aguardando execução do dono no servidor
-Last activity: 2026-08-08 — 02a-08 Tarefas 1-2 commitadas; roteiro docs/operacao/03-backup-e-restauracao.md pronto
+Plan: 8 of 8 (todos os planos executados)
+Status: Ready for verification — 02a-08 completo (roteiro executado em produção, D1-D5 provadas); verificação formal de fase pendente pelo orquestrador
+Last activity: 2026-08-08 — 02a-08 concluído: roteiro 3 executado de ponta a ponta em produção, SUMMARY.md commitado
 
 Progress: [█████████░] 93%
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 93%
 | Phase 02a P05 | 45min | 3 tasks | 11 files |
 | Phase 02a P06 | 55min | 3 tasks | 11 files |
 | Phase 02a P07 | ~100min | 3 tasks | 8 files |
+| Phase 02a P08 | ~4h50min (execucao real) + autoria | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 02a-07: mensagem de registro entra no psql pela entrada padrao (stdin), nunca por -c — psql -c nao substitui variaveis :'nome' nesta versao (17.10)
 - [Phase ?]: 02a-07: .gitattributes novo forcando LF em *.sh — CRLF quebraria os scripts POSIX no servidor Linux independente do core.autocrlf de quem commita
 - [Phase ?]: 02a-07: scripts/testar-backup.mjs descobre o container do Postgres de teste em CI pela imagem (docker ps --filter ancestor=postgres:17-alpine), nao por nome fixo
+- [Phase ?]: 02a-08: teste comprimido do disparo do cron (linha temporaria, poucos minutos a frente) em vez de esperar 24h — descobriu que o daemon do cron nao releu o fuso apos a normalizacao do servidor para UTC, sem nenhuma mensagem de erro em crontab -l/systemctl/journal
+- [Phase ?]: 02a-08: servidor normalizado para Etc/UTC em vez de compensar o fuso de Brasilia dentro da linha do cron; reiniciar o cron apos qualquer mudanca de fuso do sistema, ja que ele so le TZ na inicializacao
+- [Phase ?]: 02a-08: execucoes_backup diverge por construcao entre o banco do ensaio de restauracao e a producao (o backup.sh registra a propria execucao DEPOIS do dump) — so usuarios e verificacao_infraestrutura precisam bater exatamente na conferencia
+- [Phase ?]: 02a-08: bug de callbackUrl vazando https://0.0.0.0:3000 no redirecionamento nao autenticado registrado em WINDOWS.md (id 2) e nao corrigido — fora de files_modified deste plano, causa provavel em lib/auth/auth.config.ts das fases 02a-03/02a-04
 
 ### Pending Todos
 
@@ -134,7 +139,7 @@ None yet.
 - Pré-requisitos de conta (domínio, VPS Contabo, GitHub, armazenamento externo de backup) precisam existir antes de a Fase 1 poder começar de fato.
 - Protecao da branch main (bloquear force-push e exclusao) pendente de configuracao manual pelo dono via GitHub Settings > Branches
 - 01-05 Task 2 parcial: falta cadastrar NEXT_PUBLIC_SITE_URL e DEPLOY_ATIVO no repositorio GitHub, observar a primeira execucao real do workflow e provar o portao com um PR de teste quebrado — requer gh CLI/credenciais que a sessao de execucao nao tinha (ver 01-05-SUMMARY.md User Setup Required)
-- 02a-08 Tarefa 3: roteiro docs/operacao/03-backup-e-restauracao.md escrito e commitado (passos 0-14), mas a execucao real no servidor (passos 0-12) e a restauracao de teste (D-11) dependem do dono - agente nao entra por SSH (D-03) e nao tem credencial do Drive do atelie (D-09)
+- callbackUrl do redirecionamento nao autenticado vaza https://0.0.0.0:3000 em vez do dominio publico (WINDOWS.md id 2, deferred-items.md da fase 02a) — bloqueia /gsd-ship ate resolvido ou dispensado; causa provavel em lib/auth/auth.config.ts/middleware.ts, fora do escopo do plano 02a-08
 
 ## Deferred Items
 
@@ -148,6 +153,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T03:14:36.231Z
-Stopped at: 02a-08: Tarefas 1-2 commitadas (roteiro docs/operacao/03-backup-e-restauracao.md, README.md); Tarefa 3 (checkpoint human-action) aguardando o dono executar os passos 0-12 no servidor
-Resume file: .planning/phases/02a-login-banco-base-e-backup/02a-08-PLAN.md
+Last session: 2026-08-08T14:47:31.334Z
+Stopped at: 02a-08 completo: roteiro 3 executado de ponta a ponta em producao (D1-D5 provadas); verificacao formal de fase pendente pelo orquestrador
+Resume file: None
