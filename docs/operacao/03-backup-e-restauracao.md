@@ -823,6 +823,27 @@ docker exec postgres-ensaio pg_isready -U amassa_owner
 
 **O que você deve ver:** `accepting connections`.
 
+**Crie o papel de aplicação no contêiner temporário, antes de restaurar:**
+
+```bash
+docker exec -i postgres-ensaio psql -U amassa_owner -d amassa_ensaio -c "create role amassa_app login;"
+```
+
+**O que você deve ver:** `CREATE ROLE`.
+
+> **Por que isso é necessário, e o que ele revela.** O dump traz os `GRANT ... TO amassa_app`, mas
+> **não** traz o `CREATE ROLE`: papéis são objetos do *cluster*, não do banco, e o `pg_dump` de um
+> banco só não os inclui. Num Postgres recém-nascido o papel não existe e a restauração para com
+> `ERROR: role "amassa_app" does not exist`.
+>
+> Quem cria o papel é a migração `0003`. Este comando faz exatamente o mesmo que o bloco
+> condicional dela — é por isso que a produção restaura sem esse passo: lá o papel já existe desde
+> que as migrações rodaram.
+>
+> A lição vale para além do ensaio: **num servidor reconstruído do zero, aplique as migrações
+> antes de restaurar**. As migrações estão versionadas no git e são a fonte da verdade do schema e
+> dos papéis; o dump é a fonte da verdade dos dados. Ver o passo 13, movimento 4.
+
 Primeiro, **sem** confirmação, só para ver o que o script diria que faria — aponte
 `PG_CLIENT_CMD` para o contêiner temporário, não para o de produção:
 
@@ -924,6 +945,20 @@ gzip -t <ARQUIVO_MAIS_RECENTE> && echo "arquivo íntegro"
 baixe de novo, ou tente o dump do dia anterior a esse.
 
 **4. Restaure sobre o banco de produção, com a confirmação:**
+
+> **Se este for um servidor reconstruído do zero** (cluster Postgres novo, e não apenas um banco
+> que perdeu os dados), **aplique as migrações antes de restaurar**:
+>
+> ```bash
+> docker compose pull ferramentas && docker compose run --rm ferramentas npm run db:migrate
+> ```
+>
+> Sem isso a restauração para com `ERROR: role "amassa_app" does not exist`: o dump traz os
+> `GRANT` mas não o `CREATE ROLE`, porque papéis são objetos do cluster e não do banco. Quem cria
+> o papel é a migração `0003`. Restaurar em seguida é seguro — o `--clean --if-exists` do dump
+> descarta e recria as tabelas que as migrações acabaram de criar, e os dados vêm do dump.
+>
+> Num servidor que já estava rodando, pule este aviso: o papel existe desde as migrações originais.
 
 ```bash
 /opt/amassa/scripts/restaurar.sh --arquivo /opt/amassa/restauracao-emergencia/<ARQUIVO_MAIS_RECENTE> --banco amassa --confirmar
