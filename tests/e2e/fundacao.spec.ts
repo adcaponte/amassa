@@ -27,7 +27,10 @@ test.describe("fundação", () => {
     await page.getByRole("button", { name: "Entrar" }).click();
 
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    // A raiz virou o painel inicial (D-16, 02b-03): a saudação ao usuário substitui o antigo
+    // heading "AMASSA. Você está autenticado." A prova pública de INFRA-02 (heading "AMASSA")
+    // continua só em /login, no caso "sem sessao" acima — não muda.
+    await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
   });
 
   test("/api/health responde 200 com o banco em ordem", async ({ request }) => {

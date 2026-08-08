@@ -65,7 +65,8 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
     // O acerto zera o contador daquele e-mail — provado indiretamente aqui pelo login
     // funcionar mesmo depois do erro anterior.
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    // A raiz virou o painel inicial (D-16, 02b-03) — a saudação substitui o heading "AMASSA".
+    await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
   });
 
   test("a sexta tentativa seguida no mesmo e-mail mostra a mensagem de bloqueio com os minutos", async ({

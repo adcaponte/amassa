@@ -100,14 +100,16 @@ test.describe("sessão", () => {
     await novaPagina.goto("/");
 
     await expect(novaPagina).toHaveURL(/\/$/);
-    await expect(novaPagina.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    // A raiz virou o painel inicial (D-16, 02b-03) — a saudação substitui o antigo heading
+    // "AMASSA" da rota provisória.
+    await expect(novaPagina.getByRole("heading", { name: /^Olá, / })).toBeVisible();
 
     await novoContexto.close();
   });
 
   test("depois de sair o botao de voltar cai em /login", async ({ page }) => {
     await fazerLogin(page);
-    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
 
     await abrirMenuDoUsuario(page);
     await page.getByRole("button", { name: "Sair" }).click();
@@ -115,11 +117,13 @@ test.describe("sessão", () => {
 
     // O caso que o cabeçalho Cache-Control: no-store da Tarefa 1 existe para fazer passar:
     // sem ele, o navegador serve a tela protegida do próprio cache (bfcache) em vez de pedir
-    // de novo ao servidor — e o servidor, sem sessão, teria redirecionado.
+    // de novo ao servidor — e o servidor, sem sessão, teria redirecionado. O rótulo "SEU DIA
+    // HOJE" é conteúdo exclusivo do painel real (02b-03); se o bfcache servisse a tela
+    // protegida do cache, ele apareceria aqui.
     await page.goBack();
 
     await expect(page).toHaveURL(/\/login(\?|$)/);
-    await expect(page.getByText(/Olá, .* Você está autenticado\./)).not.toBeVisible();
+    await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
   });
 
   test("conta desativada perde o acesso na requisicao seguinte e a linha continua no banco", async ({
@@ -146,7 +150,7 @@ test.describe("sessão", () => {
     await page.getByLabel("Senha").fill(senha);
     await page.getByRole("button", { name: "Entrar" }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
 
     await alternarAtivo(email, false);
 
