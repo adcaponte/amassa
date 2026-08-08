@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 2b
 current_phase_name: Design System e Casca da Aplicação
 status: executing
-stopped_at: Completed 02b-01-PLAN.md
-last_updated: "2026-08-08T17:22:26.149Z"
+stopped_at: Completed 02b-02-PLAN.md
+last_updated: "2026-08-08T17:56:11.179Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 2b execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 20
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 2b (Design System e Casca da Aplicação) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 2b execution started
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Progress: [████████░░] 80%
 | Phase 02a P07 | ~100min | 3 tasks | 8 files |
 | Phase 02a P08 | ~4h50min (execucao real) + autoria | 3 tasks | 8 files |
 | Phase 02b P01 | ~55min | 3 tasks | 12 files |
+| Phase 02b P02 | ~2h | 4 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02b-01: registro do shadcn resolve radix-ui (pacote unificado) no lugar de @radix-ui/react-slot, e lucide-react numa linha 1.x — nao e artefato de versao da CLI, e o registro do lado do servidor; aprovado apos novo portao de legitimidade com lucide-react fixado em 1.28.0 (nao 1.30.0, por higiene de cadeia de suprimentos)
 - [Phase ?]: 02b-01: @theme do Tailwind v4 resolve no escopo :root — variavel de fonte do next/font/google declarada so no <body> nao e enxergada la; as classes .variable precisam ir no <html>. Achado no portao de retorno do tracer via getComputedStyle, nao por lint/tsc/build
 - [Phase ?]: 02b-01: next/font/google com a opcao variable produz o nome legivel da familia (Archivo Narrow, com espaco), nao o nome com hash (__Archivo_Narrow_hash) — este ultimo so aparece no padrao de uso via .className direto. Testes futuros de font-family devem usar o nome medido
+- [Phase ?]: 02b-02: shadcn CLI mantida em 3.8.5 (nao @latest), repetindo a 02b-01, por consistencia com components.json (radix-nova) e button.tsx ja commitados
+- [Phase ?]: 02b-02: zero pacote npm novo na instalacao de card/sidebar/sheet/skeleton/dropdown-menu/separator — os quatro primitivos Radix necessarios ja vinham vendidos por radix-ui@1.6.7 aprovado na 02b-01, confirmado por diff vazio de package.json/package-lock.json
+- [Phase ?]: 02b-02: DropdownMenuItem do Radix com asChild aplica role=menuitem no elemento raiz e nao submete <form> aninhado de verdade — quando role=button precisa ser preservado, o alvo do asChild e um <div> neutro com o <button real dentro chamando a Server Action direto no onClick
 
 ### Pending Todos
 
@@ -159,6 +163,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T17:22:26.115Z
-Stopped at: Completed 02b-01-PLAN.md
+Last session: 2026-08-08T17:56:01.490Z
+Stopped at: Completed 02b-02-PLAN.md
 Resume file: None

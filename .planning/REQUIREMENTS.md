@@ -47,10 +47,10 @@
 ### Casca e Design System
 
 - [x] **UI-01**: As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
-- [ ] **UI-02**: No celular, a barra inferior tem 5 itens (Início, Encomendas, Agenda, Queimas, Estoque), cada um abrindo a sua tela
-- [ ] **UI-03**: No desktop, a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé
-- [ ] **UI-04**: Orçamentos aparece no menu do usuário, não na navegação principal
-- [ ] **UI-05**: A navegação funciona confortavelmente com o polegar, no celular
+- [x] **UI-02**: No celular, a barra inferior tem 5 itens (Início, Encomendas, Agenda, Queimas, Estoque), cada um abrindo a sua tela
+- [x] **UI-03**: No desktop, a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé
+- [x] **UI-04**: Orçamentos aparece no menu do usuário, não na navegação principal
+- [x] **UI-05**: A navegação funciona confortavelmente com o polegar, no celular
 - [ ] **UI-06**: Nenhuma tela exige rolagem horizontal no celular
 - [ ] **UI-07**: Toda tela tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto, e estado de erro em linguagem humana
 - [ ] **UI-08**: Toda remoção pede confirmação nomeando o que será perdido
@@ -228,10 +228,10 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | BKP-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| UI-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| UI-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| UI-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| UI-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
+| UI-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
+| UI-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
+| UI-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
