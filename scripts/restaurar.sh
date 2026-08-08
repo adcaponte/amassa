@@ -80,7 +80,13 @@ mostrar_contagens() {
   fi
   echo "$tabelas" | while IFS= read -r tabela; do
     [ -n "$tabela" ] || continue
-    quantidade="$($PG_CLIENT_CMD -U "$POSTGRES_USER" -d "$BANCO" -t -A -c "select count(*) from \"$tabela\";")"
+    # `< /dev/null` é obrigatório, não estilo. $PG_CLIENT_CMD é um `docker compose exec`/`docker
+    # exec`, e o cliente do Docker lê o stdin mesmo com -T. Dentro deste laço o stdin é a lista de
+    # tabelas ainda não consumida: sem o redirecionamento, a primeira volta engole o resto e o
+    # laço termina depois de UMA tabela. O sintoma é silencioso e perigoso — o aviso "será
+    # perdido" mostraria só a primeira tabela do banco, escondendo tudo o mais que a restauração
+    # vai substituir, que é justamente o que este aviso existe para impedir.
+    quantidade="$($PG_CLIENT_CMD -U "$POSTGRES_USER" -d "$BANCO" -t -A -c "select count(*) from \"$tabela\";" < /dev/null)"
     printf '  %-40s %s linha(s)\n' "$tabela" "$quantidade"
   done
 }
