@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: Completou 02a-04-PLAN.md (ciclo de vida da sessao e exigirUsuario())
-last_updated: "2026-08-08T02:02:38.656Z"
+stopped_at: Completou 02a-05-PLAN.md (operacoes de conta restantes e portao de maquina do exigirUsuario())
+last_updated: "2026-08-08T02:14:58.929Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 02a execution started
 
-Progress: [███████░░░] 73%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -68,6 +68,7 @@ Progress: [███████░░░] 73%
 | Phase 02a P02 | 50min | 3 tasks | 11 files |
 | Phase 02a P03 | 31min | 3 tasks | 11 files |
 | Phase 02a P04 | 38min | 3 tasks | 10 files |
+| Phase 02a P05 | 45min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02a-04: cookies.sessionToken.options.secure=true estatico em auth.config.ts funciona em http://localhost porque o Chrome trata localhost como contexto seguro (aceita cookies Secure sem TLS)
 - [Phase ?]: 02a-04: auth.ts e importado de forma dinamica dentro de exigirUsuario() (nao no topo do arquivo) para manter avaliarAutorizacao() testavel no Vitest sem herdar a resolucao de next/server que so o bundler do Next.js resolve
 - [Phase ?]: 02a-04: testes e2e que MUTAM estado compartilhado (ativo de um usuario) usam conta dedicada criada na hora, exclusiva por projeto Playwright — reaproveitar a conta global de login so e seguro para leitura
+- [Phase ?]: 02a-05: verificar-acoes.mjs decide por arvore sintatica do compilador do TypeScript (nunca regex) se uma acao de servidor toca o banco sem exigirUsuario() na primeira instrucao
+- [Phase ?]: 02a-05: verificar-acoes.mjs aceita arquivo ou diretorio no mesmo argumento de linha de comando, permitindo o teste unitario apontar fixtures individuais sem subpasta so de aprovados
+- [Phase ?]: 02a-05: scripts/testar-migracoes.mjs roda redefinir-senha e desativar-usuario como processo filho de verdade (nao reimplementa a logica) para provar o comando que a pessoa vai digitar
 
 ### Pending Todos
 
@@ -133,6 +137,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T02:02:38.620Z
-Stopped at: Completou 02a-04-PLAN.md (ciclo de vida da sessao e exigirUsuario())
+Last session: 2026-08-08T02:14:58.895Z
+Stopped at: Completou 02a-05-PLAN.md (operacoes de conta restantes e portao de maquina do exigirUsuario())
 Resume file: None

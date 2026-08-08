@@ -40,9 +40,9 @@
 - [x] **AUTH-05**: A sessão persiste por 30 dias ao fechar e reabrir o navegador
 - [x] **AUTH-06**: Sair encerra a sessão de verdade — voltar no histórico não devolve o acesso
 - [x] **AUTH-07**: Criar um usuário por linha de comando no servidor funciona e imprime uma senha forte uma única vez
-- [ ] **AUTH-08**: Redefinir a senha de um usuário por linha de comando funciona
+- [x] **AUTH-08**: Redefinir a senha de um usuário por linha de comando funciona
 - [x] **AUTH-09**: Desativar um usuário (`ativo = false`) tira o acesso dele sem apagar o histórico de autoria
-- [ ] **AUTH-10**: Nenhuma Server Action toca o banco sem passar por `exigirUsuario()` na primeira linha
+- [x] **AUTH-10**: Nenhuma Server Action toca o banco sem passar por `exigirUsuario()` na primeira linha
 
 ### Casca e Design System
 
@@ -217,9 +217,9 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | AUTH-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | AUTH-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | AUTH-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| AUTH-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | AUTH-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| AUTH-10 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| AUTH-10 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | BKP-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | BKP-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
