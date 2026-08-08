@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: "02a-08: Tarefas 1-2 commitadas (roteiro docs/operacao/03-backup-e-restauracao.md, README.md); Tarefa 3 (checkpoint human-action) aguardando o dono executar os passos 0-12 no servidor"
-last_updated: "2026-08-08T03:14:41.751Z"
+stopped_at: "02a-08: Tarefas 1-2 commitadas; passo 1 do roteiro 3 concluido (43 commits enviados, pipeline verde, / redireciona para /login e /login responde 200 em producao). Tarefa 3 (checkpoint human-action) aguardando o dono nos passos 2-12 no servidor"
+last_updated: "2026-08-08T09:52:00.000Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
