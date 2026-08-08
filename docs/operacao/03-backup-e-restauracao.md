@@ -616,6 +616,26 @@ não tem nenhum. Normalizar troca um erro sazonal silencioso por uma conta que n
 Isso também alinha o servidor com a arquitetura do projeto, que já mantém `TZ` só no serviço da
 aplicação e nunca no Postgres — infraestrutura em UTC, aplicação convertendo.
 
+**Se você mudou o fuso agora, reinicie o `cron` antes de agendar qualquer coisa:**
+
+```bash
+sudo systemctl restart cron
+```
+
+**O que faz:** faz o daemon reler o fuso do sistema.
+
+> **Isto não é zelo, é obrigatório.** O `cron` lê o fuso **uma vez, quando inicia**. Um daemon que
+> já estava rodando continua usando o fuso antigo indefinidamente, mesmo depois do
+> `timedatectl set-timezone`. Confira o PID no registro (`journalctl -u cron`): se for um número
+> baixo, ele subiu no boot e nunca viu a mudança.
+>
+> O sintoma é cruel: `crontab -l` mostra a linha perfeita, `systemctl is-active cron` diz
+> `active`, o registro mostra `RELOAD (crontabs/<usuario>)` normalmente — e o job simplesmente
+> nunca dispara, sem uma única mensagem de erro. O `cron` está executando no horário que você
+> pediu; só que na noção de tempo antiga dele, que não é a sua.
+>
+> Confirme depois com `date -u` e o teste do passo 9.1 abaixo — não confie no `crontab -l`.
+
 > O nome do arquivo de backup continua saindo em horário de Brasília mesmo com o host em UTC,
 > porque `scripts/backup.sh` carrega o `TZ` do `/opt/amassa/.env`. É o comportamento certo: quem
 > lê o nome do arquivo num dia ruim pensa no horário de Goiânia, não em UTC.
@@ -654,6 +674,76 @@ crontab -l
 
 **O que você deve ver:** a linha exata que você acrescentou, e nenhuma outra relacionada ao
 backup.
+
+---
+
+## 9.1. Provar que o `cron` dispara de verdade — sem esperar até amanhã
+
+`crontab -l` mostra o que você **pediu**, não o que vai acontecer. O agendamento é o único elo
+desta cadeia que não foi provado por nenhum passo anterior: o `backup.sh` já rodou à mão no passo
+8, mas "o comando funciona" e "o agendador executa o comando sozinho" são coisas diferentes.
+
+Não espere 24 horas para descobrir. Force um disparo daqui a poucos minutos.
+
+Veja a hora e a contagem atual de execuções:
+
+```bash
+date -u
+docker compose -f /opt/amassa/compose.yml exec -T postgres psql -U amassa_owner -d amassa -t -A -c "select count(*) from execucoes_backup;"
+```
+
+Acrescente uma **segunda** linha temporária, sem tocar na de produção:
+
+```bash
+crontab -e
+```
+
+```cron
+MM HH * * * /opt/amassa/scripts/backup.sh >> /var/log/amassa-backup.log 2>&1
+```
+
+Troque `MM` pelo **minuto** e `HH` pela **hora** — nessa ordem, que é a do `cron` e é o inverso de
+como se lê um relógio. Para disparar às 14:30, escreva `30 14`, nunca `14 30`. Escolha 4 ou 5
+minutos à frente do que o `date -u` mostrou.
+
+Deixar a linha de produção intocada é de propósito: se o teste der errado, o agendamento real não
+foi mexido.
+
+Espere o minuto passar e confira:
+
+```bash
+docker compose -f /opt/amassa/compose.yml exec -T postgres psql -U amassa_owner -d amassa -c "select quando, sucesso, destino_externo_ok from execucoes_backup order by quando desc limit 3;"
+```
+
+**O que você deve ver:** uma linha a mais que a contagem inicial, com o horário do disparo,
+`sucesso = t` e `destino_externo_ok = t`. Essa é a prova — o arquivo do dia já existia desde o
+passo 8 e seria apenas sobrescrito, então é a linha nova no banco que distingue "rodou sozinho" de
+"rodou porque eu mandei".
+
+**Se não aparecer linha nova**, investigue nesta ordem:
+
+```bash
+sudo journalctl -u cron --since "30 min ago" --no-pager | grep -i "$(whoami)"
+```
+
+- **Nenhuma linha `CMD` sua, só `RELOAD`:** o `cron` leu o arquivo mas não executou. A causa mais
+  provável é o fuso em cache — volte ao começo do passo 9 e rode `sudo systemctl restart cron`.
+- **Há uma linha `CMD` sua e mesmo assim nada foi registrado:** o `cron` executou e o comando
+  falhou antes do script. Confira se você consegue escrever no log
+  (`touch /var/log/amassa-backup.log`) e se `docker` e `rclone` estão em `/usr/bin` ou `/bin`
+  (`which docker rclone`), que é o `PATH` mínimo do `cron`.
+
+Apague a linha temporária quando terminar:
+
+```bash
+crontab -e
+crontab -l
+```
+
+**O que você deve ver:** só a linha de produção. Se a temporária ficar, o backup roda duas vezes
+por dia — não quebra nada, mas é sujeira que confunde quem for ler isso daqui a seis meses.
+
+---
 
 No dia seguinte, confira se rodou olhando o log:
 
