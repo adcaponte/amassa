@@ -46,7 +46,7 @@
 
 ### Casca e Design System
 
-- [ ] **UI-01**: As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
+- [x] **UI-01**: As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
 - [ ] **UI-02**: No celular, a barra inferior tem 5 itens (Início, Encomendas, Agenda, Queimas, Estoque), cada um abrindo a sua tela
 - [ ] **UI-03**: No desktop, a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé
 - [ ] **UI-04**: Orçamentos aparece no menu do usuário, não na navegação principal
@@ -54,7 +54,7 @@
 - [ ] **UI-06**: Nenhuma tela exige rolagem horizontal no celular
 - [ ] **UI-07**: Toda tela tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto, e estado de erro em linguagem humana
 - [ ] **UI-08**: Toda remoção pede confirmação nomeando o que será perdido
-- [ ] **UI-09**: Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`
+- [x] **UI-09**: Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`
 - [ ] **UI-10**: Nenhum erro aparece no console do navegador em uso normal
 - [ ] **UI-11**: O sistema carrega em menos de 3 segundos em 4G
 
@@ -227,7 +227,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | BKP-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| UI-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
@@ -235,7 +235,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | UI-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| UI-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | ENC-01 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-02 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-03 | Phase 3 — Gestor de Encomendas | Pending |
