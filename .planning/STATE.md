@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: "Completou 02a-02-PLAN.md (base comum do banco, papel amassa_app, test:migracoes)"
-last_updated: "2026-08-08T00:56:14.488Z"
+stopped_at: Completou 02a-03-PLAN.md (mensagem unica e limite de tentativas de login)
+last_updated: "2026-08-08T01:39:00.216Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 02a execution started
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [██████░░░░] 60%
 | Phase 01-funda-o-e-primeiro-deploy P06 | 35min | 2 tasks | 3 files |
 | Phase 02a P01 | 32min | 3 tasks | 23 files |
 | Phase 02a P02 | 50min | 3 tasks | 11 files |
+| Phase 02a P03 | 31min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02a-02: amassa_app nasce sem senha na migracao (login sem password) — o metodo de autenticacao da imagem exige senha para conexao por rede, entao nao ha janela de acesso entre a migracao e a definicao da senha no servidor (roteiro do plano 08)
 - [Phase ?]: 02a-02: grant connect usa current_database() dinamico via bloco do $$ ... execute format(...) $$, nao o nome literal 'amassa' — a mesma migracao vale tambem contra o banco de teste efemero (amassa_teste)
 - [Phase ?]: 02a-02: scripts/testar-migracoes.mjs calcula a data de Brasilia com Intl.DateTimeFormat nativo do Node, sem instalar date-fns-tz so para a conferencia de teste
+- [Phase ?]: 02a-03: ErroBloqueado (subclasse de CredentialsSignin) carrega segundosParaLiberar intacto ate lib/auth/acoes.ts sem serializacao, confirmado nas fontes de @auth/core
+- [Phase ?]: 02a-03: avaliarCredenciais compara contra usuario.senhaHash quando o usuario existe (mesmo desativado) e contra um hashDeReferencia gerado no boot so quando nao existe, igualando o tempo de resposta
+- [Phase ?]: 02a-03: tests/e2e/autenticacao.spec.ts roda em modo serial (test.describe.configure) para eliminar contencao de recursos entre os quatro testes e a corrida teorica sobre a conta compartilhada
 
 ### Pending Todos
 
@@ -124,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T00:56:14.449Z
-Stopped at: Completou 02a-02-PLAN.md (base comum do banco, papel amassa_app, test:migracoes)
+Last session: 2026-08-08T01:39:00.186Z
+Stopped at: Completou 02a-03-PLAN.md (mensagem unica e limite de tentativas de login)
 Resume file: None
