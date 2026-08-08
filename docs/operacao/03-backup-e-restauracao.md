@@ -423,7 +423,31 @@ rclone config
 
 Siga o assistente: escolha `n` (novo destino), dê um nome curto para ele — este roteiro usa
 `amassa-backup` como exemplo, e é o mesmo nome usado em `RCLONE_REMOTE` mais adiante — e escolha o
-tipo `drive` quando ele listar os provedores disponíveis.
+tipo `drive` quando ele listar os provedores disponíveis. **Digite a palavra `drive`, não o
+número** da lista: a numeração muda de versão para versão do `rclone`.
+
+Logo depois ele pede `client_id` e `client_secret`. **Deixe os dois em branco — só Enter.**
+
+> Esses dois campos não são de preenchimento livre, e é fácil errar aqui porque o assistente não
+> explica o que são. São credenciais que o **Google** emite quando você registra uma aplicação no
+> Google Cloud Console: um `client_id` real termina em `.apps.googleusercontent.com` e um
+> `client_secret` real começa com `GOCSPX-`. Inventar valores faz a autorização falhar depois com
+> `invalid_client`, longe da causa.
+>
+> **Nunca digite uma senha sua nesses campos.** O que você escreve aqui vai, em texto claro, para
+> dentro do `config_token` que o `rclone` imprime mais adiante — aquilo é base64, não
+> criptografia, e qualquer pessoa que veja a string lê o conteúdo. Se acontecer, troque a senha.
+>
+> Em branco, o `rclone` usa o `client_id` compartilhado dele. O próprio assistente avisa que esse
+> id está sendo aposentado ao longo de 2026 e recomenda criar o seu
+> ([como fazer](https://rclone.org/drive/#making-your-own-client-id)). Aceitamos o risco
+> conscientemente: se o id compartilhado parar, o backup para de rodar, `/api/health/backup`
+> passa a responder erro em até 26 horas e o monitor externo do passo 10 avisa. É exatamente o
+> cenário para o qual o vigia foi construído. Criar o próprio `client_id` continua sendo a
+> correção durável, para quando incomodar.
+
+Nas perguntas seguintes: `scope` → `1` (acesso completo), `service_account_file` → Enter (vazio),
+`Edit advanced config?` → `n`.
 
 Em algum ponto ele pergunta se pode **abrir um navegador automaticamente para autorizar**.
 Responda **`n`** — o VPS não tem navegador, e dizer `y` aqui trava esperando uma janela que nunca
