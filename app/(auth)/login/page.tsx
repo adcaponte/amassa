@@ -1,16 +1,34 @@
 import { FRASE_NO_AR } from "@/app/frase-no-ar";
+import { MENSAGEM_CREDENCIAIS_INVALIDAS } from "@/lib/auth/credenciais";
+import { entrar } from "@/lib/auth/acoes";
 
-import { entrar } from "./acoes";
+import { BotaoEntrar } from "./botao-entrar";
 
 // Tela mínima, sem componente de biblioteca (D-03 do 02a-CONTEXT.md — o design system é da
 // Fase 2b). A frase e o nome AMASSA continuam visíveis sem sessão aqui, já que a raiz deixou
 // de ser pública (prova pública do critério INFRA-02 da Fase 1).
+function mensagemDeErro(erro: string | undefined, minutos: string | undefined): string | null {
+  if (erro === "bloqueado") {
+    // Mensagem distinta da de credenciais inválidas — bloqueio não é senha errada, e esconder
+    // o bloqueio faria a pessoa certa achar que esqueceu a própria senha (T-02a-12).
+    const quantidade = minutos ?? "alguns";
+    return `Muitas tentativas com este e-mail. Tente novamente em ${quantidade} minuto(s).`;
+  }
+  if (erro === "credenciais") {
+    // Mesma constante usada em lib/auth/credenciais.ts — senha errada e e-mail sem conta
+    // mostram exatamente o mesmo texto (T-02a-13).
+    return MENSAGEM_CREDENCIAIS_INVALIDAS;
+  }
+  return null;
+}
+
 export default async function PaginaLogin({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; minutos?: string }>;
 }) {
-  const { erro } = await searchParams;
+  const { erro, minutos } = await searchParams;
+  const mensagem = mensagemDeErro(erro, minutos);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#F6F3F0] px-6 text-center text-[#1D2221]">
@@ -40,20 +58,13 @@ export default async function PaginaLogin({
           />
         </label>
 
-        {erro && (
-          <p role="alert" className="text-sm text-red-700">
-            {/* Texto provisório — a mensagem definitiva e a regra de mensagem única são do
-            plano 03. */}
-            E-mail ou senha inválidos.
+        {mensagem && (
+          <p role="alert" aria-live="assertive" className="text-sm text-red-700">
+            {mensagem}
           </p>
         )}
 
-        <button
-          type="submit"
-          className="min-h-[44px] rounded-md bg-[#1D2221] px-4 text-base font-medium text-white"
-        >
-          Entrar
-        </button>
+        <BotaoEntrar />
       </form>
     </main>
   );
