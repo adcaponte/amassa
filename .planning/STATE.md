@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: "02a-08: Tarefas 1-2 commitadas; passo 1 do roteiro 3 concluido (43 commits enviados, pipeline verde, / redireciona para /login e /login responde 200 em producao). Tarefa 3 (checkpoint human-action) aguardando o dono nos passos 2-12 no servidor"
+stopped_at: "02a-08: Tarefas 1-2 commitadas. Roteiro 3 passos 1-5 concluidos em producao: publicado, dump manual, migracoes 0001-0004 aplicadas (3 tabelas), DATABASE_URL virada para amassa_app (/api/health ok), e primeiro login real provado no navegador (criterios 5 e 6 do ROADMAP). Tarefa 3 (checkpoint human-action) aguardando o dono nos passos 6-12"
 last_updated: "2026-08-08T09:52:00.000Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
