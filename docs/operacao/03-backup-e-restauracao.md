@@ -392,13 +392,28 @@ consegue entrar nessa pasta.
 
 ## 7. Configurar o envio externo
 
-Instale o `rclone` no servidor:
+Instale o `rclone` no servidor. Autentique o `sudo` **antes**, num comando separado:
 
 ```bash
-curl https://rclone.org/install.sh | sudo bash
+sudo -v
 ```
 
+**O que faz:** pede sua senha de `sudo` agora, sozinho, e a guarda por alguns minutos. Sem isso, o
+pedido de senha aparece no meio da barra de progresso do `curl` e as duas saídas se sobrescrevem —
+o resultado é uma linha embaralhada como `--:--:-- 0[sudo] p100 4734` e um terminal que parece
+travado quando na verdade está esperando você digitar.
+
+```bash
+curl -fsSL https://rclone.org/install.sh | sudo bash
+```
+
+**O que faz:** baixa e executa o instalador oficial do `rclone`. O `-fsSL` silencia a barra de
+progresso, pela mesma razão acima.
+
 **O que você deve ver:** a instalação termina com uma mensagem confirmando a versão instalada.
+
+> Se mesmo assim o terminal parecer parado logo após o comando, quase sempre é o `sudo`
+> aguardando a senha — digite e aperte Enter. A senha não aparece enquanto você digita.
 
 Configure o destino:
 
