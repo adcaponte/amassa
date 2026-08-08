@@ -102,10 +102,11 @@ automático via `cron` do host).
   7. O backup de ontem existe no servidor e também no armazenamento externo
   8. `/api/health/backup` responde `ok` quando o último backup tem menos de 26 horas, e falha quando não tem
 
-**Plans**: 8 plans
+**Plans**: 1/8 plans executed
 
 Plans:
-- [ ] 02a-01-PLAN.md — Tracer: da migração ao login que abre uma rota protegida (onda 1)
+
+- [x] 02a-01-PLAN.md — Tracer: da migração ao login que abre uma rota protegida (onda 1)
 - [ ] 02a-02-PLAN.md — Base comum do banco e os dois papéis de banco (onda 2)
 - [ ] 02a-03-PLAN.md — Proteções de login: mensagem única, hash sempre, limite de tentativas (onda 2)
 - [ ] 02a-04-PLAN.md — Sessão de 30 dias, sair de verdade e `exigirUsuario()` (onda 3)

@@ -332,3 +332,8 @@ são de um plano posterior desta mesma fase.)
 ---
 *Phase: 02a-login-banco-base-e-backup*
 *Completed: 2026-08-08*
+
+## Self-Check: PASSED
+
+Todos os 15 arquivos listados em `key-files` + este SUMMARY confirmados com `[ -f ... ]`, e
+os 3 hashes citados (`f9b1f2f`, `7566bf9`, `eca2a0a`) confirmados em `git log --oneline --all`.

@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Login, Banco Base e Casca da Aplicação
-status: planning
-stopped_at: Fase 2 contexto capturado; decidida a divisao em 2a (auth+backup) e 2b (design system+casca) — ROADMAP ainda precisa ser dividido
-last_updated: "2026-08-07T23:17:32.133Z"
+current_phase: 02a
+current_phase_name: login-banco-base-e-backup
+status: executing
+stopped_at: Completou 02a-01-PLAN.md (tracer de login + divisao de borda)
+last_updated: "2026-08-08T00:41:12.053Z"
 last_activity: 2026-08-08
-last_activity_desc: Phase 1 complete, transitioned to Phase 2
+last_activity_desc: Phase 02a execution started
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 15
+  completed_plans: 8
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 1 — Fundação e Primeiro Deploy
+**Current focus:** Phase 02a — login-banco-base-e-backup
 
 ## Current Position
 
-Phase: 2 of 7 (Login, Banco Base e Casca da Aplicação)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-08 — Phase 1 complete, transitioned to Phase 2
+Phase: 02a (login-banco-base-e-backup) — EXECUTING
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-08-08 — Phase 02a execution started
 
-Progress: [█████████░] 86%
+Progress: [█████░░░░░] 53%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 86%
 | Phase 01 P04 | 45min | 2 tasks | 7 files |
 | Phase 01 P05 | ~50min | 2 tasks | 3 files |
 | Phase 01-funda-o-e-primeiro-deploy P06 | 35min | 2 tasks | 3 files |
+| Phase 02a P01 | 32min | 3 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,10 @@ Recent decisions affecting current work:
 - [Phase ?]: Deploy por SSH sem action de terceiro — cliente ssh nativo do runner, para respeitar a mitigacao do threat model (so actions oficiais do GitHub/Docker)
 - [Phase ?]: POSTGRES_USER=amassa_owner e POSTGRES_DB=amassa fixados como convenção nos roteiros de servidor (não são segredo), permitindo que o Roteiro 2 referencie esses nomes diretamente
 - [Phase ?]: Linha de prova gravada na tabela verificacao_infraestrutura durante a migração do Roteiro 2, reconferida depois do reinício do VPS, como prova concreta de dados intactos (INFRA-05)
+- [Phase ?]: 02a-01: next-auth fixado em 5.0.0-beta.32 (maior 5.x publicada; a tag latest do npm ainda aponta para a linha 4.x) — aprovado no portao de legitimidade de pacote
+- [Phase ?]: 02a-01: @node-rs/argon2 fixado em 2.0.2 apesar de ~20 meses sem publicacao — avaliado e aceito pelo dono (ligacao nativa fina e estavel sobre a crate Rust argon2, monorepo napi-rs/node-rs ainda ativo)
+- [Phase ?]: 02a-01: playwright.config.ts usa baseURL http://localhost:3000, nao 127.0.0.1 — o NextURL do Next.js normaliza qualquer host 127.x.x.x para 'localhost' ao montar URLs, o que trocaria a origem no meio do redirect de login e descartaria o cookie de sessao
+- [Phase ?]: 02a-01: divisao de borda do Auth.js (auth.config.ts sem argon2/banco/authorize x auth.ts com tudo isso) provada por teste de grafo de modulos, nao so por inspecao — tests/unit/auth-borda.test.ts falha se a divisao for desfeita
 
 ### Pending Todos
 
@@ -115,6 +120,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-07T23:17:32.112Z
-Stopped at: Fase 2 contexto capturado; decidida a divisao em 2a (auth+backup) e 2b (design system+casca) — ROADMAP ainda precisa ser dividido
-Resume file: .planning/phases/02-login-banco-base-e-casca-da-aplica-o/02-CONTEXT.md
+Last session: 2026-08-08T00:41:12.021Z
+Stopped at: Completou 02a-01-PLAN.md (tracer de login + divisao de borda)
+Resume file: None
