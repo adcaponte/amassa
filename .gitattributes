@@ -1,0 +1,4 @@
+# Scripts POSIX shell (scripts/backup.sh, scripts/restaurar.sh) precisam sempre de LF — CRLF
+# quebra o interpretador no servidor Linux mesmo que o arquivo pareça idêntico no Windows, e o
+# resultado (autocrlf local de cada pessoa) não pode depender de configuração individual de git.
+*.sh text eol=lf

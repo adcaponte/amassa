@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:e2e": "node scripts/testar-e2e.mjs",
     "test:migracoes": "node scripts/testar-migracoes.mjs",
+    "test:backup": "node scripts/testar-backup.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts",
     "criar-usuario": "tsx scripts/criar-usuario.ts",
