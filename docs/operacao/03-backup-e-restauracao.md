@@ -425,9 +425,28 @@ Siga o assistente: escolha `n` (novo destino), dê um nome curto para ele — es
 `amassa-backup` como exemplo, e é o mesmo nome usado em `RCLONE_REMOTE` mais adiante — e escolha o
 tipo `drive` quando ele listar os provedores disponíveis.
 
-Em algum ponto ele pergunta se pode **abrir um navegador automaticamente para autorizar**
-(`Use auto config?`). Responda **`n`** — o VPS não tem navegador, e dizer `y` aqui trava esperando
-uma janela que nunca vai abrir.
+Em algum ponto ele pergunta se pode **abrir um navegador automaticamente para autorizar**.
+Responda **`n`** — o VPS não tem navegador, e dizer `y` aqui trava esperando uma janela que nunca
+vai abrir.
+
+> **O texto dessa pergunta muda conforme a versão do `rclone`.** Já apareceu como
+> `Use auto config?` e como `Use web browser to automatically authenticate rclone with remote?`.
+> Não procure a frase exata — procure o **sentido**: qualquer pergunta sobre abrir navegador,
+> autenticar automaticamente ou "auto config" é esta, e a resposta é sempre `n` neste servidor.
+> O padrão sugerido pelo próprio `rclone` é `y`; ignore a sugestão.
+>
+> **Se você já respondeu `y`**, o sintoma é este:
+>
+> ```
+> ERROR : Failed to open browser automatically (exec: "xdg-open": executable file not found in $PATH)
+> NOTICE: Log in and authorize rclone for access
+> NOTICE: Waiting for code...
+> ```
+>
+> O link que ele imprime aponta para `http://127.0.0.1:53682`, que é o localhost **do servidor** —
+> não abre da sua máquina. Ele vai esperar para sempre. Saia com `Ctrl+C`, confira se sobrou um
+> destino pela metade com `rclone listremotes`, apague com `rclone config delete <nome>` se
+> houver, e recomece o `rclone config` respondendo `n`.
 
 **O que você deve ver:** o programa imprime um comando para rodar **em outra máquina que tenha
 navegador** — a sua.
