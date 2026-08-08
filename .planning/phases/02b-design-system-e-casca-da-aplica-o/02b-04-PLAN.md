@@ -212,7 +212,7 @@ Não repita a tabela de tokens — ela já vive em `app/globals.css` e em
 `amassa-plataforma/04-DESIGN-SYSTEM.md` §2. Aponte para lá.
   </action>
   <verify>
-    <automated>test -f docs/convencoes-de-interface.md &amp;&amp; grep -q 'Coleção Verão' docs/convencoes-de-interface.md &amp;&amp; grep -q 'alert-dialog' docs/convencoes-de-interface.md &amp;&amp; echo OK</automated>
+    <automated>grep -q 'Coleção Verão' docs/convencoes-de-interface.md; grep -q 'alert-dialog' docs/convencoes-de-interface.md; grep -q 'estado-vazio.tsx' docs/convencoes-de-interface.md</automated>
   </verify>
   <acceptance_criteria>
     - `docs/convencoes-de-interface.md` existe
