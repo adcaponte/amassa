@@ -23,12 +23,12 @@
 
 ### Backup e Recuperação
 
-- [ ] **BKP-01**: Um dump do banco é gerado automaticamente todo dia, sem intervenção
-- [ ] **BKP-02**: O dump do dia aparece também no armazenamento externo, fora do VPS
-- [ ] **BKP-03**: Os dumps são rotacionados em 14 dias e o do dia 1º é guardado em retenção mensal permanente
+- [x] **BKP-01**: Um dump do banco é gerado automaticamente todo dia, sem intervenção
+- [x] **BKP-02**: O dump do dia aparece também no armazenamento externo, fora do VPS
+- [x] **BKP-03**: Os dumps são rotacionados em 14 dias e o do dia 1º é guardado em retenção mensal permanente
 - [x] **BKP-04**: `/api/health/backup` só responde `ok` se o último backup tiver menos de 26 horas, e é monitorado externamente
-- [ ] **BKP-05**: Um backup pode ser disparado sob demanda antes de qualquer migração
-- [ ] **BKP-06**: Um dump do armazenamento externo é restaurado de verdade num Postgres limpo e os dados conferem
+- [x] **BKP-05**: Um backup pode ser disparado sob demanda antes de qualquer migração
+- [x] **BKP-06**: Um dump do armazenamento externo é restaurado de verdade num Postgres limpo e os dados conferem
 - [ ] **BKP-07**: Existe um documento em português que permite repetir a restauração sozinho num dia ruim
 
 ### Autenticação e Acesso
@@ -220,12 +220,12 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | AUTH-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | AUTH-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | AUTH-10 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| BKP-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| BKP-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| BKP-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
+| BKP-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
+| BKP-03 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-04 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| BKP-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
-| BKP-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| BKP-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
+| BKP-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | BKP-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-01 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
 | UI-02 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |

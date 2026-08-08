@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: Completou 02a-06-PLAN.md (execucoes_backup, lib/backup/frescor.ts e /api/health/backup)
-last_updated: "2026-08-08T02:36:43.484Z"
+stopped_at: "Completou 02a-07-PLAN.md (scripts/backup.sh, scripts/restaurar.sh, npm run test:backup)"
+last_updated: "2026-08-08T03:01:09.305Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
-Plan: 7 of 8
+Plan: 8 of 8
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 02a execution started
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [█████████░] 87%
 | Phase 02a P04 | 38min | 3 tasks | 10 files |
 | Phase 02a P05 | 45min | 3 tasks | 11 files |
 | Phase 02a P06 | 55min | 3 tasks | 11 files |
+| Phase 02a P07 | ~100min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 02a-06: decidirFrescorDoBackup() checa relogio no futuro antes de sucesso/destino_externo_ok — timestamp inconsistente invalida a leitura inteira
 - [Phase ?]: 02a-06: /api/health/backup nunca expoe bytes no corpo — o tamanho absoluto do dump revelaria o volume de dados do atelie a qualquer pessoa na internet (T-02a-28)
 - [Phase ?]: 02a-06: advisory lock do Postgres (pg_advisory_lock) serializa backup.spec.ts entre os dois projetos do Playwright — execucoes_backup nao tem chave natural de particionamento como usuarios tem por e-mail
+- [Phase ?]: 02a-07: pg_dump gerado sempre com --clean --if-exists — o mesmo dump restaura sobre banco vazio ou sobre o mesmo banco de onde saiu, sem 'relation already exists'
+- [Phase ?]: 02a-07: mensagem de registro entra no psql pela entrada padrao (stdin), nunca por -c — psql -c nao substitui variaveis :'nome' nesta versao (17.10)
+- [Phase ?]: 02a-07: .gitattributes novo forcando LF em *.sh — CRLF quebraria os scripts POSIX no servidor Linux independente do core.autocrlf de quem commita
+- [Phase ?]: 02a-07: scripts/testar-backup.mjs descobre o container do Postgres de teste em CI pela imagem (docker ps --filter ancestor=postgres:17-alpine), nao por nome fixo
 
 ### Pending Todos
 
@@ -142,6 +147,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T02:36:43.455Z
-Stopped at: Completou 02a-06-PLAN.md (execucoes_backup, lib/backup/frescor.ts e /api/health/backup)
+Last session: 2026-08-08T03:01:09.275Z
+Stopped at: Completou 02a-07-PLAN.md (scripts/backup.sh, scripts/restaurar.sh, npm run test:backup)
 Resume file: None
