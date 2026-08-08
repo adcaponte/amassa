@@ -1,1 +1,148 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+/* Design tokens do AMASSA — copiados literalmente de `amassa-plataforma/04-DESIGN-SYSTEM.md`
+   §2 e de `.planning/phases/02b-design-system-e-casca-da-aplica-o/02b-UI-SPEC.md` ("Design
+   Tokens"). Nenhum valor aqui é inventado; nenhuma cor "NÃO ALTERAR" é ajustada mesmo sem uso
+   nesta fase — elas pertencem aos protótipos de Encomendas, Agenda e Fornos que as Fases 3 a 6
+   vão consumir sem tocar neste arquivo de novo (D-08). */
+@theme {
+  /* superfícies */
+  --color-fundo:        #F6F3F0;
+  --color-superficie:   #FFFFFF;
+  --color-superficie-2: #EFEAE5;
+
+  /* linhas */
+  --color-borda:        #E8E2DC;
+  --color-borda-forte:  #D8CFC7;
+
+  /* texto */
+  --color-tinta:        #1D2221;   /* 14.6:1 sobre o fundo */
+  --color-tinta-media:  #5A4C44;   /*  7.4:1 — aprovado AA */
+  --color-tinta-fraca:  #6E5F56;   /*  5.4:1 — aprovado AA */
+
+  /* ação — terracota AMASSA */
+  --color-acento:       #894025;
+  --color-acento-hover: #5B2916;
+  --color-acento-fundo: #F3EDE9;
+  --color-destaque:     #FFBD59;
+
+  /* etapas da encomenda — NÃO ALTERAR (não usadas nesta fase) */
+  --color-producao:     #8B6F47;
+  --color-secagem:      #C9B896;
+  --color-queima1:      #C2451B;
+  --color-esmaltacao:   #2E7D8C;
+  --color-queima2:      #7A3527;
+  --color-entrega:      #5B7553;
+
+  /* modalidades de aula — NÃO ALTERAR (não usadas nesta fase) */
+  --color-modelagem:    #92400E;
+  --color-torno:        #115E59;
+  --color-pintura:      #1D4ED8;
+
+  /* tipos de queima — NÃO ALTERAR (não usadas nesta fase) */
+  --color-biscoito:     #9A3412;
+  --color-esmalte:      #155E75;
+  --color-ouro:         #CA8A04;
+
+  /* níveis do contador de forno — NÃO ALTERAR (não usadas nesta fase) */
+  --color-forno-ok:      #D97706;  --color-forno-ok-fundo:      #FFFBEB;  --color-forno-ok-texto:      #92400E;
+  --color-forno-atencao: #CA8A04;  --color-forno-atencao-fundo: #FEF9C3;  --color-forno-atencao-texto: #854D0E;
+  --color-forno-critico: #DC2626;  --color-forno-critico-fundo: #FEE2E2;  --color-forno-critico-texto: #991B1B;
+
+  /* semânticas */
+  --color-sucesso:      #15803D;   --color-sucesso-fundo: #DCFCE7;
+  --color-atencao:      #B45309;   --color-atencao-fundo: #FEF3C7;
+  --color-erro:         #B91C1C;   --color-erro-fundo:    #FEE2E2;
+
+  /* raio — no Tailwind v4 o namespace É "--radius-*" */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;   /* Card e Dialog do shadcn usam rounded-xl */
+
+  /* fontes (D-10) — as variáveis --fonte-inter/--fonte-archivo são escritas no <body> por
+     `app/layout.tsx` via `next/font/google`. */
+  --font-sans:   var(--fonte-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-titulo: var(--fonte-archivo), ui-sans-serif, system-ui, sans-serif;
+
+  /* escala tipográfica — 04-DESIGN-SYSTEM.md §4, 6 papéis com 4 pesos, travada pelo dono */
+  --text-display: 28px;
+  --text-display--line-height: 32px;
+  --text-display--font-weight: 700;
+
+  --text-titulo: 20px;
+  --text-titulo--line-height: 28px;
+  --text-titulo--font-weight: 600;
+
+  --text-corpo: 16px;
+  --text-corpo--line-height: 24px;
+  --text-corpo--font-weight: 400;
+
+  --text-apoio: 14px;
+  --text-apoio--line-height: 20px;
+  --text-apoio--font-weight: 400;
+
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --text-micro--font-weight: 500;
+  --text-micro--letter-spacing: 0.06em;
+
+  --text-mono: 13px;
+  --text-mono--line-height: 18px;
+  --text-mono--font-weight: 400;
+
+  /* exceção tipográfica dos rótulos de navegação (barra inferior/lateral) — mesmo par
+     tamanho/altura do papel `micro`, mas sem caixa alta e sem letter-spacing
+     (02b-UI-SPEC.md, "Typography"). */
+  --text-nav: 12px;
+  --text-nav--line-height: 16px;
+  --text-nav--font-weight: 500;
+}
+
+/* Mapeamento obrigatório para o shadcn/ui — os componentes não leem --color-acento etc.,
+   eles esperam os próprios nomes (--background, --foreground, --primary...). Sem este bloco,
+   TODO componente instalado renderiza com a paleta padrão do Tailwind, sem quebrar o build
+   nem aparecer no console (D-08, D-09). Escrito ANTES de qualquer `shadcn add`. */
+@theme inline {
+  --color-background:         var(--color-fundo);
+  --color-foreground:         var(--color-tinta);
+  --color-card:               var(--color-superficie);
+  --color-card-foreground:    var(--color-tinta);
+  --color-popover:            var(--color-superficie);
+  --color-popover-foreground: var(--color-tinta);
+  --color-primary:            var(--color-acento);
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary:          var(--color-superficie-2);
+  --color-secondary-foreground: var(--color-tinta);
+  --color-muted:              var(--color-superficie-2);
+  --color-muted-foreground:   var(--color-tinta-fraca);
+  --color-accent:             var(--color-acento-fundo);
+  --color-accent-foreground:  var(--color-acento);
+  --color-destructive:        var(--color-erro);
+  --color-destructive-foreground: #FFFFFF;
+  --color-border:             var(--color-borda);
+  --color-input:              var(--color-borda-forte);
+  --color-ring:               var(--color-acento);
+
+  /* Namespace próprio do componente Sidebar do shadcn — as OITO variáveis abaixo são
+     obrigatórias. Sem elas a barra lateral de 240px sai com a paleta padrão do Tailwind,
+     mesmo com todo o resto do mapeamento correto (a armadilha de silêncio da D-09). */
+  --color-sidebar:                    var(--color-superficie);
+  --color-sidebar-foreground:         var(--color-tinta);
+  --color-sidebar-primary:            var(--color-acento);
+  --color-sidebar-primary-foreground: #FFFFFF;
+  --color-sidebar-accent:             var(--color-acento-fundo);
+  --color-sidebar-accent-foreground:  var(--color-acento);
+  --color-sidebar-border:             var(--color-borda);
+  --color-sidebar-ring:               var(--color-acento);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

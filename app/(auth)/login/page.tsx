@@ -1,12 +1,15 @@
 import { FRASE_NO_AR } from "@/app/frase-no-ar";
 import { MENSAGEM_CREDENCIAIS_INVALIDAS } from "@/lib/auth/credenciais";
 import { entrar } from "@/lib/auth/acoes";
+import { Logo } from "@/components/amassa/logo";
 
 import { BotaoEntrar } from "./botao-entrar";
 
-// Tela mínima, sem componente de biblioteca (D-03 do 02a-CONTEXT.md — o design system é da
-// Fase 2b). A frase e o nome AMASSA continuam visíveis sem sessão aqui, já que a raiz deixou
-// de ser pública (prova pública do critério INFRA-02 da Fase 1).
+// Tela reestilizada com a identidade do AMASSA (D-14, Fase 2b) — só a aparência muda; a
+// mecânica (Server Action, mensagens de erro, `required`) é a mesma da Fase 2a. `Card` do
+// shadcn ainda não está instalado nesta fase (só chega no plano 02); o cartão de login usa um
+// `<div>` com `bg-card border-border rounded-xl`, que resolve para os mesmos tokens e a mesma
+// prova de cor — o plano 02 pode trocar pelo componente depois sem mudar nada visualmente.
 function mensagemDeErro(
   erro: string | undefined,
   minutos: string | undefined,
@@ -49,41 +52,43 @@ export default async function PaginaLogin({
   const mensagem = mensagemDeErro(erro, minutos, sessao);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#F6F3F0] px-6 text-center text-[#1D2221]">
-      <h1 className="text-4xl font-semibold">AMASSA</h1>
-      <p className="mt-2 mb-8 text-lg">{FRASE_NO_AR}</p>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center text-foreground">
+      <Logo como="h1" className="text-4xl" />
+      <p className="text-corpo mt-2 mb-8">{FRASE_NO_AR}</p>
 
-      <form action={entrar} className="flex w-full max-w-sm flex-col gap-4 text-left">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">E-mail</span>
-          <input
-            type="email"
-            name="email"
-            required
-            autoComplete="email"
-            className="min-h-[44px] rounded-md border border-[#D8D2CB] bg-white px-4 text-base text-[#1D2221]"
-          />
-        </label>
+      <div className="bg-card border-border w-full max-w-sm rounded-xl border p-6 shadow-sm">
+        <form action={entrar} className="flex flex-col gap-4 text-left">
+          <label className="flex flex-col gap-1">
+            <span className="text-apoio font-medium">E-mail</span>
+            <input
+              type="email"
+              name="email"
+              required
+              autoComplete="email"
+              className="text-corpo border-input focus-visible:ring-ring min-h-[44px] rounded-md border bg-white px-4 text-foreground focus-visible:ring-2 focus-visible:outline-none"
+            />
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Senha</span>
-          <input
-            type="password"
-            name="senha"
-            required
-            autoComplete="current-password"
-            className="min-h-[44px] rounded-md border border-[#D8D2CB] bg-white px-4 text-base text-[#1D2221]"
-          />
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-apoio font-medium">Senha</span>
+            <input
+              type="password"
+              name="senha"
+              required
+              autoComplete="current-password"
+              className="text-corpo border-input focus-visible:ring-ring min-h-[44px] rounded-md border bg-white px-4 text-foreground focus-visible:ring-2 focus-visible:outline-none"
+            />
+          </label>
 
-        {mensagem && (
-          <p role="alert" aria-live="assertive" className="text-sm text-red-700">
-            {mensagem}
-          </p>
-        )}
+          {mensagem && (
+            <p role="alert" aria-live="assertive" className="text-apoio text-destructive">
+              {mensagem}
+            </p>
+          )}
 
-        <BotaoEntrar />
-      </form>
+          <BotaoEntrar />
+        </form>
+      </div>
     </main>
   );
 }
