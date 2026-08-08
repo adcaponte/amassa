@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: Completou 02a-01-PLAN.md (tracer de login + divisao de borda)
-last_updated: "2026-08-08T00:41:12.053Z"
+stopped_at: "Completou 02a-02-PLAN.md (base comum do banco, papel amassa_app, test:migracoes)"
+last_updated: "2026-08-08T00:56:14.488Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 02a execution started
 
-Progress: [█████░░░░░] 53%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████░░░░░] 53%
 | Phase 01 P05 | ~50min | 2 tasks | 3 files |
 | Phase 01-funda-o-e-primeiro-deploy P06 | 35min | 2 tasks | 3 files |
 | Phase 02a P01 | 32min | 3 tasks | 23 files |
+| Phase 02a P02 | 50min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02a-01: @node-rs/argon2 fixado em 2.0.2 apesar de ~20 meses sem publicacao — avaliado e aceito pelo dono (ligacao nativa fina e estavel sobre a crate Rust argon2, monorepo napi-rs/node-rs ainda ativo)
 - [Phase ?]: 02a-01: playwright.config.ts usa baseURL http://localhost:3000, nao 127.0.0.1 — o NextURL do Next.js normaliza qualquer host 127.x.x.x para 'localhost' ao montar URLs, o que trocaria a origem no meio do redirect de login e descartaria o cookie de sessao
 - [Phase ?]: 02a-01: divisao de borda do Auth.js (auth.config.ts sem argon2/banco/authorize x auth.ts com tudo isso) provada por teste de grafo de modulos, nao so por inspecao — tests/unit/auth-borda.test.ts falha se a divisao for desfeita
+- [Phase ?]: 02a-02: amassa_app nasce sem senha na migracao (login sem password) — o metodo de autenticacao da imagem exige senha para conexao por rede, entao nao ha janela de acesso entre a migracao e a definicao da senha no servidor (roteiro do plano 08)
+- [Phase ?]: 02a-02: grant connect usa current_database() dinamico via bloco do $$ ... execute format(...) $$, nao o nome literal 'amassa' — a mesma migracao vale tambem contra o banco de teste efemero (amassa_teste)
+- [Phase ?]: 02a-02: scripts/testar-migracoes.mjs calcula a data de Brasilia com Intl.DateTimeFormat nativo do Node, sem instalar date-fns-tz so para a conferencia de teste
 
 ### Pending Todos
 
@@ -120,6 +124,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T00:41:12.021Z
-Stopped at: Completou 02a-01-PLAN.md (tracer de login + divisao de borda)
+Last session: 2026-08-08T00:56:14.449Z
+Stopped at: Completou 02a-02-PLAN.md (base comum do banco, papel amassa_app, test:migracoes)
 Resume file: None
