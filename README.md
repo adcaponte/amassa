@@ -44,6 +44,8 @@ npm run dev
 npm run lint             # ESLint, --max-warnings=0
 npm run verificar-acoes  # exigirUsuario() na primeira instrução de toda ação que toca o banco
 npm test                 # Vitest
+npm run test:migracoes   # base comum do banco, de fora, num Postgres efêmero
+npm run test:backup      # backup.sh e restaurar.sh de ponta a ponta, sem servidor
 npm run build            # next build
 ```
 
@@ -108,6 +110,32 @@ docker compose restart
 
 `postgres`, `app` e `caddy` têm `restart: unless-stopped` — voltam sozinhos, com os dados
 intactos, sem intervenção manual.
+
+### Backup e restauração
+
+`scripts/backup.sh` roda pelo `cron` do host (nunca pelo Compose, que não tem agendador — ver
+`amassa-plataforma/01-ARQUITETURA.md` §7). Ele gera o dump do dia, comprime, confere a
+integridade, mantém os últimos 14 dias, copia o dia 1º para uma pasta mensal que nunca é
+limpa, envia ao destino externo configurado em `RCLONE_REMOTE` (vazio, o padrão, significa não
+enviar) e registra o resultado em `execucoes_backup` — é essa tabela que `GET
+/api/health/backup` consulta. Antes de qualquer migração:
+
+```bash
+./scripts/backup.sh --agora
+```
+
+`scripts/restaurar.sh` faz o caminho de volta: `--arquivo` aponta o dump comprimido,
+`--banco` o banco de destino. **Sem `--confirmar`, ele só mostra o que seria perdido (as
+contagens de linha atuais de cada tabela) e não escreve nada** — restaurar substitui dados, e
+a pessoa que roda isto pode estar tendo um dia ruim; o script não confia em quem pediu, confia
+na confirmação explícita. Com `--confirmar`, confere a integridade do arquivo antes de tocar no
+banco, restaura parando no primeiro erro, e termina mostrando tabela e contagem de linhas para
+conferência imediata.
+
+Os dois scripts são shell POSIX puro e compartilham as mesmas variáveis injetáveis (comandos do
+Postgres, diretório de backups, arquivo de ambiente) — só o nome das variáveis fica aqui, nunca
+um endereço de conta ou nome de destino real. `npm run test:backup` prova os dois de ponta a
+ponta, sem servidor, dentro do Postgres efêmero de teste.
 
 ### Observabilidade
 
