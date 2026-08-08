@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 2b
 current_phase_name: Design System e Casca da Aplicação
 status: executing
-stopped_at: Completed 02b-03-PLAN.md
-last_updated: "2026-08-08T18:40:45.061Z"
+stopped_at: Completed 02b-04-PLAN.md
+last_updated: "2026-08-08T19:01:59.528Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 2b execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 20
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 2b (Design System e Casca da Aplicação) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 2b execution started
 
-Progress: [█████████░] 90%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [█████████░] 90%
 | Phase 02b P01 | ~55min | 3 tasks | 12 files |
 | Phase 02b P02 | ~2h | 4 tasks | 18 files |
 | Phase 02b P03 | ~55min | 3 tasks | 14 files |
+| Phase 02b P04 | ~50min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 02b-03: CabecalhoPagina nao recebe children em nenhuma das seis telas — o botao desabilitado de cada modulo vive dentro de EstadoVazio, seguindo o esqueleto literal do texto de acao em vez do diagrama do 02b-UI-SPEC.md; componente continua pronto para children (flex-wrap ja resolvido)
 - [Phase ?]: 02b-03: tests/e2e/casca.spec.ts roda em serie (mesma convencao de autenticacao/sessao.spec.ts) por prudencia de carga — cada caso faz login com hash argon2id real
 - [Phase ?]: 02b-03: locator de navegacao por visibilidade (nunca por nome de projeto Playwright) — barra lateral e barra inferior sempre coexistem no DOM, so uma fica oculta por CSS; :visible filtra a metade oculta em checagens de aria-current
+- [Phase ?]: 02b-04: app/not-found.tsx (raiz) confirmado em execucao real como quem sempre responde a URL sem casamento (mesmo sub-rota de modulo existente), nunca app/(app)/not-found.tsx, que fica pronto para a primeira notFound() de rota dinamica da Fase 3
+- [Phase ?]: 02b-04: tests/e2e/estados.spec.ts prova que a navegacao NAO aparece no 404 alcancavel por URL (ausencia estrutural, fora da casca) - correcao da suposicao original do plano, documentada com achado em execucao real
 
 ### Pending Todos
 
@@ -168,6 +171,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T18:40:45.029Z
-Stopped at: Completed 02b-03-PLAN.md
+Last session: 2026-08-08T19:01:59.473Z
+Stopped at: Completed 02b-04-PLAN.md
 Resume file: None

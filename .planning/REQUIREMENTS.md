@@ -53,7 +53,7 @@
 - [x] **UI-05**: A navegação funciona confortavelmente com o polegar, no celular
 - [x] **UI-06**: Nenhuma tela exige rolagem horizontal no celular
 - [x] **UI-07**: Toda tela tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto, e estado de erro em linguagem humana
-- [ ] **UI-08**: Toda remoção pede confirmação nomeando o que será perdido
+- [x] **UI-08**: Toda remoção pede confirmação nomeando o que será perdido
 - [x] **UI-09**: Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`
 - [ ] **UI-10**: Nenhum erro aparece no console do navegador em uso normal
 - [ ] **UI-11**: O sistema carrega em menos de 3 segundos em 4G
@@ -234,7 +234,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | UI-05 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-06 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-07 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
-| UI-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Pending |
+| UI-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | ENC-01 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-02 | Phase 3 — Gestor de Encomendas | Pending |
