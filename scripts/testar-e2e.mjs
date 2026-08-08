@@ -32,9 +32,13 @@ function tentarRodarDocker(args) {
 }
 
 // npm/npx são scripts .cmd no Windows — precisam do shell para rodar. Com shell, a chamada
-// segura é uma única string (não um array de args não escapados).
+// segura é uma única string (não um array de args não escapados). Qualquer argumento com
+// espaço (ex.: `--grep "design system"` repassado de process.argv) precisa ficar entre aspas
+// nessa string única — sem isso, o espaço interno vira um separador de argumento a mais para
+// o shell, e o padrão do --grep chega partido em dois.
 function rodarNpm(comando, args, opcoes = {}) {
-  execSync(`${comando} ${args.join(" ")}`, { stdio: "inherit", ...opcoes });
+  const argsSeguros = args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg));
+  execSync(`${comando} ${argsSeguros.join(" ")}`, { stdio: "inherit", ...opcoes });
 }
 
 function statusDeSaude() {
@@ -94,7 +98,10 @@ async function main() {
     });
 
     console.log("Rodando o Playwright...");
-    rodarNpm("npx", ["playwright", "test"]);
+    // Repassa os argumentos recebidos por este script para o Playwright — é o que permite
+    // `npm run test:e2e -- --grep "..."` rodar um recorte da suíte em vez da corrida inteira
+    // (02b-01, plano das fases seguintes).
+    rodarNpm("npx", ["playwright", "test", ...process.argv.slice(2)]);
     codigoDeSaida = 0;
   } catch (erro) {
     console.error("E2E falhou:", erro.message);
