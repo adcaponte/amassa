@@ -17,10 +17,15 @@ export type ResultadoCredenciais<T extends UsuarioParaCredencial = UsuarioParaCr
   | { autenticado: true; usuario: T }
   | { autenticado: false; mensagem: string };
 
-const RECUSA: { autenticado: false; mensagem: string } = {
+// Congelado (Object.freeze) porque esta é a mesma referência devolvida em TODO caminho de
+// recusa (senha errada, e-mail desconhecido, usuário desativado, hash corrompido) — sem o
+// freeze, nada impede um chamador futuro de fazer `resultado.mensagem = algumaCoisa` e
+// corromper silenciosamente a mensagem de recusa para todas as requisições concorrentes no
+// mesmo processo, até o processo reiniciar.
+const RECUSA: Readonly<{ autenticado: false; mensagem: string }> = Object.freeze({
   autenticado: false,
   mensagem: MENSAGEM_CREDENCIAIS_INVALIDAS,
-};
+});
 
 /**
  * Avalia credenciais em tempo constante: a conferência de hash roda em TODOS os caminhos —
