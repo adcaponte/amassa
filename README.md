@@ -14,9 +14,12 @@ e operar o sistema no dia a dia.
 
 Os roteiros comentados para preparar e publicar o servidor de produção vivem em
 [`docs/operacao/`](./docs/operacao): [`01-preparar-servidor.md`](./docs/operacao/01-preparar-servidor.md)
-(endurecimento do VPS, Docker, `/opt/amassa` e chave de deploy) e
+(endurecimento do VPS, Docker, `/opt/amassa` e chave de deploy),
 [`02-publicar-e-dominio.md`](./docs/operacao/02-publicar-e-dominio.md) (DNS, primeira
-publicação, HTTPS e monitor externo).
+publicação, HTTPS e monitor externo) e
+[`03-backup-e-restauracao.md`](./docs/operacao/03-backup-e-restauracao.md) (virada da aplicação
+para o papel de banco restrito, contas de gestor, backup diário automático com envio externo, e o
+roteiro de restauração para um dia ruim).
 
 ## Stack
 
