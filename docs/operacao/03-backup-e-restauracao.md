@@ -178,9 +178,13 @@ passo 3. Como você já tem o dump de segurança do passo anterior, pode seguir.
 docker compose run --rm ferramentas npm run db:migrate
 ```
 
-**O que você deve ver:** a saída lista as migrações aplicadas e termina com `Migrações aplicadas
-com sucesso.`, saindo com código `0`. É seguro rodar mais de uma vez — o Drizzle pula o que já foi
-aplicado.
+**O que você deve ver:** uma única linha, `Migrações aplicadas com sucesso.`, saindo com código
+`0`. É seguro rodar mais de uma vez — o Drizzle pula o que já foi aplicado.
+
+> Não espere uma lista de migrações. O `migrate()` do Drizzle é silencioso e o `db/migrate.ts`
+> imprime só aquela linha, tenha ele aplicado quatro migrações ou nenhuma. Isso quer dizer que a
+> mensagem de sucesso **não prova o que foi aplicado** — as três conferências abaixo é que provam.
+> Faça as três antes de seguir.
 
 Confira do lado do banco. Primeiro, as tabelas:
 
