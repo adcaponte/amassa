@@ -87,6 +87,14 @@ jobs:
         env:
           DATABASE_URL: ${{ env.DATABASE_URL_TESTE }}
 
+      # Confere de fora — extensão, funções de data, trigger de atualizado_em e o papel
+      # amassa_app com os grants certos — contra o mesmo banco de teste que o passo acima
+      # acabou de migrar. DATABASE_URL_TESTE já vem do env do job; em CI (variável CI, que o
+      # runner sempre define) o script não sobe outro banco, só reaplica a migração
+      # (idempotente) e confere.
+      - name: Conferir a base comum do banco (npm run test:migracoes)
+        run: npm run test:migracoes
+
       - name: Instalar navegadores do Playwright
         run: npx playwright install --with-deps chromium
 

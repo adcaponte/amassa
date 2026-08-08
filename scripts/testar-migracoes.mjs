@@ -1,0 +1,307 @@
+#!/usr/bin/env node
+// Prova, de fora, que a base comum do banco (extensão, funções de data, trigger e o papel
+// amassa_app) saiu como especificado — não pelo relato de quem rodou `npm run db:migrate`,
+// mas consultando o Postgres depois, pelo cliente `pg`, que já é dependência do projeto.
+// Nenhum binário de linha de comando do Postgres é invocado: essa suposição já quebrou no
+// Windows durante a Fase 1 (ver 01-07-SUMMARY.md, seção "Desvios e descobertas").
+//
+// Orquestração no molde de scripts/testar-e2e.mjs: em CI usa o banco de teste que o runner já
+// entrega; localmente sobe o Postgres efêmero de docker/compose.teste.yml, publica a porta só
+// pela linha de comando, e derruba tudo no finally.
+
+import { execFileSync, execSync } from "node:child_process";
+import { Client } from "pg";
+
+const NOME_CONTAINER = "amassa_postgres_teste_migracoes";
+const PORTA_HOST = 5435;
+const USUARIO = "amassa_teste";
+const SENHA = "efemero_de_teste_sem_valor_real";
+const BANCO = "amassa_teste";
+
+// Lista exata de tabelas que devem existir no schema público depois das migrações. Cada fase
+// que acrescentar uma tabela de produto atualiza esta constante — é o que impede uma tabela
+// nova de aparecer sem ninguém notar. O plano 06 (execuções de backup) é o próximo a mexer aqui.
+const TABELAS_ESPERADAS = ["verificacao_infraestrutura", "usuarios"];
+
+// docker.exe é executável direto em qualquer plataforma — sem shell.
+function rodarDocker(args, opcoes = {}) {
+  execFileSync("docker", args, { stdio: "inherit", ...opcoes });
+}
+
+function tentarRodarDocker(args) {
+  try {
+    execFileSync("docker", args, { stdio: "ignore" });
+  } catch {
+    // Sem problema — usado só para limpeza best-effort.
+  }
+}
+
+// npm/npx são scripts .cmd no Windows — precisam do shell para rodar. Com shell, a chamada
+// segura é uma única string (não um array de args não escapados).
+function rodarNpm(comando, args, opcoes = {}) {
+  execSync(`${comando} ${args.join(" ")}`, { stdio: "inherit", ...opcoes });
+}
+
+function statusDeSaude() {
+  try {
+    return execFileSync("docker", ["inspect", "-f", "{{.State.Health.Status}}", NOME_CONTAINER])
+      .toString()
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
+async function esperarSaudavel(tentativasMax = 30) {
+  for (let tentativa = 1; tentativa <= tentativasMax; tentativa++) {
+    if (statusDeSaude() === "healthy") return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error("Postgres de teste não ficou saudável a tempo.");
+}
+
+async function subirBancoDeTeste() {
+  console.log("Subindo o Postgres de teste (efêmero, porta só desta execução)...");
+  tentarRodarDocker(["compose", "-f", "docker/compose.teste.yml", "down", "--remove-orphans"]);
+  rodarDocker([
+    "compose",
+    "-f",
+    "docker/compose.teste.yml",
+    "run",
+    "-d",
+    "--rm",
+    "--name",
+    NOME_CONTAINER,
+    "-p",
+    `127.0.0.1:${PORTA_HOST}:5432`,
+    "postgres_teste",
+  ]);
+  await esperarSaudavel();
+  process.env.DATABASE_URL_TESTE = `postgresql://${USUARIO}:${SENHA}@127.0.0.1:${PORTA_HOST}/${BANCO}`;
+  console.log("Banco de teste no ar.");
+}
+
+// Todas as afirmações desta função, cada uma com mensagem em português dizendo o que ficou
+// faltando. Lança no primeiro erro — é o que faz `npm run test:migracoes` sair diferente de 0.
+function afirmar(condicao, mensagem) {
+  if (!condicao) {
+    throw new Error(mensagem);
+  }
+}
+
+// A data civil em America/Sao_Paulo calculada pelo próprio Node, sem nenhuma dependência nova
+// — é o par independente que confere hoje_brasilia() do lado de fora do banco.
+function dataBrasiliaDeHoje() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+async function conferirFusoDoBanco(cliente) {
+  const { rows } = await cliente.query("show timezone");
+  afirmar(
+    rows[0].TimeZone === "UTC",
+    `O fuso do servidor Postgres deveria ser UTC, veio "${rows[0].TimeZone}". ` +
+      "Alguma variável TZ alcançou o container do banco — confira docker/compose.yml e " +
+      "docker/compose.teste.yml, o bloco do serviço postgres não pode declarar TZ.",
+  );
+}
+
+async function conferirTabelas(cliente) {
+  const { rows } = await cliente.query(
+    `select table_name from information_schema.tables
+     where table_schema = 'public' and table_type = 'BASE TABLE'
+     order by table_name`,
+  );
+  const encontradas = rows.map((linha) => linha.table_name).sort();
+  const esperadas = [...TABELAS_ESPERADAS].sort();
+  afirmar(
+    JSON.stringify(encontradas) === JSON.stringify(esperadas),
+    "A lista de tabelas do schema público não bate com TABELAS_ESPERADAS.\n" +
+      `Esperado: ${esperadas.join(", ")}\n` +
+      `Encontrado: ${encontradas.join(", ")}\n` +
+      "Se uma fase acabou de acrescentar uma tabela de produto, atualize a constante " +
+      "TABELAS_ESPERADAS no topo deste arquivo.",
+  );
+}
+
+async function conferirExtensaoEFuncoes(cliente) {
+  const extensao = await cliente.query(
+    "select 1 from pg_extension where extname = 'unaccent'",
+  );
+  afirmar(
+    extensao.rowCount === 1,
+    "A extensão unaccent não está instalada — confira a migração da base comum " +
+      "(db/migrations, seção 'base comum de datas e trigger').",
+  );
+
+  const dataDoBanco = await cliente.query("select hoje_brasilia()::text as valor");
+  const dataEsperada = dataBrasiliaDeHoje();
+  afirmar(
+    dataDoBanco.rows[0].valor === dataEsperada,
+    `hoje_brasilia() devolveu "${dataDoBanco.rows[0].valor}", mas a data civil de ` +
+      `America/Sao_Paulo calculada pelo Node é "${dataEsperada}". Isso normalmente indica ` +
+      "que o container do Postgres não está mais em UTC, ou que a função não converte o " +
+      "fuso corretamente.",
+  );
+
+  const trigger = await cliente.query(
+    "select 1 from pg_trigger where tgname = 'tocar_atualizado_em_usuarios'",
+  );
+  afirmar(
+    trigger.rowCount === 1,
+    "O trigger tocar_atualizado_em_usuarios não existe. A função tocar_atualizado_em() " +
+      "sozinha não faz nada — falta o 'create trigger' sobre a tabela usuarios.",
+  );
+}
+
+async function conferirTriggerFuncionando(cliente) {
+  // Este é o único lugar do sistema onde apagar uma linha de usuarios é legítimo — o banco é
+  // efêmero e a linha é puramente de teste, apagada ao final desta função.
+  const inserida = await cliente.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste', 'usuaria-de-teste@exemplo.test', 'hash-fake-de-teste')
+     returning id, atualizado_em`,
+  );
+  const { id, atualizado_em: carimboAntes } = inserida.rows[0];
+
+  // Pausa pequena: sem ela, "antes" e "depois" podem cair no mesmo microssegundo e a
+  // comparação de avanço ficaria ambígua por coincidência de relógio, não por defeito real.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  const atualizada = await cliente.query(
+    "update usuarios set nome = 'Usuária de Teste (atualizada)' where id = $1 returning atualizado_em",
+    [id],
+  );
+  const carimboDepois = atualizada.rows[0].atualizado_em;
+
+  await cliente.query("delete from usuarios where id = $1", [id]);
+
+  afirmar(
+    new Date(carimboDepois).getTime() > new Date(carimboAntes).getTime(),
+    "atualizado_em não avançou depois de um update que não mencionou essa coluna — o " +
+      "trigger tocar_atualizado_em_usuarios não está funcionando de verdade.",
+  );
+}
+
+async function conferirPapelEPrivilegios(cliente) {
+  const papel = await cliente.query(
+    `select rolsuper, rolcreatedb, rolcreaterole
+     from pg_roles where rolname = 'amassa_app'`,
+  );
+  afirmar(papel.rowCount === 1, "O papel amassa_app não existe.");
+  const { rolsuper, rolcreatedb, rolcreaterole } = papel.rows[0];
+  afirmar(
+    rolsuper === false && rolcreatedb === false && rolcreaterole === false,
+    "O papel amassa_app tem privilégio elevado demais " +
+      `(rolsuper=${rolsuper}, rolcreatedb=${rolcreatedb}, rolcreaterole=${rolcreaterole}) — ` +
+      "ele deveria ser um papel comum, sem nenhum dos três.",
+  );
+
+  const posse = await cliente.query(
+    "select tablename from pg_tables where schemaname = 'public' and tableowner = 'amassa_app'",
+  );
+  afirmar(
+    posse.rowCount === 0,
+    `O papel amassa_app é dono de tabela (${posse.rows.map((l) => l.tablename).join(", ")}) — ` +
+      "ele nunca deveria ser dono de tabela nenhuma; quem cria tabela é amassa_owner.",
+  );
+
+  const privilegiosUsuarios = await cliente.query(
+    `select
+       has_table_privilege('amassa_app', 'usuarios', 'select')   as pode_select,
+       has_table_privilege('amassa_app', 'usuarios', 'insert')   as pode_insert,
+       has_table_privilege('amassa_app', 'usuarios', 'update')   as pode_update,
+       has_table_privilege('amassa_app', 'usuarios', 'delete')   as pode_delete,
+       has_table_privilege('amassa_app', 'usuarios', 'truncate') as pode_truncate`,
+  );
+  const { pode_select, pode_insert, pode_update, pode_delete, pode_truncate } =
+    privilegiosUsuarios.rows[0];
+  afirmar(
+    pode_select && pode_insert && pode_update && pode_delete,
+    "O papel amassa_app não tem as quatro operações de manipulação de dados " +
+      `(select/insert/update/delete) sobre usuarios (select=${pode_select}, ` +
+      `insert=${pode_insert}, update=${pode_update}, delete=${pode_delete}).`,
+  );
+  afirmar(
+    pode_truncate === false,
+    "O papel amassa_app tem privilégio de truncate sobre usuarios — ele não deveria ter " +
+      "nenhum privilégio de esvaziamento de tabela.",
+  );
+
+  // Privilégios padrão: uma tabela criada DEPOIS da migração, como o dono do banco, já
+  // precisa nascer com as quatro operações concedidas ao papel de aplicação — senão as
+  // tabelas das Fases 3 a 6 nasceriam invisíveis para a aplicação.
+  await cliente.query("create table tabela_descartavel_teste_migracoes (id int)");
+  try {
+    const privilegiosFuturos = await cliente.query(
+      `select
+         has_table_privilege('amassa_app', 'tabela_descartavel_teste_migracoes', 'select') as pode_select,
+         has_table_privilege('amassa_app', 'tabela_descartavel_teste_migracoes', 'insert') as pode_insert,
+         has_table_privilege('amassa_app', 'tabela_descartavel_teste_migracoes', 'update') as pode_update,
+         has_table_privilege('amassa_app', 'tabela_descartavel_teste_migracoes', 'delete') as pode_delete`,
+    );
+    const futuros = privilegiosFuturos.rows[0];
+    afirmar(
+      futuros.pode_select && futuros.pode_insert && futuros.pode_update && futuros.pode_delete,
+      "Uma tabela criada depois da migração não nasceu com os privilégios padrão concedidos " +
+        "a amassa_app — falta o 'alter default privileges' na migração dos papéis.",
+    );
+  } finally {
+    await cliente.query("drop table tabela_descartavel_teste_migracoes");
+  }
+}
+
+async function conferirBanco() {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    await conferirFusoDoBanco(cliente);
+    await conferirTabelas(cliente);
+    await conferirExtensaoEFuncoes(cliente);
+    await conferirTriggerFuncionando(cliente);
+    await conferirPapelEPrivilegios(cliente);
+  } finally {
+    await cliente.end();
+  }
+}
+
+async function main() {
+  const emCI = Boolean(process.env.CI);
+
+  if (emCI) {
+    // O runner já entrega o banco de teste pronto e alcançável — nada para subir aqui.
+    console.log("CI detectado: usando o banco de teste já fornecido pelo runner.");
+  } else {
+    await subirBancoDeTeste();
+  }
+
+  let codigoDeSaida = 1;
+  try {
+    console.log("Aplicando migrações no banco de teste...");
+    rodarNpm("npm", ["run", "db:migrate"], {
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
+    });
+
+    console.log("Conferindo o resultado, de fora, pelo cliente pg...");
+    await conferirBanco();
+
+    console.log("Todas as afirmações passaram.");
+    codigoDeSaida = 0;
+  } catch (erro) {
+    console.error("test:migracoes falhou:", erro.message);
+    codigoDeSaida = 1;
+  } finally {
+    if (!emCI) {
+      console.log("Derrubando o Postgres de teste — nada sobrevive ao contêiner.");
+      tentarRodarDocker(["compose", "-f", "docker/compose.teste.yml", "down", "--remove-orphans"]);
+    }
+  }
+
+  process.exit(codigoDeSaida);
+}
+
+main();
