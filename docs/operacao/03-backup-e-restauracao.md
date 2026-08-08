@@ -864,9 +864,18 @@ mostra as contagens atuais sem alterar nada — reaproveitando a mesma tela de a
 /opt/amassa/scripts/restaurar.sh --arquivo /tmp/ensaio-restauracao/<ARQUIVO_MAIS_RECENTE> --banco amassa
 ```
 
-**O que você deve ver:** as contagens de produção. Elas precisam bater com as do banco temporário,
-linha por tabela — essa é a prova que D-11 exige. (A aplicação **não** é apontada para o banco
-temporário em nenhum momento; só as contagens são comparadas.)
+**O que você deve ver:** as contagens de produção. `usuarios` e `verificacao_infraestrutura`
+precisam bater exatamente com as do banco temporário — essa é a prova que D-11 exige. (A aplicação
+**não** é apontada para o banco temporário em nenhum momento; só as contagens são comparadas.)
+
+> **`execucoes_backup` é a exceção, e vai discordar por construção.** O `backup.sh` gera o dump
+> primeiro e só registra a própria execução depois — então todo dump contém essa tabela como ela
+> estava *antes* da execução que o criou. A produção terá pelo menos uma linha a mais, e mais uma
+> a cada backup rodado desde então. Uma diferença nessa tabela **não** é falha de restauração; a
+> diferença esperada é exatamente o número de backups executados entre o dump e a comparação.
+>
+> Se `usuarios` ou `verificacao_infraestrutura` discordarem, aí sim pare e investigue: ou o dump
+> está incompleto, ou a restauração não foi até o fim.
 
 Derrube e apague tudo o que este ensaio criou:
 
