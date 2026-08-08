@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: "02a-08: Tarefas 1-2 commitadas. Roteiro 3 passos 1-5 concluidos em producao: publicado, dump manual, migracoes 0001-0004 aplicadas (3 tabelas), DATABASE_URL virada para amassa_app (/api/health ok), e primeiro login real provado no navegador (criterios 5 e 6 do ROADMAP). Tarefa 3 (checkpoint human-action) aguardando o dono nos passos 6-12"
+stopped_at: "02a-08: Tarefas 1-2 commitadas. Roteiro 3 passos 1-9 e 12 concluidos em producao: publicado, dump manual, migracoes 0001-0004, DATABASE_URL em amassa_app, primeiro login real (criterios 5 e 6), scripts no host, rclone para o Drive, primeiro backup real nos tres lugares, cron agendado 06:15 UTC, monitor externo cadastrado e ALERTA POR E-MAIL PROVADO (D4 completa), e ENSAIO DE RESTAURACAO PROVADO (D-11/D5: dump do Drive restaurado em Postgres limpo, usuarios 1=1 e verificacao_infraestrutura 1=1). Pendente: re-extrair restaurar.sh corrigido, e passo 11 amanha (primeiro backup automatico do cron). Roteiro corrigido em 7 pontos durante a execucao real; 1 defeito de codigo achado e corrigido (restaurar.sh listava so a primeira tabela)"
 last_updated: "2026-08-08T09:52:00.000Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
