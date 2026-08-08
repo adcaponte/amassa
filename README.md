@@ -109,6 +109,20 @@ docker compose restart
 `postgres`, `app` e `caddy` têm `restart: unless-stopped` — voltam sozinhos, com os dados
 intactos, sem intervenção manual.
 
+### Observabilidade
+
+Duas rotas públicas (liberadas em `lib/auth/rotas-publicas.ts`, respondem sem sessão) devem
+ser monitoradas de fora, a cada cinco minutos, por um serviço externo gratuito (UptimeRobot ou
+similar), com alerta por e-mail:
+
+- **`GET /api/health`** — garante que a aplicação está no ar **e** que uma consulta real ao
+  Postgres funciona.
+- **`GET /api/health/backup`** — garante que o backup diário está fresco: responde `ok` só se
+  a última linha de `execucoes_backup` tiver sucesso, cópia externa confirmada e menos de 26
+  horas; caso contrário responde `503` com o motivo em português. Ver
+  `amassa-plataforma/01-ARQUITETURA.md` §9 — **um backup que para em silêncio é pior do que
+  não ter backup**, porque dá a impressão de estar protegido.
+
 ## Produção
 
 A plataforma roda em `https://amassacerrado.com.br` — domínio dedicado, separado do site
