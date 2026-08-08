@@ -232,4 +232,13 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-08 after Fase 1 (Fundação e Primeiro Deploy)*
+*Last updated: 2026-08-08 after Fase 2a (Login, Banco Base e Backup)*
+
+**Estado atual:** Fase 2a concluída e verificada. Em produção: login com e-mail e senha
+(Auth.js v5 + argon2id), sessão de 30 dias, `exigirUsuario()` como porta única de autorização com
+portão de máquina no pipeline, contas de gestor pela linha de comando, banco com papel de
+aplicação separado do dono, e backup diário disparando sozinho às 03:15 de Brasília — enviado ao
+armazenamento externo, vigiado por monitor externo que alerta, e **restaurado de verdade** num
+Postgres limpo com os dados conferindo (decisão D-11 satisfeita). Requisitos AUTH-01..10 e
+BKP-01..07 validados. Nenhum módulo de produto existe ainda: a rota protegida é provisória e a
+Fase 2b entrega a casca de navegação.

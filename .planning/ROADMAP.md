@@ -294,12 +294,13 @@ roadmap).
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Fundação e Primeiro Deploy | 7/7 | Complete    | 2026-08-08 |
-| 2. Login, Banco Base e Casca da Aplicação | 0/TBD | Not started | - |
+| 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
+| 2b. Design System e Casca da Aplicação | 0/TBD | Not started | - |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
