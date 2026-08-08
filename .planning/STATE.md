@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: "Completou 02a-07-PLAN.md (scripts/backup.sh, scripts/restaurar.sh, npm run test:backup)"
-last_updated: "2026-08-08T03:01:09.305Z"
+stopped_at: "02a-08: Tarefas 1-2 commitadas (roteiro docs/operacao/03-backup-e-restauracao.md, README.md); Tarefa 3 (checkpoint human-action) aguardando o dono executar os passos 0-12 no servidor"
+last_updated: "2026-08-08T03:14:41.751Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
@@ -29,8 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
-Last activity: 2026-08-08 — Phase 02a execution started
+Status: Paused at checkpoint — Tarefa 3 (human-action) aguardando execução do dono no servidor
+Last activity: 2026-08-08 — 02a-08 Tarefas 1-2 commitadas; roteiro docs/operacao/03-backup-e-restauracao.md pronto
 
 Progress: [█████████░] 93%
 
@@ -134,6 +134,7 @@ None yet.
 - Pré-requisitos de conta (domínio, VPS Contabo, GitHub, armazenamento externo de backup) precisam existir antes de a Fase 1 poder começar de fato.
 - Protecao da branch main (bloquear force-push e exclusao) pendente de configuracao manual pelo dono via GitHub Settings > Branches
 - 01-05 Task 2 parcial: falta cadastrar NEXT_PUBLIC_SITE_URL e DEPLOY_ATIVO no repositorio GitHub, observar a primeira execucao real do workflow e provar o portao com um PR de teste quebrado — requer gh CLI/credenciais que a sessao de execucao nao tinha (ver 01-05-SUMMARY.md User Setup Required)
+- 02a-08 Tarefa 3: roteiro docs/operacao/03-backup-e-restauracao.md escrito e commitado (passos 0-14), mas a execucao real no servidor (passos 0-12) e a restauracao de teste (D-11) dependem do dono - agente nao entra por SSH (D-03) e nao tem credencial do Drive do atelie (D-09)
 
 ## Deferred Items
 
@@ -147,6 +148,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T03:01:09.275Z
-Stopped at: Completou 02a-07-PLAN.md (scripts/backup.sh, scripts/restaurar.sh, npm run test:backup)
-Resume file: None
+Last session: 2026-08-08T03:14:36.231Z
+Stopped at: 02a-08: Tarefas 1-2 commitadas (roteiro docs/operacao/03-backup-e-restauracao.md, README.md); Tarefa 3 (checkpoint human-action) aguardando o dono executar os passos 0-12 no servidor
+Resume file: .planning/phases/02a-login-banco-base-e-backup/02a-08-PLAN.md
