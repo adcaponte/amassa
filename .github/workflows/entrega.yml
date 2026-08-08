@@ -96,6 +96,14 @@ jobs:
       - name: Conferir a base comum do banco (npm run test:migracoes)
         run: npm run test:migracoes
 
+      # Roda backup.sh e restaurar.sh de ponta a ponta DENTRO do service container acima —
+      # scripts/testar-backup.mjs descobre o nome real do contêiner pela imagem
+      # (postgres:17-alpine) em vez de supor um nome fixo que o runner não garante. Custo baixo
+      # (o runner já tem Docker e o banco de teste no ar) para um backup que não apodrece em
+      # silêncio entre uma fase e outra.
+      - name: Provar backup e restauração de ponta a ponta (npm run test:backup)
+        run: npm run test:backup
+
       - name: Instalar navegadores do Playwright
         run: npx playwright install --with-deps chromium
 
