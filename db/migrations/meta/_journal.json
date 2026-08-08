@@ -22,6 +22,13 @@
       "when": 1786149921863,
       "tag": "0002_base-comum-datas-e-trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786149967672,
+      "tag": "0003_papel-amassa-app-e-grants",
+      "breakpoints": true
     }
   ]
 }

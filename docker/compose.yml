@@ -22,6 +22,9 @@ services:
         condition: service_healthy
     restart: unless-stopped
     environment:
+      # Papel amassa_app (sem posse de tabela, sem privilégio de definição de estrutura) —
+      # nunca o dono do banco. Ver a migração custom que cria o papel e os grants
+      # (02-MODELO-DE-DADOS.md §0) e docker/compose.yml serviço `ferramentas`, que usa o dono.
       DATABASE_URL: ${DATABASE_URL}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
@@ -57,7 +60,10 @@ services:
     profiles: ["ferramentas"]
     restart: "no"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Migração precisa do dono do banco (amassa_owner), não do papel restrito da aplicação
+      # — é quem cria e altera tabela. O nome da variável no contêiner continua DATABASE_URL
+      # (é o que db/migrate.ts e scripts/*.ts leem); só a origem no .env muda.
+      DATABASE_URL: ${DATABASE_URL_MIGRACAO}
 
 volumes:
   dados_postgres:

@@ -102,6 +102,13 @@ redirecionando para o apex no Caddyfile.
 A lista completa de variáveis, pelo nome, vive em [`.env.example`](./.env.example) — o arquivo
 nunca tem valor real, só os nomes. Valores reais existem em exatamente dois lugares:
 
+`DATABASE_URL` e `DATABASE_URL_MIGRACAO` são conexões diferentes com papéis diferentes:
+`DATABASE_URL` usa o papel restrito `amassa_app` (sem posse de tabela, sem privilégio de
+definição de estrutura) e é o que o serviço `app` usa em runtime; `DATABASE_URL_MIGRACAO` usa
+o dono do banco (`amassa_owner`) e é o que o serviço `ferramentas` usa para migrar. Separar os
+dois é o que faz um `revoke` futuro sobre uma tabela valer alguma coisa — dono de tabela retém
+privilégio implícito e pode se reconceder.
+
 - os **secrets do GitHub**, usados pelo pipeline em tempo de build e deploy;
 - o arquivo `/opt/amassa/.env` **no servidor**, com permissão `600`, lido pelo `compose.yml` em
   tempo de execução.
