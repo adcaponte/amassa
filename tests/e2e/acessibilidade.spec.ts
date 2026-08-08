@@ -1,3 +1,5 @@
+import { execSync } from "node:child_process";
+
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -236,6 +238,97 @@ test.describe("acessibilidade — sem rolagem horizontal a 320px (UI-06, reconfe
         scrollWidth,
         `a rota ${rota} rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
       ).toBeLessThanOrEqual(clientWidth);
+    }
+  });
+});
+
+// Backstop de UI-SPEC ("long-text E2, E3 — nome do usuário no menu e no rodapé da lateral"),
+// registrado como `verification: backstop` no frontmatter do plano por não ter conta de teste
+// com nome longo até agora. Convertido aqui numa asserção real: cria uma conta de verdade com
+// nome longo via scripts/criar-usuario.ts (o mesmo script que qualquer gestor roda no
+// servidor), loga com ela, mede o truncamento por CSS computado (não por "parece cortado na
+// tela") e desativa a conta ao final — nunca apaga a linha (scripts/desativar-usuario.ts).
+// E-mail exclusivo por projeto do Playwright para não colidir entre desktop e celular rodando
+// em paralelo (mesmo cuidado de tests/e2e/autenticacao.spec.ts para o e-mail de bloqueio).
+test.describe("acessibilidade — truncamento de nome longo (backstop do 02b-UI-SPEC.md)", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("nome de usuário longo trunca em uma linha com reticências, mostra o nome completo em title e não empurra a barra lateral de 240px", async ({
+    page,
+  }, testInfo) => {
+    // 53 caracteres — mais longo que o exemplo de 43 caracteres do checklist humano (Tarefa 3
+    // do plano) de propósito: a 43 caracteres o texto cabe justo dentro do Sheet do celular
+    // (achado medindo de verdade, não presumindo) e não prova truncamento nesse viewport.
+    const nomeLongo = "Maria Aparecida dos Santos Nascimento Silva Conceição";
+    const emailLongo = `nome-longo.${testInfo.project.name}@exemplo.test`;
+    const opcoesExecucao = {
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE ?? "" },
+      encoding: "utf-8" as const,
+    };
+
+    const saidaCriacao = execSync(
+      `npm run criar-usuario -- --nome "${nomeLongo}" --email "${emailLongo}"`,
+      opcoesExecucao,
+    );
+    const linhaSenha = saidaCriacao.split("\n").find((linha) => linha.startsWith("SENHA: "));
+    if (!linhaSenha) {
+      throw new Error(
+        "scripts/criar-usuario.ts não imprimiu a linha 'SENHA: ' esperada — a conta de nome longo não foi criada como esperado.",
+      );
+    }
+    const senhaLonga = linhaSenha.slice("SENHA: ".length).trim();
+
+    try {
+      await page.goto("/login");
+      await page.getByLabel("E-mail").fill(emailLongo);
+      await page.getByLabel("Senha").fill(senhaLonga);
+      await page.getByRole("button", { name: "Entrar" }).click();
+      await expect(page).toHaveURL(/\/$/);
+
+      const avatarCelular = page.getByRole("button", { name: NOME_ACESSIVEL_MENU_USUARIO });
+      const estaNoCelular = await avatarCelular.isVisible().catch(() => false);
+
+      let elementoNome: Locator;
+      if (estaNoCelular) {
+        // No celular o nome só aparece depois de abrir o Sheet (SheetTitle em
+        // menu-usuario.tsx, um <h2> do Radix Dialog.Title). Escopado por papel de heading —
+        // a barra lateral (sempre no DOM, só oculta por CSS neste breakpoint) também tem o
+        // mesmo nome em texto solto, e getByText sozinho encontraria os dois.
+        await avatarCelular.click();
+        elementoNome = page.getByRole("heading", { name: nomeLongo, level: 2 });
+      } else {
+        // No desktop o nome já está visível no gatilho do rodapé da barra lateral, sem
+        // precisar abrir o DropdownMenu.
+        elementoNome = page.locator('[data-slot="sidebar-footer"] button span[title]').first();
+
+        const barraLateral = page.locator('[data-slot="sidebar"]');
+        const caixaLateral = await barraLateral.boundingBox();
+        expect(
+          caixaLateral?.width,
+          "o nome longo empurrou a largura da barra lateral para além dos 240px fixos",
+        ).toBe(240);
+      }
+
+      await expect(elementoNome).toBeVisible();
+      await expect(elementoNome).toHaveAttribute("title", nomeLongo);
+
+      const medida = await elementoNome.evaluate((elemento) => ({
+        scrollWidth: elemento.scrollWidth,
+        clientWidth: elemento.clientWidth,
+        textOverflow: getComputedStyle(elemento).textOverflow,
+        whiteSpace: getComputedStyle(elemento).whiteSpace,
+      }));
+
+      expect(
+        medida.scrollWidth,
+        "o nome completo coube sem cortar — o teste não provou o truncamento (layout mudou ou nome curto demais)",
+      ).toBeGreaterThan(medida.clientWidth);
+      expect(medida.textOverflow).toBe("ellipsis");
+      expect(medida.whiteSpace).toBe("nowrap");
+    } finally {
+      // Desativa sempre, mesmo se alguma asserção acima falhar — nunca deixa a conta de teste
+      // ativa no banco.
+      execSync(`npm run desativar-usuario -- --email "${emailLongo}"`, opcoesExecucao);
     }
   });
 });
