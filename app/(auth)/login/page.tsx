@@ -15,7 +15,14 @@ function mensagemDeErro(
   if (erro === "bloqueado") {
     // Mensagem distinta da de credenciais inválidas — bloqueio não é senha errada, e esconder
     // o bloqueio faria a pessoa certa achar que esqueceu a própria senha (T-02a-12).
-    const quantidade = minutos ?? "alguns";
+    // `minutos` vem direto da URL (`/login?erro=bloqueado&minutos=...`) — qualquer pessoa pode
+    // editar o parâmetro na barra de endereço, então só um número inteiro positivo é aceito;
+    // qualquer outra coisa cai no valor genérico "alguns".
+    const numeroMinutos = Number(minutos);
+    const quantidade =
+      minutos !== undefined && Number.isInteger(numeroMinutos) && numeroMinutos > 0
+        ? String(numeroMinutos)
+        : "alguns";
     return `Muitas tentativas com este e-mail. Tente novamente em ${quantidade} minuto(s).`;
   }
   if (erro === "credenciais") {
