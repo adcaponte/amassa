@@ -42,13 +42,46 @@ não precisa entrar neste arquivo.
 
 ---
 
-## 1. Conferir que a versão nova está no ar
+## 1. Publicar o código desta fase, e conferir que ele está no ar
 
-A publicação é automática desde a Fase 1: o código desta fase (login, scripts de conta, rota de
-saúde do backup) já foi publicado pelo pipeline assim que a `main` recebeu os commits. Confirme
-antes de tocar no banco.
+A publicação é automática desde a Fase 1, mas o gatilho é o **push**, não o commit. O
+`.github/workflows/entrega.yml` roda em `on: push: branches: [main]`. Commit feito só na sua
+máquina não dispara nada — o servidor continua rodando a versão anterior, indefinidamente, sem
+nenhum sinal de erro. Foi exatamente isso que aconteceu na primeira execução deste roteiro.
 
-Na sua máquina:
+Comece conferindo se há commit parado na sua máquina.
+
+Na sua máquina, na pasta do projeto:
+
+```powershell
+git fetch origin
+git rev-list --count origin/main..HEAD
+```
+
+**O que faz:** o primeiro comando atualiza sua referência do que existe no GitHub; o segundo conta
+quantos commits você tem localmente que ainda não foram enviados.
+
+**O que você deve ver:** `0`. Se aparecer qualquer outro número, esses commits nunca chegaram ao
+GitHub e o pipeline nunca rodou para eles. Envie antes de seguir:
+
+```powershell
+git push origin main
+```
+
+**O que faz:** envia os commits e dispara a fila do pipeline — `qualidade`, `e2e`, `imagem`,
+`implantar`, nesta ordem, encadeadas por `needs`. Um teste quebrado interrompe a fila antes de
+qualquer publicação, que é o comportamento desejado.
+
+**O que você deve ver:** a contagem de objetos enviados e a linha final com `main -> main`.
+Acompanhe a execução em `https://github.com/adcaponte/amassa/actions`. A fila leva alguns minutos;
+só siga quando o job `implantar` tiver terminado em verde.
+
+> O job `e2e` roda a suíte Playwright inteira. O caso "sexta tentativa" do
+> `tests/e2e/autenticacao.spec.ts` pode estourar o tempo sob disputa de CPU, por causa do custo do
+> argon2 — é instabilidade conhecida, não defeito da sua mudança. Se a fila parar ali, re-execute o
+> workflow pelo botão "Re-run failed jobs".
+
+Com o `implantar` verde, confira o que está de fato no ar:
 
 ```powershell
 curl.exe https://amassacerrado.com.br/api/health
@@ -64,6 +97,18 @@ curl.exe -I https://amassacerrado.com.br/login
 **O que você deve ver:** a primeira linha da resposta começando com `HTTP/2 200` (ou `HTTP/1.1
 200`). A tela de login já está no ar, mesmo que ainda não exista nenhuma conta para entrar — isso
 só se resolve no passo 5.
+
+**Se vier `404`:** a versão no ar ainda é a antiga — `/login` nasceu nesta fase, então uma versão
+anterior não conhece essa rota. Os dois motivos possíveis, nesta ordem:
+
+1. **Commits não enviados.** Refaça a contagem acima. É a causa mais comum, e a mais silenciosa:
+   `/api/health` responde `ok` normalmente, porque essa rota existe desde a Fase 1 — só as rotas
+   novas faltam.
+2. **Pipeline vermelho.** Abra a aba Actions e veja em qual job a fila parou. Se parou antes de
+   `implantar`, nada foi publicado e a versão antiga continua servindo, corretamente.
+
+Não siga para o passo 2 com `404` na tela. As migrações do passo 3 criam a tabela `usuarios`, e
+publicar depois de migrar inverte a ordem que o resto deste roteiro assume.
 
 ---
 
