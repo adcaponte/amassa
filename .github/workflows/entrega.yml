@@ -40,6 +40,7 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - run: npm run verificar-acoes
       - run: npm test
 
   # Depende de `qualidade`. O Postgres de teste chega como service container do runner —

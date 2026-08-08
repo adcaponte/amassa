@@ -41,9 +41,10 @@ npm run dev
 ### Portões de qualidade
 
 ```bash
-npm run lint    # ESLint, --max-warnings=0
-npm test        # Vitest
-npm run build   # next build
+npm run lint             # ESLint, --max-warnings=0
+npm run verificar-acoes  # exigirUsuario() na primeira instrução de toda ação que toca o banco
+npm test                 # Vitest
+npm run build            # next build
 ```
 
 ## Operação em produção
@@ -138,7 +139,11 @@ Nunca em um terceiro lugar, e nunca num commit.
 acionamento manual) e roda quatro jobs encadeados por `needs`, nesta ordem — um teste
 quebrado interrompe a fila antes de qualquer publicação:
 
-1. **`qualidade`** — `npm run lint` e `npm test`. O portão mais barato, vem primeiro.
+1. **`qualidade`** — `npm run lint`, `npm run verificar-acoes` e `npm test`, nessa ordem. O
+   portão mais barato, vem primeiro. `verificar-acoes` garante, por análise da árvore
+   sintática (nunca expressão regular), que toda Server Action que toca o banco chama
+   `exigirUsuario()` como primeira instrução; se reprovar, a mensagem aponta arquivo, linha e
+   função — corrija a chamada que falta e rode `npm run verificar-acoes` de novo antes de subir.
 2. **`e2e`** — sobe um Postgres de teste como *service container* do runner (D-10), aplica o
    schema nele, constrói a imagem Docker do alvo `app` (o mesmo `docker/Dockerfile` que o job
    seguinte publica) e roda o Playwright **contra essa imagem rodando de verdade** — nunca

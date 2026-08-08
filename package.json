@@ -15,7 +15,8 @@
     "db:migrate": "tsx db/migrate.ts",
     "criar-usuario": "tsx scripts/criar-usuario.ts",
     "redefinir-senha": "tsx scripts/redefinir-senha.ts",
-    "desativar-usuario": "tsx scripts/desativar-usuario.ts"
+    "desativar-usuario": "tsx scripts/desativar-usuario.ts",
+    "verificar-acoes": "node scripts/verificar-acoes.mjs app lib"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",
