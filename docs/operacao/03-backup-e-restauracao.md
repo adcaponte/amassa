@@ -449,6 +449,19 @@ Logo depois ele pede `client_id` e `client_secret`. **Deixe os dois em branco �
 Nas perguntas seguintes: `scope` → `1` (acesso completo), `service_account_file` → Enter (vazio),
 `Edit advanced config?` → `n`.
 
+Depois disso o `rclone` repete o aviso da aposentadoria e pergunta:
+
+```
+Continue using the shared client_id anyway?
+y) Yes
+n) No (default)
+```
+
+**Responda `y`.** É uma negativa dupla e o padrão sugerido é `n`: responder `n` significa "não
+quero o compartilhado", e o assistente passa a **exigir** um `client_id` próprio — o campo volta a
+aparecer, agora como `Enter a value.`, sem a opção de deixar vazio. Se cair nisso, saia com
+`Ctrl+C`, apague o destino parcial e recomece; não há como voltar uma pergunta no assistente.
+
 Em algum ponto ele pergunta se pode **abrir um navegador automaticamente para autorizar**.
 Responda **`n`** — o VPS não tem navegador, e dizer `y` aqui trava esperando uma janela que nunca
 vai abrir.
