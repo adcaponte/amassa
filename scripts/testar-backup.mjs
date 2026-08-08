@@ -449,6 +449,18 @@ async function conferirTudo() {
     await etapa7_restauracaoRecusadaSemConfirmacao(cliente, arquivoDiario);
     await etapa8_restauracaoAceitaComConfirmacao(cliente, arquivoDiario);
   } finally {
+    // Etapa 8 devolve de propósito as duas linhas conhecidas (é a prova de que a restauração
+    // funcionou) — sem esta limpeza elas ficariam no banco `postgres_teste` compartilhado que
+    // entrega.yml reaproveita logo em seguida para a suíte Playwright (mesmo contêiner de
+    // serviço em CI: test:migracoes -> test:backup -> e2e). scripts/testar-migracoes.mjs já
+    // evita essa armadilha de isolamento apagando tudo que insere; este script fazia o mesmo
+    // nas Etapas 1-7 (ver etapa6_apagarLinhasConhecidas), só a Etapa 8 ficava de fora (WR-04 da
+    // revisão de 02a-08). `delete` aqui é seguro mesmo se as linhas nunca chegaram a existir (0
+    // linhas afetadas) ou se uma etapa anterior lançou antes de chegar na Etapa 8.
+    await cliente.query("delete from usuarios where email = $1", [EMAIL_CONHECIDO]).catch(() => {});
+    await cliente
+      .query("delete from verificacao_infraestrutura where nota = $1", [NOTA_CONHECIDA])
+      .catch(() => {});
     await cliente.end();
   }
 }
