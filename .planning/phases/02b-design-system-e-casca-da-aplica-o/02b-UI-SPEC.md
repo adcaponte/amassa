@@ -323,6 +323,12 @@ barra lateral fixa; nem barra inferior nem cabeçalho móvel são renderizados.
   `--color-borda`, altura 56px.
 - Conteúdo: título da página (papel `título`, à esquerda) + botão de avatar (à direita, círculo
   40px com alvo de toque de 44px, ícone `CircleUserRound` ou iniciais do nome).
+- **Contrato de acessibilidade do botão de avatar — obrigatório, não opcional.** O botão não tem
+  rótulo visível, então carrega `aria-label="Abrir menu do usuário"`. Se a variante com iniciais
+  for usada, as iniciais são `aria-hidden` e o `aria-label` continua sendo a única fonte do nome
+  acessível. É o único botão só com ícone de toda esta fase; a restrição vem do `CLAUDE.md` e de
+  UI-09, e a verificação está na tabela de acessibilidade
+  (`getByRole('button', { name: 'Abrir menu do usuário' })`).
 - O botão de avatar abre o menu do usuário (D-15) — nome, Orçamentos, Sair — em um `Sheet` (o
   componente shadcn já instalado nesta fase) subindo do topo ou lateral, nunca da barra
   inferior.
@@ -578,20 +584,66 @@ sem o mapeamento `@theme inline` não quebra o build nem aparece no console — 
 Cobertura de estado aplicável a uma fase que só entrega cascas e estados vazios (sem dado real
 de produto ainda):
 
-Applicable state considerations resolved: 8 covered, 2 backstop, 0 unresolved
+Cobertura calculada pelo `ui-consideration-probe` sobre as 10 superfícies descritas neste
+documento, com os tipos de elemento **confirmados pelo dono** — o classificador heurístico havia
+perdido seis superfícies (entre elas a tela de login, que é um formulário) e inventado `media` no
+botão de avatar. A correção foi aplicada antes de calcular a cobertura.
+
+**Superfícies e tipos confirmados:** E1 barra inferior (`nav`, `interactive-control`) · E2 cabeçalho
+móvel e menu do usuário (`nav`, `interactive-control`) · E3 barra lateral (`nav`,
+`interactive-control`) · E4 cabeçalho de página (`interactive-control`, `static-content`) ·
+E5 painel com 4 cartões (`list-collection`, `static-content`) · E6 `EstadoVazio`
+(`static-content`, `interactive-control`) · E7 `EstadoErro` (`static-content`,
+`interactive-control`) · E8 esqueleto (`static-content`) · E9 login (`form`,
+`interactive-control`) · E10 `/orcamentos` (`static-content`).
+
+**Applicable state considerations: 41 — 36 covered, 2 backstop, 3 dismissed, 0 unresolved.**
+(Algumas linhas da tabela cobrem a mesma categoria em duas superfícies e valem por duas.)
+
+A copy dos estados vazio e de erro vive em `## Copywriting Contract`; esta seção cobre a
+**cobertura de estado** e referencia aquelas linhas em vez de repeti-las.
 
 | Category | Element(s) | Status | Resolution / Reason |
 |----------|------------|--------|---------------------|
-| empty | Telas de módulo (`/encomendas`, `/agenda`, `/queimas`, `/estoque`) | ✅ covered | Cada tela renderiza o `EstadoVazio` com título/corpo/botão da tabela "Estados vazios por tela" |
-| empty | Cartões do painel inicial (4) | ✅ covered | Cada cartão mostra a linha de corpo definida na mesma tabela, sem título nem botão (D-02) |
-| empty | `/orcamentos` | ✅ covered | Copy definida na seção "tela por vir" — sem CTA, por ser bloqueio definitivo, não estado transitório |
-| zero-one-many | Menu do usuário | ✅ covered | Sempre exatamente um usuário (o autenticado) — sem lista, sem plural a tratar |
-| overflow | Barra inferior (5 itens fixos) | ✅ covered | Conjunto fixo e conhecido de 5 itens — não há lista dinâmica que possa transbordar |
-| overflow | Barra lateral (240px fixo) | ✅ covered | Itens de navegação são rótulos curtos e fixos (Início, Encomendas, Agenda, Queimas, Estoque) — nenhum é longo o bastante para quebrar em 240px |
-| error | `app/error.tsx`, `app/not-found.tsx` | ✅ covered | Copy definida em "Contrato do componente de estado de erro" |
-| loading | Navegação entre módulos | ✅ covered | `Skeleton` no formato do cabeçalho + conteúdo, ver seção "Estado de carregamento" |
-| long-text | Nome do usuário no menu/rodapé da barra lateral | 🧪 backstop | Truncar com `text-overflow: ellipsis` em uma linha; precisa de teste manual com um nome longo real antes de fechar a fase, já que nenhum usuário de teste hoje tem nome longo |
-| loading | Estado de carregamento com dado assíncrono real | 🧪 backstop | O `Skeleton` existe e segue o formato do conteúdo, mas nenhuma tela desta fase tem consulta lenta o bastante para o esqueleto aparecer de forma confiável em teste automatizado — verificação visual fica pendente para quando as Fases 3–6 adicionarem dado real |
+| loading | E1, E3 — barra inferior e barra lateral | ✅ covered | A casca é Server Component dentro de `app/(app)/layout.tsx`: existe no primeiro paint, não tem estado de carregando próprio. O `loading.tsx` cobre só a área de conteúdo |
+| error | E1, E3 — barra inferior e barra lateral | ✅ covered | A navegação vive no layout, fora do boundary de `app/error.tsx` — quando uma tela quebra, a barra continua utilizável e dá saída ao usuário |
+| overflow | E1 — barra inferior | ✅ covered | 5 itens fixos, cada um ocupando 1/5 da largura; conferido a 320px sem quebra e sem rolagem horizontal (UI-06) |
+| overflow | E3 — barra lateral | ✅ covered | 240px fixos e rótulos curtos e constantes; nenhum item chega perto do limite |
+| long-text | E1 — rótulos da barra inferior | ✅ covered | Os cinco rótulos (Início, Encomendas, Agenda, Queimas, Estoque) são constantes do código, nunca dado do usuário — não existe texto variável a truncar. Vale igualmente para os mesmos rótulos na lateral; o texto variável da lateral é o nome do usuário, tratado na linha de backstop abaixo |
+| loading | E2 — cabeçalho móvel e menu do usuário | ✅ covered | `usuario.nome` vem de `exigirUsuario()` no servidor, já resolvido antes do render; o menu nunca aparece sem nome |
+| error | E2 — menu do usuário | ✅ covered | O único ponto de falha é a Server Action `sair`; a falha cai no boundary de `app/error.tsx`, que oferece "Tentar de novo". O menu não carrega estado de erro próprio |
+| overflow | E2 — `Sheet` do menu | ✅ covered | Três itens (nome, Orçamentos, Sair); o `Sheet` do shadcn rola verticalmente se algum dia crescer |
+| long-text | E2, E3 — nome do usuário no menu e no rodapé da lateral | 🧪 backstop | **Statement:** o nome trunca com `text-overflow: ellipsis` em uma linha, com o nome completo em `title`. **Verification: backstop** — conferência manual com um nome longo real (≥ 40 caracteres) na lateral de 240px antes de fechar a fase; nenhuma conta de teste hoje tem nome longo, então nada automatizado exercita este caminho |
+| loading | E4 — cabeçalho de página | ✅ covered | Conteúdo estático renderizado no servidor; não há dado a esperar |
+| error | E4 — cabeçalho de página | ✅ covered | Delegado a `app/error.tsx`, que substitui a página inteira dentro do layout |
+| overflow | E4 — cabeçalho de página | ✅ covered | Título curto e constante + botão; no celular o botão desce para a linha de baixo em vez de espremer o título |
+| long-text | E4 — títulos de módulo | ✅ covered | "Encomendas", "Agenda", "Queimas", "Estoque" são constantes; o mais longo cabe em uma linha a 320px no papel `display` |
+| empty | E5 — cartões do painel | ✅ covered | Cada um dos 4 cartões mostra a frase própria da tabela "Estados vazios por tela", sem botão (D-02) |
+| loading | E5 — cartões do painel | ✅ covered | Nesta fase nenhum cartão busca dado; o `Skeleton` no formato do cartão (título + duas linhas) fica especificado para as Fases 3–6 consumirem |
+| error | E5 — cartões do painel | ✅ covered | Delegado a `app/error.tsx` — não há consulta por cartão que possa falhar isoladamente nesta fase |
+| overflow | E5 — grade de cartões | ✅ covered | 1 coluna no celular, 2×2 no desktop; a grade quebra para 1 coluna antes de qualquer cartão encolher abaixo do legível (UI-06) |
+| zero-one-many | E5 — cartões do painel | ✅ covered | Nesta fase o estado é sempre zero, e o vazio de cada cartão está escrito. Singular e plural do conteúdo pertencem à fase que fornece o dado |
+| long-text | E5 — títulos dos cartões | ✅ covered | Os quatro títulos são constantes definidas neste contrato |
+| populated | E5 — cartões do painel | ❌ dismissed | **Motivo:** nenhum cartão recebe dado nesta fase — o estado populado de "Encomendas por etapa" é definido pela Fase 3, "Aulas de hoje" pela Fase 5, "Fornos em atenção" pela Fase 4 e "Estoque baixo" pela Fase 6. Especificá-lo aqui seria inventar contrato para dado que este contrato não conhece |
+| partial | E5 — cartões do painel | ❌ dismissed | **Motivo:** mesmo motivo — não há dado parcial possível sem dado |
+| zero-one-many | E5 — lado "muitos" | ❌ dismissed | **Motivo:** o limite de itens por cartão e o "ver todos" são decisão da fase que fornece o dado; PNL-01 (Fase 7) fecha o painel real |
+| loading | E6 — `EstadoVazio` | ✅ covered | Componente puro sem dado e sem efeito; nunca tem estado intermediário |
+| error | E6 — `EstadoVazio` | ✅ covered | Não busca nada, não pode falhar |
+| overflow | E6 — `EstadoVazio` | ✅ covered | Centralizado com largura máxima de leitura; texto quebra em linhas, nunca horizontalmente |
+| long-text | E6 — frases de estado vazio | ✅ covered | As frases são constantes deste contrato; a mais longa cabe em duas linhas a 320px |
+| loading | E7 — `EstadoErro` | ✅ covered | Não carrega nada — é o destino de uma falha, não a origem de uma |
+| error | E7 — `EstadoErro` | ✅ covered | É o próprio estado de erro, com `role="alert"` e botão "Tentar de novo" ligado ao `reset()` do boundary |
+| overflow | E7 — `EstadoErro` | ✅ covered | Mesma largura máxima de leitura do `EstadoVazio` |
+| long-text | E7 — copy de erro | ✅ covered | Copy fixa deste contrato, em duas linhas curtas |
+| overflow | E8 — esqueleto | ✅ covered | O esqueleto tem o formato do conteúdo que substitui e vive no mesmo contêiner — não pode transbordar mais que ele |
+| long-text | E8 — esqueleto | ✅ covered | Não contém texto por definição |
+| empty | E9 — login | ✅ covered | Primeiro carregamento com os dois campos vazios e `required` no cliente; comportamento já existente (`app/(auth)/login/page.tsx`), a reestilização não muda a mecânica |
+| loading | E9 — login | ✅ covered | `BotaoEntrar` já usa `useFormStatus`: rótulo vira "Entrando…", `disabled` e `aria-busy` enquanto a Server Action roda |
+| error | E9 — login | ✅ covered | As três mensagens já existem em `mensagemDeErro` (credenciais inválidas · bloqueio por tentativas com os minutos · sessão encerrada), em `role="alert" aria-live="assertive"`. Só o estilo muda: `--color-erro` no lugar de `text-red-700` |
+| partial | E9 — login | ✅ covered | Só e-mail ou só senha: `required` barra no cliente e o Zod no servidor devolve a mesma mensagem de credenciais inválidas, sem revelar qual campo faltou |
+| long-text | E9 — campo de e-mail | ✅ covered | E-mail longo rola dentro do próprio `input` (comportamento nativo), sem alargar o cartão de login |
+| overflow | E10 — `/orcamentos` | ✅ covered | Uma linha de título e um parágrafo curto, na mesma largura máxima de leitura |
+| long-text | E10 — `/orcamentos` | ✅ covered | Copy fixa deste contrato |
 
 ---
 
@@ -608,11 +660,16 @@ terceiros.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS *(era FLAG — o contrato de `aria-label` do botão de avatar estava
+      só na tabela de verificação, não na especificação do componente. Corrigido na seção
+      "Cabeçalho móvel", que agora declara `aria-label="Abrir menu do usuário"` como obrigatório)*
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS *(6 papéis e 4 pesos — desvio deliberado, rastreável a
+      `04-DESIGN-SYSTEM.md` §4, que é contrato travado pelo dono)*
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** aprovado — 6/6 dimensões, 0 bloqueios, 1 recomendação já aplicada.
+**UI Considerations:** probe executado com tipos de elemento confirmados pelo dono —
+41 aplicáveis, 36 cobertas, 2 backstop, 3 dispensadas com motivo, 0 sem resolver.
