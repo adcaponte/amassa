@@ -101,9 +101,9 @@ Requisitos: **UI-01 a UI-09**.
   documento de design diz "recolhível"; esta é uma decisão consciente de simplificar.
   — **Reversibility:** reversible — o componente `Sidebar` do shadcn traz o recolher e a
   persistência por cookie praticamente de graça se um dia fizer falta.
-- **D-13: O logo entra como componente `Logo` isolado, renderizando a palavra AMASSA em Archivo
-  Narrow, até o SVG chegar.** O dono exporta o SVG da Vinila do mídia kit quando puder e a troca é
-  um arquivo. **A fase não fica bloqueada esperando o ativo.** O executor **não** desenha uma
+- **D-13: O logo é um componente `Logo` isolado até o SVG chegar.** Renderiza a palavra AMASSA em
+  Archivo Narrow. O dono exporta o SVG da Vinila do mídia kit quando puder e a troca é um arquivo.
+  **A fase não fica bloqueada esperando o ativo.** O executor **não** desenha uma
   aproximação da Vinila em curvas — imitar uma fonte licenciada num repositório público é
   exatamente o terreno que D-04 e D-06 da 2a mandam evitar.
   — **Reversibility:** reversible — trocar o conteúdo de um componente.
@@ -116,8 +116,8 @@ Requisitos: **UI-01 a UI-09**.
   inferior — a barra inferior é dos 5 módulos (UI-02) e não pode ganhar um sexto item. Sair
   precisa ficar alcançável sem navegar nem rolar.
   — **Reversibility:** reversible.
-- **D-16: A rota protegida provisória `app/(app)/page.tsx` da 2a é substituída pelo painel inicial
-  real desta fase.** O comentário no arquivo já anuncia isso. `exigirUsuario()` continua na primeira
+- **D-16: A rota provisória `app/(app)/page.tsx` da 2a vira o painel inicial real.** O comentário no
+  arquivo já anuncia isso. `exigirUsuario()` continua na primeira
   linha de toda página protegida — é o padrão, não uma exceção daquela tela.
 
 ### Decisões já fechadas nos documentos fonte — não reabrir

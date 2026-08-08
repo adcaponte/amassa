@@ -140,11 +140,21 @@ de navegação, painel inicial com espaços reservados).
 **Plans**: 5 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 02b-01-PLAN.md — Traçado: tokens, mapeamento `@theme inline`, as duas fontes e o login com a identidade aplicada (onda 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02b-02-PLAN.md — A casca: barra lateral de 240px, barra inferior de 5 itens e menu do usuário (onda 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02b-03-PLAN.md — Telas dos módulos, painel inicial e a prova da navegação (onda 3)
 - [ ] 02b-04-PLAN.md — Estados de erro, 404, carregamento e a convenção de exclusão (onda 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 02b-05-PLAN.md — Acessibilidade verificada com ferramenta e a conferência humana no celular (onda 4)
 
 **UI hint**: yes
