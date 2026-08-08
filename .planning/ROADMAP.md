@@ -34,7 +34,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Fundação e Primeiro Deploy** - Endereço `https://` no ar com deploy automático, sem nenhuma funcionalidade (completed 2026-08-08)
-- [ ] **Phase 2a: Login, Banco Base e Backup** - Entrar com e-mail/senha, contas por linha de comando, e backup automático rodando
+- [x] **Phase 2a: Login, Banco Base e Backup** - Entrar com e-mail/senha, contas por linha de comando, e backup automático rodando (completed 2026-08-08)
 - [ ] **Phase 2b: Design System e Casca da Aplicação** - Navegar por telas vazias já com a identidade visual do AMASSA, no celular e no desktop
 - [ ] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata
 - [ ] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques
