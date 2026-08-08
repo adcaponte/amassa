@@ -71,6 +71,23 @@ seguro rodar mais de uma vez — o Drizzle pula o que já foi aplicado.
 Rodar o mesmo comando contra o serviço `app` (`docker compose exec app npm run db:migrate`)
 falha — não é um defeito, é o motivo de o estágio `ferramentas` existir.
 
+### Operações de conta
+
+Não existe tela de cadastro nem "esqueci minha senha" — as três operações de conta sempre
+passam pelo estágio `ferramentas`, nunca pela imagem `app`:
+
+```bash
+docker compose run --rm ferramentas npm run criar-usuario -- --nome "Fulana da Silva" --email "fulana@exemplo.com"
+docker compose run --rm ferramentas npm run redefinir-senha -- --email "fulana@exemplo.com"
+docker compose run --rm ferramentas npm run desativar-usuario -- --email "fulana@exemplo.com"
+docker compose run --rm ferramentas npm run desativar-usuario -- --email "fulana@exemplo.com" --reativar
+```
+
+`criar-usuario` e `redefinir-senha` imprimem a senha gerada uma única vez, numa linha
+`SENHA: ...` — guarde-a na hora, ela não pode ser recuperada depois. `desativar-usuario` marca
+`ativo = false` (ou `true` com `--reativar`); nenhum dos três comandos apaga uma linha da
+tabela `usuarios`.
+
 ### Publicar uma nova versão
 
 ```bash

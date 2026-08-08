@@ -255,6 +255,110 @@ async function conferirPapelEPrivilegios(cliente) {
   }
 }
 
+// npm/npx precisam do shell no Windows (rodarNpm acima) — esta variante captura a saída em
+// vez de herdar o terminal, porque redefinir-senha imprime a senha nova numa linha `SENHA: `
+// que este cenário precisa ler de volta.
+function rodarNpmCapturado(comando, args, opcoes = {}) {
+  return execSync(`${comando} ${args.join(" ")}`, {
+    stdio: ["ignore", "pipe", "inherit"],
+    ...opcoes,
+  }).toString();
+}
+
+// Prova as três operações de conta (AUTH-08, AUTH-09) contra um banco de verdade, rodando os
+// próprios scripts de linha de comando como processo filho — não reimplementando a lógica
+// deles. O par "o hash mudou" + "a senha antiga deixou de conferir" é o que distingue
+// redefinir de reescrever o mesmo valor por engano.
+async function conferirContas(cliente) {
+  const { hash, verify } = await import("@node-rs/argon2");
+  const email = "conta-de-teste-plano-05@exemplo.test";
+  const senhaOriginal = "SenhaOriginalDeTesteDoPlano05";
+  const hashOriginal = await hash(senhaOriginal);
+
+  const envDoBancoDeTeste = { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE };
+
+  const inserida = await cliente.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Conta de Teste do Plano 05', $1, $2)
+     returning id`,
+    [email, hashOriginal],
+  );
+  const { id } = inserida.rows[0];
+
+  try {
+    console.log("  redefinir-senha...");
+    const saidaRedefinir = rodarNpmCapturado(
+      "npm",
+      ["run", "redefinir-senha", "--", "--email", email],
+      { env: envDoBancoDeTeste },
+    );
+    const linhaSenha = saidaRedefinir.split("\n").find((linha) => linha.startsWith("SENHA: "));
+    afirmar(
+      Boolean(linhaSenha),
+      "redefinir-senha não imprimiu a linha SENHA: esperada.\nSaída completa:\n" +
+        saidaRedefinir,
+    );
+    const senhaNova = linhaSenha.slice("SENHA: ".length).trim();
+
+    const { rows: linhasAposRedefinir } = await cliente.query(
+      "select senha_hash from usuarios where id = $1",
+      [id],
+    );
+    const hashNovo = linhasAposRedefinir[0].senha_hash;
+
+    afirmar(hashNovo !== hashOriginal, "O hash da senha não mudou depois de redefinir-senha.");
+    afirmar(
+      (await verify(hashNovo, senhaOriginal)) === false,
+      "A senha antiga ainda confere com o hash novo depois de redefinir-senha — a senha " +
+        "anterior deveria ter deixado de funcionar.",
+    );
+    afirmar(
+      (await verify(hashOriginal, senhaNova)) === false,
+      "A senha nova confere com o hash antigo — redefinir-senha não deveria produzir um hash " +
+        "que a senha anterior já satisfazia.",
+    );
+    afirmar(
+      (await verify(hashNovo, senhaNova)) === true,
+      "A senha nova impressa por redefinir-senha não confere com o hash gravado no banco.",
+    );
+
+    console.log("  desativar-usuario...");
+    rodarNpmCapturado("npm", ["run", "desativar-usuario", "--", "--email", email], {
+      env: envDoBancoDeTeste,
+    });
+    const { rows: linhasAposDesativar } = await cliente.query(
+      "select ativo from usuarios where id = $1",
+      [id],
+    );
+    afirmar(
+      linhasAposDesativar.length === 1,
+      "A linha do usuário desapareceu depois de desativar-usuario — desativar nunca deve " +
+        "apagar uma linha.",
+    );
+    afirmar(
+      linhasAposDesativar[0].ativo === false,
+      "ativo continua true depois de desativar-usuario.",
+    );
+
+    console.log("  desativar-usuario --reativar...");
+    rodarNpmCapturado(
+      "npm",
+      ["run", "desativar-usuario", "--", "--email", email, "--reativar"],
+      { env: envDoBancoDeTeste },
+    );
+    const { rows: linhasAposReativar } = await cliente.query(
+      "select ativo from usuarios where id = $1",
+      [id],
+    );
+    afirmar(
+      linhasAposReativar[0].ativo === true,
+      "ativo continua false depois de desativar-usuario --reativar.",
+    );
+  } finally {
+    await cliente.query("delete from usuarios where id = $1", [id]);
+  }
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -264,6 +368,7 @@ async function conferirBanco() {
     await conferirExtensaoEFuncoes(cliente);
     await conferirTriggerFuncionando(cliente);
     await conferirPapelEPrivilegios(cliente);
+    await conferirContas(cliente);
   } finally {
     await cliente.end();
   }
