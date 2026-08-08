@@ -102,7 +102,7 @@ automático via `cron` do host).
   7. O backup de ontem existe no servidor e também no armazenamento externo
   8. `/api/health/backup` responde `ok` quando o último backup tem menos de 26 horas, e falha quando não tem
 
-**Plans**: 5/8 plans executed
+**Plans**: 6/8 plans executed
 
 Plans:
 
@@ -111,7 +111,7 @@ Plans:
 - [x] 02a-03-PLAN.md — Proteções de login: mensagem única, hash sempre, limite de tentativas (onda 2)
 - [x] 02a-04-PLAN.md — Sessão de 30 dias, sair de verdade e `exigirUsuario()` (onda 3)
 - [x] 02a-05-PLAN.md — Scripts de conta e o portão de máquina do `exigirUsuario()` (onda 3)
-- [ ] 02a-06-PLAN.md — Vigia do backup: `execucoes_backup` e `/api/health/backup` (onda 4)
+- [x] 02a-06-PLAN.md — Vigia do backup: `execucoes_backup` e `/api/health/backup` (onda 4)
 - [ ] 02a-07-PLAN.md — `backup.sh` e `restaurar.sh` provados sem servidor (onda 5)
 - [ ] 02a-08-PLAN.md — Roteiro 3 e a virada no servidor, com restauração real (onda 6)
 
