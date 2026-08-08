@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 2
+open_count: 3
 waived_count: 0
 fixed_count: 0
-total_count: 2
-last_updated: 2026-08-08T14:39:57.410Z
+total_count: 3
+last_updated: 2026-08-08T18:37:46.938Z
 ---
 
 # Broken Windows Ledger
@@ -17,6 +17,7 @@ last_updated: 2026-08-08T14:39:57.410Z
 |----|-------|------|------|------|-------------|--------|--------|-------------|-------------|
 | 1 | 01-funda-o-e-primeiro-deploy | deviation | README.md |  | Protecao da branch main (bloquear force-push e exclusao) nao configurada — requer gh CLI/API do GitHub e credenciais nao disponiveis nesta execucao; acao pendente do dono, documentada em 01-02-SUMMARY.md | open |  | 2026-08-06T17:44:26.584Z |  |
 | 2 | 02a-login-banco-base-e-backup | deviation | middleware.ts |  | callbackUrl do redirecionamento nao autenticado vaza o endereco interno do container (https://0.0.0.0:3000/...) em vez do dominio publico — confirmado de fora em producao (curl -I https://amassacerrado.com.br/encomendas). O cookie __Secure-authjs.callback-url resolve o dominio certo, mas o parametro de query da Location nao. Descoberto durante a verificacao externa do plano 02a-08 (Tarefa 3); fora do escopo de arquivos deste plano (nao toca middleware.ts nem lib/auth/) — precisa de investigacao dedicada em auth.config.ts / trustHost do Auth.js v5 | open |  | 2026-08-08T14:39:57.410Z |  |
+| 3 | 02b | deviation | tests/e2e/autenticacao.spec.ts | 72 | Sexta tentativa de bloqueio trava/estoura timeout de forma pre-existente (confirmado via --grep-invert, independente da 02b-03) — ver deferred-items.md item 1 | open |  | 2026-08-08T18:37:46.938Z |  |
 
 ````json
 [
@@ -42,6 +43,18 @@ last_updated: 2026-08-08T14:39:57.410Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-08T14:39:57.410Z",
+    "resolved_at": null
+  },
+  {
+    "id": 3,
+    "kind": "deviation",
+    "phase": "02b",
+    "file": "tests/e2e/autenticacao.spec.ts",
+    "line": 72,
+    "description": "Sexta tentativa de bloqueio trava/estoura timeout de forma pre-existente (confirmado via --grep-invert, independente da 02b-03) — ver deferred-items.md item 1",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-08T18:37:46.938Z",
     "resolved_at": null
   }
 ]

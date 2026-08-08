@@ -137,7 +137,7 @@ de navegação, painel inicial com espaços reservados).
 > fase.** São critérios de polimento, medidos sobre o sistema completo, e ficam na Fase 7 — onde
 > já estavam mapeados. Cada requisito pertence a exatamente uma fase.
 
-**Plans**: 2/5 plans executed
+**Plans**: 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -150,7 +150,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02b-03-PLAN.md — Telas dos módulos, painel inicial e a prova da navegação (onda 3)
+- [x] 02b-03-PLAN.md — Telas dos módulos, painel inicial e a prova da navegação (onda 3)
 - [ ] 02b-04-PLAN.md — Estados de erro, 404, carregamento e a convenção de exclusão (onda 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -319,7 +319,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Fundação e Primeiro Deploy | 7/7 | Complete    | 2026-08-08 |
 | 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
-| 2b. Design System e Casca da Aplicação | 2/5 | In Progress|  |
+| 2b. Design System e Casca da Aplicação | 3/5 | In Progress|  |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
