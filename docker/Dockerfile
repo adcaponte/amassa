@@ -70,4 +70,9 @@ COPY tsconfig.json ./
 COPY drizzle.config.ts ./
 COPY db ./db
 COPY scripts ./scripts
+# `lib` entra porque os scripts de conta dependem dele: `criar-usuario.ts` e
+# `redefinir-senha.ts` importam `gerarHash`/`gerarSenhaForte` de `../lib/auth/senha`. Sem esta
+# linha a imagem sobe normalmente, `db:migrate` funciona (db/ não depende de lib/) e a falha só
+# aparece na hora de criar a primeira conta no servidor, como MODULE_NOT_FOUND — longe da causa.
+COPY lib ./lib
 CMD ["sh"]
