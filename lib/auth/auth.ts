@@ -7,20 +7,15 @@ import { randomBytes } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { z } from "zod";
 
 import { db } from "@/db";
 import { usuarios } from "@/db/schema";
 
 import { configuracaoBase } from "./auth.config";
 import { avaliarCredenciais } from "./credenciais";
+import { credenciaisEntradaSchema } from "./entrada-credenciais";
 import { conferirHash, gerarHash } from "./senha";
 import { avaliarPedidoAgora, registrarAcertoAgora, registrarErroAgora } from "./tentativas-memoria";
-
-const credenciaisSchema = z.object({
-  email: z.email(),
-  senha: z.string().min(1),
-});
 
 // Hash de referência para o caminho sem usuário: gerado uma única vez, na inicialização do
 // processo, a partir de um valor aleatório descartado em seguida — nunca uma constante
@@ -53,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         senha: {},
       },
       async authorize(credenciaisBrutas) {
-        const resultado = credenciaisSchema.safeParse(credenciaisBrutas);
+        const resultado = credenciaisEntradaSchema.safeParse(credenciaisBrutas);
         if (!resultado.success) return null;
 
         const email = resultado.data.email.toLowerCase();

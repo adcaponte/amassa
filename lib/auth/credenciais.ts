@@ -2,6 +2,11 @@
 // digitada e a própria função de conferência de hash como argumento, em vez de importar
 // `@node-rs/argon2` ou `@/db`. Devolve o usuário autenticado ou uma recusa.
 //
+// (O schema Zod de entrada compartilhado entre a Server Action de login e o `authorize()` do
+// provedor — WR-03 da revisão de 02a-08 — NÃO mora aqui: `tests/unit/credenciais.test.ts`
+// prova, lendo o próprio arquivo-fonte, que este módulo tem zero imports; fica em
+// `lib/auth/entrada-credenciais.ts`.)
+//
 // A mensagem é única de propósito: apontar qual dos dois motivos causou a recusa transformaria
 // a tela de login num verificador de quem tem conta no ateliê (`01-ARQUITETURA.md` §4, T-02a-13).
 export const MENSAGEM_CREDENCIAIS_INVALIDAS = "Confira o e-mail e a senha e tente de novo.";

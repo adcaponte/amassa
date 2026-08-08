@@ -1,22 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
 import { AuthError } from "next-auth";
 
 import { ErroBloqueado, signIn, signOut } from "@/lib/auth/auth";
+import { credenciaisEntradaSchema } from "@/lib/auth/entrada-credenciais";
 
 // Único ponto que valida a entrada do formulário e chama o Auth.js. Este arquivo NÃO toca o
 // banco — quem consulta a tabela `usuarios` é a função de checagem de credenciais do provedor,
 // dentro de `lib/auth/auth.ts`. Não confundir com o portão de autorização `exigirUsuario()`
 // do plano 05: aqui é entrada (quem é você), lá é autorização de rota (o que você pode fazer).
-const credenciaisSchema = z.object({
-  email: z.email(),
-  senha: z.string().min(1),
-});
+// O schema vem de lib/auth/entrada-credenciais.ts — o mesmo usado pelo `authorize()` do
+// provedor, para as duas validações não divergirem silenciosamente (WR-03 da revisão de 02a-08).
 
 export async function entrar(dadosFormulario: FormData) {
-  const resultado = credenciaisSchema.safeParse({
+  const resultado = credenciaisEntradaSchema.safeParse({
     email: dadosFormulario.get("email"),
     senha: dadosFormulario.get("senha"),
   });
