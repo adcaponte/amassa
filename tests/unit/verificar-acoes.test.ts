@@ -41,4 +41,24 @@ describe("verificar-acoes", () => {
 
     expect(codigo).toBe(0);
   });
+
+  // Regressão de CR-01: uma ação que alcança o banco só por transitividade (através de um
+  // módulo de apoio, sem importar `@/db` diretamente) precisa ser reprovada do mesmo jeito que
+  // violando.ts — não basta olhar os imports do próprio arquivo.
+  it("reprova a fixture violando-transitivo.ts (alcance ao banco via helper) citando arquivo, linha e função", () => {
+    const { codigo, saida } = rodarVerificador(["tests/fixtures/acoes/violando-transitivo.ts"]);
+
+    expect(codigo).not.toBe(0);
+    expect(saida).toContain("violando-transitivo.ts:");
+    expect(saida).toContain("listarNomesPorHelperSemAutorizar");
+  });
+
+  // Regressão da exceção nomeada de CR-01: entrar/sair em lib/auth/acoes.ts alcançam o banco
+  // por transitividade (via lib/auth/auth.ts) mas são o próprio ponto de entrada/saída da
+  // autenticação, exentos por nome — o portão precisa continuar aprovando o arquivo inteiro.
+  it("aprova lib/auth/acoes.ts (entrar/sair exentos por serem entrada/saída da autenticação)", () => {
+    const { codigo } = rodarVerificador(["lib/auth/acoes.ts"]);
+
+    expect(codigo).toBe(0);
+  });
 });
