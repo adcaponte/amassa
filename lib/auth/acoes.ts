@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { AuthError } from "next-auth";
 
-import { ErroBloqueado, signIn } from "@/lib/auth/auth";
+import { ErroBloqueado, signIn, signOut } from "@/lib/auth/auth";
 
 // Único ponto que valida a entrada do formulário e chama o Auth.js. Este arquivo NÃO toca o
 // banco — quem consulta a tabela `usuarios` é a função de checagem de credenciais do provedor,
@@ -49,4 +49,12 @@ export async function entrar(dadosFormulario: FormData) {
     // um `AuthError`, e precisa continuar subindo para o Next.js tratar.
     throw erro;
   }
+}
+
+// Encerra a sessão de verdade (AUTH-06): não é o botão de voltar do navegador que decide,
+// é o próprio Auth.js invalidando o cookie. Este arquivo NÃO toca o banco — a mesma regra
+// de `entrar()` acima. Não confundir com `exigirUsuario()` (autorização de rota); esta
+// função é só saída.
+export async function sair() {
+  await signOut({ redirectTo: "/login" });
 }
