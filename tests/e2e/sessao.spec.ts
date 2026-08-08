@@ -32,6 +32,23 @@ test.describe("sessão", () => {
     await expect(page).toHaveURL(/\/$/);
   }
 
+  // A 02b-02 moveu o botão Sair para dentro do menu do usuário (D-15): no celular ele fica
+  // atrás do botão de avatar do cabeçalho (aria-label obrigatório); no desktop, atrás do
+  // gatilho no rodapé da barra lateral. Os dois existem sempre no DOM — só um fica visível
+  // por vez, conforme o breakpoint de 768px (`md:hidden`/`hidden md:flex`). A visibilidade é
+  // o critério de escolha, nunca o nome do projeto do Playwright: ramificar por nome
+  // esconderia uma regressão real em um dos dois tamanhos de tela.
+  async function abrirMenuDoUsuario(page: Page) {
+    const gatilhoCelular = page.getByRole("button", { name: "Abrir menu do usuário" });
+    const gatilhoDesktop = page.locator('[data-slot="sidebar-footer"] button').first();
+
+    if (await gatilhoCelular.isVisible()) {
+      await gatilhoCelular.click();
+    } else {
+      await gatilhoDesktop.click();
+    }
+  }
+
   test("o cookie de sessao e persistente e vale cerca de 30 dias", async ({ page, context }) => {
     await fazerLogin(page);
 
@@ -92,6 +109,7 @@ test.describe("sessão", () => {
     await fazerLogin(page);
     await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
 
+    await abrirMenuDoUsuario(page);
     await page.getByRole("button", { name: "Sair" }).click();
     await expect(page).toHaveURL(/\/login(\?|$)/);
 

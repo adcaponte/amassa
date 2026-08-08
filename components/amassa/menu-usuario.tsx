@@ -82,12 +82,28 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <form action={sair} className="w-full">
-            <button type="submit" className="flex w-full items-center gap-1.5 text-left">
+          {/* Duas armadilhas do Radix aqui, achadas rodando o e2e de verdade (não por leitura
+              de código): (1) um <button type="submit"> dentro de <form>, quando é o próprio
+              alvo do `asChild`, nunca chega a submeter o form — o clique nativo que dispara a
+              submissão não acontece; (2) `asChild` aplica role="menuitem" no elemento raiz
+              recebido, então se o próprio <button> fosse o alvo, o nome acessível deixaria de
+              responder por getByRole("button", ...) — passaria a ser "menuitem". A saída: o
+              alvo do asChild é este <div> (que vira role="menuitem"), e o <button> real fica
+              DENTRO dele, mantendo o papel de botão e chamando a Server Action diretamente
+              (sem depender de submissão nativa de formulário). Fora do DropdownMenu (variante
+              celular, dentro do Sheet) o <form action={sair}> comum funciona normalmente. */}
+          <div className="w-full">
+            <button
+              type="button"
+              className="flex w-full items-center gap-1.5 text-left"
+              onClick={() => {
+                void sair();
+              }}
+            >
               <LogOut aria-hidden="true" />
               Sair
             </button>
-          </form>
+          </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
