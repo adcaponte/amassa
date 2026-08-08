@@ -107,9 +107,15 @@ jobs:
       # jeito que os passos deste job enxergam, e a porta 3000 fica exposta direto para o
       # Playwright rodar sem publicação extra.
       - name: Subir o contêiner da imagem app
+        # AUTH_SECRET e AUTH_TRUST_HOST exercitados aqui, contra a imagem real, pelo mesmo
+        # motivo do playwright.config.ts local: sem AUTH_TRUST_HOST=true o Auth.js ignora
+        # X-Forwarded-* atrás de proxy reverso e falha só em produção (01-ARQUITETURA.md §6).
+        # O valor de AUTH_SECRET aqui é efêmero e descartável, só para este job.
         run: |
           docker run -d --name amassa_app_e2e --network host \
             -e DATABASE_URL="${{ env.DATABASE_URL_TESTE }}" \
+            -e AUTH_SECRET="segredo-de-teste-efemero-sem-valor-real" \
+            -e AUTH_TRUST_HOST="true" \
             -e PORT=3000 \
             amassa-app:e2e
 

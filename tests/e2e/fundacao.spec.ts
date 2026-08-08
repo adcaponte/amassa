@@ -2,20 +2,32 @@ import { test, expect } from "@playwright/test";
 
 import { FRASE_NO_AR } from "@/app/frase-no-ar";
 
-// Cobre os dois únicos pedaços da fundação que existem nesta fase: a página mínima da marca
-// (D-12/D-13) e /api/health. O segundo caso é o que dá sentido ao banco de teste separado —
-// sem ele, o E2E nunca tocaria no Postgres e o serviço `postgres_teste` seria decoração.
+// Cobre o caminho inteiro da autenticação (D1/D2/D3 do 02a-01-PLAN.md) e /api/health. A
+// conta usada no segundo caso vem do globalSetup (tests/e2e/apoio/preparar-usuario.ts), que
+// roda o próprio scripts/criar-usuario.ts — não semeia a tabela por fora.
 // Roda nos dois projetos (desktop e celular) declarados em playwright.config.ts.
 test.describe("fundação", () => {
-  test("a página inicial responde e mostra o nome e a frase no ar", async ({ page }) => {
-    const resposta = await page.goto("/");
-    expect(resposta?.status()).toBe(200);
+  test("sem sessao a raiz redireciona para /login", async ({ page }) => {
+    await page.goto("/");
+    // O middleware acrescenta `?callbackUrl=...` ao redirecionar — a asserção cobre o
+    // caminho, não a query string.
+    await expect(page).toHaveURL(/\/login(\?|$)/);
 
+    // A frase da Fase 1 (INFRA-02) precisa continuar visível sem sessão — agora aqui,
+    // já que a raiz deixou de ser pública.
     await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
-    // Importa a constante em vez de repetir o texto: o critério INFRA-02 é "alterar um texto,
-    // dar push, e a mudança aparecer sozinha". Com a frase escrita à mão aqui, toda troca de
-    // copy quebraria o teste e barraria o próprio deploy que o critério pede para observar.
     await expect(page.getByText(FRASE_NO_AR)).toBeVisible();
+  });
+
+  test("entrar com a conta criada pelo script abre a raiz", async ({ page }) => {
+    await page.goto("/login");
+
+    await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
+    await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
+    await page.getByRole("button", { name: "Entrar" }).click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
   });
 
   test("/api/health responde 200 com o banco em ordem", async ({ request }) => {

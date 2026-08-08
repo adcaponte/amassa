@@ -21,12 +21,22 @@ import { defineConfig, devices } from "@playwright/test";
 // de um Android real, sem precisar do motor WebKit.
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Cria a conta de gestor rodando o próprio scripts/criar-usuario.ts contra o banco de
+  // teste, e publica e-mail/senha em variáveis de ambiente para as specs (AUTH-07 de
+  // verdade, ver tests/e2e/apoio/preparar-usuario.ts).
+  globalSetup: "./tests/e2e/apoio/preparar-usuario.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    // "localhost", não "127.0.0.1": o `NextURL` interno do Next.js normaliza QUALQUER
+    // hostname 127.x.x.x para o literal "localhost" ao montar URLs (inclusive o redirect do
+    // middleware para /login). Testar com "127.0.0.1" faria o redirect de autenticação
+    // trocar de origem no meio do fluxo (127.0.0.1 → localhost) — origens diferentes não
+    // compartilham cookie de sessão, o que quebraria login de verdade sem ser um bug da
+    // aplicação. Não é o AUTH_TRUST_HOST: é puramente esse detalhe de teste local.
+    baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
   projects: [
@@ -46,6 +56,13 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       DATABASE_URL: process.env.DATABASE_URL_TESTE ?? "",
+      // Valor de teste explicitamente descartável, no mesmo espírito da senha efêmera de
+      // docker/compose.teste.yml — nunca o AUTH_SECRET real.
+      AUTH_SECRET: "segredo-de-teste-efemero-sem-valor-real",
+      // Obrigatório atrás de proxy reverso (Caddy) — sem ela o Auth.js ignora
+      // X-Forwarded-* e monta URLs de callback erradas (01-ARQUITETURA.md §6). Exercitada
+      // aqui para não descobrir a falta só em produção.
+      AUTH_TRUST_HOST: "true",
     },
   },
 });

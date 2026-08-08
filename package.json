@@ -11,14 +11,18 @@
     "test": "vitest run",
     "test:e2e": "node scripts/testar-e2e.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx db/migrate.ts"
+    "db:migrate": "tsx db/migrate.ts",
+    "criar-usuario": "tsx scripts/criar-usuario.ts"
   },
   "dependencies": {
+    "@node-rs/argon2": "2.0.2",
     "drizzle-orm": "0.45.2",
     "next": "15.5.22",
+    "next-auth": "5.0.0-beta.32",
     "pg": "8.22.0",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
