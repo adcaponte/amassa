@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02a
 current_phase_name: login-banco-base-e-backup
 status: executing
-stopped_at: Completou 02a-03-PLAN.md (mensagem unica e limite de tentativas de login)
-last_updated: "2026-08-08T01:39:00.216Z"
+stopped_at: Completou 02a-04-PLAN.md (ciclo de vida da sessao e exigirUsuario())
+last_updated: "2026-08-08T02:02:38.656Z"
 last_activity: 2026-08-08
 last_activity_desc: Phase 02a execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 02a (login-banco-base-e-backup) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-08-08 — Phase 02a execution started
 
-Progress: [███████░░░] 67%
+Progress: [███████░░░] 73%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [███████░░░] 67%
 | Phase 02a P01 | 32min | 3 tasks | 23 files |
 | Phase 02a P02 | 50min | 3 tasks | 11 files |
 | Phase 02a P03 | 31min | 3 tasks | 11 files |
+| Phase 02a P04 | 38min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 02a-03: ErroBloqueado (subclasse de CredentialsSignin) carrega segundosParaLiberar intacto ate lib/auth/acoes.ts sem serializacao, confirmado nas fontes de @auth/core
 - [Phase ?]: 02a-03: avaliarCredenciais compara contra usuario.senhaHash quando o usuario existe (mesmo desativado) e contra um hashDeReferencia gerado no boot so quando nao existe, igualando o tempo de resposta
 - [Phase ?]: 02a-03: tests/e2e/autenticacao.spec.ts roda em modo serial (test.describe.configure) para eliminar contencao de recursos entre os quatro testes e a corrida teorica sobre a conta compartilhada
+- [Phase ?]: 02a-04: exigirUsuario() busca usuario pelo e-mail da sessao (indice funcional lower(email)), nao por id de token — o callback session padrao do Auth.js remove id do objeto de sessao, e adiciona-lo exigiria module augmentation so para isso
+- [Phase ?]: 02a-04: cookies.sessionToken.options.secure=true estatico em auth.config.ts funciona em http://localhost porque o Chrome trata localhost como contexto seguro (aceita cookies Secure sem TLS)
+- [Phase ?]: 02a-04: auth.ts e importado de forma dinamica dentro de exigirUsuario() (nao no topo do arquivo) para manter avaliarAutorizacao() testavel no Vitest sem herdar a resolucao de next/server que so o bundler do Next.js resolve
+- [Phase ?]: 02a-04: testes e2e que MUTAM estado compartilhado (ativo de um usuario) usam conta dedicada criada na hora, exclusiva por projeto Playwright — reaproveitar a conta global de login so e seguro para leitura
 
 ### Pending Todos
 
@@ -128,6 +133,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T01:39:00.186Z
-Stopped at: Completou 02a-03-PLAN.md (mensagem unica e limite de tentativas de login)
+Last session: 2026-08-08T02:02:38.620Z
+Stopped at: Completou 02a-04-PLAN.md (ciclo de vida da sessao e exigirUsuario())
 Resume file: None
