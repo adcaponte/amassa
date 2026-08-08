@@ -681,20 +681,28 @@ segundo monitor:
 checagem.
 
 Um monitor que nunca disparou é um monitor não testado — prove o alerta antes de confiar nele.
-Primeiro, guarde o instante da última execução real:
+Primeiro, veja **todas** as execuções registradas:
 
 ```bash
-docker compose exec postgres psql -U amassa_owner -d amassa -c "select quando from execucoes_backup order by quando desc limit 1;"
+docker compose exec postgres psql -U amassa_owner -d amassa -c "select quando, sucesso, destino_externo_ok from execucoes_backup order by quando desc;"
 ```
 
-Anote o valor. Agora adiante o relógio da janela, tornando essa mesma linha "velha" sem apagar
-nada:
+**O que você deve ver:** uma linha por execução. Pode haver mais de uma se você rodou o backup à
+mão mais de uma vez — é comum nesta primeira sessão.
+
+Agora envelheça **todas** as linhas em 27 horas, ultrapassando a janela de 26 sem apagar nada:
 
 ```bash
-docker compose exec postgres psql -U amassa_owner -d amassa -c "update execucoes_backup set quando = now() - interval '27 hours' where quando = (select max(quando) from execucoes_backup);"
+docker compose exec postgres psql -U amassa_owner -d amassa -c "update execucoes_backup set quando = quando - interval '27 hours';"
 ```
 
-**O que você deve ver:** `UPDATE 1`.
+**O que você deve ver:** `UPDATE N`, com `N` igual ao número de linhas que o `select` mostrou.
+
+> **Por que todas, e não só a mais recente.** A rota lê `order by quando desc limit 1` — a linha
+> mais nova. Envelhecer só a mais nova faz a segunda mais nova assumir o topo, e se ela ainda
+> estiver dentro da janela a rota continua respondendo `ok`. O `psql` devolve `UPDATE 1`, você
+> acredita que funcionou, e o teste do alerta passa sem nunca ter testado nada. Deslocar todas as
+> linhas pela mesma quantidade evita isso e preserva a ordem entre elas.
 
 Confira que a rota já reprova, pelo domínio:
 
@@ -710,11 +718,17 @@ Espere até 5 minutos — o intervalo do monitor — e confira sua caixa de entr
 **O que você deve ver:** um e-mail de alerta do serviço de monitoramento avisando que o monitor
 caiu.
 
-Restaure a linha para não deixar a rota vermelha até o próximo backup real:
+Restaure as linhas para não deixar a rota vermelha até o próximo backup real. Use o inverso exato
+do comando anterior — soma a mesma quantidade, em todas as linhas:
 
 ```bash
-docker compose exec postgres psql -U amassa_owner -d amassa -c "update execucoes_backup set quando = now() where quando = (select max(quando) from execucoes_backup);"
+docker compose exec postgres psql -U amassa_owner -d amassa -c "update execucoes_backup set quando = quando + interval '27 hours';"
 ```
+
+> Some 27 horas, não use `now()`. Com `now()` o registro passaria a marcar a hora da restauração
+> em vez da hora real do backup, e aí o banco discordaria do nome do arquivo em disco e do que
+> está no armazenamento externo — justamente os três lugares que o passo 11 manda conferir juntos.
+> O par subtrai-27/soma-27 devolve cada linha ao instante exato de origem.
 
 Confira de novo:
 
