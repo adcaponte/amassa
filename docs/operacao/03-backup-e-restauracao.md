@@ -600,6 +600,26 @@ timedatectl
 
 **O que você deve ver:** uma linha `Time zone:`. VPS novos da Contabo costumam vir em `Etc/UTC`.
 
+**Se não estiver em `Etc/UTC`, normalize antes de agendar** — não tente compensar o fuso na linha
+do `cron`:
+
+```bash
+sudo timedatectl set-timezone Etc/UTC
+```
+
+**Por que normalizar em vez de fazer a conta:** um servidor em fuso europeu (o padrão de fábrica
+de alguns provedores) entra e sai do horário de verão. Uma linha de `cron` calculada em agosto
+passa a disparar uma hora deslocada em outubro, sozinha, sem nada falhar e sem nenhum aviso. Já o
+par UTC ↔ Brasília é fixo em -3 para sempre: o Brasil não tem horário de verão desde 2019 e o UTC
+não tem nenhum. Normalizar troca um erro sazonal silencioso por uma conta que nunca muda.
+
+Isso também alinha o servidor com a arquitetura do projeto, que já mantém `TZ` só no serviço da
+aplicação e nunca no Postgres — infraestrutura em UTC, aplicação convertendo.
+
+> O nome do arquivo de backup continua saindo em horário de Brasília mesmo com o host em UTC,
+> porque `scripts/backup.sh` carrega o `TZ` do `/opt/amassa/.env`. É o comportamento certo: quem
+> lê o nome do arquivo num dia ruim pensa no horário de Goiânia, não em UTC.
+
 Abra o agendamento do usuário `theo`:
 
 ```bash
