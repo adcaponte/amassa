@@ -137,7 +137,16 @@ de navegação, painel inicial com espaços reservados).
 > fase.** São critérios de polimento, medidos sobre o sistema completo, e ficam na Fase 7 — onde
 > já estavam mapeados. Cada requisito pertence a exatamente uma fase.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+
+- [ ] 02b-01-PLAN.md — Traçado: tokens, mapeamento `@theme inline`, as duas fontes e o login com a identidade aplicada (onda 1)
+- [ ] 02b-02-PLAN.md — A casca: barra lateral de 240px, barra inferior de 5 itens e menu do usuário (onda 2)
+- [ ] 02b-03-PLAN.md — Telas dos módulos, painel inicial e a prova da navegação (onda 3)
+- [ ] 02b-04-PLAN.md — Estados de erro, 404, carregamento e a convenção de exclusão (onda 3)
+- [ ] 02b-05-PLAN.md — Acessibilidade verificada com ferramenta e a conferência humana no celular (onda 4)
+
 **UI hint**: yes
 
 ### Phase 3: Gestor de Encomendas
@@ -300,7 +309,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Fundação e Primeiro Deploy | 7/7 | Complete    | 2026-08-08 |
 | 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
-| 2b. Design System e Casca da Aplicação | 0/TBD | Not started | - |
+| 2b. Design System e Casca da Aplicação | 0/5 | Not started | - |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
