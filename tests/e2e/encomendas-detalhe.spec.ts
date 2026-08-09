@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cronograma";
-import { formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
+import { formatarDiaCompleto, formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
 import { ROTULO_ETAPA, textoDaSituacao } from "@/lib/encomendas/textos";
 
 // Página de detalhe (`/encomendas/[id]`, D-01/D-04): a trilha vertical de seis etapas com as
@@ -86,6 +86,18 @@ function dataEmDias(deslocamento: number): string {
 
 function hojeBrasilia(): string {
   return dataEmDias(0);
+}
+
+// 120 caracteres SEM espaço nenhum (limite exato de `esquemaEncomenda.nome`) — a fixture de
+// PD-01: um nome assim precisa quebrar em linha dentro do título do diálogo, nunca estourar a
+// largura da janela. Único por execução (projeto + timestamp), tudo colado, sem espaço.
+function nomeLongoSemEspaco(): string {
+  const base = "PecaEncomendadaComNomeMuitoCompridoDePropositoParaTestarQuebraDeLinhaNoDialogo";
+  const sufixo = `${test.info().project.name}${Date.now()}`;
+  const semPreenchimento = base + sufixo;
+  // Preenche até exatamente 120 caracteres (o limite exato de `esquemaEncomenda.nome`) com um
+  // caractere repetido, sem espaço.
+  return semPreenchimento.padEnd(120, "x").slice(0, 120);
 }
 
 // Navega para `/encomendas`, acha o cartão da lista mobile pelo nome (existe no DOM nos dois
@@ -450,5 +462,203 @@ test.describe("ajuste rápido", () => {
     // com texto de sucesso — só o número da tela mudou.
     await expect(page.getByText("Encomenda salva.")).toHaveCount(0);
     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+  });
+});
+
+test.describe("ações da encomenda", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("o cabeçalho tem Editar, Cancelar encomenda e o menu ⋮; Excluir só existe dentro do menu", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações cabeçalho");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    await expect(page.getByRole("link", { name: "Editar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancelar encomenda" })).toBeVisible();
+    const botaoMenu = page.getByRole("button", { name: "Mais ações da encomenda" });
+    await expect(botaoMenu).toBeVisible();
+
+    // "Excluir encomenda" não existe como botão solto — só dentro do menu, que ainda não foi
+    // aberto.
+    await expect(page.getByRole("menuitem", { name: "Excluir encomenda" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Excluir encomenda" })).toHaveCount(0);
+
+    await botaoMenu.click();
+    await expect(page.getByRole("menuitem", { name: "Excluir encomenda" })).toBeVisible();
+  });
+
+  test("alvos de toque do ⋮ medem no mínimo 44px", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações alvo de toque");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const botaoMenu = page.getByRole("button", { name: "Mais ações da encomenda" });
+    const caixa = await botaoMenu.boundingBox();
+    expect(caixa?.width).toBeGreaterThanOrEqual(44);
+    expect(caixa?.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test("Cancelar encomenda abre um diálogo não-destrutivo, com o botão de confirmar em outline (nunca vermelho)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações cancelar");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    await page.getByRole("button", { name: "Cancelar encomenda" }).click();
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible();
+    const titulo = dialogo.getByRole("heading", { name: `Cancelar a encomenda «${nome}»?` });
+    await expect(titulo).toBeVisible();
+    await expect(dialogo.getByText("não dá para reabrir")).toBeVisible();
+
+    // Escopado ao diálogo (que já tem role="alertdialog") — evita colidir com o botão de
+    // abertura, que tem o mesmo nome acessível.
+    const botaoConfirmar = dialogo.getByRole("button", { name: "Cancelar encomenda" });
+    const corDeFundo = await botaoConfirmar.evaluate((el) => getComputedStyle(el).backgroundColor);
+    // `outline` do shadcn é fundo claro (não `--color-erro`/vermelho) — confere que NÃO é a cor
+    // destrutiva (`--color-erro` = rgb(185, 28, 28)).
+    expect(corDeFundo).not.toBe("rgb(185, 28, 28)");
+  });
+
+  test("confirmar Cancelar desabilita o botão e mostra 'Encomenda cancelada.'; a trilha reflete o novo status ao atualizar", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações confirmar cancelar");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    await page.getByRole("button", { name: "Cancelar encomenda" }).click();
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible();
+
+    const botaoConfirmar = dialogo.getByRole("button", { name: "Cancelar encomenda" });
+    await botaoConfirmar.click();
+
+    await expect(page.getByText("Encomenda cancelada.")).toBeVisible();
+    await expect(dialogo).toHaveCount(0);
+    // `router.refresh()` busca os dados de novo (Server Component) — sob a suíte inteira em
+    // paralelo, essa segunda ida ao servidor pode levar mais que o timeout padrão de 5s
+    // (mesma prudência de tests/e2e/encomendas-indice.spec.ts para asserções pós-mutação).
+    await expect(page.locator("body")).toContainText("Cancelada", { timeout: 10000 });
+  });
+
+  test("Excluir encomenda (dentro do menu ⋮) abre um diálogo destrutivo nomeando os itens perdidos", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações excluir texto");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    await page.getByRole("button", { name: "Mais ações da encomenda" }).click();
+    await page.getByRole("menuitem", { name: "Excluir encomenda" }).click();
+
+    const titulo = page.getByRole("heading", { name: `Excluir a encomenda «${nome}»?` });
+    await expect(titulo).toBeVisible();
+    // A encomenda de teste tem exatamente 1 item (criarEncomenda) — forma singular.
+    await expect(page.getByText("O item dela será apagado.")).toBeVisible();
+  });
+
+  test("confirmar Excluir navega para /encomendas e mostra o toast de exclusão", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações confirmar excluir");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    await page.getByRole("button", { name: "Mais ações da encomenda" }).click();
+    await page.getByRole("menuitem", { name: "Excluir encomenda" }).click();
+
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible();
+    await dialogo.getByRole("button", { name: "Excluir", exact: true }).click();
+
+    await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+    await expect(page.getByText("Encomenda excluída.")).toBeVisible();
+    await expect(page.getByText(nome, { exact: true })).toHaveCount(0);
+  });
+
+  test("PD-01: um nome de 120 caracteres sem espaço quebra em linha no título do diálogo, sem estourar a largura da janela", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeLongo = nomeLongoSemEspaco();
+    await criarEncomenda(page, { nome: nomeLongo, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nomeLongo);
+
+    await page.getByRole("button", { name: "Cancelar encomenda" }).click();
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible();
+    const titulo = dialogo.getByRole("heading", { name: `Cancelar a encomenda «${nomeLongo}»?` });
+    await expect(titulo).toBeVisible();
+
+    const estiloDeQuebra = await titulo.evaluate((el) => getComputedStyle(el).overflowWrap);
+    expect(estiloDeQuebra).toBe("anywhere");
+
+    // PD-01 é sobre o DIÁLOGO (max-w-xs/sm:max-w-sm, um cartão estreito e fixo) não estourar —
+    // não sobre a página inteira, cujo <h1> com o nome da encomenda é uma superfície própria,
+    // fora do escopo desta decisão. A caixa do diálogo nunca passa da largura da janela, e ele
+    // mesmo não rola horizontalmente (só verticalmente, via `max-h-[85svh] overflow-y-auto`).
+    const caixaDialogo = await dialogo.boundingBox();
+    const larguraDaJanela = await page.evaluate(() => window.innerWidth);
+    expect(caixaDialogo?.width).toBeLessThanOrEqual(larguraDaJanela);
+
+    const [scrollWidthDoDialogo, clientWidthDoDialogo] = await dialogo.evaluate((el) => [
+      el.scrollWidth,
+      el.clientWidth,
+    ]);
+    expect(scrollWidthDoDialogo).toBeLessThanOrEqual(clientWidthDoDialogo);
+  });
+
+  test("'Marcar como concluída' fica no fim da trilha, e concluir antes do prazo abre um alert-dialog não-destrutivo com a data prevista", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações concluir antecipado");
+    const dataInicio = hojeBrasilia();
+    await criarEncomenda(page, { nome, dataInicio });
+    await abrirDetalhe(page, nome);
+
+    const cronograma = calcularCronograma(dataInicio, DIAS_PADRAO);
+    if (!cronograma.dataDeConclusao) {
+      throw new Error("Fixture inesperada: sem dataDeConclusao.");
+    }
+
+    const botaoConcluir = page.getByRole("button", { name: "Marcar como concluída" });
+    await expect(botaoConcluir).toBeVisible();
+    await botaoConcluir.click();
+
+    await expect(page.getByText("que ainda não chegou.")).toBeVisible();
+    await expect(page.getByText(formatarDiaCompleto(cronograma.dataDeConclusao))).toBeVisible();
+    await expect(page.getByText("Marcar como concluída assim mesmo?")).toBeVisible();
+
+    // "Voltar" não conclui nada — a trilha continua com o botão de concluir disponível.
+    await page.getByRole("button", { name: "Voltar" }).click();
+    await expect(botaoConcluir).toBeVisible();
+  });
+
+  test("concluir uma encomenda cuja data já passou não pede confirmação, e a trilha mostra 'Concluída em' ao atualizar", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ações concluir no prazo");
+    // 60 dias atrás: a cascata padrão (13 dias) já terminou bem antes de hoje.
+    await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
+    await abrirDetalhe(page, nome);
+
+    await page.getByRole("button", { name: "Marcar como concluída" }).click();
+
+    // Sem confirmação prévia: a conclusão acontece direto, e o botão some (status vira
+    // "concluida", que não oferece mais "Marcar como concluída").
+    await expect(page.getByRole("button", { name: "Marcar como concluída" })).toHaveCount(0, {
+      timeout: 10000,
+    });
+    await expect(page.locator("body")).toContainText("Concluída em", { timeout: 10000 });
   });
 });

@@ -55,6 +55,7 @@ export default async function PaginaDetalheEncomenda({
           status={encomenda.status}
           cronograma={cronograma}
           situacao={situacao}
+          hoje={hoje}
         />
 
         <section aria-label="Itens da encomenda">

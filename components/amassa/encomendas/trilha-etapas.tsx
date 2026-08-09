@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import type {
   Cronograma,
@@ -8,8 +10,26 @@ import type {
   Situacao,
   StatusDeEncomenda,
 } from "@/lib/encomendas/cronograma";
-import { formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
-import { ROTULO_ETAPA, SELO_ATRASADA, SELO_RASCUNHO, textoDaSituacao } from "@/lib/encomendas/textos";
+import { formatarDiaCompleto, formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
+import {
+  FRASE_FALHA_AO_SALVAR,
+  ROTULO_ETAPA,
+  SELO_ATRASADA,
+  SELO_RASCUNHO,
+  textoDaSituacao,
+} from "@/lib/encomendas/textos";
+import { concluirEncomenda } from "@/lib/encomendas/acoes";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import { AjusteRapidoEtapa } from "./ajuste-rapido-etapa";
 
@@ -20,6 +40,7 @@ export type TrilhaEtapasProps = {
   status: StatusDeEncomenda;
   cronograma: Cronograma;
   situacao: Situacao;
+  hoje: string;
 };
 
 // A etapa que `situacaoEm` aponta como "hoje" — só os três ramos que de fato apontam uma etapa
@@ -73,18 +94,47 @@ function Marcador({ marco, desligada, cor }: { marco: boolean; desligada: boolea
   return <span aria-hidden="true" className="shrink-0 rounded-full" style={estiloComum} />;
 }
 
-// Client Component (Tarefa 2): precisa de estado próprio porque o rodapé de duração
-// total/data de conclusão só recalcula quando UMA das seis `AjusteRapidoEtapa` confirma a
-// resposta do servidor (passo 4, nunca o passo 1) — o estado sobe até aqui via o callback
-// `aoConfirmar` (03-UI-SPEC.md "Comportamento de salvamento — não é otimista"). "Marcar como
-// concluída" chega na Tarefa 3.
-export function TrilhaEtapas({ encomendaId, status, cronograma, situacao }: TrilhaEtapasProps) {
+// Client Component: precisa de estado próprio porque o rodapé de duração total/data de
+// conclusão só recalcula quando UMA das seis `AjusteRapidoEtapa` confirma a resposta do
+// servidor (passo 4, nunca o passo 1) — o estado sobe até aqui via o callback `aoConfirmar`
+// (03-UI-SPEC.md "Comportamento de salvamento — não é otimista"). "Marcar como concluída" mora
+// aqui (fim da trilha, abaixo da última etapa) — nunca um quarto botão na fileira do cabeçalho.
+export function TrilhaEtapas({ encomendaId, status, cronograma, situacao, hoje }: TrilhaEtapasProps) {
+  const router = useRouter();
   const [duracaoTotalEmDias, setDuracaoTotalEmDias] = useState(cronograma.duracaoTotalEmDias);
   const [dataDeConclusao, setDataDeConclusao] = useState(cronograma.dataDeConclusao);
+
+  const [dialogoAntecipadoAberto, setDialogoAntecipadoAberto] = useState(false);
+  const [concluindo, setConcluindo] = useState(false);
 
   const etapaHoje = etapaDeHoje(situacao);
   const rascunho = status === "rascunho";
   const atrasada = situacao.tipo === "atrasada";
+  // Concluída/cancelada não oferecem mais "Marcar como concluída" — já são um estado final
+  // (decisão do executor, dentro do espaço discricionário de 03-CONTEXT.md).
+  const podeConcluir = status !== "concluida" && status !== "cancelada";
+
+  async function concluir() {
+    setConcluindo(true);
+    const resposta = await concluirEncomenda(encomendaId);
+    setConcluindo(false);
+
+    if (!resposta.ok) {
+      toast.error(FRASE_FALHA_AO_SALVAR);
+      return;
+    }
+
+    setDialogoAntecipadoAberto(false);
+    router.refresh();
+  }
+
+  function aoClicarConcluir() {
+    if (dataDeConclusao && dataDeConclusao > hoje) {
+      setDialogoAntecipadoAberto(true);
+      return;
+    }
+    void concluir();
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -197,7 +247,51 @@ export function TrilhaEtapas({ encomendaId, status, cronograma, situacao }: Tril
             </>
           )}
         </p>
+
+        {podeConcluir && (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-[44px]"
+            onClick={aoClicarConcluir}
+            disabled={concluindo}
+          >
+            {concluindo ? "Concluindo…" : "Marcar como concluída"}
+          </Button>
+        )}
       </div>
+
+      <AlertDialog
+        open={dialogoAntecipadoAberto}
+        onOpenChange={(novoValor) => {
+          if (!concluindo) {
+            setDialogoAntecipadoAberto(novoValor);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-h-[85svh] overflow-y-auto [overflow-wrap:anywhere]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              A conclusão prevista é {dataDeConclusao ? formatarDiaCompleto(dataDeConclusao) : "—"},
+              que ainda não chegou.
+            </AlertDialogTitle>
+            <AlertDialogDescription>Marcar como concluída assim mesmo?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={concluindo}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="default"
+              disabled={concluindo}
+              onClick={(evento) => {
+                evento.preventDefault();
+                void concluir();
+              }}
+            >
+              {concluindo ? "Concluindo…" : "Concluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
