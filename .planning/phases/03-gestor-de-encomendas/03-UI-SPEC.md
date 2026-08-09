@@ -379,6 +379,16 @@ otimista para presença e estoque, não para encomendas. O ajuste rápido:
 - Botões do rodapé: "Cancelar" (`outline`, fecha sem salvar) / "Salvar" (terracota, único da tela —
   ver tabela de Color acima).
 
+### Estado inicial da lista de itens — decisão do dono
+
+Ao abrir para **criar**, a lista de itens nasce com **uma linha em branco, pronta para digitar** —
+o cursor não precisa de um "Adicionar item" antes de poder escrever. Toda encomenda tem ao menos um
+item, então esse toque seria cobrado de todo mundo, sempre.
+
+A última linha restante **não pode ser removida**: o botão de remover fica desabilitado quando só
+resta um item. Esvaziar os campos é permitido; ficar sem nenhuma linha, não — a validação Zod que
+exige ao menos um item passa a ser a rede, não o único aviso.
+
 ### Reordenação de itens (D-16)
 
 Cada item do formulário: descrição, quantidade, e duas setas (cima/baixo) de 44×44px,
@@ -455,9 +465,27 @@ Clicar na linha inteira (não só no nome) leva para `/encomendas/[id]` — alvo
 inteira, mínimo 56px de altura (`min-h-14`), consistente com a convenção de linha alta de toque
 único do projeto.
 
+### Janela carregada — decisão do dono
+
+O índice carrega sempre **todas** as `rascunho` e `em_producao`, mais as `concluida` e `cancelada`
+**dos últimos 12 meses**. Mais antigo que isso não vem junto: exige um filtro de período explícito,
+que consulta o servidor.
+
+Isto fecha o ponto que o D-11 do CONTEXT.md deixou anotado. Com filtro no cliente e histórico sem
+recorte, toda abertura da tela passaria a carregar um conjunto que só cresce — a conta chegaria num
+dia em que ninguém está pensando nisso. Doze meses mantém a tela leve para sempre sem esconder
+nada: o dado continua no banco e continua alcançável, só não vem no carregamento padrão.
+
 ---
 
 ## Cancelar vs. Excluir — Hierarquia Visual (D-08)
+
+**Estado em trânsito dos dois diálogos — decisão do dono:** ao confirmar, o botão de confirmar
+desabilita e mostra que está gravando, e o `AlertDialog` **não fecha** até haver resposta do
+servidor. Duas razões: impede o toque duplo que dispararia duas gravações, e em caso de falha a
+pessoa já está no lugar certo para tentar de novo — sem reabrir o menu e refazer o caminho de uma
+ação destrutiva, que é exatamente quando a dúvida "será que apagou?" aparece.
+
 
 Na página de detalhe, área de ações no cabeçalho:
 
@@ -559,6 +587,13 @@ acréscimo de um parâmetro na URL (`/encomendas/imprimir?status=...`), não uma
   operacional que alguém no ateliê poderia precisar).
 - `@page { size: A4; margin: 15mm; }`.
 
+### Sem nenhuma encomenda ativa — decisão do dono
+
+O botão de imprimir fica **desabilitado**, com a nota abaixo dele dizendo por quê ("Nada ativo para
+imprimir agora."). Não some: um controle que aparece e desaparece é mais difícil de aprender do que
+um que fica sempre no mesmo lugar, às vezes apagado. E ninguém gasta uma folha de papel para
+descobrir que não havia nada — a própria tela já diz "A roda ainda não gira." logo ali.
+
 ---
 
 ## Rotas e Arquivos Novos desta Fase
@@ -606,52 +641,171 @@ primeira linha de toda página nova e de toda Server Action nova, sem exceção.
 
 ## UI Considerations
 
-Cobertura calculada sobre as 11 superfícies novas desta fase — a primeira fase do projeto com
-dado real de produto, então a maior parte das categorias é genuinamente aplicável (ao contrário da
-2b, que era casca vazia).
+Cobertura calculada pela sonda de considerações de UI (`ui-consideration-probe`) sobre as 11
+superfícies novas desta fase, com os tipos de elemento declarados à mão — a heurística de
+classificação do motor é em inglês e não reconhece prosa em português, então os tipos foram
+autorados explicitamente (é o passo *propose-then-confirm* previsto pelo próprio fluxo).
 
-**Superfícies:** E1 Índice desktop (Gantt) · E2 Índice mobile (lista) · E3 Busca/filtro/ordenação ·
-E4 Formulário (criar/editar) · E5 Detalhe — trilha vertical · E6 Ajuste rápido (+/- e interruptor) ·
-E7 Histórico · E8 Confirmação de cancelar · E9 Confirmação de excluir · E10 Folha de impressão A4 ·
-E11 Reordenação de itens.
+Esta é a primeira fase do projeto com dado real de produto, então quase toda categoria é
+genuinamente aplicável — ao contrário da 2b, que era casca vazia.
 
-Applicable state considerations resolved: **52 — 44 covered, 6 backstop, 2 unresolved.**
+**Superfícies e tipos declarados:**
 
-| Category | Element(s) | Status | Resolution / Reason |
-|----------|------------|--------|---------------------|
-| empty | E1/E2 — índice sem nenhuma encomenda | ✅ covered | "A roda ainda não gira." + botão ativo "Nova encomenda" (Copywriting Contract) |
-| empty | E3 — busca/filtro sem resultado | ✅ covered | "Nada por aqui com esse filtro." + botão "Limpar filtros" (Copywriting Contract) |
-| empty | E5 — encomenda sem nenhum item | 🧪 backstop | **Statement:** o formulário e a trilha nunca mostram uma encomenda sem item — ENC-05 implica pelo menos 1 item para salvar. **Verification: backstop** — depende da validação Zod mínima de itens, que este documento não define (é regra de negócio); conferir manualmente que o formulário barra "Salvar" com zero itens antes de fechar a fase |
-| empty | E7 — histórico sem nenhuma concluída/cancelada | ✅ covered | Reaproveita `EstadoVazio` com corpo próprio: "Nada concluído ou cancelado ainda." (texto novo, voz §9, sem ponteiro prévio — escrito aqui) |
-| loading | E1/E2 — índice carregando | ✅ covered | Esqueleto no formato do Gantt/cartões (tabela "Estados de Carregamento e Erro") |
-| loading | E4 — formulário editando | ✅ covered | Esqueleto no formato do formulário |
-| loading | E5 — detalhe carregando | ✅ covered | Esqueleto no formato da trilha |
-| loading | E6 — ajuste rápido em trânsito | ✅ covered | Spinner de 16px substituindo o número/estado por até ~1s (seção "Controles rápidos") |
-| loading | E11 — reordenar item em trânsito | 🧪 backstop | **Statement:** a seta clicada mostra um estado "ocupado" (opacidade reduzida temporária no par de setas daquele item) até confirmar. **Verification: backstop** — comportamento análogo ao do ajuste rápido, não medido por teste automatizado nesta especificação; conferir manualmente que dois cliques rápidos na mesma seta não disparam duas gravações fora de ordem |
-| loading | E10 — impressão | ✅ covered | Sem estado de carregamento perceptível esperado (dado já veio do índice); erro cai no `EstadoErro` genérico |
-| error | E1/E2/E5 | ✅ covered | `EstadoErro` com "Tentar de novo" (tabela "Estados de Carregamento e Erro") |
-| error | E4 — falha ao salvar formulário | ✅ covered | Banner inline "Não deu para salvar. Verifique a internet e tente de novo." — formulário continua aberto, dado digitado não se perde |
-| error | E6 — falha no ajuste rápido | ✅ covered | Reverte o número, toast de falha (Copywriting Contract) |
-| error | E8/E9 — falha ao confirmar cancelar/excluir | 🧪 backstop | **Statement:** o `AlertDialog` permanece aberto e mostra o mesmo texto de toast de falha, sem fechar sozinho, para a pessoa poder tentar de novo sem reabrir o menu. **Verification: backstop** — não há teste automatizado desta especificação para o caminho de falha destas duas ações; verificar manualmente antes de fechar a fase |
-| error | E11 — falha ao reordenar | ✅ covered | A ordem volta ao estado anterior, toast de falha padrão |
-| populated | E1 — Gantt com várias encomendas simultâneas | ✅ covered | Escala 18px/dia, coluna fixa, ordenação por data de início — contrato vinculante transcrito acima |
-| populated | E5 — trilha com todas as 6 etapas ativas | ✅ covered | Layout de linha por etapa, especificado na íntegra acima |
-| populated | E7 — histórico com muitas linhas | ✅ covered | Lista rola verticalmente, sem paginação nesta fase (volume do ateliê é de dezenas, não milhares — mesma leitura de escala do D-11) |
-| partial | E4 — formulário com alguns campos preenchidos, outros não | ✅ covered | Validação Zod no envio aponta o campo faltante; datas recalculam só com o que já foi digitado, sem travar a prévia |
-| partial | E5 — encomenda com algumas etapas em 0 dias, outras não | ✅ covered | Seção "Etapa desligada (duração 0)" — renderização própria, nunca escondida |
-| overflow | E1 — nome de encomenda muito longo na coluna fixa do Gantt | 🧪 backstop | **Statement:** o nome trunca com `text-overflow: ellipsis` em uma linha dentro da largura da coluna fixa, nome completo em `title`. **Verification: backstop** — nenhuma encomenda de teste hoje tem nome longo; conferir manualmente com um nome de 60+ caracteres antes de fechar a fase |
-| overflow | E2 — nome/cliente longos no cartão mobile | ✅ covered | `max-w-prose`/quebra de linha no cartão, sem cortar (cartão tem altura livre, ao contrário da coluna fixa do Gantt) |
-| overflow | E4 — lista de itens longa no formulário | ✅ covered | A lista de itens rola dentro do formulário (`Dialog`/`Sheet` já rolam verticalmente), rodapé de duração/conclusão permanece fixo e visível |
-| overflow | E5 — trilha em tela muito estreita (320px) | ✅ covered | Layout de coluna única, sem elemento horizontal além da própria linha — cabe a 320px sem rolagem lateral |
-| overflow | E10 — muitas encomendas ativas na folha impressa | ✅ covered | Segunda página via `break-inside: avoid` + `@page`, sem truncamento (seção "Impressão A4") |
-| zero-one-many | E1/E2 — 1 encomenda vs. muitas | ✅ covered | Layout de ambos não depende de contagem mínima; Gantt com 1 encomenda ainda desenha quinzena de folga normalmente |
-| zero-one-many | E4 — 1 item vs. muitos itens | ✅ covered | Setas de reordenar desabilitam nas pontas (primeira não sobe, última não desce); com 1 item só, ambas ficam desabilitadas, o que é o comportamento correto, não um bug a esconder |
-| zero-one-many | E5 — todas as 6 etapas ativas vs. algumas desligadas | ✅ covered | "Etapa desligada" cobre o caso; nunca menos de 6 linhas na trilha, mesmo com etapas em 0 dias |
-| long-text | E7 — cliente/nome muito longos na linha do histórico | ✅ covered | Mesma resolução do cartão mobile — quebra, não corta, porque a linha tem altura livre |
-| long-text | E9 — nome de encomenda muito longo no texto de confirmação de exclusão | ⚠ unresolved | O nome interpolado em *"Excluir a encomenda «{nome}»?"* pode estourar a largura confortável do `AlertDialog` com um nome de 120 caracteres (limite do banco). Este documento não resolve se o nome trunca dentro das aspas ou se o diálogo cresce em altura — fica como suposição do planejador: recomendação é permitir quebra de linha dentro do `AlertDialogTitle` (não truncar um nome dentro de uma pergunta de confirmação seria o comportamento mais seguro, mas não está testado aqui) |
-| long-text | E3 — texto de busca muito longo digitado pela pessoa | ✅ covered | `Input` de busca é de largura fixa com rolagem interna nativa do campo — comportamento padrão de `<input>`, sem tratamento especial necessário |
-| static-content | E8 — texto do diálogo de cancelar cabe em uma leitura rápida | ✅ covered | Título + corpo de 2 frases curtas, dentro do padrão do `alert-dialog` do shadcn |
-| — | E6/E11 — dois ajustes rápidos disparados em sequência muito rápida (dupla escrita) | ⚠ unresolved | Este documento especifica a resposta visual (spinner, reversão em falha) mas não resolve a corrida entre duas gravações quase simultâneas na mesma etapa (ex.: dois cliques rápidos em "+"). É comportamento de Server Action/transação, fora do escopo de um contrato de UI — fica registrado aqui para o planejador decidir se debounce, fila ou "a última resposta ganha" é a estratégia, e não deve ser inventado silenciosamente na implementação |
+| ID | Superfície | Tipos de elemento |
+|----|-----------|-------------------|
+| E1 | Índice desktop — Gantt | `list-collection` |
+| E2 | Índice mobile — lista de cartões | `list-collection` |
+| E3 | Busca, filtro e ordenação | `form`, `interactive-control` |
+| E4 | Formulário criar/editar | `form`, `list-collection` |
+| E5 | Detalhe — trilha vertical | `list-collection`, `static-content` |
+| E6 | Ajuste rápido (+/− e interruptor) | `interactive-control` |
+| E7 | Histórico | `list-collection` |
+| E8 | Confirmação de cancelar | `static-content`, `interactive-control` |
+| E9 | Confirmação de excluir | `static-content`, `interactive-control` |
+| E10 | Folha de impressão A4 | `list-collection`, `static-content` |
+| E11 | Reordenação de itens | `interactive-control`, `list-collection` |
+
+**69 considerações aplicáveis: 61 covered · 5 backstop · 2 unresolved · 1 dismissed.**
+Mais 1 item transversal sem categoria da taxonomia, registrado ao final.
+
+### E1 — Índice desktop (Gantt)
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | Sem nenhuma encomenda, o `EstadoVazio` substitui o Gantt inteiro — nunca um Gantt vazio com eixo desenhado. Copy: "A roda ainda não gira." + botão ativo "Nova encomenda" |
+| loading | ✅ covered | Esqueleto no formato do Gantt (coluna fixa + faixas horizontais), nunca tela em branco |
+| error | ✅ covered | `EstadoErro` com "Tentar de novo" |
+| populated | ✅ covered | 18px/dia, coluna fixa, cabeçalho em quinzenas, ordenação por data de início — contrato vinculante transcrito acima |
+| partial | ✅ covered | Encomenda com etapas de duração 0 desenha só as etapas que existem, resultando numa barra mais curta — nunca um vão vazio no meio da linha (§8: duração 0 não é desenhada) |
+| overflow | 🧪 backstop | **Statement:** o nome trunca com `text-overflow: ellipsis` em uma linha dentro da largura da coluna fixa, com o nome completo em `title`. **Verification: backstop** — nenhuma encomenda de teste tem nome longo hoje; conferir manualmente com um nome de 60+ caracteres antes de fechar a fase |
+| zero-one-many | ✅ covered | O leiaute não depende de contagem mínima; com uma encomenda só, o Gantt ainda desenha a quinzena de folga em cada ponta |
+
+### E2 — Índice mobile (lista de cartões)
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | Mesmo `EstadoVazio` do E1 — a frase e o botão são os mesmos nas duas larguras |
+| loading | ✅ covered | Esqueleto no formato dos cartões |
+| error | ✅ covered | `EstadoErro` com "Tentar de novo" |
+| populated | ✅ covered | Cartões empilhados com rolagem vertical, sem paginação — volume do ateliê é de dezenas |
+| partial | ✅ covered | Cartão de encomenda com etapas desligadas mostra menos segmentos na trilha; os segmentos existentes somam a largura inteira, sem lacuna |
+| overflow | ✅ covered | Nome e cliente quebram em linha, sem cortar — o cartão tem altura livre, ao contrário da coluna fixa do Gantt |
+| zero-one-many | ✅ covered | Um cartão e muitos cartões usam o mesmo leiaute |
+
+### E3 — Busca, filtro e ordenação
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | "Nada por aqui com esse filtro." + botão ativo "Limpar filtros" — estado distinto de "A roda ainda não gira.", que significa que não existe encomenda nenhuma |
+| loading | ✅ covered | O filtro roda no navegador (D-11), então não tem estado de carregamento próprio. Os controles nascem desabilitados enquanto o índice carrega, junto do esqueleto, e habilitam quando o dado chega |
+| error | ✅ covered | Não há caminho de erro próprio — o filtro não vai ao servidor (D-11). Falha de carga do índice cobre o caso |
+| partial | ✅ covered | Filtro de status, busca e ordenação combinam por interseção; combinação sem resultado cai no estado `empty` acima, não numa lista vazia sem explicação |
+| long-text | ✅ covered | O `Input` de busca tem largura fixa com rolagem interna nativa do campo — comportamento padrão de `<input>`, sem tratamento especial |
+
+### E4 — Formulário criar/editar
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | **Decisão do dono:** o formulário de nova encomenda abre com **uma linha de item em branco já pronta para digitar**. Toda encomenda tem ao menos um item, então exigir "Adicionar item" antes de poder escrever cobra um toque de todo mundo, sempre. A última linha não pode ser removida — ela só esvazia |
+| loading | ✅ covered | Ao editar, esqueleto no formato do formulário enquanto os dados chegam |
+| error | ✅ covered | Banner inline "Não deu para salvar. Verifique a internet e tente de novo." — o formulário continua aberto e o que foi digitado não se perde |
+| populated | ✅ covered | Todos os campos preenchidos e vários itens: a lista de itens rola dentro do `Dialog`/`Sheet`, e o rodapé com duração total e data de conclusão permanece fixo e visível |
+| partial | ✅ covered | Validação Zod no envio aponta o campo faltante; as datas recalculam com o que já foi digitado, sem travar a pré-visualização |
+| overflow | ✅ covered | Lista de itens longa rola dentro do formulário; rodapé fixo nunca sai da tela |
+| zero-one-many | ✅ covered | Com um item só, as duas setas de reordenar ficam desabilitadas — comportamento correto, não defeito a esconder |
+| long-text | ✅ covered | Descrição de item é limitada a 200 caracteres pelo banco; o campo quebra em duas linhas e a mensagem Zod aparece se estourar. Sem contador de caracteres — ruído para um limite que quase ninguém alcança |
+
+### E5 — Detalhe (trilha vertical)
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | 🧪 backstop | **Statement:** a trilha nunca mostra uma encomenda sem item — ENC-05 implica ao menos 1 item para salvar, e o E4 `empty` garante a linha inicial. **Verification: backstop** — depende da validação Zod mínima de itens, que é regra de negócio e não vive neste documento; conferir manualmente que "Salvar" é barrado com zero itens antes de fechar a fase |
+| loading | ✅ covered | Esqueleto no formato da trilha (seis linhas) |
+| error | ✅ covered | `EstadoErro` com "Tentar de novo" |
+| populated | ✅ covered | Uma linha por etapa, com cor, duração, início e fim — especificado na íntegra acima |
+| partial | ✅ covered | Seção "Etapa desligada (duração 0)": renderização própria, nunca escondida — a etapa continua na trilha dizendo que não acontece |
+| overflow | ✅ covered | Coluna única, sem elemento horizontal além da própria linha — cabe em 320px sem rolagem lateral |
+| zero-one-many | ✅ covered | Sempre seis linhas na trilha, mesmo com etapas em 0 dias |
+| long-text | ✅ covered | Descrição longa de item na lista do detalhe quebra em linha, não corta — mesma regra do cartão mobile |
+
+### E6 — Ajuste rápido (+/− e interruptor)
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| loading | ✅ covered | Spinner de 16px substituindo o número ou o estado do interruptor por até ~1s (seção "Controles rápidos") |
+| error | ✅ covered | O número reverte ao valor anterior e um aviso de falha aparece |
+| long-text | ⛔ dismissed | **Motivo:** o controle não carrega texto de comprimento variável. O rótulo é o nome da etapa, que vem de um enum fechado de seis valores, todos curtos e conhecidos em tempo de escrita. Não há caminho pelo qual texto de usuário chegue neste controle |
+
+### E7 — Histórico
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | `EstadoVazio` com corpo próprio: "Nada concluído ou cancelado ainda." |
+| loading | ✅ covered | Esqueleto no formato das linhas de lista |
+| error | ✅ covered | `EstadoErro` compartilhado com o índice — é a mesma tela com outro filtro |
+| populated | ✅ covered | **Decisão do dono:** o índice carrega sempre as ativas e os rascunhos, mais as concluídas e canceladas **dos últimos 12 meses**. Mais antigo que isso exige um filtro de período explícito, que consulta o servidor. Isto resolve agora o ponto que o D-11 deixou anotado — o filtro no cliente não passa a carregar um histórico que cresce para sempre |
+| partial | ✅ covered | Encomenda cancelada no meio mostra o período que chegou a existir, não o previsto — a linha diz "cancelada em {data}", não uma data de conclusão que nunca aconteceu |
+| overflow | ✅ covered | A lista rola verticalmente, sem paginação, dentro da janela de 12 meses |
+| zero-one-many | ✅ covered | Uma linha e muitas linhas usam o mesmo leiaute, altura mínima de 56px |
+| long-text *(extra, fora das 69)* | ✅ covered | Nome e cliente longos quebram, não cortam — a linha tem altura livre |
+
+### E8 — Confirmação de cancelar
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| loading | ✅ covered | **Decisão do dono:** o botão de confirmar desabilita e mostra que está gravando; o diálogo **não fecha** até haver resposta. Impede o toque duplo que dispara duas gravações, e em caso de falha a pessoa já está no lugar certo para tentar de novo |
+| error | 🧪 backstop | **Statement:** o `AlertDialog` permanece aberto e mostra o texto de falha, sem fechar sozinho. **Verification: backstop** — não há teste automatizado deste caminho de falha nesta especificação; verificar manualmente antes de fechar a fase |
+| overflow | ✅ covered | Corpo de duas frases curtas dentro do padrão do `alert-dialog` do shadcn — não rola |
+| long-text | ⚠ unresolved | Ver item consolidado E8/E9 abaixo |
+
+### E9 — Confirmação de excluir
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| loading | ✅ covered | Mesma regra do E8: botão desabilitado com indicador, diálogo aberto até haver resposta |
+| error | 🧪 backstop | **Statement:** o `AlertDialog` permanece aberto e mostra o texto de falha, sem fechar sozinho. **Verification: backstop** — não há teste automatizado deste caminho de falha nesta especificação; verificar manualmente antes de fechar a fase |
+| overflow | ✅ covered | Corpo nomeia a contagem de itens em uma frase curta — não rola |
+| long-text | ⚠ unresolved | Ver item consolidado E8/E9 abaixo |
+
+**⚠ unresolved — nome longo interpolado no título dos dois diálogos (E8 e E9).** O nome vai
+interpolado em *"Cancelar a encomenda «{nome}»?"* e *"Excluir a encomenda «{nome}»?"*, e o banco
+permite até 120 caracteres. Este documento **não resolve** se o nome trunca dentro das aspas ou se o
+diálogo cresce em altura. Recomendação registrada, não testada: permitir quebra de linha dentro do
+`AlertDialogTitle` — truncar um nome dentro de uma pergunta de confirmação destrutiva é
+exatamente onde truncar custa caro. **O planejador deve tratar isto como suposição explícita e
+decidir, não herdar em silêncio.**
+
+### E10 — Folha de impressão A4
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | **Decisão do dono:** sem nenhuma encomenda ativa, o botão de imprimir fica **desabilitado**, com nota dizendo por quê. Ninguém gasta papel para descobrir que não havia nada — e o estado vazio já diz "A roda ainda não gira." na mesma tela |
+| loading | ✅ covered | Sem estado de carregamento perceptível: o dado já veio com o índice, a folha não busca nada por conta própria |
+| error | ✅ covered | Não há busca própria, então não há erro próprio — falha de carga do índice cai no `EstadoErro` genérico antes de a folha existir |
+| populated | ✅ covered | Tabela com nome, cliente, etapa atual e data de conclusão, uma linha por encomenda ativa |
+| partial | ✅ covered | Encomenda sem etapa atual definida (ainda não começou, ou já passou da data) imprime o rótulo do caso de borda da seção ENC-09 — nunca célula vazia, que em papel não tem como ser investigada |
+| overflow | ✅ covered | Segunda página via `break-inside: avoid` + `@page`, sem truncamento e sem encolher o texto abaixo do legível |
+| zero-one-many | ✅ covered | Uma encomenda e muitas usam a mesma tabela; o cabeçalho repete na segunda página |
+| long-text | ✅ covered | Nome longo **quebra** na célula, nunca trunca — em papel não existe `title` nem tooltip para recuperar o que foi cortado |
+
+### E11 — Reordenação de itens
+
+| Category | Status | Resolution / Reason |
+|----------|--------|---------------------|
+| empty | ✅ covered | Com a linha em branco inicial (E4 `empty`), existe sempre ao menos um item; nesse caso as duas setas ficam desabilitadas |
+| loading | 🧪 backstop | **Statement:** a seta clicada mostra estado ocupado (opacidade reduzida no par de setas daquele item) até confirmar. **Verification: backstop** — comportamento análogo ao do ajuste rápido, não medido por teste automatizado nesta especificação; conferir manualmente que dois cliques rápidos na mesma seta não gravam fora de ordem |
+| error | ✅ covered | A ordem volta ao estado anterior e um aviso de falha aparece |
+| populated | ✅ covered | Setas em todos os itens, desabilitadas nas pontas (a primeira não sobe, a última não desce) |
+| partial | ✅ covered | Item ainda sem descrição participa da ordenação normalmente — reordenar não exige item válido |
+| overflow | ✅ covered | As setas ficam à direita com largura fixa; a descrição longa quebra à esquerda sem empurrar as setas para fora da linha |
+| zero-one-many | ✅ covered | Com um item só, ambas as setas desabilitadas; com muitos, o comportamento é o mesmo em cada linha |
+| long-text | ✅ covered | Mesma regra da descrição de item no formulário: quebra em duas linhas, limite de 200 caracteres do banco |
+
+### Item transversal sem categoria da taxonomia
+
+| Elemento | Status | Reason |
+|----------|--------|--------|
+| E6/E11 — duas gravações rápidas em sequência na mesma etapa ou no mesmo item | ⚠ unresolved | Este documento especifica a resposta visual (spinner, reversão em falha) mas **não resolve a corrida** entre duas gravações quase simultâneas (ex.: dois cliques rápidos em "+"). É comportamento de Server Action e transação, fora do escopo de um contrato de UI. Registrado para o planejador decidir entre *debounce*, fila, ou "a última resposta ganha" — **não deve ser inventado em silêncio na implementação** |
 
 ---
 

@@ -116,6 +116,10 @@ e não será atualizado** — aquele documento é a especificação original; qu
   continua sendo Server Component que busca os dados e passa para baixo), e **recarregar a página
   perde o filtro**. **Ponto a rever se um dia o volume crescer:** hoje o ateliê tem dezenas de
   encomendas; se passar de alguns milhares, mover para parâmetros de URL com filtro no banco.
+  — **Fechado na fase de UI (03-UI-SPEC.md §Histórico):** o índice carrega todas as `rascunho` e
+  `em_producao`, mais as `concluida`/`cancelada` **dos últimos 12 meses**. Mais antigo exige filtro
+  de período explícito, que consulta o servidor. É o que impede o conjunto carregado de crescer
+  sem limite.
   — **Reversibility:** costly — inverter obriga a mover a busca para consulta SQL e a repensar a
   fronteira servidor/cliente do índice inteiro.
 
