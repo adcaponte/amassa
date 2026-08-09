@@ -661,4 +661,54 @@ test.describe("ações da encomenda", () => {
     });
     await expect(page.locator("body")).toContainText("Concluída em", { timeout: 10000 });
   });
+
+  // Oportunidade sinalizada por 03-04-SUMMARY.md (Known Stubs): antes deste plano, nenhum
+  // caminho de escrita alcançava `concluida`/`cancelada`, então D-06 ("o Gantt só desenha
+  // rascunho e em_producao") nunca tinha prova e2e com dado real — só revisão de código. Cancelar
+  // e concluir agora existem; esta é a primeira vez que o índice pode ser provado excluindo as
+  // duas de verdade.
+  test("D-06: cancelar ou concluir tira a encomenda do Gantt/lista do índice", async ({ page }) => {
+    await fazerLogin(page);
+    const nomeCancelada = nomeUnico("D-06 cancelada some");
+    const nomeConcluida = nomeUnico("D-06 concluida some");
+
+    await criarEncomenda(page, { nome: nomeCancelada, dataInicio: hojeBrasilia() });
+    const idCancelada = await abrirDetalhe(page, nomeCancelada);
+    await page.getByRole("button", { name: "Cancelar encomenda" }).click();
+    const dialogoCancelar = page.getByRole("alertdialog");
+    await dialogoCancelar.getByRole("button", { name: "Cancelar encomenda" }).click();
+    await expect(page.getByText("Encomenda cancelada.")).toBeVisible();
+
+    // 60 dias atrás: a conclusão prevista já passou, então "Marcar como concluída" conclui
+    // direto, sem confirmação prévia (o mesmo caminho do teste anterior).
+    await criarEncomenda(page, { nome: nomeConcluida, dataInicio: dataEmDias(-60) });
+    const idConcluida = await abrirDetalhe(page, nomeConcluida);
+    await page.getByRole("button", { name: "Marcar como concluída" }).click();
+    await expect(page.getByRole("button", { name: "Marcar como concluída" })).toHaveCount(0, {
+      timeout: 10000,
+    });
+
+    // `expect.poll` reabre `/encomendas` a cada tentativa (navegação nova, nunca cache de
+    // cliente) — dá margem para a revalidação do servidor propagar sob a suíte em paralelo,
+    // sem depender de um único instante de leitura. Escopado pelo `id` (no próprio
+    // `data-testid`), não pelo texto do nome — mais preciso que casar substring.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/encomendas");
+          return page.getByTestId(`cartao-encomenda-${idCancelada}`).count();
+        },
+        { timeout: 15000 },
+      )
+      .toBe(0);
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/encomendas");
+          return page.getByTestId(`cartao-encomenda-${idConcluida}`).count();
+        },
+        { timeout: 15000 },
+      )
+      .toBe(0);
+  });
 });
