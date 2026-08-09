@@ -35,7 +35,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 
 - [x] **Phase 1: Fundação e Primeiro Deploy** - Endereço `https://` no ar com deploy automático, sem nenhuma funcionalidade (completed 2026-08-08)
 - [x] **Phase 2a: Login, Banco Base e Backup** - Entrar com e-mail/senha, contas por linha de comando, e backup automático rodando (completed 2026-08-08)
-- [ ] **Phase 2b: Design System e Casca da Aplicação** - Navegar por telas vazias já com a identidade visual do AMASSA, no celular e no desktop
+- [x] **Phase 2b: Design System e Casca da Aplicação** - Navegar por telas vazias já com a identidade visual do AMASSA, no celular e no desktop (completed 2026-08-09)
 - [ ] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata
 - [ ] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques
 - [ ] **Phase 5: Agenda de Aulas** - Turmas recorrentes materializam aulas com data real e presença por aluna
@@ -319,7 +319,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Fundação e Primeiro Deploy | 7/7 | Complete    | 2026-08-08 |
 | 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
-| 2b. Design System e Casca da Aplicação | 5/5 | In Progress|  |
+| 2b. Design System e Casca da Aplicação | 5/5 | Complete    | 2026-08-09 |
 | 3. Gestor de Encomendas | 0/TBD | Not started | - |
 | 4. Contador de Queima | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
