@@ -36,6 +36,20 @@
       "when": 1786155554052,
       "tag": "0004_curved_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786283216387,
+      "tag": "0005_encomendas",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786283237932,
+      "tag": "0006_gatilhos-encomendas",
+      "breakpoints": true
     }
   ]
 }

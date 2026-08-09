@@ -56,15 +56,15 @@ type TelaDeModulo = {
   notaBotao: string;
 };
 
+// `/encomendas` saiu desta lista na Fase 3 (03-01-PLAN.md, Tarefa 2): o botão "Nova encomenda"
+// deixou de ser inerte (agora é um `<Link href="/encomendas?nova">` de verdade) e a nota "Chega
+// na Fase 3." foi removida — as duas mudanças são o objetivo do plano, não uma regressão. A
+// tela ainda tem cabeçalho + estado vazio com frase de contexto quando não há encomenda
+// nenhuma, mas isso agora depende de dado real (persistência via Postgres), então deixou de
+// caber no contrato genérico "sempre a mesma casca vazia" que este teste verifica para os
+// módulos que a Fase 3 ainda não tocou. Cobertura de `/encomendas` (cabeçalho, criação,
+// persistência) vive em `tests/e2e/encomendas.spec.ts`.
 const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
-  {
-    href: "/encomendas",
-    tituloPagina: "Encomendas",
-    tituloVazio: "A roda ainda não gira.",
-    corpo: "Quando a primeira encomenda entrar, o cronograma com as seis etapas aparece bem aqui.",
-    rotuloBotao: "Nova encomenda",
-    notaBotao: "Chega na Fase 3.",
-  },
   {
     href: "/agenda",
     tituloPagina: "Agenda",
