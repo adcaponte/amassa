@@ -4,7 +4,7 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cronograma";
 import { hojeEmBrasilia } from "@/lib/encomendas/formato";
 import { ordenarParaGantt } from "@/lib/encomendas/gantt";
-import { listarEncomendasDoIndice } from "@/lib/encomendas/consultas";
+import { buscarEncomenda, listarEncomendasDoIndice } from "@/lib/encomendas/consultas";
 import {
   FRASE_VAZIO_CORPO,
   FRASE_VAZIO_TITULO,
@@ -21,16 +21,23 @@ import {
 
 // `exigirUsuario()` como PRIMEIRA instrução — regra do CLAUDE.md, verificada por
 // `npm run verificar-acoes`. `searchParams` é `Promise` no Next.js 15 (precisa de `await`);
-// `?nova` é o contrato de URL de D-03.
+// `?nova` e `?editar={id}` são o contrato de URL de D-03. `FormularioEncomenda` é montado UMA
+// vez aqui, fora do condicional vazio/populado — a primeiríssima encomenda do ateliê também
+// precisa abrir `?nova` a partir do `EstadoVazio`.
 export default async function PaginaEncomendas({
   searchParams,
 }: {
-  searchParams: Promise<{ nova?: string }>;
+  searchParams: Promise<{ nova?: string; editar?: string }>;
 }) {
   await exigirUsuario();
-  const { nova } = await searchParams;
+  const { editar } = await searchParams;
 
-  const encomendasDoIndice = await listarEncomendasDoIndice();
+  // Busca no SERVIDOR quando `?editar={id}` está presente — a edição por URL direta não
+  // depende de a lista do índice já ter carregado (D-03, plano 06).
+  const [encomendasDoIndice, encomendaParaEditar] = await Promise.all([
+    listarEncomendasDoIndice(),
+    editar ? buscarEncomenda(editar) : Promise.resolve(null),
+  ]);
   // `hoje` calculado no SERVIDOR (Brasília) e passado para baixo como string — o cliente nunca
   // decide qual é o dia de hoje, porque o fuso do aparelho de quem está no ateliê não é
   // confiável (03-CONTEXT.md, canonical refs).
@@ -76,7 +83,10 @@ export default async function PaginaEncomendas({
         </Button>
       </CabecalhoPagina>
 
-      {nova !== undefined && <FormularioEncomenda />}
+      {/* Montado sempre — mesmo com o índice vazio, `?nova` precisa abrir o formulário a partir
+          do `EstadoVazio` (a primeiríssima encomenda do ateliê). A abertura em si é derivada da
+          URL dentro do próprio componente (D-03), não deste `nova`/`editar` local. */}
+      <FormularioEncomenda encomendaParaEditar={encomendaParaEditar} />
 
       {encomendasDoIndice.length === 0 ? (
         // A contagem TOTAL carregada decide o estado vazio, nunca a filtrada (ENC-13/adjacency)

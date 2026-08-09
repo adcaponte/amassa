@@ -6,8 +6,12 @@ import { CartaoEncomenda } from "./cartao-encomenda";
 import { Gantt } from "./gantt";
 
 // A casca cliente do índice — nasce Client Component porque o plano 07 põe filtro/busca/
-// ordenação dentro dela (D-11); os planos 06 e 07 modificam este arquivo de novo. Nesta onda,
-// sem estado nenhum ainda: só a alternância Gantt/lista por CSS (D-02).
+// ordenação dentro dela (D-11); o plano 07 modifica este arquivo de novo. Nesta onda, sem estado
+// nenhum ainda: só a alternância Gantt/lista por CSS (D-02). `FormularioEncomenda` NÃO mora
+// aqui — este componente só é montado quando existe ao menos uma encomenda (`page.tsx` troca
+// por `EstadoVazio` quando a lista está vazia), e `?nova` precisa abrir o formulário mesmo na
+// primeiríssima encomenda; por isso `FormularioEncomenda` é montado direto em `page.tsx`, fora
+// deste condicional, uma única vez por página.
 export type EncomendaDoIndice = {
   id: string;
   nome: string;

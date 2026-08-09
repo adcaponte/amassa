@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -9,7 +8,7 @@ import { db } from "@/db";
 import { encomendaEtapas, encomendaItens, encomendas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
-import { DIAS_PADRAO, calcularCronograma } from "./cronograma";
+import { calcularCronograma } from "./cronograma";
 import {
   esquemaAjusteDeEtapa,
   esquemaEncomenda,
@@ -25,56 +24,34 @@ import {
 // reimplementa a regra.
 export type ResultadoDeAcao<T> = { ok: true; dados: T } | { ok: false; erro: string };
 
-// Assinatura de dois argumentos (estado anterior + FormData) — o formato que `useActionState`
-// exige, pronta para o dia em que o formulário precisar mostrar o erro sem recarregar a página
-// (plano 06). Hoje `formulario-encomenda.tsx` chama via `criarEncomenda.bind(null, null)`, o
-// que permite manter o componente um Server Component sem precisar do hook agora.
+function primeiraMensagemDeErro(resultado: { error: { issues: { message: string }[] } }): string {
+  return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
+}
+
+// Entrada de objeto tipado (não `FormData`) — o mesmo formato das outras seis ações desta fase
+// (D-15/03-03). Até o plano 06, `formulario-encomenda.tsx` era Server Component com
+// `<form action={criarEncomenda.bind(null, null)}>`, no formato que `useActionState` exige; a
+// partir do plano 06 o formulário é Client Component com `react-hook-form`, chama esta ação
+// direto de um `onSubmit` e lê o retorno com `await` comum — o formato de dois argumentos
+// deixou de fazer falta. As 6 etapas agora chegam sempre do formulário (Tarefa 3 do plano 06),
+// nunca mais de um padrão calculado aqui dentro.
 export async function criarEncomenda(
-  _estadoAnterior: unknown,
-  dadosDoFormulario: FormData,
+  entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<{ id: string }>> {
-  // PRIMEIRA instrução do corpo — sem nenhuma linha antes, nem para ler o FormData. Regra do
-  // CLAUDE.md, verificada por `npm run verificar-acoes` (T-03-01).
+  // PRIMEIRA instrução do corpo — regra do CLAUDE.md, verificada por `npm run verificar-acoes`
+  // (T-03-01).
   const usuarioAtual = await exigirUsuario();
 
-  const clienteNomeBruto = dadosDoFormulario.get("clienteNome");
-
-  // As 6 etapas não aparecem no formulário desta fatia (03-UI-SPEC.md "Formulário — Modal /
-  // Folha": entram com os padrões pelo servidor; o plano 06 traz os campos). Construídas aqui,
-  // na ordem fixa de `DIAS_PADRAO`, e validadas pelo mesmo `esquemaEncomenda` que o ajuste
-  // rápido do plano 03 vai usar para as suas — nunca uma segunda cópia da regra.
-  const etapasComPadrao = DIAS_PADRAO.map((duracao) => ({
-    etapa: duracao.etapa,
-    dias: duracao.dias,
-  }));
-
-  const resultado = esquemaEncomenda.safeParse({
-    nome: dadosDoFormulario.get("nome"),
-    clienteNome:
-      typeof clienteNomeBruto === "string" && clienteNomeBruto.trim() !== ""
-        ? clienteNomeBruto
-        : undefined,
-    dataInicio: dadosDoFormulario.get("dataInicio"),
-    itens: [
-      {
-        descricao: dadosDoFormulario.get("itemDescricao"),
-        quantidade: Number(dadosDoFormulario.get("itemQuantidade")),
-      },
-    ],
-    etapas: etapasComPadrao,
-  });
-
+  const resultado = esquemaEncomenda.safeParse(entradaBruta);
   if (!resultado.success) {
-    return {
-      ok: false,
-      erro: resultado.error.issues[0]?.message ?? "Não deu para validar os dados do formulário.",
-    };
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
-
   const dados = resultado.data;
 
+  let idDaEncomenda: string;
+
   try {
-    await db.transaction(async (tx) => {
+    idDaEncomenda = await db.transaction(async (tx) => {
       const [linhaEncomenda] = await tx
         .insert(encomendas)
         .values({
@@ -102,19 +79,20 @@ export async function criarEncomenda(
           ordem: indice,
         })),
       );
+
+      return linhaEncomenda.id;
     });
   } catch (erro) {
     // Erro de banco (restrição violada, conexão perdida, etc.) — nunca engolido, mesmo
-    // estreitamento por instanceof do estilo de `lib/auth/acoes.ts`: registrado e relançado
-    // para o Next.js mostrar a tela de erro, não uma resposta silenciosa de "deu certo".
+    // estreitamento por instanceof do estilo de `lib/auth/acoes.ts`: registrado e devolvido como
+    // `{ ok: false }` para o cliente mostrar o banner de falha (03-UI-SPEC.md "Formulário —
+    // Erro") — o formulário continua aberto e o que foi digitado não se perde.
     console.error("Falha ao gravar encomenda:", erro);
-    throw erro;
+    return { ok: false, erro: "Não deu para salvar. Verifique a internet e tente de novo." };
   }
 
-  // Fora do `try`: `redirect()` lança um erro de controle de fluxo do próprio Next.js, que
-  // precisaria continuar subindo — mantê-lo fora evita confundi-lo com um erro de banco.
   revalidatePath("/encomendas");
-  redirect("/encomendas");
+  return { ok: true, dados: { id: idDaEncomenda } };
 }
 
 // Erro de controle interno: aborta uma transação quando a linha alvo já não existe (outra
@@ -124,10 +102,6 @@ class EncomendaNaoEncontrada extends Error {}
 
 const MENSAGEM_ENCOMENDA_NAO_EXISTE =
   "Essa encomenda não existe mais. Talvez alguém tenha excluído.";
-
-function primeiraMensagemDeErro(resultado: { error: { issues: { message: string }[] } }): string {
-  return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
-}
 
 // `id` opcional: presente para um item que já existe no banco (edição), ausente para um item
 // novo — é o que `atualizarEncomenda` usa para reconciliar em vez de apagar e recriar tudo a
