@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2b
-status: completed
-stopped_at: Phase 3 planejada — 8 planos verificados
-last_updated: "2026-08-09T13:35:53.723Z"
+current_phase: 3
+current_phase_name: Gestor de Encomendas
+status: executing
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-08-09T14:18:56.070Z"
 last_activity: 2026-08-09
-last_activity_desc: Phase 2b marked complete
+last_activity_desc: Phase 3 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 20
-current_phase_name: Gestor de Encomendas
+  completed_plans: 21
 ---
 
 # Project State
@@ -23,16 +23,16 @@ current_phase_name: Gestor de Encomendas
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 2b — Design System e Casca da Aplicação
+**Current focus:** Phase 3 — Gestor de Encomendas
 
 ## Current Position
 
-Phase: 2b — COMPLETE
-Plan: Not started
-Status: Phase 2b complete
-Last activity: 2026-08-09 — Phase 2b marked complete
+Phase: 3 (Gestor de Encomendas) — EXECUTING
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-08-09 — Phase 3 execution started
 
-Progress: [██████████] 100%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Progress: [██████████] 100%
 | Phase 02b P03 | ~55min | 3 tasks | 14 files |
 | Phase 02b P04 | ~50min | 3 tasks | 7 files |
 | Phase 02b P05 | ~40min | 3 tasks | 6 files |
+| Phase 03 P01 | 36min | 3 tasks | 27 files |
 
 ## Accumulated Context
 
@@ -149,6 +150,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02b-05: NOME_ACESSIVEL_MENU_USUARIO vive em lib/acessibilidade/rotulos.ts (modulo puro) em vez de cabecalho-movel.tsx — importar direto do componente quebrava o carregador de teste do Playwright (cadeia ate next-auth/next-server)
 - [Phase ?]: 02b-05: backstop de nome longo do UI-SPEC convertido em teste automatizado real com 53 caracteres (nao os 43 do exemplo do checklist humano, que nao forca corte no Sheet do celular)
 - [Phase ?]: 02b-05: checkpoint bloqueante da Tarefa 3 (UI-05, D-05, olhada geral) nao respondido nem auto-aprovado — registrado em 02b-VERIFICACAO-HUMANA.md, pendente do dono
+- [Phase ?]: Formatação de data por split/reverse/join direto em page.tsx (sem Date), adiando lib/encomendas/formato.ts (PD-04) para quando mais de um lugar precisar formatar
+- [Phase ?]: criarEncomenda usa assinatura pronta para useActionState (estadoAnterior, FormData), chamada hoje via .bind(null, null) a partir de Server Component
+- [Phase ?]: shadcn 'form' (radix-nova/CLI 3.8.5) não instala nenhum arquivo — decisão de field vs wrapper próprio vs react-hook-form direto fica em aberto para o plano 06 (WINDOWS.md #4)
 
 ### Pending Todos
 
@@ -182,6 +186,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-09T13:35:53.694Z
-Stopped at: Phase 3 planejada — 8 planos verificados
-Resume file: .planning/phases/03-gestor-de-encomendas/03-01-PLAN.md
+Last session: 2026-08-09T14:18:56.043Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
