@@ -6,16 +6,34 @@ import { z } from "zod";
 
 import { ETAPAS_MARCO, ORDEM_DAS_ETAPAS, type Etapa } from "./cronograma";
 
+// Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 (`String.length`) —
+// é assim que o `length()` do Postgres conta, e os dois divergem para qualquer texto fora do
+// plano básico (emoji, alguns acentos compostos). Medir do jeito errado aqui deixaria passar
+// pelo Zod uma descrição que o `check` do banco recusaria depois, com uma mensagem que o
+// usuário não entende.
+function contarPontosDeCodigo(texto: string): number {
+  return [...texto].length;
+}
+
 export const esquemaItem = z.object({
   descricao: z
     .string()
-    .trim()
-    .min(1, "Descreva o item — o campo não pode ficar em branco.")
-    .max(200, "Descrição muito longa — no máximo 200 caracteres."),
+    // NFC ANTES de medir: acento composto ("é" pré-composto) e acento decomposto ("e" +
+    // combinante) precisam contar o mesmo comprimento — sem isso a mesma palavra, digitada de
+    // dois jeitos, teria dois vereditos diferentes.
+    .transform((valor) => valor.normalize("NFC").trim())
+    .refine(
+      (valor) => contarPontosDeCodigo(valor) >= 1,
+      "Descreva o item — o campo não pode ficar em branco.",
+    )
+    .refine(
+      (valor) => contarPontosDeCodigo(valor) <= 200,
+      "A descrição do item passa de 200 caracteres — encurte um pouco.",
+    ),
   quantidade: z
     .number()
-    .int("Quantidade precisa ser um número inteiro.")
-    .positive("Quantidade precisa ser maior que zero."),
+    .int("A quantidade precisa ser um número inteiro maior que zero.")
+    .positive("A quantidade precisa ser um número inteiro maior que zero."),
 });
 
 export type ItemDeEncomenda = z.infer<typeof esquemaItem>;
@@ -75,11 +93,17 @@ export const esquemaEncomenda = z.object({
     .trim()
     .min(1, "Dê um nome para a encomenda.")
     .max(120, "Nome muito longo — no máximo 120 caracteres."),
+  // Ausente, vazio ou só com espaços — os três viram `null`, nunca cadeia vazia (D-05/03-03).
+  // `.optional()` aceita a chave faltando; o `.transform` roda sobre o resultado (inclusive
+  // `undefined`) e normaliza os três casos no mesmo valor.
   clienteNome: z
     .string()
-    .trim()
     .max(120, "Nome do cliente muito longo — no máximo 120 caracteres.")
-    .optional(),
+    .optional()
+    .transform((valor) => {
+      const normalizado = (valor ?? "").trim();
+      return normalizado === "" ? null : normalizado;
+    }),
   dataInicio: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de início precisa estar no formato AAAA-MM-DD.")
@@ -92,3 +116,49 @@ export const esquemaEncomenda = z.object({
 });
 
 export type EntradaDeEncomenda = z.infer<typeof esquemaEncomenda>;
+
+// Usado por `cancelarEncomenda`, `concluirEncomenda`, `excluirEncomenda` e como campo dentro do
+// ajuste rápido e da reordenação — a mesma fronteira de "isso parece um `id` de verdade" antes
+// de qualquer um deles tocar o banco (T-03-17).
+export const esquemaId = z
+  .string()
+  .uuid("Esse identificador não é válido — recarregue a página e tente de novo.");
+
+const ETAPAS_DE_INTERVALO = ORDEM_DAS_ETAPAS.filter(
+  (etapa) => !ETAPAS_MARCO.includes(etapa),
+) as [Etapa, ...Etapa[]];
+
+// União: etapa de intervalo só aceita `delta` (-1 | 1); etapa de marco só aceita `ligado`
+// (interruptor). O ESQUEMA sabe que marco é interruptor e intervalo é mais/menos — não o
+// componente — porque é isso que impede a interface de um dia mandar `delta: 1` num marco
+// (T-03-16). Implementa PD-02: nenhuma das duas formas recebe um valor absoluto de duração.
+const esquemaAjusteDeIntervalo = z.object({
+  encomendaId: esquemaId,
+  etapa: z.enum(ETAPAS_DE_INTERVALO),
+  delta: z.union([z.literal(1), z.literal(-1)], {
+    message: "O ajuste só pode ser de mais um dia ou menos um dia por vez.",
+  }),
+});
+
+const esquemaAjusteDeMarco = z.object({
+  encomendaId: esquemaId,
+  etapa: z.enum(ETAPAS_MARCO as [Etapa, ...Etapa[]]),
+  ligado: z.boolean(),
+});
+
+export const esquemaAjusteDeEtapa = z.union([esquemaAjusteDeIntervalo, esquemaAjusteDeMarco], {
+  message:
+    "Não deu para entender esse ajuste — etapa de marco liga/desliga, etapa de intervalo soma ou subtrai um dia.",
+});
+
+export type EntradaDeAjuste = z.infer<typeof esquemaAjusteDeEtapa>;
+
+// Reordenação por setas (D-16) — nunca arrastar-e-soltar.
+export const esquemaReordenacao = z.object({
+  itemId: esquemaId,
+  direcao: z.enum(["cima", "baixo"], {
+    message: 'A direção precisa ser "cima" ou "baixo".',
+  }),
+});
+
+export type EntradaDeReordenacao = z.infer<typeof esquemaReordenacao>;
