@@ -69,7 +69,7 @@
 - [x] **ENC-07**: A timeline abre já rolada até deixar o "Hoje" mais ou menos centralizado
 - [x] **ENC-08**: No celular, dá para ler o andamento de todas as encomendas como lista vertical, sem rolagem horizontal
 - [x] **ENC-09**: O sistema mostra em qual etapa cada encomenda está hoje e quantos dias faltam para a próxima
-- [ ] **ENC-10**: Encomendas podem ser filtradas por status, ordenadas e buscadas por nome ou cliente
+- [x] **ENC-10**: Encomendas podem ser filtradas por status, ordenadas e buscadas por nome ou cliente
 - [x] **ENC-11**: O rodapé do formulário mostra duração total e data de conclusão, atualizando conforme se digita
 - [x] **ENC-12**: Uma encomenda criada num dispositivo aparece no outro ao recarregar a página
 - [x] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
@@ -246,7 +246,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ENC-07 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-08 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-09 | Phase 3 — Gestor de Encomendas | Complete |
-| ENC-10 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-10 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-11 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-12 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-13 | Phase 3 — Gestor de Encomendas | Complete |

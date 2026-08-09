@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 3
 current_phase_name: Gestor de Encomendas
 status: executing
-stopped_at: Completed 03-06-PLAN.md
-last_updated: "2026-08-09T18:56:48.468Z"
+stopped_at: Completed 03-07-PLAN.md
+last_updated: "2026-08-09T20:02:04.584Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 3 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 3 (Gestor de Encomendas) — EXECUTING
-Plan: 7 of 8
+Plan: 8 of 8
 Status: Ready to execute
 Last activity: 2026-08-09 — Phase 3 execution started
 
-Progress: [█████████░] 93%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ Progress: [█████████░] 93%
 | Phase 03 P04 | 100min | 3 tasks | 10 files |
 | Phase 03 P05 | ~110min | 3 tasks | 9 files |
 | Phase 03 P06 | ~100min | 3 tasks | 14 files |
+| Phase 03 P07 | ~65min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -173,6 +174,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-06: FormularioEncomenda montado em page.tsx, nao em lista-encomendas.tsx — o vazio precisa abrir ?nova antes de existir qualquer encomenda
 - [Phase ?]: 03-06: Dialog unico com conteudo responsivo por CSS em vez de Dialog+Sheet simultaneos — dois Root modais abertos ao mesmo tempo levam o proprio Radix a marcar ambos aria-hidden, provado por teste real
 - [Phase ?]: 03-06: criarEncomenda migrado de (estadoAnterior, FormData) para (entradaBruta: unknown), mesmo formato das outras seis acoes; useActionState deixou de ser necessario
+- [Phase ?]: 03-07: filtros.ts é o quarto módulo puro sem import da fase — redeclara estruturalmente o Situacao de cronograma.ts (SituacaoDeUrgencia) em vez de import type, porque o grep de aceite exige zero linhas de import no arquivo
+- [Phase ?]: 03-07: compararPorUrgencia usa um único número de proximidade por Situacao (atrasada mais negativo = mais urgente, marco=0, as três proximidades em dias, sem-próxima-etapa sempre no fim) — fórmula não especificada no plano, decisão do executor
+- [Phase ?]: 03-07: estado-vazio.tsx ganhou aoClicar?: () => void aditivo (ação de cliente) ao lado de hrefBotao (navegação) — Limpar filtros usa aoClicar, Nova encomenda continua usando hrefBotao
+- [Phase ?]: 03-07: e2e — page.waitForLoadState('networkidle') depois de navegar para uma rota antes de clicar num botão que acabou de aparecer, para evitar clique perdido por hidratação do React ainda não ter anexado o onClick (achado real, não suposição)
 
 ### Pending Todos
 
@@ -206,6 +211,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-09T18:56:48.419Z
-Stopped at: Completed 03-06-PLAN.md
+Last session: 2026-08-09T20:02:04.533Z
+Stopped at: Completed 03-07-PLAN.md
 Resume file: None
