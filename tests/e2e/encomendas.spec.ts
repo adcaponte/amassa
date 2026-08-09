@@ -40,13 +40,19 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     // A ação redireciona para /encomendas ao concluir a transação.
     await expect(page).toHaveURL(/\/encomendas$/);
 
-    // producao 3 + secagem 6 + queima1 1 + esmaltacao 1 + queima2 1 + entrega 1 = 13 dias,
-    // fim exclusivo a partir de 2026-08-12 → último dia de "entrega" é 2026-08-24.
-    const linhaDaEncomenda = page.getByText(nomeDaEncomenda).locator("..");
-    await expect(linhaDaEncomenda).toContainText("24/08/2026");
+    // Desde a 03-04 (Gantt + lista mobile, D-02), o nome aparece DUAS vezes no HTML — uma na
+    // linha do Gantt (coluna fixa, `hidden md:block`) e uma no cartão da lista mobile
+    // (`md:hidden`), um escondido por CSS em cada largura. `:visible` escolhe a metade real do
+    // viewport atual, o mesmo princípio de `tests/e2e/casca.spec.ts`. A cascata de datas em si
+    // (produção 3 + secagem 6 + queima1 1 + esmaltação 1 + queima2 1 + entrega 1 = 13 dias,
+    // fim exclusivo a partir de 2026-08-12 → último dia de "entrega" é 2026-08-24) já tem prova
+    // dedicada em tests/unit/cronograma.test.ts e em tests/e2e/encomendas-indice.spec.ts (barra
+    // de 54px medida por boundingBox no Gantt) — aqui o que importa é só a persistência real.
+    const nomeVisivel = page.getByText(nomeDaEncomenda, { exact: true }).and(page.locator(":visible"));
+    await expect(nomeVisivel).toBeVisible();
 
     // Recarregar prova que a gravação é real (ENC-12), não estado de cliente.
     await page.reload();
-    await expect(page.getByText(nomeDaEncomenda)).toBeVisible();
+    await expect(nomeVisivel).toBeVisible();
   });
 });
