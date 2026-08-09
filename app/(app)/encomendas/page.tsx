@@ -67,6 +67,9 @@ export default async function PaginaEncomendas({
         dataInicio: encomenda.dataInicio,
         cronograma,
         situacao,
+        // D-13: a busca do plano 07 varre nome, cliente e descrição de item — os itens
+        // precisam vir junto da lista do índice, não só na página de detalhe.
+        itens: encomenda.itens.map((item) => ({ descricao: item.descricao })),
       };
     });
 

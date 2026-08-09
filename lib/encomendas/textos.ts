@@ -19,6 +19,14 @@ export const FRASE_FILTRO_VAZIO_TITULO = "Nada por aqui com esse filtro.";
 export const FRASE_FILTRO_VAZIO_CORPO =
   "Tente outro nome, cliente ou item — ou limpe a busca para ver tudo de novo.";
 
+// Filtro, busca e ordenação (D-11 a D-14, plano 07) — rótulos e placeholder dos três controles,
+// nas duas larguras (`filtro-encomendas.tsx`).
+export const ROTULO_LIMPAR_FILTROS = "Limpar filtros";
+export const PLACEHOLDER_BUSCA = "Buscar por nome, cliente ou item…";
+export const ROTULO_FILTRAR_E_ORDENAR = "Filtrar e ordenar encomendas";
+export const ROTULO_STATUS = "Status";
+export const ROTULO_ORDENACAO = "Ordenar por";
+
 export const FRASE_ERRO_TITULO = "Algo não funcionou.";
 export const FRASE_ERRO_CORPO =
   "Não deu para carregar as encomendas. Verifique a internet e tente de novo.";

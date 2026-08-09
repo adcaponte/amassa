@@ -22,9 +22,22 @@ export type EstadoVazioProps = {
   // Mudança aditiva — Agenda, Queimas, Estoque e Orçamentos continuam com o botão inerte sem
   // tocar em uma linha deste arquivo.
   hrefBotao?: string;
+  // Segunda forma de botão ativo (plano 07): uma AÇÃO de cliente ("Limpar filtros") em vez de
+  // uma navegação — `hrefBotao` não serve porque zerar o filtro não muda de URL. Mutuamente
+  // exclusivo com `hrefBotao` na prática (quem chama só passa um dos dois); se os dois vierem,
+  // `hrefBotao` vence, por ser o caminho mais antigo e mais testado. Ausente = mesmo botão
+  // inerte de sempre, igual à ausência de `hrefBotao`.
+  aoClicar?: () => void;
 };
 
-export function EstadoVazio({ titulo, corpo, rotuloBotao, notaBotao, hrefBotao }: EstadoVazioProps) {
+export function EstadoVazio({
+  titulo,
+  corpo,
+  rotuloBotao,
+  notaBotao,
+  hrefBotao,
+  aoClicar,
+}: EstadoVazioProps) {
   return (
     <div
       className="flex flex-1 items-center justify-center px-6 py-16"
@@ -42,6 +55,10 @@ export function EstadoVazio({ titulo, corpo, rotuloBotao, notaBotao, hrefBotao }
             {hrefBotao ? (
               <Button asChild variant="default" className="min-h-[44px]">
                 <Link href={hrefBotao}>{rotuloBotao}</Link>
+              </Button>
+            ) : aoClicar ? (
+              <Button type="button" variant="default" className="min-h-[44px]" onClick={aoClicar}>
+                {rotuloBotao}
               </Button>
             ) : (
               <Button type="button" variant="default" disabled aria-disabled="true">
