@@ -3,6 +3,17 @@
 Items discovered during execution that are out of scope for the current plan (pre-existing,
 unrelated to the task's own changes) — logged, not fixed, per the executor's scope boundary.
 
+## 03-06
+
+- **`components/amassa/encomendas/gantt.tsx` não tem um `Link` por linha até hoje.** Já
+  registrado como gap pré-existente em `03-05-SUMMARY.md` ("Next Phase Readiness"), confirmado
+  de novo aqui: `tests/e2e/encomendas-formulario.spec.ts` precisou extrair o `href` do cartão
+  mobile (`CartaoEncomenda`, sempre no DOM nos dois tamanhos de tela por D-02) em vez de clicar
+  numa linha do Gantt no projeto `desktop`, porque não existe elemento clicável ali. Fora do
+  escopo de arquivos deste plano (`gantt.tsx` não está em `files_modified`); um bom candidato
+  para uma fase futura de polimento junto do item #6 do `WINDOWS.md` (quebra de linha do `<h1>`
+  do cabeçalho).
+
 ## 03-01
 
 - **`tests/e2e/autenticacao.spec.ts` — "a sexta tentativa seguida no mesmo e-mail mostra a
