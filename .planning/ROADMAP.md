@@ -185,7 +185,18 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
   11. O estado vazio mostra "A roda ainda não gira"
   12. Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
 
-**Plans**: TBD
+**Plans**: 8 plans (6 ondas de execução)
+
+Plans:
+- [ ] 03-01-PLAN.md — Traçado ponta a ponta: schema, migração, cascata, transação e a primeira encomenda na tela (onda 1)
+- [ ] 03-02-PLAN.md — Módulos puros: `cronograma.ts`, `gantt.ts`, `formato.ts` e `textos.ts`, com os testes antes do código (onda 2)
+- [ ] 03-03-PLAN.md — As sete Server Actions com Zod único e escrita rápida sem atualização perdida (onda 2)
+- [ ] 03-04-PLAN.md — Índice: Gantt desktop de 18px/dia, lista vertical no celular e os três estados (onda 3)
+- [ ] 03-05-PLAN.md — Detalhe: trilha vertical, ajuste rápido de etapa e os diálogos de cancelar/excluir/concluir (onda 3)
+- [ ] 03-06-PLAN.md — Formulário modal/folha com itens reordenáveis e rodapé ao vivo (onda 4)
+- [ ] 03-07-PLAN.md — Filtro, busca sem acento, ordenação e histórico em janela de 12 meses (onda 5)
+- [ ] 03-08-PLAN.md — Folha A4 de impressão, prova ponta a ponta e migração de produção à mão (onda 6)
+
 **UI hint**: yes
 
 ### Phase 4: Contador de Queima
