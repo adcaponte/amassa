@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { deslocamentoEmPixels, rolagemInicial, type IntervaloDaTimeline } from "@/lib/encomendas/gantt";
-import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
+import { FRASE_VAZIO_TITULO, ROTULO_ETAPA, ROTULO_NOVA_ENCOMENDA } from "@/lib/encomendas/textos";
 
 // Índice de verdade: Gantt no desktop (Tarefa 1), lista de cartões no celular (Tarefa 2), e os
 // três estados obrigatórios (Tarefa 3) — 03-04-PLAN.md. O 18px/dia, a posição da linha de
@@ -35,8 +35,12 @@ async function fazerLogin(page: Page) {
 // sem retry do Playwright fora do CI), uma submissão isolada ocasionalmente fica presa em
 // `?nova` sem redirecionar — sintoma idêntico ao de uma falha de validação Zod silenciosa
 // (stub conhecido, 03-01-SUMMARY.md), mas aqui os dados são sempre válidos, então é uma
-// instabilidade do ambiente local, não do dado. Reenviar o MESMO formulário prova isso: se
-// fosse um defeito real de validação, a nova tentativa falharia exatamente igual.
+// instabilidade do ambiente local, não do dado.
+//
+// Antes de reenviar, confirma que a tentativa anterior REALMENTE não gravou — a transação pode
+// muito bem ter sido concluída no servidor mesmo quando o cliente não observou o redirect a
+// tempo (a rede/hidratação atrasou só a RESPOSTA, não a escrita). Reenviar sem checar isso
+// criaria uma segunda encomenda com o mesmo nome — o oposto do que o teste quer provar.
 async function criarEncomenda(
   page: Page,
   opcoes: { nome: string; cliente?: string; dataInicio: string },
@@ -58,6 +62,11 @@ async function criarEncomenda(
       await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
       return;
     } catch (erro) {
+      await page.goto("/encomendas");
+      const jaFoiCriada = await page.getByText(opcoes.nome, { exact: true }).count();
+      if (jaFoiCriada > 0) {
+        return;
+      }
       if (tentativa === TENTATIVAS_MAXIMAS) {
         throw erro;
       }
@@ -140,6 +149,55 @@ test.describe("índice de encomendas", () => {
   // Mesma prudência de tests/e2e/casca.spec.ts: login é uma conferência argon2id
   // deliberadamente lenta — rodar em série evita empilhar muitas ao mesmo tempo.
   test.describe.configure({ mode: "serial" });
+
+  test.describe("Estados obrigatórios (ENC-13)", () => {
+    // Declarado ANTES dos demais describes de propósito: em modo serial, a ordem de execução
+    // segue a ordem de declaração — o teste de "banco vazio" precisa ser o PRIMEIRO a tocar
+    // `/encomendas` neste arquivo, antes de qualquer outro teste criar uma encomenda. Rodando
+    // com o grep deste arquivo (`--grep "índice de encomendas"`, o comando de verificação desta
+    // tarefa), nenhum outro arquivo de spec entra na mesma execução, então o banco de teste
+    // efêmero (recriado do zero a cada `npm run test:e2e`) está genuinamente vazio aqui.
+    test("com o banco vazio, a frase 'A roda ainda não gira.' aparece uma única vez e o botão leva a /encomendas?nova", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      await page.goto("/encomendas");
+
+      // ENC-13/empty + ENC-13/adjacency: o título do estado vazio (papel `título`, `<h2>`)
+      // aparece exatamente uma vez — nunca uma cópia por metade (Gantt/lista, D-02).
+      const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO, level: 2 });
+      await expect(frase).toHaveCount(1);
+      await expect(frase).toBeVisible();
+
+      // O botão do estado vazio está HABILITADO (D-13 do UI-SPEC — a primeira vez que o botão
+      // do estado vazio faz alguma coisa) e leva a `/encomendas?nova`. Dois links "Nova
+      // encomenda" existem na tela (cabeçalho + estado vazio) — escopado ao `data-testid` do
+      // próprio `EstadoVazio` para não depender de `.last()`/`.first()` entre os dois.
+      //
+      // `toHaveAttribute("href", ...)` em vez de clicar e conferir `toHaveURL`: o destino já é
+      // o contrato que importa (é o mesmo href que o cabeçalho usa, e ENC-06/D-03 já provam a
+      // navegação de verdade em outros pontos da suíte) — ler o atributo é determinístico,
+      // nunca depende do tempo de uma navegação de cliente real completar.
+      const botaoDoEstadoVazio = page
+        .getByTestId("estado-vazio")
+        .getByRole("link", { name: ROTULO_NOVA_ENCOMENDA });
+      await expect(botaoDoEstadoVazio).toBeVisible();
+      await expect(botaoDoEstadoVazio).not.toHaveAttribute("aria-disabled", "true");
+      await expect(botaoDoEstadoVazio).toHaveAttribute("href", "/encomendas?nova");
+    });
+
+    test("com uma encomenda no banco, a frase 'A roda ainda não gira.' não está no documento", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      await criarEncomenda(page, {
+        nome: nomeUnico("Estado vazio ausente"),
+        dataInicio: dataEmDias(0),
+      });
+
+      await expect(page.getByText(FRASE_VAZIO_TITULO)).toHaveCount(0);
+    });
+  });
 
   test.describe("Gantt desktop (ENC-03, ENC-06, ENC-07)", () => {
     // O Gantt só existe visível no projeto `desktop` — no `celular` ele está no HTML mas

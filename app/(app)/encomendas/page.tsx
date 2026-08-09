@@ -87,6 +87,7 @@ export default async function PaginaEncomendas({
           titulo={FRASE_VAZIO_TITULO}
           corpo={FRASE_VAZIO_CORPO}
           rotuloBotao={ROTULO_NOVA_ENCOMENDA}
+          hrefBotao="/encomendas?nova"
         />
       ) : (
         <ListaEncomendas encomendas={encomendasOrdenadas} hoje={hoje} />
