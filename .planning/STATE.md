@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 3
 current_phase_name: Gestor de Encomendas
 status: executing
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-08-09T16:34:32.311Z"
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-08-09T17:40:47.051Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 3 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 3 (Gestor de Encomendas) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-08-09 — Phase 3 execution started
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -83,6 +83,7 @@ Progress: [█████████░] 86%
 | Phase 03 P02 | 16min | 3 tasks | 8 files |
 | Phase 03 P03 | 14min | 3 tasks | 4 files |
 | Phase 03 P04 | 100min | 3 tasks | 10 files |
+| Phase 03 P05 | ~110min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -165,6 +166,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Gantt e lista mobile compartilham o mesmo conjunto filtrado (rascunho+em_producao, D-06) ate o plano 07 trazer filtro/historico de verdade
 - [Phase ?]: Coluna fixa do Gantt via position:sticky dentro do unico container rolavel, nao dois containers sincronizados por scroll
 - [Phase ?]: estado-vazio.tsx ganhou hrefBotao?: string aditivo — botao vira Link habilitado quando presente, mantem o disabled de sempre quando ausente
+- [Phase ?]: 03-05: Switch/botao do ajuste rapido usam style inline (nao classe) para o alvo de toque de 44px — o Switch do shadcn tem data-[size=default] embutido, que vence qualquer classe solta por especificidade CSS
+- [Phase ?]: 03-05: AlertDialogAction com event.preventDefault() + open/onOpenChange controlado é o padrao para dialogo que nao fecha ate a resposta do servidor — vale para qualquer acao destrutiva futura do projeto
+- [Phase ?]: 03-05: D-06 (Gantt/lista so mostra rascunho/em_producao) provado com dado real pela primeira vez, ja que este plano criou os unicos caminhos de escrita que alcancam concluida/cancelada
 
 ### Pending Todos
 
@@ -198,6 +202,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-09T16:34:32.283Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-08-09T17:40:46.992Z
+Stopped at: Completed 03-05-PLAN.md
 Resume file: None
