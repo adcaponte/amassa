@@ -2,6 +2,7 @@
 
 import type { Cronograma, Situacao, StatusDeEncomenda } from "@/lib/encomendas/cronograma";
 
+import { CartaoEncomenda } from "./cartao-encomenda";
 import { Gantt } from "./gantt";
 
 // A casca cliente do índice — nasce Client Component porque o plano 07 põe filtro/busca/
@@ -34,16 +35,13 @@ export function ListaEncomendas({ encomendas, hoje }: ListaEncomendasProps) {
         <Gantt encomendas={encomendas} hoje={hoje} />
       </div>
 
-      {/* Metade do celular — marcador simples nesta tarefa; a Tarefa 2 substitui por
-          `CartaoEncomenda` com a trilha de 6 segmentos e o texto de situação. */}
-      <ul className="flex flex-col gap-3 md:hidden">
+      {/* Metade do celular: cartões empilhados, mesma ordem que o Gantt recebe
+          (`ordenarParaGantt`, calculado no servidor e recebido por props — nunca reordenado
+          aqui, ENC-08/ordering). */}
+      <ul className="flex flex-col gap-3 md:hidden" data-testid="lista-cartoes">
         {encomendas.map((encomenda) => (
-          <li
-            key={encomenda.id}
-            className="rounded-xl border border-border bg-card p-4"
-            data-testid={`lista-item-${encomenda.id}`}
-          >
-            <span className="text-titulo text-foreground">{encomenda.nome}</span>
+          <li key={encomenda.id}>
+            <CartaoEncomenda encomenda={encomenda} />
           </li>
         ))}
       </ul>

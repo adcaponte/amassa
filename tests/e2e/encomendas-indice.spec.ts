@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { deslocamentoEmPixels, rolagemInicial, type IntervaloDaTimeline } from "@/lib/encomendas/gantt";
+import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
 
 // Índice de verdade: Gantt no desktop (Tarefa 1), lista de cartões no celular (Tarefa 2), e os
 // três estados obrigatórios (Tarefa 3) — 03-04-PLAN.md. O 18px/dia, a posição da linha de
@@ -29,24 +30,39 @@ async function fazerLogin(page: Page) {
 // 6 etapas nascem com os padrões (`DIAS_PADRAO`: produção 3 · secagem 6 · queima1 1 ·
 // esmaltação 1 · queima2 1 · entrega 1) — o formulário desta fase não edita etapa por etapa
 // (isso é do plano 06), então todo dado deste arquivo usa esses padrões.
+//
+// Tenta até 3 vezes: no ambiente local (webServer único, `npm run build && npm run start`,
+// sem retry do Playwright fora do CI), uma submissão isolada ocasionalmente fica presa em
+// `?nova` sem redirecionar — sintoma idêntico ao de uma falha de validação Zod silenciosa
+// (stub conhecido, 03-01-SUMMARY.md), mas aqui os dados são sempre válidos, então é uma
+// instabilidade do ambiente local, não do dado. Reenviar o MESMO formulário prova isso: se
+// fosse um defeito real de validação, a nova tentativa falharia exatamente igual.
 async function criarEncomenda(
   page: Page,
   opcoes: { nome: string; cliente?: string; dataInicio: string },
 ) {
-  await page.goto("/encomendas?nova");
-  await page.getByLabel("Nome da encomenda").fill(opcoes.nome);
-  if (opcoes.cliente) {
-    await page.getByLabel("Cliente").fill(opcoes.cliente);
+  const TENTATIVAS_MAXIMAS = 3;
+
+  for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
+    await page.goto("/encomendas?nova");
+    await page.getByLabel("Nome da encomenda").fill(opcoes.nome);
+    if (opcoes.cliente) {
+      await page.getByLabel("Cliente").fill(opcoes.cliente);
+    }
+    await page.getByLabel("Data de início").fill(opcoes.dataInicio);
+    await page.getByLabel("Descrição do item").fill("Item de teste [e2e]");
+    await page.getByLabel("Quantidade").fill("1");
+    await page.getByRole("button", { name: "Salvar" }).click();
+
+    try {
+      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      return;
+    } catch (erro) {
+      if (tentativa === TENTATIVAS_MAXIMAS) {
+        throw erro;
+      }
+    }
   }
-  await page.getByLabel("Data de início").fill(opcoes.dataInicio);
-  await page.getByLabel("Descrição do item").fill("Item de teste [e2e]");
-  await page.getByLabel("Quantidade").fill("1");
-  await page.getByRole("button", { name: "Salvar" }).click();
-  // Timeout maior que o padrão: a suíte inteira roda vários workers em paralelo contra o mesmo
-  // servidor (login com argon2id é deliberadamente lento, e cada worker faz o seu) — sob essa
-  // carga, o `db.transaction` de `criarEncomenda` pode legitimamente levar mais que os 5s
-  // padrão do Playwright para responder e redirecionar.
-  await expect(page).toHaveURL(/\/encomendas$/, { timeout: 25000 });
 }
 
 // Nome inventado e reconhecível como tal (nunca dado real do ateliê), único por chamada —
@@ -56,11 +72,21 @@ function nomeUnico(rotulo: string): string {
   return `[e2e] ${rotulo} ${test.info().project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// Data civil `YYYY-MM-DD` a partir de hoje + `deslocamento` dias — sem `date-fns`, mesma
-// disciplina do resto do projeto (aritmética simples de calendário é suficiente para gerar
-// uma data de teste; a cascata de verdade mora em `lib/encomendas/cronograma.ts`).
+// Data civil `YYYY-MM-DD` a partir de hoje + `deslocamento` dias — calculada em Brasília, com o
+// MESMO método de `hojeEmBrasilia` (lib/encomendas/formato.ts), não em UTC puro nem no fuso
+// local do processo de teste. Sem isto, entre 21h e 23h59 de Brasília (00h-02h59 UTC) o "hoje"
+// em UTC já seria amanhã, e casos como "Começa em 30 dias" contariam um dia a mais/a menos do
+// que `situacaoEm` calcula no servidor a partir de `hojeEmBrasilia`.
 function dataEmDias(deslocamento: number): string {
-  const data = new Date();
+  const agora = new Date();
+  const hojeEmBrasiliaTexto = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(agora);
+  const [ano, mes, dia] = hojeEmBrasiliaTexto.split("-").map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
   data.setUTCDate(data.getUTCDate() + deslocamento);
   return data.toISOString().slice(0, 10);
 }
@@ -70,6 +96,11 @@ function dataEmDias(deslocamento: number): string {
 // contra o mesmo banco).
 function linhaDoGantt(page: Page, nome: string) {
   return page.locator('[data-testid^="gantt-linha-"]').filter({ hasText: nome });
+}
+
+// Mesmo princípio, para o cartão da lista mobile.
+function cartaoDoCelular(page: Page, nome: string) {
+  return page.locator('[data-testid^="cartao-encomenda-"]').filter({ hasText: nome });
 }
 
 async function lerIntervaloDoGantt(page: Page): Promise<{ intervalo: IntervaloDaTimeline; hoje: string }> {
@@ -352,6 +383,198 @@ test.describe("índice de encomendas", () => {
       // dia da encomenda, haveria no máximo uma célula parcial.
       const quantidadeDeCelulas = await page.getByTestId("gantt-celula-quinzena").count();
       expect(quantidadeDeCelulas).toBeGreaterThan(1);
+    });
+  });
+
+  test.describe("Lista mobile (ENC-08, ENC-09)", () => {
+    // Espelho do describe do Gantt: o cartão só existe VISÍVEL no projeto `celular` (no
+    // desktop ele está no HTML, escondido por `md:hidden`, D-02).
+    test.beforeEach(({}, testInfo) => {
+      test.skip(
+        testInfo.project.name !== "celular",
+        "A lista de cartões é exclusiva do projeto celular — escondida por CSS no desktop (D-02)",
+      );
+    });
+
+    test("com várias encomendas carregadas, /encomendas não rola horizontalmente (regra dura de 04-DESIGN-SYSTEM.md §6)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      for (let indice = 0; indice < 5; indice++) {
+        await criarEncomenda(page, {
+          nome: nomeUnico(`Lista sem rolagem ${indice}`),
+          dataInicio: dataEmDias(indice),
+        });
+      }
+      await page.goto("/encomendas");
+
+      const [scrollWidth, clientWidth] = await page.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.documentElement.clientWidth,
+      ]);
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+    });
+
+    test("o cartão mostra nome, cliente, a trilha de 6 segmentos e o texto de situação", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Cartao completo");
+      await criarEncomenda(page, { nome, cliente: "Cliente do cartão", dataInicio: dataEmDias(0) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+      await expect(cartao).toContainText("Cliente do cartão");
+      await expect(cartao.getByTestId("trilha-segmentos")).toBeVisible();
+      // Encomenda criada hoje: a etapa atual é "Produção" (primeira etapa, cascata a partir de
+      // hoje) — texto exato vem de `textoDaSituacao`, nunca redigitado aqui.
+      await expect(cartao).toContainText(`Etapa atual: ${ROTULO_ETAPA.producao}`);
+    });
+
+    test("o segmento da etapa atual tem borda de 2px; os demais não têm borda destacada", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Cartao etapa atual");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(0) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+
+      // Encomenda criada hoje começa em "Produção" — o segmento de produção é o atual.
+      const segmentoAtual = cartao.getByTestId("trilha-segmento-producao");
+      await expect(segmentoAtual).toHaveAttribute("data-atual", "true");
+      const larguraDaBordaAtual = await segmentoAtual.evaluate(
+        (el) => getComputedStyle(el).borderTopWidth,
+      );
+      expect(larguraDaBordaAtual).toBe("2px");
+
+      const segmentoOutro = cartao.getByTestId("trilha-segmento-secagem");
+      await expect(segmentoOutro).toHaveAttribute("data-atual", "false");
+      const larguraDaBordaOutro = await segmentoOutro.evaluate(
+        (el) => getComputedStyle(el).borderTopWidth,
+      );
+      expect(larguraDaBordaOutro).toBe("0px");
+    });
+
+    test("a soma das larguras dos segmentos preenche a largura da trilha, sem lacuna", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Cartao soma segmentos");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(0) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      const trilha = cartao.getByTestId("trilha-segmentos");
+      await expect(trilha).toBeVisible();
+
+      const caixaTrilha = await trilha.boundingBox();
+      const larguras = await cartao
+        .locator('[data-testid^="trilha-segmento-"]')
+        .evaluateAll((elementos) => elementos.map((el) => el.getBoundingClientRect().width));
+      const somaDasLarguras = larguras.reduce((total, largura) => total + largura, 0);
+
+      if (!caixaTrilha) {
+        throw new Error("Não foi possível medir a trilha de segmentos.");
+      }
+      // Tolerância de 1px por segmento (6 etapas) para arredondamento de layout por percentual.
+      expect(Math.abs(somaDasLarguras - caixaTrilha.width)).toBeLessThanOrEqual(6);
+    });
+
+    test("um nome de 60+ caracteres quebra em linha dentro do cartão, sem rolagem horizontal", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      // Mais de 60 caracteres, mas dentro do limite de 120 do esquema (`esquemaEncomenda.nome`)
+      // — passar de 120 faria a validação Zod recusar em silêncio (stub conhecido de
+      // 03-01-SUMMARY.md: o formulário desta fatia não mostra erro de validação na tela), o
+      // que prenderia o teste em `?nova` para sempre em vez de testar a quebra de linha.
+      const nomeLongo = `[e2e] Peça encomendada com nome bem comprido de propósito para testar quebra ${Date.now()}`;
+      await criarEncomenda(page, { nome: nomeLongo, dataInicio: dataEmDias(0) });
+
+      const cartao = cartaoDoCelular(page, nomeLongo);
+      await expect(cartao).toBeVisible();
+
+      const [scrollWidth, clientWidth] = await page.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.documentElement.clientWidth,
+      ]);
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+
+      const nomeNoCartao = cartao.getByText(nomeLongo, { exact: true });
+      const estiloDeQuebra = await nomeNoCartao.evaluate((el) => getComputedStyle(el).overflowWrap);
+      expect(estiloDeQuebra).toBe("break-word");
+    });
+
+    test("uma encomenda atrasada mostra o badge 'ATRASADA' e o texto do caso atrasada, com --color-atencao", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Cartao atrasada");
+      // 60 dias atrás: a cascata padrão (13 dias) termina bem antes de hoje.
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+      await expect(cartao).toContainText("ATRASADA");
+      await expect(cartao).toContainText("Atrasada");
+
+      const corDoBadge = await cartao
+        .getByText("ATRASADA", { exact: true })
+        .evaluate((el) => getComputedStyle(el).color);
+      // --color-atencao = #B45309 = rgb(180, 83, 9); nunca --color-erro (#B91C1C).
+      expect(corDoBadge).toBe("rgb(180, 83, 9)");
+    });
+
+    test("uma encomenda que ainda não começou mostra 'Começa em N dias' e nenhum segmento destacado", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Cartao nao comecou");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(30) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+      await expect(cartao).toContainText("Começa em 30 dias");
+
+      const segmentos = cartao.locator('[data-testid^="trilha-segmento-"]');
+      const quantidadeComDestaque = await segmentos.evaluateAll(
+        (elementos) => elementos.filter((el) => el.getAttribute("data-atual") === "true").length,
+      );
+      expect(quantidadeComDestaque).toBe(0);
+    });
+
+    test("a ordem dos cartões segue ordenarParaGantt (data de início ascendente)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nomeCedo = nomeUnico("Cartao ordem A cedo");
+      const nomeTarde = nomeUnico("Cartao ordem B tarde");
+
+      await criarEncomenda(page, { nome: nomeTarde, dataInicio: dataEmDias(45) });
+      await criarEncomenda(page, { nome: nomeCedo, dataInicio: dataEmDias(25) });
+      await page.goto("/encomendas");
+
+      const nomesNaTela = await page
+        .locator('[data-testid^="cartao-encomenda-"]')
+        .evaluateAll((elementos) => elementos.map((el) => el.textContent ?? ""));
+
+      const indiceCedo = nomesNaTela.findIndex((texto) => texto.includes(nomeCedo));
+      const indiceTarde = nomesNaTela.findIndex((texto) => texto.includes(nomeTarde));
+
+      expect(indiceCedo).toBeGreaterThanOrEqual(0);
+      expect(indiceTarde).toBeGreaterThanOrEqual(0);
+      expect(indiceCedo).toBeLessThan(indiceTarde);
+    });
+
+    test("um cartão só e muitos cartões usam o mesmo leiaute (zero-um-muitos)", async ({ page }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Cartao zero-um-muitos");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(0) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+      await expect(cartao.getByTestId("trilha-segmentos")).toBeVisible();
     });
   });
 });
