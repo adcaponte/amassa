@@ -100,6 +100,34 @@
   --text-nav--font-weight: 500;
 }
 
+/* Correção de raiz — UI-01/D-10: 04-DESIGN-SYSTEM.md §4 e 02b-UI-SPEC.md dizem que os papéis
+   `display` e `título` SÃO Archivo Narrow — é propriedade do papel, não de cada elemento que o
+   usa. O namespace `--text-*` do Tailwind v4 só aceita `--line-height`/`--font-weight`/
+   `--letter-spacing` como companheiros (nunca `--font-family`), então a fonte não podia entrar
+   ali em cima. Faltava isto: até esta correção, `font-titulo` só era aplicado manualmente pelo
+   `Logo` (o "AMASSA" de texto) — o único elemento que por acaso satisfazia a prova de
+   design-system.spec.ts. Fechar D-13 (SVG no lugar do texto) tirou esse elemento de cena e
+   expôs que os outros seis usos reais de `text-display`/`text-titulo` (saudação do painel,
+   título de página, cabeçalho móvel, título de cartão, estado vazio, estado de erro) sempre
+   renderizaram em Inter, nunca em Archivo Narrow — um defeito já publicado, só mascarado.
+   A correção fica AQUI, uma vez, para as Fases 3 a 6 herdarem de graça em qualquer tela nova
+   que usar `text-display`/`text-titulo` — nunca em `className` espalhado, que alguém esquece.
+
+   Verificado que isto NÃO colide com a utilidade `text-display`/`text-titulo` que o Tailwind
+   gera sozinho a partir do namespace `--text-*` acima: compilando os dois lado a lado (`postcss`
+   com `@tailwindcss/postcss`) o resultado é DUAS regras `.text-display { ... }` na mesma
+   `@layer utilities` — uma com `font-family` (esta), outra com `font-size`/`line-height`/
+   `font-weight` (a automática). Nenhuma propriedade se repete entre as duas, então a cascata do
+   CSS aplica a união das duas sem que uma pise na outra — não depende de qual delas o Tailwind
+   emite primeiro. */
+@utility text-display {
+  font-family: var(--font-titulo);
+}
+
+@utility text-titulo {
+  font-family: var(--font-titulo);
+}
+
 /* Mapeamento obrigatório para o shadcn/ui — os componentes não leem --color-acento etc.,
    eles esperam os próprios nomes (--background, --foreground, --primary...). Sem este bloco,
    TODO componente instalado renderiza com a paleta padrão do Tailwind, sem quebrar o build
