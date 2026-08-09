@@ -1,0 +1,164 @@
+import { describe, expect, it } from "vitest";
+import type { Situacao } from "../../lib/encomendas/cronograma";
+import {
+  FRASE_ERRO_CORPO,
+  FRASE_ERRO_TITULO,
+  FRASE_FALHA_AO_SALVAR,
+  FRASE_FILTRO_VAZIO_CORPO,
+  FRASE_FILTRO_VAZIO_TITULO,
+  FRASE_VAZIO_CORPO,
+  FRASE_VAZIO_TITULO,
+  ROTULO_ETAPA,
+  ROTULO_NOVA_ENCOMENDA,
+  SELO_ATRASADA,
+  SELO_RASCUNHO,
+  textoDaSituacao,
+} from "../../lib/encomendas/textos";
+
+describe("frases fixas", () => {
+  it('FRASE_VAZIO_TITULO é exatamente "A roda ainda não gira."', () => {
+    expect(FRASE_VAZIO_TITULO).toBe("A roda ainda não gira.");
+  });
+
+  it('FRASE_FILTRO_VAZIO_TITULO é exatamente "Nada por aqui com esse filtro."', () => {
+    expect(FRASE_FILTRO_VAZIO_TITULO).toBe("Nada por aqui com esse filtro.");
+  });
+
+  it("FRASE_VAZIO_TITULO e FRASE_FILTRO_VAZIO_TITULO são duas cadeias distintas, nunca a mesma", () => {
+    expect(FRASE_VAZIO_TITULO).not.toBe(FRASE_FILTRO_VAZIO_TITULO);
+  });
+
+  it("todas as frases fixas são não vazias", () => {
+    const frases = [
+      FRASE_VAZIO_TITULO,
+      FRASE_VAZIO_CORPO,
+      FRASE_FILTRO_VAZIO_TITULO,
+      FRASE_FILTRO_VAZIO_CORPO,
+      FRASE_ERRO_TITULO,
+      FRASE_ERRO_CORPO,
+      FRASE_FALHA_AO_SALVAR,
+      ROTULO_NOVA_ENCOMENDA,
+      SELO_RASCUNHO,
+      SELO_ATRASADA,
+    ];
+
+    for (const frase of frases) {
+      expect(frase.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("ROTULO_ETAPA tem uma entrada para cada uma das 6 etapas, e nenhuma entrada a mais", () => {
+    const etapas = [
+      "producao",
+      "secagem",
+      "queima1",
+      "esmaltacao",
+      "queima2",
+      "entrega",
+    ] as const;
+
+    expect(Object.keys(ROTULO_ETAPA).sort()).toEqual([...etapas].sort());
+    for (const etapa of etapas) {
+      expect(ROTULO_ETAPA[etapa].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("textoDaSituacao", () => {
+  const casos: Array<{ nome: string; situacao: Situacao }> = [
+    {
+      nome: "nao-comecou",
+      situacao: { tipo: "nao-comecou", diasAteInicio: 3, dataInicio: "2026-08-15" },
+    },
+    {
+      nome: "em-etapa-intervalo",
+      situacao: {
+        tipo: "em-etapa-intervalo",
+        etapa: "producao",
+        proximaEtapa: "secagem",
+        diasAteProxima: 2,
+      },
+    },
+    { nome: "em-etapa-marco", situacao: { tipo: "em-etapa-marco", etapa: "queima1" } },
+    {
+      nome: "ultima-etapa",
+      situacao: { tipo: "ultima-etapa", etapa: "entrega", diasAteEntrega: 0 },
+    },
+    {
+      nome: "atrasada",
+      situacao: { tipo: "atrasada", dataPrevista: "2026-08-24", diasDeAtraso: 1 },
+    },
+    { nome: "concluida", situacao: { tipo: "concluida", dataDeConclusao: "2026-08-24" } },
+    { nome: "cancelada", situacao: { tipo: "cancelada" } },
+    { nome: "sem-etapas", situacao: { tipo: "sem-etapas" } },
+  ];
+
+  it.each(casos)("devolve uma frase não vazia para o ramo $nome", ({ situacao }) => {
+    expect(textoDaSituacao(situacao).length).toBeGreaterThan(0);
+  });
+
+  it("cobre os OITO ramos de Situacao (inventário desta suíte)", () => {
+    expect(casos).toHaveLength(8);
+  });
+
+  it('atrasada contém a palavra "Atrasada" e a data prevista', () => {
+    const texto = textoDaSituacao({
+      tipo: "atrasada",
+      dataPrevista: "2026-08-24",
+      diasDeAtraso: 3,
+    });
+
+    expect(texto).toContain("Atrasada");
+    expect(texto).toContain("24 ago");
+  });
+
+  it('nao-comecou contém "Começa em" e o número de dias', () => {
+    const texto = textoDaSituacao({
+      tipo: "nao-comecou",
+      diasAteInicio: 5,
+      dataInicio: "2026-08-20",
+    });
+
+    expect(texto).toContain("Começa em");
+    expect(texto).toContain("5");
+  });
+
+  it("semCor: true devolve a variante textual usada na folha impressa — o caso atrasada não depende de cor", () => {
+    const comCor = textoDaSituacao({
+      tipo: "atrasada",
+      dataPrevista: "2026-08-24",
+      diasDeAtraso: 2,
+    });
+    const semCor = textoDaSituacao(
+      { tipo: "atrasada", dataPrevista: "2026-08-24", diasDeAtraso: 2 },
+      { semCor: true },
+    );
+
+    expect(semCor).toContain("atrasada");
+    expect(semCor).not.toBe(comCor);
+  });
+
+  it("concluida com dataDeConclusao null (as 6 etapas em 0 dias) ainda devolve frase não vazia, sem lançar", () => {
+    expect(() => textoDaSituacao({ tipo: "concluida", dataDeConclusao: null })).not.toThrow();
+    expect(textoDaSituacao({ tipo: "concluida", dataDeConclusao: null }).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("cancelada devolve exatamente a frase que diz que a encomenda foi cancelada", () => {
+    expect(textoDaSituacao({ tipo: "cancelada" })).toContain("Cancelada");
+  });
+
+  it("em-etapa-intervalo usa ROTULO_ETAPA para nomear a etapa atual e a próxima", () => {
+    const texto = textoDaSituacao({
+      tipo: "em-etapa-intervalo",
+      etapa: "producao",
+      proximaEtapa: "secagem",
+      diasAteProxima: 4,
+    });
+
+    expect(texto).toContain(ROTULO_ETAPA.producao);
+    expect(texto).toContain(ROTULO_ETAPA.secagem);
+    expect(texto).toContain("4");
+  });
+});
