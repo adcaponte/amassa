@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 8
+open_count: 10
 waived_count: 0
 fixed_count: 2
-total_count: 10
-last_updated: 2026-08-09T18:53:37.603Z
+total_count: 12
+last_updated: 2026-08-09T20:57:11.541Z
 ---
 
 # Broken Windows Ledger
@@ -25,6 +25,8 @@ last_updated: 2026-08-09T18:53:37.603Z
 | 8 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/confirmar-cancelar.tsx |  | E8 confirmar cancelar — erro (backstop do plano 03-05): o AlertDialog deve permanecer aberto mostrando o texto de falha sem fechar sozinho quando cancelarEncomenda falha; caminho implementado (estado erro + onOpenChange bloqueado por enviando) mas nao ha teste automatizado nem verificacao manual do caminho de falha nesta execucao (dificil de simular falha de rede/servidor de forma confiavel em e2e local). | open |  | 2026-08-09T17:35:33.701Z |  |
 | 9 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/confirmar-excluir.tsx |  | E9 confirmar excluir — erro (backstop do plano 03-05): mesma situacao de E8 aplicada a excluirEncomenda — caminho implementado, sem prova automatizada nem verificacao manual do caminho de falha nesta execucao. | open |  | 2026-08-09T17:35:34.500Z |  |
 | 10 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/lista-itens.tsx |  | E11 reordenacao — carregando (backstop do plano 03-06): a seta clicada fica com opacidade reduzida e disabled (par inteiro) ate a resposta do servidor, o que deveria impedir que dois cliques rapidos na mesma seta gravem fora de ordem; nao verificado a mao nem com teste automatizado de concorrencia real nesta execucao (dificil simular corrida de rede confiavel em e2e local). | open |  | 2026-08-09T18:53:37.603Z |  |
+| 11 | 03-gestor-de-encomendas | deviation | tests/e2e/encomendas-impressao.spec.ts |  | Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste). | open |  | 2026-08-09T20:57:04.606Z |  |
+| 12 | 03-gestor-de-encomendas | deviation | tests/e2e/sessao.spec.ts | 110 | 'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility). | open |  | 2026-08-09T20:57:11.541Z |  |
 
 ````json
 [
@@ -146,6 +148,30 @@ last_updated: 2026-08-09T18:53:37.603Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-09T18:53:37.603Z",
+    "resolved_at": null
+  },
+  {
+    "id": 11,
+    "kind": "deviation",
+    "phase": "03-gestor-de-encomendas",
+    "file": "tests/e2e/encomendas-impressao.spec.ts",
+    "line": null,
+    "description": "Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-09T20:57:04.606Z",
+    "resolved_at": null
+  },
+  {
+    "id": 12,
+    "kind": "deviation",
+    "phase": "03-gestor-de-encomendas",
+    "file": "tests/e2e/sessao.spec.ts",
+    "line": 110,
+    "description": "'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-09T20:57:11.541Z",
     "resolved_at": null
   }
 ]
