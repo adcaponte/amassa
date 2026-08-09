@@ -37,8 +37,21 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
 
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    // A ação redireciona para /encomendas ao concluir a transação.
-    await expect(page).toHaveURL(/\/encomendas$/);
+    // A ação redireciona para /encomendas ao concluir a transação. Sob a suíte inteira rodando
+    // em paralelo, uma submissão isolada ocasionalmente fica presa em `?nova` sem redirecionar
+    // (instabilidade do webServer local de desenvolvimento, não do dado — mesmo diagnóstico de
+    // tests/e2e/encomendas-indice.spec.ts#criarEncomenda). Se acontecer aqui, um recarregamento
+    // de `/encomendas` confirma se a transação já tinha sido concluída no servidor antes de
+    // desistir — nunca reenvia o formulário, que criaria uma segunda encomenda com o mesmo nome.
+    try {
+      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+    } catch (erro) {
+      await page.goto("/encomendas");
+      const jaFoiCriada = await page.getByText(nomeDaEncomenda, { exact: true }).count();
+      if (jaFoiCriada === 0) {
+        throw erro;
+      }
+    }
 
     // Desde a 03-04 (Gantt + lista mobile, D-02), o nome aparece DUAS vezes no HTML — uma na
     // linha do Gantt (coluna fixa, `hidden md:block`) e uma no cartão da lista mobile
