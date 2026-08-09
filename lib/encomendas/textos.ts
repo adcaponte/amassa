@@ -27,6 +27,11 @@ export const ROTULO_FILTRAR_E_ORDENAR = "Filtrar e ordenar encomendas";
 export const ROTULO_STATUS = "Status";
 export const ROTULO_ORDENACAO = "Ordenar por";
 
+// Histórico (D-07, plano 07) — estado vazio próprio, distinto de `FRASE_VAZIO_*` ("nenhuma
+// encomenda existe") e de `FRASE_FILTRO_VAZIO_*` ("a busca não achou nada"): este é "não existe
+// NENHUMA concluída/cancelada", independente do termo de busca.
+export const FRASE_HISTORICO_VAZIO = "Nada concluído ou cancelado ainda.";
+
 export const FRASE_ERRO_TITULO = "Algo não funcionou.";
 export const FRASE_ERRO_CORPO =
   "Não deu para carregar as encomendas. Verifique a internet e tente de novo.";

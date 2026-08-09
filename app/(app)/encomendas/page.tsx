@@ -32,48 +32,50 @@ export default async function PaginaEncomendas({
   await exigirUsuario();
   const { editar } = await searchParams;
 
+  // `hoje` calculado no SERVIDOR (Brasília) ANTES da consulta — o cliente nunca decide qual é o
+  // dia de hoje (o fuso do aparelho de quem está no ateliê não é confiável, 03-CONTEXT.md,
+  // canonical refs), e `listarEncomendasDoIndice` precisa dele para a janela de 12 meses do
+  // histórico (D-07/D-11, plano 07).
+  const hoje = hojeEmBrasilia(new Date());
+
   // Busca no SERVIDOR quando `?editar={id}` está presente — a edição por URL direta não
   // depende de a lista do índice já ter carregado (D-03, plano 06).
   const [encomendasDoIndice, encomendaParaEditar] = await Promise.all([
-    listarEncomendasDoIndice(),
+    listarEncomendasDoIndice(hoje),
     editar ? buscarEncomenda(editar) : Promise.resolve(null),
   ]);
-  // `hoje` calculado no SERVIDOR (Brasília) e passado para baixo como string — o cliente nunca
-  // decide qual é o dia de hoje, porque o fuso do aparelho de quem está no ateliê não é
-  // confiável (03-CONTEXT.md, canonical refs).
-  const hoje = hojeEmBrasilia(new Date());
 
-  // O Gantt desenha só `rascunho` e `em_producao` (D-06). Sem filtro/histórico ainda (isso é
-  // do plano 07), o índice inteiro — Gantt e lista mobile — mostra o mesmo conjunto ativo:
-  // ENC-08/ordering exige que as duas metades nunca mostrem ordens diferentes para o mesmo
-  // conjunto de encomendas, e não existe ainda nenhum caminho de escrita capaz de levar uma
-  // encomenda a `concluida`/`cancelada` a partir desta tela.
-  const encomendasAtivas: EncomendaDoIndice[] = encomendasDoIndice
-    .filter((encomenda) => encomenda.status === "rascunho" || encomenda.status === "em_producao")
-    .map((encomenda) => {
-      const cronograma = calcularCronograma(
-        encomenda.dataInicio,
-        encomenda.etapas.length > 0
-          ? encomenda.etapas.map((etapa) => ({ etapa: etapa.etapa, dias: etapa.dias }))
-          : DIAS_PADRAO,
-      );
-      const situacao = situacaoEm(cronograma, encomenda.status, hoje);
+  // TODAS as encomendas carregadas (ativas + histórico da janela de 12 meses) ganham
+  // cronograma/situação aqui — o filtro de status vive dentro de `lista-encomendas.tsx` agora
+  // (D-11, plano 07); o Gantt/lista mobile continuam desenhando só `rascunho`/`em_producao`
+  // (D-06), mas essa decisão é de `ListaEncomendas`, não mais deste Server Component.
+  const encomendasParaExibicao: EncomendaDoIndice[] = encomendasDoIndice.map((encomenda) => {
+    const cronograma = calcularCronograma(
+      encomenda.dataInicio,
+      encomenda.etapas.length > 0
+        ? encomenda.etapas.map((etapa) => ({ etapa: etapa.etapa, dias: etapa.dias }))
+        : DIAS_PADRAO,
+    );
+    const situacao = situacaoEm(cronograma, encomenda.status, hoje);
 
-      return {
-        id: encomenda.id,
-        nome: encomenda.nome,
-        clienteNome: encomenda.clienteNome,
-        status: encomenda.status,
-        dataInicio: encomenda.dataInicio,
-        cronograma,
-        situacao,
-        // D-13: a busca do plano 07 varre nome, cliente e descrição de item — os itens
-        // precisam vir junto da lista do índice, não só na página de detalhe.
-        itens: encomenda.itens.map((item) => ({ descricao: item.descricao })),
-      };
-    });
+    return {
+      id: encomenda.id,
+      nome: encomenda.nome,
+      clienteNome: encomenda.clienteNome,
+      status: encomenda.status,
+      dataInicio: encomenda.dataInicio,
+      cronograma,
+      situacao,
+      // D-13: a busca do plano 07 varre nome, cliente e descrição de item — os itens
+      // precisam vir junto da lista do índice, não só na página de detalhe.
+      itens: encomenda.itens.map((item) => ({ descricao: item.descricao })),
+      // D-07: uma linha de histórico cancelada usa isto para "cancelada em {data}" — Date não
+      // atravessa a fronteira Server→Client com a mesma previsibilidade de uma string.
+      atualizadoEm: encomenda.atualizadoEm.toISOString(),
+    };
+  });
 
-  const encomendasOrdenadas = ordenarParaGantt(encomendasAtivas);
+  const encomendasOrdenadas = ordenarParaGantt(encomendasParaExibicao);
 
   return (
     <>

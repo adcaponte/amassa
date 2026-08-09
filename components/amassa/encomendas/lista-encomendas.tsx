@@ -12,6 +12,7 @@ import { calcularIntervalo } from "@/lib/encomendas/gantt";
 import {
   FRASE_FILTRO_VAZIO_CORPO,
   FRASE_FILTRO_VAZIO_TITULO,
+  FRASE_HISTORICO_VAZIO,
   ROTULO_LIMPAR_FILTROS,
 } from "@/lib/encomendas/textos";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
@@ -19,6 +20,7 @@ import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { CartaoEncomenda } from "./cartao-encomenda";
 import { FiltroEncomendas } from "./filtro-encomendas";
 import { Gantt } from "./gantt";
+import { LinhaHistorico } from "./linha-historico";
 
 // A casca cliente do índice — Client Component porque D-11 põe filtro/busca/ordenação AQUI
 // dentro, sobre a lista inteira já carregada pelo Server Component (`page.tsx`). `FormularioEncomenda`
@@ -38,6 +40,11 @@ export type EncomendaDoIndice = {
   // junto da lista do índice (não só na página de detalhe), consequência já anotada em
   // 03-CONTEXT.md.
   itens: { descricao: string }[];
+  // Usada só por `linha-historico.tsx` (uma encomenda cancelada mostra "cancelada em {data}",
+  // nunca a conclusão prevista que nunca aconteceu) — o instante do UPDATE mais recente,
+  // serializado como ISO string pelo Server Component (Date não atravessa a fronteira de props
+  // com a mesma previsibilidade de uma string).
+  atualizadoEm: string;
 };
 
 export type ListaEncomendasProps = {
@@ -52,6 +59,8 @@ const FILTRO_PADRAO = {
   status: "todas" as FiltroDeStatus,
   ordenacao: "data-inicio" as OrdenacaoDeEncomendas,
 };
+
+const STATUS_HISTORICO: readonly FiltroDeStatus[] = ["concluida", "cancelada"];
 
 // Recebe a lista completa (ativas + histórico da janela de 12 meses, já calculada com
 // `situacao`/`cronograma` no Server Component) por props. D-11: filtro, busca e ordenação rodam
@@ -71,17 +80,34 @@ export function ListaEncomendas({ encomendas, hoje }: ListaEncomendasProps) {
     setOrdenacao(FILTRO_PADRAO.ordenacao);
   }
 
-  // A contagem TOTAL carregada decide entre os dois estados vazios, nunca a filtrada — mesma
-  // regra que 03-04-SUMMARY.md já registrou para "A roda ainda não gira" vs. resultado de
-  // filtro (ENC-13/adjacency). Como `ListaEncomendas` só monta quando `encomendas.length > 0`
-  // (page.tsx decide isso antes), aqui só existe a distinção "nada bateu com o filtro".
-  const nadaEncontrado = filtradas.length === 0;
+  // "Concluídas"/"Canceladas" no seletor de status (D-07): a tela vira LISTA nas duas larguras,
+  // nenhuma barra, nenhum Gantt — Gantt de encomenda que já acabou não ajuda a decidir nada.
+  const somenteHistorico = STATUS_HISTORICO.includes(status);
+
+  // Contagem TOTAL carregada do status atual (SEM aplicar o termo de busca) — decide entre os
+  // dois estados vazios do histórico: "Nada concluído ou cancelado ainda." (não existe NENHUMA
+  // encomenda daquele status — a busca não teria o que achar de qualquer forma) e "Nada por
+  // aqui com esse filtro." (existem, mas a busca/ordenação atual não achou nenhuma). Mesma regra
+  // de ENC-13/adjacency que decide "A roda ainda não gira" vs. resultado de busca no índice
+  // inteiro — aqui aplicada ao recorte do histórico.
+  const totalDoStatusAtual = somenteHistorico
+    ? encomendas.filter((encomenda) => encomenda.status === status).length
+    : null;
+  const historicoGenuinamenteVazio = totalDoStatusAtual === 0;
+
+  const nadaEncontrado = !historicoGenuinamenteVazio && filtradas.length === 0;
 
   // As duas metades ativas (Gantt no desktop, cartões no celular) NUNCA desenham `concluida`/
   // `cancelada` (D-06) — a lista filtrada é estreitada de novo aqui para isso valer mesmo
   // quando o filtro de status é "Todas".
   const ativasFiltradas = filtradas.filter(
     (encomenda) => encomenda.status === "rascunho" || encomenda.status === "em_producao",
+  );
+  // O recorte histórico da lista filtrada — não vazio só quando o status é "Todas" (as ativas
+  // continuam no Gantt/lista normal e as históricas aparecem ABAIXO, sempre como lista) ou já é
+  // "Concluídas"/"Canceladas" (nesse caso É a lista inteira, `ativasFiltradas` fica vazia).
+  const historicoFiltrado = filtradas.filter((encomenda) =>
+    STATUS_HISTORICO.includes(encomenda.status as FiltroDeStatus),
   );
 
   // D-14, explícito: a lista filtrada volta a passar por `calcularIntervalo` AQUI — o mesmo
@@ -109,13 +135,25 @@ export function ListaEncomendas({ encomendas, hoje }: ListaEncomendasProps) {
         aoMudarOrdenacao={setOrdenacao}
       />
 
-      {nadaEncontrado ? (
+      {historicoGenuinamenteVazio ? (
+        // Sem botão de ação (03-UI-SPEC.md E7/empty) — não há nada a oferecer: não existe
+        // nenhuma encomenda concluída ou cancelada, "Limpar filtros" não mudaria isso.
+        <EstadoVazio titulo={FRASE_HISTORICO_VAZIO} corpo="Quando uma encomenda for concluída ou cancelada, ela aparece bem aqui." />
+      ) : nadaEncontrado ? (
         <EstadoVazio
           titulo={FRASE_FILTRO_VAZIO_TITULO}
           corpo={FRASE_FILTRO_VAZIO_CORPO}
           rotuloBotao={ROTULO_LIMPAR_FILTROS}
           aoClicar={limparFiltros}
         />
+      ) : somenteHistorico ? (
+        <ul className="flex flex-col gap-3 px-6 py-6 md:px-8" data-testid="lista-historico">
+          {historicoFiltrado.map((encomenda) => (
+            <li key={encomenda.id}>
+              <LinhaHistorico encomenda={encomenda} />
+            </li>
+          ))}
+        </ul>
       ) : (
         <div className="px-6 py-6 md:px-8">
           <div
@@ -137,6 +175,24 @@ export function ListaEncomendas({ encomendas, hoje }: ListaEncomendasProps) {
               </li>
             ))}
           </ul>
+
+          {/* Filtro em "Todas": as ativas ficam no Gantt/lista normal acima, e as históricas da
+              janela de 12 meses aparecem ABAIXO, sempre como lista (D-07) — nunca desenhadas no
+              Gantt (D-06). */}
+          {historicoFiltrado.length > 0 && (
+            <div className="mt-8" data-testid="historico-abaixo-das-ativas">
+              <h2 className="text-micro text-muted-foreground mb-3 tracking-wide uppercase">
+                Histórico
+              </h2>
+              <ul className="flex flex-col gap-3">
+                {historicoFiltrado.map((encomenda) => (
+                  <li key={encomenda.id}>
+                    <LinhaHistorico encomenda={encomenda} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

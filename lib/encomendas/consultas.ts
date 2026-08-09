@@ -1,12 +1,12 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { encomendaEtapas, encomendaItens, encomendas } from "@/db/schema";
+import { calcularJanelaDoHistorico } from "./filtros";
 
 // Leitura do índice de `/encomendas`. Sem `"use server"` — não é uma Server Action, é uma
 // consulta chamada direto do Server Component da página; `lib/encomendas/acoes.ts` fica só
-// com escrita. Nesta fatia, sem janela de data e sem filtro — o plano 07 acrescenta a janela
-// de 12 meses de D-11/03-UI-SPEC.md.
+// com escrita.
 export type EncomendaComFilhos = typeof encomendas.$inferSelect & {
   itens: (typeof encomendaItens.$inferSelect)[];
   etapas: (typeof encomendaEtapas.$inferSelect)[];
@@ -16,8 +16,30 @@ export type EncomendaComFilhos = typeof encomendas.$inferSelect & {
 // consultas (encomendas, itens, etapas) + agrupamento em memória, em vez de `db.query` com
 // `relations()`: o schema desta fase não declara relações Drizzle ainda, e esta fatia não
 // precisa delas para uma lista simples.
-export async function listarEncomendasDoIndice(): Promise<EncomendaComFilhos[]> {
-  const linhasDeEncomenda = await db.select().from(encomendas).orderBy(asc(encomendas.dataInicio));
+//
+// Janela de 12 meses (03-UI-SPEC.md "Histórico — Janela carregada — decisão do dono"): TODAS as
+// `rascunho`/`em_producao` vêm sempre; `concluida`/`cancelada` só vêm se `data_inicio` estiver
+// dentro dos últimos 12 meses a partir de `hoje` — é o teto que impede o conjunto filtrado no
+// cliente (D-11) de crescer sem limite conforme os anos passam. A data de corte é calculada em
+// TypeScript (`calcularJanelaDoHistorico`, módulo puro) e passada como parâmetro — nunca a
+// função de data corrente do Postgres, que devolveria o dia errado entre 21h e meia-noite de
+// Brasília porque o contêiner roda em UTC (`02-MODELO-DE-DADOS.md` §0).
+export async function listarEncomendasDoIndice(hoje: string): Promise<EncomendaComFilhos[]> {
+  const dataDeCorte = calcularJanelaDoHistorico(hoje);
+
+  const linhasDeEncomenda = await db
+    .select()
+    .from(encomendas)
+    .where(
+      or(
+        inArray(encomendas.status, ["rascunho", "em_producao"]),
+        and(
+          inArray(encomendas.status, ["concluida", "cancelada"]),
+          gte(encomendas.dataInicio, dataDeCorte),
+        ),
+      ),
+    )
+    .orderBy(asc(encomendas.dataInicio));
 
   if (linhasDeEncomenda.length === 0) {
     return [];
