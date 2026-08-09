@@ -67,12 +67,12 @@
 - [x] **ENC-05**: Uma encomenda guarda e mostra vários itens com descrição e quantidade (ex.: 40 canecas e 12 bowls)
 - [x] **ENC-06**: No desktop, o Gantt usa 18px/dia, cabeçalho em quinzenas, coluna fixa e linha de "Hoje" na posição certa
 - [x] **ENC-07**: A timeline abre já rolada até deixar o "Hoje" mais ou menos centralizado
-- [ ] **ENC-08**: No celular, dá para ler o andamento de todas as encomendas como lista vertical, sem rolagem horizontal
+- [x] **ENC-08**: No celular, dá para ler o andamento de todas as encomendas como lista vertical, sem rolagem horizontal
 - [x] **ENC-09**: O sistema mostra em qual etapa cada encomenda está hoje e quantos dias faltam para a próxima
 - [ ] **ENC-10**: Encomendas podem ser filtradas por status, ordenadas e buscadas por nome ou cliente
 - [x] **ENC-11**: O rodapé do formulário mostra duração total e data de conclusão, atualizando conforme se digita
 - [x] **ENC-12**: Uma encomenda criada num dispositivo aparece no outro ao recarregar a página
-- [ ] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
+- [x] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
 - [ ] **ENC-14**: Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
 
 ### Contador de Queima
@@ -244,12 +244,12 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ENC-05 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-06 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-07 | Phase 3 — Gestor de Encomendas | Complete |
-| ENC-08 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-08 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-09 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-10 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-11 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-12 | Phase 3 — Gestor de Encomendas | Complete |
-| ENC-13 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-13 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-14 | Phase 3 — Gestor de Encomendas | Pending |
 | FOR-01 | Phase 4 — Contador de Queima | Pending |
 | FOR-02 | Phase 4 — Contador de Queima | Pending |

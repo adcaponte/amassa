@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 3
 current_phase_name: Gestor de Encomendas
 status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-08-09T14:56:47.466Z"
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-08-09T16:34:32.311Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 3 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 3 (Gestor de Encomendas) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-08-09 — Phase 3 execution started
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Progress: [████████░░] 82%
 | Phase 03 P01 | 36min | 3 tasks | 27 files |
 | Phase 03 P02 | 16min | 3 tasks | 8 files |
 | Phase 03 P03 | 14min | 3 tasks | 4 files |
+| Phase 03 P04 | 100min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-03: select ... for update dentro de db.transaction (PD-02) — o novo valor do ajuste rápido nasce da linha travada, nunca de um número vindo do cliente
 - [Phase ?]: 03-03: entrada de objeto tipado (não FormData) nas seis ações novas — nenhuma UI as consome ainda; criarEncomenda continua com FormData/useActionState
 - [Phase ?]: 03-03: esquemaAtualizacaoDeEncomenda local a acoes.ts via esquemaEncomenda.extend() — reusa nome/cliente/data/etapas sem reimplementar, só acrescenta id + itens com id opcional para reconciliação
+- [Phase ?]: Gantt e lista mobile compartilham o mesmo conjunto filtrado (rascunho+em_producao, D-06) ate o plano 07 trazer filtro/historico de verdade
+- [Phase ?]: Coluna fixa do Gantt via position:sticky dentro do unico container rolavel, nao dois containers sincronizados por scroll
+- [Phase ?]: estado-vazio.tsx ganhou hrefBotao?: string aditivo — botao vira Link habilitado quando presente, mantem o disabled de sempre quando ausente
 
 ### Pending Todos
 
@@ -194,6 +198,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-09T14:56:47.434Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-08-09T16:34:32.283Z
+Stopped at: Completed 03-04-PLAN.md
 Resume file: None
