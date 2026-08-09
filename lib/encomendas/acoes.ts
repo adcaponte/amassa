@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -10,7 +10,14 @@ import { encomendaEtapas, encomendaItens, encomendas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
 import { DIAS_PADRAO, calcularCronograma } from "./cronograma";
-import { esquemaEncomenda, esquemaId, esquemaItem } from "./esquemas";
+import {
+  esquemaAjusteDeEtapa,
+  esquemaEncomenda,
+  esquemaEtapas,
+  esquemaId,
+  esquemaItem,
+  esquemaReordenacao,
+} from "./esquemas";
 
 // A primeira escrita de produto do sistema. `db.transaction` cobre as três tabelas — meia
 // encomenda gravada é pior que nenhuma (T-03-04). `esquemaEncomenda` (lib/encomendas/esquemas.ts)
@@ -344,4 +351,168 @@ export async function excluirEncomenda(
     console.error("Falha ao excluir encomenda:", erro);
     throw erro;
   }
+}
+
+const MENSAGEM_ITEM_NAO_EXISTE = "Esse item não existe mais. Talvez alguém tenha excluído.";
+
+// Segundo caminho de escrita de duração (D-15/PD-02) — implementa a corrida resolvida no
+// servidor: nenhum valor absoluto vem do cliente, só um delta relativo ou um interruptor.
+// `select … for update` dentro da transação trava as 6 linhas; o novo valor nasce do que a
+// trava acabou de ler, nunca do número que estava na tela (T-03-15). O array resultante passa
+// pelo MESMO `esquemaEtapas` de `criarEncomenda`/`atualizarEncomenda` — se a regra de marco
+// mudar um dia, os dois caminhos mudam juntos (D-15).
+export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
+  ResultadoDeAcao<{ dias: number; duracaoTotalEmDias: number; dataDeConclusao: string | null }>
+> {
+  await exigirUsuario();
+
+  const resultado = esquemaAjusteDeEtapa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const entrada = resultado.data;
+
+  try {
+    const resposta = await db.transaction(async (tx) => {
+      const [linhaDeEncomenda] = await tx
+        .select({ dataInicio: encomendas.dataInicio })
+        .from(encomendas)
+        .where(eq(encomendas.id, entrada.encomendaId))
+        .limit(1);
+
+      if (!linhaDeEncomenda) {
+        throw new EncomendaNaoEncontrada();
+      }
+
+      // "for update" trava as 6 linhas — é a serialização que impede duas chamadas
+      // simultâneas na mesma etapa de se perderem uma na outra (PD-02, T-03-15).
+      const etapasAtuais = await tx
+        .select({
+          id: encomendaEtapas.id,
+          etapa: encomendaEtapas.etapa,
+          dias: encomendaEtapas.dias,
+        })
+        .from(encomendaEtapas)
+        .where(eq(encomendaEtapas.encomendaId, entrada.encomendaId))
+        .for("update");
+
+      const etapaAlvo = etapasAtuais.find((etapa) => etapa.etapa === entrada.etapa);
+      if (!etapaAlvo) {
+        throw new EncomendaNaoEncontrada();
+      }
+
+      // O novo valor nasce do que a trava acabou de ler, nunca de um número vindo do cliente —
+      // é isso que transforma "a última escrita ganha" em "as duas escritas somam".
+      const novoValor =
+        "delta" in entrada ? Math.max(0, etapaAlvo.dias + entrada.delta) : entrada.ligado ? 1 : 0;
+
+      const etapasComNovoValor = etapasAtuais.map((etapa) => ({
+        etapa: etapa.etapa,
+        dias: etapa.etapa === entrada.etapa ? novoValor : etapa.dias,
+      }));
+
+      const validacao = esquemaEtapas.safeParse(etapasComNovoValor);
+      if (!validacao.success) {
+        throw new Error(primeiraMensagemDeErro(validacao));
+      }
+
+      await tx
+        .update(encomendaEtapas)
+        .set({ dias: novoValor })
+        .where(eq(encomendaEtapas.id, etapaAlvo.id));
+
+      // Cálculo DEPOIS da escrita confirmada, nunca antes — o rodapé da trilha só recalcula
+      // quando a resposta confirmar (03-UI-SPEC.md "Comportamento de salvamento — não é
+      // otimista").
+      const cronograma = calcularCronograma(linhaDeEncomenda.dataInicio, validacao.data);
+
+      return {
+        dias: novoValor,
+        duracaoTotalEmDias: cronograma.duracaoTotalEmDias,
+        dataDeConclusao: cronograma.dataDeConclusao,
+      };
+    });
+
+    revalidatePath("/encomendas");
+    revalidatePath("/encomendas/[id]", "page");
+    return { ok: true, dados: resposta };
+  } catch (erro) {
+    if (erro instanceof EncomendaNaoEncontrada) {
+      return { ok: false, erro: MENSAGEM_ENCOMENDA_NAO_EXISTE };
+    }
+    console.error("Falha ao ajustar etapa:", erro);
+    throw erro;
+  }
+}
+
+// Reordenação por setas (D-16) — nunca arrastar-e-soltar. Mesma disciplina de trava de
+// `ajustarEtapaEncomenda`: "for update" nas linhas da encomenda antes de trocar `ordem`, para
+// duas reordenações quase simultâneas na mesma encomenda serializarem em vez de se atropelarem.
+export async function reordenarItemEncomenda(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<null>> {
+  await exigirUsuario();
+
+  const resultado = esquemaReordenacao.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const entrada = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [itemAlvo] = await tx
+        .select({ id: encomendaItens.id, encomendaId: encomendaItens.encomendaId })
+        .from(encomendaItens)
+        .where(eq(encomendaItens.id, entrada.itemId))
+        .limit(1);
+
+      if (!itemAlvo) {
+        throw new EncomendaNaoEncontrada();
+      }
+
+      // "for update" nas linhas da encomenda inteira, não só no item alvo — a troca de
+      // `ordem` toca o vizinho também.
+      const itensDaEncomenda = await tx
+        .select({ id: encomendaItens.id, ordem: encomendaItens.ordem })
+        .from(encomendaItens)
+        .where(eq(encomendaItens.encomendaId, itemAlvo.encomendaId))
+        .orderBy(asc(encomendaItens.ordem))
+        .for("update");
+
+      const indiceAlvo = itensDaEncomenda.findIndex((item) => item.id === entrada.itemId);
+      const indiceVizinho = entrada.direcao === "cima" ? indiceAlvo - 1 : indiceAlvo + 1;
+
+      if (indiceVizinho < 0 || indiceVizinho >= itensDaEncomenda.length) {
+        // Sem vizinho na direção pedida — a interface já desabilita a seta; chegando assim
+        // mesmo, não escreve nada e não erra (um clique inofensivo não vira aviso de falha).
+        return;
+      }
+
+      const listaReordenada = [...itensDaEncomenda];
+      const [itemMovido] = listaReordenada.splice(indiceAlvo, 1);
+      listaReordenada.splice(indiceVizinho, 0, itemMovido);
+
+      // Renumera TODOS para 0..n-1 — por segurança, não só os dois trocados (garante a
+      // sequência sem buraco mesmo partindo de um estado já inconsistente).
+      for (const [indice, item] of listaReordenada.entries()) {
+        if (item.ordem !== indice) {
+          await tx
+            .update(encomendaItens)
+            .set({ ordem: indice })
+            .where(eq(encomendaItens.id, item.id));
+        }
+      }
+    });
+  } catch (erro) {
+    if (erro instanceof EncomendaNaoEncontrada) {
+      return { ok: false, erro: MENSAGEM_ITEM_NAO_EXISTE };
+    }
+    console.error("Falha ao reordenar item:", erro);
+    throw erro;
+  }
+
+  revalidatePath("/encomendas");
+  revalidatePath("/encomendas/[id]", "page");
+  return { ok: true, dados: null };
 }
