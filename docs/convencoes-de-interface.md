@@ -25,9 +25,19 @@ Excluir {item}? {o que é perdido, nomeado}.
 
 A implementação usa o `alert-dialog` do shadcn/ui. Ele **não foi instalado na Fase 2b** (D-07)
 porque não havia nada para excluir ainda — nenhuma tabela de produto, nenhuma Server Action de
-exclusão. Chega na **Fase 3**, junto da primeira exclusão real do sistema (encomendas). Quando
-for instalar: `npx shadcn@3.8.5 add alert-dialog` (mesma versão fixada da CLI usada em toda a
-Fase 2b — ver seção 4).
+exclusão. **Implementado na Fase 3**, junto da primeira exclusão real do sistema (encomendas):
+`components/amassa/encomendas/confirmar-excluir.tsx` é a referência do formato — título nomeando
+a encomenda entre aspas «», corpo com a contagem real de itens (singular/plural), botão de
+confirmação em `--color-erro` (`variant="destructive"`), e o par
+`open`/`enviando`/`preventDefault()` que impede o diálogo de fechar sozinho antes da resposta do
+servidor. `components/amassa/encomendas/confirmar-cancelar.tsx` é a variante **não-destrutiva**
+do mesmo padrão (D-08): mesmo trio de estado em trânsito, botão em `outline` em vez de
+`destructive`.
+
+**PD-01 (decisão da Fase 3):** um nome de encomenda comprido e sem espaço nunca estoura a
+largura do diálogo — o título usa `overflow-wrap: anywhere` e quebra em linha, nunca corta nem
+força rolagem horizontal. Vale para qualquer `alert-dialog`/`dialog` futuro cujo título venha de
+um dado do usuário sem garantia de tamanho.
 
 ---
 
@@ -79,10 +89,18 @@ de código não usado que envelhece antes de ser tocado (D-06).
 shadcn — não foram escolha da fase, mas também satisfazem D-06/D-07: nenhum componente extra por
 decisão nossa.)
 
+**Instalados na Fase 3** (os sete que 03-UI-SPEC.md "Design System" nomeava, nenhum a mais):
+`alert-dialog`, `sonner`, `select`, `dialog`, `form`, `label`, `switch`. **Achado relevante para
+a Fase 4 não reinstalar às cegas:** o item `form` do registro (preset `radix-nova`, CLI `3.8.5`)
+**não tem nenhum arquivo para instalar** — `npx shadcn@3.8.5 add form` roda sem erro mas não cria
+`components/ui/form.tsx`. A composição real usada pelo formulário de encomendas é
+`react-hook-form` + `@hookform/resolvers/zod` diretos, com `field` (`Field`/`FieldLabel`/
+`FieldError`) para a moldura de rótulo/erro — ver `components/amassa/encomendas/
+formulario-encomenda.tsx` e `03-01-SUMMARY.md`/`03-06-SUMMARY.md` para o achado completo
+(`WINDOWS.md` id 4, `fixed`).
+
 **Ficam para depois:**
 
-- **`alert-dialog`** e **`sonner`** — Fase 3, junto da primeira exclusão real e do primeiro aviso
-  otimista (ver seções 1 e 5).
 - **`--color-chart-1` a `--color-chart-5`** — Fase 4, quando o Recharts entrar para os relatórios
   de queima.
 
@@ -117,3 +135,36 @@ Chega na Fase 4, com a implementação do contador de forno.
 - **Voz afetiva, sensorial, direta — nunca corporativa** (`04-DESIGN-SYSTEM.md` §9): "Nada por
   aqui ainda. Cadastre o primeiro material.", nunca "Nenhum registro encontrado no sistema."
   Feminino ao falar de alunas; forma neutra para quem usa o sistema (gestores).
+
+---
+
+## 7. Escrita rápida NÃO-otimista (D-15, Fase 3)
+
+`04-DESIGN-SYSTEM.md` §7 traça a linha: **presença de aula e movimentação de estoque são
+otimistas** (a tela assume sucesso e reverte se o servidor discordar); **encomendas não são** —
+mudar a duração de uma etapa ou o status de um marco precisa de confirmação do servidor antes de
+qualquer número na tela virar definitivo. A referência de implementação é
+`components/amassa/encomendas/ajuste-rapido-etapa.tsx` (D-15, segundo caminho de escrita de uma
+encomenda, ao lado do formulário completo). As Fases 4 a 6 (Fornos, Agenda, Estoque) vão
+precisar decidir, cada uma na sua vez, para qual lado do §7 cada escrita rápida cai — o padrão
+abaixo é o modelo de referência para o lado não-otimista.
+
+**Os quatro passos, sempre nesta ordem:**
+
+1. **Mudança visual local imediata** — o número/estado muda na tela no mesmo clique, sem esperar
+   rede. É o que faz o controle parecer responsivo.
+2. **Indicador de "em voo" + `disabled`** — um spinner substitui o valor (ou o controle
+   desabilita), e o PRÓPRIO `disabled` é a defesa contra um segundo toque disparar uma segunda
+   escrita antes da primeira confirmar.
+3. **Falha reverte, com aviso** — se o servidor devolver `{ ok: false }`, o valor volta ao que
+   era ANTES do passo 1 (nunca fica preso no valor otimista), e um `toast.error` explica o que
+   fazer.
+4. **Sucesso adota o valor do SERVIDOR, nunca o do passo 1** — mesmo quando os dois batem na
+   prática, o componente lê `resposta.dados`, não o valor local calculado no clique. É essa
+   leitura, e não o passo 1, que decide o número final — o que torna "duas gravações quase
+   simultâneas somam, a última não vence sozinha" uma garantia do servidor (`select ... for
+   update` + delta relativo, nunca valor absoluto do cliente), não uma sorte da interface.
+
+**Nunca envie um valor absoluto do que a tela mostra** — envie um delta (`+1`/`-1`) ou um
+interruptor (`ligado: boolean`). É o servidor, com a linha travada, quem soma; a tela só pede a
+operação.
