@@ -93,7 +93,7 @@ coverage:
       CartaoPainel) existem com as assinaturas exatas do contrato de UI e passam lint/tsc"
     requirement: "UI-07"
     verification:
-      - kind: automated
+      - kind: other
         ref: "npm run lint (0) + npx tsc --noEmit (0) + greps de aceite da Tarefa 1 (aria-disabled,
           ausência de title=, <h1>/text-display, import de components/ui/card, ausência de
           components/ui/skeleton)"
@@ -105,7 +105,7 @@ coverage:
       globals.css"
     requirement: "UI-02, UI-04"
     verification:
-      - kind: automated
+      - kind: other
         ref: "npm run lint + npx tsc --noEmit + npm run verificar-acoes (0 violações) + npm run
           build (sucesso) + git diff --exit-code middleware.ts lib/auth/rotas-publicas.ts
           app/globals.css (0)"

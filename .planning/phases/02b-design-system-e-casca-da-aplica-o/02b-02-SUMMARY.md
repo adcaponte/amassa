@@ -153,7 +153,7 @@ coverage:
       rota nova foi acrescentada a ROTAS_PUBLICAS nem ao matcher do middleware"
     requirement: "UI-02"
     verification:
-      - kind: automated
+      - kind: other
         ref: "npm run verificar-acoes (0 violações) + git diff --exit-code
           lib/auth/rotas-publicas.ts middleware.ts app/globals.css (retorna 0)"
         status: pass

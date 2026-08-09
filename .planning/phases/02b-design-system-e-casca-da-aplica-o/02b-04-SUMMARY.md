@@ -94,7 +94,7 @@ coverage:
       literal do contrato, sem renderizar nenhuma propriedade de error na tela"
     requirement: "UI-07"
     verification:
-      - kind: automated
+      - kind: other
         ref: "npm run lint (0) + npx tsc --noEmit (0) + grep -c 'error.message\\|error.stack\\|error.digest' app/(app)/error.tsx (0) + grep de role=\"alert\"/Tentar de novo/copy literal"
         status: pass
     human_judgment: false
@@ -112,7 +112,7 @@ coverage:
       área de conteúdo), sem nenhuma cadeia de texto solta entre as tags"
     requirement: "UI-07"
     verification:
-      - kind: automated
+      - kind: other
         ref: "npm run lint (0) + npx tsc --noEmit (0) + npm run build (sucesso) + revisão de
           código (só componentes Skeleton e elementos de leiaute no JSX)"
         status: pass
@@ -124,7 +124,7 @@ coverage:
       herdadas (44px, 16px, um botão terracota por tela), inteiramente em português"
     requirement: "UI-08"
     verification:
-      - kind: automated
+      - kind: other
         ref: "grep -q 'Coleção Verão'/'alert-dialog'/'sonner'/'estado-vazio.tsx'/'estado-erro.tsx'/'44px'/'16px' docs/convencoes-de-interface.md — todos encontrados"
         status: pass
     human_judgment: false
