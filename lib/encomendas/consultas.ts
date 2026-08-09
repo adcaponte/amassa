@@ -1,4 +1,4 @@
-import { asc, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { encomendaEtapas, encomendaItens, encomendas } from "@/db/schema";
@@ -43,4 +43,38 @@ export async function listarEncomendasDoIndice(): Promise<EncomendaComFilhos[]> 
     itens: linhasDeItem.filter((item) => item.encomendaId === encomenda.id),
     etapas: linhasDeEtapa.filter((etapa) => etapa.encomendaId === encomenda.id),
   }));
+}
+
+// Leitura da página de detalhe (`/encomendas/[id]`, plano 05). `null` quando o `id` não existe —
+// a página decide entre mostrar a encomenda ou `notFound()`. O status da linha sempre vem direto
+// da coluna: nenhum campo aqui é deduzido de data (D-05 — a proibição vale também na leitura).
+export async function buscarEncomenda(id: string): Promise<EncomendaComFilhos | null> {
+  const [linhaDeEncomenda] = await db
+    .select()
+    .from(encomendas)
+    .where(eq(encomendas.id, id))
+    .limit(1);
+
+  if (!linhaDeEncomenda) {
+    return null;
+  }
+
+  const [itensDaEncomenda, etapasDaEncomenda] = await Promise.all([
+    db
+      .select()
+      .from(encomendaItens)
+      .where(eq(encomendaItens.encomendaId, id))
+      .orderBy(asc(encomendaItens.ordem)),
+    db
+      .select()
+      .from(encomendaEtapas)
+      .where(eq(encomendaEtapas.encomendaId, id))
+      .orderBy(asc(encomendaEtapas.ordem)),
+  ]);
+
+  return {
+    ...linhaDeEncomenda,
+    itens: itensDaEncomenda,
+    etapas: etapasDaEncomenda,
+  };
 }
