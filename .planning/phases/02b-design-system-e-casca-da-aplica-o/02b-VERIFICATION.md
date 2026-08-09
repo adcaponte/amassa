@@ -1,17 +1,21 @@
 ---
 phase: 02b-design-system-e-casca-da-aplica-o
-verified: 2026-08-08T21:00:00Z
-status: human_needed
+verified: 2026-08-09T14:00:00Z
+revalidated_after_commits: [90ca3f2, f73a7ef, f503dc3, 99efa74]
+status: passed
 score: 5/5 critérios de sucesso verificados (código); 3 itens aguardando conferência do dono
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "UI-05 — navegação confortável com o polegar, num celular de verdade, em pé"
     expected: "Todo alcance (Início, Encomendas, Agenda, Queimas, Estoque, avatar, Sair) é confortável, sem esticar nem trocar a pega da mão"
     why_human: "Não é medível por teste automatizado — é o próprio Core Value do projeto. Já documentado em 02b-VERIFICACAO-HUMANA.md, Item 1, pendente do dono."
+
   - test: "D-05 — a voz das quatro frases de estado vazio escritas nesta fase (Agenda, Queimas, Estoque, Orçamentos) soa como o AMASSA"
     expected: "Afetiva, sensorial, direta — nunca corporativa, no padrão de 'A roda ainda não gira.'"
     why_human: "Julgamento de voz/tom não é verificável por máquina. Documentado em 02b-VERIFICACAO-HUMANA.md, Item 2, pendente do dono."
+
   - test: "Olhada geral nas dez telas — cores, tipografia condensada e legibilidade sob luz forte, no celular e no desktop"
     expected: "Cores, tipografia e legibilidade batem com o que o dono esperava ao aprovar 04-DESIGN-SYSTEM.md"
     why_human: "Contraste numérico já confirmado por axe-core; a experiência de luz ambiente real não é simulável por ferramenta. Documentado em 02b-VERIFICACAO-HUMANA.md, Item 3, pendente do dono."
@@ -87,6 +91,7 @@ esta tarefa de verificação foi instruída a não aprovar nem reprovar por pres
 ### `app/globals.css` — tokens e mapeamento `@theme inline`
 
 Lido diretamente do arquivo em disco (não do SUMMARY). Confirma:
+
 - Os 8 `--color-sidebar-*` presentes (linhas 131-138): `--color-sidebar`, `--color-sidebar-foreground`, `--color-sidebar-primary`, `--color-sidebar-primary-foreground`, `--color-sidebar-accent`, `--color-sidebar-accent-foreground`, `--color-sidebar-border`, `--color-sidebar-ring`.
 - `--color-acento: #894025`, `--color-fundo: #F6F3F0`, `--color-tinta-fraca: #6E5F56` (não a versão que reprova AA), `--radius-xl: 18px` — todos literais, sem alteração.
 - Todas as cores "NÃO ALTERAR" (etapa, modalidade, tipo de queima, nível de forno) presentes intactas, mesmo sem uso nesta fase.
@@ -164,6 +169,7 @@ reportados como **pendentes**, não como aprovados nem reprovados:
 1. **UI-05** — navegação confortável com o polegar, num celular de verdade, em pé.
 2. **D-05** — se a voz das quatro frases novas (Agenda, Queimas, Estoque, Orçamentos) soa como o
    AMASSA.
+
 3. **Olhada geral** nas dez telas — cores, tipografia condensada, legibilidade sob luz forte.
 
 O campo "Resultado" de cada item em `02b-VERIFICACAO-HUMANA.md` segue em branco (`_(a preencher
@@ -222,6 +228,76 @@ fase segue pendente apenas dos três itens de julgamento humano.
 
 ---
 
-*Verificado: 2026-08-08*
-*Verificador: Claude (gsd-verifier)*
-*Adendo da lacuna do cabeçalho: orquestrador, mesma data*
+## Revalidação — o UAT e três commits posteriores
+
+Este relatório foi escrito antes do UAT e antes de três commits que mudaram como seis componentes
+renderizam. Marcar a fase como verificada com base nele, sem revalidar, seria aceitar um relatório
+que precede as mudanças. Foi revalidado.
+
+### O que fechou no UAT (`02b-UAT.md`, 7/7, zero problemas)
+
+Os três itens que estavam `human_needed` foram resolvidos pelo dono:
+
+- **UI-05** — testado no celular contra o site publicado, com conta de gestor real. Os cinco itens
+  da barra inferior alcançam confortavelmente. Sobre o "Sair" ficar no canto superior, o dono
+  avaliou e considerou irrelevante: a sessão dura 30 dias, ninguém desloga na prática, e abrir o
+  app já logado é o comportamento desejado. **Decisão de produto, não concessão.**
+- **D-05** — as quatro frases de estado vazio aprovadas como definitivas.
+- **Olhada geral** — dez superfícies percorridas, desktop e janela estreita.
+
+### Defeito encontrado pelo UAT e corrigido
+
+`99efa74` — o cabeçalho do celular mostrava a string fixa `"AMASSA"` onde o contrato pede o título
+da tela. O componente já tinha a prop `titulo`; o layout nunca a passava. Corrigido derivando de
+`usePathname()` contra `ehItemAtivo`/`ITENS_NAVEGACAO`, com teste em **duas rotas distintas** —
+porque o defeito era um valor constante, e uma rota só não distingue constante de derivado.
+
+### Defeito maior, encontrado ao fechar D-13
+
+Aplicar o logo em SVG removeu o último elemento do sistema com `font-titulo` — e revelou que
+**os seis títulos reais nunca estiveram em Archivo Narrow**. Os papéis `--text-display`/`--text-titulo`
+do Tailwind v4 carregam tamanho, altura e peso, não família; nada amarrava a família a eles. A
+prova de UI-01 (D-09) media justamente o heading "AMASSA", o único elemento correto, e generalizava.
+
+**UI-01 estava meio cumprido no que já havia sido publicado.** Corrigido em `f73a7ef` (`@utility`
+no `globals.css`, na raiz, não espalhado por seis `className`) e a asserção passou a medir três
+pontos distintos em vez de um.
+
+Ao varrer os seis para conferir, apareceu um segundo defeito, mais fundo: o `cn()` usa
+`tailwind-merge`, que não conhece a escala do projeto, classifica `text-titulo` como cor de texto,
+vê conflito com `text-foreground` e **descarta em silêncio**. Reproduzido isolado:
+`twMerge("text-titulo text-foreground")` → `"text-foreground"`. O título dos cartões do painel
+nunca teve família, tamanho nem peso certos desde a 02b-03. Corrigido em `f503dc3` com
+`extendTailwindMerge` em `lib/utils.ts` — a raiz, que protege qualquer primitivo shadcn futuro — e
+guardado por `tests/unit/cn.test.ts`.
+
+### Comandos reexecutados após os quatro commits
+
+| Comando | Resultado |
+|---|---|
+| `npm run lint` | ✅ 0, sem warning |
+| `npx tsc --noEmit` | ✅ 0 |
+| `npm run verificar-acoes` | ✅ 2 ações conferidas, 0 violações |
+| `npm test` | ✅ **132/132** (11 arquivos — 128 anteriores + 4 novos do `cn()`) |
+| `npm run build` | ✅ compilado, 11 rotas geradas |
+| `npm run test:e2e` | ⚠️ **90 passaram, 2 falharam** — as duas com a assinatura do flake pré-existente da Fase 2a (`page.waitForResponse` estourando 60s), agora na quinta execução independente que o isola |
+
+### Segurança
+
+`02b-SECURITY.md` — **14/14 ameaças fechadas, `threats_open: 0`**, ASVS 1. O SVG do logo foi
+auditado byte a byte por ser conteúdo externo agora renderizado numa rota pública: sem `<script>`,
+sem manipulador de evento, sem referência remota.
+
+### Veredito revalidado
+
+Cinco critérios de sucesso e nove requisitos verificados, os três itens humanos resolvidos pelo
+dono, e os dois defeitos encontrados depois da verificação inicial corrigidos na raiz e guardados
+por teste. **Fase verificada.**
+
+Um item aberto que **não** é desta fase: o flake de `autenticacao.spec.ts:72`, código de
+rate-limiting da 2a, em `deferred-items.md` e `.planning/WINDOWS.md` (id 3).
+
+---
+
+*Verificado: 2026-08-08 · revalidado 2026-08-09 após o UAT e os commits `99efa74`, `90ca3f2`, `f73a7ef`, `f503dc3`*
+*Verificador: Claude (gsd-verifier); adendos e revalidação pelo orquestrador*
