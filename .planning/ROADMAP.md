@@ -169,7 +169,7 @@ vertical no celular.
 transacional, Gantt desktop, lista vertical mobile, formulário com pré-visualização, filtros,
 estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fase.
 **Depends on**: Phase 2b
-**Requirements**: ENC-01, ENC-02, ENC-03, ENC-04, ENC-05, ENC-06, ENC-07, ENC-08, ENC-09, ENC-10, ENC-11, ENC-12, ENC-13
+**Requirements**: ENC-01, ENC-02, ENC-03, ENC-04, ENC-05, ENC-06, ENC-07, ENC-08, ENC-09, ENC-10, ENC-11, ENC-12, ENC-13, ENC-14
 **Success Criteria** (what must be TRUE):
 
   1. Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
@@ -183,6 +183,7 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
   9. Uma encomenda criada em um dispositivo aparece no outro ao recarregar a página (sem atualização em tempo real, deliberadamente)
   10. Excluir uma encomenda pede confirmação
   11. O estado vazio mostra "A roda ainda não gira"
+  12. Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
 
 **Plans**: TBD
 **UI hint**: yes

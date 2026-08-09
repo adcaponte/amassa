@@ -73,6 +73,7 @@
 - [ ] **ENC-11**: O rodapé do formulário mostra duração total e data de conclusão, atualizando conforme se digita
 - [ ] **ENC-12**: Uma encomenda criada num dispositivo aparece no outro ao recarregar a página
 - [ ] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
+- [ ] **ENC-14**: Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
 
 ### Contador de Queima
 
@@ -249,6 +250,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ENC-11 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-12 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-13 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-14 | Phase 3 — Gestor de Encomendas | Pending |
 | FOR-01 | Phase 4 — Contador de Queima | Pending |
 | FOR-02 | Phase 4 — Contador de Queima | Pending |
 | FOR-03 | Phase 4 — Contador de Queima | Pending |
@@ -302,8 +304,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 99 total
-- Mapped to phases: 99/99
+- v1 requirements: 100 total
+- Mapped to phases: 100/100
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -312,7 +314,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 |-------|------------------|------------|----------|
 | Phase 1 | M0 | INFRA-01..10 | 10 |
 | Phase 2 | M1 | AUTH-01..10, BKP-01..07, UI-01..09 | 26 |
-| Phase 3 | M2 | ENC-01..13 | 13 |
+| Phase 3 | M2 | ENC-01..14 | 14 |
 | Phase 4 | M4 | FOR-01..13 | 13 |
 | Phase 5 | M3 | AGD-01..16 | 16 |
 | Phase 6 | M5 | EST-01..12 | 12 |

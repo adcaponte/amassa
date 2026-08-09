@@ -14,13 +14,13 @@ a página de detalhe, o formulário com pré-visualização ao vivo, filtros/bus
 estados vazio/carregando/erro e o teste ponta a ponta.
 
 Corresponde à **M2** de `amassa-plataforma/03-ROADMAP.md`.
-Requisitos: **ENC-01 a ENC-13**, mais o **ENC-14 novo** (ver aviso abaixo).
+Requisitos: **ENC-01 a ENC-14**.
 
-**⚠ Requisito novo a registrar antes de planejar — ENC-14 (impressão).** Surgiu nesta discussão e
-foi dobrado nesta fase por decisão do dono (D-14). `.planning/ROADMAP.md` §"Phase 3" e
-`.planning/REQUIREMENTS.md` §"Módulo 1 — Gestor de Encomendas" **ainda não o contêm**. Sem isso o
-planejador não tem de onde tirar o critério de sucesso e a fase fecha sem a funcionalidade.
-Use `/gsd-phase` para editar o roadmap — não escreva nos dois arquivos à mão.
+**Sobre o ENC-14 (impressão):** não veio da M2 — surgiu nesta discussão e foi dobrado nesta fase por
+decisão do dono (D-18). Já registrado em `.planning/ROADMAP.md` §"Phase 3" (requisito e critério de
+sucesso 12) e em `.planning/REQUIREMENTS.md`. **`amassa-plataforma/03-ROADMAP.md` §M2 não o menciona
+e não será atualizado** — aquele documento é a especificação original; quando os dois divergirem,
+`.planning/` é a fonte para planejar.
 
 **Fora desta fase:**
 

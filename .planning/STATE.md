@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 2b
 status: completed
 stopped_at: Phase 3 context gathered
-last_updated: "2026-08-09T11:54:33.351Z"
+last_updated: "2026-08-09T12:15:44.287Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 2b marked complete
 progress:
@@ -165,6 +165,10 @@ None yet.
 - callbackUrl do redirecionamento nao autenticado vaza https://0.0.0.0:3000 em vez do dominio publico (WINDOWS.md id 2, deferred-items.md da fase 02a) — bloqueia /gsd-ship ate resolvido ou dispensado; causa provavel em lib/auth/auth.config.ts/middleware.ts, fora do escopo do plano 02a-08
 - tests/e2e/autenticacao.spec.ts:72 (sexta tentativa de bloqueio) trava/estoura timeout de forma pre-existente e independente da 02b-03 (confirmado via --grep-invert) — ver deferred-items.md da fase 02b item 1 e WINDOWS.md id 3; investigar pool do pg.Pool em db/index.ts ou UV_THREADPOOL_SIZE
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
+
+### Roadmap Evolution
+
+- Phase 3 edited: ENC-14 (botao de imprimir folha A4) adicionado aos requisitos e criterios de sucesso
 
 ## Deferred Items
 
