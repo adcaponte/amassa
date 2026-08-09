@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, type CSSProperties } from "react";
+
 import type {
   Cronograma,
   FaixaDeEtapa,
@@ -6,6 +10,8 @@ import type {
 } from "@/lib/encomendas/cronograma";
 import { formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
 import { ROTULO_ETAPA, SELO_ATRASADA, SELO_RASCUNHO, textoDaSituacao } from "@/lib/encomendas/textos";
+
+import { AjusteRapidoEtapa } from "./ajuste-rapido-etapa";
 
 const TAMANHO_MARCADOR = 14;
 
@@ -45,7 +51,7 @@ function textoDeData(faixa: FaixaDeEtapa): string {
 }
 
 function Marcador({ marco, desligada, cor }: { marco: boolean; desligada: boolean; cor: string }) {
-  const estiloComum = {
+  const estiloComum: CSSProperties = {
     width: TAMANHO_MARCADOR,
     height: TAMANHO_MARCADOR,
     backgroundColor: desligada ? "transparent" : cor,
@@ -67,12 +73,15 @@ function Marcador({ marco, desligada, cor }: { marco: boolean; desligada: boolea
   return <span aria-hidden="true" className="shrink-0 rounded-full" style={estiloComum} />;
 }
 
-// Server Component de apresentação (D-04) — mesma implementação no desktop e no celular: coluna
-// única, sem nada horizontal além da própria linha. Uma linha vertical conectora de 1px em
-// `--color-borda-forte` atravessa as seis linhas — ela é NEUTRA (não usa cor de etapa); só o
-// marcador de cada linha usa a cor. O ajuste rápido (Tarefa 2) e "Marcar como concluída"
-// (Tarefa 3) entram aqui em ondas seguintes.
-export function TrilhaEtapas({ status, cronograma, situacao }: TrilhaEtapasProps) {
+// Client Component (Tarefa 2): precisa de estado próprio porque o rodapé de duração
+// total/data de conclusão só recalcula quando UMA das seis `AjusteRapidoEtapa` confirma a
+// resposta do servidor (passo 4, nunca o passo 1) — o estado sobe até aqui via o callback
+// `aoConfirmar` (03-UI-SPEC.md "Comportamento de salvamento — não é otimista"). "Marcar como
+// concluída" chega na Tarefa 3.
+export function TrilhaEtapas({ encomendaId, status, cronograma, situacao }: TrilhaEtapasProps) {
+  const [duracaoTotalEmDias, setDuracaoTotalEmDias] = useState(cronograma.duracaoTotalEmDias);
+  const [dataDeConclusao, setDataDeConclusao] = useState(cronograma.dataDeConclusao);
+
   const etapaHoje = etapaDeHoje(situacao);
   const rascunho = status === "rascunho";
   const atrasada = situacao.tipo === "atrasada";
@@ -156,6 +165,16 @@ export function TrilhaEtapas({ status, cronograma, situacao }: TrilhaEtapasProps
                   <span className="text-apoio text-tinta-fraca">
                     {faixa.dias} dia{faixa.dias === 1 ? "" : "s"}
                   </span>
+                  <AjusteRapidoEtapa
+                    encomendaId={encomendaId}
+                    etapa={faixa.etapa}
+                    marco={faixa.marco}
+                    diasInicial={faixa.dias}
+                    aoConfirmar={(resposta) => {
+                      setDuracaoTotalEmDias(resposta.duracaoTotalEmDias);
+                      setDataDeConclusao(resposta.dataDeConclusao);
+                    }}
+                  />
                 </div>
               </div>
             </li>
@@ -167,13 +186,13 @@ export function TrilhaEtapas({ status, cronograma, situacao }: TrilhaEtapasProps
         <p className="text-corpo text-tinta-media" data-testid="rodape-trilha">
           Duração total:{" "}
           <span className="text-mono tabular-nums font-medium text-tinta">
-            {cronograma.duracaoTotalEmDias} dia{cronograma.duracaoTotalEmDias === 1 ? "" : "s"}
+            {duracaoTotalEmDias} dia{duracaoTotalEmDias === 1 ? "" : "s"}
           </span>
-          {cronograma.dataDeConclusao && (
+          {dataDeConclusao && (
             <>
               {" · Conclusão prevista: "}
               <span className="text-mono tabular-nums font-medium text-tinta">
-                {formatarDiaCurto(cronograma.dataDeConclusao)}
+                {formatarDiaCurto(dataDeConclusao)}
               </span>
             </>
           )}

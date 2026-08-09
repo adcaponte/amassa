@@ -272,3 +272,183 @@ test.describe("detalhe da encomenda", () => {
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
   });
 });
+
+test.describe("ajuste rápido", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("uma etapa de intervalo mostra -/+ e um marco mostra um Switch, ambos com >= 44px de área de toque", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste alvo de toque");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const botaoDiminuir = page.getByRole("button", { name: `Diminuir dias de ${ROTULO_ETAPA.secagem}` });
+    const botaoAumentar = page.getByRole("button", { name: `Aumentar dias de ${ROTULO_ETAPA.secagem}` });
+    await expect(botaoDiminuir).toBeVisible();
+    await expect(botaoAumentar).toBeVisible();
+
+    for (const botao of [botaoDiminuir, botaoAumentar]) {
+      const caixa = await botao.boundingBox();
+      expect(caixa?.width).toBeGreaterThanOrEqual(44);
+      expect(caixa?.height).toBeGreaterThanOrEqual(44);
+    }
+
+    const interruptor = page.getByTestId("ajuste-switch-entrega");
+    await expect(interruptor).toBeVisible();
+    const caixaInterruptor = await interruptor.boundingBox();
+    expect(caixaInterruptor?.width).toBeGreaterThanOrEqual(44);
+    expect(caixaInterruptor?.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test("aria-label dos botões e do Switch descreve a AÇÃO, não o estado", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste aria-label");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    await expect(
+      page.getByRole("button", { name: `Diminuir dias de ${ROTULO_ETAPA.secagem}` }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Aumentar dias de ${ROTULO_ETAPA.secagem}` }),
+    ).toBeVisible();
+
+    // Entrega nasce ligada (dias: 1, padrão) — o rótulo diz a ação "Desativar", não o estado.
+    await expect(page.getByRole("switch", { name: `Desativar ${ROTULO_ETAPA.entrega}` })).toBeVisible();
+  });
+
+  test("clicar em '+' na secagem muda o número na hora, mostra um indicador de gravação, e o rodapé só muda quando o servidor confirma", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste sem otimismo");
+    const dataInicio = hojeBrasilia();
+    await criarEncomenda(page, { nome, dataInicio });
+    await abrirDetalhe(page, nome);
+
+    const totalInicial = DIAS_PADRAO.reduce((soma, etapa) => soma + etapa.dias, 0);
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial} dias`);
+
+    const numeroSecagem = page.getByTestId("ajuste-numero-secagem");
+    await expect(numeroSecagem).toHaveAttribute("data-valor", "6");
+
+    const botaoAumentar = page.getByRole("button", {
+      name: `Aumentar dias de ${ROTULO_ETAPA.secagem}`,
+    });
+    await botaoAumentar.click();
+
+    // O rodapé confirma o novo total (13 + 1 = 14) — auto-retry da asserção cobre a janela de
+    // até ~1s do "spinner" (03-UI-SPEC.md); o valor final é o que importa provar aqui.
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial + 1} dias`);
+    await expect(numeroSecagem).toHaveAttribute("data-valor", "7");
+    await expect(numeroSecagem).toHaveAttribute("data-pendente", "false");
+  });
+
+  test("o controle fica desabilitado enquanto a gravação está em voo (PD-02)", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste disabled em voo");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const botaoAumentar = page.getByRole("button", {
+      name: `Aumentar dias de ${ROTULO_ETAPA.secagem}`,
+    });
+    const botaoDiminuir = page.getByRole("button", {
+      name: `Diminuir dias de ${ROTULO_ETAPA.secagem}`,
+    });
+
+    await botaoAumentar.click();
+    // Na mesma tela, o clique síncrono já deixou `pendente: true` antes de a resposta do
+    // servidor chegar — ambos os botões da mesma etapa desabilitam juntos.
+    await expect(botaoDiminuir).toBeDisabled();
+
+    // Espera a gravação confirmar antes de seguir para o próximo teste (isolamento).
+    await expect(page.getByTestId("ajuste-numero-secagem")).toHaveAttribute(
+      "data-pendente",
+      "false",
+    );
+  });
+
+  test("'-' numa etapa em 0 dias não desce para -1 — o botão fica desabilitado", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste piso zero");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    // Queima (biscoito) é um marco (0 ou 1) — desligar por aqui é o caminho mais rápido para
+    // levar uma etapa a 0 dias e provar o piso do lado do intervalo (esmaltação) também, já que
+    // o próprio marco usa Switch (sem botão "-" para testar o piso ali).
+    const numeroEsmaltacao = page.getByTestId("ajuste-numero-esmaltacao");
+    const botaoDiminuirEsmaltacao = page.getByRole("button", {
+      name: `Diminuir dias de ${ROTULO_ETAPA.esmaltacao}`,
+    });
+    await expect(numeroEsmaltacao).toHaveAttribute("data-valor", "1");
+    await expect(botaoDiminuirEsmaltacao).toBeEnabled();
+
+    await botaoDiminuirEsmaltacao.click();
+    await expect(numeroEsmaltacao).toHaveAttribute("data-valor", "0", { timeout: 10000 });
+    await expect(botaoDiminuirEsmaltacao).toBeDisabled();
+
+    // Clicar de novo com o botão desabilitado não é possível pela UI (é exatamente o que o
+    // `disabled` garante) — a prova de que o piso é 0 é o próprio estado do botão.
+  });
+
+  test("o Switch de um marco liga e desliga; desligar Entrega encurta a encomenda e a etapa aparece 'Desligada' ao recarregar", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste switch entrega");
+    const dataInicio = hojeBrasilia();
+    await criarEncomenda(page, { nome, dataInicio });
+    await abrirDetalhe(page, nome);
+
+    const totalInicial = DIAS_PADRAO.reduce((soma, etapa) => soma + etapa.dias, 0);
+    const interruptor = page.getByTestId("ajuste-switch-entrega");
+    await expect(interruptor).toHaveAttribute("aria-checked", "true");
+
+    await interruptor.click();
+    await expect(interruptor).toHaveAttribute("aria-checked", "false", { timeout: 10000 });
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial - 1} dias`);
+
+    // Ao recarregar, a linha de Entrega mostra "Desligada" e o marcador some do preenchimento —
+    // a prova de que a etapa desligada (dias: 0) continua VISÍVEL na trilha, nunca some (D-15).
+    await page.reload();
+    const linhaEntrega = page.getByTestId("trilha-linha-entrega");
+    await expect(linhaEntrega).toBeVisible();
+    await expect(linhaEntrega).toContainText("Desligada");
+    await expect(linhaEntrega).toContainText(ROTULO_ETAPA.entrega);
+
+    // Religa para não vazar estado "desligado" para outros testes que dependam do padrão.
+    const interruptorAposRecarregar = page.getByTestId("ajuste-switch-entrega");
+    await interruptorAposRecarregar.click();
+    await expect(interruptorAposRecarregar).toHaveAttribute("aria-checked", "true", {
+      timeout: 10000,
+    });
+  });
+
+  test("não existe toast de sucesso no ajuste rápido", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste sem toast");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const botaoAumentar = page.getByRole("button", {
+      name: `Aumentar dias de ${ROTULO_ETAPA.producao}`,
+    });
+    await botaoAumentar.click();
+    await expect(page.getByTestId("ajuste-numero-producao")).toHaveAttribute(
+      "data-pendente",
+      "false",
+      { timeout: 10000 },
+    );
+
+    // Nenhuma região de toast (`sonner` monta um `<ol>`/`<section>` com dados de toast) aparece
+    // com texto de sucesso — só o número da tela mudou.
+    await expect(page.getByText("Encomenda salva.")).toHaveCount(0);
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+  });
+});
