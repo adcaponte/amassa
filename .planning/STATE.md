@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 3
 current_phase_name: Gestor de Encomendas
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-08-09T14:18:56.070Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-08-09T14:37:55.280Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 3 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 3 (Gestor de Encomendas) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-08-09 — Phase 3 execution started
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -80,6 +80,7 @@ Progress: [████████░░] 75%
 | Phase 02b P04 | ~50min | 3 tasks | 7 files |
 | Phase 02b P05 | ~40min | 3 tasks | 6 files |
 | Phase 03 P01 | 36min | 3 tasks | 27 files |
+| Phase 03 P02 | 16min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -153,6 +154,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Formatação de data por split/reverse/join direto em page.tsx (sem Date), adiando lib/encomendas/formato.ts (PD-04) para quando mais de um lugar precisar formatar
 - [Phase ?]: criarEncomenda usa assinatura pronta para useActionState (estadoAnterior, FormData), chamada hoje via .bind(null, null) a partir de Server Component
 - [Phase ?]: shadcn 'form' (radix-nova/CLI 3.8.5) não instala nenhum arquivo — decisão de field vs wrapper próprio vs react-hook-form direto fica em aberto para o plano 06 (WINDOWS.md #4)
+- [Phase ?]: celulasDeQuinzena recebe formatarMes por injeção de parâmetro para manter gantt.ts sem import
+- [Phase ?]: situacaoEm ordena cancelada -> concluida -> sem-etapas -> nao-comecou -> atrasada -> busca de etapa, cada if com retorno próprio
+- [Phase ?]: textoDaSituacao(semCor:true) troca a frase de atrasada para uma forma sem depender de --color-atencao, revisável no plano 08
 
 ### Pending Todos
 
@@ -186,6 +190,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-09T14:18:56.043Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-08-09T14:37:55.253Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

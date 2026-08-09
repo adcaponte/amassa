@@ -61,16 +61,16 @@
 ### Encomendas
 
 - [x] **ENC-01**: Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
-- [ ] **ENC-02**: Mudar a duração de uma etapa desloca todas as etapas seguintes
-- [ ] **ENC-03**: Os três marcos (queima 1, queima 2, entrega) aparecem como losango e são um interruptor, nunca um campo numérico
-- [ ] **ENC-04**: Desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda
+- [x] **ENC-02**: Mudar a duração de uma etapa desloca todas as etapas seguintes
+- [x] **ENC-03**: Os três marcos (queima 1, queima 2, entrega) aparecem como losango e são um interruptor, nunca um campo numérico
+- [x] **ENC-04**: Desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda
 - [x] **ENC-05**: Uma encomenda guarda e mostra vários itens com descrição e quantidade (ex.: 40 canecas e 12 bowls)
-- [ ] **ENC-06**: No desktop, o Gantt usa 18px/dia, cabeçalho em quinzenas, coluna fixa e linha de "Hoje" na posição certa
-- [ ] **ENC-07**: A timeline abre já rolada até deixar o "Hoje" mais ou menos centralizado
+- [x] **ENC-06**: No desktop, o Gantt usa 18px/dia, cabeçalho em quinzenas, coluna fixa e linha de "Hoje" na posição certa
+- [x] **ENC-07**: A timeline abre já rolada até deixar o "Hoje" mais ou menos centralizado
 - [ ] **ENC-08**: No celular, dá para ler o andamento de todas as encomendas como lista vertical, sem rolagem horizontal
-- [ ] **ENC-09**: O sistema mostra em qual etapa cada encomenda está hoje e quantos dias faltam para a próxima
+- [x] **ENC-09**: O sistema mostra em qual etapa cada encomenda está hoje e quantos dias faltam para a próxima
 - [ ] **ENC-10**: Encomendas podem ser filtradas por status, ordenadas e buscadas por nome ou cliente
-- [ ] **ENC-11**: O rodapé do formulário mostra duração total e data de conclusão, atualizando conforme se digita
+- [x] **ENC-11**: O rodapé do formulário mostra duração total e data de conclusão, atualizando conforme se digita
 - [x] **ENC-12**: Uma encomenda criada num dispositivo aparece no outro ao recarregar a página
 - [ ] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
 - [ ] **ENC-14**: Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
@@ -238,16 +238,16 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | UI-08 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | UI-09 | Phase 2 — Login, Banco Base e Casca da Aplicação | Complete |
 | ENC-01 | Phase 3 — Gestor de Encomendas | Complete |
-| ENC-02 | Phase 3 — Gestor de Encomendas | Pending |
-| ENC-03 | Phase 3 — Gestor de Encomendas | Pending |
-| ENC-04 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-02 | Phase 3 — Gestor de Encomendas | Complete |
+| ENC-03 | Phase 3 — Gestor de Encomendas | Complete |
+| ENC-04 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-05 | Phase 3 — Gestor de Encomendas | Complete |
-| ENC-06 | Phase 3 — Gestor de Encomendas | Pending |
-| ENC-07 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-06 | Phase 3 — Gestor de Encomendas | Complete |
+| ENC-07 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-08 | Phase 3 — Gestor de Encomendas | Pending |
-| ENC-09 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-09 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-10 | Phase 3 — Gestor de Encomendas | Pending |
-| ENC-11 | Phase 3 — Gestor de Encomendas | Pending |
+| ENC-11 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-12 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-13 | Phase 3 — Gestor de Encomendas | Pending |
 | ENC-14 | Phase 3 — Gestor de Encomendas | Pending |
