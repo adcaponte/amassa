@@ -25,6 +25,17 @@ async function fazerLogin(page: Page) {
   await expect(page).toHaveURL(/\/$/);
 }
 
+// Desde o plano 06, `FormularioEncomenda` monta `Dialog` (desktop) E `Sheet` (celular) ao mesmo
+// tempo — os dois existem no HTML, um escondido por CSS a cada largura (mesmo princípio de D-02
+// para Gantt/lista). `:visible` escolhe a metade real do viewport do projeto Playwright atual.
+function campoVisivel(page: Page, rotulo: string) {
+  return page.getByLabel(rotulo).and(page.locator(":visible"));
+}
+
+function botaoVisivel(page: Page, nome: string) {
+  return page.getByRole("button", { name: nome }).and(page.locator(":visible"));
+}
+
 // Cria uma encomenda pela Server Action real (`criarEncomenda`), passando pelo formulário —
 // nunca por INSERT direto no banco (o teste precisa exercitar o caminho que a pessoa usa). As
 // 6 etapas nascem com os padrões (`DIAS_PADRAO`: produção 3 · secagem 6 · queima1 1 ·
@@ -49,14 +60,14 @@ async function criarEncomenda(
 
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
     await page.goto("/encomendas?nova");
-    await page.getByLabel("Nome da encomenda").fill(opcoes.nome);
+    await campoVisivel(page, "Nome da encomenda").fill(opcoes.nome);
     if (opcoes.cliente) {
-      await page.getByLabel("Cliente").fill(opcoes.cliente);
+      await campoVisivel(page, "Cliente").fill(opcoes.cliente);
     }
-    await page.getByLabel("Data de início").fill(opcoes.dataInicio);
-    await page.getByLabel("Descrição do item").fill("Item de teste [e2e]");
-    await page.getByLabel("Quantidade").fill("1");
-    await page.getByRole("button", { name: "Salvar" }).click();
+    await campoVisivel(page, "Data de início").fill(opcoes.dataInicio);
+    await campoVisivel(page, "Descrição do item 1").fill("Item de teste [e2e]");
+    await campoVisivel(page, "Quantidade do item 1").fill("1");
+    await botaoVisivel(page, "Salvar").click();
 
     try {
       await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });

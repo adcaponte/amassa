@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // Traçado de ponta a ponta desta fase (03-01-PLAN.md, Tarefa 2): logar, abrir
 // `/encomendas?nova` (contrato de URL de D-03), criar uma encomenda com um item, e confirmar
@@ -16,6 +16,18 @@ async function fazerLogin(page: import("@playwright/test").Page) {
   await expect(page).toHaveURL(/\/$/);
 }
 
+// Desde o plano 06, `FormularioEncomenda` monta `Dialog` (desktop) E `Sheet` (celular) ao mesmo
+// tempo — os dois existem no HTML, um escondido por CSS a cada largura (mesmo princípio de D-02
+// para Gantt/lista). `:visible` escolhe a metade real do viewport atual do projeto Playwright em
+// execução.
+function campoVisivel(page: Page, rotulo: string) {
+  return page.getByLabel(rotulo).and(page.locator(":visible"));
+}
+
+function botaoVisivel(page: Page, nome: string) {
+  return page.getByRole("button", { name: nome }).and(page.locator(":visible"));
+}
+
 test.describe("encomendas — traçado de ponta a ponta", () => {
   test("criar uma encomenda com um item mostra a data de conclusão em cascata, e sobrevive a um recarregamento", async ({
     page,
@@ -29,13 +41,13 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
 
     await page.goto("/encomendas?nova");
 
-    await page.getByLabel("Nome da encomenda").fill(nomeDaEncomenda);
-    await page.getByLabel("Cliente").fill("Cliente inventado para teste");
-    await page.getByLabel("Data de início").fill("2026-08-12");
-    await page.getByLabel("Descrição do item").fill("Caneca cônica de teste");
-    await page.getByLabel("Quantidade").fill("10");
+    await campoVisivel(page, "Nome da encomenda").fill(nomeDaEncomenda);
+    await campoVisivel(page, "Cliente").fill("Cliente inventado para teste");
+    await campoVisivel(page, "Data de início").fill("2026-08-12");
+    await campoVisivel(page, "Descrição do item 1").fill("Caneca cônica de teste");
+    await campoVisivel(page, "Quantidade do item 1").fill("10");
 
-    await page.getByRole("button", { name: "Salvar" }).click();
+    await botaoVisivel(page, "Salvar").click();
 
     // A ação redireciona para /encomendas ao concluir a transação. Sob a suíte inteira rodando
     // em paralelo, uma submissão isolada ocasionalmente fica presa em `?nova` sem redirecionar
