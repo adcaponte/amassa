@@ -13,6 +13,7 @@ import {
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { Button } from "@/components/ui/button";
+import { BotaoImprimir } from "@/components/amassa/encomendas/botao-imprimir";
 import { FormularioEncomenda } from "@/components/amassa/encomendas/formulario-encomenda";
 import {
   ListaEncomendas,
@@ -77,15 +78,26 @@ export default async function PaginaEncomendas({
 
   const encomendasOrdenadas = ordenarParaGantt(encomendasParaExibicao);
 
+  // Contagem de ativas para o botão de imprimir (D-18) — as mesmas `rascunho`/`em_producao`
+  // que `listarEncomendasAtivas()` devolveria, sem uma segunda consulta ao banco só para isso:
+  // `listarEncomendasDoIndice(hoje)` já sempre inclui as duas por inteiro (nunca cortadas pela
+  // janela de 12 meses, que só vale para concluída/cancelada).
+  const contagemAtivas = encomendasDoIndice.filter(
+    (encomenda) => encomenda.status === "rascunho" || encomenda.status === "em_producao",
+  ).length;
+
   return (
     <>
       <CabecalhoPagina titulo="Encomendas">
-        {/* Único botão terracota da tela (03-UI-SPEC.md §Color) — Link, não Button, porque a
-            abertura do formulário é um estado endereçável da própria rota (D-03), não um
-            diálogo controlado por estado de cliente. */}
-        <Button asChild variant="default" className="min-h-[44px]">
-          <Link href="/encomendas?nova">{ROTULO_NOVA_ENCOMENDA}</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <BotaoImprimir contagemAtivas={contagemAtivas} />
+          {/* Único botão terracota da tela (03-UI-SPEC.md §Color) — Link, não Button, porque a
+              abertura do formulário é um estado endereçável da própria rota (D-03), não um
+              diálogo controlado por estado de cliente. */}
+          <Button asChild variant="default" className="min-h-[44px]">
+            <Link href="/encomendas?nova">{ROTULO_NOVA_ENCOMENDA}</Link>
+          </Button>
+        </div>
       </CabecalhoPagina>
 
       {/* Montado sempre — mesmo com o índice vazio, `?nova` precisa abrir o formulário a partir

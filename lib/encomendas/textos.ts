@@ -42,6 +42,14 @@ export const ROTULO_NOVA_ENCOMENDA = "Nova encomenda";
 export const SELO_RASCUNHO = "RASCUNHO";
 export const SELO_ATRASADA = "ATRASADA";
 
+// Impressão A4 (D-18, ENC-14, plano 08) — as três frases fixas da folha e do botão que leva a
+// ela. `NOTA_NADA_PARA_IMPRIMIR` aparece em DOIS lugares: abaixo do botão desabilitado no
+// índice (03-UI-SPEC.md "Sem nenhuma encomenda ativa") e como corpo do `EstadoVazio` da própria
+// rota `/encomendas/imprimir` quando acessada direto nesse estado — mesma frase, nunca duas.
+export const TITULO_FOLHA_IMPRESSAO = "AMASSA — Encomendas ativas";
+export const NOTA_NADA_PARA_IMPRIMIR = "Nada ativo para imprimir agora.";
+export const ROTULO_IMPRIMIR = "Imprimir";
+
 export const ROTULO_ETAPA: Record<Etapa, string> = {
   producao: "Produção",
   secagem: "Secagem",

@@ -1,0 +1,98 @@
+/* Leiaute de tela e de impressão da folha A4 de encomendas ativas (D-18, ENC-14). O `@page`
+   (size A4, margem 15mm) mora em `app/globals.css`, não aqui: é regra global do documento
+   inteiro e não sobrevive dentro de um módulo CSS. Este arquivo só cuida do que é local à
+   tabela: a escala tipográfica de IMPRESSÃO (8pt cabeçalho, 10pt corpo, 8pt rodapé — nunca
+   encolhida abaixo disso), a quebra de linha entre páginas e o cabeçalho de coluna repetindo. */
+
+.pagina {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-borda);
+}
+
+.titulo {
+  font-family: var(--font-titulo);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--color-tinta);
+}
+
+.acoesDeTela {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.dataImpressao {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  color: var(--color-tinta-media);
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela th {
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--color-borda-forte);
+  text-align: left;
+  color: var(--color-tinta-media);
+}
+
+.tabela td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-borda);
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+/* Cada linha nunca é cortada entre duas folhas — flui inteira para a página seguinte em vez de
+   partir ao meio (D-18: proibição contra encomenda cortada em silêncio). */
+.linha {
+  break-inside: avoid;
+}
+
+/* Escala de IMPRESSÃO — nunca a de tela. `thead` repetindo em toda página nova é o que garante
+   o cabeçalho de coluna na segunda folha, quando a lista não cabe numa página só. */
+@media print {
+  .pagina {
+    max-width: none;
+    padding: 0;
+  }
+
+  .tabela thead {
+    display: table-header-group;
+  }
+
+  .tabela th {
+    padding: 4px 8px;
+    font-size: 8pt;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tabela td {
+    padding: 4px 8px;
+    font-size: 10pt;
+    line-height: 24px;
+  }
+
+  .dataImpressao {
+    font-size: 8pt;
+  }
+}

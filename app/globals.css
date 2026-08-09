@@ -174,3 +174,29 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Impressão A4 (D-18, ENC-14, plano 08) — acrescentado ao FIM do arquivo, nenhum token
+   existente tocado (critério de aceite confere isto por `git diff`). `@page` é regra global e
+   não sobrevive dentro de um módulo CSS, por isso mora aqui e não em
+   `app/(app)/encomendas/imprimir/impressao.module.css`. Esconde a casca da aplicação (barra
+   lateral, cabeçalho móvel, barra inferior) sempre que QUALQUER página for impressa — não só
+   `/encomendas/imprimir` — porque nenhuma delas faz sentido no papel. */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  /* `!important` é necessário aqui, e só aqui: a barra lateral usa a classe utilitária
+     `md:flex` (display:flex sempre que a largura impressa bate a quinzena de 768px do
+     breakpoint) e o cabeçalho móvel/barra inferior usam `flex`/`md:hidden` — classes
+     utilitárias têm a MESMA especificidade de um seletor de atributo, então a ordem no arquivo
+     sozinha não bastaria para vencer de forma confiável nos dois tamanhos de tela que o e2e
+     cobre (`page.emulateMedia({ media: "print" })` preserva o viewport do projeto Playwright
+     em execução, desktop ou celular). */
+  [data-slot="sidebar-wrapper"],
+  nav[aria-label="Navegação principal"],
+  header {
+    display: none !important;
+  }
+}

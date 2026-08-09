@@ -12,10 +12,42 @@ export type EncomendaComFilhos = typeof encomendas.$inferSelect & {
   etapas: (typeof encomendaEtapas.$inferSelect)[];
 };
 
-// Ordenado por `data_inicio` ascendente (D-12, padrão), itens e etapas por `ordem`. Três
-// consultas (encomendas, itens, etapas) + agrupamento em memória, em vez de `db.query` com
-// `relations()`: o schema desta fase não declara relações Drizzle ainda, e esta fatia não
-// precisa delas para uma lista simples.
+// Compartilhado por `listarEncomendasDoIndice`/`listarEncomendasAtivas`: dadas as linhas de
+// `encomendas` já filtradas por cada consulta (propósitos diferentes, WHERE diferente), busca
+// itens e etapas em duas consultas por `inArray` e agrupa em memória — nunca `db.query` com
+// `relations()` (o schema desta fase não as declara ainda). Extraído aqui só para não repetir
+// as mesmas seis linhas duas vezes; o WHERE de cada consulta continua vivendo no chamador,
+// nunca aqui — é o que preserva as duas consultas como propósitos DIFERENTES (plano 08).
+async function anexarItensEEtapas(
+  linhasDeEncomenda: (typeof encomendas.$inferSelect)[],
+): Promise<EncomendaComFilhos[]> {
+  if (linhasDeEncomenda.length === 0) {
+    return [];
+  }
+
+  const idsDeEncomenda = linhasDeEncomenda.map((linha) => linha.id);
+
+  const [linhasDeItem, linhasDeEtapa] = await Promise.all([
+    db
+      .select()
+      .from(encomendaItens)
+      .where(inArray(encomendaItens.encomendaId, idsDeEncomenda))
+      .orderBy(asc(encomendaItens.ordem)),
+    db
+      .select()
+      .from(encomendaEtapas)
+      .where(inArray(encomendaEtapas.encomendaId, idsDeEncomenda))
+      .orderBy(asc(encomendaEtapas.ordem)),
+  ]);
+
+  return linhasDeEncomenda.map((encomenda) => ({
+    ...encomenda,
+    itens: linhasDeItem.filter((item) => item.encomendaId === encomenda.id),
+    etapas: linhasDeEtapa.filter((etapa) => etapa.encomendaId === encomenda.id),
+  }));
+}
+
+// Ordenado por `data_inicio` ascendente (D-12, padrão), itens e etapas por `ordem`.
 //
 // Janela de 12 meses (03-UI-SPEC.md "Histórico — Janela carregada — decisão do dono"): TODAS as
 // `rascunho`/`em_producao` vêm sempre; `concluida`/`cancelada` só vêm se `data_inicio` estiver
@@ -41,30 +73,22 @@ export async function listarEncomendasDoIndice(hoje: string): Promise<EncomendaC
     )
     .orderBy(asc(encomendas.dataInicio));
 
-  if (linhasDeEncomenda.length === 0) {
-    return [];
-  }
+  return anexarItensEEtapas(linhasDeEncomenda);
+}
 
-  const idsDeEncomenda = linhasDeEncomenda.map((linha) => linha.id);
+// Escopo PRÓPRIO e fixo da folha impressa (D-18, ENC-14, 03-UI-SPEC.md "Impressão A4"): SEMPRE
+// todas as `rascunho` + `em_producao`, sem janela de data e sem parâmetro de filtro — nunca a
+// janela de 12 meses nem o filtro/busca/ordenação vigentes na tela do índice. É uma consulta
+// DIFERENTE de `listarEncomendasDoIndice(hoje)`, de propósito: confundir as duas faria a folha
+// imprimir histórico, ou o índice perder o histórico.
+export async function listarEncomendasAtivas(): Promise<EncomendaComFilhos[]> {
+  const linhasDeEncomenda = await db
+    .select()
+    .from(encomendas)
+    .where(inArray(encomendas.status, ["rascunho", "em_producao"]))
+    .orderBy(asc(encomendas.dataInicio));
 
-  const [linhasDeItem, linhasDeEtapa] = await Promise.all([
-    db
-      .select()
-      .from(encomendaItens)
-      .where(inArray(encomendaItens.encomendaId, idsDeEncomenda))
-      .orderBy(asc(encomendaItens.ordem)),
-    db
-      .select()
-      .from(encomendaEtapas)
-      .where(inArray(encomendaEtapas.encomendaId, idsDeEncomenda))
-      .orderBy(asc(encomendaEtapas.ordem)),
-  ]);
-
-  return linhasDeEncomenda.map((encomenda) => ({
-    ...encomenda,
-    itens: linhasDeItem.filter((item) => item.encomendaId === encomenda.id),
-    etapas: linhasDeEtapa.filter((etapa) => etapa.encomendaId === encomenda.id),
-  }));
+  return anexarItensEEtapas(linhasDeEncomenda);
 }
 
 // Leitura da página de detalhe (`/encomendas/[id]`, plano 05). `null` quando o `id` não existe —
