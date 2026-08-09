@@ -256,6 +256,12 @@ test.describe("impressão de encomendas", () => {
   });
 
   test("com 20 encomendas ativas, nenhuma some da folha", async ({ page }) => {
+    // 20 criações sequenciais pela UI real cabem nos 30s padrão quando rodadas isoladas
+    // (~16-20s medido), mas a suíte inteira sob `--grep "encomenda"` disputa o mesmo webServer
+    // com 8 workers simultâneos — o mesmo tipo de folga que 03-05-SUMMARY.md já registrou para
+    // asserções pós-`router.refresh()` sob carga. Timeout alargado, não a lógica do teste.
+    test.setTimeout(120_000);
+
     await fazerLogin(page);
     const prefixo = nomeUnico("Impressão volume");
     const ids: string[] = [];

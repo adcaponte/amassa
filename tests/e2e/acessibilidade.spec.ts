@@ -43,10 +43,17 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 // rotas que tests/e2e/casca.spec.ts já usa para UI-06 nas telas do plano 03; repetida aqui
 // porque UI-06 é reconferido sobre a fase inteira (a intenção explícita desta tarefa), não
 // porque o conjunto de rotas mudou.
+//
+// 03-08-PLAN.md (Tarefa 2, fechamento da fase) acrescenta as três telas novas desta fase que
+// ainda não tinham entrado aqui: o formulário aberto (`?nova`, Dialog/Sheet do plano 06) e a
+// folha de impressão (`/encomendas/imprimir`, D-18/ENC-14 do plano 08). Mesmas
+// `REGRAS_AUDITADAS` de sempre — nenhuma regra nova, nenhuma afrouxada.
 const ROTAS_DA_FASE = [
   "/login",
   "/",
   "/encomendas",
+  "/encomendas?nova",
+  "/encomendas/imprimir",
   "/agenda",
   "/queimas",
   "/estoque",
@@ -220,7 +227,7 @@ test.describe("acessibilidade — varredura de contraste com axe-core (UI-09)", 
 test.describe("acessibilidade — sem rolagem horizontal a 320px (UI-06, reconferido)", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("nenhuma das sete rotas da fase exige rolagem horizontal a 320px de largura (UI-06)", async ({
+  test("nenhuma das rotas da fase exige rolagem horizontal a 320px de largura (UI-06)", async ({
     page,
   }) => {
     await fazerLogin(page);

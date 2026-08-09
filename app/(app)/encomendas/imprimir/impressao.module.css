@@ -42,8 +42,13 @@
   color: var(--color-tinta-media);
 }
 
+/* `table-layout: fixed` é o que impede um cabeçalho de coluna comprido ("Conclusão prevista")
+   de forçar a tabela inteira além da largura do viewport a 320px (UI-06) — com o layout
+   automático padrão, o navegador prefere a largura NÃO quebrada do texto do cabeçalho antes de
+   aceitar quebrar linha, e a tabela cresce por cima do contêiner em silêncio. */
 .tabela {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
@@ -52,6 +57,7 @@
   border-bottom: 2px solid var(--color-borda-forte);
   text-align: left;
   color: var(--color-tinta-media);
+  overflow-wrap: anywhere;
 }
 
 .tabela td {
