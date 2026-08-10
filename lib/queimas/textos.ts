@@ -1,7 +1,11 @@
-// As frases fixas da interface de Fornos e a função que traduz um tipo de queima em rótulo —
-// só import de TIPO é permitido aqui (`import type`, nunca `import` de valor), no molde de
-// `lib/encomendas/textos.ts`: o módulo não lê React nem o cliente do banco.
+// As frases fixas da interface de Fornos e as funções que traduzem tipo/nível em rótulo — só
+// import de TIPO é permitido aqui (`import type`, nunca `import` de valor), no molde de
+// `lib/encomendas/textos.ts`: o módulo não lê React nem o cliente do banco, e não importa
+// nenhuma função de `lib/queimas/formato.ts` (a formatação de data usada em `fraseDoRodape`
+// chega já pronta de quem chama — mesma disciplina de `gantt.ts`/`textos.ts` de Encomendas, que
+// duplicam a aritmética de calendário em vez de importar `formato.ts`).
 import type { tipoQueima } from "@/db/schema";
+import type { NivelDeForno } from "@/lib/queimas/contador";
 
 export type TipoDeQueima = (typeof tipoQueima.enumValues)[number];
 
@@ -39,6 +43,31 @@ export function rotuloDoTipo(tipo: TipoDeQueima): string {
     default: {
       const _exaustivo: never = tipo;
       throw new Error(`rotuloDoTipo: tipo de queima não tratado: ${JSON.stringify(_exaustivo)}`);
+    }
+  }
+}
+
+// O medidor (`components/amassa/queimas/medidor.tsx`, FOR-05) — rótulos fixos sob a barra,
+// literais de `04-DESIGN-SYSTEM.md` §8: "0 / atenção N / limite N".
+export const ROTULO_MEDIDOR_ATENCAO = "atenção";
+export const ROTULO_MEDIDOR_LIMITE = "limite";
+
+// Selo textual por nível (FOR-04): "null" para "ok" — nenhum selo aparece nesse caso, decisão do
+// próprio `cartao-forno.tsx`, não uma frase vazia sendo renderizada. `switch` exaustivo com o
+// mesmo `_exaustivo: never` de `rotuloDoTipo`/`textoDaSituacao` — um quarto nível futuro quebra a
+// compilação em vez de cair em silêncio. A copy nomeia o FATO e o que fazer, nunca quem deixou o
+// forno passar do limite (prohibition deste plano).
+export function textoDoNivel(nivel: NivelDeForno): string | null {
+  switch (nivel) {
+    case "ok":
+      return null;
+    case "atencao":
+      return "Manutenção próxima";
+    case "critico":
+      return "Manutenção vencida";
+    default: {
+      const _exaustivo: never = nivel;
+      throw new Error(`textoDoNivel: nível de forno não tratado: ${JSON.stringify(_exaustivo)}`);
     }
   }
 }
