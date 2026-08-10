@@ -54,3 +54,16 @@ export const esquemaForno = z.object({
 });
 
 export type EntradaDeForno = z.infer<typeof esquemaForno>;
+
+// O fluxo de dois toques (D-04): exatamente dois campos, nenhum a mais — a proibição deste plano
+// é acrescentar qualquer campo obrigatório, confirmação ou passo extra a este fluxo. `registrado_por`
+// de PROPÓSITO não existe aqui: é derivado de `exigirUsuario()` dentro de `registrarQueima`,
+// nunca aceito do cliente (T-04-02).
+export const esquemaQueima = z.object({
+  fornoId: esquemaId,
+  tipo: z.enum(["biscoito", "esmalte", "ouro"], {
+    message: "Esse tipo de queima não é válido — recarregue a página e tente de novo.",
+  }),
+});
+
+export type EntradaDeQueima = z.infer<typeof esquemaQueima>;
