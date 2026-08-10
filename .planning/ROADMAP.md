@@ -231,13 +231,32 @@ técnica)
 **Plans**: 7 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 04-01-PLAN.md — Traçado ponta a ponta: três tabelas, contador puro, forno cadastrado, queima em dois toques com autor e o Desfazer de 7 segundos
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 04-02-PLAN.md — Medidor com entalhes, os três níveis com selo, rodapé com as duas contagens e os estados da tela
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 04-03-PLAN.md — Página do forno: últimas 25 queimas, histórico de manutenções e exclusão confirmada
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 04-04-PLAN.md — Registrar manutenção que zera sem apagar, e o ciclo editar/desativar/reativar
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 04-05-PLAN.md — Banner agregado, filtro Ativos/Desativados/Todos e o cartão do painel inicial
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 04-06-PLAN.md — Relatórios em Recharts: 8 semanas, 6 meses, quatro estatísticas e o seletor de topo
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 04-07-PLAN.md — Fechamento: varredura completa, migração aplicada em produção à mão e verificação humana
 
 > A migração desta fase é `0007_queimas` + `0008_gatilhos-queimas`, não `0004_queimas` — o número

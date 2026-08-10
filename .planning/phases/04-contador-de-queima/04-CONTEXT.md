@@ -100,8 +100,8 @@ foi feita e o simples **é** o tecnicamente melhor — não há tensão a resolv
 
 ### Relatórios
 
-- **D-07: No celular, as quatro estatísticas primeiro; os gráficos rolam na horizontal dentro do
-  próprio contêiner.** Total, últimos 30 dias e a contagem dos dois primeiros tipos vêm empilhados e
+- **D-07: No celular, as quatro estatísticas primeiro; os gráficos rolam na horizontal.** Rolam
+  dentro do próprio contêiner. Total, últimos 30 dias e a contagem dos dois primeiros tipos vêm empilhados e
   legíveis. Os gráficos vêm abaixo, cada um com rolagem horizontal **própria** — a página nunca rola
   lateralmente. É a mesma forma que o Gantt usa no desktop: a exceção fica contida no elemento, não
   na tela. Os dois tamanhos mostram **o mesmo recorte de dados** (8 semanas, 6 meses); nada é
