@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 8
+open_count: 10
 waived_count: 0
 fixed_count: 4
-total_count: 12
-last_updated: 2026-08-10T18:51:44.807Z
+total_count: 14
+last_updated: 2026-08-10T19:55:19.982Z
 ---
 
 # Broken Windows Ledger
@@ -27,6 +27,8 @@ last_updated: 2026-08-10T18:51:44.807Z
 | 10 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/lista-itens.tsx |  | E11 reordenacao — carregando (backstop do plano 03-06): a seta clicada fica com opacidade reduzida e disabled (par inteiro) ate a resposta do servidor, o que deveria impedir que dois cliques rapidos na mesma seta gravem fora de ordem; nao verificado a mao nem com teste automatizado de concorrencia real nesta execucao (dificil simular corrida de rede confiavel em e2e local). | open |  | 2026-08-09T18:53:37.603Z |  |
 | 11 | 03-gestor-de-encomendas | deviation | tests/e2e/encomendas-impressao.spec.ts |  | Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste). | fixed |  | 2026-08-09T20:57:04.606Z | 2026-08-10T18:51:44.807Z |
 | 12 | 03-gestor-de-encomendas | deviation | tests/e2e/sessao.spec.ts | 110 | 'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility). | open |  | 2026-08-09T20:57:11.541Z |  |
+| 13 | 03-gestor-de-encomendas | deviation | .github/workflows/entrega.yml |  | O passo 'implantar' do pipeline faz docker compose pull app + up -d app, mas nunca faz pull da imagem :ferramentas (usada para migrar e criar/redefinir usuario). docker compose run usa o cache local, entao apos um deploy o servidor pode rodar a imagem ferramentas de uma fase anterior por ate a proxima vez que alguem rodar 'docker compose pull ferramentas' a mao. Descoberto na execucao do roteiro 04 (migracao de producao da Fase 3): o servidor rodou meia hora com a imagem da Fase 2a antes do pull manual (passo 2 do roteiro) pegar. Os roteiros de docs/operacao/ ja incluem o pull manual como salvaguarda; o gap e o pipeline nao fazer isso sozinho. | open |  | 2026-08-10T19:55:19.553Z |  |
+| 14 | 03-gestor-de-encomendas | deviation | docker/compose.yml |  | O compose.yml do servidor e copiado por scp no Roteiro 1 e nenhum roteiro posterior nem o pipeline o atualizam depois disso — ele pode divergir do docker/compose.yml versionado no repositorio. Descoberto na execucao do roteiro 04: DATABASE_URL_MIGRACAO entrou no compose.yml no commit e593e83 (plano 02a-02, depois da copia inicial), entao o servico ferramentas do servidor ainda lia DATABASE_URL (que aponta para amassa_app, sem privilegio de DDL) e a migracao falhou com 'permission denied for database amassa' (42501) ate o dono copiar o compose.yml atual para o servidor a mao. Nenhum roteiro de docs/operacao/ inclui um passo de 'sincronize o compose.yml antes de migrar' — candidato a um passo novo numa fase de polimento. | open |  | 2026-08-10T19:55:19.982Z |  |
 
 ````json
 [
@@ -172,6 +174,30 @@ last_updated: 2026-08-10T18:51:44.807Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-09T20:57:11.541Z",
+    "resolved_at": null
+  },
+  {
+    "id": 13,
+    "kind": "deviation",
+    "phase": "03-gestor-de-encomendas",
+    "file": ".github/workflows/entrega.yml",
+    "line": null,
+    "description": "O passo 'implantar' do pipeline faz docker compose pull app + up -d app, mas nunca faz pull da imagem :ferramentas (usada para migrar e criar/redefinir usuario). docker compose run usa o cache local, entao apos um deploy o servidor pode rodar a imagem ferramentas de uma fase anterior por ate a proxima vez que alguem rodar 'docker compose pull ferramentas' a mao. Descoberto na execucao do roteiro 04 (migracao de producao da Fase 3): o servidor rodou meia hora com a imagem da Fase 2a antes do pull manual (passo 2 do roteiro) pegar. Os roteiros de docs/operacao/ ja incluem o pull manual como salvaguarda; o gap e o pipeline nao fazer isso sozinho.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-10T19:55:19.553Z",
+    "resolved_at": null
+  },
+  {
+    "id": 14,
+    "kind": "deviation",
+    "phase": "03-gestor-de-encomendas",
+    "file": "docker/compose.yml",
+    "line": null,
+    "description": "O compose.yml do servidor e copiado por scp no Roteiro 1 e nenhum roteiro posterior nem o pipeline o atualizam depois disso — ele pode divergir do docker/compose.yml versionado no repositorio. Descoberto na execucao do roteiro 04: DATABASE_URL_MIGRACAO entrou no compose.yml no commit e593e83 (plano 02a-02, depois da copia inicial), entao o servico ferramentas do servidor ainda lia DATABASE_URL (que aponta para amassa_app, sem privilegio de DDL) e a migracao falhou com 'permission denied for database amassa' (42501) ate o dono copiar o compose.yml atual para o servidor a mao. Nenhum roteiro de docs/operacao/ inclui um passo de 'sincronize o compose.yml antes de migrar' — candidato a um passo novo numa fase de polimento.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-10T19:55:19.982Z",
     "resolved_at": null
   }
 ]

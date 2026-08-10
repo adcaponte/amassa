@@ -151,19 +151,30 @@ de `{0, 1}` — e espera o Postgres recusar:
 ```bash
 docker compose exec postgres psql -U amassa_owner -d amassa -c "
 begin;
-insert into encomendas (nome, data_inicio) values ('[roteiro-04] teste de restrição', current_date) returning id \gset
-insert into encomenda_etapas (encomenda_id, etapa, dias, ordem) values (:'id', 'queima1', 2, 0);
+with e as (
+  insert into encomendas (nome, data_inicio) values ('[roteiro-04] teste de restrição', current_date) returning id
+)
+insert into encomenda_etapas (encomenda_id, etapa, dias, ordem)
+select id, 'queima1', 2, 0 from e;
 rollback;
 "
 ```
 
-**O que você deve ver:** o `insert` em `encomendas` funciona (`INSERT 0 1`), mas o `insert` em
-`encomenda_etapas` **falha** com uma mensagem citando `marcos_zero_ou_um` (algo como
-`ERROR: new row for relation "encomenda_etapas" violates check constraint "marcos_zero_ou_um"`).
-O `rollback` no fim desfaz tudo — nenhuma linha de teste sobra no banco, nem a encomenda inválida
-nem nenhuma etapa dela. Se o `insert` em `encomenda_etapas` **não** falhar, **pare aqui** — a
-restrição não está valendo, e nenhuma etapa gravada por engano com `dias = 2` num marco vai ser
-pega depois.
+**O que você deve ver:** a instrução falha com uma mensagem citando `marcos_zero_ou_um` (algo
+como `ERROR: new row for relation "encomenda_etapas" violates check constraint
+"marcos_zero_ou_um"`). O `rollback` no fim desfaz tudo — nenhuma linha de teste sobra no banco,
+nem a encomenda inválida nem nenhuma etapa dela (o CTE grava as duas linhas dentro da MESMA
+instrução, então uma falha na segunda parte desfaz a primeira sem precisar de dois comandos
+separados). Se a instrução **não** falhar, **pare aqui** — a restrição não está valendo, e
+nenhuma etapa gravada por engano com `dias = 2` num marco vai ser pega depois.
+
+> **Por que não `\gset`.** Uma versão mais simples deste teste tentaria gravar a encomenda
+> primeiro, guardar o `id` com `\gset` e usá-lo num segundo `insert`. Isso **não funciona**: o
+> `psql -c` aceita ou SQL puro ou um único comando de barra invertida, nunca os dois misturados
+> na mesma invocação — falha com `syntax error at or near "\"`. O CTE acima resolve o mesmo
+> problema (usar o `id` recém-criado numa segunda gravação) dentro de uma única instrução SQL,
+> sem depender de nenhum recurso interativo do `psql`. Achado durante a execução real deste
+> roteiro em produção — a versão com `\gset` nunca funcionaria, em nenhuma versão do Postgres.
 
 ---
 
