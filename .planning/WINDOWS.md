@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 10
+open_count: 8
 waived_count: 0
-fixed_count: 2
+fixed_count: 4
 total_count: 12
-last_updated: 2026-08-09T20:57:11.541Z
+last_updated: 2026-08-10T18:51:44.807Z
 ---
 
 # Broken Windows Ledger
@@ -19,13 +19,13 @@ last_updated: 2026-08-09T20:57:11.541Z
 | 2 | 02a-login-banco-base-e-backup | deviation | middleware.ts |  | callbackUrl do redirecionamento nao autenticado vaza o endereco interno do container (https://0.0.0.0:3000/...) em vez do dominio publico — confirmado de fora em producao (curl -I https://amassacerrado.com.br/encomendas). O cookie __Secure-authjs.callback-url resolve o dominio certo, mas o parametro de query da Location nao. Descoberto durante a verificacao externa do plano 02a-08 (Tarefa 3); fora do escopo de arquivos deste plano (nao toca middleware.ts nem lib/auth/) — precisa de investigacao dedicada em auth.config.ts / trustHost do Auth.js v5 | open |  | 2026-08-08T14:39:57.410Z |  |
 | 3 | 02b | deviation | tests/e2e/autenticacao.spec.ts | 72 | Sexta tentativa de bloqueio trava/estoura timeout de forma pre-existente (confirmado via --grep-invert, independente da 02b-03) — ver deferred-items.md item 1 | open |  | 2026-08-08T18:37:46.938Z |  |
 | 4 | 03 | deviation | .planning/phases/03-gestor-de-encomendas/deferred-items.md |  | shadcn 'form' registry item (radix-nova style, CLI 3.8.5) has no files to install; plan 06 must decide field vs hand-rolled wrapper vs direct react-hook-form before building the full formulario | fixed |  | 2026-08-09T14:15:31.870Z | 2026-08-09T18:53:21.639Z |
-| 5 | 03 | deviation | tests/e2e/encomendas-indice.spec.ts |  | Teste 'com o banco vazio, a frase A roda ainda nao gira aparece uma unica vez' (ENC-13) so e confiavel quando rodado com --grep 'indice de encomendas' (comando de verificacao literal da Tarefa 3). No npm run test:e2e completo sem grep, outro arquivo de spec (encomendas.spec.ts) roda em paralelo e pode criar uma encomenda antes da asserção — limitação estrutural da suite (sem isolamento de banco por teste), nao um defeito do EstadoVazio/hrefBotao. | open |  | 2026-08-09T16:31:43.430Z |  |
+| 5 | 03 | deviation | tests/e2e/encomendas-indice.spec.ts |  | Teste 'com o banco vazio, a frase A roda ainda nao gira aparece uma unica vez' (ENC-13) so e confiavel quando rodado com --grep 'indice de encomendas' (comando de verificacao literal da Tarefa 3). No npm run test:e2e completo sem grep, outro arquivo de spec (encomendas.spec.ts) roda em paralelo e pode criar uma encomenda antes da asserção — limitação estrutural da suite (sem isolamento de banco por teste), nao um defeito do EstadoVazio/hrefBotao. | fixed |  | 2026-08-09T16:31:43.430Z | 2026-08-10T18:51:44.328Z |
 | 6 | 03-gestor-de-encomendas | deviation | components/amassa/cabecalho-pagina.tsx |  | O <h1> do cabecalho de pagina (CabecalhoPagina) nao quebra em linha para um titulo muito comprido sem espaco (ex.: nome de encomenda de 120 caracteres colados) — causa rolagem horizontal da PAGINA inteira (nao dos dois alert-dialog de 03-05, que ja tem overflow-wrap:anywhere e foram provados por e2e). Descoberto durante 03-05 (pagina de detalhe usa o nome da encomenda como titulo); fora do escopo de arquivos deste plano (componente compartilhado da 2b). Precisa de break-words/overflow-wrap no h1 de cabecalho-pagina.tsx, revisavel numa fase futura de polimento. | open |  | 2026-08-09T17:35:18.070Z |  |
 | 7 | 03-gestor-de-encomendas | unrun-verify | tests/e2e/encomendas-detalhe.spec.ts |  | E5 detalhe — vazio (backstop do plano 03-05): a trilha nunca deveria mostrar uma encomenda sem item (esquemaEncomenda exige >=1), mas isso depende do formulario recusar 0 itens (plano 06, ainda nao existe UI para isso) — nao verificado a mao nesta execucao; conferir quando o formulario de edicao de itens existir. | fixed |  | 2026-08-09T17:35:32.827Z | 2026-08-09T18:53:26.159Z |
 | 8 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/confirmar-cancelar.tsx |  | E8 confirmar cancelar — erro (backstop do plano 03-05): o AlertDialog deve permanecer aberto mostrando o texto de falha sem fechar sozinho quando cancelarEncomenda falha; caminho implementado (estado erro + onOpenChange bloqueado por enviando) mas nao ha teste automatizado nem verificacao manual do caminho de falha nesta execucao (dificil de simular falha de rede/servidor de forma confiavel em e2e local). | open |  | 2026-08-09T17:35:33.701Z |  |
 | 9 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/confirmar-excluir.tsx |  | E9 confirmar excluir — erro (backstop do plano 03-05): mesma situacao de E8 aplicada a excluirEncomenda — caminho implementado, sem prova automatizada nem verificacao manual do caminho de falha nesta execucao. | open |  | 2026-08-09T17:35:34.500Z |  |
 | 10 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/lista-itens.tsx |  | E11 reordenacao — carregando (backstop do plano 03-06): a seta clicada fica com opacidade reduzida e disabled (par inteiro) ate a resposta do servidor, o que deveria impedir que dois cliques rapidos na mesma seta gravem fora de ordem; nao verificado a mao nem com teste automatizado de concorrencia real nesta execucao (dificil simular corrida de rede confiavel em e2e local). | open |  | 2026-08-09T18:53:37.603Z |  |
-| 11 | 03-gestor-de-encomendas | deviation | tests/e2e/encomendas-impressao.spec.ts |  | Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste). | open |  | 2026-08-09T20:57:04.606Z |  |
+| 11 | 03-gestor-de-encomendas | deviation | tests/e2e/encomendas-impressao.spec.ts |  | Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste). | fixed |  | 2026-08-09T20:57:04.606Z | 2026-08-10T18:51:44.807Z |
 | 12 | 03-gestor-de-encomendas | deviation | tests/e2e/sessao.spec.ts | 110 | 'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility). | open |  | 2026-08-09T20:57:11.541Z |  |
 
 ````json
@@ -85,10 +85,10 @@ last_updated: 2026-08-09T20:57:11.541Z
     "file": "tests/e2e/encomendas-indice.spec.ts",
     "line": null,
     "description": "Teste 'com o banco vazio, a frase A roda ainda nao gira aparece uma unica vez' (ENC-13) so e confiavel quando rodado com --grep 'indice de encomendas' (comando de verificacao literal da Tarefa 3). No npm run test:e2e completo sem grep, outro arquivo de spec (encomendas.spec.ts) roda em paralelo e pode criar uma encomenda antes da asserção — limitação estrutural da suite (sem isolamento de banco por teste), nao um defeito do EstadoVazio/hrefBotao.",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-08-09T16:31:43.430Z",
-    "resolved_at": null
+    "resolved_at": "2026-08-10T18:51:44.328Z"
   },
   {
     "id": 6,
@@ -157,10 +157,10 @@ last_updated: 2026-08-09T20:57:11.541Z
     "file": "tests/e2e/encomendas-impressao.spec.ts",
     "line": null,
     "description": "Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste).",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-08-09T20:57:04.606Z",
-    "resolved_at": null
+    "resolved_at": "2026-08-10T18:51:44.807Z"
   },
   {
     "id": 12,

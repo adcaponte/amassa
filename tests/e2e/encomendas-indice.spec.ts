@@ -168,7 +168,7 @@ test.describe("índice de encomendas", () => {
     // com o grep deste arquivo (`--grep "índice de encomendas"`, o comando de verificação desta
     // tarefa), nenhum outro arquivo de spec entra na mesma execução, então o banco de teste
     // efêmero (recriado do zero a cada `npm run test:e2e`) está genuinamente vazio aqui.
-    test("com o banco vazio, a frase 'A roda ainda não gira.' aparece uma única vez e o botão leva a /encomendas?nova", async ({
+    test("com o banco vazio, a frase 'A roda ainda não gira.' aparece uma única vez e o botão leva a /encomendas?nova @vazio-global", async ({
       page,
     }) => {
       await fazerLogin(page);

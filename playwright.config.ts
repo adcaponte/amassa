@@ -39,14 +39,53 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
+  // Quatro testes afirmam uma condição GLOBAL do banco ("nenhuma encomenda existe", "nenhuma
+  // concluída existe"). Com `fullyParallel: true` e mais de um worker, outro arquivo de spec cria
+  // encomendas ao mesmo tempo e a premissa deixa de valer — não é instabilidade de ambiente, é uma
+  // afirmação global disputada por escritas concorrentes. Eles passavam só quando rodados isolados
+  // por `--grep`, o que mascarou o problema durante a Fase 3 e barrou o primeiro deploy dela.
+  //
+  // A correção é ordem explícita, via `dependencies`: o Playwright roda um projeto de dependência
+  // até o fim antes de iniciar quem depende dele. A cadeia é
+  //
+  //   vazio-celular → vazio-desktop → vazio-historico → { desktop, celular }
+  //
+  // Os dois primeiros rodam os testes `@vazio-global` (só leitura, banco intacto) um viewport de
+  // cada vez — em paralelo eles não se atrapalhariam, mas `vazio-historico` CRIA uma encomenda,
+  // então precisa vir depois dos dois. Só então `desktop` e `celular` rodam todo o resto em
+  // paralelo, com `grepInvert` para não repetir os quatro.
+  //
+  // Custo: alguns segundos de login a mais por etapa da cadeia. O que se compra é a prova de
+  // ENC-13 (o estado vazio "A roda ainda não gira.") rodando na suíte completa, não só sob grep.
   projects: [
+    {
+      name: "vazio-celular",
+      use: { ...devices["Pixel 7"] },
+      grep: /@vazio-global/,
+    },
+    {
+      name: "vazio-desktop",
+      use: { ...devices["Desktop Chrome"] },
+      grep: /@vazio-global/,
+      dependencies: ["vazio-celular"],
+    },
+    {
+      name: "vazio-historico",
+      use: { ...devices["Desktop Chrome"] },
+      grep: /@vazio-historico/,
+      dependencies: ["vazio-desktop"],
+    },
     {
       name: "desktop",
       use: { ...devices["Desktop Chrome"] },
+      grepInvert: /@vazio-(global|historico)/,
+      dependencies: ["vazio-historico"],
     },
     {
       name: "celular",
       use: { ...devices["Pixel 7"] },
+      grepInvert: /@vazio-(global|historico)/,
+      dependencies: ["vazio-historico"],
     },
   ],
   webServer: {

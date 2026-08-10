@@ -109,7 +109,7 @@ test.describe("impressão de encomendas", () => {
   // (`--grep "impressão de encomendas"`, o comando de verificação literal desta tarefa), mesma
   // limitação estrutural já documentada em `.planning/WINDOWS.md` (id 5) para
   // `encomendas-indice.spec.ts` sob a suíte completa em paralelo.
-  test("sem nenhuma encomenda ativa, o botão do índice fica desabilitado com a nota, e a rota mostra a mesma frase", async ({
+  test("sem nenhuma encomenda ativa, o botão do índice fica desabilitado com a nota, e a rota mostra a mesma frase @vazio-global", async ({
     page,
   }) => {
     await fazerLogin(page);

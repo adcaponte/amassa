@@ -243,7 +243,7 @@ test.describe("filtro de encomendas", () => {
   // deste describe (`--grep "filtro de encomendas"`, o comando de verificação da Tarefa 2),
   // nenhum outro arquivo de spec entra na mesma execução, então o banco efêmero (recriado do
   // zero a cada `npm run test:e2e`) está genuinamente vazio aqui.
-  test('com o banco vazio, "A roda ainda não gira." aparece e "Nada por aqui com esse filtro." não', async ({
+  test('com o banco vazio, "A roda ainda não gira." aparece e "Nada por aqui com esse filtro." não @vazio-global', async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -466,16 +466,14 @@ test.describe("histórico de encomendas", () => {
   // o PRIMEIRO a criar dado.
   test.describe.configure({ mode: "serial" });
 
-  test('sem nenhuma encomenda concluída ou cancelada, o filtro "Concluídas" mostra "Nada concluído ou cancelado ainda."', async ({
+  // Etiquetado `@vazio-historico`: esta asserção depende do total GLOBAL de `concluida`/
+  // `cancelada` estar em zero, então roda no projeto `vazio-historico`, que o playwright.config.ts
+  // encadeia DEPOIS dos projetos de `@vazio-global` e ANTES de `desktop`/`celular` — nenhum outro
+  // teste está executando quando ela roda. Ela cria uma encomenda ativa (não concluída), por isso
+  // vem depois dos `@vazio-global`, que exigem o banco completamente vazio.
+  test('sem nenhuma encomenda concluída ou cancelada, o filtro "Concluídas" mostra "Nada concluído ou cancelado ainda." @vazio-historico', async ({
     page,
-  }, testInfo) => {
-    // Só no desktop: esta asserção depende do total GLOBAL de `concluida` estar em zero — os
-    // dois projetos rodam este describe em paralelo sobre o MESMO banco (`mode: "serial"` só
-    // serializa DENTRO de um projeto), e um teste mais adiante do projeto irmão pode concluir
-    // uma encomenda de verdade antes deste rodar. Rodando só num projeto, a condição fica
-    // garantida pela ORDEM DE DECLARAÇÃO (primeiro teste do describe) sem depender de quão
-    // rápido o outro projeto avança.
-    test.skip(testInfo.project.name !== "desktop", "Evita a corrida entre projetos sobre o total global de concluídas.");
+  }) => {
     await fazerLogin(page);
     // Uma encomenda ATIVA só para `ListaEncomendas`/`FiltroEncomendas` existirem na tela — sem
     // nenhuma encomenda no banco, `page.tsx` mostra "A roda ainda não gira." e não há Select de
