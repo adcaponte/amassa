@@ -40,6 +40,33 @@ FOR-12 without it).
 
 ---
 
+## Visual Hierarchy & Icon-Only Controls
+
+### Primary focal point per screen
+
+| Screen | Primary focal point |
+|--------|----------------------|
+| `/queimas` (índice) | When any forno is in atenção/crítico: the **banner agregado** at the top — it's the first thing scanned, states exactly what needs action. When no forno needs attention (banner absent): the **"Queimar" button** on the first cartão — the only terracota-accent control on the page, and the single most-used action in the whole system. |
+| `/queimas/[id]` (detalhe do forno) | The **medidor** (contador visual with entalhes) — answers "how close is this forno to needing maintenance" before any other content. The **"Registrar manutenção"** button (terracota) is the secondary focal point, directly below/beside it. |
+| `/queimas/relatorios` | The **4 stat tiles row** (total, últimos 30 dias, contagem dos dois primeiros tipos) — read before the charts, matching D-07's own stated order (statistics first, charts below). |
+
+### Icon-only controls — `aria-label` contract
+
+CLAUDE.md requires `aria-label` in Portuguese on every icon-only button. Every icon-only control
+this phase introduces or touches:
+
+| Control | Icon (lucide, indicative) | `aria-label` (pt-BR, exact) |
+|---------|----------------------------|-------------------------------|
+| "⋮ Mais ações" menu on the forno card / detail page (desativar, reativar, editar) | `MoreVertical` | `"Mais ações do forno {nome}"` |
+| Icon-only "Desfazer" affordance, **only if** a compact icon-only variant is ever used instead of the preferred text button (see Copywriting Contract: default is the text label "Desfazer", which needs no `aria-label`) | `Undo2` | `"Desfazer registro de queima"` |
+| Dialog/Sheet built-in close control (`AlertDialog`, maintenance `Dialog`) | `X` (shadcn default) | Inherited, already labeled `"Fechar"` project-wide since Phase 2b — not redeclared here, not a new control |
+| Alert icon paired with the forno-crítico selo (`04-DESIGN-SYSTEM.md` §3) | `AlertTriangle` | **Not an `aria-label` case** — this icon is decorative next to visible text ("Manutenção vencida"), so it takes `aria-hidden="true"` instead; it is not itself an interactive control |
+
+Every interactive icon-only control above must also meet the 44px minimum touch target already
+declared in Spacing Scale Exceptions.
+
+---
+
 ## Spacing Scale
 
 Inherited from the project-wide 8-point scale (`04-DESIGN-SYSTEM.md`, applied since Phase 2b).
@@ -70,28 +97,43 @@ Exceptions:
 
 ## Typography
 
-Inherited verbatim from `app/globals.css` (established Phase 2b, do not re-declare or invent new
-sizes/weights this phase).
+**This phase does not introduce any new font size or weight to `app/globals.css`.** The project's
+full type scale (established Phase 2b) has 6 declared roles; the table below is a **Phase 4
+working subset — at most 4 sizes, at most 2 weights — normative for the new surfaces this phase
+builds** (cartão do forno, medidor, banner agregado, dialog de manutenção, toast de desfazer,
+relatórios/Recharts, painel inicial "Fornos em atenção" alert). It is a selection from the
+existing scale, not a new declaration.
 
-| Role | Size | Weight | Line Height |
-|------|------|--------|-------------|
-| Display (`text-display`) | 28px | 700 | 32px (1.14) |
-| Heading (`text-titulo`) | 20px | 600 | 28px (1.4) |
-| Body (`text-corpo`) | 16px | 400 | 24px (1.5) |
-| Label/apoio (`text-apoio`) | 14px | 400 | 20px (1.43) |
-| Micro (`text-micro`) | 12px | 500, letter-spacing 0.06em | 16px (1.33) |
-| Mono (`text-mono`) | 13px | 400 | 18px (1.38) |
+| Role | Size | Weight | Line Height | Usage this phase |
+|------|------|--------|-------------|-------------------|
+| Body (`text-corpo`) | 16px | 400 | 24px (1.5) | Dialog de manutenção fields (Responsável, Observações — never smaller, per iOS-zoom rule), banner agregado body copy, general paragraph text on Fornos surfaces |
+| Label (`text-apoio`) | 14px | 400 | 20px (1.43) | Selo textual ("Manutenção próxima"/"Manutenção vencida"), rodapé do cartão, toast text ("Queima registrada." / "Desfazer"), banner agregado list items, relatórios stat-tile labels |
+| Micro (`text-micro`) | 12px | 500, letter-spacing 0.06em | 16px (1.33) | Medidor tick labels — `0 / atenção N / limite N` under the bar. Cannot be dropped: the entalhes + labels are an explicit, literal requirement of `04-DESIGN-SYSTEM.md` §8 ("não simplifique") |
+| Mono (`text-mono`) | 13px | 400 | 18px (1.38) | Contador `atual / limite` tabular figures on the cartão and detail page, and the numeric values in the 4 relatórios stat tiles. Cannot be dropped: tabular alignment as the counter changes is an explicit design requirement |
 
-Fornos-specific typography usage:
-- **Contador `atual / limite`** on the cartão and detail page uses `text-mono` (tabular figures,
-  per `04-DESIGN-SYSTEM.md` §8) — never `text-corpo`, so digits align as the counter changes.
-- **Medidor labels** (`0 / atenção N / limite N`) use `text-micro` under the bar.
-- **Selo textual** ("Manutenção próxima" / "Manutenção vencida") uses `text-apoio` with the
-  matching `--color-forno-atencao-texto`/`--color-forno-critico-texto` foreground.
-- **Rodapé do cartão** ("Última manutenção em {data} · {responsável} · {total} no total") uses
-  `text-apoio` `text-muted-foreground`, same as `EstadoVazio`/`EstadoErro` body convention.
-- **Banner agregado** heading uses `text-corpo` weight via inline `font-medium`/`text-apoio` — see
-  Copywriting Contract row below for exact string; no new type role needed.
+Declared weights this phase: **400** (corpo, apoio, mono) and **500** (micro) — 2 weights, within cap.
+
+**Herdado — não usado nesta fase / não alterar.** Two roles from the established scale are used
+on these same screens but only via already-existing, unmodified shell components, so they are
+deliberately left out of the Phase-4 declared table above (dropped rather than counted toward the
+4-size cap, since this phase does not decide or introduce them):
+
+| Role | Size | Weight | Where it still appears (inherited, unchanged) |
+|------|------|--------|-------------------------------------------------|
+| Display (`text-display`) | 28px | 700 | Page titles "Queimas" / "Relatórios" / forno name — rendered entirely by the existing `CabecalhoPagina` component (Phase 2b), reused verbatim, not restyled |
+| Heading (`text-titulo`) | 20px | 600 | Card title styling inside `Card`/`CardTitle` (shadcn, Phase 2b) and `CartaoPainel` — the forno cartão's own title and the painel inicial "Fornos em atenção" card title inherit this from the shared `Card` primitive, not from a Fornos-specific decision |
+
+Fornos-specific typography usage, restated per element:
+- **Contador `atual / limite`** on the cartão and detail page: `text-mono` (tabular figures, per
+  `04-DESIGN-SYSTEM.md` §8) — never `text-corpo`, so digits align as the counter changes.
+- **Medidor labels** (`0 / atenção N / limite N`): `text-micro` under the bar.
+- **Selo textual**: `text-apoio` with the matching `--color-forno-atencao-texto`/
+  `--color-forno-critico-texto` foreground.
+- **Rodapé do cartão**: `text-apoio` `text-muted-foreground`, same as `EstadoVazio`/`EstadoErro`
+  body convention.
+- **Banner agregado**: body copy in `text-apoio`; no new type role needed.
+- **Dialog de manutenção fields**: `text-corpo` (16px minimum, form-field rule).
+- **Relatórios stat tiles**: label in `text-apoio`, number in `text-mono`.
 
 ---
 
