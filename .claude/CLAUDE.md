@@ -89,6 +89,21 @@ Technology stack not yet documented. Will populate after codebase mapping or fir
 - **Artefatos do servidor que não vêm do pipeline envelhecem em silêncio.** `compose.yml` e a
   imagem `:ferramentas` são ressincronizados pelo job `implantar`. O `.env` **não** — ele é do
   dono, tem segredos, e é editado à mão no servidor.
+
+- **`npm run test:e2e` custa ~53 segundos antes do primeiro teste rodar** — 15s de Postgres
+  efêmero e **38s de `next build`**, medidos. Esse imposto é fixo: vale igual para a suíte
+  inteira e para um `--grep` que pega um teste só. Regra:
+
+  - **No máximo uma invocação por tarefa**, sempre com `--grep` no que aquela tarefa mexeu.
+  - **Nunca `npm run build` como passo separado** — a execução do e2e já constrói.
+  - **A varredura completa sem `--grep` roda uma vez por fase**, no último plano.
+  - Se um `--grep` falhar e você precisar da suíte inteira para diagnosticar, **rode** — a regra
+    é sobre o padrão, não uma proibição. Registre no SUMMARY quais comandos rodou de fato.
+
+  `lint`, `tsc --noEmit`, `verificar-acoes` e `npm test` são rápidos: rode à vontade.
+
+  Motivo: na Fase 3 o plano 03-07 invocou o e2e **13 vezes**, o 03-06 sete e o 03-04 seis —
+  cerca de 30 minutos só de build e Postgres repetidos, numa fase que levou 7 horas.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
