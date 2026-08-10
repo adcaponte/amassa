@@ -213,7 +213,11 @@ phase introduces. Element kinds were **authored, not inferred** — the probe's 
 English-only and returned `unclassified` for 9 of 11 elements against this document's pt-BR prose;
 the overrides below were written from the described surfaces and re-run, yielding 0 unclassified.
 
-**Applicable state considerations: 65 — 61 covered, 4 backstop, 0 unresolved.**
+**Applicable state considerations: 65 — 62 covered, 3 backstop, 0 unresolved.**
+
+The three backstops are: E3 `loading` (no loading affordance between the two taps, FOR-01),
+E5 `long-text` (banner height at the realistic worst case), and E6 `zero-one-many` (the 25-queima
+list rendering boundary, FOR-09).
 
 Empty-state and error-state **copy** lives in `## Copywriting Contract`; the rows below cover
 shape-rooted **state coverage** and reference that copy rather than restating it.
@@ -378,4 +382,4 @@ gate instead, per `04-CONTEXT.md` Integration Points.
 - [x] Dimension 6 Registry Safety: PASS
 
 **Approval:** APPROVED (gsd-ui-checker, revisão 1 — 6/6 dimensões PASS)
-**UI-consideration probe:** 65 aplicáveis — 61 covered, 4 backstop, 0 unresolved (passo 9.5)
+**UI-consideration probe:** 65 aplicáveis — 62 covered, 3 backstop, 0 unresolved (passo 9.5)
