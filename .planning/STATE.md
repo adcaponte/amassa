@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 3
 current_phase_name: Gestor de Encomendas
-status: executing
-stopped_at: "Fase 3: planos 01-07 completos; 03-08 parado na tarefa 4 (migracao de producao) aguardando execucao manual do roteiro pelo dono"
-last_updated: "2026-08-10T05:24:45.091Z"
+status: verifying
+stopped_at: Completed 03-08-PLAN.md — Fase 3 (Gestor de Encomendas) migrada em producao, ENC-01 a ENC-14 entregues
+last_updated: "2026-08-10T19:59:42.139Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 3 execution started
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 28
-  completed_plans: 27
+  completed_plans: 28
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 3 (Gestor de Encomendas) — EXECUTING
 Plan: 8 of 8
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-09 — Phase 3 execution started
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [██████████] 96%
 | Phase 03 P05 | ~110min | 3 tasks | 9 files |
 | Phase 03 P06 | ~100min | 3 tasks | 14 files |
 | Phase 03 P07 | ~65min | 3 tasks | 10 files |
+| Phase 03 P08 | ~40min (agente) + execucao real em producao | 4 tasks | 20 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-07: compararPorUrgencia usa um único número de proximidade por Situacao (atrasada mais negativo = mais urgente, marco=0, as três proximidades em dias, sem-próxima-etapa sempre no fim) — fórmula não especificada no plano, decisão do executor
 - [Phase ?]: 03-07: estado-vazio.tsx ganhou aoClicar?: () => void aditivo (ação de cliente) ao lado de hrefBotao (navegação) — Limpar filtros usa aoClicar, Nova encomenda continua usando hrefBotao
 - [Phase ?]: 03-07: e2e — page.waitForLoadState('networkidle') depois de navegar para uma rota antes de clicar num botão que acabou de aparecer, para evitar clique perdido por hidratação do React ainda não ter anexado o onClick (achado real, não suposição)
+- [Phase ?]: 03-08: textoDaSituacao(semCor:true) reaproveitado verbatim na folha impressa, sem estender Situacao com campo etapa no ramo atrasada
+- [Phase ?]: 03-08: listarEncomendasAtivas() e listarEncomendasDoIndice(hoje) compartilham anexarItensEEtapas (join), nunca o WHERE — escopos permanecem distintos
+- [Phase ?]: 03-08: roteiro de migracao corrigido para 'docker compose run --rm ferramentas', nao 'docker compose exec app' — a imagem app nao tem drizzle-kit/tsx/db/
+- [Phase ?]: 03-08: Fase 3 completa e migrada em producao (2026-08-10) — ENC-01 a ENC-14 entregues; verificacao humana de fim de fase PARCIAL (criacao+celular confirmados, 12 criterios nao percorridos item a item, ajustes de desktop mencionados sem detalhe, ver SUMMARY)
 
 ### Pending Todos
 
@@ -194,6 +199,8 @@ None yet.
 - callbackUrl do redirecionamento nao autenticado vaza https://0.0.0.0:3000 em vez do dominio publico (WINDOWS.md id 2, deferred-items.md da fase 02a) — bloqueia /gsd-ship ate resolvido ou dispensado; causa provavel em lib/auth/auth.config.ts/middleware.ts, fora do escopo do plano 02a-08
 - tests/e2e/autenticacao.spec.ts:72 (sexta tentativa de bloqueio) trava/estoura timeout de forma pre-existente e independente da 02b-03 (confirmado via --grep-invert) — ver deferred-items.md da fase 02b item 1 e WINDOWS.md id 3; investigar pool do pg.Pool em db/index.ts ou UV_THREADPOOL_SIZE
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
+- Dois gaps de infraestrutura abertos (WINDOWS.md ids 13, 14): pipeline nao puxa imagem :ferramentas no deploy; compose.yml do servidor nao e ressincronizado apos o Roteiro 1 — candidatos a fase futura de polimento de CI/roteiros
+- Ajustes necessarios no desktop mencionados pelo dono apos a verificacao em producao (03-08), sem detalhamento — capturar no backlog em separado antes de assumir a experiencia desktop pronta
 
 ### Roadmap Evolution
 
@@ -211,6 +218,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T05:24:45.045Z
-Stopped at: Fase 3: planos 01-07 completos; 03-08 parado na tarefa 4 (migracao de producao) aguardando execucao manual do roteiro pelo dono
-Resume file: docs/operacao/04-migracao-encomendas.md
+Last session: 2026-08-10T19:59:42.095Z
+Stopped at: Completed 03-08-PLAN.md — Fase 3 (Gestor de Encomendas) migrada em producao, ENC-01 a ENC-14 entregues
+Resume file: None

@@ -185,7 +185,7 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
   11. O estado vazio mostra "A roda ainda não gira"
   12. Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
 
-**Plans**: 7/8 plans executed
+**Plans**: 8/8 plans executed
 
 Plans:
 
@@ -196,7 +196,7 @@ Plans:
 - [x] 03-05-PLAN.md — Detalhe: trilha vertical, ajuste rápido de etapa e os diálogos de cancelar/excluir/concluir (onda 3)
 - [x] 03-06-PLAN.md — Formulário modal/folha com itens reordenáveis e rodapé ao vivo (onda 4)
 - [x] 03-07-PLAN.md — Filtro, busca sem acento, ordenação e histórico em janela de 12 meses (onda 5)
-- [ ] 03-08-PLAN.md — Folha A4 de impressão, prova ponta a ponta e migração de produção à mão (onda 6)
+- [x] 03-08-PLAN.md — Folha A4 de impressão, prova ponta a ponta e migração de produção à mão (onda 6)
 
 **UI hint**: yes
 
@@ -333,7 +333,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 1. Fundação e Primeiro Deploy | 7/7 | Complete    | 2026-08-08 |
 | 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
 | 2b. Design System e Casca da Aplicação | 5/5 | Complete    | 2026-08-09 |
-| 3. Gestor de Encomendas | 7/8 | In Progress|  |
+| 3. Gestor de Encomendas | 8/8 | In Progress|  |
 | 4. Contador de Queima | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
