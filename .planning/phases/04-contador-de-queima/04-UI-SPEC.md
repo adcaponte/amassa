@@ -208,27 +208,151 @@ planner should add an analogous `lib/queimas/textos.ts`.
 
 ## UI Considerations
 
-Applicable state considerations resolved: 13 covered, 3 backstop, 0 unresolved.
+Produced by the ui-consideration-probe (post-verification, step 9.5) over the 11 UI surfaces this
+phase introduces. Element kinds were **authored, not inferred** — the probe's cue classifier is
+English-only and returned `unclassified` for 9 of 11 elements against this document's pt-BR prose;
+the overrides below were written from the described surfaces and re-run, yielding 0 unclassified.
 
-| Category | Element(s) | Status | Resolution / Reason |
-|----------|------------|--------|---------------------|
-| empty | list-collection (índice de fornos, sem forno cadastrado) | ✅ covered | Renders `EstadoVazio` with "Nenhum forno cadastrado ainda." / "Cadastre o primeiro forno..." and a "Novo forno" CTA (see Copywriting Contract). |
-| empty | list-collection (relatórios, sem queima registrada) | ✅ covered | D-08: renders an `EstadoVazio` in place of the charts, with "Nenhuma queima registrada ainda." and a link back to `/queimas`. The "Relatórios" tab stays visible/reachable even when empty (never hidden). |
-| empty | list-collection (índice filtrado, filtro "Desativados"/"Todos" sem resultado) | ✅ covered | Same shape as Encomendas' filtro-vazio: "Nada por aqui com esse filtro." + "Limpar filtros"/switch back to "Ativos". |
-| empty | list-collection (histórico de manutenções na página do forno) | ✅ covered | "Sem manutenção registrada." — literal rodapé phrase from `04-DESIGN-SYSTEM.md` §8, reused inline in the maintenance history block, not a full `EstadoVazio` (it's a sub-section, not the whole page). |
-| loading | list-collection (índice de fornos, banner, relatórios) | ✅ covered | Skeleton in the shape of the content (cartão-shaped skeleton grid for the índice, chart-shaped skeleton for relatórios) — never a bare "carregando...", per project-wide convention (`04-DESIGN-SYSTEM.md` §7, `CartaoPainel` comment documents the exact skeleton shape rule). |
-| loading | interactive-control ("Queimar" dois-toques flow) | 🧪 backstop | The tipo picker must not show a spinner mid-flow (defeats the 2-tap/<5s budget, FOR-01) — the write is optimistic-feeling via immediate toast + background persist. Needs a held-out timing test asserting no loading affordance appears between the two taps. |
-| error | list-collection (índice de fornos load failure) | ✅ covered | "Algo não funcionou." / "Não deu para carregar os fornos. Verifique a internet e tente de novo." via `EstadoErro`. |
-| error | form/interactive-control (registrar queima, registrar manutenção, excluir queima failures) | ✅ covered | "Não deu para salvar. Verifique a internet e tente de novo." — reused verbatim; the queima write must never fail silently (see Specific Ideas in `04-CONTEXT.md`: silent loss is this phase's core failure mode). |
-| populated | list-collection (cartões de fornos, típico volume 2–6 fornos) | ✅ covered | Grid of cards desktop, stacked full-width cards mobile (`04-DESIGN-SYSTEM.md` §6); each shows medidor, selo, contador, rodapé, single "Queimar" CTA. |
-| populated | list-collection (relatórios com dado real) | ✅ covered | Stacked barras por tipo (biscoito/esmalte/ouro) + barras horizontais por forno + 4 stat tiles, per `02-MODELO-DE-DADOS.md` §3. |
-| partial | list-collection (forno sem nenhuma manutenção ainda, mas com queimas) | ✅ covered | Contador computes over all queimas (no manutenção floor); rodapé reads "Sem manutenção registrada · {total} no total". |
-| overflow | list-collection (relatórios charts on mobile, D-07) | ✅ covered | Each chart scrolls horizontally **inside its own container**; the page itself never scrolls horizontally (same containment pattern as the desktop Gantt exception). |
-| overflow | static-content (banner agregado with many fornos in atenção/crítico) | ⚠ unresolved | No wrap/truncation rule specified for a banner listing more than ~4–5 fornos on a narrow phone screen. Planner should decide: wrap to a second line vs. horizontal scroll vs. "e mais N" truncation — flag as an open assumption if not resolved during planning. |
-| zero-one-many | list-collection (banner agregado singular vs. plural) | ✅ covered | "1 forno precisa de atenção" (singular) vs. "N fornos precisam de atenção" (plural) — see Copywriting Contract. |
-| zero-one-many | list-collection (últimas 25 queimas no detalhe do forno, FOR-09) | 🧪 backstop | Needs an explicit test that the list caps at 25 and that fewer than 25 renders correctly (not padded/broken) — no UI copy difference, but a rendering-boundary case worth a held-out check. |
-| long-text | static-content (nome do forno, responsável da manutenção, observações) | ✅ covered | `nome` capped at 80 chars by schema (`check length between 1 and 80`); `responsável`/`observações` free text — wrap, never truncate mid-word, in the card header and maintenance history rows (same `max-w-prose` wrapping discipline as `EstadoVazio`/`EstadoErro`). |
-| long-text | interactive-control (banner agregado string with many/long forno names) | 🧪 backstop | Interacts with the overflow row above — needs a visual check at a realistic worst case (e.g. 4 fornos with long names) rather than assumed to just wrap safely. |
+**Applicable state considerations: 65 — 61 covered, 4 backstop, 0 unresolved.**
+
+Empty-state and error-state **copy** lives in `## Copywriting Contract`; the rows below cover
+shape-rooted **state coverage** and reference that copy rather than restating it.
+
+### Element kinds (authored override)
+
+| Id | Surface | Kinds |
+|----|---------|-------|
+| E1 | Índice de fornos `/queimas` | list-collection, interactive-control |
+| E2 | Cartão do forno (medidor, selo, rodapé, CTA "Queimar") | static-content, interactive-control |
+| E3 | Fluxo "Queimar" em dois toques (seletor de tipo) | interactive-control |
+| E4 | Toast "Queima registrada" + "Desfazer" (7s) | interactive-control, static-content |
+| E5 | Banner agregado (fornos que precisam de atenção) | static-content, list-collection |
+| E6 | Detalhe do forno `/queimas/[id]` | list-collection, static-content, interactive-control |
+| E7 | Dialog "Registrar manutenção" | form, interactive-control |
+| E8 | AlertDialog "Excluir esta queima?" | interactive-control, static-content |
+| E9 | Relatórios `/queimas/relatorios` | list-collection, interactive-control, media |
+| E10 | Formulário de cadastro/edição de forno | form, interactive-control |
+| E11 | Alerta de forno no painel inicial | static-content, list-collection, nav |
+
+### E1 — Índice de fornos `/queimas`
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | Sem nenhum forno: `EstadoVazio` com "Nenhum forno cadastrado ainda." + CTA "Novo forno". Com filtro ativo e zero resultados: "Nada por aqui com esse filtro." (ver Copywriting Contract) — os dois vazios são distintos e nunca se confundem. |
+| loading | ✅ covered | Skeleton na forma do conteúdo — grade de skeletons com a altura do cartão (medidor + selo + rodapé), nunca um "carregando..." solto. Convenção do projeto (`04-DESIGN-SYSTEM.md` §7). |
+| error | ✅ covered | `EstadoErro`: "Algo não funcionou." / "Não deu para carregar os fornos. Verifique a internet e tente de novo." |
+| populated | ✅ covered | Volume típico 2–6 fornos: grade de cartões no desktop, cartões empilhados em largura total no celular (`04-DESIGN-SYSTEM.md` §6). |
+| partial | ✅ covered | Forno com queimas mas sem manutenção registrada: contador conta sobre todas as queimas (sem piso de manutenção) e o rodapé lê "Sem manutenção registrada · {total} no total". |
+| overflow | ✅ covered | Cartões empilham verticalmente; a página nunca rola horizontalmente. O único contêiner com rolagem lateral própria nesta fase são os gráficos de `/queimas/relatorios`. |
+| zero-one-many | ✅ covered | 0 → `EstadoVazio`; 1 → um cartão em largura total (não meia-grade órfã no desktop); muitos → grade. |
+| long-text | ✅ covered | `nome` é limitado a 80 caracteres pelo schema (`check length between 1 and 80`); quebra no cabeçalho do cartão, nunca trunca no meio da palavra — mesma disciplina de `max-w-prose` de `EstadoVazio`/`EstadoErro`. |
+
+### E2 — Cartão do forno
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| loading | ✅ covered | O skeleton do cartão tem a mesma altura do cartão real, para o layout não pular quando os dados chegam. |
+| error | ✅ covered | Falha ao registrar queima a partir do cartão: ver E3 `error` — o toast vira erro e o contador do cartão reverte ao valor anterior. |
+| overflow | ✅ covered | O medidor ocupa a largura do cartão e escala com o `limite` (entalhes derivados de `limite/10`); o rodapé quebra em duas linhas no celular em vez de estourar o cartão. |
+| long-text | ✅ covered | Nome (≤80 chars) e `responsável` no rodapé quebram por palavra. Nenhum dos dois trunca — o cartão cresce. |
+
+### E3 — Fluxo "Queimar" em dois toques
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| loading | 🧪 backstop | **Statement:** nenhum indicador de carregamento aparece entre o primeiro e o segundo toque — o seletor de tipo abre imediatamente e a gravação acontece em segundo plano. **Verification: backstop** — teste de tempo (held-out) afirmando que nenhum spinner/skeleton é renderizado durante o fluxo, e que ele fecha em <5s (FOR-01). |
+| error | ✅ covered | Gravação otimista que falha **depois** do toast: o toast de sucesso é **substituído** por "Não deu para registrar a queima. Verifique a internet e tente de novo." e o contador do cartão reverte ao valor anterior. Nunca há perda silenciosa — é o modo de falha central desta fase (`04-CONTEXT.md`, Specific Ideas). *(decisão do usuário, sondagem 9.5)* |
+| long-text | ✅ covered | Dispensado por forma, não por omissão: os três rótulos do seletor são fixos e curtos ("Biscoito", "Esmalte", "Ouro") e não interpolam texto do usuário — não há caso de texto longo a cobrir. |
+
+### E4 — Toast "Queima registrada" + "Desfazer"
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| loading | ✅ covered | O toast aparece imediatamente no segundo toque, sem estado intermediário — é o que sustenta o orçamento de 5 segundos. |
+| error | ✅ covered | "Desfazer" que falha: toast de erro "Não deu para desfazer. Verifique a internet e tente de novo.", e a queima **permanece** registrada (o estado mostrado é o estado real). |
+| overflow | ✅ covered | `sonner` com largura máxima própria; a copy é curta e fixa, o botão "Desfazer" nunca é empurrado para fora. |
+| long-text | ✅ covered | Dispensado por forma: a copy do toast é literal e sem interpolação de nome de forno ("Queima registrada." / "Queima desfeita."). |
+
+### E5 — Banner agregado
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | Não renderiza quando N=0. A ausência do banner é o sinal de "está tudo em dia" — nenhum banner vazio, nenhuma faixa "0 fornos". |
+| loading | ✅ covered | Faz parte do mesmo skeleton da página; não pisca aparecendo depois dos cartões. |
+| error | ✅ covered | Se a carga falha, o banner não renderiza e o `EstadoErro` da página cobre a tela inteira — nunca um banner ao lado de um erro. |
+| populated | ✅ covered | Template literal de `04-DESIGN-SYSTEM.md` §8: "**{N} fornos precisam de atenção:** Forno 01 (95/100) · Forno 02 (103/100)". |
+| partial | ✅ covered | Forno em atenção sem manutenção anterior aparece normalmente — o banner mostra `contador/limite`, que existe desde a primeira queima. |
+| overflow | ✅ covered | Mostra os **3 primeiros** fornos e trunca com "· e mais {N}". Altura do banner fica previsível e nunca empurra os cartões para baixo da dobra no celular; os nomes completos estão nos cartões logo abaixo. *(decisão do usuário, sondagem 9.5 — era o único ⚠ unresolved da versão anterior)* |
+| zero-one-many | ✅ covered | 0 → não renderiza; 1 → "**1 forno precisa de atenção:** …" (singular); 2–3 → lista completa; ≥4 → 3 + "e mais {N}". |
+| long-text | 🧪 backstop | **Statement:** o banner permanece em altura previsível com nomes de forno no limite do schema. **Verification: backstop** — checagem visual no pior caso realista (3 fornos com nomes de 80 caracteres + "e mais 2") em viewport de celular estreito, em vez de assumir que a truncagem por si resolve. |
+
+### E6 — Detalhe do forno `/queimas/[id]`
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | Duas listas com vazios distintos: sem queimas → "Nenhuma queima registrada ainda."; sem manutenções → "Sem manutenção registrada." inline na sub-seção (não um `EstadoVazio` de página inteira). |
+| loading | ✅ covered | Skeleton na forma do conteúdo: bloco do medidor + linhas das duas listas. |
+| error | ✅ covered | `EstadoErro` na página; falhas de ação (excluir queima, registrar manutenção) usam a copy de erro por ação, sem derrubar a página. |
+| populated | ✅ covered | Medidor grande, contador desde a última manutenção, total na vida, últimas 25 queimas e histórico de manutenções. |
+| partial | ✅ covered | Forno com queimas e nenhuma manutenção: contador = total; rodapé "Sem manutenção registrada". |
+| overflow | ✅ covered | As listas crescem na rolagem vertical da página; nenhuma rolagem horizontal. |
+| zero-one-many | 🧪 backstop | **Statement:** a lista de queimas capa em 25 e renderiza corretamente com 0, 1 e menos de 25 itens — sem preenchimento fantasma e sem quebra de layout. **Verification: backstop** — teste de fronteira de renderização (FOR-09). |
+| long-text | ✅ covered | `observações` da manutenção (texto livre) quebra dentro de `max-w-prose` nas linhas do histórico; nunca trunca no meio da palavra. |
+
+### E7 — Dialog "Registrar manutenção"
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | Estado inicial válido: os dois campos (Responsável, Observações) são opcionais e vêm vazios, com o botão "Registrar manutenção" **habilitado** — nada de botão morto esperando preenchimento opcional. |
+| loading | ✅ covered | Botão em estado de envio (desabilitado + indicador) enquanto grava, para não registrar manutenção duas vezes com o duplo toque. |
+| error | ✅ covered | "Não deu para salvar. Verifique a internet e tente de novo." **dentro** do dialog, que permanece aberto com os campos preenchidos — o gestor não reescreve nada. |
+| partial | ✅ covered | Só Responsável, só Observações, ou nenhum dos dois: todos são submissões válidas. O contador zera igual. |
+| long-text | ✅ covered | Observações é `textarea` que rola dentro da própria altura; o dialog não cresce indefinidamente no celular. A frase "O contador vai de **{N}** para **0**." é literal e curta. |
+
+### E8 — AlertDialog "Excluir esta queima?"
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| loading | ✅ covered | Botão "Excluir" em estado de envio e desabilitado durante a exclusão, evitando duplo disparo destrutivo. |
+| error | ✅ covered | "Não deu para excluir. Verifique a internet e tente de novo." com o dialog **aberto** — o gestor vê que nada foi excluído. |
+| overflow | ✅ covered | Corpo curto e de tamanho conhecido; o `AlertDialog` do shadcn já contém a largura. |
+| long-text | ✅ covered | O nome do forno interpolado no corpo ("Forno «{nome}»") é limitado a 80 chars pelo schema e quebra por palavra. |
+
+### E9 — Relatórios `/queimas/relatorios`
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | D-08: `EstadoVazio` no lugar dos gráficos — "Nenhuma queima registrada ainda." + botão "Ver fornos". A aba "Relatórios" continua visível e alcançável mesmo vazia. |
+| loading | ✅ covered | Skeleton na forma do conteúdo: 4 blocos de stat tile + retângulos na altura dos gráficos. |
+| error | ✅ covered | `EstadoErro` com a copy padrão do projeto; os stat tiles não renderizam meio-preenchidos. |
+| populated | ✅ covered | 4 stat tiles no topo, depois barras empilhadas por tipo e barras horizontais por forno (`02-MODELO-DE-DADOS.md` §3), com o alternador "Semana"/"Mês". |
+| partial | ✅ covered | Recortes sem queima aparecem como **zero**, não somem: as 8 semanas (ou 6 meses) são sempre plotadas por inteiro. Eixo estável, o buraco de produção fica visível, e a soma bate com a contagem manual do histórico (critério de sucesso 8). *(decisão do usuário, sondagem 9.5)* |
+| overflow | ✅ covered | Cada gráfico rola horizontalmente **dentro do próprio contêiner**; a página em si nunca rola horizontalmente. |
+| zero-one-many | ✅ covered | Um único forno → barras horizontais com uma barra só (não um gráfico degenerado); os 4 stat tiles renderizam sempre, com zero quando aplicável. |
+| long-text | ✅ covered | Nome de forno no eixo das barras horizontais: **trunca com reticências e mostra o nome completo no tooltip**. O eixo mantém largura previsível e sobra espaço para a barra no celular. *(decisão do usuário, sondagem 9.5)* |
+
+### E10 — Formulário de cadastro/edição de forno
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | Formulário novo abre com Nome e Descrição vazios e **Limite pré-preenchido** com o padrão do schema — o campo mais fácil de errar já vem certo. |
+| loading | ✅ covered | Botão "Salvar" em estado de envio e desabilitado durante a gravação. |
+| error | ✅ covered | Erros do Zod aparecem **abaixo do campo correspondente**, em português; falha de rede usa "Não deu para salvar. Verifique a internet e tente de novo.". |
+| partial | ✅ covered | Descrição vazia é submissão válida; só Nome e Limite são obrigatórios. |
+| long-text | ✅ covered | Nome tem limite de 80 caracteres imposto pelo schema, com mensagem de erro explícita ao ultrapassar; Descrição quebra por palavra e o campo rola. |
+
+### E11 — Alerta de forno no painel inicial
+
+| Category | Status | Resolution |
+|----------|--------|------------|
+| empty | ✅ covered | Não renderiza quando nenhum forno está em atenção ou crítico — a ausência é o sinal de normalidade, igual ao banner (E5). |
+| loading | ✅ covered | Skeleton do `CartaoPainel`, na mesma grade do resto do painel inicial. |
+| error | ✅ covered | Se a consulta falhar, o cartão não renderiza e o painel não mostra um alerta pela metade — um forno crítico invisível por erro nunca aparece como "tudo em dia" silenciosamente: o painel exibe o `EstadoErro` do bloco. |
+| populated | ✅ covered | Mostra os fornos em atenção/crítico com o contador de cada um e link para `/queimas` (FOR-13). |
+| partial | ✅ covered | Forno em atenção sem manutenção anterior aparece normalmente — `contador/limite` existe desde a primeira queima. |
+| overflow | ✅ covered | Mesma regra de E5: 3 fornos + "e mais {N}", altura previsível dentro do `CartaoPainel`. |
+| zero-one-many | ✅ covered | 0 → não renderiza; 1 → copy no singular; muitos → plural + truncagem. Mesmo par de strings do banner (E5), não uma segunda redação. |
+| long-text | ✅ covered | Nomes ≤80 chars quebram dentro do cartão do painel; a truncagem de E5 já limita quantos nomes aparecem de uma vez. |
 
 ---
 
@@ -246,11 +370,12 @@ gate instead, per `04-CONTEXT.md` Integration Points.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** APPROVED (gsd-ui-checker, revisão 1 — 6/6 dimensões PASS)
+**UI-consideration probe:** 65 aplicáveis — 61 covered, 4 backstop, 0 unresolved (passo 9.5)
