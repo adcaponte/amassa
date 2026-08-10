@@ -71,3 +71,31 @@ export function textoDoNivel(nivel: NivelDeForno): string | null {
     }
   }
 }
+
+// Rodapé do cartão (FOR-08, `04-DESIGN-SYSTEM.md` §8) — literal, não reescrever. `data` chega
+// JÁ FORMATADA por quem chama (`formatarInstanteCurto`, `lib/queimas/formato.ts`): este módulo
+// não importa valor nenhum de `formato.ts` (ver cabeçalho do arquivo), então a montagem da frase
+// nunca formata data por conta própria.
+export const FRASE_SEM_MANUTENCAO = "Sem manutenção registrada";
+
+export function fraseDoRodape({
+  data,
+  responsavel,
+  total,
+}: {
+  data: string | null;
+  responsavel: string | null;
+  total: number;
+}): string {
+  const totalTexto = `${total} no total`;
+
+  if (data === null) {
+    return `${FRASE_SEM_MANUTENCAO} · ${totalTexto}`;
+  }
+
+  const base = responsavel
+    ? `Última manutenção em ${data} · ${responsavel}`
+    : `Última manutenção em ${data}`;
+
+  return `${base} · ${totalTexto}`;
+}

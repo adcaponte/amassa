@@ -6,8 +6,8 @@ import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_FORNO } from "@/lib/
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { Button } from "@/components/ui/button";
-import { CartaoForno } from "@/components/amassa/queimas/cartao-forno";
 import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
+import { ListaFornos } from "@/components/amassa/queimas/lista-fornos";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de app/(app)/encomendas/page.tsx.
 // D-02: não existe tela de cadastro de fornos — o botão "Novo forno" abre `?novo` (masculino,
@@ -37,11 +37,7 @@ export default async function PaginaQueimas() {
           hrefBotao="/queimas?novo"
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 px-6 py-6 md:grid-cols-2 md:px-8">
-          {fornosDoIndice.map((forno) => (
-            <CartaoForno key={forno.id} forno={forno} />
-          ))}
-        </div>
+        <ListaFornos fornos={fornosDoIndice} />
       )}
     </>
   );
