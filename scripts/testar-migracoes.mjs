@@ -21,7 +21,15 @@ const BANCO = "amassa_teste";
 // Lista exata de tabelas que devem existir no schema público depois das migrações. Cada fase
 // que acrescentar uma tabela de produto atualiza esta constante — é o que impede uma tabela
 // nova de aparecer sem ninguém notar.
-const TABELAS_ESPERADAS = ["verificacao_infraestrutura", "usuarios", "execucoes_backup"];
+const TABELAS_ESPERADAS = [
+  "verificacao_infraestrutura",
+  "usuarios",
+  "execucoes_backup",
+  // Fase 3 — Gestor de Encomendas (migração 0005_encomendas).
+  "encomendas",
+  "encomenda_itens",
+  "encomenda_etapas",
+];
 
 // docker.exe é executável direto em qualquer plataforma — sem shell.
 function rodarDocker(args, opcoes = {}) {
