@@ -17,7 +17,8 @@
     "criar-usuario": "tsx scripts/criar-usuario.ts",
     "redefinir-senha": "tsx scripts/redefinir-senha.ts",
     "desativar-usuario": "tsx scripts/desativar-usuario.ts",
-    "verificar-acoes": "node scripts/verificar-acoes.mjs app lib"
+    "verificar-acoes": "node scripts/verificar-acoes.mjs app lib",
+    "verificar": "npm run lint && npx tsc --noEmit && npm run verificar-acoes && npm test && npm run test:migracoes"
   },
   "dependencies": {
     "@hookform/resolvers": "5.7.1",

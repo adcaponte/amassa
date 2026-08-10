@@ -74,7 +74,21 @@ Technology stack not yet documented. Will populate after codebase mapping or fir
 
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+- **`npm run verificar` antes de dar um plano por concluído.** Roda `lint`, `tsc --noEmit`,
+  `verificar-acoes`, os testes unitários e **`test:migracoes`**. Esse último é o que escapou na
+  Fase 3: ele não faz parte de `npm test` nem de `npm run test:e2e`, só do CI, e a lista
+  `TABELAS_ESPERADAS` de `scripts/testar-migracoes.mjs` ficou desatualizada por oito planos até
+  o pipeline barrar o deploy. **Toda fase que mexe em `db/schema.ts` atualiza essa constante.**
+
+- **Teste não pode afirmar condição global do banco sem isolamento.** Um teste que exige "nenhuma
+  encomenda existe" disputa esse estado com qualquer outro teste que crie dado, e sob
+  `fullyParallel` ele passa isolado e falha na suíte. Isso não é instabilidade — é premissa
+  falsa. Use a cadeia de `dependencies` do `playwright.config.ts` (`vazio-* → desktop/celular`),
+  nunca `--grep` como muleta.
+
+- **Artefatos do servidor que não vêm do pipeline envelhecem em silêncio.** `compose.yml` e a
+  imagem `:ferramentas` são ressincronizados pelo job `implantar`. O `.env` **não** — ele é do
+  dono, tem segredos, e é editado à mão no servidor.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->

@@ -220,6 +220,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Necessário para o passo que ressincroniza o compose.yml: sem checkout, este job não tem
+      # o arquivo. Os demais passos só precisam de ssh, mas o custo aqui é de segundos.
+      - uses: actions/checkout@v4
+
       # A chave viaja por copiar-e-colar de um terminal para a tela de secrets do GitHub, e é
       # nesse trajeto que ela costuma se corromper: uma linha que quebra, um retorno de carro
       # do Windows, a linha -----END----- que fica de fora. O sintoma nativo disso é
@@ -259,14 +263,35 @@ jobs:
           fi
           test -s ~/.ssh/known_hosts || { echo "::error::known_hosts vazio — VPS_HOST não respondeu."; exit 1; }
 
+      # O compose.yml do servidor era colocado uma única vez, por scp, no Roteiro 1 — e nunca
+      # mais. Quando `docker/compose.yml` mudou no repositório (o serviço `ferramentas` passou a
+      # usar DATABASE_URL_MIGRACAO no commit e593e83, plano 02a-02), a cópia do servidor ficou
+      # para trás em silêncio: nada quebra até alguém tentar migrar, e aí o `ferramentas` conecta
+      # com o papel errado e o Postgres recusa com "permission denied for database". Custou meia
+      # hora de diagnóstico na migração da Fase 3 (WINDOWS.md id 14). O `.env` NUNCA é tocado
+      # aqui — ele é do servidor, tem segredos, e é o dono quem o edita.
+      - name: Ressincronizar o compose.yml do servidor
+        run: |
+          scp -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
+            docker/compose.yml \
+            "${{ secrets.VPS_USUARIO }}@${{ secrets.VPS_HOST }}:/opt/amassa/compose.yml"
+
       # O nome do serviço é obrigatório: `up -d` sem ele recria todos os contêineres
       # declarados, inclusive o postgres — e é exatamente isso que INFRA-06 proíbe.
+      #
+      # `pull ferramentas` junto com `pull app`: a imagem de ferramentas é publicada pelo job
+      # `imagem` mas nunca era baixada aqui, e `docker compose run` usa o cache local sem
+      # consultar o registro. O servidor rodou desde a Fase 2a com a imagem de ferramentas
+      # daquela época — as migrações de qualquer fase seguinte simplesmente não existiam dentro
+      # dela (WINDOWS.md id 13). Pull só baixa; nenhum contêiner de ferramentas sobe aqui, e
+      # nenhuma migração roda no pipeline — isso continua sendo à mão, depois de um backup.
       - name: Publicar — pull e up nomeando o serviço app
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=yes \
             "${{ secrets.VPS_USUARIO }}@${{ secrets.VPS_HOST }}" '
               cd /opt/amassa &&
               docker compose pull app &&
+              docker compose --profile ferramentas pull ferramentas &&
               docker compose up -d app
             '
 
