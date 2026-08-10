@@ -77,9 +77,9 @@
 
 ### Contador de Queima
 
-- [ ] **FOR-01**: Registrar uma queima leva **dois toques** e menos de 5 segundos no celular
-- [ ] **FOR-02**: O aviso com "Desfazer", por 7 segundos, remove a queima registrada por engano
-- [ ] **FOR-03**: Os três tipos aparecem: biscoito, esmalte e **ouro**
+- [x] **FOR-01**: Registrar uma queima leva **dois toques** e menos de 5 segundos no celular
+- [x] **FOR-02**: O aviso com "Desfazer", por 7 segundos, remove a queima registrada por engano
+- [x] **FOR-03**: Os três tipos aparecem: biscoito, esmalte e **ouro**
 - [ ] **FOR-04**: Chegando a 90 de 100 o cartão fica em atenção e mostra "Manutenção próxima"; em 100 fica em crítico e mostra "Manutenção vencida"
 - [ ] **FOR-05**: O medidor do cartão tem entalhes a cada 10 queimas, marca no limiar de atenção e rótulos `0 / atenção N / limite N`
 - [ ] **FOR-06**: O banner no topo lista os fornos que precisam de atenção, com o contador de cada um
@@ -89,7 +89,7 @@
 - [ ] **FOR-10**: Remover uma queima lançada por engano no histórico pede confirmação
 - [ ] **FOR-11**: Fornos podem ser cadastrados e desativados, mas nunca excluídos
 - [ ] **FOR-12**: Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
-- [ ] **FOR-13**: Cada queima registra quem a lançou (usuário logado), sem pedir nada a mais no fluxo
+- [x] **FOR-13**: Cada queima registra quem a lançou (usuário logado), sem pedir nada a mais no fluxo
 
 ### Agenda de Aulas
 
@@ -251,9 +251,9 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ENC-12 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-13 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-14 | Phase 3 — Gestor de Encomendas | Complete |
-| FOR-01 | Phase 4 — Contador de Queima | Pending |
-| FOR-02 | Phase 4 — Contador de Queima | Pending |
-| FOR-03 | Phase 4 — Contador de Queima | Pending |
+| FOR-01 | Phase 4 — Contador de Queima | Complete |
+| FOR-02 | Phase 4 — Contador de Queima | Complete |
+| FOR-03 | Phase 4 — Contador de Queima | Complete |
 | FOR-04 | Phase 4 — Contador de Queima | Pending |
 | FOR-05 | Phase 4 — Contador de Queima | Pending |
 | FOR-06 | Phase 4 — Contador de Queima | Pending |
@@ -263,7 +263,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FOR-10 | Phase 4 — Contador de Queima | Pending |
 | FOR-11 | Phase 4 — Contador de Queima | Pending |
 | FOR-12 | Phase 4 — Contador de Queima | Pending |
-| FOR-13 | Phase 4 — Contador de Queima | Pending |
+| FOR-13 | Phase 4 — Contador de Queima | Complete |
 | AGD-01 | Phase 5 — Agenda de Aulas | Pending |
 | AGD-02 | Phase 5 — Agenda de Aulas | Pending |
 | AGD-03 | Phase 5 — Agenda de Aulas | Pending |

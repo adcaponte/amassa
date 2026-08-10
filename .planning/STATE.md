@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_phase_name: Gestor de Encomendas
+current_phase: 04
+current_phase_name: Contador de Queima
 status: executing
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-08-10T22:19:49.542Z"
-last_activity: 2026-08-09
-last_activity_desc: Phase 3 execution started
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-08-10T23:21:37.736Z"
+last_activity: 2026-08-10
+last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 3 — Gestor de Encomendas
+**Current focus:** Phase 04 — Contador de Queima
 
 ## Current Position
 
-Phase: 3 (Gestor de Encomendas) — EXECUTING
-Plan: 8 of 8
+Phase: 04 (Contador de Queima) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-08-09 — Phase 3 execution started
+Last activity: 2026-08-10 — Phase 04 execution started
 
-Progress: [██████████] 100%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -87,6 +87,7 @@ Progress: [██████████] 100%
 | Phase 03 P06 | ~100min | 3 tasks | 14 files |
 | Phase 03 P07 | ~65min | 3 tasks | 10 files |
 | Phase 03 P08 | ~40min (agente) + execucao real em producao | 4 tasks | 20 files |
+| Phase 04 P01 | ~55min | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -183,6 +184,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 03-08: listarEncomendasAtivas() e listarEncomendasDoIndice(hoje) compartilham anexarItensEEtapas (join), nunca o WHERE — escopos permanecem distintos
 - [Phase ?]: 03-08: roteiro de migracao corrigido para 'docker compose run --rm ferramentas', nao 'docker compose exec app' — a imagem app nao tem drizzle-kit/tsx/db/
 - [Phase ?]: 03-08: Fase 3 completa e migrada em producao (2026-08-10) — ENC-01 a ENC-14 entregues; verificacao humana de fim de fase PARCIAL (criacao+celular confirmados, 12 criterios nao percorridos item a item, ajustes de desktop mencionados sem detalhe, ver SUMMARY)
+- [Phase ?]: 04-01: aplicar-no-fim-da-fase — migracao 0007/0008 gerada agora, aplicada em producao so no plano de fechamento 04-07, apos backup, a mao
+- [Phase ?]: 04-01: consultas.ts devolve dado bruto (ocorrenciasDeQueima/ultimaManutencaoEm), nunca contador/total pre-agregados em SQL — cartao-forno.tsx chama medirForno() (lib/queimas/contador.ts), unico lugar que decide a regra
+- [Phase ?]: 04-01: FOR-11 nao marcado completo apesar de listado no frontmatter do plano — so o cadastro (criarForno) foi entregue; desativar/reativar forno e escopo do plano 04-04
+- [Phase ?]: 04-01: erro de FK (forno inexistente) traduzido via erro.code === '23503' (SQLSTATE foreign_key_violation) — primeira vez que o projeto checa codigo de erro do Postgres diretamente
 
 ### Pending Todos
 
@@ -218,6 +223,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T21:32:17.064Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: C:/Users/Andre/amassa/.planning/phases/04-contador-de-queima/04-UI-SPEC.md
+Last session: 2026-08-10T23:21:37.661Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None

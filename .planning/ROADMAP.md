@@ -228,12 +228,12 @@ técnica)
   8. Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
   9. Um forno em atenção ou crítico aparece no painel inicial
 
-**Plans**: 7 plans
+**Plans**: 1/7 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Traçado ponta a ponta: três tabelas, contador puro, forno cadastrado, queima em dois toques com autor e o Desfazer de 7 segundos
+- [x] 04-01-PLAN.md — Traçado ponta a ponta: três tabelas, contador puro, forno cadastrado, queima em dois toques com autor e o Desfazer de 7 segundos
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -368,7 +368,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
 | 2b. Design System e Casca da Aplicação | 5/5 | Complete    | 2026-08-09 |
 | 3. Gestor de Encomendas | 8/8 | In Progress|  |
-| 4. Contador de Queima | 0/TBD | Not started | - |
+| 4. Contador de Queima | 1/7 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
