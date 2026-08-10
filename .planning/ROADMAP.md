@@ -228,7 +228,22 @@ técnica)
   8. Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
   9. Um forno em atenção ou crítico aparece no painel inicial
 
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+
+- [ ] 04-01-PLAN.md — Traçado ponta a ponta: três tabelas, contador puro, forno cadastrado, queima em dois toques com autor e o Desfazer de 7 segundos
+- [ ] 04-02-PLAN.md — Medidor com entalhes, os três níveis com selo, rodapé com as duas contagens e os estados da tela
+- [ ] 04-03-PLAN.md — Página do forno: últimas 25 queimas, histórico de manutenções e exclusão confirmada
+- [ ] 04-04-PLAN.md — Registrar manutenção que zera sem apagar, e o ciclo editar/desativar/reativar
+- [ ] 04-05-PLAN.md — Banner agregado, filtro Ativos/Desativados/Todos e o cartão do painel inicial
+- [ ] 04-06-PLAN.md — Relatórios em Recharts: 8 semanas, 6 meses, quatro estatísticas e o seletor de topo
+- [ ] 04-07-PLAN.md — Fechamento: varredura completa, migração aplicada em produção à mão e verificação humana
+
+> A migração desta fase é `0007_queimas` + `0008_gatilhos-queimas`, não `0004_queimas` — o número
+> acima reproduz a numeração do documento fonte, escrita antes de a ordem de execução ser
+> antecipada; o repositório já tem `0000` a `0006` aplicados. Ver `04-01-PLAN.md` §Desvios.
+
 **UI hint**: yes
 
 ### Phase 5: Agenda de Aulas
