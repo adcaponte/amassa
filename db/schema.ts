@@ -191,3 +191,95 @@ export const encomendaEtapas = pgTable(
     index("encomenda_etapas_encomenda_idx").on(tabela.encomendaId),
   ],
 );
+
+// Fase 4 — Contador de Queima (módulo de Fornos). SQL literal em
+// amassa-plataforma/02-MODELO-DE-DADOS.md §3. Migração 0007_queimas (não 0004 — ver Desvio 1 de
+// 04-01-PLAN.md: o `.planning/ROADMAP.md` nomeia a migração antes da ordem de execução ter sido
+// antecipada; 0000-0006 já existem no repositório). Checkpoint 04-01/Tarefa 1: gerar agora,
+// aplicar em produção só no plano de fechamento (04-07), depois de um backup, à mão.
+//
+// `ocorrida_em`/`ocorridaEm` é timestamptz (instante), NUNCA date (dia civil) — o oposto de
+// `encomendas.dataInicio`: uma queima acontece num momento preciso do dia, não é um marco de
+// calendário. A view de apoio `fornos_medidos` do documento fonte NÃO é criada (Desvio 2): o
+// módulo puro `lib/queimas/contador.ts` já calcula nível a partir de dados carregados, e
+// `lib/queimas/consultas.ts` reproduz o mesmo `left join lateral` — uma view a mais seria um
+// segundo lugar com a mesma regra, fora de `TABELAS_ESPERADAS` e invisível a `test:migracoes`.
+export const tipoQueima = pgEnum("tipo_queima", ["biscoito", "esmalte", "ouro"]);
+
+// Um forno do ateliê. `limite`/`ativo` editáveis só pela página do próprio forno (D-02: não
+// existe tela de cadastro dedicada — o botão do índice cria com os padrões, e o resto se edita
+// depois). `onDelete: "cascade"` fica como rede para exclusão manual no banco; a aplicação nunca
+// oferece apagar um forno (04-CONTEXT.md §Fora desta fase).
+export const fornos = pgTable(
+  "fornos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    descricao: text("descricao"),
+    limite: integer("limite").notNull().default(100),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("fornos_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 80`),
+    check("fornos_limite_minimo", sql`${tabela.limite} >= 10`),
+  ],
+);
+
+// Uma queima registrada num forno — o fluxo de dois toques (D-04) grava uma linha aqui na hora
+// do toque; "Desfazer" apaga a linha (excluirQueima), nunca o inverso. `registradoPor` é sempre
+// `usuarioAtual.id` de `exigirUsuario()`, nunca aceito do cliente (T-04-02) — `set null`
+// preserva a queima quando um usuário for desativado/removido no futuro.
+export const queimas = pgTable(
+  "queimas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    fornoId: uuid("forno_id")
+      .notNull()
+      .references(() => fornos.id, { onDelete: "cascade" }),
+    tipo: tipoQueima("tipo").notNull(),
+    ocorridaEm: timestamp("ocorrida_em", { withTimezone: true }).notNull().defaultNow(),
+    registradoPor: uuid("registrado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    observacoes: text("observacoes"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    index("queimas_forno_data_idx").on(tabela.fornoId, tabela.ocorridaEm.desc()),
+    index("queimas_data_idx").on(tabela.ocorridaEm.desc()),
+  ],
+);
+
+// Uma manutenção zera o contador do forno *por consequência do corte de data*, nunca por
+// exclusão — `queimasAcumuladas` grava o valor que o contador tinha naquele instante, para o
+// histórico completo do forno continuar consultável mesmo depois do corte.
+export const manutencoes = pgTable(
+  "manutencoes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    fornoId: uuid("forno_id")
+      .notNull()
+      .references(() => fornos.id, { onDelete: "cascade" }),
+    ocorridaEm: timestamp("ocorrida_em", { withTimezone: true }).notNull().defaultNow(),
+    responsavel: text("responsavel"),
+    observacoes: text("observacoes"),
+    queimasAcumuladas: integer("queimas_acumuladas").notNull(),
+    registradoPor: uuid("registrado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "manutencoes_queimas_acumuladas_nao_negativo",
+      sql`${tabela.queimasAcumuladas} >= 0`,
+    ),
+    index("manutencoes_forno_idx").on(tabela.fornoId, tabela.ocorridaEm.desc()),
+  ],
+);

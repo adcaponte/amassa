@@ -29,6 +29,10 @@ const TABELAS_ESPERADAS = [
   "encomendas",
   "encomenda_itens",
   "encomenda_etapas",
+  // Fase 4 — Contador de Queima (migração 0007_queimas).
+  "fornos",
+  "queimas",
+  "manutencoes",
 ];
 
 // docker.exe é executável direto em qualquer plataforma — sem shell.

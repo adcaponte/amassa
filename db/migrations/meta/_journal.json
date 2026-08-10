@@ -50,6 +50,20 @@
       "when": 1786283237932,
       "tag": "0006_gatilhos-encomendas",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786400889025,
+      "tag": "0007_queimas",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786400889026,
+      "tag": "0008_gatilhos-queimas",
+      "breakpoints": true
     }
   ]
 }
