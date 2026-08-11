@@ -232,7 +232,15 @@ None yet.
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
 - Dois gaps de infraestrutura abertos (WINDOWS.md ids 13, 14): pipeline nao puxa imagem :ferramentas no deploy; compose.yml do servidor nao e ressincronizado apos o Roteiro 1 — candidatos a fase futura de polimento de CI/roteiros
 - Ajustes necessarios no desktop mencionados pelo dono apos a verificacao em producao (03-08), sem detalhamento — capturar no backlog em separado antes de assumir a experiencia desktop pronta
-- Verificação humana de fim de fase (04) pendente: .planning/phases/04-contador-de-queima/04-VERIFICACAO-HUMANA.md — 26 itens (9 critérios do ROADMAP, 3 backstops do UI-SPEC, 14 itens herdados dos planos 04-01 a 04-06), nenhum percorrido ainda. Bloqueia o fechamento da Fase 4 e a abertura da Fase 5. Dono indisponível no momento da execução do 04-07.
+- Verificação humana de fim de fase (04) pendente: .planning/phases/04-contador-de-queima/04-VERIFICACAO-HUMANA.md — 26 itens (9 critérios do ROADMAP, 3 backstops do UI-SPEC, 14 itens herdados dos planos 04-01 a 04-06), nenhum percorrido ainda. O UAT da Fase 4 (04-UAT.md, 17 de 18 respondidos, 16 pass / 1 issue) cobre substancialmente ~17-19 desses itens — falta transferir a evidência e percorrer o resto. Bloqueia o fechamento da Fase 4 e a abertura da Fase 5.
+- Tela de login não distingue banco indisponível de credencial errada: com o Postgres fora do ar, responde "Confira o e-mail e a senha e tente de novo" e manda o gestor conferir uma senha que está certa. A mensagem anti-enumeração está funcionando como projetada; o problema é que ela também absorve falha de infraestrutura. Mesma família do G-04-5 (falha de infra vestida de erro do usuário). Achado durante a verificação do quick 260811-uiy; mexer nisso exige cuidado para não virar oráculo de contas.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260811-2jb | Avaliar retries e custo do teste de fronteira (04-02) | 2026-08-11 | 65ec17e | [260811-2jb-avaliar-retries-e-custo-do-teste-de-fron](./quick/260811-2jb-avaliar-retries-e-custo-do-teste-de-fron/) |
+| 260811-uiy | Fronteira de erro global acima do layout de rota protegida (G-04-5) | 2026-08-11 | b5bf62b | [260811-uiy-fronteira-de-erro-global-acima-do-layout](./quick/260811-uiy-fronteira-de-erro-global-acima-do-layout/) |
 
 ### Roadmap Evolution
 
