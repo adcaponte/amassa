@@ -228,7 +228,7 @@ técnica)
   8. Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
   9. Um forno em atenção ou crítico aparece no painel inicial
 
-**Plans**: 5/7 plans executed
+**Plans**: 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -253,7 +253,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 04-06-PLAN.md — Relatórios em Recharts: 8 semanas, 6 meses, quatro estatísticas e o seletor de topo
+- [x] 04-06-PLAN.md — Relatórios em Recharts: 8 semanas, 6 meses, quatro estatísticas e o seletor de topo
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -368,7 +368,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 2a. Login, Banco Base e Backup | 8/8 | Complete    | 2026-08-08 |
 | 2b. Design System e Casca da Aplicação | 5/5 | Complete    | 2026-08-09 |
 | 3. Gestor de Encomendas | 8/8 | In Progress|  |
-| 4. Contador de Queima | 5/7 | In Progress|  |
+| 4. Contador de Queima | 6/7 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

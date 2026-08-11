@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: executing
-stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-08-11T01:30:13.560Z"
+stopped_at: Completed 04-06-PLAN.md
+last_updated: "2026-08-11T02:09:21.201Z"
 last_activity: 2026-08-10
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 33
+  completed_plans: 34
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04 (Contador de Queima) — EXECUTING
-Plan: 6 of 7
+Plan: 7 of 7
 Status: Ready to execute
 Last activity: 2026-08-10 — Phase 04 execution started
 
-Progress: [█████████░] 94%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -92,6 +92,7 @@ Progress: [█████████░] 94%
 | Phase 04 P03 | ~50min | 3 tasks | 10 files |
 | Phase 04 P04 | ~40min | 3 tasks | 10 files |
 | Phase 04 P05 | ~2h10min | 3 tasks | 12 files |
+| Phase 04 P06 | ~3h | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -204,6 +205,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-05: fraseDoBanner/prefixoDoBanner e ordenarParaBanner (lib/queimas/filtros.ts) sao o unico par que produz a copy do aviso agregado, reaproveitado pelo banner de /queimas e pelo cartao do painel inicial
 - [Phase ?]: 04-05: CartaoPainel ganhou children opcional (aditivo) em vez de um segundo componente - os outros tres cartoes do painel nao mudaram de assinatura
 - [Phase ?]: 04-05: scripts/testar-e2e.mjs passou a esperar conectividade TCP real na porta do Postgres de teste (nao so o Health.Status do Docker) apos ECONNREFUSED intermitente sob troca rapida de conteineres no Windows/WSL2
+- [Phase ?]: recharts fixado em 3.10.1 (linha 3.x, não 2.x) apesar do Redux Toolkit transitivo — rota própria isola o peso do caminho de dois toques
+- [Phase ?]: estatisticas-queimas.spec: teste de total GLOBAL roda só no projeto desktop (test.skip no celular), delta tolerante ao único escritor concorrente conhecido do arquivo
 
 ### Pending Todos
 
@@ -239,6 +242,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-11T01:30:13.521Z
-Stopped at: Completed 04-05-PLAN.md
+Last session: 2026-08-11T02:09:21.162Z
+Stopped at: Completed 04-06-PLAN.md
 Resume file: None

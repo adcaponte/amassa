@@ -88,7 +88,7 @@
 - [x] **FOR-09**: O detalhe do forno mostra o histórico de manutenções e as últimas 25 queimas
 - [x] **FOR-10**: Remover uma queima lançada por engano no histórico pede confirmação
 - [x] **FOR-11**: Fornos podem ser cadastrados e desativados, mas nunca excluídos
-- [ ] **FOR-12**: Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
+- [x] **FOR-12**: Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
 - [x] **FOR-13**: Cada queima registra quem a lançou (usuário logado), sem pedir nada a mais no fluxo
 
 ### Agenda de Aulas
@@ -262,7 +262,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FOR-09 | Phase 4 — Contador de Queima | Complete |
 | FOR-10 | Phase 4 — Contador de Queima | Complete |
 | FOR-11 | Phase 4 — Contador de Queima | Complete |
-| FOR-12 | Phase 4 — Contador de Queima | Pending |
+| FOR-12 | Phase 4 — Contador de Queima | Complete |
 | FOR-13 | Phase 4 — Contador de Queima | Complete |
 | AGD-01 | Phase 5 — Agenda de Aulas | Pending |
 | AGD-02 | Phase 5 — Agenda de Aulas | Pending |

@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 12
+open_count: 14
 waived_count: 0
 fixed_count: 6
-total_count: 18
-last_updated: 2026-08-11T01:30:31.078Z
+total_count: 20
+last_updated: 2026-08-11T02:09:34.524Z
 ---
 
 # Broken Windows Ledger
@@ -33,6 +33,8 @@ last_updated: 2026-08-11T01:30:31.078Z
 | 16 | 04 | unrun-verify | app/(app)/queimas/error.tsx |  | error.tsx não foi exercitado por um erro real forçado em teste e2e — verificação funcional pendente para 04-07 | open |  | 2026-08-11T00:10:19.316Z |  |
 | 17 | 04 | unrun-verify | app/(app)/page.tsx |  | Ramo de erro de fornosQuePrecisamDeAtencao() no painel inicial (EstadoErro dentro do CartaoPainel) so provado por revisao de codigo, sem teste e2e forcando falha real | open |  | 2026-08-11T01:30:30.547Z |  |
 | 18 | 04 | unrun-verify | components/amassa/queimas/banner-atencao.tsx |  | E5 long-text (UI-SPEC backstop): altura previsivel do banner com 3 fornos de nomes de 80 caracteres + 'e mais 2' em viewport de celular estreito, nunca checada visualmente | open |  | 2026-08-11T01:30:31.078Z |  |
+| 19 | 04 | unrun-verify | app/(app)/queimas/relatorios/page.tsx |  | D-08: estado vazio de /queimas/relatorios (nenhuma queima registrada) provado só por revisão de código — o e2e desta tarefa foi construído 'sem etiqueta de vazio' por escopo do plano 04-06 | open |  | 2026-08-11T02:09:34.019Z |  |
+| 20 | 04 | unrun-verify | components/amassa/queimas/relatorios-recharts.tsx |  | D-07: ordem visual das 4 estatísticas antes dos gráficos no celular e o 'mesmo recorte de dados' nos dois tamanhos de tela garantidos por código, nunca checados com screenshot | open |  | 2026-08-11T02:09:34.524Z |  |
 
 ````json
 [
@@ -250,6 +252,30 @@ last_updated: 2026-08-11T01:30:31.078Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-11T01:30:31.078Z",
+    "resolved_at": null
+  },
+  {
+    "id": 19,
+    "kind": "unrun-verify",
+    "phase": "04",
+    "file": "app/(app)/queimas/relatorios/page.tsx",
+    "line": null,
+    "description": "D-08: estado vazio de /queimas/relatorios (nenhuma queima registrada) provado só por revisão de código — o e2e desta tarefa foi construído 'sem etiqueta de vazio' por escopo do plano 04-06",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T02:09:34.019Z",
+    "resolved_at": null
+  },
+  {
+    "id": 20,
+    "kind": "unrun-verify",
+    "phase": "04",
+    "file": "components/amassa/queimas/relatorios-recharts.tsx",
+    "line": null,
+    "description": "D-07: ordem visual das 4 estatísticas antes dos gráficos no celular e o 'mesmo recorte de dados' nos dois tamanhos de tela garantidos por código, nunca checados com screenshot",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T02:09:34.524Z",
     "resolved_at": null
   }
 ]
