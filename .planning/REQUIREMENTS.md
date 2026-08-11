@@ -82,7 +82,7 @@
 - [x] **FOR-03**: Os três tipos aparecem: biscoito, esmalte e **ouro**
 - [x] **FOR-04**: Chegando a 90 de 100 o cartão fica em atenção e mostra "Manutenção próxima"; em 100 fica em crítico e mostra "Manutenção vencida"
 - [x] **FOR-05**: O medidor do cartão tem entalhes a cada 10 queimas, marca no limiar de atenção e rótulos `0 / atenção N / limite N`
-- [ ] **FOR-06**: O banner no topo lista os fornos que precisam de atenção, com o contador de cada um
+- [x] **FOR-06**: O banner no topo lista os fornos que precisam de atenção, com o contador de cada um
 - [x] **FOR-07**: Registrar manutenção mostra "o contador vai de N para 0", aceita responsável e observações opcionais, e zera o contador **sem apagar** o histórico
 - [x] **FOR-08**: O cartão mostra quantas queimas o forno já fez na vida, além do contador desde a última manutenção
 - [x] **FOR-09**: O detalhe do forno mostra o histórico de manutenções e as últimas 25 queimas
@@ -256,7 +256,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FOR-03 | Phase 4 — Contador de Queima | Complete |
 | FOR-04 | Phase 4 — Contador de Queima | Complete |
 | FOR-05 | Phase 4 — Contador de Queima | Complete |
-| FOR-06 | Phase 4 — Contador de Queima | Pending |
+| FOR-06 | Phase 4 — Contador de Queima | Complete |
 | FOR-07 | Phase 4 — Contador de Queima | Complete |
 | FOR-08 | Phase 4 — Contador de Queima | Complete |
 | FOR-09 | Phase 4 — Contador de Queima | Complete |

@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: executing
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-08-11T00:47:05.422Z"
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-08-11T01:30:13.560Z"
 last_activity: 2026-08-10
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 32
+  completed_plans: 33
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04 (Contador de Queima) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-08-10 — Phase 04 execution started
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -91,6 +91,7 @@ Progress: [█████████░] 91%
 | Phase 04 P02 | ~75min | 3 tasks | 12 files |
 | Phase 04 P03 | ~50min | 3 tasks | 10 files |
 | Phase 04 P04 | ~40min | 3 tasks | 10 files |
+| Phase 04 P05 | ~2h10min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -200,6 +201,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-03: historico-queimas.tsx virou client component (estado local de qual linha tem o dialog de exclusao aberto); historico-manutencoes.tsx continua Server Component
 - [Phase ?]: registrarManutencao usa db.transaction + select...for update para serializar manutenções concorrentes; desativarForno/reativarForno filtram o WHERE pelo valor oposto de ativo em vez de checar-e-decidir
 - [Phase ?]: lib/queimas/consultas.ts não precisou de mudança neste plano — FornoMedido/FornoComHistorico já expunham ativo desde 04-01/04-02
+- [Phase ?]: 04-05: fraseDoBanner/prefixoDoBanner e ordenarParaBanner (lib/queimas/filtros.ts) sao o unico par que produz a copy do aviso agregado, reaproveitado pelo banner de /queimas e pelo cartao do painel inicial
+- [Phase ?]: 04-05: CartaoPainel ganhou children opcional (aditivo) em vez de um segundo componente - os outros tres cartoes do painel nao mudaram de assinatura
+- [Phase ?]: 04-05: scripts/testar-e2e.mjs passou a esperar conectividade TCP real na porta do Postgres de teste (nao so o Health.Status do Docker) apos ECONNREFUSED intermitente sob troca rapida de conteineres no Windows/WSL2
 
 ### Pending Todos
 
@@ -235,6 +239,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-11T00:47:05.384Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-08-11T01:30:13.521Z
+Stopped at: Completed 04-05-PLAN.md
 Resume file: None

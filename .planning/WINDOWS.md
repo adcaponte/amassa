@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 10
+open_count: 12
 waived_count: 0
 fixed_count: 6
-total_count: 16
-last_updated: 2026-08-11T00:10:19.316Z
+total_count: 18
+last_updated: 2026-08-11T01:30:31.078Z
 ---
 
 # Broken Windows Ledger
@@ -31,6 +31,8 @@ last_updated: 2026-08-11T00:10:19.316Z
 | 14 | 03-gestor-de-encomendas | deviation | docker/compose.yml |  | O compose.yml do servidor e copiado por scp no Roteiro 1 e nenhum roteiro posterior nem o pipeline o atualizam depois disso — ele pode divergir do docker/compose.yml versionado no repositorio. Descoberto na execucao do roteiro 04: DATABASE_URL_MIGRACAO entrou no compose.yml no commit e593e83 (plano 02a-02, depois da copia inicial), entao o servico ferramentas do servidor ainda lia DATABASE_URL (que aponta para amassa_app, sem privilegio de DDL) e a migracao falhou com 'permission denied for database amassa' (42501) ate o dono copiar o compose.yml atual para o servidor a mao. Nenhum roteiro de docs/operacao/ inclui um passo de 'sincronize o compose.yml antes de migrar' — candidato a um passo novo numa fase de polimento. | fixed |  | 2026-08-10T19:55:19.982Z | 2026-08-10T20:08:36.522Z |
 | 15 | 04 | unrun-verify | components/amassa/queimas/medidor.tsx |  | Posição visual em pixels dos entalhes/marca do limiar não medida por teste automatizado — verificação humana pendente para 04-07 | open |  | 2026-08-11T00:10:18.811Z |  |
 | 16 | 04 | unrun-verify | app/(app)/queimas/error.tsx |  | error.tsx não foi exercitado por um erro real forçado em teste e2e — verificação funcional pendente para 04-07 | open |  | 2026-08-11T00:10:19.316Z |  |
+| 17 | 04 | unrun-verify | app/(app)/page.tsx |  | Ramo de erro de fornosQuePrecisamDeAtencao() no painel inicial (EstadoErro dentro do CartaoPainel) so provado por revisao de codigo, sem teste e2e forcando falha real | open |  | 2026-08-11T01:30:30.547Z |  |
+| 18 | 04 | unrun-verify | components/amassa/queimas/banner-atencao.tsx |  | E5 long-text (UI-SPEC backstop): altura previsivel do banner com 3 fornos de nomes de 80 caracteres + 'e mais 2' em viewport de celular estreito, nunca checada visualmente | open |  | 2026-08-11T01:30:31.078Z |  |
 
 ````json
 [
@@ -224,6 +226,30 @@ last_updated: 2026-08-11T00:10:19.316Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-11T00:10:19.316Z",
+    "resolved_at": null
+  },
+  {
+    "id": 17,
+    "kind": "unrun-verify",
+    "phase": "04",
+    "file": "app/(app)/page.tsx",
+    "line": null,
+    "description": "Ramo de erro de fornosQuePrecisamDeAtencao() no painel inicial (EstadoErro dentro do CartaoPainel) so provado por revisao de codigo, sem teste e2e forcando falha real",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T01:30:30.547Z",
+    "resolved_at": null
+  },
+  {
+    "id": 18,
+    "kind": "unrun-verify",
+    "phase": "04",
+    "file": "components/amassa/queimas/banner-atencao.tsx",
+    "line": null,
+    "description": "E5 long-text (UI-SPEC backstop): altura previsivel do banner com 3 fornos de nomes de 80 caracteres + 'e mais 2' em viewport de celular estreito, nunca checada visualmente",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T01:30:31.078Z",
     "resolved_at": null
   }
 ]
