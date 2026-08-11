@@ -67,3 +67,45 @@ export const esquemaQueima = z.object({
 });
 
 export type EntradaDeQueima = z.infer<typeof esquemaQueima>;
+
+// D-02: editar nome/descrição/limite acontece na página do próprio forno — mesma regra do
+// servidor de `esquemaForno` (nunca uma segunda cópia), só acrescentando o `id` do forno alvo.
+// Mesmo molde de `esquemaAtualizacaoDeEncomenda` (`lib/encomendas/acoes.ts`).
+export const esquemaAtualizacaoDeForno = esquemaForno.extend({ id: esquemaId });
+
+export type EntradaDeAtualizacaoDeForno = z.infer<typeof esquemaAtualizacaoDeForno>;
+
+// FOR-07: a manutenção zera o contador SEM apagar nada. `responsavel`/`observacoes` são os
+// únicos dois campos aceitos do cliente — os dois opcionais, nenhum obrigatório além do
+// `fornoId` (D-04-adjacent: nada de campo extra num fluxo que já é raro por natureza).
+// **`queimasAcumuladas` DELIBERADAMENTE não entra neste esquema**: é derivado no servidor, a
+// partir da contagem real dentro da mesma transação que grava a linha — um N vindo do
+// navegador corromperia o histórico de desgaste do forno (T-04-15). Ausente, vazio ou só com
+// espaços viram `null` nos dois campos, mesma normalização de `encomendas.clienteNome`.
+export const esquemaManutencao = z.object({
+  fornoId: esquemaId,
+  responsavel: z
+    .string()
+    .optional()
+    .transform((valor) => {
+      const normalizado = (valor ?? "").normalize("NFC").trim();
+      return normalizado === "" ? null : normalizado;
+    })
+    .refine(
+      (valor) => valor === null || contarPontosDeCodigo(valor) <= 120,
+      "Responsável muito longo — no máximo 120 caracteres.",
+    ),
+  observacoes: z
+    .string()
+    .optional()
+    .transform((valor) => {
+      const normalizado = (valor ?? "").normalize("NFC").trim();
+      return normalizado === "" ? null : normalizado;
+    })
+    .refine(
+      (valor) => valor === null || contarPontosDeCodigo(valor) <= 500,
+      "Observações muito longas — no máximo 500 caracteres.",
+    ),
+});
+
+export type EntradaDeManutencao = z.infer<typeof esquemaManutencao>;

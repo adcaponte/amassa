@@ -116,6 +116,41 @@ export const FRASE_FALHA_AO_EXCLUIR = "Não deu para excluir. Verifique a intern
 // nunca formata data por conta própria.
 export const FRASE_SEM_MANUTENCAO = "Sem manutenção registrada";
 
+// Registrar manutenção (E7, FOR-07) — só existe na página do forno (D-03), nunca no cartão do
+// índice. `fraseDoContadorZerando` é uma função (não uma constante `FRASE_*`) porque interpola o
+// N do contador — mesma disciplina de `corpoExcluirQueima`/`fraseDoRodape` acima: nenhuma frase
+// que carrega um valor vira uma constante solta com placeholder manual.
+export const ROTULO_REGISTRAR_MANUTENCAO = "Registrar manutenção";
+export const ROTULO_RESPONSAVEL = "Responsável";
+export const ROTULO_OBSERVACOES = "Observações";
+
+// Literal de `04-DESIGN-SYSTEM.md` §8 e do Copywriting Contract do UI-SPEC — "O contador vai de
+// {N} para 0.", nunca reescrita.
+export function fraseDoContadorZerando(contador: number): string {
+  return `O contador vai de ${contador} para 0.`;
+}
+
+// Ciclo desativar/reativar (D-05, D-06, FOR-11) — os dois rótulos de botão, nunca os dois ao
+// mesmo tempo no menu "Mais ações" (`acoes-forno.tsx` decide qual mostrar por `forno.ativo`).
+// Reversível, não é exclusão: sem estilo destrutivo (04-UI-SPEC.md Copywriting Contract).
+export const ROTULO_DESATIVAR_FORNO = "Desativar forno";
+export const ROTULO_REATIVAR_FORNO = "Reativar forno";
+
+// Corpo da confirmação leve de "Desativar forno" — nomeia o que muda (some da lista principal) e
+// o que NÃO muda (histórico intacto, dá para reativar). Função (não constante), mesma disciplina
+// de `fraseDoContadorZerando`/`corpoExcluirQueima`: interpola o nome do forno.
+export function fraseDesativarForno(nomeDoForno: string): string {
+  return `O Forno «${nomeDoForno}» some da lista principal, mas o histórico continua intacto. Reative quando quiser.`;
+}
+
+// `aria-label` do menu "⋮ Mais ações" (04-UI-SPEC.md §"Icon-only controls" — literal exato,
+// interpola o nome do forno). Função pela mesma razão das duas acima.
+export function rotuloMaisAcoes(nomeDoForno: string): string {
+  return `Mais ações do forno ${nomeDoForno}`;
+}
+
+export const ROTULO_SALVAR = "Salvar";
+
 export function fraseDoRodape({
   data,
   responsavel,
