@@ -96,6 +96,18 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     await page.getByTestId("confirmar-registrar-manutencao").click();
 
     await expect(page.getByText("Manutenção registrada.")).toBeVisible({ timeout: 5000 });
+
+    // Achado em CI (flaky, resolvia na retentativa): depois da PRIMEIRA manutenção, o contador
+    // vai de "3 / 50" para "0 / 50" — uma mudança de TEXTO de verdade que o `toContainText`
+    // abaixo consegue esperar de forma confiável (`router.refresh()` só faz o teste seguir
+    // depois que o valor muda). Depois da SEGUNDA, o contador continua em "0 / 50" — o MESMO
+    // texto de antes — então checar "0 / 50" de novo não prova que o segundo `router.refresh()`
+    // chegou; sob carga alta (CI, dois workers), o teste seguia para o count de `li` antes da
+    // segunda atualização de fato aparecer no DOM, e o polling de 10s do `toHaveCount` não
+    // sempre alcançava. `page.reload()` força uma busca nova de verdade dos Server Components,
+    // eliminando a corrida em vez de alargar o timeout.
+    await page.reload();
+
     await expect(page.getByTestId("medidor-contador")).toContainText("0 / 50", { timeout: 10000 });
     await expect(page.getByTestId("lista-historico-manutencoes").locator("li")).toHaveCount(2, {
       timeout: 10000,

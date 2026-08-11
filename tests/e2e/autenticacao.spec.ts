@@ -20,6 +20,18 @@ import { MENSAGEM_CREDENCIAIS_INVALIDAS } from "@/lib/auth/credenciais";
 // (desktop/celular) para não colidir entre os dois projetos. Reaproveitar um e-mail de outra
 // spec, ou entre os dois projetos, quebraria um teste vizinho três semanas depois, sem
 // explicação.
+//
+// O sufixo também leva `testInfo.retry`: sem ele, uma retentativa deste teste reaproveitaria o
+// MESMO e-mail da tentativa anterior, que já tinha gasto as cinco tentativas erradas — a
+// retentativa cairia direto no bloqueio já na primeira volta do laço, falhando a asserção da
+// "quinta tentativa ainda mostra credencial inválida" de forma instantânea (não é o teste
+// "passando na retentativa por sorte", é o teste se autodestruindo: `retries` garante a falha
+// em vez de resgatar o caso). Achado em CI (run #45, commit 3cf0fe9): a primeira tentativa
+// estourou o timeout sob a carga da suíte já dobrada pela Fase 4, e as duas retentativas
+// falharam em ~6s cada, exatamente o tempo de UMA chamada ao servidor — a marca de um contador
+// já esgotado, não de uma trava real. Com `testInfo.retry` no e-mail, cada tentativa parte de
+// um contador zerado e exercita o comportamento real (cinco erradas, depois bloqueio) mesmo
+// quando o Playwright a retenta.
 test.describe("autenticação — mensagem única e limite de tentativas", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -74,14 +86,18 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
   }, testInfo) => {
     // Seis idas e voltas reais, cada uma com uma conferência de hash argon2id de verdade
     // (T-02a-14 — o hash é sempre conferido, mesmo sem usuário). Argon2 é lento de propósito;
-    // sob a carga cheia da suíte (os dois projetos × as quatro specs rodando ao mesmo tempo
+    // sob a carga cheia da suíte (os dois projetos × TODAS as specs rodando ao mesmo tempo
     // contra o mesmo servidor), essas seis conferências podem ultrapassar o timeout padrão de
     // 30s só por contenção de CPU — não é uma trava real, é o custo (deliberado) do algoritmo.
-    testInfo.setTimeout(60_000);
+    // 60s já não bastou em CI depois que a Fase 4 dobrou o tamanho da suíte (run #45, commit
+    // 3cf0fe9: a primeira tentativa levou 1.0min sob 2 workers) — 120s dá folga real sem chegar
+    // no teto global de 180s (`playwright.config.ts`, `webServer.timeout`/teste padrão).
+    testInfo.setTimeout(120_000);
 
-    // E-mail fictício, nunca cadastrado, exclusivo deste teste e deste projeto (ver
-    // comentário no topo do arquivo).
-    const emailBloqueio = `bloqueio.teste.${testInfo.project.name}@exemplo.test`;
+    // E-mail fictício, nunca cadastrado, exclusivo deste teste, deste projeto e desta
+    // RETENTATIVA (ver comentário no topo do arquivo — sem `testInfo.retry`, uma retentativa
+    // reaproveitaria um contador já esgotado pela tentativa anterior).
+    const emailBloqueio = `bloqueio.teste.${testInfo.project.name}.${testInfo.retry}@exemplo.test`;
 
     await page.goto("/login");
 
