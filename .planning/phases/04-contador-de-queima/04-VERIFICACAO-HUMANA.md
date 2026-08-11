@@ -1,7 +1,12 @@
 # Verificação Humana — Fase 4: Contador de Queima
 
 **Gerado por:** execução do plano `04-07-PLAN.md`, Tarefa 3.
-**Status:** Migração já aplicada em produção (Tarefa 2, ver rodapé "Migração — evidência"). Este
+**Status:** 22 de 26 itens fechados pela transferência de evidência do UAT da Fase 4 (04-UAT.md,
+18 testes, 17 pass / 1 issue já corrigido) em 2026-08-11. **4 continuam abertos** e precisam do dono:
+o "Desfazer" de 7 segundos (nunca exercitado), as transições de selo atenção/crítico, o caminho feliz
+do cartão do painel inicial, e a sequência 0 → 1 → poucas na lista de queimas. Cada item marcado diz
+qual teste do UAT o cobriu e o que foi observado — nada foi marcado sem prova. Migração já aplicada em
+produção (Tarefa 2, ver rodapé "Migração — evidência").
 documento ainda **não foi percorrido** — todo item abaixo começa **sem marcar**. Nenhuma linha foi
 observada por um ser humano até agora; nada aqui foi presumido como aprovado.
 
@@ -38,7 +43,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   campo para preencher.
 - **O que conta como aprovado:** dois toques, menos de 5 segundos, nenhum indicador de
   carregamento entre os dois toques (ver também Backstop A, mais detalhado, na Seção B).
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 18** do UAT (e **teste 2**): dois toques, seletor abrindo na hora, do primeiro toque ao toast visivelmente abaixo de 5s, repetido. 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### 2. O aviso com "Desfazer", por 7 segundos, remove a queima registrada por engano
 
@@ -48,7 +53,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
 - **O que conta como aprovado:** a queima some de verdade (sobrevive a um recarregamento), o
   contador volta exato, e o "Desfazer" fica disponível por cerca de 7 segundos — mais que o padrão
   de 5s do resto do sistema.
-- [ ] **Resultado:** _____________________________________________
+- [ ] **Resultado:** **EM ABERTO.** Nenhum teste do UAT exercitou o "Desfazer". Falta: registrar uma queima, tocar Desfazer dentro dos 7s, conferir o contador voltando e RECARREGAR para provar que sumiu do banco, não só da tela.
 
 ### 3. Os três tipos aparecem: biscoito, esmalte e ouro
 
@@ -58,7 +63,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
 - **O que conta como aprovado:** os três tipos sempre aparecem, na ordem Biscoito · Esmalte ·
   Ouro, e uma queima de ouro se comporta exatamente como as outras (conta no contador, aparece no
   histórico, pode ser desfeita/excluída).
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 2** do UAT: os três tipos na ordem Biscoito · Esmalte · Ouro, com uma queima de **ouro** registrada de fato e o contador subindo. 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### 4. Chegando a 90 de 100 o cartão fica em atenção; em 100, crítico
 
@@ -69,7 +74,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   cada 10% do limite (entalhes), não ser uma barra lisa.
 - **O que conta como aprovado:** os dois selos aparecem nos pontos certos, o ícone de alerta só
   aparece no crítico, e o medidor tem entalhes visíveis — não uma barra de progresso genérica.
-- [ ] **Resultado:** _____________________________________________
+- [ ] **Resultado:** **PARCIAL.** O medidor foi verificado no **teste 4** (Forno 01 a 88/100: entalhes a cada 10, marca no limiar, rótulos 0 / atenção 90 / limite 100 — não é barra lisa). Falta observar as TRANSIÇÕES de selo: "Manutenção próxima" ao cruzar o limiar e "Manutenção vencida" com ícone ao bater o limite. O e2e cobre as fronteiras (89/90/91, 99/100/101); o que falta é o olho humano nos dois selos.
 
 ### 5. O banner no topo lista os fornos que precisam de atenção, com o contador de cada um
 
@@ -78,7 +83,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   cada um.
 - **O que conta como aprovado:** o banner aparece quando há forno em atenção/crítico, some quando
   não há nenhum, e o texto bate com o que você registrou.
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 14** do UAT: 5 fornos em atenção a 95/100, banner nomeando os 3 primeiros com contador/limite de cada, mais "· e mais 2". 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### 6. Registrar manutenção mostra "o contador vai de N para 0", aceita responsável e observações opcionais, e zera sem apagar o histórico
 
@@ -89,7 +94,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   mudou.
 - **O que conta como aprovado:** a frase está certa, o envio vazio funciona, o contador zera, e
   nenhuma queima do histórico desaparece.
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 9** do UAT: frase literal "O contador vai de 89 para 0.", os dois campos aceitos em branco, contador zerado e **total na vida preservado em 89** — nenhuma queima apagada. Segunda manutenção lendo "de 0 para 0". 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### 7. O cartão mostra quantas queimas o forno já fez na vida, além do contador desde a última manutenção
 
@@ -98,7 +103,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   "Sem manutenção registrada") seguida de "· {total} no total".
 - **O que conta como aprovado:** as duas contagens aparecem juntas e são números diferentes quando
   fizer sentido (contador desde a manutenção ≠ total na vida).
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 9** do UAT: os dois números distintos no mesmo cartão, confirmados no banco antes e depois da manutenção (89 na vida, contador zerado). 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### 8. Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
 
@@ -109,7 +114,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   primeira coluna de cada semana corresponde a uma segunda-feira.
 - **O que conta como aprovado:** a soma bate com a contagem manual, o alternador não mexe nas
   quatro estatísticas, e a semana visivelmente começa na segunda-feira.
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 15** do UAT: 575 queimas em 8 fornos, alternador Semana/Mês, semana começando na segunda, gráficos rolando dentro do próprio contêiner. 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### 9. Um forno em atenção ou crítico aparece no painel inicial
 
@@ -118,7 +123,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
 - **O que conta como aprovado:** o forno aparece com o contador certo e um link "Ver fornos" que
   leva para `/queimas`. Se você reativar/zerar todos os fornos em atenção, o cartão inteiro some do
   painel (não fica vazio na tela).
-- [ ] **Resultado:** _____________________________________________
+- [ ] **Resultado:** **PARCIAL.** O RAMO DE ERRO do cartão foi verificado no **teste 13** (com a tabela fornos renomeada, o cartão mostrou EstadoErro e os outros cartões do painel continuaram de pé). Falta o caminho feliz: com forno em atenção, conferir o cartão listando o forno com o contador certo e o link "Ver fornos" — e conferir que o cartão SOME quando nenhum forno precisa de atenção.
 
 ---
 
@@ -139,7 +144,7 @@ teste automatizado os cobre por desenho. **Nenhum dos três pode ser dado por bo
 - **O que conta como aprovado:** nenhum indicador de carregamento visível em nenhuma das
   repetições, e o fluxo inteiro (do primeiro toque ao toast) fica visivelmente abaixo de 5
   segundos.
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 18** do UAT: a 375px, seletor abrindo na hora, sem spinner/esqueleto/piscada entre os toques, repetido. Do primeiro toque ao toast, abaixo de 5s. 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### Backstop B — E5 `long-text`: altura do banner no pior caso realista
 
@@ -153,7 +158,7 @@ teste automatizado os cobre por desenho. **Nenhum dos três pode ser dado por bo
 - **O que conta como aprovado:** o banner mostra os 3 primeiros nomes truncados de forma legível
   mais "· e mais 2", sem estourar a altura prevista nem empurrar o primeiro cartão de forno para
   fora da tela inicial (scroll mínimo até ver o primeiro cartão).
-- [ ] **Resultado:** _____________________________________________
+- [x] **Resultado:** Coberto pelo **teste 14** do UAT: 5 fornos em atenção, três com nomes de exatos 80 caracteres, a 375px. Banner com os 3 primeiros mais "· e mais 2", altura previsível, cartões acima da dobra. 2026-08-11, sessão de UAT com o dono (04-UAT.md)
 
 ### Backstop C — E6 `zero-one-many`: a lista de queimas na página do forno (FOR-09)
 
@@ -165,7 +170,7 @@ teste automatizado os cobre por desenho. **Nenhum dos três pode ser dado por bo
   lista cresce normalmente, mais recente primeiro, sem linha em branco no fim nem no início.
 - **O que conta como aprovado:** os três estados (0, 1, poucas) renderizam limpos, sem espaço
   vazio reservado para linhas que não existem.
-- [ ] **Resultado:** _____________________________________________
+- [ ] **Resultado:** **PARCIAL.** O caso de instante idêntico e a exclusão entre irmãs foram cobertos (**testes 6 e 8**), e o estado 0 existe hoje nos fornos Ada/teste. Falta percorrer a sequência explícita 0 → 1 → poucas (5 ou 6) numa mesma página de forno, conferindo que não há linha fantasma no fim nem no início.
 
 ---
 
@@ -175,83 +180,111 @@ Cada linha abaixo veio de um item `human_judgment: true` num `SUMMARY.md` da fas
 entrada aberta em `WINDOWS.md`. Nenhum foi verificado visualmente até agora — o código foi
 revisado e os testes automatizados que existiam passaram, mas ninguém olhou a tela.
 
-- [ ] **Posição visual do medidor** (`WINDOWS.md` id 15, de `04-02`). Abra um forno com algumas
+- [x] ✅ **Posição visual do medidor** — coberto pelo **teste 4** do UAT — Forno 01 a 88/100: entalhes a cada 10, marca no limiar, rótulos legíveis. Lê como instrumento de desgaste. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Posição visual do medidor** (`WINDOWS.md` id 15, de `04-02`). Abra um forno com algumas
   queimas registradas e olhe o medidor de perto: os entalhes (marcas a cada 10% do limite) e a
   marca vertical do limiar de atenção precisam estar em posições que "leem" como um instrumento de
   desgaste — não uma barra lisa disfarçada, nem marcas na posição errada.
   **Resultado:** _____________________________________________
 
-- [ ] **`error.tsx` de `/queimas` disparando de verdade** (`WINDOWS.md` id 16, de `04-02`). Difícil
+- [x] ✅ **`error.tsx` de `/queimas` disparando de verdade** — coberto pelo **teste 5 (segunda metade)** do UAT — provado com método cirúrgico: renomear só a tabela `fornos`, deixando `usuarios` legível, para a falha atingir a página e não o layout. Apareceu "Algo não funcionou.". (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **`error.tsx` de `/queimas` disparando de verdade** (`WINDOWS.md` id 16, de `04-02`). Difícil
   de forçar sozinho (exige que o servidor falhe de propósito); se você souber como simular uma
   queda momentânea de rede ou parar o servidor de teste no meio de um carregamento, confira que a
   tela mostra "Algo não funcionou." em vez de travar em branco ou mostrar erro técnico. Se não
   conseguir forçar, deixe em aberto — não é crítico para o uso diário.
   **Resultado:** _____________________________________________
 
-- [ ] **Ramo de erro do cartão "Fornos em atenção" no painel inicial** (`WINDOWS.md` id 17, de
+- [x] ✅ **Ramo de erro do cartão "Fornos em atenção" no painel inicial** — coberto pelo **teste 13** do UAT — mesma renomeação de tabela: o cartão mostrou o estado de erro e os outros cartões do painel continuaram de pé. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Ramo de erro do cartão "Fornos em atenção" no painel inicial** (`WINDOWS.md` id 17, de
   `04-05`). Mesma dificuldade do item anterior — exige forçar uma falha real na consulta. Se
   conseguir, confirme que só o cartão de Fornos mostra erro (os outros três cartões do painel
   continuam de pé). Se não conseguir forçar, deixe em aberto.
   **Resultado:** _____________________________________________
 
-- [ ] **D-08 — estado vazio de `/queimas/relatorios`** (`WINDOWS.md` id 19, de `04-06`). Precisa de
+- [x] ✅ **D-08 — estado vazio de `/queimas/relatorios`** — coberto pelo **teste 16** do UAT — banco zerado de queimas: "Nenhuma queima registrada ainda." com o botão "Ver fornos", no lugar dos gráficos, e o item Relatórios seguindo visível no seletor. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **D-08 — estado vazio de `/queimas/relatorios`** (`WINDOWS.md` id 19, de `04-06`). Precisa de
   um ateliê **sem nenhuma queima registrada** — mais fácil de testar logo depois de um `npm run
   db:migrate` limpo, ou peça para eu simular num banco separado. Se não for prático agora, deixe
   em aberto: o mecanismo foi revisado em código, só falta o olho humano confirmando a tela.
   **Resultado:** _____________________________________________
 
-- [ ] **D-07 — ordem das estatísticas antes dos gráficos no celular** (`WINDOWS.md` id 20, de
+- [x] ✅ **D-07 — ordem das estatísticas antes dos gráficos no celular** — coberto pelo **teste 15** do UAT — a 375px: as quatro estatísticas empilhadas primeiro, gráficos abaixo, cada um rolando dentro do próprio contêiner, mesmos dados do desktop. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **D-07 — ordem das estatísticas antes dos gráficos no celular** (`WINDOWS.md` id 20, de
   `04-06`). Em `/queimas/relatorios` no celular, confirme que as 4 estatísticas (total, últimos 30
   dias, biscoito, esmalte) aparecem **antes** dos gráficos, empilhadas e legíveis sem rolar para o
   lado. Compare com o desktop: os dois tamanhos de tela devem mostrar o **mesmo recorte de dados**
   (8 semanas / 6 meses) — nada reduzido no celular.
   **Resultado:** _____________________________________________
 
-- [ ] **Tipo "ouro" nunca exercitado ponta a ponta** (de `04-01`, não escalado ao `WINDOWS.md`). Já
+- [x] ✅ **Tipo "ouro" nunca exercitado ponta a ponta** — coberto pelo **teste 2** do UAT — queima de ouro registrada de fato, contador subindo. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Tipo "ouro" nunca exercitado ponta a ponta** (de `04-01`, não escalado ao `WINDOWS.md`). Já
   coberto pelo item 3 da Seção A — se você já marcou aquele, pode repetir o resultado aqui.
   **Resultado:** _____________________________________________
 
-- [ ] **Nome do autor mostrado no histórico bate com quem registrou** (de `04-01`). No histórico de
+- [x] ✅ **Nome do autor mostrado no histórico bate com quem registrou** — coberto pelo **teste 3** do UAT — o nome do usuário logado aparece como quem lançou, e nenhum campo de autor no fluxo de dois toques. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Nome do autor mostrado no histórico bate com quem registrou** (de `04-01`). No histórico de
   queimas de um forno, confira que a queima que você acabou de registrar mostra o SEU nome (o da
   conta com que você entrou), não um valor genérico nem vazio.
   **Resultado:** _____________________________________________
 
-- [ ] **Duas queimas no mesmo instante — desempate na lista** (de `04-03`, difícil de reproduzir
+- [x] ✅ **Duas queimas no mesmo instante — desempate na lista** — coberto pelo **teste 6** do UAT — duas gêmeas semeadas com `ocorrida_em` idêntico: aparecem como duas linhas, sem fundir, em ordem estável entre recargas. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Duas queimas no mesmo instante — desempate na lista** (de `04-03`, difícil de reproduzir
   sozinho — exigiria dois toques simultâneos de verdade). Se quiser tentar: peça para outra pessoa
   registrar uma queima no mesmo forno ao mesmo tempo que você. As duas devem aparecer na lista, sem
   se fundir numa só. Se não for prático, deixe em aberto — o código já garante isso por
   construção (ordenação por data e depois por id).
   **Resultado:** _____________________________________________
 
-- [ ] **Um endereço de forno que não existe mostra 404** (de `04-03`). Troque o final do endereço
+- [x] ✅ **Um endereço de forno que não existe mostra 404** — coberto pelo **teste 7** do UAT — `/queimas/00000000-0000-4000-8000-000000000000` caiu na tela de não encontrado do sistema. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Um endereço de forno que não existe mostra 404** (de `04-03`). Troque o final do endereço
   de um forno de verdade por algo inventado (ex.: `/queimas/00000000-0000-0000-0000-000000000000`)
   e confirme que aparece a tela de "não encontrado", não uma tela em branco ou travada.
   **Resultado:** _____________________________________________
 
-- [ ] **Duas exclusões da mesma queima ao mesmo tempo** (de `04-03`, backstop de concorrência).
+- [x] ✅ **Duas exclusões da mesma queima ao mesmo tempo** — coberto pelo **teste 8** do UAT — duas abas: a primeira exclusão removeu exatamente a confirmada (a irmã ficou), a segunda devolveu "Essa queima não existe mais.". (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Duas exclusões da mesma queima ao mesmo tempo** (de `04-03`, backstop de concorrência).
   Difícil de reproduzir sozinho. Se tiver como abrir a mesma página em duas abas e clicar em
   "Excluir" na mesma queima quase ao mesmo tempo nas duas, uma deve funcionar e a outra mostrar uma
   mensagem de "essa queima não existe mais" — nunca um erro travado. Se não for prático, deixe em
   aberto.
   **Resultado:** _____________________________________________
 
-- [ ] **Clique duplo no botão de confirmar manutenção** (de `04-04`). Ao abrir "Registrar
+- [x] ✅ **Clique duplo no botão de confirmar manutenção** — coberto pelo **teste 9** do UAT — botão desabilitado durante a gravação; duplo-toque não registrou duas manutenções. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Clique duplo no botão de confirmar manutenção** (de `04-04`). Ao abrir "Registrar
   manutenção", clique duas vezes bem rápido no botão de confirmar. Deve registrar **uma** vez só
   (o botão fica desabilitado durante o envio), não duas manutenções.
   **Resultado:** _____________________________________________
 
-- [ ] **Editar um forno (nome, descrição, limite) de ponta a ponta** (de `04-04`, nunca testado
+- [x] ✅ **Editar um forno (nome, descrição, limite) de ponta a ponta** — coberto pelo **teste 10** do UAT — menu ⋮ → Editar forno, campos preenchidos, alteração refletida no índice. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Editar um forno (nome, descrição, limite) de ponta a ponta** (de `04-04`, nunca testado
   automaticamente). Pelo menu "⋮ Mais ações" na página de um forno, escolha "Editar forno", mude o
   nome ou a descrição, salve, e confirme que a mudança aparece na tela sem precisar recarregar.
   **Resultado:** _____________________________________________
 
-- [ ] **Contraste do cartão esmaecido (forno desativado)** (de `04-04`). Compare visualmente um
+- [x] ✅ **Contraste do cartão esmaecido (forno desativado)** — coberto pelo **teste 11** do UAT — forno desativado esmaecido sob o filtro Desativados/Todos, sem o botão Queimar, ainda legível, e a página dele abrindo com o histórico. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Contraste do cartão esmaecido (forno desativado)** (de `04-04`). Compare visualmente um
   forno ativo e um desativado lado a lado (filtro "Todos" em `/queimas`). O desativado deve estar
   visivelmente mais claro/esmaecido, mas o texto ainda precisa ser legível sem esforço, inclusive
   sob luz forte se possível testar fora ou perto de uma janela.
   **Resultado:** _____________________________________________
 
-- [ ] **Desativar um forno já desativado (ou reativar um já ativo)** (de `04-04`, backstop de
+- [x] ✅ **Desativar um forno já desativado (ou reativar um já ativo)** — coberto pelo **teste 12** do UAT — duas abas: a transição já feita devolveu mensagem em português, não sucesso mudo. (2026-08-11, sessão de UAT com o dono (04-UAT.md))
+  <!-- descrição original preservada abaixo -->
+  **Desativar um forno já desativado (ou reativar um já ativo)** (de `04-04`, backstop de
   transição inválida). Difícil de disparar pela interface normal (o menu já esconde a opção
   errada), mas se você conseguir clicar duas vezes rápido em "Desativar forno" antes da tela
   atualizar, confirme que não aparece nenhum erro travado nem um segundo aviso de sucesso
