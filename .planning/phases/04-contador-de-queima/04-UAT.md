@@ -3,17 +3,17 @@ status: testing
 phase: 04-contador-de-queima
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md, 04-07-SUMMARY.md]
 started: 2026-08-11T19:04:32Z
-updated: 2026-08-11T19:50:00Z
+updated: 2026-08-11T20:06:00Z
 ---
 
 ## Current Test
 
-number: 7
-name: Forno inexistente
+number: 10
+name: Editar forno
 expected: |
-  Abrir /queimas/00000000-0000-4000-8000-000000000000 mostra a tela de "não
-  encontrado" do sistema, na voz do projeto — não uma tela em branco, nem uma
-  exceção crua, nem um cartão vazio.
+  Na página do forno, menu ⋮ Mais ações → Editar forno abre o formulário com nome,
+  descrição e limite já preenchidos. Alterar e salvar reflete no índice. Não existe
+  tela de cadastro separada — a edição acontece na página do próprio forno (D-02).
 awaiting: user response
 
 ## Tests
@@ -52,17 +52,17 @@ coverage_id: 04-03/D2
 
 ### 7. Forno inexistente
 expected: Abrir /queimas/<um-uuid-qualquer-inventado> mostra a tela de "não encontrado" do sistema, não uma tela em branco nem um erro cru.
-result: [pending]
+result: pass
 coverage_id: 04-03/D4
 
 ### 8. Excluir queima entre irmãs e exclusão repetida
 expected: Com duas queimas do mesmo instante, excluir uma remove exatamente a confirmada, nunca a irmã. Excluir a mesma queima de novo (duas abas) devolve "Essa queima não existe mais.", não um erro cru.
-result: [pending]
+result: pass
 coverage_id: 04-03/D5
 
 ### 9. Manutenção duas vezes seguidas
 expected: Registrar manutenção zera o contador. Registrar de novo mostra "O contador vai de 0 para 0.", grava uma segunda linha no histórico, e o histórico de queimas não muda. O botão de confirmar fica desabilitado enquanto grava — duplo-toque não registra duas.
-result: [pending]
+result: pass
 coverage_id: 04-04/D4
 
 ### 10. Editar forno
@@ -108,9 +108,9 @@ coverage_id: 04-07/D4
 ## Summary
 
 total: 17
-passed: 5
+passed: 8
 issues: 1
-pending: 11
+pending: 8
 skipped: 0
 blocked: 0
 
