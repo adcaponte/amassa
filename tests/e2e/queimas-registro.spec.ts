@@ -29,12 +29,12 @@ function cartaoDoForno(page: Page, nome: string) {
 }
 
 test.describe("registro de queima em dois toques", () => {
-  // `retries: 2` mesmo fora do CI: o servidor Next é ÚNICO, compartilhado por todos os
-  // workers/projetos da suíte — sob carga alta local (ex.: `queimas-cartao.spec.ts` rodando em
-  // paralelo, dez registros seguidos), uma tentativa pode esbarrar em lentidão transitória do
-  // servidor compartilhado sem que o comportamento em si esteja errado (achado real desta
-  // tarefa, ver 04-02-SUMMARY.md).
-  test.describe.configure({ mode: "serial", retries: 2 });
+  // `mode: "serial"` e NADA de `retries`: os dois testes deste describe compartilham o mesmo
+  // padrão de toast de 7 segundos e não devem correr um por cima do outro, mas a retentativa
+  // local que o plano 04-02 tinha posto aqui foi removida — fora do CI o padrão do projeto é
+  // `retries: 0` (`playwright.config.ts:30`), e a carga que a justificava saiu de
+  // `queimas-cartao.spec.ts`.
+  test.describe.configure({ mode: "serial" });
 
   test("dois toques — 'Queimar' e depois o tipo — registram a queima, o toast aparece em menos de 5s, e o contador sobrevive a um recarregamento", async ({
     page,
