@@ -10,6 +10,8 @@ import {
   fraseDoRodape,
 } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { AcoesForno } from "@/components/amassa/queimas/acoes-forno";
+import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { HistoricoManutencoes } from "@/components/amassa/queimas/historico-manutencoes";
 import { HistoricoQueimas } from "@/components/amassa/queimas/historico-queimas";
 import { Medidor } from "@/components/amassa/queimas/medidor";
@@ -55,7 +57,14 @@ export default async function PaginaDetalheDoForno({
 
   return (
     <>
-      <CabecalhoPagina titulo={forno.nome} />
+      <CabecalhoPagina titulo={forno.nome}>
+        <AcoesForno id={forno.id} nome={forno.nome} ativo={forno.ativo} />
+      </CabecalhoPagina>
+
+      {/* D-02: editar acontece nesta mesma página, aberto por `?editar` (AcoesForno) — nunca
+          numa tela de cadastro separada. Montado sempre, mesmo fechado, no molde de
+          `FormularioForno` em `/queimas` (achado do 03-06). */}
+      <FormularioForno fornoParaEditar={forno} />
 
       <div className="flex flex-col gap-8 px-6 py-6 md:px-8">
         <section aria-label="Medidor do forno" className="flex flex-col gap-3">

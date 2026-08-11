@@ -39,7 +39,15 @@ export function CartaoForno({ forno }: CartaoFornoProps) {
   });
 
   return (
-    <Card data-testid={`cartao-forno-${forno.id}`}>
+    <Card
+      data-testid={`cartao-forno-${forno.id}`}
+      // D-05: forno desativado aparece ESMAECIDO no índice — opacidade reduzida sobre o cartão
+      // inteiro (nome, selo, medidor, rodapé blindam junto contra a página de fundo, então o
+      // contraste RELATIVO entre o texto e o próprio cartão não muda; a base já folga bem acima
+      // do mínimo AA neste tema, ver `04-UI-SPEC.md` §Color), nunca escondido — a página do forno
+      // continua abrindo com todo o histórico (D-05).
+      className={forno.ativo ? undefined : "opacity-75"}
+    >
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
         <Link
           href={`/queimas/${forno.id}`}
@@ -78,7 +86,9 @@ export function CartaoForno({ forno }: CartaoFornoProps) {
           {rodape}
         </p>
 
-        <RegistrarQueima fornoId={forno.id} />
+        {/* D-05: um forno desativado não recebe queima — o cartão fica sem o botão. Nada mais
+            ocupa o lugar dele; a ação volta a existir quando o forno é reativado. */}
+        {forno.ativo && <RegistrarQueima fornoId={forno.id} />}
       </CardContent>
     </Card>
   );

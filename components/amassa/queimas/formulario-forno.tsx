@@ -7,8 +7,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { criarForno } from "@/lib/queimas/acoes";
+import { atualizarForno, criarForno } from "@/lib/queimas/acoes";
 import { esquemaForno } from "@/lib/queimas/esquemas";
+import { ROTULO_SALVAR } from "@/lib/queimas/textos";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -39,26 +40,56 @@ type ValoresDoFormulario = z.infer<typeof esquemaFormulario>;
 
 const VALORES_INICIAIS: ValoresDoFormulario = { nome: "", descricao: "", limite: 100 };
 
+// Subconjunto do forno que a edição precisa — nunca `FornoComHistorico` inteiro (a página do
+// forno já carregou tudo, mas o formulário só se importa com os três campos editáveis).
+export type FornoParaEditar = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  limite: number;
+};
+
+function valoresIniciais(fornoParaEditar: FornoParaEditar | null): ValoresDoFormulario {
+  if (fornoParaEditar) {
+    return {
+      nome: fornoParaEditar.nome,
+      descricao: fornoParaEditar.descricao ?? "",
+      limite: fornoParaEditar.limite,
+    };
+  }
+  return VALORES_INICIAIS;
+}
+
 // `components/ui/input.tsx` tem `md:text-sm` embutido (14px) — repetir `text-corpo` no
 // breakpoint `md` explicitamente é o que mantém o campo em 16px também no desktop (regra do
 // zoom do iOS, CLAUDE.md §Acessibilidade), mesma classe de `formulario-encomenda.tsx`.
 const CLASSE_DO_CAMPO = "text-corpo md:text-corpo min-h-[44px]";
 
-export function FormularioForno() {
+export type FormularioFornoProps = {
+  // `null`/ausente: formulário de criação, aberto por `?novo` em `/queimas` (D-02). Presente:
+  // edição do PRÓPRIO forno, aberto por `?editar` na página `/queimas/{id}` — D-02 quer dizer
+  // exatamente isto, "editar acontece na página do próprio forno", nunca numa tela de cadastro
+  // separada. Os dados vêm do Server Component (`buscarForno`, já carregado pela página) — nunca
+  // buscados de novo aqui.
+  fornoParaEditar?: FornoParaEditar | null;
+};
+
+export function FormularioForno({ fornoParaEditar = null }: FormularioFornoProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const aberto = searchParams.has("novo");
+  const modoEdicao = fornoParaEditar !== null;
+  const aberto = modoEdicao ? searchParams.has("editar") : searchParams.has("novo");
 
   const [erro, setErro] = useState<string | null>(null);
 
   const form = useForm<ValoresDoFormulario>({
     resolver: zodResolver(esquemaFormulario),
-    defaultValues: VALORES_INICIAIS,
+    defaultValues: valoresIniciais(fornoParaEditar),
   });
 
   useEffect(() => {
     if (aberto) {
-      form.reset(VALORES_INICIAIS);
+      form.reset(valoresIniciais(fornoParaEditar));
       setErro(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -66,17 +97,25 @@ export function FormularioForno() {
 
   function fechar() {
     setErro(null);
-    router.push("/queimas");
+    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/queimas");
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {
     setErro(null);
 
-    const resposta = await criarForno({
-      nome: valores.nome,
-      descricao: valores.descricao,
-      limite: valores.limite,
-    });
+    const resposta =
+      modoEdicao && fornoParaEditar
+        ? await atualizarForno({
+            id: fornoParaEditar.id,
+            nome: valores.nome,
+            descricao: valores.descricao,
+            limite: valores.limite,
+          })
+        : await criarForno({
+            nome: valores.nome,
+            descricao: valores.descricao,
+            limite: valores.limite,
+          });
 
     if (!resposta.ok) {
       // Banner inline, formulário continua aberto — nada do que foi digitado se perde.
@@ -84,18 +123,19 @@ export function FormularioForno() {
       return;
     }
 
-    toast.success("Forno cadastrado.");
-    router.push("/queimas");
+    toast.success(modoEdicao ? "Forno salvo." : "Forno cadastrado.");
+    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/queimas");
     router.refresh();
   }
 
   const { register, formState } = form;
+  const titulo = modoEdicao ? "Editar forno" : "Novo forno";
 
   return (
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && fechar()}>
       <DialogContent
         showCloseButton
-        aria-label="Novo forno"
+        aria-label={titulo}
         className={cn(
           // Celular (base, mobile-first): folha de baixo, tela toda.
           "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
@@ -104,7 +144,7 @@ export function FormularioForno() {
         )}
       >
         <DialogHeader className="border-border border-b px-6 py-4">
-          <DialogTitle className="text-display">Novo forno</DialogTitle>
+          <DialogTitle className="text-display">{titulo}</DialogTitle>
         </DialogHeader>
 
         <form
@@ -165,7 +205,7 @@ export function FormularioForno() {
                 aria-busy={formState.isSubmitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {formState.isSubmitting ? "Salvando…" : "Salvar"}
+                {formState.isSubmitting ? "Salvando…" : ROTULO_SALVAR}
               </button>
             </div>
           </div>
