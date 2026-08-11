@@ -43,10 +43,11 @@ dump completo, comprimido, gravado localmente e enviado para o Drive do ateliê.
 **O que você deve ver:** nenhuma saída — sucesso silencioso, o mesmo comportamento de sempre.
 Confira com `echo $?` se quiser ter certeza (`0` é sucesso).
 
-Confira que o dump é recente, pelo domínio público:
+Confira que o dump é recente, pelo domínio público — ainda na mesma sessão SSH, em `bash`
+(`curl.exe` é a forma do PowerShell, na sua máquina local; não existe no servidor Linux):
 
-```powershell
-curl.exe https://amassacerrado.com.br/api/health/backup
+```bash
+curl -s https://amassacerrado.com.br/api/health/backup
 ```
 
 **O que você deve ver:** um corpo com `"status":"ok"` e `"idadeEmHoras"` próximo de `0` — o
