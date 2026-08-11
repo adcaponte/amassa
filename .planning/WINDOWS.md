@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 16
 waived_count: 0
-fixed_count: 6
-total_count: 22
-last_updated: 2026-08-11T06:26:32.166Z
+fixed_count: 7
+total_count: 23
+last_updated: 2026-08-11T21:15:34.000Z
 ---
 
 # Broken Windows Ledger
@@ -37,7 +37,7 @@ last_updated: 2026-08-11T06:26:32.166Z
 | 20 | 04 | unrun-verify | components/amassa/queimas/relatorios-recharts.tsx |  | D-07: ordem visual das 4 estatísticas antes dos gráficos no celular e o 'mesmo recorte de dados' nos dois tamanhos de tela garantidos por código, nunca checados com screenshot | open |  | 2026-08-11T02:09:34.524Z |  |
 | 21 | 04 | deviation | tests/e2e/encomendas-detalhe.spec.ts | 657 | 'concluir uma encomenda cuja data já passou... mostra Concluída em ao atualizar' (celular) flaky sob a varredura completa (npm run test:e2e sem grep, CI run #45 e localmente): botão some / texto 'Concluída em' aparece via router.refresh() após concluirEncomenda, com toHaveCount/toContainText já polling 10s — passou na retentativa sem mudança de código, mesma classe de contenção de servidor Next único compartilhado já registrada em WINDOWS #12 (sessao.spec.ts). Arquivo da Fase 3, fora do escopo de arquivos do plano 04-07; não é um defeito óbvio e pequeno (diferente do achado real em queimas-manutencao.spec.ts, corrigido nesta mesma execução) — não modificado aqui. | open |  | 2026-08-11T06:04:00.822Z |  |
 | 22 | 04 | deviation | tests/e2e/encomendas-impressao.spec.ts | 155 | 'só rascunho e em_producao aparecem — concluída e cancelada nunca' (celular) falhou uma vez sob npm run test:e2e --workers=2 (concorrência representativa de CI): linha-impressao-{idConcluida} ainda visível em /encomendas/imprimir depois de o botão 'Marcar como concluída' já ter sumido na página de detalhe (confirmando status=concluida commitado) e um page.goto novo para a rota de impressão. Sinal real (não é o mesmo defeito de 'valor que não muda' já corrigido em queimas-manutencao.spec.ts nesta execução) — não reproduziu em runs anteriores nem depois; mesma classe de contenção de servidor Next único sob carga, ainda sem causa raiz pequena e óbvia. Arquivo da Fase 3, fora do escopo de arquivos do plano 04-07. | open |  | 2026-08-11T06:26:32.166Z |  |
-| 23 | 04 | deviation | app/(app)/layout.tsx | 15 | Falha em exigirUsuario() no layout de rota protegida cai na tela padrão do Next.js ("Application error: a server-side exception has occurred"), não num estado de erro em linguagem humana. No App Router, error.tsx NÃO captura erro do layout do PRÓPRIO segmento: app/(app)/error.tsx é irmão do layout que falha, e não existe app/error.tsx nem app/global-error.tsx acima dele. Atinge TODA rota autenticada (Encomendas, Agenda, Fornos, Estoque, Orçamentos), não só Fornos. Achado no UAT da Fase 4 (teste 5, gap G-04-5) derrubando o Postgres local. As fronteiras de PÁGINA estão provadas funcionando (teste 13, método cirúrgico: renomear só a tabela fornos). Defeito pré-existente — layout é da Fase 2b. Decisão do dono no fechamento do UAT: corrigir como tarefa própria, fora da Fase 4. | open |  | 2026-08-11T20:55:00.000Z |  |
+| 23 | 04 | deviation | app/(app)/layout.tsx | 15 | Falha em exigirUsuario() no layout de rota protegida cai na tela padrão do Next.js ("Application error: a server-side exception has occurred"), não num estado de erro em linguagem humana. No App Router, error.tsx NÃO captura erro do layout do PRÓPRIO segmento: app/(app)/error.tsx é irmão do layout que falha, e não existe app/error.tsx nem app/global-error.tsx acima dele. Atinge TODA rota autenticada (Encomendas, Agenda, Fornos, Estoque, Orçamentos), não só Fornos. Achado no UAT da Fase 4 (teste 5, gap G-04-5) derrubando o Postgres local. As fronteiras de PÁGINA estão provadas funcionando (teste 13, método cirúrgico: renomear só a tabela fornos). Defeito pré-existente — layout é da Fase 2b. Decisão do dono no fechamento do UAT: corrigir como tarefa própria, fora da Fase 4. Corrigido pelo quick task 260811-uiy: app/error.tsx (fronteira acima do layout de (app), corrigida e observada por revisão estrutural e execução de app/(app)/error.tsx) e app/global-error.tsx (último recurso, prova estrutural — não observável em next dev). Prova COMPORTAMENTAL com o Postgres local parado NÃO pôde ser executada de forma automatizada nesta sessão (E2E_EMAIL_TESTE/E2E_SENHA_TESTE não definidos em .env.local para login manual fora do pipeline de teste); escalada ao roteiro manual do dono, registrado em 260811-uiy-SUMMARY.md. | fixed |  | 2026-08-11T20:55:00.000Z | 2026-08-11T21:15:34.000Z |
 
 ````json
 [
@@ -304,6 +304,18 @@ last_updated: 2026-08-11T06:26:32.166Z
     "reason": "",
     "recorded_at": "2026-08-11T06:26:32.166Z",
     "resolved_at": null
+  },
+  {
+    "id": 23,
+    "kind": "deviation",
+    "phase": "04",
+    "file": "app/(app)/layout.tsx",
+    "line": 15,
+    "description": "Falha em exigirUsuario() no layout de rota protegida cai na tela padrão do Next.js (\"Application error: a server-side exception has occurred\"), não num estado de erro em linguagem humana. No App Router, error.tsx NÃO captura erro do layout do PRÓPRIO segmento: app/(app)/error.tsx é irmão do layout que falha, e não existe app/error.tsx nem app/global-error.tsx acima dele. Atinge TODA rota autenticada (Encomendas, Agenda, Fornos, Estoque, Orçamentos), não só Fornos. Achado no UAT da Fase 4 (teste 5, gap G-04-5) derrubando o Postgres local. As fronteiras de PÁGINA estão provadas funcionando (teste 13, método cirúrgico: renomear só a tabela fornos). Defeito pré-existente — layout é da Fase 2b. Decisão do dono no fechamento do UAT: corrigir como tarefa própria, fora da Fase 4. Corrigido pelo quick task 260811-uiy: app/error.tsx (fronteira acima do layout de (app)) e app/global-error.tsx (último recurso, prova estrutural — não observável em next dev). Prova COMPORTAMENTAL com o Postgres local parado NÃO pôde ser executada de forma automatizada nesta sessão (E2E_EMAIL_TESTE/E2E_SENHA_TESTE não definidos em .env.local para login manual fora do pipeline de teste); escalada ao roteiro manual do dono, registrado em 260811-uiy-SUMMARY.md.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-08-11T20:55:00.000Z",
+    "resolved_at": "2026-08-11T21:15:34.000Z"
   }
 ]
 ````

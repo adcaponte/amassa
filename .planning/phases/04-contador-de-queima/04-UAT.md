@@ -129,7 +129,8 @@ Não são apresentados como checkpoint — a evidência já existe.
 
 - gap_id: G-04-5
   truth: "Uma falha em exigirUsuario() (layout de rota protegida) cai num estado de erro em linguagem humana, não na tela padrão do Next.js"
-  status: failed
+  status: resolved
+  resolvido_em: ".planning/quick/260811-uiy-fronteira-de-erro-global-acima-do-layout/ — app/error.tsx (fronteira mais próxima ACIMA de app/(app)/layout.tsx, captura o throw de exigirUsuario(), verificada por lint/tsc/estrutura e pela mesma disciplina já provada de app/(app)/error.tsx) resolve o gap; app/global-error.tsx entra como último recurso com prova ESTRUTURAL, não comportamental — não é observável em next dev. Ambos consomem lib/erro/textos.ts (voz única, com teste anti-deriva). A prova comportamental automatizada com o Postgres local parado não pôde rodar nesta sessão (E2E_EMAIL_TESTE/E2E_SENHA_TESTE ausentes em .env.local para login fora do pipeline de teste) — escalada ao roteiro manual do dono, registrado no SUMMARY do plano."
   reason: "User reported: página em branco com \"Application error: a server-side exception has occurred\". A falha vem de exigirUsuario() em app/(app)/layout.tsx:15, não da página."
   severity: major
   test: 5
@@ -142,8 +143,8 @@ Não são apresentados como checkpoint — a evidência já existe.
     - path: "app/global-error.tsx"
       issue: "não existe — último recurso, capturaria inclusive falha no layout raiz"
   missing:
-    - "Criar app/global-error.tsx (e/ou app/error.tsx) com a voz de erro do projeto, para que a falha do layout protegido não caia no handler padrão do Next.js"
-    - "Reconferir se os demais estados de erro da fase (E11/painel inicial, teste 13) sofrem do mesmo caminho — a mesma exceção do layout precede todos eles"
+    - "Criar app/global-error.tsx (e/ou app/error.tsx) com a voz de erro do projeto, para que a falha do layout protegido não caia no handler padrão do Next.js — RESOLVIDO pelo quick task 260811-uiy (ver resolvido_em acima)."
+    - "Reconferir se os demais estados de erro da fase (E11/painel inicial, teste 13) sofrem do mesmo caminho — a mesma exceção do layout precede todos eles — RESPONDIDO no teste 13 (ver nota_de_metodo abaixo): não sofrem, as fronteiras de página funcionam."
   escopo: "Pré-existente à Fase 4 — app/(app)/layout.tsx é da Fase 2b. Os error.tsx de Fornos estão corretos para o escopo deles."
   decisao_do_dono: "Corrigir fora da Fase 4, como tarefa própria (decidido em 2026-08-11, no fechamento do UAT). O defeito é da Fase 2b (app/(app)/layout.tsx) e atinge TODOS os módulos — Encomendas, Agenda, Estoque, Orçamentos —, não só Fornos. Fechar como gap_closure da Fase 4 atribuiria a ela um problema que ela apenas encontrou. NENHUM plano de correção foi gerado nesta fase, deliberadamente."
   registrado_em: ".planning/WINDOWS.md"
