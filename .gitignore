@@ -33,3 +33,16 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Instalação local do GSD / Claude Code — reinstalável com um `npx`, é estado da
+# ferramenta, não conhecimento do projeto. Sem esta regra as dez entradas de
+# .claude/ aparecem como `??` em todo `git status`, e ruído constante treina a
+# pessoa a não ler o `git status` — que é justamente onde uma alteração de verdade
+# apareceria.
+#
+# Duas exceções, porque descrevem o PROJETO e não a ferramenta:
+#   CLAUDE.md   — as instruções e restrições do projeto
+#   launch.json — como se sobe o servidor de desenvolvimento (npm run dev, porta 3000)
+.claude/*
+!.claude/CLAUDE.md
+!.claude/launch.json
