@@ -126,8 +126,13 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     await expect(dialogo).toBeHidden();
 
     // D-05: o cartão do índice fica esmaecido e sem "Queimar"; a página do forno continua
-    // abrindo normalmente com todo o histórico.
+    // abrindo normalmente com todo o histórico. O filtro "Ativos" (padrão de lista-fornos.tsx
+    // desde o plano 04-05) esconde um forno recém-desativado por desenho — sem trocar para
+    // "Todos" aqui, este teste nunca encontraria o cartão. Achado pela varredura completa de
+    // fim de fase (04-07): este teste foi escrito no plano 04-04, antes do filtro existir, e
+    // nenhum plano depois voltou a rodá-lo sem `--grep` até este ponto.
     await page.goto("/queimas");
+    await page.getByTestId("filtro-fornos-todos").click();
     const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
     await expect(cartao).toHaveCount(1);
     await expect(cartao.getByRole("button", { name: "Queimar" })).toHaveCount(0);

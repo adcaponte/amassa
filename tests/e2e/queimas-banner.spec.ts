@@ -6,13 +6,24 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // arquivo — o describe de topo entra no título de todos os casos abaixo, então o `--grep` do
 // comando de verificação da Tarefa 3 casa com os quatro.
 //
-// Nenhum caso afirma uma condição GLOBAL do banco: os três primeiros checam o banner/painel só
-// em relação a fornos que o PRÓPRIO teste criou (nunca "nenhum forno em atenção existe"); o
-// quarto, que de fato precisa de "nenhum forno desativado existe" para provar o vazio filtrado,
-// carrega `@vazio-historico` — a mesma etiqueta que `tests/e2e/encomendas-filtros.spec.ts` já usa
-// para o mesmo problema, encadeada por `playwright.config.ts` para rodar sozinha, depois de
-// `vazio-desktop` e antes de `desktop`/`celular` — nunca solta sob `--grep` como muleta
-// (CLAUDE.md §Conventions).
+// O primeiro caso não afirma nenhuma condição global do banco: só checa que o forno criado pelo
+// PRÓPRIO teste não aparece no banner/painel, com checagem condicional para o caso de o banner
+// já existir por causa de outro forno concorrente.
+//
+// Os casos 2, 3 e 4 carregam `@vazio-historico` — a mesma etiqueta que
+// `tests/e2e/encomendas-filtros.spec.ts` já usa, encadeada por `playwright.config.ts` para rodar
+// sozinha, depois de `vazio-desktop` e antes de `desktop`/`celular`. O caso 4 precisa dela porque
+// exige "nenhum forno desativado existe" para provar o vazio filtrado — condição global de
+// verdade. Os casos 2 e 3 ganharam a MESMA etiqueta na varredura completa de fim de fase
+// (04-07): eles afirmam que o forno recém-criado aparece pelo NOME no texto do banner, mas o
+// banner mostra só os 3 primeiros (`ordenarParaBanner`, truncagem "e mais N") — sob
+// `fullyParallel`, quando outros arquivos da suíte (`queimas-cartao.spec.ts`,
+// `queimas-manutencao.spec.ts`, etc.) levam vários fornos a crítico/atenção ao mesmo tempo, o
+// forno destes dois casos é empurrado para fora dos 3 primeiros e a asserção por nome falha —
+// não por instabilidade de ambiente, é a mesma classe de "condição global disputada por escritas
+// concorrentes" que a etiqueta já existe para resolver. Rodar na cadeia `vazio-*` garante que
+// nenhum outro arquivo já criou forno quando estes dois casos executam. Nunca `--grep` como
+// muleta (CLAUDE.md §Conventions).
 
 test.describe("banner de fornos e alerta do painel inicial", () => {
   test.describe.configure({ mode: "serial", retries: 2 });
@@ -99,7 +110,7 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
   // rodam o mesmo arquivo em paralelo contra o mesmo servidor.
   let nomeFornoEmAtencao = "";
 
-  test("um forno no limiar de atenção aparece no banner com o contador, e o prefixo bate a própria quantidade mostrada", async ({
+  test("um forno no limiar de atenção aparece no banner com o contador, e o prefixo bate a própria quantidade mostrada @vazio-historico", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -120,7 +131,7 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     nomeFornoEmAtencao = nome;
   });
 
-  test("um segundo forno em crítico aparece ANTES do primeiro (em atenção) no banner e o mesmo aviso chega ao painel inicial", async ({
+  test("um segundo forno em crítico aparece ANTES do primeiro (em atenção) no banner e o mesmo aviso chega ao painel inicial @vazio-historico", async ({
     page,
   }) => {
     test.setTimeout(180_000);

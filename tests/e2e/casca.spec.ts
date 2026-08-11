@@ -56,14 +56,17 @@ type TelaDeModulo = {
   notaBotao: string;
 };
 
-// `/encomendas` saiu desta lista na Fase 3 (03-01-PLAN.md, Tarefa 2): o botão "Nova encomenda"
-// deixou de ser inerte (agora é um `<Link href="/encomendas?nova">` de verdade) e a nota "Chega
-// na Fase 3." foi removida — as duas mudanças são o objetivo do plano, não uma regressão. A
-// tela ainda tem cabeçalho + estado vazio com frase de contexto quando não há encomenda
-// nenhuma, mas isso agora depende de dado real (persistência via Postgres), então deixou de
-// caber no contrato genérico "sempre a mesma casca vazia" que este teste verifica para os
-// módulos que a Fase 3 ainda não tocou. Cobertura de `/encomendas` (cabeçalho, criação,
-// persistência) vive em `tests/e2e/encomendas.spec.ts`.
+// `/encomendas` saiu desta lista na Fase 3 (03-01-PLAN.md, Tarefa 2), e `/queimas` sai agora,
+// na varredura completa de fim de fase da Fase 4 (04-07-PLAN.md, Tarefa 1): em ambos os casos o
+// botão deixou de ser inerte (agora é um fluxo real, com persistência via Postgres) e a nota
+// "Chega na Fase N." deixou de fazer sentido — as duas mudanças são o objetivo da própria fase,
+// não uma regressão. A tela ainda tem cabeçalho + estado vazio com frase de contexto quando não
+// há forno nenhum, mas isso deixou de caber no contrato genérico "sempre a mesma casca vazia,
+// nunca modificável" que este teste verifica só para os módulos que ainda não foram construídos.
+// Cobertura de `/queimas` (cabeçalho, cadastro, registro de queima, persistência) vive em
+// `tests/e2e/queimas-*.spec.ts`. Achado pela varredura completa sem `--grep` (04-07): este teste
+// nunca tinha rodado depois que `/queimas` deixou de ser um placeholder, porque nenhum plano da
+// Fase 4 tocava `tests/e2e/casca.spec.ts` nem invocava o e2e sem `--grep` até este ponto.
 const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
   {
     href: "/agenda",
@@ -72,14 +75,6 @@ const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
     corpo: "Cadastre a primeira turma e as aulas da semana aparecem aqui, com data e presença por aluna.",
     rotuloBotao: "Nova turma",
     notaBotao: "Chega na Fase 5.",
-  },
-  {
-    href: "/queimas",
-    tituloPagina: "Queimas",
-    tituloVazio: "Nenhum forno cadastrado ainda.",
-    corpo: "Cadastre o primeiro forno para começar a contar as queimas em dois toques.",
-    rotuloBotao: "Novo forno",
-    notaBotao: "Chega na Fase 4.",
   },
   {
     href: "/estoque",

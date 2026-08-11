@@ -7,6 +7,18 @@ import { test, expect, type Page } from "@playwright/test";
 // §Conventions: teste não pode afirmar condição global sem isolamento), então cada teste aqui lê
 // o total ANTES de registrar suas próprias queimas e afirma a DIFERENÇA (delta), nunca um valor
 // absoluto — a prova de FOR-12 sem disputar estado com o resto da suíte.
+//
+// Achado pela varredura completa de fim de fase (04-07): a versão original deste teste (escrita
+// no plano 04-06, verificada só com `--grep "relatórios"`) assumia que "o único outro escritor
+// concorrente conhecido" era o teste de rolagem deste MESMO arquivo. Sob `npm run test:e2e` sem
+// `--grep`, TODOS os outros arquivos de Fornos (`queimas-cartao`, `queimas-manutencao`,
+// `queimas-detalhe`, `queimas-tracador`, `queimas-banner`) também registram queimas "biscoito" em
+// paralelo, e `queimas-registro.spec.ts` chega a registrar (e desfazer) uma "esmalte" — a
+// premissa de "um único escritor conhecido" só valia sob `--grep`, nunca na suíte inteira. Por
+// isso o delta de "total"/"biscoito" abaixo perdeu o teto (só piso, nunca menos do que este teste
+// registrou) — a aritmética de baldes em si já está provada, exaustiva e sem concorrência, em
+// `tests/unit/relatorios-queimas.test.ts`; o papel deste teste é provar a integração, não contar
+// quantas linhas concorrentes existem no banco no instante da leitura.
 
 async function fazerLogin(page: Page) {
   await page.goto("/login");
@@ -89,9 +101,7 @@ test.describe("relatórios de queimas", () => {
     // global concorrentemente, cada um contaminando a diferença do outro (achado real desta
     // tarefa: a primeira versão deste teste, sem este skip, media delta 4 em vez de 3 — a
     // diferença exata de UMA queima que o outro projeto tinha acabado de registrar). Roda só no
-    // desktop; o teste de rolagem abaixo é o único outro escritor concorrente deste arquivo, e
-    // sempre em "biscoito" — a tolerância abaixo é exatamente esse acoplamento conhecido, não uma
-    // folga arbitrária.
+    // desktop.
     test.skip(testInfo.project.name !== "desktop", "Estatísticas são globais — evita competir com o próprio celular");
 
     await fazerLogin(page);
@@ -113,10 +123,9 @@ test.describe("relatórios de queimas", () => {
     const biscoitoAntes = await lerEstatistica(page, "biscoito");
     const esmalteAntes = await lerEstatistica(page, "esmalte");
 
-    // Um esmalte e um ouro — SEM biscoito depois da linha de base, de propósito: o único outro
-    // escritor concorrente possível (o teste de rolagem, no projeto celular) só registra
-    // "biscoito", então manter o pós-base livre de biscoito torna o delta de ESMALTE uma prova
-    // EXATA e imune a essa concorrência, mesmo com os dois projetos rodando ao mesmo tempo.
+    // Um esmalte e um ouro — SEM biscoito depois da linha de base, de propósito: nenhum registro
+    // de biscoito deste PRÓPRIO teste depois da base mantém o piso (nunca menos) livre de
+    // ambiguidade, mesmo que outros arquivos da suíte também escrevam biscoito ao mesmo tempo.
     await registrarUmaQueima(page, nome, "esmalte", 2);
     await registrarUmaQueima(page, nome, "ouro", 3);
 
@@ -127,17 +136,15 @@ test.describe("relatórios de queimas", () => {
     const biscoitoDepois = await lerEstatistica(page, "biscoito");
     const esmalteDepois = await lerEstatistica(page, "esmalte");
 
-    // A prova de FOR-12 no nível de integração: o delta de ESMALTE bate EXATAMENTE com o que este
-    // teste registrou (1) — imune ao único escritor concorrente conhecido deste arquivo, que
-    // nunca escreve esmalte. Total e biscoito toleram no máximo +1 vindo dessa mesma
-    // concorrência conhecida (nunca menos que o que este teste registrou) — a aritmética de
-    // baldes em si já está provada, exaustivamente e sem concorrência, em
-    // tests/unit/relatorios-queimas.test.ts.
-    expect(esmalteDepois - esmalteAntes).toBe(1);
+    // A prova de FOR-12 no nível de integração: o piso de cada delta nunca é menor do que o que
+    // este teste registrou — nenhuma queima se perde entre o registro e a leitura das
+    // estatísticas. Sem teto: sob `npm run test:e2e` sem `--grep`, outros arquivos da suíte
+    // (Fornos inteiro) também escrevem biscoito/esmalte em paralelo, e um teto fixo dispararia
+    // por concorrência real, não por defeito — a aritmética de baldes em si já está provada,
+    // exaustiva e sem concorrência, em tests/unit/relatorios-queimas.test.ts.
+    expect(esmalteDepois - esmalteAntes).toBeGreaterThanOrEqual(1);
     expect(totalDepois - totalAntes).toBeGreaterThanOrEqual(2);
-    expect(totalDepois - totalAntes).toBeLessThanOrEqual(3);
     expect(biscoitoDepois - biscoitoAntes).toBeGreaterThanOrEqual(0);
-    expect(biscoitoDepois - biscoitoAntes).toBeLessThanOrEqual(1);
 
     // Alternador Semana/Mês: troca a granularidade do gráfico sem refazer a consulta (a URL não
     // muda — nenhuma navegação, então os nós de `estatisticas-queimas` nem re-renderizam) e sem
