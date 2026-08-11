@@ -81,7 +81,7 @@ export default async function PaginaDetalheDoForno({
 
         <section aria-label={ROTULO_HISTORICO_QUEIMAS}>
           <h2 className="text-titulo text-foreground mb-3">{ROTULO_HISTORICO_QUEIMAS}</h2>
-          <HistoricoQueimas queimas={forno.queimasRecentes} />
+          <HistoricoQueimas queimas={forno.queimasRecentes} nomeDoForno={forno.nome} />
         </section>
       </div>
     </>

@@ -98,6 +98,18 @@ export function textoDoNivel(nivel: NivelDeForno): string | null {
   }
 }
 
+// Exclusão confirmada de uma queima do histórico (FOR-10, E8) — copy literal do UI-SPEC. Ao
+// contrário do protótipo, onde a exclusão é imediata, esta pede confirmação nomeando o que se
+// perde (`corpoExcluirQueima`, com o nome do forno interpolado — o schema já limita `nome` a 80
+// caracteres, então o corpo nunca cresce indefinidamente).
+export const TITULO_EXCLUIR_QUEIMA = "Excluir esta queima?";
+
+export function corpoExcluirQueima(nomeDoForno: string): string {
+  return `Ela some do histórico do Forno «${nomeDoForno}» e o contador é recalculado.`;
+}
+
+export const FRASE_FALHA_AO_EXCLUIR = "Não deu para excluir. Verifique a internet e tente de novo.";
+
 // Rodapé do cartão (FOR-08, `04-DESIGN-SYSTEM.md` §8) — literal, não reescrever. `data` chega
 // JÁ FORMATADA por quem chama (`formatarInstanteCurto`, `lib/queimas/formato.ts`): este módulo
 // não importa valor nenhum de `formato.ts` (ver cabeçalho do arquivo), então a montagem da frase

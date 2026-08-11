@@ -123,6 +123,11 @@ export async function excluirQueima(
     return { ok: false, erro: "Essa queima não existe mais." };
   }
 
+  // `/queimas/[id]` também revalida (04-PATTERNS.md, "revalidatePath after every write") — a
+  // exclusão confirmada do histórico (plano 04-03) acontece nesta rota e permanece nela depois
+  // do sucesso, sem navegar; o "Desfazer" do toast (plano 04-01) continua em `/queimas`, coberto
+  // pela primeira chamada.
   revalidatePath("/queimas");
+  revalidatePath("/queimas/[id]", "page");
   return { ok: true, dados: { id: linha.id } };
 }
