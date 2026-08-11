@@ -189,6 +189,20 @@ export const ROTULO_FILTRO_TODOS = "Todos";
 export const FRASE_FILTRO_VAZIO_TITULO = "Nada por aqui com esse filtro.";
 export const FRASE_FILTRO_VAZIO_CORPO = "Troque para 'Ativos' ou cadastre um forno novo.";
 
+// Seletor de topo (D-01) e relatórios (E9, FOR-12, plano 04-06) — os dois rótulos das abas que
+// parecem aba mas navegam, o alternador Semana/Mês, os rótulos das quatro estatísticas, o vazio
+// de D-08 (quando não há NENHUMA queima registrada, distinto de `FRASE_VAZIO_*` acima, que é "não
+// há forno nenhum") e o rótulo do botão de volta.
+export const ROTULO_FORNOS = "Fornos";
+export const ROTULO_RELATORIOS = "Relatórios";
+export const ROTULO_SEMANA = "Semana";
+export const ROTULO_MES = "Mês";
+export const ROTULO_ESTATISTICA_TOTAL = "Total";
+export const ROTULO_ESTATISTICA_30_DIAS = "Últimos 30 dias";
+export const FRASE_RELATORIOS_VAZIO_TITULO = "Nenhuma queima registrada ainda.";
+export const FRASE_RELATORIOS_VAZIO_CORPO = "Registre a primeira queima para ver os relatórios aqui.";
+export const ROTULO_VER_FORNOS = "Ver fornos";
+
 export function fraseDoRodape({
   data,
   responsavel,

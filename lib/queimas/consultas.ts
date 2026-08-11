@@ -1,9 +1,11 @@
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, gte, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { fornos, manutencoes, queimas, usuarios } from "@/db/schema";
 import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
+import { hojeEmBrasilia } from "@/lib/queimas/formato";
+import { janelaDeSeisMeses, type TipoDeQueimaRelatorio } from "@/lib/queimas/relatorios";
 
 // Leitura do índice de `/queimas`. Sem `"use server"` — não é uma Server Action, é uma consulta
 // chamada direto do Server Component da página; `lib/queimas/acoes.ts` fica só com escrita.
@@ -229,4 +231,49 @@ export async function fornosQuePrecisamDeAtencao(): Promise<FornoEmAtencao[]> {
   });
 
   return ordenarParaBanner(fornosMedidos);
+}
+
+// Leitura de `/queimas/relatorios` (plano 04-06, FOR-12) — consulta de PROPÓSITO PRÓPRIO, sem
+// os dados de rodapé (última manutenção/responsável) que só `listarFornosDoIndice` usa. Carrega
+// UMA ÚNICA VEZ a janela mais longa das duas agregações (6 meses civis cobre mais dias que 8
+// semanas) — `agregarPorSemana`/`agregarPorMes`/`estatisticasDeQueimas` (`lib/queimas/relatorios.ts`)
+// rodam sobre o MESMO conjunto em memória, então alternar Semana/Mês na tela nunca dispara uma
+// consulta nova nem pode mudar os números (must_have deste plano).
+export type QueimaParaRelatorio = {
+  ocorridaEm: string;
+  tipo: TipoDeQueimaRelatorio;
+  fornoId: string;
+  fornoNome: string;
+};
+
+export async function carregarQueimasParaRelatorio(): Promise<QueimaParaRelatorio[]> {
+  const hoje = hojeEmBrasilia(new Date());
+  const [primeiroBalde] = janelaDeSeisMeses(hoje);
+
+  // `inicio` do balde mais antigo é uma data civil `YYYY-MM-DD` de Brasília — convertida para o
+  // instante de meia-noite de Brasília (`-03:00`, sem horário de verão desde 2019) antes de
+  // comparar com `timestamptz`. Nunca a data corrente do Postgres, que erraria o dia entre 21h e
+  // meia-noite de Brasília porque o container roda em UTC (`02-MODELO-DE-DADOS.md` §0).
+  const inicioDaJanela = new Date(`${primeiroBalde.inicio}T00:00:00-03:00`);
+
+  // T-04-23 (DoS, mitigate): a janela limita a consulta a ~6 meses em vez do histórico inteiro
+  // do ateliê, usando o índice `queimas_data_idx` (`ocorridaEm desc`).
+  const linhas = await db
+    .select({
+      ocorridaEm: queimas.ocorridaEm,
+      tipo: queimas.tipo,
+      fornoId: queimas.fornoId,
+      fornoNome: fornos.nome,
+    })
+    .from(queimas)
+    .innerJoin(fornos, eq(queimas.fornoId, fornos.id))
+    .where(gte(queimas.ocorridaEm, inicioDaJanela))
+    .orderBy(asc(queimas.ocorridaEm));
+
+  return linhas.map((linha) => ({
+    ocorridaEm: linha.ocorridaEm.toISOString(),
+    tipo: linha.tipo,
+    fornoId: linha.fornoId,
+    fornoNome: linha.fornoNome,
+  }));
 }
