@@ -16,6 +16,7 @@ import { HistoricoManutencoes } from "@/components/amassa/queimas/historico-manu
 import { HistoricoQueimas } from "@/components/amassa/queimas/historico-queimas";
 import { Medidor } from "@/components/amassa/queimas/medidor";
 import { RegistrarManutencao } from "@/components/amassa/queimas/registrar-manutencao";
+import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 
 // `exigirUsuario()` como PRIMEIRA instrução — regra do CLAUDE.md, mesmo molde de
 // `app/(app)/encomendas/[id]/page.tsx`. `params` é `Promise` no Next.js 15. O forno tem endereço
@@ -60,6 +61,10 @@ export default async function PaginaDetalheDoForno({
       <CabecalhoPagina titulo={forno.nome}>
         <AcoesForno id={forno.id} nome={forno.nome} ativo={forno.ativo} />
       </CabecalhoPagina>
+
+      {/* Seletor de topo (D-01, plano 04-06) — "Fornos" fica ativo aqui também (o detalhe do
+          forno é a mesma seção do índice, só "Relatórios" é a outra). */}
+      <SeletorQueimas />
 
       {/* D-02: editar acontece nesta mesma página, aberto por `?editar` (AcoesForno) — nunca
           numa tela de cadastro separada. Montado sempre, mesmo fechado, no molde de

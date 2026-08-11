@@ -203,6 +203,12 @@ export const FRASE_RELATORIOS_VAZIO_TITULO = "Nenhuma queima registrada ainda.";
 export const FRASE_RELATORIOS_VAZIO_CORPO = "Registre a primeira queima para ver os relatórios aqui.";
 export const ROTULO_VER_FORNOS = "Ver fornos";
 
+// Estado de erro da rota de relatórios (E9/error, plano 04-06) — mesmo título `FRASE_ERRO_TITULO`
+// acima (reuso literal, projeto inteiro), corpo próprio desta tela, no mesmo molde de
+// `FRASE_ERRO_CORPO_FORNO` (detalhe do forno).
+export const FRASE_ERRO_CORPO_RELATORIOS =
+  "Não deu para carregar os relatórios. Verifique a internet e tente de novo.";
+
 export function fraseDoRodape({
   data,
   responsavel,

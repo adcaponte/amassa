@@ -40,10 +40,20 @@
   --color-torno:        #115E59;
   --color-pintura:      #1D4ED8;
 
-  /* tipos de queima — NÃO ALTERAR (não usadas nesta fase) */
+  /* tipos de queima — NÃO ALTERAR */
   --color-biscoito:     #9A3412;
   --color-esmalte:      #155E75;
   --color-ouro:         #CA8A04;
+
+  /* tokens de gráfico (Recharts, FOR-12, plano 04-06) — os 3 primeiros reaproveitam LITERALMENTE
+     os hex dos tokens de tipo de queima acima (nunca uma segunda cor para a mesma série: um
+     gráfico e o selo do cartão precisam concordar). -4/-5 ficam livres para séries futuras, sem
+     uso nesta fase. */
+  --color-chart-1: var(--color-biscoito);
+  --color-chart-2: var(--color-esmalte);
+  --color-chart-3: var(--color-ouro);
+  --color-chart-4: #57534E;
+  --color-chart-5: #A8A29E;
 
   /* níveis do contador de forno — NÃO ALTERAR (não usadas nesta fase) */
   --color-forno-ok:      #D97706;  --color-forno-ok-fundo:      #FFFBEB;  --color-forno-ok-texto:      #92400E;

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { BannerAtencao } from "@/components/amassa/queimas/banner-atencao";
 import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { ListaFornos } from "@/components/amassa/queimas/lista-fornos";
+import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de app/(app)/encomendas/page.tsx.
 // D-02: não existe tela de cadastro de fornos — o botão "Novo forno" abre `?novo` (masculino,
@@ -48,6 +49,10 @@ export default async function PaginaQueimas() {
           <Link href="/queimas?novo">{ROTULO_NOVO_FORNO}</Link>
         </Button>
       </CabecalhoPagina>
+
+      {/* Seletor de topo (D-01, plano 04-06) — logo abaixo do cabeçalho, nas três telas do
+          módulo. "Fornos" fica ativo aqui e em `/queimas/[id]`. */}
+      <SeletorQueimas />
 
       {/* Montado sempre — mesmo com o índice vazio, `?novo` precisa abrir o formulário a partir
           do `EstadoVazio` (o primeiríssimo forno do ateliê), achado do 03-06 replicado aqui. */}
