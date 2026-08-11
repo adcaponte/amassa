@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 Phase: 04 (Contador de Queima) — EXECUTING
 Plan: 5 of 7
 Status: Ready to execute
-Last activity: 2026-08-10 — Phase 04 execution started
+Last activity: 2026-08-11 — Completed quick task 260811-2jb: avaliar retries e custo do teste de fronteira 04-02
 
 Progress: [█████████░] 91%
 
@@ -218,6 +218,16 @@ None yet.
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
 - Dois gaps de infraestrutura abertos (WINDOWS.md ids 13, 14): pipeline nao puxa imagem :ferramentas no deploy; compose.yml do servidor nao e ressincronizado apos o Roteiro 1 — candidatos a fase futura de polimento de CI/roteiros
 - Ajustes necessarios no desktop mencionados pelo dono apos a verificacao em producao (03-08), sem detalhamento — capturar no backlog em separado antes de assumir a experiencia desktop pronta
+- E2E local sobe o servidor numa combinacao que o Next declara nao suportada: next.config.ts usa `output: "standalone"` e playwright.config.ts:92 usa `npm run build && npm run start` (= `next start`). O Next avisa em toda execucao. Em 3 de 7 varreduras o servidor MORREU no meio e tudo depois virou `net::ERR_CONNECTION_REFUSED` (46, 46 e 299 testes em cascata) — ver quick 260811-2jb
+- playwright.config.ts nao limita `workers`: a maquina do dono tem 16 nucleos, entao o padrao e 8 workers com 15.8 GB de RAM disputados com a VM do Docker, o Postgres e o servidor Next. O plano 04-02 registrou "4 workers" — esta errado — ver quick 260811-2jb
+- tests/e2e/apoio/preparar-usuario.ts nao e idempotente e sofre corrida: `criar-usuario` roda mais de uma vez na mesma execucao (provado com banco controlado: `usuarios` 0 → 1 e mesmo assim o globalSetup falhou). Falha alternando entre "Ja existe uma conta..." e DrizzleQueryError no indice unico; qualquer um dos dois mata a corrida ANTES do primeiro teste. Aconteceu em 4 de 7 varreduras — ver quick 260811-2jb
+- tests/e2e/casca.spec.ts:214 afirma o estado vazio de Fornos ("Nenhum forno cadastrado ainda.") sem etiqueta `@vazio-global`, entao roda em paralelo com as specs que criam fornos — a mesma "premissa falsa" que playwright.config.ts:42-59 documenta, agora num modulo novo. Vermelho pre-existente em HEAD — ver quick 260811-2jb
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260811-2jb | Avaliar retries e custo do teste de fronteira 04-02 | 2026-08-11 | f301e95 | [260811-2jb-avaliar-retries-e-custo-do-teste-de-fron](./quick/260811-2jb-avaliar-retries-e-custo-do-teste-de-fron/) |
 
 ### Roadmap Evolution
 
