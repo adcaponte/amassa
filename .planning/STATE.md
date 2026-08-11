@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-08-10T23:21:37.736Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-08-11T00:10:44.940Z"
 last_activity: 2026-08-10
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 29
+  completed_plans: 30
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04 (Contador de Queima) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-08-10 — Phase 04 execution started
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -88,6 +88,7 @@ Progress: [████████░░] 83%
 | Phase 03 P07 | ~65min | 3 tasks | 10 files |
 | Phase 03 P08 | ~40min (agente) + execucao real em producao | 4 tasks | 20 files |
 | Phase 04 P01 | ~55min | 3 tasks | 18 files |
+| Phase 04 P02 | ~75min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-01: consultas.ts devolve dado bruto (ocorrenciasDeQueima/ultimaManutencaoEm), nunca contador/total pre-agregados em SQL — cartao-forno.tsx chama medirForno() (lib/queimas/contador.ts), unico lugar que decide a regra
 - [Phase ?]: 04-01: FOR-11 nao marcado completo apesar de listado no frontmatter do plano — so o cadastro (criarForno) foi entregue; desativar/reativar forno e escopo do plano 04-04
 - [Phase ?]: 04-01: erro de FK (forno inexistente) traduzido via erro.code === '23503' (SQLSTATE foreign_key_violation) — primeira vez que o projeto checa codigo de erro do Postgres diretamente
+- [Phase ?]: 04-02: fraseDoRodape recebe data ja formatada (nao timestamptz bruto) para preservar textos.ts nunca importar valor de formato.ts
+- [Phase ?]: 04-02: queimas-cartao.spec.ts prova as tres fronteiras de FOR-04 com forno de limite 10 (piso Math.max(1,limite-10)=1), 10 registros reais em vez de 100
+- [Phase ?]: 04-02: specs de Queimas ganharam retries:2 local + timeouts alargados — servidor Next unico compartilhado por todos os workers da suite, confirmado deterministico isolado (--workers=1)
 
 ### Pending Todos
 
@@ -223,6 +227,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T23:21:37.661Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-08-11T00:10:44.910Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
