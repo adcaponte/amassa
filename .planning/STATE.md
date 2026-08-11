@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: phase_complete
-stopped_at: "Fase 4 FECHADA — UAT 18/18, verificação humana 26/26, VERIFICATION passed. Pronto para a Fase 5 (Agenda de Aulas)."
-last_updated: "2026-08-11T23:55:00.000Z"
+stopped_at: Fase 4 FECHADA — UAT 18/18, verificação humana 26/26, VERIFICATION passed. Pronto para a Fase 5 (Agenda de Aulas).
+last_updated: "2026-08-11T22:46:42.278Z"
 last_activity: 2026-08-11
-last_activity_desc: Fase 4 fechada — UAT completo (18 testes), verificação humana 26/26, G-04-5 corrigido fora da fase e provado por observação
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
   completed_plans: 35
+last_activity_desc: Fase 4 fechada — UAT completo (18 testes), verificação humana 26/26, G-04-5 corrigido fora da fase e provado por observação
 ---
 
 # Project State
@@ -33,7 +33,7 @@ Status: Fase 4 fechada. Os 7 planos executados, migração aplicada à mão em p
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-11 — Fase 4 fechada
+Last activity: 2026-08-11
 
 Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
