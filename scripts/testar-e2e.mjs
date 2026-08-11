@@ -11,6 +11,7 @@
 // runner (D-10) — este script não sobe nada e só roda migração + Playwright direto.
 
 import { execFileSync, execSync } from "node:child_process";
+import { connect } from "node:net";
 
 const NOME_CONTAINER = "amassa_postgres_teste";
 const PORTA_HOST = 5434;
@@ -68,6 +69,7 @@ async function subirBancoDeTeste() {
     "postgres_teste",
   ]);
   await esperarSaudavel();
+  await esperarPortaAlcancavel(PORTA_HOST);
   process.env.DATABASE_URL_TESTE = `postgresql://${USUARIO}:${SENHA}@127.0.0.1:${PORTA_HOST}/${BANCO}`;
   console.log("Banco de teste no ar.");
 }
@@ -78,6 +80,38 @@ async function esperarSaudavel(tentativasMax = 30) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   throw new Error("Postgres de teste não ficou saudável a tempo.");
+}
+
+// `docker inspect ... Health.Status` só prova que o healthcheck RODANDO DENTRO do contêiner
+// (`pg_isready` via socket local) passou — não que o encaminhamento de porta do HOST
+// (`127.0.0.1:5434`, publicado por `docker compose run -p`) já está de pé. Sob churn rápido de
+// contêineres (várias execuções seguidas deste script, cada uma recriando a mesma porta fixa),
+// o Docker Desktop/WSL2 no Windows pode reportar "healthy" um instante antes do encaminhamento
+// NAT do host terminar de se estabelecer — janela que se manifestou como ECONNREFUSED em
+// 127.0.0.1:5434 vindo de DENTRO do processo Next.js (webServer), não deste script, então nunca
+// aparecia como falha aqui. Uma conexão TCP real e bem-sucedida no host é a única prova de que o
+// caminho que o `webServer` do Playwright vai usar está pronto de verdade.
+async function esperarPortaAlcancavel(porta, tentativasMax = 15) {
+  for (let tentativa = 1; tentativa <= tentativasMax; tentativa++) {
+    const conectou = await new Promise((resolve) => {
+      const soquete = connect({ host: "127.0.0.1", port: porta, timeout: 1000 });
+      soquete.once("connect", () => {
+        soquete.destroy();
+        resolve(true);
+      });
+      soquete.once("error", () => {
+        soquete.destroy();
+        resolve(false);
+      });
+      soquete.once("timeout", () => {
+        soquete.destroy();
+        resolve(false);
+      });
+    });
+    if (conectou) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`Porta ${porta} do Postgres de teste não ficou alcançável a tempo.`);
 }
 
 async function main() {

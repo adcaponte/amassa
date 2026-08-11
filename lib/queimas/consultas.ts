@@ -2,6 +2,8 @@ import { asc, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { fornos, manutencoes, queimas, usuarios } from "@/db/schema";
+import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
+import { ordenarParaBanner } from "@/lib/queimas/filtros";
 
 // Leitura do índice de `/queimas`. Sem `"use server"` — não é uma Server Action, é uma consulta
 // chamada direto do Server Component da página; `lib/queimas/acoes.ts` fica só com escrita.
@@ -154,4 +156,77 @@ export async function buscarForno(id: string): Promise<FornoComHistorico | null>
     })),
     manutencoes: linhasDeManutencao,
   };
+}
+
+// Painel inicial (E11, FOR-13, plano 04-05) — o cartão "Fornos em atenção" de `app/(app)/page.tsx`.
+// Consulta de PROPÓSITO PRÓPRIO, separada de `listarFornosDoIndice`: o painel não paga o custo dos
+// dados de rodapé (última manutenção/responsável) que só o cartão do índice usa (a mesma
+// disciplina de "não confundir duas consultas com propósitos diferentes" do plano 03-08). Só
+// fornos ATIVOS entram — um forno desativado não precisa de manutenção urgente (mesma regra de
+// `ordenarParaBanner`, que também filtra por `nivel !== "ok"` e ordena crítico-primeiro).
+export type FornoEmAtencao = {
+  id: string;
+  nome: string;
+  ativo: true;
+  nivel: NivelDeForno;
+  contador: number;
+  limite: number;
+};
+
+export async function fornosQuePrecisamDeAtencao(): Promise<FornoEmAtencao[]> {
+  const linhasDeFornoAtivo = await db
+    .select({ id: fornos.id, nome: fornos.nome, limite: fornos.limite })
+    .from(fornos)
+    .where(eq(fornos.ativo, true));
+
+  if (linhasDeFornoAtivo.length === 0) {
+    return [];
+  }
+
+  const idsDeForno = linhasDeFornoAtivo.map((forno) => forno.id);
+
+  const [linhasDeQueima, linhasDeManutencao] = await Promise.all([
+    db
+      .select({ fornoId: queimas.fornoId, ocorridaEm: queimas.ocorridaEm })
+      .from(queimas)
+      .where(inArray(queimas.fornoId, idsDeForno)),
+    db
+      .select({ fornoId: manutencoes.fornoId, ocorridaEm: manutencoes.ocorridaEm })
+      .from(manutencoes)
+      .where(inArray(manutencoes.fornoId, idsDeForno))
+      .orderBy(desc(manutencoes.ocorridaEm)),
+  ]);
+
+  // Mesma redução "primeira linha de cada forno nesta lista já ordenada = manutenção mais
+  // recente" de `listarFornosDoIndice` acima.
+  const ultimaManutencaoPorForno = new Map<string, string>();
+  for (const manutencao of linhasDeManutencao) {
+    if (!ultimaManutencaoPorForno.has(manutencao.fornoId)) {
+      ultimaManutencaoPorForno.set(manutencao.fornoId, manutencao.ocorridaEm.toISOString());
+    }
+  }
+
+  // `medirForno` (`lib/queimas/contador.ts`) continua sendo o ÚNICO lugar que decide
+  // contador/nível — esta consulta só monta o dado bruto por forno e chama a função pura, nunca
+  // reimplementa a regra do corte de data.
+  const fornosMedidos = linhasDeFornoAtivo.map((forno) => {
+    const medida = medirForno({
+      limite: forno.limite,
+      ocorrenciasDeQueima: linhasDeQueima
+        .filter((queima) => queima.fornoId === forno.id)
+        .map((queima) => queima.ocorridaEm.toISOString()),
+      ultimaManutencaoEm: ultimaManutencaoPorForno.get(forno.id) ?? null,
+    });
+
+    return {
+      id: forno.id,
+      nome: forno.nome,
+      ativo: true as const,
+      nivel: medida.nivel,
+      contador: medida.contador,
+      limite: medida.limite,
+    };
+  });
+
+  return ordenarParaBanner(fornosMedidos);
 }
