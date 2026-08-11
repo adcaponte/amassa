@@ -25,6 +25,16 @@ export const FRASE_ERRO_TITULO = "Algo não funcionou.";
 export const FRASE_ERRO_CORPO =
   "Não deu para carregar os fornos. Verifique a internet e tente de novo.";
 
+// Estado de erro do detalhe do forno (`/queimas/[id]`, E6/error, plano 04-03) — mesmo título
+// `FRASE_ERRO_TITULO` acima (reuso literal, projeto inteiro), corpo próprio desta tela.
+export const FRASE_ERRO_CORPO_FORNO =
+  "Não deu para carregar este forno. Verifique a internet e tente de novo.";
+
+// Cabeçalhos das duas seções de histórico da página do forno (E6, plano 04-03) — manutenções
+// primeiro (é o histórico de vida útil, o propósito do módulo), queimas depois.
+export const ROTULO_HISTORICO_MANUTENCOES = "Manutenções";
+export const ROTULO_HISTORICO_QUEIMAS = "Queimas";
+
 // Fluxo de dois toques (D-04, Tarefa 3 do plano 04-01) — o toast de 7 segundos e as duas frases
 // de falha que ele pode mostrar.
 export const TOAST_QUEIMA_REGISTRADA = "Queima registrada.";
