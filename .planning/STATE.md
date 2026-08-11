@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: executing
-stopped_at: Completed 04-06-PLAN.md
-last_updated: "2026-08-11T02:09:21.201Z"
-last_activity: 2026-08-10
-last_activity_desc: Phase 04 execution started
+stopped_at: "04-07: Tarefas 1-2 concluídas (migração aplicada e verificada em produção); Tarefa 3 (verificação humana) produzida em 04-VERIFICACAO-HUMANA.md, aguardando o dono percorrer — Fase 4 NÃO fechada"
+last_updated: "2026-08-11T07:10:46.590Z"
+last_activity: 2026-08-11
+last_activity_desc: Plano 04-07 executado (varredura completa, migração de produção verificada); verificação humana de fim de fase pendente
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 34
+  completed_plans: 35
 ---
 
 # Project State
@@ -27,12 +27,15 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04 (Contador de Queima) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
-Last activity: 2026-08-10 — Phase 04 execution started
+Phase: 04 (Contador de Queima) — EXECUTING (não fechada)
+Plan: 7 of 7 — todos os 7 planos executados; Fase 4 NÃO fechada
+Status: Plano 04-07 executado (varredura completa, migração aplicada e verificada em produção).
+Tarefa 3 (verificação humana) produzida em `04-VERIFICACAO-HUMANA.md`, com 26 itens ainda por
+percorrer — este é o único portão que falta para fechar a fase e abrir a Fase 5.
+Last activity: 2026-08-11 — Plano 04-07 executado, checklist de verificação humana aguardando o dono
 
-Progress: [██████████] 97%
+Progress: [█████████░] 97% (todos os 35 planos previstos até aqui executados; a 5ª fase do total
+de 5 só conta como fechada depois que a verificação humana da Fase 4 acontecer)
 
 ## Performance Metrics
 
@@ -93,6 +96,7 @@ Progress: [██████████] 97%
 | Phase 04 P04 | ~40min | 3 tasks | 10 files |
 | Phase 04 P05 | ~2h10min | 3 tasks | 12 files |
 | Phase 04 P06 | ~3h | 3 tasks | 16 files |
+| Phase 04 P07 | ~5h (span) | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -207,6 +211,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-05: scripts/testar-e2e.mjs passou a esperar conectividade TCP real na porta do Postgres de teste (nao so o Health.Status do Docker) apos ECONNREFUSED intermitente sob troca rapida de conteineres no Windows/WSL2
 - [Phase ?]: recharts fixado em 3.10.1 (linha 3.x, não 2.x) apesar do Redux Toolkit transitivo — rota própria isola o peso do caminho de dois toques
 - [Phase ?]: estatisticas-queimas.spec: teste de total GLOBAL roda só no projeto desktop (test.skip no celular), delta tolerante ao único escritor concorrente conhecido do arquivo
+- [Phase ?]: 04-07: migração 0007_queimas/0008_gatilhos-queimas aplicada em producao e verificada no banco (pg_trigger, atualizado_em provado por edição real) — Tarefa 2 concluída
+- [Phase ?]: 04-07: 04-VERIFICACAO-HUMANA.md produzido com 26 itens, todos em aberto — Tarefa 3 redefinida em tempo real para 'produzir, não completar' porque o dono estava indisponível (decisão do coordenador)
+- [Phase ?]: 04-07: duas causas raiz de falha real de CI corrigidas (autenticacao.spec.ts sem testInfo.retry no e-mail de bloqueio; queimas-manutencao.spec.ts sincronizando por um valor que não muda) — confirmadas com --workers=2 e CI run #46 verde
 
 ### Pending Todos
 
@@ -225,6 +232,7 @@ None yet.
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
 - Dois gaps de infraestrutura abertos (WINDOWS.md ids 13, 14): pipeline nao puxa imagem :ferramentas no deploy; compose.yml do servidor nao e ressincronizado apos o Roteiro 1 — candidatos a fase futura de polimento de CI/roteiros
 - Ajustes necessarios no desktop mencionados pelo dono apos a verificacao em producao (03-08), sem detalhamento — capturar no backlog em separado antes de assumir a experiencia desktop pronta
+- Verificação humana de fim de fase (04) pendente: .planning/phases/04-contador-de-queima/04-VERIFICACAO-HUMANA.md — 26 itens (9 critérios do ROADMAP, 3 backstops do UI-SPEC, 14 itens herdados dos planos 04-01 a 04-06), nenhum percorrido ainda. Bloqueia o fechamento da Fase 4 e a abertura da Fase 5. Dono indisponível no momento da execução do 04-07.
 
 ### Roadmap Evolution
 
@@ -242,6 +250,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-11T02:09:21.162Z
-Stopped at: Completed 04-06-PLAN.md
-Resume file: None
+Last session: 2026-08-11T07:10:46.550Z
+Stopped at: 04-07: Tarefas 1-2 concluídas (migração aplicada e verificada em produção); Tarefa 3 (verificação humana) produzida em 04-VERIFICACAO-HUMANA.md, aguardando o dono percorrer — Fase 4 NÃO fechada
+Resume file: .planning/phases/04-contador-de-queima/04-VERIFICACAO-HUMANA.md
