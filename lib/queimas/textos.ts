@@ -151,6 +151,44 @@ export function rotuloMaisAcoes(nomeDoForno: string): string {
 
 export const ROTULO_SALVAR = "Salvar";
 
+// Banner agregado (E5, FOR-06) e o cartão "Fornos em atenção" do painel inicial (E11, Tarefa 3
+// do plano 04-05) — o MESMO par de funções serve os dois lugares, nunca uma segunda redação da
+// mesma frase. `prefixoDoBanner` fica separado do resto porque só o prefixo é negrito na tela; o
+// componente sabe onde ele termina e boldar só essa parte.
+export function prefixoDoBanner(quantidade: number): string {
+  return quantidade === 1
+    ? "1 forno precisa de atenção:"
+    : `${quantidade} fornos precisam de atenção:`;
+}
+
+// Literal de `04-DESIGN-SYSTEM.md` §8: prefixo (negrito) + até os 3 primeiros fornos no formato
+// "{nome} ({contador}/{limite})", separados por " · ", com o sufixo "· e mais {N}" quando sobra
+// mais de três. `fornosEmAtencao` já chega ORDENADO (críticos primeiro, contador decrescente —
+// `lib/queimas/filtros.ts#ordenarParaBanner`); esta função só formata, nunca reordena.
+export function fraseDoBanner(
+  fornosEmAtencao: readonly { nome: string; contador: number; limite: number }[],
+): string {
+  const quantidade = fornosEmAtencao.length;
+  const primeiros = fornosEmAtencao.slice(0, 3);
+  const listaDosPrimeiros = primeiros
+    .map((forno) => `${forno.nome} (${forno.contador}/${forno.limite})`)
+    .join(" · ");
+  const excedente = quantidade - primeiros.length;
+  const sufixo = excedente > 0 ? ` · e mais ${excedente}` : "";
+
+  return `${prefixoDoBanner(quantidade)} ${listaDosPrimeiros}${sufixo}`;
+}
+
+// Filtro Ativos/Desativados/Todos do índice (D-05, FOR-11, plano 04-05) — os três rótulos do
+// seletor discreto e o vazio filtrado, DISTINTO de `FRASE_VAZIO_*` acima ("nenhum forno existe"):
+// este é "o filtro não achou nada", mesma forma de `FRASE_FILTRO_VAZIO_*` de Encomendas.
+export const ROTULO_FILTRO_ATIVOS = "Ativos";
+export const ROTULO_FILTRO_DESATIVADOS = "Desativados";
+export const ROTULO_FILTRO_TODOS = "Todos";
+
+export const FRASE_FILTRO_VAZIO_TITULO = "Nada por aqui com esse filtro.";
+export const FRASE_FILTRO_VAZIO_CORPO = "Troque para 'Ativos' ou cadastre um forno novo.";
+
 export function fraseDoRodape({
   data,
   responsavel,
