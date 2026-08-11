@@ -3,7 +3,7 @@ status: complete
 phase: 04-contador-de-queima
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md, 04-07-SUMMARY.md]
 started: 2026-08-11T19:04:32Z
-updated: 2026-08-11T23:10:00Z
+updated: 2026-08-11T23:50:00Z
 ---
 
 ## Current Test
@@ -34,9 +34,25 @@ coverage_id: 04-02/D4
 
 ### 5. Carregando e erro na tela de fornos
 expected: Ao abrir /queimas, um esqueleto na forma dos cartões aparece antes do conteúdo (não uma tela branca). Se a carga falhar, aparece "Algo não funcionou." com o texto dizendo o que fazer.
-result: issue
-reported: "a pagina em branco com Application error: a server-side exception has occurred while loading localhost (see the server logs for more information). Digest: 743233016 — Failed query em exigirUsuario (lib/auth/exigir-usuario.ts:75) chamado por LayoutApp (app/(app)/layout.tsx:15)"
-severity: major
+result: pass
+resultado_original: issue
+reportado_originalmente: "a pagina em branco com Application error: a server-side exception has occurred while loading localhost (see the server logs for more information). Digest: 743233016 — Failed query em exigirUsuario (lib/auth/exigir-usuario.ts:75) chamado por LayoutApp (app/(app)/layout.tsx:15)"
+severidade_original: major
+retestado_em: 2026-08-11
+retestado_como: |
+  As duas metades foram provadas DEPOIS da correção do G-04-5, por métodos diferentes e em
+  momentos diferentes — nenhuma foi presumida:
+  - Estado de erro, nível de PÁGINA: teste 13, renomeando só a tabela `fornos` e deixando
+    `usuarios` legível, para a falha atingir a página e não o layout. Apareceu "Algo não
+    funcionou.".
+  - Estado de erro, nível de LAYOUT (o defeito original): quick 260811-uiy, com o Postgres
+    inteiro no chão e a sessão do dono já estabelecida. Apareceu a tela do projeto com o botão
+    "Tentar de novo", onde antes vinha "Application error / Digest: 743233016".
+  - Esqueleto de carregamento: confirmado pelo dono navegando de outra tela para /queimas. Esta
+    metade tinha ficado sem observação na primeira passada porque o banco estava fora do ar no
+    momento em que foi pedida — o dono via a tela de erro, não o esqueleto.
+  O gap G-04-5 permanece registrado na seção Gaps com status resolved. O histórico do defeito
+  não foi apagado: o resultado original, o relato verbatim e a severidade continuam acima.
 coverage_id: 04-02/D6
 
 ### 6. Duas queimas no mesmo instante
@@ -108,8 +124,8 @@ nota: Acrescentado depois do gsd-verifier apontar que este backstop nunca foi ob
 ## Summary
 
 total: 18
-passed: 17
-issues: 1
+passed: 18
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0

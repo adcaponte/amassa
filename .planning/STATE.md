@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
-status: executing
-stopped_at: "04-07: Tarefas 1-2 concluídas (migração aplicada e verificada em produção); Tarefa 3 (verificação humana) produzida em 04-VERIFICACAO-HUMANA.md, aguardando o dono percorrer — Fase 4 NÃO fechada"
-last_updated: "2026-08-11T07:10:46.590Z"
+status: phase_complete
+stopped_at: "Fase 4 FECHADA — UAT 18/18, verificação humana 26/26, VERIFICATION passed. Pronto para a Fase 5 (Agenda de Aulas)."
+last_updated: "2026-08-11T23:55:00.000Z"
 last_activity: 2026-08-11
-last_activity_desc: Plano 04-07 executado (varredura completa, migração de produção verificada); verificação humana de fim de fase pendente
+last_activity_desc: Fase 4 fechada — UAT completo (18 testes), verificação humana 26/26, G-04-5 corrigido fora da fase e provado por observação
 progress:
   total_phases: 5
   completed_phases: 4
@@ -23,19 +23,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04 — Contador de Queima
+**Current focus:** Fase 4 fechada — próxima é a Fase 5 (Agenda de Aulas)
 
 ## Current Position
 
-Phase: 04 (Contador de Queima) — EXECUTING (não fechada)
-Plan: 7 of 7 — todos os 7 planos executados; Fase 4 NÃO fechada
-Status: Plano 04-07 executado (varredura completa, migração aplicada e verificada em produção).
-Tarefa 3 (verificação humana) produzida em `04-VERIFICACAO-HUMANA.md`, com 26 itens ainda por
-percorrer — este é o único portão que falta para fechar a fase e abrir a Fase 5.
-Last activity: 2026-08-11 — Plano 04-07 executado, checklist de verificação humana aguardando o dono
+Phase: 04 (Contador de Queima) — COMPLETE ✓
+Plan: 7 of 7 — todos executados e verificados
+Status: Fase 4 fechada. Os 7 planos executados, migração aplicada à mão em produção e verificada
+direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
+nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
+foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
+Last activity: 2026-08-11 — Fase 4 fechada
 
-Progress: [█████████░] 97% (todos os 35 planos previstos até aqui executados; a 5ª fase do total
-de 5 só conta como fechada depois que a verificação humana da Fase 4 acontecer)
+Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -232,7 +232,7 @@ None yet.
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
 - Dois gaps de infraestrutura abertos (WINDOWS.md ids 13, 14): pipeline nao puxa imagem :ferramentas no deploy; compose.yml do servidor nao e ressincronizado apos o Roteiro 1 — candidatos a fase futura de polimento de CI/roteiros
 - Ajustes necessarios no desktop mencionados pelo dono apos a verificacao em producao (03-08), sem detalhamento — capturar no backlog em separado antes de assumir a experiencia desktop pronta
-- Verificação humana de fim de fase (04) pendente: .planning/phases/04-contador-de-queima/04-VERIFICACAO-HUMANA.md — 26 itens (9 critérios do ROADMAP, 3 backstops do UI-SPEC, 14 itens herdados dos planos 04-01 a 04-06), nenhum percorrido ainda. O UAT da Fase 4 (04-UAT.md, 17 de 18 respondidos, 16 pass / 1 issue) cobre substancialmente ~17-19 desses itens — falta transferir a evidência e percorrer o resto. Bloqueia o fechamento da Fase 4 e a abertura da Fase 5.
+- ~~Verificação humana de fim de fase (04)~~ — **RESOLVIDO em 2026-08-11**: 26/26 percorridos (22 por transferência de evidência do UAT com rastro por item, 4 confirmados pelo dono numa resposta única). `04-VERIFICATION.md` passou a `passed`.
 - Tela de login não distingue banco indisponível de credencial errada: com o Postgres fora do ar, responde "Confira o e-mail e a senha e tente de novo" e manda o gestor conferir uma senha que está certa. A mensagem anti-enumeração está funcionando como projetada; o problema é que ela também absorve falha de infraestrutura. Mesma família do G-04-5 (falha de infra vestida de erro do usuário). Achado durante a verificação do quick 260811-uiy; mexer nisso exige cuidado para não virar oráculo de contas.
 
 ### Quick Tasks Completed
