@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 14
+open_count: 16
 waived_count: 0
 fixed_count: 6
-total_count: 20
-last_updated: 2026-08-11T02:09:34.524Z
+total_count: 22
+last_updated: 2026-08-11T06:26:32.166Z
 ---
 
 # Broken Windows Ledger
@@ -35,6 +35,8 @@ last_updated: 2026-08-11T02:09:34.524Z
 | 18 | 04 | unrun-verify | components/amassa/queimas/banner-atencao.tsx |  | E5 long-text (UI-SPEC backstop): altura previsivel do banner com 3 fornos de nomes de 80 caracteres + 'e mais 2' em viewport de celular estreito, nunca checada visualmente | open |  | 2026-08-11T01:30:31.078Z |  |
 | 19 | 04 | unrun-verify | app/(app)/queimas/relatorios/page.tsx |  | D-08: estado vazio de /queimas/relatorios (nenhuma queima registrada) provado só por revisão de código — o e2e desta tarefa foi construído 'sem etiqueta de vazio' por escopo do plano 04-06 | open |  | 2026-08-11T02:09:34.019Z |  |
 | 20 | 04 | unrun-verify | components/amassa/queimas/relatorios-recharts.tsx |  | D-07: ordem visual das 4 estatísticas antes dos gráficos no celular e o 'mesmo recorte de dados' nos dois tamanhos de tela garantidos por código, nunca checados com screenshot | open |  | 2026-08-11T02:09:34.524Z |  |
+| 21 | 04 | deviation | tests/e2e/encomendas-detalhe.spec.ts | 657 | 'concluir uma encomenda cuja data já passou... mostra Concluída em ao atualizar' (celular) flaky sob a varredura completa (npm run test:e2e sem grep, CI run #45 e localmente): botão some / texto 'Concluída em' aparece via router.refresh() após concluirEncomenda, com toHaveCount/toContainText já polling 10s — passou na retentativa sem mudança de código, mesma classe de contenção de servidor Next único compartilhado já registrada em WINDOWS #12 (sessao.spec.ts). Arquivo da Fase 3, fora do escopo de arquivos do plano 04-07; não é um defeito óbvio e pequeno (diferente do achado real em queimas-manutencao.spec.ts, corrigido nesta mesma execução) — não modificado aqui. | open |  | 2026-08-11T06:04:00.822Z |  |
+| 22 | 04 | deviation | tests/e2e/encomendas-impressao.spec.ts | 155 | 'só rascunho e em_producao aparecem — concluída e cancelada nunca' (celular) falhou uma vez sob npm run test:e2e --workers=2 (concorrência representativa de CI): linha-impressao-{idConcluida} ainda visível em /encomendas/imprimir depois de o botão 'Marcar como concluída' já ter sumido na página de detalhe (confirmando status=concluida commitado) e um page.goto novo para a rota de impressão. Sinal real (não é o mesmo defeito de 'valor que não muda' já corrigido em queimas-manutencao.spec.ts nesta execução) — não reproduziu em runs anteriores nem depois; mesma classe de contenção de servidor Next único sob carga, ainda sem causa raiz pequena e óbvia. Arquivo da Fase 3, fora do escopo de arquivos do plano 04-07. | open |  | 2026-08-11T06:26:32.166Z |  |
 
 ````json
 [
@@ -276,6 +278,30 @@ last_updated: 2026-08-11T02:09:34.524Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-11T02:09:34.524Z",
+    "resolved_at": null
+  },
+  {
+    "id": 21,
+    "kind": "deviation",
+    "phase": "04",
+    "file": "tests/e2e/encomendas-detalhe.spec.ts",
+    "line": 657,
+    "description": "'concluir uma encomenda cuja data já passou... mostra Concluída em ao atualizar' (celular) flaky sob a varredura completa (npm run test:e2e sem grep, CI run #45 e localmente): botão some / texto 'Concluída em' aparece via router.refresh() após concluirEncomenda, com toHaveCount/toContainText já polling 10s — passou na retentativa sem mudança de código, mesma classe de contenção de servidor Next único compartilhado já registrada em WINDOWS #12 (sessao.spec.ts). Arquivo da Fase 3, fora do escopo de arquivos do plano 04-07; não é um defeito óbvio e pequeno (diferente do achado real em queimas-manutencao.spec.ts, corrigido nesta mesma execução) — não modificado aqui.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T06:04:00.822Z",
+    "resolved_at": null
+  },
+  {
+    "id": 22,
+    "kind": "deviation",
+    "phase": "04",
+    "file": "tests/e2e/encomendas-impressao.spec.ts",
+    "line": 155,
+    "description": "'só rascunho e em_producao aparecem — concluída e cancelada nunca' (celular) falhou uma vez sob npm run test:e2e --workers=2 (concorrência representativa de CI): linha-impressao-{idConcluida} ainda visível em /encomendas/imprimir depois de o botão 'Marcar como concluída' já ter sumido na página de detalhe (confirmando status=concluida commitado) e um page.goto novo para a rota de impressão. Sinal real (não é o mesmo defeito de 'valor que não muda' já corrigido em queimas-manutencao.spec.ts nesta execução) — não reproduziu em runs anteriores nem depois; mesma classe de contenção de servidor Next único sob carga, ainda sem causa raiz pequena e óbvia. Arquivo da Fase 3, fora do escopo de arquivos do plano 04-07.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T06:26:32.166Z",
     "resolved_at": null
   }
 ]
