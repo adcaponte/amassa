@@ -20,6 +20,11 @@ export const ROTULO_QUEIMAR = "Queimar";
 
 export const FRASE_FALHA_AO_SALVAR = "Não deu para salvar. Verifique a internet e tente de novo.";
 
+// Estado de erro do índice (`/queimas`, E1/error) — mesmo par de `app/(app)/encomendas/error.tsx`.
+export const FRASE_ERRO_TITULO = "Algo não funcionou.";
+export const FRASE_ERRO_CORPO =
+  "Não deu para carregar os fornos. Verifique a internet e tente de novo.";
+
 // Fluxo de dois toques (D-04, Tarefa 3 do plano 04-01) — o toast de 7 segundos e as duas frases
 // de falha que ele pode mostrar.
 export const TOAST_QUEIMA_REGISTRADA = "Queima registrada.";

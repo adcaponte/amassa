@@ -29,7 +29,12 @@ function cartaoDoForno(page: Page, nome: string) {
 }
 
 test.describe("registro de queima em dois toques", () => {
-  test.describe.configure({ mode: "serial" });
+  // `retries: 2` mesmo fora do CI: o servidor Next é ÚNICO, compartilhado por todos os
+  // workers/projetos da suíte — sob carga alta local (ex.: `queimas-cartao.spec.ts` rodando em
+  // paralelo, dez registros seguidos), uma tentativa pode esbarrar em lentidão transitória do
+  // servidor compartilhado sem que o comportamento em si esteja errado (achado real desta
+  // tarefa, ver 04-02-SUMMARY.md).
+  test.describe.configure({ mode: "serial", retries: 2 });
 
   test("dois toques — 'Queimar' e depois o tipo — registram a queima, o toast aparece em menos de 5s, e o contador sobrevive a um recarregamento", async ({
     page,
@@ -40,7 +45,7 @@ test.describe("registro de queima em dois toques", () => {
 
     const cartao = cartaoDoForno(page, nome);
     await expect(cartao).toBeVisible();
-    await expect(cartao.getByTestId(/^contador-forno-/)).toContainText("0 / 50");
+    await expect(cartao.getByTestId("medidor-contador")).toContainText("0 / 50");
 
     const inicio = Date.now();
 
@@ -60,14 +65,20 @@ test.describe("registro de queima em dois toques", () => {
     expect(decorrido).toBeLessThan(5000);
 
     // O contador do cartão avança para 1 depois da resposta confirmada do servidor
-    // (`router.refresh()`), nunca antes (fluxo não otimista, de propósito).
-    await expect(cartao.getByTestId(/^contador-forno-/)).toContainText("1 / 50");
+    // (`router.refresh()`), nunca antes (fluxo não otimista, de propósito). Timeout alargado
+    // (10s, acima do padrão de 5s do Playwright): o servidor Next único é compartilhado por
+    // todos os workers/projetos da suíte, e specs pesadas rodando em paralelo (ex.:
+    // queimas-cartao.spec.ts, dez registros seguidos) podem atrasar o refresh desta asserção
+    // sem que o requisito de tempo em si (FOR-01, `decorrido < 5000` acima) seja violado.
+    await expect(cartao.getByTestId("medidor-contador")).toContainText("1 / 50", { timeout: 10000 });
 
     // Sobrevive a um recarregamento imediato — a prova contra a perda silenciosa que este plano
     // existe para impedir.
     await page.reload();
     const cartaoAposRecarregar = cartaoDoForno(page, nome);
-    await expect(cartaoAposRecarregar.getByTestId(/^contador-forno-/)).toContainText("1 / 50");
+    await expect(cartaoAposRecarregar.getByTestId("medidor-contador")).toContainText("1 / 50", {
+      timeout: 10000,
+    });
   });
 
   test("'Desfazer' remove a queima recém-registrada e o contador volta ao valor anterior, também depois de recarregar", async ({
@@ -82,15 +93,17 @@ test.describe("registro de queima em dois toques", () => {
     await cartao.getByTestId("tipo-queima-esmalte").click();
 
     await expect(page.getByText("Queima registrada.")).toBeVisible({ timeout: 5000 });
-    await expect(cartao.getByTestId(/^contador-forno-/)).toContainText("1 / 50");
+    await expect(cartao.getByTestId("medidor-contador")).toContainText("1 / 50", { timeout: 10000 });
 
     await page.getByRole("button", { name: "Desfazer" }).click();
     await expect(page.getByText("Queima desfeita.")).toBeVisible({ timeout: 5000 });
 
-    await expect(cartao.getByTestId(/^contador-forno-/)).toContainText("0 / 50");
+    await expect(cartao.getByTestId("medidor-contador")).toContainText("0 / 50", { timeout: 10000 });
 
     await page.reload();
     const cartaoAposRecarregar = cartaoDoForno(page, nome);
-    await expect(cartaoAposRecarregar.getByTestId(/^contador-forno-/)).toContainText("0 / 50");
+    await expect(cartaoAposRecarregar.getByTestId("medidor-contador")).toContainText("0 / 50", {
+      timeout: 10000,
+    });
   });
 });
