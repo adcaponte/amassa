@@ -4,6 +4,11 @@ import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { EstadoErro } from "@/components/amassa/estado-erro";
+import {
+  FRASE_ERRO_CORPO_GENERICO,
+  FRASE_ERRO_TITULO,
+  ROTULO_TENTAR_DE_NOVO,
+} from "@/lib/erro/textos";
 
 // Boundary de erro do grupo protegido — "use client" é exigência do Next.js App Router para
 // qualquer error.tsx. Vive DENTRO de app/(app)/layout.tsx (a casca inteira é o layout que
@@ -27,11 +32,16 @@ export default function ErroApp({
 
   return (
     <EstadoErro
-      titulo="Algo não funcionou."
-      corpo="Não deu para carregar esta página. Verifique a internet e tente de novo."
+      titulo={FRASE_ERRO_TITULO}
+      corpo={FRASE_ERRO_CORPO_GENERICO}
       acao={
-        <Button type="button" variant="default" onClick={() => reset()}>
-          Tentar de novo
+        <Button
+          type="button"
+          variant="default"
+          className="min-h-[44px]"
+          onClick={() => reset()}
+        >
+          {ROTULO_TENTAR_DE_NOVO}
         </Button>
       }
     />
