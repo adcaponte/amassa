@@ -1,20 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 04-contador-de-queima
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md, 04-07-SUMMARY.md]
 started: 2026-08-11T19:04:32Z
-updated: 2026-08-11T20:24:00Z
+updated: 2026-08-11T20:50:00Z
 ---
 
 ## Current Test
 
-number: 14
-name: Banner com nomes longos (backstop E5)
-expected: |
-  Com 5 fornos em atenção, três deles com nomes de 80 caracteres, o banner mostra os
-  3 primeiros mais "· e mais 2", mantém altura previsível, e não empurra os cartões
-  para baixo da dobra num celular estreito (375px de largura).
-awaiting: user response
+[testing complete]
 
 ## Tests
 
@@ -87,30 +81,30 @@ coverage_id: 04-05/D7
 
 ### 14. Banner com nomes longos (backstop E5)
 expected: Com 5 fornos em atenção, três deles com nomes de 80 caracteres, o banner mostra os 3 primeiros mais "· e mais 2", mantém altura previsível, e não empurra os cartões para baixo da dobra num celular estreito (375px).
-result: [pending]
+result: pass
 coverage_id: 04-05/D8
 
 ### 15. Relatórios no celular
 expected: Em viewport de celular, as quatro estatísticas vêm empilhadas primeiro, os gráficos abaixo. Cada gráfico rola na horizontal dentro do próprio contêiner — a página nunca rola de lado. Os dados são os mesmos do desktop.
-result: [pending]
+result: pass
 coverage_id: 04-06/D6
 
 ### 16. Relatórios sem nenhuma queima
 expected: Sem nenhuma queima registrada, /queimas/relatorios mostra "Nenhuma queima registrada ainda." com o botão "Ver fornos", no lugar dos gráficos. O item "Relatórios" continua visível no seletor.
-result: [pending]
+result: pass
 coverage_id: 04-06/D7
 
 ### 17. A checklist de fim de fase
 expected: 04-VERIFICACAO-HUMANA.md tem os 26 itens (9 critérios do ROADMAP, 3 backstops do UI-SPEC, 14 herdados), cada um com passos de reprodução e critério de aprovação claros o suficiente para percorrer sem reler os SUMMARYs.
-result: [pending]
+result: pass
 coverage_id: 04-07/D4
 
 ## Summary
 
 total: 17
-passed: 12
+passed: 16
 issues: 1
-pending: 4
+pending: 0
 skipped: 0
 blocked: 0
 
