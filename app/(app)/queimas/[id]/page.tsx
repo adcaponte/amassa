@@ -13,6 +13,7 @@ import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { HistoricoManutencoes } from "@/components/amassa/queimas/historico-manutencoes";
 import { HistoricoQueimas } from "@/components/amassa/queimas/historico-queimas";
 import { Medidor } from "@/components/amassa/queimas/medidor";
+import { RegistrarManutencao } from "@/components/amassa/queimas/registrar-manutencao";
 
 // `exigirUsuario()` como PRIMEIRA instrução — regra do CLAUDE.md, mesmo molde de
 // `app/(app)/encomendas/[id]/page.tsx`. `params` é `Promise` no Next.js 15. O forno tem endereço
@@ -70,6 +71,13 @@ export default async function PaginaDetalheDoForno({
           {forno.descricao && (
             <p className="text-corpo text-muted-foreground break-words">{forno.descricao}</p>
           )}
+
+          {/* Foco secundário da tela (04-UI-SPEC.md §"Visual Hierarchy"), logo abaixo do
+              medidor — único botão de acento (terracota) desta página (D-03: o cartão do índice
+              nunca monta este componente, "Registrar manutenção" existe só aqui). */}
+          <div>
+            <RegistrarManutencao fornoId={forno.id} contadorAtual={medida.contador} />
+          </div>
         </section>
 
         {/* Manutenções primeiro (é o histórico de vida útil, o propósito do módulo), queimas
