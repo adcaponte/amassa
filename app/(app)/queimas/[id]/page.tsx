@@ -10,6 +10,8 @@ import {
   fraseDoRodape,
 } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { HistoricoManutencoes } from "@/components/amassa/queimas/historico-manutencoes";
+import { HistoricoQueimas } from "@/components/amassa/queimas/historico-queimas";
 import { Medidor } from "@/components/amassa/queimas/medidor";
 
 // `exigirUsuario()` como PRIMEIRA instrução — regra do CLAUDE.md, mesmo molde de
@@ -70,15 +72,16 @@ export default async function PaginaDetalheDoForno({
           )}
         </section>
 
-        {/* As duas seções de histórico ficam nomeadas e vazias aqui — a Tarefa 2 monta
-            `HistoricoManutencoes`/`HistoricoQueimas` dentro delas. Manutenções primeiro (é o
-            histórico de vida útil, o propósito do módulo), queimas depois. */}
+        {/* Manutenções primeiro (é o histórico de vida útil, o propósito do módulo), queimas
+            depois. As duas crescem na rolagem vertical da página; nenhuma rolagem horizontal. */}
         <section aria-label={ROTULO_HISTORICO_MANUTENCOES}>
           <h2 className="text-titulo text-foreground mb-3">{ROTULO_HISTORICO_MANUTENCOES}</h2>
+          <HistoricoManutencoes manutencoes={forno.manutencoes} />
         </section>
 
         <section aria-label={ROTULO_HISTORICO_QUEIMAS}>
           <h2 className="text-titulo text-foreground mb-3">{ROTULO_HISTORICO_QUEIMAS}</h2>
+          <HistoricoQueimas queimas={forno.queimasRecentes} />
         </section>
       </div>
     </>

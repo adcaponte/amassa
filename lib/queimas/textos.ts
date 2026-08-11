@@ -44,6 +44,17 @@ export const FRASE_FALHA_AO_REGISTRAR_QUEIMA =
   "Não deu para registrar a queima. Verifique a internet e tente de novo.";
 export const FRASE_FALHA_AO_DESFAZER = "Não deu para desfazer. Verifique a internet e tente de novo.";
 
+// Vazios inline das duas sub-seções de histórico (E6/empty, plano 04-03) — NUNCA um `EstadoVazio`
+// de página inteira: cada frase vive dentro da própria sub-seção que descreve. Distintas de
+// `FRASE_SEM_MANUTENCAO` acima (fragmento sem ponto final, concatenado no rodapé do cartão do
+// índice) — estas são frases completas, autônomas.
+export const FRASE_SEM_QUEIMAS = "Nenhuma queima registrada ainda.";
+export const FRASE_SEM_MANUTENCOES = "Sem manutenção registrada.";
+
+// Autor de uma queima quando `registradoPor` é nulo (usuário removido no futuro, T-04-02) —
+// nunca um espaço em branco onde o nome deveria estar.
+export const ROTULO_AUTOR_DESCONHECIDO = "Usuário removido";
+
 // `switch` exaustivo sobre os três valores de `tipo_queima` — o `_exaustivo: never` no `default`
 // é o que faz o compilador reclamar se um quarto tipo aparecer sem tratamento, no molde de
 // `textoDaSituacao` (`lib/encomendas/textos.ts`).
