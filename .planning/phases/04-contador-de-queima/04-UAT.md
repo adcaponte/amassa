@@ -3,17 +3,17 @@ status: testing
 phase: 04-contador-de-queima
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md, 04-07-SUMMARY.md]
 started: 2026-08-11T19:04:32Z
-updated: 2026-08-11T20:06:00Z
+updated: 2026-08-11T20:24:00Z
 ---
 
 ## Current Test
 
-number: 10
-name: Editar forno
+number: 14
+name: Banner com nomes longos (backstop E5)
 expected: |
-  Na página do forno, menu ⋮ Mais ações → Editar forno abre o formulário com nome,
-  descrição e limite já preenchidos. Alterar e salvar reflete no índice. Não existe
-  tela de cadastro separada — a edição acontece na página do próprio forno (D-02).
+  Com 5 fornos em atenção, três deles com nomes de 80 caracteres, o banner mostra os
+  3 primeiros mais "· e mais 2", mantém altura previsível, e não empurra os cartões
+  para baixo da dobra num celular estreito (375px de largura).
 awaiting: user response
 
 ## Tests
@@ -67,22 +67,22 @@ coverage_id: 04-04/D4
 
 ### 10. Editar forno
 expected: Na página do forno, menu ⋮ Mais ações → Editar forno abre o formulário com nome, descrição e limite preenchidos. Salvar altera e a mudança aparece no índice.
-result: [pending]
+result: pass
 coverage_id: 04-04/D6
 
 ### 11. Forno desativado
 expected: Um forno desativado aparece esmaecido no índice e sem o botão "Queimar". A página dele continua abrindo, com todo o histórico intacto. O esmaecido ainda é legível.
-result: [pending]
+result: pass
 coverage_id: 04-04/D8
 
 ### 12. Transição já feita
 expected: Desativar um forno que já está desativado (ou reativar um já ativo — ex.: duas abas abertas) devolve uma mensagem em português dizendo o que aconteceu, nunca um sucesso mudo.
-result: [pending]
+result: pass
 coverage_id: 04-04/D10
 
 ### 13. Painel inicial com falha
 expected: Se a consulta de fornos do painel inicial falhar, aquele cartão mostra o estado de erro. Os outros cartões do painel continuam de pé, e nunca parece "tudo em dia" silenciosamente.
-result: [pending]
+result: pass
 coverage_id: 04-05/D7
 
 ### 14. Banner com nomes longos (backstop E5)
@@ -108,9 +108,9 @@ coverage_id: 04-07/D4
 ## Summary
 
 total: 17
-passed: 8
+passed: 12
 issues: 1
-pending: 8
+pending: 4
 skipped: 0
 blocked: 0
 
@@ -134,7 +134,7 @@ Não são apresentados como checkpoint — a evidência já existe.
 ## Gaps
 
 - gap_id: G-04-5
-  truth: "Toda tela autenticada mostra um estado de erro em linguagem humana quando o banco está fora do ar, nunca uma tela em branco com exceção crua"
+  truth: "Uma falha em exigirUsuario() (layout de rota protegida) cai num estado de erro em linguagem humana, não na tela padrão do Next.js"
   status: failed
   reason: "User reported: página em branco com \"Application error: a server-side exception has occurred\". A falha vem de exigirUsuario() em app/(app)/layout.tsx:15, não da página."
   severity: major
@@ -151,4 +151,4 @@ Não são apresentados como checkpoint — a evidência já existe.
     - "Criar app/global-error.tsx (e/ou app/error.tsx) com a voz de erro do projeto, para que a falha do layout protegido não caia no handler padrão do Next.js"
     - "Reconferir se os demais estados de erro da fase (E11/painel inicial, teste 13) sofrem do mesmo caminho — a mesma exceção do layout precede todos eles"
   escopo: "Pré-existente à Fase 4 — app/(app)/layout.tsx é da Fase 2b. Os error.tsx de Fornos estão corretos para o escopo deles."
-  nota_de_metodo: "Derrubar o banco inteiro atinge o layout primeiro, então NÃO exercita o error.tsx de /queimas. Esse continua sem prova — precisa de uma falha que atinja só a consulta da página."
+  nota_de_metodo: "REVISADO no teste 13. Derrubar o banco inteiro atingia o layout primeiro e nunca alcançava as fronteiras de página. Refeito com um método cirúrgico (renomear só a tabela fornos, deixando usuarios legível): app/(app)/queimas/error.tsx e o EstadoErro do cartão de Fornos no painel inicial FUNCIONAM — provados nesta sessão, testes 5 (segunda metade) e 13. O defeito é estritamente a ausência de fronteira ACIMA do layout de (app)."
