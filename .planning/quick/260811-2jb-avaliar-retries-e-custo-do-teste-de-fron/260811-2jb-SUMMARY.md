@@ -113,6 +113,41 @@ Registro honesto:
 Rápidos, rodados à vontade: `npm run lint` ✓, `npx tsc --noEmit` ✓, `npm test` ✓ (358 testes).
 `npm run test:migracoes` **não** foi rodado — nada aqui toca `db/schema.ts`.
 
+## Adendo — o dono aprovou corrigir só o item 3 (corrida do globalSetup)
+
+`tests/e2e/apoio/preparar-usuario.ts` agora **garante** a conta em vez de só criá-la:
+
+1. `pg_advisory_lock` do Postgres em volta de "conferir e então gravar" — a trava é do banco, não
+   do processo, então serializa mesmo entre processos diferentes.
+2. Dentro da trava, cria OU redefine. `redefinir-senha` imprime a senha nova na mesma linha
+   `SENHA: ...`; o comentário daquele script já dizia que ele existe para ser consumido aqui.
+
+Diagnóstico temporário (`pid` + instante) confirmou que numa corrida **saudável** o globalSetup
+roda **uma vez só** — a execução dupla é consequência das corridas que morrem no meio, não um
+comportamento constante do Playwright 1.62. A trava cobre os dois casos.
+
+### Resultado, varredura completa antes × depois
+
+| | `HEAD` (retries LIGADOS) | agora (retries desligados, teste leve, globalSetup corrigido) |
+|---|---|---|
+| failed | 5 | 5 |
+| **flaky** | **2** | **0** |
+| passed | 271 | **273** |
+| `queimas-cartao` | desktop **3.0m FALHOU** + retry; celular 22.8s | desktop **9.2s ok**, celular **24.0s ok**, sem retentativa |
+
+As 5 falhas restantes são todas conhecidas e nenhuma é destes dois arquivos:
+
+- `autenticacao.spec.ts:72` (×2) — já estava em Blockers/Concerns do STATE.md
+- `casca.spec.ts:214` (×2) — premissa falsa sem `@vazio-global`; o dono optou por não corrigir agora
+- `queimas-registro.spec.ts:84` (celular) — `element is not stable` ao clicar em "Desfazer"
+  dentro de um toast do `sonner` ainda em animação. Defeito real e próprio do teste; a
+  retentativa nunca o consertou (em `HEAD` ele falhava no desktop **mesmo com 2 retentativas**).
+
+**A pergunta 1 agora tem resposta:** para `queimas-cartao.spec.ts`, `mode: "serial"` sozinho não
+só bastava como era desnecessário — o arquivo tem um teste só e passa limpo nos dois projetos sem
+rede nenhuma. Para `queimas-registro.spec.ts`, `mode: "serial"` fica, sem `retries`: o que sobra
+ali é um defeito de verdade, e agora ele aparece em vez de ser escondido.
+
 ## Recomendação
 
 As retentativas locais foram removidas e devem continuar removidas: elas mascaram, não consertam,
