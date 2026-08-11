@@ -85,8 +85,8 @@
 - [ ] **FOR-06**: O banner no topo lista os fornos que precisam de atenção, com o contador de cada um
 - [ ] **FOR-07**: Registrar manutenção mostra "o contador vai de N para 0", aceita responsável e observações opcionais, e zera o contador **sem apagar** o histórico
 - [x] **FOR-08**: O cartão mostra quantas queimas o forno já fez na vida, além do contador desde a última manutenção
-- [ ] **FOR-09**: O detalhe do forno mostra o histórico de manutenções e as últimas 25 queimas
-- [ ] **FOR-10**: Remover uma queima lançada por engano no histórico pede confirmação
+- [x] **FOR-09**: O detalhe do forno mostra o histórico de manutenções e as últimas 25 queimas
+- [x] **FOR-10**: Remover uma queima lançada por engano no histórico pede confirmação
 - [ ] **FOR-11**: Fornos podem ser cadastrados e desativados, mas nunca excluídos
 - [ ] **FOR-12**: Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
 - [x] **FOR-13**: Cada queima registra quem a lançou (usuário logado), sem pedir nada a mais no fluxo
@@ -259,8 +259,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FOR-06 | Phase 4 — Contador de Queima | Pending |
 | FOR-07 | Phase 4 — Contador de Queima | Pending |
 | FOR-08 | Phase 4 — Contador de Queima | Complete |
-| FOR-09 | Phase 4 — Contador de Queima | Pending |
-| FOR-10 | Phase 4 — Contador de Queima | Pending |
+| FOR-09 | Phase 4 — Contador de Queima | Complete |
+| FOR-10 | Phase 4 — Contador de Queima | Complete |
 | FOR-11 | Phase 4 — Contador de Queima | Pending |
 | FOR-12 | Phase 4 — Contador de Queima | Pending |
 | FOR-13 | Phase 4 — Contador de Queima | Complete |

@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-08-11T00:10:44.940Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-08-11T00:28:56.543Z"
 last_activity: 2026-08-10
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 30
+  completed_plans: 31
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04 (Contador de Queima) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-08-10 — Phase 04 execution started
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -89,6 +89,7 @@ Progress: [█████████░] 86%
 | Phase 03 P08 | ~40min (agente) + execucao real em producao | 4 tasks | 20 files |
 | Phase 04 P01 | ~55min | 3 tasks | 18 files |
 | Phase 04 P02 | ~75min | 3 tasks | 12 files |
+| Phase 04 P03 | ~50min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -192,6 +193,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-02: fraseDoRodape recebe data ja formatada (nao timestamptz bruto) para preservar textos.ts nunca importar valor de formato.ts
 - [Phase ?]: 04-02: queimas-cartao.spec.ts prova as tres fronteiras de FOR-04 com forno de limite 10 (piso Math.max(1,limite-10)=1), 10 registros reais em vez de 100
 - [Phase ?]: 04-02: specs de Queimas ganharam retries:2 local + timeouts alargados — servidor Next unico compartilhado por todos os workers da suite, confirmado deterministico isolado (--workers=1)
+- [Phase ?]: 04-03: buscarForno reaproveita a consulta de manutencoes (desc) para dois propositos — ultimaManutencao e o historico completo exibido
+- [Phase ?]: 04-03: ocorrenciasDeQueima de buscarForno traz TODAS as queimas (sem limite) — so queimasRecentes e limitada a 25; medirForno precisa do total real
+- [Phase ?]: 04-03: excluirQueima passou a revalidar tambem /queimas/[id], nao so /queimas — gap do plano 04-01 frente ao padrao ja documentado em 04-PATTERNS.md
+- [Phase ?]: 04-03: historico-queimas.tsx virou client component (estado local de qual linha tem o dialog de exclusao aberto); historico-manutencoes.tsx continua Server Component
 
 ### Pending Todos
 
@@ -227,6 +232,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-11T00:10:44.910Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-08-11T00:28:56.509Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
