@@ -1,12 +1,14 @@
 ---
 phase: 04-contador-de-queima
 verified: 2026-08-11T22:15:00Z
-status: human_needed
+status: passed
 score: 9/9 must-haves verified (roadmap success criteria), 0 failed, 2 residual human-verification items
 behavior_unverified: 0
 overrides_applied: 0
 re_verification: null
-human_verification:
+human_verification_resolved_at: 2026-08-11T23:40:00Z
+human_verification_resolution: "Os dois itens foram fechados na mesma sessão. (1) Backstop E3 — verificado pelo dono no teste 18 do UAT, acrescentado justamente porque este relatório apontou que a lista original de 17 testes não o cobria. (2) 04-VERIFICACAO-HUMANA.md — 26/26 percorridos: 22 por transferência de evidência do UAT com rastro por item, 4 confirmados pelo dono numa resposta única ao final. O gap G-04-5 encontrado no UAT foi corrigido fora da fase (quick 260811-uiy) e a correção foi provada por observação."
+human_verification_original:
   - test: "Backstop E3 (UI-SPEC, FOR-01) — nenhum indicador de carregamento entre os dois toques"
     expected: "No celular, tocar 'Queimar' abre o seletor de tipo IMEDIATAMENTE (troca de estado local síncrona) e nenhum spinner/skeleton aparece entre o primeiro e o segundo toque; o fluxo inteiro fecha em menos de 5s."
     why_human: "Declarado 'verification: backstop' desde o planejamento (04-UI-SPEC.md) porque nenhum teste automatizado consegue provar a AUSÊNCIA de uma janela de carregamento visual — só uma pessoa olhando a tela em tempo real pode confirmar. Revisão de código (registrar-queima.tsx) mostra que a abertura do seletor é um `setState` local síncrono sem chamada de rede, o que é consistente com 'sem carregamento', mas isso é evidência estrutural, não uma observação visual. Nunca verificado por ninguém — não está no UAT (17 testes) nem tem item correspondente em WINDOWS.md. É o único dos três backstops do UI-SPEC que ficou genuinamente sem prova de nenhum tipo."

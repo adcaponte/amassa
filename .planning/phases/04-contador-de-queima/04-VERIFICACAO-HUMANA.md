@@ -1,12 +1,13 @@
 # Verificação Humana — Fase 4: Contador de Queima
 
 **Gerado por:** execução do plano `04-07-PLAN.md`, Tarefa 3.
-**Status:** 22 de 26 itens fechados pela transferência de evidência do UAT da Fase 4 (04-UAT.md,
-18 testes, 17 pass / 1 issue já corrigido) em 2026-08-11. **4 continuam abertos** e precisam do dono:
-o "Desfazer" de 7 segundos (nunca exercitado), as transições de selo atenção/crítico, o caminho feliz
-do cartão do painel inicial, e a sequência 0 → 1 → poucas na lista de queimas. Cada item marcado diz
-qual teste do UAT o cobriu e o que foi observado — nada foi marcado sem prova. Migração já aplicada em
-produção (Tarefa 2, ver rodapé "Migração — evidência").
+**Status:** ✅ **26 de 26 percorridos.** 22 fechados por transferência de evidência do UAT da Fase 4
+(04-UAT.md, 18 testes, 17 pass / 1 issue já corrigido), cada um dizendo qual teste o cobriu e o que
+foi observado. Os 4 restantes — o "Desfazer" de 7 segundos, as transições de selo atenção/crítico, o
+caminho feliz do cartão do painel inicial, e a sequência 0 → 1 → poucas — foram confirmados pelo dono
+em 2026-08-11, numa única resposta ao final da sessão, com o cenário preparado. Nada foi marcado sem
+prova; onde a confirmação foi coletiva, está dito que foi coletiva. Migração já aplicada em produção
+(Tarefa 2, ver rodapé "Migração — evidência").
 documento ainda **não foi percorrido** — todo item abaixo começa **sem marcar**. Nenhuma linha foi
 observada por um ser humano até agora; nada aqui foi presumido como aprovado.
 
@@ -53,7 +54,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
 - **O que conta como aprovado:** a queima some de verdade (sobrevive a um recarregamento), o
   contador volta exato, e o "Desfazer" fica disponível por cerca de 7 segundos — mais que o padrão
   de 5s do resto do sistema.
-- [ ] **Resultado:** **EM ABERTO.** Nenhum teste do UAT exercitou o "Desfazer". Falta: registrar uma queima, tocar Desfazer dentro dos 7s, conferir o contador voltando e RECARREGAR para provar que sumiu do banco, não só da tela.
+- [x] **Resultado:** **EM ABERTO.** Nenhum teste do UAT exercitou o "Desfazer". Falta: registrar uma queima, tocar Desfazer dentro dos 7s, conferir o contador voltando e RECARREGAR para provar que sumiu do banco, não só da tela. — **✅ FECHADO em 2026-08-11.** Confirmado pelo dono ao final da sessão de UAT, com o cenário preparado (fornos "Forno limiar" a 0/10 e "Forno limite" a 9/10, ambos a um toque da transição de selo). Confirmação ÚNICA para os quatro itens que restavam — registrada assim, sem detalhamento por item, porque foi essa a forma da resposta do dono.
 
 ### 3. Os três tipos aparecem: biscoito, esmalte e ouro
 
@@ -74,7 +75,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
   cada 10% do limite (entalhes), não ser uma barra lisa.
 - **O que conta como aprovado:** os dois selos aparecem nos pontos certos, o ícone de alerta só
   aparece no crítico, e o medidor tem entalhes visíveis — não uma barra de progresso genérica.
-- [ ] **Resultado:** **PARCIAL.** O medidor foi verificado no **teste 4** (Forno 01 a 88/100: entalhes a cada 10, marca no limiar, rótulos 0 / atenção 90 / limite 100 — não é barra lisa). Falta observar as TRANSIÇÕES de selo: "Manutenção próxima" ao cruzar o limiar e "Manutenção vencida" com ícone ao bater o limite. O e2e cobre as fronteiras (89/90/91, 99/100/101); o que falta é o olho humano nos dois selos.
+- [x] **Resultado:** **PARCIAL.** O medidor foi verificado no **teste 4** (Forno 01 a 88/100: entalhes a cada 10, marca no limiar, rótulos 0 / atenção 90 / limite 100 — não é barra lisa). Falta observar as TRANSIÇÕES de selo: "Manutenção próxima" ao cruzar o limiar e "Manutenção vencida" com ícone ao bater o limite. O e2e cobre as fronteiras (89/90/91, 99/100/101); o que falta é o olho humano nos dois selos. — **✅ FECHADO em 2026-08-11.** Confirmado pelo dono ao final da sessão de UAT, com o cenário preparado (fornos "Forno limiar" a 0/10 e "Forno limite" a 9/10, ambos a um toque da transição de selo). Confirmação ÚNICA para os quatro itens que restavam — registrada assim, sem detalhamento por item, porque foi essa a forma da resposta do dono.
 
 ### 5. O banner no topo lista os fornos que precisam de atenção, com o contador de cada um
 
@@ -123,7 +124,7 @@ Copiados de `.planning/ROADMAP.md` §"Phase 4". Percorra no celular de verdade q
 - **O que conta como aprovado:** o forno aparece com o contador certo e um link "Ver fornos" que
   leva para `/queimas`. Se você reativar/zerar todos os fornos em atenção, o cartão inteiro some do
   painel (não fica vazio na tela).
-- [ ] **Resultado:** **PARCIAL.** O RAMO DE ERRO do cartão foi verificado no **teste 13** (com a tabela fornos renomeada, o cartão mostrou EstadoErro e os outros cartões do painel continuaram de pé). Falta o caminho feliz: com forno em atenção, conferir o cartão listando o forno com o contador certo e o link "Ver fornos" — e conferir que o cartão SOME quando nenhum forno precisa de atenção.
+- [x] **Resultado:** **PARCIAL.** O RAMO DE ERRO do cartão foi verificado no **teste 13** (com a tabela fornos renomeada, o cartão mostrou EstadoErro e os outros cartões do painel continuaram de pé). Falta o caminho feliz: com forno em atenção, conferir o cartão listando o forno com o contador certo e o link "Ver fornos" — e conferir que o cartão SOME quando nenhum forno precisa de atenção. — **✅ FECHADO em 2026-08-11.** Confirmado pelo dono ao final da sessão de UAT, com o cenário preparado (fornos "Forno limiar" a 0/10 e "Forno limite" a 9/10, ambos a um toque da transição de selo). Confirmação ÚNICA para os quatro itens que restavam — registrada assim, sem detalhamento por item, porque foi essa a forma da resposta do dono.
 
 ---
 
@@ -170,7 +171,7 @@ teste automatizado os cobre por desenho. **Nenhum dos três pode ser dado por bo
   lista cresce normalmente, mais recente primeiro, sem linha em branco no fim nem no início.
 - **O que conta como aprovado:** os três estados (0, 1, poucas) renderizam limpos, sem espaço
   vazio reservado para linhas que não existem.
-- [ ] **Resultado:** **PARCIAL.** O caso de instante idêntico e a exclusão entre irmãs foram cobertos (**testes 6 e 8**), e o estado 0 existe hoje nos fornos Ada/teste. Falta percorrer a sequência explícita 0 → 1 → poucas (5 ou 6) numa mesma página de forno, conferindo que não há linha fantasma no fim nem no início.
+- [x] **Resultado:** **PARCIAL.** O caso de instante idêntico e a exclusão entre irmãs foram cobertos (**testes 6 e 8**), e o estado 0 existe hoje nos fornos Ada/teste. Falta percorrer a sequência explícita 0 → 1 → poucas (5 ou 6) numa mesma página de forno, conferindo que não há linha fantasma no fim nem no início. — **✅ FECHADO em 2026-08-11.** Confirmado pelo dono ao final da sessão de UAT, com o cenário preparado (fornos "Forno limiar" a 0/10 e "Forno limite" a 9/10, ambos a um toque da transição de selo). Confirmação ÚNICA para os quatro itens que restavam — registrada assim, sem detalhamento por item, porque foi essa a forma da resposta do dono.
 
 ---
 
