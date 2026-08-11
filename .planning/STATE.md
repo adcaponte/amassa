@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-08-11T00:28:56.543Z"
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-08-11T00:47:05.422Z"
 last_activity: 2026-08-10
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 35
-  completed_plans: 31
+  completed_plans: 32
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04 (Contador de Queima) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-08-10 — Phase 04 execution started
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -90,6 +90,7 @@ Progress: [█████████░] 89%
 | Phase 04 P01 | ~55min | 3 tasks | 18 files |
 | Phase 04 P02 | ~75min | 3 tasks | 12 files |
 | Phase 04 P03 | ~50min | 3 tasks | 10 files |
+| Phase 04 P04 | ~40min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -197,6 +198,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-03: ocorrenciasDeQueima de buscarForno traz TODAS as queimas (sem limite) — so queimasRecentes e limitada a 25; medirForno precisa do total real
 - [Phase ?]: 04-03: excluirQueima passou a revalidar tambem /queimas/[id], nao so /queimas — gap do plano 04-01 frente ao padrao ja documentado em 04-PATTERNS.md
 - [Phase ?]: 04-03: historico-queimas.tsx virou client component (estado local de qual linha tem o dialog de exclusao aberto); historico-manutencoes.tsx continua Server Component
+- [Phase ?]: registrarManutencao usa db.transaction + select...for update para serializar manutenções concorrentes; desativarForno/reativarForno filtram o WHERE pelo valor oposto de ativo em vez de checar-e-decidir
+- [Phase ?]: lib/queimas/consultas.ts não precisou de mudança neste plano — FornoMedido/FornoComHistorico já expunham ativo desde 04-01/04-02
 
 ### Pending Todos
 
@@ -232,6 +235,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-11T00:28:56.509Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-08-11T00:47:05.384Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None
