@@ -3,7 +3,7 @@ status: complete
 phase: 04-contador-de-queima
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md, 04-07-SUMMARY.md]
 started: 2026-08-11T19:04:32Z
-updated: 2026-08-11T20:50:00Z
+updated: 2026-08-11T23:10:00Z
 ---
 
 ## Current Test
@@ -99,10 +99,16 @@ expected: 04-VERIFICACAO-HUMANA.md tem os 26 itens (9 critérios do ROADMAP, 3 b
 result: pass
 coverage_id: 04-07/D4
 
+### 18. Backstop E3 — sem carregamento entre os dois toques
+expected: No celular, tocar "Queimar" abre o seletor de tipo na hora, sem spinner nem esqueleto entre o primeiro e o segundo toque. Do primeiro toque ao toast, menos de 5 segundos.
+result: pass
+coverage_id: 04-UI-SPEC/E3-loading
+nota: Acrescentado depois do gsd-verifier apontar que este backstop nunca foi observado por ninguém — a lista original de 17 testes não o cobria.
+
 ## Summary
 
-total: 17
-passed: 16
+total: 18
+passed: 17
 issues: 1
 pending: 0
 skipped: 0
