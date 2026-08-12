@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calculator, LogOut } from "lucide-react";
+import { Calculator, KeyRound, LogOut } from "lucide-react";
 
 import { sair } from "@/lib/auth/acoes";
 import { cn } from "@/lib/utils";
@@ -15,9 +15,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-// As três coisas do menu do usuário, exatamente três (D-15): o nome de quem entrou (rótulo,
-// não ação), Orçamentos e Sair. Nenhuma Server Action nova — `sair` é a mesma já usada pela
-// página provisória da 2a. No desktop este componente é autossuficiente (gatilho + conteúdo,
+// O menu do usuário: o nome de quem entrou (rótulo, não ação), Orçamentos, Trocar senha e
+// Sair. D-15 fixava "exatamente três coisas"; o BRIEF-NOTURNO.md (Lote C) manda a tela de
+// trocar senha ser "alcançável pelo menu do usuário", o que substitui aquela decisão — Trocar
+// senha é a quarta entrada. No desktop este componente é autossuficiente (gatilho + conteúdo,
 // via DropdownMenu). No celular ele só entrega o CONTEÚDO — o botão de avatar que abre o
 // Sheet vive em `cabecalho-movel.tsx`, dono do `aria-label` obrigatório de UI-09.
 export type MenuUsuarioProps = {
@@ -41,6 +42,13 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
           >
             <Calculator aria-hidden="true" className="size-5" />
             Orçamentos
+          </Link>
+          <Link
+            href="/conta/senha"
+            className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
+          >
+            <KeyRound aria-hidden="true" className="size-5" />
+            Trocar senha
           </Link>
           <form action={sair}>
             <button
@@ -79,6 +87,12 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
           <Link href="/orcamentos" className="flex items-center gap-1.5">
             <Calculator aria-hidden="true" />
             Orçamentos
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/conta/senha" className="flex items-center gap-1.5">
+            <KeyRound aria-hidden="true" />
+            Trocar senha
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
