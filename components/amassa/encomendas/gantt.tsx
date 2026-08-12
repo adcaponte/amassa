@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type CSSProperties } from "react";
+import Link from "next/link";
 
 import type { Cronograma, StatusDeEncomenda } from "@/lib/encomendas/cronograma";
 import {
@@ -159,25 +160,30 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
                   data-testid={`gantt-linha-${encomenda.id}`}
                 >
                   <div
-                    className="sticky left-0 z-10 flex flex-shrink-0 flex-col justify-center gap-0.5 border-r border-b border-border bg-card px-4"
+                    className="sticky left-0 z-10 flex flex-shrink-0 border-r border-b border-border bg-card"
                     style={{ width: LARGURA_COLUNA_FIXA, height: ALTURA_LINHA }}
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="text-titulo truncate text-foreground"
-                        title={encomenda.nome}
-                      >
-                        {encomenda.nome}
-                      </span>
-                      {rascunho && (
-                        <span className="text-micro shrink-0 rounded border border-borda-forte bg-superficie-2 px-1.5 py-0.5 tracking-wide text-tinta-media uppercase">
-                          {SELO_RASCUNHO}
+                    <Link
+                      href={`/encomendas/${encomenda.id}`}
+                      className="focus-visible:ring-ring flex h-full w-full flex-col justify-center gap-0.5 px-4 focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-titulo truncate text-foreground"
+                          title={encomenda.nome}
+                        >
+                          {encomenda.nome}
                         </span>
-                      )}
-                    </div>
-                    <span className="text-apoio truncate text-muted-foreground">
-                      {encomenda.clienteNome ?? "Cliente não informado"}
-                    </span>
+                        {rascunho && (
+                          <span className="text-micro shrink-0 rounded border border-borda-forte bg-superficie-2 px-1.5 py-0.5 tracking-wide text-tinta-media uppercase">
+                            {SELO_RASCUNHO}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-apoio truncate text-muted-foreground">
+                        {encomenda.clienteNome ?? "Cliente não informado"}
+                      </span>
+                    </Link>
                   </div>
 
                   <div

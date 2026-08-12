@@ -453,6 +453,32 @@ test.describe("índice de encomendas", () => {
       const quantidadeDeCelulas = await page.getByTestId("gantt-celula-quinzena").count();
       expect(quantidadeDeCelulas).toBeGreaterThan(1);
     });
+
+    test("clicar no nome da encomenda no Gantt abre a página de detalhe (/encomendas/{id}) (A1)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Gantt link para detalhe");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(0) });
+
+      const linha = linhaDoGantt(page, nome);
+      await expect(linha).toBeVisible();
+
+      const testId = await linha.getAttribute("data-testid");
+      if (!testId) {
+        throw new Error("Linha do Gantt sem data-testid.");
+      }
+      const id = testId.replace("gantt-linha-", "");
+
+      // Leitura determinística do `href`, sem depender de navegação — prova o destino exato.
+      const link = linha.getByRole("link");
+      await expect(link).toHaveAttribute("href", `/encomendas/${id}`);
+
+      await link.click();
+      await expect(page).toHaveURL(new RegExp(`/encomendas/${id}$`));
+      // Prova que abriu a encomenda CERTA, não uma qualquer.
+      await expect(page.getByText(nome, { exact: true })).toBeVisible();
+    });
   });
 
   test.describe("Lista mobile (ENC-08, ENC-09)", () => {
