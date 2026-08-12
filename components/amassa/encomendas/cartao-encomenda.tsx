@@ -8,6 +8,7 @@ import { TrilhaSegmentos } from "./trilha-segmentos";
 
 export type CartaoEncomendaProps = {
   encomenda: EncomendaDoIndice;
+  hoje: string;
 };
 
 // Cartão da lista mobile (03-UI-SPEC.md "Lista Vertical Mobile"): nome (papel `título`, quebra
@@ -15,7 +16,7 @@ export type CartaoEncomendaProps = {
 // coluna fixa do Gantt), cliente, selo(s), a trilha de 6 segmentos e o texto de situação. O
 // cartão inteiro é um link para `/encomendas/{id}` (a página nasce no plano 05), com alvo de
 // toque de no mínimo 56px de altura.
-export function CartaoEncomenda({ encomenda }: CartaoEncomendaProps) {
+export function CartaoEncomenda({ encomenda, hoje }: CartaoEncomendaProps) {
   const rascunho = encomenda.status === "rascunho";
   const atrasada = encomenda.situacao.tipo === "atrasada";
 
@@ -47,6 +48,7 @@ export function CartaoEncomenda({ encomenda }: CartaoEncomendaProps) {
             faixas={encomenda.cronograma.faixas}
             situacao={encomenda.situacao}
             rascunho={rascunho}
+            hoje={hoje}
           />
 
           <span

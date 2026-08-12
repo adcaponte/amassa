@@ -171,7 +171,7 @@ export function ListaEncomendas({ encomendas, hoje }: ListaEncomendasProps) {
           <ul className="flex flex-col gap-3 md:hidden" data-testid="lista-cartoes">
             {ativasFiltradas.map((encomenda) => (
               <li key={encomenda.id}>
-                <CartaoEncomenda encomenda={encomenda} />
+                <CartaoEncomenda encomenda={encomenda} hoje={hoje} />
               </li>
             ))}
           </ul>

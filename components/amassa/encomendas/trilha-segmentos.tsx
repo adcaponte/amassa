@@ -1,4 +1,6 @@
 import type { Etapa, FaixaDeEtapa, Situacao } from "@/lib/encomendas/cronograma";
+import { formatarDiaCurto } from "@/lib/encomendas/formato";
+import { posicaoDeHojeNaTrilha } from "@/lib/encomendas/trilha";
 import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
 
 // Largura mínima de um segmento desenhado — resposta à borda de adjacência (ENC-08/adjacency):
@@ -10,6 +12,9 @@ export type TrilhaSegmentosProps = {
   faixas: readonly FaixaDeEtapa[];
   situacao: Situacao;
   rascunho: boolean;
+  // A data de hoje (`YYYY-MM-DD`), sempre por prop — este componente NUNCA lê o relógio por
+  // dentro, a mesma disciplina que `Gantt` já segue (A2 do brief noturno).
+  hoje: string;
 };
 
 // A etapa que `situacaoEm` aponta como "atual" — só os três ramos que de fato apontam uma
@@ -31,7 +36,7 @@ function etapaAtualDaSituacao(situacao: Situacao): Etapa | null {
 // Server Component puro de apresentação — os 6 segmentos horizontais proporcionais à duração
 // (percentual = dias / duração total), NUNCA na escala de 18px/dia do Gantt (não cabe no
 // celular, 04-DESIGN-SYSTEM.md §6). Etapas com `dias: 0` não geram segmento.
-export function TrilhaSegmentos({ faixas, situacao, rascunho }: TrilhaSegmentosProps) {
+export function TrilhaSegmentos({ faixas, situacao, rascunho, hoje }: TrilhaSegmentosProps) {
   const faixasDesenhadas = faixas.filter((faixa) => faixa.dias > 0);
   const duracaoTotal = faixasDesenhadas.reduce((total, faixa) => total + faixa.dias, 0);
 
@@ -40,45 +45,80 @@ export function TrilhaSegmentos({ faixas, situacao, rascunho }: TrilhaSegmentosP
   }
 
   const etapaAtual = etapaAtualDaSituacao(situacao);
+  // `posicaoDeHojeNaTrilha` (lib/encomendas/trilha.ts, módulo puro) devolve `null` quando "hoje"
+  // está fora do período desenhado — a marca não é desenhada nesse caso (A2: nunca grudar numa
+  // ponta, o que mentiria a posição).
+  const posicaoDeHoje = posicaoDeHojeNaTrilha(faixasDesenhadas, hoje);
+  const primeiraFaixaDesenhada = faixasDesenhadas[0];
+  // `ultimoDia` só é `null` quando `dias === 0` (cronograma.ts) — inalcançável aqui porque o
+  // array já foi filtrado por `dias > 0`.
+  const ultimaFaixaDesenhada = faixasDesenhadas[faixasDesenhadas.length - 1];
+  const ultimoDiaDesenhado = ultimaFaixaDesenhada.ultimoDia as string;
 
   return (
-    <div
-      role="list"
-      aria-label="Trilha das etapas"
-      data-testid="trilha-segmentos"
-      className="flex h-3 w-full overflow-hidden rounded-full"
-    >
-      {faixasDesenhadas.map((faixa) => {
-        const percentual = (faixa.dias / duracaoTotal) * 100;
-        const cor = `var(--color-${faixa.etapa})`;
-        const destaque = faixa.etapa === etapaAtual;
-        const rotulo = `${ROTULO_ETAPA[faixa.etapa]} — ${faixa.dias} dia${faixa.dias === 1 ? "" : "s"}`;
+    <div>
+      <div
+        role="list"
+        aria-label="Trilha das etapas"
+        data-testid="trilha-segmentos"
+        className="relative flex h-3 w-full overflow-hidden rounded-full"
+      >
+        {faixasDesenhadas.map((faixa) => {
+          const percentual = (faixa.dias / duracaoTotal) * 100;
+          const cor = `var(--color-${faixa.etapa})`;
+          const destaque = faixa.etapa === etapaAtual;
+          const rotulo = `${ROTULO_ETAPA[faixa.etapa]} — ${faixa.dias} dia${faixa.dias === 1 ? "" : "s"}`;
 
-        return (
+          return (
+            <div
+              key={faixa.etapa}
+              role="listitem"
+              title={rotulo}
+              aria-label={rotulo}
+              data-testid={`trilha-segmento-${faixa.etapa}`}
+              data-atual={destaque ? "true" : "false"}
+              className="box-border"
+              style={{
+                width: `${percentual}%`,
+                minWidth: LARGURA_MINIMA_SEGMENTO,
+                backgroundImage: rascunho
+                  ? `repeating-linear-gradient(45deg, ${cor} 0 4px, color-mix(in srgb, ${cor} 100%, black 20%) 4px 8px)`
+                  : undefined,
+                backgroundColor: rascunho ? undefined : cor,
+                // A etapa atual ganha borda de 2px na cor da própria etapa, mais saturada que o
+                // preenchimento (03-UI-SPEC.md "Lista Vertical Mobile").
+                border: destaque
+                  ? `2px solid color-mix(in srgb, ${cor} 100%, black 20%)`
+                  : undefined,
+              }}
+            />
+          );
+        })}
+        {posicaoDeHoje !== null && (
+          // Decorativa (aria-hidden): a informação já existe em texto no cartão ("Etapa
+          // atual: … · faltam N dias para …") e não deve ser duplicada em leitor de tela.
           <div
-            key={faixa.etapa}
-            role="listitem"
-            title={rotulo}
-            aria-label={rotulo}
-            data-testid={`trilha-segmento-${faixa.etapa}`}
-            data-atual={destaque ? "true" : "false"}
-            className="box-border"
-            style={{
-              width: `${percentual}%`,
-              minWidth: LARGURA_MINIMA_SEGMENTO,
-              backgroundImage: rascunho
-                ? `repeating-linear-gradient(45deg, ${cor} 0 4px, color-mix(in srgb, ${cor} 100%, black 20%) 4px 8px)`
-                : undefined,
-              backgroundColor: rascunho ? undefined : cor,
-              // A etapa atual ganha borda de 2px na cor da própria etapa, mais saturada que o
-              // preenchimento (03-UI-SPEC.md "Lista Vertical Mobile").
-              border: destaque
-                ? `2px solid color-mix(in srgb, ${cor} 100%, black 20%)`
-                : undefined,
-            }}
+            aria-hidden="true"
+            data-testid="trilha-hoje"
+            data-posicao={String(posicaoDeHoje)}
+            className="bg-erro absolute top-0 z-10 h-full w-0.5"
+            style={{ left: `${posicaoDeHoje}%` }}
           />
-        );
-      })}
+        )}
+      </div>
+      <div
+        data-testid="trilha-datas"
+        className="text-micro text-muted-foreground mt-1 flex justify-between"
+      >
+        <span>
+          <span className="sr-only">Início: </span>
+          {formatarDiaCurto(primeiraFaixaDesenhada.inicio)}
+        </span>
+        <span>
+          <span className="sr-only">Entrega: </span>
+          {formatarDiaCurto(ultimoDiaDesenhado)}
+        </span>
+      </div>
     </div>
   );
 }

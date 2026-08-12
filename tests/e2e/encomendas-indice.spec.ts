@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { calcularCronograma, DIAS_PADRAO } from "@/lib/encomendas/cronograma";
+import { formatarDiaCurto } from "@/lib/encomendas/formato";
 import { deslocamentoEmPixels, rolagemInicial, type IntervaloDaTimeline } from "@/lib/encomendas/gantt";
 import { FRASE_VAZIO_TITULO, ROTULO_ETAPA, ROTULO_NOVA_ENCOMENDA } from "@/lib/encomendas/textos";
 
@@ -670,6 +672,64 @@ test.describe("índice de encomendas", () => {
       const cartao = cartaoDoCelular(page, nome);
       await expect(cartao).toBeVisible();
       await expect(cartao.getByTestId("trilha-segmentos")).toBeVisible();
+    });
+
+    test("encomenda que começa hoje: a marca de 'hoje' existe na barra, na posição 0 (A2)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Trilha hoje posicao 0");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(0) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+
+      const marca = cartao.getByTestId("trilha-hoje");
+      await expect(marca).toHaveCount(1);
+      await expect(marca).toHaveAttribute("data-posicao", "0");
+    });
+
+    test("a linha de datas da barra mostra o início e a entrega formatados (A2)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Trilha datas nas pontas");
+      const dataInicio = dataEmDias(0);
+      await criarEncomenda(page, { nome, dataInicio });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+
+      // Recompute com a MESMA função de produção que a Server Action usa para montar o
+      // cronograma — nunca redigita a string formatada aqui.
+      const cronograma = calcularCronograma(dataInicio, DIAS_PADRAO);
+      const datas = cartao.getByTestId("trilha-datas");
+      await expect(datas).toContainText(formatarDiaCurto(cronograma.inicio));
+      await expect(datas).toContainText(formatarDiaCurto(cronograma.dataDeConclusao ?? cronograma.inicio));
+    });
+
+    test("encomenda que ainda não começou: a marca de 'hoje' não aparece na barra (A2)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Trilha hoje ausente futuro");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(30) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+      await expect(cartao.getByTestId("trilha-hoje")).toHaveCount(0);
+    });
+
+    test("encomenda já concluída/atrasada: a marca de 'hoje' não aparece na barra (A2)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Trilha hoje ausente passado");
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
+
+      const cartao = cartaoDoCelular(page, nome);
+      await expect(cartao).toBeVisible();
+      await expect(cartao.getByTestId("trilha-hoje")).toHaveCount(0);
     });
   });
 });
