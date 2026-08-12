@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Cronograma, StatusDeEncomenda } from "@/lib/encomendas/cronograma";
 import {
   calcularIntervalo,
-  celulasDeQuinzena,
+  celulasDeSemana,
   deslocamentoEmPixels,
   retanguloDaEtapa,
   rolagemInicial,
@@ -36,10 +36,10 @@ export type GanttProps = {
   hoje: string;
 };
 
-// Mês abreviado em português para o rótulo de quinzena do cabeçalho — duplicado do padrão
-// interno de `lib/encomendas/formato.ts` porque `celulasDeQuinzena` (lib/encomendas/gantt.ts,
+// Mês abreviado em português para o rótulo de semana do cabeçalho — duplicado do padrão
+// interno de `lib/encomendas/formato.ts` porque `celulasDeSemana` (lib/encomendas/gantt.ts,
 // módulo puro sem import) recebe `formatarMes` por injeção de parâmetro, não importa nada.
-function mesAbreviadoDaQuinzena(dataIso: string): string {
+function mesAbreviadoDaSemana(dataIso: string): string {
   const [ano, mes, dia] = dataIso.split("-").map(Number);
   const dataUtc = new Date(Date.UTC(ano, mes - 1, dia));
   const texto = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(
@@ -75,7 +75,7 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
     })),
     hoje,
   );
-  const celulas = celulasDeQuinzena(intervalo, mesAbreviadoDaQuinzena);
+  const celulas = celulasDeSemana(intervalo, mesAbreviadoDaSemana);
   const deslocamentoHoje = deslocamentoEmPixels(intervalo, hoje);
   const alturaDasLinhas = encomendas.length * ALTURA_LINHA;
 
@@ -105,7 +105,7 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
     >
       <div ref={areaRolavelRef} data-testid="gantt-area-rolavel" className="overflow-x-auto">
         <div style={{ width: LARGURA_COLUNA_FIXA + intervalo.larguraEmPixels }}>
-          {/* Cabeçalho: coluna fixa + células de quinzena */}
+          {/* Cabeçalho: coluna fixa + células de semana */}
           <div className="flex border-b border-border">
             <div
               className="sticky left-0 z-20 flex flex-shrink-0 items-center border-r border-border bg-card px-4"
@@ -128,7 +128,7 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
               {celulas.map((celula) => (
                 <div
                   key={celula.chave}
-                  data-testid="gantt-celula-quinzena"
+                  data-testid="gantt-celula-semana"
                   className="text-apoio absolute top-0 flex h-full items-center border-r border-border px-2 text-muted-foreground"
                   style={{ left: celula.esquerda, width: celula.largura }}
                 >
@@ -223,12 +223,23 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
                         );
                       }
 
+                      // Marca de corte (A3): a etapa começou antes de `intervalo.primeiroDia` —
+                      // canto reto + borda grossa na esquerda avisa visualmente que a barra
+                      // continua fora da timeline, e o sufixo no `aria-label` avisa quem usa
+                      // leitor de tela. Os testes existentes casam o rótulo por
+                      // `getByRole("img", { name: /^Produção/ })` (âncora no início), então o
+                      // sufixo não os quebra.
+                      const rotuloDaBarra = retangulo.cortadaNaEsquerda
+                        ? `${rotuloAcessivel} — começou antes`
+                        : rotuloAcessivel;
+
                       return (
                         <div
                           key={faixa.etapa}
                           role="img"
-                          aria-label={rotuloAcessivel}
+                          aria-label={rotuloDaBarra}
                           data-testid={`gantt-barra-${encomenda.id}-${faixa.etapa}`}
+                          data-cortada={retangulo.cortadaNaEsquerda ? "true" : "false"}
                           className="absolute flex items-center overflow-hidden rounded-sm px-1"
                           style={{
                             left: retangulo.esquerda,
@@ -236,6 +247,13 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
                             width: retangulo.largura,
                             height: ALTURA_BARRA,
                             ...estiloDeEtapa(cor, rascunho),
+                            ...(retangulo.cortadaNaEsquerda
+                              ? {
+                                  borderLeft: "3px solid var(--color-borda-forte)",
+                                  borderTopLeftRadius: 0,
+                                  borderBottomLeftRadius: 0,
+                                }
+                              : {}),
                           }}
                         >
                           {retangulo.mostrarRotulo && (

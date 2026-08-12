@@ -4,10 +4,15 @@
 // aritmética de calendário (dias desde a época, algoritmo de Howard Hinnant) é duplicada aqui
 // pela mesma razão — dois módulos puros sem import não podem compartilhar função nenhuma.
 //
-// A geometria do Gantt — 18px/dia, quinzenas, o limiar de 46px do rótulo, a posição da linha de
-// "Hoje" — é a regra que `04-DESIGN-SYSTEM.md` §8 e `00-BRIEFING.md` §5 preservam do protótipo
-// `gestor-ceramica.html` literalmente. `hoje` nunca é lido do relógio por dentro: entra sempre
-// como argumento.
+// A geometria do Gantt — 18px/dia, semanas começando na SEGUNDA, o limiar de 46px do rótulo, a
+// posição da linha de "Hoje" — é a regra que `04-DESIGN-SYSTEM.md` §8 e `00-BRIEFING.md` §5
+// preservam do protótipo `gestor-ceramica.html`. `hoje` nunca é lido do relógio por dentro:
+// entra sempre como argumento.
+//
+// A timeline abre em HOJE (brief noturno, item A3, DECIDIDO) — a parte passada de uma encomenda
+// em curso fica fora do intervalo desenhado, com marca de corte na borda esquerda
+// (`retanguloDaEtapa`/`cortadaNaEsquerda`). Não há mais folga na ponta inicial; a folga
+// permanece só no fim (uma semana), para a timeline nunca terminar rente à última etapa.
 
 export const PIXELS_POR_DIA = 18;
 export const LARGURA_MINIMA_PARA_ROTULO = 46;
@@ -19,7 +24,7 @@ export type IntervaloDaTimeline = {
   larguraEmPixels: number;
 };
 
-export type CelulaDeQuinzena = {
+export type CelulaDeSemana = {
   chave: string;
   rotulo: string;
   inicio: string;
@@ -31,6 +36,10 @@ export type CelulaDeQuinzena = {
 export type RetanguloDeEtapa = {
   esquerda: number;
   largura: number;
+  // `true` quando a etapa começou antes de `intervalo.primeiroDia` (encomenda em curso cuja
+  // parte passada não é desenhada) — o componente usa este campo para marcar a borda de corte,
+  // visual e no `aria-label` (A3 do brief noturno).
+  cortadaNaEsquerda: boolean;
   mostrarRotulo: boolean;
 };
 
@@ -97,79 +106,54 @@ function diferencaEmDias(dataMaisTarde: string, dataMaisCedo: string): number {
   return diasDesdeAEpoca(a.ano, a.mes, a.dia) - diasDesdeAEpoca(b.ano, b.mes, b.dia);
 }
 
-function ultimoDiaDoMes(ano: number, mes: number): string {
-  const proximoMes = mes === 12 ? { ano: ano + 1, mes: 1 } : { ano, mes: mes + 1 };
-  return somarDias(formatarDataCivil(proximoMes.ano, proximoMes.mes, 1), -1);
+// A segunda-feira da semana que contém `diasDesdeEpoca` — 1970-01-01 (dia 0) foi uma QUINTA, o
+// que desloca a fórmula de "dia da semana" de um `Date` comum. Verificado: dia 0 → -3 (segunda,
+// 29/12/1969); dia 4 → 4 (segunda, 05/01/1970). O resto do dobro-módulo (`% 7` seguido de outro
+// `% 7`) garante um resultado sempre não negativo mesmo com `diasDesdeEpoca` negativo, onde o
+// resto de JavaScript por si só devolveria um número negativo.
+function segundaDaSemanaEmDias(diasDesdeEpoca: number): number {
+  return diasDesdeEpoca - (((diasDesdeEpoca + 3) % 7) + 7) % 7;
 }
 
-// A quinzena (1–15 ou 16–fim do mês) que contém `dataIso`, com seu primeiro e último dia
-// civis. É a unidade que o cabeçalho do Gantt desenha e que a folga de abertura/fechamento do
-// intervalo usa (00-BRIEFING.md §5).
-function quinzenaQueContem(dataIso: string): { primeiroDia: string; ultimoDia: string } {
+// A semana (segunda a domingo) que contém `dataIso` — mesma convenção de início de semana que a
+// Fase 4 usa nos relatórios de queima (FOR-12); duas definições de semana no mesmo sistema seria
+// dívida imediata. `ultimoDia` é sempre `primeiroDia + 6`.
+function semanaQueContem(dataIso: string): { primeiroDia: string; ultimoDia: string } {
   const { ano, mes, dia } = partesDeData(dataIso);
-
-  if (dia <= 15) {
-    return { primeiroDia: formatarDataCivil(ano, mes, 1), ultimoDia: formatarDataCivil(ano, mes, 15) };
-  }
-
-  return { primeiroDia: formatarDataCivil(ano, mes, 16), ultimoDia: ultimoDiaDoMes(ano, mes) };
+  const segunda = segundaDaSemanaEmDias(diasDesdeAEpoca(ano, mes, dia));
+  const { ano: anoSaida, mes: mesSaida, dia: diaSaida } = civilDesdeDias(segunda);
+  const primeiroDia = formatarDataCivil(anoSaida, mesSaida, diaSaida);
+  return { primeiroDia, ultimoDia: somarDias(primeiroDia, 6) };
 }
 
-// A quinzena imediatamente anterior à que contém `dataIso` — segunda metade do mês anterior
-// quando `dataIso` cai na primeira metade do seu mês; primeira metade do mesmo mês quando cai
-// na segunda.
-function quinzenaAnterior(dataIso: string): { primeiroDia: string; ultimoDia: string } {
-  const { ano, mes, dia } = partesDeData(dataIso);
-
-  if (dia <= 15) {
-    const mesAnterior = mes === 1 ? { ano: ano - 1, mes: 12 } : { ano, mes: mes - 1 };
-    return {
-      primeiroDia: formatarDataCivil(mesAnterior.ano, mesAnterior.mes, 16),
-      ultimoDia: ultimoDiaDoMes(mesAnterior.ano, mesAnterior.mes),
-    };
-  }
-
-  return { primeiroDia: formatarDataCivil(ano, mes, 1), ultimoDia: formatarDataCivil(ano, mes, 15) };
+// A semana imediatamente posterior à que contém `dataIso`.
+function semanaPosterior(dataIso: string): { primeiroDia: string; ultimoDia: string } {
+  const semanaAtual = semanaQueContem(dataIso);
+  const primeiroDia = somarDias(semanaAtual.ultimoDia, 1);
+  return { primeiroDia, ultimoDia: somarDias(primeiroDia, 6) };
 }
 
-// A quinzena imediatamente posterior à que contém `dataIso` — segunda metade do mesmo mês
-// quando `dataIso` cai na primeira metade; primeira metade do mês seguinte quando cai na
-// segunda.
-function quinzenaPosterior(dataIso: string): { primeiroDia: string; ultimoDia: string } {
-  const { ano, mes, dia } = partesDeData(dataIso);
-
-  if (dia <= 15) {
-    return { primeiroDia: formatarDataCivil(ano, mes, 16), ultimoDia: ultimoDiaDoMes(ano, mes) };
-  }
-
-  const mesSeguinte = mes === 12 ? { ano: ano + 1, mes: 1 } : { ano, mes: mes + 1 };
-  return {
-    primeiroDia: formatarDataCivil(mesSeguinte.ano, mesSeguinte.mes, 1),
-    ultimoDia: formatarDataCivil(mesSeguinte.ano, mesSeguinte.mes, 15),
-  };
-}
-
-// Extensão automática do Gantt: cobre todas as encomendas desenhadas (`inicio`/`fimExclusivo`
-// de cada `Cronograma`, passados estruturalmente) mais uma quinzena de folga em cada ponta
-// (00-BRIEFING.md §5). Com a lista vazia, usa `hoje` no lugar das duas pontas — nunca largura 0.
+// Extensão automática do Gantt: a timeline ABRE EM HOJE (00-BRIEFING.md §5, A3 do brief
+// noturno) — `primeiroDia` é sempre a segunda-feira da semana de `hoje`, independentemente de
+// quão antiga seja a encomenda mais antiga; a parte passada de uma encomenda em curso fica fora
+// do intervalo desenhado, com marca de corte (`retanguloDaEtapa`/`cortadaNaEsquerda`). O fim
+// cobre todas as encomendas desenhadas (`fimExclusivo` de cada `Cronograma`, passado
+// estruturalmente) mais uma semana de folga. Com a lista vazia, usa `hoje` no lugar da ponta
+// final — nunca largura 0.
 export function calcularIntervalo(
   cronogramas: readonly { readonly inicio: string; readonly fimExclusivo: string }[],
   hoje: string,
 ): IntervaloDaTimeline {
-  let menorInicio = hoje;
   let maiorFimExclusivo = hoje;
 
   for (const cronograma of cronogramas) {
-    if (cronograma.inicio < menorInicio) {
-      menorInicio = cronograma.inicio;
-    }
     if (cronograma.fimExclusivo > maiorFimExclusivo) {
       maiorFimExclusivo = cronograma.fimExclusivo;
     }
   }
 
-  const primeiroDia = quinzenaAnterior(menorInicio).primeiroDia;
-  const posterior = quinzenaPosterior(maiorFimExclusivo);
+  const primeiroDia = semanaQueContem(hoje).primeiroDia;
+  const posterior = semanaPosterior(maiorFimExclusivo);
   const ultimoDiaExclusivo = somarDias(posterior.ultimoDia, 1);
   const totalDeDias = diferencaEmDias(ultimoDiaExclusivo, primeiroDia);
 
@@ -188,37 +172,42 @@ export function deslocamentoEmPixels(intervalo: IntervaloDaTimeline, dia: string
   return diferencaEmDias(dia, intervalo.primeiroDia) * PIXELS_POR_DIA;
 }
 
-// As células de quinzena que formam o cabeçalho do Gantt, cobrindo `intervalo` inteiro sem vão
-// e sem sobreposição — a soma de `largura` de todas as células é sempre igual a
-// `intervalo.larguraEmPixels`. A primeira e a última célula podem ser quinzenas parciais quando
-// `intervalo.primeiroDia`/`ultimoDiaExclusivo` não caem exatamente em dia 1 ou 16.
+// As células de semana que formam o cabeçalho do Gantt, cobrindo `intervalo` inteiro sem vão e
+// sem sobreposição — a soma de `largura` de todas as células é sempre igual a
+// `intervalo.larguraEmPixels`. A última célula pode ser uma semana parcial quando
+// `intervalo.ultimoDiaExclusivo` não cai exatamente numa segunda-feira; a primeira nunca é
+// parcial porque `intervalo.primeiroDia` já é sempre segunda (`calcularIntervalo`).
 //
 // `formatarMes` é injetado (em vez de `gantt.ts` importar `lib/encomendas/formato.ts`) para
 // manter este módulo sem import — a célula sai pronta para desenhar, com o rótulo já montado.
-export function celulasDeQuinzena(
+export function celulasDeSemana(
   intervalo: IntervaloDaTimeline,
   formatarMes: (dia: string) => string,
-): CelulaDeQuinzena[] {
-  const celulas: CelulaDeQuinzena[] = [];
+): CelulaDeSemana[] {
+  const celulas: CelulaDeSemana[] = [];
   let cursor = intervalo.primeiroDia;
   let esquerda = 0;
 
   while (cursor < intervalo.ultimoDiaExclusivo) {
-    const quinzena = quinzenaQueContem(cursor);
-    const fimExclusivoDaQuinzena = somarDias(quinzena.ultimoDia, 1);
+    const semana = semanaQueContem(cursor);
+    const fimExclusivoDaSemana = somarDias(semana.ultimoDia, 1);
     const fimExclusivoDaCelula =
-      fimExclusivoDaQuinzena < intervalo.ultimoDiaExclusivo
-        ? fimExclusivoDaQuinzena
+      fimExclusivoDaSemana < intervalo.ultimoDiaExclusivo
+        ? fimExclusivoDaSemana
         : intervalo.ultimoDiaExclusivo;
 
     const dias = diferencaEmDias(fimExclusivoDaCelula, cursor);
     const largura = dias * PIXELS_POR_DIA;
-    const { ano, mes, dia: diaInicio } = partesDeData(cursor);
-    const { dia: diaFim } = partesDeData(somarDias(fimExclusivoDaCelula, -1));
+    const { ano: anoInicio, mes: mesInicio, dia: diaInicio } = partesDeData(cursor);
+    const ultimoDiaDaCelula = somarDias(fimExclusivoDaCelula, -1);
+    const { ano: anoFim, mes: mesFim, dia: diaFim } = partesDeData(ultimoDiaDaCelula);
+    const mesmoMes = anoInicio === anoFim && mesInicio === mesFim;
 
     celulas.push({
-      chave: `${String(ano).padStart(4, "0")}-${String(mes).padStart(2, "0")}-${diaInicio <= 15 ? "1" : "2"}`,
-      rotulo: `${diaInicio}–${diaFim} ${formatarMes(cursor)}`,
+      chave: cursor,
+      rotulo: mesmoMes
+        ? `${diaInicio}–${diaFim} ${formatarMes(ultimoDiaDaCelula)}`
+        : `${diaInicio} ${formatarMes(cursor)}–${diaFim} ${formatarMes(ultimoDiaDaCelula)}`,
       inicio: cursor,
       dias,
       esquerda,
@@ -232,9 +221,14 @@ export function celulasDeQuinzena(
   return celulas;
 }
 
-// O retângulo (ou losango, na hora de desenhar) de uma etapa: posição e largura em pixels, e
-// se o rótulo cabe dentro dela. `null` quando `faixa.dias === 0` — nem losango, nem retângulo,
-// nem espaço reservado (etapa desligada não ocupa o Gantt).
+// O retângulo (ou losango, na hora de desenhar) de uma etapa: posição e largura em pixels, e se
+// o rótulo cabe dentro dela. `null` quando `faixa.dias === 0` (nem losango, nem retângulo, nem
+// espaço reservado) ou quando a etapa termina inteiramente antes de `intervalo.primeiroDia`
+// (etapa toda no passado, fora da timeline que abre em hoje).
+//
+// Uma etapa iniciada ANTES de `intervalo.primeiroDia` é recortada: `esquerda` nunca fica
+// negativo (a linha não tem `overflow-hidden`, a barra vazaria), a largura desenhada é reduzida
+// e `cortadaNaEsquerda` avisa o componente para desenhar a marca de corte.
 export function retanguloDaEtapa(
   faixa: { readonly dias: number; readonly inicio: string },
   intervalo: IntervaloDaTimeline,
@@ -243,12 +237,30 @@ export function retanguloDaEtapa(
     return null;
   }
 
-  const esquerda = deslocamentoEmPixels(intervalo, faixa.inicio);
+  const esquerdaBruta = deslocamentoEmPixels(intervalo, faixa.inicio);
+  const direita = esquerdaBruta + faixa.dias * PIXELS_POR_DIA;
+
+  if (direita <= 0) {
+    return null;
+  }
+
+  if (esquerdaBruta < 0) {
+    return {
+      esquerda: 0,
+      largura: direita,
+      cortadaNaEsquerda: true,
+      // Estritamente "mais de 46px" (04-DESIGN-SYSTEM.md §8), sobre a largura DESENHADA (a
+      // reduzida pelo corte) — o rótulo precisa caber no que aparece na tela.
+      mostrarRotulo: direita > LARGURA_MINIMA_PARA_ROTULO,
+    };
+  }
+
   const largura = faixa.dias * PIXELS_POR_DIA;
 
   return {
-    esquerda,
+    esquerda: esquerdaBruta,
     largura,
+    cortadaNaEsquerda: false,
     // Estritamente "mais de 46px" (04-DESIGN-SYSTEM.md §8) — `>=` deixaria uma barra de
     // exatos 46px mostrar rótulo por engano, e passaria despercebido para sempre.
     mostrarRotulo: largura > LARGURA_MINIMA_PARA_ROTULO,
@@ -258,7 +270,8 @@ export function retanguloDaEtapa(
 // A rolagem horizontal inicial do Gantt: abre com "Hoje" aproximadamente centralizada, sem
 // nunca rolar para um valor negativo nem além do máximo rolável (larguraEmPixels -
 // larguraVisivel). Sempre um inteiro — `scrollLeft` fracionário produziria meia-coluna de
-// deslocamento.
+// deslocamento. Com a timeline abrindo em hoje (A3), "hoje" fica perto da borda esquerda do
+// intervalo — `Math.max(…, 0)` resolve para 0 na prática, sem precisar de tratamento especial.
 export function rolagemInicial(
   intervalo: IntervaloDaTimeline,
   hoje: string,

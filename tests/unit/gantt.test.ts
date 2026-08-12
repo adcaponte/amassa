@@ -3,7 +3,7 @@ import {
   LARGURA_MINIMA_PARA_ROTULO,
   PIXELS_POR_DIA,
   calcularIntervalo,
-  celulasDeQuinzena,
+  celulasDeSemana,
   deslocamentoEmPixels,
   ordenarParaGantt,
   retanguloDaEtapa,
@@ -41,38 +41,41 @@ describe("constantes", () => {
   });
 });
 
+// Âncora aritmética verificada (A3 do brief noturno): 2026-08-12 é uma quarta-feira, logo a
+// segunda-feira da sua semana é 2026-08-10. Os demais valores esperados abaixo foram derivados
+// da regra e confirmados rodando `npm test` — nenhum copiado de cabeça.
 describe("calcularIntervalo", () => {
-  it("uma encomenda de 2026-08-12 a 2026-08-25: primeiroDia na quinzena anterior (2026-07-16), ultimoDiaExclusivo na quinzena posterior (2026-09-16)", () => {
+  it("uma encomenda de 2026-08-12 a 2026-08-25, hoje=2026-08-12: primeiroDia é a segunda da semana de hoje (2026-08-10), ultimoDiaExclusivo é a semana posterior ao maior fimExclusivo (2026-09-07)", () => {
     const intervalo = calcularIntervalo(
       [{ inicio: "2026-08-12", fimExclusivo: "2026-08-25" }],
       "2026-08-12",
     );
 
-    expect(intervalo.primeiroDia).toBe("2026-07-16");
-    expect(intervalo.ultimoDiaExclusivo).toBe("2026-09-16");
+    expect(intervalo.primeiroDia).toBe("2026-08-10");
+    expect(intervalo.ultimoDiaExclusivo).toBe("2026-09-07");
   });
 
-  it("lista vazia: intervalo centrado em hoje, com uma quinzena de folga de cada lado, largura nunca 0", () => {
+  it("lista vazia: intervalo baseado só em hoje, sem folga na ponta inicial, largura nunca 0", () => {
     const intervalo = calcularIntervalo([], "2026-08-20");
 
-    expect(intervalo.primeiroDia).toBe("2026-08-01");
-    expect(intervalo.ultimoDiaExclusivo).toBe("2026-09-16");
+    expect(intervalo.primeiroDia).toBe("2026-08-17");
+    expect(intervalo.ultimoDiaExclusivo).toBe("2026-08-31");
     expect(intervalo.larguraEmPixels).toBeGreaterThan(0);
   });
 
-  it("uma encomenda só ainda desenha a quinzena de folga nas duas pontas", () => {
+  it("uma encomenda só: primeiroDia é exatamente a segunda da semana de hoje (nenhuma folga no começo) e o fim ainda ganha uma semana de folga", () => {
     const intervalo = calcularIntervalo(
       [{ inicio: "2026-08-12", fimExclusivo: "2026-08-13" }],
       "2026-08-12",
     );
 
-    // A própria encomenda ocupa só 1 dia (12 a 13, exclusivo), mas o intervalo desenhado é
-    // muito maior por causa da folga de uma quinzena de cada lado.
-    expect(intervalo.primeiroDia < "2026-08-12").toBe(true);
+    // A timeline abre em hoje — a própria encomenda ocupa só 1 dia (12 a 13, exclusivo), e
+    // `primeiroDia` não recua além da segunda-feira da semana de hoje.
+    expect(intervalo.primeiroDia).toBe("2026-08-10");
     expect(intervalo.ultimoDiaExclusivo > "2026-08-13").toBe(true);
   });
 
-  it("larguraEmPixels do intervalo é totalDeDias * 18, sempre inteiro", () => {
+  it("larguraEmPixels do intervalo é totalDeDias * 18, sempre inteiro, e totalDeDias é sempre múltiplo de 7 (as duas pontas caem em segunda-feira)", () => {
     const intervalo = calcularIntervalo(
       [{ inicio: "2026-08-12", fimExclusivo: "2026-08-25" }],
       "2026-08-12",
@@ -80,31 +83,32 @@ describe("calcularIntervalo", () => {
 
     expect(intervalo.larguraEmPixels).toBe(intervalo.totalDeDias * 18);
     expect(Number.isInteger(intervalo.larguraEmPixels)).toBe(true);
+    expect(intervalo.totalDeDias % 7).toBe(0);
   });
 
-  it("com duas encomendas, usa o menor inicio e o maior fimExclusivo entre elas", () => {
+  it("com duas encomendas, o menor início — mesmo bem no passado — NÃO afeta mais primeiroDia; só o maior fimExclusivo afeta o fim", () => {
     const intervalo = calcularIntervalo(
       [
         { inicio: "2026-09-01", fimExclusivo: "2026-09-05" },
-        { inicio: "2026-08-12", fimExclusivo: "2026-08-25" },
+        { inicio: "2025-01-01", fimExclusivo: "2025-01-10" },
       ],
       "2026-08-12",
     );
 
-    expect(intervalo.primeiroDia).toBe("2026-07-16");
-    // maior fimExclusivo é 2026-09-05 (da primeira encomenda) — cai na quinzena 1–15 de
-    // setembro; a posterior é 16–30 de setembro, exclusivo = 2026-10-01.
-    expect(intervalo.ultimoDiaExclusivo).toBe("2026-10-01");
+    expect(intervalo.primeiroDia).toBe("2026-08-10");
+    // maior fimExclusivo é 2026-09-05 — cai na semana de 2026-08-31 a 2026-09-06; a posterior é
+    // 2026-09-07 a 2026-09-13, exclusivo = 2026-09-14.
+    expect(intervalo.ultimoDiaExclusivo).toBe("2026-09-14");
   });
 });
 
-describe("celulasDeQuinzena", () => {
+describe("celulasDeSemana", () => {
   it("cobre o intervalo inteiro sem vão, sem sobreposição, e a soma das larguras é igual a larguraEmPixels", () => {
     const intervalo = calcularIntervalo(
       [{ inicio: "2026-08-12", fimExclusivo: "2026-08-25" }],
       "2026-08-12",
     );
-    const celulas = celulasDeQuinzena(intervalo, formatarMesStub);
+    const celulas = celulasDeSemana(intervalo, formatarMesStub);
 
     const somaLarguras = celulas.reduce((total, celula) => total + celula.largura, 0);
     expect(somaLarguras).toBe(intervalo.larguraEmPixels);
@@ -117,45 +121,60 @@ describe("celulasDeQuinzena", () => {
     expect(ultima.esquerda + ultima.largura).toBe(intervalo.larguraEmPixels);
   });
 
-  it("quinzenas inteiras: Jul16-31 (16 dias), Ago1-15 (15 dias), Ago16-31 (16 dias), Set1-15 (15 dias)", () => {
+  it("semanas inteiras de 7 dias: 10–16 ago, 17–23 ago, 24–30 ago, 31 ago–6 set", () => {
     const intervalo = calcularIntervalo(
       [{ inicio: "2026-08-12", fimExclusivo: "2026-08-25" }],
       "2026-08-12",
     );
-    const celulas = celulasDeQuinzena(intervalo, formatarMesStub);
+    const celulas = celulasDeSemana(intervalo, formatarMesStub);
 
     expect(celulas.map((c) => c.inicio)).toEqual([
-      "2026-07-16",
-      "2026-08-01",
-      "2026-08-16",
-      "2026-09-01",
+      "2026-08-10",
+      "2026-08-17",
+      "2026-08-24",
+      "2026-08-31",
     ]);
-    expect(celulas.map((c) => c.dias)).toEqual([16, 15, 16, 15]);
+    expect(celulas.map((c) => c.dias)).toEqual([7, 7, 7, 7]);
   });
 
-  it("rótulo combina o intervalo de dias com o mês devolvido por formatarMes: '16–31 jul', '1–15 ago'", () => {
+  it("rótulo de semana que NÃO cruza o mês: '10–16 ago'", () => {
     const intervalo = calcularIntervalo(
       [{ inicio: "2026-08-12", fimExclusivo: "2026-08-25" }],
       "2026-08-12",
     );
-    const celulas = celulasDeQuinzena(intervalo, formatarMesStub);
+    const celulas = celulasDeSemana(intervalo, formatarMesStub);
 
-    expect(celulas[0].rotulo).toBe("16–31 jul");
-    expect(celulas[1].rotulo).toBe("1–15 ago");
+    expect(celulas[0].rotulo).toBe("10–16 ago");
+    expect(celulas[1].rotulo).toBe("17–23 ago");
   });
 
-  it("primeira e última célula são quinzenas parciais quando o intervalo não começa em dia 1 ou 16", () => {
+  it("rótulo de semana que CRUZA o mês usa os dois meses: '31 ago–6 set'", () => {
+    const intervaloCruzandoMes: IntervaloDaTimeline = {
+      primeiroDia: "2026-08-24",
+      ultimoDiaExclusivo: "2026-09-07",
+      totalDeDias: 14,
+      larguraEmPixels: 14 * 18,
+    };
+    const celulas = celulasDeSemana(intervaloCruzandoMes, formatarMesStub);
+
+    expect(celulas).toHaveLength(2);
+    expect(celulas[0].rotulo).toBe("24–30 ago");
+    expect(celulas[1].rotulo).toBe("31 ago–6 set");
+  });
+
+  it("primeira e última célula podem ser semanas parciais quando o intervalo (montado à mão) não começa/termina numa segunda-feira", () => {
     const intervaloParcial: IntervaloDaTimeline = {
       primeiroDia: "2026-08-05",
       ultimoDiaExclusivo: "2026-08-20",
       totalDeDias: 15,
       larguraEmPixels: 15 * 18,
     };
-    const celulas = celulasDeQuinzena(intervaloParcial, formatarMesStub);
+    const celulas = celulasDeSemana(intervaloParcial, formatarMesStub);
 
-    expect(celulas).toHaveLength(2);
-    expect(celulas[0]).toMatchObject({ inicio: "2026-08-05", dias: 11 });
-    expect(celulas[1]).toMatchObject({ inicio: "2026-08-16", dias: 4 });
+    expect(celulas).toHaveLength(3);
+    expect(celulas[0]).toMatchObject({ inicio: "2026-08-05", dias: 5 });
+    expect(celulas[1]).toMatchObject({ inicio: "2026-08-10", dias: 7 });
+    expect(celulas[2]).toMatchObject({ inicio: "2026-08-17", dias: 3 });
     const somaLarguras = celulas.reduce((total, celula) => total + celula.largura, 0);
     expect(somaLarguras).toBe(intervaloParcial.larguraEmPixels);
   });
@@ -181,47 +200,78 @@ describe("deslocamentoEmPixels", () => {
 
 describe("retanguloDaEtapa", () => {
   const intervalo: IntervaloDaTimeline = {
-    primeiroDia: "2026-08-01",
-    ultimoDiaExclusivo: "2026-09-01",
-    totalDeDias: 31,
-    larguraEmPixels: 31 * 18,
+    primeiroDia: "2026-08-10",
+    ultimoDiaExclusivo: "2026-09-07",
+    totalDeDias: 28,
+    larguraEmPixels: 28 * 18,
   };
 
   it("devolve null quando faixa.dias === 0 — nem losango, nem retângulo, nem espaço reservado", () => {
-    const retangulo = retanguloDaEtapa({ dias: 0, inicio: "2026-08-05" }, intervalo);
+    const retangulo = retanguloDaEtapa({ dias: 0, inicio: "2026-08-12" }, intervalo);
 
     expect(retangulo).toBeNull();
   });
 
-  it("etapa de 1 dia devolve largura: 18 e mostrarRotulo: false", () => {
-    const retangulo = retanguloDaEtapa({ dias: 1, inicio: "2026-08-01" }, intervalo);
+  it("etapa de 1 dia começando no primeiroDia devolve largura: 18, cortadaNaEsquerda: false, mostrarRotulo: false", () => {
+    const retangulo = retanguloDaEtapa({ dias: 1, inicio: "2026-08-10" }, intervalo);
 
-    expect(retangulo).toMatchObject({ esquerda: 0, largura: 18, mostrarRotulo: false });
+    expect(retangulo).toMatchObject({
+      esquerda: 0,
+      largura: 18,
+      cortadaNaEsquerda: false,
+      mostrarRotulo: false,
+    });
   });
 
   it("largura exatamente 46px não mostra rótulo; 47px mostra — o limiar é estritamente 'mais de 46', não 'a partir de'", () => {
     const com46px = retanguloDaEtapa(
-      { dias: 46 / PIXELS_POR_DIA, inicio: "2026-08-01" },
+      { dias: 46 / PIXELS_POR_DIA, inicio: "2026-08-10" },
       intervalo,
     );
     const com47px = retanguloDaEtapa(
-      { dias: 47 / PIXELS_POR_DIA, inicio: "2026-08-01" },
+      { dias: 47 / PIXELS_POR_DIA, inicio: "2026-08-10" },
       intervalo,
     );
 
     expect(com46px?.largura).toBeCloseTo(46, 5);
     expect(com46px?.mostrarRotulo).toBe(false);
+    expect(com46px?.cortadaNaEsquerda).toBe(false);
     expect(com47px?.largura).toBeCloseTo(47, 5);
     expect(com47px?.mostrarRotulo).toBe(true);
   });
 
   it("duas etapas adjacentes: esquerda da seguinte é exatamente esquerda + largura da anterior", () => {
-    const faixaA = retanguloDaEtapa({ dias: 3, inicio: "2026-08-05" }, intervalo);
-    const faixaB = retanguloDaEtapa({ dias: 2, inicio: "2026-08-08" }, intervalo);
+    const faixaA = retanguloDaEtapa({ dias: 3, inicio: "2026-08-13" }, intervalo);
+    const faixaB = retanguloDaEtapa({ dias: 2, inicio: "2026-08-16" }, intervalo);
 
+    expect(faixaA).toMatchObject({ cortadaNaEsquerda: false });
+    expect(faixaB).toMatchObject({ cortadaNaEsquerda: false });
     expect(faixaA).not.toBeNull();
     expect(faixaB).not.toBeNull();
     expect(faixaB!.esquerda).toBe(faixaA!.esquerda + faixaA!.largura);
+  });
+
+  it("caso de borda obrigatório: faixa iniciada antes de primeiroDia devolve esquerda: 0, largura reduzida e cortadaNaEsquerda: true — nunca esquerda negativa", () => {
+    // Começa 5 dias antes de primeiroDia (2026-08-10), dura 8 dias — só 3 dias caem dentro da
+    // timeline (2026-08-10 a 2026-08-13).
+    const retangulo = retanguloDaEtapa({ dias: 8, inicio: "2026-08-05" }, intervalo);
+
+    expect(retangulo).toMatchObject({
+      esquerda: 0,
+      largura: 3 * PIXELS_POR_DIA,
+      cortadaNaEsquerda: true,
+    });
+    expect(retangulo!.esquerda).toBeGreaterThanOrEqual(0);
+  });
+
+  it("caso de borda obrigatório: faixa que termina em ou antes de primeiroDia devolve null", () => {
+    // Termina EXATAMENTE em primeiroDia (2026-08-10): nenhum dia da faixa cai dentro da timeline.
+    const terminaNoPrimeiroDia = retanguloDaEtapa({ dias: 5, inicio: "2026-08-05" }, intervalo);
+    expect(terminaNoPrimeiroDia).toBeNull();
+
+    // Termina bem antes de primeiroDia.
+    const terminaAntes = retanguloDaEtapa({ dias: 3, inicio: "2026-07-31" }, intervalo);
+    expect(terminaAntes).toBeNull();
   });
 });
 

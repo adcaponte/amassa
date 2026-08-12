@@ -325,8 +325,10 @@ test.describe("filtro de encomendas", () => {
 
     // A encomenda "longínqua" só serve para garantir que o intervalo ANTES do filtro seja bem
     // mais largo que o intervalo DEPOIS — sem ela, um banco de teste com poucas encomendas
-    // poderia coincidentemente já ter um intervalo estreito antes de filtrar.
-    await criarEncomenda(page, { nome: nomeLonginqua, dataInicio: dataEmDias(-200) });
+    // poderia coincidentemente já ter um intervalo estreito antes de filtrar. Com A3 (timeline
+    // abre em hoje), uma encomenda no PASSADO não alarga mais nada — só o futuro ainda estica o
+    // intervalo — por isso ela nasce bem à frente, não bem atrás.
+    await criarEncomenda(page, { nome: nomeLonginqua, dataInicio: dataEmDias(200) });
     await criarEncomenda(page, { nome: nomeA, dataInicio: dataA });
     await criarEncomenda(page, { nome: nomeB, dataInicio: dataB });
 

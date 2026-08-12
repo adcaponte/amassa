@@ -272,7 +272,7 @@ test.describe("índice de encomendas", () => {
       }
     });
 
-    test("a linha de 'Hoje' fica na posição que deslocamentoEmPixels prevê, e o cabeçalho de quinzenas cobre a área rolável sem vão", async ({
+    test("a linha de 'Hoje' fica na posição que deslocamentoEmPixels prevê, e o cabeçalho de semanas cobre a área rolável sem vão", async ({
       page,
     }) => {
       await fazerLogin(page);
@@ -285,7 +285,7 @@ test.describe("índice de encomendas", () => {
       const { intervalo, hoje } = await lerIntervaloDoGantt(page);
       const linhaHoje = page.getByTestId("linha-hoje");
       // A régua: o mesmo contêiner de largura `intervalo.larguraEmPixels` que as células de
-      // quinzena e as barras usam como origem — medir a posição da linha de "Hoje" relativa a
+      // semana e as barras usam como origem — medir a posição da linha de "Hoje" relativa a
       // ELE (em vez de a `gantt-area-rolavel` menos a largura da coluna fixa) evita depender de
       // um valor de layout que não faz parte do contrato de nenhum módulo puro.
       const regua = page.getByTestId("gantt-regua");
@@ -310,10 +310,10 @@ test.describe("índice de encomendas", () => {
 
       expect(Math.round(caixaLinha.x)).toBe(Math.round(esperadoNaTela));
 
-      // Cabeçalho de quinzenas: a soma das larguras das células cobre a área rolável inteira,
+      // Cabeçalho de semanas: a soma das larguras das células cobre a área rolável inteira,
       // sem vão e sem sobreposição (tolerância = 1px por célula, arredondamento de layout).
       const larguras = await page
-        .getByTestId("gantt-celula-quinzena")
+        .getByTestId("gantt-celula-semana")
         .evaluateAll((elementos) => elementos.map((el) => el.getBoundingClientRect().width));
       const somaDasLarguras = larguras.reduce((total, largura) => total + largura, 0);
       expect(Math.abs(somaDasLarguras - intervalo.larguraEmPixels)).toBeLessThanOrEqual(
@@ -335,6 +335,10 @@ test.describe("índice de encomendas", () => {
       const { intervalo, hoje } = await lerIntervaloDoGantt(page);
       const larguraVisivel = await larguraVisivelDaAreaRolavel(page);
       const esperado = rolagemInicial(intervalo, hoje, larguraVisivel);
+      // A3: a timeline agora ABRE EM HOJE — "hoje" fica na borda esquerda do intervalo
+      // desenhado, então `rolagemInicial` sempre resolve para 0. Prova observável de que a
+      // Tarefa 3 mudou o comportamento, não só o número por trás dele.
+      expect(esperado).toBe(0);
 
       // `expect.poll` em vez de uma leitura crua: o `useLayoutEffect` que aplica a rolagem só
       // roda depois da hidratação — sob a suíte inteira rodando em paralelo, o JS pode levar um
@@ -441,7 +445,7 @@ test.describe("índice de encomendas", () => {
       expect(indiceCedo).toBeLessThan(indiceTarde);
     });
 
-    test("com uma encomenda só, a timeline ainda desenha a quinzena de folga em cada ponta (zero-um-muitos)", async ({
+    test("com uma encomenda só, a timeline ainda desenha uma semana de folga no fim (zero-um-muitos)", async ({
       page,
     }) => {
       await fazerLogin(page);
@@ -450,10 +454,56 @@ test.describe("índice de encomendas", () => {
 
       const linha = linhaDoGantt(page, nome);
       await expect(linha).toBeVisible();
-      // Sempre há mais de uma célula de quinzena visível — se a timeline cobrisse só o próprio
-      // dia da encomenda, haveria no máximo uma célula parcial.
-      const quantidadeDeCelulas = await page.getByTestId("gantt-celula-quinzena").count();
+      // Sempre há mais de uma célula de semana visível — se a timeline cobrisse só o próprio dia
+      // da encomenda, haveria no máximo uma célula parcial. Não há mais folga no COMEÇO (A3): a
+      // timeline abre em hoje.
+      const quantidadeDeCelulas = await page.getByTestId("gantt-celula-semana").count();
       expect(quantidadeDeCelulas).toBeGreaterThan(1);
+    });
+
+    test("encomenda iniciada antes de hoje: nenhuma barra/marco desenha à esquerda da régua, e a etapa cortada encosta exatamente na origem (A3)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+      const nome = nomeUnico("Gantt corte a esquerda");
+      // Começa 10 dias antes de hoje — a etapa de produção (3 dias) fica inteiramente no
+      // passado, e a de secagem (6 dias) começa antes de hoje e é cortada na borda esquerda.
+      await criarEncomenda(page, { nome, dataInicio: dataEmDias(-10) });
+
+      const linha = linhaDoGantt(page, nome);
+      await expect(linha).toBeVisible();
+
+      const regua = page.getByTestId("gantt-regua");
+      await expect(regua).toBeVisible();
+      const caixaRegua = await regua.boundingBox();
+      if (!caixaRegua) {
+        throw new Error("Não foi possível medir a régua do Gantt.");
+      }
+
+      // Escrito em termos de "nada à esquerda da origem da régua" — independe do dia da semana
+      // em que o teste roda, ao contrário de uma asserção sobre qual etapa está cortada.
+      const elementosDaLinha = linha.locator(
+        '[data-testid^="gantt-barra-"], [data-testid^="gantt-marco-"]',
+      );
+      const caixas = await elementosDaLinha.evaluateAll((elementos) =>
+        elementos.map((el) => el.getBoundingClientRect().x),
+      );
+      expect(caixas.length).toBeGreaterThan(0);
+      for (const x of caixas) {
+        expect(x).toBeGreaterThanOrEqual(caixaRegua.x - 1);
+      }
+
+      // Não afirma QUANTAS etapas ficam cortadas — isso depende do dia da semana em que o teste
+      // roda (o corte de uma etapa de 6 dias iniciada 10 dias atrás varia conforme quantos dias
+      // a segunda-feira da semana de hoje "come" da folga). A afirmação que independe do dia:
+      // toda etapa que FOR cortada encosta exatamente na origem da régua.
+      const elementosCortados = linha.locator('[data-cortada="true"]');
+      const caixasCortadas = await elementosCortados.evaluateAll((elementos) =>
+        elementos.map((el) => el.getBoundingClientRect().x),
+      );
+      for (const x of caixasCortadas) {
+        expect(Math.round(x)).toBe(Math.round(caixaRegua.x));
+      }
     });
 
     test("clicar no nome da encomenda no Gantt abre a página de detalhe (/encomendas/{id}) (A1)", async ({
