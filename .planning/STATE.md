@@ -33,7 +33,7 @@ Status: Fase 4 fechada. Os 7 planos executados, migração aplicada à mão em p
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-11
+Last activity: 2026-08-12 - Completed quick task 260812-2et: BRIEF-NOTURNO (Lote A + Lote C) em 4 commits atômicos
 
 Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
@@ -241,6 +241,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260811-2jb | Avaliar retries e custo do teste de fronteira (04-02) | 2026-08-11 | 65ec17e | [260811-2jb-avaliar-retries-e-custo-do-teste-de-fron](./quick/260811-2jb-avaliar-retries-e-custo-do-teste-de-fron/) |
 | 260811-uiy | Fronteira de erro global acima do layout de rota protegida (G-04-5) | 2026-08-11 | b5bf62b | [260811-uiy-fronteira-de-erro-global-acima-do-layout](./quick/260811-uiy-fronteira-de-erro-global-acima-do-layout/) |
+| 260812-2et | BRIEF-NOTURNO: Lote A (Gantt clicável, eixo de tempo na barra do celular, timeline semanal desde hoje) + Lote C (tela de trocar senha) | 2026-08-12 | c3adfa2, aa5a720, bc0d790, b91accc | [260812-2et-executa-brief-noturno-lote-a-gantt-clica](./quick/260812-2et-executa-brief-noturno-lote-a-gantt-clica/) |
 
 ### Roadmap Evolution
 
