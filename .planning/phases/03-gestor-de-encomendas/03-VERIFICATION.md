@@ -30,16 +30,19 @@ human_verification:
       servidor confirmar, impedindo a segunda gravação de correr antes da primeira"
     why_human: "WINDOWS.md #10 (unrun-verify, ainda open) — mesma classe: implementado,
       não provado por teste de concorrência real nem verificação manual."
-  - test: "Criar duas encomendas 'rascunho' via UI real (hoje só é alcançável por SQL direto
-      em tests/e2e/apoio/marcar-rascunho.ts) e olhar o Gantt/cartão para a hachura
+  - test: "Semear duas encomendas 'rascunho' por SQL direto (tests/e2e/apoio/marcar-rascunho.ts
+      já faz exatamente isso) e olhar o Gantt no desktop e o cartão no celular para a hachura
       diagonal e o selo RASCUNHO"
     expected: "As barras/losangos mostram repeating-linear-gradient preservando a cor cheia
       da etapa, com borda tracejada, e o selo RASCUNHO aparece uma vez por linha/cartão"
     why_human: "Nenhum e2e mede o CSS de hachura no Gantt/cartão (confirmado por grep: zero
       ocorrências de repeating-linear-gradient em tests/). O código existe e passa em
-      revisão (03-04-SUMMARY.md D11/D12), mas nunca foi exercitado com dado real de
-      rascunho pela UI — e a UI do produto não tem NENHUM caminho para criar uma encomenda
-      rascunho hoje (WINDOWS.md nota isso como gap arquitetural, não bloqueante)."
+      revisão (03-04-SUMMARY.md D11/D12), mas nunca foi exercitado com dado real de rascunho.
+      Reescrito em 2026-08-12: a redação anterior mandava criar o rascunho PELA UI, o que é
+      inexecutável — a interface não tem nenhum caminho para isso, então o item nunca fecharia.
+      Semear por SQL prova o que este item existe para provar, que é o CSS. A lacuna de UI foi
+      separada como pergunta de produto no backlog (STATE.md §Deferred Items): decidir se
+      rascunho deve ser alcançável pela interface ou sumir do produto."
 ---
 
 # Phase 3: Gestor de Encomendas Verification Report

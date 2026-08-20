@@ -257,6 +257,7 @@ Items acknowledged and carried forward from previous milestone close:
 | v2 | Calculadora de Orçamento (M6) — ORC-01..05 | Bloqueado (planilhas de precificação) | Definição do roadmap |
 | v2 | Financeiro da Escola — FIN-01, FIN-02 | Adiado conscientemente | Definição do roadmap |
 | v2 | Integração Encomenda↔Queima (INT-01), Módulo Experiências (INT-02) | Adiado conscientemente | Definição do roadmap |
+| Produto | Encomenda "rascunho" não é alcançável pela interface — só por SQL direto. Decidir se deve existir um caminho na UI ou se o status rascunho sai do produto | Pergunta aberta | Fase 3, verificação humana |
 
 ## Session Continuity
 
