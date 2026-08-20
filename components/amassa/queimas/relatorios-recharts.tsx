@@ -46,7 +46,7 @@ const LARGURA_POR_BALDE_MES = 90;
 const ALTURA_DO_GRAFICO_DE_TIPO = 280;
 const MAXIMO_DE_CARACTERES_NO_EIXO = 14;
 
-// Mês abreviado em português, sem ponto — mesma abordagem de `mesAbreviadoDaQuinzena`
+// Mês abreviado em português, sem ponto — mesma abordagem de `mesAbreviadoDaSemana`
 // (`components/amassa/encomendas/gantt.tsx`) e `mesAbreviado` (`lib/queimas/formato.ts`):
 // formata a partir de `Date.UTC` do dia civil já calculado, timeZone "UTC" (nunca o fuso do
 // runtime, que faria o mês saltar perto da virada). Duplicado aqui em vez de importado —

@@ -175,7 +175,7 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
   1. Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
   2. Mudar a duração de uma etapa (ex.: "secagem") desloca todas as etapas seguintes
   3. Os três marcos (queima 1, queima 2, entrega) aparecem como losango e são um interruptor (acontece / não acontece), nunca um campo numérico; desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda
-  4. No desktop, o Gantt usa 18px/dia, cabeçalho em quinzenas, coluna fixa e a linha de "Hoje" na posição certa, e a timeline abre já rolada até deixá-la centralizada
+  4. No desktop, o Gantt usa 18px/dia, cabeçalho em células semanais começando na segunda-feira, coluna fixa e a linha de "Hoje" na posição certa, e a timeline abre em hoje, na borda esquerda
   5. Uma encomenda guarda e mostra vários itens com descrição e quantidade (ex.: 40 canecas e 12 bowls)
   6. No celular, dá para ler o andamento de todas as encomendas como lista vertical, sem rolagem horizontal
   7. Encomendas podem ser filtradas por status, ordenadas e buscadas por nome ou cliente
@@ -184,6 +184,7 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
   10. Excluir uma encomenda pede confirmação
   11. O estado vazio mostra "A roda ainda não gira"
   12. Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
+  13. No desktop, clicar no nome de uma encomenda no Gantt abre a encomenda
 
 **Plans**: 8/8 plans executed
 
