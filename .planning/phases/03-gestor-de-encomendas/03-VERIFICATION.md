@@ -1,11 +1,29 @@
 ---
 phase: 03-gestor-de-encomendas
 verified: 2026-08-10T22:00:00Z
-status: human_needed
+status: gaps_found
 score: 14/14 requirements MET (with 3 items PARTIAL — proven by code review, not by automated
   test — and 1 UI-only item verified-but-unproven-by-e2e); 12/12 ROADMAP success criteria MET
 overrides_applied: 0
-gaps: []
+gaps:
+  - id: G-03-1
+    criterio: 8
+    resumo: "No desktop o rodapé do formulário (duração total e data de conclusão) fica no centro
+      da janela e atrapalha preencher os campos. No celular está certo."
+    origem: "Caminhada humana em produção, 2026-08-20"
+    diagnosticado: false
+  - id: G-03-2
+    criterio: null
+    resumo: "O interruptor dos marcos tem 44x44 declarados mas só ~32x18 visíveis, e nenhum texto
+      diz o que ligado e desligado significam — o dono teve de adivinhar onde clicar."
+    origem: "Caminhada humana em produção, 2026-08-20"
+    diagnosticado: true
+  - id: G-03-3
+    criterio: null
+    resumo: "A tela de detalhe da encomenda não tem botão de voltar no desktop — a decisão original
+      apostou no botão voltar do sistema operacional do celular."
+    origem: "Caminhada humana em produção, 2026-08-20"
+    diagnosticado: true
 human_verification:
   - test: "Percorrer os 13 critérios de sucesso do ROADMAP.md §Phase 3 um a um em produção
       (https://amassacerrado.com.br/encomendas), no desktop e no celular. ATENÇÃO: os critérios
@@ -209,6 +227,61 @@ SUMMARY): os testes de `encomendas-indice.spec.ts` de fato chamam
 `lib/encomendas/gantt.ts` — e comparam contra `boundingBox()`/`scrollLeft` lidos do navegador
 real, nunca contra um número fixo assumido. Isso é a disciplina certa, e está presente de
 verdade, não só reivindicada.
+
+## Caminhada humana em produção (2026-08-20)
+
+O dono percorreu os 16 itens em `amassacerrado.com.br`, no computador e no celular, contra a
+imagem publicada pelo run #49. **Placar: 14 passam, 1 reprova, 1 não conferido.**
+
+### Critério 8 — REPROVA (G-03-1)
+
+No desktop o rodapé do formulário fica no centro da janela e atrapalha preencher os campos. No
+celular está certo. A diferença estrutural é conhecida: o celular usa `h-[100dvh]` (folha de tela
+cheia) e o desktop usa `md:h-auto md:max-h-[85svh]` (modal centralizado), com o rodapé em
+`sticky bottom-0` nos dois casos (`formulario-encomenda.tsx`). **A causa ainda não foi
+diagnosticada** — ler o CSS mostra a diferença, não prova o mecanismo. Precisa reproduzir com o
+app rodando antes de propor correção.
+
+### Critério 5 — o dono marcou reprovado; na releitura, PASSA
+
+O relato foi "não encontrei onde os itens mostram e guardam". A leitura do código mostra que a
+funcionalidade existe e é obrigatória:
+
+- o formulário tem botão "Adicionar item" de 44px (`lista-itens.tsx`);
+- a tela de detalhe lista descrição e quantidade sob `<h2>Itens</h2>` (`app/(app)/encomendas/[id]/page.tsx`);
+- o Zod exige `.min(1, "A encomenda precisa de ao menos 1 item.")` — é **impossível** criar uma
+  encomenda sem item.
+
+Perguntado onde tinha procurado, o dono respondeu: na lista de encomendas; ao clicar na encomenda
+os itens aparecem embaixo, e o formulário está ok. Ou seja, o critério — "guarda e mostra vários
+itens com descrição e quantidade" — está atendido. O que ele encontrou é que o **índice** (Gantt e
+cartões) não dá nenhuma pista de que itens existem, nem a contagem. Isso é **melhoria nova**, não
+defeito contra o critério, e foi registrado como tal para não inflar o resultado da fase nem
+descartar o achado.
+
+### Verificação manual C — não conferida
+
+A hachura de rascunho continua sem prova. Exige semear dois rascunhos por SQL, que é a redação
+corrigida do item mais cedo neste mesmo dia.
+
+### Ajustes no desktop relatados pelo dono
+
+1. **Interruptor dos marcos (G-03-2).** "Não fez muito sentido, inclusive tive de adivinhar onde
+   clicar, pois não tem um botão nem nada explícito." Causa encontrada: o `Switch` declara 44×44
+   mas com `paddingInline: 6`, `paddingBlock: 12.8` e `background-clip: content-box` — os 44px
+   são área de toque **invisível**, e o que aparece é uma pílula de ~32×18px. Não há texto dizendo
+   o que ligado e desligado significam: só o rótulo da etapa à esquerda e a pílula à direita.
+   Adivinhar era o comportamento esperado do que está construído.
+
+2. **Escolher a data de cada marco.** Pedido espontâneo do dono, e é exatamente o lote de datas que
+   o BRIEF-NOTURNO adiou. Hoje **nenhuma data é armazenada** — todas nascem em cascata a partir de
+   `dataInicio` (`lib/encomendas/cronograma.ts`). Guardar data por marco muda o modelo de dados e
+   exige migração, então não cabe como correção desta fase. Pertence ao lote de datas.
+
+3. **Sem botão de voltar (G-03-3).** A tela de detalhe não tem como voltar no desktop. O comentário
+   de `app/(app)/encomendas/[id]/page.tsx` registra a aposta original: "botão voltar do celular",
+   isto é, o do sistema operacional. No desktop não existe equivalente.
+
 
 ## Veredito Geral
 
