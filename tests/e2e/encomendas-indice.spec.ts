@@ -3,7 +3,12 @@ import { test, expect, type Page } from "@playwright/test";
 import { calcularCronograma, DIAS_PADRAO } from "@/lib/encomendas/cronograma";
 import { formatarDiaCurto } from "@/lib/encomendas/formato";
 import { deslocamentoEmPixels, rolagemInicial, type IntervaloDaTimeline } from "@/lib/encomendas/gantt";
-import { FRASE_VAZIO_TITULO, ROTULO_ETAPA, ROTULO_NOVA_ENCOMENDA } from "@/lib/encomendas/textos";
+import {
+  FRASE_VAZIO_TITULO,
+  ROTULO_ETAPA,
+  ROTULO_NOVA_ENCOMENDA,
+  textoDaContagemDeItens,
+} from "@/lib/encomendas/textos";
 
 // Índice de verdade: Gantt no desktop (Tarefa 1), lista de cartões no celular (Tarefa 2), e os
 // três estados obrigatórios (Tarefa 3) — 03-04-PLAN.md. O 18px/dia, a posição da linha de
@@ -56,7 +61,7 @@ function botaoVisivel(page: Page, nome: string) {
 // criaria uma segunda encomenda com o mesmo nome — o oposto do que o teste quer provar.
 async function criarEncomenda(
   page: Page,
-  opcoes: { nome: string; cliente?: string; dataInicio: string },
+  opcoes: { nome: string; cliente?: string; dataInicio: string; itensExtras?: string[] },
 ) {
   const TENTATIVAS_MAXIMAS = 3;
 
@@ -69,6 +74,17 @@ async function criarEncomenda(
     await campoVisivel(page, "Data de início").fill(opcoes.dataInicio);
     await campoVisivel(page, "Descrição do item 1").fill("Item de teste [e2e]");
     await campoVisivel(page, "Quantidade do item 1").fill("1");
+
+    // Parâmetro opcional (default ausente): itens extras além do item 1, para provar o plural
+    // da contagem no índice (G-03-3-índice, quick 260820-uot). Cada extra clica "Adicionar
+    // item" e preenche a linha nova pelo rótulo indexado (`lista-itens.tsx`).
+    for (const [indice, descricao] of (opcoes.itensExtras ?? []).entries()) {
+      const numeroDoItem = indice + 2;
+      await botaoVisivel(page, "Adicionar item").click();
+      await campoVisivel(page, `Descrição do item ${numeroDoItem}`).fill(descricao);
+      await campoVisivel(page, `Quantidade do item ${numeroDoItem}`).fill("1");
+    }
+
     await botaoVisivel(page, "Salvar").click();
 
     try {
@@ -531,6 +547,34 @@ test.describe("índice de encomendas", () => {
       // Prova que abriu a encomenda CERTA, não uma qualquer.
       await expect(page.getByText(nome, { exact: true })).toBeVisible();
     });
+
+    // Índice mostra a contagem de itens (achado do dono na caminhada de 2026-08-20,
+    // 03-VERIFICATION.md): o índice não dava nenhuma pista de que a encomenda tinha itens.
+    // Ancorado dentro da linha do Gantt da própria encomenda — nunca texto solto na página —
+    // porque o banco de teste tem dado de outros specs rodando em paralelo.
+    test("a contagem de itens aparece na linha do Gantt, singular e plural", async ({ page }) => {
+      await fazerLogin(page);
+
+      const nomeSingular = nomeUnico("Gantt contagem singular");
+      await criarEncomenda(page, { nome: nomeSingular, dataInicio: dataEmDias(0) });
+      const linhaSingular = linhaDoGantt(page, nomeSingular);
+      await expect(linhaSingular).toBeVisible();
+      await expect(linhaSingular.getByTestId("contagem-de-itens")).toHaveText(
+        `· ${textoDaContagemDeItens(1)}`,
+      );
+
+      const nomePlural = nomeUnico("Gantt contagem plural");
+      await criarEncomenda(page, {
+        nome: nomePlural,
+        dataInicio: dataEmDias(0),
+        itensExtras: ["Segundo item [e2e]"],
+      });
+      const linhaPlural = linhaDoGantt(page, nomePlural);
+      await expect(linhaPlural).toBeVisible();
+      await expect(linhaPlural.getByTestId("contagem-de-itens")).toHaveText(
+        `· ${textoDaContagemDeItens(2)}`,
+      );
+    });
   });
 
   test.describe("Lista mobile (ENC-08, ENC-09)", () => {
@@ -780,6 +824,31 @@ test.describe("índice de encomendas", () => {
       const cartao = cartaoDoCelular(page, nome);
       await expect(cartao).toBeVisible();
       await expect(cartao.getByTestId("trilha-hoje")).toHaveCount(0);
+    });
+
+    // Espelho do teste do Gantt: mesma contagem, mesmo par singular/plural, agora no cartão.
+    test("a contagem de itens aparece no cartão do celular, singular e plural", async ({ page }) => {
+      await fazerLogin(page);
+
+      const nomeSingular = nomeUnico("Cartão contagem singular");
+      await criarEncomenda(page, { nome: nomeSingular, dataInicio: dataEmDias(0) });
+      const cartaoSingular = cartaoDoCelular(page, nomeSingular);
+      await expect(cartaoSingular).toBeVisible();
+      await expect(cartaoSingular.getByTestId("contagem-de-itens")).toHaveText(
+        textoDaContagemDeItens(1),
+      );
+
+      const nomePlural = nomeUnico("Cartão contagem plural");
+      await criarEncomenda(page, {
+        nome: nomePlural,
+        dataInicio: dataEmDias(0),
+        itensExtras: ["Segundo item [e2e]"],
+      });
+      const cartaoPlural = cartaoDoCelular(page, nomePlural);
+      await expect(cartaoPlural).toBeVisible();
+      await expect(cartaoPlural.getByTestId("contagem-de-itens")).toHaveText(
+        textoDaContagemDeItens(2),
+      );
     });
   });
 });

@@ -14,6 +14,7 @@ import {
   ROTULO_NOVA_ENCOMENDA,
   SELO_ATRASADA,
   SELO_RASCUNHO,
+  textoDaContagemDeItens,
   textoDaSituacao,
   textoDoEstadoDoMarco,
 } from "../../lib/encomendas/textos";
@@ -179,5 +180,23 @@ describe("textoDoEstadoDoMarco (G-03-2)", () => {
     expect(ROTULO_MARCO_ACONTECE.length).toBeGreaterThan(0);
     expect(ROTULO_MARCO_NAO_ACONTECE.length).toBeGreaterThan(0);
     expect(ROTULO_MARCO_ACONTECE).not.toBe(ROTULO_MARCO_NAO_ACONTECE);
+  });
+});
+
+describe("textoDaContagemDeItens (índice mostra a contagem)", () => {
+  it("0 devolve 'sem itens'", () => {
+    expect(textoDaContagemDeItens(0)).toBe("sem itens");
+  });
+
+  it("1 devolve '1 item', no singular", () => {
+    expect(textoDaContagemDeItens(1)).toBe("1 item");
+  });
+
+  it("2 devolve '2 itens', no plural", () => {
+    expect(textoDaContagemDeItens(2)).toBe("2 itens");
+  });
+
+  it("17 devolve '17 itens'", () => {
+    expect(textoDaContagemDeItens(17)).toBe("17 itens");
   });
 });

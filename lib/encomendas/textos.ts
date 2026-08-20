@@ -68,6 +68,17 @@ export function textoDoEstadoDoMarco(ligado: boolean): string {
   return ligado ? ROTULO_MARCO_ACONTECE : ROTULO_MARCO_NAO_ACONTECE;
 }
 
+// Contagem de itens do índice (Gantt e cartão) em frase de interface, com singular/plural
+// corretos em português — a interface não deixa criar `0` (`esquemaEncomenda.itens.min(1)`), mas
+// uma linha semeada direto no banco alcança esse caso, então ele ganha frase própria em vez de
+// "0 itens" (nenhuma frase, ninguém escreve). G-03-3-índice / índice mostra contagem, quick
+// 260820-uot.
+export function textoDaContagemDeItens(quantidade: number): string {
+  if (quantidade === 0) return "sem itens";
+  if (quantidade === 1) return "1 item";
+  return `${quantidade} itens`;
+}
+
 const MESES_ABREVIADOS_PT: readonly string[] = [
   "jan",
   "fev",

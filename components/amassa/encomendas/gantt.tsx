@@ -12,7 +12,7 @@ import {
   rolagemInicial,
 } from "@/lib/encomendas/gantt";
 import { formatarDiaCurto } from "@/lib/encomendas/formato";
-import { ROTULO_ETAPA, SELO_RASCUNHO } from "@/lib/encomendas/textos";
+import { ROTULO_ETAPA, SELO_RASCUNHO, textoDaContagemDeItens } from "@/lib/encomendas/textos";
 
 // Geometria fora do contrato vinculante (18px/dia, 46px de limiar) — dimensões de leiaute que
 // este componente é livre para escolher (03-CONTEXT.md "Claude's Discretion" — estrutura de
@@ -29,6 +29,7 @@ export type EncomendaDoGantt = {
   clienteNome: string | null;
   status: StatusDeEncomenda;
   cronograma: Cronograma;
+  itens: { descricao: string }[];
 };
 
 export type GanttProps = {
@@ -180,9 +181,17 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
                           </span>
                         )}
                       </div>
-                      <span className="text-apoio truncate text-muted-foreground">
-                        {encomenda.clienteNome ?? "Cliente não informado"}
-                      </span>
+                      <div className="flex items-baseline gap-1 overflow-hidden">
+                        <span className="text-apoio min-w-0 truncate text-muted-foreground">
+                          {encomenda.clienteNome ?? "Cliente não informado"}
+                        </span>
+                        <span
+                          className="text-apoio shrink-0 text-muted-foreground"
+                          data-testid="contagem-de-itens"
+                        >
+                          · {textoDaContagemDeItens(encomenda.itens.length)}
+                        </span>
+                      </div>
                     </Link>
                   </div>
 

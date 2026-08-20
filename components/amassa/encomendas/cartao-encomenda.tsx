@@ -1,7 +1,12 @@
 import Link from "next/link";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { SELO_ATRASADA, SELO_RASCUNHO, textoDaSituacao } from "@/lib/encomendas/textos";
+import {
+  SELO_ATRASADA,
+  SELO_RASCUNHO,
+  textoDaContagemDeItens,
+  textoDaSituacao,
+} from "@/lib/encomendas/textos";
 
 import type { EncomendaDoIndice } from "./lista-encomendas";
 import { TrilhaSegmentos } from "./trilha-segmentos";
@@ -42,7 +47,13 @@ export function CartaoEncomenda({ encomenda, hoje }: CartaoEncomendaProps) {
             )}
           </div>
 
-          <span className="text-apoio text-muted-foreground">{encomenda.clienteNome ?? "—"}</span>
+          <span className="text-apoio text-muted-foreground">
+            {encomenda.clienteNome ?? "—"}
+            {" · "}
+            <span data-testid="contagem-de-itens">
+              {textoDaContagemDeItens(encomenda.itens.length)}
+            </span>
+          </span>
 
           <TrilhaSegmentos
             faixas={encomenda.cronograma.faixas}
