@@ -7,8 +7,10 @@ score: 14/14 requirements MET (with 3 items PARTIAL — proven by code review, n
 overrides_applied: 0
 gaps: []
 human_verification:
-  - test: "Percorrer os 12 critérios de sucesso do ROADMAP.md §Phase 3 um a um em produção
-      (https://amassacerrado.com.br/encomendas), no desktop e no celular"
+  - test: "Percorrer os 13 critérios de sucesso do ROADMAP.md §Phase 3 um a um em produção
+      (https://amassacerrado.com.br/encomendas), no desktop e no celular. ATENÇÃO: os critérios
+      4 e 13 mudaram DEPOIS que este relatório foi escrito (quick 260812-2et, commit cf8c49c) —
+      leia a lista atual no ROADMAP.md, não a versão que este relatório verificou"
     expected: "Cada critério se comporta como especificado; em particular apurar quais
       'ajustes' o dono mencionou precisar no desktop"
     why_human: "O dono confirmou apenas criação de encomenda + uso no celular em produção;
@@ -48,6 +50,16 @@ vertical no celular.
 **Verified:** 2026-08-10
 **Status:** human_needed
 **Re-verification:** No — initial verification
+
+> **Nota de supersessão (2026-08-12).** Este relatório verificou 12 critérios, que eram os que
+> existiam em 2026-08-10. Depois disso o quick `260812-2et` (BRIEF-NOTURNO, commit `cf8c49c`)
+> reescreveu o **critério 4** — o Gantt passou de células quinzenais para semanais (segunda a
+> domingo) e a timeline deixou de abrir centralizada para abrir em hoje, na borda esquerda — e
+> acrescentou o **critério 13** (o nome da encomenda no Gantt do desktop abre a encomenda).
+> Supersessão deliberada de decisão da Fase 3, não regressão; os 18px/dia do `03-UI-SPEC.md`
+> continuam valendo. A linha `score` do frontmatter descreve o que foi verificado em 2026-08-10 e
+> fica como está de propósito — reescrevê-la retrodataria uma afirmação. A caminhada humana
+> pendente usa a lista **atual** do ROADMAP.md, com 13 critérios.
 
 ## Método
 
