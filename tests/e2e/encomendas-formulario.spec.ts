@@ -520,4 +520,70 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     );
     expect(variantNumerico).toContain("tabular-nums");
   });
+
+  // Regressão de G-03-1. O rodapé era `sticky bottom-0` num `div` que é IRMÃO da área de campos,
+  // não filho dela — sem nenhum contêiner de rolagem entre ele e o documento, o `bottom: 0` se
+  // ancorava no pé da JANELA, em coordenadas de leiaute anteriores ao `md:-translate-y-1/2` que
+  // centraliza o diálogo. No desktop isso subia o rodapé em `(md:top-1/2 + altura) − altura da
+  // janela` — 357px a 1280x1024, 279px a 1280x800, 209px a 1280x600 —, jogando-o no meio da tela
+  // com campos passando por baixo. No celular a mesma conta dá zero, então o defeito nunca
+  // apareceu ali: só um teste que mede a GEOMETRIA pega isso, nenhuma asserção de texto pega.
+  //
+  // Roda nos dois projetos de viewport de propósito: é a divergência desktop/celular que este
+  // teste existe para vigiar. A tolerância é de 2px (a borda de 1px do `md:border` do diálogo,
+  // mais arredondamento subpixel) — folgada o bastante para não piscar, apertada o bastante para
+  // reprovar qualquer volta do defeito, cuja menor manifestação medida foi de 209px.
+  test("o rodapé fica colado ao pé do diálogo, e não se move quando os campos rolam", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/encomendas?nova");
+
+    const rodape = page
+      .locator('[data-testid="rodape-formulario"]')
+      .and(page.locator(":visible"));
+    await expect(rodape).toBeVisible();
+
+    // Faz o formulário crescer bem além da altura do diálogo, para que a área de campos tenha
+    // mesmo o que rolar — é o estado em que o defeito era mais visível.
+    for (let i = 0; i < 8; i++) {
+      await botaoVisivel(page, "Adicionar item").click();
+    }
+    await expect(campoVisivel(page, "Descrição do item 9")).toBeVisible();
+
+    const medir = () =>
+      page.evaluate(() => {
+        const dialogo = document.querySelector('[data-slot="dialog-content"]');
+        if (!dialogo) throw new Error("DialogContent não encontrado.");
+        const barra = dialogo.querySelector('[data-testid="rodape-formulario"]')?.parentElement;
+        const campos = dialogo.querySelector("form")?.firstElementChild;
+        if (!barra || !campos) throw new Error("Rodapé ou área de campos não encontrados.");
+        return {
+          peDoDialogo: dialogo.getBoundingClientRect().bottom,
+          peDoRodape: barra.getBoundingClientRect().bottom,
+          topoDoRodape: barra.getBoundingClientRect().top,
+          camposRolam: campos.scrollHeight > campos.clientHeight + 1,
+        };
+      });
+
+    const antes = await medir();
+
+    // 1. A área de campos é quem rola — se ela parasse de rolar, o rodapé ficaria "no lugar"
+    //    por acidente (o diálogo cresceria sem limite) e o resto do teste não provaria nada.
+    expect(antes.camposRolam).toBe(true);
+
+    // 2. O rodapé está ao PÉ do diálogo, não no meio dele.
+    expect(Math.abs(antes.peDoDialogo - antes.peDoRodape)).toBeLessThanOrEqual(2);
+
+    // 3. Rolar a área de campos até o fim não arrasta o rodapé.
+    await page.evaluate(() => {
+      const campos = document.querySelector('[data-slot="dialog-content"] form')
+        ?.firstElementChild;
+      if (campos) campos.scrollTop = campos.scrollHeight;
+    });
+
+    const depois = await medir();
+    expect(Math.abs(depois.peDoDialogo - depois.peDoRodape)).toBeLessThanOrEqual(2);
+    expect(Math.abs(depois.topoDoRodape - antes.topoDoRodape)).toBeLessThanOrEqual(2);
+  });
 });

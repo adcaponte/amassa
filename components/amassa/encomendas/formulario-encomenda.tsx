@@ -303,7 +303,25 @@ export function CorpoDoFormulario({
         </div>
       </div>
 
-      <div className="border-border bg-popover sticky bottom-0 flex flex-col gap-3 border-t px-6 py-4">
+      {/* Rodapé ao pé do diálogo por FLEX, nunca por `position: sticky` (G-03-1).
+          A versão anterior era `sticky bottom-0`, o que quebrava o desktop e passava batido no
+          celular. Medido em 6 viewports com o app rodando (ver .planning/debug/resolved/
+          rodape-formulario-desktop.md): este `div` é IRMÃO da área de campos, não filho dela —
+          então não existe NENHUM contêiner de rolagem entre ele e o documento (a cadeia é
+          form:visible > dialog-content:visible > body:hidden). Sem scrollport próprio, o
+          `bottom: 0` do `sticky` se ancora no pé da JANELA, e faz essa conta nas coordenadas de
+          LEIAUTE do diálogo — antes do `md:-translate-y-1/2` que o centraliza. Resultado no
+          desktop: o rodapé subia exatamente `(md:top-1/2 + altura) − altura da janela` (357px a
+          1280x1024, 279px a 1280x800, 209px a 1280x600 — modelo exato, ±1px da borda), parando
+          no meio da janela, com campos passando por baixo dele. No celular o mesmo cálculo dá
+          zero, porque `translate` é zero e a caixa de leiaute do diálogo já termina no pé da
+          janela — o `sticky` sempre foi inócuo ali, e foi essa coincidência geométrica que
+          escondeu o defeito.
+          O `<form>` é `flex-1 flex-col` e a área de campos acima é `flex-1 min-h-0
+          overflow-y-auto`: o flex sozinho já prende este rodapé ao pé do diálogo nos dois
+          tamanhos de tela, com a área de campos rolando por baixo. `sticky` aqui não acrescenta
+          nada — só tinha o que quebrar. */}
+      <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
         <RodapeFormulario control={control} />
         <div className="flex justify-end gap-3">
           <button
