@@ -10,8 +10,10 @@ import { TrilhaEtapas } from "@/components/amassa/encomendas/trilha-etapas";
 
 // `exigirUsuario()` como PRIMEIRA instrução — regra do CLAUDE.md, verificada por
 // `npm run verificar-acoes`. `params` é `Promise` no Next.js 15 (precisa de `await`). A
-// encomenda tem endereço próprio (D-01): URL compartilhável, botão voltar do celular
-// funcionando de verdade, sem disputar espaço com o Gantt do índice.
+// encomenda tem endereço próprio (D-01): URL compartilhável, sem disputar espaço com o Gantt do
+// índice. A volta ao índice é explícita no cabeçalho (`CabecalhoPagina`, prop `voltar`), nas duas
+// larguras de tela — a aposta original no botão voltar do sistema operacional do celular
+// reprovou na caminhada humana em produção de 2026-08-20 (G-03-3, 03-VERIFICATION.md).
 export default async function PaginaDetalheEncomenda({
   params,
 }: {
@@ -41,7 +43,10 @@ export default async function PaginaDetalheEncomenda({
 
   return (
     <>
-      <CabecalhoPagina titulo={encomenda.nome}>
+      <CabecalhoPagina
+        titulo={encomenda.nome}
+        voltar={{ href: "/encomendas", rotulo: "Voltar para as encomendas" }}
+      >
         <AcoesEncomenda
           id={encomenda.id}
           nome={encomenda.nome}

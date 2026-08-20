@@ -294,6 +294,34 @@ test.describe("detalhe da encomenda", () => {
     ]);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
   });
+
+  // G-03-3 (quick 260820-uot): a tela de detalhe não tinha nenhum controle de voltar no
+  // desktop — a aposta original era o botão voltar do sistema operacional do celular. Roda nos
+  // DOIS projetos, sem `test.skip`, porque é a divergência desktop/celular que este teste existe
+  // para vigiar.
+  test("um controle de voltar para o índice aparece no cabeçalho, nas duas larguras", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Detalhe voltar");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const voltar = page.getByTestId("voltar-pagina").and(page.locator(":visible"));
+    await expect(voltar).toBeVisible();
+    await expect(voltar).toHaveAttribute("href", "/encomendas");
+
+    const caixa = await voltar.boundingBox();
+    expect(caixa).not.toBeNull();
+    expect(caixa!.width).toBeGreaterThanOrEqual(44);
+    expect(caixa!.height).toBeGreaterThanOrEqual(44);
+
+    await expect(page.getByRole("heading", { name: nome, level: 1 })).toBeVisible();
+
+    await voltar.click();
+    await expect(page).toHaveURL(/\/encomendas$/);
+    await expect(page.getByRole("heading", { name: "Encomendas", level: 1 })).toBeVisible();
+  });
 });
 
 test.describe("ajuste rápido", () => {
