@@ -5,25 +5,33 @@ status: gaps_found
 score: 14/14 requirements MET (with 3 items PARTIAL — proven by code review, not by automated
   test — and 1 UI-only item verified-but-unproven-by-e2e); 12/12 ROADMAP success criteria MET
 overrides_applied: 0
+# "fechado: true" quer dizer que a correção entrou no código e passa nos testes —
+# NÃO que o dono conferiu. Os três esperam a próxima passada em produção.
 gaps:
   - id: G-03-1
     criterio: 8
     resumo: "No desktop o rodapé do formulário (duração total e data de conclusão) fica no centro
       da janela e atrapalha preencher os campos. No celular está certo."
     origem: "Caminhada humana em produção, 2026-08-20"
-    diagnosticado: false
+    diagnosticado: true
+    fechado: true
+    fechado_por: "debug rodape-formulario-desktop, commit ab7bce5"
   - id: G-03-2
     criterio: null
     resumo: "O interruptor dos marcos tem 44x44 declarados mas só ~32x18 visíveis, e nenhum texto
       diz o que ligado e desligado significam — o dono teve de adivinhar onde clicar."
     origem: "Caminhada humana em produção, 2026-08-20"
     diagnosticado: true
+    fechado: true
+    fechado_por: "quick-260820-uot, commit 9a3beca"
   - id: G-03-3
     criterio: null
     resumo: "A tela de detalhe da encomenda não tem botão de voltar no desktop — a decisão original
       apostou no botão voltar do sistema operacional do celular."
     origem: "Caminhada humana em produção, 2026-08-20"
     diagnosticado: true
+    fechado: true
+    fechado_por: "quick-260820-uot, commit 274aa72"
 human_verification:
   - test: "Percorrer os 13 critérios de sucesso do ROADMAP.md §Phase 3 um a um em produção
       (https://amassacerrado.com.br/encomendas), no desktop e no celular. ATENÇÃO: os critérios
@@ -266,21 +274,27 @@ corrigida do item mais cedo neste mesmo dia.
 
 ### Ajustes no desktop relatados pelo dono
 
-1. **Interruptor dos marcos (G-03-2).** "Não fez muito sentido, inclusive tive de adivinhar onde
-   clicar, pois não tem um botão nem nada explícito." Causa encontrada: o `Switch` declara 44×44
-   mas com `paddingInline: 6`, `paddingBlock: 12.8` e `background-clip: content-box` — os 44px
-   são área de toque **invisível**, e o que aparece é uma pílula de ~32×18px. Não há texto dizendo
-   o que ligado e desligado significam: só o rótulo da etapa à esquerda e a pílula à direita.
-   Adivinhar era o comportamento esperado do que está construído.
+1. **Interruptor dos marcos (G-03-2) — FECHADO.** "Não fez muito sentido, inclusive tive de
+   adivinhar onde clicar, pois não tem um botão nem nada explícito." Causa encontrada: o `Switch`
+   declara 44×44 mas com `paddingInline: 6`, `paddingBlock: 12.8` e `background-clip: content-box`
+   — os 44px são área de toque **invisível**, e o que aparece é uma pílula de ~32×18px. Não há
+   texto dizendo o que ligado e desligado significam: só o rótulo da etapa à esquerda e a pílula à
+   direita. Adivinhar era o comportamento esperado do que está construído. **Fechado por**
+   quick-260820-uot, commit `9a3beca`: a linha do marco ganhou moldura visível de >= 44px e uma
+   palavra de estado ("Acontece"/"Não acontece") clicável antes do interruptor, sem alterar a
+   geometria da pílula.
 
 2. **Escolher a data de cada marco.** Pedido espontâneo do dono, e é exatamente o lote de datas que
    o BRIEF-NOTURNO adiou. Hoje **nenhuma data é armazenada** — todas nascem em cascata a partir de
    `dataInicio` (`lib/encomendas/cronograma.ts`). Guardar data por marco muda o modelo de dados e
    exige migração, então não cabe como correção desta fase. Pertence ao lote de datas.
 
-3. **Sem botão de voltar (G-03-3).** A tela de detalhe não tem como voltar no desktop. O comentário
-   de `app/(app)/encomendas/[id]/page.tsx` registra a aposta original: "botão voltar do celular",
-   isto é, o do sistema operacional. No desktop não existe equivalente.
+3. **Sem botão de voltar (G-03-3) — FECHADO.** A tela de detalhe não tem como voltar no desktop. O
+   comentário de `app/(app)/encomendas/[id]/page.tsx` registra a aposta original: "botão voltar do
+   celular", isto é, o do sistema operacional. No desktop não existe equivalente. **Fechado por**
+   quick-260820-uot, commit `274aa72`: `CabecalhoPagina` ganhou uma prop opcional `voltar`, e o
+   detalhe da encomenda agora mostra um controle de voltar para `/encomendas` de >= 44x44, visível
+   nas duas larguras.
 
 
 ## Veredito Geral
