@@ -59,6 +59,15 @@ export const ROTULO_ETAPA: Record<Etapa, string> = {
   entrega: "Entrega",
 };
 
+// Palavra de estado do interruptor de marco (queima1/queima2/entrega), na linguagem literal de
+// ENC-03 ("acontece / não acontece") — G-03-2, quick 260820-uot. `dias === 1` liga o marco.
+export const ROTULO_MARCO_ACONTECE = "Acontece";
+export const ROTULO_MARCO_NAO_ACONTECE = "Não acontece";
+
+export function textoDoEstadoDoMarco(ligado: boolean): string {
+  return ligado ? ROTULO_MARCO_ACONTECE : ROTULO_MARCO_NAO_ACONTECE;
+}
+
 const MESES_ABREVIADOS_PT: readonly string[] = [
   "jan",
   "fev",

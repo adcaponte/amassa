@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
+import { ROTULO_ETAPA, ROTULO_MARCO_ACONTECE, ROTULO_MARCO_NAO_ACONTECE } from "@/lib/encomendas/textos";
 
 // O formulário de criar/editar encomenda (03-06-PLAN.md): `Dialog` no desktop / `Sheet` no
 // celular escolhido por CSS (D-03), abertura derivada de `?nova`/`?editar={id}`, itens
@@ -585,5 +585,76 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     const depois = await medir();
     expect(Math.abs(depois.peDoDialogo - depois.peDoRodape)).toBeLessThanOrEqual(2);
     expect(Math.abs(depois.topoDoRodape - antes.topoDoRodape)).toBeLessThanOrEqual(2);
+  });
+});
+
+// G-03-2 (quick 260820-uot): o interruptor de marco tinha 44×44 de área de toque INVISÍVEL e
+// nenhuma palavra dizendo o que ligado/desligado significa. Mede geometria e comportamento, nunca
+// só presença de texto — foi confiar em asserção de texto que deixou passar o defeito do rodapé
+// (G-03-1, ab7bce5).
+test.describe("interruptor dos marcos — visível e explícito", () => {
+  test("cada linha de marco tem moldura visível de >= 44px de altura", async ({ page }) => {
+    await fazerLogin(page);
+    await page.goto("/encomendas?nova");
+
+    for (const etapa of ["queima1", "queima2", "entrega"] as const) {
+      const linha = page
+        .getByTestId(`linha-marco-${etapa}`)
+        .and(page.locator(":visible"));
+      const caixa = await linha.boundingBox();
+      expect(caixa).not.toBeNull();
+      expect(caixa!.height).toBeGreaterThanOrEqual(44);
+
+      const estilo = await linha.evaluate((el) => {
+        const computado = getComputedStyle(el);
+        return { largura: computado.borderTopWidth, tracado: computado.borderTopStyle };
+      });
+      expect(parseFloat(estilo.largura)).toBeGreaterThanOrEqual(1);
+      expect(estilo.tracado).not.toBe("none");
+    }
+  });
+
+  test("o interruptor de cada marco continua com >= 44x44 de área de toque", async ({ page }) => {
+    await fazerLogin(page);
+    await page.goto("/encomendas?nova");
+
+    for (const etapa of ["queima1", "queima2", "entrega"] as const) {
+      const rotulo = ROTULO_ETAPA[etapa];
+      const interruptor = page
+        .getByRole("switch", { name: new RegExp(escaparRegex(rotulo)) })
+        .and(page.locator(":visible"));
+      const caixa = await interruptor.boundingBox();
+      expect(caixa).not.toBeNull();
+      expect(caixa!.width).toBeGreaterThanOrEqual(44);
+      expect(caixa!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("a palavra de estado mostra a frase de ligado e alterna ao clicar nela, nunca na pílula", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/encomendas?nova");
+
+    const estadoEntrega = page
+      .getByTestId("estado-marco-entrega")
+      .and(page.locator(":visible"));
+    const interruptorEntrega = page
+      .getByRole("switch", { name: new RegExp(escaparRegex(ROTULO_ETAPA.entrega)) })
+      .and(page.locator(":visible"));
+
+    // Entrega nasce em dias: 1 (ligado) pelos padrões do formulário.
+    await expect(estadoEntrega).toHaveText(ROTULO_MARCO_ACONTECE);
+    await expect(interruptorEntrega).toHaveAttribute("aria-checked", "true");
+
+    // Clicar na PALAVRA (não na pílula) alterna — prova que a superfície clicável cresceu.
+    await estadoEntrega.click();
+    await expect(interruptorEntrega).toHaveAttribute("aria-checked", "false");
+    await expect(estadoEntrega).toHaveText(ROTULO_MARCO_NAO_ACONTECE);
+
+    // Clicar de novo volta ao estado inicial.
+    await estadoEntrega.click();
+    await expect(interruptorEntrega).toHaveAttribute("aria-checked", "true");
+    await expect(estadoEntrega).toHaveText(ROTULO_MARCO_ACONTECE);
   });
 });

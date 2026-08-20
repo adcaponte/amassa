@@ -16,7 +16,7 @@ import {
 import { atualizarEncomenda, criarEncomenda } from "@/lib/encomendas/acoes";
 import { esquemaEncomenda, esquemaEtapas, esquemaItem } from "@/lib/encomendas/esquemas";
 import type { EncomendaComFilhos } from "@/lib/encomendas/consultas";
-import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
+import { ROTULO_ETAPA, textoDoEstadoDoMarco } from "@/lib/encomendas/textos";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -362,18 +362,30 @@ function EtapaDoFormulario({ etapa, indice }: { etapa: Etapa; indice: number }) 
         render={({ field }) => {
           const ligado = field.value === 1;
           return (
-            <div className="flex items-center justify-between gap-4">
-              <Label htmlFor={`etapa-${etapa}`} className="text-corpo">
+            <div
+              className="border-border bg-background flex min-h-[44px] items-center justify-between gap-3 rounded-md border px-3 py-2"
+              data-testid={`linha-marco-${etapa}`}
+            >
+              <Label htmlFor={`etapa-${etapa}`} className="text-corpo cursor-pointer">
                 {rotulo}
               </Label>
-              <Switch
-                id={`etapa-${etapa}`}
-                checked={ligado}
-                onCheckedChange={(novoValor) => field.onChange(novoValor ? 1 : 0)}
-                aria-label={ligado ? `Desativar ${rotulo}` : `Ativar ${rotulo}`}
-                className="rounded-full [background-clip:content-box]"
-                style={{ width: 44, height: 44, paddingInline: 6, paddingBlock: 12.8 }}
-              />
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor={`etapa-${etapa}`}
+                  className="text-apoio text-muted-foreground cursor-pointer"
+                  data-testid={`estado-marco-${etapa}`}
+                >
+                  {textoDoEstadoDoMarco(ligado)}
+                </Label>
+                <Switch
+                  id={`etapa-${etapa}`}
+                  checked={ligado}
+                  onCheckedChange={(novoValor) => field.onChange(novoValor ? 1 : 0)}
+                  aria-label={ligado ? `Desativar ${rotulo}` : `Ativar ${rotulo}`}
+                  className="rounded-full [background-clip:content-box]"
+                  style={{ width: 44, height: 44, paddingInline: 6, paddingBlock: 12.8 }}
+                />
+              </div>
             </div>
           );
         }}

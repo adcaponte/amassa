@@ -9,10 +9,13 @@ import {
   FRASE_VAZIO_CORPO,
   FRASE_VAZIO_TITULO,
   ROTULO_ETAPA,
+  ROTULO_MARCO_ACONTECE,
+  ROTULO_MARCO_NAO_ACONTECE,
   ROTULO_NOVA_ENCOMENDA,
   SELO_ATRASADA,
   SELO_RASCUNHO,
   textoDaSituacao,
+  textoDoEstadoDoMarco,
 } from "../../lib/encomendas/textos";
 
 describe("frases fixas", () => {
@@ -160,5 +163,21 @@ describe("textoDaSituacao", () => {
     expect(texto).toContain(ROTULO_ETAPA.producao);
     expect(texto).toContain(ROTULO_ETAPA.secagem);
     expect(texto).toContain("4");
+  });
+});
+
+describe("textoDoEstadoDoMarco (G-03-2)", () => {
+  it("ligado devolve ROTULO_MARCO_ACONTECE", () => {
+    expect(textoDoEstadoDoMarco(true)).toBe(ROTULO_MARCO_ACONTECE);
+  });
+
+  it("desligado devolve ROTULO_MARCO_NAO_ACONTECE", () => {
+    expect(textoDoEstadoDoMarco(false)).toBe(ROTULO_MARCO_NAO_ACONTECE);
+  });
+
+  it("as duas frases são não vazias e distintas", () => {
+    expect(ROTULO_MARCO_ACONTECE.length).toBeGreaterThan(0);
+    expect(ROTULO_MARCO_NAO_ACONTECE.length).toBeGreaterThan(0);
+    expect(ROTULO_MARCO_ACONTECE).not.toBe(ROTULO_MARCO_NAO_ACONTECE);
   });
 });
