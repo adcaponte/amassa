@@ -184,12 +184,17 @@ create table encomenda_etapas (
   encomenda_id  uuid not null references encomendas(id) on delete cascade,
   etapa         etapa_encomenda not null,
   dias          integer not null default 1 check (dias >= 0),
+  espera_dias   integer not null default 0,
   ordem         integer not null,
   criado_em     timestamptz not null default now(),
   atualizado_em timestamptz not null default now(),
   unique (encomenda_id, etapa),
-  constraint marcos_zero_ou_um
-    check (etapa not in ('queima1','queima2','entrega') or dias in (0, 1))
+  constraint marcos_sempre_um_dia
+    check (etapa not in ('queima1','queima2','entrega') or dias = 1),
+  constraint encomenda_etapas_espera_no_intervalo
+    check (espera_dias >= 0 and espera_dias <= 365),
+  constraint espera_so_em_marco
+    check (etapa in ('queima1','queima2','entrega') or espera_dias = 0)
 );
 create index encomenda_etapas_encomenda_idx on encomenda_etapas (encomenda_id);
 ```
@@ -197,16 +202,25 @@ create index encomenda_etapas_encomenda_idx on encomenda_etapas (encomenda_id);
 ### Regras
 
 - Ao criar uma encomenda, inserir as 6 etapas na ordem fixa, com os padrões
-  `producao 3 · secagem 6 · queima1 1 · esmaltacao 1 · queima2 1 · entrega 1`.
-- Marcos (`queima1`, `queima2`, `entrega`) valem **0 ou 1** dia. Na interface são um
-  **interruptor** (a etapa acontece ou não), nunca um campo numérico — é assim que o
-  protótipo se comporta. Zero é caso real: peça que só vai a biscoito, encomenda retirada
-  no ateliê sem etapa de entrega.
+  `producao 5 · secagem 15 · queima1 1 · esmaltacao 1 · queima2 1 · entrega 1`, e as esperas
+  `queima1 (biscoito) 0 · queima2 (esmalte) 3 · entrega 5` (Fase 04.1, D-04/D-05).
+- Marcos (`queima1`, `queima2`, `entrega`) **sempre acontecem e sempre duram 1 dia**
+  (`marcos_sempre_um_dia`, Fase 04.1, D-06) — não há mais chave liga/desliga na
+  interface nem no banco. O campo numérico ao lado de cada marco é a **espera antes** dele
+  (`espera_dias`), nunca a duração do marco (D-07): quantos dias a peça fica parada depois
+  que a etapa anterior termina e antes daquele marco acontecer. `espera_so_em_marco` garante
+  que produção, secagem e esmaltação — trabalho contínuo, não espera (D-03) — nunca gravam
+  espera diferente de 0.
 - **As datas não são armazenadas.** São calculadas em cascata a partir de `data_inicio` pelo
   módulo puro `lib/encomendas/cronograma.ts`.
 
 > Por que não guardar as datas: armazenadas, elas se desincronizam de `dias` na primeira
 > edição, e passam a existir duas versões da verdade. Calculadas, existe uma só.
+>
+> `espera_dias` não abre exceção nessa regra: não é uma data, é um contador **relativo** de
+> dias que entra na mesma cascata, deslocando o `inicio` do marco antes de qualquer coisa ser
+> gravada (D-01, Fase 04.1). Se `espera_dias` guardasse uma data em vez de um número de dias,
+> a mesma desincronização do parágrafo acima voltaria a existir.
 
 ---
 

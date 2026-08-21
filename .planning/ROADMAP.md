@@ -174,7 +174,7 @@ estados vazio/carregando/erro, teste ponta a ponta) tornam-se os planos desta fa
 
   1. Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
   2. Mudar a duração de uma etapa (ex.: "secagem") desloca todas as etapas seguintes
-  3. Os três marcos (queima 1, queima 2, entrega) aparecem como losango e são um interruptor (acontece / não acontece), nunca um campo numérico; desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda
+  3. Os três marcos (queima 1, queima 2, entrega) aparecem como losango, sempre acontecem e sempre duram 1 dia; o campo numérico ao lado de cada um é a espera **antes** do marco, nunca a duração dele. *(Corrigido na Fase 04.1 — o critério original acima passou nas duas rodadas de verificação da Fase 3: a implementação estava certa, o que estava errado era a especificação sobre como o ateliê funciona, achado registrado em `.planning/phases/03-gestor-de-encomendas/03-VERIFICATION.md` §"Achado de produto — ENC-03 está errado sobre o ateliê".)*
   4. No desktop, o Gantt usa 18px/dia, cabeçalho em células semanais começando na segunda-feira, coluna fixa e a linha de "Hoje" na posição certa, e a timeline abre em hoje, na borda esquerda
   5. Uma encomenda guarda e mostra vários itens com descrição e quantidade (ex.: 40 canecas e 12 bowls)
   6. No celular, dá para ler o andamento de todas as encomendas como lista vertical, sem rolagem horizontal

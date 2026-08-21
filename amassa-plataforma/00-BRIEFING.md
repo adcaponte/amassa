@@ -128,8 +128,10 @@ Baseado no protótipo `gestor-ceramica.html`, que deve ser lido antes de planeja
 | Queima (esmalte) | **marco (24h fixo)** | 1 dia | `#7A3527` |
 | Entrega | **marco (24h fixo)** | 1 dia | `#5B7553` |
 
-- **Marcos** não têm campo numérico de duração (valem 1 dia quando existem) e são desenhados
-  como losango, não como barra. Ver a ressalva sobre marcos zerados mais abaixo.
+- **Marcos** sempre acontecem e sempre valem 1 dia — sem chave liga/desliga e sem campo
+  numérico de duração — e são desenhados como losango, não como barra. O campo numérico ao
+  lado de cada marco é a **espera antes** dele, não a duração (Fase 04.1; ver a regra completa
+  mais abaixo).
 - Gráfico de Gantt com escala de **18 px/dia**, cabeçalho em **quinzenas** (1–15 e 16–fim
   do mês) e uma **linha vermelha de "Hoje"**.
 - Ao carregar, a timeline rola sozinha para deixar o "Hoje" mais ou menos centralizado.
@@ -168,9 +170,11 @@ Baseado no protótipo `gestor-ceramica.html`, que deve ser lido antes de planeja
 - Fuso **America/Sao_Paulo**. Datas de etapa são `date` (dia civil), nunca `timestamp`.
   **Atenção:** o container do Postgres roda em UTC, e `current_date` lá dentro devolve o dia
   errado à noite. Use sempre a função `hoje_brasilia()` definida na seção 0 do arquivo `02`.
-- Etapas com duração **0 são permitidas**, inclusive nos marcos — uma peça que só vai a
-  biscoito, ou uma encomenda retirada no ateliê sem etapa de entrega, são casos reais.
-  Na interface, um marco é um **interruptor** (acontece ou não), nunca um campo numérico.
+- Etapas de intervalo (produção, secagem, esmaltação) podem ter duração **0**. Os marcos
+  (queima do biscoito, queima do esmalte, entrega) **sempre acontecem e sempre duram 1 dia**
+  — não há mais chave liga/desliga, nem na interface nem no banco (Fase 04.1). O que o
+  gestor controla, ao lado de cada marco, é a **espera antes** dele: quantos dias a peça fica
+  parada depois que a etapa anterior termina e antes daquele marco acontecer.
 - O fim de uma etapa é **exclusivo** (a etapa seguinte começa no mesmo dia em que a
   anterior termina), exatamente como no protótipo. Mudar isso quebra a leitura do Gantt.
 
