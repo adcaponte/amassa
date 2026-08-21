@@ -76,6 +76,7 @@ export async function criarEncomenda(
           encomendaId: linhaEncomenda.id,
           etapa: etapa.etapa,
           dias: etapa.dias,
+          esperaDias: etapa.esperaDias,
           ordem: indice,
         })),
       );
@@ -189,7 +190,7 @@ export async function atualizarEncomenda(
       for (const etapa of dados.etapas) {
         await tx
           .update(encomendaEtapas)
-          .set({ dias: etapa.dias })
+          .set({ dias: etapa.dias, esperaDias: etapa.esperaDias })
           .where(
             and(
               eq(encomendaEtapas.encomendaId, dados.id),
@@ -265,7 +266,11 @@ export async function concluirEncomenda(
   }
 
   const etapasDaEncomenda = await db
-    .select({ etapa: encomendaEtapas.etapa, dias: encomendaEtapas.dias })
+    .select({
+      etapa: encomendaEtapas.etapa,
+      dias: encomendaEtapas.dias,
+      esperaDias: encomendaEtapas.esperaDias,
+    })
     .from(encomendaEtapas)
     .where(eq(encomendaEtapas.encomendaId, id));
 
@@ -330,13 +335,19 @@ export async function excluirEncomenda(
 const MENSAGEM_ITEM_NAO_EXISTE = "Esse item não existe mais. Talvez alguém tenha excluído.";
 
 // Segundo caminho de escrita de duração (D-15/PD-02) — implementa a corrida resolvida no
-// servidor: nenhum valor absoluto vem do cliente, só um delta relativo ou um interruptor.
-// `select … for update` dentro da transação trava as 6 linhas; o novo valor nasce do que a
-// trava acabou de ler, nunca do número que estava na tela (T-03-15). O array resultante passa
-// pelo MESMO `esquemaEtapas` de `criarEncomenda`/`atualizarEncomenda` — se a regra de marco
-// mudar um dia, os dois caminhos mudam juntos (D-15).
+// servidor: nenhum valor absoluto vem do cliente, só um delta relativo (sobre `dias` no ramo de
+// intervalo, sobre `esperaDias` no ramo de marco a partir da fase 04.1/D-06). `select … for
+// update` dentro da transação trava as 6 linhas; o novo valor nasce do que a trava acabou de
+// ler, nunca do número que estava na tela (T-03-15). O array resultante passa pelo MESMO
+// `esquemaEtapas` de `criarEncomenda`/`atualizarEncomenda` — se a regra de marco mudar um dia,
+// os dois caminhos mudam juntos (D-15).
 export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
-  ResultadoDeAcao<{ dias: number; duracaoTotalEmDias: number; dataDeConclusao: string | null }>
+  ResultadoDeAcao<{
+    dias: number;
+    esperaDias: number;
+    duracaoTotalEmDias: number;
+    dataDeConclusao: string | null;
+  }>
 > {
   await exigirUsuario();
 
@@ -365,6 +376,7 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
           id: encomendaEtapas.id,
           etapa: encomendaEtapas.etapa,
           dias: encomendaEtapas.dias,
+          esperaDias: encomendaEtapas.esperaDias,
         })
         .from(encomendaEtapas)
         .where(eq(encomendaEtapas.encomendaId, entrada.encomendaId))
@@ -376,13 +388,21 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
       }
 
       // O novo valor nasce do que a trava acabou de ler, nunca de um número vindo do cliente —
-      // é isso que transforma "a última escrita ganha" em "as duas escritas somam".
-      const novoValor =
-        "delta" in entrada ? Math.max(0, etapaAlvo.dias + entrada.delta) : entrada.ligado ? 1 : 0;
+      // é isso que transforma "a última escrita ganha" em "as duas escritas somam". Piso em 0
+      // nos dois ramos; SEM teto aplicado à força no ramo de marco — passar de 365 é recusado
+      // pelo `esquemaEtapas` logo abaixo, com a mensagem em português, porque coagir em
+      // silêncio um valor fora do contrato é justamente o defeito que este módulo mais teme.
+      const novoValorDeDias =
+        "delta" in entrada ? Math.max(0, etapaAlvo.dias + entrada.delta) : etapaAlvo.dias;
+      const novaEspera =
+        "deltaEspera" in entrada
+          ? Math.max(0, etapaAlvo.esperaDias + entrada.deltaEspera)
+          : etapaAlvo.esperaDias;
 
       const etapasComNovoValor = etapasAtuais.map((etapa) => ({
         etapa: etapa.etapa,
-        dias: etapa.etapa === entrada.etapa ? novoValor : etapa.dias,
+        dias: etapa.etapa === entrada.etapa ? novoValorDeDias : etapa.dias,
+        esperaDias: etapa.etapa === entrada.etapa ? novaEspera : etapa.esperaDias,
       }));
 
       const validacao = esquemaEtapas.safeParse(etapasComNovoValor);
@@ -392,7 +412,7 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
 
       await tx
         .update(encomendaEtapas)
-        .set({ dias: novoValor })
+        .set({ dias: novoValorDeDias, esperaDias: novaEspera })
         .where(eq(encomendaEtapas.id, etapaAlvo.id));
 
       // Cálculo DEPOIS da escrita confirmada, nunca antes — o rodapé da trilha só recalcula
@@ -401,7 +421,8 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
       const cronograma = calcularCronograma(linhaDeEncomenda.dataInicio, validacao.data);
 
       return {
-        dias: novoValor,
+        dias: novoValorDeDias,
+        esperaDias: novaEspera,
         duracaoTotalEmDias: cronograma.duracaoTotalEmDias,
         dataDeConclusao: cronograma.dataDeConclusao,
       };

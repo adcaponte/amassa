@@ -59,13 +59,16 @@ export const ROTULO_ETAPA: Record<Etapa, string> = {
   entrega: "Entrega",
 };
 
-// Palavra de estado do interruptor de marco (queima1/queima2/entrega), na linguagem literal de
-// ENC-03 ("acontece / não acontece") — G-03-2, quick 260820-uot. `dias === 1` liga o marco.
-export const ROTULO_MARCO_ACONTECE = "Acontece";
-export const ROTULO_MARCO_NAO_ACONTECE = "Não acontece";
+// Sufixo do campo de espera do marco (D-08) — palavra do próprio dono na caminhada de
+// 2026-08-20. `textoDaEspera` devolve `null` para espera 0 (nada a dizer: o marco segue direto
+// da etapa anterior) e uma frase com singular/plural correto para os demais.
+export const SUFIXO_ESPERA = "dias depois";
 
-export function textoDoEstadoDoMarco(ligado: boolean): string {
-  return ligado ? ROTULO_MARCO_ACONTECE : ROTULO_MARCO_NAO_ACONTECE;
+export function textoDaEspera(esperaDias: number): string | null {
+  if (esperaDias === 0) {
+    return null;
+  }
+  return esperaDias === 1 ? "1 dia depois" : `${esperaDias} dias depois`;
 }
 
 // Contagem de itens do índice (Gantt e cartão) em frase de interface, com singular/plural
@@ -109,9 +112,10 @@ function pluralDias(quantidade: number): string {
 }
 
 // Traduz uma `Situacao` (lib/encomendas/cronograma.ts) na frase exata da tabela "Etapa Atual e
-// Dias Restantes (ENC-09)" de `03-UI-SPEC.md`. `switch` exaustivo sobre os oito ramos — o
-// `_exaustivo: never` no `default` é o que faz o compilador reclamar se um ramo novo aparecer
-// sem tratamento, em vez de cair num texto genérico em silêncio.
+// Dias Restantes (ENC-09)" de `03-UI-SPEC.md`. `switch` exaustivo sobre os nove ramos (o ramo
+// `em-espera` chegou na fase 04.1, D-06/D-09) — o `_exaustivo: never` no `default` é o que faz
+// o compilador reclamar se um ramo novo aparecer sem tratamento, em vez de cair num texto
+// genérico em silêncio.
 //
 // `opcoes.semCor` existe para a folha impressa do plano 08 (D-18): o caso `atrasada` vira uma
 // forma textual que não depende de `--color-atencao` para carregar o significado — mesma
@@ -155,6 +159,12 @@ export function textoDaSituacao(situacao: Situacao, opcoes?: { semCor?: boolean 
 
     case "sem-etapas":
       return "Sem etapas definidas.";
+
+    case "em-espera":
+      return (
+        `Em espera · faltam ${pluralDias(situacao.diasAteProxima)} para ` +
+        `${ROTULO_ETAPA[situacao.proximaEtapa]}`
+      );
 
     default: {
       const _exaustivo: never = situacao;

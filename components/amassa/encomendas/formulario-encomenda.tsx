@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type BaseSyntheticEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Controller, FormProvider, useForm, useFormContext } from "react-hook-form";
+import { FormProvider, useForm, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -16,14 +16,13 @@ import {
 import { atualizarEncomenda, criarEncomenda } from "@/lib/encomendas/acoes";
 import { esquemaEncomenda, esquemaEtapas, esquemaItem } from "@/lib/encomendas/esquemas";
 import type { EncomendaComFilhos } from "@/lib/encomendas/consultas";
-import { ROTULO_ETAPA, textoDoEstadoDoMarco } from "@/lib/encomendas/textos";
+import { ROTULO_ETAPA, SUFIXO_ESPERA } from "@/lib/encomendas/textos";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 
 import { ListaItens } from "./lista-itens";
 import { RodapeFormulario } from "./rodape-formulario";
@@ -66,7 +65,11 @@ function valoresIniciais(encomendaParaEditar: EncomendaComFilhos | null): Valore
       })),
       etapas: ORDEM_DAS_ETAPAS.map((etapa) => {
         const linha = encomendaParaEditar.etapas.find((e) => e.etapa === etapa);
-        return { etapa, dias: linha ? linha.dias : 0 };
+        return {
+          etapa,
+          dias: linha ? linha.dias : 0,
+          esperaDias: linha ? linha.esperaDias : 0,
+        };
       }),
     };
   }
@@ -79,7 +82,11 @@ function valoresIniciais(encomendaParaEditar: EncomendaComFilhos | null): Valore
     clienteNome: "",
     dataInicio: "",
     itens: [{ descricao: "", quantidade: 1 }],
-    etapas: DIAS_PADRAO.map((duracao) => ({ etapa: duracao.etapa, dias: duracao.dias })),
+    etapas: DIAS_PADRAO.map((duracao) => ({
+      etapa: duracao.etapa,
+      dias: duracao.dias,
+      esperaDias: duracao.esperaDias,
+    })),
   };
 }
 
@@ -345,51 +352,51 @@ export function CorpoDoFormulario({
   );
 }
 
-// Campo numérico para etapas de intervalo (`producao`/`secagem`/`esmaltacao`), `Switch` para
-// marcos (`queima1`/`queima2`/`entrega`) — a decisão vem de `ETAPAS_MARCO`, nunca de uma lista
-// escrita à mão aqui: é o que impede alguém de esquecer um caso ao adicionar uma etapa nova
-// (ENC-03). Um campo numérico num marco contraria ENC-03 pela fonte ("nunca um campo numérico").
+// Campo numérico para etapas de intervalo (`producao`/`secagem`/`esmaltacao`) sobre `dias`;
+// campo numérico de espera para marcos (`queima1`/`queima2`/`entrega`) sobre `esperaDias` — a
+// decisão vem de `ETAPAS_MARCO`, nunca de uma lista escrita à mão aqui: é o que impede alguém
+// de esquecer um caso ao adicionar uma etapa nova (ENC-03). A partir da fase 04.1 (D-06/D-07) o
+// interruptor liga/desliga saiu dos três marcos — eles sempre acontecem e sempre duram 1 dia; o
+// campo numérico que o gestor vê é a espera ANTES do marco, não a duração dele, e por isso não
+// contraria mais o espírito de ENC-03 ("nunca um campo numérico [de duração]").
 function EtapaDoFormulario({ etapa, indice }: { etapa: Etapa; indice: number }) {
-  const { register, control } = useFormContext<ValoresDoFormulario>();
+  const { register } = useFormContext<ValoresDoFormulario>();
   const marco = ETAPAS_MARCO.includes(etapa);
   const rotulo = ROTULO_ETAPA[etapa];
 
   if (marco) {
+    const idCampo = `espera-${etapa}`;
+    const idSufixo = `sufixo-espera-${etapa}`;
     return (
-      <Controller
-        control={control}
-        name={`etapas.${indice}.dias`}
-        render={({ field }) => {
-          const ligado = field.value === 1;
-          return (
-            <div
-              className="border-border bg-background flex min-h-[44px] items-center justify-between gap-3 rounded-md border px-3 py-2"
-              data-testid={`linha-marco-${etapa}`}
-            >
-              <Label htmlFor={`etapa-${etapa}`} className="text-corpo cursor-pointer">
-                {rotulo}
-              </Label>
-              <div className="flex items-center gap-2">
-                <Label
-                  htmlFor={`etapa-${etapa}`}
-                  className="text-apoio text-muted-foreground cursor-pointer"
-                  data-testid={`estado-marco-${etapa}`}
-                >
-                  {textoDoEstadoDoMarco(ligado)}
-                </Label>
-                <Switch
-                  id={`etapa-${etapa}`}
-                  checked={ligado}
-                  onCheckedChange={(novoValor) => field.onChange(novoValor ? 1 : 0)}
-                  aria-label={ligado ? `Desativar ${rotulo}` : `Ativar ${rotulo}`}
-                  className="rounded-full [background-clip:content-box]"
-                  style={{ width: 44, height: 44, paddingInline: 6, paddingBlock: 12.8 }}
-                />
-              </div>
-            </div>
-          );
-        }}
-      />
+      <div
+        className="border-border bg-background flex min-h-[44px] items-center justify-between gap-3 rounded-md border px-3 py-2"
+        data-testid={`linha-marco-${etapa}`}
+      >
+        <Label htmlFor={idCampo} className="text-corpo cursor-pointer">
+          {rotulo}
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id={idCampo}
+            type="number"
+            min={0}
+            max={365}
+            step={1}
+            inputMode="numeric"
+            aria-describedby={idSufixo}
+            className={cn(CLASSE_DO_CAMPO, "w-20 text-right")}
+            data-testid={`campo-espera-${etapa}`}
+            {...register(`etapas.${indice}.esperaDias`, { valueAsNumber: true })}
+          />
+          <span
+            id={idSufixo}
+            className="text-apoio text-muted-foreground"
+            data-testid={`sufixo-espera-${etapa}`}
+          >
+            {SUFIXO_ESPERA}
+          </span>
+        </div>
+      </div>
     );
   }
 

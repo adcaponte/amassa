@@ -63,7 +63,11 @@ export default async function PaginaImprimirEncomendas() {
       const cronograma = calcularCronograma(
         encomenda.dataInicio,
         encomenda.etapas.length > 0
-          ? encomenda.etapas.map((etapa) => ({ etapa: etapa.etapa, dias: etapa.dias }))
+          ? encomenda.etapas.map((etapa) => ({
+              etapa: etapa.etapa,
+              dias: etapa.dias,
+              esperaDias: etapa.esperaDias,
+            }))
           : DIAS_PADRAO,
       );
       // Variante SEM cor de `textoDaSituacao` (impressão pode ser P&B) — a MESMA função da

@@ -27,7 +27,10 @@ export type SituacaoDeUrgencia =
   | { tipo: "atrasada"; diasDeAtraso: number }
   | { tipo: "concluida" }
   | { tipo: "cancelada" }
-  | { tipo: "sem-etapas" };
+  | { tipo: "sem-etapas" }
+  // Fase 04.1 (D-06/D-09): `hoje` cai dentro de um vão de espera antes de um marco — mesma
+  // forma de urgência que `em-etapa-intervalo` (contagem de dias até a próxima faixa).
+  | { tipo: "em-espera"; diasAteProxima: number };
 
 // Formato mínimo que este módulo precisa de uma encomenda — compatível por estrutura com
 // `EncomendaDoIndice` (`components/amassa/encomendas/lista-encomendas.tsx`), sem importar de
@@ -136,6 +139,7 @@ function proximidadeDeUrgencia(situacao: SituacaoDeUrgencia): number | null {
     case "em-etapa-marco":
       return 0;
     case "em-etapa-intervalo":
+    case "em-espera":
       return situacao.diasAteProxima;
     case "ultima-etapa":
       return situacao.diasAteEntrega;

@@ -64,6 +64,13 @@
       "when": 1786400889026,
       "tag": "0008_gatilhos-queimas",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787338645424,
+      "tag": "0009_espera-dos-marcos",
+      "breakpoints": true
     }
   ]
 }

@@ -23,22 +23,34 @@ export const ORDEM_DAS_ETAPAS: readonly Etapa[] = [
   "entrega",
 ];
 
-// Os três marcos: valem 0 ou 1 dia, e na interface são um interruptor, nunca um campo
-// numérico. `marcos_zero_ou_um` no banco é a mesma regra, no nível do Postgres (T-03-03).
+// Os três marcos: a partir da fase 04.1 (D-06) SEMPRE acontecem e SEMPRE duram 1 dia — o
+// interruptor liga/desliga saiu de vez da interface e do banco. `marcos_sempre_um_dia` no
+// banco é a mesma regra, no nível do Postgres (T-04.1-05). O que o gestor digita para um marco
+// não é mais a duração dele (fixa em 1), e sim `esperaDias`: quantos dias a peça fica parada
+// ANTES daquele marco acontecer (D-07).
 export const ETAPAS_MARCO: readonly Etapa[] = ["queima1", "queima2", "entrega"];
 
-export type DuracaoDeEtapa = { etapa: Etapa; dias: number };
+// `esperaDias` é OBRIGATÓRIO, não opcional: assim `npx tsc --noEmit` vira a lista completa dos
+// pontos de chamada que precisam mudar quando o campo aparece, em vez de um `0` implícito entrar
+// em silêncio num ponto esquecido — mesma disciplina do resto do módulo (nenhuma coerção
+// silenciosa de um valor fora do contrato). Só marco usa `esperaDias` diferente de 0 (D-03):
+// produção, secagem e esmaltação são trabalho contínuo, não espera.
+export type DuracaoDeEtapa = { etapa: Etapa; dias: number; esperaDias: number };
 
-// Padrões literais de `amassa-plataforma/02-MODELO-DE-DADOS.md` §1 — já na mesma ordem de
+// Padrões dados pelo dono na caminhada de 2026-08-20 (D-04/D-05), já na mesma ordem de
 // `ORDEM_DAS_ETAPAS`, prontos para servir direto como segundo argumento de
-// `calcularCronograma()`.
+// `calcularCronograma()`. Produção 5, secagem 15 — os dois números que substituem os padrões
+// antigos de `amassa-plataforma/02-MODELO-DE-DADOS.md` §1. Os três marcos valem sempre 1 dia
+// (D-06); a espera antes de cada um é 0 (biscoito — segue direto da secagem, D-02), 3 (esmalte)
+// e 5 (entrega). Pendência de confirmação, não bloqueante: a esmaltação foi mantida em 1 dia —
+// o dono não a mencionou ao pedir produção 5 e secagem 15 (ver 04.1-CONTEXT.md).
 export const DIAS_PADRAO: readonly DuracaoDeEtapa[] = [
-  { etapa: "producao", dias: 3 },
-  { etapa: "secagem", dias: 6 },
-  { etapa: "queima1", dias: 1 },
-  { etapa: "esmaltacao", dias: 1 },
-  { etapa: "queima2", dias: 1 },
-  { etapa: "entrega", dias: 1 },
+  { etapa: "producao", dias: 5, esperaDias: 0 },
+  { etapa: "secagem", dias: 15, esperaDias: 0 },
+  { etapa: "queima1", dias: 1, esperaDias: 0 },
+  { etapa: "esmaltacao", dias: 1, esperaDias: 0 },
+  { etapa: "queima2", dias: 1, esperaDias: 3 },
+  { etapa: "entrega", dias: 1, esperaDias: 5 },
 ];
 
 // Os quatro status possíveis de uma encomenda, na mesma ordem de `statusEncomenda.enumValues`
@@ -65,6 +77,11 @@ export type FaixaDeEtapa = {
   ultimoDia: string | null;
   // `false` para etapa de `dias === 0` — não é desenhada no Gantt (§8 do briefing).
   desenhada: boolean;
+  // Quantos dias a peça ficou parada ANTES desta faixa começar (D-01/D-09) — sempre 0 para
+  // etapa que não é marco. O vão em si não vira faixa própria nem ganha desenho: é o espaço
+  // entre o `fimExclusivo` da faixa anterior e este `inicio`. Os consumidores visuais (Gantt,
+  // trilha) leem este campo para saber quantos dias mostrar como vão vazio, sem recalcular nada.
+  esperaDias: number;
 };
 
 export type Cronograma = {
@@ -80,7 +97,9 @@ export type Cronograma = {
 // A resposta de "que etapa é hoje", para a tabela "Etapa Atual e Dias Restantes (ENC-09)" de
 // `03-UI-SPEC.md` — união discriminada por `tipo`, com exatamente um ramo por linha da tabela.
 // `switch` exaustivo em `lib/encomendas/textos.ts` (Tarefa 3) é o que garante que um ramo novo
-// nunca fica sem tratamento em silêncio.
+// nunca fica sem tratamento em silêncio. Nove ramos a partir da fase 04.1: D-06 introduz a
+// espera antes do marco, e um dia dentro desse vão precisa de resposta própria (`em-espera`) —
+// sem ela, `situacaoEm` lançaria `RangeError` em qualquer dia de espera (T-04.1-03).
 export type Situacao =
   | { tipo: "nao-comecou"; diasAteInicio: number; dataInicio: string }
   | {
@@ -96,8 +115,14 @@ export type Situacao =
   | { tipo: "cancelada" }
   // As 6 etapas em 0 dias: não há etapa atual possível. A tabela do UI-SPEC não nomeia este
   // caso — devolvê-lo explicitamente é melhor do que forçar "nao-comecou" numa encomenda que
-  // nunca vai começar.
-  | { tipo: "sem-etapas" };
+  // nunca vai começar. Inalcançável por `calcularCronograma` a partir da fase 04.1 (marco
+  // sempre vale 1 dia), mas continua existindo como defesa: uma linha semeada direto no banco
+  // ainda alcança este tipo.
+  | { tipo: "sem-etapas" }
+  // `hoje` cai dentro de um vão de espera, entre o fim de uma faixa desenhada e o início do
+  // próximo marco (D-09) — a peça está parada, não há "etapa atual" no sentido das outras
+  // faixas. `diasAteProxima` conta até o `inicio` da próxima faixa desenhada.
+  | { tipo: "em-espera"; proximaEtapa: Etapa; diasAteProxima: number };
 
 // Dias desde 1970-01-01 (proléptico gregoriano), a partir de ano/mês/dia civis. Algoritmo de
 // calendário puro (Howard Hinnant, "days_from_civil") — nenhuma instância de `Date` entra
@@ -170,10 +195,11 @@ export function calcularCronograma(
   dataInicio: string,
   duracoes: readonly DuracaoDeEtapa[],
 ): Cronograma {
-  // Validação de marco (T-03-10): a restrição `marcos_zero_ou_um` do banco e o `refine` do Zod
-  // já barram o caminho normal da aplicação; esta terceira barreira existe porque um módulo
-  // puro que coage em silêncio um valor fora do contrato é exatamente o defeito que esta fase
-  // mais teme. Um `if` por caso, nenhum `default` que engula um valor impossível.
+  // Validação (T-03-10/T-04.1-05): a restrição `marcos_sempre_um_dia`/`encomenda_etapas_espera_
+  // no_intervalo`/`espera_so_em_marco` do banco e os `refine` do Zod já barram o caminho normal
+  // da aplicação; esta terceira barreira existe porque um módulo puro que coage em silêncio um
+  // valor fora do contrato é exatamente o defeito que esta fase mais teme. Um `if` por caso,
+  // nenhum `default` que engula um valor impossível.
   for (const duracao of duracoes) {
     if (!Number.isInteger(duracao.dias) || duracao.dias < 0) {
       throw new RangeError(
@@ -182,10 +208,28 @@ export function calcularCronograma(
       );
     }
 
-    if (ETAPAS_MARCO.includes(duracao.etapa) && duracao.dias !== 0 && duracao.dias !== 1) {
+    if (ETAPAS_MARCO.includes(duracao.etapa) && duracao.dias !== 1) {
       throw new RangeError(
-        `A etapa "${duracao.etapa}" é um marco e só aceita 0 (desligado) ou 1 (ligado) dia — ` +
+        `A etapa "${duracao.etapa}" é um marco e sempre acontece, sempre durando 1 dia — ` +
           `recebeu ${duracao.dias}.`,
+      );
+    }
+
+    if (
+      !Number.isInteger(duracao.esperaDias) ||
+      duracao.esperaDias < 0 ||
+      duracao.esperaDias > 365
+    ) {
+      throw new RangeError(
+        `A etapa "${duracao.etapa}" tem espera inválida (${duracao.esperaDias}): precisa ser ` +
+          "um número inteiro de dias entre 0 e 365.",
+      );
+    }
+
+    if (!ETAPAS_MARCO.includes(duracao.etapa) && duracao.esperaDias !== 0) {
+      throw new RangeError(
+        `A etapa "${duracao.etapa}" não é um marco e só marco tem espera — recebeu ` +
+          `${duracao.esperaDias}.`,
       );
     }
   }
@@ -197,12 +241,21 @@ export function calcularCronograma(
 
   for (const duracao of duracoes) {
     const marco = ETAPAS_MARCO.includes(duracao.etapa);
-    duracaoTotalEmDias += duracao.dias;
+    duracaoTotalEmDias += duracao.dias + duracao.esperaDias;
+
+    // O vão da espera avança o cursor ANTES de montar a faixa do marco, mas não vira faixa
+    // própria e não ganha desenho nenhum (D-09): é o espaço entre o `fimExclusivo` da faixa
+    // anterior e o `inicio` desta. Para etapa que não é marco, `esperaDias` é sempre 0 (D-03) e
+    // este `somarDias` é inócuo.
+    if (duracao.esperaDias > 0) {
+      cursor = somarDias(cursor, duracao.esperaDias);
+    }
 
     if (duracao.dias === 0) {
       // Etapa zerada: não é desenhada e não avança o cursor — a etapa seguinte começa no
       // mesmo dia que esta começaria (peça que só vai a biscoito, encomenda retirada no
-      // ateliê sem etapa de entrega).
+      // ateliê sem etapa de entrega). Continua alcançável só para etapa que não é marco —
+      // marco sempre vale 1 dia a partir da fase 04.1 (D-06).
       faixas.push({
         etapa: duracao.etapa,
         dias: 0,
@@ -211,6 +264,7 @@ export function calcularCronograma(
         fimExclusivo: cursor,
         ultimoDia: null,
         desenhada: false,
+        esperaDias: duracao.esperaDias,
       });
       continue;
     }
@@ -226,6 +280,7 @@ export function calcularCronograma(
       fimExclusivo,
       ultimoDia,
       desenhada: true,
+      esperaDias: duracao.esperaDias,
     });
 
     dataDeConclusao = ultimoDia;
@@ -311,20 +366,41 @@ export function situacaoEm(
     }
 
     const proxima = faixasDesenhadas[indice + 1];
+    // Conta até o `inicio` da PRÓXIMA faixa desenhada, nunca até o `fimExclusivo` da faixa
+    // atual (T-04.1, correção de bug): os dois eram idênticos enquanto não existia espera —
+    // com D-06/D-09 um vão pode separá-los, e contar até `fimExclusivo` mentiria a contagem
+    // (ex.: esmaltação termina em 2026-09-03, mas a próxima faixa desenhada só começa em
+    // 2026-09-06 — faltam 4 dias, não 1). Com espera 0 o resultado continua idêntico ao de
+    // antes, então nada regride.
     return {
       tipo: "em-etapa-intervalo",
       etapa: faixa.etapa,
       proximaEtapa: proxima.etapa,
-      diasAteProxima: diferencaEmDias(faixa.fimExclusivo, hoje),
+      diasAteProxima: diferencaEmDias(proxima.inicio, hoje),
     };
   }
 
-  // Inalcançável em uso normal: `hoje` já está entre `cronograma.inicio` (não antes) e
-  // `cronograma.dataDeConclusao` (não depois), então alguma faixa desenhada precisa contê-lo.
-  // Lançar em vez de devolver um valor arbitrário é a mesma disciplina do resto do módulo:
-  // nunca coagir em silêncio um estado que a função não sabe explicar.
+  // `hoje` não está dentro de nenhuma faixa desenhada, mas está dentro do intervalo do
+  // cronograma (já confirmado acima) — a partir da fase 04.1 isso é um vão de espera antes de
+  // um marco (D-09), não mais um dado inconsistente: sem este ramo, qualquer dia dentro de um
+  // vão derrubaria a página de detalhe e o índice com `RangeError` (T-04.1-03). Procura a
+  // primeira faixa desenhada cujo `inicio` é maior que `hoje`.
+  const proximaFaixaDesenhada = faixasDesenhadas.find((faixa) => faixa.inicio > hoje);
+  if (proximaFaixaDesenhada) {
+    return {
+      tipo: "em-espera",
+      proximaEtapa: proximaFaixaDesenhada.etapa,
+      diasAteProxima: diferencaEmDias(proximaFaixaDesenhada.inicio, hoje),
+    };
+  }
+
+  // Genuinamente inalcançável: `hoje` está entre `cronograma.inicio` (não antes) e
+  // `cronograma.dataDeConclusao` (não depois), nenhuma faixa desenhada o contém, e nenhuma
+  // faixa desenhada começa depois dele — não sobra nenhum caso a explicar. Lançar em vez de
+  // devolver um valor arbitrário é a mesma disciplina do resto do módulo: nunca coagir em
+  // silêncio um estado que a função não sabe explicar.
   throw new RangeError(
-    `situacaoEm: nenhuma etapa desenhada contém "${hoje}", apesar de estar dentro do ` +
-      "intervalo do cronograma — dado inconsistente.",
+    `situacaoEm: nenhuma etapa desenhada contém ou sucede "${hoje}", apesar de estar dentro ` +
+      "do intervalo do cronograma — dado inconsistente.",
   );
 }

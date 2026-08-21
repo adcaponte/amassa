@@ -6,8 +6,7 @@ import { toast } from "sonner";
 
 import type { Etapa } from "@/lib/encomendas/cronograma";
 import { ajustarEtapaEncomenda } from "@/lib/encomendas/acoes";
-import { FRASE_FALHA_AO_SALVAR, ROTULO_ETAPA } from "@/lib/encomendas/textos";
-import { Switch } from "@/components/ui/switch";
+import { FRASE_FALHA_AO_SALVAR, ROTULO_ETAPA, SUFIXO_ESPERA } from "@/lib/encomendas/textos";
 
 export type RespostaDeAjuste = { duracaoTotalEmDias: number; dataDeConclusao: string | null };
 
@@ -16,6 +15,9 @@ export type AjusteRapidoEtapaProps = {
   etapa: Etapa;
   marco: boolean;
   diasInicial: number;
+  // A partir da fase 04.1 (D-06): só usado quando `marco` é `true` — o valor inicial da espera
+  // ANTES do marco, nunca a duração dele. Ignorado para etapa de intervalo.
+  esperaInicial: number;
   // Só é chamado no passo 4 (resposta confirmada do servidor) — nunca no passo 1 (mudança
   // visual local). É o que faz o rodapé de duração total/data de conclusão (trilha-etapas.tsx)
   // nunca recalcular antes da hora.
@@ -34,24 +36,32 @@ const ESTILO_VISUAL: CSSProperties = { width: 32, height: 32 };
 // valor volta ao anterior com um aviso (passo 3), e só na resposta confirmada do servidor (passo
 // 4) o valor é adotado de verdade — inclusive quando diferente do que o passo 1 previu, que é
 // exatamente o caso de duas gravações somadas. `ajustarEtapaEncomenda` recebe sempre
-// `delta`/`ligado` (PD-02): o servidor soma a partir da linha que ele mesmo travou (select ...
-// for update), nunca de um valor absoluto vindo daqui.
+// `delta`/`deltaEspera` (PD-02, D-06): o servidor soma a partir da linha que ele mesmo travou
+// (select ... for update), nunca de um valor absoluto vindo daqui.
 export function AjusteRapidoEtapa({
   encomendaId,
   etapa,
   marco,
   diasInicial,
+  esperaInicial,
   aoConfirmar,
 }: AjusteRapidoEtapaProps) {
   const [dias, setDias] = useState(diasInicial);
+  const [espera, setEspera] = useState(esperaInicial);
   const [pendente, setPendente] = useState(false);
 
-  async function aplicar(entrada: { delta: 1 | -1 } | { ligado: boolean }) {
-    const valorAnterior = dias;
-    const valorLocal =
-      "delta" in entrada ? Math.max(0, valorAnterior + entrada.delta) : entrada.ligado ? 1 : 0;
+  async function aplicar(entrada: { delta: 1 | -1 } | { deltaEspera: 1 | -1 }) {
+    const valorAnteriorDeDias = dias;
+    const valorAnteriorDeEspera = espera;
+    const valorLocalDeDias = "delta" in entrada ? Math.max(0, dias + entrada.delta) : dias;
+    const valorLocalDeEspera =
+      "deltaEspera" in entrada ? Math.max(0, espera + entrada.deltaEspera) : espera;
 
-    setDias(valorLocal); // passo 1
+    if ("delta" in entrada) {
+      setDias(valorLocalDeDias); // passo 1
+    } else {
+      setEspera(valorLocalDeEspera); // passo 1
+    }
     setPendente(true); // passo 2
 
     const resposta = await ajustarEtapaEncomenda({ encomendaId, etapa, ...entrada });
@@ -59,12 +69,14 @@ export function AjusteRapidoEtapa({
     setPendente(false);
 
     if (!resposta.ok) {
-      setDias(valorAnterior); // passo 3
+      setDias(valorAnteriorDeDias); // passo 3
+      setEspera(valorAnteriorDeEspera); // passo 3
       toast.error(FRASE_FALHA_AO_SALVAR);
       return;
     }
 
     setDias(resposta.dados.dias); // passo 4
+    setEspera(resposta.dados.esperaDias); // passo 4
     aoConfirmar({
       duracaoTotalEmDias: resposta.dados.duracaoTotalEmDias,
       dataDeConclusao: resposta.dados.dataDeConclusao,
@@ -74,26 +86,56 @@ export function AjusteRapidoEtapa({
   const nomeEtapa = ROTULO_ETAPA[etapa];
 
   if (marco) {
-    const ligado = dias === 1;
     return (
-      <Switch
-        checked={ligado}
-        disabled={pendente}
-        onCheckedChange={(novoValor) => {
-          void aplicar({ ligado: novoValor });
-        }}
-        aria-label={ligado ? `Desativar ${nomeEtapa}` : `Ativar ${nomeEtapa}`}
-        data-testid={`ajuste-switch-${etapa}`}
-        // 44×44 de área de toque (o próprio elemento com role="switch" é o que
-        // boundingBox() mede) com o desenho visual mantido pequeno via
-        // `background-clip: content-box` — a cor da trilha só pinta a região de
-        // conteúdo (o track de sempre), o padding ao redor fica transparente e
-        // clicável. `style` (não classe) porque as classes de tamanho do componente
-        // (`data-[size=default]:h-[18.4px]`/`w-[32px]`) usam um seletor de atributo
-        // mais específico que uma classe solta — só o atributo `style` vence sempre.
-        className="rounded-full [background-clip:content-box]"
-        style={{ width: 44, height: 44, paddingInline: 6, paddingBlock: 12.8 }}
-      />
+      <span className="inline-flex items-center gap-2" data-testid={`ajuste-espera-${etapa}`}>
+        <button
+          type="button"
+          aria-label={`Diminuir a espera antes de ${nomeEtapa}`}
+          disabled={pendente || espera === 0}
+          onClick={() => {
+            void aplicar({ deltaEspera: -1 });
+          }}
+          className="focus-visible:ring-ring flex items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          style={ESTILO_BOTAO}
+        >
+          <span
+            className="border-border bg-background flex items-center justify-center rounded-md border"
+            style={ESTILO_VISUAL}
+          >
+            <Minus className="size-4" aria-hidden="true" />
+          </span>
+        </button>
+
+        <span
+          className="text-mono tabular-nums flex w-6 items-center justify-center text-tinta"
+          aria-hidden="true"
+          data-testid={`ajuste-numero-espera-${etapa}`}
+          data-pendente={pendente ? "true" : "false"}
+          data-valor={espera}
+        >
+          {pendente ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : espera}
+        </span>
+
+        <button
+          type="button"
+          aria-label={`Aumentar a espera antes de ${nomeEtapa}`}
+          disabled={pendente || espera === 365}
+          onClick={() => {
+            void aplicar({ deltaEspera: 1 });
+          }}
+          className="focus-visible:ring-ring flex items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          style={ESTILO_BOTAO}
+        >
+          <span
+            className="border-border bg-background flex items-center justify-center rounded-md border"
+            style={ESTILO_VISUAL}
+          >
+            <Plus className="size-4" aria-hidden="true" />
+          </span>
+        </button>
+
+        <span className="text-apoio text-muted-foreground">{SUFIXO_ESPERA}</span>
+      </span>
     );
   }
 

@@ -282,6 +282,7 @@ export function TrilhaEtapas({ encomendaId, status, cronograma, situacao, hoje }
                     etapa={faixa.etapa}
                     marco={faixa.marco}
                     diasInicial={faixa.dias}
+                    esperaInicial={faixa.esperaDias}
                     aoConfirmar={(resposta) => {
                       setDuracaoTotalEmDias(resposta.duracaoTotalEmDias);
                       setDataDeConclusao(resposta.dataDeConclusao);

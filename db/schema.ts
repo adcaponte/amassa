@@ -163,9 +163,15 @@ export const encomendaItens = pgTable(
 );
 
 // As 6 etapas fixas de cada encomenda (produção · secagem · queima1 · esmaltação · queima2 ·
-// entrega), uma linha por etapa por encomenda (`unique`). `dias` é a duração — para os três
-// marcos (queima1/queima2/entrega) só 0 ou 1 é válido, e `marcos_zero_ou_um` é a defesa no
-// nível do banco para o dia em que um caminho de escrita novo esquecer o Zod (T-03-03).
+// entrega), uma linha por etapa por encomenda (`unique`). `dias` é a duração; a partir da fase
+// 04.1 (D-06) os três marcos (queima1/queima2/entrega) SEMPRE acontecem e SEMPRE duram 1 dia —
+// `marcos_sempre_um_dia` é a defesa no nível do banco para o dia em que um caminho de escrita
+// novo esquecer o Zod (T-04.1-05). `espera_dias` é a espera ANTES do marco, nunca a duração dele
+// (D-07) — quantos dias a peça fica parada depois que a etapa anterior termina e antes daquele
+// marco acontecer. Continua sendo um contador RELATIVO de dias, nunca uma data: nenhuma data de
+// marco é armazenada aqui, só calculada em cascata por `lib/encomendas/cronograma.ts` a partir
+// de `encomendas.data_inicio` (D-01). `espera_so_em_marco` garante que produção, secagem e
+// esmaltação — trabalho contínuo, não espera (D-03) — nunca gravam espera diferente de 0.
 export const encomendaEtapas = pgTable(
   "encomenda_etapas",
   {
@@ -177,6 +183,7 @@ export const encomendaEtapas = pgTable(
       .references(() => encomendas.id, { onDelete: "cascade" }),
     etapa: etapaEncomenda("etapa").notNull(),
     dias: integer("dias").notNull().default(1),
+    esperaDias: integer("espera_dias").notNull().default(0),
     ordem: integer("ordem").notNull(),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
     atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
@@ -184,10 +191,18 @@ export const encomendaEtapas = pgTable(
   (tabela) => [
     unique("encomenda_etapas_encomenda_etapa_uk").on(tabela.encomendaId, tabela.etapa),
     check(
-      "marcos_zero_ou_um",
-      sql`${tabela.etapa} not in ('queima1','queima2','entrega') or ${tabela.dias} in (0, 1)`,
+      "marcos_sempre_um_dia",
+      sql`${tabela.etapa} not in ('queima1','queima2','entrega') or ${tabela.dias} = 1`,
     ),
     check("encomenda_etapas_dias_nao_negativo", sql`${tabela.dias} >= 0`),
+    check(
+      "encomenda_etapas_espera_no_intervalo",
+      sql`${tabela.esperaDias} >= 0 and ${tabela.esperaDias} <= 365`,
+    ),
+    check(
+      "espera_so_em_marco",
+      sql`${tabela.etapa} in ('queima1','queima2','entrega') or ${tabela.esperaDias} = 0`,
+    ),
     index("encomenda_etapas_encomenda_idx").on(tabela.encomendaId),
   ],
 );

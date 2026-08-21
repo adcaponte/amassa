@@ -36,7 +36,11 @@ export default async function PaginaDetalheEncomenda({
   const cronograma = calcularCronograma(
     encomenda.dataInicio,
     encomenda.etapas.length > 0
-      ? encomenda.etapas.map((etapa) => ({ etapa: etapa.etapa, dias: etapa.dias }))
+      ? encomenda.etapas.map((etapa) => ({
+          etapa: etapa.etapa,
+          dias: etapa.dias,
+          esperaDias: etapa.esperaDias,
+        }))
       : DIAS_PADRAO,
   );
   const situacao = situacaoEm(cronograma, encomenda.status, hoje);

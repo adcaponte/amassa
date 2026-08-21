@@ -44,11 +44,20 @@ const esquemaEtapaIndividual = z.object({
     .number()
     .int("Dias precisa ser um número inteiro.")
     .min(0, "Dias não pode ser negativo."),
+  // Espera ANTES do marco (D-01/D-07), nunca a duração dele — só marco usa um valor diferente
+  // de 0 (D-03, ver o `refine` abaixo). Teto de 365: um número acima de um ano é erro de
+  // digitação, não espera de ateliê (o maior valor real dado pelo dono foi 5).
+  esperaDias: z
+    .number()
+    .int("A espera precisa ser um número inteiro de dias.")
+    .min(0, "A espera não pode ser negativa.")
+    .max(365, "A espera não pode passar de 365 dias."),
 });
 
-// Array de exatamente 6, uma por valor de `Etapa`, e os marcos (queima1/queima2/entrega)
-// restritos a {0, 1} — o mesmo predicado da restrição `marcos_zero_ou_um` do banco (T-03-03:
-// o banco é a rede para o dia em que um caminho de escrita novo esquecer este `refine`).
+// Array de exatamente 6, uma por valor de `Etapa`. A partir da fase 04.1 (D-06) os marcos
+// (queima1/queima2/entrega) SEMPRE acontecem e SEMPRE duram 1 dia — o mesmo predicado da
+// restrição `marcos_sempre_um_dia` do banco (T-04.1-05: o banco é a rede para o dia em que um
+// caminho de escrita novo esquecer este `refine`).
 export const esquemaEtapas = z
   .array(esquemaEtapaIndividual)
   .length(6, "A encomenda precisa das 6 etapas fixas — nenhuma pode faltar ou sobrar.")
@@ -61,9 +70,14 @@ export const esquemaEtapas = z
     "Faltou uma das 6 etapas fixas (produção, secagem, queima, esmaltação, queima, entrega).",
   )
   .refine(
-    (etapas) =>
-      etapas.every((e) => !ETAPAS_MARCO.includes(e.etapa) || e.dias === 0 || e.dias === 1),
-    "Queima (biscoito), Queima (esmalte) e Entrega só podem valer 0 ou 1 dia — é um interruptor, não uma duração.",
+    (etapas) => etapas.every((e) => !ETAPAS_MARCO.includes(e.etapa) || e.dias === 1),
+    "Queima (biscoito), Queima (esmalte) e Entrega sempre acontecem e sempre duram 1 dia — o " +
+      "número que se digita para elas é a espera ANTES do marco, não a duração dele.",
+  )
+  .refine(
+    (etapas) => etapas.every((e) => ETAPAS_MARCO.includes(e.etapa) || e.esperaDias === 0),
+    "Produção, secagem e esmaltação são trabalho contínuo e não têm espera — só queima " +
+      "(biscoito), queima (esmalte) e entrega aceitam dias de espera.",
   );
 
 export type EtapasDeEncomenda = z.infer<typeof esquemaEtapas>;
@@ -128,10 +142,12 @@ const ETAPAS_DE_INTERVALO = ORDEM_DAS_ETAPAS.filter(
   (etapa) => !ETAPAS_MARCO.includes(etapa),
 ) as [Etapa, ...Etapa[]];
 
-// União: etapa de intervalo só aceita `delta` (-1 | 1); etapa de marco só aceita `ligado`
-// (interruptor). O ESQUEMA sabe que marco é interruptor e intervalo é mais/menos — não o
-// componente — porque é isso que impede a interface de um dia mandar `delta: 1` num marco
-// (T-03-16). Implementa PD-02: nenhuma das duas formas recebe um valor absoluto de duração.
+// União: etapa de intervalo só aceita `delta` (-1 | 1) sobre `dias`; etapa de marco só aceita
+// `deltaEspera` (-1 | 1) sobre `esperaDias` — a partir da fase 04.1 (D-06) marco não tem mais
+// interruptor, e o número que o ajuste rápido soma/subtrai é a espera antes do marco, nunca a
+// duração dele (D-07). O ESQUEMA sabe que marco é espera relativa e intervalo é dias relativos
+// — não o componente — porque é isso que impede a interface de um dia mandar `delta: 1` num
+// marco (T-03-16). Implementa PD-02: nenhuma das duas formas recebe um valor absoluto.
 const esquemaAjusteDeIntervalo = z.object({
   encomendaId: esquemaId,
   etapa: z.enum(ETAPAS_DE_INTERVALO),
@@ -143,12 +159,14 @@ const esquemaAjusteDeIntervalo = z.object({
 const esquemaAjusteDeMarco = z.object({
   encomendaId: esquemaId,
   etapa: z.enum(ETAPAS_MARCO as [Etapa, ...Etapa[]]),
-  ligado: z.boolean(),
+  deltaEspera: z.union([z.literal(1), z.literal(-1)], {
+    message: "O ajuste da espera só pode ser de mais um dia ou menos um dia por vez.",
+  }),
 });
 
 export const esquemaAjusteDeEtapa = z.union([esquemaAjusteDeIntervalo, esquemaAjusteDeMarco], {
   message:
-    "Não deu para entender esse ajuste — etapa de marco liga/desliga, etapa de intervalo soma ou subtrai um dia.",
+    "Não deu para entender esse ajuste — etapa de marco soma ou subtrai um dia de espera, etapa de intervalo soma ou subtrai um dia de duração.",
 });
 
 export type EntradaDeAjuste = z.infer<typeof esquemaAjusteDeEtapa>;
