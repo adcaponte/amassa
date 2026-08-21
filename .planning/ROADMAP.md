@@ -280,7 +280,7 @@ retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
 reescrito), ENC-04 (retirado — não há mais o que desligar)
 **Migração**: sim — `0009_espera-dos-marcos` acrescenta a coluna `espera_dias` a
 `encomenda_etapas` e substitui a restrição `marcos_zero_ou_um`
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 **Wave 1**
@@ -290,7 +290,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 04.1-02-PLAN.md — O vão vazio: trilha proporcional, Gantt e a espera na tela de detalhe (onda 2)
-- [ ] 04.1-03-PLAN.md — ENC-03 reescrito, ENC-04 retirado, ENC-15 criado, e o critério da Fase 3 corrigido (onda 2)
+- [x] 04.1-03-PLAN.md — ENC-03 reescrito, ENC-04 retirado, ENC-15 criado, e o critério da Fase 3 corrigido (onda 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
