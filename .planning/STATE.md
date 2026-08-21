@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.1
 current_phase_name: datas-dos-marcos-da-encomenda
 status: executing
-stopped_at: Completed 04.1-01-PLAN.md
-last_updated: "2026-08-21T19:13:52.179Z"
+stopped_at: Completed 04.1-02-PLAN.md
+last_updated: "2026-08-21T19:32:36.129Z"
 last_activity: 2026-08-21
 last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 39
-  completed_plans: 36
+  completed_plans: 37
 ---
 
 # Project State
@@ -28,14 +28,14 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.1 (datas-dos-marcos-da-encomenda) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
 Last activity: 2026-08-21 — Phase 04.1 execution started
 
-Progress: [█████████░] 92% da Fase 4 (35 de 35 planos executados e verificados até aqui)
+Progress: [██████████] 95% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -98,6 +98,7 @@ Progress: [█████████░] 92% da Fase 4 (35 de 35 planos execut
 | Phase 04 P06 | ~3h | 3 tasks | 16 files |
 | Phase 04 P07 | ~5h (span) | 3 tasks | 8 files |
 | Phase 04.1 P01 | 55min | 3 tasks | 17 files |
+| Phase 04.1 P02 | ~45min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -217,6 +218,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-07: duas causas raiz de falha real de CI corrigidas (autenticacao.spec.ts sem testInfo.retry no e-mail de bloqueio; queimas-manutencao.spec.ts sincronizando por um valor que não muda) — confirmadas com --workers=2 e CI run #46 verde
 - [Phase ?]: D-06 confirmado pelo humano (2026-08-21): substituir marcos_zero_ou_um por marcos_sempre_um_dia (dias=1 fixo nos tres marcos), nao apenas remover a restricao
 - [Phase ?]: diasAteProxima de em-etapa-intervalo corrigido para contar ate o inicio da proxima faixa desenhada, nunca ate o fimExclusivo da atual (mentia quando havia vao de espera)
+- [Phase ?]: 04.1-02: posicaoDeHojeNaTrilha passou a medir extensao de calendario (fimExclusivo da ultima faixa desenhada menos inicio da primeira), nao soma de duracoes - o 27o dia de uma encomenda de 32 dias caia num vao de espera e sumia com null
+- [Phase ?]: 04.1-02: segmentosDaTrilha(faixas) novo em lib/encomendas/trilha.ts - geometria proporcional de etapas + vaos discriminada por tipo, consumida por trilha-segmentos.tsx sem nenhuma aritmetica de calendario no componente
+- [Phase ?]: 04.1-02: vao do Gantt provado por medida de pixel (54px/90px/0px) em vez de inspecao visual - nenhuma linha de codigo nova em gantt.ts/gantt.tsx, confirmando D-09 (o vao sai de graca do deslocamento de inicio do plano 01)
+- [Phase ?]: 04.1-02: corrigido bug latente do plano 01 - teste e2e da fronteira producao/secagem assumia producao com 3 dias (valor anterior a DIAS_PADRAO da fase 04.1); dataEmDias(-3) virou dataEmDias(-5), nao reverificado por e2e nesta sessao (fora do --grep desta tarefa), confirmado na varredura completa do plano 04.1-04
 
 ### Pending Todos
 
@@ -271,6 +276,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-21T19:13:52.137Z
-Stopped at: Completed 04.1-01-PLAN.md
+Last session: 2026-08-21T19:32:36.087Z
+Stopped at: Completed 04.1-02-PLAN.md
 Resume file: None
