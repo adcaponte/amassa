@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Contador de Queima
 status: phase_complete
-stopped_at: Fase 4 FECHADA — UAT 18/18, verificação humana 26/26, VERIFICATION passed. Pronto para a Fase 5 (Agenda de Aulas).
-last_updated: "2026-08-21T03:32:22.840Z"
+stopped_at: Phase 04.1 context gathered
+last_updated: "2026-08-21T04:02:35.421Z"
 last_activity: 2026-08-21
 last_activity_desc: "FASE 3 FECHADA: verificacao passed, 4 de 4 itens humanos resolvidos, os 3 gaps confirmados pelo dono e a hachura coberta por teste"
 progress:
@@ -265,6 +265,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-11T07:10:46.550Z
-Stopped at: 04-07: Tarefas 1-2 concluídas (migração aplicada e verificada em produção); Tarefa 3 (verificação humana) produzida em 04-VERIFICACAO-HUMANA.md, aguardando o dono percorrer — Fase 4 NÃO fechada
-Resume file: .planning/phases/04-contador-de-queima/04-VERIFICACAO-HUMANA.md
+Last session: 2026-08-21T04:02:35.376Z
+Stopped at: Phase 04.1 context gathered
+Resume file: .planning/phases/04.1-datas-dos-marcos-da-encomenda/04.1-CONTEXT.md
