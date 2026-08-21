@@ -33,7 +33,7 @@ Status: Fase 4 fechada. Os 7 planos executados, migração aplicada à mão em p
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-21 - FASE 3 FECHADA: verificacao passed, 4 de 4 itens humanos resolvidos, os 3 gaps confirmados pelo dono e a hachura coberta por teste
+Last activity: 2026-08-21 - router.refresh() com perda: defeito de produto no caminho do Core Value, corrigido e provado; rotulo de contencao do WINDOWS #12/#21/#22 desmentido por medicao
 
 Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
@@ -262,6 +262,9 @@ Items acknowledged and carried forward from previous milestone close:
 | v2 | Integração Encomenda↔Queima (INT-01), Módulo Experiências (INT-02) | Adiado conscientemente | Definição do roadmap |
 | Produto | Encomenda "rascunho" não é alcançável pela interface — só por SQL direto. Decidir se deve existir um caminho na UI ou se o status rascunho sai do produto | Pergunta aberta | Fase 3, verificação humana |
 | Produto | Os tres marcos SEMPRE acontecem — o interruptor liga/desliga nunca foi o modelo certo. Queima de biscoito nao precisa de interruptor (a duracao da secagem ja a posiciona); queima de esmalte e entrega precisam de QUANDO, porque nao vem logo apos a etapa anterior. E o nucleo do lote de datas; repensar o modelo de marco antes de virar plano | Pergunta aberta — reabre ENC-03 | Fase 3, segunda rodada 2026-08-20 |
+| Tecnico | router.refresh() e um canal com perda (~6% medido): a resposta chega 200 e a arvore nunca e aplicada. Outros DEZ pontos de chamada carregam a mesma exposicao — o mais gemeo e confirmar-cancelar.tsx, mesma tela e mesma transicao final; o caminho de cancelar ainda nao tem trava de estado confirmado | Aberto — merece plano proprio | Debug refresh-nao-chega-no-celular, 2026-08-21 |
+| Tecnico | staleTimes.dynamic: 0 provoca tempestade de prefetch, custando servidor e dados moveis sem beneficio. Achado de carona na mesma sessao | Aberto | Debug refresh-nao-chega-no-celular, 2026-08-21 |
+| Produto | Depois de concluir ou cancelar, os ajustes rapidos das seis etapas continuam ativos: mexer num deles faz o rodape mostrar uma Conclusao prevista nova enquanto a linha de situacao mantem a data gravada — duas datas na mesma tela. DONO DECIDIU DEIXAR COMO ESTA (2026-08-21), para nao perder a chance de corrigir duracao depois de fechar | Divida conhecida, aceita | Debug refresh-nao-chega-no-celular, 2026-08-21 |
 
 ## Session Continuity
 
