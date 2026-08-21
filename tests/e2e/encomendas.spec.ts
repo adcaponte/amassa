@@ -160,10 +160,15 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
       await expect(page.getByTestId(`trilha-linha-${etapa}`)).toContainText(ROTULO_ETAPA[etapa]);
     }
 
-    const totalPadrao = DIAS_PADRAO.reduce((soma, etapa) => soma + etapa.dias, 0);
+    // Duração total inclui a espera antes de cada marco (fase 04.1), não só `dias` — com os
+    // padrões atuais (produção 5, secagem 15, marcos 1 dia cada, esperas 0/0/0/0/3/5) soma 32.
+    const totalPadrao = DIAS_PADRAO.reduce(
+      (soma, etapa) => soma + etapa.dias + etapa.esperaDias,
+      0,
+    );
     await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalPadrao} dias`);
 
-    // Edita pelo formulário completo: novo nome e +4 dias na secagem (6 → 10) — muda a
+    // Edita pelo formulário completo: novo nome e secagem 15 → 10 (−5 dias) — muda a
     // duração total e a conclusão prevista, não só o texto.
     const nomeEditado = `${nome} (editado)`;
     await page.getByRole("link", { name: "Editar" }).click();
@@ -174,7 +179,7 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
 
     // Confere a mudança de verdade: o nome novo aparece no índice (Gantt/cartão, D-02) e a
-    // trilha do detalhe reflete a nova duração total (13 - 6 + 10 = 17 dias).
+    // trilha do detalhe reflete a nova duração total (32 - 15 + 10 = 27 dias).
     const nomeEditadoVisivel = page
       .getByText(nomeEditado, { exact: true })
       .and(page.locator(":visible"));
@@ -183,7 +188,7 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     await page.goto(href);
     await expect(page.getByRole("heading", { name: nomeEditado, level: 1 })).toBeVisible();
     await expect(page.getByTestId("trilha-linha-secagem")).toContainText("10 dias");
-    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalPadrao - 6 + 10} dias`);
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalPadrao - 15 + 10} dias`);
 
     // Excluir com confirmação (D-08/D-09) — o diálogo nomeia os dois itens antes de apagar.
     await page.getByRole("button", { name: "Mais ações da encomenda" }).click();

@@ -48,8 +48,9 @@ function botaoVisivel(page: Page, nome: string) {
 
 // Cria uma encomenda pela Server Action real (`criarEncomenda`), passando pelo formulário —
 // nunca por INSERT direto no banco (o teste precisa exercitar o caminho que a pessoa usa). As
-// 6 etapas nascem com os padrões (`DIAS_PADRAO`: produção 3 · secagem 6 · queima1 1 ·
-// esmaltação 1 · queima2 1 · entrega 1) — o formulário desta fase não edita etapa por etapa
+// 6 etapas nascem com os padrões (`DIAS_PADRAO` da fase 04.1: produção 5 · secagem 15 ·
+// queima1 1 · esmaltação 1 · queima2 1 (espera 3 antes) · entrega 1 (espera 5 antes), 32 dias
+// no total) — o formulário desta fase não edita etapa por etapa
 // (isso é do plano 06), então todo dado deste arquivo usa esses padrões.
 //
 // Tenta até 3 vezes: no ambiente local (webServer único, `npm run build && npm run start`,
@@ -261,11 +262,11 @@ test.describe("índice de encomendas", () => {
       );
     });
 
-    test("uma barra de produção de 3 dias mede 54px, e a etapa 'Secagem' mostra rótulo dentro da barra", async ({
+    test("uma barra de produção de 5 dias mede 90px, e a etapa 'Secagem' mostra rótulo dentro da barra", async ({
       page,
     }) => {
       await fazerLogin(page);
-      const nome = nomeUnico("Gantt 54px");
+      const nome = nomeUnico("Gantt 90px");
       await criarEncomenda(page, { nome, cliente: "Cliente inventado", dataInicio: dataEmDias(0) });
 
       const linha = linhaDoGantt(page, nome);
@@ -273,10 +274,10 @@ test.describe("índice de encomendas", () => {
 
       const barraProducao = linha.getByRole("img", { name: /^Produção/ });
       const caixaProducao = await barraProducao.boundingBox();
-      // 3 dias × 18px = 54 — tolerância de ±1px para arredondamento de layout.
-      expect(Math.round(caixaProducao?.width ?? 0)).toBe(54);
+      // 5 dias × 18px = 90 — tolerância de ±1px para arredondamento de layout.
+      expect(Math.round(caixaProducao?.width ?? 0)).toBe(90);
 
-      // Secagem (6 dias × 18 = 108px, > 46) mostra o rótulo da etapa dentro da barra.
+      // Secagem (15 dias × 18 = 270px, > 46) mostra o rótulo da etapa dentro da barra.
       await expect(linha.getByRole("img", { name: /^Secagem/ })).toContainText("Secagem");
 
       // Esmaltação (1 dia × 18 = 18px, < 46) NÃO mostra rótulo dentro da barra.
@@ -777,16 +778,20 @@ test.describe("índice de encomendas", () => {
       await expect(trilha).toBeVisible();
 
       const caixaTrilha = await trilha.boundingBox();
+      // Com os padrões da fase 04.1 (espera 3 antes da Queima do esmalte, espera 5 antes da
+      // Entrega), a barra tem 8 itens no total: 6 segmentos de etapa (`trilha-segmento-*`) mais
+      // 2 vãos vazios (`trilha-espera-*`, D-09) — a soma só fecha 100% da largura contando os
+      // dois tipos; medir só os segmentos deixa os vãos de fora e sobra uma lacuna real.
       const larguras = await cartao
-        .locator('[data-testid^="trilha-segmento-"]')
+        .locator('[data-testid^="trilha-segmento-"], [data-testid^="trilha-espera-"]')
         .evaluateAll((elementos) => elementos.map((el) => el.getBoundingClientRect().width));
       const somaDasLarguras = larguras.reduce((total, largura) => total + largura, 0);
 
       if (!caixaTrilha) {
         throw new Error("Não foi possível medir a trilha de segmentos.");
       }
-      // Tolerância de 1px por segmento (6 etapas) para arredondamento de layout por percentual.
-      expect(Math.abs(somaDasLarguras - caixaTrilha.width)).toBeLessThanOrEqual(6);
+      // Tolerância de 1px por item (8 = 6 etapas + 2 vãos) para arredondamento de layout por percentual.
+      expect(Math.abs(somaDasLarguras - caixaTrilha.width)).toBeLessThanOrEqual(8);
     });
 
     test("um nome de 60+ caracteres quebra em linha dentro do cartão, sem rolagem horizontal", async ({
@@ -819,7 +824,7 @@ test.describe("índice de encomendas", () => {
     }) => {
       await fazerLogin(page);
       const nome = nomeUnico("Cartao atrasada");
-      // 60 dias atrás: a cascata padrão (13 dias) termina bem antes de hoje.
+      // 60 dias atrás: a cascata padrão (32 dias, DIAS_PADRAO da fase 04.1) termina bem antes de hoje.
       await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
 
       const cartao = cartaoDoCelular(page, nome);

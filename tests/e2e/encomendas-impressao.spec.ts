@@ -213,9 +213,10 @@ test.describe("impressão de encomendas", () => {
   }) => {
     await fazerLogin(page);
     const nome = nomeUnico("Impressão atrasada");
-    // 30 dias atrás: a cascata padrão (13 dias) já terminou há muito, e a encomenda continua
-    // em_producao (D-05 — atraso nunca é deduzido automaticamente para "concluída").
-    const id = await criarEncomenda(page, { nome, dataInicio: dataEmDias(-30) });
+    // 40 dias atrás: a cascata padrão (32 dias, DIAS_PADRAO da fase 04.1) já terminou há muito,
+    // e a encomenda continua em_producao (D-05 — atraso nunca é deduzido automaticamente para
+    // "concluída"). 30 dias não bastava mais (caía dentro do vão de espera antes da Entrega).
+    const id = await criarEncomenda(page, { nome, dataInicio: dataEmDias(-40) });
 
     await page.goto("/encomendas/imprimir");
     const celulaEtapa = page.getByTestId(`impressao-etapa-${id}`);
