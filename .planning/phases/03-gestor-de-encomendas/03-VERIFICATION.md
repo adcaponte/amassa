@@ -1,7 +1,7 @@
 ---
 phase: 03-gestor-de-encomendas
 verified: 2026-08-10T22:00:00Z
-status: gaps_found
+status: passed
 score: 14/14 requirements MET (with 3 items PARTIAL — proven by code review, not by automated
   test — and 1 UI-only item verified-but-unproven-by-e2e); 12/12 ROADMAP success criteria MET
 overrides_applied: 0
@@ -46,6 +46,7 @@ human_verification:
       os 12 critérios não foram percorridos item a item (03-08-SUMMARY.md, seção
       'Verificação Humana em Produção'). 'Alguns ajustes necessários' no desktop foram
       mencionados sem detalhamento."
+    confirmado_pelo_dono: "2026-08-20 — 1a rodada (12 de 13, o critério 8 reprovou) e 2a rodada (4 de 4, já corrigido)"
   - test: "Simular falha de rede/servidor ao confirmar 'Cancelar encomenda' e 'Excluir
       encomenda' (E8/E9) e confirmar que o AlertDialog permanece aberto mostrando o erro"
     expected: "O diálogo não fecha sozinho; mostra o texto de falha; o botão de confirmar
@@ -53,12 +54,14 @@ human_verification:
     why_human: "WINDOWS.md #8 e #9 (unrun-verify, ainda open) — caminho implementado por
       leitura de código (estado `erro` + `onOpenChange` bloqueado por `enviando`), sem
       teste automatizado nem verificação manual até agora."
+    confirmado_pelo_dono: "2026-08-20 — marcado passa na caminhada (item A)"
   - test: "Clicar duas vezes muito rápido na mesma seta de reordenar item (lista-itens.tsx)
       e confirmar que a ordem final é consistente, não trocada"
     expected: "O par de setas fica `disabled` com opacidade reduzida até a resposta do
       servidor confirmar, impedindo a segunda gravação de correr antes da primeira"
     why_human: "WINDOWS.md #10 (unrun-verify, ainda open) — mesma classe: implementado,
       não provado por teste de concorrência real nem verificação manual."
+    confirmado_pelo_dono: "2026-08-20 — marcado passa na caminhada (item B)"
   - test: "Semear duas encomendas 'rascunho' por SQL direto (tests/e2e/apoio/marcar-rascunho.ts
       já faz exatamente isso) e olhar o Gantt no desktop e o cartão no celular para a hachura
       diagonal e o selo RASCUNHO"
@@ -72,6 +75,17 @@ human_verification:
       Semear por SQL prova o que este item existe para provar, que é o CSS. A lacuna de UI foi
       separada como pergunta de produto no backlog (STATE.md §Deferred Items): decidir se
       rascunho deve ser alcançável pela interface ou sumir do produto."
+    fechado_por_teste:
+      arquivo: "tests/e2e/encomendas-indice.spec.ts"
+      testes:
+        - "Gantt desktop (ENC-03, ENC-06, ENC-07) › uma encomenda em rascunho desenha barra e
+           losango com hachura diagonal, preservando a cor cheia da etapa (D-10)"
+        - "Lista mobile (ENC-08, ENC-09) › uma encomenda em rascunho desenha os segmentos da
+           trilha com hachura diagonal, preservando a cor cheia da etapa (D-10)"
+      commit: "8446d48"
+      nota: "why_human original dizia 'nenhum e2e mede o CSS de hachura' — motivo de FALTA de
+        teste, não de julgamento humano necessário. Os dois testes acima fecham essa lacuna
+        (quick 260821-3af). Item mantido, não apagado, para preservar o histórico do relatório."
 ---
 
 # Phase 3: Gestor de Encomendas Verification Report
