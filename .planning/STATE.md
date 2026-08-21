@@ -6,11 +6,11 @@ current_phase: 04
 current_phase_name: Contador de Queima
 status: phase_complete
 stopped_at: Fase 4 FECHADA — UAT 18/18, verificação humana 26/26, VERIFICATION passed. Pronto para a Fase 5 (Agenda de Aulas).
-last_updated: "2026-08-20T01:11:03.075Z"
-last_activity: 2026-08-12
-last_activity_desc: "Completed quick task 260812-2et: BRIEF-NOTURNO (Lote A + Lote C) em 4 commits atômicos"
+last_updated: "2026-08-21T03:32:22.840Z"
+last_activity: 2026-08-21
+last_activity_desc: "FASE 3 FECHADA: verificacao passed, 4 de 4 itens humanos resolvidos, os 3 gaps confirmados pelo dono e a hachura coberta por teste"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
   total_plans: 35
   completed_plans: 35
@@ -249,6 +249,7 @@ None yet.
 
 - Phase 3 edited: ENC-14 (botao de imprimir folha A4) adicionado aos requisitos e criterios de sucesso
 - Phase 3 edited: criterios 4 e 13 reconciliados com o quick 260812-2et (BRIEF-NOTURNO): Gantt passou de celulas quinzenais para semanais (segunda a domingo), a timeline deixou de abrir centralizada para abrir em hoje na borda esquerda, e o nome da encomenda virou link. Supersessao deliberada, nao regressao — os 18px/dia do 03-UI-SPEC.md continuam valendo
+- Phase 04.1 inserted after Phase 4: Datas dos Marcos da Encomenda — nasceu da caminhada humana do dono, reabre ENC-03, precisa de migracao. Executa antes da Fase 5 (URGENT)
 
 ## Deferred Items
 

@@ -266,6 +266,24 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 04.1: Datas dos Marcos da Encomenda (INSERTED)
+
+**Goal**: Deixar o gestor dizer **quando** a queima de esmalte e a entrega acontecem, em vez de
+assumir que vêm logo depois da etapa anterior — e tirar o interruptor dos marcos, que sempre
+acontecem. Hoje nenhuma data é armazenada: tudo nasce em cascata a partir de `dataInicio`
+(`lib/encomendas/cronograma.ts`), e é essa premissa que muda.
+**Origem**: caminhada humana do dono em produção (2026-08-20), registrada em
+`.planning/phases/03-gestor-de-encomendas/03-VERIFICATION.md` §"Achado de produto". Não é
+retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
+**Depends on**: Phase 3
+**Requirements**: reabre ENC-03; requisito novo para as datas, a definir na discussão
+**Migração**: sim — nenhuma data de marco existe hoje no schema
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 04.1 to break down)
+
 ### Phase 5: Agenda de Aulas
 
 **Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
