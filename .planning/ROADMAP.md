@@ -283,10 +283,17 @@ reescrito), ENC-04 (retirado — não há mais o que desligar)
 **Plans:** 4 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 04.1-01-PLAN.md — Traçado: a espera do marco, do `check` do Postgres ao campo "dias depois" (onda 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 04.1-02-PLAN.md — O vão vazio: trilha proporcional, Gantt e a espera na tela de detalhe (onda 2)
 - [ ] 04.1-03-PLAN.md — ENC-03 reescrito, ENC-04 retirado, ENC-15 criado, e o critério da Fase 3 corrigido (onda 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 04.1-04-PLAN.md — Varredura completa e a migração de produção à mão (onda 3)
 
 ### Phase 5: Agenda de Aulas
