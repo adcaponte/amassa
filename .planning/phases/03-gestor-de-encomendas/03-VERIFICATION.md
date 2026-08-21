@@ -16,6 +16,7 @@ gaps:
     diagnosticado: true
     fechado: true
     fechado_por: "debug rodape-formulario-desktop, commit ab7bce5"
+    confirmado_pelo_dono: 2026-08-20
   - id: G-03-2
     criterio: null
     resumo: "O interruptor dos marcos tem 44x44 declarados mas só ~32x18 visíveis, e nenhum texto
@@ -24,6 +25,7 @@ gaps:
     diagnosticado: true
     fechado: true
     fechado_por: "quick-260820-uot, commit 9a3beca"
+    confirmado_pelo_dono: 2026-08-20
   - id: G-03-3
     criterio: null
     resumo: "A tela de detalhe da encomenda não tem botão de voltar no desktop — a decisão original
@@ -32,6 +34,7 @@ gaps:
     diagnosticado: true
     fechado: true
     fechado_por: "quick-260820-uot, commit 274aa72"
+    confirmado_pelo_dono: 2026-08-20
 human_verification:
   - test: "Percorrer os 13 critérios de sucesso do ROADMAP.md §Phase 3 um a um em produção
       (https://amassacerrado.com.br/encomendas), no desktop e no celular. ATENÇÃO: os critérios
@@ -295,6 +298,51 @@ corrigida do item mais cedo neste mesmo dia.
    quick-260820-uot, commit `274aa72`: `CabecalhoPagina` ganhou uma prop opcional `voltar`, e o
    detalhe da encomenda agora mostra um controle de voltar para `/encomendas` de >= 44x44, visível
    nas duas larguras.
+
+
+## Segunda rodada (2026-08-20)
+
+Depois das correções, o dono percorreu **só os 4 itens que mudaram**, contra o deploy do commit
+`728f68b`. **Os 4 passaram.**
+
+1. O rodapé do formulário fica colado ao pé do diálogo no desktop e não se move quando os campos
+   rolam (G-03-1, corrigido em `ab7bce5`).
+2. As linhas de marco mostram "Acontece" / "Não acontece" em moldura visível, e desligar a Entrega
+   continua encurtando a encomenda (G-03-2, corrigido em `9a3beca`).
+3. A volta para o índice funciona no computador (G-03-3, corrigido em `274aa72`).
+4. O índice mostra a contagem de itens de cada encomenda (`0ff1b46`).
+
+Os três gaps estão confirmados pelo dono. **A fase ainda não fecha:** falta a verificação manual C
+(hachura de rascunho), que é o único item pendente.
+
+### Achado de produto — ENC-03 está errado sobre o ateliê
+
+Nas observações desta rodada o dono descreveu como o trabalho realmente acontece, e isso
+**contradiz a especificação**. Não é defeito: o sistema faz exatamente o que ENC-03 mandou. É a
+regra que não corresponde ao ateliê.
+
+Palavras do dono:
+
+- **"as queimas e entregas sempre acontecem"** — o interruptor liga/desliga nunca foi o modelo
+  certo para os três marcos.
+- **Queima de biscoito (queima1):** "não precisamos mexer, apenas remova esse 'não acontece',
+  afinal sempre acontece, e basta eu colocar os dias da secagem até o dia da queima e assim fica já
+  na sequência certa". Ou seja: sem interruptor, e a duração da secagem já a posiciona.
+- **Queima de esmalte (queima2) e entrega:** "eu preciso especificar QUANDO acontece a queima de
+  esmalte e a entrega, pois essas não é necessariamente logo após a esmaltação, e a entrega tende a
+  levar alguns dias para acontecer após a queima do esmalte".
+
+O que isso contradiz:
+
+- **ENC-03** (`.planning/REQUIREMENTS.md`, marcado **Complete**): "Os três marcos (queima 1,
+  queima 2, entrega) aparecem como losango e **são um interruptor**, nunca um campo numérico".
+- **Critério de sucesso 3** da Fase 3, que repete a mesma frase e **passou** nas duas rodadas.
+
+Isto é o **núcleo do lote de datas** que o BRIEF-NOTURNO adiou, agora com caso de uso concreto. O
+modelo de marco precisa ser repensado antes de virar plano — a cascata atual deriva tudo de
+`dataInicio` e nenhuma data é armazenada (`lib/encomendas/cronograma.ts`). Reabrir um requisito
+marcado `Complete` é decisão do dono; `REQUIREMENTS.md` e `ROADMAP.md` ficaram intocados de
+propósito.
 
 
 ## Veredito Geral
