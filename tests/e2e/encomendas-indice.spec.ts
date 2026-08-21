@@ -7,8 +7,11 @@ import {
   FRASE_VAZIO_TITULO,
   ROTULO_ETAPA,
   ROTULO_NOVA_ENCOMENDA,
+  SELO_RASCUNHO,
   textoDaContagemDeItens,
 } from "@/lib/encomendas/textos";
+
+import { marcarComoRascunho } from "./apoio/marcar-rascunho";
 
 // Índice de verdade: Gantt no desktop (Tarefa 1), lista de cartões no celular (Tarefa 2), e os
 // três estados obrigatórios (Tarefa 3) — 03-04-PLAN.md. O 18px/dia, a posição da linha de
@@ -139,6 +142,24 @@ function linhaDoGantt(page: Page, nome: string) {
 // Mesmo princípio, para o cartão da lista mobile.
 function cartaoDoCelular(page: Page, nome: string) {
   return page.locator('[data-testid^="cartao-encomenda-"]').filter({ hasText: nome });
+}
+
+// Descobre o `id` de uma encomenda pelo nome, lendo o `data-testid` do cartão. O cartão está
+// SEMPRE no HTML nos dois viewports (escondido por CSS no desktop, D-02) — por isso esta
+// leitura funciona igual nos projetos `desktop` e `celular`, o mesmo jeito que
+// `encomendas-impressao.spec.ts` já descobre o `id`.
+//
+// `criarEncomenda` DESTE arquivo devolve `void`, ao contrário do irmão em
+// `encomendas-impressao.spec.ts` — não mexa nele: é chamado por perto de vinte testes deste
+// arquivo, e este plano tem orçamento de UMA rodada de e2e.
+async function idDaEncomenda(page: Page, nome: string): Promise<string> {
+  const cartao = page.locator('[data-testid^="cartao-encomenda-"]').filter({ hasText: nome });
+  await expect(cartao).toHaveCount(1);
+  const testId = await cartao.getAttribute("data-testid");
+  if (!testId) {
+    throw new Error(`Não encontrou o cartão da encomenda "${nome}" para descobrir o id.`);
+  }
+  return testId.replace("cartao-encomenda-", "");
 }
 
 async function lerIntervaloDoGantt(page: Page): Promise<{ intervalo: IntervaloDaTimeline; hoje: string }> {
@@ -575,6 +596,102 @@ test.describe("índice de encomendas", () => {
         `· ${textoDaContagemDeItens(2)}`,
       );
     });
+
+    // D-10 (03-UI-SPEC.md "Rascunho no Gantt — Tratamento Atenuado"): hachura diagonal
+    // preservando a cor cheia da etapa, nunca opacidade reduzida (linguagem de "desabilitado"
+    // do sistema). Cria uma encomenda que vira rascunho e uma de CONTROLE (em_producao) — o
+    // controle é o que faz o teste discriminar, e substitui o passo RED que não existe aqui
+    // porque o código de produção (gantt.tsx `estiloDeEtapa`) já está escrito.
+    test("uma encomenda em rascunho desenha barra e losango com hachura diagonal, preservando a cor cheia da etapa (D-10)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+
+      const nomeRascunho = nomeUnico("Gantt hachura");
+      await criarEncomenda(page, { nome: nomeRascunho, dataInicio: dataEmDias(0) });
+      const idRascunho = await idDaEncomenda(page, nomeRascunho);
+
+      const nomeControle = nomeUnico("Gantt sem hachura");
+      await criarEncomenda(page, { nome: nomeControle, dataInicio: dataEmDias(0) });
+      const idControle = await idDaEncomenda(page, nomeControle);
+
+      // Só a primeira encomenda vira rascunho — a de controle fica em `em_producao`.
+      await marcarComoRascunho(idRascunho);
+      // Recarrega para o servidor renderizar de novo lendo o status já gravado no banco.
+      await page.goto("/encomendas");
+
+      const linhaRascunho = page.getByTestId(`gantt-linha-${idRascunho}`);
+      await expect(linhaRascunho).toBeVisible();
+      const linhaControle = page.getByTestId(`gantt-linha-${idControle}`);
+      await expect(linhaControle).toBeVisible();
+
+      // Controle primeiro: guarda o `background-color` cheio da etapa para comparar com o
+      // gradiente do rascunho mais abaixo.
+      const barraControle = linhaControle.getByTestId(`gantt-barra-${idControle}-producao`);
+      await expect(barraControle).toBeVisible();
+      // Trava a premissa de que esta barra não é cortada (ramo `cortadaNaEsquerda` de
+      // gantt.tsx sobrescreve `borderLeft`, não é o assunto deste teste) — por isso a leitura
+      // de borda é sempre pelo TOPO, nunca pela esquerda.
+      await expect(barraControle).toHaveAttribute("data-cortada", "false");
+      const estiloControle = await barraControle.evaluate((el) => {
+        const estilo = getComputedStyle(el);
+        return {
+          backgroundImage: estilo.backgroundImage,
+          backgroundColor: estilo.backgroundColor,
+          borderTopStyle: estilo.borderTopStyle,
+        };
+      });
+      expect(estiloControle.backgroundImage).toBe("none");
+      // Não afirma `borderTopStyle === "none"`: o preflight do Tailwind v4 declara
+      // `border: 0 solid` em todo elemento, então o valor real é "solid" com largura 0px —
+      // afirmar "none" falharia por um motivo que não tem nada a ver com rascunho.
+      expect(estiloControle.borderTopStyle).not.toBe("dashed");
+      expect(estiloControle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      await expect(linhaControle.getByText(SELO_RASCUNHO, { exact: true })).toHaveCount(0);
+
+      const barraRascunho = linhaRascunho.getByTestId(`gantt-barra-${idRascunho}-producao`);
+      await expect(barraRascunho).toBeVisible();
+      await expect(barraRascunho).toHaveAttribute("data-cortada", "false");
+      const estiloBarraRascunho = await barraRascunho.evaluate((el) => {
+        const estilo = getComputedStyle(el);
+        return {
+          backgroundImage: estilo.backgroundImage,
+          borderTopStyle: estilo.borderTopStyle,
+          borderTopWidth: estilo.borderTopWidth,
+          opacity: estilo.opacity,
+        };
+      });
+      expect(estiloBarraRascunho.backgroundImage).toContain("repeating-linear-gradient");
+      expect(estiloBarraRascunho.borderTopStyle).toBe("dashed");
+      expect(estiloBarraRascunho.borderTopWidth).toBe("1px");
+      // A regra literal de D-10: hachura preservando a cor cheia, NUNCA opacidade reduzida.
+      expect(estiloBarraRascunho.opacity).toBe("1");
+      // A asserção que amarra as duas — "preservando a cor cheia da etapa" vira medição, não
+      // promessa: o gradiente do rascunho contém a mesma cor que o controle usa como
+      // `background-color`. As duas leituras saem do mesmo `getComputedStyle`, no mesmo
+      // documento, logo passam pela mesma serialização de cor.
+      expect(estiloBarraRascunho.backgroundImage).toContain(estiloControle.backgroundColor);
+
+      // A hachura vale para as duas formas, não só para as barras — o losango do marco
+      // `queima1` repete as mesmas três asserções de estilo.
+      const marcoRascunho = linhaRascunho.getByTestId(`gantt-marco-${idRascunho}-queima1`);
+      await expect(marcoRascunho).toBeVisible();
+      const estiloMarcoRascunho = await marcoRascunho.evaluate((el) => {
+        const estilo = getComputedStyle(el);
+        return {
+          backgroundImage: estilo.backgroundImage,
+          borderTopStyle: estilo.borderTopStyle,
+          borderTopWidth: estilo.borderTopWidth,
+          opacity: estilo.opacity,
+        };
+      });
+      expect(estiloMarcoRascunho.backgroundImage).toContain("repeating-linear-gradient");
+      expect(estiloMarcoRascunho.borderTopStyle).toBe("dashed");
+      expect(estiloMarcoRascunho.borderTopWidth).toBe("1px");
+      expect(estiloMarcoRascunho.opacity).toBe("1");
+
+      await expect(linhaRascunho.getByText(SELO_RASCUNHO, { exact: true })).toHaveCount(1);
+    });
   });
 
   test.describe("Lista mobile (ENC-08, ENC-09)", () => {
@@ -849,6 +966,83 @@ test.describe("índice de encomendas", () => {
       await expect(cartaoPlural.getByTestId("contagem-de-itens")).toHaveText(
         textoDaContagemDeItens(2),
       );
+    });
+
+    // Espelho do teste de hachura do Gantt, agora no cartão do celular (D-10). Mesma dupla
+    // rascunho + controle, mesma medição por CSS computado.
+    test("uma encomenda em rascunho desenha os segmentos da trilha com hachura diagonal, preservando a cor cheia da etapa (D-10)", async ({
+      page,
+    }) => {
+      await fazerLogin(page);
+
+      const nomeRascunho = nomeUnico("Cartao hachura");
+      await criarEncomenda(page, { nome: nomeRascunho, dataInicio: dataEmDias(0) });
+      const idRascunho = await idDaEncomenda(page, nomeRascunho);
+
+      const nomeControle = nomeUnico("Cartao sem hachura");
+      await criarEncomenda(page, { nome: nomeControle, dataInicio: dataEmDias(0) });
+      const idControle = await idDaEncomenda(page, nomeControle);
+
+      await marcarComoRascunho(idRascunho);
+      await page.goto("/encomendas");
+
+      const cartaoRascunho = page.getByTestId(`cartao-encomenda-${idRascunho}`);
+      await expect(cartaoRascunho).toBeVisible();
+      const cartaoControle = page.getByTestId(`cartao-encomenda-${idControle}`);
+      await expect(cartaoControle).toBeVisible();
+
+      // Controle primeiro: guarda o `background-color` cheio de cada segmento para comparar
+      // com o gradiente do rascunho mais abaixo.
+      const segmentosControle = {
+        producao: cartaoControle.getByTestId("trilha-segmento-producao"),
+        secagem: cartaoControle.getByTestId("trilha-segmento-secagem"),
+      };
+      const estiloControle = {
+        producao: await segmentosControle.producao.evaluate((el) => {
+          const estilo = getComputedStyle(el);
+          return { backgroundImage: estilo.backgroundImage, backgroundColor: estilo.backgroundColor };
+        }),
+        secagem: await segmentosControle.secagem.evaluate((el) => {
+          const estilo = getComputedStyle(el);
+          return { backgroundImage: estilo.backgroundImage, backgroundColor: estilo.backgroundColor };
+        }),
+      };
+      expect(estiloControle.producao.backgroundImage).toBe("none");
+      expect(estiloControle.producao.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(estiloControle.secagem.backgroundImage).toBe("none");
+      expect(estiloControle.secagem.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      await expect(cartaoControle.getByText(SELO_RASCUNHO, { exact: true })).toHaveCount(0);
+
+      const segmentosRascunho = {
+        producao: cartaoRascunho.getByTestId("trilha-segmento-producao"),
+        secagem: cartaoRascunho.getByTestId("trilha-segmento-secagem"),
+      };
+      const estiloRascunho = {
+        producao: await segmentosRascunho.producao.evaluate((el) => {
+          const estilo = getComputedStyle(el);
+          return { backgroundImage: estilo.backgroundImage, opacity: estilo.opacity };
+        }),
+        secagem: await segmentosRascunho.secagem.evaluate((el) => {
+          const estilo = getComputedStyle(el);
+          return { backgroundImage: estilo.backgroundImage, opacity: estilo.opacity };
+        }),
+      };
+      expect(estiloRascunho.producao.backgroundImage).toContain("repeating-linear-gradient");
+      // D-10: hachura preservando a cor cheia, NUNCA opacidade reduzida.
+      expect(estiloRascunho.producao.opacity).toBe("1");
+      expect(estiloRascunho.producao.backgroundImage).toContain(estiloControle.producao.backgroundColor);
+      expect(estiloRascunho.secagem.backgroundImage).toContain("repeating-linear-gradient");
+      expect(estiloRascunho.secagem.opacity).toBe("1");
+      expect(estiloRascunho.secagem.backgroundImage).toContain(estiloControle.secagem.backgroundColor);
+
+      // Diferença deliberada em relação ao Gantt: `trilha-segmentos.tsx` só define borda para
+      // a etapa ATUAL (2px sólidos, destaque de posição), nunca tracejada em nenhum status —
+      // ao contrário de `gantt.tsx`, que dá 1px tracejado a todo elemento em rascunho. Não é
+      // esquecimento deste plano, é o componente: por isso este teste não afirma
+      // `borderTopStyle` nenhum aqui. Ver observação de coerência visual no SUMMARY deste
+      // quick para o dono decidir depois.
+
+      await expect(cartaoRascunho.getByText(SELO_RASCUNHO, { exact: true })).toHaveCount(1);
     });
   });
 });
