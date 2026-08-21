@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cronograma";
 import { formatarDiaCompleto, formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
-import { ROTULO_ETAPA, textoDaSituacao } from "@/lib/encomendas/textos";
+import { ROTULO_ETAPA, SUFIXO_ESPERA, textoDaEsperaNaTrilha, textoDaSituacao } from "@/lib/encomendas/textos";
 
 // Página de detalhe (`/encomendas/[id]`, D-01/D-04): a trilha vertical de seis etapas com as
 // datas certas (Tarefa 1), o ajuste rápido sem otimismo (Tarefa 2) e as ações de ciclo de vida
@@ -232,9 +232,9 @@ test.describe("detalhe da encomenda", () => {
   }) => {
     await fazerLogin(page);
     const nome = nomeUnico("Detalhe fronteira");
-    // Produção dura 3 dias (padrão) — começando 3 dias atrás, hoje é exatamente o dia em que
-    // produção termina (fimExclusivo) e secagem começa.
-    const dataInicio = dataEmDias(-3);
+    // Produção dura 5 dias (padrão, DIAS_PADRAO da fase 04.1) — começando 5 dias atrás, hoje é
+    // exatamente o dia em que produção termina (fimExclusivo) e secagem começa.
+    const dataInicio = dataEmDias(-5);
     await criarEncomenda(page, { nome, dataInicio });
     await abrirDetalhe(page, nome);
 
@@ -327,7 +327,7 @@ test.describe("detalhe da encomenda", () => {
 test.describe("ajuste rápido", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("uma etapa de intervalo mostra -/+ e um marco mostra um Switch, ambos com >= 44px de área de toque", async ({
+  test("uma etapa de intervalo mostra -/+ e um marco mostra o ajuste de espera -/+, ambos com >= 44px de área de toque E >= 32px de desenho visível com borda", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -335,25 +335,64 @@ test.describe("ajuste rápido", () => {
     await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
     await abrirDetalhe(page, nome);
 
-    const botaoDiminuir = page.getByRole("button", { name: `Diminuir dias de ${ROTULO_ETAPA.secagem}` });
-    const botaoAumentar = page.getByRole("button", { name: `Aumentar dias de ${ROTULO_ETAPA.secagem}` });
-    await expect(botaoDiminuir).toBeVisible();
-    await expect(botaoAumentar).toBeVisible();
+    const botaoDiminuirSecagem = page.getByRole("button", {
+      name: `Diminuir dias de ${ROTULO_ETAPA.secagem}`,
+    });
+    const botaoAumentarSecagem = page.getByRole("button", {
+      name: `Aumentar dias de ${ROTULO_ETAPA.secagem}`,
+    });
+    await expect(botaoDiminuirSecagem).toBeVisible();
+    await expect(botaoAumentarSecagem).toBeVisible();
 
-    for (const botao of [botaoDiminuir, botaoAumentar]) {
+    // Medir as DUAS coisas é o ponto (D-08 do quick 260820-uot): era exatamente a divergência
+    // entre 44px declarados de área de toque e ~32×18px de desenho visível que travou o dono na
+    // caminhada em produção. `boundingBox()` mede a área CLICÁVEL (o botão, com o padding
+    // invisível); `getComputedStyle` no filho visual mede o que o dedo de fato VÊ.
+    for (const botao of [botaoDiminuirSecagem, botaoAumentarSecagem]) {
       const caixa = await botao.boundingBox();
       expect(caixa?.width).toBeGreaterThanOrEqual(44);
       expect(caixa?.height).toBeGreaterThanOrEqual(44);
+
+      const visual = botao.locator("> span").first();
+      const caixaVisual = await visual.boundingBox();
+      expect(caixaVisual?.width).toBeGreaterThanOrEqual(32);
+      expect(caixaVisual?.height).toBeGreaterThanOrEqual(32);
+      const estiloVisual = await visual.evaluate((el) => getComputedStyle(el).borderWidth);
+      expect(estiloVisual).not.toBe("0px");
     }
 
-    const interruptor = page.getByTestId("ajuste-switch-entrega");
-    await expect(interruptor).toBeVisible();
-    const caixaInterruptor = await interruptor.boundingBox();
-    expect(caixaInterruptor?.width).toBeGreaterThanOrEqual(44);
-    expect(caixaInterruptor?.height).toBeGreaterThanOrEqual(44);
+    // O controle de espera do marco (Queima do esmalte) — o mesmo par -/número/+, sobre a
+    // espera em vez da duração (D-06/D-07). O Switch de 44px declarados/~32×18px visíveis
+    // saiu de vez: os dois botões da espera precisam da mesma prova de tamanho.
+    const botaoDiminuirEspera = page.getByRole("button", {
+      name: `Diminuir a espera antes de ${ROTULO_ETAPA.queima2}`,
+    });
+    const botaoAumentarEspera = page.getByRole("button", {
+      name: `Aumentar a espera antes de ${ROTULO_ETAPA.queima2}`,
+    });
+    await expect(botaoDiminuirEspera).toBeVisible();
+    await expect(botaoAumentarEspera).toBeVisible();
+
+    for (const botao of [botaoDiminuirEspera, botaoAumentarEspera]) {
+      const caixa = await botao.boundingBox();
+      expect(caixa?.width).toBeGreaterThanOrEqual(44);
+      expect(caixa?.height).toBeGreaterThanOrEqual(44);
+
+      const visual = botao.locator("> span").first();
+      const caixaVisual = await visual.boundingBox();
+      expect(caixaVisual?.width).toBeGreaterThanOrEqual(32);
+      expect(caixaVisual?.height).toBeGreaterThanOrEqual(32);
+      const estiloVisual = await visual.evaluate((el) => getComputedStyle(el).borderWidth);
+      expect(estiloVisual).not.toBe("0px");
+    }
+
+    // O sufixo "dias depois" (D-08) fica visível ao lado do número, no controle de espera.
+    await expect(page.getByTestId("ajuste-espera-queima2")).toContainText(SUFIXO_ESPERA);
   });
 
-  test("aria-label dos botões e do Switch descreve a AÇÃO, não o estado", async ({ page }) => {
+  test("aria-label dos botões descreve a AÇÃO, não o estado — inclusive no controle de espera do marco", async ({
+    page,
+  }) => {
     await fazerLogin(page);
     const nome = nomeUnico("Ajuste aria-label");
     await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
@@ -366,8 +405,16 @@ test.describe("ajuste rápido", () => {
       page.getByRole("button", { name: `Aumentar dias de ${ROTULO_ETAPA.secagem}` }),
     ).toBeVisible();
 
-    // Entrega nasce ligada (dias: 1, padrão) — o rótulo diz a ação "Desativar", não o estado.
-    await expect(page.getByRole("switch", { name: `Desativar ${ROTULO_ETAPA.entrega}` })).toBeVisible();
+    // O marco não tem mais Switch (D-06: sempre acontece, sempre 1 dia) — o aria-label do
+    // ajuste de espera nomeia a etapa e a ação, nunca um estado ligado/desligado que não
+    // existe mais.
+    await expect(
+      page.getByRole("button", { name: `Diminuir a espera antes de ${ROTULO_ETAPA.queima2}` }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Aumentar a espera antes de ${ROTULO_ETAPA.queima2}` }),
+    ).toBeVisible();
+    await expect(page.getByRole("switch")).toHaveCount(0);
   });
 
   test("clicar em '+' na secagem muda o número na hora, mostra um indicador de gravação, e o rodapé só muda quando o servidor confirma", async ({
@@ -379,21 +426,28 @@ test.describe("ajuste rápido", () => {
     await criarEncomenda(page, { nome, dataInicio });
     await abrirDetalhe(page, nome);
 
-    const totalInicial = DIAS_PADRAO.reduce((soma, etapa) => soma + etapa.dias, 0);
+    // A duração total do rodapé conta dias E esperas (`duracaoTotalEmDias`,
+    // `lib/encomendas/cronograma.ts`) — soma só de `dias` (24) mentiria a partir da fase 04.1,
+    // que acrescentou 8 dias de espera aos três marcos (3 antes da queima do esmalte, 5 antes
+    // da entrega). Padrão: 32 dias.
+    const totalInicial = DIAS_PADRAO.reduce(
+      (soma, etapa) => soma + etapa.dias + etapa.esperaDias,
+      0,
+    );
     await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial} dias`);
 
     const numeroSecagem = page.getByTestId("ajuste-numero-secagem");
-    await expect(numeroSecagem).toHaveAttribute("data-valor", "6");
+    await expect(numeroSecagem).toHaveAttribute("data-valor", "15");
 
     const botaoAumentar = page.getByRole("button", {
       name: `Aumentar dias de ${ROTULO_ETAPA.secagem}`,
     });
     await botaoAumentar.click();
 
-    // O rodapé confirma o novo total (13 + 1 = 14) — auto-retry da asserção cobre a janela de
+    // O rodapé confirma o novo total (32 + 1 = 33) — auto-retry da asserção cobre a janela de
     // até ~1s do "spinner" (03-UI-SPEC.md); o valor final é o que importa provar aqui.
     await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial + 1} dias`);
-    await expect(numeroSecagem).toHaveAttribute("data-valor", "7");
+    await expect(numeroSecagem).toHaveAttribute("data-valor", "16");
     await expect(numeroSecagem).toHaveAttribute("data-pendente", "false");
   });
 
@@ -430,9 +484,9 @@ test.describe("ajuste rápido", () => {
     await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
     await abrirDetalhe(page, nome);
 
-    // Queima (biscoito) é um marco (0 ou 1) — desligar por aqui é o caminho mais rápido para
-    // levar uma etapa a 0 dias e provar o piso do lado do intervalo (esmaltação) também, já que
-    // o próprio marco usa Switch (sem botão "-" para testar o piso ali).
+    // Esmaltação nasce com 1 dia (padrão) — um clique em "-" já leva a 0, provando o piso do
+    // lado do intervalo. A partir da fase 04.1 (D-06) os marcos não têm mais botão "-" de dias
+    // (sempre valem 1), então o piso deles não se aplica mais a esta prova.
     const numeroEsmaltacao = page.getByTestId("ajuste-numero-esmaltacao");
     const botaoDiminuirEsmaltacao = page.getByRole("button", {
       name: `Diminuir dias de ${ROTULO_ETAPA.esmaltacao}`,
@@ -448,37 +502,89 @@ test.describe("ajuste rápido", () => {
     // `disabled` garante) — a prova de que o piso é 0 é o próprio estado do botão.
   });
 
-  test("o Switch de um marco liga e desliga; desligar Entrega encurta a encomenda e a etapa aparece 'Desligada' ao recarregar", async ({
+  // Substitui o teste antigo do Switch do marco (desligar Entrega encurtava a encomenda), que
+  // perdeu o objeto com D-06: um marco SEMPRE acontece. No lugar, prova o comportamento novo —
+  // o ajuste rápido da ESPERA antes do marco — na Queima (esmalte), que nasce com a espera
+  // padrão de 3 dias.
+  test("o ajuste de espera da Queima (esmalte) sobe de 3 para 4, o rodapé sobe de 32 para 33 dias com a conclusão adiada em 1 dia, e volta a 3/32 ao diminuir — sobrevive a um recarregamento", async ({
     page,
   }) => {
     await fazerLogin(page);
-    const nome = nomeUnico("Ajuste switch entrega");
+    const nome = nomeUnico("Ajuste espera queima esmalte");
     const dataInicio = hojeBrasilia();
     await criarEncomenda(page, { nome, dataInicio });
     await abrirDetalhe(page, nome);
 
-    const totalInicial = DIAS_PADRAO.reduce((soma, etapa) => soma + etapa.dias, 0);
-    const interruptor = page.getByTestId("ajuste-switch-entrega");
-    await expect(interruptor).toHaveAttribute("aria-checked", "true");
+    const totalInicial = DIAS_PADRAO.reduce(
+      (soma, etapa) => soma + etapa.dias + etapa.esperaDias,
+      0,
+    );
+    const cronogramaInicial = calcularCronograma(dataInicio, DIAS_PADRAO);
+    if (!cronogramaInicial.dataDeConclusao) {
+      throw new Error("Fixture inesperada: sem dataDeConclusao.");
+    }
 
-    await interruptor.click();
-    await expect(interruptor).toHaveAttribute("aria-checked", "false", { timeout: 10000 });
-    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial - 1} dias`);
+    const numeroEspera = page.getByTestId("ajuste-numero-espera-queima2");
+    await expect(numeroEspera).toHaveAttribute("data-valor", "3");
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial} dias`);
+    await expect(page.getByTestId("rodape-trilha")).toContainText(
+      formatarDiaCurto(cronogramaInicial.dataDeConclusao),
+    );
 
-    // Ao recarregar, a linha de Entrega mostra "Desligada" e o marcador some do preenchimento —
-    // a prova de que a etapa desligada (dias: 0) continua VISÍVEL na trilha, nunca some (D-15).
-    await page.reload();
-    const linhaEntrega = page.getByTestId("trilha-linha-entrega");
-    await expect(linhaEntrega).toBeVisible();
-    await expect(linhaEntrega).toContainText("Desligada");
-    await expect(linhaEntrega).toContainText(ROTULO_ETAPA.entrega);
-
-    // Religa para não vazar estado "desligado" para outros testes que dependam do padrão.
-    const interruptorAposRecarregar = page.getByTestId("ajuste-switch-entrega");
-    await interruptorAposRecarregar.click();
-    await expect(interruptorAposRecarregar).toHaveAttribute("aria-checked", "true", {
-      timeout: 10000,
+    const botaoAumentarEspera = page.getByRole("button", {
+      name: `Aumentar a espera antes de ${ROTULO_ETAPA.queima2}`,
     });
+    await botaoAumentarEspera.click();
+
+    // A RESPOSTA CONFIRMADA do servidor é o que a asserção espera (auto-retry cobre o passo 2,
+    // ~1s de spinner) — nunca o valor otimista da tela (passo 1). Espera 3→4, total 32→33, a
+    // conclusão adia em exatamente 1 dia porque a cascata inteira desloca junto.
+    await expect(numeroEspera).toHaveAttribute("data-valor", "4", { timeout: 10000 });
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial + 1} dias`);
+    const cronogramaComMaisUmDia = calcularCronograma(
+      dataInicio,
+      DIAS_PADRAO.map((duracao) =>
+        duracao.etapa === "queima2" ? { ...duracao, esperaDias: 4 } : duracao,
+      ),
+    );
+    if (!cronogramaComMaisUmDia.dataDeConclusao) {
+      throw new Error("Fixture inesperada: sem dataDeConclusao (espera 4).");
+    }
+    await expect(page.getByTestId("rodape-trilha")).toContainText(
+      formatarDiaCurto(cronogramaComMaisUmDia.dataDeConclusao),
+    );
+
+    const botaoDiminuirEspera = page.getByRole("button", {
+      name: `Diminuir a espera antes de ${ROTULO_ETAPA.queima2}`,
+    });
+    await botaoDiminuirEspera.click();
+    await expect(numeroEspera).toHaveAttribute("data-valor", "3", { timeout: 10000 });
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial} dias`);
+
+    // Sobrevive a um recarregamento — a prova de que o passo 4 (resposta confirmada) realmente
+    // gravou no banco, não só na tela.
+    await page.reload();
+    await expect(page.getByTestId("ajuste-numero-espera-queima2")).toHaveAttribute(
+      "data-valor",
+      "3",
+    );
+    await expect(page.getByTestId("rodape-trilha")).toContainText(`${totalInicial} dias`);
+  });
+
+  test("D-09: a linha da Queima (esmalte) mostra por quantos dias a peça fica parada antes dela; a da Queima (biscoito), que nasce com espera 0, não mostra essa linha", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste vao de espera");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const esperaQueima2 = DIAS_PADRAO.find((duracao) => duracao.etapa === "queima2")!.esperaDias;
+    const linhaQueima2 = page.getByTestId("espera-trilha-queima2");
+    await expect(linhaQueima2).toBeVisible();
+    await expect(linhaQueima2).toHaveText(textoDaEsperaNaTrilha(esperaQueima2)!);
+
+    await expect(page.getByTestId("espera-trilha-queima1")).toHaveCount(0);
   });
 
   test("não existe toast de sucesso no ajuste rápido", async ({ page }) => {
@@ -687,7 +793,8 @@ test.describe("ações da encomenda", () => {
   }) => {
     await fazerLogin(page);
     const nome = nomeUnico("Ações concluir no prazo");
-    // 60 dias atrás: a cascata padrão (13 dias) já terminou bem antes de hoje.
+    // 60 dias atrás: a cascata padrão (32 dias, DIAS_PADRAO da fase 04.1) já terminou bem antes
+    // de hoje.
     await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
     const id = await abrirDetalhe(page, nome);
 
