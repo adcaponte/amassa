@@ -689,9 +689,25 @@ test.describe("ações da encomenda", () => {
     const nome = nomeUnico("Ações concluir no prazo");
     // 60 dias atrás: a cascata padrão (13 dias) já terminou bem antes de hoje.
     await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
-    await abrirDetalhe(page, nome);
+    const id = await abrirDetalhe(page, nome);
 
+    // Portão REAL. `toHaveCount(0)` sobre "Marcar como concluída" NÃO é um: enquanto grava, o
+    // rótulo do botão vira "Concluindo…", o nome acessível muda, e a contagem cai a zero no mesmo
+    // quadro do clique — sem nada ter sido concluído. O `Call log` da falha mostra isso literal:
+    // a PRIMEIRA amostra do `toContainText` seguinte ainda tinha "Concluindo…" na tela, provando
+    // que o portão anterior não esperou nada e que os 10s tinham de cobrir DUAS idas ao servidor
+    // (a gravação e o `router.refresh()`). É o mesmo engano que `concluirViaDetalhe`
+    // (encomendas-filtros.spec.ts) já documenta por escrito: "o botão sumir sozinho NÃO é prova
+    // suficiente". O irmão que passa sob a mesma carga (linha 568, cancelar) só passa porque tem
+    // portão de verdade — o toast "Encomenda cancelada."; `concluirEncomenda` não emite toast
+    // nenhum, então aqui o portão precisa ser a resposta da própria Server Action.
+    const respostaDaConclusao = page.waitForResponse(
+      (resposta) =>
+        resposta.url().includes(`/encomendas/${id}`) && resposta.request().method() === "POST",
+      { timeout: 15000 },
+    );
     await page.getByRole("button", { name: "Marcar como concluída" }).click();
+    expect((await respostaDaConclusao).ok()).toBe(true);
 
     // Sem confirmação prévia: a conclusão acontece direto, e o botão some (status vira
     // "concluida", que não oferece mais "Marcar como concluída").
@@ -699,6 +715,55 @@ test.describe("ações da encomenda", () => {
       timeout: 10000,
     });
     await expect(page.locator("body")).toContainText("Concluída em", { timeout: 10000 });
+  });
+
+  // Regressão da trava de conclusão introduzida pela sessão de depuração
+  // `refresh-nao-chega-no-celular`. A trilha passou a fechar a conclusão a partir da RESPOSTA da
+  // Server Action, porque `router.refresh()` perde a atualização em ~6% das conclusões (medido:
+  // 3 falhas em 50 sob dois workers). Essa trava tem de SOLTAR quando a verdade do servidor
+  // passa por cima dela: "Cancelar encomenda" não tem porta de status (`AcoesEncomenda`) e
+  // `cancelarEncomenda` não tem guarda de status, então concluir e depois cancelar é uma
+  // sequência que uma gestora alcança na MESMA tela, sem recarregar nada. Sem a soltura, o
+  // refresh chegaria com "cancelada" e a trilha continuaria dizendo "Concluída em …" para
+  // sempre — a mesma mentira que a trava existe para matar, só que ao contrário.
+  test("cancelar DEPOIS de concluir: a trilha diz 'Cancelada', a trava de conclusão solta", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Trava concluir e cancelar");
+    // 60 dias atrás: a conclusão prevista já passou, então concluir vai direto, sem diálogo.
+    await criarEncomenda(page, { nome, dataInicio: dataEmDias(-60) });
+    const id = await abrirDetalhe(page, nome);
+
+    // `toHaveText` (exato) na linha de situação, nunca `toContainText` no `body`: o toast
+    // "Encomenda cancelada." e o rodapé "Conclusão prevista" também moram na página, e uma
+    // asserção de substring no corpo inteiro passaria pelo motivo errado.
+    const situacao = page.getByTestId("situacao-encomenda");
+
+    // Portão REAL da conclusão — `concluirEncomenda` não emite toast, então o único sinal que
+    // só existe DEPOIS da gravação é a resposta da própria Server Action. Só depois dela a
+    // trava está armada, que é a pré-condição deste teste.
+    const respostaDaConclusao = page.waitForResponse(
+      (resposta) =>
+        resposta.url().includes(`/encomendas/${id}`) && resposta.request().method() === "POST",
+      { timeout: 15000 },
+    );
+    await page.getByRole("button", { name: "Marcar como concluída" }).click();
+    expect((await respostaDaConclusao).ok()).toBe(true);
+    await expect(situacao).toContainText("Concluída em", { timeout: 10000 });
+
+    // "Cancelar encomenda" continua na tela mesmo com a encomenda já concluída — é exatamente
+    // o que torna esta sequência alcançável hoje.
+    await page.getByRole("button", { name: "Cancelar encomenda" }).click();
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible();
+    await dialogo.getByRole("button", { name: "Cancelar encomenda" }).click();
+    await expect(page.getByText("Encomenda cancelada.")).toBeVisible();
+
+    // A asserção que o defeito derrubava. `textoDaSituacao` devolve exatamente "Cancelada"
+    // para o status cancelado, então o texto exato prova as duas coisas de uma vez: que a
+    // verdade chegou, e que "Concluída em …" saiu da tela.
+    await expect(situacao).toHaveText("Cancelada", { timeout: 10000 });
   });
 
   // Oportunidade sinalizada por 03-04-SUMMARY.md (Known Stubs): antes deste plano, nenhum

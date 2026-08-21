@@ -147,29 +147,40 @@ async function concluirViaDetalhe(page: Page, nome: string): Promise<string> {
   const botaoConcluir = page.getByRole("button", { name: "Marcar como concluída" });
   const dialogo = page.getByRole("alertdialog");
 
-  await botaoConcluir.click();
-  await dialogo
-    .waitFor({ state: "visible", timeout: 2000 })
-    .then(() => dialogo.getByRole("button", { name: "Concluir" }).click())
-    .catch(() => {});
-
-  try {
-    await expect(page.locator("body")).toContainText("Concluída em", { timeout: 4000 });
-  } catch {
-    // Retry de clique: mesmo com `networkidle` esperado em `abrirDetalhe`, um clique isolado
-    // logo após a navegação pode ainda chegar antes do React terminar de anexar o `onClick`,
-    // sob os dois workers do Playwright disputando CPU — o Playwright vê o botão visível e
-    // estável (checagem de DOM/CSS) e clica, mas nada acontece (sem handler nenhum ainda). Sem
-    // reação nenhuma da tela nos primeiros 4s, clica de novo em vez de assumir sucesso.
-    if (await botaoConcluir.isVisible().catch(() => false)) {
-      await botaoConcluir.click();
-      await dialogo
-        .waitFor({ state: "visible", timeout: 2000 })
-        .then(() => dialogo.getByRole("button", { name: "Concluir" }).click())
-        .catch(() => {});
-    }
-    await expect(page.locator("body")).toContainText("Concluída em", { timeout: 10000 });
+  // A resposta da Server Action é o único sinal que só existe DEPOIS da gravação. Antes, este
+  // helper esperava direto por "Concluída em" com 4s — um orçamento só para DUAS idas ao
+  // servidor (a gravação, e o `router.refresh()` que vem depois dela) — e, ao estourar, clicava
+  // de novo às cegas. Separar as duas esperas é o que distingue "o clique não pegou" (corrida de
+  // hidratação, que merece um clique novo) de "a gravação foi, o refresh é que ainda não voltou"
+  // (que não merece clique nenhum, só espera). Sem essa distinção, o segundo clique gravava de
+  // novo à toa sempre que o servidor estava lento.
+  async function clicarEEsperarAGravacao(): Promise<boolean> {
+    const gravacao = page
+      .waitForResponse(
+        (resposta) =>
+          resposta.url().includes(`/encomendas/${id}`) && resposta.request().method() === "POST",
+        { timeout: 8000 },
+      )
+      .catch(() => null);
+    await botaoConcluir.click();
+    await dialogo
+      .waitFor({ state: "visible", timeout: 2000 })
+      .then(() => dialogo.getByRole("button", { name: "Concluir" }).click())
+      .catch(() => {});
+    return (await gravacao) !== null;
   }
+
+  // Corrida de hidratação: mesmo com `networkidle` esperado em `abrirDetalhe`, um clique isolado
+  // logo após a navegação pode chegar antes de o React anexar o `onClick`, com os dois workers do
+  // Playwright disputando CPU — o Playwright vê o botão visível e estável (checagem de DOM/CSS) e
+  // clica, mas NENHUMA requisição sai. É o único caso em que clicar de novo é correto.
+  if (!(await clicarEEsperarAGravacao())) {
+    if (await botaoConcluir.isVisible().catch(() => false)) {
+      await clicarEEsperarAGravacao();
+    }
+  }
+
+  await expect(page.locator("body")).toContainText("Concluída em", { timeout: 10000 });
 
   return id;
 }

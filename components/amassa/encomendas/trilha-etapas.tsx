@@ -4,11 +4,12 @@ import { useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import type {
-  Cronograma,
-  FaixaDeEtapa,
-  Situacao,
-  StatusDeEncomenda,
+import {
+  situacaoEm,
+  type Cronograma,
+  type FaixaDeEtapa,
+  type Situacao,
+  type StatusDeEncomenda,
 } from "@/lib/encomendas/cronograma";
 import { formatarDiaCompleto, formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
 import {
@@ -101,18 +102,73 @@ function Marcador({ marco, desligada, cor }: { marco: boolean; desligada: boolea
 // aqui (fim da trilha, abaixo da última etapa) — nunca um quarto botão na fileira do cabeçalho.
 export function TrilhaEtapas({ encomendaId, status, cronograma, situacao, hoje }: TrilhaEtapasProps) {
   const router = useRouter();
+  // DERIVA CONHECIDA, pré-existente e NÃO corrigida aqui (registrada no ledger da sessão de
+  // depuração): estes dois são cópias de prop semeadas UMA vez. Um `router.refresh()` que chega
+  // com `cronograma` novo não os ressincroniza, porque o componente não remonta. Depois de
+  // concluir, as seis `AjusteRapidoEtapa` continuam na tela; se uma delas confirmar, o rodapé
+  // passa a imprimir a nova "Conclusão prevista" enquanto a linha de situação segue com a data
+  // que a conclusão gravou — duas datas diferentes na mesma tela. NÃO fechei os controles de
+  // ajuste quando `!podeConcluir` de propósito: passar a proibir corrigir a duração de uma
+  // etapa numa encomenda encerrada é mudança de comportamento de produto (decisão do dono), não
+  // conserto de defeito. A trava de conclusão abaixo não piora esta deriva: nasce com o mesmo
+  // valor do rodapé (as duas vêm do mesmo cálculo sobre as mesmas linhas do banco) e se solta
+  // assim que a árvore do servidor chega.
   const [duracaoTotalEmDias, setDuracaoTotalEmDias] = useState(cronograma.duracaoTotalEmDias);
   const [dataDeConclusao, setDataDeConclusao] = useState(cronograma.dataDeConclusao);
 
   const [dialogoAntecipadoAberto, setDialogoAntecipadoAberto] = useState(false);
   const [concluindo, setConcluindo] = useState(false);
 
-  const etapaHoje = etapaDeHoje(situacao);
-  const rascunho = status === "rascunho";
-  const atrasada = situacao.tipo === "atrasada";
+  // A resposta da Server Action é a fonte CONFIRMADA — o mesmo princípio de
+  // `AjusteRapidoEtapa` (03-UI-SPEC.md "Comportamento de salvamento — não é otimista"): a tela
+  // só muda depois que o servidor respondeu, mas aí muda com o que ELE devolveu, sem depender de
+  // uma segunda viagem. Isto existe porque `router.refresh()` é um canal COM PERDA: medido em
+  // 3 de 50 conclusões sob dois workers (e 1 em 30 sob quatro), a resposta do refresh chega 200
+  // ao navegador e a árvore nunca é aplicada — a tela fica mentindo para sempre, mostrando
+  // "Marcar como concluída" numa encomenda já concluída, sem erro nenhum. O `router.refresh()`
+  // abaixo continua (o resto da página depende dele, e tirá-lo piora: medido, 10 falhas em 60).
+  const [conclusaoConfirmada, setConclusaoConfirmada] = useState<{
+    dataDeConclusao: string | null;
+  } | null>(null);
+
+  // A trava acima precisa saber SE SOLTAR — senão vira a mesma mentira que existe para matar,
+  // só que ao contrário. `AcoesEncomenda` mostra "Cancelar encomenda" sem porta de status
+  // (acoes-encomenda.tsx:40-47, nenhuma condição) e `cancelarEncomenda` é um
+  // `update ... set status='cancelada'` sem guarda de status (acoes.ts:227-231): concluir e
+  // depois cancelar é uma sequência ALCANÇÁVEL hoje, na mesma tela, e os dois componentes são
+  // irmãos sem estado compartilhado. Sem esta soltura, o refresh chegaria com "cancelada" e a
+  // trilha continuaria dizendo "Concluída em …", porque a trava vence e o refresh NÃO remonta o
+  // componente.
+  //
+  // Padrão React de "ajustar estado quando uma prop muda", feito na renderização (nunca em
+  // efeito). A guarda NÃO é o `prop mudou` genérico, e sim "a prop chegou num estado FINAL":
+  // solta só quando o servidor manda "concluida" (a árvore alcançou a trava) ou "cancelada" (a
+  // verdade passou por cima dela). A diferença importa porque uma resposta ATRASADA, emitida
+  // antes da gravação, ainda diz "em_producao" — com a guarda genérica ela soltaria a trava e a
+  // tela voltaria a mentir, que é exatamente o defeito. Aqui ela não solta nada, e a soltura só
+  // anda no sentido da verdade. É seguro porque `status` só é escrito em DOIS lugares no
+  // sistema inteiro (acoes.ts:229 "cancelada" e acoes.ts:259 "concluida"), ambos finais: nada
+  // devolve uma encomenda para "em_producao" ou "rascunho", então não existe transição legítima
+  // pós-conclusão que esta guarda deixe passar.
+  if (conclusaoConfirmada && (status === "concluida" || status === "cancelada")) {
+    setConclusaoConfirmada(null);
+  }
+
+  const statusAtual: StatusDeEncomenda = conclusaoConfirmada ? "concluida" : status;
+  const situacaoAtual: Situacao = conclusaoConfirmada
+    ? situacaoEm(
+        { ...cronograma, dataDeConclusao: conclusaoConfirmada.dataDeConclusao },
+        "concluida",
+        hoje,
+      )
+    : situacao;
+
+  const etapaHoje = etapaDeHoje(situacaoAtual);
+  const rascunho = statusAtual === "rascunho";
+  const atrasada = situacaoAtual.tipo === "atrasada";
   // Concluída/cancelada não oferecem mais "Marcar como concluída" — já são um estado final
   // (decisão do executor, dentro do espaço discricionário de 03-CONTEXT.md).
-  const podeConcluir = status !== "concluida" && status !== "cancelada";
+  const podeConcluir = statusAtual !== "concluida" && statusAtual !== "cancelada";
 
   async function concluir() {
     setConcluindo(true);
@@ -124,6 +180,7 @@ export function TrilhaEtapas({ encomendaId, status, cronograma, situacao, hoje }
       return;
     }
 
+    setConclusaoConfirmada({ dataDeConclusao: resposta.dados.dataDeConclusao });
     setDialogoAntecipadoAberto(false);
     router.refresh();
   }
@@ -139,12 +196,17 @@ export function TrilhaEtapas({ encomendaId, status, cronograma, situacao, hoje }
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-2">
+        {/* `data-testid` para que a regressão da trava de conclusão possa afirmar o texto EXATO
+            desta linha (`toHaveText`), em vez de procurar substring no `body` inteiro — onde o
+            toast "Encomenda cancelada." e o rodapé "Conclusão prevista" moram junto e deixam a
+            asserção passar pelo motivo errado. */}
         <p
+          data-testid="situacao-encomenda"
           className={
             atrasada ? "text-corpo font-medium text-atencao" : "text-corpo text-tinta-media"
           }
         >
-          {textoDaSituacao(situacao)}
+          {textoDaSituacao(situacaoAtual)}
         </p>
         {rascunho && (
           <span className="text-micro shrink-0 rounded border border-borda-forte bg-superficie-2 px-1.5 py-0.5 tracking-wide text-tinta-media uppercase">

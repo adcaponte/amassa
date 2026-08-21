@@ -38,6 +38,19 @@ async function cadastrarFornoEAbrirDetalhe(page: Page, nome: string): Promise<st
   return id;
 }
 
+// `page.getByText("Manutenção registrada.")` casa por SUBSTRING, ignorando caixa — e
+// `FRASE_SEM_MANUTENCOES` ("Sem manutenção registrada.", lib/queimas/textos.ts) CONTÉM a frase do
+// toast. Enquanto o histórico ainda está vazio, os dois elementos existem ao mesmo tempo e o
+// localizador estoura em strict mode (falha real no CI). `exact: true` sozinho NÃO resolve: dois
+// toasts idênticos podem coexistir empilhados, e o strict mode volta a estourar. Ancorar no
+// contêiner do sonner resolve as duas ambiguidades de uma vez — é UM elemento só na página, e
+// `toContainText` não se importa com quantos toasts há dentro dele.
+async function esperarToastDeManutencao(page: Page) {
+  await expect(page.locator("[data-sonner-toaster]")).toContainText("Manutenção registrada.", {
+    timeout: 5000,
+  });
+}
+
 // "Registrar manutenção" só existe na página do forno (D-03), mas "Queimar" só existe no cartão
 // do índice — o registro acontece lá e a navegação volta ao detalhe em seguida.
 async function registrarQueimaEVoltarAoDetalhe(page: Page, id: string, nome: string): Promise<void> {
@@ -76,7 +89,7 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     await expect(page.getByTestId("confirmar-registrar-manutencao")).toBeEnabled();
     await page.getByTestId("confirmar-registrar-manutencao").click();
 
-    await expect(page.getByText("Manutenção registrada.")).toBeVisible({ timeout: 5000 });
+    await esperarToastDeManutencao(page);
     await expect(page.getByTestId("dialog-registrar-manutencao")).toBeHidden();
 
     // A prova de FOR-07 que importa: contador 0, mas o total na vida e a lista das 3 queimas
@@ -93,9 +106,20 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     await expect(page.getByTestId("frase-contador-zerando")).toHaveText(
       "O contador vai de 0 para 0.",
     );
+    // Portão REAL para a SEGUNDA manutenção. O toast do sonner dura 5000ms, então o toast da
+    // PRIMEIRA ainda está na tela neste ponto: esperar de novo por "Manutenção registrada." faz a
+    // asserção passar NA HORA, sem a segunda gravação ter sequer chegado ao servidor — e o
+    // `page.reload()` logo abaixo lê o banco antes dela, devolvendo 1 manutenção em vez de 2
+    // (falha reproduzida na varredura completa local, e o mesmo "dois toasts empilhados" que o CI
+    // reportou na retentativa #2). A resposta da Server Action é o único sinal que não existe
+    // antes da escrita; o toast em si já está provado na primeira manutenção, acima.
+    const respostaDaSegundaManutencao = page.waitForResponse(
+      (resposta) =>
+        resposta.url().includes(`/queimas/${id}`) && resposta.request().method() === "POST",
+      { timeout: 15000 },
+    );
     await page.getByTestId("confirmar-registrar-manutencao").click();
-
-    await expect(page.getByText("Manutenção registrada.")).toBeVisible({ timeout: 5000 });
+    expect((await respostaDaSegundaManutencao).ok()).toBe(true);
 
     // Achado em CI (flaky, resolvia na retentativa): depois da PRIMEIRA manutenção, o contador
     // vai de "3 / 50" para "0 / 50" — uma mudança de TEXTO de verdade que o `toContainText`
