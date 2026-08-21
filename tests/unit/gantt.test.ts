@@ -10,6 +10,7 @@ import {
   rolagemInicial,
   type IntervaloDaTimeline,
 } from "../../lib/encomendas/gantt";
+import { DIAS_PADRAO, calcularCronograma } from "../../lib/encomendas/cronograma";
 
 const MESES_PT = [
   "jan",
@@ -272,6 +273,74 @@ describe("retanguloDaEtapa", () => {
     // Termina bem antes de primeiroDia.
     const terminaAntes = retanguloDaEtapa({ dias: 3, inicio: "2026-07-31" }, intervalo);
     expect(terminaAntes).toBeNull();
+  });
+});
+
+// D-09: a espera de um marco aparece no Gantt como vão vazio — espaço em branco entre a etapa
+// anterior e o losango do marco — SEM nenhum elemento novo desenhado nesse intervalo. O plano
+// 04.1-01 já desloca `inicio` da faixa do marco na cascata (`calcularCronograma`); esta suíte
+// prova, por MEDIDA de pixel sobre `retanguloDaEtapa` (nenhuma mudança em `gantt.ts`/`gantt.tsx`
+// foi necessária), que o vão sai de graça — nunca por inspeção visual.
+describe("vão de espera do marco sai de graça, sem desenho novo (D-09)", () => {
+  it("a distância entre a borda direita da esmaltação e a borda esquerda do losango da queima do esmalte é exatamente 54px (3 dias × 18px/dia)", () => {
+    const dataInicio = "2026-08-12";
+    const cronograma = calcularCronograma(dataInicio, DIAS_PADRAO);
+    const intervalo = calcularIntervalo([cronograma], dataInicio);
+
+    const esmaltacao = cronograma.faixas.find((faixa) => faixa.etapa === "esmaltacao")!;
+    const queima2 = cronograma.faixas.find((faixa) => faixa.etapa === "queima2")!;
+
+    const retanguloEsmaltacao = retanguloDaEtapa(esmaltacao, intervalo)!;
+    const retanguloQueima2 = retanguloDaEtapa(queima2, intervalo)!;
+
+    expect(retanguloEsmaltacao).not.toBeNull();
+    expect(retanguloQueima2).not.toBeNull();
+    expect(
+      retanguloQueima2.esquerda - (retanguloEsmaltacao.esquerda + retanguloEsmaltacao.largura),
+    ).toBe(3 * PIXELS_POR_DIA);
+    expect(
+      retanguloQueima2.esquerda - (retanguloEsmaltacao.esquerda + retanguloEsmaltacao.largura),
+    ).toBe(54);
+  });
+
+  it("a distância entre a borda direita da queima do esmalte e a borda esquerda do losango da entrega é exatamente 90px (5 dias × 18px/dia)", () => {
+    const dataInicio = "2026-08-12";
+    const cronograma = calcularCronograma(dataInicio, DIAS_PADRAO);
+    const intervalo = calcularIntervalo([cronograma], dataInicio);
+
+    const queima2 = cronograma.faixas.find((faixa) => faixa.etapa === "queima2")!;
+    const entrega = cronograma.faixas.find((faixa) => faixa.etapa === "entrega")!;
+
+    const retanguloQueima2 = retanguloDaEtapa(queima2, intervalo)!;
+    const retanguloEntrega = retanguloDaEtapa(entrega, intervalo)!;
+
+    expect(retanguloQueima2).not.toBeNull();
+    expect(retanguloEntrega).not.toBeNull();
+    expect(
+      retanguloEntrega.esquerda - (retanguloQueima2.esquerda + retanguloQueima2.largura),
+    ).toBe(5 * PIXELS_POR_DIA);
+  });
+
+  it("caso de adjacência exata: com espera 0 na queima do esmalte, a distância cai a 0 — o marco encosta na etapa anterior, sem vão e sem sobreposição", () => {
+    const dataInicio = "2026-08-12";
+    const duracoesSemEsperaNaQueima2 = DIAS_PADRAO.map((duracao) =>
+      duracao.etapa === "queima2" ? { ...duracao, esperaDias: 0 } : duracao,
+    );
+    const cronograma = calcularCronograma(dataInicio, duracoesSemEsperaNaQueima2);
+    const intervalo = calcularIntervalo([cronograma], dataInicio);
+
+    const esmaltacao = cronograma.faixas.find((faixa) => faixa.etapa === "esmaltacao")!;
+    const queima2 = cronograma.faixas.find((faixa) => faixa.etapa === "queima2")!;
+
+    const retanguloEsmaltacao = retanguloDaEtapa(esmaltacao, intervalo)!;
+    const retanguloQueima2 = retanguloDaEtapa(queima2, intervalo)!;
+
+    expect(retanguloEsmaltacao).not.toBeNull();
+    expect(retanguloQueima2).not.toBeNull();
+    expect(retanguloQueima2.esquerda).toBe(retanguloEsmaltacao.esquerda + retanguloEsmaltacao.largura);
+    expect(
+      retanguloQueima2.esquerda - (retanguloEsmaltacao.esquerda + retanguloEsmaltacao.largura),
+    ).toBe(0);
   });
 });
 

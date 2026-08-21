@@ -71,6 +71,20 @@ export function textoDaEspera(esperaDias: number): string | null {
   return esperaDias === 1 ? "1 dia depois" : `${esperaDias} dias depois`;
 }
 
+// A frase do vão vazio na trilha (D-09) — usada tanto pela linha própria da trilha vertical do
+// detalhe (`trilha-etapas.tsx`, um marco com espera > 0) quanto pelo `title`/`aria-label` do
+// vão sem preenchimento da barra proporcional do celular (`trilha-segmentos.tsx`). `null` para
+// espera 0: o marco segue direto da etapa anterior, nada a dizer — mesma regra de
+// `textoDaEspera`, mas em forma de frase completa (a outra é um sufixo de campo).
+export function textoDaEsperaNaTrilha(esperaDias: number): string | null {
+  if (esperaDias === 0) {
+    return null;
+  }
+  return esperaDias === 1
+    ? "A peça fica parada 1 dia antes desta etapa."
+    : `A peça fica parada ${esperaDias} dias antes desta etapa.`;
+}
+
 // Contagem de itens do índice (Gantt e cartão) em frase de interface, com singular/plural
 // corretos em português — a interface não deixa criar `0` (`esquemaEncomenda.itens.min(1)`), mas
 // uma linha semeada direto no banco alcança esse caso, então ele ganha frase própria em vez de

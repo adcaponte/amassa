@@ -15,6 +15,7 @@ import {
   SUFIXO_ESPERA,
   textoDaContagemDeItens,
   textoDaEspera,
+  textoDaEsperaNaTrilha,
   textoDaSituacao,
 } from "../../lib/encomendas/textos";
 
@@ -196,6 +197,20 @@ describe("textoDaEspera (D-08)", () => {
 
   it("SUFIXO_ESPERA é exatamente 'dias depois' — a palavra do próprio dono (D-08)", () => {
     expect(SUFIXO_ESPERA).toBe("dias depois");
+  });
+});
+
+describe("textoDaEsperaNaTrilha (D-09 — vão vazio da trilha e do Gantt)", () => {
+  it("0 devolve null — nada a dizer, o marco segue direto da etapa anterior", () => {
+    expect(textoDaEsperaNaTrilha(0)).toBeNull();
+  });
+
+  it("1 sai no singular", () => {
+    expect(textoDaEsperaNaTrilha(1)).toBe("A peça fica parada 1 dia antes desta etapa.");
+  });
+
+  it("5 sai no plural", () => {
+    expect(textoDaEsperaNaTrilha(5)).toBe("A peça fica parada 5 dias antes desta etapa.");
   });
 });
 

@@ -17,6 +17,7 @@ import {
   ROTULO_ETAPA,
   SELO_ATRASADA,
   SELO_RASCUNHO,
+  textoDaEsperaNaTrilha,
   textoDaSituacao,
 } from "@/lib/encomendas/textos";
 import { concluirEncomenda } from "@/lib/encomendas/acoes";
@@ -59,9 +60,12 @@ function etapaDeHoje(situacao: Situacao): string | null {
   }
 }
 
-// "Desligada" no lugar das datas (dias: 0), data única para marco, "12 a 18 ago" para
-// intervalo — o último dia mostrado é `ultimoDia` (o último dia que a etapa OCUPA), nunca
-// `fimExclusivo` (o dia em que a próxima começa) — 00-BRIEFING.md §5.
+// "Desligada" no lugar das datas (dias: 0) — a partir da fase 04.1 (D-06) só alcançável para
+// produção, secagem e esmaltação: os três marcos sempre valem 1 dia, então este ramo nunca é
+// alcançado por eles pela interface (continua existindo como defesa contra uma linha semeada
+// direto no banco). Data única para marco, "12 a 18 ago" para intervalo — o último dia mostrado
+// é `ultimoDia` (o último dia que a etapa OCUPA), nunca `fimExclusivo` (o dia em que a próxima
+// começa) — 00-BRIEFING.md §5.
 function textoDeData(faixa: FaixaDeEtapa): string {
   if (faixa.dias === 0) {
     return "Desligada";
@@ -272,6 +276,19 @@ export function TrilhaEtapas({ encomendaId, status, cronograma, situacao, hoje }
                     )}
                   </span>
                 </div>
+
+                {faixa.esperaDias > 0 && (
+                  // O vão vazio de espera (D-09), em forma de texto: quantos dias a peça fica
+                  // parada ANTES deste marco começar. Só marco tem `esperaDias > 0` (D-03), e
+                  // esta linha nunca aparece com espera 0 — nada a dizer, o marco segue direto
+                  // da etapa anterior.
+                  <p
+                    data-testid={`espera-trilha-${faixa.etapa}`}
+                    className="text-micro text-tinta-fraca mt-0.5"
+                  >
+                    {textoDaEsperaNaTrilha(faixa.esperaDias)}
+                  </p>
+                )}
 
                 <div className="mt-1 flex items-center gap-4 pb-5">
                   <span className="text-apoio text-tinta-fraca">
