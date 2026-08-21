@@ -276,13 +276,18 @@ acontecem. Hoje nenhuma data é armazenada: tudo nasce em cascata a partir de `d
 `.planning/phases/03-gestor-de-encomendas/03-VERIFICATION.md` §"Achado de produto". Não é
 retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
 **Depends on**: Phase 3
-**Requirements**: reabre ENC-03; requisito novo para as datas, a definir na discussão
-**Migração**: sim — nenhuma data de marco existe hoje no schema
-**Plans:** 0 plans
+**Requirements**: ENC-15 (novo — a espera em dias antes de cada marco), ENC-03 (reaberto e
+reescrito), ENC-04 (retirado — não há mais o que desligar)
+**Migração**: sim — `0009_espera-dos-marcos` acrescenta a coluna `espera_dias` a
+`encomenda_etapas` e substitui a restrição `marcos_zero_ou_um`
+**Plans:** 4 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 04.1 to break down)
+- [ ] 04.1-01-PLAN.md — Traçado: a espera do marco, do `check` do Postgres ao campo "dias depois" (onda 1)
+- [ ] 04.1-02-PLAN.md — O vão vazio: trilha proporcional, Gantt e a espera na tela de detalhe (onda 2)
+- [ ] 04.1-03-PLAN.md — ENC-03 reescrito, ENC-04 retirado, ENC-15 criado, e o critério da Fase 3 corrigido (onda 2)
+- [ ] 04.1-04-PLAN.md — Varredura completa e a migração de produção à mão (onda 3)
 
 ### Phase 5: Agenda de Aulas
 
