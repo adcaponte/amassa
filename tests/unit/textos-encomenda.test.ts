@@ -9,14 +9,13 @@ import {
   FRASE_VAZIO_CORPO,
   FRASE_VAZIO_TITULO,
   ROTULO_ETAPA,
-  ROTULO_MARCO_ACONTECE,
-  ROTULO_MARCO_NAO_ACONTECE,
   ROTULO_NOVA_ENCOMENDA,
   SELO_ATRASADA,
   SELO_RASCUNHO,
+  SUFIXO_ESPERA,
   textoDaContagemDeItens,
+  textoDaEspera,
   textoDaSituacao,
-  textoDoEstadoDoMarco,
 } from "../../lib/encomendas/textos";
 
 describe("frases fixas", () => {
@@ -95,14 +94,18 @@ describe("textoDaSituacao", () => {
     { nome: "concluida", situacao: { tipo: "concluida", dataDeConclusao: "2026-08-24" } },
     { nome: "cancelada", situacao: { tipo: "cancelada" } },
     { nome: "sem-etapas", situacao: { tipo: "sem-etapas" } },
+    {
+      nome: "em-espera",
+      situacao: { tipo: "em-espera", proximaEtapa: "queima2", diasAteProxima: 3 },
+    },
   ];
 
   it.each(casos)("devolve uma frase não vazia para o ramo $nome", ({ situacao }) => {
     expect(textoDaSituacao(situacao).length).toBeGreaterThan(0);
   });
 
-  it("cobre os OITO ramos de Situacao (inventário desta suíte)", () => {
-    expect(casos).toHaveLength(8);
+  it("cobre os NOVE ramos de Situacao (inventário desta suíte)", () => {
+    expect(casos).toHaveLength(9);
   });
 
   it('atrasada contém a palavra "Atrasada" e a data prevista', () => {
@@ -165,21 +168,34 @@ describe("textoDaSituacao", () => {
     expect(texto).toContain(ROTULO_ETAPA.secagem);
     expect(texto).toContain("4");
   });
+
+  it("em-espera nomeia a próxima etapa por ROTULO_ETAPA e traz a contagem de dias que faltam", () => {
+    const texto = textoDaSituacao({
+      tipo: "em-espera",
+      proximaEtapa: "queima2",
+      diasAteProxima: 2,
+    });
+
+    expect(texto).toContain(ROTULO_ETAPA.queima2);
+    expect(texto).toContain("2");
+  });
 });
 
-describe("textoDoEstadoDoMarco (G-03-2)", () => {
-  it("ligado devolve ROTULO_MARCO_ACONTECE", () => {
-    expect(textoDoEstadoDoMarco(true)).toBe(ROTULO_MARCO_ACONTECE);
+describe("textoDaEspera (D-08)", () => {
+  it("0 devolve null — o marco segue direto da etapa anterior, nada a dizer", () => {
+    expect(textoDaEspera(0)).toBeNull();
   });
 
-  it("desligado devolve ROTULO_MARCO_NAO_ACONTECE", () => {
-    expect(textoDoEstadoDoMarco(false)).toBe(ROTULO_MARCO_NAO_ACONTECE);
+  it("1 sai no singular", () => {
+    expect(textoDaEspera(1)).toBe("1 dia depois");
   });
 
-  it("as duas frases são não vazias e distintas", () => {
-    expect(ROTULO_MARCO_ACONTECE.length).toBeGreaterThan(0);
-    expect(ROTULO_MARCO_NAO_ACONTECE.length).toBeGreaterThan(0);
-    expect(ROTULO_MARCO_ACONTECE).not.toBe(ROTULO_MARCO_NAO_ACONTECE);
+  it("3 sai no plural", () => {
+    expect(textoDaEspera(3)).toBe("3 dias depois");
+  });
+
+  it("SUFIXO_ESPERA é exatamente 'dias depois' — a palavra do próprio dono (D-08)", () => {
+    expect(SUFIXO_ESPERA).toBe("dias depois");
   });
 });
 

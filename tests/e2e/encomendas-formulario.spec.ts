@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { ROTULO_ETAPA, ROTULO_MARCO_ACONTECE, ROTULO_MARCO_NAO_ACONTECE } from "@/lib/encomendas/textos";
+import { ROTULO_ETAPA, SUFIXO_ESPERA } from "@/lib/encomendas/textos";
 
 // O formulário de criar/editar encomenda (03-06-PLAN.md): `Dialog` no desktop / `Sheet` no
 // celular escolhido por CSS (D-03), abertura derivada de `?nova`/`?editar={id}`, itens
@@ -33,12 +33,6 @@ function botaoVisivel(page: Page, nome: string) {
 
 function nomeUnico(rotulo: string): string {
   return `[e2e] ${rotulo} ${test.info().project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// Rótulos de etapa como "Queima (biscoito)" têm parênteses — caractere de regex. Escapa antes de
-// montar `new RegExp(...)` para o rótulo ser tratado como texto literal.
-function escaparRegex(texto: string): string {
-  return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // Preenche os campos mínimos (nome, cliente, data, item 1) sem enviar — deixa quem chama decidir
@@ -418,7 +412,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
 });
 
 test.describe("rodapé do formulário — duração total e conclusão prevista ao vivo", () => {
-  test("as etapas de marco (queima1, queima2, entrega) têm Switch, nunca campo numérico", async ({
+  test("a espera dos marcos (queima1, queima2, entrega) mostra um campo numérico, nunca mais um Switch", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -426,14 +420,12 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
 
     for (const etapa of ["queima1", "queima2", "entrega"] as const) {
       const rotulo = ROTULO_ETAPA[etapa];
-      // Nenhum `input[type=number]` com esse rótulo exato — só o `Switch` (critério de aceite:
-      // "nenhum input[type=number] existe para as etapas queima1, queima2 e entrega").
+      // O campo de espera do marco é um `input[type=number]`, igual às etapas de intervalo —
+      // o interruptor liga/desliga saiu de vez da interface (D-06).
       const numerico = campoVisivel(page, rotulo).and(page.locator('input[type="number"]'));
-      await expect(numerico).toHaveCount(0);
-      await expect(
-        page.getByRole("switch", { name: new RegExp(escaparRegex(rotulo)) }).and(page.locator(":visible")),
-      ).toBeVisible();
+      await expect(numerico).toHaveCount(1);
     }
+    await expect(page.getByRole("switch")).toHaveCount(0);
   });
 
   test("digitar no campo de secagem muda o rodapé sem nenhum clique intermediário", async ({
@@ -456,7 +448,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     await expect(rodape).toContainText("Conclusão prevista:");
   });
 
-  test("desligar o Switch de Entrega faz a duração total cair 1 dia e a conclusão recuar 1 dia", async ({
+  test("a espera dos marcos muda o rodapé ao vivo: digitar 10 na espera da entrega leva de 32 para 37 dias e adia a conclusão em 5 dias", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -466,21 +458,18 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     const rodape = page
       .locator('[data-testid="rodape-formulario"]')
       .and(page.locator(":visible"));
-    const textoAntes = await rodape.innerText();
+    // Padrões (DIAS_PADRAO): 32 dias, conclusão prevista 12 set — a espera da entrega nasce em 5.
+    await expect(rodape).toContainText("32 dias");
+    await expect(rodape).toContainText("12 set");
 
-    const switchEntrega = page
-      .getByRole("switch", { name: new RegExp(escaparRegex(ROTULO_ETAPA.entrega)) })
-      .and(page.locator(":visible"));
-    await switchEntrega.click();
+    const campoEsperaEntrega = campoVisivel(page, ROTULO_ETAPA.entrega);
+    await campoEsperaEntrega.fill("10");
 
-    await expect(rodape).not.toHaveText(textoAntes);
-
-    // Liga de volta — devolve os valores anteriores.
-    await switchEntrega.click();
-    await expect(rodape).toHaveText(textoAntes);
+    await expect(rodape).toContainText("37 dias");
+    await expect(rodape).toContainText("17 set");
   });
 
-  test("as seis etapas em 0 mostram Duração total: 0 dias e um traço no lugar da data", async ({
+  test("com produção, secagem e esmaltação em 0 e as esperas dos marcos em 0, o rodapé mostra Duração total: 3 dias — nunca 0, porque os marcos sempre acontecem (D-06)", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -490,20 +479,16 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     for (const etapa of ["producao", "secagem", "esmaltacao"] as const) {
       await campoVisivel(page, ROTULO_ETAPA[etapa]).fill("0");
     }
+    // Os três marcos sempre duram 1 dia cada (D-06) — zerar aqui é zerar a ESPERA antes deles,
+    // não a duração, que não é mais um campo editável.
     for (const etapa of ["queima1", "queima2", "entrega"] as const) {
-      const interruptor = page
-        .getByRole("switch", { name: new RegExp(escaparRegex(ROTULO_ETAPA[etapa])) })
-        .and(page.locator(":visible"));
-      if (await interruptor.isChecked()) {
-        await interruptor.click();
-      }
+      await campoVisivel(page, ROTULO_ETAPA[etapa]).fill("0");
     }
 
     const rodape = page
       .locator('[data-testid="rodape-formulario"]')
       .and(page.locator(":visible"));
-    await expect(rodape).toContainText("Duração total: 0 dias");
-    await expect(rodape).toContainText("—");
+    await expect(rodape).toContainText("Duração total: 3 dias");
   });
 
   test("os números do rodapé usam tabular-nums", async ({ page }) => {
@@ -588,11 +573,13 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
   });
 });
 
-// G-03-2 (quick 260820-uot): o interruptor de marco tinha 44×44 de área de toque INVISÍVEL e
-// nenhuma palavra dizendo o que ligado/desligado significa. Mede geometria e comportamento, nunca
-// só presença de texto — foi confiar em asserção de texto que deixou passar o defeito do rodapé
-// (G-03-1, ab7bce5).
-test.describe("interruptor dos marcos — visível e explícito", () => {
+// D-06/D-08 (fase 04.1): o interruptor liga/desliga saiu dos três marcos — eles sempre
+// acontecem e sempre duram 1 dia. O número que o gestor digita passa a ser a espera dos marcos
+// (D-07), com o sufixo "dias depois" (palavra do próprio dono). Mede geometria e comportamento,
+// nunca só presença de texto — foi confiar em asserção de texto que deixou passar o defeito do
+// rodapé (G-03-1, ab7bce5) e a pílula invisível do interruptor antigo (G-03-2, quick
+// 260820-uot).
+test.describe("espera dos marcos — visível e explícita", () => {
   test("cada linha de marco tem moldura visível de >= 44px de altura", async ({ page }) => {
     await fazerLogin(page);
     await page.goto("/encomendas?nova");
@@ -614,47 +601,41 @@ test.describe("interruptor dos marcos — visível e explícito", () => {
     }
   });
 
-  test("o interruptor de cada marco continua com >= 44x44 de área de toque", async ({ page }) => {
-    await fazerLogin(page);
-    await page.goto("/encomendas?nova");
-
-    for (const etapa of ["queima1", "queima2", "entrega"] as const) {
-      const rotulo = ROTULO_ETAPA[etapa];
-      const interruptor = page
-        .getByRole("switch", { name: new RegExp(escaparRegex(rotulo)) })
-        .and(page.locator(":visible"));
-      const caixa = await interruptor.boundingBox();
-      expect(caixa).not.toBeNull();
-      expect(caixa!.width).toBeGreaterThanOrEqual(44);
-      expect(caixa!.height).toBeGreaterThanOrEqual(44);
-    }
-  });
-
-  test("a palavra de estado mostra a frase de ligado e alterna ao clicar nela, nunca na pílula", async ({
+  test("o campo de espera de cada marco mede pelo menos 44px de altura e usa font-size de pelo menos 16px (nunca dá zoom sozinho no iOS ao focar)", async ({
     page,
   }) => {
     await fazerLogin(page);
     await page.goto("/encomendas?nova");
 
-    const estadoEntrega = page
-      .getByTestId("estado-marco-entrega")
-      .and(page.locator(":visible"));
-    const interruptorEntrega = page
-      .getByRole("switch", { name: new RegExp(escaparRegex(ROTULO_ETAPA.entrega)) })
-      .and(page.locator(":visible"));
+    for (const etapa of ["queima1", "queima2", "entrega"] as const) {
+      const campo = page.getByTestId(`campo-espera-${etapa}`).and(page.locator(":visible"));
+      const caixa = await campo.boundingBox();
+      expect(caixa).not.toBeNull();
+      expect(caixa!.height).toBeGreaterThanOrEqual(44);
 
-    // Entrega nasce em dias: 1 (ligado) pelos padrões do formulário.
-    await expect(estadoEntrega).toHaveText(ROTULO_MARCO_ACONTECE);
-    await expect(interruptorEntrega).toHaveAttribute("aria-checked", "true");
+      const tamanhoDaFonte = await campo.evaluate((el) =>
+        parseFloat(getComputedStyle(el).fontSize),
+      );
+      expect(tamanhoDaFonte).toBeGreaterThanOrEqual(16);
+    }
+  });
 
-    // Clicar na PALAVRA (não na pílula) alterna — prova que a superfície clicável cresceu.
-    await estadoEntrega.click();
-    await expect(interruptorEntrega).toHaveAttribute("aria-checked", "false");
-    await expect(estadoEntrega).toHaveText(ROTULO_MARCO_NAO_ACONTECE);
+  test("o sufixo 'dias depois' está visível ao lado do campo de espera de cada marco, ligado ao campo por aria-describedby", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/encomendas?nova");
 
-    // Clicar de novo volta ao estado inicial.
-    await estadoEntrega.click();
-    await expect(interruptorEntrega).toHaveAttribute("aria-checked", "true");
-    await expect(estadoEntrega).toHaveText(ROTULO_MARCO_ACONTECE);
+    for (const etapa of ["queima1", "queima2", "entrega"] as const) {
+      const campo = page.getByTestId(`campo-espera-${etapa}`).and(page.locator(":visible"));
+      const sufixo = page.getByTestId(`sufixo-espera-${etapa}`).and(page.locator(":visible"));
+
+      await expect(sufixo).toBeVisible();
+      await expect(sufixo).toHaveText(SUFIXO_ESPERA);
+
+      const idDoSufixo = await sufixo.getAttribute("id");
+      expect(idDoSufixo).not.toBeNull();
+      await expect(campo).toHaveAttribute("aria-describedby", idDoSufixo as string);
+    }
   });
 });

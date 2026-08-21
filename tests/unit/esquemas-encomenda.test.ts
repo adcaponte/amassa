@@ -94,7 +94,11 @@ describe("esquemaItem", () => {
 });
 
 describe("esquemaEncomenda", () => {
-  const etapasValidas = DIAS_PADRAO.map((duracao) => ({ etapa: duracao.etapa, dias: duracao.dias }));
+  const etapasValidas = DIAS_PADRAO.map((duracao) => ({
+    etapa: duracao.etapa,
+    dias: duracao.dias,
+    esperaDias: duracao.esperaDias,
+  }));
 
   function encomendaBase(overrides: Record<string, unknown> = {}) {
     return {
@@ -191,7 +195,11 @@ describe("esquemaEncomenda", () => {
 });
 
 describe("esquemaEtapas", () => {
-  const etapasValidas = DIAS_PADRAO.map((duracao) => ({ etapa: duracao.etapa, dias: duracao.dias }));
+  const etapasValidas = DIAS_PADRAO.map((duracao) => ({
+    etapa: duracao.etapa,
+    dias: duracao.dias,
+    esperaDias: duracao.esperaDias,
+  }));
 
   it("aceita exatamente as 6 etapas fixas, uma por valor de Etapa", () => {
     expect(esquemaEtapas.safeParse(etapasValidas).success).toBe(true);
@@ -207,21 +215,20 @@ describe("esquemaEtapas", () => {
   });
 
   it.each(["queima1", "queima2", "entrega"] as const)(
-    "recusa dias: 2 no marco %s",
+    "recusa dias diferente de 1 no marco %s (0 ou 2), com mensagem em português explicando que o número é a espera antes do marco (D-06/D-07)",
     (etapaMarco) => {
-      const comMarcoInvalido = etapasValidas.map((etapa) =>
-        etapa.etapa === etapaMarco ? { ...etapa, dias: 2 } : etapa,
-      );
-      expect(esquemaEtapas.safeParse(comMarcoInvalido).success).toBe(false);
+      for (const diasInvalidos of [0, 2]) {
+        const comMarcoInvalido = etapasValidas.map((etapa) =>
+          etapa.etapa === etapaMarco ? { ...etapa, dias: diasInvalidos } : etapa,
+        );
+        const resultado = esquemaEtapas.safeParse(comMarcoInvalido);
+        expect(resultado.success).toBe(false);
+        if (!resultado.success) {
+          expect(resultado.error.issues[0]?.message).toMatch(/1 dia/i);
+        }
+      }
     },
   );
-
-  it.each(["queima1", "queima2", "entrega"] as const)("aceita dias: 0 no marco %s", (etapaMarco) => {
-    const comMarcoZero = etapasValidas.map((etapa) =>
-      etapa.etapa === etapaMarco ? { ...etapa, dias: 0 } : etapa,
-    );
-    expect(esquemaEtapas.safeParse(comMarcoZero).success).toBe(true);
-  });
 
   it.each(["queima1", "queima2", "entrega"] as const)("aceita dias: 1 no marco %s", (etapaMarco) => {
     const comMarcoUm = etapasValidas.map((etapa) =>
@@ -229,6 +236,34 @@ describe("esquemaEtapas", () => {
     );
     expect(esquemaEtapas.safeParse(comMarcoUm).success).toBe(true);
   });
+
+  it.each(["queima1", "queima2", "entrega"] as const)(
+    "aceita espera 0, 1 e 365 no marco %s",
+    (etapaMarco) => {
+      for (const esperaValida of [0, 1, 365]) {
+        const comEspera = etapasValidas.map((etapa) =>
+          etapa.etapa === etapaMarco ? { ...etapa, esperaDias: esperaValida } : etapa,
+        );
+        expect(esquemaEtapas.safeParse(comEspera).success).toBe(true);
+      }
+    },
+  );
+
+  it.each(["queima1", "queima2", "entrega"] as const)(
+    "recusa espera -1, 366 e 1.5 no marco %s, com mensagem em português dizendo o que fazer",
+    (etapaMarco) => {
+      for (const esperaInvalida of [-1, 366, 1.5]) {
+        const comEspera = etapasValidas.map((etapa) =>
+          etapa.etapa === etapaMarco ? { ...etapa, esperaDias: esperaInvalida } : etapa,
+        );
+        const resultado = esquemaEtapas.safeParse(comEspera);
+        expect(resultado.success).toBe(false);
+        if (!resultado.success) {
+          expect(resultado.error.issues[0]?.message).toMatch(/espera/i);
+        }
+      }
+    },
+  );
 
   it.each(["producao", "secagem", "esmaltacao"] as const)(
     "aceita dias: 0 na etapa de intervalo %s",
@@ -247,6 +282,20 @@ describe("esquemaEtapas", () => {
         etapa.etapa === etapaIntervalo ? { ...etapa, dias: -1 } : etapa,
       );
       expect(esquemaEtapas.safeParse(comNegativo).success).toBe(false);
+    },
+  );
+
+  it.each(["producao", "secagem", "esmaltacao"] as const)(
+    "recusa espera diferente de 0 na etapa de intervalo %s (D-03), com mensagem em português dizendo o que fazer",
+    (etapaIntervalo) => {
+      const comEspera = etapasValidas.map((etapa) =>
+        etapa.etapa === etapaIntervalo ? { ...etapa, esperaDias: 3 } : etapa,
+      );
+      const resultado = esquemaEtapas.safeParse(comEspera);
+      expect(resultado.success).toBe(false);
+      if (!resultado.success) {
+        expect(resultado.error.issues[0]?.message).toMatch(/trabalho contínuo|espera/i);
+      }
     },
   );
 });
@@ -279,25 +328,34 @@ describe("esquemaAjusteDeEtapa", () => {
     expect(resultado.success).toBe(false);
   });
 
-  it("aceita { ligado: true } num marco", () => {
+  it("aceita { deltaEspera: 1 } num marco", () => {
     const resultado = esquemaAjusteDeEtapa.safeParse({
       encomendaId: randomUUID(),
       etapa: "queima1",
-      ligado: true,
+      deltaEspera: 1,
     });
     expect(resultado.success).toBe(true);
   });
 
-  it("aceita { ligado: false } num marco", () => {
+  it("aceita { deltaEspera: -1 } num marco", () => {
     const resultado = esquemaAjusteDeEtapa.safeParse({
       encomendaId: randomUUID(),
       etapa: "entrega",
-      ligado: false,
+      deltaEspera: -1,
     });
     expect(resultado.success).toBe(true);
   });
 
-  it("recusa delta numa etapa de marco — o esquema, não o componente, sabe que marco é interruptor", () => {
+  it("recusa qualquer deltaEspera fora de -1/1 num marco", () => {
+    const resultado = esquemaAjusteDeEtapa.safeParse({
+      encomendaId: randomUUID(),
+      etapa: "queima1",
+      deltaEspera: 2,
+    });
+    expect(resultado.success).toBe(false);
+  });
+
+  it("recusa delta (de dias) numa etapa de marco — o esquema, não o componente, sabe que marco ajusta a espera antes dele, não a duração", () => {
     const resultado = esquemaAjusteDeEtapa.safeParse({
       encomendaId: randomUUID(),
       etapa: "queima1",
@@ -306,11 +364,11 @@ describe("esquemaAjusteDeEtapa", () => {
     expect(resultado.success).toBe(false);
   });
 
-  it("recusa ligado numa etapa de intervalo", () => {
+  it("recusa deltaEspera numa etapa de intervalo — só marco tem espera", () => {
     const resultado = esquemaAjusteDeEtapa.safeParse({
       encomendaId: randomUUID(),
       etapa: "producao",
-      ligado: true,
+      deltaEspera: 1,
     });
     expect(resultado.success).toBe(false);
   });
