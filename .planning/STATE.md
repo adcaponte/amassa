@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: Contador de Queima
-status: phase_complete
-stopped_at: Phase 04.1 context gathered
-last_updated: "2026-08-21T07:08:02.254Z"
+current_phase: 04.1
+current_phase_name: datas-dos-marcos-da-encomenda
+status: executing
+stopped_at: Completed 04.1-01-PLAN.md
+last_updated: "2026-08-21T19:13:52.179Z"
 last_activity: 2026-08-21
-last_activity_desc: "router.refresh() com perda: defeito de produto no caminho do Core Value, corrigido e provado; rotulo de contencao do WINDOWS #12/#21/#22 desmentido por medicao"
+last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 39
-  completed_plans: 35
+  completed_plans: 36
 ---
 
 # Project State
@@ -23,19 +23,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 4 fechada — próxima é a Fase 5 (Agenda de Aulas)
+**Current focus:** Phase 04.1 — datas-dos-marcos-da-encomenda
 
 ## Current Position
 
-Phase: 04 (Contador de Queima) — COMPLETE ✓
-Plan: 7 of 7 — todos executados e verificados
-Status: Fase 4 fechada. Os 7 planos executados, migração aplicada à mão em produção e verificada
+Phase: 04.1 (datas-dos-marcos-da-encomenda) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-21 - router.refresh() com perda: defeito de produto no caminho do Core Value, corrigido e provado; rotulo de contencao do WINDOWS #12/#21/#22 desmentido por medicao
+Last activity: 2026-08-21 — Phase 04.1 execution started
 
-Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
+Progress: [█████████░] 92% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -97,6 +97,7 @@ Progress: [██████████] 100% da Fase 4 (35 de 35 planos execu
 | Phase 04 P05 | ~2h10min | 3 tasks | 12 files |
 | Phase 04 P06 | ~3h | 3 tasks | 16 files |
 | Phase 04 P07 | ~5h (span) | 3 tasks | 8 files |
+| Phase 04.1 P01 | 55min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -214,6 +215,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 04-07: migração 0007_queimas/0008_gatilhos-queimas aplicada em producao e verificada no banco (pg_trigger, atualizado_em provado por edição real) — Tarefa 2 concluída
 - [Phase ?]: 04-07: 04-VERIFICACAO-HUMANA.md produzido com 26 itens, todos em aberto — Tarefa 3 redefinida em tempo real para 'produzir, não completar' porque o dono estava indisponível (decisão do coordenador)
 - [Phase ?]: 04-07: duas causas raiz de falha real de CI corrigidas (autenticacao.spec.ts sem testInfo.retry no e-mail de bloqueio; queimas-manutencao.spec.ts sincronizando por um valor que não muda) — confirmadas com --workers=2 e CI run #46 verde
+- [Phase ?]: D-06 confirmado pelo humano (2026-08-21): substituir marcos_zero_ou_um por marcos_sempre_um_dia (dias=1 fixo nos tres marcos), nao apenas remover a restricao
+- [Phase ?]: diasAteProxima de em-etapa-intervalo corrigido para contar ate o inicio da proxima faixa desenhada, nunca ate o fimExclusivo da atual (mentia quando havia vao de espera)
 
 ### Pending Todos
 
@@ -268,6 +271,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-21T04:02:35.376Z
-Stopped at: Phase 04.1 context gathered
-Resume file: .planning/phases/04.1-datas-dos-marcos-da-encomenda/04.1-CONTEXT.md
+Last session: 2026-08-21T19:13:52.137Z
+Stopped at: Completed 04.1-01-PLAN.md
+Resume file: None

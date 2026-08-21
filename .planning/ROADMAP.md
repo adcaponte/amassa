@@ -280,12 +280,12 @@ retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
 reescrito), ENC-04 (retirado — não há mais o que desligar)
 **Migração**: sim — `0009_espera-dos-marcos` acrescenta a coluna `espera_dias` a
 `encomenda_etapas` e substitui a restrição `marcos_zero_ou_um`
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04.1-01-PLAN.md — Traçado: a espera do marco, do `check` do Postgres ao campo "dias depois" (onda 1)
+- [x] 04.1-01-PLAN.md — Traçado: a espera do marco, do `check` do Postgres ao campo "dias depois" (onda 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
