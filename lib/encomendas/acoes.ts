@@ -265,6 +265,10 @@ export async function concluirEncomenda(
     return { ok: false, erro: MENSAGEM_ENCOMENDA_NAO_EXISTE };
   }
 
+  // `.orderBy` é carregador, não enfeite (04.1-05, gap 16 da verificação): `calcularCronograma`
+  // percorre `duracoes` na ordem que RECEBE, e sem `order by` o Postgres não promete nenhuma
+  // ordem para as linhas devolvidas — semântica padrão de SQL. Mesmo padrão das leituras
+  // equivalentes de `lib/encomendas/consultas.ts`.
   const etapasDaEncomenda = await db
     .select({
       etapa: encomendaEtapas.etapa,
@@ -272,7 +276,8 @@ export async function concluirEncomenda(
       esperaDias: encomendaEtapas.esperaDias,
     })
     .from(encomendaEtapas)
-    .where(eq(encomendaEtapas.encomendaId, id));
+    .where(eq(encomendaEtapas.encomendaId, id))
+    .orderBy(asc(encomendaEtapas.ordem));
 
   const cronograma = calcularCronograma(linha.dataInicio, etapasDaEncomenda);
 
@@ -370,7 +375,10 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
       }
 
       // "for update" trava as 6 linhas — é a serialização que impede duas chamadas
-      // simultâneas na mesma etapa de se perderem uma na outra (PD-02, T-03-15).
+      // simultâneas na mesma etapa de se perderem uma na outra (PD-02, T-03-15). `.orderBy`
+      // vem ANTES do `.for("update")` (04.1-05, gap 16): `calcularCronograma` abaixo percorre
+      // `etapasComNovoValor` na ordem em que estas linhas chegaram do Postgres, que sem
+      // `order by` não é prometida — mesmo padrão das leituras de `lib/encomendas/consultas.ts`.
       const etapasAtuais = await tx
         .select({
           id: encomendaEtapas.id,
@@ -380,6 +388,7 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
         })
         .from(encomendaEtapas)
         .where(eq(encomendaEtapas.encomendaId, entrada.encomendaId))
+        .orderBy(asc(encomendaEtapas.ordem))
         .for("update");
 
       const etapaAlvo = etapasAtuais.find((etapa) => etapa.etapa === entrada.etapa);
