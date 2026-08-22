@@ -4,15 +4,15 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.1
 current_phase_name: datas-dos-marcos-da-encomenda
-status: verifying
+status: executing
 stopped_at: Completed 04.1-04-PLAN.md
-last_updated: "2026-08-22T09:20:13.304Z"
+last_updated: "2026-08-22T10:20:05.338Z"
 last_activity: 2026-08-21
 last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 6
   completed_phases: 6
-  total_plans: 39
+  total_plans: 41
   completed_plans: 39
 ---
 
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.1 (datas-dos-marcos-da-encomenda) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Plan: 4 of 6 (05 e 06 planejados, fechamento de lacunas)
+Status: Ready to execute
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
