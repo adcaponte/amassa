@@ -13,6 +13,8 @@ import {
   SELO_ATRASADA,
   SELO_RASCUNHO,
   SUFIXO_ESPERA,
+  textoAcessivelDaDuracao,
+  textoAcessivelDaEspera,
   textoDaContagemDeItens,
   textoDaEspera,
   textoDaEsperaNaTrilha,
@@ -211,6 +213,44 @@ describe("textoDaEsperaNaTrilha (D-09 — vão vazio da trilha e do Gantt)", () 
 
   it("5 sai no plural", () => {
     expect(textoDaEsperaNaTrilha(5)).toBe("A peça fica parada 5 dias antes desta etapa.");
+  });
+});
+
+describe("textoAcessivelDaEspera (WR-02 — região viva do ajuste rápido de marco)", () => {
+  it("0 anuncia 'Espera atual: 0 dias' — ao contrário de textoDaEsperaNaTrilha, o zero PRECISA ser anunciado", () => {
+    expect(textoAcessivelDaEspera(0, false)).toBe("Espera atual: 0 dias");
+  });
+
+  it("1 sai no singular", () => {
+    expect(textoAcessivelDaEspera(1, false)).toBe("Espera atual: 1 dia");
+  });
+
+  it("3 sai no plural", () => {
+    expect(textoAcessivelDaEspera(3, false)).toBe("Espera atual: 3 dias");
+  });
+
+  it("pendente devolve 'Salvando…', independente do valor", () => {
+    expect(textoAcessivelDaEspera(3, true)).toBe("Salvando…");
+    expect(textoAcessivelDaEspera(0, true)).toBe("Salvando…");
+  });
+});
+
+describe("textoAcessivelDaDuracao (WR-02 — região viva do ajuste rápido de intervalo)", () => {
+  it("0 anuncia 'Duração atual: 0 dias'", () => {
+    expect(textoAcessivelDaDuracao(0, false)).toBe("Duração atual: 0 dias");
+  });
+
+  it("1 sai no singular", () => {
+    expect(textoAcessivelDaDuracao(1, false)).toBe("Duração atual: 1 dia");
+  });
+
+  it("15 sai no plural", () => {
+    expect(textoAcessivelDaDuracao(15, false)).toBe("Duração atual: 15 dias");
+  });
+
+  it("pendente devolve 'Salvando…', independente do valor", () => {
+    expect(textoAcessivelDaDuracao(15, true)).toBe("Salvando…");
+    expect(textoAcessivelDaDuracao(0, true)).toBe("Salvando…");
   });
 });
 

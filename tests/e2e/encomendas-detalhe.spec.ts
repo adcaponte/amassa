@@ -611,6 +611,36 @@ test.describe("ajuste rápido", () => {
     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
   });
 
+  // WR-02/gap 17 da verificação: os dois contadores (espera de marco e duração de intervalo)
+  // passam a anunciar o valor atual — e o valor NOVO depois de confirmado — para quem usa
+  // leitor de tela. `toHaveText`, não `toBeVisible`: o elemento é `sr-only` de propósito.
+  test("o contador de espera e o de duração anunciam o valor atual para leitor de tela", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste anuncio acessivel");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    await abrirDetalhe(page, nome);
+
+    const esperaQueima2Inicial = DIAS_PADRAO.find((d) => d.etapa === "queima2")!.esperaDias;
+    const diasSecagemInicial = DIAS_PADRAO.find((d) => d.etapa === "secagem")!.dias;
+
+    const anuncioEspera = page.getByTestId("ajuste-anuncio-espera-queima2");
+    await expect(anuncioEspera).toHaveText(`Espera atual: ${esperaQueima2Inicial} dias`);
+
+    const anuncioDuracaoSecagem = page.getByTestId("ajuste-anuncio-secagem");
+    await expect(anuncioDuracaoSecagem).toHaveText(`Duração atual: ${diasSecagemInicial} dias`);
+
+    const botaoAumentarEspera = page.getByRole("button", {
+      name: `Aumentar a espera antes de ${ROTULO_ETAPA.queima2}`,
+    });
+    await botaoAumentarEspera.click();
+
+    await expect(anuncioEspera).toHaveText(`Espera atual: ${esperaQueima2Inicial + 1} dias`, {
+      timeout: 10000,
+    });
+  });
+
   // CR-02/gap 17 da verificação: reproduz o cenário de duas sessões concorrentes numa aba só —
   // o gestor A grava 365 direto no banco (`definirEsperaDaEtapa`, sem passar pela ação) enquanto
   // a aba do gestor B, aberta antes, ainda mostra 364 e não está desabilitada (o cliente só

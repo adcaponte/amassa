@@ -85,6 +85,26 @@ export function textoDaEsperaNaTrilha(esperaDias: number): string | null {
     : `A peça fica parada ${esperaDias} dias antes desta etapa.`;
 }
 
+// Os dois textos que só um leitor de tela ouve, para a região viva (`aria-live="polite"`) dos
+// dois contadores de `ajuste-rapido-etapa.tsx` (WR-02/gap 17 da verificação) — moram aqui, como
+// qualquer outro texto do módulo, com teste próprio. Ao contrário de `textoDaEspera`/
+// `textoDaEsperaNaTrilha`, o valor 0 PRECISA ser anunciado nos dois: é o valor atual de um
+// controle interativo (o gestor perguntou "quanto está?"), não uma frase informativa que pode
+// sumir quando não há nada a dizer.
+export function textoAcessivelDaEspera(esperaDias: number, pendente: boolean): string {
+  if (pendente) {
+    return "Salvando…";
+  }
+  return esperaDias === 1 ? "Espera atual: 1 dia" : `Espera atual: ${esperaDias} dias`;
+}
+
+export function textoAcessivelDaDuracao(dias: number, pendente: boolean): string {
+  if (pendente) {
+    return "Salvando…";
+  }
+  return dias === 1 ? "Duração atual: 1 dia" : `Duração atual: ${dias} dias`;
+}
+
 // Contagem de itens do índice (Gantt e cartão) em frase de interface, com singular/plural
 // corretos em português — a interface não deixa criar `0` (`esquemaEncomenda.itens.min(1)`), mas
 // uma linha semeada direto no banco alcança esse caso, então ele ganha frase própria em vez de

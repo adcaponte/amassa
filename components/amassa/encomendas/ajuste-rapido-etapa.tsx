@@ -6,7 +6,13 @@ import { toast } from "sonner";
 
 import type { Etapa } from "@/lib/encomendas/cronograma";
 import { ajustarEtapaEncomenda } from "@/lib/encomendas/acoes";
-import { FRASE_FALHA_AO_SALVAR, ROTULO_ETAPA, SUFIXO_ESPERA } from "@/lib/encomendas/textos";
+import {
+  FRASE_FALHA_AO_SALVAR,
+  ROTULO_ETAPA,
+  SUFIXO_ESPERA,
+  textoAcessivelDaDuracao,
+  textoAcessivelDaEspera,
+} from "@/lib/encomendas/textos";
 
 export type RespostaDeAjuste = { duracaoTotalEmDias: number; dataDeConclusao: string | null };
 
@@ -123,12 +129,23 @@ export function AjusteRapidoEtapa({
 
         <span
           className="text-mono tabular-nums flex w-6 items-center justify-center text-tinta"
+          // `aria-hidden` continua aqui — com a região viva logo abaixo, este `span` passa a
+          // ser duplicata visual legítima, não o defeito que WR-02 apontou (04.1-REVIEW.md).
           aria-hidden="true"
           data-testid={`ajuste-numero-espera-${etapa}`}
           data-pendente={pendente ? "true" : "false"}
           data-valor={espera}
         >
           {pendente ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : espera}
+        </span>
+
+        {/* Região viva (WR-02): um `aria-label` num `span` sem papel não tem exposição
+            garantida em leitor de tela, e o que falta não é só o valor atual — é o gestor
+            ouvir o valor NOVO depois de apertar o botão. `aria-live="polite"` resolve os dois
+            de uma vez, sem tocar no rótulo dos botões (eles descrevem a AÇÃO, nunca o
+            estado — já decidido e coberto por teste de ponta a ponta). */}
+        <span className="sr-only" aria-live="polite" data-testid={`ajuste-anuncio-espera-${etapa}`}>
+          {textoAcessivelDaEspera(espera, pendente)}
         </span>
 
         <button
@@ -176,12 +193,20 @@ export function AjusteRapidoEtapa({
 
       <span
         className="text-mono tabular-nums flex w-6 items-center justify-center text-tinta"
+        // Mesma decisão do ramo de marco acima (WR-02): `aria-hidden` continua, a região viva
+        // logo abaixo é quem carrega o valor para leitor de tela. O ramo de intervalo tem
+        // exatamente o mesmo defeito de acessibilidade que o de marco — é o mesmo componente,
+        // a mesma tela, e deixar as duas metades divergentes só atrapalharia ajuste futuro.
         aria-hidden="true"
         data-testid={`ajuste-numero-${etapa}`}
         data-pendente={pendente ? "true" : "false"}
         data-valor={dias}
       >
         {pendente ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : dias}
+      </span>
+
+      <span className="sr-only" aria-live="polite" data-testid={`ajuste-anuncio-${etapa}`}>
+        {textoAcessivelDaDuracao(dias, pendente)}
       </span>
 
       <button
