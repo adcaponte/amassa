@@ -156,6 +156,46 @@ describe("calcularCronograma", () => {
     expect(DIAS_PADRAO.map((duracao) => duracao.etapa)).toEqual(ORDEM_DAS_ETAPAS);
   });
 
+  // Gap 16 da verificação (04.1-05): `calcularCronograma` percorre `duracoes` na ordem que
+  // RECEBE — a ordem do array É entrada do cálculo, não um detalhe. Prova isso alimentando a
+  // função com as mesmas 6 etapas em ordem invertida e comparando a faixa de `queima2` (nunca
+  // por índice — em ordem invertida o índice de cada etapa muda; a busca é sempre por `etapa`).
+  it("a ordem do array de duracoes é carregadora: as mesmas 6 etapas em ordem invertida produzem inicio de faixa diferentes", () => {
+    const ordemInvertida = [...DIAS_PADRAO].reverse();
+
+    const cronogramaNormal = calcularCronograma("2026-08-12", DIAS_PADRAO);
+    const cronogramaInvertido = calcularCronograma("2026-08-12", ordemInvertida);
+
+    const queima2Normal = cronogramaNormal.faixas.find((faixa) => faixa.etapa === "queima2");
+    const queima2Invertido = cronogramaInvertido.faixas.find(
+      (faixa) => faixa.etapa === "queima2",
+    );
+
+    expect(queima2Normal?.inicio).not.toBe(queima2Invertido?.inicio);
+  });
+
+  // O achado que impede o defeito acima de ser diagnosticado errado: sob as restrições de HOJE,
+  // `duracaoTotalEmDias` e `dataDeConclusao` são IGUAIS entre os dois cronogramas do teste
+  // anterior. A soma `dias + esperaDias` das 6 etapas não depende da ordem em que são somadas, e
+  // toda etapa que pode ter `dias === 0` é etapa de intervalo (produção/secagem/esmaltação), que
+  // por `espera_so_em_marco` tem `esperaDias === 0` e portanto nunca avança o cursor sozinha —
+  // o que faz a data de conclusão cair sempre em `dataInicio + duracaoTotalEmDias - 1`, qualquer
+  // que seja a ordem das 6 etapas. É por isso que a prova do gap precisa olhar as FAIXAS
+  // (`inicio` de `queima2`, acima), nunca o rodapé (`dataDeConclusao`) — o rodapé da trilha não
+  // consegue mostrar esse defeito, e alguém que olhasse só ele concluiria, errado, que a ordem
+  // "não importa". Esta invariância é ACIDENTE das restrições atuais, não garantia: no dia em
+  // que alguém permitir espera numa etapa de intervalo, ou um marco com `dias` diferente de 1, a
+  // data de conclusão passa a depender da ordem também.
+  it("duracaoTotalEmDias e dataDeConclusao são invariantes à ordem sob as restrições atuais", () => {
+    const ordemInvertida = [...DIAS_PADRAO].reverse();
+
+    const cronogramaNormal = calcularCronograma("2026-08-12", DIAS_PADRAO);
+    const cronogramaInvertido = calcularCronograma("2026-08-12", ordemInvertida);
+
+    expect(cronogramaInvertido.duracaoTotalEmDias).toBe(cronogramaNormal.duracaoTotalEmDias);
+    expect(cronogramaInvertido.dataDeConclusao).toBe(cronogramaNormal.dataDeConclusao);
+  });
+
   it.each(["queima1", "queima2", "entrega"] as const)(
     "marco %s com dias: 0 ou 2 lança RangeError nomeando a etapa (D-06: marco sempre dura 1 dia)",
     (etapa) => {
