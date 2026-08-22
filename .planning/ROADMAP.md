@@ -280,7 +280,7 @@ retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
 reescrito), ENC-04 (retirado — não há mais o que desligar)
 **Migração**: sim — `0009_espera-dos-marcos` acrescenta a coluna `espera_dias` a
 `encomenda_etapas` e substitui a restrição `marcos_zero_ou_um`
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans executed
 
 Plans:
 **Wave 1**
@@ -302,7 +302,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 04.1-06-PLAN.md — A mensagem em português chega ao gestor, os contadores viram acessíveis, a guarda certa no roteiro de migração e a varredura de reencerramento (onda 5)
+- [x] 04.1-06-PLAN.md — A mensagem em português chega ao gestor, os contadores viram acessíveis, a guarda certa no roteiro de migração e a varredura de reencerramento (onda 5)
 
 ### Phase 5: Agenda de Aulas
 

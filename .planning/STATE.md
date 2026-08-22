@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.1
 current_phase_name: datas-dos-marcos-da-encomenda
 status: executing
-stopped_at: Completed 04.1-05-PLAN.md
-last_updated: "2026-08-22T11:57:08.662Z"
+stopped_at: Completed 04.1-06-PLAN.md
+last_updated: "2026-08-22T12:17:44.705Z"
 last_activity: 2026-08-22
 last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 41
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -28,14 +28,14 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.1 (datas-dos-marcos-da-encomenda) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
 Last activity: 2026-08-22 — Phase 04.1 execution started
 
-Progress: [██████████] 98% da Fase 4 (35 de 35 planos executados e verificados até aqui)
+Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -102,6 +102,7 @@ Progress: [██████████] 98% da Fase 4 (35 de 35 planos execut
 | Phase 04.1 P03 | ~25min | 2 tasks | 4 files |
 | Phase 04.1 P04 | ~15min (Tarefa 1) + execucao real da migracao pelo dono | 2 tasks | 4 files |
 | Phase 04.1 P05 | ~15min | 2 tasks | 7 files |
+| Phase 04.1 P06 | ~35min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -232,6 +233,9 @@ Recent decisions affecting current work:
 - [Phase ?]: O caminhador de arvore sintatica decide pelo texto do no do topo da cadeia de chamadas, nunca sobre o arquivo inteiro — evita falso positivo de orderBy em outra consulta do mesmo arquivo.
 - [Phase ?]: inverterOrdemFisicaDasEtapas usa delete+reinsert, nunca UPDATE — HOT update preservaria o ponteiro fisico e nao provaria a divergencia de ordem.
 - [Phase ?]: duracaoTotalEmDias/dataDeConclusao invariantes a ordem sob as restricoes atuais foi documentado como acidente, nao garantia.
+- [Phase ?]: 04.1-06: AjusteInvalido (molde de EncomendaNaoEncontrada) fecha o gap 17/CR-02 — teto de 365 dias devolve { ok: false, erro } em vez de exceção não tratada; try/catch/finally no cliente garante saída do estado pendente em todo caminho
+- [Phase ?]: 04.1-06: WR-02 resolvido com região viva (aria-live=polite + sr-only) ao lado do número aria-hidden, não aria-label no span — anuncia valor atual e valor novo sem tocar em rótulo de botão já testado
+- [Phase ?]: 04.1-06: roteiro de migração ganhou guarda que confere dias<>1 em linha de marco (WR-01); WR-03 (datas conflitantes em TrilhaEtapas) registrado como adiado em 04.1-CONTEXT.md, sem código, aguardando o dono
 
 ### Pending Todos
 
@@ -286,6 +290,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-22T11:57:08.620Z
-Stopped at: Completed 04.1-05-PLAN.md
+Last session: 2026-08-22T12:17:44.662Z
+Stopped at: Completed 04.1-06-PLAN.md
 Resume file: None
