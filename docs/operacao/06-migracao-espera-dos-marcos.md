@@ -46,7 +46,26 @@ docker compose exec postgres psql -U amassa_owner -d amassa -c "select count(*) 
 aparecer numa consulta seguinte (`select nome, cliente from encomendas limit 20;`, se quiser
 olhar antes de decidir), **pare aqui** e volte com o número — a migração passaria a precisar de
 um plano de conversão de dados que esta fase não tem. Se as linhas forem só dado de teste
-(`[e2e]`, nomes inventados), siga para o Passo 2.
+(`[e2e]`, nomes inventados), siga para a segunda guarda abaixo.
+
+A guarda acima pergunta se o dado **parece real** — essa pergunta é diferente de "a migração vai
+passar?". Um `CHECK` novo no Postgres (`marcos_sempre_um_dia`, adicionado por esta migração)
+valida TODAS as linhas existentes de `encomenda_etapas` no momento do `ALTER TABLE` e derruba a
+migração inteira se uma delas violar — mesmo dado de teste inofensivo pode ter essa forma. O
+modelo antigo (`marcos_zero_ou_um`) permitia um marco com `dias = 0` (o interruptor desligado);
+`marcos_sempre_um_dia` exige `dias = 1` sempre, sem exceção. Uma única linha de marco esquecida
+em `dias = 0` faria o Passo 4 abortar. Confira essa condição especificamente, antes de seguir:
+
+```bash
+docker compose exec postgres psql -U amassa_owner -d amassa -c "select id, encomenda_id, etapa, dias from encomenda_etapas where etapa in ('queima1','queima2','entrega') and dias <> 1;"
+```
+
+**O que você deve ver: nenhuma linha.** Se alguma linha aparecer, **pare aqui** — a migração vai
+falhar no Passo 4. (Nota para quem lê isto depois: a migração `0009_espera-dos-marcos.sql` já foi
+aplicada com sucesso em produção — isto não é relato de um incidente, é o documento sendo
+corrigido para a próxima leitura e para a próxima migração que tocar esta tabela.)
+
+Se as duas guardas passarem, siga para o Passo 2.
 
 ---
 
