@@ -4,6 +4,8 @@ import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cr
 import { formatarDiaCompleto, formatarDiaCurto, formatarIntervalo } from "@/lib/encomendas/formato";
 import { ROTULO_ETAPA, SUFIXO_ESPERA, textoDaEsperaNaTrilha, textoDaSituacao } from "@/lib/encomendas/textos";
 
+import { definirEsperaDaEtapa } from "./apoio/etapas-no-banco";
+
 // Página de detalhe (`/encomendas/[id]`, D-01/D-04): a trilha vertical de seis etapas com as
 // datas certas (Tarefa 1), o ajuste rápido sem otimismo (Tarefa 2) e as ações de ciclo de vida
 // com a hierarquia cancelar/excluir (Tarefa 3) — 03-05-PLAN.md. `calcularCronograma`/
@@ -607,6 +609,62 @@ test.describe("ajuste rápido", () => {
     // com texto de sucesso — só o número da tela mudou.
     await expect(page.getByText("Encomenda salva.")).toHaveCount(0);
     await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+  });
+
+  // CR-02/gap 17 da verificação: reproduz o cenário de duas sessões concorrentes numa aba só —
+  // o gestor A grava 365 direto no banco (`definirEsperaDaEtapa`, sem passar pela ação) enquanto
+  // a aba do gestor B, aberta antes, ainda mostra 364 e não está desabilitada (o cliente só
+  // desabilita em 365 local). Um clique aí soma 1 sobre o valor travado (365) que o servidor lê
+  // de verdade, recusa pelo teto de `esquemaEtapas`, e a mensagem em português precisa chegar ao
+  // gestor — nunca um spinner travado.
+  test("o ajuste rápido recusa uma espera acima de 365 com a mensagem em português, e o controle volta a funcionar", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Ajuste limite 365");
+    await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
+    const id = await abrirDetalhe(page, nome);
+
+    // A aba mostra 364 (a fixture nasce com 3; leva ao limite por fora, sem passar pelos 361
+    // cliques que a interface exigiria) e recarrega para refletir esse estado local antes do
+    // cenário de corrida.
+    await definirEsperaDaEtapa(id, "queima2", 364);
+    await page.reload();
+
+    const numeroEspera = page.getByTestId("ajuste-numero-espera-queima2");
+    await expect(numeroEspera).toHaveAttribute("data-valor", "364");
+
+    const botaoAumentarEspera = page.getByRole("button", {
+      name: `Aumentar a espera antes de ${ROTULO_ETAPA.queima2}`,
+    });
+    await expect(botaoAumentarEspera).toBeEnabled();
+
+    // O gestor A comita 365 no banco SEM a aba do gestor B recarregar — é exatamente o cenário
+    // real do CR-02: a aba continua mostrando 364 e com o botão habilitado, porque o cliente só
+    // desabilita ao alcançar 365 localmente.
+    await definirEsperaDaEtapa(id, "queima2", 365);
+
+    await botaoAumentarEspera.click();
+
+    // O servidor lê 365 sob `for update`, soma 1 (366), o `esquemaEtapas` recusa com a mensagem
+    // exata escrita à mão — e ela precisa chegar num toast, nunca uma exceção não tratada.
+    await expect(page.getByText("A espera não pode passar de 365 dias.")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // O controle volta ao número anterior (364, o valor local antes do clique recusado — nunca
+    // 365, que é o que o banco tem agora, porque a resposta nega o ajuste) e sai do estado
+    // pendente: nenhum spinner girando para sempre.
+    await expect(numeroEspera).toHaveAttribute("data-pendente", "false", { timeout: 10000 });
+    await expect(numeroEspera).toHaveAttribute("data-valor", "364");
+    await expect(botaoAumentarEspera).toBeEnabled();
+
+    // O lado "-1" do limite (piso 0) não é alcançável pela interface — `queima1` nasce com
+    // espera 0 (DIAS_PADRAO), e o botão de diminuir já nasce desabilitado.
+    const botaoDiminuirQueima1 = page.getByRole("button", {
+      name: `Diminuir a espera antes de ${ROTULO_ETAPA.queima1}`,
+    });
+    await expect(botaoDiminuirQueima1).toBeDisabled();
   });
 });
 

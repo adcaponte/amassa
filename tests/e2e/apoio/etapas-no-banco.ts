@@ -129,6 +129,23 @@ export async function lerEtapasOrdenadas(encomendaId: string): Promise<DuracaoDe
   });
 }
 
+// Grava `esperaDias` direto na linha de `etapa` da encomenda `encomendaId`, sem passar pela
+// Server Action — é o que simula a segunda sessão do CR-02/gap 17 (04.1-REVIEW.md): um gestor A
+// comitando um valor no banco enquanto a aba do gestor B, aberta antes, ainda mostra o valor
+// antigo. Mesmo molde de `criarEncomendaComEtapasPadrao`/`apagarEncomenda`, pelo cliente `pg`.
+export async function definirEsperaDaEtapa(
+  encomendaId: string,
+  etapa: DuracaoDeEtapa["etapa"],
+  esperaDias: number,
+): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query(
+      `update encomenda_etapas set espera_dias = $1 where encomenda_id = $2 and etapa = $3`,
+      [esperaDias, encomendaId, etapa],
+    ),
+  );
+}
+
 // Apaga a encomenda de teste — as etapas saem junto por `on delete cascade`.
 export async function apagarEncomenda(encomendaId: string): Promise<void> {
   await comCliente((cliente) =>

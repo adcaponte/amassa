@@ -101,6 +101,15 @@ export async function criarEncomenda(
 // `{ ok: false, erro }` humano antes de sair de qualquer ação (T-03-17).
 class EncomendaNaoEncontrada extends Error {}
 
+// Erro de controle interno, do mesmo molde de `EncomendaNaoEncontrada`: aborta a transação de
+// `ajustarEtapaEncomenda` quando o valor recalculado (delta somado ao que a trava acabou de ler)
+// não passa por `esquemaEtapas` — hoje, só o teto de 365 dias de espera alcança este caminho.
+// Nunca escapa deste arquivo: sempre traduzido para `{ ok: false, erro }` humano antes de sair
+// de qualquer ação (T-04.1-26/gap 17 da verificação). A mensagem já é escrita à mão em
+// português pelo próprio `esquemaEtapas` — este tipo só carrega essa mensagem até o `catch`
+// certo, nunca inventa uma nova.
+class AjusteInvalido extends Error {}
+
 const MENSAGEM_ENCOMENDA_NAO_EXISTE =
   "Essa encomenda não existe mais. Talvez alguém tenha excluído.";
 
@@ -416,7 +425,7 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
 
       const validacao = esquemaEtapas.safeParse(etapasComNovoValor);
       if (!validacao.success) {
-        throw new Error(primeiraMensagemDeErro(validacao));
+        throw new AjusteInvalido(primeiraMensagemDeErro(validacao));
       }
 
       await tx
@@ -444,6 +453,16 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
     if (erro instanceof EncomendaNaoEncontrada) {
       return { ok: false, erro: MENSAGEM_ENCOMENDA_NAO_EXISTE };
     }
+    if (erro instanceof AjusteInvalido) {
+      // Resultado ESPERADO de validação (ex.: duas sessões concorrentes empurrando a espera
+      // acima de 365, CR-02/gap 17) — não é falha do servidor para registrar como as demais;
+      // `console.error` continua reservado a erro inesperado, senão o log vira ruído. A
+      // mensagem em português já foi escrita à mão por `esquemaEtapas`; só ela sai daqui.
+      return { ok: false, erro: erro.message };
+    }
+    // Todo erro além dos dois tipos acima continua sendo registrado e relançado — silenciar
+    // aqui trocaria um spinner travado por uma falha invisível, que é pior (CLAUDE.md
+    // §Mensagens).
     console.error("Falha ao ajustar etapa:", erro);
     throw erro;
   }

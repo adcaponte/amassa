@@ -64,23 +64,38 @@ export function AjusteRapidoEtapa({
     }
     setPendente(true); // passo 2
 
-    const resposta = await ajustarEtapaEncomenda({ encomendaId, etapa, ...entrada });
+    // `finally` é o ponto: sucesso, `{ ok: false }` ou rejeição de promessa (erro inesperado de
+    // rede/servidor) saem TODOS do estado pendente por aqui — nunca só no caminho feliz. Sem
+    // isso, um erro que escapa do `await` deixa o spinner girando até a página recarregar
+    // (CR-02/gap 17 da verificação).
+    try {
+      const resposta = await ajustarEtapaEncomenda({ encomendaId, etapa, ...entrada });
 
-    setPendente(false);
+      if (!resposta.ok) {
+        setDias(valorAnteriorDeDias); // passo 3
+        setEspera(valorAnteriorDeEspera); // passo 3
+        // A mensagem em português que o servidor escreveu à mão (ex.: o teto de 365 dias de
+        // espera) é o que o gestor precisa ler — nunca a frase genérica no lugar dela. A frase
+        // genérica só entra se o servidor não mandou nenhuma (reserva, não é o caminho comum).
+        toast.error(resposta.erro || FRASE_FALHA_AO_SALVAR);
+        return;
+      }
 
-    if (!resposta.ok) {
+      setDias(resposta.dados.dias); // passo 4
+      setEspera(resposta.dados.esperaDias); // passo 4
+      aoConfirmar({
+        duracaoTotalEmDias: resposta.dados.duracaoTotalEmDias,
+        dataDeConclusao: resposta.dados.dataDeConclusao,
+      });
+    } catch {
+      // Erro inesperado (rede caída, exceção não tratada no servidor) — sem mensagem própria em
+      // português para mostrar, então a frase de reserva assume.
       setDias(valorAnteriorDeDias); // passo 3
       setEspera(valorAnteriorDeEspera); // passo 3
       toast.error(FRASE_FALHA_AO_SALVAR);
-      return;
+    } finally {
+      setPendente(false);
     }
-
-    setDias(resposta.dados.dias); // passo 4
-    setEspera(resposta.dados.esperaDias); // passo 4
-    aoConfirmar({
-      duracaoTotalEmDias: resposta.dados.duracaoTotalEmDias,
-      dataDeConclusao: resposta.dados.dataDeConclusao,
-    });
   }
 
   const nomeEtapa = ROTULO_ETAPA[etapa];
