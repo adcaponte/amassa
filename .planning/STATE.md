@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04.1
-current_phase_name: datas-dos-marcos-da-encomenda
-status: executing
+current_phase: 5
+current_phase_name: Agenda de Aulas
+status: planning
 stopped_at: Completed 04.1-06-PLAN.md
-last_updated: "2026-08-22T12:17:44.705Z"
+last_updated: "2026-08-22T12:32:31.717Z"
 last_activity: 2026-08-22
-last_activity_desc: Phase 04.1 execution started
+last_activity_desc: Phase 04.1 complete, transitioned to Phase 5
 progress:
   total_phases: 6
   completed_phases: 6
@@ -27,13 +27,13 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.1 (datas-dos-marcos-da-encomenda) — EXECUTING
-Plan: 3 of 6
-Status: Ready to execute
+Phase: 5 — Agenda de Aulas
+Plan: Not started
+Status: Ready to plan
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-22 — Phase 04.1 execution started
+Last activity: 2026-08-22 — Phase 04.1 complete, transitioned to Phase 5
 
 Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
@@ -41,7 +41,7 @@ Progress: [██████████] 100% da Fase 4 (35 de 35 planos execu
 
 **Velocity:**
 
-- Total plans completed: 20
+- Total plans completed: 26
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100% da Fase 4 (35 de 35 planos execu
 | 1 | 7 | - | - |
 | 02a | 8 | - | - |
 | 2b | 5 | - | - |
+| 04.1 | 6 | - | - |
 
 **Recent Trend:**
 

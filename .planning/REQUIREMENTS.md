@@ -62,7 +62,7 @@
 
 - [x] **ENC-01**: Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
 - [x] **ENC-02**: Mudar a duração de uma etapa desloca todas as etapas seguintes
-- [ ] **ENC-03**: Os três marcos (queima 1, queima 2, entrega) aparecem como losango, sempre acontecem e sempre duram 1 dia — o campo numérico ao lado de cada um é a espera **antes** do marco, nunca a duração dele.
+- [x] **ENC-03**: Os três marcos (queima 1, queima 2, entrega) aparecem como losango, sempre acontecem e sempre duram 1 dia — o campo numérico ao lado de cada um é a espera **antes** do marco, nunca a duração dele.
   > **Por que não é regressão (D-07, Fase 04.1):** a proibição original existia para o gestor não digitar a *duração* de algo que sempre dura 1 dia. O número novo mede outra coisa — a espera antes do marco — e por isso o campo numérico não contradiz o espírito do requisito original. Reaberto a partir da caminhada do dono em produção em 2026-08-20 (`.planning/phases/03-gestor-de-encomendas/03-VERIFICATION.md` §"Achado de produto — ENC-03 está errado sobre o ateliê"), nas palavras dele: *"as queimas e entregas sempre acontecem"*.
 
 - [ ] ~~**ENC-04**: Desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda~~ — **Retirado na Fase 04.1**: o interruptor liga/desliga saiu dos três marcos (D-06); não existe mais o que desligar, então a capacidade descrita aqui deixou de existir. Este requisito passou nas duas rodadas de verificação da Fase 3 (`03-VERIFICATION.md`); a linha permanece, tachada, para não apagar esse histórico.
@@ -254,7 +254,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ENC-12 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-13 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-14 | Phase 3 — Gestor de Encomendas | Complete |
-| ENC-03 | Phase 04.1 — Datas dos Marcos da Encomenda (reaberto) | Gaps Found |
+| ENC-03 | Phase 04.1 — Datas dos Marcos da Encomenda (reaberto) | Complete |
 | ENC-04 | Phase 04.1 — Datas dos Marcos da Encomenda (reaberto) | Withdrawn |
 | ENC-15 | Phase 04.1 — Datas dos Marcos da Encomenda | Complete |
 | FOR-01 | Phase 4 — Contador de Queima | Complete |

@@ -280,7 +280,7 @@ retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
 reescrito), ENC-04 (retirado — não há mais o que desligar)
 **Migração**: sim — `0009_espera-dos-marcos` acrescenta a coluna `espera_dias` a
 `encomenda_etapas` e substitui a restrição `marcos_zero_ou_um`
-**Plans:** 6/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
