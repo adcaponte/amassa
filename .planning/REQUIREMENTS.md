@@ -64,6 +64,7 @@
 - [x] **ENC-02**: Mudar a duração de uma etapa desloca todas as etapas seguintes
 - [ ] **ENC-03**: Os três marcos (queima 1, queima 2, entrega) aparecem como losango, sempre acontecem e sempre duram 1 dia — o campo numérico ao lado de cada um é a espera **antes** do marco, nunca a duração dele.
   > **Por que não é regressão (D-07, Fase 04.1):** a proibição original existia para o gestor não digitar a *duração* de algo que sempre dura 1 dia. O número novo mede outra coisa — a espera antes do marco — e por isso o campo numérico não contradiz o espírito do requisito original. Reaberto a partir da caminhada do dono em produção em 2026-08-20 (`.planning/phases/03-gestor-de-encomendas/03-VERIFICATION.md` §"Achado de produto — ENC-03 está errado sobre o ateliê"), nas palavras dele: *"as queimas e entregas sempre acontecem"*.
+
 - [ ] ~~**ENC-04**: Desligar a etapa "Entrega" faz o losango sumir e encurta a encomenda~~ — **Retirado na Fase 04.1**: o interruptor liga/desliga saiu dos três marcos (D-06); não existe mais o que desligar, então a capacidade descrita aqui deixou de existir. Este requisito passou nas duas rodadas de verificação da Fase 3 (`03-VERIFICATION.md`); a linha permanece, tachada, para não apagar esse histórico.
 - [x] **ENC-05**: Uma encomenda guarda e mostra vários itens com descrição e quantidade (ex.: 40 canecas e 12 bowls)
 - [x] **ENC-06**: No desktop, o Gantt usa 18px/dia, cabeçalho em quinzenas, coluna fixa e linha de "Hoje" na posição certa
@@ -75,7 +76,7 @@
 - [x] **ENC-12**: Uma encomenda criada num dispositivo aparece no outro ao recarregar a página
 - [x] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
 - [x] **ENC-14**: Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
-- [ ] **ENC-15** (Fase 04.1): O gestor diz quantos dias a peça fica parada antes de cada um dos três marcos (queima de biscoito, queima de esmalte, entrega), digitando o número num campo com o sufixo "dias depois"; a espera desloca o marco e todas as etapas seguintes na cascata, e **nenhuma data é armazenada** — a espera é um contador relativo de dias, e `data_inicio` continua sendo a única âncora gravada (D-01). Padrões dados pelo dono: espera 0 na queima de biscoito, 3 na queima de esmalte e 5 na entrega (D-05).
+- [x] **ENC-15** (Fase 04.1): O gestor diz quantos dias a peça fica parada antes de cada um dos três marcos (queima de biscoito, queima de esmalte, entrega), digitando o número num campo com o sufixo "dias depois"; a espera desloca o marco e todas as etapas seguintes na cascata, e **nenhuma data é armazenada** — a espera é um contador relativo de dias, e `data_inicio` continua sendo a única âncora gravada (D-01). Padrões dados pelo dono: espera 0 na queima de biscoito, 3 na queima de esmalte e 5 na entrega (D-05).
 
 ### Contador de Queima
 
@@ -255,7 +256,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ENC-14 | Phase 3 — Gestor de Encomendas | Complete |
 | ENC-03 | Phase 04.1 — Datas dos Marcos da Encomenda (reaberto) | Gaps Found |
 | ENC-04 | Phase 04.1 — Datas dos Marcos da Encomenda (reaberto) | Withdrawn |
-| ENC-15 | Phase 04.1 — Datas dos Marcos da Encomenda | Gaps Found |
+| ENC-15 | Phase 04.1 — Datas dos Marcos da Encomenda | Complete |
 | FOR-01 | Phase 4 — Contador de Queima | Complete |
 | FOR-02 | Phase 4 — Contador de Queima | Complete |
 | FOR-03 | Phase 4 — Contador de Queima | Complete |

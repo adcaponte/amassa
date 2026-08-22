@@ -280,7 +280,7 @@ retrabalho da Fase 3 — é a especificação que estava errada sobre o ateliê.
 reescrito), ENC-04 (retirado — não há mais o que desligar)
 **Migração**: sim — `0009_espera-dos-marcos` acrescenta a coluna `espera_dias` a
 `encomenda_etapas` e substitui a restrição `marcos_zero_ou_um`
-**Plans:** 6 plans (4 executados · 2 de fechamento de lacunas, pendentes)
+**Plans:** 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -298,7 +298,7 @@ Plans:
 
 **Wave 4** *(fechamento de lacunas — `04.1-VERIFICATION.md` voltou `gaps_found`, 15/17)*
 
-- [ ] 04.1-05-PLAN.md — A ordem das etapas: `order by ordem` nas duas leituras que alimentam a cascata, com portão estrutural e prova em Postgres real (onda 4)
+- [x] 04.1-05-PLAN.md — A ordem das etapas: `order by ordem` nas duas leituras que alimentam a cascata, com portão estrutural e prova em Postgres real (onda 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 

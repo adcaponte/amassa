@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.1
 current_phase_name: datas-dos-marcos-da-encomenda
 status: executing
-stopped_at: Completed 04.1-04-PLAN.md
-last_updated: "2026-08-22T10:20:05.338Z"
-last_activity: 2026-08-21
+stopped_at: Completed 04.1-05-PLAN.md
+last_updated: "2026-08-22T11:57:08.662Z"
+last_activity: 2026-08-22
 last_activity_desc: Phase 04.1 execution started
 progress:
   total_phases: 6
-  completed_phases: 6
+  completed_phases: 5
   total_plans: 41
-  completed_plans: 39
+  completed_plans: 40
 ---
 
 # Project State
@@ -28,14 +28,14 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.1 (datas-dos-marcos-da-encomenda) — EXECUTING
-Plan: 4 of 6 (05 e 06 planejados, fechamento de lacunas)
+Plan: 2 of 6
 Status: Ready to execute
 direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
 nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
 foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-21 — Phase 04.1 execution started
+Last activity: 2026-08-22 — Phase 04.1 execution started
 
-Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
+Progress: [██████████] 98% da Fase 4 (35 de 35 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -101,6 +101,7 @@ Progress: [██████████] 100% da Fase 4 (35 de 35 planos execu
 | Phase 04.1 P02 | ~45min | 3 tasks | 8 files |
 | Phase 04.1 P03 | ~25min | 2 tasks | 4 files |
 | Phase 04.1 P04 | ~15min (Tarefa 1) + execucao real da migracao pelo dono | 2 tasks | 4 files |
+| Phase 04.1 P05 | ~15min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -228,6 +229,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 02-MODELO-DE-DADOS.md e 00-BRIEFING.md nao mencionam mais marco como interruptor; DDL de encomenda_etapas espelha db/schema.ts
 - [Phase ?]: Migracao 0009_espera-dos-marcos aplicada em producao (D-10 conferido, backup verificado, coluna/tres restricoes lidas do banco, insert invalido rejeitado) — fecha a Fase 04.1
 - [Phase ?]: Esmaltacao mantida em 1 dia — pendencia nao bloqueante carregada para o dono decidir depois
+- [Phase ?]: O caminhador de arvore sintatica decide pelo texto do no do topo da cadeia de chamadas, nunca sobre o arquivo inteiro — evita falso positivo de orderBy em outra consulta do mesmo arquivo.
+- [Phase ?]: inverterOrdemFisicaDasEtapas usa delete+reinsert, nunca UPDATE — HOT update preservaria o ponteiro fisico e nao provaria a divergencia de ordem.
+- [Phase ?]: duracaoTotalEmDias/dataDeConclusao invariantes a ordem sob as restricoes atuais foi documentado como acidente, nao garantia.
 
 ### Pending Todos
 
@@ -282,6 +286,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-22T09:20:13.261Z
-Stopped at: Completed 04.1-04-PLAN.md
+Last session: 2026-08-22T11:57:08.620Z
+Stopped at: Completed 04.1-05-PLAN.md
 Resume file: None
