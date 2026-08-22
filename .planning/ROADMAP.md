@@ -408,6 +408,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 2b. Design System e Casca da Aplicação | 5/5 | Complete    | 2026-08-09 |
 | 3. Gestor de Encomendas | 8/8 | Complete    | 2026-08-20 |
 | 4. Contador de Queima | 7/7 | Complete    | 2026-08-11 |
+| 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

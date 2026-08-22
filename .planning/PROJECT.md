@@ -35,6 +35,9 @@ dar baixa em material não for confortável no celular, o sistema não é usado 
 
 - ✓ Aplicação no ar em `https://amassacerrado.com.br`, com deploy automático a partir de `git push` na `main` — Fase 1
 - ✓ Postgres próprio no VPS Contabo, sem porta publicada, acessível só pela aplicação — Fase 1 (conferido de fora: porta 5432 fechada, 443 aberta)
+- ✓ Seis etapas com datas calculadas em cascata a partir de uma única data de início — Fase 3, **corrigido na Fase 04.1**: os três marcos (queima de biscoito, queima de esmalte, entrega) sempre acontecem e sempre duram 1 dia; o número ao lado de cada um é a **espera antes** do marco, nunca a duração dele (ENC-03 reescrito)
+- ✓ O gestor diz quantos dias a peça fica parada antes de cada marco, e a espera desloca o marco e tudo que vem depois — nenhuma data é armazenada, `data_inicio` continua sendo a única âncora gravada — Fase 04.1 (ENC-15)
+- ✗ Desligar a etapa "Entrega" faz o losango sumir e encurtar a encomenda — **retirado na Fase 04.1** (ENC-04): o interruptor liga/desliga saiu dos três marcos, não existe mais o que desligar
 
 ### Active
 
@@ -48,7 +51,6 @@ dar baixa em material não for confortável no celular, o sistema não é usado 
 **Módulo 1 — Gestor de Encomendas**
 
 - [ ] Encomenda com nome, cliente (texto livre), data de início e lista de itens (descrição + quantidade)
-- [ ] Seis etapas com datas calculadas em cascata a partir de uma única data de início
 - [ ] Gantt no desktop (18 px/dia, quinzenas, linha de "Hoje") e lista vertical no celular
 - [ ] Status explícito (rascunho · em produção · concluída · cancelada) e etapa atual derivada de hoje
 
@@ -232,13 +234,19 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-08 after Fase 2a (Login, Banco Base e Backup)*
+*Last updated: 2026-08-22 after Fase 04.1 (Datas dos Marcos da Encomenda).*
+*Ressalva de sincronia: só a seção Requirements do Módulo 1 (Encomendas) foi reconciliada até a Fase 04.1.*
+*As Fases 2b, 3 e 4 concluíram sem passar por aqui — os itens delas continuam listados em Active mesmo já entregues.*
+*A fonte de verdade de status por requisito é `.planning/REQUIREMENTS.md`.*
 
-**Estado atual:** Fase 2a concluída e verificada. Em produção: login com e-mail e senha
-(Auth.js v5 + argon2id), sessão de 30 dias, `exigirUsuario()` como porta única de autorização com
-portão de máquina no pipeline, contas de gestor pela linha de comando, banco com papel de
-aplicação separado do dono, e backup diário disparando sozinho às 03:15 de Brasília — enviado ao
-armazenamento externo, vigiado por monitor externo que alerta, e **restaurado de verdade** num
-Postgres limpo com os dados conferindo (decisão D-11 satisfeita). Requisitos AUTH-01..10 e
-BKP-01..07 validados. Nenhum módulo de produto existe ainda: a rota protegida é provisória e a
-Fase 2b entrega a casca de navegação.
+**Estado atual:** Fase 04.1 concluída e verificada (17/17 must-haves). Em produção: a fundação
+das Fases 1 e 2a — login com e-mail e senha (Auth.js v5 + argon2id), sessão de 30 dias,
+`exigirUsuario()` como porta única de autorização com portão de máquina no pipeline, contas de
+gestor pela linha de comando, banco com papel de aplicação separado do dono, e backup diário às
+03:15 de Brasília, enviado ao armazenamento externo, vigiado por monitor externo e **restaurado de
+verdade** num Postgres limpo (decisão D-11 satisfeita) — mais a casca de navegação da Fase 2b, o
+**Gestor de Encomendas** (Fase 3) e o **Contador de Queima** (Fase 4). A Fase 04.1 corrigiu a
+premissa do cronograma: os três marcos sempre acontecem e sempre duram 1 dia, e o número ao lado de
+cada um é a espera **antes** do marco — migração `0009_espera-dos-marcos` aplicada à mão em
+produção. Faltam os módulos Agenda de Aulas (Fase 5, próxima), Estoque (Fase 6) e o polimento final
+(Fase 7).
