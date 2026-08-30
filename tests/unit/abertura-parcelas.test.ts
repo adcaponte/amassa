@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { formatarReais } from "../../lib/abertura/formato";
 import {
   calcularParcelas,
   proximaParcela,
+  proximoMes,
   somarMeses,
   totaisComprometidos,
   type ItemParaCalculo,
@@ -115,5 +117,163 @@ describe("totaisComprometidos", () => {
 describe("somarMeses", () => {
   it("soma um mês simples: 2026-12-15 + 1 mês = 2027-01-15", () => {
     expect(somarMeses("2026-12-15", 1)).toBe("2027-01-15");
+  });
+
+  // Tarefa 3 (04.2-01-PLAN.md): as bordas de calendário. A resposta do humano na Tarefa 1 —
+  // "ajustar" (D-19) — é o que decide o valor esperado destes casos de dia 31, não a
+  // preferência deste plano.
+  it("dia 31 encadeado: 2027-01-31 em 4 parcelas cai 2027-01-31, 2027-02-28, 2027-03-31, 2027-04-30", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 400000,
+      formaPagamento: "prazo",
+      parcelas: 4,
+      primeiraParcelaEm: "2027-01-31",
+    };
+    const vencimentos = calcularParcelas(item).map((p) => p.vencimentoEm);
+
+    // A TERCEIRA parcela é o caso que pega o encadeamento a partir da anterior: se calculada
+    // a partir da SEGUNDA (28/02), ficaria presa em 28/03 em vez de voltar para 31/03 — cada
+    // parcela é calculada a partir da PRIMEIRA data (D-19), nunca da anterior.
+    expect(vencimentos).toEqual(["2027-01-31", "2027-02-28", "2027-03-31", "2027-04-30"]);
+  });
+
+  it("dia 31 em ano bissexto: 2028-01-31 em 2 parcelas cai 2028-01-31, 2028-02-29", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 200000,
+      formaPagamento: "prazo",
+      parcelas: 2,
+      primeiraParcelaEm: "2028-01-31",
+    };
+    expect(calcularParcelas(item).map((p) => p.vencimentoEm)).toEqual([
+      "2028-01-31",
+      "2028-02-29",
+    ]);
+  });
+
+  it("dia 30 em fevereiro: 2026-01-30 em 2 parcelas cai 2026-01-30, 2026-02-28", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 200000,
+      formaPagamento: "prazo",
+      parcelas: 2,
+      primeiraParcelaEm: "2026-01-30",
+    };
+    expect(calcularParcelas(item).map((p) => p.vencimentoEm)).toEqual([
+      "2026-01-30",
+      "2026-02-28",
+    ]);
+  });
+
+  it("virada de ano simples: 2026-12-15 em 3 parcelas cai 2026-12-15, 2027-01-15, 2027-02-15", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 300000,
+      formaPagamento: "prazo",
+      parcelas: 3,
+      primeiraParcelaEm: "2026-12-15",
+    };
+    expect(calcularParcelas(item).map((p) => p.vencimentoEm)).toEqual([
+      "2026-12-15",
+      "2027-01-15",
+      "2027-02-15",
+    ]);
+  });
+
+  it("virada de ano longa: 2026-11-30 + 3 meses = 2027-02-28; 2028-01-31 + 13 meses = 2029-02-28", () => {
+    expect(somarMeses("2026-11-30", 3)).toBe("2027-02-28");
+    expect(somarMeses("2028-01-31", 13)).toBe("2029-02-28");
+  });
+});
+
+describe("proximoMes", () => {
+  it("proximoMes('2026-12') = '2027-01'; proximoMes('2026-01') = '2026-02'", () => {
+    expect(proximoMes("2026-12")).toBe("2027-01");
+    expect(proximoMes("2026-01")).toBe("2026-02");
+  });
+});
+
+describe("bordas de calcularParcelas/proximaParcela", () => {
+  it("a soma fecha em divisão não exata: 10000 centavos em 3 parcelas — mesmo texto formatado e soma exata", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 10000,
+      formaPagamento: "prazo",
+      parcelas: 3,
+      primeiraParcelaEm: "2026-05-01",
+    };
+    const parcelas = calcularParcelas(item);
+    const soma = parcelas.reduce((acumulado, p) => acumulado + p.valorEmCentavos, 0);
+
+    expect(soma).toBe(10000);
+    const textosFormatados = parcelas.map((p) => formatarReais(p.valorEmCentavos));
+    expect(new Set(textosFormatados).size).toBe(1);
+  });
+
+  it("parcela que já passou continua sendo parcela — nenhuma é filtrada por já ter vencido", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 600000,
+      formaPagamento: "prazo",
+      parcelas: 6,
+      primeiraParcelaEm: "2026-01-10",
+    };
+    const parcelas = calcularParcelas(item);
+
+    expect(parcelas).toHaveLength(6);
+    const resultado = proximaParcela(parcelas, "2026-04-01");
+    expect(resultado.tipo).toBe("proxima");
+    expect(resultado.parcela.vencimentoEm).toBe("2026-04-10");
+  });
+
+  it("todas as parcelas passaram: proximaParcela devolve a última, com tipo ultima", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 600000,
+      formaPagamento: "prazo",
+      parcelas: 6,
+      primeiraParcelaEm: "2026-01-10",
+    };
+    const parcelas = calcularParcelas(item);
+    const resultado = proximaParcela(parcelas, "2027-01-01");
+
+    expect(resultado.tipo).toBe("ultima");
+    expect(resultado.parcela.vencimentoEm).toBe("2026-06-10");
+  });
+
+  it("à vista com data no passado: uma parcela só, e proximaParcela devolve tipo ultima", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 100000,
+      formaPagamento: "vista",
+      parcelas: 1,
+      primeiraParcelaEm: "2026-01-01",
+    };
+    const parcelas = calcularParcelas(item);
+    const resultado = proximaParcela(parcelas, "2026-06-01");
+
+    expect(parcelas).toHaveLength(1);
+    expect(resultado.tipo).toBe("ultima");
+    expect(resultado.parcela.vencimentoEm).toBe("2026-01-01");
+  });
+
+  it("determinismo: chamar calcularParcelas duas vezes com o mesmo argumento devolve resultado estruturalmente igual, e não muta o argumento recebido", () => {
+    const item: ItemParaCalculo = {
+      valorEmCentavos: 480000,
+      formaPagamento: "prazo",
+      parcelas: 4,
+      primeiraParcelaEm: "2026-03-31",
+    };
+    const copiaOriginal = { ...item };
+
+    const primeiraChamada = calcularParcelas(item);
+    const segundaChamada = calcularParcelas(item);
+
+    expect(primeiraChamada).toEqual(segundaChamada);
+    expect(item).toEqual(copiaOriginal);
+  });
+});
+
+describe("totaisComprometidos — lista vazia", () => {
+  it("devolve os três totais em 0, sem lançar", () => {
+    expect(() => totaisComprometidos([])).not.toThrow();
+    expect(totaisComprometidos([])).toEqual({
+      comprometidoEmCentavos: 0,
+      aVistaEmCentavos: 0,
+      aPrazoEmCentavos: 0,
+    });
   });
 });
