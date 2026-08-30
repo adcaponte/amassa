@@ -36,8 +36,9 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 1: Fundação e Primeiro Deploy** - Endereço `https://` no ar com deploy automático, sem nenhuma funcionalidade (completed 2026-08-08)
 - [x] **Phase 2a: Login, Banco Base e Backup** - Entrar com e-mail/senha, contas por linha de comando, e backup automático rodando (completed 2026-08-08)
 - [x] **Phase 2b: Design System e Casca da Aplicação** - Navegar por telas vazias já com a identidade visual do AMASSA, no celular e no desktop (completed 2026-08-09)
-- [ ] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata
-- [ ] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques
+- [x] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata (completed 2026-08)
+- [x] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques (completed 2026-08)
+- [x] **Phase 04.1: Datas dos Marcos da Encomenda** (INSERTED) - Correção das datas dos marcos no cronograma (completed 2026-08-22)
 - [ ] **Phase 5: Agenda de Aulas** - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
