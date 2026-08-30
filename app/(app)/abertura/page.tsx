@@ -2,44 +2,75 @@ import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { formatarReais, hojeEmBrasilia } from "@/lib/abertura/formato";
-import { listarItensDaAbertura } from "@/lib/abertura/consultas";
+import {
+  listarGestoresAtivos,
+  listarItensDaAbertura,
+  listarTarefasDaAbertura,
+} from "@/lib/abertura/consultas";
 import { totaisComprometidos } from "@/lib/abertura/parcelas";
-import { ROTULO_COMPROMETIDO, ROTULO_NOVO_ITEM, TITULO_MODULO } from "@/lib/abertura/textos";
+import {
+  ROTULO_COMPROMETIDO,
+  ROTULO_NOVA_TAREFA,
+  ROTULO_NOVO_ITEM,
+  TITULO_MODULO,
+} from "@/lib/abertura/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { Button } from "@/components/ui/button";
+import { AbasAbertura } from "@/components/amassa/abertura/abas-abertura";
 import { FormularioItem } from "@/components/amassa/abertura/formulario-item";
+import { FormularioTarefa } from "@/components/amassa/abertura/formulario-tarefa";
 import { ListaItens } from "@/components/amassa/abertura/lista-itens";
+import { ListaTarefas } from "@/components/amassa/abertura/lista-tarefas";
 
-// `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/queimas/page.tsx`. O
-// módulo é alcançado pelo menu do usuário (`components/amassa/menu-usuario.tsx`), nunca pela
-// barra inferior — `lib/navegacao/itens.ts` não é tocado (UI-SPEC §"Onde o módulo entra na
-// navegação").
-//
-// Esta fatia entrega SÓ o caminho de criação do item (04.2-01-PLAN.md, objetivo). Nada de abas
-// (o plano 04.2-02 as introduz), nada de tarefas, nada de visão por mês. O bloco "Comprometido"
-// do painel entra aqui porque é a única leitura que já se sustenta com um item só — os outros
-// dois blocos de D-15 são do plano 04.2-04.
-export default async function PaginaAbertura() {
+// `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/queimas/page.tsx`.
+// `searchParams` é `Promise` no Next.js 15 (precisa de `await`, mesmo padrão de
+// `app/(app)/encomendas/page.tsx`). `?aba=` decide qual das duas listas aparece (padrão
+// "itens"); as duas continuam calculadas no MESMO carregamento (`Promise.all`), o que mantém a
+// troca de aba uma navegação de servidor real — nunca dado escondido no cliente — e a URL
+// sempre compartilhável.
+export default async function PaginaAbertura({
+  searchParams,
+}: {
+  searchParams: Promise<{ aba?: string; item?: string; tarefa?: string }>;
+}) {
   await exigirUsuario();
+  const { aba } = await searchParams;
+  const abaTarefas = aba === "tarefas";
 
   // O dia civil de Brasília é calculado UMA VEZ, aqui, na borda — nenhuma função pura abaixo lê
-  // o relógio por conta própria (`lib/abertura/parcelas.ts`/`lib/abertura/formato.ts`).
+  // o relógio por conta própria (`lib/abertura/prazos.ts`/`lib/abertura/parcelas.ts`).
   const hoje = hojeEmBrasilia(new Date());
-  const itens = await listarItensDaAbertura();
+
+  // Uma leitura por lista, nunca uma consulta por linha (T-04.2-11) — itens, tarefas e a lista
+  // de gestores ativos (D-11) chegam juntos.
+  const [itens, tarefas, gestores] = await Promise.all([
+    listarItensDaAbertura(),
+    listarTarefasDaAbertura(),
+    listarGestoresAtivos(),
+  ]);
   const totais = totaisComprometidos(itens);
 
   return (
     <>
       <CabecalhoPagina titulo={TITULO_MODULO}>
         <Button asChild variant="default" className="min-h-[44px]">
-          <Link href="/abertura?item=novo">{ROTULO_NOVO_ITEM}</Link>
+          <Link
+            href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
+          >
+            {abaTarefas ? ROTULO_NOVA_TAREFA : ROTULO_NOVO_ITEM}
+          </Link>
         </Button>
       </CabecalhoPagina>
 
-      {/* Montado sempre — mesmo com a lista vazia, `?item=novo` precisa abrir o formulário a
-          partir do `EstadoVazio` (o primeiríssimo item), achado do 03-06 replicado em Queimas e
-          aqui. */}
+      {/* Montados SEMPRE — mesmo com a lista vazia, o botão do `EstadoVazio` de cada aba precisa
+          abrir o formulário certo a partir do primeiríssimo item/primeiríssima tarefa (achado do
+          03-06, replicado em Queimas e nesta fase). */}
       <FormularioItem hoje={hoje} />
+      <FormularioTarefa
+        hoje={hoje}
+        gestores={gestores}
+        itens={itens.map((item) => ({ id: item.id, nome: item.nome }))}
+      />
 
       <div className="px-6 pt-6 md:px-8" data-testid="abertura-bloco-comprometido">
         <div className="border-border bg-card rounded-lg border p-4 shadow-sm">
@@ -51,13 +82,22 @@ export default async function PaginaAbertura() {
           </div>
           <div className="text-apoio text-muted-foreground mt-1 tabular-nums">
             <strong className="font-semibold">{formatarReais(totais.aVistaEmCentavos)}</strong> à
-            vista · <strong className="font-semibold">{formatarReais(totais.aPrazoEmCentavos)}</strong>{" "}
-            a prazo
+            vista ·{" "}
+            <strong className="font-semibold">{formatarReais(totais.aPrazoEmCentavos)}</strong> a
+            prazo
           </div>
         </div>
       </div>
 
-      <ListaItens itens={itens} hoje={hoje} />
+      <div className="pt-6">
+        <AbasAbertura />
+      </div>
+
+      {abaTarefas ? (
+        <ListaTarefas tarefas={tarefas} hoje={hoje} />
+      ) : (
+        <ListaItens itens={itens} hoje={hoje} />
+      )}
     </>
   );
 }

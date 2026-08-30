@@ -107,3 +107,61 @@ export const esquemaItemDeAbertura = esquemaItemBase
   }));
 
 export type EntradaDeItemDeAbertura = z.infer<typeof esquemaItemDeAbertura>;
+
+const GRUPOS_DE_TAREFA = [
+  "obra",
+  "documentacao",
+  "aquisicao",
+  "montagem",
+  "divulgacao",
+  "outros",
+] as const;
+
+// Mesmo formato de identificador que `esquemaId` valida, mas OPCIONAL: ausente, vazio ou só com
+// espaços vira `null`, nunca cadeia vazia — "ninguém ainda" (D-11) e "tarefa solta" (D-13) são
+// estados válidos, não campo não preenchido. A regex é a mesma forma de UUID de `esquemaId`,
+// verificada por reconstrução da string (não por `.uuid()` do Zod, que rejeitaria `null` antes
+// do `.transform` rodar).
+function normalizarIdOpcional(valor: string | undefined | null): string | null {
+  const normalizado = (valor ?? "").trim();
+  return normalizado === "" ? null : normalizado;
+}
+
+const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function esquemaIdOuNulo(mensagem: string) {
+  return z
+    .string()
+    .optional()
+    .nullable()
+    .transform((valor) => normalizarIdOpcional(valor))
+    .refine((valor) => valor === null || REGEX_UUID.test(valor), mensagem);
+}
+
+// `esquemaTarefaBase` — o formato de entrada CRU do formulário de tarefa, exportado para o
+// cliente reaproveitar `.shape` campo a campo (mesmo molde de `esquemaItemBase` acima), nunca
+// uma segunda cópia da regra. Ao contrário do item, não há regra cruzada entre campos aqui —
+// `esquemaTarefaDeAbertura` é o mesmo objeto, sem transform adicional.
+export const esquemaTarefaBase = z.object({
+  descricao: z
+    .string()
+    .transform((valor) => valor.normalize("NFC").trim())
+    .refine((valor) => contarPontosDeCodigo(valor) >= 1, "Descreva o que precisa ser feito.")
+    .refine(
+      (valor) => contarPontosDeCodigo(valor) <= 160,
+      "Descrição muito longa — no máximo 160 caracteres.",
+    ),
+  grupo: z.enum(GRUPOS_DE_TAREFA, { message: "Escolha um grupo." }),
+  prazoEm: esquemaDataCivil,
+  // `responsavelId` (D-11) e `itemId` (D-13): uuid OU nulo, nunca texto livre. A conferência de
+  // que um `responsavelId` não nulo corresponde a um gestor ATIVO acontece em
+  // `lib/abertura/acoes.ts`, não aqui — a chave estrangeira do banco garante que o
+  // identificador EXISTE; só o servidor, com uma consulta, garante que ele é um gestor ativo
+  // (T-04.2-07). Este schema só garante o FORMATO.
+  responsavelId: esquemaIdOuNulo("Esse responsável não é válido — recarregue a página e tente de novo."),
+  itemId: esquemaIdOuNulo("Esse item não é válido — recarregue a página e tente de novo."),
+});
+
+export type EntradaDeTarefaDeAbertura = z.infer<typeof esquemaTarefaBase>;
+
+export const esquemaTarefaDeAbertura = esquemaTarefaBase;
