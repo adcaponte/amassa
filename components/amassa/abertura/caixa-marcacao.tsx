@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { marcarItemResolvido, marcarTarefaConcluida } from "@/lib/abertura/acoes";
 import { FRASE_FALHA_AO_SALVAR, rotuloCaixaItem, rotuloCaixaTarefa } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
-import { useRouterAbertura } from "@/components/amassa/abertura/contexto-navegacao";
 
 export type CaixaMarcacaoProps = {
   // Uma caixa só serve às duas listas (D-07: uma marcação por item, significando "resolvido" —
@@ -33,14 +32,14 @@ export type CaixaMarcacaoProps = {
 // .planning/debug/abertura-navegacao-trava.md. Uma instância por linha existente — sem `memo`,
 // clicar em QUALQUER link de /abertura re-renderizaria TODAS as instâncias já montadas.
 function CaixaMarcacaoBase({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
-  // Só o `router` (contexto próprio, estável) — nunca precisa re-renderizar por navegação.
-  const router = useRouterAbertura();
   const [estadoVisual, setEstadoVisual] = useState(marcado);
   const [enviando, setEnviando] = useState(false);
 
-  // `marcado` muda quando o servidor devolve um novo dado depois de `router.refresh()` — o
-  // estado visual local precisa acompanhar, nunca ficar preso ao valor do primeiro carregamento
-  // (mesmo cuidado de `formulario-item.tsx`/`formulario-tarefa.tsx` com `aberto`).
+  // `marcado` muda quando `marcarItemResolvido`/`marcarTarefaConcluida` revalida `/abertura` no
+  // servidor (`revalidatePath` dentro da própria Server Action — nunca um `router.refresh()`
+  // manual depois, ver comentário em `alternar()`) — o estado visual local precisa acompanhar,
+  // nunca ficar preso ao valor do primeiro carregamento (mesmo cuidado de
+  // `formulario-item.tsx`/`formulario-tarefa.tsx` com `aberto`).
   useEffect(() => {
     setEstadoVisual(marcado);
   }, [marcado]);
@@ -70,8 +69,23 @@ function CaixaMarcacaoBase({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
 
     // Os números derivados (contagem "não chegou"/"atrasada" do cabeçalho de grupo, etiqueta de
     // tarefas abertas do item) precisam acompanhar — nunca uma tela onde a caixa muda mas o
-    // cabeçalho continua com o número antigo.
-    router.refresh();
+    // cabeçalho continua com o número antigo. `marcarItemResolvido`/`marcarTarefaConcluida`
+    // (lib/abertura/acoes.ts) já chamam `revalidatePath("/abertura")` DENTRO da própria Server
+    // Action — o Next.js já inclui a árvore revalidada na resposta da própria ação, sem precisar
+    // de um `router.refresh()` explícito depois (confirmado lendo `serverActionReducer` no
+    // runtime do Next e medindo: os números derivados atualizam igual sem ele).
+    //
+    // Por que este comentário existe (achado de .planning/debug/abertura-navegacao-trava.md,
+    // sessão de 2026-08-30): um `router.refresh()` aqui despachava uma SEGUNDA transição
+    // (ACTION_REFRESH) logo depois da transição da própria Server Action (ACTION_SERVER_ACTION)
+    // — e as duas passam pelo MESMO mecanismo de commit do React/Next que às vezes falha em
+    // silêncio (a mesma raiz da trava de navegação já corrigida em /abertura). Com as duas
+    // transições em sequência, a taxa medida de "o resto da linha não atualiza" chegava a
+    // ~63-70%; SÓ com a Server Action (sem o refresh redundante), ~54%. Continua alto — é a
+    // MESMA falha de commit do React/Next, agora confirmada em cima de ACTION_SERVER_ACTION, não
+    // só ACTION_NAVIGATE, e não respondeu a reduzir o número de Client Components montados em
+    // page.tsx (testado). Remover o refresh redundante é a única melhoria proporcional
+    // encontrada; o resto do defeito não tem correção local proporcional identificada.
   }
 
   const rotulo =
