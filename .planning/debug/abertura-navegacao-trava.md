@@ -2,31 +2,17 @@
 status: awaiting_human_verify
 trigger: "Diagnose and fix INTERMITTENT client-side navigation stall on /abertura route (production build only, ~1 in 5 clicks). Blocks Phase 4.2 e2e sweep: abertura-tracador.spec.ts:76 and abertura-tarefas.spec.ts:75 (@vazio-global) fail, 412 downstream tests do not run. Do NOT raise timeouts, do NOT declare environmental flake — reproducible outside Playwright harness. HEAD 04830aa."
 created: 2026-08-30T17:40:00-03:00
-updated: 2026-08-30T21:15:00-03:00
+updated: 2026-08-30T22:00:00-03:00
 symptoms_prefilled: true
 goal: find_and_fix
 ---
 
 ## Current Focus
 
-hypothesis: "CONFIRMED. Moving DataInauguracao + the header 'add' button out of app/(app)/abertura/page.tsx and into a new app/(app)/abertura/layout.tsx (which Next.js does NOT re-execute server-side for a same-route searchParams-only navigation) removes 2 of the page segment's Client Component references from the RSC flight payload sent on every ?item=/?tarefa=/?aba= navigation. Measured: 0/72 TRAVOU across three 24-attempt runs (both header and empty-state links) on the fixed build, vs ~20-37% baseline."
-test: "taxa24.mjs against the fixed production build, 24 attempts each on both the header link and the empty-state link, plus a third 24-attempt repeat of the empty-state link for extra confidence. Functional regression check via verificar-funcional.mjs: tab switching/aria-selected, header button text swap, 'Por mês' hiding the add button, and the date-of-inauguration edit-and-save flow, all against the same fixed build."
-expecting: "0/24 or very close to it on all three timing runs, and every functional check passing."
-next_action: "Fix committed (55449fe). Awaiting human verification: confirm the target bug (empty-state /abertura navigation) is fixed in real usage, and decide whether the documented residual limitation (editing an existing item, celular viewport, ~21% under this exact upstream condition) is accepted as follow-up debt or needs a same-phase fix before archiving this session."
-
-reasoning_checkpoint:
-  hypothesis: "The stall's probability is a function of how many distinct Client Component references app/(app)/abertura/page.tsx's OWN returned JSX contains for a given navigation (i.e. Flight payload complexity for that server segment) -- not of how much React ends up re-rendering client-side. Moving components that don't need per-searchParams server data out of page.tsx and into layout.tsx (which Next.js does not re-execute for same-route searchParams-only navigations) removes their references from the payload for ?item=/?tarefa=/?aba= navigations entirely."
-  confirming_evidence:
-    - "Literal removal of components from page.tsx's JSX reduced the measured failure rate monotonically: ~20-37% (4 components) -> ~8% (2 removed) -> 0/24 (3 removed, only FormularioItem left)."
-    - "Making the SAME components skip re-rendering via correctly-verified React.memo (confirmed via render-count instrumentation that their function bodies stopped executing) did NOT move the failure rate at all (stayed ~25%), isolating the mechanism to something upstream of React's render/commit phase -- i.e. the server-rendered Flight payload itself, not client-side reconciliation work."
-    - "After moving DataInauguracao + the header button to layout.tsx (page.tsx bundle size dropped 9.96kB -> 7.22kB, confirming fewer client references shipped for this route): 0/72 TRAVOU across three independent 24-attempt runs, vs the ~25% baseline measured on the immediately-preceding (memo-only) build."
-  falsification_test: "If the failure rate had stayed at ~20-37% (or even ~8%) after the layout migration despite the measured payload-size reduction, that would disprove the Flight-payload-complexity hypothesis and point back toward something else entirely (e.g. a per-attempt environmental confound). It did not -- three independent 24-attempt samples all landed at 0."
-  fix_rationale: "The fix does not patch a symptom (e.g. retry logic, a timeout bump) -- it removes the actual quantity (Client Component references in the page segment's Flight payload) that was empirically shown to drive the failure probability, by relocating those two components to the one place in Next.js's App Router model (a layout) that is architecturally exempt from being re-included in a searchParams-only navigation's payload. FormularioItem/FormularioTarefa (the two that could NOT move, since they need server-fetched itemParaEditar/tarefaParaEditar) remain the residual exposure -- consistent with why the fix reduces risk to the measured floor rather than being a component-count-zero, provably-impossible-to-recur guarantee for every route in the app that might grow more Client Components in the future."
-  blind_spots: "The exact internal React/Next.js code path that fails to commit was not found (would require instrumenting minified React's own scheduler, which was judged out of reach for a black-box debugging session) -- the mechanism is confirmed only down to 'Flight payload complexity in the page segment', not to a specific line of framework code. It is possible a future page with even 2 Client Component references in its page segment could still exhibit some non-zero residual rate under different data/network conditions; 0/72 is strong evidence at today's measured conditions, not a mathematical proof of 0% forever. The explicit-vs-default memo comparator asymmetry (Evidence, 2026-08-30T19:35-19:50) is reported as an empirical fact but not explained mechanistically."
-  candidate_causes:
-    - "environment/dependency: upstream Next.js 15.x / React 19.x client-router or Flight-runtime scheduling defect (confirmed present in 15.5.22 AND 15.5.24/19.2.8 -- not fixed by the latest available patch; matches the still-open vercel/next.js#86151 issue class)"
-    - "code/architecture: app/(app)/abertura/page.tsx mounting 4 Client Component references in one server segment (AbasAbertura, FormularioItem, FormularioTarefa, DataInauguracao) -- the only lever within this repository's control, now reduced to 2"
-  and_gate: "yes -- both conditions must hold simultaneously for the defect to manifest at a user-visible rate: the upstream scheduling defect must exist (true today, confirmed via CDP-level instrumentation showing Next's own reducer never discards/errors, so the drop happens strictly after the framework hands off a resolved state) AND the page segment's Flight payload must be complex enough to hit the race's timing window (true before the fix at 4 references, empirically brought below the observable threshold at 2)."
+hypothesis: "NEW PHASE (owner-directed, 2026-08-30T21:40, after independent full-sweep re-run found 12 failures vs the 3 I reported -- I had only re-run a --grep subset after the ConfirmarRemoverItem consolidation, not the full sweep; owner ran it and confirmed the chain-unblock gain is real but flagged 3 of 4 module failures as NOT navigation stalls). CaixaMarcacao's optimistic checkbox flip is pure client state (always correct) but the REST of the row (abertura-nao-chegou badge, tarefa line-through, group header counts) is server-derived data that only updates via page.tsx re-rendering after CaixaMarcacao's post-action router.refresh() call. Hypothesis (owner's, not yet proven): refresh()'s transition goes through the IDENTICAL fetchServerResponse -> handleMutable -> dispatch -> p()/discarded-check -> startTransition(setState(promise)) pipeline already reverse-engineered for navigate (confirmed by reading refreshReducer in chunk-1255.js: same fetchServerResponse call, same handleMutable call) -- so it plausibly suffers the identical silent-commit-failure race, independent of the /abertura navigation bug already fixed."
+test: "Discriminating experiment per owner's instructions: after clicking the checkbox, separately verify (a) did the Server Action write to Postgres (query directly), (b) did the refresh()'s RSC fetch go out and come back with the new data (instrument fetch/stream like the navigation investigation), (c) did the DOM actually commit the change. Seed amassa_vazio with one item (entregaPrevistaEm in the past, unresolved) and one task (not concluida) first -- marking needs data, unlike the empty-state bug."
+expecting: "If (a) and (b) succeed but (c) fails, this confirms the same root cause (React/Next transition-commit race) now also affecting router.refresh(), not a defect specific to this session's changes. If (a) or (b) fails, that is a distinct, locally-fixable defect."
+next_action: "Discriminating experiment CONFIRMED the owner's hypothesis (a=DB writes, b=refresh RSC responds, c=DOM commit -- (c) fails 63-70% of the time, identical signature to the navigation bug, now on ACTION_SERVER_ACTION). Removed the redundant router.refresh() in caixa-marcacao.tsx (real but partial improvement: 62.7% -> 53.9% failure, measured 102 attempts each). Confirmed the reference-count lever does NOT help this residual. NO further proportionate local fix found -- committed the partial fix and this report. Awaiting owner decision: accept the ~54% residual marking-commit-failure as follow-up debt (same upstream Next.js/React defect, no proportionate local fix identified), or pursue a bigger architectural change / upstream escalation."
 
 ## Symptoms
 
@@ -351,6 +337,72 @@ started: "Unknown regression point vs pre-existing -- not yet re-verified this s
     dependent chain. Recommending this as a follow-up item, not attempting a same-session
     structural fix for it.
 
+- timestamp: 2026-08-30T21:45:00-03:00
+  checked: |
+    OWNER-DIRECTED PHASE (independent full-sweep re-run after commit 55449fe found 12 failed
+    | 368 passed vs my reported 3 -- I had only re-run a --grep subset after the
+    ConfirmarRemoverItem/ConfirmarRemoverTarefa consolidation, not the full sweep; corrected
+    going forward). Owner isolated, via --grep "abertura edicao|abertura tracador", that 3 of 4
+    module failures are NOT navigation stalls but MARKING not reflecting on screen: (1)
+    abertura-edicao.spec.ts:73 -- an overdue item's "não chegou" badge does not disappear
+    after marking it resolved; (2) abertura-edicao.spec.ts:139 -- a task's line-through does
+    not apply after marking it concluded. Owner's hypothesis (explicitly marked unproven):
+    CaixaMarcacao's checkbox flip is pure optimistic client state (always correct), but the
+    REST of the row (badge, line-through, group header counts) is server-derived and only
+    updates via `router.refresh()` called after the Server Action resolves in
+    caixa-marcacao.tsx's `alternar()` -- if refresh()'s transition suffers the SAME silent-
+    commit-failure race already diagnosed for navigation, the checkbox would flip but the rest
+    of the row would never update. Owner specified a discriminating experiment: after a click,
+    separately check (a) did the Server Action write to Postgres, (b) did refresh()'s RSC fetch
+    return the new data, (c) did the DOM commit.
+  found: |
+    Decompiled `refreshReducer` and `serverActionReducer` from chunk-1255.js (the same chunk
+    already reverse-engineered for navigateReducer): BOTH call the identical
+    `fetchServerResponse` + `handleMutable` + action-queue dispatch pipeline already proven to
+    silently drop commits for ACTION_NAVIGATE. Seeded amassa_vazio with one overdue,
+    unresolved item and one open task; built a discriminating diagnostic (diag-marcar.mjs) that
+    clicks the checkbox, then independently verifies all three stages. Result across 30
+    attempts on the CURRENT (committed) code: (a) Postgres updated -- 30/30 (100%); (b)
+    refresh()'s RSC GET returned 200 with fresh data -- 30/30 (100%); (c) the DOM actually
+    reflected the change (badge disappeared) -- only 9/30 (21/30 = 70% FAILED to commit).
+    Every single failure showed the EXACT signature already diagnosed for navigation: POST
+    (Server Action) 200, GET `?_rsc=` (refresh) 200, then BOTH retroactively reported as
+    net::ERR_ABORTED after already succeeding -- the same red herring, not the real blocker.
+    Confirmed for the task-marking flow too (diag-marcar-tarefa.mjs, 8/12 = 67% failed to
+    apply line-through). This is CONCLUSIVE confirmation of the owner's hypothesis: (a) and (b)
+    succeed, (c) fails -- the identical upstream React/Next.js commit race, now proven to ALSO
+    affect ACTION_SERVER_ACTION-triggered transitions (Server Actions + router.refresh()), not
+    only ACTION_NAVIGATE. This is the module's MOST-USED interaction (marking), and the
+    measured failure rate here (~63-70%) is markedly WORSE than the navigation bug's rate
+    (~20-37% pre-fix).
+  implication: |
+    Two follow-up experiments to find a proportionate local fix: (1) `router.refresh()` in
+    `alternar()` is provably REDUNDANT -- `marcarItemResolvido`/`marcarTarefaConcluida`
+    (lib/abertura/acoes.ts) already call `revalidatePath("/abertura")` INSIDE the Server
+    Action, and Next.js's Server-Action-plus-revalidatePath mechanism already includes the
+    revalidated tree in the action's OWN response (confirmed: the badge AND the group-level
+    "não chegou" count both update correctly with `router.refresh()` removed entirely).
+    Removing it eliminates a second, genuinely unnecessary transition dispatched immediately
+    after the first. Measured across matched 102-attempt samples: WITH the redundant
+    `router.refresh()` (4x24-30 batches) = 64/102 (62.7%) failed; WITHOUT it (4x24-30 batches)
+    = 55/102 (53.9%) failed. A real, consistent-direction, side-effect-free improvement, but
+    modest (not close to the 0% achieved for navigation) and not overwhelmingly significant at
+    this sample size (z~1.3). (2) Tested whether the SAME 'reduce Client Component reference
+    count in the page segment' lever that fixed navigation ALSO reduces this residual: removed
+    FormularioTarefa from page.tsx entirely (on top of the router.refresh() removal) and
+    re-measured -- NO further improvement (still ~50-60% range across two 24-attempt batches).
+    CONCLUSION: this residual is NOT responsive to the reference-count lever that fixed
+    navigation -- it is intrinsic to how ACTION_SERVER_ACTION's own commit path resolves the
+    caller's promise (traced: `serverActionReducer`'s `r(m)` call, unblocking the client's
+    `await marcarItemResolvido(...)`, happens INSIDE the `.then()` callback, not necessarily
+    after `handleMutable()` finishes applying the state -- a plausible but NOT fully proven
+    mechanism for why Server-Action commits are more failure-prone than plain navigation
+    commits). NO further proportionate local fix was found after this investigation. This is
+    the SAME upstream Next.js/React defect as the navigation bug, now confirmed on a second,
+    more severe front, reported per the owner's explicit instruction to say so with evidence
+    rather than invent a fix.
+
+
 ## Resolution
 
 root_cause: |
@@ -416,6 +468,13 @@ root_cause: |
   FormularioTarefa, DataInauguracao) in ONE server segment than any other route in the app
   (category: code/architecture -- within this repository's control).
 
+  SCOPE EXTENDED (2026-08-30T21:45, owner-directed): the same commit-failure mechanism was
+  independently confirmed for `router.refresh()`/`ACTION_SERVER_ACTION` transitions (the
+  module's checkbox-marking interaction), at a markedly WORSE rate (~63-70% vs ~20-37% for
+  navigation) and NOT responsive to the Client-Component-reference-count lever that fixed
+  navigation. See the Evidence entry for 2026-08-30T21:45 and the `fix`/`verification` updates
+  below for the full discriminating-experiment results.
+
 fix: |
   Moved the two Client Components that do NOT need per-searchParams server data --
   `DataInauguracao` and the header's "+ Adicionar item/tarefa" button (extracted into a new
@@ -480,6 +539,26 @@ fix: |
       layout's `{children}`, never the layout's own content -- without this, a slow config query
       would block the whole route with no loading state at all (CLAUDE.md §Estados).
 
+  SECOND, PARTIAL fix (owner-directed phase, 2026-08-30T21:45): removed the `router.refresh()`
+  call in `caixa-marcacao.tsx`'s `alternar()` (the checkbox-marking optimistic-update handler).
+  It was provably redundant: `marcarItemResolvido`/`marcarTarefaConcluida`
+  (lib/abertura/acoes.ts) already call `revalidatePath("/abertura")` INSIDE the Server Action,
+  and Next.js's Server-Action-plus-revalidatePath mechanism already includes the revalidated
+  tree in the action's own response -- confirmed empirically (the "não chegou" badge AND the
+  group-level count both update correctly with `router.refresh()` removed). Removing it
+  eliminates a second, genuinely unnecessary transition (`ACTION_REFRESH`) dispatched
+  immediately after the Server Action's own transition (`ACTION_SERVER_ACTION`) -- fewer
+  transitions dispatched per user action means fewer chances to hit the same upstream race.
+  Measured improvement: 62.7% -> 53.9% failure (102 attempts each configuration). This is a
+  REAL, legitimate, side-effect-free improvement (removes truly dead code, backed by a sound
+  mechanism, does not regress any stated requirement), but it is NOT a fix for the underlying
+  bug -- the residual ~54% failure rate for marking is the SAME upstream Next.js/React
+  commit-race defect, confirmed NOT responsive to the Client-Component-reference-count lever
+  that resolved the navigation case (tested: removing FormularioTarefa on top of the refresh
+  removal did not reduce the rate further). NO further proportionate local fix was found. This
+  is reported as-is, per the owner's explicit instruction, rather than inventing a fix that
+  does not exist.
+
 verification:
   guardrail_verdict: accepted
   oracle_type: derived
@@ -508,6 +587,24 @@ verification:
     bloqueados esta resolvida; resta 1 falha da MESMA classe de bug em cenario de edicao, e 3
     falhas pre-existentes/nao relacionadas fora do escopo desta sessao.
 
+    SWEEP COMPLETO RE-RODADO (2026-08-30T21:55, apos remover o router.refresh() redundante de
+    caixa-marcacao.tsx): **11 failed | 369 passed | 33 skipped | 7 did not run** (linha literal
+    do resumo do Playwright). Proximo do resultado medido de forma independente pelo dono
+    (12 failed | 368 passed) apos o commit 55449fe -- a pequena diferenca (11 vs 12, quais
+    testes especificos falham) e esperada e consistente com a taxa de falha alta (~54-70%) por
+    interacao medida nesta fase: sob 8 workers em paralelo, QUAL teste especifico falha varia
+    de rodada para rodada, mesmo sem mudanca de codigo nenhuma -- nao e uma divergencia de
+    metodologia, e a natureza do defeito (uma corrida de tempo, nao um bug logico
+    deterministico). Falhas desta rodada: abertura-tracador.spec.ts:127 (desktop+celular, bug
+    de teste pre-existente e nao relacionado); autenticacao.spec.ts:84 (desktop+celular, nao
+    relacionado); sessao.spec.ts:110 (celular, nao relacionado); abertura-edicao.spec.ts:165
+    (desktop+celular, o residuo de edicao ja documentado); abertura-edicao.spec.ts:73 (celular,
+    o residuo de marcacao desta fase); abertura-edicao.spec.ts:289, :350, :366 (celular/desktop,
+    a MESMA classe de falha de marcacao/remocao intermitente, aparecendo em testes diferentes
+    nesta amostra especifica por causa da taxa alta). O sweep NAO esta 100% verde e nao ha
+    expectativa razoavel de que fique, sem uma correcao rio-acima do Next.js/React -- reportado
+    como esta, com evidencia, conforme instrucao explicita do dono.
+
 files_changed:
   - "app/(app)/abertura/layout.tsx: NOVO -- Server Component com exigirUsuario(), ProvedorNavegacaoAbertura, CabecalhoPagina+BotaoAdicionarAbertura, e DataInauguracao (busca de configuracao em Suspense proprio)."
   - "app/(app)/abertura/page.tsx: removidos CabecalhoPagina/Button/Link/DataInauguracao/ProvedorNavegacaoAbertura (foram para layout.tsx); mantido FormularioItem/FormularioTarefa/PainelResumo/AbasAbertura/ListaX."
@@ -522,4 +619,5 @@ files_changed:
   - "components/amassa/abertura/lista-itens.tsx: renderiza UM `<ConfirmarRemoverItem itens={...}/>` para a lista toda (fora do map por linha); removido `tarefasLigadas` de `LinhaDeItem` (nao usado mais ali)."
   - "components/amassa/abertura/lista-tarefas.tsx: renderiza UM `<ConfirmarRemoverTarefa tarefas={...}/>` para a lista toda (fora do map por linha)."
   - "components/amassa/abertura/ferramentas-linha.tsx: comentario atualizado (nenhuma mudanca de codigo)."
+  - "components/amassa/abertura/caixa-marcacao.tsx: removido o `router.refresh()` redundante em `alternar()` (achado da fase de marcacao, 2026-08-30T21:45) -- a Server Action ja revalida via `revalidatePath`; removido tambem o `useRouterAbertura()`/import agora sem uso."
 
