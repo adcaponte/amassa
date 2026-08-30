@@ -83,6 +83,9 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     const linha = linhaDaTarefa(page, descricao);
     await expect(linha).toBeVisible();
     await expect(linha.getByTestId("abertura-responsavel-tarefa")).toHaveText("Gestora de Teste");
+    // "Ligada a algum item?" ficou em "Nenhum — tarefa solta" (o padrão) — item_id nulo não
+    // desenha etiqueta de vínculo nenhuma (D-13).
+    await expect(linha.getByTestId("abertura-vinculo-item")).toHaveCount(0);
   });
 
   test("uma tarefa salva com 'Ninguém ainda' grava responsavel_id nulo e aparece sem nome", async ({
@@ -195,6 +198,71 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
       await expect(page.getByLabel("O que fazer")).toHaveValue(descricao);
     } finally {
       await alternarAtivo(gestor.email, true);
+    }
+  });
+
+  // Tarefa 2 (04.2-02-PLAN.md): o vínculo item ↔ tarefa lido dos DOIS lados na MESMA execução
+  // (D-13) — a tarefa mostra de qual item veio, e o item mostra quantas tarefas abertas ainda
+  // carrega. A segunda é a leitura que D-13 chama de mais importante: sem ela, um item marcado
+  // como comprado parece encerrado enquanto a instalação ainda não aconteceu. Um único caso —
+  // uma invocação de e2e por tarefa é o teto (CLAUDE.md).
+  test("uma tarefa ligada a um item mostra o nome do item, e o item mostra quantas tarefas abertas carrega", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeDoItem = nomeUnico("Forno elétrico 220V");
+
+    await page.goto("/abertura?item=novo");
+    await page.getByLabel("O que é").fill(nomeDoItem);
+    await page.getByLabel("Valor total").fill("12000");
+    await page.getByRole("button", { name: "Adicionar item" }).click();
+    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+
+    async function cadastrarTarefaLigadaAoItem(descricao: string) {
+      await abrirFormularioDeTarefa(page);
+      await page.getByLabel("O que fazer").fill(descricao);
+      await page.getByLabel("Até quando").fill(hojeEmBrasilia(new Date()));
+      await page.getByRole("combobox", { name: "Ligada a algum item?" }).click();
+      await page.getByRole("option", { name: nomeDoItem }).click();
+      await page.getByRole("button", { name: "Adicionar tarefa" }).click();
+      await expect(page).toHaveURL(/\?aba=tarefas$/, { timeout: 10000 });
+    }
+
+    const primeiraTarefa = nomeUnico("Orçar instalação do forno");
+    const segundaTarefa = nomeUnico("Agendar entrega do forno");
+    await cadastrarTarefaLigadaAoItem(primeiraTarefa);
+    await cadastrarTarefaLigadaAoItem(segundaTarefa);
+
+    // Lado da TAREFA: cada uma mostra o nome do item de onde veio.
+    await expect(
+      linhaDaTarefa(page, primeiraTarefa).getByTestId("abertura-vinculo-item"),
+    ).toHaveText(nomeDoItem);
+    await expect(
+      linhaDaTarefa(page, segundaTarefa).getByTestId("abertura-vinculo-item"),
+    ).toHaveText(nomeDoItem);
+
+    // Lado do ITEM: mostra "2 tarefas abertas" — a leitura que D-13 chama de mais importante.
+    await page.goto("/abertura?aba=itens");
+    const linhaDoItem = page.getByTestId("abertura-linha-item").filter({ hasText: nomeDoItem });
+    await expect(linhaDoItem).toBeVisible();
+    await expect(linhaDoItem.getByTestId("abertura-tarefas-abertas")).toHaveText(
+      "2 tarefas abertas",
+    );
+
+    // UI-SPEC §"Comportamento responsivo": a etiqueta de vínculo trunca com reticências, nunca
+    // empurra a largura — no viewport do celular, nenhuma das duas abas rola horizontalmente,
+    // mesmo com um nome de item comprido (o nome único de teste tem mais de 40 caracteres).
+    await page.setViewportSize({ width: 320, height: 800 });
+    for (const aba of ["itens", "tarefas"] as const) {
+      await page.goto(`/abertura?aba=${aba}`);
+      const [scrollWidth, clientWidth] = await page.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.documentElement.clientWidth,
+      ]);
+      expect(
+        scrollWidth,
+        `/abertura?aba=${aba} rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      ).toBeLessThanOrEqual(clientWidth);
     }
   });
 });

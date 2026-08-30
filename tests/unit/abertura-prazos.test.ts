@@ -136,4 +136,41 @@ describe("contarTarefasAbertasPorItem", () => {
     expect(mapa.get("item-1")).toBe(2);
     expect(mapa.size).toBe(1);
   });
+
+  // Tarefa 2 (04.2-02-PLAN.md): o vínculo item ↔ tarefa lido do lado do item (D-13) — a leitura
+  // que a plano chama de mais importante, porque sem ela um item comprado parece encerrado
+  // enquanto a instalação ainda não aconteceu.
+  it("um item sem nenhuma tarefa não aparece como chave — nunca uma chave com valor 0", () => {
+    const mapa = contarTarefasAbertasPorItem([
+      { concluida: false, itemId: "item-1" },
+      { concluida: false, itemId: null },
+    ]);
+
+    expect(mapa.has("item-2")).toBe(false);
+    expect(mapa.get("item-2")).toBeUndefined();
+  });
+
+  it("um item cujas tarefas estão todas concluídas não aparece no mapa", () => {
+    const mapa = contarTarefasAbertasPorItem([
+      { concluida: true, itemId: "item-1" },
+      { concluida: true, itemId: "item-1" },
+    ]);
+
+    expect(mapa.has("item-1")).toBe(false);
+  });
+
+  it("chamar duas vezes com a mesma lista devolve o mesmo mapa e não muta a lista", () => {
+    const tarefas = [
+      { concluida: false, itemId: "item-1" },
+      { concluida: true, itemId: "item-1" },
+      { concluida: false, itemId: "item-2" },
+    ];
+    const copia = tarefas.map((tarefa) => ({ ...tarefa }));
+
+    const primeiraChamada = contarTarefasAbertasPorItem(tarefas);
+    const segundaChamada = contarTarefasAbertasPorItem(tarefas);
+
+    expect(Object.fromEntries(primeiraChamada)).toEqual(Object.fromEntries(segundaChamada));
+    expect(tarefas).toEqual(copia);
+  });
 });
