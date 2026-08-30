@@ -4,6 +4,11 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 
 import { somarDias } from "@/lib/abertura/parcelas";
 import { hojeEmBrasilia } from "@/lib/abertura/formato";
+import {
+  FRASE_VAZIO_CORPO_TAREFAS,
+  FRASE_VAZIO_TITULO_TAREFAS,
+  ROTULO_NOVA_TAREFA,
+} from "@/lib/abertura/textos";
 
 import { alternarAtivo } from "./apoio/alternar-ativo";
 import { semearTarefasDeAbertura } from "./apoio/semear-abertura";
@@ -62,6 +67,38 @@ function linhaDaTarefa(page: Page, descricao: string): Locator {
 
 test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abertura do Espaço", () => {
   test.describe.configure({ mode: "serial" });
+
+  // O primeiro caso afirma uma condição GLOBAL do banco ("nenhuma tarefa de abertura existe") e
+  // por isso é marcado `@vazio-global`, rodando na cadeia `vazio-celular → vazio-desktop` de
+  // `playwright.config.ts` ANTES de qualquer projeto que escreva — nunca isolado por `--grep`
+  // como muleta (mesma disciplina de `tests/e2e/abertura-tracador.spec.ts`).
+  test("com o banco sem nenhuma tarefa, 'Nenhuma tarefa.' aparece e o botão abre o formulário @vazio-global", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/abertura?aba=tarefas");
+
+    const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO_TAREFAS, level: 2 });
+    await expect(frase).toHaveCount(1);
+    await expect(frase).toBeVisible();
+    await expect(page.getByText(FRASE_VAZIO_CORPO_TAREFAS)).toBeVisible();
+
+    const botaoDoEstadoVazio = page
+      .getByTestId("estado-vazio")
+      .getByRole("link", { name: ROTULO_NOVA_TAREFA });
+    await expect(botaoDoEstadoVazio).toBeVisible();
+    await expect(botaoDoEstadoVazio).not.toHaveAttribute("aria-disabled", "true");
+    await expect(botaoDoEstadoVazio).toHaveAttribute(
+      "href",
+      "/abertura?aba=tarefas&tarefa=nova",
+    );
+
+    // O botão precisa FUNCIONAR, abrindo o formulário da primeiríssima tarefa — não ser inerte
+    // (achado do 03-06, replicado em Itens/Fornos e aqui).
+    await botaoDoEstadoVazio.click();
+    await expect(page).toHaveURL(/\?aba=tarefas&tarefa=nova$/);
+    await expect(page.getByRole("heading", { name: "Nova tarefa" })).toBeVisible();
+  });
 
   test("uma tarefa cadastrada com responsável escolhido aparece com o nome do responsável", async ({
     page,
@@ -263,6 +300,48 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
         scrollWidth,
         `/abertura?aba=${aba} rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
       ).toBeLessThanOrEqual(clientWidth);
+    }
+  });
+
+  // Tarefa 3 (04.2-02-PLAN.md): a consequência declarada de D-11 — "desativar nunca apaga,
+  // justamente para o histórico de autoria não quebrar". Prova as DUAS leituras na mesma
+  // execução: a tarefa já atribuída continua nomeando o gestor desativado, e o campo de escolha
+  // de NOVAS tarefas para de oferecê-lo. Conta DEDICADA (nunca a global), reativada sempre no
+  // fim — inclusive se o caso falhar no meio.
+  test("um gestor desativado continua nomeado na tarefa já atribuída, e some da lista de escolha", async ({
+    page,
+  }) => {
+    const gestor = criarGestorDedicado("desativado-depois");
+
+    try {
+      await fazerLogin(page);
+      const descricao = nomeUnico("Fechar o aluguel");
+
+      await abrirFormularioDeTarefa(page);
+      await page.getByLabel("O que fazer").fill(descricao);
+      await page.getByRole("combobox", { name: "Quem" }).click();
+      await page.getByRole("option", { name: gestor.nome }).click();
+      await page.getByLabel("Até quando").fill(hojeEmBrasilia(new Date()));
+      await page.getByRole("button", { name: "Adicionar tarefa" }).click();
+      await expect(page).toHaveURL(/\?aba=tarefas$/, { timeout: 10000 });
+
+      await alternarAtivo(gestor.email, false);
+      await page.reload();
+
+      // (a) A tarefa já atribuída continua mostrando o nome do responsável — o join de
+      // `listarTarefasDaAbertura` NÃO filtra por `ativo`.
+      const linha = linhaDaTarefa(page, descricao);
+      await expect(linha.getByTestId("abertura-responsavel-tarefa")).toHaveText(gestor.nome);
+
+      // (b) O nome não aparece mais na lista de escolha de uma NOVA tarefa — `listarGestoresAtivos`
+      // filtra por `ativo = true`. As duas leituras são deliberadamente diferentes (D-11).
+      await page.goto("/abertura?aba=tarefas&tarefa=nova");
+      await page.getByRole("combobox", { name: "Quem" }).click();
+      await expect(page.getByRole("option", { name: gestor.nome })).toHaveCount(0);
+    } finally {
+      // Reativa SEMPRE, inclusive em falha — uma conta esquecida desativada quebraria qualquer
+      // teste que rodar depois com ela.
+      await alternarAtivo(gestor.email, true);
     }
   });
 });

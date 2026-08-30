@@ -1,9 +1,16 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Esqueleto na FORMA do conteúdo que substitui — cabeçalho, o bloco "Comprometido" (na ALTURA
-// final, para a página não pular quando o número chegar) e três a quatro linhas de item, na
-// mesma altura da linha real (UI-SPEC §"Estados de carregamento"). Nunca um "carregando..." solto
-// entre as tags — só `Skeleton` e leiaute, no molde de `app/(app)/queimas/loading.tsx`.
+// final, para a página não pular quando o número chegar), a barra de abas (plano 04.2-02) e três
+// a quatro linhas de item/tarefa, na mesma altura da linha real (UI-SPEC §"Estados de
+// carregamento"). Nunca um "carregando..." solto entre as tags — só `Skeleton` e leiaute, no
+// molde de `app/(app)/queimas/loading.tsx`.
+//
+// `loading.tsx` não recebe `searchParams` (é o mesmo esqueleto para qualquer `?aba=`) — por isso
+// ele não pode saber qual das duas listas vai aparecer. A solução é desenhar as DUAS formas de
+// linha (item e tarefa são visualmente parecidas: nome + etiquetas à esquerda, valor/urgência à
+// direita), o que continua sem salto de layout perceptível quando o conteúdo real chega, seja
+// qual for a aba.
 const LINHAS = [0, 1, 2, 3] as const;
 
 export default function CarregandoAbertura() {
@@ -25,8 +32,15 @@ export default function CarregandoAbertura() {
         </div>
       </div>
 
-      {/* Três a quatro linhas de item em esqueleto, na mesma altura da linha real (nome + duas
-          etiquetas à esquerda, valor + parcela à direita). */}
+      {/* Barra de abas (Itens/Tarefas, `AbasAbertura`) — dois blocos do mesmo tamanho do botão
+          real (min-h-11), lado a lado. */}
+      <div className="mx-6 mt-6 flex gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-md">
+        <Skeleton className="h-11 flex-1 rounded-sm" />
+        <Skeleton className="h-11 flex-1 rounded-sm" />
+      </div>
+
+      {/* Três a quatro linhas de item/tarefa em esqueleto, na mesma altura da linha real (nome +
+          duas etiquetas à esquerda, valor/urgência à direita). */}
       <div className="flex flex-col gap-2 px-6 py-6 md:px-8">
         {LINHAS.map((linha) => (
           <div
