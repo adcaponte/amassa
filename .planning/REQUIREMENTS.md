@@ -136,14 +136,14 @@
 - [x] **ABE-01**: Cadastrar um item a comprar com nome, categoria, valor total e forma de pagamento
 - [x] **ABE-02**: No pagamento a prazo, informar o número de parcelas e a data da primeira; as demais caem no mesmo dia dos meses seguintes
 - [x] **ABE-03**: Informar opcionalmente a data prevista de entrega de um item
-- [ ] **ABE-04**: Um item cuja entrega venceu e que não foi resolvido aparece destacado como "não chegou"
+- [x] **ABE-04**: Um item cuja entrega venceu e que não foi resolvido aparece destacado como "não chegou"
 - [x] **ABE-05**: Itens são agrupados por categoria, com contagem e soma por grupo
 - [x] **ABE-06**: Cadastrar uma tarefa com descrição, prazo, grupo e responsável escolhido entre os gestores ativos da plataforma
 - [x] **ABE-07**: Uma tarefa pode ficar sem responsável — "ninguém ainda" é um estado válido
 - [x] **ABE-08**: Tarefas são agrupadas por área, ordenadas por urgência dentro de cada grupo, e o cabeçalho do grupo mostra quantas estão atrasadas
 - [x] **ABE-09**: Uma tarefa pode ser ligada opcionalmente a um item; a tarefa mostra de qual item veio e o item mostra quantas tarefas abertas ainda carrega
-- [ ] **ABE-10**: Remover um item não apaga as tarefas ligadas a ele — elas ficam soltas, e a confirmação diz quantas são
-- [ ] **ABE-11**: Itens e tarefas podem ser editados no lugar, sem apagar e recriar
+- [x] **ABE-10**: Remover um item não apaga as tarefas ligadas a ele — elas ficam soltas, e a confirmação diz quantas são
+- [x] **ABE-11**: Itens e tarefas podem ser editados no lugar, sem apagar e recriar
 - [ ] **ABE-12**: O painel mostra o total comprometido separado em à vista e a prazo, quanto sai neste mês e no próximo, e quantas tarefas estão atrasadas somadas às entregas vencidas
 - [ ] **ABE-13**: Uma visão mês a mês mostra quanto sai em cada mês, de quais itens e parcelas, com o mês mais pesado identificado
 - [ ] **ABE-14**: A data de inauguração é editável e a contagem regressiva acompanha, inclusive quando a data já passou
