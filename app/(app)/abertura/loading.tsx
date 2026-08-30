@@ -1,0 +1,49 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Esqueleto na FORMA do conteúdo que substitui — cabeçalho, o bloco "Comprometido" (na ALTURA
+// final, para a página não pular quando o número chegar) e três a quatro linhas de item, na
+// mesma altura da linha real (UI-SPEC §"Estados de carregamento"). Nunca um "carregando..." solto
+// entre as tags — só `Skeleton` e leiaute, no molde de `app/(app)/queimas/loading.tsx`.
+const LINHAS = [0, 1, 2, 3] as const;
+
+export default function CarregandoAbertura() {
+  return (
+    <div className="flex flex-col">
+      {/* Cabeçalho: título + botão "+ Adicionar item". */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-6 md:px-8">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-11 w-40" />
+      </div>
+
+      {/* Bloco "Comprometido": rótulo, valor grande, linha à vista/a prazo — mesma altura final
+          do bloco real, para a página não pular quando os números chegarem. */}
+      <div className="px-6 pt-6 md:px-8">
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      </div>
+
+      {/* Três a quatro linhas de item em esqueleto, na mesma altura da linha real (nome + duas
+          etiquetas à esquerda, valor + parcela à direita). */}
+      <div className="flex flex-col gap-2 px-6 py-6 md:px-8">
+        {LINHAS.map((linha) => (
+          <div
+            key={linha}
+            className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-24 rounded-full" />
+            </div>
+            <div className="flex flex-none flex-col items-end gap-1">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

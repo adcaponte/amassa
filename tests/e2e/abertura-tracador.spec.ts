@@ -1,10 +1,16 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// O traçado ponta a ponta do módulo Abertura do Espaço (04.2-01-PLAN.md, Tarefa 2): das três
-// tabelas até um item cadastrado pela tela aparecendo agrupado por categoria, com as parcelas
-// calculadas (nunca gravadas — D-05) e alcançável pelo menu do usuário. Dois itens em
+import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_ITEM } from "@/lib/abertura/textos";
+
+// O traçado ponta a ponta do módulo Abertura do Espaço (04.2-01-PLAN.md, Tarefas 2 e 4): das
+// três tabelas até um item cadastrado pela tela aparecendo agrupado por categoria, com as
+// parcelas calculadas (nunca gravadas — D-05) e alcançável pelo menu do usuário. Dois itens em
 // categorias diferentes, um a prazo e um à vista, e a barra inferior do celular continua com
-// cinco itens (T-02b-*, `lib/navegacao/itens.ts` não é tocado por esta fase).
+// cinco itens (T-02b-*, `lib/navegacao/itens.ts` não é tocado por esta fase). O primeiro teste
+// afirma uma condição GLOBAL do banco ("nenhum item de abertura existe") e por isso é marcado
+// `@vazio-global`, rodando na cadeia `vazio-celular → vazio-desktop` de `playwright.config.ts`,
+// ANTES de qualquer teste que escreva — nunca isolado por `--grep` como muleta (mesma disciplina
+// de `tests/e2e/queimas-tracador.spec.ts`/`tests/e2e/estados.spec.ts`).
 //
 // Nomes inventados e reconhecíveis como tal ("Bancada de trabalho 3m", "Estante de secagem") —
 // nenhum dado de pessoa real em lugar nenhum, o repositório é público.
@@ -66,6 +72,31 @@ async function verificarConsistenciaDoGrupo(page: Page, rotuloCategoria: string)
 
 test.describe("abertura tracador — traçado do módulo Abertura do Espaço", () => {
   test.describe.configure({ mode: "serial" });
+
+  test("com o banco sem nenhum item, 'Nada aqui ainda.' aparece e o botão abre o formulário do primeiro item @vazio-global", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/abertura");
+
+    const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO, level: 2 });
+    await expect(frase).toHaveCount(1);
+    await expect(frase).toBeVisible();
+    await expect(page.getByText(FRASE_VAZIO_CORPO)).toBeVisible();
+
+    const botaoDoEstadoVazio = page
+      .getByTestId("estado-vazio")
+      .getByRole("link", { name: ROTULO_NOVO_ITEM });
+    await expect(botaoDoEstadoVazio).toBeVisible();
+    await expect(botaoDoEstadoVazio).not.toHaveAttribute("aria-disabled", "true");
+    await expect(botaoDoEstadoVazio).toHaveAttribute("href", "/abertura?item=novo");
+
+    // O botão precisa FUNCIONAR, abrindo o formulário do primeiríssimo item — não ser inerte
+    // (achado do 03-06, replicado em Queimas e aqui).
+    await botaoDoEstadoVazio.click();
+    await expect(page).toHaveURL(/\?item=novo$/);
+    await expect(page.getByRole("heading", { name: "Novo item" })).toBeVisible();
+  });
 
   test("o módulo é alcançado pelo menu do usuário, e a barra inferior do celular continua com 5 itens", async ({
     page,
@@ -175,5 +206,39 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     const linha = page.getByTestId("abertura-linha-item").filter({ hasText: nome });
     await expect(linha).toBeVisible();
     await expect(linha).not.toContainText("chega");
+  });
+
+  // Acessibilidade da tela (UI-SPEC §"Acessibilidade"): campos do formulário com no mínimo
+  // 44px de altura, e nenhuma rolagem horizontal no viewport do celular (UI-06).
+  test("os campos do formulário têm no mínimo 44px de altura", async ({ page }) => {
+    await fazerLogin(page);
+    await page.goto("/abertura?item=novo");
+
+    for (const rotulo of ["O que é", "Valor total"]) {
+      const caixa = await page.getByLabel(rotulo).boundingBox();
+      expect(caixa?.height, `campo "${rotulo}" mede menos que 44px`).toBeGreaterThanOrEqual(44);
+    }
+
+    const caixaCategoria = await page.getByRole("combobox", { name: "Categoria" }).boundingBox();
+    expect(caixaCategoria?.height).toBeGreaterThanOrEqual(44);
+
+    const caixaPagamento = await page.getByRole("combobox", { name: "Pagamento" }).boundingBox();
+    expect(caixaPagamento?.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test("a 320px de largura, /abertura não exige rolagem horizontal", async ({ page }) => {
+    await fazerLogin(page);
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto("/abertura");
+
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+
+    expect(
+      scrollWidth,
+      `/abertura rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
   });
 });
