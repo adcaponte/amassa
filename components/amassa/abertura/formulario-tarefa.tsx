@@ -273,7 +273,13 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
             </p>
           </div>
 
-          <div className="border-border bg-popover sticky bottom-0 flex flex-col gap-3 border-t px-6 py-4">
+          {/* Rodape preso ao pe do dialogo por FLEX, nunca por `position: sticky` (G-03-1).
+              Este div e IRMAO da area de campos rolavel, nao filho dela: sem scrollport
+              proprio, o `bottom: 0` se ancorava no pe da JANELA e, no desktop, subia o
+              rodape para o meio da tela (medido: 280px a 1280x800, identico ao modelo de
+              .planning/debug/resolved/rodape-formulario-desktop.md). O `flex-1` do form ja
+              prende este rodape ao pe do dialogo sozinho, nos dois tamanhos de tela. */}
+          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
             <div className="flex justify-end gap-3">
               <button
                 type="button"
