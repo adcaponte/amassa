@@ -57,6 +57,13 @@ export const ROTULO_COMPROMETIDO = "Comprometido";
 export const ROTULO_A_VISTA = "à vista";
 export const ROTULO_A_PRAZO = "a prazo";
 
+// D-15/ABE-12 (Tarefa 2, 04.2-04-PLAN.md): os rótulos dos outros dois blocos do painel — o
+// segundo bloco foi deliberadamente trocado de "falta comprar" para "sai neste mês" (o quanto
+// falta comprar já se lê na lista; o quanto sai este mês não se lia em lugar nenhum).
+export const ROTULO_SAI_NESTE_MES = "Sai neste mês";
+export const ROTULO_PROXIMO_MES = "próximo mês";
+export const ROTULO_PRECISA_DE_ATENCAO = "Precisa de atenção";
+
 // D-09 — os seis grupos de tarefa, na mesma ordem em que aparecem na lista agrupada (a mesma
 // ordem, duplicada deliberadamente, vive em `lib/abertura/prazos.ts` como `Grupo`/ordem interna
 // de iteração — aquele módulo não importa daqui, ver o comentário de lá). O valor do enum é sem

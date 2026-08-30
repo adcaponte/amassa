@@ -59,6 +59,18 @@ async function criarItem(
   await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
 }
 
+async function criarTarefaComPrazo(page: Page, opcoes: { descricao: string; prazoEm: string }) {
+  await page.goto("/abertura?aba=tarefas&tarefa=nova");
+  await page.getByLabel("O que fazer").fill(opcoes.descricao);
+  await page.getByLabel("Até quando").fill(opcoes.prazoEm);
+  await page.getByRole("button", { name: "Adicionar tarefa" }).click();
+  await expect(page).toHaveURL(/\?aba=tarefas$/, { timeout: 10000 });
+}
+
+function lerNumero(texto: string): number {
+  return Number(texto.replace(/[^\d]/g, "")) || 0;
+}
+
 test.describe("abertura painel — o painel de três blocos e a visão Por mês", () => {
   // Tarefa 1 (D-16/ABE-13): condição GLOBAL do banco (nenhum item existe) — marcado
   // `@vazio-global`, roda na cadeia `vazio-celular → vazio-desktop` ANTES de qualquer teste que
@@ -160,5 +172,80 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       scrollWidth,
       `/abertura?aba=meses rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
+  });
+
+  // Tarefa 2 (D-15/ABE-12): os três blocos do painel. Os números são GLOBAIS (somam TODO o
+  // banco, não só o que este teste criou) — sob execução paralela de verdade, outro worker pode
+  // estar criando item/tarefa ao mesmo tempo. Por isso as asserções são de CONSISTÊNCIA (relação
+  // algébrica entre os próprios números lidos na mesma leitura) e de PISO (o que este teste criou
+  // nunca é removido, então o total nunca fica MENOR que a contribuição própria) — nunca um valor
+  // absoluto fixo (CLAUDE.md "Teste não pode afirmar condição global do banco sem isolamento").
+  test("os três blocos do painel mostram números consistentes entre si, e o bloco de atenção fica vermelho quando a soma passa de zero", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    const nomeAVista = nomeUnico("Torno elétrico");
+    const nomeVencido = nomeUnico("Prateleiras de parede");
+    const descricaoAtrasada = nomeUnico("Assinar contrato de energia");
+
+    // Ambos com vencimento HOJE (padrão do formulário) — cada um soma no bloco "Sai neste mês".
+    await criarItem(page, { nome: nomeAVista, valor: "4400" });
+    // Entrega prevista bem no passado — SEMPRE vencida, qualquer que seja o dia do teste.
+    await criarItem(page, { nome: nomeVencido, valor: "1500", entregaPrevistaEm: "2020-01-01" });
+    await criarTarefaComPrazo(page, { descricao: descricaoAtrasada, prazoEm: "2020-01-01" });
+
+    await page.goto("/abertura");
+
+    const blocoComprometido = page.getByTestId("abertura-bloco-comprometido");
+    const blocoMes = page.getByTestId("abertura-bloco-mes");
+    const blocoAtencao = page.getByTestId("abertura-bloco-atencao");
+    await expect(blocoComprometido).toBeVisible();
+    await expect(blocoMes).toBeVisible();
+    await expect(blocoAtencao).toBeVisible();
+
+    const comprometido = lerNumero(
+      await blocoComprometido.getByTestId("abertura-bloco-comprometido-valor").innerText(),
+    );
+    const linhaComprometido = await blocoComprometido.innerText();
+    const [, aVistaTexto, aPrazoTexto] =
+      /R\$\s*([\d.]+)\s*à vista\s*·\s*R\$\s*([\d.]+)\s*a prazo/.exec(linhaComprometido) ?? [];
+    expect(aVistaTexto, `bloco Comprometido não bateu o formato esperado: "${linhaComprometido}"`)
+      .toBeTruthy();
+    const aVista = Number((aVistaTexto ?? "0").replace(/\./g, ""));
+    const aPrazo = Number((aPrazoTexto ?? "0").replace(/\./g, ""));
+    // Consistência algébrica — vale SEMPRE, não depende de quantos itens concorrentes existem.
+    expect(aVista + aPrazo).toBe(comprometido);
+    // Piso — os dois itens deste teste nunca são removidos, então o total nunca fica abaixo
+    // deles (mas pode ser MAIOR, por causa de outros itens concorrentes).
+    expect(comprometido).toBeGreaterThanOrEqual(4400 + 1500);
+
+    const saiNesteMes = lerNumero(
+      await blocoMes.getByTestId("abertura-bloco-mes-valor").innerText(),
+    );
+    expect(saiNesteMes).toBeGreaterThanOrEqual(4400 + 1500);
+
+    const atencao = lerNumero(
+      await blocoAtencao.getByTestId("abertura-bloco-atencao-valor").innerText(),
+    );
+    const linhaAtencao = await blocoAtencao.innerText();
+    const [, atrasadasTexto, vencidasTexto] =
+      /(\d+)\s*(?:tarefa atrasada|tarefas atrasadas)\s*·\s*(\d+)\s*(?:entrega vencida|entregas vencidas)/.exec(
+        linhaAtencao,
+      ) ?? [];
+    expect(atrasadasTexto, `bloco Atenção não bateu o formato esperado: "${linhaAtencao}"`)
+      .toBeTruthy();
+    const atrasadas = Number(atrasadasTexto ?? "0");
+    const vencidas = Number(vencidasTexto ?? "0");
+    // Consistência: o número grande é SEMPRE a soma das duas linhas de baixo.
+    expect(atrasadas + vencidas).toBe(atencao);
+    // Piso: a tarefa e a entrega deste teste garantem que a soma nunca é zero.
+    expect(atencao).toBeGreaterThanOrEqual(2);
+
+    // O valor grande só fica vermelho quando a soma passa de zero — como este teste garante que
+    // ela passa, o bloco PRECISA estar vermelho.
+    await expect(blocoAtencao.getByTestId("abertura-bloco-atencao-valor")).toHaveClass(
+      /text-erro/,
+    );
   });
 });

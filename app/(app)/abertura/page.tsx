@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { formatarReais, hojeEmBrasilia } from "@/lib/abertura/formato";
+import { hojeEmBrasilia } from "@/lib/abertura/formato";
 import {
   listarGestoresAtivos,
   listarItensDaAbertura,
@@ -9,14 +9,9 @@ import {
   obterItemDeAbertura,
   obterTarefaDeAbertura,
 } from "@/lib/abertura/consultas";
-import { fluxoMensal, totaisComprometidos } from "@/lib/abertura/parcelas";
+import { fluxoMensal, resumoDoPainel } from "@/lib/abertura/parcelas";
 import { contarTarefasAbertasPorItem, contarTarefasLigadasPorItem } from "@/lib/abertura/prazos";
-import {
-  ROTULO_COMPROMETIDO,
-  ROTULO_NOVA_TAREFA,
-  ROTULO_NOVO_ITEM,
-  TITULO_MODULO,
-} from "@/lib/abertura/textos";
+import { ROTULO_NOVA_TAREFA, ROTULO_NOVO_ITEM, TITULO_MODULO } from "@/lib/abertura/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { Button } from "@/components/ui/button";
 import { AbasAbertura } from "@/components/amassa/abertura/abas-abertura";
@@ -25,6 +20,7 @@ import { FormularioTarefa } from "@/components/amassa/abertura/formulario-tarefa
 import { ListaItens } from "@/components/amassa/abertura/lista-itens";
 import { ListaMeses } from "@/components/amassa/abertura/lista-meses";
 import { ListaTarefas } from "@/components/amassa/abertura/lista-tarefas";
+import { PainelResumo } from "@/components/amassa/abertura/painel-resumo";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/queimas/page.tsx`.
 // `searchParams` é `Promise` no Next.js 15 (precisa de `await`, mesmo padrão de
@@ -62,16 +58,16 @@ export default async function PaginaAbertura({
     idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
     idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
   ]);
-  const totais = totaisComprometidos(itens);
   // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
   // nunca uma segunda consulta por item.
   const contagemDeTarefasAbertas = contarTarefasAbertasPorItem(tarefas);
   // Contagem de TODAS as tarefas ligadas por item (D-14, Tarefa 3) — a que a confirmação de
   // remoção mostra ANTES de confirmar, a partir das mesmas tarefas já carregadas.
   const contagemDeTarefasLigadas = contarTarefasLigadasPorItem(tarefas);
-  // A visão "Por mês" (D-16, Tarefa 1 do 04.2-04-PLAN.md) — a MESMA função que o bloco "Sai
-  // neste mês" do painel (Tarefa 2) vai ler, nunca uma segunda soma por mês.
+  // A visão "Por mês" (D-16, Tarefa 1) e os três blocos do painel (D-15, Tarefa 2) — a MESMA
+  // função (`fluxoMensal`) alimenta as duas leituras, nunca uma segunda soma por mês.
   const meses = fluxoMensal(itens, hoje);
+  const resumo = resumoDoPainel(itens, tarefas, hoje);
 
   return (
     <>
@@ -100,22 +96,7 @@ export default async function PaginaAbertura({
         tarefaParaEditar={tarefaParaEditar}
       />
 
-      <div className="px-6 pt-6 md:px-8" data-testid="abertura-bloco-comprometido">
-        <div className="border-border bg-card rounded-lg border p-4 shadow-sm">
-          <div className="text-micro text-muted-foreground font-semibold tracking-wide uppercase">
-            {ROTULO_COMPROMETIDO}
-          </div>
-          <div className="text-titulo mt-1 font-bold tabular-nums">
-            {formatarReais(totais.comprometidoEmCentavos)}
-          </div>
-          <div className="text-apoio text-muted-foreground mt-1 tabular-nums">
-            <strong className="font-semibold">{formatarReais(totais.aVistaEmCentavos)}</strong> à
-            vista ·{" "}
-            <strong className="font-semibold">{formatarReais(totais.aPrazoEmCentavos)}</strong> a
-            prazo
-          </div>
-        </div>
-      </div>
+      <PainelResumo resumo={resumo} />
 
       <div className="pt-6">
         <AbasAbertura />

@@ -22,14 +22,21 @@ export default function CarregandoAbertura() {
         <Skeleton className="h-11 w-40" />
       </div>
 
-      {/* Bloco "Comprometido": rótulo, valor grande, linha à vista/a prazo — mesma altura final
-          do bloco real, para a página não pular quando os números chegarem. */}
-      <div className="px-6 pt-6 md:px-8">
-        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-4 w-48" />
-        </div>
+      {/* Os TRÊS blocos do painel (D-15/ABE-12: Comprometido, Sai neste mês, Precisa de
+          atenção) — uma coluna no celular, três a partir de 660px, cada um na ALTURA FINAL do
+          bloco real, para a página não pular quando os números chegarem (UI-SPEC §"Estados de
+          carregamento", que pede isto explicitamente para este painel). */}
+      <div className="grid grid-cols-1 gap-3 px-6 pt-6 sm:grid-cols-3 md:px-8">
+        {[0, 1, 2].map((bloco) => (
+          <div
+            key={bloco}
+            className="flex flex-col gap-2 rounded-lg border border-border p-4"
+          >
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-7 w-32" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        ))}
       </div>
 
       {/* Barra de abas (Itens/Tarefas/Por mês, `AbasAbertura`) — três blocos do mesmo tamanho do
