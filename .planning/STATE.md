@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.2
 current_phase_name: abertura-do-espaco
 status: executing
-stopped_at: Completed 04.2-03-PLAN.md
-last_updated: "2026-08-30T15:39:39.041Z"
+stopped_at: Completed 04.2-04-PLAN.md
+last_updated: "2026-08-30T16:23:16.249Z"
 last_activity: 2026-08-30
 last_activity_desc: Phase 04.2 execution started
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 46
-  completed_plans: 44
+  completed_plans: 45
 ---
 
 # Project State
@@ -28,13 +28,13 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.2 (abertura-do-espaco) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Server Action, rota `/abertura` e entrada no menu do usuário. Faltam 04.2-02 a 04.2-05
 (tarefas, marcar/editar/remover, painel e visão por mês, migração de remoção).
 Last activity: 2026-08-30 — Phase 04.2 execution started
 
-Progress: [██████████] 96% (42 de 46 planos executados e verificados até aqui)
+Progress: [██████████] 98% (42 de 46 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -106,6 +106,7 @@ Progress: [██████████] 96% (42 de 46 planos executados e ver
 | Phase 4.2 P01 | 55min | 4 tasks | 22 files |
 | Phase 04.2 P02 | 70min | 3 tasks | 14 files |
 | Phase 04.2 P03 | ~3h | 3 tasks | 16 files |
+| Phase 04.2 P04 | 1h10min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -246,6 +247,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Diálogo de remoção montado por LINHA (não por página), cada instância lendo o próprio useSearchParams() e abrindo só quando ?removerItem=<este id> bate — evita promover as listas inteiras a Client Component
 - [Phase ?]: removerItemDeAbertura conta as tarefas ligadas DENTRO da mesma transação que apaga a linha, e nunca toca abertura_tarefas — quem solta é a restrição on delete set null da migração 0010
 - [Phase ?]: CaixaMarcacao recebe o estado desejado, nunca inverter — duas chamadas com o mesmo valor convergem sempre, o que torna o salvamento otimista seguro sob concorrência (T-04.2-13)
+- [Phase ?]: fluxoMensal e a fonte unica do fluxo mensal - resumoDoPainel e a aba Por mes leem dela, nunca uma segunda soma
+- [Phase ?]: Empate no topo do pico marca TODOS os meses empatados (nunca so o primeiro), para o resultado nao depender da ordem de iteracao de um Map
+- [Phase ?]: definirDataDeInauguracao usa insert...on conflict sobre a restricao de linha unica - nunca select seguido de insert/update
 
 ### Pending Todos
 
@@ -301,6 +305,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-30T15:39:39.009Z
-Stopped at: Completed 04.2-03-PLAN.md
+Last session: 2026-08-30T16:23:16.215Z
+Stopped at: Completed 04.2-04-PLAN.md
 Resume file: None

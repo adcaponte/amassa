@@ -144,9 +144,9 @@
 - [x] **ABE-09**: Uma tarefa pode ser ligada opcionalmente a um item; a tarefa mostra de qual item veio e o item mostra quantas tarefas abertas ainda carrega
 - [x] **ABE-10**: Remover um item não apaga as tarefas ligadas a ele — elas ficam soltas, e a confirmação diz quantas são
 - [x] **ABE-11**: Itens e tarefas podem ser editados no lugar, sem apagar e recriar
-- [ ] **ABE-12**: O painel mostra o total comprometido separado em à vista e a prazo, quanto sai neste mês e no próximo, e quantas tarefas estão atrasadas somadas às entregas vencidas
-- [ ] **ABE-13**: Uma visão mês a mês mostra quanto sai em cada mês, de quais itens e parcelas, com o mês mais pesado identificado
-- [ ] **ABE-14**: A data de inauguração é editável e a contagem regressiva acompanha, inclusive quando a data já passou
+- [x] **ABE-12**: O painel mostra o total comprometido separado em à vista e a prazo, quanto sai neste mês e no próximo, e quantas tarefas estão atrasadas somadas às entregas vencidas
+- [x] **ABE-13**: Uma visão mês a mês mostra quanto sai em cada mês, de quais itens e parcelas, com o mês mais pesado identificado
+- [x] **ABE-14**: A data de inauguração é editável e a contagem regressiva acompanha, inclusive quando a data já passou
 - [ ] **ABE-15**: O módulo pode ser removido por completo — tabelas, rota e item de navegação — sem deixar resíduo no resto do sistema
 
 ### Painel Inicial e Entrega
