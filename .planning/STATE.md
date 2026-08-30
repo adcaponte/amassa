@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
-current_phase_name: Agenda de Aulas
-status: planning
-stopped_at: Completed 04.1-06-PLAN.md
-last_updated: "2026-08-22T12:32:31.717Z"
-last_activity: 2026-08-22
-last_activity_desc: Phase 04.1 complete, transitioned to Phase 5
+current_phase: 4.2
+current_phase_name: Abertura do Espaço (temporário)
+status: executing
+stopped_at: Completed 04.2-01-PLAN.md
+last_updated: "2026-08-30T13:21:49.637Z"
+last_activity: 2026-08-30
+last_activity_desc: Phase 04.2 Plan 01 (tracer) complete — item existe ponta a ponta, 4 planos restantes na fase
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 41
-  completed_plans: 41
+  total_plans: 46
+  completed_plans: 42
 ---
 
 # Project State
@@ -27,15 +27,14 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 5 — Agenda de Aulas
-Plan: Not started
-Status: Ready to plan
-direto no banco, CI verde (run #46), UAT de 18 testes com 18 pass, e a verificação humana percorrida
-nos 26 itens. O único issue encontrado (G-04-5 — falha do layout sem fronteira de erro acima dela)
-foi corrigido fora da fase, no quick 260811-uiy, e a correção foi provada por observação.
-Last activity: 2026-08-22 — Phase 04.1 complete, transitioned to Phase 5
+Phase: 4.2 — Abertura do Espaço (temporário, INSERTED antes da Fase 6/5/7 — ver Roadmap Evolution)
+Plan: 01 of 5 complete
+Status: Executing — tracer (04.2-01) provado ponta a ponta: tabelas, `lib/abertura/parcelas.ts`,
+Server Action, rota `/abertura` e entrada no menu do usuário. Faltam 04.2-02 a 04.2-05
+(tarefas, marcar/editar/remover, painel e visão por mês, migração de remoção).
+Last activity: 2026-08-30 — Phase 04.2 Plan 01 (tracer) complete
 
-Progress: [██████████] 100% da Fase 4 (35 de 35 planos executados e verificados até aqui)
+Progress: [█████████░] 91% (42 de 46 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -104,6 +103,7 @@ Progress: [██████████] 100% da Fase 4 (35 de 35 planos execu
 | Phase 04.1 P04 | ~15min (Tarefa 1) + execucao real da migracao pelo dono | 2 tasks | 4 files |
 | Phase 04.1 P05 | ~15min | 2 tasks | 7 files |
 | Phase 04.1 P06 | ~35min | 3 tasks | 8 files |
+| Phase 4.2 P01 | 55min | 4 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -237,6 +237,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.1-06: AjusteInvalido (molde de EncomendaNaoEncontrada) fecha o gap 17/CR-02 — teto de 365 dias devolve { ok: false, erro } em vez de exceção não tratada; try/catch/finally no cliente garante saída do estado pendente em todo caminho
 - [Phase ?]: 04.1-06: WR-02 resolvido com região viva (aria-live=polite + sr-only) ao lado do número aria-hidden, não aria-label no span — anuncia valor atual e valor novo sem tocar em rótulo de botão já testado
 - [Phase ?]: 04.1-06: roteiro de migração ganhou guarda que confere dias<>1 em linha de marco (WR-01); WR-03 (datas conflitantes em TrilhaEtapas) registrado como adiado em 04.1-CONTEXT.md, sem código, aguardando o dono
+- [Phase ?]: D-19 consultada e confirmada (04.2-01): parcela cujo dia nao existe no mes seguinte cai no ultimo dia daquele mes; ja decidida pelo dono em 2026-08-30, sem novo portao
+- [Phase ?]: 04.2-01: calcularParcelas usa soma por prefixo telescopico (nao total/n repetido) para a soma das parcelas fechar exata com o total mesmo em divisao nao exata
 
 ### Pending Todos
 
@@ -273,6 +275,7 @@ None yet.
 - Phase 3 edited: ENC-14 (botao de imprimir folha A4) adicionado aos requisitos e criterios de sucesso
 - Phase 3 edited: criterios 4 e 13 reconciliados com o quick 260812-2et (BRIEF-NOTURNO): Gantt passou de celulas quinzenais para semanais (segunda a domingo), a timeline deixou de abrir centralizada para abrir em hoje na borda esquerda, e o nome da encomenda virou link. Supersessao deliberada, nao regressao — os 18px/dia do 03-UI-SPEC.md continuam valendo
 - Phase 04.1 inserted after Phase 4: Datas dos Marcos da Encomenda — nasceu da caminhada humana do dono, reabre ENC-03, precisa de migracao. Executa antes da Fase 5 (URGENT)
+- Phase 04.2 inserted after Phase 04.1: Abertura do Espaço — módulo TEMPORÁRIO (data de morte, ABE-15) para organizar a abertura do novo espaço do ateliê; protótipo validado com o dono em cinco rodadas antes do planejamento. Ordem de execução revista: 4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento), por decisão do dono em 2026-08-22
 
 ## Deferred Items
 
@@ -291,6 +294,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-22T12:17:44.662Z
-Stopped at: Completed 04.1-06-PLAN.md
+Last session: 2026-08-30T13:21:46.178Z
+Stopped at: Completed 04.2-01-PLAN.md
 Resume file: None

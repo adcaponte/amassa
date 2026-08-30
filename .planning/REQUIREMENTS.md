@@ -133,11 +133,11 @@
 > Módulo com prazo de validade: existe para organizar a abertura do novo espaço e é **removido
 > quando o espaço abrir**. Validado por protótipo antes de virar código.
 
-- [ ] **ABE-01**: Cadastrar um item a comprar com nome, categoria, valor total e forma de pagamento
-- [ ] **ABE-02**: No pagamento a prazo, informar o número de parcelas e a data da primeira; as demais caem no mesmo dia dos meses seguintes
-- [ ] **ABE-03**: Informar opcionalmente a data prevista de entrega de um item
+- [x] **ABE-01**: Cadastrar um item a comprar com nome, categoria, valor total e forma de pagamento
+- [x] **ABE-02**: No pagamento a prazo, informar o número de parcelas e a data da primeira; as demais caem no mesmo dia dos meses seguintes
+- [x] **ABE-03**: Informar opcionalmente a data prevista de entrega de um item
 - [ ] **ABE-04**: Um item cuja entrega venceu e que não foi resolvido aparece destacado como "não chegou"
-- [ ] **ABE-05**: Itens são agrupados por categoria, com contagem e soma por grupo
+- [x] **ABE-05**: Itens são agrupados por categoria, com contagem e soma por grupo
 - [ ] **ABE-06**: Cadastrar uma tarefa com descrição, prazo, grupo e responsável escolhido entre os gestores ativos da plataforma
 - [ ] **ABE-07**: Uma tarefa pode ficar sem responsável — "ninguém ainda" é um estado válido
 - [ ] **ABE-08**: Tarefas são agrupadas por área, ordenadas por urgência dentro de cada grupo, e o cabeçalho do grupo mostra quantas estão atrasadas

@@ -329,10 +329,11 @@ Ver `.planning/phases/04.2-abertura-do-espaco/04.2-CONTEXT.md` — o protótipo 
   8. A data de inauguração é editável e a contagem regressiva acompanha, inclusive depois de a data passar
   9. Existe uma migração de remoção pronta e testada que apaga o módulo inteiro sem afetar o resto do sistema
 
-**Plans**: 5 plans
+**Plans**: 1/5 plans executed
 
 Plans:
-- [ ] 04.2-01-PLAN.md — Traçador: o item existe ponta a ponta, da tabela ao grupo na tela, com as parcelas calculadas e nenhuma armazenada
+
+- [x] 04.2-01-PLAN.md — Traçador: o item existe ponta a ponta, da tabela ao grupo na tela, com as parcelas calculadas e nenhuma armazenada
 - [ ] 04.2-02-PLAN.md — Tarefas: grupos, urgência, responsável vindo dos gestores ativos e o vínculo com o item lido dos dois lados
 - [ ] 04.2-03-PLAN.md — Marcar como resolvido, o item que não chegou, editar no lugar e remover dizendo o que se perde
 - [ ] 04.2-04-PLAN.md — Painel de três blocos, visão mês a mês com escala nomeada, e a data de inauguração com a contagem regressiva
@@ -346,7 +347,6 @@ Plans:
 > (a inauguração) e o Estoque entra em seguida; a Agenda não tem urgência e continua sendo o
 > módulo mais complexo do projeto, ganhando em ser enfrentado depois de o sistema já estar em uso.
 > Ordem de execução revista: **4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento)**.
-
 
 **Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
 aulas com data concreta por materialização preguiçosa, e presença é marcada por aluna.
@@ -451,7 +451,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 3. Gestor de Encomendas | 8/8 | Complete    | 2026-08-20 |
 | 4. Contador de Queima | 7/7 | Complete    | 2026-08-11 |
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
-| 04.2. Abertura do Espaço | 0/5 | Planned     | - |
+| 04.2. Abertura do Espaço | 1/5 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
