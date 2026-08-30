@@ -1,10 +1,17 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Esqueleto na FORMA do conteúdo que substitui — cabeçalho, o bloco "Comprometido" (na ALTURA
-// final, para a página não pular quando o número chegar), a barra de abas (plano 04.2-02) e três
-// a quatro linhas de item/tarefa, na mesma altura da linha real (UI-SPEC §"Estados de
-// carregamento"). Nunca um "carregando..." solto entre as tags — só `Skeleton` e leiaute, no
-// molde de `app/(app)/queimas/loading.tsx`.
+// Esqueleto na FORMA do conteúdo que substitui — o bloco "Comprometido" (na ALTURA final, para a
+// página não pular quando o número chegar), a barra de abas (plano 04.2-02) e três a quatro
+// linhas de item/tarefa, na mesma altura da linha real (UI-SPEC §"Estados de carregamento").
+// Nunca um "carregando..." solto entre as tags — só `Skeleton` e leiaute, no molde de
+// `app/(app)/queimas/loading.tsx`.
+//
+// Cabeçalho + data de inauguração NÃO aparecem aqui — vivem em
+// `app/(app)/abertura/layout.tsx` (achado quantitativo de
+// .planning/debug/abertura-navegacao-trava.md), fora do limite de Suspense que este arquivo
+// cobre (`loading.tsx` só envolve `{children}` do layout, nunca o próprio conteúdo do layout).
+// A busca de dados do layout tem seu PRÓPRIO `<Suspense>` interno (ver layout.tsx), então o
+// estado de carregamento continua garantido — só num limite diferente.
 //
 // `loading.tsx` não recebe `searchParams` (é o mesmo esqueleto para qualquer `?aba=`) — por isso
 // ele não pode saber qual das duas listas vai aparecer. A solução é desenhar as DUAS formas de
@@ -16,22 +23,6 @@ const LINHAS = [0, 1, 2, 3] as const;
 export default function CarregandoAbertura() {
   return (
     <div className="flex flex-col">
-      {/* Cabeçalho: título + botão "+ Adicionar item". */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-6 md:px-8">
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-11 w-40" />
-      </div>
-
-      {/* Data de inauguração editável (D-17/ABE-14) + contagem regressiva — texto discreto à
-          esquerda, número grande à direita. */}
-      <div className="flex flex-wrap items-end justify-between gap-4 px-6 pt-4 md:px-8">
-        <Skeleton className="h-4 w-56" />
-        <div className="flex flex-none flex-col items-end gap-1">
-          <Skeleton className="h-7 w-10" />
-          <Skeleton className="h-3 w-12" />
-        </div>
-      </div>
-
       {/* Os TRÊS blocos do painel (D-15/ABE-12: Comprometido, Sai neste mês, Precisa de
           atenção) — uma coluna no celular, três a partir de 660px, cada um na ALTURA FINAL do
           bloco real, para a página não pular quando os números chegarem (UI-SPEC §"Estados de

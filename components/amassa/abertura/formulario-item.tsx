@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { memo, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -17,6 +16,7 @@ import {
   ROTULO_SALVAR_ITEM,
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
+import { useItemAberto, useRouterAbertura } from "@/components/amassa/abertura/contexto-navegacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -102,12 +102,18 @@ function valoresIniciais(hoje: string, itemParaEditar: ItemDaAbertura | null): V
 // existente ou não — um identificador que não bate com nenhuma linha abre vazio) na própria
 // rota `/abertura` — montado SEMPRE (mesmo com a lista vazia), para o botão do `EstadoVazio`
 // abrir o formulário do primeiríssimo item (achado do 03-06, replicado em Queimas e aqui).
-export function FormularioItem({ hoje, itemParaEditar }: FormularioItemProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  // A presença do parâmetro (qualquer valor) já abre o diálogo — o MODO (criar vs. editar) só
-  // depende de `itemParaEditar` ter resolvido uma linha de verdade no servidor.
-  const aberto = searchParams.get("item") !== null;
+//
+// `memo()`: ver data-inauguracao.tsx e .planning/debug/abertura-navegacao-trava.md — sem ele,
+// este componente (o mais caro da tela, com `useForm`/`zodResolver`) re-renderizaria em TODA
+// navegação de /abertura, mesmo abrindo `?tarefa=nova` (nada aqui muda). `itemParaEditar` (prop
+// do servidor) é `null` em toda navegação exceto `?item=<id existente>`, então a comparação rasa
+// do `memo` funciona sem gambiarra.
+function FormularioItemBase({ hoje, itemParaEditar }: FormularioItemProps) {
+  const router = useRouterAbertura();
+  // Contexto próprio de `?item=` (nunca o objeto agregado) — a presença do parâmetro (qualquer
+  // valor) já abre o diálogo; o MODO (criar vs. editar) só depende de `itemParaEditar` ter
+  // resolvido uma linha de verdade no servidor.
+  const aberto = useItemAberto();
   const modoEdicao = itemParaEditar !== null;
 
   const [erro, setErro] = useState<string | null>(null);
@@ -391,3 +397,14 @@ export function FormularioItem({ hoje, itemParaEditar }: FormularioItemProps) {
     </Dialog>
   );
 }
+
+// Comparador PRÓPRIO explícito (nunca o padrão do `memo` — achado quantitativo de
+// .planning/debug/abertura-navegacao-trava.md: o comparador padrão não bastou para pular o
+// re-render nesta árvore mesmo com props idênticas; um comparador explícito, ainda que
+// semanticamente igual, bastou). Relevante quando `?tarefa=nova`/`?aba=`/etc. mudam e ESTE
+// diálogo continua fechado.
+function propsIguais(anterior: FormularioItemProps, atual: FormularioItemProps): boolean {
+  return anterior.hoje === atual.hoje && anterior.itemParaEditar === atual.itemParaEditar;
+}
+
+export const FormularioItem = memo(FormularioItemBase, propsIguais);

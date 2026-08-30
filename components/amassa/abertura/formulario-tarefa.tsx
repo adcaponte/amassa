@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { memo, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -19,6 +18,10 @@ import {
   ROTULO_SEM_VINCULO,
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
+import {
+  useRouterAbertura,
+  useTarefaAberta,
+} from "@/components/amassa/abertura/contexto-navegacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -104,10 +107,10 @@ function valoresIniciais(
 // existente ou não) na própria rota `/abertura` — montado SEMPRE (mesmo com a lista vazia), para
 // o botão do `EstadoVazio` da aba Tarefas abrir o formulário da primeiríssima tarefa (mesmo
 // achado replicado de Itens/Fornos).
-export function FormularioTarefa({ hoje, gestores, itens, tarefaParaEditar }: FormularioTarefaProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const aberto = searchParams.get("tarefa") !== null;
+function FormularioTarefaBase({ hoje, gestores, itens, tarefaParaEditar }: FormularioTarefaProps) {
+  const router = useRouterAbertura();
+  // Contexto próprio de `?tarefa=` (nunca o objeto agregado) — ver formulario-item.tsx.
+  const aberto = useTarefaAberta();
   const modoEdicao = tarefaParaEditar !== null;
 
   const [erro, setErro] = useState<string | null>(null);
@@ -335,3 +338,28 @@ export function FormularioTarefa({ hoje, gestores, itens, tarefaParaEditar }: Fo
     </Dialog>
   );
 }
+
+// Comparador PRÓPRIO (nunca a comparação rasa padrão do `memo`): `app/(app)/abertura/page.tsx`
+// recria `gestores`/`itens` como um array/objetos NOVOS a cada navegação (consulta ao banco +
+// `.map()` de novo), então a comparação rasa padrão veria sempre "mudou" mesmo com o MESMO
+// conteúdo — o que anularia o `memo` bem no componente mais caro da tela (achado quantitativo de
+// .planning/debug/abertura-navegacao-trava.md). Compara pelo conteúdo relevante (id/nome), não
+// pela referência do array.
+function propsIguais(anterior: FormularioTarefaProps, atual: FormularioTarefaProps): boolean {
+  return (
+    anterior.hoje === atual.hoje &&
+    anterior.tarefaParaEditar === atual.tarefaParaEditar &&
+    anterior.gestores.length === atual.gestores.length &&
+    anterior.gestores.every(
+      (gestor, indice) =>
+        gestor.id === atual.gestores[indice]?.id && gestor.nome === atual.gestores[indice]?.nome,
+    ) &&
+    anterior.itens.length === atual.itens.length &&
+    anterior.itens.every(
+      (item, indice) =>
+        item.id === atual.itens[indice]?.id && item.nome === atual.itens[indice]?.nome,
+    )
+  );
+}
+
+export const FormularioTarefa = memo(FormularioTarefaBase, propsIguais);

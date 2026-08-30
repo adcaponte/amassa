@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { memo, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { marcarItemResolvido, marcarTarefaConcluida } from "@/lib/abertura/acoes";
 import { FRASE_FALHA_AO_SALVAR, rotuloCaixaItem, rotuloCaixaTarefa } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
+import { useRouterAbertura } from "@/components/amassa/abertura/contexto-navegacao";
 
 export type CaixaMarcacaoProps = {
   // Uma caixa só serve às duas listas (D-07: uma marcação por item, significando "resolvido" —
@@ -28,8 +28,13 @@ export type CaixaMarcacaoProps = {
 // `toast.error` explica. Alvo de toque: o `<button>` mede 44px por 44px; a caixa DESENHADA (a
 // que o protótipo mostra) mede 24px dentro dele — a folga em volta é o que mantém a área
 // alcançável (CLAUDE.md §Acessibilidade).
-export function CaixaMarcacao({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
-  const router = useRouter();
+//
+// `memo()` (props todas primitivas — comparação rasa padrão basta): ver data-inauguracao.tsx e
+// .planning/debug/abertura-navegacao-trava.md. Uma instância por linha existente — sem `memo`,
+// clicar em QUALQUER link de /abertura re-renderizaria TODAS as instâncias já montadas.
+function CaixaMarcacaoBase({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
+  // Só o `router` (contexto próprio, estável) — nunca precisa re-renderizar por navegação.
+  const router = useRouterAbertura();
   const [estadoVisual, setEstadoVisual] = useState(marcado);
   const [enviando, setEnviando] = useState(false);
 
@@ -110,3 +115,16 @@ export function CaixaMarcacao({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
     </button>
   );
 }
+
+// Comparador PRÓPRIO explícito (nunca o padrão do `memo` — ver formulario-item.tsx e
+// .planning/debug/abertura-navegacao-trava.md).
+function propsIguais(anterior: CaixaMarcacaoProps, atual: CaixaMarcacaoProps): boolean {
+  return (
+    anterior.tipo === atual.tipo &&
+    anterior.id === atual.id &&
+    anterior.nome === atual.nome &&
+    anterior.marcado === atual.marcado
+  );
+}
+
+export const CaixaMarcacao = memo(CaixaMarcacaoBase, propsIguais);

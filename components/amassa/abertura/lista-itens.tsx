@@ -17,6 +17,7 @@ import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
 import { ConfirmarRemoverItem } from "@/components/amassa/abertura/confirmar-remover-item";
 import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
 
+
 export type ListaItensProps = {
   itens: ItemDaAbertura[];
   hoje: string;
@@ -57,6 +58,17 @@ export function ListaItens({
 
   return (
     <div className="flex flex-col gap-6 px-6 py-6 md:px-8" data-testid="abertura-lista-itens">
+      {/* UMA instância para a lista toda (nunca uma por linha) — ver o comentário em
+          confirmar-remover-item.tsx e .planning/debug/abertura-navegacao-trava.md. */}
+      <ConfirmarRemoverItem
+        itens={itens.map((item) => ({
+          id: item.id,
+          nome: item.nome,
+          valorEmCentavos: item.valorEmCentavos,
+          tarefasLigadas: contagemDeTarefasLigadas.get(item.id) ?? 0,
+        }))}
+      />
+
       {categoriasComItem.map((categoria) => {
         const linhas = itens.filter((item) => item.categoria === categoria);
         const soma = linhas.reduce((total, item) => total + item.valorEmCentavos, 0);
@@ -95,7 +107,6 @@ export function ListaItens({
                   item={item}
                   hoje={hoje}
                   tarefasAbertas={contagemDeTarefasAbertas.get(item.id) ?? 0}
-                  tarefasLigadas={contagemDeTarefasLigadas.get(item.id) ?? 0}
                 />
               ))}
             </div>
@@ -110,15 +121,12 @@ function LinhaDeItem({
   item,
   hoje,
   tarefasAbertas,
-  tarefasLigadas,
 }: {
   item: ItemDaAbertura;
   hoje: string;
   // 0 = nenhuma tarefa aberta (chave ausente do mapa) — nunca desenha etiqueta "0 tarefas
   // abertas", só a ausência dela.
   tarefasAbertas: number;
-  // D-14: TODAS as tarefas ligadas (concluídas ou não) — o que a confirmação de remoção avisa.
-  tarefasLigadas: number;
 }) {
   const parcelas = calcularParcelas(item);
   const { tipo, parcela } = proximaParcela(parcelas, hoje);
@@ -216,13 +224,6 @@ function LinhaDeItem({
         nome={item.nome}
         hrefEditar={`/abertura?item=${item.id}`}
         hrefRemover={`/abertura?removerItem=${item.id}`}
-      />
-
-      <ConfirmarRemoverItem
-        id={item.id}
-        nome={item.nome}
-        valorEmCentavos={item.valorEmCentavos}
-        tarefasLigadas={tarefasLigadas}
       />
     </div>
   );

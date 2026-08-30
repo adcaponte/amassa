@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { memo, useState } from "react";
 import { toast } from "sonner";
 
 import { removerTarefaDeAbertura } from "@/lib/abertura/acoes";
 import { fraseConfirmarRemoverTarefa } from "@/lib/abertura/textos";
+import {
+  useRemoverTarefaId,
+  useRouterAbertura,
+} from "@/components/amassa/abertura/contexto-navegacao";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,18 +20,26 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export type ConfirmarRemoverTarefaProps = {
+export type TarefaParaRemover = {
   id: string;
   descricao: string;
 };
 
-// Mesmo molde de `ConfirmarRemoverItem`: montado UMA VEZ por linha, lê o próprio
-// `useSearchParams()` e só se considera aberta quando `?removerTarefa=<este id>` está na URL.
+export type ConfirmarRemoverTarefaProps = {
+  // A lista INTEIRA de tarefas (id/descrição), não uma tarefa só — mesmo molde de
+  // confirmar-remover-item.tsx.
+  tarefas: TarefaParaRemover[];
+};
+
+// UMA instância para a lista TODA (não mais uma por linha) — acha a tarefa certa por
+// `?removerTarefa=<id>` dentro do array já carregado pela página. Mesmo molde e mesmo motivo
+// quantitativo de `confirmar-remover-item.tsx` (ver .planning/debug/abertura-navegacao-trava.md).
 // Nada de exclusão silenciosa — nomeia a tarefa, sempre (CLAUDE.md §Exclusão).
-export function ConfirmarRemoverTarefa({ id, descricao }: ConfirmarRemoverTarefaProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const aberto = searchParams.get("removerTarefa") === id;
+function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
+  const router = useRouterAbertura();
+  const removerTarefaId = useRemoverTarefaId();
+  const tarefa = tarefas.find((candidata) => candidata.id === removerTarefaId) ?? null;
+  const aberto = tarefa !== null;
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -40,10 +51,13 @@ export function ConfirmarRemoverTarefa({ id, descricao }: ConfirmarRemoverTarefa
 
   async function confirmar(evento: { preventDefault: () => void }) {
     evento.preventDefault();
+    if (!tarefa) {
+      return;
+    }
     setEnviando(true);
     setErro(null);
 
-    const resposta = await removerTarefaDeAbertura(id);
+    const resposta = await removerTarefaDeAbertura(tarefa.id);
 
     setEnviando(false);
 
@@ -67,28 +81,49 @@ export function ConfirmarRemoverTarefa({ id, descricao }: ConfirmarRemoverTarefa
       }}
     >
       <AlertDialogContent className="max-h-[85svh] overflow-y-auto">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="[overflow-wrap:anywhere]">
-            {fraseConfirmarRemoverTarefa(descricao)}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            Ela deixa de aparecer na lista de tarefas.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+        {tarefa && (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="[overflow-wrap:anywhere]">
+                {fraseConfirmarRemoverTarefa(tarefa.descricao)}
+              </AlertDialogTitle>
+              <AlertDialogDescription>Ela deixa de aparecer na lista de tarefas.</AlertDialogDescription>
+            </AlertDialogHeader>
 
-        {erro && (
-          <p role="alert" className="text-apoio text-erro">
-            {erro}
-          </p>
+            {erro && (
+              <p role="alert" className="text-apoio text-erro">
+                {erro}
+              </p>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={enviando}>Voltar</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" disabled={enviando} onClick={confirmar}>
+                {enviando ? "Removendo…" : "Remover"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </>
         )}
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={enviando}>Voltar</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" disabled={enviando} onClick={confirmar}>
-            {enviando ? "Removendo…" : "Remover"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
+
+// Comparador PRÓPRIO explícito (nunca o padrão do `memo` — ver formulario-item.tsx e
+// .planning/debug/abertura-navegacao-trava.md): compara pelo CONTEÚDO da lista, não pela
+// referência do array.
+function propsIguais(
+  anterior: ConfirmarRemoverTarefaProps,
+  atual: ConfirmarRemoverTarefaProps,
+): boolean {
+  return (
+    anterior.tarefas.length === atual.tarefas.length &&
+    anterior.tarefas.every(
+      (tarefa, indice) =>
+        tarefa.id === atual.tarefas[indice]?.id &&
+        tarefa.descricao === atual.tarefas[indice]?.descricao,
+    )
+  );
+}
+
+export const ConfirmarRemoverTarefa = memo(ConfirmarRemoverTarefaBase, propsIguais);

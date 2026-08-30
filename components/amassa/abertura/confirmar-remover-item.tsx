@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { memo, useState } from "react";
 import { toast } from "sonner";
 
 import { removerItemDeAbertura } from "@/lib/abertura/acoes";
 import { formatarReais } from "@/lib/abertura/formato";
 import { fraseConfirmarRemoverItem, fraseTarefasQueFicamSoltas } from "@/lib/abertura/textos";
+import {
+  useRemoverItemId,
+  useRouterAbertura,
+} from "@/components/amassa/abertura/contexto-navegacao";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export type ConfirmarRemoverItemProps = {
+export type ItemParaRemover = {
   id: string;
   nome: string;
   valorEmCentavos: number;
@@ -29,20 +32,28 @@ export type ConfirmarRemoverItemProps = {
   tarefasLigadas: number;
 };
 
-// Montado UMA VEZ por linha (mesmo molde de `formulario-item.tsx`: cada instância lê o próprio
-// `useSearchParams()` e só se considera aberta quando `?removerItem=<este id>` está na URL —
-// nunca um `onClick` que abriria um estado local, o que exigiria promover `lista-itens.tsx` a
-// Client Component inteiro). `FerramentasLinha` (Tarefa 2) só NAVEGA para essa URL; quem decide
-// se mostra o diálogo é esta instância.
-export function ConfirmarRemoverItem({
-  id,
-  nome,
-  valorEmCentavos,
-  tarefasLigadas,
-}: ConfirmarRemoverItemProps) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const aberto = searchParams.get("removerItem") === id;
+export type ConfirmarRemoverItemProps = {
+  // A lista INTEIRA de itens (id/nome/valor/tarefasLigadas), não um item só — ver o comentário
+  // abaixo sobre por que esta é agora UMA instância para a lista toda, não uma por linha.
+  itens: ItemParaRemover[];
+};
+
+// UMA instância para a lista TODA (não mais uma por linha) — acha o item certo por
+// `?removerItem=<id>` (contexto de `contexto-navegacao.tsx`) dentro do array já carregado pela
+// página, em vez de cada linha montar sua própria instância.
+//
+// Motivo (achado quantitativo de .planning/debug/abertura-navegacao-trava.md, sessão de
+// 2026-08-30): com uma instância por linha, uma lista de N itens somava N referências de Client
+// Component ao payload RSC de QUALQUER navegação em /abertura (abrir "Novo item", trocar de aba,
+// etc.) — e a mesma classe do defeito da tela vazia (transição de clique que às vezes nunca
+// comita, sem erro nenhum) reapareceu em `abertura-edicao.spec.ts` (rodando com a lista já
+// povoada, N ~ 17-23 num run com 8 workers em paralelo) mesmo depois da correção da tela vazia.
+// Uma instância só, não uma por linha, deixa esse custo CONSTANTE (1), não O(N).
+function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
+  const router = useRouterAbertura();
+  const removerItemId = useRemoverItemId();
+  const item = itens.find((candidato) => candidato.id === removerItemId) ?? null;
+  const aberto = item !== null;
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -54,10 +65,13 @@ export function ConfirmarRemoverItem({
 
   async function confirmar(evento: { preventDefault: () => void }) {
     evento.preventDefault();
+    if (!item) {
+      return;
+    }
     setEnviando(true);
     setErro(null);
 
-    const resposta = await removerItemDeAbertura(id);
+    const resposta = await removerItemDeAbertura(item.id);
 
     setEnviando(false);
 
@@ -87,28 +101,50 @@ export function ConfirmarRemoverItem({
       }}
     >
       <AlertDialogContent className="max-h-[85svh] overflow-y-auto">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="[overflow-wrap:anywhere]">
-            {fraseConfirmarRemoverItem(nome, formatarReais(valorEmCentavos))}
-          </AlertDialogTitle>
-          <AlertDialogDescription data-testid="abertura-aviso-tarefas-ligadas">
-            {tarefasLigadas > 0 ? fraseTarefasQueFicamSoltas(tarefasLigadas) : null}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+        {item && (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="[overflow-wrap:anywhere]">
+                {fraseConfirmarRemoverItem(item.nome, formatarReais(item.valorEmCentavos))}
+              </AlertDialogTitle>
+              <AlertDialogDescription data-testid="abertura-aviso-tarefas-ligadas">
+                {item.tarefasLigadas > 0 ? fraseTarefasQueFicamSoltas(item.tarefasLigadas) : null}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
 
-        {erro && (
-          <p role="alert" className="text-apoio text-erro">
-            {erro}
-          </p>
+            {erro && (
+              <p role="alert" className="text-apoio text-erro">
+                {erro}
+              </p>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={enviando}>Voltar</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" disabled={enviando} onClick={confirmar}>
+                {enviando ? "Removendo…" : "Remover"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </>
         )}
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={enviando}>Voltar</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" disabled={enviando} onClick={confirmar}>
-            {enviando ? "Removendo…" : "Remover"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
+
+// Comparador PRÓPRIO explícito (nunca o padrão do `memo` — ver formulario-tarefa.tsx e
+// .planning/debug/abertura-navegacao-trava.md): compara pelo CONTEÚDO da lista, não pela
+// referência do array (a página recria esse array a cada navegação).
+function propsIguais(anterior: ConfirmarRemoverItemProps, atual: ConfirmarRemoverItemProps): boolean {
+  return (
+    anterior.itens.length === atual.itens.length &&
+    anterior.itens.every(
+      (item, indice) =>
+        item.id === atual.itens[indice]?.id &&
+        item.nome === atual.itens[indice]?.nome &&
+        item.valorEmCentavos === atual.itens[indice]?.valorEmCentavos &&
+        item.tarefasLigadas === atual.itens[indice]?.tarefasLigadas,
+    )
+  );
+}
+
+export const ConfirmarRemoverItem = memo(ConfirmarRemoverItemBase, propsIguais);

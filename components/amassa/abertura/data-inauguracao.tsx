@@ -1,7 +1,6 @@
 "use client";
 
-import { type KeyboardEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { type KeyboardEvent, memo, useState } from "react";
 import { toast } from "sonner";
 
 import { definirDataDeInauguracao } from "@/lib/abertura/acoes";
@@ -12,6 +11,7 @@ import {
   ROTULO_ALTERAR_INAUGURACAO,
   rotuloContagemRegressiva,
 } from "@/lib/abertura/textos";
+import { useRouterAbertura } from "@/components/amassa/abertura/contexto-navegacao";
 import { Input } from "@/components/ui/input";
 
 export type DataInauguracaoProps = {
@@ -28,8 +28,19 @@ export type DataInauguracaoProps = {
 // de defini-la) como botão discreto; ao acionar, dá lugar a um campo de data com Salvar/Cancelar.
 // `Enter` salva e `Escape` cancela. À direita, a contagem regressiva — o número grande e, abaixo,
 // o rótulo que muda com o tipo (D-17/ABE-14).
-export function DataInauguracao({ inauguracaoEm, hoje }: DataInauguracaoProps) {
-  const router = useRouter();
+//
+// `memo()` (achado quantitativo de .planning/debug/abertura-navegacao-trava.md): `page.tsx` é
+// Server Component dinâmico e recria os elementos de TODOS os filhos a cada navegação, mesmo
+// quando as props não mudam de verdade — sem `memo`, o React chamaria esta função de novo em toda
+// navegação de /abertura, mesmo abrindo `?item=novo` (nada aqui muda). Combinado com o contexto
+// próprio de `contexto-navegacao.tsx` (que também não muda quando `?item=`/`?tarefa=` mudam),
+// `memo` deixa este componente pular o re-render por inteiro quando nem as props nem o contexto
+// que ele lê mudaram — é isto que reduz o trabalho concorrente de render na transição, o fator que
+// a medição mostrou correlacionar com a taxa de travamento.
+function DataInauguracaoBase({ inauguracaoEm, hoje }: DataInauguracaoProps) {
+  // Só o `router` (contexto próprio, estável) — este componente não lê nenhum parâmetro de
+  // busca, então nunca precisa re-renderizar por causa de navegação nenhuma dentro de /abertura.
+  const router = useRouterAbertura();
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(inauguracaoEm ?? hoje);
   const [enviando, setEnviando] = useState(false);
@@ -151,3 +162,9 @@ export function DataInauguracao({ inauguracaoEm, hoje }: DataInauguracaoProps) {
     </div>
   );
 }
+
+function propsIguais(anterior: DataInauguracaoProps, atual: DataInauguracaoProps): boolean {
+  return anterior.inauguracaoEm === atual.inauguracaoEm && anterior.hoje === atual.hoje;
+}
+
+export const DataInauguracao = memo(DataInauguracaoBase, propsIguais);

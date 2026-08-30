@@ -1,22 +1,15 @@
-import Link from "next/link";
-
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/abertura/formato";
 import {
   listarGestoresAtivos,
   listarItensDaAbertura,
   listarTarefasDaAbertura,
-  obterConfiguracaoDaAbertura,
   obterItemDeAbertura,
   obterTarefaDeAbertura,
 } from "@/lib/abertura/consultas";
 import { fluxoMensal, resumoDoPainel } from "@/lib/abertura/parcelas";
 import { contarTarefasAbertasPorItem, contarTarefasLigadasPorItem } from "@/lib/abertura/prazos";
-import { ROTULO_NOVA_TAREFA, ROTULO_NOVO_ITEM, TITULO_MODULO } from "@/lib/abertura/textos";
-import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
-import { Button } from "@/components/ui/button";
 import { AbasAbertura } from "@/components/amassa/abertura/abas-abertura";
-import { DataInauguracao } from "@/components/amassa/abertura/data-inauguracao";
 import { FormularioItem } from "@/components/amassa/abertura/formulario-item";
 import { FormularioTarefa } from "@/components/amassa/abertura/formulario-tarefa";
 import { ListaItens } from "@/components/amassa/abertura/lista-itens";
@@ -30,6 +23,10 @@ import { PainelResumo } from "@/components/amassa/abertura/painel-resumo";
 // "itens"); todas continuam calculadas no MESMO carregamento (`Promise.all`), o que mantém a
 // troca de aba uma navegação de servidor real — nunca dado escondido no cliente — e a URL
 // sempre compartilhável.
+//
+// Cabeçalho, botão "+ Adicionar item/tarefa" e data de inauguração vivem em
+// `app/(app)/abertura/layout.tsx`, não aqui — ver o comentário lá e
+// .planning/debug/abertura-navegacao-trava.md (o achado quantitativo por trás dessa divisão).
 export default async function PaginaAbertura({
   searchParams,
 }: {
@@ -52,17 +49,15 @@ export default async function PaginaAbertura({
   const idDaTarefaParaEditar = tarefaParam && tarefaParam !== "nova" ? tarefaParam : null;
 
   // Uma leitura por lista, nunca uma consulta por linha (T-04.2-11) — itens, tarefas, a lista de
-  // gestores ativos (D-11), a data de inauguração (D-17, Tarefa 3) e, quando aplicável, a linha
-  // em edição chegam juntos.
-  const [itens, tarefas, gestores, configuracao, itemParaEditar, tarefaParaEditar] =
-    await Promise.all([
-      listarItensDaAbertura(),
-      listarTarefasDaAbertura(),
-      listarGestoresAtivos(),
-      obterConfiguracaoDaAbertura(),
-      idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
-      idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
-    ]);
+  // gestores ativos (D-11) e, quando aplicável, a linha em edição chegam juntos. A data de
+  // inauguração (D-17) é lida em `layout.tsx`, não aqui.
+  const [itens, tarefas, gestores, itemParaEditar, tarefaParaEditar] = await Promise.all([
+    listarItensDaAbertura(),
+    listarTarefasDaAbertura(),
+    listarGestoresAtivos(),
+    idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
+    idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
+  ]);
   // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
   // nunca uma segunda consulta por item.
   const contagemDeTarefasAbertas = contarTarefasAbertasPorItem(tarefas);
@@ -76,22 +71,6 @@ export default async function PaginaAbertura({
 
   return (
     <>
-      <CabecalhoPagina titulo={TITULO_MODULO}>
-        {/* A aba "Por mês" não tem ação de "adicionar" própria — um mês nasce de cadastrar um
-            item na aba Itens, não de um botão nesta tela. */}
-        {!abaMeses && (
-          <Button asChild variant="default" className="min-h-[44px]">
-            <Link
-              href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
-            >
-              {abaTarefas ? ROTULO_NOVA_TAREFA : ROTULO_NOVO_ITEM}
-            </Link>
-          </Button>
-        )}
-      </CabecalhoPagina>
-
-      <DataInauguracao inauguracaoEm={configuracao?.inauguracaoEm ?? null} hoje={hoje} />
-
       {/* Montados SEMPRE — mesmo com a lista vazia, o botão do `EstadoVazio` de cada aba precisa
           abrir o formulário certo a partir do primeiríssimo item/primeiríssima tarefa (achado do
           03-06, replicado em Queimas e nesta fase). */}

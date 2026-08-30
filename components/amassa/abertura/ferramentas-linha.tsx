@@ -11,7 +11,7 @@ export type FerramentasLinhaProps = {
   hrefEditar: string;
   // O botão de remover só ABRE o diálogo (D-14, Tarefa 3 deste plano) — navega para a URL que o
   // `ConfirmarRemoverItem`/`ConfirmarRemoverTarefa` (montado ao lado da linha, ver
-  // `lista-itens.tsx`/`lista-tarefas.tsx`) lê pelo próprio `useSearchParams()`, exatamente como
+  // `lista-itens.tsx`/`lista-tarefas.tsx`) lê via o contexto de `contexto-navegacao.tsx`, exatamente como
   // `?item=<id>` já abre `FormularioItem` — nunca um `onClick` que apagaria direto.
   hrefRemover: string;
 };

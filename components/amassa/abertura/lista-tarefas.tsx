@@ -40,6 +40,12 @@ export function ListaTarefas({ tarefas, hoje }: ListaTarefasProps) {
 
   return (
     <div className="flex flex-col gap-6 px-6 py-6 md:px-8" data-testid="abertura-lista-tarefas">
+      {/* UMA instância para a lista toda (nunca uma por linha) — ver o comentário em
+          confirmar-remover-tarefa.tsx e .planning/debug/abertura-navegacao-trava.md. */}
+      <ConfirmarRemoverTarefa
+        tarefas={tarefas.map((tarefa) => ({ id: tarefa.id, descricao: tarefa.descricao }))}
+      />
+
       {grupos.map((grupo) => (
         <div key={grupo.grupo} data-testid="abertura-grupo-tarefa">
           <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -146,8 +152,6 @@ function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje: strin
         hrefEditar={`/abertura?aba=tarefas&tarefa=${tarefa.id}`}
         hrefRemover={`/abertura?aba=tarefas&removerTarefa=${tarefa.id}`}
       />
-
-      <ConfirmarRemoverTarefa id={tarefa.id} descricao={tarefa.descricao} />
     </div>
   );
 }
