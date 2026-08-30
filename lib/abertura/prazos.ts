@@ -206,3 +206,32 @@ export function contarTarefasLigadasPorItem<T extends TarefaParaContarLigadas>(
 
   return contagem;
 }
+
+// D-17/ABE-14 (Tarefa 3, 04.2-04-PLAN.md): a contagem regressiva até a inauguração. União
+// discriminada — `tipo` diz a DIREÇÃO (antes, no dia, depois), `dias` é SEMPRE não negativo. A
+// contagem NUNCA para em zero depois de a data passar: "3 dias atrás" é informação (o espaço
+// abriu tarde), não erro — é o tipo "passou" que carrega essa informação, nunca um `dias`
+// negativo escondido atrás de um sinal de menos que a tela precisaria lembrar de tratar.
+//
+// `null` entra, `null` sai — o cabeçalho usa isso para saber que a configuração ainda está
+// vazia (o estado logo depois da migração, que não semeia nenhuma data) e pedir a data em vez de
+// inventar uma. Usa `diferencaEmDias` sobre DATAS CIVIS (comparação de string `YYYY-MM-DD`, nunca
+// aritmética de milissegundos sobre instantes) — o mesmo cuidado do resto do módulo, para a
+// contagem nunca trocar de valor sozinha ao cruzar a meia-noite de um fuso que não é o do ateliê.
+export type ContagemRegressiva = { tipo: "faltam" | "hoje" | "passou"; dias: number };
+
+export function contagemRegressiva(
+  inauguracaoEm: string | null,
+  hoje: string,
+): ContagemRegressiva | null {
+  if (inauguracaoEm === null) {
+    return null;
+  }
+  if (inauguracaoEm === hoje) {
+    return { tipo: "hoje", dias: 0 };
+  }
+  if (inauguracaoEm > hoje) {
+    return { tipo: "faltam", dias: diferencaEmDias(inauguracaoEm, hoje) };
+  }
+  return { tipo: "passou", dias: diferencaEmDias(hoje, inauguracaoEm) };
+}

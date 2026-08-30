@@ -6,6 +6,7 @@ import {
   listarGestoresAtivos,
   listarItensDaAbertura,
   listarTarefasDaAbertura,
+  obterConfiguracaoDaAbertura,
   obterItemDeAbertura,
   obterTarefaDeAbertura,
 } from "@/lib/abertura/consultas";
@@ -15,6 +16,7 @@ import { ROTULO_NOVA_TAREFA, ROTULO_NOVO_ITEM, TITULO_MODULO } from "@/lib/abert
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { Button } from "@/components/ui/button";
 import { AbasAbertura } from "@/components/amassa/abertura/abas-abertura";
+import { DataInauguracao } from "@/components/amassa/abertura/data-inauguracao";
 import { FormularioItem } from "@/components/amassa/abertura/formulario-item";
 import { FormularioTarefa } from "@/components/amassa/abertura/formulario-tarefa";
 import { ListaItens } from "@/components/amassa/abertura/lista-itens";
@@ -50,14 +52,17 @@ export default async function PaginaAbertura({
   const idDaTarefaParaEditar = tarefaParam && tarefaParam !== "nova" ? tarefaParam : null;
 
   // Uma leitura por lista, nunca uma consulta por linha (T-04.2-11) — itens, tarefas, a lista de
-  // gestores ativos (D-11) e, quando aplicável, a linha em edição chegam juntos.
-  const [itens, tarefas, gestores, itemParaEditar, tarefaParaEditar] = await Promise.all([
-    listarItensDaAbertura(),
-    listarTarefasDaAbertura(),
-    listarGestoresAtivos(),
-    idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
-    idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
-  ]);
+  // gestores ativos (D-11), a data de inauguração (D-17, Tarefa 3) e, quando aplicável, a linha
+  // em edição chegam juntos.
+  const [itens, tarefas, gestores, configuracao, itemParaEditar, tarefaParaEditar] =
+    await Promise.all([
+      listarItensDaAbertura(),
+      listarTarefasDaAbertura(),
+      listarGestoresAtivos(),
+      obterConfiguracaoDaAbertura(),
+      idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
+      idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
+    ]);
   // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
   // nunca uma segunda consulta por item.
   const contagemDeTarefasAbertas = contarTarefasAbertasPorItem(tarefas);
@@ -84,6 +89,8 @@ export default async function PaginaAbertura({
           </Button>
         )}
       </CabecalhoPagina>
+
+      <DataInauguracao inauguracaoEm={configuracao?.inauguracaoEm ?? null} hoje={hoje} />
 
       {/* Montados SEMPRE — mesmo com a lista vazia, o botão do `EstadoVazio` de cada aba precisa
           abrir o formulário certo a partir do primeiríssimo item/primeiríssima tarefa (achado do

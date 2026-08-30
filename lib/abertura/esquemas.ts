@@ -223,3 +223,14 @@ export const esquemaMarcacaoDeTarefa = z.object({
   id: esquemaId,
   concluida: z.boolean(),
 });
+
+// D-17/ABE-14 (Tarefa 3, 04.2-04-PLAN.md): a data de inauguração — mesma validação de data civil
+// do resto do módulo (regex + reconstrução: `2026-02-30` é recusada mesmo tendo o formato certo).
+// Sem limite de intervalo: uma inauguração adiada para o ano que vem é legítima, e uma data no
+// passado também (D-17 conta com isso — a contagem regressiva continua subindo depois de a data
+// passar, em vez de recusar a data em si).
+export const esquemaInauguracao = z.object({
+  inauguracaoEm: esquemaDataCivil,
+});
+
+export type EntradaDeInauguracao = z.infer<typeof esquemaInauguracao>;

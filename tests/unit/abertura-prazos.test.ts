@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   agruparTarefasPorGrupo,
+  contagemRegressiva,
   contarEntregasVencidas,
   contarTarefasAbertasPorItem,
   entregaVencida,
@@ -236,5 +237,38 @@ describe("contarEntregasVencidas", () => {
         "2026-09-10",
       ),
     ).toBe(0);
+  });
+});
+
+// Tarefa 3 (04.2-04-PLAN.md): `contagemRegressiva` — D-17/ABE-14. `dias` é sempre não negativo;
+// o TIPO é quem diz a direção. Depois de a data passar, a contagem continua subindo em vez de
+// parar em zero — espaço que abriu tarde é informação, não erro.
+describe("contagemRegressiva", () => {
+  it("faltam 44 dias: 2026-10-24 com hoje 2026-09-10", () => {
+    expect(contagemRegressiva("2026-10-24", "2026-09-10")).toEqual({ tipo: "faltam", dias: 44 });
+  });
+
+  it("falta 1 dia: 2026-10-24 com hoje 2026-10-23", () => {
+    expect(contagemRegressiva("2026-10-24", "2026-10-23")).toEqual({ tipo: "faltam", dias: 1 });
+  });
+
+  it("é hoje: 2026-10-24 com hoje 2026-10-24", () => {
+    expect(contagemRegressiva("2026-10-24", "2026-10-24")).toEqual({ tipo: "hoje", dias: 0 });
+  });
+
+  it("passou 1 dia: 2026-10-24 com hoje 2026-10-25 — nunca zero nem negativo", () => {
+    expect(contagemRegressiva("2026-10-24", "2026-10-25")).toEqual({ tipo: "passou", dias: 1 });
+  });
+
+  it("passou 3 dias: 2026-10-24 com hoje 2026-10-27", () => {
+    expect(contagemRegressiva("2026-10-24", "2026-10-27")).toEqual({ tipo: "passou", dias: 3 });
+  });
+
+  it("passou 3 dias atravessando o ano: 2026-12-31 com hoje 2027-01-03", () => {
+    expect(contagemRegressiva("2026-12-31", "2027-01-03")).toEqual({ tipo: "passou", dias: 3 });
+  });
+
+  it("sem data definida (null) devolve null", () => {
+    expect(contagemRegressiva(null, "2026-09-10")).toBeNull();
   });
 });

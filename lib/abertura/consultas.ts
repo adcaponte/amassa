@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
+import { aberturaConfiguracao, aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
 import type { ItemParaCalculo } from "@/lib/abertura/parcelas";
 import type { CategoriaDeItem, GrupoDeTarefa } from "@/lib/abertura/textos";
 
@@ -158,4 +158,23 @@ export async function obterTarefaDeAbertura(id: string): Promise<TarefaParaEdita
     itemId: linha.itemId,
     concluida: linha.concluida,
   };
+}
+
+export type ConfiguracaoDaAbertura = { inauguracaoEm: string };
+
+// D-17/ABE-14 (Tarefa 3, 04.2-04-PLAN.md): a data de inauguração, ou `null` quando a tabela está
+// vazia — o estado logo depois da migração, que não semeia nenhuma linha. Esta consulta NÃO
+// ESCREVE nada: uma leitura que cria a linha quando não a encontra é uma escrita disfarçada, e
+// faria a primeira visita de qualquer gestor gravar uma data que ninguém deu.
+export async function obterConfiguracaoDaAbertura(): Promise<ConfiguracaoDaAbertura | null> {
+  const [linha] = await db
+    .select({ inauguracaoEm: aberturaConfiguracao.inauguracaoEm })
+    .from(aberturaConfiguracao)
+    .limit(1);
+
+  if (!linha) {
+    return null;
+  }
+
+  return { inauguracaoEm: linha.inauguracaoEm };
 }

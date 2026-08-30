@@ -22,6 +22,16 @@ export default function CarregandoAbertura() {
         <Skeleton className="h-11 w-40" />
       </div>
 
+      {/* Data de inauguração editável (D-17/ABE-14) + contagem regressiva — texto discreto à
+          esquerda, número grande à direita. */}
+      <div className="flex flex-wrap items-end justify-between gap-4 px-6 pt-4 md:px-8">
+        <Skeleton className="h-4 w-56" />
+        <div className="flex flex-none flex-col items-end gap-1">
+          <Skeleton className="h-7 w-10" />
+          <Skeleton className="h-3 w-12" />
+        </div>
+      </div>
+
       {/* Os TRÊS blocos do painel (D-15/ABE-12: Comprometido, Sai neste mês, Precisa de
           atenção) — uma coluna no celular, três a partir de 660px, cada um na ALTURA FINAL do
           bloco real, para a página não pular quando os números chegarem (UI-SPEC §"Estados de

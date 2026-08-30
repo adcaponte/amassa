@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { FRASE_VAZIO_CORPO_MESES, FRASE_VAZIO_TITULO_MESES } from "@/lib/abertura/textos";
+import {
+  FRASE_DEFINIR_INAUGURACAO,
+  FRASE_VAZIO_CORPO_MESES,
+  FRASE_VAZIO_TITULO_MESES,
+  ROTULO_ALTERAR_INAUGURACAO,
+} from "@/lib/abertura/textos";
 
 // O painel de três blocos e a visão "Por mês" do módulo Abertura do Espaço (04.2-04-PLAN.md):
 // D-16 (fluxo mensal com composição e escala nomeada), D-15 (os três blocos do topo) e D-17/ABE-14
@@ -84,6 +89,23 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO_MESES, level: 2 });
     await expect(frase).toBeVisible();
     await expect(page.getByText(FRASE_VAZIO_CORPO_MESES)).toBeVisible();
+  });
+
+  // Tarefa 3 (D-17/ABE-14): condição GLOBAL do banco — `abertura_configuracao` sem NENHUMA
+  // linha (o estado logo depois da migração, que não semeia data nenhuma). `@vazio-global`, pela
+  // mesma razão do teste acima.
+  test("com a configuração vazia, o cabeçalho pede a data em vez de inventar uma @vazio-global", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/abertura");
+
+    const botao = page.getByTestId("abertura-editar-inauguracao");
+    await expect(botao).toHaveText(FRASE_DEFINIR_INAUGURACAO);
+    await expect(botao).toHaveAttribute("aria-label", ROTULO_ALTERAR_INAUGURACAO);
+
+    // Sem data, o espaço da contagem fica com um travessão — nunca um número inventado.
+    await expect(page.getByTestId("abertura-regressiva")).toHaveText("—");
   });
 
   test("um item à vista e um item de 6 parcelas no mês corrente aparecem na aba Por mês, com escala e composição", async ({
@@ -247,5 +269,64 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     await expect(blocoAtencao.getByTestId("abertura-bloco-atencao-valor")).toHaveClass(
       /text-erro/,
     );
+  });
+});
+
+// Tarefa 3 (D-17/ABE-14): a data de inauguração é EDITÁVEL POR QUALQUER GESTOR — é uma única
+// linha global em `abertura_configuracao` (a mesma restrição de linha única que permite o `on
+// conflict` da Server Action), não um dado por gestor nem por teste. `mode: "serial"` evita que
+// os próprios testes deste bloco corram entre si; o resíduo de risco é o MESMO teste rodando em
+// paralelo nos projetos `desktop`/`celular` (cada um roda o arquivo inteiro em seu próprio
+// worker) — as duas instâncias escrevem na MESMA linha. Isso é o mesmo tipo de instabilidade sob
+// concorrência já documentado em `04.2-03-SUMMARY.md`: aceito e mitigado por ler o valor
+// imediatamente depois de cada escrita própria (a janela de corrida é a de uma ida-e-volta de
+// rede, não o teste inteiro), nunca por travar a suíte inteira em `workers: 1`.
+test.describe("abertura painel — a data de inauguração editável e a contagem regressiva", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("definir uma data futura mostra a contagem em dias; trocar para o passado mostra os dias decorridos, nunca zero", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/abertura");
+
+    const botao = page.getByTestId("abertura-editar-inauguracao");
+    const regressiva = page.getByTestId("abertura-regressiva");
+    // Locator pelo ID, nunca `getByLabel("Inauguração")`: o botão de repouso tem
+    // `aria-label="Alterar a data de inauguração"`, que CONTÉM "inauguração" como substring — o
+    // `getByLabel` casaria com os dois elementos (o campo em edição E o botão em repouso).
+    const campoData = page.locator("#inauguracaoEm");
+
+    // Abre a edição, digita uma data 10 dias no futuro, salva com o botão.
+    await botao.click();
+    const daqui10Dias = new Date();
+    daqui10Dias.setDate(daqui10Dias.getDate() + 10);
+    const dataFutura = daqui10Dias.toISOString().slice(0, 10);
+
+    await campoData.fill(dataFutura);
+    await page.getByRole("button", { name: "Salvar" }).click();
+
+    await expect(regressiva).toContainText("dias", { timeout: 10000 });
+    const numeroFuturo = Number((await regressiva.innerText()).split("\n")[0]);
+    expect(numeroFuturo).toBeGreaterThan(0);
+    await expect(botao).toContainText("Inauguração em");
+
+    // Escape cancela sem salvar: reabre, digita outra data, aperta Escape — a data exibida não
+    // muda.
+    await botao.click();
+    await campoData.fill("2099-01-01");
+    await campoData.press("Escape");
+    await expect(botao).not.toContainText("2099");
+    await expect(campoData).toHaveCount(0);
+
+    // Troca para uma data BEM no passado com Enter (nunca o botão) — a contagem mostra os dias
+    // decorridos, nunca zero nem negativo, com o rótulo de "atrás".
+    await botao.click();
+    await campoData.fill("2020-01-01");
+    await campoData.press("Enter");
+
+    await expect(regressiva).toContainText(/dias? atrás/, { timeout: 10000 });
+    const numeroPassado = Number((await regressiva.innerText()).split("\n")[0]);
+    expect(numeroPassado).toBeGreaterThan(0);
   });
 });

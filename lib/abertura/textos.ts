@@ -2,7 +2,7 @@
 // aqui (nenhum import de valor), no molde de `lib/queimas/textos.ts`: o módulo não lê React
 // nem o cliente do banco.
 import type { categoriaItemAbertura, grupoTarefaAbertura } from "@/db/schema";
-import type { Urgencia } from "@/lib/abertura/prazos";
+import type { ContagemRegressiva, Urgencia } from "@/lib/abertura/prazos";
 
 export type CategoriaDeItem = (typeof categoriaItemAbertura.enumValues)[number];
 export type GrupoDeTarefa = (typeof grupoTarefaAbertura.enumValues)[number];
@@ -139,6 +139,27 @@ export function fraseTarefasQueFicamSoltas(quantidade: number): string {
 
 export function fraseConfirmarRemoverTarefa(descricao: string): string {
   return `Remover a tarefa "${descricao}"?`;
+}
+
+// D-17/ABE-14 (Tarefa 3, 04.2-04-PLAN.md): o cabeçalho editável da data de inauguração.
+export const ROTULO_ALTERAR_INAUGURACAO = "Alterar a data de inauguração";
+// Enquanto a configuração está vazia (o estado logo depois da migração) — nenhuma data é
+// inventada em lugar nenhum, o cabeçalho PEDE a data.
+export const FRASE_DEFINIR_INAUGURACAO = "Defina a data de inauguração";
+
+// Os quatro rótulos possíveis da contagem regressiva (`contagemRegressiva`,
+// `lib/abertura/prazos.ts`), verbatim do protótipo — `switch` exaustivo sobre `tipo`, sem
+// `default`: um ramo novo na união vira erro de compilação aqui, nunca um texto genérico em
+// silêncio (mesma disciplina de `textoDaUrgencia` abaixo).
+export function rotuloContagemRegressiva(contagem: ContagemRegressiva): string {
+  switch (contagem.tipo) {
+    case "faltam":
+      return "dias";
+    case "hoje":
+      return "é hoje";
+    case "passou":
+      return contagem.dias === 1 ? "dia atrás" : "dias atrás";
+  }
 }
 
 // Traduz `Urgencia` (`lib/abertura/prazos.ts`) no texto exato do protótipo (`urgencia(t)`) —

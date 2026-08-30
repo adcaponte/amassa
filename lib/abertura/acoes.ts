@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
+import { aberturaConfiguracao, aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
 import {
   esquemaAtualizacaoDeItem,
   esquemaAtualizacaoDeTarefa,
   esquemaId,
+  esquemaInauguracao,
   esquemaItemDeAbertura,
   esquemaMarcacaoDeItem,
   esquemaMarcacaoDeTarefa,
@@ -353,6 +354,42 @@ export async function removerItemDeAbertura(
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
     }
     console.error("Falha ao remover item de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// D-17/ABE-14 (Tarefa 3, 04.2-04-PLAN.md): grava a data de inauguração num `insert ... on
+// conflict` sobre a restrição `abertura_configuracao_linha_unica_uk` — NUNCA um `select` seguido
+// de `insert`/`update`. Dois gestores confirmando ao mesmo tempo é uma corrida real (o cabeçalho
+// é editável por qualquer um), e um `select` prévio criaria a janela onde os dois decidiriam
+// "a linha não existe" e os dois tentassem inserir — o segundo `insert` bateria na restrição de
+// linha única e falharia em vez de atualizar. `on conflict do update` resolve isso numa única
+// instrução atômica: não importa a ordem de chegada, a tabela termina com uma linha só, com a
+// última data recebida. `exigirUsuario()` é a PRIMEIRA instrução do corpo (T-04.2-18).
+export async function definirDataDeInauguracao(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ inauguracaoEm: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaInauguracao.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { inauguracaoEm } = resultado.data;
+
+  try {
+    await db
+      .insert(aberturaConfiguracao)
+      .values({ linhaUnica: true, inauguracaoEm })
+      .onConflictDoUpdate({
+        target: aberturaConfiguracao.linhaUnica,
+        set: { inauguracaoEm },
+      });
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { inauguracaoEm } };
+  } catch (erro) {
+    console.error("Falha ao gravar a data de inauguração:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
