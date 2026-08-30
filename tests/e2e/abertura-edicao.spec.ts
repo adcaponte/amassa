@@ -159,4 +159,126 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
       /line-through/,
     );
   });
+
+  // Tarefa 2: editar no lugar, no mesmo formulário (D-18/ABE-11).
+  test("editar um item com tarefa ligada atualiza a linha e preserva o vínculo", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeItem = nomeUnico("Forno de segunda mão");
+    const nomeItemEditado = nomeUnico("Forno de segunda mão (revisado)");
+    const descricaoTarefa = nomeUnico("Instalar o forno usado");
+
+    await criarItem(page, { nome: nomeItem, categoria: "Equipamentos", valor: "5000" });
+    await criarTarefa(page, { descricao: descricaoTarefa, vinculoAoItem: nomeItem });
+
+    // `criarTarefa` deixa a página na aba Tarefas — volta para a aba Itens (a etiqueta "N
+    // tarefas abertas" só é desenhada por `lista-itens.tsx`).
+    await page.goto("/abertura");
+
+    // O item mostra 1 tarefa aberta (D-13) antes de editar.
+    await expect(
+      linhaDeItem(page, nomeItem).getByTestId("abertura-tarefas-abertas"),
+    ).toHaveText("1 tarefa aberta");
+
+    // Abre "Editar" pelo botão da linha (não digitando a URL à mão) — prova que o botão FUNCIONA.
+    // `next/link` faz navegação client-side (sem evento "load" de página inteira), por isso a
+    // espera aqui é pelo CONTEÚDO do diálogo (auto-retry), nunca por `waitForURL`/`waitForLoadState`.
+    await linhaDeItem(page, nomeItem).getByTestId("abertura-editar-item").click();
+    await expect(page.getByRole("heading", { name: "Editar item" })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByRole("button", { name: "Salvar alterações" })).toBeVisible();
+
+    // Os campos vieram preenchidos com os valores atuais.
+    await expect(page.getByLabel("O que é")).toHaveValue(nomeItem);
+    await expect(page.getByLabel("Valor total")).toHaveValue("5000");
+
+    // Troca valor, categoria e forma de pagamento (que muda o número de parcelas).
+    await page.getByLabel("O que é").fill(nomeItemEditado);
+    await page.getByLabel("Valor total").fill("6000");
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: "Móveis" }).click();
+    await page.getByRole("combobox", { name: "Pagamento" }).click();
+    await page.getByRole("option", { name: "A prazo" }).click();
+    await page.getByLabel("Em quantas vezes").fill("3");
+    await page.getByRole("button", { name: "Salvar alterações" }).click();
+
+    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+
+    // (a) a linha mostra os valores novos — e o nome antigo não sobrevive em lugar nenhum
+    // (a linha foi ATUALIZADA, nunca apagada e recriada ao lado da antiga: se tivesse apagado e
+    // inserido de novo com o nome velho por engano, esta contagem seria > 0).
+    await expect(page.getByTestId("abertura-linha-item").filter({ hasText: nomeItem })).toHaveCount(
+      0,
+    );
+    const linhaEditada = linhaDeItem(page, nomeItemEditado);
+    await expect(linhaEditada).toBeVisible();
+    await expect(linhaEditada.getByTestId("abertura-valor-item")).toHaveText("R$ 6.000");
+    await expect(linhaEditada).toContainText("a prazo");
+
+    // (b) a tarefa continua ligada a ele — o vínculo sobreviveu à edição (D-18).
+    await expect(
+      linhaEditada.getByTestId("abertura-tarefas-abertas"),
+    ).toHaveText("1 tarefa aberta");
+
+    // (c) o item continua mostrando a tarefa aberta, do lado da tarefa também — precisa da aba
+    // Tarefas (a linha da tarefa não existe na aba Itens).
+    await page.goto("/abertura?aba=tarefas");
+    await expect(
+      linhaDeTarefa(page, descricaoTarefa).getByTestId("abertura-vinculo-item"),
+    ).toHaveText(nomeItemEditado);
+  });
+
+  test("editar uma tarefa preserva o vínculo dela com o item", async ({ page }) => {
+    await fazerLogin(page);
+    const nomeItem = nomeUnico("Estante modular");
+    const descricao = nomeUnico("Montar a estante");
+    const descricaoEditada = nomeUnico("Montar e nivelar a estante");
+
+    await criarItem(page, { nome: nomeItem, valor: "800" });
+    await criarTarefa(page, { descricao, vinculoAoItem: nomeItem });
+
+    await linhaDeTarefa(page, descricao).getByTestId("abertura-editar-tarefa").click();
+    await expect(page.getByRole("heading", { name: "Editar tarefa" })).toBeVisible();
+
+    await page.getByLabel("O que fazer").fill(descricaoEditada);
+    await page.getByRole("button", { name: "Salvar alterações" }).click();
+
+    await expect(page).toHaveURL(/\?aba=tarefas$/, { timeout: 10000 });
+
+    const linhaEditada = linhaDeTarefa(page, descricaoEditada);
+    await expect(linhaEditada).toBeVisible();
+    await expect(linhaEditada.getByTestId("abertura-vinculo-item")).toHaveText(nomeItem);
+  });
+
+  test("um identificador de item inexistente na URL abre o formulário vazio em vez de quebrar a página", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/abertura?item=00000000-0000-0000-0000-000000000000");
+
+    await expect(page.getByRole("heading", { name: "Novo item" })).toBeVisible();
+    await expect(page.getByLabel("O que é")).toHaveValue("");
+  });
+
+  // Os botões só com ícone (editar/remover) vivem dentro de uma linha de 44px ou mais.
+  test("os botões de editar e remover têm aria-label nomeando a linha, e a linha mede 44px ou mais", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Bancada auxiliar");
+
+    await criarItem(page, { nome, valor: "400" });
+
+    const linha = linhaDeItem(page, nome);
+    const editar = linha.getByTestId("abertura-editar-item");
+    const remover = linha.getByTestId("abertura-remover-item");
+
+    await expect(editar).toHaveAttribute("aria-label", `Editar ${nome}`);
+    await expect(remover).toHaveAttribute("aria-label", `Remover ${nome}`);
+
+    const alturaDaLinha = await linha.boundingBox();
+    expect(alturaDaLinha?.height, "linha do item mede menos que 44px").toBeGreaterThanOrEqual(44);
+  });
 });

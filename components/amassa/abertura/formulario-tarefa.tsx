@@ -7,12 +7,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { criarTarefaDeAbertura } from "@/lib/abertura/acoes";
-import type { GestorAtivo } from "@/lib/abertura/consultas";
+import { atualizarTarefaDeAbertura, criarTarefaDeAbertura } from "@/lib/abertura/acoes";
+import type { GestorAtivo, TarefaParaEditar } from "@/lib/abertura/consultas";
 import { esquemaTarefaBase } from "@/lib/abertura/esquemas";
 import {
   ORDEM_DOS_GRUPOS,
   ROTULO_GRUPO,
+  ROTULO_SALVAR_ALTERACOES,
   ROTULO_SALVAR_TAREFA,
   ROTULO_SEM_RESPONSAVEL,
   ROTULO_SEM_VINCULO,
@@ -69,9 +70,26 @@ export type FormularioTarefaProps = {
   // Os itens existentes, para o vínculo opcional (D-13) — na mesma ordem em que aparecem na
   // lista de itens.
   itens: ItemParaVinculo[];
+  // D-18/ABE-11 (Tarefa 2, 04.2-03-PLAN.md): não nulo abre o formulário JÁ PREENCHIDO em modo de
+  // edição — buscado no SERVIDOR (`obterTarefaDeAbertura`, `app/(app)/abertura/page.tsx`) a
+  // partir de `?tarefa=<id>`.
+  tarefaParaEditar: TarefaParaEditar | null;
 };
 
-function valoresIniciais(hoje: string): ValoresDoFormulario {
+function valoresIniciais(
+  hoje: string,
+  tarefaParaEditar: TarefaParaEditar | null,
+): ValoresDoFormulario {
+  if (tarefaParaEditar) {
+    return {
+      descricao: tarefaParaEditar.descricao,
+      grupo: tarefaParaEditar.grupo,
+      prazoEm: tarefaParaEditar.prazoEm,
+      responsavelId: tarefaParaEditar.responsavelId ?? "",
+      itemId: tarefaParaEditar.itemId ?? "",
+    };
+  }
+
   return {
     descricao: "",
     grupo: ORDEM_DOS_GRUPOS[0],
@@ -81,29 +99,31 @@ function valoresIniciais(hoje: string): ValoresDoFormulario {
   };
 }
 
-// Único caminho de criação de tarefa nesta fatia (D-18, edição no lugar, é do plano 04.2-03).
-// Aberto por `?tarefa=nova` na própria rota `/abertura` — montado SEMPRE (mesmo com a lista
-// vazia), para o botão do `EstadoVazio` da aba Tarefas abrir o formulário da primeiríssima
-// tarefa (mesmo achado replicado de Itens/Fornos).
-export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProps) {
+// Único formulário para criar E editar (D-18) — título e rótulo do botão trocam, o resto do
+// código é literalmente o mesmo. Aberto por `?tarefa=nova` (criação) OU `?tarefa=<id>` (edição,
+// existente ou não) na própria rota `/abertura` — montado SEMPRE (mesmo com a lista vazia), para
+// o botão do `EstadoVazio` da aba Tarefas abrir o formulário da primeiríssima tarefa (mesmo
+// achado replicado de Itens/Fornos).
+export function FormularioTarefa({ hoje, gestores, itens, tarefaParaEditar }: FormularioTarefaProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const aberto = searchParams.get("tarefa") === "nova";
+  const aberto = searchParams.get("tarefa") !== null;
+  const modoEdicao = tarefaParaEditar !== null;
 
   const [erro, setErro] = useState<string | null>(null);
 
   const form = useForm<ValoresDoFormulario>({
     resolver: zodResolver(esquemaFormulario),
-    defaultValues: valoresIniciais(hoje),
+    defaultValues: valoresIniciais(hoje, tarefaParaEditar),
   });
 
   useEffect(() => {
     if (aberto) {
-      form.reset(valoresIniciais(hoje));
+      form.reset(valoresIniciais(hoje, tarefaParaEditar));
       setErro(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aberto]);
+  }, [aberto, tarefaParaEditar]);
 
   function fechar() {
     setErro(null);
@@ -113,13 +133,19 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
   async function aoSubmeter(valores: ValoresDoFormulario) {
     setErro(null);
 
-    const resposta = await criarTarefaDeAbertura({
+    const dados = {
       descricao: valores.descricao,
       grupo: valores.grupo,
       prazoEm: valores.prazoEm,
       responsavelId: valores.responsavelId,
       itemId: valores.itemId,
-    });
+    };
+
+    // Atualizar é SEMPRE `update` da linha existente (D-18) — nunca apagar e recriar, o que
+    // soltaria o vínculo com o item.
+    const resposta = modoEdicao
+      ? await atualizarTarefaDeAbertura({ id: tarefaParaEditar.id, ...dados })
+      : await criarTarefaDeAbertura(dados);
 
     if (!resposta.ok) {
       // Banner inline, formulário continua aberto — nada do que foi digitado se perde.
@@ -127,7 +153,7 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
       return;
     }
 
-    toast.success("Tarefa adicionada.");
+    toast.success(modoEdicao ? "Tarefa atualizada." : "Tarefa adicionada.");
     router.push("/abertura?aba=tarefas");
     router.refresh();
   }
@@ -138,7 +164,7 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && fechar()}>
       <DialogContent
         showCloseButton
-        aria-label="Nova tarefa"
+        aria-label={modoEdicao ? "Editar tarefa" : "Nova tarefa"}
         className={cn(
           // Celular (base, mobile-first): folha de baixo, tela toda.
           "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
@@ -147,7 +173,9 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
         )}
       >
         <DialogHeader className="border-border border-b px-6 py-4">
-          <DialogTitle className="text-display">Nova tarefa</DialogTitle>
+          <DialogTitle className="text-display">
+            {modoEdicao ? "Editar tarefa" : "Nova tarefa"}
+          </DialogTitle>
         </DialogHeader>
 
         <form
@@ -294,7 +322,11 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
                 aria-busy={formState.isSubmitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {formState.isSubmitting ? "Salvando…" : ROTULO_SALVAR_TAREFA}
+                {formState.isSubmitting
+                  ? "Salvando…"
+                  : modoEdicao
+                    ? ROTULO_SALVAR_ALTERACOES
+                    : ROTULO_SALVAR_TAREFA}
               </button>
             </div>
           </div>

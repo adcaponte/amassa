@@ -6,6 +6,8 @@ import {
   listarGestoresAtivos,
   listarItensDaAbertura,
   listarTarefasDaAbertura,
+  obterItemDeAbertura,
+  obterTarefaDeAbertura,
 } from "@/lib/abertura/consultas";
 import { totaisComprometidos } from "@/lib/abertura/parcelas";
 import { contarTarefasAbertasPorItem } from "@/lib/abertura/prazos";
@@ -35,19 +37,28 @@ export default async function PaginaAbertura({
   searchParams: Promise<{ aba?: string; item?: string; tarefa?: string }>;
 }) {
   await exigirUsuario();
-  const { aba } = await searchParams;
+  const { aba, item: itemParam, tarefa: tarefaParam } = await searchParams;
   const abaTarefas = aba === "tarefas";
 
   // O dia civil de Brasília é calculado UMA VEZ, aqui, na borda — nenhuma função pura abaixo lê
   // o relógio por conta própria (`lib/abertura/prazos.ts`/`lib/abertura/parcelas.ts`).
   const hoje = hojeEmBrasilia(new Date());
 
-  // Uma leitura por lista, nunca uma consulta por linha (T-04.2-11) — itens, tarefas e a lista
-  // de gestores ativos (D-11) chegam juntos.
-  const [itens, tarefas, gestores] = await Promise.all([
+  // D-18/ABE-11 (Tarefa 2, 04.2-03-PLAN.md): busca a linha em edição só quando o parâmetro NÃO
+  // é o sentinela de criação ("novo"/"nova") — passar isso para `obterItemDeAbertura` faria o
+  // `where id = 'novo'` estourar (a coluna é `uuid`). Um identificador que não corresponde a
+  // nenhuma linha devolve `null`, e o formulário abre vazio em vez de quebrar a página.
+  const idDoItemParaEditar = itemParam && itemParam !== "novo" ? itemParam : null;
+  const idDaTarefaParaEditar = tarefaParam && tarefaParam !== "nova" ? tarefaParam : null;
+
+  // Uma leitura por lista, nunca uma consulta por linha (T-04.2-11) — itens, tarefas, a lista de
+  // gestores ativos (D-11) e, quando aplicável, a linha em edição chegam juntos.
+  const [itens, tarefas, gestores, itemParaEditar, tarefaParaEditar] = await Promise.all([
     listarItensDaAbertura(),
     listarTarefasDaAbertura(),
     listarGestoresAtivos(),
+    idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
+    idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
   ]);
   const totais = totaisComprometidos(itens);
   // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
@@ -69,11 +80,12 @@ export default async function PaginaAbertura({
       {/* Montados SEMPRE — mesmo com a lista vazia, o botão do `EstadoVazio` de cada aba precisa
           abrir o formulário certo a partir do primeiríssimo item/primeiríssima tarefa (achado do
           03-06, replicado em Queimas e nesta fase). */}
-      <FormularioItem hoje={hoje} />
+      <FormularioItem hoje={hoje} itemParaEditar={itemParaEditar} />
       <FormularioTarefa
         hoje={hoje}
         gestores={gestores}
         itens={itens.map((item) => ({ id: item.id, nome: item.nome }))}
+        tarefaParaEditar={tarefaParaEditar}
       />
 
       <div className="px-6 pt-6 md:px-8" data-testid="abertura-bloco-comprometido">

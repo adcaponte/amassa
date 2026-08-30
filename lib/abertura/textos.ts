@@ -35,6 +35,14 @@ export const ROTULO_SALVAR_ITEM = "Adicionar item";
 
 export const FRASE_FALHA_AO_SALVAR = "Não deu para salvar. Verifique a internet e tente de novo.";
 
+// D-18/ABE-11 (Tarefa 2 do 04.2-03-PLAN.md): `atualizarItemDeAbertura`/`atualizarTarefaDeAbertura`
+// devolvem esta frase quando o `update` não afeta nenhuma linha — a linha foi removida por outra
+// pessoa entre a montagem do formulário e o envio.
+export const FRASE_ITEM_NAO_EXISTE_MAIS = "Esse item não existe mais. Recarregue a página.";
+export const FRASE_TAREFA_NAO_EXISTE_MAIS = "Essa tarefa não existe mais. Recarregue a página.";
+
+export const ROTULO_SALVAR_ALTERACOES = "Salvar alterações";
+
 // Estado vazio da aba de itens (UI-SPEC §"Estados vazios") — verbatim.
 export const FRASE_VAZIO_TITULO = "Nada aqui ainda.";
 export const FRASE_VAZIO_CORPO = "Comece pelo que você já sabe que precisa comprar.";

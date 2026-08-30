@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
+import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
 
 export type ListaTarefasProps = {
   tarefas: TarefaDaAbertura[];
@@ -137,6 +138,13 @@ function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje: strin
           {texto}
         </span>
       </div>
+
+      <FerramentasLinha
+        tipo="tarefa"
+        nome={tarefa.descricao}
+        hrefEditar={`/abertura?aba=tarefas&tarefa=${tarefa.id}`}
+        hrefRemover={`/abertura?aba=tarefas&removerTarefa=${tarefa.id}`}
+      />
     </div>
   );
 }

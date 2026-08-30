@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
+import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
 
 export type ListaItensProps = {
   itens: ItemDaAbertura[];
@@ -195,6 +196,13 @@ function LinhaDeItem({
           </span>
         )}
       </div>
+
+      <FerramentasLinha
+        tipo="item"
+        nome={item.nome}
+        hrefEditar={`/abertura?item=${item.id}`}
+        hrefRemover={`/abertura?removerItem=${item.id}`}
+      />
     </div>
   );
 }

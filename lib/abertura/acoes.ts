@@ -8,12 +8,18 @@ import { aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
 import {
+  esquemaAtualizacaoDeItem,
+  esquemaAtualizacaoDeTarefa,
   esquemaItemDeAbertura,
   esquemaMarcacaoDeItem,
   esquemaMarcacaoDeTarefa,
   esquemaTarefaDeAbertura,
 } from "./esquemas";
-import { FRASE_FALHA_AO_SALVAR } from "./textos";
+import {
+  FRASE_FALHA_AO_SALVAR,
+  FRASE_ITEM_NAO_EXISTE_MAIS,
+  FRASE_TAREFA_NAO_EXISTE_MAIS,
+} from "./textos";
 
 // Mesma forma de `lib/queimas/acoes.ts`/`lib/encomendas/acoes.ts` (D-15) — cada módulo
 // redeclara hoje, não há local compartilhado.
@@ -183,6 +189,110 @@ export async function marcarTarefaConcluida(
     return { ok: true, dados: { id: dados.id, concluida: dados.concluida } };
   } catch (erro) {
     console.error("Falha ao marcar tarefa de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// D-18/ABE-11 (Tarefa 2): editar é `update` da linha EXISTENTE, sempre — nunca um caminho que
+// apaga e insere de novo. A linha do item é o alvo de `abertura_tarefas.item_id`; recriá-la
+// soltaria TODAS as tarefas ligadas, que é exatamente o custo que D-18 existe para evitar.
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo (T-04.2-15). Sem transação: um `update` de
+// uma linha só. `update` que não afeta nenhuma linha (a linha foi removida por outra pessoa no
+// meio) devolve frase humana, nunca falha silenciosa.
+export async function atualizarItemDeAbertura(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtualizacaoDeItem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    const [linha] = await db
+      .update(aberturaItens)
+      .set({
+        nome: dados.nome,
+        categoria: dados.categoria,
+        valorCentavos: dados.valorEmCentavos,
+        formaPagamento: dados.formaPagamento,
+        parcelas: dados.parcelas,
+        primeiraParcelaEm: dados.primeiraParcelaEm,
+        entregaPrevistaEm: dados.entregaPrevistaEm,
+      })
+      .where(eq(aberturaItens.id, dados.id))
+      .returning({ id: aberturaItens.id });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { id: linha.id } };
+  } catch (erro) {
+    console.error("Falha ao atualizar item de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Mesma disciplina de `criarTarefaDeAbertura`: a chave estrangeira de `responsavel_id` garante
+// que o identificador EXISTE, não que o gestor continua ATIVO — quem decide isso é o servidor,
+// nunca o campo do formulário (T-04.2-07). `exigirUsuario()` é a PRIMEIRA instrução do corpo.
+export async function atualizarTarefaDeAbertura(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtualizacaoDeTarefa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  if (dados.responsavelId !== null) {
+    const [gestorAtivo] = await db
+      .select({ id: usuarios.id })
+      .from(usuarios)
+      .where(and(eq(usuarios.id, dados.responsavelId), eq(usuarios.ativo, true)))
+      .limit(1);
+
+    if (!gestorAtivo) {
+      return {
+        ok: false,
+        erro: "Esse gestor não está mais ativo. Escolha outro ou deixe em «Ninguém ainda».",
+      };
+    }
+  }
+
+  try {
+    const [linha] = await db
+      .update(aberturaTarefas)
+      .set({
+        descricao: dados.descricao,
+        grupo: dados.grupo,
+        prazoEm: dados.prazoEm,
+        responsavelId: dados.responsavelId,
+        itemId: dados.itemId,
+      })
+      .where(eq(aberturaTarefas.id, dados.id))
+      .returning({ id: aberturaTarefas.id });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_TAREFA_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { id: linha.id } };
+  } catch (erro) {
+    if (ehViolacaoDeChaveEstrangeira(erro)) {
+      return {
+        ok: false,
+        erro: "O item ligado a esta tarefa não existe mais. Recarregue a página e tente de novo.",
+      };
+    }
+    console.error("Falha ao atualizar tarefa de abertura:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

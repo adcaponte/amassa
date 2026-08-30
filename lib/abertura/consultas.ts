@@ -37,6 +37,29 @@ export async function listarItensDaAbertura(): Promise<ItemDaAbertura[]> {
   }));
 }
 
+// D-18/ABE-11 (Tarefa 2, 04.2-03-PLAN.md): a linha ou `null` — é o que preenche o formulário em
+// modo de edição (`?item=<id>`). Um identificador que não corresponde a nenhuma linha devolve
+// `null`, e a página abre o formulário vazio em modo de criação em vez de quebrar.
+export async function obterItemDeAbertura(id: string): Promise<ItemDaAbertura | null> {
+  const [linha] = await db.select().from(aberturaItens).where(eq(aberturaItens.id, id)).limit(1);
+
+  if (!linha) {
+    return null;
+  }
+
+  return {
+    id: linha.id,
+    nome: linha.nome,
+    categoria: linha.categoria,
+    valorEmCentavos: linha.valorCentavos,
+    formaPagamento: linha.formaPagamento,
+    parcelas: linha.parcelas,
+    primeiraParcelaEm: linha.primeiraParcelaEm,
+    entregaPrevistaEm: linha.entregaPrevistaEm,
+    resolvido: linha.resolvido,
+  };
+}
+
 export type GestorAtivo = { id: string; nome: string };
 
 // A lista que o campo de responsável do formulário oferece (D-11) — SEMPRE de `usuarios` com
@@ -100,4 +123,39 @@ export async function listarTarefasDaAbertura(): Promise<TarefaDaAbertura[]> {
     itemId: linha.itemId,
     itemNome: linha.itemNome ?? null,
   }));
+}
+
+export type TarefaParaEditar = {
+  id: string;
+  descricao: string;
+  grupo: GrupoDeTarefa;
+  prazoEm: string;
+  responsavelId: string | null;
+  itemId: string | null;
+  concluida: boolean;
+};
+
+// D-18/ABE-11 (Tarefa 2, 04.2-03-PLAN.md): a linha CRUA (sem `leftJoin`) — é o que preenche o
+// formulário em modo de edição (`?tarefa=<id>`). Um identificador que não corresponde a nenhuma
+// linha devolve `null`, e a página abre o formulário vazio em modo de criação em vez de quebrar.
+export async function obterTarefaDeAbertura(id: string): Promise<TarefaParaEditar | null> {
+  const [linha] = await db
+    .select()
+    .from(aberturaTarefas)
+    .where(eq(aberturaTarefas.id, id))
+    .limit(1);
+
+  if (!linha) {
+    return null;
+  }
+
+  return {
+    id: linha.id,
+    descricao: linha.descricao,
+    grupo: linha.grupo,
+    prazoEm: linha.prazoEm,
+    responsavelId: linha.responsavelId,
+    itemId: linha.itemId,
+    concluida: linha.concluida,
+  };
 }

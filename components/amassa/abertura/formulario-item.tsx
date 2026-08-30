@@ -7,9 +7,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { criarItemDeAbertura } from "@/lib/abertura/acoes";
+import { atualizarItemDeAbertura, criarItemDeAbertura } from "@/lib/abertura/acoes";
+import type { ItemDaAbertura } from "@/lib/abertura/consultas";
 import { esquemaItemBase } from "@/lib/abertura/esquemas";
-import { ORDEM_DAS_CATEGORIAS, ROTULO_CATEGORIA, ROTULO_SALVAR_ITEM } from "@/lib/abertura/textos";
+import {
+  ORDEM_DAS_CATEGORIAS,
+  ROTULO_CATEGORIA,
+  ROTULO_SALVAR_ALTERACOES,
+  ROTULO_SALVAR_ITEM,
+} from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -58,9 +64,28 @@ export type FormularioItemProps = {
   // formulário nunca lê o relógio por conta própria, só usa este valor como padrão do campo de
   // data quando o item nasce.
   hoje: string;
+  // D-18/ABE-11 (Tarefa 2, 04.2-03-PLAN.md): não nulo abre o formulário JÁ PREENCHIDO em modo de
+  // edição — buscado no SERVIDOR (`obterItemDeAbertura`, `app/(app)/abertura/page.tsx`) a partir
+  // de `?item=<id>`. `null` com `?item=novo` na URL é criação; `null` com um identificador que
+  // não corresponde a NENHUMA linha também abre vazio, em vez de quebrar a página.
+  itemParaEditar: ItemDaAbertura | null;
 };
 
-function valoresIniciais(hoje: string): ValoresDoFormulario {
+function valoresIniciais(hoje: string, itemParaEditar: ItemDaAbertura | null): ValoresDoFormulario {
+  if (itemParaEditar) {
+    return {
+      nome: itemParaEditar.nome,
+      categoria: itemParaEditar.categoria,
+      // `valorEmCentavos` só existe como múltiplo de 100 (o campo do formulário só aceita reais
+      // inteiros, `esquemaItemBase.valorEmReais`) — a divisão nunca produz fração aqui.
+      valorEmReais: itemParaEditar.valorEmCentavos / 100,
+      formaPagamento: itemParaEditar.formaPagamento,
+      parcelas: itemParaEditar.parcelas,
+      primeiraParcelaEm: itemParaEditar.primeiraParcelaEm,
+      entregaPrevistaEm: itemParaEditar.entregaPrevistaEm ?? "",
+    };
+  }
+
   return {
     nome: "",
     categoria: ORDEM_DAS_CATEGORIAS[0],
@@ -72,29 +97,33 @@ function valoresIniciais(hoje: string): ValoresDoFormulario {
   };
 }
 
-// Único caminho de criação de item nesta fatia (D-18, edição no lugar, é dos planos seguintes).
-// Aberto por `?item=novo` na própria rota `/abertura` — montado SEMPRE (mesmo com a lista
-// vazia), para o botão do `EstadoVazio` abrir o formulário do primeiríssimo item (achado do
-// 03-06, replicado em Queimas e aqui).
-export function FormularioItem({ hoje }: FormularioItemProps) {
+// Único formulário para criar E editar (D-18) — título e rótulo do botão trocam, o resto do
+// código é literalmente o mesmo. Aberto por `?item=novo` (criação) OU `?item=<id>` (edição,
+// existente ou não — um identificador que não bate com nenhuma linha abre vazio) na própria
+// rota `/abertura` — montado SEMPRE (mesmo com a lista vazia), para o botão do `EstadoVazio`
+// abrir o formulário do primeiríssimo item (achado do 03-06, replicado em Queimas e aqui).
+export function FormularioItem({ hoje, itemParaEditar }: FormularioItemProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const aberto = searchParams.get("item") === "novo";
+  // A presença do parâmetro (qualquer valor) já abre o diálogo — o MODO (criar vs. editar) só
+  // depende de `itemParaEditar` ter resolvido uma linha de verdade no servidor.
+  const aberto = searchParams.get("item") !== null;
+  const modoEdicao = itemParaEditar !== null;
 
   const [erro, setErro] = useState<string | null>(null);
 
   const form = useForm<ValoresDoFormulario>({
     resolver: zodResolver(esquemaFormulario),
-    defaultValues: valoresIniciais(hoje),
+    defaultValues: valoresIniciais(hoje, itemParaEditar),
   });
 
   useEffect(() => {
     if (aberto) {
-      form.reset(valoresIniciais(hoje));
+      form.reset(valoresIniciais(hoje, itemParaEditar));
       setErro(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aberto]);
+  }, [aberto, itemParaEditar]);
 
   function fechar() {
     setErro(null);
@@ -107,7 +136,7 @@ export function FormularioItem({ hoje }: FormularioItemProps) {
   async function aoSubmeter(valores: ValoresDoFormulario) {
     setErro(null);
 
-    const resposta = await criarItemDeAbertura({
+    const dados = {
       nome: valores.nome,
       categoria: valores.categoria,
       valorEmReais: valores.valorEmReais,
@@ -117,7 +146,13 @@ export function FormularioItem({ hoje }: FormularioItemProps) {
       parcelas: valores.formaPagamento === "vista" ? 1 : valores.parcelas,
       primeiraParcelaEm: valores.primeiraParcelaEm,
       entregaPrevistaEm: valores.entregaPrevistaEm,
-    });
+    };
+
+    // Atualizar é SEMPRE `update` da linha existente (D-18) — nunca apagar e recriar, o que
+    // soltaria as tarefas ligadas a este item.
+    const resposta = modoEdicao
+      ? await atualizarItemDeAbertura({ id: itemParaEditar.id, ...dados })
+      : await criarItemDeAbertura(dados);
 
     if (!resposta.ok) {
       // Banner inline, formulário continua aberto — nada do que foi digitado se perde.
@@ -125,7 +160,7 @@ export function FormularioItem({ hoje }: FormularioItemProps) {
       return;
     }
 
-    toast.success("Item adicionado.");
+    toast.success(modoEdicao ? "Item atualizado." : "Item adicionado.");
     router.push("/abertura");
     router.refresh();
   }
@@ -136,7 +171,7 @@ export function FormularioItem({ hoje }: FormularioItemProps) {
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && fechar()}>
       <DialogContent
         showCloseButton
-        aria-label="Novo item"
+        aria-label={modoEdicao ? "Editar item" : "Novo item"}
         className={cn(
           // Celular (base, mobile-first): folha de baixo, tela toda.
           "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
@@ -145,7 +180,9 @@ export function FormularioItem({ hoje }: FormularioItemProps) {
         )}
       >
         <DialogHeader className="border-border border-b px-6 py-4">
-          <DialogTitle className="text-display">Novo item</DialogTitle>
+          <DialogTitle className="text-display">
+            {modoEdicao ? "Editar item" : "Novo item"}
+          </DialogTitle>
         </DialogHeader>
 
         <form
@@ -341,7 +378,11 @@ export function FormularioItem({ hoje }: FormularioItemProps) {
                 aria-busy={formState.isSubmitting}
                 className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {formState.isSubmitting ? "Salvando…" : ROTULO_SALVAR_ITEM}
+                {formState.isSubmitting
+                  ? "Salvando…"
+                  : modoEdicao
+                    ? ROTULO_SALVAR_ALTERACOES
+                    : ROTULO_SALVAR_ITEM}
               </button>
             </div>
           </div>

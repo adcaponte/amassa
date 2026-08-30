@@ -82,20 +82,34 @@ export const esquemaItemBase = z.object({
     ),
 });
 
-// O `refine` no objeto inteiro espelha as duas `check`s do banco
-// (`abertura_itens_vista_uma_parcela`/`abertura_itens_prazo_duas_ou_mais`): à vista exige
-// EXATAMENTE 1 parcela; a prazo exige de 2 a 36. O `transform` final é a única conversão de
-// reais para centavos do módulo — nunca refeita em outro arquivo (T-04.2-04, defesa em duas
-// camadas com o `check abertura_itens_valor_nao_negativo`).
+// As duas regras cruzadas entre `formaPagamento` e `parcelas` espelham as duas `check`s do banco
+// (`abertura_itens_vista_uma_parcela`/`abertura_itens_prazo_duas_ou_mais`) — extraídas em
+// funções nomeadas para `esquemaItemDeAbertura` (criação) e `esquemaAtualizacaoDeItem` (edição,
+// Tarefa 2 do 04.2-03-PLAN.md) aplicarem a MESMA regra sem reescrevê-la: um `.refine` anexado a
+// uma cadeia Zod não pode ser "herdado" por outra cadeia, então reusar a FUNÇÃO (não o texto) é
+// o que impede as duas versões da regra divergirem na primeira mudança.
+const MENSAGEM_VISTA_UMA_PARCELA = "Um item à vista tem exatamente 1 parcela.";
+const MENSAGEM_PRAZO_DUAS_A_36_PARCELAS = "Um item a prazo precisa de 2 a 36 parcelas.";
+
+function itemVistaTemUmaParcela(dados: { formaPagamento: "vista" | "prazo"; parcelas: number }) {
+  return dados.formaPagamento !== "vista" || dados.parcelas === 1;
+}
+
+function itemPrazoTemDuasA36Parcelas(dados: {
+  formaPagamento: "vista" | "prazo";
+  parcelas: number;
+}) {
+  return dados.formaPagamento !== "prazo" || (dados.parcelas >= 2 && dados.parcelas <= 36);
+}
+
+// O `transform` final é a única conversão de reais para centavos do módulo — nunca refeita em
+// outro arquivo (T-04.2-04, defesa em duas camadas com o `check abertura_itens_valor_nao_negativo`).
 export const esquemaItemDeAbertura = esquemaItemBase
-  .refine((dados) => dados.formaPagamento !== "vista" || dados.parcelas === 1, {
-    message: "Um item à vista tem exatamente 1 parcela.",
+  .refine(itemVistaTemUmaParcela, { message: MENSAGEM_VISTA_UMA_PARCELA, path: ["parcelas"] })
+  .refine(itemPrazoTemDuasA36Parcelas, {
+    message: MENSAGEM_PRAZO_DUAS_A_36_PARCELAS,
     path: ["parcelas"],
   })
-  .refine(
-    (dados) => dados.formaPagamento !== "prazo" || (dados.parcelas >= 2 && dados.parcelas <= 36),
-    { message: "Um item a prazo precisa de 2 a 36 parcelas.", path: ["parcelas"] },
-  )
   .transform((dados) => ({
     nome: dados.nome,
     categoria: dados.categoria,
@@ -107,6 +121,29 @@ export const esquemaItemDeAbertura = esquemaItemBase
   }));
 
 export type EntradaDeItemDeAbertura = z.infer<typeof esquemaItemDeAbertura>;
+
+// Tarefa 2 (04.2-03-PLAN.md, D-18): o esquema de criação MAIS `id` — mesma base
+// (`esquemaItemBase`), mesmas duas regras cruzadas (`itemVistaTemUmaParcela`/
+// `itemPrazoTemDuasA36Parcelas`), nunca uma segunda cópia da regra de item válido.
+export const esquemaAtualizacaoDeItem = esquemaItemBase
+  .extend({ id: esquemaId })
+  .refine(itemVistaTemUmaParcela, { message: MENSAGEM_VISTA_UMA_PARCELA, path: ["parcelas"] })
+  .refine(itemPrazoTemDuasA36Parcelas, {
+    message: MENSAGEM_PRAZO_DUAS_A_36_PARCELAS,
+    path: ["parcelas"],
+  })
+  .transform((dados) => ({
+    id: dados.id,
+    nome: dados.nome,
+    categoria: dados.categoria,
+    valorEmCentavos: Math.round(dados.valorEmReais * 100),
+    formaPagamento: dados.formaPagamento,
+    parcelas: dados.parcelas,
+    primeiraParcelaEm: dados.primeiraParcelaEm,
+    entregaPrevistaEm: dados.entregaPrevistaEm,
+  }));
+
+export type EntradaDeAtualizacaoDeItem = z.infer<typeof esquemaAtualizacaoDeItem>;
 
 const GRUPOS_DE_TAREFA = [
   "obra",
@@ -165,6 +202,12 @@ export const esquemaTarefaBase = z.object({
 export type EntradaDeTarefaDeAbertura = z.infer<typeof esquemaTarefaBase>;
 
 export const esquemaTarefaDeAbertura = esquemaTarefaBase;
+
+// Tarefa 2 (04.2-03-PLAN.md, D-18): `esquemaTarefaBase` não tem `refine`/`transform` extra (ao
+// contrário do item) — `.extend` é reuso direto, sem precisar extrair função nenhuma.
+export const esquemaAtualizacaoDeTarefa = esquemaTarefaBase.extend({ id: esquemaId });
+
+export type EntradaDeAtualizacaoDeTarefa = z.infer<typeof esquemaAtualizacaoDeTarefa>;
 
 // A ação de marcação (Tarefa 1, 04.2-03-PLAN.md) recebe o ESTADO DESEJADO, nunca um pedido de
 // "inverter" — é isso que torna o salvamento otimista seguro (UI-SPEC §"Salvamento otimista"):
