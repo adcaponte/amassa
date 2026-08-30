@@ -16,13 +16,17 @@ import { EstadoVazio } from "@/components/amassa/estado-vazio";
 export type ListaItensProps = {
   itens: ItemDaAbertura[];
   hoje: string;
+  // Contagem de tarefas ABERTAS por item (D-13, `contarTarefasAbertasPorItem` em
+  // `lib/abertura/prazos.ts`), calculada UMA VEZ na página a partir das tarefas já carregadas —
+  // nunca uma segunda consulta por item aqui. Chave ausente = nenhuma tarefa aberta, nunca 0.
+  contagemDeTarefasAbertas: Map<string, number>;
 };
 
 // Server Component. Percorre `ORDEM_DAS_CATEGORIAS` (D-08) e desenha um grupo por categoria QUE
 // TENHA item — categoria vazia não desenha cabeçalho nenhum. Nenhuma regra de negócio nasce
 // aqui: `calcularParcelas`/`proximaParcela` (`lib/abertura/parcelas.ts`) já chegam prontos por
 // item, este componente só formata e desenha.
-export function ListaItens({ itens, hoje }: ListaItensProps) {
+export function ListaItens({ itens, hoje, contagemDeTarefasAbertas }: ListaItensProps) {
   if (itens.length === 0) {
     return (
       <EstadoVazio
@@ -60,7 +64,12 @@ export function ListaItens({ itens, hoje }: ListaItensProps) {
 
             <div className="flex flex-col gap-2">
               {linhas.map((item) => (
-                <LinhaDeItem key={item.id} item={item} hoje={hoje} />
+                <LinhaDeItem
+                  key={item.id}
+                  item={item}
+                  hoje={hoje}
+                  tarefasAbertas={contagemDeTarefasAbertas.get(item.id) ?? 0}
+                />
               ))}
             </div>
           </div>
@@ -70,7 +79,17 @@ export function ListaItens({ itens, hoje }: ListaItensProps) {
   );
 }
 
-function LinhaDeItem({ item, hoje }: { item: ItemDaAbertura; hoje: string }) {
+function LinhaDeItem({
+  item,
+  hoje,
+  tarefasAbertas,
+}: {
+  item: ItemDaAbertura;
+  hoje: string;
+  // 0 = nenhuma tarefa aberta (chave ausente do mapa) — nunca desenha etiqueta "0 tarefas
+  // abertas", só a ausência dela.
+  tarefasAbertas: number;
+}) {
   const parcelas = calcularParcelas(item);
   const { tipo, parcela } = proximaParcela(parcelas, hoje);
   const aPrazo = item.formaPagamento === "prazo";
@@ -98,6 +117,18 @@ function LinhaDeItem({ item, hoje }: { item: ItemDaAbertura; hoje: string }) {
           {item.entregaPrevistaEm && (
             <span className="text-micro bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
               chega {formatarDiaEMes(item.entregaPrevistaEm)}
+            </span>
+          )}
+
+          {/* A leitura que D-13 chama de mais importante: sem ela, um item marcado como
+              comprado parece encerrado enquanto a instalação ainda não aconteceu. `tarefasAbertas
+              === 0` não desenha nada — nunca "0 tarefas abertas". */}
+          {tarefasAbertas > 0 && (
+            <span
+              className="text-micro bg-atencao-fundo text-atencao rounded-full px-2 py-0.5 font-semibold whitespace-nowrap"
+              data-testid="abertura-tarefas-abertas"
+            >
+              {tarefasAbertas} {tarefasAbertas === 1 ? "tarefa aberta" : "tarefas abertas"}
             </span>
           )}
         </div>

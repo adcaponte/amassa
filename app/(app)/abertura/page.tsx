@@ -8,6 +8,7 @@ import {
   listarTarefasDaAbertura,
 } from "@/lib/abertura/consultas";
 import { totaisComprometidos } from "@/lib/abertura/parcelas";
+import { contarTarefasAbertasPorItem } from "@/lib/abertura/prazos";
 import {
   ROTULO_COMPROMETIDO,
   ROTULO_NOVA_TAREFA,
@@ -49,6 +50,9 @@ export default async function PaginaAbertura({
     listarGestoresAtivos(),
   ]);
   const totais = totaisComprometidos(itens);
+  // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
+  // nunca uma segunda consulta por item.
+  const contagemDeTarefasAbertas = contarTarefasAbertasPorItem(tarefas);
 
   return (
     <>
@@ -96,7 +100,11 @@ export default async function PaginaAbertura({
       {abaTarefas ? (
         <ListaTarefas tarefas={tarefas} hoje={hoje} />
       ) : (
-        <ListaItens itens={itens} hoje={hoje} />
+        <ListaItens
+          itens={itens}
+          hoje={hoje}
+          contagemDeTarefasAbertas={contagemDeTarefasAbertas}
+        />
       )}
     </>
   );

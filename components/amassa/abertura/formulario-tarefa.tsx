@@ -15,6 +15,7 @@ import {
   ROTULO_GRUPO,
   ROTULO_SALVAR_TAREFA,
   ROTULO_SEM_RESPONSAVEL,
+  ROTULO_SEM_VINCULO,
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -254,7 +255,7 @@ export function FormularioTarefa({ hoje, gestores, itens }: FormularioTarefaProp
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={SEM_VINCULO}>Nenhum — tarefa solta</SelectItem>
+                      <SelectItem value={SEM_VINCULO}>{ROTULO_SEM_VINCULO}</SelectItem>
                       {itens.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
                           {item.nome}

@@ -72,6 +72,9 @@ export const ORDEM_DOS_GRUPOS: readonly GrupoDeTarefa[] = [
 ];
 
 export const ROTULO_SEM_RESPONSAVEL = "Ninguém ainda";
+// D-13 — a primeira opção do campo "Ligada a algum item?" do formulário de tarefa: o vínculo é
+// opcional, e uma tarefa sem item é "solta", nunca um campo esquecido.
+export const ROTULO_SEM_VINCULO = "Nenhum — tarefa solta";
 export const ROTULO_NOVA_TAREFA = "+ Adicionar tarefa";
 export const ROTULO_SALVAR_TAREFA = "Adicionar tarefa";
 
