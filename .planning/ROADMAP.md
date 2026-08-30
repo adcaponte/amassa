@@ -39,7 +39,8 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 3: Gestor de Encomendas** - Módulo real e multiusuário substituindo o protótipo HTML, com itens e cronograma em cascata (completed 2026-08)
 - [x] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques (completed 2026-08)
 - [x] **Phase 04.1: Datas dos Marcos da Encomenda** (INSERTED) - Correção das datas dos marcos no cronograma (completed 2026-08-22)
-- [ ] **Phase 5: Agenda de Aulas** - Turmas recorrentes materializam aulas com data real e presença por aluna
+- [ ] **Phase 4.2: Abertura do Espaço** (INSERTED, temporário) - Organizador da abertura do novo espaço: itens a comprar com parcelas e entrega, e tarefas até a inauguração
+- [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
@@ -305,7 +306,39 @@ Plans:
 
 - [x] 04.1-06-PLAN.md — A mensagem em português chega ao gestor, os contadores viram acessíveis, a guarda certa no roteiro de migração e a varredura de reencerramento (onda 5)
 
-### Phase 5: Agenda de Aulas
+### Phase 4.2: Abertura do Espaço (INSERTED — módulo temporário)
+
+**Goal**: Organizar a abertura do novo espaço num lugar só — o que precisa ser comprado, quanto
+custa, quando cada parcela cai, o que ainda não chegou, e o que precisa acontecer até a
+inauguração. É o único módulo com data de morte: sai do sistema quando o espaço abrir.
+**Corresponde a**: nada no `03-ROADMAP.md` — não existia no plano original. Entra por necessidade
+real, com prazo real, e por isso é decimal (inserção fora da sequência planejada).
+**Validado por protótipo**: o formato foi testado antes de virar código, com dados reais do dono.
+Ver `.planning/phases/04.2-abertura-do-espaco/04.2-CONTEXT.md` — o protótipo **é** a especificação.
+**Depends on**: Phase 2b (precisa da casca de navegação e do design system)
+**Requirements**: ABE-01, ABE-02, ABE-03, ABE-04, ABE-05, ABE-06, ABE-07, ABE-08, ABE-09, ABE-10, ABE-11, ABE-12, ABE-13, ABE-14, ABE-15
+**Success Criteria** (what must be TRUE):
+
+  1. Cadastrar um item a prazo com 6 parcelas mostra o valor de cada uma e a data em que a próxima cai
+  2. A visão "Por mês" soma o que sai em cada mês, diz de quais itens e parcelas, e identifica o mês mais pesado
+  3. Um item com entrega vencida e não resolvido aparece destacado como "não chegou", e conta no bloco de atenção do topo
+  4. Uma tarefa ligada a um item mostra de qual item veio, e o item mostra quantas tarefas abertas ainda carrega
+  5. Remover um item com tarefas ligadas avisa quantas ficam soltas e não apaga nenhuma delas
+  6. O responsável de uma tarefa é escolhido entre os gestores ativos da plataforma, e "ninguém ainda" é um estado válido
+  7. Itens e tarefas são editados no lugar, sem apagar e recriar
+  8. A data de inauguração é editável e a contagem regressiva acompanha, inclusive depois de a data passar
+  9. Existe uma migração de remoção pronta e testada que apaga o módulo inteiro sem afetar o resto do sistema
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 5: Agenda de Aulas (em espera)
+
+> **Adiada por decisão do dono em 2026-08-22.** O módulo de Abertura do Espaço tem prazo real
+> (a inauguração) e o Estoque entra em seguida; a Agenda não tem urgência e continua sendo o
+> módulo mais complexo do projeto, ganhando em ser enfrentado depois de o sistema já estar em uso.
+> Ordem de execução revista: **4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento)**.
+
 
 **Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
 aulas com data concreta por materialização preguiçosa, e presença é marcada por aluna.

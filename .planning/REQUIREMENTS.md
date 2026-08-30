@@ -128,6 +128,27 @@
 - [ ] **EST-11**: Uma movimentação pode referenciar opcionalmente uma aula, fornada ou encomenda de origem
 - [ ] **EST-12**: A lista de saldos tem busca e filtro por categoria
 
+### Abertura do Espaço (módulo temporário)
+
+> Módulo com prazo de validade: existe para organizar a abertura do novo espaço e é **removido
+> quando o espaço abrir**. Validado por protótipo antes de virar código.
+
+- [ ] **ABE-01**: Cadastrar um item a comprar com nome, categoria, valor total e forma de pagamento
+- [ ] **ABE-02**: No pagamento a prazo, informar o número de parcelas e a data da primeira; as demais caem no mesmo dia dos meses seguintes
+- [ ] **ABE-03**: Informar opcionalmente a data prevista de entrega de um item
+- [ ] **ABE-04**: Um item cuja entrega venceu e que não foi resolvido aparece destacado como "não chegou"
+- [ ] **ABE-05**: Itens são agrupados por categoria, com contagem e soma por grupo
+- [ ] **ABE-06**: Cadastrar uma tarefa com descrição, prazo, grupo e responsável escolhido entre os gestores ativos da plataforma
+- [ ] **ABE-07**: Uma tarefa pode ficar sem responsável — "ninguém ainda" é um estado válido
+- [ ] **ABE-08**: Tarefas são agrupadas por área, ordenadas por urgência dentro de cada grupo, e o cabeçalho do grupo mostra quantas estão atrasadas
+- [ ] **ABE-09**: Uma tarefa pode ser ligada opcionalmente a um item; a tarefa mostra de qual item veio e o item mostra quantas tarefas abertas ainda carrega
+- [ ] **ABE-10**: Remover um item não apaga as tarefas ligadas a ele — elas ficam soltas, e a confirmação diz quantas são
+- [ ] **ABE-11**: Itens e tarefas podem ser editados no lugar, sem apagar e recriar
+- [ ] **ABE-12**: O painel mostra o total comprometido separado em à vista e a prazo, quanto sai neste mês e no próximo, e quantas tarefas estão atrasadas somadas às entregas vencidas
+- [ ] **ABE-13**: Uma visão mês a mês mostra quanto sai em cada mês, de quais itens e parcelas, com o mês mais pesado identificado
+- [ ] **ABE-14**: A data de inauguração é editável e a contagem regressiva acompanha, inclusive quando a data já passou
+- [ ] **ABE-15**: O módulo pode ser removido por completo — tabelas, rota e item de navegação — sem deixar resíduo no resto do sistema
+
 ### Painel Inicial e Entrega
 
 - [ ] **PNL-01**: O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique
@@ -298,6 +319,22 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | EST-10 | Phase 6 — Estoque | Pending |
 | EST-11 | Phase 6 — Estoque | Pending |
 | EST-12 | Phase 6 — Estoque | Pending |
+
+| ABE-01 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-02 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-03 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-04 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-05 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-06 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-07 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-08 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-09 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-10 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-11 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-12 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-13 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-14 | Phase 4.2 — Abertura do Espaço | Pending |
+| ABE-15 | Phase 4.2 — Abertura do Espaço | Pending |
 | UI-10 | Phase 7 — Polimento e Entrega | Pending |
 | UI-11 | Phase 7 — Polimento e Entrega | Pending |
 | PNL-01 | Phase 7 — Polimento e Entrega | Pending |

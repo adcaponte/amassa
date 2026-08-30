@@ -1,0 +1,672 @@
+<title>Abertura do Espaço</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+
+<style>
+  :root{
+    --fundo:#F6F3F0; --superficie:#FFFFFF; --superficie-2:#EFEAE5;
+    --borda:#E8E2DC; --borda-forte:#D8CFC7;
+    --tinta:#1D2221; --tinta-media:#5A4C44; --tinta-fraca:#6E5F56;
+    --acento:#894025; --acento-hover:#5B2916; --acento-fundo:#F3EDE9;
+    --sucesso:#15803D; --sucesso-fundo:#DCFCE7; --sucesso-tinta:#166534;
+    --atencao:#B45309; --atencao-fundo:#FEF3C7; --atencao-tinta:#92400E;
+    --erro:#B91C1C;    --erro-fundo:#FEE2E2;    --erro-tinta:#991B1B;
+    --marca-caixa:#FFFFFF;
+    --sombra:0 1px 2px rgba(29,34,33,.06);
+    --r-sm:6px; --r-md:10px; --r-lg:14px;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --fundo:#191614; --superficie:#221E1B; --superficie-2:#2C2724;
+    --borda:#332D29; --borda-forte:#453D38;
+    --tinta:#F2EDE8; --tinta-media:#C3B7AE; --tinta-fraca:#9E9089;
+    --acento:#D4794F; --acento-hover:#E89267; --acento-fundo:#33241D;
+    --sucesso:#4ADE80; --sucesso-fundo:#14301F; --sucesso-tinta:#86EFAC;
+    --atencao:#FBBF24; --atencao-fundo:#332510; --atencao-tinta:#FCD34D;
+    --erro:#F87171;    --erro-fundo:#3A1A1A;    --erro-tinta:#FCA5A5;
+    --marca-caixa:#191614; --sombra:0 1px 2px rgba(0,0,0,.3);
+  }}
+  :root[data-theme="dark"]{
+    --fundo:#191614; --superficie:#221E1B; --superficie-2:#2C2724;
+    --borda:#332D29; --borda-forte:#453D38;
+    --tinta:#F2EDE8; --tinta-media:#C3B7AE; --tinta-fraca:#9E9089;
+    --acento:#D4794F; --acento-hover:#E89267; --acento-fundo:#33241D;
+    --sucesso:#4ADE80; --sucesso-fundo:#14301F; --sucesso-tinta:#86EFAC;
+    --atencao:#FBBF24; --atencao-fundo:#332510; --atencao-tinta:#FCD34D;
+    --erro:#F87171;    --erro-fundo:#3A1A1A;    --erro-tinta:#FCA5A5;
+    --marca-caixa:#191614; --sombra:0 1px 2px rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fundo);color:var(--tinta);
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.5;
+    -webkit-font-smoothing:antialiased}
+  h1,h2,.num{font-family:'Archivo Narrow',ui-sans-serif,system-ui,sans-serif}
+  .num{font-variant-numeric:tabular-nums}
+  button,input,select{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--acento);outline-offset:2px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .app{max-width:560px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:20px}
+  @media(min-width:980px){.app{max-width:1140px;padding:32px 28px 56px}}
+
+  .cab{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .cab h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.1;text-wrap:balance}
+  .cab .quando{font-size:14px;color:var(--tinta-fraca);margin-top:3px;background:transparent;border:0;
+    padding:3px 0;cursor:pointer;text-align:left;border-bottom:1px dashed var(--borda-forte);transition:color .15s}
+  .cab .quando:hover{color:var(--acento);border-bottom-color:var(--acento)}
+  .quando-edita{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:6px}
+  .quando-edita label{margin-bottom:4px}
+  .quando-edita input{min-height:40px;width:auto}
+  .quando-edita .btn{min-height:40px;padding:0 14px;font-size:14px}
+  .regressiva{text-align:right;flex:none}
+  .regressiva .d{font-family:'Archivo Narrow';font-size:34px;font-weight:700;line-height:1;color:var(--acento);font-variant-numeric:tabular-nums}
+  .regressiva .l{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-fraca);margin-top:2px}
+
+  .resumo{display:grid;gap:10px}
+  @media(min-width:660px){.resumo{grid-template-columns:repeat(3,1fr);gap:14px}}
+  .bloco{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r-lg);padding:15px 16px;box-shadow:var(--sombra)}
+  .bloco .rot{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-fraca)}
+  .bloco .v{font-family:'Archivo Narrow';font-size:27px;font-weight:700;line-height:1.15;margin-top:5px;font-variant-numeric:tabular-nums}
+  .bloco .d{font-size:13px;color:var(--tinta-media);margin-top:5px;font-variant-numeric:tabular-nums}
+  .bloco .d b{font-weight:600}
+  .trilho{height:6px;border-radius:99px;background:var(--superficie-2);margin-top:11px;overflow:hidden}
+  .trilho i{display:block;height:100%;background:var(--acento);border-radius:99px;transition:width .3s}
+  .alerta .v{color:var(--erro)}
+
+  .seg{display:flex;gap:4px;background:var(--superficie-2);padding:4px;border-radius:var(--r-md)}
+  @media(min-width:980px){.seg{max-width:430px}}
+  .seg button{flex:1;min-height:44px;border:0;background:transparent;border-radius:var(--r-sm);
+    font-size:15px;font-weight:500;color:var(--tinta-media);cursor:pointer;transition:background .15s}
+  .seg button[aria-selected="true"]{background:var(--superficie);color:var(--tinta);font-weight:600;box-shadow:var(--sombra)}
+
+  .grupo{margin-bottom:22px}
+  .grupo h2{margin:0 0 9px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--tinta-fraca);display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .grupo h2 .tot{font-family:Inter;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;
+    color:var(--tinta-fraca);font-variant-numeric:tabular-nums;display:flex;gap:8px;align-items:center}
+  .grupo h2 .alertinha{color:var(--erro);font-weight:600}
+
+  .linha{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r-md);
+    padding:11px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;box-shadow:var(--sombra)}
+  .linha.pronto{background:color-mix(in srgb,var(--superficie) 70%,var(--fundo))}
+  .linha.pronto .nome{color:var(--tinta-fraca)}
+  .linha.pronto.tarefa .nome{text-decoration:line-through}
+  .linha.atrasada{border-left:3px solid var(--erro);padding-left:9px}
+  .linha.hoje{border-left:3px solid var(--atencao);padding-left:9px}
+
+  .caixa{flex:none;width:24px;height:24px;margin-top:1px;border-radius:7px;border:2px solid var(--borda-forte);
+    background:var(--superficie);cursor:pointer;display:grid;place-items:center;padding:0;transition:all .15s}
+  .caixa:hover{border-color:var(--acento)}
+  .caixa[aria-pressed="true"]{background:var(--sucesso);border-color:var(--sucesso)}
+  .caixa svg{width:13px;height:13px;stroke:var(--marca-caixa);stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .15s}
+  .caixa[aria-pressed="true"] svg{opacity:1}
+
+  .meio{flex:1;min-width:0}
+  .nome{font-size:15px;font-weight:500;line-height:1.35;word-break:break-word}
+  .sob{font-size:13px;color:var(--tinta-fraca);margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .dir{flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .preco{font-family:'Archivo Narrow';font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .parcela{font-size:12px;color:var(--tinta-fraca);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  .etq{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+  .etq.vista{background:var(--sucesso-fundo);color:var(--sucesso-tinta)}
+  .etq.prazo{background:var(--acento-fundo);color:var(--acento)}
+  .etq.atrasada{background:var(--erro-fundo);color:var(--erro-tinta)}
+  .etq.hoje{background:var(--atencao-fundo);color:var(--atencao-tinta)}
+  .etq.futura{background:var(--superficie-2);color:var(--tinta-media)}
+  .etq.tarefas{background:var(--atencao-fundo);color:var(--atencao-tinta)}
+  .etq.chega{background:var(--superficie-2);color:var(--tinta-media);font-weight:500}
+  .etq.nao-chegou{background:var(--erro-fundo);color:var(--erro-tinta)}
+  .etq.vinculo{background:var(--superficie-2);color:var(--tinta-media);font-weight:500;
+    max-width:180px;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:4px}
+  .etq.vinculo svg{width:10px;height:10px;stroke:currentColor;stroke-width:2.2;fill:none;flex:none}
+
+  .ferramentas{flex:none;display:flex;gap:1px}
+  .ferramentas button{width:30px;height:30px;border:0;background:transparent;color:var(--tinta-fraca);
+    border-radius:var(--r-sm);cursor:pointer;display:grid;place-items:center;opacity:.5;transition:all .15s}
+  .ferramentas button:hover{opacity:1;background:var(--superficie-2);color:var(--acento)}
+  .ferramentas .apagar:hover{color:var(--erro);background:var(--erro-fundo)}
+  .ferramentas svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  .mes{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--r-md);
+    padding:13px 14px;margin-bottom:8px;box-shadow:var(--sombra)}
+  .mes.passado{opacity:.6}
+  .mes-topo{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .mes-nome{font-size:15px;font-weight:600;text-transform:capitalize}
+  .mes-val{font-family:'Archivo Narrow';font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .mes-barra{height:8px;border-radius:99px;background:var(--superficie-2);margin-top:9px;overflow:hidden}
+  .mes-barra i{display:block;height:100%;background:var(--acento);border-radius:99px;opacity:.45}
+  .mes.pico .mes-barra i{opacity:1}
+  .mes-escala{font-size:11px;color:var(--tinta-fraca);margin-top:5px;font-variant-numeric:tabular-nums}
+  .mes.pico .mes-escala{color:var(--acento);font-weight:600}
+  .mes-det{margin-top:9px;display:flex;flex-direction:column;gap:4px;
+    padding-top:9px;border-top:1px solid var(--borda)}
+  .mes-det div{font-size:13px;color:var(--tinta-media);display:flex;justify-content:space-between;gap:12px;font-variant-numeric:tabular-nums}
+  .mes-det span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .vazio{background:var(--superficie);border:1px dashed var(--borda-forte);border-radius:var(--r-lg);
+    padding:30px 22px;text-align:center}
+  .vazio p{margin:0;color:var(--tinta-media);font-size:15px;text-wrap:balance}
+
+  .btn{min-height:44px;padding:0 18px;border-radius:var(--r-md);border:0;background:var(--acento);
+    color:var(--marca-caixa);font-size:15px;font-weight:600;cursor:pointer;transition:background .15s}
+  .btn:hover{background:var(--acento-hover)}
+  .btn-vazado{width:100%;background:transparent;color:var(--acento);border:1px dashed var(--borda-forte);font-weight:500}
+  .btn-vazado:hover{background:var(--acento-fundo);border-color:var(--acento)}
+  .btn-fraco{background:transparent;color:var(--tinta-media);border:1px solid var(--borda-forte)}
+  .btn-fraco:hover{background:var(--superficie-2)}
+
+  .form{background:var(--superficie);border:1px solid var(--acento);border-radius:var(--r-lg);padding:16px;
+    display:grid;gap:11px;box-shadow:var(--sombra);margin-bottom:10px}
+  .form h3{margin:0;font-family:'Archivo Narrow';font-size:17px;font-weight:600}
+  .campos{display:grid;gap:11px}
+  @media(min-width:660px){.campos.tres{grid-template-columns:2fr 1fr 1fr}.campos.dois{grid-template-columns:1fr 1fr}}
+  label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--tinta-fraca);margin-bottom:5px}
+  input,select{width:100%;min-height:44px;padding:0 12px;font-size:16px;background:var(--fundo);
+    color:var(--tinta);border:1px solid var(--borda-forte);border-radius:var(--r-sm)}
+  input:focus,select:focus{border-color:var(--acento);outline:none;box-shadow:0 0 0 3px var(--acento-fundo)}
+  .acoes{display:flex;gap:9px;justify-content:flex-end}
+  [hidden]{display:none!important}
+  .dica{font-size:12px;color:var(--tinta-fraca);margin:-4px 0 0}
+
+  .rodape{border-top:1px solid var(--borda);padding-top:16px;font-size:13px;color:var(--tinta-fraca);
+    line-height:1.6;display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .rodape b{color:var(--tinta-media)}
+  .limpar{background:transparent;border:0;color:var(--tinta-fraca);font-size:13px;text-decoration:underline;cursor:pointer;padding:4px}
+  .limpar:hover{color:var(--erro)}
+</style>
+
+<div class="app">
+  <header class="cab">
+    <div>
+      <h1>Abertura do Espaço</h1>
+      <button class="quando" id="quando" aria-label="Alterar a data de inauguração"></button>
+      <div class="quando-edita" id="quando-edita" hidden>
+        <label for="q-data">Inauguração</label>
+        <input id="q-data" type="date">
+        <button class="btn" id="q-salvar">Salvar</button>
+        <button class="btn btn-fraco" id="q-cancelar">Cancelar</button>
+      </div>
+    </div>
+    <div class="regressiva"><div class="d num" id="dias">—</div><div class="l" id="dias-rot">dias</div></div>
+  </header>
+
+  <section class="resumo" aria-label="Resumo">
+    <div class="bloco">
+      <div class="rot">Comprometido</div>
+      <div class="v num" id="r-total">R$ 0</div>
+      <div class="d"><b id="r-vista">R$ 0</b> à vista · <b id="r-prazo">R$ 0</b> a prazo</div>
+    </div>
+    <div class="bloco">
+      <div class="rot">Sai neste mês</div>
+      <div class="v num" id="r-mes">R$ 0</div>
+      <div class="d">próximo mês <b id="r-mes2">R$ 0</b></div>
+    </div>
+    <div class="bloco" id="bloco-urgente">
+      <div class="rot">Precisa de atenção</div>
+      <div class="v num" id="r-urgentes">0</div>
+      <div class="d"><b id="r-atras">0</b> tarefas atrasadas · <b id="r-pendentes">0</b> entregas vencidas</div>
+    </div>
+  </section>
+
+  <div class="seg" role="tablist" aria-label="Ver">
+    <button role="tab" aria-selected="true" data-aba="itens">Itens</button>
+    <button role="tab" aria-selected="false" data-aba="tarefas">Tarefas</button>
+    <button role="tab" aria-selected="false" data-aba="meses">Por mês</button>
+  </div>
+
+  <div id="painel">
+    <section data-vista="itens">
+      <form class="form" id="form-item" hidden>
+        <h3 id="i-titulo">Novo item</h3>
+        <div class="campos tres">
+          <div><label for="i-nome">O que é</label><input id="i-nome" required placeholder="Bancada de trabalho"></div>
+          <div><label for="i-cat">Categoria</label><select id="i-cat"></select></div>
+          <div><label for="i-valor">Valor total</label><input id="i-valor" type="number" min="0" step="1" required placeholder="4800"></div>
+        </div>
+        <div class="campos tres">
+          <div><label for="i-pag">Pagamento</label>
+            <select id="i-pag"><option value="vista">À vista</option><option value="prazo">A prazo</option></select></div>
+          <div id="i-parc-campo" hidden><label for="i-parc">Em quantas vezes</label>
+            <input id="i-parc" type="number" min="2" max="36" value="3"></div>
+          <div><label for="i-venc" id="i-venc-rot">Quando paga</label><input id="i-venc" type="date"></div>
+        </div>
+        <div><label for="i-entrega">Chega em <span style="text-transform:none;font-weight:400">(opcional)</span></label>
+          <input id="i-entrega" type="date"></div>
+        <p class="dica" id="i-dica">Deixe a entrega em branco se for algo que você leva na hora.</p>
+        <div class="acoes">
+          <button type="button" class="btn btn-fraco" data-fechar="form-item">Cancelar</button>
+          <button type="submit" class="btn" id="i-salvar">Adicionar item</button>
+        </div>
+      </form>
+      <div id="lista-itens"></div>
+      <button class="btn btn-vazado" data-abrir="form-item">+ Adicionar item</button>
+    </section>
+
+    <section data-vista="tarefas" hidden>
+      <form class="form" id="form-tarefa" hidden>
+        <h3 id="t-titulo">Nova tarefa</h3>
+        <div class="campos tres">
+          <div><label for="t-nome">O que fazer</label><input id="t-nome" required placeholder="Orçar instalação elétrica"></div>
+          <div><label for="t-quem">Quem</label><select id="t-quem"></select></div>
+          <div><label for="t-prazo">Até quando</label><input id="t-prazo" type="date" required></div>
+        </div>
+        <div class="campos dois">
+          <div><label for="t-grupo">Grupo</label><select id="t-grupo"></select></div>
+          <div><label for="t-item">Ligada a algum item?</label><select id="t-item"></select></div>
+        </div>
+        <p class="dica">Comprar o forno é uma coisa; instalar é outra. Ligar a tarefa ao item deixa isso visível.</p>
+        <div class="acoes">
+          <button type="button" class="btn btn-fraco" data-fechar="form-tarefa">Cancelar</button>
+          <button type="submit" class="btn" id="t-salvar">Adicionar tarefa</button>
+        </div>
+      </form>
+      <div id="lista-tarefas"></div>
+      <button class="btn btn-vazado" data-abrir="form-tarefa">+ Adicionar tarefa</button>
+    </section>
+
+    <section data-vista="meses" hidden><div id="lista-meses"></div></section>
+  </div>
+
+  <footer class="rodape">
+    <div><b>Protótipo.</b> Salva só no seu navegador, para você testar com itens de verdade.
+      Nada disso está no sistema ainda.</div>
+    <button class="limpar" id="limpar">Recomeçar do zero</button>
+  </footer>
+</div>
+
+<script>
+const CHAVE = 'amassa-abertura-proto-v3';
+const CATS   = ['Móveis','Equipamentos','Material','Utensílios','Obra','Outros'];
+const GRUPOS = ['Obra','Documentação','Aquisição','Montagem','Divulgação','Outros'];
+
+/* No sistema real esta lista vem da tabela `usuarios` (ativo = true) — os mesmos gestores
+   que entram na plataforma. Aqui é simulada só para o protótipo funcionar. */
+const GESTORES = ['Theo','Fernanda','Camila','Rodrigo'];
+
+/* Grupos que existiam em versões anteriores do protótipo, para não perder o que já foi digitado. */
+const GRUPOS_ANTIGOS = {'Compras e entregas':'Aquisição','Equipe':'Outros'};
+
+const dISO = n => { const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10) };
+const hoje = () => new Date().toISOString().slice(0,10);
+const brl  = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const esc  = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const curto = iso => new Date(iso+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+
+const semente = {
+  abertura: new Date(new Date().getFullYear(), 9, 24).toISOString().slice(0,10),
+  itens:[
+    {id:1,nome:'Bancada de trabalho 3m',cat:'Móveis',valor:4800,pag:'prazo',parc:3,venc:dISO(6),entrega:dISO(18),pronto:false},
+    {id:2,nome:'Estante de secagem',cat:'Móveis',valor:2100,pag:'vista',parc:1,venc:dISO(-12),entrega:'',pronto:true},
+    {id:3,nome:'Prateleiras de parede (6)',cat:'Móveis',valor:1500,pag:'vista',parc:1,venc:dISO(20),entrega:'',pronto:false},
+    {id:4,nome:'Forno elétrico 200L',cat:'Equipamentos',valor:9800,pag:'prazo',parc:6,venc:dISO(10),entrega:dISO(30),pronto:false},
+    {id:5,nome:'Torno elétrico',cat:'Equipamentos',valor:4400,pag:'prazo',parc:4,venc:dISO(-20),entrega:dISO(-3),pronto:false}
+  ],
+  tarefas:[
+    {id:1,nome:'Assinar contrato de energia',quem:'Theo',prazo:dISO(-2),grupo:'Documentação',itemId:null,pronto:false},
+    {id:2,nome:'Orçar instalação elétrica do forno',quem:'Fernanda',prazo:dISO(-1),grupo:'Obra',itemId:4,pronto:false},
+    {id:3,nome:'Agendar entrega do forno',quem:'Theo',prazo:dISO(0),grupo:'Aquisição',itemId:4,pronto:false},
+    {id:4,nome:'Montar as prateleiras',quem:'Camila',prazo:dISO(22),grupo:'Montagem',itemId:3,pronto:false},
+    {id:5,nome:'Definir horários das turmas',quem:'Fernanda',prazo:dISO(9),grupo:'Outros',itemId:null,pronto:false},
+    {id:6,nome:'Post de anúncio da inauguração',quem:'Fernanda',prazo:dISO(30),grupo:'Divulgação',itemId:null,pronto:false},
+    {id:7,nome:'Fechar o aluguel',quem:'Theo',prazo:dISO(-14),grupo:'Documentação',itemId:null,pronto:true}
+  ]
+};
+
+let dados, editando = null;
+try { dados = JSON.parse(localStorage.getItem(CHAVE)) || structuredClone(semente) }
+catch(e){ dados = structuredClone(semente) }
+dados.itens ||= []; dados.tarefas ||= [];
+dados.abertura ||= semente.abertura;
+// converte grupos de versões anteriores em vez de descartar o que já foi digitado
+dados.tarefas.forEach(t => {
+  if(GRUPOS_ANTIGOS[t.grupo]) t.grupo = GRUPOS_ANTIGOS[t.grupo];
+  if(!GRUPOS.includes(t.grupo)) t.grupo = 'Outros';
+});
+const abertura = () => new Date(dados.abertura + 'T12:00');
+
+const salvar = () => { try{ localStorage.setItem(CHAVE, JSON.stringify(dados)) }catch(e){} };
+const novoId = l => l.length ? Math.max(...l.map(x=>x.id))+1 : 1;
+
+const CHECK='<svg viewBox="0 0 14 14" aria-hidden="true"><polyline points="2.5,7.5 5.8,10.8 11.5,3.5"/></svg>';
+const LIXO ='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.6 9.5h6.8L12 4"/></svg>';
+const LAPIS='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 2.5l2 2L6 12l-2.8.8L4 10z"/></svg>';
+const ELO  ='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.6 7.4a2.2 2.2 0 0 0 3.1 0l1.9-1.9a2.2 2.2 0 0 0-3.1-3.1l-.6.6M7.4 4.6a2.2 2.2 0 0 0-3.1 0L2.4 6.5a2.2 2.2 0 0 0 3.1 3.1l.6-.6"/></svg>';
+
+function parcelas(i){
+  const base = i.venc || hoje();
+  const n = i.pag==='prazo' ? Math.max(2, i.parc||2) : 1;
+  const [a,m,d] = base.split('-').map(Number);
+  return Array.from({length:n}, (_,k) => {
+    const dt = new Date(a, m-1+k, d);
+    return { quando: dt.toISOString().slice(0,10), valor: i.valor/n, n:k+1, de:n };
+  });
+}
+const chaveMes = iso => iso.slice(0,7);
+const nomeMes = ch => { const [a,m]=ch.split('-').map(Number);
+  return new Date(a,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}) };
+
+function porMes(){
+  const mapa = new Map();
+  dados.itens.forEach(i => parcelas(i).forEach(p => {
+    const k = chaveMes(p.quando);
+    if(!mapa.has(k)) mapa.set(k, {total:0, linhas:[]});
+    const m = mapa.get(k); m.total += p.valor;
+    m.linhas.push({nome: i.nome + (p.de>1 ? ` · ${p.n}/${p.de}` : ''), valor:p.valor});
+  }));
+  return [...mapa.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+}
+
+function urgencia(t){
+  if(t.pronto) return {classe:'', etq:'futura', texto:'feita'};
+  const h = hoje();
+  if(t.prazo < h){ const n = Math.round((new Date(h)-new Date(t.prazo))/864e5);
+    return {classe:'atrasada', etq:'atrasada', texto: n===1?'ontem':`${n} dias atrás`} }
+  if(t.prazo === h) return {classe:'hoje', etq:'hoje', texto:'hoje'};
+  const n = Math.round((new Date(t.prazo)-new Date(h))/864e5);
+  return {classe:'', etq:'futura', texto: n===1?'amanhã':`em ${n} dias`};
+}
+/* Entrega vencida: tinha data prevista, a data passou, e o item não foi marcado como resolvido. */
+const entregaVencida = i => !!i.entrega && !i.pronto && i.entrega < hoje();
+
+function desenhar(){
+  const its = dados.itens, tfs = dados.tarefas, h = hoje();
+  const total = its.reduce((s,i)=>s+i.valor,0);
+  const vista = its.filter(i=>i.pag==='vista').reduce((s,i)=>s+i.valor,0);
+  const meses = porMes(), mesAtual = chaveMes(h);
+  const prox = new Date(); prox.setMonth(prox.getMonth()+1);
+  const mesProx = prox.toISOString().slice(0,7);
+
+  document.getElementById('r-total').textContent = brl(total);
+  document.getElementById('r-vista').textContent = brl(vista);
+  document.getElementById('r-prazo').textContent = brl(total-vista);
+  document.getElementById('r-mes').textContent   = brl((meses.find(m=>m[0]===mesAtual)||[,{total:0}])[1].total);
+  document.getElementById('r-mes2').textContent  = brl((meses.find(m=>m[0]===mesProx)||[,{total:0}])[1].total);
+
+  const atrasadas = tfs.filter(t=>!t.pronto && t.prazo < h).length;
+  const vencidas  = its.filter(entregaVencida).length;
+  document.getElementById('r-urgentes').textContent  = atrasadas + vencidas;
+  document.getElementById('r-atras').textContent     = atrasadas;
+  document.getElementById('r-pendentes').textContent = vencidas;
+  document.getElementById('bloco-urgente').classList.toggle('alerta', (atrasadas+vencidas)>0);
+
+  const falta = Math.ceil((abertura() - new Date())/864e5);
+  document.getElementById('dias').textContent = Math.abs(falta);
+  document.getElementById('dias-rot').textContent =
+    falta > 0 ? 'dias' : (falta === 0 ? 'é hoje' : falta === -1 ? 'dia atrás' : 'dias atrás');
+  document.getElementById('quando').textContent =
+    'Inauguração em ' + abertura().toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'});
+
+  // ITENS
+  const alvoI = document.getElementById('lista-itens');
+  alvoI.innerHTML = !its.length
+    ? '<div class="vazio"><p>Nada aqui ainda. Comece pelo que você já sabe que precisa comprar.</p></div>'
+    : CATS.filter(c=>its.some(i=>i.cat===c)).map(cat=>{
+        const linhas = its.filter(i=>i.cat===cat);
+        const soma = linhas.reduce((s,i)=>s+i.valor,0);
+        const atrasos = linhas.filter(entregaVencida).length;
+        return `<div class="grupo"><h2>${esc(cat)}<span class="tot">
+            ${atrasos?`<span class="alertinha">${atrasos} não ${atrasos===1?'chegou':'chegaram'}</span>·`:''}
+            <span>${linhas.length} ${linhas.length===1?'item':'itens'} · ${brl(soma)}</span></span></h2>` +
+          linhas.map(i=>{
+            const abertas = tfs.filter(t=>t.itemId===i.id && !t.pronto).length;
+            const ps = parcelas(i);
+            const p1 = ps.find(p=>p.quando>=h) || ps[ps.length-1];
+            return `<div class="linha ${i.pronto?'pronto':''} ${entregaVencida(i)?'atrasada':''}">
+              <button class="caixa" aria-pressed="${i.pronto}" data-item="${i.id}"
+                aria-label="${i.pronto?'Desmarcar':'Marcar como resolvido'}: ${esc(i.nome)}">${CHECK}</button>
+              <div class="meio">
+                <div class="nome">${esc(i.nome)}</div>
+                <div class="sob">
+                  <span class="etq ${i.pag}">${i.pag==='vista'?'à vista':'a prazo'}</span>
+                  ${i.entrega ? (entregaVencida(i)
+                      ? `<span class="etq nao-chegou">não chegou · ${curto(i.entrega)}</span>`
+                      : (!i.pronto ? `<span class="etq chega">chega ${curto(i.entrega)}</span>` : '')) : ''}
+                  ${abertas?`<span class="etq tarefas">${abertas} ${abertas===1?'tarefa aberta':'tarefas abertas'}</span>`:''}
+                </div>
+              </div>
+              <div class="dir">
+                <span class="preco">${brl(i.valor)}</span>
+                ${i.pag==='prazo'
+                  ? `<span class="parcela">${i.parc}× ${brl(i.valor/i.parc)}</span>
+                     <span class="parcela">${p1.quando>=h?'próxima':'última'} ${curto(p1.quando)}</span>`
+                  : `<span class="parcela">${curto(i.venc||h)}</span>`}
+              </div>
+              <div class="ferramentas">
+                <button data-editar-item="${i.id}" aria-label="Editar ${esc(i.nome)}">${LAPIS}</button>
+                <button class="apagar" data-apagar-item="${i.id}" aria-label="Remover ${esc(i.nome)}">${LIXO}</button>
+              </div>
+            </div>`}).join('') + '</div>';
+      }).join('');
+
+  // TAREFAS — agrupadas, mas ordenadas por urgência dentro de cada grupo
+  const alvoT = document.getElementById('lista-tarefas');
+  alvoT.innerHTML = !tfs.length
+    ? '<div class="vazio"><p>Nenhuma tarefa. Anote o que precisa acontecer até a abertura.</p></div>'
+    : GRUPOS.filter(g=>tfs.some(t=>(t.grupo||'Outros')===g)).map(gr=>{
+        const linhas = tfs.filter(t=>(t.grupo||'Outros')===gr)
+          .sort((a,b)=> (a.pronto-b.pronto) || a.prazo.localeCompare(b.prazo));
+        const feitas = linhas.filter(t=>t.pronto).length;
+        const atras  = linhas.filter(t=>!t.pronto && t.prazo < h).length;
+        return `<div class="grupo"><h2>${esc(gr)}<span class="tot">
+            ${atras?`<span class="alertinha">${atras} atrasada${atras>1?'s':''}</span>·`:''}
+            <span>${feitas} de ${linhas.length} ${linhas.length===1?'feita':'feitas'}</span></span></h2>` +
+          linhas.map(t=>{
+            const u = urgencia(t);
+            const it = t.itemId ? its.find(i=>i.id===t.itemId) : null;
+            return `<div class="linha tarefa ${t.pronto?'pronto':''} ${u.classe}">
+              <button class="caixa" aria-pressed="${t.pronto}" data-tarefa="${t.id}"
+                aria-label="${t.pronto?'Reabrir':'Concluir'}: ${esc(t.nome)}">${CHECK}</button>
+              <div class="meio">
+                <div class="nome">${esc(t.nome)}</div>
+                <div class="sob">
+                  ${t.quem?`<span>${esc(t.quem)}</span>`:''}
+                  ${it?`<span class="etq vinculo" title="${esc(it.nome)}">${ELO}${esc(it.nome)}</span>`:''}
+                </div>
+              </div>
+              <div class="dir"><span class="etq ${u.etq}">${u.texto}</span></div>
+              <div class="ferramentas">
+                <button data-editar-tarefa="${t.id}" aria-label="Editar ${esc(t.nome)}">${LAPIS}</button>
+                <button class="apagar" data-apagar-tarefa="${t.id}" aria-label="Remover ${esc(t.nome)}">${LIXO}</button>
+              </div>
+            </div>`}).join('') + '</div>';
+      }).join('');
+
+  // POR MÊS
+  const alvoM = document.getElementById('lista-meses');
+  if(!meses.length){
+    alvoM.innerHTML = '<div class="vazio"><p>Sem nada a pagar ainda. Cadastre um item com data e o fluxo aparece aqui.</p></div>';
+  } else {
+    const pico = Math.max(...meses.map(m=>m[1].total));
+    alvoM.innerHTML = `<div class="grupo"><h2>Quanto sai por mês<span class="tot">${meses.length} ${meses.length===1?'mês':'meses'} · ${brl(total)}</span></h2>` +
+      meses.map(([ch,m])=>{
+        const ehPico = m.total === pico && meses.length > 1;
+        return `
+        <div class="mes ${ch<mesAtual?'passado':''} ${ehPico?'pico':''}">
+          <div class="mes-topo"><span class="mes-nome">${nomeMes(ch)}${ch===mesAtual?' · este mês':''}</span>
+            <span class="mes-val">${brl(m.total)}</span></div>
+          <div class="mes-barra" role="img"
+               aria-label="${Math.round(m.total/pico*100)}% do mês mais pesado">
+            <i style="width:${Math.round(m.total/pico*100)}%"></i></div>
+          <div class="mes-escala">${ehPico ? 'mês mais pesado' : `${Math.round(m.total/pico*100)}% do mês mais pesado`}</div>
+          <div class="mes-det">${m.linhas.map(l=>`<div><span>${esc(l.nome)}</span><span>${brl(l.valor)}</span></div>`).join('')}</div>
+        </div>`}).join('') + '</div>';
+  }
+
+  // selects
+  const sc = document.getElementById('i-cat');
+  if(!sc.options.length) sc.innerHTML = CATS.map(c=>`<option>${c}</option>`).join('');
+  const sg = document.getElementById('t-grupo');
+  if(!sg.options.length) sg.innerHTML = GRUPOS.map(g=>`<option>${g}</option>`).join('');
+  const sq = document.getElementById('t-quem');
+  if(!sq.options.length) sq.innerHTML = '<option value="">Ninguém ainda</option>' +
+    GESTORES.map(g=>`<option>${esc(g)}</option>`).join('');
+  const si = document.getElementById('t-item'), guardado = si.value;
+  si.innerHTML = '<option value="">Nenhum — tarefa solta</option>' +
+    its.map(i=>`<option value="${i.id}">${esc(i.nome)}</option>`).join('');
+  si.value = guardado;
+
+  salvar();
+}
+
+/* ---- formulários: um só formulário serve para criar e editar ---- */
+function abrirItem(item){
+  editando = item ? {tipo:'item', id:item.id} : null;
+  document.getElementById('i-titulo').textContent = item ? 'Editar item' : 'Novo item';
+  document.getElementById('i-salvar').textContent = item ? 'Salvar alterações' : 'Adicionar item';
+  document.getElementById('i-nome').value    = item?.nome ?? '';
+  document.getElementById('i-cat').value     = item?.cat ?? CATS[0];
+  document.getElementById('i-valor').value   = item?.valor ?? '';
+  document.getElementById('i-pag').value     = item?.pag ?? 'vista';
+  document.getElementById('i-parc').value    = item?.parc > 1 ? item.parc : 3;
+  document.getElementById('i-venc').value    = item?.venc ?? dISO(0);
+  document.getElementById('i-entrega').value = item?.entrega ?? '';
+  ajustarPagamento();
+  const f = document.getElementById('form-item'); f.hidden = false;
+  document.getElementById('i-nome').focus();
+}
+function abrirTarefa(t){
+  editando = t ? {tipo:'tarefa', id:t.id} : null;
+  document.getElementById('t-titulo').textContent = t ? 'Editar tarefa' : 'Nova tarefa';
+  document.getElementById('t-salvar').textContent = t ? 'Salvar alterações' : 'Adicionar tarefa';
+  document.getElementById('t-nome').value  = t?.nome ?? '';
+  const sq = document.getElementById('t-quem');
+  sq.value = GESTORES.includes(t?.quem) ? t.quem : '';
+  document.getElementById('t-prazo').value = t?.prazo ?? dISO(7);
+  document.getElementById('t-grupo').value = t?.grupo ?? GRUPOS[0];
+  document.getElementById('t-item').value  = t?.itemId ?? '';
+  const f = document.getElementById('form-tarefa'); f.hidden = false;
+  document.getElementById('t-nome').focus();
+}
+function ajustarPagamento(){
+  const prazo = document.getElementById('i-pag').value === 'prazo';
+  document.getElementById('i-parc-campo').hidden = !prazo;
+  document.getElementById('i-venc-rot').textContent = prazo ? 'Primeira parcela' : 'Quando paga';
+  document.getElementById('i-dica').textContent = prazo
+    ? 'As demais parcelas caem no mesmo dia dos meses seguintes. Deixe a entrega em branco se não houver.'
+    : 'Deixe a entrega em branco se for algo que você leva na hora.';
+}
+document.getElementById('i-pag').onchange = ajustarPagamento;
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  const bi = t.closest('[data-item]');
+  if(bi){ const i = dados.itens.find(x=>x.id==bi.dataset.item); i.pronto=!i.pronto; return desenhar() }
+  const bt = t.closest('[data-tarefa]');
+  if(bt){ const x = dados.tarefas.find(y=>y.id==bt.dataset.tarefa); x.pronto=!x.pronto; return desenhar() }
+
+  const ei = t.closest('[data-editar-item]');
+  if(ei) return abrirItem(dados.itens.find(x=>x.id==ei.dataset.editarItem));
+  const et = t.closest('[data-editar-tarefa]');
+  if(et) return abrirTarefa(dados.tarefas.find(x=>x.id==et.dataset.editarTarefa));
+
+  const ai = t.closest('[data-apagar-item]');
+  if(ai){
+    const id = Number(ai.dataset.apagarItem), i = dados.itens.find(x=>x.id===id);
+    const presas = dados.tarefas.filter(x=>x.itemId===id);
+    const aviso = presas.length
+      ? `\n\n${presas.length} ${presas.length===1?'tarefa ligada a ele fica solta':'tarefas ligadas a ele ficam soltas'}, mas não são apagadas.` : '';
+    if(confirm(`Remover "${i.nome}"? Ele sai da lista e do total de ${brl(i.valor)}.${aviso}`)){
+      dados.itens = dados.itens.filter(x=>x.id!==id);
+      dados.tarefas.forEach(x=>{ if(x.itemId===id) x.itemId=null });
+      if(editando?.tipo==='item' && editando.id===id){ document.getElementById('form-item').hidden=true; editando=null }
+      desenhar();
+    }
+    return;
+  }
+  const at = t.closest('[data-apagar-tarefa]');
+  if(at){
+    const id = Number(at.dataset.apagarTarefa), x = dados.tarefas.find(y=>y.id===id);
+    if(confirm(`Remover a tarefa "${x.nome}"?`)){
+      dados.tarefas = dados.tarefas.filter(y=>y.id!==id);
+      if(editando?.tipo==='tarefa' && editando.id===id){ document.getElementById('form-tarefa').hidden=true; editando=null }
+      desenhar();
+    }
+    return;
+  }
+
+  const ab = t.closest('[data-abrir]');
+  if(ab) return ab.dataset.abrir==='form-item' ? abrirItem(null) : abrirTarefa(null);
+  const fe = t.closest('[data-fechar]');
+  if(fe){ document.getElementById(fe.dataset.fechar).hidden = true; editando = null; return }
+
+  const aba = t.closest('[data-aba]');
+  if(aba){
+    const q = aba.dataset.aba;
+    document.querySelectorAll('[data-vista]').forEach(s=>s.hidden = s.dataset.vista!==q);
+    document.querySelectorAll('[data-aba]').forEach(b=>b.setAttribute('aria-selected', b===aba));
+  }
+});
+
+document.getElementById('form-item').onsubmit = e => {
+  e.preventDefault();
+  const pag = document.getElementById('i-pag').value;
+  const campos = {
+    nome:  document.getElementById('i-nome').value.trim(),
+    cat:   document.getElementById('i-cat').value,
+    valor: Number(document.getElementById('i-valor').value)||0,
+    pag,
+    parc:  pag==='prazo' ? Math.max(2,Number(document.getElementById('i-parc').value)||2) : 1,
+    venc:  document.getElementById('i-venc').value || hoje(),
+    entrega: document.getElementById('i-entrega').value || ''
+  };
+  if(editando?.tipo==='item'){
+    Object.assign(dados.itens.find(x=>x.id===editando.id), campos);
+  } else {
+    dados.itens.push({id:novoId(dados.itens), ...campos, pronto:false});
+  }
+  e.target.hidden = true; editando = null; desenhar();
+};
+
+document.getElementById('form-tarefa').onsubmit = e => {
+  e.preventDefault();
+  const li = document.getElementById('t-item').value;
+  const campos = {
+    nome:  document.getElementById('t-nome').value.trim(),
+    quem:  document.getElementById('t-quem').value,
+    prazo: document.getElementById('t-prazo').value,
+    grupo: document.getElementById('t-grupo').value,
+    itemId: li ? Number(li) : null
+  };
+  if(editando?.tipo==='tarefa'){
+    Object.assign(dados.tarefas.find(x=>x.id===editando.id), campos);
+  } else {
+    dados.tarefas.push({id:novoId(dados.tarefas), ...campos, pronto:false});
+  }
+  e.target.hidden = true; editando = null; desenhar();
+};
+
+/* data de inauguração — editável no cabeçalho */
+const painelData = document.getElementById('quando-edita');
+document.getElementById('quando').onclick = () => {
+  document.getElementById('q-data').value = dados.abertura;
+  painelData.hidden = false;
+  document.getElementById('quando').hidden = true;
+  document.getElementById('q-data').focus();
+};
+document.getElementById('q-cancelar').onclick = () => {
+  painelData.hidden = true; document.getElementById('quando').hidden = false;
+};
+document.getElementById('q-salvar').onclick = () => {
+  const v = document.getElementById('q-data').value;
+  if(v){ dados.abertura = v; painelData.hidden = true;
+    document.getElementById('quando').hidden = false; desenhar() }
+};
+document.getElementById('q-data').addEventListener('keydown', e => {
+  if(e.key==='Enter'){ e.preventDefault(); document.getElementById('q-salvar').click() }
+  if(e.key==='Escape'){ document.getElementById('q-cancelar').click() }
+});
+
+document.getElementById('limpar').onclick = () => {
+  if(confirm('Apagar tudo e voltar aos itens de exemplo? O que você digitou se perde.')){
+    dados = structuredClone(semente); editando = null;
+    document.getElementById('form-item').hidden = true;
+    document.getElementById('form-tarefa').hidden = true;
+    desenhar();
+  }
+};
+
+desenhar();
+</script>
