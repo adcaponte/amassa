@@ -32,9 +32,10 @@ export default function CarregandoAbertura() {
         </div>
       </div>
 
-      {/* Barra de abas (Itens/Tarefas, `AbasAbertura`) — dois blocos do mesmo tamanho do botão
-          real (min-h-11), lado a lado. */}
+      {/* Barra de abas (Itens/Tarefas/Por mês, `AbasAbertura`) — três blocos do mesmo tamanho do
+          botão real (min-h-11), lado a lado. */}
       <div className="mx-6 mt-6 flex gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-md">
+        <Skeleton className="h-11 flex-1 rounded-sm" />
         <Skeleton className="h-11 flex-1 rounded-sm" />
         <Skeleton className="h-11 flex-1 rounded-sm" />
       </div>

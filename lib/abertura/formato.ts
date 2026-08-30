@@ -55,3 +55,17 @@ export function formatarDataPorExtenso(dataIso: string): string {
     timeZone: "UTC",
   }).format(dataUtcDoDiaCivil(dataIso));
 }
+
+// "novembro de 2026" — o nome do mês por extenso, da chave `"YYYY-MM"` que agrupa a visão "Por
+// mês" (`lib/abertura/parcelas.ts` → `fluxoMensal`, plano 04). Usa `Intl` — por isso mora aqui, e
+// não no módulo puro de cálculo (a mesma separação que este arquivo já mantém de `parcelas.ts`) —
+// a partir de `Date.UTC` do dia 1 daquele mês, com `timeZone: "UTC"`, nunca com o fuso do
+// runtime.
+export function nomeDoMes(chave: string): string {
+  const [ano, mes] = chave.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(ano, mes - 1, 1)));
+}

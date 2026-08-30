@@ -9,7 +9,7 @@ import {
   obterItemDeAbertura,
   obterTarefaDeAbertura,
 } from "@/lib/abertura/consultas";
-import { totaisComprometidos } from "@/lib/abertura/parcelas";
+import { fluxoMensal, totaisComprometidos } from "@/lib/abertura/parcelas";
 import { contarTarefasAbertasPorItem, contarTarefasLigadasPorItem } from "@/lib/abertura/prazos";
 import {
   ROTULO_COMPROMETIDO,
@@ -23,12 +23,13 @@ import { AbasAbertura } from "@/components/amassa/abertura/abas-abertura";
 import { FormularioItem } from "@/components/amassa/abertura/formulario-item";
 import { FormularioTarefa } from "@/components/amassa/abertura/formulario-tarefa";
 import { ListaItens } from "@/components/amassa/abertura/lista-itens";
+import { ListaMeses } from "@/components/amassa/abertura/lista-meses";
 import { ListaTarefas } from "@/components/amassa/abertura/lista-tarefas";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/queimas/page.tsx`.
 // `searchParams` é `Promise` no Next.js 15 (precisa de `await`, mesmo padrão de
-// `app/(app)/encomendas/page.tsx`). `?aba=` decide qual das duas listas aparece (padrão
-// "itens"); as duas continuam calculadas no MESMO carregamento (`Promise.all`), o que mantém a
+// `app/(app)/encomendas/page.tsx`). `?aba=` decide qual das três listas aparece (padrão
+// "itens"); todas continuam calculadas no MESMO carregamento (`Promise.all`), o que mantém a
 // troca de aba uma navegação de servidor real — nunca dado escondido no cliente — e a URL
 // sempre compartilhável.
 export default async function PaginaAbertura({
@@ -39,6 +40,7 @@ export default async function PaginaAbertura({
   await exigirUsuario();
   const { aba, item: itemParam, tarefa: tarefaParam } = await searchParams;
   const abaTarefas = aba === "tarefas";
+  const abaMeses = aba === "meses";
 
   // O dia civil de Brasília é calculado UMA VEZ, aqui, na borda — nenhuma função pura abaixo lê
   // o relógio por conta própria (`lib/abertura/prazos.ts`/`lib/abertura/parcelas.ts`).
@@ -67,17 +69,24 @@ export default async function PaginaAbertura({
   // Contagem de TODAS as tarefas ligadas por item (D-14, Tarefa 3) — a que a confirmação de
   // remoção mostra ANTES de confirmar, a partir das mesmas tarefas já carregadas.
   const contagemDeTarefasLigadas = contarTarefasLigadasPorItem(tarefas);
+  // A visão "Por mês" (D-16, Tarefa 1 do 04.2-04-PLAN.md) — a MESMA função que o bloco "Sai
+  // neste mês" do painel (Tarefa 2) vai ler, nunca uma segunda soma por mês.
+  const meses = fluxoMensal(itens, hoje);
 
   return (
     <>
       <CabecalhoPagina titulo={TITULO_MODULO}>
-        <Button asChild variant="default" className="min-h-[44px]">
-          <Link
-            href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
-          >
-            {abaTarefas ? ROTULO_NOVA_TAREFA : ROTULO_NOVO_ITEM}
-          </Link>
-        </Button>
+        {/* A aba "Por mês" não tem ação de "adicionar" própria — um mês nasce de cadastrar um
+            item na aba Itens, não de um botão nesta tela. */}
+        {!abaMeses && (
+          <Button asChild variant="default" className="min-h-[44px]">
+            <Link
+              href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
+            >
+              {abaTarefas ? ROTULO_NOVA_TAREFA : ROTULO_NOVO_ITEM}
+            </Link>
+          </Button>
+        )}
       </CabecalhoPagina>
 
       {/* Montados SEMPRE — mesmo com a lista vazia, o botão do `EstadoVazio` de cada aba precisa
@@ -112,7 +121,9 @@ export default async function PaginaAbertura({
         <AbasAbertura />
       </div>
 
-      {abaTarefas ? (
+      {abaMeses ? (
+        <ListaMeses meses={meses} />
+      ) : abaTarefas ? (
         <ListaTarefas tarefas={tarefas} hoje={hoje} />
       ) : (
         <ListaItens

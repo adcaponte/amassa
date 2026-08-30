@@ -5,21 +5,28 @@ import { useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-export type AbaAbertura = "itens" | "tarefas";
+export type AbaAbertura = "itens" | "tarefas" | "meses";
 
 // A barra de abas do protótipo (`role="tablist"`), no molde do `SeletorQueimas` — mas navegando
-// por QUERY STRING na MESMA rota (`?aba=itens`/`?aba=tarefas`), não por rotas diferentes: a
-// visão "Por mês" entra no plano 04.2-04, e as duas abas desta fatia continuam
-// renderizadas no SERVIDOR a cada troca — a URL some sempre compartilhável, nunca um estado só
-// de cliente escondido atrás de divs alternadas.
+// por QUERY STRING na MESMA rota (`?aba=itens`/`?aba=tarefas`/`?aba=meses`), não por rotas
+// diferentes: as três abas continuam renderizadas no SERVIDOR a cada troca — a URL sempre
+// compartilhável, nunca um estado só de cliente escondido atrás de divs alternadas. "Por mês"
+// (plano 04.2-04) é a terceira e última aba do protótipo.
 const ABAS: readonly { valor: AbaAbertura; rotulo: string }[] = [
   { valor: "itens", rotulo: "Itens" },
   { valor: "tarefas", rotulo: "Tarefas" },
+  { valor: "meses", rotulo: "Por mês" },
 ];
+
+function abaDaUrl(valor: string | null): AbaAbertura {
+  if (valor === "tarefas") return "tarefas";
+  if (valor === "meses") return "meses";
+  return "itens";
+}
 
 export function AbasAbertura() {
   const searchParams = useSearchParams();
-  const abaAtual: AbaAbertura = searchParams.get("aba") === "tarefas" ? "tarefas" : "itens";
+  const abaAtual: AbaAbertura = abaDaUrl(searchParams.get("aba"));
 
   return (
     <div

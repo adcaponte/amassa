@@ -90,6 +90,11 @@ export const ROTULO_SALVAR_TAREFA = "Adicionar tarefa";
 export const FRASE_VAZIO_TITULO_TAREFAS = "Nenhuma tarefa.";
 export const FRASE_VAZIO_CORPO_TAREFAS = "Anote o que precisa acontecer até a abertura.";
 
+// Estado vazio da aba "Por mês" (UI-SPEC §"Estados vazios", D-16) — verbatim. Sem botão: não há
+// como "adicionar um mês", o fluxo nasce de cadastrar um item na aba Itens.
+export const FRASE_VAZIO_TITULO_MESES = "Sem nada a pagar ainda.";
+export const FRASE_VAZIO_CORPO_MESES = "Cadastre um item com data e o fluxo aparece aqui.";
+
 // Rótulos acessíveis da caixa de marcação (`caixa-marcacao.tsx`) — trocam com o estado atual,
 // nunca um rótulo genérico ("Marcar"/"Desmarcar" sozinho não diz SOBRE O QUÊ, CLAUDE.md
 // §Acessibilidade). `nome` é o nome do item ou a descrição da tarefa.

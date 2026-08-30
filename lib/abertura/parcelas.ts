@@ -1,12 +1,20 @@
-// Módulo puro: recebe dados, devolve dados. Zero imports (mesma disciplina de
-// `lib/encomendas/cronograma.ts` e `lib/queimas/contador.ts`) — "hoje" nunca é lido do relógio
-// por dentro, entra sempre por argumento como string `YYYY-MM-DD`. É a regra de negócio deste
-// módulo: parcelas são CALCULADAS, nunca armazenadas linha a linha (D-05) — guarda-se valor
-// total, número de parcelas e a data da primeira; as demais são derivadas daqui a cada leitura.
+// Módulo puro: recebe dados, devolve dados. "hoje" nunca é lido do relógio por dentro, entra
+// sempre por argumento como string `YYYY-MM-DD`. É a regra de negócio deste módulo: parcelas são
+// CALCULADAS, nunca armazenadas linha a linha (D-05) — guarda-se valor total, número de parcelas
+// e a data da primeira; as demais são derivadas daqui a cada leitura.
 //
 // Nenhuma instância de `Date` entra em conta nenhuma — a aritmética de calendário é toda
 // inteira, replicada de `lib/encomendas/cronograma.ts` (não importada: são módulos de domínios
 // diferentes, e `cronograma.ts` continua sendo a fonte única da cascata de Encomendas).
+//
+// Plano 04.2-04 (Tarefas 1/2): `resumoDoPainel` reusa `contarEntregasVencidas`/`urgenciaDaTarefa`
+// de `lib/abertura/prazos.ts` em vez de reescrever as duas regras de tarefas/entregas aqui — a
+// mesma razão de `fluxoMensal` nunca ter uma segunda soma por mês em outro lugar. Isso cria uma
+// referência CIRCULAR deliberada com `prazos.ts` (que importa `diferencaEmDias` daqui): segura
+// porque os dois lados só usam as importações DENTRO de corpos de função, nunca no topo do
+// módulo — nenhuma das duas execuções acontece antes de as duas ligações (bindings) do ES module
+// já estarem resolvidas.
+import { contarEntregasVencidas, urgenciaDaTarefa, type ItemParaEntrega } from "./prazos";
 
 // Dias desde 1970-01-01 (proléptico gregoriano), a partir de ano/mês/dia civis. Algoritmo de
 // calendário puro (Howard Hinnant, "days_from_civil") — nenhuma instância de `Date` entra nesta
@@ -220,5 +228,142 @@ export function totaisComprometidos(itens: readonly ItemParaCalculo[]): TotaisCo
     comprometidoEmCentavos: aVistaEmCentavos + aPrazoEmCentavos,
     aVistaEmCentavos,
     aPrazoEmCentavos,
+  };
+}
+
+// `ItemParaCalculo` MAIS o nome — o mínimo que a visão "Por mês" (D-16) precisa para rotular a
+// composição de cada mês. `ItemDaAbertura` (`lib/abertura/consultas.ts`) já satisfaz este tipo
+// estruturalmente (tem todos estes campos e mais), então a página passa o mesmo vetor de itens
+// direto, sem remapear.
+export type ItemParaFluxo = ItemParaCalculo & { nome: string };
+
+export type ComposicaoDoMes = { rotulo: string; valorEmCentavos: number };
+
+export type MesDoFluxo = {
+  chave: string;
+  totalEmCentavos: number;
+  composicao: ComposicaoDoMes[];
+  ehMesAtual: boolean;
+  ehPassado: boolean;
+  ehPico: boolean;
+  percentualDoPico: number;
+};
+
+// A visão "Por mês" (D-16, a mais valiosa e a mais fácil de fazer errado): soma TODAS as
+// parcelas de TODOS os itens no mês certo, incluindo as que já venceram — a visão é do fluxo
+// inteiro, não só do que falta. Chama `calcularParcelas` — a MESMA função que a linha do item usa
+// (`lista-itens.tsx`) — nunca uma segunda implementação da conta de parcela.
+//
+// O rótulo da composição é o nome do item, com "· k/n" só quando `n > 1` (`de === 1` nunca vira
+// "1/1" — um item à vista não tem fração para mostrar). O total do mês é a SOMA EXATA dos valores
+// das parcelas, em centavos, sem arredondar — o arredondamento só acontece em `formatarReais`; se
+// acontecesse aqui, a soma dos meses deixaria de bater com o total comprometido do painel, e os
+// dois números do topo passariam a se contradizer na mesma tela (a mesma invariante protegida no
+// comentário de `calcularParcelas` acima).
+//
+// EMPATE NO TOPO (decisão desta função, coberta em teste): quando dois ou mais meses empatam no
+// valor máximo, TODOS são marcados `ehPico`. A alternativa (marcar só o primeiro) faria o
+// resultado depender da ordem de iteração — e um mês "quase pico" que na real empata com o pico
+// ficaria mostrando "99% do mês mais pesado" ao lado de outro com o MESMO valor chamado de "o"
+// mais pesado, o que é incoerente. Marcar os dois é a leitura que não engana.
+//
+// Com UM mês só, `ehPico` é sempre falso — um mês sozinho não se compara com nada, e chamá-lo de
+// "mais pesado" seria ruído, não informação. Lista vazia devolve vetor vazio ANTES de qualquer
+// divisão pelo pico (não há pico para dividir).
+export function fluxoMensal(itens: readonly ItemParaFluxo[], hoje: string): MesDoFluxo[] {
+  const mapa = new Map<string, { totalEmCentavos: number; composicao: ComposicaoDoMes[] }>();
+
+  for (const item of itens) {
+    const parcelas = calcularParcelas(item);
+    for (const parcela of parcelas) {
+      const chave = chaveDoMes(parcela.vencimentoEm);
+      const mes = mapa.get(chave) ?? { totalEmCentavos: 0, composicao: [] };
+      mes.totalEmCentavos += parcela.valorEmCentavos;
+      mes.composicao.push({
+        rotulo: parcela.de > 1 ? `${item.nome} · ${parcela.numero}/${parcela.de}` : item.nome,
+        valorEmCentavos: parcela.valorEmCentavos,
+      });
+      mapa.set(chave, mes);
+    }
+  }
+
+  const chaves = [...mapa.keys()].sort();
+  if (chaves.length === 0) {
+    return [];
+  }
+
+  const pico = Math.max(...chaves.map((chave) => mapa.get(chave)!.totalEmCentavos));
+  const mesAtual = chaveDoMes(hoje);
+
+  return chaves.map((chave) => {
+    const { totalEmCentavos, composicao } = mapa.get(chave)!;
+    const ehPico = chaves.length > 1 && totalEmCentavos === pico;
+
+    return {
+      chave,
+      totalEmCentavos,
+      composicao,
+      ehMesAtual: chave === mesAtual,
+      ehPassado: chave < mesAtual,
+      ehPico,
+      percentualDoPico: Math.round((totalEmCentavos / pico) * 100),
+    };
+  });
+}
+
+export type ItemParaResumoDoPainel = ItemParaFluxo & ItemParaEntrega;
+
+export type TarefaParaResumoDoPainel = {
+  concluida: boolean;
+  prazoEm: string;
+};
+
+export type ResumoDoPainel = {
+  comprometidoEmCentavos: number;
+  aVistaEmCentavos: number;
+  aPrazoEmCentavos: number;
+  saiNesteMesEmCentavos: number;
+  saiNoProximoMesEmCentavos: number;
+  tarefasAtrasadas: number;
+  entregasVencidas: number;
+  precisamDeAtencao: number;
+};
+
+// Os TRÊS blocos do painel (D-15/ABE-12). Os dois valores mensais saem de `fluxoMensal` — A
+// MESMA FUNÇÃO da visão "Por mês" acima, procurando a chave de `hoje` e a de `proximoMes(chave)`
+// no vetor que ela devolve. Nunca uma segunda soma por mês aqui: duas somas com a mesma intenção
+// divergem na primeira mudança, e o número do topo passaria a contradizer a lista de baixo na
+// mesma tela. `proximoMes` é o que faz dezembro virar janeiro do ano seguinte — somar 1 ao número
+// do mês produziria o mês 13 e um bloco em branco todo mês de dezembro.
+//
+// `entregasVencidas` reusa `contarEntregasVencidas` e `tarefasAtrasadas` reusa a classificação de
+// `urgenciaDaTarefa` (`lib/abertura/prazos.ts`) — nenhuma das duas regras é reescrita aqui.
+export function resumoDoPainel(
+  itens: readonly ItemParaResumoDoPainel[],
+  tarefas: readonly TarefaParaResumoDoPainel[],
+  hoje: string,
+): ResumoDoPainel {
+  const totais = totaisComprometidos(itens);
+  const meses = fluxoMensal(itens, hoje);
+  const chaveHoje = chaveDoMes(hoje);
+  const chaveProximo = proximoMes(chaveHoje);
+
+  const mesAtual = meses.find((mes) => mes.chave === chaveHoje);
+  const mesProximo = meses.find((mes) => mes.chave === chaveProximo);
+
+  const tarefasAtrasadas = tarefas.filter(
+    (tarefa) => urgenciaDaTarefa(tarefa, hoje).tipo === "atrasada",
+  ).length;
+  const entregasVencidas = contarEntregasVencidas(itens, hoje);
+
+  return {
+    comprometidoEmCentavos: totais.comprometidoEmCentavos,
+    aVistaEmCentavos: totais.aVistaEmCentavos,
+    aPrazoEmCentavos: totais.aPrazoEmCentavos,
+    saiNesteMesEmCentavos: mesAtual?.totalEmCentavos ?? 0,
+    saiNoProximoMesEmCentavos: mesProximo?.totalEmCentavos ?? 0,
+    tarefasAtrasadas,
+    entregasVencidas,
+    precisamDeAtencao: tarefasAtrasadas + entregasVencidas,
   };
 }
