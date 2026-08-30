@@ -7,7 +7,12 @@ import { db } from "@/db";
 import { aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
-import { esquemaItemDeAbertura, esquemaTarefaDeAbertura } from "./esquemas";
+import {
+  esquemaItemDeAbertura,
+  esquemaMarcacaoDeItem,
+  esquemaMarcacaoDeTarefa,
+  esquemaTarefaDeAbertura,
+} from "./esquemas";
 import { FRASE_FALHA_AO_SALVAR } from "./textos";
 
 // Mesma forma de `lib/queimas/acoes.ts`/`lib/encomendas/acoes.ts` (D-15) — cada módulo
@@ -122,6 +127,62 @@ export async function criarTarefaDeAbertura(
       };
     }
     console.error("Falha ao gravar tarefa de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// A marcação otimista (Tarefa 1, 04.2-03-PLAN.md, T-04.2-13): recebe o ESTADO DESEJADO, grava
+// valor ABSOLUTO — nunca um incremento nem uma inversão. Duas chamadas com o mesmo valor
+// (de duas abas, ou de uma resposta que chega fora de ordem) convergem sempre para o mesmo
+// resultado, sem violar restrição nenhuma. `exigirUsuario()` é a PRIMEIRA instrução do corpo
+// (T-04.2-12). Sem transação: um `update` de uma linha só, sem leitura prévia — não há condição
+// de corrida a proteger (o valor gravado não depende do valor anterior).
+export async function marcarItemResolvido(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; resolvido: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaMarcacaoDeItem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    await db
+      .update(aberturaItens)
+      .set({ resolvido: dados.resolvido })
+      .where(eq(aberturaItens.id, dados.id));
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { id: dados.id, resolvido: dados.resolvido } };
+  } catch (erro) {
+    console.error("Falha ao marcar item de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+export async function marcarTarefaConcluida(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; concluida: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaMarcacaoDeTarefa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    await db
+      .update(aberturaTarefas)
+      .set({ concluida: dados.concluida })
+      .where(eq(aberturaTarefas.id, dados.id));
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { id: dados.id, concluida: dados.concluida } };
+  } catch (erro) {
+    console.error("Falha ao marcar tarefa de abertura:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

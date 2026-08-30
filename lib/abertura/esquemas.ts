@@ -165,3 +165,18 @@ export const esquemaTarefaBase = z.object({
 export type EntradaDeTarefaDeAbertura = z.infer<typeof esquemaTarefaBase>;
 
 export const esquemaTarefaDeAbertura = esquemaTarefaBase;
+
+// A ação de marcação (Tarefa 1, 04.2-03-PLAN.md) recebe o ESTADO DESEJADO, nunca um pedido de
+// "inverter" — é isso que torna o salvamento otimista seguro (UI-SPEC §"Salvamento otimista"):
+// duas chamadas com o mesmo valor convergem para o mesmo resultado, e uma resposta que chega
+// fora de ordem nunca faz a linha piscar de volta. D-07: uma marcação só por item, significando
+// "resolvido" — não existe um segundo campo de estado.
+export const esquemaMarcacaoDeItem = z.object({
+  id: esquemaId,
+  resolvido: z.boolean(),
+});
+
+export const esquemaMarcacaoDeTarefa = z.object({
+  id: esquemaId,
+  concluida: z.boolean(),
+});

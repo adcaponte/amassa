@@ -11,6 +11,7 @@ import {
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
 
 export type ListaTarefasProps = {
   tarefas: TarefaDaAbertura[];
@@ -83,6 +84,13 @@ function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje: strin
       )}
       data-testid="abertura-linha-tarefa"
     >
+      <CaixaMarcacao
+        tipo="tarefa"
+        id={tarefa.id}
+        nome={tarefa.descricao}
+        marcado={tarefa.concluida}
+      />
+
       <div className="min-w-0 flex-1">
         <div
           className={cn(

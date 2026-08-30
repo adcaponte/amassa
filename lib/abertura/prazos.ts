@@ -129,6 +129,32 @@ export function agruparTarefasPorGrupo<T extends TarefaParaAgrupar>(
   return grupos;
 }
 
+// D-04/D-07/ABE-04 — os TRÊS fatos que precisam valer AO MESMO TEMPO para um item aparecer como
+// "não chegou": existe `entregaPrevistaEm`, o item NÃO está `resolvido`, e `entregaPrevistaEm` é
+// ESTRITAMENTE anterior a `hoje` (a entrega prevista para hoje ainda não venceu — vencer é a
+// data já ter passado, não ser hoje). Tirar qualquer um dos três produz um alerta que nunca
+// apaga (sem o segundo fato) ou que nunca aparece (sem o primeiro ou o terceiro) — por isso os
+// três têm caso próprio no teste. A marcação (`resolvido`) é a ÚNICA coisa que apaga o alerta
+// (D-07): não existe um segundo estado de item além de "resolvido".
+export type ItemParaEntrega = {
+  entregaPrevistaEm: string | null;
+  resolvido: boolean;
+};
+
+export function entregaVencida(item: ItemParaEntrega, hoje: string): boolean {
+  return item.entregaPrevistaEm !== null && !item.resolvido && item.entregaPrevistaEm < hoje;
+}
+
+// A contagem usada pelo cabeçalho de grupo da lista de itens (Tarefa 1 deste plano) e pelo
+// bloco "precisa de atenção" do painel (plano 04.2-04, D-15) — a mesma regra dos três fatos
+// acima, nunca reimplementada num segundo lugar.
+export function contarEntregasVencidas<T extends ItemParaEntrega>(
+  itens: readonly T[],
+  hoje: string,
+): number {
+  return itens.filter((item) => entregaVencida(item, hoje)).length;
+}
+
 export type TarefaParaContarPorItem = {
   concluida: boolean;
   itemId: string | null;

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   agruparTarefasPorGrupo,
+  contarEntregasVencidas,
   contarTarefasAbertasPorItem,
+  entregaVencida,
   ordenarTarefasDoGrupo,
   urgenciaDaTarefa,
   type Grupo,
@@ -172,5 +174,67 @@ describe("contarTarefasAbertasPorItem", () => {
 
     expect(Object.fromEntries(primeiraChamada)).toEqual(Object.fromEntries(segundaChamada));
     expect(tarefas).toEqual(copia);
+  });
+});
+
+// Tarefa 1 (04.2-03-PLAN.md): `entregaVencida` exige os TRÊS fatos ao mesmo tempo (existe
+// entrega prevista, o item NÃO está resolvido, a data já passou) — cada um tem caso próprio
+// isolando exatamente ELE, porque tirar qualquer um produz um alerta que nunca apaga (D-07) ou
+// que nunca aparece (D-04).
+describe("entregaVencida", () => {
+  it("com os três fatos (entrega no passado, não resolvido) é verdadeiro", () => {
+    expect(
+      entregaVencida(
+        { entregaPrevistaEm: "2026-09-01", resolvido: false },
+        "2026-09-10",
+      ),
+    ).toBe(true);
+  });
+
+  it("o mesmo item marcado como resolvido é falso — a marcação é a ÚNICA coisa que apaga o alerta", () => {
+    expect(
+      entregaVencida({ entregaPrevistaEm: "2026-09-01", resolvido: true }, "2026-09-10"),
+    ).toBe(false);
+  });
+
+  it("o mesmo item sem entrega prevista é falso, por mais antigo que seja o item", () => {
+    expect(entregaVencida({ entregaPrevistaEm: null, resolvido: false }, "2026-09-10")).toBe(
+      false,
+    );
+  });
+
+  it("entrega prevista para HOJE é falsa — vencer é a data já ter passado, não ser hoje", () => {
+    expect(
+      entregaVencida({ entregaPrevistaEm: "2026-09-10", resolvido: false }, "2026-09-10"),
+    ).toBe(false);
+  });
+
+  it("entrega prevista para o futuro é falsa", () => {
+    expect(
+      entregaVencida({ entregaPrevistaEm: "2026-09-11", resolvido: false }, "2026-09-10"),
+    ).toBe(false);
+  });
+});
+
+describe("contarEntregasVencidas", () => {
+  it("sobre uma lista mista devolve só as que satisfazem os três fatos", () => {
+    const itens = [
+      { entregaPrevistaEm: "2026-09-01", resolvido: false }, // vencida
+      { entregaPrevistaEm: "2026-09-01", resolvido: true }, // resolvida, não conta
+      { entregaPrevistaEm: null, resolvido: false }, // sem data, não conta
+      { entregaPrevistaEm: "2026-09-10", resolvido: false }, // hoje, não conta
+      { entregaPrevistaEm: "2026-08-20", resolvido: false }, // vencida
+    ];
+
+    expect(contarEntregasVencidas(itens, "2026-09-10")).toBe(2);
+  });
+
+  it("lista sem nenhum item vencido devolve 0", () => {
+    expect(
+      contarEntregasVencidas(
+        [{ entregaPrevistaEm: null, resolvido: false }],
+        "2026-09-10",
+      ),
+    ).toBe(0);
   });
 });

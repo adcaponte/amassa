@@ -1,6 +1,7 @@
 import type { ItemDaAbertura } from "@/lib/abertura/consultas";
 import { formatarDiaEMes, formatarReais } from "@/lib/abertura/formato";
 import { calcularParcelas, proximaParcela } from "@/lib/abertura/parcelas";
+import { contarEntregasVencidas, entregaVencida } from "@/lib/abertura/prazos";
 import {
   FRASE_VAZIO_CORPO,
   FRASE_VAZIO_TITULO,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
 
 export type ListaItensProps = {
   itens: ItemDaAbertura[];
@@ -47,6 +49,9 @@ export function ListaItens({ itens, hoje, contagemDeTarefasAbertas }: ListaItens
       {categoriasComItem.map((categoria) => {
         const linhas = itens.filter((item) => item.categoria === categoria);
         const soma = linhas.reduce((total, item) => total + item.valorEmCentavos, 0);
+        // D-04/ABE-04: quantos itens deste grupo estão com entrega vencida — o cabeçalho
+        // GRITA esse número antes da contagem normal (mesma disciplina de D-10 para tarefas).
+        const naoChegaram = contarEntregasVencidas(linhas, hoje);
 
         return (
           <div key={categoria} data-testid="abertura-grupo-categoria">
@@ -55,10 +60,20 @@ export function ListaItens({ itens, hoje, contagemDeTarefasAbertas }: ListaItens
                 {ROTULO_CATEGORIA[categoria]}
               </h2>
               <span
-                className="text-apoio flex items-center gap-1 text-muted-foreground tabular-nums"
+                className="text-apoio flex items-center gap-2 text-muted-foreground tabular-nums"
                 data-testid="abertura-total-grupo"
               >
-                {linhas.length} {linhas.length === 1 ? "item" : "itens"} · {formatarReais(soma)}
+                {naoChegaram > 0 && (
+                  <span
+                    className="text-micro font-semibold text-erro"
+                    data-testid="abertura-nao-chegaram-do-grupo"
+                  >
+                    {naoChegaram} {naoChegaram === 1 ? "não chegou" : "não chegaram"}
+                  </span>
+                )}
+                <span>
+                  {linhas.length} {linhas.length === 1 ? "item" : "itens"} · {formatarReais(soma)}
+                </span>
               </span>
             </div>
 
@@ -93,12 +108,19 @@ function LinhaDeItem({
   const parcelas = calcularParcelas(item);
   const { tipo, parcela } = proximaParcela(parcelas, hoje);
   const aPrazo = item.formaPagamento === "prazo";
+  const vencida = entregaVencida(item, hoje);
 
   return (
     <div
-      className="border-border bg-card flex items-start gap-3 rounded-md border p-3 shadow-sm"
+      className={cn(
+        "border-border bg-card flex items-start gap-3 rounded-md border p-3 shadow-sm",
+        vencida && "border-l-3 border-l-erro pl-2.5",
+        item.resolvido && "bg-muted/40",
+      )}
       data-testid="abertura-linha-item"
     >
+      <CaixaMarcacao tipo="item" id={item.id} nome={item.nome} marcado={item.resolvido} />
+
       <div className="min-w-0 flex-1">
         <div className="text-corpo font-medium break-words">{item.nome}</div>
         <div className="text-apoio mt-1 flex flex-wrap items-center gap-1.5">
@@ -111,14 +133,25 @@ function LinhaDeItem({
             {aPrazo ? ROTULO_A_PRAZO : ROTULO_A_VISTA}
           </span>
 
-          {/* Etiqueta "chega DD/MM" só quando há data de entrega prevista (D-04/ABE-03) — a
-              distinção entre "não chegou" (entrega vencida) e "chega em" fica para o plano 03,
-              quando `resolvido` e o alerta de atraso entram em jogo. */}
-          {item.entregaPrevistaEm && (
-            <span className="text-micro bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
-              chega {formatarDiaEMes(item.entregaPrevistaEm)}
-            </span>
-          )}
+          {/* D-04/D-07/ABE-04: "não chegou · DD/MM" no lugar de "chega DD/MM" quando os três
+              fatos de `entregaVencida` valem ao mesmo tempo — a marcação como resolvido é a
+              ÚNICA coisa que apaga este alerta. Um item resolvido antes do vencimento não
+              mostra "chega" nenhum (já foi resolvido, a data deixou de importar). */}
+          {item.entregaPrevistaEm &&
+            (vencida ? (
+              <span
+                className="text-micro bg-erro-fundo text-erro rounded-full px-2 py-0.5 font-semibold whitespace-nowrap"
+                data-testid="abertura-nao-chegou"
+              >
+                não chegou · {formatarDiaEMes(item.entregaPrevistaEm)}
+              </span>
+            ) : (
+              !item.resolvido && (
+                <span className="text-micro bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
+                  chega {formatarDiaEMes(item.entregaPrevistaEm)}
+                </span>
+              )
+            ))}
 
           {/* A leitura que D-13 chama de mais importante: sem ela, um item marcado como
               comprado parece encerrado enquanto a instalação ainda não aconteceu. `tarefasAbertas

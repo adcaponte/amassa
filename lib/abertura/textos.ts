@@ -82,6 +82,27 @@ export const ROTULO_SALVAR_TAREFA = "Adicionar tarefa";
 export const FRASE_VAZIO_TITULO_TAREFAS = "Nenhuma tarefa.";
 export const FRASE_VAZIO_CORPO_TAREFAS = "Anote o que precisa acontecer até a abertura.";
 
+// Rótulos acessíveis da caixa de marcação (`caixa-marcacao.tsx`) — trocam com o estado atual,
+// nunca um rótulo genérico ("Marcar"/"Desmarcar" sozinho não diz SOBRE O QUÊ, CLAUDE.md
+// §Acessibilidade). `nome` é o nome do item ou a descrição da tarefa.
+export function rotuloCaixaItem(nome: string, resolvido: boolean): string {
+  return resolvido ? `Desmarcar: ${nome}` : `Marcar como resolvido: ${nome}`;
+}
+
+export function rotuloCaixaTarefa(nome: string, concluida: boolean): string {
+  return concluida ? `Reabrir: ${nome}` : `Concluir: ${nome}`;
+}
+
+// Rótulos acessíveis dos dois botões só com ícone de `ferramentas-linha.tsx` (plano
+// 04.2-03/Tarefa 2) — nomeiam a linha, nunca só "Editar"/"Remover" sozinho.
+export function rotuloEditar(nome: string): string {
+  return `Editar ${nome}`;
+}
+
+export function rotuloRemover(nome: string): string {
+  return `Remover ${nome}`;
+}
+
 // Traduz `Urgencia` (`lib/abertura/prazos.ts`) no texto exato do protótipo (`urgencia(t)`) —
 // `switch` exaustivo sobre `tipo`, sem `default`: um ramo novo na união vira erro de compilação
 // aqui, nunca um texto genérico em silêncio.

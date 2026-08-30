@@ -1,0 +1,112 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+import { marcarItemResolvido, marcarTarefaConcluida } from "@/lib/abertura/acoes";
+import { FRASE_FALHA_AO_SALVAR, rotuloCaixaItem, rotuloCaixaTarefa } from "@/lib/abertura/textos";
+import { cn } from "@/lib/utils";
+
+export type CaixaMarcacaoProps = {
+  // Uma caixa só serve às duas listas (D-07: uma marcação por item, significando "resolvido" —
+  // sem um segundo estado separado para "pago" e "recebido"). `nome` é o nome do item ou a
+  // descrição da tarefa, usado só para compor o `aria-label`.
+  tipo: "item" | "tarefa";
+  id: string;
+  nome: string;
+  // `resolvido` (item) ou `concluida` (tarefa) — o estado gravado no banco no último
+  // carregamento do servidor.
+  marcado: boolean;
+};
+
+// Botão de ALTERNAR (`aria-pressed`), nunca `role="checkbox"` (UI-SPEC §"Acessibilidade").
+// Otimista (UI-SPEC §"Salvamento otimista", os toques mais frequentes do módulo): o estado
+// visual muda ANTES da resposta do servidor; a ação é chamada com o ESTADO DESEJADO (nunca
+// "inverter" — T-04.2-13), o que faz duas chamadas com o mesmo valor convergirem sempre para o
+// mesmo resultado, mesmo com a resposta fora de ordem. Em falha, o estado volta ao anterior e
+// `toast.error` explica. Alvo de toque: o `<button>` mede 44px por 44px; a caixa DESENHADA (a
+// que o protótipo mostra) mede 24px dentro dele — a folga em volta é o que mantém a área
+// alcançável (CLAUDE.md §Acessibilidade).
+export function CaixaMarcacao({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
+  const router = useRouter();
+  const [estadoVisual, setEstadoVisual] = useState(marcado);
+  const [enviando, setEnviando] = useState(false);
+
+  // `marcado` muda quando o servidor devolve um novo dado depois de `router.refresh()` — o
+  // estado visual local precisa acompanhar, nunca ficar preso ao valor do primeiro carregamento
+  // (mesmo cuidado de `formulario-item.tsx`/`formulario-tarefa.tsx` com `aberto`).
+  useEffect(() => {
+    setEstadoVisual(marcado);
+  }, [marcado]);
+
+  async function alternar() {
+    if (enviando) {
+      return;
+    }
+
+    const novoEstado = !estadoVisual;
+    setEstadoVisual(novoEstado);
+    setEnviando(true);
+
+    const resposta =
+      tipo === "item"
+        ? await marcarItemResolvido({ id, resolvido: novoEstado })
+        : await marcarTarefaConcluida({ id, concluida: novoEstado });
+
+    setEnviando(false);
+
+    if (!resposta.ok) {
+      // Reverte ao estado anterior — nunca uma marcação otimista órfã, divergindo do banco.
+      setEstadoVisual(!novoEstado);
+      toast.error(FRASE_FALHA_AO_SALVAR);
+      return;
+    }
+
+    // Os números derivados (contagem "não chegou"/"atrasada" do cabeçalho de grupo, etiqueta de
+    // tarefas abertas do item) precisam acompanhar — nunca uma tela onde a caixa muda mas o
+    // cabeçalho continua com o número antigo.
+    router.refresh();
+  }
+
+  const rotulo =
+    tipo === "item"
+      ? rotuloCaixaItem(nome, estadoVisual)
+      : rotuloCaixaTarefa(nome, estadoVisual);
+
+  return (
+    <button
+      type="button"
+      aria-pressed={estadoVisual}
+      aria-label={rotulo}
+      disabled={enviando}
+      onClick={() => {
+        void alternar();
+      }}
+      data-testid={tipo === "item" ? "abertura-caixa-item" : "abertura-caixa-tarefa"}
+      className="flex h-11 w-11 flex-none items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-70"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-6 items-center justify-center rounded-[7px] border-2 transition-colors motion-reduce:transition-none",
+          estadoVisual ? "border-sucesso bg-sucesso" : "border-border",
+        )}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className={cn(
+            "size-3.5 stroke-white transition-opacity motion-reduce:transition-none",
+            estadoVisual ? "opacity-100" : "opacity-0",
+          )}
+          strokeWidth={3.2}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+    </button>
+  );
+}
