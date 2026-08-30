@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 4.2
 current_phase_name: Abertura do Espaço (temporário)
 status: executing
-stopped_at: Completed 04.2-01-PLAN.md
-last_updated: "2026-08-30T13:21:49.637Z"
+stopped_at: Completed 04.2-02-PLAN.md
+last_updated: "2026-08-30T13:57:27.408Z"
 last_activity: 2026-08-30
-last_activity_desc: Phase 04.2 Plan 01 (tracer) complete — item existe ponta a ponta, 4 planos restantes na fase
+last_activity_desc: Phase 04.2 Plan 01 (tracer) complete
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 46
-  completed_plans: 42
+  completed_plans: 43
 ---
 
 # Project State
@@ -28,13 +28,13 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 4.2 — Abertura do Espaço (temporário, INSERTED antes da Fase 6/5/7 — ver Roadmap Evolution)
-Plan: 01 of 5 complete
+Plan: 2 of 5 complete
 Status: Executing — tracer (04.2-01) provado ponta a ponta: tabelas, `lib/abertura/parcelas.ts`,
 Server Action, rota `/abertura` e entrada no menu do usuário. Faltam 04.2-02 a 04.2-05
 (tarefas, marcar/editar/remover, painel e visão por mês, migração de remoção).
 Last activity: 2026-08-30 — Phase 04.2 Plan 01 (tracer) complete
 
-Progress: [█████████░] 91% (42 de 46 planos executados e verificados até aqui)
+Progress: [█████████░] 93% (42 de 46 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -104,6 +104,7 @@ Progress: [█████████░] 91% (42 de 46 planos executados e ver
 | Phase 04.1 P05 | ~15min | 2 tasks | 7 files |
 | Phase 04.1 P06 | ~35min | 3 tasks | 8 files |
 | Phase 4.2 P01 | 55min | 4 tasks | 22 files |
+| Phase 04.2 P02 | 70min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -239,6 +240,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.1-06: roteiro de migração ganhou guarda que confere dias<>1 em linha de marco (WR-01); WR-03 (datas conflitantes em TrilhaEtapas) registrado como adiado em 04.1-CONTEXT.md, sem código, aguardando o dono
 - [Phase ?]: D-19 consultada e confirmada (04.2-01): parcela cujo dia nao existe no mes seguinte cai no ultimo dia daquele mes; ja decidida pelo dono em 2026-08-30, sem novo portao
 - [Phase ?]: 04.2-01: calcularParcelas usa soma por prefixo telescopico (nao total/n repetido) para a soma das parcelas fechar exata com o total mesmo em divisao nao exata
+- [Phase ?]: T-04.2-07 verificado com a corrida real: gestor escolhido no formulário é desativado depois de escolhido e antes do envio, provando que o servidor decide no instante do salvamento, não o formulário.
+- [Phase ?]: Contas de gestor DEDICADAS (nunca a global E2E_EMAIL_TESTE) para qualquer teste e2e que mute ativo — mesmo padrão de tests/e2e/sessao.spec.ts.
 
 ### Pending Todos
 
@@ -294,6 +297,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-30T13:21:46.178Z
-Stopped at: Completed 04.2-01-PLAN.md
+Last session: 2026-08-30T13:57:27.375Z
+Stopped at: Completed 04.2-02-PLAN.md
 Resume file: None
