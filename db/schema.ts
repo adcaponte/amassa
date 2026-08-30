@@ -270,6 +270,127 @@ export const queimas = pgTable(
   ],
 );
 
+// Fase 4.2 — Abertura do Espaço. MÓDULO TEMPORÁRIO (D-01/ABE-15): as três tabelas abaixo saem
+// por inteiro, numa migração de remoção, no dia em que o espaço abrir — nenhuma delas sobrevive
+// à vida útil deste módulo. O prefixo `abertura_` no nome do Postgres não é estética: é o que
+// torna a remoção do plano 04.2-05 uma lista curta e inequívoca.
+export const categoriaItemAbertura = pgEnum("categoria_item_abertura", [
+  "moveis",
+  "equipamentos",
+  "material",
+  "utensilios",
+  "obra",
+  "outros",
+]);
+export const formaPagamentoAbertura = pgEnum("forma_pagamento_abertura", ["vista", "prazo"]);
+// Consumido pelo plano 04.2-02 (tarefas) — criado já aqui para que as três tabelas do módulo
+// nasçam numa migração só, o que faz a remoção do plano 04.2-05 também ser uma só.
+export const grupoTarefaAbertura = pgEnum("grupo_tarefa_abertura", [
+  "obra",
+  "documentacao",
+  "aquisicao",
+  "montagem",
+  "divulgacao",
+  "outros",
+]);
+
+// Um item a comprar para a abertura do espaço. Parcelas são CALCULADAS, nunca armazenadas
+// linha a linha (D-05, `lib/abertura/parcelas.ts`) — esta tabela guarda só valor total, número
+// de parcelas e a data da primeira. `resolvido` (D-07) é consumido a partir do plano 04.2-03.
+export const aberturaItens = pgTable(
+  "abertura_itens",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    categoria: categoriaItemAbertura("categoria").notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    formaPagamento: formaPagamentoAbertura("forma_pagamento").notNull(),
+    parcelas: integer("parcelas").notNull().default(1),
+    // Dia civil, nunca timestamptz — o dia de hoje entra sempre por argumento na aplicação,
+    // calculado em America/Sao_Paulo na borda (`hojeEmBrasilia`), nunca `current_date` cru.
+    primeiraParcelaEm: date("primeira_parcela_em", { mode: "string" }).notNull(),
+    // Opcional (D-04/ABE-03): item pago e ainda não entregue é o pior dos dois mundos, e sem
+    // esta data separada isso não aparece em lugar nenhum.
+    entregaPrevistaEm: date("entrega_prevista_em", { mode: "string" }),
+    resolvido: boolean("resolvido").notNull().default(false),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("abertura_itens_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    // Teto de dez milhões de reais (10^9 centavos): mantém a conta longe do limite do inteiro
+    // de 32 bits e um valor acima disso é erro de digitação, não compra de ateliê.
+    check(
+      "abertura_itens_valor_nao_negativo",
+      sql`${tabela.valorCentavos} >= 0 and ${tabela.valorCentavos} <= 1000000000`,
+    ),
+    // Teto de 36 parcelas (o mesmo `max` do campo do protótipo) — também a defesa de
+    // disponibilidade do módulo (T-04.2-03): sem teto, um número grande no campo faria a visão
+    // por mês do plano 04.2-04 desenhar milhares de linhas a partir de uma linha só do banco.
+    check("abertura_itens_parcelas_no_intervalo", sql`${tabela.parcelas} between 1 and 36`),
+    check(
+      "abertura_itens_vista_uma_parcela",
+      sql`${tabela.formaPagamento} <> 'vista' or ${tabela.parcelas} = 1`,
+    ),
+    check(
+      "abertura_itens_prazo_duas_ou_mais",
+      sql`${tabela.formaPagamento} <> 'prazo' or ${tabela.parcelas} >= 2`,
+    ),
+    index("abertura_itens_categoria_idx").on(tabela.categoria, tabela.nome),
+  ],
+);
+
+// Uma tarefa até a inauguração (plano 04.2-02). `responsavelId`/`itemId` aceitam nulo de
+// propósito: "ninguém ainda" é estado válido (D-11), e remover um item solta a tarefa em vez de
+// apagá-la (D-14) — por isso `set null` nos dois, nunca `cascade`.
+export const aberturaTarefas = pgTable(
+  "abertura_tarefas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    descricao: text("descricao").notNull(),
+    grupo: grupoTarefaAbertura("grupo").notNull(),
+    prazoEm: date("prazo_em", { mode: "string" }).notNull(),
+    responsavelId: uuid("responsavel_id").references(() => usuarios.id, { onDelete: "set null" }),
+    itemId: uuid("item_id").references(() => aberturaItens.id, { onDelete: "set null" }),
+    concluida: boolean("concluida").notNull().default(false),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "abertura_tarefas_descricao_comprimento",
+      sql`length(trim(${tabela.descricao})) between 1 and 160`,
+    ),
+    index("abertura_tarefas_grupo_prazo_idx").on(tabela.grupo, tabela.prazoEm),
+    index("abertura_tarefas_item_idx").on(tabela.itemId),
+  ],
+);
+
+// A data de inauguração (D-17/ABE-14, consumida pelo plano 04.2-04). O par `unique` + `check`
+// garante que a tabela nunca tem mais de uma linha. A migração NÃO semeia linha nenhuma: sem
+// data definida, a leitura devolve nulo e a tela pede a data — inventar um `default` aqui seria
+// gravar uma informação que ninguém deu.
+export const aberturaConfiguracao = pgTable(
+  "abertura_configuracao",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    linhaUnica: boolean("linha_unica").notNull().default(true),
+    inauguracaoEm: date("inauguracao_em", { mode: "string" }).notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("abertura_configuracao_linha_unica_uk").on(tabela.linhaUnica),
+    check("abertura_configuracao_linha_unica", sql`${tabela.linhaUnica}`),
+  ],
+);
+
 // Uma manutenção zera o contador do forno *por consequência do corte de data*, nunca por
 // exclusão — `queimasAcumuladas` grava o valor que o contador tinha naquele instante, para o
 // histórico completo do forno continuar consultável mesmo depois do corte.

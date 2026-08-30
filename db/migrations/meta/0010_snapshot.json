@@ -1,0 +1,1276 @@
+{
+  "id": "a02f50b7-63f9-4dc7-9964-eb4f3f0b46cb",
+  "prevId": "88f79408-f8b7-4fdf-a44a-3138825332b2",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.abertura_configuracao": {
+      "name": "abertura_configuracao",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "linha_unica": {
+          "name": "linha_unica",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "inauguracao_em": {
+          "name": "inauguracao_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "abertura_configuracao_linha_unica_uk": {
+          "name": "abertura_configuracao_linha_unica_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "linha_unica"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "abertura_configuracao_linha_unica": {
+          "name": "abertura_configuracao_linha_unica",
+          "value": "\"abertura_configuracao\".\"linha_unica\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.abertura_itens": {
+      "name": "abertura_itens",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "categoria": {
+          "name": "categoria",
+          "type": "categoria_item_abertura",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_centavos": {
+          "name": "valor_centavos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "forma_pagamento": {
+          "name": "forma_pagamento",
+          "type": "forma_pagamento_abertura",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parcelas": {
+          "name": "parcelas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "primeira_parcela_em": {
+          "name": "primeira_parcela_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entrega_prevista_em": {
+          "name": "entrega_prevista_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolvido": {
+          "name": "resolvido",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "abertura_itens_categoria_idx": {
+          "name": "abertura_itens_categoria_idx",
+          "columns": [
+            {
+              "expression": "categoria",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "nome",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "abertura_itens_nome_comprimento": {
+          "name": "abertura_itens_nome_comprimento",
+          "value": "length(trim(\"abertura_itens\".\"nome\")) between 1 and 120"
+        },
+        "abertura_itens_valor_nao_negativo": {
+          "name": "abertura_itens_valor_nao_negativo",
+          "value": "\"abertura_itens\".\"valor_centavos\" >= 0 and \"abertura_itens\".\"valor_centavos\" <= 1000000000"
+        },
+        "abertura_itens_parcelas_no_intervalo": {
+          "name": "abertura_itens_parcelas_no_intervalo",
+          "value": "\"abertura_itens\".\"parcelas\" between 1 and 36"
+        },
+        "abertura_itens_vista_uma_parcela": {
+          "name": "abertura_itens_vista_uma_parcela",
+          "value": "\"abertura_itens\".\"forma_pagamento\" <> 'vista' or \"abertura_itens\".\"parcelas\" = 1"
+        },
+        "abertura_itens_prazo_duas_ou_mais": {
+          "name": "abertura_itens_prazo_duas_ou_mais",
+          "value": "\"abertura_itens\".\"forma_pagamento\" <> 'prazo' or \"abertura_itens\".\"parcelas\" >= 2"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.abertura_tarefas": {
+      "name": "abertura_tarefas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grupo": {
+          "name": "grupo",
+          "type": "grupo_tarefa_abertura",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prazo_em": {
+          "name": "prazo_em",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "responsavel_id": {
+          "name": "responsavel_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "concluida": {
+          "name": "concluida",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "abertura_tarefas_grupo_prazo_idx": {
+          "name": "abertura_tarefas_grupo_prazo_idx",
+          "columns": [
+            {
+              "expression": "grupo",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "prazo_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "abertura_tarefas_item_idx": {
+          "name": "abertura_tarefas_item_idx",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "abertura_tarefas_responsavel_id_usuarios_id_fk": {
+          "name": "abertura_tarefas_responsavel_id_usuarios_id_fk",
+          "tableFrom": "abertura_tarefas",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "responsavel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "abertura_tarefas_item_id_abertura_itens_id_fk": {
+          "name": "abertura_tarefas_item_id_abertura_itens_id_fk",
+          "tableFrom": "abertura_tarefas",
+          "tableTo": "abertura_itens",
+          "columnsFrom": [
+            "item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "abertura_tarefas_descricao_comprimento": {
+          "name": "abertura_tarefas_descricao_comprimento",
+          "value": "length(trim(\"abertura_tarefas\".\"descricao\")) between 1 and 160"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.encomenda_etapas": {
+      "name": "encomenda_etapas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "encomenda_id": {
+          "name": "encomenda_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "etapa": {
+          "name": "etapa",
+          "type": "etapa_encomenda",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dias": {
+          "name": "dias",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "espera_dias": {
+          "name": "espera_dias",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "encomenda_etapas_encomenda_idx": {
+          "name": "encomenda_etapas_encomenda_idx",
+          "columns": [
+            {
+              "expression": "encomenda_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "encomenda_etapas_encomenda_id_encomendas_id_fk": {
+          "name": "encomenda_etapas_encomenda_id_encomendas_id_fk",
+          "tableFrom": "encomenda_etapas",
+          "tableTo": "encomendas",
+          "columnsFrom": [
+            "encomenda_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "encomenda_etapas_encomenda_etapa_uk": {
+          "name": "encomenda_etapas_encomenda_etapa_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "encomenda_id",
+            "etapa"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "marcos_sempre_um_dia": {
+          "name": "marcos_sempre_um_dia",
+          "value": "\"encomenda_etapas\".\"etapa\" not in ('queima1','queima2','entrega') or \"encomenda_etapas\".\"dias\" = 1"
+        },
+        "encomenda_etapas_dias_nao_negativo": {
+          "name": "encomenda_etapas_dias_nao_negativo",
+          "value": "\"encomenda_etapas\".\"dias\" >= 0"
+        },
+        "encomenda_etapas_espera_no_intervalo": {
+          "name": "encomenda_etapas_espera_no_intervalo",
+          "value": "\"encomenda_etapas\".\"espera_dias\" >= 0 and \"encomenda_etapas\".\"espera_dias\" <= 365"
+        },
+        "espera_so_em_marco": {
+          "name": "espera_so_em_marco",
+          "value": "\"encomenda_etapas\".\"etapa\" in ('queima1','queima2','entrega') or \"encomenda_etapas\".\"espera_dias\" = 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.encomenda_itens": {
+      "name": "encomenda_itens",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "encomenda_id": {
+          "name": "encomenda_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantidade": {
+          "name": "quantidade",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "encomenda_itens_encomenda_idx": {
+          "name": "encomenda_itens_encomenda_idx",
+          "columns": [
+            {
+              "expression": "encomenda_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "encomenda_itens_encomenda_id_encomendas_id_fk": {
+          "name": "encomenda_itens_encomenda_id_encomendas_id_fk",
+          "tableFrom": "encomenda_itens",
+          "tableTo": "encomendas",
+          "columnsFrom": [
+            "encomenda_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "encomenda_itens_descricao_comprimento": {
+          "name": "encomenda_itens_descricao_comprimento",
+          "value": "length(trim(\"encomenda_itens\".\"descricao\")) between 1 and 200"
+        },
+        "encomenda_itens_quantidade_positiva": {
+          "name": "encomenda_itens_quantidade_positiva",
+          "value": "\"encomenda_itens\".\"quantidade\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.encomendas": {
+      "name": "encomendas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cliente_nome": {
+          "name": "cliente_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_inicio": {
+          "name": "data_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_encomenda",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'em_producao'"
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_por": {
+          "name": "criado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "encomendas_data_inicio_idx": {
+          "name": "encomendas_data_inicio_idx",
+          "columns": [
+            {
+              "expression": "data_inicio",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "encomendas_status_idx": {
+          "name": "encomendas_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "encomendas_criado_por_usuarios_id_fk": {
+          "name": "encomendas_criado_por_usuarios_id_fk",
+          "tableFrom": "encomendas",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "criado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "encomendas_nome_comprimento": {
+          "name": "encomendas_nome_comprimento",
+          "value": "length(trim(\"encomendas\".\"nome\")) between 1 and 120"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.execucoes_backup": {
+      "name": "execucoes_backup",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "quando": {
+          "name": "quando",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "sucesso": {
+          "name": "sucesso",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destino_externo_ok": {
+          "name": "destino_externo_ok",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "mensagem": {
+          "name": "mensagem",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "execucoes_backup_quando_idx": {
+          "name": "execucoes_backup_quando_idx",
+          "columns": [
+            {
+              "expression": "quando",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.fornos": {
+      "name": "fornos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "limite": {
+          "name": "limite",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 100
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "fornos_nome_comprimento": {
+          "name": "fornos_nome_comprimento",
+          "value": "length(trim(\"fornos\".\"nome\")) between 1 and 80"
+        },
+        "fornos_limite_minimo": {
+          "name": "fornos_limite_minimo",
+          "value": "\"fornos\".\"limite\" >= 10"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.manutencoes": {
+      "name": "manutencoes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "forno_id": {
+          "name": "forno_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ocorrida_em": {
+          "name": "ocorrida_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "responsavel": {
+          "name": "responsavel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "queimas_acumuladas": {
+          "name": "queimas_acumuladas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "registrado_por": {
+          "name": "registrado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "manutencoes_forno_idx": {
+          "name": "manutencoes_forno_idx",
+          "columns": [
+            {
+              "expression": "forno_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ocorrida_em",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "manutencoes_forno_id_fornos_id_fk": {
+          "name": "manutencoes_forno_id_fornos_id_fk",
+          "tableFrom": "manutencoes",
+          "tableTo": "fornos",
+          "columnsFrom": [
+            "forno_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "manutencoes_registrado_por_usuarios_id_fk": {
+          "name": "manutencoes_registrado_por_usuarios_id_fk",
+          "tableFrom": "manutencoes",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "registrado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "manutencoes_queimas_acumuladas_nao_negativo": {
+          "name": "manutencoes_queimas_acumuladas_nao_negativo",
+          "value": "\"manutencoes\".\"queimas_acumuladas\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.queimas": {
+      "name": "queimas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "forno_id": {
+          "name": "forno_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "tipo_queima",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ocorrida_em": {
+          "name": "ocorrida_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "registrado_por": {
+          "name": "registrado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observacoes": {
+          "name": "observacoes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "queimas_forno_data_idx": {
+          "name": "queimas_forno_data_idx",
+          "columns": [
+            {
+              "expression": "forno_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ocorrida_em",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "queimas_data_idx": {
+          "name": "queimas_data_idx",
+          "columns": [
+            {
+              "expression": "ocorrida_em",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "queimas_forno_id_fornos_id_fk": {
+          "name": "queimas_forno_id_fornos_id_fk",
+          "tableFrom": "queimas",
+          "tableTo": "fornos",
+          "columnsFrom": [
+            "forno_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "queimas_registrado_por_usuarios_id_fk": {
+          "name": "queimas_registrado_por_usuarios_id_fk",
+          "tableFrom": "queimas",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "registrado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.usuarios": {
+      "name": "usuarios",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "senha_hash": {
+          "name": "senha_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "papel": {
+          "name": "papel",
+          "type": "papel_usuario",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'gestor'"
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "usuarios_email_idx": {
+          "name": "usuarios_email_idx",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "usuarios_nome_comprimento": {
+          "name": "usuarios_nome_comprimento",
+          "value": "length(trim(\"usuarios\".\"nome\")) between 2 and 120"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.verificacao_infraestrutura": {
+      "name": "verificacao_infraestrutura",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "nota": {
+          "name": "nota",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.categoria_item_abertura": {
+      "name": "categoria_item_abertura",
+      "schema": "public",
+      "values": [
+        "moveis",
+        "equipamentos",
+        "material",
+        "utensilios",
+        "obra",
+        "outros"
+      ]
+    },
+    "public.etapa_encomenda": {
+      "name": "etapa_encomenda",
+      "schema": "public",
+      "values": [
+        "producao",
+        "secagem",
+        "queima1",
+        "esmaltacao",
+        "queima2",
+        "entrega"
+      ]
+    },
+    "public.forma_pagamento_abertura": {
+      "name": "forma_pagamento_abertura",
+      "schema": "public",
+      "values": [
+        "vista",
+        "prazo"
+      ]
+    },
+    "public.grupo_tarefa_abertura": {
+      "name": "grupo_tarefa_abertura",
+      "schema": "public",
+      "values": [
+        "obra",
+        "documentacao",
+        "aquisicao",
+        "montagem",
+        "divulgacao",
+        "outros"
+      ]
+    },
+    "public.papel_usuario": {
+      "name": "papel_usuario",
+      "schema": "public",
+      "values": [
+        "gestor"
+      ]
+    },
+    "public.status_encomenda": {
+      "name": "status_encomenda",
+      "schema": "public",
+      "values": [
+        "rascunho",
+        "em_producao",
+        "concluida",
+        "cancelada"
+      ]
+    },
+    "public.tipo_queima": {
+      "name": "tipo_queima",
+      "schema": "public",
+      "values": [
+        "biscoito",
+        "esmalte",
+        "ouro"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

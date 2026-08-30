@@ -33,6 +33,11 @@ const TABELAS_ESPERADAS = [
   "fornos",
   "queimas",
   "manutencoes",
+  // Fase 4.2 — Abertura do Espaço (migração 0010_abertura-do-espaco). MÓDULO TEMPORÁRIO: estas
+  // três saem juntas na remoção do plano 04.2-05.
+  "abertura_itens",
+  "abertura_tarefas",
+  "abertura_configuracao",
 ];
 
 // docker.exe é executável direto em qualquer plataforma — sem shell.

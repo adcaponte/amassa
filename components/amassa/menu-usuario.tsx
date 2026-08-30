@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calculator, KeyRound, LogOut } from "lucide-react";
+import { Calculator, KeyRound, LogOut, Store } from "lucide-react";
 
 import { sair } from "@/lib/auth/acoes";
 import { cn } from "@/lib/utils";
@@ -15,18 +15,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-// O menu do usuário: o nome de quem entrou (rótulo, não ação), Orçamentos, Trocar senha e
-// Sair. D-15 fixava "exatamente três coisas"; o BRIEF-NOTURNO.md (Lote C) manda a tela de
-// trocar senha ser "alcançável pelo menu do usuário", o que substitui aquela decisão — Trocar
-// senha é a quarta entrada. No desktop este componente é autossuficiente (gatilho + conteúdo,
-// via DropdownMenu). No celular ele só entrega o CONTEÚDO — o botão de avatar que abre o
-// Sheet vive em `cabecalho-movel.tsx`, dono do `aria-label` obrigatório de UI-09.
+// O menu do usuário: o nome de quem entrou (rótulo, não ação), Abertura do Espaço, Orçamentos,
+// Trocar senha e Sair. D-15 fixava "exatamente três coisas"; o BRIEF-NOTURNO.md (Lote C) manda a
+// tela de trocar senha ser "alcançável pelo menu do usuário", o que substitui aquela decisão —
+// Trocar senha é a quarta entrada. Abertura do Espaço (Fase 4.2) entra ACIMA de Orçamentos, como
+// UI-SPEC §"Onde o módulo entra na navegação" decide: é um módulo temporário, e um sexto item na
+// barra inferior apertaria os cinco alvos de 44px já dimensionados para cinco — `lib/navegacao/
+// itens.ts` não é tocado. No desktop este componente é autossuficiente (gatilho + conteúdo, via
+// DropdownMenu). No celular ele só entrega o CONTEÚDO — o botão de avatar que abre o Sheet vive
+// em `cabecalho-movel.tsx`, dono do `aria-label` obrigatório de UI-09.
 export type MenuUsuarioProps = {
   nome: string;
   variante: "desktop" | "celular";
+  // Chamado ao ativar qualquer link/botão da variante celular — fecha o `Sheet` que
+  // `cabecalho-movel.tsx` controla por fora. Achado ao rodar o e2e de verdade (não por leitura
+  // de código, `04.2-01-SUMMARY.md`): sem isto, uma navegação por `<Link>` dentro do Sheet é uma
+  // troca de rota client-side (o layout que contém o Sheet não desmonta), e o Sheet — estado
+  // não controlado — continua aberto por cima da página nova, escondendo-a inteira atrás do
+  // overlay (Radix marca o resto da árvore `aria-hidden`). No desktop o `DropdownMenu` já fecha
+  // sozinho ao selecionar um item (comportamento nativo do Radix), então esta prop não se aplica
+  // lá.
+  aoNavegar?: () => void;
 };
 
-export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
+export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
   if (variante === "celular") {
     return (
       <>
@@ -37,7 +49,16 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
         </SheetHeader>
         <div className="flex flex-col gap-1 px-4 pb-4">
           <Link
+            href="/abertura"
+            onClick={aoNavegar}
+            className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
+          >
+            <Store aria-hidden="true" className="size-5" />
+            Abertura do Espaço
+          </Link>
+          <Link
             href="/orcamentos"
+            onClick={aoNavegar}
             className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
           >
             <Calculator aria-hidden="true" className="size-5" />
@@ -45,6 +66,7 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
           </Link>
           <Link
             href="/conta/senha"
+            onClick={aoNavegar}
             className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
           >
             <KeyRound aria-hidden="true" className="size-5" />
@@ -53,6 +75,7 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
           <form action={sair}>
             <button
               type="submit"
+              onClick={aoNavegar}
               className="flex min-h-[44px] w-full items-center gap-2 rounded-md px-2 text-left text-corpo text-foreground hover:bg-accent"
             >
               <LogOut aria-hidden="true" className="size-5" />
@@ -83,6 +106,12 @@ export function MenuUsuario({ nome, variante }: MenuUsuarioProps) {
           {nome}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/abertura" className="flex items-center gap-1.5">
+            <Store aria-hidden="true" />
+            Abertura do Espaço
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/orcamentos" className="flex items-center gap-1.5">
             <Calculator aria-hidden="true" />

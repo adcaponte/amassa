@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { CircleUserRound } from "lucide-react";
 
@@ -47,6 +48,13 @@ export function CabecalhoMovel({ nome, titulo, className }: CabecalhoMovelProps)
   const pathname = usePathname();
   const tituloExibido = titulo ?? derivarTituloDaTela(pathname) ?? "AMASSA";
 
+  // `Sheet` controlado (não mais uncontrolled): uma navegação por `<Link>` dentro dele é troca
+  // de rota client-side — este cabeçalho não desmonta entre rotas, então o Sheet ficaria aberto
+  // por cima da página nova se ninguém o fechasse de propósito (achado ao rodar o e2e de
+  // verdade, `04.2-01-SUMMARY.md`). `MenuUsuario` chama `aoNavegar` ao ativar qualquer link ou
+  // botão da variante celular.
+  const [aberto, setAberto] = useState(false);
+
   return (
     <header
       className={cn(
@@ -56,7 +64,7 @@ export function CabecalhoMovel({ nome, titulo, className }: CabecalhoMovelProps)
     >
       <span className="truncate text-titulo text-foreground">{tituloExibido}</span>
 
-      <Sheet>
+      <Sheet open={aberto} onOpenChange={setAberto}>
         <SheetTrigger asChild>
           <button
             type="button"
@@ -67,7 +75,7 @@ export function CabecalhoMovel({ nome, titulo, className }: CabecalhoMovelProps)
           </button>
         </SheetTrigger>
         <SheetContent side="bottom">
-          <MenuUsuario nome={nome} variante="celular" />
+          <MenuUsuario nome={nome} variante="celular" aoNavegar={() => setAberto(false)} />
         </SheetContent>
       </Sheet>
     </header>
