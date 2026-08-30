@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
+import { ConfirmarRemoverItem } from "@/components/amassa/abertura/confirmar-remover-item";
 import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
 
 export type ListaItensProps = {
@@ -23,13 +24,22 @@ export type ListaItensProps = {
   // `lib/abertura/prazos.ts`), calculada UMA VEZ na página a partir das tarefas já carregadas —
   // nunca uma segunda consulta por item aqui. Chave ausente = nenhuma tarefa aberta, nunca 0.
   contagemDeTarefasAbertas: Map<string, number>;
+  // Contagem de TODAS as tarefas ligadas ao item — concluídas ou não (D-14, Tarefa 3,
+  // `contarTarefasLigadasPorItem`) — mostrada na confirmação de remoção ANTES de confirmar.
+  // Diferente do mapa acima: remover o item solta toda tarefa ligada, não só as abertas.
+  contagemDeTarefasLigadas: Map<string, number>;
 };
 
 // Server Component. Percorre `ORDEM_DAS_CATEGORIAS` (D-08) e desenha um grupo por categoria QUE
 // TENHA item — categoria vazia não desenha cabeçalho nenhum. Nenhuma regra de negócio nasce
 // aqui: `calcularParcelas`/`proximaParcela` (`lib/abertura/parcelas.ts`) já chegam prontos por
 // item, este componente só formata e desenha.
-export function ListaItens({ itens, hoje, contagemDeTarefasAbertas }: ListaItensProps) {
+export function ListaItens({
+  itens,
+  hoje,
+  contagemDeTarefasAbertas,
+  contagemDeTarefasLigadas,
+}: ListaItensProps) {
   if (itens.length === 0) {
     return (
       <EstadoVazio
@@ -85,6 +95,7 @@ export function ListaItens({ itens, hoje, contagemDeTarefasAbertas }: ListaItens
                   item={item}
                   hoje={hoje}
                   tarefasAbertas={contagemDeTarefasAbertas.get(item.id) ?? 0}
+                  tarefasLigadas={contagemDeTarefasLigadas.get(item.id) ?? 0}
                 />
               ))}
             </div>
@@ -99,12 +110,15 @@ function LinhaDeItem({
   item,
   hoje,
   tarefasAbertas,
+  tarefasLigadas,
 }: {
   item: ItemDaAbertura;
   hoje: string;
   // 0 = nenhuma tarefa aberta (chave ausente do mapa) — nunca desenha etiqueta "0 tarefas
   // abertas", só a ausência dela.
   tarefasAbertas: number;
+  // D-14: TODAS as tarefas ligadas (concluídas ou não) — o que a confirmação de remoção avisa.
+  tarefasLigadas: number;
 }) {
   const parcelas = calcularParcelas(item);
   const { tipo, parcela } = proximaParcela(parcelas, hoje);
@@ -202,6 +216,13 @@ function LinhaDeItem({
         nome={item.nome}
         hrefEditar={`/abertura?item=${item.id}`}
         hrefRemover={`/abertura?removerItem=${item.id}`}
+      />
+
+      <ConfirmarRemoverItem
+        id={item.id}
+        nome={item.nome}
+        valorEmCentavos={item.valorEmCentavos}
+        tarefasLigadas={tarefasLigadas}
       />
     </div>
   );

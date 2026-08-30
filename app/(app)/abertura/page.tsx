@@ -10,7 +10,7 @@ import {
   obterTarefaDeAbertura,
 } from "@/lib/abertura/consultas";
 import { totaisComprometidos } from "@/lib/abertura/parcelas";
-import { contarTarefasAbertasPorItem } from "@/lib/abertura/prazos";
+import { contarTarefasAbertasPorItem, contarTarefasLigadasPorItem } from "@/lib/abertura/prazos";
 import {
   ROTULO_COMPROMETIDO,
   ROTULO_NOVA_TAREFA,
@@ -64,6 +64,9 @@ export default async function PaginaAbertura({
   // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
   // nunca uma segunda consulta por item.
   const contagemDeTarefasAbertas = contarTarefasAbertasPorItem(tarefas);
+  // Contagem de TODAS as tarefas ligadas por item (D-14, Tarefa 3) — a que a confirmação de
+  // remoção mostra ANTES de confirmar, a partir das mesmas tarefas já carregadas.
+  const contagemDeTarefasLigadas = contarTarefasLigadasPorItem(tarefas);
 
   return (
     <>
@@ -116,6 +119,7 @@ export default async function PaginaAbertura({
           itens={itens}
           hoje={hoje}
           contagemDeTarefasAbertas={contagemDeTarefasAbertas}
+          contagemDeTarefasLigadas={contagemDeTarefasLigadas}
         />
       )}
     </>

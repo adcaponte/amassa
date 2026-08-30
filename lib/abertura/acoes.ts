@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
@@ -10,6 +10,7 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import {
   esquemaAtualizacaoDeItem,
   esquemaAtualizacaoDeTarefa,
+  esquemaId,
   esquemaItemDeAbertura,
   esquemaMarcacaoDeItem,
   esquemaMarcacaoDeTarefa,
@@ -24,6 +25,11 @@ import {
 // Mesma forma de `lib/queimas/acoes.ts`/`lib/encomendas/acoes.ts` (D-15) — cada módulo
 // redeclara hoje, não há local compartilhado.
 export type ResultadoDeAcao<T> = { ok: true; dados: T } | { ok: false; erro: string };
+
+// Usado só dentro da transação de `removerItemDeAbertura` para distinguir "a linha já não
+// existia mais" de qualquer outro erro de banco (T-04.2-14) — o `catch` externo traduz para a
+// frase humana certa em vez de cair no genérico `FRASE_FALHA_AO_SALVAR`.
+class ItemDeAberturaNaoEncontrado extends Error {}
 
 function primeiraMensagemDeErro(resultado: { error: { issues: { message: string }[] } }): string {
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
@@ -293,6 +299,91 @@ export async function atualizarTarefaDeAbertura(
       };
     }
     console.error("Falha ao atualizar tarefa de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// D-14/ABE-10 (Tarefa 3): remove o item numa TRANSAÇÃO — conta as tarefas com `item_id = id`
+// ANTES de apagar a linha, porque depois do `delete` a restrição `on delete set null` já as
+// soltou e não haveria mais o que contar (mesmo cuidado de `excluirEncomenda`,
+// `lib/encomendas/acoes.ts`). A contagem devolvida é a que o `toast` final mostra — a fonte de
+// verdade, se divergir da que a tela já exibia antes de confirmar.
+//
+// A ação NÃO toca em `abertura_tarefas`: quem solta as tarefas é a restrição `on delete set
+// null` da coluna `item_id` (migração 0010), nunca um `update` escrito aqui — dois lugares
+// dizendo a mesma coisa é como nascem duas versões da verdade, e um deles pode ser esquecido
+// numa mudança futura. `exigirUsuario()` é a PRIMEIRA instrução do corpo (T-04.2-14).
+export async function removerItemDeAbertura(
+  idBruto: unknown,
+): Promise<ResultadoDeAcao<{ tarefasSoltas: number }>> {
+  await exigirUsuario();
+
+  const resultadoId = esquemaId.safeParse(idBruto);
+  if (!resultadoId.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultadoId) };
+  }
+  const id = resultadoId.data;
+
+  try {
+    const tarefasSoltas = await db.transaction(async (tx) => {
+      const [linha] = await tx
+        .select({ id: aberturaItens.id })
+        .from(aberturaItens)
+        .where(eq(aberturaItens.id, id))
+        .limit(1);
+
+      if (!linha) {
+        throw new ItemDeAberturaNaoEncontrado();
+      }
+
+      const [{ contagem }] = await tx
+        .select({ contagem: count() })
+        .from(aberturaTarefas)
+        .where(eq(aberturaTarefas.itemId, id));
+
+      await tx.delete(aberturaItens).where(eq(aberturaItens.id, id));
+
+      return contagem;
+    });
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { tarefasSoltas } };
+  } catch (erro) {
+    if (erro instanceof ItemDeAberturaNaoEncontrado) {
+      return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
+    }
+    console.error("Falha ao remover item de abertura:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Remover uma tarefa nunca solta nem apaga nada além dela mesma — `exigirUsuario()` é a
+// PRIMEIRA instrução do corpo. Sem transação: um `delete` de uma linha só.
+export async function removerTarefaDeAbertura(
+  idBruto: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultadoId = esquemaId.safeParse(idBruto);
+  if (!resultadoId.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultadoId) };
+  }
+  const id = resultadoId.data;
+
+  try {
+    const [linha] = await db
+      .delete(aberturaTarefas)
+      .where(eq(aberturaTarefas.id, id))
+      .returning({ id: aberturaTarefas.id });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_TAREFA_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { id: linha.id } };
+  } catch (erro) {
+    console.error("Falha ao remover tarefa de abertura:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

@@ -111,6 +111,24 @@ export function rotuloRemover(nome: string): string {
   return `Remover ${nome}`;
 }
 
+// D-14/ABE-10 (Tarefa 3): texto EXATO do protótipo (bloco `data-apagar-item`) — nomeia o item E
+// o valor que sai do total, na voz do produto (UI-SPEC §"Voz da interface").
+export function fraseConfirmarRemoverItem(nome: string, valorFormatado: string): string {
+  return `Remover "${nome}"? Ele sai da lista e do total de ${valorFormatado}.`;
+}
+
+// A segunda metade da frase ("mas não são apagadas") é a parte que não pode faltar (D-14): sem
+// ela, o gestor lê "ficam soltas" e desiste de remover por medo de perder trabalho.
+export function fraseTarefasQueFicamSoltas(quantidade: number): string {
+  return quantidade === 1
+    ? "1 tarefa ligada a ele fica solta, mas não é apagada."
+    : `${quantidade} tarefas ligadas a ele ficam soltas, mas não são apagadas.`;
+}
+
+export function fraseConfirmarRemoverTarefa(descricao: string): string {
+  return `Remover a tarefa "${descricao}"?`;
+}
+
 // Traduz `Urgencia` (`lib/abertura/prazos.ts`) no texto exato do protótipo (`urgencia(t)`) —
 // `switch` exaustivo sobre `tipo`, sem `default`: um ramo novo na união vira erro de compilação
 // aqui, nunca um texto genérico em silêncio.

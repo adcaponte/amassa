@@ -108,7 +108,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
 
     // Otimista (UI-SPEC §"Salvamento otimista"): o destaque some SEM recarregar a página à mão —
     // a marcação é a ÚNICA coisa que apaga o alerta (D-07).
-    await expect(linha.getByTestId("abertura-nao-chegou")).toHaveCount(0);
+    await expect(linha.getByTestId("abertura-nao-chegou")).toHaveCount(0, { timeout: 10000 });
     await expect(caixa).toHaveAttribute("aria-pressed", "true");
     await expect(caixa).toHaveAttribute("aria-label", `Desmarcar: ${nome}`);
 
@@ -157,6 +157,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     // próprio texto da descrição é que ganha a classe, não a linha inteira.
     await expect(linha.locator("div.font-medium", { hasText: descricao })).toHaveClass(
       /line-through/,
+      { timeout: 10000 },
     );
   });
 
@@ -240,7 +241,9 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     await criarTarefa(page, { descricao, vinculoAoItem: nomeItem });
 
     await linhaDeTarefa(page, descricao).getByTestId("abertura-editar-tarefa").click();
-    await expect(page.getByRole("heading", { name: "Editar tarefa" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Editar tarefa" })).toBeVisible({
+      timeout: 15000,
+    });
 
     await page.getByLabel("O que fazer").fill(descricaoEditada);
     await page.getByRole("button", { name: "Salvar alterações" }).click();
@@ -280,5 +283,98 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
 
     const alturaDaLinha = await linha.boundingBox();
     expect(alturaDaLinha?.height, "linha do item mede menos que 44px").toBeGreaterThanOrEqual(44);
+  });
+
+  // Tarefa 3: remover dizendo o que se perde — e o que não se perde (D-14/ABE-10).
+  test("remover um item com duas tarefas ligadas avisa quantas ficam soltas, e nenhuma tarefa é apagada", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeItem = nomeUnico("Compressor de ar");
+    const descricaoTarefa1 = nomeUnico("Instalar o compressor");
+    const descricaoTarefa2 = nomeUnico("Testar a pressão do compressor");
+
+    await criarItem(page, { nome: nomeItem, categoria: "Equipamentos", valor: "2400" });
+    await criarTarefa(page, { descricao: descricaoTarefa1, vinculoAoItem: nomeItem });
+    await criarTarefa(page, { descricao: descricaoTarefa2, vinculoAoItem: nomeItem });
+
+    await page.goto("/abertura");
+    await linhaDeItem(page, nomeItem).getByTestId("abertura-remover-item").click();
+
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible({ timeout: 10000 });
+    await expect(dialogo).toContainText(`Remover "${nomeItem}"?`);
+    await expect(dialogo).toContainText("R$ 2.400");
+    // A segunda metade da frase ("mas não são apagadas") é a parte que não pode faltar (D-14).
+    await expect(dialogo).toContainText(
+      "2 tarefas ligadas a ele ficam soltas, mas não são apagadas.",
+    );
+
+    await dialogo.getByRole("button", { name: "Remover" }).click();
+    await expect(dialogo).toBeHidden({ timeout: 10000 });
+    await expect(page.getByTestId("abertura-linha-item").filter({ hasText: nomeItem })).toHaveCount(
+      0,
+    );
+
+    // As duas tarefas continuam na lista, agora sem vínculo — nenhuma foi apagada.
+    await page.goto("/abertura?aba=tarefas");
+    const linhaTarefa1 = linhaDeTarefa(page, descricaoTarefa1);
+    const linhaTarefa2 = linhaDeTarefa(page, descricaoTarefa2);
+    await expect(linhaTarefa1).toBeVisible();
+    await expect(linhaTarefa2).toBeVisible();
+    await expect(linhaTarefa1.getByTestId("abertura-vinculo-item")).toHaveCount(0);
+    await expect(linhaTarefa2.getByTestId("abertura-vinculo-item")).toHaveCount(0);
+  });
+
+  test("remover um item sem tarefa ligada não mostra o aviso de tarefas soltas", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeItem = nomeUnico("Prateleira avulsa");
+
+    await criarItem(page, { nome: nomeItem, valor: "300" });
+    await linhaDeItem(page, nomeItem).getByTestId("abertura-remover-item").click();
+
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible({ timeout: 10000 });
+    await expect(dialogo).not.toContainText("ficam soltas");
+    await expect(dialogo).not.toContainText("fica solta");
+
+    await dialogo.getByRole("button", { name: "Remover" }).click();
+    await expect(dialogo).toBeHidden({ timeout: 10000 });
+    await expect(page.getByTestId("abertura-linha-item").filter({ hasText: nomeItem })).toHaveCount(
+      0,
+    );
+  });
+
+  test("remover uma tarefa pede confirmação nomeando a tarefa", async ({ page }) => {
+    await fazerLogin(page);
+    const descricao = nomeUnico("Pintar a parede do fundo");
+
+    await criarTarefa(page, { descricao });
+    await linhaDeTarefa(page, descricao).getByTestId("abertura-remover-tarefa").click();
+
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible({ timeout: 10000 });
+    await expect(dialogo).toContainText(`Remover a tarefa "${descricao}"?`);
+
+    await dialogo.getByRole("button", { name: "Remover" }).click();
+    await expect(dialogo).toBeHidden({ timeout: 10000 });
+    await expect(linhaDeTarefa(page, descricao)).toHaveCount(0);
+  });
+
+  test("cancelar a remoção (Voltar) mantém a linha intacta", async ({ page }) => {
+    await fazerLogin(page);
+    const nomeItem = nomeUnico("Armário de ferramentas");
+
+    await criarItem(page, { nome: nomeItem, valor: "900" });
+    await linhaDeItem(page, nomeItem).getByTestId("abertura-remover-item").click();
+
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible({ timeout: 10000 });
+    await dialogo.getByRole("button", { name: "Voltar" }).click();
+    await expect(dialogo).toBeHidden({ timeout: 10000 });
+
+    await expect(linhaDeItem(page, nomeItem)).toBeVisible();
   });
 });

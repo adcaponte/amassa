@@ -180,3 +180,29 @@ export function contarTarefasAbertasPorItem<T extends TarefaParaContarPorItem>(
 
   return contagem;
 }
+
+export type TarefaParaContarLigadas = {
+  itemId: string | null;
+};
+
+// D-14/ABE-10 (Tarefa 3, 04.2-03-PLAN.md): contagem de TODAS as tarefas ligadas a um item —
+// concluídas OU abertas, ao contrário de `contarTarefasAbertasPorItem` acima — porque remover o
+// item solta TODAS elas (a restrição `on delete set null` não distingue estado). É esta
+// contagem que a confirmação de remoção mostra ANTES de o gestor confirmar; a contagem real,
+// lida de dentro da MESMA transação que remove, é quem decide o aviso final (`removerItemDeAbertura`,
+// `lib/abertura/acoes.ts`) — as duas podem divergir se outra pessoa mexeu no meio, e a de dentro
+// da transação é a verdade.
+export function contarTarefasLigadasPorItem<T extends TarefaParaContarLigadas>(
+  tarefas: readonly T[],
+): Map<string, number> {
+  const contagem = new Map<string, number>();
+
+  for (const tarefa of tarefas) {
+    if (tarefa.itemId === null) {
+      continue;
+    }
+    contagem.set(tarefa.itemId, (contagem.get(tarefa.itemId) ?? 0) + 1);
+  }
+
+  return contagem;
+}

@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
+import { ConfirmarRemoverTarefa } from "@/components/amassa/abertura/confirmar-remover-tarefa";
 import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
 
 export type ListaTarefasProps = {
@@ -145,6 +146,8 @@ function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje: strin
         hrefEditar={`/abertura?aba=tarefas&tarefa=${tarefa.id}`}
         hrefRemover={`/abertura?aba=tarefas&removerTarefa=${tarefa.id}`}
       />
+
+      <ConfirmarRemoverTarefa id={tarefa.id} descricao={tarefa.descricao} />
     </div>
   );
 }
