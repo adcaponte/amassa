@@ -17,6 +17,11 @@ export type CaixaMarcacaoProps = {
   // `resolvido` (item) ou `concluida` (tarefa) — o estado gravado no banco no último
   // carregamento do servidor.
   marcado: boolean;
+  // Avisa a LINHA no mesmo instante do toque, para ela refletir a marcação sem esperar o
+  // servidor redesenhar (ver o comentário de linha-item.tsx). Recebe o estado DESEJADO,
+  // nunca "inverta" — mesma disciplina da chamada da Server Action. Em falha é chamada de
+  // novo, com o valor antigo, junto da reversão local.
+  aoMudar?: (novoEstado: boolean) => void;
 };
 
 // Botão de ALTERNAR (`aria-pressed`), nunca `role="checkbox"` (UI-SPEC §"Acessibilidade").
@@ -31,7 +36,7 @@ export type CaixaMarcacaoProps = {
 // `memo()` (props todas primitivas — comparação rasa padrão basta): ver data-inauguracao.tsx e
 // .planning/debug/abertura-navegacao-trava.md. Uma instância por linha existente — sem `memo`,
 // clicar em QUALQUER link de /abertura re-renderizaria TODAS as instâncias já montadas.
-function CaixaMarcacaoBase({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
+function CaixaMarcacaoBase({ tipo, id, nome, marcado, aoMudar }: CaixaMarcacaoProps) {
   const [estadoVisual, setEstadoVisual] = useState(marcado);
   const [enviando, setEnviando] = useState(false);
 
@@ -51,6 +56,7 @@ function CaixaMarcacaoBase({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
 
     const novoEstado = !estadoVisual;
     setEstadoVisual(novoEstado);
+    aoMudar?.(novoEstado);
     setEnviando(true);
 
     const resposta =
@@ -63,6 +69,7 @@ function CaixaMarcacaoBase({ tipo, id, nome, marcado }: CaixaMarcacaoProps) {
     if (!resposta.ok) {
       // Reverte ao estado anterior — nunca uma marcação otimista órfã, divergindo do banco.
       setEstadoVisual(!novoEstado);
+      aoMudar?.(!novoEstado);
       toast.error(FRASE_FALHA_AO_SALVAR);
       return;
     }
@@ -137,7 +144,9 @@ function propsIguais(anterior: CaixaMarcacaoProps, atual: CaixaMarcacaoProps): b
     anterior.tipo === atual.tipo &&
     anterior.id === atual.id &&
     anterior.nome === atual.nome &&
-    anterior.marcado === atual.marcado
+    anterior.marcado === atual.marcado &&
+    // Identidade estável: é o `setState` da linha, que o React garante constante.
+    anterior.aoMudar === atual.aoMudar
   );
 }
 
