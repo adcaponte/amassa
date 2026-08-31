@@ -11,6 +11,8 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import type { ItemDaAbertura, TarefaParaEditar } from "@/lib/abertura/consultas";
+
 type RouterAbertura = ReturnType<typeof useRouter>;
 
 // Um contexto SEPARADO por fatia de estado (nunca um único objeto `{router, searchParams}`) —
@@ -45,12 +47,19 @@ const ContextoRemoverTarefaId = createContext<string | null>(null);
 // lista-itens.tsx a Client Component inteiro" — deixou de existir: a LINHA já é Client Component
 // desde a correção da marcação.
 type Abridor = {
-  abrirItem: (id: string | null) => void;
-  abrirTarefa: (id: string | null) => void;
+  // O segundo argumento e a LINHA INTEIRA, opcional. Abrir localmente faz o dialogo aparecer,
+  // mas o MODO (criar/editar) e os valores do formulario vinham so do servidor, resolvidos a
+  // partir da URL -- entao, quando a navegacao nao confirmava, o dialogo abria em modo de
+  // CRIACAO no lugar de edicao. A linha ja tem o dado em maos no instante do toque; passa-lo
+  // aqui e o que fecha o caminho.
+  abrirItem: (id: string | null, dados?: ItemDaAbertura | null) => void;
+  abrirTarefa: (id: string | null, dados?: TarefaParaEditar | null) => void;
   abrirRemoverItem: (id: string | null) => void;
   abrirRemoverTarefa: (id: string | null) => void;
 };
 const ContextoAbridor = createContext<Abridor | null>(null);
+const ContextoItemParaEditar = createContext<ItemDaAbertura | null>(null);
+const ContextoTarefaParaEditar = createContext<TarefaParaEditar | null>(null);
 
 export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -63,14 +72,22 @@ export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode })
 
   const [itemLocal, setItemLocal] = useState<string | null>(null);
   const [tarefaLocal, setTarefaLocal] = useState<string | null>(null);
+  const [itemDados, setItemDados] = useState<ItemDaAbertura | null>(null);
+  const [tarefaDados, setTarefaDados] = useState<TarefaParaEditar | null>(null);
   const [removerItemLocal, setRemoverItemLocal] = useState<string | null>(null);
   const [removerTarefaLocal, setRemoverTarefaLocal] = useState<string | null>(null);
 
   // Quando a URL enfim muda (a navegação confirmou, ou a pessoa colou um link, ou voltou pelo
   // histórico), ela volta a ser a única fonte — o valor local sai da frente. Se a navegação
   // nunca confirmar, o local permanece e o diálogo continua aberto, que é o objetivo.
-  useEffect(() => setItemLocal(null), [itemDaUrl]);
-  useEffect(() => setTarefaLocal(null), [tarefaDaUrl]);
+  useEffect(() => {
+    setItemLocal(null);
+    setItemDados(null);
+  }, [itemDaUrl]);
+  useEffect(() => {
+    setTarefaLocal(null);
+    setTarefaDados(null);
+  }, [tarefaDaUrl]);
   useEffect(() => setRemoverItemLocal(null), [removerItemDaUrl]);
   useEffect(() => setRemoverTarefaLocal(null), [removerTarefaDaUrl]);
 
@@ -78,8 +95,14 @@ export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode })
   // o objeto novo a cada render anularia o ganho de contextos separados descrito acima.
   const abridor = useMemo<Abridor>(
     () => ({
-      abrirItem: setItemLocal,
-      abrirTarefa: setTarefaLocal,
+      abrirItem: (id, dados = null) => {
+        setItemDados(dados);
+        setItemLocal(id);
+      },
+      abrirTarefa: (id, dados = null) => {
+        setTarefaDados(dados);
+        setTarefaLocal(id);
+      },
       abrirRemoverItem: setRemoverItemLocal,
       abrirRemoverTarefa: setRemoverTarefaLocal,
     }),
@@ -89,6 +112,8 @@ export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode })
   return (
     <ContextoRouter.Provider value={router}>
       <ContextoAbridor.Provider value={abridor}>
+        <ContextoItemParaEditar.Provider value={itemDados}>
+        <ContextoTarefaParaEditar.Provider value={tarefaDados}>
         <ContextoItemAberto.Provider value={itemLocal ?? itemDaUrl}>
           <ContextoTarefaAberta.Provider value={tarefaLocal ?? tarefaDaUrl}>
             <ContextoAba.Provider value={searchParams.get("aba")}>
@@ -102,6 +127,8 @@ export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode })
             </ContextoAba.Provider>
           </ContextoTarefaAberta.Provider>
         </ContextoItemAberto.Provider>
+        </ContextoTarefaParaEditar.Provider>
+        </ContextoItemParaEditar.Provider>
       </ContextoAbridor.Provider>
     </ContextoRouter.Provider>
   );
@@ -163,4 +190,15 @@ export function useRemoverItemId(): string | null {
 
 export function useRemoverTarefaId(): string | null {
   return useContext(ContextoRemoverTarefaId);
+}
+
+// A linha em edicao fornecida LOCALMENTE pela propria linha, no instante do toque. `null` = o
+// dialogo nao foi aberto localmente (ou a navegacao ja confirmou), e entao vale o que o servidor
+// resolveu a partir da URL. Ver o comentario do Abridor acima.
+export function useItemParaEditarLocal(): ItemDaAbertura | null {
+  return useContext(ContextoItemParaEditar);
+}
+
+export function useTarefaParaEditarLocal(): TarefaParaEditar | null {
+  return useContext(ContextoTarefaParaEditar);
 }

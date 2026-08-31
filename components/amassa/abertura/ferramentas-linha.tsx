@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { rotuloEditar, rotuloRemover } from "@/lib/abertura/textos";
+import type { ItemDaAbertura, TarefaParaEditar } from "@/lib/abertura/consultas";
 import { useAbridorAbertura } from "@/components/amassa/abertura/contexto-navegacao";
 
 export type FerramentasLinhaProps = {
@@ -21,6 +22,10 @@ export type FerramentasLinhaProps = {
   // localmente no mesmo toque — ver o comentário do abridor em contexto-navegacao.tsx. Sem o
   // segundo caminho, um toque cuja navegação não confirma não abre nada.
   id: string;
+  // A linha inteira, entregue ao abridor para o formulario abrir em modo de EDICAO mesmo se a
+  // navegacao nao confirmar (ver contexto-navegacao.tsx). Sem ela o dialogo abria em modo de
+  // criacao: aparecia, mas errado.
+  dados: ItemDaAbertura | TarefaParaEditar;
 };
 
 // Os dois botões só com ícone da linha (`Pencil`/`Trash2`, `lucide-react`, `aria-hidden="true"`
@@ -34,16 +39,20 @@ export function FerramentasLinha({
   hrefEditar,
   hrefRemover,
   id,
+  dados,
 }: FerramentasLinhaProps) {
   const abridor = useAbridorAbertura();
-  const abrirEditar = tipo === "item" ? abridor.abrirItem : abridor.abrirTarefa;
+  const abrirEditar = () =>
+    tipo === "item"
+      ? abridor.abrirItem(id, dados as ItemDaAbertura)
+      : abridor.abrirTarefa(id, dados as TarefaParaEditar);
   const abrirRemover = tipo === "item" ? abridor.abrirRemoverItem : abridor.abrirRemoverTarefa;
 
   return (
     <div className="flex flex-none items-center gap-0.5">
       <Link
         href={hrefEditar}
-        onClick={() => abrirEditar(id)}
+        onClick={abrirEditar}
         aria-label={rotuloEditar(nome)}
         data-testid={`abertura-editar-${tipo}`}
         className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring flex size-[30px] items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"

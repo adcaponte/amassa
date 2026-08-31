@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useItemAberto, useRouterAbertura,
   useAbridorAbertura,
+  useItemParaEditarLocal,
 } from "@/components/amassa/abertura/contexto-navegacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -110,7 +111,12 @@ function valoresIniciais(hoje: string, itemParaEditar: ItemDaAbertura | null): V
 // navegação de /abertura, mesmo abrindo `?tarefa=nova` (nada aqui muda). `itemParaEditar` (prop
 // do servidor) é `null` em toda navegação exceto `?item=<id existente>`, então a comparação rasa
 // do `memo` funciona sem gambiarra.
-function FormularioItemBase({ hoje, itemParaEditar }: FormularioItemProps) {
+function FormularioItemBase({ hoje, itemParaEditar: itemDoServidor }: FormularioItemProps) {
+  // O local vence enquanto existir: e o que garante o modo de EDICAO mesmo se a navegacao para
+  // `?item=<id>` nao confirmar. Assim que a URL muda, o contexto zera o local e o servidor
+  // volta a mandar (ver contexto-navegacao.tsx).
+  const itemLocal = useItemParaEditarLocal();
+  const itemParaEditar = itemLocal ?? itemDoServidor;
   const router = useRouterAbertura();
   const abridor = useAbridorAbertura();
   // Contexto próprio de `?item=` (nunca o objeto agregado) — a presença do parâmetro (qualquer

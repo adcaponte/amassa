@@ -94,6 +94,7 @@ export function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje
       </div>
 
       <FerramentasLinha
+        dados={tarefa}
         id={tarefa.id}
         tipo="tarefa"
         nome={tarefa.descricao}

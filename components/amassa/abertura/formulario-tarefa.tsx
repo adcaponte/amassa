@@ -22,6 +22,7 @@ import {
   useRouterAbertura,
   useTarefaAberta,
   useAbridorAbertura,
+  useTarefaParaEditarLocal,
 } from "@/components/amassa/abertura/contexto-navegacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -108,7 +109,15 @@ function valoresIniciais(
 // existente ou não) na própria rota `/abertura` — montado SEMPRE (mesmo com a lista vazia), para
 // o botão do `EstadoVazio` da aba Tarefas abrir o formulário da primeiríssima tarefa (mesmo
 // achado replicado de Itens/Fornos).
-function FormularioTarefaBase({ hoje, gestores, itens, tarefaParaEditar }: FormularioTarefaProps) {
+function FormularioTarefaBase({
+  hoje,
+  gestores,
+  itens,
+  tarefaParaEditar: tarefaDoServidor,
+}: FormularioTarefaProps) {
+  // Mesma logica de formulario-item.tsx: o local vence enquanto existir.
+  const tarefaLocal = useTarefaParaEditarLocal();
+  const tarefaParaEditar = tarefaLocal ?? tarefaDoServidor;
   const router = useRouterAbertura();
   const abridor = useAbridorAbertura();
   // Contexto próprio de `?tarefa=` (nunca o objeto agregado) — ver formulario-item.tsx.
