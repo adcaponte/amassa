@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useState } from "react";
-import { toast } from "sonner";
 
 import { removerTarefaDeAbertura } from "@/lib/abertura/acoes";
 import { fraseConfirmarRemoverTarefa } from "@/lib/abertura/textos";
@@ -72,9 +71,17 @@ function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
       return;
     }
 
-    toast.success("Tarefa removida.");
-    router.push("/abertura?aba=tarefas");
-    router.refresh();
+    // Navegacao COMPLETA de proposito, nunca `router.push` + `router.refresh()`.
+    // Depois de gravar, a lista precisa refletir o que SO o servidor sabe (um item renomeado,
+    // uma linha que sumiu) -- e e exatamente essa confirmacao de transicao que falha em
+    // silencio no React/Next (.planning/debug/abertura-navegacao-trava.md). Marcar, abrir e
+    // editar ja nao dependem dela, porque o cliente tem o dado; isto aqui depende, e nao ha
+    // como deduzir localmente. Um carregamento inteiro custa uns 200ms numa acao POUCO
+    // frequente (salvar/remover) e sempre mostra a verdade -- ao contrario do caminho rapido,
+    // que as vezes mostrava o valor velho.
+    // Sem `toast` de sucesso: ele nao sobrevive ao carregamento. A propria lista ja atualizada
+    // e a confirmacao -- mais forte que um aviso que some em tres segundos.
+    window.location.assign("/abertura?aba=tarefas");
   }
 
   return (
