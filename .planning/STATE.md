@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.2
 current_phase_name: abertura-do-espaco
-status: verifying
-stopped_at: Completed 04.2-05-PLAN.md (Tarefas 1-2; Tarefa 3 e checkpoint humano pendente)
+status: complete
+stopped_at: "Fase 4.2 COMPLETA e no ar. Migrações 0010/0011 aplicadas à mão em produção (2026-09-01), verificadas pelo psql; marcar e sair testados pelo dono no celular real. Próximo: Fase 6 (Estoque), com protótipo antes da execução, a pedido do dono."
 last_updated: "2026-08-31T21:14:32.747Z"
-last_activity: 2026-08-30
-last_activity_desc: Phase 04.2 execution started
+last_activity: 2026-09-01
+last_activity_desc: Fase 04.2 no ar em produção, verificada pelo dono
 progress:
   total_phases: 7
   completed_phases: 7
