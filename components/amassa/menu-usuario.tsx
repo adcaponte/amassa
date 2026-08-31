@@ -72,10 +72,16 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
             <KeyRound aria-hidden="true" className="size-5" />
             Trocar senha
           </Link>
+          {/* SEM `aoNavegar` aqui, ao contrario das entradas acima — e de proposito.
+              `aoNavegar` fecha o Sheet, e fechar o Sheet DESMONTA este formulario. Num botao
+              `type="submit"`, o `onClick` corre ANTES do envio: o formulario sumia e a Server
+              Action `sair` nunca chegava a rodar. No celular, tocar em "Sair" nao deslogava —
+              a pessoa continuava na sessao, num aparelho que o ateliê compartilha.
+              Fechar o Sheet nao e necessario aqui: `sair` navega para /login e o layout
+              inteiro desmonta junto. Ver tests/e2e/sessao.spec.ts:110, que pega isto. */}
           <form action={sair}>
             <button
               type="submit"
-              onClick={aoNavegar}
               className="flex min-h-[44px] w-full items-center gap-2 rounded-md px-2 text-left text-corpo text-foreground hover:bg-accent"
             >
               <LogOut aria-hidden="true" className="size-5" />
