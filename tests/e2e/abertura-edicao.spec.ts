@@ -281,8 +281,21 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     await expect(editar).toHaveAttribute("aria-label", `Editar ${nome}`);
     await expect(remover).toHaveAttribute("aria-label", `Remover ${nome}`);
 
-    const alturaDaLinha = await linha.boundingBox();
-    expect(alturaDaLinha?.height, "linha do item mede menos que 44px").toBeGreaterThanOrEqual(44);
+    // Espera a linha estar visivel ANTES de medir. `boundingBox()` devolve `null` quando o
+    // elemento nao esta renderizado, e `null?.height` vira `undefined` — o que reprovava com
+    // "received value must be a number", uma mensagem que nao diz nada sobre o defeito real.
+    // Isto ficou alcancavel quando gravar passou a fazer navegacao COMPLETA (ver
+    // formulario-item.tsx): a linha some por um instante durante o recarregamento, e uma
+    // maquina mais lenta que a de desenvolvimento mede exatamente nesse instante.
+    await expect(linha).toBeVisible();
+    const caixaDaLinha = await linha.boundingBox();
+    if (!caixaDaLinha) {
+      throw new Error(
+        "A linha do item nao tem caixa medivel: `boundingBox()` devolveu null mesmo depois de " +
+          "a linha estar visivel. Isso e defeito de renderizacao, nao de medida.",
+      );
+    }
+    expect(caixaDaLinha.height, "linha do item mede menos que 44px").toBeGreaterThanOrEqual(44);
   });
 
   // Tarefa 3: remover dizendo o que se perde — e o que não se perde (D-14/ABE-10).
