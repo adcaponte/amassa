@@ -18,11 +18,11 @@ import {
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import {
-  useRouterAbertura,
   useTarefaAberta,
   useAbridorAbertura,
   useTarefaParaEditarLocal,
 } from "@/components/amassa/abertura/contexto-navegacao";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,6 @@ function FormularioTarefaBase({
   // Mesma logica de formulario-item.tsx: o local vence enquanto existir.
   const tarefaLocal = useTarefaParaEditarLocal();
   const tarefaParaEditar = tarefaLocal ?? tarefaDoServidor;
-  const router = useRouterAbertura();
   const abridor = useAbridorAbertura();
   // Contexto próprio de `?tarefa=` (nunca o objeto agregado) — ver formulario-item.tsx.
   // `null` = nenhum diálogo pedido. Qualquer valor ("nova" ou um id) abre — o MODO vem de
@@ -146,7 +145,7 @@ function FormularioTarefaBase({
   function fechar() {
     setErro(null);
     abridor.abrirTarefa(null);
-    router.push("/abertura?aba=tarefas");
+    irParaSemNavegar("/abertura?aba=tarefas");
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {

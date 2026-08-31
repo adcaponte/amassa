@@ -15,10 +15,12 @@ import {
   ROTULO_SALVAR_ITEM,
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
-import { useItemAberto, useRouterAbertura,
+import {
+  useItemAberto,
   useAbridorAbertura,
   useItemParaEditarLocal,
 } from "@/components/amassa/abertura/contexto-navegacao";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -116,7 +118,6 @@ function FormularioItemBase({ hoje, itemParaEditar: itemDoServidor }: Formulario
   // volta a mandar (ver contexto-navegacao.tsx).
   const itemLocal = useItemParaEditarLocal();
   const itemParaEditar = itemLocal ?? itemDoServidor;
-  const router = useRouterAbertura();
   const abridor = useAbridorAbertura();
   // Contexto próprio de `?item=` (nunca o objeto agregado) — a presença do parâmetro (qualquer
   // valor) já abre o diálogo; o MODO (criar vs. editar) só depende de `itemParaEditar` ter
@@ -147,7 +148,7 @@ function FormularioItemBase({ hoje, itemParaEditar: itemDoServidor }: Formulario
   function fechar() {
     setErro(null);
     abridor.abrirItem(null);
-    router.push("/abertura");
+    irParaSemNavegar("/abertura");
   }
 
   const formaPagamento = form.watch("formaPagamento");

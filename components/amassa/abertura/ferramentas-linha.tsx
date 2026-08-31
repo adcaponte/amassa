@@ -6,6 +6,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { rotuloEditar, rotuloRemover } from "@/lib/abertura/textos";
 import type { ItemDaAbertura, TarefaParaEditar } from "@/lib/abertura/consultas";
 import { useAbridorAbertura } from "@/components/amassa/abertura/contexto-navegacao";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 
 export type FerramentasLinhaProps = {
   // Uma caixa só serve às duas listas — o `tipo` decide o sufixo dos `data-testid`
@@ -46,7 +47,12 @@ export function FerramentasLinha({
     tipo === "item"
       ? abridor.abrirItem(id, dados as ItemDaAbertura)
       : abridor.abrirTarefa(id, dados as TarefaParaEditar);
-  const abrirRemover = tipo === "item" ? abridor.abrirRemoverItem : abridor.abrirRemoverTarefa;
+  const abrirRemover = (evento: { preventDefault: () => void }) => {
+    evento.preventDefault();
+    irParaSemNavegar(hrefRemover);
+    if (tipo === "item") abridor.abrirRemoverItem(id);
+    else abridor.abrirRemoverTarefa(id);
+  };
 
   return (
     <div className="flex flex-none items-center gap-0.5">
@@ -61,7 +67,7 @@ export function FerramentasLinha({
       </Link>
       <Link
         href={hrefRemover}
-        onClick={() => abrirRemover(id)}
+        onClick={abrirRemover}
         aria-label={rotuloRemover(nome)}
         data-testid={`abertura-remover-${tipo}`}
         className="text-muted-foreground hover:bg-erro-fundo hover:text-erro focus-visible:ring-ring flex size-[30px] items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"

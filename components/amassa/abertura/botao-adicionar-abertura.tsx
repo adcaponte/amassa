@@ -9,6 +9,7 @@ import {
   useAbridorAbertura,
 } from "@/components/amassa/abertura/contexto-navegacao";
 import { Button } from "@/components/ui/button";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 
 export type AbaAbertura = "itens" | "tarefas" | "meses";
 
@@ -42,7 +43,12 @@ function BotaoAdicionarAberturaConteudoBase({ aba }: { aba: string | null }) {
           cuja navegacao nao confirma nao abre nada. */}
       <Link
         href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
-        onClick={() => (abaTarefas ? abridor.abrirTarefa("nova") : abridor.abrirItem("novo"))}
+        onClick={(evento) => {
+          evento.preventDefault();
+          irParaSemNavegar(abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo");
+          if (abaTarefas) abridor.abrirTarefa("nova");
+          else abridor.abrirItem("novo");
+        }}
       >
         {abaTarefas ? ROTULO_NOVA_TAREFA : ROTULO_NOVO_ITEM}
       </Link>

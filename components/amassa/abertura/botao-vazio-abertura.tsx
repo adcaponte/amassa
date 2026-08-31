@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useAbridorAbertura } from "@/components/amassa/abertura/contexto-navegacao";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Button } from "@/components/ui/button";
 
 // O botão do estado vazio da Abertura — o mesmo do `EstadoVazio` compartilhado por fora (link
@@ -26,7 +27,12 @@ export function BotaoVazioAbertura({
     <Button asChild variant="default" className="min-h-[44px]">
       <Link
         href={href}
-        onClick={() => (tipo === "item" ? abridor.abrirItem("novo") : abridor.abrirTarefa("nova"))}
+        onClick={(evento) => {
+          evento.preventDefault();
+          irParaSemNavegar(href);
+          if (tipo === "item") abridor.abrirItem("novo");
+          else abridor.abrirTarefa("nova");
+        }}
       >
         {rotulo}
       </Link>

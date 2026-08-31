@@ -6,9 +6,9 @@ import { removerTarefaDeAbertura } from "@/lib/abertura/acoes";
 import { fraseConfirmarRemoverTarefa } from "@/lib/abertura/textos";
 import {
   useRemoverTarefaId,
-  useRouterAbertura,
   useAbridorAbertura,
 } from "@/components/amassa/abertura/contexto-navegacao";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,6 @@ export type ConfirmarRemoverTarefaProps = {
 // quantitativo de `confirmar-remover-item.tsx` (ver .planning/debug/abertura-navegacao-trava.md).
 // Nada de exclusão silenciosa — nomeia a tarefa, sempre (CLAUDE.md §Exclusão).
 function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
-  const router = useRouterAbertura();
   const abridor = useAbridorAbertura();
   const removerTarefaId = useRemoverTarefaId();
   const tarefa = tarefas.find((candidata) => candidata.id === removerTarefaId) ?? null;
@@ -51,7 +50,7 @@ function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
   function fechar() {
     setErro(null);
     abridor.abrirRemoverTarefa(null);
-    router.push("/abertura?aba=tarefas");
+    irParaSemNavegar("/abertura?aba=tarefas");
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {

@@ -7,9 +7,9 @@ import { formatarReais } from "@/lib/abertura/formato";
 import { fraseConfirmarRemoverItem, fraseTarefasQueFicamSoltas } from "@/lib/abertura/textos";
 import {
   useRemoverItemId,
-  useRouterAbertura,
   useAbridorAbertura,
 } from "@/components/amassa/abertura/contexto-navegacao";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,7 +50,6 @@ export type ConfirmarRemoverItemProps = {
 // povoada, N ~ 17-23 num run com 8 workers em paralelo) mesmo depois da correção da tela vazia.
 // Uma instância só, não uma por linha, deixa esse custo CONSTANTE (1), não O(N).
 function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
-  const router = useRouterAbertura();
   const abridor = useAbridorAbertura();
   const removerItemId = useRemoverItemId();
   const item = itens.find((candidato) => candidato.id === removerItemId) ?? null;
@@ -65,7 +64,7 @@ function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
   function fechar() {
     setErro(null);
     abridor.abrirRemoverItem(null);
-    router.push("/abertura");
+    irParaSemNavegar("/abertura");
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {
