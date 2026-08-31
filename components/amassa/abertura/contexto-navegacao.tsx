@@ -70,41 +70,37 @@ export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode })
   const removerItemDaUrl = searchParams.get("removerItem");
   const removerTarefaDaUrl = searchParams.get("removerTarefa");
 
-  const [itemLocal, setItemLocal] = useState<string | null>(null);
-  const [tarefaLocal, setTarefaLocal] = useState<string | null>(null);
+  // Apenas o DADO da linha em edicao vive aqui. O estado de ABERTO vem da URL, que e escrita
+  // por `history.pushState` (ver url-sem-navegar.ts) e por isso nunca depende da transicao que
+  // falha. Ter tambem um "aberto" local, como uma versao anterior desta correcao tinha, era
+  // pior que inutil: o efeito de sincronia abaixo zerava o dado no MESMO instante em que o
+  // pushState mudava a URL, e o formulario abria em modo de CRIACAO -- criando um item novo em
+  // vez de atualizar o existente.
   const [itemDados, setItemDados] = useState<ItemDaAbertura | null>(null);
   const [tarefaDados, setTarefaDados] = useState<TarefaParaEditar | null>(null);
-  const [removerItemLocal, setRemoverItemLocal] = useState<string | null>(null);
-  const [removerTarefaLocal, setRemoverTarefaLocal] = useState<string | null>(null);
 
   // Quando a URL enfim muda (a navegação confirmou, ou a pessoa colou um link, ou voltou pelo
   // histórico), ela volta a ser a única fonte — o valor local sai da frente. Se a navegação
   // nunca confirmar, o local permanece e o diálogo continua aberto, que é o objetivo.
+  // Descarta o dado local so quando a URL deixa de apontar para aquela linha (fechou, ou foi
+  // para outra) -- nunca so porque a URL mudou, que era o defeito anterior.
   useEffect(() => {
-    setItemLocal(null);
-    setItemDados(null);
+    setItemDados((atual) => (atual && itemDaUrl === atual.id ? atual : null));
   }, [itemDaUrl]);
   useEffect(() => {
-    setTarefaLocal(null);
-    setTarefaDados(null);
+    setTarefaDados((atual) => (atual && tarefaDaUrl === atual.id ? atual : null));
   }, [tarefaDaUrl]);
-  useEffect(() => setRemoverItemLocal(null), [removerItemDaUrl]);
-  useEffect(() => setRemoverTarefaLocal(null), [removerTarefaDaUrl]);
 
   // Identidade estável (dependências vazias: todo `setState` do React já é estável) — sem isto,
   // o objeto novo a cada render anularia o ganho de contextos separados descrito acima.
   const abridor = useMemo<Abridor>(
     () => ({
-      abrirItem: (id, dados = null) => {
-        setItemDados(dados);
-        setItemLocal(id);
-      },
-      abrirTarefa: (id, dados = null) => {
-        setTarefaDados(dados);
-        setTarefaLocal(id);
-      },
-      abrirRemoverItem: setRemoverItemLocal,
-      abrirRemoverTarefa: setRemoverTarefaLocal,
+      abrirItem: (_id, dados = null) => setItemDados(dados),
+      abrirTarefa: (_id, dados = null) => setTarefaDados(dados),
+      // Remover nao precisa de dado: a lista inteira ja esta montada no cliente e o dialogo
+      // acha a linha pelo id da URL.
+      abrirRemoverItem: () => {},
+      abrirRemoverTarefa: () => {},
     }),
     [],
   );
@@ -114,12 +110,12 @@ export function ProvedorNavegacaoAbertura({ children }: { children: ReactNode })
       <ContextoAbridor.Provider value={abridor}>
         <ContextoItemParaEditar.Provider value={itemDados}>
         <ContextoTarefaParaEditar.Provider value={tarefaDados}>
-        <ContextoItemAberto.Provider value={itemLocal ?? itemDaUrl}>
-          <ContextoTarefaAberta.Provider value={tarefaLocal ?? tarefaDaUrl}>
+        <ContextoItemAberto.Provider value={itemDaUrl}>
+          <ContextoTarefaAberta.Provider value={tarefaDaUrl}>
             <ContextoAba.Provider value={searchParams.get("aba")}>
-              <ContextoRemoverItemId.Provider value={removerItemLocal ?? removerItemDaUrl}>
+              <ContextoRemoverItemId.Provider value={removerItemDaUrl}>
                 <ContextoRemoverTarefaId.Provider
-                  value={removerTarefaLocal ?? removerTarefaDaUrl}
+                  value={removerTarefaDaUrl}
                 >
                   {children}
                 </ContextoRemoverTarefaId.Provider>
