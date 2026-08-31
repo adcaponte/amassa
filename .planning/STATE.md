@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 04.2
 current_phase_name: abertura-do-espaco
 status: complete
-stopped_at: "Fase 4.2 COMPLETA e no ar. Migrações 0010/0011 aplicadas à mão em produção (2026-09-01), verificadas pelo psql; marcar e sair testados pelo dono no celular real. Próximo: Fase 6 (Estoque), com protótipo antes da execução, a pedido do dono."
+stopped_at: "Fase 4.2 COMPLETA e no ar. Migrações 0010/0011 aplicadas à mão em produção (2026-09-01), verificadas pelo psql; marcar e sair testados pelo dono no celular real. Próximo: Fase 6 (Estoque) — LEIA .planning/PROXIMA-SESSAO.md antes de qualquer comando: protótipo antes da execução, a pedido do dono."
 last_updated: "2026-08-31T21:14:32.747Z"
 last_activity: 2026-09-01
 last_activity_desc: Fase 04.2 no ar em produção, verificada pelo dono
