@@ -626,6 +626,63 @@ async function conferirRemocaoDoModuloAbertura(cliente) {
   );
 }
 
+// A prova de remocao faz `drop table`/`drop type` DE VERDADE. Por isso ela roda num banco
+// so dela, criado aqui e apagado no fim — nunca no banco que os outros passos usam.
+//
+// POR QUE ISTO EXISTE (achado de 2026-08-31, run #33445099364). Antes, ela recebia o mesmo
+// cliente dos outros passos. Localmente isso era inofensivo: este script sobe um Postgres
+// efemero so dele. Em CI, NAO — la o script usa o banco que o runner entrega, que e o MESMO
+// banco onde o job e2e roda logo depois. A prova apagava as tres tabelas da Abertura e ia
+// embora; o e2e subia contra um banco sem elas, `/abertura` estourava com
+// `relation "abertura_tarefas" does not exist`, a tela de erro aparecia no lugar da pagina, e
+// quatro testes @vazio-global reprovavam derrubando 412 atras deles. O pipeline ficou vermelho
+// sem nenhum defeito no modulo.
+//
+// A guarda por NOME de banco que ja existia continua valendo, mas ela protege producao — nao
+// protegia o vizinho. Banco proprio protege os dois.
+async function provarRemocaoEmBancoProprio() {
+  const url = new URL(process.env.DATABASE_URL_TESTE);
+  const bancoOriginal = url.pathname.slice(1);
+  const bancoDaProva = `${bancoOriginal}_remocao`;
+
+  const urlAdmin = new URL(url);
+  urlAdmin.pathname = "/postgres";
+  const urlDaProva = new URL(url);
+  urlDaProva.pathname = `/${bancoDaProva}`;
+
+  const admin = new Client({ connectionString: urlAdmin.toString() });
+  await admin.connect();
+  try {
+    await admin.query(`drop database if exists "${bancoDaProva}"`);
+    await admin.query(`create database "${bancoDaProva}"`);
+  } finally {
+    await admin.end();
+  }
+
+  try {
+    console.log(`Provando a remocao em banco proprio ("${bancoDaProva}")...`);
+    rodarNpm("npm", ["run", "db:migrate"], {
+      env: { ...process.env, DATABASE_URL: urlDaProva.toString() },
+    });
+    const cliente = new Client({ connectionString: urlDaProva.toString() });
+    await cliente.connect();
+    try {
+      await conferirRemocaoDoModuloAbertura(cliente);
+    } finally {
+      await cliente.end();
+    }
+  } finally {
+    const faxina = new Client({ connectionString: urlAdmin.toString() });
+    await faxina.connect();
+    try {
+      await faxina.query(`drop database if exists "${bancoDaProva}"`);
+    } finally {
+      await faxina.end();
+    }
+  }
+}
+
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -637,12 +694,13 @@ async function conferirBanco() {
     await conferirTriggerFuncionando(cliente);
     await conferirPapelEPrivilegios(cliente);
     await conferirContas(cliente);
-    // ÚLTIMA de todas — destrói tabelas, e qualquer verificação depois dela estaria olhando um
-    // banco mutilado (ver o comentário da função acima).
-    await conferirRemocaoDoModuloAbertura(cliente);
   } finally {
     await cliente.end();
   }
+
+  // Em banco PROPRIO, descartavel, criado agora e apagado no fim — nunca no banco que os
+  // outros passos compartilham. Ver o comentario de `provarRemocaoEmBancoProprio`.
+  await provarRemocaoEmBancoProprio();
 }
 
 async function main() {
