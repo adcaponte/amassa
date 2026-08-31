@@ -53,7 +53,17 @@ async function verificarConsistenciaDoGrupo(page: Page, rotuloCategoria: string)
   await expect(grupo).toBeVisible();
 
   const textoTotal = (await grupo.getByTestId("abertura-total-grupo").innerText()).trim();
-  const casamento = /^(\d+)\s+(?:item|itens)\s*·\s*R\$\s*([\d.]+)$/.exec(textoTotal);
+  // A contagem e a soma vivem numa LINHA do cabecalho que hoje tem mais de uma: desde o
+  // plano 04.2-03 o mesmo cabecalho tambem mostra "N nao chegou" (ABE-04, contagem de
+  // entregas vencidas do grupo). Casar contra o texto INTEIRO com ancoras passou a falhar
+  // por causa dessa segunda linha - por um campo NOVO e correto, nao por regressao.
+  // Procuramos a linha do total dentro do texto, em vez de exigir que ela seja o texto todo.
+  const PADRAO_DO_TOTAL = /^([0-9]+) +(?:item|itens) *· *R[$] *([0-9.]+)$/;
+  const linhaDoTotal = textoTotal
+    .split(String.fromCharCode(10))
+    .map((linha) => linha.trim())
+    .find((linha) => PADRAO_DO_TOTAL.test(linha));
+  const casamento = linhaDoTotal ? PADRAO_DO_TOTAL.exec(linhaDoTotal) : null;
   if (!casamento) {
     throw new Error(`Formato inesperado do total do grupo "${rotuloCategoria}": "${textoTotal}"`);
   }
