@@ -8,6 +8,7 @@ import { fraseConfirmarRemoverTarefa } from "@/lib/abertura/textos";
 import {
   useRemoverTarefaId,
   useRouterAbertura,
+  useAbridorAbertura,
 } from "@/components/amassa/abertura/contexto-navegacao";
 import {
   AlertDialog,
@@ -37,6 +38,7 @@ export type ConfirmarRemoverTarefaProps = {
 // Nada de exclusão silenciosa — nomeia a tarefa, sempre (CLAUDE.md §Exclusão).
 function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
   const router = useRouterAbertura();
+  const abridor = useAbridorAbertura();
   const removerTarefaId = useRemoverTarefaId();
   const tarefa = tarefas.find((candidata) => candidata.id === removerTarefaId) ?? null;
   const aberto = tarefa !== null;
@@ -44,8 +46,12 @@ function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Fecha pelos DOIS caminhos, sempre juntos (ver useFecharDialogo/o abridor em
+  // contexto-navegacao.tsx): zera o valor local E devolve a URL. Só um dos dois deixaria o
+  // diálogo preso aberto quando a navegação de abertura não tivesse confirmado.
   function fechar() {
     setErro(null);
+    abridor.abrirRemoverTarefa(null);
     router.push("/abertura?aba=tarefas");
   }
 

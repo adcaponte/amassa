@@ -9,6 +9,7 @@ import { fraseConfirmarRemoverItem, fraseTarefasQueFicamSoltas } from "@/lib/abe
 import {
   useRemoverItemId,
   useRouterAbertura,
+  useAbridorAbertura,
 } from "@/components/amassa/abertura/contexto-navegacao";
 import {
   AlertDialog,
@@ -51,6 +52,7 @@ export type ConfirmarRemoverItemProps = {
 // Uma instância só, não uma por linha, deixa esse custo CONSTANTE (1), não O(N).
 function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
   const router = useRouterAbertura();
+  const abridor = useAbridorAbertura();
   const removerItemId = useRemoverItemId();
   const item = itens.find((candidato) => candidato.id === removerItemId) ?? null;
   const aberto = item !== null;
@@ -58,8 +60,12 @@ function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Fecha pelos DOIS caminhos, sempre juntos (ver useFecharDialogo/o abridor em
+  // contexto-navegacao.tsx): zera o valor local E devolve a URL. Só um dos dois deixaria o
+  // diálogo preso aberto quando a navegação de abertura não tivesse confirmado.
   function fechar() {
     setErro(null);
+    abridor.abrirRemoverItem(null);
     router.push("/abertura");
   }
 

@@ -16,7 +16,9 @@ import {
   ROTULO_SALVAR_ITEM,
 } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
-import { useItemAberto, useRouterAbertura } from "@/components/amassa/abertura/contexto-navegacao";
+import { useItemAberto, useRouterAbertura,
+  useAbridorAbertura,
+} from "@/components/amassa/abertura/contexto-navegacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -110,10 +112,13 @@ function valoresIniciais(hoje: string, itemParaEditar: ItemDaAbertura | null): V
 // do `memo` funciona sem gambiarra.
 function FormularioItemBase({ hoje, itemParaEditar }: FormularioItemProps) {
   const router = useRouterAbertura();
+  const abridor = useAbridorAbertura();
   // Contexto próprio de `?item=` (nunca o objeto agregado) — a presença do parâmetro (qualquer
   // valor) já abre o diálogo; o MODO (criar vs. editar) só depende de `itemParaEditar` ter
   // resolvido uma linha de verdade no servidor.
-  const aberto = useItemAberto();
+  // `null` = nenhum diálogo pedido. Qualquer valor ("novo" ou um id) abre — o MODO vem de
+  // `itemParaEditar`, resolvido no servidor.
+  const aberto = useItemAberto() !== null;
   const modoEdicao = itemParaEditar !== null;
 
   const [erro, setErro] = useState<string | null>(null);
@@ -131,8 +136,12 @@ function FormularioItemBase({ hoje, itemParaEditar }: FormularioItemProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto, itemParaEditar]);
 
+  // Fecha pelos DOIS caminhos, sempre juntos (ver useFecharDialogo/o abridor em
+  // contexto-navegacao.tsx): zera o valor local E devolve a URL. Só um dos dois deixaria o
+  // diálogo preso aberto quando a navegação de abertura não tivesse confirmado.
   function fechar() {
     setErro(null);
+    abridor.abrirItem(null);
     router.push("/abertura");
   }
 

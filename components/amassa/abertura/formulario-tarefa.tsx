@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import {
   useRouterAbertura,
   useTarefaAberta,
+  useAbridorAbertura,
 } from "@/components/amassa/abertura/contexto-navegacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -109,8 +110,11 @@ function valoresIniciais(
 // achado replicado de Itens/Fornos).
 function FormularioTarefaBase({ hoje, gestores, itens, tarefaParaEditar }: FormularioTarefaProps) {
   const router = useRouterAbertura();
+  const abridor = useAbridorAbertura();
   // Contexto próprio de `?tarefa=` (nunca o objeto agregado) — ver formulario-item.tsx.
-  const aberto = useTarefaAberta();
+  // `null` = nenhum diálogo pedido. Qualquer valor ("nova" ou um id) abre — o MODO vem de
+  // `tarefaParaEditar`, resolvido no servidor.
+  const aberto = useTarefaAberta() !== null;
   const modoEdicao = tarefaParaEditar !== null;
 
   const [erro, setErro] = useState<string | null>(null);
@@ -128,8 +132,12 @@ function FormularioTarefaBase({ hoje, gestores, itens, tarefaParaEditar }: Formu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto, tarefaParaEditar]);
 
+  // Fecha pelos DOIS caminhos, sempre juntos (ver useFecharDialogo/o abridor em
+  // contexto-navegacao.tsx): zera o valor local E devolve a URL. Só um dos dois deixaria o
+  // diálogo preso aberto quando a navegação de abertura não tivesse confirmado.
   function fechar() {
     setErro(null);
+    abridor.abrirTarefa(null);
     router.push("/abertura?aba=tarefas");
   }
 

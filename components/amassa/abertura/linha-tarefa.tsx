@@ -94,6 +94,7 @@ export function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje
       </div>
 
       <FerramentasLinha
+        id={tarefa.id}
         tipo="tarefa"
         nome={tarefa.descricao}
         hrefEditar={`/abertura?aba=tarefas&tarefa=${tarefa.id}`}

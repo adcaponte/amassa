@@ -144,6 +144,7 @@ export function LinhaDeItem({
       </div>
 
       <FerramentasLinha
+        id={item.id}
         tipo="item"
         nome={item.nome}
         hrefEditar={`/abertura?item=${item.id}`}
