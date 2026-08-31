@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.2
 current_phase_name: abertura-do-espaco
-status: executing
-stopped_at: Completed 04.2-04-PLAN.md
-last_updated: "2026-08-30T16:23:16.249Z"
+status: verifying
+stopped_at: Completed 04.2-05-PLAN.md (Tarefas 1-2; Tarefa 3 e checkpoint humano pendente)
+last_updated: "2026-08-31T21:14:32.747Z"
 last_activity: 2026-08-30
 last_activity_desc: Phase 04.2 execution started
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 46
-  completed_plans: 45
+  completed_plans: 46
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.2 (abertura-do-espaco) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Server Action, rota `/abertura` e entrada no menu do usuário. Faltam 04.2-02 a 04.2-05
 (tarefas, marcar/editar/remover, painel e visão por mês, migração de remoção).
 Last activity: 2026-08-30 — Phase 04.2 execution started
 
-Progress: [██████████] 98% (42 de 46 planos executados e verificados até aqui)
+Progress: [██████████] 100% (42 de 46 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -107,6 +107,7 @@ Progress: [██████████] 98% (42 de 46 planos executados e ver
 | Phase 04.2 P02 | 70min | 3 tasks | 14 files |
 | Phase 04.2 P03 | ~3h | 3 tasks | 16 files |
 | Phase 04.2 P04 | 1h10min | 3 tasks | 16 files |
+| Phase 04.2 P05 | 100min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -250,6 +251,8 @@ Recent decisions affecting current work:
 - [Phase ?]: fluxoMensal e a fonte unica do fluxo mensal - resumoDoPainel e a aba Por mes leem dela, nunca uma segunda soma
 - [Phase ?]: Empate no topo do pico marca TODOS os meses empatados (nunca so o primeiro), para o resultado nao depender da ordem de iteracao de um Map
 - [Phase ?]: definirDataDeInauguracao usa insert...on conflict sobre a restricao de linha unica - nunca select seguido de insert/update
+- [Phase ?]: Fase 4.2 fecha com a ressalva registrada: a suite e2e nao esta 100% verde (defeito de framework React/Next.js, mitigado nos fluxos criticos, tambem presente em Queimas/Encomendas).
+- [Phase ?]: conferirRemocaoDoModuloAbertura semeia dado LIGADO (item_id nao nulo) antes do drop, provando a FK em uso, nao so linha solta.
 
 ### Pending Todos
 
@@ -305,6 +308,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-30T16:23:16.215Z
-Stopped at: Completed 04.2-04-PLAN.md
+Last session: 2026-08-31T21:14:32.694Z
+Stopped at: Completed 04.2-05-PLAN.md (Tarefas 1-2; Tarefa 3 e checkpoint humano pendente)
 Resume file: None
