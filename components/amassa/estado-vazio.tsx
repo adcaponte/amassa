@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,12 @@ export type EstadoVazioProps = {
   // `hrefBotao` vence, por ser o caminho mais antigo e mais testado. Ausente = mesmo botão
   // inerte de sempre, igual à ausência de `hrefBotao`.
   aoClicar?: () => void;
+  // Substitui o botao padrao por um proprio, ja pronto (um Client Component, por exemplo).
+  // Existe porque a Abertura precisa de um botao que NAVEGA e abre o dialogo localmente no
+  // mesmo toque (ver contexto-navegacao.tsx) — comportamento que nao cabe aqui, nem deve: este
+  // componente e compartilhado por Encomendas, Queimas, Estoque e Orcamentos. Ausente = nada
+  // muda para ninguem.
+  botao?: ReactNode;
 };
 
 export function EstadoVazio({
@@ -37,6 +45,7 @@ export function EstadoVazio({
   notaBotao,
   hrefBotao,
   aoClicar,
+  botao,
 }: EstadoVazioProps) {
   return (
     <div
@@ -50,9 +59,12 @@ export function EstadoVazio({
         <h2 className="text-titulo text-foreground">{titulo}</h2>
         <p className="text-corpo text-muted-foreground">{corpo}</p>
 
-        {rotuloBotao && (
+        {/* `botao` proprio dispensa `rotuloBotao` — quem passa o slot ja traz o rotulo dentro. */}
+        {(rotuloBotao || botao) && (
           <div className="mt-3 flex flex-col items-center gap-2">
-            {hrefBotao ? (
+            {botao ? (
+              botao
+            ) : hrefBotao ? (
               <Button asChild variant="default" className="min-h-[44px]">
                 <Link href={hrefBotao}>{rotuloBotao}</Link>
               </Button>

@@ -9,6 +9,7 @@ import {
   ROTULO_NOVO_ITEM,
 } from "@/lib/abertura/textos";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { BotaoVazioAbertura } from "@/components/amassa/abertura/botao-vazio-abertura";
 import { LinhaDeItem } from "@/components/amassa/abertura/linha-item";
 import { ConfirmarRemoverItem } from "@/components/amassa/abertura/confirmar-remover-item";
 
@@ -41,8 +42,7 @@ export function ListaItens({
       <EstadoVazio
         titulo={FRASE_VAZIO_TITULO}
         corpo={FRASE_VAZIO_CORPO}
-        rotuloBotao={ROTULO_NOVO_ITEM}
-        hrefBotao="/abertura?item=novo"
+        botao={<BotaoVazioAbertura tipo="item" rotulo={ROTULO_NOVO_ITEM} />}
       />
     );
   }

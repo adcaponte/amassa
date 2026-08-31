@@ -4,7 +4,10 @@ import { memo } from "react";
 import Link from "next/link";
 
 import { ROTULO_NOVA_TAREFA, ROTULO_NOVO_ITEM } from "@/lib/abertura/textos";
-import { useAbaAtual } from "@/components/amassa/abertura/contexto-navegacao";
+import {
+  useAbaAtual,
+  useAbridorAbertura,
+} from "@/components/amassa/abertura/contexto-navegacao";
 import { Button } from "@/components/ui/button";
 
 export type AbaAbertura = "itens" | "tarefas" | "meses";
@@ -22,6 +25,7 @@ export function BotaoAdicionarAbertura() {
 }
 
 function BotaoAdicionarAberturaConteudoBase({ aba }: { aba: string | null }) {
+  const abridor = useAbridorAbertura();
   const abaTarefas = aba === "tarefas";
   const abaMeses = aba === "meses";
 
@@ -33,7 +37,13 @@ function BotaoAdicionarAberturaConteudoBase({ aba }: { aba: string | null }) {
 
   return (
     <Button asChild variant="default" className="min-h-[44px]">
-      <Link href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}>
+      {/* NAVEGA (a URL segue compartilhavel) E abre localmente no mesmo toque — ver o
+          comentario do abridor em contexto-navegacao.tsx. Sem o segundo caminho, um toque
+          cuja navegacao nao confirma nao abre nada. */}
+      <Link
+        href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
+        onClick={() => (abaTarefas ? abridor.abrirTarefa("nova") : abridor.abrirItem("novo"))}
+      >
         {abaTarefas ? ROTULO_NOVA_TAREFA : ROTULO_NOVO_ITEM}
       </Link>
     </Button>

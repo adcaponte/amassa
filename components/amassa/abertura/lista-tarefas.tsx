@@ -8,6 +8,7 @@ import {
   ROTULO_NOVA_TAREFA,
 } from "@/lib/abertura/textos";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { BotaoVazioAbertura } from "@/components/amassa/abertura/botao-vazio-abertura";
 import { LinhaDeTarefa } from "@/components/amassa/abertura/linha-tarefa";
 import { ConfirmarRemoverTarefa } from "@/components/amassa/abertura/confirmar-remover-tarefa";
 
@@ -26,8 +27,7 @@ export function ListaTarefas({ tarefas, hoje }: ListaTarefasProps) {
       <EstadoVazio
         titulo={FRASE_VAZIO_TITULO_TAREFAS}
         corpo={FRASE_VAZIO_CORPO_TAREFAS}
-        rotuloBotao={ROTULO_NOVA_TAREFA}
-        hrefBotao="/abertura?aba=tarefas&tarefa=nova"
+        botao={<BotaoVazioAbertura tipo="tarefa" rotulo={ROTULO_NOVA_TAREFA} />}
       />
     );
   }
