@@ -11,7 +11,6 @@ import {
   ROTULO_ALTERAR_INAUGURACAO,
   rotuloContagemRegressiva,
 } from "@/lib/abertura/textos";
-import { useRouterAbertura } from "@/components/amassa/abertura/contexto-navegacao";
 import { Input } from "@/components/ui/input";
 
 export type DataInauguracaoProps = {
@@ -40,16 +39,24 @@ export type DataInauguracaoProps = {
 function DataInauguracaoBase({ inauguracaoEm, hoje }: DataInauguracaoProps) {
   // Só o `router` (contexto próprio, estável) — este componente não lê nenhum parâmetro de
   // busca, então nunca precisa re-renderizar por causa de navegação nenhuma dentro de /abertura.
-  const router = useRouterAbertura();
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(inauguracaoEm ?? hoje);
+  // A data MOSTRADA na tela. Comeca no que veio do servidor e passa a valer localmente assim
+  // que a pessoa salva: a data que ela acabou de escolher o cliente ja tem, e nao ha por que
+  // esperar o servidor redesenhar -- essa confirmacao de transicao falha em silencio numa
+  // fracao dos toques (.planning/debug/abertura-navegacao-trava.md). Mesmo principio da
+  // marcacao em linha-item.tsx. Diferente de gravar item/tarefa, aqui NAO precisa de
+  // navegacao completa, porque nao ha nada que so o servidor saiba -- entao o `toast` de
+  // sucesso sobrevive, ao contrario das outras duas gravacoes do modulo.
+  const [dataMostrada, setDataMostrada] = useState(inauguracaoEm);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const contagem: ContagemRegressiva | null = contagemRegressiva(inauguracaoEm, hoje);
+  const contagem: ContagemRegressiva | null = contagemRegressiva(dataMostrada, hoje);
 
   function abrir() {
     setValor(inauguracaoEm ?? hoje);
+    setDataMostrada(inauguracaoEm);
     setErro(null);
     setEditando(true);
   }
@@ -76,7 +83,7 @@ function DataInauguracaoBase({ inauguracaoEm, hoje }: DataInauguracaoProps) {
 
     toast.success("Data de inauguração atualizada.");
     setEditando(false);
-    router.refresh();
+    setDataMostrada(valor);
   }
 
   function aoTeclarNoCampo(evento: KeyboardEvent<HTMLInputElement>) {
@@ -101,8 +108,8 @@ function DataInauguracaoBase({ inauguracaoEm, hoje }: DataInauguracaoProps) {
             data-testid="abertura-editar-inauguracao"
             className="text-apoio hover:text-acento w-fit border-b border-dashed border-border pb-0.5 text-left text-muted-foreground transition-colors"
           >
-            {inauguracaoEm
-              ? `Inauguração em ${formatarDataPorExtenso(inauguracaoEm)}`
+            {dataMostrada
+              ? `Inauguração em ${formatarDataPorExtenso(dataMostrada)}`
               : FRASE_DEFINIR_INAUGURACAO}
           </button>
         ) : (
