@@ -361,21 +361,20 @@ divergirem, o protótipo vence — exceto nas melhorias listadas abaixo, decidid
 - **Independente** dos itens da lista de compras nesta fase; virar item de compra pode vir depois.
 - **Sem mudança de permissão**: a Andressa já tem conta.
 - **Sem upload de arquivo**: só a informação que interessa, digitada.
-- O dono já cadastra dados reais no protótipo: o **JSON exportado** é importado na primeira versão.
+- **Sobe vazio, sem importação:** o dono confirmou que não há dado cadastrado no protótipo.
 **Depends on**: Phase 4.2
 **Requirements**: TBD
 **Success Criteria** (what must be TRUE):
 
-  1. Os dados exportados do protótipo foram importados sem perder nada: categorias, itens e todos os campos
-  2. Categorias aparecem como abas dentro de `/abertura`; criar uma categoria nova leva menos de 10 segundos; renomear funciona; remover pede confirmação dizendo quantas cotações se perdem
-  3. Cada cotação guarda empresa, produto, preço (ou "sob consulta"), situação (cotando, favorito, descartado) e os seis campos longos: diferenciais, assistência técnica, condições de pagamento, contato, observações e alertas
-  4. Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
-  5. Ordenar por preço funciona, e itens sem preço vão para o fim
-  6. Um item descartado continua visível, apagado — nunca some
-  7. Marcar dois ou mais itens mostra a comparação lado a lado, com os campos alinhados em colunas
-  8. **A Andressa entra com a conta dela e vê e edita os mesmos dados** — a razão de isto sair do navegador do dono
-  9. No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
-  10. As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
+  1. Categorias aparecem como abas dentro de `/abertura`; criar uma categoria nova leva menos de 10 segundos; renomear funciona; remover pede confirmação dizendo quantas cotações se perdem
+  2. Cada cotação guarda empresa, produto, preço (ou "sob consulta"), situação (cotando, favorito, descartado) e os seis campos longos: diferenciais, assistência técnica, condições de pagamento, contato, observações e alertas
+  3. Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
+  4. Ordenar por preço funciona, e itens sem preço vão para o fim
+  5. Um item descartado continua visível, apagado — nunca some
+  6. Marcar dois ou mais itens mostra a comparação lado a lado, com os campos alinhados em colunas
+  7. **A Andressa entra com a conta dela e vê e edita os mesmos dados** — a razão de isto sair do navegador do dono
+  8. No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
+  9. As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
 
 **Plans**: TBD
 **UI hint**: yes
