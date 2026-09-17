@@ -6,7 +6,7 @@ current_phase: 04.2
 current_phase_name: abertura-do-espaco
 status: complete
 stopped_at: "Fase 4.2 COMPLETA e no ar. Migrações 0010/0011 aplicadas à mão em produção (2026-09-01), verificadas pelo psql; marcar e sair testados pelo dono no celular real. Próximo: Fase 6 (Estoque) — LEIA .planning/PROXIMA-SESSAO.md antes de qualquer comando: protótipo antes da execução, a pedido do dono."
-last_updated: "2026-08-31T21:14:32.747Z"
+last_updated: "2026-09-17T17:38:57.459Z"
 last_activity: 2026-09-01
 last_activity_desc: Fase 04.2 no ar em produção, verificada pelo dono
 progress:
@@ -283,6 +283,7 @@ None yet.
 | 260812-2et | BRIEF-NOTURNO: Lote A (Gantt clicável, eixo de tempo na barra do celular, timeline semanal desde hoje) + Lote C (tela de trocar senha) | 2026-08-12 | c3adfa2, aa5a720, bc0d790, b91accc | [260812-2et-executa-brief-noturno-lote-a-gantt-clica](./quick/260812-2et-executa-brief-noturno-lote-a-gantt-clica/) |
 | 260820-uot | Fecha os gaps da Fase 3: interruptor dos marcos legivel, botao de voltar na encomenda e contagem de itens no indice | 2026-08-20 | 9a3beca, 274aa72, 0ff1b46 | [260820-uot-fechar-os-gaps-da-fase-3-interruptor-dos](./quick/260820-uot-fechar-os-gaps-da-fase-3-interruptor-dos/) |
 | 260821-3af | Hachura de rascunho vira teste automatizado, fechando a verificacao manual C da Fase 3 | 2026-08-21 | 8446d48 | [260821-3af-hachura-de-rascunho-vira-teste-automatiz](./quick/260821-3af-hachura-de-rascunho-vira-teste-automatiz/) |
+| 6 | callbackUrl do login apontava para 0.0.0.0:3000; AUTH_URL com padrao no compose.yml (d9fdc2b), conferido em producao | 2026-09-17 | d9fdc2b | — |
 
 ### Roadmap Evolution
 
