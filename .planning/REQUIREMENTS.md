@@ -149,6 +149,23 @@
 - [x] **ABE-14**: A data de inauguração é editável e a contagem regressiva acompanha, inclusive quando a data já passou
 - [x] **ABE-15**: O módulo pode ser removido por completo — tabelas, rota e item de navegação — sem deixar resíduo no resto do sistema
 
+### Comparador de Compras (aba da Abertura, dado arquivado)
+
+> Aba dentro de `/abertura` para comparar cotações de fornecedor lado a lado, compartilhada entre os
+> gestores. A **interface** morre junto com a Abertura; as **tabelas e os dados ficam** no banco
+> (D-03 de `.planning/phases/04.3-comparador-de-compras/04.3-CONTEXT.md`). Validado por protótipo
+> antes de virar código.
+
+- [ ] **CMP-01**: Categorias de cotação aparecem como abas dentro de `/abertura`; criar uma leva menos de 10 segundos; renomear funciona; remover pede confirmação dizendo quantas cotações se perdem
+- [ ] **CMP-02**: Cada cotação guarda empresa, produto, preço (ou "sob consulta") e os seis campos longos: diferenciais, assistência técnica, condições de pagamento, contato, observações e alertas
+- [ ] **CMP-03**: Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
+- [ ] **CMP-04**: Ordenar por preço funciona, e as cotações sem preço vão para o fim nos dois sentidos
+- [ ] **CMP-05**: Uma cotação descartada continua visível, apagada — nunca some da lista
+- [ ] **CMP-06**: Marcar duas ou mais cotações mostra a comparação lado a lado, com os campos alinhados em colunas
+- [ ] **CMP-07**: Uma segunda conta de gestor vê e edita os mesmos dados — a razão de isto sair do navegador do dono
+- [ ] **CMP-08**: No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
+- [ ] **CMP-09**: As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
+
 ### Painel Inicial e Entrega
 
 - [ ] **PNL-01**: O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique
@@ -335,6 +352,16 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ABE-13 | Phase 4.2 — Abertura do Espaço | Pending |
 | ABE-14 | Phase 4.2 — Abertura do Espaço | Pending |
 | ABE-15 | Phase 4.2 — Abertura do Espaço | Pending |
+
+| CMP-01 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-02 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-03 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-04 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-05 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-06 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-07 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-08 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-09 | Phase 04.3 — Comparador de Compras | Pending |
 | UI-10 | Phase 7 — Polimento e Entrega | Pending |
 | UI-11 | Phase 7 — Polimento e Entrega | Pending |
 | PNL-01 | Phase 7 — Polimento e Entrega | Pending |
