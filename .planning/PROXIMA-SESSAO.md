@@ -1,7 +1,35 @@
-# Próxima sessão — Fase 6: Estoque
+# Próxima sessão — ATUALIZADO em 2026-09-17
 
-> Escrito em 2026-09-01, ao fim da sessão que subiu a Fase 4.2 (Abertura do Espaço) para produção.
-> Leia isto antes de qualquer comando.
+> **A porta de entrada de qualquer sessão agora é `ESTADO-ATUAL.md`, na raiz do projeto** (mora só
+> neste computador; está no `.gitignore`). Ele tem o negócio, o que está no ar, a ordem de trabalho e
+> as pendências. Este arquivo continua valendo pelas **lições técnicas** da seção "O que a Fase 4.2
+> ensinou". Se os dois divergirem sobre prioridade, o `ESTADO-ATUAL.md` vence.
+
+## Ordem atual (decisão do dono em 2026-09-17)
+
+1. **Fase 04.3 — Comparador de Compras.** PRIORIDADE. Aba dentro de `/abertura` para comparar
+   cotações de equipamentos lado a lado, compartilhada entre os gestores (a Andressa já tem conta).
+   O protótipo do dono JÁ ESTÁ PRONTO e é a especificação:
+   `.planning/phases/04.3-comparador-de-compras/prototipo.html`. Decisões já tomadas e critérios
+   de sucesso: seção da Fase 04.3 no ROADMAP.md. **Próximo comando: `/gsd-plan-phase 04.3`.**
+   Não refaça o protótipo nem reabra as três decisões (preço numérico, independente dos itens da
+   lista de compras, sem mudança de permissão).
+
+2. **Site público + plataforma em `/gestao`.** Ainda sem fase. `amassacerrado.com.br` vira o site
+   institucional do AMASSA (ilustrado pela Andressa: frentes de trabalho, contatos); a plataforma
+   passa para `/gestao`, sem link no site, acesso só por endereço. **O planejamento disso está FORA
+   do repositório**, em `C:UsersAndreamassa-cerradoamassa-plataforma` (marco "M8 — Página Em
+   breve" no `03-ROADMAP.md` de lá), com mudanças reais em todos os documentos de planejamento e
+   protótipos que só existem lá. Antes de planejar o site, trazer isso com `/gsd-import`, que confere
+   conflito com as decisões já tomadas. Qual versão prevalece é decisão do dono. Não apague nem
+   altere nada em `amassa-cerrado`.
+
+3. **Fase 6 — Estoque**, com protótipo antes da execução. O restante deste arquivo, a partir de
+   "Como começar", foi escrito para ela e continua valendo.
+
+---
+
+# Fase 6: Estoque (instruções originais de 2026-09-01)
 
 ## Como começar
 

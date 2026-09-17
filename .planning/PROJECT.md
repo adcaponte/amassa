@@ -7,13 +7,22 @@
 
 ## What This Is
 
-Plataforma web interna, privada e responsiva, para os 3 a 5 gestores do **AMASSA** — ateliê de
-cerâmica artesanal de alta temperatura em Goiânia — administrarem a operação do dia a dia em um
-único lugar, substituindo planilhas e controles espalhados. Cinco módulos: Encomendas, Agenda de
-Aulas, Contador de Queima, Estoque e Calculadora de Orçamento.
+Plataforma web interna, privada e responsiva, para os gestores da **AMASSA CERRADO** — espaço de
+cerâmica artesanal de alta temperatura em **Pirenópolis**, com loja física e café, inauguração em
+dezembro de 2026 — administrarem a operação do dia a dia em um único lugar, substituindo planilhas
+e controles espalhados. Módulos: Encomendas, Contador de Queima, Abertura do Espaço (temporário),
+Comparador de Compras, Estoque, Agenda de Aulas e um módulo Financeiro com precificação (que
+substitui a antiga Calculadora de Orçamento).
 
-Não é um site institucional nem uma loja. O site público (amassaceramica.com.br) e a loja Shopify
-continuam existindo separadamente e estão **fora do escopo**.
+**Não confundir os dois negócios.** A **AMASSA** de **Goiânia** (amassaceramica.com.br, com loja
+Shopify) é de outras sócias e está **fora do escopo** — sem redirecionamento, sem dado compartilhado.
+O domínio deste projeto é **amassacerrado.com.br**. Hoje a plataforma responde na raiz; está
+**decidido** que a raiz vira o site público institucional da AMASSA CERRADO e a plataforma passa
+para `/gestao`, sem link a partir do site (mudança ainda não feita).
+
+As regras de negócio dos documentos originais (`amassa-plataforma/00-BRIEFING.md`) vieram do
+material da AMASSA de Goiânia. Pirenópolis pode operar diferente: confirme com o dono antes de
+planejar um módulo que dependa delas.
 
 ## Core Value
 

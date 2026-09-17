@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comparador de Compras — AMASSA CERRADO</title>
+<style>
+  :root {
+    color-scheme: light;
+    --fundo: #F6F3F0;
+    --superficie: #FFFFFF;
+    --superficie-2: #EFEAE5;
+    --borda: #E8E2DC;
+    --borda-forte: #D8CFC7;
+    --tinta: #1D2221;
+    --tinta-media: #5A4C44;
+    --tinta-fraca: #6E5F56;
+    --acento: #894025;
+    --acento-hover: #5B2916;
+    --acento-fundo: #F3EDE9;
+    --destaque: #FFBD59;
+    --sucesso: #15803D;
+    --sucesso-fundo: #DCFCE7;
+    --erro: #B91C1C;
+    --erro-fundo: #FEE2E2;
+    --r: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fundo);
+    color: var(--tinta);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 18px 60px; }
+
+  header.top { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  header.top h1 { font-size: 22px; margin:0; letter-spacing:-0.01em; }
+  header.top .sub { font-size:13px; color: var(--tinta-fraca); }
+
+  /* abas de categoria */
+  .abas { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--borda); padding-bottom:12px; }
+  .aba {
+    border:1px solid var(--borda-forte); background: var(--superficie); color: var(--tinta-media);
+    padding:9px 15px; border-radius:999px; cursor:pointer; font-size:14px; font-weight:500;
+    font-family:inherit; min-height:40px;
+  }
+  .aba:hover { background: var(--superficie-2); }
+  .aba.ativa { background: var(--acento); border-color: var(--acento); color:#fff; }
+  .aba-add { border-style:dashed; color: var(--tinta-fraca); }
+
+  .barra { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .conta { font-size:13px; color: var(--tinta-fraca); margin-right:auto; }
+
+  .btn {
+    font-family:inherit; font-size:14px; font-weight:600; border-radius:8px;
+    padding:10px 16px; cursor:pointer; border:1px solid transparent; min-height:44px;
+  }
+  .btn-primario { background: var(--acento); color:#fff; }
+  .btn-primario:hover { background: var(--acento-hover); }
+  .btn-sec { background: var(--superficie); color: var(--tinta); border-color: var(--borda-forte); }
+  .btn-sec:hover { background: var(--superficie-2); }
+  .btn-sec.on { background: var(--acento-fundo); border-color: var(--acento); color: var(--acento); }
+  .btn-perigo { background:transparent; color: var(--erro); border-color:#E3B7A8; }
+  .btn-perigo:hover { background: var(--erro-fundo); }
+  .btn-sm { padding:6px 11px; font-size:13px; min-height:34px; }
+
+  /* tabela */
+  .painel { background: var(--superficie); border:1px solid var(--borda); border-radius:14px; overflow:hidden; }
+  table { width:100%; border-collapse:collapse; }
+  thead th {
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.07em;
+    color: var(--tinta-fraca); font-weight:600; padding:12px 14px;
+    border-bottom:1px solid var(--borda); background: var(--superficie);
+  }
+  tbody tr { border-bottom:1px solid var(--borda); cursor:pointer; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background: var(--acento-fundo); }
+  tbody td { padding:14px; vertical-align:top; font-size:15px; }
+  td.empresa { font-weight:600; }
+  td.espec { color: var(--tinta-media); }
+  td.preco { font-variant-numeric: tabular-nums; font-weight:600; white-space:nowrap; }
+  .th-check, .td-check { width:42px; padding-right:0 !important; }
+  .td-check input { width:18px; height:18px; accent-color: var(--acento); cursor:pointer; }
+
+  .selo { display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .selo-favorito { background: var(--sucesso-fundo); color: var(--sucesso); }
+  .selo-descartado { background: var(--superficie-2); color: var(--tinta-fraca); }
+  .selo-cotando { background: var(--acento-fundo); color: var(--acento); }
+  tr.descartado td.empresa, tr.descartado td.espec, tr.descartado td.preco { opacity:.5; }
+
+  .vazio { padding:48px 24px; text-align:center; color: var(--tinta-fraca); }
+  .vazio p { margin:6px 0 18px; font-size:14px; }
+  .vazio strong { display:block; color: var(--tinta); font-size:16px; }
+
+  /* comparação lado a lado */
+  .comp { display:flex; gap:14px; overflow-x:auto; padding-bottom:6px; }
+  .comp-col {
+    flex:0 0 300px; background: var(--superficie); border:1px solid var(--borda);
+    border-radius:14px; padding:16px;
+  }
+  .comp-col h3 { margin:0 0 2px; font-size:16px; }
+  .comp-col .cprod { font-size:13px; color: var(--tinta-media); margin-bottom:10px; }
+  .comp-col .cpreco { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; margin-bottom:12px; }
+  .campo { margin-bottom:12px; }
+  .campo .rot {
+    font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em;
+    color: var(--tinta-fraca); font-weight:600; margin-bottom:3px;
+  }
+  .campo .val { font-size:14px; white-space:pre-wrap; }
+  .campo .val.vazia { color: var(--tinta-fraca); font-style:italic; }
+  .campo.alerta .rot { color: var(--erro); }
+  .campo.alerta .val { background: var(--erro-fundo); padding:8px 10px; border-radius:8px; }
+
+  /* janela */
+  .overlay {
+    position:fixed; inset:0; background:rgba(29,34,33,.45); display:none;
+    align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto; z-index:50;
+  }
+  .overlay.aberta { display:flex; }
+  .janela { background: var(--superficie); border-radius:16px; width:100%; max-width:620px; padding:22px; }
+  .janela h2 { margin:0 0 4px; font-size:19px; }
+  .janela .jsub { font-size:13px; color: var(--tinta-fraca); margin-bottom:18px; }
+  label.f { display:block; margin-bottom:14px; }
+  label.f .rot2 { display:block; font-size:13px; font-weight:600; margin-bottom:5px; }
+  label.f .dica { font-size:12px; color: var(--tinta-fraca); font-weight:400; }
+  input[type=text], textarea {
+    width:100%; font-family:inherit; font-size:16px; padding:11px 12px;
+    border:1px solid var(--borda-forte); border-radius:8px; background:var(--superficie); color:var(--tinta);
+  }
+  input[type=text]:focus, textarea:focus { outline:2px solid var(--acento); outline-offset:-1px; border-color:var(--acento); }
+  textarea { min-height:76px; resize:vertical; }
+  .dupla { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .status-esc { display:flex; gap:8px; flex-wrap:wrap; }
+  .acoes { display:flex; gap:10px; margin-top:20px; }
+  .acoes .cresce { flex:1; }
+
+  .aviso {
+    position:fixed; left:50%; transform:translateX(-50%); bottom:22px;
+    background: var(--tinta); color:#FAFAF9; padding:12px 18px; border-radius:10px;
+    font-size:14px; z-index:60; display:none; box-shadow:0 4px 16px rgba(0,0,0,.2);
+  }
+  .aviso.on { display:block; }
+
+  .nota-rodape {
+    margin-top:22px; font-size:12.5px; color: var(--tinta-fraca);
+    background: var(--superficie-2); border:1px solid var(--borda); border-radius:10px; padding:12px 14px;
+  }
+
+  @media (max-width: 720px) {
+    .esconde-mob { display:none; }
+    tbody td { padding:12px 10px; font-size:14px; }
+    .dupla { grid-template-columns:1fr; }
+    .comp-col { flex:0 0 260px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>Comparador de compras</h1>
+    <span class="sub">AMASSA CERRADO · pesquisa de fornecedores</span>
+  </header>
+
+  <div class="abas" id="abas"></div>
+
+  <div class="barra">
+    <span class="conta" id="conta"></span>
+    <button class="btn btn-sec btn-sm" id="btnDados">Backup</button>
+    <button class="btn btn-sec btn-sm" id="btnComparar">Comparar selecionados</button>
+    <button class="btn btn-primario btn-sm" id="btnNovo">+ Novo item</button>
+  </div>
+
+  <div id="conteudo"></div>
+
+  <div class="nota-rodape">
+    <strong>Pode usar de verdade.</strong> O que você digitar fica salvo neste navegador,
+    neste computador. Como ainda não há banco de dados, a Andressa não vê esses dados e eles
+    somem se você limpar o navegador — por isso, <strong>clique em “Backup” de vez em quando</strong>
+    e guarde o texto. Quando o módulo entrar na plataforma, esse mesmo texto é importado e
+    nada se perde.
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="janela" id="janela"></div>
+</div>
+
+<div class="aviso" id="aviso"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var CHAVE = "amassa:comparador:v1";
+  var CAMPOS = [
+    { id: "diferenciais", rot: "Diferenciais", dica: "o que esse tem que os outros não têm" },
+    { id: "assistencia",  rot: "Assistência técnica", dica: "onde fica, prazo, garantia" },
+    { id: "pagamento",    rot: "Condições de pagamento", dica: "parcelas, desconto à vista, frete" },
+    { id: "contato",      rot: "Contato", dica: "quem, telefone, e-mail" },
+    { id: "observacoes",  rot: "Observações", dica: "" },
+    { id: "alertas",      rot: "Alertas", dica: "o que te deixou em dúvida", alerta: true }
+  ];
+
+  var exemplo = {
+    categorias: [
+      {
+        id: "c1", nome: "Fornos",
+        itens: [
+          { id: "i1", empresa: "Fornos Jung", produto: "JC 0613 · 180 L · 1300 °C", preco: "R$ 24.900",
+            status: "cotando", diferenciais: "Controlador digital com 8 rampas.\nIsolamento em fibra cerâmica.",
+            assistencia: "Assistência em Goiânia. Garantia de 12 meses.",
+            pagamento: "10x sem juros no cartão\n5% de desconto à vista\nFrete por conta do comprador",
+            contato: "Marcelo — (11) 9xxxx-xxxx", observacoes: "Prazo de entrega: 45 dias.",
+            alertas: "Voltagem 380V — confirmar se o espaço comporta." },
+          { id: "i2", empresa: "Cerâmica Nacional", produto: "CN-150 · 150 L · 1250 °C", preco: "R$ 19.500",
+            status: "favorito", diferenciais: "Mais barato da faixa.\nEntrega em 20 dias.",
+            assistencia: "Técnico próprio em Anápolis — 1h de Pirenópolis.",
+            pagamento: "6x sem juros\nFrete incluso", contato: "Sandra — (62) 9xxxx-xxxx",
+            observacoes: "Indicado pela Fernanda.", alertas: "" },
+          { id: "i3", empresa: "Importados Kiln", produto: "K-200 · 200 L · 1300 °C", preco: "R$ 38.000",
+            status: "descartado", diferenciais: "Maior capacidade.",
+            assistencia: "Só em São Paulo.", pagamento: "À vista ou 3x",
+            contato: "site", observacoes: "", alertas: "Assistência longe demais. Fora do orçamento." }
+        ]
+      },
+      { id: "c2", nome: "Torno de esteca", itens: [] },
+      { id: "c3", nome: "Moedor de café", itens: [] }
+    ]
+  };
+
+  var estado = carregar();
+  var catAtiva = estado.categorias.length ? estado.categorias[0].id : null;
+  var modo = "tabela";
+  var marcados = {};
+  var relogio = null;
+
+  function carregar() {
+    try {
+      var b = localStorage.getItem(CHAVE);
+      if (b) {
+        var p = JSON.parse(b);
+        if (p && Array.isArray(p.categorias)) return p;
+      }
+    } catch (e) { /* localStorage indisponível */ }
+    return JSON.parse(JSON.stringify(exemplo));
+  }
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify(estado)); }
+    catch (e) { /* segue em memória */ }
+  }
+  function id() { return "x" + Math.random().toString(36).slice(2, 9); }
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+  function cat() {
+    for (var i = 0; i < estado.categorias.length; i++)
+      if (estado.categorias[i].id === catAtiva) return estado.categorias[i];
+    return null;
+  }
+  function item(iid) {
+    var c = cat(); if (!c) return null;
+    for (var i = 0; i < c.itens.length; i++) if (c.itens[i].id === iid) return c.itens[i];
+    return null;
+  }
+  function avisar(msg) {
+    var el = document.getElementById("aviso");
+    el.textContent = msg; el.classList.add("on");
+    if (relogio) clearTimeout(relogio);
+    relogio = setTimeout(function () { el.classList.remove("on"); }, 4000);
+  }
+
+  /* ---------- abas ---------- */
+  function renderAbas() {
+    var h = "";
+    estado.categorias.forEach(function (c) {
+      h += '<button class="aba' + (c.id === catAtiva ? " ativa" : "") + '" data-cat="' + c.id + '">' +
+           esc(c.nome) + ' <span style="opacity:.7">' + c.itens.length + '</span></button>';
+    });
+    h += '<button class="aba aba-add" id="addCat">+ nova tabela</button>';
+    if (cat()) h += '<button class="aba aba-add" id="editCat" title="Renomear ou excluir">···</button>';
+    document.getElementById("abas").innerHTML = h;
+  }
+
+  /* ---------- tabela ---------- */
+  function selo(st) {
+    if (st === "favorito") return '<span class="selo selo-favorito">favorito</span>';
+    if (st === "descartado") return '<span class="selo selo-descartado">descartado</span>';
+    return '<span class="selo selo-cotando">cotando</span>';
+  }
+
+  function renderTabela() {
+    var c = cat();
+    if (!c) {
+      document.getElementById("conteudo").innerHTML =
+        '<div class="painel"><div class="vazio"><strong>Nenhuma tabela ainda</strong>' +
+        '<p>Crie uma tabela para começar — fornos, torno, moedor de café…</p></div></div>';
+      return;
+    }
+    if (!c.itens.length) {
+      document.getElementById("conteudo").innerHTML =
+        '<div class="painel"><div class="vazio"><strong>Tabela vazia</strong>' +
+        '<p>Adicione o primeiro orçamento de ' + esc(c.nome.toLowerCase()) + '.</p>' +
+        '<button class="btn btn-primario" id="vazioNovo">+ Novo item</button></div></div>';
+      var b = document.getElementById("vazioNovo");
+      if (b) b.addEventListener("click", function () { abrirForm(null); });
+      return;
+    }
+    var h = '<div class="painel"><table><thead><tr>' +
+            '<th class="th-check"></th><th>Empresa</th><th>Especificação</th>' +
+            '<th>Preço</th><th class="esconde-mob">Situação</th></tr></thead><tbody>';
+    c.itens.forEach(function (it) {
+      h += '<tr data-item="' + it.id + '"' + (it.status === "descartado" ? ' class="descartado"' : '') + '>' +
+        '<td class="td-check"><input type="checkbox" data-check="' + it.id + '"' +
+          (marcados[it.id] ? " checked" : "") + '></td>' +
+        '<td class="empresa">' + esc(it.empresa) + '</td>' +
+        '<td class="espec">' + esc(it.produto) + '</td>' +
+        '<td class="preco">' + esc(it.preco) + '</td>' +
+        '<td class="esconde-mob">' + selo(it.status) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    document.getElementById("conteudo").innerHTML = h;
+  }
+
+  /* ---------- comparação ---------- */
+  function renderComp() {
+    var c = cat(); if (!c) return;
+    var sel = c.itens.filter(function (it) { return marcados[it.id]; });
+    if (sel.length < 2) {
+      document.getElementById("conteudo").innerHTML =
+        '<div class="painel"><div class="vazio"><strong>Marque pelo menos dois</strong>' +
+        '<p>Selecione os itens na tabela e volte aqui para vê-los lado a lado.</p></div></div>';
+      return;
+    }
+    var h = '<div class="comp">';
+    sel.forEach(function (it) {
+      h += '<div class="comp-col"><h3>' + esc(it.empresa) + '</h3>' +
+           '<div class="cprod">' + esc(it.produto) + '</div>' +
+           '<div class="cpreco">' + esc(it.preco) + '</div>' +
+           '<div style="margin-bottom:14px">' + selo(it.status) + '</div>';
+      CAMPOS.forEach(function (cp) {
+        var v = it[cp.id];
+        h += '<div class="campo' + (cp.alerta && v ? " alerta" : "") + '">' +
+             '<div class="rot">' + esc(cp.rot) + '</div>' +
+             '<div class="val' + (v ? "" : " vazia") + '">' + (v ? esc(v) : "—") + '</div></div>';
+      });
+      h += '<button class="btn btn-sec btn-sm" data-abrir="' + it.id + '">Editar</button></div>';
+    });
+    h += '</div>';
+    document.getElementById("conteudo").innerHTML = h;
+  }
+
+  /* ---------- detalhe ---------- */
+  function abrirDetalhe(iid) {
+    var it = item(iid); if (!it) return;
+    var h = '<h2>' + esc(it.empresa) + '</h2>' +
+            '<div class="jsub">' + esc(it.produto) + '</div>' +
+            '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">' +
+            '<span style="font-size:24px;font-weight:700;font-variant-numeric:tabular-nums">' +
+            esc(it.preco) + '</span>' + selo(it.status) + '</div>';
+    CAMPOS.forEach(function (cp) {
+      var v = it[cp.id];
+      h += '<div class="campo' + (cp.alerta && v ? " alerta" : "") + '">' +
+           '<div class="rot">' + esc(cp.rot) + '</div>' +
+           '<div class="val' + (v ? "" : " vazia") + '">' + (v ? esc(v) : "—") + '</div></div>';
+    });
+    h += '<div class="acoes">' +
+         '<button class="btn btn-sec cresce" data-fechar="1">Fechar</button>' +
+         '<button class="btn btn-primario cresce" data-editar="' + it.id + '">Editar</button></div>';
+    document.getElementById("janela").innerHTML = h;
+    document.getElementById("overlay").classList.add("aberta");
+  }
+
+  /* ---------- formulário ---------- */
+  function abrirForm(iid) {
+    var it = iid ? item(iid) : null;
+    var h = '<h2>' + (it ? "Editar item" : "Novo item") + '</h2>' +
+            '<div class="jsub">' + esc(cat() ? cat().nome : "") + '</div>' +
+            '<label class="f"><span class="rot2">Empresa</span>' +
+            '<input type="text" id="f_empresa" value="' + esc(it ? it.empresa : "") + '" placeholder="Nome do fornecedor"></label>' +
+            '<label class="f"><span class="rot2">Especificação do produto ' +
+            '<span class="dica">— modelo, capacidade, o que define</span></span>' +
+            '<input type="text" id="f_produto" value="' + esc(it ? it.produto : "") + '" placeholder="Ex.: JC 0613 · 180 L · 1300 °C"></label>' +
+            '<div class="dupla">' +
+            '<label class="f"><span class="rot2">Preço</span>' +
+            '<input type="text" id="f_preco" value="' + esc(it ? it.preco : "") + '" placeholder="R$ 00.000"></label>' +
+            '<label class="f"><span class="rot2">Situação</span><div class="status-esc" id="f_status">' +
+            ["cotando", "favorito", "descartado"].map(function (s) {
+              var on = (it ? it.status : "cotando") === s;
+              return '<button type="button" class="btn btn-sec btn-sm' + (on ? " on" : "") +
+                     '" data-status="' + s + '">' + s + '</button>';
+            }).join("") + '</div></label></div>';
+    CAMPOS.forEach(function (cp) {
+      h += '<label class="f"><span class="rot2">' + esc(cp.rot) +
+           (cp.dica ? ' <span class="dica">— ' + esc(cp.dica) + '</span>' : '') + '</span>' +
+           '<textarea id="f_' + cp.id + '">' + esc(it ? it[cp.id] : "") + '</textarea></label>';
+    });
+    h += '<div class="acoes">' +
+         (it ? '<button class="btn btn-perigo" data-excluir="' + it.id + '">Excluir</button>' : '') +
+         '<button class="btn btn-sec cresce" data-fechar="1">Cancelar</button>' +
+         '<button class="btn btn-primario cresce" data-salvar="' + (it ? it.id : "novo") + '">Salvar</button></div>';
+    document.getElementById("janela").innerHTML = h;
+    document.getElementById("janela").dataset.status = it ? it.status : "cotando";
+    document.getElementById("overlay").classList.add("aberta");
+    document.getElementById("f_empresa").focus();
+  }
+
+  function salvarForm(iid) {
+    var c = cat(); if (!c) return;
+    var emp = document.getElementById("f_empresa").value.trim();
+    if (!emp) { avisar("Preencha ao menos a empresa."); return; }
+    var dados = {
+      empresa: emp,
+      produto: document.getElementById("f_produto").value.trim(),
+      preco: document.getElementById("f_preco").value.trim(),
+      status: document.getElementById("janela").dataset.status || "cotando"
+    };
+    CAMPOS.forEach(function (cp) { dados[cp.id] = document.getElementById("f_" + cp.id).value.trim(); });
+
+    if (iid === "novo") {
+      dados.id = id();
+      c.itens.push(dados);
+      avisar("Item adicionado.");
+    } else {
+      var it = item(iid);
+      for (var k in dados) if (Object.prototype.hasOwnProperty.call(dados, k)) it[k] = dados[k];
+      avisar("Alterações salvas.");
+    }
+    salvar(); fechar(); render();
+  }
+
+  function fechar() { document.getElementById("overlay").classList.remove("aberta"); }
+
+  /* ---------- backup ---------- */
+  function abrirDados() {
+    var total = estado.categorias.reduce(function (s, c) { return s + c.itens.length; }, 0);
+    var h = '<h2>Backup dos dados</h2>' +
+      '<div class="jsub">' + estado.categorias.length + ' tabela' +
+      (estado.categorias.length > 1 ? "s" : "") + ' · ' + total + ' item' +
+      (total > 1 ? "ns" : "") + '</div>' +
+      '<p style="font-size:14px;margin:0 0 14px;color:var(--tinta-media)">' +
+      'Copie o texto abaixo e guarde num arquivo, ou cole numa conversa comigo — eu salvo ' +
+      'na pasta do projeto. É esse texto que vai ser importado quando o módulo entrar na ' +
+      'plataforma.</p>' +
+      '<textarea id="f_dados" style="min-height:190px;font-family:ui-monospace,Consolas,monospace;font-size:12px">' +
+      esc(JSON.stringify(estado)) + '</textarea>' +
+      '<p style="font-size:13px;margin:14px 0 0;color:var(--tinta-fraca)">' +
+      '<strong style="color:var(--tinta)">Restaurar:</strong> apague o texto acima, cole um ' +
+      'backup anterior e clique em Restaurar. Isso substitui tudo o que existe hoje.</p>' +
+      '<div class="acoes">' +
+      '<button class="btn btn-sec cresce" data-fechar="1">Fechar</button>' +
+      '<button class="btn btn-sec" id="btnRestaurar">Restaurar</button>' +
+      '<button class="btn btn-primario cresce" id="btnCopiar">Copiar</button></div>';
+    document.getElementById("janela").innerHTML = h;
+    document.getElementById("overlay").classList.add("aberta");
+  }
+
+  function copiarDados() {
+    var ta = document.getElementById("f_dados");
+    ta.select(); ta.setSelectionRange(0, 999999);
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    if (ok) avisar("Copiado. Guarde esse texto em lugar seguro.");
+    else avisar("Selecione o texto e copie com Ctrl+C.");
+  }
+
+  function restaurarDados() {
+    var bruto = document.getElementById("f_dados").value.trim();
+    if (!bruto) { avisar("Cole um backup antes de restaurar."); return; }
+    var novo;
+    try { novo = JSON.parse(bruto); } catch (e) { avisar("Esse texto não é um backup válido."); return; }
+    if (!novo || !Array.isArray(novo.categorias)) { avisar("Esse texto não é um backup válido."); return; }
+    var qtd = novo.categorias.reduce(function (s, c) { return s + (c.itens || []).length; }, 0);
+    if (!confirm("Restaurar " + novo.categorias.length + " tabela(s) e " + qtd +
+                 " item(ns)? Tudo o que está aqui hoje será substituído.")) return;
+    estado = novo;
+    estado.categorias.forEach(function (c) { if (!Array.isArray(c.itens)) c.itens = []; });
+    catAtiva = estado.categorias.length ? estado.categorias[0].id : null;
+    marcados = {}; modo = "tabela";
+    salvar(); fechar(); render(); avisar("Backup restaurado.");
+  }
+
+  /* ---------- render ---------- */
+  function render() {
+    renderAbas();
+    var c = cat();
+    var n = c ? c.itens.length : 0;
+    var m = c ? c.itens.filter(function (i) { return marcados[i.id]; }).length : 0;
+    document.getElementById("conta").textContent =
+      n ? (n + (n > 1 ? " itens" : " item") + (m ? " · " + m + " marcado" + (m > 1 ? "s" : "") : "")) : "";
+    var bc = document.getElementById("btnComparar");
+    bc.classList.toggle("on", modo === "comp");
+    bc.textContent = modo === "comp" ? "Voltar à tabela" : "Comparar selecionados";
+    if (modo === "comp") renderComp(); else renderTabela();
+  }
+
+  /* ---------- eventos ---------- */
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    var el;
+
+    if ((el = t.closest("[data-cat]"))) {
+      catAtiva = el.dataset.cat; marcados = {}; modo = "tabela"; render(); return;
+    }
+    if (t.id === "addCat") {
+      var nome = prompt("Nome da nova tabela:", "");
+      if (nome && nome.trim()) {
+        var nc = { id: id(), nome: nome.trim(), itens: [] };
+        estado.categorias.push(nc); catAtiva = nc.id; salvar(); render();
+      }
+      return;
+    }
+    if (t.id === "editCat") {
+      var c0 = cat(); if (!c0) return;
+      var novo = prompt("Renomear a tabela (deixe vazio para excluí-la):", c0.nome);
+      if (novo === null) return;
+      if (!novo.trim()) {
+        if (confirm('Excluir a tabela "' + c0.nome + '" e os ' + c0.itens.length + ' itens dela?')) {
+          estado.categorias = estado.categorias.filter(function (x) { return x.id !== c0.id; });
+          catAtiva = estado.categorias.length ? estado.categorias[0].id : null;
+          salvar(); render();
+        }
+      } else { c0.nome = novo.trim(); salvar(); render(); }
+      return;
+    }
+    if (t.id === "btnNovo") { abrirForm(null); return; }
+    if (t.id === "btnComparar") { modo = modo === "comp" ? "tabela" : "comp"; render(); return; }
+    if (t.id === "btnDados") { abrirDados(); return; }
+    if (t.id === "btnCopiar") { copiarDados(); return; }
+    if (t.id === "btnRestaurar") { restaurarDados(); return; }
+
+    if ((el = t.closest("[data-check]"))) { return; }
+    if ((el = t.closest("[data-abrir]"))) { abrirForm(el.dataset.abrir); return; }
+    if ((el = t.closest("[data-editar]"))) { abrirForm(el.dataset.editar); return; }
+    if ((el = t.closest("[data-salvar]"))) { salvarForm(el.dataset.salvar); return; }
+    if ((el = t.closest("[data-fechar]"))) { fechar(); return; }
+    if ((el = t.closest("[data-status]"))) {
+      document.getElementById("janela").dataset.status = el.dataset.status;
+      var irmaos = document.querySelectorAll("#f_status [data-status]");
+      for (var i = 0; i < irmaos.length; i++) irmaos[i].classList.remove("on");
+      el.classList.add("on");
+      return;
+    }
+    if ((el = t.closest("[data-excluir]"))) {
+      var it = item(el.dataset.excluir); if (!it) return;
+      if (confirm('Excluir "' + it.empresa + '"? Todas as informações desse item serão perdidas.')) {
+        var c1 = cat();
+        c1.itens = c1.itens.filter(function (x) { return x.id !== it.id; });
+        delete marcados[it.id];
+        salvar(); fechar(); render(); avisar("Item excluído.");
+      }
+      return;
+    }
+    if (t.id === "overlay") { fechar(); return; }
+    if ((el = t.closest("tbody tr[data-item]"))) { abrirDetalhe(el.dataset.item); return; }
+  });
+
+  document.addEventListener("change", function (e) {
+    var el = e.target.closest("[data-check]");
+    if (!el) return;
+    if (el.checked) marcados[el.dataset.check] = true; else delete marcados[el.dataset.check];
+    render();
+  });
+
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") fechar(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

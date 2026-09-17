@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04.2
-current_phase_name: abertura-do-espaco
-status: complete
-stopped_at: "Fase 4.2 COMPLETA e no ar. Migrações 0010/0011 aplicadas à mão em produção (2026-09-01), verificadas pelo psql; marcar e sair testados pelo dono no celular real. Próximo: Fase 6 (Estoque) — LEIA .planning/PROXIMA-SESSAO.md antes de qualquer comando: protótipo antes da execução, a pedido do dono."
-last_updated: "2026-09-17T17:38:57.459Z"
-last_activity: 2026-09-01
-last_activity_desc: Fase 04.2 no ar em produção, verificada pelo dono
+current_phase: 04.3
+current_phase_name: comparador-de-compras
+status: planning
+stopped_at: "Fase 04.3 (Comparador de Compras) INSERIDA em 2026-09-17, antes do Estoque, a pedido do dono. Protótipo do dono já está em .planning/phases/04.3-comparador-de-compras/prototipo.html e é a especificação. Próximo: /gsd-plan-phase 04.3. A 4.2 segue completa e no ar. Porta de entrada de sessão nova: ESTADO-ATUAL.md na raiz (local, fora do git)."
+last_updated: "2026-09-17T17:40:34.293Z"
+last_activity: 2026-09-17
+last_activity_desc: Fase 04.3 inserida; callbackUrl do login corrigido em produção
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
   total_plans: 46
   completed_plans: 46
@@ -23,13 +23,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04.2 — abertura-do-espaco
+**Current focus:** Phase 04.3 — comparador-de-compras
 
 ## Current Position
 
-Phase: 04.2 (abertura-do-espaco) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
+Phase: 04.3 (comparador-de-compras) — PLANNING
+Plan: not planned yet
+Status: Inserted, not planned yet — next: /gsd-plan-phase 04.3
 Server Action, rota `/abertura` e entrada no menu do usuário. Faltam 04.2-02 a 04.2-05
 (tarefas, marcar/editar/remover, painel e visão por mês, migração de remoção).
 Last activity: 2026-08-30 — Phase 04.2 execution started
@@ -291,6 +291,7 @@ None yet.
 - Phase 3 edited: criterios 4 e 13 reconciliados com o quick 260812-2et (BRIEF-NOTURNO): Gantt passou de celulas quinzenais para semanais (segunda a domingo), a timeline deixou de abrir centralizada para abrir em hoje na borda esquerda, e o nome da encomenda virou link. Supersessao deliberada, nao regressao — os 18px/dia do 03-UI-SPEC.md continuam valendo
 - Phase 04.1 inserted after Phase 4: Datas dos Marcos da Encomenda — nasceu da caminhada humana do dono, reabre ENC-03, precisa de migracao. Executa antes da Fase 5 (URGENT)
 - Phase 04.2 inserted after Phase 04.1: Abertura do Espaço — módulo TEMPORÁRIO (data de morte, ABE-15) para organizar a abertura do novo espaço do ateliê; protótipo validado com o dono em cinco rodadas antes do planejamento. Ordem de execução revista: 4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento), por decisão do dono em 2026-08-22
+- Phase 04.3 inserted after Phase 4.2: Comparador de Compras — aba do módulo Abertura para comparar cotações lado a lado; protótipo do dono é a especificação; preço numérico, independente dos itens, sem mudança de permissão (URGENT)
 
 ## Deferred Items
 

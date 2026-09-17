@@ -40,6 +40,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 4: Contador de Queima** - Controle de vida útil das resistências dos fornos, registro de queima em dois toques (completed 2026-08)
 - [x] **Phase 04.1: Datas dos Marcos da Encomenda** (INSERTED) - Correção das datas dos marcos no cronograma (completed 2026-08-22)
 - [x] **Phase 4.2: Abertura do Espaço** (INSERTED, temporário) - Organizador da abertura do novo espaço: itens a comprar com parcelas e entrega, e tarefas até a inauguração
+- [ ] **Phase 04.3: Comparador de Compras** (INSERTED) - Aba do módulo Abertura para comparar cotações de equipamentos lado a lado, compartilhada entre os gestores; arquivada (não apagada) quando a Abertura for desmontada
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
@@ -341,12 +342,56 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 04.3: Comparador de Compras (INSERTED — aba do módulo Abertura; arquivada, não apagada)
+
+**Goal**: Comparar as cotações de equipamentos e materiais da abertura lado a lado, num lugar que
+todos os gestores veem — hoje isso vive num protótipo com `localStorage`, que só existe no
+navegador de quem digitou. A Andressa precisa ver e editar os mesmos dados.
+**Especificação**: `.planning/phases/04.3-comparador-de-compras/prototipo.html`, feito no Cowork e
+validado pelo dono. Como na 4.2, **o protótipo é a especificação**: onde a prosa e o protótipo
+divergirem, o protótipo vence — exceto nas melhorias listadas abaixo, decididas depois dele.
+**Decisões do dono (2026-09-17)**:
+- **Aba dentro de `/abertura`**, não módulo próprio em `/gestao/compras` como dizia o planejamento
+  do Cowork (M10). Os equipamentos são todos comprados antes da inauguração.
+- **Arquivar, não apagar.** Quando a Abertura for desmontada, o comparador some da interface mas
+  **as tabelas e os dados ficam no banco**. As tabelas do comparador NÃO entram em
+  `db/remocao/remover-abertura-do-espaco.sql`.
+- **Preço é número anulável** (centavos). Nulo = "sob consulta", exibido como "—". O formulário
+  aceita `24900` e `24.900,00`. As condições (parcelas, frete, desconto) seguem no texto.
+- **Independente** dos itens da lista de compras nesta fase; virar item de compra pode vir depois.
+- **Sem mudança de permissão**: a Andressa já tem conta.
+- **Sem upload de arquivo**: só a informação que interessa, digitada.
+- O dono já cadastra dados reais no protótipo: o **JSON exportado** é importado na primeira versão.
+**Depends on**: Phase 4.2
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+
+  1. Os dados exportados do protótipo foram importados sem perder nada: categorias, itens e todos os campos
+  2. Categorias aparecem como abas dentro de `/abertura`; criar uma categoria nova leva menos de 10 segundos; renomear funciona; remover pede confirmação dizendo quantas cotações se perdem
+  3. Cada cotação guarda empresa, produto, preço (ou "sob consulta"), situação (cotando, favorito, descartado) e os seis campos longos: diferenciais, assistência técnica, condições de pagamento, contato, observações e alertas
+  4. Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
+  5. Ordenar por preço funciona, e itens sem preço vão para o fim
+  6. Um item descartado continua visível, apagado — nunca some
+  7. Marcar dois ou mais itens mostra a comparação lado a lado, com os campos alinhados em colunas
+  8. **A Andressa entra com a conta dela e vê e edita os mesmos dados** — a razão de isto sair do navegador do dono
+  9. No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
+  10. As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
+
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 5: Agenda de Aulas (em espera)
 
 > **Adiada por decisão do dono em 2026-08-22.** O módulo de Abertura do Espaço tem prazo real
 > (a inauguração) e o Estoque entra em seguida; a Agenda não tem urgência e continua sendo o
 > módulo mais complexo do projeto, ganhando em ser enfrentado depois de o sistema já estar em uso.
 > Ordem de execução revista: **4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento)**.
+>
+> **Revista de novo em 2026-09-17:** o Comparador de Compras (04.3) entra antes do Estoque — o dono
+> precisa comparar as cotações da abertura já, com a Andressa acessando os mesmos dados. A mudança
+> do site público para a raiz de `amassacerrado.com.br`, com a plataforma em `/gestao`, vem depois
+> e ainda não tem fase (o planejamento dela está fora do repositório, ver PROXIMA-SESSAO.md).
+> Ordem atual: **4.3 (Comparador) → 6 (Estoque) → 5 (Agenda) → 7 (Polimento)**.
 
 **Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
 aulas com data concreta por materialização preguiçosa, e presença é marcada por aluna.
@@ -452,6 +497,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 4. Contador de Queima | 7/7 | Complete    | 2026-08-11 |
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
+| 04.3. Comparador de Compras | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

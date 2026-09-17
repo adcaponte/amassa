@@ -46,3 +46,7 @@ Thumbs.db
 .claude/*
 !.claude/CLAUDE.md
 !.claude/launch.json
+
+# Estado do projeto com contexto de negocio e anotacoes sobre o dono.
+# Mora so neste computador: o repositorio e publico.
+/ESTADO-ATUAL.md
