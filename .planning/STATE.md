@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.3
 current_phase_name: comparador-de-compras
 status: executing
-stopped_at: "Fase 04.3: onda 1/5 concluida e comitada. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 2. NAO dar push antes de o dono poder aplicar 0012/0013 — a pagina /abertura ja consulta as tabelas novas."
-last_updated: "2026-09-17T20:06:35.182Z"
+stopped_at: "Fase 04.3: onda 2/5 (04.3-02) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 3 (04.3-03). NAO dar push antes de o dono poder aplicar 0012/0013."
+last_updated: "2026-09-17T20:46:32.616Z"
 last_activity: 2026-09-17
-last_activity_desc: Phase 04.3 Plan 01 execution completed
+last_activity_desc: Phase 04.3 Plan 02 execution completed
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 51
-  completed_plans: 47
+  completed_plans: 48
 ---
 
 # Project State
@@ -28,13 +28,15 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.3 (comparador-de-compras) — EXECUTING
-Plan: 01 de 5 concluído (04.3-02 a 04.3-05 restantes)
-Status: 04.3-01-PLAN.md executado e verificado (tracer): tabelas cotacao_categorias/cotacoes,
-lib/cotacoes/{preco,ordenacao,esquemas,acoes,consultas}.ts, quarta aba "Cotações" em /abertura,
-prova de sobrevivência à remoção da Abertura em test:migracoes. Próximo: /gsd-execute-phase 04.3-02.
-Last activity: 2026-09-17 — Phase 04.3 Plan 01 execution completed
+Plan: 02 de 5 concluído (04.3-03 a 04.3-05 restantes)
+Status: 04.3-02-PLAN.md executado e verificado: sub-abas de categoria com contagem sempre visível,
+diálogo único para criar/renomear (canal local no abridor corrigindo campo vazio ao editar),
+remover categoria com confirmação nos três casos de contagem (transação + cascata da migração
+0012), EsqueletoCotacoes compartilhado por loading.tsx, e os dois estados vazios + fronteira de
+erro da aba Cotações provados por e2e. Próximo: /gsd-execute-phase 04.3-03.
+Last activity: 2026-09-17 — Phase 04.3 Plan 02 execution completed
 
-Progress: [█████████░] 92% (47 de 51 planos executados e verificados até aqui)
+Progress: [█████████░] 94% (48 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -109,6 +111,7 @@ Progress: [█████████░] 92% (47 de 51 planos executados e ver
 | Phase 04.2 P04 | 1h10min | 3 tasks | 16 files |
 | Phase 04.2 P05 | 100min | 2 tasks | 6 files |
 | Phase 04.3 P01 | ~65min | 3 tasks | 33 files |
+| Phase 04.3 P02 | ~70min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -256,6 +259,8 @@ Recent decisions affecting current work:
 - [Phase ?]: conferirRemocaoDoModuloAbertura semeia dado LIGADO (item_id nao nulo) antes do drop, provando a FK em uso, nao so linha solta.
 - [Phase ?]: 04.3-01: shadcn CLI 3.8.5 (textarea/checkbox) importa cn de pacote npm de terceiro em vez de @/lib/utils — corrigido, dependencia revertida
 - [Phase ?]: 04.3-01: pilula 'editar categoria' (D-15) nao construida no plano 01 — sem Server Action de update/delete; registrado em WINDOWS.md #28 para plano seguinte
+- [Phase ?]: 04.3-02: canal local abrirCategoriaParaEditar no abridor de cotacoes - history.pushState nao busca dado novo do servidor, achado real pelo e2e
+- [Phase ?]: 04.3-02: Excluir categoria troca categoriaDialogo por categoriaRemover na URL (Dialog e AlertDialog nunca abertos ao mesmo tempo)
 
 ### Pending Todos
 
@@ -313,6 +318,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-17T20:06:35.129Z
-Stopped at: Fase 04.3: onda 1/5 concluida e comitada. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 2. NAO dar push antes de o dono poder aplicar 0012/0013 — a pagina /abertura ja consulta as tabelas novas.
-Resume file: .planning/phases/04.3-comparador-de-compras/04.3-02-PLAN.md
+Last session: 2026-09-17T20:46:32.569Z
+Stopped at: Fase 04.3: onda 2/5 (04.3-02) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 3 (04.3-03). NAO dar push antes de o dono poder aplicar 0012/0013.
+Resume file: None
