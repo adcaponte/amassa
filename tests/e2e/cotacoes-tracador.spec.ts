@@ -26,14 +26,16 @@ function nomeUnico(rotulo: string): string {
   return `[e2e] ${rotulo} ${test.info().project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// A cotação aparece como CARTÃO (<660px, celular) ou como LINHA de tabela (≥660px, desktop) — os
-// dois `data-testid` do mesmo dado (UI-SPEC §"Responsivo"). `.or()` cobre os dois projetos sem
-// duplicar o teste.
+// A cotação aparece como CARTÃO (<660px, celular) ou como LINHA de tabela (≥660px, desktop) — as
+// DUAS formas do mesmo dado ficam no DOM ao mesmo tempo (alternadas só por CSS, UI-SPEC
+// §"Responsivo"), então `filter({ visible: true })` é obrigatório: sem ele, `.or()` resolve para
+// os dois elementos (um deles com `display: none`) e o modo estrito do Playwright reprova por
+// ambiguidade, não por o dado estar ausente.
 function linhaOuCartaoDaCotacao(page: Page, empresa: string) {
   return page
     .getByTestId("cotacoes-linha")
-    .filter({ hasText: empresa })
-    .or(page.getByTestId("cotacoes-cartao").filter({ hasText: empresa }));
+    .filter({ hasText: empresa, visible: true })
+    .or(page.getByTestId("cotacoes-cartao").filter({ hasText: empresa, visible: true }));
 }
 
 test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
@@ -77,7 +79,10 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
 
     // --- Criar categoria (D-14, <10s: um diálogo, um campo, um clique) ---
     await page.goto("/abertura?aba=cotacoes");
-    await page.getByRole("link", { name: "Criar nova categoria" }).click();
+    // O comparador pode subir vazio (D-18 a D-21 retiradas): sem NENHUMA categoria, o botão fica
+    // no estado vazio (`BotaoVazioCotacoes`); com pelo menos uma, na pílula tracejada
+    // (`PilulaNovaCategoria`) — os dois têm o mesmo texto visível "+ Nova categoria".
+    await page.getByRole("link", { name: "+ Nova categoria" }).first().click();
 
     const dialogoCategoria = page.getByRole("heading", { name: "Nova categoria" });
     await expect(dialogoCategoria).toBeVisible();
@@ -101,7 +106,7 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
 
     // --- Criar cotação: preço com símbolo da moeda e separador de milhar (D-08), os seis campos
     // longos preenchidos (D-06) ---
-    await page.getByRole("link", { name: "+ Nova cotação" }).click();
+    await page.getByRole("link", { name: "+ Nova cotação" }).first().click();
     await expect(page.getByRole("heading", { name: "Nova cotação" })).toBeVisible();
 
     await page.getByLabel("Empresa").fill(nomeDaEmpresa);
@@ -133,7 +138,7 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
 
     // --- Segunda cotação, SEM preço: travessão visível e frase acessível de "sob consulta" (D-07) ---
     const nomeSemPreco = nomeUnico("Importados Sem Preço");
-    await page.getByRole("link", { name: "+ Nova cotação" }).click();
+    await page.getByRole("link", { name: "+ Nova cotação" }).first().click();
     await expect(page.getByRole("heading", { name: "Nova cotação" })).toBeVisible();
     await page.getByLabel("Empresa").fill(nomeSemPreco);
     // "Preço" fica em branco de propósito.

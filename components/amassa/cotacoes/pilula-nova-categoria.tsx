@@ -19,7 +19,6 @@ export function PilulaNovaCategoria({ hrefBase }: { hrefBase: string }) {
         evento.preventDefault();
         irParaSemNavegar(href);
       }}
-      aria-label="Criar nova categoria"
       data-testid="cotacoes-nova-categoria"
       className="border-border text-muted-foreground hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-full border border-dashed px-4 font-medium"
     >
