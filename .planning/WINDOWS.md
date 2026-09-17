@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 16
+open_count: 17
 waived_count: 0
 fixed_count: 11
-total_count: 27
-last_updated: 2026-09-17T17:38:56.775Z
+total_count: 28
+last_updated: 2026-09-17T19:30:34.969Z
 ---
 
 # Broken Windows Ledger
@@ -42,6 +42,7 @@ last_updated: 2026-09-17T17:38:56.775Z
 | 25 | 04.2 | deviation | tests/e2e/abertura-edicao.spec.ts | 234 | 'editar uma tarefa preserva o vinculo dela com o item' falha intermitente, so no celular, na varredura completa -- o equivalente para ITEM (linha 165) passa nos dois viewports. Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md (payload RSC do FormularioTarefa em modo edicao); nao corrigido nesta execucao (orcamento de sessao de depuracao ja esgotado nesta fase). | fixed |  | 2026-08-31T21:11:53.253Z | 2026-08-31T23:32:07.674Z |
 | 26 | 04.2 | deviation | tests/e2e/queimas-registro.spec.ts | 84 | ACHADO QUE ULTRAPASSA A FASE: 'Desfazer' remove a queima recem-registrada -- falhou numa das varreduras completas de 04.2. Usa router.refresh() apos a Server Action (mesmo padrao de components/amassa/queimas/registrar-queima.tsx), o MESMO canal com perda ja diagnosticado em .planning/debug/abertura-navegacao-trava.md (confirmado tambem para components/amassa/encomendas/trilha-etapas.tsx, ja anotado ali como 'canal com perda', ver WINDOWS #12/#21/#22). Queimas e Encomendas usam o mesmo padrao router.refresh() e tem menos testes batendo nele que Abertura tinha. Nao corrigido nesta execucao -- fora do escopo de arquivos do plano 04.2-05 (nenhum arquivo de Queimas/Encomendas foi tocado). | open |  | 2026-08-31T21:12:06.353Z |  |
 | 27 | 04.2 | deviation | components/amassa/abertura/data-inauguracao.tsx | 79 | DataInauguracao.salvar() ainda chama router.refresh() apos definirDataDeInauguracao, ao contrario de formulario-item.tsx/formulario-tarefa.tsx/confirmar-remover-item.tsx/confirmar-remover-tarefa.tsx (todos migrados para navegacao completa nesta mesma fase para escapar do canal-com-perda documentado em .planning/debug/abertura-navegacao-trava.md). Risco: o toast de sucesso pode aparecer enquanto a contagem regressiva/data exibida no cabecalho fica com o valor antigo, na mesma taxa de falha (~54-70%) medida para a marcacao. Descoberto na conferencia lado a lado do plano 04.2-05 (Tarefa 2); nao corrigido nesta execucao porque o arquivo nao esta no escopo de arquivos do plano e a correcao (navegacao completa) implica uma terceira perda declarada (o toast de sucesso da data) que precisa de decisao do dono, nao so troca de codigo. | fixed |  | 2026-08-31T21:12:06.799Z | 2026-08-31T23:32:08.168Z |
+| 28 | 04.3 | deviation | components/amassa/cotacoes/sub-abas-categorias.tsx |  | Pílula 'editar categoria' (renomear/excluir, D-15) não implementada nesta tarefa — sem Server Action de update/delete de categoria no plano 01; a pílula de nova categoria funciona, a de editar fica para plano seguinte da fase. | open |  | 2026-09-17T19:30:34.969Z |  |
 
 ````json
 [
@@ -368,6 +369,18 @@ last_updated: 2026-09-17T17:38:56.775Z
     "reason": "",
     "recorded_at": "2026-08-31T21:12:06.799Z",
     "resolved_at": "2026-08-31T23:32:08.168Z"
+  },
+  {
+    "id": 28,
+    "kind": "deviation",
+    "phase": "04.3",
+    "file": "components/amassa/cotacoes/sub-abas-categorias.tsx",
+    "line": null,
+    "description": "Pílula 'editar categoria' (renomear/excluir, D-15) não implementada nesta tarefa — sem Server Action de update/delete de categoria no plano 01; a pílula de nova categoria funciona, a de editar fica para plano seguinte da fase.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-17T19:30:34.969Z",
+    "resolved_at": null
   }
 ]
 ````

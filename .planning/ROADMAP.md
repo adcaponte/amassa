@@ -351,17 +351,22 @@ navegador de quem digitou. A Andressa precisa ver e editar os mesmos dados.
 validado pelo dono. Como na 4.2, **o protótipo é a especificação**: onde a prosa e o protótipo
 divergirem, o protótipo vence — exceto nas melhorias listadas abaixo, decididas depois dele.
 **Decisões do dono (2026-09-17)**:
+
 - **Aba dentro de `/abertura`**, não módulo próprio em `/gestao/compras` como dizia o planejamento
   do Cowork (M10). Os equipamentos são todos comprados antes da inauguração.
+
 - **Arquivar, não apagar.** Quando a Abertura for desmontada, o comparador some da interface mas
   **as tabelas e os dados ficam no banco**. As tabelas do comparador NÃO entram em
   `db/remocao/remover-abertura-do-espaco.sql`.
+
 - **Preço é número anulável** (centavos). Nulo = "sob consulta", exibido como "—". O formulário
   aceita `24900` e `24.900,00`. As condições (parcelas, frete, desconto) seguem no texto.
+
 - **Independente** dos itens da lista de compras nesta fase; virar item de compra pode vir depois.
 - **Sem mudança de permissão**: a Andressa já tem conta.
 - **Sem upload de arquivo**: só a informação que interessa, digitada.
 - **Sobe vazio, sem importação:** o dono confirmou que não há dado cadastrado no protótipo.
+
 **Depends on**: Phase 4.2
 **Requirements**: CMP-01, CMP-02, CMP-03, CMP-04, CMP-05, CMP-06, CMP-07, CMP-08, CMP-09
 **Success Criteria** (what must be TRUE):
@@ -376,10 +381,11 @@ divergirem, o protótipo vence — exceto nas melhorias listadas abaixo, decidid
   8. No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
   9. As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
 
-**Plans**: 5 plans
+**Plans**: 1/5 plans executed
 
 Plans:
-- [ ] 04.3-01-PLAN.md — Traçado ponta a ponta: migrações 0012/0013, as duas tabelas, os módulos puros de preço e ordenação, a quarta aba, a lista responsiva, o formulário completo de cotação, e a prova de que o comparador sobrevive à remoção da Abertura
+
+- [x] 04.3-01-PLAN.md — Traçado ponta a ponta: migrações 0012/0013, as duas tabelas, os módulos puros de preço e ordenação, a quarta aba, a lista responsiva, o formulário completo de cotação, e a prova de que o comparador sobrevive à remoção da Abertura
 - [ ] 04.3-02-PLAN.md — Categorias: sub-abas com contagem, criar em menos de 10 segundos, renomear, remover dizendo quantas cotações se perdem, e os três estados (vazio, carregando, erro)
 - [ ] 04.3-03-PLAN.md — Ciclo de vida da cotação: editar no lugar (inclusive a situação), remover nomeando a empresa, o descartado que continua visível, o alerta que se vê na lista, e a prova de duas contas vendo os mesmos dados
 - [ ] 04.3-04-PLAN.md — Ler e comparar: ordenar por preço com o sem preço no fim, o detalhe completo ao clicar na linha, marcar para comparar e a comparação lado a lado com rolagem própria no celular
@@ -504,7 +510,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 4. Contador de Queima | 7/7 | Complete    | 2026-08-11 |
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
-| 04.3. Comparador de Compras | 0/5 | Planned | - |
+| 04.3. Comparador de Compras | 1/5 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

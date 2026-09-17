@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.3
 current_phase_name: comparador-de-compras
-status: planning
-stopped_at: "Fase 04.3 (Comparador de Compras) INSERIDA em 2026-09-17, antes do Estoque, a pedido do dono. Protótipo do dono já está em .planning/phases/04.3-comparador-de-compras/prototipo.html e é a especificação. Próximo: /gsd-plan-phase 04.3. A 4.2 segue completa e no ar. Porta de entrada de sessão nova: ESTADO-ATUAL.md na raiz (local, fora do git)."
-last_updated: "2026-09-17T17:40:34.293Z"
+status: executing
+stopped_at: Completed 04.3-01-PLAN.md
+last_updated: "2026-09-17T19:32:51.703Z"
 last_activity: 2026-09-17
-last_activity_desc: Fase 04.3 inserida; callbackUrl do login corrigido em produção
+last_activity_desc: Phase 04.3 Plan 01 execution completed
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 46
-  completed_plans: 46
+  total_plans: 51
+  completed_plans: 47
 ---
 
 # Project State
@@ -27,14 +27,14 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.3 (comparador-de-compras) — PLANNING
-Plan: not planned yet
-Status: Inserted, not planned yet — next: /gsd-plan-phase 04.3
-Server Action, rota `/abertura` e entrada no menu do usuário. Faltam 04.2-02 a 04.2-05
-(tarefas, marcar/editar/remover, painel e visão por mês, migração de remoção).
-Last activity: 2026-08-30 — Phase 04.2 execution started
+Phase: 04.3 (comparador-de-compras) — EXECUTING
+Plan: 01 de 5 concluído (04.3-02 a 04.3-05 restantes)
+Status: 04.3-01-PLAN.md executado e verificado (tracer): tabelas cotacao_categorias/cotacoes,
+lib/cotacoes/{preco,ordenacao,esquemas,acoes,consultas}.ts, quarta aba "Cotações" em /abertura,
+prova de sobrevivência à remoção da Abertura em test:migracoes. Próximo: /gsd-execute-phase 04.3-02.
+Last activity: 2026-09-17 — Phase 04.3 Plan 01 execution completed
 
-Progress: [██████████] 100% (42 de 46 planos executados e verificados até aqui)
+Progress: [█████████░] 92% (47 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -108,6 +108,7 @@ Progress: [██████████] 100% (42 de 46 planos executados e ve
 | Phase 04.2 P03 | ~3h | 3 tasks | 16 files |
 | Phase 04.2 P04 | 1h10min | 3 tasks | 16 files |
 | Phase 04.2 P05 | 100min | 2 tasks | 6 files |
+| Phase 04.3 P01 | ~65min | 3 tasks | 33 files |
 
 ## Accumulated Context
 
@@ -253,6 +254,8 @@ Recent decisions affecting current work:
 - [Phase ?]: definirDataDeInauguracao usa insert...on conflict sobre a restricao de linha unica - nunca select seguido de insert/update
 - [Phase ?]: Fase 4.2 fecha com a ressalva registrada: a suite e2e nao esta 100% verde (defeito de framework React/Next.js, mitigado nos fluxos criticos, tambem presente em Queimas/Encomendas).
 - [Phase ?]: conferirRemocaoDoModuloAbertura semeia dado LIGADO (item_id nao nulo) antes do drop, provando a FK em uso, nao so linha solta.
+- [Phase ?]: 04.3-01: shadcn CLI 3.8.5 (textarea/checkbox) importa cn de pacote npm de terceiro em vez de @/lib/utils — corrigido, dependencia revertida
+- [Phase ?]: 04.3-01: pilula 'editar categoria' (D-15) nao construida no plano 01 — sem Server Action de update/delete; registrado em WINDOWS.md #28 para plano seguinte
 
 ### Pending Todos
 
@@ -310,6 +313,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-31T21:14:32.694Z
-Stopped at: Completed 04.2-05-PLAN.md (Tarefas 1-2; Tarefa 3 e checkpoint humano pendente)
+Last session: 2026-09-17T19:32:51.645Z
+Stopped at: Completed 04.3-01-PLAN.md
 Resume file: None
