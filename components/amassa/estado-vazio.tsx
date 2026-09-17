@@ -36,6 +36,11 @@ export type EstadoVazioProps = {
   // componente e compartilhado por Encomendas, Queimas, Estoque e Orcamentos. Ausente = nada
   // muda para ninguem.
   botao?: ReactNode;
+  // Sobrescreve o `data-testid` padrão ("estado-vazio") — aditivo, para módulos com mais de um
+  // nível de vazio na MESMA tela (Comparador de Compras: "sem categoria" e "categoria sem
+  // cotação" são dois `EstadoVazio` distintos e um e2e precisa distingui-los). Ausente = o
+  // testid de sempre, sem mudar nada para Encomendas/Queimas/Estoque/Orçamentos.
+  testId?: string;
 };
 
 export function EstadoVazio({
@@ -46,11 +51,12 @@ export function EstadoVazio({
   hrefBotao,
   aoClicar,
   botao,
+  testId,
 }: EstadoVazioProps) {
   return (
     <div
       className="flex flex-1 items-center justify-center px-6 py-16"
-      data-testid="estado-vazio"
+      data-testid={testId ?? "estado-vazio"}
     >
       {/* max-w-prose: o texto quebra em linhas, nunca estica a largura inteira da tela nem
           exige rolagem horizontal (UI-06). Sem ícone decorativo — o texto carrega a voz do

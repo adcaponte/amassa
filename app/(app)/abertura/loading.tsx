@@ -1,10 +1,11 @@
+import { EsqueletoCotacoes } from "@/components/amassa/cotacoes/esqueleto-cotacoes";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Esqueleto na FORMA do conteúdo que substitui — o bloco "Comprometido" (na ALTURA final, para a
-// página não pular quando o número chegar), a barra de abas (plano 04.2-02) e três a quatro
-// linhas de item/tarefa, na mesma altura da linha real (UI-SPEC §"Estados de carregamento").
-// Nunca um "carregando..." solto entre as tags — só `Skeleton` e leiaute, no molde de
-// `app/(app)/queimas/loading.tsx`.
+// página não pular quando o número chegar), a barra de abas (plano 04.2-02) e o esqueleto
+// compartilhado de `EsqueletoCotacoes` (sub-abas de categoria + cabeçalho de tabela + linhas na
+// mesma altura da linha real, UI-SPEC §"Estados de carregamento"). Nunca um "carregando..."
+// solto entre as tags — só `Skeleton` e leiaute, no molde de `app/(app)/queimas/loading.tsx`.
 //
 // Cabeçalho + data de inauguração NÃO aparecem aqui — vivem em
 // `app/(app)/abertura/layout.tsx` (achado quantitativo de
@@ -14,12 +15,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 // estado de carregamento continua garantido — só num limite diferente.
 //
 // `loading.tsx` não recebe `searchParams` (é o mesmo esqueleto para qualquer `?aba=`) — por isso
-// ele não pode saber qual das duas listas vai aparecer. A solução é desenhar as DUAS formas de
-// linha (item e tarefa são visualmente parecidas: nome + etiquetas à esquerda, valor/urgência à
-// direita), o que continua sem salto de layout perceptível quando o conteúdo real chega, seja
-// qual for a aba.
-const LINHAS = [0, 1, 2, 3] as const;
-
+// ele não pode saber qual das quatro listas vai aparecer. A solução (04.3-02, Tarefa 3) é
+// reaproveitar `EsqueletoCotacoes` (sub-abas + cabeçalho + linhas) para a segunda fileira E as
+// linhas de conteúdo das QUATRO abas — item, tarefa e mês são visualmente próximos o bastante de
+// uma linha de tabela com cabeçalho (nome + valor/urgência à direita) para não produzir salto de
+// leiaute perceptível quando o conteúdo real chega, seja qual for a aba.
 export default function CarregandoAbertura() {
   return (
     <div className="flex flex-col">
@@ -49,34 +49,11 @@ export default function CarregandoAbertura() {
         <Skeleton className="h-11 flex-1 rounded-sm" />
       </div>
 
-      {/* Segunda fileira, menor: as sub-abas de categoria do Comparador de Compras (UI-SPEC
-          §"Estados de carregamento" — backstop) — o esqueleto tem de ter a forma do conteúdo, e
-          agora o conteúdo pode ter duas fileiras. Aparece sempre, mesmo fora da aba Cotações: o
-          esqueleto de `loading.tsx` é o MESMO para qualquer `?aba=` (não recebe `searchParams`). */}
-      <div className="mx-6 mt-2 flex gap-2 md:mx-8">
-        <Skeleton className="h-11 w-24 rounded-full" />
-        <Skeleton className="h-11 w-28 rounded-full" />
-        <Skeleton className="h-11 w-20 rounded-full" />
-      </div>
-
-      {/* Três a quatro linhas de item/tarefa em esqueleto, na mesma altura da linha real (nome +
-          duas etiquetas à esquerda, valor/urgência à direita). */}
-      <div className="flex flex-col gap-2 px-6 py-6 md:px-8">
-        {LINHAS.map((linha) => (
-          <div
-            key={linha}
-            className="flex items-center justify-between gap-3 rounded-md border border-border p-3"
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-24 rounded-full" />
-            </div>
-            <div className="flex flex-none flex-col items-end gap-1">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-3 w-20" />
-            </div>
-          </div>
-        ))}
+      {/* Segunda fileira (sub-abas de categoria) + cabeçalho + linhas — `EsqueletoCotacoes`
+          (04.3-02, Tarefa 3). Aparece sempre, mesmo fora da aba Cotações: o esqueleto de
+          `loading.tsx` é o MESMO para qualquer `?aba=` (não recebe `searchParams`). */}
+      <div className="mx-6 mt-2 pb-6 md:mx-8">
+        <EsqueletoCotacoes />
       </div>
     </div>
   );

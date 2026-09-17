@@ -63,6 +63,7 @@ export function ListaCotacoes({
   if (cotacoes.length === 0) {
     return (
       <EstadoVazio
+        testId="cotacoes-vazio-cotacoes"
         titulo={FRASE_VAZIO_SEM_COTACAO_TITULO}
         corpo={fraseVazioSemCotacaoCorpo(categoriaNome)}
         botao={
