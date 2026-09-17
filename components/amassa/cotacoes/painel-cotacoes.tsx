@@ -48,11 +48,16 @@ export function PainelCotacoes({ categoriaId, categoriaNome, cotacoes }: PainelC
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <span className="text-apoio text-muted-foreground mr-auto" data-testid="cotacoes-contagem">
-          {cotacoes.length} {cotacoes.length === 1 ? "cotação" : "cotações"}
-        </span>
+        {/* Nada quando a categoria está vazia (Tarefa 1, 04.3-02) — o estado vazio de
+            `ListaCotacoes` já fala por essa situação; mostrar "0 cotações" aqui seria repetir a
+            mesma informação duas vezes na mesma tela. */}
+        {cotacoes.length > 0 && (
+          <span className="text-apoio text-muted-foreground mr-auto" data-testid="cotacoes-contagem">
+            {cotacoes.length} {cotacoes.length === 1 ? "cotação" : "cotações"}
+          </span>
+        )}
 
-        <Button asChild variant="default" className="min-h-[44px]">
+        <Button asChild variant="default" className="ml-auto min-h-[44px]">
           <Link
             href={hrefNovaCotacao}
             onClick={(evento) => {

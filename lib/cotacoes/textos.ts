@@ -60,9 +60,18 @@ export const ROTULO_VOLTAR_A_LISTA = "Voltar à lista";
 export const TITULO_DIALOGO_NOVA_COTACAO = "Nova cotação";
 export const TITULO_DIALOGO_EDITAR_COTACAO = "Editar cotação";
 export const TITULO_DIALOGO_NOVA_CATEGORIA = "Nova categoria";
+// Tarefa 1 (04.3-02): o mesmo diálogo de `dialogo-categoria.tsx` serve os dois modos — só o
+// título e o rótulo do botão trocam (UI-SPEC §"Sub-abas de categoria").
+export const TITULO_DIALOGO_EDITAR_CATEGORIA = "Editar categoria";
 
 export const ROTULO_SALVAR_COTACAO = "Salvar";
 export const ROTULO_CRIAR_CATEGORIA = "Criar";
+// Rótulo próprio (mesmo texto de `ROTULO_SALVAR_COTACAO`) — cada diálogo desta fase nomeia o
+// próprio botão, nunca reaproveita a constante de outro formulário por coincidência de texto.
+export const ROTULO_SALVAR_CATEGORIA = "Salvar";
+// Tarefa 2 (04.3-02): botão de perigo dentro do modo de renomear — só ABRE a confirmação
+// (`ConfirmarRemoverCategoria`), nunca remove direto.
+export const ROTULO_EXCLUIR_CATEGORIA = "Excluir categoria";
 export const ROTULO_CANCELAR = "Cancelar";
 
 // Estados vazios (UI-SPEC §"Copywriting Contract" / §"Estados e Comportamento"), verbatim —
@@ -111,3 +120,15 @@ export const ROTULO_PRECO_SOB_CONSULTA_ACESSIVEL = "Preço sob consulta";
 export const ROTULO_MARCAR_PARA_COMPARAR = (empresa: string) => `Marcar «${empresa}» para comparar`;
 
 export const ROTULO_ALERTA_NA_LINHA = "— tem alerta";
+
+// Rótulo acessível do botão-só-ícone que abre o diálogo de categoria em modo de renomear
+// (UI-SPEC §"Sub-abas de categoria": `aria-label="Editar categoria «{nome}»"`) — nomeia a
+// categoria, nunca só "Editar" sozinho (CLAUDE.md §Acessibilidade).
+export function rotuloEditarCategoria(nome: string): string {
+  return `Editar categoria «${nome}»`;
+}
+
+// A categoria foi removida por outra pessoa entre abrir o diálogo/pílula e confirmar — mesma
+// frase de `lib/abertura/textos.ts` (`FRASE_ITEM_NAO_EXISTE_MAIS`) para o mesmo tipo de corrida.
+export const FRASE_CATEGORIA_NAO_EXISTE_MAIS =
+  "Essa categoria não existe mais. Recarregue a página e tente de novo.";

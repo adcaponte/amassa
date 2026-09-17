@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { CategoriaDeCotacao } from "@/lib/cotacoes/consultas";
 import { cn } from "@/lib/utils";
+import { BotaoEditarCategoria } from "@/components/amassa/cotacoes/botao-editar-categoria";
 import { PilulaNovaCategoria } from "@/components/amassa/cotacoes/pilula-nova-categoria";
 
 // Server Component. Diferente da barra de 4 abas (`abas-abertura.tsx`, contagem fixa, largura
@@ -14,18 +15,20 @@ import { PilulaNovaCategoria } from "@/components/amassa/cotacoes/pilula-nova-ca
 // terracota — UI-SPEC §Color, "um botão terracota por tela, no máximo": o terracota fica só no
 // CTA "+ Nova cotação").
 //
-// A pílula "editar categoria" do UI-SPEC (renomear/excluir, D-15) não faz parte desta fatia: não
-// há Server Action de atualização/remoção de categoria em `lib/cotacoes/acoes.ts` ainda — this é
-// uma redução de escopo deliberada desta Tarefa, documentada no SUMMARY do plano.
+// O botão "editar categoria" (renomear/excluir, D-15) é `BotaoEditarCategoria`, um único botão
+// ao lado da barra que edita a categoria ATIVA — nunca uma pílula por categoria (04.3-02,
+// Tarefa 1).
 export function SubAbasCategorias({
   categorias,
-  categoriaAtivaId,
+  categoriaAtiva,
   contagemPorCategoria,
 }: {
   categorias: CategoriaDeCotacao[];
-  categoriaAtivaId: string | null;
+  categoriaAtiva: CategoriaDeCotacao | null;
   contagemPorCategoria: Map<string, number>;
 }) {
+  const categoriaAtivaId = categoriaAtiva?.id ?? null;
+
   return (
     <div
       role="tablist"
@@ -65,6 +68,11 @@ export function SubAbasCategorias({
       <PilulaNovaCategoria
         hrefBase={`/abertura?aba=cotacoes${categoriaAtivaId ? `&categoria=${categoriaAtivaId}` : ""}`}
       />
+
+      {/* Só existe categoria ATIVA (a barra nunca sobe sem nenhuma categoria selecionada quando
+          existe pelo menos uma) — a categoria INTEIRA (não só o id) é o que o abridor precisa
+          para preencher o diálogo sem depender de uma navegação completa. */}
+      {categoriaAtiva && <BotaoEditarCategoria categoria={categoriaAtiva} />}
     </div>
   );
 }

@@ -33,6 +33,19 @@ export async function listarCategoriasDeCotacao(): Promise<CategoriaDeCotacao[]>
   }));
 }
 
+// Tarefa 1 (04.3-02): a linha de UMA categoria, para o diálogo de renomear abrir preenchido — um
+// identificador que não corresponde a nenhuma linha devolve `null` em vez de quebrar a página
+// (mesma disciplina de `obterCotacao`/`obterItemDeAbertura`).
+export async function obterCategoriaDeCotacao(id: string): Promise<CategoriaDeCotacao | null> {
+  const [linha] = await db
+    .select({ id: cotacaoCategorias.id, nome: cotacaoCategorias.nome, criadoEm: cotacaoCategorias.criadoEm })
+    .from(cotacaoCategorias)
+    .where(eq(cotacaoCategorias.id, id))
+    .limit(1);
+
+  return linha ? { id: linha.id, nome: linha.nome, criadoEm: linha.criadoEm.toISOString() } : null;
+}
+
 export type Cotacao = {
   id: string;
   categoriaId: string;

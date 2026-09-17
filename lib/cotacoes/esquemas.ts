@@ -53,6 +53,15 @@ export const esquemaCategoriaDeCotacao = esquemaCategoriaBase;
 
 export type EntradaDeCategoriaDeCotacao = z.infer<typeof esquemaCategoriaDeCotacao>;
 
+// Tarefa 2 (04.3-02, D-14 "renomear funciona"): a base MAIS `id`, por composição — nunca uma
+// segunda cópia da regra de nome válido (mesmo cuidado de `esquemaAtualizacaoDeItem` em
+// `lib/abertura/esquemas.ts`: um `.refine`/`.transform` anexado a uma cadeia Zod não é herdável
+// por outra cadeia, então reusar o OBJETO base via `.extend` é o que impede duas versões da
+// regra divergirem na primeira mudança).
+export const esquemaRenomearCategoria = esquemaCategoriaBase.extend({ id: esquemaId });
+
+export type EntradaDeRenomearCategoria = z.infer<typeof esquemaRenomearCategoria>;
+
 // Formato de entrada CRUA da cotação — exportado para o formulário reaproveitar `.shape` campo a
 // campo (`esquemaCotacaoBase.shape.empresa` etc.). `preco` fica como TEXTO aqui: é o formato que
 // o campo do formulário produz ("R$ 24.900"), e a conversão para centavos (D-08) acontece só no

@@ -13,6 +13,7 @@ import {
   contarCotacoesPorCategoria,
   listarCategoriasDeCotacao,
   listarCotacoesDaCategoria,
+  obterCategoriaDeCotacao,
   obterCotacao,
   type CategoriaDeCotacao,
 } from "@/lib/cotacoes/consultas";
@@ -25,6 +26,7 @@ import { ListaMeses } from "@/components/amassa/abertura/lista-meses";
 import { ListaTarefas } from "@/components/amassa/abertura/lista-tarefas";
 import { PainelResumo } from "@/components/amassa/abertura/painel-resumo";
 import { BotaoVazioCotacoes } from "@/components/amassa/cotacoes/botao-vazio-cotacoes";
+import { ConfirmarRemoverCategoria } from "@/components/amassa/cotacoes/confirmar-remover-categoria";
 import { ProvedorNavegacaoCotacoes } from "@/components/amassa/cotacoes/contexto-cotacoes";
 import { DialogoCategoria } from "@/components/amassa/cotacoes/dialogo-categoria";
 import { FormularioCotacao } from "@/components/amassa/cotacoes/formulario-cotacao";
@@ -68,6 +70,7 @@ export default async function PaginaAbertura({
     tarefa?: string;
     categoria?: string;
     cotacao?: string;
+    categoriaDialogo?: string;
   }>;
 }) {
   await exigirUsuario();
@@ -77,6 +80,7 @@ export default async function PaginaAbertura({
     tarefa: tarefaParam,
     categoria: categoriaParam,
     cotacao: cotacaoParam,
+    categoriaDialogo: categoriaDialogoParam,
   } = await searchParams;
   const abaTarefas = aba === "tarefas";
   const abaMeses = aba === "meses";
@@ -93,22 +97,38 @@ export default async function PaginaAbertura({
   const idDoItemParaEditar = itemParam && itemParam !== "novo" ? itemParam : null;
   const idDaTarefaParaEditar = tarefaParam && tarefaParam !== "nova" ? tarefaParam : null;
   const idDaCotacaoParaEditar = cotacaoParam && cotacaoParam !== "novo" ? cotacaoParam : null;
+  // Tarefa 1 (04.3-02): o mesmo sentinela "nova"/"novo" das outras entidades — "nova" abre
+  // `DialogoCategoria` em modo de criação; qualquer outro valor é o identificador da categoria a
+  // renomear.
+  const idDaCategoriaParaEditar =
+    categoriaDialogoParam && categoriaDialogoParam !== "nova" ? categoriaDialogoParam : null;
 
   // Uma leitura por lista, nunca uma consulta por linha (T-04.2-11) — itens, tarefas, a lista de
   // gestores ativos (D-11) e, quando aplicável, a linha em edição chegam juntos. A data de
   // inauguração (D-17) é lida em `layout.tsx`, não aqui. As categorias e a contagem de cotações
   // (Comparador de Compras, D-02) só são buscadas na aba Cotações — nenhuma leitura a mais nas
   // outras três abas.
-  const [itens, tarefas, gestores, itemParaEditar, tarefaParaEditar, categoriasDeCotacao, contagemPorCategoria] =
-    await Promise.all([
-      listarItensDaAbertura(),
-      listarTarefasDaAbertura(),
-      listarGestoresAtivos(),
-      idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
-      idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
-      abaCotacoes ? listarCategoriasDeCotacao() : Promise.resolve([]),
-      abaCotacoes ? contarCotacoesPorCategoria() : Promise.resolve(new Map<string, number>()),
-    ]);
+  const [
+    itens,
+    tarefas,
+    gestores,
+    itemParaEditar,
+    tarefaParaEditar,
+    categoriasDeCotacao,
+    contagemPorCategoria,
+    categoriaParaEditar,
+  ] = await Promise.all([
+    listarItensDaAbertura(),
+    listarTarefasDaAbertura(),
+    listarGestoresAtivos(),
+    idDoItemParaEditar ? obterItemDeAbertura(idDoItemParaEditar) : Promise.resolve(null),
+    idDaTarefaParaEditar ? obterTarefaDeAbertura(idDaTarefaParaEditar) : Promise.resolve(null),
+    abaCotacoes ? listarCategoriasDeCotacao() : Promise.resolve([]),
+    abaCotacoes ? contarCotacoesPorCategoria() : Promise.resolve(new Map<string, number>()),
+    abaCotacoes && idDaCategoriaParaEditar
+      ? obterCategoriaDeCotacao(idDaCategoriaParaEditar)
+      : Promise.resolve(null),
+  ]);
   // Contagem de tarefas abertas por item (D-13) a partir das tarefas JÁ carregadas acima —
   // nunca uma segunda consulta por item.
   const contagemDeTarefasAbertas = contarTarefasAbertasPorItem(tarefas);
@@ -154,9 +174,14 @@ export default async function PaginaAbertura({
         // Provedor PRÓPRIO da aba Cotações (D-23), montado SÓ neste ramo — nunca no layout, que
         // serve às outras três abas.
         <ProvedorNavegacaoCotacoes>
-          {/* Montado SEMPRE, mesmo sem nenhuma categoria — o botão do estado vazio "+ Nova
-              categoria" abre este mesmo diálogo. */}
-          <DialogoCategoria />
+          {/* Montados SEMPRE, mesmo sem nenhuma categoria — o botão do estado vazio "+ Nova
+              categoria" abre este mesmo diálogo, e a confirmação de remoção só fica alcançável a
+              partir de uma categoria que já existe. */}
+          <DialogoCategoria categoriaParaEditar={categoriaParaEditar} />
+          <ConfirmarRemoverCategoria
+            categorias={categoriasDeCotacao}
+            contagemPorCategoria={contagemPorCategoria}
+          />
 
           {categoriaAtiva ? (
             <>
@@ -167,7 +192,7 @@ export default async function PaginaAbertura({
               <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
                 <SubAbasCategorias
                   categorias={categoriasDeCotacao}
-                  categoriaAtivaId={categoriaAtiva.id}
+                  categoriaAtiva={categoriaAtiva}
                   contagemPorCategoria={contagemPorCategoria}
                 />
 
@@ -183,6 +208,7 @@ export default async function PaginaAbertura({
             </>
           ) : (
             <EstadoVazio
+              testId="cotacoes-vazio-categorias"
               titulo={FRASE_VAZIO_SEM_CATEGORIA_TITULO}
               corpo={FRASE_VAZIO_SEM_CATEGORIA_CORPO}
               botao={<BotaoVazioCotacoes tipo="categoria" rotulo={ROTULO_NOVA_CATEGORIA} />}
