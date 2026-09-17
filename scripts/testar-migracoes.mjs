@@ -495,6 +495,25 @@ async function conferirRemocaoDoModuloAbertura(cliente) {
     afirmar(existe.rowCount === 1, `O tipo "${tipo}" deveria existir em pg_type antes da remoção.`);
   }
 
+  // D-03/D-26 (plano 04.3-01, Tarefa 3): as duas tabelas do Comparador de Compras e o tipo de
+  // enum de situação existem ANTES da remoção — o "antes" precisa provar que elas estavam lá,
+  // senão o "depois" não prova sobrevivência nenhuma, só ausência de sempre.
+  for (const tabela of ["cotacao_categorias", "cotacoes"]) {
+    const existe = await cliente.query(
+      `select 1 from information_schema.tables
+       where table_schema = 'public' and table_name = $1`,
+      [tabela],
+    );
+    afirmar(existe.rowCount === 1, `A tabela "${tabela}" (Comparador de Compras) deveria existir antes da remoção da Abertura.`);
+  }
+  const tipoSituacaoAntes = await cliente.query(
+    "select 1 from pg_type where typname = 'situacao_cotacao'",
+  );
+  afirmar(
+    tipoSituacaoAntes.rowCount === 1,
+    'O tipo "situacao_cotacao" (Comparador de Compras) deveria existir em pg_type antes da remoção da Abertura.',
+  );
+
   const { rows: contagemUsuariosAntes } = await cliente.query(
     "select count(*)::int as total from usuarios",
   );
@@ -525,6 +544,34 @@ async function conferirRemocaoDoModuloAbertura(cliente) {
   afirmar(
     configuracaoInserida.length === 1 && Boolean(idDoItem),
     "A semeadura de item/tarefa/configuração de abertura não inseriu as linhas esperadas.",
+  );
+
+  // D-03/D-26 (Tarefa 3): semeia UMA categoria e DUAS cotações do Comparador de Compras — uma
+  // com preço, uma com preço NULO (D-07, "sob consulta") — para provar, depois da remoção da
+  // Abertura, que as duas tabelas, o tipo de enum e as três linhas continuam lá, LEGÍVEIS, com o
+  // preço nulo ainda nulo e o preço com valor ainda com o mesmo valor. Nomes inventados e
+  // genéricos, nunca fornecedor real (o repositório é público).
+  const { rows: categoriaDeCotacaoInserida } = await cliente.query(
+    "insert into cotacao_categorias (nome) values ('Categoria de teste') returning id",
+  );
+  const idDaCategoriaDeCotacao = categoriaDeCotacaoInserida[0].id;
+  const { rows: cotacaoComPrecoInserida } = await cliente.query(
+    `insert into cotacoes (categoria_id, empresa, preco_centavos)
+     values ($1, 'Fornecedora de teste', 190000)
+     returning id`,
+    [idDaCategoriaDeCotacao],
+  );
+  const { rows: cotacaoSemPrecoInserida } = await cliente.query(
+    `insert into cotacoes (categoria_id, empresa, preco_centavos)
+     values ($1, 'Fornecedora sem preço de teste', null)
+     returning id`,
+    [idDaCategoriaDeCotacao],
+  );
+  afirmar(
+    Boolean(idDaCategoriaDeCotacao) &&
+      cotacaoComPrecoInserida.length === 1 &&
+      cotacaoSemPrecoInserida.length === 1,
+    "A semeadura de categoria/cotações do Comparador de Compras não inseriu as linhas esperadas.",
   );
 
   // 4. Aplique — lê o arquivo de db/remocao/, separa pelas marcas de instrução do Drizzle
@@ -579,6 +626,70 @@ async function conferirRemocaoDoModuloAbertura(cliente) {
         "tipo de enum, e este é exatamente o resíduo órfão que ABE-15 proíbe.",
     );
   }
+
+  // D-03/D-26 (Tarefa 3): as duas tabelas do Comparador de Compras, o tipo de enum de situação e
+  // as três linhas semeadas SOBREVIVEM à remoção da Abertura — cada afirmação com mensagem
+  // própria dizendo exatamente o que faltou. A lista de tabelas "depois é antes menos as três da
+  // Abertura", conferida logo abaixo, já cobre as duas tabelas novas automaticamente (elas não
+  // estão em TABELAS_DA_REMOCAO_ABERTURA, então continuam na lista de "antes" e de "depois") —
+  // isto aqui é a prova ADICIONAL de que elas não só existem, mas continuam com o dado legível.
+  for (const tabela of ["cotacao_categorias", "cotacoes"]) {
+    const existeAinda = await cliente.query(
+      `select 1 from information_schema.tables
+       where table_schema = 'public' and table_name = $1`,
+      [tabela],
+    );
+    afirmar(
+      existeAinda.rowCount === 1,
+      `A tabela "${tabela}" (Comparador de Compras) deveria CONTINUAR existindo depois da ` +
+        "remoção da Abertura — D-03: arquivar, não apagar.",
+    );
+  }
+  const tipoSituacaoDepois = await cliente.query(
+    "select 1 from pg_type where typname = 'situacao_cotacao'",
+  );
+  afirmar(
+    tipoSituacaoDepois.rowCount === 1,
+    'O tipo "situacao_cotacao" (Comparador de Compras) sumiu de pg_type depois da remoção da ' +
+      "Abertura — ele deveria continuar existindo (D-03: arquivar, não apagar).",
+  );
+
+  const categoriaDeCotacaoDepois = await cliente.query(
+    "select nome from cotacao_categorias where id = $1",
+    [idDaCategoriaDeCotacao],
+  );
+  afirmar(
+    categoriaDeCotacaoDepois.rowCount === 1 &&
+      categoriaDeCotacaoDepois.rows[0].nome === "Categoria de teste",
+    "A categoria de cotação semeada não sobreviveu, LEGÍVEL, à remoção da Abertura.",
+  );
+
+  const cotacoesDepois = await cliente.query(
+    `select id, categoria_id, preco_centavos from cotacoes
+     where id = any($1::uuid[])
+     order by preco_centavos nulls last`,
+    [[cotacaoComPrecoInserida[0].id, cotacaoSemPrecoInserida[0].id]],
+  );
+  afirmar(
+    cotacoesDepois.rowCount === 2,
+    "As duas cotações semeadas não sobreviveram à remoção da Abertura — deveriam continuar as duas, legíveis.",
+  );
+  const [cotacaoComPrecoDepois, cotacaoSemPrecoDepois] = cotacoesDepois.rows;
+  afirmar(
+    cotacaoComPrecoDepois.preco_centavos === 190000,
+    `O preço da cotação com valor mudou depois da remoção da Abertura (esperado 190000, veio ${cotacaoComPrecoDepois.preco_centavos}) — a remoção não deveria tocar em dado do Comparador de Compras.`,
+  );
+  afirmar(
+    cotacaoSemPrecoDepois.preco_centavos === null,
+    "O preço nulo (sob consulta, D-07) da segunda cotação deixou de ser nulo depois da remoção da Abertura.",
+  );
+  afirmar(
+    cotacaoComPrecoDepois.categoria_id === idDaCategoriaDeCotacao &&
+      cotacaoSemPrecoDepois.categoria_id === idDaCategoriaDeCotacao,
+    "A chave estrangeira de categoria_id das cotações não é mais a categoria semeada depois da " +
+      "remoção da Abertura — ela deveria continuar válida e intocada (D-04: nenhuma dependência " +
+      "cruzada com a Abertura).",
+  );
 
   const { rows: tabelasDepois } = await cliente.query(
     `select table_name from information_schema.tables

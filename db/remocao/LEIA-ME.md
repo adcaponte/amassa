@@ -22,16 +22,31 @@ não deve rodar agora — só no dia da abertura, por decisão explícita do don
   instruções), para no dia da abertura ser **movido** para `db/migrations/` como a próxima
   migração numerada, e não reescrito.
 
+## O que ele NÃO apaga (D-03, deliberado)
+
+O **Comparador de Compras** (Fase 4.3) mora dentro da mesma aba `/abertura`, mas as duas tabelas
+dele — `cotacao_categorias` e `cotacoes` — e o tipo de enum `situacao_cotacao` **não** entram
+nesta remoção. A decisão do dono foi **arquivar, não apagar**: quando a Abertura sair do sistema,
+o comparador some da interface, mas os dados de cotação continuam no banco (`04.3-CONTEXT.md`,
+D-03). É por isso que essas duas tabelas nasceram **sem** o prefixo `abertura_` em
+`db/schema.ts` — nesse projeto, o prefixo `abertura_` significa "sai quando o módulo for
+desmontado", e uma tabela arquivada com esse nome mentiria sobre o próprio ciclo de vida. A
+verificação automatizada (abaixo) prova a sobrevivência delas com dado real, não só a ausência
+delas desta lista.
+
 ## Como a verificação automatizada prova este arquivo
 
 `npm run test:migracoes` (parte de `npm run verificar`) sobe um Postgres efêmero, aplica todas as
-migrações normais, semeia um item, uma tarefa ligada a ele e a linha de configuração, aplica
-`remover-abertura-do-espaco.sql` e confere: as três tabelas e os três tipos sumiram; nada mais
-sumiu (`usuarios` mantém as linhas, as funções e o gatilho de outro módulo continuam existindo); e
-a verificação se recusa a rodar se o banco conectado não for o de teste. A função que faz essa
-prova é `conferirRemocaoDoModuloAbertura`, em `scripts/testar-migracoes.mjs`, chamada por último
-em `conferirBanco()` — ela destrói tabelas, e qualquer verificação depois dela estaria olhando um
-banco mutilado.
+migrações normais, semeia um item, uma tarefa ligada a ele, a linha de configuração da Abertura E
+uma categoria com duas cotações do Comparador de Compras (uma com preço, uma com preço nulo —
+D-07), aplica `remover-abertura-do-espaco.sql` e confere: as três tabelas e os três tipos da
+Abertura sumiram; nada mais sumiu (`usuarios` mantém as linhas, as funções e o gatilho de outro
+módulo continuam existindo); **as duas tabelas e o tipo de enum do Comparador de Compras
+continuam existindo, com as três linhas semeadas ainda legíveis e o preço nulo ainda nulo**
+(D-03/D-26); e a verificação se recusa a rodar se o banco conectado não for o de teste. A função
+que faz essa prova é `conferirRemocaoDoModuloAbertura`, em `scripts/testar-migracoes.mjs`, rodada
+em banco PRÓPRIO por `provarRemocaoEmBancoProprio` (D-26) e chamada por último dentro dele — ela
+destrói tabelas, e qualquer verificação depois dela estaria olhando um banco mutilado.
 
 ## O procedimento do dia
 

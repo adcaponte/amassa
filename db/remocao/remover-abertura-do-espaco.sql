@@ -32,6 +32,17 @@
 --
 -- Nada de `begin`/`commit` aqui: o Drizzle envolve cada migração na própria transação quando
 -- este arquivo virar uma migração de verdade.
+--
+-- AUSÊNCIA DELIBERADA (D-03, .planning/phases/04.3-comparador-de-compras/04.3-CONTEXT.md): as
+-- duas tabelas do Comparador de Compras (`cotacao_categorias`, `cotacoes`) e o tipo de enum
+-- `situacao_cotacao` NÃO entram nesta lista, e isso nunca deve ser "corrigido". Elas são
+-- ARQUIVADAS, não apagadas — quando a Abertura for desmontada, o comparador some da interface e
+-- os dados continuam no banco. É exatamente por isso que as duas tabelas nasceram SEM o prefixo
+-- `abertura_` (db/schema.ts): esse prefixo, neste projeto, significa "sai quando o módulo for
+-- desmontado", e uma tabela arquivada com esse nome mentiria sobre o próprio ciclo de vida e
+-- convidaria alguém a "completar" esta lista por prefixo, num dia corrido. A prova de que elas
+-- sobrevivem de verdade — com o dado ainda legível — roda em `conferirRemocaoDoModuloAbertura`
+-- (`scripts/testar-migracoes.mjs`), não neste arquivo.
 
 drop table if exists abertura_tarefas;
 --> statement-breakpoint
