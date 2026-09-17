@@ -28,6 +28,16 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST}
+      # Origem pública do site, para o Auth.js montar URLs absolutas. Sem ela, o redirecionamento
+      # de quem não tem sessão saía como `/login?callbackUrl=https://0.0.0.0:3000/...` — o endereço
+      # em que o servidor standalone ESCUTA dentro do contêiner, não o domínio (WINDOWS.md nº 2).
+      # AUTH_TRUST_HOST não resolve isto: em next-auth 5.0.0-beta.32 o callbackUrl do middleware
+      # sai de `reqWithEnvURL` (node_modules/next-auth/lib/env.js), que só reescreve a origem
+      # quando AUTH_URL existe. Sem caminho no fim, ela não altera o basePath (`/api/auth`).
+      # Padrão aqui, e não só no .env: este arquivo é ressincronizado pelo job `implantar`, o .env
+      # não — uma variável que dependesse de edição à mão no servidor envelheceria em silêncio.
+      # O .env ainda pode sobrescrever.
+      AUTH_URL: ${AUTH_URL:-https://amassacerrado.com.br}
       # Fuso de Brasília. Existe só aqui — nunca no serviço postgres (ver 02-MODELO-DE-DADOS.md §0).
       TZ: ${TZ}
     healthcheck:
