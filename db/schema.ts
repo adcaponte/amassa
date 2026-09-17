@@ -419,3 +419,94 @@ export const manutencoes = pgTable(
     index("manutencoes_forno_idx").on(tabela.fornoId, tabela.ocorridaEm.desc()),
   ],
 );
+
+// Fase 4.3 — Comparador de Compras (aba dentro do módulo Abertura do Espaço, D-02). As duas
+// tabelas abaixo NÃO fazem parte do módulo temporário acima, e isso é deliberado (D-03): elas
+// ARQUIVAM, nunca são apagadas. Três decisões merecem comentário porque um leitor futuro vai
+// estranhar:
+//
+// (a) `cotacoes.categoriaId` referencia `cotacaoCategorias` EM CASCATA — o oposto de
+// `aberturaTarefas.itemId` (`set null`) acima. Aqui perder a categoria É perder as cotações
+// dela, de propósito (D-15: a confirmação de exclusão da categoria diz quantas cotações se
+// perdem antes de o usuário confirmar).
+//
+// (b) As duas tabelas NÃO levam o prefixo `abertura_`, ao contrário de todo o bloco anterior.
+// Neste projeto esse prefixo significa "sai quando o módulo for desmontado" — e a remoção do
+// módulo (`db/remocao/remover-abertura-do-espaco.sql`) varre exatamente as tabelas prefixadas.
+// Estas duas são arquivadas, não apagadas (D-03), então um nome prefixado mentiria sobre o
+// ciclo de vida delas e convidaria alguém a "completar" a lista de remoção por prefixo num dia
+// corrido. `npm run test:migracoes` prova a sobrevivência das duas depois da remoção da
+// Abertura (D-26).
+//
+// (c) Nenhuma chave estrangeira daqui para `aberturaItens` nem `aberturaTarefas` (D-04) — é
+// isso que permite (b) sem cascata cruzada: o comparador é independente da lista de compras.
+export const situacaoCotacao = pgEnum("situacao_cotacao", ["cotando", "favorito", "descartado"]);
+
+// Uma categoria de cotação (o protótipo as chama de "tabelas"): nome e ordem de exibição, que é
+// a própria ordem de criação (UI-SPEC §Assunções item 6, D-14 — sem reordenação, não é
+// critério).
+export const cotacaoCategorias = pgTable(
+  "cotacao_categorias",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "cotacao_categorias_nome_comprimento",
+      sql`length(trim(${tabela.nome})) between 1 and 60`,
+    ),
+    index("cotacao_categorias_criado_em_idx").on(tabela.criadoEm),
+  ],
+);
+
+// Uma cotação (item) dentro de uma categoria: empresa, especificação, preço (D-07: anulável —
+// nulo é "sob consulta", nunca zero) e os seis campos longos de D-06. `produto` e os seis
+// campos longos nascem com padrão de texto vazio (nunca nulo) — o formulário sempre envia os
+// seis, mesmo em branco, e um valor ausente e um valor vazio são a mesma informação aqui.
+export const cotacoes = pgTable(
+  "cotacoes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    categoriaId: uuid("categoria_id")
+      .notNull()
+      .references(() => cotacaoCategorias.id, { onDelete: "cascade" }),
+    empresa: text("empresa").notNull(),
+    produto: text("produto").notNull().default(""),
+    // Anulável de propósito (D-07): nulo = "sob consulta", exibido como "—". Nunca confundir
+    // com zero, que é um preço de graça — informação diferente.
+    precoCentavos: integer("preco_centavos"),
+    situacao: situacaoCotacao("situacao").notNull().default("cotando"),
+    diferenciais: text("diferenciais").notNull().default(""),
+    assistencia: text("assistencia").notNull().default(""),
+    pagamento: text("pagamento").notNull().default(""),
+    contato: text("contato").notNull().default(""),
+    observacoes: text("observacoes").notNull().default(""),
+    alertas: text("alertas").notNull().default(""),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("cotacoes_empresa_comprimento", sql`length(trim(${tabela.empresa})) between 1 and 160`),
+    check("cotacoes_produto_comprimento", sql`length(${tabela.produto}) <= 200`),
+    check("cotacoes_diferenciais_comprimento", sql`length(${tabela.diferenciais}) <= 2000`),
+    check("cotacoes_assistencia_comprimento", sql`length(${tabela.assistencia}) <= 2000`),
+    check("cotacoes_pagamento_comprimento", sql`length(${tabela.pagamento}) <= 2000`),
+    check("cotacoes_contato_comprimento", sql`length(${tabela.contato}) <= 2000`),
+    check("cotacoes_observacoes_comprimento", sql`length(${tabela.observacoes}) <= 2000`),
+    check("cotacoes_alertas_comprimento", sql`length(${tabela.alertas}) <= 2000`),
+    // Mesmo teto de dez milhões de reais (10^9 centavos) de `abertura_itens.valor_centavos`,
+    // pelo mesmo motivo: mantém a conta longe do limite do inteiro de 32 bits.
+    check(
+      "cotacoes_preco_no_intervalo",
+      sql`${tabela.precoCentavos} is null or (${tabela.precoCentavos} >= 0 and ${tabela.precoCentavos} <= 1000000000)`,
+    ),
+    index("cotacoes_categoria_idx").on(tabela.categoriaId, tabela.criadoEm),
+  ],
+);

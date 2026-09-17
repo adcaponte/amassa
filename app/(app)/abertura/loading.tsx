@@ -40,12 +40,23 @@ export default function CarregandoAbertura() {
         ))}
       </div>
 
-      {/* Barra de abas (Itens/Tarefas/Por mês, `AbasAbertura`) — três blocos do mesmo tamanho do
-          botão real (min-h-11), lado a lado. */}
+      {/* Barra de abas (Itens/Tarefas/Por mês/Cotações, `AbasAbertura`) — QUATRO blocos do mesmo
+          tamanho do botão real (min-h-11), lado a lado (plano 04.3-01: a quarta aba). */}
       <div className="mx-6 mt-6 flex gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-md">
         <Skeleton className="h-11 flex-1 rounded-sm" />
         <Skeleton className="h-11 flex-1 rounded-sm" />
         <Skeleton className="h-11 flex-1 rounded-sm" />
+        <Skeleton className="h-11 flex-1 rounded-sm" />
+      </div>
+
+      {/* Segunda fileira, menor: as sub-abas de categoria do Comparador de Compras (UI-SPEC
+          §"Estados de carregamento" — backstop) — o esqueleto tem de ter a forma do conteúdo, e
+          agora o conteúdo pode ter duas fileiras. Aparece sempre, mesmo fora da aba Cotações: o
+          esqueleto de `loading.tsx` é o MESMO para qualquer `?aba=` (não recebe `searchParams`). */}
+      <div className="mx-6 mt-2 flex gap-2 md:mx-8">
+        <Skeleton className="h-11 w-24 rounded-full" />
+        <Skeleton className="h-11 w-28 rounded-full" />
+        <Skeleton className="h-11 w-20 rounded-full" />
       </div>
 
       {/* Três a quatro linhas de item/tarefa em esqueleto, na mesma altura da linha real (nome +

@@ -85,6 +85,20 @@
       "when": 1788094361770,
       "tag": "0011_gatilhos-abertura",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789671448215,
+      "tag": "0012_comparador-de-compras",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789671457595,
+      "tag": "0013_gatilhos-comparador",
+      "breakpoints": true
     }
   ]
 }

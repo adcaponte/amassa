@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 
-export type AbaAbertura = "itens" | "tarefas" | "meses";
+export type AbaAbertura = "itens" | "tarefas" | "meses" | "cotacoes";
 
 // Casca fininha: só lê `?aba=` e repassa como prop primitiva (mesmo molde de
 // `abas-abertura.tsx` — ver .planning/debug/abertura-navegacao-trava.md). Vive em
@@ -29,10 +29,13 @@ function BotaoAdicionarAberturaConteudoBase({ aba }: { aba: string | null }) {
   const abridor = useAbridorAbertura();
   const abaTarefas = aba === "tarefas";
   const abaMeses = aba === "meses";
+  const abaCotacoes = aba === "cotacoes";
 
   // A aba "Por mês" não tem ação de "adicionar" própria — um mês nasce de cadastrar um item na
-  // aba Itens, não de um botão nesta tela.
-  if (abaMeses) {
+  // aba Itens, não de um botão nesta tela. A aba "Cotações" (comparador) tem a barra PRÓPRIA
+  // dela (`PainelCotacoes`, com "+ Nova cotação") — o design system admite um botão terracota
+  // por tela, no máximo (`04-DESIGN-SYSTEM.md` §3), e este cabeçalho não é dessa tela.
+  if (abaMeses || abaCotacoes) {
     return null;
   }
 

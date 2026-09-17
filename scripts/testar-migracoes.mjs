@@ -40,6 +40,13 @@ const TABELAS_ESPERADAS = [
   "abertura_itens",
   "abertura_tarefas",
   "abertura_configuracao",
+  // Fase 4.3 — Comparador de Compras (migração 0012_comparador-de-compras), aba dentro do
+  // módulo Abertura do Espaço. FORA do grupo prefixado acima de propósito (D-03): ao contrário
+  // das três tabelas de Abertura, estas duas NÃO saem quando o módulo for desmontado — elas são
+  // arquivadas, não apagadas. A prova de sobrevivência roda em `conferirRemocaoDoModuloAbertura`
+  // (Tarefa 3 do plano 04.3-01), nunca em `TABELAS_DA_REMOCAO_ABERTURA` abaixo.
+  "cotacao_categorias",
+  "cotacoes",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção

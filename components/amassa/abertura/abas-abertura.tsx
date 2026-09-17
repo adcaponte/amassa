@@ -6,22 +6,28 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAbaAtual } from "@/components/amassa/abertura/contexto-navegacao";
 
-export type AbaAbertura = "itens" | "tarefas" | "meses";
+export type AbaAbertura = "itens" | "tarefas" | "meses" | "cotacoes";
 
 // A barra de abas do protótipo (`role="tablist"`), no molde do `SeletorQueimas` — mas navegando
-// por QUERY STRING na MESMA rota (`?aba=itens`/`?aba=tarefas`/`?aba=meses`), não por rotas
-// diferentes: as três abas continuam renderizadas no SERVIDOR a cada troca — a URL sempre
-// compartilhável, nunca um estado só de cliente escondido atrás de divs alternadas. "Por mês"
-// (plano 04.2-04) é a terceira e última aba do protótipo.
+// por QUERY STRING na MESMA rota (`?aba=itens`/`?aba=tarefas`/`?aba=meses`/`?aba=cotacoes`), não
+// por rotas diferentes: as quatro abas continuam renderizadas no SERVIDOR a cada troca — a URL
+// sempre compartilhável, nunca um estado só de cliente escondido atrás de divs alternadas.
+// "Cotações" (D-02, plano 04.3-01) é a quarta e última aba, o Comparador de Compras — rótulo
+// curto de propósito (UI-SPEC §"A quarta aba": "Comparador" e "Compras" foram descartados por
+// colidirem em tamanho/nome com abas existentes). A régua de 44px é PISO, não teto: o rótulo
+// quebra em duas linhas a 320px em vez de truncar ou estourar a largura (UI-SPEC §"Cabimento em
+// 320px, calculado") — por isso nenhuma classe de `white-space`/`truncate` foi acrescentada aqui.
 const ABAS: readonly { valor: AbaAbertura; rotulo: string }[] = [
   { valor: "itens", rotulo: "Itens" },
   { valor: "tarefas", rotulo: "Tarefas" },
   { valor: "meses", rotulo: "Por mês" },
+  { valor: "cotacoes", rotulo: "Cotações" },
 ];
 
 function abaDaUrl(valor: string | null): AbaAbertura {
   if (valor === "tarefas") return "tarefas";
   if (valor === "meses") return "meses";
+  if (valor === "cotacoes") return "cotacoes";
   return "itens";
 }
 
