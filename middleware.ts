@@ -5,6 +5,7 @@ import NextAuth from "next-auth";
 import type { NextMiddleware } from "next/server";
 
 import { configuracaoBase } from "./lib/auth/auth.config";
+import { podeRenovarSessao, semRenovacaoDaSessao } from "./lib/auth/renovacao-sessao";
 import { ehRotaPublica } from "./lib/auth/rotas-publicas";
 
 // O `auth` do Auth.js já É um `NextMiddleware` (decide liberar ou redirecionar para
@@ -18,8 +19,22 @@ const autenticar = NextAuth(configuracaoBase).auth as NextMiddleware;
 // conteúdo do ateliê sem sessão (o que AUTH-06 proíbe; ver tests/e2e/sessao.spec.ts). As
 // rotas públicas (`/login`, `/api/health`) não têm nada sensível a esconder do cache e não
 // recebem o cabeçalho.
+//
+// E, em resposta a um fetch() de leitura do roteador (prefetch ou navegação RSC), tira a
+// renovação do token de sessão que o Auth.js anexa a toda resposta: um prefetch que sai antes da
+// saída e volta depois dela regravaria o cookie apagado e ressuscitaria a sessão (AUTH-06; ver
+// lib/auth/renovacao-sessao.ts). A renovação segue em carregamento de página e Server Action.
 const middleware: NextMiddleware = async (requisicao, evento) => {
   const resposta = await autenticar(requisicao, evento);
+
+  if (resposta && !podeRenovarSessao(requisicao.method, requisicao.headers)) {
+    const linhas = resposta.headers.getSetCookie();
+    const mantidas = semRenovacaoDaSessao(linhas);
+    if (mantidas.length !== linhas.length) {
+      resposta.headers.delete("set-cookie");
+      for (const linha of mantidas) resposta.headers.append("set-cookie", linha);
+    }
+  }
 
   if (resposta && !ehRotaPublica(requisicao.nextUrl.pathname)) {
     resposta.headers.set("Cache-Control", "no-store, must-revalidate");

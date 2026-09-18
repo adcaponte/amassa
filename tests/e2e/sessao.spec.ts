@@ -124,6 +124,15 @@ test.describe("sessão", () => {
 
     await expect(page).toHaveURL(/\/login(\?|$)/);
     await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
+
+    // O voltar só olha o histórico; a pergunta de AUTH-06 é se o SERVIDOR ainda aceita a sessão.
+    // Um documento novo (sem histórico, sem cache) responde isso. Antes de o middleware parar de
+    // renovar o token em resposta de fetch() do roteador (lib/auth/renovacao-sessao.ts), um
+    // prefetch que saía antes da saída e voltava depois dela regravava o cookie e a raiz abria o
+    // painel: 28 de 80 repetições, inclusive casos em que o voltar acima passava.
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
   });
 
   test("conta desativada perde o acesso na requisicao seguinte e a linha continua no banco", async ({
