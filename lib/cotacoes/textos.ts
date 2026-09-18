@@ -4,6 +4,7 @@
 // de `04.3-UI-SPEC.md`, que é o contrato aprovado — onde ele e o protótipo divergem, o UI-SPEC
 // vence (D-01, exceções D-05 a D-08/D-13).
 import type { situacaoCotacao } from "@/db/schema";
+import type { OrdemDasCotacoes } from "@/lib/cotacoes/ordenacao";
 
 export type SituacaoCotacao = (typeof situacaoCotacao.enumValues)[number];
 
@@ -153,3 +154,29 @@ export function rotuloRemoverCotacao(empresa: string): string {
 // ABRE a confirmação (`ConfirmarRemoverCotacao`), nunca remove direto (mesmo molde de
 // `ROTULO_EXCLUIR_CATEGORIA`).
 export const ROTULO_EXCLUIR_COTACAO = "Excluir cotação";
+
+// Tarefa 1 (04.3-04, D-11): o controle de ordem mora em `PainelCotacoes` (estado só de CLIENTE —
+// se morasse na URL, trocar a ordem seria uma navegação real de servidor e apagaria a marcação
+// feita antes, D-23). O rótulo VISÍVEL do botão é o nome curto do estado atual; o rótulo
+// ACESSÍVEL, mais longo, diz tanto o estado atual quanto o que o toque vai fazer — nunca só o
+// verbo solto (CLAUDE.md §Acessibilidade).
+export const ROTULO_POR_ORDEM: Record<OrdemDasCotacoes, string> = {
+  cadastro: "Ordem de cadastro",
+  crescente: "Preço: menor primeiro",
+  decrescente: "Preço: maior primeiro",
+};
+
+// O ciclo de três estados que o botão percorre a cada toque — cadastro → crescente →
+// decrescente → cadastro. Vive aqui (não em `lib/cotacoes/ordenacao.ts`) porque não é a REGRA de
+// ordenação (essa já está provada e testada em `ordenarCotacoes`), é só a sequência de rótulos
+// que o controle de UI percorre.
+export function proximaOrdemDasCotacoes(atual: OrdemDasCotacoes): OrdemDasCotacoes {
+  if (atual === "cadastro") return "crescente";
+  if (atual === "crescente") return "decrescente";
+  return "cadastro";
+}
+
+export function rotuloAcessivelBotaoOrdem(atual: OrdemDasCotacoes): string {
+  const proxima = ROTULO_POR_ORDEM[proximaOrdemDasCotacoes(atual)].toLowerCase();
+  return `Ordenado por: ${ROTULO_POR_ORDEM[atual].toLowerCase()}. Toque para ordenar por: ${proxima}.`;
+}

@@ -28,10 +28,18 @@ function porOrdemDeCadastro(lista: readonly CotacaoParaOrdenar[]): Map<string, n
 // alto — ela é sempre a ÚLTIMA, nos dois sentidos. Implementado separando as com preço das sem
 // preço e concatenando, nunca com um número sentinela (um sentinela grande resolve o sentido
 // crescente e quebra o decrescente, que é exatamente o defeito que D-11 existe para evitar).
-export function ordenarCotacoes(
-  cotacoes: readonly CotacaoParaOrdenar[],
+//
+// Genérico em `T` (Tarefa 1, 04.3-04): a UI liga esta função direto ao tipo COMPLETO de `Cotacao`
+// (`lib/cotacoes/consultas.ts`), que tem muito mais campos que `CotacaoParaOrdenar` — sem o
+// genérico, o retorno "esqueceria" empresa/produto/situação/os seis campos longos, e o chamador
+// precisaria de uma segunda passagem para recuperá-los. `T extends CotacaoParaOrdenar` continua
+// travando a função ao mínimo que ela realmente lê (`id`/`precoCentavos`/`criadoEm`) — nenhuma
+// mudança de COMPORTAMENTO, só de tipo; os testes de `tests/unit/cotacoes-ordenacao.test.ts`
+// continuam passando sem alteração.
+export function ordenarCotacoes<T extends CotacaoParaOrdenar>(
+  cotacoes: readonly T[],
   ordem: OrdemDasCotacoes,
-): CotacaoParaOrdenar[] {
+): T[] {
   if (ordem === "cadastro") {
     return [...cotacoes];
   }
