@@ -125,7 +125,13 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     // está ativa (consistência, nunca valor absoluto — os projetos desktop/celular rodam em
     // paralelo verdadeiro contra o mesmo banco).
     await pilulaA.click();
-    await expect(page).toHaveURL(/&categoria=[0-9a-f-]+$/);
+    // Portão REAL: a pílula A só fica selecionada quando a navegação confirma. O portão antigo
+    // (`toHaveURL(/&categoria=[0-9a-f-]+$/)`) já casava ANTES do clique — a página estava na
+    // categoria C —, então o teste seguia sem esperar nada; se a troca não tivesse confirmado,
+    // "+ Nova cotação" abria o formulário ainda da categoria C e as duas cotações iam para C
+    // (medido no banco, .planning/debug/e2e-toque-nao-navega-ci.md). A falha aparecia lá embaixo
+    // como "Expected 2 Received 0", longe da causa.
+    await expect(pilulaA).toHaveAttribute("aria-selected", "true");
     const empresa1 = nomeUnico("Cerâmica Teste 1");
     const empresa2 = nomeUnico("Cerâmica Teste 2");
     await criarCotacao(page, empresa1);
