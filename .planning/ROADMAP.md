@@ -381,7 +381,7 @@ divergirem, o protótipo vence — exceto nas melhorias listadas abaixo, decidid
   8. No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
   9. As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans executed
 
 Plans:
 
@@ -389,7 +389,7 @@ Plans:
 - [x] 04.3-02-PLAN.md — Categorias: sub-abas com contagem, criar em menos de 10 segundos, renomear, remover dizendo quantas cotações se perdem, e os três estados (vazio, carregando, erro)
 - [x] 04.3-03-PLAN.md — Ciclo de vida da cotação: editar no lugar (inclusive a situação), remover nomeando a empresa, o descartado que continua visível, o alerta que se vê na lista, e a prova de duas contas vendo os mesmos dados
 - [x] 04.3-04-PLAN.md — Ler e comparar: ordenar por preço com o sem preço no fim, o detalhe completo ao clicar na linha, marcar para comparar e a comparação lado a lado com rolagem própria no celular
-- [ ] 04.3-05-PLAN.md — Fechamento: Roteiro 9 da migração, Roteiro 8 corrigido para o comparador não sair junto, varredura completa do e2e, conferência com o protótipo, e a migração em produção à mão
+- [x] 04.3-05-PLAN.md — Fechamento: Roteiro 9 da migração, Roteiro 8 corrigido para o comparador não sair junto, varredura completa do e2e, conferência com o protótipo, e a migração em produção à mão
 
 **UI hint**: yes
 
@@ -510,7 +510,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 4. Contador de Queima | 7/7 | Complete    | 2026-08-11 |
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
-| 04.3. Comparador de Compras | 4/5 | In Progress|  |
+| 04.3. Comparador de Compras | 5/5 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

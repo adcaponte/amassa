@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.3
 current_phase_name: comparador-de-compras
 status: executing
-stopped_at: "Fase 04.3: onda 5 (04.3-05) parada no checkpoint humano da Tarefa 3 (migracao 0012/0013 em producao). Tarefas 1-2 comitadas (6c73591, 835e74d); Roteiro 9 corrigido (0c690d4). Proximo: dono abre SSH -> push -> dono roda o Roteiro 9 -> agente de continuacao fecha o 04.3-05. NAO dar push sem o dono pronto no servidor."
-last_updated: "2026-09-18T18:38:12.569Z"
+stopped_at: "Fase 04.3: todos os 5 planos concluidos e comitados localmente (04.3-05 fechado apos o dono aplicar as migracoes 0012/0013 em producao, Roteiro 9). Aguardando verificacao de fim de fase pelo orquestrador. NAO dar push sem confirmar com o dono."
+last_updated: "2026-09-18T20:04:58.818Z"
 last_activity: 2026-09-18
-last_activity_desc: Phase 04.3 Plan 05 at human checkpoint (Task 3)
+last_activity_desc: Phase 04.3 Plan 05 execution completed
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 51
-  completed_plans: 50
+  completed_plans: 51
 ---
 
 # Project State
@@ -27,16 +27,18 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.3 (comparador-de-compras) — EXECUTING
-Plan: 04 de 5 concluído (04.3-05 restante)
-Status: 04.3-04-PLAN.md executado e verificado: ordenar por preço (ciclo de três estados, sem
-preço sempre no fim), DetalheCotacao + CamposLongos (diálogo aberto por ?detalhe=<id>, alerta em
-destaque), MarcarCotacao (zona de toque real de 44px) + ComparacaoCotacoes (colunas alinhadas,
-rolagem própria, descartadas comparáveis), e o modo lista/comparar como terceira fatia de estado
-de cliente em PainelCotacoes. Próximo: /gsd-execute-phase 04.3-05.
-Last activity: 2026-09-18 — Phase 04.3 Plan 04 execution completed
+Phase: 04.3 (comparador-de-compras) — todos os 5 planos concluídos, aguardando verificação de fim
+de fase pelo orquestrador
+Plan: 05 de 5 concluído
+Status: 04.3-05-PLAN.md executado e verificado: Roteiro 9 (migração 0012/0013) e Roteiro 8
+corrigido (Tarefa 1), varredura completa do e2e e conferência com o protótipo (Tarefa 2), e as
+migrações aplicadas em produção pelo dono em 2026-09-18 depois de backup (Tarefa 3,
+checkpoint:human-action — Roteiro 9 corrigido em 0c690d4 antes de o dono rodá-lo). CMP-07 e CMP-09
+marcados completos. Próximo: verificação de fim de fase 04.3 pelo orquestrador; NÃO dar push sem
+confirmar com o dono.
+Last activity: 2026-09-18 — Phase 04.3 Plan 05 execution completed
 
-Progress: [██████████] 98% (50 de 51 planos executados e verificados até aqui)
+Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -114,6 +116,7 @@ Progress: [██████████] 98% (50 de 51 planos executados e ver
 | Phase 04.3 P02 | ~70min | 3 tasks | 16 files |
 | Phase 04.3 P03 | ~2h | 3 tasks | 14 files |
 | Phase 04.3 P04 | ~2h | 3 tasks | 14 files |
+| Phase 04.3 P05 | ~3h35min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -269,6 +272,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.3-04: ordenarCotacoes generalizada (T extends CotacaoParaOrdenar) para devolver o tipo completo de Cotacao, sem segunda passagem de dados
 - [Phase ?]: 04.3-04: CamposLongos compartilhado por DetalheCotacao e ComparacaoCotacoes - um so lugar para o rotulo/tratamento de alerta dos seis campos longos
 - [Phase ?]: 04.3-04: MarcarCotacao usa zona de toque REAL de 44x44 (span externo) + hit-slop maior no Checkbox, nunca so um hit-slop invisivel
+- [Phase ?]: 04.3-05: migracoes 0012/0013 aplicadas em producao pelo dono em 2026-09-18 (Roteiro 9); passo 4 do roteiro corrigido antes (0c690d4, sintaxe \gset invalida em psql -c); evidencia colada para tabelas/gatilhos/enum/privilegios/restricao, backup pos-deploy e residuo relatados sem saida colada (lacuna registrada no SUMMARY)
 
 ### Pending Todos
 
@@ -327,6 +331,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T19:10:00.000Z
-Stopped at: Fase 04.3: onda 4/5 (04.3-04) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 5 (04.3-05). NAO dar push antes de o dono poder aplicar 0012/0013.
+Last session: 2026-09-18T20:04:53.822Z
+Stopped at: Fase 04.3: todos os 5 planos concluidos e comitados localmente (04.3-05 fechado apos o dono aplicar as migracoes 0012/0013 em producao, Roteiro 9). Aguardando verificacao de fim de fase pelo orquestrador. NAO dar push sem confirmar com o dono.
 Resume file: None
