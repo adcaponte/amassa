@@ -354,10 +354,10 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ABE-15 | Phase 4.2 — Abertura do Espaço | Pending |
 
 | CMP-01 | Phase 04.3 — Comparador de Compras | Complete |
-| CMP-02 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-02 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-03 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-04 | Phase 04.3 — Comparador de Compras | Complete |
-| CMP-05 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-05 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-06 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-07 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-08 | Phase 04.3 — Comparador de Compras | Complete |

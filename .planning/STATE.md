@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04.3
-current_phase_name: comparador-de-compras
-status: executing
-stopped_at: "Fase 04.3: todos os 5 planos concluidos e comitados localmente (04.3-05 fechado apos o dono aplicar as migracoes 0012/0013 em producao, Roteiro 9). Aguardando verificacao de fim de fase pelo orquestrador. NAO dar push sem confirmar com o dono."
-last_updated: "2026-09-18T20:04:58.818Z"
+current_phase: 6
+current_phase_name: estoque
+status: planning
+stopped_at: "Fase 04.3 concluida e verificada (9/9, 04.3-VERIFICATION.md), no ar desde 2026-09-18 com 0012/0013 aplicadas. Proxima, por ordem do dono: Fase 6 (Estoque), comecando por prototipo. A Fase 5 (Agenda) continua em espera."
+last_updated: "2026-09-18T20:22:04.177Z"
 last_activity: 2026-09-18
-last_activity_desc: Phase 04.3 Plan 05 execution completed
+last_activity_desc: Phase 04.3 complete; next is Phase 6 (Estoque) by owner order
 progress:
   total_phases: 8
   completed_phases: 8
@@ -23,20 +23,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04.3 — comparador-de-compras
+**Current focus:** Phase 6 — Estoque (protótipo antes de planejar)
 
 ## Current Position
 
-Phase: 04.3 (comparador-de-compras) — todos os 5 planos concluídos, aguardando verificação de fim
+Phase: 6 — Estoque (a Fase 5, Agenda, está em espera por decisão do dono)
 de fase pelo orquestrador
-Plan: 05 de 5 concluído
-Status: 04.3-05-PLAN.md executado e verificado: Roteiro 9 (migração 0012/0013) e Roteiro 8
+Plan: Not started
+Status: Protótipo primeiro, depois /gsd-discuss-phase 6
 corrigido (Tarefa 1), varredura completa do e2e e conferência com o protótipo (Tarefa 2), e as
 migrações aplicadas em produção pelo dono em 2026-09-18 depois de backup (Tarefa 3,
 checkpoint:human-action — Roteiro 9 corrigido em 0c690d4 antes de o dono rodá-lo). CMP-07 e CMP-09
 marcados completos. Próximo: verificação de fim de fase 04.3 pelo orquestrador; NÃO dar push sem
 confirmar com o dono.
-Last activity: 2026-09-18 — Phase 04.3 Plan 05 execution completed
+Last activity: 2026-09-18 — Phase 04.3 complete; next is Phase 6 (Estoque)
 
 Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
 
@@ -44,7 +44,7 @@ Progress: [██████████] 100% (51 de 51 planos executados e ve
 
 **Velocity:**
 
-- Total plans completed: 26
+- Total plans completed: 31
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100% (51 de 51 planos executados e ve
 | 02a | 8 | - | - |
 | 2b | 5 | - | - |
 | 04.1 | 6 | - | - |
+| 04.3 | 5 | - | - |
 
 **Recent Trend:**
 
