@@ -71,7 +71,7 @@ export function ListaCotacoes({
       <table className="hidden w-full border-collapse min-[660px]:table">
         <thead>
           <tr className="border-border border-b">
-            <th scope="col" className="w-11 p-3" />
+            <th scope="col" className="w-11 p-1" />
             <th
               scope="col"
               className="text-micro text-muted-foreground p-3 text-left font-semibold tracking-wide uppercase"

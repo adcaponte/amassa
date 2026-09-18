@@ -4,13 +4,13 @@ import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 
 import type { Cotacao } from "@/lib/cotacoes/consultas";
-import { ROTULO_ALERTA_NA_LINHA, ROTULO_MARCAR_PARA_COMPARAR, rotuloAbrirDetalheCotacao } from "@/lib/cotacoes/textos";
+import { ROTULO_ALERTA_NA_LINHA, rotuloAbrirDetalheCotacao } from "@/lib/cotacoes/textos";
 import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cotacao";
+import { MarcarCotacao } from "@/components/amassa/cotacoes/marcar-cotacao";
 import { PrecoCotacao } from "@/components/amassa/cotacoes/preco-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export type CartaoCotacaoProps = {
   cotacao: Cotacao;
@@ -33,13 +33,8 @@ export function CartaoCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcaca
   return (
     <div data-testid="cotacoes-cartao" className="flex flex-col gap-1.5 p-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <Checkbox
-            className="size-5"
-            checked={marcado}
-            onCheckedChange={aoAlternarMarcacao}
-            aria-label={ROTULO_MARCAR_PARA_COMPARAR(cotacao.empresa)}
-          />
+        <div className="flex items-center gap-1">
+          <MarcarCotacao cotacao={cotacao} marcado={marcado} aoAlternar={aoAlternarMarcacao} />
           {/* Tarefa 2 (04.3-04, D-12): mesmo molde de `linha-cotacao.tsx` — o `<Link>` é o
               elemento acionável DE VERDADE (foco visível, nome acessível nomeando a empresa),
               nunca um `onClick` no `<div>` do cartão inteiro. */}

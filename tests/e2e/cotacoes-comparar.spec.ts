@@ -50,6 +50,10 @@ type DadosDaCotacao = {
   alertas?: string;
 };
 
+async function marcar(page: Page, empresa: string) {
+  await page.getByRole("checkbox", { name: `Marcar «${empresa}» para comparar` }).click();
+}
+
 async function criarCotacao(page: Page, dados: DadosDaCotacao) {
   await page.getByRole("link", { name: "+ Nova cotação" }).first().click();
   await expect(page.getByRole("heading", { name: "Nova cotação" })).toBeVisible();
@@ -230,5 +234,116 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
     await expect(page.getByTestId("cotacoes-detalhe")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("cotacoes-detalhe")).toBeHidden();
+  });
+
+  test("marcar duas ou mais mostra a comparação em colunas alinhadas, inclusive descartadas; menos de duas pede para marcar mais; no celular a rolagem é do contêiner", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    const nomeCategoria = nomeUnico("Categoria Comparar");
+    const empresaX = nomeUnico("Fornecedor X");
+    const empresaY = nomeUnico("Fornecedor Y");
+    const empresaDescartada = nomeUnico("Fornecedor Z Descartado");
+
+    await page.goto("/abertura?aba=cotacoes");
+    await criarCategoria(page, nomeCategoria);
+    await criarCotacao(page, { empresa: empresaX, preco: "1000" });
+    // Campo "Diferenciais" com valor PRÓPRIO em cada cotação — a prova de que cada coluna é a
+    // cotação DELA, não a mesma repetida.
+    await page.getByRole("link", { name: `Editar cotação de «${empresaX}»` }).click();
+    await page.getByLabel("Diferenciais", { exact: false }).fill("Isolamento reforçado.");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+
+    await criarCotacao(page, { empresa: empresaY, preco: "2000" });
+    await page.getByRole("link", { name: `Editar cotação de «${empresaY}»` }).click();
+    await page.getByLabel("Diferenciais", { exact: false }).fill("Entrega mais rápida.");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+
+    await criarCotacao(page, { empresa: empresaDescartada, situacao: "descartado" });
+
+    const botaoComparar = page.getByTestId("cotacoes-comparar");
+    await expect(botaoComparar).toHaveText("Comparar selecionados");
+
+    // Menos de duas marcadas: com ZERO e com UMA, a mensagem pede para marcar mais, sem coluna
+    // nenhuma.
+    await botaoComparar.click();
+    await expect(page.getByText("Marque pelo menos duas cotações.")).toBeVisible();
+    await expect(page.getByTestId("cotacoes-comparacao-coluna")).toHaveCount(0);
+    await botaoComparar.click(); // volta à lista
+
+    await marcar(page, empresaX);
+    await botaoComparar.click();
+    await expect(page.getByText("Marque pelo menos duas cotações.")).toBeVisible();
+    await expect(page.getByTestId("cotacoes-comparacao-coluna")).toHaveCount(0);
+    await botaoComparar.click(); // volta à lista, X continua marcada
+
+    // Marca a segunda — agora sim, duas colunas.
+    await marcar(page, empresaY);
+    await expect(page.getByTestId("cotacoes-contagem")).toContainText("2 marcadas");
+    await botaoComparar.click();
+    await expect(botaoComparar).toHaveText("Voltar à lista");
+
+    const colunas = page.getByTestId("cotacoes-comparacao-coluna");
+    await expect(colunas).toHaveCount(2);
+    for (const rotulo of [
+      "Diferenciais",
+      "Assistência técnica",
+      "Condições de pagamento",
+      "Contato",
+      "Observações",
+      "Alertas",
+    ]) {
+      // Os SEIS rótulos aparecem em CADA UMA das duas colunas, na mesma ordem.
+      await expect(colunas.nth(0).getByText(rotulo, { exact: false })).toBeVisible();
+      await expect(colunas.nth(1).getByText(rotulo, { exact: false })).toBeVisible();
+    }
+    // O valor de "Diferenciais" DIFERE entre as duas colunas — cada uma é a cotação dela.
+    const colunaX = colunas.filter({ hasText: empresaX });
+    const colunaY = colunas.filter({ hasText: empresaY });
+    await expect(colunaX.getByText("Isolamento reforçado.")).toBeVisible();
+    await expect(colunaY.getByText("Entrega mais rápida.")).toBeVisible();
+    await expect(colunaX).not.toContainText("Entrega mais rápida.");
+
+    // Volta à lista, marca a TERCEIRA (descartada), compara de novo — descartadas PODEM ser
+    // marcadas e comparadas, com o selo visível no topo.
+    await botaoComparar.click();
+    await marcar(page, empresaDescartada);
+    await botaoComparar.click();
+    const colunasComTres = page.getByTestId("cotacoes-comparacao-coluna");
+    await expect(colunasComTres).toHaveCount(3);
+    const colunaDescartada = colunasComTres.filter({ hasText: empresaDescartada });
+    await expect(colunaDescartada.getByTestId("cotacoes-selo")).toHaveText("descartado");
+
+    // Sequência: marca, troca a ordem, e então compara — as MESMAS três continuam marcadas.
+    await botaoComparar.click(); // volta à lista
+    const botaoOrdenar = page.getByTestId("cotacoes-ordenar");
+    await botaoOrdenar.click();
+    await botaoOrdenar.click();
+    await botaoComparar.click();
+    await expect(page.getByTestId("cotacoes-comparacao-coluna")).toHaveCount(3);
+
+    // Celular a 320px: a página NUNCA rola na horizontal; o CONTÊINER da comparação rola — a
+    // única exceção do módulo (D-13, critério 8 do ROADMAP). As duas asserções JUNTAS são o
+    // critério; uma sozinha não prova nada.
+    await page.setViewportSize({ width: 320, height: 800 });
+    const [scrollWidthDaPagina, clientWidthDaPagina] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidthDaPagina,
+      `a página rola horizontalmente a 320px (scrollWidth ${scrollWidthDaPagina} > clientWidth ${clientWidthDaPagina})`,
+    ).toBeLessThanOrEqual(clientWidthDaPagina);
+
+    const [scrollWidthDoContainer, clientWidthDoContainer] = await page
+      .getByTestId("cotacoes-comparacao")
+      .evaluate((el) => [el.scrollWidth, el.clientWidth]);
+    expect(
+      scrollWidthDoContainer,
+      "o contêiner da comparação deveria rolar horizontalmente com três colunas a 320px, mas não excede a própria largura visível",
+    ).toBeGreaterThan(clientWidthDoContainer);
   });
 });

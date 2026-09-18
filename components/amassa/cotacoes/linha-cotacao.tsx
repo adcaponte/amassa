@@ -4,13 +4,13 @@ import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 
 import type { Cotacao } from "@/lib/cotacoes/consultas";
-import { ROTULO_ALERTA_NA_LINHA, ROTULO_MARCAR_PARA_COMPARAR, rotuloAbrirDetalheCotacao } from "@/lib/cotacoes/textos";
+import { ROTULO_ALERTA_NA_LINHA, rotuloAbrirDetalheCotacao } from "@/lib/cotacoes/textos";
 import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cotacao";
+import { MarcarCotacao } from "@/components/amassa/cotacoes/marcar-cotacao";
 import { PrecoCotacao } from "@/components/amassa/cotacoes/preco-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export type LinhaCotacaoProps = {
   cotacao: Cotacao;
@@ -31,12 +31,8 @@ export function LinhaCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcacao
 
   return (
     <tr data-testid="cotacoes-linha" className="border-border border-b last:border-0">
-      <td className="p-2">
-        <Checkbox
-          checked={marcado}
-          onCheckedChange={aoAlternarMarcacao}
-          aria-label={ROTULO_MARCAR_PARA_COMPARAR(cotacao.empresa)}
-        />
+      <td className="p-0">
+        <MarcarCotacao cotacao={cotacao} marcado={marcado} aoAlternar={aoAlternarMarcacao} />
       </td>
       <td className="p-1">
         {/* Tarefa 2 (04.3-04, D-12): a linha inteira NÃO é o alvo de teclado — uma `<tr>` não tem
