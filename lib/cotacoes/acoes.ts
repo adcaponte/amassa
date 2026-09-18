@@ -251,3 +251,39 @@ export async function removerCategoriaDeCotacao(
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
+
+// Tarefa 2 (04.3-03, D-15 "remover cotação pede confirmação nomeando a empresa").
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo. Sem transação — é uma linha só, e nada
+// depende do valor anterior (ao contrário de `removerCategoriaDeCotacao`, que precisa contar
+// linhas dependentes antes de apagar). Devolve o identificador da CATEGORIA, para quem chamou
+// saber para onde navegar (D-23: navegação completa para a aba da categoria). Remoção de uma
+// linha que já não existia (removida por outra pessoa entre abrir a confirmação e clicar
+// "Excluir") devolve frase humana, nunca falha silenciosa.
+export async function removerCotacao(
+  idBruto: unknown,
+): Promise<ResultadoDeAcao<{ categoriaId: string }>> {
+  await exigirUsuario();
+
+  const resultadoId = esquemaId.safeParse(idBruto);
+  if (!resultadoId.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultadoId) };
+  }
+  const id = resultadoId.data;
+
+  try {
+    const [linha] = await db
+      .delete(cotacoes)
+      .where(eq(cotacoes.id, id))
+      .returning({ categoriaId: cotacoes.categoriaId });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_COTACAO_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { categoriaId: linha.categoriaId } };
+  } catch (erro) {
+    console.error("Falha ao remover cotação:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}

@@ -2,6 +2,8 @@ import { execSync } from "node:child_process";
 
 import { test, expect, type Page } from "@playwright/test";
 
+import { fraseConfirmarRemoverCotacao } from "@/lib/cotacoes/textos";
+
 // O ciclo de vida da cotação (04.3-03-PLAN.md): editar NO LUGAR (inclusive a situação), remover
 // nomeando a empresa, e a consequência visível disso — a descartada que não desaparece, e o
 // alerta que se vê de longe. "cotacoes ciclo" no título do bloco é o recorte usado pelo
@@ -237,5 +239,51 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
       // Desativa a conta dedicada — nunca apaga a linha (CLAUDE.md §Exclusão, AUTH-09).
       desativarGestor(gestor.email);
     }
+  });
+
+  test("remover uma cotação nomeia a empresa, cancelar mantém tudo intacto, e o botão de perigo dentro da edição abre a mesma confirmação", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    const nomeCategoria = nomeUnico("Categoria Remover");
+    const empresaA = nomeUnico("Fornecedor A");
+    const empresaB = nomeUnico("Fornecedor B");
+
+    await page.goto("/abertura?aba=cotacoes");
+    await criarCategoria(page, nomeCategoria);
+    await criarCotacao(page, { empresa: empresaA });
+    await criarCotacao(page, { empresa: empresaB });
+
+    await expect(page.getByTestId("cotacoes-contagem")).toHaveText("2 cotações");
+
+    const linhaA = linhasOuCartoesVisiveis(page).filter({ hasText: empresaA });
+    await expect(linhaA).toBeVisible();
+
+    // Abre a confirmação pelo botão de remover da linha/cartão — o texto NOMEIA a empresa.
+    await linhaA.getByTestId("cotacoes-remover").click();
+    const fraseA = fraseConfirmarRemoverCotacao(empresaA);
+    await expect(page.getByText(fraseA)).toBeVisible();
+
+    // Cancelar mantém tudo intacto: as duas cotações continuam lá.
+    await page.getByRole("button", { name: "Voltar" }).click();
+    await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaA })).toBeVisible();
+    await expect(page.getByTestId("cotacoes-contagem")).toHaveText("2 cotações");
+
+    // O caminho pelo botão de perigo DENTRO do formulário de edição abre a MESMA confirmação —
+    // nunca um segundo diálogo, nunca uma remoção direta.
+    await linhaA.getByTestId("cotacoes-editar").click();
+    await expect(page.getByRole("heading", { name: "Editar cotação" })).toBeVisible();
+    await page.getByRole("button", { name: "Excluir cotação" }).click();
+    await expect(page.getByText(fraseA)).toBeVisible();
+
+    // Confirma de verdade.
+    await page.getByRole("button", { name: "Excluir", exact: true }).click();
+    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+
+    // (a) a linha de A desapareceu; (b) a de B continua; (c) a contagem caiu exatamente em um.
+    await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaA })).toHaveCount(0);
+    await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaB })).toBeVisible();
+    await expect(page.getByTestId("cotacoes-contagem")).toHaveText("1 cotação");
   });
 });

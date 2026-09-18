@@ -13,6 +13,7 @@ import {
   ORDEM_DAS_SITUACOES,
   PLACEHOLDER_CAMPO_PRECO,
   ROTULO_CANCELAR,
+  ROTULO_EXCLUIR_COTACAO,
   ROTULO_SALVAR_COTACAO,
   ROTULO_SITUACAO,
   TITULO_DIALOGO_EDITAR_COTACAO,
@@ -144,6 +145,20 @@ function FormularioCotacaoBase({
     parametros.delete("cotacao");
     const query = parametros.toString();
     irParaSemNavegar(`/abertura${query ? `?${query}` : ""}`);
+  }
+
+  // Tarefa 2 (04.3-03): o botão de perigo do modo de edição só ABRE a confirmação
+  // (`ConfirmarRemoverCotacao`) — troca `cotacao` por `cotacaoRemover` na URL, nunca os dois
+  // diálogos (`Dialog` deste formulário e o `AlertDialog` da confirmação) abertos ao mesmo
+  // tempo — mesmo cuidado de `dialogo-categoria.tsx`/`abrirConfirmarRemocao`.
+  function abrirConfirmarRemocao() {
+    if (!cotacaoParaEditar) {
+      return;
+    }
+    const parametros = new URLSearchParams(window.location.search);
+    parametros.delete("cotacao");
+    parametros.set("cotacaoRemover", cotacaoParaEditar.id);
+    irParaSemNavegar(`/abertura?${parametros.toString()}`);
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {
@@ -293,24 +308,41 @@ function FormularioCotacaoBase({
           </div>
 
           {/* Rodapé preso ao pé do diálogo por FLEX, nunca por `position: sticky` (D-24) — irmão
-              da área rolável, não filho dela (mesmo cuidado de `formulario-item.tsx`). */}
+              da área rolável, não filho dela (mesmo cuidado de `formulario-item.tsx`). O botão de
+              perigo (Tarefa 2) fica SEPARADO de Cancelar/Salvar, só no modo de edição — mesmo
+              molde de `dialogo-categoria.tsx`. */}
           <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={fechar}
-                className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
-              >
-                {ROTULO_CANCELAR}
-              </button>
-              <button
-                type="submit"
-                disabled={formState.isSubmitting}
-                aria-busy={formState.isSubmitting}
-                className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {formState.isSubmitting ? "Salvando…" : ROTULO_SALVAR_COTACAO}
-              </button>
+            <div
+              className={
+                modoEdicao ? "flex items-center justify-between gap-3" : "flex justify-end gap-3"
+              }
+            >
+              {modoEdicao && (
+                <button
+                  type="button"
+                  onClick={abrirConfirmarRemocao}
+                  className="text-corpo text-destructive hover:bg-destructive/10 flex min-h-[44px] items-center rounded-md px-3 font-medium"
+                >
+                  {ROTULO_EXCLUIR_COTACAO}
+                </button>
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={fechar}
+                  className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
+                >
+                  {ROTULO_CANCELAR}
+                </button>
+                <button
+                  type="submit"
+                  disabled={formState.isSubmitting}
+                  aria-busy={formState.isSubmitting}
+                  className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {formState.isSubmitting ? "Salvando…" : ROTULO_SALVAR_COTACAO}
+                </button>
+              </div>
             </div>
           </div>
         </form>

@@ -148,3 +148,8 @@ export function rotuloEditarCotacao(empresa: string): string {
 export function rotuloRemoverCotacao(empresa: string): string {
   return `Remover cotação de «${empresa}»`;
 }
+
+// Tarefa 2 (04.3-03): botão de perigo dentro do modo de edição do formulário de cotação — só
+// ABRE a confirmação (`ConfirmarRemoverCotacao`), nunca remove direto (mesmo molde de
+// `ROTULO_EXCLUIR_CATEGORIA`).
+export const ROTULO_EXCLUIR_COTACAO = "Excluir cotação";

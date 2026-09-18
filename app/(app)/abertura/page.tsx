@@ -27,6 +27,7 @@ import { ListaTarefas } from "@/components/amassa/abertura/lista-tarefas";
 import { PainelResumo } from "@/components/amassa/abertura/painel-resumo";
 import { BotaoVazioCotacoes } from "@/components/amassa/cotacoes/botao-vazio-cotacoes";
 import { ConfirmarRemoverCategoria } from "@/components/amassa/cotacoes/confirmar-remover-categoria";
+import { ConfirmarRemoverCotacao } from "@/components/amassa/cotacoes/confirmar-remover-cotacao";
 import { ProvedorNavegacaoCotacoes } from "@/components/amassa/cotacoes/contexto-cotacoes";
 import { DialogoCategoria } from "@/components/amassa/cotacoes/dialogo-categoria";
 import { FormularioCotacao } from "@/components/amassa/cotacoes/formulario-cotacao";
@@ -188,6 +189,9 @@ export default async function PaginaAbertura({
               {/* Montado SEMPRE dentro de uma categoria, mesmo com a lista de cotações vazia
                   (achado do 03-06, replicado em toda esta base). */}
               <FormularioCotacao categoriaId={categoriaAtiva.id} cotacaoParaEditar={cotacaoParaEditar} />
+              {/* Tarefa 2 (04.3-03): a mesma lista JÁ carregada acima (`cotacoesDaCategoria`),
+                  nunca uma segunda leitura. */}
+              <ConfirmarRemoverCotacao cotacoes={cotacoesDaCategoria} />
 
               <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
                 <SubAbasCategorias
