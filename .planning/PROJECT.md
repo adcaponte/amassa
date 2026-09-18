@@ -47,6 +47,10 @@ dar baixa em material não for confortável no celular, o sistema não é usado 
 - ✓ Seis etapas com datas calculadas em cascata a partir de uma única data de início — Fase 3, **corrigido na Fase 04.1**: os três marcos (queima de biscoito, queima de esmalte, entrega) sempre acontecem e sempre duram 1 dia; o número ao lado de cada um é a **espera antes** do marco, nunca a duração dele (ENC-03 reescrito)
 - ✓ O gestor diz quantos dias a peça fica parada antes de cada marco, e a espera desloca o marco e tudo que vem depois — nenhuma data é armazenada, `data_inicio` continua sendo a única âncora gravada — Fase 04.1 (ENC-15)
 - ✗ Desligar a etapa "Entrega" faz o losango sumir e encurtar a encomenda — **retirado na Fase 04.1** (ENC-04): o interruptor liga/desliga saiu dos três marcos, não existe mais o que desligar
+- ✓ Comparador de Compras: cotações de equipamentos por categoria, dentro de `/abertura`, com
+  preço anulável ("sob consulta"), descartadas visíveis, detalhe com alertas e comparação lado a
+  lado; a segunda conta de gestor vê e edita os mesmos dados; as tabelas sobrevivem ao desmonte da
+  Abertura — Fase 04.3 (CMP-01 a CMP-09, verificado 9/9, no ar desde 2026-09-18)
 
 ### Active
 
@@ -243,7 +247,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-22 after Fase 04.1 (Datas dos Marcos da Encomenda).*
+*Last updated: 2026-09-18 after Fase 04.3 (Comparador de Compras).*
 *Ressalva de sincronia: só a seção Requirements do Módulo 1 (Encomendas) foi reconciliada até a Fase 04.1.*
 *As Fases 2b, 3 e 4 concluíram sem passar por aqui — os itens delas continuam listados em Active mesmo já entregues.*
 *A fonte de verdade de status por requisito é `.planning/REQUIREMENTS.md`.*
