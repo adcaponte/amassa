@@ -565,6 +565,14 @@ started: |
   7/20). Se esse #12 for sessão que REALMENTE sobrevive à saída, subir a 16 piora um defeito de
   segurança — por isso o manager abriu um ciclo de continuação para confirmar/refutar antes de
   recomendar o push.
+- 2026-09-18T22:51Z (session-manager): ressalva resolvida pelo ciclo 22:22Z — ressurreição
+  CONFIRMADA (16.3.5 sem correção 28/80; 15.5.22 3/80) e corrigida em a92c44c (0/80 + 0/80).
+  Revisão do diff de a92c44c pelo manager: o filtro só remove linhas `Set-Cookie` do token de sessão
+  em GET com `Sec-Fetch-Dest: empty`; redirecionamento/proteção do middleware não mudam; remover
+  também uma eventual linha de APAGAR o cookie num GET por fetch é inofensivo (o token inválido
+  continua rejeitado e o próximo documento o apaga). Conferência independente na HEAD c42acb3:
+  `node_modules/next` = 16.3.5; `npm run verificar` EXIT=0 (vitest 32 arquivos / 583 testes,
+  test:migracoes ok); árvore limpa (só `.planning/phases/06-estoque/` e `Claude outputs/` fora do git).
 
 ## Resolution
 
