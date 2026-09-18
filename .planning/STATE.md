@@ -6,11 +6,11 @@ current_phase: 6
 current_phase_name: estoque
 status: planning
 stopped_at: "Fase 04.3 concluida e verificada (9/9, 04.3-VERIFICATION.md), no ar desde 2026-09-18 com 0012/0013 aplicadas. Proxima, por ordem do dono: Fase 6 (Estoque), comecando por prototipo. A Fase 5 (Agenda) continua em espera."
-last_updated: "2026-09-18T20:22:04.177Z"
+last_updated: "2026-09-18T20:30:16.800Z"
 last_activity: 2026-09-18
-last_activity_desc: Phase 04.3 complete; next is Phase 6 (Estoque) by owner order
+last_activity_desc: Phase 04.3 complete; next is Phase 6 (Estoque)
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 8
   total_plans: 51
   completed_plans: 51
@@ -306,6 +306,7 @@ None yet.
 | 260821-3af | Hachura de rascunho vira teste automatizado, fechando a verificacao manual C da Fase 3 | 2026-08-21 | 8446d48 | [260821-3af-hachura-de-rascunho-vira-teste-automatiz](./quick/260821-3af-hachura-de-rascunho-vira-teste-automatiz/) |
 | 6 | callbackUrl do login apontava para 0.0.0.0:3000; AUTH_URL com padrao no compose.yml (d9fdc2b), conferido em producao | 2026-09-17 | d9fdc2b | — |
 | 7 | Roteiro 9: corrige o teste de restrição do passo 4 (\\gset em psql -c dava syntax error) e acrescenta 'Quando rodar' — commit 0c690d4 | 2026-09-18 | 0c690d4 | — |
+| 8 | Caixinha de marcar para comparar sem fundo terracota (CR-01 do 04.3-REVIEW): data-checked -> data-[state=checked] em components/ui/checkbox.tsx, medido na build de producao — commit 2e33c5f | 2026-09-18 | 2e33c5f | — |
 
 ### Roadmap Evolution
 
