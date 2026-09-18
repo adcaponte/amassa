@@ -158,10 +158,10 @@
 
 - [x] **CMP-01**: Categorias de cotação aparecem como abas dentro de `/abertura`; criar uma leva menos de 10 segundos; renomear funciona; remover pede confirmação dizendo quantas cotações se perdem
 - [x] **CMP-02**: Cada cotação guarda empresa, produto, preço (ou "sob consulta") e os seis campos longos: diferenciais, assistência técnica, condições de pagamento, contato, observações e alertas
-- [ ] **CMP-03**: Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
+- [x] **CMP-03**: Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
 - [x] **CMP-04**: Ordenar por preço funciona, e as cotações sem preço vão para o fim nos dois sentidos
 - [x] **CMP-05**: Uma cotação descartada continua visível, apagada — nunca some da lista
-- [ ] **CMP-06**: Marcar duas ou mais cotações mostra a comparação lado a lado, com os campos alinhados em colunas
+- [x] **CMP-06**: Marcar duas ou mais cotações mostra a comparação lado a lado, com os campos alinhados em colunas
 - [x] **CMP-07**: Uma segunda conta de gestor vê e edita os mesmos dados — a razão de isto sair do navegador do dono
 - [x] **CMP-08**: No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
 - [x] **CMP-09**: As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
@@ -355,12 +355,12 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 | CMP-01 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-02 | Phase 04.3 — Comparador de Compras | Pending |
-| CMP-03 | Phase 04.3 — Comparador de Compras | Pending |
-| CMP-04 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-03 | Phase 04.3 — Comparador de Compras | Complete |
+| CMP-04 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-05 | Phase 04.3 — Comparador de Compras | Pending |
-| CMP-06 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-06 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-07 | Phase 04.3 — Comparador de Compras | Pending |
-| CMP-08 | Phase 04.3 — Comparador de Compras | Pending |
+| CMP-08 | Phase 04.3 — Comparador de Compras | Complete |
 | CMP-09 | Phase 04.3 — Comparador de Compras | Pending |
 | UI-10 | Phase 7 — Polimento e Entrega | Pending |
 | UI-11 | Phase 7 — Polimento e Entrega | Pending |

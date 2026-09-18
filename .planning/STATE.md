@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.3
 current_phase_name: comparador-de-compras
 status: executing
-stopped_at: "Fase 04.3: onda 3/5 (04.3-03) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 4 (04.3-04). NAO dar push antes de o dono poder aplicar 0012/0013."
-last_updated: "2026-09-18T17:35:35.060Z"
+stopped_at: "Fase 04.3: onda 4/5 (04.3-04) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 5 (04.3-05). NAO dar push antes de o dono poder aplicar 0012/0013."
+last_updated: "2026-09-18T19:10:00.000Z"
 last_activity: 2026-09-18
-last_activity_desc: Phase 04.3 Plan 03 execution completed
+last_activity_desc: Phase 04.3 Plan 04 execution completed
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 51
-  completed_plans: 49
+  completed_plans: 50
 ---
 
 # Project State
@@ -28,16 +28,15 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.3 (comparador-de-compras) — EXECUTING
-Plan: 03 de 5 concluído (04.3-04 a 04.3-05 restantes)
-Status: 04.3-03-PLAN.md executado e verificado: atualizarCotacao/removerCotacao (editar no lugar,
-nunca apaga/recria; remover pede confirmação nomeando a empresa), FerramentasCotacao e
-ConfirmarRemoverCotacao (uma instância para a lista toda), LinhaCotacao/CartaoCotacao extraídos
-com o ícone de alerta (D-12) e o descartado apagado que não desaparece (D-10), e a prova
-automatizada de acesso compartilhado com uma segunda conta de gestor (critério 7 do ROADMAP).
-Próximo: /gsd-execute-phase 04.3-04.
-Last activity: 2026-09-18 — Phase 04.3 Plan 03 execution completed
+Plan: 04 de 5 concluído (04.3-05 restante)
+Status: 04.3-04-PLAN.md executado e verificado: ordenar por preço (ciclo de três estados, sem
+preço sempre no fim), DetalheCotacao + CamposLongos (diálogo aberto por ?detalhe=<id>, alerta em
+destaque), MarcarCotacao (zona de toque real de 44px) + ComparacaoCotacoes (colunas alinhadas,
+rolagem própria, descartadas comparáveis), e o modo lista/comparar como terceira fatia de estado
+de cliente em PainelCotacoes. Próximo: /gsd-execute-phase 04.3-05.
+Last activity: 2026-09-18 — Phase 04.3 Plan 04 execution completed
 
-Progress: [██████████] 96% (49 de 51 planos executados e verificados até aqui)
+Progress: [██████████] 98% (50 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -114,6 +113,7 @@ Progress: [██████████] 96% (49 de 51 planos executados e ver
 | Phase 04.3 P01 | ~65min | 3 tasks | 33 files |
 | Phase 04.3 P02 | ~70min | 3 tasks | 16 files |
 | Phase 04.3 P03 | ~2h | 3 tasks | 14 files |
+| Phase 04.3 P04 | ~2h | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -266,6 +266,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.3-03: atualizarCotacao/removerCotacao nunca apagam e recriam a linha; categoriaId nunca entra no UPDATE embora o esquema o exija por composicao
 - [Phase ?]: 04.3-03: botao de remover de cotacao nao usa canal local no abridor (ao contrario do de editar) - confirmacao acha a linha na lista ja carregada, so a presenca de ?cotacaoRemover= na URL importa
 - [Phase ?]: 04.3-03: LinhaCotacao/CartaoCotacao extraidos de lista-cotacoes.tsx, com o icone TriangleAlert (D-12) visivel antes do nome da empresa quando ha alertas
+- [Phase ?]: 04.3-04: ordenarCotacoes generalizada (T extends CotacaoParaOrdenar) para devolver o tipo completo de Cotacao, sem segunda passagem de dados
+- [Phase ?]: 04.3-04: CamposLongos compartilhado por DetalheCotacao e ComparacaoCotacoes - um so lugar para o rotulo/tratamento de alerta dos seis campos longos
+- [Phase ?]: 04.3-04: MarcarCotacao usa zona de toque REAL de 44x44 (span externo) + hit-slop maior no Checkbox, nunca so um hit-slop invisivel
 
 ### Pending Todos
 
@@ -323,6 +326,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-18T17:35:34.997Z
-Stopped at: Fase 04.3: onda 3/5 (04.3-03) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 4 (04.3-04). NAO dar push antes de o dono poder aplicar 0012/0013.
+Last session: 2026-09-18T19:10:00.000Z
+Stopped at: Fase 04.3: onda 4/5 (04.3-04) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 5 (04.3-05). NAO dar push antes de o dono poder aplicar 0012/0013.
 Resume file: None
