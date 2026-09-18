@@ -1,5 +1,16 @@
 # Roteiro 8 — O dia da abertura: remover o módulo Abertura do Espaço inteiro
 
+> **AVISO — decisão do dono de 2026-09-18, mais nova que o resto deste documento.** O dono
+> decidiu **arquivar o módulo Abertura inteiro, em vez de apagá-lo**: quando a Abertura for
+> desmontada, a rota, o item de menu, a interface e o código saem — mas **nenhuma tabela é
+> apagada**. Isso vale para as três tabelas da Abertura (`abertura_itens`, `abertura_tarefas`,
+> `abertura_configuracao`) tanto quanto já valia para as duas do Comparador de Compras (D-03).
+> **Os passos de remoção de tabela abaixo — e `db/remocao/remover-abertura-do-espaco.sql` — ainda
+> descrevem o desenho antigo e NÃO DEVEM SER EXECUTADOS.** Este roteiro será reescrito numa tarefa
+> separada, antes de qualquer desmontagem real, para refletir a decisão de arquivamento total.
+> Até lá, os passos de código, rota e item de navegação (3 e 4) continuam corretos — só a remoção
+> de tabela (passo 2) e a lista de `TABELAS_ESPERADAS` (passo 5) estão desatualizados.
+
 **Este roteiro NÃO roda hoje.** A Fase 4.2 o entrega pronto porque o custo de escrevê-lo agora,
 com o módulo fresco na cabeça, é uma fração do custo de reconstruí-lo meses depois com o ateliê
 já abrindo (D-01/ABE-15, `.planning/phases/04.2-abertura-do-espaco/04.2-CONTEXT.md`). Ele roda
@@ -32,7 +43,44 @@ aqui** e resolva o backup antes de seguir (`docs/operacao/03-backup-e-restauraca
 
 ---
 
-## 2. As tabelas — mover a remoção de `db/remocao/` para `db/migrations/`
+## 2. O que fica: o Comparador de Compras (D-03)
+
+**Leia esta seção antes de executar a lista de remoção abaixo.**
+
+O **Comparador de Compras** (Fase 4.3) mora dentro da mesma aba `/abertura`, mas as duas tabelas
+dele — `cotacao_categorias` e `cotacoes` — e o tipo de enum `situacao_cotacao` **ficam no banco**.
+D-03 decidiu **arquivar, não apagar**: quando a Abertura for desmontada, o comparador some da
+interface, mas os dados de cotação continuam no banco, consultáveis por quem tiver acesso direto
+ao Postgres.
+
+**Por que os nomes delas não têm o prefixo `abertura_`:** foi de propósito. Neste projeto, o
+prefixo `abertura_` significa "sai quando o módulo for desmontado" — é o que a lista de
+`TABELAS_ESPERADAS` e a SQL de remoção usam para decidir o que apagar. Um nome como
+`abertura_cotacao_categorias` mentiria sobre o ciclo de vida da tabela e convidaria alguém a
+"completar" a remoção por prefixo, num dia corrido. Batizá-las sem o prefixo é a primeira camada
+de proteção do dado arquivado; esta seção, lida antes de rodar qualquer coisa, é a segunda; e a
+prova automatizada (`conferirRemocaoDoModuloAbertura`, `scripts/testar-migracoes.mjs`, desde o
+plano 04.3-01) é a terceira.
+
+**O que sai do comparador neste dia é só a interface:** a aba "Cotações" dentro de `/abertura`, o
+código de `lib/cotacoes/` e de `components/amassa/cotacoes/` (listados na seção 3 abaixo, junto
+com os arquivos da própria Abertura), e a rota que os hospeda. **O dado nunca sai daqui** — não
+inclua `cotacao_categorias`, `cotacoes` nem `situacao_cotacao` em nenhum passo de remoção de
+tabela, em nenhuma versão futura deste roteiro, sem uma decisão nova e explícita do dono
+revogando D-03.
+
+> Com a decisão de 2026-09-18 (aviso no topo deste documento), esta mesma lógica de arquivamento
+> passou a valer também para as três tabelas da própria Abertura — mas a reescrita completa do
+> passo 2 abaixo para refletir isso é tarefa separada, ainda não feita.
+
+---
+
+## 3. As tabelas — mover a remoção de `db/remocao/` para `db/migrations/`
+
+> **⚠️ NÃO EXECUTE este passo** — ver o aviso no topo deste documento (decisão de 2026-09-18).
+> Ele reflete o desenho antigo, em que a Abertura era apagada; hoje ela é arquivada, como o
+> Comparador de Compras já é desde a Fase 4.3 (seção 2). Mantido aqui como referência histórica
+> até a reescrita.
 
 No repositório (não no servidor), como um commit normal:
 
@@ -59,7 +107,7 @@ No repositório (não no servidor), como um commit normal:
 
 ---
 
-## 3. O código — a lista dos arquivos que saem
+## 4. O código — a lista dos arquivos que saem
 
 Enumerados pelo caminho, para a lista ser conferível item a item (não pela descrição):
 
@@ -120,9 +168,64 @@ Confira, depois de apagar, que nenhum arquivo do resto do sistema importa algo d
 app components --include="*.ts" --include="*.tsx" -l`, excluindo os próprios arquivos do módulo
 já removidos, deve voltar vazio).
 
+### Comparador de Compras — só a interface (D-03, seção 2 acima)
+
+O código do Comparador de Compras sai **junto com a Abertura**, porque a aba dele só existe
+dentro de `/abertura` — mas o **dado**, nas tabelas `cotacao_categorias`/`cotacoes`, não sai (ver
+seção 2). Caminhos reais criados nos planos 04.3-01 a 04.3-04:
+
+**Módulo puro (`lib/cotacoes/`):**
+- `lib/cotacoes/preco.ts`
+- `lib/cotacoes/ordenacao.ts`
+- `lib/cotacoes/esquemas.ts`
+- `lib/cotacoes/acoes.ts`
+- `lib/cotacoes/consultas.ts`
+- `lib/cotacoes/textos.ts`
+
+**Componentes (`components/amassa/cotacoes/`):**
+- `components/amassa/cotacoes/contexto-cotacoes.tsx`
+- `components/amassa/cotacoes/painel-cotacoes.tsx`
+- `components/amassa/cotacoes/lista-cotacoes.tsx`
+- `components/amassa/cotacoes/formulario-cotacao.tsx`
+- `components/amassa/cotacoes/sub-abas-categorias.tsx`
+- `components/amassa/cotacoes/dialogo-categoria.tsx`
+- `components/amassa/cotacoes/selo-situacao.tsx`
+- `components/amassa/cotacoes/pilula-nova-categoria.tsx`
+- `components/amassa/cotacoes/botao-vazio-cotacoes.tsx`
+- `components/amassa/cotacoes/botao-editar-categoria.tsx`
+- `components/amassa/cotacoes/confirmar-remover-categoria.tsx`
+- `components/amassa/cotacoes/esqueleto-cotacoes.tsx`
+- `components/amassa/cotacoes/ferramentas-cotacao.tsx`
+- `components/amassa/cotacoes/confirmar-remover-cotacao.tsx`
+- `components/amassa/cotacoes/linha-cotacao.tsx`
+- `components/amassa/cotacoes/cartao-cotacao.tsx`
+- `components/amassa/cotacoes/preco-cotacao.tsx`
+- `components/amassa/cotacoes/campos-longos.tsx`
+- `components/amassa/cotacoes/detalhe-cotacao.tsx`
+- `components/amassa/cotacoes/marcar-cotacao.tsx`
+- `components/amassa/cotacoes/comparacao-cotacoes.tsx`
+
+**Testes de unidade:**
+- `tests/unit/cotacoes-preco.test.ts`
+- `tests/unit/cotacoes-ordenacao.test.ts`
+
+**Testes de ponta a ponta:**
+- `tests/e2e/cotacoes-tracador.spec.ts`
+- `tests/e2e/cotacoes-categorias.spec.ts`
+- `tests/e2e/cotacoes-ciclo.spec.ts`
+- `tests/e2e/cotacoes-comparar.spec.ts`
+
+`components/ui/textarea.tsx` e `components/ui/checkbox.tsx` (instalados pelo shadcn na Fase 4.3
+para o comparador) **não saem** — são primitivos genéricos do design system; confira antes de
+apagar se nenhum outro módulo passou a usá-los.
+
+Depois de apagar o código do comparador, confira que nenhum arquivo do resto do sistema importa
+algo de `lib/cotacoes/` ou `components/amassa/cotacoes/` (mesmo `grep` acima, trocando
+`abertura` por `cotac`).
+
 ---
 
-## 4. A rota e o item de navegação
+## 5. A rota e o item de navegação
 
 Remova a entrada **"Abertura do Espaço"** das duas variantes de
 `components/amassa/menu-usuario.tsx` (a variante `celular`, dentro do `Sheet`, e a variante
@@ -134,7 +237,7 @@ usuário, não na navegação principal) — não precisa de nenhuma mudança.
 
 ---
 
-## 5. `TABELAS_ESPERADAS` e a verificação da remoção
+## 6. `TABELAS_ESPERADAS` e a verificação da remoção
 
 Em `scripts/testar-migracoes.mjs`:
 
@@ -147,7 +250,7 @@ Em `scripts/testar-migracoes.mjs`:
 
 ---
 
-## 6. Conferir de fora
+## 7. Conferir de fora
 
 ```bash
 npm run verificar

@@ -54,3 +54,9 @@ O passo a passo completo — mover este arquivo, atualizar `db/schema.ts` e
 `TABELAS_ESPERADAS`, remover o código do módulo, a rota e o item de menu — está no
 **Roteiro 8** (`docs/operacao/08-remover-abertura-do-espaco.md`). Este `LEIA-ME.md` não repete
 aquele roteiro; ele só explica por que esta pasta existe.
+
+**Decisão do dono de 2026-09-18, mais nova que este arquivo:** o Roteiro 8 tem, no topo, um aviso
+dizendo que o dono decidiu arquivar o módulo Abertura **inteiro** — nenhuma tabela é apagada mais,
+nem as três da Abertura. O SQL deste diretório (`remover-abertura-do-espaco.sql`) ainda reflete o
+desenho antigo e **não deve ser movido para `db/migrations/` nem executado** até esse roteiro ser
+reescrito numa tarefa separada.
