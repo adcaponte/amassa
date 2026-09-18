@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 04.3
 current_phase_name: comparador-de-compras
 status: executing
-stopped_at: "Fase 04.3: onda 4/5 (04.3-04) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 5 (04.3-05). NAO dar push antes de o dono poder aplicar 0012/0013."
-last_updated: "2026-09-18T19:10:00.000Z"
+stopped_at: "Fase 04.3: onda 5 (04.3-05) parada no checkpoint humano da Tarefa 3 (migracao 0012/0013 em producao). Tarefas 1-2 comitadas (6c73591, 835e74d); Roteiro 9 corrigido (0c690d4). Proximo: dono abre SSH -> push -> dono roda o Roteiro 9 -> agente de continuacao fecha o 04.3-05. NAO dar push sem o dono pronto no servidor."
+last_updated: "2026-09-18T18:38:12.569Z"
 last_activity: 2026-09-18
-last_activity_desc: Phase 04.3 Plan 04 execution completed
+last_activity_desc: Phase 04.3 Plan 05 at human checkpoint (Task 3)
 progress:
   total_phases: 8
   completed_phases: 7
@@ -300,6 +300,7 @@ None yet.
 | 260820-uot | Fecha os gaps da Fase 3: interruptor dos marcos legivel, botao de voltar na encomenda e contagem de itens no indice | 2026-08-20 | 9a3beca, 274aa72, 0ff1b46 | [260820-uot-fechar-os-gaps-da-fase-3-interruptor-dos](./quick/260820-uot-fechar-os-gaps-da-fase-3-interruptor-dos/) |
 | 260821-3af | Hachura de rascunho vira teste automatizado, fechando a verificacao manual C da Fase 3 | 2026-08-21 | 8446d48 | [260821-3af-hachura-de-rascunho-vira-teste-automatiz](./quick/260821-3af-hachura-de-rascunho-vira-teste-automatiz/) |
 | 6 | callbackUrl do login apontava para 0.0.0.0:3000; AUTH_URL com padrao no compose.yml (d9fdc2b), conferido em producao | 2026-09-17 | d9fdc2b | — |
+| 7 | Roteiro 9: corrige o teste de restrição do passo 4 (\\gset em psql -c dava syntax error) e acrescenta 'Quando rodar' — commit 0c690d4 | 2026-09-18 | 0c690d4 | — |
 
 ### Roadmap Evolution
 
