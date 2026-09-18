@@ -180,3 +180,17 @@ export function rotuloAcessivelBotaoOrdem(atual: OrdemDasCotacoes): string {
   const proxima = ROTULO_POR_ORDEM[proximaOrdemDasCotacoes(atual)].toLowerCase();
   return `Ordenado por: ${ROTULO_POR_ORDEM[atual].toLowerCase()}. Toque para ordenar por: ${proxima}.`;
 }
+
+// Tarefa 2 (04.3-04, D-12): rótulo acessível do controle que abre o detalhe completo de uma
+// cotação — nomeia a empresa, nunca só "Ver detalhes" sozinho (CLAUDE.md §Acessibilidade), e
+// carrega a informação de alerta no PRÓPRIO nome acessível, porque um `aria-label` SUBSTITUI —
+// nunca soma a — o texto dos filhos (o ícone/`sr-only` continuam desenhados visualmente, mas não
+// contam para o nome acessível deste controle específico).
+export function rotuloAbrirDetalheCotacao(empresa: string, temAlerta: boolean): string {
+  return temAlerta ? `Ver detalhes de «${empresa}» — tem alerta` : `Ver detalhes de «${empresa}»`;
+}
+
+export const ROTULO_FECHAR_DETALHE = "Fechar";
+// Nome PRÓPRIO (mesmo texto de `ROTULO_EDITAR_NO_DETALHE`/outros "Editar" da fase) — cada botão
+// desta fase nomeia a própria constante, nunca reaproveita a de outro por coincidência de texto.
+export const ROTULO_EDITAR_NO_DETALHE = "Editar";

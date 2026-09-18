@@ -29,6 +29,7 @@ import { BotaoVazioCotacoes } from "@/components/amassa/cotacoes/botao-vazio-cot
 import { ConfirmarRemoverCategoria } from "@/components/amassa/cotacoes/confirmar-remover-categoria";
 import { ConfirmarRemoverCotacao } from "@/components/amassa/cotacoes/confirmar-remover-cotacao";
 import { ProvedorNavegacaoCotacoes } from "@/components/amassa/cotacoes/contexto-cotacoes";
+import { DetalheCotacao } from "@/components/amassa/cotacoes/detalhe-cotacao";
 import { DialogoCategoria } from "@/components/amassa/cotacoes/dialogo-categoria";
 import { FormularioCotacao } from "@/components/amassa/cotacoes/formulario-cotacao";
 import { PainelCotacoes } from "@/components/amassa/cotacoes/painel-cotacoes";
@@ -192,6 +193,9 @@ export default async function PaginaAbertura({
               {/* Tarefa 2 (04.3-03): a mesma lista JÁ carregada acima (`cotacoesDaCategoria`),
                   nunca uma segunda leitura. */}
               <ConfirmarRemoverCotacao cotacoes={cotacoesDaCategoria} />
+              {/* Tarefa 2 (04.3-04, D-12): mesma lista já carregada — o detalhe é uma LEITURA,
+                  nunca uma consulta nova disparada a partir da URL (T-04.3-21). */}
+              <DetalheCotacao cotacoes={cotacoesDaCategoria} />
 
               <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
                 <SubAbasCategorias

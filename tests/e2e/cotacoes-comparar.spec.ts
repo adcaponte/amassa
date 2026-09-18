@@ -151,4 +151,84 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
     await verificarOrdemVisivel(page, [empresaD, empresaSemPreco, empresaB, empresaA]);
     await expect(botaoOrdenar).toHaveAttribute("aria-label", /Ordenado por: ordem de cadastro/i);
   });
+
+  test("clicar na linha abre o detalhe completo, com o alerta destacado, e não abre ao marcar; editar leva ao formulário", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    const nomeCategoria = nomeUnico("Categoria Detalhe");
+    const empresaComAlerta = nomeUnico("Fornecedor Alerta");
+    const empresaSemAlerta = nomeUnico("Fornecedor Sem Alerta");
+
+    await page.goto("/abertura?aba=cotacoes");
+    await criarCategoria(page, nomeCategoria);
+    await criarCotacao(page, {
+      empresa: empresaComAlerta,
+      produto: "Forno 180L · 1300°C",
+      preco: "24900",
+      alertas: "Voltagem 380V.\nConfirmar se o espaço comporta.",
+    });
+    await criarCotacao(page, { empresa: empresaSemAlerta, preco: "19500" });
+
+    // Acionar a caixa de marcação NÃO abre o detalhe (o evento para ali — elementos IRMÃOS, não
+    // descendentes do controle que abre o detalhe).
+    const linhaComAlerta = linhasOuCartoesVisiveis(page).filter({ hasText: empresaComAlerta });
+    await linhaComAlerta.getByRole("checkbox", { name: `Marcar «${empresaComAlerta}» para comparar` }).click();
+    await expect(page.getByTestId("cotacoes-detalhe")).toBeHidden();
+
+    // Abre o detalhe pelo controle de verdade (nome acessível nomeando a empresa e o alerta).
+    const linkDetalhe = linhaComAlerta.getByTestId("cotacoes-abrir-detalhe");
+    await expect(linkDetalhe).toHaveAttribute("aria-label", `Ver detalhes de «${empresaComAlerta}» — tem alerta`);
+    await linkDetalhe.click();
+
+    const detalhe = page.getByTestId("cotacoes-detalhe");
+    await expect(detalhe).toBeVisible();
+    await expect(detalhe.getByRole("heading", { name: empresaComAlerta })).toBeVisible();
+    await expect(detalhe.getByText("Forno 180L · 1300°C")).toBeVisible();
+    await expect(detalhe.getByTestId("cotacoes-preco")).toHaveText("R$ 24.900");
+
+    // Os seis rótulos aparecem, e o valor de um campo com quebra de linha vem por INTEIRO.
+    for (const rotulo of [
+      "Diferenciais",
+      "Assistência técnica",
+      "Condições de pagamento",
+      "Contato",
+      "Observações",
+      "Alertas",
+    ]) {
+      await expect(detalhe.getByText(rotulo, { exact: false })).toBeVisible();
+    }
+    await expect(detalhe.getByText("Voltagem 380V.")).toBeVisible();
+
+    // O campo de alertas vem DESTACADO — ícone visível, além da cor (WCAG 1.4.1).
+    const campoAlertas = detalhe.getByTestId("cotacoes-campo-alertas");
+    await expect(campoAlertas.getByTestId("cotacoes-alerta-icone")).toBeVisible();
+
+    // "Editar" a partir do detalhe fecha o detalhe e abre o formulário DESTA MESMA cotação.
+    await detalhe.getByRole("button", { name: "Editar" }).click();
+    await expect(page.getByTestId("cotacoes-detalhe")).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Editar cotação" })).toBeVisible();
+    await expect(page.getByLabel("Empresa")).toHaveValue(empresaComAlerta);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "Editar cotação" })).toBeHidden();
+
+    // A segunda cotação, SEM alertas: o campo de alertas aparece vazio, sem destaque nem ícone.
+    const linhaSemAlerta = linhasOuCartoesVisiveis(page).filter({ hasText: empresaSemAlerta });
+    await linhaSemAlerta.getByTestId("cotacoes-abrir-detalhe").click();
+    const detalheSemAlerta = page.getByTestId("cotacoes-detalhe");
+    await expect(detalheSemAlerta.getByRole("heading", { name: empresaSemAlerta })).toBeVisible();
+    const campoAlertasVazio = detalheSemAlerta.getByTestId("cotacoes-campo-alertas");
+    await expect(campoAlertasVazio.getByTestId("cotacoes-alerta-icone")).toHaveCount(0);
+    await expect(campoAlertasVazio.getByText("—")).toBeVisible();
+
+    // Fecha e reabre pelo TECLADO: Tab até o controle, Enter abre, Escape fecha.
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("cotacoes-detalhe")).toBeHidden();
+    await linhaSemAlerta.getByTestId("cotacoes-abrir-detalhe").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("cotacoes-detalhe")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("cotacoes-detalhe")).toBeHidden();
+  });
 });

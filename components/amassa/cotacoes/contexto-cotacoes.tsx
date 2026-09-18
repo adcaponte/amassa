@@ -22,6 +22,12 @@ const ContextoCategoriaRemoverId = createContext<string | null>(null);
 // página, então só a PRESENÇA do identificador na URL importa (nunca depende da confirmação de
 // uma transição do React, D-23).
 const ContextoCotacaoRemoverId = createContext<string | null>(null);
+// Tarefa 2 (04.3-04, D-12): fatia PRIMITIVA própria para o identificador da cotação com o
+// detalhe ABERTO (`?detalhe=<id>`) — mesmo molde de `ContextoCotacaoRemoverId` acima. Sem canal
+// local: o detalhe é uma LEITURA (nenhuma escrita nova), então acha a cotação certa dentro do
+// array já carregado pela página, exatamente como a confirmação de remoção — só a PRESENÇA do
+// identificador na URL importa.
+const ContextoCotacaoDetalheId = createContext<string | null>(null);
 // A categoria em edição fornecida LOCALMENTE (mesmo motivo de `ContextoCotacaoParaEditarLocal`
 // logo abaixo): abrir o diálogo de renomear é `history.pushState`, sem ida ao servidor — a prop
 // `categoriaParaEditar` de `page.tsx` só reflete o que o SERVIDOR resolveu na navegação
@@ -45,6 +51,7 @@ export function ProvedorNavegacaoCotacoes({ children }: { children: ReactNode })
   const categoriaDialogoDaUrl = searchParams.get("categoriaDialogo");
   const categoriaRemoverDaUrl = searchParams.get("categoriaRemover");
   const cotacaoRemoverDaUrl = searchParams.get("cotacaoRemover");
+  const cotacaoDetalheDaUrl = searchParams.get("detalhe");
 
   // Só o DADO da cotação em edição vive aqui — o estado de ABERTO vem da URL (escrita por
   // `irParaSemNavegar`, D-23), nunca depende da transição que pode falhar.
@@ -79,7 +86,9 @@ export function ProvedorNavegacaoCotacoes({ children }: { children: ReactNode })
             <ContextoCategoriaDialogoAberta.Provider value={categoriaDialogoDaUrl}>
               <ContextoCategoriaRemoverId.Provider value={categoriaRemoverDaUrl}>
                 <ContextoCotacaoRemoverId.Provider value={cotacaoRemoverDaUrl}>
-                  {children}
+                  <ContextoCotacaoDetalheId.Provider value={cotacaoDetalheDaUrl}>
+                    {children}
+                  </ContextoCotacaoDetalheId.Provider>
                 </ContextoCotacaoRemoverId.Provider>
               </ContextoCategoriaRemoverId.Provider>
             </ContextoCategoriaDialogoAberta.Provider>
@@ -106,6 +115,10 @@ export function useCategoriaRemoverId(): string | null {
 
 export function useCotacaoRemoverId(): string | null {
   return useContext(ContextoCotacaoRemoverId);
+}
+
+export function useCotacaoDetalheId(): string | null {
+  return useContext(ContextoCotacaoDetalheId);
 }
 
 // A cotação em edição fornecida LOCALMENTE pela própria linha, no instante do toque. `null` =
