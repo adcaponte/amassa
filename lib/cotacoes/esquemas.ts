@@ -110,3 +110,13 @@ export const esquemaCotacao = esquemaCotacaoBase.extend({
 });
 
 export type EntradaDeCotacao = z.infer<typeof esquemaCotacao>;
+
+// Tarefa 1 (04.3-03, "editar no lugar"): a base COMPLETA (já com o preço convertido para
+// centavos) MAIS `id`, por composição — nunca uma segunda cópia da regra de cotação válida
+// (mesmo cuidado de `esquemaRenomearCategoria` acima e de `esquemaAtualizacaoDeItem` em
+// `lib/abertura/esquemas.ts`). `categoriaId` continua fazendo parte do formato (herdado de
+// `esquemaCotacaoBase`), mas `atualizarCotacao` nunca o usa no `UPDATE` — mover uma cotação de
+// categoria não é comportamento desta fase.
+export const esquemaAtualizacaoDeCotacao = esquemaCotacao.extend({ id: esquemaId });
+
+export type EntradaDeAtualizacaoDeCotacao = z.infer<typeof esquemaAtualizacaoDeCotacao>;

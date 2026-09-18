@@ -17,6 +17,7 @@ import {
 } from "@/lib/cotacoes/textos";
 import { cn } from "@/lib/utils";
 import { BotaoVazioCotacoes } from "@/components/amassa/cotacoes/botao-vazio-cotacoes";
+import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -100,7 +101,11 @@ export function ListaCotacoes({
                   {cotacao.empresa}
                 </span>
               </div>
-              <SeloSituacao situacao={cotacao.situacao} />
+              {/* Canto do cartão (UI-SPEC): selo + as ferramentas de editar/remover juntos. */}
+              <div className="flex flex-none items-center gap-1.5">
+                <SeloSituacao situacao={cotacao.situacao} />
+                <FerramentasCotacao cotacao={cotacao} categoriaId={categoriaId} />
+              </div>
             </div>
             <p
               className={cn(
@@ -147,6 +152,9 @@ export function ListaCotacoes({
             >
               {ROTULO_COLUNA_SITUACAO}
             </th>
+            {/* Célula própria para as ferramentas (editar/remover) — sem rótulo visível, mesmo
+                molde da coluna da caixa de marcação acima. */}
+            <th scope="col" className="w-[76px] p-3" />
           </tr>
         </thead>
         <tbody>
@@ -182,6 +190,9 @@ export function ListaCotacoes({
               </td>
               <td className="p-3">
                 <SeloSituacao situacao={cotacao.situacao} />
+              </td>
+              <td className="p-3">
+                <FerramentasCotacao cotacao={cotacao} categoriaId={categoriaId} />
               </td>
             </tr>
           ))}

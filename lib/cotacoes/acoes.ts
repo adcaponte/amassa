@@ -8,8 +8,17 @@ import { cotacaoCategorias, cotacoes } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { esquemaId } from "@/lib/abertura/esquemas";
 
-import { esquemaCategoriaDeCotacao, esquemaCotacao, esquemaRenomearCategoria } from "./esquemas";
-import { FRASE_CATEGORIA_NAO_EXISTE_MAIS, FRASE_FALHA_AO_SALVAR } from "./textos";
+import {
+  esquemaAtualizacaoDeCotacao,
+  esquemaCategoriaDeCotacao,
+  esquemaCotacao,
+  esquemaRenomearCategoria,
+} from "./esquemas";
+import {
+  FRASE_CATEGORIA_NAO_EXISTE_MAIS,
+  FRASE_COTACAO_NAO_EXISTE_MAIS,
+  FRASE_FALHA_AO_SALVAR,
+} from "./textos";
 
 // Mesma forma de `lib/abertura/acoes.ts`/`lib/queimas/acoes.ts` (D-15) — cada módulo redeclara
 // hoje, não há local compartilhado.
@@ -103,6 +112,56 @@ export async function criarCotacao(
       };
     }
     console.error("Falha ao gravar cotação:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Tarefa 1 (04.3-03, "editar no lugar"). `exigirUsuario()` é a PRIMEIRA instrução do corpo
+// (T-04.3-09, portão de máquina em `npm run verificar-acoes`). Atualiza a linha EXISTENTE,
+// sempre — nunca um caminho que apaga e insere de novo: recriar a linha trocaria o identificador
+// que a URL do detalhe e a marcação de comparação usam, e perderia a ordem de cadastro que é a
+// ordem padrão da lista. `categoriaId` chega no formato validado (faz parte da base, por
+// composição) mas nunca entra no `UPDATE` — mover uma cotação de categoria não é comportamento
+// desta fase, e escrevê-lo aqui criaria um caminho não pedido para isso. Zero linhas afetadas
+// significa que a cotação foi removida por outra pessoa entre abrir o formulário e salvar (D-17:
+// nenhum filtro por usuário — qualquer gestor pode ter feito essa remoção).
+export async function atualizarCotacao(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; categoriaId: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtualizacaoDeCotacao.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    const [linha] = await db
+      .update(cotacoes)
+      .set({
+        empresa: dados.empresa,
+        produto: dados.produto,
+        precoCentavos: dados.preco,
+        situacao: dados.situacao,
+        diferenciais: dados.diferenciais,
+        assistencia: dados.assistencia,
+        pagamento: dados.pagamento,
+        contato: dados.contato,
+        observacoes: dados.observacoes,
+        alertas: dados.alertas,
+      })
+      .where(eq(cotacoes.id, dados.id))
+      .returning({ id: cotacoes.id, categoriaId: cotacoes.categoriaId });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_COTACAO_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/abertura");
+    return { ok: true, dados: { id: linha.id, categoriaId: linha.categoriaId } };
+  } catch (erro) {
+    console.error("Falha ao atualizar cotação:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

@@ -132,3 +132,19 @@ export function rotuloEditarCategoria(nome: string): string {
 // frase de `lib/abertura/textos.ts` (`FRASE_ITEM_NAO_EXISTE_MAIS`) para o mesmo tipo de corrida.
 export const FRASE_CATEGORIA_NAO_EXISTE_MAIS =
   "Essa categoria não existe mais. Recarregue a página e tente de novo.";
+
+// Tarefa 1 (04.3-03): a cotação foi removida por outra pessoa entre abrir o formulário/a linha e
+// confirmar — mesmo tipo de corrida de `FRASE_CATEGORIA_NAO_EXISTE_MAIS`.
+export const FRASE_COTACAO_NAO_EXISTE_MAIS =
+  "Essa cotação não existe mais. Recarregue a página e tente de novo.";
+
+// Rótulos acessíveis dos dois botões só com ícone de `ferramentas-cotacao.tsx` — nomeiam a
+// EMPRESA, nunca só o verbo sozinho (CLAUDE.md §Acessibilidade), mesmo molde de
+// `rotuloEditar`/`rotuloRemover` em `lib/abertura/textos.ts`.
+export function rotuloEditarCotacao(empresa: string): string {
+  return `Editar cotação de «${empresa}»`;
+}
+
+export function rotuloRemoverCotacao(empresa: string): string {
+  return `Remover cotação de «${empresa}»`;
+}

@@ -98,6 +98,12 @@ export async function obterCotacao(id: string): Promise<Cotacao | null> {
   return linha ? paraCotacao(linha) : null;
 }
 
+// AUSÊNCIA DELIBERADA (D-17, critério 7 do ROADMAP): nenhuma consulta deste arquivo filtra por
+// identificador de usuário — todo gestor autenticado vê e edita todos os dados do comparador. É
+// isso que faz uma segunda conta (a Andressa, por exemplo) enxergar a mesma cotação que o dono
+// acabou de criar, sem nenhuma tela de compartilhamento. Este comentário existe para que uma
+// mudança futura não "conserte" essa ausência por engano — ela é o próprio ponto desta fase.
+
 // A contagem de cotações por categoria (pílula "Fornos 3", UI-SPEC) — de TODAS as categorias de
 // uma vez, nunca uma consulta por pílula. Categoria sem nenhuma cotação não aparece no `group by`
 // e entra como 0 no mapa devolvido, para a pílula sempre mostrar o número (UI-SPEC §Assunções

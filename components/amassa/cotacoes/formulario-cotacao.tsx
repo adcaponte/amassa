@@ -5,7 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { criarCotacao } from "@/lib/cotacoes/acoes";
+import { atualizarCotacao, criarCotacao } from "@/lib/cotacoes/acoes";
 import type { Cotacao } from "@/lib/cotacoes/consultas";
 import { esquemaCotacaoBase } from "@/lib/cotacoes/esquemas";
 import {
@@ -149,9 +149,12 @@ function FormularioCotacaoBase({
   async function aoSubmeter(valores: ValoresDoFormulario) {
     setErro(null);
 
-    // Edição de verdade (`atualizarCotacao`) chega num plano seguinte — nesta fatia só existe
-    // criação.
-    const resposta = await criarCotacao({ categoriaId, ...valores });
+    // Editar é SEMPRE `atualizarCotacao` da linha EXISTENTE (Tarefa 1, 04.3-03) — nunca apagar e
+    // recriar. `categoriaId` não muda ao editar (o formulário não oferece trocar de categoria);
+    // o mesmo valor é reenviado só porque o esquema completo o exige por composição.
+    const resposta = cotacaoParaEditar
+      ? await atualizarCotacao({ id: cotacaoParaEditar.id, categoriaId, ...valores })
+      : await criarCotacao({ categoriaId, ...valores });
 
     if (!resposta.ok) {
       // Banner inline, diálogo continua aberto — nada do que foi digitado se perde.
