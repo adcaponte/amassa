@@ -160,9 +160,9 @@
 - [x] **CMP-02**: Cada cotação guarda empresa, produto, preço (ou "sob consulta") e os seis campos longos: diferenciais, assistência técnica, condições de pagamento, contato, observações e alertas
 - [ ] **CMP-03**: Clicar numa linha abre o detalhe completo, com os alertas destacados em vermelho
 - [x] **CMP-04**: Ordenar por preço funciona, e as cotações sem preço vão para o fim nos dois sentidos
-- [ ] **CMP-05**: Uma cotação descartada continua visível, apagada — nunca some da lista
+- [x] **CMP-05**: Uma cotação descartada continua visível, apagada — nunca some da lista
 - [ ] **CMP-06**: Marcar duas ou mais cotações mostra a comparação lado a lado, com os campos alinhados em colunas
-- [ ] **CMP-07**: Uma segunda conta de gestor vê e edita os mesmos dados — a razão de isto sair do navegador do dono
+- [x] **CMP-07**: Uma segunda conta de gestor vê e edita os mesmos dados — a razão de isto sair do navegador do dono
 - [x] **CMP-08**: No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
 - [x] **CMP-09**: As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
 

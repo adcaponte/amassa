@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.3
 current_phase_name: comparador-de-compras
 status: executing
-stopped_at: "Fase 04.3: onda 2/5 (04.3-02) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 3 (04.3-03). NAO dar push antes de o dono poder aplicar 0012/0013."
-last_updated: "2026-09-17T20:46:32.616Z"
-last_activity: 2026-09-17
-last_activity_desc: Phase 04.3 Plan 02 execution completed
+stopped_at: "Fase 04.3: onda 3/5 (04.3-03) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 4 (04.3-04). NAO dar push antes de o dono poder aplicar 0012/0013."
+last_updated: "2026-09-18T17:35:35.060Z"
+last_activity: 2026-09-18
+last_activity_desc: Phase 04.3 Plan 03 execution completed
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 51
-  completed_plans: 48
+  completed_plans: 49
 ---
 
 # Project State
@@ -28,15 +28,16 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 ## Current Position
 
 Phase: 04.3 (comparador-de-compras) — EXECUTING
-Plan: 02 de 5 concluído (04.3-03 a 04.3-05 restantes)
-Status: 04.3-02-PLAN.md executado e verificado: sub-abas de categoria com contagem sempre visível,
-diálogo único para criar/renomear (canal local no abridor corrigindo campo vazio ao editar),
-remover categoria com confirmação nos três casos de contagem (transação + cascata da migração
-0012), EsqueletoCotacoes compartilhado por loading.tsx, e os dois estados vazios + fronteira de
-erro da aba Cotações provados por e2e. Próximo: /gsd-execute-phase 04.3-03.
-Last activity: 2026-09-17 — Phase 04.3 Plan 02 execution completed
+Plan: 03 de 5 concluído (04.3-04 a 04.3-05 restantes)
+Status: 04.3-03-PLAN.md executado e verificado: atualizarCotacao/removerCotacao (editar no lugar,
+nunca apaga/recria; remover pede confirmação nomeando a empresa), FerramentasCotacao e
+ConfirmarRemoverCotacao (uma instância para a lista toda), LinhaCotacao/CartaoCotacao extraídos
+com o ícone de alerta (D-12) e o descartado apagado que não desaparece (D-10), e a prova
+automatizada de acesso compartilhado com uma segunda conta de gestor (critério 7 do ROADMAP).
+Próximo: /gsd-execute-phase 04.3-04.
+Last activity: 2026-09-18 — Phase 04.3 Plan 03 execution completed
 
-Progress: [█████████░] 94% (48 de 51 planos executados e verificados até aqui)
+Progress: [██████████] 96% (49 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -112,6 +113,7 @@ Progress: [█████████░] 94% (48 de 51 planos executados e ver
 | Phase 04.2 P05 | 100min | 2 tasks | 6 files |
 | Phase 04.3 P01 | ~65min | 3 tasks | 33 files |
 | Phase 04.3 P02 | ~70min | 3 tasks | 16 files |
+| Phase 04.3 P03 | ~2h | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -261,6 +263,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.3-01: pilula 'editar categoria' (D-15) nao construida no plano 01 — sem Server Action de update/delete; registrado em WINDOWS.md #28 para plano seguinte
 - [Phase ?]: 04.3-02: canal local abrirCategoriaParaEditar no abridor de cotacoes - history.pushState nao busca dado novo do servidor, achado real pelo e2e
 - [Phase ?]: 04.3-02: Excluir categoria troca categoriaDialogo por categoriaRemover na URL (Dialog e AlertDialog nunca abertos ao mesmo tempo)
+- [Phase ?]: 04.3-03: atualizarCotacao/removerCotacao nunca apagam e recriam a linha; categoriaId nunca entra no UPDATE embora o esquema o exija por composicao
+- [Phase ?]: 04.3-03: botao de remover de cotacao nao usa canal local no abridor (ao contrario do de editar) - confirmacao acha a linha na lista ja carregada, so a presenca de ?cotacaoRemover= na URL importa
+- [Phase ?]: 04.3-03: LinhaCotacao/CartaoCotacao extraidos de lista-cotacoes.tsx, com o icone TriangleAlert (D-12) visivel antes do nome da empresa quando ha alertas
 
 ### Pending Todos
 
@@ -318,6 +323,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-17T20:46:32.569Z
-Stopped at: Fase 04.3: onda 2/5 (04.3-02) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 3 (04.3-03). NAO dar push antes de o dono poder aplicar 0012/0013.
+Last session: 2026-09-18T17:35:34.997Z
+Stopped at: Fase 04.3: onda 3/5 (04.3-03) concluida e comitada localmente. Rodar uma onda por vez: proximo /gsd-execute-phase 04.3 --wave 4 (04.3-04). NAO dar push antes de o dono poder aplicar 0012/0013.
 Resume file: None
