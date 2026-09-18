@@ -1,45 +1,19 @@
 "use client";
 
-import { formatarReais } from "@/lib/abertura/formato";
 import type { Cotacao } from "@/lib/cotacoes/consultas";
 import {
   FRASE_VAZIO_SEM_COTACAO_TITULO,
-  ROTULO_ALERTA_NA_LINHA,
   ROTULO_COLUNA_EMPRESA,
   ROTULO_COLUNA_ESPECIFICACAO,
   ROTULO_COLUNA_PRECO,
   ROTULO_COLUNA_SITUACAO,
-  ROTULO_MARCAR_PARA_COMPARAR,
   ROTULO_NOVA_COTACAO,
-  ROTULO_PRECO_SOB_CONSULTA_ACESSIVEL,
-  ROTULO_PRECO_SOB_CONSULTA_VISUAL,
   fraseVazioSemCotacaoCorpo,
 } from "@/lib/cotacoes/textos";
-import { cn } from "@/lib/utils";
 import { BotaoVazioCotacoes } from "@/components/amassa/cotacoes/botao-vazio-cotacoes";
-import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cotacao";
-import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
+import { CartaoCotacao } from "@/components/amassa/cotacoes/cartao-cotacao";
+import { LinhaCotacao } from "@/components/amassa/cotacoes/linha-cotacao";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
-import { Checkbox } from "@/components/ui/checkbox";
-
-function PrecoCotacao({ centavos }: { centavos: number | null }) {
-  if (centavos === null) {
-    return (
-      <span
-        data-testid="cotacoes-preco"
-        aria-label={ROTULO_PRECO_SOB_CONSULTA_ACESSIVEL}
-        className="text-corpo font-bold tabular-nums"
-      >
-        {ROTULO_PRECO_SOB_CONSULTA_VISUAL}
-      </span>
-    );
-  }
-  return (
-    <span data-testid="cotacoes-preco" className="text-corpo font-bold tabular-nums">
-      {formatarReais(centavos)}
-    </span>
-  );
-}
 
 export type ListaCotacoesProps = {
   cotacoes: Cotacao[];
@@ -52,8 +26,11 @@ export type ListaCotacoesProps = {
 };
 
 // Duas formas do MESMO dado, alternadas por CSS na régua herdada de `04.2-UI-SPEC.md` (660px) —
-// cartões empilhados abaixo, tabela HTML semântica a partir dali. Nenhuma regra de negócio nasce
-// aqui: ordenar (plano 03) e comparar (plano 04) chegam prontos de fora.
+// cartões empilhados abaixo (`CartaoCotacao`), tabela HTML semântica a partir dali
+// (`LinhaCotacao`). As duas formas foram extraídas para componentes próprios na Tarefa 3
+// (04.3-03) — o comportamento visual de descartado (D-10) e de alerta (D-12) vive num lugar por
+// FORMA, não espalhado aqui. Nenhuma regra de negócio nasce neste componente: ordenar (plano 03)
+// e comparar (plano 04) chegam prontos de fora.
 export function ListaCotacoes({
   cotacoes,
   categoriaId,
@@ -79,46 +56,13 @@ export function ListaCotacoes({
       {/* Celular (<660px): cartões empilhados. */}
       <div className="divide-border flex flex-col divide-y min-[660px]:hidden">
         {cotacoes.map((cotacao) => (
-          <div key={cotacao.id} data-testid="cotacoes-cartao" className="flex flex-col gap-1.5 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  className="mt-0.5 size-5"
-                  checked={marcados.has(cotacao.id)}
-                  onCheckedChange={() => aoAlternarMarcacao(cotacao.id)}
-                  aria-label={ROTULO_MARCAR_PARA_COMPARAR(cotacao.empresa)}
-                />
-                {/* D-10: descartado continua visível, apagado — opacidade reduzida em
-                    empresa/especificação/preço, NUNCA no selo (ele fica 100% opaco, o texto já é
-                    a pista não visual). */}
-                <span
-                  className={cn(
-                    "text-corpo font-semibold",
-                    cotacao.situacao === "descartado" && "opacity-60",
-                  )}
-                >
-                  {cotacao.alertas && <span className="sr-only">{ROTULO_ALERTA_NA_LINHA} </span>}
-                  {cotacao.empresa}
-                </span>
-              </div>
-              {/* Canto do cartão (UI-SPEC): selo + as ferramentas de editar/remover juntos. */}
-              <div className="flex flex-none items-center gap-1.5">
-                <SeloSituacao situacao={cotacao.situacao} />
-                <FerramentasCotacao cotacao={cotacao} categoriaId={categoriaId} />
-              </div>
-            </div>
-            <p
-              className={cn(
-                "text-apoio text-muted-foreground line-clamp-2",
-                cotacao.situacao === "descartado" && "opacity-60",
-              )}
-            >
-              {cotacao.produto}
-            </p>
-            <span className={cn(cotacao.situacao === "descartado" && "opacity-60")}>
-              <PrecoCotacao centavos={cotacao.precoCentavos} />
-            </span>
-          </div>
+          <CartaoCotacao
+            key={cotacao.id}
+            cotacao={cotacao}
+            categoriaId={categoriaId}
+            marcado={marcados.has(cotacao.id)}
+            aoAlternarMarcacao={() => aoAlternarMarcacao(cotacao.id)}
+          />
         ))}
       </div>
 
@@ -159,42 +103,13 @@ export function ListaCotacoes({
         </thead>
         <tbody>
           {cotacoes.map((cotacao) => (
-            <tr key={cotacao.id} data-testid="cotacoes-linha" className="border-border border-b last:border-0">
-              <td className="p-3">
-                <Checkbox
-                  checked={marcados.has(cotacao.id)}
-                  onCheckedChange={() => aoAlternarMarcacao(cotacao.id)}
-                  aria-label={ROTULO_MARCAR_PARA_COMPARAR(cotacao.empresa)}
-                />
-              </td>
-              {/* D-10: opacidade reduzida em empresa/especificação/preço, NUNCA no selo. */}
-              <td
-                className={cn(
-                  "text-corpo p-3 font-medium",
-                  cotacao.situacao === "descartado" && "opacity-60",
-                )}
-              >
-                {cotacao.alertas && <span className="sr-only">{ROTULO_ALERTA_NA_LINHA} </span>}
-                {cotacao.empresa}
-              </td>
-              <td
-                className={cn(
-                  "text-corpo text-muted-foreground p-3",
-                  cotacao.situacao === "descartado" && "opacity-60",
-                )}
-              >
-                {cotacao.produto}
-              </td>
-              <td className={cn("p-3", cotacao.situacao === "descartado" && "opacity-60")}>
-                <PrecoCotacao centavos={cotacao.precoCentavos} />
-              </td>
-              <td className="p-3">
-                <SeloSituacao situacao={cotacao.situacao} />
-              </td>
-              <td className="p-3">
-                <FerramentasCotacao cotacao={cotacao} categoriaId={categoriaId} />
-              </td>
-            </tr>
+            <LinhaCotacao
+              key={cotacao.id}
+              cotacao={cotacao}
+              categoriaId={categoriaId}
+              marcado={marcados.has(cotacao.id)}
+              aoAlternarMarcacao={() => aoAlternarMarcacao(cotacao.id)}
+            />
           ))}
         </tbody>
       </table>

@@ -286,4 +286,55 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
     await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaB })).toBeVisible();
     await expect(page.getByTestId("cotacoes-contagem")).toHaveText("1 cotação");
   });
+
+  test("uma cotação descartada continua na lista, apagada, com o selo legível, e o ícone de alerta se vê de longe", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    const nomeCategoria = nomeUnico("Categoria Descartado");
+    const empresaCotando = nomeUnico("Fornecedor Cotando");
+    const empresaFavorito = nomeUnico("Fornecedor Favorito");
+    const empresaDescartada = nomeUnico("Fornecedor Descartado");
+
+    await page.goto("/abertura?aba=cotacoes");
+    await criarCategoria(page, nomeCategoria);
+    await criarCotacao(page, { empresa: empresaCotando, preco: "1200" });
+    await criarCotacao(page, { empresa: empresaFavorito, situacao: "favorito" });
+    // Sem preço, de propósito — prova o travessão acessível do item (e) mais abaixo.
+    await criarCotacao(page, { empresa: empresaDescartada, alertas: "Prazo de entrega incerto" });
+
+    // A situação só muda DENTRO do formulário completo de edição (D-23) — sem seletor rápido.
+    const linhaAntesDeEditar = linhasOuCartoesVisiveis(page).filter({ hasText: empresaDescartada });
+    await linhaAntesDeEditar.getByTestId("cotacoes-editar").click();
+    await expect(page.getByRole("heading", { name: "Editar cotação" })).toBeVisible();
+    await page.getByRole("button", { name: "descartado", exact: true }).click();
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+
+    // Recarrega — a prova de que a descartada não é um estado só de cliente que some ao voltar.
+    await page.reload();
+
+    // (a) a descartada CONTINUA na lista, e a contagem da categoria não mudou.
+    const linhaDescartada = linhasOuCartoesVisiveis(page).filter({ hasText: empresaDescartada });
+    await expect(linhaDescartada).toBeVisible();
+    await expect(page.getByTestId("cotacoes-contagem")).toHaveText("3 cotações");
+
+    // (b) o selo dela diz "descartado".
+    await expect(linhaDescartada.getByTestId("cotacoes-selo")).toHaveText("descartado");
+
+    // (c) o ícone de alerta aparece na linha COM alertas e não aparece na linha SEM alertas.
+    await expect(linhaDescartada.getByTestId("cotacoes-alerta-icone")).toBeVisible();
+    const linhaSemAlerta = linhasOuCartoesVisiveis(page).filter({ hasText: empresaCotando });
+    await expect(linhaSemAlerta.getByTestId("cotacoes-alerta-icone")).toHaveCount(0);
+
+    // (d) o nome acessível da linha com alerta inclui o texto de alerta (pista para leitor de
+    // tela, nunca só a cor).
+    await expect(linhaDescartada).toContainText("— tem alerta");
+
+    // (e) a cotação sem preço mostra o travessão com a frase acessível de sob consulta.
+    const precoDescartada = linhaDescartada.getByTestId("cotacoes-preco");
+    await expect(precoDescartada).toHaveText("—");
+    await expect(precoDescartada).toHaveAttribute("aria-label", "Preço sob consulta");
+  });
 });
