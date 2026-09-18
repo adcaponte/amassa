@@ -18,6 +18,13 @@ pipeline, e não pula o backup. `CLAUDE.md` é explícito — *"Migrações: apl
 um backup, por alguém que está olhando. Nunca pelo pipeline automático."* Uma migração ruim
 aplicada por um `git push` acidental não tem desfazer, e o banco passa a ser dela.
 
+**Quando rodar:** logo depois do deploy que traz as migrações `0012`/`0013` — os arquivos delas
+só chegam ao servidor dentro da imagem `ferramentas` publicada por esse deploy, então não dá para
+rodar antes. E não deixe para depois: a página `/abertura` já consulta as tabelas novas, então **a
+Abertura do Espaço inteira fica fora do ar entre o fim do deploy e o passo 3 deste roteiro**. Abra
+a sessão SSH antes de enviar os commits e siga do passo 1 ao 3 sem pausa; do passo 4 em diante a
+página já voltou.
+
 **Como ler cada passo:** o mesmo formato dos roteiros anteriores — cada bloco de comando vem
 acompanhado de **o que faz** e **o que você deve ver** de volta. Se a tela divergir muito do
 descrito, **pare naquele passo** e não siga para o próximo.
@@ -140,17 +147,20 @@ reais — fora do que `cotacoes_preco_no_intervalo` permite — dentro de uma tr
 ```bash
 docker compose exec postgres psql -U amassa_owner -d amassa -c "
 begin;
-insert into cotacao_categorias (nome) values ('[roteiro-09] teste de restrição') \gset teste_
+insert into cotacao_categorias (nome) values ('[roteiro-09] teste de restrição');
 insert into cotacoes (categoria_id, empresa, preco_centavos)
 values ((select id from cotacao_categorias where nome = '[roteiro-09] teste de restrição'), '[roteiro-09] fornecedor teste', 1000000001);
 rollback;
 "
 ```
 
-**O que você deve ver:** a segunda instrução falha com uma mensagem citando
-`cotacoes_preco_no_intervalo` (algo como `ERROR: new row for relation "cotacoes" violates check
-constraint "cotacoes_preco_no_intervalo"`). O `rollback` desfaz tudo — nenhuma linha de teste
-sobra no banco. Se a instrução **não** falhar, **pare aqui** — a restrição não está valendo.
+**O que você deve ver:** nesta ordem — `BEGIN`, `INSERT 0 1` (a categoria de teste entra) e então
+o erro da segunda instrução, citando `cotacoes_preco_no_intervalo`: `ERROR: new row for relation
+"cotacoes" violates check constraint "cotacoes_preco_no_intervalo"`, seguido de uma linha `DETAIL`
+com a linha recusada. O erro aborta a transação e nada fica gravado — nenhuma linha de teste sobra
+no banco, nem a categoria. Se aparecer `syntax error` no lugar desse erro, o bloco foi copiado
+pela metade: copie-o inteiro de novo. Se a segunda instrução **não** falhar, **pare aqui** — a
+restrição não está valendo.
 
 **`amassa_app` enxerga as duas tabelas novas** (o `alter default privileges` da migração `0003`
 deveria ter dado a ele `select`/`insert`/`update`/`delete` automaticamente, sem grant adicional):
@@ -183,12 +193,13 @@ No navegador, pelo domínio público:
 
 Diferente do Roteiro 7, este módulo **não** é temporário. `Abertura do Espaço` tem data de
 morte conhecida (D-01/ABE-15) e sai do sistema no dia da inauguração — o **Roteiro 8**
-(`docs/operacao/08-remover-abertura-do-espaco.md`) já cobre o procedimento. As duas tabelas do
+(`docs/operacao/08-remover-abertura-do-espaco.md`) descreve a desmontagem — mas leia antes o aviso
+no topo dele: parte daqueles passos está desatualizada. As duas tabelas do
 Comparador de Compras e o tipo `situacao_cotacao`, ao contrário, **ficam no banco** quando a
 Abertura for desmontada — a decisão do dono foi **arquivar, não apagar** (D-03,
 `.planning/phases/04.3-comparador-de-compras/04.3-CONTEXT.md`): o que sai naquele dia é a
 interface do comparador (a aba, o código e a rota), nunca o dado. `npm run test:migracoes`
-(`conferirRemocaoDoModuloAbertura`) prova essa sobrevivência com dado real desde o plano 01 desta
+(`conferirRemocaoDoModuloAbertura`) prova essa sobrevivência com linhas de teste desde o plano 01 desta
 fase.
 
 **Atualização de 2026-09-18:** o dono estendeu essa mesma decisão ao módulo Abertura inteiro —
