@@ -621,3 +621,14 @@ files_changed:
   - "components/amassa/abertura/ferramentas-linha.tsx: comentario atualizado (nenhuma mudanca de codigo)."
   - "components/amassa/abertura/caixa-marcacao.tsx: removido o `router.refresh()` redundante em `alternar()` (achado da fase de marcacao, 2026-08-30T21:45) -- a Server Action ja revalida via `revalidatePath`; removido tambem o `useRouterAbertura()`/import agora sem uso."
 
+
+## Adendo (2026-09-18) — causa nomeada e corrigida em outra sessão
+
+A "corrida de framework" desta sessão foi reproduzida de forma DETERMINÍSTICA e nomeada em
+`.planning/debug/e2e-toque-nao-navega-ci.md`: o React embutido no Next 15.5.x perde o aviso
+('ping') de um chunk Flight que resolve durante uma renderização, e a transição fica suspensa para
+sempre (lanes suspensas, pingedLanes 0, thread ociosa) — por isso a chance crescia com o número de
+Client Components/elementos da página e memo não ajudava. Mesma assinatura dos relatos upstream
+vercel/next.js #98303 (Server Action que não confirma — a marcação desta sessão) e #98305 (Link).
+A 15.5.25 não corrige; a 16.3.5 corrige (revert/reapply medidos). Nota: a eliminação de
+`loading.tsx` acima não foi conclusiva por outro motivo — existe também `app/(app)/loading.tsx`.
