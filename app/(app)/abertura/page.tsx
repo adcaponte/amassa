@@ -1,4 +1,5 @@
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { abaDaUrl, cartoesDaAba } from "@/lib/abertura/abas";
 import { hojeEmBrasilia } from "@/lib/abertura/formato";
 import {
   listarGestoresAtivos,
@@ -55,8 +56,9 @@ function resolverCategoriaAtiva(
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/queimas/page.tsx`.
 // `searchParams` é `Promise` no Next.js 15 (precisa de `await`, mesmo padrão de
-// `app/(app)/encomendas/page.tsx`). `?aba=` decide qual das três listas aparece (padrão
-// "itens"); todas continuam calculadas no MESMO carregamento (`Promise.all`), o que mantém a
+// `app/(app)/encomendas/page.tsx`). `?aba=` decide qual das QUATRO listas aparece (padrão
+// "itens") e, por `cartoesDaAba` (pedido do dono, 19/09), quais cartões do painel aparecem junto
+// — todas as listas continuam calculadas no MESMO carregamento (`Promise.all`), o que mantém a
 // troca de aba uma navegação de servidor real — nunca dado escondido no cliente — e a URL
 // sempre compartilhável.
 //
@@ -84,9 +86,11 @@ export default async function PaginaAbertura({
     cotacao: cotacaoParam,
     categoriaDialogo: categoriaDialogoParam,
   } = await searchParams;
-  const abaTarefas = aba === "tarefas";
-  const abaMeses = aba === "meses";
-  const abaCotacoes = aba === "cotacoes";
+  const abaAtual = abaDaUrl(aba);
+  const abaTarefas = abaAtual === "tarefas";
+  const abaMeses = abaAtual === "meses";
+  const abaCotacoes = abaAtual === "cotacoes";
+  const cartoesDoPainel = cartoesDaAba(abaAtual);
 
   // O dia civil de Brasília é calculado UMA VEZ, aqui, na borda — nenhuma função pura abaixo lê
   // o relógio por conta própria (`lib/abertura/prazos.ts`/`lib/abertura/parcelas.ts`).
@@ -138,9 +142,12 @@ export default async function PaginaAbertura({
   // remoção mostra ANTES de confirmar, a partir das mesmas tarefas já carregadas.
   const contagemDeTarefasLigadas = contarTarefasLigadasPorItem(tarefas);
   // A visão "Por mês" (D-16, Tarefa 1) e os três blocos do painel (D-15, Tarefa 2) — a MESMA
-  // função (`fluxoMensal`) alimenta as duas leituras, nunca uma segunda soma por mês.
+  // função (`fluxoMensal`) alimenta as duas leituras, nunca uma segunda soma por mês. `resumo` só
+  // é calculado quando a aba atual tem algum cartão (`cartoesDoPainel` não vazia, pedido do dono
+  // em 19/09) — seguro porque `resumoDoPainel` é pura sobre `itens`/`tarefas`/`hoje`, que
+  // continuam carregados do mesmo jeito para as outras leituras (nenhum número muda).
   const meses = fluxoMensal(itens, hoje);
-  const resumo = resumoDoPainel(itens, tarefas, hoje);
+  const resumo = cartoesDoPainel.length > 0 ? resumoDoPainel(itens, tarefas, hoje) : null;
 
   // Categoria ativa e as cotações dela — só quando a aba Cotações está ativa E existe pelo menos
   // uma categoria (o comparador pode subir vazio, D-18 a D-21 retiradas).
@@ -166,7 +173,7 @@ export default async function PaginaAbertura({
         tarefaParaEditar={tarefaParaEditar}
       />
 
-      <PainelResumo resumo={resumo} />
+      {resumo !== null ? <PainelResumo resumo={resumo} cartoes={cartoesDoPainel} /> : null}
 
       <div className="pt-6">
         <AbasAbertura />
