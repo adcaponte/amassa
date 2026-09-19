@@ -11,8 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 
-export type AbaAbertura = "itens" | "tarefas" | "meses" | "cotacoes";
-
 // Casca fininha: só lê `?aba=` e repassa como prop primitiva (mesmo molde de
 // `abas-abertura.tsx` — ver .planning/debug/abertura-navegacao-trava.md). Vive em
 // `app/(app)/abertura/layout.tsx` (não em `page.tsx`) precisamente para NÃO fazer parte do patch

@@ -3,10 +3,9 @@
 import { memo } from "react";
 import Link from "next/link";
 
+import { abaDaUrl, type AbaAbertura } from "@/lib/abertura/abas";
 import { cn } from "@/lib/utils";
 import { useAbaAtual } from "@/components/amassa/abertura/contexto-navegacao";
-
-export type AbaAbertura = "itens" | "tarefas" | "meses" | "cotacoes";
 
 // A barra de abas do protótipo (`role="tablist"`), no molde do `SeletorQueimas` — mas navegando
 // por QUERY STRING na MESMA rota (`?aba=itens`/`?aba=tarefas`/`?aba=meses`/`?aba=cotacoes`), não
@@ -23,13 +22,6 @@ const ABAS: readonly { valor: AbaAbertura; rotulo: string }[] = [
   { valor: "meses", rotulo: "Por mês" },
   { valor: "cotacoes", rotulo: "Cotações" },
 ];
-
-function abaDaUrl(valor: string | null): AbaAbertura {
-  if (valor === "tarefas") return "tarefas";
-  if (valor === "meses") return "meses";
-  if (valor === "cotacoes") return "cotacoes";
-  return "itens";
-}
 
 // Casca fininha (nunca `memo` aqui — não tem como comparar o que só existe em contexto): só lê
 // `?aba=` e repassa o valor JÁ DERIVADO como prop primitiva para `AbasAberturaConteudo`, que é

@@ -1,7 +1,7 @@
 import { EsqueletoCotacoes } from "@/components/amassa/cotacoes/esqueleto-cotacoes";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Esqueleto na FORMA do conteúdo que substitui — o bloco "Comprometido" (na ALTURA final, para a
+// Esqueleto na FORMA do conteúdo que substitui — o painel de cartões (na ALTURA final, para a
 // página não pular quando o número chegar), a barra de abas (plano 04.2-02) e o esqueleto
 // compartilhado de `EsqueletoCotacoes` (sub-abas de categoria + cabeçalho de tabela + linhas na
 // mesma altura da linha real, UI-SPEC §"Estados de carregamento"). Nunca um "carregando..."
@@ -15,29 +15,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 // estado de carregamento continua garantido — só num limite diferente.
 //
 // `loading.tsx` não recebe `searchParams` (é o mesmo esqueleto para qualquer `?aba=`) — por isso
-// ele não pode saber qual das quatro listas vai aparecer. A solução (04.3-02, Tarefa 3) é
+// ele não pode saber qual das quatro listas, nem quais cartões do painel (`cartoesDaAba`, pedido
+// do dono em 19/09), vão aparecer. Desde 260919-e4n, os cartões do painel dependem da aba: um
+// esqueleto de TRÊS cartões em toda aba contradiria a regra (piscaria em Tarefas/Cotações, que não
+// têm painel nenhum, e empurraria o conteúdo quando os cartões somem). Decisão do planner: o
+// esqueleto passa a ter a forma da aba PADRÃO (Itens, a que o menu abre) — UM único
+// cartão-esqueleto, escrito uma vez só (sem iterar sobre lista), dentro do MESMO grid de três
+// colunas — assim ocupa um terço no desktop, como o cartão real. Resultado: Itens sem salto; Por
+// mês sem salto no desktop (uma linha de cartões em ambos) e um cartão a mais no celular;
+// Tarefas/Cotações sobem uma linha quando o conteúdo chega. A solução (04.3-02, Tarefa 3) de
 // reaproveitar `EsqueletoCotacoes` (sub-abas + cabeçalho + linhas) para a segunda fileira E as
-// linhas de conteúdo das QUATRO abas — item, tarefa e mês são visualmente próximos o bastante de
-// uma linha de tabela com cabeçalho (nome + valor/urgência à direita) para não produzir salto de
-// leiaute perceptível quando o conteúdo real chega, seja qual for a aba.
+// linhas de conteúdo das QUATRO abas continua valendo — item, tarefa e mês são visualmente
+// próximos o bastante de uma linha de tabela com cabeçalho (nome + valor/urgência à direita) para
+// não produzir salto de leiaute perceptível quando o conteúdo real chega, seja qual for a aba.
 export default function CarregandoAbertura() {
   return (
     <div className="flex flex-col">
-      {/* Os TRÊS blocos do painel (D-15/ABE-12: Comprometido, Sai neste mês, Precisa de
-          atenção) — uma coluna no celular, três a partir de 660px, cada um na ALTURA FINAL do
-          bloco real, para a página não pular quando os números chegarem (UI-SPEC §"Estados de
-          carregamento", que pede isto explicitamente para este painel). */}
+      {/* Um único cartão-esqueleto (a forma da aba padrão, Itens: só "Precisa de atenção") — na
+          ALTURA FINAL do bloco real, para a página não pular quando o número chegar (UI-SPEC
+          §"Estados de carregamento", que pede isto explicitamente para este painel). */}
       <div className="grid grid-cols-1 gap-3 px-6 pt-6 sm:grid-cols-3 md:px-8">
-        {[0, 1, 2].map((bloco) => (
-          <div
-            key={bloco}
-            className="flex flex-col gap-2 rounded-lg border border-border p-4"
-          >
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-7 w-32" />
-            <Skeleton className="h-4 w-48" />
-          </div>
-        ))}
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-4">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
       </div>
 
       {/* Barra de abas (Itens/Tarefas/Por mês/Cotações, `AbasAbertura`) — QUATRO blocos do mesmo
