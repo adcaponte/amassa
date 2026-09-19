@@ -50,10 +50,17 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
     await botaoLancar.click();
 
     // Navegação completa para `/financeiro?aba=venda&aviso=lancado&documento=<id>` — o aviso é
-    // montado pela página a partir do banco.
-    await expect(page).toHaveURL(/\/financeiro\?aba=venda&aviso=lancado&documento=/, {
-      timeout: 10000,
-    });
+    // montado pela página a partir do banco. A asserção confere só "aba=venda" (estável), NUNCA
+    // o fragmento "&aviso=lancado&documento=": `AvisoFinanceiro` mostra o toast e, no MESMO
+    // efeito, já limpa `aviso`/`documento`/`parcela` da URL com `history.replaceState` (por
+    // desenho — recarregar não deve repetir o aviso). Sob a suíte inteira (8 workers, servidor
+    // único) esse `replaceState` pode disparar antes da primeira checagem do `toHaveURL`,
+    // fazendo a asserção testar um estado já limpo e nunca mais bater com o fragmento transiente
+    // — achado real (04.4-03, `tests/e2e/financeiro-venda.spec.ts`, diagnosticado com
+    // `--trace on`), não flakiness de infraestrutura. "aba=venda" é estável nos dois momentos e
+    // só aparece depois da navegação de sucesso (o `goto("/financeiro")" do teste começa sem
+    // query string nenhuma).
+    await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
     await expect(
       page.getByText(/^Venda nº \d+ lançada · R\$\s150,00$/),
     ).toBeVisible({ timeout: 5000 });

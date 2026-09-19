@@ -38,6 +38,25 @@ function atalho(page: Page, nome: string) {
   return page.getByTestId("venda-atalho").filter({ hasText: nome });
 }
 
+// Confere que "Lançar venda" navegou de verdade — SEM depender do fragmento transiente
+// "&aviso=lancado&documento=" na URL. Diagnóstico real (não suposição): `AvisoFinanceiro`
+// (components/amassa/financeiro/aviso-financeiro.tsx) mostra o toast e IMEDIATAMENTE limpa
+// `aviso`/`documento`/`parcela` da URL com `history.replaceState`, no mesmo efeito — por
+// desenho (recarregar a página não deve repetir o aviso). Sob a suíte inteira (8 workers, servidor
+// único), esse `replaceState` pode disparar ANTES da primeira checagem do `toHaveURL` da própria
+// suíte, o que fez `financeiro-venda.spec.ts:492` (e o mesmo padrão em
+// `financeiro-tracador.spec.ts`) falhar deterministicamente sob carga, mesmo passando 100% das
+// vezes isolado — confirmado com `--trace on`: o log de ação mostra "navigated to
+// .../financeiro?aba=venda&aviso=lancado&documento=<id>" seguido, alguns milissegundos depois, da
+// URL já limpa em ".../financeiro?aba=venda". Não é flakiness de infraestrutura nem hidratação
+// perdida — é a asserção testando um estado TRANSIENTE do próprio produto. O fragmento "aba=venda"
+// é estável nos dois momentos (antes e depois da limpeza) e só aparece depois da navegação de
+// sucesso (o `goto("/financeiro")` de cada teste começa sem nenhuma query string) — por isso é o
+// sinal certo para esperar, sem timeout maior, sem retry e sem tocar no comportamento do produto.
+async function esperarVendaLancada(page: Page) {
+  await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
+}
+
 function linhaDoCarrinho(page: Page, nome: string) {
   return page.getByTestId("venda-linha").filter({ hasText: nome });
 }
@@ -112,9 +131,7 @@ test.describe("financeiro venda", () => {
     const botaoLancar = page.getByRole("button", { name: "Lançar venda" });
     await expect(botaoLancar).toBeEnabled();
     await botaoLancar.click();
-    await expect(page).toHaveURL(/\/financeiro\?aba=venda&aviso=lancado&documento=/, {
-      timeout: 10000,
-    });
+    await esperarVendaLancada(page);
   });
 
   test("exemplo 2 — Refil + Copo para pintar, dica Cafeteria e Peças", async ({ page }) => {
@@ -427,6 +444,54 @@ test.describe("financeiro venda", () => {
     await expect(atalho(page, nomeCafeteria)).toHaveCount(0);
   });
 
+  test('"−" até zero tira a linha, e "tirar" tira a linha inteira de uma vez', async ({ page }) => {
+    const suf = sufixoUnico();
+    const nomeA = `[e2e] Prato 15 cm menos ${suf}`;
+    const nomeB = `[e2e] Argila 1 kg tirar ${suf}`;
+    await semearItem({
+      nome: nomeA,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 3800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+    await semearItem({
+      nome: nomeB,
+      categoriaVenda: "Materiais e papelaria",
+      precoCentavos: 1400,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nomeA).click();
+    await atalho(page, nomeA).click();
+    await atalho(page, nomeB).click();
+
+    const linhaA = linhaDoCarrinho(page, nomeA);
+    await expect(linhaA.getByTestId("venda-linha-quantidade")).toHaveText("2");
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 90,00"); // 2×38 + 14
+
+    // "−" até zero tira a linha inteira (nunca deixa quantidade zero visível).
+    await linhaA.getByLabel("menos um").click();
+    await expect(linhaA.getByTestId("venda-linha-quantidade")).toHaveText("1");
+    await linhaA.getByLabel("menos um").click();
+    await expect(linhaA).toHaveCount(0);
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 14,00");
+
+    // "tirar" remove a linha B de uma vez, independente da quantidade. `getByRole` (não
+    // `getByText`) porque o próprio nome do item de teste contém a palavra "tirar".
+    await linhaDoCarrinho(page, nomeB).getByRole("button", { name: "tirar" }).click();
+    await expect(page.getByTestId("venda-linha")).toHaveCount(0);
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 0,00");
+  });
+
   test("a estrela na lista completa marca o atalho e continua marcada depois de recarregar", async ({
     page,
   }) => {
@@ -520,7 +585,7 @@ test.describe("financeiro venda", () => {
 
     await page.getByRole("button", { name: "Pix", exact: true }).click();
     await page.getByRole("button", { name: "Lançar venda" }).click();
-    await expect(page).toHaveURL(/\?aba=venda&aviso=lancado&documento=/, { timeout: 10000 });
+    await esperarVendaLancada(page);
 
     await page.getByTestId("financeiro-aba-caixa").click();
     const linhaDoExtrato = page.getByTestId("extrato-linha").filter({ hasText: nome });
@@ -549,7 +614,7 @@ test.describe("financeiro venda", () => {
     await atalho(page, nome).click();
     await page.getByRole("button", { name: "Pix", exact: true }).click();
     await page.getByRole("button", { name: "Lançar venda" }).click();
-    await expect(page).toHaveURL(/\?aba=venda&aviso=lancado&documento=/, { timeout: 10000 });
+    await esperarVendaLancada(page);
 
     await definirPrecoDoItem(itemId, 999900);
 
@@ -578,7 +643,7 @@ test.describe("financeiro venda", () => {
     await expect(linhaDoCarrinho(page, descricao)).toBeVisible();
     await page.getByRole("button", { name: "Pix", exact: true }).click();
     await page.getByRole("button", { name: "Lançar venda" }).click();
-    await expect(page).toHaveURL(/\?aba=venda&aviso=lancado&documento=/, { timeout: 10000 });
+    await esperarVendaLancada(page);
   });
 
   test("exemplo 6 — Kit 4 xícaras + 4 Pratos 15 cm, desconto de R$ 2,00 dá R$ 330,00", async ({
@@ -626,7 +691,7 @@ test.describe("financeiro venda", () => {
 
     await page.getByRole("button", { name: "Pix", exact: true }).click();
     await page.getByRole("button", { name: "Lançar venda" }).click();
-    await expect(page).toHaveURL(/\?aba=venda&aviso=lancado&documento=/, { timeout: 10000 });
+    await esperarVendaLancada(page);
 
     await page.getByTestId("financeiro-aba-caixa").click();
     const linhaDoExtrato = page.getByTestId("extrato-linha").filter({ hasText: nomeKit });
