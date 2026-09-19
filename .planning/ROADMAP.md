@@ -447,7 +447,7 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: 2/11 plans executed
+**Plans**: 3/11 plans executed
 
 Plans:
 **Wave 1**
@@ -457,7 +457,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 04.4-02-PLAN.md — Financeiro na barra do celular e na lateral (D-04..D-06), `/cadastros` com Categorias e Taxas, e os FNC reescritos com o CONTEXT
-- [ ] 04.4-03-PLAN.md — Venda pelo catálogo: atalhos, busca, lista completa, quantidade, preço de tabela, desconto (D-09/D-10), data retroativa e o que sai do estoque
+- [x] 04.4-03-PLAN.md — Venda pelo catálogo: atalhos, busca, lista completa, quantidade, preço de tabela, desconto (D-09/D-10), data retroativa e o que sai do estoque
 - [ ] 04.4-04-PLAN.md — O script da virada (parcelas em aberto da Abertura viram contas a pagar), com ensaio, prova em banco próprio e o Roteiro 11 — não roda nesta fase
 
 **Wave 3** *(blocked on Wave 2 completion)*
@@ -612,7 +612,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
-| 04.4. Financeiro — parte 1 | 2/11 | In Progress|  |
+| 04.4. Financeiro — parte 1 | 3/11 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

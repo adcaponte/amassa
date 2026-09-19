@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: Completed 04.4-02-PLAN.md
-last_updated: "2026-09-19T20:01:17.920Z"
+stopped_at: Completed 04.4-03-PLAN.md
+last_updated: "2026-09-19T20:45:07.161Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
-  completed_plans: 53
+  completed_plans: 54
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 3 of 11
+Plan: 4 of 11
 Status: Ready to execute
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
 Last activity: 2026-09-19 — Phase 04.4 execution started
 
-Progress: [█████████░] 85% (51 de 51 planos executados e verificados até aqui)
+Progress: [█████████░] 87% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -116,6 +116,7 @@ Progress: [█████████░] 85% (51 de 51 planos executados e ver
 | Phase 04.3 P05 | ~3h35min | 3 tasks | 9 files |
 | Phase 04.4 P01 | ~2h40min | 4 tasks | 34 files |
 | Phase 04.4 P02 | ~1h10min | 3 tasks | 28 files |
+| Phase 04.4 P03 | ~50min | 3 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -279,6 +280,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-02: AbasFinanceiro virou Client Component (usePathname) para saber se está em /cadastros; memo com comparador próprio sobre (aba, emCadastros)
 - [Phase ?]: 04.4-02: lib/cadastros/categorias.ts nem import de tipo (grep de aceite do plano) — enums grupo/área redeclarados como literais, não importados de db/schema.ts
 - [Phase ?]: 04.4-02: codigoDoErroPostgres() em lib/cadastros/acoes.ts olha erro.code E erro.cause.code — drizzle-orm/node-postgres embrulha o SQLSTATE real em .cause; mesmo padrão quebrado suspeito em ehViolacaoDeChaveEstrangeira de outros módulos, não corrigido (fora do escopo)
+- [Phase ?]: 04.4-03: repartirDesconto (D-09/D-10) chamada idêntica no cliente e no servidor — piso inteiro, sobra na maior linha (empate: a primeira), recusa de repartição impossível
+- [Phase ?]: 04.4-03: efeitoNoEstoque faz toda conta em milésimos inteiros (nunca ponto flutuante acumulado) — contrato estável que a Fase 6 troca de mostrar para gravar
+- [Phase ?]: 04.4-03: DialogoValorLivre agrupa por GRUPO (Receitas/Fora do resultado), não por área — evita esconder a distinção sob o rótulo 'Geral' compartilhado
+- [Phase ?]: 04.4-03: lancarVenda resolve item de catálogo no servidor (descrição/categoria/existência nunca vêm do cliente); mudar preço depois não reescreve venda já lançada
 
 ### Pending Todos
 
@@ -343,6 +348,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T20:01:17.886Z
-Stopped at: Completed 04.4-02-PLAN.md
+Last session: 2026-09-19T20:45:07.124Z
+Stopped at: Completed 04.4-03-PLAN.md
 Resume file: None
