@@ -447,7 +447,7 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: 4/11 plans executed
+**Plans**: 5/11 plans executed
 
 Plans:
 **Wave 1**
@@ -462,7 +462,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04.4-05-PLAN.md — Catálogo em Cadastros: item vendável, insumo com estoque e unidade, ficha técnica de um nível
+- [x] 04.4-05-PLAN.md — Catálogo em Cadastros: item vendável, insumo com estoque e unidade, ficha técnica de um nível
 - [ ] 04.4-06-PLAN.md — Pagamento: à vista, sinal, 2x a 12x, "+ outra forma" (D-07/D-08), cartão com taxa congelada e a recusa no servidor
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -612,7 +612,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
-| 04.4. Financeiro — parte 1 | 4/11 | In Progress|  |
+| 04.4. Financeiro — parte 1 | 5/11 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

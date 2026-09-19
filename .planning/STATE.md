@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: Completed 04.4-04-PLAN.md
-last_updated: "2026-09-19T21:29:17.077Z"
+stopped_at: Completed 04.4-05-PLAN.md
+last_updated: "2026-09-19T22:03:29.632Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
-  completed_plans: 55
+  completed_plans: 56
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 5 of 11
+Plan: 6 of 11
 Status: Ready to execute
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
 Last activity: 2026-09-19 — Phase 04.4 execution started
 
-Progress: [█████████░] 89% (51 de 51 planos executados e verificados até aqui)
+Progress: [█████████░] 90% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -118,6 +118,7 @@ Progress: [█████████░] 89% (51 de 51 planos executados e ver
 | Phase 04.4 P02 | ~1h10min | 3 tasks | 28 files |
 | Phase 04.4 P03 | ~50min | 3 tasks | 22 files |
 | Phase 04.4 P04 | ~50min | 3 tasks | 7 files |
+| Phase 04.4 P05 | ~2h | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -288,6 +289,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-04: parcelasInteirasDoItem chama calcularParcelas e só acrescenta arredondamento de prefixo em centavos inteiros — lib/abertura/parcelas.ts continua a fonte única da data/valor de cada parcela
 - [Phase ?]: 04.4-04: a data do documento importado é a da COMPRA (item.primeiraParcelaEm original), nunca a da primeira parcela ainda em aberto — suposição 2 do plano
 - [Phase ?]: 04.4-04: lib/virada/ é o único módulo fora de lib/abertura que importa lib/abertura/parcelas.ts, por caminho relativo — sai junto com o código da Abertura (Roteiro 8), só depois de o Roteiro 11 já ter rodado
+- [Phase ?]: 04.4-05: esquemaItem/esquemaEdicaoDeItem viram fábricas (recebem o mapa de insumos) — validarItem precisa desse retrato do banco, que só existe depois de uma leitura
+- [Phase ?]: 04.4-05: podeDeixarDeTerEstoque roda ANTES da regra estrutural genérica (cliente e servidor) — quando as duas seriam verdade ao mesmo tempo, 'esse item é insumo de X' é a frase mais acionável
+- [Phase ?]: 04.4-05: FichaTecnica sempre visível no diálogo do item, independente de 'Tem estoque próprio' — a ficha pertence ao item vendido, não ao insumo
 
 ### Pending Todos
 
@@ -352,6 +356,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T21:28:57.040Z
-Stopped at: Completed 04.4-04-PLAN.md
+Last session: 2026-09-19T22:03:29.574Z
+Stopped at: Completed 04.4-05-PLAN.md
 Resume file: None
