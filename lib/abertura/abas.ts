@@ -1,7 +1,7 @@
 // Regra "quais cartões do painel aparecem em qual aba" (pedido do dono, 19/09): "Comprometido" e
 // "Sai neste mês" SÓ na aba Por mês; "Precisa de atenção" SÓ na aba Itens (a padrão); nenhum
-// cartão em Tarefas ("comparar tarefas não precisa dos cartões") nem em Cotações ("não quero ver
-// os cartões enquanto comparo cotações"). Módulo puro, sem nenhum import — nem React, nem banco,
+// cartão em Cotações (o dono: não quer ver os cartões enquanto compara cotações) nem em Tarefas
+// (dedução da regra dele, apresentada a ele ao implementar — não é fala do dono). Módulo puro, sem nenhum import — nem React, nem banco,
 // nem outro módulo de `lib/abertura/*` — para o teste unitário (`tests/unit/abertura-abas.test.ts`)
 // cobrir a especificação isolada de qualquer outra peça do sistema.
 //
@@ -35,7 +35,7 @@ export const ORDEM_DOS_CARTOES: readonly CartaoDoPainel[] = ["comprometido", "me
 const CARTOES_POR_ABA: Record<AbaAbertura, readonly CartaoDoPainel[]> = {
   // Itens: só "Precisa de atenção" — a leitura do que está atrasado/vencido.
   itens: ["atencao"],
-  // Tarefas: nenhum cartão — comparar tarefas não precisa do painel de valores.
+  // Tarefas: nenhum cartão — dedução da regra do dono (ele não pediu cartão aqui).
   tarefas: [],
   // Por mês: "Comprometido" e "Sai neste mês", na ordem de ORDEM_DOS_CARTOES.
   meses: ["comprometido", "mes"],
