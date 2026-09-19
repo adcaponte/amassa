@@ -55,3 +55,34 @@ export function tituloDoDocumento({ titulo, linhas }: EntradaDeTituloDoDocumento
   const resto = nomes.length > 2 ? ` +${nomes.length - 2}` : "";
   return `${primeirosDois}${resto}`;
 }
+
+// As áreas distintas de uma venda, na ordem de PRIMEIRA aparição — nunca ordem alfabética, nunca
+// a ordem fixa de `ROTULO_AREA` (a dica "dividido sozinho entre..." segue a ordem em que o gestor
+// tocou nos itens).
+export function areasDaVenda(linhas: readonly { area: string }[]): string[] {
+  const vistas = new Set<string>();
+  const areas: string[] = [];
+  for (const linha of linhas) {
+    if (!vistas.has(linha.area)) {
+      vistas.add(linha.area);
+      areas.push(linha.area);
+    }
+  }
+  return areas;
+}
+
+// "Cafeteria"; "Cafeteria e Peças"; "Espaço, Peças e Cafeteria" — lista em português (D-06 do
+// 04.4-03-PLAN.md: cópia literal do UI-SPEC "{área, área e área}", em vez das vírgulas soltas do
+// protótipo).
+export function listaEmPortugues(nomes: readonly string[]): string {
+  if (nomes.length === 0) {
+    return "";
+  }
+  if (nomes.length === 1) {
+    return nomes[0];
+  }
+  if (nomes.length === 2) {
+    return `${nomes[0]} e ${nomes[1]}`;
+  }
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}

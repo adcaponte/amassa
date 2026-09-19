@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { nomeDaLinha, totalDasLinhas, tituloDoDocumento } from "@/lib/financeiro/documento";
+import {
+  areasDaVenda,
+  listaEmPortugues,
+  nomeDaLinha,
+  totalDasLinhas,
+  tituloDoDocumento,
+} from "@/lib/financeiro/documento";
 
 describe("nomeDaLinha", () => {
   it("quantidade 1 (padrão) devolve só o nome", () => {
@@ -66,5 +72,44 @@ describe("tituloDoDocumento", () => {
         linhas: [{ nome: "Café" }, { nome: "Pão de queijo" }, { nome: "Bolo" }, { nome: "Refil" }],
       }),
     ).toBe("Café + Pão de queijo +2");
+  });
+});
+
+describe("areasDaVenda", () => {
+  it("devolve as áreas distintas na ordem de primeira aparição", () => {
+    expect(
+      areasDaVenda([
+        { area: "pecas" },
+        { area: "cafeteria" },
+        { area: "pecas" },
+        { area: "loja" },
+      ]),
+    ).toEqual(["pecas", "cafeteria", "loja"]);
+  });
+
+  it("uma área só devolve lista de um elemento", () => {
+    expect(areasDaVenda([{ area: "cafeteria" }, { area: "cafeteria" }])).toEqual(["cafeteria"]);
+  });
+
+  it("lista vazia devolve lista vazia", () => {
+    expect(areasDaVenda([])).toEqual([]);
+  });
+});
+
+describe("listaEmPortugues", () => {
+  it("uma área não leva conectivo", () => {
+    expect(listaEmPortugues(["Cafeteria"])).toBe("Cafeteria");
+  });
+
+  it("duas áreas usam 'e'", () => {
+    expect(listaEmPortugues(["Cafeteria", "Peças"])).toBe("Cafeteria e Peças");
+  });
+
+  it("três áreas usam vírgula e 'e' antes da última", () => {
+    expect(listaEmPortugues(["Espaço", "Peças", "Cafeteria"])).toBe("Espaço, Peças e Cafeteria");
+  });
+
+  it("lista vazia devolve texto vazio", () => {
+    expect(listaEmPortugues([])).toBe("");
   });
 });
