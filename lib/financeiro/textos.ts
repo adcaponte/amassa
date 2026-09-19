@@ -45,6 +45,51 @@ export const ROTULO_LANCAR_VENDA = "Lançar venda";
 export const FRASE_VAZIO_VENDA = "Toque nos itens para montar a venda.";
 export const ROTULO_VALOR_LIVRE = "+ Valor livre";
 
+// O bloco de pagamento (04.4-06-PLAN.md): "Como recebe"/"Como paga", os oito planos, "+ outra
+// forma" (D-07/D-08) e o aviso do cartão. `PlanoDePagamento` redeclarado localmente — mesma
+// disciplina de `FORMAS` em `lib/financeiro/esquemas.ts` — nunca importado de
+// `lib/financeiro/parcelas.ts` (evita um import cruzado entre dois módulos puros irmãos).
+export type PlanoDePagamento = "avista" | "sinal" | "2" | "3" | "4" | "6" | "10" | "12";
+
+export const ROTULO_COMO_RECEBE = "Como recebe";
+export const ROTULO_COMO_PAGA = "Como paga";
+export const ROTULO_OUTRA_FORMA = "+ outra forma";
+export const ROTULO_JA_RECEBI = "já recebi";
+export const ROTULO_JA_PAGUEI = "já paguei";
+
+export type TipoDeDocumentoParaTexto = "venda" | "despesa";
+
+// "À vista"; "Sinal de 50% + saldo" (venda) / "Entrada de 50% + saldo" (despesa); "2x".."12x" —
+// os rótulos do seletor "Como recebe"/"Como paga", na mesma ordem de `PLANOS_DE_PAGAMENTO`
+// (lib/financeiro/parcelas.ts).
+export function rotuloDoPlano(plano: PlanoDePagamento, tipo: TipoDeDocumentoParaTexto): string {
+  if (plano === "avista") {
+    return "À vista";
+  }
+  if (plano === "sinal") {
+    return tipo === "venda" ? "Sinal de 50% + saldo" : "Entrada de 50% + saldo";
+  }
+  return `${plano}x`;
+}
+
+// "Cartão: a maquininha fica com 3,5% (R$ 5,25). Entram R$ 144,75 no caixa e a taxa vira custo do
+// mês. A taxa muda em Cadastros → Taxas." — os três valores já chegam FORMATADOS de quem chama
+// (`formatarPercentual`/`formatarReais`, lib/financeiro/formato.ts); este módulo nunca formata
+// dinheiro sozinho.
+export function textoAvisoCartao(
+  percentualFormatado: string,
+  taxaFormatada: string,
+  entramFormatado: string,
+): string {
+  return `Cartão: a maquininha fica com ${percentualFormatado}% (${taxaFormatada}). Entram ${entramFormatado} no caixa e a taxa vira custo do mês. A taxa muda em Cadastros → Taxas.`;
+}
+
+// "1 de 3" — a etiqueta de parcela do extrato (zero-one-many: 1 parcela não mostra "1 de 1", só
+// 2+ mostram "k de N", 04.4-UI-SPEC.md).
+export function textoParcelaDoExtrato(numero: number, deQuantas: number): string {
+  return `${numero} de ${deQuantas}`;
+}
+
 // O catálogo da Venda (plano 03): busca, pílulas de área, grade de atalhos, lista completa.
 export const ROTULO_BUSCAR_NO_CATALOGO = "Buscar no catálogo";
 export const ROTULO_TODOS_OS_ATALHOS = "Todos os atalhos";

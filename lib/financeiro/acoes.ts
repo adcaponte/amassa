@@ -13,7 +13,8 @@ import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
 import { TETO_CENTAVOS } from "./dinheiro";
 import { dataDentroDoIntervaloPermitido, esquemaId, esquemaVenda } from "./esquemas";
-import { formatarReais, hojeEmBrasilia } from "./formato";
+import { hojeEmBrasilia } from "./formato";
+import { conferirParcelas } from "./parcelas";
 import { FRASE_FALHA_AO_SALVAR } from "./textos";
 
 // Mesma forma de `lib/abertura/acoes.ts`/`lib/cotacoes/acoes.ts` — cada módulo redeclara hoje,
@@ -76,36 +77,24 @@ export async function lancarVenda(
     };
   }
 
-  const totalDasParcelas = dados.parcelas.reduce((total, parcela) => total + parcela.valorCentavos, 0);
-  if (totalDasParcelas !== totalCentavos) {
-    const diferenca = totalCentavos - totalDasParcelas;
-    const verbo = diferenca > 0 ? "Faltam" : "Sobram";
-    return {
-      ok: false,
-      erro: `As parcelas somam ${formatarReais(totalDasParcelas)}. ${verbo} ${formatarReais(Math.abs(diferenca))} para fechar com o total.`,
-    };
-  }
-
-  for (const parcela of dados.parcelas) {
-    if (parcela.pago && parcela.vencimento > hoje) {
-      return {
-        ok: false,
-        erro:
-          "Uma parcela que vence depois de hoje não pode estar paga — desmarque e registre no Caixa quando o dinheiro entrar.",
-      };
-    }
-  }
-
   const configuracao = await obterConfiguracaoFinanceira();
-  if (configuracao.dataSaldoInicial) {
-    for (const parcela of dados.parcelas) {
-      if (parcela.pago && parcela.vencimento < configuracao.dataSaldoInicial) {
-        return {
-          ok: false,
-          erro: "Essa parcela vence antes do saldo inicial do Financeiro — confira a data.",
-        };
-      }
-    }
+
+  // `conferirParcelas` (lib/financeiro/parcelas.ts) é a MESMA função que `BlocoPagamento` chama
+  // no cliente para mostrar a mensagem de falta/sobra — chamada de novo aqui porque o servidor
+  // nunca confia na soma calculada do lado de lá (T-04.4-38): o botão pode ser habilitado à
+  // força, e a frase de recusa precisa ser a mesma nos dois lados.
+  const conferencia = conferirParcelas({
+    totalCentavos,
+    parcelas: dados.parcelas.map((parcela) => ({
+      vencimento: parcela.vencimento,
+      valorCentavos: parcela.valorCentavos,
+      pago: parcela.pago,
+    })),
+    hoje,
+    dataSaldoInicial: configuracao.dataSaldoInicial,
+  });
+  if (!conferencia.ok) {
+    return { ok: false, erro: conferencia.erro };
   }
 
   // Categoria de linha LIVRE carregada do banco: precisa existir, estar ATIVA e ser do grupo
@@ -215,6 +204,10 @@ export async function lancarVenda(
         dados.parcelas.map((parcela, indice) => {
           // Parcela paga no cartão de VENDA congela a taxa da configuração no momento do
           // pagamento (BRIEFING §5) — mudar a taxa em Cadastros depois não reescreve o passado.
+          // Só `taxaPontosBase` é gravado aqui, nunca os centavos: o valor líquido de verdade
+          // (`taxaEmCentavos`/`liquidoDaParcela`, lib/financeiro/taxa.ts) é calculado sempre que
+          // a parcela é LIDA (extrato, Mês) — se ele fosse gravado aqui, mudar a taxa depois
+          // reescreveria silenciosamente o passado.
           const pagaNoCartao = parcela.pago && parcela.forma === "cartao";
           return {
             documentoId: documento.id,

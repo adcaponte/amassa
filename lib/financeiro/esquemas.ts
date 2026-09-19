@@ -101,6 +101,11 @@ export const esquemaLinhaDeVenda = z.discriminatedUnion("tipo", [
   esquemaLinhaItemBase,
 ]);
 
+// O formato de UMA parcela — o mesmo, não importa o plano escolhido em `BlocoPagamento`
+// (04.4-06-PLAN.md): à vista manda um array de 1; sinal e Nx mandam de 2 a 12; "+ outra forma"
+// (D-08) manda 2 parcelas pagas na mesma data, cada uma com a própria forma. O servidor nunca
+// confia no array recebido para decidir SE ele fecha com o total — isso é
+// `lib/financeiro/parcelas.ts::conferirParcelas`, chamada de novo em `lancarVenda`.
 export const esquemaParcelaDeVenda = z.object({
   vencimento: esquemaDataCivil,
   valorTexto: z.string(),

@@ -39,6 +39,14 @@ export function formatarReais(centavos: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(reais);
 }
 
+// "3,5" a partir de 350 pontos-base (3,5%) — o inverso de
+// `converterPercentualParaPontosBase` (lib/financeiro/dinheiro.ts), usado pelo aviso do cartão
+// (04.4-06-PLAN.md) para mostrar a taxa vigente sem casas decimais soltas ("0" para 0, "10" para
+// 1000 pontos-base).
+export function formatarPercentual(pontosBase: number): string {
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(pontosBase / 100);
+}
+
 // "18/12/26" — dia, mês e ano com dois dígitos, separados por barra (o formato `dBR` do
 // protótipo). `Date.UTC` + `timeZone: "UTC"`, nunca o fuso do runtime — mesmo cuidado de
 // `lib/abertura/formato.ts::formatarDiaEMes`.

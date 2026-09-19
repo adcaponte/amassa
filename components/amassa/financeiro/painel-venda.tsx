@@ -9,13 +9,13 @@ import { converterPercentualParaPontosBase, converterReaisParaCentavos } from "@
 import { areasDaVenda, listaEmPortugues } from "@/lib/financeiro/documento";
 import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
+import { conferirParcelas, dividirEmDuasFormas, gerarPlano, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
 import { CHAVE_RASCUNHO_VENDA, lerRascunho, serializarRascunho, type LinhaDoRascunho } from "@/lib/financeiro/rascunho";
 import {
   FRASE_VAZIO_VENDA,
   PLACEHOLDER_PESSOA_VENDA,
   ROTULO_AREA,
   ROTULO_DATA,
-  ROTULO_FORMA,
   ROTULO_LANCAR_VENDA,
   ROTULO_LIMPAR,
   ROTULO_LISTA_COMPLETA_E_ATALHOS,
@@ -27,9 +27,9 @@ import {
   textoDicaDeAreas,
   type FormaDePagamento,
 } from "@/lib/financeiro/textos";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
 import { CampoDesconto, type ModoDeDesconto } from "./campo-desconto";
 import { DialogoValorLivre, type LinhaDeValorLivre } from "./dialogo-valor-livre";
 import { EfeitoEstoque } from "./efeito-estoque";
@@ -76,23 +76,30 @@ export type PainelVendaProps = {
   categorias: CategoriaParaEscolha[];
   catalogo: ItemDoCatalogoParaVenda[];
   itensParaEfeito: ItemParaEfeito[];
+  configuracao: { taxaCartaoPontosBase: number; dataSaldoInicial: string | null };
 };
 
-// O painel de venda completo (04.4-03-PLAN.md): catálogo com atalhos/busca/lista completa, valor
-// livre, quantidade e preço editável, dica de múltiplas áreas, data retroativa e o efeito no
-// estoque. O rascunho sobrevive a trocar de aba/recarregar via `lib/financeiro/rascunho.ts`, na
-// mesma aba do navegador.
-export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: PainelVendaProps) {
+// O painel de venda completo (04.4-03-PLAN.md, 04.4-06-PLAN.md): catálogo com atalhos/busca/lista
+// completa, valor livre, quantidade e preço editável, dica de múltiplas áreas, data retroativa, o
+// pagamento (à vista, sinal, 2x a 12x, "+ outra forma" e o aviso do cartão) e o efeito no estoque.
+// O rascunho sobrevive a trocar de aba/recarregar via `lib/financeiro/rascunho.ts`, na mesma aba
+// do navegador — o PAGAMENTO fica de fora do rascunho de propósito: mudar de aba e voltar não
+// deve reencontrar parcelas geradas para um total que já mudou.
+export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, configuracao }: PainelVendaProps) {
   const [dialogoValorLivreAberto, setDialogoValorLivreAberto] = useState(false);
   const [dialogoListaAberto, setDialogoListaAberto] = useState(false);
   const [linhas, setLinhas] = useState<LinhaLocal[]>([]);
   const [data, setData] = useState(hoje);
   const [pessoa, setPessoa] = useState("");
-  const [forma, setForma] = useState<FormaDePagamento>("pix");
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroDeArea>("tudo");
   const [descontoModo, setDescontoModo] = useState<ModoDeDesconto>("reais");
   const [descontoTexto, setDescontoTexto] = useState("");
+  const [plano, setPlano] = useState<PlanoDePagamento>("avista");
+  const [formaPagamento, setFormaPagamento] = useState<FormaDePagamento>("pix");
+  const [duasFormas, setDuasFormas] = useState(false);
+  const [parcelasPagamento, setParcelasPagamento] = useState<ParcelaDoBloco[]>([]);
+  const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
@@ -262,7 +269,122 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
   }));
 
   const totalCentavos = valoresFinaisCentavos.reduce((total, valor) => total + valor, 0);
-  const podeLancar = linhas.length > 0 && todasValidas && !descontoErro && !enviando;
+
+  // O plano de pagamento (04.4-06-PLAN.md) regenera do zero sempre que o TOTAL, a DATA ou o
+  // PLANO mudam — "mudar linhas, data ou plano gera as parcelas de novo" (must_have do plano):
+  // qualquer edição manual de uma parcela some nessa hora, inclusive a divisão "+ outra forma".
+  // Trocar só a FORMA (`mudarFormaPagamento` abaixo) não passa por aqui — ela só re-rotula as
+  // parcelas já existentes, sem mexer em data/valor.
+  useEffect(() => {
+    if (totalCentavos <= 0) {
+      setParcelasPagamento([]);
+      setErroDoPlano(null);
+      setDuasFormas(false);
+      return;
+    }
+    const resultado = gerarPlano({ plano, totalCentavos, data, forma: formaPagamento });
+    setDuasFormas(false);
+    if (!resultado.ok) {
+      setParcelasPagamento([]);
+      setErroDoPlano(resultado.erro);
+      return;
+    }
+    setErroDoPlano(null);
+    setParcelasPagamento(
+      resultado.parcelas.map((parcela) => ({
+        vencimento: parcela.vencimento,
+        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        forma: parcela.forma,
+        pago: parcela.paga,
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plano, totalCentavos, data]);
+
+  function mudarFormaPagamento(nova: FormaDePagamento) {
+    setFormaPagamento(nova);
+    if (!duasFormas) {
+      setParcelasPagamento((atual) => atual.map((parcela) => ({ ...parcela, forma: nova })));
+    }
+  }
+
+  function ativarOutraForma() {
+    const outraForma = FORMAS_EM_ORDEM.find((valor) => valor !== formaPagamento) ?? "dinheiro";
+    const resultado = dividirEmDuasFormas({
+      totalCentavos,
+      primeiroValorCentavos: Math.ceil(totalCentavos / 2),
+      data,
+      formas: [formaPagamento, outraForma],
+    });
+    if (!resultado.ok) {
+      setErroDoPlano(resultado.erro);
+      return;
+    }
+    setErroDoPlano(null);
+    setDuasFormas(true);
+    setParcelasPagamento(
+      resultado.parcelas.map((parcela) => ({
+        vencimento: parcela.vencimento,
+        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        forma: parcela.forma,
+        pago: parcela.paga,
+      })),
+    );
+  }
+
+  function tirarOutraForma() {
+    const resultado = gerarPlano({ plano: "avista", totalCentavos, data, forma: formaPagamento });
+    setDuasFormas(false);
+    if (!resultado.ok) {
+      setErroDoPlano(resultado.erro);
+      setParcelasPagamento([]);
+      return;
+    }
+    setErroDoPlano(null);
+    setParcelasPagamento(
+      resultado.parcelas.map((parcela) => ({
+        vencimento: parcela.vencimento,
+        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        forma: parcela.forma,
+        pago: parcela.paga,
+      })),
+    );
+  }
+
+  function mudarParcela(indice: number, alteracao: Partial<ParcelaDoBloco>) {
+    setParcelasPagamento((atual) =>
+      atual.map((parcela, i) => (i === indice ? { ...parcela, ...alteracao } : parcela)),
+    );
+  }
+
+  // A MESMA `conferirParcelas` que `BlocoPagamento` chama para MOSTRAR a falta/sobra — chamada
+  // aqui de novo só para decidir se "Lançar venda" habilita (o painel é quem controla o estado,
+  // BlocoPagamento decide só rótulos e o aviso do cartão).
+  const parcelasPagamentoConvertidas = parcelasPagamento.map((parcela) => {
+    const resultado = converterReaisParaCentavos(parcela.valorTexto);
+    return {
+      vencimento: parcela.vencimento,
+      valorCentavos: resultado.ok && resultado.centavos ? resultado.centavos : 0,
+      pago: parcela.pago,
+    };
+  });
+  const conferenciaDoPagamento =
+    !erroDoPlano && parcelasPagamentoConvertidas.length > 0
+      ? conferirParcelas({
+          totalCentavos,
+          parcelas: parcelasPagamentoConvertidas,
+          hoje,
+          dataSaldoInicial: configuracao.dataSaldoInicial,
+        })
+      : null;
+
+  const podeLancar =
+    linhas.length > 0 &&
+    todasValidas &&
+    !descontoErro &&
+    !erroDoPlano &&
+    (conferenciaDoPagamento?.ok ?? false) &&
+    !enviando;
 
   const areas = areasDaVenda(linhas.map((linha) => ({ area: linha.area })));
   const nomesDeAreas = areas.map((area) => ROTULO_AREA[area as keyof typeof ROTULO_AREA] ?? area);
@@ -352,6 +474,11 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
     setDescontoModo("reais");
     setDescontoTexto("");
     setErro(null);
+    setPlano("avista");
+    setFormaPagamento("pix");
+    setDuasFormas(false);
+    setParcelasPagamento([]);
+    setErroDoPlano(null);
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
   }
 
@@ -377,15 +504,15 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
               valorTexto: centavosParaTexto(linha.valorCentavos),
             },
       ),
-      // À vista: UMA parcela, paga na data do documento, já com o total DESCONTADO.
-      parcelas: [
-        {
-          vencimento: data,
-          valorTexto: centavosParaTexto(totalCentavos),
-          forma,
-          pago: true,
-        },
-      ],
+      // O plano de pagamento inteiro (à vista, sinal, Nx ou "+ outra forma") — cada parcela já
+      // com a própria forma (D-07), gerado por `gerarPlano`/`dividirEmDuasFormas` e editável à
+      // mão pelo bloco de pagamento.
+      parcelas: parcelasPagamento.map((parcela) => ({
+        vencimento: parcela.vencimento,
+        valorTexto: parcela.valorTexto,
+        forma: parcela.forma,
+        pago: parcela.pago,
+      })),
       ...(descontoTexto.trim() !== "" ? { desconto: { modo: descontoModo, texto: descontoTexto } } : {}),
     });
 
@@ -501,27 +628,23 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
           </p>
         )}
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-apoio text-muted-foreground">Forma</legend>
-          <div className="flex gap-2">
-            {FORMAS_EM_ORDEM.map((valor) => (
-              <button
-                key={valor}
-                type="button"
-                aria-pressed={forma === valor}
-                onClick={() => setForma(valor)}
-                className={cn(
-                  "text-corpo min-h-[44px] flex-1 rounded-md border px-3",
-                  forma === valor
-                    ? "border-primary bg-accent text-accent-foreground"
-                    : "border-border bg-secondary text-secondary-foreground",
-                )}
-              >
-                {ROTULO_FORMA[valor]}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <BlocoPagamento
+          tipo="venda"
+          totalCentavos={totalCentavos}
+          taxaPontosBase={configuracao.taxaCartaoPontosBase}
+          hoje={hoje}
+          dataSaldoInicial={configuracao.dataSaldoInicial}
+          plano={plano}
+          aoMudarPlano={setPlano}
+          forma={formaPagamento}
+          aoMudarForma={mudarFormaPagamento}
+          duasFormas={duasFormas}
+          aoAtivarOutraForma={ativarOutraForma}
+          aoTirarOutraForma={tirarOutraForma}
+          parcelas={parcelasPagamento}
+          aoMudarParcela={mudarParcela}
+          erroDeGeracao={erroDoPlano}
+        />
 
         <EfeitoEstoque efeito={efeito} />
 

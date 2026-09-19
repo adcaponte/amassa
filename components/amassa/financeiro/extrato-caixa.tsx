@@ -1,6 +1,12 @@
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import type { LinhaDoExtrato } from "@/lib/financeiro/extrato";
-import { FRASE_VAZIO_EXTRATO, ROTULO_FORMA, TITULO_EXTRATO } from "@/lib/financeiro/textos";
+import { taxaEmCentavos } from "@/lib/financeiro/taxa";
+import {
+  FRASE_VAZIO_EXTRATO,
+  ROTULO_FORMA,
+  textoParcelaDoExtrato,
+  TITULO_EXTRATO,
+} from "@/lib/financeiro/textos";
 
 export type ExtratoCaixaProps = {
   // Já filtradas para o mês corrente e ordenadas mais recente primeiro pela página — este
@@ -31,7 +37,14 @@ export function ExtratoCaixa({ linhas }: ExtratoCaixaProps) {
                   (linha.cancelado ? " text-muted-foreground line-through" : "")
                 }
               >
-                <span className="text-corpo min-w-0 flex-1 truncate">{linha.titulo}</span>
+                <span className="text-corpo min-w-0 flex-1 truncate">
+                  {linha.titulo}
+                  {linha.deQuantas > 1 && (
+                    <span data-testid="extrato-parcela" className="text-apoio text-muted-foreground ml-2">
+                      {textoParcelaDoExtrato(linha.numeroParcela, linha.deQuantas)}
+                    </span>
+                  )}
+                </span>
                 <span
                   className={
                     "text-corpo tabular-nums " +
@@ -48,6 +61,11 @@ export function ExtratoCaixa({ linhas }: ExtratoCaixaProps) {
                   {formatarDataCurta(linha.pagoEm)} · {ROTULO_FORMA[linha.forma]}
                   {linha.cancelado ? " · cancelada" : ""}
                 </span>
+                {linha.taxaPontosBase != null && (
+                  <span data-testid="extrato-taxa" className="text-apoio text-muted-foreground">
+                    taxa {formatarReais(taxaEmCentavos(linha.valorCentavos, linha.taxaPontosBase))}
+                  </span>
+                )}
                 {linha.saldoDepoisCentavos !== null ? (
                   <span data-testid="extrato-saldo-depois" className="text-apoio tabular-nums">
                     saldo {formatarReais(linha.saldoDepoisCentavos)}

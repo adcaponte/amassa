@@ -53,7 +53,9 @@ export default async function PaginaFinanceiro({
     abaAtual === "venda" ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
     abaAtual === "venda" ? listarCatalogoDaVenda() : Promise.resolve([]),
     abaAtual === "venda" ? listarItensParaEfeito() : Promise.resolve([]),
-    abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
+    // A Venda também precisa da configuração — o pagamento (04.4-06-PLAN.md) lê a taxa do
+    // cartão e a data do saldo inicial para o aviso do cartão e a conferência das parcelas.
+    abaAtual === "venda" || abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
     abaCaixa ? listarMovimentos() : Promise.resolve([]),
     abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
     avisoResolvido ? obterDocumentoParaAviso(avisoResolvido.documentoId) : Promise.resolve(null),
@@ -103,6 +105,10 @@ export default async function PaginaFinanceiro({
           categorias={categoriasParaValorLivre}
           catalogo={catalogo}
           itensParaEfeito={itensParaEfeito}
+          configuracao={{
+            taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
+            dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
+          }}
         />
       )}
     </>
