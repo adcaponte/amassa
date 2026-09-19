@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 19
+open_count: 15
 waived_count: 1
-fixed_count: 11
+fixed_count: 15
 total_count: 31
-last_updated: 2026-09-18T18:22:37.243Z
+last_updated: 2026-09-19T09:09:21.148Z
 ---
 
 # Broken Windows Ledger
@@ -26,7 +26,7 @@ last_updated: 2026-09-18T18:22:37.243Z
 | 9 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/confirmar-excluir.tsx |  | E9 confirmar excluir — erro (backstop do plano 03-05): mesma situacao de E8 aplicada a excluirEncomenda — caminho implementado, sem prova automatizada nem verificacao manual do caminho de falha nesta execucao. | open |  | 2026-08-09T17:35:34.500Z |  |
 | 10 | 03-gestor-de-encomendas | unrun-verify | components/amassa/encomendas/lista-itens.tsx |  | E11 reordenacao — carregando (backstop do plano 03-06): a seta clicada fica com opacidade reduzida e disabled (par inteiro) ate a resposta do servidor, o que deveria impedir que dois cliques rapidos na mesma seta gravem fora de ordem; nao verificado a mao nem com teste automatizado de concorrencia real nesta execucao (dificil simular corrida de rede confiavel em e2e local). | open |  | 2026-08-09T18:53:37.603Z |  |
 | 11 | 03-gestor-de-encomendas | deviation | tests/e2e/encomendas-impressao.spec.ts |  | Teste 'sem nenhuma encomenda ativa' (folha de impressao) so e confiavel isolado (--grep impressao de encomendas); sob --grep encomenda/suite completa, outros specs criam encomendas em paralelo e o teste falha por contagem global nao-zero. Mesma classe estrutural de WINDOWS #5 (sem isolamento de banco por teste). | fixed |  | 2026-08-09T20:57:04.606Z | 2026-08-10T18:51:44.807Z |
-| 12 | 03-gestor-de-encomendas | deviation | tests/e2e/sessao.spec.ts | 110 | 'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility). | open |  | 2026-08-09T20:57:11.541Z |  |
+| 12 | 03-gestor-de-encomendas | deviation | tests/e2e/sessao.spec.ts | 110 | 'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility). | fixed |  | 2026-08-09T20:57:11.541Z | 2026-09-19T09:09:19.931Z |
 | 13 | 03-gestor-de-encomendas | deviation | .github/workflows/entrega.yml |  | O passo 'implantar' do pipeline faz docker compose pull app + up -d app, mas nunca faz pull da imagem :ferramentas (usada para migrar e criar/redefinir usuario). docker compose run usa o cache local, entao apos um deploy o servidor pode rodar a imagem ferramentas de uma fase anterior por ate a proxima vez que alguem rodar 'docker compose pull ferramentas' a mao. Descoberto na execucao do roteiro 04 (migracao de producao da Fase 3): o servidor rodou meia hora com a imagem da Fase 2a antes do pull manual (passo 2 do roteiro) pegar. Os roteiros de docs/operacao/ ja incluem o pull manual como salvaguarda; o gap e o pipeline nao fazer isso sozinho. | fixed |  | 2026-08-10T19:55:19.553Z | 2026-08-10T20:08:36.048Z |
 | 14 | 03-gestor-de-encomendas | deviation | docker/compose.yml |  | O compose.yml do servidor e copiado por scp no Roteiro 1 e nenhum roteiro posterior nem o pipeline o atualizam depois disso — ele pode divergir do docker/compose.yml versionado no repositorio. Descoberto na execucao do roteiro 04: DATABASE_URL_MIGRACAO entrou no compose.yml no commit e593e83 (plano 02a-02, depois da copia inicial), entao o servico ferramentas do servidor ainda lia DATABASE_URL (que aponta para amassa_app, sem privilegio de DDL) e a migracao falhou com 'permission denied for database amassa' (42501) ate o dono copiar o compose.yml atual para o servidor a mao. Nenhum roteiro de docs/operacao/ inclui um passo de 'sincronize o compose.yml antes de migrar' — candidato a um passo novo numa fase de polimento. | fixed |  | 2026-08-10T19:55:19.982Z | 2026-08-10T20:08:36.522Z |
 | 15 | 04 | unrun-verify | components/amassa/queimas/medidor.tsx |  | Posição visual em pixels dos entalhes/marca do limiar não medida por teste automatizado — verificação humana pendente para 04-07 | open |  | 2026-08-11T00:10:18.811Z |  |
@@ -43,9 +43,9 @@ last_updated: 2026-09-18T18:22:37.243Z
 | 26 | 04.2 | deviation | tests/e2e/queimas-registro.spec.ts | 84 | ACHADO QUE ULTRAPASSA A FASE: 'Desfazer' remove a queima recem-registrada -- falhou numa das varreduras completas de 04.2. Usa router.refresh() apos a Server Action (mesmo padrao de components/amassa/queimas/registrar-queima.tsx), o MESMO canal com perda ja diagnosticado em .planning/debug/abertura-navegacao-trava.md (confirmado tambem para components/amassa/encomendas/trilha-etapas.tsx, ja anotado ali como 'canal com perda', ver WINDOWS #12/#21/#22). Queimas e Encomendas usam o mesmo padrao router.refresh() e tem menos testes batendo nele que Abertura tinha. Nao corrigido nesta execucao -- fora do escopo de arquivos do plano 04.2-05 (nenhum arquivo de Queimas/Encomendas foi tocado). | open |  | 2026-08-31T21:12:06.353Z |  |
 | 27 | 04.2 | deviation | components/amassa/abertura/data-inauguracao.tsx | 79 | DataInauguracao.salvar() ainda chama router.refresh() apos definirDataDeInauguracao, ao contrario de formulario-item.tsx/formulario-tarefa.tsx/confirmar-remover-item.tsx/confirmar-remover-tarefa.tsx (todos migrados para navegacao completa nesta mesma fase para escapar do canal-com-perda documentado em .planning/debug/abertura-navegacao-trava.md). Risco: o toast de sucesso pode aparecer enquanto a contagem regressiva/data exibida no cabecalho fica com o valor antigo, na mesma taxa de falha (~54-70%) medida para a marcacao. Descoberto na conferencia lado a lado do plano 04.2-05 (Tarefa 2); nao corrigido nesta execucao porque o arquivo nao esta no escopo de arquivos do plano e a correcao (navegacao completa) implica uma terceira perda declarada (o toast de sucesso da data) que precisa de decisao do dono, nao so troca de codigo. | fixed |  | 2026-08-31T21:12:06.799Z | 2026-08-31T23:32:08.168Z |
 | 28 | 04.3 | deviation | components/amassa/cotacoes/sub-abas-categorias.tsx |  | Pílula 'editar categoria' (renomear/excluir, D-15) não implementada nesta tarefa — sem Server Action de update/delete de categoria no plano 01; a pílula de nova categoria funciona, a de editar fica para plano seguinte da fase. | waived | Escopo da onda 2: o plano 04.3-02 ja cobre renomear e remover categoria com confirmacao (D-15). Nao e debito. | 2026-09-17T19:30:34.969Z | 2026-09-17T19:34:05.445Z |
-| 29 | 04.3 | deviation | tests/e2e/cotacoes-categorias.spec.ts | 94 | Falha intermitente sob a varredura completa (npm run test:e2e sem --grep): pilulaA.click() as vezes nao navega (URL/categoria nunca troca), entao as duas cotacoes criadas em seguida vao para a categoria ainda ativa em vez de A, e a contagem da pilula A fica 0 contra 0 linhas (nao e discrepancia de dado, e o clique que nao comitou). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md (React/Next as vezes nao comita o startTransition de um <Link> RSC sob carga). Reexecucao isolada (npm run test:e2e -- --grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos, confirmando flakiness, nao regressao deterministica. Nao corrigido nesta execucao: a mitigacao (navegacao completa em vez de <Link> RSC) contraria a decisao explicita do UI-SPEC de usar <Link> normal para troca de categoria (nao history.pushState), e reescrever o padrao de navegacao de leitura e mudanca arquitetural fora do escopo de arquivos do plano 04.3-05. | open |  | 2026-09-18T18:22:36.267Z |  |
-| 30 | 04.3 | deviation | tests/e2e/cotacoes-tracador.spec.ts | 44 | Falha intermitente sob a varredura completa: clicar na aba 'Cotacoes' (<Link> RSC, abas-abertura.tsx) as vezes nao navega para ?aba=cotacoes dentro do timeout padrao de 5s (URL fica em /abertura). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md. Reexecucao isolada (--grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica. Nao corrigido nesta execucao pelo mesmo motivo do achado irmao em cotacoes-categorias.spec.ts:94. | open |  | 2026-09-18T18:22:36.736Z |  |
-| 31 | 04.3 | deviation | tests/e2e/abertura-edicao.spec.ts | 165 | 'editar um item com tarefa ligada atualiza a linha e preserva o vinculo' (celular) falhou na varredura completa desta fase -- mesma classe ja registrada para a variante 'tarefa' (WINDOWS #25, fechado em 04.2), agora atingindo a variante ITEM tambem, sob a carga da suite inteira (490+ testes). Arquivo da Fase 4.2, fora do escopo de arquivos do plano 04.3-05; achado durante a varredura completa que este plano e dono de executar (04.3-05-PLAN.md, Tarefa 2). | open |  | 2026-09-18T18:22:37.243Z |  |
+| 29 | 04.3 | deviation | tests/e2e/cotacoes-categorias.spec.ts | 94 | Falha intermitente sob a varredura completa (npm run test:e2e sem --grep): pilulaA.click() as vezes nao navega (URL/categoria nunca troca), entao as duas cotacoes criadas em seguida vao para a categoria ainda ativa em vez de A, e a contagem da pilula A fica 0 contra 0 linhas (nao e discrepancia de dado, e o clique que nao comitou). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md (React/Next as vezes nao comita o startTransition de um <Link> RSC sob carga). Reexecucao isolada (npm run test:e2e -- --grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos, confirmando flakiness, nao regressao deterministica. Nao corrigido nesta execucao: a mitigacao (navegacao completa em vez de <Link> RSC) contraria a decisao explicita do UI-SPEC de usar <Link> normal para troca de categoria (nao history.pushState), e reescrever o padrao de navegacao de leitura e mudanca arquitetural fora do escopo de arquivos do plano 04.3-05. | fixed |  | 2026-09-18T18:22:36.267Z | 2026-09-19T09:09:20.336Z |
+| 30 | 04.3 | deviation | tests/e2e/cotacoes-tracador.spec.ts | 44 | Falha intermitente sob a varredura completa: clicar na aba 'Cotacoes' (<Link> RSC, abas-abertura.tsx) as vezes nao navega para ?aba=cotacoes dentro do timeout padrao de 5s (URL fica em /abertura). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md. Reexecucao isolada (--grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica. Nao corrigido nesta execucao pelo mesmo motivo do achado irmao em cotacoes-categorias.spec.ts:94. | fixed |  | 2026-09-18T18:22:36.736Z | 2026-09-19T09:09:20.752Z |
+| 31 | 04.3 | deviation | tests/e2e/abertura-edicao.spec.ts | 165 | 'editar um item com tarefa ligada atualiza a linha e preserva o vinculo' (celular) falhou na varredura completa desta fase -- mesma classe ja registrada para a variante 'tarefa' (WINDOWS #25, fechado em 04.2), agora atingindo a variante ITEM tambem, sob a carga da suite inteira (490+ testes). Arquivo da Fase 4.2, fora do escopo de arquivos do plano 04.3-05; achado durante a varredura completa que este plano e dono de executar (04.3-05-PLAN.md, Tarefa 2). | fixed |  | 2026-09-18T18:22:37.243Z | 2026-09-19T09:09:21.148Z |
 
 ````json
 [
@@ -188,10 +188,10 @@ last_updated: 2026-09-18T18:22:37.243Z
     "file": "tests/e2e/sessao.spec.ts",
     "line": 110,
     "description": "'depois de sair o botao de voltar cai em /login' falhou uma vez (celular) sob a concorrencia da varredura completa (npm run test:e2e sem grep, 8 workers) — timing de navegacao apos logout, nao reproduziu em execucao isolada nem em runs seguintes da mesma varredura. Arquivo da fase 02a, fora do escopo de arquivos do plano 03-08; achado durante a varredura completa que este plano e dono de executar (03-08-PLAN.md full_sweep_responsibility).",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-08-09T20:57:11.541Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-19T09:09:19.931Z"
   },
   {
     "id": 13,
@@ -392,10 +392,10 @@ last_updated: 2026-09-18T18:22:37.243Z
     "file": "tests/e2e/cotacoes-categorias.spec.ts",
     "line": 94,
     "description": "Falha intermitente sob a varredura completa (npm run test:e2e sem --grep): pilulaA.click() as vezes nao navega (URL/categoria nunca troca), entao as duas cotacoes criadas em seguida vao para a categoria ainda ativa em vez de A, e a contagem da pilula A fica 0 contra 0 linhas (nao e discrepancia de dado, e o clique que nao comitou). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md (React/Next as vezes nao comita o startTransition de um <Link> RSC sob carga). Reexecucao isolada (npm run test:e2e -- --grep \"cotacoes categorias|cotacoes tracador\") passou 36/36 nos dois projetos, confirmando flakiness, nao regressao deterministica. Nao corrigido nesta execucao: a mitigacao (navegacao completa em vez de <Link> RSC) contraria a decisao explicita do UI-SPEC de usar <Link> normal para troca de categoria (nao history.pushState), e reescrever o padrao de navegacao de leitura e mudanca arquitetural fora do escopo de arquivos do plano 04.3-05.",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-18T18:22:36.267Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-19T09:09:20.336Z"
   },
   {
     "id": 30,
@@ -404,10 +404,10 @@ last_updated: 2026-09-18T18:22:37.243Z
     "file": "tests/e2e/cotacoes-tracador.spec.ts",
     "line": 44,
     "description": "Falha intermitente sob a varredura completa: clicar na aba 'Cotacoes' (<Link> RSC, abas-abertura.tsx) as vezes nao navega para ?aba=cotacoes dentro do timeout padrao de 5s (URL fica em /abertura). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md. Reexecucao isolada (--grep \"cotacoes categorias|cotacoes tracador\") passou 36/36 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica. Nao corrigido nesta execucao pelo mesmo motivo do achado irmao em cotacoes-categorias.spec.ts:94.",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-18T18:22:36.736Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-19T09:09:20.752Z"
   },
   {
     "id": 31,
@@ -416,10 +416,10 @@ last_updated: 2026-09-18T18:22:37.243Z
     "file": "tests/e2e/abertura-edicao.spec.ts",
     "line": 165,
     "description": "'editar um item com tarefa ligada atualiza a linha e preserva o vinculo' (celular) falhou na varredura completa desta fase -- mesma classe ja registrada para a variante 'tarefa' (WINDOWS #25, fechado em 04.2), agora atingindo a variante ITEM tambem, sob a carga da suite inteira (490+ testes). Arquivo da Fase 4.2, fora do escopo de arquivos do plano 04.3-05; achado durante a varredura completa que este plano e dono de executar (04.3-05-PLAN.md, Tarefa 2).",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-18T18:22:37.243Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-19T09:09:21.148Z"
   }
 ]
 ````
