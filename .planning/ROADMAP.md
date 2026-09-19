@@ -138,7 +138,7 @@ de navegação, painel inicial com espaços reservados).
 **Success Criteria** (what must be TRUE):
 
   1. As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
-  2. Os 5 itens da barra inferior (Início, Encomendas, Agenda, Queimas, Estoque) abrem cada um a sua tela no celular; no desktop a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé; Orçamentos aparece só no menu do usuário
+  2. Os 5 itens da barra inferior (Início, Encomendas, Agenda, Queimas, Estoque) abrem cada um a sua tela no celular; no desktop a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé; Orçamentos aparece só no menu do usuário *(Barra do celular revista na Fase 04.4 — D-04: Financeiro entrou, Estoque saiu da barra do celular e ficou na lateral.)*
   3. A navegação funciona confortavelmente com o polegar no celular, e nenhuma tela exige rolagem horizontal
   4. Toda tela (mesmo vazia, como as deste milestone) tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto e estado de erro em linguagem humana; toda remoção pede confirmação nomeando o que será perdido
   5. Alvos de toque têm no mínimo 44px, contraste passa em AA, formulários navegam por teclado e botões só com ícone têm `aria-label`

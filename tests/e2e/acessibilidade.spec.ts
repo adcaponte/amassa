@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-import { ITENS_NAVEGACAO } from "@/lib/navegacao/itens";
+import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
 
 // Prova de máquina de UI-09 — alvo de toque medido, contraste varrido por ferramenta, nome
@@ -12,7 +12,7 @@ import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
 // está aqui: nenhum teste mede conforto, é a verificação humana da Tarefa 3 do plano
 // (02b-VERIFICACAO-HUMANA.md).
 //
-// Rótulos de navegação vêm de ITENS_NAVEGACAO e o nome acessível do avatar vem de
+// Rótulos de navegação vêm de ITENS_NAVEGACAO_CELULAR/ITENS_NAVEGACAO_LATERAL e o nome acessível do avatar vem de
 // NOME_ACESSIVEL_MENU_USUARIO (lib/acessibilidade/rotulos.ts, reexportado por
 // cabecalho-movel.tsx) — nunca redigitados aqui.
 // Uma acentuação redigitada à mão pode normalizar de forma Unicode diferente da string que a
@@ -44,9 +44,10 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 // porque UI-06 é reconferido sobre a fase inteira (a intenção explícita desta tarefa), não
 // porque o conjunto de rotas mudou.
 //
-// 03-08-PLAN.md (Tarefa 2, fechamento da fase) acrescenta as três telas novas desta fase que
+// 03-08-PLAN.md (Tarefa 2, fechamento da fase) acrescenta as três telas novas daquela fase que
 // ainda não tinham entrado aqui: o formulário aberto (`?nova`, Dialog/Sheet do plano 06) e a
-// folha de impressão (`/encomendas/imprimir`, D-18/ENC-14 do plano 08). Mesmas
+// folha de impressão (`/encomendas/imprimir`, D-18/ENC-14 do plano 08). `04.4-02-PLAN.md`
+// (Tarefa 1) acrescenta `/financeiro` e `/cadastros`, as duas rotas novas desta fase. Mesmas
 // `REGRAS_AUDITADAS` de sempre — nenhuma regra nova, nenhuma afrouxada.
 const ROTAS_DA_FASE = [
   "/login",
@@ -58,6 +59,8 @@ const ROTAS_DA_FASE = [
   "/queimas",
   "/estoque",
   "/orcamentos",
+  "/financeiro",
+  "/cadastros",
 ] as const;
 
 // Regras às quais esta fase se compromete — restringir com withRules é escolha deliberada
@@ -92,7 +95,7 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
       return;
     }
 
-    for (const item of ITENS_NAVEGACAO) {
+    for (const item of ITENS_NAVEGACAO_CELULAR) {
       const link = barraInferior.getByRole("link", { name: item.rotulo });
       const caixa = await link.boundingBox();
       expect(caixa?.height, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
@@ -142,7 +145,7 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
       return;
     }
 
-    for (const item of ITENS_NAVEGACAO) {
+    for (const item of ITENS_NAVEGACAO_LATERAL) {
       const link = barraLateral.getByRole("link", { name: item.rotulo });
       const caixa = await link.boundingBox();
       expect(caixa?.height, `item "${item.rotulo}" da barra lateral`).toBeGreaterThanOrEqual(44);

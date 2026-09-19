@@ -47,7 +47,8 @@
 ### Casca e Design System
 
 - [x] **UI-01**: As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
-- [x] **UI-02**: No celular, a barra inferior tem 5 itens (Início, Encomendas, Agenda, Queimas, Estoque), cada um abrindo a sua tela
+- [x] **UI-02**: No celular, a barra inferior tem 5 itens (Início, Encomendas, Financeiro, Agenda, Queimas); no desktop, a barra lateral tem esses cinco mais Estoque (Fase 04.4, D-04/D-05)
+  > **Atualizado na Fase 04.4:** o texto original tinha Estoque no lugar de Financeiro na barra do celular, e as duas barras eram idênticas. Desde D-04/D-05, elas divergem: o Financeiro entrou nas duas, mas o Estoque só saiu da barra do celular (tela vazia até a Fase 6) — no desktop ele continua.
 - [x] **UI-03**: No desktop, a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé
 - [x] **UI-04**: Orçamentos aparece no menu do usuário, não na navegação principal
 - [x] **UI-05**: A navegação funciona confortavelmente com o polegar, no celular
@@ -168,24 +169,26 @@
 
 ### Financeiro — parte 1: Venda, Compra, Caixa, Mês e Cadastros (Fase 04.4)
 
-> Rascunho escrito a partir de `.planning/phases/04.4-financeiro-parte-1/BRIEFING.md` e do
-> protótipo aprovado em 2026-09-19. Revisados na `/gsd-discuss-phase 04.4`. O prefixo é `FNC`
-> porque `FIN-*` já nomeia o "Financeiro da Escola" da v2.
+> Escrito a partir de `.planning/phases/04.4-financeiro-parte-1/BRIEFING.md`, do protótipo
+> aprovado em 2026-09-19 e das decisões `D-01`..`D-14` de `04.4-CONTEXT.md`, que fecham os
+> pontos que o rascunho original deixava em aberto (revisados na `/gsd-discuss-phase 04.4`,
+> reescritos no plano 04.4-02). O prefixo é `FNC` porque `FIN-*` já nomeia o "Financeiro da
+> Escola" da v2.
 
-- [x] **FNC-01**: Uma venda junta várias linhas, de áreas diferentes, num recebimento só — montada por atalhos do catálogo, busca, lista completa ou "valor livre"
-- [ ] **FNC-02**: O preço vem do catálogo e é editável na linha; quando difere, a tela mostra "tabela R$ X"; mudar o preço no catálogo não altera vendas já lançadas
-- [ ] **FNC-03**: Venda e despesa aceitam à vista, sinal/entrada de 50% + saldo, ou 2x a 12x, com as parcelas editáveis; se a soma não fecha com o total, a tela diz quanto falta ou sobra, o botão fica desabilitado e o servidor recusa
+- [x] **FNC-01**: Uma venda junta várias linhas, de áreas diferentes, num recebimento só — montada por atalhos do catálogo, busca, lista completa ou "valor livre". Cadastros é rota própria (`/cadastros`), alcançada por um link dentro do Financeiro, até o Início virar índice (D-06)
+- [ ] **FNC-02**: O preço vem do catálogo e é editável na linha; quando difere, a tela mostra "tabela R$ X"; mudar o preço no catálogo não altera vendas já lançadas. Um desconto no total, em R$ ou %, é repartido entre as linhas na proporção do valor de cada uma — a sobra de centavos do arredondamento vai para a maior linha, e o desconto nunca vira linha separada nem entra no Geral (D-09/D-10)
+- [ ] **FNC-03**: Venda e despesa aceitam à vista, sinal/entrada de 50% + saldo, ou 2x a 12x, com as parcelas editáveis; se a soma não fecha com o total, a tela diz quanto falta ou sobra, o botão fica desabilitado e o servidor recusa. A forma de pagamento é por parcela, não por documento (D-07); no à vista, "+ outra forma" divide o recebimento em duas parcelas com formas diferentes, pagas na data do documento (D-08)
 - [ ] **FNC-04**: O documento aceita data retroativa — é como se fecha o dia da cafeteria numa venda só, com várias linhas e quantidade
-- [ ] **FNC-05**: No cartão, o preço não muda; a taxa é gravada na parcela quando ela é paga, entra no caixa o valor menos a taxa, e a soma das taxas aparece como "Taxa do cartão" no Geral do mês; mudar a taxa em Cadastros não reescreve o passado
+- [ ] **FNC-05**: No cartão, o preço não muda; a taxa é gravada na parcela quando ela é paga — só na parcela que escolheu Cartão, nunca nas outras formas de um pagamento misto (D-08) — e entra no caixa o valor menos a taxa, e a soma das taxas aparece como "Taxa do cartão" no Geral do mês; mudar a taxa em Cadastros não reescreve o passado
 - [ ] **FNC-06**: A despesa tem três caminhos: compra de material (o que chegou, quantos e quanto custou ao todo), outra despesa (descrição, categoria, valor) e pagar conta que já existe (leva ao Caixa)
-- [x] **FNC-07**: O Caixa mostra saldo, a receber, a pagar e "se tudo se cumprir", e as listas a pagar e a receber com as vencidas marcadas
-- [ ] **FNC-08**: "Paguei"/"Recebi" pede valor, data e forma, e pode ser desfeito se foi dado por engano
-- [x] **FNC-09**: O extrato mostra o saldo depois de cada movimento, em ordem de data de pagamento e número; um lançamento retroativo recalcula os saldos seguintes
+- [x] **FNC-07**: O Caixa mostra saldo, a receber, a pagar e "se tudo se cumprir", e as listas a pagar e a receber com as vencidas marcadas. O extrato navega por mês, com filtro por forma (Todas · Dinheiro · Pix · Cartão) — o "saldo depois" de cada linha continua o saldo acumulado global, mesmo com o filtro aplicado (D-11/D-12)
+- [ ] **FNC-08**: "Paguei"/"Recebi" pede valor, data e forma, e pode ser desfeito se foi dado por engano. Quando o valor difere do previsto e o documento tem mais de uma linha ou parcela, o sistema acrescenta sozinho uma linha "diferença" na categoria "Juros, multas e descontos"; desfazer remove essa linha e devolve a parcela ao valor previsto original — o inverso exato (D-01/D-02/D-03)
+- [x] **FNC-09**: O extrato mostra o saldo depois de cada movimento, em ordem de data de pagamento e número; um lançamento retroativo recalcula os saldos seguintes. A navegação é por mês, e o saldo depois de cada linha é sempre o acumulado global, mesmo com o filtro por forma aplicado — o filtro esconde linhas, não recalcula saldo (D-11/D-12)
 - [ ] **FNC-10**: Cancelar uma venda ou despesa não apaga: ela fica riscada no extrato, sai do saldo e do Mês, e guarda quem cancelou e quando; a confirmação diz o que vai acontecer
 - [ ] **FNC-11**: O Mês mostra quanto cada área vendeu, custou e deixou (pela data do documento), o Geral num bloco só sem rateio, o veredito "sobrou/faltou", o dinheiro que entrou e saiu (pela data de pagamento) e o que ficou fora do resultado
-- [x] **FNC-12**: Categoria é dado editável com grupo (receita, custo, geral, fora) e área; ninguém escolhe área ao lançar; categoria com lançamento só desativa, e grupo e área não mudam depois do primeiro lançamento
+- [x] **FNC-12**: Categoria é dado editável com grupo (receita, custo, geral, fora) e área; ninguém escolhe área ao lançar; categoria com lançamento só desativa, e grupo e área não mudam depois do primeiro lançamento. Categoria nunca é apagada de verdade — toda remoção é desativação, reversível por "Reativar"; em produção nascem prontas as 24 categorias (as 23 do protótipo mais "Juros, multas e descontos") (D-14)
 - [ ] **FNC-13**: O catálogo guarda o que se vende e o que se estoca: preço ou "valor na hora", atalhos de venda e de compra, estoque com unidade e ficha técnica de um nível — e é o cadastro único de itens que o Estoque vai usar
-- [ ] **FNC-14**: Contas fixas têm valor esperado e dia; "Gerar as contas de <mês>" cria as contas a pagar e, rodado duas vezes, não duplica
+- [ ] **FNC-14**: Contas fixas têm valor esperado e dia; "Gerar as contas de <mês>" cria as contas a pagar e, rodado duas vezes, não duplica. Contas fixas têm cadastro completo: "+ Nova conta fixa" (nome, categoria, valor esperado, dia de vencimento) e desativar/reativar; conta fixa desativada fica fora de "Gerar as contas de <mês>" (D-13)
 - [ ] **FNC-15**: A venda mostra o que tira do estoque e a compra o que põe, calculado por módulo puro e testado, sem gravar movimentação
 - [ ] **FNC-16**: As parcelas da Abertura que vencem a partir da virada entram como contas a pagar por um script único, com o rótulo "n de N"; Material vira custo e o resto vira "Equipamento e obra"; a Abertura não é alterada; o saldo inicial é informado pelo dono
 - [x] **FNC-17**: Todas as telas funcionam de pé no celular — alvos de 44px, campos de 16px, estados vazio, carregando e erro

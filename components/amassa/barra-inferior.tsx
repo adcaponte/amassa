@@ -2,20 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Archive, CalendarDays, Flame, Home, Package, type LucideIcon } from "lucide-react";
+import { Archive, CalendarDays, Flame, Home, Package, Wallet, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { ehItemAtivo, ITENS_NAVEGACAO, type ChaveDeIcone } from "@/lib/navegacao/itens";
+import { ehItemAtivo, ITENS_NAVEGACAO_CELULAR, type ChaveDeIcone } from "@/lib/navegacao/itens";
 
+// O mapa cobre as SEIS chaves de ChaveDeIcone (inclusive "estoque") mesmo esta barra só
+// renderizando as cinco de ITENS_NAVEGACAO_CELULAR — é o mesmo mapa que BarraLateral usa, e
+// `Record<ChaveDeIcone, LucideIcon>` exige as seis para o TypeScript aceitar sem `as`.
 const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   inicio: Home,
   encomendas: Package,
+  financeiro: Wallet,
   agenda: CalendarDays,
   queimas: Flame,
   estoque: Archive,
 };
 
-// Barra fixa no rodapé do celular (< 768px) com exatamente os 5 itens de ITENS_NAVEGACAO —
+// Barra fixa no rodapé do celular (< 768px) com exatamente os 5 itens de
+// ITENS_NAVEGACAO_CELULAR (D-04, Fase 04.4: Financeiro entrou, Estoque saiu daqui) —
 // Orçamentos nunca entra aqui (UI-04). Cada item já tem rótulo visível, então nenhum precisa
 // de aria-label próprio. pb-[env(safe-area-inset-bottom)] evita a faixa de gestos do iOS.
 export type BarraInferiorProps = {
@@ -33,7 +38,7 @@ export function BarraInferior({ className }: BarraInferiorProps) {
         className,
       )}
     >
-      {ITENS_NAVEGACAO.map((item) => {
+      {ITENS_NAVEGACAO_CELULAR.map((item) => {
         const Icone = ICONES[item.icone];
         const ativo = ehItemAtivo(pathname, item.href);
 

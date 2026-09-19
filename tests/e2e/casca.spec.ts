@@ -1,11 +1,20 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { ITENS_NAVEGACAO } from "@/lib/navegacao/itens";
+import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 
-// Cobre UI-02 (5 itens, item ativo), UI-03 (240px na lateral), UI-04 (Orçamentos fora da
-// navegação principal), UI-06 (sem rolagem horizontal a 320px) e UI-07 (cabeçalho + estado
-// vazio + botão inerte com nota) da casca construída nos planos 02 e 03 desta fase. Roda nos
-// dois projetos (desktop e celular) declarados em playwright.config.ts.
+// Cobre UI-02 (5 itens no celular / 6 no desktop desde a Fase 04.4, D-04/D-05; item ativo),
+// UI-03 (240px na lateral), UI-04 (Orçamentos fora da navegação principal), UI-06 (sem rolagem
+// horizontal a 320px) e UI-07 (cabeçalho + estado vazio + botão inerte com nota) da casca
+// construída nos planos 02 e 03 da Fase 2b. Roda nos dois projetos (desktop e celular)
+// declarados em playwright.config.ts.
+//
+// Celular e lateral divergem desde a Fase 04.4 (D-04/D-05: Financeiro entrou nas duas, Estoque
+// saiu só da barra do celular) — `listaDaNavegacaoPeloProjeto` escolhe a lista certa pelo NOME
+// do projeto Playwright (o único sinal confiável de "qual viewport" nestes dois testes
+// específicos, que precisam saber de ANTEMÃO quantos itens esperar antes de olhar para o DOM).
+function listaDaNavegacaoPeloProjeto(nomeDoProjeto: string) {
+  return nomeDoProjeto.includes("celular") ? ITENS_NAVEGACAO_CELULAR : ITENS_NAVEGACAO_LATERAL;
+}
 //
 // Barra lateral e barra inferior estão SEMPRE as duas no DOM (app/(app)/layout.tsx renderiza
 // as duas incondicionalmente; só o CSS — "hidden md:flex" numa, "md:hidden" na outra —
@@ -107,28 +116,30 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
   // entre si.
   test.describe.configure({ mode: "serial" });
 
-  test("a navegação principal visível tem exatamente 5 itens, na ordem e com os rótulos de ITENS_NAVEGACAO (UI-02)", async ({
+  test("a navegação principal visível tem os itens de ITENS_NAVEGACAO_CELULAR (5, celular) ou ITENS_NAVEGACAO_LATERAL (6, desktop), na ordem (UI-02, D-04/D-05)", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await fazerLogin(page);
 
+    const itens = listaDaNavegacaoPeloProjeto(testInfo.project.name);
     const navegacao = await localizarNavegacaoPrincipal(page);
     const links = navegacao.getByRole("link");
-    await expect(links).toHaveCount(5);
+    await expect(links).toHaveCount(itens.length);
 
-    for (const [indice, item] of ITENS_NAVEGACAO.entries()) {
+    for (const [indice, item] of itens.entries()) {
       await expect(links.nth(indice)).toHaveAccessibleName(item.rotulo);
     }
   });
 
   test("cada item leva a sua rota e só ele expõe aria-current entre os visíveis (UI-02)", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await fazerLogin(page);
 
     const navegacao = await localizarNavegacaoPrincipal(page);
+    const itens = listaDaNavegacaoPeloProjeto(testInfo.project.name);
 
-    for (const item of ITENS_NAVEGACAO) {
+    for (const item of itens) {
       await navegacao.getByRole("link", { name: item.rotulo }).click();
 
       const padraoDeUrl = item.href === "/" ? /\/$/ : new RegExp(`${item.href}$`);

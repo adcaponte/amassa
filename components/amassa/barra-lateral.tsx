@@ -3,10 +3,10 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Archive, CalendarDays, Flame, Home, Package, type LucideIcon } from "lucide-react";
+import { Archive, CalendarDays, Flame, Home, Package, Wallet, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { ehItemAtivo, ITENS_NAVEGACAO, type ChaveDeIcone } from "@/lib/navegacao/itens";
+import { ehItemAtivo, ITENS_NAVEGACAO_LATERAL, type ChaveDeIcone } from "@/lib/navegacao/itens";
 import { Logo } from "@/components/amassa/logo";
 import { MenuUsuario } from "@/components/amassa/menu-usuario";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +24,7 @@ import {
 const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   inicio: Home,
   encomendas: Package,
+  financeiro: Wallet,
   agenda: CalendarDays,
   queimas: Flame,
   estoque: Archive,
@@ -32,7 +33,9 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
 // Barra lateral do desktop (>= 768px): fixa em 240px, nunca recolhe (D-12 — decisão
 // consciente que simplifica a §5 da fonte, que sugeria recolhível). `collapsible="none"`
 // desliga o comportamento padrão de colapso/cookie do componente Sidebar do shadcn; a
-// largura vem da própria variável --sidebar-width que o SidebarProvider expõe.
+// largura vem da própria variável --sidebar-width que o SidebarProvider expõe. Itera
+// ITENS_NAVEGACAO_LATERAL (6 itens, D-05: ganhou o Financeiro sem perder o Estoque) — diverge
+// de ITENS_NAVEGACAO_CELULAR (5 itens) desde a Fase 04.4.
 export type BarraLateralProps = {
   nome: string;
   className?: string;
@@ -53,7 +56,7 @@ export function BarraLateral({ nome, className }: BarraLateralProps) {
 
         <SidebarContent className="px-2">
           <SidebarMenu>
-            {ITENS_NAVEGACAO.map((item) => {
+            {ITENS_NAVEGACAO_LATERAL.map((item) => {
               const Icone = ICONES[item.icone];
               const ativo = ehItemAtivo(pathname, item.href);
 
