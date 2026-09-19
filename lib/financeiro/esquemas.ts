@@ -479,3 +479,51 @@ export type EntradaDeDespesa = z.infer<typeof esquemaDespesa>;
 // quando são gravados pelo SERVIDOR (`exigirUsuario()`/`now()`), nunca aceitos do cliente.
 export const esquemaCancelamento = z.object({ documentoId: esquemaId });
 export type EntradaDeCancelamento = z.infer<typeof esquemaCancelamento>;
+
+// "Paguei"/"Recebi" (D-01/D-02/D-03): o texto do valor vira centavos AQUI, mesma disciplina de
+// `esquemaVenda`/`esquemaDespesa` — nunca uma segunda conversão em componente ou Server Action.
+// A data (`pagoEm`) é validada quanto ao FORMATO aqui; "não é depois de hoje"/"não é antes do
+// saldo inicial" são conferidos na ação, que é quem sabe o "hoje" e a configuração.
+export const esquemaPagamentoEntrada = z.object({
+  parcelaId: esquemaId,
+  valorTexto: z.string(),
+  pagoEm: esquemaDataCivil,
+  forma: z.enum(FORMAS, { message: "Essa forma de pagamento não é válida." }),
+});
+
+export type EntradaDePagamentoConvertida = {
+  parcelaId: string;
+  valorCentavos: number;
+  pagoEm: string;
+  forma: (typeof FORMAS)[number];
+};
+
+export const esquemaPagamento = esquemaPagamentoEntrada.transform((dados, ctx) => {
+  const resultado = converterReaisParaCentavos(dados.valorTexto);
+  if (!resultado.ok) {
+    ctx.addIssue({ code: "custom", message: resultado.erro, path: ["valorTexto"] });
+    return z.NEVER;
+  }
+  if (resultado.centavos === null || resultado.centavos <= 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Informe um valor maior que zero.",
+      path: ["valorTexto"],
+    });
+    return z.NEVER;
+  }
+  return {
+    parcelaId: dados.parcelaId,
+    valorCentavos: resultado.centavos,
+    pagoEm: dados.pagoEm,
+    forma: dados.forma,
+  };
+});
+
+export type EntradaDePagamento = z.infer<typeof esquemaPagamento>;
+
+// "Desfazer" só precisa do identificador da parcela — o resto (previsto, forma anterior, se tem
+// linha de diferença) o servidor lê do banco, nunca do cliente (T-04.4-54: o texto do aviso e a
+// decisão do desfazer vêm sempre do servidor, mesmo que o id chegue pela URL).
+export const esquemaDesfazer = z.object({ parcelaId: esquemaId });
+export type EntradaDeDesfazer = z.infer<typeof esquemaDesfazer>;

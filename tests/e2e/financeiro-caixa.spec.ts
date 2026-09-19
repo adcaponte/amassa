@@ -1,12 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
-import { hojeNoAtelie, semearItem, somarDiasAoHoje } from "./apoio/semear-financeiro";
+import {
+  garantirTaxaDeTeste,
+  hojeNoAtelie,
+  semearItem,
+  somarDiasAoHoje,
+  TAXA_DE_TESTE,
+} from "./apoio/semear-financeiro";
 
 // O Caixa que age (04.4-08-PLAN.md): as listas "A pagar"/"A receber" com as vencidas marcadas, o
 // detalhe do documento e o cancelamento que risca sem apagar (FNC-07, FNC-10). O "Paguei"/
-// "Recebi" e o "Desfazer" (D-01/D-02/D-03) ficam no bloco "financeiro caixa pagamento" mais
-// abaixo (Tarefa 3).
+// "Recebi" e o "Desfazer" (D-01/D-02/D-03) ficam no bloco "financeiro caixa pagamento" abaixo
+// (Tarefa 3).
 
 async function fazerLogin(page: Page) {
   await page.goto("/login");
@@ -34,6 +40,27 @@ function linhaDoExtrato(page: Page, titulo: string) {
 
 async function abrirDetalhePorVer(alvo: ReturnType<typeof cartaoDaConta>) {
   await alvo.getByRole("button", { name: "Ver" }).click();
+}
+
+// Abre "Paguei"/"Recebi" a partir do cartão da conta — o rótulo do botão muda por tipo
+// (`rotuloBotaoBaixa`), então casamos por qualquer um dos dois nomes.
+async function abrirBaixa(alvo: ReturnType<typeof cartaoDaConta>) {
+  await alvo.getByRole("button", { name: /^(Paguei|Recebi)$/ }).click();
+}
+
+// Contorna o `max` do `<input type="date">` (o navegador clampa/ignora `.fill()` além do limite)
+// escrevendo o valor pelo setter NATIVO do DOM e disparando um evento `input` de verdade — é
+// assim que o valor chega ao estado controlado do React mesmo passando por cima da validação do
+// próprio campo, provando que a RECUSA de "data futura" é do SERVIDOR, não só da tela.
+async function forcarValorDoCampoDeData(page: Page, testId: string, valor: string) {
+  await page.getByTestId(testId).evaluate((elemento: HTMLInputElement, novoValor: string) => {
+    const definidorNativo = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    definidorNativo.call(elemento, novoValor);
+    elemento.dispatchEvent(new Event("input", { bubbles: true }));
+  }, valor);
 }
 
 test.describe("financeiro caixa contas", () => {
@@ -287,5 +314,299 @@ test.describe("financeiro caixa contas", () => {
       scrollWidth,
       `Caixa rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
+  });
+});
+
+test.describe("financeiro caixa pagamento", () => {
+  test("exemplo 3 — Financiamento, parcela 26 de 60: paga integralmente, some de 'A pagar'", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Financiamento ${suf}`;
+    await semearContaAPagar({
+      titulo,
+      pessoa: "Banco Exemplo",
+      categoria: "Financiamento (parcela)",
+      valorCentavos: 148000,
+      vencimento: hojeNoAtelie(),
+      rotulo: "parcela 26 de 60",
+    });
+
+    await fazerLogin(page);
+    await irParaCaixa(page);
+
+    const cartao = cartaoDaConta(page, titulo);
+    await expect(cartao.getByTestId("conta-rotulo")).toContainText("parcela 26 de 60");
+
+    await abrirBaixa(cartao);
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+
+    await expect(page.getByText("Pago: R$ 1.480,00")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("viraram uma linha de diferença")).toHaveCount(0);
+    await expect(cartaoDaConta(page, titulo)).toHaveCount(0);
+    await expect(linhaDoExtrato(page, titulo)).toContainText("− R$ 1.480,00");
+  });
+
+  test("linha única ajustada: paga com valor diferente, sem diferença, e 'Desfazer' devolve o valor previsto", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Conta linha única ${suf}`;
+    await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 148000,
+      vencimento: hojeNoAtelie(),
+    });
+
+    await fazerLogin(page);
+    await irParaCaixa(page);
+
+    await abrirBaixa(cartaoDaConta(page, titulo));
+    await page.getByTestId("baixa-valor").fill("1500,00");
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+
+    await expect(page.getByText("Pago: R$ 1.500,00")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("viraram uma linha de diferença")).toHaveCount(0);
+
+    // O detalhe mostra a linha ÚNICA ajustada para R$ 1.500,00 — nenhuma linha de diferença.
+    await linhaDoExtrato(page, titulo).getByTestId("extrato-ver").click();
+    const linhasDoDetalhe = page.getByTestId("documento-linha");
+    await expect(linhasDoDetalhe).toHaveCount(1);
+    await expect(linhasDoDetalhe.first()).toContainText("R$ 1.500,00");
+    await expect(page.getByTestId("documento-detalhe")).not.toContainText("Diferença");
+    await page.getByTestId("documento-detalhe").getByRole("button", { name: "Fechar" }).click();
+
+    // "Desfazer" (dentro dos 7 segundos) devolve a conta a R$ 1.480,00, em aberto.
+    await page.getByRole("button", { name: "Desfazer" }).click();
+    await expect(
+      page.getByText("Desfeito. A conta voltou a R$ 1.480,00 em aberto."),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(cartaoDaConta(page, titulo)).toContainText("R$ 1.480,00");
+  });
+
+  test("exemplo 5 — Esmalte (pote) em 3x: diferença no pagamento, 'Desfazer' e nova diferença negativa", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeEsmalte = `[e2e] Esmalte pagamento ${suf}`;
+    await semearItem({
+      nome: nomeEsmalte,
+      apareceNaVenda: false,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "un",
+      categoriaCompra: "Argila, esmalte e insumos",
+      atalhoCompra: true,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro?aba=despesa");
+    await page.getByTestId("despesa-modo-compra").click();
+    await page.getByTestId("compra-busca").fill(suf);
+    await page.getByTestId("compra-atalho").filter({ hasText: nomeEsmalte }).click();
+    await page.getByTestId("compra-quantos").fill("100");
+    await page.getByTestId("compra-custou").fill("2400");
+    await page.getByTestId("pagamento-plano").selectOption("3");
+    await page.getByRole("button", { name: "Lançar despesa" }).click();
+    // Sinal REAL de que o lançamento terminou é o TOAST — a página já estava em "?aba=despesa"
+    // antes de lançar, então essa fração da URL sozinha não prova nada (mesmo cuidado documentado
+    // em `financeiro-despesa.spec.ts`).
+    await expect(page.getByText(/^Despesa nº \d+ lançada · R\$\s2\.400,00/)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await irParaCaixa(page);
+
+    const parcela2 = cartaoDaConta(page, nomeEsmalte).filter({ hasText: "2 de 3" });
+    const parcela3 = cartaoDaConta(page, nomeEsmalte).filter({ hasText: "3 de 3" });
+    await expect(parcela2).toBeVisible();
+    await expect(parcela3).toBeVisible();
+
+    // Paga a parcela 2 (R$ 800,00 previstos) com R$ 812,00 — diferença de +R$ 12,00.
+    await abrirBaixa(parcela2);
+    await page.getByTestId("baixa-valor").fill("812,00");
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+
+    await expect(
+      page.getByText("Pago: R$ 812,00. R$ 12,00 a mais viraram uma linha de diferença."),
+    ).toBeVisible({ timeout: 10000 });
+
+    await linhaDoExtrato(page, nomeEsmalte).first().getByTestId("extrato-ver").click();
+    const linhaDeDiferenca = page
+      .getByTestId("documento-linha")
+      .filter({ hasText: "Diferença no pagamento da parcela 2 de 3" });
+    await expect(linhaDeDiferenca).toBeVisible();
+    await expect(linhaDeDiferenca).toContainText("Juros, multas e descontos");
+    await expect(linhaDeDiferenca).toContainText("R$ 12,00");
+    await page.getByTestId("documento-detalhe").getByRole("button", { name: "Fechar" }).click();
+
+    // "Desfazer" (dentro dos 7 segundos): a parcela volta a R$ 800,00, e a linha de diferença some.
+    await page.getByRole("button", { name: "Desfazer" }).click();
+    await expect(
+      page.getByText("Desfeito. A conta voltou a R$ 800,00 em aberto."),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(cartaoDaConta(page, nomeEsmalte).filter({ hasText: "2 de 3" })).toContainText(
+      "R$ 800,00",
+    );
+
+    await linhaDoExtrato(page, nomeEsmalte).first().getByTestId("extrato-ver").click();
+    await expect(page.getByTestId("documento-detalhe")).not.toContainText("Diferença");
+    await page.getByTestId("documento-detalhe").getByRole("button", { name: "Fechar" }).click();
+
+    // Paga de novo, agora com R$ 790,00 — diferença de −R$ 10,00.
+    await abrirBaixa(cartaoDaConta(page, nomeEsmalte).filter({ hasText: "2 de 3" }));
+    await page.getByTestId("baixa-valor").fill("790,00");
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+
+    await expect(
+      page.getByText("Pago: R$ 790,00. R$ 10,00 a menos viraram uma linha de diferença."),
+    ).toBeVisible({ timeout: 10000 });
+
+    await linhaDoExtrato(page, nomeEsmalte).first().getByTestId("extrato-ver").click();
+    const linhaDeDiferencaNegativa = page
+      .getByTestId("documento-linha")
+      .filter({ hasText: "Diferença no pagamento da parcela 2 de 3" });
+    await expect(linhaDeDiferencaNegativa).toContainText("-R$ 10,00");
+  });
+
+  test("recebida no cartão: a taxa congelada aparece na linha do extrato", async ({ page }) => {
+    await garantirTaxaDeTeste();
+
+    const suf = sufixoUnico();
+    const nomeItem = `[e2e] Pacote cartão ${suf}`;
+    await semearItem({
+      nome: nomeItem,
+      categoriaVenda: "Aulas e oficinas",
+      precoCentavos: 90000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await page.getByTestId("venda-busca").fill(suf);
+    await page.getByTestId("venda-atalho").filter({ hasText: nomeItem }).click();
+    await page.getByTestId("pagamento-plano").selectOption("3");
+    await page.getByRole("button", { name: "Lançar venda" }).click();
+    await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
+
+    await irParaCaixa(page);
+
+    const parcela2 = cartaoDaConta(page, nomeItem).filter({ hasText: "2 de 3" });
+    await abrirBaixa(parcela2);
+    await page.getByTestId("baixa-forma").getByRole("button", { name: "Cartão", exact: true }).click();
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+
+    await expect(page.getByText("Recebido: R$ 300,00")).toBeVisible({ timeout: 10000 });
+
+    const taxaCentavos = Math.round((30000 * TAXA_DE_TESTE) / 10000);
+    const taxaFormatada = (taxaCentavos / 100).toFixed(2).replace(".", ",");
+    await expect(linhaDoExtrato(page, nomeItem).filter({ hasText: "2 de 3" })).toContainText(
+      `taxa R$ ${taxaFormatada}`,
+    );
+  });
+
+  test("duas pessoas pagando a mesma conta: a segunda vê a recusa exata", async ({ page, browser }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Duas pessoas pagando ${suf}`;
+    await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 9000,
+      vencimento: hojeNoAtelie(),
+    });
+
+    await fazerLogin(page);
+    await irParaCaixa(page);
+    await abrirBaixa(cartaoDaConta(page, titulo));
+    // Ainda NÃO confirma.
+
+    const segundoContexto = await browser.newContext();
+    try {
+      const segundaPagina = await segundoContexto.newPage();
+      await fazerLogin(segundaPagina);
+      await irParaCaixa(segundaPagina);
+      await abrirBaixa(cartaoDaConta(segundaPagina, titulo));
+      await segundaPagina.getByRole("button", { name: "Confirmar", exact: true }).click();
+      // A segunda página confirma PRIMEIRO e paga de verdade — sinal real é o toast.
+      await expect(segundaPagina.getByText("Pago: R$ 90,00")).toBeVisible({ timeout: 10000 });
+    } finally {
+      await segundoContexto.close();
+    }
+
+    // A primeira página, com o diálogo já aberto desde antes, confirma DEPOIS — recusada com a
+    // frase exata, mostrada DENTRO do diálogo (que continua aberto).
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Essa conta já foi paga — recarregue a página para ver como ela está.",
+    );
+  });
+
+  test("pagar conta cancelada por outra página recebe a frase do cancelado", async ({ page, browser }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Pagar conta cancelada por outra ${suf}`;
+    await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 6000,
+      vencimento: hojeNoAtelie(),
+    });
+
+    await fazerLogin(page);
+    await irParaCaixa(page);
+    await abrirBaixa(cartaoDaConta(page, titulo));
+    // Ainda NÃO confirma o pagamento.
+
+    const segundoContexto = await browser.newContext();
+    try {
+      const segundaPagina = await segundoContexto.newPage();
+      await fazerLogin(segundaPagina);
+      await irParaCaixa(segundaPagina);
+      await abrirDetalhePorVer(cartaoDaConta(segundaPagina, titulo));
+      const detalhe = segundaPagina.getByTestId("documento-detalhe");
+      const numeroMatch = /nº (\d+)/.exec(await detalhe.innerText());
+      const numero = numeroMatch?.[1] ?? "";
+      await detalhe.getByRole("button", { name: "Cancelar esta despesa" }).click();
+      await segundaPagina
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Cancelar despesa", exact: true })
+        .click();
+      await expect(
+        segundaPagina.getByText(`Lançamento nº ${numero} cancelado. Continua visível, riscado.`),
+      ).toBeVisible({ timeout: 10000 });
+    } finally {
+      await segundoContexto.close();
+    }
+
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Esse lançamento foi cancelado — ele não recebe mais pagamento.",
+    );
+  });
+
+  test("data futura: o campo não aceita amanhã, e o servidor recusa se forçado", async ({ page }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Data futura ${suf}`;
+    await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 5000,
+      vencimento: hojeNoAtelie(),
+    });
+
+    await fazerLogin(page);
+    await irParaCaixa(page);
+    await abrirBaixa(cartaoDaConta(page, titulo));
+
+    await expect(page.getByTestId("baixa-data")).toHaveAttribute("max", hojeNoAtelie());
+
+    await forcarValorDoCampoDeData(page, "baixa-data", somarDiasAoHoje(1));
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "A data do pagamento não pode ser depois de hoje.",
+    );
   });
 });

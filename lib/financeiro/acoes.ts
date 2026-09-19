@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { eq, inArray } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 
 import { revalidatePath } from "next/cache";
 
@@ -15,13 +15,27 @@ import { TETO_CENTAVOS } from "./dinheiro";
 import {
   dataDentroDoIntervaloPermitido,
   esquemaCancelamento,
+  esquemaDesfazer,
   esquemaDespesa,
   esquemaId,
+  esquemaPagamento,
   esquemaVenda,
 } from "./esquemas";
 import { hojeEmBrasilia } from "./formato";
 import { conferirParcelas } from "./parcelas";
-import { FRASE_FALHA_AO_SALVAR, FRASE_LANCAMENTO_JA_CANCELADO, FRASE_LANCAMENTO_NAO_EXISTE_MAIS } from "./textos";
+import { FRASE_DESFAZER_SEM_PREVISTO, planejarDesfazer, planejarPagamento } from "./pagamento";
+import {
+  FRASE_CONTA_JA_PAGA,
+  FRASE_DATA_DE_PAGAMENTO_ANTES_DO_SALDO_INICIAL,
+  FRASE_DATA_DE_PAGAMENTO_FUTURA,
+  FRASE_DESFAZER_EM_ABERTO,
+  FRASE_DESFAZER_LANCAMENTO_CANCELADO,
+  FRASE_FALHA_AO_SALVAR,
+  FRASE_LANCAMENTO_CANCELADO_SEM_PAGAMENTO,
+  FRASE_LANCAMENTO_JA_CANCELADO,
+  FRASE_LANCAMENTO_NAO_EXISTE_MAIS,
+  type FormaDePagamento,
+} from "./textos";
 
 // Mesma forma de `lib/abertura/acoes.ts`/`lib/cotacoes/acoes.ts` — cada módulo redeclara hoje,
 // não há tipo compartilhado entre módulos.
@@ -536,6 +550,309 @@ export async function cancelarDocumento(
       return { ok: false, erro: FRASE_LANCAMENTO_JA_CANCELADO };
     }
     console.error("Falha ao cancelar lançamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// "Paguei"/"Recebi" (04.4-08-PLAN.md, Tarefa 3): a linha de diferença (D-01/D-02) e o previsto
+// guardado para o "Desfazer" (D-03) — `planejarPagamento` (lib/financeiro/pagamento.ts, puro)
+// decide o QUE muda; esta ação só EXECUTA dentro de uma transação que trava o documento e depois
+// a parcela (`for update`, sempre nessa ordem — mesma ordem de `desfazerPagamento` abaixo, o que
+// evita deadlock entre as duas). A restrição adiada do banco (migração 0015) confere de novo, no
+// commit, que a soma das parcelas fecha com a soma das linhas.
+class ParcelaNaoEncontrada extends Error {}
+class ParcelaJaPaga extends Error {}
+class DocumentoCancelado extends Error {}
+
+export async function registrarPagamento(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ parcelaId: string }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaPagamento.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  const hoje = hojeEmBrasilia(new Date());
+  if (dados.pagoEm > hoje) {
+    return { ok: false, erro: FRASE_DATA_DE_PAGAMENTO_FUTURA };
+  }
+
+  const configuracao = await obterConfiguracaoFinanceira();
+  if (configuracao.dataSaldoInicial && dados.pagoEm < configuracao.dataSaldoInicial) {
+    return { ok: false, erro: FRASE_DATA_DE_PAGAMENTO_ANTES_DO_SALDO_INICIAL };
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      // Leitura SEM trava: só para achar o documento da parcela — o id do documento de uma
+      // parcela nunca muda, não precisa de lock para isso.
+      const [parcelaBruta] = await tx
+        .select({ documentoId: parcelas.documentoId })
+        .from(parcelas)
+        .where(eq(parcelas.id, dados.parcelaId))
+        .limit(1);
+      if (!parcelaBruta) {
+        throw new ParcelaNaoEncontrada();
+      }
+
+      // (1) Trava o DOCUMENTO primeiro.
+      const [documento] = await tx
+        .select({ id: documentos.id, tipo: documentos.tipo, canceladoEm: documentos.canceladoEm })
+        .from(documentos)
+        .where(eq(documentos.id, parcelaBruta.documentoId))
+        .for("update");
+      if (!documento) {
+        throw new ParcelaNaoEncontrada();
+      }
+      if (documento.canceladoEm) {
+        throw new DocumentoCancelado();
+      }
+
+      // (2) Trava a PARCELA depois.
+      const [parcela] = await tx
+        .select({
+          id: parcelas.id,
+          numero: parcelas.numero,
+          forma: parcelas.forma,
+          valorCentavos: parcelas.valorCentavos,
+          pagoEm: parcelas.pagoEm,
+        })
+        .from(parcelas)
+        .where(eq(parcelas.id, dados.parcelaId))
+        .for("update");
+      if (!parcela) {
+        throw new ParcelaNaoEncontrada();
+      }
+      if (parcela.pagoEm) {
+        throw new ParcelaJaPaga();
+      }
+
+      const [[{ total: quantidadeDeLinhas }], [{ total: quantidadeDeParcelas }]] = await Promise.all([
+        tx.select({ total: count() }).from(documentoLinhas).where(eq(documentoLinhas.documentoId, documento.id)),
+        tx.select({ total: count() }).from(parcelas).where(eq(parcelas.documentoId, documento.id)),
+      ]);
+
+      const plano = planejarPagamento({
+        tipoDocumento: documento.tipo,
+        quantidadeDeLinhas: Number(quantidadeDeLinhas),
+        quantidadeDeParcelas: Number(quantidadeDeParcelas),
+        previstoCentavos: parcela.valorCentavos,
+        pagoCentavos: dados.valorCentavos,
+        formaAnterior: parcela.forma as FormaDePagamento,
+        formaNova: dados.forma,
+        taxaPontosBaseAtual: configuracao.taxaCartaoPontosBase,
+      });
+
+      if (plano.acaoNaLinha === "ajustar") {
+        // Só existe UMA linha quando `quantidadeDeLinhas === 1` — a mesma condição que fez
+        // `planejarPagamento` escolher "ajustar" em vez de "diferenca".
+        const [linhaUnica] = await tx
+          .select({ id: documentoLinhas.id })
+          .from(documentoLinhas)
+          .where(eq(documentoLinhas.documentoId, documento.id))
+          .limit(1);
+        await tx
+          .update(documentoLinhas)
+          .set({ valorCentavos: dados.valorCentavos })
+          .where(eq(documentoLinhas.id, linhaUnica.id));
+      } else if (plano.acaoNaLinha === "diferenca") {
+        // A categoria da diferença é achada pela CHAVE do sistema, nunca pelo nome (D-02/D-14) —
+        // o dono pode renomear "Juros, multas e descontos" livremente sem quebrar isto.
+        const [categoriaDiferenca] = await tx
+          .select({ id: categorias.id })
+          .from(categorias)
+          .where(eq(categorias.chaveDoSistema, "diferenca"))
+          .limit(1);
+        if (!categoriaDiferenca) {
+          throw new Error("Categoria de diferença (chave_do_sistema = 'diferenca') não encontrada.");
+        }
+        const [ultimaLinha] = await tx
+          .select({ ordem: documentoLinhas.ordem })
+          .from(documentoLinhas)
+          .where(eq(documentoLinhas.documentoId, documento.id))
+          .orderBy(desc(documentoLinhas.ordem))
+          .limit(1);
+        const descricaoDiferenca =
+          quantidadeDeParcelas > 1
+            ? `Diferença no pagamento da parcela ${parcela.numero} de ${quantidadeDeParcelas}`
+            : "Diferença no pagamento";
+        await tx.insert(documentoLinhas).values({
+          documentoId: documento.id,
+          ordem: (ultimaLinha?.ordem ?? -1) + 1,
+          descricao: descricaoDiferenca,
+          categoriaId: categoriaDiferenca.id,
+          quantidade: 1,
+          valorCentavos: plano.diferencaCentavos,
+          parcelaDiferencaId: parcela.id,
+        });
+      }
+
+      await tx
+        .update(parcelas)
+        .set({
+          valorCentavos: dados.valorCentavos,
+          valorPrevistoCentavos: parcela.valorCentavos,
+          formaPrevista: parcela.forma,
+          forma: dados.forma,
+          pagoEm: dados.pagoEm,
+          pagoPor: usuario.id,
+          taxaPontosBase: plano.taxaPontosBase,
+        })
+        .where(eq(parcelas.id, parcela.id));
+    });
+
+    revalidatePath("/financeiro");
+    return { ok: true, dados: { parcelaId: dados.parcelaId } };
+  } catch (erro) {
+    if (erro instanceof ParcelaNaoEncontrada) {
+      return { ok: false, erro: FRASE_LANCAMENTO_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof DocumentoCancelado) {
+      return { ok: false, erro: FRASE_LANCAMENTO_CANCELADO_SEM_PAGAMENTO };
+    }
+    if (erro instanceof ParcelaJaPaga) {
+      return { ok: false, erro: FRASE_CONTA_JA_PAGA };
+    }
+    console.error("Falha ao registrar pagamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// O inverso exato de `registrarPagamento` (D-03): `planejarDesfazer` (puro) decide o que
+// restaurar; esta ação só executa — mesma ordem de trava (documento, depois parcela). A ÚNICA
+// exclusão física do módulo Financeiro inteiro é a linha de diferença aqui embaixo, e só quando
+// ELA MESMA foi criada pelo pagamento que está sendo desfeito (achada por `parcela_diferenca_id`,
+// nunca por nome/ordem).
+class ParcelaEmAberto extends Error {}
+class SemPrevistoGuardado extends Error {}
+
+export async function desfazerPagamento(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ parcelaId: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaDesfazer.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { parcelaId } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [parcelaBruta] = await tx
+        .select({ documentoId: parcelas.documentoId })
+        .from(parcelas)
+        .where(eq(parcelas.id, parcelaId))
+        .limit(1);
+      if (!parcelaBruta) {
+        throw new ParcelaNaoEncontrada();
+      }
+
+      // (1) Trava o DOCUMENTO primeiro — mesma ordem de `registrarPagamento`.
+      const [documento] = await tx
+        .select({ id: documentos.id, canceladoEm: documentos.canceladoEm })
+        .from(documentos)
+        .where(eq(documentos.id, parcelaBruta.documentoId))
+        .for("update");
+      if (!documento) {
+        throw new ParcelaNaoEncontrada();
+      }
+      if (documento.canceladoEm) {
+        throw new DocumentoCancelado();
+      }
+
+      // (2) Trava a PARCELA depois.
+      const [parcela] = await tx
+        .select({
+          id: parcelas.id,
+          pagoEm: parcelas.pagoEm,
+          valorCentavos: parcelas.valorCentavos,
+          valorPrevistoCentavos: parcelas.valorPrevistoCentavos,
+          formaPrevista: parcelas.formaPrevista,
+        })
+        .from(parcelas)
+        .where(eq(parcelas.id, parcelaId))
+        .for("update");
+      if (!parcela) {
+        throw new ParcelaNaoEncontrada();
+      }
+      if (!parcela.pagoEm) {
+        throw new ParcelaEmAberto();
+      }
+
+      const [linhaDeDiferenca] = await tx
+        .select({ id: documentoLinhas.id })
+        .from(documentoLinhas)
+        .where(eq(documentoLinhas.parcelaDiferencaId, parcela.id))
+        .limit(1);
+
+      const [[{ total: quantidadeDeLinhas }], [{ total: quantidadeDeParcelas }]] = await Promise.all([
+        tx.select({ total: count() }).from(documentoLinhas).where(eq(documentoLinhas.documentoId, documento.id)),
+        tx.select({ total: count() }).from(parcelas).where(eq(parcelas.documentoId, documento.id)),
+      ]);
+
+      const plano = planejarDesfazer({
+        temLinhaDeDiferenca: linhaDeDiferenca !== undefined,
+        quantidadeDeLinhas: Number(quantidadeDeLinhas),
+        quantidadeDeParcelas: Number(quantidadeDeParcelas),
+        previstoCentavos: parcela.valorPrevistoCentavos,
+        pagoCentavos: parcela.valorCentavos,
+        formaPrevista: parcela.formaPrevista as FormaDePagamento | null,
+      });
+
+      if (!plano.ok) {
+        throw new SemPrevistoGuardado(plano.erro);
+      }
+
+      if (plano.acaoNaLinha === "diferenca" && linhaDeDiferenca) {
+        // A ÚNICA exclusão física de `lib/financeiro/acoes.ts` — SEMPRE filtrada por
+        // `parcela_diferenca_id`, nunca por outro critério.
+        await tx.delete(documentoLinhas).where(eq(documentoLinhas.id, linhaDeDiferenca.id));
+      } else if (plano.acaoNaLinha === "ajustar") {
+        const [linhaUnica] = await tx
+          .select({ id: documentoLinhas.id })
+          .from(documentoLinhas)
+          .where(eq(documentoLinhas.documentoId, documento.id))
+          .limit(1);
+        await tx
+          .update(documentoLinhas)
+          .set({ valorCentavos: plano.valorParaRestaurarCentavos })
+          .where(eq(documentoLinhas.id, linhaUnica.id));
+      }
+
+      await tx
+        .update(parcelas)
+        .set({
+          valorCentavos: plano.valorParaRestaurarCentavos,
+          forma: plano.formaParaRestaurar,
+          pagoEm: null,
+          pagoPor: null,
+          taxaPontosBase: null,
+          valorPrevistoCentavos: null,
+          formaPrevista: null,
+        })
+        .where(eq(parcelas.id, parcela.id));
+    });
+
+    revalidatePath("/financeiro");
+    return { ok: true, dados: { parcelaId } };
+  } catch (erro) {
+    if (erro instanceof ParcelaNaoEncontrada) {
+      return { ok: false, erro: FRASE_LANCAMENTO_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof DocumentoCancelado) {
+      return { ok: false, erro: FRASE_DESFAZER_LANCAMENTO_CANCELADO };
+    }
+    if (erro instanceof ParcelaEmAberto) {
+      return { ok: false, erro: FRASE_DESFAZER_EM_ABERTO };
+    }
+    if (erro instanceof SemPrevistoGuardado) {
+      return { ok: false, erro: erro.message || FRASE_DESFAZER_SEM_PREVISTO };
+    }
+    console.error("Falha ao desfazer pagamento:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

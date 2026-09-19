@@ -12,10 +12,17 @@ import {
   listarParcelasEmAberto,
   obterConfiguracaoFinanceira,
   obterDocumentoParaAviso,
+  obterParcelaParaAviso,
 } from "@/lib/financeiro/consultas";
 import { montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
 import { chaveDoMes, formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
-import { textoCancelado, textoDespesaLancada, textoVendaLancada } from "@/lib/financeiro/textos";
+import {
+  textoCancelado,
+  textoDespesaLancada,
+  textoDoDesfazer,
+  textoDoPagamento,
+  textoVendaLancada,
+} from "@/lib/financeiro/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
@@ -60,6 +67,7 @@ export default async function PaginaFinanceiro({
     parcelasEmAberto,
     contasEmAberto,
     documentoDoAviso,
+    parcelaDoAviso,
   ] = await Promise.all([
     abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
     abaVenda ? listarCatalogoDaVenda() : Promise.resolve([]),
@@ -76,7 +84,16 @@ export default async function PaginaFinanceiro({
     avisoResolvido && (avisoResolvido.tipo === "lancado" || avisoResolvido.tipo === "cancelado")
       ? obterDocumentoParaAviso(avisoResolvido.documentoId)
       : Promise.resolve(null),
+    avisoResolvido && (avisoResolvido.tipo === "pago" || avisoResolvido.tipo === "desfeito")
+      ? obterParcelaParaAviso(avisoResolvido.parcelaId)
+      : Promise.resolve(null),
   ]);
+
+  // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
+  // desfazer não oferece desfazer de novo — o `key_link` do plano). A diferença (D-01) só entra
+  // na frase quando `diferencaCentavos` não é nulo/zero.
+  const pagamentoAindaValido =
+    avisoResolvido?.tipo === "pago" && parcelaDoAviso?.paga === true && parcelaDoAviso.previstoCentavos !== null;
 
   const textoDoAviso =
     avisoResolvido?.tipo === "lancado" && documentoDoAviso
@@ -93,9 +110,24 @@ export default async function PaginaFinanceiro({
           )
       : avisoResolvido?.tipo === "cancelado" && documentoDoAviso
         ? textoCancelado(documentoDoAviso.numero)
-        : // "pago"/"desfeito" (04.4-08-PLAN.md, Tarefa 3) ainda não têm consulta própria — chegam
-          // na próxima tarefa desta mesma fase.
-          null;
+        : avisoResolvido?.tipo === "pago" && pagamentoAindaValido && parcelaDoAviso
+          ? textoDoPagamento(
+              parcelaDoAviso.tipo,
+              formatarReais(parcelaDoAviso.valorCentavos),
+              parcelaDoAviso.diferencaCentavos ? formatarReais(Math.abs(parcelaDoAviso.diferencaCentavos)) : null,
+              parcelaDoAviso.diferencaCentavos
+                ? parcelaDoAviso.diferencaCentavos > 0
+                  ? "a mais"
+                  : "a menos"
+                : null,
+            )
+          : avisoResolvido?.tipo === "desfeito" && parcelaDoAviso
+            ? textoDoDesfazer(formatarReais(parcelaDoAviso.valorCentavos))
+            : null;
+
+  // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
+  const desfazerDoAviso =
+    avisoResolvido?.tipo === "pago" && pagamentoAindaValido ? { parcelaId: avisoResolvido.parcelaId } : null;
 
   // O tile "Saldo em caixa" e o extrato saem da MESMA função (`montarExtrato`) sobre a MESMA
   // lista de movimentos lida acima — é isso que torna "o tile bate com o saldo depois do
@@ -126,7 +158,7 @@ export default async function PaginaFinanceiro({
 
   return (
     <>
-      <AvisoFinanceiro texto={textoDoAviso} />
+      <AvisoFinanceiro texto={textoDoAviso} desfazer={desfazerDoAviso} />
 
       <div className="pt-6">
         <AbasFinanceiro abaAtual={abaAtual} />

@@ -290,6 +290,7 @@ export type ContaEmAberto = {
   vencimento: string;
   rotulo: string | null;
   valorCentavos: number;
+  forma: FormaDePagamento;
 };
 
 // Parcelas ABERTAS de documento NÃO cancelado, com o título calculado e a contagem de parcelas do
@@ -310,6 +311,7 @@ export async function listarContasEmAberto(): Promise<ContaEmAberto[]> {
       pessoaNome: documentos.pessoaNome,
       titulo: documentos.titulo,
       valorCentavos: parcelas.valorCentavos,
+      forma: parcelas.forma,
     })
     .from(parcelas)
     .innerJoin(documentos, eq(parcelas.documentoId, documentos.id))
@@ -365,6 +367,7 @@ export async function listarContasEmAberto(): Promise<ContaEmAberto[]> {
       vencimento: parcela.vencimento,
       rotulo: parcela.rotulo,
       valorCentavos: parcela.valorCentavos,
+      forma: parcela.forma as FormaDePagamento,
     }))
     .sort((a, b) => {
       if (a.vencimento !== b.vencimento) {
@@ -526,4 +529,59 @@ export async function listarDocumentosParaDetalhe(
   }
 
   return mapa;
+}
+
+export type ParcelaParaAviso = {
+  tipo: TipoDeDocumentoParaTexto;
+  valorCentavos: number;
+  paga: boolean;
+  previstoCentavos: number | null;
+  // O valor da linha de diferença QUE ESTA PARCELA criou, se houver — `null` quando não há
+  // (pago igual ao previsto, ou linha única ajustada em vez de diferença).
+  diferencaCentavos: number | null;
+};
+
+// O aviso `pago`/`desfeito` (04.4-08-PLAN.md, Tarefa 3): a página confere aqui se a parcela AINDA
+// está paga com previsto guardado antes de oferecer o "Desfazer" — recarregar depois de desfazer
+// não oferece desfazer de novo (o `pagoEm` já voltou a nulo). TRÊS leituras pequenas (parcela,
+// documento, linha de diferença), nunca uma consulta a mais que o aviso precisa.
+export async function obterParcelaParaAviso(id: string): Promise<ParcelaParaAviso | null> {
+  const [parcela] = await db
+    .select({
+      documentoId: parcelas.documentoId,
+      valorCentavos: parcelas.valorCentavos,
+      pagoEm: parcelas.pagoEm,
+      valorPrevistoCentavos: parcelas.valorPrevistoCentavos,
+    })
+    .from(parcelas)
+    .where(eq(parcelas.id, id))
+    .limit(1);
+
+  if (!parcela) {
+    return null;
+  }
+
+  const [documento] = await db
+    .select({ tipo: documentos.tipo })
+    .from(documentos)
+    .where(eq(documentos.id, parcela.documentoId))
+    .limit(1);
+
+  if (!documento) {
+    return null;
+  }
+
+  const [linhaDeDiferenca] = await db
+    .select({ valorCentavos: documentoLinhas.valorCentavos })
+    .from(documentoLinhas)
+    .where(eq(documentoLinhas.parcelaDiferencaId, id))
+    .limit(1);
+
+  return {
+    tipo: documento.tipo,
+    valorCentavos: parcela.valorCentavos,
+    paga: parcela.pagoEm !== null,
+    previstoCentavos: parcela.valorPrevistoCentavos,
+    diferencaCentavos: linhaDeDiferenca ? linhaDeDiferenca.valorCentavos : null,
+  };
 }

@@ -329,3 +329,52 @@ export const FRASE_LANCAMENTO_NAO_EXISTE_MAIS =
 export function textoCancelado(numero: number): string {
   return `Lançamento nº ${numero} cancelado. Continua visível, riscado.`;
 }
+
+// "Paguei"/"Recebi" com a linha de diferença (D-01/D-02) e o "Desfazer" (D-03).
+export const ROTULO_QUANDO = "Quando";
+export const ROTULO_FORMA_CAMPO = "Forma";
+export const ROTULO_CONFIRMAR = "Confirmar";
+export const ROTULO_DESFAZER = "Desfazer";
+export const DICA_BAIXA =
+  "Se o valor veio diferente do previsto, corrija aqui — o lançamento é ajustado junto.";
+
+// "Recebi: {título}"/"Paguei: {título}" — o título do diálogo de baixa (protótipo `folhaBaixa`).
+export function textoTituloBaixa(tipo: TipoDeDocumentoParaTexto, titulo: string): string {
+  return `${tipo === "venda" ? "Recebi" : "Paguei"}: ${titulo}`;
+}
+
+// "Recebido: R$ 150,00" / "Pago: R$ 150,00" (sem diferença); com diferença, acrescenta
+// ". R$ 12,00 a mais viraram uma linha de diferença." — `diferencaCentavos` nulo/zero omite o
+// segundo trecho (D-01, UI-SPEC Copywriting Contract).
+export function textoDoPagamento(
+  tipo: TipoDeDocumentoParaTexto,
+  valorFormatado: string,
+  diferencaFormatadaAbsoluta: string | null,
+  diferencaAMaisOuMenos: "a mais" | "a menos" | null,
+): string {
+  const base = `${tipo === "venda" ? "Recebido" : "Pago"}: ${valorFormatado}`;
+  if (!diferencaFormatadaAbsoluta || !diferencaAMaisOuMenos) {
+    return base;
+  }
+  return `${base}. ${diferencaFormatadaAbsoluta} ${diferencaAMaisOuMenos} viraram uma linha de diferença.`;
+}
+
+// "Desfeito. A conta voltou a R$ 148,00 em aberto." — o aviso pós-desfazer (D-03).
+export function textoDoDesfazer(valorFormatado: string): string {
+  return `Desfeito. A conta voltou a ${valorFormatado} em aberto.`;
+}
+
+// As recusas do servidor (registrarPagamento/desfazerPagamento) — a mesma frase serve à
+// concorrência real (duas pessoas) e à simples tentativa de pagar/desfazer de novo.
+export const FRASE_CONTA_JA_PAGA =
+  "Essa conta já foi paga — recarregue a página para ver como ela está.";
+export const FRASE_LANCAMENTO_CANCELADO_SEM_PAGAMENTO =
+  "Esse lançamento foi cancelado — ele não recebe mais pagamento.";
+export const FRASE_DESFAZER_LANCAMENTO_CANCELADO =
+  "Esse lançamento foi cancelado — não dá para desfazer um pagamento dele.";
+export const FRASE_DESFAZER_EM_ABERTO =
+  "Essa conta ainda está em aberto — não tem pagamento para desfazer.";
+export const FRASE_FALHA_AO_DESFAZER = "Não deu para desfazer. Verifique a internet e tente de novo.";
+export const FRASE_DATA_DE_PAGAMENTO_FUTURA = "A data do pagamento não pode ser depois de hoje.";
+export const FRASE_DATA_DE_PAGAMENTO_ANTES_DO_SALDO_INICIAL =
+  "Essa data é anterior ao saldo inicial do Financeiro — confira a data.";
