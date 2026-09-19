@@ -1280,6 +1280,433 @@ async function conferirFinanceiro(cliente) {
   }
 }
 
+// Retrato do CONTEÚDO das três tabelas da Abertura (contagem embutida no próprio JSON, ordenado
+// por id) — comparado antes/depois da prova da virada para confirmar que o script de importação
+// (04.4-04-PLAN.md, Tarefa 2) só LÊ `abertura_itens` e nunca escreve em tabela nenhuma da
+// Abertura (T-04.4-26).
+async function retratoDaAbertura(cliente) {
+  // Sequencial, nunca `Promise.all` — `cliente` é um `pg.Client` de conexão única (não um
+  // `Pool`), e disparar consultas concorrentes nele produz o aviso de depreciação "already
+  // executing a query" e, sob transação/gatilho adiado, pode intercalar de um jeito que confunde
+  // o servidor sobre qual consulta pertence a qual instrução.
+  const itens = await cliente.query(
+    `select id, nome, categoria, valor_centavos, forma_pagamento, parcelas, primeira_parcela_em,
+            entrega_prevista_em, resolvido
+     from abertura_itens order by id`,
+  );
+  const tarefas = await cliente.query(
+    `select id, descricao, grupo, prazo_em, responsavel_id, item_id, concluida
+     from abertura_tarefas order by id`,
+  );
+  const configuracao = await cliente.query(
+    "select id, inauguracao_em from abertura_configuracao order by id",
+  );
+  return JSON.stringify({ itens: itens.rows, tarefas: tarefas.rows, configuracao: configuracao.rows });
+}
+
+// Roda `npm run importar-parcelas-abertura` como processo filho DE VERDADE (não reimplementa a
+// lógica) e devolve o código de saída e a saída capturada mesmo quando o script recusa (código
+// diferente de zero) — ao contrário de `rodarNpmCapturado`, que deixa o `execSync` lançar.
+// Nenhum argumento usado nesta prova tem espaço, então nenhuma citação extra é necessária (mesma
+// disciplina de `rodarNpmCapturado`, que já monta os argumentos como uma lista simples).
+function rodarScriptDaVirada(argumentos, opcoes = {}) {
+  const comando = `npm run importar-parcelas-abertura -- ${argumentos.join(" ")}`;
+  try {
+    const stdout = execSync(comando, { stdio: ["ignore", "pipe", "pipe"], ...opcoes }).toString();
+    return { codigoDeSaida: 0, stdout };
+  } catch (erro) {
+    return {
+      codigoDeSaida: typeof erro.status === "number" ? erro.status : 1,
+      stdout: erro.stdout ? erro.stdout.toString() : "",
+    };
+  }
+}
+
+// Fase 04.4 — Financeiro (04.4-04-PLAN.md, Tarefa 2, briefing §7): prova a virada de ponta a
+// ponta, rodando o script de verdade. Semeia um gestor e quatro itens de Abertura (nomes
+// inventados e genéricos — o repositório é público): móveis a prazo em 10x começando seis meses
+// antes da virada (entram as parcelas 7 a 10), material a prazo em 3x começando um mês antes
+// (entram as parcelas 2 e 3), um equipamento à vista já quitado antes da virada (deveria ser
+// ignorado) e uma obra à vista depois da virada (documento de uma parcela só, sem rótulo). Usa as
+// categorias "Argila, esmalte e insumos" (grupo custo) e "Equipamento e obra" (grupo fora) já
+// semeadas pela migração 0016 — os padrões do próprio script — sem precisar de
+// `--categoria-material`/`--categoria-demais`.
+async function conferirImportacaoDaVirada(cliente, url) {
+  console.log("  conferirImportacaoDaVirada...");
+
+  const envDoBancoDeTeste = { ...process.env, DATABASE_URL: url };
+  const DATA_DA_VIRADA = "2026-07-01";
+  const EMAIL_AUTOR = "gestora-de-teste-plano-04@exemplo.test";
+
+  const { rows: gestorInserido } = await cliente.query(
+    `insert into usuarios (nome, email, senha_hash) values
+     ('Gestora de Teste do Plano 04', $1, 'hash-fake-de-teste') returning id`,
+    [EMAIL_AUTOR],
+  );
+  const idDoGestor = gestorInserido[0].id;
+
+  const { rows: configuracaoDaAberturaInserida } = await cliente.query(
+    "insert into abertura_configuracao (inauguracao_em) values ('2026-12-01') returning id",
+  );
+  afirmar(
+    configuracaoDaAberturaInserida.length === 1,
+    "A semeadura de abertura_configuracao não inseriu a linha esperada.",
+  );
+
+  async function semearItemDaAbertura({
+    nome,
+    categoria,
+    valorCentavos,
+    formaPagamento,
+    parcelas,
+    primeiraParcelaEm,
+  }) {
+    const { rows } = await cliente.query(
+      `insert into abertura_itens
+         (nome, categoria, valor_centavos, forma_pagamento, parcelas, primeira_parcela_em)
+       values ($1, $2, $3, $4, $5, $6) returning id`,
+      [nome, categoria, valorCentavos, formaPagamento, parcelas, primeiraParcelaEm],
+    );
+    return rows[0].id;
+  }
+
+  const idMoveis = await semearItemDaAbertura({
+    nome: "Item de móveis inventado (plano 04.4-04)",
+    categoria: "moveis",
+    valorCentavos: 1000000,
+    formaPagamento: "prazo",
+    parcelas: 10,
+    primeiraParcelaEm: "2026-01-01",
+  });
+  const idMaterial = await semearItemDaAbertura({
+    nome: "Item de material inventado (plano 04.4-04)",
+    categoria: "material",
+    valorCentavos: 300000,
+    formaPagamento: "prazo",
+    parcelas: 3,
+    primeiraParcelaEm: "2026-06-01",
+  });
+  const idEquipamentoQuitado = await semearItemDaAbertura({
+    nome: "Item de equipamento já quitado (plano 04.4-04)",
+    categoria: "equipamentos",
+    valorCentavos: 80000,
+    formaPagamento: "vista",
+    parcelas: 1,
+    primeiraParcelaEm: "2026-05-01",
+  });
+  const idObra = await semearItemDaAbertura({
+    nome: "Item de obra inventado (plano 04.4-04)",
+    categoria: "obra",
+    valorCentavos: 50000,
+    formaPagamento: "vista",
+    parcelas: 1,
+    primeiraParcelaEm: "2026-08-01",
+  });
+
+  await cliente.query(
+    `insert into abertura_tarefas (descricao, grupo, prazo_em, item_id) values
+     ('Conferir a instalação (plano 04.4-04)', 'montagem', '2026-06-01', $1)`,
+    [idMoveis],
+  );
+
+  const retratoAntes = await retratoDaAbertura(cliente);
+
+  // 1. Ensaio (sem --aplicar): a frase do ensaio aparece, zero documentos gravados.
+  const ensaio = rodarScriptDaVirada(
+    ["--data-da-virada", DATA_DA_VIRADA, "--autor", EMAIL_AUTOR],
+    { env: envDoBancoDeTeste },
+  );
+  afirmar(
+    ensaio.codigoDeSaida === 0,
+    `O ensaio (sem --aplicar) deveria sair 0, saiu ${ensaio.codigoDeSaida}.\nSaída:\n${ensaio.stdout}`,
+  );
+  afirmar(
+    ensaio.stdout.includes("Nada foi gravado (ensaio). Rode de novo com --aplicar para gravar."),
+    `O ensaio deveria terminar com a frase de ensaio. Saída:\n${ensaio.stdout}`,
+  );
+  const { rows: documentosAposEnsaio } = await cliente.query(
+    "select count(*)::int as total from documentos where chave_de_importacao like 'abertura:%'",
+  );
+  afirmar(
+    documentosAposEnsaio[0].total === 0,
+    "O ensaio (sem --aplicar) não deveria gravar nenhum documento.",
+  );
+
+  // 2. Aplicação: os documentos esperados, com rótulo/categoria/soma corretos; saldo inicial e
+  // data gravados; a Abertura continua idêntica (T-04.4-26).
+  const aplicacao = rodarScriptDaVirada(
+    [
+      "--data-da-virada",
+      DATA_DA_VIRADA,
+      "--autor",
+      EMAIL_AUTOR,
+      "--saldo-inicial",
+      "1.000,00",
+      "--aplicar",
+    ],
+    { env: envDoBancoDeTeste },
+  );
+  afirmar(
+    aplicacao.codigoDeSaida === 0,
+    `A aplicação deveria sair 0, saiu ${aplicacao.codigoDeSaida}.\nSaída:\n${aplicacao.stdout}`,
+  );
+
+  const { rows: documentosGravados } = await cliente.query(
+    `select d.id, d.chave_de_importacao, c.grupo as categoria_grupo
+     from documentos d
+     join documento_linhas dl on dl.documento_id = d.id
+     join categorias c on c.id = dl.categoria_id
+     where d.chave_de_importacao like 'abertura:%'
+     order by d.chave_de_importacao`,
+  );
+  afirmar(
+    documentosGravados.length === 3,
+    "Deveriam existir 3 documentos importados (móveis, material, obra — o de equipamentos foi " +
+      `quitado antes da virada), vieram ${documentosGravados.length}.`,
+  );
+
+  const documentoMoveis = documentosGravados.find(
+    (linha) => linha.chave_de_importacao === `abertura:${idMoveis}`,
+  );
+  const documentoMaterial = documentosGravados.find(
+    (linha) => linha.chave_de_importacao === `abertura:${idMaterial}`,
+  );
+  const documentoObra = documentosGravados.find(
+    (linha) => linha.chave_de_importacao === `abertura:${idObra}`,
+  );
+  afirmar(
+    Boolean(documentoMoveis) && Boolean(documentoMaterial) && Boolean(documentoObra),
+    "Um dos três documentos esperados (móveis, material, obra) não foi encontrado.",
+  );
+  afirmar(
+    documentosGravados.every((linha) => linha.chave_de_importacao !== `abertura:${idEquipamentoQuitado}`),
+    "O item de equipamento já quitado antes da virada não deveria ter virado documento.",
+  );
+
+  afirmar(
+    documentoMoveis.categoria_grupo === "fora",
+    `O documento de móveis deveria cair na categoria dos demais (grupo "fora"), veio "${documentoMoveis.categoria_grupo}".`,
+  );
+  afirmar(
+    documentoMaterial.categoria_grupo === "custo",
+    `O documento de material deveria cair na categoria de material (grupo "custo"), veio "${documentoMaterial.categoria_grupo}".`,
+  );
+  afirmar(
+    documentoObra.categoria_grupo === "fora",
+    `O documento de obra deveria cair na categoria dos demais (grupo "fora"), veio "${documentoObra.categoria_grupo}".`,
+  );
+
+  const { rows: parcelasDoMoveis } = await cliente.query(
+    "select rotulo, valor_centavos, forma from parcelas where documento_id = $1 order by numero",
+    [documentoMoveis.id],
+  );
+  afirmar(
+    parcelasDoMoveis.length === 4,
+    `O documento de móveis deveria ter 4 parcelas em aberto (7 a 10 de 10), veio ${parcelasDoMoveis.length}.`,
+  );
+  afirmar(
+    JSON.stringify(parcelasDoMoveis.map((parcela) => parcela.rotulo)) ===
+      JSON.stringify(["7 de 10", "8 de 10", "9 de 10", "10 de 10"]),
+    "Os rótulos das parcelas de móveis deveriam ser \"7 de 10\"..\"10 de 10\", vieram " +
+      JSON.stringify(parcelasDoMoveis.map((parcela) => parcela.rotulo)) +
+      ".",
+  );
+  afirmar(
+    parcelasDoMoveis.every((parcela) => parcela.forma === "pix"),
+    "As parcelas importadas deveriam ter a forma prevista pix (suposição 4 do plano).",
+  );
+  const somaMoveis = parcelasDoMoveis.reduce((total, parcela) => total + parcela.valor_centavos, 0);
+  afirmar(somaMoveis === 400000, `A soma das parcelas de móveis deveria ser 400000, veio ${somaMoveis}.`);
+
+  const { rows: parcelasDoMaterial } = await cliente.query(
+    "select rotulo, valor_centavos from parcelas where documento_id = $1 order by numero",
+    [documentoMaterial.id],
+  );
+  afirmar(
+    JSON.stringify(parcelasDoMaterial.map((parcela) => parcela.rotulo)) ===
+      JSON.stringify(["2 de 3", "3 de 3"]),
+    "Os rótulos das parcelas de material deveriam ser \"2 de 3\" e \"3 de 3\", vieram " +
+      JSON.stringify(parcelasDoMaterial.map((parcela) => parcela.rotulo)) +
+      ".",
+  );
+  const somaMaterial = parcelasDoMaterial.reduce((total, parcela) => total + parcela.valor_centavos, 0);
+  afirmar(
+    somaMaterial === 200000,
+    `A soma das parcelas de material deveria ser 200000, veio ${somaMaterial}.`,
+  );
+
+  const { rows: parcelasDaObra } = await cliente.query(
+    "select rotulo, valor_centavos from parcelas where documento_id = $1",
+    [documentoObra.id],
+  );
+  afirmar(parcelasDaObra.length === 1, "O documento de obra deveria ter uma parcela só (item à vista).");
+  afirmar(parcelasDaObra[0].rotulo === null, "A parcela do item à vista não deveria ter rótulo.");
+  afirmar(
+    parcelasDaObra[0].valor_centavos === 50000,
+    `A parcela de obra deveria valer 50000, veio ${parcelasDaObra[0].valor_centavos}.`,
+  );
+
+  const { rows: configuracaoGravada } = await cliente.query(
+    "select saldo_inicial_centavos, data_saldo_inicial::text as data_saldo_inicial from configuracao_financeira where linha_unica = true",
+  );
+  afirmar(configuracaoGravada.length === 1, "A configuração financeira (saldo inicial) não foi gravada.");
+  afirmar(
+    configuracaoGravada[0].saldo_inicial_centavos === 100000,
+    `O saldo inicial gravado deveria ser 100000 centavos, veio ${configuracaoGravada[0].saldo_inicial_centavos}.`,
+  );
+  afirmar(
+    configuracaoGravada[0].data_saldo_inicial === DATA_DA_VIRADA,
+    `A data do saldo inicial deveria ser ${DATA_DA_VIRADA}, veio ${configuracaoGravada[0].data_saldo_inicial}.`,
+  );
+
+  const retratoDepoisDaAplicacao = await retratoDaAbertura(cliente);
+  afirmar(
+    retratoDepoisDaAplicacao === retratoAntes,
+    "O conteúdo das tabelas da Abertura mudou depois da aplicação — o script deveria só LER a Abertura.",
+  );
+
+  // 3. Idempotência (T-04.4-27): rodar de novo com --aplicar não cria documento novo.
+  const segundaAplicacao = rodarScriptDaVirada(
+    [
+      "--data-da-virada",
+      DATA_DA_VIRADA,
+      "--autor",
+      EMAIL_AUTOR,
+      "--saldo-inicial",
+      "1.000,00",
+      "--aplicar",
+    ],
+    { env: envDoBancoDeTeste },
+  );
+  afirmar(
+    segundaAplicacao.codigoDeSaida === 0,
+    `A segunda aplicação deveria sair 0, saiu ${segundaAplicacao.codigoDeSaida}.\nSaída:\n${segundaAplicacao.stdout}`,
+  );
+  const { rows: documentosAposSegundaAplicacao } = await cliente.query(
+    "select count(*)::int as total from documentos where chave_de_importacao like 'abertura:%'",
+  );
+  afirmar(
+    documentosAposSegundaAplicacao[0].total === 3,
+    "A segunda aplicação não deveria criar documento novo — esperado 3, veio " +
+      `${documentosAposSegundaAplicacao[0].total}.`,
+  );
+
+  // 4. Guarda (T-04.4-28): parcela paga, de documento não cancelado, com pago_em antes da
+  // virada — o script recusa, sai diferente de zero e não grava nada a mais.
+  const { rows: categoriaReceita } = await cliente.query(
+    "select id from categorias where nome = 'Uso do espaço'",
+  );
+  // Numa transação só — a restrição adiada `conferir_soma_do_documento()` (migração 0015) só
+  // confere no COMMIT; sem `begin`/`commit` explícitos, cada `insert` seria seu próprio
+  // autocommit e o primeiro (documento sem linha nem parcela ainda) seria recusado na hora.
+  await cliente.query("begin");
+  let idDaVendaAnterior;
+  try {
+    const { rows: vendaAnteriorInserida } = await cliente.query(
+      "insert into documentos (tipo, data, criado_por) values ('venda', '2026-06-15', $1) returning id",
+      [idDoGestor],
+    );
+    idDaVendaAnterior = vendaAnteriorInserida[0].id;
+    await cliente.query(
+      `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+       values ($1, 1, 'Venda de teste anterior à virada (plano 04.4-04)', $2, 15000)`,
+      [idDaVendaAnterior, categoriaReceita[0].id],
+    );
+    await cliente.query(
+      `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+       values ($1, 1, '2026-06-15', 15000, 'pix', '2026-06-15', $2)`,
+      [idDaVendaAnterior, idDoGestor],
+    );
+    await cliente.query("commit");
+  } catch (erro) {
+    await cliente.query("rollback").catch(() => {});
+    throw erro;
+  }
+
+  const terceiraAplicacao = rodarScriptDaVirada(
+    [
+      "--data-da-virada",
+      DATA_DA_VIRADA,
+      "--autor",
+      EMAIL_AUTOR,
+      "--saldo-inicial",
+      "9.999,00",
+      "--aplicar",
+    ],
+    { env: envDoBancoDeTeste },
+  );
+  afirmar(
+    terceiraAplicacao.codigoDeSaida !== 0,
+    "O script deveria recusar aplicar com uma parcela paga antes da virada em documento não cancelado.",
+  );
+  const { rows: configuracaoAposRecusa } = await cliente.query(
+    "select saldo_inicial_centavos from configuracao_financeira where linha_unica = true",
+  );
+  afirmar(
+    configuracaoAposRecusa[0].saldo_inicial_centavos === 100000,
+    "O saldo inicial não deveria ter mudado depois de uma aplicação recusada pela guarda de " +
+      "pagamento anterior à virada.",
+  );
+  const { rows: documentosAposRecusa } = await cliente.query(
+    "select count(*)::int as total from documentos where chave_de_importacao like 'abertura:%'",
+  );
+  afirmar(
+    documentosAposRecusa[0].total === 3,
+    "Nenhum documento novo deveria ter sido criado numa aplicação recusada pela guarda.",
+  );
+
+  const retratoFinal = await retratoDaAbertura(cliente);
+  afirmar(
+    retratoFinal === retratoAntes,
+    "O conteúdo das tabelas da Abertura mudou depois de toda a prova — o script nunca escreve na Abertura.",
+  );
+}
+
+// A prova da virada roda o script de importação DE VERDADE, com `--aplicar`. Por isso ela roda
+// num banco só dela, criado aqui e apagado no fim — a mesma razão de `provarRemocaoEmBancoProprio`
+// (ver o comentário longo acima dela): não pode compartilhar o banco dos outros passos.
+async function provarViradaEmBancoProprio() {
+  const url = new URL(process.env.DATABASE_URL_TESTE);
+  const bancoOriginal = url.pathname.slice(1);
+  const bancoDaProva = `${bancoOriginal}_virada`;
+
+  const urlAdmin = new URL(url);
+  urlAdmin.pathname = "/postgres";
+  const urlDaProva = new URL(url);
+  urlDaProva.pathname = `/${bancoDaProva}`;
+
+  const admin = new Client({ connectionString: urlAdmin.toString() });
+  await admin.connect();
+  try {
+    await admin.query(`drop database if exists "${bancoDaProva}"`);
+    await admin.query(`create database "${bancoDaProva}"`);
+  } finally {
+    await admin.end();
+  }
+
+  try {
+    console.log(`Provando a virada em banco proprio ("${bancoDaProva}")...`);
+    rodarNpm("npm", ["run", "db:migrate"], {
+      env: { ...process.env, DATABASE_URL: urlDaProva.toString() },
+    });
+    const cliente = new Client({ connectionString: urlDaProva.toString() });
+    await cliente.connect();
+    try {
+      await conferirImportacaoDaVirada(cliente, urlDaProva.toString());
+    } finally {
+      await cliente.end();
+    }
+  } finally {
+    const faxina = new Client({ connectionString: urlAdmin.toString() });
+    await faxina.connect();
+    try {
+      await faxina.query(`drop database if exists "${bancoDaProva}"`);
+    } finally {
+      await faxina.end();
+    }
+  }
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -1299,6 +1726,10 @@ async function conferirBanco() {
   // Em banco PROPRIO, descartavel, criado agora e apagado no fim — nunca no banco que os
   // outros passos compartilham. Ver o comentario de `provarRemocaoEmBancoProprio`.
   await provarRemocaoEmBancoProprio();
+
+  // Idem — a virada roda o script de importação de verdade, num banco só dela (ver o
+  // comentário de `provarViradaEmBancoProprio`, abaixo).
+  await provarViradaEmBancoProprio();
 }
 
 async function main() {
