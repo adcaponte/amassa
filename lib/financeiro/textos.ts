@@ -45,6 +45,60 @@ export const ROTULO_LANCAR_VENDA = "Lançar venda";
 export const FRASE_VAZIO_VENDA = "Toque nos itens para montar a venda.";
 export const ROTULO_VALOR_LIVRE = "+ Valor livre";
 
+// O catálogo da Venda (plano 03): busca, pílulas de área, grade de atalhos, lista completa.
+export const ROTULO_BUSCAR_NO_CATALOGO = "Buscar no catálogo";
+export const ROTULO_TODOS_OS_ATALHOS = "Todos os atalhos";
+export const ROTULO_LISTA_COMPLETA_E_ATALHOS = "Lista completa e atalhos";
+export const FRASE_NENHUM_ATALHO =
+  "Nenhum atalho aqui. Abra a lista completa e marque ★ nos itens que quer ver nesta tela.";
+export const FRASE_NADA_ENCONTRADO = "Nada encontrado.";
+export const TITULO_LISTA_COMPLETA = "Tudo o que se vende";
+export const DICA_LISTA_COMPLETA =
+  "Toque no nome para pôr na venda. A ★ escolhe o que aparece como atalho na tela.";
+export const ROTULO_PRONTO = "Pronto";
+export const ROTULO_BUSCAR = "Buscar";
+export const ROTULO_CADA = "cada";
+export const ROTULO_MENOS_UM = "menos um";
+export const ROTULO_MAIS_UM = "mais um";
+export const ROTULO_TIRAR = "tirar";
+export const ROTULO_LIMPAR = "Limpar";
+export const PLACEHOLDER_PESSOA_VENDA = "quem comprou";
+
+// "tabela R$ 8,00" — a etiqueta que aparece quando o valor da linha difere do de tabela
+// (`totalFormatado` chega pronto de `formatarReais`, textos.ts nunca importa formato.ts).
+export function textoEtiquetaTabela(valorFormatado: string): string {
+  return `tabela ${valorFormatado}`;
+}
+
+// "Atalho: Café 200 ml" — nome acessível da estrela na lista completa.
+export function textoAtalhoAcessivel(nomeDoItem: string): string {
+  return `Atalho: ${nomeDoItem}`;
+}
+
+// "+ Café 200 ml" — o aviso mostrado ao tocar num item dentro da lista completa (folha aberta).
+export function textoItemAdicionado(nomeDoItem: string): string {
+  return `+ ${nomeDoItem}`;
+}
+
+// "Lançando com data de 18/12/26 — serve para fechar um dia que já passou." (FNC-04).
+export function textoDataRetroativa(dataFormatada: string): string {
+  return `Lançando com data de ${dataFormatada} — serve para fechar um dia que já passou.`;
+}
+
+// "Um recebimento só, dividido sozinho entre Cafeteria e Peças." — `listaDeAreas` já vem pronta
+// de `lib/financeiro/documento.ts::listaEmPortugues`.
+export function textoDicaDeAreas(listaDeAreas: string): string {
+  return `Um recebimento só, dividido sozinho entre ${listaDeAreas}.`;
+}
+
+export const TITULO_O_QUE_FOI_VENDIDO = "O que foi vendido";
+export const TITULO_ESTA_VENDA = "Esta venda";
+export const TITULO_EFEITO_ESTOQUE_VENDA = "O que esta venda tira do estoque";
+export const DICA_EFEITO_ESTOQUE =
+  "Aparece aqui para validar a regra. Passa a valer quando o módulo Estoque estiver ligado.";
+export const ROTULO_DATA = "Data";
+export const ROTULO_PESSOA_OPCIONAL = "Pessoa (opcional)";
+
 // O diálogo "Valor livre" (04.4-UI-SPEC.md §Copywriting Contract).
 export const TITULO_DIALOGO_VALOR_LIVRE = "Valor livre";
 export const ROTULO_O_QUE_E = "O que é";

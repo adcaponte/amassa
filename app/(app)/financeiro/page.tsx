@@ -2,7 +2,9 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { abaDaUrl } from "@/lib/financeiro/abas";
 import { avisoDaUrl } from "@/lib/financeiro/avisos";
 import {
+  listarCatalogoDaVenda,
   listarCategoriasParaEscolha,
+  listarItensParaEfeito,
   listarMovimentos,
   listarParcelasEmAberto,
   obterConfiguracaoFinanceira,
@@ -37,15 +39,25 @@ export default async function PaginaFinanceiro({
   const avisoResolvido = avisoDaUrl({ aviso, documento, parcela });
 
   // Uma leitura por lista, nunca uma consulta a mais que a aba atual precisa (mesma disciplina de
-  // `app/(app)/abertura/page.tsx`).
-  const [categoriasDeReceita, configuracao, movimentos, parcelasEmAberto, documentoDoAviso] =
-    await Promise.all([
-      abaAtual === "venda" ? listarCategoriasParaEscolha(["receita"]) : Promise.resolve([]),
-      abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
-      abaCaixa ? listarMovimentos() : Promise.resolve([]),
-      abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
-      avisoResolvido ? obterDocumentoParaAviso(avisoResolvido.documentoId) : Promise.resolve(null),
-    ]);
+  // `app/(app)/abertura/page.tsx`). O valor livre aceita categoria de Receitas OU Fora do
+  // resultado (suposição 1 do plano 03 — é por aí que um aporte dos sócios entra no caixa).
+  const [
+    categoriasParaValorLivre,
+    catalogo,
+    itensParaEfeito,
+    configuracao,
+    movimentos,
+    parcelasEmAberto,
+    documentoDoAviso,
+  ] = await Promise.all([
+    abaAtual === "venda" ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
+    abaAtual === "venda" ? listarCatalogoDaVenda() : Promise.resolve([]),
+    abaAtual === "venda" ? listarItensParaEfeito() : Promise.resolve([]),
+    abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
+    abaCaixa ? listarMovimentos() : Promise.resolve([]),
+    abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
+    avisoResolvido ? obterDocumentoParaAviso(avisoResolvido.documentoId) : Promise.resolve(null),
+  ]);
 
   const textoDoAviso =
     avisoResolvido && documentoDoAviso
@@ -86,7 +98,12 @@ export default async function PaginaFinanceiro({
           <ExtratoCaixa linhas={linhasDoMes} />
         </div>
       ) : (
-        <PainelVenda hoje={hoje} categorias={categoriasDeReceita} />
+        <PainelVenda
+          hoje={hoje}
+          categorias={categoriasParaValorLivre}
+          catalogo={catalogo}
+          itensParaEfeito={itensParaEfeito}
+        />
       )}
     </>
   );

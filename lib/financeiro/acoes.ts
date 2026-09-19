@@ -1,15 +1,18 @@
 "use server";
 
-import { inArray } from "drizzle-orm";
+import { z } from "zod";
+import { eq, inArray } from "drizzle-orm";
+
+import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { categorias, documentoLinhas, documentos, parcelas } from "@/db/schema";
+import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { totalDasLinhas } from "./documento";
 import { TETO_CENTAVOS } from "./dinheiro";
-import { dataDentroDoIntervaloPermitido, esquemaVenda } from "./esquemas";
+import { dataDentroDoIntervaloPermitido, esquemaId, esquemaVenda } from "./esquemas";
 import { formatarReais, hojeEmBrasilia } from "./formato";
 import { FRASE_FALHA_AO_SALVAR } from "./textos";
 
@@ -91,22 +94,65 @@ export async function lancarVenda(
     }
   }
 
-  // Categoria de linha livre carregada do banco: precisa existir, estar ATIVA e ser do grupo
-  // `receita` (T-04.4-05 do threat model) — a categoria vinda do cliente nunca é confiada sem
-  // conferência.
-  const idsDeCategorias = [...new Set(dados.linhas.map((linha) => linha.categoriaId))];
-  const categoriasCarregadas = await db
-    .select({ id: categorias.id, ativa: categorias.ativa, grupo: categorias.grupo })
-    .from(categorias)
-    .where(inArray(categorias.id, idsDeCategorias));
+  // Categoria de linha LIVRE carregada do banco: precisa existir, estar ATIVA e ser do grupo
+  // `receita` OU `fora` (D-14/suposição 1 do plano 03: é por aí que um aporte dos sócios entra no
+  // caixa sem virar venda de nenhuma área) — a categoria vinda do cliente nunca é confiada sem
+  // conferência (T-04.4-05 do threat model).
+  const idsDeCategoriasLivres = [
+    ...new Set(dados.linhas.filter((linha) => linha.tipo === "livre").map((linha) => linha.categoriaId)),
+  ];
+  const categoriasCarregadas =
+    idsDeCategoriasLivres.length > 0
+      ? await db
+          .select({ id: categorias.id, ativa: categorias.ativa, grupo: categorias.grupo })
+          .from(categorias)
+          .where(inArray(categorias.id, idsDeCategoriasLivres))
+      : [];
   const categoriaPorId = new Map(categoriasCarregadas.map((categoria) => [categoria.id, categoria]));
 
   for (const linha of dados.linhas) {
+    if (linha.tipo !== "livre") {
+      continue;
+    }
     const categoria = categoriaPorId.get(linha.categoriaId);
-    if (!categoria || !categoria.ativa || categoria.grupo !== "receita") {
+    if (!categoria || !categoria.ativa || (categoria.grupo !== "receita" && categoria.grupo !== "fora")) {
       return {
         ok: false,
         erro: "Uma das categorias escolhidas não está mais disponível. Recarregue a página e tente de novo.",
+      };
+    }
+  }
+
+  // Item de linha ITEM carregado do banco: o servidor lê descrição, categoria e existência do
+  // item — o cliente manda só o identificador, a quantidade e o texto do "cada" (T-04.4-20).
+  // Mudar o preço no catálogo depois de lançar não reescreve a venda já lançada (BRIEFING §5): a
+  // linha guarda o valor DIGITADO no momento do lançamento, nunca uma referência ao preço atual.
+  const idsDeItens = [
+    ...new Set(dados.linhas.filter((linha) => linha.tipo === "item").map((linha) => linha.itemId)),
+  ];
+  const itensCarregados =
+    idsDeItens.length > 0
+      ? await db
+          .select({
+            id: itensCatalogo.id,
+            nome: itensCatalogo.nome,
+            categoriaVendaId: itensCatalogo.categoriaVendaId,
+            aparecenaVenda: itensCatalogo.aparecenaVenda,
+          })
+          .from(itensCatalogo)
+          .where(inArray(itensCatalogo.id, idsDeItens))
+      : [];
+  const itemPorId = new Map(itensCarregados.map((item) => [item.id, item]));
+
+  for (const linha of dados.linhas) {
+    if (linha.tipo !== "item") {
+      continue;
+    }
+    const item = itemPorId.get(linha.itemId);
+    if (!item || !item.aparecenaVenda || !item.categoriaVendaId) {
+      return {
+        ok: false,
+        erro: "Um dos itens saiu do catálogo — tire a linha e tente de novo.",
       };
     }
   }
@@ -124,13 +170,28 @@ export async function lancarVenda(
         .returning({ id: documentos.id, numero: documentos.numero });
 
       await tx.insert(documentoLinhas).values(
-        dados.linhas.map((linha, indice) => ({
-          documentoId: documento.id,
-          ordem: indice,
-          descricao: linha.descricao,
-          categoriaId: linha.categoriaId,
-          valorCentavos: linha.valorCentavos,
-        })),
+        dados.linhas.map((linha, indice) => {
+          if (linha.tipo === "item") {
+            // Não-nulo: já conferido no laço de validação acima.
+            const item = itemPorId.get(linha.itemId)!;
+            return {
+              documentoId: documento.id,
+              ordem: indice,
+              itemId: item.id,
+              descricao: item.nome,
+              categoriaId: item.categoriaVendaId!,
+              quantidade: linha.quantidade,
+              valorCentavos: linha.valorCentavos,
+            };
+          }
+          return {
+            documentoId: documento.id,
+            ordem: indice,
+            descricao: linha.descricao,
+            categoriaId: linha.categoriaId,
+            valorCentavos: linha.valorCentavos,
+          };
+        }),
       );
 
       await tx.insert(parcelas).values(
@@ -165,4 +226,50 @@ export async function lancarVenda(
     console.error("Falha ao lançar venda:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
+}
+
+const esquemaAtalho = z.object({
+  itemId: esquemaId,
+  tipo: z.enum(["venda", "compra"]),
+  marcado: z.boolean(),
+});
+
+// Grava o estado DESEJADO do atalho (nunca "inverte") — a mesma disciplina convergente de
+// `CaixaMarcacao`/`marcarItemResolvido`: duas chamadas com o mesmo valor convergem sempre para o
+// mesmo resultado, mesmo com respostas fora de ordem. Recusa atalho de venda em item que não
+// aparece na venda, e atalho de compra em item que não controla estoque.
+export async function definirAtalhoDoItem(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ marcado: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtalho.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { itemId, tipo, marcado } = resultado.data;
+
+  const [item] = await db
+    .select({ aparecenaVenda: itensCatalogo.aparecenaVenda, controlaEstoque: itensCatalogo.controlaEstoque })
+    .from(itensCatalogo)
+    .where(eq(itensCatalogo.id, itemId))
+    .limit(1);
+
+  if (!item) {
+    return { ok: false, erro: "Esse item não existe mais. Recarregue a página e tente de novo." };
+  }
+  if (tipo === "venda" && !item.aparecenaVenda) {
+    return { ok: false, erro: "Esse item não aparece na venda — não dá para marcar atalho." };
+  }
+  if (tipo === "compra" && !item.controlaEstoque) {
+    return { ok: false, erro: "Esse item não controla estoque — não dá para marcar atalho de compra." };
+  }
+
+  await db
+    .update(itensCatalogo)
+    .set(tipo === "venda" ? { atalhoVenda: marcado } : { atalhoCompra: marcado })
+    .where(eq(itensCatalogo.id, itemId));
+
+  revalidatePath("/financeiro");
+  return { ok: true, dados: { marcado } };
 }

@@ -64,8 +64,8 @@ export function dataDentroDoIntervaloPermitido(data: string, hoje: string): bool
 
 const FORMAS = ["dinheiro", "pix", "cartao"] as const;
 
-// Formato de entrada CRU de uma linha "valor livre" — só o tipo desta tarefa; o plano 03
-// acrescenta o tipo `item` na mesma união discriminada por `tipo`, sem reescrever este membro.
+// Formato de entrada CRU de uma linha "valor livre" — o membro original do plano 01, intocado
+// pela extensão do plano 03 abaixo.
 export const esquemaLinhaLivreBase = z.object({
   tipo: z.literal("livre"),
   descricao: z
@@ -80,9 +80,25 @@ export const esquemaLinhaLivreBase = z.object({
   valorTexto: z.string(),
 });
 
-// União discriminada por `tipo` — hoje com um membro só; o plano 03 estende com `item` sem
-// reescrever `esquemaLinhaLivreBase`.
-export const esquemaLinhaDeVenda = z.discriminatedUnion("tipo", [esquemaLinhaLivreBase]);
+// Formato de entrada CRU de uma linha de item do catálogo (plano 03): o servidor NUNCA confia no
+// cliente para descrição/categoria — só o identificador do item, a quantidade e o texto do
+// "cada" chegam daqui; `lancarVenda` (lib/financeiro/acoes.ts) busca o resto no banco.
+export const esquemaLinhaItemBase = z.object({
+  tipo: z.literal("item"),
+  itemId: esquemaId,
+  quantidade: z
+    .number()
+    .int("Quantidade precisa ser um número inteiro.")
+    .min(1, "Quantidade mínima é 1.")
+    .max(9999, "Quantidade máxima é 9999."),
+  valorUnitarioTexto: z.string(),
+});
+
+// União discriminada por `tipo` — `livre` (plano 01) e `item` (plano 03).
+export const esquemaLinhaDeVenda = z.discriminatedUnion("tipo", [
+  esquemaLinhaLivreBase,
+  esquemaLinhaItemBase,
+]);
 
 export const esquemaParcelaDeVenda = z.object({
   vencimento: esquemaDataCivil,
@@ -105,12 +121,18 @@ export const esquemaVendaEntrada = z.object({
     .max(12, "No máximo 12 parcelas."),
 });
 
-export type LinhaDeVendaConvertida = {
-  tipo: "livre";
-  descricao: string;
-  categoriaId: string;
-  valorCentavos: number;
-};
+// `valorCentavos` é o SUBTOTAL da linha (quantidade × unitário, antes de qualquer desconto) nos
+// dois membros — é o campo que `lancarVenda` soma para conferir o total e que
+// `lib/financeiro/desconto.ts::repartirDesconto` reparte quando há desconto.
+export type LinhaDeVendaConvertida =
+  | { tipo: "livre"; descricao: string; categoriaId: string; valorCentavos: number }
+  | {
+      tipo: "item";
+      itemId: string;
+      quantidade: number;
+      valorUnitarioCentavos: number;
+      valorCentavos: number;
+    };
 
 export type ParcelaDeVendaConvertida = {
   vencimento: string;
@@ -125,24 +147,57 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
   const pessoa = normalizarOpcional(dados.pessoa);
 
   const linhas: (LinhaDeVendaConvertida | null)[] = dados.linhas.map((linha, indice) => {
-    const resultado = converterReaisParaCentavos(linha.valorTexto);
+    if (linha.tipo === "livre") {
+      const resultado = converterReaisParaCentavos(linha.valorTexto);
+      if (!resultado.ok) {
+        ctx.addIssue({
+          code: "custom",
+          message: resultado.erro,
+          path: ["linhas", indice, "valorTexto"],
+        });
+        return null;
+      }
+      if (resultado.centavos === null || resultado.centavos <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Informe um valor maior que zero para esta linha.",
+          path: ["linhas", indice, "valorTexto"],
+        });
+        return null;
+      }
+      return {
+        tipo: "livre",
+        descricao: linha.descricao,
+        categoriaId: linha.categoriaId,
+        valorCentavos: resultado.centavos,
+      };
+    }
+
+    // `tipo === "item"`: o texto do "cada" (unitário) é convertido AQUI — quantidade já chega
+    // como número validado pelo esquema (1 a 9999).
+    const resultado = converterReaisParaCentavos(linha.valorUnitarioTexto);
     if (!resultado.ok) {
-      ctx.addIssue({ code: "custom", message: resultado.erro, path: ["linhas", indice, "valorTexto"] });
+      ctx.addIssue({
+        code: "custom",
+        message: resultado.erro,
+        path: ["linhas", indice, "valorUnitarioTexto"],
+      });
       return null;
     }
     if (resultado.centavos === null || resultado.centavos <= 0) {
       ctx.addIssue({
         code: "custom",
-        message: "Informe um valor maior que zero para esta linha.",
-        path: ["linhas", indice, "valorTexto"],
+        message: "Informe o valor de cada linha.",
+        path: ["linhas", indice, "valorUnitarioTexto"],
       });
       return null;
     }
     return {
-      tipo: linha.tipo,
-      descricao: linha.descricao,
-      categoriaId: linha.categoriaId,
-      valorCentavos: resultado.centavos,
+      tipo: "item",
+      itemId: linha.itemId,
+      quantidade: linha.quantidade,
+      valorUnitarioCentavos: resultado.centavos,
+      valorCentavos: resultado.centavos * linha.quantidade,
     };
   });
 

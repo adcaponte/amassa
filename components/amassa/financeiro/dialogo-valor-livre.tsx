@@ -6,8 +6,8 @@ import type { CategoriaParaEscolha } from "@/lib/financeiro/consultas";
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import {
   PLACEHOLDER_DESCRICAO_VALOR_LIVRE,
-  ROTULO_AREA,
   ROTULO_CATEGORIA,
+  ROTULO_GRUPO,
   ROTULO_O_QUE_E,
   ROTULO_POR_NA_VENDA,
   ROTULO_VALOR,
@@ -30,6 +30,8 @@ import {
 export type LinhaDeValorLivre = {
   descricao: string;
   categoriaId: string;
+  // "geral" para categorias do grupo `fora` (a área nunca aparece na tela para essas — a linha
+  // usa a cor de área "geral" no carrinho, mesma convenção do restante do módulo).
   area: string;
   valorCentavos: number;
 };
@@ -72,11 +74,14 @@ export function DialogoValorLivre({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto]);
 
-  const categoriasPorArea = new Map<string, CategoriaParaEscolha[]>();
+  // Agrupado por GRUPO (Receitas · Fora do resultado), não por área — "Fora" é sempre área
+  // "geral" (categorias_grupo_area_coerente), agrupar por área juntaria as duas debaixo do mesmo
+  // rótulo "Geral" e escondería a distinção que a suposição 1 do plano 03 existe para mostrar.
+  const categoriasPorGrupo = new Map<string, CategoriaParaEscolha[]>();
   for (const categoria of categorias) {
-    const lista = categoriasPorArea.get(categoria.area) ?? [];
+    const lista = categoriasPorGrupo.get(categoria.grupo) ?? [];
     lista.push(categoria);
-    categoriasPorArea.set(categoria.area, lista);
+    categoriasPorGrupo.set(categoria.grupo, lista);
   }
 
   function confirmar() {
@@ -148,10 +153,10 @@ export function DialogoValorLivre({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[...categoriasPorArea.entries()].map(([area, categoriasDaArea]) => (
-                  <SelectGroup key={area}>
-                    <SelectLabel>{ROTULO_AREA[area as keyof typeof ROTULO_AREA]}</SelectLabel>
-                    {categoriasDaArea.map((categoria) => (
+                {[...categoriasPorGrupo.entries()].map(([grupo, categoriasDoGrupo]) => (
+                  <SelectGroup key={grupo}>
+                    <SelectLabel>{ROTULO_GRUPO[grupo as keyof typeof ROTULO_GRUPO]}</SelectLabel>
+                    {categoriasDoGrupo.map((categoria) => (
                       <SelectItem key={categoria.id} value={categoria.id}>
                         {categoria.nome}
                       </SelectItem>

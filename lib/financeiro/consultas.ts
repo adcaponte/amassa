@@ -4,8 +4,17 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { categorias, configuracaoFinanceira, documentoLinhas, documentos, parcelas } from "@/db/schema";
+import {
+  categorias,
+  configuracaoFinanceira,
+  documentoLinhas,
+  documentos,
+  fichaTecnica,
+  itensCatalogo,
+  parcelas,
+} from "@/db/schema";
 
+import type { ItemParaEfeito } from "./efeito-estoque";
 import { totalDasLinhas, tituloDoDocumento } from "./documento";
 import type { MovimentoParaExtrato } from "./extrato";
 import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria } from "./textos";
@@ -173,4 +182,68 @@ export async function obterDocumentoParaAviso(id: string): Promise<DocumentoPara
     totalCentavos: totalDasLinhas(linhas),
     parcelasEmAberto: Number(parcelasEmAbertoTotal),
   };
+}
+
+export type ItemDoCatalogoParaVenda = {
+  id: string;
+  nome: string;
+  area: AreaFinanceira;
+  precoVendaCentavos: number | null;
+  atalhoVenda: boolean;
+};
+
+// Só itens que APARECEM NA VENDA (`aparece_na_venda = true`), com a área que vem da categoria de
+// venda — o gestor nunca escolhe área, ela é sempre derivada (briefing §2). Ordem de criação,
+// mesma disciplina de `listarCategoriasParaEscolha` (nenhuma reordenação manual nesta fase).
+export async function listarCatalogoDaVenda(): Promise<ItemDoCatalogoParaVenda[]> {
+  return db
+    .select({
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      area: categorias.area,
+      precoVendaCentavos: itensCatalogo.precoVendaCentavos,
+      atalhoVenda: itensCatalogo.atalhoVenda,
+    })
+    .from(itensCatalogo)
+    .innerJoin(categorias, eq(itensCatalogo.categoriaVendaId, categorias.id))
+    .where(eq(itensCatalogo.aparecenaVenda, true))
+    .orderBy(asc(itensCatalogo.criadoEm));
+}
+
+// TODOS os itens do catálogo, com a ficha técnica embutida — alimenta
+// `lib/financeiro/efeito-estoque.ts::efeitoNoEstoque`. DUAS consultas (itens + fichas), nunca uma
+// consulta por item, mesma disciplina de `listarMovimentos` acima.
+export async function listarItensParaEfeito(): Promise<ItemParaEfeito[]> {
+  const [itens, fichas] = await Promise.all([
+    db
+      .select({
+        id: itensCatalogo.id,
+        nome: itensCatalogo.nome,
+        unidade: itensCatalogo.unidade,
+        controlaEstoque: itensCatalogo.controlaEstoque,
+      })
+      .from(itensCatalogo),
+    db
+      .select({
+        itemId: fichaTecnica.itemId,
+        insumoId: fichaTecnica.insumoId,
+        quantidade: fichaTecnica.quantidade,
+      })
+      .from(fichaTecnica),
+  ]);
+
+  const fichaPorItem = new Map<string, { insumoId: string; quantidade: string }[]>();
+  for (const linha of fichas) {
+    const lista = fichaPorItem.get(linha.itemId) ?? [];
+    lista.push({ insumoId: linha.insumoId, quantidade: linha.quantidade });
+    fichaPorItem.set(linha.itemId, lista);
+  }
+
+  return itens.map((item) => ({
+    id: item.id,
+    nome: item.nome,
+    unidade: item.unidade,
+    controlaEstoque: item.controlaEstoque,
+    ficha: fichaPorItem.get(item.id) ?? [],
+  }));
 }
