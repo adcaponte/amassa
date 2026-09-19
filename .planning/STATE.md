@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.4
 status: ready_to_execute
-stopped_at: "Phase 04.4 UI-SPEC approved; next: /gsd-plan-phase 04.4"
+stopped_at: "Phase 04.4 planned (11 plans, 7 waves); next: /gsd-execute-phase 04.4"
 last_updated: "2026-09-19T18:24:25.490Z"
 last_activity: 2026-09-19
 last_activity_desc: "Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque"
