@@ -5,6 +5,8 @@ import {
   listarCatalogoDaCompra,
   listarCatalogoDaVenda,
   listarCategoriasParaEscolha,
+  listarContasEmAberto,
+  listarDocumentosParaDetalhe,
   listarItensParaEfeito,
   listarMovimentos,
   listarParcelasEmAberto,
@@ -13,10 +15,11 @@ import {
 } from "@/lib/financeiro/consultas";
 import { montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
 import { chaveDoMes, formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
-import { textoDespesaLancada, textoVendaLancada } from "@/lib/financeiro/textos";
+import { textoCancelado, textoDespesaLancada, textoVendaLancada } from "@/lib/financeiro/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
+import { ListasCaixa } from "@/components/amassa/financeiro/listas-caixa";
 import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
@@ -55,6 +58,7 @@ export default async function PaginaFinanceiro({
     configuracao,
     movimentos,
     parcelasEmAberto,
+    contasEmAberto,
     documentoDoAviso,
   ] = await Promise.all([
     abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
@@ -68,11 +72,14 @@ export default async function PaginaFinanceiro({
     abaVenda || abaDespesa || abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
     abaCaixa ? listarMovimentos() : Promise.resolve([]),
     abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
-    avisoResolvido ? obterDocumentoParaAviso(avisoResolvido.documentoId) : Promise.resolve(null),
+    abaCaixa ? listarContasEmAberto() : Promise.resolve([]),
+    avisoResolvido && (avisoResolvido.tipo === "lancado" || avisoResolvido.tipo === "cancelado")
+      ? obterDocumentoParaAviso(avisoResolvido.documentoId)
+      : Promise.resolve(null),
   ]);
 
   const textoDoAviso =
-    avisoResolvido && documentoDoAviso
+    avisoResolvido?.tipo === "lancado" && documentoDoAviso
       ? abaDespesa
         ? textoDespesaLancada(
             documentoDoAviso.numero,
@@ -84,7 +91,11 @@ export default async function PaginaFinanceiro({
             formatarReais(documentoDoAviso.totalCentavos),
             documentoDoAviso.parcelasEmAberto,
           )
-      : null;
+      : avisoResolvido?.tipo === "cancelado" && documentoDoAviso
+        ? textoCancelado(documentoDoAviso.numero)
+        : // "pago"/"desfeito" (04.4-08-PLAN.md, Tarefa 3) ainda não têm consulta própria — chegam
+          // na próxima tarefa desta mesma fase.
+          null;
 
   // O tile "Saldo em caixa" e o extrato saem da MESMA função (`montarExtrato`) sobre a MESMA
   // lista de movimentos lida acima — é isso que torna "o tile bate com o saldo depois do
@@ -102,6 +113,17 @@ export default async function PaginaFinanceiro({
     ? extrato.linhas.filter((linha) => chaveDoMes(linha.pagoEm) === chaveDoMesAtual).reverse()
     : [];
 
+  // O detalhe do documento ("Ver") acha o documento numa lista JÁ carregada — nunca uma segunda
+  // consulta ao abrir (key_link do plano). `idsParaDetalhe` é a UNIÃO dos documentos das contas em
+  // aberto com os do extrato do mês; uma ÚNICA consulta cobre as duas listas e o extrato.
+  const idsParaDetalhe =
+    abaCaixa
+      ? [...new Set([...contasEmAberto.map((c) => c.documentoId), ...linhasDoMes.map((l) => l.documentoId)])]
+      : [];
+  const documentosParaDetalhe = abaCaixa
+    ? await listarDocumentosParaDetalhe(idsParaDetalhe)
+    : new Map();
+
   return (
     <>
       <AvisoFinanceiro texto={textoDoAviso} />
@@ -113,7 +135,8 @@ export default async function PaginaFinanceiro({
       {abaCaixa ? (
         <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
           {resumo ? <TilesCaixa resumo={resumo} /> : null}
-          <ExtratoCaixa linhas={linhasDoMes} />
+          <ListasCaixa contas={contasEmAberto} documentos={documentosParaDetalhe} hoje={hoje} />
+          <ExtratoCaixa linhas={linhasDoMes} documentos={documentosParaDetalhe} />
         </div>
       ) : abaDespesa ? (
         <PainelDespesa

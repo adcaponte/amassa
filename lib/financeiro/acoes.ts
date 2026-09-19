@@ -12,10 +12,16 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
 import { TETO_CENTAVOS } from "./dinheiro";
-import { dataDentroDoIntervaloPermitido, esquemaDespesa, esquemaId, esquemaVenda } from "./esquemas";
+import {
+  dataDentroDoIntervaloPermitido,
+  esquemaCancelamento,
+  esquemaDespesa,
+  esquemaId,
+  esquemaVenda,
+} from "./esquemas";
 import { hojeEmBrasilia } from "./formato";
 import { conferirParcelas } from "./parcelas";
-import { FRASE_FALHA_AO_SALVAR } from "./textos";
+import { FRASE_FALHA_AO_SALVAR, FRASE_LANCAMENTO_JA_CANCELADO, FRASE_LANCAMENTO_NAO_EXISTE_MAIS } from "./textos";
 
 // Mesma forma de `lib/abertura/acoes.ts`/`lib/cotacoes/acoes.ts` — cada módulo redeclara hoje,
 // não há tipo compartilhado entre módulos.
@@ -476,4 +482,60 @@ export async function definirAtalhoDoItem(
 
   revalidatePath("/financeiro");
   return { ok: true, dados: { marcado } };
+}
+
+// O Caixa (04.4-08-PLAN.md): cancelar risca sem apagar (FNC-10). Nenhum `delete` — o documento
+// ganha `cancelado_em`/`cancelado_por`; a única exclusão física do módulo inteiro é a linha de
+// diferença, e só dentro de `desfazerPagamento`. `select ... for update` trava a linha do
+// documento (mesma disciplina de `editarCategoria`, lib/cadastros/acoes.ts) para duas pessoas
+// cancelando o MESMO documento ao mesmo tempo nunca cancelarem duas vezes.
+class DocumentoNaoEncontrado extends Error {}
+class DocumentoJaCancelado extends Error {}
+
+export async function cancelarDocumento(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ documentoId: string; numero: number }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaCancelamento.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { documentoId } = resultado.data;
+
+  try {
+    const numero = await db.transaction(async (tx) => {
+      const [documento] = await tx
+        .select({ numero: documentos.numero, canceladoEm: documentos.canceladoEm })
+        .from(documentos)
+        .where(eq(documentos.id, documentoId))
+        .for("update");
+
+      if (!documento) {
+        throw new DocumentoNaoEncontrado();
+      }
+      if (documento.canceladoEm) {
+        throw new DocumentoJaCancelado();
+      }
+
+      await tx
+        .update(documentos)
+        .set({ canceladoEm: new Date(), canceladoPor: usuario.id })
+        .where(eq(documentos.id, documentoId));
+
+      return documento.numero;
+    });
+
+    revalidatePath("/financeiro");
+    return { ok: true, dados: { documentoId, numero } };
+  } catch (erro) {
+    if (erro instanceof DocumentoNaoEncontrado) {
+      return { ok: false, erro: FRASE_LANCAMENTO_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof DocumentoJaCancelado) {
+      return { ok: false, erro: FRASE_LANCAMENTO_JA_CANCELADO };
+    }
+    console.error("Falha ao cancelar lançamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
 }

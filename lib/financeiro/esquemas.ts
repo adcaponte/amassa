@@ -474,3 +474,8 @@ export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
 });
 
 export type EntradaDeDespesa = z.infer<typeof esquemaDespesa>;
+
+// O Caixa (04.4-08-PLAN.md): cancelar um documento só precisa do identificador — quem cancelou e
+// quando são gravados pelo SERVIDOR (`exigirUsuario()`/`now()`), nunca aceitos do cliente.
+export const esquemaCancelamento = z.object({ documentoId: esquemaId });
+export type EntradaDeCancelamento = z.infer<typeof esquemaCancelamento>;

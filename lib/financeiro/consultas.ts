@@ -12,12 +12,13 @@ import {
   fichaTecnica,
   itensCatalogo,
   parcelas,
+  usuarios,
 } from "@/db/schema";
 
 import type { ItemParaEfeito } from "./efeito-estoque";
 import { totalDasLinhas, tituloDoDocumento } from "./documento";
 import type { MovimentoParaExtrato } from "./extrato";
-import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria } from "./textos";
+import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria, TipoDeDocumentoParaTexto } from "./textos";
 
 export type ConfiguracaoFinanceira = {
   taxaCartaoPontosBase: number;
@@ -275,4 +276,254 @@ export async function listarItensParaEfeito(): Promise<ItemParaEfeito[]> {
     controlaEstoque: item.controlaEstoque,
     ficha: fichaPorItem.get(item.id) ?? [],
   }));
+}
+
+export type ContaEmAberto = {
+  documentoId: string;
+  parcelaId: string;
+  numeroDocumento: number;
+  numeroParcela: number;
+  deQuantas: number;
+  tipo: TipoDeDocumentoParaTexto;
+  titulo: string;
+  pessoa: string | null;
+  vencimento: string;
+  rotulo: string | null;
+  valorCentavos: number;
+};
+
+// Parcelas ABERTAS de documento NÃO cancelado, com o título calculado e a contagem de parcelas do
+// documento — alimenta `ListasCaixa` ("A pagar"/"A receber", FNC-07). TRÊS consultas (parcelas +
+// documentos, documento_linhas, contagem de parcelas), nunca uma consulta por linha (mesma
+// disciplina de `listarMovimentos`). Ordenadas por vencimento e, no empate, por número do
+// documento.
+export async function listarContasEmAberto(): Promise<ContaEmAberto[]> {
+  const parcelasAbertas = await db
+    .select({
+      parcelaId: parcelas.id,
+      documentoId: documentos.id,
+      numeroDocumento: documentos.numero,
+      numeroParcela: parcelas.numero,
+      tipo: documentos.tipo,
+      vencimento: parcelas.vencimento,
+      rotulo: parcelas.rotulo,
+      pessoaNome: documentos.pessoaNome,
+      titulo: documentos.titulo,
+      valorCentavos: parcelas.valorCentavos,
+    })
+    .from(parcelas)
+    .innerJoin(documentos, eq(parcelas.documentoId, documentos.id))
+    .where(and(isNull(parcelas.pagoEm), isNull(documentos.canceladoEm)));
+
+  if (parcelasAbertas.length === 0) {
+    return [];
+  }
+
+  const idsDosDocumentos = [...new Set(parcelasAbertas.map((linha) => linha.documentoId))];
+
+  const [linhasDosDocumentos, contagemDeParcelas] = await Promise.all([
+    db
+      .select({
+        documentoId: documentoLinhas.documentoId,
+        nome: documentoLinhas.descricao,
+        quantidade: documentoLinhas.quantidade,
+      })
+      .from(documentoLinhas)
+      .where(inArray(documentoLinhas.documentoId, idsDosDocumentos))
+      .orderBy(asc(documentoLinhas.ordem)),
+    db
+      .select({ documentoId: parcelas.documentoId, total: count() })
+      .from(parcelas)
+      .where(inArray(parcelas.documentoId, idsDosDocumentos))
+      .groupBy(parcelas.documentoId),
+  ]);
+
+  const linhasPorDocumento = new Map<string, { nome: string; quantidade: number }[]>();
+  for (const linha of linhasDosDocumentos) {
+    const lista = linhasPorDocumento.get(linha.documentoId) ?? [];
+    lista.push({ nome: linha.nome, quantidade: linha.quantidade });
+    linhasPorDocumento.set(linha.documentoId, lista);
+  }
+
+  const contagemPorDocumento = new Map(
+    contagemDeParcelas.map((linha) => [linha.documentoId, linha.total]),
+  );
+
+  return parcelasAbertas
+    .map((parcela) => ({
+      documentoId: parcela.documentoId,
+      parcelaId: parcela.parcelaId,
+      numeroDocumento: parcela.numeroDocumento,
+      numeroParcela: parcela.numeroParcela,
+      deQuantas: contagemPorDocumento.get(parcela.documentoId) ?? 1,
+      tipo: parcela.tipo,
+      titulo: tituloDoDocumento({
+        titulo: parcela.titulo,
+        linhas: linhasPorDocumento.get(parcela.documentoId) ?? [],
+      }),
+      pessoa: parcela.pessoaNome,
+      vencimento: parcela.vencimento,
+      rotulo: parcela.rotulo,
+      valorCentavos: parcela.valorCentavos,
+    }))
+    .sort((a, b) => {
+      if (a.vencimento !== b.vencimento) {
+        return a.vencimento < b.vencimento ? -1 : 1;
+      }
+      return a.numeroDocumento - b.numeroDocumento;
+    });
+}
+
+export type LinhaDoDocumentoParaDetalhe = {
+  descricao: string;
+  quantidade: number;
+  quantidadeEstoque: string | null;
+  unidade: string | null;
+  categoriaNome: string;
+  valorCentavos: number;
+  ehDiferenca: boolean;
+};
+
+export type ParcelaDoDocumentoParaDetalhe = {
+  id: string;
+  numero: number;
+  vencimento: string;
+  valorCentavos: number;
+  forma: FormaDePagamento;
+  pagoEm: string | null;
+  rotulo: string | null;
+};
+
+export type DocumentoParaDetalhe = {
+  id: string;
+  numero: number;
+  tipo: TipoDeDocumentoParaTexto;
+  data: string;
+  pessoa: string | null;
+  titulo: string;
+  cancelado: boolean;
+  canceladoPorNome: string | null;
+  canceladoEm: string | null;
+  deQuantasParcelas: number;
+  linhas: LinhaDoDocumentoParaDetalhe[];
+  parcelas: ParcelaDoDocumentoParaDetalhe[];
+};
+
+// O detalhe do documento ("Ver"): documentos + quem cancelou (join com usuarios), linhas (com a
+// categoria e se é a linha de diferença) e parcelas — TRÊS consultas, uma por tabela de
+// lançamento, nunca uma consulta por documento. Devolve um MAPA por id (nunca uma segunda
+// consulta ao abrir o detalhe — quem chama já recebeu tudo de uma vez).
+export async function listarDocumentosParaDetalhe(
+  ids: readonly string[],
+): Promise<Map<string, DocumentoParaDetalhe>> {
+  if (ids.length === 0) {
+    return new Map();
+  }
+
+  const [documentosCarregados, linhasCarregadas, parcelasCarregadas] = await Promise.all([
+    db
+      .select({
+        id: documentos.id,
+        numero: documentos.numero,
+        tipo: documentos.tipo,
+        data: documentos.data,
+        pessoaNome: documentos.pessoaNome,
+        titulo: documentos.titulo,
+        canceladoEm: documentos.canceladoEm,
+        canceladoPorNome: usuarios.nome,
+      })
+      .from(documentos)
+      .leftJoin(usuarios, eq(documentos.canceladoPor, usuarios.id))
+      .where(inArray(documentos.id, ids as string[])),
+    db
+      .select({
+        documentoId: documentoLinhas.documentoId,
+        descricao: documentoLinhas.descricao,
+        quantidade: documentoLinhas.quantidade,
+        quantidadeEstoque: documentoLinhas.quantidadeEstoque,
+        unidade: itensCatalogo.unidade,
+        categoriaNome: categorias.nome,
+        valorCentavos: documentoLinhas.valorCentavos,
+        parcelaDiferencaId: documentoLinhas.parcelaDiferencaId,
+      })
+      .from(documentoLinhas)
+      .innerJoin(categorias, eq(documentoLinhas.categoriaId, categorias.id))
+      .leftJoin(itensCatalogo, eq(documentoLinhas.itemId, itensCatalogo.id))
+      .where(inArray(documentoLinhas.documentoId, ids as string[]))
+      .orderBy(asc(documentoLinhas.ordem)),
+    db
+      .select({
+        id: parcelas.id,
+        documentoId: parcelas.documentoId,
+        numero: parcelas.numero,
+        vencimento: parcelas.vencimento,
+        valorCentavos: parcelas.valorCentavos,
+        forma: parcelas.forma,
+        pagoEm: parcelas.pagoEm,
+        rotulo: parcelas.rotulo,
+      })
+      .from(parcelas)
+      .where(inArray(parcelas.documentoId, ids as string[]))
+      .orderBy(asc(parcelas.numero)),
+  ]);
+
+  const linhasPorDocumento = new Map<string, LinhaDoDocumentoParaDetalhe[]>();
+  for (const linha of linhasCarregadas) {
+    const lista = linhasPorDocumento.get(linha.documentoId) ?? [];
+    lista.push({
+      descricao: linha.descricao,
+      quantidade: linha.quantidade,
+      quantidadeEstoque: linha.quantidadeEstoque,
+      unidade: linha.unidade,
+      categoriaNome: linha.categoriaNome,
+      valorCentavos: linha.valorCentavos,
+      ehDiferenca: linha.parcelaDiferencaId !== null,
+    });
+    linhasPorDocumento.set(linha.documentoId, lista);
+  }
+
+  const parcelasPorDocumento = new Map<string, ParcelaDoDocumentoParaDetalhe[]>();
+  for (const parcela of parcelasCarregadas) {
+    const lista = parcelasPorDocumento.get(parcela.documentoId) ?? [];
+    lista.push({
+      id: parcela.id,
+      numero: parcela.numero,
+      vencimento: parcela.vencimento,
+      valorCentavos: parcela.valorCentavos,
+      forma: parcela.forma as FormaDePagamento,
+      pagoEm: parcela.pagoEm,
+      rotulo: parcela.rotulo,
+    });
+    parcelasPorDocumento.set(parcela.documentoId, lista);
+  }
+
+  const mapa = new Map<string, DocumentoParaDetalhe>();
+  for (const documento of documentosCarregados) {
+    const linhas = linhasPorDocumento.get(documento.id) ?? [];
+    const parcelasDoDocumento = parcelasPorDocumento.get(documento.id) ?? [];
+    mapa.set(documento.id, {
+      id: documento.id,
+      numero: documento.numero,
+      tipo: documento.tipo,
+      data: documento.data,
+      pessoa: documento.pessoaNome,
+      titulo: tituloDoDocumento({
+        titulo: documento.titulo,
+        linhas: linhas.map((linha) => ({
+          nome: linha.descricao,
+          quantidade: linha.quantidade,
+          quantidadeEstoque: linha.quantidadeEstoque,
+          unidade: linha.unidade,
+        })),
+      }),
+      cancelado: documento.canceladoEm !== null,
+      canceladoPorNome: documento.canceladoPorNome,
+      canceladoEm: documento.canceladoEm ? documento.canceladoEm.toISOString() : null,
+      deQuantasParcelas: parcelasDoDocumento.length,
+      linhas,
+      parcelas: parcelasDoDocumento,
+    });
+  }
+
+  return mapa;
 }

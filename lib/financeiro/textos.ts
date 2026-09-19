@@ -235,3 +235,97 @@ export const DICA_EFEITO_ESTOQUE_COMPRA =
 export const TITULO_TODO_MATERIAL_DE_ESTOQUE = "Todo material de estoque";
 export const DICA_LISTA_COMPLETA_COMPRA =
   "Toque no nome para pôr na compra. A ★ escolhe o que aparece como atalho na tela.";
+
+// O Caixa que age (04.4-08-PLAN.md): as listas "A pagar"/"A receber", o cartão de conta, o
+// detalhe do documento e o cancelamento que risca sem apagar (FNC-07, FNC-10).
+export const ROTULO_VER = "Ver";
+export const ROTULO_VOLTAR = "Voltar";
+export const ROTULO_FECHAR = "Fechar";
+export const ROTULO_TAG_VENCIDA = "vencida";
+
+// "Recebi"/"Paguei" — o rótulo do botão no cartão de conta (protótipo `contaHTML`); distinto de
+// `ROTULO_JA_RECEBI`/`ROTULO_JA_PAGUEI` (minúsculo, usado na caixinha "já recebi/já paguei" do
+// bloco de pagamento — outra tela, outro propósito).
+export function rotuloBotaoBaixa(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Recebi" : "Paguei";
+}
+
+// "k de N" — só quando o documento tem MAIS de uma parcela (zero-one-many, 04.4-UI-SPEC.md); o
+// rótulo de conta fixa ("parcela 26 de 60") sempre vence quando presente.
+export function textoRotuloDaConta(rotulo: string | null, numero: number, deQuantas: number): string | null {
+  if (rotulo) {
+    return rotulo;
+  }
+  return deQuantas > 1 ? `${numero} de ${deQuantas}` : null;
+}
+
+// "vence 18/12/26" — o cartão de conta (protótipo `contaHTML`).
+export function textoVence(dataFormatada: string): string {
+  return `vence ${dataFormatada}`;
+}
+
+export const FRASE_VAZIO_A_PAGAR = "Nenhuma conta em aberto.";
+export const FRASE_VAZIO_A_RECEBER = "Ninguém deve nada.";
+
+// O cabeçalho do detalhe: "Venda nº 12 · 18/12/26 · Maria" (protótipo `folhaDoc`).
+export function textoCabecalhoDocumento(
+  tipo: TipoDeDocumentoParaTexto,
+  numero: number,
+  dataFormatada: string,
+  pessoa: string | null,
+): string {
+  const rotuloTipo = tipo === "venda" ? "Venda" : "Despesa";
+  const sufixoPessoa = pessoa ? ` · ${pessoa}` : "";
+  return `${rotuloTipo} nº ${numero} · ${dataFormatada}${sufixoPessoa}`;
+}
+
+// "recebida em 18/12/26" / "paga em 18/12/26" — a etiqueta de parcela paga no detalhe.
+export function textoPagoEm(tipo: TipoDeDocumentoParaTexto, dataFormatada: string): string {
+  return `${tipo === "venda" ? "recebida" : "paga"} em ${dataFormatada}`;
+}
+
+// "1/3 · vence 18/12/26" — cada linha de parcela no detalhe (protótipo `folhaDoc`).
+export function textoParcelaDetalhe(numero: number, deQuantas: number, vencimentoFormatado: string): string {
+  return `${numero}/${deQuantas} · vence ${vencimentoFormatado}`;
+}
+
+// "Cancelado por Andressa em 18/12/26" — só aparece quando o documento está cancelado.
+export function textoCanceladoPor(nome: string, dataFormatada: string): string {
+  return `Cancelado por ${nome} em ${dataFormatada}`;
+}
+
+// O botão dentro do detalhe (protótipo `folhaDoc`): "Cancelar esta venda"/"Cancelar esta despesa".
+export function rotuloCancelar(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Cancelar esta venda" : "Cancelar esta despesa";
+}
+
+// O botão de CONFIRMAR dentro do AlertDialog (04.4-08-PLAN.md, Tarefa 2): "Cancelar venda"/
+// "Cancelar despesa" — sem "esta", distinto do botão que ABRE o diálogo (`rotuloCancelar` acima).
+export function rotuloConfirmarCancelamento(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Cancelar venda" : "Cancelar despesa";
+}
+
+// A dica do detalhe (protótipo `folhaDoc`), MENOS "e o estoque é devolvido" — nesta fase nada é
+// gravado no estoque ainda (a Fase 6 devolve essa parte da frase junto com o estorno real).
+export const DICA_CANCELAR_NAO_APAGA =
+  "Cancelar não apaga: o lançamento fica riscado no histórico e o dinheiro sai do saldo.";
+
+// A confirmação exata do UI-SPEC (Copywriting Contract) — "esta venda"/"esta despesa" no meio da
+// frase, nunca "este lançamento" genérico.
+export function fraseConfirmarCancelamento(
+  tipo: TipoDeDocumentoParaTexto,
+  numero: number,
+  titulo: string,
+): string {
+  const alvo = tipo === "venda" ? "esta venda" : "esta despesa";
+  return `Cancelar ${alvo} nº ${numero} «${titulo}»? Ela fica riscada no extrato, sai do saldo e do Mês. Quem cancelou e quando ficam registrados. Isso não pode ser desfeito — se foi engano, lance de novo depois.`;
+}
+
+export const FRASE_LANCAMENTO_JA_CANCELADO = "Esse lançamento já foi cancelado.";
+export const FRASE_LANCAMENTO_NAO_EXISTE_MAIS =
+  "Esse lançamento não existe mais. Recarregue a página e tente de novo.";
+
+// "Lançamento nº 12 cancelado. Continua visível, riscado." — o aviso pós-cancelamento.
+export function textoCancelado(numero: number): string {
+  return `Lançamento nº ${numero} cancelado. Continua visível, riscado.`;
+}

@@ -59,6 +59,19 @@ export function formatarDataCurta(dataIso: string): string {
   }).format(dataUtcDoDiaCivil(dataIso));
 }
 
+// "18/12/26" a partir de um INSTANTE (timestamptz ISO, ex.: `cancelado_em`) — diferente de
+// `formatarDataCurta` (que recebe um dia civil puro `YYYY-MM-DD` e nunca converte fuso). Datas de
+// auditoria como "cancelado em"/"pago em" carregam hora real e precisam do fuso de Brasília
+// explícito (CLAUDE.md: "TZ só no serviço app"), nunca o fuso do runtime do servidor.
+export function formatarInstanteCurto(instanteIso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date(instanteIso));
+}
+
 // "0,04" → "0,04"; "15" → "15"; "2,5" → "2,5" — pt-BR, até 3 casas, sem zeros à direita. Recebe
 // um texto decimal normalizado com ponto (o formato que `converterQuantidade` devolve), nunca um
 // `number` (perderia precisão em quantidades fracionárias pequenas).
