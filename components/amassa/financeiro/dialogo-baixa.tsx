@@ -41,7 +41,7 @@ export type DialogoBaixaProps = {
 
 // "Paguei"/"Recebi" (protótipo `folhaBaixa`, D-01/D-02/D-03): Valor (o previsto preenchido),
 // Quando (hoje, nunca depois), Forma (a da parcela) — sucesso é uma NAVEGAÇÃO COMPLETA para o
-// aviso `pago`, nunca `router.refresh()`.
+// aviso `pago`, nunca uma atualização de roteador do Next.
 export function DialogoBaixa({ selecao, contas, hoje, aoFechar }: DialogoBaixaProps) {
   const conta = selecao ? (contas.find((candidata) => candidata.parcelaId === selecao.parcelaId) ?? null) : null;
   const aberto = conta !== null;

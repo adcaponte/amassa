@@ -30,7 +30,7 @@ export type ConfirmarCancelarDocumentoProps = {
 // `AlertDialog` DESTRUTIVO (FNC-10): cancelar é irreversível pela interface — "errou, cancela e
 // lança de novo" (briefing §5). O botão de confirmar não fecha antes da resposta do servidor
 // (mesma disciplina de `ConfirmarCancelar`/`ConfirmarRemoverCategoria`); sucesso é uma NAVEGAÇÃO
-// COMPLETA para o aviso `cancelado` — nunca `router.refresh()`.
+// COMPLETA para o aviso `cancelado` — nunca uma atualização de roteador do Next.
 export function ConfirmarCancelarDocumento({
   documento,
   aberto,
