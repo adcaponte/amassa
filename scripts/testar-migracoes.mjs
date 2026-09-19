@@ -812,6 +812,474 @@ async function provarRemocaoEmBancoProprio() {
 }
 
 
+// Fase 04.4 — Financeiro (04.4-01-PLAN.md, Tarefa 3): prova, de fora, que o banco recusa o que a
+// aplicação nunca deveria mandar. Nove grupos, cada afirmação com mensagem própria dizendo o que
+// faltou. A prova de remoção da Abertura (banco próprio, `conferirRemocaoDoModuloAbertura`) já
+// cobre as oito tabelas novas pela afirmação "depois = antes menos as três da Abertura" — elas
+// não estão em TABELAS_DA_REMOCAO_ABERTURA, então continuam na lista de "antes" e "depois", o
+// que já prova que a remoção da Abertura não as apaga. Nomes inventados e genéricos em toda linha
+// criada aqui — o repositório é público.
+async function conferirFinanceiro(cliente) {
+  console.log("  conferirFinanceiro...");
+
+  // `true` quando a promessa rejeita, `false` quando resolve — o formato comum de todo teste
+  // "isso deveria ser recusado" deste grupo.
+  async function falha(executar) {
+    try {
+      await executar();
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  // Uma transação onde os `insert`s passam (as restrições imediatas não disparam), mas o
+  // `commit` deveria ser recusado pela restrição ADIADA (`conferir_soma_do_documento()`,
+  // migração 0015). Falhar ANTES do commit é um erro de teste, não o caso que está sendo provado
+  // — por isso os dois `catch` são distintos.
+  async function commitDeveFalhar(executarInserts, mensagemEsperadaRegex, contexto) {
+    await cliente.query("begin");
+    try {
+      await executarInserts();
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      throw new Error(
+        `${contexto}: falhou ANTES do commit (deveria falhar só no commit) — ${erro.message}`,
+      );
+    }
+    try {
+      await cliente.query("commit");
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      afirmar(
+        mensagemEsperadaRegex.test(erro.message),
+        `${contexto}: mensagem inesperada da restrição adiada: "${erro.message}".`,
+      );
+      return;
+    }
+    throw new Error(`${contexto}: o commit deveria ter sido recusado, mas passou.`);
+  }
+
+  // O par de `commitDeveFalhar`: os `insert`s e o `commit` devem passar os dois. Devolve o id do
+  // documento para os grupos seguintes reaproveitarem (categoria travada, privilégios).
+  async function commitDevePassar(executarInserts, contexto) {
+    await cliente.query("begin");
+    try {
+      const resultado = await executarInserts();
+      await cliente.query("commit");
+      return resultado;
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      throw new Error(`${contexto}: deveria ter passado, mas falhou — ${erro.message}`);
+    }
+  }
+
+  // Um documento de teste com uma linha e uma parcela (ou sem uma das duas, ou sem nenhuma) —
+  // usado pelos grupos 2 e 8. Nomes inventados e genéricos.
+  async function inserirDocumentoDeTeste({
+    tipo = "venda",
+    usuarioId,
+    categoriaId,
+    valorLinha,
+    valorParcela,
+    semLinha = false,
+    semParcela = false,
+  }) {
+    const { rows } = await cliente.query(
+      `insert into documentos (tipo, data, criado_por) values ($1, current_date, $2) returning id`,
+      [tipo, usuarioId],
+    );
+    const documentoId = rows[0].id;
+    if (!semLinha) {
+      await cliente.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+         values ($1, 1, 'Linha de teste (prova de migração)', $2, $3)`,
+        [documentoId, categoriaId, valorLinha],
+      );
+    }
+    if (!semParcela) {
+      await cliente.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+         values ($1, 1, current_date, $2, 'pix', current_date, $3)`,
+        [documentoId, valorParcela, usuarioId],
+      );
+    }
+    return documentoId;
+  }
+
+  // Fixture compartilhada: um usuário e as categorias já semeadas pela migração 0016 — apagados
+  // ao final, num `finally`, junto de todo dado de teste criado por este grupo de funções.
+  const { rows: usuarioInserido } = await cliente.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste do Financeiro', 'usuaria-financeiro@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+
+  const documentosDeTeste = [];
+  const contasFixasDeTeste = [];
+
+  try {
+    // 1. Semente (D-02/D-14): exatamente 24 categorias, as 23 do protótipo com grupo/área
+    // certos, mais "Juros, multas e descontos" com chave_do_sistema = 'diferenca'.
+    const GRUPO_E_AREA_ESPERADOS = new Map([
+      ["Bebidas e comidas", ["receita", "cafeteria"]],
+      ["Uso do espaço", ["receita", "espaco"]],
+      ["Aulas e oficinas", ["receita", "espaco"]],
+      ["Peças prontas", ["receita", "pecas"]],
+      ["Peças para pintar", ["receita", "pecas"]],
+      ["Encomendas", ["receita", "pecas"]],
+      ["Queima externa", ["receita", "pecas"]],
+      ["Materiais e papelaria", ["receita", "loja"]],
+      ["Insumos da cafeteria", ["custo", "cafeteria"]],
+      ["Material de aula", ["custo", "espaco"]],
+      ["Argila, esmalte e insumos", ["custo", "pecas"]],
+      ["Mercadoria para revenda", ["custo", "loja"]],
+      ["Aluguel", ["geral", "geral"]],
+      ["Água e luz", ["geral", "geral"]],
+      ["Internet e sistemas", ["geral", "geral"]],
+      ["Contabilidade", ["geral", "geral"]],
+      ["Ferramentas e utensílios", ["geral", "geral"]],
+      ["Divulgação", ["geral", "geral"]],
+      ["Pró-labore", ["geral", "geral"]],
+      ["Equipamento e obra", ["fora", "geral"]],
+      ["Financiamento (parcela)", ["fora", "geral"]],
+      ["Aporte dos sócios", ["fora", "geral"]],
+      ["Retirada de lucro", ["fora", "geral"]],
+      ["Juros, multas e descontos", ["geral", "geral"]],
+    ]);
+
+    const { rows: categoriasSemeadas } = await cliente.query(
+      "select nome, grupo, area, chave_do_sistema from categorias",
+    );
+    afirmar(
+      categoriasSemeadas.length === 24,
+      `Deveriam existir exatamente 24 categorias semeadas pela migração 0016, vieram ${categoriasSemeadas.length}.`,
+    );
+    for (const [nome, [grupoEsperado, areaEsperada]] of GRUPO_E_AREA_ESPERADOS) {
+      const linha = categoriasSemeadas.find((atual) => atual.nome === nome);
+      afirmar(Boolean(linha), `A categoria semeada "${nome}" não foi encontrada.`);
+      afirmar(
+        linha.grupo === grupoEsperado && linha.area === areaEsperada,
+        `A categoria "${nome}" deveria ter grupo "${grupoEsperado}" e área "${areaEsperada}", veio grupo "${linha.grupo}" e área "${linha.area}".`,
+      );
+    }
+    const comChaveDoSistema = categoriasSemeadas.filter((linha) => linha.chave_do_sistema !== null);
+    afirmar(
+      comChaveDoSistema.length === 1,
+      `Deveria existir exatamente 1 categoria com chave_do_sistema, vieram ${comChaveDoSistema.length}.`,
+    );
+    afirmar(
+      comChaveDoSistema[0].nome === "Juros, multas e descontos" &&
+        comChaveDoSistema[0].chave_do_sistema === "diferenca",
+      `A categoria de chave_do_sistema deveria ser "Juros, multas e descontos"/"diferenca", veio "${comChaveDoSistema[0]?.nome}"/"${comChaveDoSistema[0]?.chave_do_sistema}".`,
+    );
+
+    // Rodar o SQL da semente de novo não duplica nenhuma categoria (o `on conflict do nothing`
+    // da migração 0016 sobre o índice de nome normalizado).
+    const caminhoDaSemente = path.join(process.cwd(), "db", "migrations", "0016_categorias-iniciais.sql");
+    const instrucoesDaSemente = readFileSync(caminhoDaSemente, "utf8")
+      .split("--> statement-breakpoint")
+      .map((bloco) =>
+        bloco
+          .split("\n")
+          .filter((linha) => !linha.trim().startsWith("--"))
+          .join("\n")
+          .trim(),
+      )
+      .filter((instrucao) => instrucao.length > 0);
+    for (const instrucao of instrucoesDaSemente) {
+      await cliente.query(instrucao);
+    }
+    const { rows: categoriasAposReaplicar } = await cliente.query("select count(*)::int as total from categorias");
+    afirmar(
+      categoriasAposReaplicar[0].total === 24,
+      `Reaplicar a semente de categorias (0016) não deveria duplicar nada — esperado 24, veio ${categoriasAposReaplicar[0].total}.`,
+    );
+
+    const idCategoriaReceita = categoriasSemeadas.find((linha) => linha.nome === "Uso do espaço")
+      ? (await cliente.query("select id from categorias where nome = 'Uso do espaço'")).rows[0].id
+      : null;
+    afirmar(Boolean(idCategoriaReceita), 'A categoria "Uso do espaço" deveria existir para os grupos seguintes.');
+    const idCategoriaDiferenca = (
+      await cliente.query("select id from categorias where chave_do_sistema = 'diferenca'")
+    ).rows[0].id;
+
+    // 2. Soma (FNC-03 no banco): soma divergente falha só no commit; soma exata passa; documento
+    // sem linha nem parcela falha só no commit.
+    await commitDeveFalhar(
+      () =>
+        inserirDocumentoDeTeste({
+          usuarioId,
+          categoriaId: idCategoriaReceita,
+          valorLinha: 10000,
+          valorParcela: 9000,
+        }),
+      /não fecha com a soma das linhas/,
+      "Soma divergente (linha 10000, parcela 9000)",
+    );
+
+    const idDocumentoAlinhado = await commitDevePassar(
+      () =>
+        inserirDocumentoDeTeste({
+          usuarioId,
+          categoriaId: idCategoriaReceita,
+          valorLinha: 10000,
+          valorParcela: 10000,
+        }),
+      "Soma exata (linha 10000, parcela 10000)",
+    );
+    documentosDeTeste.push(idDocumentoAlinhado);
+
+    await commitDeveFalhar(
+      () => inserirDocumentoDeTeste({ usuarioId, semLinha: true, semParcela: true }),
+      /não tem nenhuma linha lançada/,
+      "Documento sem linha nem parcela",
+    );
+
+    // 3. Categoria: grupo/área travados depois de lançamento; renomear continua livre; a
+    // categoria de sistema nunca muda; grupo/área incoerentes são recusados; nome duplicado
+    // (ignorando caixa) é recusado pelo índice único.
+    afirmar(
+      await falha(() => cliente.query("update categorias set grupo = 'custo' where id = $1", [idCategoriaReceita])),
+      'Mudar o grupo de "Uso do espaço" (que já tem lançamento no grupo 2) deveria ser recusado.',
+    );
+    afirmar(
+      !(await falha(() =>
+        cliente.query("update categorias set nome = $1 where id = $2", [
+          "Uso do espaço (renomeada na prova)",
+          idCategoriaReceita,
+        ]),
+      )),
+      "Renomear uma categoria com lançamento (sem tocar grupo/área) deveria continuar livre.",
+    );
+    await cliente.query("update categorias set nome = 'Uso do espaço' where id = $1", [idCategoriaReceita]);
+
+    afirmar(
+      await falha(() =>
+        cliente.query("update categorias set grupo = 'fora' where id = $1", [idCategoriaDiferenca]),
+      ),
+      'Mudar o grupo da categoria de sistema ("Juros, multas e descontos") deveria ser recusado mesmo sem lançamento.',
+    );
+
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          "insert into categorias (nome, grupo, area) values ('Categoria de teste custo-geral inválida', 'custo', 'geral')",
+        ),
+      ),
+      'Uma categoria de grupo "custo" com área "geral" deveria ser recusada (coerência grupo/área).',
+    );
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          "insert into categorias (nome, grupo, area) values ('Categoria de teste geral-loja inválida', 'geral', 'loja')",
+        ),
+      ),
+      'Uma categoria de grupo "geral" com área "loja" deveria ser recusada (coerência grupo/área).',
+    );
+    afirmar(
+      await falha(() =>
+        cliente.query("insert into categorias (nome, grupo, area) values ('uso do espaço', 'receita', 'espaco')"),
+      ),
+      'Um nome de categoria repetido só com a caixa diferente ("uso do espaço" vs. "Uso do espaço") deveria ser recusado pelo índice único.',
+    );
+
+    // 4. Parcela: valor zero, taxa sem pago_em, valor previsto sem forma prevista.
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
+           values ($1, 90, current_date, 0, 'pix')`,
+          [idDocumentoAlinhado],
+        ),
+      ),
+      "Uma parcela de valor zero deveria ser recusada.",
+    );
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, taxa_pontos_base)
+           values ($1, 91, current_date, 1000, 'cartao', 350)`,
+          [idDocumentoAlinhado],
+        ),
+      ),
+      "Uma parcela com taxa_pontos_base sem pago_em deveria ser recusada.",
+    );
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, valor_previsto_centavos)
+           values ($1, 92, current_date, 1000, 'pix', 500)`,
+          [idDocumentoAlinhado],
+        ),
+      ),
+      "Uma parcela com valor_previsto_centavos sem forma_prevista deveria ser recusada.",
+    );
+
+    // 5. Linha: valor negativo sem parcela_diferenca_id.
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+           values ($1, 90, 'Linha negativa de teste', $2, -100)`,
+          [idDocumentoAlinhado, idCategoriaReceita],
+        ),
+      ),
+      "Uma linha de valor negativo sem parcela_diferenca_id deveria ser recusada — só a linha de diferença pode ser negativa.",
+    );
+
+    // 6. Conta fixa: o par (conta_fixa_id, mes_referencia) é único — o segundo documento falha.
+    const { rows: contaFixaInserida } = await cliente.query(
+      `insert into contas_fixas (nome, categoria_id, valor_esperado_centavos, dia_vencimento)
+       values ('Conta fixa de teste', $1, 15000, 5) returning id`,
+      [(await cliente.query("select id from categorias where nome = 'Aluguel'")).rows[0].id],
+    );
+    const idContaFixa = contaFixaInserida[0].id;
+    contasFixasDeTeste.push(idContaFixa);
+
+    const idPrimeiroDocumentoDaContaFixa = await commitDevePassar(async () => {
+      const { rows } = await cliente.query(
+        `insert into documentos (tipo, data, criado_por, conta_fixa_id, mes_referencia)
+         values ('despesa', current_date, $1, $2, '2026-01-01') returning id`,
+        [usuarioId, idContaFixa],
+      );
+      const documentoId = rows[0].id;
+      await cliente.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+         values ($1, 1, 'Aluguel de teste', $2, 15000)`,
+        [documentoId, (await cliente.query("select id from categorias where nome = 'Aluguel'")).rows[0].id],
+      );
+      await cliente.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
+         values ($1, 1, current_date, 15000, 'pix')`,
+        [documentoId],
+      );
+      return documentoId;
+    }, "Primeiro documento da conta fixa de teste (2026-01-01)");
+    documentosDeTeste.push(idPrimeiroDocumentoDaContaFixa);
+
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          `insert into documentos (tipo, data, criado_por, conta_fixa_id, mes_referencia)
+           values ('despesa', current_date, $1, $2, '2026-01-01')`,
+          [usuarioId, idContaFixa],
+        ),
+      ),
+      "Um segundo documento com o MESMO par (conta_fixa_id, mes_referencia) deveria ser recusado.",
+    );
+
+    // 7. Configuração: uma segunda linha em configuracao_financeira é recusada.
+    await cliente.query("insert into configuracao_financeira (linha_unica) values (true)");
+    afirmar(
+      await falha(() => cliente.query("insert into configuracao_financeira (linha_unica) values (true)")),
+      "Uma segunda linha em configuracao_financeira deveria ser recusada (linha única).",
+    );
+    await cliente.query("delete from configuracao_financeira where linha_unica = true");
+
+    // 8. Privilégios: sem delete nas seis tabelas de lançamento; com delete em documento_linhas/
+    // ficha_tecnica; select/insert/update nas oito; amassa_app consegue inserir documento (com
+    // linha e parcela, número gerado pelo banco) sem privilégio extra, e a transação é revertida.
+    const TABELAS_SEM_DELETE = [
+      "documentos",
+      "parcelas",
+      "categorias",
+      "itens_catalogo",
+      "contas_fixas",
+      "configuracao_financeira",
+    ];
+    const TABELAS_COM_DELETE = ["documento_linhas", "ficha_tecnica"];
+    for (const tabela of TABELAS_SEM_DELETE) {
+      const { rows } = await cliente.query(
+        "select has_table_privilege('amassa_app', $1, 'delete') as pode_deletar",
+        [tabela],
+      );
+      afirmar(
+        rows[0].pode_deletar === false,
+        `O papel amassa_app não deveria ter privilégio de delete sobre "${tabela}" (FNC-10).`,
+      );
+    }
+    for (const tabela of TABELAS_COM_DELETE) {
+      const { rows } = await cliente.query(
+        "select has_table_privilege('amassa_app', $1, 'delete') as pode_deletar",
+        [tabela],
+      );
+      afirmar(
+        rows[0].pode_deletar === true,
+        `O papel amassa_app deveria manter o privilégio de delete sobre "${tabela}" (desfazer diferença / tirar insumo da ficha).`,
+      );
+    }
+    for (const tabela of [...TABELAS_SEM_DELETE, ...TABELAS_COM_DELETE]) {
+      const { rows } = await cliente.query(
+        `select
+           has_table_privilege('amassa_app', $1, 'select') as pode_select,
+           has_table_privilege('amassa_app', $1, 'insert') as pode_insert,
+           has_table_privilege('amassa_app', $1, 'update') as pode_update`,
+        [tabela],
+      );
+      afirmar(
+        rows[0].pode_select && rows[0].pode_insert && rows[0].pode_update,
+        `O papel amassa_app deveria ter select/insert/update sobre "${tabela}".`,
+      );
+    }
+
+    await cliente.query("begin");
+    try {
+      await cliente.query("set local role amassa_app");
+      const idDocumentoComoAmassaApp = await inserirDocumentoDeTeste({
+        usuarioId,
+        categoriaId: idCategoriaReceita,
+        valorLinha: 5000,
+        valorParcela: 5000,
+      });
+      afirmar(
+        Boolean(idDocumentoComoAmassaApp),
+        "O papel amassa_app deveria conseguir inserir um documento com número gerado pelo banco, sem privilégio extra.",
+      );
+    } finally {
+      // Revertida sempre — nunca commitada como amassa_app.
+      await cliente.query("rollback");
+    }
+
+    // 9. Independência da Abertura: nenhuma FK de tabela do financeiro para abertura_*/cotacao*.
+    const { rows: fksIndevidas } = await cliente.query(`
+      select conname, conrelid::regclass::text as tabela_origem, confrelid::regclass::text as tabela_destino
+      from pg_constraint
+      where contype = 'f'
+        and conrelid::regclass::text in (
+          'categorias','itens_catalogo','ficha_tecnica','documentos','documento_linhas',
+          'parcelas','contas_fixas','configuracao_financeira'
+        )
+        and confrelid::regclass::text in (
+          'abertura_itens','abertura_tarefas','abertura_configuracao','cotacao_categorias','cotacoes'
+        )
+    `);
+    afirmar(
+      fksIndevidas.length === 0,
+      "Chave(s) estrangeira(s) indevida(s) do financeiro para a Abertura/Comparador: " +
+        JSON.stringify(fksIndevidas),
+    );
+  } finally {
+    // Faxina: apaga só o que este grupo de funções criou — nunca a semente de categorias, que é
+    // dado permanente do módulo.
+    for (const documentoId of documentosDeTeste) {
+      await cliente.query("delete from parcelas where documento_id = $1", [documentoId]).catch(() => {});
+      await cliente
+        .query("delete from documento_linhas where documento_id = $1", [documentoId])
+        .catch(() => {});
+      await cliente.query("delete from documentos where id = $1", [documentoId]).catch(() => {});
+    }
+    for (const contaFixaId of contasFixasDeTeste) {
+      await cliente.query("delete from contas_fixas where id = $1", [contaFixaId]).catch(() => {});
+    }
+    await cliente
+      .query("delete from categorias where nome like 'Categoria de teste%'")
+      .catch(() => {});
+    await cliente.query("delete from usuarios where id = $1", [usuarioId]).catch(() => {});
+  }
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -823,6 +1291,7 @@ async function conferirBanco() {
     await conferirTriggerFuncionando(cliente);
     await conferirPapelEPrivilegios(cliente);
     await conferirContas(cliente);
+    await conferirFinanceiro(cliente);
   } finally {
     await cliente.end();
   }
