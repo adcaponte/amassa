@@ -430,7 +430,7 @@ cadastro de Pessoas, relatórios além do Mês, a navegação nova (fase do `/ge
 **Em aberto para `/gsd-discuss-phase`**: os cinco pontos da §9 do briefing.
 **Depends on**: Phase 2b (casca e design system); Phase 4.2 só para o plano da virada, que lê as
 parcelas da Abertura
-**Requirements**: FNC-01, FNC-02, FNC-03, FNC-04, FNC-05, FNC-06, FNC-07, FNC-08, FNC-09, FNC-10, FNC-11, FNC-12, FNC-13, FNC-14, FNC-15, FNC-16, FNC-17 (rascunho a partir do briefing; revisados na discussão)
+**Requirements**: FNC-01, FNC-02, FNC-03, FNC-04, FNC-05, FNC-06, FNC-07, FNC-08, FNC-09, FNC-10, FNC-11, FNC-12, FNC-13, FNC-14, FNC-15, FNC-16, FNC-17
 **Success Criteria** (what must be TRUE):
 
   1. No celular, uma venda com três itens de áreas diferentes, paga no Pix, é lançada em menos de 20 segundos, e o Mês mostra cada linha na sua área
