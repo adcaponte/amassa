@@ -50,3 +50,7 @@ Thumbs.db
 # Estado do projeto com contexto de negocio e anotacoes sobre o dono.
 # Mora so neste computador: o repositorio e publico.
 /ESTADO-ATUAL.md
+
+# Saídas do Cowork (briefings, protótipos em rascunho) com contexto de negócio.
+# O que for aprovado é copiado para .planning/phases/<fase>/; a pasta em si nunca entra.
+/Claude outputs/
