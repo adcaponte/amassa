@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Estoque AMASSA Cerrado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --fundo: #F6F3F0;
+    --superficie: #FFFFFF;
+    --superficie-2: #EFEAE5;
+    --borda: #E8E2DC;
+    --borda-forte: #D8CFC7;
+    --tinta: #1D2221;
+    --tinta-media: #5A4C44;
+    --tinta-fraca: #6E5F56;
+    --acento: #894025;
+    --acento-hover: #5B2916;
+    --acento-fundo: #F3EDE9;
+    --acento-medio: #B9724F;
+    --acento-claro: #E0C8BB;
+    --destaque: #FFBD59;
+    --sucesso: #15803D;
+    --sucesso-fundo: #DCFCE7;
+    --atencao: #B45309;
+    --atencao-fundo: #FEF3C7;
+    --erro: #B91C1C;
+    --erro-fundo: #FEE2E2;
+    --r-sm: 6px;
+    --r: 10px;
+    --r-lg: 14px;
+    --r-xl: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fundo);
+    color: var(--tinta);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1, h2, h3 { font-family: 'Archivo Narrow', Inter, sans-serif; letter-spacing: -0.005em; text-wrap: balance; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding-block: 18px 128px; padding-left: 16px; padding-right: 16px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- cabeçalho ---------- */
+  header.top { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header.top h1 { font-size: 26px; margin: 0; font-weight: 700; }
+  header.top .sub { font-size: 13px; color: var(--tinta-fraca); flex: 1 1 auto; }
+  .quem { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--tinta-fraca); }
+  .quem select {
+    font-family: inherit; font-size: 13px; padding: 7px 9px; min-height: 36px;
+    border: 1px solid var(--borda-forte); border-radius: var(--r-sm);
+    background: var(--superficie); color: var(--tinta);
+  }
+
+  /* ---------- banner de alerta ---------- */
+  .banner {
+    display: flex; gap: 11px; align-items: flex-start;
+    background: var(--atencao-fundo); border: 1px solid #EBCF93;
+    border-radius: var(--r-lg); padding: 13px 15px; margin-bottom: 16px;
+  }
+  .banner .ico { flex: 0 0 auto; color: var(--atencao); margin-top: 1px; }
+  .banner b { display: block; font-size: 15px; color: #7A3A05; }
+  .banner p { margin: 3px 0 0; font-size: 13.5px; color: #7A3A05; }
+  .banner button {
+    margin-top: 9px; font-family: inherit; font-size: 13px; font-weight: 600;
+    background: transparent; border: 1px solid #C9A05C; color: #7A3A05;
+    border-radius: var(--r-sm); padding: 7px 12px; min-height: 36px; cursor: pointer;
+  }
+  .banner button:hover { background: #FBEBC8; }
+
+  /* ---------- abas ---------- */
+  nav.abas { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--borda); padding-bottom: 12px; margin-bottom: 16px; }
+  .aba {
+    border: 1px solid var(--borda-forte); background: var(--superficie); color: var(--tinta-media);
+    padding: 9px 15px; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 500;
+    font-family: inherit; min-height: 42px;
+  }
+  .aba:hover { background: var(--superficie-2); }
+  .aba[aria-selected="true"] { background: var(--acento); border-color: var(--acento); color: #fff; }
+
+  /* ---------- barra de ferramentas ---------- */
+  .ferramentas { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .busca { position: relative; flex: 1 1 220px; min-width: 180px; }
+  .busca input {
+    width: 100%; font-family: inherit; font-size: 16px; padding: 11px 12px 11px 42px;
+    border: 1px solid var(--borda-forte); border-radius: var(--r); min-height: 44px;
+    background: var(--superficie); color: var(--tinta);
+  }
+  .busca svg {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--tinta-fraca); pointer-events: none;
+  }
+  .filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fpill {
+    border: 1px solid var(--borda-forte); background: var(--superficie); color: var(--tinta-media);
+    padding: 8px 13px; border-radius: 999px; cursor: pointer; font-size: 13.5px; font-weight: 500;
+    font-family: inherit; min-height: 40px; white-space: nowrap;
+  }
+  .fpill:hover { background: var(--superficie-2); }
+  .fpill[aria-pressed="true"] { background: var(--acento-fundo); border-color: var(--acento); color: var(--acento); font-weight: 600; }
+  .conta { font-size: 13px; color: var(--tinta-fraca); margin-left: auto; }
+
+  /* ---------- botões ---------- */
+  .btn {
+    font-family: inherit; font-size: 15px; font-weight: 600; border-radius: var(--r);
+    padding: 11px 17px; cursor: pointer; border: 1px solid transparent; min-height: 44px;
+  }
+  .btn-primario { background: var(--acento); color: #fff; }
+  .btn-primario:hover { background: var(--acento-hover); }
+  .btn-sec { background: var(--superficie); color: var(--tinta); border-color: var(--borda-forte); }
+  .btn-sec:hover { background: var(--superficie-2); }
+  .btn-sm { padding: 7px 12px; font-size: 13.5px; min-height: 38px; }
+  .btn-larga { width: 100%; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--acento); outline-offset: 2px;
+  }
+
+  /* ---------- cartões de saldo (celular) ---------- */
+  .cartoes { display: grid; gap: 10px; }
+  .cartao {
+    background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--r-lg);
+    padding: 14px 15px; display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: start;
+    border-left: 4px solid var(--borda);
+  }
+  .cartao.baixo { border-left-color: var(--atencao); background: #FFFDF6; }
+  .cartao .nome { font-weight: 600; font-size: 16px; grid-column: 1; }
+  .cartao .meta { grid-column: 1; font-size: 12.5px; color: var(--tinta-fraca); }
+  .cartao .saldo { grid-column: 2; grid-row: 1 / span 2; text-align: right; }
+  .cartao .saldo .q { font-size: 23px; font-weight: 700; line-height: 1.1; }
+  .cartao .saldo .u { font-size: 13px; color: var(--tinta-fraca); }
+  .cartao.baixo .saldo .q { color: var(--atencao); }
+  .cartao .rodape { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .cartao .rodape .esp { margin-left: auto; font-size: 12.5px; color: var(--tinta-fraca); }
+
+  .chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; letter-spacing: 0.02em; }
+  .chip-frente { background: var(--superficie-2); color: var(--tinta-media); }
+  .chip-alerta { background: var(--atencao-fundo); color: #7A3A05; }
+  .chip-ok { background: var(--sucesso-fundo); color: var(--sucesso); }
+  .chip-perda { background: var(--erro-fundo); color: var(--erro); }
+  .chip-neutro { background: var(--superficie-2); color: var(--tinta-fraca); }
+  .chip-origem { background: var(--acento-fundo); color: var(--acento); border: 1px dashed var(--acento-claro); }
+
+  /* ---------- tabela (desktop) ---------- */
+  .painel { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--r-lg); overflow: hidden; }
+  .rolagem { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--tinta-fraca); font-weight: 600; padding: 12px 14px; white-space: nowrap;
+    border-bottom: 1px solid var(--borda);
+  }
+  tbody tr { border-bottom: 1px solid var(--borda); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr.baixo { background: #FFFDF6; }
+  tbody td { padding: 13px 14px; font-size: 15px; vertical-align: middle; }
+  td.q { text-align: right; font-weight: 600; white-space: nowrap; }
+  td.baixoq { color: var(--atencao); }
+  .so-desktop { display: none; }
+  @media (min-width: 860px) {
+    .so-desktop { display: block; }
+    .so-celular { display: none; }
+  }
+
+  /* ---------- estados vazios ---------- */
+  .vazio { padding: 44px 24px; text-align: center; }
+  .vazio strong { display: block; font-size: 17px; font-family: 'Archivo Narrow', Inter, sans-serif; }
+  .vazio p { margin: 6px auto 16px; font-size: 14px; color: var(--tinta-fraca); max-width: 40ch; }
+
+  /* ---------- histórico ---------- */
+  .linha-mov { display: flex; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--borda); align-items: flex-start; }
+  .linha-mov:last-child { border-bottom: none; }
+  .linha-mov .qtd { flex: 0 0 76px; text-align: right; font-weight: 700; font-size: 16px; white-space: nowrap; }
+  .qtd.mais { color: var(--sucesso); }
+  .qtd.menos { color: var(--tinta); }
+  .qtd.aj { color: var(--acento); }
+  .linha-mov .corpo { flex: 1 1 auto; min-width: 0; }
+  .linha-mov .corpo .m1 { font-weight: 600; font-size: 15px; }
+  .linha-mov .corpo .m2 { font-size: 13px; color: var(--tinta-media); margin-top: 2px; }
+  .linha-mov .corpo .m3 { font-size: 12px; color: var(--tinta-fraca); margin-top: 3px; }
+
+  /* ---------- para onde foi ---------- */
+  .resumo-topo {
+    background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--r-lg);
+    padding: 16px 17px; margin-bottom: 14px;
+  }
+  .resumo-topo .rot { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--tinta-fraca); font-weight: 600; }
+  .resumo-topo .valor { font-size: 30px; font-weight: 700; line-height: 1.15; }
+  .resumo-topo .nota { font-size: 13px; color: var(--tinta-fraca); margin-top: 4px; }
+  .barras { display: grid; gap: 14px; padding: 17px; }
+  .barra .cab { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; font-size: 14.5px; }
+  .barra .cab .v { font-weight: 700; white-space: nowrap; }
+  .barra .trilho { height: 10px; background: var(--superficie-2); border-radius: 999px; margin-top: 6px; overflow: hidden; }
+  .barra .preenche { height: 100%; border-radius: 999px; background: var(--acento); }
+  .barra .sub { font-size: 12.5px; color: var(--tinta-fraca); margin-top: 4px; }
+
+  /* ---------- nota de rodapé ---------- */
+  .nota {
+    margin-top: 20px; font-size: 13px; color: var(--tinta-media);
+    background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--r); padding: 13px 15px;
+  }
+  .nota strong { color: var(--tinta); }
+  .nota + .nota { margin-top: 10px; }
+
+  /* ---------- barra fixa inferior ---------- */
+  .acao-fixa {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: rgba(246, 243, 240, .94); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--borda);
+    padding: 10px 16px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .acao-fixa .interno { max-width: 1060px; margin: 0 auto; display: flex; gap: 10px; }
+  .acao-fixa .btn { flex: 1; font-size: 16px; min-height: 52px; }
+  .acao-fixa .btn-sec { flex: 0 0 auto; }
+
+  /* ---------- folha / diálogo ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(29, 34, 33, .48); z-index: 50;
+    display: flex; align-items: flex-end; justify-content: center; overflow-y: auto;
+  }
+  .overlay[hidden] { display: none !important; }
+  .folha {
+    background: var(--superficie); width: 100%; max-width: 560px;
+    border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 20px 18px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    max-height: 94vh; display: flex; flex-direction: column;
+  }
+  @media (min-width: 720px) {
+    .overlay { align-items: center; padding: 24px 16px; }
+    .folha { border-radius: var(--r-xl); max-height: 88vh; }
+  }
+  .folha .cabf { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .folha h2 { margin: 0; font-size: 20px; flex: 1; }
+  .folha .fechar {
+    background: transparent; border: none; font-size: 26px; line-height: 1; color: var(--tinta-fraca);
+    cursor: pointer; padding: 0 4px; min-height: 44px; min-width: 44px; font-family: inherit;
+  }
+  .folha .miolo { overflow-y: auto; flex: 1 1 auto; margin: 0 -18px; padding: 0 18px; }
+  .folha .pe { flex: 0 0 auto; padding-top: 16px; }
+
+  .campo { margin-bottom: 16px; }
+  .campo > .rot { display: block; font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
+  .campo .dica { font-weight: 400; color: var(--tinta-fraca); font-size: 12.5px; }
+  input[type=text], input[type=number], input[type=date], select, textarea {
+    width: 100%; font-family: inherit; font-size: 16px; padding: 11px 12px;
+    border: 1px solid var(--borda-forte); border-radius: var(--r);
+    background: var(--superficie); color: var(--tinta); min-height: 46px;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  .grande { font-size: 26px !important; font-weight: 700; padding: 12px !important; min-height: 60px; text-align: center; }
+  .dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .dupla { grid-template-columns: 1fr; } }
+
+  .segm { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .segm button {
+    font-family: inherit; font-size: 14.5px; font-weight: 600; padding: 12px 6px; min-height: 52px;
+    border: 1px solid var(--borda-forte); background: var(--superficie); color: var(--tinta-media);
+    border-radius: var(--r); cursor: pointer;
+  }
+  .segm button[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: #fff; }
+
+  .destinos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .destinos button {
+    font-family: inherit; font-size: 14px; font-weight: 500; padding: 11px 12px; min-height: 52px;
+    border: 1px solid var(--borda-forte); background: var(--superficie); color: var(--tinta);
+    border-radius: var(--r); cursor: pointer; text-align: left; line-height: 1.25;
+  }
+  .destinos button small { display: block; font-size: 11.5px; color: var(--tinta-fraca); margin-top: 2px; }
+  .destinos button[aria-pressed="true"] { background: var(--acento-fundo); border-color: var(--acento); color: var(--acento); font-weight: 600; }
+  .destinos button[aria-pressed="true"] small { color: var(--acento); }
+
+  .atalhos { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+  .atalhos button {
+    font-family: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; min-height: 42px;
+    border: 1px solid var(--borda-forte); background: var(--superficie-2); color: var(--tinta-media);
+    border-radius: 999px; cursor: pointer;
+  }
+  .atalhos button:hover { background: var(--acento-fundo); border-color: var(--acento); color: var(--acento); }
+
+  .previa {
+    background: var(--acento-fundo); border: 1px solid var(--acento-claro); border-radius: var(--r);
+    padding: 11px 13px; font-size: 14px; color: var(--acento-hover); margin-top: 4px;
+  }
+  .previa.neutra { background: var(--superficie-2); border-color: var(--borda); color: var(--tinta-media); }
+  .previa b { font-variant-numeric: tabular-nums; }
+
+  .lista-mat { border: 1px solid var(--borda); border-radius: var(--r); overflow: hidden; }
+  .lista-mat button {
+    display: flex; width: 100%; gap: 10px; align-items: center; text-align: left;
+    font-family: inherit; font-size: 15px; padding: 13px 14px; min-height: 56px;
+    background: var(--superficie); border: none; border-bottom: 1px solid var(--borda); cursor: pointer; color: var(--tinta);
+  }
+  .lista-mat button:last-child { border-bottom: none; }
+  .lista-mat button:hover { background: var(--acento-fundo); }
+  .lista-mat .n { flex: 1; font-weight: 500; }
+  .lista-mat .s { font-size: 13px; color: var(--tinta-fraca); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* sanfona do seletor de material */
+  .sanfona {
+    display: flex; width: 100%; align-items: center; gap: 10px; text-align: left;
+    font-family: inherit; cursor: pointer; min-height: 52px; padding: 11px 13px;
+    background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--r);
+    color: var(--tinta); margin-top: 8px;
+  }
+  .sanfona:hover { background: var(--acento-fundo); border-color: var(--acento-claro); }
+  .sanfona .rotulo { flex: 1; font-weight: 600; font-size: 15.5px; }
+  .sanfona .rotulo .sub { display: block; font-size: 12px; font-weight: 400; color: var(--tinta-fraca); }
+  .sanfona .qt {
+    flex: 0 0 auto; font-size: 13px; color: var(--tinta-fraca); font-weight: 600;
+    background: var(--superficie-2); border-radius: 999px; padding: 2px 9px; min-width: 28px; text-align: center;
+  }
+  .sanfona .chev { flex: 0 0 auto; color: var(--tinta-fraca); transition: transform .15s ease; }
+  .sanfona[aria-expanded="true"] .chev { transform: rotate(90deg); color: var(--acento); }
+  .sanfona[aria-expanded="true"] { border-color: var(--acento-claro); background: var(--acento-fundo); }
+  .sanfona.nivel-frente .rotulo { font-family: 'Archivo Narrow', Inter, sans-serif; font-size: 18px; font-weight: 700; }
+  .sanfona.nivel-cat { min-height: 46px; padding: 9px 12px; }
+  .sanfona.nivel-cat .rotulo { font-size: 14.5px; font-weight: 500; }
+  .selo-acaba { display: inline-flex; align-items: center; gap: 4px; }
+  .so-leitor {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .dentro { padding-left: 13px; border-left: 2px solid var(--acento-claro); margin: 6px 0 4px 8px; }
+  .dentro .sanfona { margin-top: 6px; }
+  .lista-mat { margin-top: 6px; }
+  @media (prefers-reduced-motion: reduce) { .sanfona .chev { transition: none; } }
+
+  .grupo-cat {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;
+    color: var(--tinta-fraca); margin: 6px 0 6px;
+  }
+
+  /* gerenciar categorias */
+  .lista-cat { border: 1px solid var(--borda); border-radius: var(--r); overflow: hidden; }
+  .item-cat {
+    display: flex; gap: 8px; align-items: center; padding: 11px 13px;
+    border-bottom: 1px solid var(--borda); background: var(--superficie); flex-wrap: wrap;
+  }
+  .item-cat:last-child { border-bottom: none; }
+  .item-cat .n { flex: 1 1 140px; font-weight: 600; font-size: 15px; }
+  .item-cat .n .s { font-size: 12.5px; font-weight: 400; color: var(--tinta-fraca); }
+  .item-cat.editando { background: var(--acento-fundo); }
+  .item-cat input { flex: 1 1 140px; min-height: 42px; }
+  @media (max-width: 520px) { .item-cat .n { flex: 1 1 100%; } }
+
+  button.link {
+    background: none; border: none; padding: 0 0 0 6px; font-family: inherit; font-size: 12.5px;
+    font-weight: 500; color: var(--acento); text-decoration: underline; cursor: pointer;
+  }
+
+  .escolhido {
+    display: flex; gap: 10px; align-items: center; background: var(--superficie-2);
+    border: 1px solid var(--borda); border-radius: var(--r); padding: 11px 13px; margin-bottom: 16px;
+  }
+  .escolhido .n { flex: 1; font-weight: 600; }
+  .escolhido .s { font-size: 13px; color: var(--tinta-fraca); }
+
+  /* ---------- aviso ---------- */
+  .aviso {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    background: var(--tinta); color: #FAFAF9; padding: 13px 18px; border-radius: var(--r);
+    font-size: 14.5px; box-shadow: 0 6px 20px rgba(0, 0, 0, .22); max-width: calc(100% - 32px);
+  }
+  .aviso[hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .folha { animation: sobe .18s ease-out; }
+    @keyframes sobe { from { transform: translateY(14px); opacity: .6; } to { transform: none; opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <div style="flex:1 1 260px">
+      <h1>Estoque</h1>
+      <div class="sub">AMASSA CERRADO &middot; protótipo para validação</div>
+    </div>
+    <label class="quem">Quem está aqui
+      <select id="quem" aria-label="Quem está usando o sistema">
+        <option value="Theo">Theo</option>
+        <option value="Andressa">Andressa</option>
+      </select>
+    </label>
+  </header>
+
+  <div id="banner"></div>
+
+  <nav class="abas" role="tablist">
+    <button class="aba" role="tab" id="aba-saldos" aria-selected="true" data-aba="saldos">Saldos</button>
+    <button class="aba" role="tab" id="aba-historico" aria-selected="false" data-aba="historico">Histórico</button>
+    <button class="aba" role="tab" id="aba-destino" aria-selected="false" data-aba="destino">Para onde foi</button>
+  </nav>
+
+  <div id="conteudo"></div>
+
+  <div class="nota">
+    <strong>Pode usar de verdade.</strong> O que você digitar fica salvo neste navegador, neste
+    computador. Como ainda não há banco de dados, a Andressa não vê esses dados e eles somem se você
+    limpar o navegador — por isso <strong>clique em “Backup” de vez em quando</strong> e guarde o texto.
+    Quando o módulo entrar na plataforma, esse mesmo texto é importado e nada se perde.
+    <div style="margin-top:11px"><button class="btn btn-sec btn-sm" type="button" id="btnBackup">Backup dos dados</button></div>
+  </div>
+
+</div>
+
+<div class="acao-fixa">
+  <div class="interno">
+    <button class="btn btn-primario" id="btnMov">Registrar movimentação</button>
+    <button class="btn btn-sec" id="btnNovoMat">+ Material</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="folha" id="folha" role="dialog" aria-modal="true" aria-labelledby="tituloFolha"></div>
+</div>
+
+<div class="aviso" id="aviso" role="status" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     Modelo
+     ============================================================ */
+
+  var CHAVE = "amassa:estoque:v1";
+
+  var FRENTES = {
+    atelie:    { nome: "Ateliê",    desc: "material de produção" },
+    loja:      { nome: "Loja",      desc: "produto de revenda" },
+    cafeteria: { nome: "Cafeteria", desc: "insumo do café" }
+  };
+
+  var CATEGORIAS_PADRAO = {
+    atelie:    ["Cerâmica", "Pintura", "Bordado"],
+    loja:      ["Papelaria", "Materiais", "Peças de arte"],
+    cafeteria: ["Bebidas", "Alimentos", "Descartáveis"]
+  };
+
+  function cats(frente) {
+    if (!estado.categorias) estado.categorias = {};
+    if (!estado.categorias[frente]) estado.categorias[frente] = CATEGORIAS_PADRAO[frente].slice();
+    return estado.categorias[frente];
+  }
+
+  /* Os destinos existem por causa do módulo Financeiro: cada saída precisa
+     dizer qual frente pagou o material. "conta" é o centro de resultado. */
+  var DESTINOS = [
+    { id: "aula",      nome: "Consumo em aula",      conta: "Espaço",           vinculo: "Qual turma?" },
+    { id: "encomenda", nome: "Consumo em encomenda", conta: "Peças",            vinculo: "Qual encomenda?" },
+    { id: "venda",     nome: "Venda na loja",        conta: "Loja",             vinculo: "" },
+    { id: "cafeteria", nome: "Consumo na cafeteria", conta: "Cafeteria",        vinculo: "" },
+    { id: "atelie",    nome: "Uso do ateliê",        conta: "Ateliê produtivo", vinculo: "" },
+    { id: "perda",     nome: "Perda ou quebra",      conta: "Ateliê produtivo", vinculo: "O que aconteceu?" }
+  ];
+
+  function destinoPor(id) {
+    for (var i = 0; i < DESTINOS.length; i++) if (DESTINOS[i].id === id) return DESTINOS[i];
+    return null;
+  }
+
+  /* ---------- semente ---------- */
+
+  function hoje(dias, hora, min) {
+    var d = new Date();
+    d.setDate(d.getDate() - (dias || 0));
+    d.setHours(hora === undefined ? 10 : hora, min === undefined ? 0 : min, 0, 0);
+    return d.toISOString();
+  }
+
+  function semente() {
+    var m = [
+      { id: "m1",  nome: "Argila de alta branca",      frente: "atelie",    categoria: "Cerâmica",      unidade: "kg", minimo: 40, fornecedor: "Cerâmica Pirineus" },
+      { id: "m2",  nome: "Argila de alta vermelha",    frente: "atelie",    categoria: "Cerâmica",      unidade: "kg", minimo: 25, fornecedor: "Cerâmica Pirineus" },
+      { id: "m3",  nome: "Esmalte transparente",       frente: "atelie",    categoria: "Cerâmica",      unidade: "kg", minimo: 5,  fornecedor: "Colorobbia" },
+      { id: "m4",  nome: "Óxido de cobre",             frente: "atelie",    categoria: "Cerâmica",      unidade: "g",  minimo: 300, fornecedor: "Colorobbia" },
+      { id: "m5",  nome: "Gesso cerâmico",             frente: "atelie",    categoria: "Cerâmica",      unidade: "kg", minimo: 0,  fornecedor: "Supergesso" },
+      { id: "m6",  nome: "Tinta acrílica branca",      frente: "atelie",    categoria: "Pintura",       unidade: "un", minimo: 3,  fornecedor: "Acrilex" },
+      { id: "m7",  nome: "Linha mouliné",              frente: "atelie",    categoria: "Bordado",       unidade: "un", minimo: 20, fornecedor: "Círculo" },
+      { id: "m8",  nome: "Caderno artesanal A5",       frente: "loja",      categoria: "Papelaria",     unidade: "un", minimo: 6,  fornecedor: "Ateliê Folha", venda: 68 },
+      { id: "m9",  nome: "Caneta nanquim 0.4",         frente: "loja",      categoria: "Papelaria",     unidade: "un", minimo: 10, fornecedor: "Distribuidora GO", venda: 24 },
+      { id: "m10", nome: "Caneca autoral esmaltada",   frente: "loja",      categoria: "Peças de arte", unidade: "un", minimo: 4,  fornecedor: "Produção própria", venda: 145 },
+      { id: "m11", nome: "Café em grão especial",      frente: "cafeteria", categoria: "Bebidas",       unidade: "kg", minimo: 3,  fornecedor: "Torra Cerrado" },
+      { id: "m12", nome: "Copo de papel 300 ml",       frente: "cafeteria", categoria: "Descartáveis",  unidade: "un", minimo: 200, fornecedor: "Embala Goiás" }
+    ];
+    var v = [
+      // entradas
+      ["e", "m1",  200, 4.20,  14], ["e", "m2",  100, 4.60, 14], ["e", "m3",  12, 96.00, 12],
+      ["e", "m4",  1000, 0.42, 12], ["e", "m5",  40, 6.80, 20],  ["e", "m6",  8, 18.90, 20],
+      ["e", "m7",  60, 3.40, 20],   ["e", "m8",  20, 31.00, 9],  ["e", "m9",  40, 9.80, 9],
+      ["e", "m10", 12, 42.00, 9],   ["e", "m11", 8, 78.00, 6],   ["e", "m12", 600, 0.34, 6],
+      ["e", "m1",  150, 4.35, 3]
+    ];
+    /* [tipo, material, qtd, destino, vínculo, dias atrás, origem] — "financeiro" marca a
+       saída criada por um lançamento de venda, não digitada aqui. */
+    var s = [
+      ["s", "m1",  38, "aula",      "Turma de quarta, manhã", 11],
+      ["s", "m1",  52, "encomenda", "Coleção Verão — Marina", 9],
+      ["s", "m2",  30, "encomenda", "Coleção Verão — Marina", 8],
+      ["s", "m3",  6.4, "encomenda", "Coleção Verão — Marina", 7],
+      ["s", "m1",  24, "aula",      "Turma de sábado", 5],
+      ["s", "m4",  420, "atelie",   "", 5],
+      ["s", "m8",  9, "venda",      "Venda #1038", 4, "financeiro"],
+      ["s", "m9",  14, "venda",     "Venda #1039", 4, "financeiro"],
+      ["s", "m10", 5, "venda",      "Venda #1041", 3, "financeiro"],
+      ["s", "m11", 3.2, "cafeteria", "", 3],
+      ["s", "m12", 260, "cafeteria", "", 2],
+      ["s", "m10", 1, "perda",      "Caiu da prateleira ao guardar", 2],
+      ["s", "m1",  22, "aula",      "Turma de quarta, manhã", 1],
+      ["s", "m3",  1.2, "aula",     "Turma de sábado", 1],
+      ["s", "m7",  18, "aula",      "Oficina de bordado", 6],
+      ["s", "m10", 3, "venda",      "Venda #1047", 1, "financeiro"],
+      ["s", "m12", 180, "cafeteria", "", 1]
+    ];
+    var movs = [], n = 0;
+    v.forEach(function (r) {
+      movs.push({ id: "v" + (++n), materialId: r[1], tipo: "entrada", qtd: r[2],
+                  custoUnit: r[3], data: hoje(r[4], 9, 30), autor: "Theo" });
+    });
+    s.forEach(function (r) {
+      movs.push({ id: "v" + (++n), materialId: r[1], tipo: "saida", qtd: r[2],
+                  destino: r[3], vinculo: r[4], data: hoje(r[5], 15, 10),
+                  autor: r[5] % 2 ? "Andressa" : "Theo", origem: r[6] || "manual" });
+    });
+    movs.push({ id: "v" + (++n), materialId: "m3", tipo: "ajuste", contado: 4.1, qtd: -0.3,
+                data: hoje(2, 17, 40), autor: "Andressa", vinculo: "Conferência da prateleira" });
+    movs.sort(function (a, b) { return a.data < b.data ? -1 : 1; });
+    return {
+      materiais: m,
+      movimentos: movs,
+      categorias: {
+        atelie: CATEGORIAS_PADRAO.atelie.slice(),
+        loja: CATEGORIAS_PADRAO.loja.slice(),
+        cafeteria: CATEGORIAS_PADRAO.cafeteria.slice()
+      }
+    };
+  }
+
+  /* ---------- persistência ---------- */
+
+  var estado;
+  try {
+    var bruto = localStorage.getItem(CHAVE);
+    estado = bruto ? JSON.parse(bruto) : semente();
+  } catch (e) { estado = semente(); }
+  if (!estado || !estado.materiais) estado = semente();
+
+  /* backups antigos podem não ter categorias; garante que nenhuma some */
+  if (!estado.categorias) estado.categorias = {};
+  Object.keys(CATEGORIAS_PADRAO).forEach(function (f) {
+    if (!estado.categorias[f]) estado.categorias[f] = CATEGORIAS_PADRAO[f].slice();
+  });
+  estado.materiais.forEach(function (m) {
+    var l = estado.categorias[m.frente];
+    if (l && m.categoria && l.indexOf(m.categoria) === -1) l.push(m.categoria);
+  });
+
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch (e) { /* modo privado */ }
+  }
+
+  /* ============================================================
+     Regras — o que no sistema real mora em lib/estoque/saldo.ts
+     ============================================================ */
+
+  function movimentosDe(id) {
+    return estado.movimentos.filter(function (m) { return m.materialId === id; });
+  }
+
+  /* O saldo NUNCA é uma coluna editável: é sempre a soma do histórico. */
+  function saldo(id) {
+    return movimentosDe(id).reduce(function (t, m) {
+      if (m.tipo === "entrada") return t + m.qtd;
+      if (m.tipo === "saida")   return t - m.qtd;
+      return t + m.qtd; // ajuste guarda a diferença, com sinal
+    }, 0);
+  }
+
+  /* Custo médio ponderado das entradas — é o que o Financeiro vai herdar. */
+  function custoMedio(id) {
+    var q = 0, v = 0;
+    movimentosDe(id).forEach(function (m) {
+      if (m.tipo === "entrada") { q += m.qtd; v += m.qtd * (m.custoUnit || 0); }
+    });
+    return q > 0 ? v / q : 0;
+  }
+
+  function material(id) {
+    for (var i = 0; i < estado.materiais.length; i++)
+      if (estado.materiais[i].id === id) return estado.materiais[i];
+    return null;
+  }
+
+  /* Mínimo zero nunca entra em alerta — EST-04. */
+  function estaBaixo(m) {
+    return m.minimo > 0 && saldo(m.id) <= m.minimo;
+  }
+
+  function abaixoDoMinimo() { return estado.materiais.filter(estaBaixo); }
+
+  /* ============================================================
+     Formatação
+     ============================================================ */
+
+  function n(x, casas) {
+    return x.toLocaleString("pt-BR", {
+      minimumFractionDigits: casas === undefined ? 0 : casas,
+      maximumFractionDigits: casas === undefined ? 3 : casas
+    });
+  }
+  function reais(x) {
+    return "R$ " + x.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function quando(iso) {
+    var d = new Date(iso), ag = new Date();
+    var mesmoDia = d.toDateString() === ag.toDateString();
+    var ontem = new Date(ag); ontem.setDate(ontem.getDate() - 1);
+    var hh = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    if (mesmoDia) return "Hoje, " + hh;
+    if (d.toDateString() === ontem.toDateString()) return "Ontem, " + hh;
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + ", " + hh;
+  }
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* ============================================================
+     Telas
+     ============================================================ */
+
+  var vista = { aba: "saldos", busca: "", frente: "todas", soBaixo: false, periodo: 30, tipoHist: "todos" };
+  var escolhaFrente = "todas";   // lembrado entre aberturas do seletor de material
+
+  var elConteudo = document.getElementById("conteudo");
+  var elBanner = document.getElementById("banner");
+
+  function pintar() {
+    pintarBanner();
+    if (vista.aba === "saldos") pintarSaldos();
+    else if (vista.aba === "historico") pintarHistorico();
+    else pintarDestino();
+  }
+
+  /* ---------- banner de alerta (EST-03) ---------- */
+  function pintarBanner() {
+    var baixos = abaixoDoMinimo();
+    if (!baixos.length) {
+      elBanner.innerHTML = "";
+      return;
+    }
+    var nomes = baixos.slice(0, 3).map(function (m) {
+      return esc(m.nome) + " (" + n(saldo(m.id)) + " " + esc(m.unidade) + ")";
+    }).join(" · ");
+    if (baixos.length > 3) nomes += " · e mais " + (baixos.length - 3);
+    elBanner.innerHTML =
+      '<div class="banner"><div class="ico">' + svgAlerta() + '</div><div>' +
+      '<b>' + baixos.length + (baixos.length === 1 ? " material está acabando" : " materiais estão acabando") + '</b>' +
+      '<p>' + nomes + '</p>' +
+      '<button type="button" id="verBaixos">Ver só esses</button>' +
+      '</div></div>';
+    document.getElementById("verBaixos").onclick = function () {
+      vista.aba = "saldos"; vista.soBaixo = true; vista.frente = "todas";
+      sincronizarAbas(); pintar();
+    };
+  }
+
+  function svgAlerta() {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+           '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>' +
+           '<path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+  }
+
+  /* ---------- saldos ---------- */
+  function listaFiltrada() {
+    var t = vista.busca.trim().toLowerCase();
+    return estado.materiais.filter(function (m) {
+      if (vista.frente !== "todas" && m.frente !== vista.frente) return false;
+      if (vista.soBaixo && !estaBaixo(m)) return false;
+      if (t && (m.nome + " " + m.categoria + " " + (m.fornecedor || "")).toLowerCase().indexOf(t) === -1) return false;
+      return true;
+    }).sort(function (a, b) {
+      var ba = estaBaixo(a) ? 0 : 1, bb = estaBaixo(b) ? 0 : 1;
+      if (ba !== bb) return ba - bb;
+      return a.nome.localeCompare(b.nome, "pt-BR");
+    });
+  }
+
+  function pintarSaldos() {
+    var itens = listaFiltrada();
+    var valorTotal = estado.materiais.reduce(function (t, m) {
+      return t + Math.max(0, saldo(m.id)) * custoMedio(m.id);
+    }, 0);
+
+    var h = '<div class="ferramentas">' +
+      '<div class="busca">' + svgLupa() +
+      '<input type="text" id="busca" placeholder="Buscar material, categoria ou fornecedor" value="' + esc(vista.busca) + '" aria-label="Buscar material"></div>' +
+      '<div class="filtros">' +
+        pill("todas", "Tudo", vista.frente === "todas") +
+        pill("atelie", "Ateliê", vista.frente === "atelie") +
+        pill("loja", "Loja", vista.frente === "loja") +
+        pill("cafeteria", "Cafeteria", vista.frente === "cafeteria") +
+        '<button class="fpill" type="button" id="fbaixo" aria-pressed="' + (vista.soBaixo ? "true" : "false") + '">Acabando</button>' +
+        '<button class="fpill" type="button" id="btnCategorias" style="border-style:dashed">Categorias</button>' +
+      '</div>' +
+      '<span class="conta num">' + itens.length + " de " + estado.materiais.length +
+        " · " + reais(valorTotal) + " em estoque</span>" +
+      '</div>';
+
+    if (!itens.length) {
+      h += '<div class="painel"><div class="vazio"><strong>' +
+           (estado.materiais.length ? "Nada com esse filtro" : "A prateleira ainda está vazia") + '</strong>' +
+           '<p>' + (estado.materiais.length
+              ? "Tente outro termo, ou limpe os filtros."
+              : "Cadastre o primeiro material para começar a acompanhar o que entra e o que sai.") + '</p>' +
+           '<button class="btn btn-primario" type="button" id="vazioAcao">' +
+           (estado.materiais.length ? "Limpar filtros" : "Cadastrar material") + '</button></div></div>';
+    } else {
+      // celular: cartões
+      h += '<div class="so-celular cartoes">';
+      itens.forEach(function (m) {
+        var s = saldo(m.id), baixo = estaBaixo(m), cm = custoMedio(m.id);
+        h += '<article class="cartao' + (baixo ? " baixo" : "") + '">' +
+          '<div class="nome">' + esc(m.nome) + '</div>' +
+          '<div class="meta">' + esc(FRENTES[m.frente].nome) + " · " + esc(m.categoria) +
+            (m.minimo > 0 ? " · mínimo " + n(m.minimo) + " " + esc(m.unidade) : " · sem mínimo") + '</div>' +
+          '<div class="saldo"><div class="q num">' + n(s) + '</div><div class="u">' + esc(m.unidade) + '</div></div>' +
+          '<div class="rodape">' +
+            (baixo ? '<span class="chip chip-alerta">Acabando</span>' : '') +
+            '<button class="btn btn-sec btn-sm" type="button" data-baixa="' + m.id + '">Dar baixa</button>' +
+            '<button class="btn btn-sec btn-sm" type="button" data-hist="' + m.id + '">Histórico</button>' +
+            '<span class="esp num">' + reais(cm) + "/" + esc(m.unidade) + '</span>' +
+          '</div></article>';
+      });
+      h += '</div>';
+
+      // desktop: tabela
+      h += '<div class="so-desktop painel"><div class="rolagem"><table><thead><tr>' +
+        '<th>Material</th><th>Frente</th><th>Categoria</th>' +
+        '<th style="text-align:right">Saldo</th><th style="text-align:right">Mínimo</th>' +
+        '<th style="text-align:right">Custo médio</th><th style="text-align:right">Valor</th><th></th>' +
+        '</tr></thead><tbody>';
+      itens.forEach(function (m) {
+        var s = saldo(m.id), baixo = estaBaixo(m), cm = custoMedio(m.id);
+        h += '<tr class="' + (baixo ? "baixo" : "") + '">' +
+          '<td><strong>' + esc(m.nome) + '</strong>' +
+            (baixo ? ' <span class="chip chip-alerta">Acabando</span>' : '') + '</td>' +
+          '<td>' + esc(FRENTES[m.frente].nome) + '</td>' +
+          '<td>' + esc(m.categoria) + '</td>' +
+          '<td class="q num' + (baixo ? " baixoq" : "") + '">' + n(s) + " " + esc(m.unidade) + '</td>' +
+          '<td class="q num" style="color:var(--tinta-fraca);font-weight:400">' +
+            (m.minimo > 0 ? n(m.minimo) : "—") + '</td>' +
+          '<td class="q num" style="font-weight:400">' + reais(cm) + '</td>' +
+          '<td class="q num">' + reais(Math.max(0, s) * cm) + '</td>' +
+          '<td style="white-space:nowrap">' +
+            '<button class="btn btn-sec btn-sm" type="button" data-baixa="' + m.id + '">Dar baixa</button> ' +
+            '<button class="btn btn-sec btn-sm" type="button" data-hist="' + m.id + '">Histórico</button>' +
+          '</td></tr>';
+      });
+      h += '</tbody></table></div></div>';
+    }
+
+    h += '<div class="nota"><strong>O saldo não é digitado.</strong> Ele é sempre a soma do histórico — ' +
+         'entradas menos saídas, mais ajustes. Não existe campo para corrigir um saldo à mão: ' +
+         'se a prateleira discorda do sistema, registre um <em>ajuste</em>, que fica no histórico com ' +
+         'seu nome e a data.</div>';
+
+    elConteudo.innerHTML = h;
+    ligarSaldos();
+  }
+
+  function pill(valor, rot, ativo) {
+    return '<button class="fpill" type="button" data-frente="' + valor + '" aria-pressed="' +
+           (ativo ? "true" : "false") + '">' + rot + '</button>';
+  }
+  function svgLupa() {
+    return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+           'stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  }
+
+  function ligarSaldos() {
+    var b = document.getElementById("busca");
+    if (b) b.oninput = function () {
+      vista.busca = b.value;
+      var pos = b.selectionStart;
+      pintarSaldos();
+      var novo = document.getElementById("busca");
+      novo.focus(); novo.setSelectionRange(pos, pos);
+    };
+    Array.prototype.forEach.call(elConteudo.querySelectorAll("[data-frente]"), function (el) {
+      el.onclick = function () { vista.frente = el.getAttribute("data-frente"); pintarSaldos(); };
+    });
+    var fb = document.getElementById("fbaixo");
+    if (fb) fb.onclick = function () { vista.soBaixo = !vista.soBaixo; pintarSaldos(); };
+    var bc = document.getElementById("btnCategorias");
+    if (bc) bc.onclick = function () { folhaCategorias(vista.frente === "todas" ? "atelie" : vista.frente); };
+    var va = document.getElementById("vazioAcao");
+    if (va) va.onclick = function () {
+      if (estado.materiais.length) { vista.busca = ""; vista.frente = "todas"; vista.soBaixo = false; pintarSaldos(); }
+      else folhaMaterial();
+    };
+    Array.prototype.forEach.call(elConteudo.querySelectorAll("[data-baixa]"), function (el) {
+      el.onclick = function () { folhaMovimento(el.getAttribute("data-baixa"), "saida"); };
+    });
+    Array.prototype.forEach.call(elConteudo.querySelectorAll("[data-hist]"), function (el) {
+      el.onclick = function () { folhaHistoricoMaterial(el.getAttribute("data-hist")); };
+    });
+  }
+
+  /* ---------- histórico (EST-05, EST-06) ---------- */
+  function pintarHistorico() {
+    var movs = estado.movimentos.slice().sort(function (a, b) { return a.data < b.data ? 1 : -1; });
+    if (vista.tipoHist !== "todos") movs = movs.filter(function (m) { return m.tipo === vista.tipoHist; });
+
+    var h = '<div class="ferramentas"><div class="filtros">' +
+      tpill("todos", "Tudo") + tpill("entrada", "Entradas") +
+      tpill("saida", "Saídas") + tpill("ajuste", "Ajustes") +
+      '</div><span class="conta num">' + movs.length + ' movimentações</span></div>';
+
+    if (!movs.length) {
+      h += '<div class="painel"><div class="vazio"><strong>Nada registrado ainda</strong>' +
+           '<p>Toda entrada, saída e ajuste aparece aqui, com quem fez e quando.</p></div></div>';
+    } else {
+      h += '<div class="painel">';
+      movs.forEach(function (m) { h += linhaMov(m, true); });
+      h += '</div>';
+    }
+
+    h += '<div class="nota"><strong>Nada aqui pode ser apagado nem editado.</strong> ' +
+         'O histórico é a única fonte do saldo — se ele pudesse ser reescrito, o saldo deixaria de ' +
+         'ser confiável. Errou a quantidade? Registre um <em>ajuste</em>: os dois ficam visíveis, e ' +
+         'dá para ver o que aconteceu.</div>' +
+         '<div class="nota"><strong>As linhas marcadas “do Financeiro” não foram digitadas aqui.</strong> ' +
+         'A venda é lançada no Financeiro, que é onde o valor recebido entra, e ele baixa o estoque ' +
+         'sozinho. A regra vale igual para elas: ninguém edita nem apaga. Venda cancelada não some — ' +
+         'o Financeiro devolve o material com uma <em>entrada de estorno</em>, e as duas linhas ficam.</div>';
+
+    elConteudo.innerHTML = h;
+    Array.prototype.forEach.call(elConteudo.querySelectorAll("[data-tipo]"), function (el) {
+      el.onclick = function () { vista.tipoHist = el.getAttribute("data-tipo"); pintarHistorico(); };
+    });
+  }
+
+  function tpill(v, rot) {
+    return '<button class="fpill" type="button" data-tipo="' + v + '" aria-pressed="' +
+           (vista.tipoHist === v ? "true" : "false") + '">' + rot + '</button>';
+  }
+
+  function linhaMov(m, comNome) {
+    var mat = material(m.materialId);
+    if (!mat) return "";
+    var qtdTxt, cls, titulo, detalhe = "";
+
+    if (m.tipo === "entrada") {
+      qtdTxt = "+" + n(m.qtd); cls = "mais";
+      titulo = "Entrada";
+      detalhe = reais(m.qtd * (m.custoUnit || 0)) + " · " + reais(m.custoUnit || 0) + "/" + mat.unidade;
+      if (mat.fornecedor) detalhe += " · " + mat.fornecedor;
+    } else if (m.tipo === "saida") {
+      qtdTxt = "−" + n(m.qtd); cls = "menos";
+      var d = destinoPor(m.destino);
+      titulo = d ? d.nome : "Saída";
+      detalhe = (d ? "paga por " + d.conta : "");
+      if (m.vinculo) detalhe += (detalhe ? " · " : "") + m.vinculo;
+      detalhe += " · " + reais(m.qtd * custoMedio(mat.id));
+    } else {
+      qtdTxt = (m.qtd >= 0 ? "+" : "−") + n(Math.abs(m.qtd)); cls = "aj";
+      titulo = "Ajuste de conferência";
+      detalhe = "contado " + n(m.contado) + " " + mat.unidade + " na prateleira";
+      if (m.vinculo) detalhe += " · " + m.vinculo;
+    }
+
+    var selo = m.tipo === "saida" && m.destino === "perda"
+      ? ' <span class="chip chip-perda">Perda</span>'
+      : (m.tipo === "saida" && m.destino === "venda" ? ' <span class="chip chip-ok">Venda</span>' : '');
+    if (m.origem === "financeiro") selo += ' <span class="chip chip-origem">do Financeiro</span>';
+
+    return '<div class="linha-mov">' +
+      '<div class="qtd num ' + cls + '">' + qtdTxt + '<div style="font-size:11px;font-weight:500;color:var(--tinta-fraca)">' +
+        esc(mat.unidade) + '</div></div>' +
+      '<div class="corpo">' +
+        '<div class="m1">' + (comNome ? esc(mat.nome) : esc(titulo)) + selo + '</div>' +
+        '<div class="m2">' + (comNome ? esc(titulo) + (detalhe ? " · " + esc(detalhe) : "") : esc(detalhe)) + '</div>' +
+        '<div class="m3">' + quando(m.data) + " · " + esc(m.autor) + '</div>' +
+      '</div></div>';
+  }
+
+  /* ---------- para onde foi (o gancho do Financeiro) ---------- */
+  function pintarDestino() {
+    var limite = null;
+    if (vista.periodo) {
+      limite = new Date(); limite.setDate(limite.getDate() - vista.periodo);
+    }
+    var saidas = estado.movimentos.filter(function (m) {
+      return m.tipo === "saida" && (!limite || new Date(m.data) >= limite);
+    });
+
+    var porDestino = {}, total = 0;
+    DESTINOS.forEach(function (d) { porDestino[d.id] = { valor: 0, n: 0 }; });
+    saidas.forEach(function (m) {
+      var v = m.qtd * custoMedio(m.materialId);
+      if (!porDestino[m.destino]) porDestino[m.destino] = { valor: 0, n: 0 };
+      porDestino[m.destino].valor += v;
+      porDestino[m.destino].n += 1;
+      total += v;
+    });
+
+    var ordenado = DESTINOS.slice().sort(function (a, b) {
+      return porDestino[b.id].valor - porDestino[a.id].valor;
+    });
+    var teto = ordenado.length ? porDestino[ordenado[0].id].valor : 0;
+
+    var h = '<div class="ferramentas"><div class="filtros">' +
+      ppill(30, "Últimos 30 dias") + ppill(90, "90 dias") + ppill(0, "Tudo") +
+      '</div><span class="conta num">' + saidas.length + ' saídas no período</span></div>';
+
+    h += '<div class="resumo-topo">' +
+      '<div class="rot">Material consumido no período</div>' +
+      '<div class="valor num">' + reais(total) + '</div>' +
+      '<div class="nota-x nota" style="margin:8px 0 0;padding:10px 12px">Este número é a matéria-prima do módulo ' +
+      'Financeiro: ele diz <strong>qual frente pagou cada grama de material</strong>. Sem o destino na saída, ' +
+      'tudo isso viraria um custo só, e a margem da Loja e das Peças ficaria errada.</div></div>';
+
+    if (!saidas.length) {
+      h += '<div class="painel"><div class="vazio"><strong>Nenhuma saída no período</strong>' +
+           '<p>Quando você der baixa em algum material, ele aparece aqui separado por destino.</p></div></div>';
+    } else {
+      h += '<div class="painel"><div class="barras">';
+      ordenado.forEach(function (d) {
+        var r = porDestino[d.id];
+        var pct = teto > 0 ? Math.round((r.valor / teto) * 100) : 0;
+        var share = total > 0 ? Math.round((r.valor / total) * 100) : 0;
+        h += '<div class="barra">' +
+          '<div class="cab"><span>' + esc(d.nome) + '</span><span class="v num">' + reais(r.valor) + '</span></div>' +
+          '<div class="trilho"><div class="preenche" style="width:' + Math.max(pct, r.valor > 0 ? 2 : 0) + '%;' +
+            (d.id === "perda" ? "background:var(--erro)" : "") + '"></div></div>' +
+          '<div class="sub">' + esc(d.conta) + ' · ' + r.n + (r.n === 1 ? " saída" : " saídas") +
+            ' · ' + share + '% do período</div>' +
+          '</div>';
+      });
+      h += '</div></div>';
+    }
+
+    h += '<div class="nota"><strong>Como o valor é calculado.</strong> Cada saída vale a quantidade ' +
+         'vezes o custo médio do material — o custo médio vem das entradas, que é onde o preço de compra ' +
+         'é registrado. Por isso a entrada pergunta quanto custou.</div>';
+
+    elConteudo.innerHTML = h;
+    Array.prototype.forEach.call(elConteudo.querySelectorAll("[data-per]"), function (el) {
+      el.onclick = function () { vista.periodo = parseInt(el.getAttribute("data-per"), 10); pintarDestino(); };
+    });
+  }
+
+  function ppill(v, rot) {
+    return '<button class="fpill" type="button" data-per="' + v + '" aria-pressed="' +
+           (vista.periodo === v ? "true" : "false") + '">' + rot + '</button>';
+  }
+
+  /* ============================================================
+     Folhas
+     ============================================================ */
+
+  var overlay = document.getElementById("overlay");
+  var folha = document.getElementById("folha");
+  var ultimoFoco = null;
+
+  function abrirFolha(html) {
+    ultimoFoco = document.activeElement;
+    folha.innerHTML = html;
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    var f = folha.querySelector("[data-foco]");
+    if (f) setTimeout(function () { f.focus(); if (f.select) f.select(); }, 40);
+  }
+  function fecharFolha() {
+    overlay.hidden = true;
+    folha.innerHTML = "";
+    document.body.style.overflow = "";
+    if (ultimoFoco && ultimoFoco.focus) ultimoFoco.focus();
+  }
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) fecharFolha(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !overlay.hidden) fecharFolha(); });
+
+  var elAviso = document.getElementById("aviso");
+  var tAviso;
+  function avisar(txt) {
+    elAviso.textContent = txt;
+    elAviso.hidden = false;
+    clearTimeout(tAviso);
+    tAviso = setTimeout(function () { elAviso.hidden = true; }, 5000);
+  }
+
+  function cabecalhoFolha(titulo, sub) {
+    return '<div class="cabf"><div style="flex:1"><h2 id="tituloFolha">' + esc(titulo) + '</h2>' +
+      (sub ? '<div style="font-size:13px;color:var(--tinta-fraca);margin-top:2px">' + esc(sub) + '</div>' : '') +
+      '</div><button class="fechar" type="button" data-fechar aria-label="Fechar">×</button></div>';
+  }
+
+  /* ---------- escolher material ---------- */
+  function folhaEscolherMaterial(tipoInicial) {
+    var frenteSel = escolhaFrente; // lembra a última frente usada nesta sessão
+    var aberto = {};               // sanfona: começa sempre tudo fechado
+
+    var h = cabecalhoFolha("Qual material?", "Filtre pela frente ou busque pelo nome") +
+      '<div class="campo" style="margin-bottom:10px">' +
+      '<input type="text" id="buscaMat" data-foco placeholder="Buscar material" aria-label="Buscar material"></div>' +
+      '<div class="filtros" id="fFrente" style="margin-bottom:12px"></div>' +
+      '<div class="miolo"><div id="listaMat"></div></div>';
+    abrirFolha(h);
+    ligarFechar();
+
+    function pills() {
+      var f = document.getElementById("fFrente");
+      var h2 = '<button class="fpill" type="button" data-f="todas" aria-pressed="' +
+               (frenteSel === "todas") + '">Tudo</button>';
+      Object.keys(FRENTES).forEach(function (k) {
+        var q = estado.materiais.filter(function (m) { return m.frente === k; }).length;
+        h2 += '<button class="fpill" type="button" data-f="' + k + '" aria-pressed="' +
+              (frenteSel === k) + '">' + esc(FRENTES[k].nome) +
+              ' <span style="opacity:.6">' + q + '</span></button>';
+      });
+      f.innerHTML = h2;
+      Array.prototype.forEach.call(f.querySelectorAll("[data-f]"), function (el) {
+        el.onclick = function () {
+          frenteSel = el.getAttribute("data-f");
+          escolhaFrente = frenteSel;
+          pills(); desenhar();
+        };
+      });
+    }
+
+    function desenhar() {
+      var t = document.getElementById("buscaMat").value.trim().toLowerCase();
+      var itens = estado.materiais.filter(function (m) {
+        if (!t && frenteSel !== "todas" && m.frente !== frenteSel) return false;
+        return !t || (m.nome + " " + m.categoria).toLowerCase().indexOf(t) > -1;
+      });
+
+      var lista = document.getElementById("listaMat");
+
+      if (!itens.length) {
+        lista.innerHTML = '<div class="painel"><div class="vazio" style="padding:26px"><strong>' +
+          (t ? "Nenhum material com esse nome" : "Nada cadastrado nesta frente") + '</strong>' +
+          '<p>' + (t ? "Confira a escrita, ou toque em Tudo." : "Feche e cadastre o primeiro material desta frente.") +
+          '</p></div></div>';
+        return;
+      }
+
+      /* Buscando, a sanfona sai do caminho: quem digita o nome já sabe o que quer. */
+      if (t) {
+        lista.innerHTML = '<div class="grupo-cat">' + itens.length +
+          (itens.length === 1 ? " material encontrado" : " materiais encontrados") + '</div>' +
+          '<div class="lista-mat">' + itens
+            .sort(function (a, b) { return a.nome.localeCompare(b.nome, "pt-BR"); })
+            .map(botaoMaterial).join("") + '</div>';
+        ligarMateriais();
+        return;
+      }
+
+      /* Sanfona: frente → categoria → materiais. Tudo fechado ao abrir. */
+      var ordemFrentes = frenteSel === "todas" ? Object.keys(FRENTES) : [frenteSel];
+      var comNivelFrente = ordemFrentes.length > 1;
+      var c = "";
+
+      ordemFrentes.forEach(function (fr) {
+        var doGrupo = itens.filter(function (m) { return m.frente === fr; });
+        if (!doGrupo.length) return;
+
+        var chaveF = "f:" + fr;
+        if (comNivelFrente) {
+          var baixosF = doGrupo.filter(estaBaixo).length;
+          c += '<button class="sanfona nivel-frente" type="button" data-abre="' + chaveF +
+            '" aria-expanded="' + (aberto[chaveF] ? "true" : "false") + '">' + seta() +
+            '<span class="rotulo">' + esc(FRENTES[fr].nome) +
+              '<span class="sub">' + esc(FRENTES[fr].desc) + '</span></span>' +
+            (baixosF ? seloAcabando(baixosF) : '') +
+            '<span class="qt num">' + doGrupo.length + '</span></button>';
+          if (!aberto[chaveF]) return;
+        }
+
+        c += comNivelFrente ? '<div class="dentro">' : "";
+
+        var grupos = cats(fr).map(function (cat) {
+          return { nome: cat, itens: doGrupo.filter(function (m) { return m.categoria === cat; }) };
+        }).filter(function (g) { return g.itens.length; });
+
+        /* material cuja categoria foi renomeada por fora não pode sumir da lista */
+        var orfaos = doGrupo.filter(function (m) { return cats(fr).indexOf(m.categoria) === -1; });
+        if (orfaos.length) grupos.push({ nome: "Sem categoria", itens: orfaos });
+
+        grupos.forEach(function (g) {
+          var chaveC = "c:" + fr + ":" + g.nome;
+          var baixosC = g.itens.filter(estaBaixo).length;
+          c += '<button class="sanfona nivel-cat" type="button" data-abre="' + esc(chaveC) +
+            '" aria-expanded="' + (aberto[chaveC] ? "true" : "false") + '">' + seta() +
+            '<span class="rotulo">' + esc(g.nome) + '</span>' +
+            (baixosC ? seloAcabando(baixosC) : '') +
+            '<span class="qt num">' + g.itens.length + '</span></button>';
+          if (aberto[chaveC]) {
+            c += '<div class="lista-mat">' + g.itens
+              .sort(function (a, b) { return a.nome.localeCompare(b.nome, "pt-BR"); })
+              .map(botaoMaterial).join("") + '</div>';
+          }
+        });
+
+        c += comNivelFrente ? '</div>' : "";
+      });
+
+      lista.innerHTML = c;
+
+      Array.prototype.forEach.call(lista.querySelectorAll("[data-abre]"), function (el) {
+        el.onclick = function () {
+          var k = el.getAttribute("data-abre");
+          aberto[k] = !aberto[k];
+          desenhar();
+        };
+      });
+      ligarMateriais();
+    }
+
+    function botaoMaterial(m) {
+      return '<button type="button" data-mat="' + m.id + '">' +
+        '<span class="n">' + esc(m.nome) +
+          (estaBaixo(m) ? ' <span class="chip chip-alerta">Acabando</span>' : '') + '</span>' +
+        '<span class="s">' + n(saldo(m.id)) + " " + esc(m.unidade) + '</span></button>';
+    }
+
+    function seloAcabando(q) {
+      return '<span class="chip chip-alerta selo-acaba" title="' + q +
+        (q === 1 ? " material acabando" : " materiais acabando") + '">' +
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>' +
+        '<path d="M12 9v4"/><path d="M12 17h.01"/></svg>' + q +
+        '<span class="so-leitor"> acabando</span></span>';
+    }
+
+    function seta() {
+      return '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="m9 18 6-6-6-6"/></svg>';
+    }
+
+    function ligarMateriais() {
+      var lista = document.getElementById("listaMat");
+      Array.prototype.forEach.call(lista.querySelectorAll("[data-mat]"), function (el) {
+        el.onclick = function () { folhaMovimento(el.getAttribute("data-mat"), tipoInicial || "saida"); };
+      });
+    }
+
+    document.getElementById("buscaMat").oninput = desenhar;
+    pills();
+    desenhar();
+  }
+
+  /* ---------- registrar movimentação ---------- */
+  function folhaMovimento(materialId, tipo) {
+    var mat = material(materialId);
+    if (!mat) return;
+    var f = { tipo: tipo || "saida", qtd: "", custoTotal: "", destino: "", vinculo: "", contado: "" };
+
+    function corpo() {
+      var s = saldo(mat.id);
+      var h = cabecalhoFolha("Registrar movimentação", mat.nome) +
+        '<div class="escolhido"><div class="n">' + esc(mat.nome) +
+          '<div class="s">saldo de agora: ' + n(s) + " " + esc(mat.unidade) + '</div></div>' +
+          '<button class="btn btn-sec btn-sm" type="button" data-trocar>Trocar</button></div>' +
+        '<div class="miolo">' +
+        '<div class="campo"><span class="rot">O que aconteceu</span><div class="segm" id="segm">' +
+          '<button type="button" data-tipo="entrada" aria-pressed="' + (f.tipo === "entrada") + '">Entrada</button>' +
+          '<button type="button" data-tipo="saida" aria-pressed="' + (f.tipo === "saida") + '">Saída</button>' +
+          '<button type="button" data-tipo="ajuste" aria-pressed="' + (f.tipo === "ajuste") + '">Ajuste</button>' +
+        '</div></div>';
+
+      if (f.tipo === "ajuste") {
+        h += '<div class="campo"><label class="rot" for="qtd">Quanto tem na prateleira agora? ' +
+          '<span class="dica">em ' + esc(mat.unidade) + ' — conte, não calcule a diferença</span></label>' +
+          '<input type="number" inputmode="decimal" step="any" min="0" id="qtd" class="grande num" data-foco value="' + esc(f.contado) + '"></div>';
+      } else {
+        h += '<div class="campo"><label class="rot" for="qtd">Quantidade ' +
+          '<span class="dica">em ' + esc(mat.unidade) + '</span></label>' +
+          '<input type="number" inputmode="decimal" step="any" min="0" id="qtd" class="grande num" data-foco value="' + esc(f.qtd) + '">' +
+          '<div class="atalhos" id="atalhos"></div></div>';
+      }
+
+      if (f.tipo === "entrada") {
+        h += '<div class="campo"><label class="rot" for="custo">Quanto custou ao todo ' +
+          '<span class="dica">o valor da nota, em reais — é o que alimenta o Financeiro</span></label>' +
+          '<input type="number" inputmode="decimal" step="any" min="0" id="custo" value="' + esc(f.custoTotal) + '"></div>';
+      }
+
+      if (f.tipo === "saida") {
+        h += '<div class="campo"><span class="rot">Para onde foi? <span class="dica">obrigatório — é o que diz qual frente pagou</span></span>' +
+          '<div class="destinos" id="destinos">';
+        DESTINOS.forEach(function (d) {
+          h += '<button type="button" data-dest="' + d.id + '" aria-pressed="' + (f.destino === d.id) + '">' +
+            esc(d.nome) + '<small>' + esc(d.conta) + '</small></button>';
+        });
+        h += '</div></div>';
+        if (f.destino === "venda") {
+          h += '<div class="previa neutra" style="margin:-4px 0 16px">' +
+            '<b>Quando o Financeiro entrar, esta baixa vem de lá.</b> A venda é lançada no ' +
+            'Financeiro — que sabe o valor recebido — e ele tira do estoque sozinho. ' +
+            'Registre aqui só enquanto isso não existe.</div>';
+        }
+        var dd = destinoPor(f.destino);
+        if (dd && dd.vinculo) {
+          h += '<div class="campo"><label class="rot" for="vinc">' + esc(dd.vinculo) +
+            ' <span class="dica">opcional</span></label>' +
+            '<input type="text" id="vinc" value="' + esc(f.vinculo) + '"></div>';
+        }
+      }
+
+      if (f.tipo === "ajuste") {
+        h += '<div class="campo"><label class="rot" for="vinc">Por quê? <span class="dica">opcional, mas ajuda quem ler depois</span></label>' +
+          '<input type="text" id="vinc" placeholder="Conferência da prateleira" value="' + esc(f.vinculo) + '"></div>';
+      }
+
+      h += '<div id="previa"></div></div>' +
+        '<div class="pe"><button class="btn btn-primario btn-larga" type="button" id="gravar">Registrar</button></div>';
+      return h;
+    }
+
+    function desenhar() {
+      abrirFolha(corpo());
+      ligarFechar();
+      folha.querySelector("[data-trocar]").onclick = function () { folhaEscolherMaterial(f.tipo); };
+      Array.prototype.forEach.call(folha.querySelectorAll("#segm [data-tipo]"), function (el) {
+        el.onclick = function () { lerCampos(); f.tipo = el.getAttribute("data-tipo"); desenhar(); };
+      });
+      Array.prototype.forEach.call(folha.querySelectorAll("#destinos [data-dest]"), function (el) {
+        el.onclick = function () {
+          lerCampos();
+          var novo = el.getAttribute("data-dest");
+          f.destino = f.destino === novo ? "" : novo;
+          desenhar();
+        };
+      });
+      var at = document.getElementById("atalhos");
+      if (at) {
+        var passos = mat.unidade === "g" ? [50, 100, 250, 500] :
+                     mat.unidade === "un" ? [1, 2, 5, 10] :
+                     mat.unidade === "kg" ? [1, 5, 10, 25] : [1, 2, 5, 10];
+        at.innerHTML = passos.map(function (p) {
+          return '<button type="button" data-add="' + p + '">+' + n(p) + '</button>';
+        }).join("");
+        Array.prototype.forEach.call(at.querySelectorAll("[data-add]"), function (el) {
+          el.onclick = function () {
+            var q = document.getElementById("qtd");
+            var atual = parseFloat(q.value.replace(",", ".")) || 0;
+            q.value = String(Math.round((atual + parseFloat(el.getAttribute("data-add"))) * 1000) / 1000);
+            atualizarPrevia();
+          };
+        });
+      }
+      ["qtd", "custo", "vinc"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.oninput = atualizarPrevia;
+      });
+      document.getElementById("gravar").onclick = gravar;
+      atualizarPrevia();
+    }
+
+    function lerCampos() {
+      var q = document.getElementById("qtd"), c = document.getElementById("custo"), v = document.getElementById("vinc");
+      if (q) { if (f.tipo === "ajuste") f.contado = q.value; else f.qtd = q.value; }
+      if (c) f.custoTotal = c.value;
+      if (v) f.vinculo = v.value;
+    }
+
+    function num(el) {
+      if (!el) return NaN;
+      return parseFloat(String(el.value).replace(",", "."));
+    }
+
+    function atualizarPrevia() {
+      var p = document.getElementById("previa");
+      if (!p) return;
+      var s = saldo(mat.id);
+      var q = num(document.getElementById("qtd"));
+      if (isNaN(q)) { p.innerHTML = ""; return; }
+
+      if (f.tipo === "ajuste") {
+        var dif = Math.round((q - s) * 1000) / 1000;
+        if (dif === 0) {
+          p.innerHTML = '<div class="previa neutra">O saldo já está certo. Nada será gravado.</div>';
+        } else {
+          p.innerHTML = '<div class="previa">Diferença de <b>' + (dif > 0 ? "+" : "−") + n(Math.abs(dif)) +
+            " " + esc(mat.unidade) + '</b>. O saldo passa de <b>' + n(s) + '</b> para <b>' + n(q) +
+            " " + esc(mat.unidade) + '</b>.</div>';
+        }
+        return;
+      }
+
+      var novo = f.tipo === "entrada" ? s + q : s - q;
+      var txt = 'O saldo passa de <b>' + n(s) + '</b> para <b>' + n(novo) + " " + esc(mat.unidade) + '</b>.';
+      if (f.tipo === "saida" && novo < 0) {
+        txt += ' Isso deixa o saldo negativo — só registre se tiver certeza.';
+      } else if (f.tipo === "saida" && mat.minimo > 0 && novo <= mat.minimo) {
+        txt += ' Passa a ficar abaixo do mínimo (' + n(mat.minimo) + " " + esc(mat.unidade) + ').';
+      }
+      if (f.tipo === "entrada") {
+        var ct = num(document.getElementById("custo"));
+        if (!isNaN(ct) && q > 0) {
+          txt += ' Custo unitário: <b>' + reais(ct / q) + "/" + esc(mat.unidade) + '</b>.';
+        }
+      }
+      if (f.tipo === "saida") {
+        txt += ' Vale <b>' + reais(q * custoMedio(mat.id)) + '</b> ao custo médio.';
+      }
+      p.innerHTML = '<div class="previa">' + txt + '</div>';
+    }
+
+    function gravar() {
+      lerCampos();
+      var autor = document.getElementById("quem").value;
+      var q = parseFloat(String(f.tipo === "ajuste" ? f.contado : f.qtd).replace(",", "."));
+
+      if (isNaN(q) || q < 0) {
+        avisar(f.tipo === "ajuste" ? "Diga quanto tem na prateleira." : "Falta a quantidade.");
+        var el = document.getElementById("qtd"); if (el) el.focus();
+        return;
+      }
+
+      if (f.tipo === "ajuste") {
+        var dif = Math.round((q - saldo(mat.id)) * 1000) / 1000;
+        if (dif === 0) {            // EST-08
+          fecharFolha();
+          avisar("Conferido. O saldo já estava correto.");
+          return;
+        }
+        estado.movimentos.push({
+          id: "x" + Date.now(), materialId: mat.id, tipo: "ajuste",
+          qtd: dif, contado: q, vinculo: f.vinculo, data: new Date().toISOString(), autor: autor
+        });
+        salvar(); fecharFolha(); pintar();
+        avisar("Ajuste registrado: " + (dif > 0 ? "+" : "−") + n(Math.abs(dif)) + " " + mat.unidade + ".");
+        return;
+      }
+
+      if (q === 0) { avisar("A quantidade precisa ser maior que zero."); return; }
+
+      if (f.tipo === "saida") {
+        if (!f.destino) {           // a decisão do Financeiro, na prática
+          avisar("Escolha para onde o material foi.");
+          return;
+        }
+        estado.movimentos.push({
+          id: "x" + Date.now(), materialId: mat.id, tipo: "saida", qtd: q,
+          destino: f.destino, vinculo: f.vinculo, data: new Date().toISOString(), autor: autor
+        });
+        salvar(); fecharFolha(); pintar();
+        avisar("Baixa de " + n(q) + " " + mat.unidade + " em " + mat.nome + ".");
+        return;
+      }
+
+      var ct = parseFloat(String(f.custoTotal).replace(",", "."));
+      if (isNaN(ct)) { avisar("Diga quanto custou — é o que o Financeiro vai usar."); return; }
+      estado.movimentos.push({
+        id: "x" + Date.now(), materialId: mat.id, tipo: "entrada", qtd: q,
+        custoUnit: ct / q, data: new Date().toISOString(), autor: autor
+      });
+      salvar(); fecharFolha(); pintar();
+      avisar("Entrada de " + n(q) + " " + mat.unidade + " em " + mat.nome + ".");
+    }
+
+    desenhar();
+  }
+
+  /* ---------- histórico de um material ---------- */
+  function folhaHistoricoMaterial(id) {
+    var mat = material(id);
+    if (!mat) return;
+    var movs = movimentosDe(id).slice().sort(function (a, b) { return a.data < b.data ? 1 : -1; });
+    var s = saldo(id);
+
+    var h = cabecalhoFolha(mat.nome, FRENTES[mat.frente].nome + " · " + mat.categoria) +
+      '<div class="escolhido"><div class="n">' + n(s) + " " + esc(mat.unidade) +
+        '<div class="s">' + reais(custoMedio(id)) + "/" + esc(mat.unidade) + " · " +
+        reais(Math.max(0, s) * custoMedio(id)) + ' em estoque' +
+        (mat.minimo > 0 ? " · mínimo " + n(mat.minimo) + " " + esc(mat.unidade) : " · sem mínimo") +
+        '</div></div></div>' +
+      (mat.obs ? '<div class="previa neutra" style="margin-bottom:14px">' + esc(mat.obs) + '</div>' : '') +
+      '<div class="miolo"><div class="painel">';
+    if (!movs.length) {
+      h += '<div class="vazio" style="padding:28px"><strong>Nenhuma movimentação</strong>' +
+           '<p>Este material foi cadastrado, mas ainda não entrou nem saiu nada.</p></div>';
+    } else {
+      movs.forEach(function (m) { h += linhaMov(m, false); });
+    }
+    h += '</div>' +
+      '<div class="nota" style="margin-top:14px">Somando de cima para baixo você chega ao saldo de ' +
+      '<strong>' + n(s) + " " + esc(mat.unidade) + '</strong>. É assim que o sistema calcula — não há outra fonte.</div>' +
+      '</div>' +
+      '<div class="pe" style="display:flex;gap:10px">' +
+      '<button class="btn btn-sec" type="button" id="editarMat" style="flex:0 0 auto">Editar material</button>' +
+      '<button class="btn btn-primario" type="button" id="movDaqui" style="flex:1">Registrar movimentação</button></div>';
+
+    abrirFolha(h);
+    ligarFechar();
+    document.getElementById("movDaqui").onclick = function () { folhaMovimento(id, "saida"); };
+    document.getElementById("editarMat").onclick = function () { folhaMaterial(id); };
+  }
+
+  /* ---------- cadastrar / editar material ---------- */
+  function folhaMaterial(id) {
+    var mat = id ? material(id) : null;
+    var frente = mat ? mat.frente : "atelie";
+
+    function corpo() {
+      var h = cabecalhoFolha(mat ? "Editar material" : "Cadastrar material",
+                             mat ? mat.nome : "O que passa a ser controlado") +
+        '<div class="miolo">' +
+        '<div class="campo"><label class="rot" for="nome">Nome</label>' +
+        '<input type="text" id="nome" data-foco value="' + esc(mat ? mat.nome : "") + '" placeholder="Argila de alta branca"></div>' +
+
+        '<div class="campo"><span class="rot">Frente <span class="dica">quem é o dono desse material — o Financeiro usa isso</span></span>' +
+        '<div class="segm" id="segf">';
+      Object.keys(FRENTES).forEach(function (k) {
+        h += '<button type="button" data-f="' + k + '" aria-pressed="' + (frente === k) + '">' +
+          esc(FRENTES[k].nome) + '</button>';
+      });
+      h += '</div></div>' +
+
+        '<div class="dupla">' +
+        '<div class="campo"><label class="rot" for="cat">Categoria ' +
+          '<button type="button" class="link" id="gerirCat">gerenciar</button></label><select id="cat">' +
+          cats(frente).map(function (c) {
+            return '<option' + (mat && mat.categoria === c ? " selected" : "") + '>' + esc(c) + '</option>';
+          }).join("") + '</select></div>' +
+        '<div class="campo"><label class="rot" for="uni">Unidade</label><select id="uni">' +
+          ["kg", "g", "L", "ml", "un", "m"].map(function (u) {
+            return '<option' + (mat && mat.unidade === u ? " selected" : "") + '>' + u + '</option>';
+          }).join("") + '</select></div>' +
+        '</div>' +
+
+        '<div class="dupla">' +
+        '<div class="campo"><label class="rot" for="min">Estoque mínimo ' +
+          '<span class="dica">zero = nunca avisa</span></label>' +
+          '<input type="number" inputmode="decimal" step="any" min="0" id="min" value="' + esc(mat ? mat.minimo : 0) + '"></div>' +
+        '<div class="campo"><label class="rot" for="forn">Fornecedor <span class="dica">opcional</span></label>' +
+          '<input type="text" id="forn" value="' + esc(mat ? mat.fornecedor || "" : "") + '"></div>' +
+        '</div>';
+
+      if (frente === "loja") {
+        h += '<div class="campo"><label class="rot" for="venda">Preço de venda ' +
+          '<span class="dica">só para produto de revenda — dá a margem no Financeiro</span></label>' +
+          '<input type="number" inputmode="decimal" step="any" min="0" id="venda" value="' +
+          esc(mat && mat.venda ? mat.venda : "") + '"></div>';
+      }
+
+      h += '<div class="campo"><label class="rot" for="obs">Observações ' +
+        '<span class="dica">opcional — o que a próxima pessoa precisa saber</span></label>' +
+        '<textarea id="obs" placeholder="Secar antes de pesar. Fornecedor entrega só às terças.">' +
+        esc(mat && mat.obs ? mat.obs : "") + '</textarea></div>';
+
+      h += '<div class="nota" style="margin-top:0">Não existe campo de saldo aqui. ' +
+        'O saldo inicial entra como uma <strong>entrada</strong>, com data e custo — assim ele nasce dentro do histórico.</div>' +
+        '</div>' +
+        '<div class="pe" style="display:flex;gap:10px">' +
+        (mat ? '<button class="btn btn-sec" type="button" id="apagarMat" style="flex:0 0 auto;color:var(--erro);border-color:#E3B7A8">Apagar</button>' : '') +
+        '<button class="btn btn-primario" type="button" id="salvarMat" style="flex:1">' +
+        (mat ? "Salvar" : "Cadastrar") + '</button></div>';
+      return h;
+    }
+
+    function desenhar() {
+      abrirFolha(corpo());
+      ligarFechar();
+      Array.prototype.forEach.call(folha.querySelectorAll("#segf [data-f]"), function (el) {
+        el.onclick = function () {
+          var nome = document.getElementById("nome").value;
+          frente = el.getAttribute("data-f");
+          desenhar();
+          document.getElementById("nome").value = nome;
+        };
+      });
+      document.getElementById("salvarMat").onclick = salvarMat;
+      document.getElementById("gerirCat").onclick = function () {
+        folhaCategorias(frente, function () { desenhar(); });
+      };
+      var ap = document.getElementById("apagarMat");
+      if (ap) ap.onclick = apagarMat;
+    }
+
+    function salvarMat() {
+      var nome = document.getElementById("nome").value.trim();
+      if (!nome) { avisar("O material precisa de um nome."); document.getElementById("nome").focus(); return; }
+      var venda = document.getElementById("venda");
+      var dados = {
+        nome: nome,
+        frente: frente,
+        categoria: document.getElementById("cat").value,
+        unidade: document.getElementById("uni").value,
+        minimo: parseFloat(String(document.getElementById("min").value).replace(",", ".")) || 0,
+        fornecedor: document.getElementById("forn").value.trim(),
+        obs: document.getElementById("obs").value.trim(),
+        venda: venda && venda.value ? parseFloat(String(venda.value).replace(",", ".")) : undefined
+      };
+      if (mat) {
+        Object.keys(dados).forEach(function (k) { mat[k] = dados[k]; });
+        salvar(); fecharFolha(); pintar(); avisar("Material atualizado.");
+      } else {
+        dados.id = "m" + Date.now();
+        estado.materiais.push(dados);
+        salvar(); fecharFolha(); pintar();
+        avisar(nome + " cadastrado. Registre a entrada para dar saldo a ele.");
+      }
+    }
+
+    function apagarMat() {
+      var qtd = movimentosDe(mat.id).length;
+      var h = cabecalhoFolha("Apagar " + mat.nome + "?", "") +
+        '<div class="previa" style="background:var(--erro-fundo);border-color:#E3B7A8;color:#7F1D1D">' +
+        (qtd ? 'Vão junto <b>' + qtd + (qtd === 1 ? ' movimentação</b> do histórico' : ' movimentações</b> do histórico') +
+               ', e o saldo de <b>' + n(saldo(mat.id)) + " " + esc(mat.unidade) + '</b> desaparece.'
+             : 'Ele não tem nenhuma movimentação — nada mais se perde.') +
+        '</div>' +
+        '<div class="pe" style="display:flex;gap:10px;margin-top:18px">' +
+        '<button class="btn btn-sec" type="button" data-fechar style="flex:1">Cancelar</button>' +
+        '<button class="btn btn-primario" type="button" id="confApagar" style="flex:1;background:var(--erro)">Apagar mesmo assim</button></div>';
+      abrirFolha(h);
+      ligarFechar();
+      document.getElementById("confApagar").onclick = function () {
+        estado.materiais = estado.materiais.filter(function (x) { return x.id !== mat.id; });
+        estado.movimentos = estado.movimentos.filter(function (x) { return x.materialId !== mat.id; });
+        salvar(); fecharFolha(); pintar(); avisar(mat.nome + " foi apagado.");
+      };
+    }
+
+    desenhar();
+  }
+
+  /* ---------- categorias ---------- */
+  function usoDaCategoria(frente, nome) {
+    return estado.materiais.filter(function (m) {
+      return m.frente === frente && m.categoria === nome;
+    });
+  }
+
+  function folhaCategorias(frenteInicial, aoFechar) {
+    var frente = frenteInicial || "atelie";
+    var editando = null;
+
+    function corpo() {
+      var lista = cats(frente);
+      var h = cabecalhoFolha("Categorias", "Como os materiais aparecem agrupados") +
+        '<div class="campo"><span class="rot">Frente</span><div class="segm" id="segf">';
+      Object.keys(FRENTES).forEach(function (k) {
+        h += '<button type="button" data-f="' + k + '" aria-pressed="' + (frente === k) + '">' +
+          esc(FRENTES[k].nome) + '</button>';
+      });
+      h += '</div></div><div class="miolo"><div class="lista-cat">';
+
+      if (!lista.length) {
+        h += '<div class="vazio" style="padding:26px"><strong>Nenhuma categoria aqui</strong>' +
+             '<p>Crie a primeira para poder cadastrar material nesta frente.</p></div>';
+      }
+      lista.forEach(function (c, i) {
+        var uso = usoDaCategoria(frente, c).length;
+        if (editando === c) {
+          h += '<div class="item-cat editando">' +
+            '<input type="text" id="novoNome" data-foco value="' + esc(c) + '" aria-label="Novo nome da categoria">' +
+            '<button class="btn btn-primario btn-sm" type="button" data-confirmar="' + i + '">Salvar</button>' +
+            '<button class="btn btn-sec btn-sm" type="button" data-cancelar>Cancelar</button></div>';
+        } else {
+          h += '<div class="item-cat"><div class="n">' + esc(c) +
+            '<div class="s">' + (uso ? uso + (uso === 1 ? " material" : " materiais") : "nenhum material ainda") + '</div></div>' +
+            '<button class="btn btn-sec btn-sm" type="button" data-renomear="' + i + '">Renomear</button>' +
+            '<button class="btn btn-sec btn-sm" type="button" data-remover="' + i + '" ' +
+              'style="color:var(--erro);border-color:#E3B7A8">Remover</button></div>';
+        }
+      });
+      h += '</div>' +
+        '<div class="campo" style="margin-top:16px"><label class="rot" for="novaCat">Nova categoria em ' +
+        esc(FRENTES[frente].nome) + '</label>' +
+        '<div style="display:flex;gap:9px"><input type="text" id="novaCat" placeholder="Vidrados, Ferramentas, Embalagem…">' +
+        '<button class="btn btn-primario" type="button" id="criarCat" style="flex:0 0 auto">Criar</button></div></div>' +
+        '<div class="nota" style="margin-top:0">Renomear uma categoria muda o nome em todos os materiais dela. ' +
+        'Uma categoria que está em uso não pode ser removida — mova os materiais primeiro, e a tela diz quantos são.</div>' +
+        '</div>' +
+        '<div class="pe"><button class="btn btn-sec btn-larga" type="button" data-fechar>Pronto</button></div>';
+      return h;
+    }
+
+    function desenhar() {
+      abrirFolha(corpo());
+      ligarFechar();
+      if (aoFechar) {
+        Array.prototype.forEach.call(folha.querySelectorAll("[data-fechar]"), function (el) {
+          el.onclick = aoFechar;
+        });
+      }
+      Array.prototype.forEach.call(folha.querySelectorAll("#segf [data-f]"), function (el) {
+        el.onclick = function () { frente = el.getAttribute("data-f"); editando = null; desenhar(); };
+      });
+      Array.prototype.forEach.call(folha.querySelectorAll("[data-renomear]"), function (el) {
+        el.onclick = function () {
+          editando = cats(frente)[parseInt(el.getAttribute("data-renomear"), 10)];
+          desenhar();
+        };
+      });
+      var canc = folha.querySelector("[data-cancelar]");
+      if (canc) canc.onclick = function () { editando = null; desenhar(); };
+      Array.prototype.forEach.call(folha.querySelectorAll("[data-confirmar]"), function (el) {
+        el.onclick = function () {
+          var i = parseInt(el.getAttribute("data-confirmar"), 10);
+          var antigo = cats(frente)[i];
+          var novo = document.getElementById("novoNome").value.trim();
+          if (!novo) { avisar("A categoria precisa de um nome."); return; }
+          if (novo !== antigo && cats(frente).indexOf(novo) > -1) {
+            avisar("Já existe uma categoria com esse nome nesta frente."); return;
+          }
+          cats(frente)[i] = novo;
+          estado.materiais.forEach(function (m) {
+            if (m.frente === frente && m.categoria === antigo) m.categoria = novo;
+          });
+          editando = null; salvar(); pintar(); desenhar();
+          avisar("Categoria renomeada para " + novo + ".");
+        };
+      });
+      Array.prototype.forEach.call(folha.querySelectorAll("[data-remover]"), function (el) {
+        el.onclick = function () {
+          var i = parseInt(el.getAttribute("data-remover"), 10);
+          var nome = cats(frente)[i];
+          var uso = usoDaCategoria(frente, nome);
+          if (uso.length) {
+            avisar(uso.length + (uso.length === 1 ? " material usa" : " materiais usam") +
+                   " “" + nome + "”. Mova antes de remover.");
+            return;
+          }
+          cats(frente).splice(i, 1);
+          salvar(); desenhar();
+          avisar("Categoria “" + nome + "” removida. Nenhum material usava.");
+        };
+      });
+      document.getElementById("criarCat").onclick = function () {
+        var v = document.getElementById("novaCat").value.trim();
+        if (!v) { avisar("Escreva o nome da categoria."); return; }
+        if (cats(frente).indexOf(v) > -1) { avisar("Essa categoria já existe nesta frente."); return; }
+        cats(frente).push(v);
+        salvar(); desenhar();
+        avisar("Categoria “" + v + "” criada em " + FRENTES[frente].nome + ".");
+      };
+    }
+
+    desenhar();
+  }
+
+  /* ---------- backup ---------- */
+  function folhaBackup() {
+    var txt = JSON.stringify(estado);
+    var h = cabecalhoFolha("Backup dos dados", "Copie e guarde onde quiser") +
+      '<div class="miolo">' +
+      '<div class="nota" style="margin-top:0">Selecione tudo, copie e cole num e-mail para você mesmo, ' +
+      'ou num arquivo de texto. Quando o Estoque entrar na plataforma, este mesmo texto é importado.</div>' +
+      '<div class="campo"><label class="rot" for="dump">Seus dados</label>' +
+      '<textarea id="dump" data-foco style="min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px">' +
+      esc(txt) + '</textarea></div>' +
+      '<div class="campo"><label class="rot" for="restaura">Restaurar <span class="dica">cole aqui um backup antigo para voltar a ele</span></label>' +
+      '<textarea id="restaura" placeholder="Cole o texto do backup" style="min-height:70px;font-size:13px"></textarea></div>' +
+      '</div>' +
+      '<div class="pe" style="display:flex;gap:10px">' +
+      '<button class="btn btn-sec" type="button" id="recomecar" style="flex:0 0 auto">Voltar ao exemplo</button>' +
+      '<button class="btn btn-primario" type="button" id="restaurar" style="flex:1">Restaurar</button></div>';
+    abrirFolha(h);
+    ligarFechar();
+    document.getElementById("restaurar").onclick = function () {
+      var v = document.getElementById("restaura").value.trim();
+      if (!v) { avisar("Cole o texto do backup primeiro."); return; }
+      try {
+        var novo = JSON.parse(v);
+        if (!novo.materiais || !novo.movimentos) throw new Error("formato");
+        estado = novo; salvar(); fecharFolha(); pintar(); avisar("Backup restaurado.");
+      } catch (e) {
+        avisar("Esse texto não parece um backup do Estoque.");
+      }
+    };
+    document.getElementById("recomecar").onclick = function () {
+      estado = semente(); salvar(); fecharFolha(); pintar(); avisar("Voltou aos dados de exemplo.");
+    };
+  }
+
+  function ligarFechar() {
+    Array.prototype.forEach.call(folha.querySelectorAll("[data-fechar]"), function (el) {
+      el.onclick = fecharFolha;
+    });
+  }
+
+  /* ============================================================
+     Ligações gerais
+     ============================================================ */
+
+  function sincronizarAbas() {
+    Array.prototype.forEach.call(document.querySelectorAll(".aba"), function (el) {
+      el.setAttribute("aria-selected", el.getAttribute("data-aba") === vista.aba ? "true" : "false");
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".aba"), function (el) {
+    el.onclick = function () {
+      vista.aba = el.getAttribute("data-aba");
+      sincronizarAbas();
+      pintar();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+  });
+
+  document.getElementById("btnMov").onclick = function () { folhaEscolherMaterial("saida"); };
+  document.getElementById("btnNovoMat").onclick = function () { folhaMaterial(); };
+  document.getElementById("btnBackup").onclick = folhaBackup;
+
+  pintar();
+})();
+</script>
+
+</body>
+</html>
