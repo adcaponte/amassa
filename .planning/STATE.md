@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.4
 status: ready_to_plan
-stopped_at: "Phase 04.4 context gathered (5 pontos da §9 decididos: D-01..D-12). Próximo: /gsd-plan-phase 04.4, só depois de o dono liberar"
-last_updated: "2026-09-19T17:03:17.791Z"
+stopped_at: "Phase 04.4 UI-SPEC approved; next: /gsd-plan-phase 04.4"
+last_updated: "2026-09-19T17:29:38.464Z"
 last_activity: 2026-09-19
 last_activity_desc: "Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque"
 progress:
@@ -334,6 +334,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T17:03:17.755Z
-Stopped at: Phase 04.4 context gathered (5 pontos da §9 decididos: D-01..D-12). Próximo: /gsd-plan-phase 04.4, só depois de o dono liberar
-Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-CONTEXT.md
+Last session: 2026-09-19T17:29:38.432Z
+Stopped at: Phase 04.4 UI-SPEC approved; next: /gsd-plan-phase 04.4
+Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-UI-SPEC.md
