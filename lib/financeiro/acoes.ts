@@ -10,7 +10,7 @@ import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
 import { obterConfiguracaoFinanceira } from "./consultas";
-import { totalDasLinhas } from "./documento";
+import { repartirDesconto } from "./desconto";
 import { TETO_CENTAVOS } from "./dinheiro";
 import { dataDentroDoIntervaloPermitido, esquemaId, esquemaVenda } from "./esquemas";
 import { formatarReais, hojeEmBrasilia } from "./formato";
@@ -54,7 +54,21 @@ export async function lancarVenda(
     return { ok: false, erro: "Essa data não é válida." };
   }
 
-  const totalCentavos = totalDasLinhas(dados.linhas);
+  // Desconto (D-09/D-10, Tarefa 3): a MESMA função pura que o cliente usa para mostrar reparte
+  // os subtotais aqui de novo — o servidor nunca aceita valores de linha já descontados vindos
+  // do cliente, só o texto do desconto (`dados.desconto`) e os subtotais que ele mesmo acabou de
+  // recalcular acima.
+  const subtotaisCentavos = dados.linhas.map((linha) => linha.valorCentavos);
+  let valoresFinaisCentavos = subtotaisCentavos;
+  if (dados.desconto) {
+    const resultadoDesconto = repartirDesconto(subtotaisCentavos, dados.desconto);
+    if (!resultadoDesconto.ok) {
+      return { ok: false, erro: resultadoDesconto.erro };
+    }
+    valoresFinaisCentavos = resultadoDesconto.valoresFinais;
+  }
+
+  const totalCentavos = valoresFinaisCentavos.reduce((total, valor) => total + valor, 0);
   if (totalCentavos <= 0 || totalCentavos > TETO_CENTAVOS) {
     return {
       ok: false,
@@ -171,6 +185,9 @@ export async function lancarVenda(
 
       await tx.insert(documentoLinhas).values(
         dados.linhas.map((linha, indice) => {
+          // O valor gravado é o FINAL (já com a parte do desconto desta linha, se houver) — nunca
+          // o subtotal bruto (D-09: "não é linha separada", o desconto mora dentro das linhas).
+          const valorCentavos = valoresFinaisCentavos[indice];
           if (linha.tipo === "item") {
             // Não-nulo: já conferido no laço de validação acima.
             const item = itemPorId.get(linha.itemId)!;
@@ -181,7 +198,7 @@ export async function lancarVenda(
               descricao: item.nome,
               categoriaId: item.categoriaVendaId!,
               quantidade: linha.quantidade,
-              valorCentavos: linha.valorCentavos,
+              valorCentavos,
             };
           }
           return {
@@ -189,7 +206,7 @@ export async function lancarVenda(
             ordem: indice,
             descricao: linha.descricao,
             categoriaId: linha.categoriaId,
-            valorCentavos: linha.valorCentavos,
+            valorCentavos,
           };
         }),
       );

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 import { lancarVenda } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaVenda } from "@/lib/financeiro/consultas";
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { repartirDesconto, type Desconto } from "@/lib/financeiro/desconto";
+import { converterPercentualParaPontosBase, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { areasDaVenda, listaEmPortugues } from "@/lib/financeiro/documento";
 import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
@@ -29,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CampoDesconto, type ModoDeDesconto } from "./campo-desconto";
 import { DialogoValorLivre, type LinhaDeValorLivre } from "./dialogo-valor-livre";
 import { EfeitoEstoque } from "./efeito-estoque";
 import { GradeCatalogo, type FiltroDeArea } from "./grade-catalogo";
@@ -56,6 +58,8 @@ type LinhaLocal =
       area: string;
       valorCentavos: number;
     };
+
+type LinhaComValidade = LinhaDoCarrinho & { valido: boolean };
 
 function novaChave(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -87,6 +91,8 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
   const [forma, setForma] = useState<FormaDePagamento>("pix");
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroDeArea>("tudo");
+  const [descontoModo, setDescontoModo] = useState<ModoDeDesconto>("reais");
+  const [descontoTexto, setDescontoTexto] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
@@ -104,6 +110,10 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
     }
     if (lido.pessoa) {
       setPessoa(lido.pessoa);
+    }
+    if (lido.desconto) {
+      setDescontoModo(lido.desconto.modo);
+      setDescontoTexto(lido.desconto.texto);
     }
     if (lido.linhas.length > 0) {
       const linhasReconstruidas: LinhaLocal[] = lido.linhas.flatMap((linha): LinhaLocal[] => {
@@ -167,42 +177,92 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
     );
     window.sessionStorage.setItem(
       CHAVE_RASCUNHO_VENDA,
-      serializarRascunho({ data, pessoa, linhas: linhasParaGravar, desconto: null }),
+      serializarRascunho({
+        data,
+        pessoa,
+        linhas: linhasParaGravar,
+        desconto: descontoTexto.trim() !== "" ? { modo: descontoModo, texto: descontoTexto } : null,
+      }),
     );
-  }, [linhas, data, pessoa, rascunhoCarregado]);
+  }, [linhas, data, pessoa, descontoModo, descontoTexto, rascunhoCarregado]);
 
-  // Cada linha convertida para exibição: subtotal e validade (item precisa de valor > 0).
-  const linhasParaExibir: (LinhaDoCarrinho & { valido: boolean })[] = linhas.map((linha) => {
+  // Cada linha convertida para exibição, ANTES do desconto: subtotal e validade (item precisa de
+  // valor > 0).
+  const linhasBase: LinhaComValidade[] = linhas.map((linha) => {
     if (linha.tipo === "livre") {
       return {
         chave: linha.chave,
-        tipo: "livre",
+        tipo: "livre" as const,
         nome: linha.descricao,
         area: linha.area,
         subtotalCentavos: linha.valorCentavos,
+        subtotalAntesDoDescontoCentavos: linha.valorCentavos,
         valido: true,
       };
     }
     const resultado = converterReaisParaCentavos(linha.valorUnitarioTexto);
     const valorUnitarioCentavos = resultado.ok ? resultado.centavos : null;
     const valido = valorUnitarioCentavos != null && valorUnitarioCentavos > 0;
+    const subtotalAntesDoDescontoCentavos = valido ? valorUnitarioCentavos * linha.quantidade : 0;
     return {
       chave: linha.chave,
-      tipo: "item",
+      tipo: "item" as const,
       nome: linha.nome,
       area: linha.area,
       quantidade: linha.quantidade,
       valorUnitarioTexto: linha.valorUnitarioTexto,
       valorUnitarioCentavos,
-      subtotalCentavos: valido ? valorUnitarioCentavos * linha.quantidade : 0,
+      subtotalCentavos: subtotalAntesDoDescontoCentavos,
+      subtotalAntesDoDescontoCentavos,
       precoDeTabelaCentavos: linha.precoDeTabelaCentavos,
       valido,
     };
   });
 
-  const totalCentavos = linhasParaExibir.reduce((total, linha) => total + linha.subtotalCentavos, 0);
-  const todasValidas = linhasParaExibir.every((linha) => linha.valido);
-  const podeLancar = linhas.length > 0 && todasValidas && !enviando;
+  const todasValidas = linhasBase.every((linha) => linha.valido);
+
+  // Desconto (D-09/D-10, Tarefa 3) — a MESMA `repartirDesconto` do servidor, chamada aqui só
+  // para MOSTRAR (o servidor refaz a conta do zero, nunca aceita o resultado do cliente).
+  let descontoErro: string | null = null;
+  let valoresFinaisCentavos = linhasBase.map((linha) => linha.subtotalAntesDoDescontoCentavos);
+
+  if (descontoTexto.trim() !== "") {
+    let descontoConvertido: Desconto | null = null;
+    if (descontoModo === "reais") {
+      const resultado = converterReaisParaCentavos(descontoTexto);
+      if (!resultado.ok) {
+        descontoErro = resultado.erro;
+      } else if (resultado.centavos === null) {
+        descontoErro = "Informe um valor de desconto.";
+      } else {
+        descontoConvertido = { modo: "reais", centavos: resultado.centavos };
+      }
+    } else {
+      const resultado = converterPercentualParaPontosBase(descontoTexto);
+      if (!resultado.ok) {
+        descontoErro = resultado.erro;
+      } else {
+        descontoConvertido = { modo: "percentual", pontosBase: resultado.pontosBase };
+      }
+    }
+
+    if (descontoConvertido && todasValidas) {
+      const resultadoDesconto = repartirDesconto(valoresFinaisCentavos, descontoConvertido);
+      if (!resultadoDesconto.ok) {
+        descontoErro = resultadoDesconto.erro;
+      } else {
+        valoresFinaisCentavos = resultadoDesconto.valoresFinais;
+      }
+    }
+  }
+
+  const linhasParaExibir: LinhaComValidade[] = linhasBase.map((linha, indice) => ({
+    ...linha,
+    subtotalCentavos: valoresFinaisCentavos[indice],
+  }));
+
+  const totalCentavos = valoresFinaisCentavos.reduce((total, valor) => total + valor, 0);
+  const podeLancar = linhas.length > 0 && todasValidas && !descontoErro && !enviando;
 
   const areas = areasDaVenda(linhas.map((linha) => ({ area: linha.area })));
   const nomesDeAreas = areas.map((area) => ROTULO_AREA[area as keyof typeof ROTULO_AREA] ?? area);
@@ -289,6 +349,8 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
     setPessoa("");
     setBusca("");
     setFiltro("tudo");
+    setDescontoModo("reais");
+    setDescontoTexto("");
     setErro(null);
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
   }
@@ -315,7 +377,7 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
               valorTexto: centavosParaTexto(linha.valorCentavos),
             },
       ),
-      // À vista: UMA parcela, paga na data do documento.
+      // À vista: UMA parcela, paga na data do documento, já com o total DESCONTADO.
       parcelas: [
         {
           vencimento: data,
@@ -324,6 +386,7 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
           pago: true,
         },
       ],
+      ...(descontoTexto.trim() !== "" ? { desconto: { modo: descontoModo, texto: descontoTexto } } : {}),
     });
 
     setEnviando(false);
@@ -423,6 +486,14 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito }: Pai
             {formatarReais(totalCentavos)}
           </span>
         </div>
+
+        <CampoDesconto
+          modo={descontoModo}
+          aoMudarModo={setDescontoModo}
+          texto={descontoTexto}
+          aoMudarTexto={setDescontoTexto}
+          erro={descontoErro}
+        />
 
         {areas.length > 1 && (
           <p data-testid="venda-dica-areas" className="text-apoio text-muted-foreground">

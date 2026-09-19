@@ -581,6 +581,141 @@ test.describe("financeiro venda", () => {
     await expect(page).toHaveURL(/\?aba=venda&aviso=lancado&documento=/, { timeout: 10000 });
   });
 
+  test("exemplo 6 — Kit 4 xícaras + 4 Pratos 15 cm, desconto de R$ 2,00 dá R$ 330,00", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeKit = `[e2e] Kit 4 xícaras de café ${suf}`;
+    const nomePrato = `[e2e] Prato 15 cm ${suf}`;
+    await semearItem({
+      nome: nomeKit,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 18000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+    await semearItem({
+      nome: nomePrato,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 3800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nomeKit).click();
+    await atalho(page, nomePrato).click();
+    await atalho(page, nomePrato).click();
+    await atalho(page, nomePrato).click();
+    await atalho(page, nomePrato).click();
+
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 332,00");
+
+    await page.getByTestId("venda-desconto").fill("2");
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 330,00");
+    await expect(linhaDoCarrinho(page, nomeKit).getByTestId("venda-linha-tabela")).toBeVisible();
+    await expect(linhaDoCarrinho(page, nomePrato).getByTestId("venda-linha-tabela")).toBeVisible();
+    // Nenhuma linha "desconto" separada aparece no carrinho (D-09) — só as duas linhas de item.
+    await expect(page.getByTestId("venda-linha")).toHaveCount(2);
+
+    await page.getByRole("button", { name: "Pix", exact: true }).click();
+    await page.getByRole("button", { name: "Lançar venda" }).click();
+    await expect(page).toHaveURL(/\?aba=venda&aviso=lancado&documento=/, { timeout: 10000 });
+
+    await page.getByTestId("financeiro-aba-caixa").click();
+    const linhaDoExtrato = page.getByTestId("extrato-linha").filter({ hasText: nomeKit });
+    await expect(linhaDoExtrato).toContainText("+ R$ 330,00");
+  });
+
+  test("a mesma venda do exemplo 6 com desconto de 10% dá R$ 298,80", async ({ page }) => {
+    const suf = sufixoUnico();
+    const nomeKit = `[e2e] Kit 4 xícaras de café dez ${suf}`;
+    const nomePrato = `[e2e] Prato 15 cm dez ${suf}`;
+    await semearItem({
+      nome: nomeKit,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 18000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+    await semearItem({
+      nome: nomePrato,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 3800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nomeKit).click();
+    await atalho(page, nomePrato).click();
+    await atalho(page, nomePrato).click();
+    await atalho(page, nomePrato).click();
+    await atalho(page, nomePrato).click();
+
+    await page.getByRole("button", { name: "%", exact: true }).click();
+    await page.getByTestId("venda-desconto").fill("10");
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 298,80");
+  });
+
+  test("uma linha de R$ 153,00 com desconto de R$ 3,00 dá R$ 150,00", async ({ page }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Item R$ 153 ${suf}`;
+    await semearItem({
+      nome,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 15300,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nome).click();
+    await page.getByTestId("venda-desconto").fill("3");
+    await expect(page.getByTestId("venda-total")).toContainText("R$ 150,00");
+  });
+
+  test("desconto maior que o total desabilita Lançar venda e mostra a mensagem", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Item barato ${suf}`;
+    await semearItem({
+      nome,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 1000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nome).click();
+    await page.getByTestId("venda-desconto").fill("50");
+
+    await expect(page.getByText("O desconto é maior que o total.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Lançar venda" })).toBeDisabled();
+  });
+
   test("a 320px de largura, a Venda não rola na horizontal", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });

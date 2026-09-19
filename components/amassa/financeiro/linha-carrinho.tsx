@@ -15,7 +15,12 @@ export type LinhaDoCarrinho =
       // Já convertido pelo pai (`converterReaisParaCentavos`) — `null` quando o texto está vazio
       // ou não é um valor válido, nunca uma segunda conversão aqui.
       valorUnitarioCentavos: number | null;
+      // Valor FINAL da linha, já com a parte do desconto (D-09), se houver — o que aparece na
+      // tela.
       subtotalCentavos: number;
+      // quantidade × unitário, ANTES de qualquer desconto — comparado com `subtotalCentavos`
+      // para saber se o desconto afetou esta linha.
+      subtotalAntesDoDescontoCentavos: number;
       // `null` quando o item vende por "valor na hora" — nunca mostra a etiqueta "tabela".
       precoDeTabelaCentavos: number | null;
     }
@@ -25,6 +30,7 @@ export type LinhaDoCarrinho =
       nome: string;
       area: string;
       subtotalCentavos: number;
+      subtotalAntesDoDescontoCentavos: number;
     };
 
 export type LinhaCarrinhoProps = {
@@ -37,17 +43,25 @@ export type LinhaCarrinhoProps = {
 // Uma linha do carrinho da Venda — ponto de cor da área, nome, subtotal, e (só para item do
 // catálogo) o passo de quantidade e o "cada" editável com a etiqueta "tabela R$ X" quando o
 // valor difere do de tabela (04.4-UI-SPEC.md). Linha de valor livre não tem passo nem "cada" —
-// o valor foi fixado no diálogo "+ Valor livre".
+// o valor foi fixado no diálogo "+ Valor livre". A MESMA etiqueta também aparece quando o
+// desconto (D-09) tira uma parte desta linha — nunca um segundo tipo de etiqueta, mesmo
+// mecanismo visual do preço editado manualmente.
 export function LinhaCarrinho({
   linha,
   aoMudarQuantidade,
   aoMudarValorUnitario,
   aoTirar,
 }: LinhaCarrinhoProps) {
+  const afetadaPeloDesconto = linha.subtotalCentavos !== linha.subtotalAntesDoDescontoCentavos;
+
   const valorDaTabelaDiferente =
     linha.tipo === "item" &&
     linha.precoDeTabelaCentavos != null &&
-    linha.precoDeTabelaCentavos !== linha.valorUnitarioCentavos;
+    (linha.precoDeTabelaCentavos !== linha.valorUnitarioCentavos || afetadaPeloDesconto);
+
+  // Linha de valor livre não tem "preço de tabela" (não é do catálogo) — mas o valor DIGITADO no
+  // diálogo funciona como a mesma referência quando o desconto tira uma parte dela.
+  const valorLivreAfetado = linha.tipo === "livre" && afetadaPeloDesconto;
 
   return (
     <li
@@ -114,6 +128,15 @@ export function LinhaCarrinho({
               </span>
             )}
           </>
+        )}
+
+        {linha.tipo === "livre" && valorLivreAfetado && (
+          <span
+            data-testid="venda-linha-tabela"
+            className="bg-secondary text-secondary-foreground text-apoio rounded-full px-2 py-0.5"
+          >
+            {textoEtiquetaTabela(formatarReais(linha.subtotalAntesDoDescontoCentavos))}
+          </span>
         )}
 
         <button

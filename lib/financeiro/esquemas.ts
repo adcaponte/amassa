@@ -5,7 +5,8 @@
 // mesma disciplina de `lib/encomendas`/`lib/queimas`).
 import { z } from "zod";
 
-import { converterReaisParaCentavos } from "./dinheiro";
+import type { Desconto } from "./desconto";
+import { converterPercentualParaPontosBase, converterReaisParaCentavos } from "./dinheiro";
 
 // Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 (`String.length`) — é
 // assim que o `length()` do Postgres conta as restrições de `db/schema.ts`.
@@ -107,6 +108,14 @@ export const esquemaParcelaDeVenda = z.object({
   pago: z.boolean(),
 });
 
+// Desconto do total (D-09/D-10, plano 03 Tarefa 3) — opcional; ausente = sem desconto. O texto é
+// convertido pela MESMA função pura usada no cliente para mostrar (`lib/financeiro/dinheiro.ts`),
+// nunca uma segunda conversão.
+export const esquemaDescontoEntrada = z.object({
+  modo: z.enum(["reais", "percentual"], { message: "Esse tipo de desconto não é válido." }),
+  texto: z.string().min(1, "Informe um valor de desconto."),
+});
+
 // Formato de entrada CRU da venda — antes da conversão de texto para centavos.
 export const esquemaVendaEntrada = z.object({
   data: esquemaDataCivil,
@@ -119,6 +128,7 @@ export const esquemaVendaEntrada = z.object({
     .array(esquemaParcelaDeVenda)
     .min(1, "Adicione pelo menos uma parcela.")
     .max(12, "No máximo 12 parcelas."),
+  desconto: esquemaDescontoEntrada.optional(),
 });
 
 // `valorCentavos` é o SUBTOTAL da linha (quantidade × unitário, antes de qualquer desconto) nos
@@ -227,7 +237,36 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     };
   });
 
-  if (linhas.some((linha) => linha === null) || parcelas.some((parcela) => parcela === null)) {
+  let desconto: Desconto | undefined;
+  if (dados.desconto) {
+    if (dados.desconto.modo === "reais") {
+      const resultado = converterReaisParaCentavos(dados.desconto.texto);
+      if (!resultado.ok) {
+        ctx.addIssue({ code: "custom", message: resultado.erro, path: ["desconto", "texto"] });
+      } else if (resultado.centavos === null) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Informe um valor de desconto.",
+          path: ["desconto", "texto"],
+        });
+      } else {
+        desconto = { modo: "reais", centavos: resultado.centavos };
+      }
+    } else {
+      const resultado = converterPercentualParaPontosBase(dados.desconto.texto);
+      if (!resultado.ok) {
+        ctx.addIssue({ code: "custom", message: resultado.erro, path: ["desconto", "texto"] });
+      } else {
+        desconto = { modo: "percentual", pontosBase: resultado.pontosBase };
+      }
+    }
+  }
+
+  if (
+    linhas.some((linha) => linha === null) ||
+    parcelas.some((parcela) => parcela === null) ||
+    (dados.desconto && !desconto)
+  ) {
     return z.NEVER;
   }
 
@@ -236,6 +275,7 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     pessoa,
     linhas: linhas as LinhaDeVendaConvertida[],
     parcelas: parcelas as ParcelaDeVendaConvertida[],
+    desconto,
   };
 });
 
