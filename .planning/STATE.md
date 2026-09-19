@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 04.4
-status: ready_to_execute
+current_phase_name: Financeiro — parte 1
+status: executing
 stopped_at: "Phase 04.4 planned (11 plans, 7 waves); next: /gsd-execute-phase 04.4"
-last_updated: "2026-09-19T18:24:25.490Z"
+last_updated: "2026-09-19T18:27:48.998Z"
 last_activity: 2026-09-19
-last_activity_desc: "Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque"
+last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
   completed_plans: 51
-current_phase_name: financeiro-parte-1
 ---
 
 # Project State
@@ -23,16 +23,16 @@ current_phase_name: financeiro-parte-1
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04.4 — Financeiro, parte 1 (planejada: 11 planos em 7 ondas; pronta para executar)
+**Current focus:** Phase 04.4 — Financeiro — parte 1
 
 ## Current Position
 
-Phase: 04.4 — Financeiro, parte 1: Venda, Compra, Caixa, Mês e Cadastros (inserida em 2026-09-19;
+Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 0 de 11 executados (04.4-01 a 04.4-11)
-Status: Planejada em 2026-09-19 (CONTEXT D-01..D-14, UI-SPEC aprovado, 11 planos verificados). Próximo:
+Plan: 1 of 11
+Status: Executing Phase 04.4
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
-Last activity: 2026-09-19 - Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque
+Last activity: 2026-09-19 — Phase 04.4 execution started
 
 Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
 
