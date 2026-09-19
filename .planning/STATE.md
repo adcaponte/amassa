@@ -36,7 +36,7 @@ migrações aplicadas em produção pelo dono em 2026-09-18 depois de backup (Ta
 checkpoint:human-action — Roteiro 9 corrigido em 0c690d4 antes de o dono rodá-lo). CMP-07 e CMP-09
 marcados completos. Próximo: verificação de fim de fase 04.3 pelo orquestrador; NÃO dar push sem
 confirmar com o dono.
-Last activity: 2026-09-19 - Completed quick task 260919-e4n: cartões do painel da Abertura por aba
+Last activity: 2026-09-19 - Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque
 
 Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
 
@@ -310,6 +310,7 @@ None yet.
 | 9 | casca.spec.ts:124 contava aria-current na página inteira; em /queimas o submenu também marca — conta só no menu principal (reprovação do pipeline 35432168671 após Next 16) | 2026-09-19 | e7aecb7 | — |
 | 10 | Fecha a sessão de debug e2e-toque-nao-navega-ci após conferência do dono no celular; WINDOWS #12 #29 #30 #31 corrigidos | 2026-09-19 | 8666291 | — |
 | 260919-e4n | Cartões do painel da Abertura por aba: Comprometido e Sai neste mês só em Por mês; Precisa de atenção só em Itens; nenhum em Tarefas e Cotações | 2026-09-19 | cefee93 | [260919-e4n-cartoes-do-painel-da-abertura-por-aba](./quick/260919-e4n-cartoes-do-painel-da-abertura-por-aba/) |
+| 260919-ou8 | Ignorar `Claude outputs/` e versionar o protótipo aprovado do Estoque | 2026-09-19 | 93ef4e2 | [260919-ou8-gitignore-claude-outputs-e-prototipo-do-](./quick/260919-ou8-gitignore-claude-outputs-e-prototipo-do-/) |
 
 ### Roadmap Evolution
 
