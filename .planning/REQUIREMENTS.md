@@ -181,7 +181,7 @@
 - [x] **FNC-03**: Venda e despesa aceitam à vista, sinal/entrada de 50% + saldo, ou 2x a 12x, com as parcelas editáveis; se a soma não fecha com o total, a tela diz quanto falta ou sobra, o botão fica desabilitado e o servidor recusa. A forma de pagamento é por parcela, não por documento (D-07); no à vista, "+ outra forma" divide o recebimento em duas parcelas com formas diferentes, pagas na data do documento (D-08)
 - [x] **FNC-04**: O documento aceita data retroativa — é como se fecha o dia da cafeteria numa venda só, com várias linhas e quantidade
 - [x] **FNC-05**: No cartão, o preço não muda; a taxa é gravada na parcela quando ela é paga — só na parcela que escolheu Cartão, nunca nas outras formas de um pagamento misto (D-08) — e entra no caixa o valor menos a taxa, e a soma das taxas aparece como "Taxa do cartão" no Geral do mês; mudar a taxa em Cadastros não reescreve o passado
-- [ ] **FNC-06**: A despesa tem três caminhos: compra de material (o que chegou, quantos e quanto custou ao todo), outra despesa (descrição, categoria, valor) e pagar conta que já existe (leva ao Caixa)
+- [x] **FNC-06**: A despesa tem três caminhos: compra de material (o que chegou, quantos e quanto custou ao todo), outra despesa (descrição, categoria, valor) e pagar conta que já existe (leva ao Caixa)
 - [x] **FNC-07**: O Caixa mostra saldo, a receber, a pagar e "se tudo se cumprir", e as listas a pagar e a receber com as vencidas marcadas. O extrato navega por mês, com filtro por forma (Todas · Dinheiro · Pix · Cartão) — o "saldo depois" de cada linha continua o saldo acumulado global, mesmo com o filtro aplicado (D-11/D-12)
 - [ ] **FNC-08**: "Paguei"/"Recebi" pede valor, data e forma, e pode ser desfeito se foi dado por engano. Quando o valor difere do previsto e o documento tem mais de uma linha ou parcela, o sistema acrescenta sozinho uma linha "diferença" na categoria "Juros, multas e descontos"; desfazer remove essa linha e devolve a parcela ao valor previsto original — o inverso exato (D-01/D-02/D-03)
 - [x] **FNC-09**: O extrato mostra o saldo depois de cada movimento, em ordem de data de pagamento e número; um lançamento retroativo recalcula os saldos seguintes. A navegação é por mês, e o saldo depois de cada linha é sempre o acumulado global, mesmo com o filtro por forma aplicado — o filtro esconde linhas, não recalcula saldo (D-11/D-12)
@@ -402,10 +402,10 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | PNL-07 | Phase 7 — Polimento e Entrega | Pending |
 | FNC-01 | Phase 04.4 — Financeiro, parte 1 | Pending |
 | FNC-02 | Phase 04.4 — Financeiro, parte 1 | Pending |
-| FNC-03 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-03 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-04 | Phase 04.4 — Financeiro, parte 1 | Pending |
-| FNC-05 | Phase 04.4 — Financeiro, parte 1 | Pending |
-| FNC-06 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-05 | Phase 04.4 — Financeiro, parte 1 | Complete |
+| FNC-06 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-07 | Phase 04.4 — Financeiro, parte 1 | Pending |
 | FNC-08 | Phase 04.4 — Financeiro, parte 1 | Pending |
 | FNC-09 | Phase 04.4 — Financeiro, parte 1 | Pending |
@@ -414,9 +414,9 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FNC-12 | Phase 04.4 — Financeiro, parte 1 | Pending |
 | FNC-13 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-14 | Phase 04.4 — Financeiro, parte 1 | Pending |
-| FNC-15 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-15 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-16 | Phase 04.4 — Financeiro, parte 1 | Pending |
-| FNC-17 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-17 | Phase 04.4 — Financeiro, parte 1 | Complete |
 
 **Coverage:**
 
