@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: Completed 04.4-01-PLAN.md
-last_updated: "2026-09-19T19:11:56.424Z"
+stopped_at: Completed 04.4-02-PLAN.md
+last_updated: "2026-09-19T20:01:17.920Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
-  completed_plans: 52
+  completed_plans: 53
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 2 of 11
+Plan: 3 of 11
 Status: Ready to execute
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
 Last activity: 2026-09-19 — Phase 04.4 execution started
 
-Progress: [████████░░] 84% (51 de 51 planos executados e verificados até aqui)
+Progress: [█████████░] 85% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -115,6 +115,7 @@ Progress: [████████░░] 84% (51 de 51 planos executados e ver
 | Phase 04.3 P04 | ~2h | 3 tasks | 14 files |
 | Phase 04.3 P05 | ~3h35min | 3 tasks | 9 files |
 | Phase 04.4 P01 | ~2h40min | 4 tasks | 34 files |
+| Phase 04.4 P02 | ~1h10min | 3 tasks | 28 files |
 
 ## Accumulated Context
 
@@ -274,6 +275,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-01: numeração de documentos = opção A (sequência única venda+despesa), decisão do dono na Tarefa 0 (checkpoint pré-respondido)
 - [Phase ?]: 04.4-01: textoVendaLancada recebe o total já formatado (string), nunca centavos — textos.ts nunca importa formato.ts (mesma disciplina de lib/queimas/textos.ts)
 - [Phase ?]: 04.4-01: DialogoValorLivre sem aria-label redundante no DialogContent — colidia com getByLabel('Valor') do Playwright via o aria-labelledby automático do Radix ("Valor livre" contém "Valor")
+- [Phase ?]: 04.4-02: ITENS_NAVEGACAO dividido em ITENS_NAVEGACAO_CELULAR (5, Financeiro no lugar do Estoque)/ITENS_NAVEGACAO_LATERAL (6, ganhou o Financeiro) — D-04/D-05
+- [Phase ?]: 04.4-02: AbasFinanceiro virou Client Component (usePathname) para saber se está em /cadastros; memo com comparador próprio sobre (aba, emCadastros)
+- [Phase ?]: 04.4-02: lib/cadastros/categorias.ts nem import de tipo (grep de aceite do plano) — enums grupo/área redeclarados como literais, não importados de db/schema.ts
+- [Phase ?]: 04.4-02: codigoDoErroPostgres() em lib/cadastros/acoes.ts olha erro.code E erro.cause.code — drizzle-orm/node-postgres embrulha o SQLSTATE real em .cause; mesmo padrão quebrado suspeito em ehViolacaoDeChaveEstrangeira de outros módulos, não corrigido (fora do escopo)
 
 ### Pending Todos
 
@@ -338,6 +343,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T19:11:56.390Z
-Stopped at: Completed 04.4-01-PLAN.md
+Last session: 2026-09-19T20:01:17.886Z
+Stopped at: Completed 04.4-02-PLAN.md
 Resume file: None
