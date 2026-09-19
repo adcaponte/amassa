@@ -6,7 +6,7 @@ current_phase: 6
 current_phase_name: estoque
 status: planning
 stopped_at: "Fase 04.3 concluida e verificada (9/9, 04.3-VERIFICATION.md), no ar desde 2026-09-18 com 0012/0013 aplicadas. Proxima, por ordem do dono: Fase 6 (Estoque), comecando por prototipo. A Fase 5 (Agenda) continua em espera."
-last_updated: "2026-09-19T08:46:12.949Z"
+last_updated: "2026-09-19T09:10:06.209Z"
 last_activity: 2026-09-18
 last_activity_desc: Phase 04.3 complete; next is Phase 6 (Estoque)
 progress:
@@ -308,6 +308,7 @@ None yet.
 | 7 | Roteiro 9: corrige o teste de restrição do passo 4 (\\gset em psql -c dava syntax error) e acrescenta 'Quando rodar' — commit 0c690d4 | 2026-09-18 | 0c690d4 | — |
 | 8 | Caixinha de marcar para comparar sem fundo terracota (CR-01 do 04.3-REVIEW): data-checked -> data-[state=checked] em components/ui/checkbox.tsx, medido na build de producao — commit 2e33c5f | 2026-09-18 | 2e33c5f | — |
 | 9 | casca.spec.ts:124 contava aria-current na página inteira; em /queimas o submenu também marca — conta só no menu principal (reprovação do pipeline 35432168671 após Next 16) | 2026-09-19 | e7aecb7 | — |
+| 10 | Fecha a sessão de debug e2e-toque-nao-navega-ci após conferência do dono no celular; WINDOWS #12 #29 #30 #31 corrigidos | 2026-09-19 | 8666291 | — |
 
 ### Roadmap Evolution
 
