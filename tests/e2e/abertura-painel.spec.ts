@@ -196,13 +196,16 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     ).toBeLessThanOrEqual(clientWidth);
   });
 
-  // Tarefa 2 (D-15/ABE-12): os três blocos do painel. Os números são GLOBAIS (somam TODO o
-  // banco, não só o que este teste criou) — sob execução paralela de verdade, outro worker pode
-  // estar criando item/tarefa ao mesmo tempo. Por isso as asserções são de CONSISTÊNCIA (relação
-  // algébrica entre os próprios números lidos na mesma leitura) e de PISO (o que este teste criou
-  // nunca é removido, então o total nunca fica MENOR que a contribuição própria) — nunca um valor
-  // absoluto fixo (CLAUDE.md "Teste não pode afirmar condição global do banco sem isolamento").
-  test("os três blocos do painel mostram números consistentes entre si, e o bloco de atenção fica vermelho quando a soma passa de zero", async ({
+  // Tarefa 2 (D-15/ABE-12), ajustado em 260919-e4n (pedido do dono, 19/09): os três blocos do
+  // painel continuam existindo, mas cada um só aparece na aba que lhe cabe agora — "Comprometido"
+  // e "Sai neste mês" em Por mês, "Precisa de atenção" em Itens. Os números são GLOBAIS (somam
+  // TODO o banco, não só o que este teste criou) — sob execução paralela de verdade, outro worker
+  // pode estar criando item/tarefa ao mesmo tempo. Por isso as asserções são de CONSISTÊNCIA
+  // (relação algébrica entre os próprios números lidos na mesma leitura) e de PISO (o que este
+  // teste criou nunca é removido, então o total nunca fica MENOR que a contribuição própria) —
+  // nunca um valor absoluto fixo (CLAUDE.md "Teste não pode afirmar condição global do banco sem
+  // isolamento").
+  test("os blocos do painel mostram números consistentes — Comprometido e Sai neste mês na aba Por mês, Precisa de atenção na aba Itens — e o bloco de atenção fica vermelho quando a soma passa de zero", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -217,14 +220,15 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     await criarItem(page, { nome: nomeVencido, valor: "1500", entregaPrevistaEm: "2020-01-01" });
     await criarTarefaComPrazo(page, { descricao: descricaoAtrasada, prazoEm: "2020-01-01" });
 
-    await page.goto("/abertura");
+    // Comprometido e Sai neste mês agora só existem na aba Por mês.
+    await page.goto("/abertura?aba=meses");
 
     const blocoComprometido = page.getByTestId("abertura-bloco-comprometido");
     const blocoMes = page.getByTestId("abertura-bloco-mes");
-    const blocoAtencao = page.getByTestId("abertura-bloco-atencao");
     await expect(blocoComprometido).toBeVisible();
     await expect(blocoMes).toBeVisible();
-    await expect(blocoAtencao).toBeVisible();
+    // Precisa de atenção não existe nesta aba.
+    await expect(page.getByTestId("abertura-bloco-atencao")).toHaveCount(0);
 
     const comprometido = lerNumero(
       await blocoComprometido.getByTestId("abertura-bloco-comprometido-valor").innerText(),
@@ -246,6 +250,15 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       await blocoMes.getByTestId("abertura-bloco-mes-valor").innerText(),
     );
     expect(saiNesteMes).toBeGreaterThanOrEqual(4400 + 1500);
+
+    // Precisa de atenção agora só existe na aba Itens (a padrão).
+    await page.goto("/abertura");
+
+    const blocoAtencao = page.getByTestId("abertura-bloco-atencao");
+    await expect(blocoAtencao).toBeVisible();
+    // Comprometido e Sai neste mês não existem nesta aba.
+    await expect(page.getByTestId("abertura-bloco-comprometido")).toHaveCount(0);
+    await expect(page.getByTestId("abertura-bloco-mes")).toHaveCount(0);
 
     const atencao = lerNumero(
       await blocoAtencao.getByTestId("abertura-bloco-atencao-valor").innerText(),
@@ -269,6 +282,120 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     await expect(blocoAtencao.getByTestId("abertura-bloco-atencao-valor")).toHaveClass(
       /text-erro/,
     );
+  });
+
+  // Tarefa 3 (260919-e4n, pedido do dono em 19/09): cada aba mostra só os cartões dela. Tabela
+  // escrita À MÃO (a expectativa do dono) — NÃO importa `cartoesDaAba`, senão o e2e concordaria
+  // com a regra mesmo que a regra estivesse errada.
+  const CASOS_DE_CARTOES_POR_ABA: readonly {
+    url: string;
+    abaEsperada: "itens" | "tarefas" | "meses" | "cotacoes";
+    cartoes: readonly ("comprometido" | "mes" | "atencao")[];
+  }[] = [
+    { url: "/abertura", abaEsperada: "itens", cartoes: ["atencao"] },
+    { url: "/abertura?aba=itens", abaEsperada: "itens", cartoes: ["atencao"] },
+    { url: "/abertura?aba=tarefas", abaEsperada: "tarefas", cartoes: [] },
+    { url: "/abertura?aba=meses", abaEsperada: "meses", cartoes: ["comprometido", "mes"] },
+    { url: "/abertura?aba=cotacoes", abaEsperada: "cotacoes", cartoes: [] },
+  ];
+
+  test("cada aba mostra só os cartões dela — Itens: atenção; Por mês: comprometido e sai neste mês; Tarefas e Cotações: nenhum, sem faixa vazia", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    for (const caso of CASOS_DE_CARTOES_POR_ABA) {
+      await page.goto(caso.url);
+
+      // Primeiro espera a barra de abas confirmar a aba selecionada — sem isso, `toHaveCount(0)`
+      // passaria com a página ainda carregando (a barra de abas e o painel chegam no mesmo
+      // render do servidor).
+      await expect(
+        page.getByTestId(`abertura-aba-${caso.abaEsperada}`),
+        `${caso.url}: barra de abas não marcou "${caso.abaEsperada}" como selecionada`,
+      ).toHaveAttribute("aria-selected", "true");
+
+      for (const cartao of ["comprometido", "mes", "atencao"] as const) {
+        const bloco = page.getByTestId(`abertura-bloco-${cartao}`);
+        if (caso.cartoes.includes(cartao)) {
+          await expect(bloco, `${caso.url}: bloco "${cartao}" deveria estar visível`).toBeVisible();
+        } else {
+          await expect(bloco, `${caso.url}: bloco "${cartao}" não deveria existir no DOM`).toHaveCount(
+            0,
+          );
+        }
+      }
+
+      if (caso.cartoes.length === 0) {
+        await expect(
+          page.getByTestId("abertura-painel-resumo"),
+          `${caso.url}: sem cartão nenhum, o contêiner do painel não deveria existir no DOM`,
+        ).toHaveCount(0);
+      }
+    }
+
+    // Tamanho ("sem esticar") — cada cartão visível mantém o tamanho de hoje. `boundingBox()`
+    // não espera nada sozinho — por isso cada locator passa por `toBeVisible()` (que espera de
+    // verdade a navegação/hidratação assentar) ANTES de medir, senão a medida corre o risco de
+    // pegar o DOM a meio caminho da navegação anterior e devolver `null`.
+    if (test.info().project.name === "celular") {
+      await page.goto("/abertura");
+      const blocoAtencaoCelular = page.getByTestId("abertura-bloco-atencao");
+      const painelCelular = page.getByTestId("abertura-painel-resumo");
+      await expect(blocoAtencaoCelular).toBeVisible();
+      await expect(painelCelular).toBeVisible();
+      const caixaAtencao = await blocoAtencaoCelular.boundingBox();
+      const caixaPainel = await painelCelular.boundingBox();
+      expect(caixaAtencao, "/abertura: bloco de atenção sem boundingBox").not.toBeNull();
+      expect(caixaPainel, "/abertura: painel sem boundingBox").not.toBeNull();
+      // Celular: coluna inteira — mais de 0,75 da largura do painel.
+      expect(caixaAtencao!.width).toBeGreaterThan(caixaPainel!.width * 0.75);
+
+      await page.goto("/abertura?aba=meses");
+      const blocoComprometidoCelular = page.getByTestId("abertura-bloco-comprometido");
+      const blocoMesCelular = page.getByTestId("abertura-bloco-mes");
+      await expect(blocoComprometidoCelular).toBeVisible();
+      await expect(blocoMesCelular).toBeVisible();
+      const caixaComprometidoCelular = await blocoComprometidoCelular.boundingBox();
+      const caixaMesCelular = await blocoMesCelular.boundingBox();
+      expect(caixaComprometidoCelular, "/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
+      expect(caixaMesCelular, "/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
+      // Celular: empilhados, na ordem Comprometido → Sai neste mês.
+      expect(caixaMesCelular!.y).toBeGreaterThan(caixaComprometidoCelular!.y);
+    } else {
+      await page.goto("/abertura");
+      const blocoAtencaoDesktop = page.getByTestId("abertura-bloco-atencao");
+      const painelDesktop = page.getByTestId("abertura-painel-resumo");
+      await expect(blocoAtencaoDesktop).toBeVisible();
+      await expect(painelDesktop).toBeVisible();
+      const caixaAtencaoDesktop = await blocoAtencaoDesktop.boundingBox();
+      const caixaPainelDesktop = await painelDesktop.boundingBox();
+      expect(caixaAtencaoDesktop, "/abertura: bloco de atenção sem boundingBox").not.toBeNull();
+      expect(caixaPainelDesktop, "/abertura: painel sem boundingBox").not.toBeNull();
+      // Desktop: uma das três colunas — largura menor que metade do painel.
+      expect(caixaAtencaoDesktop!.width).toBeLessThan(caixaPainelDesktop!.width / 2);
+
+      await page.goto("/abertura?aba=meses");
+      const blocoComprometidoDesktop = page.getByTestId("abertura-bloco-comprometido");
+      const blocoMesDesktop = page.getByTestId("abertura-bloco-mes");
+      const painelMeses = page.getByTestId("abertura-painel-resumo");
+      await expect(blocoComprometidoDesktop).toBeVisible();
+      await expect(blocoMesDesktop).toBeVisible();
+      await expect(painelMeses).toBeVisible();
+      const caixaComprometidoDesktop = await blocoComprometidoDesktop.boundingBox();
+      const caixaMesDesktop = await blocoMesDesktop.boundingBox();
+      const caixaPainelMeses = await painelMeses.boundingBox();
+      expect(caixaComprometidoDesktop, "/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
+      expect(caixaMesDesktop, "/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
+      expect(caixaPainelMeses, "/abertura?aba=meses: painel sem boundingBox").not.toBeNull();
+      // Desktop: mesma linha (diferença de `y` menor que 2px) e cada um ocupa uma coluna.
+      expect(
+        Math.abs(caixaComprometidoDesktop!.y - caixaMesDesktop!.y),
+        "/abertura?aba=meses: comprometido e mes deveriam estar na mesma linha no desktop",
+      ).toBeLessThan(2);
+      expect(caixaComprometidoDesktop!.width).toBeLessThan(caixaPainelMeses!.width / 2);
+      expect(caixaMesDesktop!.width).toBeLessThan(caixaPainelMeses!.width / 2);
+    }
   });
 });
 
