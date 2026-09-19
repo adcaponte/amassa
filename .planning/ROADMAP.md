@@ -415,13 +415,17 @@ andaime do protótipo e não existem na plataforma.
 
 - **Sem** rateio, níveis de custo, partida dobrada, depreciação como lançamento, transferência
   interna ou subsídio. As palavras "competência" e "regime de caixa" não aparecem na tela.
+
 - A **área** (Cafeteria · Espaço · Peças · Loja · Geral) vem da **categoria**; ninguém escolhe área
   ao lançar. Custos gerais num bloco só.
+
 - Formas de pagamento: Dinheiro · Pix · Cartão. O preço não muda pela forma; a taxa do cartão sai
   do que entra no caixa e vira custo Geral.
+
 - Compra de material conta como custo **no mês da compra**.
 - `itens_catalogo` é o **cadastro único de itens da plataforma**: o Estoque (Fase 6) vai se ligar a
   ele, não criar tabela própria de materiais.
+
 - Efeito no estoque só **exibido** (cálculo puro), sem gravar movimentação — isso é da Fase 6.
 - A plataforma **não emite nota fiscal**, nunca.
 
@@ -443,12 +447,12 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: 11 plans
+**Plans**: 1/11 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04.4-01-PLAN.md — Traçado: o dono escolhe a numeração; o banco inteiro do financeiro (0014-0016, 24 categorias, travas e revoke delete) e uma venda de valor livre que chega ao extrato e ao saldo do Caixa
+- [x] 04.4-01-PLAN.md — Traçado: o dono escolhe a numeração; o banco inteiro do financeiro (0014-0016, 24 categorias, travas e revoke delete) e uma venda de valor livre que chega ao extrato e ao saldo do Caixa
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -608,7 +612,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
-| 04.4. Financeiro — parte 1 | 0/TBD | Not started | - |
+| 04.4. Financeiro — parte 1 | 1/11 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

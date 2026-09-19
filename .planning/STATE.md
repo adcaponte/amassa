@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: "Phase 04.4 planned (11 plans, 7 waves); next: /gsd-execute-phase 04.4"
-last_updated: "2026-09-19T18:27:48.998Z"
+stopped_at: Completed 04.4-01-PLAN.md
+last_updated: "2026-09-19T19:11:56.424Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
-  completed_plans: 51
+  completed_plans: 52
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 1 of 11
-Status: Executing Phase 04.4
+Plan: 2 of 11
+Status: Ready to execute
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
 Last activity: 2026-09-19 — Phase 04.4 execution started
 
-Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
+Progress: [████████░░] 84% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -114,6 +114,7 @@ Progress: [██████████] 100% (51 de 51 planos executados e ve
 | Phase 04.3 P03 | ~2h | 3 tasks | 14 files |
 | Phase 04.3 P04 | ~2h | 3 tasks | 14 files |
 | Phase 04.3 P05 | ~3h35min | 3 tasks | 9 files |
+| Phase 04.4 P01 | ~2h40min | 4 tasks | 34 files |
 
 ## Accumulated Context
 
@@ -270,6 +271,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.3-04: CamposLongos compartilhado por DetalheCotacao e ComparacaoCotacoes - um so lugar para o rotulo/tratamento de alerta dos seis campos longos
 - [Phase ?]: 04.3-04: MarcarCotacao usa zona de toque REAL de 44x44 (span externo) + hit-slop maior no Checkbox, nunca so um hit-slop invisivel
 - [Phase ?]: 04.3-05: migracoes 0012/0013 aplicadas em producao pelo dono em 2026-09-18 (Roteiro 9); passo 4 do roteiro corrigido antes (0c690d4, sintaxe \gset invalida em psql -c); evidencia colada para tabelas/gatilhos/enum/privilegios/restricao, backup pos-deploy e residuo relatados sem saida colada (lacuna registrada no SUMMARY)
+- [Phase ?]: 04.4-01: numeração de documentos = opção A (sequência única venda+despesa), decisão do dono na Tarefa 0 (checkpoint pré-respondido)
+- [Phase ?]: 04.4-01: textoVendaLancada recebe o total já formatado (string), nunca centavos — textos.ts nunca importa formato.ts (mesma disciplina de lib/queimas/textos.ts)
+- [Phase ?]: 04.4-01: DialogoValorLivre sem aria-label redundante no DialogContent — colidia com getByLabel('Valor') do Playwright via o aria-labelledby automático do Radix ("Valor livre" contém "Valor")
 
 ### Pending Todos
 
@@ -334,6 +338,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T17:29:38.432Z
-Stopped at: Phase 04.4 UI-SPEC approved; next: /gsd-plan-phase 04.4
-Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-UI-SPEC.md
+Last session: 2026-09-19T19:11:56.390Z
+Stopped at: Completed 04.4-01-PLAN.md
+Resume file: None
