@@ -166,6 +166,30 @@
 - [x] **CMP-08**: No celular: cartões empilhados, comparação com rolagem horizontal própria, alvos de 44px, sem rolagem horizontal da página
 - [x] **CMP-09**: As tabelas do comparador sobrevivem à remoção do módulo Abertura, provado pelo `test:migracoes`
 
+### Financeiro — parte 1: Venda, Compra, Caixa, Mês e Cadastros (Fase 04.4)
+
+> Rascunho escrito a partir de `.planning/phases/04.4-financeiro-parte-1/BRIEFING.md` e do
+> protótipo aprovado em 2026-09-19. Revisados na `/gsd-discuss-phase 04.4`. O prefixo é `FNC`
+> porque `FIN-*` já nomeia o "Financeiro da Escola" da v2.
+
+- [ ] **FNC-01**: Uma venda junta várias linhas, de áreas diferentes, num recebimento só — montada por atalhos do catálogo, busca, lista completa ou "valor livre"
+- [ ] **FNC-02**: O preço vem do catálogo e é editável na linha; quando difere, a tela mostra "tabela R$ X"; mudar o preço no catálogo não altera vendas já lançadas
+- [ ] **FNC-03**: Venda e despesa aceitam à vista, sinal/entrada de 50% + saldo, ou 2x a 12x, com as parcelas editáveis; se a soma não fecha com o total, a tela diz quanto falta ou sobra, o botão fica desabilitado e o servidor recusa
+- [ ] **FNC-04**: O documento aceita data retroativa — é como se fecha o dia da cafeteria numa venda só, com várias linhas e quantidade
+- [ ] **FNC-05**: No cartão, o preço não muda; a taxa é gravada na parcela quando ela é paga, entra no caixa o valor menos a taxa, e a soma das taxas aparece como "Taxa do cartão" no Geral do mês; mudar a taxa em Cadastros não reescreve o passado
+- [ ] **FNC-06**: A despesa tem três caminhos: compra de material (o que chegou, quantos e quanto custou ao todo), outra despesa (descrição, categoria, valor) e pagar conta que já existe (leva ao Caixa)
+- [ ] **FNC-07**: O Caixa mostra saldo, a receber, a pagar e "se tudo se cumprir", e as listas a pagar e a receber com as vencidas marcadas
+- [ ] **FNC-08**: "Paguei"/"Recebi" pede valor, data e forma, e pode ser desfeito se foi dado por engano
+- [ ] **FNC-09**: O extrato mostra o saldo depois de cada movimento, em ordem de data de pagamento e número; um lançamento retroativo recalcula os saldos seguintes
+- [ ] **FNC-10**: Cancelar uma venda ou despesa não apaga: ela fica riscada no extrato, sai do saldo e do Mês, e guarda quem cancelou e quando; a confirmação diz o que vai acontecer
+- [ ] **FNC-11**: O Mês mostra quanto cada área vendeu, custou e deixou (pela data do documento), o Geral num bloco só sem rateio, o veredito "sobrou/faltou", o dinheiro que entrou e saiu (pela data de pagamento) e o que ficou fora do resultado
+- [ ] **FNC-12**: Categoria é dado editável com grupo (receita, custo, geral, fora) e área; ninguém escolhe área ao lançar; categoria com lançamento só desativa, e grupo e área não mudam depois do primeiro lançamento
+- [ ] **FNC-13**: O catálogo guarda o que se vende e o que se estoca: preço ou "valor na hora", atalhos de venda e de compra, estoque com unidade e ficha técnica de um nível — e é o cadastro único de itens que o Estoque vai usar
+- [ ] **FNC-14**: Contas fixas têm valor esperado e dia; "Gerar as contas de <mês>" cria as contas a pagar e, rodado duas vezes, não duplica
+- [ ] **FNC-15**: A venda mostra o que tira do estoque e a compra o que põe, calculado por módulo puro e testado, sem gravar movimentação
+- [ ] **FNC-16**: As parcelas da Abertura que vencem a partir da virada entram como contas a pagar por um script único, com o rótulo "n de N"; Material vira custo e o resto vira "Equipamento e obra"; a Abertura não é alterada; o saldo inicial é informado pelo dono
+- [ ] **FNC-17**: Todas as telas funcionam de pé no celular — alvos de 44px, campos de 16px, estados vazio, carregando e erro
+
 ### Painel Inicial e Entrega
 
 - [ ] **PNL-01**: O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique
@@ -180,7 +204,7 @@
 
 Reconhecidos e adiados. Não estão no roadmap atual.
 
-### Calculadora de Orçamento 🔴 BLOQUEADO
+### Calculadora de Orçamento → Financeiro, parte 2 (desbloqueada em 2026-09-18)
 
 - **ORC-01**: Calcular o preço de uma encomenda a partir das variáveis de entrada do ateliê
 - **ORC-02**: Somar os custos de argila, esmalte, energia da fornada, mão de obra, embalagem e frete
@@ -188,9 +212,10 @@ Reconhecidos e adiados. Não estão no roadmap atual.
 - **ORC-04**: Escalonar desconto por volume
 - **ORC-05**: Produzir a saída final (número, faixa ou documento de proposta)
 
-> **Bloqueio de informação, não de planejamento.** Nenhum planejamento contorna a ausência das
-> planilhas de precificação. O schema em `02-MODELO-DE-DADOS.md` reserva os nomes das tabelas
-> (`parametros_precificacao`, `orcamentos`, `orcamento_itens`) sem defini-las.
+> **Não está mais bloqueada.** As planilhas de precificação foram feitas e auditadas no Cowork em
+> 2026-09-18. A calculadora virou a **parte 2 do Financeiro** (Precificação + Orçamento com PDF;
+> orçamento aprovado cria a Venda), que vem logo depois da Fase 04.4 e ainda não tem fase. Os
+> ORC-* serão reescritos a partir do protótipo da parte 2 quando a fase for criada.
 
 ### Financeiro da Escola
 
@@ -213,7 +238,7 @@ Reconhecidos e adiados. Não estão no roadmap atual.
 | Feature | Reason |
 |---------|--------|
 | Site institucional e loja Shopify | Continuam existindo separadamente. Nunca entram na plataforma. |
-| Estoque de peças acabadas | Vive no Shopify. Só matéria-prima entra aqui. |
+| ~~Estoque de peças acabadas~~ | **Retirado em 2026-09-19.** A regra ("vive no Shopify") era da AMASSA de Goiânia. Em Pirenópolis a peça pronta entra no Estoque, ao custo da precificação. |
 | Portal para as alunas | O sistema é só para gestores (3 a 5 pessoas, todas com acesso total). |
 | Cadastro público de usuários | Contas são criadas por linha de comando no servidor. |
 | "Esqueci minha senha" por e-mail | Exigiria SMTP, configuração de domínio e mais uma conta para manter. Com 3 a 5 pessoas que se conhecem, um comando resolve em 10 segundos. |
@@ -371,11 +396,28 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | PNL-05 | Phase 7 — Polimento e Entrega | Pending |
 | PNL-06 | Phase 7 — Polimento e Entrega | Pending |
 | PNL-07 | Phase 7 — Polimento e Entrega | Pending |
+| FNC-01 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-02 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-03 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-04 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-05 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-06 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-07 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-08 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-09 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-10 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-11 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-12 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-13 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-14 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-15 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-16 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-17 | Phase 04.4 — Financeiro, parte 1 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 101 total (ENC-15 acrescentado na Fase 04.1; ENC-03 reaberto e ENC-04 retirado na mesma fase, sem mudar a contagem)
-- Mapped to phases: 101/101
+- v1 requirements: 118 total (ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4)
+- Mapped to phases: 118/118
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -390,7 +432,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 5 | M3 | AGD-01..16 | 16 |
 | Phase 6 | M5 | EST-01..12 | 12 |
 | Phase 7 | M7 | UI-10..11, PNL-01..07 | 9 |
-| — | M6 (bloqueada, fora do roadmap) | ORC-01..05 (v2) | 0 |
+| Phase 04.4 | M6 → Financeiro, parte 1 | FNC-01..17 | 17 |
+| — | M6 → Financeiro, parte 2 (sem fase ainda) | ORC-01..05 (v2, a reescrever) | 0 |
 
 ---
 *Requirements defined: 2026-08-05*

@@ -18,9 +18,15 @@ do projeto e ganha em ser enfrentada depois de o sistema já estar em uso real. 
 em algo em que se pode confiar — painel inicial de verdade, simulacro de restauração de backup,
 manual e documento de operação.
 
-**M6 (Calculadora de Orçamento) não aparece como fase.** Está bloqueada até as planilhas de
-precificação do Theo existirem; seus requisitos vivem em `REQUIREMENTS.md` (seção v2). A Fase 7
-não espera por ela — se dependesse, o projeto nunca fecharia.
+**M6 (Calculadora de Orçamento) virou o módulo Financeiro, em duas partes, e deixou de estar
+bloqueada.** As planilhas de precificação existem desde 18/09 (feitas e auditadas no Cowork). A
+revisão do projeto de 2026-09-19 pôs o Financeiro **na frente de tudo o que falta**: a parte 1
+(Venda, Compra, Caixa, Mês e Cadastros) é a **Fase 04.4**; a parte 2 (Precificação + Orçamento com
+PDF, que absorve os ORC-*) ainda não tem fase — o protótipo dela está sendo feito no Cowork.
+
+**Ordem de execução desde 2026-09-19:** 04.4 (Financeiro 1) → Financeiro 2 → `/gestao` + site
+público + navegação nova → 6 (Estoque) → Produção (Encomendas renomeada) → 5 (Agenda) → Queimas e
+7 (Polimento). As fases sem número ainda serão criadas; a Agenda será reavaliada em novembro.
 
 **Granularidade:** o projeto está configurado como `standard`, mas por instrução explícita do
 dono do projeto cada milestone do documento fonte mapeia 1:1 para uma fase GSD, preservando a
@@ -41,6 +47,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.1: Datas dos Marcos da Encomenda** (INSERTED) - Correção das datas dos marcos no cronograma (completed 2026-08-22)
 - [x] **Phase 4.2: Abertura do Espaço** (INSERTED, temporário) - Organizador da abertura do novo espaço: itens a comprar com parcelas e entrega, e tarefas até a inauguração
 - [x] **Phase 04.3: Comparador de Compras** (INSERTED) - Aba do módulo Abertura para comparar cotações de equipamentos lado a lado, compartilhada entre os gestores; arquivada (não apagada) quando a Abertura for desmontada (completed 2026-09-18)
+- [ ] **Phase 04.4: Financeiro — parte 1** (INSERTED) - Venda, Compra, Caixa, Mês e Cadastros; a próxima a executar
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
@@ -393,6 +400,52 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 04.4: Financeiro — parte 1: Venda, Compra, Caixa, Mês e Cadastros (INSERTED)
+
+**Goal**: O financeiro do dia a dia, usado por duas pessoas no celular, de pé: lançar uma venda com
+várias linhas num recebimento só, lançar despesa, ver o caixa e o que está a pagar e a receber, e
+saber no fim do mês quanto cada área deixou e se o mês se pagou — substituindo planilha e caderno
+antes da inauguração de dezembro.
+**Especificação**: `.planning/phases/04.4-financeiro-parte-1/prototipo.html` ("Caixa e Vendas
+AMASSA"), aprovado pelo dono em 2026-09-19, e `BRIEFING.md` na mesma pasta. **O protótipo vence
+sobre a interface; o briefing vence sobre regra de dado que a tela não mostra** (§4 a §8 dele).
+Os botões "Testar com as vendas/despesas que você descreveu" e "Voltar aos dados de exemplo" são
+andaime do protótipo e não existem na plataforma.
+**Decisões já tomadas (revisão de 2026-09-19 — não reabrir)**:
+
+- **Sem** rateio, níveis de custo, partida dobrada, depreciação como lançamento, transferência
+  interna ou subsídio. As palavras "competência" e "regime de caixa" não aparecem na tela.
+- A **área** (Cafeteria · Espaço · Peças · Loja · Geral) vem da **categoria**; ninguém escolhe área
+  ao lançar. Custos gerais num bloco só.
+- Formas de pagamento: Dinheiro · Pix · Cartão. O preço não muda pela forma; a taxa do cartão sai
+  do que entra no caixa e vira custo Geral.
+- Compra de material conta como custo **no mês da compra**.
+- `itens_catalogo` é o **cadastro único de itens da plataforma**: o Estoque (Fase 6) vai se ligar a
+  ele, não criar tabela própria de materiais.
+- Efeito no estoque só **exibido** (cálculo puro), sem gravar movimentação — isso é da Fase 6.
+- A plataforma **não emite nota fiscal**, nunca.
+
+**Fora desta fase**: precificação e orçamento com PDF (parte 2), baixa real de estoque (Fase 6),
+cadastro de Pessoas, relatórios além do Mês, a navegação nova (fase do `/gestao`).
+**Em aberto para `/gsd-discuss-phase`**: os cinco pontos da §9 do briefing.
+**Depends on**: Phase 2b (casca e design system); Phase 4.2 só para o plano da virada, que lê as
+parcelas da Abertura
+**Requirements**: FNC-01, FNC-02, FNC-03, FNC-04, FNC-05, FNC-06, FNC-07, FNC-08, FNC-09, FNC-10, FNC-11, FNC-12, FNC-13, FNC-14, FNC-15, FNC-16, FNC-17 (rascunho a partir do briefing; revisados na discussão)
+**Success Criteria** (what must be TRUE):
+
+  1. No celular, uma venda com três itens de áreas diferentes, paga no Pix, é lançada em menos de 20 segundos, e o Mês mostra cada linha na sua área
+  2. Uma venda em 3x lança as três parcelas; a primeira entra no saldo e as outras duas aparecem em "A receber"; parcelas que não fecham com o total impedem o lançamento, dizendo quanto falta ou sobra, também no servidor
+  3. Uma venda no cartão entra no caixa pelo valor menos a taxa; mudar a taxa em Cadastros não muda o que já foi lançado, e a taxa aparece como custo Geral do mês
+  4. "Paguei"/"Recebi" tira a conta da lista e move o saldo; dá para desfazer um dado por engano
+  5. Cancelar um lançamento o deixa riscado no extrato, fora do saldo e do Mês, com quem cancelou e quando — nada é apagado
+  6. "Gerar as contas do mês" rodado duas vezes cria as contas fixas uma vez só
+  7. O saldo do Caixa bate com o saldo inicial mais a soma manual do extrato
+  8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
+  9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
+
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 5: Agenda de Aulas (em espera)
 
 > **Adiada por decisão do dono em 2026-08-22.** O módulo de Abertura do Espaço tem prazo real
@@ -405,6 +458,12 @@ Plans:
 > do site público para a raiz de `amassacerrado.com.br`, com a plataforma em `/gestao`, vem depois
 > e ainda não tem fase (o planejamento dela está fora do repositório, ver PROXIMA-SESSAO.md).
 > Ordem atual: **4.3 (Comparador) → 6 (Estoque) → 5 (Agenda) → 7 (Polimento)**.
+>
+> **Revista de novo em 2026-09-19** (revisão do projeto): o Financeiro passa à frente de tudo e o
+> Estoque deixa de ser a próxima fase. Ordem: **04.4 (Financeiro 1) → Financeiro 2 → `/gestao` +
+> site → 6 (Estoque) → Produção → 5 (Agenda) → Queimas e 7**. As regras de turma de Goiânia
+> (turmas de 8) foram descartadas: a Agenda será redesenhada antes de ser planejada. O dono tinha
+> a Agenda como indispensável na abertura — reavaliar em novembro se ela sobe.
 
 **Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
 aulas com data concreta por materialização preguiçosa, e presença é marcada por aluna.
@@ -436,6 +495,11 @@ ponta a ponta) tornam-se os planos desta fase.
 
 ### Phase 6: Estoque
 
+> **Adiada pela revisão de 2026-09-19**: vem depois das duas partes do Financeiro e do `/gestao`.
+> O protótipo aprovado em 18/09 continua valendo (`.planning/phases/06-estoque/prototipo.html`),
+> com os ajustes da revisão: movimentação com origem manual · venda · compra · produção; ficha
+> técnica plana; categoria "peça pronta"; e os itens vêm de `itens_catalogo`, criado na Fase 04.4.
+
 **Goal**: Saber o que existe, o que está acabando e para onde o material foi — saldo sempre
 derivado das movimentações, nunca uma coluna editável.
 **Corresponde a**: M5 do `03-ROADMAP.md`. As 9 fases do milestone (migração `0005_estoque` +
@@ -465,10 +529,8 @@ dia ruim.
 **Corresponde a**: M7 do `03-ROADMAP.md`. As 7 fases do milestone (painel inicial real, revisão
 de acessibilidade, revisão de desempenho, revisão de mensagens de erro e estados vazios,
 simulacro de restauração de desastre cronometrado e documentado, manual de uso com imagens,
-documento de operação) tornam-se os planos desta fase. Esta fase **não** espera pela M6
-(Calculadora de Orçamento — bloqueada por planilhas de precificação ausentes e fora deste
-roadmap).
-**Depends on**: Phases 1-6 (M0 a M5 — não depende da M6)
+documento de operação) tornam-se os planos desta fase.
+**Depends on**: Phases 1-6 e o Financeiro (04.4 e a parte 2)
 **Requirements**: UI-10, UI-11, PNL-01, PNL-02, PNL-03, PNL-04, PNL-05, PNL-06, PNL-07
 **Success Criteria** (what must be TRUE):
 
@@ -493,13 +555,14 @@ roadmap).
 | Phase 4 | M4 — Contador de Queima | 5ª (antecipada — ver nota na Fase 4) |
 | Phase 5 | M3 — Agenda de Aulas | 6ª (deslocada — ver nota na Fase 5) |
 | Phase 6 | M5 — Estoque | 7ª |
-| Phase 7 | M7 — Polimento e entrega | 8ª (não espera M6) |
-| — | M6 — Calculadora de Orçamento 🔴 | Excluída — bloqueada, requisitos em v2 |
+| Phase 04.4 | M6 — virou Financeiro, parte 1 | próxima (revisão de 2026-09-19) |
+| — | M6 — Financeiro, parte 2 (Precificação + Orçamento) | sem fase ainda; ORC-* em v2 |
+| Phase 7 | M7 — Polimento e entrega | última |
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
+Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → **04.4** → Financeiro 2 → `/gestao` + site → 6 → Produção → 5 → Queimas → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -511,6 +574,7 @@ Phases execute in numeric order: 1 → 2a → 2b → 3 → 4 → 5 → 6 → 7
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
+| 04.4. Financeiro — parte 1 | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

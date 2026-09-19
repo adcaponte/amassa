@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 6
-current_phase_name: estoque
-status: planning
-stopped_at: "Fase 04.3 concluida e verificada (9/9, 04.3-VERIFICATION.md), no ar desde 2026-09-18 com 0012/0013 aplicadas. Proxima, por ordem do dono: Fase 6 (Estoque), comecando por prototipo. A Fase 5 (Agenda) continua em espera."
-last_updated: "2026-09-19T09:10:06.209Z"
-last_activity: 2026-09-18
-last_activity_desc: Phase 04.3 complete; next is Phase 6 (Estoque)
+current_phase: 04.4
+current_phase_name: financeiro-parte-1
+status: discussing
+stopped_at: "Fase 04.4 (Financeiro, parte 1) criada em 2026-09-19 a partir do prototipo aprovado; /gsd-discuss-phase 04.4 em andamento com os cinco pontos da secao 9 do briefing. Nao planejar nem executar antes de o dono responder. A Fase 6 (Estoque) foi adiada pela revisao de 19/09."
+last_updated: "2026-09-19T16:56:52.540Z"
+last_activity: 2026-09-19
+last_activity_desc: "Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque"
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 8
   total_plans: 51
   completed_plans: 51
@@ -23,19 +23,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 6 — Estoque (protótipo antes de planejar)
+**Current focus:** Phase 04.4 — Financeiro, parte 1 (protótipo aprovado; discussão em andamento)
 
 ## Current Position
 
-Phase: 6 — Estoque (a Fase 5, Agenda, está em espera por decisão do dono)
-de fase pelo orquestrador
+Phase: 04.4 — Financeiro, parte 1: Venda, Compra, Caixa, Mês e Cadastros (inserida em 2026-09-19;
+executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
 Plan: Not started
-Status: Protótipo primeiro, depois /gsd-discuss-phase 6
-corrigido (Tarefa 1), varredura completa do e2e e conferência com o protótipo (Tarefa 2), e as
-migrações aplicadas em produção pelo dono em 2026-09-18 depois de backup (Tarefa 3,
-checkpoint:human-action — Roteiro 9 corrigido em 0c690d4 antes de o dono rodá-lo). CMP-07 e CMP-09
-marcados completos. Próximo: verificação de fim de fase 04.3 pelo orquestrador; NÃO dar push sem
-confirmar com o dono.
+Status: /gsd-discuss-phase 04.4 — cinco pontos em aberto (§9 do BRIEFING.md da fase). Não planejar
+nem executar antes de o dono responder. NÃO dar push sem confirmar com o dono.
 Last activity: 2026-09-19 - Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque
 
 Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
@@ -319,6 +315,7 @@ None yet.
 - Phase 04.1 inserted after Phase 4: Datas dos Marcos da Encomenda — nasceu da caminhada humana do dono, reabre ENC-03, precisa de migracao. Executa antes da Fase 5 (URGENT)
 - Phase 04.2 inserted after Phase 04.1: Abertura do Espaço — módulo TEMPORÁRIO (data de morte, ABE-15) para organizar a abertura do novo espaço do ateliê; protótipo validado com o dono em cinco rodadas antes do planejamento. Ordem de execução revista: 4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento), por decisão do dono em 2026-08-22
 - Phase 04.3 inserted after Phase 4.2: Comparador de Compras — aba do módulo Abertura para comparar cotações lado a lado; protótipo do dono é a especificação; preço numérico, independente dos itens, sem mudança de permissão (URGENT)
+- Phase 04.4 inserted after Phase 04.3: Financeiro — parte 1: Venda, Compra, Caixa, Mês e Cadastros. Revisão do projeto de 2026-09-19: executa antes das Fases 5 e 6; Estoque deixa de ser a próxima (URGENT)
 
 ## Deferred Items
 
