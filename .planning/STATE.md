@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 04.4
-status: discussing
+status: ready_to_plan
 stopped_at: "Phase 04.4 context gathered (5 pontos da §9 decididos: D-01..D-12). Próximo: /gsd-plan-phase 04.4, só depois de o dono liberar"
 last_updated: "2026-09-19T17:03:17.791Z"
 last_activity: 2026-09-19
@@ -23,15 +23,15 @@ current_phase_name: financeiro-parte-1
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04.4 — Financeiro, parte 1 (protótipo aprovado; discussão em andamento)
+**Current focus:** Phase 04.4 — Financeiro, parte 1 (protótipo aprovado; discussão concluída, pronta para planejar)
 
 ## Current Position
 
 Phase: 04.4 — Financeiro, parte 1: Venda, Compra, Caixa, Mês e Cadastros (inserida em 2026-09-19;
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
 Plan: Not started
-Status: /gsd-discuss-phase 04.4 — cinco pontos em aberto (§9 do BRIEFING.md da fase). Não planejar
-nem executar antes de o dono responder. NÃO dar push sem confirmar com o dono.
+Status: Discussão concluída em 2026-09-19 (04.4-CONTEXT.md, D-01..D-12). Próximo: /gsd-plan-phase
+04.4 — só quando o dono liberar. NÃO dar push sem confirmar com o dono.
 Last activity: 2026-09-19 - Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque
 
 Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
