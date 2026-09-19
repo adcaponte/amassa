@@ -36,7 +36,7 @@ migrações aplicadas em produção pelo dono em 2026-09-18 depois de backup (Ta
 checkpoint:human-action — Roteiro 9 corrigido em 0c690d4 antes de o dono rodá-lo). CMP-07 e CMP-09
 marcados completos. Próximo: verificação de fim de fase 04.3 pelo orquestrador; NÃO dar push sem
 confirmar com o dono.
-Last activity: 2026-09-18 — Phase 04.3 complete; next is Phase 6 (Estoque)
+Last activity: 2026-09-19 - Completed quick task 260919-e4n: cartões do painel da Abertura por aba
 
 Progress: [██████████] 100% (51 de 51 planos executados e verificados até aqui)
 
@@ -309,6 +309,7 @@ None yet.
 | 8 | Caixinha de marcar para comparar sem fundo terracota (CR-01 do 04.3-REVIEW): data-checked -> data-[state=checked] em components/ui/checkbox.tsx, medido na build de producao — commit 2e33c5f | 2026-09-18 | 2e33c5f | — |
 | 9 | casca.spec.ts:124 contava aria-current na página inteira; em /queimas o submenu também marca — conta só no menu principal (reprovação do pipeline 35432168671 após Next 16) | 2026-09-19 | e7aecb7 | — |
 | 10 | Fecha a sessão de debug e2e-toque-nao-navega-ci após conferência do dono no celular; WINDOWS #12 #29 #30 #31 corrigidos | 2026-09-19 | 8666291 | — |
+| 260919-e4n | Cartões do painel da Abertura por aba: Comprometido e Sai neste mês só em Por mês; Precisa de atenção só em Itens; nenhum em Tarefas e Cotações | 2026-09-19 | cefee93 | [260919-e4n-cartoes-do-painel-da-abertura-por-aba](./quick/260919-e4n-cartoes-do-painel-da-abertura-por-aba/) |
 
 ### Roadmap Evolution
 
