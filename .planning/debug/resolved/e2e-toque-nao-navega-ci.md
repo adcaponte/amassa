@@ -1,8 +1,8 @@
 ---
-status: awaiting_human_verify
+status: resolved
 trigger: "Testes e2e da família 'toque que não navega' estão barrando o deploy (pipeline run 35391824317, commit a6cbac5, 2026-09-18). Ver Symptoms."
 created: 2026-09-18T21:05:00Z
-updated: 2026-09-18T22:50:00Z
+updated: 2026-09-19T09:10:00Z
 deadline: 2026-09-18T23:32:00Z
 symptoms_prefilled: true
 goal: find_and_fix
@@ -924,3 +924,12 @@ for (let i = 0; i < REPS; i++) {
   });
 }
 ```
+
+
+## Fechamento (2026-09-19)
+
+- Enviado com o teste da casca corrigido (`e7aecb7`: a contagem de aria-current passou a ser só no menu principal — em /queimas o submenu também marca, e o teste só passava no Next 15 pela tela de carregamento).
+- Pipeline 35432901674 verde e implantado (09:02 UTC): 416 aprovados, 1 instável fora da família de navegação (`queimas-relatorios.spec.ts:96`).
+- O dono conferiu no celular em produção: Sair pede login ao reabrir, troca de categoria em Cotações responde, Encomendas/Fornos/Abertura abrem normal — "ta funcionando legal".
+- WINDOWS #12, #29, #30, #31 marcados como fixed.
+- Pendências menores que ficam registradas aqui: `middleware.ts` → `proxy.ts` (Next 16), `eslint-config-next` ainda na 15.5, revogação de sessão no servidor (precisa de migração e decisão do dono). A sessão-mãe `abertura-navegacao-trava.md` segue aberta: o resíduo de `router.refresh()` em Queimas/Encomendas (WINDOWS #26) provavelmente tem a mesma causa, mas não foi medido no Next 16.
