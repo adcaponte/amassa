@@ -65,6 +65,19 @@
   --color-atencao:      #B45309;   --color-atencao-fundo: #FEF3C7;
   --color-erro:         #B91C1C;   --color-erro-fundo:    #FEE2E2;
 
+  /* áreas do Financeiro (Fase 04.4, 04.4-UI-SPEC.md §Color) — uso sempre decorativo (ponto,
+     borda, segmento), nunca cor de texto. Nota de coincidência, não de reuso: os hex de
+     -cafeteria/-espaco/-pecas/-loja coincidem, byte a byte, com --color-producao/-esmaltacao/
+     -queima1/-entrega (etapas de encomenda) — herança do mesmo protótipo-fonte original. São
+     tokens NOVOS e independentes: nenhum token de etapa é lido pelo módulo Financeiro, e vice-
+     versa — não "consertar" a duplicação de hex, mesmo cuidado já registrado para
+     --color-ouro/--color-forno-atencao. */
+  --color-area-cafeteria: #8B6F47;
+  --color-area-espaco:    #2E7D8C;
+  --color-area-pecas:     #C2451B;
+  --color-area-loja:      #5B7553;
+  --color-area-geral:     #6E5F56;
+
   /* raio — no Tailwind v4 o namespace É "--radius-*" */
   --radius-sm: 6px;
   --radius-md: 10px;

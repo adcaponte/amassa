@@ -96,6 +96,19 @@ describe("app/globals.css — tokens do design system (D-08, D-09)", () => {
     expect(globalsCss).toMatch(padrao);
   });
 
+  // As 5 cores de área do Financeiro (Fase 04.4, 04.4-UI-SPEC.md §Color) — únicas cores
+  // genuinamente novas desta fase.
+  it.each([
+    ["--color-area-cafeteria", "#8B6F47"],
+    ["--color-area-espaco", "#2E7D8C"],
+    ["--color-area-pecas", "#C2451B"],
+    ["--color-area-loja", "#5B7553"],
+    ["--color-area-geral", "#6E5F56"],
+  ])("cor de área do Financeiro %s vale %s", (chave, valorEsperado) => {
+    const padrao = new RegExp(`${chave}:\\s*${valorEsperado};`, "i");
+    expect(globalsCss).toMatch(padrao);
+  });
+
   it.each([
     ["--radius-sm", "6px"],
     ["--radius-md", "10px"],

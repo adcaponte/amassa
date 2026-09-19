@@ -47,6 +47,17 @@ const TABELAS_ESPERADAS = [
   // (Tarefa 3 do plano 04.3-01), nunca em `TABELAS_DA_REMOCAO_ABERTURA` abaixo.
   "cotacao_categorias",
   "cotacoes",
+  // Fase 04.4 — Financeiro (migração 0014_financeiro): permanentes, não saem com a Abertura —
+  // ao contrário do bloco de Abertura do Espaço acima, nenhuma tabela abaixo entra em
+  // TABELAS_DA_REMOCAO_ABERTURA nem depende do módulo temporário para existir.
+  "categorias",
+  "itens_catalogo",
+  "ficha_tecnica",
+  "documentos",
+  "documento_linhas",
+  "parcelas",
+  "contas_fixas",
+  "configuracao_financeira",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção

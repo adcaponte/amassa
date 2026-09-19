@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -508,5 +509,386 @@ export const cotacoes = pgTable(
       sql`${tabela.precoCentavos} is null or (${tabela.precoCentavos} >= 0 and ${tabela.precoCentavos} <= 1000000000)`,
     ),
     index("cotacoes_categoria_idx").on(tabela.categoriaId, tabela.criadoEm),
+  ],
+);
+
+// Fase 04.4 — Financeiro (migração 0014_financeiro). Estas tabelas são PERMANENTES: ao
+// contrário do bloco da Abertura do Espaço acima, nenhuma delas sai numa migração de remoção.
+// `itens_catalogo` é o cadastro único de itens da plataforma inteira — o módulo Estoque (fase
+// futura) liga saldo, custo médio e movimentações a esta MESMA tabela (`controla_estoque`,
+// `unidade`, `categoria_compra_id`), nunca a uma segunda tabela "materiais".
+//
+// Dinheiro é inteiro em centavos em toda coluna de valor, com teto de 10^9 (dez milhões de
+// reais), seguindo `abertura_itens.valor_centavos`/`cotacoes.preco_centavos` — o `numeric(12,2)`
+// do briefing original foi descartado de propósito (04.4-CONTEXT.md, Claude's Discretion).
+// Quantidade de estoque/ficha técnica é `numeric(12,3)` (0,04 kg existe).
+//
+// Nenhuma chave estrangeira usa `cascade` — nada do financeiro se apaga, então toda referência é
+// a padrão (restringe). Nenhuma chave estrangeira liga estas tabelas a `abertura_*`/`cotacao*` —
+// a virada (plano futuro) guarda só um texto de origem (`chave_de_importacao`), nunca uma
+// referência, porque a Abertura é módulo temporário e não pode levar o Financeiro junto no dia
+// em que for desmontada.
+export const grupoCategoria = pgEnum("grupo_categoria", ["receita", "custo", "geral", "fora"]);
+export const areaFinanceira = pgEnum("area_financeira", [
+  "cafeteria",
+  "espaco",
+  "pecas",
+  "loja",
+  "geral",
+]);
+export const formaPagamento = pgEnum("forma_pagamento", ["dinheiro", "pix", "cartao"]);
+export const tipoDocumento = pgEnum("tipo_documento", ["venda", "despesa"]);
+// A lista de unidades do protótipo do Estoque (`.planning/phases/06-estoque/prototipo.html`) —
+// exibida com "L" maiúsculo só na tela, nunca no banco.
+export const unidadeEstoque = pgEnum("unidade_estoque", ["un", "g", "kg", "ml", "l", "m"]);
+
+// Uma categoria de venda/despesa: pertence a um grupo e a uma área (D-14/04.4-CONTEXT.md). O
+// gestor nunca escolhe a área ao lançar — ela vem sempre da categoria (BRIEFING §2). O grupo
+// `geral`/`fora` SEMPRE anda com área `geral`; o grupo `receita`/`custo` SEMPRE anda com uma das
+// quatro áreas de verdade — a restrição de coerência abaixo prova isso no banco, não só no Zod.
+// `chaveDoSistema` marca a única categoria achada por código, nunca por nome editável pelo dono
+// (D-01/D-02/D-14): "diferenca" é a categoria "Juros, multas e descontos" da semente 0016.
+export const categorias = pgTable(
+  "categorias",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    grupo: grupoCategoria("grupo").notNull(),
+    area: areaFinanceira("area").notNull(),
+    ativa: boolean("ativa").notNull().default(true),
+    chaveDoSistema: text("chave_do_sistema"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("categorias_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    unique("categorias_chave_do_sistema_uk").on(tabela.chaveDoSistema),
+    check(
+      "categorias_chave_do_sistema_valida",
+      sql`${tabela.chaveDoSistema} is null or ${tabela.chaveDoSistema} = 'diferenca'`,
+    ),
+    // Equivalência (não um "OU" solto): grupo em (geral, fora) SE E SOMENTE SE área = geral.
+    check(
+      "categorias_grupo_area_coerente",
+      sql`(${tabela.grupo} in ('geral','fora')) = (${tabela.area} = 'geral')`,
+    ),
+    uniqueIndex("categorias_nome_normalizado_idx").on(sql`lower(trim(${tabela.nome}))`),
+  ],
+);
+
+// O cadastro único de itens da plataforma (venda E compra). `aparece_na_venda`/`controla_estoque`
+// não são exclusivos (um item pode vender e controlar estoque ao mesmo tempo) mas pelo menos um
+// dos dois tem de ser verdadeiro — um item que não vende e não controla estoque não serve para
+// nada neste módulo. `precoVendaCentavos` nulo = "valor na hora" (preço decidido no balcão).
+export const itensCatalogo = pgTable(
+  "itens_catalogo",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    categoriaVendaId: uuid("categoria_venda_id").references(() => categorias.id),
+    precoVendaCentavos: integer("preco_venda_centavos"),
+    aparecenaVenda: boolean("aparece_na_venda").notNull().default(false),
+    atalhoVenda: boolean("atalho_venda").notNull().default(false),
+    controlaEstoque: boolean("controla_estoque").notNull().default(false),
+    atalhoCompra: boolean("atalho_compra").notNull().default(false),
+    unidade: unidadeEstoque("unidade"),
+    categoriaCompraId: uuid("categoria_compra_id").references(() => categorias.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("itens_catalogo_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    check(
+      "itens_catalogo_preco_no_intervalo",
+      sql`${tabela.precoVendaCentavos} is null or (${tabela.precoVendaCentavos} >= 1 and ${tabela.precoVendaCentavos} <= 1000000000)`,
+    ),
+    check(
+      "itens_catalogo_aparece_exige_categoria_venda",
+      sql`not ${tabela.aparecenaVenda} or ${tabela.categoriaVendaId} is not null`,
+    ),
+    check(
+      "itens_catalogo_controla_exige_unidade_e_categoria_compra",
+      sql`not ${tabela.controlaEstoque} or (${tabela.unidade} is not null and ${tabela.categoriaCompraId} is not null)`,
+    ),
+    check(
+      "itens_catalogo_aparece_ou_controla",
+      sql`${tabela.aparecenaVenda} or ${tabela.controlaEstoque}`,
+    ),
+    check(
+      "itens_catalogo_atalho_venda_exige_aparece",
+      sql`not ${tabela.atalhoVenda} or ${tabela.aparecenaVenda}`,
+    ),
+    check(
+      "itens_catalogo_atalho_compra_exige_controla",
+      sql`not ${tabela.atalhoCompra} or ${tabela.controlaEstoque}`,
+    ),
+  ],
+);
+
+// Um nível só (D-01 do briefing §4/plano 03): o cálculo do efeito no estoque nunca recursa.
+// `insumoId` também referencia `itens_catalogo` — o insumo É um item do catálogo, marcado
+// `controla_estoque`.
+export const fichaTecnica = pgTable(
+  "ficha_tecnica",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => itensCatalogo.id),
+    insumoId: uuid("insumo_id")
+      .notNull()
+      .references(() => itensCatalogo.id),
+    quantidade: numeric("quantidade", { precision: 12, scale: 3 }).notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("ficha_tecnica_item_insumo_uk").on(tabela.itemId, tabela.insumoId),
+    check("ficha_tecnica_item_diferente_insumo", sql`${tabela.itemId} <> ${tabela.insumoId}`),
+    check("ficha_tecnica_quantidade_positiva", sql`${tabela.quantidade} > 0`),
+  ],
+);
+
+// Uma conta que se repete todo mês (aluguel, água e luz...). "Gerar as contas de <mês>" (plano
+// 07) cria um `documentos` de despesa por conta ativa — idempotente por (conta_fixa_id,
+// mes_referencia), a restrição única de `documentos` abaixo.
+export const contasFixas = pgTable(
+  "contas_fixas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    categoriaId: uuid("categoria_id")
+      .notNull()
+      .references(() => categorias.id),
+    valorEsperadoCentavos: integer("valor_esperado_centavos").notNull(),
+    diaVencimento: integer("dia_vencimento").notNull(),
+    ativa: boolean("ativa").notNull().default(true),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("contas_fixas_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    check(
+      "contas_fixas_valor_no_intervalo",
+      sql`${tabela.valorEsperadoCentavos} >= 1 and ${tabela.valorEsperadoCentavos} <= 1000000000`,
+    ),
+    check(
+      "contas_fixas_dia_vencimento_no_intervalo",
+      sql`${tabela.diaVencimento} between 1 and 31`,
+    ),
+  ],
+);
+
+// Uma venda ou uma despesa — o "lançamento" que o gestor vê. `numero` é gerado pelo banco
+// (`generated always as identity`, opção A do checkpoint do dono, 04.4-01-SUMMARY.md): uma
+// sequência SÓ, para vendas e despesas juntas, sempre crescente, nunca repete, pode pular quando
+// um lançamento falha no meio. O total do documento é SEMPRE a soma das linhas — nunca uma
+// coluna gravada aqui (BRIEFING §5). `chaveDeImportacao` é texto puro (nunca uma chave
+// estrangeira) para a virada da Abertura (plano futuro) não criar dependência entre os módulos.
+export const documentos = pgTable(
+  "documentos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    numero: integer("numero").notNull().generatedAlwaysAsIdentity(),
+    tipo: tipoDocumento("tipo").notNull(),
+    // Dia civil, nunca timestamptz — o "hoje" do módulo é `hojeEmBrasilia(new Date())`,
+    // calculado na borda, nunca `current_date` cru nem `new Date()` dentro de módulo puro.
+    data: date("data", { mode: "string" }).notNull(),
+    pessoaNome: text("pessoa_nome"),
+    titulo: text("titulo"),
+    contaFixaId: uuid("conta_fixa_id").references(() => contasFixas.id),
+    mesReferencia: date("mes_referencia", { mode: "string" }),
+    chaveDeImportacao: text("chave_de_importacao"),
+    canceladoEm: timestamp("cancelado_em", { withTimezone: true }),
+    canceladoPor: uuid("cancelado_por").references(() => usuarios.id),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("documentos_numero_uk").on(tabela.numero),
+    unique("documentos_conta_fixa_mes_uk").on(tabela.contaFixaId, tabela.mesReferencia),
+    unique("documentos_chave_de_importacao_uk").on(tabela.chaveDeImportacao),
+    check(
+      "documentos_pessoa_nome_comprimento",
+      sql`${tabela.pessoaNome} is null or length(trim(${tabela.pessoaNome})) between 1 and 160`,
+    ),
+    check(
+      "documentos_titulo_comprimento",
+      sql`${tabela.titulo} is null or length(trim(${tabela.titulo})) between 1 and 160`,
+    ),
+    check(
+      "documentos_mes_referencia_primeiro_dia",
+      sql`${tabela.mesReferencia} is null or extract(day from ${tabela.mesReferencia}) = 1`,
+    ),
+    check(
+      "documentos_conta_fixa_e_mes_juntos",
+      sql`(${tabela.contaFixaId} is null and ${tabela.mesReferencia} is null) or (${tabela.contaFixaId} is not null and ${tabela.mesReferencia} is not null)`,
+    ),
+    check(
+      "documentos_cancelado_em_e_por_juntos",
+      sql`(${tabela.canceladoEm} is null and ${tabela.canceladoPor} is null) or (${tabela.canceladoEm} is not null and ${tabela.canceladoPor} is not null)`,
+    ),
+    index("documentos_data_idx").on(tabela.data),
+    index("documentos_tipo_data_idx").on(tabela.tipo, tabela.data),
+  ],
+);
+
+// Uma parcela é QUANDO e COMO o dinheiro entra/sai — a forma de pagamento mora AQUI, nunca no
+// documento (D-07 do 04.4-CONTEXT.md): uma venda pode ter uma parcela no Pix e outra em dinheiro
+// (D-08, pagamento misto). `valorPrevistoCentavos`/`formaPrevista` só existem depois de um
+// "Paguei"/"Recebi" com valor diferente do esperado — é o que faz o "Desfazer" (D-03) ser o
+// inverso exato: sem guardar o valor original aqui, desfazer vira migração de dado depois.
+export const parcelas = pgTable(
+  "parcelas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    documentoId: uuid("documento_id")
+      .notNull()
+      .references(() => documentos.id),
+    numero: integer("numero").notNull(),
+    vencimento: date("vencimento", { mode: "string" }).notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    forma: formaPagamento("forma").notNull(),
+    pagoEm: date("pago_em", { mode: "string" }),
+    pagoPor: uuid("pago_por").references(() => usuarios.id),
+    // Congelada no momento do pagamento no cartão (BRIEFING §5) — mudar a taxa em Cadastros
+    // depois não reescreve o passado.
+    taxaPontosBase: integer("taxa_pontos_base"),
+    valorPrevistoCentavos: integer("valor_previsto_centavos"),
+    formaPrevista: formaPagamento("forma_prevista"),
+    rotulo: text("rotulo"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("parcelas_documento_numero_uk").on(tabela.documentoId, tabela.numero),
+    check(
+      "parcelas_valor_no_intervalo",
+      sql`${tabela.valorCentavos} >= 1 and ${tabela.valorCentavos} <= 1000000000`,
+    ),
+    check(
+      "parcelas_taxa_no_intervalo",
+      sql`${tabela.taxaPontosBase} is null or (${tabela.taxaPontosBase} >= 0 and ${tabela.taxaPontosBase} <= 10000)`,
+    ),
+    check(
+      "parcelas_valor_previsto_no_intervalo",
+      sql`${tabela.valorPrevistoCentavos} is null or (${tabela.valorPrevistoCentavos} >= 1 and ${tabela.valorPrevistoCentavos} <= 1000000000)`,
+    ),
+    check(
+      "parcelas_rotulo_comprimento",
+      sql`${tabela.rotulo} is null or length(trim(${tabela.rotulo})) between 1 and 40`,
+    ),
+    check(
+      "parcelas_taxa_exige_pago_no_cartao",
+      sql`${tabela.taxaPontosBase} is null or (${tabela.pagoEm} is not null and ${tabela.forma} = 'cartao')`,
+    ),
+    check(
+      "parcelas_previsto_e_forma_prevista_juntos",
+      sql`(${tabela.valorPrevistoCentavos} is null and ${tabela.formaPrevista} is null) or (${tabela.valorPrevistoCentavos} is not null and ${tabela.formaPrevista} is not null)`,
+    ),
+    check(
+      "parcelas_previsto_exige_pago",
+      sql`${tabela.valorPrevistoCentavos} is null or ${tabela.pagoEm} is not null`,
+    ),
+    index("parcelas_pago_em_idx").on(tabela.pagoEm),
+    index("parcelas_documento_idx").on(tabela.documentoId),
+    index("parcelas_vencimento_em_aberto_idx")
+      .on(tabela.vencimento)
+      .where(sql`${tabela.pagoEm} is null`),
+  ],
+);
+
+// Cada linha de um documento (o que foi vendido/comprado). `valorCentavos` é o valor da LINHA
+// INTEIRA, já com desconto — nunca preço unitário: o desconto proporcional (D-09/D-10) não
+// divide por quantidade em centavos exatos. `parcelaDiferencaId` marca a ÚNICA linha que pode
+// ter valor negativo (D-01/D-02) — a "diferença" que um "Paguei/Recebi" com valor divergente
+// acrescenta sozinho, sempre na categoria de `chave_do_sistema = 'diferenca'`.
+export const documentoLinhas = pgTable(
+  "documento_linhas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    documentoId: uuid("documento_id")
+      .notNull()
+      .references(() => documentos.id),
+    ordem: integer("ordem").notNull().default(0),
+    itemId: uuid("item_id").references(() => itensCatalogo.id),
+    descricao: text("descricao").notNull(),
+    categoriaId: uuid("categoria_id")
+      .notNull()
+      .references(() => categorias.id),
+    quantidade: integer("quantidade").notNull().default(1),
+    quantidadeEstoque: numeric("quantidade_estoque", { precision: 12, scale: 3 }),
+    valorCentavos: integer("valor_centavos").notNull(),
+    parcelaDiferencaId: uuid("parcela_diferenca_id").references(() => parcelas.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("documento_linhas_parcela_diferenca_uk").on(tabela.parcelaDiferencaId),
+    check(
+      "documento_linhas_descricao_comprimento",
+      sql`length(trim(${tabela.descricao})) between 1 and 160`,
+    ),
+    check(
+      "documento_linhas_quantidade_no_intervalo",
+      sql`${tabela.quantidade} between 1 and 99999`,
+    ),
+    check(
+      "documento_linhas_quantidade_estoque_positiva",
+      sql`${tabela.quantidadeEstoque} is null or ${tabela.quantidadeEstoque} > 0`,
+    ),
+    check(
+      "documento_linhas_valor_conforme_diferenca",
+      sql`(${tabela.parcelaDiferencaId} is null and ${tabela.valorCentavos} between 0 and 1000000000) or (${tabela.parcelaDiferencaId} is not null and ${tabela.valorCentavos} between -1000000000 and 1000000000 and ${tabela.valorCentavos} <> 0)`,
+    ),
+    index("documento_linhas_documento_ordem_idx").on(tabela.documentoId, tabela.ordem),
+    index("documento_linhas_categoria_idx").on(tabela.categoriaId),
+  ],
+);
+
+// Linha única de configuração (mesmo padrão de `aberturaConfiguracao` acima). A migração NÃO
+// semeia linha nenhuma: ausente = taxa 0, saldo 0, sem data — nunca um valor inventado.
+export const configuracaoFinanceira = pgTable(
+  "configuracao_financeira",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    linhaUnica: boolean("linha_unica").notNull().default(true),
+    // 0 a 10000 pontos-base (3,5% = 350).
+    taxaCartaoPontosBase: integer("taxa_cartao_pontos_base").notNull().default(0),
+    saldoInicialCentavos: integer("saldo_inicial_centavos").notNull().default(0),
+    dataSaldoInicial: date("data_saldo_inicial", { mode: "string" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("configuracao_financeira_linha_unica_uk").on(tabela.linhaUnica),
+    check("configuracao_financeira_linha_unica", sql`${tabela.linhaUnica}`),
+    check(
+      "configuracao_financeira_taxa_no_intervalo",
+      sql`${tabela.taxaCartaoPontosBase} between 0 and 10000`,
+    ),
+    check(
+      "configuracao_financeira_saldo_no_intervalo",
+      sql`${tabela.saldoInicialCentavos} >= -1000000000 and ${tabela.saldoInicialCentavos} <= 1000000000`,
+    ),
   ],
 );
