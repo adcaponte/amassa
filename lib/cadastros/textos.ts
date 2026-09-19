@@ -47,8 +47,10 @@ export const DICA_TRAVADO_POR_USO = "Grupo e área ficam travados depois que a c
 export const ROTULO_CANCELAR = "Cancelar";
 export const ROTULO_SALVAR = "Salvar";
 
+// Literal "(s)" — mesma convenção de copy do protótipo para contagem sem distinguir singular de
+// plural (UI-SPEC/must_haves do plano citam "N lançamento(s)" ao pé da letra).
 export function rotuloLancamentos(quantidade: number): string {
-  return `${quantidade} lançamento${quantidade === 1 ? "" : "s"}`;
+  return `${quantidade} lançamento(s)`;
 }
 
 export const FRASE_NOME_REPETIDO = "Já existe uma categoria com esse nome.";

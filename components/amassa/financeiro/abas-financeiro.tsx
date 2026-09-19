@@ -21,6 +21,12 @@ const ABAS: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
 // A quinta pílula, "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um
 // `?aba=` — Cadastros é rota própria. Fica selecionada quando `pathname` começa com
 // `/cadastros`, nunca por `abaAtual` (que só existe dentro de `/financeiro`).
+//
+// `min-w-0` + `break-words` em cada pílula (abaixo): mesmo achado real do e2e "cadastros base"
+// aplicado aqui por prevenção — com só 3 pílulas hoje (Venda/Caixa/Cadastros) esta barra ainda
+// cabe a 320px, mas os planos 07/09 acrescentam Despesa e Mês (5 pílulas ao todo, a mesma
+// contagem de `SubAbasCadastros`, onde o estouro de 3px apareceu). Sem esta classe, o dia em que
+// a 4ª/5ª pílula entrar reproduziria o mesmo estouro.
 const ROTULO_CADASTROS = "Cadastros";
 
 export type AbasFinanceiroProps = {
@@ -60,7 +66,7 @@ function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) 
             aria-selected={selecionada}
             data-testid={`financeiro-aba-${aba.valor}`}
             className={cn(
-              "text-corpo flex min-h-[44px] flex-1 items-center justify-center rounded-sm p-1 text-center font-medium transition-colors",
+              "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
               selecionada
                 ? "bg-background text-foreground font-semibold shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -76,7 +82,7 @@ function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) 
         aria-selected={emCadastros}
         data-testid="financeiro-aba-cadastros"
         className={cn(
-          "text-corpo flex min-h-[44px] flex-1 items-center justify-center rounded-sm p-1 text-center font-medium transition-colors",
+          "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
           emCadastros
             ? "bg-background text-foreground font-semibold shadow-sm"
             : "text-muted-foreground hover:text-foreground",

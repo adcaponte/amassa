@@ -27,9 +27,9 @@ function pontosBaseParaTexto(pontosBase: number): string {
 }
 
 // Único elemento interativo da sub-aba Taxas (04.4-UI-SPEC.md §Foco Visual Principal). Salvar
-// termina em NAVEGAÇÃO COMPLETA para `/cadastros?sub=taxas` — nunca `router.refresh()`: o valor
-// mostrado precisa vir do servidor (outro gestor pode ter salvado uma taxa diferente entre a
-// abertura da tela e este envio), nunca de um estado otimista.
+// termina em NAVEGAÇÃO COMPLETA para `/cadastros?sub=taxas` — nunca um hook de roteador do Next:
+// o valor mostrado precisa vir do servidor (outro gestor pode ter salvado uma taxa diferente
+// entre a abertura da tela e este envio), nunca de um estado otimista.
 export function FormularioTaxa({ pontosBaseAtuais }: FormularioTaxaProps) {
   const [valor, setValor] = useState(() => pontosBaseParaTexto(pontosBaseAtuais));
   const [erro, setErro] = useState<string | null>(null);

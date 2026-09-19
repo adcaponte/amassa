@@ -13,8 +13,16 @@ import { cn } from "@/lib/utils";
 // estrutural de `AbasFinanceiro`/`abas-abertura.tsx` — navegação por QUERY STRING na MESMA rota
 // (`?sub=`). Server Component simples: não precisa reagir a nada além do que a própria página já
 // recebe em `searchParams`. A régua de 44px é PISO, não teto — o rótulo quebra em duas linhas a
-// 320px em vez de truncar ou estourar a largura (mesmo cuidado do UI-SPEC para a barra do
-// Financeiro), por isso nenhuma classe de `white-space`/`truncate` foi acrescentada aqui.
+// 320px em vez de truncar ou estourar a largura.
+//
+// `min-w-0` + `break-words` em cada pílula: achado real do e2e "cadastros base" (não suposição)
+// — sem eles, um `<Link>` `flex-1` mantém `min-width: auto` (o piso padrão do flexbox), que para
+// uma palavra ÚNICA sem espaço ("Categorias") é a largura do texto inteiro sem quebra. Com
+// QUATRO pílulas nesta fileira (uma a mais que a barra do Financeiro), esse piso somado
+// estourava 320px por 3px — pequeno demais para notar visualmente, grande o bastante para o
+// teste automatizado de UI-06 pegar. `min-w-0` deixa a pílula encolher abaixo do conteúdo;
+// `break-words` (overflow-wrap) é o que permite ATÉ uma palavra única quebrar em duas linhas
+// quando encolhida, em vez de vazar.
 const SUB_ABAS: readonly { valor: SubCadastros; rotulo: string }[] = [
   { valor: "catalogo", rotulo: ROTULO_SUB_CATALOGO },
   { valor: "categorias", rotulo: ROTULO_SUB_CATEGORIAS },
@@ -39,7 +47,7 @@ export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
             aria-selected={selecionada}
             data-testid={`cadastros-sub-${sub.valor}`}
             className={cn(
-              "text-corpo flex min-h-[44px] flex-1 items-center justify-center rounded-sm p-1 text-center font-medium transition-colors",
+              "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
               selecionada
                 ? "bg-background text-foreground font-semibold shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
