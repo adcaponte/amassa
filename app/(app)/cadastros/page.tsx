@@ -1,10 +1,14 @@
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { subDaUrl } from "@/lib/cadastros/abas";
 import { avisoDaUrl } from "@/lib/cadastros/avisos";
-import { listarCategoriasComUso, obterTaxaDoCartao } from "@/lib/cadastros/consultas";
 import {
-  FRASE_VAZIO_CATALOGO_CORPO,
-  FRASE_VAZIO_CATALOGO_TITULO,
+  listarCatalogoCompleto,
+  listarCategoriasComUso,
+  listarCategoriasParaItem,
+  listarInsumosDisponiveis,
+  obterTaxaDoCartao,
+} from "@/lib/cadastros/consultas";
+import {
   FRASE_VAZIO_FIXAS_CORPO,
   FRASE_VAZIO_FIXAS_TITULO,
   TOAST_CATEGORIA_DESATIVADA,
@@ -12,6 +16,7 @@ import {
 } from "@/lib/cadastros/textos";
 import { AvisoCadastros } from "@/components/amassa/cadastros/aviso-cadastros";
 import { FormularioTaxa } from "@/components/amassa/cadastros/formulario-taxa";
+import { ListaCatalogo } from "@/components/amassa/cadastros/lista-catalogo";
 import { ListaCategorias } from "@/components/amassa/cadastros/lista-categorias";
 import { SubAbasCadastros } from "@/components/amassa/cadastros/sub-abas-cadastros";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
@@ -22,10 +27,11 @@ import { EstadoVazio } from "@/components/amassa/estado-vazio";
 // `?aviso=categoria-reativada` — o texto pronto desce para `AvisoCadastros`, que só mostra o
 // toast, nunca monta a frase sozinho.
 //
-// Catálogo e Contas fixas ainda não têm tela própria (planos 05 e 10) — mostram o estado vazio
-// do §Copywriting SEM botão, porque a ação de criar ainda não existe. Categorias (Tarefa 3)
-// carrega `listarCategoriasComUso()` — só nesta sub-aba, mesma disciplina de
+// Catálogo (plano 05) carrega `listarCatalogoCompleto()`/`listarCategoriasParaItem()`/
+// `listarInsumosDisponiveis()` — só nesta sub-aba, mesma disciplina de
 // `app/(app)/financeiro/page.tsx` (uma leitura por lista, nunca a mais que a aba atual precisa).
+// Contas fixas ainda não tem tela própria (plano 10) — mostra o estado vazio do §Copywriting
+// SEM botão, porque a ação de criar ainda não existe.
 export default async function PaginaCadastros({
   searchParams,
 }: {
@@ -44,9 +50,14 @@ export default async function PaginaCadastros({
         ? TOAST_CATEGORIA_REATIVADA
         : null;
 
-  const [taxaAtual, categorias] = await Promise.all([
+  const [taxaAtual, categorias, catalogo, categoriasParaItem, insumosDisponiveis] = await Promise.all([
     subAtual === "taxas" ? obterTaxaDoCartao() : Promise.resolve(null),
     subAtual === "categorias" ? listarCategoriasComUso() : Promise.resolve([]),
+    subAtual === "catalogo" ? listarCatalogoCompleto() : Promise.resolve([]),
+    subAtual === "catalogo"
+      ? listarCategoriasParaItem()
+      : Promise.resolve({ vendaveis: [], compraveis: [] }),
+    subAtual === "catalogo" ? listarInsumosDisponiveis() : Promise.resolve([]),
   ]);
 
   return (
@@ -68,10 +79,10 @@ export default async function PaginaCadastros({
           corpo={FRASE_VAZIO_FIXAS_CORPO}
         />
       ) : (
-        <EstadoVazio
-          testId="cadastros-vazio-catalogo"
-          titulo={FRASE_VAZIO_CATALOGO_TITULO}
-          corpo={FRASE_VAZIO_CATALOGO_CORPO}
+        <ListaCatalogo
+          catalogo={catalogo}
+          categoriasParaItem={categoriasParaItem}
+          insumosDisponiveis={insumosDisponiveis}
         />
       )}
     </>

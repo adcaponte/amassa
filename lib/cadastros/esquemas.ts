@@ -5,9 +5,14 @@
 // redeclara" que vale entre módulos que podem ser desmontados independentemente.
 import { z } from "zod";
 
-import { converterPercentualParaPontosBase } from "@/lib/financeiro/dinheiro";
+import {
+  converterPercentualParaPontosBase,
+  converterQuantidade,
+  converterReaisParaCentavos,
+} from "@/lib/financeiro/dinheiro";
 import { esquemaId } from "@/lib/financeiro/esquemas";
 
+import { MAXIMO_DE_INSUMOS_POR_ITEM, validarItem, type InsumoDisponivel } from "./catalogo";
 import { FRASE_TAXA_ACIMA_DE_30 } from "./textos";
 
 export { esquemaId };
@@ -88,3 +93,126 @@ export const esquemaTaxa = z.object({ percentualTexto: z.string() }).transform((
   }
   return { pontosBase: resultado.pontosBase };
 });
+
+// ---------------------------------------------------------------------------------------------
+// Catálogo (04.4-05-PLAN.md)
+// ---------------------------------------------------------------------------------------------
+
+const UNIDADES = ["un", "g", "kg", "ml", "l", "m"] as const;
+
+const campoNomeItem = z
+  .string()
+  .transform((valor) => normalizarTexto(valor))
+  .refine((valor) => contarPontosDeCodigo(valor) >= 1, "Dê um nome ao item.")
+  .refine(
+    (valor) => contarPontosDeCodigo(valor) <= 120,
+    "Nome muito longo — no máximo 120 caracteres.",
+  );
+
+const camposDeItemBase = {
+  nome: campoNomeItem,
+  categoriaVendaId: esquemaId.nullable(),
+  // Vazio = "valor na hora" — a MESMA conversão de `lib/financeiro/dinheiro.ts` usada pela Venda.
+  precoTexto: z.string(),
+  aparecenaVenda: z.boolean(),
+  atalhoVenda: z.boolean(),
+  controlaEstoque: z.boolean(),
+  atalhoCompra: z.boolean(),
+  unidade: z.enum(UNIDADES).nullable(),
+  categoriaCompraId: esquemaId.nullable(),
+  ficha: z
+    .array(z.object({ insumoId: esquemaId, quantidadeTexto: z.string() }))
+    .max(MAXIMO_DE_INSUMOS_POR_ITEM, `No máximo ${MAXIMO_DE_INSUMOS_POR_ITEM} insumos por item.`),
+};
+
+// Converte os textos crus (preço, quantidade de cada linha da ficha) para os tipos que
+// `validarItem` (lib/cadastros/catalogo.ts) espera — a MESMA conversão usada pela Venda
+// (`lib/financeiro/dinheiro.ts`), nunca uma segunda regra de formato escrita aqui.
+function converterCamposDeItem(
+  dados: {
+    nome: string;
+    categoriaVendaId: string | null;
+    precoTexto: string;
+    aparecenaVenda: boolean;
+    atalhoVenda: boolean;
+    controlaEstoque: boolean;
+    atalhoCompra: boolean;
+    unidade: (typeof UNIDADES)[number] | null;
+    categoriaCompraId: string | null;
+    ficha: { insumoId: string; quantidadeTexto: string }[];
+  },
+  ctx: z.RefinementCtx,
+) {
+  const preco = converterReaisParaCentavos(dados.precoTexto);
+  if (!preco.ok) {
+    ctx.addIssue({ code: "custom", message: preco.erro, path: ["precoTexto"] });
+    return null;
+  }
+
+  const fichaConvertida: ({ insumoId: string; quantidade: number } | null)[] = dados.ficha.map(
+    (linha, indice) => {
+      const resultado = converterQuantidade(linha.quantidadeTexto);
+      if (!resultado.ok) {
+        ctx.addIssue({
+          code: "custom",
+          message: resultado.erro,
+          path: ["ficha", indice, "quantidadeTexto"],
+        });
+        return null;
+      }
+      return { insumoId: linha.insumoId, quantidade: Number(resultado.quantidade) };
+    },
+  );
+  if (fichaConvertida.some((linha) => linha === null)) {
+    return null;
+  }
+
+  return {
+    nome: dados.nome,
+    categoriaVendaId: dados.categoriaVendaId,
+    precoVendaCentavos: preco.centavos,
+    aparecenaVenda: dados.aparecenaVenda,
+    atalhoVenda: dados.atalhoVenda,
+    controlaEstoque: dados.controlaEstoque,
+    atalhoCompra: dados.atalhoCompra,
+    unidade: dados.unidade,
+    categoriaCompraId: dados.categoriaCompraId,
+    ficha: fichaConvertida as { insumoId: string; quantidade: number }[],
+  };
+}
+
+// `esquemaItem`/`esquemaEdicaoDeItem` são FÁBRICAS (não constantes): `validarItem` precisa do
+// retrato dos insumos disponíveis (id → nome/controlaEstoque) para dizer QUAL insumo não tem
+// estoque próprio — dado que só existe depois de uma leitura do banco. O diálogo (cliente) e a
+// Server Action (servidor) chamam a MESMA `validarItem` com o MESMO formato de entrada; só a
+// origem do mapa de insumos muda (o cliente já tem a lista carregada na tela; o servidor carrega
+// de novo dentro da própria ação, nunca confiando no que o cliente mandou).
+export function esquemaItem(insumosDisponiveis: ReadonlyMap<string, InsumoDisponivel>) {
+  return z
+    .object(camposDeItemBase)
+    .transform((dados, ctx) => {
+      const convertido = converterCamposDeItem(dados, ctx);
+      return convertido === null ? z.NEVER : convertido;
+    })
+    .superRefine((dados, ctx) => {
+      const resultado = validarItem({ id: null, ...dados }, insumosDisponiveis);
+      if (!resultado.ok) {
+        ctx.addIssue({ code: "custom", message: resultado.erro });
+      }
+    });
+}
+
+export function esquemaEdicaoDeItem(insumosDisponiveis: ReadonlyMap<string, InsumoDisponivel>) {
+  return z
+    .object({ id: esquemaId, ...camposDeItemBase })
+    .transform((dados, ctx) => {
+      const convertido = converterCamposDeItem(dados, ctx);
+      return convertido === null ? z.NEVER : { id: dados.id, ...convertido };
+    })
+    .superRefine((dados, ctx) => {
+      const resultado = validarItem(dados, insumosDisponiveis);
+      if (!resultado.ok) {
+        ctx.addIssue({ code: "custom", message: resultado.erro });
+      }
+    });
+}

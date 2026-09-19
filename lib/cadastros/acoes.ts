@@ -1,18 +1,36 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { count, eq, or } from "drizzle-orm";
+import { count, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { categorias, configuracaoFinanceira, contasFixas, documentoLinhas, itensCatalogo } from "@/db/schema";
+import {
+  categorias,
+  configuracaoFinanceira,
+  contasFixas,
+  documentoLinhas,
+  fichaTecnica,
+  itensCatalogo,
+} from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 
+import { podeDeixarDeTerEstoque, type InsumoDisponivel } from "./catalogo";
 import { podeMudarGrupoEArea } from "./categorias";
-import { esquemaAtivacao, esquemaCategoria, esquemaEdicaoDeCategoria, esquemaTaxa } from "./esquemas";
+import {
+  esquemaAtivacao,
+  esquemaCategoria,
+  esquemaEdicaoDeCategoria,
+  esquemaEdicaoDeItem,
+  esquemaItem,
+  esquemaTaxa,
+} from "./esquemas";
 import {
   FRASE_CATEGORIA_COM_USO,
+  FRASE_CATEGORIA_DE_COMPRA_INVALIDA,
+  FRASE_CATEGORIA_DE_VENDA_INVALIDA,
   FRASE_CATEGORIA_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_SALVAR,
+  FRASE_ITEM_NAO_EXISTE_MAIS,
   FRASE_NOME_REPETIDO,
 } from "./textos";
 
@@ -61,6 +79,10 @@ function ehErroDoGatilhoDeTravamento(erro: unknown): boolean {
 
 class CategoriaNaoEncontrada extends Error {}
 class CategoriaComUsoNaoPodeMudar extends Error {}
+class ItemNaoEncontrado extends Error {}
+class CategoriaDeVendaInvalida extends Error {}
+class CategoriaDeCompraInvalida extends Error {}
+class ItemEhInsumoDeOutro extends Error {}
 
 // A taxa do cartão é a configuração global de linha única (`configuracao_financeira`, a mesma
 // tabela de `obterConfiguracaoFinanceira`, lib/financeiro/consultas.ts) — `insert ... on
@@ -255,6 +277,289 @@ export async function definirCategoriaAtiva(
     return { ok: true, dados: { id, ativa } };
   } catch (erro) {
     console.error("Falha ao (des)ativar categoria:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Todos os itens do catálogo (id, nome, controlaEstoque) — o universo candidato a insumo que
+// `validarItem` (lib/cadastros/catalogo.ts) precisa para dizer QUAL insumo não tem estoque
+// próprio. Carregado ANTES do parse porque `esquemaItem`/`esquemaEdicaoDeItem` são fábricas que
+// fecham sobre esse mapa (mesma regra do diálogo — key_links do plano).
+async function carregarInsumosDisponiveis(): Promise<Map<string, InsumoDisponivel>> {
+  const itens = await db
+    .select({
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      controlaEstoque: itensCatalogo.controlaEstoque,
+    })
+    .from(itensCatalogo);
+
+  return new Map(itens.map((item) => [item.id, item]));
+}
+
+// Categoria de venda: precisa existir, ser do grupo `receita` e estar ATIVA — exceto quando é a
+// MESMA categoria que o item já tinha (`categoriaVendaIdAtual`), caso em que uma categoria
+// desativada continua válida (04.4-UI-SPEC.md: "item cuja categoria foi desativada continua...
+// editável, com o nome da categoria — a categoria desativada aparece como a opção atual").
+function categoriaDeVendaValida(
+  categoria: { grupo: string; ativa: boolean } | undefined,
+  categoriaVendaId: string,
+  categoriaVendaIdAtual: string | null,
+): boolean {
+  if (!categoria || categoria.grupo !== "receita") {
+    return false;
+  }
+  return categoria.ativa || categoriaVendaId === categoriaVendaIdAtual;
+}
+
+// Categoria de compra: existir, ser do grupo `custo` OU `geral`, e a mesma regra de ATIVA acima.
+function categoriaDeCompraValida(
+  categoria: { grupo: string; ativa: boolean } | undefined,
+  categoriaCompraId: string,
+  categoriaCompraIdAtual: string | null,
+): boolean {
+  if (!categoria || (categoria.grupo !== "custo" && categoria.grupo !== "geral")) {
+    return false;
+  }
+  return categoria.ativa || categoriaCompraId === categoriaCompraIdAtual;
+}
+
+// Único caminho de criação de item do catálogo (FNC-13). `exigirUsuario()` é a PRIMEIRA instrução
+// do corpo. `criarItem` nunca precisa checar `podeDeixarDeTerEstoque` (o item ainda não existe,
+// não pode ser insumo de ninguém) nem "categoria mantida" (não há categoria anterior).
+export async function criarItem(entradaBruta: unknown): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const insumosDisponiveis = await carregarInsumosDisponiveis();
+  const resultado = esquemaItem(insumosDisponiveis).safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    const idsDeCategorias = [dados.categoriaVendaId, dados.categoriaCompraId].filter(
+      (id): id is string => id !== null,
+    );
+    const categoriasCarregadas =
+      idsDeCategorias.length > 0
+        ? await db
+            .select({ id: categorias.id, ativa: categorias.ativa, grupo: categorias.grupo })
+            .from(categorias)
+            .where(inArray(categorias.id, idsDeCategorias))
+        : [];
+    const categoriaPorId = new Map(categoriasCarregadas.map((categoria) => [categoria.id, categoria]));
+
+    if (
+      dados.categoriaVendaId &&
+      !categoriaDeVendaValida(categoriaPorId.get(dados.categoriaVendaId), dados.categoriaVendaId, null)
+    ) {
+      return { ok: false, erro: FRASE_CATEGORIA_DE_VENDA_INVALIDA };
+    }
+    if (
+      dados.categoriaCompraId &&
+      !categoriaDeCompraValida(categoriaPorId.get(dados.categoriaCompraId), dados.categoriaCompraId, null)
+    ) {
+      return { ok: false, erro: FRASE_CATEGORIA_DE_COMPRA_INVALIDA };
+    }
+
+    const idDoItem = await db.transaction(async (tx) => {
+      const [linha] = await tx
+        .insert(itensCatalogo)
+        .values({
+          nome: dados.nome,
+          categoriaVendaId: dados.categoriaVendaId,
+          precoVendaCentavos: dados.precoVendaCentavos,
+          aparecenaVenda: dados.aparecenaVenda,
+          atalhoVenda: dados.atalhoVenda,
+          controlaEstoque: dados.controlaEstoque,
+          atalhoCompra: dados.atalhoCompra,
+          unidade: dados.unidade,
+          categoriaCompraId: dados.categoriaCompraId,
+        })
+        .returning({ id: itensCatalogo.id });
+
+      if (dados.ficha.length > 0) {
+        await tx.insert(fichaTecnica).values(
+          dados.ficha.map((linhaDeFicha) => ({
+            itemId: linha.id,
+            insumoId: linhaDeFicha.insumoId,
+            quantidade: String(linhaDeFicha.quantidade),
+          })),
+        );
+      }
+
+      return linha.id;
+    });
+
+    revalidatePath("/cadastros");
+    revalidatePath("/financeiro");
+    return { ok: true, dados: { id: idDoItem } };
+  } catch (erro) {
+    console.error("Falha ao gravar item do catálogo:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Editar SEMPRE atualiza a linha existente e troca a ficha técnica INTEIRA dentro da MESMA
+// transação (apaga as linhas do item, insere as novas) — `ficha_tecnica` é a única tabela do
+// catálogo com `delete` liberado, justamente por isso (key_links do plano). `exigirUsuario()` é a
+// PRIMEIRA instrução do corpo.
+export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  // Pré-checagem de `podeDeixarDeTerEstoque` ANTES do Zod: um item que só existe como insumo
+  // (sem `aparecenaVenda`) também viola `itens_catalogo_aparece_ou_controla` ao perder
+  // `controlaEstoque` — as duas frases seriam verdade ao mesmo tempo, mas "esse item é insumo de
+  // {nome}" é mais acionável que "marque venda ou estoque", então esta checagem tem prioridade
+  // (mesma ordem que o diálogo aplica do lado do cliente). Lida os campos brutos com cuidado —
+  // `entradaBruta` ainda não passou pelo Zod aqui.
+  if (
+    typeof entradaBruta === "object" &&
+    entradaBruta !== null &&
+    "id" in entradaBruta &&
+    typeof entradaBruta.id === "string" &&
+    "controlaEstoque" in entradaBruta &&
+    entradaBruta.controlaEstoque === false
+  ) {
+    const [itemAtualParaChecagemRapida] = await db
+      .select({ controlaEstoque: itensCatalogo.controlaEstoque })
+      .from(itensCatalogo)
+      .where(eq(itensCatalogo.id, entradaBruta.id))
+      .limit(1);
+
+    if (itemAtualParaChecagemRapida?.controlaEstoque) {
+      const usos = await db
+        .select({ itemNome: itensCatalogo.nome, insumoId: fichaTecnica.insumoId })
+        .from(fichaTecnica)
+        .innerJoin(itensCatalogo, eq(fichaTecnica.itemId, itensCatalogo.id))
+        .where(eq(fichaTecnica.insumoId, entradaBruta.id));
+
+      const podeDeixar = podeDeixarDeTerEstoque(entradaBruta.id, usos);
+      if (!podeDeixar.ok) {
+        return { ok: false, erro: podeDeixar.erro };
+      }
+    }
+  }
+
+  const insumosDisponiveis = await carregarInsumosDisponiveis();
+  const resultado = esquemaEdicaoDeItem(insumosDisponiveis).safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [itemAtual] = await tx
+        .select({
+          categoriaVendaId: itensCatalogo.categoriaVendaId,
+          categoriaCompraId: itensCatalogo.categoriaCompraId,
+          controlaEstoque: itensCatalogo.controlaEstoque,
+        })
+        .from(itensCatalogo)
+        .where(eq(itensCatalogo.id, dados.id))
+        .for("update");
+
+      if (!itemAtual) {
+        throw new ItemNaoEncontrado();
+      }
+
+      const idsDeCategorias = [dados.categoriaVendaId, dados.categoriaCompraId].filter(
+        (id): id is string => id !== null,
+      );
+      const categoriasCarregadas =
+        idsDeCategorias.length > 0
+          ? await tx
+              .select({ id: categorias.id, ativa: categorias.ativa, grupo: categorias.grupo })
+              .from(categorias)
+              .where(inArray(categorias.id, idsDeCategorias))
+          : [];
+      const categoriaPorId = new Map(
+        categoriasCarregadas.map((categoria) => [categoria.id, categoria]),
+      );
+
+      if (
+        dados.categoriaVendaId &&
+        !categoriaDeVendaValida(
+          categoriaPorId.get(dados.categoriaVendaId),
+          dados.categoriaVendaId,
+          itemAtual.categoriaVendaId,
+        )
+      ) {
+        throw new CategoriaDeVendaInvalida();
+      }
+      if (
+        dados.categoriaCompraId &&
+        !categoriaDeCompraValida(
+          categoriaPorId.get(dados.categoriaCompraId),
+          dados.categoriaCompraId,
+          itemAtual.categoriaCompraId,
+        )
+      ) {
+        throw new CategoriaDeCompraInvalida();
+      }
+
+      // Deixar de ter estoque próprio: recusa se algum OUTRO item usa este como insumo
+      // (podeDeixarDeTerEstoque, lib/cadastros/catalogo.ts) — a MESMA regra pura, com o retrato
+      // de uso carregado agora, dentro da transação.
+      if (itemAtual.controlaEstoque && !dados.controlaEstoque) {
+        const usos = await tx
+          .select({ itemNome: itensCatalogo.nome, insumoId: fichaTecnica.insumoId })
+          .from(fichaTecnica)
+          .innerJoin(itensCatalogo, eq(fichaTecnica.itemId, itensCatalogo.id))
+          .where(eq(fichaTecnica.insumoId, dados.id));
+
+        const podeDeixar = podeDeixarDeTerEstoque(dados.id, usos);
+        if (!podeDeixar.ok) {
+          throw new ItemEhInsumoDeOutro(podeDeixar.erro);
+        }
+      }
+
+      await tx
+        .update(itensCatalogo)
+        .set({
+          nome: dados.nome,
+          categoriaVendaId: dados.categoriaVendaId,
+          precoVendaCentavos: dados.precoVendaCentavos,
+          aparecenaVenda: dados.aparecenaVenda,
+          atalhoVenda: dados.atalhoVenda,
+          controlaEstoque: dados.controlaEstoque,
+          atalhoCompra: dados.atalhoCompra,
+          unidade: dados.unidade,
+          categoriaCompraId: dados.categoriaCompraId,
+        })
+        .where(eq(itensCatalogo.id, dados.id));
+
+      await tx.delete(fichaTecnica).where(eq(fichaTecnica.itemId, dados.id));
+      if (dados.ficha.length > 0) {
+        await tx.insert(fichaTecnica).values(
+          dados.ficha.map((linhaDeFicha) => ({
+            itemId: dados.id,
+            insumoId: linhaDeFicha.insumoId,
+            quantidade: String(linhaDeFicha.quantidade),
+          })),
+        );
+      }
+    });
+
+    revalidatePath("/cadastros");
+    revalidatePath("/financeiro");
+    return { ok: true, dados: { id: dados.id } };
+  } catch (erro) {
+    if (erro instanceof ItemNaoEncontrado) {
+      return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof CategoriaDeVendaInvalida) {
+      return { ok: false, erro: FRASE_CATEGORIA_DE_VENDA_INVALIDA };
+    }
+    if (erro instanceof CategoriaDeCompraInvalida) {
+      return { ok: false, erro: FRASE_CATEGORIA_DE_COMPRA_INVALIDA };
+    }
+    if (erro instanceof ItemEhInsumoDeOutro) {
+      return { ok: false, erro: erro.message };
+    }
+    console.error("Falha ao editar item do catálogo:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
