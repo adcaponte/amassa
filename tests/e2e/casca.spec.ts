@@ -138,9 +138,12 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
         "aria-current",
         "page",
       );
-      // ":visible" filtra a metade oculta por CSS (a outra navegação, sempre presente no DOM)
-      // — só o item ativo da navegação que está de fato na tela conta.
-      await expect(page.locator('[aria-current="page"]:visible')).toHaveCount(1);
+      // Conta só DENTRO do menu principal visível: a outra navegação principal (oculta por CSS)
+      // fica de fora por construção, e um submenu da própria tela pode legitimamente marcar o seu
+      // item — em /queimas o SeletorQueimas marca "Fornos" com aria-current, o que
+      // queimas-relatorios.spec.ts exige. Contar na página inteira só passava no Next 15 porque a
+      // tela de carregamento de /queimas (sem o submenu) estava no ar no instante da contagem.
+      await expect(navegacao.locator('[aria-current="page"]')).toHaveCount(1);
     }
   });
 
