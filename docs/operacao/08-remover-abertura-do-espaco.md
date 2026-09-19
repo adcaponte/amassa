@@ -109,6 +109,19 @@ No repositório (não no servidor), como um commit normal:
 
 ## 4. O código — a lista dos arquivos que saem
 
+### A virada do Financeiro (Roteiro 11) precisa ter rodado antes
+
+`lib/virada/`, `scripts/importar-parcelas-abertura.ts`,
+`tests/unit/virada-parcelas-da-abertura.test.ts`, o script `importar-parcelas-abertura` do
+`package.json` e as funções `provarViradaEmBancoProprio`/`conferirImportacaoDaVirada` de
+`scripts/testar-migracoes.mjs` (04.4-04-PLAN.md) dependem de `lib/abertura/parcelas.ts` — o único
+módulo de fora de `lib/abertura` que o importa. Eles saem **junto com o código da Abertura**
+listado nesta seção, mas **só depois de o Roteiro 11
+(`docs/operacao/11-virada-do-financeiro.md`) já ter sido executado** — a virada é o que garante
+que nenhuma parcela em aberto da Abertura fica para trás quando o módulo for desmontado. As
+tabelas do Financeiro (`categorias`, `documentos`, `parcelas` e as demais do plano 01) não
+dependem de nada da Abertura e ficam, com ou sem essa ordem.
+
 Enumerados pelo caminho, para a lista ser conferível item a item (não pela descrição):
 
 **Módulo puro:**
