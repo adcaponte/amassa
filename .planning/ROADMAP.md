@@ -443,7 +443,41 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: TBD
+**Plans**: 11 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04.4-01-PLAN.md — Traçado: o dono escolhe a numeração; o banco inteiro do financeiro (0014-0016, 24 categorias, travas e revoke delete) e uma venda de valor livre que chega ao extrato e ao saldo do Caixa
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04.4-02-PLAN.md — Financeiro na barra do celular e na lateral (D-04..D-06), `/cadastros` com Categorias e Taxas, e os FNC reescritos com o CONTEXT
+- [ ] 04.4-03-PLAN.md — Venda pelo catálogo: atalhos, busca, lista completa, quantidade, preço de tabela, desconto (D-09/D-10), data retroativa e o que sai do estoque
+- [ ] 04.4-04-PLAN.md — O script da virada (parcelas em aberto da Abertura viram contas a pagar), com ensaio, prova em banco próprio e o Roteiro 11 — não roda nesta fase
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04.4-05-PLAN.md — Catálogo em Cadastros: item vendável, insumo com estoque e unidade, ficha técnica de um nível
+- [ ] 04.4-06-PLAN.md — Pagamento: à vista, sinal, 2x a 12x, "+ outra forma" (D-07/D-08), cartão com taxa congelada e a recusa no servidor
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04.4-07-PLAN.md — Despesa: compra de material, outra despesa e pagar conta que já existe
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04.4-08-PLAN.md — Caixa: a pagar e a receber, "Paguei/Recebi" com linha de diferença (D-01/D-02), Desfazer exato (D-03), detalhe e cancelamento
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 04.4-09-PLAN.md — Extrato por mês e forma (D-11/D-12) e a tela Mês: áreas, Geral num bloco só, veredito, dinheiro que se mexeu, fora do resultado
+- [ ] 04.4-10-PLAN.md — Contas fixas com cadastro completo (D-13) e "Gerar as contas de {mês}" que nunca duplica
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 04.4-11-PLAN.md — Fechamento: Roteiro 10, varredura completa, conferência com o protótipo, migração em produção pelo dono e verificação no celular e no computador
+
 **UI hint**: yes
 
 ### Phase 5: Agenda de Aulas (em espera)

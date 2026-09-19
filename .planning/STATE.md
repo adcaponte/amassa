@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 04.4
 status: ready_to_plan
 stopped_at: "Phase 04.4 UI-SPEC approved; next: /gsd-plan-phase 04.4"
-last_updated: "2026-09-19T17:29:38.464Z"
+last_updated: "2026-09-19T18:24:25.490Z"
 last_activity: 2026-09-19
 last_activity_desc: "Completed quick task 260919-ou8: ignorar Claude outputs/ e versionar o protótipo do Estoque"
 progress:
   total_phases: 10
   completed_phases: 8
-  total_plans: 51
+  total_plans: 62
   completed_plans: 51
 current_phase_name: financeiro-parte-1
 ---
