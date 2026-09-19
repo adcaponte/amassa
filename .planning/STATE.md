@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: Completed 04.4-05-PLAN.md
-last_updated: "2026-09-19T22:03:29.632Z"
+stopped_at: Completed 04.4-06-PLAN.md
+last_updated: "2026-09-19T22:35:36.704Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
-  completed_plans: 56
+  completed_plans: 57
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 6 of 11
+Plan: 7 of 11
 Status: Ready to execute
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
 Last activity: 2026-09-19 — Phase 04.4 execution started
 
-Progress: [█████████░] 90% (51 de 51 planos executados e verificados até aqui)
+Progress: [█████████░] 92% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -119,6 +119,7 @@ Progress: [█████████░] 90% (51 de 51 planos executados e ver
 | Phase 04.4 P03 | ~50min | 3 tasks | 22 files |
 | Phase 04.4 P04 | ~50min | 3 tasks | 7 files |
 | Phase 04.4 P05 | ~2h | 2 tasks | 14 files |
+| Phase 04.4 P06 | ~1h20min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -292,6 +293,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-05: esquemaItem/esquemaEdicaoDeItem viram fábricas (recebem o mapa de insumos) — validarItem precisa desse retrato do banco, que só existe depois de uma leitura
 - [Phase ?]: 04.4-05: podeDeixarDeTerEstoque roda ANTES da regra estrutural genérica (cliente e servidor) — quando as duas seriam verdade ao mesmo tempo, 'esse item é insumo de X' é a frase mais acionável
 - [Phase ?]: 04.4-05: FichaTecnica sempre visível no diálogo do item, independente de 'Tem estoque próprio' — a ficha pertence ao item vendido, não ao insumo
+- [Phase ?]: 04.4-06: gerarPlano usa divisão inteira (floor) com o resto do arredondamento na PRIMEIRA parcela (Nx) e metade arredondada para cima na primeira (sinal) — diferente do prefixo telescópico de lib/abertura/parcelas.ts, por exigência explícita do must_have da fase
+- [Phase ?]: 04.4-06: BlocoPagamento decide só rótulos e o aviso do cartão (tipo venda|despesa); o painel hospedeiro chama gerarPlano/dividirEmDuasFormas e guarda o estado — mesmo componente para Venda e Despesa (plano 07)
+- [Phase ?]: 04.4-06: conferirParcelas chamada duas vezes do lado do cliente (BlocoPagamento para mostrar, painel-venda.tsx para gatear o botão) — duplicação deliberada de função pura, exigida pelo grep de aceite do plano
 
 ### Pending Todos
 
@@ -356,6 +360,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T22:03:29.574Z
-Stopped at: Completed 04.4-05-PLAN.md
+Last session: 2026-09-19T22:35:36.641Z
+Stopped at: Completed 04.4-06-PLAN.md
 Resume file: None
