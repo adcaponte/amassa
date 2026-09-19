@@ -1,7 +1,7 @@
 // Módulo puro: o extrato do Caixa e o resumo dos tiles saem da MESMA função sobre a MESMA lista
 // de movimentos — é isso que torna "o tile bate com o saldo depois do movimento mais recente"
 // verdadeiro por construção (critério 7 do ROADMAP), não coincidência. Único import: `taxa.ts`,
-// também puro (sem React, sem banco, sem `new Date()`).
+// também puro (sem React, sem banco, sem instanciar data nenhuma).
 import { liquidoDaParcela, type TipoDeDocumentoParaTaxa } from "@/lib/financeiro/taxa";
 
 export type FormaDeMovimento = "dinheiro" | "pix" | "cartao";

@@ -1,5 +1,5 @@
 // Módulo puro (sem import): título do documento e nome de linha, no molde de `tituloDoc`/`L` do
-// protótipo — sem React, sem banco, sem `new Date()`.
+// protótipo — sem React, sem banco, sem instanciar data nenhuma.
 
 export type LinhaParaTitulo = {
   nome: string;
