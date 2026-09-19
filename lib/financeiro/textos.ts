@@ -11,10 +11,11 @@ export type FormaDePagamento = (typeof formaPagamento.enumValues)[number];
 
 export const TITULO_MODULO = "Financeiro";
 
-// Sub-navegação do Financeiro — nesta tarefa só Venda e Caixa são rota alcançável; os rótulos das
-// outras três pílulas (Despesa, Mês, Cadastros) entram nos planos 07/09/02, sempre na mesma ordem
-// fixa (Venda · Despesa · Caixa · Mês · Cadastros).
+// Sub-navegação do Financeiro — Venda, Despesa (plano 07) e Caixa são rota alcançável; o rótulo
+// da última pílula (Mês) entra no plano 09, sempre na mesma ordem fixa
+// (Venda · Despesa · Caixa · Mês · Cadastros).
 export const ROTULO_ABA_VENDA = "Venda";
+export const ROTULO_ABA_DESPESA = "Despesa";
 export const ROTULO_ABA_CAIXA = "Caixa";
 
 // Os cinco rótulos de área (04.4-UI-SPEC.md §Color/§Copywriting) — "Área" nunca é escolhida pelo
@@ -181,3 +182,56 @@ export function textoVendaLancada(
       : "";
   return `Venda nº ${numero} lançada · ${totalFormatado}${sufixo}`;
 }
+
+// "Despesa nº 12 lançada · R$ 160,00" — o mesmo molde de `textoVendaLancada`, para o caminho de
+// Despesa (04.4-07-PLAN.md); redeclarado (não parametrizado por "tipo") porque as duas frases só
+// diferem na primeira palavra, e cada chamador (venda/despesa) já sabe qual delas usar.
+export function textoDespesaLancada(
+  numero: number,
+  totalFormatado: string,
+  parcelasEmAberto: number,
+): string {
+  const sufixo =
+    parcelasEmAberto > 0
+      ? ` · ${parcelasEmAberto} parcela${parcelasEmAberto > 1 ? "s" : ""} em aberto no Caixa`
+      : "";
+  return `Despesa nº ${numero} lançada · ${totalFormatado}${sufixo}`;
+}
+
+// A Despesa (04.4-07-PLAN.md): as três pílulas do topo, os títulos dos dois modos e os rótulos
+// dos campos — o protótipo é a fonte literal de cada frase.
+export const ROTULO_LANCAR_DESPESA = "Lançar despesa";
+export const FRASE_VAZIO_DESPESA_COMPRA = "Toque nos materiais que chegaram.";
+
+export const ROTULO_PILULA_COMPRA = "Compra de material";
+export const ROTULO_PILULA_OUTRA = "Outra despesa";
+export const ROTULO_PILULA_CONTA = "Pagar conta que já existe";
+
+export const TITULO_O_QUE_CHEGOU = "O que chegou";
+export const TITULO_ESTA_COMPRA = "Esta compra";
+export const TITULO_QUE_DESPESA_E = "Que despesa é";
+export const TITULO_PAGAMENTO_DESPESA = "Pagamento";
+
+export const ROTULO_BUSCAR_MATERIAL_DO_ESTOQUE = "Buscar material do estoque";
+export const ROTULO_FORNECEDOR_OPCIONAL = "Fornecedor (opcional)";
+export const ROTULO_PARA_QUEM_OPCIONAL = "Para quem (opcional)";
+export const ROTULO_DESCRICAO = "Descrição";
+export const PLACEHOLDER_DESCRICAO_DESPESA = "ex.: jogo de estecas";
+export const DICA_FORA_DO_RESULTADO =
+  "Esta categoria sai do caixa, mas não entra como custo do mês — é investimento ou dívida, não despesa de operação.";
+
+export const ROTULO_CUSTOU_AO_TODO = "custou ao todo";
+
+// "quantos (kg)" — `unidadeExibida` já vem pronta de quem chama (o componente, mesma disciplina
+// de nunca formatar por aqui).
+export function textoRotuloQuantos(unidadeExibida: string): string {
+  return `quantos (${unidadeExibida})`;
+}
+
+export const TITULO_EFEITO_ESTOQUE_COMPRA = "O que esta compra põe no estoque";
+export const DICA_EFEITO_ESTOQUE_COMPRA =
+  'O custo de cada unidade sai de "custou ao todo" ÷ quantidade. Vale quando o Estoque estiver ligado.';
+
+export const TITULO_TODO_MATERIAL_DE_ESTOQUE = "Todo material de estoque";
+export const DICA_LISTA_COMPLETA_COMPRA =
+  "Toque no nome para pôr na compra. A ★ escolhe o que aparece como atalho na tela.";

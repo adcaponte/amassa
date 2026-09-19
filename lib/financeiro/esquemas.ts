@@ -6,7 +6,11 @@
 import { z } from "zod";
 
 import type { Desconto } from "./desconto";
-import { converterPercentualParaPontosBase, converterReaisParaCentavos } from "./dinheiro";
+import {
+  converterPercentualParaPontosBase,
+  converterQuantidade,
+  converterReaisParaCentavos,
+} from "./dinheiro";
 
 // Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 (`String.length`) — é
 // assim que o `length()` do Postgres conta as restrições de `db/schema.ts`.
@@ -285,3 +289,188 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
 });
 
 export type EntradaDeVenda = z.infer<typeof esquemaVenda>;
+
+// A Despesa (04.4-07-PLAN.md): dois modos, discriminados por `modo` — "compra" (linhas de
+// material que controla estoque, quantos + custou ao todo) e "outra" (descrição + categoria +
+// valor). `pessoa`/`parcelas` no mesmo formato da Venda (D-07/D-08 valem para as duas). O servidor
+// NUNCA confia em descrição/categoria/estoque de uma linha de compra vindas do cliente — só o
+// `itemId`, os textos de quantidade e valor chegam por aqui; `lancarDespesa`
+// (lib/financeiro/acoes.ts) busca nome/categoria-de-compra/controla-estoque no banco.
+export const esquemaLinhaDeCompra = z.object({
+  itemId: esquemaId,
+  quantidadeEstoqueTexto: z.string(),
+  valorTotalTexto: z.string(),
+});
+
+export const esquemaDespesaCompraEntrada = z.object({
+  modo: z.literal("compra"),
+  data: esquemaDataCivil,
+  pessoa: z.string().optional(),
+  linhas: z
+    .array(esquemaLinhaDeCompra)
+    .min(1, "Toque em pelo menos um material que chegou.")
+    .max(100, "No máximo 100 linhas por compra."),
+  parcelas: z
+    .array(esquemaParcelaDeVenda)
+    .min(1, "Adicione pelo menos uma parcela.")
+    .max(12, "No máximo 12 parcelas."),
+});
+
+export const esquemaDespesaOutraEntrada = z.object({
+  modo: z.literal("outra"),
+  data: esquemaDataCivil,
+  pessoa: z.string().optional(),
+  descricao: z
+    .string()
+    .transform((valor) => normalizarTexto(valor))
+    .refine((valor) => contarPontosDeCodigo(valor) >= 1, "Descreva a despesa.")
+    .refine(
+      (valor) => contarPontosDeCodigo(valor) <= 160,
+      "Descrição muito longa — no máximo 160 caracteres.",
+    ),
+  categoriaId: esquemaId,
+  valorTexto: z.string(),
+  parcelas: z
+    .array(esquemaParcelaDeVenda)
+    .min(1, "Adicione pelo menos uma parcela.")
+    .max(12, "No máximo 12 parcelas."),
+});
+
+export const esquemaDespesaEntrada = z.discriminatedUnion("modo", [
+  esquemaDespesaCompraEntrada,
+  esquemaDespesaOutraEntrada,
+]);
+
+export type LinhaDeCompraConvertida = {
+  itemId: string;
+  quantidadeEstoque: string;
+  valorCentavos: number;
+};
+
+export type EntradaDeDespesaConvertida =
+  | {
+      modo: "compra";
+      data: string;
+      pessoa: string | null;
+      linhas: LinhaDeCompraConvertida[];
+      parcelas: ParcelaDeVendaConvertida[];
+    }
+  | {
+      modo: "outra";
+      data: string;
+      pessoa: string | null;
+      descricao: string;
+      categoriaId: string;
+      valorCentavos: number;
+      parcelas: ParcelaDeVendaConvertida[];
+    };
+
+// O esquema COMPLETO da despesa: mesma disciplina de `esquemaVenda` — texto vira centavos/
+// quantidade AQUI, nunca uma segunda conversão em componente ou Server Action.
+export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
+  const pessoa = normalizarOpcional(dados.pessoa);
+
+  const parcelas: (ParcelaDeVendaConvertida | null)[] = dados.parcelas.map((parcela, indice) => {
+    const resultado = converterReaisParaCentavos(parcela.valorTexto);
+    if (!resultado.ok) {
+      ctx.addIssue({
+        code: "custom",
+        message: resultado.erro,
+        path: ["parcelas", indice, "valorTexto"],
+      });
+      return null;
+    }
+    if (resultado.centavos === null || resultado.centavos <= 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Informe um valor maior que zero para esta parcela.",
+        path: ["parcelas", indice, "valorTexto"],
+      });
+      return null;
+    }
+    return {
+      vencimento: parcela.vencimento,
+      valorCentavos: resultado.centavos,
+      forma: parcela.forma,
+      pago: parcela.pago,
+    };
+  });
+
+  if (dados.modo === "compra") {
+    const linhas: (LinhaDeCompraConvertida | null)[] = dados.linhas.map((linha, indice) => {
+      const resultadoQuantidade = converterQuantidade(linha.quantidadeEstoqueTexto);
+      if (!resultadoQuantidade.ok) {
+        ctx.addIssue({
+          code: "custom",
+          message: resultadoQuantidade.erro,
+          path: ["linhas", indice, "quantidadeEstoqueTexto"],
+        });
+        return null;
+      }
+      const resultadoValor = converterReaisParaCentavos(linha.valorTotalTexto);
+      if (!resultadoValor.ok) {
+        ctx.addIssue({
+          code: "custom",
+          message: resultadoValor.erro,
+          path: ["linhas", indice, "valorTotalTexto"],
+        });
+        return null;
+      }
+      if (resultadoValor.centavos === null || resultadoValor.centavos <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Informe quanto essa compra custou ao todo.",
+          path: ["linhas", indice, "valorTotalTexto"],
+        });
+        return null;
+      }
+      return {
+        itemId: linha.itemId,
+        quantidadeEstoque: resultadoQuantidade.quantidade,
+        valorCentavos: resultadoValor.centavos,
+      };
+    });
+
+    if (linhas.some((linha) => linha === null) || parcelas.some((parcela) => parcela === null)) {
+      return z.NEVER;
+    }
+
+    return {
+      modo: "compra" as const,
+      data: dados.data,
+      pessoa,
+      linhas: linhas as LinhaDeCompraConvertida[],
+      parcelas: parcelas as ParcelaDeVendaConvertida[],
+    };
+  }
+
+  let valorCentavos: number | null = null;
+  const resultadoValor = converterReaisParaCentavos(dados.valorTexto);
+  if (!resultadoValor.ok) {
+    ctx.addIssue({ code: "custom", message: resultadoValor.erro, path: ["valorTexto"] });
+  } else if (resultadoValor.centavos === null || resultadoValor.centavos <= 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Informe um valor maior que zero.",
+      path: ["valorTexto"],
+    });
+  } else {
+    valorCentavos = resultadoValor.centavos;
+  }
+
+  if (valorCentavos === null || parcelas.some((parcela) => parcela === null)) {
+    return z.NEVER;
+  }
+
+  return {
+    modo: "outra" as const,
+    data: dados.data,
+    pessoa,
+    descricao: dados.descricao,
+    categoriaId: dados.categoriaId,
+    valorCentavos,
+    parcelas: parcelas as ParcelaDeVendaConvertida[],
+  };
+});
+
+export type EntradaDeDespesa = z.infer<typeof esquemaDespesa>;

@@ -4,16 +4,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { definirAtalhoDoItem } from "@/lib/financeiro/acoes";
-import type { ItemDoCatalogoParaVenda } from "@/lib/financeiro/consultas";
 import { formatarReais } from "@/lib/financeiro/formato";
 import {
   DICA_LISTA_COMPLETA,
+  DICA_LISTA_COMPLETA_COMPRA,
   FRASE_NADA_ENCONTRADO,
   FRASE_FALHA_AO_SALVAR,
   ROTULO_AREA,
   ROTULO_BUSCAR,
   ROTULO_PRONTO,
   TITULO_LISTA_COMPLETA,
+  TITULO_TODO_MATERIAL_DE_ESTOQUE,
   textoAtalhoAcessivel,
   textoItemAdicionado,
   type AreaFinanceira,
@@ -21,22 +22,36 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { ItemCatalogoParaGrade } from "./grade-catalogo";
 
 const AREAS_DE_VENDA = (Object.keys(ROTULO_AREA) as AreaFinanceira[]).filter(
   (area) => area !== "geral",
 );
 
-export type ListaCompletaProps = {
+function unidadeExibida(unidade: string): string {
+  return unidade === "l" ? "L" : unidade;
+}
+
+export type ListaCompletaProps<T extends ItemCatalogoParaGrade> = {
+  // Mesmo "modo" de `GradeCatalogo` (04.4-07-PLAN.md) — "venda" (padrão) ou "compra".
+  modo?: "venda" | "compra";
   aberto: boolean;
-  catalogo: readonly ItemDoCatalogoParaVenda[];
+  catalogo: readonly T[];
   aoFechar: () => void;
-  aoTocarItem: (item: ItemDoCatalogoParaVenda) => void;
+  aoTocarItem: (item: T) => void;
 };
 
-// "Tudo o que se vende" (`folhaLista('v')` do protótipo): busca, agrupado por área, tocar no
-// nome adiciona à venda (sem fechar o diálogo), a estrela marca/desmarca o atalho de venda na
-// hora — otimista, some ao tocar em "Pronto".
-export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: ListaCompletaProps) {
+// "Tudo o que se vende" / "Todo material de estoque" (`folhaLista('v'|'d')` do protótipo): busca,
+// agrupado por área, tocar no nome adiciona (sem fechar o diálogo), a estrela marca/desmarca o
+// atalho certo (`definirAtalhoDoItem` com `tipo: modo`) na hora — otimista, some ao tocar em
+// "Pronto".
+export function ListaCompleta<T extends ItemCatalogoParaGrade>({
+  modo = "venda",
+  aberto,
+  catalogo,
+  aoFechar,
+  aoTocarItem,
+}: ListaCompletaProps<T>) {
   const [busca, setBusca] = useState("");
   const [atalhosLocais, setAtalhosLocais] = useState<Record<string, boolean>>({});
   const [alternando, setAlternando] = useState<string | null>(null);
@@ -46,11 +61,15 @@ export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: Lista
     buscaNormalizada ? item.nome.toLowerCase().includes(buscaNormalizada) : true,
   );
 
-  function atalhoAtualDoItem(item: ItemDoCatalogoParaVenda): boolean {
-    return atalhosLocais[item.id] ?? item.atalhoVenda;
+  function atalhoDoItem(item: T): boolean {
+    return modo === "venda" ? !!item.atalhoVenda : !!item.atalhoCompra;
   }
 
-  async function alternarAtalho(item: ItemDoCatalogoParaVenda) {
+  function atalhoAtualDoItem(item: T): boolean {
+    return atalhosLocais[item.id] ?? atalhoDoItem(item);
+  }
+
+  async function alternarAtalho(item: T) {
     if (alternando) {
       return;
     }
@@ -60,7 +79,7 @@ export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: Lista
 
     const resposta = await definirAtalhoDoItem({
       itemId: item.id,
-      tipo: "venda",
+      tipo: modo,
       marcado: novoEstado,
     });
 
@@ -72,10 +91,13 @@ export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: Lista
     }
   }
 
-  function tocar(item: ItemDoCatalogoParaVenda) {
+  function tocar(item: T) {
     aoTocarItem(item);
     toast(textoItemAdicionado(item.nome));
   }
+
+  const titulo = modo === "venda" ? TITULO_LISTA_COMPLETA : TITULO_TODO_MATERIAL_DE_ESTOQUE;
+  const dica = modo === "venda" ? DICA_LISTA_COMPLETA : DICA_LISTA_COMPLETA_COMPRA;
 
   return (
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && aoFechar()}>
@@ -84,7 +106,7 @@ export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: Lista
         className="flex max-h-[85svh] w-full max-w-lg flex-col gap-0 p-0"
       >
         <DialogHeader className="border-border border-b px-6 py-4">
-          <DialogTitle className="text-display">{TITULO_LISTA_COMPLETA}</DialogTitle>
+          <DialogTitle className="text-display">{titulo}</DialogTitle>
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4">
@@ -96,7 +118,7 @@ export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: Lista
             onChange={(evento) => setBusca(evento.target.value)}
             className="text-corpo min-h-[44px]"
           />
-          <p className="text-apoio text-muted-foreground">{DICA_LISTA_COMPLETA}</p>
+          <p className="text-apoio text-muted-foreground">{dica}</p>
 
           {itensFiltrados.length === 0 ? (
             <p className="text-corpo text-muted-foreground">{FRASE_NADA_ENCONTRADO}</p>
@@ -130,9 +152,11 @@ export function ListaCompleta({ aberto, catalogo, aoFechar, aoTocarItem }: Lista
                           <span className="truncate">{item.nome}</span>
                         </button>
                         <span className="text-apoio text-muted-foreground shrink-0 tabular-nums">
-                          {item.precoVendaCentavos != null
-                            ? formatarReais(item.precoVendaCentavos)
-                            : "na hora"}
+                          {modo === "venda"
+                            ? item.precoVendaCentavos != null
+                              ? formatarReais(item.precoVendaCentavos)
+                              : "na hora"
+                            : `em ${unidadeExibida(item.unidade ?? "un")}`}
                         </span>
                         <button
                           type="button"

@@ -2,6 +2,7 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { abaDaUrl } from "@/lib/financeiro/abas";
 import { avisoDaUrl } from "@/lib/financeiro/avisos";
 import {
+  listarCatalogoDaCompra,
   listarCatalogoDaVenda,
   listarCategoriasParaEscolha,
   listarItensParaEfeito,
@@ -12,10 +13,11 @@ import {
 } from "@/lib/financeiro/consultas";
 import { montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
 import { chaveDoMes, formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
-import { textoVendaLancada } from "@/lib/financeiro/textos";
+import { textoDespesaLancada, textoVendaLancada } from "@/lib/financeiro/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
+import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
 
@@ -33,6 +35,8 @@ export default async function PaginaFinanceiro({
 
   const { aba, aviso, documento, parcela } = await searchParams;
   const abaAtual = abaDaUrl(aba);
+  const abaVenda = abaAtual === "venda";
+  const abaDespesa = abaAtual === "despesa";
   const abaCaixa = abaAtual === "caixa";
   const hoje = hojeEmBrasilia(new Date());
 
@@ -40,22 +44,28 @@ export default async function PaginaFinanceiro({
 
   // Uma leitura por lista, nunca uma consulta a mais que a aba atual precisa (mesma disciplina de
   // `app/(app)/abertura/page.tsx`). O valor livre aceita categoria de Receitas OU Fora do
-  // resultado (suposição 1 do plano 03 — é por aí que um aporte dos sócios entra no caixa).
+  // resultado (suposição 1 do plano 03 — é por aí que um aporte dos sócios entra no caixa); a
+  // Despesa "outra" aceita Geral, Custos diretos de uma área OU Fora do resultado (04.4-07-PLAN.md).
   const [
     categoriasParaValorLivre,
     catalogo,
+    categoriasParaDespesa,
+    catalogoDaCompra,
     itensParaEfeito,
     configuracao,
     movimentos,
     parcelasEmAberto,
     documentoDoAviso,
   ] = await Promise.all([
-    abaAtual === "venda" ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
-    abaAtual === "venda" ? listarCatalogoDaVenda() : Promise.resolve([]),
-    abaAtual === "venda" ? listarItensParaEfeito() : Promise.resolve([]),
-    // A Venda também precisa da configuração — o pagamento (04.4-06-PLAN.md) lê a taxa do
-    // cartão e a data do saldo inicial para o aviso do cartão e a conferência das parcelas.
-    abaAtual === "venda" || abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
+    abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
+    abaVenda ? listarCatalogoDaVenda() : Promise.resolve([]),
+    abaDespesa ? listarCategoriasParaEscolha(["geral", "custo", "fora"]) : Promise.resolve([]),
+    abaDespesa ? listarCatalogoDaCompra() : Promise.resolve([]),
+    abaVenda || abaDespesa ? listarItensParaEfeito() : Promise.resolve([]),
+    // A Venda e a Despesa também precisam da configuração — o pagamento (04.4-06/07-PLAN.md) lê
+    // a taxa do cartão e a data do saldo inicial para o aviso do cartão e a conferência das
+    // parcelas.
+    abaVenda || abaDespesa || abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
     abaCaixa ? listarMovimentos() : Promise.resolve([]),
     abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
     avisoResolvido ? obterDocumentoParaAviso(avisoResolvido.documentoId) : Promise.resolve(null),
@@ -63,11 +73,17 @@ export default async function PaginaFinanceiro({
 
   const textoDoAviso =
     avisoResolvido && documentoDoAviso
-      ? textoVendaLancada(
-          documentoDoAviso.numero,
-          formatarReais(documentoDoAviso.totalCentavos),
-          documentoDoAviso.parcelasEmAberto,
-        )
+      ? abaDespesa
+        ? textoDespesaLancada(
+            documentoDoAviso.numero,
+            formatarReais(documentoDoAviso.totalCentavos),
+            documentoDoAviso.parcelasEmAberto,
+          )
+        : textoVendaLancada(
+            documentoDoAviso.numero,
+            formatarReais(documentoDoAviso.totalCentavos),
+            documentoDoAviso.parcelasEmAberto,
+          )
       : null;
 
   // O tile "Saldo em caixa" e o extrato saem da MESMA função (`montarExtrato`) sobre a MESMA
@@ -99,6 +115,17 @@ export default async function PaginaFinanceiro({
           {resumo ? <TilesCaixa resumo={resumo} /> : null}
           <ExtratoCaixa linhas={linhasDoMes} />
         </div>
+      ) : abaDespesa ? (
+        <PainelDespesa
+          hoje={hoje}
+          categoriasParaDespesa={categoriasParaDespesa}
+          catalogoDaCompra={catalogoDaCompra}
+          itensParaEfeito={itensParaEfeito}
+          configuracao={{
+            taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
+            dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
+          }}
+        />
       ) : (
         <PainelVenda
           hoje={hoje}

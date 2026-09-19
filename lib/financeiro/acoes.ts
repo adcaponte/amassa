@@ -12,7 +12,7 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
 import { TETO_CENTAVOS } from "./dinheiro";
-import { dataDentroDoIntervaloPermitido, esquemaId, esquemaVenda } from "./esquemas";
+import { dataDentroDoIntervaloPermitido, esquemaDespesa, esquemaId, esquemaVenda } from "./esquemas";
 import { hojeEmBrasilia } from "./formato";
 import { conferirParcelas } from "./parcelas";
 import { FRASE_FALHA_AO_SALVAR } from "./textos";
@@ -234,6 +234,200 @@ export async function lancarVenda(
       };
     }
     console.error("Falha ao lançar venda:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// A Despesa (04.4-07-PLAN.md): compra de material · outra despesa (a terceira pílula, "pagar
+// conta que já existe", é só um link para `?aba=caixa` — nunca chega aqui). `exigirUsuario()` é a
+// PRIMEIRA instrução do corpo, mesma disciplina de `lancarVenda`. Compartilha `conferirParcelas`,
+// a checagem de data e o teto de centavos com a Venda; a diferença é só a validação de categoria
+// por grupo/estoque e a AUSÊNCIA TOTAL de taxa — despesa no cartão nunca congela
+// `taxaPontosBase`, mesmo quando a forma é "cartao" (BRIEFING/must_have desta plano).
+export async function lancarDespesa(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; numero: number }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaDespesa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  const hoje = hojeEmBrasilia(new Date());
+  if (!dataDentroDoIntervaloPermitido(dados.data, hoje)) {
+    return { ok: false, erro: "Essa data não é válida." };
+  }
+
+  const configuracao = await obterConfiguracaoFinanceira();
+
+  type LinhaParaGravar = {
+    itemId: string | null;
+    descricao: string;
+    categoriaId: string;
+    quantidadeEstoque: string | null;
+    valorCentavos: number;
+  };
+
+  let linhasParaGravar: LinhaParaGravar[];
+
+  if (dados.modo === "compra") {
+    // Compra: o cliente manda só o `itemId`, a quantidade que chegou e quanto custou ao todo —
+    // nome, categoria de compra e "controla estoque" vêm do banco (T-04.4-44/T-04.4-46). Cada
+    // material precisa ter estoque próprio no catálogo, senão a compra inteira é recusada.
+    const idsDeItens = [...new Set(dados.linhas.map((linha) => linha.itemId))];
+    const itensCarregados =
+      idsDeItens.length > 0
+        ? await db
+            .select({
+              id: itensCatalogo.id,
+              nome: itensCatalogo.nome,
+              controlaEstoque: itensCatalogo.controlaEstoque,
+              categoriaCompraId: itensCatalogo.categoriaCompraId,
+            })
+            .from(itensCatalogo)
+            .where(inArray(itensCatalogo.id, idsDeItens))
+        : [];
+    const itemPorId = new Map(itensCarregados.map((item) => [item.id, item]));
+
+    for (const linha of dados.linhas) {
+      const item = itemPorId.get(linha.itemId);
+      if (!item || !item.controlaEstoque || !item.categoriaCompraId) {
+        return {
+          ok: false,
+          erro: "Esse material não tem estoque próprio no catálogo — ajuste em Cadastros.",
+        };
+      }
+    }
+
+    linhasParaGravar = dados.linhas.map((linha) => {
+      // Não-nulo: já conferido no laço de validação acima.
+      const item = itemPorId.get(linha.itemId)!;
+      return {
+        itemId: item.id,
+        descricao: item.nome,
+        categoriaId: item.categoriaCompraId!,
+        quantidadeEstoque: linha.quantidadeEstoque,
+        valorCentavos: linha.valorCentavos,
+      };
+    });
+  } else {
+    // Outra despesa: categoria carregada do banco — precisa existir, não ser do grupo `receita`
+    // (o usuário nunca lança despesa contra uma categoria de venda) e estar ATIVA (T-04.4-44).
+    const [categoria] = await db
+      .select({
+        id: categorias.id,
+        nome: categorias.nome,
+        ativa: categorias.ativa,
+        grupo: categorias.grupo,
+      })
+      .from(categorias)
+      .where(eq(categorias.id, dados.categoriaId))
+      .limit(1);
+
+    if (!categoria) {
+      return {
+        ok: false,
+        erro: "Essa categoria não existe mais. Recarregue a página e tente de novo.",
+      };
+    }
+    if (categoria.grupo === "receita") {
+      return {
+        ok: false,
+        erro: "Essa categoria é de receita — escolha uma categoria de despesa.",
+      };
+    }
+    if (!categoria.ativa) {
+      return { ok: false, erro: `A categoria ${categoria.nome} foi desativada — escolha outra.` };
+    }
+
+    linhasParaGravar = [
+      {
+        itemId: null,
+        descricao: dados.descricao,
+        categoriaId: categoria.id,
+        quantidadeEstoque: null,
+        valorCentavos: dados.valorCentavos,
+      },
+    ];
+  }
+
+  const totalCentavos = linhasParaGravar.reduce((total, linha) => total + linha.valorCentavos, 0);
+  if (totalCentavos <= 0 || totalCentavos > TETO_CENTAVOS) {
+    return {
+      ok: false,
+      erro: "O total da despesa precisa ser maior que zero e até R$ 10.000.000.",
+    };
+  }
+
+  const conferencia = conferirParcelas({
+    totalCentavos,
+    parcelas: dados.parcelas.map((parcela) => ({
+      vencimento: parcela.vencimento,
+      valorCentavos: parcela.valorCentavos,
+      pago: parcela.pago,
+    })),
+    hoje,
+    dataSaldoInicial: configuracao.dataSaldoInicial,
+  });
+  if (!conferencia.ok) {
+    return { ok: false, erro: conferencia.erro };
+  }
+
+  try {
+    const { id, numero } = await db.transaction(async (tx) => {
+      const [documento] = await tx
+        .insert(documentos)
+        .values({
+          tipo: "despesa",
+          data: dados.data,
+          pessoaNome: dados.pessoa,
+          criadoPor: usuario.id,
+        })
+        .returning({ id: documentos.id, numero: documentos.numero });
+
+      await tx.insert(documentoLinhas).values(
+        linhasParaGravar.map((linha, indice) => ({
+          documentoId: documento.id,
+          ordem: indice,
+          itemId: linha.itemId,
+          descricao: linha.descricao,
+          categoriaId: linha.categoriaId,
+          quantidade: 1,
+          quantidadeEstoque: linha.quantidadeEstoque,
+          valorCentavos: linha.valorCentavos,
+        })),
+      );
+
+      // Despesa NUNCA tem taxa — `taxaPontosBase` sempre nulo, mesmo quando a forma é "cartao"
+      // (o preço já é o que o fornecedor cobrou; a taxa da maquininha só existe do lado de quem
+      // RECEBE, nunca de quem paga).
+      await tx.insert(parcelas).values(
+        dados.parcelas.map((parcela, indice) => ({
+          documentoId: documento.id,
+          numero: indice + 1,
+          vencimento: parcela.vencimento,
+          valorCentavos: parcela.valorCentavos,
+          forma: parcela.forma,
+          pagoEm: parcela.pago ? parcela.vencimento : null,
+          pagoPor: parcela.pago ? usuario.id : null,
+          taxaPontosBase: null,
+        })),
+      );
+
+      return { id: documento.id, numero: documento.numero };
+    });
+
+    return { ok: true, dados: { id, numero } };
+  } catch (erro) {
+    if (ehViolacaoDeChaveEstrangeira(erro)) {
+      return {
+        ok: false,
+        erro: "Uma das categorias escolhidas não existe mais. Recarregue a página e tente de novo.",
+      };
+    }
+    console.error("Falha ao lançar despesa:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

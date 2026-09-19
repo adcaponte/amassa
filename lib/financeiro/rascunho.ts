@@ -102,3 +102,82 @@ export function lerRascunho(
     desconto: desconto ?? null,
   };
 }
+
+// O rascunho da Despesa (04.4-07-PLAN.md): chave PRÓPRIA (`CHAVE_RASCUNHO_DESPESA`, separada da
+// Venda), e os DOIS modos vivem lado a lado — "trocar de pílula não perde o que foi digitado no
+// outro modo" (must_have do plano) exige guardar `compra` e `outra` ao mesmo tempo, nunca um
+// discriminado que descarta o outro ao trocar `modo`.
+export type LinhaDeCompraDoRascunho = {
+  itemId: string;
+  quantidadeEstoqueTexto: string;
+  valorTotalTexto: string;
+};
+
+export type RascunhoDeDespesa = {
+  modo: "compra" | "outra";
+  compra: { data: string; pessoa: string; linhas: LinhaDeCompraDoRascunho[] };
+  outra: { data: string; pessoa: string; descricao: string; categoriaId: string; valorTexto: string };
+};
+
+const RASCUNHO_DESPESA_VAZIO: RascunhoDeDespesa = {
+  modo: "compra",
+  compra: { data: "", pessoa: "", linhas: [] },
+  outra: { data: "", pessoa: "", descricao: "", categoriaId: "", valorTexto: "" },
+};
+
+function linhaDeCompraValida(valor: unknown): valor is LinhaDeCompraDoRascunho {
+  return (
+    ehRegistro(valor) &&
+    typeof valor.itemId === "string" &&
+    typeof valor.quantidadeEstoqueTexto === "string" &&
+    typeof valor.valorTotalTexto === "string"
+  );
+}
+
+export function serializarRascunhoDespesa(rascunho: RascunhoDeDespesa): string {
+  return JSON.stringify({ versao: VERSAO_RASCUNHO, ...rascunho });
+}
+
+// `idsDeItensExistentes` é o catálogo de COMPRA carregado na hora da leitura — uma linha de
+// material que não existe mais (ou deixou de controlar estoque) é descartada, nunca mantida com
+// um id órfão (mesma disciplina de `lerRascunho`).
+export function lerRascunhoDespesa(
+  texto: string,
+  idsDeItensExistentes: readonly string[],
+): RascunhoDeDespesa {
+  let dados: unknown;
+  try {
+    dados = JSON.parse(texto);
+  } catch {
+    return RASCUNHO_DESPESA_VAZIO;
+  }
+
+  if (!ehRegistro(dados) || dados.versao !== VERSAO_RASCUNHO) {
+    return RASCUNHO_DESPESA_VAZIO;
+  }
+
+  const idsValidos = new Set(idsDeItensExistentes);
+  const compraBruto = ehRegistro(dados.compra) ? dados.compra : {};
+  const linhasBrutas = Array.isArray(compraBruto.linhas) ? compraBruto.linhas : [];
+  const linhas = linhasBrutas
+    .filter(linhaDeCompraValida)
+    .filter((linha) => idsValidos.has(linha.itemId));
+
+  const outraBruto = ehRegistro(dados.outra) ? dados.outra : {};
+
+  return {
+    modo: dados.modo === "outra" ? "outra" : "compra",
+    compra: {
+      data: typeof compraBruto.data === "string" ? compraBruto.data : "",
+      pessoa: typeof compraBruto.pessoa === "string" ? compraBruto.pessoa : "",
+      linhas,
+    },
+    outra: {
+      data: typeof outraBruto.data === "string" ? outraBruto.data : "",
+      pessoa: typeof outraBruto.pessoa === "string" ? outraBruto.pessoa : "",
+      descricao: typeof outraBruto.descricao === "string" ? outraBruto.descricao : "",
+      categoriaId: typeof outraBruto.categoriaId === "string" ? outraBruto.categoriaId : "",
+      valorTexto: typeof outraBruto.valorTexto === "string" ? outraBruto.valorTexto : "",
+    },
+  };
+}

@@ -210,6 +210,35 @@ export async function listarCatalogoDaVenda(): Promise<ItemDoCatalogoParaVenda[]
     .orderBy(asc(itensCatalogo.criadoEm));
 }
 
+export type ItemDoCatalogoParaCompra = {
+  id: string;
+  nome: string;
+  area: AreaFinanceira;
+  unidade: string;
+  atalhoCompra: boolean;
+};
+
+// Só itens que CONTROLAM ESTOQUE (`controla_estoque = true`), com a área da categoria de COMPRA
+// — mesma disciplina de `listarCatalogoDaVenda` (ordem de criação, área nunca escolhida pelo
+// usuário, ela vem da categoria). `unidade` nunca é nula aqui: a restrição
+// `itens_catalogo_controla_exige_unidade_e_categoria_compra` do banco garante as duas juntas.
+export async function listarCatalogoDaCompra(): Promise<ItemDoCatalogoParaCompra[]> {
+  const linhas = await db
+    .select({
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      area: categorias.area,
+      unidade: itensCatalogo.unidade,
+      atalhoCompra: itensCatalogo.atalhoCompra,
+    })
+    .from(itensCatalogo)
+    .innerJoin(categorias, eq(itensCatalogo.categoriaCompraId, categorias.id))
+    .where(eq(itensCatalogo.controlaEstoque, true))
+    .orderBy(asc(itensCatalogo.criadoEm));
+
+  return linhas.map((linha) => ({ ...linha, unidade: linha.unidade ?? "un" }));
+}
+
 // TODOS os itens do catálogo, com a ficha técnica embutida — alimenta
 // `lib/financeiro/efeito-estoque.ts::efeitoNoEstoque`. DUAS consultas (itens + fichas), nunca uma
 // consulta por item, mesma disciplina de `listarMovimentos` acima.
