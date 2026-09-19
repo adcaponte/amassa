@@ -141,4 +141,101 @@ test.describe("financeiro despesa", () => {
       `Despesa rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
+
+  test("exemplo 4 — Jogo de estecas e desbastadores, Ferramentas e utensílios, R$ 185", async ({ page }) => {
+    const suf = sufixoUnico();
+    const descricao = `Jogo de estecas e desbastadores ${suf}`;
+
+    await fazerLogin(page);
+    await irParaDespesa(page);
+    await page.getByTestId("despesa-modo-outra").click();
+
+    await page.getByLabel("Descrição").fill(descricao);
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: "Ferramentas e utensílios" }).click();
+    await page.getByLabel("Valor", { exact: true }).fill("185");
+
+    await expect(page.getByTestId("despesa-total")).toContainText("R$ 185,00");
+    await expect(botaoLancar(page)).toBeEnabled();
+    await botaoLancar(page).click();
+    await esperarDespesaLancada(page);
+    // A página parte JÁ de `?aba=despesa` (irParaDespesa) — o fragmento estável sozinho não
+    // detecta a navegação de verdade. O toast é o sinal real de que o lançamento terminou antes
+    // de seguir para o Caixa (mesmo cuidado de `financeiro-pagamento.spec.ts`).
+    await expect(page.getByText(/^Despesa nº \d+ lançada · R\$\s185,00$/)).toBeVisible({ timeout: 5000 });
+
+    await page.getByTestId("financeiro-aba-caixa").click();
+    const linhaDoExtrato = page.getByTestId("extrato-linha").filter({ hasText: descricao });
+    await expect(linhaDoExtrato).toContainText("− R$ 185,00");
+  });
+
+  test("a dica do Fora aparece com 'Equipamento e obra' e some com 'Aluguel'", async ({ page }) => {
+    await fazerLogin(page);
+    await irParaDespesa(page);
+    await page.getByTestId("despesa-modo-outra").click();
+
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: "Equipamento e obra" }).click();
+    await expect(page.getByTestId("despesa-dica-fora")).toBeVisible();
+
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: "Aluguel" }).click();
+    await expect(page.getByTestId("despesa-dica-fora")).toHaveCount(0);
+  });
+
+  test("sem descrição, 'Lançar despesa' fica desabilitado", async ({ page }) => {
+    await fazerLogin(page);
+    await irParaDespesa(page);
+    await page.getByTestId("despesa-modo-outra").click();
+
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: "Aluguel" }).click();
+    await page.getByLabel("Valor", { exact: true }).fill("100");
+
+    await expect(botaoLancar(page)).toBeDisabled();
+  });
+
+  test("'+ outra forma' numa outra despesa de R$ 150 (Pix 100 + Dinheiro 50) lança duas linhas, sem taxa", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const descricao = `[e2e] Despesa mista ${suf}`;
+
+    await fazerLogin(page);
+    await irParaDespesa(page);
+    await page.getByTestId("despesa-modo-outra").click();
+
+    await page.getByLabel("Descrição").fill(descricao);
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: "Aluguel" }).click();
+    await page.getByLabel("Valor", { exact: true }).fill("150");
+
+    await page.getByTestId("pagamento-outra-forma").click();
+    const parcelas = page.getByTestId("parcela-linha");
+    await expect(parcelas).toHaveCount(2);
+
+    await parcelas.nth(0).getByRole("button", { name: "Pix", exact: true }).click();
+    await parcelas.nth(0).locator('input[inputmode="decimal"]').fill("100,00");
+    await parcelas.nth(1).getByRole("button", { name: "Dinheiro", exact: true }).click();
+    await parcelas.nth(1).locator('input[inputmode="decimal"]').fill("50,00");
+
+    await expect(botaoLancar(page)).toBeEnabled();
+    await botaoLancar(page).click();
+    await esperarDespesaLancada(page);
+    await expect(page.getByText(/^Despesa nº \d+ lançada · R\$\s150,00$/)).toBeVisible({ timeout: 5000 });
+
+    await page.getByTestId("financeiro-aba-caixa").click();
+    const linhasDoExtrato = page.getByTestId("extrato-linha").filter({ hasText: descricao });
+    await expect(linhasDoExtrato).toHaveCount(2);
+    await expect(linhasDoExtrato.filter({ hasText: "Pix" })).toContainText("− R$ 100,00");
+    await expect(linhasDoExtrato.filter({ hasText: "Dinheiro" })).toContainText("− R$ 50,00");
+    await expect(linhasDoExtrato.first().getByTestId("extrato-taxa")).toHaveCount(0);
+  });
+
+  test("'Pagar conta que já existe' leva a ?aba=caixa", async ({ page }) => {
+    await fazerLogin(page);
+    await irParaDespesa(page);
+    await page.getByTestId("despesa-modo-conta").click();
+    await expect(page).toHaveURL(/\/financeiro\?aba=caixa$/);
+  });
 });
