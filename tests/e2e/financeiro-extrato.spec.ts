@@ -20,8 +20,12 @@ async function esperarVendaLancada(page: Page) {
   await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
 }
 
+// NUNCA `toHaveURL(/\?aba=despesa/)` — a Despesa parte de `/financeiro?aba=despesa` (o fragmento
+// já é verdade ANTES de qualquer ação), então essa checagem não provaria nada (mesma classe de
+// achado real documentada em `04.4-08-SUMMARY.md`: asserção de URL trivialmente verdadeira). O
+// TOAST "Despesa nº N lançada" só aparece depois da navegação de sucesso — é o sinal real.
 async function esperarDespesaLancada(page: Page) {
-  await expect(page).toHaveURL(/\?aba=despesa/, { timeout: 10000 });
+  await expect(page.getByText(/^Despesa nº \d+ lançada/)).toBeVisible({ timeout: 10000 });
 }
 
 // Lança uma venda "valor livre" na data pedida, à vista, na forma pedida — o caso mais simples
@@ -31,6 +35,12 @@ async function lancarVendaLivre(
   { data, descricao, valor, forma }: { data: string; descricao: string; valor: string; forma: "Pix" | "Dinheiro" | "Cartão" },
 ) {
   await page.goto("/financeiro");
+  // `page.goto` só espera o evento `load` — a hidratação do React (que anexa o `onChange` do
+  // campo "Data" controlado) roda um instante depois, ainda mais sob 8 workers disputando CPU.
+  // Sem esta espera, `.fill()` no campo pode escrever o valor no DOM ANTES do handler existir; o
+  // React, ao hidratar, sobrescreve de volta para o valor do próprio estado (hoje) — o documento
+  // nasce com a data ERRADA sem nenhum erro reportado (mesmo achado de `encomendas-filtros.spec.ts`).
+  await page.waitForLoadState("networkidle").catch(() => {});
   await page.getByLabel("Data").fill(data);
   await page.getByRole("button", { name: "+ Valor livre" }).click();
   await page.getByLabel("O que é").fill(descricao);
@@ -49,6 +59,7 @@ async function lancarDespesaLivre(
   { data, descricao, valor, forma }: { data: string; descricao: string; valor: string; forma: "Pix" | "Dinheiro" | "Cartão" },
 ) {
   await page.goto("/financeiro?aba=despesa");
+  await page.waitForLoadState("networkidle").catch(() => {});
   await page.getByTestId("despesa-modo-outra").click();
   await page.getByLabel("Data").fill(data);
   await page.getByLabel("Descrição").fill(descricao);
@@ -119,28 +130,59 @@ test.describe("financeiro extrato", () => {
     expect(saldo12Antes - saldo10Antes).toBe(5000);
 
     // Lançamento retroativo (dia 5, R$ 7,00 no Pix) — o saldo depois de TODAS as quatro linhas
-    // anteriores aumenta exatamente R$ 7,00 (recálculo retroativo, key_link do plano 09).
+    // anteriores aumenta pelo MESMO valor (recálculo retroativo, key_link do plano 09).
+    //
+    // Nota de isolamento: "saldo depois" é ACUMULADO GLOBAL por desenho (D-12) — nunca escopado
+    // por mês —, então mesmo dois projetos escrevendo em MESES reservados diferentes (desktop
+    // sempre cronologicamente ANTES do celular, mes-reservado.ts) compartilham a MESMA régua: um
+    // lançamento do projeto irmão datado antes do nosso mês desloca as QUATRO linhas por igual, de
+    // um valor que não controlamos. A comparação abaixo por isso usa dois invariantes IMUNES a
+    // esse deslocamento externo (ele afeta as duas leituras da mesma forma, cancelando na
+    // subtração) em vez de comparar o valor absoluto contra "antes + R$ 7,00": (1) as quatro
+    // linhas deslocam-se pelo MESMO tanto entre si; (2) a diferença entre a linha retroativa e a
+    // que vem logo depois dela é exatamente o valor com sinal de dia10 (R$ 100,00) — mesma técnica
+    // já usada acima para os pares consecutivos, aqui provando que a linha nova foi encadeada no
+    // lugar certo com o valor certo (mesma classe de tolerância a escritor concorrente já
+    // documentada para o total global de Queimas).
     const nome05 = `[e2e] Extrato retroativo dia05 ${suf}`;
     await lancarVendaLivre(page, { data: diaDoMes(mes, 5), descricao: nome05, valor: "7", forma: "Pix" });
     await page.goto(`/financeiro?aba=caixa&mes=${mes}`);
 
-    expect(await saldoDepoisCentavos(page, nome15)).toBe(saldo15Antes + 700);
-    expect(await saldoDepoisCentavos(page, nome14)).toBe(saldo14Antes + 700);
-    expect(await saldoDepoisCentavos(page, nome12)).toBe(saldo12Antes + 700);
-    expect(await saldoDepoisCentavos(page, nome10)).toBe(saldo10Antes + 700);
+    const saldo15Depois = await saldoDepoisCentavos(page, nome15);
+    const saldo14Depois = await saldoDepoisCentavos(page, nome14);
+    const saldo12Depois = await saldoDepoisCentavos(page, nome12);
+    const saldo10Depois = await saldoDepoisCentavos(page, nome10);
+    const saldo05Depois = await saldoDepoisCentavos(page, nome05);
+
+    const deslocamento = saldo15Depois - saldo15Antes;
+    expect(saldo14Depois - saldo14Antes).toBe(deslocamento);
+    expect(saldo12Depois - saldo12Antes).toBe(deslocamento);
+    expect(saldo10Depois - saldo10Antes).toBe(deslocamento);
+    // A NOSSA própria inserção sempre contribui pelo menos R$ 7,00 — um escritor concorrente só
+    // pode aumentar esse deslocamento (nunca reduzi-lo abaixo do que nós mesmos inserimos).
+    expect(deslocamento).toBeGreaterThanOrEqual(700);
+
+    // A linha nova (dia05) encadeada certa: a diferença para dia10 (a próxima cronologicamente) é
+    // exatamente o valor com sinal de dia10 — prova robusta, imune a qualquer deslocamento externo.
+    expect(saldo10Depois - saldo05Depois).toBe(10000);
 
     // Filtro Dinheiro → só as duas de dinheiro (dia12 venda, dia14 despesa), com os MESMOS saldos
     // depois de antes do filtro (D-12 — o filtro esconde linhas, não recalcula saldo).
-    const saldo12ComTudo = await saldoDepoisCentavos(page, nome12);
-    const saldo14ComTudo = await saldoDepoisCentavos(page, nome14);
-
+    //
+    // A comparação usa a DIFERENÇA entre as duas linhas (não o valor absoluto de cada uma) pelo
+    // mesmo motivo do bloco acima: clicar no filtro é outra navegação, outra janela onde o projeto
+    // irmão pode ter deslocado o acumulado global — mas desloca as DUAS por igual, e a diferença
+    // entre elas cancela esse deslocamento. Se o filtro recalculasse o saldo escopado só às linhas
+    // visíveis (o bug que D-12 proíbe), essa diferença NÃO bateria mais com a do extrato completo.
+    const diferencaAntesDoFiltro = saldo12Depois - saldo14Depois;
     await page.getByTestId("extrato-filtro-dinheiro").click();
     await expect(page).toHaveURL(/forma=dinheiro/);
     await expect(page.getByTestId("extrato-linha")).toHaveCount(2);
     await expect(linhaDoExtrato(page, nome10)).toHaveCount(0);
     await expect(linhaDoExtrato(page, nome15)).toHaveCount(0);
-    expect(await saldoDepoisCentavos(page, nome12)).toBe(saldo12ComTudo);
-    expect(await saldoDepoisCentavos(page, nome14)).toBe(saldo14ComTudo);
+    const saldo12Filtrado = await saldoDepoisCentavos(page, nome12);
+    const saldo14Filtrado = await saldoDepoisCentavos(page, nome14);
+    expect(saldo12Filtrado - saldo14Filtrado).toBe(diferencaAntesDoFiltro);
     await expect(page.getByTestId("extrato-total-filtrado")).toContainText("Total em Dinheiro neste mês: + R$ 30,00");
 
     // Filtro Cartão → nenhuma linha nesta forma, com o vazio distinto do "sem movimento".

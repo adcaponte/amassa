@@ -390,3 +390,36 @@ export const FRASE_FALHA_AO_DESFAZER = "Não deu para desfazer. Verifique a inte
 export const FRASE_DATA_DE_PAGAMENTO_FUTURA = "A data do pagamento não pode ser depois de hoje.";
 export const FRASE_DATA_DE_PAGAMENTO_ANTES_DO_SALDO_INICIAL =
   "Essa data é anterior ao saldo inicial do Financeiro — confira a data.";
+
+// A tela Mês (04.4-09-PLAN.md, Tarefa 3): quanto cada área deixou, o Geral num bloco só, o
+// veredito, o dinheiro que se mexeu e o fora do resultado (FNC-11).
+export const TITULO_QUANTO_AREA_DEIXOU = "Quanto cada área deixou";
+export const ROTULO_COLUNA_AREA = "Área";
+export const ROTULO_COLUNA_VENDEU = "Vendeu";
+export const ROTULO_COLUNA_CUSTOU = "Custou";
+export const ROTULO_COLUNA_DEIXOU = "Deixou";
+export const ROTULO_JUNTAS = "Juntas";
+export const DICA_CUSTOU_DA_AREA =
+  '"Custou" é só o que é daquela área: insumo do café, argila e esmalte, mercadoria da loja. Compra de material conta no mês em que foi comprada.';
+
+export const TITULO_AREAS_PAGAM_A_CASA = "As áreas pagam a casa?";
+export const ROTULO_O_QUE_AREAS_DEIXARAM = "O que as áreas deixaram";
+export const ROTULO_GERAL_CUSTOS_DA_CASA = "Geral — custos da casa, sem dividir";
+export const FRASE_NENHUM_CUSTO_GERAL = "Nenhum custo geral lançado neste mês.";
+
+// "Sobrou R$ 600,00 no mês."/"Faltaram R$ 300,00 para o mês se pagar." — `valorFormatado` já
+// chega pronto de `formatarReais` (sempre positivo; o sinal vem de `sobrou`).
+export function textoVeredito(sobrou: boolean, valorFormatado: string): string {
+  return sobrou ? `Sobrou ${valorFormatado} no mês.` : `Faltaram ${valorFormatado} para o mês se pagar.`;
+}
+
+export const TITULO_DINHEIRO_SE_MEXEU = "Dinheiro que se mexeu";
+export const ROTULO_ENTROU_NO_CAIXA = "Entrou no caixa";
+export const ROTULO_SAIU_DO_CAIXA = "Saiu do caixa";
+export const DICA_DINHEIRO_SE_MEXEU =
+  "Diferente do quadro acima: aqui conta o dia em que o dinheiro entrou ou saiu, não o dia da venda. Um sinal recebido hoje de uma encomenda de janeiro aparece aqui, não lá.";
+
+export const TITULO_FORA_DO_RESULTADO_MES = "Fora do resultado";
+export const DICA_FORA_DO_RESULTADO_MES =
+  "Equipamento, parcela de financiamento, aporte e retirada. Mexem no caixa, mas não dizem se o mês foi bom ou ruim.";
+export const FRASE_NADA_NESTE_MES = "Nada neste mês.";

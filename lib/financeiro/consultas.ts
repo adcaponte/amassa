@@ -1,7 +1,7 @@
 // Leituras do módulo Financeiro. Sem `"use server"` — não são Server Actions, são consultas
 // chamadas direto do Server Component da página; `lib/financeiro/acoes.ts` fica só com escrita
 // (mesmo molde de `lib/abertura/consultas.ts`/`lib/queimas/consultas.ts`).
-import { and, asc, count, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -15,9 +15,11 @@ import {
   usuarios,
 } from "@/db/schema";
 
+import { mesSeguinte, primeiroDiaDoMes } from "./calendario";
 import type { ItemParaEfeito } from "./efeito-estoque";
 import { totalDasLinhas, tituloDoDocumento } from "./documento";
 import type { MovimentoParaExtrato } from "./extrato";
+import type { DocumentoParaMes, LinhaDeDocumentoParaMes, ParcelaPagaParaMes } from "./mes";
 import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria, TipoDeDocumentoParaTexto } from "./textos";
 
 export type ConfiguracaoFinanceira = {
@@ -584,4 +586,94 @@ export async function obterParcelaParaAviso(id: string): Promise<ParcelaParaAvis
     previstoCentavos: parcela.valorPrevistoCentavos,
     diferencaCentavos: linhaDeDiferenca ? linhaDeDiferenca.valorCentavos : null,
   };
+}
+
+// A tela Mês (04.4-09-PLAN.md, Tarefa 3): documentos NÃO cancelados com DATA no mês (Vendeu/
+// Custou/Geral/Fora contam pela data do documento, BRIEFING §5), com a linha e a categoria de
+// cada uma — DUAS consultas (documentos, linhas), nunca uma por documento. O intervalo é
+// [primeiro dia do mês, primeiro dia do mês seguinte) — nunca `like`/`extract` sobre a coluna
+// `date`, que teria de espalhar o índice de `documentos_tipo_data_idx` numa varredura completa.
+export async function listarDocumentosDoMes(mes: string): Promise<DocumentoParaMes[]> {
+  const inicio = primeiroDiaDoMes(mes);
+  const fim = primeiroDiaDoMes(mesSeguinte(mes));
+
+  const documentosDoMes = await db
+    .select({ id: documentos.id, tipo: documentos.tipo, data: documentos.data })
+    .from(documentos)
+    .where(and(gte(documentos.data, inicio), lt(documentos.data, fim), isNull(documentos.canceladoEm)));
+
+  if (documentosDoMes.length === 0) {
+    return [];
+  }
+
+  const idsDosDocumentos = documentosDoMes.map((documento) => documento.id);
+  const linhasCarregadas = await db
+    .select({
+      documentoId: documentoLinhas.documentoId,
+      grupo: categorias.grupo,
+      area: categorias.area,
+      categoriaNome: categorias.nome,
+      valorCentavos: documentoLinhas.valorCentavos,
+    })
+    .from(documentoLinhas)
+    .innerJoin(categorias, eq(documentoLinhas.categoriaId, categorias.id))
+    .where(inArray(documentoLinhas.documentoId, idsDosDocumentos));
+
+  const linhasPorDocumento = new Map<string, LinhaDeDocumentoParaMes[]>();
+  for (const linha of linhasCarregadas) {
+    const lista = linhasPorDocumento.get(linha.documentoId) ?? [];
+    lista.push({
+      grupo: linha.grupo,
+      area: linha.area,
+      categoriaNome: linha.categoriaNome,
+      valorCentavos: linha.valorCentavos,
+    });
+    linhasPorDocumento.set(linha.documentoId, lista);
+  }
+
+  return documentosDoMes.map((documento) => ({
+    data: documento.data,
+    tipo: documento.tipo,
+    // Já filtrado por `isNull(canceladoEm)` acima — `resumoDoMes` confere de novo por dentro
+    // (T-04.4-59), então este campo nunca é `true` aqui, mas o tipo continua exigindo o valor.
+    cancelado: false,
+    linhas: linhasPorDocumento.get(documento.id) ?? [],
+  }));
+}
+
+// A tela Mês: parcelas PAGAS no mês (pela DATA DE PAGAMENTO, nunca a do documento) de documento
+// NÃO cancelado — alimenta "Dinheiro que se mexeu" e a "Taxa do cartão", as duas réguas que
+// `resumoDoMes` nunca mistura com `listarDocumentosDoMes`.
+export async function listarParcelasPagasNoMes(mes: string): Promise<ParcelaPagaParaMes[]> {
+  const inicio = primeiroDiaDoMes(mes);
+  const fim = primeiroDiaDoMes(mesSeguinte(mes));
+
+  const linhas = await db
+    .select({
+      pagoEm: parcelas.pagoEm,
+      tipo: documentos.tipo,
+      forma: parcelas.forma,
+      valorCentavos: parcelas.valorCentavos,
+      taxaPontosBase: parcelas.taxaPontosBase,
+    })
+    .from(parcelas)
+    .innerJoin(documentos, eq(parcelas.documentoId, documentos.id))
+    .where(
+      and(
+        isNotNull(parcelas.pagoEm),
+        gte(parcelas.pagoEm, inicio),
+        lt(parcelas.pagoEm, fim),
+        isNull(documentos.canceladoEm),
+      ),
+    );
+
+  return linhas.map((linha) => ({
+    // `pagoEm` nunca é nulo aqui — a consulta acima só traz parcelas pagas (`isNotNull`).
+    pagoEm: linha.pagoEm as string,
+    tipo: linha.tipo,
+    cancelado: false,
+    forma: linha.forma,
+    valorCentavos: linha.valorCentavos,
+    taxaPontosBase: linha.taxaPontosBase,
+  }));
 }
