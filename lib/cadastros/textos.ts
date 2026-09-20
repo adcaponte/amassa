@@ -162,8 +162,10 @@ export const FRASE_CATEGORIA_DA_CONTA_FIXA_INVALIDA =
   "Essa categoria não é válida para conta fixa, ou não existe mais. Recarregue a página e tente de novo.";
 export const FRASE_CONTA_FIXA_NAO_EXISTE_MAIS =
   "Essa conta fixa não existe mais. Recarregue a página e tente de novo.";
+// Reescrita no 04.4-12-PLAN.md: diz o que fazer, agora que a faixa tem doze meses em vez de um só.
 export const FRASE_MES_DE_GERACAO_INVALIDO =
-  "Esse mês não pode mais ser gerado — recarregue a página e tente de novo.";
+  "Só dá para gerar do mês atual até onze meses à frente — escolha um mês da lista.";
+export const ROTULO_MES_DA_GERACAO = "Mês";
 
 // "Gerar as contas de {mês por extenso}" — `mesPorExtenso` já vem formatado por quem chama
 // (`nomeDoMes`, lib/financeiro/formato.ts) — este módulo nunca importa `formato.ts`.

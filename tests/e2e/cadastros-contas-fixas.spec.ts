@@ -1,13 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { mesDaGeracao, tituloDaContaFixa } from "@/lib/cadastros/contas-fixas";
+import { mesDaGeracao, mesesParaGeracao, tituloDaContaFixa } from "@/lib/cadastros/contas-fixas";
 import { nomeDoMes } from "@/lib/financeiro/formato";
 
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 
 // Contas fixas com CRUD completo (04.4-10-PLAN.md, D-13): criar, ajustar o valor esperado na
 // própria linha, desativar/reativar, e "Gerar as contas de {mês}" que nunca duplica (critério 6
-// do ROADMAP) — provado com o exemplo 1 de despesa do protótipo (aluguel).
+// do ROADMAP) — provado com o exemplo 1 de despesa do protótipo (aluguel). Desde o
+// 04.4-12-PLAN.md, "Gerar" ganhou um seletor de mês (o mês corrente e os onze seguintes) —
+// resposta do dono de 2026-09-20.
 
 async function fazerLogin(page: Page) {
   await page.goto("/login");
@@ -222,6 +224,98 @@ test.describe("cadastros contas fixas", () => {
     await expect(linhaDaContaFixa(page, nomeAluguel).getByTestId("conta-fixa-valor")).toHaveValue(
       "1.600,00",
     );
+  });
+
+  // Mesma razão do teste acima: "Gerar" é global, restrito ao desktop e em série.
+  test("o seletor oferece o mês de hoje e mais onze, e gerar três meses seguidos não duplica nenhum", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "desktop",
+      "Gerar é global — evita a corrida com o celular gerando o mesmo mês (04.4-10-PLAN.md)",
+    );
+
+    const suf = sufixoUnico();
+    const nomeContabilidade = `[e2e] Contabilidade ${suf}`;
+    const nomeDesativada = `[e2e] Desativada ${suf}`;
+
+    await fazerLogin(page);
+    await irParaContasFixas(page);
+
+    await criarContaFixaPelaTela(page, {
+      nome: nomeContabilidade,
+      categoria: "Contabilidade",
+      valor: "300",
+      dia: "10",
+    });
+    await criarContaFixaPelaTela(page, {
+      nome: nomeDesativada,
+      categoria: "Contabilidade",
+      valor: "50",
+      dia: "10",
+    });
+    await linhaDaContaFixa(page, nomeDesativada).getByRole("button", { name: "Desativar" }).click();
+    await expect(page.getByText("Conta fixa desativada.")).toBeVisible({ timeout: 10000 });
+
+    const hoje = hojeNoAtelie();
+    const faixa = mesesParaGeracao(hoje);
+    const mesSeguinte = mesDaGeracao(hoje);
+    const seletor = page.getByTestId("gerar-contas-mes");
+
+    await expect(seletor.locator("option")).toHaveCount(12);
+    await expect(seletor).toHaveValue(mesSeguinte);
+    await expect(page.getByTestId("gerar-contas")).toContainText(nomeDoMes(mesSeguinte));
+
+    // Escolhe o TERCEIRO mês da lista (dois à frente do de hoje) — confere que o rótulo do botão
+    // mudou antes de gerar.
+    const terceiroMes = faixa[2];
+    await seletor.selectOption(terceiroMes);
+    await expect(page.getByTestId("gerar-contas")).toContainText(nomeDoMes(terceiroMes));
+
+    const tituloContabilidadeTerceiroMes = tituloDaContaFixa(nomeContabilidade, terceiroMes);
+    const tituloDesativadaTerceiroMes = tituloDaContaFixa(nomeDesativada, terceiroMes);
+
+    await page.getByTestId("gerar-contas").click();
+    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.goto("/financeiro?aba=caixa");
+    await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
+    await expect(cartaoDaConta(page, tituloDesativadaTerceiroMes)).toHaveCount(0);
+
+    // Escolhe o QUARTO mês da lista — gera de novo: agora há uma conta de CADA um dos dois meses.
+    const quartoMes = faixa[3];
+    const tituloContabilidadeQuartoMes = tituloDaContaFixa(nomeContabilidade, quartoMes);
+
+    await irParaContasFixas(page);
+    await page.getByTestId("gerar-contas-mes").selectOption(quartoMes);
+    await page.getByTestId("gerar-contas").click();
+    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.goto("/financeiro?aba=caixa");
+    await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
+    await expect(cartaoDaConta(page, tituloContabilidadeQuartoMes)).toHaveCount(1);
+
+    // Escolhe de novo o TERCEIRO mês e gera — idempotente: o aviso diz que já existiam, e
+    // continua havendo exatamente UMA conta daquele mês.
+    await irParaContasFixas(page);
+    await page.getByTestId("gerar-contas-mes").selectOption(terceiroMes);
+    await page.getByTestId("gerar-contas").click();
+    await expect(
+      page.getByText(`As contas de ${nomeDoMes(terceiroMes)} já existiam.`),
+    ).toBeVisible({ timeout: 10000 });
+
+    await page.goto("/financeiro?aba=caixa");
+    await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
+
+    // A PRIMEIRA opção é o mês CORRENTE — a suposição que a excluía caiu (resposta do dono,
+    // 2026-09-20): a mudança 1 deste mesmo plano tornou uma conta do mês corrente registrável.
+    await irParaContasFixas(page);
+    await page.getByTestId("gerar-contas-mes").selectOption(faixa[0]);
+    await expect(page.getByTestId("gerar-contas")).toContainText(nomeDoMes(faixa[0]));
   });
 
   test("o diálogo recusa dia 32 e valor vazio com frase, e a 320px a sub-aba não rola na horizontal", async ({

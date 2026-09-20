@@ -21,7 +21,7 @@ import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
 import { podeDeixarDeTerEstoque, type InsumoDisponivel } from "./catalogo";
 import { podeMudarGrupoEArea } from "./categorias";
-import { mesDaGeracao, tituloDaContaFixa, vencimentoNoMes } from "./contas-fixas";
+import { mesPermitidoParaGeracao, tituloDaContaFixa, vencimentoNoMes } from "./contas-fixas";
 import {
   esquemaAtivacao,
   esquemaAtivacaoDeContaFixa,
@@ -702,10 +702,11 @@ export async function gerarContasDoMes(
   }
   const { mes } = resultado.data;
 
-  // T-04.4-62: o servidor só aceita o mês seguinte ao de hoje — a tela nunca oferece outro, mas
-  // um envio forçado (DOM adulterado) é recusado aqui, nunca confiado.
+  // T-04.4-72: o servidor só aceita um mês dentro da faixa (o mês corrente até onze meses à
+  // frente, `mesPermitidoParaGeracao`) — o seletor nunca oferece outro, mas um envio forçado (DOM
+  // adulterado) é recusado aqui, nunca confiado.
   const hoje = hojeEmBrasilia(new Date());
-  if (mes !== mesDaGeracao(hoje)) {
+  if (!mesPermitidoParaGeracao(hoje, mes)) {
     return { ok: false, erro: FRASE_MES_DE_GERACAO_INVALIDO };
   }
 
