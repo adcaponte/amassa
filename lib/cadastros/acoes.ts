@@ -15,6 +15,7 @@ import {
   parcelas,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { primeiroDiaDoMes } from "@/lib/financeiro/calendario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
@@ -54,25 +55,11 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
 }
 
-// `drizzle-orm/node-postgres` embrulha todo erro de query num `DrizzleQueryError`, que NÃO tem
-// `code` própria — o erro de verdade do `pg` (com o SQLSTATE) mora em `.cause` (achado real,
-// confirmado pela primeira execução do e2e "cadastros base": o padrão `"code" in erro` copiado
-// de `ehViolacaoDeChaveEstrangeira` de outros módulos nunca bate, porque olha o embrulho, não a
-// causa). Esta função olha os dois lugares — funciona tanto se um dia o driver parar de
-// embrulhar quanto hoje, que embrulha.
-function codigoDoErroPostgres(erro: unknown): string | undefined {
-  if (typeof erro !== "object" || erro === null) {
-    return undefined;
-  }
-  if ("code" in erro && typeof erro.code === "string") {
-    return erro.code;
-  }
-  if ("cause" in erro && typeof erro.cause === "object" && erro.cause !== null && "code" in erro.cause) {
-    const codigoDaCausa = (erro.cause as { code?: unknown }).code;
-    return typeof codigoDaCausa === "string" ? codigoDaCausa : undefined;
-  }
-  return undefined;
-}
+// Leitor de SQLSTATE (que enxerga tanto `erro.code` quanto `erro.cause.code`, embrulhado pelo
+// `drizzle-orm/node-postgres`) vive em `@/lib/erro/postgres`, compartilhado com todos os módulos.
+// `ehViolacaoDeUnicidade` e `ehErroDoGatilhoDeTravamento` abaixo ficam locais de propósito: cada
+// um tem um único consumidor neste arquivo e o nome/comentário carrega contexto específico de
+// Cadastros — só o leitor de SQLSTATE em si é código genérico o bastante para compartilhar.
 
 // SQLSTATE 23505 = unique_violation — o índice único `categorias_nome_normalizado_idx`
 // (db/schema.ts) é quem decide, não o cliente (must_have deste plano: duas pessoas criando a
