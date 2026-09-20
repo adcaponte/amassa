@@ -58,7 +58,13 @@ export function SubAbasCategorias({
                 `data-testid` próprio: o nome da categoria é um texto livre e pode conter dígitos
                 (nomes únicos de teste), então uma asserção contra o texto inteiro da pílula não
                 provaria a contagem sozinha. */}
-            <span className="text-apoio opacity-70" data-testid="cotacoes-sub-aba-contagem">
+            {/* Achado de acessibilidade (WCAG 1.4.3, UI-09): a pílula INATIVA herda
+                `text-muted-foreground` do `<Link>` pai — `opacity-70` sobre este `<span>`
+                diluía o mesmo `--color-tinta-fraca` (5.4:1) para 2.99:1, idêntico ao achado de
+                `lista-contas-fixas.tsx`. A contagem menor/secundária já é suficiente pelo
+                tamanho de fonte (`text-apoio`, 14px) e pela posição — não precisa de opacidade
+                para se destacar como secundária. */}
+            <span className="text-apoio" data-testid="cotacoes-sub-aba-contagem">
               {contagem}
             </span>
           </Link>

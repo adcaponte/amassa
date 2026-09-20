@@ -120,10 +120,11 @@ export function ListaCategorias({ categorias }: ListaCategoriasProps) {
               <li
                 key={categoria.id}
                 data-testid="categoria-linha"
-                className={cn(
-                  "border-border flex flex-wrap items-center justify-between gap-2 rounded-md border p-3",
-                  !categoria.ativa && "opacity-70",
-                )}
+                // Mesmo achado de acessibilidade de `lista-contas-fixas.tsx` (WCAG 1.4.3, UI-09):
+                // `opacity-70` sobre a linha diluía `--color-tinta-fraca` do metadado abaixo de
+                // 4.5:1. O nome riscado e o rótulo "Reativar" já comunicam "desativada" sem
+                // opacidade — removida aqui pelo mesmo motivo, nunca substituída.
+                className="border-border flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
               >
                 <div className="flex min-w-0 flex-1 flex-col">
                   {/* `break-words` (overflow-wrap: break-word) — sem isso, um nome sem espaço
