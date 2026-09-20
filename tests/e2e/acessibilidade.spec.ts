@@ -47,8 +47,11 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 // 03-08-PLAN.md (Tarefa 2, fechamento da fase) acrescenta as três telas novas daquela fase que
 // ainda não tinham entrado aqui: o formulário aberto (`?nova`, Dialog/Sheet do plano 06) e a
 // folha de impressão (`/encomendas/imprimir`, D-18/ENC-14 do plano 08). `04.4-02-PLAN.md`
-// (Tarefa 1) acrescenta `/financeiro` e `/cadastros`, as duas rotas novas desta fase. Mesmas
-// `REGRAS_AUDITADAS` de sempre — nenhuma regra nova, nenhuma afrouxada.
+// (Tarefa 1) acrescenta `/financeiro` e `/cadastros`, as duas rotas-base do Financeiro.
+// `04.4-11-PLAN.md` (Tarefa 2, fechamento da fase) acrescenta as seis sub-rotas que faltavam —
+// as três abas de `/financeiro` além da Venda (default sem `?aba=`) e as três sub-abas de
+// `/cadastros` além do Catálogo (default sem `?sub=`). Mesmas `REGRAS_AUDITADAS` de sempre —
+// nenhuma regra nova, nenhuma afrouxada.
 const ROTAS_DA_FASE = [
   "/login",
   "/",
@@ -60,7 +63,13 @@ const ROTAS_DA_FASE = [
   "/estoque",
   "/orcamentos",
   "/financeiro",
+  "/financeiro?aba=despesa",
+  "/financeiro?aba=caixa",
+  "/financeiro?aba=mes",
   "/cadastros",
+  "/cadastros?sub=categorias",
+  "/cadastros?sub=fixas",
+  "/cadastros?sub=taxas",
 ] as const;
 
 // Regras às quais esta fase se compromete — restringir com withRules é escolha deliberada

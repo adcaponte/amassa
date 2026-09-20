@@ -191,7 +191,21 @@ test.describe("financeiro extrato", () => {
 
     // ◀ para o mês anterior (garantidamente vazio — meses reservados espaçados de 3 em 3) →
     // "Nada neste mês ainda."; ▶ volta ao mês de origem.
+    //
+    // Causa raiz real (achada na varredura completa da fase, nunca reproduzida sob --grep
+    // isolado): sem esperar a navegação de "Todas" terminar antes de clicar em "mês anterior",
+    // sob a suíte inteira (servidor Next único disputado por 8 workers) o segundo clique podia
+    // acontecer ANTES do React re-renderizar `NavegacaoMes` com o novo `href` (sem `forma=`) —
+    // clicando, então, no `href` ANTIGO ainda com `forma=cartao` embutido (NavegacaoMes recebe o
+    // `href` pronto de quem chama, e preserva a forma corrente por desenho). O resultado seguia o
+    // filtro de Cartão junto para o mês anterior E de volta, mostrando "Nada neste mês, nesta
+    // forma." no mês de origem — mesma classe de asserção-sem-espera já documentada em
+    // `04.4-08-SUMMARY.md`/`04.4-09-SUMMARY.md`, agora na forma de um CLIQUE cedo demais, não de
+    // uma checagem de URL cedo demais. A URL sem `forma=` é estável (nunca limpa por
+    // `history.replaceState`, ao contrário de `?aviso=`) — esperar por ela antes do próximo
+    // clique garante que o `href` já foi atualizado no DOM.
     await page.getByTestId("extrato-filtro-todas").click();
+    await expect(page).not.toHaveURL(/forma=/);
     await page.getByLabel("mês anterior").click();
     await expect(page.getByText("Nada neste mês ainda.")).toBeVisible();
     await page.getByLabel("mês seguinte").click();

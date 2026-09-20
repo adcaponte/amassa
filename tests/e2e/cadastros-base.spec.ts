@@ -128,9 +128,12 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
     ).toBeVisible();
 
     // Desativa — sem AlertDialog de confirmação (reversível): risca a linha e mostra o aviso.
+    // NUNCA `toHaveURL(/aviso=.../)` — o aviso é limpo da URL por `history.replaceState` no mesmo
+    // instante em que o toast aparece (mesma classe de achado real documentada em
+    // `04.4-03-SUMMARY.md`/`04.4-08-SUMMARY.md`: asserção de URL transiente perde a corrida sob a
+    // suíte inteira). O TOAST é o sinal real de que a navegação de sucesso terminou.
     const linhaFinal = page.getByTestId("categoria-linha").filter({ hasText: nomeEditado });
     await linhaFinal.getByRole("button", { name: "Desativar" }).click();
-    await expect(page).toHaveURL(/aviso=categoria-desativada/);
     await expect(page.getByText("Categoria desativada.")).toBeVisible();
     await expect(linhaFinal.locator("span", { hasText: nomeEditado })).toHaveClass(
       /line-through/,
@@ -138,7 +141,6 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
 
     // Reativa.
     await linhaFinal.getByRole("button", { name: "Reativar" }).click();
-    await expect(page).toHaveURL(/aviso=categoria-reativada/);
     await expect(page.getByText("Categoria reativada.")).toBeVisible();
     await expect(linhaFinal.locator("span", { hasText: nomeEditado })).not.toHaveClass(
       /line-through/,

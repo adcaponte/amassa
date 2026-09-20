@@ -76,7 +76,7 @@ export function ExtratoCaixa({
             <Link
               key={valor}
               href={hrefPorForma[valor]}
-              aria-pressed={marcada}
+              aria-current={marcada ? "true" : undefined}
               data-testid={`extrato-filtro-${valor}`}
               className={cn(
                 "text-corpo flex min-h-[44px] items-center justify-center rounded-md border px-4 font-medium",
