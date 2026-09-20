@@ -32,7 +32,7 @@ ROADMAP.md, §Overview)
 Plan: 11 de 11 — planos 01 a 10 completos; no 11, Tarefas 1-2 concluídas (Roteiro 10 e
 04.4-VERIFICACAO-HUMANA.md escritos, varredura completa do e2e rodada). Tarefas 3 (migração em
 produção) e 4 (verificação humana) aguardam o dono.
-Status: Parado no checkpoint do dono. 46 commits locais, NENHUM push.
+Status: Migração aplicada em produção pelo dono em 2026-09-20 e conferida (evidência no 04.4-11-SUMMARY.md). Falta só a Tarefa 4: conferência humana e as 8 perguntas.
 
 O QUE O THEO FAZ AO VOLTAR, nesta ordem:
   1. Autorizar o `git push origin main` (46 commits; o pipeline publica o código novo).
