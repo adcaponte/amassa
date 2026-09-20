@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
+import { apagarContaFixaPeloNome, criarContaFixaInativa } from "./apoio/semear-conta-fixa";
 
 // Prova de máquina de UI-09 — alvo de toque medido, contraste varrido por ferramenta, nome
 // acessível conferido por papel e navegação por teclado exercitada — sobre a casca inteira da
@@ -218,20 +219,48 @@ test.describe("acessibilidade — varredura de contraste com axe-core (UI-09)", 
   for (const rota of ROTAS_DA_FASE) {
     test(`${rota} não tem violação de color-contrast, button-name, link-name ou aria-allowed-attr (UI-09)`, async ({
       page,
-    }) => {
-      await irParaRotaAutenticada(page, rota);
+    }, testInfo) => {
+      // `/cadastros?sub=fixas` é a única rota da varredura cujo achado de contraste real (WINDOWS
+      // #4) só existe numa conta fixa DESATIVADA — a linha esmaecida (`opacity-70` sobre
+      // `lista-contas-fixas.tsx`) que dilui `--color-tinta-fraca` abaixo de 4.5:1. Com o banco
+      // vazio (ou só com contas ATIVAS), o `<span>` de metadado nem existe na árvore de
+      // acessibilidade nesse estado — a prova ficaria vazia por vacuidade, não por correção.
+      // Semeia uma conta JÁ INATIVA direto no banco (nunca dado real do ateliê, nome inventado
+      // com sufixo único por projeto para não colidir entre celular/desktop rodando em paralelo,
+      // mesmo cuidado de `tests/e2e/cadastros-contas-fixas.spec.ts`) e apaga no `finally` — a
+      // tabela é GLOBAL e compartilhada, e uma linha esquecida quebraria a contagem de "toda
+      // conta ativa" que "Gerar as contas" faz em outro arquivo de spec.
+      const ehRotaDeContasFixas = rota === "/cadastros?sub=fixas";
+      const nomeDaContaSemeada = `Conta de teste a11y ${testInfo.project.name}-${Date.now()}`;
 
-      const resultado = await new AxeBuilder({ page }).withRules(REGRAS_AUDITADAS).analyze();
+      if (ehRotaDeContasFixas) {
+        await criarContaFixaInativa({
+          nome: nomeDaContaSemeada,
+          categoria: "Contabilidade",
+          valorCentavos: 12000,
+          diaVencimento: 10,
+        });
+      }
 
-      // Nenhuma violação some por lista de regras a ignorar ou recorte de seletor — se aparecer
-      // aqui, é achado real (corrigir a interface) ou registro por escrito no SUMMARY com o
-      // motivo (nunca as duas coisas ao mesmo tempo em silêncio).
-      expect(
-        resultado.violations,
-        resultado.violations
-          .map((violacao) => `${violacao.id}: ${violacao.help} (${violacao.nodes.length} nó(s))`)
-          .join("\n"),
-      ).toEqual([]);
+      try {
+        await irParaRotaAutenticada(page, rota);
+
+        const resultado = await new AxeBuilder({ page }).withRules(REGRAS_AUDITADAS).analyze();
+
+        // Nenhuma violação some por lista de regras a ignorar ou recorte de seletor — se aparecer
+        // aqui, é achado real (corrigir a interface) ou registro por escrito no SUMMARY com o
+        // motivo (nunca as duas coisas ao mesmo tempo em silêncio).
+        expect(
+          resultado.violations,
+          resultado.violations
+            .map((violacao) => `${violacao.id}: ${violacao.help} (${violacao.nodes.length} nó(s))`)
+            .join("\n"),
+        ).toEqual([]);
+      } finally {
+        if (ehRotaDeContasFixas) {
+          await apagarContaFixaPeloNome(nomeDaContaSemeada);
+        }
+      }
     });
   }
 });

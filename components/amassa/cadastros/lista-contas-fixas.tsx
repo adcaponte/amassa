@@ -111,10 +111,14 @@ export function ListaContasFixas({
           <li
             key={conta.id}
             data-testid="conta-fixa-linha"
-            className={cn(
-              "border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-3",
-              !conta.ativa && "opacity-70",
-            )}
+            // Achado de acessibilidade (WCAG 1.4.3, UI-09): `opacity-70` sobre a linha inteira
+            // diluía `--color-tinta-fraca` (5.4:1 aprovado AA a opacidade cheia) para 2.99:1 no
+            // metadado — a compositação alfa de um token JÁ no limite da AA passa a reprovar
+            // mesmo sem trocar cor nenhuma. O nome riscado (`line-through` abaixo) e o rótulo do
+            // botão ("Reativar") já comunicam "desativada" sem depender de opacidade — removida
+            // aqui, nunca substituída por um valor de opacidade mais alto (a diluição continua
+            // reprovando até ~92%, visualmente indistinguível de "ativa").
+            className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
           >
             <div className="flex min-w-0 flex-1 flex-col">
               <span
