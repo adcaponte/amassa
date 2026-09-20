@@ -6,9 +6,9 @@ current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
 stopped_at: "Fase 04.4: planos 01-10 completos e o 11 parado no checkpoint do dono (Tarefas 1-2 feitas). Faltam, todos com o Theo: (1) git push dos 43 commits locais, (2) Roteiro 10 — migrações 0014/0015/0016 em produção à mão depois de backup, (3) 04.4-VERIFICACAO-HUMANA.md: 17 itens no celular e no computador + 8 perguntas com recomendação. NÃO dar push sem ele."
-last_updated: "2026-09-20T02:17:18.461Z"
+last_updated: "2026-09-20T10:05:00.000Z"
 last_activity: 2026-09-20
-last_activity_desc: 04.4-11 Tarefas 1-2 concluídas; aguardando o dono
+last_activity_desc: "quick 260920-dx9: SQLSTATE embrulhado corrigido em Abertura, Cotações e Queimas"
 progress:
   total_phases: 10
   completed_phases: 9
@@ -33,6 +33,10 @@ Plan: 11 de 11 — planos 01 a 10 completos; no 11, Tarefas 1-2 concluídas (Rot
 04.4-VERIFICACAO-HUMANA.md escritos, varredura completa do e2e rodada). Tarefas 3 (migração em
 produção) e 4 (verificação humana) aguardam o dono.
 Status: Parado no checkpoint do dono. 46 commits locais, NENHUM push.
+  → DESATUALIZADO (medido em 20/09 pela tarefa rápida 260920-dx9): esses 46 commits JÁ FORAM
+    empurrados. `origin/main` está em `c97f595` (20/09, 10:25), que contém `9d33bdf`. O passo 1
+    da lista abaixo ("autorizar o `git push`") saiu. Os passos 2 e 3 — migrações 0014/0015/0016
+    em produção e a verificação humana — continuam de pé.
 
 O QUE O THEO FAZ AO VOLTAR, nesta ordem:
   1. Autorizar o `git push origin main` (46 commits; o pipeline publica o código novo).
@@ -64,7 +68,17 @@ DECIDIDO SEM O THEO (revisar; detalhe em cada SUMMARY, seção "Decidido sem o T
 TAREFA SEPARADA, FORA DESTA FASE (chip criado): o Drizzle embrulha o erro do Postgres, e as
 mensagens humanas de "chave estrangeira" não aparecem em Abertura, Comparador e Queimas — os três
 já estão no ar. Corrigido só no Financeiro e em Cadastros.
-Last activity: 2026-09-20 — 04.4-11 Tarefas 1-2 concluídas; aguardando o dono
+  → FEITO em 20/09 pela tarefa rápida 260920-dx9, na ramificação
+    `claude/determined-satoshi-eecf21` (6 commits, ainda sem merge). Detector extraído para
+    `lib/erro/postgres.ts` e aplicado nos TRÊS módulos, com par RED/GREEN de e2e provando as
+    frases humanas. ATENÇÃO à premissa errada acima: o Financeiro **não** estava corrigido —
+    `lib/financeiro/acoes.ts:51-53` tem o mesmo defeito até hoje, e ficou de fora de propósito
+    por esta fase estar no checkpoint do dono. `lib/cadastros/acoes.ts` mantém uma cópia privada
+    do detector que deveria passar a importar de `lib/erro/postgres.ts`. As duas pendências estão
+    detalhadas em `.planning/quick/260920-dx9-*/260920-dx9-SUMMARY.md`, seção
+    "Pendências deixadas de propósito" — fazer as duas ao retomar a Fase 04.4.
+Last activity: 2026-09-20 — tarefa rápida 260920-dx9: SQLSTATE embrulhado pelo Drizzle corrigido
+em Abertura, Cotações e Queimas (a Fase 04.4 segue aguardando o dono)
 
 Progress: [█████████░] 98% (61 de 62 planos; o 04.4-11 conta como
 automatizável concluído, migração e verificação humana pendentes)
@@ -386,6 +400,7 @@ None yet.
 | 10 | Fecha a sessão de debug e2e-toque-nao-navega-ci após conferência do dono no celular; WINDOWS #12 #29 #30 #31 corrigidos | 2026-09-19 | 8666291 | — |
 | 260919-e4n | Cartões do painel da Abertura por aba: Comprometido e Sai neste mês só em Por mês; Precisa de atenção só em Itens; nenhum em Tarefas e Cotações | 2026-09-19 | cefee93 | [260919-e4n-cartoes-do-painel-da-abertura-por-aba](./quick/260919-e4n-cartoes-do-painel-da-abertura-por-aba/) |
 | 260919-ou8 | Ignorar `Claude outputs/` e versionar o protótipo aprovado do Estoque | 2026-09-19 | 93ef4e2 | [260919-ou8-gitignore-claude-outputs-e-prototipo-do-](./quick/260919-ou8-gitignore-claude-outputs-e-prototipo-do-/) |
+| 260920-dx9 | Detectar SQLSTATE embrulhado pelo Drizzle em Abertura, Cotações e Queimas — a mensagem humana de chave estrangeira voltou a aparecer nos três módulos em produção | 2026-09-20 | 6288f67, b23b81e, fcbb3c3, 865e338, cc399ae | [260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl](./quick/260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl/) |
 
 ### Roadmap Evolution
 
