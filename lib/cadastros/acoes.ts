@@ -9,13 +9,18 @@ import {
   configuracaoFinanceira,
   contasFixas,
   documentoLinhas,
+  documentos,
   fichaTecnica,
   itensCatalogo,
+  parcelas,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { primeiroDiaDoMes } from "@/lib/financeiro/calendario";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
 import { podeDeixarDeTerEstoque, type InsumoDisponivel } from "./catalogo";
 import { podeMudarGrupoEArea } from "./categorias";
+import { mesDaGeracao, tituloDaContaFixa, vencimentoNoMes } from "./contas-fixas";
 import {
   esquemaAtivacao,
   esquemaAtivacaoDeContaFixa,
@@ -23,6 +28,7 @@ import {
   esquemaContaFixa,
   esquemaEdicaoDeCategoria,
   esquemaEdicaoDeItem,
+  esquemaGeracao,
   esquemaItem,
   esquemaTaxa,
   esquemaValorDaContaFixa,
@@ -36,6 +42,7 @@ import {
   FRASE_CONTA_FIXA_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_SALVAR,
   FRASE_ITEM_NAO_EXISTE_MAIS,
+  FRASE_MES_DE_GERACAO_INVALIDO,
   FRASE_NOME_REPETIDO,
 } from "./textos";
 
@@ -688,6 +695,99 @@ export async function definirContaFixaAtiva(
     return { ok: true, dados: { id, ativa } };
   } catch (erro) {
     console.error("Falha ao (des)ativar conta fixa:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// "Gerar as contas de {mês}" (04.4-10-PLAN.md, Tarefa 2): para cada conta fixa ATIVA, insere um
+// `documentos` de despesa com `on conflict (conta_fixa_id, mes_referencia) do nothing` — é o
+// BANCO, não uma leitura prévia de "já existe?", que garante a idempotência (T-04.4-61), inclusive
+// sob dois gestores gerando o MESMO mês ao mesmo tempo. `exigirUsuario()` é a PRIMEIRA instrução
+// do corpo.
+export async function gerarContasDoMes(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ criadas: number; mes: string }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaGeracao.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { mes } = resultado.data;
+
+  // T-04.4-62: o servidor só aceita o mês seguinte ao de hoje — a tela nunca oferece outro, mas
+  // um envio forçado (DOM adulterado) é recusado aqui, nunca confiado.
+  const hoje = hojeEmBrasilia(new Date());
+  if (mes !== mesDaGeracao(hoje)) {
+    return { ok: false, erro: FRASE_MES_DE_GERACAO_INVALIDO };
+  }
+
+  try {
+    const criadas = await db.transaction(async (tx) => {
+      const contasAtivas = await tx
+        .select({
+          id: contasFixas.id,
+          nome: contasFixas.nome,
+          categoriaId: contasFixas.categoriaId,
+          valorEsperadoCentavos: contasFixas.valorEsperadoCentavos,
+          diaVencimento: contasFixas.diaVencimento,
+        })
+        .from(contasFixas)
+        .where(eq(contasFixas.ativa, true));
+
+      const mesReferencia = primeiroDiaDoMes(mes);
+      let total = 0;
+
+      for (const conta of contasAtivas) {
+        const vencimento = vencimentoNoMes(conta.diaVencimento, mes);
+
+        const [documentoCriado] = await tx
+          .insert(documentos)
+          .values({
+            tipo: "despesa",
+            data: vencimento,
+            titulo: tituloDaContaFixa(conta.nome, mes),
+            contaFixaId: conta.id,
+            mesReferencia,
+            criadoPor: usuario.id,
+          })
+          .onConflictDoNothing({ target: [documentos.contaFixaId, documentos.mesReferencia] })
+          .returning({ id: documentos.id });
+
+        // Sem linha devolvida: o `on conflict` ignorou a inserção — essa conta já tinha sido
+        // gerada para este mês. Nenhuma linha nem parcela é criada para ela de novo.
+        if (!documentoCriado) {
+          continue;
+        }
+
+        await tx.insert(documentoLinhas).values({
+          documentoId: documentoCriado.id,
+          ordem: 0,
+          categoriaId: conta.categoriaId,
+          descricao: conta.nome,
+          quantidade: 1,
+          valorCentavos: conta.valorEsperadoCentavos,
+        });
+
+        await tx.insert(parcelas).values({
+          documentoId: documentoCriado.id,
+          numero: 1,
+          vencimento,
+          valorCentavos: conta.valorEsperadoCentavos,
+          forma: "pix",
+        });
+
+        total += 1;
+      }
+
+      return total;
+    });
+
+    revalidatePath("/financeiro");
+    revalidatePath("/cadastros");
+    return { ok: true, dados: { criadas, mes } };
+  } catch (erro) {
+    console.error("Falha ao gerar as contas do mês:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

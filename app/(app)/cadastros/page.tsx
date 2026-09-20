@@ -17,8 +17,10 @@ import {
   TOAST_CONTA_FIXA_REATIVADA,
   textoContasGeradas,
 } from "@/lib/cadastros/textos";
-import { nomeDoMes } from "@/lib/financeiro/formato";
+import { mesDaGeracao } from "@/lib/cadastros/contas-fixas";
+import { hojeEmBrasilia, nomeDoMes } from "@/lib/financeiro/formato";
 import { AvisoCadastros } from "@/components/amassa/cadastros/aviso-cadastros";
+import { BotaoGerarContas } from "@/components/amassa/cadastros/botao-gerar-contas";
 import { FormularioTaxa } from "@/components/amassa/cadastros/formulario-taxa";
 import { ListaCatalogo } from "@/components/amassa/cadastros/lista-catalogo";
 import { ListaCategorias } from "@/components/amassa/cadastros/lista-categorias";
@@ -46,6 +48,9 @@ export default async function PaginaCadastros({
   const { sub, aviso, quantidade, mes } = await searchParams;
   const subAtual = subDaUrl(sub);
   const avisoResolvido = avisoDaUrl({ aviso, quantidade, mes });
+  // O único mês que "Gerar as contas de {mês}" oferece: o mês seguinte ao de hoje (suposição do
+  // planejador, registrada no plano — sem seletor de mês nesta fase).
+  const mesParaGerar = mesDaGeracao(hojeEmBrasilia(new Date()));
 
   const textoDoAviso =
     avisoResolvido?.tipo === "categoria-desativada"
@@ -89,6 +94,13 @@ export default async function PaginaCadastros({
         <ListaContasFixas
           contasFixas={contasFixas}
           categoriasParaContaFixa={categoriasParaContaFixa}
+          botaoGerar={
+            <BotaoGerarContas
+              mes={mesParaGerar}
+              mesPorExtenso={nomeDoMes(mesParaGerar)}
+              existeContaAtiva={contasFixas.some((conta) => conta.ativa)}
+            />
+          }
         />
       ) : (
         <ListaCatalogo
