@@ -5,18 +5,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import type { AbaFinanceiro } from "@/lib/financeiro/abas";
-import { ROTULO_ABA_CAIXA, ROTULO_ABA_DESPESA, ROTULO_ABA_VENDA } from "@/lib/financeiro/textos";
+import {
+  ROTULO_ABA_CAIXA,
+  ROTULO_ABA_DESPESA,
+  ROTULO_ABA_MES,
+  ROTULO_ABA_VENDA,
+} from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
 
 // A barra de sub-navegação do Financeiro (`role="tablist"`), mesmo padrão visual e estrutural de
 // `abas-abertura.tsx` — pílulas NEUTRAS (nunca terracota), navegação por QUERY STRING na MESMA
-// rota (`?aba=venda`/`?aba=despesa`/`?aba=caixa`) para as abas do Financeiro, um `<Link>` normal
-// do Next.js. Nesta tarefa (plano 07) Despesa entra; Mês entra no plano 09. A ordem final das
-// pílulas é Venda · Despesa · Caixa · Mês · Cadastros.
+// rota (`?aba=venda`/`?aba=despesa`/`?aba=caixa`/`?aba=mes`) para as abas do Financeiro, um
+// `<Link>` normal do Next.js. A ordem final das pílulas é Venda · Despesa · Caixa · Mês ·
+// Cadastros (04.4-09-PLAN.md fecha a última aba de conteúdo; "Cadastros" continua sendo a quinta
+// pílula, uma rota própria, montada abaixo).
 const ABAS: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
   { valor: "venda", rotulo: ROTULO_ABA_VENDA },
   { valor: "despesa", rotulo: ROTULO_ABA_DESPESA },
   { valor: "caixa", rotulo: ROTULO_ABA_CAIXA },
+  { valor: "mes", rotulo: ROTULO_ABA_MES },
 ];
 
 // A quinta pílula, "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um

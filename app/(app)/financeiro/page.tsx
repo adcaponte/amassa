@@ -1,5 +1,5 @@
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { abaDaUrl } from "@/lib/financeiro/abas";
+import { abaDaUrl, formaDaUrl, mesDaUrl } from "@/lib/financeiro/abas";
 import { avisoDaUrl } from "@/lib/financeiro/avisos";
 import {
   listarCatalogoDaCompra,
@@ -14,8 +14,9 @@ import {
   obterDocumentoParaAviso,
   obterParcelaParaAviso,
 } from "@/lib/financeiro/consultas";
-import { montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
-import { chaveDoMes, formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { mesAnterior, mesSeguinte } from "@/lib/financeiro/calendario";
+import { filtrarExtrato, montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
+import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import {
   textoCancelado,
   textoDespesaLancada,
@@ -31,24 +32,37 @@ import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
 
+const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
+
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/abertura/page.tsx`.
-// `searchParams` é `Promise` no Next.js 15. `?aba=` decide Venda ou Caixa (nesta tarefa, só as
-// duas); o aviso pós-navegação é resolvido AQUI, no servidor, a partir de
-// `?aviso=lancado&documento=<id>` — o texto pronto desce para `AvisoFinanceiro`, que só mostra o
-// toast, nunca monta a frase sozinho.
+// `searchParams` é `Promise` no Next.js 15. `?aba=` decide Venda, Despesa, Caixa ou Mês; o aviso
+// pós-navegação é resolvido AQUI, no servidor, a partir de `?aviso=lancado&documento=<id>` — o
+// texto pronto desce para `AvisoFinanceiro`, que só mostra o toast, nunca monta a frase sozinho.
 export default async function PaginaFinanceiro({
   searchParams,
 }: {
-  searchParams: Promise<{ aba?: string; aviso?: string; documento?: string; parcela?: string }>;
+  searchParams: Promise<{
+    aba?: string;
+    aviso?: string;
+    documento?: string;
+    parcela?: string;
+    mes?: string;
+    forma?: string;
+  }>;
 }) {
   await exigirUsuario();
 
-  const { aba, aviso, documento, parcela } = await searchParams;
+  const { aba, aviso, documento, parcela, mes, forma } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
   const abaDespesa = abaAtual === "despesa";
   const abaCaixa = abaAtual === "caixa";
+  const abaMes = abaAtual === "mes";
   const hoje = hojeEmBrasilia(new Date());
+  // Mês/forma do EXTRATO (D-11/D-12) — a aba Mês (04.4-09-PLAN.md Tarefa 3) usa o mesmo
+  // `mesDaUrl`, mas nunca o `forma` (o filtro por forma só existe no extrato do Caixa).
+  const mesDoExtrato = mesDaUrl(mes, hoje);
+  const formaDoExtrato = formaDaUrl(forma);
 
   const avisoResolvido = avisoDaUrl({ aviso, documento, parcela });
 
@@ -137,20 +151,36 @@ export default async function PaginaFinanceiro({
     ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: parcelasEmAberto })
     : null;
 
-  // Extrato mostra o mês corrente, mais recente primeiro — a navegação por mês/filtro por forma
-  // (D-11/D-12) entra num plano futuro; o saldo depois de cada linha continua o acumulado GLOBAL
-  // (D-12), calculado acima sobre a lista inteira, nunca recalculado sobre o recorte do mês.
-  const chaveDoMesAtual = chaveDoMes(hoje);
-  const linhasDoMes = extrato
-    ? extrato.linhas.filter((linha) => chaveDoMes(linha.pagoEm) === chaveDoMesAtual).reverse()
-    : [];
+  // D-11/D-12: `filtrarExtrato` recebe as linhas JÁ com o saldo global de `montarExtrato` — só
+  // escolhe quais mostrar (mês + forma), nunca recalcula saldo.
+  const extratoFiltrado = extrato
+    ? filtrarExtrato(extrato.linhas, { mes: mesDoExtrato, forma: formaDoExtrato })
+    : null;
+
+  // Um `href` por seta e por pílula de forma — a forma sobrevive à troca de mês, o mês sobrevive
+  // à troca de forma (nenhum dos dois componentes conhece a estrutura da URL, só recebe strings
+  // prontas).
+  function hrefDoExtrato(mesAlvo: string, formaAlvo: typeof formaDoExtrato): string {
+    const sufixoForma = formaAlvo === "todas" ? "" : `&forma=${formaAlvo}`;
+    return `/financeiro?aba=caixa&mes=${mesAlvo}${sufixoForma}`;
+  }
+  const hrefMesAnteriorDoExtrato = hrefDoExtrato(mesAnterior(mesDoExtrato), formaDoExtrato);
+  const hrefMesSeguinteDoExtrato = hrefDoExtrato(mesSeguinte(mesDoExtrato), formaDoExtrato);
+  const hrefPorForma = Object.fromEntries(
+    FORMAS_DO_FILTRO_EXTRATO.map((valor) => [valor, hrefDoExtrato(mesDoExtrato, valor)]),
+  ) as Record<(typeof FORMAS_DO_FILTRO_EXTRATO)[number], string>;
 
   // O detalhe do documento ("Ver") acha o documento numa lista JÁ carregada — nunca uma segunda
   // consulta ao abrir (key_link do plano). `idsParaDetalhe` é a UNIÃO dos documentos das contas em
-  // aberto com os do extrato do mês; uma ÚNICA consulta cobre as duas listas e o extrato.
+  // aberto com os do extrato filtrado — uma ÚNICA consulta cobre as duas listas.
   const idsParaDetalhe =
     abaCaixa
-      ? [...new Set([...contasEmAberto.map((c) => c.documentoId), ...linhasDoMes.map((l) => l.documentoId)])]
+      ? [
+          ...new Set([
+            ...contasEmAberto.map((c) => c.documentoId),
+            ...(extratoFiltrado?.linhas.map((l) => l.documentoId) ?? []),
+          ]),
+        ]
       : [];
   const documentosParaDetalhe = abaCaixa
     ? await listarDocumentosParaDetalhe(idsParaDetalhe)
@@ -168,8 +198,20 @@ export default async function PaginaFinanceiro({
         <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
           {resumo ? <TilesCaixa resumo={resumo} /> : null}
           <ListasCaixa contas={contasEmAberto} documentos={documentosParaDetalhe} hoje={hoje} />
-          <ExtratoCaixa linhas={linhasDoMes} documentos={documentosParaDetalhe} />
+          {extratoFiltrado ? (
+            <ExtratoCaixa
+              mes={mesDoExtrato}
+              forma={formaDoExtrato}
+              extrato={extratoFiltrado}
+              hrefMesAnterior={hrefMesAnteriorDoExtrato}
+              hrefMesSeguinte={hrefMesSeguinteDoExtrato}
+              hrefPorForma={hrefPorForma}
+              documentos={documentosParaDetalhe}
+            />
+          ) : null}
         </div>
+      ) : abaMes ? (
+        <div className="px-6 py-6 md:px-8" />
       ) : abaDespesa ? (
         <PainelDespesa
           hoje={hoje}

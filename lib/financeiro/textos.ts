@@ -17,6 +17,7 @@ export const TITULO_MODULO = "Financeiro";
 export const ROTULO_ABA_VENDA = "Venda";
 export const ROTULO_ABA_DESPESA = "Despesa";
 export const ROTULO_ABA_CAIXA = "Caixa";
+export const ROTULO_ABA_MES = "Mês";
 
 // Os cinco rótulos de área (04.4-UI-SPEC.md §Color/§Copywriting) — "Área" nunca é escolhida pelo
 // usuário, só exibida, derivada da categoria (briefing §2).
@@ -161,6 +162,17 @@ export const ROTULO_TILE_SE_TUDO_SE_CUMPRIR = "Se tudo se cumprir";
 
 export const TITULO_EXTRATO = "O que já entrou e saiu";
 export const FRASE_VAZIO_EXTRATO = "Nada neste mês ainda.";
+// D-11: com filtro por forma aplicado e nenhuma linha bate — distinto do vazio SEM filtro acima.
+export const FRASE_VAZIO_EXTRATO_NA_FORMA = "Nada neste mês, nesta forma.";
+export const ROTULO_FILTRO_TODAS = "Todas";
+
+// "Total em Dinheiro neste mês: + R$ 30,00" — resolução do Claude's Discretion de D-11
+// (04.4-CONTEXT.md): o filtro por forma soma o total filtrado, resolvendo "quanto entrou em
+// dinheiro?". `valorComSinalFormatado` já chega pronto de quem chama (com o sinal e
+// `formatarReais`), este módulo nunca formata dinheiro sozinho.
+export function textoTotalFiltrado(rotuloForma: string, valorComSinalFormatado: string): string {
+  return `Total em ${rotuloForma} neste mês: ${valorComSinalFormatado}`;
+}
 
 export const FRASE_ERRO_TITULO = "Algo não funcionou.";
 export const FRASE_ERRO_CORPO =
