@@ -4,6 +4,11 @@
 // despesa gerada por "Gerar as contas de {mês}" (04.4-10-PLAN.md, D-13).
 import { mesSeguinte, ultimoDiaDoMes } from "@/lib/financeiro/calendario";
 
+// O teto da faixa de "Gerar as contas de {mês}" (resposta do dono, 2026-09-20): a faixa é o mês de
+// hoje mais estes onze seguintes — doze opções no total, fechando o formato no servidor e cabendo
+// num seletor nativo no celular.
+export const MESES_DE_GERACAO_A_FRENTE = 11;
+
 // Cópia PRÓPRIA deste módulo (D-15: cada módulo redeclara, nunca importa de outro) — diferente do
 // formato "mês de ano" de `lib/financeiro/formato.ts::nomeDoMes` (usado no rótulo do botão e no
 // aviso), este é o formato curto "mês/ano" do TÍTULO da despesa gerada, herdado do protótipo.
@@ -49,8 +54,30 @@ export function tituloDaContaFixa(nome: string, chaveDoMes: string): string {
   return `${nome} · ${nomeCurtoDoMes(chaveDoMes)}`;
 }
 
-// O mês que "Gerar as contas de {mês}" sempre gera: o mês SEGUINTE ao de hoje (suposição do
-// planejador registrada no plano — o protótipo nunca oferece um seletor de mês). `hojeIso`
+// A faixa que "Gerar as contas de {mês}" oferece no seletor (resposta do dono, 2026-09-20): o mês
+// de `hojeIso` e os `MESES_DE_GERACAO_A_FRENTE` seguintes, em ordem, usando `mesSeguinte` — o
+// módulo continua sem construir `Date` nenhuma e sem ler o relógio. É esta lista, não uma
+// igualdade com um único mês, que `mesPermitidoParaGeracao` confere e que o servidor
+// (`gerarContasDoMes`) usa para recusar um mês fora da faixa.
+export function mesesParaGeracao(hojeIso: string): string[] {
+  const meses = [hojeIso.slice(0, 7)];
+  for (let i = 0; i < MESES_DE_GERACAO_A_FRENTE; i++) {
+    meses.push(mesSeguinte(meses[meses.length - 1]));
+  }
+  return meses;
+}
+
+// Se `mes` está dentro da faixa de `mesesParaGeracao(hojeIso)` — a ÚNICA porta que o servidor usa
+// para aceitar ou recusar o mês escolhido no seletor (T-04.4-72): um envio forçado (DOM
+// adulterado) com um mês fora da faixa, ou num formato que não é "YYYY-MM", nunca passa daqui.
+export function mesPermitidoParaGeracao(hojeIso: string, mes: string): boolean {
+  return mesesParaGeracao(hojeIso).includes(mes);
+}
+
+// O mês que o seletor de "Gerar as contas de {mês}" mostra ESCOLHIDO quando a tela abre — deixou
+// de ser "o único mês que o botão gera" (antes deste plano, o protótipo nunca oferecia seletor) e
+// passou a ser só o PRÉ-SELECIONADO dentro da faixa de `mesesParaGeracao`: sempre o mês seguinte
+// ao de hoje, o mesmo valor de sempre, mantendo o caso de uso mais comum em um toque só. `hojeIso`
 // ("YYYY-MM-DD") chega por argumento, nunca lido de dentro deste módulo puro.
 export function mesDaGeracao(hojeIso: string): string {
   const chaveDoMesAtual = hojeIso.slice(0, 7);

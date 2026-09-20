@@ -7,11 +7,25 @@ import { conferirParcelas, dividirEmDuasFormas, gerarPlano } from "@/lib/finance
 // conferência da soma (servidor E cliente chamam a mesma função), sem servidor nenhum.
 
 describe("gerarPlano — à vista", () => {
-  it("uma parcela só, já paga, na data do documento", () => {
+  it("uma parcela só, já paga, na data do documento — sem passar pagaAVista, o padrão não mudou", () => {
     const resultado = gerarPlano({ plano: "avista", totalCentavos: 15000, data: "2026-12-18", forma: "pix" });
     expect(resultado).toEqual({
       ok: true,
       parcelas: [{ numero: 1, de: 1, vencimento: "2026-12-18", valorCentavos: 15000, forma: "pix", paga: true }],
+    });
+  });
+
+  it("com pagaAVista em falso, devolve uma parcela NÃO paga, com vencimento na data do documento", () => {
+    const resultado = gerarPlano({
+      plano: "avista",
+      totalCentavos: 15000,
+      data: "2026-12-18",
+      forma: "pix",
+      pagaAVista: false,
+    });
+    expect(resultado).toEqual({
+      ok: true,
+      parcelas: [{ numero: 1, de: 1, vencimento: "2026-12-18", valorCentavos: 15000, forma: "pix", paga: false }],
     });
   });
 });
@@ -32,6 +46,19 @@ describe("gerarPlano — sinal de 50% + saldo", () => {
     expect(resultado.ok).toBe(true);
     if (!resultado.ok) return;
     expect(resultado.parcelas.map((parcela) => parcela.valorCentavos)).toEqual([7500, 7500]);
+  });
+
+  it("pagaAVista em falso NÃO afeta o sinal — a primeira parcela continua paga", () => {
+    const resultado = gerarPlano({
+      plano: "sinal",
+      totalCentavos: 15001,
+      data: "2026-12-18",
+      forma: "pix",
+      pagaAVista: false,
+    });
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.parcelas.map((parcela) => parcela.paga)).toEqual([true, false]);
   });
 });
 
@@ -69,6 +96,19 @@ describe("gerarPlano — Nx", () => {
     const resultado = gerarPlano({ plano: "2", totalCentavos: 1, data: "2026-12-18", forma: "dinheiro" });
     expect(resultado).toEqual({ ok: false, erro: "O valor é pequeno demais para dividir em 2 vezes." });
   });
+
+  it("pagaAVista em falso NÃO afeta o Nx — a primeira parcela continua paga", () => {
+    const resultado = gerarPlano({
+      plano: "3",
+      totalCentavos: 10000,
+      data: "2026-12-18",
+      forma: "dinheiro",
+      pagaAVista: false,
+    });
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.parcelas.map((parcela) => parcela.paga)).toEqual([true, false, false]);
+  });
 });
 
 describe("dividirEmDuasFormas", () => {
@@ -105,6 +145,36 @@ describe("dividirEmDuasFormas", () => {
         formas: ["pix", "dinheiro"],
       }).ok,
     ).toBe(false);
+  });
+
+  it("com os dois pagas em falso, devolve as duas em aberto, ambas na data do documento", () => {
+    const resultado = dividirEmDuasFormas({
+      totalCentavos: 15000,
+      primeiroValorCentavos: 10000,
+      data: "2026-12-18",
+      formas: ["pix", "dinheiro"],
+      pagas: [false, false],
+    });
+    expect(resultado).toEqual({
+      ok: true,
+      parcelas: [
+        { numero: 1, de: 2, vencimento: "2026-12-18", valorCentavos: 10000, forma: "pix", paga: false },
+        { numero: 2, de: 2, vencimento: "2026-12-18", valorCentavos: 5000, forma: "dinheiro", paga: false },
+      ],
+    });
+  });
+
+  it("com o primeiro verdadeiro e o segundo falso, devolve exatamente isso", () => {
+    const resultado = dividirEmDuasFormas({
+      totalCentavos: 15000,
+      primeiroValorCentavos: 10000,
+      data: "2026-12-18",
+      formas: ["pix", "dinheiro"],
+      pagas: [true, false],
+    });
+    expect(resultado.ok).toBe(true);
+    if (!resultado.ok) return;
+    expect(resultado.parcelas.map((parcela) => parcela.paga)).toEqual([true, false]);
   });
 });
 
@@ -169,6 +239,12 @@ describe("conferirParcelas", () => {
     });
   });
 
+  it("parcela única NÃO paga vencendo depois de hoje é aceita (a conta que vence dia 30)", () => {
+    expect(
+      conferirParcelas({ ...base, parcelas: [{ vencimento: "2026-12-19", valorCentavos: 15000, pago: false }] }),
+    ).toEqual({ ok: true });
+  });
+
   it("parcela paga antes do saldo inicial recusa quando ele existe", () => {
     expect(
       conferirParcelas({
@@ -180,6 +256,31 @@ describe("conferirParcelas", () => {
     ).toEqual({
       ok: false,
       erro: "Essa parcela vence antes do saldo inicial do Financeiro — confira a data.",
+    });
+  });
+
+  it("parcela única NÃO paga com vencimento anterior ao saldo inicial é aceita — a recusa é só para parcela paga", () => {
+    expect(
+      conferirParcelas({
+        totalCentavos: 15000,
+        hoje: "2026-12-18",
+        dataSaldoInicial: "2026-12-01",
+        parcelas: [{ vencimento: "2026-11-30", valorCentavos: 15000, pago: false }],
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("mesmo com parcela não paga, continua recusando a soma que não fecha", () => {
+    expect(
+      conferirParcelas({
+        totalCentavos: 15000,
+        hoje: "2026-12-18",
+        dataSaldoInicial: "2026-12-01",
+        parcelas: [{ vencimento: "2026-11-30", valorCentavos: 10000, pago: false }],
+      }),
+    ).toEqual({
+      ok: false,
+      erro: `As parcelas somam ${formatarReais(10000)}. Faltam ${formatarReais(5000)} para fechar com o total.`,
     });
   });
 

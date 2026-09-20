@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   mesDaGeracao,
+  mesesParaGeracao,
+  mesPermitidoParaGeracao,
   nomeCurtoDoMes,
   tituloDaContaFixa,
   vencimentoNoMes,
@@ -56,6 +58,49 @@ describe("mesDaGeracao — sempre o mês seguinte ao de hoje", () => {
 
   it("30 de novembro de 2026 gera dezembro de 2026", () => {
     expect(mesDaGeracao("2026-11-30")).toBe("2026-12");
+  });
+
+  it("é sempre o SEGUNDO item de mesesParaGeracao do mesmo dia", () => {
+    expect(mesDaGeracao("2026-09-20")).toBe(mesesParaGeracao("2026-09-20")[1]);
+  });
+});
+
+describe("mesesParaGeracao — o mês de hoje e os onze seguintes, sem repetição", () => {
+  it("2026-09-20 começa em '2026-09' e termina em '2027-08', doze meses", () => {
+    const meses = mesesParaGeracao("2026-09-20");
+    expect(meses).toHaveLength(12);
+    expect(meses[0]).toBe("2026-09");
+    expect(meses[11]).toBe("2027-08");
+    expect(new Set(meses).size).toBe(12);
+  });
+
+  it("2026-12-31 atravessa o ano: começa em '2026-12' e termina em '2027-11'", () => {
+    const meses = mesesParaGeracao("2026-12-31");
+    expect(meses[0]).toBe("2026-12");
+    expect(meses[11]).toBe("2027-11");
+  });
+});
+
+describe("mesPermitidoParaGeracao — o mês corrente entra, o teto é onze meses à frente", () => {
+  it("o mês corrente é permitido", () => {
+    expect(mesPermitidoParaGeracao("2026-09-20", "2026-09")).toBe(true);
+  });
+
+  it("um mês passado não é permitido", () => {
+    expect(mesPermitidoParaGeracao("2026-09-20", "2026-08")).toBe(false);
+  });
+
+  it("o último mês da faixa (onze à frente) é permitido", () => {
+    expect(mesPermitidoParaGeracao("2026-09-20", "2027-08")).toBe(true);
+  });
+
+  it("um mês além do último da faixa não é permitido", () => {
+    expect(mesPermitidoParaGeracao("2026-09-20", "2027-09")).toBe(false);
+  });
+
+  it("formato inválido nunca é permitido", () => {
+    expect(mesPermitidoParaGeracao("2026-09-20", "2026-9")).toBe(false);
+    expect(mesPermitidoParaGeracao("2026-09-20", "lixo")).toBe(false);
   });
 });
 

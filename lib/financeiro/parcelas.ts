@@ -41,7 +41,15 @@ function mensagemValorPequenoDemais(vezes: number): string {
 // `gerarPlano` é a ÚNICA função que decide data e valor de cada parcela de um plano — nunca
 // recalculada em outro lugar (mesma disciplina de `calcularParcelas`, `lib/abertura/parcelas.ts`).
 //
-// À vista: uma parcela só, já paga, na data do documento. Sinal: a primeira metade ARREDONDADA
+// À vista: uma parcela só, na data do documento — paga por padrão (`pagaAVista`, padrão
+// verdadeiro), mas pode nascer EM ABERTO quando o dono desmarca "já recebi/já paguei" (resposta do
+// dono, 2026-09-20: um boleto que vence dia 30 é essa mesma parcela à vista, só que não paga
+// ainda). `pagaAVista` mora AQUI, no módulo puro, e não só na tela, porque o painel regenera o
+// plano do ZERO a cada mudança de total, data ou plano (04.4-12-PLAN.md, key_links) — se a
+// intenção do dono vivesse só no componente, acrescentar um item ao carrinho chamaria `gerarPlano`
+// de novo e remarcaria a caixinha sozinha, fazendo dinheiro que nunca entrou aparecer como
+// recebido. Sinal e Nx IGNORAM este parâmetro: a primeira parcela deles sempre nasce paga (o dono
+// desmarca na própria grade se quiser uma delas em aberto). Sinal: a primeira metade ARREDONDADA
 // PARA CIMA no centavo (R$ 150,01 → R$ 75,01 + R$ 75,00), já paga na data; a segunda, em aberto,
 // 30 dias depois. Nx: `n` parcelas mensais — a primeira na data do documento (já paga) e as
 // demais em `somarMeses(data, k)`, SEMPRE a partir da data original (nunca encadeando a partir da
@@ -56,16 +64,18 @@ export function gerarPlano({
   totalCentavos,
   data,
   forma,
+  pagaAVista = true,
 }: {
   plano: PlanoDePagamento;
   totalCentavos: number;
   data: string;
   forma: FormaDePagamento;
+  pagaAVista?: boolean;
 }): ResultadoDoPlano {
   if (plano === "avista") {
     return {
       ok: true,
-      parcelas: [{ numero: 1, de: 1, vencimento: data, valorCentavos: totalCentavos, forma, paga: true }],
+      parcelas: [{ numero: 1, de: 1, vencimento: data, valorCentavos: totalCentavos, forma, paga: pagaAVista }],
     };
   }
 
@@ -112,21 +122,26 @@ export function gerarPlano({
   return { ok: true, parcelas };
 }
 
-// "+ outra forma" (D-07/D-08): só no à vista, divide o recebimento/pagamento em DUAS parcelas
-// pagas na data do documento, cada uma com a própria forma. `primeiroValorCentavos` chega já
-// escolhido por quem chama (o painel decide o valor inicial da divisão, ex.: metade); esta função
-// só confere que as duas pontas ficam maiores que zero — nunca aceita uma "segunda forma" que não
-// entra em nada.
+// "+ outra forma" (D-07/D-08): só no à vista, divide o recebimento/pagamento em DUAS parcelas na
+// data do documento, cada uma com a própria forma E a própria caixinha (`pagas`, padrão as duas
+// verdadeiras — a divisão herda o estado atual do à vista antes de dividir, key_links do
+// 04.4-12-PLAN.md: dividir semeia as duas com a intenção corrente, e depois elas são
+// independentes — R$ 100 no Pix já recebidos mais R$ 50 em dinheiro a receber é expressável).
+// `primeiroValorCentavos` chega já escolhido por quem chama (o painel decide o valor inicial da
+// divisão, ex.: metade); esta função só confere que as duas pontas ficam maiores que zero — nunca
+// aceita uma "segunda forma" que não entra em nada.
 export function dividirEmDuasFormas({
   totalCentavos,
   primeiroValorCentavos,
   data,
   formas,
+  pagas = [true, true],
 }: {
   totalCentavos: number;
   primeiroValorCentavos: number;
   data: string;
   formas: readonly [FormaDePagamento, FormaDePagamento];
+  pagas?: readonly [boolean, boolean];
 }): ResultadoDoPlano {
   const segundoValorCentavos = totalCentavos - primeiroValorCentavos;
   if (primeiroValorCentavos <= 0 || segundoValorCentavos <= 0) {
@@ -135,8 +150,8 @@ export function dividirEmDuasFormas({
   return {
     ok: true,
     parcelas: [
-      { numero: 1, de: 2, vencimento: data, valorCentavos: primeiroValorCentavos, forma: formas[0], paga: true },
-      { numero: 2, de: 2, vencimento: data, valorCentavos: segundoValorCentavos, forma: formas[1], paga: true },
+      { numero: 1, de: 2, vencimento: data, valorCentavos: primeiroValorCentavos, forma: formas[0], paga: pagas[0] },
+      { numero: 2, de: 2, vencimento: data, valorCentavos: segundoValorCentavos, forma: formas[1], paga: pagas[1] },
     ],
   };
 }
