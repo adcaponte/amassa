@@ -484,11 +484,11 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 04.4-11-PLAN.md — Fechamento: Roteiro 10, varredura completa, conferência com o protótipo, migração em produção pelo dono e verificação no celular e no computador — **Tarefas 1-2 concluídas; Tarefas 3 (migração) e 4 (verificação humana) pendentes do dono**
+- [x] 04.4-11-PLAN.md — Fechamento: Roteiro 10, varredura completa, conferência com o protótipo, migração em produção pelo dono e verificação no celular e no computador — **Tarefas 1-2 concluídas; Tarefas 3 (migração) e 4 (verificação humana) pendentes do dono**
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 04.4-12-PLAN.md — As duas mudanças pedidas pelo dono em 20/09: o à vista pode nascer NÃO pago (uma conta avulsa a pagar depois) e "Gerar as contas de {mês}" ganha um seletor de mês (o corrente e os onze seguintes) — **Tarefas 1-3 concluídas; Tarefa 4 (verificação humana das duas mudanças) pendente do dono**
+- [x] 04.4-12-PLAN.md — As duas mudanças pedidas pelo dono em 20/09: o à vista pode nascer NÃO pago (uma conta avulsa a pagar depois) e "Gerar as contas de {mês}" ganha um seletor de mês (o corrente e os onze seguintes) — **Tarefas 1-3 concluídas; Tarefa 4 (verificação humana das duas mudanças) pendente do dono**
 
 **UI hint**: yes
 

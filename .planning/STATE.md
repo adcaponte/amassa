@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: "Fase 04.4: planos 01-10 completos e o 11 parado no checkpoint do dono (Tarefas 1-2 feitas). Faltam, todos com o Theo: (1) git push dos 43 commits locais, (2) Roteiro 10 — migrações 0014/0015/0016 em produção à mão depois de backup, (3) 04.4-VERIFICACAO-HUMANA.md: 17 itens no celular e no computador + 8 perguntas com recomendação. NÃO dar push sem ele."
-last_updated: "2026-09-20T12:05:00.000Z"
+stopped_at: "04.4-12: Tarefas 1-3 concluidas (a caixinha do a vista em aberto e o seletor de mes); parado na Tarefa 4, checkpoint do dono"
+last_updated: "2026-09-20T11:37:32.427Z"
 last_activity: 2026-09-20
-last_activity_desc: "quick 260920-fk9: detector de SQLSTATE unificado em Financeiro e Cadastros (pendência do 260920-dx9 fechada)"
+last_activity_desc: "tarefa rápida 260920-fk9: detector de SQLSTATE unificado em Financeiro"
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 62
-  completed_plans: 62
+  total_plans: 63
+  completed_plans: 63
 ---
 
 # Project State
@@ -37,8 +37,10 @@ Status: Em andamento, com o dono presente. Código no ar desde o deploy de 20/09
 respondidas (04.4-VERIFICACAO-HUMANA.md).
 
 O QUE FALTA PARA FECHAR A 04.4:
+
   1. **Plano 04.4-12** (do dono, 20/09): "à vista" passa a poder nascer NÃO paga (boleto único a
      pagar depois), e "Gerar as contas" ganha seletor de mês (adiantar dezembro/janeiro).
+
   2. **Conferência humana** — os itens restantes de `04.4-VERIFICACAO-HUMANA.md` no celular e no
      computador. Já provado em produção: venda de R$ 1,00 com pagamento em DUAS formas, lançada e
      cancelada, riscando as duas entradas.
@@ -49,17 +51,23 @@ pré-existente da Fase 02b, aberto em WINDOWS #3 desde 08/2026 e sem relação c
 Nenhum teste do Financeiro falhou.
 
 DECIDIDO SEM O THEO (revisar; detalhe em cada SUMMARY, seção "Decidido sem o Theo"):
+
   - 04.4-06: "+ outra forma" divide meio a meio e escolhe automaticamente uma segunda forma
     diferente da primeira; `BlocoPagamento` recebe `hoje`/`dataSaldoInicial` para validar parcela
     paga no futuro.
+
   - 04.4-08: texto das frases de recusa do Desfazer e de data inválida; `formatarInstanteCurto`
     para `cancelado_em` no fuso de Brasília; duas instâncias do diálogo de documento.
+
   - 04.4-09: nove meses reservados de uma vez, com 3 meses de distância entre eles, para os testes
     não disputarem totais; total filtrado do extrato pode ser nulo.
+
   - 04.4-10: dois formatos de nome de mês (título x botão); `avisoDaUrl` passa a receber objeto;
     valor da conta fixa exibido com separador de milhar.
+
   - 04.4-11: pílulas de filtro do extrato usam `aria-current` em vez de `aria-pressed` (única
     correção de produto do plano — `aria-pressed` não é válido em link).
+
   - 04.4-05 e 04.4-07: detalhes de mensagem e de estrutura de tela, sem efeito em regra de dinheiro.
 
 TAREFA SEPARADA, FORA DESTA FASE (chip criado): o Drizzle embrulha o erro do Postgres, e as
@@ -79,7 +87,7 @@ já estão no ar.
 Last activity: 2026-09-20 — tarefa rápida 260920-fk9: detector de SQLSTATE unificado em Financeiro
 e Cadastros (a Fase 04.4 segue aguardando o dono)
 
-Progress: [█████████░] 98% (61 de 62 planos; o 04.4-11 conta como
+Progress: [██████████] 100% (61 de 62 planos; o 04.4-11 conta como
 automatizável concluído, migração e verificação humana pendentes)
 
 ## Performance Metrics
@@ -171,6 +179,7 @@ automatizável concluído, migração e verificação humana pendentes)
 | Phase 04.4 P09 | ~3h20min | 3 tasks | 17 files |
 | Phase 04.4 P10 | ~30min | 2 tasks | 14 files |
 | Phase 04.4 P11 | ~2h30min | 2 tasks | 6 files |
+| Phase 04.4 P12 | ~2h15min | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -361,6 +370,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-10: avisoDaUrl (lib/cadastros/avisos.ts) migrado de string para objeto {aviso,quantidade,mes} para caber o aviso contas-geradas — teste unitário existente atualizado, não deixado quebrado
 - [Phase ?]: 04.4-10: gerarContasDoMes idempotente por insert...on conflict(conta_fixa_id, mes_referencia) do nothing dentro de uma transação — o banco decide, nunca uma leitura prévia de já existe?
 - [Phase ?]: 04.4-11: Roteiro 10 e verificação humana produzidos (Tarefas 1-2); Tarefas 3 (migração em produção) e 4 (verificação humana) pendentes do dono — checkpoints não resolvidos por regra do projeto
+- [Phase ?]: pagaAVista/pagas movidos para o módulo puro lib/financeiro/parcelas.ts (não a tela) porque o painel regenera o plano do zero a cada mudança de carrinho/data/plano
+- [Phase ?]: mesPermitidoParaGeracao(hoje, mes) substitui a igualdade fixa com o mês seguinte — a única porta que o servidor usa para aceitar um mês em gerarContasDoMes
+- [Phase ?]: vencimentoAvistaAberto (estado próprio do painel) preserva a data Vence em através da regeneração do plano — achado necessário pelo próprio caso de e2e do plano (Rule 1, corrigido antes do commit)
 
 ### Pending Todos
 
@@ -428,6 +440,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T02:17:18.399Z
-Stopped at: Fase 04.4: planos 01-10 completos e o 11 parado no checkpoint do dono (Tarefas 1-2 feitas). Faltam, todos com o Theo: (1) git push dos 43 commits locais, (2) Roteiro 10 — migrações 0014/0015/0016 em produção à mão depois de backup, (3) 04.4-VERIFICACAO-HUMANA.md: 17 itens no celular e no computador + 8 perguntas com recomendação. NÃO dar push sem ele.
-Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-VERIFICACAO-HUMANA.md
+Last session: 2026-09-20T11:37:32.366Z
+Stopped at: 04.4-12: Tarefas 1-3 concluidas (a caixinha do a vista em aberto e o seletor de mes); parado na Tarefa 4, checkpoint do dono
+Resume file: None
