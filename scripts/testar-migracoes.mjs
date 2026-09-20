@@ -1263,15 +1263,52 @@ async function conferirFinanceiro(cliente) {
   } finally {
     // Faxina: apaga só o que este grupo de funções criou — nunca a semente de categorias, que é
     // dado permanente do módulo.
-    for (const documentoId of documentosDeTeste) {
-      await cliente.query("delete from parcelas where documento_id = $1", [documentoId]).catch(() => {});
-      await cliente
-        .query("delete from documento_linhas where documento_id = $1", [documentoId])
-        .catch(() => {});
-      await cliente.query("delete from documentos where id = $1", [documentoId]).catch(() => {});
-    }
-    for (const contaFixaId of contasFixasDeTeste) {
-      await cliente.query("delete from contas_fixas where id = $1", [contaFixaId]).catch(() => {});
+    //
+    // As duas restrições adiadas de soma do documento (migração 0015,
+    // conferir_soma_do_documento) proíbem QUALQUER delete em documento_linhas/parcelas que deixe
+    // a contagem em zero para aquele documento — existem para impedir a aplicação de zerar linha
+    // OU parcela de um documento em produção (FNC-03), mas um documento de teste inteiro sendo
+    // DESFEITO bate nelas do mesmo jeito: apagar a parcela zera "quantidade de parcelas" e
+    // dispara "não tem nenhuma parcela lançada"; apagar a linha em seguida dispara o gêmeo do
+    // lado da linha; e o delete de `documentos` que sobra falha por FK (a linha/parcela nunca
+    // saiu). As três deleções abaixo sempre falhavam, sempre silenciadas pelo `.catch(() => {})`
+    // — pensado só para tolerar "já apagado", nunca para engolir um gatilho de verdade — e
+    // "Conta fixa de teste"/o documento "Aluguel de teste" sobreviviam à faxina inteira,
+    // committados de verdade (`commitDevePassar`).
+    //
+    // Isso nunca apareceu localmente: `scripts/testar-e2e.mjs` sobe um Postgres efêmero PRÓPRIO
+    // para o Playwright, destruído ao sair — o vazamento deste script nunca chegava ao banco que
+    // o e2e local usa. Em CI, `.github/workflows/entrega.yml` roda `test:migracoes` e o
+    // Playwright contra o MESMO contêiner de serviço do Postgres, na mesma execução — o
+    // "banco vazio" que `cadastros-contas-fixas.spec.ts`/`financeiro-caixa.spec.ts` (@vazio-
+    // global) exigem deixava de ser verdade, sempre, de forma determinística (nunca uma corrida).
+    //
+    // `DATABASE_URL_TESTE` conecta como dono das tabelas (mesmo papel de amassa_owner em
+    // produção — é quem rodou `db:migrate`), então desligar as duas restrições, dentro de uma
+    // transação, e religar antes do commit é seguro: nenhum outro cliente enxerga o estado
+    // intermediário, e os gatilhos SEMPRE voltam a valer antes deste `commit`/`rollback`.
+    try {
+      await cliente.query("begin");
+      await cliente.query("alter table documento_linhas disable trigger conferir_soma_apos_linha");
+      await cliente.query("alter table parcelas disable trigger conferir_soma_apos_parcela");
+      for (const documentoId of documentosDeTeste) {
+        await cliente.query("delete from parcelas where documento_id = $1", [documentoId]);
+        await cliente.query("delete from documento_linhas where documento_id = $1", [documentoId]);
+        await cliente.query("delete from documentos where id = $1", [documentoId]);
+      }
+      for (const contaFixaId of contasFixasDeTeste) {
+        await cliente.query("delete from contas_fixas where id = $1", [contaFixaId]);
+      }
+      await cliente.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
+      await cliente.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
+      await cliente.query("commit");
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      // Nunca relançado daqui: um `throw` dentro de `finally` substitui silenciosamente uma
+      // falha de asserção real que o `try` acima já tenha lançado. Visível no log em vez de
+      // silenciado — a falha anterior deste `.catch(() => {})` (sempre falhando, nunca avisando)
+      // é exatamente o defeito que este comentário existe para não repetir.
+      console.error(`conferirFinanceiro: a faxina final não apagou o dado de teste — ${erro.message}`);
     }
     await cliente
       .query("delete from categorias where nome like 'Categoria de teste%'")
