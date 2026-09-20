@@ -18,17 +18,22 @@ import { podeDeixarDeTerEstoque, type InsumoDisponivel } from "./catalogo";
 import { podeMudarGrupoEArea } from "./categorias";
 import {
   esquemaAtivacao,
+  esquemaAtivacaoDeContaFixa,
   esquemaCategoria,
+  esquemaContaFixa,
   esquemaEdicaoDeCategoria,
   esquemaEdicaoDeItem,
   esquemaItem,
   esquemaTaxa,
+  esquemaValorDaContaFixa,
 } from "./esquemas";
 import {
   FRASE_CATEGORIA_COM_USO,
   FRASE_CATEGORIA_DE_COMPRA_INVALIDA,
   FRASE_CATEGORIA_DE_VENDA_INVALIDA,
   FRASE_CATEGORIA_NAO_EXISTE_MAIS,
+  FRASE_CATEGORIA_DA_CONTA_FIXA_INVALIDA,
+  FRASE_CONTA_FIXA_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_SALVAR,
   FRASE_ITEM_NAO_EXISTE_MAIS,
   FRASE_NOME_REPETIDO,
@@ -560,6 +565,129 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
       return { ok: false, erro: erro.message };
     }
     console.error("Falha ao editar item do catálogo:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Contas fixas (04.4-10-PLAN.md, D-13)
+// ---------------------------------------------------------------------------------------------
+
+// Categoria de conta fixa: existir, ser do grupo `geral`, `custo` ou `fora` (must_have do plano),
+// e estar ATIVA. Contas fixas não têm "categoria mantida mesmo desativada" como o Catálogo — a
+// tela só oferece categorias ativas no `<select>` (`listarCategoriasParaContaFixa`), então a
+// única forma de chegar aqui com uma categoria inválida é forçar o formulário.
+function categoriaDaContaFixaValida(categoria: { grupo: string; ativa: boolean } | undefined): boolean {
+  if (!categoria || !categoria.ativa) {
+    return false;
+  }
+  return categoria.grupo === "geral" || categoria.grupo === "custo" || categoria.grupo === "fora";
+}
+
+// Único caminho de criação de conta fixa (FNC-14, D-13). `exigirUsuario()` é a PRIMEIRA instrução
+// do corpo.
+export async function criarContaFixa(entradaBruta: unknown): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaContaFixa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  const [categoria] = await db
+    .select({ grupo: categorias.grupo, ativa: categorias.ativa })
+    .from(categorias)
+    .where(eq(categorias.id, dados.categoriaId))
+    .limit(1);
+
+  if (!categoriaDaContaFixaValida(categoria)) {
+    return { ok: false, erro: FRASE_CATEGORIA_DA_CONTA_FIXA_INVALIDA };
+  }
+
+  try {
+    const [linha] = await db
+      .insert(contasFixas)
+      .values({
+        nome: dados.nome,
+        categoriaId: dados.categoriaId,
+        valorEsperadoCentavos: dados.valorTexto,
+        diaVencimento: dados.diaVencimento,
+      })
+      .returning({ id: contasFixas.id });
+
+    revalidatePath("/cadastros");
+    return { ok: true, dados: { id: linha.id } };
+  } catch (erro) {
+    console.error("Falha ao gravar conta fixa:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Mudar o valor esperado vale só para as PRÓXIMAS gerações (must_have do plano) — um `update` de
+// uma linha só, sem transação: as despesas já geradas guardam o próprio `valor_centavos` na
+// linha do documento, nunca uma referência ao valor atual da conta fixa (mesmo desenho de
+// "mudar o preço do item não reescreve a venda já lançada", lib/cadastros/acoes.ts::editarItem).
+export async function atualizarValorDaContaFixa(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; valorCentavos: number }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaValorDaContaFixa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { id, valorTexto } = resultado.data;
+
+  try {
+    const [linha] = await db
+      .update(contasFixas)
+      .set({ valorEsperadoCentavos: valorTexto })
+      .where(eq(contasFixas.id, id))
+      .returning({ id: contasFixas.id });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_CONTA_FIXA_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/cadastros");
+    return { ok: true, dados: { id, valorCentavos: valorTexto } };
+  } catch (erro) {
+    console.error("Falha ao atualizar o valor da conta fixa:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Conta fixa nunca se apaga — desativar/reativar é a ÚNICA forma de remoção (D-13). Recebe o
+// estado DESEJADO, nunca "inverte" (mesma disciplina de `definirCategoriaAtiva` acima): duas
+// chamadas com o mesmo valor convergem sempre. Uma conta fixa desativada não entra em "Gerar as
+// contas de {mês}" (`gerarContasDoMes` abaixo só lê `ativa = true`).
+export async function definirContaFixaAtiva(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; ativa: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtivacaoDeContaFixa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { id, ativa } = resultado.data;
+
+  try {
+    const [linha] = await db
+      .update(contasFixas)
+      .set({ ativa })
+      .where(eq(contasFixas.id, id))
+      .returning({ id: contasFixas.id });
+
+    if (!linha) {
+      return { ok: false, erro: FRASE_CONTA_FIXA_NAO_EXISTE_MAIS };
+    }
+
+    revalidatePath("/cadastros");
+    return { ok: true, dados: { id, ativa } };
+  } catch (erro) {
+    console.error("Falha ao (des)ativar conta fixa:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

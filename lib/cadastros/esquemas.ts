@@ -216,3 +216,64 @@ export function esquemaEdicaoDeItem(insumosDisponiveis: ReadonlyMap<string, Insu
       }
     });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Contas fixas (04.4-10-PLAN.md, D-13)
+// ---------------------------------------------------------------------------------------------
+
+const campoNomeContaFixa = z
+  .string()
+  .transform((valor) => normalizarTexto(valor))
+  .refine((valor) => contarPontosDeCodigo(valor) >= 1, "Dê um nome para a conta fixa.")
+  .refine(
+    (valor) => contarPontosDeCodigo(valor) <= 120,
+    "Nome muito longo — no máximo 120 caracteres.",
+  );
+
+// Vazio (`converterReaisParaCentavos` devolve `null`) e zero são recusados aqui — diferente do
+// preço de item do catálogo (onde vazio = "valor na hora"), a conta fixa SEMPRE tem um valor
+// esperado (must_have do plano: "valor esperado (maior que zero)").
+const campoValorEsperadoDaContaFixa = z.string().transform((valorTexto, ctx) => {
+  const resultado = converterReaisParaCentavos(valorTexto);
+  if (!resultado.ok) {
+    ctx.addIssue({ code: "custom", message: resultado.erro });
+    return z.NEVER;
+  }
+  if (resultado.centavos === null || resultado.centavos <= 0) {
+    ctx.addIssue({ code: "custom", message: "Dê um valor esperado maior que zero." });
+    return z.NEVER;
+  }
+  return resultado.centavos;
+});
+
+const campoDiaVencimento = z
+  .number({ message: "O dia de vencimento precisa ser um número de 1 a 31." })
+  .int("O dia de vencimento precisa ser um número inteiro de 1 a 31.")
+  .min(1, "O dia de vencimento precisa ser de 1 a 31.")
+  .max(31, "O dia de vencimento precisa ser de 1 a 31.");
+
+export const esquemaContaFixa = z.object({
+  nome: campoNomeContaFixa,
+  categoriaId: esquemaId,
+  valorTexto: campoValorEsperadoDaContaFixa,
+  diaVencimento: campoDiaVencimento,
+});
+
+export const esquemaValorDaContaFixa = z.object({
+  id: esquemaId,
+  valorTexto: campoValorEsperadoDaContaFixa,
+});
+
+// O mesmo par (id, ativa) de `esquemaAtivacao` (categorias) serviria aqui — redeclarado como um
+// esquema PRÓPRIO (`esquemaAtivacaoDeContaFixa`) por clareza de nome no lado de quem chama, ainda
+// que a forma seja idêntica.
+export const esquemaAtivacaoDeContaFixa = z.object({
+  id: esquemaId,
+  ativa: z.boolean(),
+});
+
+// O único mês que a tela oferece: "YYYY-MM" — a ação confere de novo que é exatamente
+// `mesDaGeracao(hoje)` (T-04.4-62 do threat model), este esquema só garante o FORMATO.
+export const esquemaGeracao = z.object({
+  mes: z.string().regex(/^\d{4}-\d{2}$/, "Esse mês não é válido."),
+});

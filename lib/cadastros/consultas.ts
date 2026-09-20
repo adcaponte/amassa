@@ -290,3 +290,53 @@ export async function listarCategoriasParaItem(): Promise<{
     compraveis: linhas.filter((categoria) => categoria.grupo === "custo" || categoria.grupo === "geral"),
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Contas fixas (04.4-10-PLAN.md, D-13)
+// ---------------------------------------------------------------------------------------------
+
+export type ContaFixaResumida = {
+  id: string;
+  nome: string;
+  categoriaId: string;
+  categoriaNome: string;
+  valorEsperadoCentavos: number;
+  diaVencimento: number;
+  ativa: boolean;
+};
+
+// TODAS as contas fixas (ativas e inativas — nunca apaga, só desativa/reativa), com o nome da
+// categoria, na ordem de criação. `gerarContasDoMes` (lib/cadastros/acoes.ts) lê direto da tabela
+// e filtra só as ATIVAS — esta consulta serve só a TELA, que precisa mostrar as duas.
+export async function listarContasFixas(): Promise<ContaFixaResumida[]> {
+  return db
+    .select({
+      id: contasFixas.id,
+      nome: contasFixas.nome,
+      categoriaId: contasFixas.categoriaId,
+      categoriaNome: categorias.nome,
+      valorEsperadoCentavos: contasFixas.valorEsperadoCentavos,
+      diaVencimento: contasFixas.diaVencimento,
+      ativa: contasFixas.ativa,
+    })
+    .from(contasFixas)
+    .innerJoin(categorias, eq(contasFixas.categoriaId, categorias.id))
+    .orderBy(asc(contasFixas.criadoEm));
+}
+
+export type CategoriaParaContaFixa = {
+  id: string;
+  nome: string;
+  grupo: GrupoDeCategoria;
+};
+
+// Categorias ATIVAS dos três grupos que "Nova conta fixa" aceita (`geral`, `custo`, `fora`) —
+// diferente de `listarCategoriasParaItem`, contas fixas não têm "categoria atual mesmo
+// desativada" (não há edição de categoria depois de criada, só o valor esperado).
+export async function listarCategoriasParaContaFixa(): Promise<CategoriaParaContaFixa[]> {
+  return db
+    .select({ id: categorias.id, nome: categorias.nome, grupo: categorias.grupo })
+    .from(categorias)
+    .where(and(eq(categorias.ativa, true), inArray(categorias.grupo, ["geral", "custo", "fora"])))
+    .orderBy(asc(categorias.nome));
+}

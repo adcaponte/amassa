@@ -139,3 +139,43 @@ export const FRASE_VAZIO_FIXAS_TITULO = "Nenhuma conta fixa ainda.";
 export const FRASE_VAZIO_FIXAS_CORPO =
   "Cadastre o aluguel, a internet e outras contas que se repetem todo mês.";
 export const ROTULO_NOVA_CONTA_FIXA = "+ Nova conta fixa";
+
+// Contas fixas — cadastro completo (04.4-10-PLAN.md, D-13)
+export const TITULO_CONTAS_FIXAS = "Contas fixas";
+export const DICA_CONTAS_FIXAS =
+  "Todo mês viram a pagar no Caixa. O valor aqui é o esperado; se a conta vier diferente, você acerta na hora de pagar.";
+export const TITULO_DIALOGO_NOVA_CONTA_FIXA = "Nova conta fixa";
+export const ROTULO_CATEGORIA_DA_CONTA_FIXA = "Categoria";
+export const ROTULO_VALOR_ESPERADO = "Valor esperado";
+export const ROTULO_DIA_VENCIMENTO = "Dia de vencimento";
+export const ROTULO_DESATIVAR_CONTA_FIXA = "Desativar";
+export const ROTULO_REATIVAR_CONTA_FIXA = "Reativar";
+
+export function rotuloVencimentoDaContaFixa(diaVencimento: number, categoriaNome: string): string {
+  return `todo dia ${diaVencimento} · ${categoriaNome}`;
+}
+
+export const TOAST_CONTA_FIXA_DESATIVADA = "Conta fixa desativada.";
+export const TOAST_CONTA_FIXA_REATIVADA = "Conta fixa reativada.";
+
+export const FRASE_CATEGORIA_DA_CONTA_FIXA_INVALIDA =
+  "Essa categoria não é válida para conta fixa, ou não existe mais. Recarregue a página e tente de novo.";
+export const FRASE_CONTA_FIXA_NAO_EXISTE_MAIS =
+  "Essa conta fixa não existe mais. Recarregue a página e tente de novo.";
+export const FRASE_MES_DE_GERACAO_INVALIDO =
+  "Esse mês não pode mais ser gerado — recarregue a página e tente de novo.";
+
+// "Gerar as contas de {mês por extenso}" — `mesPorExtenso` já vem formatado por quem chama
+// (`nomeDoMes`, lib/financeiro/formato.ts) — este módulo nunca importa `formato.ts`.
+export function rotuloGerarContas(mesPorExtenso: string): string {
+  return `Gerar as contas de ${mesPorExtenso}`;
+}
+
+// "3 conta(s) de janeiro de 2027 criada(s) no Caixa." / "As contas de janeiro de 2027 já
+// existiam." — `mesPorExtenso` já formatado por quem chama, mesma disciplina de `rotuloGerarContas`.
+export function textoContasGeradas(quantidade: number, mesPorExtenso: string): string {
+  if (quantidade === 0) {
+    return `As contas de ${mesPorExtenso} já existiam.`;
+  }
+  return `${quantidade} conta(s) de ${mesPorExtenso} criada(s) no Caixa.`;
+}

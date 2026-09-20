@@ -70,16 +70,36 @@ describe("subDaUrl", () => {
 });
 
 describe("avisoDaUrl (Cadastros)", () => {
-  it("aceita só os dois tipos conhecidos", () => {
-    expect(avisoDaUrl("categoria-desativada")).toEqual({ tipo: "categoria-desativada" });
-    expect(avisoDaUrl("categoria-reativada")).toEqual({ tipo: "categoria-reativada" });
+  it("aceita os tipos sem parâmetro (categorias e contas fixas)", () => {
+    expect(avisoDaUrl({ aviso: "categoria-desativada" })).toEqual({ tipo: "categoria-desativada" });
+    expect(avisoDaUrl({ aviso: "categoria-reativada" })).toEqual({ tipo: "categoria-reativada" });
+    expect(avisoDaUrl({ aviso: "conta-fixa-desativada" })).toEqual({ tipo: "conta-fixa-desativada" });
+    expect(avisoDaUrl({ aviso: "conta-fixa-reativada" })).toEqual({ tipo: "conta-fixa-reativada" });
+  });
+
+  it("contas-geradas exige quantidade (0-500) e mês (AAAA-MM) válidos", () => {
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "3", mes: "2027-01" })).toEqual({
+      tipo: "contas-geradas",
+      quantidade: 3,
+      mes: "2027-01",
+    });
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "0", mes: "2027-01" })).toEqual({
+      tipo: "contas-geradas",
+      quantidade: 0,
+      mes: "2027-01",
+    });
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "-1", mes: "2027-01" })).toBeNull();
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "501", mes: "2027-01" })).toBeNull();
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "3", mes: "não-é-mês" })).toBeNull();
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "3" })).toBeNull();
+    expect(avisoDaUrl({ aviso: "contas-geradas" })).toBeNull();
   });
 
   it("devolve nulo para o resto — ausente, vazio ou desconhecido", () => {
-    expect(avisoDaUrl(undefined)).toBeNull();
-    expect(avisoDaUrl(null)).toBeNull();
-    expect(avisoDaUrl("")).toBeNull();
-    expect(avisoDaUrl("lancado")).toBeNull();
-    expect(avisoDaUrl("qualquer-coisa")).toBeNull();
+    expect(avisoDaUrl({})).toBeNull();
+    expect(avisoDaUrl({ aviso: null })).toBeNull();
+    expect(avisoDaUrl({ aviso: "" })).toBeNull();
+    expect(avisoDaUrl({ aviso: "lancado" })).toBeNull();
+    expect(avisoDaUrl({ aviso: "qualquer-coisa" })).toBeNull();
   });
 });
