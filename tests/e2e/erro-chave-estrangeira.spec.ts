@@ -1,0 +1,127 @@
+import { test, expect, type Page } from "@playwright/test";
+
+import { hojeEmBrasilia } from "@/lib/abertura/formato";
+
+import { apagarCategoriaDeCotacaoPeloNome, apagarFornoPeloNome, apagarItemDeAberturaPeloNome } from "./apoio/apagar-referencia";
+
+// A prova de que Queimas, Abertura e Cotações mostram a mensagem humana de chave estrangeira
+// (lib/erro/postgres.ts, quick-260920-dx9) em vez da frase genérica de falha, nos três módulos.
+// "chave estrangeira" no título do describe é o recorte usado pelo orçamento de e2e deste plano
+// (`npm run test:e2e -- --grep "chave estrangeira"`).
+//
+// Sem etiqueta `@vazio-*`: os três casos criam os próprios dados, e nenhum deles afirma condição
+// global do banco (convenção do CLAUDE.md).
+
+async function fazerLogin(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
+  await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+function nomeUnico(rotulo: string): string {
+  return `[e2e] ${rotulo} ${test.info().project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function cartaoDoForno(page: Page, nome: string) {
+  return page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
+}
+
+test.describe("chave estrangeira — a linha referenciada sumiu entre montar o formulário e enviar", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("Queimas: o forno apagado com o cartão na tela mostra 'Esse forno não existe mais. Recarregue a página.'", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico("Forno FK");
+
+    await page.goto("/queimas?novo");
+    await page.getByLabel("Nome").fill(nome);
+    await page.getByLabel("Limite").fill("50");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+
+    const cartao = cartaoDoForno(page, nome);
+    await expect(cartao).toBeVisible();
+
+    // A corrida real: o forno some do banco DEPOIS de o cartão já estar na tela.
+    await apagarFornoPeloNome(nome);
+
+    await cartao.getByRole("button", { name: "Queimar" }).click();
+    await cartao.getByTestId("tipo-queima-biscoito").click();
+
+    await expect(page.getByText("Esse forno não existe mais. Recarregue a página.")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByText("Não deu para registrar a queima. Verifique a internet e tente de novo."),
+    ).not.toBeVisible();
+  });
+
+  test("Abertura: o item apagado com o formulário de tarefa na tela mostra 'O item ligado a esta tarefa não existe mais. Recarregue a página e tente de novo.'", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeDoItem = nomeUnico("Item FK");
+
+    await page.goto("/abertura?item=novo");
+    await page.getByLabel("O que é").fill(nomeDoItem);
+    await page.getByLabel("Valor total").fill("1000");
+    await page.getByRole("button", { name: "Adicionar item" }).click();
+    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+
+    await page.goto("/abertura?aba=tarefas&tarefa=nova");
+    await expect(page.getByRole("heading", { name: "Nova tarefa" })).toBeVisible();
+
+    const descricao = nomeUnico("Tarefa ligada ao item FK");
+    await page.getByLabel("O que fazer").fill(descricao);
+    await page.getByLabel("Até quando").fill(hojeEmBrasilia(new Date()));
+    await page.getByRole("combobox", { name: "Ligada a algum item?" }).click();
+    await page.getByRole("option", { name: nomeDoItem }).click();
+    // "Quem" fica no padrão ("ninguém ainda") — um responsável escolhido dispara a conferência
+    // de gestor ativo ANTES do insert, e essa não é a corrida que queremos medir.
+
+    // A corrida real: o item some do banco DEPOIS de o formulário já estar preenchido.
+    await apagarItemDeAberturaPeloNome(nomeDoItem);
+
+    await page.getByRole("button", { name: "Adicionar tarefa" }).click();
+
+    await expect(
+      page.getByText("O item ligado a esta tarefa não existe mais. Recarregue a página e tente de novo."),
+    ).toBeVisible({ timeout: 10000 });
+    // Nada é perdido em silêncio: o formulário continua aberto com o texto digitado.
+    await expect(page.getByLabel("O que fazer")).toHaveValue(descricao);
+  });
+
+  test("Cotações: a categoria apagada com o formulário de cotação na tela mostra 'Essa categoria não existe mais. Recarregue a página e tente de novo.'", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nomeDaCategoria = nomeUnico("Categoria FK");
+
+    await page.goto("/abertura?aba=cotacoes");
+    await page.getByRole("link", { name: "+ Nova categoria" }).first().click();
+    await expect(page.getByRole("heading", { name: "Nova categoria" })).toBeVisible();
+    await page.getByLabel("Nome", { exact: true }).fill(nomeDaCategoria);
+    await page.getByRole("button", { name: "Criar" }).click();
+    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+
+    await page.getByRole("link", { name: "+ Nova cotação" }).first().click();
+    await expect(page.getByRole("heading", { name: "Nova cotação" })).toBeVisible();
+    const empresa = nomeUnico("Empresa FK");
+    await page.getByLabel("Empresa").fill(empresa);
+
+    // A corrida real: a categoria some do banco DEPOIS de o formulário já estar preenchido.
+    await apagarCategoriaDeCotacaoPeloNome(nomeDaCategoria);
+
+    await page.getByRole("button", { name: "Salvar" }).click();
+
+    await expect(
+      page.getByText("Essa categoria não existe mais. Recarregue a página e tente de novo."),
+    ).toBeVisible({ timeout: 10000 });
+    // Nada é perdido em silêncio: o formulário continua aberto com o texto digitado.
+    await expect(page.getByLabel("Empresa")).toHaveValue(empresa);
+  });
+});
