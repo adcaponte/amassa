@@ -447,7 +447,8 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: 10/11 plans executed
+**Plans**: 11/11 plans executed (04.4-11 Tarefas 1-2 automatizáveis concluídas; Tarefas 3 — migração
+em produção — e 4 — verificação humana — são checkpoints que aguardam o dono)
 
 Plans:
 **Wave 1**
@@ -480,7 +481,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 04.4-11-PLAN.md — Fechamento: Roteiro 10, varredura completa, conferência com o protótipo, migração em produção pelo dono e verificação no celular e no computador
+- [ ] 04.4-11-PLAN.md — Fechamento: Roteiro 10, varredura completa, conferência com o protótipo, migração em produção pelo dono e verificação no celular e no computador — **Tarefas 1-2 concluídas; Tarefas 3 (migração) e 4 (verificação humana) pendentes do dono**
 
 **UI hint**: yes
 
@@ -612,7 +613,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.1. Datas dos Marcos da Encomenda | 6/6 | Complete    | 2026-08-22 |
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
-| 04.4. Financeiro — parte 1 | 10/11 | In Progress|  |
+| 04.4. Financeiro — parte 1 | 11/11 | In Progress| Roteiro 10 e verificação humana produzidos, varredura completa verde; migração em produção (Tarefa 3) e verificação humana (Tarefa 4) do 04.4-11 pendem do dono. |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: Completed 04.4-10-PLAN.md
-last_updated: "2026-09-20T01:30:13.537Z"
+stopped_at: 04.4-11 Tarefas 1-2 concluídas (Roteiro 10, verificação humana, varredura completa verde); aguardando o dono nas Tarefas 3-4
+last_updated: "2026-09-20T02:15:10.119Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
@@ -29,12 +29,15 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 11 of 11
-Status: Ready to execute
+Plan: 11 of 11 — Tarefas 1-2 concluídas (Roteiro 10, verificação humana, varredura completa
+verde); Tarefas 3 (migração em produção) e 4 (verificação humana) são checkpoints que aguardam
+o dono
+Status: Blocked on human checkpoint (Tarefa 3 — migração em produção)
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
-Last activity: 2026-09-19 — Phase 04.4 execution started
+Last activity: 2026-09-20 — 04.4-11 Tarefas 1-2 concluídas; aguardando o dono
 
-Progress: [██████████] 98% (51 de 51 planos executados e verificados até aqui)
+Progress: [██████████] 98% (61 de 62 planos executados e verificados até aqui — 04.4-11 conta como
+automatizável concluído, migração e verificação humana pendentes)
 
 ## Performance Metrics
 
@@ -124,6 +127,7 @@ Progress: [██████████] 98% (51 de 51 planos executados e ver
 | Phase 04.4 P08 | ~2h50min | 3 tasks | 18 files |
 | Phase 04.4 P09 | ~3h20min | 3 tasks | 17 files |
 | Phase 04.4 P10 | ~30min | 2 tasks | 14 files |
+| Phase 04.4 P11 | ~2h30min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -313,6 +317,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-10: contas-fixas.ts com formato próprio de mês curto (janeiro/2027) para o título gerado, distinto de nomeDoMes (janeiro de 2027) do rótulo/aviso — os dois exemplos do plano usam grafias diferentes
 - [Phase ?]: 04.4-10: avisoDaUrl (lib/cadastros/avisos.ts) migrado de string para objeto {aviso,quantidade,mes} para caber o aviso contas-geradas — teste unitário existente atualizado, não deixado quebrado
 - [Phase ?]: 04.4-10: gerarContasDoMes idempotente por insert...on conflict(conta_fixa_id, mes_referencia) do nothing dentro de uma transação — o banco decide, nunca uma leitura prévia de já existe?
+- [Phase ?]: 04.4-11: Roteiro 10 e verificação humana produzidos (Tarefas 1-2); Tarefas 3 (migração em produção) e 4 (verificação humana) pendentes do dono — checkpoints não resolvidos por regra do projeto
 
 ### Pending Todos
 
@@ -320,6 +325,7 @@ None yet.
 
 ### Blockers/Concerns
 
+- **04.4-11 bloqueado na Tarefa 3 (checkpoint:human-action, `gate="blocking"`) — migração 0014/0015/0016 em produção.** O dono precisa abrir a sessão SSH, dizer "pode enviar" (para os commits desta fase serem enviados e o pipeline publicar), e seguir `docs/operacao/10-migracao-financeiro.md` do passo 1 ao 5. A Tarefa 4 (verificação humana, `04.4-VERIFICACAO-HUMANA.md`, 17 itens + 8 perguntas do planejador) segue depois. Só então a Fase 04.4 fecha de fato.
 - M6 (Calculadora de Orçamento) permanece bloqueada até as planilhas de precificação do Theo existirem. Não afeta a Fase 7 (Polimento), que não depende de M6.
 - Fonte de títulos (Vinila Condensed vs. Archivo Narrow) é decisão pendente do Theo — usar Archivo Narrow até lá (ver `04-DESIGN-SYSTEM.md`).
 - Lista real de materiais do ateliê precisa ser levantada durante a Fase 6 (Estoque), senão o módulo nasce vazio.
@@ -377,6 +383,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T01:30:13.475Z
-Stopped at: Completed 04.4-10-PLAN.md
-Resume file: None
+Last session: 2026-09-20T02:14:48.635Z
+Stopped at: 04.4-11 Tarefas 1-2 concluídas (Roteiro 10, verificação humana, varredura completa verde); aguardando o dono nas Tarefas 3-4
+Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-11-PLAN.md
