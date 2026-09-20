@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
@@ -45,12 +46,7 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
 }
 
-// SQLSTATE 23503 = foreign_key_violation — mesmo helper de `lib/abertura/acoes.ts`/
-// `lib/queimas/acoes.ts`: quando a categoria escolhida foi removida entre a montagem do
-// formulário e o envio, a chave estrangeira barra a escrita e este erro vira frase humana.
-function ehViolacaoDeChaveEstrangeira(erro: unknown): boolean {
-  return typeof erro === "object" && erro !== null && "code" in erro && erro.code === "23503";
-}
+// Detector de SQLSTATE 23503 (foreign_key_violation) vive em `@/lib/erro/postgres`.
 
 // A venda de "valor livre" à vista do traçado (Tarefa 1). `exigirUsuario()` é a PRIMEIRA
 // instrução do corpo (verificado por `npm run verificar-acoes`, decidido por árvore sintática).
