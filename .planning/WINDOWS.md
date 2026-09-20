@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 15
+open_count: 16
 waived_count: 1
 fixed_count: 15
-total_count: 31
-last_updated: 2026-09-19T09:09:21.148Z
+total_count: 32
+last_updated: 2026-09-20T09:24:14.442Z
 ---
 
 # Broken Windows Ledger
@@ -46,6 +46,7 @@ last_updated: 2026-09-19T09:09:21.148Z
 | 29 | 04.3 | deviation | tests/e2e/cotacoes-categorias.spec.ts | 94 | Falha intermitente sob a varredura completa (npm run test:e2e sem --grep): pilulaA.click() as vezes nao navega (URL/categoria nunca troca), entao as duas cotacoes criadas em seguida vao para a categoria ainda ativa em vez de A, e a contagem da pilula A fica 0 contra 0 linhas (nao e discrepancia de dado, e o clique que nao comitou). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md (React/Next as vezes nao comita o startTransition de um <Link> RSC sob carga). Reexecucao isolada (npm run test:e2e -- --grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos, confirmando flakiness, nao regressao deterministica. Nao corrigido nesta execucao: a mitigacao (navegacao completa em vez de <Link> RSC) contraria a decisao explicita do UI-SPEC de usar <Link> normal para troca de categoria (nao history.pushState), e reescrever o padrao de navegacao de leitura e mudanca arquitetural fora do escopo de arquivos do plano 04.3-05. | fixed |  | 2026-09-18T18:22:36.267Z | 2026-09-19T09:09:20.336Z |
 | 30 | 04.3 | deviation | tests/e2e/cotacoes-tracador.spec.ts | 44 | Falha intermitente sob a varredura completa: clicar na aba 'Cotacoes' (<Link> RSC, abas-abertura.tsx) as vezes nao navega para ?aba=cotacoes dentro do timeout padrao de 5s (URL fica em /abertura). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md. Reexecucao isolada (--grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica. Nao corrigido nesta execucao pelo mesmo motivo do achado irmao em cotacoes-categorias.spec.ts:94. | fixed |  | 2026-09-18T18:22:36.736Z | 2026-09-19T09:09:20.752Z |
 | 31 | 04.3 | deviation | tests/e2e/abertura-edicao.spec.ts | 165 | 'editar um item com tarefa ligada atualiza a linha e preserva o vinculo' (celular) falhou na varredura completa desta fase -- mesma classe ja registrada para a variante 'tarefa' (WINDOWS #25, fechado em 04.2), agora atingindo a variante ITEM tambem, sob a carga da suite inteira (490+ testes). Arquivo da Fase 4.2, fora do escopo de arquivos do plano 04.3-05; achado durante a varredura completa que este plano e dono de executar (04.3-05-PLAN.md, Tarefa 2). | fixed |  | 2026-09-18T18:22:37.243Z | 2026-09-19T09:09:21.148Z |
+| 32 | 04.4-financeiro-parte-1 | deviation | tests/e2e/financeiro-extrato.spec.ts | 212 | 'navega por mes, filtra por forma, mantem o saldo global, e mostra os dois vazios' (desktop) falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers locais): getByTestId('extrato-linha') veio 0 em vez de 5 apos clicar em 'mes seguinte'. Reexecucao isolada (--grep 'financeiro extrato') passou 32/32 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica -- mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#29/#30/#31. Achado incidentalmente ao provar a correcao da fuga de dado do teste 04.4-11 (script/testar-migracoes.mjs); nao corrigido nesta execucao, fora do escopo de arquivos da correcao (nenhuma logica de extrato foi tocada). | open |  | 2026-09-20T09:24:14.442Z |  |
 
 ````json
 [
@@ -420,6 +421,18 @@ last_updated: 2026-09-19T09:09:21.148Z
     "reason": "",
     "recorded_at": "2026-09-18T18:22:37.243Z",
     "resolved_at": "2026-09-19T09:09:21.148Z"
+  },
+  {
+    "id": 32,
+    "kind": "deviation",
+    "phase": "04.4-financeiro-parte-1",
+    "file": "tests/e2e/financeiro-extrato.spec.ts",
+    "line": 212,
+    "description": "'navega por mes, filtra por forma, mantem o saldo global, e mostra os dois vazios' (desktop) falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers locais): getByTestId('extrato-linha') veio 0 em vez de 5 apos clicar em 'mes seguinte'. Reexecucao isolada (--grep 'financeiro extrato') passou 32/32 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica -- mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#29/#30/#31. Achado incidentalmente ao provar a correcao da fuga de dado do teste 04.4-11 (script/testar-migracoes.mjs); nao corrigido nesta execucao, fora do escopo de arquivos da correcao (nenhuma logica de extrato foi tocada).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-20T09:24:14.442Z",
+    "resolved_at": null
   }
 ]
 ````
