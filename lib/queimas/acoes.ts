@@ -6,6 +6,7 @@ import { and, count, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { fornos, manutencoes, queimas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 
 import {
   esquemaAtualizacaoDeForno,
@@ -24,12 +25,7 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
 }
 
-// SQLSTATE 23503 = foreign_key_violation — o `pg`/`drizzle-orm` propaga o código original do
-// Postgres no erro lançado. Nenhuma outra classe de erro usa este código, então checar por ele é
-// seguro (nunca um `instanceof` genérico que capturaria também erro de conexão).
-function ehViolacaoDeChaveEstrangeira(erro: unknown): boolean {
-  return typeof erro === "object" && erro !== null && "code" in erro && erro.code === "23503";
-}
+// Detector de SQLSTATE 23503 (foreign_key_violation) vive em `@/lib/erro/postgres`.
 
 // D-02: único caminho de criação de forno — o botão "Novo forno" do estado vazio/índice, sem
 // tela de cadastro dedicada. `exigirUsuario()` é a PRIMEIRA instrução do corpo (T-04-01,

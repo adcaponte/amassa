@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { cotacaoCategorias, cotacoes } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { esquemaId } from "@/lib/abertura/esquemas";
+import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 
 import {
   esquemaAtualizacaoDeCotacao,
@@ -28,12 +29,7 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
 }
 
-// SQLSTATE 23503 = foreign_key_violation — mesmo helper de `lib/abertura/acoes.ts`: a categoria
-// deixou de existir entre abrir o formulário e salvar (a chave estrangeira de `cotacoes.categoriaId`
-// barra a escrita, e este erro vira frase humana, nunca erro cru).
-function ehViolacaoDeChaveEstrangeira(erro: unknown): boolean {
-  return typeof erro === "object" && erro !== null && "code" in erro && erro.code === "23503";
-}
+// Detector de SQLSTATE 23503 (foreign_key_violation) vive em `@/lib/erro/postgres`.
 
 // Usado só dentro da transação de `removerCategoriaDeCotacao` para distinguir "a categoria já
 // não existia mais" de qualquer outro erro de banco — mesmo molde de `ItemDeAberturaNaoEncontrado`

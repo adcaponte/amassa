@@ -6,6 +6,7 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { aberturaConfiguracao, aberturaItens, aberturaTarefas, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 
 import {
   esquemaAtualizacaoDeItem,
@@ -36,13 +37,7 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
 }
 
-// SQLSTATE 23503 = foreign_key_violation — o `pg`/`drizzle-orm` propaga o código original do
-// Postgres no erro lançado. Mesmo helper de `lib/queimas/acoes.ts` (T-04.2-08): quando o item
-// vinculado foi removido entre a montagem do formulário e o salvamento, a chave estrangeira
-// barra a escrita e este erro vira frase humana, nunca erro cru.
-function ehViolacaoDeChaveEstrangeira(erro: unknown): boolean {
-  return typeof erro === "object" && erro !== null && "code" in erro && erro.code === "23503";
-}
+// Detector de SQLSTATE 23503 (foreign_key_violation) vive em `@/lib/erro/postgres`.
 
 // Único caminho de criação de item da Abertura do Espaço (a fatia deste plano cobre só
 // criação — edição e remoção são dos planos seguintes). `exigirUsuario()` é a PRIMEIRA
