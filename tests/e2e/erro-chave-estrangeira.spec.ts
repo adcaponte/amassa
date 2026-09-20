@@ -29,7 +29,11 @@ function cartaoDoForno(page: Page, nome: string) {
 }
 
 test.describe("chave estrangeira — a linha referenciada sumiu entre montar o formulário e enviar", () => {
-  test.describe.configure({ mode: "serial" });
+  // SEM `mode: "serial"`: os três casos são independentes — cada um cria os próprios dados, com
+  // nome único, num módulo diferente. O modo serial aqui só serviria para ESCONDER defeito: com
+  // ele, a falha do primeiro caso pula os outros dois, e a prova de Abertura e de Cotações nunca
+  // chega a rodar. Medido de propósito, com o detector quebrado recolocado no lugar: o modo
+  // serial reportava "2 failed, 4 did not run" em vez das 6 falhas reais.
 
   test("Queimas: o forno apagado com o cartão na tela mostra 'Esse forno não existe mais. Recarregue a página.'", async ({
     page,
