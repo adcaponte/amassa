@@ -186,7 +186,7 @@
 - [x] **FNC-08**: "Paguei"/"Recebi" pede valor, data e forma, e pode ser desfeito se foi dado por engano. Quando o valor difere do previsto e o documento tem mais de uma linha ou parcela, o sistema acrescenta sozinho uma linha "diferença" na categoria "Juros, multas e descontos"; desfazer remove essa linha e devolve a parcela ao valor previsto original — o inverso exato (D-01/D-02/D-03)
 - [x] **FNC-09**: O extrato mostra o saldo depois de cada movimento, em ordem de data de pagamento e número; um lançamento retroativo recalcula os saldos seguintes. A navegação é por mês, e o saldo depois de cada linha é sempre o acumulado global, mesmo com o filtro por forma aplicado — o filtro esconde linhas, não recalcula saldo (D-11/D-12)
 - [x] **FNC-10**: Cancelar uma venda ou despesa não apaga: ela fica riscada no extrato, sai do saldo e do Mês, e guarda quem cancelou e quando; a confirmação diz o que vai acontecer
-- [ ] **FNC-11**: O Mês mostra quanto cada área vendeu, custou e deixou (pela data do documento), o Geral num bloco só sem rateio, o veredito "sobrou/faltou", o dinheiro que entrou e saiu (pela data de pagamento) e o que ficou fora do resultado
+- [x] **FNC-11**: O Mês mostra quanto cada área vendeu, custou e deixou (pela data do documento), o Geral num bloco só sem rateio, o veredito "sobrou/faltou", o dinheiro que entrou e saiu (pela data de pagamento) e o que ficou fora do resultado
 - [x] **FNC-12**: Categoria é dado editável com grupo (receita, custo, geral, fora) e área; ninguém escolhe área ao lançar; categoria com lançamento só desativa, e grupo e área não mudam depois do primeiro lançamento. Categoria nunca é apagada de verdade — toda remoção é desativação, reversível por "Reativar"; em produção nascem prontas as 24 categorias (as 23 do protótipo mais "Juros, multas e descontos") (D-14)
 - [x] **FNC-13**: O catálogo guarda o que se vende e o que se estoca: preço ou "valor na hora", atalhos de venda e de compra, estoque com unidade e ficha técnica de um nível — e é o cadastro único de itens que o Estoque vai usar
 - [ ] **FNC-14**: Contas fixas têm valor esperado e dia; "Gerar as contas de <mês>" cria as contas a pagar e, rodado duas vezes, não duplica. Contas fixas têm cadastro completo: "+ Nova conta fixa" (nome, categoria, valor esperado, dia de vencimento) e desativar/reativar; conta fixa desativada fica fora de "Gerar as contas de <mês>" (D-13)
@@ -408,9 +408,9 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FNC-06 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-07 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-08 | Phase 04.4 — Financeiro, parte 1 | Complete |
-| FNC-09 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-09 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-10 | Phase 04.4 — Financeiro, parte 1 | Complete |
-| FNC-11 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-11 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-12 | Phase 04.4 — Financeiro, parte 1 | Pending |
 | FNC-13 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-14 | Phase 04.4 — Financeiro, parte 1 | Pending |

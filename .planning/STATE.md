@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: Completed 04.4-08-PLAN.md
-last_updated: "2026-09-19T23:57:41.431Z"
+stopped_at: Completed 04.4-09-PLAN.md
+last_updated: "2026-09-20T01:01:07.285Z"
 last_activity: 2026-09-19
 last_activity_desc: Phase 04.4 execution started
 progress:
   total_phases: 10
   completed_phases: 8
   total_plans: 62
-  completed_plans: 59
+  completed_plans: 60
 ---
 
 # Project State
@@ -29,12 +29,12 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING
 executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 9 of 11
+Plan: 10 of 11
 Status: Ready to execute
 /gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
 Last activity: 2026-09-19 — Phase 04.4 execution started
 
-Progress: [██████████] 95% (51 de 51 planos executados e verificados até aqui)
+Progress: [██████████] 97% (51 de 51 planos executados e verificados até aqui)
 
 ## Performance Metrics
 
@@ -122,6 +122,7 @@ Progress: [██████████] 95% (51 de 51 planos executados e ver
 | Phase 04.4 P06 | ~1h20min | 2 tasks | 16 files |
 | Phase 04.4 P07 | ~1h40min | 2 tasks | 14 files |
 | Phase 04.4 P08 | ~2h50min | 3 tasks | 18 files |
+| Phase 04.4 P09 | ~3h20min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -304,6 +305,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-08: planejarDesfazer decide por temLinhaDeDiferenca + previsto/pago, nunca recontando linhas/parcelas isoladamente — a decisão vem do que aconteceu, não de uma nova contagem
 - [Phase ?]: 04.4-08: ordem fixa de trava (documento primeiro, parcela depois) repetida em cancelarDocumento/registrarPagamento/desfazerPagamento — evita deadlock entre qualquer par delas
 - [Phase ?]: 04.4-08: formatarInstanteCurto (novo, lib/financeiro/formato.ts) formata timestamptz com fuso America/Sao_Paulo explícito — nunca confundir com formatarDataCurta (dia civil puro)
+- [Phase ?]: 04.4-09: resumoDoMes cobre a linha de diferença (D-02) sem caso especial — a categoria 'Juros, multas e descontos' já nasce grupo geral
+- [Phase ?]: 04.4-09: filtrarExtrato nunca recalcula saldoDepoisCentavos (D-12) — recebe as linhas já com o saldo global de montarExtrato
+- [Phase ?]: 04.4-09: mes-reservado.ts com nove meses espaçados de 3 em 3 — o mês anterior de qualquer chave é garantidamente vazio sob desktop/celular em paralelo
+- [Phase ?]: 04.4-09: e2e do extrato compara saldo depois por diferença RELATIVA entre linhas, não valor absoluto entre leituras — saldo depois é acumulado global (D-12), vulnerável ao próprio projeto irmão em comparações absolutas
 
 ### Pending Todos
 
@@ -368,6 +373,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-19T23:57:41.359Z
-Stopped at: Completed 04.4-08-PLAN.md
+Last session: 2026-09-20T01:01:07.222Z
+Stopped at: Completed 04.4-09-PLAN.md
 Resume file: None
