@@ -6,9 +6,9 @@ current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
 stopped_at: "04.4-12: Tarefas 1-3 concluidas (a caixinha do a vista em aberto e o seletor de mes); parado na Tarefa 4, checkpoint do dono"
-last_updated: "2026-09-20T11:37:32.427Z"
+last_updated: "2026-09-20T13:12:27.000Z"
 last_activity: 2026-09-20
-last_activity_desc: "tarefa rápida 260920-fk9: detector de SQLSTATE unificado em Financeiro"
+last_activity_desc: "tarefa rápida 260920-wcg: contraste AA que barrava o deploy corrigido (conta fixa desativada + mesmo achado em mais oito componentes) — código local, aguardando push"
 progress:
   total_phases: 10
   completed_phases: 9
@@ -44,6 +44,13 @@ O QUE FALTA PARA FECHAR A 04.4:
   2. **Conferência humana** — os itens restantes de `04.4-VERIFICACAO-HUMANA.md` no celular e no
      computador. Já provado em produção: venda de R$ 1,00 com pagamento em DUAS formas, lançada e
      cancelada, riscando as duas entradas.
+
+  3. ~~**Deploy bloqueado por falha de acessibilidade**~~ — **RESOLVIDO no código local (quick
+     260920-wcg)**: o CI (run 35508463753) reprovou "E2E contra a imagem real" em
+     `/cadastros?sub=fixas` (contraste 2.99:1 numa conta fixa desativada), pulando GHCR publish e
+     o deploy — o código da 04.4-12 nunca chegou a produção. Causa raiz corrigida (não um ajuste
+     de cor: a técnica de `opacity` sobre texto secundário), e o mesmo achado eliminado em mais
+     oito componentes. Falta só o `git push` (não dado por esta tarefa) para o CI reprocessar.
 
 VARREDURA DO E2E — NÃO ESTÁ 100% VERDE: 580 passaram, 2 falharam. As duas são a "sexta tentativa
 de bloqueio" de `tests/e2e/autenticacao.spec.ts` (limite de tentativas de login), defeito
@@ -413,6 +420,7 @@ None yet.
 | 260919-ou8 | Ignorar `Claude outputs/` e versionar o protótipo aprovado do Estoque | 2026-09-19 | 93ef4e2 | [260919-ou8-gitignore-claude-outputs-e-prototipo-do-](./quick/260919-ou8-gitignore-claude-outputs-e-prototipo-do-/) |
 | 260920-dx9 | Detectar SQLSTATE embrulhado pelo Drizzle em Abertura, Cotações e Queimas — a mensagem humana de chave estrangeira voltou a aparecer nos três módulos em produção | 2026-09-20 | 6288f67, b23b81e, fcbb3c3, 865e338, cc399ae | [260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl](./quick/260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl/) |
 | 260920-fk9 | Unificar o detector de SQLSTATE em Financeiro e Cadastros (pendência do 260920-dx9) — os dois módulos passam a importar de lib/erro/postgres.ts, prova e2e nova cobrindo a corrida real do Financeiro com par RED/GREEN | 2026-09-20 | 638d372, c19126b, 035c570 | [260920-fk9-detector-sqlstate-financeiro-e-cadastr](./quick/260920-fk9-detector-sqlstate-financeiro-e-cadastr/) |
+| 260920-wcg | Corrige a violação de contraste AA (axe-core) que barrou o deploy da fase 04.4-12: `opacity-70` diluía `--color-tinta-fraca` para 2.99:1 numa conta fixa desativada — causa raiz é a técnica (composição alfa sobre texto), não o token; corrigido o mesmo padrão em mais oito componentes (Categorias, Cotações, Queimas, Abertura), com par RED/GREEN provado por axe | 2026-09-20 | 48a8676, cf4a94d, 4e22cf6, a492da8 | [260920-wcg-contraste-aa-conta-fixa-desativada](./quick/260920-wcg-contraste-aa-conta-fixa-desativada/) |
 
 ### Roadmap Evolution
 
