@@ -40,9 +40,15 @@ export function ListaMeses({ meses }: ListaMesesProps) {
 function CartaoDoMes({ mes }: { mes: MesDoFluxo }) {
   return (
     <div
+      // Mês passado aparece esmaecido — mas não mais por `opacity-60` (achado de acessibilidade,
+      // WCAG 1.4.3, UI-09: 60% de opacidade sobre o cartão inteiro compõe `text-muted-foreground`
+      // — usado nas linhas de composição abaixo — em alfa contra o fundo, caindo abaixo de
+      // 4.5:1, mesmo cálculo de `cartao-forno.tsx`). `bg-muted` troca `bg-card` (branco) por uma
+      // cor SÓLIDA mais escura — o texto continua opaco e o contraste não piora, mas o cartão
+      // ainda lê como "menos em destaque" que os meses futuros.
       className={cn(
-        "border-border bg-card rounded-md border p-3 shadow-sm",
-        mes.ehPassado && "opacity-60",
+        "border-border rounded-md border p-3 shadow-sm",
+        mes.ehPassado ? "bg-muted" : "bg-card",
       )}
       data-testid="abertura-mes"
       data-mes={mes.chave}

@@ -41,12 +41,17 @@ export function CartaoForno({ forno }: CartaoFornoProps) {
   return (
     <Card
       data-testid={`cartao-forno-${forno.id}`}
-      // D-05: forno desativado aparece ESMAECIDO no índice — opacidade reduzida sobre o cartão
-      // inteiro (nome, selo, medidor, rodapé blindam junto contra a página de fundo, então o
-      // contraste RELATIVO entre o texto e o próprio cartão não muda; a base já folga bem acima
-      // do mínimo AA neste tema, ver `04-UI-SPEC.md` §Color), nunca escondido — a página do forno
-      // continua abrindo com todo o histórico (D-05).
-      className={forno.ativo ? undefined : "opacity-75"}
+      // D-05: forno desativado aparece ESMAECIDO no índice, nunca escondido — a página do forno
+      // continua abrindo com todo o histórico. CORREÇÃO (WCAG 1.4.3, UI-09): a alegação original
+      // de que "a base já folga bem acima do mínimo AA" nunca foi medida (`04-04-SUMMARY.md`
+      // já registrava isso como pendência) e estava errada — `opacity-75` sobre o cartão inteiro
+      // compõe o rodapé (`text-muted-foreground`, `--color-tinta-fraca`, 5.4:1 a opacidade
+      // cheia) em alfa contra o fundo da página, caindo para ~3.29:1. `bg-muted` troca o branco
+      // do cartão (`--color-superficie`) por `--color-superficie-2`, uma cor SÓLIDA e mais escura
+      // — o texto nunca passa por composição alfa, e o contraste do rodapé só MELHORA (o fundo
+      // ficou mais escuro), enquanto o cartão ainda lê como "menos em destaque" ao lado dos
+      // ativos.
+      className={forno.ativo ? undefined : "bg-muted"}
     >
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
         <Link
