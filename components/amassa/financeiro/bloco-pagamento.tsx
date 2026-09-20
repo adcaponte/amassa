@@ -5,18 +5,24 @@ import { formatarPercentual, formatarReais } from "@/lib/financeiro/formato";
 import { conferirParcelas, PLANOS_DE_PAGAMENTO, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
 import { avisoDoCartao } from "@/lib/financeiro/taxa";
 import {
+  DICA_AVISTA_A_PAGAR,
+  DICA_AVISTA_A_RECEBER,
   ROTULO_COMO_PAGA,
   ROTULO_COMO_RECEBE,
   ROTULO_FORMA,
   ROTULO_JA_PAGUEI,
+  ROTULO_JA_PAGUEI_AVISTA,
   ROTULO_JA_RECEBI,
+  ROTULO_JA_RECEBI_AVISTA,
   ROTULO_OUTRA_FORMA,
+  ROTULO_VENCE_EM,
   rotuloDoPlano,
   textoAvisoCartao,
   type FormaDePagamento,
 } from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { LinhaParcela } from "./linha-parcela";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
@@ -47,6 +53,10 @@ export type BlocoPagamentoProps = {
   aoTirarOutraForma: () => void;
   parcelas: ParcelaDoBloco[];
   aoMudarParcela: (indice: number, alteracao: Partial<ParcelaDoBloco>) => void;
+  // A caixinha "Já recebi"/"Já paguei" do à vista de UMA parcela só (04.4-12-PLAN.md): quem chama
+  // grava a INTENÇÃO (`pagoAVista`) além de marcar/desmarcar a própria parcela — é essa intenção
+  // que sobrevive à regeneração do plano quando o carrinho, a data ou o plano mudam.
+  aoMudarPagoAVista: (pago: boolean) => void;
   // Erro de GERAÇÃO do plano (`gerarPlano`/`dividirEmDuasFormas` recusou — valor pequeno demais
   // para dividir), decidido por quem chama no momento da troca de plano/forma.
   erroDeGeracao: string | null;
@@ -72,9 +82,19 @@ export function BlocoPagamento({
   aoTirarOutraForma,
   parcelas,
   aoMudarParcela,
+  aoMudarPagoAVista,
   erroDeGeracao,
 }: BlocoPagamentoProps) {
   const rotuloPago = tipo === "venda" ? ROTULO_JA_RECEBI : ROTULO_JA_PAGUEI;
+  const rotuloPagoAvista = tipo === "venda" ? ROTULO_JA_RECEBI_AVISTA : ROTULO_JA_PAGUEI_AVISTA;
+  const dicaAvistaAberto = tipo === "venda" ? DICA_AVISTA_A_RECEBER : DICA_AVISTA_A_PAGAR;
+  // A linha compacta do à vista (decisão 1 do 04.4-12-PLAN.md): só existe quando o plano é à
+  // vista, sem divisão de formas, com total maior que zero e exatamente UMA parcela — nunca uma
+  // `LinhaParcela` (sem "k/N", sem campo de valor: o valor já é o total).
+  const parcelaAvista =
+    plano === "avista" && !duasFormas && totalCentavos > 0 && parcelas.length === 1
+      ? parcelas[0]
+      : null;
 
   const parcelasConvertidas = parcelas.map((parcela) => {
     const resultado = converterReaisParaCentavos(parcela.valorTexto);
@@ -145,6 +165,44 @@ export function BlocoPagamento({
         )}
       </div>
 
+      {parcelaAvista && (
+        <div className="flex flex-col gap-2">
+          <div className="border-border flex items-center gap-2 rounded-md border px-2 py-2">
+            <span
+              data-testid="pagamento-ja-pago"
+              className="flex size-11 shrink-0 items-center justify-center"
+            >
+              <input
+                type="checkbox"
+                aria-label={rotuloPagoAvista}
+                checked={parcelaAvista.pago}
+                onChange={(evento) => aoMudarPagoAVista(evento.target.checked)}
+                className="size-5"
+              />
+            </span>
+            <span className="text-corpo text-foreground">{rotuloPagoAvista}</span>
+          </div>
+
+          {!parcelaAvista.pago && (
+            <>
+              <label className="text-apoio text-muted-foreground flex flex-col gap-1">
+                {ROTULO_VENCE_EM}
+                <Input
+                  type="date"
+                  data-testid="pagamento-vence-em"
+                  value={parcelaAvista.vencimento}
+                  onChange={(evento) => aoMudarParcela(0, { vencimento: evento.target.value })}
+                  className="text-corpo min-h-[44px]"
+                />
+              </label>
+              <p data-testid="pagamento-dica-aberto" className="text-apoio text-muted-foreground">
+                {dicaAvistaAberto}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {plano === "avista" && !duasFormas && totalCentavos > 0 && (
         <Button
           type="button"
@@ -166,12 +224,20 @@ export function BlocoPagamento({
               de={parcelas.length}
               valorTexto={parcela.valorTexto}
               aoMudarValor={(valor) => aoMudarParcela(indice, { valorTexto: valor })}
-              vencimento={duasFormas ? undefined : parcela.vencimento}
+              // A data só some numa linha à vista JÁ PAGA (que por definição é a data do
+              // documento) — em qualquer outro caso (plano parcelado/sinal, ou linha em aberto no
+              // modo de duas formas) a data aparece (04.4-12-PLAN.md).
+              vencimento={plano !== "avista" || !parcela.pago ? parcela.vencimento : undefined}
               aoMudarVencimento={
-                duasFormas ? undefined : (valor) => aoMudarParcela(indice, { vencimento: valor })
+                plano !== "avista" || !parcela.pago
+                  ? (valor) => aoMudarParcela(indice, { vencimento: valor })
+                  : undefined
               }
-              pago={duasFormas ? undefined : parcela.pago}
-              aoMudarPago={duasFormas ? undefined : (valor) => aoMudarParcela(indice, { pago: valor })}
+              // A caixa de marcação agora é SEMPRE passada — inclusive no modo de duas formas,
+              // onde cada linha ganha a própria (04.4-12-PLAN.md: dividir semeia as duas com a
+              // intenção atual do à vista, e depois elas são independentes).
+              pago={parcela.pago}
+              aoMudarPago={(valor) => aoMudarParcela(indice, { pago: valor })}
               rotuloPago={rotuloPago}
               forma={duasFormas ? parcela.forma : undefined}
               aoMudarForma={duasFormas ? (valor) => aoMudarParcela(indice, { forma: valor }) : undefined}

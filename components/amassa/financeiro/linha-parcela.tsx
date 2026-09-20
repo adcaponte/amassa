@@ -11,10 +11,13 @@ export type LinhaParcelaProps = {
   de: number;
   valorTexto: string;
   aoMudarValor: (valor: string) => void;
-  // Data e "já recebi/paguei" — ausentes no modo "duas formas" do à vista (D-08): as duas linhas
-  // são sempre pagas na data do documento, sem data própria nem caixa de marcação.
+  // Desde o 04.4-12-PLAN.md, a data é passada sempre que a linha NÃO é uma parcela à vista já
+  // paga — inclusive no modo "duas formas" (D-08), quando aquela linha está em aberto; some só
+  // quando o vencimento seria, por definição, a própria data do documento.
   vencimento?: string;
   aoMudarVencimento?: (valor: string) => void;
+  // Sempre passada desde o 04.4-12-PLAN.md — inclusive no modo "duas formas", onde cada linha
+  // ganha a própria caixa de marcação.
   pago?: boolean;
   aoMudarPago?: (valor: boolean) => void;
   rotuloPago?: string;
@@ -25,8 +28,12 @@ export type LinhaParcelaProps = {
   aoTirar?: () => void;
 };
 
-// Uma linha do plano de pagamento (04.4-06-PLAN.md): "k/N", valor, e — conforme o modo — data +
-// "já recebi/paguei" (Nx/sinal) OU forma + "tirar" (duas formas do à vista, D-08). As colunas
+// Uma linha do plano de pagamento (04.4-06-PLAN.md, 04.4-12-PLAN.md): "k/N", valor, "já
+// recebi/paguei" e — conforme o modo — data (Nx/sinal, ou duas formas do à vista quando aquela
+// linha está em aberto) e/ou forma + "tirar" (duas formas do à vista, D-08). Desde o 04.4-12, a
+// caixa de marcação é passada SEMPRE, inclusive no modo de duas formas — cada linha tem a própria
+// (dividir semeia as duas com a intenção atual do à vista, e depois elas são independentes); só a
+// DATA some numa linha à vista já paga, que por definição vence na data do documento. As colunas
 // encolhem (`flex-wrap`, `min-w-0`) para caber a 320px sem rolar a página horizontalmente
 // (04.4-UI-SPEC.md). A caixa de marcação é `<input type="checkbox">` NATIVO — a zona de toque de
 // 44×44 é o `<span>` externo que a envolve, mesma disciplina de `marcar-cotacao.tsx` (04.3-04): um

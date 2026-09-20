@@ -59,6 +59,18 @@ export const ROTULO_OUTRA_FORMA = "+ outra forma";
 export const ROTULO_JA_RECEBI = "já recebi";
 export const ROTULO_JA_PAGUEI = "já paguei";
 
+// "Já recebi"/"Já paguei" — MAIÚSCULO, diferente dos dois de cima: aqueles rotulam a caixa de
+// marcação DENTRO da grade de parcelas (Nx/sinal, `LinhaParcela`, texto apertado de coluna); estes
+// rotulam a linha PRÓPRIA e compacta do à vista (04.4-12-PLAN.md — a caixinha "já recebi/já
+// paguei" nasce marcada e some a grade inteira quando o plano é uma parcela única à vista).
+export const ROTULO_JA_RECEBI_AVISTA = "Já recebi";
+export const ROTULO_JA_PAGUEI_AVISTA = "Já paguei";
+export const ROTULO_VENCE_EM = "Vence em";
+// "Fica em 'A receber'/'A pagar' no Caixa até o dinheiro entrar/você registrar o pagamento." — só
+// aparece com a caixinha DESMARCADA, ao lado do campo "Vence em" (04.4-12-PLAN.md).
+export const DICA_AVISTA_A_RECEBER = 'Fica em "A receber" no Caixa até o dinheiro entrar.';
+export const DICA_AVISTA_A_PAGAR = 'Fica em "A pagar" no Caixa até você registrar o pagamento.';
+
 export type TipoDeDocumentoParaTexto = "venda" | "despesa";
 
 // "À vista"; "Sinal de 50% + saldo" (venda) / "Entrada de 50% + saldo" (despesa); "2x".."12x" —

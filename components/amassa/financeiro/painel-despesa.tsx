@@ -122,6 +122,13 @@ export function PainelDespesa({
   const [plano, setPlano] = useState<PlanoDePagamento>("avista");
   const [formaPagamento, setFormaPagamento] = useState<FormaDePagamento>("dinheiro");
   const [duasFormas, setDuasFormas] = useState(false);
+  // A INTENÇÃO do dono sobre o à vista de uma parcela só (04.4-12-PLAN.md) — mesma disciplina da
+  // Venda: nasce marcada e sobrevive à regeneração do plano quando o carrinho, a data ou o plano
+  // mudam.
+  const [pagoAVista, setPagoAVista] = useState(true);
+  // O "Vence em" digitado à mão para o à vista em aberto — mesma disciplina da Venda: sobrevive à
+  // regeneração do plano quando o carrinho, a data ou o plano mudam.
+  const [vencimentoAvistaAberto, setVencimentoAvistaAberto] = useState<string | null>(null);
   const [parcelasPagamento, setParcelasPagamento] = useState<ParcelaDoBloco[]>([]);
   const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
 
@@ -236,7 +243,9 @@ export function PainelDespesa({
   const dataAtual = modo === "compra" ? dataCompra : dataOutra;
 
   // O plano de pagamento regenera do ZERO quando total/data/plano mudam — mesma disciplina do
-  // pagamento da Venda (04.4-06-PLAN.md).
+  // pagamento da Venda (04.4-06-PLAN.md). `pagoAVista` é lido de DENTRO do efeito, fora da lista
+  // de dependências (mesma exceção já usada na Venda, 04.4-12-PLAN.md): a regeneração usa a
+  // intenção CORRENTE do dono, e alternar a caixinha nunca dispara este efeito sozinho.
   useEffect(() => {
     if (totalCentavos <= 0) {
       setParcelasPagamento([]);
@@ -244,7 +253,13 @@ export function PainelDespesa({
       setDuasFormas(false);
       return;
     }
-    const resultado = gerarPlano({ plano, totalCentavos, data: dataAtual, forma: formaPagamento });
+    const resultado = gerarPlano({
+      plano,
+      totalCentavos,
+      data: dataAtual,
+      forma: formaPagamento,
+      pagaAVista: pagoAVista,
+    });
     setDuasFormas(false);
     if (!resultado.ok) {
       setParcelasPagamento([]);
@@ -253,8 +268,13 @@ export function PainelDespesa({
     }
     setErroDoPlano(null);
     setParcelasPagamento(
-      resultado.parcelas.map((parcela) => ({
-        vencimento: parcela.vencimento,
+      resultado.parcelas.map((parcela, indice) => ({
+        // A parcela 0 do à vista EM ABERTO usa o "Vence em" já digitado, se houver
+        // (04.4-12-PLAN.md) — mesma disciplina da Venda.
+        vencimento:
+          indice === 0 && plano === "avista" && !pagoAVista && vencimentoAvistaAberto
+            ? vencimentoAvistaAberto
+            : parcela.vencimento,
         valorTexto: centavosParaTexto(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
@@ -270,13 +290,24 @@ export function PainelDespesa({
     }
   }
 
+  // A caixinha "Já paguei" do à vista de uma parcela só — mesma disciplina da Venda: grava a
+  // INTENÇÃO e marca/desmarca a própria parcela, sem disparar a regeneração do plano.
+  function mudarPagoAVista(pago: boolean) {
+    setPagoAVista(pago);
+    setParcelasPagamento((atual) =>
+      atual.map((parcela, indice) => (indice === 0 ? { ...parcela, pago } : parcela)),
+    );
+  }
+
   function ativarOutraForma() {
     const outraForma = FORMAS_EM_ORDEM.find((valor) => valor !== formaPagamento) ?? "dinheiro";
+    // Semeia as duas linhas com a intenção ATUAL do à vista (04.4-12-PLAN.md).
     const resultado = dividirEmDuasFormas({
       totalCentavos,
       primeiroValorCentavos: Math.ceil(totalCentavos / 2),
       data: dataAtual,
       formas: [formaPagamento, outraForma],
+      pagas: [pagoAVista, pagoAVista],
     });
     if (!resultado.ok) {
       setErroDoPlano(resultado.erro);
@@ -295,7 +326,13 @@ export function PainelDespesa({
   }
 
   function tirarOutraForma() {
-    const resultado = gerarPlano({ plano: "avista", totalCentavos, data: dataAtual, forma: formaPagamento });
+    const resultado = gerarPlano({
+      plano: "avista",
+      totalCentavos,
+      data: dataAtual,
+      forma: formaPagamento,
+      pagaAVista: pagoAVista,
+    });
     setDuasFormas(false);
     if (!resultado.ok) {
       setErroDoPlano(resultado.erro);
@@ -305,7 +342,7 @@ export function PainelDespesa({
     setErroDoPlano(null);
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
-        vencimento: parcela.vencimento,
+        vencimento: !pagoAVista && vencimentoAvistaAberto ? vencimentoAvistaAberto : parcela.vencimento,
         valorTexto: centavosParaTexto(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
@@ -314,6 +351,9 @@ export function PainelDespesa({
   }
 
   function mudarParcela(indice: number, alteracao: Partial<ParcelaDoBloco>) {
+    if (indice === 0 && alteracao.vencimento !== undefined) {
+      setVencimentoAvistaAberto(alteracao.vencimento);
+    }
     setParcelasPagamento((atual) =>
       atual.map((parcela, i) => (i === indice ? { ...parcela, ...alteracao } : parcela)),
     );
@@ -419,6 +459,8 @@ export function PainelDespesa({
     setPlano("avista");
     setFormaPagamento("dinheiro");
     setDuasFormas(false);
+    setPagoAVista(true);
+    setVencimentoAvistaAberto(null);
     setParcelasPagamento([]);
     setErroDoPlano(null);
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
@@ -674,6 +716,7 @@ export function PainelDespesa({
             aoTirarOutraForma={tirarOutraForma}
             parcelas={parcelasPagamento}
             aoMudarParcela={mudarParcela}
+            aoMudarPagoAVista={mudarPagoAVista}
             erroDeGeracao={erroDoPlano}
           />
 

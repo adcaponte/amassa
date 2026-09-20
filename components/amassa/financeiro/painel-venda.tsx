@@ -98,6 +98,16 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
   const [plano, setPlano] = useState<PlanoDePagamento>("avista");
   const [formaPagamento, setFormaPagamento] = useState<FormaDePagamento>("pix");
   const [duasFormas, setDuasFormas] = useState(false);
+  // A INTENÇÃO do dono sobre o à vista de uma parcela só (04.4-12-PLAN.md): nasce marcada (o caso
+  // comum continua um toque só) e sobrevive à regeneração do plano quando o carrinho, a data ou o
+  // plano mudam — é por isso que ela mora em estado PRÓPRIO, fora de `parcelasPagamento` (que é
+  // recriado do zero a cada regeneração).
+  const [pagoAVista, setPagoAVista] = useState(true);
+  // O "Vence em" digitado à mão para o à vista em aberto — `null` até o dono editar o campo (a
+  // parcela então vence na data do documento, o padrão de `gerarPlano`). Sobrevive à regeneração
+  // do plano pela MESMA razão de `pagoAVista`: mudar o carrinho não deve apagar uma data já
+  // escolhida (04.4-12-PLAN.md).
+  const [vencimentoAvistaAberto, setVencimentoAvistaAberto] = useState<string | null>(null);
   const [parcelasPagamento, setParcelasPagamento] = useState<ParcelaDoBloco[]>([]);
   const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -273,7 +283,11 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
   // O plano de pagamento (04.4-06-PLAN.md) regenera do zero sempre que o TOTAL, a DATA ou o
   // PLANO mudam — "mudar linhas, data ou plano gera as parcelas de novo" (must_have do plano):
   // qualquer edição manual de uma parcela some nessa hora, inclusive a divisão "+ outra forma".
-  // Trocar só a FORMA (`mudarFormaPagamento` abaixo) não passa por aqui — ela só re-rotula as
+  // `pagoAVista` é lido de DENTRO do efeito, de propósito FORA da lista de dependências (mesma
+  // exceção de `exhaustive-deps` já usada aqui): a regeneração usa a intenção CORRENTE do dono,
+  // mas alternar a caixinha (`mudarPagoAVista` abaixo) nunca dispara este efeito sozinho — é
+  // exatamente isso que faz o carrinho mudar sem remarcar a caixinha (04.4-12-PLAN.md). Trocar só
+  // a FORMA (`mudarFormaPagamento` abaixo) também não passa por aqui — ela só re-rotula as
   // parcelas já existentes, sem mexer em data/valor.
   useEffect(() => {
     if (totalCentavos <= 0) {
@@ -282,7 +296,7 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
       setDuasFormas(false);
       return;
     }
-    const resultado = gerarPlano({ plano, totalCentavos, data, forma: formaPagamento });
+    const resultado = gerarPlano({ plano, totalCentavos, data, forma: formaPagamento, pagaAVista: pagoAVista });
     setDuasFormas(false);
     if (!resultado.ok) {
       setParcelasPagamento([]);
@@ -291,8 +305,13 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
     }
     setErroDoPlano(null);
     setParcelasPagamento(
-      resultado.parcelas.map((parcela) => ({
-        vencimento: parcela.vencimento,
+      resultado.parcelas.map((parcela, indice) => ({
+        // A parcela 0 do à vista EM ABERTO usa o "Vence em" já digitado, se houver — é isso que
+        // faz mudar o carrinho não apagar uma data escolhida (04.4-12-PLAN.md).
+        vencimento:
+          indice === 0 && plano === "avista" && !pagoAVista && vencimentoAvistaAberto
+            ? vencimentoAvistaAberto
+            : parcela.vencimento,
         valorTexto: centavosParaTexto(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
@@ -308,13 +327,25 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
     }
   }
 
+  // A caixinha "Já recebi" do à vista de uma parcela só: grava a INTENÇÃO e marca/desmarca a
+  // própria parcela nos dois sentidos — nunca dispara a regeneração do plano (04.4-12-PLAN.md).
+  function mudarPagoAVista(pago: boolean) {
+    setPagoAVista(pago);
+    setParcelasPagamento((atual) =>
+      atual.map((parcela, indice) => (indice === 0 ? { ...parcela, pago } : parcela)),
+    );
+  }
+
   function ativarOutraForma() {
     const outraForma = FORMAS_EM_ORDEM.find((valor) => valor !== formaPagamento) ?? "dinheiro";
+    // Semeia as duas linhas com a intenção ATUAL do à vista (04.4-12-PLAN.md) — depois de
+    // dividida, cada linha vira independente (a caixa de marcação da grade cuida disso).
     const resultado = dividirEmDuasFormas({
       totalCentavos,
       primeiroValorCentavos: Math.ceil(totalCentavos / 2),
       data,
       formas: [formaPagamento, outraForma],
+      pagas: [pagoAVista, pagoAVista],
     });
     if (!resultado.ok) {
       setErroDoPlano(resultado.erro);
@@ -333,7 +364,13 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
   }
 
   function tirarOutraForma() {
-    const resultado = gerarPlano({ plano: "avista", totalCentavos, data, forma: formaPagamento });
+    const resultado = gerarPlano({
+      plano: "avista",
+      totalCentavos,
+      data,
+      forma: formaPagamento,
+      pagaAVista: pagoAVista,
+    });
     setDuasFormas(false);
     if (!resultado.ok) {
       setErroDoPlano(resultado.erro);
@@ -343,7 +380,7 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
     setErroDoPlano(null);
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
-        vencimento: parcela.vencimento,
+        vencimento: !pagoAVista && vencimentoAvistaAberto ? vencimentoAvistaAberto : parcela.vencimento,
         valorTexto: centavosParaTexto(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
@@ -352,6 +389,9 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
   }
 
   function mudarParcela(indice: number, alteracao: Partial<ParcelaDoBloco>) {
+    if (indice === 0 && alteracao.vencimento !== undefined) {
+      setVencimentoAvistaAberto(alteracao.vencimento);
+    }
     setParcelasPagamento((atual) =>
       atual.map((parcela, i) => (i === indice ? { ...parcela, ...alteracao } : parcela)),
     );
@@ -477,6 +517,8 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
     setPlano("avista");
     setFormaPagamento("pix");
     setDuasFormas(false);
+    setPagoAVista(true);
+    setVencimentoAvistaAberto(null);
     setParcelasPagamento([]);
     setErroDoPlano(null);
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
@@ -643,6 +685,7 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
           aoTirarOutraForma={tirarOutraForma}
           parcelas={parcelasPagamento}
           aoMudarParcela={mudarParcela}
+          aoMudarPagoAVista={mudarPagoAVista}
           erroDeGeracao={erroDoPlano}
         />
 
