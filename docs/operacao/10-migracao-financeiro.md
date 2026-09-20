@@ -188,35 +188,34 @@ docker compose exec postgres psql -U amassa_owner -d amassa -c "select count(*) 
 
 **O que você deve ver:** `total = 24` e `com_chave_diferenca = 1`.
 
-**Um `constraint trigger` recusa uma parcela de valor zero dentro de uma transação revertida** — a
-prova de que a restrição adiada não é só um nome em `pg_constraint`, mas está de fato bloqueando
-dado impossível. Cria um documento de despesa de teste (título inventado) com uma linha e uma
-parcela de **valor zero**, dentro de uma transação com `rollback`:
+**O banco recusa uma parcela de valor zero** — a prova de que a restrição não é só um nome em
+`pg_constraint`, mas está de fato bloqueando dado impossível. O comando abaixo cria um documento de
+despesa de teste (título inventado) com uma linha, e então tenta a parcela de **valor zero**. Os
+dois comandos vão num `-c` só, então o Postgres os trata como uma transação única: quando a parcela
+é recusada, o documento e a linha são desfeitos junto, sem `begin`/`rollback` explícitos.
 
 ```bash
-docker compose exec postgres psql -U amassa_owner -d amassa -c "
-begin;
-insert into documentos (tipo, data, titulo, criado_por)
-values ('despesa', current_date, '[roteiro-10] teste de restrição',
-  (select id from usuarios order by criado_em limit 1))
-returning id \gset
-insert into documento_linhas (documento_id, categoria_id, descricao, valor_centavos)
-values (:'id', (select id from categorias where chave_do_sistema is null limit 1), '[roteiro-10] linha teste', 100);
-insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
-values (:'id', 1, current_date, 0, 'dinheiro');
-rollback;
-"
+docker compose exec postgres psql -U amassa_owner -d amassa -c "with d as (insert into documentos (tipo, data, titulo, criado_por) values ('despesa', current_date, '[roteiro-10] teste de restricao', (select id from usuarios order by criado_em limit 1)) returning id) insert into documento_linhas (documento_id, categoria_id, descricao, valor_centavos) select d.id, (select id from categorias where chave_do_sistema is null limit 1), '[roteiro-10] linha teste', 100 from d; insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma) select id, 1, current_date, 0, 'dinheiro' from documentos where titulo = '[roteiro-10] teste de restricao';"
 ```
 
-**O que você deve ver:** os dois primeiros `insert`s aceitos (`INSERT 0 1` cada um) e, no
-`rollback` (quando a restrição adiada finalmente confere), o erro citando
-`parcelas_valor_no_intervalo` — a parcela de valor `0` viola o `check` de `>= 1`. Se a segunda
-inserção **não** falhar de algum jeito antes do commit, ou se o `rollback` não reverter nada,
-**pare aqui** — a restrição não está valendo. Nenhuma linha de teste sobra no banco.
+**O que você deve ver:** `INSERT 0 1` (o documento e a linha, numa tacada só pelo `with`) e em
+seguida `ERROR: new row for relation "parcelas" violates check constraint
+"parcelas_valor_no_intervalo"`. Se a parcela de valor zero **for aceita**, **pare aqui** — a
+restrição não está valendo.
 
-> Se o servidor recusar `\gset` (sintaxe de `psql` interativo indisponível em algum canal), rode o
-> mesmo bloco com `docker compose exec -it postgres psql -U amassa_owner -d amassa` (sessão
-> interativa) em vez de `-c`.
+Confirme que nada sobrou:
+
+```bash
+docker compose exec postgres psql -U amassa_owner -d amassa -c "select count(*) from documentos where titulo like '[roteiro-10]%';"
+```
+
+**O que você deve ver:** `0`. Se vier `1`, o documento de teste sobreviveu ao erro — apague-o antes
+de seguir e avise, porque isso contradiz o comportamento transacional esperado.
+
+> **Por que não `\gset`:** a primeira versão deste roteiro usava `returning id \gset` para reusar o
+> id do documento. `\gset` é um meta-comando do `psql`, que **não funciona** com `-c` (só numa
+> sessão interativa ou lendo de um arquivo/stdin). Corrigido em 2026-09-20, durante a própria
+> migração, para a forma com `with` acima — que roda igual nos dois canais.
 
 **`amassa_app` NÃO tem `delete` em `documentos` nem em `parcelas`:**
 
