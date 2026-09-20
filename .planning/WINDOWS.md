@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 16
+open_count: 17
 waived_count: 1
-fixed_count: 15
-total_count: 32
-last_updated: 2026-09-20T09:24:14.442Z
+fixed_count: 16
+total_count: 34
+last_updated: 2026-09-20T13:48:30.734Z
 ---
 
 # Broken Windows Ledger
@@ -47,6 +47,8 @@ last_updated: 2026-09-20T09:24:14.442Z
 | 30 | 04.3 | deviation | tests/e2e/cotacoes-tracador.spec.ts | 44 | Falha intermitente sob a varredura completa: clicar na aba 'Cotacoes' (<Link> RSC, abas-abertura.tsx) as vezes nao navega para ?aba=cotacoes dentro do timeout padrao de 5s (URL fica em /abertura). Mesma classe do defeito de framework documentado em .planning/debug/abertura-navegacao-trava.md. Reexecucao isolada (--grep "cotacoes categorias\|cotacoes tracador") passou 36/36 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica. Nao corrigido nesta execucao pelo mesmo motivo do achado irmao em cotacoes-categorias.spec.ts:94. | fixed |  | 2026-09-18T18:22:36.736Z | 2026-09-19T09:09:20.752Z |
 | 31 | 04.3 | deviation | tests/e2e/abertura-edicao.spec.ts | 165 | 'editar um item com tarefa ligada atualiza a linha e preserva o vinculo' (celular) falhou na varredura completa desta fase -- mesma classe ja registrada para a variante 'tarefa' (WINDOWS #25, fechado em 04.2), agora atingindo a variante ITEM tambem, sob a carga da suite inteira (490+ testes). Arquivo da Fase 4.2, fora do escopo de arquivos do plano 04.3-05; achado durante a varredura completa que este plano e dono de executar (04.3-05-PLAN.md, Tarefa 2). | fixed |  | 2026-09-18T18:22:37.243Z | 2026-09-19T09:09:21.148Z |
 | 32 | 04.4-financeiro-parte-1 | deviation | tests/e2e/financeiro-extrato.spec.ts | 212 | 'navega por mes, filtra por forma, mantem o saldo global, e mostra os dois vazios' (desktop) falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers locais): getByTestId('extrato-linha') veio 0 em vez de 5 apos clicar em 'mes seguinte'. Reexecucao isolada (--grep 'financeiro extrato') passou 32/32 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica -- mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#29/#30/#31. Achado incidentalmente ao provar a correcao da fuga de dado do teste 04.4-11 (script/testar-migracoes.mjs); nao corrigido nesta execucao, fora do escopo de arquivos da correcao (nenhuma logica de extrato foi tocada). | open |  | 2026-09-20T09:24:14.442Z |  |
+| 33 | quick-260920-jxb | deviation | db/index.ts |  | WINDOWS #3/#24 diagnostico atualizado (ver .planning/debug/auth-bloqueio-timeout-e2e.md, 2026-09-20): hipotese do custo do argon2id foi MEDIDA e REFUTADA (25-150ms/tentativa). Hipotese lider, nao confirmada por reproducao direta (3 tentativas honestas falharam), era connectionTimeoutMillis ausente no pool pg (espera infinita). Corrigido aqui: connectionTimeoutMillis=5000 em db/index.ts, com teste de regressao (tests/unit/pool-conexao.test.ts) e caminho de falha documentado (cai na mesma mensagem humana via AuthError, nunca stack crua). #24 foi marcado 'fixed' em 2026-08-31 (fase 04.2) SEM nenhuma mudanca de codigo relacionada -- esta e a primeira correcao real do problema estrutural que #3/#24 descrevem. #3 permanece OPEN porque a Tarefa 2 deste quick task (semear tentativas via API para encurtar o teste) foi revertida -- ver entrada irma sobre o bug de duplicacao de modulo descoberto -- entao o ciclo RED/GREEN provando o fim da falha intermitente original nao fechou. | fixed |  | 2026-09-20T13:48:00.596Z | 2026-09-20T13:48:07.409Z |
+| 34 | quick-260920-jxb | deviation | lib/auth/tentativas-memoria.ts |  | ACHADO NOVO, fora do escopo desta tarefa: o contador de tentativas em memoria (lib/auth/tentativas-memoria.ts) NAO parece ser um singleton verdadeiro entre a rota REST do Auth.js (app/api/auth/[...nextauth]/route.ts, POST /api/auth/callback/credentials) e a Server Action de login (lib/auth/acoes.ts, entrar() -> signIn() server-side) nesta build (Next.js 16.3.5 + Turbopack, output: standalone). Confirmado empiricamente: 5 POSTs reais e corretos contra a rota REST (GET /api/auth/csrf + POST /api/auth/callback/credentials, protocolo padrao do Auth.js, cada um retornando code=credentials como esperado) NAO bloqueiam a 6a tentativa feita pela Server Action via UI real (continua mostrando a mensagem generica de credencial invalida, nao a de bloqueio) -- mesmo com um servidor 'next start' recem-construido, sem processo travado, e mesmo com curl provando que 5 POSTs + um 6o POST, TODOS pela MESMA rota REST, bloqueiam corretamente entre si. Isso e a MESMA classe de suspeita ja registrada (nao confirmada) no debug auth-bloqueio-timeout-e2e.md para o pool de conexao do Postgres ('pools de conexao podem nao ser verdadeiramente compartilhados entre diferentes rotas/Server Actions nesta build') -- agora CONFIRMADA para um modulo diferente (o contador de tentativas). Por causa disso, a Tarefa 2 deste quick task (semear as 5 primeiras tentativas de tests/e2e/autenticacao.spec.ts via a rota REST, mantendo a 6a pela UI real) foi revertida sem aplicar -- nao ha caminho honesto de semear via HTTP que compartilhe estado com a Server Action nesta build, e o unico substituto seria reproduzir o protocolo interno de Server Actions do Next.js (header Next-Action com id derivado do build), que e exatamente o tipo de hack fragil que a tarefa pediu para evitar. Merece investigacao propria (Turbopack chunk splitting de modulos compartilhados sob output: standalone) antes de qualquer nova tentativa de encurtar este teste. | open |  | 2026-09-20T13:48:30.734Z |  |
 
 ````json
 [
@@ -432,6 +434,30 @@ last_updated: 2026-09-20T09:24:14.442Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-20T09:24:14.442Z",
+    "resolved_at": null
+  },
+  {
+    "id": 33,
+    "kind": "deviation",
+    "phase": "quick-260920-jxb",
+    "file": "db/index.ts",
+    "line": null,
+    "description": "WINDOWS #3/#24 diagnostico atualizado (ver .planning/debug/auth-bloqueio-timeout-e2e.md, 2026-09-20): hipotese do custo do argon2id foi MEDIDA e REFUTADA (25-150ms/tentativa). Hipotese lider, nao confirmada por reproducao direta (3 tentativas honestas falharam), era connectionTimeoutMillis ausente no pool pg (espera infinita). Corrigido aqui: connectionTimeoutMillis=5000 em db/index.ts, com teste de regressao (tests/unit/pool-conexao.test.ts) e caminho de falha documentado (cai na mesma mensagem humana via AuthError, nunca stack crua). #24 foi marcado 'fixed' em 2026-08-31 (fase 04.2) SEM nenhuma mudanca de codigo relacionada -- esta e a primeira correcao real do problema estrutural que #3/#24 descrevem. #3 permanece OPEN porque a Tarefa 2 deste quick task (semear tentativas via API para encurtar o teste) foi revertida -- ver entrada irma sobre o bug de duplicacao de modulo descoberto -- entao o ciclo RED/GREEN provando o fim da falha intermitente original nao fechou.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-09-20T13:48:00.596Z",
+    "resolved_at": "2026-09-20T13:48:07.409Z"
+  },
+  {
+    "id": 34,
+    "kind": "deviation",
+    "phase": "quick-260920-jxb",
+    "file": "lib/auth/tentativas-memoria.ts",
+    "line": null,
+    "description": "ACHADO NOVO, fora do escopo desta tarefa: o contador de tentativas em memoria (lib/auth/tentativas-memoria.ts) NAO parece ser um singleton verdadeiro entre a rota REST do Auth.js (app/api/auth/[...nextauth]/route.ts, POST /api/auth/callback/credentials) e a Server Action de login (lib/auth/acoes.ts, entrar() -> signIn() server-side) nesta build (Next.js 16.3.5 + Turbopack, output: standalone). Confirmado empiricamente: 5 POSTs reais e corretos contra a rota REST (GET /api/auth/csrf + POST /api/auth/callback/credentials, protocolo padrao do Auth.js, cada um retornando code=credentials como esperado) NAO bloqueiam a 6a tentativa feita pela Server Action via UI real (continua mostrando a mensagem generica de credencial invalida, nao a de bloqueio) -- mesmo com um servidor 'next start' recem-construido, sem processo travado, e mesmo com curl provando que 5 POSTs + um 6o POST, TODOS pela MESMA rota REST, bloqueiam corretamente entre si. Isso e a MESMA classe de suspeita ja registrada (nao confirmada) no debug auth-bloqueio-timeout-e2e.md para o pool de conexao do Postgres ('pools de conexao podem nao ser verdadeiramente compartilhados entre diferentes rotas/Server Actions nesta build') -- agora CONFIRMADA para um modulo diferente (o contador de tentativas). Por causa disso, a Tarefa 2 deste quick task (semear as 5 primeiras tentativas de tests/e2e/autenticacao.spec.ts via a rota REST, mantendo a 6a pela UI real) foi revertida sem aplicar -- nao ha caminho honesto de semear via HTTP que compartilhe estado com a Server Action nesta build, e o unico substituto seria reproduzir o protocolo interno de Server Actions do Next.js (header Next-Action com id derivado do build), que e exatamente o tipo de hack fragil que a tarefa pediu para evitar. Merece investigacao propria (Turbopack chunk splitting de modulos compartilhados sob output: standalone) antes de qualquer nova tentativa de encurtar este teste.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-20T13:48:30.734Z",
     "resolved_at": null
   }
 ]

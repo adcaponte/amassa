@@ -91,8 +91,9 @@ já estão no ar.
     select-antes-do-insert com uma transação de teste presa (sem commit), não só apagar a linha
     antes do envio. Zero duplicata de leitor de SQLSTATE no repositório agora. Detalhes em
     `.planning/quick/260920-fk9-*/260920-fk9-SUMMARY.md`.
-Last activity: 2026-09-20 — tarefa rápida 260920-fk9: detector de SQLSTATE unificado em Financeiro
-e Cadastros (a Fase 04.4 segue aguardando o dono)
+Last activity: 2026-09-20 — tarefa rápida 260920-jxb: connectionTimeoutMillis no pool do
+Postgres corrigido; teste e2e de bloqueio revertido após achado de módulo não-compartilhado
+entre rota REST e Server Action (WINDOWS #34, aberto) — Fase 04.4 segue aguardando o dono
 
 Progress: [██████████] 100% (61 de 62 planos; o 04.4-11 conta como
 automatizável concluído, migração e verificação humana pendentes)
@@ -395,7 +396,7 @@ None yet.
 - Protecao da branch main (bloquear force-push e exclusao) pendente de configuracao manual pelo dono via GitHub Settings > Branches
 - 01-05 Task 2 parcial: falta cadastrar NEXT_PUBLIC_SITE_URL e DEPLOY_ATIVO no repositorio GitHub, observar a primeira execucao real do workflow e provar o portao com um PR de teste quebrado — requer gh CLI/credenciais que a sessao de execucao nao tinha (ver 01-05-SUMMARY.md User Setup Required)
 - callbackUrl do redirecionamento nao autenticado vaza https://0.0.0.0:3000 em vez do dominio publico (WINDOWS.md id 2, deferred-items.md da fase 02a) — bloqueia /gsd-ship ate resolvido ou dispensado; causa provavel em lib/auth/auth.config.ts/middleware.ts, fora do escopo do plano 02a-08
-- tests/e2e/autenticacao.spec.ts:72 (sexta tentativa de bloqueio) trava/estoura timeout de forma pre-existente e independente da 02b-03 (confirmado via --grep-invert) — ver deferred-items.md da fase 02b item 1 e WINDOWS.md id 3; investigar pool do pg.Pool em db/index.ts ou UV_THREADPOOL_SIZE
+- tests/e2e/autenticacao.spec.ts:72 (sexta tentativa de bloqueio) trava/estoura timeout de forma pre-existente e independente da 02b-03 — WINDOWS.md id 3 continua aberto, mas o diagnostico avançou (quick 260920-jxb, .planning/debug/auth-bloqueio-timeout-e2e.md): hipotese do custo do argon2id REFUTADA por medicao; connectionTimeoutMillis (hipotese lider) corrigido em db/index.ts (5s, testado), mas a falha intermitente original nunca foi reproduzida localmente para fechar o ciclo RED/GREEN. WINDOWS.md id 34 (novo, aberto): o contador de tentativas em memoria nao e compartilhado entre a rota REST do Auth.js e a Server Action de login nesta build (Next.js 16.3.5 + Turbopack + output standalone) — investigacao propria necessaria antes de tentar de novo encurtar este teste.
 - Verificacao humana de fim de fase (02b) pendente: 02b-VERIFICACAO-HUMANA.md — UI-05 (polegar em celular real), voz das frases D-05 (Agenda/Queimas/Estoque/Orcamentos) e olhada geral de cor/tipografia/legibilidade sob luz forte. Dono indisponivel no momento da execucao do 02b-05.
 - Dois gaps de infraestrutura abertos (WINDOWS.md ids 13, 14): pipeline nao puxa imagem :ferramentas no deploy; compose.yml do servidor nao e ressincronizado apos o Roteiro 1 — candidatos a fase futura de polimento de CI/roteiros
 - Ajustes necessarios no desktop mencionados pelo dono apos a verificacao em producao (03-08), sem detalhamento — capturar no backlog em separado antes de assumir a experiencia desktop pronta
@@ -421,6 +422,7 @@ None yet.
 | 260920-dx9 | Detectar SQLSTATE embrulhado pelo Drizzle em Abertura, Cotações e Queimas — a mensagem humana de chave estrangeira voltou a aparecer nos três módulos em produção | 2026-09-20 | 6288f67, b23b81e, fcbb3c3, 865e338, cc399ae | [260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl](./quick/260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl/) |
 | 260920-fk9 | Unificar o detector de SQLSTATE em Financeiro e Cadastros (pendência do 260920-dx9) — os dois módulos passam a importar de lib/erro/postgres.ts, prova e2e nova cobrindo a corrida real do Financeiro com par RED/GREEN | 2026-09-20 | 638d372, c19126b, 035c570 | [260920-fk9-detector-sqlstate-financeiro-e-cadastr](./quick/260920-fk9-detector-sqlstate-financeiro-e-cadastr/) |
 | 260920-wcg | Corrige a violação de contraste AA (axe-core) que barrou o deploy da fase 04.4-12: `opacity-70` diluía `--color-tinta-fraca` para 2.99:1 numa conta fixa desativada — causa raiz é a técnica (composição alfa sobre texto), não o token; corrigido o mesmo padrão em mais oito componentes (Categorias, Cotações, Queimas, Abertura), com par RED/GREEN provado por axe | 2026-09-20 | 48a8676, cf4a94d, 4e22cf6, a492da8 | [260920-wcg-contraste-aa-conta-fixa-desativada](./quick/260920-wcg-contraste-aa-conta-fixa-desativada/) |
+| 260920-jxb | connectionTimeoutMillis=5000 no pool do pg (db/index.ts, com teste de regressão) — corrige o risco real de espera infinita apontado pelo debug de auth-bloqueio-timeout-e2e.md; a segunda mudança aprovada (semear tentativas via API) foi revertida ao descobrir que a rota REST e a Server Action não compartilham o contador de tentativas em memória nesta build (achado novo, WINDOWS #34) | 2026-09-20 | c7b13e1 | [260920-jxb-aplicar-timeout-do-pool-de-conexoes-do-b](./quick/260920-jxb-aplicar-timeout-do-pool-de-conexoes-do-b/) |
 
 ### Roadmap Evolution
 
