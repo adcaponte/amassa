@@ -2,15 +2,21 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { hojeEmBrasilia } from "@/lib/abertura/formato";
 
-import { apagarCategoriaDeCotacaoPeloNome, apagarFornoPeloNome, apagarItemDeAberturaPeloNome } from "./apoio/apagar-referencia";
+import {
+  apagarCategoriaDeCotacaoPeloNome,
+  apagarFornoPeloNome,
+  apagarItemDeAberturaPeloNome,
+  comecarExclusaoDeCategoria,
+} from "./apoio/apagar-referencia";
+import { criarCategoriaDeDespesa } from "./apoio/semear-financeiro";
 
-// A prova de que Queimas, Abertura e Cotações mostram a mensagem humana de chave estrangeira
-// (lib/erro/postgres.ts, quick-260920-dx9) em vez da frase genérica de falha, nos três módulos.
-// "chave estrangeira" no título do describe é o recorte usado pelo orçamento de e2e deste plano
-// (`npm run test:e2e -- --grep "chave estrangeira"`).
+// A prova de que Queimas, Abertura, Cotações e Financeiro mostram a mensagem humana de chave
+// estrangeira (lib/erro/postgres.ts, quick-260920-dx9/fk9) em vez da frase genérica de falha, nos
+// quatro módulos. "chave estrangeira" no título do describe é o recorte usado pelo orçamento de
+// e2e deste plano (`npm run test:e2e -- --grep "chave estrangeira"`).
 //
-// Sem etiqueta `@vazio-*`: os três casos criam os próprios dados, e nenhum deles afirma condição
-// global do banco (convenção do CLAUDE.md).
+// Sem etiqueta `@vazio-*`: os quatro casos criam os próprios dados, e nenhum deles afirma
+// condição global do banco (convenção do CLAUDE.md).
 
 async function fazerLogin(page: Page) {
   await page.goto("/login");
@@ -127,5 +133,51 @@ test.describe("chave estrangeira — a linha referenciada sumiu entre montar o f
     ).toBeVisible({ timeout: 10000 });
     // Nada é perdido em silêncio: o formulário continua aberto com o texto digitado.
     await expect(page.getByLabel("Empresa")).toHaveValue(empresa);
+  });
+
+  test("Financeiro (Despesa): a categoria some ENTRE a pré-conferência e a gravação, mostra 'Uma das categorias escolhidas não existe mais. Recarregue a página e tente de novo.'", async ({
+    page,
+  }) => {
+    // Diferente dos três casos acima: `lancarDespesa` (lib/financeiro/acoes.ts) faz uma
+    // PRÉ-CONFERÊNCIA fresca da categoria antes do `insert` — apagar a categoria antes do envio
+    // (o mesmo truque dos outros três casos) nunca alcançaria o backstop de chave estrangeira,
+    // só a frase da própria pré-conferência. A prova real precisa de uma corrida de verdade: a
+    // categoria some DEPOIS da pré-conferência e ANTES da gravação (ver
+    // `comecarExclusaoDeCategoria`, tests/e2e/apoio/apagar-referencia.ts).
+    await fazerLogin(page);
+    const nomeDaCategoria = nomeUnico("Categoria Despesa FK");
+    const categoriaId = await criarCategoriaDeDespesa(nomeDaCategoria);
+    const descricao = nomeUnico("Despesa FK");
+
+    await page.goto("/financeiro?aba=despesa");
+    await page.getByTestId("despesa-modo-outra").click();
+    await page.getByLabel("Descrição").fill(descricao);
+    await page.getByRole("combobox", { name: "Categoria" }).click();
+    await page.getByRole("option", { name: nomeDaCategoria }).click();
+    await page.getByLabel("Valor", { exact: true }).fill("100");
+    await expect(page.getByRole("button", { name: "Lançar despesa" })).toBeEnabled();
+
+    // Abre (mas não confirma) a exclusão da categoria — a linha fica travada dentro de uma
+    // transação aberta. A pré-conferência do servidor, que roda logo no início de `lancarDespesa`,
+    // não enxerga uma exclusão não confirmada (MVCC) e passa normalmente.
+    const exclusao = await comecarExclusaoDeCategoria(categoriaId);
+
+    await page.getByRole("button", { name: "Lançar despesa" }).click();
+
+    // Tempo de sobra para a pré-conferência (um único `select` indexado) já ter rodado e o
+    // `insert` seguinte já estar bloqueado, esperando o lock que só `commitar()` solta — o valor
+    // exato não importa: a transação de teste fica presa até aqui, então não há como o servidor
+    // "adiantar" a corrida enquanto esperamos.
+    await page.waitForTimeout(1000);
+
+    // Só agora a categoria some de fato — o `insert` bloqueado destrava e encontra a chave
+    // estrangeira quebrada.
+    await exclusao.commitar();
+
+    await expect(
+      page.getByText("Uma das categorias escolhidas não existe mais. Recarregue a página e tente de novo."),
+    ).toBeVisible({ timeout: 10000 });
+    // Nada é perdido em silêncio: o formulário continua aberto com o texto digitado.
+    await expect(page.getByLabel("Descrição")).toHaveValue(descricao);
   });
 });

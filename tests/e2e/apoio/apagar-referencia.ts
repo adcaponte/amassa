@@ -65,3 +65,61 @@ export async function apagarCategoriaDeCotacaoPeloNome(nome: string): Promise<vo
     );
   }
 }
+
+// Uma exclusão PRESA, aberta mas ainda não confirmada — molde diferente das três acima porque o
+// Financeiro (lib/financeiro/acoes.ts) é diferente dos outros três módulos: `lancarVenda`/
+// `lancarDespesa` fazem uma PRÉ-CONFERÊNCIA da categoria (um `select` fresco) ANTES do `insert`.
+// Apagar a categoria antes do envio (o mesmo truque de `apagarFornoPeloNome` etc.) nunca alcança
+// o backstop de chave estrangeira: a pré-conferência já vê a categoria sumida e devolve a SUA
+// PRÓPRIA frase, diferente da de `ehViolacaoDeChaveEstrangeira`. A prova real exige uma corrida
+// de verdade — a categoria sumindo DEPOIS da pré-conferência e ANTES do `insert`.
+//
+// `comecarExclusaoDeCategoria` abre uma transação e executa o `DELETE`, mas NÃO dá `commit`: sob
+// MVCC (READ COMMITTED, o padrão do Postgres), uma leitura comum feita por OUTRA sessão — a
+// pré-conferência do servidor — nunca enxerga uma exclusão não confirmada, então ela passa
+// normalmente. O `insert` seguinte, que precisa de um lock na linha referenciada pela chave
+// estrangeira, BLOQUEIA na mesma linha até esta transação terminar (commit ou rollback) — é
+// exatamente essa espera que reproduz a janela sem depender de timing best-effort. Quem chama
+// isto dispara o envio do formulário e só ENTÃO chama `commitar()`, destravando o `insert`
+// bloqueado no instante exato em que ele tentaria gravar — aí sim ele encontra a categoria
+// ausente e levanta 23503.
+export type ExclusaoPresa = {
+  commitar: () => Promise<void>;
+  cancelar: () => Promise<void>;
+};
+
+export async function comecarExclusaoDeCategoria(id: string): Promise<ExclusaoPresa> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  await cliente.query("begin");
+
+  const resultado = await cliente.query(`delete from categorias where id = $1`, [id]);
+  if (resultado.rowCount !== 1) {
+    await cliente.query("rollback");
+    await cliente.end();
+    throw new Error(
+      `comecarExclusaoDeCategoria: esperava apagar 1 linha da tabela "categorias" com id ` +
+        `"${id}", mas apagou ${resultado.rowCount}.`,
+    );
+  }
+
+  let concluida = false;
+  return {
+    commitar: async () => {
+      if (concluida) {
+        return;
+      }
+      concluida = true;
+      await cliente.query("commit");
+      await cliente.end();
+    },
+    cancelar: async () => {
+      if (concluida) {
+        return;
+      }
+      concluida = true;
+      await cliente.query("rollback");
+      await cliente.end();
+    },
+  };
+}

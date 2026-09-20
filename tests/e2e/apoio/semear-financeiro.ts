@@ -35,6 +35,25 @@ export async function buscarCategoriaPorNome(nome: string): Promise<string> {
   return id;
 }
 
+// Cria uma categoria de despesa nova, ativa, do grupo "custo" (aceito pela Despesa "outra" —
+// tudo exceto "receita") — usada onde o teste precisa de uma categoria que NADA referencia
+// ainda, ao contrário das 24 categorias semeadas pela migração 0016 (usadas por outros e2e da
+// suíte, então nunca seguras para apagar). Falha alto se não inserir exatamente 1 linha.
+export async function criarCategoriaDeDespesa(nome: string): Promise<string> {
+  const id = await comCliente(async (cliente) => {
+    const resultado = await cliente.query<{ id: string }>(
+      `insert into categorias (nome, grupo, area, ativa) values ($1, 'custo', 'cafeteria', true) returning id`,
+      [nome],
+    );
+    return resultado.rows[0]?.id;
+  });
+
+  if (!id) {
+    throw new Error(`criarCategoriaDeDespesa: falha ao inserir a categoria "${nome}".`);
+  }
+  return id;
+}
+
 export type FichaParaSemear = { insumoId: string; quantidade: string };
 
 export type ItemParaSemear = {
