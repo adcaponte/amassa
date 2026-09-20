@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { excluirQueima, registrarQueima } from "@/lib/queimas/acoes";
 import {
   FRASE_FALHA_AO_DESFAZER,
-  FRASE_FALHA_AO_REGISTRAR_QUEIMA,
   ROTULO_DESFAZER,
   ROTULO_QUEIMAR,
   TOAST_QUEIMA_DESFEITA,
@@ -47,8 +46,10 @@ export function RegistrarQueima({ fornoId }: RegistrarQueimaProps) {
 
     if (!resposta.ok) {
       // Nunca perda silenciosa: o contador do cartão permanece no valor anterior porque nada
-      // mudou na tela antes desta resposta (fluxo não otimista, de propósito).
-      toast.error(FRASE_FALHA_AO_REGISTRAR_QUEIMA);
+      // mudou na tela antes desta resposta (fluxo não otimista, de propósito). A tela mostra a
+      // frase que o servidor devolveu — inclusive a mensagem humana de chave estrangeira, quando
+      // o forno deixou de existir entre o cartão aparecer e o segundo toque.
+      toast.error(resposta.erro);
       return;
     }
 
