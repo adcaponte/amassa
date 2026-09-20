@@ -44,9 +44,14 @@ export function ComparacaoCotacoes({ cotacoes, categoriaId }: ComparacaoCotacoes
     // horizontal do módulo (D-13), vale igual no celular e no desktop.
     <div data-testid="cotacoes-comparacao" className="flex gap-3.5 overflow-x-auto pb-1.5">
       {cotacoes.map((cotacao) => {
-        // D-10: cotação descartada PODE ser marcada e comparada — a coluna toda fica com
-        // opacidade reduzida, mas o SELO continua 100% visível no topo (evita que a coluna
-        // pareça um erro de carregamento).
+        // D-10: cotação descartada PODE ser marcada e comparada — a coluna continua visível,
+        // sempre, e o SELO fica 100% visível no topo (evita que a coluna pareça um erro de
+        // carregamento). A coluna já não dilui o texto por `opacity-60` (achado de
+        // acessibilidade, WCAG 1.4.3, UI-09, mesmo cálculo de `cartao-cotacao.tsx`: 60% de
+        // opacidade reprova 4.5:1 mesmo sobre o token de tinta mais escuro do sistema) — em vez
+        // disso, a coluna troca `bg-card` (branco) por `bg-muted` (levemente mais escuro), uma
+        // cor SÓLIDA que não passa pela composição alfa que derrubava o contraste do texto, e
+        // continua lendo como "menos em destaque" ao lado das colunas normais.
         const descartada = cotacao.situacao === "descartado";
         const hrefEditar = `/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=${cotacao.id}`;
 
@@ -54,24 +59,23 @@ export function ComparacaoCotacoes({ cotacoes, categoriaId }: ComparacaoCotacoes
           <div
             key={cotacao.id}
             data-testid="cotacoes-comparacao-coluna"
-            className="border-border bg-card w-[260px] flex-none rounded-xl border p-4 min-[980px]:w-[300px]"
-          >
-            <h3 className={cn("text-corpo font-semibold", descartada && "opacity-60")}>{cotacao.empresa}</h3>
-            {cotacao.produto && (
-              <p className={cn("text-apoio text-muted-foreground mb-2.5", descartada && "opacity-60")}>
-                {cotacao.produto}
-              </p>
+            className={cn(
+              "border-border w-[260px] flex-none rounded-xl border p-4 min-[980px]:w-[300px]",
+              descartada ? "bg-muted" : "bg-card",
             )}
-            <div className={cn("mb-3 flex items-center gap-2", descartada && "opacity-60")}>
+          >
+            <h3 className="text-corpo font-semibold">{cotacao.empresa}</h3>
+            {cotacao.produto && (
+              <p className="text-apoio text-muted-foreground mb-2.5">{cotacao.produto}</p>
+            )}
+            <div className="mb-3 flex items-center gap-2">
               <PrecoCotacao centavos={cotacao.precoCentavos} tamanho="titulo" />
             </div>
             <div className="mb-3.5">
               <SeloSituacao situacao={cotacao.situacao} />
             </div>
 
-            <div className={cn(descartada && "opacity-60")}>
-              <CamposLongos cotacao={cotacao} />
-            </div>
+            <CamposLongos cotacao={cotacao} />
 
             <Link
               href={hrefEditar}

@@ -5,7 +5,6 @@ import { TriangleAlert } from "lucide-react";
 
 import type { Cotacao } from "@/lib/cotacoes/consultas";
 import { ROTULO_ALERTA_NA_LINHA, rotuloAbrirDetalheCotacao } from "@/lib/cotacoes/textos";
-import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cotacao";
 import { MarcarCotacao } from "@/components/amassa/cotacoes/marcar-cotacao";
@@ -24,8 +23,10 @@ export type LinhaCotacaoProps = {
 // alerta vive num lugar por FORMA, não espalhado no componente que só itera a lista.
 export function LinhaCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcacao }: LinhaCotacaoProps) {
   // D-10: a linha CONTINUA na tabela, sempre — nunca filtrada, escondida ou movida para o fim.
-  // Opacidade reduzida em empresa/especificação/preço; o SELO fica em opacidade cheia.
-  const descartada = cotacao.situacao === "descartado";
+  // O SELO (`SeloSituacao`) é a pista de "descartado", em opacidade cheia. Empresa/especificação/
+  // preço NÃO recebem `opacity-60` (achado de acessibilidade, WCAG 1.4.3, UI-09 — mesmo cálculo
+  // documentado em `cartao-cotacao.tsx`: 60% de opacidade reprova mesmo diluindo o token de tinta
+  // mais escuro do sistema).
   const temAlerta = cotacao.alertas.length > 0;
   const hrefDetalhe = `/abertura?aba=cotacoes&categoria=${categoriaId}&detalhe=${cotacao.id}`;
 
@@ -49,10 +50,7 @@ export function LinhaCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcacao
           }}
           aria-label={rotuloAbrirDetalheCotacao(cotacao.empresa, temAlerta)}
           data-testid="cotacoes-abrir-detalhe"
-          className={cn(
-            "text-corpo hover:bg-muted focus-visible:ring-ring flex min-h-11 items-center gap-1 rounded-md p-2 font-medium focus-visible:ring-2 focus-visible:outline-none",
-            descartada && "opacity-60",
-          )}
+          className="text-corpo hover:bg-muted focus-visible:ring-ring flex min-h-11 items-center gap-1 rounded-md p-2 font-medium focus-visible:ring-2 focus-visible:outline-none"
         >
           {/* D-12: ícone (pista visual, vermelho, escondido do leitor de tela) + texto `sr-only`
               (pista para quem usa leitor de tela) — cor nunca é a única pista. O nome acessível
@@ -70,10 +68,8 @@ export function LinhaCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcacao
           {cotacao.empresa}
         </Link>
       </td>
-      <td className={cn("text-corpo text-muted-foreground p-3", descartada && "opacity-60")}>
-        {cotacao.produto}
-      </td>
-      <td className={cn("p-3", descartada && "opacity-60")}>
+      <td className="text-corpo text-muted-foreground p-3">{cotacao.produto}</td>
+      <td className="p-3">
         <PrecoCotacao centavos={cotacao.precoCentavos} />
       </td>
       <td className="p-3">

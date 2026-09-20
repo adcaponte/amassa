@@ -53,8 +53,6 @@ export function DetalheCotacao({ cotacoes }: DetalheCotacaoProps) {
     abridor.abrirCotacao(cotacao);
   }
 
-  const descartada = cotacao?.situacao === "descartado";
-
   return (
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && fechar()}>
       <DialogContent
@@ -71,19 +69,20 @@ export function DetalheCotacao({ cotacoes }: DetalheCotacaoProps) {
       >
         {cotacao && (
           <>
+            {/* `descartada` já não dilui empresa/especificação/preço por `opacity-60` (achado de
+                acessibilidade, WCAG 1.4.3, UI-09, mesmo cálculo de `cartao-cotacao.tsx`) — o
+                Dialog mostra UMA cotação por vez (nunca lado a lado com outra "normal" para
+                comparar), então o SELO abaixo já é suficiente para comunicar "descartado" sem
+                precisar de uma segunda pista visual aqui. */}
             <DialogHeader className="border-border border-b px-6 py-4">
-              <DialogTitle className={cn("text-titulo", descartada && "opacity-60")}>
-                {cotacao.empresa}
-              </DialogTitle>
+              <DialogTitle className="text-titulo">{cotacao.empresa}</DialogTitle>
               {cotacao.produto && (
-                <p className={cn("text-apoio text-muted-foreground", descartada && "opacity-60")}>
-                  {cotacao.produto}
-                </p>
+                <p className="text-apoio text-muted-foreground">{cotacao.produto}</p>
               )}
             </DialogHeader>
 
             <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-4">
-              <div className={cn("flex items-center gap-3", descartada && "opacity-60")}>
+              <div className="flex items-center gap-3">
                 <PrecoCotacao centavos={cotacao.precoCentavos} tamanho="titulo" />
                 <SeloSituacao situacao={cotacao.situacao} />
               </div>

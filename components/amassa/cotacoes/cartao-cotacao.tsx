@@ -5,7 +5,6 @@ import { TriangleAlert } from "lucide-react";
 
 import type { Cotacao } from "@/lib/cotacoes/consultas";
 import { ROTULO_ALERTA_NA_LINHA, rotuloAbrirDetalheCotacao } from "@/lib/cotacoes/textos";
-import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cotacao";
 import { MarcarCotacao } from "@/components/amassa/cotacoes/marcar-cotacao";
@@ -23,10 +22,14 @@ export type CartaoCotacaoProps = {
 // 04.3-03) para o comportamento visual de descartado e de alerta existir num lugar por forma, em
 // vez de espalhado no componente que só itera a lista.
 export function CartaoCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcacao }: CartaoCotacaoProps) {
-  // D-10: a linha CONTINUA visível, sempre — nunca filtrada, escondida ou movida. Opacidade
-  // reduzida em empresa/especificação/preço; o SELO fica em opacidade cheia (o texto dele já é a
-  // pista não visual).
-  const descartada = cotacao.situacao === "descartado";
+  // D-10: a linha CONTINUA visível, sempre — nunca filtrada, escondida ou movida. O SELO
+  // (`SeloSituacao`) é a pista de "descartado", em opacidade cheia — o texto dele já é a pista
+  // não visual. Empresa/especificação/preço NÃO recebem mais `opacity-60` (achado de
+  // acessibilidade, WCAG 1.4.3, UI-09, mesma família de `lista-contas-fixas.tsx`): mesmo
+  // diluindo `--color-tinta` cheio — o token mais escuro do sistema — a 60% de opacidade o
+  // contraste cai para ~4.15:1, abaixo do piso de 4.5:1; e o texto secundário já usa
+  // `--color-tinta-fraca` (5.4:1), que reprova ainda mais rápido. Sem uma segunda pista visual
+  // aqui, o selo continua sendo a única e suficiente (comentário original do plano 04.3-03).
   const temAlerta = cotacao.alertas.length > 0;
   const hrefDetalhe = `/abertura?aba=cotacoes&categoria=${categoriaId}&detalhe=${cotacao.id}`;
 
@@ -46,10 +49,7 @@ export function CartaoCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcaca
             }}
             aria-label={rotuloAbrirDetalheCotacao(cotacao.empresa, temAlerta)}
             data-testid="cotacoes-abrir-detalhe"
-            className={cn(
-              "text-corpo hover:bg-muted focus-visible:ring-ring flex min-h-11 items-center gap-1 rounded-md px-1.5 font-semibold focus-visible:ring-2 focus-visible:outline-none",
-              descartada && "opacity-60",
-            )}
+            className="text-corpo hover:bg-muted focus-visible:ring-ring flex min-h-11 items-center gap-1 rounded-md px-1.5 font-semibold focus-visible:ring-2 focus-visible:outline-none"
           >
             {temAlerta && (
               <TriangleAlert
@@ -68,10 +68,8 @@ export function CartaoCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcaca
           <FerramentasCotacao cotacao={cotacao} categoriaId={categoriaId} />
         </div>
       </div>
-      <p className={cn("text-apoio text-muted-foreground line-clamp-2", descartada && "opacity-60")}>
-        {cotacao.produto}
-      </p>
-      <span className={cn(descartada && "opacity-60")}>
+      <p className="text-apoio text-muted-foreground line-clamp-2">{cotacao.produto}</p>
+      <span>
         <PrecoCotacao centavos={cotacao.precoCentavos} />
       </span>
     </div>
