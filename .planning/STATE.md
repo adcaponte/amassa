@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: 04.4-11 Tarefas 1-2 concluídas (Roteiro 10, verificação humana, varredura completa verde); aguardando o dono nas Tarefas 3-4
-last_updated: "2026-09-20T02:15:10.119Z"
-last_activity: 2026-09-19
-last_activity_desc: Phase 04.4 execution started
+stopped_at: "Fase 04.4: planos 01-10 completos e o 11 parado no checkpoint do dono (Tarefas 1-2 feitas). Faltam, todos com o Theo: (1) git push dos 43 commits locais, (2) Roteiro 10 — migrações 0014/0015/0016 em produção à mão depois de backup, (3) 04.4-VERIFICACAO-HUMANA.md: 17 itens no celular e no computador + 8 perguntas com recomendação. NÃO dar push sem ele."
+last_updated: "2026-09-20T02:17:18.461Z"
+last_activity: 2026-09-20
+last_activity_desc: 04.4-11 Tarefas 1-2 concluídas; aguardando o dono
 progress:
   total_phases: 10
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 62
-  completed_plans: 61
+  completed_plans: 62
 ---
 
 # Project State
@@ -27,16 +27,46 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.4 (Financeiro — parte 1) — EXECUTING
-executa antes das Fases 5 e 6 — ordem completa no ROADMAP.md, §Overview)
-Plan: 11 of 11 — Tarefas 1-2 concluídas (Roteiro 10, verificação humana, varredura completa
-verde); Tarefas 3 (migração em produção) e 4 (verificação humana) são checkpoints que aguardam
-o dono
-Status: Blocked on human checkpoint (Tarefa 3 — migração em produção)
-/gsd-execute-phase 04.4 — para no início do 04.4-01 (numeração, decisão do dono). NÃO dar push sem confirmar.
+Phase: 04.4 (Financeiro — parte 1) — EXECUTING (executa antes das Fases 5 e 6 — ordem completa no
+ROADMAP.md, §Overview)
+Plan: 11 de 11 — planos 01 a 10 completos; no 11, Tarefas 1-2 concluídas (Roteiro 10 e
+04.4-VERIFICACAO-HUMANA.md escritos, varredura completa do e2e rodada). Tarefas 3 (migração em
+produção) e 4 (verificação humana) aguardam o dono.
+Status: Parado no checkpoint do dono. 46 commits locais, NENHUM push.
+
+O QUE O THEO FAZ AO VOLTAR, nesta ordem:
+  1. Autorizar o `git push origin main` (46 commits; o pipeline publica o código novo).
+  2. `docs/operacao/10-migracao-financeiro.md` — migrações 0014/0015/0016 em produção, à mão,
+     depois de backup. Comandos exatos e saída esperada estão no roteiro. Colar de volta a saída
+     do passo 4 e o que viu no passo 5.
+  3. `.planning/phases/04.4-financeiro-parte-1/04.4-VERIFICACAO-HUMANA.md` — 17 itens no celular e
+     no computador, mais 8 perguntas (cada uma com recomendação; basta confirmar ou corrigir).
+
+VARREDURA DO E2E — NÃO ESTÁ 100% VERDE: 580 passaram, 2 falharam. As duas são a "sexta tentativa
+de bloqueio" de `tests/e2e/autenticacao.spec.ts` (limite de tentativas de login), defeito
+pré-existente da Fase 02b, aberto em WINDOWS #3 desde 08/2026 e sem relação com o Financeiro.
+Nenhum teste do Financeiro falhou.
+
+DECIDIDO SEM O THEO (revisar; detalhe em cada SUMMARY, seção "Decidido sem o Theo"):
+  - 04.4-06: "+ outra forma" divide meio a meio e escolhe automaticamente uma segunda forma
+    diferente da primeira; `BlocoPagamento` recebe `hoje`/`dataSaldoInicial` para validar parcela
+    paga no futuro.
+  - 04.4-08: texto das frases de recusa do Desfazer e de data inválida; `formatarInstanteCurto`
+    para `cancelado_em` no fuso de Brasília; duas instâncias do diálogo de documento.
+  - 04.4-09: nove meses reservados de uma vez, com 3 meses de distância entre eles, para os testes
+    não disputarem totais; total filtrado do extrato pode ser nulo.
+  - 04.4-10: dois formatos de nome de mês (título x botão); `avisoDaUrl` passa a receber objeto;
+    valor da conta fixa exibido com separador de milhar.
+  - 04.4-11: pílulas de filtro do extrato usam `aria-current` em vez de `aria-pressed` (única
+    correção de produto do plano — `aria-pressed` não é válido em link).
+  - 04.4-05 e 04.4-07: detalhes de mensagem e de estrutura de tela, sem efeito em regra de dinheiro.
+
+TAREFA SEPARADA, FORA DESTA FASE (chip criado): o Drizzle embrulha o erro do Postgres, e as
+mensagens humanas de "chave estrangeira" não aparecem em Abertura, Comparador e Queimas — os três
+já estão no ar. Corrigido só no Financeiro e em Cadastros.
 Last activity: 2026-09-20 — 04.4-11 Tarefas 1-2 concluídas; aguardando o dono
 
-Progress: [██████████] 98% (61 de 62 planos executados e verificados até aqui — 04.4-11 conta como
+Progress: [█████████░] 98% (61 de 62 planos; o 04.4-11 conta como
 automatizável concluído, migração e verificação humana pendentes)
 
 ## Performance Metrics
@@ -383,6 +413,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T02:14:48.635Z
-Stopped at: 04.4-11 Tarefas 1-2 concluídas (Roteiro 10, verificação humana, varredura completa verde); aguardando o dono nas Tarefas 3-4
-Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-11-PLAN.md
+Last session: 2026-09-20T02:17:18.399Z
+Stopped at: Fase 04.4: planos 01-10 completos e o 11 parado no checkpoint do dono (Tarefas 1-2 feitas). Faltam, todos com o Theo: (1) git push dos 43 commits locais, (2) Roteiro 10 — migrações 0014/0015/0016 em produção à mão depois de backup, (3) 04.4-VERIFICACAO-HUMANA.md: 17 itens no celular e no computador + 8 perguntas com recomendação. NÃO dar push sem ele.
+Resume file: .planning/phases/04.4-financeiro-parte-1/04.4-VERIFICACAO-HUMANA.md
