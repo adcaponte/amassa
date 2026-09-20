@@ -6,9 +6,9 @@ current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
 stopped_at: "Fase 04.4: planos 01-10 completos e o 11 parado no checkpoint do dono (Tarefas 1-2 feitas). Faltam, todos com o Theo: (1) git push dos 43 commits locais, (2) Roteiro 10 — migrações 0014/0015/0016 em produção à mão depois de backup, (3) 04.4-VERIFICACAO-HUMANA.md: 17 itens no celular e no computador + 8 perguntas com recomendação. NÃO dar push sem ele."
-last_updated: "2026-09-20T10:05:00.000Z"
+last_updated: "2026-09-20T12:05:00.000Z"
 last_activity: 2026-09-20
-last_activity_desc: "quick 260920-dx9: SQLSTATE embrulhado corrigido em Abertura, Cotações e Queimas"
+last_activity_desc: "quick 260920-fk9: detector de SQLSTATE unificado em Financeiro e Cadastros (pendência do 260920-dx9 fechada)"
 progress:
   total_phases: 10
   completed_phases: 9
@@ -64,18 +64,20 @@ DECIDIDO SEM O THEO (revisar; detalhe em cada SUMMARY, seção "Decidido sem o T
 
 TAREFA SEPARADA, FORA DESTA FASE (chip criado): o Drizzle embrulha o erro do Postgres, e as
 mensagens humanas de "chave estrangeira" não aparecem em Abertura, Comparador e Queimas — os três
-já estão no ar. Corrigido só no Financeiro e em Cadastros.
-  → FEITO em 20/09 pela tarefa rápida 260920-dx9, na ramificação
-    `claude/determined-satoshi-eecf21` (6 commits, ainda sem merge). Detector extraído para
-    `lib/erro/postgres.ts` e aplicado nos TRÊS módulos, com par RED/GREEN de e2e provando as
-    frases humanas. ATENÇÃO à premissa errada acima: o Financeiro **não** estava corrigido —
-    `lib/financeiro/acoes.ts:51-53` tem o mesmo defeito até hoje, e ficou de fora de propósito
-    por esta fase estar no checkpoint do dono. `lib/cadastros/acoes.ts` mantém uma cópia privada
-    do detector que deveria passar a importar de `lib/erro/postgres.ts`. As duas pendências estão
-    detalhadas em `.planning/quick/260920-dx9-*/260920-dx9-SUMMARY.md`, seção
-    "Pendências deixadas de propósito" — fazer as duas ao retomar a Fase 04.4.
-Last activity: 2026-09-20 — tarefa rápida 260920-dx9: SQLSTATE embrulhado pelo Drizzle corrigido
-em Abertura, Cotações e Queimas (a Fase 04.4 segue aguardando o dono)
+já estão no ar.
+  → FEITO em 20/09 pela tarefa rápida 260920-dx9 (mergeada em `main`, commit `d98b2c6`). Detector
+    extraído para `lib/erro/postgres.ts` e aplicado em Abertura/Cotações/Queimas, com par RED/GREEN
+    de e2e provando as frases humanas.
+  → FECHADO em 20/09 pela tarefa rápida 260920-fk9: os dois consumidores deixados de propósito por
+    aquele plano — `lib/financeiro/acoes.ts` e `lib/cadastros/acoes.ts` — agora importam do mesmo
+    detector compartilhado. Prova e2e nova cobrindo o Financeiro (Despesa "outra"), com uma
+    descoberta real: `lancarVenda`/`lancarDespesa` fazem pré-conferência da categoria antes do
+    `insert` (diferente dos outros três módulos), então a prova exigiu simular a corrida
+    select-antes-do-insert com uma transação de teste presa (sem commit), não só apagar a linha
+    antes do envio. Zero duplicata de leitor de SQLSTATE no repositório agora. Detalhes em
+    `.planning/quick/260920-fk9-*/260920-fk9-SUMMARY.md`.
+Last activity: 2026-09-20 — tarefa rápida 260920-fk9: detector de SQLSTATE unificado em Financeiro
+e Cadastros (a Fase 04.4 segue aguardando o dono)
 
 Progress: [█████████░] 98% (61 de 62 planos; o 04.4-11 conta como
 automatizável concluído, migração e verificação humana pendentes)
@@ -398,6 +400,7 @@ None yet.
 | 260919-e4n | Cartões do painel da Abertura por aba: Comprometido e Sai neste mês só em Por mês; Precisa de atenção só em Itens; nenhum em Tarefas e Cotações | 2026-09-19 | cefee93 | [260919-e4n-cartoes-do-painel-da-abertura-por-aba](./quick/260919-e4n-cartoes-do-painel-da-abertura-por-aba/) |
 | 260919-ou8 | Ignorar `Claude outputs/` e versionar o protótipo aprovado do Estoque | 2026-09-19 | 93ef4e2 | [260919-ou8-gitignore-claude-outputs-e-prototipo-do-](./quick/260919-ou8-gitignore-claude-outputs-e-prototipo-do-/) |
 | 260920-dx9 | Detectar SQLSTATE embrulhado pelo Drizzle em Abertura, Cotações e Queimas — a mensagem humana de chave estrangeira voltou a aparecer nos três módulos em produção | 2026-09-20 | 6288f67, b23b81e, fcbb3c3, 865e338, cc399ae | [260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl](./quick/260920-dx9-detectar-sqlstate-embrulhado-pelo-drizzl/) |
+| 260920-fk9 | Unificar o detector de SQLSTATE em Financeiro e Cadastros (pendência do 260920-dx9) — os dois módulos passam a importar de lib/erro/postgres.ts, prova e2e nova cobrindo a corrida real do Financeiro com par RED/GREEN | 2026-09-20 | 638d372, c19126b, 035c570 | [260920-fk9-detector-sqlstate-financeiro-e-cadastr](./quick/260920-fk9-detector-sqlstate-financeiro-e-cadastr/) |
 
 ### Roadmap Evolution
 
