@@ -70,6 +70,53 @@ export function montarExtrato(
   return { linhas, saldoAtualCentavos: saldoCorrente };
 }
 
+export type FormaDoFiltroDoExtrato = "todas" | FormaDeMovimento;
+
+export type FiltroDoExtrato = { mes: string; forma: FormaDoFiltroDoExtrato };
+
+// `null` quando há linha para mostrar; senão, qual dos dois vazios da cópia usar (D-11 UI-SPEC) —
+// "sem-movimento" quando o mês inteiro está vazio, "sem-movimento-na-forma" quando o mês tem
+// linhas mas nenhuma bate com a forma escolhida.
+export type MotivoDoExtratoVazio = "sem-movimento" | "sem-movimento-na-forma" | null;
+
+export type ExtratoFiltrado = {
+  // Só as linhas do mês/forma pedidos, da mais recente para a mais antiga — `saldoDepoisCentavos`
+  // de cada uma INTACTO (D-12): este módulo só ESCOLHE quais linhas mostrar, nunca recalcula saldo
+  // (a filtragem acontece depois de `montarExtrato` já ter decidido o saldo global de cada linha).
+  linhas: LinhaDoExtrato[];
+  // Entradas líquidas − saídas das linhas visíveis não canceladas; `null` quando a forma é
+  // "todas" (Claude's Discretion do 04.4-CONTEXT.md/D-11: o total só faz sentido com uma forma
+  // escolhida — "quanto entrou em dinheiro?").
+  totalFiltradoCentavos: number | null;
+  motivoVazio: MotivoDoExtratoVazio;
+};
+
+// Recebe as linhas JÁ com o saldo global de `montarExtrato` (key_link do 04.4-09-PLAN.md) — só
+// escolhe quais mostrar, na ordem inversa da entrada (que chega ascendente por `pagoEm`, o mesmo
+// formato de `montarExtrato`).
+export function filtrarExtrato(
+  linhas: readonly LinhaDoExtrato[],
+  { mes, forma }: FiltroDoExtrato,
+): ExtratoFiltrado {
+  const doMes = linhas.filter((linha) => linha.pagoEm.slice(0, 7) === mes);
+  const filtradas = forma === "todas" ? doMes : doMes.filter((linha) => linha.forma === forma);
+
+  const totalFiltradoCentavos =
+    forma === "todas"
+      ? null
+      : filtradas.reduce((total, linha) => {
+          if (linha.cancelado) {
+            return total;
+          }
+          return total + (linha.tipo === "venda" ? linha.liquidoCentavos : -linha.liquidoCentavos);
+        }, 0);
+
+  const motivoVazio: MotivoDoExtratoVazio =
+    doMes.length === 0 ? "sem-movimento" : filtradas.length === 0 ? "sem-movimento-na-forma" : null;
+
+  return { linhas: [...filtradas].reverse(), totalFiltradoCentavos, motivoVazio };
+}
+
 export type ParcelaEmAbertoParaResumo = {
   tipo: TipoDeDocumentoParaTaxa;
   valorCentavos: number;

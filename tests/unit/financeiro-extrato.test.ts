@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { montarExtrato, resumoDoCaixa, type MovimentoParaExtrato } from "@/lib/financeiro/extrato";
+import {
+  filtrarExtrato,
+  montarExtrato,
+  resumoDoCaixa,
+  type MovimentoParaExtrato,
+} from "@/lib/financeiro/extrato";
+import { formaDaUrl, mesDaUrl } from "@/lib/financeiro/abas";
 
 let contadorDeId = 0;
 
@@ -210,5 +216,142 @@ describe("resumoDoCaixa", () => {
     expect(resumo.aReceberCentavos).toBe(0);
     expect(resumo.aPagarCentavos).toBe(0);
     expect(resumo.seTudoSeCumprirCentavos).toBe(1000);
+  });
+});
+
+// D-11/D-12: o extrato navega por mês, filtra por forma, e o "saldo depois" continua o acumulado
+// GLOBAL — o filtro esconde linhas, não recalcula saldo.
+describe("filtrarExtrato", () => {
+  it("devolve só as linhas pagas no mês, da mais recente para a mais antiga, com o saldo intacto", () => {
+    const { linhas: montadas } = montarExtrato(
+      [
+        movimento({ pagoEm: "2026-07-05", valorCentavos: 100 }),
+        movimento({ pagoEm: "2026-07-10", valorCentavos: 200 }),
+        movimento({ pagoEm: "2026-08-01", valorCentavos: 300 }),
+      ],
+      0,
+    );
+
+    const { linhas } = filtrarExtrato(montadas, { mes: "2026-07", forma: "todas" });
+
+    expect(linhas.map((linha) => linha.pagoEm)).toEqual(["2026-07-10", "2026-07-05"]);
+    // O saldo depois de cada linha é o MESMO que `montarExtrato` calculou (acumulado global) —
+    // nunca recalculado sobre o recorte do mês.
+    expect(linhas[0].saldoDepoisCentavos).toBe(300); // 100 + 200
+    expect(linhas[1].saldoDepoisCentavos).toBe(100);
+  });
+
+  it("com forma dinheiro, esconde Pix e Cartão e não muda o saldo depois de nenhuma linha (D-12)", () => {
+    const { linhas: montadas } = montarExtrato(
+      [
+        movimento({ pagoEm: "2026-09-01", forma: "dinheiro", valorCentavos: 100 }),
+        movimento({ pagoEm: "2026-09-02", forma: "pix", valorCentavos: 200 }),
+        movimento({ pagoEm: "2026-09-03", forma: "cartao", valorCentavos: 300 }),
+      ],
+      0,
+    );
+
+    const semFiltro = filtrarExtrato(montadas, { mes: "2026-09", forma: "todas" });
+    const comFiltro = filtrarExtrato(montadas, { mes: "2026-09", forma: "dinheiro" });
+
+    expect(comFiltro.linhas).toHaveLength(1);
+    expect(comFiltro.linhas[0].forma).toBe("dinheiro");
+    const linhaSemFiltro = semFiltro.linhas.find((linha) => linha.forma === "dinheiro");
+    expect(comFiltro.linhas[0].saldoDepoisCentavos).toBe(linhaSemFiltro?.saldoDepoisCentavos);
+  });
+
+  it("total filtrado = entradas líquidas − saídas das linhas visíveis não canceladas; cancelada visível não entra", () => {
+    const { linhas: montadas } = montarExtrato(
+      [
+        movimento({ pagoEm: "2026-10-01", forma: "dinheiro", tipo: "venda", valorCentavos: 500 }),
+        movimento({ pagoEm: "2026-10-02", forma: "dinheiro", tipo: "despesa", valorCentavos: 200 }),
+        movimento({
+          pagoEm: "2026-10-03",
+          forma: "dinheiro",
+          tipo: "venda",
+          valorCentavos: 9999,
+          cancelado: true,
+        }),
+        movimento({ pagoEm: "2026-10-04", forma: "pix", valorCentavos: 700 }),
+      ],
+      0,
+    );
+
+    const { totalFiltradoCentavos } = filtrarExtrato(montadas, { mes: "2026-10", forma: "dinheiro" });
+    expect(totalFiltradoCentavos).toBe(300); // 500 - 200, cancelada e pix de fora
+  });
+
+  it('forma "todas" → total filtrado nulo', () => {
+    const { linhas: montadas } = montarExtrato(
+      [movimento({ pagoEm: "2026-11-01", valorCentavos: 500 })],
+      0,
+    );
+    const { totalFiltradoCentavos } = filtrarExtrato(montadas, { mes: "2026-11", forma: "todas" });
+    expect(totalFiltradoCentavos).toBeNull();
+  });
+
+  it('mês sem linhas → lista vazia e motivo "sem-movimento"', () => {
+    const { linhas: montadas } = montarExtrato(
+      [movimento({ pagoEm: "2026-12-01", valorCentavos: 500 })],
+      0,
+    );
+    const { linhas, motivoVazio } = filtrarExtrato(montadas, { mes: "2027-01", forma: "todas" });
+    expect(linhas).toEqual([]);
+    expect(motivoVazio).toBe("sem-movimento");
+  });
+
+  it('mês com linhas mas nenhuma na forma → motivo "sem-movimento-na-forma"', () => {
+    const { linhas: montadas } = montarExtrato(
+      [movimento({ pagoEm: "2027-02-01", forma: "pix", valorCentavos: 500 })],
+      0,
+    );
+    const { linhas, motivoVazio } = filtrarExtrato(montadas, { mes: "2027-02", forma: "cartao" });
+    expect(linhas).toEqual([]);
+    expect(motivoVazio).toBe("sem-movimento-na-forma");
+  });
+
+  it("movimento retroativo num mês anterior muda o saldo depois das linhas do mês seguinte", () => {
+    const antes = montarExtrato(
+      [movimento({ pagoEm: "2027-04-05", valorCentavos: 500 })],
+      1000,
+    );
+    const linhaAbrilAntes = filtrarExtrato(antes.linhas, { mes: "2027-04", forma: "todas" });
+    expect(linhaAbrilAntes.linhas[0].saldoDepoisCentavos).toBe(1500);
+
+    const depois = montarExtrato(
+      [
+        movimento({ pagoEm: "2027-04-05", valorCentavos: 500 }),
+        movimento({ pagoEm: "2027-03-01", valorCentavos: 200 }),
+      ],
+      1000,
+    );
+    const linhaAbrilDepois = filtrarExtrato(depois.linhas, { mes: "2027-04", forma: "todas" });
+    expect(linhaAbrilDepois.linhas[0].saldoDepoisCentavos).toBe(1700); // 1200 (retroativo) + 500
+  });
+});
+
+describe("mesDaUrl", () => {
+  const hoje = "2026-09-20";
+
+  it("aceita 'AAAA-MM' válido", () => {
+    expect(mesDaUrl("2021-03", hoje)).toBe("2021-03");
+  });
+
+  it("mês inexistente (13), texto solto ou ausente caem no mês de hoje", () => {
+    expect(mesDaUrl("2021-13", hoje)).toBe("2026-09");
+    expect(mesDaUrl("x", hoje)).toBe("2026-09");
+    expect(mesDaUrl(undefined, hoje)).toBe("2026-09");
+    expect(mesDaUrl(null, hoje)).toBe("2026-09");
+  });
+});
+
+describe("formaDaUrl", () => {
+  it("reconhece as três formas e cai em 'todas' para qualquer outra coisa", () => {
+    expect(formaDaUrl("dinheiro")).toBe("dinheiro");
+    expect(formaDaUrl("pix")).toBe("pix");
+    expect(formaDaUrl("cartao")).toBe("cartao");
+    expect(formaDaUrl("outracoisa")).toBe("todas");
+    expect(formaDaUrl(undefined)).toBe("todas");
+    expect(formaDaUrl(null)).toBe("todas");
   });
 });
