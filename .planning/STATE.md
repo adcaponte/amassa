@@ -6,9 +6,9 @@ current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
 stopped_at: "04.4-13: Tarefas 1-3 concluidas (aviso acima da barra, etiqueta de desconto, total em Todas, ajuste fino da grade/Despesa); parado na Tarefa 4, checkpoint do dono - ultima porta da Fase 04.4"
-last_updated: "2026-09-26T11:46:31.172Z"
-last_activity: 2026-09-20
-last_activity_desc: "tarefa rápida 260920-jxb: connectionTimeoutMillis no pool do"
+last_updated: "2026-09-26T12:30:44.026Z"
+last_activity: 2026-09-26
+last_activity_desc: "tarefa rápida 260926-ijl: fundo opaco do toast do sonner (tokens reais)"
 progress:
   total_phases: 10
   completed_phases: 9
@@ -432,6 +432,7 @@ None yet.
 | 260920-fk9 | Unificar o detector de SQLSTATE em Financeiro e Cadastros (pendência do 260920-dx9) — os dois módulos passam a importar de lib/erro/postgres.ts, prova e2e nova cobrindo a corrida real do Financeiro com par RED/GREEN | 2026-09-20 | 638d372, c19126b, 035c570 | [260920-fk9-detector-sqlstate-financeiro-e-cadastr](./quick/260920-fk9-detector-sqlstate-financeiro-e-cadastr/) |
 | 260920-wcg | Corrige a violação de contraste AA (axe-core) que barrou o deploy da fase 04.4-12: `opacity-70` diluía `--color-tinta-fraca` para 2.99:1 numa conta fixa desativada — causa raiz é a técnica (composição alfa sobre texto), não o token; corrigido o mesmo padrão em mais oito componentes (Categorias, Cotações, Queimas, Abertura), com par RED/GREEN provado por axe | 2026-09-20 | 48a8676, cf4a94d, 4e22cf6, a492da8 | [260920-wcg-contraste-aa-conta-fixa-desativada](./quick/260920-wcg-contraste-aa-conta-fixa-desativada/) |
 | 260920-jxb | connectionTimeoutMillis=5000 no pool do pg (db/index.ts, com teste de regressão) — corrige o risco real de espera infinita apontado pelo debug de auth-bloqueio-timeout-e2e.md; a segunda mudança aprovada (semear tentativas via API) foi revertida ao descobrir que a rota REST e a Server Action não compartilham o contador de tentativas em memória nesta build (achado novo, WINDOWS #34) | 2026-09-20 | c7b13e1 | [260920-jxb-aplicar-timeout-do-pool-de-conexoes-do-b](./quick/260920-jxb-aplicar-timeout-do-pool-de-conexoes-do-b/) |
+| 260926-ijl | Corrige o toast do sonner sem fundo (transparente sobre os cartões do Caixa, achado do dono fotografado em 26/09/2026): as quatro variáveis CSS (--normal-bg/-text/-border, --border-radius) apontavam para nomes inexistentes neste projeto; remapeadas para os tokens reais (--color-popover/-popover-foreground/-border, --radius-xl), cn-toast (classe morta) removida, com par RED/GREEN provando a asserção de fundo opaco em tests/e2e/financeiro-caixa.spec.ts | 2026-09-26 | 22166e8, ef898ee | [260926-ijl-toast-do-sonner-sem-fundo-transparente-s](./quick/260926-ijl-toast-do-sonner-sem-fundo-transparente-s/) |
 
 ### Roadmap Evolution
 
