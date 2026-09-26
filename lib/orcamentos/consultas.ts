@@ -4,7 +4,8 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fichasPrecificacao, orcamentoLinhas, orcamentos } from "@/db/schema";
+import { fichasPrecificacao, orcamentoLinhas, orcamentoProjeto, orcamentos } from "@/db/schema";
+import type { PlanoDePagamentoDoOrcamento } from "@/lib/orcamentos/plano";
 
 export type OrcamentoParaLista = {
   id: string;
@@ -77,6 +78,13 @@ export type LinhaDoOrcamentoParaEdicao = {
   ficha: FichaDaLinhaDoOrcamento;
 };
 
+export type CustoDeProjetoDoOrcamento = {
+  id: string;
+  descricao: string;
+  valorCentavos: number;
+  ordem: number;
+};
+
 export type OrcamentoParaEdicao = {
   id: string;
   ano: number;
@@ -88,12 +96,19 @@ export type OrcamentoParaEdicao = {
   data: string;
   entregaPrevista: string;
   validadeDias: number;
+  // "Total e pagamento" (04.5-07-PLAN.md): plano de pagamento, sinal, frete e observações do
+  // orçamento — os quatro já existiam no schema desde o plano 01, zerados/com padrão até aqui.
+  plano: PlanoDePagamentoDoOrcamento;
+  sinalPercentual: number;
+  freteCentavos: number;
+  observacoes: string | null;
   linhas: LinhaDoOrcamentoParaEdicao[];
+  custosDeProjeto: CustoDeProjetoDoOrcamento[];
 };
 
-// O orçamento e as linhas com a ficha de cada uma, em DUAS consultas (nunca uma por linha) —
-// dentro do limite de três que o plano permite (projeto e fotos ficam para planos futuros, fora
-// do escopo desta tela).
+// O orçamento, as linhas com a ficha de cada uma e os custos de projeto, em TRÊS consultas (nunca
+// uma por linha) — dentro do limite de quatro que o plano permite (fotos ficam para um plano
+// futuro, fora do escopo desta tela).
 export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoParaEdicao | null> {
   const [cabecalho] = await db
     .select({
@@ -107,6 +122,10 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
       data: orcamentos.data,
       entregaPrevista: orcamentos.entregaPrevista,
       validadeDias: orcamentos.validadeDias,
+      plano: orcamentos.plano,
+      sinalPercentual: orcamentos.sinalPercentual,
+      freteCentavos: orcamentos.freteCentavos,
+      observacoes: orcamentos.observacoes,
     })
     .from(orcamentos)
     .where(eq(orcamentos.id, id))
@@ -116,33 +135,46 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
     return null;
   }
 
-  const linhas = await db
-    .select({
-      id: orcamentoLinhas.id,
-      fichaId: orcamentoLinhas.fichaId,
-      quantidade: orcamentoLinhas.quantidade,
-      precoUnitarioCentavos: orcamentoLinhas.precoUnitarioCentavos,
-      cor: orcamentoLinhas.cor,
-      personalizacao: orcamentoLinhas.personalizacao,
-      ordem: orcamentoLinhas.ordem,
-      fichaNome: fichasPrecificacao.nome,
-      argilaMiligramas: fichasPrecificacao.argilaMiligramas,
-      esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
-      horasMilesimos: fichasPrecificacao.horasMilesimos,
-      larguraMm: fichasPrecificacao.larguraMm,
-      profundidadeMm: fichasPrecificacao.profundidadeMm,
-      alturaMm: fichasPrecificacao.alturaMm,
-      embalagemCentavos: fichasPrecificacao.embalagemCentavos,
-      cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
-      cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
-    })
-    .from(orcamentoLinhas)
-    .innerJoin(fichasPrecificacao, eq(orcamentoLinhas.fichaId, fichasPrecificacao.id))
-    .where(eq(orcamentoLinhas.orcamentoId, id))
-    .orderBy(asc(orcamentoLinhas.ordem));
+  const [linhas, custosDeProjeto] = await Promise.all([
+    db
+      .select({
+        id: orcamentoLinhas.id,
+        fichaId: orcamentoLinhas.fichaId,
+        quantidade: orcamentoLinhas.quantidade,
+        precoUnitarioCentavos: orcamentoLinhas.precoUnitarioCentavos,
+        cor: orcamentoLinhas.cor,
+        personalizacao: orcamentoLinhas.personalizacao,
+        ordem: orcamentoLinhas.ordem,
+        fichaNome: fichasPrecificacao.nome,
+        argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+        esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+        horasMilesimos: fichasPrecificacao.horasMilesimos,
+        larguraMm: fichasPrecificacao.larguraMm,
+        profundidadeMm: fichasPrecificacao.profundidadeMm,
+        alturaMm: fichasPrecificacao.alturaMm,
+        embalagemCentavos: fichasPrecificacao.embalagemCentavos,
+        cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
+        cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
+      })
+      .from(orcamentoLinhas)
+      .innerJoin(fichasPrecificacao, eq(orcamentoLinhas.fichaId, fichasPrecificacao.id))
+      .where(eq(orcamentoLinhas.orcamentoId, id))
+      .orderBy(asc(orcamentoLinhas.ordem)),
+    db
+      .select({
+        id: orcamentoProjeto.id,
+        descricao: orcamentoProjeto.descricao,
+        valorCentavos: orcamentoProjeto.valorCentavos,
+        ordem: orcamentoProjeto.ordem,
+      })
+      .from(orcamentoProjeto)
+      .where(eq(orcamentoProjeto.orcamentoId, id))
+      .orderBy(asc(orcamentoProjeto.ordem)),
+  ]);
 
   return {
     ...cabecalho,
+    custosDeProjeto,
     linhas: linhas.map((linha) => ({
       id: linha.id,
       fichaId: linha.fichaId,

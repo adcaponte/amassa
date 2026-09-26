@@ -101,6 +101,61 @@ export const FRASE_PRECO_OBRIGATORIO = "Informe o preço desta peça.";
 export const FRASE_COR_MUITO_LONGA = "A cor/esmalte passa de 80 letras — encurte.";
 export const FRASE_PERSONALIZACAO_MUITO_LONGA = "A personalização passa de 200 letras — encurte.";
 
+// ---------------------------------------------------------------------------------------------
+// "Custos do projeto e frete" / "Total e pagamento" / "Só para você" (04.5-07-PLAN.md)
+// ---------------------------------------------------------------------------------------------
+
+export const TITULO_CUSTOS_DO_PROJETO = "Custos do projeto e frete";
+// Dica verbatim do protótipo (`prototipo.html`, `telaEditor`).
+export const DICA_CUSTOS_DE_PROJETO =
+  "Molde, protótipo, carimbo, embalagem especial: cobrados uma vez, fora do preço da peça.";
+export const ROTULO_O_QUE = "O quê";
+export const ROTULO_VALOR = "Valor";
+export const ROTULO_MAIS_CUSTO_DE_PROJETO = "+ Custo do projeto";
+export const ROTULO_FRETE = "Frete";
+
+export function tituloConfirmarTirarCustoDeProjeto(descricao: string): string {
+  return `Tirar «${descricao}» deste orçamento?`;
+}
+export const CORPO_CONFIRMAR_TIRAR_CUSTO_DE_PROJETO =
+  "Ele sai da lista de custos deste orçamento. Você pode adicionar de novo depois, se precisar.";
+
+export const TITULO_TOTAL_E_PAGAMENTO = "Total e pagamento";
+export const ROTULO_TOTAL = "Total";
+export const ROTULO_COMO_CLIENTE_PAGA = "Como o cliente paga";
+export const ROTULO_SINAL_PORCENTO = "Sinal (%)";
+export const ROTULO_OBSERVACOES_PARA_CLIENTE = "Observações para o cliente";
+
+// Rótulos do `<select>` "Como o cliente paga" — verbatim do protótipo, na mesma ordem
+// (`prototipo.html`, `telaEditor`), indexados pelo próprio valor de
+// `lib/orcamentos/plano.ts::PlanoDePagamentoDoOrcamento`.
+export const ROTULOS_DO_PLANO_DE_PAGAMENTO: Record<"sinal" | "avista" | "3x", string> = {
+  sinal: "Sinal + saldo na entrega",
+  avista: "À vista",
+  "3x": "3 parcelas",
+};
+
+export const TITULO_SO_PARA_VOCE = "Só para você";
+export const FRASE_NADA_APARECE_PARA_CLIENTE = "Nada disto aparece para o cliente.";
+export const ROTULO_CUSTO_DE_PRODUZIR_TUDO = "Custo de produzir tudo";
+export const ROTULO_SOBRA_DEPOIS_DE_IMPOSTO_E_TAXA = "Sobra depois de imposto e taxa";
+export const ROTULO_HORAS_DE_TRABALHO = "Horas de trabalho";
+export const ROTULO_OCUPA_DO_FORNO = "Ocupa do forno";
+
+// "{N} parâmetro(s) deste cálculo ainda são estimados. O preço é uma boa base, não uma medição."
+// — cópia verbatim do must_have (D-17): a contagem vem dos parâmetros vigentes, nunca de um
+// número guardado.
+export function textoAvisoDeEstimados(quantos: number): string {
+  return `${quantos} parâmetro(s) deste cálculo ainda são estimados. O preço é uma boa base, não uma medição.`;
+}
+
+// "{X} fornada(s) de biscoito · {Y} de esmalte" — cópia verbatim do protótipo (`telaEditor`,
+// bloco "Só para você"); os dois textos já formatados chegam prontos (nunca formata dinheiro nem
+// quantidade sozinho — mesma disciplina do resto do módulo).
+export function textoFornadasOcupadas(biscoitoTexto: string, esmalteTexto: string): string {
+  return `${biscoitoTexto} fornada(s) de biscoito · ${esmalteTexto} de esmalte`;
+}
+
 export const FRASE_ORCAMENTO_NAO_EXISTE_MAIS =
   "Esse orçamento não existe mais — recarregue a página e tente de novo.";
 // A frase exata pedida pelo plano (D-21: só o servidor decide, dentro da transação, nunca a
@@ -112,3 +167,17 @@ export const FRASE_LINHA_NAO_EXISTE_MAIS =
 export const FRASE_FICHA_NAO_ENCONTRADA_PARA_LINHA =
   "Essa peça não existe mais — recarregue a página e tente de novo.";
 export const FRASE_FALHA_AO_SALVAR = "Não deu para salvar. Verifique a internet e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Validação e recusa do servidor (04.5-07-PLAN.md, Tarefa 2)
+// ---------------------------------------------------------------------------------------------
+
+export const FRASE_DESCRICAO_DO_CUSTO_OBRIGATORIA = "Descreva o que é esse custo do projeto.";
+export const FRASE_DESCRICAO_DO_CUSTO_MUITO_LONGA = "Essa descrição passa de 120 letras — encurte.";
+export const FRASE_VALOR_DO_CUSTO_OBRIGATORIO = "Informe o valor desse custo do projeto.";
+export const FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS =
+  "Esse custo de projeto já não está mais neste orçamento — recarregue a página e tente de novo.";
+
+export const FRASE_PLANO_INVALIDO = "Escolha uma das formas de pagamento da lista.";
+export const FRASE_SINAL_INVALIDO = 'O "Sinal (%)" precisa ser um número inteiro entre 1 e 100.';
+export const FRASE_OBSERVACOES_MUITO_LONGAS = "As observações passam de 300 letras — encurte.";

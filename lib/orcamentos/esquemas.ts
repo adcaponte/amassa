@@ -5,14 +5,21 @@ import { z } from "zod";
 
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 
+import { PLANOS_DE_PAGAMENTO_DO_ORCAMENTO, type PlanoDePagamentoDoOrcamento } from "./plano";
 import {
   FRASE_CLIENTE_MUITO_LONGO,
   FRASE_COR_MUITO_LONGA,
+  FRASE_DESCRICAO_DO_CUSTO_MUITO_LONGA,
+  FRASE_DESCRICAO_DO_CUSTO_OBRIGATORIA,
+  FRASE_OBSERVACOES_MUITO_LONGAS,
   FRASE_PERSONALIZACAO_MUITO_LONGA,
+  FRASE_PLANO_INVALIDO,
   FRASE_PRECO_OBRIGATORIO,
   FRASE_QUANTIDADE_INVALIDA,
+  FRASE_SINAL_INVALIDO,
   FRASE_TITULO_MUITO_LONGO,
   FRASE_VALIDADE_INVALIDA,
+  FRASE_VALOR_DO_CUSTO_OBRIGATORIO,
 } from "./textos";
 
 // Usado por toda ação que recebe um identificador.
@@ -182,3 +189,129 @@ export const esquemaRemoverLinha = z.object({
 });
 
 export type EntradaDeRemoverLinha = z.infer<typeof esquemaRemoverLinha>;
+
+// ---------------------------------------------------------------------------------------------
+// "Custos do projeto e frete" / "Total e pagamento" (04.5-07-PLAN.md, Tarefa 2)
+// ---------------------------------------------------------------------------------------------
+
+// Compartilhado por `acrescentarCustoDeProjeto` (`id` ausente — a linha ainda não existe) e
+// `atualizarCustoDeProjeto` (`id` presente — a linha já existe). Uma peça de custo de projeto é
+// texto livre do dono (molde, protótipo, carimbo…), nunca uma entidade com nome/custo vindos de
+// outra tabela — ao contrário de uma linha de peça, aqui NÃO há segunda fonte para conferir.
+export const esquemaCustoDeProjeto = z
+  .object({
+    orcamentoId: esquemaId,
+    id: esquemaId.optional(),
+    descricaoTexto: z.string(),
+    valorTexto: z.string(),
+  })
+  .transform((dados, ctx) => {
+    const descricao = normalizarOpcional(dados.descricaoTexto);
+    if (!descricao) {
+      ctx.addIssue({ code: "custom", message: FRASE_DESCRICAO_DO_CUSTO_OBRIGATORIA, path: ["descricaoTexto"] });
+      return z.NEVER;
+    }
+    if (contarPontosDeCodigo(descricao) > 120) {
+      ctx.addIssue({ code: "custom", message: FRASE_DESCRICAO_DO_CUSTO_MUITO_LONGA, path: ["descricaoTexto"] });
+      return z.NEVER;
+    }
+
+    const valor = converterReaisParaCentavos(dados.valorTexto);
+    if (!valor.ok) {
+      ctx.addIssue({ code: "custom", message: valor.erro, path: ["valorTexto"] });
+      return z.NEVER;
+    }
+    if (valor.centavos === null) {
+      ctx.addIssue({ code: "custom", message: FRASE_VALOR_DO_CUSTO_OBRIGATORIO, path: ["valorTexto"] });
+      return z.NEVER;
+    }
+
+    return {
+      orcamentoId: dados.orcamentoId,
+      id: dados.id ?? null,
+      descricao,
+      valorCentavos: valor.centavos,
+    };
+  });
+
+export type EntradaDeCustoDeProjeto = z.infer<typeof esquemaCustoDeProjeto>;
+
+// "tirar" um custo de projeto: só os dois identificadores (mesma forma de `esquemaRemoverLinha`,
+// redeclarada aqui porque `orcamento_projeto` é outra tabela, com outra guarda de recusa —
+// `FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS`, não `FRASE_LINHA_NAO_EXISTE_MAIS`).
+export const esquemaRemoverCustoDeProjeto = z.object({
+  orcamentoId: esquemaId,
+  id: esquemaId,
+});
+
+export type EntradaDeRemoverCustoDeProjeto = z.infer<typeof esquemaRemoverCustoDeProjeto>;
+
+// "Como o cliente paga" + "Sinal (%)" (`definirPlanoDePagamento`, que também grava o frete): as
+// duas telas que editam plano/sinal/frete ("Total e pagamento" e "Custos do projeto e frete")
+// sempre enviam o TRIO inteiro — cada componente conhece os três valores correntes do próprio
+// `orcamento` (mesma disciplina de `esquemaCabecalhoDoOrcamento`, que também sempre recebe os
+// quatro campos juntos) — nenhuma escrita parcial, nenhuma necessidade de "campo omitido = mantém
+// o valor antigo".
+export const esquemaPlanoDePagamento = z
+  .object({
+    orcamentoId: esquemaId,
+    planoTexto: z.string(),
+    sinalTexto: z.string().optional(),
+    freteTexto: z.string(),
+  })
+  .transform((dados, ctx) => {
+    if (!PLANOS_DE_PAGAMENTO_DO_ORCAMENTO.includes(dados.planoTexto as PlanoDePagamentoDoOrcamento)) {
+      ctx.addIssue({ code: "custom", message: FRASE_PLANO_INVALIDO, path: ["planoTexto"] });
+      return z.NEVER;
+    }
+    const plano = dados.planoTexto as PlanoDePagamentoDoOrcamento;
+
+    // O sinal só faz sentido (e só é EXIGIDO) quando o plano é "sinal" — nos outros dois planos,
+    // o valor enviado é ignorado (a coluna `sinal_percentual` fica como estava).
+    let sinalPercentual: number | null = null;
+    if (plano === "sinal") {
+      const sinalNormalizado = (dados.sinalTexto ?? "").trim();
+      const valor = Number(sinalNormalizado);
+      if (!/^\d+$/.test(sinalNormalizado) || !Number.isInteger(valor) || valor < 1 || valor > 100) {
+        ctx.addIssue({ code: "custom", message: FRASE_SINAL_INVALIDO, path: ["sinalTexto"] });
+        return z.NEVER;
+      }
+      sinalPercentual = valor;
+    }
+
+    const frete = converterReaisParaCentavos(dados.freteTexto);
+    if (!frete.ok) {
+      ctx.addIssue({ code: "custom", message: frete.erro, path: ["freteTexto"] });
+      return z.NEVER;
+    }
+
+    return {
+      orcamentoId: dados.orcamentoId,
+      plano,
+      sinalPercentual,
+      // Vazio vira zero (frete não é obrigatório — nem toda encomenda viaja), nunca `null`: a
+      // coluna `frete_centavos` é `not null default 0`.
+      freteCentavos: frete.centavos ?? 0,
+    };
+  });
+
+export type EntradaDePlanoDePagamento = z.infer<typeof esquemaPlanoDePagamento>;
+
+// "Observações para o cliente": até 300 caracteres, campo próprio — ação SEPARADA de
+// `definirPlanoDePagamento` (vive num bloco de tela diferente do "Como o cliente paga"/sinal, e
+// grava sozinha no próprio `onBlur`, mesma disciplina de todo campo isolado deste módulo).
+export const esquemaObservacoes = z
+  .object({
+    orcamentoId: esquemaId,
+    observacoesTexto: z.string(),
+  })
+  .transform((dados, ctx) => {
+    const observacoes = normalizarOpcional(dados.observacoesTexto);
+    if (observacoes && contarPontosDeCodigo(observacoes) > 300) {
+      ctx.addIssue({ code: "custom", message: FRASE_OBSERVACOES_MUITO_LONGAS, path: ["observacoesTexto"] });
+      return z.NEVER;
+    }
+    return { orcamentoId: dados.orcamentoId, observacoes };
+  });
+
+export type EntradaDeObservacoes = z.infer<typeof esquemaObservacoes>;

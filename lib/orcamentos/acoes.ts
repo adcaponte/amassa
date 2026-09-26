@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fichasPrecificacao, itensCatalogo, orcamentoLinhas, orcamentos } from "@/db/schema";
+import { fichasPrecificacao, itensCatalogo, orcamentoLinhas, orcamentoProjeto, orcamentos } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { somarDias } from "@/lib/financeiro/calendario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -15,12 +15,17 @@ import { quantasCabem } from "@/lib/precificacao/forno";
 import {
   esquemaAcrescentarLinha,
   esquemaCabecalhoDoOrcamento,
+  esquemaCustoDeProjeto,
   esquemaLinhaDeOrcamento,
   esquemaNovoOrcamento,
+  esquemaObservacoes,
+  esquemaPlanoDePagamento,
+  esquemaRemoverCustoDeProjeto,
   esquemaRemoverLinha,
 } from "./esquemas";
 import { proximoSequencialDeOrcamento, type TransacaoDoBanco } from "./numero";
 import {
+  FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_CRIAR,
   FRASE_FALHA_AO_SALVAR,
   FRASE_FICHA_NAO_ENCONTRADA_PARA_LINHA,
@@ -103,6 +108,7 @@ class OrcamentoNaoEncontrado extends Error {}
 class OrcamentoNaoEhRascunho extends Error {}
 class LinhaNaoEncontrada extends Error {}
 class FichaNaoEncontradaParaLinha extends Error {}
+class CustoDeProjetoNaoEncontrado extends Error {}
 
 // Regra comum às quatro ações de edição (Tarefa 2): trava o orçamento (`select ... for update`) e
 // recusa quando o status não é rascunho — a linha travada é a garantia real (T-04.5-28), o
@@ -129,6 +135,7 @@ function primeiroErroConhecido(erro: unknown): string | null {
   if (erro instanceof OrcamentoNaoEhRascunho) return FRASE_ORCAMENTO_NAO_E_RASCUNHO;
   if (erro instanceof LinhaNaoEncontrada) return FRASE_LINHA_NAO_EXISTE_MAIS;
   if (erro instanceof FichaNaoEncontradaParaLinha) return FRASE_FICHA_NAO_ENCONTRADA_PARA_LINHA;
+  if (erro instanceof CustoDeProjetoNaoEncontrado) return FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS;
   return null;
 }
 
@@ -393,6 +400,225 @@ export async function removerLinha(
       return { ok: false, erro: mensagemConhecida };
     }
     console.error("Falha ao remover linha do orçamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Custos do projeto e frete" / "Total e pagamento" (04.5-07-PLAN.md, Tarefa 2)
+// ---------------------------------------------------------------------------------------------
+
+// "+ Custo do projeto": nasce como uma linha nova, com `ordem = max(ordem) + 1` entre as linhas
+// TRAVADAS (mesma disciplina de `acrescentarLinha` — duas adições concorrentes nunca disputam o
+// mesmo número). `exigirUsuario()` é a PRIMEIRA instrução do corpo.
+export async function acrescentarCustoDeProjeto(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaCustoDeProjeto.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { orcamentoId, descricao, valorCentavos } = resultado.data;
+
+  try {
+    const idDaLinha = await db.transaction(async (tx) => {
+      await travarOrcamentoRascunho(tx, orcamentoId);
+
+      const linhasExistentes = await tx
+        .select({ ordem: orcamentoProjeto.ordem })
+        .from(orcamentoProjeto)
+        .where(eq(orcamentoProjeto.orcamentoId, orcamentoId))
+        .for("update"); // trava as linhas de projeto antes de calcular a próxima ordem (for update)
+      const proximaOrdem = linhasExistentes.reduce((maior, l) => Math.max(maior, l.ordem), -1) + 1;
+
+      const [linha] = await tx
+        .insert(orcamentoProjeto)
+        .values({ orcamentoId, descricao, valorCentavos, ordem: proximaOrdem })
+        .returning({ id: orcamentoProjeto.id });
+
+      return linha.id;
+    });
+
+    return { ok: true, dados: { id: idDaLinha } };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    console.error("Falha ao acrescentar custo de projeto:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Editar "O quê"/"Valor" de um custo de projeto já existente — a MESMA validação de
+// `acrescentarCustoDeProjeto` (`esquemaCustoDeProjeto`, agora com `id` presente).
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo.
+export async function atualizarCustoDeProjeto(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaCustoDeProjeto.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { orcamentoId, id, descricao, valorCentavos } = resultado.data;
+
+  if (!id) {
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      await travarOrcamentoRascunho(tx, orcamentoId);
+
+      const [linha] = await tx
+        .select({ id: orcamentoProjeto.id })
+        .from(orcamentoProjeto)
+        .where(and(eq(orcamentoProjeto.id, id), eq(orcamentoProjeto.orcamentoId, orcamentoId)))
+        .for("update"); // trava a própria linha antes de gravar — nenhuma edição concorrente na mesma linha (for update)
+
+      if (!linha) {
+        throw new CustoDeProjetoNaoEncontrado();
+      }
+
+      await tx
+        .update(orcamentoProjeto)
+        .set({ descricao, valorCentavos })
+        .where(eq(orcamentoProjeto.id, id));
+    });
+
+    return { ok: true, dados: { id } };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    console.error("Falha ao atualizar custo de projeto:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// "tirar" um custo de projeto: reordena as linhas seguintes DENTRO da mesma transação, sem abrir
+// buraco na sequência de ordem (mesma disciplina de `removerLinha`). `exigirUsuario()` é a
+// PRIMEIRA instrução do corpo.
+export async function removerCustoDeProjeto(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaRemoverCustoDeProjeto.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { orcamentoId, id } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      await travarOrcamentoRascunho(tx, orcamentoId);
+
+      const linhasDoOrcamento = await tx
+        .select({ id: orcamentoProjeto.id, ordem: orcamentoProjeto.ordem })
+        .from(orcamentoProjeto)
+        .where(eq(orcamentoProjeto.orcamentoId, orcamentoId))
+        .orderBy(orcamentoProjeto.ordem)
+        .for("update"); // trava todas as linhas de projeto antes de apagar e reordenar (for update)
+
+      const linhaAlvo = linhasDoOrcamento.find((linha) => linha.id === id);
+      if (!linhaAlvo) {
+        throw new CustoDeProjetoNaoEncontrado();
+      }
+
+      await tx.delete(orcamentoProjeto).where(eq(orcamentoProjeto.id, id));
+
+      const seguintes = linhasDoOrcamento.filter((linha) => linha.ordem > linhaAlvo.ordem);
+      for (const linha of seguintes) {
+        await tx
+          .update(orcamentoProjeto)
+          .set({ ordem: linha.ordem - 1 })
+          .where(eq(orcamentoProjeto.id, linha.id));
+      }
+    });
+
+    return { ok: true, dados: { id } };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    console.error("Falha ao remover custo de projeto:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// "Como o cliente paga"/"Sinal (%)"/"Frete" — os três sempre juntos (o schema explica o porquê).
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo.
+export async function definirPlanoDePagamento(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaPlanoDePagamento.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { orcamentoId, plano, sinalPercentual, freteCentavos } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      await travarOrcamentoRascunho(tx, orcamentoId);
+
+      await tx
+        .update(orcamentos)
+        .set(
+          sinalPercentual === null
+            ? { plano, freteCentavos }
+            : { plano, freteCentavos, sinalPercentual },
+        )
+        .where(eq(orcamentos.id, orcamentoId));
+    });
+
+    return { ok: true, dados: { id: orcamentoId } };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    console.error("Falha ao definir plano de pagamento do orçamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// "Observações para o cliente": até 300 caracteres, campo isolado (esquemas.ts explica por que é
+// uma ação separada de `definirPlanoDePagamento`). `exigirUsuario()` é a PRIMEIRA instrução do
+// corpo.
+export async function definirObservacoes(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaObservacoes.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { orcamentoId, observacoes } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      await travarOrcamentoRascunho(tx, orcamentoId);
+
+      await tx.update(orcamentos).set({ observacoes }).where(eq(orcamentos.id, orcamentoId));
+    });
+
+    return { ok: true, dados: { id: orcamentoId } };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    console.error("Falha ao gravar observações do orçamento:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
