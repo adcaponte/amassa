@@ -4,6 +4,7 @@ import {
   arredondarBonito,
   calcularPeca,
   farolDoPreco,
+  parametrosDoPrecoFazemSentido,
   type ParametrosDoCalculo,
 } from "@/lib/precificacao/calculo";
 import type { CabemNoForno } from "@/lib/precificacao/forno";
@@ -235,5 +236,43 @@ describe("arredondarBonito", () => {
 
   it("um múltiplo de 5 reais já redondo (acima de R$ 50) não muda", () => {
     expect(arredondarBonito(5500)).toBe(5500); // R$ 55,00
+  });
+});
+
+// 04.5-02-PLAN.md, Tarefa 3 — o mesmo limite de divisor de `calcularPeca`, exposto para a tela de
+// Parâmetros avisar ANTES de existir qualquer ficha (D-11).
+describe("parametrosDoPrecoFazemSentido", () => {
+  it("os parâmetros ilustrativos da semente fazem sentido", () => {
+    expect(
+      parametrosDoPrecoFazemSentido(PARAMETROS_ILUSTRATIVOS, TAXA_CARTAO_PONTOS_BASE),
+    ).toBe(true);
+  });
+
+  it("lucro + folga + imposto + taxa + comissão passando de 100% não fazem sentido", () => {
+    expect(
+      parametrosDoPrecoFazemSentido(
+        {
+          lucroPontosBase: 4000,
+          folgaNegociacaoPontosBase: 3000,
+          impostoPontosBase: 2000,
+          comissaoGaleriaPontosBase: 2000,
+        },
+        350,
+      ),
+    ).toBe(false);
+  });
+
+  it("exatamente no limite (divisor = 500 pontos-base) também não faz sentido", () => {
+    expect(
+      parametrosDoPrecoFazemSentido(
+        {
+          lucroPontosBase: 5000,
+          folgaNegociacaoPontosBase: 0,
+          impostoPontosBase: 0,
+          comissaoGaleriaPontosBase: 0,
+        },
+        4500, // soma 9500 → divisor 500, não maior que o limite
+      ),
+    ).toBe(false);
   });
 });

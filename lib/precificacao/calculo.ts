@@ -26,8 +26,10 @@
 import type { CabemNoForno } from "./forno";
 
 // Limite comum aos três divisores da fórmula — abaixo (ou igual) a isto, o divisor não tem
-// sentido econômico (o preço explodiria ou ficaria negativo).
-const LIMITE_DO_DIVISOR_EM_PONTOS_BASE = 500;
+// sentido econômico (o preço explodiria ou ficaria negativo). Exportado para quem precisa avisar
+// ANTES de existir uma ficha para calcular (`parametrosDoPrecoFazemSentido` abaixo,
+// 04.5-02-PLAN.md) — nunca duplicado como número solto em outro módulo.
+export const LIMITE_DO_DIVISOR_EM_PONTOS_BASE = 500;
 
 export type ParametrosDoCalculo = {
   argilaReaisPorKgCentavos: number;
@@ -177,6 +179,27 @@ export function farolDoPreco(
     return "amarelo";
   }
   return "vermelho";
+}
+
+// A tela de Parâmetros (04.5-02-PLAN.md) precisa avisar quando lucro + folga + imposto + taxa +
+// comissão passam do limite ANTES de existir qualquer ficha — o mesmo divisor do "mínimo" dentro
+// de `calcularPeca`, com a comissão de galeria somada sempre (o pior caso: se o divisor não fecha
+// nem para o canal SEM comissão, não fecha para nenhum). `true` quando os parâmetros ainda fazem
+// sentido juntos; `false` quando a tela deve mostrar o bloco vermelho no lugar de qualquer preço.
+export function parametrosDoPrecoFazemSentido(
+  parametros: Pick<
+    ParametrosDoCalculo,
+    "lucroPontosBase" | "folgaNegociacaoPontosBase" | "impostoPontosBase" | "comissaoGaleriaPontosBase"
+  >,
+  taxaCartaoPontosBase: number,
+): boolean {
+  const somaPontosBase =
+    parametros.lucroPontosBase +
+    parametros.folgaNegociacaoPontosBase +
+    parametros.impostoPontosBase +
+    taxaCartaoPontosBase +
+    parametros.comissaoGaleriaPontosBase;
+  return 10000 - somaPontosBase > LIMITE_DO_DIVISOR_EM_PONTOS_BASE;
 }
 
 // Sugestão de preço "redondo" (D-23 usa a mesma regra para "Atualizar preços"): até R$ 50,

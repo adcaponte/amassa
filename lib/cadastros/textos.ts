@@ -15,6 +15,8 @@ export const ROTULO_SUB_CATALOGO = "Catálogo";
 export const ROTULO_SUB_CATEGORIAS = "Categorias";
 export const ROTULO_SUB_FIXAS = "Contas fixas";
 export const ROTULO_SUB_TAXAS = "Taxas";
+// Quinta sub-aba (D-03, 04.5-02-PLAN.md) — texto exato do dono (04.5-UI-SPEC.md §Copywriting).
+export const ROTULO_SUB_PARAMETROS = "Parâmetros";
 
 export const ROTULO_GRUPO: Record<GrupoDeCategoria, string> = {
   receita: "Receitas",

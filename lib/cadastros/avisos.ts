@@ -7,20 +7,24 @@ export type TipoDeAvisoDeCadastros =
   | "categoria-reativada"
   | "conta-fixa-desativada"
   | "conta-fixa-reativada"
-  | "contas-geradas";
+  | "contas-geradas"
+  // "Usar esta hora" (04.5-02-PLAN.md, ORC-04) — a hora calculada acabou de virar parâmetro.
+  | "hora-atualizada";
 
 export type AvisoDeCadastros =
   | { tipo: "categoria-desativada" }
   | { tipo: "categoria-reativada" }
   | { tipo: "conta-fixa-desativada" }
   | { tipo: "conta-fixa-reativada" }
-  | { tipo: "contas-geradas"; quantidade: number; mes: string };
+  | { tipo: "contas-geradas"; quantidade: number; mes: string }
+  | { tipo: "hora-atualizada" };
 
 const TIPOS_SEM_PARAMETRO: readonly Exclude<TipoDeAvisoDeCadastros, "contas-geradas">[] = [
   "categoria-desativada",
   "categoria-reativada",
   "conta-fixa-desativada",
   "conta-fixa-reativada",
+  "hora-atualizada",
 ];
 
 const REGEX_MES = /^\d{4}-\d{2}$/;

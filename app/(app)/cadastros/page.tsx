@@ -19,25 +19,28 @@ import {
 } from "@/lib/cadastros/textos";
 import { mesDaGeracao, mesesParaGeracao } from "@/lib/cadastros/contas-fixas";
 import { hojeEmBrasilia, nomeDoMes } from "@/lib/financeiro/formato";
+import { parametrosVigentes } from "@/lib/precificacao/consultas";
+import { TOAST_HORA_ATUALIZADA } from "@/lib/precificacao/textos";
 import { AvisoCadastros } from "@/components/amassa/cadastros/aviso-cadastros";
 import { BotaoGerarContas } from "@/components/amassa/cadastros/botao-gerar-contas";
 import { FormularioTaxa } from "@/components/amassa/cadastros/formulario-taxa";
 import { ListaCatalogo } from "@/components/amassa/cadastros/lista-catalogo";
 import { ListaCategorias } from "@/components/amassa/cadastros/lista-categorias";
 import { ListaContasFixas } from "@/components/amassa/cadastros/lista-contas-fixas";
+import { ListaParametros } from "@/components/amassa/cadastros/lista-parametros";
 import { SubAbasCadastros } from "@/components/amassa/cadastros/sub-abas-cadastros";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/financeiro/page.tsx`.
-// `searchParams` é `Promise` no Next.js 15. `?sub=` decide qual das quatro sub-abas aparece; o
-// aviso pós-navegação é resolvido AQUI, no servidor, a partir de `?aviso=`/`?quantidade=`/`?mes=`
-// — o texto pronto desce para `AvisoCadastros`, que só mostra o toast, nunca monta a frase
-// sozinho.
+// `searchParams` é `Promise` no Next.js 15. `?sub=` decide qual das CINCO sub-abas aparece (D-03,
+// 04.5-02-PLAN.md acrescentou "parametros"); o aviso pós-navegação é resolvido AQUI, no servidor,
+// a partir de `?aviso=`/`?quantidade=`/`?mes=` — o texto pronto desce para `AvisoCadastros`, que
+// só mostra o toast, nunca monta a frase sozinho.
 //
 // Catálogo (plano 05) carrega `listarCatalogoCompleto()`/`listarCategoriasParaItem()`/
-// `listarInsumosDisponiveis()`, e Contas fixas (plano 10) carrega
-// `listarContasFixas()`/`listarCategoriasParaContaFixa()` — cada uma só na própria sub-aba, mesma
-// disciplina de `app/(app)/financeiro/page.tsx` (uma leitura por lista, nunca a mais que a aba
-// atual precisa).
+// `listarInsumosDisponiveis()`, Contas fixas (plano 10) carrega
+// `listarContasFixas()`/`listarCategoriasParaContaFixa()`, e Parâmetros (04.5-02) carrega
+// `parametrosVigentes(hoje)` — cada uma só na própria sub-aba, mesma disciplina de
+// `app/(app)/financeiro/page.tsx` (uma leitura por lista, nunca a mais que a aba atual precisa).
 export default async function PaginaCadastros({
   searchParams,
 }: {
@@ -67,20 +70,32 @@ export default async function PaginaCadastros({
             ? TOAST_CONTA_FIXA_REATIVADA
             : avisoResolvido?.tipo === "contas-geradas"
               ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes))
-              : null;
+              : avisoResolvido?.tipo === "hora-atualizada"
+                ? TOAST_HORA_ATUALIZADA
+                : null;
 
-  const [taxaAtual, categorias, catalogo, categoriasParaItem, insumosDisponiveis, contasFixas, categoriasParaContaFixa] =
-    await Promise.all([
-      subAtual === "taxas" ? obterTaxaDoCartao() : Promise.resolve(null),
-      subAtual === "categorias" ? listarCategoriasComUso() : Promise.resolve([]),
-      subAtual === "catalogo" ? listarCatalogoCompleto() : Promise.resolve([]),
-      subAtual === "catalogo"
-        ? listarCategoriasParaItem()
-        : Promise.resolve({ vendaveis: [], compraveis: [] }),
-      subAtual === "catalogo" ? listarInsumosDisponiveis() : Promise.resolve([]),
-      subAtual === "fixas" ? listarContasFixas() : Promise.resolve([]),
-      subAtual === "fixas" ? listarCategoriasParaContaFixa() : Promise.resolve([]),
-    ]);
+  const [
+    taxaAtual,
+    categorias,
+    catalogo,
+    categoriasParaItem,
+    insumosDisponiveis,
+    contasFixas,
+    categoriasParaContaFixa,
+    parametros,
+  ] = await Promise.all([
+    subAtual === "taxas" ? obterTaxaDoCartao() : Promise.resolve(null),
+    subAtual === "categorias" ? listarCategoriasComUso() : Promise.resolve([]),
+    subAtual === "catalogo" ? listarCatalogoCompleto() : Promise.resolve([]),
+    subAtual === "catalogo"
+      ? listarCategoriasParaItem()
+      : Promise.resolve({ vendaveis: [], compraveis: [] }),
+    subAtual === "catalogo" ? listarInsumosDisponiveis() : Promise.resolve([]),
+    subAtual === "fixas" ? listarContasFixas() : Promise.resolve([]),
+    subAtual === "fixas" ? listarCategoriasParaContaFixa() : Promise.resolve([]),
+    // "hoje" já calculado acima (`hojeEmBrasilia`) — nunca uma segunda leitura do relógio.
+    subAtual === "parametros" ? parametrosVigentes(hoje) : Promise.resolve(null),
+  ]);
 
   return (
     <>
@@ -106,6 +121,10 @@ export default async function PaginaCadastros({
             />
           }
         />
+      ) : subAtual === "parametros" ? (
+        // Não-nulo: `parametrosVigentes(hoje)` só é chamada quando `subAtual === "parametros"`,
+        // a MESMA condição deste ramo — `Promise.resolve(null)` nunca é o valor aqui.
+        <ListaParametros resultado={parametros as NonNullable<typeof parametros>} />
       ) : (
         <ListaCatalogo
           catalogo={catalogo}

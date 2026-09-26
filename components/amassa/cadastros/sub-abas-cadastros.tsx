@@ -5,6 +5,7 @@ import {
   ROTULO_SUB_CATALOGO,
   ROTULO_SUB_CATEGORIAS,
   ROTULO_SUB_FIXAS,
+  ROTULO_SUB_PARAMETROS,
   ROTULO_SUB_TAXAS,
 } from "@/lib/cadastros/textos";
 import { cn } from "@/lib/utils";
@@ -22,12 +23,15 @@ import { cn } from "@/lib/utils";
 // estourava 320px por 3px — pequeno demais para notar visualmente, grande o bastante para o
 // teste automatizado de UI-06 pegar. `min-w-0` deixa a pílula encolher abaixo do conteúdo;
 // `break-words` (overflow-wrap) é o que permite ATÉ uma palavra única quebrar em duas linhas
-// quando encolhida, em vez de vazar.
+// quando encolhida, em vez de vazar. Parâmetros (D-03, 04.5-02-PLAN.md) é a QUINTA pílula desta
+// fileira, por ÚLTIMO — agrupa com Taxas, o outro parâmetro que a precificação lê (D-16) — e o
+// mesmo mecanismo (`min-w-0`/`break-words`) absorve o crescimento sem nenhuma mudança estrutural.
 const SUB_ABAS: readonly { valor: SubCadastros; rotulo: string }[] = [
   { valor: "catalogo", rotulo: ROTULO_SUB_CATALOGO },
   { valor: "categorias", rotulo: ROTULO_SUB_CATEGORIAS },
   { valor: "fixas", rotulo: ROTULO_SUB_FIXAS },
   { valor: "taxas", rotulo: ROTULO_SUB_TAXAS },
+  { valor: "parametros", rotulo: ROTULO_SUB_PARAMETROS },
 ];
 
 export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
