@@ -42,6 +42,18 @@ POSTGRES_DB="${POSTGRES_DB:-amassa}"
 # Vazio significa não enviar — nunca sucesso silencioso (ver o passo 6, mais abaixo).
 RCLONE_REMOTE="${RCLONE_REMOTE:-}"
 
+# --- Fotos de orçamento (Fase 04.5, D-28/ORC-16): mesmo diretório do bind mount
+# (docker/compose.yml), alcançado direto pelo HOST — é o motivo do bind mount ter vencido sobre
+# um volume nomeado do Docker (04.5-RESEARCH.md). RCLONE_REMOTE_FOTOS, quando vazio e
+# RCLONE_REMOTE existir, deriva uma pasta irmã na mesma conta do destino do dump — "%/" remove
+# uma barra final antes de concatenar, para não depender de o dono ter deixado (ou não) a barra
+# em RCLONE_REMOTE. ---
+BACKUP_FOTOS_DIR="${BACKUP_FOTOS_DIR:-$AMASSA_DIR/dados/fotos-orcamentos}"
+RCLONE_REMOTE_FOTOS="${RCLONE_REMOTE_FOTOS:-}"
+if [ -z "$RCLONE_REMOTE_FOTOS" ] && [ -n "$RCLONE_REMOTE" ]; then
+  RCLONE_REMOTE_FOTOS="${RCLONE_REMOTE%/}/fotos"
+fi
+
 # --- Estado da armadilha de saída (passo 8). REGISTRADO fica 1 assim que uma linha é
 # gravada em execucoes_backup; se o script morrer antes disso, por qualquer caminho, a
 # armadilha grava a falha. Um backup que falha sem registrar é indistinguível, para
@@ -56,9 +68,10 @@ CODIGO_SAIDA=0
 # SQL é como este tipo de script quebra em silêncio (T-02a-34). O SQL entra pela entrada
 # padrão do psql, não por "-c" — "-c" não substitui variáveis :'nome'.
 registrar_execucao() {
-  printf '%s\n' "insert into execucoes_backup (sucesso, bytes, destino_externo_ok, mensagem) values (:'sucesso'::boolean, nullif(:'bytes', '')::bigint, :'externo'::boolean, nullif(:'mensagem', ''));" |
+  printf '%s\n' "insert into execucoes_backup (sucesso, bytes, destino_externo_ok, mensagem, fotos_bytes, fotos_destino_externo_ok) values (:'sucesso'::boolean, nullif(:'bytes', '')::bigint, :'externo'::boolean, nullif(:'mensagem', ''), nullif(:'fotosbytes', '')::bigint, :'fotosexterno'::boolean);" |
     $PG_CLIENT_CMD -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
-      -v sucesso="$1" -v bytes="$2" -v externo="$3" -v mensagem="$4" >/dev/null
+      -v sucesso="$1" -v bytes="$2" -v externo="$3" -v mensagem="$4" \
+      -v fotosbytes="$5" -v fotosexterno="$6" >/dev/null
   REGISTRADO=1
 }
 
@@ -66,7 +79,10 @@ ao_sair() {
   codigo=$?
   if [ "$REGISTRADO" -eq 0 ]; then
     [ -n "$MENSAGEM_ERRO" ] || MENSAGEM_ERRO="Falha inesperada (código de saída $codigo)."
-    registrar_execucao "false" "" "false" "$MENSAGEM_ERRO" || true
+    # As fotos seguem o mesmo padrão pessimista do dump: bytes fica nulo (não houve tentativa de
+    # contar), destino_externo_ok fica false — nunca nulo, porque esta É uma execução nova
+    # (a coluna só é nula em linhas escritas ANTES desta fase).
+    registrar_execucao "false" "" "false" "$MENSAGEM_ERRO" "" "false" || true
   fi
   exit "$codigo"
 }
@@ -151,9 +167,39 @@ if [ -n "$RCLONE_REMOTE" ]; then
   fi
 fi
 
+# --- Passo 6b: cópia das fotos de orçamento, na MESMA execução do dump (D-28/ORC-16). Um
+# diretório inexistente ou vazio NÃO é falha — um ateliê sem foto nenhuma ainda é um estado
+# normal, e transformá-lo em alarme ensinaria o dono a ignorar o alarme de verdade. FOTOS_BYTES
+# soma o tamanho de cada arquivo com `find ... -exec stat -c%s` (o MESMO `stat -c%s` já usado no
+# Passo 3 acima) encanado para `awk` — forma POSIX, provada neste próprio arquivo, em vez de
+# `du -sb` (a flag `-b` não é garantida no BusyBox do Alpine, a mesma imagem do contêiner em que
+# scripts/testar-backup.mjs roda este script). Sem destino externo configurado, marca como NÃO
+# confirmado, exatamente como o dump já faz no Passo 6 — nunca sucesso silencioso. ---
+FOTOS_BYTES="$(find "$BACKUP_FOTOS_DIR" -type f -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+FOTOS_HA_ARQUIVOS=false
+if [ -d "$BACKUP_FOTOS_DIR" ] && [ -n "$(find "$BACKUP_FOTOS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
+  FOTOS_HA_ARQUIVOS=true
+fi
+
+FOTOS_DESTINO_OK=false
+if [ -n "$RCLONE_REMOTE_FOTOS" ]; then
+  if [ "$FOTOS_HA_ARQUIVOS" = "true" ]; then
+    if ERRO_FOTOS=$($BACKUP_ENVIO_CMD "$BACKUP_FOTOS_DIR" "$RCLONE_REMOTE_FOTOS" 2>&1); then
+      FOTOS_DESTINO_OK=true
+    else
+      MENSAGEM_ERRO="${MENSAGEM_ERRO:+$MENSAGEM_ERRO }Envio das fotos ao destino externo falhou: $ERRO_FOTOS"
+      CODIGO_SAIDA=1
+    fi
+  else
+    # Nada para enviar (diretório ausente ou vazio) e destino configurado: confirmado por
+    # vacuidade, não por sucesso de um envio que nunca aconteceu.
+    FOTOS_DESTINO_OK=true
+  fi
+fi
+
 # --- Passo 7: grava a linha de sucesso. A gravação acontece aqui e, para qualquer caminho de
 # falha anterior, pela armadilha de saída (ao_sair) — em toda saída, inclusive na de erro. ---
-registrar_execucao "true" "$BYTES" "$DESTINO_OK" "$MENSAGEM_ERRO"
+registrar_execucao "true" "$BYTES" "$DESTINO_OK" "$MENSAGEM_ERRO" "$FOTOS_BYTES" "$FOTOS_DESTINO_OK"
 
 # --- Passo 9: sai zero no sucesso, diferente de zero em qualquer falha — inclusive envio
 # externo que falhou, mesmo com o dump em disco intacto e registrado. ---

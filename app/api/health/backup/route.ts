@@ -16,9 +16,10 @@ export const dynamic = "force-dynamic";
 // também entra na conta, não só a geração local. A decisão de frescor vive inteiramente em
 // `lib/backup/frescor.ts`; esta rota só faz a consulta e delega.
 //
-// T-02a-28: o corpo da resposta traz só status/motivo/instante/idade — nunca caminho de
-// arquivo, nome do destino externo, nome de banco ou o tamanho absoluto em bytes, que
-// revelaria o volume de dados do ateliê a qualquer pessoa na internet.
+// T-02a-28 (estendido pela Fase 04.5, T-04.5-12): o corpo da resposta traz só
+// status/motivo/instante/idade — nunca caminho de arquivo, nome do destino externo, nome de
+// banco ou o tamanho absoluto em bytes, que revelaria o volume de dados do ateliê a qualquer
+// pessoa na internet. Isso vale IGUALMENTE para as fotos: `fotosBytes` nunca entra aqui.
 export async function GET() {
   let ultimaExecucao: ExecucaoBackup | null;
 
@@ -29,6 +30,7 @@ export async function GET() {
         sucesso: execucoesBackup.sucesso,
         destinoExternoOk: execucoesBackup.destinoExternoOk,
         mensagem: execucoesBackup.mensagem,
+        fotosDestinoExternoOk: execucoesBackup.fotosDestinoExternoOk,
       })
       .from(execucoesBackup)
       .orderBy(desc(execucoesBackup.quando))

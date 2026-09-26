@@ -19,7 +19,13 @@ describe("decidirFrescorDoBackup", () => {
 
   it("sucesso, cópia externa confirmada, 2 horas atrás: ok, 200", () => {
     const decisao = decidirFrescorDoBackup(
-      { quando: horasAtras(2), sucesso: true, destinoExternoOk: true, mensagem: null },
+      {
+        quando: horasAtras(2),
+        sucesso: true,
+        destinoExternoOk: true,
+        mensagem: null,
+        fotosDestinoExternoOk: true,
+      },
       AGORA,
     );
 
@@ -34,6 +40,7 @@ describe("decidirFrescorDoBackup", () => {
         sucesso: true,
         destinoExternoOk: true,
         mensagem: null,
+        fotosDestinoExternoOk: true,
       },
       AGORA,
     );
@@ -49,6 +56,7 @@ describe("decidirFrescorDoBackup", () => {
         sucesso: true,
         destinoExternoOk: true,
         mensagem: null,
+        fotosDestinoExternoOk: true,
       },
       AGORA,
     );
@@ -66,6 +74,7 @@ describe("decidirFrescorDoBackup", () => {
         sucesso: false,
         destinoExternoOk: false,
         mensagem: "disco cheio durante o pg_dump",
+        fotosDestinoExternoOk: false,
       },
       AGORA,
     );
@@ -76,9 +85,15 @@ describe("decidirFrescorDoBackup", () => {
     expect(decisao.motivo).toMatch(/disco cheio durante o pg_dump/);
   });
 
-  it("linha recente, com sucesso, mas cópia externa não confirmada: erro, 503, motivo dizendo que o dump não chegou ao armazenamento externo", () => {
+  it("linha recente, com sucesso, mas cópia externa do DUMP não confirmada: erro, 503, motivo dizendo que o dump não chegou ao armazenamento externo", () => {
     const decisao = decidirFrescorDoBackup(
-      { quando: horasAtras(1), sucesso: true, destinoExternoOk: false, mensagem: null },
+      {
+        quando: horasAtras(1),
+        sucesso: true,
+        destinoExternoOk: false,
+        mensagem: null,
+        fotosDestinoExternoOk: true,
+      },
       AGORA,
     );
 
@@ -89,7 +104,13 @@ describe("decidirFrescorDoBackup", () => {
 
   it("linha com quando no futuro (relógio errado): erro, 503, com motivo próprio", () => {
     const decisao = decidirFrescorDoBackup(
-      { quando: horasAtras(-1), sucesso: true, destinoExternoOk: true, mensagem: null },
+      {
+        quando: horasAtras(-1),
+        sucesso: true,
+        destinoExternoOk: true,
+        mensagem: null,
+        fotosDestinoExternoOk: true,
+      },
       AGORA,
     );
 
@@ -105,5 +126,106 @@ describe("decidirFrescorDoBackup", () => {
   it("motivo nunca traz o código de status como texto", () => {
     const decisao = decidirFrescorDoBackup(null, AGORA);
     expect(decisao.motivo).not.toMatch(/503/);
+  });
+
+  // --- Fase 04.5 (D-28/ORC-16): as fotos dos orçamentos entram na mesma linha de execução. ---
+  describe("fotosDestinoExternoOk", () => {
+    it("dump ok, fotos com cópia externa NÃO confirmada (false): erro, 503, motivo cita as fotos", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: false,
+        },
+        AGORA,
+      );
+
+      expect(decisao.status).toBe("erro");
+      expect(decisao.http).toBe(503);
+      expect(decisao.motivo).toMatch(/fotos/i);
+    });
+
+    it("dump ok, fotos confirmadas (true): ok, 200", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: true,
+        },
+        AGORA,
+      );
+
+      expect(decisao.status).toBe("ok");
+      expect(decisao.http).toBe(200);
+    });
+
+    it("dump ok, fotos nulas (linha escrita antes da Fase 04.5): ok, 200 — nulo nunca é falha", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: null,
+        },
+        AGORA,
+      );
+
+      expect(decisao.status).toBe("ok");
+      expect(decisao.http).toBe(200);
+    });
+
+    it("fotos nulas e backup velho (27h): erro, 503, motivo cita a idade — nulo cai na checagem seguinte, não vira exceção", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(27),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: null,
+        },
+        AGORA,
+      );
+
+      expect(decisao.status).toBe("erro");
+      expect(decisao.http).toBe(503);
+      expect(decisao.motivo).toMatch(/hora/i);
+    });
+
+    it("ordem de avaliação: sucesso falso vence sobre fotos falsas — motivo é o de sucesso, não o de fotos", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: false,
+          destinoExternoOk: false,
+          mensagem: "disco cheio durante o pg_dump",
+          fotosDestinoExternoOk: false,
+        },
+        AGORA,
+      );
+
+      expect(decisao.motivo).toMatch(/falhou/i);
+      expect(decisao.motivo).not.toMatch(/fotos/i);
+    });
+
+    it("ordem de avaliação: destino externo do DUMP falso vence sobre fotos falsas — motivo é o do dump, não o de fotos", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: false,
+          mensagem: null,
+          fotosDestinoExternoOk: false,
+        },
+        AGORA,
+      );
+
+      expect(decisao.motivo).toMatch(/armazenamento externo/i);
+      expect(decisao.motivo).not.toMatch(/fotos/i);
+    });
   });
 });

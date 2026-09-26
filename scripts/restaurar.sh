@@ -10,6 +10,7 @@ set -eu
 AMASSA_DIR="${AMASSA_DIR:-/opt/amassa}"
 AMBIENTE_ARQUIVO="${AMBIENTE_ARQUIVO:-$AMASSA_DIR/.env}"
 PG_CLIENT_CMD="${PG_CLIENT_CMD:-docker compose -f $AMASSA_DIR/compose.yml exec -T postgres psql}"
+BACKUP_ENVIO_CMD="${BACKUP_ENVIO_CMD:-rclone copy}"
 
 # Carrega o arquivo de ambiente do servidor só se existir — em teste as variáveis já chegam
 # prontas por fora.
@@ -20,6 +21,16 @@ if [ -f "$AMBIENTE_ARQUIVO" ]; then
   set +a
 fi
 POSTGRES_USER="${POSTGRES_USER:-amassa_owner}"
+
+# Fotos de orçamento (Fase 04.5, D-28/ORC-16): as MESMAS variáveis de scripts/backup.sh, com a
+# mesma derivação de RCLONE_REMOTE_FOTOS a partir de RCLONE_REMOTE quando não vier por conta
+# própria. Restaurar o banco NÃO exige as fotos — as duas coisas são independentes; é possível
+# (e às vezes correto) restaurar só o banco.
+BACKUP_FOTOS_DIR="${BACKUP_FOTOS_DIR:-$AMASSA_DIR/dados/fotos-orcamentos}"
+RCLONE_REMOTE_FOTOS="${RCLONE_REMOTE_FOTOS:-}"
+if [ -z "$RCLONE_REMOTE_FOTOS" ] && [ -n "${RCLONE_REMOTE:-}" ]; then
+  RCLONE_REMOTE_FOTOS="${RCLONE_REMOTE%/}/fotos"
+fi
 
 mostrar_uso() {
   echo "Uso: $0 --arquivo CAMINHO_DO_DUMP --banco NOME_DO_BANCO [--confirmar]" >&2
@@ -119,6 +130,32 @@ echo "Restaurando '$ARQUIVO' no banco '$BANCO'..."
 if ! ERRO=$(gzip -dc "$ARQUIVO" | $PG_CLIENT_CMD -U "$POSTGRES_USER" -d "$BANCO" -v ON_ERROR_STOP=1 2>&1 >/dev/null); then
   echo "Falha ao restaurar: $ERRO" >&2
   exit 1
+fi
+
+# --- Fotos de orçamento (D-28/ORC-16): trazer de volta do destino externo, se configurado. O
+# banco JÁ voltou com as LINHAS de `orcamento_fotos` (o dump acima trouxe a tabela inteira) —
+# este passo traz os ARQUIVOS. As duas coisas podem divergir: é possível restaurar o banco sem
+# as fotos, e nesse caso o orçamento continua íntegro (nome, preço, cliente), só a referência de
+# foto fica sem o arquivo correspondente até este passo funcionar — a tela precisa aguentar
+# isso (um estado de erro visível na foto que falta, nunca uma quebra da página inteira). ---
+echo
+if [ -n "$RCLONE_REMOTE_FOTOS" ]; then
+  echo "Restaurando as fotos de orçamento de '$RCLONE_REMOTE_FOTOS' para '$BACKUP_FOTOS_DIR'..."
+  mkdir -p "$BACKUP_FOTOS_DIR"
+  if ERRO_FOTOS=$($BACKUP_ENVIO_CMD "$RCLONE_REMOTE_FOTOS" "$BACKUP_FOTOS_DIR" 2>&1); then
+    QUANTIDADE_FOTOS="$(find "$BACKUP_FOTOS_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    echo "Fotos restauradas: $QUANTIDADE_FOTOS arquivo(s) em '$BACKUP_FOTOS_DIR'."
+  else
+    echo "AVISO: não foi possível trazer as fotos de volta de '$RCLONE_REMOTE_FOTOS': $ERRO_FOTOS" >&2
+    echo "O banco foi restaurado normalmente — as REFERÊNCIAS de foto (orcamento_fotos) voltaram," >&2
+    echo "mas os ARQUIVOS podem estar faltando até este passo funcionar. Confira manualmente" >&2
+    echo "(docs/operacao/12-fotos-volume-e-backup.md, seção 'Restaurar as fotos') antes de" >&2
+    echo "considerar a restauração completa." >&2
+  fi
+else
+  echo "RCLONE_REMOTE_FOTOS não configurado — pulando a restauração das fotos. É possível"
+  echo "restaurar o banco sem as fotos: as REFERÊNCIAS (orcamento_fotos) voltaram do dump, só os"
+  echo "ARQUIVOS ficam ausentes até alguém configurar o destino externo e rodar este script de novo."
 fi
 
 echo

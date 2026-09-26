@@ -14,6 +14,10 @@ export type ExecucaoBackup = {
   sucesso: boolean;
   destinoExternoOk: boolean;
   mensagem: string | null;
+  // Fase 04.5 (D-28/ORC-16): `null` significa "linha escrita ANTES desta fase" — não houve
+  // tentativa registrada, nunca uma falha. Toda execução NOVA de `scripts/backup.sh` grava
+  // `true` ou `false`, nunca nulo.
+  fotosDestinoExternoOk: boolean | null;
 };
 
 export type DecisaoFrescor =
@@ -83,6 +87,21 @@ export function decidirFrescorDoBackup(
       motivo:
         "O dump existe no servidor, mas não chegou ao armazenamento externo — um backup " +
         "que só existe no servidor não protege contra a perda do servidor.",
+      ultimoBackupEm,
+      idadeEmHoras,
+    };
+  }
+
+  // Fase 04.5 (D-28/ORC-16). Ordem deliberada: relógio no futuro, depois execução sem sucesso,
+  // depois destino externo do DUMP (acima), depois destino externo das FOTOS (aqui), depois
+  // idade — as fotos só importam depois que o dump em si já provou estar bem. `false` é sempre
+  // uma execução nova que tentou e falhou; `null` é uma linha escrita antes desta fase (nenhuma
+  // tentativa), e cai direto para a checagem de idade abaixo, como se a coluna não existisse.
+  if (ultimaExecucao.fotosDestinoExternoOk === false) {
+    return {
+      status: "erro",
+      http: 503,
+      motivo: "A cópia externa das fotos dos orçamentos falhou na última execução.",
       ultimoBackupEm,
       idadeEmHoras,
     };

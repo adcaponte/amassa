@@ -6,6 +6,15 @@ acesso restrito, com as contas de gestor criadas, e o backup diário rodando soz
 fora do servidor e vigiado por um monitor externo. A segunda metade (passos 11 a 14) é a razão de
 tudo isso existir: o dia em que você precisa restaurar um banco de verdade.
 
+> **Fase 04.5 estendeu o backup diário e a restauração para cobrirem também as fotos de
+> orçamento** (D-28/ORC-16): `scripts/backup.sh` copia o diretório de fotos na MESMA execução do
+> dump, `scripts/restaurar.sh` traz as fotos de volta do destino externo, e
+> `/api/health/backup` passa a reprovar quando só a cópia das fotos falha. O roteiro que cria o
+> diretório e a permissão no servidor é o **Roteiro 12**
+> (`docs/operacao/12-fotos-volume-e-backup.md`), rodado junto da migração da fase (Roteiro 13) —
+> depois disso, os passos 8 e 12 abaixo passam a cobrir fotos também, sem nenhuma mudança de
+> comando.
+
 **Como ler cada passo:** o mesmo formato dos dois roteiros anteriores — cada bloco de comando vem
 acompanhado de **o que faz** e **o que você deve ver** de volta. Se a tela divergir muito do
 descrito, pare naquele passo e não siga para o próximo — é assim que um problema fica localizável
@@ -588,6 +597,11 @@ curl.exe https://amassacerrado.com.br/api/health/backup
 `{"status":"ok","motivo":null,"ultimoBackupEm":"...","idadeEmHoras":0...}` — o campo `status` é o
 que importa aqui.
 
+> **Se o Roteiro 12 (fotos) já rodou neste servidor**, a linha de `execucoes_backup` também
+> ganha `fotos_bytes` e `fotos_destino_externo_ok` — confira com o mesmo `select` do item 3
+> acima, acrescentando as duas colunas. Antes do Roteiro 12, as duas ficam nulas, e isso é
+> esperado (nenhuma tentativa registrada ainda), não uma falha.
+
 ---
 
 ## 9. Agendar
@@ -988,6 +1002,14 @@ precisam bater exatamente com as do banco temporário — essa é a prova que D-
 > Se `usuarios` ou `verificacao_infraestrutura` discordarem, aí sim pare e investigue: ou o dump
 > está incompleto, ou a restauração não foi até o fim.
 
+> **Fotos de orçamento (depois do Roteiro 12):** `scripts/restaurar.sh` também tenta trazer as
+> fotos de volta de `RCLONE_REMOTE_FOTOS` para `BACKUP_FOTOS_DIR` — a saída mostra quantos
+> arquivos voltaram, ou um aviso claro se o destino externo não tiver a pasta. Isso não afeta o
+> ensaio acima (as tabelas continuam sendo comparadas do mesmo jeito): restaurar o banco sem as
+> fotos é um estado válido — o orçamento continua íntegro, só a referência de foto fica sem o
+> arquivo até esse passo funcionar. Ver a seção "Restaurar as fotos" de
+> `docs/operacao/12-fotos-volume-e-backup.md`.
+
 Derrube e apague tudo o que este ensaio criou:
 
 ```bash
@@ -1098,6 +1120,11 @@ segunda linha no `crontab -e` do passo 9, custo zero, derruba a perda máxima de
   máquina, com a conta do Drive do ateliê.
 - **"Como eu sei qual dump usar?"** O mais recente que passa no teste de integridade (`gzip -t`).
   Prefira sempre o do dia mais próximo da falha — é o passo 2 da seção 13.
+- **"A rota de saúde do backup ficou vermelha citando as fotos, o que eu faço?"** (só depois do
+  Roteiro 12) O dump do Postgres está bem — só a cópia externa das fotos falhou. Confira a
+  seção 8 de `docs/operacao/12-fotos-volume-e-backup.md` ("O que fazer se der errado"): os três
+  motivos mais prováveis são permissão do diretório do host, autorização do `rclone` expirada, ou
+  o diretório de fotos não existir mais no host.
 
 ---
 

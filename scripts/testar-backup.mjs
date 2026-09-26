@@ -26,6 +26,15 @@ const BACKUP_DIR_CONTAINER = "/tmp/amassa-backups";
 const BACKUP_DIR_MENSAL_CONTAINER = `${BACKUP_DIR_CONTAINER}/mensais`;
 const DESTINO_EXTERNO_CONTAINER = "/tmp/amassa-destino-externo";
 
+// Fase 04.5 (D-28/ORC-16): as fotos de orçamento. Um script de mentira (não `cp`, que não sabe
+// copiar diretório sem `-r`) faz o papel de BACKUP_ENVIO_CMD aqui — ele registra com QUE
+// argumentos foi chamado e pode ser instruído a falhar por variável de ambiente
+// (ENVIO_FOTOS_DEVE_FALHAR), sem precisar de `rclone` de verdade dentro do contêiner.
+const FOTOS_DIR_CONTAINER = "/tmp/amassa-fotos-orcamentos";
+const FOTOS_DESTINO_EXTERNO_CONTAINER = "/tmp/amassa-fotos-destino-externo";
+const ENVIO_FOTOS_FAKE_SCRIPT_CONTAINER = `${SCRIPTS_DIR_CONTAINER}/envio-fotos-fake.sh`;
+const ENVIO_FOTOS_LOG_CONTAINER = "/tmp/amassa-envio-fotos-chamadas.log";
+
 const EMAIL_CONHECIDO = "backup-teste-plano-07@exemplo.test";
 const NOME_CONHECIDO = "Usuária Conhecida do Teste de Backup";
 const NOTA_CONHECIDA = "linha conhecida para prova de restauração — plano 07";
@@ -187,14 +196,15 @@ const PADRAO_ARQUIVO_SOB_DEMANDA = /^amassa-\d{4}-\d{2}-\d{2}-\d{4}\.sql\.gz$/;
 
 async function ultimaExecucaoRegistrada(cliente) {
   const { rows } = await cliente.query(
-    "select sucesso, bytes, destino_externo_ok, mensagem from execucoes_backup order by quando desc limit 1",
+    "select sucesso, bytes, destino_externo_ok, mensagem, fotos_bytes, fotos_destino_externo_ok " +
+      "from execucoes_backup order by quando desc limit 1",
   );
   return rows[0];
 }
 
 // --- Etapa 1: banco migrado, com as duas linhas conhecidas que provam a volta. ---
 async function etapa1_prepararBancoELinhasConhecidas(cliente) {
-  console.log("Etapa 1/8: migrando o banco de teste e inserindo linhas conhecidas...");
+  console.log("Etapa 1/10: migrando o banco de teste e inserindo linhas conhecidas...");
   rodarNpm("npm", ["run", "db:migrate"], {
     env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
   });
@@ -219,6 +229,41 @@ async function etapa1_prepararBancoELinhasConhecidas(cliente) {
   );
 }
 
+// --- Instala, dentro do contêiner, o script de mentira que faz o papel de BACKUP_ENVIO_CMD
+// para as fotos: registra com que argumentos foi chamado (para provar que backup.sh de fato
+// invoca o envio também para o diretório de fotos) e falha sob comando
+// (ENVIO_FOTOS_DEVE_FALHAR=1), sem depender de `rclone` real dentro do contêiner de teste. ---
+function instalarEnvioDeFotosFake() {
+  const script = [
+    "#!/bin/sh",
+    `echo "$@" >> "${ENVIO_FOTOS_LOG_CONTAINER}"`,
+    'if [ "${ENVIO_FOTOS_DEVE_FALHAR:-0}" = "1" ]; then',
+    '  echo "falha simulada no envio das fotos" >&2',
+    "  exit 1",
+    "fi",
+    "exit 0",
+  ].join("\n");
+  dockerExecComCodigo(["mkdir", "-p", SCRIPTS_DIR_CONTAINER]);
+  dockerExecComCodigo([
+    "sh",
+    "-c",
+    `cat > "${ENVIO_FOTOS_FAKE_SCRIPT_CONTAINER}" <<'SCRIPT_DE_ENVIO_FAKE'\n${script}\nSCRIPT_DE_ENVIO_FAKE\nchmod +x "${ENVIO_FOTOS_FAKE_SCRIPT_CONTAINER}"`,
+  ]);
+}
+
+// Duas fotos falsas, com tamanho FIXO (1000 e 2000 bytes, via `dd`, sem depender de `seq`) —
+// soma esperada: 3000. Nenhum conteúdo de imagem de verdade é necessário (o script de backup
+// só soma bytes e chama o comando de envio; nunca abre o arquivo).
+function criarDuasFotosFalsas() {
+  dockerExecComCodigo(["mkdir", "-p", FOTOS_DIR_CONTAINER]);
+  dockerExecComCodigo([
+    "sh",
+    "-c",
+    `dd if=/dev/zero of="${FOTOS_DIR_CONTAINER}/foto-um.jpg" bs=1000 count=1 2>/dev/null && ` +
+      `dd if=/dev/zero of="${FOTOS_DIR_CONTAINER}/foto-dois.jpg" bs=2000 count=1 2>/dev/null`,
+  ]);
+}
+
 // --- Copia os dois scripts para dentro do contêiner (docker cp, nunca volume). ---
 function copiarScriptsParaOContainer() {
   console.log("Copiando scripts/backup.sh e scripts/restaurar.sh para dentro do contêiner...");
@@ -235,7 +280,7 @@ function copiarScriptsParaOContainer() {
 
 // --- Etapa 2: backup do dia. ---
 async function etapa2_backupDoDia(cliente) {
-  console.log("Etapa 2/8: backup do dia (sem destino externo configurado)...");
+  console.log("Etapa 2/10: backup do dia (sem destino externo configurado)...");
   const { codigo, saida } = rodarBackup([]);
   afirmar(codigo === 0, `Etapa 2: scripts/backup.sh saiu com código ${codigo}, esperava 0.\n${saida}`);
 
@@ -261,12 +306,24 @@ async function etapa2_backupDoDia(cliente) {
     "Etapa 2: execucoes_backup.destino_externo_ok deveria ser false sem destino configurado " +
       `(sucesso silencioso nunca é aceitável) — veio ${ultima.destino_externo_ok}.`,
   );
+  // Fase 04.5 (D-28): diretório de fotos inexistente (BACKUP_FOTOS_DIR não configurado nesta
+  // etapa) NÃO é falha — fotos_bytes vem 0, e sem destino configurado fotos_destino_externo_ok
+  // vem false, nunca nulo (esta é uma execução NOVA).
+  afirmar(
+    Number(ultima.fotos_bytes) === 0,
+    `Etapa 2: execucoes_backup.fotos_bytes deveria ser 0 sem diretório de fotos, veio ${ultima.fotos_bytes}.`,
+  );
+  afirmar(
+    ultima.fotos_destino_externo_ok === false,
+    "Etapa 2: execucoes_backup.fotos_destino_externo_ok deveria ser false sem destino " +
+      `configurado, veio ${ultima.fotos_destino_externo_ok}.`,
+  );
   return diarios[0];
 }
 
 // --- Etapa 3: backup sob demanda (--agora) não sobrescreve o dump do dia. ---
 function etapa3_backupSobDemanda(arquivoDiario) {
-  console.log("Etapa 3/8: backup sob demanda (--agora)...");
+  console.log("Etapa 3/10: backup sob demanda (--agora)...");
   const { codigo, saida } = rodarBackup(["--agora"]);
   afirmar(codigo === 0, `Etapa 3: scripts/backup.sh --agora saiu com código ${codigo}, esperava 0.\n${saida}`);
 
@@ -285,7 +342,7 @@ function etapa3_backupSobDemanda(arquivoDiario) {
 
 // --- Etapa 4: rotação de 14 dias e retenção mensal (o par em sentidos opostos). ---
 function etapa4_rotacaoERetencaoMensal() {
-  console.log("Etapa 4/8: rotação de 14 dias e retenção mensal...");
+  console.log("Etapa 4/10: rotação de 14 dias e retenção mensal...");
   const antigoDiario = `${BACKUP_DIR_CONTAINER}/amassa-2000-01-01.sql.gz`;
   const antigoMensal = `${BACKUP_DIR_MENSAL_CONTAINER}/amassa-2000-01-01.sql.gz`;
 
@@ -331,7 +388,7 @@ function etapa4_rotacaoERetencaoMensal() {
 
 // --- Etapa 5: envio externo confirmado — o outro lado do par da etapa 2. ---
 async function etapa5_envioExternoConfirmado(cliente) {
-  console.log("Etapa 5/8: envio externo confirmado (rclone trocado por cp)...");
+  console.log("Etapa 5/10: envio externo confirmado (rclone trocado por cp)...");
   dockerExecComCodigo(["mkdir", "-p", DESTINO_EXTERNO_CONTAINER]);
   const { codigo, saida } = rodarBackup([], {
     BACKUP_ENVIO_CMD: "cp",
@@ -354,9 +411,77 @@ async function etapa5_envioExternoConfirmado(cliente) {
   );
 }
 
-// --- Etapa 6: apaga as linhas conhecidas antes de restaurar. ---
-async function etapa6_apagarLinhasConhecidas(cliente) {
-  console.log("Etapa 6/8: apagando as linhas conhecidas antes de restaurar...");
+// --- Etapa 6: fotos enviadas com sucesso — o backup.sh chama o envio TAMBÉM para o diretório
+// de fotos, grava fotos_bytes igual à soma dos dois arquivos falsos, e fotos_destino_externo_ok
+// verdadeiro. RCLONE_REMOTE (do dump) fica vazio de propósito, para isolar o que esta etapa
+// prova: o comportamento do passo de FOTOS, não do dump. ---
+async function etapa6_fotosEnviadasComSucesso(cliente) {
+  console.log("Etapa 6/10: fotos enviadas com sucesso (envio fake, sem rclone real)...");
+  instalarEnvioDeFotosFake();
+  criarDuasFotosFalsas();
+  dockerExecComCodigo(["sh", "-c", `rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
+
+  const { codigo, saida } = rodarBackup([], {
+    BACKUP_FOTOS_DIR: FOTOS_DIR_CONTAINER,
+    RCLONE_REMOTE_FOTOS: `${FOTOS_DESTINO_EXTERNO_CONTAINER}/`,
+    BACKUP_ENVIO_CMD: ENVIO_FOTOS_FAKE_SCRIPT_CONTAINER,
+    ENVIO_FOTOS_DEVE_FALHAR: "0",
+  });
+  afirmar(
+    codigo === 0,
+    `Etapa 6: scripts/backup.sh com fotos configuradas saiu com código ${codigo}, esperava 0.\n${saida}`,
+  );
+
+  const { saida: log } = dockerExecComCodigo(["sh", "-c", `cat "${ENVIO_FOTOS_LOG_CONTAINER}" 2>/dev/null`]);
+  afirmar(
+    log.includes(FOTOS_DIR_CONTAINER) && log.includes(FOTOS_DESTINO_EXTERNO_CONTAINER),
+    "Etapa 6: o script de envio fake não foi chamado com o diretório de fotos e o destino " +
+      `externo — backup.sh precisa chamar o envio TAMBÉM para as fotos. Log: "${log}".`,
+  );
+
+  const ultima = await ultimaExecucaoRegistrada(cliente);
+  afirmar(
+    Number(ultima.fotos_bytes) === 3000,
+    `Etapa 6: execucoes_backup.fotos_bytes deveria ser 3000 (soma dos dois arquivos falsos), veio ${ultima.fotos_bytes}.`,
+  );
+  afirmar(
+    ultima.fotos_destino_externo_ok === true,
+    `Etapa 6: execucoes_backup.fotos_destino_externo_ok deveria ser true, veio ${ultima.fotos_destino_externo_ok}.`,
+  );
+}
+
+// --- Etapa 7: envio de fotos falhando — grava false, sai diferente de zero, e a mensagem
+// registrada menciona as fotos (nunca sucesso silencioso, o mesmo princípio do dump). ---
+async function etapa7_fotosFalhamAoEnviar(cliente) {
+  console.log("Etapa 7/10: envio de fotos falhando registra false e sai diferente de zero...");
+  dockerExecComCodigo(["sh", "-c", `rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
+
+  const { codigo, saida } = rodarBackup([], {
+    BACKUP_FOTOS_DIR: FOTOS_DIR_CONTAINER,
+    RCLONE_REMOTE_FOTOS: `${FOTOS_DESTINO_EXTERNO_CONTAINER}/`,
+    BACKUP_ENVIO_CMD: ENVIO_FOTOS_FAKE_SCRIPT_CONTAINER,
+    ENVIO_FOTOS_DEVE_FALHAR: "1",
+  });
+  afirmar(
+    codigo !== 0,
+    "Etapa 7: scripts/backup.sh deveria sair diferente de zero quando o envio das fotos falha.\n" +
+      saida,
+  );
+
+  const ultima = await ultimaExecucaoRegistrada(cliente);
+  afirmar(
+    ultima.fotos_destino_externo_ok === false,
+    `Etapa 7: execucoes_backup.fotos_destino_externo_ok deveria ser false, veio ${ultima.fotos_destino_externo_ok}.`,
+  );
+  afirmar(
+    Boolean(ultima.mensagem) && /foto/i.test(ultima.mensagem),
+    `Etapa 7: a mensagem registrada deveria mencionar as fotos — veio "${ultima.mensagem}".`,
+  );
+}
+
+// --- Etapa 8: apaga as linhas conhecidas antes de restaurar. ---
+async function etapa8_apagarLinhasConhecidas(cliente) {
+  console.log("Etapa 8/10: apagando as linhas conhecidas antes de restaurar...");
   await cliente.query("delete from usuarios where email = $1", [EMAIL_CONHECIDO]);
   await cliente.query("delete from verificacao_infraestrutura where nota = $1", [NOTA_CONHECIDA]);
 
@@ -369,13 +494,13 @@ async function etapa6_apagarLinhasConhecidas(cliente) {
   );
   afirmar(
     Number(usuariosRows[0].count) === 0 && Number(infraRows[0].count) === 0,
-    "Etapa 6: as linhas conhecidas deveriam ter sumido depois do delete.",
+    "Etapa 8: as linhas conhecidas deveriam ter sumido depois do delete.",
   );
 }
 
-// --- Etapa 7: restauração recusada sem confirmação — nada escrito. ---
-async function etapa7_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRestaurar) {
-  console.log("Etapa 7/8: restauração sem --confirmar deve recusar e não escrever nada...");
+// --- Etapa 9: restauração recusada sem confirmação — nada escrito. ---
+async function etapa9_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRestaurar) {
+  console.log("Etapa 9/10: restauração sem --confirmar deve recusar e não escrever nada...");
   const { codigo, saida } = rodarRestaurar([
     "--arquivo",
     `${BACKUP_DIR_CONTAINER}/${arquivoParaRestaurar}`,
@@ -384,7 +509,7 @@ async function etapa7_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRest
   ]);
   afirmar(
     codigo !== 0,
-    "Etapa 7: scripts/restaurar.sh sem --confirmar deveria sair diferente de zero.\n" + saida,
+    "Etapa 9: scripts/restaurar.sh sem --confirmar deveria sair diferente de zero.\n" + saida,
   );
 
   const { rows: usuariosRows } = await cliente.query("select count(*) from usuarios where email = $1", [
@@ -392,13 +517,13 @@ async function etapa7_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRest
   ]);
   afirmar(
     Number(usuariosRows[0].count) === 0,
-    "Etapa 7: a restauração sem --confirmar escreveu no banco — isso nunca pode acontecer.",
+    "Etapa 9: a restauração sem --confirmar escreveu no banco — isso nunca pode acontecer.",
   );
 }
 
-// --- Etapa 8: restauração aceita com confirmação — os dados voltam, campo a campo. ---
-async function etapa8_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestaurar) {
-  console.log("Etapa 8/8: restauração com --confirmar deve devolver os dados...");
+// --- Etapa 10: restauração aceita com confirmação — os dados voltam, campo a campo. ---
+async function etapa10_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestaurar) {
+  console.log("Etapa 10/10: restauração com --confirmar deve devolver os dados...");
   const { codigo, saida } = rodarRestaurar([
     "--arquivo",
     `${BACKUP_DIR_CONTAINER}/${arquivoParaRestaurar}`,
@@ -406,10 +531,10 @@ async function etapa8_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestau
     BANCO,
     "--confirmar",
   ]);
-  afirmar(codigo === 0, `Etapa 8: scripts/restaurar.sh --confirmar saiu com código ${codigo}, esperava 0.\n${saida}`);
+  afirmar(codigo === 0, `Etapa 10: scripts/restaurar.sh --confirmar saiu com código ${codigo}, esperava 0.\n${saida}`);
   afirmar(
     saida.includes("usuarios") && /linha\(s\)/.test(saida),
-    "Etapa 8: a saída da restauração deveria listar tabela e contagem de linhas.",
+    "Etapa 10: a saída da restauração deveria listar tabela e contagem de linhas.",
   );
 
   const { rows: usuariosRows } = await cliente.query(
@@ -418,7 +543,7 @@ async function etapa8_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestau
   );
   afirmar(
     usuariosRows.length === 1 && usuariosRows[0].nome === NOME_CONHECIDO,
-    "Etapa 8: a linha conhecida de usuarios não voltou com o mesmo conteúdo depois da restauração.",
+    "Etapa 10: a linha conhecida de usuarios não voltou com o mesmo conteúdo depois da restauração.",
   );
 
   const { rows: infraRows } = await cliente.query(
@@ -427,7 +552,7 @@ async function etapa8_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestau
   );
   afirmar(
     infraRows.length === 1,
-    "Etapa 8: a linha conhecida de verificacao_infraestrutura não voltou depois da restauração.",
+    "Etapa 10: a linha conhecida de verificacao_infraestrutura não voltou depois da restauração.",
   );
 }
 
@@ -442,21 +567,23 @@ async function conferirTudo() {
     etapa3_backupSobDemanda(arquivoDiario);
     etapa4_rotacaoERetencaoMensal();
     await etapa5_envioExternoConfirmado(cliente);
+    await etapa6_fotosEnviadasComSucesso(cliente);
+    await etapa7_fotosFalhamAoEnviar(cliente);
 
-    // O dump usado na volta é o mesmo arquivo diário — nenhuma das etapas 3 a 5 apaga as linhas
-    // conhecidas, só a Etapa 6 apaga, então o dump mais recente do dia ainda contém os dados.
-    await etapa6_apagarLinhasConhecidas(cliente);
-    await etapa7_restauracaoRecusadaSemConfirmacao(cliente, arquivoDiario);
-    await etapa8_restauracaoAceitaComConfirmacao(cliente, arquivoDiario);
+    // O dump usado na volta é o mesmo arquivo diário — nenhuma das etapas 3 a 7 apaga as linhas
+    // conhecidas, só a Etapa 8 apaga, então o dump mais recente do dia ainda contém os dados.
+    await etapa8_apagarLinhasConhecidas(cliente);
+    await etapa9_restauracaoRecusadaSemConfirmacao(cliente, arquivoDiario);
+    await etapa10_restauracaoAceitaComConfirmacao(cliente, arquivoDiario);
   } finally {
-    // Etapa 8 devolve de propósito as duas linhas conhecidas (é a prova de que a restauração
+    // Etapa 10 devolve de propósito as duas linhas conhecidas (é a prova de que a restauração
     // funcionou) — sem esta limpeza elas ficariam no banco `postgres_teste` compartilhado que
     // entrega.yml reaproveita logo em seguida para a suíte Playwright (mesmo contêiner de
     // serviço em CI: test:migracoes -> test:backup -> e2e). scripts/testar-migracoes.mjs já
     // evita essa armadilha de isolamento apagando tudo que insere; este script fazia o mesmo
-    // nas Etapas 1-7 (ver etapa6_apagarLinhasConhecidas), só a Etapa 8 ficava de fora (WR-04 da
+    // nas Etapas 1-9 (ver etapa8_apagarLinhasConhecidas), só a Etapa 10 ficava de fora (WR-04 da
     // revisão de 02a-08). `delete` aqui é seguro mesmo se as linhas nunca chegaram a existir (0
-    // linhas afetadas) ou se uma etapa anterior lançou antes de chegar na Etapa 8.
+    // linhas afetadas) ou se uma etapa anterior lançou antes de chegar na Etapa 10.
     await cliente.query("delete from usuarios where email = $1", [EMAIL_CONHECIDO]).catch(() => {});
     await cliente
       .query("delete from verificacao_infraestrutura where nota = $1", [NOTA_CONHECIDA])

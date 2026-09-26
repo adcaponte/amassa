@@ -20,15 +20,25 @@ export type RegistroBackup = {
   sucesso: boolean;
   destinoExternoOk: boolean;
   mensagem?: string | null;
+  // Fase 04.5 (D-28/ORC-16): opcional porque a maioria dos casos existentes não testa fotos —
+  // `undefined`/omitido grava nulo (linha "sem tentativa registrada", o mesmo que uma linha
+  // anterior à fase), nunca confundido com `false` (tentativa que falhou de verdade).
+  fotosDestinoExternoOk?: boolean | null;
 };
 
 export async function registrarBackup(registro: RegistroBackup): Promise<string> {
   return comCliente(async (cliente) => {
     const resultado = await cliente.query(
-      `insert into execucoes_backup (quando, sucesso, destino_externo_ok, mensagem)
-       values ($1, $2, $3, $4)
+      `insert into execucoes_backup (quando, sucesso, destino_externo_ok, mensagem, fotos_destino_externo_ok)
+       values ($1, $2, $3, $4, $5)
        returning id`,
-      [registro.quando, registro.sucesso, registro.destinoExternoOk, registro.mensagem ?? null],
+      [
+        registro.quando,
+        registro.sucesso,
+        registro.destinoExternoOk,
+        registro.mensagem ?? null,
+        registro.fotosDestinoExternoOk ?? null,
+      ],
     );
     return resultado.rows[0].id as string;
   });

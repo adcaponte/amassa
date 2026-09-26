@@ -99,6 +99,54 @@ test.describe("/api/health/backup", () => {
     }
   });
 
+  // Fase 04.5 (D-28/ORC-16): as fotos dos orçamentos entram na mesma linha de execução do
+  // backup — este describe prova que /api/health/backup passa a cobrir isso, sem tocar em
+  // nenhum caso existente acima.
+  test.describe("fotos", () => {
+    test("com o dump ok, mas a cópia externa das fotos falhou, a rota responde 503 citando as fotos, sem nenhum campo de bytes no corpo", async ({
+      request,
+    }) => {
+      const id = await registrarBackup({
+        quando: new Date(Date.now() - 1 * UMA_HORA_EM_MS),
+        sucesso: true,
+        destinoExternoOk: true,
+        fotosDestinoExternoOk: false,
+      });
+      try {
+        const resposta = await request.get("/api/health/backup");
+
+        expect(resposta.status()).toBe(503);
+        const corpo = await resposta.json();
+        expect(corpo.status).toBe("erro");
+        expect(corpo.motivo).toMatch(/fotos/i);
+        expect(JSON.stringify(corpo)).not.toMatch(/byte/i);
+      } finally {
+        await removerBackup(id);
+      }
+    });
+
+    test("com backup recente, cópia externa do dump confirmada e fotos NULAS (linha anterior à Fase 04.5), a rota responde 200 ok", async ({
+      request,
+    }) => {
+      const id = await registrarBackup({
+        quando: new Date(Date.now() - 1 * UMA_HORA_EM_MS),
+        sucesso: true,
+        destinoExternoOk: true,
+        fotosDestinoExternoOk: null,
+      });
+      try {
+        const resposta = await request.get("/api/health/backup");
+
+        expect(resposta.status()).toBe(200);
+        const corpo = await resposta.json();
+        expect(corpo.status).toBe("ok");
+        expect(JSON.stringify(corpo)).not.toMatch(/byte/i);
+      } finally {
+        await removerBackup(id);
+      }
+    });
+  });
+
   test("a rota responde sem nenhum cookie de sessão, pedida por um contexto novo, sem login", async ({
     browser,
   }) => {
