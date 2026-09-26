@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 21
+open_count: 22
 waived_count: 1
 fixed_count: 18
-total_count: 40
-last_updated: 2026-09-26T22:29:49.043Z
+total_count: 41
+last_updated: 2026-09-26T22:33:28.372Z
 ---
 
 # Broken Windows Ledger
@@ -55,6 +55,7 @@ last_updated: 2026-09-26T22:29:49.043Z
 | 38 | 04.5 | deviation | lib/orcamentos/acoes.ts |  | Acceptance script da Tarefa 2 (04.5-07-PLAN.md) procura 'function exigirRascunho'; a guarda real, reaproveitada do plano 06, chama-se travarOrcamentoRascunho (1 ocorrencia, 9 chamadores) — intent satisfeito, nome do script desatualizado | open |  | 2026-09-26T21:48:07.443Z |  |
 | 39 | 04.5 | deviation | components/amassa/orcamentos/escolher-peca.tsx |  | Acceptance script da Tarefa 3 (04.5-07-PLAN.md) acusa 'router.push\|router.refresh' em orcamentos/ — e um COMENTARIO (plano 06) explicando por que o componente NAO usa router.refresh(), nao uma chamada real; nenhum router. de verdade no modulo | open |  | 2026-09-26T21:48:07.985Z |  |
 | 40 | 04.5 | deviation | lib/orcamentos/acoes.ts |  | Acceptance script da Tarefa 2 (04.5-08-PLAN.md, checagem 'for update' via new RegExp com barras invertidas quadruplas) quebra ao atravessar plano->bash->JS->RegExp: o padrao vira [sS]*?\\n} (nunca casa nada), confirmado testando contra acrescentarLinha (funcao correta desde o plano 06). Reescrevendo o mesmo regex sem a camada extra de escape, as quatro transicoes (marcarComoEnviado/recusarOrcamento/voltarParaRascunho/duplicarOrcamento) confirmam for update antes do fechamento -- intent satisfeito, escape do script quebrado | open |  | 2026-09-26T22:29:11.144Z |  |
+| 41 | 04.5-financeiro-parte-2 | unrun-verify | tests/e2e/orcamentos-ciclo.spec.ts | 161 | D-21 diz que, depois de congelado, mudar um PARAMETRO OU UMA FICHA nao altera o orcamento. O teste (3) prova a metade do parametro, e prova bem: congela, muda um parametro dedicado, e total/minimo/painel inteiro continuam byte a byte iguais — com o caso de controle (um rascunho novo com a mesma receita ja usa o valor novo), que descarta o falso positivo de 'nada recalcula'. A metade da FICHA nao tem teste. Argumento estrutural a favor, conferido pelo orquestrador: existe o invariante de banco (status='rascunho') = (snapshot is null), e lerDoSnapshot e a UNICA porta de leitura dos numeros congelados — entao uma mudanca de ficha atravessaria exatamente a mesma porta que o teste do parametro ja exercita. Isso e argumento, nao prova. Fechar com um teste que edita a ficha de uma peca ja usada num orcamento enviado, ou conferir a mao na verificacao humana. | open |  | 2026-09-26T22:33:28.372Z |  |
 
 ````json
 [
@@ -536,6 +537,18 @@ last_updated: 2026-09-26T22:29:49.043Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-26T22:29:11.144Z",
+    "resolved_at": null
+  },
+  {
+    "id": 41,
+    "kind": "unrun-verify",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-ciclo.spec.ts",
+    "line": 161,
+    "description": "D-21 diz que, depois de congelado, mudar um PARAMETRO OU UMA FICHA nao altera o orcamento. O teste (3) prova a metade do parametro, e prova bem: congela, muda um parametro dedicado, e total/minimo/painel inteiro continuam byte a byte iguais — com o caso de controle (um rascunho novo com a mesma receita ja usa o valor novo), que descarta o falso positivo de 'nada recalcula'. A metade da FICHA nao tem teste. Argumento estrutural a favor, conferido pelo orquestrador: existe o invariante de banco (status='rascunho') = (snapshot is null), e lerDoSnapshot e a UNICA porta de leitura dos numeros congelados — entao uma mudanca de ficha atravessaria exatamente a mesma porta que o teste do parametro ja exercita. Isso e argumento, nao prova. Fechar com um teste que edita a ficha de uma peca ja usada num orcamento enviado, ou conferir a mao na verificacao humana.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-26T22:33:28.372Z",
     "resolved_at": null
   }
 ]
