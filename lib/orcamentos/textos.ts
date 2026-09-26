@@ -181,3 +181,58 @@ export const FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS =
 export const FRASE_PLANO_INVALIDO = "Escolha uma das formas de pagamento da lista.";
 export const FRASE_SINAL_INVALIDO = 'O "Sinal (%)" precisa ser um número inteiro entre 1 e 100.';
 export const FRASE_OBSERVACOES_MUITO_LONGAS = "As observações passam de 300 letras — encurte.";
+
+// ---------------------------------------------------------------------------------------------
+// O ciclo de vida do orçamento (04.5-08-PLAN.md) — congelar, recusar, reabrir, duplicar
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_VER_COMO_CLIENTE_VE = "Ver como o cliente vê";
+export const ROTULO_MARCAR_COMO_ENVIADO = "Marcar como enviado";
+export const ROTULO_CLIENTE_APROVOU = "Cliente aprovou";
+export const ROTULO_RECUSOU = "Recusou";
+export const ROTULO_ATUALIZAR_PRECOS = "Atualizar preços";
+export const ROTULO_ATUALIZAR_PRECOS_E_REABRIR = "Atualizar preços e reabrir";
+export const ROTULO_VOLTAR_PARA_RASCUNHO = "Voltar para rascunho";
+export const ROTULO_DUPLICAR = "Duplicar";
+
+// "Para enviar, falta o cliente e ao menos uma peça." (04.5-UI-SPEC.md §Copywriting, verbatim) —
+// usada nos dois lados: na tela, sob o botão desabilitado; no servidor, como recusa de
+// `marcarComoEnviado` se a tela for contornada.
+export const FRASE_FALTA_CLIENTE_E_PECA = "Para enviar, falta o cliente e ao menos uma peça.";
+
+// Frase herdada do protótipo (`telaEditor`, bloco do status aprovado), verbatim.
+export const FRASE_APROVADO_EXPLICACAO =
+  "Orçamento aprovado fica travado, porque já virou venda. Para refazer com preços novos, use Duplicar: nasce um rascunho com as mesmas peças.";
+
+// As três ações que ainda não existem nesta fase (chegam nos planos 09/11/12) — o botão existe,
+// desabilitado, com uma nota curta explicando o motivo em vez de um controle morto sem explicação.
+export const NOTA_VER_CLIENTE_EM_BREVE = "A visualização para o cliente chega em breve.";
+export const NOTA_ATUALIZAR_PRECOS_EM_BREVE = "Atualizar preços chega em breve.";
+export const NOTA_CLIENTE_APROVOU_EM_BREVE = "Registrar a aprovação do cliente chega em breve.";
+
+export const TOAST_ORCAMENTO_ENVIADO = "Marcado como enviado. Preços e custos ficaram congelados.";
+export const TOAST_ORCAMENTO_REABERTO = "Voltou para rascunho. O cálculo usa os parâmetros de hoje.";
+// Sem copy própria no protótipo/UI-SPEC para a recusa — decisão do executor (ver SUMMARY, "Decidido
+// sem o dono"), seguindo o mesmo tom dos demais toasts de transição.
+export const TOAST_ORCAMENTO_RECUSADO = "Marcado como recusado.";
+
+export function textoOrcamentoDuplicado(numero: string): string {
+  return `Cópia criada como rascunho nº ${numero}.`;
+}
+
+// "Calculado com os parâmetros de {data}. Mudar parâmetros depois não altera este orçamento."
+// (04.5-UI-SPEC.md §Copywriting, verbatim) — `dataFormatada` já vem pronta de quem chama
+// (`formatarDataCurta`, lib/financeiro/formato.ts).
+export function textoAvisoCongelado(dataFormatada: string): string {
+  return `Calculado com os parâmetros de ${dataFormatada}. Mudar parâmetros depois não altera este orçamento.`;
+}
+
+// Recusa das quatro transições (`lib/orcamentos/acoes.ts`) quando o status atual não permite —
+// nenhuma delas confia no status que a tela mandou.
+export const FRASE_ORCAMENTO_APROVADO_USE_DUPLICAR =
+  'Este orçamento está aprovado e não aceita mais mudanças. Para refazer com preços novos, use "Duplicar".';
+export const FRASE_ORCAMENTO_NAO_ENVIADO_PARA_RECUSAR =
+  "Este orçamento não está enviado — não há como recusar.";
+export const FRASE_ORCAMENTO_JA_E_RASCUNHO = "Este orçamento já é um rascunho.";
+export const FRASE_PARAMETROS_INDISPONIVEIS_PARA_CONGELAR =
+  "Não deu para calcular os parâmetros de hoje. Confira Parâmetros em Cadastros e tente de novo.";

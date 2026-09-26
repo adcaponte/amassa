@@ -102,6 +102,11 @@ export type OrcamentoParaEdicao = {
   sinalPercentual: number;
   freteCentavos: number;
   observacoes: string | null;
+  // O congelamento (04.5-08-PLAN.md, D-21) — `unknown` de propósito: só `lerDoSnapshot`
+  // (lib/orcamentos/snapshot.ts) sabe interpretar esta coluna, e só quando `status !== "rascunho"`
+  // (o invariante de banco `(status='rascunho') = (snapshot is null)` garante que aqui nunca é
+  // `null` fora de rascunho).
+  snapshot: unknown;
   linhas: LinhaDoOrcamentoParaEdicao[];
   custosDeProjeto: CustoDeProjetoDoOrcamento[];
 };
@@ -126,6 +131,7 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
       sinalPercentual: orcamentos.sinalPercentual,
       freteCentavos: orcamentos.freteCentavos,
       observacoes: orcamentos.observacoes,
+      snapshot: orcamentos.snapshot,
     })
     .from(orcamentos)
     .where(eq(orcamentos.id, id))

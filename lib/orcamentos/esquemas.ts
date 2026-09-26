@@ -315,3 +315,21 @@ export const esquemaObservacoes = z
   });
 
 export type EntradaDeObservacoes = z.infer<typeof esquemaObservacoes>;
+
+// ---------------------------------------------------------------------------------------------
+// O ciclo de vida do orçamento (04.5-08-PLAN.md, Tarefa 2) — as quatro transições. Cada uma só
+// precisa do id: nenhuma aceita dado adicional do cliente — o servidor decide tudo (status atual,
+// snapshot, número novo) dentro da própria transação, com a linha travada.
+// ---------------------------------------------------------------------------------------------
+
+export const esquemaMarcarComoEnviado = z.object({ id: esquemaId });
+export type EntradaDeMarcarComoEnviado = z.infer<typeof esquemaMarcarComoEnviado>;
+
+export const esquemaRecusarOrcamento = z.object({ id: esquemaId });
+export type EntradaDeRecusarOrcamento = z.infer<typeof esquemaRecusarOrcamento>;
+
+export const esquemaVoltarParaRascunho = z.object({ id: esquemaId });
+export type EntradaDeVoltarParaRascunho = z.infer<typeof esquemaVoltarParaRascunho>;
+
+export const esquemaDuplicarOrcamento = z.object({ id: esquemaId });
+export type EntradaDeDuplicarOrcamento = z.infer<typeof esquemaDuplicarOrcamento>;
