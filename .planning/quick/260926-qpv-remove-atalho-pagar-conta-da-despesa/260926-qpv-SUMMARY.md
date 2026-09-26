@@ -21,9 +21,9 @@ affects: [04.4-financeiro-parte-1 (a fase já estava fechando; esta mudança é 
   pelo dono depois de usar o módulo no celular)]
 
 actuals:
-  tokens: 12500
+  tokens: 13200
   tasks: 3
-  commits: 2
+  commits: 3
 
 tech-stack:
   added: []
@@ -43,6 +43,7 @@ key-files:
   modified:
     - components/amassa/financeiro/painel-despesa.tsx
     - lib/financeiro/textos.ts
+    - lib/financeiro/acoes.ts
     - tests/e2e/financeiro-despesa.spec.ts
     - .planning/phases/04.4-financeiro-parte-1/BRIEFING.md
     - .planning/REQUIREMENTS.md
@@ -62,6 +63,13 @@ key-decisions:
     NOTAS datadas por cima da frase original que descrevia 'três caminhos' — a frase original não
     foi apagada, preservando o histórico da decisão de 19/09/2026 (briefing) e 2026-09-20
     (resposta do dono documentada em FNC-06)."
+  - "Passe de revisão adicional (pedido do coordenador, depois da Tarefa 3): três comentários de
+    código ainda descreviam o atalho no PRESENTE, como se existisse —
+    lib/financeiro/acoes.ts:257-258, lib/financeiro/textos.ts:86-88 e
+    components/amassa/financeiro/painel-despesa.tsx:540-543. Reescritos no passado, citando a
+    remoção de 26/09/2026 e o caminho que passou a valer (Caixa → 'A pagar' → 'Paguei'), no mesmo
+    tom da nota já deixada em painel-despesa.tsx:99-102. `grep -rn \"conta que já existe\" lib
+    components app tests` confirmou que não sobrou nenhum outro comentário de código no presente."
 
 patterns-established: []
 
@@ -123,10 +131,11 @@ status: complete
 
 ## Performance
 
-- **Duration:** ~40min de execução autônoma (Tarefas 1-3, sem checkpoint)
+- **Duration:** ~50min de execução autônoma (Tarefas 1-3, sem checkpoint, mais ~10min de um passe
+  de revisão adicional pedido pelo coordenador)
 - **Completed:** 2026-09-26
-- **Tasks:** 3/3
-- **Files modified:** 7 (mais os 2 artefatos deste quick task e o STATE.md)
+- **Tasks:** 3/3 (mais 1 commit de correção pós-Tarefa-3)
+- **Files modified:** 8 (mais os 2 artefatos deste quick task e o STATE.md)
 
 ## Accomplishments
 
@@ -159,20 +168,40 @@ status: complete
   rastreabilidade não mudou, "Complete" continua valendo), `04.4-UI-SPEC.md` §Foco Visual
   Principal (a linha da Despesa) e `04.4-CONTEXT.md` §Phase Boundary (nota de bloco de citação
   logo abaixo da lista de módulos).
+- **Passe de revisão adicional (comentários de código alinhados ao passado):** o coordenador
+  apontou que três comentários ainda descreviam o atalho removido no PRESENTE, como se existisse
+  — risco real de enganar quem lesse o código depois. `grep -rn "conta que já existe" lib
+  components app tests` confirmou os três pontos exatos e nenhum outro fora do estado correto:
+  - `lib/financeiro/acoes.ts:257-258` (cabeçalho de `lancarDespesa`) — reescrito no passado, com a
+    data da remoção e o caminho que passou a valer.
+  - `lib/financeiro/textos.ts:86-88` (comentário de `ROTULO_GRUPO_MODO_DESPESA`) — reescrito no
+    passado, mesma disciplina.
+  - `components/amassa/financeiro/painel-despesa.tsx:540-543` (comentário acima do
+    `role="group"`) — já estava no passado ("foi REMOVIDO"), mas sem a consequência; acrescentada
+    a frase "Quem quer pagar uma conta que já existe vai por Caixa → 'A pagar' → 'Paguei'" para
+    igualar o tom da nota já existente em `painel-despesa.tsx:99-102`.
 
 ## Task Commits
 
 1. **Tarefa 1: remover o terceiro modo do componente, dos textos e dos testes e2e** — `366cfcd` (fix)
 2. **Tarefa 2: registrar a decisão datada do dono nos quatro documentos de planejamento** — `64f6b46` (docs)
+3. **Correção pós-Tarefa-3: alinhar três comentários de código que ainda descreviam o atalho no
+   presente** (pedido do coordenador) — commit registrado abaixo, junto com este SUMMARY
+   atualizado.
 
-Tarefa 3 (verificação completa + SUMMARY + STATE) é commitada separadamente (ver "Final commit"
-no fechamento desta sessão).
+Tarefa 3 original (verificação completa + SUMMARY + STATE) foi commitada em `2082e32`, antes deste
+passe adicional.
 
 ## Files Modified
 
 - `components/amassa/financeiro/painel-despesa.tsx` — terceiro modo removido (import, JSX,
-  comentários)
-- `lib/financeiro/textos.ts` — `ROTULO_PILULA_CONTA` removida
+  comentários); depois, o comentário do `role="group"` ganhou a consequência (Caixa → "A pagar" →
+  "Paguei")
+- `lib/financeiro/textos.ts` — `ROTULO_PILULA_CONTA` removida; depois, o comentário de
+  `ROTULO_GRUPO_MODO_DESPESA` reescrito no passado
+- `lib/financeiro/acoes.ts` — comentário de cabeçalho de `lancarDespesa` reescrito no passado, com
+  data e consequência (achado no passe de revisão adicional, não estava no escopo original das
+  Tarefas 1-3)
 - `tests/e2e/financeiro-despesa.spec.ts` — teste do atalho removido; teste do grupo renomeado e
   ajustado, cobertura preservada
 - `.planning/phases/04.4-financeiro-parte-1/BRIEFING.md` — nota datada em §1
@@ -192,9 +221,14 @@ padrão do plano 04.4-13):
 - `npm run test:e2e -- --grep "financeiro despesa|acessibilidade"` — **96 passed** (desktop +
   celular), incluindo a varredura axe-core em `/financeiro?aba=despesa` (rota específica da
   Despesa) e em todas as outras rotas do módulo.
-- `npm run verificar` (ao final, completo) — `lint` + `tsc --noEmit` + `verificar-acoes` (48
-  ações, 0 violações) + `npm test` (893 testes unitários) + `npm run test:migracoes` — tudo
-  verde. Nenhuma alteração de `db/schema.ts`; `TABELAS_ESPERADAS` não precisou de atualização.
+- `npm run verificar` (ao final da Tarefa 3, completo) — `lint` + `tsc --noEmit` +
+  `verificar-acoes` (48 ações, 0 violações) + `npm test` (893 testes unitários) +
+  `npm run test:migracoes` — tudo verde. Nenhuma alteração de `db/schema.ts`; `TABELAS_ESPERADAS`
+  não precisou de atualização.
+- `npm run verificar` (repetido depois do passe de comentários) — mesma bateria completa, tudo
+  verde de novo. Nenhum e2e novo rodado para este passe (mudança é só de comentário, sem
+  comportamento observável) — decisão explícita do coordenador ("não precisa de e2e, é só
+  comentário").
 
 **Total de invocações de `npm run test:e2e -- --grep`: 1** — dentro do orçamento (uma por tarefa).
 Nenhuma invocação sem `--grep`; nenhum `npm run build` separado (o `test:e2e` já constrói).
@@ -208,10 +242,19 @@ da frase original, sem reescrever a história da decisão de 19/09/2026.
 
 ## Deviations from Plan
 
-Nenhuma. O plano já previa exatamente esta remoção e este escopo — a confirmação de que o
-servidor não precisava de nenhuma mudança (feita ANTES de editar qualquer arquivo, lendo
+Nenhuma nas Tarefas 1-3. O plano já previa exatamente esta remoção e este escopo — a confirmação
+de que o servidor não precisava de nenhuma mudança (feita ANTES de editar qualquer arquivo, lendo
 `lib/financeiro/esquemas.ts`/`lib/financeiro/rascunho.ts`) confirmou a suposição do PLAN.md, sem
 surpresa.
+
+**Passe adicional pós-Tarefa-3 (fora do PLAN.md original):** o coordenador revisou o resultado e
+apontou que `lib/financeiro/acoes.ts:257-258`, `lib/financeiro/textos.ts:86-88` e
+`components/amassa/financeiro/painel-despesa.tsx:540-543` ainda descreviam o atalho removido no
+PRESENTE — um achado real de código morto em comentário que poderia enganar quem lesse depois
+(mesma classe de risco de "Rule 1 - Bug", aplicada aqui a comentário, não a comportamento). Os
+três foram reescritos no passado, com a data da remoção e o caminho que passou a valer, no mesmo
+tom da nota já correta em `painel-despesa.tsx:99-102`. `npm run verificar` completo rodou de novo,
+verde; nenhum e2e novo (mudança sem comportamento observável).
 
 ## Known Stubs
 
@@ -228,9 +271,10 @@ Nenhum bloqueante.
 
 ## Aguardando o dono
 
-Nenhum `git push` foi dado, e nenhum será dado sem o dono autorizar. Os 2 commits de código/docs
-desta tarefa (mais o commit de documentação a seguir) estão em `main`, local, sobre `bf0f809` (o
-último commit da tarefa rápida anterior, 260926-ijl).
+Nenhum `git push` foi dado, e nenhum será dado sem o dono autorizar. Os commits desta tarefa
+(fix `366cfcd`, docs `64f6b46`, docs `2082e32`, e o passe de alinhamento de comentários commitado
+junto com esta atualização do SUMMARY) estão em `main`, local, sobre `bf0f809` (o último commit da
+tarefa rápida anterior, 260926-ijl).
 
 ## User Setup Required
 
@@ -252,6 +296,11 @@ None — nenhuma configuração externa necessária.
 ## Self-Check: PASSED
 
 `components/amassa/financeiro/painel-despesa.tsx`, `lib/financeiro/textos.ts`,
-`tests/e2e/financeiro-despesa.spec.ts` e os quatro documentos de planejamento existem no disco com
-as mudanças descritas. Os commits `366cfcd` (fix) e `64f6b46` (docs) existem em
-`git log --oneline --all`.
+`lib/financeiro/acoes.ts`, `tests/e2e/financeiro-despesa.spec.ts` e os quatro documentos de
+planejamento existem no disco com as mudanças descritas. Os commits `366cfcd` (fix) e `64f6b46`
+(docs) existem em `git log --oneline --all`; o commit do passe de alinhamento de comentários
+(que inclui esta própria atualização do SUMMARY) foi feito logo em seguida — conferir
+`git log --oneline -1` para o hash exato. `grep -rn "conta que já existe" lib components app
+tests` não encontra mais nenhum comentário de código no presente sobre o atalho removido.
+`npm run verificar` (lint, `tsc --noEmit`, `verificar-acoes`, 893 testes unitários,
+`test:migracoes`) rodou verde depois deste passe.

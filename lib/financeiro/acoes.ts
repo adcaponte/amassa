@@ -254,12 +254,15 @@ export async function lancarVenda(
   }
 }
 
-// A Despesa (04.4-07-PLAN.md): compra de material · outra despesa (a terceira pílula, "pagar
-// conta que já existe", é só um link para `?aba=caixa` — nunca chega aqui). `exigirUsuario()` é a
-// PRIMEIRA instrução do corpo, mesma disciplina de `lancarVenda`. Compartilha `conferirParcelas`,
-// a checagem de data e o teto de centavos com a Venda; a diferença é só a validação de categoria
-// por grupo/estoque e a AUSÊNCIA TOTAL de taxa — despesa no cartão nunca congela
-// `taxaPontosBase`, mesmo quando a forma é "cartao" (BRIEFING/must_have desta plano).
+// A Despesa (04.4-07-PLAN.md): compra de material · outra despesa. A terceira pílula original,
+// "pagar conta que já existe" (um link para `?aba=caixa`, nunca chegava aqui), foi REMOVIDA em
+// 26/09/2026 por decisão do dono — pareceu inútil e grande no uso real no celular; quem quer
+// pagar uma conta que já existe vai por Caixa → "A pagar" → "Paguei" (ver BRIEFING.md §1).
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo, mesma disciplina de `lancarVenda`.
+// Compartilha `conferirParcelas`, a checagem de data e o teto de centavos com a Venda; a
+// diferença é só a validação de categoria por grupo/estoque e a AUSÊNCIA TOTAL de taxa — despesa
+// no cartão nunca congela `taxaPontosBase`, mesmo quando a forma é "cartao" (BRIEFING/must_have
+// desta plano).
 export async function lancarDespesa(
   entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<{ id: string; numero: number }>> {

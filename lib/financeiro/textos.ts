@@ -84,8 +84,10 @@ export const ROTULO_MINI_VENCE = "vence";
 export const ROTULO_MINI_VALOR = "valor";
 
 // Nome acessível do grupo das DUAS escolhas de verdade da Despesa (Compra de material / Outra
-// despesa) — distinto do atalho "Pagar conta que já existe", que SAI da tela e fica FORA deste
-// grupo (04.4-13-PLAN.md, Tarefa 3).
+// despesa) — no plano 04.4-13 (Tarefa 3), este grupo era distinto do atalho "Pagar conta que já
+// existe", que SAIA da tela e ficava FORA dele. O atalho foi REMOVIDO em 26/09/2026 por decisão
+// do dono (pareceu inútil e grande no uso real no celular); quem quer pagar uma conta que já
+// existe vai por Caixa → "A pagar" → "Paguei" (ver BRIEFING.md §1).
 export const ROTULO_GRUPO_MODO_DESPESA = "Tipo de despesa";
 
 export type TipoDeDocumentoParaTexto = "venda" | "despesa";

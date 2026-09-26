@@ -540,7 +540,9 @@ export function PainelDespesa({
         {/* As DUAS escolhas de verdade da tela (04.4-UI-SPEC.md §Foco Visual), agrupadas com
             nome acessível próprio, em duas colunas de largura igual no celular e na fila de
             sempre a partir de `md`. O atalho "Pagar conta que já existe" que ficava FORA deste
-            grupo foi REMOVIDO em 26/09/2026 (decisão do dono, ver comentário acima da função). */}
+            grupo foi REMOVIDO em 26/09/2026 por decisão do dono — pareceu inútil e grande no uso
+            real no celular (ver comentário acima da função). Quem quer pagar uma conta que já
+            existe vai por Caixa → "A pagar" → "Paguei". */}
         <div
           role="group"
           aria-label={ROTULO_GRUPO_MODO_DESPESA}
