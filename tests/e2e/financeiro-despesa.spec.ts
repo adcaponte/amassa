@@ -2,10 +2,12 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { semearItem } from "./apoio/semear-financeiro";
 
-// A Despesa com os três caminhos do protótipo (04.4-07-PLAN.md): compra de material · outra
-// despesa · pagar conta que já existe (leva ao Caixa) — os exemplos 2 (5 kg de pão de queijo) e 4
-// (ferramenta de cerâmica) de despesa do protótipo. Cada caso semeia os próprios itens com
-// sufixo único e usa a BUSCA para achá-los.
+// A Despesa com os dois caminhos reais (04.4-07-PLAN.md): compra de material · outra despesa —
+// os exemplos 2 (5 kg de pão de queijo) e 4 (ferramenta de cerâmica) de despesa do protótipo.
+// O terceiro caminho do protótipo original, "pagar conta que já existe" (link para o Caixa), foi
+// REMOVIDO em 26/09/2026 por decisão do dono (pareceu inútil e grande no uso real no celular) —
+// ver BRIEFING.md §1. Cada caso semeia os próprios itens com sufixo único e usa a BUSCA para
+// achá-los.
 
 async function fazerLogin(page: Page) {
   await page.goto("/login");
@@ -37,22 +39,21 @@ async function esperarDespesaLancada(page: Page) {
 const botaoLancar = (page: Page) => page.getByRole("button", { name: "Lançar despesa" });
 
 test.describe("financeiro despesa", () => {
-  test("a aba Despesa existe e abre nas três pílulas", async ({ page }) => {
+  test("a aba Despesa existe e abre nas duas pílulas", async ({ page }) => {
     await fazerLogin(page);
     await irParaDespesa(page);
     await expect(page.getByTestId("financeiro-aba-despesa")).toBeVisible();
     await expect(page.getByTestId("despesa-modo-compra")).toBeVisible();
     await expect(page.getByTestId("despesa-modo-outra")).toBeVisible();
-    await expect(page.getByTestId("despesa-modo-conta")).toBeVisible();
 
     // Ajuste fino (04.4-13-PLAN.md, Tarefa 3 — Considerações do dono, 26/09/2026): as duas
-    // escolhas de verdade ficam num grupo com nome acessível próprio, e o atalho que SAI da tela
-    // fica FORA desse grupo.
+    // escolhas de verdade ficam num grupo com nome acessível próprio (o terceiro caminho que
+    // ficava FORA desse grupo, "Pagar conta que já existe", foi removido em 26/09/2026 — ver
+    // BRIEFING.md §1).
     const grupo = page.getByRole("group", { name: "Tipo de despesa" });
     await expect(grupo).toBeVisible();
     await expect(grupo.getByTestId("despesa-modo-compra")).toBeVisible();
     await expect(grupo.getByTestId("despesa-modo-outra")).toBeVisible();
-    await expect(grupo.getByTestId("despesa-modo-conta")).toHaveCount(0);
   });
 
   test("exemplo 2 — 5 kg de pão de queijo por R$ 160: o que põe no estoque e o extrato", async ({ page }) => {
@@ -254,12 +255,5 @@ test.describe("financeiro despesa", () => {
     await expect(linhasDoExtrato.filter({ hasText: "Pix" })).toContainText("− R$ 100,00");
     await expect(linhasDoExtrato.filter({ hasText: "Dinheiro" })).toContainText("− R$ 50,00");
     await expect(linhasDoExtrato.first().getByTestId("extrato-taxa")).toHaveCount(0);
-  });
-
-  test("'Pagar conta que já existe' leva a ?aba=caixa", async ({ page }) => {
-    await fazerLogin(page);
-    await irParaDespesa(page);
-    await page.getByTestId("despesa-modo-conta").click();
-    await expect(page).toHaveURL(/\/financeiro\?aba=caixa$/);
   });
 });

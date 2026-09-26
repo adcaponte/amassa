@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 
 import { lancarDespesa } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaCompra } from "@/lib/financeiro/consultas";
@@ -33,7 +31,6 @@ import {
   ROTULO_LISTA_COMPLETA_E_ATALHOS,
   ROTULO_PARA_QUEM_OPCIONAL,
   ROTULO_PILULA_COMPRA,
-  ROTULO_PILULA_CONTA,
   ROTULO_PILULA_OUTRA,
   ROTULO_VALOR,
   TITULO_EFEITO_ESTOQUE_COMPRA,
@@ -93,13 +90,16 @@ export type PainelDespesaProps = {
   configuracao: { taxaCartaoPontosBase: number; dataSaldoInicial: string | null };
 };
 
-// O painel de Despesa completo (04.4-07-PLAN.md): as três pílulas (compra · outra · "pagar conta
-// que já existe", que é só um link para o Caixa), compra de material (busca, atalhos, "quantos"/
-// "custou ao todo", o efeito no estoque já aberto) e outra despesa (descrição, categoria, valor,
-// a dica do "Fora do resultado"). O MESMO `BlocoPagamento`/`lib/financeiro/parcelas.ts` da Venda
-// — nenhuma segunda regra de plano de parcelas. O rascunho vive numa chave PRÓPRIA
-// (`CHAVE_RASCUNHO_DESPESA`), com os dois modos guardados ao mesmo tempo (trocar de pílula não
-// perde o que foi digitado no outro).
+// O painel de Despesa completo (04.4-07-PLAN.md): as duas pílulas (compra · outra), compra de
+// material (busca, atalhos, "quantos"/"custou ao todo", o efeito no estoque já aberto) e outra
+// despesa (descrição, categoria, valor, a dica do "Fora do resultado"). O MESMO
+// `BlocoPagamento`/`lib/financeiro/parcelas.ts` da Venda — nenhuma segunda regra de plano de
+// parcelas. O rascunho vive numa chave PRÓPRIA (`CHAVE_RASCUNHO_DESPESA`), com os dois modos
+// guardados ao mesmo tempo (trocar de pílula não perde o que foi digitado no outro).
+// O terceiro caminho, "Pagar conta que já existe" (link para o Caixa), foi REMOVIDO em 26/09/2026
+// por decisão do dono — pareceu inútil e grande no uso real no celular (ver BRIEFING.md §1 e
+// 04.4-UI-SPEC.md §Foco Visual Principal para a nota completa). Quem quer pagar uma conta que já
+// existe vai por Caixa → "A pagar" → "Paguei".
 export function PainelDespesa({
   hoje,
   categoriasParaDespesa,
@@ -537,10 +537,10 @@ export function PainelDespesa({
           (26/09/2026): as pílulas nasciam encostadas na barra de navegação de cima; agora se
           ligam ao conteúdo que controlam, não a ela. */}
       <div className="flex flex-col gap-2 px-6 pt-4 pb-2 md:px-8">
-        {/* As DUAS escolhas de verdade da tela (04.4-UI-SPEC.md §Foco Visual) — agrupadas com
+        {/* As DUAS escolhas de verdade da tela (04.4-UI-SPEC.md §Foco Visual), agrupadas com
             nome acessível próprio, em duas colunas de largura igual no celular e na fila de
-            sempre a partir de `md`. O atalho "Pagar conta que já existe" fica FORA deste grupo:
-            ele SAI da tela, não é um modo a mais desta. */}
+            sempre a partir de `md`. O atalho "Pagar conta que já existe" que ficava FORA deste
+            grupo foi REMOVIDO em 26/09/2026 (decisão do dono, ver comentário acima da função). */}
         <div
           role="group"
           aria-label={ROTULO_GRUPO_MODO_DESPESA}
@@ -565,14 +565,6 @@ export function PainelDespesa({
             {ROTULO_PILULA_OUTRA}
           </button>
         </div>
-        <Link
-          href="/financeiro?aba=caixa"
-          data-testid="despesa-modo-conta"
-          className={cn(pilulaClasse(false), "inline-flex w-fit items-center gap-1")}
-        >
-          {ROTULO_PILULA_CONTA}
-          <ChevronRight aria-hidden="true" className="size-4" />
-        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-[1.15fr_1fr] md:px-8">

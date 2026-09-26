@@ -262,14 +262,16 @@ export function textoDespesaLancada(
   return `Despesa nº ${numero} lançada · ${totalFormatado}${sufixo}`;
 }
 
-// A Despesa (04.4-07-PLAN.md): as três pílulas do topo, os títulos dos dois modos e os rótulos
-// dos campos — o protótipo é a fonte literal de cada frase.
+// A Despesa (04.4-07-PLAN.md): as pílulas do topo, os títulos dos dois modos e os rótulos dos
+// campos — o protótipo é a fonte literal de cada frase. A terceira pílula original, "Pagar conta
+// que já existe" (link para o Caixa), foi REMOVIDA em 26/09/2026 por decisão do dono — pareceu
+// inútil e grande no uso real no celular (BRIEFING.md §1). Quem quer pagar uma conta que já
+// existe vai por Caixa → "A pagar" → "Paguei".
 export const ROTULO_LANCAR_DESPESA = "Lançar despesa";
 export const FRASE_VAZIO_DESPESA_COMPRA = "Toque nos materiais que chegaram.";
 
 export const ROTULO_PILULA_COMPRA = "Compra de material";
 export const ROTULO_PILULA_OUTRA = "Outra despesa";
-export const ROTULO_PILULA_CONTA = "Pagar conta que já existe";
 
 export const TITULO_O_QUE_CHEGOU = "O que chegou";
 export const TITULO_ESTA_COMPRA = "Esta compra";
