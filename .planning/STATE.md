@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase_name: Financeiro — parte 1
-status: complete
-stopped_at: "Fase 04.4 (Financeiro — parte 1) CONCLUIDA e verificada em 2026-09-26 (9/9 criterios + 17/17 FNC, 04.4-VERIFICATION.md). No ar, migracoes 0014-0016 aplicadas, conferida pelo dono no celular. Proximo: item 2 da fila em Claude outputs/FILA-DO-CODE.md — Financeiro parte 2 (Precificacao e Orcamento), so com o dono presente."
-last_updated: "2026-09-26T16:14:20.265Z"
+current_phase_name: Financeiro — parte 2
+status: in-progress
+stopped_at: "Fase 04.5 plano 01 (o tracador) concluido e verificado — schema, calculo puro, numeracao ORC-2026-001, aba Orcamentos no Financeiro. Proximo: plano 02."
+last_updated: "2026-09-26T17:10:21.136Z"
 progress:
   total_phases: 11
   completed_phases: 9
-  total_plans: 64
-  completed_plans: 64
-current_phase: 04.4
+  total_plans: 78
+  completed_plans: 65
+current_phase: 04.5
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 planejada: 13 planos, pesquisa, UI-SPEC e verificacao dos planos concluidos"
+last_activity_desc: "Fase 04.5 plano 01 (o tracador) executado: schema de precificacao/orcamento, lib/precificacao/ puro e testado, sequencial ORC-2026-001 seguro sob concorrencia, aba Orcamentos no Financeiro"
 ---
 
 # Project State
@@ -23,15 +23,25 @@ last_activity_desc: "Fase 04.5 planejada: 13 planos, pesquisa, UI-SPEC e verific
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: 13 planos prontos, nada executado; aguardando `/gsd-execute-phase 04.5` com o dono por perto
+**Current focus:** Fase 04.5 — Financeiro, parte 2: plano 01 (o traçador) executado e verificado; 12 planos restantes
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **PLANEJADA** em 2026-09-26.
-Plan: 13 planos escritos, 0 executados. Status: aguardando `/gsd-execute-phase 04.5`.
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 01 de 13
+concluído em 2026-09-26.
 
-**Nada foi executado.** Nenhum pacote instalado, nenhuma migração escrita, nenhum arquivo de código
-tocado. O que existe é planejamento.
+**Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
+semente ilustrativa) versionadas — **não aplicadas em produção**, ficam para o plano 13, depois de
+backup; `lib/precificacao/` puro e testado (parâmetros, forno, cálculo — divisor ≤ 0 recusa, nunca
+aplica piso; quantas cabem sai das medidas, nunca do volume); `lib/orcamentos/numero.ts`
+(`ORC-2026-001`, seguro sob concorrência real); a aba Orçamentos dentro do Financeiro, barra em
+duas fileiras (7 pílulas), casca vazia `/orcamentos` removida. `npm run verificar` limpo; e2e do
+traçador provado (uma falha de contenção de servidor sob 8 workers, confirmada flaky isolada —
+WINDOWS #35). Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-01-SUMMARY.md`.
+
+**Pendente para os planos 02-13:** a ficha de peça (D-18/D-19), o editor de orçamento com linhas
+de peça, `/cadastros/parametros` (D-03), a aba Peças (hoje só cabeçalho vazio), PDF, fotos, backup
+de arquivo e todo o ciclo de vida do orçamento (enviar/aprovar/revisar).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -58,22 +68,25 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
   3. Plano 11 — instalar `@react-pdf/renderer`. **O selo de legitimidade de pacote voltou SUS**; a
      pesquisa julgou falso-positivo (a métrica leu a data do último lançamento, não a idade do
      pacote — >5M downloads/semana, repositório desde 2017), mas quem aprova é ele.
+
   4. Plano 11 — versionar um arquivo TTF num **repositório público**: a licença tem que permitir.
   5. Plano 13 — Roteiros 12 e 13 em produção, depois de backup.
   6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
      contagem de planos.
 
-Duas coisas para ele olhar antes de virar código:
+Duas coisas para ele olhar:
 
-  - **A barra do Financeiro passa a ter sete abas** (Venda · Despesa · Caixa · Mês · Orçamentos ·
-    Peças · Cadastros) e o UI-SPEC resolveu com duas fileiras 4+3, desviando de propósito da regra
-    "flex-wrap nunca" da 04.4. É a única mudança da fase que ele sente antes de abrir tela nova.
-  - **D-25, os "vínculos nos dois sentidos":** o planejador os pôs uma vez só, em
-    `orcamentos.documento_id`/`encomenda_id`, sem coluna espelho no Financeiro (espelho criaria
-    chave circular e uma segunda verdade). As duas telas provam a navegação nos dois sentidos.
-    É interpretação de regra dele — vale conferir.
+  - **A barra do Financeiro já tem sete abas** (Venda · Despesa · Caixa · Mês · Orçamentos · Peças
+    · Cadastros), em duas fileiras 4+3 — **implementado no plano 01**, desviando de propósito da
+    regra "flex-wrap nunca" da 04.4. É a mudança que ele sente ao abrir `/financeiro` pela
+    primeira vez depois desta fase — vale ele olhar no celular de verdade.
 
-Não houve `git push`. Tudo em commits locais (`9bd48db` a `e9bf9a7`).
+  - **D-25, os "vínculos nos dois sentidos":** ainda não implementado (planos futuros da fase). O
+    planejador os pôs uma vez só, em `orcamentos.documento_id`/`encomenda_id`, sem coluna espelho
+    no Financeiro (espelho criaria chave circular e uma segunda verdade). As duas telas provam a
+    navegação nos dois sentidos. É interpretação de regra dele — vale conferir quando chegar.
+
+Não houve `git push`. Tudo em commits locais (`9bd48db` a `91c50b9`, plano 01 da 04.5 incluído).
 
 O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
 
@@ -94,7 +107,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 100% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [████████░░] 83% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -187,6 +200,7 @@ Progress: [██████████] 100% (64 de 64 planos da 04.4 executa
 | Phase 04.4 P11 | ~2h30min | 2 tasks | 6 files |
 | Phase 04.4 P12 | ~2h15min | 3 tasks | 19 files |
 | Phase 04.4 P13 | ~2h30min | 3 tasks | 22 files |
+| Phase 04.5 P01 | ~2h30min | 4 tasks | 32 files |
 
 ## Accumulated Context
 
@@ -383,6 +397,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-13: token unico --deslocamento-aviso deriva o deslocamento do toast da altura real da barra, lido pelas duas portas do sonner (offset/mobileOffset), trocando de valor no breakpoint md (768px) para cobrir a faixa 601-767px
 - [Phase ?]: 04.4-13: etiqueta do carrinho separa TEXTO por motivo - tabela R$ X so para preco editado, - R$ X de desconto para qualquer linha atingida pelo desconto (item comum, valor na hora, valor livre)
 - [Phase ?]: 04.4-13: filtrarExtrato soma sempre (tipo deixa de aceitar null); a politica de esconder a linha do total quando nao ha movimento passou para a tela
+- [Phase ?]: 04.5-01: os 18 nomes de chave de parametro (material_argila, forno_tarifa_energia, preco_lucro...) sao invencao desta execucao, estaveis entre schema.ts/CATALOGO_DE_PARAMETROS/semente 0019
 
 ### Pending Todos
 
@@ -455,6 +470,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T11:46:31.130Z
-Stopped at: 04.4-13: Tarefas 1-3 concluidas (aviso acima da barra, etiqueta de desconto, total em Todas, ajuste fino da grade/Despesa); parado na Tarefa 4, checkpoint do dono - ultima porta da Fase 04.4
+Last session: 2026-09-26T17:10:21.037Z
+Stopped at: Fase 04.5 plano 01 (o tracador) concluido e verificado — schema, calculo puro, numeracao ORC-2026-001, aba Orcamentos no Financeiro. Proximo: plano 02.
 Resume file: None
