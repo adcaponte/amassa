@@ -8,6 +8,12 @@ backups/
 *.sql.gz
 *.dump
 
+# Fotos de orçamento em desenvolvimento local (Fase 04.5, D-27) — o diretório padrão de
+# `lib/orcamentos/caminho-fotos.ts` quando `CAMINHO_FOTOS` não está definida (npm run dev, e2e
+# local). Em produção o caminho é outro (bind mount, docker/compose.yml); nenhuma foto de
+# cliente entra no repositório em nenhum dos dois casos — o repositório é público.
+.dados/
+
 # Chaves e certificados
 *.pem
 *.key

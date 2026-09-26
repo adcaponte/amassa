@@ -21,6 +21,16 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      # Fotos de orçamento (Fase 04.5, D-27/D-30): bind mount, não volume nomeado. O
+      # `scripts/backup.sh` roda NO HOST, fora de qualquer contêiner, e precisa alcançar este
+      # diretório direto com o mesmo `rclone` que já copia o dump do Postgres — sem
+      # `docker exec`, sem depender do caminho interno do driver de armazenamento do Docker
+      # (que não é contrato estável). O lado esquerdo é o caminho aprovado pelo dono na Tarefa 1
+      # do plano 03 (.planning/phases/04.5-financeiro-parte-2/04.5-CONTEXT.md, D-30); o
+      # diretório em si e a posse (`chown 100:101`) são passo de roteiro
+      # (docs/operacao/12-fotos-volume-e-backup.md), nunca deste arquivo nem do pipeline.
+      - /opt/amassa/dados/fotos-orcamentos:/dados/fotos-orcamentos
     environment:
       # Papel amassa_app (sem posse de tabela, sem privilégio de definição de estrutura) —
       # nunca o dono do banco. Ver a migração custom que cria o papel e os grants
@@ -38,6 +48,13 @@ services:
       # não — uma variável que dependesse de edição à mão no servidor envelheceria em silêncio.
       # O .env ainda pode sobrescrever.
       AUTH_URL: ${AUTH_URL:-https://amassacerrado.com.br}
+      # Caminho, DENTRO do contêiner, onde as fotos de orçamento moram (Fase 04.5, D-27) — lido
+      # por `lib/orcamentos/caminho-fotos.ts`, sempre FORA de `/app` (a árvore que o Next serve
+      # é só leitura; dado de cliente não mora junto do código). Valor padrão aqui, e não só no
+      # `.env`, pelo mesmo motivo de AUTH_URL acima: este arquivo é ressincronizado pelo job
+      # `implantar`, o `.env` não — uma variável que dependesse de edição à mão no servidor
+      # envelheceria em silêncio.
+      CAMINHO_FOTOS: ${CAMINHO_FOTOS:-/dados/fotos-orcamentos}
       # Fuso de Brasília. Existe só aqui — nunca no serviço postgres (ver 02-MODELO-DE-DADOS.md §0).
       TZ: ${TZ}
     healthcheck:

@@ -48,6 +48,14 @@ COPY --from=construtor --chown=nextjs:nodejs /app/public ./public
 COPY --from=construtor --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=construtor --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Diretório das fotos de orçamento (Fase 04.5, D-27/D-30), já com o dono certo. Duas razões:
+# (1) sem bind mount nenhum, a imagem continua funcional — é o que faz o contêiner do e2e do CI
+# escrever foto sem precisar de mudança no workflow (.github/workflows/entrega.yml não monta
+# volume nenhum no `docker run` do job e2e); (2) em produção o `docker/compose.yml` cobre este
+# caminho com um bind mount, e a posse passa a ser a do diretório do HOST — daí o
+# `chown 100:101` do roteiro do servidor (docs/operacao/12-fotos-volume-e-backup.md).
+RUN mkdir -p /dados/fotos-orcamentos && chown -R nextjs:nodejs /dados
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
