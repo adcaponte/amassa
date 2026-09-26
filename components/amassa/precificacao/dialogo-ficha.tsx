@@ -5,12 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { criarFicha, editarFicha } from "@/lib/precificacao/acoes";
 import { calcularPeca, farolDoPreco, type ParametrosDoCalculo } from "@/lib/precificacao/calculo";
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
-import type { CategoriaDeVenda, FichaParaEdicao } from "@/lib/precificacao/consultas";
+import type { CategoriaDeVenda, FichaParaCopiar, FichaParaEdicao } from "@/lib/precificacao/consultas";
 import {
   converterContagemDaFicha,
   converterMedidaDaFicha,
 } from "@/lib/precificacao/esquemas";
 import {
+  camposCopiaveisDaFicha,
   paraContagemInformada,
   paraFichaDeCalculo,
   paraMedidasDaPeca,
@@ -21,11 +22,14 @@ import {
 import { quantasCabem, type MedidasUteisDoForno } from "@/lib/precificacao/forno";
 import {
   ROTULO_ALTURA,
+  ROTULO_APAGAR_PECA,
   ROTULO_ARGILA,
   ROTULO_CABEM_BISCOITO,
   ROTULO_CABEM_ESMALTE,
   ROTULO_CANCELAR,
   ROTULO_CATEGORIA_DE_VENDA_FICHA,
+  ROTULO_COMECAR_A_PARTIR_DE,
+  ROTULO_DO_ZERO,
   ROTULO_EMBALAGEM,
   ROTULO_ESMALTE,
   ROTULO_EXCLUSIVA,
@@ -53,10 +57,18 @@ export type DialogoFichaProps = {
   // exclusiva — `obterFichaParaEdicao` resolve isso, nunca o diálogo).
   abrirComo: "novo" | FichaParaEdicao | null;
   categoriasDeVenda: readonly CategoriaDeVenda[];
+  // Só usado no modo de CRIAÇÃO ("Começar a partir de uma peça parecida", D-19) — já vem com os
+  // campos copiáveis prontos (lib/precificacao/consultas.ts::listarFichasParaCopiar), nenhuma
+  // consulta nova ao trocar o `<select>`.
+  fichasParaCopiar: readonly FichaParaCopiar[];
   parametros: ParametrosDoCalculo;
   forno: MedidasUteisDoForno;
   taxaCartaoPontosBase: number;
 };
+
+// Radix não aceita `value=""` num `SelectItem` (reservado para "nenhuma seleção") — sentinela não
+// vazia para "— do zero —", nunca confundível com um id de ficha de verdade (UUID).
+const SENTINELA_DO_ZERO = "__do-zero__";
 
 type CamposDeTexto = {
   nome: string;
@@ -142,6 +154,7 @@ function opcoesDeCategoria(
 export function DialogoFicha({
   abrirComo,
   categoriasDeVenda,
+  fichasParaCopiar,
   parametros,
   forno,
   taxaCartaoPontosBase,
@@ -160,6 +173,7 @@ export function DialogoFicha({
   const [campos, setCampos] = useState<CamposDeTexto>(CAMPOS_EM_BRANCO);
   const [exclusiva, setExclusiva] = useState(false);
   const [categoriaVendaId, setCategoriaVendaId] = useState<string | null>(null);
+  const [idParaCopiar, setIdParaCopiar] = useState(SENTINELA_DO_ZERO);
   const [erroDoServidor, setErroDoServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const inputNomeRef = useRef<HTMLInputElement>(null);
@@ -176,6 +190,7 @@ export function DialogoFicha({
       setCampos(CAMPOS_EM_BRANCO);
       setExclusiva(false);
       setCategoriaVendaId(null);
+      setIdParaCopiar(SENTINELA_DO_ZERO);
     }
     setErroDoServidor(null);
     const idDoTimer = window.setTimeout(() => inputNomeRef.current?.focus(), 0);
@@ -185,6 +200,32 @@ export function DialogoFicha({
 
   function atualizarCampo<K extends keyof CamposDeTexto>(chave: K, valor: CamposDeTexto[K]) {
     setCampos((atual) => ({ ...atual, [chave]: valor }));
+  }
+
+  // "Começar a partir de uma peça parecida" (D-19, só no modo de criação): a ORIGEM já está no
+  // array recebido (nenhuma consulta nova) — `camposCopiaveisDaFicha` (lib/precificacao/ficha.ts)
+  // decide o que se copia; nome, preço praticado, preço de mercado e `exclusiva` ficam intocados.
+  function copiarDe(idEscolhido: string) {
+    setIdParaCopiar(idEscolhido);
+    if (idEscolhido === SENTINELA_DO_ZERO) {
+      return;
+    }
+    const origem = fichasParaCopiar.find((ficha) => ficha.id === idEscolhido) ?? null;
+    const copiados = camposCopiaveisDaFicha(origem);
+    setCampos((atual) => ({
+      ...atual,
+      argilaTexto: textoDeMedida(copiados.argilaMiligramas, 1000),
+      esmalteTexto: textoDeMedida(copiados.esmalteMiligramas, 1000),
+      horasTexto: textoDeMedida(copiados.horasMilesimos, 1000),
+      larguraTexto: textoDeMedida(copiados.larguraMm, 10),
+      profundidadeTexto: textoDeMedida(copiados.profundidadeMm, 10),
+      alturaTexto: textoDeMedida(copiados.alturaMm, 10),
+      embalagemTexto: textoDeCentavos(copiados.embalagemCentavos),
+      cabemBiscoitoTexto:
+        copiados.cabemBiscoitoInformado !== null ? String(copiados.cabemBiscoitoInformado) : "",
+      cabemEsmalteTexto:
+        copiados.cabemEsmalteInformado !== null ? String(copiados.cabemEsmalteInformado) : "",
+    }));
   }
 
   const opcoes = useMemo(
@@ -372,6 +413,30 @@ export function DialogoFicha({
             <p role="alert" aria-live="assertive" className="text-apoio text-destructive">
               {erroExibido}
             </p>
+          )}
+
+          {!modoEdicao && (
+            <Field>
+              <FieldLabel htmlFor="ficha-copiar-de">{ROTULO_COMECAR_A_PARTIR_DE}</FieldLabel>
+              <Select value={idParaCopiar} onValueChange={copiarDe}>
+                <SelectTrigger
+                  id="ficha-copiar-de"
+                  data-testid="ficha-copiar-de"
+                  aria-label={ROTULO_COMECAR_A_PARTIR_DE}
+                  className="min-h-[44px] w-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SENTINELA_DO_ZERO}>{ROTULO_DO_ZERO}</SelectItem>
+                  {fichasParaCopiar.map((ficha) => (
+                    <SelectItem key={ficha.id} value={ficha.id}>
+                      {ficha.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           )}
 
           <Field>
@@ -564,22 +629,37 @@ export function DialogoFicha({
             )}
           </div>
 
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={fechar}
-              className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
-            >
-              {ROTULO_CANCELAR}
-            </button>
-            <button
-              type="submit"
-              disabled={enviando}
-              aria-busy={enviando}
-              className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {enviando ? "Salvando…" : ROTULO_SALVAR_FICHA}
-            </button>
+          <div className={modoEdicao ? "flex items-center justify-between gap-3" : "flex justify-end gap-3"}>
+            {/* "Apagar" só existe no modo de edição (uma ficha nova não tem o que apagar) — o
+                único elemento destrutivo desta tela (04.5-UI-SPEC.md §Color). Só NAVEGA: quem
+                decide se apaga de verdade é `ConfirmarApagarPeca`, montado por linha na Lista de
+                Peças, que já tem o `nome` sem consulta extra. */}
+            {modoEdicao && fichaParaEditar && (
+              <button
+                type="button"
+                onClick={() => window.location.assign(`/financeiro?aba=pecas&apagarPeca=${fichaParaEditar.id}`)}
+                className="text-corpo text-destructive hover:bg-destructive/10 flex min-h-[44px] items-center rounded-md px-3 font-medium"
+              >
+                {ROTULO_APAGAR_PECA}
+              </button>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={fechar}
+                className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
+              >
+                {ROTULO_CANCELAR}
+              </button>
+              <button
+                type="submit"
+                disabled={enviando}
+                aria-busy={enviando}
+                className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {enviando ? "Salvando…" : ROTULO_SALVAR_FICHA}
+              </button>
+            </div>
           </div>
         </form>
       </DialogContent>

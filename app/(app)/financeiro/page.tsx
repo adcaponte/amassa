@@ -30,10 +30,12 @@ import {
 import { listarOrcamentos } from "@/lib/orcamentos/consultas";
 import {
   listarCategoriasDeVenda,
+  listarFichas,
+  listarFichasParaCopiar,
   obterFichaParaEdicao,
   parametrosVigentes,
 } from "@/lib/precificacao/consultas";
-import { ROTULO_NOVA_PECA, TITULO_PECAS, TOAST_PECA_SALVA } from "@/lib/precificacao/textos";
+import { TOAST_PECA_SALVA } from "@/lib/precificacao/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
@@ -44,6 +46,7 @@ import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
+import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -62,11 +65,12 @@ export default async function PaginaFinanceiro({
     mes?: string;
     forma?: string;
     peca?: string;
+    exclusivas?: string;
   }>;
 }) {
   await exigirUsuario();
 
-  const { aba, aviso, documento, parcela, mes, forma, peca } = await searchParams;
+  const { aba, aviso, documento, parcela, mes, forma, peca, exclusivas } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
   const abaDespesa = abaAtual === "despesa";
@@ -77,11 +81,12 @@ export default async function PaginaFinanceiro({
   const hoje = hojeEmBrasilia(new Date());
 
   // `?peca=novo` abre o diálogo em branco; `?peca=<uuid>` abre em edição; qualquer outra coisa
-  // (ausente, lixo) mantém o diálogo fechado — a aba Peças, por enquanto, só tem cabeçalho, botão
-  // e o diálogo (a lista é do plano 05).
+  // (ausente, lixo) mantém o diálogo fechado. `?exclusivas=1` alterna o filtro da Lista de Peças
+  // (D-19) — um `<Link>` na mesma rota, sem estado de cliente.
   const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const pecaNova = abaPecas && peca === "novo";
   const pecaIdParaEditar = abaPecas && peca && peca !== "novo" && REGEX_UUID.test(peca) ? peca : null;
+  const mostrarExclusivas = exclusivas === "1";
   // O MESMO `?mes=` alimenta o extrato do Caixa (D-11/D-12) e a aba Mês — nunca ao mesmo tempo (só
   // uma delas está ativa por navegação), então reaproveitar a mesma chave de URL é seguro. `forma`
   // só existe no extrato (o filtro por forma não faz sentido na tela Mês).
@@ -112,6 +117,8 @@ export default async function PaginaFinanceiro({
     categoriasDeVendaParaFicha,
     parametrosParaFicha,
     fichaParaEditar,
+    fichas,
+    fichasParaCopiar,
   ] = await Promise.all([
     abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
     abaVenda ? listarCatalogoDaVenda() : Promise.resolve([]),
@@ -140,6 +147,13 @@ export default async function PaginaFinanceiro({
     abaPecas ? listarCategoriasDeVenda() : Promise.resolve([]),
     abaPecas ? parametrosVigentes(hoje) : Promise.resolve(null),
     pecaIdParaEditar ? obterFichaParaEdicao(pecaIdParaEditar) : Promise.resolve(null),
+    // 04.5-05-PLAN.md — a Lista de Peças. TODAS as fichas (exclusivas inclusas): quem filtra o
+    // que aparece é `ListaPecas` (`mostrarExclusivas`), nunca uma segunda consulta ao alternar.
+    abaPecas ? listarFichas() : Promise.resolve([]),
+    // Só no modo de criação o diálogo oferece "Começar a partir de" — carregado sempre que a aba
+    // está ativa (é uma lista pequena, id+nome+campos copiáveis, mesmo padrão de
+    // `listarCategoriasDeVenda`).
+    abaPecas ? listarFichasParaCopiar() : Promise.resolve([]),
   ]);
 
   // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
@@ -280,33 +294,30 @@ export default async function PaginaFinanceiro({
       ) : abaOrcamentos ? (
         <ListaOrcamentos orcamentos={orcamentos} />
       ) : abaPecas ? (
-        // A lista em si é do plano 05 — aqui só o cabeçalho, o botão terracota "Nova peça" (o
-        // único acento da tela, 04.5-UI-SPEC.md §Foco Visual) e o diálogo funcionando.
-        <div className="px-6 py-6 md:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-titulo text-foreground">{TITULO_PECAS}</h2>
-            <a
-              href="/financeiro?aba=pecas&peca=novo"
-              data-testid="nova-peca"
-              className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium"
-            >
-              {ROTULO_NOVA_PECA}
-            </a>
-          </div>
+        // A Lista de Peças (04.5-05-PLAN.md) é self-contida — cabeçalho + botão quando populada,
+        // estado vazio + botão quando não há nenhuma, erro quando os parâmetros não carregam —
+        // mesmo molde de `ListaOrcamentos`. O diálogo funciona por cima, via `?peca=`.
+        <>
+          <ListaPecas
+            fichas={fichas}
+            mostrarExclusivas={mostrarExclusivas}
+            parametros={parametrosParaFicha ?? { ok: false, faltando: [] }}
+          />
           {parametrosParaFicha?.ok ? (
             <DialogoFicha
               abrirComo={pecaNova ? "novo" : (fichaParaEditar ?? null)}
               categoriasDeVenda={categoriasDeVendaParaFicha}
+              fichasParaCopiar={fichasParaCopiar}
               parametros={parametrosParaFicha.calculo}
               forno={parametrosParaFicha.forno}
               taxaCartaoPontosBase={parametrosParaFicha.taxaCartaoPontosBase}
             />
           ) : (pecaNova || pecaIdParaEditar) ? (
-            <p className="text-apoio text-muted-foreground mt-4">
+            <p className="text-apoio text-muted-foreground mt-4 px-6 md:px-8">
               Não deu para carregar os parâmetros do cálculo. Verifique a internet e tente de novo.
             </p>
           ) : null}
-        </div>
+        </>
       ) : (
         <PainelVenda
           hoje={hoje}
