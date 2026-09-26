@@ -281,13 +281,42 @@ describe("filtrarExtrato", () => {
     expect(totalFiltradoCentavos).toBe(300); // 500 - 200, cancelada e pix de fora
   });
 
-  it('forma "todas" → total filtrado nulo', () => {
+  // REESCRITO (04.4-13-PLAN.md, Tarefa 2): resposta ao item 13 da conferência do dono
+  // (26/09/2026) — "aparece a frase com a soma em todas categorias, mas nao na 'todas'". O total
+  // deixa de ser `null` em "todas" e passa a somar o mês inteiro por conta própria.
+  it('forma "todas" soma entradas líquidas menos saídas de TODAS as formas do mês, com a cancelada e o mês vizinho de fora', () => {
     const { linhas: montadas } = montarExtrato(
-      [movimento({ pagoEm: "2026-11-01", valorCentavos: 500 })],
+      [
+        movimento({ pagoEm: "2026-11-01", forma: "pix", tipo: "venda", valorCentavos: 500 }),
+        movimento({ pagoEm: "2026-11-02", forma: "dinheiro", tipo: "despesa", valorCentavos: 200 }),
+        movimento({
+          pagoEm: "2026-11-03",
+          forma: "cartao",
+          tipo: "venda",
+          valorCentavos: 9999,
+          cancelado: true,
+        }),
+        // Mês vizinho — nunca entra na soma de novembro.
+        movimento({ pagoEm: "2026-10-31", forma: "pix", tipo: "venda", valorCentavos: 700 }),
+      ],
       0,
     );
+
     const { totalFiltradoCentavos } = filtrarExtrato(montadas, { mes: "2026-11", forma: "todas" });
-    expect(totalFiltradoCentavos).toBeNull();
+    expect(totalFiltradoCentavos).toBe(300); // 500 (pix) − 200 (dinheiro); cancelada e mês vizinho de fora
+  });
+
+  it('forma "todas" num mês sem nenhuma linha devolve ZERO, não nulo — quem esconde a frase é a tela, não o módulo', () => {
+    const { linhas: montadas } = montarExtrato(
+      [movimento({ pagoEm: "2026-12-01", valorCentavos: 500 })],
+      0,
+    );
+    const { linhas, totalFiltradoCentavos } = filtrarExtrato(montadas, {
+      mes: "2027-01",
+      forma: "todas",
+    });
+    expect(linhas).toEqual([]);
+    expect(totalFiltradoCentavos).toBe(0);
   });
 
   it('mês sem linhas → lista vazia e motivo "sem-movimento"', () => {
