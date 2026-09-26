@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-05-PLAN.md
-last_updated: "2026-09-26T20:05:42.799Z"
+stopped_at: Completed 04.5-06-PLAN.md
+last_updated: "2026-09-26T21:01:21.618Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 69
+  completed_plans: 70
 current_phase: 04.5
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 em execucao: 5 de 13 planos prontos (a lista de Pecas, D-19/D-20), 3 portoes pre-autorizados pelo dono"
+last_activity_desc: "Fase 04.5 em execucao: 6 de 13 planos prontos (o editor do orcamento, D-20 fechado de ponta a ponta), 3 portoes pre-autorizados pelo dono"
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 05 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 06 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -88,10 +88,22 @@ recusa por peça EM USO só pode ser provado de ponta a ponta quando existir lin
 criada pela interface — este plano entregou a regra e a recusa do servidor, o plano 06 acrescenta
 o e2e. Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-05-SUMMARY.md`.
 
-**Pendente para os planos 06-13:** o editor de orçamento com linhas de peça (e a prova e2e da
-recusa de exclusão por uso, D-20), PDF, o upload de foto em si (usa
-`lib/orcamentos/caminho-fotos.ts` do plano 03), e todo o ciclo de vida do orçamento
-(enviar/aprovar/revisar).
+**Plano 06 (o editor do orçamento — para quem, para quando, e quais peças) entregou:**
+`lib/orcamentos/contas.ts::contasDoOrcamento` (puro, TDD, 6 testes) — a fonte única do total, que
+nunca contamina a soma com uma linha sem cálculo (D-11/D-12); as quatro ações de edição
+(`atualizarCabecalhoDoOrcamento`/`acrescentarLinha`/`atualizarLinha`/`removerLinha`) com a guarda de
+rascunho (`travarOrcamentoRascunho`, `select ... for update`) escrita uma vez; `EditorOrcamento` +
+`CabecalhoDoOrcamento` + `LinhaDeOrcamento` + `EscolherPeca` na tela, com as duas portas de entrada
+de peça ("+ Peça da lista"/"+ Peça exclusiva deste pedido", esta última acrescentando a linha na
+MESMA ida via `DialogoFicha.vindoDoOrcamentoId`); `ListaOrcamentos` mostra o total agregado de cada
+orçamento. **Fecha o item pendente do plano 05:** a recusa de apagar peça em uso (D-20) provada de
+ponta a ponta (`precificacao-pecas.spec.ts`, caso h). e2e 60/60 (desktop + celular, dois arquivos).
+Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-06-SUMMARY.md`.
+
+**Pendente para os planos 07-13:** projeto/frete/imposto/sobra em `ContasDoOrcamento` e o bloco
+"Total e pagamento"/"Só para você" (a coluna direita do editor já existe, vazia); PDF; o upload de
+foto em si (usa `lib/orcamentos/caminho-fotos.ts` do plano 03); e todo o resto do ciclo de vida do
+orçamento (enviar/aprovar/revisar).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -258,6 +270,7 @@ Progress: [█████████░] 88% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P03 | ~2h | 3 tasks | 15 files |
 | Phase 04.5 P04 | ~2h30min | 3 tasks | 14 files |
 | Phase 04.5 P05 | ~1h30min | 2 tasks | 10 files |
+| Phase 04.5 P06 | ~2h | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -467,6 +480,11 @@ Recent decisions affecting current work:
 - [Phase ?]: [04.5-05]: listarFichas() sempre traz TODAS as fichas (sem parametro incluirExclusivas) - ListaPecas filtra em memoria, para o alternador saber a contagem de exclusivas mesmo escondidas
 - [Phase ?]: [04.5-05]: cabecalho da aba Pecas saiu de page.tsx e entrou em ListaPecas (self-contida, molde de ListaOrcamentos); TITULO_PECAS morto foi removido
 - [Phase ?]: [04.5-05]: ConfirmarApagarPeca nunca mostra contagem de uso pre-carregada - a frase de recusa (D-20) so existe quando o servidor devolve ok:false
+- [Phase ?]: [04.5-06]: esquemaLinhaDeOrcamento identifica a linha a editar pelo PROPRIO id da linha (orcamentoLinhas.id), nao por (orcamentoId, fichaId) - a mesma ficha pode aparecer em mais de uma linha do mesmo orcamento com cor/personalizacao diferentes
+- [Phase ?]: [04.5-06]: components/amassa/orcamentos/cabecalho-do-orcamento.tsx e um arquivo novo, fora da lista do plano - necessario porque um Server Component nao pode conter um sub-componente "use client" no MESMO arquivo (a fronteira e por arquivo no Next.js)
+- [Phase ?]: [04.5-06]: "+ Peca exclusiva deste pedido" e "ver calculo" usam navegacao COMPLETA (nao pushState) - DialogoFicha precisa de dado fresco do servidor (categorias/parametros/ficha), mesma convencao ja usada por "Nova peca"/"editar peca" desde os planos 04/05
+- [Phase ?]: [04.5-06]: acrescentarLinha nunca recebe preco do cliente - resolve sozinho (preco efetivo da ficha, ou minimo de hoje arredondado) pela mesma funcao para as duas portas de entrada de peca
+- [Phase ?]: [04.5-06]: "quantas" e um input numerico simples, sem botoes -/+ - o prototipo.html nao tem stepper nessa linha, apesar de uma nota do UI-SPEC sugerir o contrario
 
 ### Pending Todos
 
@@ -539,6 +557,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T20:05:31.574Z
-Stopped at: Completed 04.5-05-PLAN.md
+Last session: 2026-09-26T21:01:21.574Z
+Stopped at: Completed 04.5-06-PLAN.md
 Resume file: None
