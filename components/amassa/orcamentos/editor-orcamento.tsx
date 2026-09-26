@@ -139,7 +139,15 @@ export function EditorOrcamento({
     horasMilesimos: linha.ficha.horasMilesimos,
     resultado: linha.resultado,
   }));
-  const contas = contasDoOrcamento(linhasParaContas);
+  // TODO(04.5-07 Tarefa 3): `extras` neutro só até a Tarefa 3 fiar projeto/frete/imposto/
+  // estimados de verdade — mantém `npx tsc --noEmit` verde entre as tarefas deste plano
+  // (`contasDoOrcamento` ganhou o segundo argumento na Tarefa 1).
+  const contas = contasDoOrcamento(linhasParaContas, {
+    custosDeProjeto: [],
+    freteCentavos: 0,
+    impostoETaxaPontosBase: 0,
+    parametrosEstimados: 0,
+  });
 
   const pecasResolvidas = pecasParaEscolha.map((peca) => {
     const resultado = resolverFicha(peca, null, parametros, forno, taxaCartaoPontosBase);
