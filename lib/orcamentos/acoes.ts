@@ -3,7 +3,14 @@
 import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fichasPrecificacao, itensCatalogo, orcamentoLinhas, orcamentoProjeto, orcamentos } from "@/db/schema";
+import {
+  fichasPrecificacao,
+  itensCatalogo,
+  orcamentoLinhas,
+  orcamentoProjeto,
+  orcamentoRevisoes,
+  orcamentos,
+} from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { somarDias } from "@/lib/financeiro/calendario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -14,6 +21,7 @@ import { quantasCabem } from "@/lib/precificacao/forno";
 
 import {
   esquemaAcrescentarLinha,
+  esquemaAtualizacaoDePrecos,
   esquemaCabecalhoDoOrcamento,
   esquemaCustoDeProjeto,
   esquemaDuplicarOrcamento,
@@ -36,6 +44,7 @@ import {
   FRASE_FALTA_CLIENTE_E_PECA,
   FRASE_FICHA_NAO_ENCONTRADA_PARA_LINHA,
   FRASE_LINHA_NAO_EXISTE_MAIS,
+  FRASE_LISTA_DE_PRECOS_DIVERGENTE,
   FRASE_ORCAMENTO_APROVADO_USE_DUPLICAR,
   FRASE_ORCAMENTO_JA_E_RASCUNHO,
   FRASE_ORCAMENTO_NAO_E_RASCUNHO,
@@ -130,6 +139,9 @@ class TransicaoDeStatusInvalida extends Error {
 }
 class FaltaClienteOuPeca extends Error {}
 class ParametrosIndisponiveis extends Error {}
+// "Atualizar preços" (04.5-09-PLAN.md, Tarefa 2): a lista de preços enviada não cobre exatamente
+// as linhas do orçamento — sinal de tela desatualizada, nunca uma trava de negócio.
+class ListaDePrecosDivergente extends Error {}
 
 type StatusOrcamento = (typeof orcamentos.status.enumValues)[number];
 
@@ -180,6 +192,7 @@ function primeiroErroConhecido(erro: unknown): string | null {
   if (erro instanceof TransicaoDeStatusInvalida) return erro.mensagem;
   if (erro instanceof FaltaClienteOuPeca) return FRASE_FALTA_CLIENTE_E_PECA;
   if (erro instanceof ParametrosIndisponiveis) return FRASE_PARAMETROS_INDISPONIVEIS_PARA_CONGELAR;
+  if (erro instanceof ListaDePrecosDivergente) return FRASE_LISTA_DE_PRECOS_DIVERGENTE;
   return null;
 }
 
@@ -992,5 +1005,149 @@ export async function duplicarOrcamento(
     }
     console.error("Falha ao duplicar orçamento:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_CRIAR };
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Atualizar preços" (04.5-09-PLAN.md, Tarefa 2) — compara o mínimo CONGELADO com o de HOJE e
+// guarda a revisão anterior antes de reabrir (D-23)
+// ---------------------------------------------------------------------------------------------
+
+// O "total de então" que a revisão guarda é peças + projeto + frete — a MESMA fórmula de
+// `lib/orcamentos/contas.ts::contasDoOrcamento`, só que somada direto no banco (aqui só o número
+// final interessa, não o resultado por peça que aquele módulo também devolve). Separada de
+// `atualizarPrecos` de propósito: é a ÚNICA parte desta ação que lê o que um custo de projeto e o
+// frete valem agora, para gravar um total histórico — nunca os altera (a ação em si nunca toca em
+// nenhum dos dois, T-04.5-42/T-04.5-44).
+async function somaDoQueNaoEhPeca(tx: TransacaoDoBanco, orcamentoId: string): Promise<number> {
+  const custos = await tx
+    .select({ valor: orcamentoProjeto.valorCentavos })
+    .from(orcamentoProjeto)
+    .where(eq(orcamentoProjeto.orcamentoId, orcamentoId));
+  const somaDosCustos = custos.reduce((soma, custo) => soma + custo.valor, 0);
+
+  const [cabecalho] = await tx
+    .select({ valor: orcamentos.freteCentavos })
+    .from(orcamentos)
+    .where(eq(orcamentos.id, orcamentoId));
+
+  return somaDosCustos + (cabecalho?.valor ?? 0);
+}
+
+// "Atualizar preços" — dois caminhos, na MESMA transação, com a linha do orçamento e as linhas de
+// peça travadas antes de decidir:
+// - CONGELADO (enviado ou recusado — "expirado" é só "enviado" com validade vencida, D-22): (1)
+//   guarda a revisão ATUAL em `orcamento_revisoes` (revisão, `enviado_em` = `congelado_em` de
+//   então, total de então, snapshot de então) ANTES de tocar em qualquer outra coisa — a ordem
+//   importa (T-04.5-43): se algo falhar depois, a transação inteira desfaz, e a revisão nunca
+//   chega a existir pela metade; (2) grava os preços novos nas linhas; (3) sobe `revisao` em 1;
+//   (4) volta a rascunho com `snapshot`/`congeladoEm` zerados e a data de hoje — a validade
+//   renova a partir dela.
+// - RASCUNHO: só grava os preços novos. Nenhuma revisão, nenhuma mudança de status ou de data.
+// Em nenhum dos dois esta ação toca custos de projeto, frete ou o número do orçamento, e ela
+// nunca chama o contador de sequencial (D-06). Aprovado é recusado com a frase que manda usar
+// Duplicar (D-07), a mesma guarda comum das demais transições. `exigirUsuario()` é a PRIMEIRA
+// instrução do corpo.
+export async function atualizarPrecos(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtualizacaoDePrecos.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { orcamentoId, linhas } = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  try {
+    await db.transaction(async (tx) => {
+      const [orcamento] = await tx
+        .select({
+          status: orcamentos.status,
+          revisao: orcamentos.revisao,
+          congeladoEm: orcamentos.congeladoEm,
+          snapshot: orcamentos.snapshot,
+        })
+        .from(orcamentos)
+        .where(eq(orcamentos.id, orcamentoId))
+        .for("update"); // trava a linha do orçamento inteira a transação (for update)
+
+      if (!orcamento) {
+        throw new OrcamentoNaoEncontrado();
+      }
+      garantirTransicaoValida(
+        orcamento.status,
+        ["rascunho", "enviado", "recusado"],
+        FRASE_ORCAMENTO_APROVADO_USE_DUPLICAR,
+      );
+
+      const linhasDoOrcamento = await tx
+        .select({
+          id: orcamentoLinhas.id,
+          quantidade: orcamentoLinhas.quantidade,
+          precoUnitarioCentavos: orcamentoLinhas.precoUnitarioCentavos,
+        })
+        .from(orcamentoLinhas)
+        .where(eq(orcamentoLinhas.orcamentoId, orcamentoId))
+        .for("update"); // trava as linhas do orçamento antes de gravar os preços novos (for update)
+
+      // A lista enviada precisa cobrir EXATAMENTE as linhas do orçamento — nem mais, nem menos
+      // (T-04.5-42): divergir é sinal de que a tela ficou desatualizada, nunca um preço para uma
+      // linha de outro orçamento.
+      const idsDoOrcamento = new Set(linhasDoOrcamento.map((linha) => linha.id));
+      const idsEnviados = new Set(linhas.map((linha) => linha.linhaId));
+      const listaBate =
+        idsDoOrcamento.size === idsEnviados.size &&
+        [...idsDoOrcamento].every((id) => idsEnviados.has(id));
+      if (!listaBate) {
+        throw new ListaDePrecosDivergente();
+      }
+
+      if (orcamento.status !== "rascunho") {
+        const pecasCentavos = linhasDoOrcamento.reduce(
+          (soma, linha) => soma + linha.quantidade * linha.precoUnitarioCentavos,
+          0,
+        );
+        const totalDeEntao = pecasCentavos + (await somaDoQueNaoEhPeca(tx, orcamentoId));
+
+        await tx.insert(orcamentoRevisoes).values({
+          orcamentoId,
+          revisao: orcamento.revisao,
+          enviadoEm: orcamento.congeladoEm,
+          totalCentavos: totalDeEntao,
+          snapshot: orcamento.snapshot,
+        });
+      }
+
+      for (const linha of linhas) {
+        await tx
+          .update(orcamentoLinhas)
+          .set({ precoUnitarioCentavos: linha.precoCentavos })
+          .where(and(eq(orcamentoLinhas.id, linha.linhaId), eq(orcamentoLinhas.orcamentoId, orcamentoId)));
+      }
+
+      if (orcamento.status !== "rascunho") {
+        await tx
+          .update(orcamentos)
+          .set({
+            revisao: orcamento.revisao + 1,
+            status: "rascunho",
+            snapshot: null,
+            congeladoEm: null,
+            data: hoje,
+          })
+          .where(eq(orcamentos.id, orcamentoId));
+      }
+    });
+
+    return { ok: true, dados: { id: orcamentoId } };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    console.error("Falha ao atualizar preços do orçamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

@@ -4,7 +4,14 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fichasPrecificacao, orcamentoLinhas, orcamentoProjeto, orcamentos } from "@/db/schema";
+import {
+  fichasPrecificacao,
+  orcamentoLinhas,
+  orcamentoProjeto,
+  orcamentoRevisoes,
+  orcamentos,
+} from "@/db/schema";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import type { PlanoDePagamentoDoOrcamento } from "@/lib/orcamentos/plano";
 
 export type OrcamentoParaLista = {
@@ -203,6 +210,41 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
       },
     })),
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Atualizar preços" (04.5-09-PLAN.md, Tarefa 2) — o histórico de revisões, para o painel "Só
+// para você"
+// ---------------------------------------------------------------------------------------------
+
+export type RevisaoDoOrcamento = {
+  revisao: number;
+  // `orcamento_revisoes.enviado_em` é um INSTANTE (timestamptz — o `congelado_em` de então),
+  // convertido para data CIVIL de Brasília aqui na borda (`hojeEmBrasilia`, a mesma função que
+  // resolve "hoje" em `lib/orcamentos/acoes.ts`, aqui aplicada a um instante passado) — nunca
+  // `.toISOString().slice(0, 10)`, que truncaria em UTC e erraria o dia à noite.
+  enviadoEmCivil: string;
+  totalCentavos: number;
+};
+
+// Em ordem crescente de revisão (a mais antiga primeiro) — o histórico se lê como uma linha do
+// tempo, "revisão 1 de..., revisão 2 de...", nunca do mais recente para o mais antigo.
+export async function listarRevisoes(orcamentoId: string): Promise<RevisaoDoOrcamento[]> {
+  const linhas = await db
+    .select({
+      revisao: orcamentoRevisoes.revisao,
+      enviadoEm: orcamentoRevisoes.enviadoEm,
+      totalCentavos: orcamentoRevisoes.totalCentavos,
+    })
+    .from(orcamentoRevisoes)
+    .where(eq(orcamentoRevisoes.orcamentoId, orcamentoId))
+    .orderBy(asc(orcamentoRevisoes.revisao));
+
+  return linhas.map((linha) => ({
+    revisao: linha.revisao,
+    enviadoEmCivil: linha.enviadoEm ? hojeEmBrasilia(linha.enviadoEm) : "",
+    totalCentavos: linha.totalCentavos,
+  }));
 }
 
 export type PecaParaEscolha = {

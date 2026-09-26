@@ -322,6 +322,48 @@ export type EntradaDeObservacoes = z.infer<typeof esquemaObservacoes>;
 // snapshot, número novo) dentro da própria transação, com a linha travada.
 // ---------------------------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------------------------
+// "Atualizar preços" (04.5-09-PLAN.md, Tarefa 2) — a lista de preços novos, um por linha do
+// orçamento. Mesma conversão e faixa de preço de `esquemaLinhaDeOrcamento` (`converterReaisPara
+// Centavos`, obrigatório) — só a FORMA de cada preço é validada aqui; a ação (`atualizarPrecos`)
+// confere, DENTRO da transação, que a lista cobre EXATAMENTE as linhas do orçamento, nem mais nem
+// menos (sinal de tela desatualizada, não um erro de digitação).
+// ---------------------------------------------------------------------------------------------
+export const esquemaAtualizacaoDePrecos = z
+  .object({
+    orcamentoId: esquemaId,
+    linhas: z.array(
+      z.object({
+        linhaId: esquemaId,
+        precoTexto: z.string(),
+      }),
+    ),
+  })
+  .transform((dados, ctx) => {
+    const linhasValidas: { linhaId: string; precoCentavos: number }[] = [];
+
+    for (const [indice, linha] of dados.linhas.entries()) {
+      const preco = converterReaisParaCentavos(linha.precoTexto);
+      if (!preco.ok) {
+        ctx.addIssue({ code: "custom", message: preco.erro, path: ["linhas", indice, "precoTexto"] });
+        return z.NEVER;
+      }
+      if (preco.centavos === null) {
+        ctx.addIssue({
+          code: "custom",
+          message: FRASE_PRECO_OBRIGATORIO,
+          path: ["linhas", indice, "precoTexto"],
+        });
+        return z.NEVER;
+      }
+      linhasValidas.push({ linhaId: linha.linhaId, precoCentavos: preco.centavos });
+    }
+
+    return { orcamentoId: dados.orcamentoId, linhas: linhasValidas };
+  });
+
+export type EntradaDeAtualizacaoDePrecos = z.infer<typeof esquemaAtualizacaoDePrecos>;
+
 export const esquemaMarcarComoEnviado = z.object({ id: esquemaId });
 export type EntradaDeMarcarComoEnviado = z.infer<typeof esquemaMarcarComoEnviado>;
 

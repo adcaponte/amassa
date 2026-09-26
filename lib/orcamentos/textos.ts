@@ -236,3 +236,17 @@ export const FRASE_ORCAMENTO_NAO_ENVIADO_PARA_RECUSAR =
 export const FRASE_ORCAMENTO_JA_E_RASCUNHO = "Este orçamento já é um rascunho.";
 export const FRASE_PARAMETROS_INDISPONIVEIS_PARA_CONGELAR =
   "Não deu para calcular os parâmetros de hoje. Confira Parâmetros em Cadastros e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// "Atualizar preços" (04.5-09-PLAN.md) — compara o mínimo de antes com o de hoje, guarda a
+// revisão anterior antes de reabrir (D-23)
+// ---------------------------------------------------------------------------------------------
+
+export const FRASE_LISTA_DE_PRECOS_DIVERGENTE =
+  "A lista de preços não bate com as peças deste orçamento — recarregue a página e tente de novo.";
+
+// Toasts (04.5-UI-SPEC.md §Copywriting, verbatim, herdados do protótipo).
+export const TOAST_PRECOS_ATUALIZADOS = "Preços atualizados.";
+export function textoRevisaoCriada(numero: number): string {
+  return `Revisão ${numero} criada como rascunho. Confira e marque como enviado.`;
+}
