@@ -14,3 +14,13 @@ export function numeroDeOrcamento(ano: number, sequencial: number): string {
 export function rotuloDeRevisao(revisao: number): string {
   return revisao > 1 ? ` · revisão ${revisao}` : "";
 }
+
+// "0,2" a partir de 200 milésimos de fornada (escala 1000, mesma de `horasMilesimos`/
+// `fornadasBiscoitoMilesimos`/`fornadasEsmalteMilesimos` em `lib/orcamentos/contas.ts`) — até 1
+// casa decimal, a mesma precisão do protótipo (`n1`) para "Ocupa do forno" no painel "Só para
+// você". Redeclarado aqui (D-15): não é o mesmo formato de `lib/precificacao/formato.ts::
+// formatarHoras` (até 3 casas) porque "fornada" é um conceito agregado do ORÇAMENTO, não da
+// ficha.
+export function formatarFornadas(milesimos: number): string {
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(milesimos / 1000);
+}

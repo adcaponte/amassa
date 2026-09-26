@@ -330,8 +330,10 @@ export default async function PaginaFinanceiro({
                 orcamento={orcamentoParaEditar}
                 pecasParaEscolha={pecasParaEscolha}
                 parametros={parametrosParaFicha.calculo}
+                parametrosPorChave={parametrosParaFicha.porChave}
                 forno={parametrosParaFicha.forno}
                 taxaCartaoPontosBase={parametrosParaFicha.taxaCartaoPontosBase}
+                hoje={hoje}
               />
               <DialogoFicha
                 abrirComo={pecaNova ? "novo" : (fichaParaEditar ?? null)}

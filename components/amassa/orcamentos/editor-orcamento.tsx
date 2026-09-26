@@ -3,6 +3,7 @@ import { formatarReais } from "@/lib/financeiro/formato";
 import { contasDoOrcamento, type LinhaParaContas } from "@/lib/orcamentos/contas";
 import type { OrcamentoParaEdicao, PecaParaEscolha } from "@/lib/orcamentos/consultas";
 import { numeroDeOrcamento, rotuloDeRevisao } from "@/lib/orcamentos/formato";
+import { parcelasDoPlano } from "@/lib/orcamentos/plano";
 import {
   FRASE_VAZIO_PECAS_DO_ORCAMENTO,
   ROTULO_CHIP_RASCUNHO,
@@ -15,6 +16,7 @@ import {
   farolDoPreco,
   type ParametrosDoCalculo,
 } from "@/lib/precificacao/calculo";
+import type { ParametroVigente } from "@/lib/precificacao/consultas";
 import {
   paraContagemInformada,
   paraFichaDeCalculo,
@@ -27,14 +29,22 @@ import { quantasCabem, type MedidasUteisDoForno } from "@/lib/precificacao/forno
 
 import { AbrirEscolherPecaBotao, EscolherPeca } from "./escolher-peca";
 import { CabecalhoDoOrcamento } from "./cabecalho-do-orcamento";
+import { CustosDoProjeto } from "./custos-do-projeto";
 import { LinhaDeOrcamento } from "./linha-de-orcamento";
+import { SoParaVoce } from "./so-para-voce";
+import { TotalEPagamento } from "./total-e-pagamento";
 
 export type EditorOrcamentoProps = {
   orcamento: OrcamentoParaEdicao;
   pecasParaEscolha: PecaParaEscolha[];
   parametros: ParametrosDoCalculo;
+  // A contagem de estimados (D-17) sai daqui — dos 18 parâmetros vigentes, nunca de um número
+  // guardado (key_links do 04.5-07-PLAN.md). Enquanto o orçamento é rascunho; o snapshot
+  // congelado (plano 08) substitui esta fonte quando ele deixar de ser rascunho.
+  parametrosPorChave: Record<string, ParametroVigente>;
   forno: MedidasUteisDoForno;
   taxaCartaoPontosBase: number;
+  hoje: string;
 };
 
 type FichaParaResolver = {
@@ -114,8 +124,10 @@ export function EditorOrcamento({
   orcamento,
   pecasParaEscolha,
   parametros,
+  parametrosPorChave,
   forno,
   taxaCartaoPontosBase,
+  hoje,
 }: EditorOrcamentoProps) {
   const vivo = orcamento.status === "rascunho";
   const chip = vivo ? ROTULO_CHIP_RASCUNHO : orcamento.status;
@@ -139,14 +151,23 @@ export function EditorOrcamento({
     horasMilesimos: linha.ficha.horasMilesimos,
     resultado: linha.resultado,
   }));
-  // TODO(04.5-07 Tarefa 3): `extras` neutro só até a Tarefa 3 fiar projeto/frete/imposto/
-  // estimados de verdade — mantém `npx tsc --noEmit` verde entre as tarefas deste plano
-  // (`contasDoOrcamento` ganhou o segundo argumento na Tarefa 1).
+  // A contagem de estimados sai dos parâmetros vigentes lidos por `parametrosVigentes` — nunca
+  // somada por conta própria (key_links do 04.5-07-PLAN.md).
+  const parametrosEstimados = Object.values(parametrosPorChave).filter((p) => !p.medido).length;
+
   const contas = contasDoOrcamento(linhasParaContas, {
-    custosDeProjeto: [],
-    freteCentavos: 0,
-    impostoETaxaPontosBase: 0,
-    parametrosEstimados: 0,
+    custosDeProjeto: orcamento.custosDeProjeto.map((custo) => ({ valorCentavos: custo.valorCentavos })),
+    freteCentavos: orcamento.freteCentavos,
+    impostoETaxaPontosBase: parametros.impostoPontosBase + taxaCartaoPontosBase,
+    parametrosEstimados,
+  });
+
+  const parcelas = parcelasDoPlano({
+    plano: orcamento.plano,
+    sinalPercentual: orcamento.sinalPercentual,
+    totalCentavos: contas.totalCentavos,
+    hoje,
+    entregaPrevista: orcamento.entregaPrevista,
   });
 
   const pecasResolvidas = pecasParaEscolha.map((peca) => {
@@ -181,9 +202,8 @@ export function EditorOrcamento({
       </div>
 
       {/* Breakpoint único em 980px (04.5-UI-SPEC.md §Responsivo): uma coluna abaixo, duas a
-          partir daí. A coluna da direita fica vazia até o plano 07 montar "Total e
-          pagamento"/"Só para você" — o contêiner já nasce aqui para não reestruturar o layout
-          quando esse plano chegar. */}
+          partir daí — peças (+ custos do projeto) na esquerda, "Total e pagamento"/"Só para
+          você" na direita. */}
       <div className="grid grid-cols-1 items-start gap-4 min-[980px]:grid-cols-[1.15fr_1fr]">
         <div className="flex flex-col gap-4">
           <CabecalhoDoOrcamento
@@ -241,10 +261,38 @@ export function EditorOrcamento({
               </div>
             )}
           </section>
+
+          <CustosDoProjeto
+            orcamentoId={orcamento.id}
+            vivo={vivo}
+            custos={orcamento.custosDeProjeto}
+            freteCentavos={orcamento.freteCentavos}
+            plano={orcamento.plano}
+            sinalPercentual={orcamento.sinalPercentual}
+          />
         </div>
 
-        {/* Coluna da direita — "Total e pagamento" e "Só para você" chegam no plano 07. */}
-        <div className="flex flex-col gap-4" />
+        <div className="flex flex-col gap-4">
+          <TotalEPagamento
+            orcamentoId={orcamento.id}
+            vivo={vivo}
+            totalCentavos={contas.totalCentavos}
+            plano={orcamento.plano}
+            sinalPercentual={orcamento.sinalPercentual}
+            freteCentavos={orcamento.freteCentavos}
+            observacoes={orcamento.observacoes}
+            parcelas={parcelas}
+          />
+          <SoParaVoce
+            custoCentavos={contas.custoCentavos}
+            sobraCentavos={contas.sobraCentavos}
+            sobraPontosBase={contas.sobraPontosBase}
+            horasMilesimos={contas.horasMilesimos}
+            fornadasBiscoitoMilesimos={contas.fornadasBiscoitoMilesimos}
+            fornadasEsmalteMilesimos={contas.fornadasEsmalteMilesimos}
+            parametrosEstimados={contas.parametrosEstimados}
+          />
+        </div>
       </div>
     </div>
   );
