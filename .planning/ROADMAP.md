@@ -565,14 +565,14 @@ cartão de lá); Phase 3 (a aprovação cria encomenda no módulo atual); Phase 
   12. O backup diário com cópia externa passa a incluir o volume das fotos, `/api/health/backup` cobre as fotos, e o roteiro de restauração foi atualizado e conferido
   13. No celular, todas as telas novas obedecem 44px de toque, 16px de campo, e têm estado vazio, de carregamento e de erro
 
-**Plans**: 3/13 plans executed
+**Plans**: 4/13 plans executed
 
 Plans:
 
 - [x] 04.5-01-PLAN.md — Fundação e traçador: schema das 8 tabelas, migrações 0017/0018/0019, cálculo puro, forno pelas medidas, numeração ORC-2026-001, abas novas e a casca /orcamentos removida
 - [x] 04.5-02-PLAN.md — Parâmetros em /cadastros: histórico com data, selo estimado/medido, taxa lida da parte 1 e "Calcular minha hora"
 - [x] 04.5-03-PLAN.md — Volume das fotos, backup diário com cópia externa, /api/health/backup cobrindo fotos e o roteiro 12 do servidor
-- [ ] 04.5-04-PLAN.md — Peças: a ficha, o cálculo na tela, a barra de onde vem o custo, o selo do preço e o vínculo com o Catálogo
+- [x] 04.5-04-PLAN.md — Peças: a ficha, o cálculo na tela, a barra de onde vem o custo, o selo do preço e o vínculo com o Catálogo
 - [ ] 04.5-05-PLAN.md — Peças: a lista, as exclusivas escondidas, "começar a partir de" e a exclusão que se recusa quando a peça está em uso
 - [ ] 04.5-06-PLAN.md — Orçamento: lista com total, editor com "para quem e para quando" e as linhas de peça
 - [ ] 04.5-07-PLAN.md — Orçamento: custos do projeto, frete, total e pagamento, e o painel "Só para você"
@@ -714,7 +714,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
-| 04.5. Financeiro — parte 2 | 3/13 | In Progress|  |
+| 04.5. Financeiro — parte 2 | 4/13 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-03-PLAN.md
-last_updated: "2026-09-26T18:27:00.519Z"
+stopped_at: Completed 04.5-04-PLAN.md
+last_updated: "2026-09-26T19:22:45.711Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 67
+  completed_plans: 68
 current_phase: 04.5
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 plano 01 (o tracador) executado: schema de precificacao/orcamento, lib/precificacao/ puro e testado, sequencial ORC-2026-001 seguro sob concorrencia, aba Orcamentos no Financeiro"
+last_activity_desc: "Fase 04.5 em execucao: 4 de 13 planos prontos (a ficha de peca, D-18/D-19), 3 portoes pre-autorizados pelo dono"
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 03 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 04 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -62,8 +62,20 @@ uma única invocação) limpos. Detalhe completo, inclusive a nota de honestidad
 ambiente de teste NÃO pode provar (restauração de arquivo de foto real via `rclone`):
 `.planning/phases/04.5-financeiro-parte-2/04.5-03-SUMMARY.md`.
 
-**Pendente para os planos 04-13:** a ficha de peça (D-18/D-19), o editor de orçamento com linhas
-de peça, a aba Peças (hoje só cabeçalho vazio), PDF, o upload de foto em si (usa
+**Plano 04 (a ficha de peça — o cálculo puro, o preço que mora no Catálogo, e o diálogo) entregou:**
+`lib/precificacao/ficha.ts` (puro, 37 testes) — `validarFicha` espelha os `check`s de
+`fichas_precificacao`, `resultadoDaFicha` monta as cinco fatias/três preços/farol/contagens do
+forno sem chamar `calcularPeca`/`quantasCabem` sozinho (só `import type`, mesmo desenho de
+`CabemNoForno`); `criarFicha`/`editarFicha` gravam a ficha e o item do Catálogo na mesma transação
+com um preço só (D-18); o diálogo (`DialogoFicha`) recalcula ao vivo a cada tecla chamando as
+MESMAS funções que o servidor chamaria, com os dois avisos (não cabe/divisor inválido) no lugar de
+qualquer preço. **Achado real, corrigido nesta execução:** o forno estava sendo lido em
+cm-milésimos em vez de milímetros em `parametrosVigentes` — uma peça de 40 cm "cabia" num forno que
+parecia ter 3,5 km. e2e 46/46 (desktop + celular). Detalhe completo:
+`.planning/phases/04.5-financeiro-parte-2/04.5-04-SUMMARY.md`.
+
+**Pendente para os planos 05-13:** a lista de Peças (usa `DialogoFicha` do plano 04), a ação de
+apagar uma ficha (D-20), o editor de orçamento com linhas de peça, PDF, o upload de foto em si (usa
 `lib/orcamentos/caminho-fotos.ts` do plano 03), e todo o ciclo de vida do orçamento
 (enviar/aprovar/revisar).
 
@@ -230,6 +242,7 @@ Progress: [█████████░] 86% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P01 | ~2h30min | 4 tasks | 32 files |
 | Phase 04.5 P02 | 75min | 3 tasks | 22 files |
 | Phase 04.5 P03 | ~2h | 3 tasks | 15 files |
+| Phase 04.5 P04 | ~2h30min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -433,6 +446,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [04.5-03]: Nenhuma migracao nova — fotosBytes/fotosDestinoExternoOk ja existiam desde a migracao 0017 (plano 01); este plano so passou a ler/escrever essas colunas de verdade
 - [Phase ?]: [04.5-03]: RCLONE_REMOTE_FOTOS deriva de RCLONE_REMOTE quando nao configurado por conta propria — nenhuma edicao de .env obrigatoria para a cobertura de fotos entrar em producao
 - [Phase ?]: [04.5-03]: scripts/testar-backup.mjs virou 10 etapas (era 8) — as duas novas isolam o comportamento das fotos do dump, com um script de mentira no lugar de rclone real
+- [Phase ?]: [04.5-04]: lib/precificacao/ficha.ts só usa `import type` de ./calculo e ./forno — resultadoDaFicha recebe cabem/resultadoDireto/resultadoGaleria/farol JÁ calculados pelo caller (o diálogo), nunca chama calcularPeca/quantasCabem/farolDoPreco sozinho; mesmo desenho que calculo.ts já usa para CabemNoForno
+- [Phase ?]: [04.5-04]: ficha não-exclusiva sempre cria um item NOVO do Catálogo — "vincular a um item existente" (mencionado no BRIEFING) não foi implementado, porque nenhuma tela desta fase oferece esse seletor
+- [Phase ?]: [04.5-04]: **bug real corrigido** — `parametrosVigentes().forno` lia o forno em cm-milésimos (escala do CATALOGO_DE_PARAMETROS) em vez de milímetros; `MedidasUteisDoForno.larguraMm` valia 35000 em vez de 350, e nenhuma peça jamais seria recusada por não caber. Achado pelo próprio e2e (caso "prato grande demais")
 
 ### Pending Todos
 
