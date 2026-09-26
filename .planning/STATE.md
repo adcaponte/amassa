@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: "Fase 04.5 plano 02 (Parametros dentro de Cadastros) concluido e verificado — 18 parametros com historico e selo, Calcular minha hora, migracao 0020 corrigindo o gatilho de mesmo dia. Proximo: plano 03."
-last_updated: "2026-09-26T17:59:57.572Z"
+stopped_at: Completed 04.5-03-PLAN.md
+last_updated: "2026-09-26T18:27:00.519Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 66
+  completed_plans: 67
 current_phase: 04.5
 last_activity: 2026-09-26
 last_activity_desc: "Fase 04.5 plano 01 (o tracador) executado: schema de precificacao/orcamento, lib/precificacao/ puro e testado, sequencial ORC-2026-001 seguro sob concorrencia, aba Orcamentos no Financeiro"
@@ -23,11 +23,11 @@ last_activity_desc: "Fase 04.5 plano 01 (o tracador) executado: schema de precif
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-02 executados e verificados; 11 planos restantes
+**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-03 executados e verificados; 10 planos restantes
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 02 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 03 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -46,11 +46,26 @@ medido (verde-sucesso, nunca terracota); `lib/precificacao/{hora,consultas,esque
 hora" (ORC-04) gravando `trabalho_hora`; o aviso vermelho do divisor que não fecha (D-11). **Achado
 real, corrigido nesta execução:** o gatilho de histórico de 0018 recusava corrigir o valor de um
 parâmetro no MESMO DIA — migração `0020` corrige isso sem tocar 0017/0018/0019. e2e 42/42 (desktop
+
 + celular). Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-02-SUMMARY.md`.
 
-**Pendente para os planos 03-13:** a ficha de peça (D-18/D-19), o editor de orçamento com linhas
-de peça, a aba Peças (hoje só cabeçalho vazio), PDF, fotos, backup de arquivo e todo o ciclo de
-vida do orçamento (enviar/aprovar/revisar).
+**Plano 03 (o volume das fotos, o backup que cobre e o roteiro do servidor) entregou:** bind
+mount `/opt/amassa/dados/fotos-orcamentos` → `/dados/fotos-orcamentos` (D-30, respondido pelo
+dono durante a execução), declarado em `docker/compose.yml` com `CAMINHO_FOTOS` de valor padrão
+no próprio arquivo; `lib/orcamentos/caminho-fotos.ts` como porta única de travessia de caminho
+de foto; `scripts/backup.sh`/`scripts/restaurar.sh` estendidos para cobrir as fotos com o mesmo
+`rclone` do dump, sem ferramenta nova; `/api/health/backup` cobrindo a cópia externa das fotos
+sem expor bytes. Nenhuma migração nova (as colunas já existiam desde o plano 01). Roteiro 12
+(`docs/operacao/12-fotos-volume-e-backup.md`) pronto para o dono rodar no plano 13. `npm run
+verificar`, `npm run test:backup` (10 etapas) e `npm run test:e2e -- --grep "backup"` (44/44,
+uma única invocação) limpos. Detalhe completo, inclusive a nota de honestidade sobre o que o
+ambiente de teste NÃO pode provar (restauração de arquivo de foto real via `rclone`):
+`.planning/phases/04.5-financeiro-parte-2/04.5-03-SUMMARY.md`.
+
+**Pendente para os planos 04-13:** a ficha de peça (D-18/D-19), o editor de orçamento com linhas
+de peça, a aba Peças (hoje só cabeçalho vazio), PDF, o upload de foto em si (usa
+`lib/orcamentos/caminho-fotos.ts` do plano 03), e todo o ciclo de vida do orçamento
+(enviar/aprovar/revisar).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -72,7 +87,10 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
 **Seis checkpoints bloqueantes esperam pelo dono** (o executor para em cada um):
 
-  1. Plano 03 — bind mount vs. volume nomeado, e o `chown 100:101` que é dele, no servidor.
+  1. ~~Plano 03 — bind mount vs. volume nomeado~~ **respondido pelo dono durante a execução**
+     (bind mount, D-30). O `chown 100:101` continua sendo dele — vira o Passo 4 do Roteiro 12
+     (`docs/operacao/12-fotos-volume-e-backup.md`), executado no plano 13, junto das migrações.
+
   2. Plano 10 — instalar `sharp` + `file-type`.
   3. Plano 11 — instalar `@react-pdf/renderer`. **O selo de legitimidade de pacote voltou SUS**; a
      pesquisa julgou falso-positivo (a métrica leu a data do último lançamento, não a idade do
@@ -95,7 +113,7 @@ Duas coisas para ele olhar:
     no Financeiro (espelho criaria chave circular e uma segunda verdade). As duas telas provam a
     navegação nos dois sentidos. É interpretação de regra dele — vale conferir quando chegar.
 
-Não houve `git push`. Tudo em commits locais (`9bd48db` a `91c50b9`, plano 01 da 04.5 incluído).
+Não houve `git push`. Tudo em commits locais (`9bd48db` a `c391925`, planos 01-03 da 04.5 incluídos).
 
 O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
 
@@ -116,7 +134,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 85% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 86% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -211,6 +229,7 @@ Progress: [█████████░] 85% (64 de 64 planos da 04.4 executad
 | Phase 04.4 P13 | ~2h30min | 3 tasks | 22 files |
 | Phase 04.5 P01 | ~2h30min | 4 tasks | 32 files |
 | Phase 04.5 P02 | 75min | 3 tasks | 22 files |
+| Phase 04.5 P03 | ~2h | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -411,6 +430,9 @@ Recent decisions affecting current work:
 - [Phase ?]: parametrosVigentes devolve porChave + calculo (ParametrosDoCalculo) + taxaCartaoPontosBase numa consulta só; nenhum outro módulo monta o agregado na mão
 - [Phase ?]: Migração 0020 corrige o gatilho de parametros_precificacao (0018): a linha de HOJE pode ter o valor corrigido, só uma linha de dia anterior fica congelada — achado real ao rodar o e2e contra Postgres
 - [Phase ?]: 'Uma fornada de biscoito/esmalte custa' do protótipo foi omitida da tela de Parâmetros (não é must_have, exigiria expor cálculo interno de calculo.ts)
+- [Phase ?]: [04.5-03]: Nenhuma migracao nova — fotosBytes/fotosDestinoExternoOk ja existiam desde a migracao 0017 (plano 01); este plano so passou a ler/escrever essas colunas de verdade
+- [Phase ?]: [04.5-03]: RCLONE_REMOTE_FOTOS deriva de RCLONE_REMOTE quando nao configurado por conta propria — nenhuma edicao de .env obrigatoria para a cobertura de fotos entrar em producao
+- [Phase ?]: [04.5-03]: scripts/testar-backup.mjs virou 10 etapas (era 8) — as duas novas isolam o comportamento das fotos do dump, com um script de mentira no lugar de rclone real
 
 ### Pending Todos
 
@@ -483,6 +505,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T17:59:57.481Z
-Stopped at: Fase 04.5 plano 02 (Parametros dentro de Cadastros) concluido e verificado — 18 parametros com historico e selo, Calcular minha hora, migracao 0020 corrigindo o gatilho de mesmo dia. Proximo: plano 03.
+Last session: 2026-09-26T18:25:32.322Z
+Stopped at: Completed 04.5-03-PLAN.md
 Resume file: None
