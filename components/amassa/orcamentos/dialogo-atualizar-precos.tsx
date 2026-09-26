@@ -222,7 +222,9 @@ export function DialogoAtualizarPrecos({
                     <input
                       data-testid="atualizar-preco-novo"
                       inputMode="decimal"
-                      style={{ fontSize: "16px" }}
+                      // `text-corpo` = 16px (app/globals.css) — o mínimo do CLAUDE.md para nenhum
+                      // campo de formulário disparar o zoom automático do iOS ao focar; mesma
+                      // classe que `orcamento-linha-preco` já usa.
                       className="border-border text-corpo min-h-[44px] max-w-[200px] rounded-md border px-3"
                       value={precosTexto[sugestao.linhaId] ?? ""}
                       onChange={(evento) =>
