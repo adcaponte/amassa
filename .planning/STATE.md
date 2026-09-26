@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: executing
-stopped_at: "04.4-12: Tarefas 1-3 concluidas (a caixinha do a vista em aberto e o seletor de mes); parado na Tarefa 4, checkpoint do dono"
-last_updated: "2026-09-20T13:12:27.000Z"
+stopped_at: "04.4-13: Tarefas 1-3 concluidas (aviso acima da barra, etiqueta de desconto, total em Todas, ajuste fino da grade/Despesa); parado na Tarefa 4, checkpoint do dono - ultima porta da Fase 04.4"
+last_updated: "2026-09-26T11:46:31.172Z"
 last_activity: 2026-09-20
-last_activity_desc: "tarefa rápida 260920-wcg: contraste AA que barrava o deploy corrigido (conta fixa desativada + mesmo achado em mais oito componentes) — código local, aguardando push"
+last_activity_desc: "tarefa rápida 260920-jxb: connectionTimeoutMillis no pool do"
 progress:
   total_phases: 10
   completed_phases: 9
-  total_plans: 63
-  completed_plans: 63
+  total_plans: 64
+  completed_plans: 64
 ---
 
 # Project State
@@ -29,9 +29,13 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 Phase: 04.4 (Financeiro — parte 1) — EXECUTING (executa antes das Fases 5 e 6 — ordem completa no
 ROADMAP.md, §Overview)
-Plan: 12 planos — 01 a 10 completos; no 11, Tarefas 1-3 concluídas (Roteiro 10, verificação humana
-escrita, varredura completa, e a migração aplicada em produção pelo dono). O 12 nasceu das
-respostas do dono de 20/09 e ainda não foi executado.
+Plan: 13 planos — 01 a 10 completos; no 11, Tarefas 1-3 concluídas (Roteiro 10, verificação humana
+escrita, varredura completa, e a migração aplicada em produção pelo dono); no 12, Tarefas 1-3
+concluídas (as duas mudanças pedidas pelo dono em 20/09); no 13, Tarefas 1-3 concluídas (os quatro
+achados da conferência do dono em 26/09 — aviso acima da barra, etiqueta de desconto, total em
+"Todas", ajuste fino da grade de parcelas/Despesa). A Tarefa 4 de cada um desses três planos é
+`checkpoint:human-verify` do dono — a Seção E (itens 20-23) de `04.4-VERIFICACAO-HUMANA.md` é a
+ÚLTIMA da lista (agora com 23 itens); percorrida, ela fecha a Fase 04.4.
 Status: Em andamento, com o dono presente. Código no ar desde o deploy de 20/09; migrações
 0014/0015/0016 aplicadas e conferidas (evidência no 04.4-11-SUMMARY.md); as 8 suposições foram
 respondidas (04.4-VERIFICACAO-HUMANA.md).
@@ -95,8 +99,9 @@ Last activity: 2026-09-20 — tarefa rápida 260920-jxb: connectionTimeoutMillis
 Postgres corrigido; teste e2e de bloqueio revertido após achado de módulo não-compartilhado
 entre rota REST e Server Action (WINDOWS #34, aberto) — Fase 04.4 segue aguardando o dono
 
-Progress: [██████████] 100% (61 de 62 planos; o 04.4-11 conta como
-automatizável concluído, migração e verificação humana pendentes)
+Progress: [██████████] 100% (64 de 64 planos; 04.4-11/12/13 contam como automatizáveis
+concluídos, migração (04.4-11) e verificação humana (04.4-11/12/13, itens 20-23) pendentes do
+dono — a última porta da Fase 04.4)
 
 ## Performance Metrics
 
@@ -188,6 +193,7 @@ automatizável concluído, migração e verificação humana pendentes)
 | Phase 04.4 P10 | ~30min | 2 tasks | 14 files |
 | Phase 04.4 P11 | ~2h30min | 2 tasks | 6 files |
 | Phase 04.4 P12 | ~2h15min | 3 tasks | 19 files |
+| Phase 04.4 P13 | ~2h30min | 3 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -381,6 +387,9 @@ Recent decisions affecting current work:
 - [Phase ?]: pagaAVista/pagas movidos para o módulo puro lib/financeiro/parcelas.ts (não a tela) porque o painel regenera o plano do zero a cada mudança de carrinho/data/plano
 - [Phase ?]: mesPermitidoParaGeracao(hoje, mes) substitui a igualdade fixa com o mês seguinte — a única porta que o servidor usa para aceitar um mês em gerarContasDoMes
 - [Phase ?]: vencimentoAvistaAberto (estado próprio do painel) preserva a data Vence em através da regeneração do plano — achado necessário pelo próprio caso de e2e do plano (Rule 1, corrigido antes do commit)
+- [Phase ?]: 04.4-13: token unico --deslocamento-aviso deriva o deslocamento do toast da altura real da barra, lido pelas duas portas do sonner (offset/mobileOffset), trocando de valor no breakpoint md (768px) para cobrir a faixa 601-767px
+- [Phase ?]: 04.4-13: etiqueta do carrinho separa TEXTO por motivo - tabela R$ X so para preco editado, - R$ X de desconto para qualquer linha atingida pelo desconto (item comum, valor na hora, valor livre)
+- [Phase ?]: 04.4-13: filtrarExtrato soma sempre (tipo deixa de aceitar null); a politica de esconder a linha do total quando nao ha movimento passou para a tela
 
 ### Pending Todos
 
@@ -450,6 +459,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-20T11:37:32.366Z
-Stopped at: 04.4-12: Tarefas 1-3 concluidas (a caixinha do a vista em aberto e o seletor de mes); parado na Tarefa 4, checkpoint do dono
+Last session: 2026-09-26T11:46:31.130Z
+Stopped at: 04.4-13: Tarefas 1-3 concluidas (aviso acima da barra, etiqueta de desconto, total em Todas, ajuste fino da grade/Despesa); parado na Tarefa 4, checkpoint do dono - ultima porta da Fase 04.4
 Resume file: None
