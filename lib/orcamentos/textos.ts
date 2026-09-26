@@ -204,10 +204,10 @@ export const FRASE_FALTA_CLIENTE_E_PECA = "Para enviar, falta o cliente e ao men
 export const FRASE_APROVADO_EXPLICACAO =
   "Orçamento aprovado fica travado, porque já virou venda. Para refazer com preços novos, use Duplicar: nasce um rascunho com as mesmas peças.";
 
-// As três ações que ainda não existem nesta fase (chegam nos planos 09/11/12) — o botão existe,
+// As duas ações que ainda não existem nesta fase (chegam nos planos 11/12) — o botão existe,
 // desabilitado, com uma nota curta explicando o motivo em vez de um controle morto sem explicação.
+// "Atualizar preços" saiu daqui no plano 09: tem ação de verdade, não é mais "em breve".
 export const NOTA_VER_CLIENTE_EM_BREVE = "A visualização para o cliente chega em breve.";
-export const NOTA_ATUALIZAR_PRECOS_EM_BREVE = "Atualizar preços chega em breve.";
 export const NOTA_CLIENTE_APROVOU_EM_BREVE = "Registrar a aprovação do cliente chega em breve.";
 
 export const TOAST_ORCAMENTO_ENVIADO = "Marcado como enviado. Preços e custos ficaram congelados.";
@@ -249,4 +249,63 @@ export const FRASE_LISTA_DE_PRECOS_DIVERGENTE =
 export const TOAST_PRECOS_ATUALIZADOS = "Preços atualizados.";
 export function textoRevisaoCriada(numero: number): string {
   return `Revisão ${numero} criada como rascunho. Confira e marque como enviado.`;
+}
+
+// O diálogo (04.5-09-PLAN.md, Tarefa 3) — copy verbatim do protótipo aprovado (`prototipo.html`,
+// `folhaAtualizar`, os dois ramos).
+export const TITULO_ATUALIZAR_PRECOS = "Atualizar preços";
+export const ROTULO_ATUALIZAR = "Atualizar";
+export const ROTULO_CANCELAR = "Cancelar";
+export const ROTULO_NOVO_PRECO_CADA = "Novo preço, cada";
+
+export const DICA_ATUALIZAR_RASCUNHO =
+  "Rascunho: o cálculo já usa os parâmetros de hoje. Aqui você confere cada preço contra o mínimo atual. Onde o preço está abaixo do mínimo, a sugestão sobe até ele.";
+
+export function dicaAtualizarCongelado(dataFormatada: string): string {
+  return `Este orçamento foi calculado em ${dataFormatada}. Abaixo, o que mudou com os parâmetros e as fichas de hoje. O preço sugerido mantém a mesma margem que você tinha dado na época. Ajuste o que quiser.`;
+}
+
+export const FRASE_NADA_MUDOU_NOS_CUSTOS =
+  "Nada mudou nos custos desde então. Atualizar só renova a data e a validade.";
+
+export function dicaAtualizarConfirmarCongelado(novaRevisao: number): string {
+  return `Ao confirmar, o orçamento volta a rascunho como revisão ${novaRevisao}, com a data de hoje e a validade renovada. Custos de projeto e frete não mudam sozinhos — confira. O que foi enviado antes fica registrado no histórico.`;
+}
+
+export function rotuloMinimoHoje(valorFormatado: string): string {
+  return `preço mínimo hoje: ${valorFormatado}`;
+}
+
+// Prefixo verbatim do protótipo (`preço mínimo: {antes} → {hoje}`) — os DOIS valores ficam em
+// `<span>` separados no componente (cada um com o próprio `data-testid`), para o e2e conferir
+// antes/hoje individualmente; esta constante é só o texto fixo entre eles.
+export const ROTULO_PRECO_MINIMO_PREFIXO = "preço mínimo:";
+
+export const ROTULO_ESTA_ACIMA = "está acima";
+export const ROTULO_ESTA_ABAIXO = "está abaixo";
+export const ROTULO_IGUAL = "igual";
+export const ROTULO_SEM_RAZAO_ANTERIOR = "sem razão anterior";
+
+export function rotuloSubiu(percentualFormatado: string): string {
+  return `subiu ${percentualFormatado}%`;
+}
+export function rotuloCaiu(percentualFormatado: string): string {
+  return `caiu ${percentualFormatado}%`;
+}
+
+// "Um orçamento aprovado não tem 'Atualizar preços'" (must_have) — nenhuma frase própria: o botão
+// simplesmente não existe nesse status (04.5-UI-SPEC.md, `AcoesDoOrcamento`), a mesma frase de
+// `FRASE_APROVADO_EXPLICACAO` já cobre o "por quê".
+
+// Histórico de revisões, no painel "Só para você" (verbatim do protótipo: "Histórico: revisão 1
+// de 02/12 · R$ 1.234,00 · revisão 2 de 15/01 · R$ 1.310,00").
+export function itemDeHistoricoDeRevisao(
+  numero: number,
+  dataFormatada: string,
+  totalFormatado: string,
+): string {
+  return `revisão ${numero} de ${dataFormatada} · ${totalFormatado}`;
+}
+export function textoHistoricoDeRevisoes(itens: string[]): string {
+  return `Histórico: ${itens.join(" · ")}`;
 }

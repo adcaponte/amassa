@@ -31,6 +31,7 @@ import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import {
   listarOrcamentos,
   listarPecasParaEscolha,
+  listarRevisoes,
   obterOrcamentoParaEdicao,
 } from "@/lib/orcamentos/consultas";
 import {
@@ -40,7 +41,9 @@ import {
   TOAST_ORCAMENTO_ENVIADO,
   TOAST_ORCAMENTO_REABERTO,
   TOAST_ORCAMENTO_RECUSADO,
+  TOAST_PRECOS_ATUALIZADOS,
   textoOrcamentoDuplicado,
+  textoRevisaoCriada,
 } from "@/lib/orcamentos/textos";
 import {
   listarCategoriasDeVenda,
@@ -140,6 +143,7 @@ export default async function PaginaFinanceiro({
     parcelasPagasNoMes,
     orcamentos,
     orcamentoParaEditar,
+    revisoesDoOrcamento,
     pecasParaEscolha,
     categoriasDeVendaParaFicha,
     parametrosParaFicha,
@@ -172,6 +176,9 @@ export default async function PaginaFinanceiro({
     abaOrcamentos && !orcamentoIdParaEditor ? listarOrcamentos() : Promise.resolve([]),
     // 04.5-06-PLAN.md — o editor: o orçamento e as linhas com a ficha de cada uma.
     orcamentoIdParaEditor ? obterOrcamentoParaEdicao(orcamentoIdParaEditor) : Promise.resolve(null),
+    // "Atualizar preços" (04.5-09-PLAN.md) — o histórico de revisões, para o painel "Só para
+    // você"; vazio até a primeira revisão ser confirmada.
+    orcamentoIdParaEditor ? listarRevisoes(orcamentoIdParaEditor) : Promise.resolve([]),
     // "+ Peça da lista" (04.5-06-PLAN.md) — as fichas não exclusivas, com o mínimo de hoje
     // resolvido pelo próprio `EditorOrcamento` (a mesma cadeia de cálculo do resto do módulo).
     orcamentoIdParaEditor ? listarPecasParaEscolha() : Promise.resolve([]),
@@ -235,7 +242,11 @@ export default async function PaginaFinanceiro({
                       ? textoOrcamentoDuplicado(
                           numeroDeOrcamento(orcamentoParaEditar.ano, orcamentoParaEditar.sequencial),
                         )
-                      : null;
+                      : avisoResolvido?.tipo === "orcamento-atualizado"
+                        ? TOAST_PRECOS_ATUALIZADOS
+                        : avisoResolvido?.tipo === "orcamento-revisao-criada" && orcamentoParaEditar
+                          ? textoRevisaoCriada(orcamentoParaEditar.revisao)
+                          : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
   const desfazerDoAviso =
@@ -349,6 +360,7 @@ export default async function PaginaFinanceiro({
                 forno={parametrosParaFicha.forno}
                 taxaCartaoPontosBase={parametrosParaFicha.taxaCartaoPontosBase}
                 hoje={hoje}
+                revisoes={revisoesDoOrcamento}
               />
               <DialogoFicha
                 abrirComo={pecaNova ? "novo" : (fichaParaEditar ?? null)}

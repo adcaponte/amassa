@@ -20,7 +20,12 @@ export type AvisoDaUrl =
   | { tipo: "orcamento-enviado" }
   | { tipo: "orcamento-reaberto" }
   | { tipo: "orcamento-recusado" }
-  | { tipo: "orcamento-duplicado" };
+  | { tipo: "orcamento-duplicado" }
+  // "Atualizar preços" (04.5-09-PLAN.md, D-23) — mesma disciplina: o orçamento já está em
+  // `?orcamento=<id>`, o número da revisão nova vem do PRÓPRIO `orcamentoParaEditar` recarregado
+  // (nunca da URL), porque a ação já gravou o valor novo antes da navegação completa.
+  | { tipo: "orcamento-atualizado" }
+  | { tipo: "orcamento-revisao-criada" };
 
 export function avisoDaUrl(parametros: {
   aviso?: string | null;
@@ -51,7 +56,9 @@ export function avisoDaUrl(parametros: {
     parametros.aviso === "orcamento-enviado" ||
     parametros.aviso === "orcamento-reaberto" ||
     parametros.aviso === "orcamento-recusado" ||
-    parametros.aviso === "orcamento-duplicado"
+    parametros.aviso === "orcamento-duplicado" ||
+    parametros.aviso === "orcamento-atualizado" ||
+    parametros.aviso === "orcamento-revisao-criada"
   ) {
     return { tipo: parametros.aviso };
   }

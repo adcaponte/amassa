@@ -1,7 +1,8 @@
 import { somarDias } from "@/lib/financeiro/calendario";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
+import { algoMudou, sugerirPrecos, type LinhaParaAtualizar } from "@/lib/orcamentos/atualizacao";
 import { contasDoOrcamento, type LinhaParaContas } from "@/lib/orcamentos/contas";
-import type { OrcamentoParaEdicao, PecaParaEscolha } from "@/lib/orcamentos/consultas";
+import type { OrcamentoParaEdicao, PecaParaEscolha, RevisaoDoOrcamento } from "@/lib/orcamentos/consultas";
 import { numeroDeOrcamento, rotuloDeRevisao } from "@/lib/orcamentos/formato";
 import { parcelasDoPlano } from "@/lib/orcamentos/plano";
 import { lerDoSnapshot, type LinhaCongelada } from "@/lib/orcamentos/snapshot";
@@ -34,6 +35,7 @@ import { AcoesDoOrcamento } from "./acoes-do-orcamento";
 import { CabecalhoDoOrcamento } from "./cabecalho-do-orcamento";
 import { ChipDeSituacao } from "./chip-de-situacao";
 import { CustosDoProjeto } from "./custos-do-projeto";
+import { DialogoAtualizarPrecos } from "./dialogo-atualizar-precos";
 import { LinhaDeOrcamento } from "./linha-de-orcamento";
 import { SoParaVoce } from "./so-para-voce";
 import { TotalEPagamento } from "./total-e-pagamento";
@@ -49,6 +51,9 @@ export type EditorOrcamentoProps = {
   forno: MedidasUteisDoForno;
   taxaCartaoPontosBase: number;
   hoje: string;
+  // "Atualizar preços" (04.5-09-PLAN.md, D-23) — o histórico já persistido em
+  // `orcamento_revisoes`, para o painel "Só para você".
+  revisoes: RevisaoDoOrcamento[];
 };
 
 type FichaParaResolver = {
@@ -179,6 +184,7 @@ export function EditorOrcamento({
   forno,
   taxaCartaoPontosBase,
   hoje,
+  revisoes,
 }: EditorOrcamentoProps) {
   const vivo = orcamento.status === "rascunho";
   const situacao = situacaoDoOrcamento(
@@ -223,6 +229,28 @@ export function EditorOrcamento({
     horasMilesimos: linha.horasMilesimosResolvido,
     resultado: linha.resultado,
   }));
+
+  // "Atualizar preços" (04.5-09-PLAN.md, D-23): compara peça a peça o mínimo de ANTES (do
+  // snapshot, quando congelado — `null` no rascunho, D-23) com o mínimo de HOJE, recalculado com
+  // os parâmetros e a ficha ATUAIS pela MESMA cadeia (`resolverFicha`) que a linha viva já usa.
+  // Enquanto rascunho, `linhasResolvidas[i].resultado` JÁ é o de hoje — reaproveitado, nunca
+  // recalculado duas vezes; congelado, `linha.resultado` ali é o CONGELADO
+  // (`resultadoCongelado`), então o de hoje precisa de uma segunda leitura, à parte.
+  const linhasParaAtualizar: LinhaParaAtualizar[] = orcamento.linhas.map((linha, indice) => {
+    const resultadoDeHoje = vivo
+      ? linhasResolvidas[indice].resultado
+      : resolverFicha(linha.ficha, linha.precoUnitarioCentavos, parametros, forno, taxaCartaoPontosBase);
+
+    return {
+      linhaId: linha.id,
+      nome: linha.ficha.nome,
+      precoAtualCentavos: linha.precoUnitarioCentavos,
+      minimoDeHojeCentavos: resultadoDeHoje.ok ? resultadoDeHoje.minimoCentavos : 0,
+      minimoCongeladoCentavos: vivo ? null : (leituraCongelada!.linhas[indice]?.minimoCentavos ?? 0),
+    };
+  });
+  const sugestoesDeAtualizacao = sugerirPrecos(linhasParaAtualizar);
+  const custosMudaramDesdeOEnvio = algoMudou(sugestoesDeAtualizacao);
   // A contagem de estimados sai dos parâmetros vigentes lidos por `parametrosVigentes` enquanto
   // rascunho — nunca somada por conta própria (key_links do 04.5-07-PLAN.md); congelado, vem do
   // snapshot, exatamente como era no instante do envio (D-21: mudar um parâmetro depois não muda
@@ -370,6 +398,11 @@ export function EditorOrcamento({
             fornadasEsmalteMilesimos={contas.fornadasEsmalteMilesimos}
             parametrosEstimados={contas.parametrosEstimados}
             avisoCongelado={vivo ? null : textoAvisoCongelado(formatarDataCurta(orcamento.data))}
+            revisoes={revisoes.map((revisao) => ({
+              revisao: revisao.revisao,
+              enviadoEmCivil: revisao.enviadoEmCivil,
+              totalCentavos: revisao.totalCentavos,
+            }))}
           />
 
           <AcoesDoOrcamento
@@ -378,6 +411,19 @@ export function EditorOrcamento({
             temCliente={Boolean(orcamento.clienteNome?.trim())}
             temPeca={orcamento.linhas.length > 0}
           />
+
+          {/* Um orçamento aprovado não tem "Atualizar preços" (must_have) — o diálogo nem monta
+              nesse status, o mesmo tratamento que `AcoesDoOrcamento` já dá ao botão. */}
+          {orcamento.status !== "aprovado" && (
+            <DialogoAtualizarPrecos
+              orcamentoId={orcamento.id}
+              modo={vivo ? "rascunho" : "congelado"}
+              sugestoes={sugestoesDeAtualizacao}
+              algoMudou={custosMudaramDesdeOEnvio}
+              dataCongelamentoFormatada={vivo ? null : formatarDataCurta(orcamento.data)}
+              novaRevisao={orcamento.revisao + 1}
+            />
+          )}
         </div>
       </div>
     </div>

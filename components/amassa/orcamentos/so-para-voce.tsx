@@ -1,4 +1,4 @@
-import { formatarPercentual, formatarReais } from "@/lib/financeiro/formato";
+import { formatarDataCurta, formatarPercentual, formatarReais } from "@/lib/financeiro/formato";
 import { formatarFornadas } from "@/lib/orcamentos/formato";
 import {
   FRASE_NADA_APARECE_PARA_CLIENTE,
@@ -7,10 +7,21 @@ import {
   ROTULO_OCUPA_DO_FORNO,
   ROTULO_SOBRA_DEPOIS_DE_IMPOSTO_E_TAXA,
   TITULO_SO_PARA_VOCE,
+  itemDeHistoricoDeRevisao,
   textoAvisoDeEstimados,
   textoFornadasOcupadas,
+  textoHistoricoDeRevisoes,
 } from "@/lib/orcamentos/textos";
 import { formatarHoras } from "@/lib/precificacao/formato";
+
+// Uma revisão guardada (04.5-09-PLAN.md, D-23) — `enviadoEmCivil` já vem como data CIVIL
+// (`lib/orcamentos/consultas.ts::listarRevisoes`, convertida na borda a partir do instante
+// `enviado_em`), nunca formatada por este componente a partir de um timestamptz bruto.
+export type RevisaoParaHistorico = {
+  revisao: number;
+  enviadoEmCivil: string;
+  totalCentavos: number;
+};
 
 export type SoParaVoceProps = {
   custoCentavos: number;
@@ -26,6 +37,10 @@ export type SoParaVoceProps = {
   // (`orcamentos.data`, nunca do instante `congeladoEm` — evita o erro de fuso de truncar um
   // timestamptz em data).
   avisoCongelado: string | null;
+  // Histórico de revisões (04.5-09-PLAN.md, D-23) — vazio quando "Atualizar preços" nunca foi
+  // confirmado num orçamento congelado; nada aparece nesse caso (nenhum must_have pede um estado
+  // vazio próprio aqui, ao contrário do resto da tela).
+  revisoes: RevisaoParaHistorico[];
 };
 
 // O painel "Só para você" (D-24) — Server Component, sem interatividade nenhuma (nenhum campo
@@ -42,6 +57,7 @@ export function SoParaVoce({
   fornadasEsmalteMilesimos,
   parametrosEstimados,
   avisoCongelado,
+  revisoes,
 }: SoParaVoceProps) {
   const sobraPositiva = sobraCentavos >= 0;
 
@@ -93,9 +109,19 @@ export function SoParaVoce({
         </div>
       )}
 
-      {/* Histórico de revisões (D-24) — espaço reservado para o plano 09, que preenche o
-          `orcamentoRevisoes` congelado por "Atualizar preços". Nenhum dado de revisão existe
-          ainda nesta fase (nenhum orçamento foi atualizado de preço até aqui). */}
+      {revisoes.length > 0 && (
+        <p data-testid="orcamento-historico-revisoes" className="text-apoio text-muted-foreground">
+          {textoHistoricoDeRevisoes(
+            revisoes.map((revisao) =>
+              itemDeHistoricoDeRevisao(
+                revisao.revisao,
+                formatarDataCurta(revisao.enviadoEmCivil),
+                formatarReais(revisao.totalCentavos),
+              ),
+            ),
+          )}
+        </p>
+      )}
 
       {avisoCongelado && (
         <p data-testid="orcamento-aviso-congelado" className="text-apoio text-muted-foreground">

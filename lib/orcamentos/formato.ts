@@ -24,3 +24,14 @@ export function rotuloDeRevisao(revisao: number): string {
 export function formatarFornadas(milesimos: number): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(milesimos / 1000);
 }
+
+// "10,0" / "9,4" a partir de um percentual já com uma casa decimal (lib/orcamentos/atualizacao.ts
+// ::SugestaoDePreco.percentualAbsoluto) — usado pelas etiquetas "subiu X%"/"caiu X%" do diálogo
+// "Atualizar preços" (D-23). `minimumFractionDigits: 1` garante "10,0", nunca "10" — o protótipo
+// (`n1`) sempre mostra a casa decimal, mesmo quando ela é zero.
+export function formatarPercentualDeVariacao(percentual: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(percentual);
+}

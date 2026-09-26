@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import {
   duplicarOrcamento,
   marcarComoEnviado,
@@ -12,7 +13,6 @@ import {
 import {
   FRASE_APROVADO_EXPLICACAO,
   FRASE_FALTA_CLIENTE_E_PECA,
-  NOTA_ATUALIZAR_PRECOS_EM_BREVE,
   NOTA_CLIENTE_APROVOU_EM_BREVE,
   NOTA_VER_CLIENTE_EM_BREVE,
   ROTULO_ATUALIZAR_PRECOS,
@@ -34,12 +34,13 @@ export type AcoesDoOrcamentoProps = {
 
 type AcaoEmAndamento = "enviar" | "recusar" | "reabrir" | "duplicar" | null;
 
-// A barra de ações do orçamento (04.5-08-PLAN.md, Tarefa 3): muda de conteúdo conforme o status,
-// na ordem do protótipo. "Ver como o cliente vê" (plano 11), "Cliente aprovou" (plano 12) e
-// "Atualizar preços"/"Atualizar preços e reabrir" (plano 09) ainda não têm ação própria nesta
-// fase — o botão já existe, desabilitado, com uma nota curta no lugar de um controle morto sem
-// explicação (registrado no SUMMARY como stub conhecido). Cada transição real termina em
-// navegação COMPLETA para o toast correspondente — nunca `router.push`/`router.refresh`.
+// A barra de ações do orçamento: muda de conteúdo conforme o status, na ordem do protótipo. "Ver
+// como o cliente vê" (plano 11) e "Cliente aprovou" (plano 12) ainda não têm ação própria nesta
+// fase — o botão existe, desabilitado, com uma nota curta no lugar de um controle morto sem
+// explicação (registrado no SUMMARY como stub conhecido). "Atualizar preços"/"Atualizar preços e
+// reabrir" (04.5-09-PLAN.md) abre `DialogoAtualizarPrecos` por troca de URL (`?atualizarPrecos=1`,
+// sem transição — o mesmo padrão de `EscolherPeca`). Cada transição real termina em navegação
+// COMPLETA para o toast correspondente — nunca `router.push`/`router.refresh`.
 export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: AcoesDoOrcamentoProps) {
   const [emAndamento, setEmAndamento] = useState<AcaoEmAndamento>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -99,6 +100,16 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
   const ocupado = emAndamento !== null;
   const podeEnviar = temCliente && temPeca;
 
+  function abrirAtualizarPrecos() {
+    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&atualizarPrecos=1`);
+  }
+
+  const botaoAtualizarPrecos = (rotulo: string) => (
+    <Button type="button" variant="outline" onClick={abrirAtualizarPrecos} className="min-h-[44px]">
+      {rotulo}
+    </Button>
+  );
+
   const botaoDuplicar = (
     <Button
       type="button"
@@ -133,9 +144,7 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
             >
               {emAndamento === "enviar" ? "Enviando…" : ROTULO_MARCAR_COMO_ENVIADO}
             </Button>
-            <Button type="button" variant="outline" disabled className="min-h-[44px]">
-              {ROTULO_ATUALIZAR_PRECOS}
-            </Button>
+            {botaoAtualizarPrecos(ROTULO_ATUALIZAR_PRECOS)}
             {botaoDuplicar}
           </>
         )}
@@ -154,9 +163,7 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
             >
               {emAndamento === "recusar" ? "Recusando…" : ROTULO_RECUSOU}
             </Button>
-            <Button type="button" variant="outline" disabled className="min-h-[44px]">
-              {ROTULO_ATUALIZAR_PRECOS}
-            </Button>
+            {botaoAtualizarPrecos(ROTULO_ATUALIZAR_PRECOS)}
             <Button
               type="button"
               variant="outline"
@@ -172,9 +179,7 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
 
         {status === "recusado" && (
           <>
-            <Button type="button" variant="outline" disabled className="min-h-[44px]">
-              {ROTULO_ATUALIZAR_PRECOS_E_REABRIR}
-            </Button>
+            {botaoAtualizarPrecos(ROTULO_ATUALIZAR_PRECOS_E_REABRIR)}
             {botaoDuplicar}
           </>
         )}
@@ -190,19 +195,11 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
               {FRASE_FALTA_CLIENTE_E_PECA}
             </p>
           )}
-          <p className="text-apoio text-muted-foreground">{NOTA_ATUALIZAR_PRECOS_EM_BREVE}</p>
         </div>
       )}
 
       {status === "enviado" && (
-        <div className="flex flex-col gap-1">
-          <p className="text-apoio text-muted-foreground">{NOTA_CLIENTE_APROVOU_EM_BREVE}</p>
-          <p className="text-apoio text-muted-foreground">{NOTA_ATUALIZAR_PRECOS_EM_BREVE}</p>
-        </div>
-      )}
-
-      {status === "recusado" && (
-        <p className="text-apoio text-muted-foreground">{NOTA_ATUALIZAR_PRECOS_EM_BREVE}</p>
+        <p className="text-apoio text-muted-foreground">{NOTA_CLIENTE_APROVOU_EM_BREVE}</p>
       )}
 
       {status === "aprovado" && (
