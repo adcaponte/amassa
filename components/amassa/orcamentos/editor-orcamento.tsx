@@ -1,15 +1,17 @@
 import { somarDias } from "@/lib/financeiro/calendario";
-import { formatarReais } from "@/lib/financeiro/formato";
+import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import { contasDoOrcamento, type LinhaParaContas } from "@/lib/orcamentos/contas";
 import type { OrcamentoParaEdicao, PecaParaEscolha } from "@/lib/orcamentos/consultas";
 import { numeroDeOrcamento, rotuloDeRevisao } from "@/lib/orcamentos/formato";
 import { parcelasDoPlano } from "@/lib/orcamentos/plano";
+import { lerDoSnapshot, type LinhaCongelada } from "@/lib/orcamentos/snapshot";
+import { situacaoDoOrcamento } from "@/lib/orcamentos/situacao";
 import {
   FRASE_VAZIO_PECAS_DO_ORCAMENTO,
-  ROTULO_CHIP_RASCUNHO,
   ROTULO_MAIS_PECA_EXCLUSIVA,
   ROTULO_TODOS,
   TITULO_BLOCO_PECAS,
+  textoAvisoCongelado,
 } from "@/lib/orcamentos/textos";
 import {
   calcularPeca,
@@ -28,7 +30,9 @@ import {
 import { quantasCabem, type MedidasUteisDoForno } from "@/lib/precificacao/forno";
 
 import { AbrirEscolherPecaBotao, EscolherPeca } from "./escolher-peca";
+import { AcoesDoOrcamento } from "./acoes-do-orcamento";
 import { CabecalhoDoOrcamento } from "./cabecalho-do-orcamento";
+import { ChipDeSituacao } from "./chip-de-situacao";
 import { CustosDoProjeto } from "./custos-do-projeto";
 import { LinhaDeOrcamento } from "./linha-de-orcamento";
 import { SoParaVoce } from "./so-para-voce";
@@ -115,11 +119,58 @@ function resolverFicha(
   return resultadoDaFicha({ cabem, resultadoDireto, resultadoGaleria, farol });
 }
 
+// Reconstrói um `ResultadoDaFicha` a partir de UMA linha congelada (04.5-08-PLAN.md, D-21) — o
+// snapshot só guarda os seis campos do briefing (nunca a composição por insumo, que pertence à
+// ficha em edição, jamais a uma linha de orçamento); os campos que faltam para fechar o TIPO
+// (`fatias`/`minimoGaleriaCentavos`/`forno.porPrateleira`/`forno.niveis`/origens) recebem valor
+// neutro porque NENHUM consumidor de uma linha de orçamento (`contasDoOrcamento`,
+// `LinhaDeOrcamento`) os lê — só a ficha em edição os lê, e uma linha de orçamento nunca é essa
+// tela. Uma linha sem contagem de forno positiva não calculava no instante do congelamento (D-12,
+// "uma ficha 'ok' sempre tem as duas contagens maiores que zero") — representada aqui como recusa
+// genérica, já que o snapshot não guarda QUAL dos dois motivos era.
+function resultadoCongelado(linha: LinhaCongelada, precoUnitarioCentavos: number): ResultadoDaFicha {
+  if (linha.quantasCabem.biscoito <= 0 || linha.quantasCabem.esmalte <= 0) {
+    return { ok: false, motivo: "divisor-invalido" };
+  }
+
+  return {
+    ok: true,
+    fatias: [],
+    custoCentavos: linha.custoCentavos,
+    minimoCentavos: linha.minimoCentavos,
+    minimoGaleriaCentavos: null,
+    zeroCentavos: linha.zeroCentavos,
+    farol: farolDoPreco(precoUnitarioCentavos, linha.minimoCentavos, linha.zeroCentavos),
+    forno: {
+      biscoito: linha.quantasCabem.biscoito,
+      esmalte: linha.quantasCabem.esmalte,
+      porPrateleira: 0,
+      niveis: 0,
+      origemBiscoito: "calculado",
+      origemEsmalte: "calculado",
+    },
+  };
+}
+
+// Uma linha congelada em branco — usada só como rede de segurança se o número de linhas do
+// snapshot algum dia divergir do número de linhas do orçamento (não deveria acontecer: nenhuma
+// linha muda depois de congelado), nunca deixando a tela quebrar por um índice ausente.
+const LINHA_CONGELADA_EM_BRANCO: LinhaCongelada = {
+  nome: "",
+  custoCentavos: 0,
+  minimoCentavos: 0,
+  zeroCentavos: 0,
+  horasMilesimos: 0,
+  quantasCabem: { biscoito: 0, esmalte: 0 },
+};
+
 // O editor do orçamento (Server Component — nenhum estado, nenhum efeito próprio; os blocos que
 // precisam de estado são componentes cliente separados, montados por linha ou por bloco, mesma
-// disciplina do resto do módulo). Metade de cima do orçamento: cabeçalho, "Para quem e para
-// quando", "Peças" — a coluna da direita ("Total e pagamento"/"Só para você") fica vazia até o
-// plano 07.
+// disciplina do resto do módulo). A escolha entre calcular ao vivo (rascunho) e ler o congelado
+// (qualquer outro status) acontece UMA VEZ aqui, para nome/horas/custo/mínimo/zero/quantasCabem
+// de cada linha e para imposto+taxa/estimados do orçamento inteiro (D-21, key_link do plano) — os
+// componentes abaixo (`LinhaDeOrcamento`, `contasDoOrcamento`, `SoParaVoce`) só recebem o
+// resultado já resolvido, nunca decidem a fonte sozinhos.
 export function EditorOrcamento({
   orcamento,
   pecasParaEscolha,
@@ -130,35 +181,63 @@ export function EditorOrcamento({
   hoje,
 }: EditorOrcamentoProps) {
   const vivo = orcamento.status === "rascunho";
-  const chip = vivo ? ROTULO_CHIP_RASCUNHO : orcamento.status;
+  const situacao = situacaoDoOrcamento(
+    { status: orcamento.status, data: orcamento.data, validadeDias: orcamento.validadeDias },
+    hoje,
+  );
   const validoAte = somarDias(orcamento.data, orcamento.validadeDias);
+  // A ÚNICA leitura do snapshot nesta tela — `null` enquanto rascunho (o invariante de banco
+  // garante que `orcamento.snapshot` é `null` exatamente quando `vivo`, então nunca chamamos
+  // `lerDoSnapshot` à toa).
+  const leituraCongelada = vivo ? null : lerDoSnapshot(orcamento.snapshot);
 
-  const linhasCalculadas = orcamento.linhas.map((linha) => ({
-    ...linha,
-    resultado: resolverFicha(
-      linha.ficha,
-      linha.precoUnitarioCentavos,
-      parametros,
-      forno,
-      taxaCartaoPontosBase,
-    ),
-  }));
+  const linhasResolvidas = orcamento.linhas.map((linha, indice) => {
+    if (vivo) {
+      return {
+        ...linha,
+        nomeResolvido: linha.ficha.nome,
+        horasMilesimosResolvido: linha.ficha.horasMilesimos,
+        resultado: resolverFicha(
+          linha.ficha,
+          linha.precoUnitarioCentavos,
+          parametros,
+          forno,
+          taxaCartaoPontosBase,
+        ),
+      };
+    }
 
-  const linhasParaContas: LinhaParaContas[] = linhasCalculadas.map((linha) => ({
-    nome: linha.ficha.nome,
+    const congelada = leituraCongelada!.linhas[indice] ?? LINHA_CONGELADA_EM_BRANCO;
+    return {
+      ...linha,
+      nomeResolvido: congelada.nome,
+      horasMilesimosResolvido: congelada.horasMilesimos,
+      resultado: resultadoCongelado(congelada, linha.precoUnitarioCentavos),
+    };
+  });
+
+  const linhasParaContas: LinhaParaContas[] = linhasResolvidas.map((linha) => ({
+    nome: linha.nomeResolvido,
     quantidade: linha.quantidade,
     precoUnitarioCentavos: linha.precoUnitarioCentavos,
-    horasMilesimos: linha.ficha.horasMilesimos,
+    horasMilesimos: linha.horasMilesimosResolvido,
     resultado: linha.resultado,
   }));
-  // A contagem de estimados sai dos parâmetros vigentes lidos por `parametrosVigentes` — nunca
-  // somada por conta própria (key_links do 04.5-07-PLAN.md).
-  const parametrosEstimados = Object.values(parametrosPorChave).filter((p) => !p.medido).length;
+  // A contagem de estimados sai dos parâmetros vigentes lidos por `parametrosVigentes` enquanto
+  // rascunho — nunca somada por conta própria (key_links do 04.5-07-PLAN.md); congelado, vem do
+  // snapshot, exatamente como era no instante do envio (D-21: mudar um parâmetro depois não muda
+  // este número).
+  const parametrosEstimados = vivo
+    ? Object.values(parametrosPorChave).filter((p) => !p.medido).length
+    : leituraCongelada!.parametrosEstimados;
+  const impostoETaxaPontosBase = vivo
+    ? parametros.impostoPontosBase + taxaCartaoPontosBase
+    : leituraCongelada!.impostoETaxaPontosBase;
 
   const contas = contasDoOrcamento(linhasParaContas, {
     custosDeProjeto: orcamento.custosDeProjeto.map((custo) => ({ valorCentavos: custo.valorCentavos })),
     freteCentavos: orcamento.freteCentavos,
-    impostoETaxaPontosBase: parametros.impostoPontosBase + taxaCartaoPontosBase,
+    impostoETaxaPontosBase,
     parametrosEstimados,
   });
 
@@ -195,9 +274,7 @@ export function EditorOrcamento({
           <span data-testid="orcamento-numero" className="text-corpo text-foreground">
             {`nº ${numeroDeOrcamento(orcamento.ano, orcamento.sequencial)}${rotuloDeRevisao(orcamento.revisao)}`}
           </span>
-          <span className="text-apoio bg-muted text-muted-foreground rounded-full px-2 py-0.5">
-            {chip}
-          </span>
+          <ChipDeSituacao situacao={situacao} />
         </div>
       </div>
 
@@ -227,17 +304,18 @@ export function EditorOrcamento({
               </span>
             </div>
 
-            {linhasCalculadas.length === 0 ? (
+            {linhasResolvidas.length === 0 ? (
               <p className="text-apoio text-muted-foreground">{FRASE_VAZIO_PECAS_DO_ORCAMENTO}</p>
             ) : (
               <div className="flex flex-col gap-3">
-                {linhasCalculadas.map((linha) => (
+                {linhasResolvidas.map((linha) => (
                   <LinhaDeOrcamento
                     key={linha.id}
                     orcamentoId={orcamento.id}
                     id={linha.id}
                     fichaId={linha.fichaId}
-                    nome={linha.ficha.nome}
+                    vivo={vivo}
+                    nome={linha.nomeResolvido}
                     quantidade={linha.quantidade}
                     precoUnitarioCentavos={linha.precoUnitarioCentavos}
                     cor={linha.cor}
@@ -291,6 +369,14 @@ export function EditorOrcamento({
             fornadasBiscoitoMilesimos={contas.fornadasBiscoitoMilesimos}
             fornadasEsmalteMilesimos={contas.fornadasEsmalteMilesimos}
             parametrosEstimados={contas.parametrosEstimados}
+            avisoCongelado={vivo ? null : textoAvisoCongelado(formatarDataCurta(orcamento.data))}
+          />
+
+          <AcoesDoOrcamento
+            orcamentoId={orcamento.id}
+            status={orcamento.status}
+            temCliente={Boolean(orcamento.clienteNome?.trim())}
+            temPeca={orcamento.linhas.length > 0}
           />
         </div>
       </div>

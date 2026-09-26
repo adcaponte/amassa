@@ -13,7 +13,14 @@ export type AvisoDaUrl =
   // "Peça salva." (04.5-04-PLAN.md) — toast fixo, sem identificador nenhum: a peça em si já
   // aparece na URL por `?peca=<id>` (o parâmetro que reabre o diálogo em modo edição), um
   // propósito diferente do aviso.
-  | { tipo: "peca-salva" };
+  | { tipo: "peca-salva" }
+  // O ciclo de vida do orçamento (04.5-08-PLAN.md) — nenhum dos quatro precisa de identificador
+  // PRÓPRIO no aviso: o orçamento em si já está em `?orcamento=<id>` (o mesmo parâmetro que abre o
+  // editor), inclusive depois de "Duplicar" (que navega para o NOVO id).
+  | { tipo: "orcamento-enviado" }
+  | { tipo: "orcamento-reaberto" }
+  | { tipo: "orcamento-recusado" }
+  | { tipo: "orcamento-duplicado" };
 
 export function avisoDaUrl(parametros: {
   aviso?: string | null;
@@ -38,6 +45,15 @@ export function avisoDaUrl(parametros: {
 
   if (parametros.aviso === "peca-salva") {
     return { tipo: "peca-salva" };
+  }
+
+  if (
+    parametros.aviso === "orcamento-enviado" ||
+    parametros.aviso === "orcamento-reaberto" ||
+    parametros.aviso === "orcamento-recusado" ||
+    parametros.aviso === "orcamento-duplicado"
+  ) {
+    return { tipo: parametros.aviso };
   }
 
   return null;

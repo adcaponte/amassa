@@ -20,6 +20,12 @@ export type SoParaVoceProps = {
   fornadasBiscoitoMilesimos: number;
   fornadasEsmalteMilesimos: number;
   parametrosEstimados: number;
+  // "Calculado com os parâmetros de {data}..." (04.5-08-PLAN.md, D-21) — `null` enquanto rascunho
+  // (nada a avisar: os números acima são de HOJE); já pronto, montado por quem chama
+  // (`textoAvisoCongelado`, lib/orcamentos/textos.ts) a partir da data CIVIL do envio
+  // (`orcamentos.data`, nunca do instante `congeladoEm` — evita o erro de fuso de truncar um
+  // timestamptz em data).
+  avisoCongelado: string | null;
 };
 
 // O painel "Só para você" (D-24) — Server Component, sem interatividade nenhuma (nenhum campo
@@ -35,6 +41,7 @@ export function SoParaVoce({
   fornadasBiscoitoMilesimos,
   fornadasEsmalteMilesimos,
   parametrosEstimados,
+  avisoCongelado,
 }: SoParaVoceProps) {
   const sobraPositiva = sobraCentavos >= 0;
 
@@ -89,6 +96,12 @@ export function SoParaVoce({
       {/* Histórico de revisões (D-24) — espaço reservado para o plano 09, que preenche o
           `orcamentoRevisoes` congelado por "Atualizar preços". Nenhum dado de revisão existe
           ainda nesta fase (nenhum orçamento foi atualizado de preço até aqui). */}
+
+      {avisoCongelado && (
+        <p data-testid="orcamento-aviso-congelado" className="text-apoio text-muted-foreground">
+          {avisoCongelado}
+        </p>
+      )}
     </section>
   );
 }

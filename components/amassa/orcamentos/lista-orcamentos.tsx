@@ -1,26 +1,28 @@
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import { numeroDeOrcamento, rotuloDeRevisao } from "@/lib/orcamentos/formato";
 import type { OrcamentoParaLista } from "@/lib/orcamentos/consultas";
+import { situacaoDoOrcamento } from "@/lib/orcamentos/situacao";
 import {
   FRASE_SEM_CLIENTE,
   FRASE_SEM_TITULO,
   FRASE_VAZIO_CORPO,
   FRASE_VAZIO_TITULO,
   ROTULO_ABRIR_ORCAMENTO,
-  ROTULO_CHIP_RASCUNHO,
   TITULO_LISTA_ORCAMENTOS,
 } from "@/lib/orcamentos/textos";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { ChipDeSituacao } from "./chip-de-situacao";
 import { NovoOrcamentoBotao } from "./novo-orcamento-botao";
 
 export type ListaOrcamentosProps = {
   orcamentos: OrcamentoParaLista[];
+  hoje: string;
 };
 
 // Server Component (nenhum estado, nenhum efeito) — só `NovoOrcamentoBotao` é cliente, pela
 // mesma razão de `ListaContasFixas`: precisa de estado local para "enviando" e decidir a
 // navegação a partir da resposta do servidor.
-export function ListaOrcamentos({ orcamentos }: ListaOrcamentosProps) {
+export function ListaOrcamentos({ orcamentos, hoje }: ListaOrcamentosProps) {
   if (orcamentos.length === 0) {
     return (
       <EstadoVazio
@@ -67,11 +69,7 @@ export function ListaOrcamentos({ orcamentos }: ListaOrcamentosProps) {
               {formatarReais(orcamento.totalCentavos)}
             </span>
 
-            {/* Chip de situação — só "rascunho" existe até este plano; os demais chegam com o
-                resto do ciclo de vida do orçamento. */}
-            <span className="text-apoio bg-muted text-muted-foreground rounded-full px-2 py-0.5">
-              {ROTULO_CHIP_RASCUNHO}
-            </span>
+            <ChipDeSituacao situacao={situacaoDoOrcamento(orcamento, hoje)} />
 
             <a
               href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}

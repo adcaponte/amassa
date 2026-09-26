@@ -27,6 +27,7 @@ import {
   textoDoPagamento,
   textoVendaLancada,
 } from "@/lib/financeiro/textos";
+import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import {
   listarOrcamentos,
   listarPecasParaEscolha,
@@ -36,6 +37,10 @@ import {
   FRASE_ERRO_CARREGAR_ORCAMENTO,
   FRASE_ORCAMENTO_NAO_ENCONTRADO,
   ROTULO_TODOS,
+  TOAST_ORCAMENTO_ENVIADO,
+  TOAST_ORCAMENTO_REABERTO,
+  TOAST_ORCAMENTO_RECUSADO,
+  textoOrcamentoDuplicado,
 } from "@/lib/orcamentos/textos";
 import {
   listarCategoriasDeVenda,
@@ -220,7 +225,17 @@ export default async function PaginaFinanceiro({
             ? textoDoDesfazer(formatarReais(parcelaDoAviso.valorCentavos))
             : avisoResolvido?.tipo === "peca-salva"
               ? TOAST_PECA_SALVA
-              : null;
+              : avisoResolvido?.tipo === "orcamento-enviado"
+                ? TOAST_ORCAMENTO_ENVIADO
+                : avisoResolvido?.tipo === "orcamento-reaberto"
+                  ? TOAST_ORCAMENTO_REABERTO
+                  : avisoResolvido?.tipo === "orcamento-recusado"
+                    ? TOAST_ORCAMENTO_RECUSADO
+                    : avisoResolvido?.tipo === "orcamento-duplicado" && orcamentoParaEditar
+                      ? textoOrcamentoDuplicado(
+                          numeroDeOrcamento(orcamentoParaEditar.ano, orcamentoParaEditar.sequencial),
+                        )
+                      : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
   const desfazerDoAviso =
@@ -359,7 +374,7 @@ export default async function PaginaFinanceiro({
             </div>
           )
         ) : (
-          <ListaOrcamentos orcamentos={orcamentos} />
+          <ListaOrcamentos orcamentos={orcamentos} hoje={hoje} />
         )
       ) : abaPecas ? (
         // A Lista de Peças (04.5-05-PLAN.md) é self-contida — cabeçalho + botão quando populada,
