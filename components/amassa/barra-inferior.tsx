@@ -23,6 +23,12 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
 // ITENS_NAVEGACAO_CELULAR (D-04, Fase 04.4: Financeiro entrou, Estoque saiu daqui) —
 // Orçamentos nunca entra aqui (UI-04). Cada item já tem rótulo visível, então nenhum precisa
 // de aria-label próprio. pb-[env(safe-area-inset-bottom)] evita a faixa de gestos do iOS.
+//
+// A altura mínima de cada item lê `--altura-barra-inferior` (app/globals.css), o MESMO token
+// que `app/(app)/layout.tsx` soma ao respiro inferior do `<main>` e ao deslocamento do aviso
+// (toast) — achado da conferência do dono em 26/09/2026 (04.4-13-PLAN.md, Tarefa 1): o aviso
+// com "Desfazer" aparecia embaralhado com esta barra no celular. Os três lugares compartilham
+// o mesmo token de propósito: mudar a altura da barra aqui não pode reabrir aquele defeito.
 export type BarraInferiorProps = {
   className?: string;
 };
@@ -48,7 +54,7 @@ export function BarraInferior({ className }: BarraInferiorProps) {
             href={item.href}
             aria-current={ativo ? "page" : undefined}
             className={cn(
-              "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 text-nav",
+              "flex min-h-[var(--altura-barra-inferior)] flex-1 flex-col items-center justify-center gap-0.5 text-nav",
               ativo ? "text-primary" : "text-muted-foreground",
             )}
           >

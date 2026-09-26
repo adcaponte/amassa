@@ -243,7 +243,10 @@ Gantt no desktop — que no celular nem existe.
   *"Excluir a encomenda «Coleção Verão»? Os 3 itens dela serão apagados."*
 - **Avisos temporários** (toast) de 5 segundos, no rodapé no celular e no canto no desktop —
   como o protótipo da agenda já faz. **Exceção: o toast com "Desfazer" da queima dura 7
-  segundos**, porque ali o aviso não é informativo, é uma janela de ação.
+  segundos**, porque ali o aviso não é informativo, é uma janela de ação. **No celular, o aviso
+  fica ACIMA da barra de navegação inferior**, deslocado pela altura REAL dela — nunca por trás,
+  nunca embaralhado com ela — porque é ali que moram as ações de desfazer (achado da conferência
+  do dono do Financeiro, 26/09/2026, corrigido no ponto de montagem único do `Toaster`).
 - **Estados vazios com ação**: sempre uma frase de contexto e um botão. Nunca uma tela
   em branco.
 - **Carregamento** com esqueleto no formato do conteúdo, não com um "carregando..." solto.

@@ -189,6 +189,35 @@
   --color-sidebar-ring:               var(--color-acento);
 }
 
+/* Deslocamento do aviso (toast) acima da barra inferior — achado da conferência do dono em
+   26/09/2026 (04.4-13-PLAN.md, Tarefa 1): no celular, o aviso com "Desfazer" (D-03) aparecia
+   embaralhado com a barra de navegação de baixo, escondendo o único controle que desfaz um
+   "Paguei"/"Recebi" dado por engano dentro da janela de 7 segundos. `--altura-barra-inferior` é
+   a MESMA altura por item que `barra-inferior.tsx` usa — nunca um segundo número escrito à mão.
+   `--deslocamento-aviso` soma essa altura à faixa de gestos do iOS (`env(safe-area-inset-bottom)`,
+   a mesma medida que a própria barra já soma no `padding-bottom`) e ao respiro `md` (16px) da
+   escala de espaçamento — o mesmo respiro lateral que o sonner já usa no celular.
+
+   Armadilha (ver `app/(app)/layout.tsx`): o modo celular do PRÓPRIO sonner começa em 600px de
+   largura (`max-width: 600px`, node_modules/sonner/dist/styles.css), mas a barra inferior só
+   desaparece no breakpoint `md` do Tailwind (768px, `48rem` abaixo) — entre os dois, o sonner já
+   pensa que está no celular, mas a barra ainda existe. Por isso o deslocamento não mora só na
+   prop `mobileOffset`: as duas portas do sonner (`offset`, desktop, e `mobileOffset`, celular)
+   apontam para esta MESMA variável, e é a variável — nunca a prop — que troca de valor no limite
+   de 768px, o breakpoint de verdade que esconde a barra. */
+:root {
+  --altura-barra-inferior: 56px;
+  --deslocamento-aviso: calc(var(--altura-barra-inferior) + env(safe-area-inset-bottom) + 16px);
+}
+
+@media (min-width: 48rem) {
+  :root {
+    /* Acima de `md` a barra inferior não existe (`md:hidden`) — o aviso volta ao respiro padrão
+       do sonner no desktop, sem deslocamento nenhum. */
+    --deslocamento-aviso: 24px;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

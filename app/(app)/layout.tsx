@@ -21,7 +21,7 @@ export default async function LayoutApp({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <CabecalhoMovel nome={usuario.nome} />
 
-        <main className="flex-1 pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
+        <main className="flex-1 pb-[calc(var(--altura-barra-inferior)+env(safe-area-inset-bottom))] md:pb-0">
           {children}
         </main>
 
@@ -33,8 +33,23 @@ export default async function LayoutApp({ children }: { children: ReactNode }) {
           responsivo do próprio sonner (`@media max-width: 600px`) já vira rodapé de largura
           cheia no celular e mantém o canto no desktop (04-DESIGN-SYSTEM.md §7), sem JS extra.
           `duration=5000`: os 5 segundos padrão do projeto — a exceção de 7s do "Desfazer" da
-          queima é decisão de cada `toast()` individual, não deste ponto de montagem. */}
-      <Toaster position="bottom-right" duration={5000} />
+          queima é decisão de cada `toast()` individual, não deste ponto de montagem.
+
+          `offset`/`mobileOffset` (04.4-13-PLAN.md, Tarefa 1): o dono viu, em 26/09/2026, o aviso
+          com "Desfazer" (D-03) embaralhado com a barra inferior no celular — é nesse aviso que
+          mora a única correção possível de um "Paguei"/"Recebi" dado por engano. As DUAS portas
+          do sonner apontam para a MESMA variável `--deslocamento-aviso` (ver app/globals.css) —
+          nunca um número escrito aqui — porque o modo celular do sonner começa em 600px mas a
+          barra só desaparece em 768px, e é a variável, não a prop, que decide nesse intervalo.
+          `containerAriaLabel`: nome acessível em português (o padrão da biblioteca é em inglês;
+          a regra de idioma do CLAUDE.md vale também para nome acessível). */}
+      <Toaster
+        position="bottom-right"
+        duration={5000}
+        offset={{ bottom: "var(--deslocamento-aviso)" }}
+        mobileOffset={{ bottom: "var(--deslocamento-aviso)" }} // a porta do celular, mesma variável do offset acima (armadilha 600×768px)
+        containerAriaLabel="Avisos"
+      />
     </div>
   );
 }

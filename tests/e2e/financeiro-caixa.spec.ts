@@ -385,6 +385,75 @@ test.describe("financeiro caixa pagamento", () => {
     await expect(cartaoDaConta(page, titulo)).toContainText("R$ 1.480,00");
   });
 
+  test("no celular, o aviso do 'Desfazer' fica inteiro acima da barra inferior e o botão é clicável", async ({
+    page,
+  }) => {
+    // 360×740 ANTES do login: é a LARGURA REAL (nunca `project.name`) que decide se a barra
+    // inferior aparece — mesma convenção de `acessibilidade.spec.ts` (localizarGatilhoDoMenu).
+    // 360px também prova a faixa 601–767px que o plano registra: o sonner já pensa que está no
+    // celular (`max-width: 600px` da própria biblioteca), mas a barra só some no breakpoint `md`
+    // do Tailwind (768px) — os dois projetos do Playwright (desktop e celular) exercitam a MESMA
+    // geometria aqui, porque os dois recebem este viewport forçado.
+    await page.setViewportSize({ width: 360, height: 740 });
+
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Conta para o aviso acima da barra ${suf}`;
+    await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 148000,
+      vencimento: hojeNoAtelie(),
+    });
+
+    await fazerLogin(page);
+    await irParaCaixa(page);
+
+    // Valor DIFERENTE do previsto é o único caminho que produz o aviso com "Desfazer" (D-03).
+    await abrirBaixa(cartaoDaConta(page, titulo));
+    await page.getByTestId("baixa-valor").fill("1500,00");
+    await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+
+    // Seletor ESTÁVEL do item de aviso do sonner (`data-sonner-toast`) — nunca o rótulo acessível
+    // do contêiner, que é só o nome do grupo, não do item.
+    const aviso = page.locator("[data-sonner-toast]").filter({ hasText: "Pago: R$ 1.500,00" });
+    await expect(aviso).toBeVisible({ timeout: 10000 });
+
+    const barra = page.getByRole("navigation", { name: "Navegação principal" });
+    await expect(barra).toBeVisible();
+
+    const botaoDesfazer = aviso.getByRole("button", { name: "Desfazer" });
+    await expect(botaoDesfazer).toBeVisible();
+
+    const caixaAviso = await aviso.boundingBox();
+    const caixaBarra = await barra.boundingBox();
+    const caixaBotao = await botaoDesfazer.boundingBox();
+    if (!caixaAviso || !caixaBarra || !caixaBotao) {
+      throw new Error(
+        "Geometria do aviso, da barra ou do botão 'Desfazer' não pôde ser lida (bounding box nula).",
+      );
+    }
+
+    const fundoDoAviso = caixaAviso.y + caixaAviso.height;
+    expect(
+      fundoDoAviso,
+      `o fundo do aviso (${fundoDoAviso}) passa do topo da barra (${caixaBarra.y})`,
+    ).toBeLessThanOrEqual(caixaBarra.y);
+
+    const respiroDoBotao = caixaBarra.y - (caixaBotao.y + caixaBotao.height);
+    expect(
+      respiroDoBotao,
+      `sobram só ${respiroDoBotao}px entre o botão "Desfazer" e a barra (esperado ao menos 8px)`,
+    ).toBeGreaterThanOrEqual(8);
+
+    // O clique REAL do Playwright (sem `force`) confere o alvo de verdade — falha se algo
+    // estiver por cima do botão, o que é metade da prova de que o "Desfazer" está alcançável.
+    await botaoDesfazer.click();
+    await expect(
+      page.getByText("Desfeito. A conta voltou a R$ 1.480,00 em aberto."),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(cartaoDaConta(page, titulo)).toContainText("R$ 1.480,00");
+  });
+
   test("exemplo 5 — Esmalte (pote) em 3x: diferença no pagamento, 'Desfazer' e nova diferença negativa", async ({
     page,
   }) => {
