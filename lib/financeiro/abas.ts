@@ -1,13 +1,20 @@
-// Módulo puro, sem nenhum import — mesmo molde de `lib/abertura/abas.ts`. Nesta tarefa (plano 09)
-// Mês entra, fechando a união na ordem Venda · Despesa · Caixa · Mês · Cadastros.
-export type AbaFinanceiro = "venda" | "despesa" | "caixa" | "mes";
+// Módulo puro, sem nenhum import — mesmo molde de `lib/abertura/abas.ts`. Fechada no plano 09 na
+// ordem Venda · Despesa · Caixa · Mês · Cadastros; a Fase 04.5 (D-01/D-02) acrescenta
+// "orcamentos" e "pecas" — Orçamentos e Peças vivem DENTRO do Financeiro, como aba, não como rota
+// de primeiro nível. A ordem visual das 7 pílulas (duas fileiras) mora em
+// `components/amassa/financeiro/abas-financeiro.tsx`; esta união não impõe ordem nenhuma.
+export type AbaFinanceiro = "venda" | "despesa" | "caixa" | "mes" | "orcamentos" | "pecas";
 
 // Normaliza `?aba=` para uma das abas da união fechada — qualquer valor desconhecido, ausente ou
 // vazio vira "venda", a aba padrão (o módulo abre direto na Venda, D-06 do 04.4-CONTEXT.md).
+// O fallback continua intocado (D-01): nenhuma aba nova muda o que acontece com um valor
+// desconhecido.
 export function abaDaUrl(valor: string | null | undefined): AbaFinanceiro {
   if (valor === "despesa") return "despesa";
   if (valor === "caixa") return "caixa";
   if (valor === "mes") return "mes";
+  if (valor === "orcamentos") return "orcamentos";
+  if (valor === "pecas") return "pecas";
   return "venda";
 }
 

@@ -33,17 +33,14 @@ export type CabecalhoMovelProps = {
 // item ativo (ehItemAtivo) — uma só fonte de verdade para "em que tela eu estou". Lê SEMPRE a
 // lista LATERAL (a mais completa, 6 itens) — nunca a do celular: se lesse a do celular,
 // `/estoque` no celular perderia o título, porque saiu da barra do celular na Fase 04.4 (D-04)
-// mas continua sendo uma rota alcançável por URL direta, com cabeçalho próprio. Orçamentos e
-// `/cadastros` ficam fora das duas listas de propósito (UI-04, D-06 — nenhum dos dois é item da
-// navegação principal), mas ainda precisam de um título aqui; reaproveita ehItemAtivo com o
-// mesmo href da página em vez de inventar uma segunda forma de comparação de rota. Qualquer
-// caminho sem casamento (ex.: /login, antes do redirect) cai no `undefined` e quem chama decide
-// o retrocesso.
+// mas continua sendo uma rota alcançável por URL direta, com cabeçalho próprio. `/cadastros` fica
+// fora das duas listas de propósito (D-06 — não é item da navegação principal), mas ainda precisa
+// de um título aqui; reaproveita ehItemAtivo com o mesmo href da página em vez de inventar uma
+// segunda forma de comparação de rota. Orçamentos NÃO tem mais um `if` próprio (Fase 04.5, D-04):
+// a casca vazia `/orcamentos` saiu, e a aba dentro de `/financeiro` já usa o título "Financeiro"
+// que `ITENS_NAVEGACAO_LATERAL` devolve normalmente. Qualquer caminho sem casamento (ex.: /login,
+// antes do redirect) cai no `undefined` e quem chama decide o retrocesso.
 function derivarTituloDaTela(caminho: string): string | undefined {
-  if (ehItemAtivo(caminho, "/orcamentos")) {
-    return "Orçamentos";
-  }
-
   if (ehItemAtivo(caminho, "/cadastros")) {
     return "Cadastros";
   }

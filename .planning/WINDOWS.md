@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 17
+open_count: 18
 waived_count: 1
 fixed_count: 16
-total_count: 34
-last_updated: 2026-09-20T13:48:30.734Z
+total_count: 35
+last_updated: 2026-09-26T17:04:40.752Z
 ---
 
 # Broken Windows Ledger
@@ -49,6 +49,7 @@ last_updated: 2026-09-20T13:48:30.734Z
 | 32 | 04.4-financeiro-parte-1 | deviation | tests/e2e/financeiro-extrato.spec.ts | 212 | 'navega por mes, filtra por forma, mantem o saldo global, e mostra os dois vazios' (desktop) falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers locais): getByTestId('extrato-linha') veio 0 em vez de 5 apos clicar em 'mes seguinte'. Reexecucao isolada (--grep 'financeiro extrato') passou 32/32 nos dois projetos (incluindo este teste), confirmando flakiness sob carga da suite completa, nao regressao deterministica -- mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#29/#30/#31. Achado incidentalmente ao provar a correcao da fuga de dado do teste 04.4-11 (script/testar-migracoes.mjs); nao corrigido nesta execucao, fora do escopo de arquivos da correcao (nenhuma logica de extrato foi tocada). | open |  | 2026-09-20T09:24:14.442Z |  |
 | 33 | quick-260920-jxb | deviation | db/index.ts |  | WINDOWS #3/#24 diagnostico atualizado (ver .planning/debug/auth-bloqueio-timeout-e2e.md, 2026-09-20): hipotese do custo do argon2id foi MEDIDA e REFUTADA (25-150ms/tentativa). Hipotese lider, nao confirmada por reproducao direta (3 tentativas honestas falharam), era connectionTimeoutMillis ausente no pool pg (espera infinita). Corrigido aqui: connectionTimeoutMillis=5000 em db/index.ts, com teste de regressao (tests/unit/pool-conexao.test.ts) e caminho de falha documentado (cai na mesma mensagem humana via AuthError, nunca stack crua). #24 foi marcado 'fixed' em 2026-08-31 (fase 04.2) SEM nenhuma mudanca de codigo relacionada -- esta e a primeira correcao real do problema estrutural que #3/#24 descrevem. #3 permanece OPEN porque a Tarefa 2 deste quick task (semear tentativas via API para encurtar o teste) foi revertida -- ver entrada irma sobre o bug de duplicacao de modulo descoberto -- entao o ciclo RED/GREEN provando o fim da falha intermitente original nao fechou. | fixed |  | 2026-09-20T13:48:00.596Z | 2026-09-20T13:48:07.409Z |
 | 34 | quick-260920-jxb | deviation | lib/auth/tentativas-memoria.ts |  | ACHADO NOVO, fora do escopo desta tarefa: o contador de tentativas em memoria (lib/auth/tentativas-memoria.ts) NAO parece ser um singleton verdadeiro entre a rota REST do Auth.js (app/api/auth/[...nextauth]/route.ts, POST /api/auth/callback/credentials) e a Server Action de login (lib/auth/acoes.ts, entrar() -> signIn() server-side) nesta build (Next.js 16.3.5 + Turbopack, output: standalone). Confirmado empiricamente: 5 POSTs reais e corretos contra a rota REST (GET /api/auth/csrf + POST /api/auth/callback/credentials, protocolo padrao do Auth.js, cada um retornando code=credentials como esperado) NAO bloqueiam a 6a tentativa feita pela Server Action via UI real (continua mostrando a mensagem generica de credencial invalida, nao a de bloqueio) -- mesmo com um servidor 'next start' recem-construido, sem processo travado, e mesmo com curl provando que 5 POSTs + um 6o POST, TODOS pela MESMA rota REST, bloqueiam corretamente entre si. Isso e a MESMA classe de suspeita ja registrada (nao confirmada) no debug auth-bloqueio-timeout-e2e.md para o pool de conexao do Postgres ('pools de conexao podem nao ser verdadeiramente compartilhados entre diferentes rotas/Server Actions nesta build') -- agora CONFIRMADA para um modulo diferente (o contador de tentativas). Por causa disso, a Tarefa 2 deste quick task (semear as 5 primeiras tentativas de tests/e2e/autenticacao.spec.ts via a rota REST, mantendo a 6a pela UI real) foi revertida sem aplicar -- nao ha caminho honesto de semear via HTTP que compartilhe estado com a Server Action nesta build, e o unico substituto seria reproduzir o protocolo interno de Server Actions do Next.js (header Next-Action com id derivado do build), que e exatamente o tipo de hack fragil que a tarefa pediu para evitar. Merece investigacao propria (Turbopack chunk splitting de modulos compartilhados sob output: standalone) antes de qualquer nova tentativa de encurtar este teste. | open |  | 2026-09-20T13:48:30.734Z |  |
+| 35 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-tracador.spec.ts | 63 | 'a 320px, a aba nao rola na horizontal e as sete pilulas do Financeiro estao em duas fileiras' (desktop e celular) falhou sob a carga de 8 workers (npm run test:e2e --grep 'orcamentos tracador'): boundingBox() de financeiro-aba-venda/financeiro-aba-orcamentos veio null nos dois, junto de varios 'The destination stream closed early' no log do servidor Next. Reexecucao isolada (--grep 'estao em duas fileiras' --workers=1) passou 32/32 (todos os specs da cadeia, incluindo este), confirmando flakiness sob contencao do servidor unico, nao regressao deterministica -- mesma classe ja registrada em WINDOWS #12/#21/#22/#29/#30/#31/#32. Nao corrigido nesta execucao: nao ha causa raiz pequena e obvia neste arquivo (o teste em si nao muta estado nem depende de outro spec). | open |  | 2026-09-26T17:04:40.752Z |  |
 
 ````json
 [
@@ -458,6 +459,18 @@ last_updated: 2026-09-20T13:48:30.734Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-20T13:48:30.734Z",
+    "resolved_at": null
+  },
+  {
+    "id": 35,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-tracador.spec.ts",
+    "line": 63,
+    "description": "'a 320px, a aba nao rola na horizontal e as sete pilulas do Financeiro estao em duas fileiras' (desktop e celular) falhou sob a carga de 8 workers (npm run test:e2e --grep 'orcamentos tracador'): boundingBox() de financeiro-aba-venda/financeiro-aba-orcamentos veio null nos dois, junto de varios 'The destination stream closed early' no log do servidor Next. Reexecucao isolada (--grep 'estao em duas fileiras' --workers=1) passou 32/32 (todos os specs da cadeia, incluindo este), confirmando flakiness sob contencao do servidor unico, nao regressao deterministica -- mesma classe ja registrada em WINDOWS #12/#21/#22/#29/#30/#31/#32. Nao corrigido nesta execucao: nao ha causa raiz pequena e obvia neste arquivo (o teste em si nao muta estado nem depende de outro spec).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-26T17:04:40.752Z",
     "resolved_at": null
   }
 ]

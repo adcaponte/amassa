@@ -51,8 +51,10 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 // (Tarefa 1) acrescenta `/financeiro` e `/cadastros`, as duas rotas-base do Financeiro.
 // `04.4-11-PLAN.md` (Tarefa 2, fechamento da fase) acrescenta as seis sub-rotas que faltavam —
 // as três abas de `/financeiro` além da Venda (default sem `?aba=`) e as três sub-abas de
-// `/cadastros` além do Catálogo (default sem `?sub=`). Mesmas `REGRAS_AUDITADAS` de sempre —
-// nenhuma regra nova, nenhuma afrouxada.
+// `/cadastros` além do Catálogo (default sem `?sub=`). `04.5-01-PLAN.md` (Tarefa 4, D-04)
+// substitui `/orcamentos` (a casca vazia, removida) por `/financeiro?aba=orcamentos` e acrescenta
+// `/financeiro?aba=pecas` — as duas abas novas do Financeiro. Mesmas `REGRAS_AUDITADAS` de
+// sempre — nenhuma regra nova, nenhuma afrouxada.
 const ROTAS_DA_FASE = [
   "/login",
   "/",
@@ -62,11 +64,12 @@ const ROTAS_DA_FASE = [
   "/agenda",
   "/queimas",
   "/estoque",
-  "/orcamentos",
   "/financeiro",
   "/financeiro?aba=despesa",
   "/financeiro?aba=caixa",
   "/financeiro?aba=mes",
+  "/financeiro?aba=orcamentos",
+  "/financeiro?aba=pecas",
   "/cadastros",
   "/cadastros?sub=categorias",
   "/cadastros?sub=fixas",

@@ -9,32 +9,50 @@ import {
   ROTULO_ABA_CAIXA,
   ROTULO_ABA_DESPESA,
   ROTULO_ABA_MES,
+  ROTULO_ABA_ORCAMENTOS,
+  ROTULO_ABA_PECAS,
   ROTULO_ABA_VENDA,
 } from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
 
 // A barra de sub-navegação do Financeiro (`role="tablist"`), mesmo padrão visual e estrutural de
 // `abas-abertura.tsx` — pílulas NEUTRAS (nunca terracota), navegação por QUERY STRING na MESMA
-// rota (`?aba=venda`/`?aba=despesa`/`?aba=caixa`/`?aba=mes`) para as abas do Financeiro, um
-// `<Link>` normal do Next.js. A ordem final das pílulas é Venda · Despesa · Caixa · Mês ·
-// Cadastros (04.4-09-PLAN.md fecha a última aba de conteúdo; "Cadastros" continua sendo a quinta
-// pílula, uma rota própria, montada abaixo).
-const ABAS: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
+// rota (`?aba=venda`/`?aba=despesa`/`?aba=caixa`/`?aba=mes`/`?aba=orcamentos`/`?aba=pecas`) para
+// as abas do Financeiro, um `<Link>` normal do Next.js.
+//
+// Fase 04.5 (D-01/D-02) leva a barra de 5 para 7 elementos — quase o dobro, não o incremento de
+// +1 que `abas-abertura.tsx`/`sub-abas-cadastros.tsx` já absorvem com "pílula quebra em 2 linhas
+// de texto". A resolução (04.5-UI-SPEC.md §"Layout & Navigation Contract") é DUAS FILEIRAS
+// determinísticas por agrupamento de sentido, nunca deixadas ao navegador:
+//
+//   Fileira 1 (dinheiro do dia a dia):      Venda · Despesa · Caixa · Mês
+//   Fileira 2 (precificação e cadastro):    Orçamentos · Peças · Cadastros
+//
+// PRIMEIRA_FILEIRA fica separada de SEGUNDA_FILEIRA (abaixo) porque o espaçador que força a
+// quebra de linha (ver abaixo) entra explicitamente ENTRE as duas na marcação — nunca calculado
+// por índice.
+const PRIMEIRA_FILEIRA: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
   { valor: "venda", rotulo: ROTULO_ABA_VENDA },
   { valor: "despesa", rotulo: ROTULO_ABA_DESPESA },
   { valor: "caixa", rotulo: ROTULO_ABA_CAIXA },
   { valor: "mes", rotulo: ROTULO_ABA_MES },
 ];
 
-// A quinta pílula, "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um
-// `?aba=` — Cadastros é rota própria. Fica selecionada quando `pathname` começa com
-// `/cadastros`, nunca por `abaAtual` (que só existe dentro de `/financeiro`).
+// "Cadastros" fecha a segunda fileira (não entra aqui — é um `<Link href="/cadastros">` de
+// verdade, montado abaixo, sempre a última pílula da barra).
+const SEGUNDA_FILEIRA: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
+  { valor: "orcamentos", rotulo: ROTULO_ABA_ORCAMENTOS },
+  { valor: "pecas", rotulo: ROTULO_ABA_PECAS },
+];
+
+// "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um `?aba=` — Cadastros é
+// rota própria. Fica selecionada quando `pathname` começa com `/cadastros`, nunca por `abaAtual`
+// (que só existe dentro de `/financeiro`). Fecha a segunda fileira, sétima e última pílula da
+// barra desde a Fase 04.5.
 //
-// `min-w-0` + `break-words` em cada pílula (abaixo): mesmo achado real do e2e "cadastros base"
-// aplicado aqui por prevenção — com só 3 pílulas hoje (Venda/Caixa/Cadastros) esta barra ainda
-// cabe a 320px, mas os planos 07/09 acrescentam Despesa e Mês (5 pílulas ao todo, a mesma
-// contagem de `SubAbasCadastros`, onde o estouro de 3px apareceu). Sem esta classe, o dia em que
-// a 4ª/5ª pílula entrar reproduziria o mesmo estouro.
+// `min-w-0` + `break-words` em cada pílula: mesmo achado real do e2e "cadastros base" aplicado
+// aqui por prevenção — sem esta classe, a pílula com o texto mais comprido de cada fileira
+// estouraria a 320px.
 const ROTULO_CADASTROS = "Cadastros";
 
 export type AbasFinanceiroProps = {
@@ -57,47 +75,88 @@ export function AbasFinanceiro({ abaAtual }: AbasFinanceiroProps) {
 
 type PropsDoConteudo = { abaAtual: AbaFinanceiro | null; emCadastros: boolean };
 
+// Classe compartilhada por toda pílula (as duas fileiras + Cadastros) — `min-w-0`+`break-words`
+// continua sendo a técnica de degradação graciosa já usada antes de 04.5; o que muda nesta fase
+// é só o container (`flex-wrap` em vez de `flex`), nunca a pílula em si.
+const CLASSE_DA_PILULA =
+  "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors";
+
+function Pilula({
+  href,
+  selecionada,
+  testId,
+  rotulo,
+}: {
+  href: string;
+  selecionada: boolean;
+  testId: string;
+  rotulo: string;
+}) {
+  return (
+    <Link
+      href={href}
+      role="tab"
+      aria-selected={selecionada}
+      data-testid={testId}
+      className={cn(
+        CLASSE_DA_PILULA,
+        selecionada
+          ? "bg-background text-foreground font-semibold shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {rotulo}
+    </Link>
+  );
+}
+
 function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) {
   return (
     <div
       role="tablist"
       aria-label="Ver"
-      className="mx-6 flex gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-md"
+      // `flex-wrap` — desvio DELIBERADO da regra "flex-wrap nunca" de `04.4-UI-SPEC.md` (aquela
+      // regra resolvia um crescimento de +1 pílula; aqui a barra vai de 5 para 7, quase o dobro,
+      // e precisa de uma resposta diferente — 04.5-UI-SPEC.md §"Layout & Navigation Contract").
+      className="mx-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-md"
     >
-      {ABAS.map((aba) => {
-        const selecionada = !emCadastros && aba.valor === abaAtual;
-        return (
-          <Link
-            key={aba.valor}
-            href={`/financeiro?aba=${aba.valor}`}
-            role="tab"
-            aria-selected={selecionada}
-            data-testid={`financeiro-aba-${aba.valor}`}
-            className={cn(
-              "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
-              selecionada
-                ? "bg-background text-foreground font-semibold shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {aba.rotulo}
-          </Link>
-        );
-      })}
-      <Link
+      {PRIMEIRA_FILEIRA.map((aba) => (
+        <Pilula
+          key={aba.valor}
+          href={`/financeiro?aba=${aba.valor}`}
+          selecionada={!emCadastros && aba.valor === abaAtual}
+          testId={`financeiro-aba-${aba.valor}`}
+          rotulo={aba.rotulo}
+        />
+      ))}
+
+      {/* Espaçador que FORÇA a quebra de linha — com `flex-wrap: wrap`, um item de
+          `flex-basis: 100%` sempre começa uma fileira nova, então a primeira fileira tem SEMPRE
+          exatamente 4 pílulas e a segunda SEMPRE exatamente 3, em qualquer largura de tela —
+          nunca dependendo de quanto texto cabe (04.5-UI-SPEC.md §"Layout & Navigation
+          Contract"). `aria-hidden`: não é uma aba, não deve existir para leitor de tela. */}
+      <span aria-hidden="true" className="basis-full" />
+
+      {SEGUNDA_FILEIRA.map((aba) => (
+        <Pilula
+          key={aba.valor}
+          href={`/financeiro?aba=${aba.valor}`}
+          selecionada={!emCadastros && aba.valor === abaAtual}
+          testId={`financeiro-aba-${aba.valor}`}
+          rotulo={aba.rotulo}
+        />
+      ))}
+
+      {/* "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um `?aba=` —
+          Cadastros é rota própria. Fica selecionada quando `pathname` começa com `/cadastros`,
+          nunca por `abaAtual` (que só existe dentro de `/financeiro`). Só mudou de fileira nesta
+          fase — continua a última pílula da barra. */}
+      <Pilula
         href="/cadastros"
-        role="tab"
-        aria-selected={emCadastros}
-        data-testid="financeiro-aba-cadastros"
-        className={cn(
-          "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
-          emCadastros
-            ? "bg-background text-foreground font-semibold shadow-sm"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        {ROTULO_CADASTROS}
-      </Link>
+        selecionada={emCadastros}
+        testId="financeiro-aba-cadastros"
+        rotulo={ROTULO_CADASTROS}
+      />
     </div>
   );
 }

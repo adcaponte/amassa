@@ -82,8 +82,8 @@
      das parcelas do custo") — uso sempre decorativo (segmento de barra, ponto de legenda),
      nunca cor de texto corrido. Nota de coincidência, não de reuso: os hex coincidem, byte a
      byte, com --color-area-loja/-espaco/-pecas/-cafeteria/-geral, por herança do MESMO
-     protótipo-fonte original (mesma nota que --color-ouro/--color-forno-atencao e
-     --color-area-*/--color-producao já registram acima) — são tokens NOVOS e independentes:
+     protótipo-fonte original (mesma nota que --color-ouro / --color-forno-atencao e
+     --color-area- (acima) já registram) — são tokens NOVOS e independentes:
      "de qual área vem esta venda" e "de qual insumo vem este custo" não têm relação nenhuma;
      não "consertar" a duplicação de hex. */
   --color-custo-material:   #5B7553;

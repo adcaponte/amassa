@@ -27,6 +27,7 @@ import {
   textoDoPagamento,
   textoVendaLancada,
 } from "@/lib/financeiro/textos";
+import { listarOrcamentos } from "@/lib/orcamentos/consultas";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
@@ -35,6 +36,7 @@ import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelMes } from "@/components/amassa/financeiro/painel-mes";
 import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
+import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -62,6 +64,8 @@ export default async function PaginaFinanceiro({
   const abaDespesa = abaAtual === "despesa";
   const abaCaixa = abaAtual === "caixa";
   const abaMes = abaAtual === "mes";
+  const abaOrcamentos = abaAtual === "orcamentos";
+  const abaPecas = abaAtual === "pecas";
   const hoje = hojeEmBrasilia(new Date());
   // O MESMO `?mes=` alimenta o extrato do Caixa (D-11/D-12) e a aba Mês — nunca ao mesmo tempo (só
   // uma delas está ativa por navegação), então reaproveitar a mesma chave de URL é seguro. `forma`
@@ -89,6 +93,7 @@ export default async function PaginaFinanceiro({
     parcelaDoAviso,
     documentosDoMes,
     parcelasPagasNoMes,
+    orcamentos,
   ] = await Promise.all([
     abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
     abaVenda ? listarCatalogoDaVenda() : Promise.resolve([]),
@@ -110,6 +115,9 @@ export default async function PaginaFinanceiro({
       : Promise.resolve(null),
     abaMes ? listarDocumentosDoMes(mesAtual) : Promise.resolve([]),
     abaMes ? listarParcelasPagasNoMes(mesAtual) : Promise.resolve([]),
+    // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa, mesma disciplina das
+    // demais listas acima.
+    abaOrcamentos ? listarOrcamentos() : Promise.resolve([]),
   ]);
 
   // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
@@ -245,6 +253,14 @@ export default async function PaginaFinanceiro({
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
           }}
         />
+      ) : abaOrcamentos ? (
+        <ListaOrcamentos orcamentos={orcamentos} />
+      ) : abaPecas ? (
+        // Placeholder — o plano 04 preenche a lista de peças. A pílula já navega para cá; só o
+        // conteúdo chega depois.
+        <div className="px-6 py-6 md:px-8">
+          <h2 className="text-titulo text-foreground">Peças</h2>
+        </div>
       ) : (
         <PainelVenda
           hoje={hoje}

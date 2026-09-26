@@ -19,6 +19,11 @@ export const ROTULO_ABA_DESPESA = "Despesa";
 export const ROTULO_ABA_CAIXA = "Caixa";
 export const ROTULO_ABA_MES = "Mês";
 
+// As duas abas novas da Fase 04.5 (D-01/D-02), texto exato do dono (04.5-UI-SPEC.md
+// §Copywriting) — segunda fileira da barra, ao lado de Cadastros.
+export const ROTULO_ABA_ORCAMENTOS = "Orçamentos";
+export const ROTULO_ABA_PECAS = "Peças";
+
 // Os cinco rótulos de área (04.4-UI-SPEC.md §Color/§Copywriting) — "Área" nunca é escolhida pelo
 // usuário, só exibida, derivada da categoria (briefing §2).
 export const ROTULO_AREA: Record<AreaFinanceira, string> = {

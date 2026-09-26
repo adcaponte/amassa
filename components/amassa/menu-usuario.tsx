@@ -57,7 +57,7 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
             Abertura do Espaço
           </Link>
           <Link
-            href="/orcamentos"
+            href="/financeiro?aba=orcamentos"
             onClick={aoNavegar}
             className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
           >
@@ -119,7 +119,7 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/orcamentos" className="flex items-center gap-1.5">
+          <Link href="/financeiro?aba=orcamentos" className="flex items-center gap-1.5">
             <Calculator aria-hidden="true" />
             Orçamentos
           </Link>

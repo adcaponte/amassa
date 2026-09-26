@@ -101,7 +101,7 @@ const ROTAS_A_320PX = [
   "/agenda",
   "/queimas",
   "/estoque",
-  "/orcamentos",
+  "/financeiro?aba=orcamentos",
   "/login",
 ];
 
@@ -181,7 +181,9 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     await abrirMenuDoUsuario(page);
     await itemOrcamentos.click();
 
-    await expect(page).toHaveURL(/\/orcamentos$/);
+    // Fase 04.5 (D-04): a casca vazia `/orcamentos` saiu — o menu leva à aba Orçamentos DENTRO
+    // do Financeiro, nunca a uma rota própria.
+    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos$/);
   });
 
   test("no desktop, a barra lateral tem largura fixa de 240px (UI-03)", async ({ page }) => {
@@ -240,23 +242,27 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     }
   });
 
-  test("/orcamentos mostra título e corpo, sem nenhum botão (UI-04, UI-07)", async ({ page }) => {
+  // Fase 04.5 (D-04): a casca vazia `/orcamentos` foi SUBSTITUÍDA pela aba Orçamentos do
+  // Financeiro — este caso não verifica mais o texto de uma página própria (que não existe
+  // mais); vira a prova de que o menu do usuário leva à aba certa, já selecionada, e que
+  // nenhuma segunda porta para "Orçamentos" sobrou viva.
+  test("o menu do usuário leva à aba Orçamentos do Financeiro, já selecionada (UI-04)", async ({
+    page,
+  }) => {
     await fazerLogin(page);
-    await page.goto("/orcamentos");
 
-    await expect(page.getByRole("heading", { name: "Orçamentos", level: 1 })).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "A calculadora ainda não existe.", level: 2 }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(
-        "Ela depende das planilhas de precificação do ateliê. Assim que estiverem prontas, o orçamento sai daqui.",
-      ),
-    ).toBeVisible();
+    const itemOrcamentos = page
+      .getByRole("link", { name: "Orçamentos" })
+      .or(page.getByRole("menuitem", { name: "Orçamentos" }));
 
-    // Escopado a <main> (a área de conteúdo da página) — a casca ao redor tem seus próprios
-    // botões (avatar/menu do usuário), que não são o que este critério mede.
-    await expect(page.locator("main").getByRole("button")).toHaveCount(0);
+    await abrirMenuDoUsuario(page);
+    await itemOrcamentos.click();
+
+    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos$/);
+    await expect(page.getByTestId("financeiro-aba-orcamentos")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   test("no celular, o cabeçalho mostra o título da tela atual, não um valor fixo (UI-07)", async ({
