@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: complete
 stopped_at: "Fase 04.4 (Financeiro — parte 1) CONCLUIDA e verificada em 2026-09-26 (9/9 criterios + 17/17 FNC, 04.4-VERIFICATION.md). No ar, migracoes 0014-0016 aplicadas, conferida pelo dono no celular. Proximo: item 2 da fila em Claude outputs/FILA-DO-CODE.md — Financeiro parte 2 (Precificacao e Orcamento), so com o dono presente."
-last_updated: "2026-09-26T14:41:50.565Z"
+last_updated: "2026-09-26T16:14:20.265Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 64
   completed_plans: 64
+current_phase: 04.4
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 (Financeiro parte 2) criada: roadmap, requisitos e CONTEXT prontos para o planejamento"
+last_activity_desc: "Fase 04.5 planejada: 13 planos, pesquisa, UI-SPEC e verificacao dos planos concluidos"
 ---
 
 # Project State
@@ -23,38 +23,57 @@ last_activity_desc: "Fase 04.5 (Financeiro parte 2) criada: roadmap, requisitos 
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2 (Precificação e Orçamento): criada em 2026-09-26, aguardando `/gsd-plan-phase 04.5`
+**Current focus:** Fase 04.5 — Financeiro, parte 2: 13 planos prontos, nada executado; aguardando `/gsd-execute-phase 04.5` com o dono por perto
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — CRIADA em 2026-09-26, pronta
-para o planejamento. A 04.4 (parte 1) está CONCLUÍDA, no ar e verificada (13/13 planos, 9/9
-critérios e 17/17 requisitos, migrações 0014/0015/0016 aplicadas pelo dono em 20/09, 23 itens
-conferidos por ele no celular).
-Plan: 0 planos. Status: aguardando `/gsd-plan-phase 04.5`.
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **PLANEJADA** em 2026-09-26.
+Plan: 13 planos escritos, 0 executados. Status: aguardando `/gsd-execute-phase 04.5`.
 
-O que já foi feito da fase 04.5 (item 2 de `Claude outputs/FILA-DO-CODE.md`, 2026-09-26):
+**Nada foi executado.** Nenhum pacote instalado, nenhuma migração escrita, nenhum arquivo de código
+tocado. O que existe é planejamento.
 
-  - Fase inserida no ROADMAP.md depois da 04.4, com Goal, decisões, dependências, 18 requisitos e
-    13 critérios de sucesso; tabelas de Milestone Correspondence e Progress atualizadas.
+Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
-  - REQUIREMENTS.md: **ORC-01..18 promovidos da v2 para a v1** e reescritos a partir do briefing e
-    do protótipo (os cinco ORC-* antigos eram uma frase cada, escritos antes da auditoria da
-    planilha). Rastreabilidade e contagem atualizadas: 136/136 mapeados.
+  - `04.5-CONTEXT.md` — D-01..D-29. A discussão está fechada; **não rodar `/gsd-discuss-phase`**.
 
-  - `BRIEFING.md` e `prototipo.html` copiados para `.planning/phases/04.5-financeiro-parte-2/`.
+  - `04.5-RESEARCH.md` — as quatro escolhas técnicas que o briefing adiava, com **tamanhos medidos
+    contra a imagem Docker real do projeto, não estimados**: `@react-pdf/renderer` +37,3 MB (contra
+    Chromium +762 MB, descartado), `sharp` +19,8 MB, bind mount com `rclone` reaproveitado do
+    backup do Postgres, e tabela contadora com `ON CONFLICT DO UPDATE ... RETURNING` para o número.
 
-  - `04.5-CONTEXT.md` escrito com **D-01..D-29**, incluindo as duas decisões do dono de 26/09
-    (navegação: Orçamentos e Peças como abas do Financeiro, Parâmetros em `/cadastros`; numeração:
-    `ORC-2026-001`, sequencial por ano, nunca reaproveitada).
+  - `04.5-UI-SPEC.md` — aprovado 6/6 pelo `gsd-ui-checker`. Contém o contrato das 7 telas.
 
-🔴 **NÃO rodar `/gsd-discuss-phase 04.5`** — os cinco pontos da §8 do briefing estão todos
-respondidos (três em 19/09, dois em 26/09) e registrados no CONTEXT. Dúvida nova que mude regra de
-dado: parar e perguntar ao dono. Dúvida de interface: seguir o protótipo.
+  - `04.5-PATTERNS.md` — o análogo de cada arquivo novo, e os quatro pontos onde a fase pisa em
+    terreno virgem (PDF no servidor, upload de foto, rota que serve arquivo, backup de arquivo).
 
-Atenção ao planejar: a §7 do briefing é a primeira vez que o projeto guarda arquivo (fotos) —
-volume Docker próprio, rota autenticada e **backup das fotos** são requisito da fase (ORC-14..16),
-não detalhe. E **não dar push sem confirmar com o dono**.
+  - `04.5-01-PLAN.md` a `04.5-13-PLAN.md` — 13 planos em 12 ondas.
+
+  - `04.5-PLAN-CHECK.md` — a verificação dos planos e o julgamento dela.
+
+**Seis checkpoints bloqueantes esperam pelo dono** (o executor para em cada um):
+
+  1. Plano 03 — bind mount vs. volume nomeado, e o `chown 100:101` que é dele, no servidor.
+  2. Plano 10 — instalar `sharp` + `file-type`.
+  3. Plano 11 — instalar `@react-pdf/renderer`. **O selo de legitimidade de pacote voltou SUS**; a
+     pesquisa julgou falso-positivo (a métrica leu a data do último lançamento, não a idade do
+     pacote — >5M downloads/semana, repositório desde 2017), mas quem aprova é ele.
+  4. Plano 11 — versionar um arquivo TTF num **repositório público**: a licença tem que permitir.
+  5. Plano 13 — Roteiros 12 e 13 em produção, depois de backup.
+  6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
+     contagem de planos.
+
+Duas coisas para ele olhar antes de virar código:
+
+  - **A barra do Financeiro passa a ter sete abas** (Venda · Despesa · Caixa · Mês · Orçamentos ·
+    Peças · Cadastros) e o UI-SPEC resolveu com duas fileiras 4+3, desviando de propósito da regra
+    "flex-wrap nunca" da 04.4. É a única mudança da fase que ele sente antes de abrir tela nova.
+  - **D-25, os "vínculos nos dois sentidos":** o planejador os pôs uma vez só, em
+    `orcamentos.documento_id`/`encomenda_id`, sem coluna espelho no Financeiro (espelho criaria
+    chave circular e uma segunda verdade). As duas telas provam a navegação nos dois sentidos.
+    É interpretação de regra dele — vale conferir.
+
+Não houve `git push`. Tudo em commits locais (`9bd48db` a `e9bf9a7`).
 
 O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
 
