@@ -5,7 +5,7 @@ import { test, expect, type Page } from "@playwright/test";
 // que pergunta antes e nomeia o que se perde (D-20). Nomes inventados e únicos por execução
 // ("[e2e] ... {sufixo}") — nenhum dado real do ateliê, o repositório é público.
 //
-// O caso de recusa por peça EM USO ("Esta peça está em N orçamento(s). Não dá para apagar.") é o
+// O caso de recusa por peça EM USO ("Esta peça está em N orçamento/orçamentos. Não dá para apagar.") é o
 // caso (h), abaixo — fechado pelo 04.5-06-PLAN.md (carregado do plano 05, que só provou o
 // caminho de exclusão PERMITIDA): agora que o editor de orçamento existe, uma linha de verdade
 // pode ser criada pela interface.
@@ -303,7 +303,7 @@ test.describe("precificacao pecas", () => {
 
     // A recusa é a frase do SERVIDOR (nunca um número pré-carregado — T-04.5-24), e o diálogo
     // CONTINUA aberto: nada foi apagado.
-    await expect(dialogo).toContainText("Esta peça está em 1 orçamento(s). Não dá para apagar.");
+    await expect(dialogo).toContainText("Esta peça está em 1 orçamento. Não dá para apagar.");
     await expect(dialogo).toBeVisible();
     await expect(linhaDaPeca(page, nomeEmUso)).toBeVisible();
   });

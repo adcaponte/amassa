@@ -31,8 +31,8 @@ export type ConfirmarApagarPecaProps = {
 // edição), que só navega para esta URL; esta instância nunca precisa saber de onde veio o clique.
 //
 // D-20: nunca mostra uma contagem lida antes — o texto de recusa ("Esta peça está em N
-// orçamento(s)...") só existe se `apagarFicha` devolver `ok:false`, e é sempre a frase que o
-// SERVIDOR montou, nunca um número pré-carregado pela lista (T-04.5-24).
+// orçamento/orçamentos...") só existe se `apagarFicha` devolver `ok:false`, e é sempre a frase que
+// o SERVIDOR montou, nunca um número pré-carregado pela lista (T-04.5-24).
 export function ConfirmarApagarPeca({ id, nome }: ConfirmarApagarPecaProps) {
   const searchParams = useSearchParams();
   const aberto = searchParams.get("apagarPeca") === id;

@@ -179,6 +179,12 @@ export const CORPO_CONFIRMAR_APAGAR_PECA =
 
 // A recusa do servidor (D-20) — a contagem é SEMPRE a que `apagarFicha` leu dentro da própria
 // transação, nunca um número pré-carregado pela lista.
+//
+// O plural é escrito por extenso, não com "(s)": "está em 1 orçamento" e "está em 2 orçamentos".
+// A forma preguiçosa lia "está em 1 orçamento(s)", e o CLAUDE.md pede erro em linguagem humana —
+// registrada como WINDOWS #36 e corrigida a pedido do dono em 2026-09-26. A contagem nunca é
+// zero aqui: `apagarFicha` só chama esta frase quando achou pelo menos um orçamento.
 export function fraseFichaEmUso(quantidadeDeOrcamentos: number): string {
-  return `Esta peça está em ${quantidadeDeOrcamentos} orçamento(s). Não dá para apagar.`;
+  const orcamentos = quantidadeDeOrcamentos === 1 ? "1 orçamento" : `${quantidadeDeOrcamentos} orçamentos`;
+  return `Esta peça está em ${orcamentos}. Não dá para apagar.`;
 }
