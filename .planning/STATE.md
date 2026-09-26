@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: "Fase 04.5 plano 01 (o tracador) concluido e verificado — schema, calculo puro, numeracao ORC-2026-001, aba Orcamentos no Financeiro. Proximo: plano 02."
-last_updated: "2026-09-26T17:10:21.136Z"
+stopped_at: "Fase 04.5 plano 02 (Parametros dentro de Cadastros) concluido e verificado — 18 parametros com historico e selo, Calcular minha hora, migracao 0020 corrigindo o gatilho de mesmo dia. Proximo: plano 03."
+last_updated: "2026-09-26T17:59:57.572Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 65
+  completed_plans: 66
 current_phase: 04.5
 last_activity: 2026-09-26
 last_activity_desc: "Fase 04.5 plano 01 (o tracador) executado: schema de precificacao/orcamento, lib/precificacao/ puro e testado, sequencial ORC-2026-001 seguro sob concorrencia, aba Orcamentos no Financeiro"
@@ -23,11 +23,11 @@ last_activity_desc: "Fase 04.5 plano 01 (o tracador) executado: schema de precif
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: plano 01 (o traçador) executado e verificado; 12 planos restantes
+**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-02 executados e verificados; 11 planos restantes
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 01 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 02 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -39,9 +39,18 @@ duas fileiras (7 pílulas), casca vazia `/orcamentos` removida. `npm run verific
 traçador provado (uma falha de contenção de servidor sob 8 workers, confirmada flaky isolada —
 WINDOWS #35). Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-01-SUMMARY.md`.
 
-**Pendente para os planos 02-13:** a ficha de peça (D-18/D-19), o editor de orçamento com linhas
-de peça, `/cadastros/parametros` (D-03), a aba Peças (hoje só cabeçalho vazio), PDF, fotos, backup
-de arquivo e todo o ciclo de vida do orçamento (enviar/aprovar/revisar).
+**Plano 02 (Parâmetros dentro de Cadastros, D-03) entregou:** a quinta sub-aba de Cadastros — os
+18 parâmetros do cálculo, cada um com valor na unidade humana, data "desde" e o selo estimado |
+medido (verde-sucesso, nunca terracota); `lib/precificacao/{hora,consultas,esquemas,acoes,textos}.ts`
+(`parametrosVigentes` é agora a única porta de leitura de parâmetro do sistema); "Calcular minha
+hora" (ORC-04) gravando `trabalho_hora`; o aviso vermelho do divisor que não fecha (D-11). **Achado
+real, corrigido nesta execução:** o gatilho de histórico de 0018 recusava corrigir o valor de um
+parâmetro no MESMO DIA — migração `0020` corrige isso sem tocar 0017/0018/0019. e2e 42/42 (desktop
++ celular). Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-02-SUMMARY.md`.
+
+**Pendente para os planos 03-13:** a ficha de peça (D-18/D-19), o editor de orçamento com linhas
+de peça, a aba Peças (hoje só cabeçalho vazio), PDF, fotos, backup de arquivo e todo o ciclo de
+vida do orçamento (enviar/aprovar/revisar).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -107,7 +116,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [████████░░] 83% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 85% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -201,6 +210,7 @@ Progress: [████████░░] 83% (64 de 64 planos da 04.4 executad
 | Phase 04.4 P12 | ~2h15min | 3 tasks | 19 files |
 | Phase 04.4 P13 | ~2h30min | 3 tasks | 22 files |
 | Phase 04.5 P01 | ~2h30min | 4 tasks | 32 files |
+| Phase 04.5 P02 | 75min | 3 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -398,6 +408,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.4-13: etiqueta do carrinho separa TEXTO por motivo - tabela R$ X so para preco editado, - R$ X de desconto para qualquer linha atingida pelo desconto (item comum, valor na hora, valor livre)
 - [Phase ?]: 04.4-13: filtrarExtrato soma sempre (tipo deixa de aceitar null); a politica de esconder a linha do total quando nao ha movimento passou para a tela
 - [Phase ?]: 04.5-01: os 18 nomes de chave de parametro (material_argila, forno_tarifa_energia, preco_lucro...) sao invencao desta execucao, estaveis entre schema.ts/CATALOGO_DE_PARAMETROS/semente 0019
+- [Phase ?]: parametrosVigentes devolve porChave + calculo (ParametrosDoCalculo) + taxaCartaoPontosBase numa consulta só; nenhum outro módulo monta o agregado na mão
+- [Phase ?]: Migração 0020 corrige o gatilho de parametros_precificacao (0018): a linha de HOJE pode ter o valor corrigido, só uma linha de dia anterior fica congelada — achado real ao rodar o e2e contra Postgres
+- [Phase ?]: 'Uma fornada de biscoito/esmalte custa' do protótipo foi omitida da tela de Parâmetros (não é must_have, exigiria expor cálculo interno de calculo.ts)
 
 ### Pending Todos
 
@@ -470,6 +483,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T17:10:21.037Z
-Stopped at: Fase 04.5 plano 01 (o tracador) concluido e verificado — schema, calculo puro, numeracao ORC-2026-001, aba Orcamentos no Financeiro. Proximo: plano 02.
+Last session: 2026-09-26T17:59:57.481Z
+Stopped at: Fase 04.5 plano 02 (Parametros dentro de Cadastros) concluido e verificado — 18 parametros com historico e selo, Calcular minha hora, migracao 0020 corrigindo o gatilho de mesmo dia. Proximo: plano 03.
 Resume file: None

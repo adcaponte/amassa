@@ -203,8 +203,8 @@
 
 - [x] **ORC-01**: O cálculo mora em módulo puro (`lib/precificacao/`), testado com Vitest, sem importar React nem o cliente do banco: material (argila + esmalte), trabalho, queima, embalagem, custo com perda única, preço mínimo por canal e o "preço zero". Todo percentual do preço entra **dividindo**, nunca somando (fórmula do Sebrae, auditada em agosto); divisor ≤ 0 é erro de parâmetro — a tela avisa e não calcula
 - [x] **ORC-02**: Quantas peças cabem no forno sai das **medidas** — por prateleira (as duas orientações, com folga entre peças) × níveis (altura útil ÷ altura da peça + prateleira e pilar) —, **nunca do volume**, que erra cerca de 2× em peça plana. `cabem_biscoito` deriva de `cabem_esmalte` por um fator. Os dois campos "já contei" da ficha substituem o calculado, e peça que não cabe no forno dá aviso, sem número
-- [ ] **ORC-03**: Os parâmetros do cálculo têm **histórico**: mudar um valor cria registro novo com data, nunca sobrescreve (chave, valor, medido, vigente_desde). Cada um carrega o selo **estimado | medido**. A taxa do cartão **não é duplicada** — é lida da parte 1. Todos nascem "estimado", e 🔴 **nenhum valor real vai para seed versionado**: a planilha v2 teve a lógica auditada, mas os números eram esboço
-- [ ] **ORC-04**: "Calcular minha hora" transforma retirada desejada mais a parte dos custos da casa que a produção paga, dividida pelas horas realmente produzindo, no valor da hora — é assim que custo fixo entra no preço. **Não há rateio no Financeiro**
+- [x] **ORC-03**: Os parâmetros do cálculo têm **histórico**: mudar um valor cria registro novo com data, nunca sobrescreve (chave, valor, medido, vigente_desde). Cada um carrega o selo **estimado | medido**. A taxa do cartão **não é duplicada** — é lida da parte 1. Todos nascem "estimado", e 🔴 **nenhum valor real vai para seed versionado**: a planilha v2 teve a lógica auditada, mas os números eram esboço
+- [x] **ORC-04**: "Calcular minha hora" transforma retirada desejada mais a parte dos custos da casa que a produção paga, dividida pelas horas realmente produzindo, no valor da hora — é assim que custo fixo entra no preço. **Não há rateio no Financeiro**
 - [ ] **ORC-05**: A ficha de uma peça **de linha** e o item do catálogo compartilham **um** preço praticado (o `preco_venda` do `itens_catalogo`), não dois campos a sincronizar; criar a ficha cria ou vincula o item, na categoria de venda escolhida, e o custo calculado é o valor com que a peça pronta entrará no Estoque (fase futura). A ficha **exclusiva de um pedido** não aparece na lista nem no catálogo, pode nascer copiando outra ("começar a partir de"), e desmarcar "exclusiva" a promove a peça de linha. Ficha usada em orçamento não se apaga — a tela diz em quantos ela está
 - [ ] **ORC-06**: A ficha mostra de onde vem cada parcela do custo e marca o preço praticado com um selo: **≥ mínimo verde · ≥ zero amarelo · abaixo vermelho**. Canais: venda direta/encomenda (comissão 0) e galeria/consignado
 - [ ] **ORC-07**: O orçamento percorre **rascunho → enviado → aprovado | recusado**. **Expirado é derivado** (data + validade < hoje), nunca um status gravado. Aprovado **trava**: refazer é **Duplicar**, que gera rascunho novo com número novo
@@ -218,7 +218,7 @@
 - [ ] **ORC-15**: Os arquivos ficam em **volume Docker próprio**, fora do banco e fora do repositório — o banco guarda só o caminho —, e são servidos **apenas por rota autenticada** que começa por `exigirUsuario()`, nunca por pasta pública
 - [ ] **ORC-16**: 🔴 O volume das fotos entra na **rotina diária de backup com cópia externa** (incremental), `/api/health/backup` passa a cobrir também as fotos, e o roteiro de restauração é atualizado e conferido
 - [x] **ORC-17**: **Orçamentos** e **Peças** vivem dentro do Financeiro, como abas ao lado de Venda e Caixa; **Parâmetros** fica em `/cadastros` (decisão do dono, 2026-09-26). A casca vazia `/orcamentos` é substituída
-- [ ] **ORC-18**: Todas as telas da fase funcionam de pé no celular — alvos de 44px, campos de 16px, estados vazio, carregando e erro em cada uma
+- [x] **ORC-18**: Todas as telas da fase funcionam de pé no celular — alvos de 44px, campos de 16px, estados vazio, carregando e erro em cada uma
 
 ### Painel Inicial e Entrega
 
@@ -440,8 +440,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FNC-17 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | ORC-01 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-02 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| ORC-03 | Phase 04.5 — Financeiro, parte 2 | Pending |
-| ORC-04 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-03 | Phase 04.5 — Financeiro, parte 2 | Complete |
+| ORC-04 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-05 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-06 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-07 | Phase 04.5 — Financeiro, parte 2 | Pending |
@@ -455,7 +455,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ORC-15 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-16 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-17 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| ORC-18 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-18 | Phase 04.5 — Financeiro, parte 2 | Complete |
 
 **Coverage:**
 
