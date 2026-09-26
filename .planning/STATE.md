@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-07-PLAN.md
-last_updated: "2026-09-26T21:47:39.427Z"
+stopped_at: Completed 04.5-08-PLAN.md
+last_updated: "2026-09-26T23:30:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 71
+  completed_plans: 72
 current_phase: 04.5
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 em execucao: 7 de 13 planos prontos (total e pagamento, painel Só para você), 3 portoes pre-autorizados pelo dono"
+last_activity_desc: "Fase 04.5 em execucao: 8 de 13 planos prontos (congelamento do orçamento, ciclo de vida) — dono ausente, execução autônoma até parada segura"
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 07 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 08 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -112,9 +112,26 @@ Server Component sem estado, estruturalmente isolado do documento do cliente). e
 
 + celular). Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-07-SUMMARY.md`.
 
-**Pendente para os planos 08-13:** "Marcar como enviado" (congela em snapshot); PDF; o upload de
-foto em si (usa `lib/orcamentos/caminho-fotos.ts` do plano 03); e todo o resto do ciclo de vida do
-orçamento (enviar/aprovar/revisar).
+**Plano 08 (congelando o orçamento, e o ciclo de vida) entregou:**
+`lib/orcamentos/snapshot.ts::montarSnapshot/lerDoSnapshot` (puro, TDD) — o contrato de
+persistência do congelamento (D-21), retrocompatível com formato antigo (campo ausente vira zero +
+`camposFaltantes`); `lib/orcamentos/situacao.ts::situacaoDoOrcamento` — a única função que deriva
+o chip, "expirado" nunca gravado (D-22); as quatro transições (`marcarComoEnviado`/
+`recusarOrcamento`/`voltarParaRascunho`/`duplicarOrcamento`) com `select ... for update` antes de
+decidir e `garantirTransicaoValida` como guarda comum (a frase do "aprovado" sempre aponta para
+Duplicar); `ChipDeSituacao`/`AcoesDoOrcamento` na tela, com os três botões dos planos 09/11/12
+visíveis e honestamente desabilitados. **Achado real, corrigido nesta execução (Regra 2):** a
+linha de peça do orçamento continuava editável mesmo depois de "Marcar como enviado" — gap herdado
+dos planos 06/07, fechado agora (`LinhaDeOrcamento` ganhou `vivo`). e2e 14/14 (desktop + celular,
+7 casos), incluindo o coração do plano: mudar um parâmetro DEPOIS de enviado não altera nenhum
+número congelado, e um rascunho novo já usa o valor novo. **Executado com o dono ausente** (3
+portões pré-autorizados: pacotes, fonte do PDF, migrações 0017-0020) — sem checkpoint bloqueante
+neste plano (nenhum pacote novo, nenhuma migração nova). Detalhe completo:
+`.planning/phases/04.5-financeiro-parte-2/04.5-08-SUMMARY.md`.
+
+**Pendente para os planos 09-13:** "Atualizar preços" (os botões já existem, desabilitados); PDF
+do cliente ("Ver como o cliente vê"); a aprovação de verdade ("Cliente aprovou"); o upload de foto
+em si (usa `lib/orcamentos/caminho-fotos.ts` do plano 03).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -283,6 +300,7 @@ Progress: [█████████░] 91% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P05 | ~1h30min | 2 tasks | 10 files |
 | Phase 04.5 P06 | ~2h | 3 tasks | 15 files |
 | Phase 04.5 P07 | 1h30 | 3 tasks | 15 files |
+| Phase 04.5 P08 | ~2h30min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -497,6 +515,10 @@ Recent decisions affecting current work:
 - [Phase ?]: [04.5-06]: "+ Peca exclusiva deste pedido" e "ver calculo" usam navegacao COMPLETA (nao pushState) - DialogoFicha precisa de dado fresco do servidor (categorias/parametros/ficha), mesma convencao ja usada por "Nova peca"/"editar peca" desde os planos 04/05
 - [Phase ?]: [04.5-06]: acrescentarLinha nunca recebe preco do cliente - resolve sozinho (preco efetivo da ficha, ou minimo de hoje arredondado) pela mesma funcao para as duas portas de entrada de peca
 - [Phase ?]: [04.5-06]: "quantas" e um input numerico simples, sem botoes -/+ - o prototipo.html nao tem stepper nessa linha, apesar de uma nota do UI-SPEC sugerir o contrario
+- [Phase ?]: [04.5-08]: linha de orcamento congelada sem calculo valido (nao cabia no forno no instante do envio) e reconstruida na leitura como recusa generica ("divisor-invalido") - o snapshot guarda so os seis campos do briefing, nunca um setimo campo "motivo"
+- [Phase ?]: [04.5-08]: duplicarOrcamento copia cliente/titulo/entrega prevista/observacoes alem do que o texto do plano enumera (pecas/precos/custos de projeto/frete) - duplicar e "refazer com precos novos" do MESMO pedido (D-07), nao recomecar do zero
+- [Phase ?]: [04.5-08]: components/amassa/orcamentos/linha-de-orcamento.tsx e so-para-voce.tsx ganharam props fora da lista de arquivos do plano (vivo/avisoCongelado) - necessario para o congelamento visual e o aviso "Calculado com os parametros de..." realmente aparecerem na tela
+- [Phase ?]: [04.5-08]: script de aceitacao da Tarefa 2 (checagem "for update" via new RegExp com escape quadruplo) quebra ao atravessar plano->bash->JS->RegExp - confirmado com o mesmo regex corrigido que as quatro transicoes tem a guarda real (WINDOWS #40)
 - [Phase ?]: parcelasDoPlano (lib/orcamentos/plano.ts) e a MESMA fonte que o documento do cliente (plano 11) e a aprovacao (plano 12) vao reaproveitar para a forma das parcelas
 - [Phase ?]: SoParaVoce e Server Component sem estado nenhum, reforcando que o painel nunca e importado fora do editor do dono (separacao estrutural do documento do cliente)
 
@@ -571,6 +593,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T21:45:55.131Z
-Stopped at: Completed 04.5-07-PLAN.md
+Last session: 2026-09-26T23:30:00.000Z
+Stopped at: Completed 04.5-08-PLAN.md (dono ausente — execução autônoma; próximo plano: 04.5-09,
+"Atualizar preços")
 Resume file: None
