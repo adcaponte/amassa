@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { acrescentarLinha } from "@/lib/orcamentos/acoes";
 import { criarFicha, editarFicha } from "@/lib/precificacao/acoes";
 import { calcularPeca, farolDoPreco, type ParametrosDoCalculo } from "@/lib/precificacao/calculo";
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
@@ -64,6 +65,11 @@ export type DialogoFichaProps = {
   parametros: ParametrosDoCalculo;
   forno: MedidasUteisDoForno;
   taxaCartaoPontosBase: number;
+  // Presente quando o diálogo foi aberto de DENTRO do editor de um orçamento (04.5-06-PLAN.md,
+  // "+ Peça exclusiva deste pedido" / "ver cálculo") — muda para onde "Cancelar"/"Salvar" voltam,
+  // e faz "Salvar" (só na CRIAÇÃO) acrescentar a peça recém-criada ao orçamento na mesma ida (um
+  // caminho só, nenhuma segunda busca). `null`/ausente = comportamento de sempre (aba Peças).
+  vindoDoOrcamentoId?: string | null;
 };
 
 // Radix não aceita `value=""` num `SelectItem` (reservado para "nenhuma seleção") — sentinela não
@@ -158,15 +164,20 @@ export function DialogoFicha({
   parametros,
   forno,
   taxaCartaoPontosBase,
+  vindoDoOrcamentoId = null,
 }: DialogoFichaProps) {
   const aberto = abrirComo !== null;
   const modoEdicao = abrirComo !== null && abrirComo !== "novo";
 
-  // Fechar é sempre navegação COMPLETA para a mesma aba sem `?peca=` — este componente é montado
-  // direto pela página (Server Component), então não recebe um `onFechar` de fora: nenhuma função
-  // cruza a fronteira servidor→cliente.
+  // Fechar é sempre navegação COMPLETA — para o editor do orçamento que abriu este diálogo,
+  // quando existir; para a aba Peças, do contrário. Este componente é montado direto pela página
+  // (Server Component), então não recebe um `onFechar` de fora: nenhuma função cruza a fronteira
+  // servidor→cliente.
+  const urlDeVolta = vindoDoOrcamentoId
+    ? `/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`
+    : "/financeiro?aba=pecas";
   function fechar() {
-    window.location.assign("/financeiro?aba=pecas");
+    window.location.assign(urlDeVolta);
   }
   const fichaParaEditar = modoEdicao ? (abrirComo as FichaParaEdicao) : null;
 
@@ -188,7 +199,9 @@ export function DialogoFicha({
       setCategoriaVendaId(fichaParaEditar.categoriaVendaId);
     } else {
       setCampos(CAMPOS_EM_BRANCO);
-      setExclusiva(false);
+      // "+ Peça exclusiva deste pedido" (must_have): a ficha nasce já marcada como exclusiva —
+      // o dono ainda pode desmarcar se preferir uma peça de linha, mas o padrão poupa um toque.
+      setExclusiva(vindoDoOrcamentoId !== null);
       setCategoriaVendaId(null);
       setIdParaCopiar(SENTINELA_DO_ZERO);
     }
@@ -351,6 +364,11 @@ export function DialogoFicha({
     return resultado.ok ? null : resultado.erro;
   }, [fichaConvertida]);
 
+  // Guarda o id da ficha já criada quando "Salvar" veio de dentro de um orçamento e a criação da
+  // ficha deu certo, mas acrescentá-la ao orçamento falhou (rede) — uma nova tentativa de
+  // "Salvar" NÃO cria uma segunda ficha, só tenta `acrescentarLinha` de novo com o mesmo id.
+  const fichaCriadaIdRef = useRef<string | null>(null);
+
   async function salvar() {
     if (enviando) {
       return;
@@ -375,21 +393,52 @@ export function DialogoFicha({
       categoriaVendaId: exclusiva ? null : categoriaVendaId,
     };
 
-    const resposta =
-      modoEdicao && fichaParaEditar
-        ? await editarFicha({ id: fichaParaEditar.id, ...entrada })
-        : await criarFicha(entrada);
-
-    setEnviando(false);
-
-    if (!resposta.ok) {
-      setErroDoServidor(resposta.erro);
+    if (modoEdicao && fichaParaEditar) {
+      const resposta = await editarFicha({ id: fichaParaEditar.id, ...entrada });
+      setEnviando(false);
+      if (!resposta.ok) {
+        setErroDoServidor(resposta.erro);
+        return;
+      }
+      // Navegação COMPLETA — nunca a atualização client-side do roteador do Next — o servidor é
+      // quem sabe a peça salva. Editada de dentro de um orçamento ("ver cálculo"), volta para o
+      // editor; editada pela aba Peças, volta para a lista de peças com o aviso de sempre.
+      window.location.assign(
+        vindoDoOrcamentoId
+          ? `/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`
+          : `/financeiro?aba=pecas&peca=${resposta.dados.id}&aviso=peca-salva`,
+      );
       return;
     }
 
-    // Navegação COMPLETA — nunca a atualização client-side do roteador do Next — o servidor é
-    // quem sabe a peça salva.
-    window.location.assign(`/financeiro?aba=pecas&peca=${resposta.dados.id}&aviso=peca-salva`);
+    // Criação. Se uma tentativa anterior já criou a ficha (e só falhou ao acrescentar a linha ao
+    // orçamento, abaixo), não cria uma segunda — reusa o id guardado.
+    if (!fichaCriadaIdRef.current) {
+      const resposta = await criarFicha(entrada);
+      if (!resposta.ok) {
+        setEnviando(false);
+        setErroDoServidor(resposta.erro);
+        return;
+      }
+      fichaCriadaIdRef.current = resposta.dados.id;
+    }
+    const idDaFicha = fichaCriadaIdRef.current;
+
+    if (!vindoDoOrcamentoId) {
+      setEnviando(false);
+      window.location.assign(`/financeiro?aba=pecas&peca=${idDaFicha}&aviso=peca-salva`);
+      return;
+    }
+
+    // "+ Peça exclusiva deste pedido" (must_have): a peça nasce E entra no orçamento na MESMA
+    // ida — um caminho só, nenhuma segunda busca pelo dono.
+    const respostaLinha = await acrescentarLinha({ orcamentoId: vindoDoOrcamentoId, fichaId: idDaFicha });
+    setEnviando(false);
+    if (!respostaLinha.ok) {
+      setErroDoServidor(`A peça foi criada, mas não entrou no orçamento: ${respostaLinha.erro}`);
+      return;
+    }
+    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`);
   }
 
   const titulo = modoEdicao ? TITULO_DIALOGO_FICHA_EDITAR : TITULO_DIALOGO_FICHA_NOVA;
@@ -633,8 +682,10 @@ export function DialogoFicha({
             {/* "Apagar" só existe no modo de edição (uma ficha nova não tem o que apagar) — o
                 único elemento destrutivo desta tela (04.5-UI-SPEC.md §Color). Só NAVEGA: quem
                 decide se apaga de verdade é `ConfirmarApagarPeca`, montado por linha na Lista de
-                Peças, que já tem o `nome` sem consulta extra. */}
-            {modoEdicao && fichaParaEditar && (
+                Peças, que já tem o `nome` sem consulta extra — por isso o botão só aparece vindo
+                da aba Peças; vindo de dentro de um orçamento, a peça está em uso por definição
+                (D-20), e `ConfirmarApagarPeca` nem está montado nessa tela. */}
+            {modoEdicao && fichaParaEditar && !vindoDoOrcamentoId && (
               <button
                 type="button"
                 onClick={() => window.location.assign(`/financeiro?aba=pecas&apagarPeca=${fichaParaEditar.id}`)}

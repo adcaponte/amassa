@@ -4,6 +4,7 @@
 export const TITULO_LISTA_ORCAMENTOS = "Orçamentos";
 
 export const ROTULO_NOVO_ORCAMENTO = "Novo orçamento";
+export const ROTULO_ABRIR_ORCAMENTO = "Abrir";
 
 // Estado vazio da lista (04.5-UI-SPEC.md §Copywriting, verbatim).
 export const FRASE_VAZIO_TITULO = "Nenhum orçamento ainda.";

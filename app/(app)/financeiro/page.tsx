@@ -27,7 +27,16 @@ import {
   textoDoPagamento,
   textoVendaLancada,
 } from "@/lib/financeiro/textos";
-import { listarOrcamentos } from "@/lib/orcamentos/consultas";
+import {
+  listarOrcamentos,
+  listarPecasParaEscolha,
+  obterOrcamentoParaEdicao,
+} from "@/lib/orcamentos/consultas";
+import {
+  FRASE_ERRO_CARREGAR_ORCAMENTO,
+  FRASE_ORCAMENTO_NAO_ENCONTRADO,
+  ROTULO_TODOS,
+} from "@/lib/orcamentos/textos";
 import {
   listarCategoriasDeVenda,
   listarFichas,
@@ -44,6 +53,7 @@ import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelMes } from "@/components/amassa/financeiro/painel-mes";
 import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
+import { EditorOrcamento } from "@/components/amassa/orcamentos/editor-orcamento";
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
@@ -66,11 +76,13 @@ export default async function PaginaFinanceiro({
     forma?: string;
     peca?: string;
     exclusivas?: string;
+    orcamento?: string;
   }>;
 }) {
   await exigirUsuario();
 
-  const { aba, aviso, documento, parcela, mes, forma, peca, exclusivas } = await searchParams;
+  const { aba, aviso, documento, parcela, mes, forma, peca, exclusivas, orcamento } =
+    await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
   const abaDespesa = abaAtual === "despesa";
@@ -80,12 +92,20 @@ export default async function PaginaFinanceiro({
   const abaPecas = abaAtual === "pecas";
   const hoje = hojeEmBrasilia(new Date());
 
-  // `?peca=novo` abre o diálogo em branco; `?peca=<uuid>` abre em edição; qualquer outra coisa
-  // (ausente, lixo) mantém o diálogo fechado. `?exclusivas=1` alterna o filtro da Lista de Peças
-  // (D-19) — um `<Link>` na mesma rota, sem estado de cliente.
+  // `?orcamento=<uuid>` abre o editor daquele orçamento na mesma rota (must_have do
+  // 04.5-06-PLAN.md) — um `<Link>` normal, nunca um estado de cliente.
   const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const pecaNova = abaPecas && peca === "novo";
-  const pecaIdParaEditar = abaPecas && peca && peca !== "novo" && REGEX_UUID.test(peca) ? peca : null;
+  const orcamentoIdParaEditor =
+    abaOrcamentos && orcamento && REGEX_UUID.test(orcamento) ? orcamento : null;
+
+  // `?peca=novo` abre o diálogo em branco; `?peca=<uuid>` abre em edição; qualquer outra coisa
+  // (ausente, lixo) mantém o diálogo fechado. Disponível na aba Peças OU dentro do editor de um
+  // orçamento (D-19: "+ Peça exclusiva deste pedido"/"ver cálculo", 04.5-06-PLAN.md). `?exclusivas=1`
+  // alterna o filtro da Lista de Peças (D-19) — um `<Link>` na mesma rota, sem estado de cliente.
+  const contextoDeFicha = abaPecas || orcamentoIdParaEditor !== null;
+  const pecaNova = contextoDeFicha && peca === "novo";
+  const pecaIdParaEditar =
+    contextoDeFicha && peca && peca !== "novo" && REGEX_UUID.test(peca) ? peca : null;
   const mostrarExclusivas = exclusivas === "1";
   // O MESMO `?mes=` alimenta o extrato do Caixa (D-11/D-12) e a aba Mês — nunca ao mesmo tempo (só
   // uma delas está ativa por navegação), então reaproveitar a mesma chave de URL é seguro. `forma`
@@ -114,6 +134,8 @@ export default async function PaginaFinanceiro({
     documentosDoMes,
     parcelasPagasNoMes,
     orcamentos,
+    orcamentoParaEditar,
+    pecasParaEscolha,
     categoriasDeVendaParaFicha,
     parametrosParaFicha,
     fichaParaEditar,
@@ -140,20 +162,26 @@ export default async function PaginaFinanceiro({
       : Promise.resolve(null),
     abaMes ? listarDocumentosDoMes(mesAtual) : Promise.resolve([]),
     abaMes ? listarParcelasPagasNoMes(mesAtual) : Promise.resolve([]),
-    // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa, mesma disciplina das
-    // demais listas acima.
-    abaOrcamentos ? listarOrcamentos() : Promise.resolve([]),
-    // Fase 04.5 — Tarefa 3 (04.5-04-PLAN.md): só carrega quando o diálogo da ficha pode abrir.
-    abaPecas ? listarCategoriasDeVenda() : Promise.resolve([]),
-    abaPecas ? parametrosVigentes(hoje) : Promise.resolve(null),
+    // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa (a lista), mesma
+    // disciplina das demais listas acima.
+    abaOrcamentos && !orcamentoIdParaEditor ? listarOrcamentos() : Promise.resolve([]),
+    // 04.5-06-PLAN.md — o editor: o orçamento e as linhas com a ficha de cada uma.
+    orcamentoIdParaEditor ? obterOrcamentoParaEdicao(orcamentoIdParaEditor) : Promise.resolve(null),
+    // "+ Peça da lista" (04.5-06-PLAN.md) — as fichas não exclusivas, com o mínimo de hoje
+    // resolvido pelo próprio `EditorOrcamento` (a mesma cadeia de cálculo do resto do módulo).
+    orcamentoIdParaEditor ? listarPecasParaEscolha() : Promise.resolve([]),
+    // Fase 04.5 — Tarefa 3 (04.5-04-PLAN.md): só carrega quando o diálogo da ficha pode abrir —
+    // na aba Peças, ou dentro do editor de um orçamento (04.5-06-PLAN.md).
+    contextoDeFicha ? listarCategoriasDeVenda() : Promise.resolve([]),
+    contextoDeFicha ? parametrosVigentes(hoje) : Promise.resolve(null),
     pecaIdParaEditar ? obterFichaParaEdicao(pecaIdParaEditar) : Promise.resolve(null),
     // 04.5-05-PLAN.md — a Lista de Peças. TODAS as fichas (exclusivas inclusas): quem filtra o
     // que aparece é `ListaPecas` (`mostrarExclusivas`), nunca uma segunda consulta ao alternar.
     abaPecas ? listarFichas() : Promise.resolve([]),
-    // Só no modo de criação o diálogo oferece "Começar a partir de" — carregado sempre que a aba
-    // está ativa (é uma lista pequena, id+nome+campos copiáveis, mesmo padrão de
+    // Só no modo de criação o diálogo oferece "Começar a partir de" — carregado sempre que o
+    // diálogo pode abrir (é uma lista pequena, id+nome+campos copiáveis, mesmo padrão de
     // `listarCategoriasDeVenda`).
-    abaPecas ? listarFichasParaCopiar() : Promise.resolve([]),
+    contextoDeFicha ? listarFichasParaCopiar() : Promise.resolve([]),
   ]);
 
   // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
@@ -292,7 +320,45 @@ export default async function PaginaFinanceiro({
           }}
         />
       ) : abaOrcamentos ? (
-        <ListaOrcamentos orcamentos={orcamentos} />
+        orcamentoIdParaEditor ? (
+          // O editor de um orçamento (04.5-06-PLAN.md). Sem o orçamento (id inexistente, ou
+          // apagado por outra aba entre a navegação e o carregamento): estado de erro nomeando o
+          // que aconteceu, com o caminho de volta — nunca uma tela em branco.
+          orcamentoParaEditar && parametrosParaFicha?.ok ? (
+            <>
+              <EditorOrcamento
+                orcamento={orcamentoParaEditar}
+                pecasParaEscolha={pecasParaEscolha}
+                parametros={parametrosParaFicha.calculo}
+                forno={parametrosParaFicha.forno}
+                taxaCartaoPontosBase={parametrosParaFicha.taxaCartaoPontosBase}
+              />
+              <DialogoFicha
+                abrirComo={pecaNova ? "novo" : (fichaParaEditar ?? null)}
+                categoriasDeVenda={categoriasDeVendaParaFicha}
+                fichasParaCopiar={fichasParaCopiar}
+                parametros={parametrosParaFicha.calculo}
+                forno={parametrosParaFicha.forno}
+                taxaCartaoPontosBase={parametrosParaFicha.taxaCartaoPontosBase}
+                vindoDoOrcamentoId={orcamentoIdParaEditor}
+              />
+            </>
+          ) : (
+            <div className="flex flex-col items-start gap-2 px-6 py-6 md:px-8">
+              <p className="text-corpo text-foreground">
+                {!orcamentoParaEditar ? FRASE_ORCAMENTO_NAO_ENCONTRADO : FRASE_ERRO_CARREGAR_ORCAMENTO}
+              </p>
+              <a
+                href="/financeiro?aba=orcamentos"
+                className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
+              >
+                {ROTULO_TODOS}
+              </a>
+            </div>
+          )
+        ) : (
+          <ListaOrcamentos orcamentos={orcamentos} />
+        )
       ) : abaPecas ? (
         // A Lista de Peças (04.5-05-PLAN.md) é self-contida — cabeçalho + botão quando populada,
         // estado vazio + botão quando não há nenhuma, erro quando os parâmetros não carregam —

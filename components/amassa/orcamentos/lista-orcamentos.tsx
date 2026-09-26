@@ -6,6 +6,7 @@ import {
   FRASE_SEM_TITULO,
   FRASE_VAZIO_CORPO,
   FRASE_VAZIO_TITULO,
+  ROTULO_ABRIR_ORCAMENTO,
   ROTULO_CHIP_RASCUNHO,
   TITULO_LISTA_ORCAMENTOS,
 } from "@/lib/orcamentos/textos";
@@ -45,7 +46,10 @@ export function ListaOrcamentos({ orcamentos }: ListaOrcamentosProps) {
             data-testid="orcamento-linha"
             className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
           >
-            <div className="flex min-w-0 flex-1 flex-col">
+            <a
+              href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
+              className="flex min-w-0 flex-1 flex-col"
+            >
               <span className="text-corpo text-foreground break-words">
                 {orcamento.titulo ?? FRASE_SEM_TITULO}
               </span>
@@ -55,17 +59,26 @@ export function ListaOrcamentos({ orcamentos }: ListaOrcamentosProps) {
                 </span>
                 {` · ${orcamento.clienteNome ?? FRASE_SEM_CLIENTE} · ${formatarDataCurta(orcamento.data)}`}
               </span>
-            </div>
+            </a>
 
-            {/* Total à direita — por enquanto sempre R$ 0,00 (ainda não há linha de peça; o
-                plano 04 acrescenta o cálculo). */}
-            <span className="text-corpo text-foreground tabular-nums">{formatarReais(0)}</span>
+            {/* O total sai SEMPRE da soma das linhas, agregada na própria consulta
+                (`listarOrcamentos`) — nunca uma coluna gravada. */}
+            <span data-testid="orcamento-total" className="text-corpo text-foreground tabular-nums">
+              {formatarReais(orcamento.totalCentavos)}
+            </span>
 
             {/* Chip de situação — só "rascunho" existe até este plano; os demais chegam com o
                 resto do ciclo de vida do orçamento. */}
             <span className="text-apoio bg-muted text-muted-foreground rounded-full px-2 py-0.5">
               {ROTULO_CHIP_RASCUNHO}
             </span>
+
+            <a
+              href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
+              className="text-corpo hover:bg-muted flex min-h-[44px] flex-none items-center rounded-md px-3 font-medium"
+            >
+              {ROTULO_ABRIR_ORCAMENTO}
+            </a>
           </li>
         ))}
       </ul>

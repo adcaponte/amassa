@@ -5,10 +5,10 @@ import { test, expect, type Page } from "@playwright/test";
 // que pergunta antes e nomeia o que se perde (D-20). Nomes inventados e únicos por execução
 // ("[e2e] ... {sufixo}") — nenhum dado real do ateliê, o repositório é público.
 //
-// O caso de recusa por peça EM USO ("Esta peça está em N orçamento(s). Não dá para apagar.") NÃO
-// é provado aqui: só existe linha de orçamento criada pela interface a partir do plano 06 — este
-// arquivo só prova o caminho de exclusão PERMITIDA (peça em nenhum orçamento). Ver
-// 04.5-05-SUMMARY.md.
+// O caso de recusa por peça EM USO ("Esta peça está em N orçamento(s). Não dá para apagar.") é o
+// caso (h), abaixo — fechado pelo 04.5-06-PLAN.md (carregado do plano 05, que só provou o
+// caminho de exclusão PERMITIDA): agora que o editor de orçamento existe, uma linha de verdade
+// pode ser criada pela interface.
 
 async function fazerLogin(page: Page) {
   await page.goto("/login");
@@ -253,5 +253,58 @@ test.describe("precificacao pecas", () => {
     const caixaDoNome = await nomeNaLista.boundingBox();
     // Uma linha de `text-corpo` (16px/1.5) mede uns 24px — mais de uma linha passa bem de 30px.
     expect(caixaDoNome?.height ?? 0).toBeGreaterThan(30);
+  });
+
+  // 04.5-06-PLAN.md — o item carregado do plano 05: com a peça já acrescentada a um orçamento,
+  // tentar apagá-la mostra a recusa do servidor (D-20), de ponta a ponta. Sufixo único e peça
+  // criada pelo PRÓPRIO caso, para não disputar estado com os outros.
+  test("(h) uma peça já usada em um orçamento não se apaga: a tentativa mostra a recusa do servidor, e o diálogo continua aberto", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeEmUso = `[e2e] Em uso ${suf}`;
+
+    await fazerLogin(page);
+    await abrirNovaPeca(page);
+    await preencherCaneca(page, nomeEmUso);
+    await page.getByTestId("ficha-campo-preco-praticado").fill("95");
+    await escolherCategoriaDeVenda(page);
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByText("Peça salva.")).toBeVisible();
+    const url = new URL(page.url());
+    const idDaPecaEmUso = url.searchParams.get("peca") ?? "";
+    expect(idDaPecaEmUso).not.toBe("");
+    await page.getByRole("button", { name: "Cancelar" }).click();
+
+    // Cria um orçamento e acrescenta a peça a ele via "+ Peça da lista" — a MESMA porta de
+    // entrada que um dono usaria de verdade.
+    await page.goto("/financeiro?aba=orcamentos");
+    await page.getByRole("button", { name: "Novo orçamento" }).click();
+    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+
+    await page.getByRole("button", { name: "+ Peça da lista" }).click();
+    const dialogoEscolher = page.getByTestId("orcamento-escolher-peca");
+    await expect(dialogoEscolher).toBeVisible();
+    // `.filter({ hasText })` com STRING casa por substring literal — o nome da peça tem colchetes
+    // ("[e2e] ..."), que `getByRole(..., { name })` interpretaria como classe de regex.
+    const itemDaPeca = dialogoEscolher.getByRole("button").filter({ hasText: nomeEmUso });
+    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), itemDaPeca.click()]);
+    await expect(page.getByTestId("orcamento-linha").filter({ hasText: nomeEmUso })).toBeVisible();
+
+    // Volta para a aba Peças e tenta apagar a mesma peça — agora em uso.
+    await page.goto(`/financeiro?aba=pecas&peca=${idDaPecaEmUso}`);
+    await expect(page.getByRole("heading", { name: "Precificar peça" })).toBeVisible();
+    await page.getByRole("button", { name: "Apagar" }).click();
+    await expect(page).toHaveURL(new RegExp(`apagarPeca=${idDaPecaEmUso}`));
+
+    const dialogo = page.getByTestId("dialogo-apagar-peca");
+    await expect(dialogo).toBeVisible();
+    await dialogo.getByRole("button", { name: "Apagar" }).click();
+
+    // A recusa é a frase do SERVIDOR (nunca um número pré-carregado — T-04.5-24), e o diálogo
+    // CONTINUA aberto: nada foi apagado.
+    await expect(dialogo).toContainText("Esta peça está em 1 orçamento(s). Não dá para apagar.");
+    await expect(dialogo).toBeVisible();
+    await expect(linhaDaPeca(page, nomeEmUso)).toBeVisible();
   });
 });
