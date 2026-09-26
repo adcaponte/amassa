@@ -7,6 +7,7 @@ import { avisoDoCartao } from "@/lib/financeiro/taxa";
 import {
   DICA_AVISTA_A_PAGAR,
   DICA_AVISTA_A_RECEBER,
+  DICA_PARCELAS_EDITAVEIS,
   ROTULO_COMO_PAGA,
   ROTULO_COMO_RECEBE,
   ROTULO_FORMA,
@@ -244,6 +245,11 @@ export function BlocoPagamento({
               aoTirar={duasFormas && indice === 1 ? aoTirarOutraForma : undefined}
             />
           ))}
+          {/* Item 4 da conferência do dono (26/09/2026): "não há local para editar o valor da
+              parcela" — o campo já existia, faltava dizer que dá para mexer nele. */}
+          <p data-testid="parcelas-dica" className="text-apoio text-muted-foreground">
+            {DICA_PARCELAS_EDITAVEIS}
+          </p>
         </div>
       )}
 

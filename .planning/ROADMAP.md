@@ -447,11 +447,13 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: 12/12 plans executed (04.4-11 Tarefas 1-2 automatizáveis concluídas; Tarefas 3 — migração
+**Plans**: 13/13 plans executed (04.4-11 Tarefas 1-2 automatizáveis concluídas; Tarefas 3 — migração
 em produção — e 4 — verificação humana — são checkpoints que aguardam o dono; 04.4-12 Tarefas 1-3
 automatizáveis concluídas, Tarefa 4 — verificação humana das duas mudanças de 20/09 — aguarda o
-dono). A fase segue **ABERTA**: fecha só quando `04.4-VERIFICACAO-HUMANA.md` (agora com 19 itens)
-for percorrido pelo dono.
+dono; 04.4-13 Tarefas 1-3 automatizáveis concluídas, Tarefa 4 — reconferência dos quatro achados de
+26/09 — aguarda o dono). A fase segue **ABERTA**: fecha só quando `04.4-VERIFICACAO-HUMANA.md`
+(agora com 23 itens) for percorrido pelo dono — **a verificação humana é o portão de fechamento
+desta fase, não a contagem de planos**.
 
 Plans:
 **Wave 1**
@@ -489,6 +491,10 @@ Plans:
 **Wave 8** *(blocked on Wave 7 completion)*
 
 - [x] 04.4-12-PLAN.md — As duas mudanças pedidas pelo dono em 20/09: o à vista pode nascer NÃO pago (uma conta avulsa a pagar depois) e "Gerar as contas de {mês}" ganha um seletor de mês (o corrente e os onze seguintes) — **Tarefas 1-3 concluídas; Tarefa 4 (verificação humana das duas mudanças) pendente do dono**
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 04.4-13-PLAN.md — Os quatro achados da conferência de 26/09: o aviso do "Desfazer" acima da barra inferior no celular, a etiqueta do desconto dizendo quanto perdeu, ajuste fino de rótulo/respiro na grade de parcelas e na Despesa, e o total somado do extrato também em "Todas" — **Tarefas 1-3 concluídas; Tarefa 4 (reconferência dos quatro pontos, últimos itens da fase) pendente do dono**
 
 **UI hint**: yes
 

@@ -71,6 +71,23 @@ export const ROTULO_VENCE_EM = "Vence em";
 export const DICA_AVISTA_A_RECEBER = 'Fica em "A receber" no Caixa até o dinheiro entrar.';
 export const DICA_AVISTA_A_PAGAR = 'Fica em "A pagar" no Caixa até você registrar o pagamento.';
 
+// Dica logo ABAIXO da grade de parcelas (04.4-13-PLAN.md, Tarefa 3 — resposta ao item 4 da
+// conferência do dono, 26/09/2026: "não há local para editar o valor da parcela"). O campo já
+// existia; faltava dizer que dá para mexer nele. Neutra para dedo e para mouse — o dono conferiu
+// nos dois.
+export const DICA_PARCELAS_EDITAVEIS = "Dá para mudar o valor e a data de cada parcela.";
+
+// Rótulos MINÚSCULOS e decorativos (`aria-hidden`) acima de cada campo da grade de parcelas — o
+// NOME acessível de cada campo continua sendo o `aria-label` descritivo completo já existente
+// ("Valor da parcela 1 de 3"), nunca duplicado nem trocado por estes.
+export const ROTULO_MINI_VENCE = "vence";
+export const ROTULO_MINI_VALOR = "valor";
+
+// Nome acessível do grupo das DUAS escolhas de verdade da Despesa (Compra de material / Outra
+// despesa) — distinto do atalho "Pagar conta que já existe", que SAI da tela e fica FORA deste
+// grupo (04.4-13-PLAN.md, Tarefa 3).
+export const ROTULO_GRUPO_MODO_DESPESA = "Tipo de despesa";
+
 export type TipoDeDocumentoParaTexto = "venda" | "despesa";
 
 // "À vista"; "Sinal de 50% + saldo" (venda) / "Entrada de 50% + saldo" (despesa); "2x".."12x" —

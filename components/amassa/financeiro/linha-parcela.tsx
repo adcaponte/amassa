@@ -1,6 +1,12 @@
 "use client";
 
-import { ROTULO_FORMA, ROTULO_TIRAR, type FormaDePagamento } from "@/lib/financeiro/textos";
+import {
+  ROTULO_FORMA,
+  ROTULO_MINI_VALOR,
+  ROTULO_MINI_VENCE,
+  ROTULO_TIRAR,
+  type FormaDePagamento,
+} from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -38,6 +44,14 @@ export type LinhaParcelaProps = {
 // (04.4-UI-SPEC.md). A caixa de marcação é `<input type="checkbox">` NATIVO — a zona de toque de
 // 44×44 é o `<span>` externo que a envolve, mesma disciplina de `marcar-cotacao.tsx` (04.3-04): um
 // alvo de verdade, não um hit-slop invisível.
+//
+// Rótulos visíveis (04.4-13-PLAN.md, Tarefa 3 — resposta ao item 4 da conferência do dono,
+// 26/09/2026: "não há local para editar o valor da parcela" — o campo já existia, faltava a
+// AFORDÂNCIA). `ROTULO_MINI_VENCE`/`ROTULO_MINI_VALOR` são `aria-hidden` — puramente decorativos —
+// porque o NOME acessível de cada campo continua sendo o rótulo descritivo completo já atribuído
+// abaixo ("Valor da parcela 1 de 3"), nunca duplicado nem trocado: é ele que os testes e o leitor
+// de tela usam. A raiz alinha os filhos pela BASE (`items-end`, não `items-center`) — sem isso, "k/N"
+// e a caixa de marcação flutuariam no meio da pilha rótulo+campo, que ficou mais alta.
 export function LinhaParcela({
   numero,
   de,
@@ -55,30 +69,40 @@ export function LinhaParcela({
   return (
     <div
       data-testid="parcela-linha"
-      className="border-border flex flex-wrap items-center gap-2 rounded-md border px-2 py-2"
+      className="border-border flex flex-wrap items-end gap-2 rounded-md border px-2 py-2"
     >
       <span className="text-apoio text-muted-foreground w-10 shrink-0 tabular-nums">
         {numero}/{de}
       </span>
 
       {vencimento !== undefined && aoMudarVencimento && (
-        <Input
-          type="date"
-          aria-label={`Vencimento da parcela ${numero} de ${de}`}
-          value={vencimento}
-          onChange={(evento) => aoMudarVencimento(evento.target.value)}
-          className="text-corpo min-h-[44px] min-w-0 flex-1 basis-32"
-        />
+        <div className="flex min-w-0 flex-1 basis-32 flex-col gap-0.5">
+          <span aria-hidden="true" className="text-apoio text-muted-foreground">
+            {ROTULO_MINI_VENCE}
+          </span>
+          <Input
+            type="date"
+            aria-label={`Vencimento da parcela ${numero} de ${de}`}
+            value={vencimento}
+            onChange={(evento) => aoMudarVencimento(evento.target.value)}
+            className="text-corpo min-h-[44px] w-full"
+          />
+        </div>
       )}
 
-      <Input
-        inputMode="decimal"
-        aria-label={`Valor da parcela ${numero} de ${de}`}
-        value={valorTexto}
-        placeholder="R$"
-        onChange={(evento) => aoMudarValor(evento.target.value)}
-        className="text-corpo min-h-[44px] min-w-0 flex-1 basis-24"
-      />
+      <div className="flex min-w-0 flex-1 basis-24 flex-col gap-0.5">
+        <span aria-hidden="true" className="text-apoio text-muted-foreground">
+          {ROTULO_MINI_VALOR}
+        </span>
+        <Input
+          inputMode="decimal"
+          aria-label={`Valor da parcela ${numero} de ${de}`}
+          value={valorTexto}
+          placeholder="R$"
+          onChange={(evento) => aoMudarValor(evento.target.value)}
+          className="text-corpo min-h-[44px] w-full"
+        />
+      </div>
 
       {pago !== undefined && aoMudarPago && (
         <span

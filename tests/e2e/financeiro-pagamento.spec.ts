@@ -401,6 +401,12 @@ test.describe("financeiro pagamento", () => {
     await page.getByTestId("pagamento-plano").selectOption("12");
     await expect(page.getByTestId("parcela-linha")).toHaveCount(12);
 
+    // A dica de que a grade é editável (item 4 da conferência do dono, 26/09/2026) e os rótulos
+    // minúsculos "vence"/"valor" — nenhum tamanho de fonte novo, só a afordância que faltava.
+    await expect(page.getByTestId("parcelas-dica")).toBeVisible();
+    await expect(linhaDePagamento(page, 0)).toContainText("vence");
+    await expect(linhaDePagamento(page, 0)).toContainText("valor");
+
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
       document.documentElement.clientWidth,
@@ -413,6 +419,38 @@ test.describe("financeiro pagamento", () => {
     const zonaDeToque = await zonaDeToqueDaParcela(page, 1).boundingBox();
     expect(zonaDeToque?.width).toBeGreaterThanOrEqual(44);
     expect(zonaDeToque?.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test("a 360px, com 3x, a grade de parcelas não rola a página na horizontal", async ({ page }) => {
+    const suf = sufixoUnico();
+    const nomeItem = `[e2e] Três vezes 360px ${suf}`;
+    await semearItem({
+      nome: nomeItem,
+      categoriaVenda: "Aulas e oficinas",
+      precoCentavos: 30000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.setViewportSize({ width: 360, height: 900 });
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nomeItem).click();
+
+    await page.getByTestId("pagamento-plano").selectOption("3");
+    await expect(page.getByTestId("parcela-linha")).toHaveCount(3);
+
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidth,
+      `Venda com 3x rola horizontalmente a 360px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
   });
 
   // Os quatro casos novos do 04.4-12-PLAN.md: o à vista que pode nascer EM ABERTO (resposta do

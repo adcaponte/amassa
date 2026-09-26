@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 import { lancarDespesa } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaCompra } from "@/lib/financeiro/consultas";
@@ -26,6 +27,7 @@ import {
   ROTULO_DESCRICAO,
   ROTULO_FORNECEDOR_OPCIONAL,
   ROTULO_GRUPO,
+  ROTULO_GRUPO_MODO_DESPESA,
   ROTULO_LANCAR_DESPESA,
   ROTULO_LIMPAR,
   ROTULO_LISTA_COMPLETA_E_ATALHOS,
@@ -531,27 +533,45 @@ export function PainelDespesa({
 
   return (
     <>
-      <div className="flex flex-wrap gap-2 px-6 pb-2 md:px-8">
-        <button
-          type="button"
-          data-testid="despesa-modo-compra"
-          aria-pressed={modo === "compra"}
-          onClick={() => setModo("compra")}
-          className={pilulaClasse(modo === "compra")}
+      {/* Respiro maior ACIMA (16px) do que ABAIXO (8px) desta fila — Considerações do dono
+          (26/09/2026): as pílulas nasciam encostadas na barra de navegação de cima; agora se
+          ligam ao conteúdo que controlam, não a ela. */}
+      <div className="flex flex-col gap-2 px-6 pt-4 pb-2 md:px-8">
+        {/* As DUAS escolhas de verdade da tela (04.4-UI-SPEC.md §Foco Visual) — agrupadas com
+            nome acessível próprio, em duas colunas de largura igual no celular e na fila de
+            sempre a partir de `md`. O atalho "Pagar conta que já existe" fica FORA deste grupo:
+            ele SAI da tela, não é um modo a mais desta. */}
+        <div
+          role="group"
+          aria-label={ROTULO_GRUPO_MODO_DESPESA}
+          className="grid grid-cols-2 gap-2 md:flex md:flex-wrap"
         >
-          {ROTULO_PILULA_COMPRA}
-        </button>
-        <button
-          type="button"
-          data-testid="despesa-modo-outra"
-          aria-pressed={modo === "outra"}
-          onClick={() => setModo("outra")}
-          className={pilulaClasse(modo === "outra")}
+          <button
+            type="button"
+            data-testid="despesa-modo-compra"
+            aria-pressed={modo === "compra"}
+            onClick={() => setModo("compra")}
+            className={pilulaClasse(modo === "compra")}
+          >
+            {ROTULO_PILULA_COMPRA}
+          </button>
+          <button
+            type="button"
+            data-testid="despesa-modo-outra"
+            aria-pressed={modo === "outra"}
+            onClick={() => setModo("outra")}
+            className={pilulaClasse(modo === "outra")}
+          >
+            {ROTULO_PILULA_OUTRA}
+          </button>
+        </div>
+        <Link
+          href="/financeiro?aba=caixa"
+          data-testid="despesa-modo-conta"
+          className={cn(pilulaClasse(false), "inline-flex w-fit items-center gap-1")}
         >
-          {ROTULO_PILULA_OUTRA}
-        </button>
-        <Link href="/financeiro?aba=caixa" data-testid="despesa-modo-conta" className={pilulaClasse(false)}>
           {ROTULO_PILULA_CONTA}
+          <ChevronRight aria-hidden="true" className="size-4" />
         </Link>
       </div>
 
@@ -700,6 +720,11 @@ export function PainelDespesa({
               {formatarReais(totalCentavos)}
             </span>
           </div>
+
+          {/* Fio de separação (item das Considerações do dono, 26/09/2026: ajuste fino de
+              respiro) — mesmo tom de borda do fio do Total acima, marcando onde acaba "quanto" e
+              começa "como paga"; nada mudou nas regras, só o limite ficou visível. */}
+          <div className="border-border border-t" aria-hidden="true" />
 
           <BlocoPagamento
             tipo="despesa"

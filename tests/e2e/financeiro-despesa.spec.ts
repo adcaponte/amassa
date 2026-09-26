@@ -44,6 +44,15 @@ test.describe("financeiro despesa", () => {
     await expect(page.getByTestId("despesa-modo-compra")).toBeVisible();
     await expect(page.getByTestId("despesa-modo-outra")).toBeVisible();
     await expect(page.getByTestId("despesa-modo-conta")).toBeVisible();
+
+    // Ajuste fino (04.4-13-PLAN.md, Tarefa 3 — Considerações do dono, 26/09/2026): as duas
+    // escolhas de verdade ficam num grupo com nome acessível próprio, e o atalho que SAI da tela
+    // fica FORA desse grupo.
+    const grupo = page.getByRole("group", { name: "Tipo de despesa" });
+    await expect(grupo).toBeVisible();
+    await expect(grupo.getByTestId("despesa-modo-compra")).toBeVisible();
+    await expect(grupo.getByTestId("despesa-modo-outra")).toBeVisible();
+    await expect(grupo.getByTestId("despesa-modo-conta")).toHaveCount(0);
   });
 
   test("exemplo 2 — 5 kg de pão de queijo por R$ 160: o que põe no estoque e o extrato", async ({ page }) => {
@@ -139,6 +148,21 @@ test.describe("financeiro despesa", () => {
     expect(
       scrollWidth,
       `Despesa rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("a 360px, a Despesa não rola na horizontal", async ({ page }) => {
+    await fazerLogin(page);
+    await page.setViewportSize({ width: 360, height: 900 });
+    await irParaDespesa(page);
+
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidth,
+      `Despesa rola horizontalmente a 360px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 

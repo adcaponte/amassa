@@ -670,6 +670,11 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
           </p>
         )}
 
+        {/* Fio de separação (item das Considerações do dono, 26/09/2026: ajuste fino de
+            respiro) — mesmo tom de borda do fio do Total acima, marcando onde acaba "quanto" e
+            começa "como paga"; nada mudou nas regras, só o limite ficou visível. */}
+        <div className="border-border border-t" aria-hidden="true" />
+
         <BlocoPagamento
           tipo="venda"
           totalCentavos={totalCentavos}
