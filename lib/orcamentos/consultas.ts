@@ -6,6 +6,7 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   fichasPrecificacao,
+  orcamentoFotos,
   orcamentoLinhas,
   orcamentoProjeto,
   orcamentoRevisoes,
@@ -245,6 +246,50 @@ export async function listarRevisoes(orcamentoId: string): Promise<RevisaoDoOrca
     enviadoEmCivil: linha.enviadoEm ? hojeEmBrasilia(linha.enviadoEm) : "",
     totalCentavos: linha.totalCentavos,
   }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fotos de referência (04.5-10-PLAN.md, Tarefa 3)
+// ---------------------------------------------------------------------------------------------
+
+export type FotoDoOrcamento = {
+  id: string;
+  legenda: string | null;
+  ordem: number;
+};
+
+// A grade de fotos do editor (Tarefa 4) — nunca o BYTE da foto (a tela busca cada imagem por
+// `/api/orcamentos/fotos/<id>`, na rota autenticada; esta consulta só devolve o que a tela
+// precisa para montar a grade e o texto de cada célula).
+export async function listarFotosDoOrcamento(orcamentoId: string): Promise<FotoDoOrcamento[]> {
+  return db
+    .select({
+      id: orcamentoFotos.id,
+      legenda: orcamentoFotos.legenda,
+      ordem: orcamentoFotos.ordem,
+    })
+    .from(orcamentoFotos)
+    .where(eq(orcamentoFotos.orcamentoId, orcamentoId))
+    .orderBy(asc(orcamentoFotos.ordem));
+}
+
+export type FotoParaLeitura = {
+  orcamentoId: string;
+  arquivo: string;
+};
+
+// A ÚNICA consulta que `GET /api/orcamentos/fotos/[id]` faz (D-27/T-04.5-47): resolve o NOME do
+// arquivo em disco a partir do identificador da foto — nunca o inverso. A rota nunca concatena
+// texto vindo da requisição; o `arquivo` que sai daqui é sempre o que `anexarFotoDeOrcamento`
+// gerou no servidor (`caminhoDaFoto`, plano 03, recusa qualquer formato diferente).
+export async function obterFotoParaLeitura(id: string): Promise<FotoParaLeitura | null> {
+  const [linha] = await db
+    .select({ orcamentoId: orcamentoFotos.orcamentoId, arquivo: orcamentoFotos.arquivo })
+    .from(orcamentoFotos)
+    .where(eq(orcamentoFotos.id, id))
+    .limit(1);
+
+  return linha ?? null;
 }
 
 export type PecaParaEscolha = {

@@ -11,6 +11,7 @@ import {
   FRASE_COR_MUITO_LONGA,
   FRASE_DESCRICAO_DO_CUSTO_MUITO_LONGA,
   FRASE_DESCRICAO_DO_CUSTO_OBRIGATORIA,
+  FRASE_LEGENDA_MUITO_LONGA,
   FRASE_OBSERVACOES_MUITO_LONGAS,
   FRASE_PERSONALIZACAO_MUITO_LONGA,
   FRASE_PLANO_INVALIDO,
@@ -375,3 +376,46 @@ export type EntradaDeVoltarParaRascunho = z.infer<typeof esquemaVoltarParaRascun
 
 export const esquemaDuplicarOrcamento = z.object({ id: esquemaId });
 export type EntradaDeDuplicarOrcamento = z.infer<typeof esquemaDuplicarOrcamento>;
+
+// ---------------------------------------------------------------------------------------------
+// Fotos de referência (04.5-10-PLAN.md, Tarefa 3) — anexar, legendar, remover. O ARQUIVO em si
+// nunca passa por aqui: chega como `File` dentro do `FormData` de `anexarFotoDeOrcamento` e é
+// convertido em `Buffer` na própria ação, ANTES de qualquer coisa que o Zod valide (o tipo real
+// é conferido por `lib/orcamentos/fotos.ts::validarTipoRealDaFoto`, por magic bytes — Zod não
+// sabe ler o conteúdo de um arquivo).
+// ---------------------------------------------------------------------------------------------
+
+// "+ Foto de referência": só o orçamento-alvo — a legenda nasce sempre vazia (a tela edita a
+// legenda depois, num campo próprio por foto).
+export const esquemaAnexarFoto = z.object({
+  orcamentoId: esquemaId,
+});
+
+export type EntradaDeAnexarFoto = z.infer<typeof esquemaAnexarFoto>;
+
+// A legenda de uma foto já existente — identificada pelo PRÓPRIO id da foto (mesma disciplina de
+// `esquemaLinhaDeOrcamento`: o id do registro filho, nunca um índice de posição).
+export const esquemaLegendaDaFoto = z
+  .object({
+    orcamentoId: esquemaId,
+    id: esquemaId,
+    legendaTexto: z.string(),
+  })
+  .transform((dados, ctx) => {
+    const legenda = normalizarOpcional(dados.legendaTexto);
+    if (legenda && contarPontosDeCodigo(legenda) > 80) {
+      ctx.addIssue({ code: "custom", message: FRASE_LEGENDA_MUITO_LONGA, path: ["legendaTexto"] });
+      return z.NEVER;
+    }
+    return { orcamentoId: dados.orcamentoId, id: dados.id, legenda };
+  });
+
+export type EntradaDeLegendaDaFoto = z.infer<typeof esquemaLegendaDaFoto>;
+
+// "tirar" uma foto: só os dois identificadores (mesma forma de `esquemaRemoverLinha`).
+export const esquemaRemoverFoto = z.object({
+  orcamentoId: esquemaId,
+  id: esquemaId,
+});
+
+export type EntradaDeRemoverFoto = z.infer<typeof esquemaRemoverFoto>;
