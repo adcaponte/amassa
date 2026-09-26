@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-06-PLAN.md
-last_updated: "2026-09-26T21:01:21.618Z"
+stopped_at: Completed 04.5-07-PLAN.md
+last_updated: "2026-09-26T21:47:39.427Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 70
+  completed_plans: 71
 current_phase: 04.5
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 em execucao: 6 de 13 planos prontos (o editor do orcamento, D-20 fechado de ponta a ponta), 3 portoes pre-autorizados pelo dono"
+last_activity_desc: "Fase 04.5 em execucao: 7 de 13 planos prontos (total e pagamento, painel Só para você), 3 portoes pre-autorizados pelo dono"
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 06 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 07 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -100,8 +100,19 @@ orçamento. **Fecha o item pendente do plano 05:** a recusa de apagar peça em u
 ponta a ponta (`precificacao-pecas.spec.ts`, caso h). e2e 60/60 (desktop + celular, dois arquivos).
 Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-06-SUMMARY.md`.
 
-**Pendente para os planos 07-13:** projeto/frete/imposto/sobra em `ContasDoOrcamento` e o bloco
-"Total e pagamento"/"Só para você" (a coluna direita do editor já existe, vazia); PDF; o upload de
+**Plano 07 (total, pagamento e o painel que o cliente nunca vê) entregou:**
+`lib/orcamentos/plano.ts::parcelasDoPlano` (puro, TDD) — à vista/sinal/3x fecham ao centavo por
+construção, a MESMA função que o documento do cliente (plano 11) e a aprovação (plano 12) vão
+reaproveitar; `contasDoOrcamento` completa (projeto, frete, imposto+taxa, sobra podendo ser
+negativa, estimados por argumento); cinco ações novas (`acrescentarCustoDeProjeto`/
+`atualizarCustoDeProjeto`/`removerCustoDeProjeto`/`definirPlanoDePagamento`/`definirObservacoes`),
+reaproveitando a guarda de rascunho do plano 06; os três blocos que fecham o editor —
+`CustosDoProjeto`, `TotalEPagamento` (Display 28px) e `SoParaVoce` (fundo `--color-acento-fundo`,
+Server Component sem estado, estruturalmente isolado do documento do cliente). e2e 44/44 (desktop
+
++ celular). Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-07-SUMMARY.md`.
+
+**Pendente para os planos 08-13:** "Marcar como enviado" (congela em snapshot); PDF; o upload de
 foto em si (usa `lib/orcamentos/caminho-fotos.ts` do plano 03); e todo o resto do ciclo de vida do
 orçamento (enviar/aprovar/revisar).
 
@@ -172,7 +183,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 88% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 91% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -271,6 +282,7 @@ Progress: [█████████░] 88% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P04 | ~2h30min | 3 tasks | 14 files |
 | Phase 04.5 P05 | ~1h30min | 2 tasks | 10 files |
 | Phase 04.5 P06 | ~2h | 3 tasks | 15 files |
+| Phase 04.5 P07 | 1h30 | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -485,6 +497,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [04.5-06]: "+ Peca exclusiva deste pedido" e "ver calculo" usam navegacao COMPLETA (nao pushState) - DialogoFicha precisa de dado fresco do servidor (categorias/parametros/ficha), mesma convencao ja usada por "Nova peca"/"editar peca" desde os planos 04/05
 - [Phase ?]: [04.5-06]: acrescentarLinha nunca recebe preco do cliente - resolve sozinho (preco efetivo da ficha, ou minimo de hoje arredondado) pela mesma funcao para as duas portas de entrada de peca
 - [Phase ?]: [04.5-06]: "quantas" e um input numerico simples, sem botoes -/+ - o prototipo.html nao tem stepper nessa linha, apesar de uma nota do UI-SPEC sugerir o contrario
+- [Phase ?]: parcelasDoPlano (lib/orcamentos/plano.ts) e a MESMA fonte que o documento do cliente (plano 11) e a aprovacao (plano 12) vao reaproveitar para a forma das parcelas
+- [Phase ?]: SoParaVoce e Server Component sem estado nenhum, reforcando que o painel nunca e importado fora do editor do dono (separacao estrutural do documento do cliente)
 
 ### Pending Todos
 
@@ -557,6 +571,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T21:01:21.574Z
-Stopped at: Completed 04.5-06-PLAN.md
+Last session: 2026-09-26T21:45:55.131Z
+Stopped at: Completed 04.5-07-PLAN.md
 Resume file: None

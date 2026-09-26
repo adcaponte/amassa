@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 19
+open_count: 21
 waived_count: 1
 fixed_count: 17
-total_count: 37
-last_updated: 2026-09-26T21:05:11.553Z
+total_count: 39
+last_updated: 2026-09-26T21:48:07.985Z
 ---
 
 # Broken Windows Ledger
@@ -52,6 +52,8 @@ last_updated: 2026-09-26T21:05:11.553Z
 | 35 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-tracador.spec.ts | 63 | 'a 320px, a aba nao rola na horizontal e as sete pilulas do Financeiro estao em duas fileiras' (desktop e celular) falhou sob a carga de 8 workers (npm run test:e2e --grep 'orcamentos tracador'): boundingBox() de financeiro-aba-venda/financeiro-aba-orcamentos veio null nos dois, junto de varios 'The destination stream closed early' no log do servidor Next. Reexecucao isolada (--grep 'estao em duas fileiras' --workers=1) passou 32/32 (todos os specs da cadeia, incluindo este), confirmando flakiness sob contencao do servidor unico, nao regressao deterministica -- mesma classe ja registrada em WINDOWS #12/#21/#22/#29/#30/#31/#32. Nao corrigido nesta execucao: nao ha causa raiz pequena e obvia neste arquivo (o teste em si nao muta estado nem depende de outro spec). | open |  | 2026-09-26T17:04:40.752Z |  |
 | 36 | 04.5-financeiro-parte-2 | deviation | lib/precificacao/textos.ts | 183 | A frase que recusa apagar uma peca em uso usa o plural preguicoso: 'Esta peca esta em 1 orcamento(s). Nao da para apagar.' Com uma ocorrencia so, le mal. A regra do CLAUDE.md pede erro em linguagem humana, e o resto do projeto ja trata plural direito. Correcao de duas linhas (singular/plural por contagem), deixada fora do plano 05 de proposito para nao editar trabalho ja commitado no meio da execucao da fase. Achado pelo orquestrador ao conferir D-20 depois do plano 05. | fixed |  | 2026-09-26T20:08:12.449Z | 2026-09-26T21:05:11.553Z |
 | 37 | 04.5-financeiro-parte-2 | unrun-verify | components/amassa/orcamentos/cabecalho-do-orcamento.tsx |  | O bloco 'Para quem e para quando' fora de rascunho (leitura simples, sem controle de edicao) esta implementado mas sem prova automatizada: nenhum plano ate agora move um orcamento para fora de status rascunho (a acao 'Marcar como enviado' e de um plano futuro). Conferir quando essa transicao existir. | open |  | 2026-09-26T20:55:15.622Z |  |
+| 38 | 04.5 | deviation | lib/orcamentos/acoes.ts |  | Acceptance script da Tarefa 2 (04.5-07-PLAN.md) procura 'function exigirRascunho'; a guarda real, reaproveitada do plano 06, chama-se travarOrcamentoRascunho (1 ocorrencia, 9 chamadores) — intent satisfeito, nome do script desatualizado | open |  | 2026-09-26T21:48:07.443Z |  |
+| 39 | 04.5 | deviation | components/amassa/orcamentos/escolher-peca.tsx |  | Acceptance script da Tarefa 3 (04.5-07-PLAN.md) acusa 'router.push\|router.refresh' em orcamentos/ — e um COMENTARIO (plano 06) explicando por que o componente NAO usa router.refresh(), nao uma chamada real; nenhum router. de verdade no modulo | open |  | 2026-09-26T21:48:07.985Z |  |
 
 ````json
 [
@@ -497,6 +499,30 @@ last_updated: 2026-09-26T21:05:11.553Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-26T20:55:15.622Z",
+    "resolved_at": null
+  },
+  {
+    "id": 38,
+    "kind": "deviation",
+    "phase": "04.5",
+    "file": "lib/orcamentos/acoes.ts",
+    "line": null,
+    "description": "Acceptance script da Tarefa 2 (04.5-07-PLAN.md) procura 'function exigirRascunho'; a guarda real, reaproveitada do plano 06, chama-se travarOrcamentoRascunho (1 ocorrencia, 9 chamadores) — intent satisfeito, nome do script desatualizado",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-26T21:48:07.443Z",
+    "resolved_at": null
+  },
+  {
+    "id": 39,
+    "kind": "deviation",
+    "phase": "04.5",
+    "file": "components/amassa/orcamentos/escolher-peca.tsx",
+    "line": null,
+    "description": "Acceptance script da Tarefa 3 (04.5-07-PLAN.md) acusa 'router.push|router.refresh' em orcamentos/ — e um COMENTARIO (plano 06) explicando por que o componente NAO usa router.refresh(), nao uma chamada real; nenhum router. de verdade no modulo",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-26T21:48:07.985Z",
     "resolved_at": null
   }
 ]
