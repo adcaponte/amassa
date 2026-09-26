@@ -1439,6 +1439,43 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
         "afetar a própria coluna que o update pediu para mudar.",
     );
 
+    // (b.1) Correção do gatilho (migração 0020, achado real do 04.5-02-PLAN.md, Tarefa 3): a
+    // linha de HOJE (a semente de 0019 já grava as 18 chaves com `vigente_desde = current_date`)
+    // PODE ter o valor corrigido no MESMO DIA — é exatamente o caminho que
+    // `lib/precificacao/acoes.ts::definirParametro` usa (`insert ... on conflict (chave,
+    // vigente_desde) do update`) sempre que a chave já foi editada hoje. Só uma linha de um DIA
+    // ANTERIOR (como a de `idParametroDeTeste`, acima) continua congelada.
+    const { rows: linhaDeHoje } = await cliente.query(
+      "select id, valor_inteiro from parametros_precificacao where chave = 'preco_lucro' and vigente_desde = current_date",
+    );
+    afirmar(
+      linhaDeHoje.length === 1,
+      "A semente de 0019 deveria ter gravado 'preco_lucro' com vigente_desde = hoje.",
+    );
+    const idLinhaDeHoje = linhaDeHoje[0].id;
+    const valorOriginalDeHoje = linhaDeHoje[0].valor_inteiro;
+    afirmar(
+      !(await falha(() =>
+        cliente.query("update parametros_precificacao set valor_inteiro = 9999 where id = $1", [
+          idLinhaDeHoje,
+        ]),
+      )),
+      "Um update de valor_inteiro na linha de HOJE deveria ser aceito (correção no mesmo dia, D-15) — migração 0020.",
+    );
+    await cliente.query("update parametros_precificacao set valor_inteiro = $2 where id = $1", [
+      idLinhaDeHoje,
+      valorOriginalDeHoje,
+    ]);
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          "update parametros_precificacao set vigente_desde = current_date - 1 where id = $1",
+          [idLinhaDeHoje],
+        ),
+      ),
+      "Mesmo na linha de hoje, mudar vigente_desde continua recusado (D-15) — migração 0020.",
+    );
+
     // (c) Travessia de caminho: orcamento_fotos.arquivo com '../' é recusado pelo check de
     // formato — a coluna guarda só o NOME do arquivo gerado pelo servidor, nunca um caminho.
     const { rows: orcamentoInserido } = await cliente.query(
