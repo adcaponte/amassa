@@ -272,9 +272,8 @@ Nenhum bloqueante.
 ## Aguardando o dono
 
 Nenhum `git push` foi dado, e nenhum será dado sem o dono autorizar. Os commits desta tarefa
-(fix `366cfcd`, docs `64f6b46`, docs `2082e32`, e o passe de alinhamento de comentários commitado
-junto com esta atualização do SUMMARY) estão em `main`, local, sobre `bf0f809` (o último commit da
-tarefa rápida anterior, 260926-ijl).
+(fix `366cfcd`, docs `64f6b46`, docs `2082e32`, docs `16da288`) estão em `main`, local, sobre
+`bf0f809` (o último commit da tarefa rápida anterior, 260926-ijl).
 
 ## User Setup Required
 
@@ -297,10 +296,9 @@ None — nenhuma configuração externa necessária.
 
 `components/amassa/financeiro/painel-despesa.tsx`, `lib/financeiro/textos.ts`,
 `lib/financeiro/acoes.ts`, `tests/e2e/financeiro-despesa.spec.ts` e os quatro documentos de
-planejamento existem no disco com as mudanças descritas. Os commits `366cfcd` (fix) e `64f6b46`
-(docs) existem em `git log --oneline --all`; o commit do passe de alinhamento de comentários
-(que inclui esta própria atualização do SUMMARY) foi feito logo em seguida — conferir
-`git log --oneline -1` para o hash exato. `grep -rn "conta que já existe" lib components app
-tests` não encontra mais nenhum comentário de código no presente sobre o atalho removido.
+planejamento existem no disco com as mudanças descritas. Os commits `366cfcd` (fix), `64f6b46` (docs) e `2082e32` (docs) existem em
+`git log --oneline --all`, assim como `16da288` (docs — o passe de alinhamento de comentários,
+que inclui esta própria atualização do SUMMARY). `grep -rn "conta que já existe" lib components
+app tests` não encontra mais nenhum comentário de código no presente sobre o atalho removido.
 `npm run verificar` (lint, `tsc --noEmit`, `verificar-acoes`, 893 testes unitários,
 `test:migracoes`) rodou verde depois deste passe.
