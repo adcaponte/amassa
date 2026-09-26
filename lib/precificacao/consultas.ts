@@ -92,12 +92,24 @@ export async function parametrosVigentes(hoje: string): Promise<ParametrosVigent
     comissaoGaleriaPontosBase: valor("preco_comissao_galeria"),
   };
 
+  // As cinco medidas de comprimento do forno são guardadas na ESCALA DO CATÁLOGO de parâmetros
+  // (cm × 1000 — `CATALOGO_DE_PARAMETROS`, escala 1000 para medida física), não em milímetros: 35
+  // cm entram como 35000. `MedidasUteisDoForno` (lib/precificacao/forno.ts) espera milímetros
+  // (35 cm = 350). A conversão é cm-milésimos ÷ 100 = mm (cm×1000 ÷ 100 = cm×10 = mm) — nunca o
+  // valor bruto do parâmetro direto, que erraria por 100× (achado real: o teste e2e de "peça não
+  // cabe" media 400 mm reais contra um forno de "35000 mm", que nunca recusaria peça nenhuma).
+  function cmMilesimosParaMm(chave: ChaveDeParametro): number {
+    return Math.round(valor(chave) / 100);
+  }
+
   const forno: MedidasUteisDoForno = {
-    larguraMm: valor("forno_largura_util"),
-    profundidadeMm: valor("forno_profundidade_util"),
-    alturaMm: valor("forno_altura_util"),
-    folgaMm: valor("forno_folga_entre_pecas"),
-    prateleiraEPilarMm: valor("forno_prateleira_e_pilar"),
+    larguraMm: cmMilesimosParaMm("forno_largura_util"),
+    profundidadeMm: cmMilesimosParaMm("forno_profundidade_util"),
+    alturaMm: cmMilesimosParaMm("forno_altura_util"),
+    folgaMm: cmMilesimosParaMm("forno_folga_entre_pecas"),
+    prateleiraEPilarMm: cmMilesimosParaMm("forno_prateleira_e_pilar"),
+    // Fator (×, escala 1000) NÃO é comprimento — nenhuma conversão de unidade aqui, o valor
+    // guardado JÁ é o que `quantasCabem` espera (1800 = 1,8×).
     fatorBiscoitoMilesimos: valor("forno_fator_biscoito"),
   };
 

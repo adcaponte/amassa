@@ -28,6 +28,12 @@ import {
   textoVendaLancada,
 } from "@/lib/financeiro/textos";
 import { listarOrcamentos } from "@/lib/orcamentos/consultas";
+import {
+  listarCategoriasDeVenda,
+  obterFichaParaEdicao,
+  parametrosVigentes,
+} from "@/lib/precificacao/consultas";
+import { ROTULO_NOVA_PECA, TITULO_PECAS, TOAST_PECA_SALVA } from "@/lib/precificacao/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
@@ -37,6 +43,7 @@ import { PainelMes } from "@/components/amassa/financeiro/painel-mes";
 import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
+import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -54,11 +61,12 @@ export default async function PaginaFinanceiro({
     parcela?: string;
     mes?: string;
     forma?: string;
+    peca?: string;
   }>;
 }) {
   await exigirUsuario();
 
-  const { aba, aviso, documento, parcela, mes, forma } = await searchParams;
+  const { aba, aviso, documento, parcela, mes, forma, peca } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
   const abaDespesa = abaAtual === "despesa";
@@ -67,6 +75,13 @@ export default async function PaginaFinanceiro({
   const abaOrcamentos = abaAtual === "orcamentos";
   const abaPecas = abaAtual === "pecas";
   const hoje = hojeEmBrasilia(new Date());
+
+  // `?peca=novo` abre o diálogo em branco; `?peca=<uuid>` abre em edição; qualquer outra coisa
+  // (ausente, lixo) mantém o diálogo fechado — a aba Peças, por enquanto, só tem cabeçalho, botão
+  // e o diálogo (a lista é do plano 05).
+  const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const pecaNova = abaPecas && peca === "novo";
+  const pecaIdParaEditar = abaPecas && peca && peca !== "novo" && REGEX_UUID.test(peca) ? peca : null;
   // O MESMO `?mes=` alimenta o extrato do Caixa (D-11/D-12) e a aba Mês — nunca ao mesmo tempo (só
   // uma delas está ativa por navegação), então reaproveitar a mesma chave de URL é seguro. `forma`
   // só existe no extrato (o filtro por forma não faz sentido na tela Mês).
@@ -94,6 +109,9 @@ export default async function PaginaFinanceiro({
     documentosDoMes,
     parcelasPagasNoMes,
     orcamentos,
+    categoriasDeVendaParaFicha,
+    parametrosParaFicha,
+    fichaParaEditar,
   ] = await Promise.all([
     abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
     abaVenda ? listarCatalogoDaVenda() : Promise.resolve([]),
@@ -118,6 +136,10 @@ export default async function PaginaFinanceiro({
     // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa, mesma disciplina das
     // demais listas acima.
     abaOrcamentos ? listarOrcamentos() : Promise.resolve([]),
+    // Fase 04.5 — Tarefa 3 (04.5-04-PLAN.md): só carrega quando o diálogo da ficha pode abrir.
+    abaPecas ? listarCategoriasDeVenda() : Promise.resolve([]),
+    abaPecas ? parametrosVigentes(hoje) : Promise.resolve(null),
+    pecaIdParaEditar ? obterFichaParaEdicao(pecaIdParaEditar) : Promise.resolve(null),
   ]);
 
   // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
@@ -154,7 +176,9 @@ export default async function PaginaFinanceiro({
             )
           : avisoResolvido?.tipo === "desfeito" && parcelaDoAviso
             ? textoDoDesfazer(formatarReais(parcelaDoAviso.valorCentavos))
-            : null;
+            : avisoResolvido?.tipo === "peca-salva"
+              ? TOAST_PECA_SALVA
+              : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
   const desfazerDoAviso =
@@ -256,10 +280,32 @@ export default async function PaginaFinanceiro({
       ) : abaOrcamentos ? (
         <ListaOrcamentos orcamentos={orcamentos} />
       ) : abaPecas ? (
-        // Placeholder — o plano 04 preenche a lista de peças. A pílula já navega para cá; só o
-        // conteúdo chega depois.
+        // A lista em si é do plano 05 — aqui só o cabeçalho, o botão terracota "Nova peça" (o
+        // único acento da tela, 04.5-UI-SPEC.md §Foco Visual) e o diálogo funcionando.
         <div className="px-6 py-6 md:px-8">
-          <h2 className="text-titulo text-foreground">Peças</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-titulo text-foreground">{TITULO_PECAS}</h2>
+            <a
+              href="/financeiro?aba=pecas&peca=novo"
+              data-testid="nova-peca"
+              className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium"
+            >
+              {ROTULO_NOVA_PECA}
+            </a>
+          </div>
+          {parametrosParaFicha?.ok ? (
+            <DialogoFicha
+              abrirComo={pecaNova ? "novo" : (fichaParaEditar ?? null)}
+              categoriasDeVenda={categoriasDeVendaParaFicha}
+              parametros={parametrosParaFicha.calculo}
+              forno={parametrosParaFicha.forno}
+              taxaCartaoPontosBase={parametrosParaFicha.taxaCartaoPontosBase}
+            />
+          ) : (pecaNova || pecaIdParaEditar) ? (
+            <p className="text-apoio text-muted-foreground mt-4">
+              Não deu para carregar os parâmetros do cálculo. Verifique a internet e tente de novo.
+            </p>
+          ) : null}
         </div>
       ) : (
         <PainelVenda

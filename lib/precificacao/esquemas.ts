@@ -149,7 +149,7 @@ const MENSAGEM_MEDIDA_INVALIDA = 'Não deu para entender esse número. Escreva c
 // cm→mm). Ao contrário de `converterQuantidade` (lib/financeiro/dinheiro.ts), aceita ZERO e vazio
 // como zero — os `check`s de `fichas_precificacao` permitem 0 nestes campos (uma peça recém-
 // -criada, ainda sem medida digitada, é uma ficha válida embora inútil).
-function converterMedidaDaFicha(
+export function converterMedidaDaFicha(
   valorTexto: string,
   escala: number,
 ): { ok: true; valorInteiro: number } | { ok: false; erro: string } {
@@ -167,7 +167,7 @@ const MENSAGEM_CONTAGEM_INVALIDA = "Escreva um número inteiro, ou deixe em bran
 
 // "5" → 5; vazio → `null` ("não contei" — D-12, `lib/precificacao/ficha.ts::paraContagemInformada`
 // decide o que "zero" significa, não este conversor). Nunca aceita fração — é contagem de peças.
-function converterContagemDaFicha(
+export function converterContagemDaFicha(
   valorTexto: string,
 ): { ok: true; valorInteiro: number | null } | { ok: false; erro: string } {
   const normalizado = valorTexto.replace(/\s/g, "");

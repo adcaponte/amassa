@@ -9,7 +9,11 @@ export type AvisoDaUrl =
   | { tipo: "lancado"; documentoId: string }
   | { tipo: "cancelado"; documentoId: string }
   | { tipo: "pago"; parcelaId: string }
-  | { tipo: "desfeito"; parcelaId: string };
+  | { tipo: "desfeito"; parcelaId: string }
+  // "Peça salva." (04.5-04-PLAN.md) — toast fixo, sem identificador nenhum: a peça em si já
+  // aparece na URL por `?peca=<id>` (o parâmetro que reabre o diálogo em modo edição), um
+  // propósito diferente do aviso.
+  | { tipo: "peca-salva" };
 
 export function avisoDaUrl(parametros: {
   aviso?: string | null;
@@ -30,6 +34,10 @@ export function avisoDaUrl(parametros: {
       return null;
     }
     return { tipo: parametros.aviso, parcelaId };
+  }
+
+  if (parametros.aviso === "peca-salva") {
+    return { tipo: "peca-salva" };
   }
 
   return null;
