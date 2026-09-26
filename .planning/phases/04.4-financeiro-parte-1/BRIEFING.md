@@ -13,6 +13,13 @@ O financeiro do dia a dia, usado por duas pessoas no celular, de pé:
 
 - **Venda** — carrinho com várias linhas, de áreas diferentes, num recebimento só; à vista ou em parcelas.
 - **Despesa** — três caminhos: compra de material · outra despesa · pagar conta que já existe (leva ao Caixa).
+
+  > **Nota do dono, 2026-09-26 (quick task 260926-qpv):** o terceiro caminho, "pagar conta que já
+  > existe", foi REMOVIDO depois do dono usar o módulo no celular — o botão pareceu inútil e grande
+  > no uso real. A Despesa fica com os dois caminhos de verdade: compra de material · outra despesa.
+  > Quem quer pagar uma conta que já existe passa a ir por Caixa → "A pagar" → "Paguei" — nada na
+  > Despesa leva mais lá. Esta linha acima descreve o desenho ORIGINAL de 19/09/2026; não foi
+  > apagada para preservar o histórico da decisão.
 - **Caixa** — saldo, a pagar, a receber (com "Paguei" / "Recebi"), e o extrato com o saldo depois de
   cada movimento.
 - **Mês** — quanto cada área deixou, o bloco Geral sem rateio, o veredito do mês, o dinheiro que se
