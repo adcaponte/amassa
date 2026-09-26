@@ -5,13 +5,14 @@
 // outro módulo monta o `ParametrosDoCalculo` na mão. A taxa do cartão nunca é lida de novo aqui:
 // vem de `obterConfiguracaoFinanceira` (lib/financeiro/consultas.ts), a mesma leitura que a 04.4
 // já faz — D-16, "não duplicar".
-import { desc, eq, lte } from "drizzle-orm";
+import { and, asc, desc, eq, lte } from "drizzle-orm";
 
 import { db } from "@/db";
-import { parametrosPrecificacao } from "@/db/schema";
+import { categorias, fichasPrecificacao, itensCatalogo, parametrosPrecificacao } from "@/db/schema";
 import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 
 import type { ParametrosDoCalculo } from "./calculo";
+import type { MedidasUteisDoForno } from "./forno";
 import { CATALOGO_DE_PARAMETROS, type ChaveDeParametro, type LinhaDeParametro } from "./parametros";
 
 export type ParametroVigente = LinhaDeParametro & { chave: ChaveDeParametro };
@@ -24,6 +25,10 @@ export type ParametrosVigentesResultado =
       porChave: Record<ChaveDeParametro, ParametroVigente>;
       // O mesmo agregado que `calcularPeca` espera — montado aqui, nunca por quem chama.
       calculo: ParametrosDoCalculo;
+      // As medidas do forno, no formato que `quantasCabem` (lib/precificacao/forno.ts) espera —
+      // mesma disciplina de `calculo`: montado aqui, a ÚNICA porta de leitura de parâmetro nunca
+      // deixa outro módulo remontar isto na mão (04.5-04-PLAN.md).
+      forno: MedidasUteisDoForno;
       taxaCartaoPontosBase: number;
     }
   // Uma chave sem NENHUMA linha vigente na data pedida — a tela precisa saber a diferença entre
@@ -87,10 +92,20 @@ export async function parametrosVigentes(hoje: string): Promise<ParametrosVigent
     comissaoGaleriaPontosBase: valor("preco_comissao_galeria"),
   };
 
+  const forno: MedidasUteisDoForno = {
+    larguraMm: valor("forno_largura_util"),
+    profundidadeMm: valor("forno_profundidade_util"),
+    alturaMm: valor("forno_altura_util"),
+    folgaMm: valor("forno_folga_entre_pecas"),
+    prateleiraEPilarMm: valor("forno_prateleira_e_pilar"),
+    fatorBiscoitoMilesimos: valor("forno_fator_biscoito"),
+  };
+
   return {
     ok: true,
     porChave: Object.fromEntries(porChave) as Record<ChaveDeParametro, ParametroVigente>,
     calculo,
+    forno,
     taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
   };
 }
@@ -108,4 +123,102 @@ export async function historicoDoParametro(chave: ChaveDeParametro): Promise<Lin
     .from(parametrosPrecificacao)
     .where(eq(parametrosPrecificacao.chave, chave))
     .orderBy(desc(parametrosPrecificacao.vigenteDesde));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Ficha de peça (04.5-04-PLAN.md — D-18/D-19)
+// ---------------------------------------------------------------------------------------------
+
+export type CategoriaDeVenda = { id: string; nome: string };
+
+// Ativas, do grupo receita — a MESMA regra de `lib/cadastros/consultas.ts::listarCategoriasParaItem`
+// (`.vendaveis`), redeclarada aqui (cada módulo tem sua própria cópia, D-15 do projeto).
+export async function listarCategoriasDeVenda(): Promise<CategoriaDeVenda[]> {
+  return db
+    .select({ id: categorias.id, nome: categorias.nome })
+    .from(categorias)
+    .where(and(eq(categorias.ativa, true), eq(categorias.grupo, "receita")))
+    .orderBy(asc(categorias.nome));
+}
+
+export type FichaParaEdicao = {
+  id: string;
+  nome: string;
+  argilaMiligramas: number;
+  esmalteMiligramas: number;
+  horasMilesimos: number;
+  larguraMm: number;
+  profundidadeMm: number;
+  alturaMm: number;
+  embalagemCentavos: number;
+  cabemBiscoitoInformado: number | null;
+  cabemEsmalteInformado: number | null;
+  precoMercadoCentavos: number | null;
+  exclusiva: boolean;
+  itemCatalogoId: string | null;
+  categoriaVendaId: string | null;
+  // A opção ATUAL da categoria, mesmo desativada — mesma técnica de
+  // `components/amassa/cadastros/dialogo-item-catalogo.tsx::opcoesComAtual`: a categoria
+  // desativada nunca some do formulário de uma ficha que já a usa.
+  categoriaVendaNome: string | null;
+  // O preço EFETIVO (D-18): o do item quando de linha, o da própria ficha quando exclusiva — a
+  // tela nunca decide sozinha qual preço mostrar, esta consulta já resolve.
+  precoPraticadoEfetivoCentavos: number | null;
+};
+
+// A ficha com o item vinculado (quando de linha) e a categoria dele — nunca uma segunda consulta
+// para "qual é o preço efetivo" (key_links do plano).
+export async function obterFichaParaEdicao(id: string): Promise<FichaParaEdicao | null> {
+  const [linha] = await db
+    .select({
+      id: fichasPrecificacao.id,
+      nome: fichasPrecificacao.nome,
+      argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+      esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+      horasMilesimos: fichasPrecificacao.horasMilesimos,
+      larguraMm: fichasPrecificacao.larguraMm,
+      profundidadeMm: fichasPrecificacao.profundidadeMm,
+      alturaMm: fichasPrecificacao.alturaMm,
+      embalagemCentavos: fichasPrecificacao.embalagemCentavos,
+      cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
+      cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
+      precoMercadoCentavos: fichasPrecificacao.precoMercadoCentavos,
+      precoPraticadoCentavos: fichasPrecificacao.precoPraticadoCentavos,
+      exclusiva: fichasPrecificacao.exclusiva,
+      itemCatalogoId: fichasPrecificacao.itemCatalogoId,
+      itemCategoriaVendaId: itensCatalogo.categoriaVendaId,
+      itemCategoriaVendaNome: categorias.nome,
+      itemPrecoVendaCentavos: itensCatalogo.precoVendaCentavos,
+    })
+    .from(fichasPrecificacao)
+    .leftJoin(itensCatalogo, eq(fichasPrecificacao.itemCatalogoId, itensCatalogo.id))
+    .leftJoin(categorias, eq(itensCatalogo.categoriaVendaId, categorias.id))
+    .where(eq(fichasPrecificacao.id, id))
+    .limit(1);
+
+  if (!linha) {
+    return null;
+  }
+
+  return {
+    id: linha.id,
+    nome: linha.nome,
+    argilaMiligramas: linha.argilaMiligramas,
+    esmalteMiligramas: linha.esmalteMiligramas,
+    horasMilesimos: linha.horasMilesimos,
+    larguraMm: linha.larguraMm,
+    profundidadeMm: linha.profundidadeMm,
+    alturaMm: linha.alturaMm,
+    embalagemCentavos: linha.embalagemCentavos,
+    cabemBiscoitoInformado: linha.cabemBiscoitoInformado,
+    cabemEsmalteInformado: linha.cabemEsmalteInformado,
+    precoMercadoCentavos: linha.precoMercadoCentavos,
+    exclusiva: linha.exclusiva,
+    itemCatalogoId: linha.itemCatalogoId,
+    categoriaVendaId: linha.itemCategoriaVendaId,
+    categoriaVendaNome: linha.itemCategoriaVendaNome,
+    precoPraticadoEfetivoCentavos: linha.exclusiva
+      ? linha.precoPraticadoCentavos
+      : linha.itemPrecoVendaCentavos,
+  };
 }

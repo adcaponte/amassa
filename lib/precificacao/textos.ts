@@ -62,3 +62,79 @@ export const ROTULO_TENTAR_DE_NOVO = "Tentar de novo";
 export const FRASE_FALHA_AO_SALVAR = "Não deu para salvar. Verifique a internet e tente de novo.";
 export const FRASE_PARAMETRO_NAO_EXISTE_MAIS =
   "Esse parâmetro não existe mais. Recarregue a página e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Ficha de peça (04.5-04-PLAN.md — D-18/D-19, ORC-01/ORC-02/ORC-05/ORC-06)
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_NOVA_PECA = "Nova peça";
+export const TITULO_PECAS = "Peças";
+export const TITULO_DIALOGO_FICHA_NOVA = "Peça nova";
+export const TITULO_DIALOGO_FICHA_EDITAR = "Precificar peça";
+export const ROTULO_SALVAR_FICHA = "Salvar";
+export const TOAST_PECA_SALVA = "Peça salva.";
+
+// Rótulos dos campos — ordem e texto herdados verbatim de `prototipo.html` (`CAMPOS`), mais o
+// campo novo de categoria de venda (D-18, não existe no protótipo).
+export const ROTULO_NOME_DA_PECA = "Nome da peça";
+export const ROTULO_ARGILA = "Argila (g)";
+export const ROTULO_ESMALTE = "Esmalte (g)";
+export const ROTULO_HORAS_DE_TRABALHO = "Horas de trabalho, somando todas as etapas";
+export const ROTULO_LARGURA = "Largura (cm), com alça ou bico";
+export const ROTULO_PROFUNDIDADE = "Profundidade (cm)";
+export const ROTULO_ALTURA = "Altura (cm)";
+export const ROTULO_EMBALAGEM = "Embalagem e acessório (R$)";
+export const ROTULO_PRECO_PRATICADO = "Preço que você pratica (R$)";
+export const ROTULO_PRECO_MERCADO = "Preço de peça parecida no mercado (R$, opcional)";
+export const ROTULO_CABEM_BISCOITO = "Já contei: cabem no biscoito (opcional)";
+export const ROTULO_CABEM_ESMALTE = "Já contei: cabem no esmalte (opcional)";
+export const ROTULO_CATEGORIA_DE_VENDA_FICHA = "Categoria de venda";
+export const ROTULO_EXCLUSIVA =
+  "Peça exclusiva deste pedido — não entra na lista de peças nem no Catálogo";
+
+export const FRASE_NAO_CABE_NO_FORNO =
+  "Com essas medidas a peça não cabe no forno cadastrado. Confira as dimensões, ou informe quantas cabem.";
+
+// O selo do preço praticado (ORC-06) — cópia herdada, verbatim, de `prototipo.html` (`FAROL`).
+export const TEXTO_FAROL: Record<"verde" | "amarelo" | "vermelho", string> = {
+  verde: "paga tudo, com lucro e folga",
+  amarelo: "cobre o custo, mas come o lucro",
+  vermelho: "abaixo do custo: você paga para trabalhar",
+};
+
+export function fraseSugestaoParaComecar(precoFormatado: string): string {
+  return `Sugestão para começar: ${precoFormatado}.`;
+}
+
+export const FRASE_MERCADO_ACIMA_DO_MINIMO =
+  "O mercado paga mais que o seu mínimo: há espaço para cobrar pela autoria.";
+export const FRASE_MERCADO_ABAIXO_DO_MINIMO =
+  "O mercado paga menos que o seu mínimo: ou a peça é de base (vende volume, não paga a hora cheia), ou vale rever tempo e quantas cabem no forno.";
+
+// "No forno: N por fornada de esmalte (X por prateleira × Y níveis) · M no biscoito." — cópia
+// herdada, verbatim, de `prototipo.html` (`resFicha`). Quando a contagem veio de "já contei", o
+// parêntese vira "(contado por você)" no esmalte, e desaparece de todo no biscoito (o protótipo
+// só anota a origem quando ela NÃO é o cálculo automático).
+export function fraseNoForno(entrada: {
+  esmalte: number;
+  biscoito: number;
+  porPrateleira: number;
+  niveis: number;
+  origemEsmalte: "calculado" | "informado";
+  origemBiscoito: "calculado" | "informado";
+}): string {
+  const parteEsmalte =
+    entrada.origemEsmalte === "calculado"
+      ? `${entrada.esmalte} por fornada de esmalte (${entrada.porPrateleira} por prateleira × ${entrada.niveis} níveis)`
+      : `${entrada.esmalte} por fornada de esmalte (contado por você)`;
+  const parteBiscoito =
+    entrada.origemBiscoito === "calculado"
+      ? `${entrada.biscoito} no biscoito`
+      : `${entrada.biscoito} no biscoito (contado por você)`;
+  return `No forno: ${parteEsmalte} · ${parteBiscoito}.`;
+}
+
+export const FRASE_CATEGORIA_DE_VENDA_INVALIDA =
+  "Essa categoria de venda não existe mais, ou não é do grupo Receitas. Escolha outra.";
+export const FRASE_FICHA_NAO_EXISTE_MAIS =
+  "Essa peça não existe mais — recarregue a página e tente de novo.";
