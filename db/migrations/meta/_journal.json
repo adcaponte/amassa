@@ -134,6 +134,13 @@
       "when": 1790439860334,
       "tag": "0018_gatilhos-precificacao",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790439860335,
+      "tag": "0019_parametros-iniciais",
+      "breakpoints": true
     }
   ]
 }

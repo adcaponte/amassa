@@ -1394,9 +1394,12 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
   try {
     // (b) D-15 no banco: um update que altera valor_inteiro OU vigente_desde é recusado pelo
     // gatilho recusar_mudanca_de_valor_do_parametro; um update que muda só `medido` passa.
+    // `vigente_desde` é ONTEM, de propósito — a semente de 0019 já grava "material_argila" com
+    // `vigente_desde = current_date` no mesmo dia em que este teste roda (`db:migrate` acabou de
+    // aplicar 0019 acima), e a mesma (chave, vigente_desde) colidiria com o `unique` do banco.
     const { rows: parametroInserido } = await cliente.query(
       `insert into parametros_precificacao (chave, valor_inteiro, medido, vigente_desde)
-       values ('material_argila', 1000, false, current_date)
+       values ('material_argila', 1000, false, current_date - 1)
        returning id`,
     );
     idParametroDeTeste = parametroInserido[0].id;
@@ -1412,7 +1415,7 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
     afirmar(
       await falha(() =>
         cliente.query(
-          "update parametros_precificacao set vigente_desde = current_date - 1 where id = $1",
+          "update parametros_precificacao set vigente_desde = current_date - 2 where id = $1",
           [idParametroDeTeste],
         ),
       ),
@@ -1476,6 +1479,143 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
       .catch(() => {});
     await cliente.query("delete from usuarios where id = $1", [usuarioId]).catch(() => {});
   }
+}
+
+// Fase 04.5 — Financeiro, parte 2 (04.5-01-PLAN.md, Tarefa 3, D-05/D-06/ORC-12): o sequencial de
+// `ORC-2026-001` nasce do banco, nunca de uma contagem lida antes. UMA CONEXÃO POR TRANSAÇÃO —
+// duas transações na mesma conexão não são concorrência real e o teste passaria sem provar nada.
+const SQL_INCREMENTO_DE_CONTADOR = `
+  insert into contadores_orcamento (ano, ultimo_numero) values ($1, 1)
+  on conflict (ano) do update set ultimo_numero = contadores_orcamento.ultimo_numero + 1
+  returning ultimo_numero
+`;
+
+// `begin` → `insert ... on conflict do update ... returning` → `commit`, tudo numa conexão só.
+// Chamada concorrentemente (via `Promise.all`, cada instância com a PRÓPRIA conexão) para provar
+// que o Postgres serializa o acesso à linha do ano sem precisar de `select ... for update`
+// explícito: a segunda conexão fica bloqueada dentro do próprio servidor até a primeira
+// commitar, exatamente o comportamento que `proximoSequencialDeOrcamento`
+// (lib/orcamentos/numero.ts) depende.
+async function abrirIncrementarECommitar(conexao, ano) {
+  await conexao.query("begin");
+  const { rows } = await conexao.query(SQL_INCREMENTO_DE_CONTADOR, [ano]);
+  await conexao.query("commit");
+  return rows[0].ultimo_numero;
+}
+
+async function conferirNumeracaoConcorrenteDeOrcamento() {
+  console.log("  conferirNumeracaoConcorrenteDeOrcamento...");
+
+  const ANO_DE_TESTE = 2031; // ano fictício, não usado por nenhuma outra conferência deste arquivo.
+  const ANO_DE_TESTE_INDEPENDENTE = 2032;
+
+  const conexaoA = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  const conexaoB = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  const conexaoC = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  const conexaoD = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  const conexaoE = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await Promise.all([
+    conexaoA.connect(),
+    conexaoB.connect(),
+    conexaoC.connect(),
+    conexaoD.connect(),
+    conexaoE.connect(),
+  ]);
+
+  try {
+    // 1. Duas transações concorrentes pedindo o sequencial do MESMO ano recebem números
+    // DIFERENTES e CONSECUTIVOS — nunca o mesmo número, nunca um buraco.
+    const [numeroA, numeroB] = await Promise.all([
+      abrirIncrementarECommitar(conexaoA, ANO_DE_TESTE),
+      abrirIncrementarECommitar(conexaoB, ANO_DE_TESTE),
+    ]);
+    afirmar(numeroA !== numeroB, `Duas transações concorrentes receberam o MESMO número: ${numeroA}.`);
+    afirmar(
+      Math.abs(numeroA - numeroB) === 1,
+      `Os dois números deveriam ser consecutivos, vieram ${numeroA} e ${numeroB}.`,
+    );
+    afirmar(
+      Math.max(numeroA, numeroB) === 2 && Math.min(numeroA, numeroB) === 1,
+      `Os dois primeiros números do ano ${ANO_DE_TESTE} deveriam ser 1 e 2 (em alguma ordem), vieram ${numeroA} e ${numeroB}.`,
+    );
+
+    // 2. Uma transação que pede o sequencial e depois REVERTE não consome o número — a próxima
+    // transação recebe o MESMO valor.
+    await conexaoC.query("begin");
+    const { rows: linhaRevertida } = await conexaoC.query(SQL_INCREMENTO_DE_CONTADOR, [ANO_DE_TESTE]);
+    const numeroQueSeraRevertido = linhaRevertida[0].ultimo_numero;
+    await conexaoC.query("rollback");
+
+    const numeroAposReversao = await abrirIncrementarECommitar(conexaoD, ANO_DE_TESTE);
+    afirmar(
+      numeroAposReversao === numeroQueSeraRevertido,
+      `Um número pedido numa transação revertida (${numeroQueSeraRevertido}) não deveria ser ` +
+        `pulado — a próxima transação deveria recebê-lo de volta, veio ${numeroAposReversao}.`,
+    );
+
+    // 3. Anos diferentes têm contadores independentes: o primeiro orçamento de um ano novo é 1,
+    // mesmo com vários orçamentos já numerados em outro ano.
+    const numeroDoAnoIndependente = await abrirIncrementarECommitar(
+      conexaoE,
+      ANO_DE_TESTE_INDEPENDENTE,
+    );
+    afirmar(
+      numeroDoAnoIndependente === 1,
+      `O primeiro número de um ano novo (${ANO_DE_TESTE_INDEPENDENTE}) deveria ser 1, mesmo com ` +
+        `orçamentos já numerados em ${ANO_DE_TESTE} — veio ${numeroDoAnoIndependente}.`,
+    );
+  } finally {
+    // Faxina: os contadores de teste não são dado de produção — apagar é seguro e esperado.
+    await conexaoA
+      .query("delete from contadores_orcamento where ano in ($1, $2)", [
+        ANO_DE_TESTE,
+        ANO_DE_TESTE_INDEPENDENTE,
+      ])
+      .catch(() => {});
+    await Promise.all([
+      conexaoA.end(),
+      conexaoB.end(),
+      conexaoC.end(),
+      conexaoD.end(),
+      conexaoE.end(),
+    ]);
+  }
+}
+
+// Fase 04.5 (04.5-01-PLAN.md, Tarefa 3, D-17): a semente de `db/migrations/0019` cria os 18
+// parâmetros, todos "estimado" — e reaplicá-la não duplica nenhuma linha (mesma disciplina do
+// `on conflict do nothing` de 0016, provada em `conferirFinanceiro`).
+async function conferirSementeDeParametros(cliente) {
+  console.log("  conferirSementeDeParametros...");
+
+  const { rows: parametrosSemeados } = await cliente.query(
+    "select chave, medido from parametros_precificacao",
+  );
+  afirmar(
+    parametrosSemeados.length === 18,
+    `Deveriam existir exatamente 18 parâmetros semeados pela migração 0019, vieram ${parametrosSemeados.length}.`,
+  );
+  afirmar(
+    parametrosSemeados.every((linha) => linha.medido === false),
+    "Todo parâmetro semeado deveria nascer com medido = false (D-17) — nenhum é uma medição real.",
+  );
+
+  const caminhoDaSemente = path.join(
+    process.cwd(),
+    "db",
+    "migrations",
+    "0019_parametros-iniciais.sql",
+  );
+  const sqlDaSemente = readFileSync(caminhoDaSemente, "utf8");
+  await cliente.query(sqlDaSemente);
+
+  const { rows: aposReaplicar } = await cliente.query(
+    "select count(*)::int as total from parametros_precificacao",
+  );
+  afirmar(
+    aposReaplicar[0].total === 18,
+    `Reaplicar a semente de parâmetros (0019) não deveria duplicar nada — esperado 18, veio ${aposReaplicar[0].total}.`,
+  );
 }
 
 // Retrato do CONTEÚDO das três tabelas da Abertura (contagem embutida no próprio JSON, ordenado
@@ -1918,6 +2058,8 @@ async function conferirBanco() {
     await conferirContas(cliente);
     await conferirFinanceiro(cliente);
     await conferirPrecificacaoEOrcamentos(cliente);
+    await conferirNumeracaoConcorrenteDeOrcamento();
+    await conferirSementeDeParametros(cliente);
   } finally {
     await cliente.end();
   }
