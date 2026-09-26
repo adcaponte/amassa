@@ -48,6 +48,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 4.2: Abertura do Espaço** (INSERTED, temporário) - Organizador da abertura do novo espaço: itens a comprar com parcelas e entrega, e tarefas até a inauguração
 - [x] **Phase 04.3: Comparador de Compras** (INSERTED) - Aba do módulo Abertura para comparar cotações de equipamentos lado a lado, compartilhada entre os gestores; arquivada (não apagada) quando a Abertura for desmontada (completed 2026-09-18)
 - [x] **Phase 04.4: Financeiro — parte 1** (INSERTED) - Venda, Compra, Caixa, Mês e Cadastros (completed 2026-09-26; verificada 9/9 + 17/17, migrações 0014-0016 em produção, conferida pelo dono no celular)
+- [ ] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
@@ -498,6 +499,81 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 04.5: Financeiro — parte 2: Precificação e Orçamento (INSERTED)
+
+**Goal**: Dar ao ateliê um preço defensável e um documento para o cliente: precificar uma peça a
+partir do que ela consome de verdade (argila, esmalte, horas, queima calculada pelas **medidas**,
+embalagem), montar um orçamento que congela quando é enviado, gerar o PDF que o dono baixa e manda
+ele mesmo, e — quando o cliente aprova — criar a venda e a encomenda numa transação só.
+Substitui a casca vazia `/orcamentos` e a antiga "Calculadora de Orçamento".
+**Especificação**: `.planning/phases/04.5-financeiro-parte-2/prototipo.html` ("Orçamentos AMASSA"),
+aprovado pelo dono em 2026-09-19, e `BRIEFING.md` na mesma pasta. **O protótipo vence sobre a
+interface; o briefing vence sobre regra de dado que a tela não mostra.** Todos os números do
+protótipo são inventados.
+**Decisões já tomadas (não reabrir)**:
+
+- **Forno** (2026-09-19): cúbico, 30–40 cm por dentro, medida exata ainda por tirar, e **um só**
+  para o cálculo. Os dois fornos que aparecem no site são dado de teste.
+
+- **PDF** (2026-09-19): só a **logo** no topo (arquivo trocável, não constante no código; até a arte
+  da Andressa chegar, o nome em texto). **Sem endereço, sem contato, sem chave Pix.**
+
+- **Imposto** (2026-09-19): o negócio será **MEI**, no nome da Andressa. O parâmetro "imposto sobre
+  a venda" nasce em **0%**; o DAS entra como **conta fixa** da parte 1. O parâmetro continua
+  existindo para o dia em que o regime mudar.
+
+- **Navegação** (2026-09-26): **Orçamentos** e **Peças** vivem **dentro do Financeiro**, como abas
+  ao lado de Venda e Caixa; **Parâmetros** vai para `/cadastros`.
+
+- **Numeração** (2026-09-26): `ORC-2026-001`, **sequencial por ano**, **nunca reaproveitada** —
+  orçamento cancelado mantém o número.
+
+- Percentual do preço entra **dividindo**, nunca somando (fórmula do Sebrae, auditada em agosto).
+  Divisor ≤ 0 é erro de parâmetro: a tela avisa e não calcula.
+
+- Quantas peças cabem no forno sai das **medidas** (por prateleira × níveis), **nunca do volume** —
+  volume erra ~2× em peça plana (diagnóstico de agosto).
+
+- **Perda única** (um percentual). Custo fixo entra pelo "Calcular minha hora" — **não há rateio**.
+- 🔴 **Nenhum valor real de parâmetro em seed versionado**: a planilha de precificação v2 teve a
+  lógica auditada, mas os números eram esboço. Todos nascem "estimado", e o orçamento avisa quantos
+  estimados entraram no cálculo.
+
+**Fora desta fase**: redesenho da Produção (a aprovação liga no módulo de Encomendas **como ele é
+hoje**), aviso de capacidade, cadastro de Pessoas, assinatura eletrônica, envio por e-mail ou
+WhatsApp pelo sistema (o dono baixa o PDF e envia ele mesmo), a navegação nova do `/gestao`.
+**Discussão**: **já resolvida** — os cinco pontos da §8 do briefing estão todos respondidos
+(três em 2026-09-19, os dois últimos em 2026-09-26). **Não rodar `/gsd-discuss-phase` para eles**;
+vale ir direto ao planejamento. Dúvida nova que mude regra de dado **para** e pergunta ao dono;
+dúvida de interface segue o protótipo.
+**Depends on**: Phase 04.4 (usa `documentos`/`parcelas`, categorias, `itens_catalogo` e a taxa do
+cartão de lá); Phase 3 (a aprovação cria encomenda no módulo atual); Phase 2b (casca e design system)
+**Requirements**: ORC-01, ORC-02, ORC-03, ORC-04, ORC-05, ORC-06, ORC-07, ORC-08, ORC-09, ORC-10, ORC-11, ORC-12, ORC-13, ORC-14, ORC-15, ORC-16, ORC-17, ORC-18
+**Success Criteria** (what must be TRUE):
+
+  1. O módulo puro `lib/precificacao/` calcula material, trabalho, queima, custo com perda, mínimo por canal e o preço zero, com percentual entrando por divisão, e tem teste para cada fórmula — inclusive o caso de divisor ≤ 0, que avisa e não calcula
+  2. Quantas peças cabem no forno sai das medidas da peça e das medidas úteis do forno (por prateleira × níveis, testando as duas orientações), nunca do volume; "já contei" substitui o calculado, e peça que não cabe dá aviso sem número
+  3. Mudar um parâmetro cria registro novo com data e não sobrescreve o anterior; a taxa do cartão é lida da parte 1, sem campo duplicado; todo parâmetro nasce "estimado" e nenhum valor real vai para seed versionado
+  4. A ficha de uma peça de linha e o `itens_catalogo` compartilham UM preço praticado (`preco_venda`) — não há dois campos a sincronizar; ficha usada em orçamento não se apaga, e a tela diz em quantos ela está
+  5. "Marcar como enviado" congela o orçamento: depois disso, mudar parâmetro ou ficha não altera nenhum número dele, e o snapshot guarda por linha nome, custo, mínimo, zero, horas e quantas cabem, mais imposto+taxa e a contagem de estimados
+  6. "Atualizar preços" num orçamento enviado guarda a revisão anterior, sobe `revisao`, volta a rascunho e renova a validade, mantendo a razão preço÷mínimo de cada peça, arredondada e editável
+  7. O número é `ORC-2026-001`, sequencial por ano e nunca reaproveitado: cancelar mantém o número, e "Duplicar" gera um número novo
+  8. Aprovar cria, numa transação só, a venda na parte 1 (sinal **em aberto vencendo hoje**, saldo na entrega prevista) e — se marcado — a encomenda; os vínculos ficam gravados nos dois sentidos, e cancelar a venda não apaga nem reabre o orçamento, só avisa nos dois lados
+  9. O PDF gerado no servidor traz o mesmo conteúdo da tela "Ver como o cliente vê", em A4, com a logo no topo — e **nenhum custo, mínimo, margem ou hora** aparece nele
+  10. Uma foto de 15 MB mandada do celular é aceita, reduzida no servidor para no máximo 1600 px, salva como JPEG sem EXIF, e só a versão reduzida fica em disco; o tipo real do arquivo é validado no servidor
+  11. As fotos ficam em volume Docker próprio, fora do banco e do repositório, servidas só por rota que começa por `exigirUsuario()` — nenhuma pasta pública
+  12. O backup diário com cópia externa passa a incluir o volume das fotos, `/api/health/backup` cobre as fotos, e o roteiro de restauração foi atualizado e conferido
+  13. No celular, todas as telas novas obedecem 44px de toque, 16px de campo, e têm estado vazio, de carregamento e de erro
+
+**Plans**: 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 04.5 to break down)
+
+**UI hint**: yes
+
+
 ### Phase 5: Agenda de Aulas (em espera)
 
 > **Adiada por decisão do dono em 2026-08-22.** O módulo de Abertura do Espaço tem prazo real
@@ -608,13 +684,13 @@ documento de operação) tornam-se os planos desta fase.
 | Phase 5 | M3 — Agenda de Aulas | 6ª (deslocada — ver nota na Fase 5) |
 | Phase 6 | M5 — Estoque | 7ª |
 | Phase 04.4 | M6 — virou Financeiro, parte 1 | próxima (revisão de 2026-09-19) |
-| — | M6 — Financeiro, parte 2 (Precificação + Orçamento) | sem fase ainda; ORC-* em v2 |
+| Phase 04.5 | M6 — Financeiro, parte 2 (Precificação + Orçamento) | depois da 04.4 (revisão de 2026-09-19) |
 | Phase 7 | M7 — Polimento e entrega | última |
 
 ## Progress
 
 **Execution Order:**
-Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → **04.4** → Financeiro 2 → `/gestao` + site → 6 → Produção → 5 → Queimas → 7
+Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → Queimas → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -627,6 +703,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
+| 04.5. Financeiro — parte 2 | 0/TBD | Not started | - |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

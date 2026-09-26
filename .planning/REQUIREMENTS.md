@@ -194,6 +194,33 @@
 - [x] **FNC-16**: As parcelas da Abertura que vencem a partir da virada entram como contas a pagar por um script único, com o rótulo "n de N"; Material vira custo e o resto vira "Equipamento e obra"; a Abertura não é alterada; o saldo inicial é informado pelo dono
 - [x] **FNC-17**: Todas as telas funcionam de pé no celular — alvos de 44px, campos de 16px, estados vazio, carregando e erro
 
+### Financeiro — parte 2: Precificação e Orçamento (Fase 04.5)
+
+> Reescritos em 2026-09-26 a partir de `.planning/phases/04.5-financeiro-parte-2/BRIEFING.md` e do
+> protótipo "Orçamentos AMASSA", aprovado pelo dono em 2026-09-19, mais as duas decisões dele de
+> 2026-09-26 (navegação e numeração). **Substituem os ORC-01..05 da v2**, que eram uma frase cada,
+> escritas antes de a planilha de precificação ser auditada. O prefixo continua `ORC`.
+
+- [ ] **ORC-01**: O cálculo mora em módulo puro (`lib/precificacao/`), testado com Vitest, sem importar React nem o cliente do banco: material (argila + esmalte), trabalho, queima, embalagem, custo com perda única, preço mínimo por canal e o "preço zero". Todo percentual do preço entra **dividindo**, nunca somando (fórmula do Sebrae, auditada em agosto); divisor ≤ 0 é erro de parâmetro — a tela avisa e não calcula
+- [ ] **ORC-02**: Quantas peças cabem no forno sai das **medidas** — por prateleira (as duas orientações, com folga entre peças) × níveis (altura útil ÷ altura da peça + prateleira e pilar) —, **nunca do volume**, que erra cerca de 2× em peça plana. `cabem_biscoito` deriva de `cabem_esmalte` por um fator. Os dois campos "já contei" da ficha substituem o calculado, e peça que não cabe no forno dá aviso, sem número
+- [ ] **ORC-03**: Os parâmetros do cálculo têm **histórico**: mudar um valor cria registro novo com data, nunca sobrescreve (chave, valor, medido, vigente_desde). Cada um carrega o selo **estimado | medido**. A taxa do cartão **não é duplicada** — é lida da parte 1. Todos nascem "estimado", e 🔴 **nenhum valor real vai para seed versionado**: a planilha v2 teve a lógica auditada, mas os números eram esboço
+- [ ] **ORC-04**: "Calcular minha hora" transforma retirada desejada mais a parte dos custos da casa que a produção paga, dividida pelas horas realmente produzindo, no valor da hora — é assim que custo fixo entra no preço. **Não há rateio no Financeiro**
+- [ ] **ORC-05**: A ficha de uma peça **de linha** e o item do catálogo compartilham **um** preço praticado (o `preco_venda` do `itens_catalogo`), não dois campos a sincronizar; criar a ficha cria ou vincula o item, na categoria de venda escolhida, e o custo calculado é o valor com que a peça pronta entrará no Estoque (fase futura). A ficha **exclusiva de um pedido** não aparece na lista nem no catálogo, pode nascer copiando outra ("começar a partir de"), e desmarcar "exclusiva" a promove a peça de linha. Ficha usada em orçamento não se apaga — a tela diz em quantos ela está
+- [ ] **ORC-06**: A ficha mostra de onde vem cada parcela do custo e marca o preço praticado com um selo: **≥ mínimo verde · ≥ zero amarelo · abaixo vermelho**. Canais: venda direta/encomenda (comissão 0) e galeria/consignado
+- [ ] **ORC-07**: O orçamento percorre **rascunho → enviado → aprovado | recusado**. **Expirado é derivado** (data + validade < hoje), nunca um status gravado. Aprovado **trava**: refazer é **Duplicar**, que gera rascunho novo com número novo
+- [ ] **ORC-08**: O rascunho calcula ao vivo; **"Marcar como enviado" congela**. O snapshot guarda, por linha, nome, custo, mínimo, zero, horas e quantas cabem, mais imposto + taxa e a contagem de parâmetros estimados que entraram. Depois disso, mudar parâmetro ou ficha **não altera** o orçamento. Enviar exige cliente e pelo menos uma peça
+- [ ] **ORC-09**: "Atualizar preços" compara, peça a peça, o mínimo congelado com o mínimo de hoje (mudança de parâmetro **ou** de ficha conta) e sugere preço **mantendo a razão preço ÷ mínimo** da época, arredondado (até R$ 50: inteiro acima; acima disso: múltiplo de 5) e editável. Confirmar guarda a revisão anterior, sobe `revisao`, volta a rascunho e renova a validade com a data de hoje; projeto e frete não mudam sozinhos. No rascunho, o mesmo botão confere cada preço contra o mínimo de hoje e sobe o que estiver abaixo
+- [ ] **ORC-10**: O painel **"Só para você"** — custo, sobra depois de imposto e taxa, horas de trabalho, fornadas ocupadas, aviso de estimados e histórico de revisões — existe na tela e **nunca** no PDF
+- [ ] **ORC-11**: Aprovar executa **uma transação**: cria a venda na parte 1 (uma linha por peça com a cor na descrição, linhas de projeto e frete, categoria "Encomendas", parcelas conforme o plano), com o 🔴 **sinal nascendo em aberto e vencendo hoje** e o saldo vencendo na entrega prevista; e, se marcado, cria a encomenda no módulo atual (nome = título, cliente, itens com quantidade, cronograma padrão), com cor, personalização, fotos e ficha alcançáveis a partir dela. Os vínculos ficam gravados nos dois sentidos, e **cancelar a venda não apaga nem reabre o orçamento** — só mostra o aviso nos dois lados
+- [ ] **ORC-12**: O número é **`ORC-2026-001`, sequencial por ano e nunca reaproveitado** — orçamento cancelado mantém o número (decisão do dono, 2026-09-26). A revisão aparece junto do número no documento do cliente
+- [ ] **ORC-13**: O documento do cliente é gerado **no servidor**, em A4, com o mesmo conteúdo da tela "Ver como o cliente vê": logo no topo (arquivo trocável, não constante no código), número e revisão, data, validade, cliente, tabela de peças, projeto, frete, total, Referências, pagamento, prazo, observações, a frase de confirmação e a nota do feito à mão. **Sem endereço, contato ou chave Pix**, e 🔴 **nenhum custo, mínimo, margem ou hora**. A técnica de geração tem duas restrições: custo recorrente zero e caber na imagem Docker atual (medir o peso antes de adotar um Chromium embutido)
+- [ ] **ORC-14**: Até **3 fotos de referência** por orçamento, com legenda. A foto é aceita como vem do celular (até ~15 MB), **reduzida no servidor** para no máximo 1600 px no lado maior, gravada em JPEG **sem metadados** (EXIF/GPS), e **só a versão reduzida** fica em disco. O tipo real do arquivo é validado no servidor, não pela extensão; remover foto pede confirmação
+- [ ] **ORC-15**: Os arquivos ficam em **volume Docker próprio**, fora do banco e fora do repositório — o banco guarda só o caminho —, e são servidos **apenas por rota autenticada** que começa por `exigirUsuario()`, nunca por pasta pública
+- [ ] **ORC-16**: 🔴 O volume das fotos entra na **rotina diária de backup com cópia externa** (incremental), `/api/health/backup` passa a cobrir também as fotos, e o roteiro de restauração é atualizado e conferido
+- [ ] **ORC-17**: **Orçamentos** e **Peças** vivem dentro do Financeiro, como abas ao lado de Venda e Caixa; **Parâmetros** fica em `/cadastros` (decisão do dono, 2026-09-26). A casca vazia `/orcamentos` é substituída
+- [ ] **ORC-18**: Todas as telas da fase funcionam de pé no celular — alvos de 44px, campos de 16px, estados vazio, carregando e erro em cada uma
+
+
 ### Painel Inicial e Entrega
 
 - [ ] **PNL-01**: O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique
@@ -208,18 +235,13 @@
 
 Reconhecidos e adiados. Não estão no roadmap atual.
 
-### Calculadora de Orçamento → Financeiro, parte 2 (desbloqueada em 2026-09-18)
+### Calculadora de Orçamento → Financeiro, parte 2 — **PROMOVIDA À v1 em 2026-09-26**
 
-- **ORC-01**: Calcular o preço de uma encomenda a partir das variáveis de entrada do ateliê
-- **ORC-02**: Somar os custos de argila, esmalte, energia da fornada, mão de obra, embalagem e frete
-- **ORC-03**: Aplicar margem conforme a regra das planilhas de precificação
-- **ORC-04**: Escalonar desconto por volume
-- **ORC-05**: Produzir a saída final (número, faixa ou documento de proposta)
-
-> **Não está mais bloqueada.** As planilhas de precificação foram feitas e auditadas no Cowork em
-> 2026-09-18. A calculadora virou a **parte 2 do Financeiro** (Precificação + Orçamento com PDF;
-> orçamento aprovado cria a Venda), que vem logo depois da Fase 04.4 e ainda não tem fase. Os
-> ORC-* serão reescritos a partir do protótipo da parte 2 quando a fase for criada.
+> Saiu da v2. As planilhas de precificação foram feitas e auditadas no Cowork em 2026-09-18, o
+> protótipo "Orçamentos AMASSA" foi aprovado pelo dono em 2026-09-19 e a **Fase 04.5** foi criada
+> em 2026-09-26. Os cinco ORC-* antigos (uma frase cada, escritos antes da auditoria) foram
+> **reescritos como ORC-01..18 na v1** — ver a seção "Financeiro — parte 2: Precificação e
+> Orçamento (Fase 04.5)". Nada aqui continua pendente.
 
 ### Financeiro da Escola
 
@@ -417,11 +439,29 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FNC-15 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-16 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-17 | Phase 04.4 — Financeiro, parte 1 | Complete |
+| ORC-01 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-02 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-03 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-04 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-05 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-06 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-07 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-08 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-09 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-10 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-11 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-12 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-13 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-14 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-15 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-16 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-17 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-18 | Phase 04.5 — Financeiro, parte 2 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 118 total (ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4)
-- Mapped to phases: 118/118
+- v1 requirements: 136 total (ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5)
+- Mapped to phases: 136/136
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -437,8 +477,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 6 | M5 | EST-01..12 | 12 |
 | Phase 7 | M7 | UI-10..11, PNL-01..07 | 9 |
 | Phase 04.4 | M6 → Financeiro, parte 1 | FNC-01..17 | 17 |
-| — | M6 → Financeiro, parte 2 (sem fase ainda) | ORC-01..05 (v2, a reescrever) | 0 |
+| Phase 04.5 | M6 → Financeiro, parte 2 | ORC-01..18 (reescritos, promovidos da v2) | 18 |
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-08-05 after roadmap creation — traceability filled, 99/99 requirements mapped*
+*Last updated: 2026-09-26 — ORC-01..18 promovidos da v2 e reescritos para a Fase 04.5; 136/136 requisitos mapeados*

@@ -6,14 +6,14 @@ current_phase: 04.4
 current_phase_name: Financeiro — parte 1
 status: complete
 stopped_at: "Fase 04.4 (Financeiro — parte 1) CONCLUIDA e verificada em 2026-09-26 (9/9 criterios + 17/17 FNC, 04.4-VERIFICATION.md). No ar, migracoes 0014-0016 aplicadas, conferida pelo dono no celular. Proximo: item 2 da fila em Claude outputs/FILA-DO-CODE.md — Financeiro parte 2 (Precificacao e Orcamento), so com o dono presente."
-last_updated: "2026-09-26T18:00:00.000Z"
-last_activity: 2026-09-26
-last_activity_desc: "Fase 04.4 fechada: verificacao 9/9 + 17/17, ROADMAP e REQUIREMENTS atualizados"
+last_updated: "2026-09-26T14:41:50.565Z"
 progress:
-  total_phases: 10
-  completed_phases: 10
+  total_phases: 11
+  completed_phases: 9
   total_plans: 64
   completed_plans: 64
+last_activity: 2026-09-26
+last_activity_desc: "Fase 04.5 (Financeiro parte 2) criada: roadmap, requisitos e CONTEXT prontos para o planejamento"
 ---
 
 # Project State
@@ -23,39 +23,55 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** nenhuma fase em execução — a 04.4 fechou em 2026-09-26
+**Current focus:** Fase 04.5 — Financeiro, parte 2 (Precificação e Orçamento): criada em 2026-09-26, aguardando `/gsd-plan-phase 04.5`
 
 ## Current Position
 
-Phase: 04.4 (Financeiro — parte 1) — **CONCLUÍDA** em 2026-09-26.
-Plan: 13 de 13 executados e verificados.
-Status: No ar. Migrações 0014/0015/0016 aplicadas em produção pelo dono em 20/09 e conferidas de
-fora; código publicado (pipeline verde, commit d9d2f1d, 26/09); verificação de fim de fase
-**passou: 9/9 critérios do ROADMAP e 17/17 requisitos FNC** (`04.4-VERIFICATION.md`), com os
-testes rodados de novo pelo verificador em vez de aceitos dos relatórios; os 23 itens da
-conferência humana percorridos pelo dono (1-19 com resultado escrito, 20-23 aprovados por ele em
-26/09).
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — CRIADA em 2026-09-26, pronta
+para o planejamento. A 04.4 (parte 1) está CONCLUÍDA, no ar e verificada (13/13 planos, 9/9
+critérios e 17/17 requisitos, migrações 0014/0015/0016 aplicadas pelo dono em 20/09, 23 itens
+conferidos por ele no celular).
+Plan: 0 planos. Status: aguardando `/gsd-plan-phase 04.5`.
 
-PRÓXIMO PASSO (só com o dono presente): item 2 de `Claude outputs/FILA-DO-CODE.md` —
-**Financeiro, parte 2: Precificação e Orçamento**. Protótipo e briefing em
-`Claude outputs/financeiro-2/`. As duas decisões que faltavam já foram tomadas por ele em 26/09:
-Orçamentos vive como aba dentro do Financeiro (Peças e Parâmetros em Cadastros), e a numeração é
-`ORC-2026-001`, sequencial por ano, nunca reaproveitada. A fila manda ir direto ao
-`/gsd-plan-phase` — ignore a última linha do item 2, que é sobra de gabarito e contradiz o
-próprio passo 2 (confirmado com o dono em 26/09). Atenção à §7 do briefing: é a primeira vez que
-o projeto guarda arquivos (fotos) — volume, rota autenticada e backup são requisito da fase.
+O que já foi feito da fase 04.5 (item 2 de `Claude outputs/FILA-DO-CODE.md`, 2026-09-26):
+
+  - Fase inserida no ROADMAP.md depois da 04.4, com Goal, decisões, dependências, 18 requisitos e
+    13 critérios de sucesso; tabelas de Milestone Correspondence e Progress atualizadas.
+
+  - REQUIREMENTS.md: **ORC-01..18 promovidos da v2 para a v1** e reescritos a partir do briefing e
+    do protótipo (os cinco ORC-* antigos eram uma frase cada, escritos antes da auditoria da
+    planilha). Rastreabilidade e contagem atualizadas: 136/136 mapeados.
+
+  - `BRIEFING.md` e `prototipo.html` copiados para `.planning/phases/04.5-financeiro-parte-2/`.
+
+  - `04.5-CONTEXT.md` escrito com **D-01..D-29**, incluindo as duas decisões do dono de 26/09
+    (navegação: Orçamentos e Peças como abas do Financeiro, Parâmetros em `/cadastros`; numeração:
+    `ORC-2026-001`, sequencial por ano, nunca reaproveitada).
+
+🔴 **NÃO rodar `/gsd-discuss-phase 04.5`** — os cinco pontos da §8 do briefing estão todos
+respondidos (três em 19/09, dois em 26/09) e registrados no CONTEXT. Dúvida nova que mude regra de
+dado: parar e perguntar ao dono. Dúvida de interface: seguir o protótipo.
+
+Atenção ao planejar: a §7 do briefing é a primeira vez que o projeto guarda arquivo (fotos) —
+volume Docker próprio, rota autenticada e **backup das fotos** são requisito da fase (ORC-14..16),
+não detalhe. E **não dar push sem confirmar com o dono**.
 
 O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
+
   - **Pedidos do dono adiados para a parte 2:** somar quanto de desconto foi dado no mês; saldo do
     Caixa considerando o mês anterior e aportes de capital de giro.
+
   - **WINDOWS #32** — `financeiro-extrato.spec.ts:212` instável só na varredura completa; isolado
     passa 32/32.
+
   - **WINDOWS #3** — bloqueio de login instável sob carga. A hipótese do custo do argon2id foi
     MEDIDA e REFUTADA (25-150ms por tentativa); a suspeita que sobra é o pool sem limite de espera,
     já mitigado (`connectionTimeoutMillis`), sem reprodução direta. Fase 2a/02b, fora do escopo.
+
   - **WINDOWS #34** — o contador de tentativas de login NÃO é compartilhado entre a rota REST do
     Auth.js e a Server Action nesta build: quem bater direto na rota ganha uma contagem própria.
     Fato real sobre a proteção, medido, ainda sem correção.
+
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
@@ -401,6 +417,7 @@ None yet.
 - Phase 04.2 inserted after Phase 04.1: Abertura do Espaço — módulo TEMPORÁRIO (data de morte, ABE-15) para organizar a abertura do novo espaço do ateliê; protótipo validado com o dono em cinco rodadas antes do planejamento. Ordem de execução revista: 4.2 → 6 (Estoque) → 5 (Agenda) → 7 (Polimento), por decisão do dono em 2026-08-22
 - Phase 04.3 inserted after Phase 4.2: Comparador de Compras — aba do módulo Abertura para comparar cotações lado a lado; protótipo do dono é a especificação; preço numérico, independente dos itens, sem mudança de permissão (URGENT)
 - Phase 04.4 inserted after Phase 04.3: Financeiro — parte 1: Venda, Compra, Caixa, Mês e Cadastros. Revisão do projeto de 2026-09-19: executa antes das Fases 5 e 6; Estoque deixa de ser a próxima (URGENT)
+- Phase 04.5 inserted after Phase 04.4: Financeiro — parte 2: Precificação e Orçamento (protótipo e briefing aprovados; discussão já fechada)
 
 ## Deferred Items
 

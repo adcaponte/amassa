@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Orçamentos AMASSA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --fundo:#F6F3F0;--sup:#FFFFFF;--sup2:#EFEAE5;--borda:#E8E2DC;--borda-f:#D8CFC7;
+  --tinta:#1D2221;--tinta-m:#5A4C44;--tinta-f:#6E5F56;
+  --acento:#894025;--acento-h:#5B2916;--acento-fundo:#F3EDE9;--destaque:#FFBD59;
+  --ok:#15803D;--ok-f:#DCFCE7;--at:#B45309;--at-f:#FEF3C7;--erro:#B91C1C;--erro-f:#FEE2E2;
+  --cafeteria:#8B6F47;--espaco:#2E7D8C;--pecas:#C2451B;--loja:#5B7553;--geral:#6E5F56;
+  --r-sm:6px;--r:10px;--r-lg:14px;
+}
+*{box-sizing:border-box}button{color:var(--tinta)}[hidden]{display:none!important}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo Narrow",Inter,sans-serif;margin:0;text-wrap:balance}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:16px 120px}
+.num{font-variant-numeric:tabular-nums}
+header.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+header.top h1{font-size:26px}
+header.top .sub{font-size:13px;color:var(--tinta-f)}
+.aviso{font-size:13px;color:var(--tinta-m);background:var(--acento-fundo);border:1px solid var(--borda);border-radius:var(--r);padding:8px 12px;margin-bottom:14px}
+.aviso button{font:inherit;font-size:13px;color:var(--acento);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+
+/* abas */
+nav.abas{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--sup);border-top:1px solid var(--borda-f);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.abas button{flex:1 1 0;max-width:160px;min-height:58px;border:0;background:none;font:600 13px Inter,sans-serif;color:var(--tinta-f);cursor:pointer;border-top:3px solid transparent}
+nav.abas button[aria-current="page"]{color:var(--acento);border-top-color:var(--acento)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+/* blocos */
+.duas{display:grid;gap:16px}.duas>*{min-width:0}
+@media(min-width:880px){.duas{grid-template-columns:1.15fr 1fr;align-items:start}}
+.bloco{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:12px}
+.bloco h2{font-size:19px}
+.bloco h3{font-size:15px;color:var(--tinta-m);letter-spacing:.04em;text-transform:uppercase}
+.dica{font-size:13px;color:var(--tinta-f);margin:0}
+.campos{display:flex;gap:10px;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:3px;flex:1 1 140px;font-size:12.5px;color:var(--tinta-m);font-weight:500}
+input,select{font:16px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:9px 10px;min-height:44px;width:100%}
+input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--acento)}
+.pilulas{display:flex;gap:6px;flex-wrap:wrap}
+.pil{font:500 13.5px Inter,sans-serif;min-height:38px;padding:6px 13px;border-radius:999px;border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta-m);cursor:pointer}
+.pil[aria-pressed=true]{background:var(--acento);border-color:var(--acento);color:#fff}
+.pil.ex{border-style:dashed;font-size:12.5px;min-height:34px}
+.btn{font:600 15px Inter,sans-serif;min-height:46px;padding:10px 16px;border-radius:var(--r);border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta);cursor:pointer}
+.btn.pri{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.pri:hover{background:var(--acento-h)}
+.btn.pri:disabled{background:var(--borda-f);border-color:var(--borda-f);color:var(--tinta-f);cursor:not-allowed}
+.btn.mini{min-height:38px;padding:6px 12px;font-size:13.5px}
+.btn.perigo{color:var(--erro);border-color:var(--erro)}
+
+/* catálogo em grade */
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px}
+.item{color:var(--tinta);text-align:left;border:1px solid var(--borda);border-left:4px solid var(--c,var(--borda-f));background:var(--sup);border-radius:var(--r);padding:9px 10px;min-height:64px;cursor:pointer;font:inherit;display:flex;flex-direction:column;justify-content:space-between;gap:2px}
+.item:active{background:var(--acento-fundo)}
+.item b{font-size:14px;font-weight:600;line-height:1.25}
+.item span{font-size:13px;color:var(--tinta-f)}
+
+.li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;border-bottom:1px solid var(--borda)}
+.li:last-child{border-bottom:0}
+.li .pega{display:flex;align-items:center;gap:8px;text-align:left;font:inherit;font-size:15px;font-weight:500;background:none;border:0;min-height:48px;cursor:pointer;color:var(--tinta);padding:0}
+.li .pr{font-size:13.5px;color:var(--tinta-f)}
+.li .estrela{width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--borda-f)}
+.li .estrela[aria-pressed=true]{color:var(--at)}
+.vermini{font:inherit;font-size:12.5px;color:var(--acento);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;min-height:28px}
+.apos{font-size:12.5px;color:var(--tinta-f);text-align:right}
+/* linhas do carrinho */
+.linhas{display:flex;flex-direction:column}
+.ln{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--borda)}
+.ln .nome{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px}
+.ponto{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.ln .sub{font-weight:600;text-align:right}
+.ln .ctrl{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.passo{display:flex;align-items:center;border:1px solid var(--borda-f);border-radius:var(--r-sm);overflow:hidden}
+.passo button{width:44px;height:44px;border:0;background:var(--sup2);font-size:20px;cursor:pointer;color:var(--tinta)}
+.passo output{min-width:40px;text-align:center;font-weight:600}
+.ctrl input{width:104px}
+.ctrl .x{margin-left:auto;border:0;background:none;color:var(--tinta-f);font-size:13px;text-decoration:underline;cursor:pointer;min-height:44px}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-family:"Archivo Narrow",sans-serif;font-size:26px;font-weight:700}
+.vazio{color:var(--tinta-f);font-size:14px;padding:14px 0;text-align:center}
+.parc{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;font-size:13px;color:var(--tinta-m)}
+.parc label{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.falta{font-size:13.5px;color:var(--erro);background:var(--erro-f);border-radius:var(--r-sm);padding:6px 10px}
+details.est{font-size:13.5px;color:var(--tinta-m);border:1px dashed var(--borda-f);border-radius:var(--r);padding:8px 12px}
+details.est summary{cursor:pointer;font-weight:600}
+details.est ul{margin:6px 0 0;padding-left:18px}
+
+/* caixa */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:12px 14px}
+.tile small{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-f);font-weight:600}
+.tile strong{font-family:"Archivo Narrow",sans-serif;font-size:26px}
+.tile.saldo{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.tile.saldo small{color:#D8CFC7}
+.conta{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--borda);align-items:center}
+.conta:last-child,.ln:last-child{border-bottom:0}
+.conta .t{font-weight:600;font-size:15px}
+.conta .d{font-size:13px;color:var(--tinta-f);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.conta .v{font-weight:600;text-align:right}
+.conta .acoes{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.conta.foco{background:var(--at-f);margin-inline:-14px;padding-inline:14px}
+.conta.canc .t,.conta.canc .v{text-decoration:line-through;color:var(--tinta-f)}
+.tag{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--sup2);color:var(--tinta-m)}
+.tag.venc{background:var(--erro-f);color:var(--erro)}
+.tag.ok{background:var(--ok-f);color:var(--ok)}
+.pos{color:var(--ok)}.neg{color:var(--erro)}
+
+/* mês */
+.mes-nav{display:flex;align-items:center;gap:10px}
+.mes-nav h2{min-width:150px;text-align:center}
+.tabela{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--tinta-f);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--borda-f)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 8px;border-bottom:1px solid var(--borda);text-align:right;white-space:nowrap}
+td:first-child{font-weight:600}
+@media(max-width:480px){table{font-size:13px}th,td{padding-inline:4px}th{font-size:11px;letter-spacing:0}}
+tfoot td{font-weight:700;border-bottom:0}
+.regua{display:flex;flex-direction:column;gap:8px}
+.regua .rot{display:flex;justify-content:space-between;font-size:13px;color:var(--tinta-m)}
+.barra{display:flex;height:22px;border-radius:var(--r-sm);overflow:hidden;background:var(--sup2)}
+.barra i{display:block;height:100%}
+.veredito{font-size:15px;font-weight:600;padding:10px 12px;border-radius:var(--r)}
+.veredito.bom{background:var(--ok-f);color:var(--ok)}
+.veredito.ruim{background:var(--erro-f);color:var(--erro)}
+.lista-simples{display:flex;flex-direction:column}
+.lista-simples div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--borda);font-size:14.5px}
+.lista-simples div:last-child{border-bottom:0}
+
+/* folha e toast */
+#veu{position:fixed;inset:0;background:rgba(29,34,33,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+#folha{background:var(--sup);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+@media(min-width:700px){#veu{align-items:center}#folha{border-radius:18px}}
+#folha h2{font-size:21px}
+.rodape{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom,0px));background:var(--tinta);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;z-index:40;max-width:calc(100% - 32px)}
+@media(prefers-reduced-motion:no-preference){#toast{transition:opacity .2s}}
+
+body.com-papel .wrap,body.com-papel nav.abas{display:none}
+#papel{padding:16px;background:var(--sup2);min-height:100%}
+.barra-papel{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;max-width:760px;margin:0 auto 14px}
+.folha-a4{background:#fff;color:#1D2221;max-width:760px;margin:0 auto;padding:clamp(20px,6vw,56px);box-shadow:0 2px 14px rgba(0,0,0,.12);font-size:14.5px;line-height:1.55}
+.folha-a4 header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid #894025;padding-bottom:14px;margin-bottom:18px}
+.folha-a4 h1{font-size:28px;color:#894025;letter-spacing:.02em}
+.folha-a4 header p{margin:2px 0 0;font-size:13px;color:#5A4C44}
+.folha-a4 .dir{text-align:right}
+.folha-a4 .para{font-size:16px;margin:0 0 14px}
+.folha-a4 h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#894025;margin:18px 0 4px}
+.folha-a4 p{margin:3px 0}
+.folha-a4 table{font-size:14px}.folha-a4 td:first-child{white-space:normal}
+@media(max-width:520px){.folha-a4 table{font-size:12.5px}.folha-a4 th,.folha-a4 td{padding-inline:3px}.folha-a4 tfoot td{font-size:15px}}
+.folha-a4 td small{display:block;font-weight:400;color:#6E5F56;font-size:12.5px}
+.folha-a4 tfoot td{font-size:17px;border-top:2px solid #1D2221}
+.folha-a4 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px 28px}
+.folha-a4 footer{margin-top:26px;padding-top:12px;border-top:1px solid #E8E2DC;font-size:12.5px;color:#5A4C44;font-style:italic}
+@media print{.barra-papel,#toast{display:none!important}#papel{padding:0;background:#fff}.folha-a4{box-shadow:none;max-width:none;padding:0}}
+.ref{display:flex;gap:10px;align-items:center;flex-wrap:wrap;grid-column:1/-1}
+.ref img{width:72px;height:72px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--borda-f)}
+.ref .arq{position:relative;overflow:hidden;display:inline-flex;align-items:center}
+.ref .arq input{position:absolute;inset:0;opacity:0;cursor:pointer;min-height:0}
+.folha-a4 .pc{display:flex;gap:10px;align-items:flex-start}
+.folha-a4 .pc img{width:84px;height:84px;object-fit:cover;border-radius:4px;border:1px solid #D8CFC7;flex:none}
+@media(max-width:520px){.folha-a4 .pc img{width:56px;height:56px}}
+.arq{position:relative;overflow:hidden;display:inline-flex;align-items:center}.arq input{position:absolute;inset:0;opacity:0;cursor:pointer;min-height:0}
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.refs figure{margin:0;display:flex;flex-direction:column;gap:4px}
+.refs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--borda-f)}
+.refs input{font-size:16px;padding:6px 8px;min-height:40px}
+.refs figcaption{font-size:12.5px;color:var(--tinta-f)}
+.folha-a4 .refs{grid-template-columns:repeat(3,1fr);margin-top:6px}
+.folha-a4 .refs img{border-color:#D8CFC7;border-radius:4px}
+.logo-vaga{width:64px;height:64px;border:1.5px dashed #B9724F;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#894025;margin-bottom:6px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><h1>AMASSA CERRADO</h1><span class="sub">Precificação e orçamento · protótipo · "hoje" é 18/12/2026</span></header>
+  <div class="aviso">Todos os números são ilustrativos. O que você mexer fica salvo só neste navegador. <button type="button" data-a="zerar">Voltar aos dados de exemplo</button></div>
+  <main id="tela"></main>
+</div>
+<nav class="abas" id="abas" aria-label="Telas"></nav>
+<div id="veu" hidden><div id="folha" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status" hidden></div>
+<div id="papel" hidden></div>
+
+<script>
+const HOJE='2026-12-18';
+const $=s=>document.querySelector(s);
+const brl=n=>(+n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const n1=n=>(+n||0).toLocaleString('pt-BR',{maximumFractionDigits:1});
+const dBR=i=>{const[y,m,d]=i.split('-');return d+'/'+m+'/'+y};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const r2=n=>Math.round(n*100)/100;
+const num=v=>{let s=String(v).replace(/[^\d.,-]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');return +s||0};
+function maisDias(iso,n){const t=new Date(iso+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)}
+const dias=(a,b)=>Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/864e5);
+const bonito=v=>v<50?Math.ceil(v):Math.ceil(v/5)*5;
+
+/* ---------- parâmetros ---------- */
+const PDEF=[
+ ['Material','argila','Argila','R$/kg',10],['Material','esmalte','Esmalte','R$/kg',84],
+ ['Trabalho','hora','Sua hora de trabalho','R$/h',35],
+ ['Forno','tarifa','Energia','R$/kWh',0.78],['Forno','kwhB','Gasto de uma fornada de biscoito','kWh',18],['Forno','kwhE','Gasto de uma fornada de esmalte','kWh',28],['Forno','fornoL','Largura útil do forno por dentro','cm',35],['Forno','fornoP','Profundidade útil','cm',35],['Forno','fornoA','Altura útil','cm',35],['Forno','folga','Folga entre peças esmaltadas','cm',1.5],['Forno','prat','Prateleira + pilar, somados à altura da peça','cm',3],['Forno','fatorB','No biscoito cabem quantas vezes mais (peças se tocam e empilham)','×',1.8],['Forno','desgaste','Desgaste do forno por fornada (resistência, termopar, prateleira)','R$',12],
+ ['Perda','perda','Peças que se perdem no caminho','%',15],
+ ['No preço','lucro','Lucro','%',15],['No preço','negoc','Folga para negociar','%',10],['No preço','imposto','Imposto sobre a venda (MEI: 0 — o DAS é conta fixa)','%',0],['No preço','taxa','Taxa do cartão','%',3.5],['No preço','galeria','Comissão de galeria ou consignado','%',40]];
+function semente(){
+  const P={};PDEF.forEach(([g,k,r,un,v])=>P[k]={v,med:false,em:'2026-09-19'});
+  const hora={retirada:3500,casa:1400,horas:140};
+  let n=0;const F=(nome,argila,esmalte,horas,larg,prof,alt,extras,praticado,mercado,o={})=>({id:'f'+(++n),nome,argila,esmalte,horas,qB:true,qE:true,larg,prof,alt,pfB:0,pfE:0,extras,praticado,mercado,...o});
+  const fichas=[F('Caneca 300 ml',450,60,0.6,12,9,10,3,95,90),F('Prato raso 27 cm',1500,100,0.85,27,27,3,5,150,140),F('Xícara de café',180,25,0.35,9,7,6,2,48,45),F('Boleira',2200,160,1.8,30,30,12,12,320,300),F('Copo 10 cm para pintar',300,30,0.3,8,8,10,0,45,0)];
+  const S={aba:'orcs',P,hora,fichas,orcs:[],seq:40,edit:null};
+  const L=(f,q,pu,obs='')=>({ficha:f,q,pu,obs});
+  S.orcs.push({id:38,status:'aprovado',cliente:'Café da Praça',titulo:'Xícaras com logo',data:'2026-12-02',validade:15,entrega:'2027-01-20',linhas:[L('f3',60,52,'carimbo do logo no fundo')],projeto:[{d:'Carimbo do logo',v:120}],frete:0,plano:'sinal',sinal:50,obs:'',venda:31,ordem:true});
+  S.orcs.push({id:39,status:'enviado',cliente:'Pousada do Rio',titulo:'Jogo de café da manhã',data:'2026-12-15',validade:10,entrega:'2027-02-10',linhas:[{...L('f2',24,150,'borda irregular'),cor:'verde-musgo fosco'},{...L('f1',24,95,''),cor:'verde-musgo fosco'}],projeto:[{d:'Protótipo para aprovação de cor',v:180}],frete:90,plano:'sinal',sinal:50,obs:'Entrega em caixas com divisórias.'});
+  S.orcs.push({id:40,status:'rascunho',cliente:'',titulo:'',data:HOJE,validade:10,entrega:maisDias(HOJE,45),linhas:[L('f4',2,320)],projeto:[],frete:0,plano:'sinal',sinal:50,obs:''});
+  S.orcs.filter(o=>o.status!=='rascunho').forEach(o=>congelar(S,o));
+  return S}
+const vals=S=>Object.fromEntries(Object.entries(S.P).map(([k,p])=>[k,p.v]));
+function cabe(f,p){const g=p.folga,por=(w,d)=>Math.floor((p.fornoL+g)/(w+g))*Math.floor((p.fornoP+g)/(d+g)),w=+f.larg||0,d=+f.prof||0,h=+f.alt||0;
+  let nivel=0,niveis=0,e=0;if(w&&d&&h){nivel=Math.max(por(w,d),por(d,w));niveis=Math.floor(p.fornoA/(h+p.prat));e=nivel*niveis}
+  return{nivel,niveis,e:+f.pfE||e,b:+f.pfB||Math.floor(e*p.fatorB),autoE:!+f.pfE,autoB:!+f.pfB}}
+function calc(f,p){const K=cabe(f,p);const mat=f.argila/1000*p.argila+f.esmalte/1000*p.esmalte,tempo=f.horas*p.hora,fb=p.kwhB*p.tarifa+p.desgaste,fe=p.kwhE*p.tarifa+p.desgaste,
+  qb=f.qB&&K.b?fb/K.b:0,qe=f.qE&&K.e?fe/K.e:0,direto=mat+tempo+qb+qe+(+f.extras||0),pleno=direto/(1-p.perda/100),div=c=>Math.max(0.05,1-(p.lucro+p.negoc+p.imposto+p.taxa+c)/100);
+  return{mat,tempo,qb,qe,extras:+f.extras||0,perda:pleno-direto,pleno,piso:pleno/div(0),pisoGal:pleno/div(p.galeria),zero:pleno/Math.max(0.05,1-(p.imposto+p.taxa)/100),fb,fe,K}}
+function farol(preco,c){return !preco?'':preco>=c.piso?'verde':preco>=c.zero?'amarelo':'vermelho'}
+const FAROL={verde:['ok','paga tudo, com lucro e folga'],amarelo:['at','cobre o custo, mas come o lucro'],vermelho:['venc','abaixo do custo: você paga para trabalhar']};
+function congelar(S,o){const p=vals(S);o.cong={em:HOJE,estimados:Object.values(S.P).filter(x=>!x.med).length,imp:p.imposto+p.taxa,linhas:o.linhas.map(l=>{const f=S.fichas.find(x=>x.id===l.ficha),c=calc(f,p);return{nome:f.nome,pleno:c.pleno,piso:c.piso,zero:c.zero,horas:f.horas,pfB:f.qB?c.K.b:0,pfE:f.qE?c.K.e:0}})}}
+
+let S;try{S=JSON.parse(localStorage.getItem('amassa-orc6')||'null')}catch(e){}
+if(!S||!S.orcs)S=semente();
+function salvar(){try{localStorage.setItem('amassa-orc6',JSON.stringify(S))}catch(e){}}
+const ficha=id=>S.fichas.find(f=>f.id===id);
+const orc=id=>S.orcs.find(o=>o.id===id);
+
+/* ---------- contas do orçamento ---------- */
+function contas(o){const vivo=o.status==='rascunho',p=vals(S);
+  const ls=o.linhas.map((l,i)=>{if(vivo){const f=ficha(l.ficha),c=calc(f,p);return{...l,nome:f.nome,pleno:c.pleno,piso:c.piso,zero:c.zero,horas:f.horas,pfB:f.qB?c.K.b:0,pfE:f.qE?c.K.e:0}}return{...l,...o.cong.linhas[i]}});
+  const pecas=ls.reduce((s,l)=>s+l.q*l.pu,0),proj=o.projeto.reduce((s,x)=>s+(+x.v||0),0),total=r2(pecas+proj+(+o.frete||0));
+  const custo=ls.reduce((s,l)=>s+l.q*l.pleno,0)+proj+(+o.frete||0),imp=vivo?p.imposto+p.taxa:o.cong.imp,sobra=total*(1-imp/100)-custo;
+  return{ls,pecas,proj,total,custo,sobra,pct:total?sobra/total*100:0,horas:ls.reduce((s,l)=>s+l.q*l.horas,0),fB:ls.reduce((s,l)=>s+(l.pfB?l.q/l.pfB:0),0),fE:ls.reduce((s,l)=>s+(l.pfE?l.q/l.pfE:0),0)}}
+function parcelasDe(o,total){if(o.plano==='avista')return[{r:'À vista, na aprovação',v:total}];if(o.plano==='3x'){const b=Math.floor(total*100/3)/100;return[{r:'1ª parcela, na aprovação',v:r2(total-2*b)},{r:'2ª parcela, em 30 dias',v:b},{r:'3ª parcela, em 60 dias',v:b}]}
+  const s=r2(total*o.sinal/100);return[{r:`Sinal de ${o.sinal}%, na aprovação`,v:s},{r:'Saldo, na entrega',v:r2(total-s)}]}
+function situacao(o){if(o.status==='enviado'){const d=dias(HOJE,maisDias(o.data,o.validade));return d<0?['venc','expirou há '+(-d)+' dia(s)']:['at','enviado · vale mais '+d+' dia(s)']}
+  return{rascunho:['','rascunho'],aprovado:['ok','aprovado'],recusado:['venc','recusado']}[o.status]}
+
+/* ---------- telas ---------- */
+const ABAS=[['orcs','Orçamentos'],['pecas','Peças'],['param','Parâmetros']];
+function desenhar(){$('#abas').innerHTML=ABAS.map(([k,t])=>`<button type="button" data-a="aba" data-v="${k}" ${S.aba===k?'aria-current="page"':''}>${t}</button>`).join('');
+  $('#tela').innerHTML=S.aba==='orcs'?(S.edit?telaEditor(orc(S.edit)):telaLista()):S.aba==='pecas'?telaPecas():telaParam();salvar()}
+
+function telaLista(){return `<div class="rodape" style="justify-content:space-between;align-items:center;margin-bottom:12px"><h2>Orçamentos</h2><button type="button" class="btn pri" data-a="orc-novo">Novo orçamento</button></div>
+  <section class="bloco">${[...S.orcs].sort((a,b)=>b.id-a.id).map(o=>{const c=contas(o),[cl,tx]=situacao(o);return `<div class="conta"><span class="t">${esc(o.titulo||'Sem título')}</span><span class="v num">${brl(c.total)}</span><span class="d">nº ${o.id} · ${esc(o.cliente||'sem cliente')} · ${dBR(o.data)} <span class="tag ${cl}">${tx}</span></span><span></span><div class="acoes"><button type="button" class="btn mini" data-a="orc-abrir" data-v="${o.id}">Abrir</button></div></div>`}).join('')}</section>`}
+
+function linhaOrc(o,l,i,c){const vivo=o.status==='rascunho',x=c.ls[i],f=farol(l.pu,x),[cl,tx]=FAROL[f]||['',''];
+  return `<div class="ln"><span class="nome">${esc(x.nome)}</span><span class="sub num">${brl(l.q*l.pu)}</span>
+  <div class="ctrl">${vivo?`<label class="dica">quantas <input id="lq-${i}" class="num" style="width:80px" inputmode="numeric" value="${l.q}" data-c="lq" data-n="${i}"></label><label class="dica">cada <input id="lp-${i}" class="num" inputmode="decimal" value="${l.pu}" data-c="lp" data-n="${i}"></label><button type="button" class="x" data-a="ficha" data-v="${l.ficha}">ver cálculo</button><button type="button" class="x" style="margin-left:0" data-a="l-tirar" data-n="${i}">tirar</button>`:`<span class="dica num">${l.q} × ${brl(l.pu)}</span>`}</div>
+  ${vivo?`<div class="campos" style="grid-column:1/-1"><label class="campo">Cor / esmalte <input id="lc-${i}" value="${esc(l.cor||'')}" placeholder="ex.: verde-musgo fosco" data-c="lc" data-n="${i}"></label><label class="campo" style="flex:2 1 200px">Personalização <input id="lo-${i}" value="${esc(l.obs)}" placeholder="gravação, medida especial…" data-c="lo" data-n="${i}"></label></div>
+`
+  :`<div class="ref"><span class="dica">${[l.cor?'Cor: '+esc(l.cor):'',esc(l.obs)].filter(Boolean).join(' · ')}</span></div>`}
+  <span class="dica" style="grid-column:1/-1">preço mínimo ${brl(x.piso)} ${f?`<span class="tag ${cl}">${tx}</span>`:''}</span></div>`}
+function telaEditor(o){const c=contas(o),vivo=o.status==='rascunho',[cl,tx]=situacao(o),est=vivo?Object.values(S.P).filter(x=>!x.med).length:o.cong.estimados;
+  return `<div class="rodape" style="justify-content:space-between;align-items:center;margin-bottom:12px"><button type="button" class="btn mini" data-a="orc-fechar">◀ Todos</button><span>Orçamento nº ${o.id}${o.rev?' · revisão '+o.rev:''} <span class="tag ${cl}">${tx}</span></span></div>
+  <div class="duas"><div style="display:flex;flex-direction:column;gap:16px">
+  <section class="bloco"><h2>Para quem e para quando</h2>${vivo?`<div class="campos"><label class="campo">Cliente <input id="o-cliente" value="${esc(o.cliente)}" data-c="cliente"></label><label class="campo">Título do pedido <input id="o-titulo" value="${esc(o.titulo)}" placeholder="ex.: jogo de jantar" data-c="titulo"></label></div>
+   <div class="campos"><label class="campo">Entrega prevista <input type="date" id="o-entrega" value="${o.entrega}" data-c="entrega"></label><label class="campo">Vale por (dias) <input id="o-validade" class="num" inputmode="numeric" value="${o.validade}" data-c="validade"></label></div>`
+   :`<div class="lista-simples"><div><span>Cliente</span><span>${esc(o.cliente)}</span></div><div><span>Pedido</span><span>${esc(o.titulo)}</span></div><div><span>Entrega prevista</span><span>${dBR(o.entrega)}</span></div><div><span>Válido até</span><span>${dBR(maisDias(o.data,o.validade))}</span></div></div>`}</section>
+  <section class="bloco"><h2>Peças</h2>${o.linhas.length?'<div class="linhas">'+o.linhas.map((l,i)=>linhaOrc(o,l,i,c)).join('')+'</div>':'<p class="vazio">Nenhuma peça ainda.</p>'}
+   ${vivo?`<div class="rodape" style="justify-content:flex-start"><button type="button" class="btn mini pri" data-a="ficha-nova" data-v="orc">+ Peça exclusiva deste pedido</button><button type="button" class="btn mini" data-a="l-add">+ Peça da lista</button></div>`:''}</section>
+  <section class="bloco"><h2>Fotos de referência</h2><p class="dica">Até 3 por orçamento. Vão no documento do cliente, para ele confirmar que é aquilo mesmo, e seguem para a Produção.</p>
+   <div class="refs">${(o.fotos||[]).map((f,i)=>`<figure><img src="${f.src}" alt="referência ${i+1}">${vivo?`<input id="fl-${i}" value="${esc(f.leg)}" placeholder="legenda (opcional)" data-c="fleg" data-n="${i}"><button type="button" class="x" style="margin:0" data-a="foto-tirar" data-n="${i}">tirar</button>`:f.leg?`<figcaption>${esc(f.leg)}</figcaption>`:''}</figure>`).join('')}</div>
+   ${vivo&&(o.fotos||[]).length<3?`<div class="rodape" style="justify-content:flex-start"><span class="btn mini arq">+ Foto de referência<input type="file" accept="image/*" id="foto-nova" data-foto="1" aria-label="adicionar foto de referência"></span><span class="dica">${(o.fotos||[]).length} de 3</span></div>`:vivo?'<p class="dica">Limite de 3 fotos atingido. Tire uma para trocar.</p>':!(o.fotos||[]).length?'<p class="vazio">Nenhuma foto.</p>':''}</section>
+  <section class="bloco"><h2>Custos do projeto e frete</h2><p class="dica">Molde, protótipo, carimbo, embalagem especial: cobrados uma vez, fora do preço da peça.</p>
+   ${o.projeto.map((x,i)=>vivo?`<div class="campos" style="align-items:flex-end"><label class="campo" style="flex:2 1 160px">O quê <input id="pd-${i}" value="${esc(x.d)}" data-c="pd" data-n="${i}"></label><label class="campo">Valor <input id="pv-${i}" class="num" inputmode="decimal" value="${x.v}" data-c="pv" data-n="${i}"></label><button type="button" class="btn mini" data-a="p-tirar" data-n="${i}">tirar</button></div>`:`<div class="lista-simples"><div><span>${esc(x.d)}</span><span class="num">${brl(x.v)}</span></div></div>`).join('')}
+   ${vivo?`<div class="campos" style="align-items:flex-end"><button type="button" class="btn mini" data-a="p-add">+ Custo do projeto</button><label class="campo" style="max-width:160px">Frete <input id="o-frete" class="num" inputmode="decimal" value="${o.frete||''}" placeholder="R$" data-c="frete"></label></div>`:o.frete?`<div class="lista-simples"><div><span>Frete</span><span class="num">${brl(o.frete)}</span></div></div>`:''}</section></div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+  <section class="bloco"><h2>Total e pagamento</h2><div class="total"><span>Total</span><span class="num">${brl(c.total)}</span></div>
+   ${vivo?`<div class="campos"><label class="campo">Como o cliente paga <select id="o-plano" data-c="plano">${[['sinal','Sinal + saldo na entrega'],['avista','À vista'],['3x','3 parcelas']].map(([v,t])=>`<option value="${v}" ${o.plano===v?'selected':''}>${t}</option>`).join('')}</select></label>${o.plano==='sinal'?`<label class="campo" style="max-width:130px">Sinal (%) <input id="o-sinal" class="num" inputmode="numeric" value="${o.sinal}" data-c="sinal"></label>`:''}</div>`:''}
+   <div class="lista-simples">${parcelasDe(o,c.total).map(x=>`<div><span>${x.r}</span><span class="num">${brl(x.v)}</span></div>`).join('')}</div>
+   ${vivo?`<label class="campo">Observações para o cliente <input id="o-obs" value="${esc(o.obs)}" data-c="obs"></label>`:o.obs?`<p class="dica">${esc(o.obs)}</p>`:''}</section>
+  <section class="bloco" style="background:var(--acento-fundo)"><h2>Só para você</h2><p class="dica">Nada disto aparece para o cliente.</p>
+   <div class="lista-simples"><div><span>Custo de produzir tudo</span><span class="num">${brl(c.custo)}</span></div><div><span>Sobra depois de imposto e taxa</span><span class="num ${c.sobra<0?'neg':'pos'}">${brl(c.sobra)} · ${n1(c.pct)}%</span></div><div><span>Horas de trabalho</span><span class="num">${n1(c.horas)} h</span></div><div><span>Ocupa do forno</span><span class="num">${n1(c.fB)} fornada(s) de biscoito · ${n1(c.fE)} de esmalte</span></div></div>
+   ${est?`<div class="falta" style="background:var(--at-f);color:var(--at)">${est} parâmetro(s) deste cálculo ainda são estimados. O preço é uma boa base, não uma medição.</div>`:''}
+   ${o.hist?`<p class="dica">Histórico: ${o.hist.map(h=>'revisão '+h.rev+' de '+dBR(h.em)+' · '+brl(h.total)).join(' · ')}</p>`:''}
+   ${!vivo?`<p class="dica">Calculado com os parâmetros de ${dBR(o.cong.em)}. Mudar parâmetros depois não altera este orçamento.</p>`:''}</section>
+  <section class="bloco"><div class="rodape" style="justify-content:flex-start"><button type="button" class="btn" data-a="papel" data-v="${o.id}">Ver como o cliente vê</button>
+   ${vivo?`<button type="button" class="btn pri" data-a="enviar" ${o.linhas.length&&o.cliente.trim()?'':'disabled'}>Marcar como enviado</button>${o.linhas.length?'<button type="button" class="btn" data-a="atualizar">Atualizar preços</button>':''}`:''}
+   ${o.status==='enviado'?`<button type="button" class="btn pri" data-a="aprovar">Cliente aprovou</button><button type="button" class="btn" data-a="recusar">Recusou</button><button type="button" class="btn" data-a="atualizar">Atualizar preços</button><button type="button" class="btn" data-a="reabrir">Voltar para rascunho</button>`:''}
+   ${o.status==='recusado'?`<button type="button" class="btn" data-a="atualizar">Atualizar preços e reabrir</button>`:''}
+   <button type="button" class="btn" data-a="duplicar">Duplicar</button></div>
+   ${vivo&&!(o.linhas.length&&o.cliente.trim())?'<p class="dica">Para enviar, falta o cliente e ao menos uma peça.</p>':''}
+   ${o.status==='aprovado'?`<p class="dica">Orçamento aprovado fica travado, porque já virou venda. Para refazer com preços novos, use Duplicar: nasce um rascunho com as mesmas peças.</p><div class="veredito bom">Aprovado. Venda nº ${o.venda} criada no Financeiro${o.ordem?' e ordem aberta na Produção':''}.</div>`:''}</section></div></div>`}
+
+function telaPecas(){const p=vals(S);return `<div class="rodape" style="justify-content:space-between;align-items:center;margin-bottom:12px"><h2>Peças precificadas</h2><button type="button" class="btn pri" data-a="ficha-nova">Nova peça</button></div>
+  <section class="bloco">${S.fichas.filter(f=>S.verExcl||!f.excl).map(f=>{const c=calc(f,p),fa=farol(f.praticado,c),[cl,tx]=FAROL[fa]||['','sem preço definido'];return `<div class="conta"><span class="t">${esc(f.nome)} ${f.excl?'<span class="tag">exclusiva</span>':''}</span><span class="v num">${f.praticado?brl(f.praticado):'—'}</span><span class="d">custo ${brl(c.pleno)} · mínimo ${brl(c.piso)} <span class="tag ${cl}">${tx}</span></span><span></span><div class="acoes"><button type="button" class="btn mini" data-a="ficha" data-v="${f.id}">Abrir</button></div></div>`}).join('')}</section>
+  ${S.fichas.some(f=>f.excl)?`<div class="rodape" style="justify-content:flex-start;margin-top:10px"><button type="button" class="btn mini" data-a="ver-excl">${S.verExcl?'Esconder':'Mostrar'} peças exclusivas de pedidos (${S.fichas.filter(f=>f.excl).length})</button></div>`:''}<p class="dica" style="margin-top:10px">O preço praticado é o que vai para o Catálogo e aparece na Venda. O custo é o que a peça pronta vale ao entrar no Estoque.</p>`}
+
+function telaParam(){const p=vals(S),c=calc({argila:0,esmalte:0,horas:0,qB:1,qE:1,pfB:1,pfE:1,extras:0},p),grupos=[...new Set(PDEF.map(x=>x[0]))];
+  return `<h2 style="margin-bottom:12px">Parâmetros do cálculo</h2><div class="duas"><div style="display:flex;flex-direction:column;gap:16px">${grupos.map(g=>`<section class="bloco"><h3>${g}</h3>${PDEF.filter(x=>x[0]===g).map(([,k,r,un])=>{const x=S.P[k];return `<div class="conta"><span class="t" style="font-weight:500">${r}</span><span class="v" style="display:flex;align-items:center;gap:6px"><input id="p-${k}" class="num" style="width:96px" inputmode="decimal" value="${String(x.v).replace('.',',')}" data-c="param" data-k="${k}"><span class="dica">${un}</span></span><span class="d">desde ${dBR(x.em)}</span><button type="button" class="pil" style="min-height:32px;font-size:12px" aria-pressed="${x.med}" data-a="medido" data-v="${k}">${x.med?'medido':'estimado'}</button></div>`}).join('')}
+   ${g==='Trabalho'?'<div class="rodape" style="justify-content:flex-start"><button type="button" class="btn mini" data-a="hora">Calcular minha hora</button></div>':''}
+   ${g==='Forno'?`<div class="lista-simples"><div><span>Uma fornada de biscoito custa</span><span class="num">${brl(c.fb)}</span></div><div><span>Uma fornada de esmalte custa</span><span class="num">${brl(c.fe)}</span></div></div>`:''}</section>`).join('')}</div>
+  <section class="bloco"><h2>Como o preço é montado</h2><div class="lista-simples"><div><span>1 · Material</span><span>argila + esmalte</span></div><div><span>2 · Trabalho</span><span>horas × sua hora</span></div><div><span>3 · Queimas</span><span>fornada ÷ peças que cabem, pelas medidas</span></div><div><span>4 · Perda</span><span>÷ (1 − perda)</span></div><div><span>5 · Preço mínimo</span><span>÷ (1 − lucro − folga − imposto − taxa)</span></div></div>
+   <p class="dica">Tudo que é porcentagem do preço entra dividindo, não somando — é a fórmula do Sebrae. Assim 15% de lucro são 15% do preço, não do custo.</p>
+   <p class="dica"><b>Estimado × medido.</b> Toque no selo quando trocar um número chutado por um número seu: conta de luz, peças contadas na fornada, tempo cronometrado. O orçamento avisa enquanto houver estimados.</p>
+   <p class="dica">A taxa do cartão é a mesma do Financeiro. Quantas cabem sai das medidas da peça e do forno: peças por prateleira × níveis, com folga no esmalte e um fator a mais no biscoito. A contagem "o que queimou" das Queimas serve para conferir e calibrar esse fator.</p></section></div>`}
+
+/* ---------- folhas ---------- */
+function abrirFolha(h){$('#folha').innerHTML=h;$('#veu').hidden=false}
+function fecharFolha(){$('#veu').hidden=true}
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3200)}
+const CAMPOS=[['nome','Nome da peça','text'],['argila','Argila (g)'],['esmalte','Esmalte (g)'],['horas','Horas de trabalho, somando todas as etapas'],['larg','Largura (cm), com alça ou bico'],['prof','Profundidade (cm)'],['alt','Altura (cm)'],['extras','Embalagem e acessório (R$)'],['praticado','Preço que você pratica (R$)'],['mercado','Preço de peça parecida no mercado (R$, opcional)'],['pfB','Já contei: cabem no biscoito (opcional)'],['pfE','Já contei: cabem no esmalte (opcional)']];
+function folhaFicha(id,volta){const f=id?{...ficha(id)}:{id:'',excl:volta==='orc',nome:'',argila:500,esmalte:60,horas:0.5,qB:true,qE:true,larg:10,prof:10,alt:10,pfB:0,pfE:0,extras:3,praticado:0,mercado:0};folhaFicha.f=f;folhaFicha.volta=volta;
+  abrirFolha(`<h2>${id?'Precificar peça':'Peça nova'}</h2>${id?'':`<label class="campo">Começar a partir de uma peça parecida (opcional)<select id="f-base" data-base="1"><option value="">— do zero —</option>${S.fichas.filter(x=>!x.excl).map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></label>`}<div class="campos">${CAMPOS.map(([k,r,t])=>`<label class="campo" style="${k==='nome'?'flex-basis:100%':''}">${r}<input id="f-${k}" ${t?'':'class="num" inputmode="decimal"'} value="${esc(t?f[k]:String(f[k]||'').replace('.',','))}" data-f="${k}"></label>`).join('')}</div><label class="campo" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="f-excl" ${f.excl?'checked':''} data-excl="1">Peça exclusiva deste pedido — não entra na lista de peças nem no Catálogo</label><div id="f-res"></div>
+  <div class="rodape">${id?`<button type="button" class="btn perigo" data-a="ficha-apagar" data-v="${id}">Apagar</button>`:''}<button type="button" class="btn" data-a="fechar">Cancelar</button><button type="button" class="btn pri" data-a="ficha-salvar">Salvar</button></div>`);resFicha()}
+function resFicha(){const f=folhaFicha.f,c=calc(f,vals(S)),partes=[['Material',c.mat,'--loja'],['Trabalho',c.tempo,'--espaco'],['Queimas',c.qb+c.qe,'--pecas'],['Embalagem',c.extras,'--cafeteria'],['Perda',c.perda,'--geral']],fa=farol(f.praticado,c),[cl,tx]=FAROL[fa]||['',''];
+  $('#f-res').innerHTML=`${c.K.e?`<p class="dica">No forno: <b>${c.K.e}</b> por fornada de esmalte${c.K.autoE?` (${c.K.nivel} por prateleira × ${c.K.niveis} níveis)`:' (contado por você)'} · <b>${c.K.b}</b> no biscoito${c.K.autoB?'':' (contado por você)'}.</p>`:'<div class="falta">Com essas medidas a peça não cabe no forno cadastrado. Confira as dimensões, ou informe quantas cabem.</div>'}<h3 style="margin:6px 0">De onde vem o custo</h3><div class="barra">${partes.map(([n,v,cor])=>`<i style="width:${v/c.pleno*100}%;background:var(${cor})" title="${n}"></i>`).join('')}</div>
+  <div class="lista-simples">${partes.map(([n,v,cor])=>`<div><span><i class="ponto" style="--c:var(${cor});display:inline-block;margin-right:7px"></i>${n}</span><span class="num">${brl(v)}</span></div>`).join('')}<div><span><b>Custo da peça</b></span><span class="num"><b>${brl(c.pleno)}</b></span></div><div><span>Preço mínimo, venda direta ou encomenda</span><span class="num"><b>${brl(c.piso)}</b></span></div><div><span>Preço mínimo em galeria ou consignado</span><span class="num">${brl(c.pisoGal)}</span></div></div>
+  ${fa?`<div class="veredito ${fa==='verde'?'bom':'ruim'}" style="${fa==='amarelo'?'background:var(--at-f);color:var(--at)':''}">A ${brl(f.praticado)}: ${tx}. ${f.praticado>c.zero?'Sobram '+brl(f.praticado*(1-(S.P.imposto.v+S.P.taxa.v)/100)-c.pleno)+' por peça.':''}</div>`:`<p class="dica">Sugestão para começar: ${brl(bonito(c.piso))}.</p>`}
+  ${f.mercado?`<p class="dica">${f.mercado>=c.piso?'O mercado paga mais que o seu mínimo: há espaço para cobrar pela autoria.':'O mercado paga menos que o seu mínimo: ou a peça é de base (vende volume, não paga a hora cheia), ou vale rever tempo e quantas cabem no forno.'}</p>`:''}`}
+function folhaHora(){const h=S.hora;abrirFolha(`<h2>Calcular minha hora</h2><p class="dica">A hora precisa pagar você e a parte da casa que a produção de peças deve sustentar. Cafeteria, loja e espaço pagam o resto.</p>
+  <div class="campos"><label class="campo">Quanto quero tirar por mês da produção (R$)<input id="h-retirada" class="num" inputmode="decimal" value="${h.retirada}" data-h="retirada"></label><label class="campo">Parte dos custos da casa que a produção paga (R$/mês)<input id="h-casa" class="num" inputmode="decimal" value="${h.casa}" data-h="casa"></label><label class="campo">Horas por mês realmente fazendo peça<input id="h-horas" class="num" inputmode="decimal" value="${h.horas}" data-h="horas"></label></div>
+  <div id="h-res"></div><div class="rodape"><button type="button" class="btn" data-a="fechar">Cancelar</button><button type="button" class="btn pri" data-a="hora-usar">Usar esta hora</button></div>`);resHora()}
+function resHora(){const h=S.hora,v=h.horas?(h.retirada+h.casa)/h.horas:0;$('#h-res').innerHTML=`<div class="total"><span>Sua hora</span><span class="num">${brl(v)}</span></div><p class="dica">Referências da pesquisa de agosto/2026: R$ 25–35 é o piso defensável para autônomo; trabalho autoral pede R$ 60–100. Horas de aula, atendimento e administração não entram na conta.</p>`}
+function folhaEscolher(){abrirFolha(`<h2>Qual peça</h2>${S.fichas.filter(f=>!f.excl).map(f=>{const c=calc(f,vals(S));return `<div class="li"><button type="button" class="pega" data-a="l-por" data-v="${f.id}">${esc(f.nome)}</button><span class="pr num">mín. ${brl(c.piso)}</span><span></span></div>`}).join('')}<div class="rodape"><button type="button" class="btn" data-a="fechar">Fechar</button></div>`)}
+function folhaAtualizar(o){const p=vals(S);if(!o.cong){folhaAtualizar.l=o.linhas.map(l=>{const f=ficha(l.ficha),c=calc(f,p);return{antes:l.pu,pisoN:c.piso,novo:l.pu>=c.piso?l.pu:bonito(c.piso),nome:f.nome}});
+  return abrirFolha(`<h2>Atualizar preços</h2><p class="dica">Rascunho: o cálculo já usa os parâmetros de hoje. Aqui você confere cada preço contra o mínimo atual. Onde o preço está abaixo do mínimo, a sugestão sobe até ele.</p>${folhaAtualizar.l.map((x,i)=>`<div class="ln"><span class="nome">${esc(x.nome)}</span><span class="sub num">${brl(x.antes)}</span><span class="dica" style="grid-column:1/-1">preço mínimo hoje: <b>${brl(x.pisoN)}</b> ${x.antes>=x.pisoN?'<span class="tag ok">está acima</span>':'<span class="tag venc">está abaixo</span>'}</span><label class="campo" style="grid-column:1/-1;max-width:200px">Novo preço, cada <input id="at-${i}" class="num" inputmode="decimal" value="${x.novo}"></label></div>`).join('')}<div class="rodape"><button type="button" class="btn" data-a="fechar">Cancelar</button><button type="button" class="btn pri" data-a="atualizar-ok">Atualizar</button></div>`)}
+  folhaAtualizar.l=o.linhas.map((l,i)=>{const a=o.cong.linhas[i],c=calc(ficha(l.ficha),p),novo=bonito(l.pu*c.piso/a.piso);return{antes:l.pu,pisoA:a.piso,pisoN:c.piso,novo:Math.abs(c.piso-a.piso)<0.01?l.pu:novo,nome:a.nome}});
+  const mudou=folhaAtualizar.l.some(x=>Math.abs(x.pisoN-x.pisoA)>=0.01);
+  abrirFolha(`<h2>Atualizar preços</h2><p class="dica">Este orçamento foi calculado em ${dBR(o.cong.em)}. Abaixo, o que mudou com os parâmetros e as fichas de hoje. O preço sugerido mantém a mesma margem que você tinha dado na época. Ajuste o que quiser.</p>
+  ${mudou?'':'<div class="veredito bom">Nada mudou nos custos desde então. Atualizar só renova a data e a validade.</div>'}
+  ${folhaAtualizar.l.map((x,i)=>`<div class="ln"><span class="nome">${esc(x.nome)}</span><span class="sub num">${brl(x.antes)}</span><span class="dica" style="grid-column:1/-1">preço mínimo: ${brl(x.pisoA)} → <b>${brl(x.pisoN)}</b> ${x.pisoN>x.pisoA+0.01?`<span class="tag venc">subiu ${n1((x.pisoN/x.pisoA-1)*100)}%</span>`:x.pisoN<x.pisoA-0.01?`<span class="tag ok">caiu ${n1((1-x.pisoN/x.pisoA)*100)}%</span>`:'<span class="tag">igual</span>'}</span><label class="campo" style="grid-column:1/-1;max-width:200px">Novo preço, cada <input id="at-${i}" class="num" inputmode="decimal" value="${x.novo}"></label></div>`).join('')}
+  <p class="dica">Ao confirmar, o orçamento volta a rascunho como <b>revisão ${(o.rev||1)+1}</b>, com a data de hoje e a validade renovada. Custos de projeto e frete não mudam sozinhos — confira. O que foi enviado antes fica registrado no histórico.</p>
+  <div class="rodape"><button type="button" class="btn" data-a="fechar">Cancelar</button><button type="button" class="btn pri" data-a="atualizar-ok">Atualizar</button></div>`)}
+function folhaAprovar(o){const c=contas(o),ps=parcelasDe(o,c.total);abrirFolha(`<h2>Cliente aprovou</h2><p class="dica">Confirme o que vai ser criado. Depois disso o orçamento fica travado.</p>
+  <h3>No Financeiro — uma venda</h3><div class="lista-simples">${c.ls.map(l=>`<div><span>${l.q}× ${esc(l.nome)}</span><span class="num">${brl(l.q*l.pu)}</span></div>`).join('')}${o.projeto.map(x=>`<div><span>${esc(x.d)}</span><span class="num">${brl(x.v)}</span></div>`).join('')}${o.frete?`<div><span>Frete</span><span class="num">${brl(o.frete)}</span></div>`:''}</div>
+  <div class="lista-simples">${ps.map((x,i)=>`<div><span>${x.r} <span class="tag">${i===0?'a receber hoje':'a receber'}</span></span><span class="num">${brl(x.v)}</span></div>`).join('')}</div>
+  <p class="dica">O sinal entra em "A receber" com vencimento hoje — você confirma no Caixa quando o dinheiro cair. O saldo vence na data de entrega.</p>
+  <h3>Na Produção — uma ordem</h3><label class="campo" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="ap-ordem" checked>Abrir a ordem com ${c.ls.map(l=>l.q+'× '+esc(l.nome)).join(', ')}, entrega em ${dBR(o.entrega)}</label><p class="dica">A ordem leva junto cor, personalização, as fotos de referência e a ficha de cada peça (medidas, gramas e horas estimadas).</p>
+  <div class="rodape"><button type="button" class="btn" data-a="fechar">Voltar</button><button type="button" class="btn pri" data-a="aprovar-ok">Criar</button></div>`)}
+function papel(o){const c=contas(o),ps=parcelasDe(o,c.total);$('#papel').innerHTML=`<div class="barra-papel"><button type="button" class="btn" data-a="papel-fechar">◀ Voltar</button><button type="button" class="btn pri" data-a="imprimir">Imprimir ou salvar em PDF</button></div>
+  <article class="folha-a4"><header><div><div class="logo-vaga">logo</div><h1>AMASSA CERRADO</h1></div><div class="dir"><b>Orçamento nº ${o.id}${o.rev?' · revisão '+o.rev:''}</b><p>${dBR(o.data)}<br>válido até ${dBR(maisDias(o.data,o.validade))}</p></div></header>
+  <p class="para">Para <b>${esc(o.cliente||'—')}</b>${o.titulo?' · '+esc(o.titulo):''}</p>
+  <table><thead><tr><th>Peça</th><th>Qtd.</th><th>Cada</th><th>Total</th></tr></thead><tbody>${c.ls.map(l=>`<tr><td><div class="pc"><div>${esc(l.nome)}${l.cor?`<small>Cor: ${esc(l.cor)}</small>`:''}${l.obs?`<small>${esc(l.obs)}</small>`:''}</div></div></td><td class="num">${l.q}</td><td class="num">${brl(l.pu)}</td><td class="num">${brl(l.q*l.pu)}</td></tr>`).join('')}
+  ${o.projeto.map(x=>`<tr><td>${esc(x.d)}</td><td></td><td></td><td class="num">${brl(x.v)}</td></tr>`).join('')}${o.frete?`<tr><td>Frete</td><td></td><td></td><td class="num">${brl(o.frete)}</td></tr>`:''}</tbody><tfoot><tr><td colspan="3">Total</td><td class="num">${brl(c.total)}</td></tr></tfoot></table>
+  ${(o.fotos||[]).length?`<h2>Referências</h2><div class="refs">${o.fotos.map(f=>`<figure><img src="${f.src}" alt="referência">${f.leg?`<figcaption>${esc(f.leg)}</figcaption>`:''}</figure>`).join('')}</div>`:''}<div class="cols"><div><h2>Pagamento</h2>${ps.map(x=>`<p>${x.r}: <b>${brl(x.v)}</b></p>`).join('')}</div><div><h2>Prazo</h2><p>Entrega prevista para <b>${dBR(o.entrega)}</b>, com o sinal pago até ${dBR(maisDias(o.data,o.validade))}. A produção começa quando o sinal entra.</p></div></div>
+  ${o.obs?`<h2>Observações</h2><p>${esc(o.obs)}</p>`:''}<p style="margin-top:14px">Ao aprovar, você confirma as peças, as cores e as referências mostradas acima.</p><footer>Cada peça é feita à mão e queimada em alta temperatura. Pequenas variações de cor, forma e medida fazem parte do processo e tornam cada peça única.</footer></article>`;
+  $('#papel').hidden=false;document.body.classList.add('com-papel');window.scrollTo(0,0)}
+
+/* ---------- ações ---------- */
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b){if(e.target.id==='veu')fecharFolha();return}const a=b.dataset.a,v=b.dataset.v,n=+b.dataset.n,o=S.edit&&orc(S.edit);
+  switch(a){
+   case'aba':S.aba=v;S.edit=null;break;
+   case'orc-novo':{const id=++S.seq;S.orcs.push({id,status:'rascunho',cliente:'',titulo:'',data:HOJE,validade:10,entrega:maisDias(HOJE,45),linhas:[],projeto:[],frete:0,plano:'sinal',sinal:50,obs:''});S.edit=id;break}
+   case'orc-abrir':S.edit=+v;break;case'orc-fechar':S.edit=null;break;
+   case'l-add':return folhaEscolher();
+   case'l-por':{const f=ficha(v),c=calc(f,vals(S));o.linhas.push({ficha:v,q:1,pu:f.praticado||bonito(c.piso),obs:''});fecharFolha();break}
+   case'foto-tirar':o.fotos.splice(n,1);break;
+   case'l-tirar':o.linhas.splice(n,1);break;case'p-add':o.projeto.push({d:'',v:0});break;case'p-tirar':o.projeto.splice(n,1);break;
+   case'enviar':congelar(S,o);o.status='enviado';o.data=HOJE;toast('Marcado como enviado. Preços e custos ficaram congelados.');break;
+   case'reabrir':o.status='rascunho';delete o.cong;toast('Voltou para rascunho. O cálculo usa os parâmetros de hoje.');break;
+   case'recusar':o.status='recusado';break;
+   case'atualizar':return folhaAtualizar(o);
+   case'atualizar-ok':{if(!o.cong){o.linhas.forEach((l,i)=>{const v=num($('#at-'+i).value);if(v)l.pu=v});fecharFolha();toast('Preços atualizados.');break}(o.hist=o.hist||[]).push({rev:o.rev||1,em:o.cong.em,total:contas(o).total});o.linhas.forEach((l,i)=>{const v=num($('#at-'+i).value);if(v)l.pu=v});o.rev=(o.rev||1)+1;o.status='rascunho';o.data=HOJE;delete o.cong;fecharFolha();toast('Revisão '+o.rev+' criada como rascunho. Confira e marque como enviado.');break}
+   case'aprovar':return folhaAprovar(o);
+   case'aprovar-ok':o.status='aprovado';o.venda=32;o.ordem=$('#ap-ordem').checked;fecharFolha();toast('Venda criada no Financeiro'+(o.ordem?' e ordem aberta na Produção.':'.'));break;
+   case'duplicar':{const id=++S.seq,c=JSON.parse(JSON.stringify(o));delete c.cong;delete c.venda;delete c.ordem;S.orcs.push({...c,id,status:'rascunho',data:HOJE});S.edit=id;toast('Cópia criada como rascunho nº '+id+'.');break}
+   case'papel':return papel(orc(+v));case'papel-fechar':$('#papel').hidden=true;document.body.classList.remove('com-papel');return;
+   case'imprimir':try{window.print()}catch(x){}return toast('Se nada abrir aqui, é limite do protótipo. Na plataforma este botão gera o PDF.');
+   case'ficha':return folhaFicha(v);case'ficha-nova':return folhaFicha(null,v);
+   case'ficha-salvar':{const f=folhaFicha.f;if(!String(f.nome).trim())return toast('Dê um nome à peça.');if(f.id)Object.assign(ficha(f.id),f);else{f.id='n'+Date.now();S.fichas.push(f);if(folhaFicha.volta==='orc'&&o){const c=calc(f,vals(S));o.linhas.push({ficha:f.id,q:1,pu:f.praticado||bonito(c.piso),obs:''})}}fecharFolha();toast('Peça salva.');break}
+   case'ficha-apagar':{const usos=S.orcs.filter(x=>x.linhas.some(l=>l.ficha===v)).length;if(usos)return toast('Esta peça está em '+usos+' orçamento(s). Não dá para apagar.');S.fichas=S.fichas.filter(f=>f.id!==v);fecharFolha();break}
+   case'ver-excl':S.verExcl=!S.verExcl;break;
+   case'medido':S.P[v].med=!S.P[v].med;break;
+   case'hora':return folhaHora();
+   case'hora-usar':{const h=S.hora;if(!h.horas)return toast('Informe as horas.');S.P.hora={v:r2((h.retirada+h.casa)/h.horas),med:false,em:HOJE};fecharFolha();toast('Hora atualizada.');break}
+   case'fechar':return fecharFolha();
+   case'zerar':S=semente();toast('Dados de exemplo restaurados.');break;
+   default:return}
+  desenhar()});
+document.addEventListener('change',e=>{const t=e.target,c=t.dataset.c;if(t.dataset.foto!==undefined&&t.files&&t.files[0]){const n=+t.dataset.foto,o=orc(S.edit),fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,640/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);(o.fotos=o.fotos||[]).length<3&&o.fotos.push({src:cv.toDataURL('image/jpeg',0.72),leg:''});desenhar();toast('Foto de referência anexada.')};im.onerror=()=>toast('Não consegui ler essa imagem. Tente outra foto.');im.src=fr.result};fr.readAsDataURL(t.files[0]);return}if(t.dataset.excl){folhaFicha.f.excl=t.checked;return}if(t.dataset.base){const b=ficha(t.value);if(b){Object.assign(folhaFicha.f,{argila:b.argila,esmalte:b.esmalte,horas:b.horas,larg:b.larg,prof:b.prof,alt:b.alt,pfB:b.pfB,pfE:b.pfE,extras:b.extras});CAMPOS.forEach(([k])=>{if(k!=='nome'&&k!=='praticado'&&k!=='mercado')$('#f-'+k).value=String(folhaFicha.f[k]).replace('.',',')});resFicha()}return}if(!c)return;const n=+t.dataset.n,o=S.edit&&orc(S.edit);
+  if(c==='param'){S.P[t.dataset.k].v=num(t.value);S.P[t.dataset.k].em=HOJE;return desenhar()}
+  if(c==='lq')o.linhas[n].q=Math.max(1,Math.round(num(t.value)));else if(c==='lp')o.linhas[n].pu=num(t.value);else if(c==='lo')o.linhas[n].obs=t.value;else if(c==='lc')o.linhas[n].cor=t.value;else if(c==='fleg')o.fotos[n].leg=t.value;
+  else if(c==='pd')o.projeto[n].d=t.value;else if(c==='pv')o.projeto[n].v=num(t.value);
+  else if(['frete','validade','sinal'].includes(c))o[c]=num(t.value);else o[c]=t.value;
+  desenhar()});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset.f){const k=t.dataset.f;folhaFicha.f[k]=k==='nome'?t.value:num(t.value);resFicha()}else if(t.dataset.h){S.hora[t.dataset.h]=num(t.value);resHora()}
+  else if(t.dataset.c==='cliente'&&S.edit){orc(S.edit).cliente=t.value;const b=document.querySelector('[data-a="enviar"]');if(b)b.disabled=!(orc(S.edit).linhas.length&&t.value.trim())}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#veu').hidden)fecharFolha()});
+desenhar();
+</script>
+
+</body>
+</html>
