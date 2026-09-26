@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.4
 current_phase_name: Financeiro — parte 1
-status: executing
-stopped_at: "04.4-13: Tarefas 1-3 concluidas (aviso acima da barra, etiqueta de desconto, total em Todas, ajuste fino da grade/Despesa); parado na Tarefa 4, checkpoint do dono - ultima porta da Fase 04.4"
-last_updated: "2026-09-26T13:40:00.000Z"
+status: complete
+stopped_at: "Fase 04.4 (Financeiro — parte 1) CONCLUIDA e verificada em 2026-09-26 (9/9 criterios + 17/17 FNC, 04.4-VERIFICATION.md). No ar, migracoes 0014-0016 aplicadas, conferida pelo dono no celular. Proximo: item 2 da fila em Claude outputs/FILA-DO-CODE.md — Financeiro parte 2 (Precificacao e Orcamento), so com o dono presente."
+last_updated: "2026-09-26T18:00:00.000Z"
 last_activity: 2026-09-26
-last_activity_desc: "tarefa rápida 260926-qpv: remove o atalho 'Pagar conta que já existe' da Despesa (decisão do dono)"
+last_activity_desc: "Fase 04.4 fechada: verificacao 9/9 + 17/17, ROADMAP e REQUIREMENTS atualizados"
 progress:
   total_phases: 10
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 64
   completed_plans: 64
 ---
@@ -23,85 +23,43 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04.4 — Financeiro — parte 1
+**Current focus:** nenhuma fase em execução — a 04.4 fechou em 2026-09-26
 
 ## Current Position
 
-Phase: 04.4 (Financeiro — parte 1) — EXECUTING (executa antes das Fases 5 e 6 — ordem completa no
-ROADMAP.md, §Overview)
-Plan: 13 planos — 01 a 10 completos; no 11, Tarefas 1-3 concluídas (Roteiro 10, verificação humana
-escrita, varredura completa, e a migração aplicada em produção pelo dono); no 12, Tarefas 1-3
-concluídas (as duas mudanças pedidas pelo dono em 20/09); no 13, Tarefas 1-3 concluídas (os quatro
-achados da conferência do dono em 26/09 — aviso acima da barra, etiqueta de desconto, total em
-"Todas", ajuste fino da grade de parcelas/Despesa). A Tarefa 4 de cada um desses três planos é
-`checkpoint:human-verify` do dono — a Seção E (itens 20-23) de `04.4-VERIFICACAO-HUMANA.md` é a
-ÚLTIMA da lista (agora com 23 itens); percorrida, ela fecha a Fase 04.4.
-Status: Em andamento, com o dono presente. Código no ar desde o deploy de 20/09; migrações
-0014/0015/0016 aplicadas e conferidas (evidência no 04.4-11-SUMMARY.md); as 8 suposições foram
-respondidas (04.4-VERIFICACAO-HUMANA.md).
+Phase: 04.4 (Financeiro — parte 1) — **CONCLUÍDA** em 2026-09-26.
+Plan: 13 de 13 executados e verificados.
+Status: No ar. Migrações 0014/0015/0016 aplicadas em produção pelo dono em 20/09 e conferidas de
+fora; código publicado (pipeline verde, commit d9d2f1d, 26/09); verificação de fim de fase
+**passou: 9/9 critérios do ROADMAP e 17/17 requisitos FNC** (`04.4-VERIFICATION.md`), com os
+testes rodados de novo pelo verificador em vez de aceitos dos relatórios; os 23 itens da
+conferência humana percorridos pelo dono (1-19 com resultado escrito, 20-23 aprovados por ele em
+26/09).
 
-O QUE FALTA PARA FECHAR A 04.4:
+PRÓXIMO PASSO (só com o dono presente): item 2 de `Claude outputs/FILA-DO-CODE.md` —
+**Financeiro, parte 2: Precificação e Orçamento**. Protótipo e briefing em
+`Claude outputs/financeiro-2/`. As duas decisões que faltavam já foram tomadas por ele em 26/09:
+Orçamentos vive como aba dentro do Financeiro (Peças e Parâmetros em Cadastros), e a numeração é
+`ORC-2026-001`, sequencial por ano, nunca reaproveitada. A fila manda ir direto ao
+`/gsd-plan-phase` — ignore a última linha do item 2, que é sobra de gabarito e contradiz o
+próprio passo 2 (confirmado com o dono em 26/09). Atenção à §7 do briefing: é a primeira vez que
+o projeto guarda arquivos (fotos) — volume, rota autenticada e backup são requisito da fase.
 
-  1. **Plano 04.4-12** (do dono, 20/09): "à vista" passa a poder nascer NÃO paga (boleto único a
-     pagar depois), e "Gerar as contas" ganha seletor de mês (adiantar dezembro/janeiro).
+O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
+  - **Pedidos do dono adiados para a parte 2:** somar quanto de desconto foi dado no mês; saldo do
+    Caixa considerando o mês anterior e aportes de capital de giro.
+  - **WINDOWS #32** — `financeiro-extrato.spec.ts:212` instável só na varredura completa; isolado
+    passa 32/32.
+  - **WINDOWS #3** — bloqueio de login instável sob carga. A hipótese do custo do argon2id foi
+    MEDIDA e REFUTADA (25-150ms por tentativa); a suspeita que sobra é o pool sem limite de espera,
+    já mitigado (`connectionTimeoutMillis`), sem reprodução direta. Fase 2a/02b, fora do escopo.
+  - **WINDOWS #34** — o contador de tentativas de login NÃO é compartilhado entre a rota REST do
+    Auth.js e a Server Action nesta build: quem bater direto na rota ganha uma contagem própria.
+    Fato real sobre a proteção, medido, ainda sem correção.
+  - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
+    absorve; nunca foi um teste do Financeiro.
 
-  2. **Conferência humana** — os itens restantes de `04.4-VERIFICACAO-HUMANA.md` no celular e no
-     computador. Já provado em produção: venda de R$ 1,00 com pagamento em DUAS formas, lançada e
-     cancelada, riscando as duas entradas.
-
-  3. ~~**Deploy bloqueado por falha de acessibilidade**~~ — **RESOLVIDO no código local (quick
-     260920-wcg)**: o CI (run 35508463753) reprovou "E2E contra a imagem real" em
-     `/cadastros?sub=fixas` (contraste 2.99:1 numa conta fixa desativada), pulando GHCR publish e
-     o deploy — o código da 04.4-12 nunca chegou a produção. Causa raiz corrigida (não um ajuste
-     de cor: a técnica de `opacity` sobre texto secundário), e o mesmo achado eliminado em mais
-     oito componentes. Falta só o `git push` (não dado por esta tarefa) para o CI reprocessar.
-
-VARREDURA DO E2E — NÃO ESTÁ 100% VERDE: 580 passaram, 2 falharam. As duas são a "sexta tentativa
-de bloqueio" de `tests/e2e/autenticacao.spec.ts` (limite de tentativas de login), defeito
-pré-existente da Fase 02b, aberto em WINDOWS #3 desde 08/2026 e sem relação com o Financeiro.
-Nenhum teste do Financeiro falhou.
-
-DECIDIDO SEM O THEO (revisar; detalhe em cada SUMMARY, seção "Decidido sem o Theo"):
-
-  - 04.4-06: "+ outra forma" divide meio a meio e escolhe automaticamente uma segunda forma
-    diferente da primeira; `BlocoPagamento` recebe `hoje`/`dataSaldoInicial` para validar parcela
-    paga no futuro.
-
-  - 04.4-08: texto das frases de recusa do Desfazer e de data inválida; `formatarInstanteCurto`
-    para `cancelado_em` no fuso de Brasília; duas instâncias do diálogo de documento.
-
-  - 04.4-09: nove meses reservados de uma vez, com 3 meses de distância entre eles, para os testes
-    não disputarem totais; total filtrado do extrato pode ser nulo.
-
-  - 04.4-10: dois formatos de nome de mês (título x botão); `avisoDaUrl` passa a receber objeto;
-    valor da conta fixa exibido com separador de milhar.
-
-  - 04.4-11: pílulas de filtro do extrato usam `aria-current` em vez de `aria-pressed` (única
-    correção de produto do plano — `aria-pressed` não é válido em link).
-
-  - 04.4-05 e 04.4-07: detalhes de mensagem e de estrutura de tela, sem efeito em regra de dinheiro.
-
-TAREFA SEPARADA, FORA DESTA FASE (chip criado): o Drizzle embrulha o erro do Postgres, e as
-mensagens humanas de "chave estrangeira" não aparecem em Abertura, Comparador e Queimas — os três
-já estão no ar.
-  → FEITO em 20/09 pela tarefa rápida 260920-dx9 (mergeada em `main`, commit `d98b2c6`). Detector
-    extraído para `lib/erro/postgres.ts` e aplicado em Abertura/Cotações/Queimas, com par RED/GREEN
-    de e2e provando as frases humanas.
-  → FECHADO em 20/09 pela tarefa rápida 260920-fk9: os dois consumidores deixados de propósito por
-    aquele plano — `lib/financeiro/acoes.ts` e `lib/cadastros/acoes.ts` — agora importam do mesmo
-    detector compartilhado. Prova e2e nova cobrindo o Financeiro (Despesa "outra"), com uma
-    descoberta real: `lancarVenda`/`lancarDespesa` fazem pré-conferência da categoria antes do
-    `insert` (diferente dos outros três módulos), então a prova exigiu simular a corrida
-    select-antes-do-insert com uma transação de teste presa (sem commit), não só apagar a linha
-    antes do envio. Zero duplicata de leitor de SQLSTATE no repositório agora. Detalhes em
-    `.planning/quick/260920-fk9-*/260920-fk9-SUMMARY.md`.
-Last activity: 2026-09-20 — tarefa rápida 260920-jxb: connectionTimeoutMillis no pool do
-Postgres corrigido; teste e2e de bloqueio revertido após achado de módulo não-compartilhado
-entre rota REST e Server Action (WINDOWS #34, aberto) — Fase 04.4 segue aguardando o dono
-
-Progress: [██████████] 100% (64 de 64 planos; 04.4-11/12/13 contam como automatizáveis
-concluídos, migração (04.4-11) e verificação humana (04.4-11/12/13, itens 20-23) pendentes do
-dono — a última porta da Fase 04.4)
+Progress: [██████████] 100% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 

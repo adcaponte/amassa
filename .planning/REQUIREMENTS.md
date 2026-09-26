@@ -400,10 +400,10 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | PNL-05 | Phase 7 — Polimento e Entrega | Pending |
 | PNL-06 | Phase 7 — Polimento e Entrega | Pending |
 | PNL-07 | Phase 7 — Polimento e Entrega | Pending |
-| FNC-01 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-01 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-02 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-03 | Phase 04.4 — Financeiro, parte 1 | Complete |
-| FNC-04 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-04 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-05 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-06 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-07 | Phase 04.4 — Financeiro, parte 1 | Complete |
@@ -411,11 +411,11 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FNC-09 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-10 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-11 | Phase 04.4 — Financeiro, parte 1 | Complete |
-| FNC-12 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-12 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-13 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-14 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-15 | Phase 04.4 — Financeiro, parte 1 | Complete |
-| FNC-16 | Phase 04.4 — Financeiro, parte 1 | Pending |
+| FNC-16 | Phase 04.4 — Financeiro, parte 1 | Complete |
 | FNC-17 | Phase 04.4 — Financeiro, parte 1 | Complete |
 
 **Coverage:**
