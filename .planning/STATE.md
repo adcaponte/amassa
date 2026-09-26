@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-04-PLAN.md
-last_updated: "2026-09-26T19:22:45.711Z"
+stopped_at: Completed 04.5-05-PLAN.md
+last_updated: "2026-09-26T20:05:42.799Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 68
+  completed_plans: 69
 current_phase: 04.5
 last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 em execucao: 4 de 13 planos prontos (a ficha de peca, D-18/D-19), 3 portoes pre-autorizados pelo dono"
+last_activity_desc: "Fase 04.5 em execucao: 5 de 13 planos prontos (a lista de Pecas, D-19/D-20), 3 portoes pre-autorizados pelo dono"
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 04 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 05 de 13
 concluído em 2026-09-26.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -74,8 +74,22 @@ cm-milésimos em vez de milímetros em `parametrosVigentes` — uma peça de 40 
 parecia ter 3,5 km. e2e 46/46 (desktop + celular). Detalhe completo:
 `.planning/phases/04.5-financeiro-parte-2/04.5-04-SUMMARY.md`.
 
-**Pendente para os planos 05-13:** a lista de Peças (usa `DialogoFicha` do plano 04), a ação de
-apagar uma ficha (D-20), o editor de orçamento com linhas de peça, PDF, o upload de foto em si (usa
+**Plano 05 (a lista de Peças, o "começar a partir de", e a exclusão que se recusa) entregou:**
+`ListaPecas` (self-contida, molde de `ListaOrcamentos`) — linha por peça com selo compacto,
+etiqueta "exclusiva", alternador `?exclusivas=1` (D-19); `camposCopiaveisDaFicha` e o `<select>`
+"Começar a partir de uma peça parecida" no diálogo (só na criação); `apagarFicha` — trava a linha,
+conta os orçamentos que a usam DENTRO da transação, só apaga se zero, nunca toca `itens_catalogo`
+(D-20); `ConfirmarApagarPeca`, montado por linha, nomeando a peça, nunca mostrando uma contagem
+pré-carregada (só a frase que o servidor devolve). **Achado real, corrigido nesta execução:** o
+nome de uma peça exclusiva vivia no MESMO `<span>` da etiqueta "exclusiva", e qualquer busca de
+texto exato pelo nome sozinho nunca batia — isolado em spans irmãos, mesmo molde de
+`lista-catalogo.tsx`. e2e 44/44 (desktop + celular). **Pendente para o plano 06:** o caso de
+recusa por peça EM USO só pode ser provado de ponta a ponta quando existir linha de orçamento
+criada pela interface — este plano entregou a regra e a recusa do servidor, o plano 06 acrescenta
+o e2e. Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-05-SUMMARY.md`.
+
+**Pendente para os planos 06-13:** o editor de orçamento com linhas de peça (e a prova e2e da
+recusa de exclusão por uso, D-20), PDF, o upload de foto em si (usa
 `lib/orcamentos/caminho-fotos.ts` do plano 03), e todo o ciclo de vida do orçamento
 (enviar/aprovar/revisar).
 
@@ -146,7 +160,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 86% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 88% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -243,6 +257,7 @@ Progress: [█████████░] 86% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P02 | 75min | 3 tasks | 22 files |
 | Phase 04.5 P03 | ~2h | 3 tasks | 15 files |
 | Phase 04.5 P04 | ~2h30min | 3 tasks | 14 files |
+| Phase 04.5 P05 | ~1h30min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -449,6 +464,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [04.5-04]: lib/precificacao/ficha.ts só usa `import type` de ./calculo e ./forno — resultadoDaFicha recebe cabem/resultadoDireto/resultadoGaleria/farol JÁ calculados pelo caller (o diálogo), nunca chama calcularPeca/quantasCabem/farolDoPreco sozinho; mesmo desenho que calculo.ts já usa para CabemNoForno
 - [Phase ?]: [04.5-04]: ficha não-exclusiva sempre cria um item NOVO do Catálogo — "vincular a um item existente" (mencionado no BRIEFING) não foi implementado, porque nenhuma tela desta fase oferece esse seletor
 - [Phase ?]: [04.5-04]: **bug real corrigido** — `parametrosVigentes().forno` lia o forno em cm-milésimos (escala do CATALOGO_DE_PARAMETROS) em vez de milímetros; `MedidasUteisDoForno.larguraMm` valia 35000 em vez de 350, e nenhuma peça jamais seria recusada por não caber. Achado pelo próprio e2e (caso "prato grande demais")
+- [Phase ?]: [04.5-05]: listarFichas() sempre traz TODAS as fichas (sem parametro incluirExclusivas) - ListaPecas filtra em memoria, para o alternador saber a contagem de exclusivas mesmo escondidas
+- [Phase ?]: [04.5-05]: cabecalho da aba Pecas saiu de page.tsx e entrou em ListaPecas (self-contida, molde de ListaOrcamentos); TITULO_PECAS morto foi removido
+- [Phase ?]: [04.5-05]: ConfirmarApagarPeca nunca mostra contagem de uso pre-carregada - a frase de recusa (D-20) so existe quando o servidor devolve ok:false
 
 ### Pending Todos
 
@@ -521,6 +539,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T18:25:32.322Z
-Stopped at: Completed 04.5-03-PLAN.md
+Last session: 2026-09-26T20:05:31.574Z
+Stopped at: Completed 04.5-05-PLAN.md
 Resume file: None
