@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 19
+open_count: 20
 waived_count: 1
 fixed_count: 16
-total_count: 36
-last_updated: 2026-09-26T20:08:12.449Z
+total_count: 37
+last_updated: 2026-09-26T20:55:15.622Z
 ---
 
 # Broken Windows Ledger
@@ -51,6 +51,7 @@ last_updated: 2026-09-26T20:08:12.449Z
 | 34 | quick-260920-jxb | deviation | lib/auth/tentativas-memoria.ts |  | ACHADO NOVO, fora do escopo desta tarefa: o contador de tentativas em memoria (lib/auth/tentativas-memoria.ts) NAO parece ser um singleton verdadeiro entre a rota REST do Auth.js (app/api/auth/[...nextauth]/route.ts, POST /api/auth/callback/credentials) e a Server Action de login (lib/auth/acoes.ts, entrar() -> signIn() server-side) nesta build (Next.js 16.3.5 + Turbopack, output: standalone). Confirmado empiricamente: 5 POSTs reais e corretos contra a rota REST (GET /api/auth/csrf + POST /api/auth/callback/credentials, protocolo padrao do Auth.js, cada um retornando code=credentials como esperado) NAO bloqueiam a 6a tentativa feita pela Server Action via UI real (continua mostrando a mensagem generica de credencial invalida, nao a de bloqueio) -- mesmo com um servidor 'next start' recem-construido, sem processo travado, e mesmo com curl provando que 5 POSTs + um 6o POST, TODOS pela MESMA rota REST, bloqueiam corretamente entre si. Isso e a MESMA classe de suspeita ja registrada (nao confirmada) no debug auth-bloqueio-timeout-e2e.md para o pool de conexao do Postgres ('pools de conexao podem nao ser verdadeiramente compartilhados entre diferentes rotas/Server Actions nesta build') -- agora CONFIRMADA para um modulo diferente (o contador de tentativas). Por causa disso, a Tarefa 2 deste quick task (semear as 5 primeiras tentativas de tests/e2e/autenticacao.spec.ts via a rota REST, mantendo a 6a pela UI real) foi revertida sem aplicar -- nao ha caminho honesto de semear via HTTP que compartilhe estado com a Server Action nesta build, e o unico substituto seria reproduzir o protocolo interno de Server Actions do Next.js (header Next-Action com id derivado do build), que e exatamente o tipo de hack fragil que a tarefa pediu para evitar. Merece investigacao propria (Turbopack chunk splitting de modulos compartilhados sob output: standalone) antes de qualquer nova tentativa de encurtar este teste. | open |  | 2026-09-20T13:48:30.734Z |  |
 | 35 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-tracador.spec.ts | 63 | 'a 320px, a aba nao rola na horizontal e as sete pilulas do Financeiro estao em duas fileiras' (desktop e celular) falhou sob a carga de 8 workers (npm run test:e2e --grep 'orcamentos tracador'): boundingBox() de financeiro-aba-venda/financeiro-aba-orcamentos veio null nos dois, junto de varios 'The destination stream closed early' no log do servidor Next. Reexecucao isolada (--grep 'estao em duas fileiras' --workers=1) passou 32/32 (todos os specs da cadeia, incluindo este), confirmando flakiness sob contencao do servidor unico, nao regressao deterministica -- mesma classe ja registrada em WINDOWS #12/#21/#22/#29/#30/#31/#32. Nao corrigido nesta execucao: nao ha causa raiz pequena e obvia neste arquivo (o teste em si nao muta estado nem depende de outro spec). | open |  | 2026-09-26T17:04:40.752Z |  |
 | 36 | 04.5-financeiro-parte-2 | deviation | lib/precificacao/textos.ts | 183 | A frase que recusa apagar uma peca em uso usa o plural preguicoso: 'Esta peca esta em 1 orcamento(s). Nao da para apagar.' Com uma ocorrencia so, le mal. A regra do CLAUDE.md pede erro em linguagem humana, e o resto do projeto ja trata plural direito. Correcao de duas linhas (singular/plural por contagem), deixada fora do plano 05 de proposito para nao editar trabalho ja commitado no meio da execucao da fase. Achado pelo orquestrador ao conferir D-20 depois do plano 05. | open |  | 2026-09-26T20:08:12.449Z |  |
+| 37 | 04.5-financeiro-parte-2 | unrun-verify | components/amassa/orcamentos/cabecalho-do-orcamento.tsx |  | O bloco 'Para quem e para quando' fora de rascunho (leitura simples, sem controle de edicao) esta implementado mas sem prova automatizada: nenhum plano ate agora move um orcamento para fora de status rascunho (a acao 'Marcar como enviado' e de um plano futuro). Conferir quando essa transicao existir. | open |  | 2026-09-26T20:55:15.622Z |  |
 
 ````json
 [
@@ -484,6 +485,18 @@ last_updated: 2026-09-26T20:08:12.449Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-26T20:08:12.449Z",
+    "resolved_at": null
+  },
+  {
+    "id": 37,
+    "kind": "unrun-verify",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "components/amassa/orcamentos/cabecalho-do-orcamento.tsx",
+    "line": null,
+    "description": "O bloco 'Para quem e para quando' fora de rascunho (leitura simples, sem controle de edicao) esta implementado mas sem prova automatizada: nenhum plano ate agora move um orcamento para fora de status rascunho (a acao 'Marcar como enviado' e de um plano futuro). Conferir quando essa transicao existir.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-26T20:55:15.622Z",
     "resolved_at": null
   }
 ]
