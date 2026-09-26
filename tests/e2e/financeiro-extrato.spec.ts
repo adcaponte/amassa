@@ -212,6 +212,49 @@ test.describe("financeiro extrato", () => {
     await expect(page.getByTestId("extrato-linha")).toHaveCount(5);
   });
 
+  test("o total soma também no filtro 'Todas' — resposta ao item 13 da conferência do dono (26/09/2026)", async ({
+    page,
+  }) => {
+    await buscarCategoriaPorNome("Bebidas e comidas");
+    await buscarCategoriaPorNome("Aluguel");
+
+    const mes = mesReservado("extrato-total-todas", test.info().project.name);
+    const suf = `${test.info().project.name}-${Date.now()}`;
+
+    const nomePix = `[e2e] Total todas pix ${suf}`;
+    const nomeDinheiro = `[e2e] Total todas dinheiro ${suf}`;
+    const nomeDespesa = `[e2e] Total todas despesa dinheiro ${suf}`;
+
+    await fazerLogin(page);
+
+    await lancarVendaLivre(page, { data: diaDoMes(mes, 10), descricao: nomePix, valor: "100", forma: "Pix" });
+    await lancarVendaLivre(page, { data: diaDoMes(mes, 12), descricao: nomeDinheiro, valor: "20", forma: "Dinheiro" });
+    await lancarDespesaLivre(page, { data: diaDoMes(mes, 14), descricao: nomeDespesa, valor: "5", forma: "Dinheiro" });
+
+    await page.goto(`/financeiro?aba=caixa&mes=${mes}`);
+
+    // "Todas" (sem `forma=` na URL) mostra o total do mês inteiro: 100 (Pix) + 20 (Dinheiro) − 5
+    // (despesa em Dinheiro) = 115 — o dono, item 13: "aparece a frase com a soma em todas
+    // categorias, mas nao na 'todas'".
+    await expect(page.getByTestId("extrato-total-filtrado")).toContainText(
+      "Total de todas as formas neste mês: + R$ 115,00",
+    );
+
+    // O filtro "Dinheiro" continua com a frase de sempre, e o valor dele sozinho (20 − 5 = 15).
+    await page.getByTestId("extrato-filtro-dinheiro").click();
+    await expect(page).toHaveURL(/forma=dinheiro/);
+    await expect(page.getByTestId("extrato-total-filtrado")).toContainText(
+      "Total em Dinheiro neste mês: + R$ 15,00",
+    );
+
+    // Voltando a "Todas", a frase do total do mês volta a aparecer.
+    await page.getByTestId("extrato-filtro-todas").click();
+    await expect(page).not.toHaveURL(/forma=/);
+    await expect(page.getByTestId("extrato-total-filtrado")).toContainText(
+      "Total de todas as formas neste mês: + R$ 115,00",
+    );
+  });
+
   test("a 320px de largura, o extrato não rola na horizontal", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });

@@ -129,6 +129,18 @@ export function textoEtiquetaTabela(valorFormatado: string): string {
   return `tabela ${valorFormatado}`;
 }
 
+// "− R$ 1,09 de desconto" — a etiqueta que aparece em toda linha atingida pelo desconto (D-09/
+// D-10), qualquer que seja o tipo de linha (item de catálogo, item de "valor na hora" — sem preço
+// de tabela — ou valor livre). Antes desta função, o desconto reusava `textoEtiquetaTabela` — a
+// conferência do dono de 26/09/2026 (item 11) achou que "tabela R$ 153,00" numa linha de valor
+// livre "não fala de desconto nenhum", e em item de "valor na hora" a etiqueta antiga nem
+// aparecia. O MECANISMO visual continua um só (mesma pílula); só o TEXTO passa a ser um por
+// motivo. `valorFormatado` chega pronto e POSITIVO de `formatarReais` — esta função é quem decide
+// o sinal de menos, textos.ts nunca formata dinheiro.
+export function textoEtiquetaDesconto(valorFormatado: string): string {
+  return `− ${valorFormatado} de desconto`;
+}
+
 // "Atalho: Café 200 ml" — nome acessível da estrela na lista completa.
 export function textoAtalhoAcessivel(nomeDoItem: string): string {
   return `Atalho: ${nomeDoItem}`;
@@ -181,9 +193,20 @@ export const ROTULO_FILTRO_TODAS = "Todas";
 // "Total em Dinheiro neste mês: + R$ 30,00" — resolução do Claude's Discretion de D-11
 // (04.4-CONTEXT.md): o filtro por forma soma o total filtrado, resolvendo "quanto entrou em
 // dinheiro?". `valorComSinalFormatado` já chega pronto de quem chama (com o sinal e
-// `formatarReais`), este módulo nunca formata dinheiro sozinho.
+// `formatarReais`), este módulo nunca formata dinheiro sozinho. Nunca chamada com o rótulo
+// "Todas" — ver `textoTotalDoMes` abaixo.
 export function textoTotalFiltrado(rotuloForma: string, valorComSinalFormatado: string): string {
   return `Total em ${rotuloForma} neste mês: ${valorComSinalFormatado}`;
+}
+
+// "Total de todas as formas neste mês: + R$ 150,00" — a frase do total quando o filtro do
+// extrato é "Todas" (04.4-13-PLAN.md, Tarefa 2: resposta ao item 13 da conferência do dono,
+// 26/09/2026 — "aparece a frase com a soma em todas categorias, mas nao na 'todas'"). A palavra
+// "mês" é OBRIGATÓRIA: sem ela a frase seria lida como o tile "Saldo em caixa" (que soma saldo
+// inicial e meses anteriores, D-12) — este total é só o movimento DESTE mês.
+// `valorComSinalFormatado` chega pronto, mesma disciplina de `textoTotalFiltrado`.
+export function textoTotalDoMes(valorComSinalFormatado: string): string {
+  return `Total de todas as formas neste mês: ${valorComSinalFormatado}`;
 }
 
 export const FRASE_ERRO_TITULO = "Algo não funcionou.";

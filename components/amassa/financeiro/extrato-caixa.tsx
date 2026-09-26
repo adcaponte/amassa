@@ -15,6 +15,7 @@ import {
   ROTULO_FORMA,
   ROTULO_VER,
   textoParcelaDoExtrato,
+  textoTotalDoMes,
   textoTotalFiltrado,
   TITULO_EXTRATO,
 } from "@/lib/financeiro/textos";
@@ -91,12 +92,16 @@ export function ExtratoCaixa({
         })}
       </div>
 
-      {totalFiltradoCentavos !== null && (
+      {linhas.length > 0 && (
         <p data-testid="extrato-total-filtrado" className="text-corpo text-foreground tabular-nums">
-          {textoTotalFiltrado(
-            rotuloDaForma(forma),
-            `${totalFiltradoCentavos < 0 ? "− " : "+ "}${formatarReais(Math.abs(totalFiltradoCentavos))}`,
-          )}
+          {forma === "todas"
+            ? textoTotalDoMes(
+                `${totalFiltradoCentavos < 0 ? "− " : "+ "}${formatarReais(Math.abs(totalFiltradoCentavos))}`,
+              )
+            : textoTotalFiltrado(
+                rotuloDaForma(forma),
+                `${totalFiltradoCentavos < 0 ? "− " : "+ "}${formatarReais(Math.abs(totalFiltradoCentavos))}`,
+              )}
         </p>
       )}
 

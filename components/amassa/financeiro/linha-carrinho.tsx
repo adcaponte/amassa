@@ -1,7 +1,14 @@
 "use client";
 
 import { formatarReais } from "@/lib/financeiro/formato";
-import { ROTULO_CADA, ROTULO_MAIS_UM, ROTULO_MENOS_UM, ROTULO_TIRAR, textoEtiquetaTabela } from "@/lib/financeiro/textos";
+import {
+  ROTULO_CADA,
+  ROTULO_MAIS_UM,
+  ROTULO_MENOS_UM,
+  ROTULO_TIRAR,
+  textoEtiquetaDesconto,
+  textoEtiquetaTabela,
+} from "@/lib/financeiro/textos";
 import { Input } from "@/components/ui/input";
 
 export type LinhaDoCarrinho =
@@ -41,27 +48,32 @@ export type LinhaCarrinhoProps = {
 };
 
 // Uma linha do carrinho da Venda — ponto de cor da área, nome, subtotal, e (só para item do
-// catálogo) o passo de quantidade e o "cada" editável com a etiqueta "tabela R$ X" quando o
-// valor difere do de tabela (04.4-UI-SPEC.md). Linha de valor livre não tem passo nem "cada" —
-// o valor foi fixado no diálogo "+ Valor livre". A MESMA etiqueta também aparece quando o
-// desconto (D-09) tira uma parte desta linha — nunca um segundo tipo de etiqueta, mesmo
-// mecanismo visual do preço editado manualmente.
+// catálogo) o passo de quantidade e o "cada" editável. DUAS etiquetas, um mecanismo visual só
+// (a MESMA pílula, os mesmos tokens), um texto por MOTIVO — separação feita em 04.4-13-PLAN.md
+// (Tarefa 2) porque a etiqueta unificada escondia dois problemas reais achados na conferência do
+// dono de 26/09/2026 (item 11): "tabela R$ 153,00" numa linha de valor livre não fala de desconto
+// nenhum, e um item de "valor na hora" atingido pelo desconto não mostrava etiqueta alguma.
+// - "tabela R$ X" (etiqueta de preço de tabela, único identificador de teste do gênero neste
+//   arquivo) significa SÓ isto: o preço UNITÁRIO desta linha (editado à mão) difere do preço de
+//   tabela do catálogo. Não reage mais ao desconto.
+// - "− R$ X de desconto" (`venda-linha-desconto`) aparece em QUALQUER tipo de linha (item comum,
+//   item de "valor na hora" sem preço de tabela, valor livre) sempre que o desconto (D-09) tirou
+//   uma parte positiva do subtotal desta linha. Quando os dois motivos valem na mesma linha
+//   (preço editado E desconto), as DUAS etiquetas aparecem, nesta ordem.
 export function LinhaCarrinho({
   linha,
   aoMudarQuantidade,
   aoMudarValorUnitario,
   aoTirar,
 }: LinhaCarrinhoProps) {
-  const afetadaPeloDesconto = linha.subtotalCentavos !== linha.subtotalAntesDoDescontoCentavos;
+  const diferencaDoDescontoCentavos =
+    linha.subtotalAntesDoDescontoCentavos - linha.subtotalCentavos;
+  const afetadaPeloDesconto = diferencaDoDescontoCentavos > 0;
 
   const valorDaTabelaDiferente =
     linha.tipo === "item" &&
     linha.precoDeTabelaCentavos != null &&
-    (linha.precoDeTabelaCentavos !== linha.valorUnitarioCentavos || afetadaPeloDesconto);
-
-  // Linha de valor livre não tem "preço de tabela" (não é do catálogo) — mas o valor DIGITADO no
-  // diálogo funciona como a mesma referência quando o desconto tira uma parte dela.
-  const valorLivreAfetado = linha.tipo === "livre" && afetadaPeloDesconto;
+    linha.precoDeTabelaCentavos !== linha.valorUnitarioCentavos;
 
   return (
     <li
@@ -127,15 +139,24 @@ export function LinhaCarrinho({
                 {textoEtiquetaTabela(formatarReais(linha.precoDeTabelaCentavos))}
               </span>
             )}
+
+            {afetadaPeloDesconto && (
+              <span
+                data-testid="venda-linha-desconto"
+                className="bg-secondary text-secondary-foreground text-apoio rounded-full px-2 py-0.5"
+              >
+                {textoEtiquetaDesconto(formatarReais(diferencaDoDescontoCentavos))}
+              </span>
+            )}
           </>
         )}
 
-        {linha.tipo === "livre" && valorLivreAfetado && (
+        {linha.tipo === "livre" && afetadaPeloDesconto && (
           <span
-            data-testid="venda-linha-tabela"
+            data-testid="venda-linha-desconto"
             className="bg-secondary text-secondary-foreground text-apoio rounded-full px-2 py-0.5"
           >
-            {textoEtiquetaTabela(formatarReais(linha.subtotalAntesDoDescontoCentavos))}
+            {textoEtiquetaDesconto(formatarReais(diferencaDoDescontoCentavos))}
           </span>
         )}
 

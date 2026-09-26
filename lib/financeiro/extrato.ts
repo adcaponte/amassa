@@ -84,10 +84,13 @@ export type ExtratoFiltrado = {
   // de cada uma INTACTO (D-12): este módulo só ESCOLHE quais linhas mostrar, nunca recalcula saldo
   // (a filtragem acontece depois de `montarExtrato` já ter decidido o saldo global de cada linha).
   linhas: LinhaDoExtrato[];
-  // Entradas líquidas − saídas das linhas visíveis não canceladas; `null` quando a forma é
-  // "todas" (Claude's Discretion do 04.4-CONTEXT.md/D-11: o total só faz sentido com uma forma
-  // escolhida — "quanto entrou em dinheiro?").
-  totalFiltradoCentavos: number | null;
+  // Entradas líquidas − saídas das linhas visíveis não canceladas — SEMPRE numérico, inclusive em
+  // "todas" (04.4-13-PLAN.md, Tarefa 2: resposta ao item 13 da conferência do dono, 26/09/2026—
+  // "aparece a frase com a soma em todas categorias, mas nao na 'todas'"). Este campo nunca é
+  // `null`; a POLÍTICA de esconder a frase quando não há nenhuma linha é da TELA
+  // (`extrato-caixa.tsx`), nunca deste módulo — não confundir com `saldoDepoisCentavos`, que
+  // continua `null` na linha cancelada (D-25/FNC-10), campo diferente com motivo diferente.
+  totalFiltradoCentavos: number;
   motivoVazio: MotivoDoExtratoVazio;
 };
 
@@ -101,15 +104,14 @@ export function filtrarExtrato(
   const doMes = linhas.filter((linha) => linha.pagoEm.slice(0, 7) === mes);
   const filtradas = forma === "todas" ? doMes : doMes.filter((linha) => linha.forma === forma);
 
-  const totalFiltradoCentavos =
-    forma === "todas"
-      ? null
-      : filtradas.reduce((total, linha) => {
-          if (linha.cancelado) {
-            return total;
-          }
-          return total + (linha.tipo === "venda" ? linha.liquidoCentavos : -linha.liquidoCentavos);
-        }, 0);
+  // A MESMA soma vale para uma forma escolhida ou para "todas" — a única diferença é o conjunto
+  // de linhas somado (`filtradas`), que já reflete o filtro de forma acima.
+  const totalFiltradoCentavos = filtradas.reduce((total, linha) => {
+    if (linha.cancelado) {
+      return total;
+    }
+    return total + (linha.tipo === "venda" ? linha.liquidoCentavos : -linha.liquidoCentavos);
+  }, 0);
 
   const motivoVazio: MotivoDoExtratoVazio =
     doMes.length === 0 ? "sem-movimento" : filtradas.length === 0 ? "sem-movimento-na-forma" : null;

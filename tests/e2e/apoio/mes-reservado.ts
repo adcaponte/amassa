@@ -28,6 +28,9 @@ const MESES_RESERVADOS: readonly RegistroDeMesReservado[] = [
   { chave: "mes-cancelado", desktop: "2023-07", celular: "2023-10" },
   { chave: "mes-fronteira", desktop: "2024-01", celular: "2024-04" },
   { chave: "mes-vazio", desktop: "2024-07", celular: "2024-10" },
+  // 04.4-13-PLAN.md — Tarefa 2 (o total somado do extrato também no filtro "Todas", resposta ao
+  // item 13 da conferência do dono, 26/09/2026).
+  { chave: "extrato-total-todas", desktop: "2025-01", celular: "2025-04" },
 ];
 
 // Guarda de unicidade: nenhum mês pode aparecer duas vezes em TODO o array (nem entre chaves

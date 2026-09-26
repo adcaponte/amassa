@@ -684,8 +684,18 @@ test.describe("financeiro venda", () => {
 
     await page.getByTestId("venda-desconto").fill("2");
     await expect(page.getByTestId("venda-total")).toContainText("R$ 330,00");
-    await expect(linhaDoCarrinho(page, nomeKit).getByTestId("venda-linha-tabela")).toBeVisible();
-    await expect(linhaDoCarrinho(page, nomePrato).getByTestId("venda-linha-tabela")).toBeVisible();
+    // A etiqueta de DESCONTO (não a de "tabela" — nenhum dos dois preços foi editado à mão) mostra
+    // QUANTO cada linha perdeu: a repartição proporcional com a sobra na maior linha (D-10) agora
+    // visível na tela, linha por linha (04.4-13-PLAN.md, Tarefa 2 — resposta ao item 11 da
+    // conferência do dono, 26/09/2026).
+    await expect(linhaDoCarrinho(page, nomeKit).getByTestId("venda-linha-desconto")).toContainText(
+      "− R$ 1,09 de desconto",
+    );
+    await expect(linhaDoCarrinho(page, nomePrato).getByTestId("venda-linha-desconto")).toContainText(
+      "− R$ 0,91 de desconto",
+    );
+    await expect(linhaDoCarrinho(page, nomeKit).getByTestId("venda-linha-tabela")).toHaveCount(0);
+    await expect(linhaDoCarrinho(page, nomePrato).getByTestId("venda-linha-tabela")).toHaveCount(0);
     // Nenhuma linha "desconto" separada aparece no carrinho (D-09) — só as duas linhas de item.
     await expect(page.getByTestId("venda-linha")).toHaveCount(2);
 
@@ -754,6 +764,81 @@ test.describe("financeiro venda", () => {
     await atalho(page, nome).click();
     await page.getByTestId("venda-desconto").fill("3");
     await expect(page.getByTestId("venda-total")).toContainText("R$ 150,00");
+  });
+
+  test('item "valor na hora" atingido pelo desconto mostra a etiqueta de desconto — o furo real do item 11 (26/09/2026)', async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Valor na hora com desconto ${suf}`;
+    await semearItem({
+      nome,
+      categoriaVenda: "Encomendas",
+      precoCentavos: null,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nome).click();
+
+    const linha = linhaDoCarrinho(page, nome);
+    await linha.getByPlaceholder("R$").fill("100,00");
+    await page.getByTestId("venda-desconto").fill("10");
+
+    // Antes desta correção, uma linha de "valor na hora" (sem preço de tabela) atingida pelo
+    // desconto não mostrava etiqueta NENHUMA — nem a de "tabela" (exige preço de tabela
+    // conhecido), nem uma de desconto (não existia). Agora mostra QUANTO perdeu; a de "tabela"
+    // continua ausente, porque esta linha não tem preço de tabela.
+    await expect(linha.getByTestId("venda-linha-desconto")).toContainText("− R$ 10,00 de desconto");
+    await expect(linha.getByTestId("venda-linha-tabela")).toHaveCount(0);
+  });
+
+  test("preço editado E desconto na mesma linha mostram as DUAS etiquetas, cada uma com seu texto, sem rolar a 320px", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Preço editado e desconto ${suf}`;
+    await semearItem({
+      nome,
+      categoriaVenda: "Bebidas e comidas",
+      precoCentavos: 800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nome).click();
+
+    const linha = linhaDoCarrinho(page, nome);
+    await linha.getByPlaceholder("R$").fill("10,00");
+    await page.getByTestId("venda-desconto").fill("1");
+
+    // As DUAS etiquetas na mesma linha: "tabela R$ 8,00" continua significando só "o preço desta
+    // linha difere do preço de tabela do catálogo" — nunca reage ao desconto — e a nova etiqueta
+    // de desconto mostra quanto ESTA linha perdeu depois de já estar com o preço editado.
+    await expect(linha.getByTestId("venda-linha-tabela")).toContainText("tabela R$ 8,00");
+    await expect(linha.getByTestId("venda-linha-desconto")).toContainText("− R$ 1,00 de desconto");
+
+    // Duas pílulas na mesma linha é o pior caso de largura desta tela — a 320px, sem rolagem
+    // horizontal (mesmo molde do resto do arquivo).
+    await page.setViewportSize({ width: 320, height: 800 });
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidth,
+      `A linha com duas etiquetas rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
   });
 
   test("desconto maior que o total desabilita Lançar venda e mostra a mensagem", async ({
