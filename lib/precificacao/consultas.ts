@@ -5,13 +5,20 @@
 // outro módulo monta o `ParametrosDoCalculo` na mão. A taxa do cartão nunca é lida de novo aqui:
 // vem de `obterConfiguracaoFinanceira` (lib/financeiro/consultas.ts), a mesma leitura que a 04.4
 // já faz — D-16, "não duplicar".
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import { and, asc, countDistinct, desc, eq, lte } from "drizzle-orm";
 
 import { db } from "@/db";
-import { categorias, fichasPrecificacao, itensCatalogo, parametrosPrecificacao } from "@/db/schema";
+import {
+  categorias,
+  fichasPrecificacao,
+  itensCatalogo,
+  orcamentoLinhas,
+  parametrosPrecificacao,
+} from "@/db/schema";
 import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 
 import type { ParametrosDoCalculo } from "./calculo";
+import type { CamposCopiaveisDaFicha } from "./ficha";
 import type { MedidasUteisDoForno } from "./forno";
 import { CATALOGO_DE_PARAMETROS, type ChaveDeParametro, type LinhaDeParametro } from "./parametros";
 
@@ -233,4 +240,132 @@ export async function obterFichaParaEdicao(id: string): Promise<FichaParaEdicao 
       ? linha.precoPraticadoCentavos
       : linha.itemPrecoVendaCentavos,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lista de Peças (04.5-05-PLAN.md — D-19/D-20)
+// ---------------------------------------------------------------------------------------------
+
+// O tipo da transação do Drizzle, derivado do próprio `db` (nunca importado de
+// `drizzle-orm/node-postgres`) — mesma técnica de `lib/orcamentos/numero.ts::TransacaoDoBanco`,
+// redeclarada aqui (D-15: cada módulo tem sua própria cópia).
+export type TransacaoDoBanco = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type FichaDaLista = {
+  id: string;
+  nome: string;
+  exclusiva: boolean;
+  // O preço EFETIVO (D-18) — o do item quando de linha, o da própria ficha quando exclusiva,
+  // igual à mesma resolução de `obterFichaParaEdicao`, nunca uma segunda regra.
+  precoPraticadoEfetivoCentavos: number | null;
+  // Quantos orçamentos DISTINTOS usam esta ficha AGORA — mostrado como aviso preventivo em
+  // `ConfirmarApagarPeca` (D-20), nunca como a palavra final: a recusa de verdade é sempre a que
+  // `apagarFicha` lê de novo, dentro da própria transação (a contagem pode mudar entre a página
+  // carregar e o dono confirmar). Sempre 0 neste plano — nenhuma tela ainda cria linha de
+  // orçamento; o plano 06 é o primeiro a fazer este número deixar de ser zero.
+  orcamentosCount: number;
+  argilaMiligramas: number;
+  esmalteMiligramas: number;
+  horasMilesimos: number;
+  larguraMm: number;
+  profundidadeMm: number;
+  alturaMm: number;
+  embalagemCentavos: number;
+  cabemBiscoitoInformado: number | null;
+  cabemEsmalteInformado: number | null;
+};
+
+// TODAS as fichas (exclusivas inclusas) numa consulta só, mais a contagem de orçamentos de cada
+// uma numa SEGUNDA consulta agregada (nunca uma consulta por linha) — mesmo molde de
+// `lib/cadastros/consultas.ts::listarCategoriasComUso` (query principal + agregado(s), casados
+// por um `Map` em memória, em vez de um único `GROUP BY` com todas as colunas da ficha). Quem
+// decide se a exclusiva aparece na tela é QUEM CHAMA (`ListaPecas`, filtrando por `exclusiva`) —
+// esta consulta sempre traz tudo, para que o alternador "Mostrar/Esconder" (D-19) nunca precise
+// de uma segunda ida ao banco só para saber quantas exclusivas existem.
+export async function listarFichas(): Promise<FichaDaLista[]> {
+  const [fichas, contagemPorFicha] = await Promise.all([
+    db
+      .select({
+        id: fichasPrecificacao.id,
+        nome: fichasPrecificacao.nome,
+        exclusiva: fichasPrecificacao.exclusiva,
+        precoPraticadoCentavos: fichasPrecificacao.precoPraticadoCentavos,
+        argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+        esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+        horasMilesimos: fichasPrecificacao.horasMilesimos,
+        larguraMm: fichasPrecificacao.larguraMm,
+        profundidadeMm: fichasPrecificacao.profundidadeMm,
+        alturaMm: fichasPrecificacao.alturaMm,
+        embalagemCentavos: fichasPrecificacao.embalagemCentavos,
+        cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
+        cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
+        itemPrecoVendaCentavos: itensCatalogo.precoVendaCentavos,
+      })
+      .from(fichasPrecificacao)
+      .leftJoin(itensCatalogo, eq(fichasPrecificacao.itemCatalogoId, itensCatalogo.id))
+      .orderBy(asc(fichasPrecificacao.criadoEm)),
+    db
+      .select({ fichaId: orcamentoLinhas.fichaId, total: countDistinct(orcamentoLinhas.orcamentoId) })
+      .from(orcamentoLinhas)
+      .groupBy(orcamentoLinhas.fichaId),
+  ]);
+
+  const contagemPorId = new Map(contagemPorFicha.map((linha) => [linha.fichaId, Number(linha.total)]));
+
+  return fichas.map((linha) => ({
+    id: linha.id,
+    nome: linha.nome,
+    exclusiva: linha.exclusiva,
+    precoPraticadoEfetivoCentavos: linha.exclusiva
+      ? linha.precoPraticadoCentavos
+      : linha.itemPrecoVendaCentavos,
+    orcamentosCount: contagemPorId.get(linha.id) ?? 0,
+    argilaMiligramas: linha.argilaMiligramas,
+    esmalteMiligramas: linha.esmalteMiligramas,
+    horasMilesimos: linha.horasMilesimos,
+    larguraMm: linha.larguraMm,
+    profundidadeMm: linha.profundidadeMm,
+    alturaMm: linha.alturaMm,
+    embalagemCentavos: linha.embalagemCentavos,
+    cabemBiscoitoInformado: linha.cabemBiscoitoInformado,
+    cabemEsmalteInformado: linha.cabemEsmalteInformado,
+  }));
+}
+
+export type FichaParaCopiar = { id: string; nome: string } & CamposCopiaveisDaFicha;
+
+// nome e id para o rótulo do `<select>` "Começar a partir de", mais os campos que
+// `camposCopiaveisDaFicha` (lib/precificacao/ficha.ts) sabe filtrar — carregados de uma vez para
+// que trocar a opção no cliente nunca dispare uma consulta nova (a Tarefa 2 só faz um `find` no
+// array já em mãos). TODAS as fichas, exclusivas inclusas — D-19 permite copiar de qualquer
+// ficha que o dono enxergue, diferente do protótipo original.
+export async function listarFichasParaCopiar(): Promise<FichaParaCopiar[]> {
+  return db
+    .select({
+      id: fichasPrecificacao.id,
+      nome: fichasPrecificacao.nome,
+      argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+      esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+      horasMilesimos: fichasPrecificacao.horasMilesimos,
+      larguraMm: fichasPrecificacao.larguraMm,
+      profundidadeMm: fichasPrecificacao.profundidadeMm,
+      alturaMm: fichasPrecificacao.alturaMm,
+      embalagemCentavos: fichasPrecificacao.embalagemCentavos,
+      cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
+      cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
+    })
+    .from(fichasPrecificacao)
+    .orderBy(asc(fichasPrecificacao.nome));
+}
+
+// Chamada DENTRO de `db.transaction(async (tx) => ...)` por `apagarFicha` (lib/precificacao/
+// acoes.ts) — nunca com `db` direto. Conta ORÇAMENTOS distintos, não linhas: uma ficha usada duas
+// vezes no MESMO orçamento ainda está "em 1 orçamento" (D-20 fala do documento, não da linha).
+export async function contarOrcamentosDaFicha(tx: TransacaoDoBanco, fichaId: string): Promise<number> {
+  const [linha] = await tx
+    .select({ total: countDistinct(orcamentoLinhas.orcamentoId) })
+    .from(orcamentoLinhas)
+    .where(eq(orcamentoLinhas.fichaId, fichaId));
+
+  return Number(linha?.total ?? 0);
 }

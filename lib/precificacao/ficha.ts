@@ -194,6 +194,63 @@ export type ResultadoDaFicha =
     }
   | { ok: false; motivo: MotivoDeCalculoInvalido };
 
+// ---------------------------------------------------------------------------------------------
+// "Começar a partir de uma peça parecida" (04.5-05-PLAN.md — D-19): a ficha nova pode copiar os
+// campos de MEDIDA e MATERIAL de outra ficha (exclusiva ou não — D-19 permite qualquer origem,
+// diferente do protótipo original, que só oferecia fichas de linha), mas NUNCA nome, preço
+// praticado, preço de mercado, `exclusiva` ou o vínculo de catálogo — esses quatro são da peça
+// NOVA, não da peça copiada.
+// ---------------------------------------------------------------------------------------------
+
+export type CamposCopiaveisDaFicha = {
+  argilaMiligramas: number;
+  esmalteMiligramas: number;
+  horasMilesimos: number;
+  larguraMm: number;
+  profundidadeMm: number;
+  alturaMm: number;
+  embalagemCentavos: number;
+  cabemBiscoitoInformado: number | null;
+  cabemEsmalteInformado: number | null;
+};
+
+const CAMPOS_COPIAVEIS_EM_BRANCO: CamposCopiaveisDaFicha = {
+  argilaMiligramas: 0,
+  esmalteMiligramas: 0,
+  horasMilesimos: 0,
+  larguraMm: 0,
+  profundidadeMm: 0,
+  alturaMm: 0,
+  embalagemCentavos: 0,
+  cabemBiscoitoInformado: null,
+  cabemEsmalteInformado: null,
+};
+
+// `origem` já vem RESOLVIDA por quem chama (o cliente, a partir da lista que `listarFichasParaCopiar`
+// já carregou — nenhuma consulta nova ao trocar o `<select>`); `null` cobre tanto "— do zero —"
+// quanto um id que não bate com nada na lista (ficha apagada por outra aba entre carregar a tela
+// e escolher, ou uso indevido) — devolve os campos em branco, nunca lança erro. A cópia é
+// EXPLÍCITA campo por campo (nunca um espalhamento `{...origem}`): um campo novo na ficha (uma
+// futura "cor padrão", por exemplo) nunca seria copiado sem alguém decidir isso aqui de propósito.
+export function camposCopiaveisDaFicha(
+  origem: CamposCopiaveisDaFicha | null,
+): CamposCopiaveisDaFicha {
+  if (!origem) {
+    return { ...CAMPOS_COPIAVEIS_EM_BRANCO };
+  }
+  return {
+    argilaMiligramas: origem.argilaMiligramas,
+    esmalteMiligramas: origem.esmalteMiligramas,
+    horasMilesimos: origem.horasMilesimos,
+    larguraMm: origem.larguraMm,
+    profundidadeMm: origem.profundidadeMm,
+    alturaMm: origem.alturaMm,
+    embalagemCentavos: origem.embalagemCentavos,
+    cabemBiscoitoInformado: origem.cabemBiscoitoInformado,
+    cabemEsmalteInformado: origem.cabemEsmalteInformado,
+  };
+}
+
 export function resultadoDaFicha(entrada: {
   cabem: CabemNoForno;
   resultadoDireto: ResultadoDoCalculo;

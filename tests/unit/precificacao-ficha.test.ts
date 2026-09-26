@@ -7,11 +7,13 @@ import {
   FRASE_NOME_OBRIGATORIO,
   FRASE_NOME_MUITO_LONGO,
   FRASE_SEM_CATEGORIA_DE_VENDA,
+  camposCopiaveisDaFicha,
   paraContagemInformada,
   paraFichaDeCalculo,
   paraMedidasDaPeca,
   resultadoDaFicha,
   validarFicha,
+  type CamposCopiaveisDaFicha,
   type FichaEmEdicao,
 } from "@/lib/precificacao/ficha";
 import { formatarCentimetros, formatarGramas, formatarHoras } from "@/lib/precificacao/formato";
@@ -401,5 +403,64 @@ describe("formatarGramas / formatarHoras / formatarCentimetros", () => {
     expect(formatarGramas(0)).toBe("0 g");
     expect(formatarHoras(0)).toBe("0 h");
     expect(formatarCentimetros(0)).toBe("0 cm");
+  });
+});
+
+// 04.5-05-PLAN.md, Tarefa 1 — "Começar a partir de uma peça parecida" (D-19): só os casos PUROS
+// (esta função nunca toca banco); os que dependem do banco (apagarFicha permitida/recusada,
+// listarFichas/listarFichasParaCopiar) ficam para o e2e da Tarefa 2 e, no caso da recusa por
+// ficha em uso, para o e2e do plano 06 — ver SUMMARY.
+describe("camposCopiaveisDaFicha", () => {
+  const ORIGEM: CamposCopiaveisDaFicha = {
+    argilaMiligramas: 450_000,
+    esmalteMiligramas: 60_000,
+    horasMilesimos: 600,
+    larguraMm: 120,
+    profundidadeMm: 90,
+    alturaMm: 100,
+    embalagemCentavos: 300,
+    cabemBiscoitoInformado: 21,
+    cabemEsmalteInformado: 12,
+  };
+
+  it("copia argila, esmalte, horas, medidas, embalagem e as duas contagens 'já contei'", () => {
+    expect(camposCopiaveisDaFicha(ORIGEM)).toEqual(ORIGEM);
+  });
+
+  it("uma origem exclusiva é permitida — a função não sabe nem pergunta se `exclusiva` é true", () => {
+    // `CamposCopiaveisDaFicha` nem tem o campo `exclusiva` — o TIPO já impede a pergunta. Uma
+    // ficha exclusiva "vista" pelo caller entra aqui do mesmo jeito que qualquer outra.
+    expect(camposCopiaveisDaFicha(ORIGEM)).toEqual(ORIGEM);
+  });
+
+  it("uma origem inexistente (null) devolve os campos em branco, nunca lança erro", () => {
+    expect(camposCopiaveisDaFicha(null)).toEqual({
+      argilaMiligramas: 0,
+      esmalteMiligramas: 0,
+      horasMilesimos: 0,
+      larguraMm: 0,
+      profundidadeMm: 0,
+      alturaMm: 0,
+      embalagemCentavos: 0,
+      cabemBiscoitoInformado: null,
+      cabemEsmalteInformado: null,
+    });
+  });
+
+  it("NÃO copia nome, preço praticado, preço de mercado, exclusiva nem vínculo de catálogo — o tipo de saída não tem esses campos", () => {
+    const saida = camposCopiaveisDaFicha(ORIGEM);
+    expect(Object.keys(saida).sort()).toEqual(
+      [
+        "argilaMiligramas",
+        "esmalteMiligramas",
+        "horasMilesimos",
+        "larguraMm",
+        "profundidadeMm",
+        "alturaMm",
+        "embalagemCentavos",
+        "cabemBiscoitoInformado",
+        "cabemEsmalteInformado",
+      ].sort(),
+    );
   });
 });

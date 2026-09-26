@@ -138,3 +138,48 @@ export const FRASE_CATEGORIA_DE_VENDA_INVALIDA =
   "Essa categoria de venda não existe mais, ou não é do grupo Receitas. Escolha outra.";
 export const FRASE_FICHA_NAO_EXISTE_MAIS =
   "Essa peça não existe mais — recarregue a página e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Lista de Peças (04.5-05-PLAN.md — D-19/D-20, ORC-05/ORC-06/ORC-18)
+// ---------------------------------------------------------------------------------------------
+
+export const TITULO_LISTA_PECAS = "Peças precificadas";
+export const FRASE_VAZIO_PECAS_TITULO = "Nenhuma peça precificada ainda.";
+export const FRASE_VAZIO_PECAS_CORPO =
+  "Cadastre a primeira peça para saber quanto ela custa e qual é o preço mínimo.";
+export const ETIQUETA_EXCLUSIVA = "exclusiva";
+export const TEXTO_SEM_PRECO_DEFINIDO = "sem preço definido";
+export const ROTULO_ABRIR_PECA = "Abrir";
+export const DICA_RODAPE_PECAS =
+  "O preço praticado é o que vai para o Catálogo e aparece na Venda. O custo é o que a peça pronta vale ao entrar no Estoque.";
+
+// "Mostrar/Esconder peças exclusivas de pedidos (N)" — o alternador só aparece quando existe ao
+// menos uma exclusiva (D-19), verbatim do protótipo (`ver-excl`).
+export function rotuloAlternarExclusivas(mostrando: boolean, quantidade: number): string {
+  return `${mostrando ? "Esconder" : "Mostrar"} peças exclusivas de pedidos (${quantidade})`;
+}
+
+// "custo {R$X} · mínimo {R$Y}" — a linha de apoio de cada peça na lista (verbatim do protótipo,
+// `telaPecas`), montada aqui porque combina DOIS valores já formatados por quem chama (nunca
+// formata dinheiro sozinho — mesma disciplina do resto do módulo).
+export function linhaDeApoioDaPeca(custoFormatado: string, minimoFormatado: string): string {
+  return `custo ${custoFormatado} · mínimo ${minimoFormatado}`;
+}
+
+export const ROTULO_COMECAR_A_PARTIR_DE = "Começar a partir de uma peça parecida (opcional)";
+export const ROTULO_DO_ZERO = "— do zero —";
+export const ROTULO_APAGAR_PECA = "Apagar";
+
+// "Apagar a peça «{nome}»?" — título do `AlertDialog` destrutivo; o corpo é fixo (verbatim do
+// 04.5-UI-SPEC.md §Copywriting), nomeado uma vez no título, nunca repetido no corpo.
+export function tituloConfirmarApagarPeca(nome: string): string {
+  return `Apagar a peça «${nome}»?`;
+}
+export const CORPO_CONFIRMAR_APAGAR_PECA =
+  "Ela sai da lista e do Catálogo. Só é possível apagar uma peça que não está em nenhum orçamento.";
+
+// A recusa do servidor (D-20) — a contagem é SEMPRE a que `apagarFicha` leu dentro da própria
+// transação, nunca um número pré-carregado pela lista.
+export function fraseFichaEmUso(quantidadeDeOrcamentos: number): string {
+  return `Esta peça está em ${quantidadeDeOrcamentos} orçamento(s). Não dá para apagar.`;
+}

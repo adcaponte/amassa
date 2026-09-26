@@ -2,12 +2,15 @@
 
 import { and, desc, eq, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { db } from "@/db";
 import { categorias, fichasPrecificacao, itensCatalogo, parametrosPrecificacao } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { esquemaId } from "@/lib/financeiro/esquemas";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
+import { contarOrcamentosDaFicha } from "./consultas";
 import {
   esquemaCalculoDaHora,
   esquemaEdicaoDeFicha,
@@ -23,6 +26,7 @@ import {
   FRASE_FICHA_NAO_EXISTE_MAIS,
   FRASE_INFORME_AS_HORAS,
   FRASE_PARAMETRO_NAO_EXISTE_MAIS,
+  fraseFichaEmUso,
 } from "./textos";
 
 // Mesma forma de `lib/financeiro/acoes.ts`/`lib/cadastros/acoes.ts` — cada módulo redeclara hoje,
@@ -398,6 +402,68 @@ export async function editarFicha(
       return { ok: false, erro: FRASE_FICHA_NAO_EXISTE_MAIS };
     }
     console.error("Falha ao editar ficha de precificação:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Apagar ficha (04.5-05-PLAN.md — D-20): nunca apaga o item do Catálogo (pode ter venda lançada,
+// e `itens_catalogo` não tem privilégio de exclusão nesta plataforma), e recusa quando a ficha
+// está em uso.
+// ---------------------------------------------------------------------------------------------
+
+class FichaEmUso extends Error {
+  constructor(public readonly quantidadeDeOrcamentos: number) {
+    super("ficha em uso");
+  }
+}
+
+const esquemaApagarFicha = z.object({ id: esquemaId });
+
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo. Trava a linha (`for update`), CONTA os
+// orçamentos que a usam DENTRO da mesma transação (`contarOrcamentosDaFicha`, lib/precificacao/
+// consultas.ts) e só então apaga — contar antes e apagar depois, fora de uma transação, é a
+// corrida clássica: alguém acrescenta a peça a um orçamento entre a contagem e a exclusão
+// (T-04.5-24). Nunca toca `itens_catalogo` — a ficha some, o item (quando existir) continua.
+export async function apagarFicha(entradaBruta: unknown): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaApagarFicha.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { id } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [ficha] = await tx
+        .select({ id: fichasPrecificacao.id })
+        .from(fichasPrecificacao)
+        .where(eq(fichasPrecificacao.id, id))
+        .for("update");
+
+      if (!ficha) {
+        throw new FichaNaoEncontrada();
+      }
+
+      const quantidadeDeOrcamentos = await contarOrcamentosDaFicha(tx, id);
+      if (quantidadeDeOrcamentos > 0) {
+        throw new FichaEmUso(quantidadeDeOrcamentos);
+      }
+
+      await tx.delete(fichasPrecificacao).where(eq(fichasPrecificacao.id, id));
+    });
+
+    revalidatePath("/financeiro");
+    return { ok: true, dados: { id } };
+  } catch (erro) {
+    if (erro instanceof FichaNaoEncontrada) {
+      return { ok: false, erro: FRASE_FICHA_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof FichaEmUso) {
+      return { ok: false, erro: fraseFichaEmUso(erro.quantidadeDeOrcamentos) };
+    }
+    console.error("Falha ao apagar ficha de precificação:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
