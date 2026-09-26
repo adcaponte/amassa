@@ -418,6 +418,23 @@ test.describe("financeiro caixa pagamento", () => {
     const aviso = page.locator("[data-sonner-toast]").filter({ hasText: "Pago: R$ 1.500,00" });
     await expect(aviso).toBeVisible({ timeout: 10000 });
 
+    // Fundo OPACO do aviso (achado real do dono, fotografado no celular em 26/09/2026): a
+    // geometria abaixo só prova que o aviso desliza para ACIMA da barra, nunca que ele é
+    // LEGÍVEL — um sonner sem `--normal-bg` resolvido continua passando nessas duas asserções
+    // de posição enquanto se desenha totalmente transparente por cima do cartão da conta
+    // ("Energia · outubro/2026 R$ 500,00"), ilegível junto com "Pago: R$ 1.500,00 / Desfazer".
+    // `background-color` (não `background`, que devolve o shorthand com a imagem) é o valor
+    // computado real que o navegador aplicaria na tela — "rgba(0, 0, 0, 0)" é como o Chromium
+    // stringifica "nenhuma cor" quando a variável CSS por trás de `background` não resolve para
+    // nada. O branco esperado é `--color-superficie` (mapeado em `--color-popover`,
+    // app/globals.css), o mesmo branco de Card/Dialog.
+    const corDeFundo = await aviso.evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(
+      corDeFundo,
+      `o aviso precisa de um fundo opaco para ficar legível sobre o cartão atrás dele; veio "${corDeFundo}"`,
+    ).not.toBe("rgba(0, 0, 0, 0)");
+    expect(corDeFundo).toBe("rgb(255, 255, 255)");
+
     const barra = page.getByRole("navigation", { name: "Navegação principal" });
     await expect(barra).toBeVisible();
 
