@@ -5,6 +5,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -80,6 +81,13 @@ export const execucoesBackup = pgTable(
     // entre o dump local e o envio externo) precisa parecer falha, nunca sucesso.
     destinoExternoOk: boolean("destino_externo_ok").notNull().default(false),
     mensagem: text("mensagem"),
+    // Fase 04.5 (migração 0017, D-28): nulo significa "não houve tentativa registrada" — é o
+    // que mantém as linhas escritas ANTES desta fase legíveis (o backup de fotos não existia
+    // ainda). Toda execução NOVA do `backup.sh` escreve `true` ou `false`, nunca nulo — o par
+    // é lido junto do dump do Postgres pela MESMA linha, sem uma segunda tabela por dataset
+    // (RESEARCH.md, Pitfall 5).
+    fotosBytes: bigint("fotos_bytes", { mode: "number" }),
+    fotosDestinoExternoOk: boolean("fotos_destino_externo_ok"),
   },
   (tabela) => [
     // A única consulta que esta tabela recebe: a última execução, por `quando` decrescente.
@@ -889,6 +897,404 @@ export const configuracaoFinanceira = pgTable(
     check(
       "configuracao_financeira_saldo_no_intervalo",
       sql`${tabela.saldoInicialCentavos} >= -1000000000 and ${tabela.saldoInicialCentavos} <= 1000000000`,
+    ),
+  ],
+);
+
+// Fase 04.5 — Financeiro, parte 2: Precificação e Orçamento (migração 0017). O traçador da fase
+// (04.5-01-PLAN.md): oito tabelas novas, todas PERMANENTES, mesmo espírito do bloco do
+// Financeiro acima (nenhuma sai numa migração de remoção, nenhuma chave estrangeira usa
+// `cascade`). Dinheiro em centavos inteiros com teto de 10^9; percentual em pontos-base inteiros
+// (3,5% = 350, mesma convenção de `configuracao_financeira.taxa_cartao_pontos_base` — D-16: a
+// taxa do cartão NÃO é duplicada aqui, `calcularPeca` a recebe por argumento); medidas físicas em
+// milímetros/miligramas/milésimos, nunca ponto flutuante numa coluna que entra em cálculo.
+export const statusOrcamento = pgEnum("status_orcamento", [
+  "rascunho",
+  "enviado",
+  "aprovado",
+  "recusado",
+]);
+export const planoPagamentoOrcamento = pgEnum("plano_pagamento_orcamento", [
+  "sinal",
+  "avista",
+  "3x",
+]);
+
+// Parâmetros do cálculo de precificação, COM HISTÓRICO (D-15): mudar um valor cria uma linha
+// nova com data, nunca sobrescreve — o gatilho `recusar_mudanca_de_valor_do_parametro()`
+// (migração 0018) recusa qualquer `update` que altere `valor_inteiro`/`vigente_desde`; só
+// `medido` é atualizável. `chave` é uma das 18 chaves fechadas de
+// `lib/precificacao/parametros.ts::CATALOGO_DE_PARAMETROS` (plano 04.5-01, Tarefa 2) — o `check`
+// abaixo espelha essa lista literalmente, e a semente de `0019` também: três lugares, uma
+// verdade, divergir quebra `npm run test:migracoes`. `criadoPor` nulo = nasceu com a migração de
+// semente (0019), que não tem usuário logado.
+export const parametrosPrecificacao = pgTable(
+  "parametros_precificacao",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    chave: text("chave").notNull(),
+    valorInteiro: integer("valor_inteiro").notNull(),
+    medido: boolean("medido").notNull().default(false),
+    vigenteDesde: date("vigente_desde", { mode: "string" }).notNull(),
+    criadoPor: uuid("criado_por").references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("parametros_precificacao_chave_vigencia_uk").on(tabela.chave, tabela.vigenteDesde),
+    check(
+      "parametros_precificacao_chave_valida",
+      sql`${tabela.chave} in (
+        'material_argila','material_esmalte','trabalho_hora','forno_tarifa_energia',
+        'forno_kwh_biscoito','forno_kwh_esmalte','forno_largura_util','forno_profundidade_util',
+        'forno_altura_util','forno_folga_entre_pecas','forno_prateleira_e_pilar',
+        'forno_fator_biscoito','forno_desgaste_por_fornada','perda_unica','preco_lucro',
+        'preco_folga_negociacao','preco_imposto_sobre_venda','preco_comissao_galeria'
+      )`,
+    ),
+    check(
+      "parametros_precificacao_valor_no_intervalo",
+      sql`${tabela.valorInteiro} between 0 and 1000000000`,
+    ),
+    index("parametros_precificacao_chave_vigencia_idx").on(
+      tabela.chave,
+      tabela.vigenteDesde.desc(),
+    ),
+  ],
+);
+
+// Ficha de precificação de uma peça (D-18/D-19): argila/esmalte em miligramas, horas em
+// milésimos, medidas em milímetros (a tela pede cm, a conversão é na borda). Ficha "de linha"
+// (`itemCatalogoId` preenchido) tem o preço praticado NO `itens_catalogo` — uma verdade só, por
+// isso `precoPraticadoCentavos` é exigido nulo nesse caso (D-18); ficha exclusiva
+// (`exclusiva = true`) não referencia catálogo nenhum e guarda o próprio preço praticado.
+export const fichasPrecificacao = pgTable(
+  "fichas_precificacao",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    argilaMiligramas: integer("argila_miligramas").notNull().default(0),
+    esmalteMiligramas: integer("esmalte_miligramas").notNull().default(0),
+    horasMilesimos: integer("horas_milesimos").notNull().default(0),
+    larguraMm: integer("largura_mm").notNull().default(0),
+    profundidadeMm: integer("profundidade_mm").notNull().default(0),
+    alturaMm: integer("altura_mm").notNull().default(0),
+    embalagemCentavos: integer("embalagem_centavos").notNull().default(0),
+    // "Já contei" (D-12): substitui o calculado por `quantasCabem`, independentemente um do
+    // outro. Anuláveis — nulo = "não contei, calcule pelas medidas".
+    cabemBiscoitoInformado: integer("cabem_biscoito_informado"),
+    cabemEsmalteInformado: integer("cabem_esmalte_informado"),
+    precoMercadoCentavos: integer("preco_mercado_centavos"),
+    precoPraticadoCentavos: integer("preco_praticado_centavos"),
+    exclusiva: boolean("exclusiva").notNull().default(false),
+    itemCatalogoId: uuid("item_catalogo_id").references(() => itensCatalogo.id),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "fichas_precificacao_nome_comprimento",
+      sql`length(trim(${tabela.nome})) between 1 and 120`,
+    ),
+    check(
+      "fichas_precificacao_argila_no_intervalo",
+      sql`${tabela.argilaMiligramas} between 0 and 10000000`,
+    ),
+    check(
+      "fichas_precificacao_esmalte_no_intervalo",
+      sql`${tabela.esmalteMiligramas} between 0 and 10000000`,
+    ),
+    check(
+      "fichas_precificacao_horas_no_intervalo",
+      sql`${tabela.horasMilesimos} between 0 and 10000000`,
+    ),
+    check(
+      "fichas_precificacao_largura_no_intervalo",
+      sql`${tabela.larguraMm} between 0 and 10000000`,
+    ),
+    check(
+      "fichas_precificacao_profundidade_no_intervalo",
+      sql`${tabela.profundidadeMm} between 0 and 10000000`,
+    ),
+    check(
+      "fichas_precificacao_altura_no_intervalo",
+      sql`${tabela.alturaMm} between 0 and 10000000`,
+    ),
+    check(
+      "fichas_precificacao_embalagem_no_intervalo",
+      sql`${tabela.embalagemCentavos} between 0 and 1000000000`,
+    ),
+    check(
+      "fichas_precificacao_cabem_biscoito_nao_negativo",
+      sql`${tabela.cabemBiscoitoInformado} is null or ${tabela.cabemBiscoitoInformado} >= 0`,
+    ),
+    check(
+      "fichas_precificacao_cabem_esmalte_nao_negativo",
+      sql`${tabela.cabemEsmalteInformado} is null or ${tabela.cabemEsmalteInformado} >= 0`,
+    ),
+    check(
+      "fichas_precificacao_preco_mercado_no_intervalo",
+      sql`${tabela.precoMercadoCentavos} is null or (${tabela.precoMercadoCentavos} >= 0 and ${tabela.precoMercadoCentavos} <= 1000000000)`,
+    ),
+    check(
+      "fichas_precificacao_preco_praticado_no_intervalo",
+      sql`${tabela.precoPraticadoCentavos} is null or (${tabela.precoPraticadoCentavos} >= 0 and ${tabela.precoPraticadoCentavos} <= 1000000000)`,
+    ),
+    unique("fichas_precificacao_item_catalogo_uk").on(tabela.itemCatalogoId),
+    // D-18 no banco, não só na tela: ficha exclusiva não tem item de catálogo; ficha de linha
+    // tem item de catálogo E não guarda preço praticado próprio (o preço é o do item).
+    check(
+      "fichas_precificacao_exclusividade_coerente",
+      sql`(${tabela.exclusiva} and ${tabela.itemCatalogoId} is null) or (not ${tabela.exclusiva} and ${tabela.itemCatalogoId} is not null and ${tabela.precoPraticadoCentavos} is null)`,
+    ),
+  ],
+);
+
+// Um orçamento (D-05/D-06/D-07/D-21/D-22). `sequencial` nasce de
+// `lib/orcamentos/numero.ts::proximoSequencialDeOrcamento`, dentro da MESMA transação que grava
+// esta linha — nunca de uma contagem lida antes (D-06). `snapshot`/`congeladoEm` gravam juntos,
+// só quando "Marcar como enviado" congela (D-21): a restrição de coerência abaixo faz
+// "rascunho calcula ao vivo, enviado está congelado" ser invariante de banco, não só de tela.
+// `documentoId`/`encomendaId` são os vínculos da aprovação (D-25), gravados nos dois sentidos.
+export const orcamentos = pgTable(
+  "orcamentos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    ano: integer("ano").notNull(),
+    sequencial: integer("sequencial").notNull(),
+    revisao: integer("revisao").notNull().default(1),
+    status: statusOrcamento("status").notNull().default("rascunho"),
+    clienteNome: text("cliente_nome"),
+    titulo: text("titulo"),
+    data: date("data", { mode: "string" }).notNull(),
+    validadeDias: integer("validade_dias").notNull().default(10),
+    entregaPrevista: date("entrega_prevista", { mode: "string" }).notNull(),
+    plano: planoPagamentoOrcamento("plano").notNull().default("sinal"),
+    sinalPercentual: integer("sinal_percentual").notNull().default(50),
+    freteCentavos: integer("frete_centavos").notNull().default(0),
+    observacoes: text("observacoes"),
+    congeladoEm: timestamp("congelado_em", { withTimezone: true }),
+    snapshot: jsonb("snapshot"),
+    documentoId: uuid("documento_id").references(() => documentos.id),
+    encomendaId: uuid("encomenda_id").references(() => encomendas.id),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("orcamentos_ano_sequencial_uk").on(tabela.ano, tabela.sequencial),
+    unique("orcamentos_documento_id_uk").on(tabela.documentoId),
+    unique("orcamentos_encomenda_id_uk").on(tabela.encomendaId),
+    check(
+      "orcamentos_cliente_nome_comprimento",
+      sql`${tabela.clienteNome} is null or length(trim(${tabela.clienteNome})) between 1 and 160`,
+    ),
+    check(
+      "orcamentos_titulo_comprimento",
+      sql`${tabela.titulo} is null or length(trim(${tabela.titulo})) between 1 and 160`,
+    ),
+    check(
+      "orcamentos_observacoes_comprimento",
+      sql`${tabela.observacoes} is null or length(trim(${tabela.observacoes})) between 1 and 300`,
+    ),
+    check("orcamentos_validade_dias_no_intervalo", sql`${tabela.validadeDias} between 1 and 365`),
+    check(
+      "orcamentos_sinal_percentual_no_intervalo",
+      sql`${tabela.sinalPercentual} between 1 and 100`,
+    ),
+    check("orcamentos_frete_no_intervalo", sql`${tabela.freteCentavos} between 0 and 1000000000`),
+    check("orcamentos_revisao_minima", sql`${tabela.revisao} >= 1`),
+    check(
+      "orcamentos_rascunho_sem_snapshot",
+      sql`(${tabela.status} = 'rascunho') = (${tabela.snapshot} is null)`,
+    ),
+    check(
+      "orcamentos_snapshot_e_congelado_juntos",
+      sql`(${tabela.snapshot} is null) = (${tabela.congeladoEm} is null)`,
+    ),
+    check(
+      "orcamentos_documento_exige_aprovado",
+      sql`${tabela.documentoId} is null or ${tabela.status} = 'aprovado'`,
+    ),
+    index("orcamentos_ano_sequencial_idx").on(tabela.ano.desc(), tabela.sequencial.desc()),
+  ],
+);
+
+// Uma linha de peça dentro do orçamento (`ordem` decide a posição na lista).
+export const orcamentoLinhas = pgTable(
+  "orcamento_linhas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    orcamentoId: uuid("orcamento_id")
+      .notNull()
+      .references(() => orcamentos.id),
+    fichaId: uuid("ficha_id")
+      .notNull()
+      .references(() => fichasPrecificacao.id),
+    quantidade: integer("quantidade").notNull(),
+    precoUnitarioCentavos: integer("preco_unitario_centavos").notNull(),
+    cor: text("cor"),
+    personalizacao: text("personalizacao"),
+    ordem: integer("ordem").notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("orcamento_linhas_quantidade_no_intervalo", sql`${tabela.quantidade} between 1 and 100000`),
+    check(
+      "orcamento_linhas_preco_no_intervalo",
+      sql`${tabela.precoUnitarioCentavos} between 0 and 1000000000`,
+    ),
+    check(
+      "orcamento_linhas_cor_comprimento",
+      sql`${tabela.cor} is null or length(trim(${tabela.cor})) between 1 and 80`,
+    ),
+    check(
+      "orcamento_linhas_personalizacao_comprimento",
+      sql`${tabela.personalizacao} is null or length(trim(${tabela.personalizacao})) between 1 and 200`,
+    ),
+    unique("orcamento_linhas_orcamento_ordem_uk").on(tabela.orcamentoId, tabela.ordem),
+    index("orcamento_linhas_orcamento_idx").on(tabela.orcamentoId),
+  ],
+);
+
+// Custo de projeto do orçamento — molde, protótipo, carimbo etc. (`ordem` decide a posição).
+export const orcamentoProjeto = pgTable(
+  "orcamento_projeto",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    orcamentoId: uuid("orcamento_id")
+      .notNull()
+      .references(() => orcamentos.id),
+    descricao: text("descricao").notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    ordem: integer("ordem").notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "orcamento_projeto_descricao_comprimento",
+      sql`length(trim(${tabela.descricao})) between 1 and 120`,
+    ),
+    check(
+      "orcamento_projeto_valor_no_intervalo",
+      sql`${tabela.valorCentavos} between 0 and 1000000000`,
+    ),
+    unique("orcamento_projeto_orcamento_ordem_uk").on(tabela.orcamentoId, tabela.ordem),
+    index("orcamento_projeto_orcamento_idx").on(tabela.orcamentoId),
+  ],
+);
+
+// Foto de referência do orçamento (D-26/D-27), até 3 por orçamento (`ordem between 0 and 2`, o
+// limite mora no banco, não só na tela). `arquivo` guarda só o NOME gerado pelo servidor
+// (`<uuid>.jpg`) — o `check` de formato fecha a porta de travessia de caminho (`../`) antes de
+// qualquer código de leitura existir (a leitura é do plano 10).
+export const orcamentoFotos = pgTable(
+  "orcamento_fotos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    orcamentoId: uuid("orcamento_id")
+      .notNull()
+      .references(() => orcamentos.id),
+    ordem: integer("ordem").notNull(),
+    arquivo: text("arquivo").notNull(),
+    legenda: text("legenda"),
+    bytes: integer("bytes").notNull(),
+    larguraPx: integer("largura_px"),
+    alturaPx: integer("altura_px"),
+    anexadoPor: uuid("anexado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("orcamento_fotos_ordem_no_intervalo", sql`${tabela.ordem} between 0 and 2`),
+    unique("orcamento_fotos_orcamento_ordem_uk").on(tabela.orcamentoId, tabela.ordem),
+    unique("orcamento_fotos_arquivo_uk").on(tabela.arquivo),
+    check(
+      "orcamento_fotos_legenda_comprimento",
+      sql`${tabela.legenda} is null or length(trim(${tabela.legenda})) between 1 and 80`,
+    ),
+    check("orcamento_fotos_bytes_no_intervalo", sql`${tabela.bytes} between 0 and 1000000000`),
+    check(
+      "orcamento_fotos_largura_positiva",
+      sql`${tabela.larguraPx} is null or ${tabela.larguraPx} > 0`,
+    ),
+    check(
+      "orcamento_fotos_altura_positiva",
+      sql`${tabela.alturaPx} is null or ${tabela.alturaPx} > 0`,
+    ),
+    check(
+      "orcamento_fotos_arquivo_formato",
+      sql`${tabela.arquivo} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$'`,
+    ),
+    index("orcamento_fotos_orcamento_idx").on(tabela.orcamentoId),
+  ],
+);
+
+// Histórico de revisão de "Atualizar preços" (D-07/D-23) — SEM `atualizado_em` e sem gatilho,
+// a mesma exceção "só inserção" que `execucoes_backup` já usa: cada revisão é uma linha nova,
+// nenhuma linha é alterada depois de escrita. `snapshot` aqui é o congelamento da revisão
+// ANTERIOR, guardado no momento em que uma nova revisão nasce.
+export const orcamentoRevisoes = pgTable(
+  "orcamento_revisoes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    orcamentoId: uuid("orcamento_id")
+      .notNull()
+      .references(() => orcamentos.id),
+    revisao: integer("revisao").notNull(),
+    enviadoEm: timestamp("enviado_em", { withTimezone: true }),
+    totalCentavos: integer("total_centavos").notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("orcamento_revisoes_orcamento_revisao_uk").on(tabela.orcamentoId, tabela.revisao),
+    check(
+      "orcamento_revisoes_total_no_intervalo",
+      sql`${tabela.totalCentavos} between 0 and 1000000000`,
+    ),
+    index("orcamento_revisoes_orcamento_idx").on(tabela.orcamentoId),
+  ],
+);
+
+// Tabela de uma linha por ano, para a numeração `ORC-{ano}-{sequencial}` (D-06, RESEARCH.md
+// Pattern 1). Incrementada por `insert ... on conflict do update ... returning` DENTRO da mesma
+// transação que grava o orçamento (`lib/orcamentos/numero.ts`) — nunca `select max(...)+1`.
+// Nenhuma coluna de data: é um contador, não um registro de histórico.
+export const contadoresOrcamento = pgTable(
+  "contadores_orcamento",
+  {
+    ano: integer("ano").primaryKey(),
+    ultimoNumero: integer("ultimo_numero").notNull().default(0),
+  },
+  (tabela) => [
+    check("contadores_orcamento_ano_no_intervalo", sql`${tabela.ano} between 2020 and 2200`),
+    check(
+      "contadores_orcamento_ultimo_numero_no_intervalo",
+      sql`${tabela.ultimoNumero} between 0 and 999999`,
     ),
   ],
 );

@@ -58,6 +58,17 @@ const TABELAS_ESPERADAS = [
   "parcelas",
   "contas_fixas",
   "configuracao_financeira",
+  // Fase 04.5 — Financeiro, parte 2: Precificação e Orçamento (migração 0017_precificacao-e-
+  // orcamentos). Permanentes, não saem com a Abertura — nenhuma delas entra em
+  // TABELAS_DA_REMOCAO_ABERTURA.
+  "parametros_precificacao",
+  "fichas_precificacao",
+  "orcamentos",
+  "orcamento_linhas",
+  "orcamento_projeto",
+  "orcamento_fotos",
+  "orcamento_revisoes",
+  "contadores_orcamento",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -1317,6 +1328,156 @@ async function conferirFinanceiro(cliente) {
   }
 }
 
+// Fase 04.5 — Financeiro, parte 2: Precificação e Orçamento (migrações 0017/0018). As duas
+// regras que não podem depender da tela — valor de parâmetro não se reescreve (D-15), e nome de
+// foto não carrega caminho (T-04.5-04) — mais as duas colunas novas de execucoes_backup (D-28),
+// cada uma com veredito próprio na saída.
+async function conferirPrecificacaoEOrcamentos(cliente) {
+  console.log("  conferirPrecificacaoEOrcamentos...");
+
+  async function falha(executar) {
+    try {
+      await executar();
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  // (a) execucoes_backup ganhou fotos_bytes/fotos_destino_externo_ok (D-28), as duas anuláveis
+  // — uma execução gravada sem mencioná-las (como toda linha escrita antes desta fase) continua
+  // legível, com as duas colunas saindo nulas ("nenhuma tentativa registrada").
+  const colunasDeFotos = await cliente.query(
+    `select column_name, is_nullable from information_schema.columns
+     where table_schema = 'public' and table_name = 'execucoes_backup'
+       and column_name in ('fotos_bytes', 'fotos_destino_externo_ok')`,
+  );
+  const nulabilidadePorColuna = new Map(
+    colunasDeFotos.rows.map((linha) => [linha.column_name, linha.is_nullable]),
+  );
+  afirmar(
+    nulabilidadePorColuna.get("fotos_bytes") === "YES",
+    "execucoes_backup.fotos_bytes deveria existir e aceitar nulo (D-28).",
+  );
+  afirmar(
+    nulabilidadePorColuna.get("fotos_destino_externo_ok") === "YES",
+    "execucoes_backup.fotos_destino_externo_ok deveria existir e aceitar nulo (D-28).",
+  );
+  const { rows: execucaoSemFotos } = await cliente.query(
+    "insert into execucoes_backup (sucesso) values (true) returning id, fotos_bytes, fotos_destino_externo_ok",
+  );
+  const {
+    id: idExecucaoDeTeste,
+    fotos_bytes: fotosBytes,
+    fotos_destino_externo_ok: fotosDestinoExternoOk,
+  } = execucaoSemFotos[0];
+  try {
+    afirmar(
+      fotosBytes === null && fotosDestinoExternoOk === null,
+      "Uma execução de backup escrita sem mencionar as colunas de fotos deveria trazê-las nulas " +
+        `— veio fotos_bytes=${fotosBytes}, fotos_destino_externo_ok=${fotosDestinoExternoOk}.`,
+    );
+  } finally {
+    await cliente.query("delete from execucoes_backup where id = $1", [idExecucaoDeTeste]);
+  }
+
+  // Fixture compartilhada pelos grupos (b) e (c) abaixo.
+  const { rows: usuarioInserido } = await cliente.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste da Precificação', 'usuaria-precificacao@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+  let idParametroDeTeste = null;
+  let idOrcamentoDeTeste = null;
+
+  try {
+    // (b) D-15 no banco: um update que altera valor_inteiro OU vigente_desde é recusado pelo
+    // gatilho recusar_mudanca_de_valor_do_parametro; um update que muda só `medido` passa.
+    const { rows: parametroInserido } = await cliente.query(
+      `insert into parametros_precificacao (chave, valor_inteiro, medido, vigente_desde)
+       values ('material_argila', 1000, false, current_date)
+       returning id`,
+    );
+    idParametroDeTeste = parametroInserido[0].id;
+
+    afirmar(
+      await falha(() =>
+        cliente.query("update parametros_precificacao set valor_inteiro = 2000 where id = $1", [
+          idParametroDeTeste,
+        ]),
+      ),
+      "Um update que muda valor_inteiro de um parâmetro deveria ser recusado pelo gatilho (D-15).",
+    );
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          "update parametros_precificacao set vigente_desde = current_date - 1 where id = $1",
+          [idParametroDeTeste],
+        ),
+      ),
+      "Um update que muda vigente_desde de um parâmetro deveria ser recusado pelo mesmo gatilho (D-15).",
+    );
+    afirmar(
+      !(await falha(() =>
+        cliente.query("update parametros_precificacao set medido = true where id = $1", [
+          idParametroDeTeste,
+        ]),
+      )),
+      "Um update que muda só `medido` deveria continuar livre.",
+    );
+    const { rows: parametroAposMedido } = await cliente.query(
+      "select medido, valor_inteiro from parametros_precificacao where id = $1",
+      [idParametroDeTeste],
+    );
+    afirmar(
+      parametroAposMedido[0].medido === true && parametroAposMedido[0].valor_inteiro === 1000,
+      "Depois de marcar `medido`, valor_inteiro deveria continuar 1000 — o gatilho não pode " +
+        "afetar a própria coluna que o update pediu para mudar.",
+    );
+
+    // (c) Travessia de caminho: orcamento_fotos.arquivo com '../' é recusado pelo check de
+    // formato — a coluna guarda só o NOME do arquivo gerado pelo servidor, nunca um caminho.
+    const { rows: orcamentoInserido } = await cliente.query(
+      `insert into orcamentos (ano, sequencial, data, entrega_prevista, criado_por)
+       values (2020, 900001, current_date, current_date + 45, $1)
+       returning id`,
+      [usuarioId],
+    );
+    idOrcamentoDeTeste = orcamentoInserido[0].id;
+
+    afirmar(
+      await falha(() =>
+        cliente.query(
+          `insert into orcamento_fotos (orcamento_id, ordem, arquivo, bytes, anexado_por)
+           values ($1, 0, '../../etc/passwd.jpg', 1000, $2)`,
+          [idOrcamentoDeTeste, usuarioId],
+        ),
+      ),
+      "Um arquivo de orcamento_fotos com travessia de caminho ('../') deveria ser recusado pelo check de formato.",
+    );
+    afirmar(
+      !(await falha(() =>
+        cliente.query(
+          `insert into orcamento_fotos (orcamento_id, ordem, arquivo, bytes, anexado_por)
+           values ($1, 0, 'b3e1c9d2-4b7a-4e8a-9c1a-1a2b3c4d5e6f.jpg', 1000, $2)`,
+          [idOrcamentoDeTeste, usuarioId],
+        ),
+      )),
+      "Um nome de arquivo no formato certo (uuid.jpg, gerado pelo servidor) deveria ser aceito.",
+    );
+  } finally {
+    await cliente
+      .query("delete from orcamento_fotos where orcamento_id = $1", [idOrcamentoDeTeste])
+      .catch(() => {});
+    await cliente.query("delete from orcamentos where id = $1", [idOrcamentoDeTeste]).catch(() => {});
+    await cliente
+      .query("delete from parametros_precificacao where id = $1", [idParametroDeTeste])
+      .catch(() => {});
+    await cliente.query("delete from usuarios where id = $1", [usuarioId]).catch(() => {});
+  }
+}
+
 // Retrato do CONTEÚDO das três tabelas da Abertura (contagem embutida no próprio JSON, ordenado
 // por id) — comparado antes/depois da prova da virada para confirmar que o script de importação
 // (04.4-04-PLAN.md, Tarefa 2) só LÊ `abertura_itens` e nunca escreve em tabela nenhuma da
@@ -1756,6 +1917,7 @@ async function conferirBanco() {
     await conferirPapelEPrivilegios(cliente);
     await conferirContas(cliente);
     await conferirFinanceiro(cliente);
+    await conferirPrecificacaoEOrcamentos(cliente);
   } finally {
     await cliente.end();
   }

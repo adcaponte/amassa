@@ -78,6 +78,20 @@
   --color-area-loja:      #5B7553;
   --color-area-geral:     #6E5F56;
 
+  /* parcelas do custo da peça (Fase 04.5, 04.5-UI-SPEC.md §Color, "Novo conjunto de tokens: cor
+     das parcelas do custo") — uso sempre decorativo (segmento de barra, ponto de legenda),
+     nunca cor de texto corrido. Nota de coincidência, não de reuso: os hex coincidem, byte a
+     byte, com --color-area-loja/-espaco/-pecas/-cafeteria/-geral, por herança do MESMO
+     protótipo-fonte original (mesma nota que --color-ouro/--color-forno-atencao e
+     --color-area-*/--color-producao já registram acima) — são tokens NOVOS e independentes:
+     "de qual área vem esta venda" e "de qual insumo vem este custo" não têm relação nenhuma;
+     não "consertar" a duplicação de hex. */
+  --color-custo-material:   #5B7553;
+  --color-custo-trabalho:   #2E7D8C;
+  --color-custo-queima:     #C2451B;
+  --color-custo-embalagem:  #8B6F47;
+  --color-custo-perda:      #6E5F56;
+
   /* raio — no Tailwind v4 o namespace É "--radius-*" */
   --radius-sm: 6px;
   --radius-md: 10px;

@@ -120,6 +120,20 @@
       "when": 1789842798329,
       "tag": "0016_categorias-iniciais",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790439860333,
+      "tag": "0017_precificacao-e-orcamentos",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790439860334,
+      "tag": "0018_gatilhos-precificacao",
+      "breakpoints": true
     }
   ]
 }

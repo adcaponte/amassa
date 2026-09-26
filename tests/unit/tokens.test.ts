@@ -119,6 +119,20 @@ describe("app/globals.css — tokens do design system (D-08, D-09)", () => {
     expect(globalsCss).toMatch(padrao);
   });
 
+  // Os 5 tokens de "de onde vem o custo" da ficha de peça (Fase 04.5, 04.5-UI-SPEC.md §Color) —
+  // coincidem em hex com as cores de área por herança do mesmo protótipo-fonte, mas são tokens
+  // NOVOS e independentes (ver comentário em app/globals.css).
+  it.each([
+    ["--color-custo-material", "#5B7553"],
+    ["--color-custo-trabalho", "#2E7D8C"],
+    ["--color-custo-queima", "#C2451B"],
+    ["--color-custo-embalagem", "#8B6F47"],
+    ["--color-custo-perda", "#6E5F56"],
+  ])("cor de parcela de custo %s vale %s", (chave, valorEsperado) => {
+    const padrao = new RegExp(`${chave}:\\s*${valorEsperado};`, "i");
+    expect(globalsCss).toMatch(padrao);
+  });
+
   it("--color-primary aponta para var(--color-acento), não para um hex solto", () => {
     expect(globalsCss).toMatch(/--color-primary:\s*var\(--color-acento\);/);
   });
