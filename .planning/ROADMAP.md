@@ -565,7 +565,7 @@ cartão de lá); Phase 3 (a aprovação cria encomenda no módulo atual); Phase 
   12. O backup diário com cópia externa passa a incluir o volume das fotos, `/api/health/backup` cobre as fotos, e o roteiro de restauração foi atualizado e conferido
   13. No celular, todas as telas novas obedecem 44px de toque, 16px de campo, e têm estado vazio, de carregamento e de erro
 
-**Plans**: 8/13 plans executed
+**Plans**: 9/13 plans executed
 
 Plans:
 
@@ -577,7 +577,7 @@ Plans:
 - [x] 04.5-06-PLAN.md — Orçamento: lista com total, editor com "para quem e para quando" e as linhas de peça
 - [x] 04.5-07-PLAN.md — Orçamento: custos do projeto, frete, total e pagamento, e o painel "Só para você"
 - [x] 04.5-08-PLAN.md — Congelar ao enviar, expirado derivado, recusar, voltar para rascunho e duplicar com número novo
-- [ ] 04.5-09-PLAN.md — "Atualizar preços": comparação com o mínimo de hoje, razão preservada e a revisão guardada
+- [x] 04.5-09-PLAN.md — "Atualizar preços": comparação com o mínimo de hoje, razão preservada e a revisão guardada
 - [ ] 04.5-10-PLAN.md — Fotos de referência: envio, redução sem EXIF/GPS, tipo real validado e rota autenticada
 - [ ] 04.5-11-PLAN.md — "Ver como o cliente vê" e o PDF gerado no servidor, sem custo, mínimo, margem nem hora
 - [ ] 04.5-12-PLAN.md — Aprovação: venda e encomenda numa transação só, com os vínculos navegáveis nos dois sentidos
@@ -714,7 +714,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
-| 04.5. Financeiro — parte 2 | 8/13 | In Progress|  |
+| 04.5. Financeiro — parte 2 | 9/13 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-08-PLAN.md
-last_updated: "2026-09-26T23:30:00.000Z"
+stopped_at: Completed 04.5-09-PLAN.md
+last_updated: "2026-09-26T23:16:47.041Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 72
+  completed_plans: 73
 current_phase: 04.5
-last_activity: 2026-09-26
-last_activity_desc: "Fase 04.5 em execucao: 8 de 13 planos prontos (congelamento do orçamento, ciclo de vida) — dono ausente, execução autônoma até parada segura"
+last_activity: 2026-09-27
+last_activity_desc: "Fase 04.5 em execucao: 9 de 13 planos prontos (Atualizar preços, revisões) — dono ausente, execução autônoma até parada segura"
 ---
 
 # Project State
@@ -23,12 +23,12 @@ last_activity_desc: "Fase 04.5 em execucao: 8 de 13 planos prontos (congelamento
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-03 executados e verificados; 10 planos restantes
+**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-09 executados e verificados; 4 planos restantes
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 08 de 13
-concluído em 2026-09-26.
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 09 de 13
+concluído em 2026-09-27.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
 semente ilustrativa) versionadas — **não aplicadas em produção**, ficam para o plano 13, depois de
@@ -129,9 +129,23 @@ portões pré-autorizados: pacotes, fonte do PDF, migrações 0017-0020) — sem
 neste plano (nenhum pacote novo, nenhuma migração nova). Detalhe completo:
 `.planning/phases/04.5-financeiro-parte-2/04.5-08-SUMMARY.md`.
 
-**Pendente para os planos 09-13:** "Atualizar preços" (os botões já existem, desabilitados); PDF
-do cliente ("Ver como o cliente vê"); a aprovação de verdade ("Cliente aprovou"); o upload de foto
-em si (usa `lib/orcamentos/caminho-fotos.ts` do plano 03).
+**Plano 09 ("Atualizar preços" e revisões) entregou:** `lib/orcamentos/atualizacao.ts::
+sugerirPrecos/algoMudou` (puro, TDD, 16 testes incluindo as quatro fronteiras do arredondamento no
+cano inteiro razão+`arredondarBonito`) — preserva a razão preço ÷ mínimo da época (congelado) ou só
+respeita o piso de hoje (rascunho), nunca divide por zero; `atualizarPrecos` grava a revisão
+anterior em `orcamento_revisoes` ANTES de apagar o snapshot, sobe `revisao`, volta a rascunho com
+`data = hoje` (congelado) ou só grava os preços (rascunho), nunca toca projeto/frete/número;
+`DialogoAtualizarPrecos` (diálogo único responsivo, aberto por URL sem transição) com o histórico
+de revisões agora aparecendo em "Só para você". **Executado com o dono ausente**, sem checkpoint
+bloqueante (nenhum pacote novo, nenhuma migração nova — `orcamento_revisoes` já existia do plano
+01, sem nenhuma linha até este plano gravar a primeira). e2e 44/44 (desktop + celular, 7 casos, 2
+`test.skip` documentados — o caso "aprovado sem o botão" não tem caminho de UI até o plano 12
+existir, registrado em WINDOWS.md #42). Detalhe completo:
+`.planning/phases/04.5-financeiro-parte-2/04.5-09-SUMMARY.md`.
+
+**Pendente para os planos 10-13:** PDF do cliente ("Ver como o cliente vê"); a aprovação de
+verdade ("Cliente aprovou"); o upload de foto em si (usa `lib/orcamentos/caminho-fotos.ts` do
+plano 03).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -200,7 +214,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 91% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 94% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -301,6 +315,7 @@ Progress: [█████████░] 91% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P06 | ~2h | 3 tasks | 15 files |
 | Phase 04.5 P07 | 1h30 | 3 tasks | 15 files |
 | Phase 04.5 P08 | ~2h30min | 3 tasks | 17 files |
+| Phase 04.5 P09 | 50min | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -521,6 +536,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [04.5-08]: script de aceitacao da Tarefa 2 (checagem "for update" via new RegExp com escape quadruplo) quebra ao atravessar plano->bash->JS->RegExp - confirmado com o mesmo regex corrigido que as quatro transicoes tem a guarda real (WINDOWS #40)
 - [Phase ?]: parcelasDoPlano (lib/orcamentos/plano.ts) e a MESMA fonte que o documento do cliente (plano 11) e a aprovacao (plano 12) vao reaproveitar para a forma das parcelas
 - [Phase ?]: SoParaVoce e Server Component sem estado nenhum, reforcando que o painel nunca e importado fora do editor do dono (separacao estrutural do documento do cliente)
+- [Phase ?]: 04.5-09: totalDeAgora/somaDoQueNaoEhPeca isolado de atualizarPrecos para o script de aceitação (le projeto/frete so para o historico, nunca altera)
 
 ### Pending Todos
 
@@ -593,7 +609,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T23:30:00.000Z
-Stopped at: Completed 04.5-08-PLAN.md (dono ausente — execução autônoma; próximo plano: 04.5-09,
+Last session: 2026-09-26T23:16:46.294Z
+Stopped at: Completed 04.5-09-PLAN.md
 "Atualizar preços")
 Resume file: None

@@ -209,7 +209,7 @@
 - [x] **ORC-06**: A ficha mostra de onde vem cada parcela do custo e marca o preço praticado com um selo: **≥ mínimo verde · ≥ zero amarelo · abaixo vermelho**. Canais: venda direta/encomenda (comissão 0) e galeria/consignado
 - [x] **ORC-07**: O orçamento percorre **rascunho → enviado → aprovado | recusado**. **Expirado é derivado** (data + validade < hoje), nunca um status gravado. Aprovado **trava**: refazer é **Duplicar**, que gera rascunho novo com número novo
 - [x] **ORC-08**: O rascunho calcula ao vivo; **"Marcar como enviado" congela**. O snapshot guarda, por linha, nome, custo, mínimo, zero, horas e quantas cabem, mais imposto + taxa e a contagem de parâmetros estimados que entraram. Depois disso, mudar parâmetro ou ficha **não altera** o orçamento. Enviar exige cliente e pelo menos uma peça
-- [ ] **ORC-09**: "Atualizar preços" compara, peça a peça, o mínimo congelado com o mínimo de hoje (mudança de parâmetro **ou** de ficha conta) e sugere preço **mantendo a razão preço ÷ mínimo** da época, arredondado (até R$ 50: inteiro acima; acima disso: múltiplo de 5) e editável. Confirmar guarda a revisão anterior, sobe `revisao`, volta a rascunho e renova a validade com a data de hoje; projeto e frete não mudam sozinhos. No rascunho, o mesmo botão confere cada preço contra o mínimo de hoje e sobe o que estiver abaixo
+- [x] **ORC-09**: "Atualizar preços" compara, peça a peça, o mínimo congelado com o mínimo de hoje (mudança de parâmetro **ou** de ficha conta) e sugere preço **mantendo a razão preço ÷ mínimo** da época, arredondado (até R$ 50: inteiro acima; acima disso: múltiplo de 5) e editável. Confirmar guarda a revisão anterior, sobe `revisao`, volta a rascunho e renova a validade com a data de hoje; projeto e frete não mudam sozinhos. No rascunho, o mesmo botão confere cada preço contra o mínimo de hoje e sobe o que estiver abaixo
 - [x] **ORC-10**: O painel **"Só para você"** — custo, sobra depois de imposto e taxa, horas de trabalho, fornadas ocupadas, aviso de estimados e histórico de revisões — existe na tela e **nunca** no PDF
 - [ ] **ORC-11**: Aprovar executa **uma transação**: cria a venda na parte 1 (uma linha por peça com a cor na descrição, linhas de projeto e frete, categoria "Encomendas", parcelas conforme o plano), com o 🔴 **sinal nascendo em aberto e vencendo hoje** e o saldo vencendo na entrega prevista; e, se marcado, cria a encomenda no módulo atual (nome = título, cliente, itens com quantidade, cronograma padrão), com cor, personalização, fotos e ficha alcançáveis a partir dela. Os vínculos ficam gravados nos dois sentidos, e **cancelar a venda não apaga nem reabre o orçamento** — só mostra o aviso nos dois lados
 - [x] **ORC-12**: O número é **`ORC-2026-001`, sequencial por ano e nunca reaproveitado** — orçamento cancelado mantém o número (decisão do dono, 2026-09-26). A revisão aparece junto do número no documento do cliente
@@ -446,7 +446,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ORC-06 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-07 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-08 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| ORC-09 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-09 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-10 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-11 | Phase 04.5 — Financeiro, parte 2 | Pending |
 | ORC-12 | Phase 04.5 — Financeiro, parte 2 | Complete |
