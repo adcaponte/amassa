@@ -68,7 +68,6 @@ export const FRASE_PARAMETRO_NAO_EXISTE_MAIS =
 // ---------------------------------------------------------------------------------------------
 
 export const ROTULO_NOVA_PECA = "Nova peça";
-export const TITULO_PECAS = "Peças";
 export const TITULO_DIALOGO_FICHA_NOVA = "Peça nova";
 export const TITULO_DIALOGO_FICHA_EDITAR = "Precificar peça";
 export const ROTULO_SALVAR_FICHA = "Salvar";
