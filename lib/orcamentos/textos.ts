@@ -309,3 +309,89 @@ export function itemDeHistoricoDeRevisao(
 export function textoHistoricoDeRevisoes(itens: string[]): string {
   return `Histórico: ${itens.join(" · ")}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fotos de referência (04.5-10-PLAN.md) — upload, validação, limite, remoção
+// ---------------------------------------------------------------------------------------------
+
+// Erro — upload, tipo de arquivo inválido (04.5-UI-SPEC.md §Copywriting, verbatim). Usada nos
+// DOIS lados: `lib/orcamentos/fotos.ts::validarTipoRealDaFoto` (servidor) e a tela, que mostra a
+// MESMA frase que o servidor devolveu — nunca uma segunda cópia reescrita no componente.
+export const FRASE_ARQUIVO_NAO_E_IMAGEM = "Esse arquivo não é uma imagem. Escolha uma foto.";
+
+// Sem cópia verbatim no UI-SPEC/protótipo para este caso específico (a pesquisa e o protótipo
+// tratam "até ~15 MB" como o tamanho esperado, não como um teto com frase de recusa própria) —
+// decisão do executor (ver SUMMARY, "Decidido sem o dono"), no mesmo tom das demais frases de
+// recusa deste módulo: diz o limite e o que fazer, nunca só "arquivo inválido".
+export const FRASE_ARQUIVO_MUITO_GRANDE =
+  "Essa foto passa de 15 MB. Tire outra ou escolha uma menor.";
+
+// Erro — upload, falha de rede/servidor (04.5-UI-SPEC.md §Copywriting, verbatim) — usada tanto
+// quando `anexarFotoDeOrcamento` falha por um motivo que não é "não é imagem" quanto pela
+// célula de erro na tela, que reenvia o MESMO arquivo com "Tentar de novo" (`ROTULO_TENTAR_DE_NOVO`,
+// já existe desde 04.5-06-PLAN.md).
+export const FRASE_FALHA_AO_ENVIAR_FOTO =
+  "Não deu para enviar essa foto. Tente outra ou tente de novo.";
+
+// Aviso — limite de fotos (04.5-UI-SPEC.md §Copywriting, verbatim, herdado do protótipo) — vale
+// nos DOIS lados: a tela some com o botão ao chegar em 3, e a ação recusa uma quarta com a
+// MESMA frase, para o caso (nunca esperado) de duas abas tentarem ao mesmo tempo.
+export const FRASE_LIMITE_DE_FOTOS = "Limite de 3 fotos atingido. Tire uma para trocar.";
+
+// A legenda passa de 80 letras — mesmo padrão de `FRASE_COR_MUITO_LONGA`/`FRASE_PERSONALIZACAO_MUITO_LONGA`
+// (nenhuma cópia verbatim no UI-SPEC para este caso específico — o teto de 80 caracteres é o
+// must_have; a frase de recusa segue o tom do resto do arquivo).
+export const FRASE_LEGENDA_MUITO_LONGA = "A legenda passa de 80 letras — encurte.";
+
+// "Essa foto já não está mais neste orçamento" — mesma forma de `FRASE_LINHA_NAO_EXISTE_MAIS`,
+// para quando `definirLegendaDaFoto`/`removerFotoDeOrcamento` recebem um id de foto que já não
+// existe mais na tabela (recarregar/outra aba apagou primeiro).
+export const FRASE_FOTO_NAO_EXISTE_MAIS =
+  "Essa foto já não está mais neste orçamento — recarregue a página e tente de novo.";
+
+// Toast — foto anexada (herdado do protótipo) / foto removida (novo, 04.5-UI-SPEC.md
+// §Copywriting).
+export const TOAST_FOTO_ANEXADA = "Foto de referência anexada.";
+export const TOAST_FOTO_REMOVIDA = "Foto removida.";
+
+// Destructive confirmation — remover foto (04.5-UI-SPEC.md §Copywriting, verbatim). Dividida em
+// título (a pergunta) + corpo (a consequência) no MESMO ponto da frase — a mesma disciplina de
+// `tituloConfirmarTirarLinha`/`CORPO_CONFIRMAR_TIRAR_LINHA` acima: as duas metades aparecem
+// juntas na tela, só vivem em constantes separadas porque `AlertDialogTitle`/
+// `AlertDialogDescription` são elementos diferentes.
+export const TITULO_CONFIRMAR_REMOVER_FOTO = "Remover esta foto de referência?";
+export const CORPO_CONFIRMAR_REMOVER_FOTO = "Ela some do orçamento e do documento do cliente.";
+
+// "+ Foto de referência" / "Enviando foto…" (04.5-UI-SPEC.md §Copywriting, verbatim).
+export const ROTULO_MAIS_FOTO_DE_REFERENCIA = "+ Foto de referência";
+export const ROTULO_ENVIANDO_FOTO = "Enviando foto…";
+
+// Placeholder — legenda da foto (herdado). "referência {N}" é o `alt` genérico quando a foto
+// não tem legenda (must_have) — a MESMA frase serve de `alt` e de rótulo visual quando a
+// legenda ainda não existe.
+export const PLACEHOLDER_LEGENDA_FOTO = "legenda (opcional)";
+export function rotuloReferenciaGenerica(numero: number): string {
+  return `referência ${numero}`;
+}
+
+// "{N} de 3" (herdado) — a contagem ao lado do botão de upload.
+export function rotuloContagemDeFotos(quantas: number): string {
+  return `${quantas} de 3`;
+}
+
+// Empty — Fotos de referência, quando o orçamento não é mais rascunho e não tem nenhuma foto
+// (04.5-UI-SPEC.md, herdado) — enquanto rascunho, o botão de upload já ocupa esse lugar, então
+// esta frase só aparece fora de rascunho.
+export const FRASE_VAZIO_FOTOS = "Nenhuma foto.";
+
+// `aria-label` do controle de upload (herdado, 04.5-UI-SPEC.md ponto 9) — o `<input
+// type="file">` nativo fica sobreposto a um botão puramente visual sem texto acessível próprio;
+// este rótulo é o que um leitor de tela anuncia.
+export const ARIA_ADICIONAR_FOTO_DE_REFERENCIA = "adicionar foto de referência";
+
+// As três respostas de `GET /api/orcamentos/fotos/[id]` (D-27/T-04.5-48/50) — nenhuma delas
+// cita caminho de arquivo, nome de diretório ou mensagem do sistema operacional (mesmo espírito
+// de `app/api/health/backup/route.ts`).
+export const FRASE_NAO_AUTORIZADO = "Não autorizado.";
+export const FRASE_FOTO_NAO_ENCONTRADA = "Essa foto não existe.";
+export const FRASE_NAO_DEU_PARA_LER_FOTO = "Não deu para ler essa foto.";
