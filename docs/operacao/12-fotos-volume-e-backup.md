@@ -1,8 +1,8 @@
 # Roteiro 12 — Volume das fotos de orçamento e a cobertura do backup
 
-**Quando rodar:** **uma vez**, junto com a aplicação das migrações desta fase (Roteiro 13:
-`docs/operacao/13-migracao-e-primeiro-envio-de-foto.md` ou o roteiro que a fase 04.5 definir para
-migrar) — e **antes do primeiro envio de foto** de um orçamento de verdade. **Nunca pelo
+**Quando rodar:** **uma vez**, **antes** da aplicação das migrações desta fase (Roteiro 13:
+`docs/operacao/13-migracao-precificacao-e-orcamentos.md`) — e **antes do primeiro envio de foto**
+de um orçamento de verdade. **Nunca pelo
 pipeline**: o `docker/compose.yml` do servidor é ressincronizado sozinho pelo job `implantar` a
 cada publicação, mas o diretório do host e a posse dele **não são** — quem cria e ajusta a
 permissão é você, numa sessão SSH, com os comandos abaixo.
