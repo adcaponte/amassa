@@ -453,7 +453,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ORC-13 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-14 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-15 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| ORC-16 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-16 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-17 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-18 | Phase 04.5 — Financeiro, parte 2 | Complete |
 

@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-12-PLAN.md
-last_updated: "2026-09-27T02:31:37.301Z"
+stopped_at: Completed 04.5-13-PLAN.md Tarefas 1-2 (automatico); Tarefas 3-4 aguardam o dono — fase permanece em execucao
+last_updated: "2026-09-27T04:14:25.374Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 76
+  completed_plans: 77
 current_phase: 04.5
 last_activity: 2026-09-27
-last_activity_desc: "Fase 04.5 em execucao: 12 de 13 planos prontos (aprovação — a venda e a encomenda, numa transação só) — dono ausente, execução autônoma até parada segura"
+last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migração 0021/WINDOWS #44, varredura completa, imagem conferida, roteiro 13 e verificação humana prontos) — dono ausente, fase aguarda ele aplicar as migrações e percorrer a verificação humana"
 ---
 
 # Project State
@@ -23,12 +23,15 @@ last_activity_desc: "Fase 04.5 em execucao: 12 de 13 planos prontos (aprovação
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-12 executados e verificados; 1 plano restante
+**Current focus:** Fase 04.5 — Financeiro, parte 2: 13/13 planos executados; fase aberta até o dono aplicar as migrações e percorrer a verificação humana
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 12 de 13
-concluído em 2026-09-27.
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **13 de 13 planos executados**
+em 2026-09-27. A fase **não fecha por contagem de planos**: falta o dono aplicar o Roteiro 12
+(fotos) e o Roteiro 13 (migrações `0017`-`0021`) em produção e percorrer
+`.planning/phases/04.5-financeiro-parte-2/04.5-VERIFICACAO-HUMANA.md` no celular. Ver
+`04.5-13-SUMMARY.md`, seção "O que fica para o dono, e em que ordem".
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
 semente ilustrativa) versionadas — **não aplicadas em produção**, ficam para o plano 13, depois de
@@ -281,7 +284,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 97% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [██████████] 99% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -386,6 +389,7 @@ Progress: [██████████] 97% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P10 | ~3h | 4 tasks | 15 files |
 | Phase 04.5 P11 | ~2h30 | 4 tasks | 23 files |
 | Phase 04.5 P12 | ~3h30 | 3 tasks | 18 files |
+| Phase 04.5 P13 | ~3h30min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -612,6 +616,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.5-11: docker/Dockerfile ganhou COPY .../assets ./assets no estagio app — as fontes do PDF sao lidas em tempo de execucao e o rastreador de arquivos do next build nao as enxerga sozinho (mesma classe do Pitfall 3 do sharp)
 - [Phase ?]: Plano 12: categoria 'Encomendas' achada pelo nome (não por chave_do_sistema, que só aceita 'diferenca') — renomear a categoria em Cadastros faz a aprovação falhar com a frase genérica de D-25, nunca uma venda pela metade.
 - [Phase ?]: Plano 12: 'Ver venda no Financeiro'/o toast com o número da venda exigiram tocar app/(app)/financeiro/page.tsx, lib/financeiro/avisos.ts e listas-caixa.tsx — fora do files_modified do plano, mas necessários para os dois links do veredito navegarem de verdade (Regra 2).
+- [Phase ?]: WINDOWS #44 corrigido com migração nova 0021 (nunca editando 0019/D-33), recriando também o gatilho de 0020 para usar hoje_brasilia() em vez de current_date
+- [Phase ?]: Tres specs de e2e mutavam parametro global de precificacao sem restaurar (poluicao real entre arquivos); corrigido com test.afterAll restaurando direto no banco em cada um
 
 ### Pending Todos
 
@@ -684,7 +690,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T02:30:59.627Z
-Stopped at: Completed 04.5-12-PLAN.md
+Last session: 2026-09-27T04:14:25.271Z
+Stopped at: Completed 04.5-13-PLAN.md Tarefas 1-2 (automatico); Tarefas 3-4 aguardam o dono — fase permanece em execucao
 "Atualizar preços")
 Resume file: None
