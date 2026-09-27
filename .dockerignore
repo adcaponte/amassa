@@ -16,6 +16,27 @@ coverage
 .env.*
 !.env.example
 
+# 🔴 As fotos dos orçamentos (Fase 04.5). Fora do contexto de build por DOIS motivos, e o
+# primeiro é o grave:
+#
+# (1) PRIVACIDADE. Fora de contêiner — `npm run dev`, o e2e local —, `diretorioDeFotos()`
+#     (lib/orcamentos/caminho-fotos.ts) cai em `.dados/fotos-orcamentos` DENTRO do repositório.
+#     O `.gitignore` impede que isso vá para o GitHub, mas o `.gitignore` não vale para o
+#     contexto de build do Docker: sem a linha abaixo, um `docker build` feito numa máquina que
+#     rodou a aplicação de verdade empacota as fotos de clientes numa imagem que é PÚBLICA no
+#     GHCR. É a mesma regra do `.env` logo acima, aplicada a dado de pessoa em vez de segredo.
+#
+# (2) Isso também fazia a imagem local DIVERGIR da imagem do CI, e a divergência escondeu um
+#     defeito: no CI (clone limpo) `/app/.dados` não existe e o processo, rodando como `nextjs`
+#     dentro de um `/app` que pertence a root, não consegue criá-lo — o primeiro envio de foto
+#     falha. Na máquina de desenvolvimento o diretório vinha junto no contexto, já com o dono
+#     certo, e tudo parecia funcionar. Medido em 2026-09-27, depois de o pipeline do commit
+#     `bb39df4` reprovar `orcamentos-fotos.spec.ts` e `orcamentos-pdf.spec.ts` nas três
+#     tentativas. A correção de verdade é o `ENV CAMINHO_FOTOS` do `docker/Dockerfile`; esta
+#     linha garante que a imagem local e a do CI sejam a MESMA, para o próximo defeito desse
+#     tipo aparecer aqui e não só lá.
+.dados
+
 # Sistema operacional e editor
 .DS_Store
 Thumbs.db
