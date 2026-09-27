@@ -545,6 +545,7 @@ export async function EditorOrcamento({
               documentoId={orcamento.documentoId}
               documentoNumero={orcamento.documentoNumero}
               encomendaId={orcamento.encomendaId}
+              encomendaStatus={orcamento.encomendaStatus}
               vendaCancelada={orcamento.vendaCancelada}
             />
 

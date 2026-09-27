@@ -7,7 +7,7 @@
 // linha quando o relógio vira: exatamente o tipo de trabalho agendado que o projeto decidiu não
 // ter (nenhum worker/cron além do backup). `situacaoDoOrcamento` é a ÚNICA função que decide o
 // chip (key_link do plano) — lista, editor e, mais adiante, o documento do cliente leem dela.
-import type { orcamentos } from "@/db/schema";
+import type { encomendas, orcamentos } from "@/db/schema";
 
 type StatusOrcamento = (typeof orcamentos.status.enumValues)[number];
 
@@ -79,4 +79,57 @@ export function situacaoDoOrcamento(
   return dias < 0
     ? { semantica: "erro", rotulo: rotuloEnviado(dias) }
     : { semantica: "atencao", rotulo: rotuloEnviado(dias) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// O veredito da aprovação (04.5-14, achado 14 da verificação humana).
+//
+// O bloco do orçamento aprovado afirmava "e ordem aberta na Produção" sempre que
+// `orcamentos.encomenda_id` não era nulo — um booleano chamado `ordemAberta` que respondia
+// "o id existe?", nunca "a ordem está aberta?". Cancelada a encomenda, o orçamento seguia em
+// verde anunciando uma ordem que a Produção já tinha mandado para o histórico.
+//
+// A decisão vive aqui, em módulo puro, e não dentro do componente: é regra de negócio ("o que
+// este orçamento ainda pode afirmar?"), não desenho de tela. O componente só escolhe as classes
+// a partir da `semantica`, como o chip já faz com `situacaoDoOrcamento`.
+
+// Exportado: o status da ordem atravessa consulta → barra de ações → veredito, e repetir a
+// expressão `(typeof encomendas.status.enumValues)[number]` em cada camada é como duas verdades
+// nascem. `import type` em toda parte — nada de `@/db/schema` no pacote do cliente.
+export type StatusEncomenda = (typeof encomendas.status.enumValues)[number];
+
+export type VereditoDaAprovacao = {
+  // Só verdadeiro enquanto a ordem existir E não tiver sido cancelada nem concluída — é o que
+  // a frase do veredito tem o direito de afirmar.
+  ordemAberta: boolean;
+  // A ordem foi cancelada na Produção: o orçamento continua aprovado, mas ganha a linha de
+  // aviso. Concluída NÃO é isto — uma ordem concluída é um fim feliz, só não é mais "aberta".
+  ordemCancelada: boolean;
+  // "sucesso" só enquanto nada do que o veredito afirma foi desfeito. Venda cancelada OU ordem
+  // cancelada rebaixam o bloco para "atencao": um bloco verde afirmando uma coisa com um aviso
+  // desmentindo logo abaixo é o defeito, não a solução.
+  semantica: "sucesso" | "atencao";
+};
+
+export function vereditoDaAprovacao(entrada: {
+  encomendaId: string | null;
+  // `null` quando não há encomenda vinculada. Com `encomenda_id` preenchido o status sempre
+  // existe (a chave estrangeira não permite apagar a encomenda referenciada); um `null` aqui é
+  // tratado como "não dá para afirmar que está aberta" — nunca como "está".
+  encomendaStatus: StatusEncomenda | null;
+  vendaCancelada: boolean;
+}): VereditoDaAprovacao {
+  const temOrdem = entrada.encomendaId !== null;
+  const ordemCancelada = temOrdem && entrada.encomendaStatus === "cancelada";
+  const ordemAberta =
+    temOrdem &&
+    entrada.encomendaStatus !== null &&
+    entrada.encomendaStatus !== "cancelada" &&
+    entrada.encomendaStatus !== "concluida";
+
+  return {
+    ordemAberta,
+    ordemCancelada,
+    semantica: entrada.vendaCancelada || ordemCancelada ? "atencao" : "sucesso",
+  };
 }

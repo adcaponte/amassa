@@ -471,8 +471,13 @@ export function toastAprovado(numeroDaVenda: number, ordemAberta: boolean): stri
   return `Venda ${numeroDaVenda} criada no Financeiro${ordemAberta ? " e ordem aberta na Produção" : ""}.`;
 }
 
-// O veredito (bloco verde) do orçamento aprovado — herdado do protótipo, mais os dois links novos
+// O veredito do orçamento aprovado — herdado do protótipo, mais os dois links novos
 // (04.5-UI-SPEC.md, Assunção 6).
+//
+// 🔴 `ordemAberta` responde "a ordem de produção está aberta?", NUNCA "existe um id de
+// encomenda?" — as duas perguntas foram confundidas até a 04.5-14, e era por isso que um
+// orçamento cujo cliente desistiu seguia anunciando uma ordem que a Produção já tinha
+// cancelado. Quem decide o valor é `vereditoDaAprovacao` (lib/orcamentos/situacao.ts).
 export function textoVeredito(numeroDaVenda: number, ordemAberta: boolean): string {
   return `Aprovado. Venda nº ${numeroDaVenda} criada no Financeiro${ordemAberta ? " e ordem aberta na Produção" : ""}.`;
 }
@@ -484,6 +489,13 @@ export const ROTULO_VER_ENCOMENDA_NA_PRODUCAO = "Ver encomenda na Produção";
 // aprovado.
 export const FRASE_VENDA_CANCELADA_AVISO =
   "A venda criada a partir deste orçamento foi cancelada. O orçamento continua aprovado.";
+
+// Aviso — ENCOMENDA cancelada, visto do orçamento (04.5-14, o lado do critério 14 que faltava).
+// Irmão da frase acima, e pela mesma razão: dizer o que aconteceu, onde aconteceu, e o que NÃO
+// aconteceu. O dono cancelou na Produção e o orçamento seguia em verde dizendo "ordem aberta" —
+// a frase existe para que ele nunca precise adivinhar se perdeu alguma coisa.
+export const FRASE_ENCOMENDA_CANCELADA_AVISO =
+  "A encomenda criada a partir deste orçamento foi cancelada na Produção. O orçamento continua aprovado, e nada foi apagado.";
 
 // "Criado a partir do orçamento {número}" — a linha de origem que aparece no documento do
 // Financeiro e na encomenda (04.5-UI-SPEC.md, Assunção 6).

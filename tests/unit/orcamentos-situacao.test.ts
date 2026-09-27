@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { diasDeValidadeRestantes, situacaoDoOrcamento } from "@/lib/orcamentos/situacao";
+import {
+  diasDeValidadeRestantes,
+  situacaoDoOrcamento,
+  vereditoDaAprovacao,
+} from "@/lib/orcamentos/situacao";
 
 // 04.5-08-PLAN.md, Tarefa 1 — "como a expiração se calcula": `situacaoDoOrcamento` é a ÚNICA
 // função que decide o chip (D-22, expirado é DERIVADO, nunca um status gravado). Nenhum dado real
@@ -55,5 +59,58 @@ describe("diasDeValidadeRestantes", () => {
 
   it("atravessa virada de mês corretamente", () => {
     expect(diasDeValidadeRestantes("2026-09-25", 10, "2026-10-01")).toBe(4);
+  });
+});
+
+// 04.5-14, achado 14 da verificação humana: "na produção ela fica cancelada e vai pro historico,
+// mas tambem segue em verde com 'ordem aberta na Produção'". A pergunta que o veredito fazia era
+// "o id existe?"; a que ele precisava fazer é "a ordem está aberta?".
+describe("vereditoDaAprovacao", () => {
+  const ID = "11111111-1111-1111-1111-111111111111";
+
+  it("sem encomenda vinculada, não há ordem para afirmar — e o bloco continua verde", () => {
+    expect(vereditoDaAprovacao({ encomendaId: null, encomendaStatus: null, vendaCancelada: false })).toEqual({
+      ordemAberta: false,
+      ordemCancelada: false,
+      semantica: "sucesso",
+    });
+  });
+
+  it("encomenda em produção: a ordem está aberta e o bloco é verde", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "em_producao", vendaCancelada: false }),
+    ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "sucesso" });
+  });
+
+  it("🔴 encomenda cancelada: a ordem NÃO está aberta, e o bloco deixa de ser verde", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "cancelada", vendaCancelada: false }),
+    ).toEqual({ ordemAberta: false, ordemCancelada: true, semantica: "atencao" });
+  });
+
+  it("encomenda concluída: a ordem não está mais aberta, mas isso não é um aviso — é um fim feliz", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "concluida", vendaCancelada: false }),
+    ).toEqual({ ordemAberta: false, ordemCancelada: false, semantica: "sucesso" });
+  });
+
+  it("encomenda em rascunho conta como aberta — não foi cancelada nem concluída", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "rascunho", vendaCancelada: false }),
+    ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "sucesso" });
+  });
+
+  it("venda cancelada sozinha já rebaixa o bloco, mesmo com a ordem aberta (D-25)", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "em_producao", vendaCancelada: true }),
+    ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "atencao" });
+  });
+
+  it("id sem status conhecido nunca é tratado como aberta", () => {
+    expect(vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: null, vendaCancelada: false })).toEqual({
+      ordemAberta: false,
+      ordemCancelada: false,
+      semantica: "sucesso",
+    });
   });
 });

@@ -244,7 +244,12 @@ export async function cancelarEncomenda(
     return { ok: false, erro: MENSAGEM_ENCOMENDA_NAO_EXISTE };
   }
 
+  // O editor do orçamento vive em /financeiro (?aba=orcamentos&orcamento=<id>) e mostra o
+  // estado desta encomenda no veredito da aprovação (04.5-14). Sem revalidar aqui, aquela
+  // tela continuaria servindo a árvore antiga — verde, dizendo "ordem aberta na Produção" —
+  // mesmo com a consulta já corrigida.
   revalidatePath("/encomendas");
+  revalidatePath("/financeiro");
   revalidatePath("/encomendas/[id]", "page");
   return { ok: true, dados: { nome: linha.nome } };
 }

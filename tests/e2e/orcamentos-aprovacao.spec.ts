@@ -402,4 +402,74 @@ test.describe("orcamentos aprovacao", () => {
     expect(caixaDoCheckbox!.height).toBeGreaterThanOrEqual(44);
     expect(caixaDoCheckbox!.width).toBeGreaterThanOrEqual(44);
   });
+
+  // 04.5-14-PLAN.md — o achado 14 da verificação humana: "na produção ela fica cancelada e vai
+  // pro historico, mas tambem segue em verde com 'ordem aberta na Produção'". O irmão do caso
+  // (f) acima, do outro lado do vínculo: lá a VENDA é cancelada, aqui a ENCOMENDA. Este lado do
+  // critério 14 nunca foi implementado — `textoVeredito` recebia `encomendaId !== null`, que
+  // responde "o id existe?", nunca "a ordem está aberta?".
+  test("(j) 🔴 cancelar a ENCOMENDA na Produção tira o 'ordem aberta' do veredito e avisa — o orçamento continua aprovado", async ({
+    page,
+  }) => {
+    const sufDaOrdem = sufixoUnico();
+    await fazerLogin(page);
+
+    const orcamentoId4 = await criarOrcamento(page);
+    await preencherCliente(page, orcamentoId4, `[e2e] Cliente Ordem Cancelada ${sufDaOrdem}`);
+    await acrescentarPecaExclusiva(page, orcamentoId4, `[e2e] Ordem Cancelada Caneca ${sufDaOrdem}`, "70");
+    await marcarComoEnviado(page);
+
+    await abrirAprovacao(page);
+    await expect(page.getByTestId("aprovar-ordem")).toBeChecked();
+    await page.getByRole("button", { name: "Criar" }).click();
+    await expect(page.getByTestId("orcamento-chip").first()).toHaveText("aprovado", { timeout: 15000 });
+
+    // Antes: a ordem existe e está aberta — o veredito pode dizer isso, e é verde.
+    const bloco = page.getByTestId("orcamento-aviso-aprovado");
+    await expect(bloco).toContainText("ordem aberta na Produção");
+    const hrefDaEncomenda = (await page.getByTestId("veredito-ver-encomenda").getAttribute("href")) ?? "";
+    expect(hrefDaEncomenda).toMatch(/^\/encomendas\//);
+
+    // Cancela pela tela real da Produção — o caminho do dono, nunca uma escrita direta no banco.
+    // Duplo clique defensivo pelo mesmo motivo de `encomendas-filtros.spec.ts::cancelarViaDetalhe`:
+    // o primeiro clique pode chegar antes da hidratação anexar o `onClick`.
+    await page.goto(hrefDaEncomenda);
+    const botaoCancelar = page.getByRole("button", { name: "Cancelar encomenda" });
+    const dialogoCancelar = page.getByRole("alertdialog");
+    await botaoCancelar.click();
+    const dialogoAbriu = await dialogoCancelar
+      .waitFor({ state: "visible", timeout: 3000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!dialogoAbriu) {
+      await botaoCancelar.click();
+    }
+    await dialogoCancelar.getByRole("button", { name: "Cancelar encomenda" }).click();
+    await expect(page.getByText("Encomenda cancelada.")).toBeVisible();
+    await expect(page.locator("body")).toContainText("Cancelada", { timeout: 10000 });
+
+    // Depois: o orçamento continua aprovado, e o veredito para de afirmar uma ordem que a
+    // Produção já não tem aberta.
+    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId4}`);
+    await expect(page.getByTestId("orcamento-chip").first()).toHaveText("aprovado");
+
+    const blocoDepois = page.getByTestId("orcamento-aviso-aprovado");
+    await expect(blocoDepois).not.toContainText("ordem aberta na Produção");
+    await expect(blocoDepois).toContainText("criada no Financeiro");
+
+    const aviso = page.getByTestId("orcamento-aviso-encomenda-cancelada");
+    await expect(aviso).toBeVisible();
+    await expect(aviso).toHaveText(
+      "A encomenda criada a partir deste orçamento foi cancelada na Produção. O orçamento continua aprovado, e nada foi apagado.",
+    );
+
+    // E deixa de ser verde: um bloco de "sucesso" afirmando uma coisa com um aviso desmentindo
+    // logo abaixo é o defeito, não a solução.
+    await expect(blocoDepois).not.toHaveClass(/bg-sucesso-fundo/);
+    await expect(blocoDepois).toHaveClass(/bg-atencao-fundo/);
+
+    // A VENDA não foi cancelada — o aviso dela não aparece, e o link para ela continua válido.
+    await expect(page.getByTestId("orcamento-aviso-venda-cancelada")).toHaveCount(0);
+    await expect(page.getByTestId("veredito-ver-venda")).toBeVisible();
+  });
 });

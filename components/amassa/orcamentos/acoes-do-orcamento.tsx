@@ -21,6 +21,8 @@ import {
   ROTULO_VER_COMO_CLIENTE_VE,
   ROTULO_VOLTAR_PARA_RASCUNHO,
 } from "@/lib/orcamentos/textos";
+import type { StatusEncomenda } from "@/lib/orcamentos/situacao";
+
 import { VereditoDaAprovacao } from "./veredito-da-aprovacao";
 
 export type AcoesDoOrcamentoProps = {
@@ -34,6 +36,9 @@ export type AcoesDoOrcamentoProps = {
   documentoId: string | null;
   documentoNumero: number | null;
   encomendaId: string | null;
+  // O ESTADO da ordem vinculada (04.5-14) — só repassado adiante; quem decide o que ele
+  // significa é `vereditoDaAprovacao` (lib/orcamentos/situacao.ts), nunca esta barra.
+  encomendaStatus: StatusEncomenda | null;
   vendaCancelada: boolean;
 };
 
@@ -56,6 +61,7 @@ export function AcoesDoOrcamento({
   documentoId,
   documentoNumero,
   encomendaId,
+  encomendaStatus,
   vendaCancelada,
 }: AcoesDoOrcamentoProps) {
   const [emAndamento, setEmAndamento] = useState<AcaoEmAndamento>(null);
@@ -239,6 +245,7 @@ export function AcoesDoOrcamento({
           documentoId={documentoId}
           documentoNumero={documentoNumero}
           encomendaId={encomendaId}
+          encomendaStatus={encomendaStatus}
           vendaCancelada={vendaCancelada}
         />
       )}

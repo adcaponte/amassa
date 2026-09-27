@@ -6,6 +6,7 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   documentos,
+  encomendas,
   fichasPrecificacao,
   orcamentoFotos,
   orcamentoLinhas,
@@ -15,6 +16,7 @@ import {
 } from "@/db/schema";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import type { PlanoDePagamentoDoOrcamento } from "@/lib/orcamentos/plano";
+import type { StatusEncomenda } from "@/lib/orcamentos/situacao";
 
 export type OrcamentoParaLista = {
   id: string;
@@ -125,6 +127,12 @@ export type OrcamentoParaEdicao = {
   documentoNumero: number | null;
   vendaCancelada: boolean;
   encomendaId: string | null;
+  // O ESTADO da ordem de produção, não só a existência do id (04.5-14, achado 14 da verificação
+  // humana). `null` quando não há encomenda vinculada. Sem esta coluna o veredito afirmava
+  // "ordem aberta na Produção" para uma encomenda cancelada — `encomendas.status` não era lido
+  // em lugar nenhum deste caminho. Quem interpreta é `vereditoDaAprovacao`
+  // (lib/orcamentos/situacao.ts), nunca a tela.
+  encomendaStatus: StatusEncomenda | null;
 };
 
 // O orçamento, as linhas com a ficha de cada uma, os custos de projeto e o estado da venda
@@ -153,9 +161,13 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
       documentoNumero: documentos.numero,
       documentoCanceladoEm: documentos.canceladoEm,
       encomendaId: orcamentos.encomendaId,
+      encomendaStatus: encomendas.status,
     })
     .from(orcamentos)
     .leftJoin(documentos, eq(documentos.id, orcamentos.documentoId))
+    // Mesmo molde do `leftJoin` com `documentos` logo acima, e pelo mesmo motivo: o estado da
+    // ordem vinculada na MESMA consulta, nunca uma segunda ida ao banco (04.5-14).
+    .leftJoin(encomendas, eq(encomendas.id, orcamentos.encomendaId))
     .where(eq(orcamentos.id, id))
     .limit(1);
 
