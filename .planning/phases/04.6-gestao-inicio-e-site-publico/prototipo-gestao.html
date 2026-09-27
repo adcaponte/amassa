@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Início AMASSA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --fundo:#F6F3F0;--sup:#FFFFFF;--sup2:#EFEAE5;--borda:#E8E2DC;--borda-f:#D8CFC7;
+  --tinta:#1D2221;--tinta-m:#5A4C44;--tinta-f:#6E5F56;
+  --acento:#894025;--acento-h:#5B2916;--acento-fundo:#F3EDE9;--destaque:#FFBD59;
+  --ok:#15803D;--ok-f:#DCFCE7;--at:#B45309;--at-f:#FEF3C7;--erro:#B91C1C;--erro-f:#FEE2E2;
+  --cafeteria:#8B6F47;--secagem:#A8946B;--esmaltacao:#2E7D8C;--espera:#6E5F56;--espaco:#2E7D8C;--pecas:#C2451B;--loja:#5B7553;--geral:#6E5F56;
+  --r-sm:6px;--r:10px;--r-lg:14px;
+}
+*{box-sizing:border-box}button{color:var(--tinta)}[hidden]{display:none!important}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo Narrow",Inter,sans-serif;margin:0;text-wrap:balance}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:16px 120px}
+.num{font-variant-numeric:tabular-nums}
+header.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+header.top h1{font-size:26px}
+header.top .sub{font-size:13px;color:var(--tinta-f)}
+.aviso{font-size:13px;color:var(--tinta-m);background:var(--acento-fundo);border:1px solid var(--borda);border-radius:var(--r);padding:8px 12px;margin-bottom:14px}
+.aviso button{font:inherit;font-size:13px;color:var(--acento);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+
+/* abas */
+nav.abas{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--sup);border-top:1px solid var(--borda-f);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.abas button{flex:1 1 0;max-width:160px;min-height:58px;border:0;background:none;font:600 13px Inter,sans-serif;color:var(--tinta-f);cursor:pointer;border-top:3px solid transparent}
+nav.abas button[aria-current="page"]{color:var(--acento);border-top-color:var(--acento)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+/* blocos */
+.duas{display:grid;gap:16px}.duas>*{min-width:0}
+@media(min-width:880px){.duas{grid-template-columns:1.15fr 1fr;align-items:start}}
+.bloco{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:12px}
+.bloco h2{font-size:19px}
+.bloco h3{font-size:15px;color:var(--tinta-m);letter-spacing:.04em;text-transform:uppercase}
+.dica{font-size:13px;color:var(--tinta-f);margin:0}
+.campos{display:flex;gap:10px;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:3px;flex:1 1 140px;font-size:12.5px;color:var(--tinta-m);font-weight:500}
+input,select{font:16px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:9px 10px;min-height:44px;width:100%}
+input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--acento)}
+.pilulas{display:flex;gap:6px;flex-wrap:wrap}
+.pil{font:500 13.5px Inter,sans-serif;min-height:38px;padding:6px 13px;border-radius:999px;border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta-m);cursor:pointer}
+.pil[aria-pressed=true]{background:var(--acento);border-color:var(--acento);color:#fff}
+.pil.ex{border-style:dashed;font-size:12.5px;min-height:34px}
+.btn{font:600 15px Inter,sans-serif;min-height:46px;padding:10px 16px;border-radius:var(--r);border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta);cursor:pointer}
+.btn.pri{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.pri:hover{background:var(--acento-h)}
+.btn.pri:disabled{background:var(--borda-f);border-color:var(--borda-f);color:var(--tinta-f);cursor:not-allowed}
+.btn.mini{min-height:38px;padding:6px 12px;font-size:13.5px}
+.btn.perigo{color:var(--erro);border-color:var(--erro)}
+
+/* catálogo em grade */
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px}
+.item{color:var(--tinta);text-align:left;border:1px solid var(--borda);border-left:4px solid var(--c,var(--borda-f));background:var(--sup);border-radius:var(--r);padding:9px 10px;min-height:64px;cursor:pointer;font:inherit;display:flex;flex-direction:column;justify-content:space-between;gap:2px}
+.item:active{background:var(--acento-fundo)}
+.item b{font-size:14px;font-weight:600;line-height:1.25}
+.item span{font-size:13px;color:var(--tinta-f)}
+
+.li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;border-bottom:1px solid var(--borda)}
+.li:last-child{border-bottom:0}
+.li .pega{display:flex;align-items:center;gap:8px;text-align:left;font:inherit;font-size:15px;font-weight:500;background:none;border:0;min-height:48px;cursor:pointer;color:var(--tinta);padding:0}
+.li .pr{font-size:13.5px;color:var(--tinta-f)}
+.li .estrela{width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--borda-f)}
+.li .estrela[aria-pressed=true]{color:var(--at)}
+.vermini{font:inherit;font-size:12.5px;color:var(--acento);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;min-height:28px}
+.apos{font-size:12.5px;color:var(--tinta-f);text-align:right}
+/* linhas do carrinho */
+.linhas{display:flex;flex-direction:column}
+.ln{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--borda)}
+.ln .nome{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px}
+.ponto{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.ln .sub{font-weight:600;text-align:right}
+.ln .ctrl{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.passo{display:flex;align-items:center;border:1px solid var(--borda-f);border-radius:var(--r-sm);overflow:hidden}
+.passo button{width:44px;height:44px;border:0;background:var(--sup2);font-size:20px;cursor:pointer;color:var(--tinta)}
+.passo output{min-width:40px;text-align:center;font-weight:600}
+.ctrl input{width:104px}
+.ctrl .x{margin-left:auto;border:0;background:none;color:var(--tinta-f);font-size:13px;text-decoration:underline;cursor:pointer;min-height:44px}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-family:"Archivo Narrow",sans-serif;font-size:26px;font-weight:700}
+.vazio{color:var(--tinta-f);font-size:14px;padding:14px 0;text-align:center}
+.parc{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;font-size:13px;color:var(--tinta-m)}
+.parc label{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.falta{font-size:13.5px;color:var(--erro);background:var(--erro-f);border-radius:var(--r-sm);padding:6px 10px}
+details.est{font-size:13.5px;color:var(--tinta-m);border:1px dashed var(--borda-f);border-radius:var(--r);padding:8px 12px}
+details.est summary{cursor:pointer;font-weight:600}
+details.est ul{margin:6px 0 0;padding-left:18px}
+
+/* caixa */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:12px 14px}
+.tile small{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-f);font-weight:600}
+.tile strong{font-family:"Archivo Narrow",sans-serif;font-size:26px}
+.tile.saldo{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.tile.saldo small{color:#D8CFC7}
+.conta{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--borda);align-items:center}
+.conta:last-child,.ln:last-child{border-bottom:0}
+.conta .t{font-weight:600;font-size:15px}
+.conta .d{font-size:13px;color:var(--tinta-f);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.conta .v{font-weight:600;text-align:right}
+.conta .acoes{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.conta.foco{background:var(--at-f);margin-inline:-14px;padding-inline:14px}
+.conta.canc .t,.conta.canc .v{text-decoration:line-through;color:var(--tinta-f)}
+.tag{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--sup2);color:var(--tinta-m)}
+.tag.venc{background:var(--erro-f);color:var(--erro)}
+.tag.ok{background:var(--ok-f);color:var(--ok)}
+.pos{color:var(--ok)}.neg{color:var(--erro)}
+
+/* mês */
+.mes-nav{display:flex;align-items:center;gap:10px}
+.mes-nav h2{min-width:150px;text-align:center}
+.tabela{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--tinta-f);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--borda-f)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 8px;border-bottom:1px solid var(--borda);text-align:right;white-space:nowrap}
+td:first-child{font-weight:600}
+@media(max-width:480px){table{font-size:13px}th,td{padding-inline:4px}th{font-size:11px;letter-spacing:0}}
+tfoot td{font-weight:700;border-bottom:0}
+.regua{display:flex;flex-direction:column;gap:8px}
+.regua .rot{display:flex;justify-content:space-between;font-size:13px;color:var(--tinta-m)}
+.barra{display:flex;height:22px;border-radius:var(--r-sm);overflow:hidden;background:var(--sup2)}
+.barra i{display:block;height:100%}
+.veredito{font-size:15px;font-weight:600;padding:10px 12px;border-radius:var(--r)}
+.veredito.bom{background:var(--ok-f);color:var(--ok)}
+.veredito.ruim{background:var(--erro-f);color:var(--erro)}
+.lista-simples{display:flex;flex-direction:column}
+.lista-simples div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--borda);font-size:14.5px}
+.lista-simples div:last-child{border-bottom:0}
+
+/* folha e toast */
+#veu{position:fixed;inset:0;background:rgba(29,34,33,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+#folha{background:var(--sup);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+@media(min-width:700px){#veu{align-items:center}#folha{border-radius:18px}}
+#folha h2{font-size:21px}
+.rodape{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom,0px));background:var(--tinta);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;z-index:40;max-width:calc(100% - 32px)}
+@media(prefers-reduced-motion:no-preference){#toast{transition:opacity .2s}}
+
+.casca{display:block}
+.lateral{display:none}
+header.topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+header.topo h1{font-size:24px}
+.avatar{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--borda-f);background:var(--sup);font:600 16px Inter,sans-serif;cursor:pointer}
+.sauda{font-family:"Archivo Narrow",sans-serif;font-size:26px;font-weight:700;margin:0 0 14px;line-height:1.15}
+.sauda span{display:block;font:500 13px Inter,sans-serif;color:var(--tinta-f);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.dia{display:grid;gap:14px}
+@media(min-width:900px){.dia{grid-template-columns:1fr 1fr;align-items:start}}
+.dia>*{min-width:0}
+.cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ocup{display:flex;justify-content:space-between;font-size:13.5px;color:var(--tinta-m);background:var(--acento-fundo);border-radius:var(--r-sm);padding:7px 10px}
+.ev{display:grid;grid-template-columns:58px 1fr;gap:10px;padding:9px 0 9px 10px;border-left:4px solid var(--espaco);border-bottom:1px solid var(--borda)}
+.ev.aula{border-left-color:var(--acento)}
+.ev:last-child{border-bottom:0}
+.ev .hora{font-weight:600;font-size:15px}
+.ev small{display:block;font-weight:400;font-size:12.5px;color:var(--tinta-f)}
+.ev .oq b{font-weight:600;font-size:15px}
+textarea{font:16px/1.5 Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:10px;width:100%;resize:vertical;min-height:120px}
+textarea:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+.sec{font-size:15px;color:var(--tinta-m);letter-spacing:.05em;text-transform:uppercase;margin:24px 0 10px}
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.mod{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;min-height:118px;cursor:pointer;font:inherit;color:var(--tinta)}
+.mod svg{color:var(--acento);margin-bottom:4px}
+.mod b{font-family:"Archivo Narrow",sans-serif;font-size:18px}
+.mod span{font-size:12.5px;color:var(--tinta-f);line-height:1.35}
+.mod.futuro{border-style:dashed;background:none;cursor:default}
+.mod.futuro svg,.mod.futuro b{color:var(--tinta-f)}
+nav.abas button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px}
+@media(min-width:900px){
+ nav.abas{display:none}
+ .casca{display:grid;grid-template-columns:220px 1fr}
+ .lateral{display:flex;flex-direction:column;gap:4px;padding:18px 12px;border-right:1px solid var(--borda);min-height:100vh;position:sticky;top:0;align-self:start}
+ .lateral .marca{font-family:"Archivo Narrow",sans-serif;font-weight:700;font-size:18px;letter-spacing:.06em;padding:0 10px 12px}
+ .lateral button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 10px;border:0;border-radius:var(--r);background:none;font:500 15px Inter,sans-serif;cursor:pointer;color:var(--tinta-m)}
+ .lateral button[aria-current=page]{background:var(--sup2);color:var(--acento)}
+ .wrap{padding-block:18px 40px}
+}
+</style>
+
+</head>
+<body>
+<div class="casca">
+  <aside class="lateral" id="lateral"></aside>
+  <div class="wrap">
+    <header class="topo"><div><h1 id="titulo">Início</h1><span class="sub" id="subt"></span></div><button type="button" class="avatar" data-a="menu" aria-label="menu do usuário">T</button></header>
+    <main id="tela"></main>
+  </div>
+</div>
+<nav class="abas" id="abas" aria-label="Principal"></nav>
+<div id="veu" hidden><div id="folha" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const brl=n=>(+n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const IC={inicio:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',financeiro:'<circle cx="12" cy="12" r="9"/><path d="M15 9.2c-.6-1-1.7-1.5-3-1.5-1.8 0-3 .9-3 2.2 0 3 6 1.500 6 4.300 0 1.300-1.300 2.200-3 2.200-1.400 0-2.600-.600-3.200-1.600M12 5.800v12.400"/>',producao:'<path d="M5 8h14l-1.500 9a3 3 0 0 1-3 2.500h-5A3 3 0 0 1 6.500 17z"/><path d="M8 8c0-2.200 1.800-4 4-4s4 1.800 4 4"/>',agenda:'<rect x="3.500" y="5" width="17" height="15" rx="2"/><path d="M3.500 10h17M8 3v4M16 3v4"/>',queimas:'<path d="M12 3c1 3.500 5 5.500 5 10a5 5 0 0 1-10 0c0-2 1-3.500 2-4.500.300 1.700 1 2.500 2 3 .500-3-.500-5.500 1-8.500z"/>',estoque:'<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',cadastros:'<path d="M5 6h14M5 12h14M5 18h9"/><circle cx="18.500" cy="18" r="1.500"/>',mais:'<path d="M12 6v12M6 12h12"/>'};
+const ic=k=>`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k].replace(/(\d)\.(\d)00/g,'$1.$2')}</svg>`;
+const MODS=[['financeiro','Financeiro','Venda, despesa, caixa, mês e orçamentos'],['producao','Produção','Encomendas e produção da casa'],['agenda','Agenda','Aulas, reservas e uso do espaço'],['queimas','Queimas','Fornadas e manutenção do forno'],['estoque','Estoque','Materiais, insumos e peças prontas'],['cadastros','Cadastros','Catálogo, pessoas, categorias, contas fixas, parâmetros']];
+const BARRA=['inicio','financeiro','producao','agenda'];
+const NOME={inicio:'Início',...Object.fromEntries(MODS.map(m=>[m[0],m[1]]))};
+let S={aba:'inicio',vazio:false,nota:'',sub:'Venda'};
+try{const n=localStorage.getItem('amassa-inicio-nota');if(n!==null)S.nota=n}catch(e){}
+
+const DIA={agenda:[['09:00','11:30','Aula · Modelagem, turma de quinta','6 de 8 lugares','aula'],['14:00','16:00','Uso livre · Marina','1 lugar · reservado','uso'],['14:30','17:00','Uso livre · casal de turistas','2 lugares · chegaram sem reserva','uso'],['19:00','21:00','Oficina · Pintura em cerâmica','5 de 8 lugares','aula']],
+ vence:[['pagar','Contabilidade · dezembro','vence hoje',350],['pagar','Financiamento · parcela 26 de 60','vence em 4 dias',1480],['receber','Sinal · Jogo de café da manhã','vence hoje',3075],['receber','Pacote trimestral · 2 de 3','venceu há 2 dias',300,1]],
+ prod:[['Xícaras com logo · Café da Praça','Secagem','vai para o biscoito em 3 dias','secagem'],['Jogo de café da manhã · Pousada do Rio','Aguardando sinal','começa quando o sinal entrar','espera'],['Canecas para a loja · produção da casa','Esmaltação','queima de esmalte amanhã','esmaltacao']],
+ estoque:[['Grão de café','380 g','mínimo 1 kg'],['Esmalte transparente','1 pote','mínimo 3'],['Argila 1 kg (loja)','4 un','mínimo 10']]};
+
+function bloco(t,acao,alvo,corpo,vazio){return `<section class="bloco"><div class="cab"><h2>${t}</h2>${acao?`<button type="button" class="vermini" data-a="ir" data-v="${alvo}">${acao}</button>`:''}</div>${corpo||`<p class="vazio">${vazio}</p>`}</section>`}
+function telaInicio(){const d=S.vazio?{agenda:[],vence:[],prod:[],estoque:[]}:DIA;
+  return `<p class="sauda">Olá, Theo. <span>Sexta, 18 de dezembro</span></p>
+  <div class="pilulas" style="margin-bottom:14px">${MODS.filter(m=>!BARRA.includes(m[0])).map(m=>`<button type="button" class="pil" data-a="ir" data-v="${m[0]}">${m[1]}</button>`).join('')}<a class="pil" href="#tudo" style="text-decoration:none;display:inline-flex;align-items:center;border-style:dashed">todos os módulos ↓</a></div>
+  <div class="dia">
+  ${bloco('Agenda de hoje','abrir agenda','agenda',d.agenda.length?`<div class="ocup"><span>Agora no espaço</span><b>3 de 10 lugares</b></div>`+d.agenda.map(a=>`<div class="ev ${a[4]}"><span class="hora num">${a[0]}<small>${a[1]}</small></span><span class="oq"><b>${a[2]}</b><small>${a[3]}</small></span></div>`).join(''):'','Nada marcado para hoje. O espaço está livre.')}
+  ${bloco('O que vence','abrir caixa','financeiro',d.vence.length?d.vence.map(v=>`<div class="conta"><span class="t">${v[1]}</span><span class="v num ${v[0]==='receber'?'pos':''}">${brl(v[3])}</span><span class="d"><span class="tag ${v[4]?'venc':''}">${v[0]==='pagar'?'a pagar':'a receber'}</span>${v[2]}</span><button type="button" class="btn mini" data-a="ir" data-v="financeiro">${v[0]==='pagar'?'Paguei':'Recebi'}</button></div>`).join(''):'','Nenhuma conta vence nos próximos 7 dias.')}
+  ${bloco('Produção','abrir produção','producao',d.prod.length?d.prod.map(p=>`<div class="conta"><span class="t">${p[0]}</span><span class="v"><span class="tag" style="background:var(--${p[3]});color:#fff">${p[1]}</span></span><span class="d">${p[2]}</span><span></span></div>`).join(''):'','Nenhuma ordem em andamento.')}
+  ${bloco('Estoque acabando','abrir estoque','estoque',d.estoque.length?d.estoque.map(e=>`<div class="conta"><span class="t">${e[0]}</span><span class="v num neg">${e[1]}</span><span class="d">${e[2]}</span><span></span></div>`).join(''):'','Nenhum material abaixo do mínimo.')}
+  <section class="bloco"><div class="cab"><h2>Anotações</h2><span class="dica" id="nota-est">${S.nota?'salvo':''}</span></div><textarea id="nota" rows="5" placeholder="Qualquer coisa: recado para a Andressa, lembrete de compra, ideia de peça…" data-nota="1">${esc(S.nota)}</textarea><p class="dica">Uma folha só, da casa: o que um escreve, o outro vê. Salva sozinha.</p></section>
+  </div>
+  <h2 class="sec" id="tudo">Tudo da plataforma</h2>
+  <div class="mods">${MODS.map(m=>`<button type="button" class="mod" data-a="ir" data-v="${m[0]}">${ic(m[0])}<b>${m[1]}</b><span>${m[2]}</span></button>`).join('')}<div class="mod futuro">${ic('mais')}<b>Próximos módulos</b><span>entram aqui, sem mexer na barra de baixo</span></div></div>
+  <div class="rodape" style="justify-content:flex-start;margin-top:18px"><button type="button" class="btn mini" data-a="vazio">${S.vazio?'Ver um dia cheio':'Ver como fica num dia vazio'}</button></div>`}
+function telaModulo(k){const fin=k==='financeiro';return `${fin?`<div class="pilulas" style="margin-bottom:12px">${['Venda','Despesa','Caixa','Mês','Orçamentos'].map(t=>`<button type="button" class="pil" aria-pressed="${S.sub===t}" data-a="sub" data-v="${t}">${t}</button>`).join('')}<button type="button" class="pil" style="border-style:dashed" data-a="ir" data-v="cadastros">Cadastros ↗</button></div>`:''}
+  <section class="bloco"><h2>${fin?S.sub:NOME[k]}</h2><p class="dica">${fin?'Aqui entra a tela "'+S.sub+'" do Financeiro, como nos protótipos já aprovados. "Financeiro" na barra abre sempre na Venda.':k==='cadastros'?'Catálogo · Pessoas · Categorias · Contas fixas · Taxas · Parâmetros de precificação. Um cadastro só para a plataforma inteira; fica fora da barra porque é de uso raro.':'Aqui entra o módulo '+NOME[k]+'. Este protótipo só mostra a navegação.'}</p>
+  ${BARRA.includes(k)?'':`<p class="dica">Este módulo não está na barra de baixo: chega-se a ele pelo Início (celular) ou pela barra lateral (computador).</p>`}</section>`}
+function desenhar(){const k=S.aba;$('#titulo').textContent=NOME[k];
+  $('#abas').innerHTML=BARRA.map(b=>`<button type="button" data-a="ir" data-v="${b}" ${k===b?'aria-current="page"':''}>${ic(b)}<span>${NOME[b]}</span></button>`).join('');
+  $('#lateral').innerHTML=`<div class="marca">AMASSA</div>${['inicio',...MODS.map(m=>m[0])].map(b=>`<button type="button" data-a="ir" data-v="${b}" ${k===b?'aria-current="page"':''}>${ic(b)}<span>${NOME[b]}</span></button>`).join('')}`;
+  $('#tela').innerHTML=k==='inicio'?telaInicio():telaModulo(k);window.scrollTo(0,0)}
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2600)}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b){if(e.target.id==='veu')$('#veu').hidden=true;return}const a=b.dataset.a,v=b.dataset.v;
+  if(a==='ir'){S.aba=v;if(v==='financeiro')S.sub='Venda';$('#veu').hidden=true}
+  else if(a==='sub')S.sub=v;else if(a==='vazio')S.vazio=!S.vazio;
+  else if(a==='menu'){$('#folha').innerHTML=`<h2>Theo</h2><div class="li"><button type="button" class="pega" data-a="fechar">Abertura do Espaço</button><span class="pr">até a inauguração</span><span></span></div><div class="li"><button type="button" class="pega" data-a="fechar">Trocar senha</button><span></span><span></span></div><div class="li"><button type="button" class="pega" data-a="fechar">Sair</button><span></span><span></span></div><p class="dica">A Abertura continua aqui, como hoje. Orçamentos saiu deste menu e foi para dentro do Financeiro.</p>`;$('#veu').hidden=false;return}
+  else if(a==='fechar'){$('#veu').hidden=true;return}
+  desenhar()});
+let tn;document.addEventListener('input',e=>{if(!e.target.dataset.nota)return;S.nota=e.target.value;$('#nota-est').textContent='salvando…';clearTimeout(tn);tn=setTimeout(()=>{try{localStorage.setItem('amassa-inicio-nota',S.nota)}catch(x){}$('#nota-est').textContent='salvo'},600)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#veu').hidden=true});
+desenhar();
+</script>
+
+</body>
+</html>

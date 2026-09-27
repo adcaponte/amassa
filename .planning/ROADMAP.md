@@ -49,6 +49,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.3: Comparador de Compras** (INSERTED) - Aba do módulo Abertura para comparar cotações de equipamentos lado a lado, compartilhada entre os gestores; arquivada (não apagada) quando a Abertura for desmontada (completed 2026-09-18)
 - [x] **Phase 04.4: Financeiro — parte 1** (INSERTED) - Venda, Compra, Caixa, Mês e Cadastros (completed 2026-09-26; verificada 9/9 + 17/17, migrações 0014-0016 em produção, conferida pelo dono no celular)
 - [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
+- [ ] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
@@ -589,6 +590,74 @@ Plans:
 - [x] 04.5-12-PLAN.md — Aprovação: venda e encomenda numa transação só, com os vínculos navegáveis nos dois sentidos
 - [x] 04.5-13-PLAN.md — Fechamento: varredura completa, conferência da imagem, roteiro 13 de migração e a verificação humana do dono
 - [x] 04.5-14-PLAN.md — Os dois achados da verificação humana (apagar peça exclusiva; veredito que dizia "ordem aberta" com a encomenda cancelada), as 25 respostas transcritas e o fechamento da fase
+
+**UI hint**: yes
+
+### Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público (INSERTED)
+
+**Goal**: Separar os dois públicos que hoje dividem o mesmo endereço. A plataforma inteira desce
+para `/gestao`, sem link a partir de lugar nenhum — acesso só por endereço. A raiz de
+`amassacerrado.com.br` passa a ser o **site público institucional**: página única, estática, que
+continua no ar mesmo se o Postgres cair. No caminho, a plataforma ganha o **Início de verdade**
+(resumo do dia, o que vence, produção, estoque e as anotações da casa) e a **navegação final**,
+que substitui a barra provisória da 04.4.
+
+**Especificação**: dois protótipos aprovados pelo dono, copiados para a pasta da fase —
+`prototipo-gestao.html` ("Início AMASSA", 2026-09-20) e `prototipo-site.html` ("AMASSA CERRADO",
+2026-09-26) — com os briefings `BRIEFING-gestao.md` e `BRIEFING-site.md` ao lado. **O protótipo
+vence sobre a interface; o briefing vence sobre regra de dado.** Todos os dados dos protótipos são
+inventados.
+
+**Decisões já tomadas (não reabrir)**:
+
+- **Sem "Em breve"** (2026-09-26): a página provisória foi cancelada. No lugar dela sobe o site
+  inteiro, com os dados entre colchetes e uma faixa "em construção" no topo.
+
+- **Conteúdo em arquivo, não no banco** (2026-09-26): os textos do site ficam num arquivo de
+  conteúdo versionado e as imagens em `public/site/`. Trocar texto ou foto é commit e deploy.
+  O cadastro editável pelo `/gestao` já tem protótipo e **fica para depois**.
+
+- **Sem calendário até a Agenda existir** (2026-09-26): a seção de aulas não inventa dado nem
+  expõe a agenda antiga.
+
+- **Rotas de saúde ficam onde estão**: `/api/health` e `/api/health/backup` continuam fora de
+  `/gestao` — o monitoramento externo aponta para elas.
+
+- **"Produção" é só o rótulo novo** de Encomendas nesta fase. A rota pode continuar
+  `/gestao/encomendas` até o redesenho da Produção decidir. Não antecipar nada dele.
+
+**Depends on:** Phase 04.5
+
+**Riscos conhecidos**: a mudança de rotas mexe em todas as telas, no proxy e na suíte inteira de
+testes — é o **primeiro plano da fase**, isolado, com a varredura e2e completa no fim dele. O
+precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em produção que
+`AUTH_URL`, `callbackUrl` e cookies levam o login de volta para dentro de `/gestao`.
+
+**Success Criteria**:
+
+1. Tudo que hoje responde na raiz responde em `/gestao`, e um endereço antigo salvo no celular
+   (`/encomendas`, `/financeiro`) cai no novo por redirecionamento explícito — sem coringa que
+   engula rota futura do site
+2. A raiz serve o site público sem ler sessão nem banco, e continua no ar com o Postgres derrubado
+3. `robots.txt` bloqueia `/gestao`, as telas da plataforma têm `noindex`, e nenhuma página pública
+   tem link para a plataforma
+4. O Início mostra os cinco blocos, cada um com estado vazio, de carregamento e de erro próprios;
+   bloco que falha não derruba a página
+5. As anotações são uma folha só da casa: o que um escreve, o outro vê, com quem salvou e quando,
+   e aviso antes de sobrescrever texto que mudou no servidor
+6. A barra de baixo tem exatamente Início · Financeiro · Produção · Agenda; Queimas, Estoque e
+   Cadastros continuam a um toque pelo Início e pela lateral
+7. O site abre sem login, os botões fixos rolam até a seção certa, e a seção de aulas mostra o
+   estado "sem agenda" sem quebrar nem inventar evento
+8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
+
+Plans:
+
+- [ ] TBD (rodar `/gsd-discuss-phase 04.6` antes de planejar — ver abaixo)
+
+**Antes de planejar**: `Claude outputs/gestao/DISCUSSAO-PREPARADA.md` reúne o que precisa da
+palavra do dono, com recomendação para cada ponto. A fila (`Claude outputs/FILA-DO-CODE.md`,
+item 3, passo 5) é explícita: **não planejar nem executar antes de ele responder.**
 
 **UI hint**: yes
 
