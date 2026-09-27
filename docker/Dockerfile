@@ -66,6 +66,24 @@ COPY --from=construtor --chown=nextjs:nodejs /app/assets ./assets
 # `chown 100:101` do roteiro do servidor (docs/operacao/12-fotos-volume-e-backup.md).
 RUN mkdir -p /dados/fotos-orcamentos && chown -R nextjs:nodejs /dados
 
+# 🔴 A linha abaixo é o que faz a de cima valer. Criar o diretório NÃO basta: sem
+# `CAMINHO_FOTOS`, `diretorioDeFotos()` (lib/orcamentos/caminho-fotos.ts) cai no padrão
+# `process.cwd() + "/.dados/fotos-orcamentos"` — dentro do contêiner isso é `/app/.dados/...`,
+# que pertence a root, enquanto o processo roda como `nextjs`. O primeiro envio de foto falha
+# por permissão.
+#
+# Descoberto em produção-de-mentira, não em revisão: o pipeline do commit `bb39df4` reprovou
+# `orcamentos-fotos.spec.ts` e `orcamentos-pdf.spec.ts` (o do PDF sobe uma foto no preparo, para
+# o bloco "Referências") nas TRÊS tentativas, nos dois viewports. A varredura LOCAL passa porque
+# o e2e local sobe `next build && next start` no diretório do repositório, onde `.dados/` é
+# gravável — só o contêiner expõe a falha. O padrão de `compose.yml` não cobria o CI, que usa
+# `docker run` puro, sem compose.
+#
+# O valor aqui é o mesmo do `compose.yml`; em produção o compose continua mandando (e o bind
+# mount troca a posse pela do host). A imagem passa a ser correta sozinha, sem depender de quem
+# a executa.
+ENV CAMINHO_FOTOS=/dados/fotos-orcamentos
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
