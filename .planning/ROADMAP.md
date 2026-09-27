@@ -529,7 +529,9 @@ protótipo são inventados.
   orçamento cancelado mantém o número.
 
 - Percentual do preço entra **dividindo**, nunca somando (fórmula do Sebrae, auditada em agosto).
-  Divisor ≤ 0 é erro de parâmetro: a tela avisa e não calcula.
+  Divisor de 5% ou menos é erro de parâmetro: a tela avisa e não calcula (corrigido em 27/09/2026 —
+  a decisão dizia "≤ 0", o código faz "≤ 5%", e o dono confirmou na tela que prefere o código: com
+  96% de soma o mínimo sairia 25× o custo, o que não é preço, é sintoma).
 
 - Quantas peças cabem no forno sai das **medidas** (por prateleira × níveis), **nunca do volume** —
   volume erra ~2× em peça plana (diagnóstico de agosto).
@@ -551,7 +553,7 @@ cartão de lá); Phase 3 (a aprovação cria encomenda no módulo atual); Phase 
 **Requirements**: ORC-01, ORC-02, ORC-03, ORC-04, ORC-05, ORC-06, ORC-07, ORC-08, ORC-09, ORC-10, ORC-11, ORC-12, ORC-13, ORC-14, ORC-15, ORC-16, ORC-17, ORC-18
 **Success Criteria** (what must be TRUE):
 
-  1. O módulo puro `lib/precificacao/` calcula material, trabalho, queima, custo com perda, mínimo por canal e o preço zero, com percentual entrando por divisão, e tem teste para cada fórmula — inclusive o caso de divisor ≤ 0, que avisa e não calcula
+  1. O módulo puro `lib/precificacao/` calcula material, trabalho, queima, custo com perda, mínimo por canal e o preço zero, com percentual entrando por divisão, e tem teste para cada fórmula — inclusive o caso de divisor de 5% ou menos, que avisa e não calcula
   2. Quantas peças cabem no forno sai das medidas da peça e das medidas úteis do forno (por prateleira × níveis, testando as duas orientações), nunca do volume; "já contei" substitui o calculado, e peça que não cabe dá aviso sem número
   3. Mudar um parâmetro cria registro novo com data e não sobrescreve o anterior; a taxa do cartão é lida da parte 1, sem campo duplicado; todo parâmetro nasce "estimado" e nenhum valor real vai para seed versionado
   4. A ficha de uma peça de linha e o `itens_catalogo` compartilham UM preço praticado (`preco_venda`) — não há dois campos a sincronizar; ficha usada em orçamento não se apaga, e a tela diz em quantos ela está
