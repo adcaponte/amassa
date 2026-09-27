@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
 stopped_at: Completed 04.5-13-PLAN.md Tarefas 1-3 (Tarefa 3 — Roteiros 12 e 13 — feita pelo dono em 27/09/2026); Tarefa 4 (verificacao humana) aberta — fase permanece em execucao
+last_updated: "2026-09-27T16:15:56.059Z"
 progress:
   total_phases: 11
-  completed_phases: 9
-  total_plans: 78
+  completed_phases: 10
+  total_plans: 77
   completed_plans: 77
 current_phase: 04.5
 last_activity: 2026-09-27
 last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migração 0021/WINDOWS #44, varredura completa, imagem conferida, roteiro 13 e verificação humana prontos); migrações aplicadas em 27/09 (0017 provada pela rota de saúde); fase aberta só pela verificação humana"
-last_updated: "2026-09-27T15:39:30Z"
 ---
 
 # Project State
@@ -251,6 +251,7 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
   5. ~~Plano 13 — Roteiros 12 e 13 em produção, depois de backup.~~ **feito em 27/09/2026**
      (E2/E3/E4: pipeline com sucesso no commit `3a31c55`; migração `0017` provada por
      `/api/health/backup`; Roteiro 12 rodado, registrado no commit `a43ee6a`).
+
   6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
      contagem de planos.
 
@@ -670,6 +671,7 @@ None yet.
 | 260926-ijl | Corrige o toast do sonner sem fundo (transparente sobre os cartões do Caixa, achado do dono fotografado em 26/09/2026): as quatro variáveis CSS (--normal-bg/-text/-border, --border-radius) apontavam para nomes inexistentes neste projeto; remapeadas para os tokens reais (--color-popover/-popover-foreground/-border, --radius-xl), cn-toast (classe morta) removida, com par RED/GREEN provando a asserção de fundo opaco em tests/e2e/financeiro-caixa.spec.ts | 2026-09-26 | 22166e8, ef898ee | [260926-ijl-toast-do-sonner-sem-fundo-transparente-s](./quick/260926-ijl-toast-do-sonner-sem-fundo-transparente-s/) |
 | 260926-qpv | Remove o atalho "Pagar conta que já existe" da Despesa (decisão do dono, 26/09/2026, depois de usar o módulo no celular: o botão pareceu inútil e grande) — a Despesa fica com as duas escolhas de verdade (Compra de material/Outra despesa); BRIEFING.md, REQUIREMENTS.md (FNC-06), 04.4-UI-SPEC.md e 04.4-CONTEXT.md registram a decisão datada e a consequência (pagar uma conta existente passa a ser só por Caixa → "A pagar" → "Paguei"); passe adicional alinhou três comentários de código (acoes.ts/textos.ts/painel-despesa.tsx) que ainda descreviam o atalho no presente | 2026-09-26 | 366cfcd, 64f6b46, 2082e32 | [260926-qpv-remove-atalho-pagar-conta-da-despesa](./quick/260926-qpv-remove-atalho-pagar-conta-da-despesa/) |
 | 260927-n3d | Corrige os três documentos de planejamento que ainda afirmavam, no presente, que a Fase 04.5 aguardava o dono publicar os commits e aplicar as migrações — já feito em 27/09/2026. O erro não era cosmético: uma sessão posterior leu esses documentos como estado atual e disse ao dono que Peças/Orçamentos/Parâmetros não estavam no ar, quando estavam. Cada afirmação nova carrega a evidência (pipeline com sucesso no commit 3a31c55; migração 0017 provada pela rota /api/health/backup, que faz select de uma coluna criada por ela e devolveria 503 sem a migração; Roteiro 12 provado pelo commit a43ee6a, que só se escreve depois de tropeçar nele). Narrativa histórica preservada; 0018-0021 e a pasta das fotos no host continuam sem afirmação, porque não foram provadas | 2026-09-27 | 4bf1bb4, a27e672, 02a4020, 7eb639b | [260927-n3d-corrigir-os-documentos-de-planejamento-d](./quick/260927-n3d-corrigir-os-documentos-de-planejamento-d/) |
+| 260927-r12 | Roteiro 12 conferido inteiro no servidor (stat 100 101 750 no diretorio das fotos + escrita de dentro do conteiner sem erro de permissao, colados pelo dono em 27/09/2026) — a ressalva de 04.5-VERIFICACAO-HUMANA.md dizendo que a pasta nao tinha sido conferida virou registro da prova | 2026-09-27 | 94d8135 | — |
 
 ### Roadmap Evolution
 
