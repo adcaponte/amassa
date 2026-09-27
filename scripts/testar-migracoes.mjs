@@ -1394,12 +1394,16 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
   try {
     // (b) D-15 no banco: um update que altera valor_inteiro OU vigente_desde é recusado pelo
     // gatilho recusar_mudanca_de_valor_do_parametro; um update que muda só `medido` passa.
-    // `vigente_desde` é ONTEM, de propósito — a semente de 0019 já grava "material_argila" com
+    // `vigente_desde` é ONTEM, de propósito — a semente de 0019 grava "material_argila" com
     // `vigente_desde = current_date` no mesmo dia em que este teste roda (`db:migrate` acabou de
-    // aplicar 0019 acima), e a mesma (chave, vigente_desde) colidiria com o `unique` do banco.
+    // aplicar 0019 acima), e a migração 0021 (WINDOWS #44) já corrigiu essa data para
+    // `hoje_brasilia()` antes de este teste rodar — usar `hoje_brasilia() - 1`, não
+    // `current_date - 1`, é o que garante "ontem" de verdade nos dois casos (dentro e fora da
+    // janela ruim das 21h-meia-noite BRT, quando current_date e hoje_brasilia() divergem); a
+    // mesma (chave, vigente_desde) colidiria com o `unique` do banco se os dois coincidissem.
     const { rows: parametroInserido } = await cliente.query(
       `insert into parametros_precificacao (chave, valor_inteiro, medido, vigente_desde)
-       values ('material_argila', 1000, false, current_date - 1)
+       values ('material_argila', 1000, false, hoje_brasilia() - 1)
        returning id`,
     );
     idParametroDeTeste = parametroInserido[0].id;
@@ -1415,7 +1419,7 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
     afirmar(
       await falha(() =>
         cliente.query(
-          "update parametros_precificacao set vigente_desde = current_date - 2 where id = $1",
+          "update parametros_precificacao set vigente_desde = hoje_brasilia() - 2 where id = $1",
           [idParametroDeTeste],
         ),
       ),
@@ -1439,14 +1443,18 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
         "afetar a própria coluna que o update pediu para mudar.",
     );
 
-    // (b.1) Correção do gatilho (migração 0020, achado real do 04.5-02-PLAN.md, Tarefa 3): a
-    // linha de HOJE (a semente de 0019 já grava as 18 chaves com `vigente_desde = current_date`)
-    // PODE ter o valor corrigido no MESMO DIA — é exatamente o caminho que
+    // (b.1) Correção do gatilho (migração 0020, achado real do 04.5-02-PLAN.md, Tarefa 3; e a
+    // própria função corrigida DE NOVO pela migração 0021, achado nº 2 de WINDOWS #44 — ver o
+    // comentário daquele arquivo): a linha de HOJE (a semente de 0019 grava as 18 chaves com
+    // `vigente_desde = current_date`, e 0021 já corrigiu essa data para `hoje_brasilia()` antes
+    // de este teste rodar) PODE ter o valor corrigido no MESMO DIA — é exatamente o caminho que
     // `lib/precificacao/acoes.ts::definirParametro` usa (`insert ... on conflict (chave,
     // vigente_desde) do update`) sempre que a chave já foi editada hoje. Só uma linha de um DIA
-    // ANTERIOR (como a de `idParametroDeTeste`, acima) continua congelada.
+    // ANTERIOR (como a de `idParametroDeTeste`, acima) continua congelada. `hoje_brasilia()`, não
+    // `current_date`, é o que identifica "a linha de hoje" nos dois lados (dado e gatilho) — a
+    // mesma correção de fuso que 0021 aplicou.
     const { rows: linhaDeHoje } = await cliente.query(
-      "select id, valor_inteiro from parametros_precificacao where chave = 'preco_lucro' and vigente_desde = current_date",
+      "select id, valor_inteiro from parametros_precificacao where chave = 'preco_lucro' and vigente_desde = hoje_brasilia()",
     );
     afirmar(
       linhaDeHoje.length === 1,
@@ -1469,7 +1477,7 @@ async function conferirPrecificacaoEOrcamentos(cliente) {
     afirmar(
       await falha(() =>
         cliente.query(
-          "update parametros_precificacao set vigente_desde = current_date - 1 where id = $1",
+          "update parametros_precificacao set vigente_desde = hoje_brasilia() - 1 where id = $1",
           [idLinhaDeHoje],
         ),
       ),
@@ -1646,12 +1654,153 @@ async function conferirSementeDeParametros(cliente) {
   const sqlDaSemente = readFileSync(caminhoDaSemente, "utf8");
   await cliente.query(sqlDaSemente);
 
+  // Reaplicar 0019 sozinha, fora da janela ruim de fuso, não duplica nada (seu próprio
+  // `on conflict (chave, vigente_desde) do nothing`). MAS 0019 grava `current_date` cru (0019 é
+  // congelada por D-33, nunca editada) enquanto 0021 já normalizou as linhas existentes para
+  // `hoje_brasilia()` — dentro da janela ruim (21h-meia-noite BRT) os dois valores DIVERGEM, e
+  // reaplicar só 0019 criaria 18 linhas "duplicadas" (mesma chave, `vigente_desde` de amanhã). Na
+  // prática isso nunca acontece pelo `db:migrate` real (o Drizzle nunca reaplica uma migração já
+  // registrada) — mas 0019 e 0021 são companheiras (a Tarefa 1 do 04.5-13-PLAN.md, WINDOWS #44) e
+  // sempre aplicadas em sequência (roteiro 13: "0017, 0018, 0019, 0020, 0021, nesta ordem");
+  // reaplicar 0021 logo depois de 0019 é o que reflete essa ordem de verdade, e é exatamente o que
+  // prova que a dupla continua idempotente mesmo dentro da janela ruim.
+  const caminhoDaCorrecaoDeFuso = path.join(
+    process.cwd(),
+    "db",
+    "migrations",
+    "0021_corrigir-fuso-da-semente-de-parametros.sql",
+  );
+  const instrucoesDaCorrecaoDeFuso = readFileSync(caminhoDaCorrecaoDeFuso, "utf8")
+    .split("--> statement-breakpoint")
+    .map((bloco) =>
+      bloco
+        .split("\n")
+        .filter((linha) => !linha.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter((instrucao) => instrucao.length > 0);
+  for (const instrucao of instrucoesDaCorrecaoDeFuso) {
+    await cliente.query(instrucao);
+  }
+
   const { rows: aposReaplicar } = await cliente.query(
     "select count(*)::int as total from parametros_precificacao",
   );
   afirmar(
     aposReaplicar[0].total === 18,
-    `Reaplicar a semente de parâmetros (0019) não deveria duplicar nada — esperado 18, veio ${aposReaplicar[0].total}.`,
+    "Reaplicar a semente de parâmetros (0019) seguida da correção de fuso (0021) não deveria " +
+      `duplicar nada — esperado 18, veio ${aposReaplicar[0].total}.`,
+  );
+}
+
+// Fase 04.5-13 (WINDOWS #44): prova, contra Postgres de verdade, que a migração 0021 corrige
+// qualquer parâmetro cujo `vigente_desde` tenha nascido no FUTURO em relação à data civil de
+// Brasília — o defeito real da semente 0019 (`current_date` do Postgres, em UTC, aplicada entre
+// 21h e meia-noite BRT). Um teste que só roda de dia não prova nada: em vez de esperar a janela
+// ruim, FORÇAMOS o estado que ela produziria, direto no banco, usando a mesma tática (desligar o
+// gatilho pela duração do ajuste) que a própria migração usa.
+async function conferirCorrecaoDoFusoDaSemente(cliente) {
+  console.log("  conferirCorrecaoDoFusoDaSemente...");
+
+  const CHAVE_DE_TESTE = "material_argila"; // já semeada por 0019 — reaproveitada, não inventada.
+
+  // 1. Força o estado "antes": desliga o gatilho só pela duração deste ajuste e grava
+  // vigente_desde como o dia SEGUINTE ao de Brasília — exatamente a forma do defeito (a semente
+  // grava o current_date do Postgres, que na janela ruim já é amanhã em relação a Brasília).
+  await cliente.query(
+    "alter table parametros_precificacao disable trigger recusar_mudanca_de_valor_do_parametro",
+  );
+  try {
+    await cliente.query(
+      `update parametros_precificacao set vigente_desde = hoje_brasilia() + 1 where chave = $1`,
+      [CHAVE_DE_TESTE],
+    );
+  } finally {
+    await cliente.query(
+      "alter table parametros_precificacao enable trigger recusar_mudanca_de_valor_do_parametro",
+    );
+  }
+
+  const { rows: hojeAntes } = await cliente.query("select hoje_brasilia()::text as hoje");
+  const { rows: antes } = await cliente.query(
+    "select vigente_desde::text as vigente_desde from parametros_precificacao where chave = $1",
+    [CHAVE_DE_TESTE],
+  );
+  afirmar(
+    antes[0].vigente_desde > hojeAntes[0].hoje,
+    "A preparação do teste falhou — o parâmetro deveria estar datado no futuro antes da correção.",
+  );
+
+  // A MESMA consulta que lib/precificacao/consultas.ts::parametrosVigentes faz
+  // (`vigente_desde <= hoje`) — provando que a tela realmente não encontraria este parâmetro no
+  // estado "antes", o sintoma real do defeito ("Não deu para carregar os parâmetros").
+  const { rows: encontradoAntes } = await cliente.query(
+    "select 1 from parametros_precificacao where chave = $1 and vigente_desde <= hoje_brasilia()",
+    [CHAVE_DE_TESTE],
+  );
+  afirmar(
+    encontradoAntes.length === 0,
+    "A preparação do teste falhou — antes da correção, o parâmetro já seria encontrado como " +
+      "vigente (o cenário do defeito não foi reproduzido).",
+  );
+
+  // 2. Aplica a migração 0021 de verdade, lendo o arquivo do disco — não uma cópia da lógica.
+  const caminhoDaMigracao = path.join(
+    process.cwd(),
+    "db",
+    "migrations",
+    "0021_corrigir-fuso-da-semente-de-parametros.sql",
+  );
+  const instrucoesDaMigracao = readFileSync(caminhoDaMigracao, "utf8")
+    .split("--> statement-breakpoint")
+    .map((bloco) =>
+      bloco
+        .split("\n")
+        .filter((linha) => !linha.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter((instrucao) => instrucao.length > 0);
+  for (const instrucao of instrucoesDaMigracao) {
+    await cliente.query(instrucao);
+  }
+
+  // 3. Depois: o parâmetro corrigido cai exatamente em hoje_brasilia(), e a MESMA consulta de
+  // parametrosVigentes agora encontra o parâmetro — o defeito real está resolvido, não só o dado.
+  const { rows: hojeDepois } = await cliente.query("select hoje_brasilia()::text as hoje");
+  const { rows: depois } = await cliente.query(
+    "select vigente_desde::text as vigente_desde from parametros_precificacao where chave = $1",
+    [CHAVE_DE_TESTE],
+  );
+  afirmar(
+    depois[0].vigente_desde === hojeDepois[0].hoje,
+    `Depois da migração 0021, vigente_desde deveria ser ${hojeDepois[0].hoje} (hoje_brasilia()), ` +
+      `veio ${depois[0].vigente_desde}.`,
+  );
+
+  const { rows: encontradoDepois } = await cliente.query(
+    "select 1 from parametros_precificacao where chave = $1 and vigente_desde <= hoje_brasilia()",
+    [CHAVE_DE_TESTE],
+  );
+  afirmar(
+    encontradoDepois.length === 1,
+    "Depois da migração 0021, o parâmetro ainda não é encontrado como vigente — a correção não " +
+      "resolveu o defeito de verdade.",
+  );
+
+  // 4. Idempotência: reaplicar a migração de novo não falha (nenhuma linha mais satisfaz
+  // vigente_desde > hoje_brasilia()) e não muda o valor já corrigido.
+  for (const instrucao of instrucoesDaMigracao) {
+    await cliente.query(instrucao);
+  }
+  const { rows: aposReaplicar } = await cliente.query(
+    "select vigente_desde::text as vigente_desde from parametros_precificacao where chave = $1",
+    [CHAVE_DE_TESTE],
+  );
+  afirmar(
+    aposReaplicar[0].vigente_desde === hojeDepois[0].hoje,
+    "Reaplicar a migração 0021 não deveria mudar um parâmetro já corrigido.",
   );
 }
 
@@ -2097,6 +2246,7 @@ async function conferirBanco() {
     await conferirPrecificacaoEOrcamentos(cliente);
     await conferirNumeracaoConcorrenteDeOrcamento();
     await conferirSementeDeParametros(cliente);
+    await conferirCorrecaoDoFusoDaSemente(cliente);
   } finally {
     await cliente.end();
   }

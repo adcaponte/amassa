@@ -148,6 +148,13 @@
       "when": 1790445014414,
       "tag": "0020_corrigir-gatilho-parametro-mesmo-dia",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790476765036,
+      "tag": "0021_corrigir-fuso-da-semente-de-parametros",
+      "breakpoints": true
     }
   ]
 }
