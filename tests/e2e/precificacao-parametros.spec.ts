@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { Client } from "pg";
 
 import { formatarDataCurta, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { CATALOGO_DE_PARAMETROS } from "@/lib/precificacao/parametros";
@@ -34,6 +35,36 @@ function chaveDoSeloParaAlternar(): "perda_unica" | "preco_lucro" {
   return test.info().project.name === "celular" ? "preco_lucro" : "perda_unica";
 }
 
+// Valores ORIGINAIS semeados por 0019 das chaves que os testes abaixo GRAVAM (nunca as que só
+// alternam `medido`, que não muda o valor): material_argila 1000 (R$ 10,00/kg), material_esmalte
+// 8400 (R$ 84,00/kg), trabalho_hora 3500 (R$ 35,00/h).
+const VALOR_ORIGINAL_DO_PARAMETRO: Record<string, number> = {
+  material_argila: 1000,
+  material_esmalte: 8400,
+  trabalho_hora: 3500,
+};
+
+// Restaura, DIRETO no banco (mesmo padrão de tests/e2e/apoio/parametro-no-banco.ts — nunca
+// @/db/Drizzle), o valor de um parâmetro gravado por este spec para o original semeado. Achado
+// real da varredura completa do plano 04.5-13 (Tarefa 1, terceira rodada): os dois testes que
+// gravam valor (o de histórico e o de "Calcular minha hora") nunca desfaziam — qualquer spec de
+// precificação rodando depois no MESMO banco efêmero (precificacao-ficha.spec.ts/
+// precificacao-pecas.spec.ts, que esperam custo/mínimo calculados com os valores PADRÃO da
+// semente) herdava o parâmetro alterado. Mesma classe já corrigida em orcamentos-revisao.spec.ts/
+// orcamentos-ciclo.spec.ts para os respectivos parâmetros dedicados deles.
+async function restaurarParametro(chave: string): Promise<void> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    await cliente.query(
+      "update parametros_precificacao set valor_inteiro = $2 where chave = $1 and vigente_desde = hoje_brasilia()",
+      [chave, VALOR_ORIGINAL_DO_PARAMETRO[chave]],
+    );
+  } finally {
+    await cliente.end();
+  }
+}
+
 // A data de hoje, no MESMO formato que a tela mostra (`formatarDataCurta(hojeEmBrasilia(...))`,
 // lib/financeiro/formato.ts) — nunca uma segunda implementação de formatação no teste.
 function hojeComoNaTela(): string {
@@ -42,6 +73,16 @@ function hojeComoNaTela(): string {
 
 test.describe("precificacao parametros", () => {
   test.describe.configure({ mode: "serial" });
+
+  // Restaura os parâmetros que este arquivo GRAVA (material_argila/material_esmalte,
+  // trabalho_hora) ao valor original, sempre — mesmo se algum teste acima falhar. Sem isto, o
+  // valor alterado sobrevive ao arquivo inteiro e contamina qualquer outro spec de precificação
+  // que rode depois, no mesmo banco efêmero.
+  test.afterAll(async ({}, testInfo) => {
+    const chaveEditavel = testInfo.project.name === "celular" ? "material_esmalte" : "material_argila";
+    await restaurarParametro(chaveEditavel);
+    await restaurarParametro("trabalho_hora");
+  });
 
   test("a sub-aba Parâmetros abre, mostra os cinco grupos e ao menos 18 campos", async ({ page }) => {
     await fazerLogin(page);

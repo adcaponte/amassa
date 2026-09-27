@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 33
+open_count: 34
 waived_count: 1
 fixed_count: 18
-total_count: 52
-last_updated: 2026-09-27T03:28:42.694Z
+total_count: 53
+last_updated: 2026-09-27T03:58:55.587Z
 ---
 
 # Broken Windows Ledger
@@ -67,6 +67,7 @@ last_updated: 2026-09-27T03:28:42.694Z
 | 50 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-fotos.spec.ts | 181 | (g) a 320px as tres celulas cabem sem rolagem horizontal, e todo alvo de toque mede ao menos 44px -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): getByTestId('foto-celula') veio 1 em vez de 3 (upload/reducao de duas fotos nao concluiu a tempo sob a carga da suite inteira). Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:31.255Z |  |
 | 51 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-tracador.spec.ts | 95 | todo botao visivel da aba Orcamentos mede ao menos 44px de altura -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): page.locator('main').getByRole('button').count() veio 0 (pagina nao terminou de renderizar sob a carga), junto de 'The destination stream closed early' no log do servidor Next -- mesmo sintoma ja registrado em WINDOWS #35 para o teste irmao (linha 63) do MESMO arquivo. Reexecucao isolada (--workers=1) passou limpa. Nao corrigido: mesma classe de contencao de servidor unico sob carga, sem causa raiz pequena e obvia neste arquivo. | open |  | 2026-09-27T03:28:31.805Z |  |
 | 52 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-revisao.spec.ts | 181 | (a) parametro dedicado sobe o minimo -- falhou sob carga de 8 workers (npm run test:e2e --grep, reverificacao do plano 04.5-13 apos corrigir a poluicao de parametro entre specs): toHaveURL(/aviso=orcamento-enviado/) expirou em 10s mesmo com o log mostrando a navegacao correta acontecendo ("navigated to ...aviso=orcamento-enviado..."), a URL assentou sem o parametro no momento da checagem. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:42.694Z |  |
+| 53 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-revisao.spec.ts | 190 | Poluicao de parametro global entre arquivos de spec, achado real da varredura completa (plano 04.5-13, Tarefa 1): orcamentos-revisao.spec.ts/orcamentos-ciclo.spec.ts/precificacao-parametros.spec.ts sobem parametros globais (preco_folga_negociacao/preco_imposto_sobre_venda, forno_desgaste_por_fornada/forno_tarifa_energia, material_argila/material_esmalte/trabalho_hora) sem desfazer, corrompendo o custo/minimo/selo que precificacao-ficha.spec.ts/precificacao-pecas.spec.ts esperam calculado com os valores PADRAO da semente. Corrigido com test.afterAll restaurando cada parametro direto no banco (commit fix(04.5-13) desta sessao) -- a poluicao DETERMINISTICA (ordem alfabetica de arquivo) foi eliminada e confirmada por reexecucao isolada e em grupo repetidas vezes. RESIDUAL: sob os 8 workers default do npm run test:e2e (fullyParallel, sem dependencies entre estes arquivos), uma janela de corrida ainda existe -- o teste que sobe o parametro e o afterAll que restaura rodam no MESMO arquivo/worker, mas um ARQUIVO DIFERENTE pode ler o parametro num worker concorrente durante a janela em que ele esta elevado, antes do afterAll disparar. Eliminar de vez exigiria uma cadeia de dependencies (mesmo padrao de vazio-celular/vazio-desktop/vazio-historico do playwright.config.ts) sequenciando estes cinco arquivos -- mudanca estrutural de infraestrutura de teste, fora do escopo deste plano de fechamento; frequencia observada baixa (1 em ~4 varreduras completas) e sempre no SELO/etiqueta de faixa, nunca no numero de custo (esse lado ja fechou). | open |  | 2026-09-27T03:58:55.587Z |  |
 
 ````json
 [
@@ -692,6 +693,18 @@ last_updated: 2026-09-27T03:28:42.694Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-27T03:28:42.694Z",
+    "resolved_at": null
+  },
+  {
+    "id": 53,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-revisao.spec.ts",
+    "line": 190,
+    "description": "Poluicao de parametro global entre arquivos de spec, achado real da varredura completa (plano 04.5-13, Tarefa 1): orcamentos-revisao.spec.ts/orcamentos-ciclo.spec.ts/precificacao-parametros.spec.ts sobem parametros globais (preco_folga_negociacao/preco_imposto_sobre_venda, forno_desgaste_por_fornada/forno_tarifa_energia, material_argila/material_esmalte/trabalho_hora) sem desfazer, corrompendo o custo/minimo/selo que precificacao-ficha.spec.ts/precificacao-pecas.spec.ts esperam calculado com os valores PADRAO da semente. Corrigido com test.afterAll restaurando cada parametro direto no banco (commit fix(04.5-13) desta sessao) -- a poluicao DETERMINISTICA (ordem alfabetica de arquivo) foi eliminada e confirmada por reexecucao isolada e em grupo repetidas vezes. RESIDUAL: sob os 8 workers default do npm run test:e2e (fullyParallel, sem dependencies entre estes arquivos), uma janela de corrida ainda existe -- o teste que sobe o parametro e o afterAll que restaura rodam no MESMO arquivo/worker, mas um ARQUIVO DIFERENTE pode ler o parametro num worker concorrente durante a janela em que ele esta elevado, antes do afterAll disparar. Eliminar de vez exigiria uma cadeia de dependencies (mesmo padrao de vazio-celular/vazio-desktop/vazio-historico do playwright.config.ts) sequenciando estes cinco arquivos -- mudanca estrutural de infraestrutura de teste, fora do escopo deste plano de fechamento; frequencia observada baixa (1 em ~4 varreduras completas) e sempre no SELO/etiqueta de faixa, nunca no numero de custo (esse lado ja fechou).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:58:55.587Z",
     "resolved_at": null
   }
 ]
