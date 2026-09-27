@@ -51,7 +51,19 @@ jobs:
     name: E2E contra a imagem real
     needs: qualidade
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 25, não 15: a suíte chegou a 804 testes na Fase 04.5 e o runner roda com 2 workers (metade
+    # dos núcleos), não os 8 da máquina de desenvolvimento. O run do commit `bb39df4` foi
+    # CANCELADO por tempo aos 15min16s, tendo chegado ao teste 781 de 804 — e um job cancelado
+    # não publica imagem nem implanta, então o limite apertado transforma lentidão em bloqueio
+    # de entrega sem dizer o porquê.
+    #
+    # Contam contra o tempo, além do tamanho: `retries: 2` (playwright.config.ts) faz cada
+    # falha custar TRÊS execuções, e os dois primeiros minutos vão em build da imagem, migração
+    # e semeadura antes do primeiro teste.
+    #
+    # 25 é folga, não conforto: se um dia encostar de novo, o problema é a suíte, não o número —
+    # dividir o job por projeto antes de subir este valor outra vez.
+    timeout-minutes: 25
     services:
       postgres_teste:
         image: postgres:17-alpine
