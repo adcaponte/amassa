@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
 
 // O ciclo de vida do orçamento (04.5-08-PLAN.md): congelar ao enviar, a prova de que mudar um
 // parâmetro ou criar um rascunho novo depois não mexe no que já foi congelado, recusar, voltar
@@ -35,6 +36,37 @@ function sufixoUnico(): string {
 
 function chaveDoParametroDedicado(): "forno_desgaste_por_fornada" | "forno_tarifa_energia" {
   return test.info().project.name === "celular" ? "forno_tarifa_energia" : "forno_desgaste_por_fornada";
+}
+
+// O valor ORIGINAL semeado por 0019 de cada parâmetro dedicado (pontos-base/milésimos, a escala
+// do catálogo — lib/precificacao/parametros.ts): `forno_desgaste_por_fornada` nasce em 1200
+// (R$ 12,00), `forno_tarifa_energia` nasce em 78 (R$ 0,78/kWh).
+const VALOR_ORIGINAL_DO_PARAMETRO: Record<string, number> = {
+  forno_desgaste_por_fornada: 1200,
+  forno_tarifa_energia: 78,
+};
+
+// Restaura, DIRETO no banco (mesmo padrão de tests/e2e/apoio/parametro-no-banco.ts — nunca
+// @/db/Drizzle), o valor do parâmetro dedicado deste spec para o original semeado. Achado real da
+// varredura completa do plano 04.5-13 (Tarefa 1, segunda rodada): o caso (3) sobe o parâmetro para
+// "900" (R$ 900,00/kWh no projeto celular — mais de mil vezes o original) e nunca desfazia —
+// qualquer spec de precificação rodando depois no MESMO banco efêmero (precificacao-ficha.spec.ts/
+// precificacao-pecas.spec.ts, que esperam custo/mínimo calculados com os valores PADRÃO da
+// semente) herdava o parâmetro elevado e via um custo/selo completamente diferente do esperado —
+// não uma flakiness de contenção, uma poluição real de estado entre arquivos de spec (a mesma
+// classe já corrigida em orcamentos-revisao.spec.ts para preco_folga_negociacao/
+// preco_imposto_sobre_venda).
+async function restaurarParametroDedicado(chave: string): Promise<void> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    await cliente.query(
+      "update parametros_precificacao set valor_inteiro = $2 where chave = $1 and vigente_desde = hoje_brasilia()",
+      [chave, VALOR_ORIGINAL_DO_PARAMETRO[chave]],
+    );
+  } finally {
+    await cliente.end();
+  }
 }
 
 async function criarOrcamento(page: Page): Promise<string> {
@@ -98,6 +130,14 @@ function reaisParaCentavos(texto: string): number {
 
 test.describe("orcamentos ciclo", () => {
   test.describe.configure({ mode: "serial" });
+
+  // Restaura o parâmetro dedicado deste spec ao valor original, sempre — mesmo se algum teste
+  // acima falhar. Sem isto, o parâmetro elevado pelo caso (3) sobrevive ao arquivo inteiro e
+  // contamina qualquer outro spec de precificação que rode depois, no mesmo banco efêmero.
+  test.afterAll(async ({}, testInfo) => {
+    const chave = testInfo.project.name === "celular" ? "forno_tarifa_energia" : "forno_desgaste_por_fornada";
+    await restaurarParametroDedicado(chave);
+  });
 
   let orcamentoId = "";
   let suf = "";
