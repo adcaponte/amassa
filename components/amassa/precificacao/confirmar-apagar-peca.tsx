@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { apagarFicha } from "@/lib/precificacao/acoes";
+import { hrefDaAbaPecas } from "@/lib/precificacao/navegacao";
 import {
   CORPO_CONFIRMAR_APAGAR_PECA,
   ROTULO_APAGAR_PECA,
@@ -36,13 +37,18 @@ export type ConfirmarApagarPecaProps = {
 export function ConfirmarApagarPeca({ id, nome }: ConfirmarApagarPecaProps) {
   const searchParams = useSearchParams();
   const aberto = searchParams.get("apagarPeca") === id;
+  // Voltar para a lista PRESERVANDO o filtro das exclusivas: sem isso, apagar (ou desistir de
+  // apagar) uma peça exclusiva devolvia o dono a uma lista que esconde as exclusivas de novo —
+  // metade do que ele relatou no achado 8 da verificação humana (04.5-14).
+  const mostrarExclusivas = searchParams.get("exclusivas") === "1";
+  const hrefDaLista = hrefDaAbaPecas({ mostrarExclusivas });
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   function fechar() {
     setErro(null);
-    window.location.assign("/financeiro?aba=pecas");
+    window.location.assign(hrefDaLista);
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {
@@ -64,7 +70,7 @@ export function ConfirmarApagarPeca({ id, nome }: ConfirmarApagarPecaProps) {
 
     // Navegação COMPLETA — nunca a atualização client-side do roteador do Next — a lista precisa
     // refletir o que só o servidor sabe agora (a linha some).
-    window.location.assign("/financeiro?aba=pecas");
+    window.location.assign(hrefDaLista);
   }
 
   return (

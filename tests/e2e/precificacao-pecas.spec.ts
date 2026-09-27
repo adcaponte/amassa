@@ -307,4 +307,90 @@ test.describe("precificacao pecas", () => {
     await expect(dialogo).toBeVisible();
     await expect(linhaDaPeca(page, nomeEmUso)).toBeVisible();
   });
+
+  // 04.5-14-PLAN.md — o buraco que deixou o achado 8 da verificação humana passar: os casos (e) e
+  // (h) acima só tocam fichas DE LINHA. A ficha EXCLUSIVA nunca foi apagada por teste nenhum, e
+  // era justamente ela que não abria o diálogo (`ConfirmarApagarPeca` montado só para as fichas
+  // VISÍVEIS, e a exclusiva não é visível sem `?exclusivas=1`). O par abaixo é o irmão exclusivo
+  // de (e) e (h) — mesma regra, nenhum caminho próprio: sem linha de orçamento, apaga; em uso,
+  // recusa com a contagem.
+  test("(i) apagar uma peça EXCLUSIVA que não está em orçamento nenhum: o diálogo abre, a peça some e a lista continua mostrando as exclusivas", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeExclusiva = `[e2e] Exclusiva solta ${suf}`;
+
+    await fazerLogin(page);
+    await abrirNovaPeca(page);
+    await page.getByRole("checkbox", { name: /Peça exclusiva deste pedido/ }).click();
+    await preencherCaneca(page, nomeExclusiva);
+    await page.getByTestId("ficha-campo-preco-praticado").fill("95");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByText("Peça salva.")).toBeVisible();
+
+    const idDaExclusiva = new URL(page.url()).searchParams.get("peca") ?? "";
+    expect(idDaExclusiva).not.toBe("");
+    await page.getByRole("button", { name: "Cancelar" }).click();
+
+    // O caminho de verdade do dono: mostrar as exclusivas, abrir a ficha pela lista, tocar
+    // "Apagar" — nunca uma URL montada à mão.
+    await page.goto("/financeiro?aba=pecas");
+    await page.getByTestId("pecas-alternar-exclusivas").click();
+    await expect(page).toHaveURL(/exclusivas=1/);
+    await linhaDaPeca(page, nomeExclusiva).getByRole("link", { name: "Abrir" }).click();
+    await expect(page.getByRole("heading", { name: "Precificar peça" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Apagar" }).click();
+    await expect(page).toHaveURL(new RegExp(`apagarPeca=${idDaExclusiva}`));
+
+    const dialogo = page.getByTestId("dialogo-apagar-peca");
+    await expect(dialogo).toBeVisible();
+    await expect(dialogo).toContainText(`Apagar a peça «${nomeExclusiva}»?`);
+
+    await dialogo.getByRole("button", { name: "Apagar" }).click();
+    // A lista volta AINDA mostrando as exclusivas — o filtro não colapsa embaixo do dono no meio
+    // da tarefa (era metade do que ele viu: "apenas esconde a lista das peças exclusivas").
+    await expect(page).toHaveURL(/exclusivas=1/);
+    await expect(linhaDaPeca(page, nomeExclusiva)).toHaveCount(0);
+  });
+
+  test("(j) uma peça EXCLUSIVA já usada num orçamento não se apaga: a recusa do servidor aparece no diálogo, que continua aberto", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeExclusivaEmUso = `[e2e] Exclusiva em uso ${suf}`;
+
+    await fazerLogin(page);
+    await page.goto("/financeiro?aba=orcamentos");
+    await page.getByRole("button", { name: "Novo orçamento" }).click();
+    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
+    expect(orcamentoId).not.toBe("");
+
+    // "+ Peça exclusiva deste pedido": a ficha nasce exclusiva E entra no orçamento na mesma ida
+    // (dialogo-ficha.tsx:204) — é assim que uma exclusiva EM USO existe de verdade.
+    await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
+    await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
+    await preencherCaneca(page, nomeExclusivaEmUso);
+    await page.getByTestId("ficha-campo-preco-praticado").fill("95");
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(new RegExp(`aba=orcamentos&orcamento=${orcamentoId}$`), { timeout: 10000 });
+    await expect(page.getByTestId("orcamento-linha").filter({ hasText: nomeExclusivaEmUso })).toBeVisible();
+
+    await page.goto("/financeiro?aba=pecas&exclusivas=1");
+    const linha = linhaDaPeca(page, nomeExclusivaEmUso);
+    await expect(linha).toBeVisible();
+    await linha.getByRole("link", { name: "Abrir" }).click();
+    await expect(page.getByRole("heading", { name: "Precificar peça" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Apagar" }).click();
+    const dialogo = page.getByTestId("dialogo-apagar-peca");
+    await expect(dialogo).toBeVisible();
+    await dialogo.getByRole("button", { name: "Apagar" }).click();
+
+    // A MESMA recusa das fichas de linha (caso (h)) — nenhum caminho próprio para exclusiva.
+    await expect(dialogo).toContainText("Esta peça está em 1 orçamento. Não dá para apagar.");
+    await expect(dialogo).toBeVisible();
+    await expect(linhaDaPeca(page, nomeExclusivaEmUso)).toBeVisible();
+  });
 });

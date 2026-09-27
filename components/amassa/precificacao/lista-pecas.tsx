@@ -16,6 +16,7 @@ import {
 } from "@/lib/precificacao/ficha";
 import { quantasCabem, type MedidasUteisDoForno } from "@/lib/precificacao/forno";
 import { formatarReais } from "@/lib/financeiro/formato";
+import { hrefDaAbaPecas } from "@/lib/precificacao/navegacao";
 import {
   DICA_RODAPE_PECAS,
   ETIQUETA_EXCLUSIVA,
@@ -251,21 +252,30 @@ export function ListaPecas({ fichas, mostrarExclusivas, parametros }: ListaPecas
                 </div>
               </div>
 
+              {/* `exclusivas` PRESERVADO: sem ele, abrir uma peça exclusiva já jogava a lista de
+                  volta para o modo que a esconde (achado 8 da verificação humana, 04.5-14). */}
               <a
-                href={`/financeiro?aba=pecas&peca=${ficha.id}`}
+                href={hrefDaAbaPecas({ peca: ficha.id, mostrarExclusivas })}
                 className="text-corpo hover:bg-muted flex min-h-[44px] flex-none items-center rounded-md px-3 font-medium"
               >
                 {ROTULO_ABRIR_PECA}
               </a>
-
-              {/* Montado POR LINHA (mesmo padrão de Abertura): cada instância lê o próprio
-                  `?apagarPeca=` e só abre quando o id bate — o gatilho de verdade fica dentro da
-                  ficha (DialogoFicha, botão "Apagar"), que já tem o `nome` sem consulta extra. */}
-              <ConfirmarApagarPeca id={ficha.id} nome={ficha.nome} />
             </li>
           );
         })}
       </ul>
+
+      {/* Os diálogos de confirmação são montados a partir de TODAS as fichas, nunca só das
+          visíveis — "o que aparece na lista" e "o que tem diálogo montado" são coisas
+          diferentes. Enquanto estavam dentro do `map` de `fichasVisiveis`, a ficha EXCLUSIVA
+          não tinha diálogo no DOM sem `?exclusivas=1`, ninguém lia o `?apagarPeca=`, e o botão
+          "Apagar" da ficha não fazia nada (achado 8 da verificação humana, 04.5-14).
+          Montar sempre não mostra nada a mais: cada instância lê o PRÓPRIO `?apagarPeca=` e só
+          abre quando o id bate (confirmar-apagar-peca.tsx). O gatilho de verdade continua sendo
+          o botão "Apagar" dentro de `DialogoFicha`, que só navega. */}
+      {fichas.map((ficha) => (
+        <ConfirmarApagarPeca key={ficha.id} id={ficha.id} nome={ficha.nome} />
+      ))}
 
       {fichasExclusivas.length > 0 && (
         <div className="flex justify-start">

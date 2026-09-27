@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { acrescentarLinha } from "@/lib/orcamentos/acoes";
 import { criarFicha, editarFicha } from "@/lib/precificacao/acoes";
+import { hrefDaAbaPecas } from "@/lib/precificacao/navegacao";
 import { calcularPeca, farolDoPreco, type ParametrosDoCalculo } from "@/lib/precificacao/calculo";
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import type { CategoriaDeVenda, FichaParaCopiar, FichaParaEdicao } from "@/lib/precificacao/consultas";
@@ -168,6 +170,10 @@ export function DialogoFicha({
 }: DialogoFichaProps) {
   const aberto = abrirComo !== null;
   const modoEdicao = abrirComo !== null && abrirComo !== "novo";
+  // Só para PRESERVAR o filtro da lista ao navegar daqui de volta (fechar) ou para a confirmação
+  // de exclusão — o diálogo em si nunca decide o que a lista mostra (mesma leitura que
+  // `ConfirmarApagarPeca` já faz).
+  const mostrandoExclusivas = useSearchParams().get("exclusivas") === "1";
 
   // Fechar é sempre navegação COMPLETA — para o editor do orçamento que abriu este diálogo,
   // quando existir; para a aba Peças, do contrário. Este componente é montado direto pela página
@@ -175,7 +181,7 @@ export function DialogoFicha({
   // servidor→cliente.
   const urlDeVolta = vindoDoOrcamentoId
     ? `/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`
-    : "/financeiro?aba=pecas";
+    : hrefDaAbaPecas({ mostrarExclusivas: mostrandoExclusivas });
   function fechar() {
     window.location.assign(urlDeVolta);
   }
@@ -688,7 +694,17 @@ export function DialogoFicha({
             {modoEdicao && fichaParaEditar && !vindoDoOrcamentoId && (
               <button
                 type="button"
-                onClick={() => window.location.assign(`/financeiro?aba=pecas&apagarPeca=${fichaParaEditar.id}`)}
+                onClick={() =>
+                  window.location.assign(
+                    hrefDaAbaPecas({
+                      apagarPeca: fichaParaEditar.id,
+                      // Preserva o filtro atual E garante o modo exclusivas quando a ficha é
+                      // exclusiva: a lista atrás do diálogo precisa ser a que contém a peça
+                      // sendo apagada, venha o dono de onde vier (achado 8, 04.5-14).
+                      mostrarExclusivas: mostrandoExclusivas || fichaParaEditar.exclusiva,
+                    }),
+                  )
+                }
                 className="text-corpo text-destructive hover:bg-destructive/10 flex min-h-[44px] items-center rounded-md px-3 font-medium"
               >
                 {ROTULO_APAGAR_PECA}
