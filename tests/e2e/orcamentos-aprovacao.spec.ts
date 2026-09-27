@@ -301,7 +301,16 @@ test.describe("orcamentos aprovacao", () => {
     // `ConfirmarCancelarDocumento` termina em NAVEGAÇÃO COMPLETA para `?aviso=cancelado&documento=
     // <id>` (nunca `?documentoId=` — propósitos diferentes) — o detalhe fecha junto com a página
     // antiga. Reabre o MESMO documento numa navegação fresca para confirmar o estado gravado.
-    await expect(page).toHaveURL(/aviso=cancelado/, { timeout: 10000 });
+    // NUNCA `toHaveURL(/aviso=.../)`: o `AvisoFinanceiro` apaga `aviso` da URL com
+    // `history.replaceState` no mesmo instante em que mostra o toast, então a asserção de URL
+    // aposta numa janela de milissegundos e perde a corrida sob carga (WINDOWS #49/#52). A regra
+    // já estava escrita em `cadastros-base.spec.ts` desde a 04.4 — esperar o TOAST.
+    //
+    // Aqui o ponto é só sincronizar: só depois que o cancelamento concluiu é que faz sentido
+    // reabrir o documento numa navegação fresca, logo abaixo.
+    await expect(page.getByText(/Lançamento nº \d+ cancelado\. Continua visível, riscado\./)).toBeVisible({
+      timeout: 10000,
+    });
 
     await page.goto(documentoHref);
     await expect(page.getByTestId("documento-detalhe")).toContainText("Cancelado por");

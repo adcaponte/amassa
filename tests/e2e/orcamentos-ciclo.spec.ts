@@ -35,7 +35,7 @@ function sufixoUnico(): string {
 }
 
 function chaveDoParametroDedicado(): "forno_desgaste_por_fornada" | "forno_tarifa_energia" {
-  return test.info().project.name === "celular" ? "forno_tarifa_energia" : "forno_desgaste_por_fornada";
+  return test.info().project.name.endsWith("celular") ? "forno_tarifa_energia" : "forno_desgaste_por_fornada";
 }
 
 // O valor ORIGINAL semeado por 0019 de cada parâmetro dedicado (pontos-base/milésimos, a escala
@@ -128,14 +128,14 @@ function reaisParaCentavos(texto: string): number {
   return Math.round(Number(limpo) * 100);
 }
 
-test.describe("orcamentos ciclo", () => {
+test.describe("orcamentos ciclo @parametro-global", () => {
   test.describe.configure({ mode: "serial" });
 
   // Restaura o parâmetro dedicado deste spec ao valor original, sempre — mesmo se algum teste
   // acima falhar. Sem isto, o parâmetro elevado pelo caso (3) sobrevive ao arquivo inteiro e
   // contamina qualquer outro spec de precificação que rode depois, no mesmo banco efêmero.
   test.afterAll(async ({}, testInfo) => {
-    const chave = testInfo.project.name === "celular" ? "forno_tarifa_energia" : "forno_desgaste_por_fornada";
+    const chave = testInfo.project.name.endsWith("celular") ? "forno_tarifa_energia" : "forno_desgaste_por_fornada";
     await restaurarParametroDedicado(chave);
   });
 
@@ -178,7 +178,6 @@ test.describe("orcamentos ciclo", () => {
     await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     await page.getByRole("button", { name: "Marcar como enviado" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-enviado/, { timeout: 10000 });
     await expect(page.getByText("Marcado como enviado. Preços e custos ficaram congelados.")).toBeVisible();
 
     // Validade padrão de 10 dias, orçamento acabado de enviar hoje: exatamente "vale mais 10
@@ -237,7 +236,6 @@ test.describe("orcamentos ciclo", () => {
     await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     await page.getByRole("button", { name: "Voltar para rascunho" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-reaberto/, { timeout: 10000 });
     await expect(page.getByText("Voltou para rascunho. O cálculo usa os parâmetros de hoje.")).toBeVisible();
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText("rascunho");
 
@@ -258,12 +256,26 @@ test.describe("orcamentos ciclo", () => {
     // Reenvia (o caso (4) devolveu para rascunho) para testar "Duplicar" a partir de um enviado,
     // como o plano descreve.
     await page.getByRole("button", { name: "Marcar como enviado" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-enviado/, { timeout: 10000 });
+    // NUNCA `toHaveURL(/aviso=.../)`: o `AvisoFinanceiro` apaga `aviso` da URL com
+    // `history.replaceState` no mesmo instante em que mostra o toast, então a asserção de URL
+    // aposta numa janela de milissegundos e perde a corrida sob carga (WINDOWS #49/#52). A regra
+    // já estava escrita em `cadastros-base.spec.ts` desde a 04.4 — esperar o TOAST, que é o
+    // resultado que o usuário vê e que persiste.
+    await expect(page.getByText("Marcado como enviado. Preços e custos ficaram congelados.")).toBeVisible({ timeout: 10000 });
 
     const numeroOriginalTexto = (await page.getByTestId("orcamento-numero").textContent()) ?? "";
 
     await page.getByRole("button", { name: "Duplicar" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-duplicado/, { timeout: 10000 });
+    // NUNCA `toHaveURL(/aviso=.../)`: o `AvisoFinanceiro` apaga `aviso` da URL com
+    // `history.replaceState` no mesmo instante em que mostra o toast, então a asserção de URL
+    // aposta numa janela de milissegundos e perde a corrida sob carga (WINDOWS #49/#52). A regra
+    // já estava escrita em `cadastros-base.spec.ts` desde a 04.4 — esperar o TOAST.
+    //
+    // Aqui o toast traz o número NOVO ("Cópia criada como rascunho nº ORC-2026-0NN."), que é
+    // justamente o que este teste quer provar: o duplicado nasce com número diferente.
+    await expect(page.getByText(/Cópia criada como rascunho nº ORC-\d{4}-\d{3}\./)).toBeVisible({
+      timeout: 10000,
+    });
 
     const numeroNovoTexto = (await page.getByTestId("orcamento-numero").textContent()) ?? "";
     expect(numeroNovoTexto).not.toBe(numeroOriginalTexto);
@@ -325,7 +337,6 @@ test.describe("orcamentos ciclo", () => {
     const minimoAntes = (await page.getByTestId("orcamento-linha-minimo").first().textContent()) ?? "";
 
     await page.getByRole("button", { name: "Recusou" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-recusado/, { timeout: 10000 });
     await expect(page.getByText("Marcado como recusado.")).toBeVisible();
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText("recusado");
 
@@ -428,7 +439,12 @@ test.describe("orcamentos ciclo", () => {
     const sobreviventes = [pecas[0], pecas[2]];
 
     await page.getByRole("button", { name: "Marcar como enviado" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-enviado/, { timeout: 10000 });
+    // NUNCA `toHaveURL(/aviso=.../)`: o `AvisoFinanceiro` apaga `aviso` da URL com
+    // `history.replaceState` no mesmo instante em que mostra o toast, então a asserção de URL
+    // aposta numa janela de milissegundos e perde a corrida sob carga (WINDOWS #49/#52). A regra
+    // já estava escrita em `cadastros-base.spec.ts` desde a 04.4 — esperar o TOAST, que é o
+    // resultado que o usuário vê e que persiste.
+    await expect(page.getByText("Marcado como enviado. Preços e custos ficaram congelados.")).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText(/enviado|expirado/);
 
     // Depois de congelado, o número de cada peça tem que continuar sendo O DELA.

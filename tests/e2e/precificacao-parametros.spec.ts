@@ -28,11 +28,11 @@ async function fazerLogin(page: Page) {
 }
 
 function chaveDeValorParaEditar(): "material_argila" | "material_esmalte" {
-  return test.info().project.name === "celular" ? "material_esmalte" : "material_argila";
+  return test.info().project.name.endsWith("celular") ? "material_esmalte" : "material_argila";
 }
 
 function chaveDoSeloParaAlternar(): "perda_unica" | "preco_lucro" {
-  return test.info().project.name === "celular" ? "preco_lucro" : "perda_unica";
+  return test.info().project.name.endsWith("celular") ? "preco_lucro" : "perda_unica";
 }
 
 // Valores ORIGINAIS semeados por 0019 das chaves que os testes abaixo GRAVAM (nunca as que só
@@ -65,13 +65,38 @@ async function restaurarParametro(chave: string): Promise<void> {
   }
 }
 
+// O teste do selo alterna `medido` e, até 2026-09-27, NINGUÉM desfazia: o `afterAll` só devolvia
+// `valor_inteiro`, e a chave do selo (`perda_unica`/`preco_lucro`) nem passa por ele, porque o
+// selo não muda valor nenhum. Ficava um parâmetro marcado "medido" para sempre, no banco efêmero
+// inteiro.
+//
+// Isso não quebrava nada HOJE — `medido` não entra no cálculo, só na CONTAGEM de estimados que o
+// painel "Só para você" mostra, e `orcamentos-total.spec.ts` só exige que a contagem seja
+// positiva, o que 16 de 18 continua sendo. Mas é estado global deixado sujo, que é exatamente a
+// classe de defeito que a WINDOWS #53 é. Um teste futuro que afirme a contagem EXATA quebraria
+// sem motivo aparente.
+//
+// Todos os 18 parâmetros nascem `medido = false` (D-17), então restaurar é voltar a `false`.
+async function restaurarSelo(chave: string): Promise<void> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    await cliente.query(
+      "update parametros_precificacao set medido = false where chave = $1 and vigente_desde = hoje_brasilia()",
+      [chave],
+    );
+  } finally {
+    await cliente.end();
+  }
+}
+
 // A data de hoje, no MESMO formato que a tela mostra (`formatarDataCurta(hojeEmBrasilia(...))`,
 // lib/financeiro/formato.ts) — nunca uma segunda implementação de formatação no teste.
 function hojeComoNaTela(): string {
   return formatarDataCurta(hojeEmBrasilia(new Date()));
 }
 
-test.describe("precificacao parametros", () => {
+test.describe("precificacao parametros @parametro-global", () => {
   test.describe.configure({ mode: "serial" });
 
   // Restaura os parâmetros que este arquivo GRAVA (material_argila/material_esmalte,
@@ -79,9 +104,11 @@ test.describe("precificacao parametros", () => {
   // valor alterado sobrevive ao arquivo inteiro e contamina qualquer outro spec de precificação
   // que rode depois, no mesmo banco efêmero.
   test.afterAll(async ({}, testInfo) => {
-    const chaveEditavel = testInfo.project.name === "celular" ? "material_esmalte" : "material_argila";
-    await restaurarParametro(chaveEditavel);
+    const ehCelular = testInfo.project.name.endsWith("celular");
+    await restaurarParametro(ehCelular ? "material_esmalte" : "material_argila");
     await restaurarParametro("trabalho_hora");
+    // O selo `medido` também — ver o comentário de `restaurarSelo`.
+    await restaurarSelo(ehCelular ? "preco_lucro" : "perda_unica");
   });
 
   test("a sub-aba Parâmetros abre, mostra os cinco grupos e ao menos 18 campos", async ({ page }) => {
@@ -122,7 +149,7 @@ test.describe("precificacao parametros", () => {
     await page.goto("/cadastros?sub=parametros");
 
     const linha = page.getByTestId(`parametro-${chave}`);
-    const novoValorTexto = test.info().project.name === "celular" ? "77,7" : "88,8";
+    const novoValorTexto = test.info().project.name.endsWith("celular") ? "77,7" : "88,8";
     await linha.locator("input").fill(novoValorTexto);
     await linha.locator("input").blur();
 

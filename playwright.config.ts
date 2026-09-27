@@ -78,14 +78,77 @@ export default defineConfig({
     {
       name: "desktop",
       use: { ...devices["Desktop Chrome"] },
-      grepInvert: /@vazio-(global|historico)/,
+      grepInvert: [/@vazio-(global|historico)/, /@parametro-global/],
       dependencies: ["vazio-historico"],
     },
     {
       name: "celular",
       use: { ...devices["Pixel 7"] },
-      grepInvert: /@vazio-(global|historico)/,
+      grepInvert: [/@vazio-(global|historico)/, /@parametro-global/],
       dependencies: ["vazio-historico"],
+    },
+    // A SEGUNDA cadeia, e o motivo dela (WINDOWS #53, 2026-09-27).
+    //
+    // Três arquivos de spec sobem PARÂMETROS GLOBAIS de precificação para provar o próprio
+    // comportamento: `orcamentos-revisao` (preco_folga_negociacao/preco_imposto_sobre_venda),
+    // `orcamentos-ciclo` (forno_desgaste_por_fornada/forno_tarifa_energia) e
+    // `precificacao-parametros` (material_argila/material_esmalte/trabalho_hora). Eles restauram
+    // no `afterAll`, mas `parametros_precificacao` é um CATÁLOGO FIXO GLOBAL — não há chave
+    // própria por spec a isolar. Enquanto o parâmetro está elevado, qualquer arquivo que leia
+    // custo/mínimo/selo vê um número que não é o da semente: `precificacao-ficha`,
+    // `precificacao-pecas`, `orcamentos-editor`, `orcamentos-total`.
+    //
+    // Com `fullyParallel` e 8 workers, o `afterAll` do mutador corre contra a leitura do outro
+    // arquivo NOUTRO worker. Isso não é instabilidade de ambiente — é a mesma premissa falsa que
+    // o comentário acima descreve para o estado vazio, e o CLAUDE.md manda resolver do mesmo
+    // jeito: ordem explícita por `dependencies`, nunca `--grep` como muleta.
+    //
+    // Duas escolhas que não são óbvias:
+    //
+    // 1. Os mutadores rodam por ÚLTIMO, não primeiro. Mutadores-primeiro só seria seguro se a
+    //    restauração fosse garantida, e ela não é: o `update ... where chave = $1 and
+    //    vigente_desde = hoje_brasilia()` afeta ZERO linhas em silêncio se a data não casar — a
+    //    mesma classe de defeito da WINDOWS #44. Por último, um `afterAll` que falha em silêncio
+    //    não entrega um banco sujo a mais ninguém.
+    //
+    // 2. `workers: 1` em cada um, porque os três mutadores disputam entre SI, não só com as
+    //    vítimas: o mínimo depende de TODOS os parâmetros (lib/precificacao/calculo.ts), então
+    //    chave dedicada protege a chave, nunca o número derivado. `fullyParallel: false` por
+    //    projeto NÃO resolveria — serializa os testes dentro de um arquivo, não os arquivos entre
+    //    si. É o uso que a própria documentação do Playwright dá a `testProject.workers`.
+    //
+    // 🔴 DOIS CUSTOS REAIS DESTA CADEIA, medidos em 2026-09-27. Leia antes de usar `--grep`.
+    //
+    // 1. **`--grep` que atinja um destes três arquivos passa a custar a SUÍTE INTEIRA.** O
+    //    Playwright roda projeto de dependência por completo e NÃO aplica o `--grep` nele — então
+    //    pedir um teste só de `precificacao-parametros` arrasta `desktop` e `celular` junto.
+    //    Medido: 9,5 e 9,7 minutos, para um teste que sozinho leva 19 segundos. Isso contraria a
+    //    economia de `--grep` que o CLAUDE.md impõe, e é consequência direta de "rodar depois de".
+    //    **Localmente, use `--no-deps` nestes três arquivos** — com a ressalva do parágrafo abaixo.
+    //    Em CI nada muda: lá a varredura roda inteira de qualquer jeito.
+    //
+    // 2. **Se `desktop`/`celular` falharem, estes dois nem rodam** ("did not run"). Um defeito
+    //    antigo lá em cima esconde tudo aqui embaixo — foi o que aconteceu com a WINDOWS #3 na
+    //    primeira tentativa de validar esta própria mudança.
+    //
+    // ⚠️ `--no-deps` é a saída para iterar, NUNCA para validar: ele desliga exatamente a
+    // serialização que estes projetos existem para garantir, e aí `parametros-desktop` e
+    // `parametros-celular` voltam a rodar ao mesmo tempo, um poluindo o outro. Comprovado: com
+    // `--no-deps` o mínimo de uma peça saltou de R$ 157,35 para R$ 3.144,97 no meio do teste.
+    // Para VALIDAR, rode a varredura completa, sem `--grep` e sem `--no-deps`.
+    {
+      name: "parametros-desktop",
+      use: { ...devices["Desktop Chrome"] },
+      grep: /@parametro-global/,
+      dependencies: ["desktop", "celular"],
+      workers: 1,
+    },
+    {
+      name: "parametros-celular",
+      use: { ...devices["Pixel 7"] },
+      grep: /@parametro-global/,
+      dependencies: ["parametros-desktop"],
+      workers: 1,
     },
   ],
   webServer: {

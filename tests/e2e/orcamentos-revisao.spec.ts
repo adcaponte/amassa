@@ -33,7 +33,7 @@ function sufixoUnico(): string {
 }
 
 function chaveDoParametroDedicado(): "preco_folga_negociacao" | "preco_imposto_sobre_venda" {
-  return test.info().project.name === "celular" ? "preco_imposto_sobre_venda" : "preco_folga_negociacao";
+  return test.info().project.name.endsWith("celular") ? "preco_imposto_sobre_venda" : "preco_folga_negociacao";
 }
 
 async function definirParametro(page: Page, chave: string, valorTexto: string): Promise<void> {
@@ -149,14 +149,14 @@ async function abrirDialogoAtualizarPrecos(page: Page, orcamentoId: string, rotu
   await expect(page.getByRole("dialog", { name: "Atualizar preços" })).toBeVisible();
 }
 
-test.describe("orcamentos revisao", () => {
+test.describe("orcamentos revisao @parametro-global", () => {
   test.describe.configure({ mode: "serial" });
 
   // Restaura o parâmetro dedicado deste spec ao valor original, sempre — mesmo se algum teste
   // acima falhar. Sem isto, o parâmetro elevado pelo teste (a) sobrevive ao arquivo inteiro e
   // contamina qualquer outro spec de precificação que rode depois, no mesmo banco efêmero.
   test.afterAll(async ({}, testInfo) => {
-    const chave = testInfo.project.name === "celular" ? "preco_imposto_sobre_venda" : "preco_folga_negociacao";
+    const chave = testInfo.project.name.endsWith("celular") ? "preco_imposto_sobre_venda" : "preco_folga_negociacao";
     await restaurarParametroDedicado(chave);
   });
 
@@ -178,7 +178,12 @@ test.describe("orcamentos revisao", () => {
     await acrescentarPecaExclusiva(page, orcamentoId, nomeDaPeca, "100");
 
     await page.getByRole("button", { name: "Marcar como enviado" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-enviado/, { timeout: 10000 });
+    // NUNCA `toHaveURL(/aviso=.../)`: o `AvisoFinanceiro` apaga `aviso` da URL com
+    // `history.replaceState` no mesmo instante em que mostra o toast, então a asserção de URL
+    // aposta numa janela de milissegundos e perde a corrida sob carga (WINDOWS #49/#52). A regra
+    // já estava escrita em `cadastros-base.spec.ts` desde a 04.4 — esperar o TOAST, que é o
+    // resultado que o usuário vê e que persiste.
+    await expect(page.getByText("Marcado como enviado. Preços e custos ficaram congelados.")).toBeVisible({ timeout: 10000 });
 
     numeroOriginal = (await page.getByTestId("orcamento-numero").textContent()) ?? "";
     totalAntesDaAtualizacao = extrairReais((await page.getByTestId("orcamento-total").textContent()) ?? "");
@@ -211,7 +216,6 @@ test.describe("orcamentos revisao", () => {
     await abrirDialogoAtualizarPrecos(page, orcamentoId, "Atualizar preços");
 
     await page.getByRole("button", { name: "Atualizar", exact: true }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-revisao-criada/, { timeout: 10000 });
     await expect(page.getByText("Revisão 2 criada como rascunho. Confira e marque como enviado.")).toBeVisible();
 
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText("rascunho");
@@ -252,7 +256,6 @@ test.describe("orcamentos revisao", () => {
     expect(precoDoInputParaCentavos(sugestaoTexto)).toBeGreaterThan(100); // maior que R$ 1,00
 
     await page.getByRole("button", { name: "Atualizar", exact: true }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-atualizado/, { timeout: 10000 });
     await expect(page.getByText("Preços atualizados.")).toBeVisible();
 
     // Nenhuma revisão nova, status continua rascunho, número (com a mesma "· revisão 2") intacto.
@@ -277,7 +280,12 @@ test.describe("orcamentos revisao", () => {
     // Enviado DEPOIS do parâmetro já ter subido (teste a) — nenhuma mudança acontece daqui até
     // abrir o diálogo, então o mínimo de hoje é IGUAL ao congelado.
     await page.getByRole("button", { name: "Marcar como enviado" }).click();
-    await expect(page).toHaveURL(/aviso=orcamento-enviado/, { timeout: 10000 });
+    // NUNCA `toHaveURL(/aviso=.../)`: o `AvisoFinanceiro` apaga `aviso` da URL com
+    // `history.replaceState` no mesmo instante em que mostra o toast, então a asserção de URL
+    // aposta numa janela de milissegundos e perde a corrida sob carga (WINDOWS #49/#52). A regra
+    // já estava escrita em `cadastros-base.spec.ts` desde a 04.4 — esperar o TOAST, que é o
+    // resultado que o usuário vê e que persiste.
+    await expect(page.getByText("Marcado como enviado. Preços e custos ficaram congelados.")).toBeVisible({ timeout: 10000 });
 
     await abrirDialogoAtualizarPrecos(page, orcamentoSemMudancaId, "Atualizar preços");
 
