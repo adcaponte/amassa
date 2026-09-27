@@ -84,6 +84,65 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     expect(caixaVenda?.y).not.toBe(caixaOrcamentos?.y);
   });
 
+  // 🔴 Defeito real, visto pelo dono num Android em 2026-09-27 (e a captura não deixava dúvida):
+  // o cartão da lista punha nome, total, chip e "Abrir" numa fileira só. Os três da direita
+  // comiam a largura, sobrava uma coluna de poucos pixels para o nome, e o `break-words` quebrava
+  // o título UMA PALAVRA POR LINHA — "jogo de mesa" virava um cartão de seis linhas.
+  //
+  // `flex-wrap` não bastava: o nome tem `flex-1`, então ENCOLHE em vez de empurrar os outros para
+  // baixo. Por isso o cartão agora é `flex-col` no celular e só vira fileira a partir de `sm:`.
+  //
+  // O teste afirma o que o defeito violava: com o cartão empilhado, o título ocupa a largura útil
+  // do cartão, e não uma tira estreita. Medir a LARGURA do título é o que pega a regressão —
+  // afirmar "não rola na horizontal" não pegava, porque o cartão espremido também não rolava.
+  test("a 360px, o título do orçamento ocupa a largura do cartão em vez de quebrar palavra por palavra", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.setViewportSize({ width: 360, height: 800 });
+
+    const titulo = `Jogo de mesa para a prova de largura ${Date.now().toString(36)}`;
+
+    await page.goto("/financeiro?aba=orcamentos");
+    await page
+      .getByTestId("orcamentos-lista")
+      .getByRole("button", { name: ROTULO_NOVO_ORCAMENTO })
+      .click();
+    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+
+    const campoTitulo = page.getByTestId("orcamento-campo-titulo");
+    await campoTitulo.fill(titulo);
+    // `waitForNavigation` junto do `blur`, nunca `waitForLoadState` solto: a URL de destino pode
+    // ser IDÊNTICA à atual, e aí o `load` resolve contra um carregamento velho.
+    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campoTitulo.blur()]);
+
+    await page.goto("/financeiro?aba=orcamentos");
+    const cartao = page.getByTestId("orcamento-linha").filter({ hasText: titulo });
+    await expect(cartao).toBeVisible();
+
+    const caixaCartao = await cartao.boundingBox();
+    const caixaTitulo = await cartao.getByText(titulo, { exact: true }).boundingBox();
+    if (!caixaCartao || !caixaTitulo) {
+      throw new Error("Geometria do cartão ou do título não pôde ser lida (bounding box nula).");
+    }
+
+    // 70% da largura do cartão é folgado para "ocupa a largura" e apertado o bastante para
+    // reprovar a tira de ~60px que o defeito produzia (menos de 20% do cartão).
+    const proporcao = caixaTitulo.width / caixaCartao.width;
+    expect(
+      proporcao,
+      `o título ocupa só ${(proporcao * 100).toFixed(0)}% da largura do cartão (${caixaTitulo.width}px de ${caixaCartao.width}px) — é o cartão espremido de volta`,
+    ).toBeGreaterThan(0.7);
+
+    // E a consequência que o dono viu: o cartão não pode ficar alto feito uma coluna.
+    expect(
+      caixaCartao.height,
+      `o cartão mede ${caixaCartao.height}px de altura — o título deve estar quebrando palavra por palavra de novo`,
+    ).toBeLessThan(200);
+
+
+  });
+
   test("todo botão visível da aba Orçamentos mede ao menos 44px de altura", async ({ page }) => {
     await fazerLogin(page);
     await page.goto("/financeiro?aba=orcamentos");

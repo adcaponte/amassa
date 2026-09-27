@@ -43,14 +43,23 @@ export function ListaOrcamentos({ orcamentos, hoje }: ListaOrcamentosProps) {
 
       <ul className="flex flex-col gap-1">
         {orcamentos.map((orcamento) => (
+          // Empilhado no celular, em linha no desktop — e o motivo é um defeito real, visto pelo
+          // dono num Android em 2026-09-27: com TUDO numa fileira só, o total, o chip e o "Abrir"
+          // comiam a largura, sobrava uma coluna de poucos pixels para o nome, e o `break-words`
+          // então quebrava o título UMA PALAVRA POR LINHA. Um orçamento chamado "jogo de mesa"
+          // virava um cartão de seis linhas de altura.
+          //
+          // `flex-wrap` sozinho não resolvia: o nome tem `flex-1`, então ele ENCOLHE em vez de
+          // empurrar os outros para a fileira de baixo. A correção é dar ao nome a largura
+          // inteira no celular e agrupar os três controles numa fileira própria.
           <li
             key={orcamento.id}
             data-testid="orcamento-linha"
-            className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+            className="border-border flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3"
           >
             <a
               href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
-              className="flex min-w-0 flex-1 flex-col"
+              className="flex min-w-0 flex-col sm:flex-1"
             >
               <span className="text-corpo text-foreground break-words">
                 {orcamento.titulo ?? FRASE_SEM_TITULO}
@@ -63,20 +72,22 @@ export function ListaOrcamentos({ orcamentos, hoje }: ListaOrcamentosProps) {
               </span>
             </a>
 
-            {/* O total sai SEMPRE da soma das linhas, agregada na própria consulta
-                (`listarOrcamentos`) — nunca uma coluna gravada. */}
-            <span data-testid="orcamento-total" className="text-corpo text-foreground tabular-nums">
-              {formatarReais(orcamento.totalCentavos)}
-            </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+              {/* O total sai SEMPRE da soma das linhas, agregada na própria consulta
+                  (`listarOrcamentos`) — nunca uma coluna gravada. */}
+              <span data-testid="orcamento-total" className="text-corpo text-foreground tabular-nums">
+                {formatarReais(orcamento.totalCentavos)}
+              </span>
 
-            <ChipDeSituacao situacao={situacaoDoOrcamento(orcamento, hoje)} />
+              <ChipDeSituacao situacao={situacaoDoOrcamento(orcamento, hoje)} />
 
-            <a
-              href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
-              className="text-corpo hover:bg-muted flex min-h-[44px] flex-none items-center rounded-md px-3 font-medium"
-            >
-              {ROTULO_ABRIR_ORCAMENTO}
-            </a>
+              <a
+                href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
+                className="text-corpo hover:bg-muted flex min-h-[44px] flex-none items-center rounded-md px-3 font-medium"
+              >
+                {ROTULO_ABRIR_ORCAMENTO}
+              </a>
+            </div>
           </li>
         ))}
       </ul>
