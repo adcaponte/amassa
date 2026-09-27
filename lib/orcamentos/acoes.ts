@@ -776,7 +776,41 @@ export async function marcarComoEnviado(
         })
         .from(orcamentoLinhas)
         .innerJoin(fichasPrecificacao, eq(orcamentoLinhas.fichaId, fichasPrecificacao.id))
-        .where(eq(orcamentoLinhas.orcamentoId, id));
+        .where(eq(orcamentoLinhas.orcamentoId, id))
+        // 🔴 SEM este `orderBy` o snapshot sai desalinhado. Todo leitor casa
+        // `snapshot.linhas[indice]` com as linhas ordenadas por `ordem` (consultas.ts:190,
+        // documento-cliente.ts, editor-orcamento.tsx, e a aprovação em ~1135 — que até comenta
+        // "a ordem é a MESMA"). Sem cláusula de ordenação o Postgres devolve a ordem FÍSICA da
+        // tabela, que deixa de bater com a coluna `ordem` assim que uma linha é editada (o
+        // `update` grava uma versão nova da tupla, que vai para o fim da heap).
+        //
+        // Se desalinhar, o estrago não é cosmético: nome congelado, custo e mínimo da peça A
+        // colados na peça B — no painel "Só para você", no PDF QUE VAI AO CLIENTE e nas linhas
+        // da venda criada na aprovação.
+        //
+        // 🔴 HONESTIDADE SOBRE A GRAVIDADE, medida nesta sessão (2026-09-27), com o `orderBy`
+        // removido de propósito: **não consegui reproduzir o desalinhamento pela interface**.
+        // Tentei seis edições de quantidade em duas linhas e a remoção de uma linha do meio —
+        // os dois cenários continuaram alinhados. O motivo é que todo caminho de escrita deste
+        // módulo preserva a ordem por construção: editar quantidade é HOT update (a versão nova
+        // fica na mesma página e reaproveita o ponteiro), e a renumeração de `removerLinha`
+        // percorre as linhas em ordem CRESCENTE de `ordem`, de modo que as versões novas são
+        // anexadas no fim já na ordem certa.
+        //
+        // Ou seja: defeito LATENTE, não bug observável hoje. O que o torna real é o futuro —
+        // um recurso de reordenar linha, um orçamento grande o bastante para o planejador
+        // escolher outra varredura, ou qualquer mudança nesse laço de renumeração. Depender de
+        // ordem não especificada é errado mesmo quando dá certo por acidente, e a cláusula custa
+        // zero.
+        //
+        // `UNIQUE(orcamento_id, ordem)` (0017, "orcamento_linhas_orcamento_ordem_uk") torna esta
+        // uma ordem TOTAL — não precisa de critério de desempate.
+        //
+        // Apontado pela verificação independente do Cowork em 2026-09-27, sobre `bb39df4` (era a
+        // única consulta de linha do módulo sem ordenação). A gravidade acima é correção minha:
+        // o relatório dele descrevia o desalinhamento como consequência provável de editar uma
+        // linha, e a medição não sustenta isso.
+        .orderBy(asc(orcamentoLinhas.ordem));
 
       if (!orcamento.clienteNome?.trim() || linhas.length === 0) {
         throw new FaltaClienteOuPeca();

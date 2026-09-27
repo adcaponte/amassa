@@ -332,4 +332,109 @@ test.describe("orcamentos ciclo", () => {
     await expect(page.getByTestId("orcamento-total")).toHaveText(totalAntes);
     await expect(page.getByTestId("orcamento-linha-minimo").first()).toHaveText(minimoAntes);
   });
+
+  // ⚠️ LEIA ISTO ANTES DE CONFIAR NESTE TESTE: ele é uma TRAVA DE REGRESSÃO, não a prova de um
+  // bug. Medido em 2026-09-27, com o `orderBy` de `marcarComoEnviado` removido de propósito,
+  // **este teste PASSA** — nem seis edições de quantidade nem a remoção de uma linha do meio
+  // desalinham o snapshot hoje.
+  //
+  // Por quê: todo caminho de escrita do módulo preserva a ordem por construção. Editar
+  // quantidade é HOT update (versão nova na mesma página, reaproveitando o ponteiro), e a
+  // renumeração de `removerLinha` percorre em ordem CRESCENTE de `ordem`, anexando as versões
+  // novas já na ordem certa.
+  //
+  // Então o que este teste guarda é o DIA EM QUE ISSO MUDAR — um recurso de reordenar linha, um
+  // orçamento grande o bastante para o planejador escolher outra varredura, ou um mexido no laço
+  // de renumeração. O contrato que ele tranca: `snapshot.linhas[indice]` casa com as linhas
+  // ordenadas por `ordem`, e o número congelado de cada peça é o DELA.
+  //
+  // Escrever um teste que só passa não seria honesto sem esta nota. A alternativa — afirmar que
+  // a correção conserta um bug observável — seria falsa: o defeito é latente.
+  //
+  // O teste usa três receitas DIFERENTES para que os mínimos sejam distintos entre si; com
+  // receitas iguais, um desalinhamento passaria despercebido porque todos os números seriam o
+  // mesmo. É o cuidado oposto ao do caso (3), que precisa de receitas idênticas.
+  test("(8) o snapshot não desalinha: depois de tirar uma linha e enviar, cada peça mantém o SEU número congelado", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    const sufixo = `${suf}-ordem`;
+    const id = await criarOrcamento(page);
+    await preencherCliente(page, id, `[e2e] Cliente Ordem ${sufixo}`);
+
+    // Três receitas deliberadamente distintas — pequena, média e grande.
+    const pecas = [
+      { nome: `[e2e] A Pequena ${sufixo}`, argila: "200", horas: "0,3", largura: "8", preco: "40" },
+      { nome: `[e2e] B Media ${sufixo}`, argila: "600", horas: "0,9", largura: "14", preco: "90" },
+      { nome: `[e2e] C Grande ${sufixo}`, argila: "1200", horas: "1,8", largura: "22", preco: "180" },
+    ];
+
+    for (const peca of pecas) {
+      await page.goto(`/financeiro?aba=orcamentos&orcamento=${id}`);
+      await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
+      await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
+      await page.getByTestId("ficha-campo-nome").fill(peca.nome);
+      await page.getByTestId("ficha-campo-argila").fill(peca.argila);
+      await page.getByTestId("ficha-campo-esmalte").fill("60");
+      await page.getByTestId("ficha-campo-horas").fill(peca.horas);
+      await page.getByTestId("ficha-campo-largura").fill(peca.largura);
+      await page.getByTestId("ficha-campo-profundidade").fill("9");
+      await page.getByTestId("ficha-campo-altura").fill("10");
+      await page.getByTestId("ficha-campo-embalagem").fill("3");
+      await page.getByTestId("ficha-campo-preco-praticado").fill(peca.preco);
+      await page.getByRole("button", { name: "Salvar" }).click();
+      await expect(page).toHaveURL(new RegExp(`aba=orcamentos&orcamento=${id}$`), { timeout: 10000 });
+      await expect(page.getByTestId("orcamento-linha").filter({ hasText: peca.nome })).toBeVisible();
+    }
+
+    // O mínimo de cada peça ANTES de congelar, lido pelo nome — nunca por posição, senão o teste
+    // não conseguiria distinguir "ficou no lugar" de "trocou de lugar".
+    const minimoPorNome = new Map<string, string>();
+    for (const peca of pecas) {
+      const linha = page.getByTestId("orcamento-linha").filter({ hasText: peca.nome });
+      minimoPorNome.set(peca.nome, (await linha.getByTestId("orcamento-linha-minimo").textContent()) ?? "");
+    }
+    // Se as três receitas produzissem o mesmo mínimo, o teste seria vacuamente verde.
+    expect(new Set(minimoPorNome.values()).size).toBe(3);
+
+    // O GATILHO: editar a PRIMEIRA linha. O `update` grava versão nova da tupla, que passa a
+    // voltar por último numa varredura sem ordenação. Quantidade não muda o mínimo unitário,
+    // então os valores lidos acima continuam sendo a resposta certa.
+    // 🔴 O GATILHO CERTO é TIRAR uma linha do meio, não editar quantidade.
+    //
+    // Medido nesta sessão, com o `orderBy` removido de propósito: seis edições de quantidade em
+    // duas linhas NÃO reproduzem o defeito. A razão é que elas são HOT updates — a versão nova
+    // da tupla fica na mesma página e REAPROVEITA o ponteiro, então a varredura devolve a linha
+    // no lugar de sempre.
+    //
+    // Tirar uma linha é outra história: `removerLinha` (lib/orcamentos/acoes.ts) renumera as
+    // seguintes com `update ... set ordem = ordem - 1`, e `ordem` é INDEXADA
+    // (`UNIQUE(orcamento_id, ordem)`). Update em coluna indexada não é HOT: a tupla nova vai
+    // para outro lugar, e a ordem física passa a divergir da coluna `ordem` — exatamente o que
+    // a consulta sem `ORDER BY` devolvia ao acaso.
+    //
+    // E isto não é um caso de laboratório: montar um orçamento, tirar uma peça que o cliente
+    // desistiu e mandar é o uso normal do módulo.
+    const doMeio = page.getByTestId("orcamento-linha").filter({ hasText: pecas[1].nome });
+    await doMeio.getByRole("button", { name: "tirar" }).click();
+    await expect(page.getByTestId("dialogo-tirar-linha")).toBeVisible();
+    await page.getByTestId("dialogo-tirar-linha").getByRole("button", { name: "tirar" }).click();
+    await expect(page.getByTestId("orcamento-linha").filter({ hasText: pecas[1].nome })).toHaveCount(0, {
+      timeout: 10000,
+    });
+
+    // As duas que sobraram são as que têm que manter o próprio número.
+    const sobreviventes = [pecas[0], pecas[2]];
+
+    await page.getByRole("button", { name: "Marcar como enviado" }).click();
+    await expect(page).toHaveURL(/aviso=orcamento-enviado/, { timeout: 10000 });
+    await expect(page.getByTestId("orcamento-chip").first()).toHaveText(/enviado|expirado/);
+
+    // Depois de congelado, o número de cada peça tem que continuar sendo O DELA.
+    for (const peca of sobreviventes) {
+      const linha = page.getByTestId("orcamento-linha").filter({ hasText: peca.nome });
+      await expect(linha.getByTestId("orcamento-linha-minimo")).toHaveText(minimoPorNome.get(peca.nome)!);
+    }
+  });
 });
