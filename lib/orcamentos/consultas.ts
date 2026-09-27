@@ -273,6 +273,33 @@ export async function listarFotosDoOrcamento(orcamentoId: string): Promise<FotoD
     .orderBy(asc(orcamentoFotos.ordem));
 }
 
+// ---------------------------------------------------------------------------------------------
+// O PDF do cliente (04.5-11-PLAN.md, Tarefa 4)
+// ---------------------------------------------------------------------------------------------
+
+export type FotoParaPdf = {
+  id: string;
+  legenda: string | null;
+  arquivo: string;
+};
+
+// A ÚNICA consulta de fotos que a rota do PDF faz — diferente de `listarFotosDoOrcamento`
+// (Tarefa 3, que a tela usa) porque o SERVIDOR precisa do NOME do arquivo para ler os bytes com
+// `caminhoDaFoto()` (a tela nunca lê byte: busca cada foto por
+// `/api/orcamentos/fotos/<id>`). Mesma ordem (`ordem asc`) das demais consultas de foto do
+// módulo.
+export async function listarFotosParaPdf(orcamentoId: string): Promise<FotoParaPdf[]> {
+  return db
+    .select({
+      id: orcamentoFotos.id,
+      legenda: orcamentoFotos.legenda,
+      arquivo: orcamentoFotos.arquivo,
+    })
+    .from(orcamentoFotos)
+    .where(eq(orcamentoFotos.orcamentoId, orcamentoId))
+    .orderBy(asc(orcamentoFotos.ordem));
+}
+
 export type FotoParaLeitura = {
   orcamentoId: string;
   arquivo: string;

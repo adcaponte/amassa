@@ -48,6 +48,16 @@ COPY --from=construtor --chown=nextjs:nodejs /app/public ./public
 COPY --from=construtor --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=construtor --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Fontes do PDF do orçamento (Fase 04.5, D-32) — lidas em tempo de EXECUÇÃO
+# (`path.join(process.cwd(), "assets", ...)`, lib/orcamentos/pdf/fontes.ts), não por
+# `import`/`require` estático: o rastreador de arquivos do `next build` (o mesmo mecanismo do
+# Pitfall 3 do binário do sharp, 04.5-RESEARCH.md) NÃO enxerga essa leitura e NÃO copia
+# `assets/` para `.next/standalone` sozinho. Sem esta linha, o primeiro PDF gerado em produção
+# falharia com "arquivo não encontrado" — um defeito que não aparece em `npm run dev` (roda do
+# próprio diretório do repositório, onde `assets/` sempre existe). O logo (D-09), quando a arte
+# da Andressa chegar, entra no mesmo diretório e é coberto pela mesma linha.
+COPY --from=construtor --chown=nextjs:nodejs /app/assets ./assets
+
 # Diretório das fotos de orçamento (Fase 04.5, D-27/D-30), já com o dono certo. Duas razões:
 # (1) sem bind mount nenhum, a imagem continua funcional — é o que faz o contêiner do e2e do CI
 # escrever foto sem precisar de mudança no workflow (.github/workflows/entrega.yml não monta
