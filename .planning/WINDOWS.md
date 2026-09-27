@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 29
+open_count: 32
 waived_count: 1
-fixed_count: 23
-total_count: 53
-last_updated: 2026-09-27T14:18:15.178Z
+fixed_count: 25
+total_count: 58
+last_updated: 2026-09-27T18:24:29.468Z
 ---
 
 # Broken Windows Ledger
@@ -68,6 +68,11 @@ last_updated: 2026-09-27T14:18:15.178Z
 | 51 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-tracador.spec.ts | 95 | todo botao visivel da aba Orcamentos mede ao menos 44px de altura -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): page.locator('main').getByRole('button').count() veio 0 (pagina nao terminou de renderizar sob a carga), junto de 'The destination stream closed early' no log do servidor Next -- mesmo sintoma ja registrado em WINDOWS #35 para o teste irmao (linha 63) do MESMO arquivo. Reexecucao isolada (--workers=1) passou limpa. Nao corrigido: mesma classe de contencao de servidor unico sob carga, sem causa raiz pequena e obvia neste arquivo. | open |  | 2026-09-27T03:28:31.805Z |  |
 | 52 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-revisao.spec.ts | 181 | (a) parametro dedicado sobe o minimo -- falhou sob carga de 8 workers (npm run test:e2e --grep, reverificacao do plano 04.5-13 apos corrigir a poluicao de parametro entre specs): toHaveURL(/aviso=orcamento-enviado/) expirou em 10s mesmo com o log mostrando a navegacao correta acontecendo ("navigated to ...aviso=orcamento-enviado..."), a URL assentou sem o parametro no momento da checagem. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia). | fixed |  | 2026-09-27T03:28:42.694Z | 2026-09-27T14:18:15.178Z |
 | 53 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-revisao.spec.ts | 190 | Poluicao de parametro global entre arquivos de spec, achado real da varredura completa (plano 04.5-13, Tarefa 1): orcamentos-revisao.spec.ts/orcamentos-ciclo.spec.ts/precificacao-parametros.spec.ts sobem parametros globais (preco_folga_negociacao/preco_imposto_sobre_venda, forno_desgaste_por_fornada/forno_tarifa_energia, material_argila/material_esmalte/trabalho_hora) sem desfazer, corrompendo o custo/minimo/selo que precificacao-ficha.spec.ts/precificacao-pecas.spec.ts esperam calculado com os valores PADRAO da semente. Corrigido com test.afterAll restaurando cada parametro direto no banco (commit fix(04.5-13) desta sessao) -- a poluicao DETERMINISTICA (ordem alfabetica de arquivo) foi eliminada e confirmada por reexecucao isolada e em grupo repetidas vezes. RESIDUAL: sob os 8 workers default do npm run test:e2e (fullyParallel, sem dependencies entre estes arquivos), uma janela de corrida ainda existe -- o teste que sobe o parametro e o afterAll que restaura rodam no MESMO arquivo/worker, mas um ARQUIVO DIFERENTE pode ler o parametro num worker concorrente durante a janela em que ele esta elevado, antes do afterAll disparar. Eliminar de vez exigiria uma cadeia de dependencies (mesmo padrao de vazio-celular/vazio-desktop/vazio-historico do playwright.config.ts) sequenciando estes cinco arquivos -- mudanca estrutural de infraestrutura de teste, fora do escopo deste plano de fechamento; frequencia observada baixa (1 em ~4 varreduras completas) e sempre no SELO/etiqueta de faixa, nunca no numero de custo (esse lado ja fechou). | fixed |  | 2026-09-27T03:58:55.587Z | 2026-09-27T14:18:14.194Z |
+| 54 | 04.5-financeiro-parte-2 | deviation | components/amassa/precificacao/lista-pecas.tsx | 264 | Achado 8 da verificacao humana (27/09/2026, dono, no celular): o botao Apagar de uma peca EXCLUSIVA nao fazia nada -- palavras dele: 'peca exclusiva quando clica em Apagar a tela da peca fecha mas nao apaga nada, apenas esconde a lista das pecas exclusivas novamente'. Causa raiz: ConfirmarApagarPeca era montado DENTRO do map de fichasVisiveis; sem ?exclusivas=1 a ficha exclusiva nao esta nessa lista, o dialogo nao existe no DOM, ninguem le o ?apagarPeca= e o botao so navega para o nada. A Server Action apagarFicha e o confirmar-apagar-peca.tsx sempre estiveram corretos -- nunca rodavam. Corrigido no plano 04.5-14, Tarefa 1 (commit e5daf10): dialogos montados a partir de TODAS as fichas, fora do map do que aparece na lista, e hrefDaAbaPecas (lib/precificacao/navegacao.ts, modulo puro e testado) preservando ?exclusivas nas quatro navegacoes que o descartavam. Testes novos (i) e (j) em tests/e2e/precificacao-pecas.spec.ts, com RED provado antes. | fixed |  | 2026-09-27T18:23:58.743Z | 2026-09-27T18:24:28.989Z |
+| 55 | 04.5-financeiro-parte-2 | deviation | components/amassa/orcamentos/veredito-da-aprovacao.tsx | 37 | Achado 14 da verificacao humana (27/09/2026, dono, no celular): o veredito do orcamento aprovado seguia verde dizendo 'ordem aberta na Producao' depois de a encomenda ser cancelada -- palavras dele: 'na producao ela fica cancelada e vai pro historico, mas tambem segue em verde com ordem aberta na Producao'. Causa raiz: textoVeredito(numero, encomendaId !== null) -- o parametro se chama ordemAberta mas respondia 'o id existe?'; encomendas.status nao era lido em ponto nenhum desse caminho e obterOrcamentoParaEdicao nem importava a tabela encomendas. Lacuna, nao regressao: este lado do criterio 14 nunca foi implementado. A outra metade (aviso de venda cancelada) passou -- o dono a encontrou depois, abaixo do bloco verde. Corrigido no plano 04.5-14, Tarefa 2 (commit fcc072a): leftJoin com encomendas, vereditoDaAprovacao em lib/orcamentos/situacao.ts (modulo puro e testado), FRASE_ENCOMENDA_CANCELADA_AVISO, cor do bloco descendo de sucesso para atencao quando venda OU ordem foi cancelada, e revalidatePath('/financeiro') em cancelarEncomenda. Teste novo (j) em tests/e2e/orcamentos-aprovacao.spec.ts, com RED provado antes. | fixed |  | 2026-09-27T18:23:59.229Z | 2026-09-27T18:24:29.468Z |
+| 56 | 04.5-financeiro-parte-2 | deviation | lib/orcamentos/consultas.ts | 38 | Lacuna conhecida e NAO corrigida (fora do escopo do criterio 14, decisao registrada em 04.5-14-PLAN.md): listarOrcamentos (a lista da aba Orcamentos) nao faz join com documentos nem com encomendas, entao um orcamento cuja venda ou cuja encomenda foi cancelada e indistinguivel de um saudavel no cartao da lista. O criterio 14 ('aviso nos dois lados') quer dizer orcamento e venda, nao lista e editor -- o aviso existe nos dois lados, e no editor agora cobre tambem a encomenda. Resolver isto exigiria dois leftJoin a mais numa consulta de lista e uma decisao de desenho sobre o que o cartao mostra; nenhuma das duas coisas foi pedida. | open |  | 2026-09-27T18:23:59.705Z |  |
+| 57 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-aprovacao.spec.ts | 364 | (i) a 320px o dialogo de aprovacao rola no corpo (backstop com oito pecas) -- falhou sob a varredura completa do plano 04.5-14 (npm run test:e2e sem --grep, 8 workers, desktop): dentro de acrescentarPecaExclusiva, depois do Salvar, a URL ficou em ...&peca=novo e o toHaveURL(/orcamento=<id>$/) expirou em 10s. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35/#49; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T18:24:16.621Z |  |
+| 58 | 04.5-financeiro-parte-2 | deviation | tests/e2e/cadastros-contas-fixas.spec.ts | 201 | Achado REAL da varredura completa do plano 04.5-14, e NAO e contencao: o teste 'cria, desativa, gera duas vezes sem duplicar, paga o aluguel...' falhou na varredura E de novo em reexecucao isolada com --workers=1. O clique em 'Desfazer' (linha 201) depende do toast de 7 segundos (D-03) ainda estar na tela, mas entre pagar e clicar o teste abre o detalhe do extrato, faz tres asseroes e fecha o dialogo -- tudo dentro da janela de 7s. O instantaneo da falha mostra a regiao de avisos vazia: o toast ja tinha expirado. Fragilidade de teste, nao defeito de produto (o Desfazer funciona; so nao da tempo). Fora do escopo de arquivos do plano 04.5-14 (area da Fase 04.4, Cadastros) -- registrado sem corrigir, conforme a regra de limite de escopo do CLAUDE.md. Conserto provavel: clicar em Desfazer logo apos o pagamento e so entao abrir o extrato. | open |  | 2026-09-27T18:24:17.096Z |  |
 
 ````json
 [
@@ -706,6 +711,66 @@ last_updated: 2026-09-27T14:18:15.178Z
     "reason": "",
     "recorded_at": "2026-09-27T03:58:55.587Z",
     "resolved_at": "2026-09-27T14:18:14.194Z"
+  },
+  {
+    "id": 54,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "components/amassa/precificacao/lista-pecas.tsx",
+    "line": 264,
+    "description": "Achado 8 da verificacao humana (27/09/2026, dono, no celular): o botao Apagar de uma peca EXCLUSIVA nao fazia nada -- palavras dele: 'peca exclusiva quando clica em Apagar a tela da peca fecha mas nao apaga nada, apenas esconde a lista das pecas exclusivas novamente'. Causa raiz: ConfirmarApagarPeca era montado DENTRO do map de fichasVisiveis; sem ?exclusivas=1 a ficha exclusiva nao esta nessa lista, o dialogo nao existe no DOM, ninguem le o ?apagarPeca= e o botao so navega para o nada. A Server Action apagarFicha e o confirmar-apagar-peca.tsx sempre estiveram corretos -- nunca rodavam. Corrigido no plano 04.5-14, Tarefa 1 (commit e5daf10): dialogos montados a partir de TODAS as fichas, fora do map do que aparece na lista, e hrefDaAbaPecas (lib/precificacao/navegacao.ts, modulo puro e testado) preservando ?exclusivas nas quatro navegacoes que o descartavam. Testes novos (i) e (j) em tests/e2e/precificacao-pecas.spec.ts, com RED provado antes.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-09-27T18:23:58.743Z",
+    "resolved_at": "2026-09-27T18:24:28.989Z"
+  },
+  {
+    "id": 55,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "components/amassa/orcamentos/veredito-da-aprovacao.tsx",
+    "line": 37,
+    "description": "Achado 14 da verificacao humana (27/09/2026, dono, no celular): o veredito do orcamento aprovado seguia verde dizendo 'ordem aberta na Producao' depois de a encomenda ser cancelada -- palavras dele: 'na producao ela fica cancelada e vai pro historico, mas tambem segue em verde com ordem aberta na Producao'. Causa raiz: textoVeredito(numero, encomendaId !== null) -- o parametro se chama ordemAberta mas respondia 'o id existe?'; encomendas.status nao era lido em ponto nenhum desse caminho e obterOrcamentoParaEdicao nem importava a tabela encomendas. Lacuna, nao regressao: este lado do criterio 14 nunca foi implementado. A outra metade (aviso de venda cancelada) passou -- o dono a encontrou depois, abaixo do bloco verde. Corrigido no plano 04.5-14, Tarefa 2 (commit fcc072a): leftJoin com encomendas, vereditoDaAprovacao em lib/orcamentos/situacao.ts (modulo puro e testado), FRASE_ENCOMENDA_CANCELADA_AVISO, cor do bloco descendo de sucesso para atencao quando venda OU ordem foi cancelada, e revalidatePath('/financeiro') em cancelarEncomenda. Teste novo (j) em tests/e2e/orcamentos-aprovacao.spec.ts, com RED provado antes.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-09-27T18:23:59.229Z",
+    "resolved_at": "2026-09-27T18:24:29.468Z"
+  },
+  {
+    "id": 56,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "lib/orcamentos/consultas.ts",
+    "line": 38,
+    "description": "Lacuna conhecida e NAO corrigida (fora do escopo do criterio 14, decisao registrada em 04.5-14-PLAN.md): listarOrcamentos (a lista da aba Orcamentos) nao faz join com documentos nem com encomendas, entao um orcamento cuja venda ou cuja encomenda foi cancelada e indistinguivel de um saudavel no cartao da lista. O criterio 14 ('aviso nos dois lados') quer dizer orcamento e venda, nao lista e editor -- o aviso existe nos dois lados, e no editor agora cobre tambem a encomenda. Resolver isto exigiria dois leftJoin a mais numa consulta de lista e uma decisao de desenho sobre o que o cartao mostra; nenhuma das duas coisas foi pedida.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T18:23:59.705Z",
+    "resolved_at": null
+  },
+  {
+    "id": 57,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-aprovacao.spec.ts",
+    "line": 364,
+    "description": "(i) a 320px o dialogo de aprovacao rola no corpo (backstop com oito pecas) -- falhou sob a varredura completa do plano 04.5-14 (npm run test:e2e sem --grep, 8 workers, desktop): dentro de acrescentarPecaExclusiva, depois do Salvar, a URL ficou em ...&peca=novo e o toHaveURL(/orcamento=<id>$/) expirou em 10s. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35/#49; nao corrigido (sem causa raiz pequena e obvia).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T18:24:16.621Z",
+    "resolved_at": null
+  },
+  {
+    "id": 58,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/cadastros-contas-fixas.spec.ts",
+    "line": 201,
+    "description": "Achado REAL da varredura completa do plano 04.5-14, e NAO e contencao: o teste 'cria, desativa, gera duas vezes sem duplicar, paga o aluguel...' falhou na varredura E de novo em reexecucao isolada com --workers=1. O clique em 'Desfazer' (linha 201) depende do toast de 7 segundos (D-03) ainda estar na tela, mas entre pagar e clicar o teste abre o detalhe do extrato, faz tres asseroes e fecha o dialogo -- tudo dentro da janela de 7s. O instantaneo da falha mostra a regiao de avisos vazia: o toast ja tinha expirado. Fragilidade de teste, nao defeito de produto (o Desfazer funciona; so nao da tempo). Fora do escopo de arquivos do plano 04.5-14 (area da Fase 04.4, Cadastros) -- registrado sem corrigir, conforme a regra de limite de escopo do CLAUDE.md. Conserto provavel: clicar em Desfazer logo apos o pagamento e so entao abrir o extrato.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T18:24:17.096Z",
+    "resolved_at": null
   }
 ]
 ````

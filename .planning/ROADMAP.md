@@ -48,7 +48,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 4.2: Abertura do Espaço** (INSERTED, temporário) - Organizador da abertura do novo espaço: itens a comprar com parcelas e entrega, e tarefas até a inauguração
 - [x] **Phase 04.3: Comparador de Compras** (INSERTED) - Aba do módulo Abertura para comparar cotações de equipamentos lado a lado, compartilhada entre os gestores; arquivada (não apagada) quando a Abertura for desmontada (completed 2026-09-18)
 - [x] **Phase 04.4: Financeiro — parte 1** (INSERTED) - Venda, Compra, Caixa, Mês e Cadastros (completed 2026-09-26; verificada 9/9 + 17/17, migrações 0014-0016 em produção, conferida pelo dono no celular)
-- [ ] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
+- [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
@@ -448,7 +448,11 @@ parcelas da Abertura
   8. Categoria com lançamento não se apaga, só desativa, e continua nos relatórios
   9. As parcelas em aberto da Abertura viram contas a pagar por um script único, sem alterar a Abertura
 
-**Plans**: 13/13 plans executed
+**Plans**: 14/14 plans executed
+**Status**: **COMPLETE** — os 13 critérios cumpridos. O portão da fase era a caminhada humana
+(`04.5-VERIFICACAO-HUMANA.md`), percorrida pelo dono no celular em 27/09/2026: 23 dos 25 itens
+passaram de primeira, e os dois que não (itens 8 e 14, ambos critério desta fase) foram
+corrigidos no plano 14, cada um com o teste que faltava.
 em produção — e 4 — verificação humana — são checkpoints que aguardam o dono; 04.4-12 Tarefas 1-3
 automatizáveis concluídas, Tarefa 4 — verificação humana das duas mudanças de 20/09 — aguarda o
 dono; 04.4-13 Tarefas 1-3 automatizáveis concluídas, Tarefa 4 — reconferência dos quatro achados de
@@ -556,11 +560,11 @@ cartão de lá); Phase 3 (a aprovação cria encomenda no módulo atual); Phase 
   1. O módulo puro `lib/precificacao/` calcula material, trabalho, queima, custo com perda, mínimo por canal e o preço zero, com percentual entrando por divisão, e tem teste para cada fórmula — inclusive o caso de divisor de 5% ou menos, que avisa e não calcula
   2. Quantas peças cabem no forno sai das medidas da peça e das medidas úteis do forno (por prateleira × níveis, testando as duas orientações), nunca do volume; "já contei" substitui o calculado, e peça que não cabe dá aviso sem número
   3. Mudar um parâmetro cria registro novo com data e não sobrescreve o anterior; a taxa do cartão é lida da parte 1, sem campo duplicado; todo parâmetro nasce "estimado" e nenhum valor real vai para seed versionado
-  4. A ficha de uma peça de linha e o `itens_catalogo` compartilham UM preço praticado (`preco_venda`) — não há dois campos a sincronizar; ficha usada em orçamento não se apaga, e a tela diz em quantos ela está
+  4. A ficha de uma peça de linha e o `itens_catalogo` compartilham UM preço praticado (`preco_venda`) — não há dois campos a sincronizar; ficha usada em orçamento não se apaga, e a tela diz em quantos ela está — **cumprido**; a mesma regra vale para a ficha exclusiva, que só passou a abrir o diálogo no plano 14 (achado 8 da verificação humana)
   5. "Marcar como enviado" congela o orçamento: depois disso, mudar parâmetro ou ficha não altera nenhum número dele, e o snapshot guarda por linha nome, custo, mínimo, zero, horas e quantas cabem, mais imposto+taxa e a contagem de estimados
   6. "Atualizar preços" num orçamento enviado guarda a revisão anterior, sobe `revisao`, volta a rascunho e renova a validade, mantendo a razão preço÷mínimo de cada peça, arredondada e editável
   7. O número é `ORC-2026-001`, sequencial por ano e nunca reaproveitado: cancelar mantém o número, e "Duplicar" gera um número novo
-  8. Aprovar cria, numa transação só, a venda na parte 1 (sinal **em aberto vencendo hoje**, saldo na entrega prevista) e — se marcado — a encomenda; os vínculos ficam gravados nos dois sentidos, e cancelar a venda não apaga nem reabre o orçamento, só avisa nos dois lados
+  8. Aprovar cria, numa transação só, a venda na parte 1 (sinal **em aberto vencendo hoje**, saldo na entrega prevista) e — se marcado — a encomenda; os vínculos ficam gravados nos dois sentidos, e cancelar a venda não apaga nem reabre o orçamento, só avisa nos dois lados — **cumprido**; o aviso do lado do orçamento passou a cobrir também a encomenda cancelada (plano 14, achado 14 da verificação humana)
   9. O PDF gerado no servidor traz o mesmo conteúdo da tela "Ver como o cliente vê", em A4, com a logo no topo — e **nenhum custo, mínimo, margem ou hora** aparece nele
   10. Uma foto de 15 MB mandada do celular é aceita, reduzida no servidor para no máximo 1600 px, salva como JPEG sem EXIF, e só a versão reduzida fica em disco; o tipo real do arquivo é validado no servidor
   11. As fotos ficam em volume Docker próprio, fora do banco e do repositório, servidas só por rota que começa por `exigirUsuario()` — nenhuma pasta pública
@@ -584,6 +588,7 @@ Plans:
 - [x] 04.5-11-PLAN.md — "Ver como o cliente vê" e o PDF gerado no servidor, sem custo, mínimo, margem nem hora
 - [x] 04.5-12-PLAN.md — Aprovação: venda e encomenda numa transação só, com os vínculos navegáveis nos dois sentidos
 - [x] 04.5-13-PLAN.md — Fechamento: varredura completa, conferência da imagem, roteiro 13 de migração e a verificação humana do dono
+- [x] 04.5-14-PLAN.md — Os dois achados da verificação humana (apagar peça exclusiva; veredito que dizia "ordem aberta" com a encomenda cancelada), as 25 respostas transcritas e o fechamento da fase
 
 **UI hint**: yes
 
@@ -716,7 +721,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.2. Abertura do Espaço | 5/5 | Complete | Migrações 0010/0011 aplicadas em produção em 2026-09-01, verificadas de fora (3 tabelas, 12 grants, 3 gatilhos) e o módulo conferido no celular do dono. |
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
-| 04.5. Financeiro — parte 2 | 13/13 | In Progress|  |
+| 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

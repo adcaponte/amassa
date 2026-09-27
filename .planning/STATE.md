@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
-status: in-progress
-stopped_at: Completed 04.5-13-PLAN.md Tarefas 1-3 (Tarefa 3 — Roteiros 12 e 13 — feita pelo dono em 27/09/2026); Tarefa 4 (verificacao humana) aberta — fase permanece em execucao
-last_updated: "2026-09-27T16:15:56.059Z"
+status: complete
+stopped_at: Completed 04.5-14-PLAN.md — verificacao humana percorrida pelo dono (23/25 de primeira), os dois achados corrigidos, Fase 04.5 CONCLUIDA
+last_updated: "2026-09-27T18:30:00.000Z"
 progress:
   total_phases: 11
-  completed_phases: 10
-  total_plans: 77
-  completed_plans: 77
+  completed_phases: 11
+  total_plans: 78
+  completed_plans: 78
 current_phase: 04.5
 last_activity: 2026-09-27
-last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migração 0021/WINDOWS #44, varredura completa, imagem conferida, roteiro 13 e verificação humana prontos); migrações aplicadas em 27/09 (0017 provada pela rota de saúde); fase aberta só pela verificação humana"
+last_activity_desc: "Fase 04.5 CONCLUÍDA: 14 de 14 planos. A caminhada humana foi percorrida pelo dono no celular em 27/09/2026 — 23 dos 25 itens passaram de primeira; os dois que não (apagar peça exclusiva; veredito dizendo 'ordem aberta' com a encomenda cancelada) foram corrigidos no plano 14, cada um com o teste que faltava e o RED provado antes"
 ---
 
 # Project State
@@ -23,18 +23,28 @@ last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migra
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: 13/13 planos executados; migrações aplicadas em 27/09; fase aberta só pela verificação humana
+**Current focus:** Fase 04.5 **concluída** em 27/09/2026 (14/14 planos, portão humano cumprido). Próximo: `/gestao` + site público (ordem do ROADMAP).
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **13 de 13 planos executados**
-em 2026-09-27. A fase **não fecha por contagem de planos**: o dono rodou o Roteiro 12 (fotos) e o
-Roteiro 13 (migrações `0017`-`0021`) em produção em 27/09/2026 — código publicado (`git log
-origin/main..main` = 1 commit, `docs(04.5)`), pipeline "Entrega contínua" com sucesso no commit
-`3a31c55`, e a migração `0017` provada pela rota `/api/health/backup` (responde `200` `"ok"`; se a
-coluna `fotos_destino_externo_ok` não existisse, a rota devolveria `503`). Falta só percorrer
-`.planning/phases/04.5-financeiro-parte-2/04.5-VERIFICACAO-HUMANA.md` no celular. Ver
-`04.5-13-SUMMARY.md`, seção "O que fica para o dono, e em que ordem".
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **CONCLUÍDA em 2026-09-27**,
+com **14 de 14 planos**. A fase nunca fechou por contagem de planos: o portão era
+`.planning/phases/04.5-financeiro-parte-2/04.5-VERIFICACAO-HUMANA.md`, e o dono o percorreu no
+celular em 27/09/2026. **23 dos 25 itens passaram de primeira.** Os dois que não passaram eram
+critério do ROADMAP desta fase, e o plano 14 os consertou:
+
+- **Item 8** — o botão "Apagar" de uma peça **exclusiva** não fazia nada. O diálogo de confirmação
+  era montado só para as fichas visíveis, e a exclusiva não é visível sem `?exclusivas=1`; a
+  Server Action `apagarFicha` sempre esteve correta, só nunca rodava. Commit `e5daf10`.
+
+- **Item 14** — o veredito do orçamento aprovado seguia verde dizendo "ordem aberta na Produção"
+  com a encomenda já cancelada. `textoVeredito` recebia "o id existe?" no lugar de "a ordem está
+  aberta?", e `encomendas.status` não era lido em ponto nenhum daquele caminho. Lacuna, não
+  regressão. Commit `fcc072a`. A outra metade do item (aviso de venda cancelada) **passou**.
+
+As migrações `0017`-`0021` foram aplicadas em produção em 27/09/2026, antes da caminhada; a
+`0017` está provada de fora pela rota `/api/health/backup`. **O código do plano 14 ainda NÃO foi
+publicado** — são commits locais, e o `git push` é decisão do dono.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
 semente ilustrativa) versionadas — **não aplicadas em produção**, ficam para o plano 13, depois de
@@ -252,8 +262,9 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
      (E2/E3/E4: pipeline com sucesso no commit `3a31c55`; migração `0017` provada por
      `/api/health/backup`; Roteiro 12 rodado, registrado no commit `a43ee6a`).
 
-  6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
-     contagem de planos.
+  6. ~~Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular.~~ **percorrida pelo dono em
+     27/09/2026** — 23 dos 25 itens de primeira; os dois achados (8 e 14) corrigidos no plano 14.
+     Era esse o portão da fase, e ele está cumprido.
 
 Duas coisas para ele olhar:
 
@@ -398,6 +409,7 @@ Progress: [██████████] 99% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P11 | ~2h30 | 4 tasks | 23 files |
 | Phase 04.5 P12 | ~3h30 | 3 tasks | 18 files |
 | Phase 04.5 P13 | ~3h30min | 2 tasks | 14 files |
+| Phase 04.5 P14 | ~2h15min | 5 tasks | 13 files |
 
 ## Accumulated Context
 
