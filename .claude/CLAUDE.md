@@ -83,6 +83,24 @@ Technology stack not yet documented. Will populate after codebase mapping or fir
 
 ## Conventions
 
+- **Documento de estado desatualizado é defeito, e corrigi-lo é parte da entrega.** Regra do dono,
+  27/09/2026, depois de um `.planning/` velho afirmar que a Fase 04.5 aguardava migrações que ele
+  já tinha aplicado — e de eu repetir isso a ele como se fosse o presente. Ao terminar qualquer
+  coisa, atualize também o que descreve o estado: `.planning/STATE.md`, `ROADMAP.md`,
+  `PROXIMA-SESSAO.md` e, fora do git, `ESTADO-ATUAL.md`, `Claude outputs/RETOMAR-AQUI.md` e
+  `Claude outputs/FILA-DO-CODE.md` (esta pede ✅ com data ao fim de cada item).
+
+  Duas regras tornam a correção segura. **Corrija afirmação de estado atual; preserve narrativa
+  histórica** — "o plano 01 entregou X, ainda não aplicado" continua certo como registro do plano
+  01; "a fase aguarda o dono" é presente e corrige-se; linha histórica que possa ser lida como
+  presente ganha a data ao lado, nunca a borracha. E **toda afirmação nova carrega a evidência**,
+  não só o fato: não escreva "as migrações foram aplicadas", escreva como se sabe disso.
+
+  Antes de afirmar qualquer coisa sobre produção, **meça**: `git log origin/main..main` (o que não
+  foi publicado), `gh run list` (o pipeline rodou), e uma rota de saúde real — `/api/health/backup`
+  prova migração aplicada porque faz `select` de uma coluna que a migração cria e devolve 503 se
+  ela não existir.
+
 - **`npm run verificar` antes de dar um plano por concluído.** Roda `lint`, `tsc --noEmit`,
   `verificar-acoes`, os testes unitários e **`test:migracoes`**. Esse último é o que escapou na
   Fase 3: ele não faz parte de `npm test` nem de `npm run test:e2e`, só do CI, e a lista
