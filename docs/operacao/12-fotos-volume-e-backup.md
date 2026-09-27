@@ -86,8 +86,15 @@ no próximo passo.
 
 ```bash
 sudo chown 100:101 /opt/amassa/dados/fotos-orcamentos
-chmod 750 /opt/amassa/dados/fotos-orcamentos
+sudo chmod 750 /opt/amassa/dados/fotos-orcamentos
 ```
+
+🔴 **O `sudo` do segundo comando não é enfeite.** Depois do `chown`, você deixa de ser dono do
+diretório — e só o dono (ou root) pode mudar a permissão. Sem `sudo`, o segundo comando falha com
+`chmod: changing permissions of ...: Operation not permitted`, e o diretório fica com a permissão
+que o `mkdir` deixou (`drwxrwxr-x`, 775), legível por qualquer usuário do host. Aconteceu de
+verdade na primeira execução deste roteiro, em 2026-09-27; a versão anterior mandava `chmod` sem
+`sudo` e não podia funcionar.
 
 **O que faz:** `100` e `101` são o **uid** e o **gid** do usuário `nextjs` **dentro da imagem**
 do contêiner `app` (medidos na pesquisa da fase, `04.5-RESEARCH.md`, Pitfall 4) — é esse usuário,
@@ -101,8 +108,19 @@ o conhece — por isso o número, não o nome.
 ls -ld /opt/amassa/dados/fotos-orcamentos
 ```
 
-**O que você deve ver:** `drwxr-x---`, com o dono e o grupo aparecendo como `100`/`101` (números,
-já que o host não tem usuário com esse uid/gid cadastrado — isso é esperado, não um erro).
+**O que você deve ver:** `drwxr-x---`, com o dono e o grupo sendo o uid `100` e o gid `101`.
+
+⚠️ **Eles podem aparecer com NOME, e isso está certo.** Se o host já tiver usuário e grupo
+cadastrados com esses números, o `ls` mostra o nome em vez do número — no VPS deste projeto sai
+**`dhcpcd messagebus`**, que é como o Debian chama o uid 100 e o gid 101. Parece errado e não é:
+o que importa são os números, e eles batem com o usuário `nextjs` de dentro da imagem. Para ver
+sem tradução:
+
+```bash
+stat -c '%u %g %a' /opt/amassa/dados/fotos-orcamentos
+```
+
+**O que você deve ver:** `100 101 750`.
 
 ---
 
