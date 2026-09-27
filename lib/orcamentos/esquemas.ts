@@ -419,3 +419,16 @@ export const esquemaRemoverFoto = z.object({
 });
 
 export type EntradaDeRemoverFoto = z.infer<typeof esquemaRemoverFoto>;
+
+// ---------------------------------------------------------------------------------------------
+// "Cliente aprovou" (04.5-12-PLAN.md, D-25/T-04.5-61) — só o id e a escolha de abrir a ordem.
+// Nenhum valor, nenhuma descrição, nenhuma data vêm do cliente: a transação recalcula tudo a
+// partir do orçamento gravado, lido dentro dela.
+// ---------------------------------------------------------------------------------------------
+
+export const esquemaAprovacao = z.object({
+  id: esquemaId,
+  abrirOrdemDeProducao: z.boolean(),
+});
+
+export type EntradaDeAprovacao = z.infer<typeof esquemaAprovacao>;

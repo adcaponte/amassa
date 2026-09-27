@@ -5,6 +5,7 @@ import { asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  documentos,
   fichasPrecificacao,
   orcamentoFotos,
   orcamentoLinhas,
@@ -117,9 +118,17 @@ export type OrcamentoParaEdicao = {
   snapshot: unknown;
   linhas: LinhaDoOrcamentoParaEdicao[];
   custosDeProjeto: CustoDeProjetoDoOrcamento[];
+  // A aprovação (04.5-12-PLAN.md, D-25) — os vínculos gravados em `orcamentos.documento_id`/
+  // `orcamentos.encomenda_id`, mais o estado da venda vinculada (existe? foi cancelada?), para a
+  // tela poder mostrar o veredito com os dois links, ou o aviso de venda cancelada.
+  documentoId: string | null;
+  documentoNumero: number | null;
+  vendaCancelada: boolean;
+  encomendaId: string | null;
 };
 
-// O orçamento, as linhas com a ficha de cada uma e os custos de projeto, em TRÊS consultas (nunca
+// O orçamento, as linhas com a ficha de cada uma, os custos de projeto e o estado da venda
+// vinculada (LEFT JOIN com `documentos`, quando `documento_id` existe), em TRÊS consultas (nunca
 // uma por linha) — dentro do limite de quatro que o plano permite (fotos ficam para um plano
 // futuro, fora do escopo desta tela).
 export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoParaEdicao | null> {
@@ -140,8 +149,13 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
       freteCentavos: orcamentos.freteCentavos,
       observacoes: orcamentos.observacoes,
       snapshot: orcamentos.snapshot,
+      documentoId: orcamentos.documentoId,
+      documentoNumero: documentos.numero,
+      documentoCanceladoEm: documentos.canceladoEm,
+      encomendaId: orcamentos.encomendaId,
     })
     .from(orcamentos)
+    .leftJoin(documentos, eq(documentos.id, orcamentos.documentoId))
     .where(eq(orcamentos.id, id))
     .limit(1);
 
@@ -186,8 +200,11 @@ export async function obterOrcamentoParaEdicao(id: string): Promise<OrcamentoPar
       .orderBy(asc(orcamentoProjeto.ordem)),
   ]);
 
+  const { documentoCanceladoEm, ...cabecalhoParaTela } = cabecalho;
+
   return {
-    ...cabecalho,
+    ...cabecalhoParaTela,
+    vendaCancelada: documentoCanceladoEm !== null,
     custosDeProjeto,
     linhas: linhas.map((linha) => ({
       id: linha.id,

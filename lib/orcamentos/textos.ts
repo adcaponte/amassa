@@ -428,3 +428,68 @@ export const FRASE_ERRO_GERAR_PDF = "Não deu para gerar o PDF agora. Tente de n
 // `app/api/orcamentos/fotos/[id]/route.ts`: nunca citam caminho, stack ou mensagem do sistema).
 export const FRASE_ORCAMENTO_NAO_ENCONTRADO_PARA_PDF = "Esse orçamento não existe mais.";
 export const FRASE_NAO_DEU_PARA_GERAR_PDF_NO_SERVIDOR = "Não deu para gerar o PDF agora.";
+
+// ---------------------------------------------------------------------------------------------
+// Aprovação — a venda e a encomenda, numa transação só (04.5-12-PLAN.md, D-25/ORC-11)
+// ---------------------------------------------------------------------------------------------
+
+export const TITULO_CLIENTE_APROVOU = "Cliente aprovou";
+export const DICA_CLIENTE_APROVOU =
+  "Confirme o que vai ser criado. Depois disso o orçamento fica travado.";
+export const TITULO_NO_FINANCEIRO_UMA_VENDA = "No Financeiro — uma venda";
+export const TITULO_NA_PRODUCAO_UMA_ORDEM = "Na Produção — uma ordem";
+export const ROTULO_A_RECEBER_HOJE = "a receber hoje";
+export const ROTULO_A_RECEBER = "a receber";
+// Verbatim do protótipo (`folhaAprovar`) — a frase que explica por que o sinal nasce em aberto
+// (D-25: o dono confirma no Caixa quando o dinheiro cai de verdade).
+export const DICA_SINAL_A_RECEBER =
+  'O sinal entra em "A receber" com vencimento hoje — você confirma no Caixa quando o dinheiro cair. O saldo vence na data de entrega.';
+// Acréscimo deliberado ao protótipo (planner_assumptions do plano 12): a versão real da ordem não
+// carrega foto/ficha anexadas — cor e personalização vão na descrição do item, e a encomenda ganha
+// a linha de origem que leva de volta ao orçamento (fotos e ficha ficam a um toque de distância).
+export const DICA_ORDEM_DE_PRODUCAO =
+  "A ordem leva a cor e a personalização de cada peça na descrição do item. Fotos e ficha continuam a um toque de distância, pelo orçamento.";
+export function rotuloAbrirOrdem(itensTexto: string, entregaFormatada: string): string {
+  return `Abrir a ordem com ${itensTexto}, entrega em ${entregaFormatada}`;
+}
+// "Voltar" (rodapé do diálogo "Cliente aprovou", `folhaAprovar`) — diferente de `ROTULO_VOLTAR`
+// ("◀ Voltar", link de navegação de volta à lista): aqui é o botão que fecha o diálogo sem
+// confirmar, mesmo papel de `ROTULO_CANCELAR` nos outros diálogos, mas com o texto do protótipo.
+export const ROTULO_VOLTAR_DA_APROVACAO = "Voltar";
+export const ROTULO_CRIAR = "Criar";
+
+// A entrada só o id e o booleano da ordem — nada de dinheiro vem do cliente (T-04.5-61).
+export const FRASE_ORCAMENTO_NAO_ENVIADO_PARA_APROVAR =
+  "Este orçamento não está enviado — não há como aprovar.";
+export const FRASE_ORCAMENTO_EXPIRADO_ATUALIZE_PRECOS =
+  'Este orçamento expirou. Use "Atualizar preços" antes de aprovar.';
+// 🔴 A frase de falha da transação inteira (D-25, verbatim) — a MESMA frase para qualquer motivo
+// de falha que não seja um dos dois guardas de status acima (categoria indisponível, conferência
+// de parcelas, erro de banco): nunca uma venda sem orçamento sabendo, nunca o contrário.
+export const FRASE_FALHA_AO_APROVAR = "Não deu para aprovar agora. Nada foi criado — tente de novo.";
+
+// Toast — aprovado (04.5-UI-SPEC.md §Copywriting, verbatim, adaptado ao número real do documento).
+export function toastAprovado(numeroDaVenda: number, ordemAberta: boolean): string {
+  return `Venda ${numeroDaVenda} criada no Financeiro${ordemAberta ? " e ordem aberta na Produção" : ""}.`;
+}
+
+// O veredito (bloco verde) do orçamento aprovado — herdado do protótipo, mais os dois links novos
+// (04.5-UI-SPEC.md, Assunção 6).
+export function textoVeredito(numeroDaVenda: number, ordemAberta: boolean): string {
+  return `Aprovado. Venda nº ${numeroDaVenda} criada no Financeiro${ordemAberta ? " e ordem aberta na Produção" : ""}.`;
+}
+export const ROTULO_VER_VENDA_NO_FINANCEIRO = "Ver venda no Financeiro";
+export const ROTULO_VER_ENCOMENDA_NA_PRODUCAO = "Ver encomenda na Produção";
+
+// Aviso — venda cancelada, visto do orçamento (04.5-UI-SPEC.md §Copywriting, verbatim, D-25):
+// linha informativa, sem ação, sem cor de destaque além do texto fraco — o orçamento continua
+// aprovado.
+export const FRASE_VENDA_CANCELADA_AVISO =
+  "A venda criada a partir deste orçamento foi cancelada. O orçamento continua aprovado.";
+
+// "Criado a partir do orçamento {número}" — a linha de origem que aparece no documento do
+// Financeiro e na encomenda (04.5-UI-SPEC.md, Assunção 6).
+export function textoCriadoAPartirDoOrcamento(numeroDoOrcamento: string): string {
+  return `Criado a partir do orçamento ${numeroDoOrcamento}`;
+}
+export const ROTULO_VER_ORCAMENTO = "Ver orçamento";

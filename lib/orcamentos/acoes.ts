@@ -7,6 +7,12 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  categorias,
+  documentoLinhas,
+  documentos,
+  encomendaEtapas,
+  encomendaItens,
+  encomendas,
   fichasPrecificacao,
   itensCatalogo,
   orcamentoFotos,
@@ -14,13 +20,19 @@ import {
   orcamentoProjeto,
   orcamentoRevisoes,
   orcamentos,
+  parcelas,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { somarDias } from "@/lib/financeiro/calendario";
+import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { conferirParcelas } from "@/lib/financeiro/parcelas";
 import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
+import { planejarAprovacao, type CustoDeProjetoParaAprovacao, type LinhaParaAprovacao } from "@/lib/orcamentos/aprovacao";
 import { caminhoDaFoto, diretorioDeFotos } from "@/lib/orcamentos/caminho-fotos";
+import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import { tratarFotoDeOrcamento, validarTipoRealDaFoto } from "@/lib/orcamentos/fotos";
+import { diasDeValidadeRestantes } from "@/lib/orcamentos/situacao";
 import { arredondarBonito, calcularPeca } from "@/lib/precificacao/calculo";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
@@ -28,6 +40,7 @@ import { quantasCabem } from "@/lib/precificacao/forno";
 import {
   esquemaAcrescentarLinha,
   esquemaAnexarFoto,
+  esquemaAprovacao,
   esquemaAtualizacaoDePrecos,
   esquemaCabecalhoDoOrcamento,
   esquemaCustoDeProjeto,
@@ -45,9 +58,10 @@ import {
   esquemaVoltarParaRascunho,
 } from "./esquemas";
 import { proximoSequencialDeOrcamento, type TransacaoDoBanco } from "./numero";
-import { montarSnapshot, type LinhaParaMontarSnapshot } from "./snapshot";
+import { lerDoSnapshot, montarSnapshot, type LinhaParaMontarSnapshot } from "./snapshot";
 import {
   FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS,
+  FRASE_FALHA_AO_APROVAR,
   FRASE_FALHA_AO_CRIAR,
   FRASE_FALHA_AO_ENVIAR_FOTO,
   FRASE_FALHA_AO_SALVAR,
@@ -58,8 +72,10 @@ import {
   FRASE_LINHA_NAO_EXISTE_MAIS,
   FRASE_LISTA_DE_PRECOS_DIVERGENTE,
   FRASE_ORCAMENTO_APROVADO_USE_DUPLICAR,
+  FRASE_ORCAMENTO_EXPIRADO_ATUALIZE_PRECOS,
   FRASE_ORCAMENTO_JA_E_RASCUNHO,
   FRASE_ORCAMENTO_NAO_E_RASCUNHO,
+  FRASE_ORCAMENTO_NAO_ENVIADO_PARA_APROVAR,
   FRASE_ORCAMENTO_NAO_ENVIADO_PARA_RECUSAR,
   FRASE_ORCAMENTO_NAO_EXISTE_MAIS,
   FRASE_PARAMETROS_INDISPONIVEIS_PARA_CONGELAR,
@@ -157,6 +173,16 @@ class ParametrosIndisponiveis extends Error {}
 // "Atualizar preços" (04.5-09-PLAN.md, Tarefa 2): a lista de preços enviada não cobre exatamente
 // as linhas do orçamento — sinal de tela desatualizada, nunca uma trava de negócio.
 class ListaDePrecosDivergente extends Error {}
+// "Cliente aprovou" (04.5-12-PLAN.md, D-25) — erros próprios da aprovação. `OrcamentoExpirado` é
+// distinto de `TransicaoDeStatusInvalida`: o STATUS continua "enviado" (D-22, expirado nunca é
+// gravado), só a validade já passou — a transição em si seria válida, mas a tela manda atualizar
+// preços antes. Os dois últimos (`CategoriaEncomendasIndisponivel`/`ConferenciaDeParcelasFalhou`)
+// NUNCA viram uma mensagem própria: caem no catch genérico, porque são exatamente o tipo de falha
+// que D-25 pede para responder sempre com a MESMA frase — "nada foi criado", nunca um detalhe que
+// sugeriria uma venda pela metade.
+class OrcamentoExpirado extends Error {}
+class CategoriaEncomendasIndisponivel extends Error {}
+class ConferenciaDeParcelasFalhou extends Error {}
 
 type StatusOrcamento = (typeof orcamentos.status.enumValues)[number];
 
@@ -207,6 +233,10 @@ function primeiroErroConhecido(erro: unknown): string | null {
   if (erro instanceof TransicaoDeStatusInvalida) return erro.mensagem;
   if (erro instanceof FaltaClienteOuPeca) return FRASE_FALTA_CLIENTE_E_PECA;
   if (erro instanceof ParametrosIndisponiveis) return FRASE_PARAMETROS_INDISPONIVEIS_PARA_CONGELAR;
+  if (erro instanceof OrcamentoExpirado) return FRASE_ORCAMENTO_EXPIRADO_ATUALIZE_PRECOS;
+  // `CategoriaEncomendasIndisponivel`/`ConferenciaDeParcelasFalhou` NÃO entram aqui de propósito
+  // (comentário na própria classe, acima): caem no catch genérico de `aprovarOrcamento`, que
+  // devolve `FRASE_FALHA_AO_APROVAR` — a MESMA frase de qualquer outra falha da transação (D-25).
   if (erro instanceof ListaDePrecosDivergente) return FRASE_LISTA_DE_PRECOS_DIVERGENTE;
   if (erro instanceof FotoNaoEncontrada) return FRASE_FOTO_NAO_EXISTE_MAIS;
   if (erro instanceof LimiteDeFotosAtingido) return FRASE_LIMITE_DE_FOTOS;
@@ -1022,6 +1052,265 @@ export async function duplicarOrcamento(
     }
     console.error("Falha ao duplicar orçamento:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_CRIAR };
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Cliente aprovou" (04.5-12-PLAN.md, D-25/ORC-11) — UMA transação cria a venda na parte 1 e, se
+// marcado, a encomenda; os vínculos gravam nos dois sentidos, na MESMA instrução que aprova.
+// ---------------------------------------------------------------------------------------------
+
+export type ResultadoDaAprovacao = {
+  id: string;
+  documentoId: string;
+  documentoNumero: number;
+  encomendaId: string | null;
+};
+
+// `abrirOrdemDeProducao` já vem escolhido pelo dono no diálogo — nenhum valor, nenhuma descrição,
+// nenhuma data vêm do cliente (T-04.5-61): a transação recalcula tudo a partir do orçamento
+// gravado, lido DENTRO dela, com `planejarAprovacao` (a MESMA função que `DialogoAprovar` chamou
+// para MOSTRAR). `exigirUsuario()` é a PRIMEIRA instrução do corpo.
+export async function aprovarOrcamento(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<ResultadoDaAprovacao>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaAprovacao.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { id, abrirOrdemDeProducao } = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+  // Lida FORA da transação (é configuração, não algo que a aprovação muda) — a MESMA leitura que
+  // `lancarVenda` faz para `conferirParcelas` abaixo.
+  const configuracao = await obterConfiguracaoFinanceira();
+
+  try {
+    const dados = await db.transaction(async (tx) => {
+      // 1. trava o orçamento e exige status "enviado" — recusado e aprovado nunca chegam aqui
+      // (a frase do caso "aprovado" sempre aponta para Duplicar, D-07); expirado (D-22, nunca
+      // gravado) é conferido logo abaixo, à parte, porque o STATUS continua "enviado".
+      const [orcamento] = await tx
+        .select({
+          status: orcamentos.status,
+          ano: orcamentos.ano,
+          sequencial: orcamentos.sequencial,
+          clienteNome: orcamentos.clienteNome,
+          titulo: orcamentos.titulo,
+          data: orcamentos.data,
+          validadeDias: orcamentos.validadeDias,
+          entregaPrevista: orcamentos.entregaPrevista,
+          plano: orcamentos.plano,
+          sinalPercentual: orcamentos.sinalPercentual,
+          freteCentavos: orcamentos.freteCentavos,
+          snapshot: orcamentos.snapshot,
+        })
+        .from(orcamentos)
+        .where(eq(orcamentos.id, id))
+        .for("update"); // trava a linha do orçamento inteira a transação — a segunda tentativa de um duplo toque encontra status "aprovado" e recusa (for update)
+
+      if (!orcamento) {
+        throw new OrcamentoNaoEncontrado();
+      }
+      garantirTransicaoValida(orcamento.status, ["enviado"], FRASE_ORCAMENTO_NAO_ENVIADO_PARA_APROVAR);
+
+      const diasRestantes = diasDeValidadeRestantes(orcamento.data, orcamento.validadeDias, hoje);
+      if (diasRestantes < 0) {
+        throw new OrcamentoExpirado();
+      }
+
+      // 2. carrega as linhas e os custos de projeto DENTRO da transação — nunca confiado do
+      // cliente. A ordem (`ordem asc`) é a MESMA de `obterOrcamentoParaEdicao`, para alinhar por
+      // índice com as linhas do snapshot logo abaixo (mesma disciplina de `EditorOrcamento`).
+      const linhasDoBanco = await tx
+        .select({
+          quantidade: orcamentoLinhas.quantidade,
+          precoUnitarioCentavos: orcamentoLinhas.precoUnitarioCentavos,
+          cor: orcamentoLinhas.cor,
+          personalizacao: orcamentoLinhas.personalizacao,
+        })
+        .from(orcamentoLinhas)
+        .where(eq(orcamentoLinhas.orcamentoId, id))
+        .orderBy(asc(orcamentoLinhas.ordem));
+
+      const custosDoBanco = await tx
+        .select({
+          descricao: orcamentoProjeto.descricao,
+          valorCentavos: orcamentoProjeto.valorCentavos,
+        })
+        .from(orcamentoProjeto)
+        .where(eq(orcamentoProjeto.orcamentoId, id))
+        .orderBy(asc(orcamentoProjeto.ordem));
+
+      // 3. a categoria "Encomendas" pela MESMA regra que a parte 1 usa (existe, ativa, do grupo
+      // de receita) — carregada do banco, nunca confiada do cliente (nem vem dele). Achada pelo
+      // NOME (a única chave de sistema que `categorias.chave_do_sistema` aceita é 'diferenca',
+      // db/schema.ts) — se um dia renomearem "Encomendas" em Cadastros, a aprovação passa a falhar
+      // com a mesma frase genérica de qualquer outra falha da transação (D-25), nunca uma venda
+      // pela metade.
+      const [categoriaEncomendas] = await tx
+        .select({ id: categorias.id })
+        .from(categorias)
+        .where(
+          and(
+            eq(categorias.nome, "Encomendas"),
+            eq(categorias.ativa, true),
+            eq(categorias.grupo, "receita"),
+          ),
+        )
+        .limit(1);
+      if (!categoriaEncomendas) {
+        throw new CategoriaEncomendasIndisponivel();
+      }
+
+      // 4. monta o plano com `planejarAprovacao` — a MESMA função que `DialogoAprovar` chamou
+      // para MOSTRAR. O nome de cada peça vem do SNAPSHOT (congelado em "Marcar como enviado"),
+      // nunca da ficha viva — ela pode ter mudado de nome depois do envio.
+      const leituraCongelada = lerDoSnapshot(orcamento.snapshot);
+      const linhasParaAprovacao: LinhaParaAprovacao[] = linhasDoBanco.map((linha, indice) => ({
+        nome: leituraCongelada.linhas[indice]?.nome || "",
+        quantidade: linha.quantidade,
+        precoUnitarioCentavos: linha.precoUnitarioCentavos,
+        cor: linha.cor,
+        personalizacao: linha.personalizacao,
+      }));
+      const custosParaAprovacao: CustoDeProjetoParaAprovacao[] = custosDoBanco.map((custo) => ({
+        descricao: custo.descricao,
+        valorCentavos: custo.valorCentavos,
+      }));
+
+      const plano = planejarAprovacao(
+        {
+          numero: numeroDeOrcamento(orcamento.ano, orcamento.sequencial),
+          titulo: orcamento.titulo,
+          plano: orcamento.plano,
+          sinalPercentual: orcamento.sinalPercentual,
+          freteCentavos: orcamento.freteCentavos,
+          entregaPrevista: orcamento.entregaPrevista,
+        },
+        linhasParaAprovacao,
+        custosParaAprovacao,
+        hoje,
+      );
+
+      // 5. confere a soma das parcelas com a MESMA função que `lancarVenda` usa — a frase de
+      // recusa é a mesma em todo o sistema, mesmo que aqui ela nunca chegue à tela (qualquer
+      // divergência aqui é defeito do próprio servidor, D-25: "nada foi criado").
+      const conferencia = conferirParcelas({
+        totalCentavos: plano.totalCentavos,
+        parcelas: plano.parcelas.map((parcela) => ({
+          vencimento: parcela.vencimento,
+          valorCentavos: parcela.valorCentavos,
+          pago: false,
+        })),
+        hoje,
+        dataSaldoInicial: configuracao.dataSaldoInicial,
+      });
+      if (!conferencia.ok) {
+        throw new ConferenciaDeParcelasFalhou();
+      }
+
+      // 6. grava o documento de venda, as linhas e as parcelas — NENHUMA paga, o sinal vencendo
+      // hoje (D-25). `forma: "pix"` é só o valor INICIAL da parcela em aberto — o dono escolhe a
+      // forma de verdade em "Recebi" no Caixa, que sobrescreve este campo quando o dinheiro cai
+      // (lib/financeiro/acoes.ts::registrarPagamento).
+      const [documento] = await tx
+        .insert(documentos)
+        .values({
+          tipo: "venda",
+          data: hoje,
+          pessoaNome: orcamento.clienteNome,
+          criadoPor: usuario.id,
+        })
+        .returning({ id: documentos.id, numero: documentos.numero });
+
+      await tx.insert(documentoLinhas).values(
+        plano.linhasDaVenda.map((linha, indice) => ({
+          documentoId: documento.id,
+          ordem: indice,
+          descricao: linha.descricao,
+          categoriaId: categoriaEncomendas.id,
+          quantidade: linha.quantidade,
+          valorCentavos: linha.valorCentavos,
+        })),
+      );
+
+      await tx.insert(parcelas).values(
+        plano.parcelas.map((parcela, indice) => ({
+          documentoId: documento.id,
+          numero: indice + 1,
+          vencimento: parcela.vencimento,
+          valorCentavos: parcela.valorCentavos,
+          forma: "pix" as const,
+          pagoEm: null,
+          pagoPor: null,
+        })),
+      );
+
+      // 7. se marcado, grava a encomenda no módulo EXATAMENTE como ele é hoje — mesmas três
+      // tabelas e mesma forma de `lib/encomendas/acoes.ts::criarEncomenda`, sem tocar naquele
+      // arquivo nem no modelo de dados de Encomendas (git diff daquele módulo fica em zero).
+      let encomendaId: string | null = null;
+      if (abrirOrdemDeProducao) {
+        const [linhaEncomenda] = await tx
+          .insert(encomendas)
+          .values({
+            nome: plano.nomeDaEncomenda,
+            clienteNome: orcamento.clienteNome,
+            dataInicio: hoje,
+            criadoPor: usuario.id,
+          })
+          .returning({ id: encomendas.id });
+
+        await tx.insert(encomendaItens).values(
+          plano.itensDaEncomenda.map((item, indice) => ({
+            encomendaId: linhaEncomenda.id,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            ordem: indice,
+          })),
+        );
+
+        await tx.insert(encomendaEtapas).values(
+          plano.etapasDaEncomenda.map((etapa, indice) => ({
+            encomendaId: linhaEncomenda.id,
+            etapa: etapa.etapa,
+            dias: etapa.dias,
+            esperaDias: etapa.esperaDias,
+            ordem: indice,
+          })),
+        );
+
+        encomendaId = linhaEncomenda.id;
+      }
+
+      // 8. grava `status = 'aprovado'`, `documentoId` e `encomendaId` na MESMA instrução — nunca
+      // existe um instante em que a venda existe e o orçamento não sabe, ou vice-versa.
+      await tx
+        .update(orcamentos)
+        .set({ status: "aprovado", documentoId: documento.id, encomendaId })
+        .where(eq(orcamentos.id, id));
+
+      return {
+        id,
+        documentoId: documento.id,
+        documentoNumero: documento.numero,
+        encomendaId,
+      };
+    });
+
+    return { ok: true, dados };
+  } catch (erro) {
+    const mensagemConhecida = primeiroErroConhecido(erro);
+    if (mensagemConhecida) {
+      return { ok: false, erro: mensagemConhecida };
+    }
+    // Qualquer outra falha (categoria indisponível, conferência de parcelas, erro de banco) —
+    // SEMPRE a mesma frase (D-25): "nada foi criado", nunca um detalhe que sugeriria uma venda
+    // pela metade.
+    console.error("Falha ao aprovar orçamento:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_APROVAR };
   }
 }
 

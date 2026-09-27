@@ -11,9 +11,11 @@ import {
   documentos,
   fichaTecnica,
   itensCatalogo,
+  orcamentos,
   parcelas,
   usuarios,
 } from "@/db/schema";
+import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 
 import { mesSeguinte, primeiroDiaDoMes } from "./calendario";
 import type { ItemParaEfeito } from "./efeito-estoque";
@@ -399,6 +401,15 @@ export type ParcelaDoDocumentoParaDetalhe = {
   rotulo: string | null;
 };
 
+// A aprovação de um orçamento (04.5-12-PLAN.md, D-25) — o vínculo mora em
+// `orcamentos.documento_id`, único: nunca uma coluna espelho do lado do Financeiro (chave
+// circular e segunda verdade que poderiam divergir). "Navegável nos dois sentidos" é satisfeito
+// por ser CONSULTÁVEL nos dois sentidos — esta é a metade que parte do documento.
+export type OrigemDoDocumento = {
+  orcamentoId: string;
+  numero: string;
+};
+
 export type DocumentoParaDetalhe = {
   id: string;
   numero: number;
@@ -412,12 +423,16 @@ export type DocumentoParaDetalhe = {
   deQuantasParcelas: number;
   linhas: LinhaDoDocumentoParaDetalhe[];
   parcelas: ParcelaDoDocumentoParaDetalhe[];
+  // `null` quando este documento não nasceu de uma aprovação de orçamento (a imensa maioria dos
+  // documentos — venda avulsa, despesa).
+  origemOrcamento: OrigemDoDocumento | null;
 };
 
-// O detalhe do documento ("Ver"): documentos + quem cancelou (join com usuarios), linhas (com a
-// categoria e se é a linha de diferença) e parcelas — TRÊS consultas, uma por tabela de
-// lançamento, nunca uma consulta por documento. Devolve um MAPA por id (nunca uma segunda
-// consulta ao abrir o detalhe — quem chama já recebeu tudo de uma vez).
+// O detalhe do documento ("Ver"): documentos + quem cancelou (join com usuarios) + o orçamento de
+// origem (join com `orcamentos`, quando existe), linhas (com a categoria e se é a linha de
+// diferença) e parcelas — TRÊS consultas, uma por tabela de lançamento, nunca uma consulta por
+// documento. Devolve um MAPA por id (nunca uma segunda consulta ao abrir o detalhe — quem chama
+// já recebeu tudo de uma vez).
 export async function listarDocumentosParaDetalhe(
   ids: readonly string[],
 ): Promise<Map<string, DocumentoParaDetalhe>> {
@@ -436,9 +451,13 @@ export async function listarDocumentosParaDetalhe(
         titulo: documentos.titulo,
         canceladoEm: documentos.canceladoEm,
         canceladoPorNome: usuarios.nome,
+        origemOrcamentoId: orcamentos.id,
+        origemOrcamentoAno: orcamentos.ano,
+        origemOrcamentoSequencial: orcamentos.sequencial,
       })
       .from(documentos)
       .leftJoin(usuarios, eq(documentos.canceladoPor, usuarios.id))
+      .leftJoin(orcamentos, eq(orcamentos.documentoId, documentos.id))
       .where(inArray(documentos.id, ids as string[])),
     db
       .select({
@@ -527,10 +546,30 @@ export async function listarDocumentosParaDetalhe(
       deQuantasParcelas: parcelasDoDocumento.length,
       linhas,
       parcelas: parcelasDoDocumento,
+      origemOrcamento: documento.origemOrcamentoId
+        ? {
+            orcamentoId: documento.origemOrcamentoId,
+            numero: numeroDeOrcamento(documento.origemOrcamentoAno!, documento.origemOrcamentoSequencial!),
+          }
+        : null,
     });
   }
 
   return mapa;
+}
+
+// A metade INVERSA de `origemOrcamento` acima (04.5-12-PLAN.md, D-25/key_link): dado um
+// `documentoId`, devolve o orçamento que o gerou, ou `null`. Consulta pelo índice único
+// `orcamentos_documento_id_uk` — nenhuma coluna nova no Financeiro, comentário no schema explica
+// o porquê (chave circular e segunda verdade que poderiam divergir).
+export async function obterOrigemDoDocumento(documentoId: string): Promise<OrigemDoDocumento | null> {
+  const [linha] = await db
+    .select({ id: orcamentos.id, ano: orcamentos.ano, sequencial: orcamentos.sequencial })
+    .from(orcamentos)
+    .where(eq(orcamentos.documentoId, documentoId))
+    .limit(1);
+
+  return linha ? { orcamentoId: linha.id, numero: numeroDeOrcamento(linha.ano, linha.sequencial) } : null;
 }
 
 export type ParcelaParaAviso = {

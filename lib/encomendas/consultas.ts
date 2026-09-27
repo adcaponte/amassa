@@ -1,7 +1,9 @@
 import { and, asc, eq, gte, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { encomendaEtapas, encomendaItens, encomendas } from "@/db/schema";
+import { encomendaEtapas, encomendaItens, encomendas, orcamentos } from "@/db/schema";
+import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
+
 import { calcularJanelaDoHistorico } from "./filtros";
 
 // Leitura do índice de `/encomendas`. Sem `"use server"` — não é uma Server Action, é uma
@@ -123,4 +125,23 @@ export async function buscarEncomenda(id: string): Promise<EncomendaComFilhos | 
     itens: itensDaEncomenda,
     etapas: etapasDaEncomenda,
   };
+}
+
+// A aprovação de um orçamento (04.5-12-PLAN.md, D-25/key_link) — dado um `encomendaId`, devolve o
+// orçamento que a gerou, ou `null`. Consulta pelo índice único `orcamentos_encomenda_id_uk`;
+// nenhuma coluna nova em Encomendas — o vínculo mora só do lado de `orcamentos`, evitando uma
+// chave circular e uma segunda verdade que poderiam divergir.
+export type OrigemDaEncomenda = {
+  orcamentoId: string;
+  numero: string;
+};
+
+export async function obterOrigemDaEncomenda(encomendaId: string): Promise<OrigemDaEncomenda | null> {
+  const [linha] = await db
+    .select({ id: orcamentos.id, ano: orcamentos.ano, sequencial: orcamentos.sequencial })
+    .from(orcamentos)
+    .where(eq(orcamentos.encomendaId, encomendaId))
+    .limit(1);
+
+  return linha ? { orcamentoId: linha.id, numero: numeroDeOrcamento(linha.ano, linha.sequencial) } : null;
 }
