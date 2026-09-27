@@ -4,8 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-13-PLAN.md Tarefas 1-2 (automatico); Tarefas 3-4 aguardam o dono — fase permanece em execucao
-last_updated: "2026-09-27T14:19:15.663Z"
+stopped_at: Completed 04.5-13-PLAN.md Tarefas 1-3 (Tarefa 3 — Roteiros 12 e 13 — feita pelo dono em 27/09/2026); Tarefa 4 (verificacao humana) aberta — fase permanece em execucao
 progress:
   total_phases: 11
   completed_phases: 9
@@ -13,7 +12,8 @@ progress:
   completed_plans: 77
 current_phase: 04.5
 last_activity: 2026-09-27
-last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migração 0021/WINDOWS #44, varredura completa, imagem conferida, roteiro 13 e verificação humana prontos) — dono ausente, fase aguarda ele aplicar as migrações e percorrer a verificação humana"
+last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migração 0021/WINDOWS #44, varredura completa, imagem conferida, roteiro 13 e verificação humana prontos); migrações aplicadas em 27/09 (0017 provada pela rota de saúde); fase aberta só pela verificação humana"
+last_updated: "2026-09-27T15:39:30Z"
 ---
 
 # Project State
@@ -23,13 +23,16 @@ last_activity_desc: "Fase 04.5: 13 de 13 planos executados (fechamento — migra
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: 13/13 planos executados; fase aberta até o dono aplicar as migrações e percorrer a verificação humana
+**Current focus:** Fase 04.5 — Financeiro, parte 2: 13/13 planos executados; migrações aplicadas em 27/09; fase aberta só pela verificação humana
 
 ## Current Position
 
 Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **13 de 13 planos executados**
-em 2026-09-27. A fase **não fecha por contagem de planos**: falta o dono aplicar o Roteiro 12
-(fotos) e o Roteiro 13 (migrações `0017`-`0021`) em produção e percorrer
+em 2026-09-27. A fase **não fecha por contagem de planos**: o dono rodou o Roteiro 12 (fotos) e o
+Roteiro 13 (migrações `0017`-`0021`) em produção em 27/09/2026 — código publicado (`git log
+origin/main..main` = 1 commit, `docs(04.5)`), pipeline "Entrega contínua" com sucesso no commit
+`3a31c55`, e a migração `0017` provada pela rota `/api/health/backup` (responde `200` `"ok"`; se a
+coluna `fotos_destino_externo_ok` não existisse, a rota devolveria `503`). Falta só percorrer
 `.planning/phases/04.5-financeiro-parte-2/04.5-VERIFICACAO-HUMANA.md` no celular. Ver
 `04.5-13-SUMMARY.md`, seção "O que fica para o dono, e em que ordem".
 
@@ -245,7 +248,9 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
      2026-09-26** (D-32 do CONTEXT) — Inter + Archivo Narrow, SIL OFL 1.1, versionadas em
      `assets/fontes/` com a licença ao lado.
 
-  5. Plano 13 — Roteiros 12 e 13 em produção, depois de backup.
+  5. ~~Plano 13 — Roteiros 12 e 13 em produção, depois de backup.~~ **feito em 27/09/2026**
+     (E2/E3/E4: pipeline com sucesso no commit `3a31c55`; migração `0017` provada por
+     `/api/health/backup`; Roteiro 12 rodado, registrado no commit `a43ee6a`).
   6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
      contagem de planos.
 
@@ -261,9 +266,11 @@ Duas coisas para ele olhar:
     criaria chave circular e uma segunda verdade). As duas telas provam a navegação nos dois
     sentidos ("Ver venda no Financeiro"/"Ver encomenda na Produção" no orçamento; "Criado a partir
     do orçamento {número}" nos dois lados). É interpretação de regra dele — vale conferir quando
-    chegar (as migrações ainda não foram aplicadas em produção, plano 13).
+    chegar (as migrações foram aplicadas em 27/09).
 
-Não houve `git push`. Tudo em commits locais (`9bd48db` a `c391925`, planos 01-03 da 04.5 incluídos).
+Não houve `git push` até então. Tudo em commits locais (`9bd48db` a `c391925`, planos 01-03 da 04.5
+incluídos). **Os commits foram publicados em 27/09/2026** (`git log origin/main..main` = 1 commit
+restante, `docs(04.5)`).
 
 O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
 
@@ -691,6 +698,6 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-09-27T04:14:25.271Z
-Stopped at: Completed 04.5-13-PLAN.md Tarefas 1-2 (automatico); Tarefas 3-4 aguardam o dono — fase permanece em execucao
+Stopped at: Completed 04.5-13-PLAN.md Tarefas 1-3 (Tarefa 3 — Roteiros 12 e 13 — feita pelo dono em 27/09/2026); Tarefa 4 (verificacao humana) aberta — fase permanece em execucao
 "Atualizar preços")
 Resume file: None
