@@ -53,8 +53,11 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 // as três abas de `/financeiro` além da Venda (default sem `?aba=`) e as três sub-abas de
 // `/cadastros` além do Catálogo (default sem `?sub=`). `04.5-01-PLAN.md` (Tarefa 4, D-04)
 // substitui `/orcamentos` (a casca vazia, removida) por `/financeiro?aba=orcamentos` e acrescenta
-// `/financeiro?aba=pecas` — as duas abas novas do Financeiro. Mesmas `REGRAS_AUDITADAS` de
-// sempre — nenhuma regra nova, nenhuma afrouxada.
+// `/financeiro?aba=pecas` — as duas abas novas do Financeiro. `04.5-13-PLAN.md` (Tarefa 1,
+// fechamento da fase) acrescenta `/cadastros?sub=parametros` (D-03, a última sub-aba nova de
+// Cadastros); a rota do documento do cliente (`?documento=1`) precisa de um id de orçamento real
+// e por isso tem o próprio `test.describe` mais abaixo, fora deste laço estático. Mesmas
+// `REGRAS_AUDITADAS` de sempre — nenhuma regra nova, nenhuma afrouxada.
 const ROTAS_DA_FASE = [
   "/login",
   "/",
@@ -74,6 +77,7 @@ const ROTAS_DA_FASE = [
   "/cadastros?sub=categorias",
   "/cadastros?sub=fixas",
   "/cadastros?sub=taxas",
+  "/cadastros?sub=parametros",
 ] as const;
 
 // Regras às quais esta fase se compromete — restringir com withRules é escolha deliberada
@@ -381,5 +385,52 @@ test.describe("acessibilidade — truncamento de nome longo (backstop do 02b-UI-
       // ativa no banco.
       execSync(`npm run desativar-usuario -- --email "${emailLongo}"`, opcoesExecucao);
     }
+  });
+});
+
+// A rota do documento do cliente (04.5-13-PLAN.md, Tarefa 1) precisa de um `orcamentoId` real —
+// diferente das ROTAS_DA_FASE estáticas, este id só existe depois de criar um orçamento pela
+// própria interface, então ela ganha o próprio describe, fora do laço de cima. `VerComoOClienteVe`
+// decide sozinho por `useSearchParams()` (ver o componente) se deve aparecer — funciona tanto
+// clicando o botão quanto navegando direto para a URL com `?documento=1`, e ir direto é o que
+// permite reaproveitar o MESMO padrão de varredura (axe-core + sem rolagem a 320px) das rotas
+// estáticas acima.
+test.describe("acessibilidade — o documento do cliente (rota nova da Fase 04.5)", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("a rota do documento do cliente não tem violação de color-contrast, button-name, link-name ou aria-allowed-attr, nem rola na horizontal a 320px (UI-09, UI-06)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    await page.goto("/financeiro?aba=orcamentos");
+    await page.getByRole("button", { name: "Novo orçamento" }).click();
+    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
+    const urlDoDocumento = `/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`;
+
+    await page.goto(urlDoDocumento);
+    await expect(page.getByTestId("folha-a4")).toBeVisible();
+
+    const resultado = await new AxeBuilder({ page }).withRules(REGRAS_AUDITADAS).analyze();
+    expect(
+      resultado.violations,
+      resultado.violations
+        .map((violacao) => `${violacao.id}: ${violacao.help} (${violacao.nodes.length} nó(s))`)
+        .join("\n"),
+    ).toEqual([]);
+
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto(urlDoDocumento);
+    await expect(page.getByTestId("folha-a4")).toBeVisible();
+
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidth,
+      `o documento do cliente rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
   });
 });

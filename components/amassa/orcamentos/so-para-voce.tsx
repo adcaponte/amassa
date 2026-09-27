@@ -79,7 +79,14 @@ export function SoParaVoce({
           <span className="text-corpo text-foreground">{ROTULO_SOBRA_DEPOIS_DE_IMPOSTO_E_TAXA}</span>
           <span
             data-testid="orcamento-sobra"
-            className={`text-corpo tabular-nums ${sobraPositiva ? "text-sucesso" : "text-erro"}`}
+            // `text-sucesso` (#15803D) sobre `--color-acento-fundo` (#F3EDE9, o fundo deste
+            // painel) mede 4,32:1 — abaixo do 4.5:1 exigido pelo CLAUDE.md (contraste AA).
+            // `text-erro` sobre o MESMO fundo já passa (5,58:1); só o verde precisa de um tom mais
+            // escuro NESTA combinação específica — trocar `--color-sucesso` global afetaria outros
+            // fundos (ex.: `--color-sucesso-fundo`, que já passa) sem necessidade. Achado pela
+            // varredura de acessibilidade da Tarefa 1 do 04.5-13-PLAN.md, ao cobrir pela primeira
+            // vez uma rota com um orçamento aberto de verdade.
+            className={`text-corpo tabular-nums ${sobraPositiva ? "text-[#117C39]" : "text-erro"}`}
           >
             {`${formatarReais(sobraCentavos)} · ${formatarPercentual(sobraPontosBase)}%`}
           </span>
