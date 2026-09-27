@@ -441,20 +441,45 @@ test.describe("financeiro caixa pagamento", () => {
     const botaoDesfazer = aviso.getByRole("button", { name: "Desfazer" });
     await expect(botaoDesfazer).toBeVisible();
 
-    const caixaAviso = await aviso.boundingBox();
+    // A barra inferior é fixa e não anima — uma medida só basta.
     const caixaBarra = await barra.boundingBox();
-    const caixaBotao = await botaoDesfazer.boundingBox();
-    if (!caixaAviso || !caixaBarra || !caixaBotao) {
-      throw new Error(
-        "Geometria do aviso, da barra ou do botão 'Desfazer' não pôde ser lida (bounding box nula).",
-      );
+    if (!caixaBarra) {
+      throw new Error("Geometria da barra inferior não pôde ser lida (bounding box nula).");
     }
 
-    const fundoDoAviso = caixaAviso.y + caixaAviso.height;
-    expect(
-      fundoDoAviso,
-      `o fundo do aviso (${fundoDoAviso}) passa do topo da barra (${caixaBarra.y})`,
-    ).toBeLessThanOrEqual(caixaBarra.y);
+    // 🔴 `expect.poll`, nunca um `boundingBox()` único — e o motivo não é preciosismo.
+    //
+    // O sonner ANIMA a entrada do toast, deslizando de baixo para cima. `toBeVisible()` volta
+    // assim que o elemento está no DOM e visível, ou seja, NO MEIO do voo — e um retrato único
+    // tirado ali mede uma posição que nunca foi a final. Nesta máquina a animação termina antes
+    // da medida e o teste passa; no runner do CI, mais lento, ela não termina.
+    //
+    // Medido no pipeline do commit `8695989` (27/09/2026): o fundo do aviso veio 702,29 · 688,58 ·
+    // 702,31 no desktop e 707,75 · 692,60 no celular, sempre ABAIXO do alvo de 683 e convergindo
+    // para ele — e a terceira tentativa do celular passou. Valor que muda a cada leitura e
+    // converge é animação, não defeito de leiaute.
+    //
+    // O `poll` remede até assentar. Se o aviso REALMENTE ficasse por baixo da barra, ele nunca
+    // assentaria e o teste falharia por tempo — a garantia continua de pé, e é essa a diferença
+    // entre esperar a animação e afrouxar a asserção.
+    await expect
+      .poll(
+        async () => {
+          const caixa = await aviso.boundingBox();
+          return caixa ? caixa.y + caixa.height : Number.POSITIVE_INFINITY;
+        },
+        {
+          message: `o fundo do aviso nunca assentou acima do topo da barra (${caixaBarra.y})`,
+          timeout: 5000,
+        },
+      )
+      .toBeLessThanOrEqual(caixaBarra.y);
+
+    // Depois do poll a animação terminou: daqui em diante um retrato único é confiável.
+    const caixaBotao = await botaoDesfazer.boundingBox();
+    if (!caixaBotao) {
+      throw new Error("Geometria do botão 'Desfazer' não pôde ser lida (bounding box nula).");
+    }
 
     const respiroDoBotao = caixaBarra.y - (caixaBotao.y + caixaBotao.height);
     expect(
