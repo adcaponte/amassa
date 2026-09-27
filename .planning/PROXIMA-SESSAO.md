@@ -1,31 +1,37 @@
-# Próxima sessão — ATUALIZADO em 2026-09-17
+# Próxima sessão — ATUALIZADO em 2026-09-28
 
 > **A porta de entrada de qualquer sessão agora é `ESTADO-ATUAL.md`, na raiz do projeto** (mora só
 > neste computador; está no `.gitignore`). Ele tem o negócio, o que está no ar, a ordem de trabalho e
 > as pendências. Este arquivo continua valendo pelas **lições técnicas** da seção "O que a Fase 4.2
 > ensinou". Se os dois divergirem sobre prioridade, o `ESTADO-ATUAL.md` vence.
 
-## Ordem atual (decisão do dono em 2026-09-17)
+## Ordem atual
 
-1. **Fase 04.3 — Comparador de Compras.** PRIORIDADE. Aba dentro de `/abertura` para comparar
-   cotações de equipamentos lado a lado, compartilhada entre os gestores (a Andressa já tem conta).
-   O protótipo do dono JÁ ESTÁ PRONTO e é a especificação:
-   `.planning/phases/04.3-comparador-de-compras/prototipo.html`. Decisões já tomadas e critérios
-   de sucesso: seção da Fase 04.3 no ROADMAP.md. **Próximo comando: `/gsd-plan-phase 04.3`.**
-   Não refaça o protótipo nem reabra as três decisões (preço numérico, independente dos itens da
-   lista de compras, sem mudança de permissão).
+> ⚠️ **A lista de 2026-09-17 abaixo está cumprida ou superada.** Atualizada em 2026-09-28. A ordem
+> de trabalho de verdade mora em `Claude outputs/FILA-DO-CODE.md`, mantida pelo Cowork; esta seção
+> só a espelha.
 
-2. **Site público + plataforma em `/gestao`.** Ainda sem fase. `amassacerrado.com.br` vira o site
-   institucional do AMASSA (ilustrado pela Andressa: frentes de trabalho, contatos); a plataforma
-   passa para `/gestao`, sem link no site, acesso só por endereço. **O planejamento disso está FORA
-   do repositório**, em `C:UsersAndreamassa-cerradoamassa-plataforma` (marco "M8 — Página Em
-   breve" no `03-ROADMAP.md` de lá), com mudanças reais em todos os documentos de planejamento e
-   protótipos que só existem lá. Antes de planejar o site, trazer isso com `/gsd-import`, que confere
-   conflito com as decisões já tomadas. Qual versão prevalece é decisão do dono. Não apague nem
-   altere nada em `amassa-cerrado`.
+1. ~~**Fase 04.3 — Comparador de Compras**~~ — **concluída em 2026-09-18.** Depois dela vieram a
+   **04.4** (Financeiro, parte 1, concluída em 26/09, verificada 9/9 + 17/17) e a **04.5**
+   (Financeiro, parte 2 — Precificação e Orçamento, **concluída em 27/09**, 14 planos, 23 dos 25
+   itens da verificação humana passando de primeira e os dois outros corrigidos no plano 14).
 
-3. **Fase 6 — Estoque**, com protótipo antes da execução. O restante deste arquivo, a partir de
-   "Como começar", foi escrito para ela e continua valendo.
+2. **Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.** **É a próxima**,
+   e **já existe no ROADMAP** desde 28/09, com protótipos, briefings e 24 requisitos (GES-01..14,
+   SIT-01..10). **Parada esperando o dono responder**
+   `Claude outputs/gestao/DISCUSSAO-PREPARADA.md` — a fila é explícita: não planejar nem executar
+   antes disso.
+
+   **Correção do que este arquivo dizia antes:** o planejamento do site **não** está mais fora do
+   repositório, e **não há mais "Em breve"**. O dono aprovou o protótipo do site inteiro em
+   26/09 (`Claude outputs/site/`), que substituiu a página provisória; o marco "M8 — Página Em
+   breve" do `amassa-cerrado` foi superado por essa decisão. Continua valendo o resto: não apague
+   nem altere nada em `C:\Users\Andre\amassa-cerrado`.
+
+3. **Fase 6 — Estoque**, com protótipo antes da execução — 🔒 depois da 04.6 estar no ar (item 4
+   da fila). O protótipo já foi aprovado em 18/09 e revisto em 20/09, e o **adendo**
+   (`Claude outputs/estoque/ADENDO.md`) vence o briefing antigo. O restante deste arquivo, a
+   partir de "Como começar", foi escrito para ela e continua valendo nas lições técnicas.
 
 ---
 
