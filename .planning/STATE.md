@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-10-PLAN.md
-last_updated: "2026-09-27T00:38:27.032Z"
+stopped_at: Completed 04.5-11-PLAN.md
+last_updated: "2026-09-27T01:32:45.410Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 74
+  completed_plans: 75
 current_phase: 04.5
 last_activity: 2026-09-27
-last_activity_desc: "Fase 04.5 em execucao: 9 de 13 planos prontos (Atualizar preços, revisões) — dono ausente, execução autônoma até parada segura"
+last_activity_desc: "Fase 04.5 em execucao: 11 de 13 planos prontos (documento do cliente: folha A4 + PDF do servidor) — dono ausente, execução autônoma até parada segura"
 ---
 
 # Project State
@@ -23,11 +23,11 @@ last_activity_desc: "Fase 04.5 em execucao: 9 de 13 planos prontos (Atualizar pr
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-09 executados e verificados; 4 planos restantes
+**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-11 executados e verificados; 2 planos restantes
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 10 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 11 de 13
 concluído em 2026-09-27.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -162,8 +162,30 @@ achado de ambiente fora do escopo deste plano (a semente de parâmetros usa `cur
 Postgres em UTC contra `hojeEmBrasilia`, discrepando por ~3h todo dia perto da meia-noite —
 WINDOWS #44): `.planning/phases/04.5-financeiro-parte-2/04.5-10-SUMMARY.md`.
 
-**Pendente para os planos 11-13:** PDF do cliente ("Ver como o cliente vê"); a aprovação de
-verdade ("Cliente aprovou").
+**Plano 11 (o documento do cliente — a folha A4 na tela e o PDF do servidor) entregou:**
+`lib/orcamentos/documento-cliente.ts::montarDocumentoDoCliente/DocumentoDoCliente/
+textosDoDocumento` — a ÚNICA fonte de conteúdo do documento; tipo fechado, sem nenhum campo de
+custo/mínimo/margem/hora, provado por teste unitário que varre a estrutura por nome de chave
+(D-24/D-29); `VerComoOClienteVe` — a folha A4, um overlay auto-gerenciado por `useSearchParams()`
+(`?documento=1`), sem chamada nova ao servidor para abrir; `@react-pdf/renderer@4.9.0` instalado
+(o pacote SUS aprovado pelo dono no checkpoint, D-31, escopo `@react-pdf/` conferido) —
+`GET /api/orcamentos/[id]/pdf` gera o PDF no servidor a partir do MESMO `DocumentoDoCliente`,
+com Inter (regular/negrito/itálico) + Archivo Narrow (negrito) versionadas em `assets/fontes/`
+(SIL OFL 1.1, licença ao lado, D-32); `BaixarPdf` — `fetch`+`blob`, nunca `<a href>`, com o
+contrato de espera/erro do UI-SPEC. **Achado real, corrigido nesta execução:** `@react-pdf/
+renderer` não resolvia a fonte itálica do rodapé (`Inter-Italic.ttf` acrescentado depois do
+primeiro e2e). **Decisão sem o dono:** `pdfjs-dist` (a biblioteca de extração de texto oferecida
+no mesmo checkpoint) NÃO foi instalada — a resposta do dono confirma três pacotes para a fase
+inteira e não confirma explicitamente essa quarta; cobertura de acentuação/ausência-de-custo
+DENTRO do arquivo PDF final fica como verificação humana pendente para o plano 13 (WINDOWS
+#45/#46) — a estrutura de dados é provada por construção. `docker/Dockerfile` ganhou `COPY
+.../assets ./assets` (achado real, fora da lista de arquivos do plano — sem isso o primeiro PDF
+em produção falharia com arquivo não encontrado). e2e 46/46 (desktop + celular, 7 casos,
+incluindo a cadeia `@vazio-global` completa — bloqueada na primeira tentativa por WINDOWS #44,
+contornada com o mesmo workaround temporário do plano 10, revertido antes de qualquer commit).
+Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-11-SUMMARY.md`.
+
+**Pendente para o plano 12-13:** a aprovação de verdade ("Cliente aprovou").
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -192,11 +214,13 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
   2. ~~Plano 10 — instalar `sharp` + `file-type`~~ **respondido pelo dono em 2026-09-26, antes de
      se ausentar** (D-31 do CONTEXT, dentro do próprio 04.5-10-PLAN.md) — instalados, executados.
 
-  3. Plano 11 — instalar `@react-pdf/renderer`. **O selo de legitimidade de pacote voltou SUS**; a
-     pesquisa julgou falso-positivo (a métrica leu a data do último lançamento, não a idade do
-     pacote — >5M downloads/semana, repositório desde 2017), mas quem aprova é ele.
+  3. ~~Plano 11 — instalar `@react-pdf/renderer`~~ **respondido pelo dono em 2026-09-26, antes de
+     se ausentar** (D-31 do CONTEXT, dentro do próprio 04.5-11-PLAN.md) — o selo SUS julgado
+     falso-positivo pela pesquisa; instalado, escopo `@react-pdf/` conferido, executado.
 
-  4. Plano 11 — versionar um arquivo TTF num **repositório público**: a licença tem que permitir.
+  4. ~~Plano 11 — versionar um arquivo TTF num repositório público~~ **respondido pelo dono em
+     2026-09-26** (D-32 do CONTEXT) — Inter + Archivo Narrow, SIL OFL 1.1, versionadas em
+     `assets/fontes/` com a licença ao lado.
   5. Plano 13 — Roteiros 12 e 13 em produção, depois de backup.
   6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
      contagem de planos.
@@ -234,7 +258,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 95% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [██████████] 96% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -337,6 +361,7 @@ Progress: [██████████] 95% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P08 | ~2h30min | 3 tasks | 17 files |
 | Phase 04.5 P09 | 50min | 3 tasks | 14 files |
 | Phase 04.5 P10 | ~3h | 4 tasks | 15 files |
+| Phase 04.5 P11 | ~2h30 | 4 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -559,6 +584,8 @@ Recent decisions affecting current work:
 - [Phase ?]: SoParaVoce e Server Component sem estado nenhum, reforcando que o painel nunca e importado fora do editor do dono (separacao estrutural do documento do cliente)
 - [Phase ?]: 04.5-09: totalDeAgora/somaDoQueNaoEhPeca isolado de atualizarPrecos para o script de aceitação (le projeto/frete so para o historico, nunca altera)
 - [Phase ?]: Rota de foto responde 401 real (nao redirect) para chamada de API sem sessao — middleware.ts ganhou o caso geral, nao so a rota de fotos
+- [Phase ?]: 04.5-11: pdfjs-dist NAO instalado (sem confirmacao explicita do dono para um quarto pacote) — cobertura de acentuacao/no-leak do PDF fica reduzida ao nivel de estrutura de dados, registrada em WINDOWS.md #45/#46
+- [Phase ?]: 04.5-11: docker/Dockerfile ganhou COPY .../assets ./assets no estagio app — as fontes do PDF sao lidas em tempo de execucao e o rastreador de arquivos do next build nao as enxerga sozinho (mesma classe do Pitfall 3 do sharp)
 
 ### Pending Todos
 
@@ -631,7 +658,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T00:35:20.497Z
-Stopped at: Completed 04.5-10-PLAN.md
+Last session: 2026-09-27T01:32:45.322Z
+Stopped at: Completed 04.5-11-PLAN.md
 "Atualizar preços")
 Resume file: None

@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 25
+open_count: 27
 waived_count: 1
 fixed_count: 18
-total_count: 44
-last_updated: 2026-09-27T00:33:48.319Z
+total_count: 46
+last_updated: 2026-09-27T01:29:16.936Z
 ---
 
 # Broken Windows Ledger
@@ -59,6 +59,8 @@ last_updated: 2026-09-27T00:33:48.319Z
 | 42 | 04.5-financeiro-parte-2 | skipped-test | tests/e2e/orcamentos-revisao.spec.ts |  | (f) 'num orcamento aprovado o botao Atualizar precos nao existe' fica test.skip: nao existe, nesta fase, nenhum caminho pela UI para aprovar um orcamento (Cliente aprovou e do plano 12 e continua desabilitado). Verificado por leitura de codigo (editor-orcamento.tsx: o guarda 'status !== aprovado' envolve o dialogo inteiro); reabrir quando o plano 12 existir. | open |  | 2026-09-26T23:12:42.378Z |  |
 | 43 | 04.5-financeiro-parte-2 | deviation | .planning/REQUIREMENTS.md |  | Tabela de rastreabilidade (linha ~447/450) mostra ORC-07/ORC-10 como 'Pending' apesar de 04.5-07-SUMMARY.md/04.5-08-SUMMARY.md listarem os dois em requirements-completed -- gap pre-existente, nao introduzido nem corrigido pelo plano 09 (fora do escopo de arquivos); so ORC-09 (deste plano) foi corrigido para Complete. | open |  | 2026-09-26T23:18:22.102Z |  |
 | 44 | 04.5-financeiro-parte-2 | deviation | db/migrations/0019_parametros-iniciais.sql | 20 | A semente de parametros_precificacao usa vigente_desde = current_date do Postgres (UTC, sem TZ definida no contêiner), enquanto a leitura em lib/precificacao/consultas.ts::parametrosVigentes usa hojeEmBrasilia (America/Sao_Paulo, UTC-3). Entre 21:00 e 23:59:59 BRT (00:00-02:59:59 UTC do dia seguinte), current_date ja avancou um dia mas hojeEmBrasilia ainda esta no dia anterior — a query 'vigente_desde <= hoje' nao acha nenhum parametro, e toda tela que depende de parametrosVigentes (Pecas, editor de Orcamento) mostra 'Nao deu para carregar os parametros'. Reproduzido de forma deterministica (workers=1, isolado por --grep) as 00:08-00:31 UTC de 2026-09-27, tanto em precificacao-pecas.spec.ts @vazio-global quanto no editor de orcamentos. Fora do escopo de arquivos do plano 04.5-10 (fotos) — achado ao depurar o e2e orcamentos-fotos, nao corrigido aqui. | open |  | 2026-09-27T00:33:48.319Z |  |
+| 45 | 04.5-financeiro-parte-2 | unrun-verify | tests/e2e/orcamentos-pdf.spec.ts |  | Paridade de conteudo (caso b) e acentuacao (caso c) do PDF gerado nao sao lidas do ARQUIVO final: pdfjs-dist (a biblioteca de extracao de texto oferecida no checkpoint da Tarefa 1) nao foi instalada porque a resposta do dono confirma tres pacotes para a fase inteira e nao confirma explicitamente essa quarta -- na duvida, o executor nao supoe autorizacao. Cobertura real: teste unitario de estrutura (orcamentos-documento-cliente.test.ts) prova que tela e PDF leem do MESMO DocumentoDoCliente, e o e2e confere o arquivo baixado por assinatura/tamanho/Content-Disposition, nunca o texto interno. Verificacao humana pendente para o plano 13: abrir o PDF de um orcamento com 'Jose Conceicao' e conferir visualmente os acentos. | open |  | 2026-09-27T01:29:07.118Z |  |
+| 46 | 04.5-financeiro-parte-2 | unrun-verify | lib/orcamentos/pdf/documento.tsx |  | A ausencia de custo/minimo/margem/hora no PDF (caso d, D-24/D-29) e provada por CONSTRUCAO -- DocumentoDoCliente nao tem esses campos (teste unitario varre por nome de chave), documento.tsx so consome esse tipo (acceptance_criteria confere por grep que nao ha chamada a contasDoOrcamento/resultadoDaFicha/calcularPeca) -- mas nenhum teste le o BYTE do PDF final procurando esses numeros, porque pdfjs-dist nao foi instalado (ver entrada irma sobre paridade/acentuacao). Verificacao humana pendente para o plano 13. | open |  | 2026-09-27T01:29:16.936Z |  |
 
 ````json
 [
@@ -588,6 +590,30 @@ last_updated: 2026-09-27T00:33:48.319Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-27T00:33:48.319Z",
+    "resolved_at": null
+  },
+  {
+    "id": 45,
+    "kind": "unrun-verify",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-pdf.spec.ts",
+    "line": null,
+    "description": "Paridade de conteudo (caso b) e acentuacao (caso c) do PDF gerado nao sao lidas do ARQUIVO final: pdfjs-dist (a biblioteca de extracao de texto oferecida no checkpoint da Tarefa 1) nao foi instalada porque a resposta do dono confirma tres pacotes para a fase inteira e nao confirma explicitamente essa quarta -- na duvida, o executor nao supoe autorizacao. Cobertura real: teste unitario de estrutura (orcamentos-documento-cliente.test.ts) prova que tela e PDF leem do MESMO DocumentoDoCliente, e o e2e confere o arquivo baixado por assinatura/tamanho/Content-Disposition, nunca o texto interno. Verificacao humana pendente para o plano 13: abrir o PDF de um orcamento com 'Jose Conceicao' e conferir visualmente os acentos.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T01:29:07.118Z",
+    "resolved_at": null
+  },
+  {
+    "id": 46,
+    "kind": "unrun-verify",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "lib/orcamentos/pdf/documento.tsx",
+    "line": null,
+    "description": "A ausencia de custo/minimo/margem/hora no PDF (caso d, D-24/D-29) e provada por CONSTRUCAO -- DocumentoDoCliente nao tem esses campos (teste unitario varre por nome de chave), documento.tsx so consome esse tipo (acceptance_criteria confere por grep que nao ha chamada a contasDoOrcamento/resultadoDaFicha/calcularPeca) -- mas nenhum teste le o BYTE do PDF final procurando esses numeros, porque pdfjs-dist nao foi instalado (ver entrada irma sobre paridade/acentuacao). Verificacao humana pendente para o plano 13.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T01:29:16.936Z",
     "resolved_at": null
   }
 ]
