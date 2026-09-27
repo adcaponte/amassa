@@ -2,7 +2,7 @@
 // que mantém o middleware fora do alcance do módulo nativo de hash e do cliente do banco,
 // que quebrariam a inicialização no runtime Edge (`01-ARQUITETURA.md` §4).
 import NextAuth from "next-auth";
-import type { NextMiddleware } from "next/server";
+import { NextResponse, type NextMiddleware } from "next/server";
 
 import { configuracaoBase } from "./lib/auth/auth.config";
 import { podeRenovarSessao, semRenovacaoDaSessao } from "./lib/auth/renovacao-sessao";
@@ -12,6 +12,22 @@ import { ehRotaPublica } from "./lib/auth/rotas-publicas";
 // /login). O `as` abaixo só declara o tipo que o próprio pacote usa para essa forma de
 // exportação — não muda o comportamento herdado do plano 01.
 const autenticar = NextAuth(configuracaoBase).auth as NextMiddleware;
+
+// Fase 04.5, plano 10 — a primeira rota de API autenticada da plataforma
+// (`GET /api/orcamentos/fotos/[id]`, D-27/T-04.5-48). O `authorized()` de `configuracaoBase`
+// decide "sem sessão" IGUAL para toda rota não pública, mas o comportamento PADRÃO do Auth.js
+// para essa decisão é sempre um redirect para `pages.signIn` — certo para navegação de página
+// (`fundacao.spec.ts`), errado para uma rota de API: uma tag `<img>` ou um `fetch()` não
+// "segue" um redirect para HTML de forma útil, e o redirect chegaria como 200 (a página de
+// login), escondendo exatamente o caso que precisa ficar visível como falha. Só o FORMATO da
+// resposta muda aqui — a decisão de autorização continua inteiramente do Auth.js.
+function ehRotaDeApiNaoPublica(caminho: string): boolean {
+  return caminho.startsWith("/api/") && !ehRotaPublica(caminho);
+}
+
+function ehRedirecionamento(resposta: Response): boolean {
+  return resposta.status >= 300 && resposta.status < 400;
+}
 
 // Envolve o manipulador de autenticação só para acrescentar, na resposta, o cabeçalho que
 // impede o navegador de guardar a página em cache — mas SÓ para rota protegida. Sem ele, o
@@ -25,7 +41,11 @@ const autenticar = NextAuth(configuracaoBase).auth as NextMiddleware;
 // saída e volta depois dela regravaria o cookie apagado e ressuscitaria a sessão (AUTH-06; ver
 // lib/auth/renovacao-sessao.ts). A renovação segue em carregamento de página e Server Action.
 const middleware: NextMiddleware = async (requisicao, evento) => {
-  const resposta = await autenticar(requisicao, evento);
+  let resposta = await autenticar(requisicao, evento);
+
+  if (resposta && ehRedirecionamento(resposta) && ehRotaDeApiNaoPublica(requisicao.nextUrl.pathname)) {
+    resposta = NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
+  }
 
   if (resposta && !podeRenovarSessao(requisicao.method, requisicao.headers)) {
     const linhas = resposta.headers.getSetCookie();
