@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-09-PLAN.md
-last_updated: "2026-09-26T23:16:47.041Z"
+stopped_at: Completed 04.5-10-PLAN.md
+last_updated: "2026-09-27T00:38:27.032Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 73
+  completed_plans: 74
 current_phase: 04.5
 last_activity: 2026-09-27
 last_activity_desc: "Fase 04.5 em execucao: 9 de 13 planos prontos (Atualizar preços, revisões) — dono ausente, execução autônoma até parada segura"
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 09 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 10 de 13
 concluído em 2026-09-27.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -143,9 +143,27 @@ bloqueante (nenhum pacote novo, nenhuma migração nova — `orcamento_revisoes`
 existir, registrado em WINDOWS.md #42). Detalhe completo:
 `.planning/phases/04.5-financeiro-parte-2/04.5-09-SUMMARY.md`.
 
-**Pendente para os planos 10-13:** PDF do cliente ("Ver como o cliente vê"); a aprovação de
-verdade ("Cliente aprovou"); o upload de foto em si (usa `lib/orcamentos/caminho-fotos.ts` do
-plano 03).
+**Plano 10 (fotos: upload, EXIF/GPS removido, rota autenticada) entregou:** `sharp`/`file-type`
+instalados (checkpoint pré-autorizado pelo dono em 2026-09-26, D-31); `lib/orcamentos/fotos.ts`
+(`validarTipoRealDaFoto` por magic bytes, `tratarFotoDeOrcamento` — `.rotate()` sem argumento +
+resize 1600px + jpeg, **nenhuma chamada a `.withMetadata()`**, D-26) — `TIPOS_ACEITOS` construído
+na carga do módulo a partir do que o `sharp` instalado realmente decodifica (resolve a Assumption
+A1 da pesquisa sem foto de iPhone real: nesta instalação, suporta HEIC/HEIF); fixture sintética
+com GPS/orientação genuínos (`sharp` não escreve GPS real via `withMetadata` — confirmado nesta
+sessão) provando que o RESULTADO não tem metadado, não só que ficou menor; `anexarFotoDeOrcamento`
+grava a linha e o arquivo na MESMA transação (arquivo escrito por último, revertendo os dois numa
+falha); `GET /api/orcamentos/fotos/[id]` atrás de `exigirUsuario()`, caminho só por
+`caminhoDaFoto()` (plano 03); `FotosDeReferencia` na tela (espera, erro com "Tentar de novo",
+limite de 3, remoção com confirmação). **Achado real, corrigido nesta execução:** a rota de foto
+sem sessão caía num REDIRECT do middleware para `/login` (200, nunca um 401) — `middleware.ts`
+ganhou a regra geral "rota de API não pública responde 401, nunca redirect" (T-04.5-48). e2e
+14/14 (desktop + celular, 7 casos, incluindo o 401 sem sessão). Detalhe completo, inclusive um
+achado de ambiente fora do escopo deste plano (a semente de parâmetros usa `current_date` do
+Postgres em UTC contra `hojeEmBrasilia`, discrepando por ~3h todo dia perto da meia-noite —
+WINDOWS #44): `.planning/phases/04.5-financeiro-parte-2/04.5-10-SUMMARY.md`.
+
+**Pendente para os planos 11-13:** PDF do cliente ("Ver como o cliente vê"); a aprovação de
+verdade ("Cliente aprovou").
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -171,7 +189,9 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
      (bind mount, D-30). O `chown 100:101` continua sendo dele — vira o Passo 4 do Roteiro 12
      (`docs/operacao/12-fotos-volume-e-backup.md`), executado no plano 13, junto das migrações.
 
-  2. Plano 10 — instalar `sharp` + `file-type`.
+  2. ~~Plano 10 — instalar `sharp` + `file-type`~~ **respondido pelo dono em 2026-09-26, antes de
+     se ausentar** (D-31 do CONTEXT, dentro do próprio 04.5-10-PLAN.md) — instalados, executados.
+
   3. Plano 11 — instalar `@react-pdf/renderer`. **O selo de legitimidade de pacote voltou SUS**; a
      pesquisa julgou falso-positivo (a métrica leu a data do último lançamento, não a idade do
      pacote — >5M downloads/semana, repositório desde 2017), mas quem aprova é ele.
@@ -214,7 +234,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 94% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [██████████] 95% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -316,6 +336,7 @@ Progress: [█████████░] 94% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P07 | 1h30 | 3 tasks | 15 files |
 | Phase 04.5 P08 | ~2h30min | 3 tasks | 17 files |
 | Phase 04.5 P09 | 50min | 3 tasks | 14 files |
+| Phase 04.5 P10 | ~3h | 4 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -537,6 +558,7 @@ Recent decisions affecting current work:
 - [Phase ?]: parcelasDoPlano (lib/orcamentos/plano.ts) e a MESMA fonte que o documento do cliente (plano 11) e a aprovacao (plano 12) vao reaproveitar para a forma das parcelas
 - [Phase ?]: SoParaVoce e Server Component sem estado nenhum, reforcando que o painel nunca e importado fora do editor do dono (separacao estrutural do documento do cliente)
 - [Phase ?]: 04.5-09: totalDeAgora/somaDoQueNaoEhPeca isolado de atualizarPrecos para o script de aceitação (le projeto/frete so para o historico, nunca altera)
+- [Phase ?]: Rota de foto responde 401 real (nao redirect) para chamada de API sem sessao — middleware.ts ganhou o caso geral, nao so a rota de fotos
 
 ### Pending Todos
 
@@ -609,7 +631,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T23:16:46.294Z
-Stopped at: Completed 04.5-09-PLAN.md
+Last session: 2026-09-27T00:35:20.497Z
+Stopped at: Completed 04.5-10-PLAN.md
 "Atualizar preços")
 Resume file: None
