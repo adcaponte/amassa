@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase_name: Financeiro — parte 2
 status: in-progress
-stopped_at: Completed 04.5-11-PLAN.md
-last_updated: "2026-09-27T01:32:45.410Z"
+stopped_at: Completed 04.5-12-PLAN.md
+last_updated: "2026-09-27T02:31:37.301Z"
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 78
-  completed_plans: 75
+  completed_plans: 76
 current_phase: 04.5
 last_activity: 2026-09-27
-last_activity_desc: "Fase 04.5 em execucao: 11 de 13 planos prontos (documento do cliente: folha A4 + PDF do servidor) — dono ausente, execução autônoma até parada segura"
+last_activity_desc: "Fase 04.5 em execucao: 12 de 13 planos prontos (aprovação — a venda e a encomenda, numa transação só) — dono ausente, execução autônoma até parada segura"
 ---
 
 # Project State
@@ -23,11 +23,11 @@ last_activity_desc: "Fase 04.5 em execucao: 11 de 13 planos prontos (documento d
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-11 executados e verificados; 2 planos restantes
+**Current focus:** Fase 04.5 — Financeiro, parte 2: planos 01-12 executados e verificados; 1 plano restante
 
 ## Current Position
 
-Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 11 de 13
+Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **EM EXECUÇÃO**, plano 12 de 13
 concluído em 2026-09-27.
 
 **Plano 01 (o traçador) entregou:** migrações `0017`/`0018`/`0019` (8 tabelas novas, gatilhos,
@@ -185,7 +185,27 @@ incluindo a cadeia `@vazio-global` completa — bloqueada na primeira tentativa 
 contornada com o mesmo workaround temporário do plano 10, revertido antes de qualquer commit).
 Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-11-SUMMARY.md`.
 
-**Pendente para o plano 12-13:** a aprovação de verdade ("Cliente aprovou").
+**Plano 12 (a aprovação — a venda e a encomenda, numa transação só) entregou:**
+`lib/orcamentos/aprovacao.ts::planejarAprovacao` (puro, TDD) — a única função que decide o que a
+aprovação cria, com DOIS consumidores (o diálogo mostra, a transação grava); `aprovarOrcamento`
+(`lib/orcamentos/acoes.ts`) — UMA `db.transaction` que trava o orçamento, exige "enviado" e
+validade não vencida, carrega a categoria "Encomendas" do banco, confere a soma com
+`conferirParcelas` (a mesma de `lancarVenda`), grava o documento de venda com o sinal EM ABERTO
+vencendo hoje e, se marcado, a encomenda — `status=aprovado`+`documentoId`+`encomendaId` na mesma
+instrução. Os vínculos (D-25) ficam navegáveis nos dois sentidos: "Ver venda no
+Financeiro"/"Ver encomenda na Produção" no orçamento aprovado, "Criado a partir do orçamento
+{número}" no documento e na encomenda. Cancelar a venda depois não apaga nem reabre o orçamento —
+só acrescenta um aviso. **Achado real, corrigido nesta execução:** os links "Ver venda no
+Financeiro"/o toast com o número da venda não tinham canalização técnica nenhuma (nenhum arquivo
+do plano cobria isso) — `app/(app)/financeiro/page.tsx`/`lib/financeiro/avisos.ts`/
+`listas-caixa.tsx` ganharam o mínimo necessário (`?documentoId=` abre o documento sozinho na aba
+Caixa; um aviso novo carrega o número real da venda). e2e 50/50 (desktop + celular, 9 casos,
+incluindo a cadeia `@vazio-global` completa — bloqueada na primeira tentativa por WINDOWS #44,
+contornada com o mesmo workaround temporário dos planos 10/11, revertido antes de qualquer commit).
+Detalhe completo: `.planning/phases/04.5-financeiro-parte-2/04.5-12-SUMMARY.md`.
+
+**Pendente para o plano 13:** os roteiros de produção (migrações `0017`-`0020`, o volume das fotos,
+depois de backup) e a verificação humana final (`04.5-VERIFICACAO-HUMANA.md`, no celular).
 
 Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
 
@@ -221,6 +241,7 @@ Artefatos da fase, em `.planning/phases/04.5-financeiro-parte-2/`:
   4. ~~Plano 11 — versionar um arquivo TTF num repositório público~~ **respondido pelo dono em
      2026-09-26** (D-32 do CONTEXT) — Inter + Archivo Narrow, SIL OFL 1.1, versionadas em
      `assets/fontes/` com a licença ao lado.
+
   5. Plano 13 — Roteiros 12 e 13 em produção, depois de backup.
   6. Plano 13 — `04.5-VERIFICACAO-HUMANA.md` no celular. **É esse que fecha a fase**, não a
      contagem de planos.
@@ -232,10 +253,12 @@ Duas coisas para ele olhar:
     regra "flex-wrap nunca" da 04.4. É a mudança que ele sente ao abrir `/financeiro` pela
     primeira vez depois desta fase — vale ele olhar no celular de verdade.
 
-  - **D-25, os "vínculos nos dois sentidos":** ainda não implementado (planos futuros da fase). O
-    planejador os pôs uma vez só, em `orcamentos.documento_id`/`encomenda_id`, sem coluna espelho
-    no Financeiro (espelho criaria chave circular e uma segunda verdade). As duas telas provam a
-    navegação nos dois sentidos. É interpretação de regra dele — vale conferir quando chegar.
+  - **D-25, os "vínculos nos dois sentidos":** implementado no plano 12. O planejador os pôs uma
+    vez só, em `orcamentos.documento_id`/`encomenda_id`, sem coluna espelho no Financeiro (espelho
+    criaria chave circular e uma segunda verdade). As duas telas provam a navegação nos dois
+    sentidos ("Ver venda no Financeiro"/"Ver encomenda na Produção" no orçamento; "Criado a partir
+    do orçamento {número}" nos dois lados). É interpretação de regra dele — vale conferir quando
+    chegar (as migrações ainda não foram aplicadas em produção, plano 13).
 
 Não houve `git push`. Tudo em commits locais (`9bd48db` a `c391925`, planos 01-03 da 04.5 incluídos).
 
@@ -258,7 +281,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 96% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [██████████] 97% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -362,6 +385,7 @@ Progress: [██████████] 96% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P09 | 50min | 3 tasks | 14 files |
 | Phase 04.5 P10 | ~3h | 4 tasks | 15 files |
 | Phase 04.5 P11 | ~2h30 | 4 tasks | 23 files |
+| Phase 04.5 P12 | ~3h30 | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -586,6 +610,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Rota de foto responde 401 real (nao redirect) para chamada de API sem sessao — middleware.ts ganhou o caso geral, nao so a rota de fotos
 - [Phase ?]: 04.5-11: pdfjs-dist NAO instalado (sem confirmacao explicita do dono para um quarto pacote) — cobertura de acentuacao/no-leak do PDF fica reduzida ao nivel de estrutura de dados, registrada em WINDOWS.md #45/#46
 - [Phase ?]: 04.5-11: docker/Dockerfile ganhou COPY .../assets ./assets no estagio app — as fontes do PDF sao lidas em tempo de execucao e o rastreador de arquivos do next build nao as enxerga sozinho (mesma classe do Pitfall 3 do sharp)
+- [Phase ?]: Plano 12: categoria 'Encomendas' achada pelo nome (não por chave_do_sistema, que só aceita 'diferenca') — renomear a categoria em Cadastros faz a aprovação falhar com a frase genérica de D-25, nunca uma venda pela metade.
+- [Phase ?]: Plano 12: 'Ver venda no Financeiro'/o toast com o número da venda exigiram tocar app/(app)/financeiro/page.tsx, lib/financeiro/avisos.ts e listas-caixa.tsx — fora do files_modified do plano, mas necessários para os dois links do veredito navegarem de verdade (Regra 2).
 
 ### Pending Todos
 
@@ -658,7 +684,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T01:32:45.322Z
-Stopped at: Completed 04.5-11-PLAN.md
+Last session: 2026-09-27T02:30:59.627Z
+Stopped at: Completed 04.5-12-PLAN.md
 "Atualizar preços")
 Resume file: None

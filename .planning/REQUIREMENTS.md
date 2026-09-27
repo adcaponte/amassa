@@ -211,7 +211,7 @@
 - [x] **ORC-08**: O rascunho calcula ao vivo; **"Marcar como enviado" congela**. O snapshot guarda, por linha, nome, custo, mínimo, zero, horas e quantas cabem, mais imposto + taxa e a contagem de parâmetros estimados que entraram. Depois disso, mudar parâmetro ou ficha **não altera** o orçamento. Enviar exige cliente e pelo menos uma peça
 - [x] **ORC-09**: "Atualizar preços" compara, peça a peça, o mínimo congelado com o mínimo de hoje (mudança de parâmetro **ou** de ficha conta) e sugere preço **mantendo a razão preço ÷ mínimo** da época, arredondado (até R$ 50: inteiro acima; acima disso: múltiplo de 5) e editável. Confirmar guarda a revisão anterior, sobe `revisao`, volta a rascunho e renova a validade com a data de hoje; projeto e frete não mudam sozinhos. No rascunho, o mesmo botão confere cada preço contra o mínimo de hoje e sobe o que estiver abaixo
 - [x] **ORC-10**: O painel **"Só para você"** — custo, sobra depois de imposto e taxa, horas de trabalho, fornadas ocupadas, aviso de estimados e histórico de revisões — existe na tela e **nunca** no PDF
-- [ ] **ORC-11**: Aprovar executa **uma transação**: cria a venda na parte 1 (uma linha por peça com a cor na descrição, linhas de projeto e frete, categoria "Encomendas", parcelas conforme o plano), com o 🔴 **sinal nascendo em aberto e vencendo hoje** e o saldo vencendo na entrega prevista; e, se marcado, cria a encomenda no módulo atual (nome = título, cliente, itens com quantidade, cronograma padrão), com cor, personalização, fotos e ficha alcançáveis a partir dela. Os vínculos ficam gravados nos dois sentidos, e **cancelar a venda não apaga nem reabre o orçamento** — só mostra o aviso nos dois lados
+- [x] **ORC-11**: Aprovar executa **uma transação**: cria a venda na parte 1 (uma linha por peça com a cor na descrição, linhas de projeto e frete, categoria "Encomendas", parcelas conforme o plano), com o 🔴 **sinal nascendo em aberto e vencendo hoje** e o saldo vencendo na entrega prevista; e, se marcado, cria a encomenda no módulo atual (nome = título, cliente, itens com quantidade, cronograma padrão), com cor, personalização, fotos e ficha alcançáveis a partir dela. Os vínculos ficam gravados nos dois sentidos, e **cancelar a venda não apaga nem reabre o orçamento** — só mostra o aviso nos dois lados
 - [x] **ORC-12**: O número é **`ORC-2026-001`, sequencial por ano e nunca reaproveitado** — orçamento cancelado mantém o número (decisão do dono, 2026-09-26). A revisão aparece junto do número no documento do cliente
 - [x] **ORC-13**: O documento do cliente é gerado **no servidor**, em A4, com o mesmo conteúdo da tela "Ver como o cliente vê": logo no topo (arquivo trocável, não constante no código), número e revisão, data, validade, cliente, tabela de peças, projeto, frete, total, Referências, pagamento, prazo, observações, a frase de confirmação e a nota do feito à mão. **Sem endereço, contato ou chave Pix**, e 🔴 **nenhum custo, mínimo, margem ou hora**. A técnica de geração tem duas restrições: custo recorrente zero e caber na imagem Docker atual (medir o peso antes de adotar um Chromium embutido)
 - [x] **ORC-14**: Até **3 fotos de referência** por orçamento, com legenda. A foto é aceita como vem do celular (até ~15 MB), **reduzida no servidor** para no máximo 1600 px no lado maior, gravada em JPEG **sem metadados** (EXIF/GPS), e **só a versão reduzida** fica em disco. O tipo real do arquivo é validado no servidor, não pela extensão; remover foto pede confirmação
@@ -444,11 +444,11 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ORC-04 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-05 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-06 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| ORC-07 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-07 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-08 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-09 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-10 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| ORC-11 | Phase 04.5 — Financeiro, parte 2 | Pending |
+| ORC-11 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-12 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-13 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-14 | Phase 04.5 — Financeiro, parte 2 | Complete |
