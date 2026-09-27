@@ -314,6 +314,11 @@ export function textoHistoricoDeRevisoes(itens: string[]): string {
 // Fotos de referência (04.5-10-PLAN.md) — upload, validação, limite, remoção
 // ---------------------------------------------------------------------------------------------
 
+export const TITULO_BLOCO_FOTOS = "Fotos de referência";
+// Dica verbatim do protótipo (`prototipo.html`, bloco "Fotos de referência").
+export const DICA_FOTOS_DE_REFERENCIA =
+  "Até 3 por orçamento. Vão no documento do cliente, para ele confirmar que é aquilo mesmo, e seguem para a Produção.";
+
 // Erro — upload, tipo de arquivo inválido (04.5-UI-SPEC.md §Copywriting, verbatim). Usada nos
 // DOIS lados: `lib/orcamentos/fotos.ts::validarTipoRealDaFoto` (servidor) e a tela, que mostra a
 // MESMA frase que o servidor devolveu — nunca uma segunda cópia reescrita no componente.

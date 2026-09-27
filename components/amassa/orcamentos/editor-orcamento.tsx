@@ -2,15 +2,22 @@ import { somarDias } from "@/lib/financeiro/calendario";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import { algoMudou, sugerirPrecos, type LinhaParaAtualizar } from "@/lib/orcamentos/atualizacao";
 import { contasDoOrcamento, type LinhaParaContas } from "@/lib/orcamentos/contas";
-import type { OrcamentoParaEdicao, PecaParaEscolha, RevisaoDoOrcamento } from "@/lib/orcamentos/consultas";
+import {
+  listarFotosDoOrcamento,
+  type OrcamentoParaEdicao,
+  type PecaParaEscolha,
+  type RevisaoDoOrcamento,
+} from "@/lib/orcamentos/consultas";
 import { numeroDeOrcamento, rotuloDeRevisao } from "@/lib/orcamentos/formato";
 import { parcelasDoPlano } from "@/lib/orcamentos/plano";
 import { lerDoSnapshot, type LinhaCongelada } from "@/lib/orcamentos/snapshot";
 import { situacaoDoOrcamento } from "@/lib/orcamentos/situacao";
 import {
+  DICA_FOTOS_DE_REFERENCIA,
   FRASE_VAZIO_PECAS_DO_ORCAMENTO,
   ROTULO_MAIS_PECA_EXCLUSIVA,
   ROTULO_TODOS,
+  TITULO_BLOCO_FOTOS,
   TITULO_BLOCO_PECAS,
   textoAvisoCongelado,
 } from "@/lib/orcamentos/textos";
@@ -36,6 +43,7 @@ import { CabecalhoDoOrcamento } from "./cabecalho-do-orcamento";
 import { ChipDeSituacao } from "./chip-de-situacao";
 import { CustosDoProjeto } from "./custos-do-projeto";
 import { DialogoAtualizarPrecos } from "./dialogo-atualizar-precos";
+import { FotosDeReferencia } from "./fotos-de-referencia";
 import { LinhaDeOrcamento } from "./linha-de-orcamento";
 import { SoParaVoce } from "./so-para-voce";
 import { TotalEPagamento } from "./total-e-pagamento";
@@ -176,7 +184,7 @@ const LINHA_CONGELADA_EM_BRANCO: LinhaCongelada = {
 // de cada linha e para imposto+taxa/estimados do orçamento inteiro (D-21, key_link do plano) — os
 // componentes abaixo (`LinhaDeOrcamento`, `contasDoOrcamento`, `SoParaVoce`) só recebem o
 // resultado já resolvido, nunca decidem a fonte sozinhos.
-export function EditorOrcamento({
+export async function EditorOrcamento({
   orcamento,
   pecasParaEscolha,
   parametros,
@@ -186,6 +194,12 @@ export function EditorOrcamento({
   hoje,
   revisoes,
 }: EditorOrcamentoProps) {
+  // A grade de fotos (04.5-10-PLAN.md) não estava no `Promise.all` original de
+  // `app/(app)/financeiro/page.tsx` (files_modified do plano não inclui aquele arquivo) — o
+  // próprio `EditorOrcamento`, um Server Component, busca as fotos aqui. Componente async é
+  // válido em React Server Components; nada muda para quem o renderiza.
+  const fotos = await listarFotosDoOrcamento(orcamento.id);
+
   const vivo = orcamento.status === "rascunho";
   const situacao = situacaoDoOrcamento(
     { status: orcamento.status, data: orcamento.data, validadeDias: orcamento.validadeDias },
@@ -366,6 +380,12 @@ export function EditorOrcamento({
                 <EscolherPeca orcamentoId={orcamento.id} pecas={pecasResolvidas} />
               </div>
             )}
+          </section>
+
+          <section className="border-border flex flex-col gap-3 rounded-lg border p-4">
+            <h2 className="text-titulo text-foreground">{TITULO_BLOCO_FOTOS}</h2>
+            <p className="text-apoio text-muted-foreground">{DICA_FOTOS_DE_REFERENCIA}</p>
+            <FotosDeReferencia orcamentoId={orcamento.id} vivo={vivo} fotosIniciais={fotos} />
           </section>
 
           <CustosDoProjeto
