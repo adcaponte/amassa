@@ -19,14 +19,18 @@ export type ListasCaixaProps = {
   contas: readonly ContaEmAberto[];
   documentos: ReadonlyMap<string, DocumentoParaDetalhe>;
   hoje: string;
+  // "Ver venda no Financeiro" (04.5-12-PLAN.md, D-25) — o id que a página já resolveu de
+  // `?documentoId=<uuid>`, para o detalhe abrir sozinho assim que a aba Caixa carrega. `null` na
+  // navegação normal (o dono clica "Ver" num cartão, como sempre).
+  documentoParaAbrirId?: string | null;
 };
 
 // "A pagar" e "A receber" (protótipo `telaCaixa`), lado a lado a partir de 980px (aproximado por
 // `md:`, mesma convenção já usada em `painel-venda.tsx`/`painel-despesa.tsx` para este breakpoint
 // do UI-SPEC) — cada lista com o próprio estado vazio (FNC-07). O detalhe do documento ("Ver") e o
 // diálogo de "Paguei"/"Recebi" são UMA instância cada, compartilhada pelas duas colunas.
-export function ListasCaixa({ contas, documentos, hoje }: ListasCaixaProps) {
-  const [documentoAbertoId, setDocumentoAbertoId] = useState<string | null>(null);
+export function ListasCaixa({ contas, documentos, hoje, documentoParaAbrirId = null }: ListasCaixaProps) {
+  const [documentoAbertoId, setDocumentoAbertoId] = useState<string | null>(documentoParaAbrirId);
   const [baixaSelecionada, setBaixaSelecionada] = useState<ContaSelecionada | null>(null);
 
   const aPagar = contas.filter((conta) => conta.tipo === "despesa");

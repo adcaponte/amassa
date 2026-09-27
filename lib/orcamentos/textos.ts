@@ -204,11 +204,9 @@ export const FRASE_FALTA_CLIENTE_E_PECA = "Para enviar, falta o cliente e ao men
 export const FRASE_APROVADO_EXPLICACAO =
   "Orçamento aprovado fica travado, porque já virou venda. Para refazer com preços novos, use Duplicar: nasce um rascunho com as mesmas peças.";
 
-// A ação que ainda não existe nesta fase (chega no plano 12) — o botão existe, desabilitado, com
-// uma nota curta explicando o motivo em vez de um controle morto sem explicação. "Atualizar
-// preços" saiu daqui no plano 09, "Ver como o cliente vê" saiu daqui no plano 11 — as duas têm
-// ação de verdade, não são mais "em breve".
-export const NOTA_CLIENTE_APROVOU_EM_BREVE = "Registrar a aprovação do cliente chega em breve.";
+// "Cliente aprovou" ganhou ação de verdade no plano 12 (dead code removido: a nota "chega em
+// breve" que existia aqui não é mais necessária — "Atualizar preços" e "Ver como o cliente vê" já
+// tinham saído daqui nos planos 09/11).
 
 export const TOAST_ORCAMENTO_ENVIADO = "Marcado como enviado. Preços e custos ficaram congelados.";
 export const TOAST_ORCAMENTO_REABERTO = "Voltou para rascunho. O cálculo usa os parâmetros de hoje.";

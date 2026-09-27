@@ -11,9 +11,7 @@ import {
   voltarParaRascunho,
 } from "@/lib/orcamentos/acoes";
 import {
-  FRASE_APROVADO_EXPLICACAO,
   FRASE_FALTA_CLIENTE_E_PECA,
-  NOTA_CLIENTE_APROVOU_EM_BREVE,
   ROTULO_ATUALIZAR_PRECOS,
   ROTULO_ATUALIZAR_PRECOS_E_REABRIR,
   ROTULO_CLIENTE_APROVOU,
@@ -23,24 +21,43 @@ import {
   ROTULO_VER_COMO_CLIENTE_VE,
   ROTULO_VOLTAR_PARA_RASCUNHO,
 } from "@/lib/orcamentos/textos";
+import { VereditoDaAprovacao } from "./veredito-da-aprovacao";
 
 export type AcoesDoOrcamentoProps = {
   orcamentoId: string;
   status: "rascunho" | "enviado" | "aprovado" | "recusado";
   temCliente: boolean;
   temPeca: boolean;
+  // Aprovação (04.5-12-PLAN.md, D-25) — só têm valor quando status === "aprovado" (o invariante
+  // de banco `orcamentos_documento_exige_aprovado` garante `documentoId`/`documentoNumero` não
+  // nulos nesse status).
+  documentoId: string | null;
+  documentoNumero: number | null;
+  encomendaId: string | null;
+  vendaCancelada: boolean;
 };
 
 type AcaoEmAndamento = "enviar" | "recusar" | "reabrir" | "duplicar" | null;
 
-// A barra de ações do orçamento: muda de conteúdo conforme o status, na ordem do protótipo. "Ver
-// como o cliente vê" (plano 11) e "Cliente aprovou" (plano 12) ainda não têm ação própria nesta
-// fase — o botão existe, desabilitado, com uma nota curta no lugar de um controle morto sem
-// explicação (registrado no SUMMARY como stub conhecido). "Atualizar preços"/"Atualizar preços e
-// reabrir" (04.5-09-PLAN.md) abre `DialogoAtualizarPrecos` por troca de URL (`?atualizarPrecos=1`,
-// sem transição — o mesmo padrão de `EscolherPeca`). Cada transição real termina em navegação
-// COMPLETA para o toast correspondente — nunca `router.push`/`router.refresh`.
-export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: AcoesDoOrcamentoProps) {
+// A barra de ações do orçamento: muda de conteúdo conforme o status, na ordem do protótipo.
+// "Cliente aprovou" (04.5-12-PLAN.md) abre `DialogoAprovar` por troca de URL (`?aprovar=1`, sem
+// transição — o mesmo padrão de "Atualizar preços" abaixo); confirmar dentro dele É gravação e
+// termina em navegação COMPLETA. Um orçamento aprovado mostra `VereditoDaAprovacao` em vez do
+// texto fixo de antes — os dois links e o aviso de venda cancelada moram lá. "Atualizar
+// preços"/"Atualizar preços e reabrir" (04.5-09-PLAN.md) abre `DialogoAtualizarPrecos` do mesmo
+// jeito (`?atualizarPrecos=1`, o mesmo padrão de `EscolherPeca`). Cada transição real (enviar/
+// recusar/reabrir/duplicar) termina em navegação COMPLETA para o toast correspondente — nunca
+// `router.push`/`router.refresh`.
+export function AcoesDoOrcamento({
+  orcamentoId,
+  status,
+  temCliente,
+  temPeca,
+  documentoId,
+  documentoNumero,
+  encomendaId,
+  vendaCancelada,
+}: AcoesDoOrcamentoProps) {
   const [emAndamento, setEmAndamento] = useState<AcaoEmAndamento>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -112,6 +129,14 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
     irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`);
   }
 
+  // "Cliente aprovou" (04.5-12-PLAN.md) — mesma disciplina de `abrirAtualizarPrecos`: abrir é
+  // troca de URL sem transição (`DialogoAprovar` já está montado por `EditorOrcamento`, esperando
+  // por `?aprovar=1`, com o plano JÁ calculado por prop — nenhuma chamada nova ao servidor só para
+  // abrir).
+  function abrirAprovacao() {
+    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&aprovar=1`);
+  }
+
   const botaoAtualizarPrecos = (rotulo: string) => (
     <Button type="button" variant="outline" onClick={abrirAtualizarPrecos} className="min-h-[44px]">
       {rotulo}
@@ -167,7 +192,7 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
 
         {status === "enviado" && (
           <>
-            <Button type="button" disabled className="min-h-[44px]">
+            <Button type="button" onClick={abrirAprovacao} className="min-h-[44px]">
               {ROTULO_CLIENTE_APROVOU}
             </Button>
             <Button
@@ -209,14 +234,13 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
         </p>
       )}
 
-      {status === "enviado" && (
-        <p className="text-apoio text-muted-foreground">{NOTA_CLIENTE_APROVOU_EM_BREVE}</p>
-      )}
-
-      {status === "aprovado" && (
-        <p data-testid="orcamento-aviso-aprovado" className="text-apoio text-muted-foreground">
-          {FRASE_APROVADO_EXPLICACAO}
-        </p>
+      {status === "aprovado" && documentoId !== null && documentoNumero !== null && (
+        <VereditoDaAprovacao
+          documentoId={documentoId}
+          documentoNumero={documentoNumero}
+          encomendaId={encomendaId}
+          vendaCancelada={vendaCancelada}
+        />
       )}
     </section>
   );

@@ -25,7 +25,12 @@ export type AvisoDaUrl =
   // `?orcamento=<id>`, o número da revisão nova vem do PRÓPRIO `orcamentoParaEditar` recarregado
   // (nunca da URL), porque a ação já gravou o valor novo antes da navegação completa.
   | { tipo: "orcamento-atualizado" }
-  | { tipo: "orcamento-revisao-criada" };
+  | { tipo: "orcamento-revisao-criada" }
+  // "Cliente aprovou" (04.5-12-PLAN.md, D-25) — mesma disciplina das quatro transições acima:
+  // nenhum identificador próprio no aviso. O número da venda e se a ordem foi aberta vêm do
+  // PRÓPRIO `orcamentoParaEditar` recarregado (`documentoNumero`/`encomendaId`, já gravados pela
+  // transação antes da navegação completa) — nunca da URL, que o cliente poderia forjar.
+  | { tipo: "orcamento-aprovado" };
 
 export function avisoDaUrl(parametros: {
   aviso?: string | null;
@@ -58,7 +63,8 @@ export function avisoDaUrl(parametros: {
     parametros.aviso === "orcamento-recusado" ||
     parametros.aviso === "orcamento-duplicado" ||
     parametros.aviso === "orcamento-atualizado" ||
-    parametros.aviso === "orcamento-revisao-criada"
+    parametros.aviso === "orcamento-revisao-criada" ||
+    parametros.aviso === "orcamento-aprovado"
   ) {
     return { tipo: parametros.aviso };
   }

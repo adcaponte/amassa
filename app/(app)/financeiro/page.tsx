@@ -44,6 +44,7 @@ import {
   TOAST_PRECOS_ATUALIZADOS,
   textoOrcamentoDuplicado,
   textoRevisaoCriada,
+  toastAprovado,
 } from "@/lib/orcamentos/textos";
 import {
   listarCategoriasDeVenda,
@@ -79,6 +80,7 @@ export default async function PaginaFinanceiro({
     aba?: string;
     aviso?: string;
     documento?: string;
+    documentoId?: string;
     parcela?: string;
     mes?: string;
     forma?: string;
@@ -89,7 +91,7 @@ export default async function PaginaFinanceiro({
 }) {
   await exigirUsuario();
 
-  const { aba, aviso, documento, parcela, mes, forma, peca, exclusivas, orcamento } =
+  const { aba, aviso, documento, documentoId, parcela, mes, forma, peca, exclusivas, orcamento } =
     await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
@@ -99,6 +101,15 @@ export default async function PaginaFinanceiro({
   const abaOrcamentos = abaAtual === "orcamentos";
   const abaPecas = abaAtual === "pecas";
   const hoje = hojeEmBrasilia(new Date());
+
+  // "Ver venda no Financeiro" (04.5-12-PLAN.md, D-25) — `?documentoId=<uuid>` abre o detalhe
+  // daquele documento assim que a aba Caixa carrega (`ListasCaixa`, prop `documentoParaAbrirId`).
+  // Chave DIFERENTE de `?documento=<uuid>` (usada por `avisoDaUrl` para nomear um documento num
+  // toast) — os dois propósitos nunca coexistem na mesma navegação, mas nomes iguais confundiriam
+  // a leitura deste arquivo.
+  const REGEX_UUID_DOCUMENTO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const documentoParaAbrirId =
+    abaCaixa && documentoId && REGEX_UUID_DOCUMENTO.test(documentoId) ? documentoId : null;
 
   // `?orcamento=<uuid>` abre o editor daquele orçamento na mesma rota (must_have do
   // 04.5-06-PLAN.md) — um `<Link>` normal, nunca um estado de cliente.
@@ -246,7 +257,13 @@ export default async function PaginaFinanceiro({
                         ? TOAST_PRECOS_ATUALIZADOS
                         : avisoResolvido?.tipo === "orcamento-revisao-criada" && orcamentoParaEditar
                           ? textoRevisaoCriada(orcamentoParaEditar.revisao)
-                          : null;
+                          : avisoResolvido?.tipo === "orcamento-aprovado" &&
+                              orcamentoParaEditar?.documentoNumero
+                            ? toastAprovado(
+                                orcamentoParaEditar.documentoNumero,
+                                orcamentoParaEditar.encomendaId !== null,
+                              )
+                            : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
   const desfazerDoAviso =
@@ -289,13 +306,15 @@ export default async function PaginaFinanceiro({
 
   // O detalhe do documento ("Ver") acha o documento numa lista JÁ carregada — nunca uma segunda
   // consulta ao abrir (key_link do plano). `idsParaDetalhe` é a UNIÃO dos documentos das contas em
-  // aberto com os do extrato filtrado — uma ÚNICA consulta cobre as duas listas.
+  // aberto, dos do extrato filtrado e (04.5-12-PLAN.md) do documento que "Ver venda no Financeiro"
+  // pediu para abrir — uma ÚNICA consulta cobre as três origens.
   const idsParaDetalhe =
     abaCaixa
       ? [
           ...new Set([
             ...contasEmAberto.map((c) => c.documentoId),
             ...(extratoFiltrado?.linhas.map((l) => l.documentoId) ?? []),
+            ...(documentoParaAbrirId ? [documentoParaAbrirId] : []),
           ]),
         ]
       : [];
@@ -314,7 +333,12 @@ export default async function PaginaFinanceiro({
       {abaCaixa ? (
         <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
           {resumo ? <TilesCaixa resumo={resumo} /> : null}
-          <ListasCaixa contas={contasEmAberto} documentos={documentosParaDetalhe} hoje={hoje} />
+          <ListasCaixa
+            contas={contasEmAberto}
+            documentos={documentosParaDetalhe}
+            hoje={hoje}
+            documentoParaAbrirId={documentoParaAbrirId}
+          />
           {extratoFiltrado ? (
             <ExtratoCaixa
               mes={mesAtual}

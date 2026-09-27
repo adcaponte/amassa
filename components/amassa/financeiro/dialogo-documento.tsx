@@ -14,6 +14,7 @@ import {
   textoParcelaDetalhe,
   textoPagoEm,
 } from "@/lib/financeiro/textos";
+import { ROTULO_VER_ORCAMENTO, textoCriadoAPartirDoOrcamento } from "@/lib/orcamentos/textos";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmarCancelarDocumento } from "./confirmar-cancelar-documento";
@@ -134,6 +135,24 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
                 )
               ) : (
                 <p className="text-apoio text-muted-foreground">{DICA_CANCELAR_NAO_APAGA}</p>
+              )}
+
+              {/* A aprovação de um orçamento (04.5-12-PLAN.md, D-25) — acréscimo pequeno à tela
+                  de detalhe, não uma reformulação (04.5-UI-SPEC.md, Assunção 6). Sem esta linha o
+                  vínculo gravado em `orcamentos.documento_id` existiria só no banco. */}
+              {documento.origemOrcamento && (
+                <p
+                  data-testid="documento-origem-orcamento"
+                  className="text-apoio text-muted-foreground"
+                >
+                  {textoCriadoAPartirDoOrcamento(documento.origemOrcamento.numero)}{" "}
+                  <a
+                    href={`/financeiro?aba=orcamentos&orcamento=${documento.origemOrcamento.orcamentoId}`}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    {ROTULO_VER_ORCAMENTO}
+                  </a>
+                </p>
               )}
 
               <div className="flex flex-wrap justify-end gap-2">

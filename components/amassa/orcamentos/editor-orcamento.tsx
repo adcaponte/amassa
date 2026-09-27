@@ -5,6 +5,7 @@ import {
   sugerirPrecos,
   type LinhaParaAtualizar,
 } from "@/lib/orcamentos/atualizacao";
+import { planejarAprovacao } from "@/lib/orcamentos/aprovacao";
 import { contasDoOrcamento, type LinhaParaContas } from "@/lib/orcamentos/contas";
 import {
   listarFotosDoOrcamento,
@@ -47,6 +48,7 @@ import { AcoesDoOrcamento } from "./acoes-do-orcamento";
 import { CabecalhoDoOrcamento } from "./cabecalho-do-orcamento";
 import { ChipDeSituacao } from "./chip-de-situacao";
 import { CustosDoProjeto } from "./custos-do-projeto";
+import { DialogoAprovar } from "./dialogo-aprovar";
 import { DialogoAtualizarPrecos } from "./dialogo-atualizar-precos";
 import { FotosDeReferencia } from "./fotos-de-referencia";
 import { LinhaDeOrcamento } from "./linha-de-orcamento";
@@ -320,6 +322,37 @@ export async function EditorOrcamento({
     entregaPrevista: orcamento.entregaPrevista,
   });
 
+  // "Cliente aprovou" (04.5-12-PLAN.md, D-25) — só calculado quando faz sentido abrir o diálogo
+  // (status "enviado"). Usa a MESMA `planejarAprovacao` que a transação vai chamar de novo dentro
+  // de `aprovarOrcamento` (key_link): o que o dono lê no diálogo é literalmente o que vai ser
+  // gravado. `nomeResolvido` aqui é sempre o nome CONGELADO (nunca vivo — só "enviado" chega até
+  // aqui, e "enviado" nunca é `vivo`).
+  const planoDeAprovacao =
+    orcamento.status === "enviado"
+      ? planejarAprovacao(
+          {
+            numero: numeroDeOrcamento(orcamento.ano, orcamento.sequencial),
+            titulo: orcamento.titulo,
+            plano: orcamento.plano,
+            sinalPercentual: orcamento.sinalPercentual,
+            freteCentavos: orcamento.freteCentavos,
+            entregaPrevista: orcamento.entregaPrevista,
+          },
+          linhasResolvidas.map((linha) => ({
+            nome: linha.nomeResolvido,
+            quantidade: linha.quantidade,
+            precoUnitarioCentavos: linha.precoUnitarioCentavos,
+            cor: linha.cor,
+            personalizacao: linha.personalizacao,
+          })),
+          orcamento.custosDeProjeto.map((custo) => ({
+            descricao: custo.descricao,
+            valorCentavos: custo.valorCentavos,
+          })),
+          hoje,
+        )
+      : null;
+
   const pecasResolvidas = pecasParaEscolha.map((peca) => {
     const resultado = resolverFicha(peca, null, parametros, forno, taxaCartaoPontosBase);
     return {
@@ -509,6 +542,10 @@ export async function EditorOrcamento({
               status={orcamento.status}
               temCliente={Boolean(orcamento.clienteNome?.trim())}
               temPeca={orcamento.linhas.length > 0}
+              documentoId={orcamento.documentoId}
+              documentoNumero={orcamento.documentoNumero}
+              encomendaId={orcamento.encomendaId}
+              vendaCancelada={orcamento.vendaCancelada}
             />
 
             {/* Um orçamento aprovado não tem "Atualizar preços" (must_have) — o diálogo nem monta
@@ -523,6 +560,17 @@ export async function EditorOrcamento({
                   vivo ? null : formatarDataCurta(orcamento.data)
                 }
                 novaRevisao={orcamento.revisao + 1}
+              />
+            )}
+
+            {/* "Cliente aprovou" (04.5-12-PLAN.md) — só monta quando faz sentido abrir
+              (`planoDeAprovacao` não é nulo só em "enviado"), mesmo tratamento condicional que
+              `DialogoAtualizarPrecos` recebe acima. */}
+            {planoDeAprovacao && (
+              <DialogoAprovar
+                orcamentoId={orcamento.id}
+                plano={planoDeAprovacao}
+                entregaPrevistaFormatada={formatarDataCurta(orcamento.entregaPrevista)}
               />
             )}
           </div>

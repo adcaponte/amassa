@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cronograma";
 import { hojeEmBrasilia } from "@/lib/encomendas/formato";
-import { buscarEncomenda } from "@/lib/encomendas/consultas";
+import { buscarEncomenda, obterOrigemDaEncomenda } from "@/lib/encomendas/consultas";
+import { ROTULO_VER_ORCAMENTO, textoCriadoAPartirDoOrcamento } from "@/lib/orcamentos/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { AcoesEncomenda } from "@/components/amassa/encomendas/acoes-encomenda";
 import { TrilhaEtapas } from "@/components/amassa/encomendas/trilha-etapas";
@@ -29,6 +30,10 @@ export default async function PaginaDetalheEncomenda({
     // `app/(app)/not-found.tsx`, o 404 do grupo protegido.
     notFound();
   }
+
+  // A aprovação de um orçamento (04.5-12-PLAN.md, D-25) — `null` para a imensa maioria das
+  // encomendas (criadas direto pelo formulário deste módulo, sem orçamento nenhum por trás).
+  const origemDoOrcamento = await obterOrigemDaEncomenda(encomenda.id);
 
   // `hoje` calculado no SERVIDOR (Brasília) e passado para baixo como string — o cliente nunca
   // decide qual é o dia de hoje (03-CONTEXT.md, canonical refs).
@@ -59,6 +64,21 @@ export default async function PaginaDetalheEncomenda({
       </CabecalhoPagina>
 
       <div className="flex flex-col gap-8 px-6 py-6 md:px-8">
+        {/* A aprovação de um orçamento (04.5-12-PLAN.md, D-25) — acréscimo pequeno, não uma
+            reformulação da tela (04.5-UI-SPEC.md, Assunção 6). Sem esta linha o vínculo gravado
+            em `orcamentos.encomenda_id` existiria só no banco. */}
+        {origemDoOrcamento && (
+          <p data-testid="encomenda-origem-orcamento" className="text-apoio text-muted-foreground">
+            {textoCriadoAPartirDoOrcamento(origemDoOrcamento.numero)}{" "}
+            <a
+              href={`/financeiro?aba=orcamentos&orcamento=${origemDoOrcamento.orcamentoId}`}
+              className="font-medium underline underline-offset-2"
+            >
+              {ROTULO_VER_ORCAMENTO}
+            </a>
+          </p>
+        )}
+
         <TrilhaEtapas
           encomendaId={encomenda.id}
           status={encomenda.status}
