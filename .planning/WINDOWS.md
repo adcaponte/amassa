@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 27
+open_count: 33
 waived_count: 1
 fixed_count: 18
-total_count: 46
-last_updated: 2026-09-27T01:29:16.936Z
+total_count: 52
+last_updated: 2026-09-27T03:28:42.694Z
 ---
 
 # Broken Windows Ledger
@@ -61,6 +61,12 @@ last_updated: 2026-09-27T01:29:16.936Z
 | 44 | 04.5-financeiro-parte-2 | deviation | db/migrations/0019_parametros-iniciais.sql | 20 | A semente de parametros_precificacao usa vigente_desde = current_date do Postgres (UTC, sem TZ definida no contêiner), enquanto a leitura em lib/precificacao/consultas.ts::parametrosVigentes usa hojeEmBrasilia (America/Sao_Paulo, UTC-3). Entre 21:00 e 23:59:59 BRT (00:00-02:59:59 UTC do dia seguinte), current_date ja avancou um dia mas hojeEmBrasilia ainda esta no dia anterior — a query 'vigente_desde <= hoje' nao acha nenhum parametro, e toda tela que depende de parametrosVigentes (Pecas, editor de Orcamento) mostra 'Nao deu para carregar os parametros'. Reproduzido de forma deterministica (workers=1, isolado por --grep) as 00:08-00:31 UTC de 2026-09-27, tanto em precificacao-pecas.spec.ts @vazio-global quanto no editor de orcamentos. Fora do escopo de arquivos do plano 04.5-10 (fotos) — achado ao depurar o e2e orcamentos-fotos, nao corrigido aqui. | open |  | 2026-09-27T00:33:48.319Z |  |
 | 45 | 04.5-financeiro-parte-2 | unrun-verify | tests/e2e/orcamentos-pdf.spec.ts |  | Paridade de conteudo (caso b) e acentuacao (caso c) do PDF gerado nao sao lidas do ARQUIVO final: pdfjs-dist (a biblioteca de extracao de texto oferecida no checkpoint da Tarefa 1) nao foi instalada porque a resposta do dono confirma tres pacotes para a fase inteira e nao confirma explicitamente essa quarta -- na duvida, o executor nao supoe autorizacao. Cobertura real: teste unitario de estrutura (orcamentos-documento-cliente.test.ts) prova que tela e PDF leem do MESMO DocumentoDoCliente, e o e2e confere o arquivo baixado por assinatura/tamanho/Content-Disposition, nunca o texto interno. Verificacao humana pendente para o plano 13: abrir o PDF de um orcamento com 'Jose Conceicao' e conferir visualmente os acentos. | open |  | 2026-09-27T01:29:07.118Z |  |
 | 46 | 04.5-financeiro-parte-2 | unrun-verify | lib/orcamentos/pdf/documento.tsx |  | A ausencia de custo/minimo/margem/hora no PDF (caso d, D-24/D-29) e provada por CONSTRUCAO -- DocumentoDoCliente nao tem esses campos (teste unitario varre por nome de chave), documento.tsx so consome esse tipo (acceptance_criteria confere por grep que nao ha chamada a contasDoOrcamento/resultadoDaFicha/calcularPeca) -- mas nenhum teste le o BYTE do PDF final procurando esses numeros, porque pdfjs-dist nao foi instalado (ver entrada irma sobre paridade/acentuacao). Verificacao humana pendente para o plano 13. | open |  | 2026-09-27T01:29:16.936Z |  |
+| 47 | 04.5-financeiro-parte-2 | deviation | tests/e2e/cadastros-contas-fixas.spec.ts | 201 | cria, desativa, gera duas vezes sem duplicar... falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): locator.click no botao Desfazer estourou 30s. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35 -- arquivo da Fase 04.4, fora do escopo de arquivos do plano 04.5-13; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:00.123Z |  |
+| 48 | 04.5-financeiro-parte-2 | deviation | tests/e2e/financeiro-mes.spec.ts | 167 | areas (criterio 1 do ROADMAP): venda de tres areas paga no Pix aparece cada valor na sua area -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): a tabela do Mes mostrou R$ 0,00 nas tres areas em vez dos valores lancados. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35 -- arquivo da Fase 04.4, fora do escopo de arquivos do plano 04.5-13; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:13.487Z |  |
+| 49 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-aprovacao.spec.ts | 304 | (f) cancelar a venda no Financeiro nao apaga nem reabre o orcamento -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): toHaveURL(/aviso=cancelado/) expirou em 10s mesmo com o log mostrando a navegacao correta acontecendo ("navigated to ...aviso=cancelado..."), a URL assentou em .../financeiro?aba=caixa sem o parametro no momento da checagem. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:14.050Z |  |
+| 50 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-fotos.spec.ts | 181 | (g) a 320px as tres celulas cabem sem rolagem horizontal, e todo alvo de toque mede ao menos 44px -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): getByTestId('foto-celula') veio 1 em vez de 3 (upload/reducao de duas fotos nao concluiu a tempo sob a carga da suite inteira). Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:31.255Z |  |
+| 51 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-tracador.spec.ts | 95 | todo botao visivel da aba Orcamentos mede ao menos 44px de altura -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): page.locator('main').getByRole('button').count() veio 0 (pagina nao terminou de renderizar sob a carga), junto de 'The destination stream closed early' no log do servidor Next -- mesmo sintoma ja registrado em WINDOWS #35 para o teste irmao (linha 63) do MESMO arquivo. Reexecucao isolada (--workers=1) passou limpa. Nao corrigido: mesma classe de contencao de servidor unico sob carga, sem causa raiz pequena e obvia neste arquivo. | open |  | 2026-09-27T03:28:31.805Z |  |
+| 52 | 04.5-financeiro-parte-2 | deviation | tests/e2e/orcamentos-revisao.spec.ts | 181 | (a) parametro dedicado sobe o minimo -- falhou sob carga de 8 workers (npm run test:e2e --grep, reverificacao do plano 04.5-13 apos corrigir a poluicao de parametro entre specs): toHaveURL(/aviso=orcamento-enviado/) expirou em 10s mesmo com o log mostrando a navegacao correta acontecendo ("navigated to ...aviso=orcamento-enviado..."), a URL assentou sem o parametro no momento da checagem. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia). | open |  | 2026-09-27T03:28:42.694Z |  |
 
 ````json
 [
@@ -614,6 +620,78 @@ last_updated: 2026-09-27T01:29:16.936Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-27T01:29:16.936Z",
+    "resolved_at": null
+  },
+  {
+    "id": 47,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/cadastros-contas-fixas.spec.ts",
+    "line": 201,
+    "description": "cria, desativa, gera duas vezes sem duplicar... falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): locator.click no botao Desfazer estourou 30s. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35 -- arquivo da Fase 04.4, fora do escopo de arquivos do plano 04.5-13; nao corrigido (sem causa raiz pequena e obvia).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:28:00.123Z",
+    "resolved_at": null
+  },
+  {
+    "id": 48,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/financeiro-mes.spec.ts",
+    "line": 167,
+    "description": "areas (criterio 1 do ROADMAP): venda de tres areas paga no Pix aparece cada valor na sua area -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): a tabela do Mes mostrou R$ 0,00 nas tres areas em vez dos valores lancados. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35 -- arquivo da Fase 04.4, fora do escopo de arquivos do plano 04.5-13; nao corrigido (sem causa raiz pequena e obvia).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:28:13.487Z",
+    "resolved_at": null
+  },
+  {
+    "id": 49,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-aprovacao.spec.ts",
+    "line": 304,
+    "description": "(f) cancelar a venda no Financeiro nao apaga nem reabre o orcamento -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): toHaveURL(/aviso=cancelado/) expirou em 10s mesmo com o log mostrando a navegacao correta acontecendo (\"navigated to ...aviso=cancelado...\"), a URL assentou em .../financeiro?aba=caixa sem o parametro no momento da checagem. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:28:14.050Z",
+    "resolved_at": null
+  },
+  {
+    "id": 50,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-fotos.spec.ts",
+    "line": 181,
+    "description": "(g) a 320px as tres celulas cabem sem rolagem horizontal, e todo alvo de toque mede ao menos 44px -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): getByTestId('foto-celula') veio 1 em vez de 3 (upload/reducao de duas fotos nao concluiu a tempo sob a carga da suite inteira). Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:28:31.255Z",
+    "resolved_at": null
+  },
+  {
+    "id": 51,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-tracador.spec.ts",
+    "line": 95,
+    "description": "todo botao visivel da aba Orcamentos mede ao menos 44px de altura -- falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): page.locator('main').getByRole('button').count() veio 0 (pagina nao terminou de renderizar sob a carga), junto de 'The destination stream closed early' no log do servidor Next -- mesmo sintoma ja registrado em WINDOWS #35 para o teste irmao (linha 63) do MESMO arquivo. Reexecucao isolada (--workers=1) passou limpa. Nao corrigido: mesma classe de contencao de servidor unico sob carga, sem causa raiz pequena e obvia neste arquivo.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:28:31.805Z",
+    "resolved_at": null
+  },
+  {
+    "id": 52,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "tests/e2e/orcamentos-revisao.spec.ts",
+    "line": 181,
+    "description": "(a) parametro dedicado sobe o minimo -- falhou sob carga de 8 workers (npm run test:e2e --grep, reverificacao do plano 04.5-13 apos corrigir a poluicao de parametro entre specs): toHaveURL(/aviso=orcamento-enviado/) expirou em 10s mesmo com o log mostrando a navegacao correta acontecendo (\"navigated to ...aviso=orcamento-enviado...\"), a URL assentou sem o parametro no momento da checagem. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao/corrida de confirmacao de navegacao ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35; nao corrigido (sem causa raiz pequena e obvia).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-27T03:28:42.694Z",
     "resolved_at": null
   }
 ]

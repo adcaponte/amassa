@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
 
 // "Atualizar preços" (04.5-09-PLAN.md, D-23): compara peça a peça o mínimo CONGELADO com o de
 // HOJE, sugere um preço que preserva a razão preço ÷ mínimo da época, e guarda a revisão anterior
@@ -41,6 +42,36 @@ async function definirParametro(page: Page, chave: string, valorTexto: string): 
   await campo.fill(valorTexto);
   await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campo.blur()]);
   await expect(page).toHaveURL(/\/cadastros\?sub=parametros$/);
+}
+
+// O valor ORIGINAL semeado por 0019 de cada parâmetro dedicado — em pontos-base (a escala do
+// catálogo, ver lib/precificacao/parametros.ts): `preco_folga_negociacao` nasce em 1000 (10%),
+// `preco_imposto_sobre_venda` nasce em 0 (0%, D-10: MEI, o DAS entra como conta fixa).
+const VALOR_ORIGINAL_DO_PARAMETRO: Record<string, number> = {
+  preco_folga_negociacao: 1000,
+  preco_imposto_sobre_venda: 0,
+};
+
+// Restaura, DIRETO no banco (mesmo padrão de tests/e2e/apoio/parametro-no-banco.ts — nunca
+// @/db/Drizzle), o valor do parâmetro dedicado deste spec para o original semeado. Achado real da
+// varredura completa do plano 04.5-13 (Tarefa 1): o teste (a) SOBE o parâmetro pela tela e nunca
+// desfazia — qualquer spec de precificação que rodasse DEPOIS dele no MESMO banco efêmero (ex.:
+// precificacao-ficha.spec.ts/precificacao-pecas.spec.ts, que esperam o selo/mínimo calculado com
+// os valores PADRÃO da semente) herdava o parâmetro já elevado e via um selo/mínimo diferente do
+// esperado — não uma flakiness de contenção, uma poluição real de estado entre arquivos de spec.
+// `vigente_desde = hoje_brasilia()` (não `current_date`): a linha de HOJE é a única que o gatilho
+// (0020/0021) permite corrigir sem violar D-15.
+async function restaurarParametroDedicado(chave: string): Promise<void> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    await cliente.query(
+      "update parametros_precificacao set valor_inteiro = $2 where chave = $1 and vigente_desde = hoje_brasilia()",
+      [chave, VALOR_ORIGINAL_DO_PARAMETRO[chave]],
+    );
+  } finally {
+    await cliente.end();
+  }
 }
 
 async function criarOrcamento(page: Page): Promise<string> {
@@ -120,6 +151,14 @@ async function abrirDialogoAtualizarPrecos(page: Page, orcamentoId: string, rotu
 
 test.describe("orcamentos revisao", () => {
   test.describe.configure({ mode: "serial" });
+
+  // Restaura o parâmetro dedicado deste spec ao valor original, sempre — mesmo se algum teste
+  // acima falhar. Sem isto, o parâmetro elevado pelo teste (a) sobrevive ao arquivo inteiro e
+  // contamina qualquer outro spec de precificação que rode depois, no mesmo banco efêmero.
+  test.afterAll(async ({}, testInfo) => {
+    const chave = testInfo.project.name === "celular" ? "preco_imposto_sobre_venda" : "preco_folga_negociacao";
+    await restaurarParametroDedicado(chave);
+  });
 
   let orcamentoId = "";
   let suf = "";

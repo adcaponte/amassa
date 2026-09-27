@@ -242,7 +242,7 @@ test.describe("orcamentos ciclo", () => {
     await expect(linhaDuplicada.getByTestId("orcamento-linha-preco")).toHaveValue("100,00");
   });
 
-  test("(6) a 320px a barra de ações (5 botões, o estado 'enviado') não provoca rolagem horizontal e cada botão mede ao menos 44px", async ({
+  test("(6) a 320px a barra de ações (6 botões, o estado 'enviado') não provoca rolagem horizontal e cada botão mede ao menos 44px", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -254,9 +254,13 @@ test.describe("orcamentos ciclo", () => {
     const larguraDaJanela = await page.evaluate(() => document.documentElement.clientWidth);
     expect(larguraDeRolagem).toBeLessThanOrEqual(larguraDaJanela + 1);
 
+    // Eram 5 quando este teste foi escrito (plano 08); o plano 11 acrescentou "Ver como o cliente
+    // vê" como botão SEMPRE visível, em qualquer status (acoes-do-orcamento.tsx) — 6 desde então.
+    // Achado real da varredura completa do plano 04.5-13 (Tarefa 1): o teste falhava 100% das
+    // vezes, não por contenção.
     const botoes = page.getByTestId("orcamento-acoes").getByRole("button");
     const contagem = await botoes.count();
-    expect(contagem).toBe(5);
+    expect(contagem).toBe(6);
 
     const alturas: number[] = [];
     const posicoesY: number[] = [];

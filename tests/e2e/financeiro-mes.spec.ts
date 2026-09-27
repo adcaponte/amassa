@@ -364,14 +364,20 @@ test.describe("financeiro mes", () => {
     await expect(areaDaTabela(page, "cafeteria")).toContainText("R$ 42,00");
   });
 
-  test("a 320px, a barra de cinco pílulas não rola na horizontal e a página do Mês também não", async ({ page }) => {
+  test("a 320px, a barra de sete pílulas não rola na horizontal e a página do Mês também não", async ({ page }) => {
     const mes = mesReservado("mes-vazio", test.info().project.name);
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
     await irParaMes(page, mes);
 
+    // 04.5-01-PLAN.md (D-01/D-02) levou a barra de 5 para 7 pílulas (Venda · Despesa · Caixa ·
+    // Mês · Orçamentos · Peças · Cadastros, em duas fileiras — ver components/amassa/financeiro/
+    // abas-financeiro.tsx). Este teste é da Fase 04.4 e nunca foi atualizado quando a barra
+    // cresceu; achado real da varredura completa do plano 04.5-13 (Tarefa 1) — o teste falhava
+    // 100% das vezes (`toHaveCount(5)` contra 7 pílulas de verdade), não uma flakiness de
+    // contenção.
     const pilulas = page.getByRole("tab");
-    await expect(pilulas).toHaveCount(5);
+    await expect(pilulas).toHaveCount(7);
     for (const pilula of await pilulas.all()) {
       const altura = await pilula.evaluate((elemento) => elemento.getBoundingClientRect().height);
       expect(altura).toBeGreaterThanOrEqual(44);
