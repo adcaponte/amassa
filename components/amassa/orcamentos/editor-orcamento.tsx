@@ -1,6 +1,10 @@
 import { somarDias } from "@/lib/financeiro/calendario";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
-import { algoMudou, sugerirPrecos, type LinhaParaAtualizar } from "@/lib/orcamentos/atualizacao";
+import {
+  algoMudou,
+  sugerirPrecos,
+  type LinhaParaAtualizar,
+} from "@/lib/orcamentos/atualizacao";
 import { contasDoOrcamento, type LinhaParaContas } from "@/lib/orcamentos/contas";
 import {
   listarFotosDoOrcamento,
@@ -8,6 +12,7 @@ import {
   type PecaParaEscolha,
   type RevisaoDoOrcamento,
 } from "@/lib/orcamentos/consultas";
+import { montarDocumentoDoCliente } from "@/lib/orcamentos/documento-cliente";
 import { numeroDeOrcamento, rotuloDeRevisao } from "@/lib/orcamentos/formato";
 import { parcelasDoPlano } from "@/lib/orcamentos/plano";
 import { lerDoSnapshot, type LinhaCongelada } from "@/lib/orcamentos/snapshot";
@@ -47,6 +52,7 @@ import { FotosDeReferencia } from "./fotos-de-referencia";
 import { LinhaDeOrcamento } from "./linha-de-orcamento";
 import { SoParaVoce } from "./so-para-voce";
 import { TotalEPagamento } from "./total-e-pagamento";
+import { VerComoOClienteVe } from "./ver-como-o-cliente-ve";
 
 export type EditorOrcamentoProps = {
   orcamento: OrcamentoParaEdicao;
@@ -126,7 +132,11 @@ function resolverFicha(
     canal: "galeria",
   });
   const farol = resultadoDireto.ok
-    ? farolDoPreco(precoParaFarol, resultadoDireto.minimoCentavos, resultadoDireto.zeroCentavos)
+    ? farolDoPreco(
+        precoParaFarol,
+        resultadoDireto.minimoCentavos,
+        resultadoDireto.zeroCentavos,
+      )
     : null;
 
   return resultadoDaFicha({ cabem, resultadoDireto, resultadoGaleria, farol });
@@ -141,7 +151,10 @@ function resolverFicha(
 // tela. Uma linha sem contagem de forno positiva não calculava no instante do congelamento (D-12,
 // "uma ficha 'ok' sempre tem as duas contagens maiores que zero") — representada aqui como recusa
 // genérica, já que o snapshot não guarda QUAL dos dois motivos era.
-function resultadoCongelado(linha: LinhaCongelada, precoUnitarioCentavos: number): ResultadoDaFicha {
+function resultadoCongelado(
+  linha: LinhaCongelada,
+  precoUnitarioCentavos: number,
+): ResultadoDaFicha {
   if (linha.quantasCabem.biscoito <= 0 || linha.quantasCabem.esmalte <= 0) {
     return { ok: false, motivo: "divisor-invalido" };
   }
@@ -202,7 +215,11 @@ export async function EditorOrcamento({
 
   const vivo = orcamento.status === "rascunho";
   const situacao = situacaoDoOrcamento(
-    { status: orcamento.status, data: orcamento.data, validadeDias: orcamento.validadeDias },
+    {
+      status: orcamento.status,
+      data: orcamento.data,
+      validadeDias: orcamento.validadeDias,
+    },
     hoje,
   );
   const validoAte = somarDias(orcamento.data, orcamento.validadeDias);
@@ -250,19 +267,29 @@ export async function EditorOrcamento({
   // Enquanto rascunho, `linhasResolvidas[i].resultado` JÁ é o de hoje — reaproveitado, nunca
   // recalculado duas vezes; congelado, `linha.resultado` ali é o CONGELADO
   // (`resultadoCongelado`), então o de hoje precisa de uma segunda leitura, à parte.
-  const linhasParaAtualizar: LinhaParaAtualizar[] = orcamento.linhas.map((linha, indice) => {
-    const resultadoDeHoje = vivo
-      ? linhasResolvidas[indice].resultado
-      : resolverFicha(linha.ficha, linha.precoUnitarioCentavos, parametros, forno, taxaCartaoPontosBase);
+  const linhasParaAtualizar: LinhaParaAtualizar[] = orcamento.linhas.map(
+    (linha, indice) => {
+      const resultadoDeHoje = vivo
+        ? linhasResolvidas[indice].resultado
+        : resolverFicha(
+            linha.ficha,
+            linha.precoUnitarioCentavos,
+            parametros,
+            forno,
+            taxaCartaoPontosBase,
+          );
 
-    return {
-      linhaId: linha.id,
-      nome: linha.ficha.nome,
-      precoAtualCentavos: linha.precoUnitarioCentavos,
-      minimoDeHojeCentavos: resultadoDeHoje.ok ? resultadoDeHoje.minimoCentavos : 0,
-      minimoCongeladoCentavos: vivo ? null : (leituraCongelada!.linhas[indice]?.minimoCentavos ?? 0),
-    };
-  });
+      return {
+        linhaId: linha.id,
+        nome: linha.ficha.nome,
+        precoAtualCentavos: linha.precoUnitarioCentavos,
+        minimoDeHojeCentavos: resultadoDeHoje.ok ? resultadoDeHoje.minimoCentavos : 0,
+        minimoCongeladoCentavos: vivo
+          ? null
+          : (leituraCongelada!.linhas[indice]?.minimoCentavos ?? 0),
+      };
+    },
+  );
   const sugestoesDeAtualizacao = sugerirPrecos(linhasParaAtualizar);
   const custosMudaramDesdeOEnvio = algoMudou(sugestoesDeAtualizacao);
   // A contagem de estimados sai dos parâmetros vigentes lidos por `parametrosVigentes` enquanto
@@ -277,7 +304,9 @@ export async function EditorOrcamento({
     : leituraCongelada!.impostoETaxaPontosBase;
 
   const contas = contasDoOrcamento(linhasParaContas, {
-    custosDeProjeto: orcamento.custosDeProjeto.map((custo) => ({ valorCentavos: custo.valorCentavos })),
+    custosDeProjeto: orcamento.custosDeProjeto.map((custo) => ({
+      valorCentavos: custo.valorCentavos,
+    })),
     freteCentavos: orcamento.freteCentavos,
     impostoETaxaPontosBase,
     parametrosEstimados,
@@ -300,152 +329,205 @@ export async function EditorOrcamento({
     };
   });
 
-  return (
-    <div className="flex flex-col gap-4 px-6 py-6 md:px-8">
-      <div
-        data-testid="orcamento-cabecalho"
-        className="flex flex-wrap items-center justify-between gap-3"
-      >
-        <a
-          href="/financeiro?aba=orcamentos"
-          className="text-corpo hover:bg-muted flex min-h-[44px] items-center rounded-md px-3"
-        >
-          {ROTULO_TODOS}
-        </a>
-        <div className="flex items-center gap-2">
-          <span data-testid="orcamento-numero" className="text-corpo text-foreground">
-            {`nº ${numeroDeOrcamento(orcamento.ano, orcamento.sequencial)}${rotuloDeRevisao(orcamento.revisao)}`}
-          </span>
-          <ChipDeSituacao situacao={situacao} />
-        </div>
-      </div>
+  // "Ver como o cliente vê" (04.5-11-PLAN.md) — `montarDocumentoDoCliente` é a ÚNICA fonte de
+  // conteúdo do documento; a estrutura sai daqui com os MESMOS dados que a tela de edição já
+  // tem (linhas cruas, custos de projeto, as MESMAS fotos que a grade acima já buscou — nenhuma
+  // consulta nova). `VerComoOClienteVe` decide, sozinho e por conta própria, se deve aparecer
+  // (`?documento=1`) — este componente é montado SEMPRE, ao lado do editor normal, para a troca
+  // de tela ser instantânea (`irParaSemNavegar`, sem chamada nova ao servidor).
+  const documentoDoCliente = montarDocumentoDoCliente(
+    {
+      status: orcamento.status,
+      ano: orcamento.ano,
+      sequencial: orcamento.sequencial,
+      revisao: orcamento.revisao,
+      clienteNome: orcamento.clienteNome,
+      titulo: orcamento.titulo,
+      data: orcamento.data,
+      validadeDias: orcamento.validadeDias,
+      entregaPrevista: orcamento.entregaPrevista,
+      observacoes: orcamento.observacoes,
+      plano: orcamento.plano,
+      sinalPercentual: orcamento.sinalPercentual,
+      freteCentavos: orcamento.freteCentavos,
+      snapshot: orcamento.snapshot,
+    },
+    orcamento.linhas.map((linha) => ({
+      nomeDaFicha: linha.ficha.nome,
+      cor: linha.cor,
+      personalizacao: linha.personalizacao,
+      quantidade: linha.quantidade,
+      precoUnitarioCentavos: linha.precoUnitarioCentavos,
+    })),
+    orcamento.custosDeProjeto.map((custo) => ({
+      descricao: custo.descricao,
+      valorCentavos: custo.valorCentavos,
+    })),
+    fotos.map((foto) => ({ id: foto.id, legenda: foto.legenda })),
+    hoje,
+  );
 
-      {/* Breakpoint único em 980px (04.5-UI-SPEC.md §Responsivo): uma coluna abaixo, duas a
+  return (
+    <>
+      <VerComoOClienteVe orcamentoId={orcamento.id} documento={documentoDoCliente} />
+      <div className="flex flex-col gap-4 px-6 py-6 md:px-8">
+        <div
+          data-testid="orcamento-cabecalho"
+          className="flex flex-wrap items-center justify-between gap-3"
+        >
+          <a
+            href="/financeiro?aba=orcamentos"
+            className="text-corpo hover:bg-muted flex min-h-[44px] items-center rounded-md px-3"
+          >
+            {ROTULO_TODOS}
+          </a>
+          <div className="flex items-center gap-2">
+            <span data-testid="orcamento-numero" className="text-corpo text-foreground">
+              {`nº ${numeroDeOrcamento(orcamento.ano, orcamento.sequencial)}${rotuloDeRevisao(orcamento.revisao)}`}
+            </span>
+            <ChipDeSituacao situacao={situacao} />
+          </div>
+        </div>
+
+        {/* Breakpoint único em 980px (04.5-UI-SPEC.md §Responsivo): uma coluna abaixo, duas a
           partir daí — peças (+ custos do projeto) na esquerda, "Total e pagamento"/"Só para
           você" na direita. */}
-      <div className="grid grid-cols-1 items-start gap-4 min-[980px]:grid-cols-[1.15fr_1fr]">
-        <div className="flex flex-col gap-4">
-          <CabecalhoDoOrcamento
-            orcamentoId={orcamento.id}
-            vivo={vivo}
-            clienteNome={orcamento.clienteNome}
-            titulo={orcamento.titulo}
-            entregaPrevista={orcamento.entregaPrevista}
-            validoAte={validoAte}
-            validadeDias={orcamento.validadeDias}
-          />
-
-          <section className="border-border flex flex-col gap-3 rounded-lg border p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-titulo text-foreground">{TITULO_BLOCO_PECAS}</h2>
-              <span
-                data-testid="orcamento-total-pecas"
-                className="text-corpo text-foreground tabular-nums"
-              >
-                {formatarReais(contas.pecasCentavos)}
-              </span>
-            </div>
-
-            {linhasResolvidas.length === 0 ? (
-              <p className="text-apoio text-muted-foreground">{FRASE_VAZIO_PECAS_DO_ORCAMENTO}</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {linhasResolvidas.map((linha) => (
-                  <LinhaDeOrcamento
-                    key={linha.id}
-                    orcamentoId={orcamento.id}
-                    id={linha.id}
-                    fichaId={linha.fichaId}
-                    vivo={vivo}
-                    nome={linha.nomeResolvido}
-                    quantidade={linha.quantidade}
-                    precoUnitarioCentavos={linha.precoUnitarioCentavos}
-                    cor={linha.cor}
-                    personalizacao={linha.personalizacao}
-                    resultado={linha.resultado}
-                  />
-                ))}
-              </div>
-            )}
-
-            {vivo && (
-              <div className="flex flex-wrap gap-3">
-                <AbrirEscolherPecaBotao orcamentoId={orcamento.id} />
-                <a
-                  href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}&peca=novo`}
-                  className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium"
-                >
-                  {ROTULO_MAIS_PECA_EXCLUSIVA}
-                </a>
-                <EscolherPeca orcamentoId={orcamento.id} pecas={pecasResolvidas} />
-              </div>
-            )}
-          </section>
-
-          <section className="border-border flex flex-col gap-3 rounded-lg border p-4">
-            <h2 className="text-titulo text-foreground">{TITULO_BLOCO_FOTOS}</h2>
-            <p className="text-apoio text-muted-foreground">{DICA_FOTOS_DE_REFERENCIA}</p>
-            <FotosDeReferencia orcamentoId={orcamento.id} vivo={vivo} fotosIniciais={fotos} />
-          </section>
-
-          <CustosDoProjeto
-            orcamentoId={orcamento.id}
-            vivo={vivo}
-            custos={orcamento.custosDeProjeto}
-            freteCentavos={orcamento.freteCentavos}
-            plano={orcamento.plano}
-            sinalPercentual={orcamento.sinalPercentual}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <TotalEPagamento
-            orcamentoId={orcamento.id}
-            vivo={vivo}
-            totalCentavos={contas.totalCentavos}
-            plano={orcamento.plano}
-            sinalPercentual={orcamento.sinalPercentual}
-            freteCentavos={orcamento.freteCentavos}
-            observacoes={orcamento.observacoes}
-            parcelas={parcelas}
-          />
-          <SoParaVoce
-            custoCentavos={contas.custoCentavos}
-            sobraCentavos={contas.sobraCentavos}
-            sobraPontosBase={contas.sobraPontosBase}
-            horasMilesimos={contas.horasMilesimos}
-            fornadasBiscoitoMilesimos={contas.fornadasBiscoitoMilesimos}
-            fornadasEsmalteMilesimos={contas.fornadasEsmalteMilesimos}
-            parametrosEstimados={contas.parametrosEstimados}
-            avisoCongelado={vivo ? null : textoAvisoCongelado(formatarDataCurta(orcamento.data))}
-            revisoes={revisoes.map((revisao) => ({
-              revisao: revisao.revisao,
-              enviadoEmCivil: revisao.enviadoEmCivil,
-              totalCentavos: revisao.totalCentavos,
-            }))}
-          />
-
-          <AcoesDoOrcamento
-            orcamentoId={orcamento.id}
-            status={orcamento.status}
-            temCliente={Boolean(orcamento.clienteNome?.trim())}
-            temPeca={orcamento.linhas.length > 0}
-          />
-
-          {/* Um orçamento aprovado não tem "Atualizar preços" (must_have) — o diálogo nem monta
-              nesse status, o mesmo tratamento que `AcoesDoOrcamento` já dá ao botão. */}
-          {orcamento.status !== "aprovado" && (
-            <DialogoAtualizarPrecos
+        <div className="grid grid-cols-1 items-start gap-4 min-[980px]:grid-cols-[1.15fr_1fr]">
+          <div className="flex flex-col gap-4">
+            <CabecalhoDoOrcamento
               orcamentoId={orcamento.id}
-              modo={vivo ? "rascunho" : "congelado"}
-              sugestoes={sugestoesDeAtualizacao}
-              algoMudou={custosMudaramDesdeOEnvio}
-              dataCongelamentoFormatada={vivo ? null : formatarDataCurta(orcamento.data)}
-              novaRevisao={orcamento.revisao + 1}
+              vivo={vivo}
+              clienteNome={orcamento.clienteNome}
+              titulo={orcamento.titulo}
+              entregaPrevista={orcamento.entregaPrevista}
+              validoAte={validoAte}
+              validadeDias={orcamento.validadeDias}
             />
-          )}
+
+            <section className="border-border flex flex-col gap-3 rounded-lg border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-titulo text-foreground">{TITULO_BLOCO_PECAS}</h2>
+                <span
+                  data-testid="orcamento-total-pecas"
+                  className="text-corpo text-foreground tabular-nums"
+                >
+                  {formatarReais(contas.pecasCentavos)}
+                </span>
+              </div>
+
+              {linhasResolvidas.length === 0 ? (
+                <p className="text-apoio text-muted-foreground">
+                  {FRASE_VAZIO_PECAS_DO_ORCAMENTO}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {linhasResolvidas.map((linha) => (
+                    <LinhaDeOrcamento
+                      key={linha.id}
+                      orcamentoId={orcamento.id}
+                      id={linha.id}
+                      fichaId={linha.fichaId}
+                      vivo={vivo}
+                      nome={linha.nomeResolvido}
+                      quantidade={linha.quantidade}
+                      precoUnitarioCentavos={linha.precoUnitarioCentavos}
+                      cor={linha.cor}
+                      personalizacao={linha.personalizacao}
+                      resultado={linha.resultado}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {vivo && (
+                <div className="flex flex-wrap gap-3">
+                  <AbrirEscolherPecaBotao orcamentoId={orcamento.id} />
+                  <a
+                    href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}&peca=novo`}
+                    className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium"
+                  >
+                    {ROTULO_MAIS_PECA_EXCLUSIVA}
+                  </a>
+                  <EscolherPeca orcamentoId={orcamento.id} pecas={pecasResolvidas} />
+                </div>
+              )}
+            </section>
+
+            <section className="border-border flex flex-col gap-3 rounded-lg border p-4">
+              <h2 className="text-titulo text-foreground">{TITULO_BLOCO_FOTOS}</h2>
+              <p className="text-apoio text-muted-foreground">
+                {DICA_FOTOS_DE_REFERENCIA}
+              </p>
+              <FotosDeReferencia
+                orcamentoId={orcamento.id}
+                vivo={vivo}
+                fotosIniciais={fotos}
+              />
+            </section>
+
+            <CustosDoProjeto
+              orcamentoId={orcamento.id}
+              vivo={vivo}
+              custos={orcamento.custosDeProjeto}
+              freteCentavos={orcamento.freteCentavos}
+              plano={orcamento.plano}
+              sinalPercentual={orcamento.sinalPercentual}
+            />
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <TotalEPagamento
+              orcamentoId={orcamento.id}
+              vivo={vivo}
+              totalCentavos={contas.totalCentavos}
+              plano={orcamento.plano}
+              sinalPercentual={orcamento.sinalPercentual}
+              freteCentavos={orcamento.freteCentavos}
+              observacoes={orcamento.observacoes}
+              parcelas={parcelas}
+            />
+            <SoParaVoce
+              custoCentavos={contas.custoCentavos}
+              sobraCentavos={contas.sobraCentavos}
+              sobraPontosBase={contas.sobraPontosBase}
+              horasMilesimos={contas.horasMilesimos}
+              fornadasBiscoitoMilesimos={contas.fornadasBiscoitoMilesimos}
+              fornadasEsmalteMilesimos={contas.fornadasEsmalteMilesimos}
+              parametrosEstimados={contas.parametrosEstimados}
+              avisoCongelado={
+                vivo ? null : textoAvisoCongelado(formatarDataCurta(orcamento.data))
+              }
+              revisoes={revisoes.map((revisao) => ({
+                revisao: revisao.revisao,
+                enviadoEmCivil: revisao.enviadoEmCivil,
+                totalCentavos: revisao.totalCentavos,
+              }))}
+            />
+
+            <AcoesDoOrcamento
+              orcamentoId={orcamento.id}
+              status={orcamento.status}
+              temCliente={Boolean(orcamento.clienteNome?.trim())}
+              temPeca={orcamento.linhas.length > 0}
+            />
+
+            {/* Um orçamento aprovado não tem "Atualizar preços" (must_have) — o diálogo nem monta
+              nesse status, o mesmo tratamento que `AcoesDoOrcamento` já dá ao botão. */}
+            {orcamento.status !== "aprovado" && (
+              <DialogoAtualizarPrecos
+                orcamentoId={orcamento.id}
+                modo={vivo ? "rascunho" : "congelado"}
+                sugestoes={sugestoesDeAtualizacao}
+                algoMudou={custosMudaramDesdeOEnvio}
+                dataCongelamentoFormatada={
+                  vivo ? null : formatarDataCurta(orcamento.data)
+                }
+                novaRevisao={orcamento.revisao + 1}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

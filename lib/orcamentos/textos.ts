@@ -204,10 +204,10 @@ export const FRASE_FALTA_CLIENTE_E_PECA = "Para enviar, falta o cliente e ao men
 export const FRASE_APROVADO_EXPLICACAO =
   "Orçamento aprovado fica travado, porque já virou venda. Para refazer com preços novos, use Duplicar: nasce um rascunho com as mesmas peças.";
 
-// As duas ações que ainda não existem nesta fase (chegam nos planos 11/12) — o botão existe,
-// desabilitado, com uma nota curta explicando o motivo em vez de um controle morto sem explicação.
-// "Atualizar preços" saiu daqui no plano 09: tem ação de verdade, não é mais "em breve".
-export const NOTA_VER_CLIENTE_EM_BREVE = "A visualização para o cliente chega em breve.";
+// A ação que ainda não existe nesta fase (chega no plano 12) — o botão existe, desabilitado, com
+// uma nota curta explicando o motivo em vez de um controle morto sem explicação. "Atualizar
+// preços" saiu daqui no plano 09, "Ver como o cliente vê" saiu daqui no plano 11 — as duas têm
+// ação de verdade, não são mais "em breve".
 export const NOTA_CLIENTE_APROVOU_EM_BREVE = "Registrar a aprovação do cliente chega em breve.";
 
 export const TOAST_ORCAMENTO_ENVIADO = "Marcado como enviado. Preços e custos ficaram congelados.";
@@ -400,3 +400,31 @@ export const ARIA_ADICIONAR_FOTO_DE_REFERENCIA = "adicionar foto de referência"
 export const FRASE_NAO_AUTORIZADO = "Não autorizado.";
 export const FRASE_FOTO_NAO_ENCONTRADA = "Essa foto não existe.";
 export const FRASE_NAO_DEU_PARA_LER_FOTO = "Não deu para ler essa foto.";
+
+// ---------------------------------------------------------------------------------------------
+// "Ver como o cliente vê" / o documento do cliente / "Baixar PDF" (04.5-11-PLAN.md)
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_VOLTAR = "◀ Voltar";
+
+// Cabeçalhos de seção da folha A4 — verbatim do protótipo (`prototipo.html`, função `papel`).
+export const TITULO_DOCUMENTO_REFERENCIAS = "Referências";
+export const TITULO_DOCUMENTO_PAGAMENTO = "Pagamento";
+export const TITULO_DOCUMENTO_PRAZO = "Prazo";
+export const TITULO_DOCUMENTO_OBSERVACOES = "Observações";
+
+// Cabeçalhos da tabela de peças — verbatim do protótipo (`<th>Peça</th><th>Qtd.</th>
+// <th>Cada</th><th>Total</th>`); "Total" reaproveita `ROTULO_TOTAL`, já declarado acima.
+export const ROTULO_COLUNA_PECA = "Peça";
+export const ROTULO_COLUNA_QUANTIDADE = "Qtd.";
+export const ROTULO_COLUNA_CADA = "Cada";
+
+// "Baixar PDF" (04.5-UI-SPEC.md §Copywriting, verbatim) — o contrato de espera/erro do botão.
+export const ROTULO_BAIXAR_PDF = "Baixar PDF";
+export const ROTULO_GERANDO_PDF = "Gerando PDF…";
+export const FRASE_ERRO_GERAR_PDF = "Não deu para gerar o PDF agora. Tente de novo.";
+
+// Erros da rota `GET /api/orcamentos/[id]/pdf` (mesmo espírito das frases de
+// `app/api/orcamentos/fotos/[id]/route.ts`: nunca citam caminho, stack ou mensagem do sistema).
+export const FRASE_ORCAMENTO_NAO_ENCONTRADO_PARA_PDF = "Esse orçamento não existe mais.";
+export const FRASE_NAO_DEU_PARA_GERAR_PDF_NO_SERVIDOR = "Não deu para gerar o PDF agora.";

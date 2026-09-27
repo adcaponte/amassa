@@ -14,7 +14,6 @@ import {
   FRASE_APROVADO_EXPLICACAO,
   FRASE_FALTA_CLIENTE_E_PECA,
   NOTA_CLIENTE_APROVOU_EM_BREVE,
-  NOTA_VER_CLIENTE_EM_BREVE,
   ROTULO_ATUALIZAR_PRECOS,
   ROTULO_ATUALIZAR_PRECOS_E_REABRIR,
   ROTULO_CLIENTE_APROVOU,
@@ -104,6 +103,15 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
     irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&atualizarPrecos=1`);
   }
 
+  // "Ver como o cliente vê" (04.5-11-PLAN.md) — disponível em QUALQUER status (protótipo,
+  // `telaEditor`: o botão nunca fica dentro de um bloco condicionado por status). Abre por
+  // `irParaSemNavegar` (nunca `router.push`/navegação completa): `VerComoOClienteVe` já está
+  // montado ao lado do editor, esperando por `?documento=1` — trocar a URL sem navegar é o que
+  // torna a pré-visualização instantânea, sem chamada nova ao servidor.
+  function abrirDocumentoDoCliente() {
+    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`);
+  }
+
   const botaoAtualizarPrecos = (rotulo: string) => (
     <Button type="button" variant="outline" onClick={abrirAtualizarPrecos} className="min-h-[44px]">
       {rotulo}
@@ -131,11 +139,19 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
       )}
 
       <div className="flex flex-wrap gap-3">
+        {/* "Ver como o cliente vê" (04.5-11-PLAN.md): sempre disponível, em qualquer status —
+            o protótipo (`telaEditor`) nunca condiciona este botão a `vivo`/status nenhum. */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={abrirDocumentoDoCliente}
+          className="min-h-[44px]"
+        >
+          {ROTULO_VER_COMO_CLIENTE_VE}
+        </Button>
+
         {status === "rascunho" && (
           <>
-            <Button type="button" variant="outline" disabled className="min-h-[44px]">
-              {ROTULO_VER_COMO_CLIENTE_VE}
-            </Button>
             <Button
               type="button"
               disabled={ocupado || !podeEnviar}
@@ -187,15 +203,10 @@ export function AcoesDoOrcamento({ orcamentoId, status, temCliente, temPeca }: A
         {status === "aprovado" && botaoDuplicar}
       </div>
 
-      {status === "rascunho" && (
-        <div className="flex flex-col gap-1">
-          <p className="text-apoio text-muted-foreground">{NOTA_VER_CLIENTE_EM_BREVE}</p>
-          {!podeEnviar && (
-            <p data-testid="orcamento-falta-enviar" className="text-apoio text-muted-foreground">
-              {FRASE_FALTA_CLIENTE_E_PECA}
-            </p>
-          )}
-        </div>
+      {status === "rascunho" && !podeEnviar && (
+        <p data-testid="orcamento-falta-enviar" className="text-apoio text-muted-foreground">
+          {FRASE_FALTA_CLIENTE_E_PECA}
+        </p>
       )}
 
       {status === "enviado" && (
