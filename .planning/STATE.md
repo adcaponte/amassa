@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-01-PLAN.md (5 commits); o bloqueio do e2e local foi diagnosticado e corrigido (webServer.url passou a sondar /api/health) — a prova e a varredura do plano 02
-last_updated: "2026-09-28T07:15:00.566Z"
+stopped_at: Concluido 04.6-02-PLAN.md (1 commit de codigo, 58b4da2); varredura e2e completa provada (734 passed, 9 failed conhecidas/consertadas, 0 flaky)
+last_updated: "2026-09-28T07:51:48.390Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 79
+  completed_plans: 80
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 01 EXECUTADO em 28/09: a plataforma inteira desceu para /gestao (commits ccfe41f/2739716/e206a90/84ad637). middleware.ts protege só /gestao; os 13 endereços antigos redirecionam (permanent:false, data 2027-03-28); robots.txt bloqueia /gestao; os dois 404 (público/com casca) diferenciados por data-testid; tests/e2e/rotas.spec.ts criado (12 casos). npm run verificar limpo (lint, tsc, verificar-acoes, 1175 testes unitários, test:migracoes). 🔴 A única invocação de e2e autorizada do plano (--grep \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"rotas /gestao\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\") NÃO completou — 5/5 tentativas travaram no webServer do Playwright (timeout 180s), diagnosticado NA HORA como problema de ambiente e DESMENTIDO no mesmo dia pelo orquestrador: a sonda de prontidão do Playwright (isURLAvailable, playwright-core/lib/coreBundle.js:8514) só aceita status >= 200 e < 404, e a raiz passou a devolver 404 quando a plataforma desceu para /gestao — corrigido apontando webServer.url para /api/health; registrado como item aberto (ver 04.6-01-SUMMARY.md, seção Issues Encountered — a tentativa de gravar em WINDOWS.md falhou por uma inconsistência pré-existente nas contagens daquele arquivo)."
+last_activity_desc: "Fase 04.6, PLANO 01 EXECUTADO em 28/09: a plataforma inteira desceu para /gestao (commits ccfe41f/2739716/e206a90/84ad637). middleware.ts protege só /gestao; os 13 endereços antigos redirecionam (permanent:false, data 2027-03-28); robots.txt bloqueia /gestao; os dois 404 (público/com casca) diferenciados por data-testid; tests/e2e/rotas.spec.ts criado (12 casos). npm run verificar limpo (lint, tsc, verificar-acoes, 1175 testes unitários, test:migracoes). 🔴 A única invocação de e2e autorizada do plano (--grep \"rotas /gestao\") NÃO completou — 5/5 tentativas travaram no webServer do Playwright (timeout 180s), diagnosticado NA HORA como problema de ambiente e DESMENTIDO no mesmo dia pelo orquestrador: a sonda de prontidão do Playwright (isURLAvailable, playwright-core/lib/coreBundle.js:8514) só aceita status >= 200 e < 404, e a raiz passou a devolver 404 quando a plataforma desceu para /gestao — corrigido apontando webServer.url para /api/health; registrado como item aberto (ver 04.6-01-SUMMARY.md, seção Issues Encountered — a tentativa de gravar em WINDOWS.md falhou por uma inconsistência pré-existente nas contagens daquele arquivo)."
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 01 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 02 de 8 concluído em 28/09).
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -54,12 +54,31 @@ acidente enquanto o middleware respondia 302 ali, e passou a devolver **404** qu
 desceu para `/gestao` (não há `app/page.tsx` na raiz até o site do plano 03 existir). Corrigido
 em `playwright.config.ts`: `webServer.url` passa a ser `http://127.0.0.1:3000/api/health` —
 rota pública, fora de `/gestao`, que só responde 200 após consulta real ao banco. `use.baseURL`
-não mudou. **Ainda não provado:** que a suíte passa; isso é a varredura completa do plano 04.6-02,
-que também fecha os 12 casos de `tests/e2e/rotas.spec.ts` deixados com `status: unknown`.
+não mudou. **Ainda não provado, no momento em que este parágrafo foi escrito (28/09/2026, plano
+01):** que a suíte passa; isso é a varredura completa do plano 04.6-02, que também fecha os 12
+casos de `tests/e2e/rotas.spec.ts` deixados com `status: unknown`. **Provado em seguida, mesmo
+dia, pelo plano 02 (ver parágrafo abaixo): a sonda subiu, e a varredura rodou.**
 Detalhe completo em `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-01-SUMMARY.md`,
 seção "Issues Encountered" → "Correção do diagnóstico". **Continua aberto, e não é desta fase:**
 `.planning/WINDOWS.md` tem inconsistência de contagem no frontmatter que bloqueia
-`gsd-tools windows append` (descrições antigas com `|` sem escape quebram o parser de coluna).
+`gsd-tools windows append` (causa raiz identificada pelo plano 02: a tabela markdown do arquivo
+termina no id 58, mas o espelho JSON ao final já tem um id 59 — nunca sincronizados).
+
+**Plano 02 (a varredura completa, e o veredito de cada divergência) entregou:** a primeira prova
+real de que o `webServer` do Playwright sobe depois da mudança de rotas — `npm run test:e2e`, sem
+`--grep`, sem `--no-deps`, contra o commit `482870d`: `734 passed · 9 failed · 0 flaky · 20 skipped
+· 79 did not run` em 9,7 minutos. Comparado spec a spec com `Claude outputs/RETRATO-DA-SUITE.md`:
+5 das 9 falhas são as conhecidas do retrato, inalteradas (#3/#34, #58, #50 ×2); as outras 4 eram
+novas e causadas pelo plano 01 — `href`s montados como literal cru (`/encomendas/${id}`,
+`/financeiro?aba=...`) que a varredura mecânica de ~45 arquivos do plano 01 não pegou (buscava um
+padrão específico; esses ficaram fora dele). Consertadas as 4, e mais 11 ocorrências do mesmo
+padrão que nenhum teste pegava (porque o Playwright segue o redirect 307 automaticamente ao
+clicar) mas que quebrariam de vez depois de `2027-03-28` (a remoção dos redirecionamentos antigos)
+— todos os 15 migrados para `rotaDeGestao(...)`. Duas janelas conhecidas (#51, #57) e a instável
+(`queimas-relatorios.spec.ts:96`) não reproduziram nesta execução — não fechadas, contenção de
+servidor único sob carga não é determinística. Commit único: `58b4da2`. `npm run verificar` limpo.
+`Claude outputs/RETRATO-DA-SUITE.md` atualizado com a seção "A medição do depois". Detalhe
+completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-02-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):
@@ -383,7 +402,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 92% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 93% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -491,6 +510,7 @@ Progress: [█████████░] 92% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P13 | ~3h30min | 2 tasks | 14 files |
 | Phase 04.5 P14 | ~2h15min | 5 tasks | 13 files |
 | Phase 04.6 P01 | ~2h | 3 tasks | 152 files |
+| Phase 04.6 P02 | 26min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -720,6 +740,7 @@ Recent decisions affecting current work:
 - [Phase ?]: WINDOWS #44 corrigido com migração nova 0021 (nunca editando 0019/D-33), recriando também o gatilho de 0020 para usar hoje_brasilia() em vez de current_date
 - [Phase ?]: Tres specs de e2e mutavam parametro global de precificacao sem restaurar (poluicao real entre arquivos); corrigido com test.afterAll restaurando direto no banco em cada um
 - [Phase ?]: 04.6-01: redirecionamentos-antigos.ts usa literal proprio do prefixo /gestao (zero import de valor), nunca importado de lib/rotas/gestao.ts
+- [Phase ?]: 04.6-02: corrigidos 15 literais de rota sem prefixo /gestao (4 causavam falha e2e, 11 funcionavam so por indirecao via redirect ate 2027-03-28)
 
 ### Pending Todos
 
@@ -794,6 +815,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:15:00.515Z
-Stopped at: Concluido 04.6-01-PLAN.md (4 commits); e2e local bloqueado por timeout do webServer do Playwright, ver SUMMARY
+Last session: 2026-09-28T07:51:48.335Z
+Stopped at: Concluido 04.6-02-PLAN.md (1 commit de codigo, 58b4da2); varredura e2e completa provada (734 passed, 9 failed conhecidas/consertadas, 0 flaky)
 Resume file: None

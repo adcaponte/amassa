@@ -659,7 +659,7 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
-**Plans:** 1/8 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 **Wave 1**
@@ -668,7 +668,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04.6-02-PLAN.md — Rotas: a varredura e2e completa, comparada spec a spec com `RETRATO-DA-SUITE.md`, e o retrato atualizado (onda 2)
+- [x] 04.6-02-PLAN.md — Rotas: a varredura e2e completa, comparada spec a spec com `RETRATO-DA-SUITE.md`, e o retrato atualizado (onda 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -838,7 +838,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
-| 04.6. `/gestao`, Início e site público | 1/8 | In Progress|  |
+| 04.6. `/gestao`, Início e site público | 2/8 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

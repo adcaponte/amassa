@@ -572,9 +572,9 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | ORC-16 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-17 | Phase 04.5 — Financeiro, parte 2 | Complete |
 | ORC-18 | Phase 04.5 — Financeiro, parte 2 | Complete |
-| GES-01 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-02 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-03 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-01 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-02 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-03 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-04 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-05 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-06 | Phase 04.6 — /gestao, Início e site público | Not Started |
