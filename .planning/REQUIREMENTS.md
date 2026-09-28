@@ -295,7 +295,7 @@
 
 **Site público**
 
-- [ ] **SIT-01**: A raiz serve uma página única pública, sem login, com as seções na ordem do
+- [x] **SIT-01**: A raiz serve uma página única pública, sem login, com as seções na ordem do
   protótipo: faixa "em construção" · abertura · o espaço · aulas e oficinas · encomendas · faixa
   da fachada · onde fica e contato · rodapé
 
@@ -307,7 +307,7 @@
   cadastro editável pelo `/gestao` fica para depois, e o arquivo de conteúdo vira o valor inicial
   dele quando existir
 
-- [ ] **SIT-04**: O site sobe **com os colchetes** onde falta dado real, e com a faixa "em
+- [x] **SIT-04**: O site sobe **com os colchetes** onde falta dado real, e com a faixa "em
   construção". **Nenhum dado de cliente** no repositório; endereço, horário, telefone comercial e
   Instagram são públicos por natureza
 
@@ -318,15 +318,15 @@
 - [x] **SIT-06**: Os botões de WhatsApp apontam para `https://wa.me/55<número>` com mensagem
   pré-preenchida por contexto; o número é campo do arquivo de conteúdo
 
-- [ ] **SIT-07**: ⚠️ **Enquanto a Agenda não existir**, a seção de aulas mostra o texto de
+- [x] **SIT-07**: ⚠️ **Enquanto a Agenda não existir**, a seção de aulas mostra o texto de
   apresentação e o caminho do WhatsApp, **sem calendário** — não inventa dado nem expõe a agenda
   antiga. O calendário liga quando a fase Agenda entrar
 
-- [ ] **SIT-08**: SEO básico: título, descrição, Open Graph com a foto de abertura, `robots`
+- [x] **SIT-08**: SEO básico: título, descrição, Open Graph com a foto de abertura, `robots`
   liberado e sitemap. Critério do dono: aparecer no Google para "amassa cerrado pirenópolis"
 
-- [ ] **SIT-09**: Imagens servidas otimizadas, com `alt` vindo do arquivo de conteúdo
-- [ ] **SIT-10**: Acessibilidade e celular como no resto: alvos de 44px, sem rolagem lateral a
+- [x] **SIT-09**: Imagens servidas otimizadas, com `alt` vindo do arquivo de conteúdo
+- [x] **SIT-10**: Acessibilidade e celular como no resto: alvos de 44px, sem rolagem lateral a
   320px, contraste AA
 
 > **Relação com PNL-01..PNL-05 (Painel Inicial, Phase 7):** o Início desta fase cumpre, na
@@ -586,16 +586,16 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-12 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-13 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-14 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-01 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| SIT-01 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-02 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-03 | Phase 04.6 — /gestao, Início e site público | Complete |
-| SIT-04 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| SIT-04 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-05 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-06 | Phase 04.6 — /gestao, Início e site público | Complete |
-| SIT-07 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-08 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-09 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-10 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| SIT-07 | Phase 04.6 — /gestao, Início e site público | Complete |
+| SIT-08 | Phase 04.6 — /gestao, Início e site público | Complete |
+| SIT-09 | Phase 04.6 — /gestao, Início e site público | Complete |
+| SIT-10 | Phase 04.6 — /gestao, Início e site público | Complete |
 
 **Coverage:**
 

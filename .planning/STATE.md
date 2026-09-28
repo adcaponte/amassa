@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-03-PLAN.md
-last_updated: "2026-09-28T08:37:31.388Z"
+stopped_at: Concluido 04.6-04-PLAN.md
+last_updated: "2026-09-28T09:15:56.753Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 81
+  completed_plans: 82
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 03 EXECUTADO em 28/09: o traçador do site público — conteudo/site.ts (29 trechos do protótipo v11, zero import), lib/site/whatsapp.ts, app/page.tsx + components/site/ (força-static, sem sessão nem banco, provado por tests/unit/site-isolamento.test.ts percorrendo o grafo de import inteiro), bloco @theme do site em app/globals.css (D-19: 6 hex + 7 var(...)), e scripts/testar-site-sem-banco.mjs provando DE FORA que a raiz responde 200 com o Postgres realmente parado (D-15/SIT-02). tests/e2e/site-abertura.spec.ts (10 casos) passa nos dois viewports. npm run verificar limpo. Quatro commits: ea9d546 (Tarefa 1), d70b2d0 (Tarefa 2 RED), 8faf5e1 (Tarefa 2 GREEN), e158662 (Tarefa 3). Três bugs Rule 1 corrigidos na validação (não no app): kill de árvore de processos no Windows precisa de taskkill /T /F; spawn com shell:true+array de args é depreciado; dois seletores do e2e colidiam com texto de outros elementos (o rótulo Encomendas também nomeia um link de navegação; getByRole por nome faz substring sem exact:true). D-18 estendida a uma quarta chave (agLivre) — pendente de confirmação do dono. SIT-01 não marcada como concluída (plano 04.6-04 também a reclama e fecha as seções que faltam). Detalhe completo: 04.6-03-SUMMARY.md."
+last_activity_desc: "Fase 04.6, PLANO 04 EXECUTADO em 28/09: as cinco seções que faltavam da página pública — OEspaco/AulasEOficinas/Encomendas/FaixaDaFachada/OndeFica, mais CartaoDoSite compartilhado. D-20 provado nos dois lugares que o exigem (a fachada devolve null inteiro; o mapa idem, com if em volta do envelope). Aulas e oficinas mostra o estado sem Agenda (D-16), sem importar lib/agenda nem o banco (nova asserção em site-isolamento.test.ts). lib/acessibilidade/contraste.ts (razaoDeContraste/luminanciaRelativa, WCAG 2.1, puro) mede o contraste da faixa amarela e mais cinco pares — achado real: --color-site-tinta-fraca media 4,47:1 contra --color-site-fundo (abaixo do 4,5 AA), corrigido para #786858 (4,77:1) em app/globals.css e tests/unit/tokens.test.ts. app/sitemap.ts (uma entrada, sem sessão nem banco) + metadataBase/openGraph em app/page.tsx (dimensões reais via sharp). tests/e2e/site-secoes.spec.ts (10 casos) passa 52/52 nos dois viewports — segunda invocação, a primeira achou um bug de raciocínio no próprio teste (caso b comparava boundingBox() da viewport, que por design é igual para as duas âncoras; a prova certa é window.scrollY). SIT-01, SIT-04, SIT-07, SIT-08, SIT-09 e SIT-10 marcadas como concluídas. npm run verificar limpo. Quatro commits: 8812e3e (Tarefa 1), 6e9a518 (Tarefa 2), 1bf629f (Tarefa 3 RED), a9f3654 (Tarefa 3 GREEN). Detalhe completo: 04.6-04-SUMMARY.md."
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 03 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 04 de 8 concluído em 28/09).
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -114,6 +114,42 @@ mais ampla que a lista original de três chaves. **SIT-01 não foi marcada como 
 apesar de estar nos `requirements` do plano: `04.6-04-PLAN.md` também a reclama e é quem
 constrói as seções (`#espaco`, `#agenda`, `#encomendas`, `#onde`) que a página ainda não tem.
 Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-03-SUMMARY.md`.
+
+**Plano 04 (as cinco seções que faltavam, o SEO e o contraste medido) entregou:** a página
+pública fica com as seis seções da versão 11 do protótipo, na ordem — `components/site/
+{o-espaco,aulas-e-oficinas,encomendas,faixa-da-fachada,onde-fica}.tsx`, mais `cartao-do-site.tsx`
+(compartilhado, cor do marcador sempre por token CSS, nunca hex). D-20 provado nos dois lugares
+que o exigem: `faixa-da-fachada.tsx` devolve `null` inteiro enquanto `SLOTS_DE_IMAGEM.fachada.
+arquivo` for nulo; `onde-fica.tsx` aplica a mesma regra ao slot do mapa com um `if` em volta do
+ENVELOPE da imagem, não só do `<Image>` — sem isso, o envelope sozinho ainda seria o "buraco
+desenhado" que D-20 proíbe. A seção de aulas (`#agenda`) mostra o estado sem Agenda (D-16) —
+três cartões de texto, dois botões de WhatsApp, a frase de aviso verbatim — e uma nova asserção
+em `tests/unit/site-isolamento.test.ts` prova que nenhum arquivo de `components/site/` importa
+do módulo Agenda. `lib/acessibilidade/contraste.ts` (`razaoDeContraste`/`luminanciaRelativa`,
+WCAG 2.1, puro) mede o contraste da faixa amarela e mais cinco pares do site, lidos do CSS real
+por `node:fs`. `app/sitemap.ts` (uma entrada, sem sessão nem banco) e `metadataBase`/`openGraph`
+em `app/page.tsx` (dimensões reais da foto, medidas com `sharp`, não inventadas) fecham o SEO
+básico (SIT-08). `tests/e2e/site-secoes.spec.ts` (10 casos) passa 52/52 nos dois viewports.
+`npm run verificar` limpo. Quatro commits: `8812e3e` (Tarefa 1), `6e9a518` (Tarefa 2), `1bf629f`
+(Tarefa 3, RED), `a9f3654` (Tarefa 3, GREEN).
+🔧 **Achado real de acessibilidade, corrigido nesta execução (Rule 1):** `--color-site-tinta-
+fraca` media 4,47:1 de contraste contra `--color-site-fundo` — abaixo do 4,5:1 que WCAG AA
+exige. O briefing já mandava CONFERIR esse par (não afirmá-lo), e a conferência (o próprio
+propósito deste plano) encontrou a reprovação. Corrigido para `#786858` (4,77:1), mesma família
+de tom quente do site; `app/globals.css` e `tests/unit/tokens.test.ts` atualizados juntos —
+nenhum dos dois estava na lista de arquivos do plano, mas a correção do achado exige os dois,
+senão o teste de tokens reprovaria sozinho. Também achado nesta execução: os links de WhatsApp/
+Instagram do bloco de contato (`onde-fica.tsx`) não tinham altura mínima de 44px (Rule 2) —
+corrigido com `min-h-11` antes do primeiro commit chegar a fechar a tarefa.
+**Duas invocações de `npm run test:e2e -- --grep "site secoes"` nesta tarefa** (acima do
+orçamento de uma por tarefa do CLAUDE.md): a primeira achou um bug de raciocínio no PRÓPRIO
+teste (o caso da âncora comparava a posição na viewport, que por design é igual para duas
+seções diferentes — a prova certa é a rolagem absoluta do documento); a segunda, corrigida,
+passou limpa. Registrado como o CLAUDE.md pede quando o `--grep` falha e precisa ser corrigido e
+reverificado. SIT-01, SIT-04, SIT-07, SIT-08, SIT-09 e SIT-10 marcadas como concluídas — a
+extensão de D-18 à chave `agLivre` (plano 03) continua **pendente de confirmação do dono**, sem
+nenhuma decisão nova deste plano sobre ela.
+Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-04-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):
@@ -437,7 +473,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 93% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
+Progress: [██████████] 95% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
 congelado de quando a Fase 04.4 fechou; `gsd_run query state.update-progress` da execução do
 plano 04.6-03 encontrou esta linha (a única "Progress:" do arquivo, dentro da seção histórica)
 e a bumpou por engano para 94% — revertido aqui de propósito, porque este parágrafo é um
@@ -552,6 +588,7 @@ sem uma linha "Progress:" própria).
 | Phase 04.6 P01 | ~2h | 3 tasks | 152 files |
 | Phase 04.6 P02 | 26min | 2 tasks | 16 files |
 | Phase 04.6 P03 | 55min | 3 tasks | 33 files |
+| Phase 04.6 P04 | ~65min | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -783,6 +820,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 04.6-01: redirecionamentos-antigos.ts usa literal proprio do prefixo /gestao (zero import de valor), nunca importado de lib/rotas/gestao.ts
 - [Phase ?]: 04.6-02: corrigidos 15 literais de rota sem prefixo /gestao (4 causavam falha e2e, 11 funcionavam so por indirecao via redirect ate 2027-03-28)
 - [Phase ?]: D-18 estendida a agLivre (preco de uso livre) sem numero no site — pendente de confirmacao do dono (04.6-03)
+- [Phase ?]: conteudo/site.ts não precisou de nenhuma mudança no plano 04 — o plano 03 já tinha escrito todos os textos das seções novas
+- [Phase ?]: components/site/secao.tsx ganhou um prop testId (data-testid do <section>) — aditivo, fora da lista de arquivos do plano, necessário para os testid site-espaco/site-agenda/site-encomendas/site-onde
+- [Phase ?]: Achado real: --color-site-tinta-fraca media 4,47:1 contra --color-site-fundo (abaixo de 4,5 AA); corrigido para #786858 (4,77:1) em app/globals.css e tests/unit/tokens.test.ts
 
 ### Pending Todos
 
@@ -857,6 +897,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T08:37:31.335Z
-Stopped at: Concluido 04.6-03-PLAN.md
+Last session: 2026-09-28T09:15:56.706Z
+Stopped at: Concluido 04.6-04-PLAN.md
 Resume file: None
