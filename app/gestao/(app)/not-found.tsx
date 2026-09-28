@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { EstadoErro } from "@/components/amassa/estado-erro";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // 404 dentro da casca protegida — atende chamadas da função `notFound()` disparadas por uma
 // página deste grupo (por exemplo, no futuro, uma rota dinâmica como `/encomendas/[id]` cujo id
@@ -16,8 +17,10 @@ export default function NaoEncontradoApp() {
       titulo="Esta página não existe."
       corpo="Verifique o endereço ou volte para o painel."
       acao={
+        // Fase 04.6 (D-03/D-21): "/" virou o site público — o botão de voltar deste 404, que
+        // vive DENTRO da casca protegida, precisa voltar para `/gestao`, nunca para a raiz.
         <Button asChild variant="default">
-          <Link href="/">Voltar para o painel</Link>
+          <Link href={rotaDeGestao("/")}>Voltar para o painel</Link>
         </Button>
       }
     />

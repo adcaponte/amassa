@@ -1,5 +1,6 @@
 // A ÚNICA porta que serve o BYTE de uma foto de orçamento (D-27, ORC-15) — nunca uma pasta
-// pública, nunca uma rota estática. `/api/orcamentos` NÃO está em `lib/auth/rotas-publicas.ts`,
+// pública, nunca uma rota estática. Fase 04.6 (T-04.6-04): esta rota vive sob `/gestao/api/`,
+// dentro do `config.matcher` de `middleware.ts` — ela NÃO está em `lib/auth/rotas-publicas.ts`,
 // então o middleware já exigiria sessão de qualquer forma; a checagem aqui é a defesa em
 // profundidade (a rota nunca confia só no middleware) e é o que devolve um corpo em português
 // em vez de um redirect, que quebraria uma tag `<img>`.
