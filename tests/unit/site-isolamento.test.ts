@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -180,15 +180,20 @@ describe("isolamento do site público (D-03, D-15, T-04.6-11, T-04.6-13)", () =>
   it("falha simulada: o percorredor nomeia a CADEIA INTEIRA, não só o arquivo final", () => {
     const violacoes = percorrerGrafoDeImports("tests/fixtures/site-isolamento/entrada-proibida.ts");
     expect(violacoes.length).toBeGreaterThan(0);
-    const mensagem = mensagemDaViolacao(violacoes[0]);
+
+    const [violacao] = violacoes;
+    const mensagem = mensagemDaViolacao(violacao);
     expect(mensagem).toContain("tests/fixtures/site-isolamento/entrada-proibida.ts");
     expect(mensagem).toContain("tests/fixtures/site-isolamento/meio-proibido.ts");
     expect(mensagem).toContain("@/db");
-    // A cadeia é ORDENADA: entrada, depois o salto intermediário, depois o especificador —
-    // não só "contém as três", mas nesta ordem.
-    const indiceEntrada = mensagem.indexOf("entrada-proibida.ts");
-    const indiceMeio = mensagem.indexOf("meio-proibido.ts");
-    const indiceDb = mensagem.indexOf("@/db");
+
+    // A CADEIA (não a string da mensagem, que cita o especificador duas vezes) é ORDENADA:
+    // entrada, depois o salto intermediário, depois o especificador proibido — não só
+    // "contém os três", mas nesta ordem.
+    const indiceEntrada = violacao.cadeia.findIndex((elo) => elo.endsWith("entrada-proibida.ts"));
+    const indiceMeio = violacao.cadeia.findIndex((elo) => elo.endsWith("meio-proibido.ts"));
+    const indiceDb = violacao.cadeia.findIndex((elo) => elo === "@/db");
+    expect(indiceEntrada).toBeGreaterThanOrEqual(0);
     expect(indiceEntrada).toBeLessThan(indiceMeio);
     expect(indiceMeio).toBeLessThan(indiceDb);
   });
