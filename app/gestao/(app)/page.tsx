@@ -4,6 +4,7 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { dataLongaEmPortugues, saudacaoDe } from "@/lib/inicio/saudacao";
 import { BlocoAgendaDeHoje } from "@/components/amassa/inicio/bloco-agenda-de-hoje";
+import { BlocoAnotacoes } from "@/components/amassa/inicio/bloco-anotacoes";
 import { BlocoEsqueleto } from "@/components/amassa/inicio/bloco-esqueleto";
 import { BlocoEstoque } from "@/components/amassa/inicio/bloco-estoque";
 import { BlocoOQueVence } from "@/components/amassa/inicio/bloco-o-que-vence";
@@ -46,14 +47,14 @@ export default async function Inicio() {
           do Tailwind (768px) — aproximação do 900px do protótipo, mesma convenção já usada em
           `listas-caixa.tsx`/`painel-venda.tsx` para os breakpoints do UI-SPEC que não caem
           exatamente numa das escalas padrão do Tailwind. Ordem fixa: Agenda de hoje · O que
-          vence · Produção · Estoque acabando · e,
-          a partir do plano 07, Anotações da casa (5º bloco — a posição dele já fica marcada
-          abaixo, sem editar a ordem dos quatro). Cada bloco entra no seu PRÓPRIO `Suspense`
-          (D-09): um `Suspense` único desfaria duas coisas de uma vez — o esqueleto deixaria de
-          ser por bloco, e uma leitura lenta seguraria a página inteira.
+          vence · Produção · Estoque acabando · Anotações da casa (plano 07, D-08). Cada bloco
+          entra no seu PRÓPRIO `Suspense` (D-09): um `Suspense` único desfaria duas coisas de uma
+          vez — o esqueleto deixaria de ser por bloco, e uma leitura lenta seguraria a página
+          inteira.
 
-          Traçador (Tarefa 1): a Agenda provou o mecanismo de esqueleto/erro/retentativa com um
-          bloco só, antes de existirem quatro; as Tarefas 2 e 3 encaixaram os outros três. */}
+          Traçador (04.6-06, Tarefa 1): a Agenda provou o mecanismo de esqueleto/erro/retentativa
+          com um bloco só, antes de existirem cinco; as demais tarefas encaixaram os outros
+          quatro, o último deles (Anotações) no plano 07. */}
       <div data-testid="inicio-blocos" className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Suspense fallback={<BlocoEsqueleto titulo="Agenda de hoje" linhas={3} />}>
           <BlocoAgendaDeHoje />
@@ -71,7 +72,9 @@ export default async function Inicio() {
           <BlocoEstoque />
         </Suspense>
 
-        {/* Plano 07 — o 5º bloco (Anotações da casa) entra aqui, sem mexer nos quatro acima. */}
+        <Suspense fallback={<BlocoEsqueleto titulo="Anotações" linhas={4} />}>
+          <BlocoAnotacoes />
+        </Suspense>
       </div>
 
       <IndiceDosModulos />

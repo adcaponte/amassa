@@ -37,8 +37,16 @@ function tentarRodarDocker(args) {
 // espaço (ex.: `--grep "design system"` repassado de process.argv) precisa ficar entre aspas
 // nessa string única — sem isso, o espaço interno vira um separador de argumento a mais para
 // o shell, e o padrão do --grep chega partido em dois.
+//
+// 🔴 Achado no plano 04.6-07: um `--grep` com ALTERNÂNCIA (ex.: `"anotacoes|inicio"`, para rodar
+// dois arquivos numa invocação só, dentro do orçamento de e2e do CLAUDE.md) não tem espaço
+// nenhum — passava pela checagem `/\s/` sem aspas e chegava cru no `cmd.exe` do Windows, que
+// interpreta `|` como um PIPE de shell de verdade: o comando virava dois comandos
+// (`... --grep anotacoes` encanado para um comando chamado `inicio`), e o segundo falhava com
+// "'inicio' não é reconhecido como um comando". A lista de caracteres especiais do `cmd.exe`
+// (`|&<>^`) precisa do mesmo tratamento que o espaço já recebia.
 function rodarNpm(comando, args, opcoes = {}) {
-  const argsSeguros = args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg));
+  const argsSeguros = args.map((arg) => (/[\s|&<>^]/.test(arg) ? `"${arg}"` : arg));
   execSync(`${comando} ${argsSeguros.join(" ")}`, { stdio: "inherit", ...opcoes });
 }
 

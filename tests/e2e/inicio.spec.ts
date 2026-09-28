@@ -68,13 +68,22 @@ async function criarEncomenda(page: Page, opcoes: { nome: string; dataInicio: st
   }
 }
 
-// Os quatro blocos, na ordem de GES-07 — lidos pelo `data-testid` que cada um já carrega,
-// diretamente sob `inicio-blocos` (nenhum Suspense insere nó próprio no DOM).
+// Os cinco blocos, na ordem de GES-07 (o 5º, Anotações, entrou no plano 07) — lidos pelo
+// `data-testid` que cada um já carrega, diretamente sob `inicio-blocos` (nenhum Suspense insere
+// nó próprio no DOM).
 async function ordemDosBlocos(page: Page): Promise<string[]> {
   const blocos = page.locator('[data-testid="inicio-blocos"] > [data-testid^="inicio-bloco-"]');
-  // `evaluateAll` sozinho não espera nada — os quatro blocos chegam por streaming (Suspense);
+  // `evaluateAll` sozinho não espera nada — os cinco blocos chegam por streaming (Suspense);
   // esta asserção de contagem é o que dá o tempo real de resolução antes de ler a ordem.
-  await expect(blocos).toHaveCount(4);
+  await expect(blocos).toHaveCount(5);
+  // `BlocoEsqueleto` carrega `data-testid="inicio-bloco-esqueleto"` (bloco-esqueleto.tsx) — o
+  // MESMO prefixo `inicio-bloco-` do seletor acima. `toHaveCount(5)` sozinho pode passar cedo
+  // demais: um esqueleto que ainda não virou conteúdo real também casa com o seletor, então 5
+  // elementos podem significar "4 resolvidos + 1 esqueleto" tanto quanto "os 5 resolvidos". Achado
+  // no plano 07 (Anotações), o 5º bloco a fazer sua própria consulta ao banco — com blocos
+  // resolvendo em velocidades diferentes, a janela de captura parcial deixou de ser rara. Espera
+  // a ausência de qualquer esqueleto antes de ler a ordem.
+  await expect(page.getByTestId("inicio-bloco-esqueleto")).toHaveCount(0);
   return blocos.evaluateAll((elementos) =>
     elementos.map((el) => el.getAttribute("data-testid") ?? ""),
   );
@@ -91,13 +100,10 @@ test.describe("inicio", () => {
   });
 
   // Casos (b)/(c)/(d)/(g) do plano — todos lidos na MESMA navegação, em banco sem conta em
-  // aberto: a ordem dos quatro blocos, a linha permanente de ocupação da Agenda (D-07), "O que
-  // vence" com a frase vazia, e "Estoque acabando" com a frase vazia. Condição GLOBAL do banco
-  // (nenhuma conta em aberto) — por isso `@vazio-global`, na cadeia `vazio-*` de
-  // `playwright.config.ts`, nunca por `--grep` (CLAUDE.md).
-  //
-  // O plano 07 acrescenta um quinto bloco (Anotações) ao fim desta lista — esta asserção de
-  // ordem é estendida lá, não reaberta aqui.
+  // aberto: a ordem dos cinco blocos (o 5º, Anotações, entrou no plano 07), a linha permanente
+  // de ocupação da Agenda (D-07), "O que vence" com a frase vazia, e "Estoque acabando" com a
+  // frase vazia. Condição GLOBAL do banco (nenhuma conta em aberto) — por isso `@vazio-global`,
+  // na cadeia `vazio-*` de `playwright.config.ts`, nunca por `--grep` (CLAUDE.md).
   test("com o banco sem conta em aberto, a ordem dos blocos, a ocupação da Agenda e as frases vazias aparecem juntas @vazio-global", async ({
     page,
   }) => {
@@ -108,6 +114,7 @@ test.describe("inicio", () => {
       "inicio-bloco-vence",
       "inicio-bloco-producao",
       "inicio-bloco-estoque",
+      "inicio-bloco-anotacoes",
     ]);
 
     // Agenda: a linha de ocupação fica visível MESMO em dia vazio (D-07) — nunca some junto com
