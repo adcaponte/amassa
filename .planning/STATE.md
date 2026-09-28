@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-01-PLAN.md (4 commits); e2e local bloqueado por timeout do webServer do Playwright, ver SUMMARY
+stopped_at: Concluido 04.6-01-PLAN.md (5 commits); o bloqueio do e2e local foi diagnosticado e corrigido (webServer.url passou a sondar /api/health) — a prova e a varredura do plano 02
 last_updated: "2026-09-28T07:15:00.566Z"
 progress:
   total_phases: 12
@@ -13,7 +13,7 @@ progress:
   total_plans: 86
   completed_plans: 79
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 01 EXECUTADO em 28/09: a plataforma inteira desceu para /gestao (commits ccfe41f/2739716/e206a90/84ad637). middleware.ts protege só /gestao; os 13 endereços antigos redirecionam (permanent:false, data 2027-03-28); robots.txt bloqueia /gestao; os dois 404 (público/com casca) diferenciados por data-testid; tests/e2e/rotas.spec.ts criado (12 casos). npm run verificar limpo (lint, tsc, verificar-acoes, 1175 testes unitários, test:migracoes). 🔴 A única invocação de e2e autorizada do plano (--grep \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"rotas /gestao\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\") NÃO completou — 5/5 tentativas travaram no webServer do Playwright (timeout 180s), confirmado como problema de ambiente desta máquina (a mesma sequência de comandos funciona fora do Playwright); registrado como item aberto (ver 04.6-01-SUMMARY.md, seção Issues Encountered — a tentativa de gravar em WINDOWS.md falhou por uma inconsistência pré-existente nas contagens daquele arquivo)."
+last_activity_desc: "Fase 04.6, PLANO 01 EXECUTADO em 28/09: a plataforma inteira desceu para /gestao (commits ccfe41f/2739716/e206a90/84ad637). middleware.ts protege só /gestao; os 13 endereços antigos redirecionam (permanent:false, data 2027-03-28); robots.txt bloqueia /gestao; os dois 404 (público/com casca) diferenciados por data-testid; tests/e2e/rotas.spec.ts criado (12 casos). npm run verificar limpo (lint, tsc, verificar-acoes, 1175 testes unitários, test:migracoes). 🔴 A única invocação de e2e autorizada do plano (--grep \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"rotas /gestao\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\") NÃO completou — 5/5 tentativas travaram no webServer do Playwright (timeout 180s), diagnosticado NA HORA como problema de ambiente e DESMENTIDO no mesmo dia pelo orquestrador: a sonda de prontidão do Playwright (isURLAvailable, playwright-core/lib/coreBundle.js:8514) só aceita status >= 200 e < 404, e a raiz passou a devolver 404 quando a plataforma desceu para /gestao — corrigido apontando webServer.url para /api/health; registrado como item aberto (ver 04.6-01-SUMMARY.md, seção Issues Encountered — a tentativa de gravar em WINDOWS.md falhou por uma inconsistência pré-existente nas contagens daquele arquivo)."
 ---
 
 # Project State
@@ -43,16 +43,23 @@ bloqueia `/gestao` e libera a raiz; os dois 404 (`app/not-found.tsx` público,
 pathspec já renomeada — identificado pelo coordenador, não pelo executor), `e206a90` (Tarefa 2),
 `84ad637` (Tarefa 3, a suíte e2e sob o prefixo novo + `tests/e2e/rotas.spec.ts` novo, 12 casos).
 `npm run verificar` limpo (lint, `tsc --noEmit`, `verificar-acoes`, 1175 testes unitários,
-`test:migracoes`). 🔴 **Aberto:** a única invocação de e2e autorizada do plano
-(`npm run test:e2e -- --grep "rotas /gestao"`) não completou nesta máquina — 5 tentativas, sempre
-o `webServer` do Playwright travando no timeout de 180s sem nunca reportar pronto, mesmo com a
-mesma sequência de comandos funcionando fora do Playwright (build ~26s, servidor manual sobe em
-~200ms e responde certo em toda rota nova). Problema de ambiente, não de código — detalhe completo
-em `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-01-SUMMARY.md`, seção "Issues
-Encountered". Nenhum item de WINDOWS.md foi criado por lá (o próprio arquivo tem uma
-inconsistência pré-existente de contagem no frontmatter, não relacionada a esta fase, que bloqueou
-`gsd-tools windows append`); fica registrado aqui e no SUMMARY até alguém investigar as duas
-coisas.
+`test:migracoes`). 🔴 **A única invocação de e2e autorizada do plano
+(`npm run test:e2e -- --grep "rotas /gestao"`) não completou** — 5 tentativas, sempre o
+`webServer` do Playwright estourando o timeout de 180s sem nunca reportar pronto. O executor
+registrou isso como problema desta máquina; **o orquestrador desmentiu no mesmo dia, 28/09/2026,
+e corrigiu.** A causa é código desta fase: a sonda de prontidão do Playwright
+(`isURLAvailable`, em `playwright-core/lib/coreBundle.js:8514`) devolve pronto só para status
+`>= 200 && < 404`; `playwright.config.ts` sondava `http://127.0.0.1:3000/`, que funcionava por
+acidente enquanto o middleware respondia 302 ali, e passou a devolver **404** quando a árvore
+desceu para `/gestao` (não há `app/page.tsx` na raiz até o site do plano 03 existir). Corrigido
+em `playwright.config.ts`: `webServer.url` passa a ser `http://127.0.0.1:3000/api/health` —
+rota pública, fora de `/gestao`, que só responde 200 após consulta real ao banco. `use.baseURL`
+não mudou. **Ainda não provado:** que a suíte passa; isso é a varredura completa do plano 04.6-02,
+que também fecha os 12 casos de `tests/e2e/rotas.spec.ts` deixados com `status: unknown`.
+Detalhe completo em `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-01-SUMMARY.md`,
+seção "Issues Encountered" → "Correção do diagnóstico". **Continua aberto, e não é desta fase:**
+`.planning/WINDOWS.md` tem inconsistência de contagem no frontmatter que bloqueia
+`gsd-tools windows append` (descrições antigas com `|` sem escape quebram o parser de coluna).
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):

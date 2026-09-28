@@ -153,7 +153,20 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run build && npm run start",
-    url: "http://127.0.0.1:3000",
+    // `/api/health`, NÃO a raiz. A sonda de prontidão do Playwright só considera o servidor
+    // pronto com status `>= 200 && < 404` (`isURLAvailable`, em
+    // `playwright-core/lib/coreBundle.js`) — um 404 mantém a sonda tentando até o timeout.
+    // Enquanto a plataforma respondia na raiz, sondar `/` funcionava por acidente: o
+    // middleware devolvia 302 para `/login`. Depois da Fase 04.6 (plano 01) a raiz não tem
+    // `app/page.tsx` até o site público existir (plano 03), então `/` devolve 404 e a suíte
+    // inteira morria em 180s de `webServer` — 5 tentativas idênticas no plano 04.6-01,
+    // diagnosticadas na época, por engano, como problema desta máquina.
+    // `/api/health` é a URL mais estável do sistema por decisão de projeto: está em
+    // `ROTAS_PUBLICAS`, fica FORA de `/gestao` (é onde o monitoramento externo aponta), e
+    // devolve 200 só depois de uma consulta real ao banco — que é exatamente o que
+    // "servidor pronto" precisa significar aqui, já que o `globalSetup` cria a conta de
+    // gestor no banco antes do primeiro teste.
+    url: "http://127.0.0.1:3000/api/health",
     reuseExistingServer: true,
     timeout: 180_000,
     env: {
