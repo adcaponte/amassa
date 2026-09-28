@@ -526,11 +526,11 @@ last_updated: 2026-09-27T18:24:29.468Z
     "phase": "04.5",
     "file": "lib/orcamentos/acoes.ts",
     "line": null,
-    "description": "Acceptance script da Tarefa 2 (04.5-07-PLAN.md) procura 'function exigirRascunho'; a guarda real, reaproveitada do plano 06, chama-se travarOrcamentoRascunho (1 ocorrencia, 9 chamadores) — intent satisfeito, nome do script desatualizado",
-    "status": "open",
+    "description": "Acceptance script da Tarefa 2 (04.5-07-PLAN.md) procura 'function exigirRascunho'; a guarda real, reaproveitada do plano 06, chama-se travarOrcamentoRascunho (1 ocorrencia, 9 chamadores) — intent satisfeito, nome do script desatualizado || FECHADA em 28/09/2026, sem alteracao de codigo: conferido — a guarda real travarOrcamentoRascunho existe em lib/orcamentos/acoes.ts (13 ocorrencias). O codigo sempre esteve certo; so o nome no script de aceitacao do plano estava desatualizado. O plano ja foi executado: o script e artefato historico, nao se reescreve.",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-26T21:48:07.443Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-28T00:02:26.665Z"
   },
   {
     "id": 39,
@@ -538,11 +538,11 @@ last_updated: 2026-09-27T18:24:29.468Z
     "phase": "04.5",
     "file": "components/amassa/orcamentos/escolher-peca.tsx",
     "line": null,
-    "description": "Acceptance script da Tarefa 3 (04.5-07-PLAN.md) acusa 'router.push|router.refresh' em orcamentos/ — e um COMENTARIO (plano 06) explicando por que o componente NAO usa router.refresh(), nao uma chamada real; nenhum router. de verdade no modulo",
-    "status": "open",
+    "description": "Acceptance script da Tarefa 3 (04.5-07-PLAN.md) acusa 'router.push|router.refresh' em orcamentos/ — e um COMENTARIO (plano 06) explicando por que o componente NAO usa router.refresh(), nao uma chamada real; nenhum router. de verdade no modulo || FECHADA em 28/09/2026, sem alteracao de codigo: conferido — grep por router.push|router.refresh em components/amassa/orcamentos/ nao acha nenhuma chamada real, so o comentario que explica por que o componente NAO usa router.refresh(). O script de aceitacao casou com o comentario.",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-26T21:48:07.985Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-28T00:02:26.665Z"
   },
   {
     "id": 40,
@@ -550,11 +550,11 @@ last_updated: 2026-09-27T18:24:29.468Z
     "phase": "04.5",
     "file": "lib/orcamentos/acoes.ts",
     "line": null,
-    "description": "Acceptance script da Tarefa 2 (04.5-08-PLAN.md, checagem 'for update' via new RegExp com barras invertidas quadruplas) quebra ao atravessar plano->bash->JS->RegExp: o padrao vira [sS]*?\\n} (nunca casa nada), confirmado testando contra acrescentarLinha (funcao correta desde o plano 06). Reescrevendo o mesmo regex sem a camada extra de escape, as quatro transicoes (marcarComoEnviado/recusarOrcamento/voltarParaRascunho/duplicarOrcamento) confirmam for update antes do fechamento -- intent satisfeito, escape do script quebrado",
-    "status": "open",
+    "description": "Acceptance script da Tarefa 2 (04.5-08-PLAN.md, checagem 'for update' via new RegExp com barras invertidas quadruplas) quebra ao atravessar plano->bash->JS->RegExp: o padrao vira [sS]*?\\n} (nunca casa nada), confirmado testando contra acrescentarLinha (funcao correta desde o plano 06). Reescrevendo o mesmo regex sem a camada extra de escape, as quatro transicoes (marcarComoEnviado/recusarOrcamento/voltarParaRascunho/duplicarOrcamento) confirmam for update antes do fechamento -- intent satisfeito, escape do script quebrado || FECHADA em 28/09/2026, sem alteracao de codigo: conferido — for update aparece 18 vezes em lib/orcamentos/acoes.ts. A guarda existe; o que quebrou foi a RegExp do script ao atravessar plano->bash->JS. Mesmo caso do #38: plano executado, script e historico.",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-26T22:29:11.144Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-28T00:02:26.665Z"
   },
   {
     "id": 41,
@@ -586,11 +586,11 @@ last_updated: 2026-09-27T18:24:29.468Z
     "phase": "04.5-financeiro-parte-2",
     "file": ".planning/REQUIREMENTS.md",
     "line": null,
-    "description": "Tabela de rastreabilidade (linha ~447/450) mostra ORC-07/ORC-10 como 'Pending' apesar de 04.5-07-SUMMARY.md/04.5-08-SUMMARY.md listarem os dois em requirements-completed -- gap pre-existente, nao introduzido nem corrigido pelo plano 09 (fora do escopo de arquivos); so ORC-09 (deste plano) foi corrigido para Complete.",
-    "status": "open",
+    "description": "Tabela de rastreabilidade (linha ~447/450) mostra ORC-07/ORC-10 como 'Pending' apesar de 04.5-07-SUMMARY.md/04.5-08-SUMMARY.md listarem os dois em requirements-completed -- gap pre-existente, nao introduzido nem corrigido pelo plano 09 (fora do escopo de arquivos); so ORC-09 (deste plano) foi corrigido para Complete. || FECHADA em 28/09/2026, sem alteracao de codigo: ja nao reproduz — a tabela de rastreabilidade do REQUIREMENTS.md mostra ORC-07 e ORC-10 como Complete (linhas 543 e 546). Corrigido em algum plano posterior ao registro; a janela ficou aberta a toa.",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-26T23:18:22.102Z",
-    "resolved_at": null
+    "resolved_at": "2026-09-28T00:02:26.665Z"
   },
   {
     "id": 44,
@@ -634,7 +634,7 @@ last_updated: 2026-09-27T18:24:29.468Z
     "phase": "04.5-financeiro-parte-2",
     "file": "tests/e2e/cadastros-contas-fixas.spec.ts",
     "line": 201,
-    "description": "cria, desativa, gera duas vezes sem duplicar... falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): locator.click no botao Desfazer estourou 30s. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35 -- arquivo da Fase 04.4, fora do escopo de arquivos do plano 04.5-13; nao corrigido (sem causa raiz pequena e obvia).",
+    "description": "cria, desativa, gera duas vezes sem duplicar... falhou sob a varredura completa (npm run test:e2e sem --grep, 8 workers, plano 04.5-13): locator.click no botao Desfazer estourou 30s. Reexecucao isolada (--workers=1) passou limpa. Mesma classe de contencao de servidor Next unico ja registrada em WINDOWS #12/#21/#22/#26/#27/#29/#30/#31/#32/#35 -- arquivo da Fase 04.4, fora do escopo de arquivos do plano 04.5-13; nao corrigido (sem causa raiz pequena e obvia). || NOTA de 28/09/2026: esta janela e a #58 descrevem O MESMO teste, na MESMA linha (cadastros-contas-fixas.spec.ts:201), com veredito oposto — a #47 diz que passou isolada, a #58 diz que falhou isolada tambem. E o CI do commit e0a0290 passou verde em 27/09 as 19h31. Os tres nao podem estar certos ao mesmo tempo. Resolver junto, nao separado.",
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-27T03:28:00.123Z",
