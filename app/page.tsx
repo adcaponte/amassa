@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Abertura } from "@/components/site/abertura";
+import { AulasEOficinas } from "@/components/site/aulas-e-oficinas";
 import { BarraInferiorFixa } from "@/components/site/barra-inferior-fixa";
 import { BarraSuperior } from "@/components/site/barra-superior";
 import { Encomendas } from "@/components/site/encomendas";
@@ -48,10 +49,9 @@ export const metadata: Metadata = {
 };
 
 // A página inteira do site público (D-03/D-15): NENHUM import daqui alcança sessão ou banco —
-// tests/unit/site-isolamento.test.ts prova isso percorrendo o grafo de import a partir daqui.
-// A seção "agenda" (Aulas e oficinas) AINDA NÃO EXISTE nesta tarefa — a Tarefa 2 deste mesmo
-// plano a encaixa entre OEspaco e Encomendas; até lá, o botão fixo "Agenda" aponta para uma
-// âncora sem destino, o que é esperado e não é exercitado pelo e2e desta tarefa.
+// tests/unit/site-isolamento.test.ts prova isso percorrendo o grafo de import a partir daqui,
+// e uma asserção própria confere que nenhum arquivo de components/site/ importa do módulo
+// Agenda (D-16): a seção de aulas é conteúdo estático até esse módulo existir.
 export default function PaginaDoSite() {
   return (
     <div className="min-h-screen bg-site-fundo pt-[var(--altura-barra-site)] pb-[84px] text-site-tinta md:pb-0">
@@ -59,6 +59,7 @@ export default function PaginaDoSite() {
       <BarraSuperior />
       <Abertura />
       <OEspaco />
+      <AulasEOficinas />
       <Encomendas />
       <FaixaDaFachada />
       <OndeFica />

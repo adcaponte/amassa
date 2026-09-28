@@ -225,6 +225,20 @@ describe("isolamento do site público (D-03, D-15, T-04.6-11, T-04.6-13)", () =>
     }
   });
 
+  // D-16 (Fase 04.6, plano 04): a seção de aulas é conteúdo estático até a fase Agenda existir
+  // de verdade — nenhum arquivo de components/site/ pode importar lib/agenda, nem hoje nem por
+  // engano num plano futuro que mexa nesta pasta sem reler esta decisão.
+  it("nenhum arquivo de components/site/ importa lib/agenda", () => {
+    const arquivos = listarArquivosTs(join(RAIZ, "components/site"));
+    for (const arquivo of arquivos) {
+      const conteudo = readFileSync(arquivo, "utf-8");
+      expect(
+        conteudo,
+        `${caminhoRelativo(arquivo)} não deveria importar lib/agenda (D-16)`,
+      ).not.toMatch(/from\s+["']@\/lib\/agenda/);
+    }
+  });
+
   it("nenhum arquivo do site contém a string /gestao", () => {
     const arquivos = [join(RAIZ, "app/page.tsx"), ...listarArquivosTs(join(RAIZ, "components/site"))];
     for (const arquivo of arquivos) {
