@@ -628,6 +628,8 @@ inventados.
 
 **Depends on:** Phase 04.5
 
+**Requirements**: GES-01, GES-02, GES-03, GES-04, GES-05, GES-06, GES-07, GES-08, GES-09, GES-10, GES-11, GES-12, GES-13, GES-14, SIT-01, SIT-02, SIT-03, SIT-04, SIT-05, SIT-06, SIT-07, SIT-08, SIT-09, SIT-10
+
 **Riscos conhecidos**: a mudança de rotas mexe em todas as telas, no proxy e na suíte inteira de
 testes — é o **primeiro plano da fase**, isolado, com a varredura e2e completa no fim dele. O
 precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em produção que
@@ -651,13 +653,26 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
    estado "sem agenda" sem quebrar nem inventar evento
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
+**Plans:** 8 plans
+
 Plans:
 
-- [ ] TBD (rodar `/gsd-discuss-phase 04.6` antes de planejar — ver abaixo)
+- [ ] 04.6-01-PLAN.md — Rotas: a árvore desce para `/gestao`, o proxy protege só esse prefixo, 13 redirecionamentos listados um a um, `robots.txt` e os dois 404 (onda 1)
+- [ ] 04.6-02-PLAN.md — Rotas: a varredura e2e completa, comparada spec a spec com `RETRATO-DA-SUITE.md`, e o retrato atualizado (onda 2)
+- [ ] 04.6-03-PLAN.md — Site: conteúdo em arquivo, tokens num bloco só, Fraunces, barras fixas, abertura e rodapé — provado de fora com o Postgres derrubado (onda 3)
+- [ ] 04.6-04-PLAN.md — Site: o espaço, aulas no estado sem Agenda, encomendas, onde fica, SEO e o contraste medido (onda 4)
+- [ ] 04.6-05-PLAN.md — Navegação final: 4 itens na barra de baixo, lateral completa, menu do usuário com 3 itens, "Produção" como rótulo (onda 5)
+- [ ] 04.6-06-PLAN.md — Início: saudação, pílulas, índice e os quatro blocos de leitura, com os três estados por bloco (onda 6)
+- [ ] 04.6-07-PLAN.md — Anotações da casa: a folha única, a migração `0022` versionada, e o aviso antes de sobrescrever (onda 7)
+- [ ] 04.6-08-PLAN.md — Portão: última varredura, Roteiro 14, migração aplicada pelo dono, GES-04 em produção e a caminhada dos 8 critérios (onda 8, **não autônomo**)
 
-**Antes de planejar**: `Claude outputs/gestao/DISCUSSAO-PREPARADA.md` reúne o que precisa da
-palavra do dono, com recomendação para cada ponto. A fila (`Claude outputs/FILA-DO-CODE.md`,
-item 3, passo 5) é explícita: **não planejar nem executar antes de ele responder.**
+**A ordem é decisão do dono (D-21 do CONTEXT):** rotas → site → navegação → Início. As oito ondas são
+sequenciais. Duas varreduras e2e completas estão autorizadas na fase — uma fechando o grupo das rotas
+(plano 02) e uma no último plano —, exceção registrada por a mudança de rotas tocar a suíte inteira.
+
+**Discussão fechada em 2026-09-28** (`04.6-CONTEXT.md`, D-01..D-21): **não rodar
+`/gsd-discuss-phase` de novo.** O histórico do que precisou da palavra do dono está em
+`Claude outputs/gestao/DISCUSSAO-PREPARADA.md`, com as respostas dele de 28/09.
 
 **UI hint**: yes
 
