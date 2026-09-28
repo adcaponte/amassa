@@ -659,7 +659,7 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
-**Plans:** 5/8 plans executed
+**Plans:** 6/8 plans executed
 
 Plans:
 **Wave 1**
@@ -684,7 +684,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 04.6-06-PLAN.md — Início: saudação, pílulas, índice e os quatro blocos de leitura, com os três estados por bloco (onda 6)
+- [x] 04.6-06-PLAN.md — Início: saudação, pílulas, índice e os quatro blocos de leitura, com os três estados por bloco (onda 6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -838,7 +838,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
-| 04.6. `/gestao`, Início e site público | 5/8 | In Progress|  |
+| 04.6. `/gestao`, Início e site público | 6/8 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-05-PLAN.md
-last_updated: "2026-09-28T09:37:27.057Z"
+stopped_at: Concluido 04.6-06-PLAN.md
+last_updated: "2026-09-28T10:19:58.000Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 83
+  completed_plans: 84
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 04 EXECUTADO em 28/09: as cinco seções que faltavam da página pública — OEspaco/AulasEOficinas/Encomendas/FaixaDaFachada/OndeFica, mais CartaoDoSite compartilhado. D-20 provado nos dois lugares que o exigem (a fachada devolve null inteiro; o mapa idem, com if em volta do envelope). Aulas e oficinas mostra o estado sem Agenda (D-16), sem importar lib/agenda nem o banco (nova asserção em site-isolamento.test.ts). lib/acessibilidade/contraste.ts (razaoDeContraste/luminanciaRelativa, WCAG 2.1, puro) mede o contraste da faixa amarela e mais cinco pares — achado real: --color-site-tinta-fraca media 4,47:1 contra --color-site-fundo (abaixo do 4,5 AA), corrigido para #786858 (4,77:1) em app/globals.css e tests/unit/tokens.test.ts. app/sitemap.ts (uma entrada, sem sessão nem banco) + metadataBase/openGraph em app/page.tsx (dimensões reais via sharp). tests/e2e/site-secoes.spec.ts (10 casos) passa 52/52 nos dois viewports — segunda invocação, a primeira achou um bug de raciocínio no próprio teste (caso b comparava boundingBox() da viewport, que por design é igual para as duas âncoras; a prova certa é window.scrollY). SIT-01, SIT-04, SIT-07, SIT-08, SIT-09 e SIT-10 marcadas como concluídas. npm run verificar limpo. Quatro commits: 8812e3e (Tarefa 1), 6e9a518 (Tarefa 2), 1bf629f (Tarefa 3 RED), a9f3654 (Tarefa 3 GREEN). Detalhe completo: 04.6-04-SUMMARY.md."
+last_activity_desc: "Fase 04.6, PLANO 06 EXECUTADO em 28/09: o Início de verdade substitui o painel de quatro cartões vazios da Fase 2. lib/inicio/{saudacao,textos}.ts (apresentação pura), lib/agenda/espaco.ts (LUGARES_DO_ESPACO=10, sinalizado para o dono confirmar), lib/financeiro/{vencimentos,navegacao}.ts (contasQueVencem, sete dias; hrefDoCaixa, D-06) e lib/encomendas/producao-em-andamento.ts (o estado que o redesenho da Produção ainda vai decidir, D-10, tipado como irrepresentável). Quatro blocos de leitura (Agenda de hoje, O que vence, Produção, Estoque acabando), cada um com esqueleto/vazio/erro próprios (D-09), providos com um bloco só na Tarefa 1 (traçador) antes de existirem quatro. app/gestao/(app)/financeiro/page.tsx e listas-caixa.tsx ganharam ?parcelaFoco=<uuid> na aba Caixa (D-06: Paguei/Recebi navegam, nunca pagam). Três testes e2e ajustados por remoção direta do painel antigo (design-system.spec.ts, queimas-banner.spec.ts, sessao.spec.ts). tests/e2e/inicio.spec.ts novo, 46/46 (23 casos x 2 projetos) — quatro invocações de --grep \"inicio\", as três primeiras corrigindo bugs no PRÓPRIO teste novo (nunca no app). GES-07, GES-08, GES-09 e GES-11 marcadas como concluídas. npm run verificar limpo (1267 testes unitários). Três commits: fbdecb2 (Tarefa 1), 2faca5b (Tarefa 2), 3f84cca (Tarefa 3). Detalhe completo: 04.6-06-SUMMARY.md."
 ---
 
 # Project State
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 05 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 06 de 8 concluído em 28/09).
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -183,6 +183,40 @@ baixo (corrigido navegando de volta para `/gestao` antes de medir). A segunda in
 limpa, 62/62. GES-12, GES-13 e GES-14 marcadas como concluídas — UI-02/UI-04 **não** foram
 reescritas, como o plano manda (a nota de sucessor fica para o plano 08).
 Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-05-SUMMARY.md`.
+
+**Plano 06 (o Início de verdade) entregou:** o painel de quatro cartões vazios da Fase 2 virou a
+tela real. `lib/inicio/saudacao.ts` (`saudacaoDe`, `dataLongaEmPortugues` — só `Intl` nativo,
+**não** `date-fns` apesar do PLAN.md pedir isso citando `lib/queimas/formato.ts` como molde: esse
+próprio arquivo documenta ter dispensado `date-fns` conscientemente, e o pacote nem está
+instalado) e `lib/inicio/textos.ts` (quatro frases de erro próprias, uma por bloco, D-09).
+`lib/agenda/espaco.ts` fixa `LUGARES_DO_ESPACO = 10` — 🔴 **veio do protótipo aprovado, não de
+medição do espaço; pede confirmação do dono.** O mecanismo de esqueleto/erro/retentativa
+(`BlocoDoInicio`/`BlocoEsqueleto`/`TentarDeNovo`) nasceu provado com um bloco só (Agenda de hoje,
+com a linha permanente "Agora no espaço: N de 10 lugares", D-07) antes de existirem quatro
+(Tarefa 1, traçador). `lib/financeiro/vencimentos.ts` (`contasQueVencem`, sete dias, D-05) e
+`lib/financeiro/navegacao.ts` (`hrefDoCaixa`) resolvem D-06: "Paguei"/"Recebi" são links para o
+Caixa NA PARCELA (`?parcelaFoco=<uuid>`, novo em `financeiro/page.tsx`/`listas-caixa.tsx`, com
+destaque e rolagem até a linha), nunca uma confirmação — o briefing venceu o protótipo aqui, por
+ser regra de dado. `lib/encomendas/producao-em-andamento.ts` torna o estado que o redesenho da
+Produção ainda vai decidir (D-10) irrepresentável POR TIPO — `LinhaDeProducao.etapaAtual` só
+aceita as seis etapas reais do módulo, não um `if` que testa e pula. Três commits: `fbdecb2`
+(Tarefa 1), `2faca5b` (Tarefa 2), `3f84cca` (Tarefa 3).
+🔧 **Quatro invocações de `npm run test:e2e -- --grep "inicio"`** (acima do orçamento de uma por
+tarefa do CLAUDE.md, mesma exceção documentada no plano 05): as três primeiras corrigiram bugs no
+PRÓPRIO teste novo — ordem dos blocos lida antes do streaming do `Suspense` resolver (faltava
+`toHaveCount` antes do `evaluateAll`), `toHaveText` exato onde precisava de `toContainText`
+(o testid cobre o contêiner inteiro da linha de ocupação, não só o número), e um `strict mode
+violation` porque desktop/celular rodam em paralelo contra o mesmo banco e criam duas contas
+concorrentes com o mesmo texto "Paguei" (corrigido com `data-testid="inicio-vence-linha"` novo
+por linha, não previsto na tabela de artefatos do plano). Quarta invocação: 46/46 (23 casos × 2
+projetos). Três testes e2e existentes ajustados por consequência DIRETA da remoção do painel
+antigo — `design-system.spec.ts` (âncora de fonte trocada de "Encomendas por etapa" para "Agenda
+de hoje"; a correção "Encomendas"→"Produção" no Ponto 3 já vinha quebrada desde o plano 05,
+descoberta e corrigida no caminho), `queimas-banner.spec.ts` (as duas linhas que liam o cartão
+"Fornos em atenção" do painel removidas — PNL-04 fica fora do Início por decisão do CONTEXT.md),
+`sessao.spec.ts` (âncora trocada de "SEU DIA HOJE" para o heading da saudação). GES-07, GES-08 e
+GES-09 e GES-11 marcadas como concluídas. `npm run verificar` limpo (1267 testes unitários).
+Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-06-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):
@@ -506,7 +540,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 97% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
+Progress: [██████████] 98% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
 congelado de quando a Fase 04.4 fechou; `gsd_run query state.update-progress` da execução do
 plano 04.6-03 encontrou esta linha (a única "Progress:" do arquivo, dentro da seção histórica)
 e a bumpou por engano para 94% — revertido aqui de propósito, porque este parágrafo é um

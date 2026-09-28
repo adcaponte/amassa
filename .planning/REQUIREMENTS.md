@@ -262,15 +262,15 @@
 
 **Início**
 
-- [ ] **GES-07**: O Início mostra, nesta ordem: Agenda de hoje (com "Agora no espaço: N de M
+- [x] **GES-07**: O Início mostra, nesta ordem: Agenda de hoje (com "Agora no espaço: N de M
   lugares"), O que vence, Produção, Estoque acabando e Anotações. **Sem saldo** (decisão do
   dono). Depois dos blocos vêm as pílulas de atalho para os módulos fora da barra e o índice de
   todos os módulos
 
-- [ ] **GES-08**: Cada bloco tem estado **vazio, de carregamento e de erro próprios**, com as
+- [x] **GES-08**: Cada bloco tem estado **vazio, de carregamento e de erro próprios**, com as
   frases do protótipo. Bloco que falha não derruba a página: o erro fica só naquele bloco
 
-- [ ] **GES-09**: Cada bloco consulta o seu módulo por `lib/<modulo>/consultas`; o Início **não
+- [x] **GES-09**: Cada bloco consulta o seu módulo por `lib/<modulo>/consultas`; o Início **não
   tem regra de negócio própria**. Bloco de módulo que ainda não existe mostra só o estado vazio
 
 - [ ] **GES-10**: As anotações são **uma folha só, da casa** — tabela de uma linha, o que um
@@ -278,7 +278,7 @@
   e avisam se o texto mudou no servidor antes de sobrescrever. Texto puro, tamanho validado no
   servidor, dentro do backup por estar no banco
 
-- [ ] **GES-11**: A saudação usa o nome do usuário logado e a data de hoje
+- [x] **GES-11**: A saudação usa o nome do usuário logado e a data de hoje
 
 **Navegação**
 
@@ -578,11 +578,11 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-04 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-05 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-06 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-07 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-08 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-09 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-07 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-08 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-09 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-10 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-11 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-11 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-12 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-13 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-14 | Phase 04.6 — /gestao, Início e site público | Complete |

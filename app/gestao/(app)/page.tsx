@@ -42,8 +42,11 @@ export default async function Inicio() {
 
       <PilulasDeAtalho />
 
-      {/* A grade dos blocos (GES-07): uma coluna no celular, duas a partir de 900px, como o
-          protótipo. Ordem fixa: Agenda de hoje · O que vence · Produção · Estoque acabando · e,
+      {/* A grade dos blocos (GES-07): uma coluna no celular, duas a partir do breakpoint `md`
+          do Tailwind (768px) — aproximação do 900px do protótipo, mesma convenção já usada em
+          `listas-caixa.tsx`/`painel-venda.tsx` para os breakpoints do UI-SPEC que não caem
+          exatamente numa das escalas padrão do Tailwind. Ordem fixa: Agenda de hoje · O que
+          vence · Produção · Estoque acabando · e,
           a partir do plano 07, Anotações da casa (5º bloco — a posição dele já fica marcada
           abaixo, sem editar a ordem dos quatro). Cada bloco entra no seu PRÓPRIO `Suspense`
           (D-09): um `Suspense` único desfaria duas coisas de uma vez — o esqueleto deixaria de
