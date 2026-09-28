@@ -69,6 +69,9 @@ const TABELAS_ESPERADAS = [
   "orcamento_fotos",
   "orcamento_revisoes",
   "contadores_orcamento",
+  // Fase 04.6, plano 07 — Anotações da casa (migração 0022_anotacoes-da-casa). Permanente, não
+  // sai com a Abertura — não entra em TABELAS_DA_REMOCAO_ABERTURA.
+  "anotacoes_da_casa",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -1804,6 +1807,137 @@ async function conferirCorrecaoDoFusoDaSemente(cliente) {
   );
 }
 
+// Fase 04.6, plano 07 (D-08/GES-10) — Anotações da casa: a semente, a garantia de linha única,
+// o gatilho, e a PRIMEIRA prova de detecção de escrita velha concorrente deste projeto. Não
+// havia precedente a copiar: o mapa de padrões da fase (04.6-PATTERNS.md) achou zero casos de
+// comparação "o que eu vi" contra "o que está agora" em todo o repositório antes deste plano.
+async function conferirAnotacoesDaCasa(cliente) {
+  console.log("  conferirAnotacoesDaCasa...");
+
+  // (a) A semente existe: exatamente 1 linha, texto vazio, salvo_por nulo ("ninguém salvou
+  // ainda") — é ela que faz lerFolhaDaCasa() nunca precisar tratar "a folha não existe".
+  const { rows: sementeRows } = await cliente.query(
+    "select texto, salvo_por from anotacoes_da_casa",
+  );
+  afirmar(
+    sementeRows.length === 1,
+    `Deveria existir exatamente 1 linha semeada em anotacoes_da_casa, vieram ${sementeRows.length}.`,
+  );
+  afirmar(
+    sementeRows[0].texto === "",
+    `A linha semeada deveria ter texto vazio, veio "${sementeRows[0].texto}".`,
+  );
+  afirmar(
+    sementeRows[0].salvo_por === null,
+    "A linha semeada deveria ter salvo_por nulo (ninguém salvou ainda) — veio um valor.",
+  );
+
+  // (b) A folha é única: um segundo insert é recusado pela restrição unique + check de
+  // linha_unica (D-08: a garantia mora no banco, não na disciplina da aplicação).
+  let segundoInsertFalhou = false;
+  try {
+    await cliente.query("insert into anotacoes_da_casa (texto) values ('uma segunda linha')");
+  } catch {
+    segundoInsertFalhou = true;
+  }
+  afirmar(
+    segundoInsertFalhou,
+    "Um segundo insert em anotacoes_da_casa deveria ter sido recusado pela restrição de linha " +
+      "única (unique + check sobre linha_unica).",
+  );
+
+  // (c) O gatilho funciona: um update de texto muda atualizado_em, e o valor novo é MAIOR que o
+  // anterior — é este gatilho (nunca a aplicação) que mantém a marca de versão que
+  // decidirGravacao compara.
+  const { rows: antesGatilho } = await cliente.query(
+    "select atualizado_em from anotacoes_da_casa",
+  );
+  const atualizadoAntesDoGatilho = antesGatilho[0].atualizado_em;
+  // Pausa pequena, mesma razão de conferirTriggerFuncionando (usuarios) acima: sem ela, "antes"
+  // e "depois" podem cair no mesmo microssegundo por coincidência de relógio, não por defeito.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const { rows: depoisGatilho } = await cliente.query(
+    "update anotacoes_da_casa set texto = 'Prova do gatilho (script de migração)' returning atualizado_em",
+  );
+  const atualizadoDepoisDoGatilho = depoisGatilho[0].atualizado_em;
+  afirmar(
+    new Date(atualizadoDepoisDoGatilho).getTime() > new Date(atualizadoAntesDoGatilho).getTime(),
+    "atualizado_em não avançou depois de um update que não mencionou essa coluna — o gatilho " +
+      "tocar_atualizado_em_anotacoes_da_casa não está funcionando de verdade.",
+  );
+
+  // (d) 🔴 A prova de concorrência — duas transações de VERDADE, no molde de
+  // conferirNumeracaoConcorrenteDeOrcamento (04.5-01) acima. `vistoEmComum` é o instante que as
+  // DUAS transações "viram" antes de qualquer uma delas escrever — o mesmo papel que o
+  // `atualizadoEm` capturado ao abrir a tela cumpre para dois gestores de verdade.
+  const { rows: comumRows } = await cliente.query("select atualizado_em from anotacoes_da_casa");
+  const vistoEmComumMs = new Date(comumRows[0].atualizado_em).getTime();
+
+  const conexaoA = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  const conexaoB = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await Promise.all([conexaoA.connect(), conexaoB.connect()]);
+
+  try {
+    // A MESMA sequência que lib/anotacoes/acoes.ts::salvarAnotacoes usa dentro da transação:
+    // `select ... for update` trava a linha única (a segunda conexão fica bloqueada dentro do
+    // próprio servidor até a primeira commitar — nenhum "for update" explícito seria necessário
+    // se o Postgres não serializasse aqui, exatamente como a numeração de orçamento acima); só
+    // DEPOIS de travada é que o atualizado_em fresco é comparado contra o vistoEmComum captado
+    // ANTES de qualquer uma das duas começar. Quem chega primeiro grava; quem chega depois vê o
+    // atualizado_em JÁ avançado pela primeira, não bate com o que tinha visto, e é avisada — sem
+    // nunca sobrescrever o texto da primeira.
+    async function travarCompararEGravar(conexao, textoCandidato) {
+      await conexao.query("begin");
+      const { rows } = await conexao.query(
+        "select atualizado_em from anotacoes_da_casa where linha_unica for update",
+      );
+      const atualizadoEmNoServidorMs = new Date(rows[0].atualizado_em).getTime();
+      const decisao = atualizadoEmNoServidorMs === vistoEmComumMs ? "gravar" : "avisar";
+      if (decisao === "gravar") {
+        await conexao.query("update anotacoes_da_casa set texto = $1 where linha_unica", [
+          textoCandidato,
+        ]);
+      }
+      await conexao.query("commit");
+      return decisao;
+    }
+
+    const [decisaoA, decisaoB] = await Promise.all([
+      travarCompararEGravar(conexaoA, "Recado da primeira transação (prova de migração)"),
+      travarCompararEGravar(conexaoB, "Recado da segunda transação — escrita velha, nunca deveria vencer"),
+    ]);
+
+    afirmar(
+      [decisaoA, decisaoB].filter((decisao) => decisao === "gravar").length === 1,
+      `Exatamente UMA das duas transações concorrentes deveria gravar, vieram: A="${decisaoA}", B="${decisaoB}".`,
+    );
+    afirmar(
+      [decisaoA, decisaoB].filter((decisao) => decisao === "avisar").length === 1,
+      `Exatamente UMA das duas transações concorrentes deveria ser avisada (escrita velha), vieram: A="${decisaoA}", B="${decisaoB}".`,
+    );
+
+    const { rows: textoFinalRows } = await cliente.query(
+      "select texto from anotacoes_da_casa",
+    );
+    const textoDaQueGravou =
+      decisaoA === "gravar"
+        ? "Recado da primeira transação (prova de migração)"
+        : "Recado da segunda transação — escrita velha, nunca deveria vencer";
+    afirmar(
+      textoFinalRows[0].texto === textoDaQueGravou,
+      `O texto no banco deveria ser o da transação que realmente gravou ("${textoDaQueGravou}"), ` +
+        `veio "${textoFinalRows[0].texto}" — a segunda transação (escrita velha) não deveria ter ` +
+        "conseguido sobrescrever a primeira em silêncio.",
+    );
+  } finally {
+    await Promise.all([conexaoA.end(), conexaoB.end()]);
+  }
+
+  // Faxina: devolve a folha ao estado de semente — as conferências deste script rodam em
+  // sequência sobre o MESMO banco, e um texto de prova sobrando não é dado real de produção.
+  await cliente.query("update anotacoes_da_casa set texto = '', salvo_por = null");
+}
+
 // Retrato do CONTEÚDO das três tabelas da Abertura (contagem embutida no próprio JSON, ordenado
 // por id) — comparado antes/depois da prova da virada para confirmar que o script de importação
 // (04.4-04-PLAN.md, Tarefa 2) só LÊ `abertura_itens` e nunca escreve em tabela nenhuma da
@@ -2247,6 +2381,7 @@ async function conferirBanco() {
     await conferirNumeracaoConcorrenteDeOrcamento();
     await conferirSementeDeParametros(cliente);
     await conferirCorrecaoDoFusoDaSemente(cliente);
+    await conferirAnotacoesDaCasa(cliente);
   } finally {
     await cliente.end();
   }

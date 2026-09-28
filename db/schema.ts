@@ -1298,3 +1298,37 @@ export const contadoresOrcamento = pgTable(
     ),
   ],
 );
+
+// Fase 04.6, plano 07 — Anotações da casa (migração 0022, D-08/GES-10): uma folha só,
+// compartilhada por toda a casa — o que um escreve, o outro vê. `linhaUnica` + `unique` + `check`
+// é o MESMO molde de `aberturaConfiguracao`/`configuracaoFinanceira` acima: a garantia de linha
+// única mora no BANCO, não na disciplina da aplicação. `salvoPor` é ANULÁVEL — nulo significa
+// "ninguém salvou ainda", o estado que a semente da migração 0022 cria (mesmo comentário de
+// `parametrosPrecificacao.criadoPor` acima: nulo = nasceu com a migração, sem usuário logado).
+//
+// 🔴 `atualizadoEm` É A MARCA DE VERSÃO usada para detectar escrita velha (D-08): quem gravá-lo à
+// mão, em vez de deixar o gatilho `tocar_atualizado_em_anotacoes_da_casa` (migração 0022) fazer
+// isso, transforma a detecção numa comparação que a própria aplicação controla — e ela deixa de
+// detectar qualquer coisa. `decidirGravacao` (lib/anotacoes/folha.ts) compara este valor DENTRO
+// da transação que grava, depois de travar a linha com `select ... for update` — comparado fora
+// da transação, a janela entre ler e escrever é exatamente o defeito que D-08 pede para fechar.
+// `texto` tem `check` de comprimento espelhando o limite do Zod (`LIMITE_DE_CARACTERES` em
+// `lib/anotacoes/folha.ts`, 10.000) — `length()` do Postgres conta caracteres, não bytes.
+export const anotacoesDaCasa = pgTable(
+  "anotacoes_da_casa",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    linhaUnica: boolean("linha_unica").notNull().default(true),
+    texto: text("texto").notNull().default(""),
+    salvoPor: uuid("salvo_por").references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("anotacoes_da_casa_linha_unica_uk").on(tabela.linhaUnica),
+    check("anotacoes_da_casa_linha_unica", sql`${tabela.linhaUnica}`),
+    check("anotacoes_da_casa_texto_comprimento", sql`length(${tabela.texto}) <= 10000`),
+  ],
+);
