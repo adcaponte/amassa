@@ -9,16 +9,21 @@ type SecaoProps = {
   id: string;
   children: ReactNode;
   // Slot opcional para a arte decorativa (`Decoracao`) — posicionada atrás do conteúdo
-  // (`z-0`), nunca à frente. Nenhuma seção deste plano usa isto ainda; o plano 04 é quem
-  // preenche `#espaco`, `#agenda`, `#encomendas` e `#onde`.
+  // (`z-0`), nunca à frente. Usado a partir do plano 04 (`#espaco`, `#agenda`, `#encomendas`,
+  // `#onde`).
   decoracao?: ReactNode;
   className?: string;
+  // `data-testid` de cada seção pública (`site-espaco`, `site-agenda`, `site-encomendas`,
+  // `site-onde` — plano 04): passa direto para o `<section>`, nunca para a `div` interna, para
+  // o e2e localizar a seção inteira (inclusive a arte decorativa) por um seletor só.
+  testId?: string;
 };
 
-export function Secao({ id, children, decoracao, className }: SecaoProps) {
+export function Secao({ id, children, decoracao, className, testId }: SecaoProps) {
   return (
     <section
       id={id}
+      data-testid={testId}
       className={`relative overflow-hidden scroll-mt-[var(--altura-barra-site)] py-14 md:py-22 ${className ?? ""}`}
     >
       {decoracao}

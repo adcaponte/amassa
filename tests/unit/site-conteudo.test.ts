@@ -100,3 +100,55 @@ describe("conteudo/site.ts — conteúdo do site público (D-15, D-17, D-18, D-2
     expect(conteudo.match(/^\s*(let|var) /m)).toBeNull();
   });
 });
+
+// Fase 04.6, plano 04, Tarefa 1: os cinco casos que o plano manda acrescentar — cobrem o
+// arquivo INTEIRO (não só as quatro chaves de preço já nomeadas acima), porque as seções novas
+// (`#espaco`, `#encomendas`, `#onde`) trouxeram texto que os testes de cima nunca leram.
+describe("conteudo/site.ts — os cinco casos do plano 04 (D-04.6-04)", () => {
+  function coletarStrings(valor: unknown, acumulador: string[]) {
+    if (typeof valor === "string") {
+      acumulador.push(valor);
+      return;
+    }
+    if (valor && typeof valor === "object") {
+      for (const filho of Object.values(valor)) coletarStrings(filho, acumulador);
+    }
+  }
+
+  it("(a) nenhum trecho do arquivo inteiro contém R$ nem valor em dinheiro com vírgula de centavos", () => {
+    const strings: string[] = [];
+    coletarStrings(CONTEUDO_SITE, strings);
+    expect(strings.length).toBeGreaterThan(0);
+    for (const texto of strings) {
+      expect(texto, `"${texto}" não deveria conter "R$"`).not.toMatch(/R\$/);
+      expect(texto, `"${texto}" não deveria conter valor em dinheiro (dígitos com vírgula)`).not.toMatch(
+        /\d+,\d{2}/,
+      );
+    }
+  });
+
+  it("(b) endereço e 'quem somos' guardam colchete literal onde falta dado real (D-14)", () => {
+    expect(CONTEUDO_SITE.contato.endereco).toContain("[");
+    expect(CONTEUDO_SITE.contato.endereco).toContain("]");
+    expect(CONTEUDO_SITE.rodape.quemSomos).toContain("[");
+    expect(CONTEUDO_SITE.rodape.quemSomos).toContain("]");
+  });
+
+  it("(c) SLOTS_DE_IMAGEM.fachada e .mapa continuam sem arquivo (D-20)", () => {
+    expect(SLOTS_DE_IMAGEM.fachada.arquivo).toBeNull();
+    expect(SLOTS_DE_IMAGEM.mapa.arquivo).toBeNull();
+  });
+
+  it("(d) todo slot com arquivo não nulo (os sete, hoje) tem alt não vazio", () => {
+    for (const slot of Object.values(SLOTS_DE_IMAGEM)) {
+      if (slot.arquivo !== null) {
+        expect(slot.alt.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("(e) nenhum trecho do arquivo menciona a plataforma interna (a palavra, não só o caminho)", () => {
+    const conteudo = readFileSync(join(process.cwd(), "conteudo/site.ts"), "utf-8");
+    expect(conteudo.toLowerCase()).not.toContain("gestao");
+  });
+});
