@@ -1,80 +1,66 @@
-import Link from "next/link";
+import { Suspense } from "react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { fornosQuePrecisamDeAtencao, type FornoEmAtencao } from "@/lib/queimas/consultas";
-import { fraseDoBanner, prefixoDoBanner } from "@/lib/queimas/textos";
-import { CartaoPainel } from "@/components/amassa/cartao-painel";
-import { EstadoErro } from "@/components/amassa/estado-erro";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { dataLongaEmPortugues, saudacaoDe } from "@/lib/inicio/saudacao";
+import { BlocoAgendaDeHoje } from "@/components/amassa/inicio/bloco-agenda-de-hoje";
+import { BlocoEsqueleto } from "@/components/amassa/inicio/bloco-esqueleto";
+import { IndiceDosModulos } from "@/components/amassa/inicio/indice-dos-modulos";
+import { PilulasDeAtalho } from "@/components/amassa/inicio/pilulas-de-atalho";
 
-// Painel inicial (D-02, D-16): substitui a rota provisória da Fase 2a. `exigirUsuario()`
-// continua na primeira linha — é o padrão de toda página protegida, não uma exceção desta
-// tela. Os quatro cartões nascem vazios; cada um ganha dado real quando a fase do módulo
-// correspondente entrar (Encomendas: Fase 3, Aulas: Fase 5, Fornos: Fase 4, Estoque: Fase 6).
-// O painel de verdade, respondendo "o que preciso fazer hoje?", é a Fase 7 (PNL-01). Esta tela
-// não usa `CabecalhoPagina` — a saudação já faz esse papel (D-02).
-export default async function Painel() {
+// O Início de verdade (D-21): substitui o painel de quatro cartões vazios da Fase 2
+// (`CartaoPainel`, ainda usado por outras telas — só deixou de ser importado aqui). Consome os
+// módulos e depende da navegação final (plano 05) para fazer sentido — por isso vem por último
+// na ordem da fase. A autorização abre o corpo da função, como PRIMEIRA instrução — regra da
+// casa, não exceção desta tela (T-04.6-27, verificado por `npm run verificar-acoes` e pelo
+// critério de aceite da Tarefa 1). Esta página não usa `CabecalhoPagina` — a saudação já faz
+// esse papel, como sempre fez.
+//
+// PNL-04 ("fornos em atenção" no painel) fica de fora desta tela por decisão já registrada em
+// `04.6-CONTEXT.md`: não está entre os blocos do protótipo aprovado. O cartão antigo
+// (`cartao-painel-fornos-em-atencao`) e o texto "SEU DIA HOJE" saem daqui — o banner de
+// `/gestao/queimas` (FOR-06) continua existindo, intacto, na tela do próprio módulo.
+export default async function Inicio() {
   const usuario = await exigirUsuario();
-
-  // FOR-13/E11 (plano 04-05): a consulta pode falhar sem derrubar o painel inteiro — os outros
-  // três cartões continuam de pé. Erro engolido em silêncio faria um forno crítico parecer "tudo
-  // em dia" (T-04-21), por isso o erro vira um `EstadoErro` DENTRO do próprio cartão, nunca um
-  // cartão populado pela metade.
-  let fornosEmAtencao: FornoEmAtencao[] = [];
-  let falhaAoCarregarFornos = false;
-  try {
-    fornosEmAtencao = await fornosQuePrecisamDeAtencao();
-  } catch (erro) {
-    console.error("Falha ao carregar fornos em atenção no painel inicial:", erro);
-    falhaAoCarregarFornos = true;
-  }
+  const hoje = hojeEmBrasilia(new Date());
+  const sujeito = saudacaoDe(usuario);
+  const dataDeHoje = dataLongaEmPortugues(hoje);
 
   return (
     <div className="flex flex-col gap-8 px-6 py-8 md:px-8">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-display text-foreground">Olá, {usuario.nome}.</h1>
-        <p className="text-micro uppercase text-muted-foreground">SEU DIA HOJE</p>
+      <div className="flex flex-col gap-1">
+        <h1 data-testid="inicio-saudacao" className="text-display text-foreground">
+          Olá, {sujeito}.
+        </h1>
+        <p data-testid="inicio-data" className="text-apoio text-muted-foreground">
+          {dataDeHoje}
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <CartaoPainel titulo="Encomendas por etapa" vazio="Nenhuma encomenda em andamento." />
-        <CartaoPainel titulo="Aulas de hoje" vazio="Nenhuma aula hoje." />
+      <PilulasDeAtalho />
 
-        {/* Zero fornos em atenção → o cartão inteiro não renderiza (mesma disciplina do banner
-            de /queimas, E5) — a ausência é o sinal de normalidade, igual ao resto do módulo. */}
-        {falhaAoCarregarFornos ? (
-          <CartaoPainel titulo="Fornos em atenção" vazio="Nenhum forno em atenção.">
-            <EstadoErro
-              titulo="Algo não funcionou."
-              corpo="Não deu para carregar os fornos em atenção."
-            />
-          </CartaoPainel>
-        ) : (
-          fornosEmAtencao.length > 0 && (
-            <CartaoPainel titulo="Fornos em atenção" vazio="Nenhum forno em atenção.">
-              <div className="flex flex-col gap-3" data-testid="cartao-painel-fornos-em-atencao">
-                {/* Mesmo par de funções do banner de /queimas (`fraseDoBanner`/`prefixoDoBanner`,
-                    lib/queimas/textos.ts) — nunca uma segunda redação da mesma frase (E11). */}
-                <p className="text-apoio text-foreground [overflow-wrap:anywhere]">
-                  <strong className="font-semibold">
-                    {prefixoDoBanner(fornosEmAtencao.length)}
-                  </strong>
-                  {fraseDoBanner(fornosEmAtencao).slice(
-                    prefixoDoBanner(fornosEmAtencao.length).length,
-                  )}
-                </p>
-                <Link
-                  href="/gestao/queimas"
-                  className="text-apoio text-acento focus-visible:ring-ring inline-flex min-h-[44px] w-fit items-center rounded-md font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  Ver fornos
-                </Link>
-              </div>
-            </CartaoPainel>
-          )
-        )}
+      {/* A grade dos blocos (GES-07): uma coluna no celular, duas a partir de 900px, como o
+          protótipo. Ordem fixa: Agenda de hoje · O que vence · Produção · Estoque acabando · e,
+          a partir do plano 07, Anotações da casa (5º bloco — a posição dele já fica marcada
+          abaixo, sem editar a ordem dos quatro). Cada bloco entra no seu PRÓPRIO `Suspense`
+          (D-09): um `Suspense` único desfaria duas coisas de uma vez — o esqueleto deixaria de
+          ser por bloco, e uma leitura lenta seguraria a página inteira.
 
-        <CartaoPainel titulo="Estoque baixo" vazio="Nenhum material em alerta." />
+          Nesta tarefa (1/3) só o bloco da Agenda existe de ponta a ponta — é o traçador que
+          prova o mecanismo de esqueleto/erro/retentativa antes de existirem quatro blocos. Os
+          outros três entram nas Tarefas 2 e 3 deste mesmo plano. */}
+      <div data-testid="inicio-blocos" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Suspense fallback={<BlocoEsqueleto titulo="Agenda de hoje" linhas={3} />}>
+          <BlocoAgendaDeHoje />
+        </Suspense>
+
+        {/* Tarefa 2 — BlocoOQueVence entra aqui, na segunda posição. */}
+        {/* Tarefa 3 — BlocoProducao entra aqui, na terceira posição. */}
+        {/* Tarefa 3 — BlocoEstoque entra aqui, na quarta posição. */}
+        {/* Plano 07 — o 5º bloco (Anotações da casa) entra aqui, sem mexer nos quatro acima. */}
       </div>
+
+      <IndiceDosModulos />
     </div>
   );
 }

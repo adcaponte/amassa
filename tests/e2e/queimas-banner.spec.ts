@@ -1,10 +1,16 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-// O banner agregado de `/gestao/queimas` (FOR-06), o cartão "Fornos em atenção" do painel inicial
-// (FOR-13) e o filtro Ativos/Desativados/Todos (a metade final de FOR-11) — 04-05-PLAN.md,
-// Tarefa 3. Uma única invocação de `npm run test:e2e --grep "banner de fornos"` para todo o
-// arquivo — o describe de topo entra no título de todos os casos abaixo, então o `--grep` do
-// comando de verificação da Tarefa 3 casa com os quatro.
+// O banner agregado de `/gestao/queimas` (FOR-06) e o filtro Ativos/Desativados/Todos (a metade
+// final de FOR-11) — 04-05-PLAN.md, Tarefa 3. Uma única invocação de
+// `npm run test:e2e --grep "banner de fornos"` para todo o arquivo — o describe de topo entra no
+// título de todos os casos abaixo, então o `--grep` do comando de verificação da Tarefa 3 casa
+// com os quatro.
+//
+// O cartão "Fornos em atenção" do painel inicial (FOR-13/E11) que este arquivo também cobria
+// até a Fase 04.6 saiu do painel: o Início de verdade (plano 06) não tem esse bloco — PNL-04
+// fica de fora por decisão já registrada em `04.6-CONTEXT.md`. O primeiro caso abaixo mantém a
+// checagem condicional (`if count > 0`) por segurança, mas o testid nunca mais existe; o
+// terceiro caso teve as duas linhas do painel removidas (ver comentário no próprio caso).
 //
 // O primeiro caso não afirma nenhuma condição global do banco: só checa que o forno criado pelo
 // PRÓPRIO teste não aparece no banner/painel, com checagem condicional para o caso de o banner
@@ -160,13 +166,12 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     // pode ler no singular aqui — assert forte, não dependente da gramática genérica.
     expect(texto).toMatch(/^\d+ fornos precisam de atenção:/);
 
-    // E11: o mesmo aviso chega ao painel inicial, com o forno crítico visível.
-    await page.goto("/gestao");
-    const cartaoPainelTexto = await page
-      .getByTestId("cartao-painel-fornos-em-atencao")
-      .innerText();
-    expect(cartaoPainelTexto).toContain(nomeCritico);
-    await expect(page.getByRole("link", { name: "Ver fornos" })).toBeVisible();
+    // E11 (Fase 4) pedia que o mesmo aviso chegasse ao painel inicial de então — o cartão
+    // "Fornos em atenção" (`cartao-painel-fornos-em-atencao`) e o link "Ver fornos" que este
+    // teste checava aqui. Fase 04.6, plano 06: o Início de verdade substitui aquele painel, e
+    // PNL-04 ("fornos em atenção" no painel) fica de fora por decisão já registrada em
+    // `04.6-CONTEXT.md` — não está entre os blocos do protótipo aprovado. O banner de
+    // `/gestao/queimas` (FOR-06), provado acima, continua sendo o lugar real do aviso.
   });
 
   // Este caso PRECISA que nenhum forno desativado exista no banco para provar o vazio filtrado —

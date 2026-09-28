@@ -66,21 +66,26 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
       .getByRole("heading", { name: /^Olá, / })
       .evaluate((el) => getComputedStyle(el).fontFamily);
 
-    // Ponto 2 — título de um cartão do painel, papel `título`. `CardTitle` (shadcn) é um
+    // Ponto 2 — título de um bloco do Início, papel `título`. `CardTitle` (shadcn) é um
     // <div data-slot="card-title">, não um heading — sem papel de acessibilidade próprio —
-    // então a busca é pelo texto exato, não por getByRole.
+    // então a busca é pelo texto exato, não por getByRole. Fase 04.6, plano 06: o painel de
+    // quatro cartões vazios ("Encomendas por etapa") virou o Início de verdade — o bloco
+    // "Agenda de hoje" é o âncora nova, mesmo papel `título`, mesmo componente por baixo
+    // (`BlocoDoInicio`, que reaproveita `CardTitle`).
     const familiaCartao = await page
-      .getByText("Encomendas por etapa", { exact: true })
+      .getByText("Agenda de hoje", { exact: true })
       .evaluate((el) => getComputedStyle(el).fontFamily);
 
     // O corpo da própria rota autenticada — mesma fonte em toda a aplicação, então medir
     // aqui é equivalente a medir em /login.
     const familiaCorpo = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
 
-    // Ponto 3 — título de uma tela de módulo (`CabecalhoPagina`, papel `display`).
+    // Ponto 3 — título de uma tela de módulo (`CabecalhoPagina`, papel `display`). Fase 04.6,
+    // plano 05 (D-13): "Produção" é o rótulo novo de Encomendas — a rota continua
+    // `/gestao/encomendas`, só o texto do heading mudou.
     await page.goto("/gestao/encomendas");
     const familiaTituloModulo = await page
-      .getByRole("heading", { name: "Encomendas", level: 1 })
+      .getByRole("heading", { name: "Produção", level: 1 })
       .evaluate((el) => getComputedStyle(el).fontFamily);
 
     // Ancorado no início da lista de fontes — não basta "conter" Archivo Narrow em algum

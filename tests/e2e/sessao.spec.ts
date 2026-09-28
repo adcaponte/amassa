@@ -118,13 +118,15 @@ test.describe("sessão", () => {
 
     // O caso que o cabeçalho Cache-Control: no-store da Tarefa 1 existe para fazer passar:
     // sem ele, o navegador serve a tela protegida do próprio cache (bfcache) em vez de pedir
-    // de novo ao servidor — e o servidor, sem sessão, teria redirecionado. O rótulo "SEU DIA
-    // HOJE" é conteúdo exclusivo do painel real (02b-03); se o bfcache servisse a tela
-    // protegida do cache, ele apareceria aqui.
+    // de novo ao servidor — e o servidor, sem sessão, teria redirecionado. A saudação
+    // ("Olá, ...") é conteúdo exclusivo do Início real — se o bfcache servisse a tela
+    // protegida do cache, ela apareceria aqui. Fase 04.6, plano 06: o rótulo antigo "SEU DIA
+    // HOJE" saiu do Início; o heading da saudação (já usado acima, linha 113) é a mesma âncora,
+    // continua exclusiva da tela autenticada.
     await page.goBack();
 
     await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
-    await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Olá, / })).not.toBeVisible();
 
     // O voltar só olha o histórico; a pergunta de AUTH-06 é se o SERVIDOR ainda aceita a sessão.
     // Um documento novo (sem histórico, sem cache) responde isso. Antes de o middleware parar de
@@ -133,7 +135,7 @@ test.describe("sessão", () => {
     // abria o painel: 28 de 80 repetições, inclusive casos em que o voltar acima passava.
     await page.goto("/gestao");
     await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
-    await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Olá, / })).not.toBeVisible();
   });
 
   test("conta desativada perde o acesso na requisicao seguinte e a linha continua no banco", async ({
