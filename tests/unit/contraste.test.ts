@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { luminanciaRelativa, razaoDeContraste } from "@/lib/acessibilidade/contraste";
+import { ORDEM_DAS_ETAPAS } from "@/lib/encomendas/cronograma";
 
 // O briefing do site (BRIEFING-site.md §4) manda CONFERIR o contraste da faixa amarela, não
 // afirmá-lo — "a faixa amarela `--sol` com texto `--tinta` passa; conferir". Uma frase de plano
@@ -38,6 +39,14 @@ function resolverVariavelCss(nomeDaVariavel: string, saltosRestantes = 5): strin
 
 function tokenDoSite(nome: string): string {
   return resolverVariavelCss(`--color-site-${nome}`);
+}
+
+// Fase 04.6: o mesmo resolvedor, agora para os tokens da PLATAFORMA. Até aqui este arquivo só
+// media o site (SIT-10), e foi por isso que o plano 04.6-08 descobriu por LEITURA, na varredura
+// completa, que o bloco Produção pintava texto branco sobre `--color-secagem` a 1,94:1 — o
+// módulo de medir existia desde o plano 04, mas nada apontava para as telas de `/gestao`.
+function tokenDaPlataforma(nome: string): string {
+  return resolverVariavelCss(`--color-${nome}`);
 }
 
 describe("lib/acessibilidade/contraste — razaoDeContraste e luminanciaRelativa (SIT-10)", () => {
@@ -103,5 +112,59 @@ describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
     expect(primeira[0]?.url).toMatch(/\/$/);
     expect(primeira[0]?.lastModified).toBeDefined();
     expect(segunda).toEqual(primeira);
+  });
+});
+
+// Fase 04.6, achado do plano 08 — a lacuna que este bloco fecha.
+//
+// `components/amassa/inicio/bloco-producao.tsx` e `components/amassa/encomendas/gantt.tsx`
+// pintam o rótulo da etapa DENTRO de uma pílula cuja cor de fundo é `--color-<etapa>`. A regra
+// da cor do texto é a mesma nos dois: tinta escura na `secagem` (o único token claro da
+// família), branco em todas as outras. Dois problemas que só um teste pega:
+//
+// 1. Um token de etapa pode ser reescrito sem ninguém remedir o par. Foi exatamente o que
+//    aconteceu: `--color-secagem` (#C9B896) dá 1,95:1 contra branco, e o bloco Produção nasceu
+//    com texto branco em cima. Dois tokens hoje passam por pouco — `--color-producao` a 4,71 e
+//    `--color-esmaltacao` a 4,74, contra o mínimo de 4,5 — então um ajuste pequeno de paleta
+//    reprova de verdade.
+// 2. A regra está DUPLICADA em dois componentes. Se um deles mudar e o outro não, a mesma
+//    pílula passa a ter contraste diferente em duas telas.
+//
+// A lista de etapas vem de `ORDEM_DAS_ETAPAS`, não escrita à mão aqui: uma etapa nova sem token
+// (ou com um token que reprova) cai neste teste, não na tela do ateliê.
+describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado do plano 04.6-08)", () => {
+  // A mesma regra dos dois componentes, num lugar só, para o teste poder cobrá-la dos dois.
+  const TINTA_SOBRE_CLARO = "#3A331F";
+  const BRANCO = "#FFFFFF";
+  const corDoTextoDaEtapa = (etapa: string) => (etapa === "secagem" ? TINTA_SOBRE_CLARO : BRANCO);
+
+  it.each(ORDEM_DAS_ETAPAS.map((etapa) => [etapa] as const))(
+    "a pílula da etapa %s passa AA (>= 4.5) com a cor de texto que os componentes escolhem",
+    (etapa) => {
+      const fundo = tokenDaPlataforma(etapa);
+      const texto = corDoTextoDaEtapa(etapa);
+      const razao = razaoDeContraste(fundo, texto);
+      // Achado real se reprovar: o TOKEN muda (ou a regra da cor do texto), nunca o limiar.
+      expect(razao, `--color-${etapa} (${fundo}) sob ${texto} deu ${razao.toFixed(2)}:1`)
+        .toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("a secagem é mesmo o único token de etapa que precisa de texto escuro", () => {
+    const precisamDeEscuro = ORDEM_DAS_ETAPAS.filter(
+      (etapa) => razaoDeContraste(tokenDaPlataforma(etapa), BRANCO) < 4.5,
+    );
+    // Se outro token entrar nesta lista, a regra `secagem ? escuro : branco` dos dois
+    // componentes deixou de ser suficiente — e é isso que precisa mudar, não este número.
+    expect(precisamDeEscuro).toEqual(["secagem"]);
+  });
+
+  it.each([
+    ["components/amassa/inicio/bloco-producao.tsx"],
+    ["components/amassa/encomendas/gantt.tsx"],
+  ])("%s carrega a mesma regra de cor de texto (a duplicação não pode divergir)", (caminho) => {
+    const fonte = readFileSync(join(process.cwd(), caminho), "utf-8");
+    expect(fonte).toContain(TINTA_SOBRE_CLARO);
+    expect(fonte).toMatch(/"secagem"\s*\?/);
   });
 });
