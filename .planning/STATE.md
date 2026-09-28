@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase_name: Financeiro — parte 2
-status: complete
-stopped_at: Completed 04.5-14-PLAN.md — verificacao humana percorrida pelo dono (23/25 de primeira), os dois achados corrigidos, Fase 04.5 CONCLUIDA
-last_updated: "2026-09-27T18:30:00.000Z"
+current_phase_name: Plataforma em /gestao, Início novo, navegação e site público
+status: awaiting-owner
+stopped_at: Fase 04.6 criada e registrada (passo 1 do item 3 da fila). PARADO de proposito no passo 2 — a fila manda nao planejar antes de o dono responder Claude outputs/gestao/DISCUSSAO-PREPARADA.md
+last_updated: "2026-09-28T04:20:00.000Z"
 progress:
-  total_phases: 11
+  total_phases: 12
   completed_phases: 11
   total_plans: 78
   completed_plans: 78
-current_phase: 04.5
-last_activity: 2026-09-27
-last_activity_desc: "Fase 04.5 CONCLUÍDA: 14 de 14 planos. A caminhada humana foi percorrida pelo dono no celular em 27/09/2026 — 23 dos 25 itens passaram de primeira; os dois que não (apagar peça exclusiva; veredito dizendo 'ordem aberta' com a encomenda cancelada) foram corrigidos no plano 14, cada um com o teste que faltava e o RED provado antes"
+current_phase: 04.6
+last_activity: 2026-09-28
+last_activity_desc: "Sessão autônoma de 28/09 (madrugada): Fase 04.6 criada e registrada — protótipos, briefings e 24 requisitos (GES-01..14, SIT-01..10). PARADA no passo 2 esperando o dono responder DISCUSSAO-PREPARADA.md. Também: dois achados do Cowork corrigidos com RED/GREEN, quatro janelas da WINDOWS fechadas com evidência, quatro documentos de estado vencidos corrigidos, e o retrato da suíte e2e escrito antes de as rotas mudarem"
 ---
 
 # Project State
@@ -23,9 +23,34 @@ last_activity_desc: "Fase 04.5 CONCLUÍDA: 14 de 14 planos. A caminhada humana f
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase 04.5 **concluída** em 27/09/2026 (14/14 planos, portão humano cumprido). Próximo: `/gestao` + site público (ordem do ROADMAP).
+**Current focus:** Fase **04.6** (`/gestao`, Início novo, navegação e site público) — registrada em 28/09/2026 e **parada esperando o dono**. A 04.5 fechou em 27/09 (14/14 planos, portão humano cumprido).
 
 ## Current Position
+
+Phase: **04.6 (Plataforma em `/gestao`, Início novo, navegação e site público)** — **registrada,
+não planejada**, em 2026-09-28. É o item 3 de `Claude outputs/FILA-DO-CODE.md`, destravado quando
+a 04.5 fechou.
+
+**O que ficou pronto (passo 1 do item da fila, commit `129e3a0`):** a fase existe no ROADMAP entre
+a 04.5 e a Phase 5, com objetivo, decisões já tomadas, riscos e 8 critérios de sucesso; os dois
+protótipos e os dois briefings estão em `.planning/phases/04.6-gestao-inicio-e-site-publico/`,
+com as 12 imagens; o `REQUIREMENTS.md` ganhou **GES-01..14** (endereço, Início, navegação) e
+**SIT-01..10** (site público), com rastreio e cobertura de 136 para 160.
+
+🔴 **Parada de propósito no passo 2.** A fila é explícita: *"não planeje nem execute antes de o
+Theo responder"*. As perguntas estão em `Claude outputs/gestao/DISCUSSAO-PREPARADA.md`, cada uma
+com recomendação. **Restam quatro que precisam dele** — para onde "Paguei/Recebi" leva, se os
+neutros diferentes entre site e plataforma são intenção, os dois buracos de conteúdo (foto da
+fachada e logo), e quem é a fonte de verdade do preço público — mais uma quinta que eu comecei a
+consertar e revertí (item 10: salvar peça devolve à lista ou reabre a peça?).
+
+**O bloqueador que existia foi resolvido pelo próprio dono, durante a sessão:** a versão 11 do
+protótipo do site desenhou o estado "sem Agenda" — que é o que efetivamente vai ao ar — e ligou
+o WhatsApp de verdade. A cópia da fase foi ressincronizada (commit `c2c8999`).
+
+---
+
+## Posição anterior (Fase 04.5, concluída)
 
 Phase: **04.5 (Financeiro — parte 2: Precificação e Orçamento)** — **CONCLUÍDA em 2026-09-27**,
 com **14 de 14 planos**. A fase nunca fechou por contagem de planos: o portão era
