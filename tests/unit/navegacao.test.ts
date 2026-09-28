@@ -8,6 +8,7 @@ import {
   ITENS_NAVEGACAO_CELULAR,
   ITENS_NAVEGACAO_LATERAL,
 } from "../../lib/navegacao/itens";
+import { PREFIXO_GESTAO, rotaDeGestao } from "../../lib/rotas/gestao";
 
 // Fase 04.6, plano 05 (D-11): a navegação FINAL. As duas listas continuam divergindo de
 // propósito — todo teste abaixo que roda sobre "as duas listas" roda sobre elas
@@ -120,14 +121,37 @@ describe("ITENS_NAVEGACAO_LATERAL (D-11)", () => {
 });
 
 // Caso (c) do plano.
-describe("todo href das duas listas vive sob /gestao", () => {
+//
+// A asserção deriva de `PREFIXO_GESTAO`, importado de `lib/rotas/gestao.ts`, e NÃO do literal
+// "/gestao" escrito aqui. A diferença não é estética: `lib/navegacao/itens.ts` escreve cada
+// `href` à mão, então a constante e as listas podem divergir. Com o literal repetido no teste,
+// trocar `PREFIXO_GESTAO` deixaria este teste vermelho exigindo o prefixo ANTIGO — vermelho pelo
+// motivo errado, fixando o literal em vez de seguir a constante. Derivando, o teste passa a
+// provar coerência entre os dois módulos, que é o que importa. É a mesma classe de defeito que o
+// plano 04.6-02 caçou em 15 `href` literais: 4 quebravam teste e 11 eram latentes até 2027.
+describe(`todo href das duas listas vive sob ${PREFIXO_GESTAO}`, () => {
   for (const { nome, lista } of LISTAS) {
     it(`lista ${nome}`, () => {
       for (const item of lista) {
-        expect(item.href === "/gestao" || item.href.startsWith("/gestao/")).toBe(true);
+        expect(
+          item.href === PREFIXO_GESTAO || item.href.startsWith(`${PREFIXO_GESTAO}/`),
+        ).toBe(true);
       }
     });
   }
+
+  // O portão que o caso acima sozinho não dá: se alguém trocar `PREFIXO_GESTAO` e esquecer as
+  // listas, o teste acima acusa item por item, mas nada diz que o ERRO é a divergência entre os
+  // dois módulos. Este diz, e é o que aparece primeiro na saída do vitest.
+  it("rotaDeGestao() e as listas concordam sobre o prefixo", () => {
+    expect(rotaDeGestao("/")).toBe(PREFIXO_GESTAO);
+    for (const { nome, lista } of LISTAS) {
+      const forasteiros = lista
+        .map((item) => item.href)
+        .filter((href) => href !== PREFIXO_GESTAO && !href.startsWith(`${PREFIXO_GESTAO}/`));
+      expect(forasteiros, `hrefs fora de ${PREFIXO_GESTAO} na lista ${nome}`).toEqual([]);
+    }
+  });
 });
 
 // Casos (d) e (e) do plano — D-13/GES-14: "Produção" é só o rótulo novo, a rota e o ícone do
