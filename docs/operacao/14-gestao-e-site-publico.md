@@ -150,21 +150,49 @@ porta 3000**, serve as duas coisas — o proxy reverso nunca soube (e não preci
 um `/gestao`:
 
 ```caddyfile
+# HTTPS automático (Let's Encrypt), renovação sozinha — nenhuma configuração manual de TLS.
+# Serve o apex e redireciona o www para ele (D-04/D-05).
+
 amassacerrado.com.br {
 	reverse_proxy app:3000
 }
+
+www.amassacerrado.com.br {
+	redir https://amassacerrado.com.br{uri} permanent
+}
 ```
 
-Não há um segundo host, uma segunda porta nem uma regra de caminho a acrescentar. Confira, se
-quiser, que o arquivo no servidor está igual ao do repositório (`docker/Caddyfile`):
+Dez linhas, dois blocos: o apex manda tudo para `app:3000`, e o `www` redireciona para o apex.
+**Nenhum dos dois é específico de caminho** — é por isso que a virada `/gestao` não os toca. Não há
+um segundo host, uma segunda porta nem uma regra de caminho a acrescentar.
+
+Confira, se quiser, comparando o resumo criptográfico do arquivo no servidor com o do repositório:
 
 ```bash
-diff /opt/amassa/Caddyfile <(docker compose run --rm ferramentas cat docker/Caddyfile) && echo "Caddyfile igual ao do repositório — nenhuma mudança necessária."
+sha256sum /opt/amassa/Caddyfile
 ```
 
-**O que você deve ver:** `Caddyfile igual ao do repositório — nenhuma mudança necessária.` Se
-houver diferença, é de uma edição manual anterior, não desta fase — **não edite agora** por causa
-deste roteiro; se precisar mesmo mexer no Caddy por outro motivo, trate como mudança à parte.
+**O que você deve ver:**
+`ef7cf1390e63a592a41ee94cfc81e4f5b272f15fa783f9fe4f8b3e62e2f8ec2e` — o mesmo do
+`docker/Caddyfile` no commit `72b8881`. Se conferir, o arquivo está igual ao do repositório e
+**nenhuma mudança é necessária**.
+
+Se o resumo **divergir**, compare o conteúdo a olho com o bloco de dez linhas acima
+(`cat /opt/amassa/Caddyfile`) antes de concluir qualquer coisa: a causa mais provável é fim de
+linha (o servidor usa LF) ou uma edição manual anterior — **não desta fase**. Nos dois casos,
+**não edite agora** por causa deste roteiro; se precisar mexer no Caddy por outro motivo, trate
+como mudança à parte.
+
+> **Correção de 28/09/2026, durante a execução do próprio roteiro.** Este passo pedia antes
+> `diff /opt/amassa/Caddyfile <(docker compose run --rm ferramentas cat docker/Caddyfile)`. Esse
+> comando **não podia funcionar**: o estágio `ferramentas` do `docker/Dockerfile` copia
+> `package.json`, `tsconfig.json`, `drizzle.config.ts`, `db/`, `scripts/` e `lib/` — nunca
+> `docker/`. Rodado no servidor, devolveu `cat: can't open 'docker/Caddyfile'` e, com o lado
+> direito vazio, um `1,10d0` que **parecia** dizer que o Caddyfile do servidor estava sobrando.
+> Não estava: conferido, ele é igual ao do repositório. O passo também citava só o bloco do apex,
+> omitindo o do `www`, o que faria quem comparasse a olho achar que o servidor tinha um bloco a
+> mais. Os dois erros eram do roteiro, escrito sem ter sido rodado; o veredito do passo ("o Caddy
+> não muda") continua valendo e agora é verificável.
 
 ---
 
