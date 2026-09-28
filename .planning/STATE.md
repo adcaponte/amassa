@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-06-PLAN.md
-last_updated: "2026-09-28T10:19:58.000Z"
+stopped_at: Concluido 04.6-07-PLAN.md
+last_updated: "2026-09-28T11:00:05.795Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 84
+  completed_plans: 85
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 06 EXECUTADO em 28/09: o Início de verdade substitui o painel de quatro cartões vazios da Fase 2. lib/inicio/{saudacao,textos}.ts (apresentação pura), lib/agenda/espaco.ts (LUGARES_DO_ESPACO=10, sinalizado para o dono confirmar), lib/financeiro/{vencimentos,navegacao}.ts (contasQueVencem, sete dias; hrefDoCaixa, D-06) e lib/encomendas/producao-em-andamento.ts (o estado que o redesenho da Produção ainda vai decidir, D-10, tipado como irrepresentável). Quatro blocos de leitura (Agenda de hoje, O que vence, Produção, Estoque acabando), cada um com esqueleto/vazio/erro próprios (D-09), providos com um bloco só na Tarefa 1 (traçador) antes de existirem quatro. app/gestao/(app)/financeiro/page.tsx e listas-caixa.tsx ganharam ?parcelaFoco=<uuid> na aba Caixa (D-06: Paguei/Recebi navegam, nunca pagam). Três testes e2e ajustados por remoção direta do painel antigo (design-system.spec.ts, queimas-banner.spec.ts, sessao.spec.ts). tests/e2e/inicio.spec.ts novo, 46/46 (23 casos x 2 projetos) — quatro invocações de --grep \"inicio\", as três primeiras corrigindo bugs no PRÓPRIO teste novo (nunca no app). GES-07, GES-08, GES-09 e GES-11 marcadas como concluídas. npm run verificar limpo (1267 testes unitários). Três commits: fbdecb2 (Tarefa 1), 2faca5b (Tarefa 2), 3f84cca (Tarefa 3). Detalhe completo: 04.6-06-SUMMARY.md."
+last_activity_desc: "Fase 04.6, PLANO 07 EXECUTADO em 28/09: as Anotações da casa, o quinto e último bloco do Início. db/schema.ts::anotacoesDaCasa (linha única garantida no banco) + migração 0022_anotacoes-da-casa.sql GERADA e VERSIONADA (NAO aplicada em producao — plano 08, pelo dono, depois de backup). lib/anotacoes/folha.ts::decidirGravacao — a primeira deteccao de escrita velha concorrente do projeto, provada com duas transacoes Postgres reais em scripts/testar-migracoes.mjs::conferirAnotacoesDaCasa. lib/anotacoes/{esquemas,textos,consultas,acoes}.ts (NFC + limite de 10.000 pontos de codigo; salvarAnotacoes grava ou avisa dentro de select...for update). components/amassa/inicio/{bloco-anotacoes,editor-de-anotacoes}.tsx — debounce de 1200ms, indicador salvando/salvo, autoria, aviso de conflito NA MESMA LINHA (manter o meu / ver o dela, nenhum dialogo). tests/e2e/anotacoes.spec.ts (17 casos, advisory lock para a linha unica global) + tests/e2e/inicio.spec.ts (ordem de 5 blocos): 66/66 (desktop + celular), apos corrigir DOIS bugs pre-existentes achados no caminho (Rule 1) — rodarNpm em scripts/testar-e2e.mjs so escapava espaco, nao | do cmd.exe do Windows; ordemDosBlocos() contava o esqueleto de carregamento (mesmo prefixo data-testid) como bloco resolvido. GES-10 marcada como concluida. npm run verificar limpo (1295 testes unitarios, test:migracoes com as 4 conferencias novas). Tres commits: 9dff7c5 (Tarefa 1), 2e01121 (Tarefa 2), f664a51 (Tarefa 3). Detalhe completo: 04.6-07-SUMMARY.md."
 ---
 
 # Project State
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 06 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 07 de 8 concluído em 28/09).
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -217,6 +217,42 @@ descoberta e corrigida no caminho), `queimas-banner.spec.ts` (as duas linhas que
 `sessao.spec.ts` (âncora trocada de "SEU DIA HOJE" para o heading da saudação). GES-07, GES-08 e
 GES-09 e GES-11 marcadas como concluídas. `npm run verificar` limpo (1267 testes unitários).
 Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-06-SUMMARY.md`.
+
+**Plano 07 (Anotações da casa, o quinto e último bloco do Início) entregou:**
+`db/schema.ts::anotacoesDaCasa` — linha única garantida no BANCO (`unique`+`check` de
+`linha_unica`, mesmo molde de `aberturaConfiguracao`/`configuracaoFinanceira`), `salvo_por`
+anulável, `check` de comprimento de texto espelhando o limite do Zod. A migração
+`0022_anotacoes-da-casa.sql` foi **gerada por `drizzle-kit generate` e complementada à mão**
+(gatilho `tocar_atualizado_em_anotacoes_da_casa`, grants/revoke, semente) — 🔴 **NÃO aplicada em
+produção**: fica para o Roteiro 14 do plano 08, pelo dono, depois de backup.
+`lib/anotacoes/folha.ts::decidirGravacao` é a **primeira detecção de escrita velha concorrente do
+projeto** — zero precedente antes deste plano (mapa de padrões da fase confirmou) — provada não
+só por unidade mas contra Postgres de verdade: `scripts/testar-migracoes.mjs::
+conferirAnotacoesDaCasa` abre duas transações reais disputando a mesma linha, e confirma que a
+segunda (que viu a marca velha) é obrigada a avisar, nunca sobrescrevendo em silêncio.
+`lib/anotacoes/{esquemas,textos,consultas,acoes}.ts` fecham o módulo: NFC + limite de 10.000
+pontos de código (nunca `texto.length`), `salvarAnotacoes` com `select ... for update` dentro da
+transação. `components/amassa/inicio/{bloco-anotacoes,editor-de-anotacoes}.tsx` — o quinto bloco,
+com debounce de 1200ms, indicador salvando/salvo, linha de autoria ("‹nome› salvou às ‹HH›h‹MM›")
+e o aviso de conflito **na mesma linha**, com "manter o meu"/"ver o dela" — nunca um diálogo, nunca
+edição colaborativa em tempo real (D-08). Três commits: `9dff7c5` (Tarefa 1), `2e01121`
+(Tarefa 2), `f664a51` (Tarefa 3).
+🔧 **Dois bugs pré-existentes achados e corrigidos no caminho (Rule 1), nenhum no comportamento da
+aplicação:** `rodarNpm` em `scripts/testar-e2e.mjs` só escapava argumento com ESPAÇO — um `--grep`
+com alternância (`"anotacoes|inicio"`, exigido pelo orçamento de e2e do CLAUDE.md para rodar dois
+arquivos numa invocação só) não tem espaço, chegava cru ao `cmd.exe` do Windows, que interpretava
+`|` como pipe de shell de verdade (corrigido: a checagem agora cobre `[\s|&<>^]`). E
+`ordemDosBlocos()` em `tests/e2e/inicio.spec.ts` contava o esqueleto de carregamento
+(`data-testid="inicio-bloco-esqueleto"`, MESMO prefixo `inicio-bloco-` do seletor) como se fosse
+um bloco resolvido — inofensivo com quatro blocos (04.6-06), exposto agora que o quinto bloco
+(consulta própria ao banco) variou o tempo de resolução; corrigido esperando a ausência de
+qualquer esqueleto antes de ler a ordem. `npm run test:e2e -- --grep "anotacoes|inicio"`: 66/66
+(desktop + celular), depois de 4 invocações (as duas primeiras batendo nos dois bugs acima; uma
+terceira achando que o estado transiente "salvando…" era rápido demais para o polling capturar,
+corrigida com a mesma técnica de segurar a requisição de propósito já usada em
+`orcamentos-fotos.spec.ts`). GES-10 marcada como concluída. `npm run verificar` limpo (1295 testes
+unitários, `test:migracoes` com as quatro conferências novas de `anotacoes_da_casa`).
+Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-07-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):
@@ -657,6 +693,7 @@ sem uma linha "Progress:" própria).
 | Phase 04.6 P03 | 55min | 3 tasks | 33 files |
 | Phase 04.6 P04 | ~65min | 3 tasks | 19 files |
 | Phase 04.6 P05 | 17min | 2 tasks | 8 files |
+| Phase 04.6 P07 | 75min | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -892,6 +929,7 @@ Recent decisions affecting current work:
 - [Phase ?]: components/site/secao.tsx ganhou um prop testId (data-testid do <section>) — aditivo, fora da lista de arquivos do plano, necessário para os testid site-espaco/site-agenda/site-encomendas/site-onde
 - [Phase ?]: Achado real: --color-site-tinta-fraca media 4,47:1 contra --color-site-fundo (abaixo de 4,5 AA); corrigido para #786858 (4,77:1) em app/globals.css e tests/unit/tokens.test.ts
 - [Phase ?]: GES-12/13/14: navegação final — barra de baixo com 4 itens, lateral com 7 (Cadastros incluído), menu do usuário com 3 itens sem Orçamentos, e Produção como rótulo novo de Encomendas com rota/ícone intactos (D-11/D-12/D-13)
+- [Phase ?]: 04.6-07: pausa de digitação de 1200ms (não os 600ms do protótipo, que grava em localStorage) — uma ida ao servidor merece mais folga
 
 ### Pending Todos
 
@@ -966,6 +1004,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T09:37:27.010Z
-Stopped at: Concluido 04.6-05-PLAN.md
+Last session: 2026-09-28T10:59:48.242Z
+Stopped at: Concluido 04.6-07-PLAN.md
 Resume file: None

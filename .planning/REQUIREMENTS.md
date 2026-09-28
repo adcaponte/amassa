@@ -273,7 +273,7 @@
 - [x] **GES-09**: Cada bloco consulta o seu módulo por `lib/<modulo>/consultas`; o Início **não
   tem regra de negócio própria**. Bloco de módulo que ainda não existe mostra só o estado vazio
 
-- [ ] **GES-10**: As anotações são **uma folha só, da casa** — tabela de uma linha, o que um
+- [x] **GES-10**: As anotações são **uma folha só, da casa** — tabela de uma linha, o que um
   escreve o outro vê. Salvam sozinhas com indicador, guardam **quem salvou por último e quando**,
   e avisam se o texto mudou no servidor antes de sobrescrever. Texto puro, tamanho validado no
   servidor, dentro do backup por estar no banco
@@ -581,7 +581,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-07 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-08 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-09 | Phase 04.6 — /gestao, Início e site público | Complete |
-| GES-10 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-10 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-11 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-12 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-13 | Phase 04.6 — /gestao, Início e site público | Complete |
