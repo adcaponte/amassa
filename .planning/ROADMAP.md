@@ -659,12 +659,12 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
-**Plans:** 8 plans
+**Plans:** 1/8 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04.6-01-PLAN.md — Rotas: a árvore desce para `/gestao`, o proxy protege só esse prefixo, 13 redirecionamentos listados um a um, `robots.txt` e os dois 404 (onda 1)
+- [x] 04.6-01-PLAN.md — Rotas: a árvore desce para `/gestao`, o proxy protege só esse prefixo, 13 redirecionamentos listados um a um, `robots.txt` e os dois 404 (onda 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -838,7 +838,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
-| 04.6. `/gestao`, Início e site público | 0/8 | Planned | - (planejada 2026-09-28, commit `c0fe5ff`) |
+| 04.6. `/gestao`, Início e site público | 1/8 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

@@ -54,6 +54,7 @@
 - [x] **UI-03**: No desktop, a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé
 - [x] **UI-04**: Orçamentos aparece no menu do usuário, não na navegação principal
   > **Ainda verdadeiro em 2026-09-28** — conferido em `components/amassa/menu-usuario.tsx`: o item continua no menu, apontando para `/financeiro?aba=orcamentos` desde a Fase 04.5 (ORC-17). **Será substituído pela Fase 04.6 (GES-13), ainda não executada**, que enxuga o menu para Abertura do Espaço · Trocar senha · Sair.
+
 - [x] **UI-05**: A navegação funciona confortavelmente com o polegar, no celular
 - [x] **UI-06**: Nenhuma tela exige rolagem horizontal no celular
 - [x] **UI-07**: Toda tela tem estado vazio com frase de contexto e botão, estado de carregamento com esqueleto, e estado de erro em linguagem humana
@@ -237,21 +238,26 @@
 
 **Endereço e isolamento**
 
-- [ ] **GES-01**: Tudo que hoje responde na raiz responde em `/gestao` — telas autenticadas e
+- [x] **GES-01**: Tudo que hoje responde na raiz responde em `/gestao` — telas autenticadas e
   login. `/api/health` e `/api/health/backup` **ficam onde estão**, porque o monitoramento
   externo aponta para elas
-- [ ] **GES-02**: Os endereços antigos conhecidos (`/encomendas`, `/financeiro`, `/cadastros`,
+
+- [x] **GES-02**: Os endereços antigos conhecidos (`/encomendas`, `/financeiro`, `/cadastros`,
   `/queimas`, `/abertura`…) redirecionam para `/gestao/...` por um período, **listados
   explicitamente** — nenhum coringa que engula rota futura do site. O que não existir cai no 404
   público
-- [ ] **GES-03**: O proxy protege **só** `/gestao`. A raiz e as páginas do site não leem sessão
+
+- [x] **GES-03**: O proxy protege **só** `/gestao`. A raiz e as páginas do site não leem sessão
   nem banco
+
 - [ ] **GES-04**: `AUTH_URL`, `callbackUrl` e cookies levam o login de volta para dentro de
   `/gestao`, conferido **em produção** — o defeito do `0.0.0.0:3000` de 2026-09-17 é o precedente
   a não repetir
-- [ ] **GES-05**: `robots.txt` bloqueia `/gestao`, as telas da plataforma trazem `noindex`, e
+
+- [x] **GES-05**: `robots.txt` bloqueia `/gestao`, as telas da plataforma trazem `noindex`, e
   **nenhuma página pública tem link para a plataforma** — acesso só por endereço
-- [ ] **GES-06**: O 404 da raiz é público e não revela nada da plataforma; o 404 dentro de
+
+- [x] **GES-06**: O 404 da raiz é público e não revela nada da plataforma; o 404 dentro de
   `/gestao` mantém a casca
 
 **Início**
@@ -260,14 +266,18 @@
   lugares"), O que vence, Produção, Estoque acabando e Anotações. **Sem saldo** (decisão do
   dono). Depois dos blocos vêm as pílulas de atalho para os módulos fora da barra e o índice de
   todos os módulos
+
 - [ ] **GES-08**: Cada bloco tem estado **vazio, de carregamento e de erro próprios**, com as
   frases do protótipo. Bloco que falha não derruba a página: o erro fica só naquele bloco
+
 - [ ] **GES-09**: Cada bloco consulta o seu módulo por `lib/<modulo>/consultas`; o Início **não
   tem regra de negócio própria**. Bloco de módulo que ainda não existe mostra só o estado vazio
+
 - [ ] **GES-10**: As anotações são **uma folha só, da casa** — tabela de uma linha, o que um
   escreve o outro vê. Salvam sozinhas com indicador, guardam **quem salvou por último e quando**,
   e avisam se o texto mudou no servidor antes de sobrescrever. Texto puro, tamanho validado no
   servidor, dentro do backup por estar no banco
+
 - [ ] **GES-11**: A saudação usa o nome do usuário logado e a data de hoje
 
 **Navegação**
@@ -275,8 +285,10 @@
 - [ ] **GES-12**: A barra de baixo do celular tem **Início · Financeiro · Produção · Agenda**. A
   barra lateral do computador tem Início mais todos os módulos. Módulo novo entra no índice e na
   lateral, **nunca na barra de baixo**
+
 - [ ] **GES-13**: O menu do usuário fica com **Abertura do Espaço** (até ser arquivada), Trocar
   senha e Sair — Orçamentos sai dele, porque já vive dentro do Financeiro (ORC-17)
+
 - [ ] **GES-14**: "Produção" é **só o rótulo novo** de Encomendas nesta fase: muda o nome no menu
   e nos títulos; a rota pode continuar `/gestao/encomendas` até o redesenho decidir. Nada do
   redesenho é antecipado
@@ -286,25 +298,33 @@
 - [ ] **SIT-01**: A raiz serve uma página única pública, sem login, com as seções na ordem do
   protótipo: faixa "em construção" · abertura · o espaço · aulas e oficinas · encomendas · faixa
   da fachada · onde fica e contato · rodapé
+
 - [ ] **SIT-02**: 🔴 **A página é estática e continua no ar com o Postgres derrubado.** Os textos
   vêm de arquivo de conteúdo versionado e as imagens de `public/site/`; nada lê sessão. Só a
   seção da agenda lê o banco, com cache e revalidação por tempo, nunca a cada visita
+
 - [ ] **SIT-03**: Trocar um texto ou uma foto é **commit e deploy** — nenhuma tabela nova. O
   cadastro editável pelo `/gestao` fica para depois, e o arquivo de conteúdo vira o valor inicial
   dele quando existir
+
 - [ ] **SIT-04**: O site sobe **com os colchetes** onde falta dado real, e com a faixa "em
   construção". **Nenhum dado de cliente** no repositório; endereço, horário, telefone comercial e
   Instagram são públicos por natureza
+
 - [ ] **SIT-05**: Os botões fixos "Agenda" e "Encomendas" ficam sempre visíveis — barra superior
   no computador, barra inferior no celular — e rolam até a seção, com a âncora **abaixo** da barra
   fixa, não escondida atrás dela
+
 - [ ] **SIT-06**: Os botões de WhatsApp apontam para `https://wa.me/55<número>` com mensagem
   pré-preenchida por contexto; o número é campo do arquivo de conteúdo
+
 - [ ] **SIT-07**: ⚠️ **Enquanto a Agenda não existir**, a seção de aulas mostra o texto de
   apresentação e o caminho do WhatsApp, **sem calendário** — não inventa dado nem expõe a agenda
   antiga. O calendário liga quando a fase Agenda entrar
+
 - [ ] **SIT-08**: SEO básico: título, descrição, Open Graph com a foto de abertura, `robots`
   liberado e sitemap. Critério do dono: aparecer no Google para "amassa cerrado pirenópolis"
+
 - [ ] **SIT-09**: Imagens servidas otimizadas, com `alt` vindo do arquivo de conteúdo
 - [ ] **SIT-10**: Acessibilidade e celular como no resto: alvos de 44px, sem rolagem lateral a
   320px, contraste AA

@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase_name: Plataforma em /gestao, Início novo, navegação e site público
-status: ready_to_execute
-stopped_at: Phase 04.6 planejada — 8 planos em 8 ondas, pronta para /gsd-execute-phase 04.6
-last_updated: "2026-09-28T01:51:16.772Z"
+current_phase: 04.6
+current_phase_name: gestao-inicio-e-site-publico
+status: executing
+stopped_at: Concluido 04.6-01-PLAN.md (4 commits); e2e local bloqueado por timeout do webServer do Playwright, ver SUMMARY
+last_updated: "2026-09-28T07:15:00.566Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 78
-current_phase: 04.6
+  completed_plans: 79
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6 PLANEJADA em 28/09: 8 planos em 8 ondas (rotas → site → navegação → Início, a ordem travada em D-21), commit `c0fe5ff`. Gates medidos, não afirmados: 24/24 requisitos em frontmatter, 21/21 decisões cobertas (`check.decision-coverage-plan` devolveu passed), 78/78 arestas do probe reconciliadas, plano 08 `autonomous: false`. Antes disso, na madrugada de 28/09: Fase 04.6 criada e registrada — protótipos, briefings e 24 requisitos (GES-01..14, SIT-01..10); a parada do passo 2 esperando DISCUSSAO-PREPARADA.md foi resolvida quando o dono respondeu, em 28/09. Também: dois achados do Cowork corrigidos com RED/GREEN, quatro janelas da WINDOWS fechadas com evidência, quatro documentos de estado vencidos corrigidos, e o retrato da suíte e2e escrito antes de as rotas mudarem"
+last_activity_desc: "Fase 04.6, PLANO 01 EXECUTADO em 28/09: a plataforma inteira desceu para /gestao (commits ccfe41f/2739716/e206a90/84ad637). middleware.ts protege só /gestao; os 13 endereços antigos redirecionam (permanent:false, data 2027-03-28); robots.txt bloqueia /gestao; os dois 404 (público/com casca) diferenciados por data-testid; tests/e2e/rotas.spec.ts criado (12 casos). npm run verificar limpo (lint, tsc, verificar-acoes, 1175 testes unitários, test:migracoes). 🔴 A única invocação de e2e autorizada do plano (--grep \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"rotas /gestao\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\") NÃO completou — 5/5 tentativas travaram no webServer do Playwright (timeout 180s), confirmado como problema de ambiente desta máquina (a mesma sequência de comandos funciona fora do Playwright); registrado como item aberto (ver 04.6-01-SUMMARY.md, seção Issues Encountered — a tentativa de gravar em WINDOWS.md falhou por uma inconsistência pré-existente nas contagens daquele arquivo)."
 ---
 
 # Project State
@@ -23,11 +23,40 @@ last_activity_desc: "Fase 04.6 PLANEJADA em 28/09: 8 planos em 8 ondas (rotas �
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **04.6** (`/gestao`, Início novo, navegação e site público) — **planejada** em 28/09/2026: 8 planos em 8 ondas, commit `c0fe5ff`. A 04.5 fechou em 27/09 (14/14 planos, portão humano cumprido).
+**Current focus:** Phase 04.6 — gestao-inicio-e-site-publico
 
 ## Current Position
 
-Phase: **04.6 (Plataforma em `/gestao`, Início novo, navegação e site público)** — **planejada,
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 01 de 8 concluído em 28/09).
+
+**Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
+de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
+(git mv, histórico preservado); `middleware.ts` estreitou `config.matcher` para
+`["/gestao/:path*"]`, e `lib/rotas/gestao.ts` (novo, puro) é a fonte única do prefixo que o resto
+da fase importa; os 13 endereços antigos redirecionam por `lib/rotas/redirecionamentos-antigos.ts`
+(sem curinga, `permanent: false`, comentário com a data literal `2027-03-28`); `app/robots.ts`
+bloqueia `/gestao` e libera a raiz; os dois 404 (`app/not-found.tsx` público,
+`app/gestao/(app)/not-found.tsx` com casca, alcançável pelo novo catch-all
+`[...naoEncontrado]/page.tsx`) diferenciados por `data-testid`; `tests/unit/arvore-de-rotas.test.ts`
+é o portão estrutural contra o novo modelo "erra aberto" esconder uma regressão. Quatro commits:
+`ccfe41f` (Tarefa 1), `2739716` (correção de um `git add` que falhou silenciosamente numa
+pathspec já renomeada — identificado pelo coordenador, não pelo executor), `e206a90` (Tarefa 2),
+`84ad637` (Tarefa 3, a suíte e2e sob o prefixo novo + `tests/e2e/rotas.spec.ts` novo, 12 casos).
+`npm run verificar` limpo (lint, `tsc --noEmit`, `verificar-acoes`, 1175 testes unitários,
+`test:migracoes`). 🔴 **Aberto:** a única invocação de e2e autorizada do plano
+(`npm run test:e2e -- --grep "rotas /gestao"`) não completou nesta máquina — 5 tentativas, sempre
+o `webServer` do Playwright travando no timeout de 180s sem nunca reportar pronto, mesmo com a
+mesma sequência de comandos funcionando fora do Playwright (build ~26s, servidor manual sobe em
+~200ms e responde certo em toda rota nova). Problema de ambiente, não de código — detalhe completo
+em `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-01-SUMMARY.md`, seção "Issues
+Encountered". Nenhum item de WINDOWS.md foi criado por lá (o próprio arquivo tem uma
+inconsistência pré-existente de contagem no frontmatter, não relacionada a esta fase, que bloqueou
+`gsd-tools windows append`); fica registrado aqui e no SUMMARY até alguém investigar as duas
+coisas.
+
+**Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
+01, preservado abaixo):
+
 não executada**, em 2026-09-28. É o item 3 de `Claude outputs/FILA-DO-CODE.md`, destravado quando
 a 04.5 fechou.
 
@@ -347,7 +376,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 99% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 92% (64 de 64 planos da 04.4 executados, verificados e no ar)
 
 ## Performance Metrics
 
@@ -454,6 +483,7 @@ Progress: [██████████] 99% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P12 | ~3h30 | 3 tasks | 18 files |
 | Phase 04.5 P13 | ~3h30min | 2 tasks | 14 files |
 | Phase 04.5 P14 | ~2h15min | 5 tasks | 13 files |
+| Phase 04.6 P01 | ~2h | 3 tasks | 152 files |
 
 ## Accumulated Context
 
@@ -682,6 +712,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Plano 12: 'Ver venda no Financeiro'/o toast com o número da venda exigiram tocar app/(app)/financeiro/page.tsx, lib/financeiro/avisos.ts e listas-caixa.tsx — fora do files_modified do plano, mas necessários para os dois links do veredito navegarem de verdade (Regra 2).
 - [Phase ?]: WINDOWS #44 corrigido com migração nova 0021 (nunca editando 0019/D-33), recriando também o gatilho de 0020 para usar hoje_brasilia() em vez de current_date
 - [Phase ?]: Tres specs de e2e mutavam parametro global de precificacao sem restaurar (poluicao real entre arquivos); corrigido com test.afterAll restaurando direto no banco em cada um
+- [Phase ?]: 04.6-01: redirecionamentos-antigos.ts usa literal proprio do prefixo /gestao (zero import de valor), nunca importado de lib/rotas/gestao.ts
 
 ### Pending Todos
 
@@ -756,6 +787,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28 (planejamento da Fase 04.6)
-Stopped at: Phase 04.6 planejada — 8 planos em 8 ondas, commit `c0fe5ff`; pronta para /gsd-execute-phase 04.6
-Resume file: .planning/phases/04.6-gestao-inicio-e-site-publico/04.6-01-PLAN.md
+Last session: 2026-09-28T07:15:00.515Z
+Stopped at: Concluido 04.6-01-PLAN.md (4 commits); e2e local bloqueado por timeout do webServer do Playwright, ver SUMMARY
+Resume file: None
