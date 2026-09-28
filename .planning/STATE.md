@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
-status: executing
-stopped_at: "Plano 08, Tarefa 1 concluida (28/09) — Tarefas 2 e 3 sao portoes humanos bloqueantes, aguardando o dono"
+status: paused
+stopped_at: PAUSADO em 28/09/2026 as 17h05 — plano 04.6-08 em 1/3, Tarefas 2 e 3 sao do dono (push, Roteiro 14, migracao 0022, celular). BLOQUEIO: pipeline vermelho no run 36443052672 (build da imagem, busca de fonte do Google), NAO e defeito de codigo — build do CI reproduzido local e passou. Retomada: .planning/phases/04.6-gestao-inicio-e-site-publico/.continue-here.md
 last_updated: "2026-09-28T13:30:00.000Z"
 progress:
   total_phases: 12
