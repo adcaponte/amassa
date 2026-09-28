@@ -21,11 +21,11 @@ import { Client } from "pg";
 // — ver SUMMARY, "Decidido sem o dono", e WINDOWS.md.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -37,11 +37,11 @@ function chaveDoParametroDedicado(): "preco_folga_negociacao" | "preco_imposto_s
 }
 
 async function definirParametro(page: Page, chave: string, valorTexto: string): Promise<void> {
-  await page.goto("/cadastros?sub=parametros");
+  await page.goto("/gestao/cadastros?sub=parametros");
   const campo = page.getByTestId(`parametro-${chave}`).locator("input");
   await campo.fill(valorTexto);
   await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campo.blur()]);
-  await expect(page).toHaveURL(/\/cadastros\?sub=parametros$/);
+  await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=parametros$/);
 }
 
 // O valor ORIGINAL semeado por 0019 de cada parâmetro dedicado — em pontos-base (a escala do
@@ -75,9 +75,9 @@ async function restaurarParametroDedicado(chave: string): Promise<void> {
 }
 
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/financeiro?aba=orcamentos");
+  await page.goto("/gestao/financeiro?aba=orcamentos");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
   return orcamentoIdDaUrl(page);
 }
 
@@ -101,7 +101,7 @@ async function preencherCliente(page: Page, orcamentoId: string, nome: string): 
 
 // A MESMA receita de `orcamentos-ciclo.spec.ts` — só o nome e o preço mudam por chamada.
 async function acrescentarPecaExclusiva(page: Page, orcamentoId: string, nome: string, precoReais: string): Promise<void> {
-  await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
   await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
 
@@ -144,7 +144,7 @@ function precoDoInputParaCentavos(valorTexto: string): number {
 }
 
 async function abrirDialogoAtualizarPrecos(page: Page, orcamentoId: string, rotuloDoBotao: string): Promise<void> {
-  await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.getByRole("button", { name: rotuloDoBotao }).click();
   await expect(page.getByRole("dialog", { name: "Atualizar preços" })).toBeVisible();
 }
@@ -227,7 +227,7 @@ test.describe("orcamentos revisao @parametro-global", () => {
 
   test("(c) o painel 'Só para você' mostra o histórico com a revisão 1 e o total de antes", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const historico = page.getByTestId("orcamento-historico-revisoes");
     await expect(historico).toContainText("revisão 1");
@@ -238,7 +238,7 @@ test.describe("orcamentos revisao @parametro-global", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const numeroAntesTexto = (await page.getByTestId("orcamento-numero").textContent()) ?? "";
 

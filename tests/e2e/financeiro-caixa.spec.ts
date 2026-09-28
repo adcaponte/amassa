@@ -15,11 +15,11 @@ import {
 // (Tarefa 3).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -27,7 +27,7 @@ function sufixoUnico(): string {
 }
 
 async function irParaCaixa(page: Page) {
-  await page.goto("/financeiro?aba=caixa");
+  await page.goto("/gestao/financeiro?aba=caixa");
 }
 
 function cartaoDaConta(page: Page, titulo: string) {
@@ -123,7 +123,7 @@ test.describe("financeiro caixa contas", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByTestId("venda-busca").fill(suf);
     await page.getByTestId("venda-atalho").filter({ hasText: nomeItem }).click();
     await expect(page.getByTestId("venda-total")).toContainText("R$ 900,00");
@@ -155,7 +155,7 @@ test.describe("financeiro caixa contas", () => {
     const descricao = `[e2e] Valor livre para cancelar ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -223,7 +223,7 @@ test.describe("financeiro caixa contas", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByTestId("venda-busca").fill(suf);
     await page.getByTestId("venda-atalho").filter({ hasText: nomeItem }).click();
     await page.getByTestId("pagamento-plano").selectOption("3");
@@ -512,7 +512,7 @@ test.describe("financeiro caixa pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro?aba=despesa");
+    await page.goto("/gestao/financeiro?aba=despesa");
     await page.getByTestId("despesa-modo-compra").click();
     await page.getByTestId("compra-busca").fill(suf);
     await page.getByTestId("compra-atalho").filter({ hasText: nomeEsmalte }).click();
@@ -597,7 +597,7 @@ test.describe("financeiro caixa pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByTestId("venda-busca").fill(suf);
     await page.getByTestId("venda-atalho").filter({ hasText: nomeItem }).click();
     await page.getByTestId("pagamento-plano").selectOption("3");

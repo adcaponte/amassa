@@ -11,11 +11,11 @@ import { ROTULO_ETAPA, SUFIXO_ESPERA } from "@/lib/encomendas/textos";
 // Gantt/lista). `:visible` escolhe a metade real do viewport do projeto Playwright em execução.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // `exact: true` é necessário para os rótulos de etapa ("Produção", "Secagem", "Esmaltação"): o
@@ -55,10 +55,10 @@ async function salvarComRetry(page: Page, nome: string) {
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
     await botaoVisivel(page, "Salvar").click();
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
       return;
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(nome, { exact: true }).count();
       if (jaFoiCriada > 0) {
         return;
@@ -66,7 +66,7 @@ async function salvarComRetry(page: Page, nome: string) {
       if (tentativa === TENTATIVAS_MAXIMAS) {
         throw erro;
       }
-      await page.goto("/encomendas?nova");
+      await page.goto("/gestao/encomendas?nova");
       await preencherMinimo(page, { nome });
     }
   }
@@ -77,7 +77,7 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const desktop = test.info().project.name === "desktop";
     if (desktop) {
@@ -98,11 +98,11 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
 
   test("fechar remove o parâmetro da URL e volta para /encomendas", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await expect(page).toHaveURL(/\?nova/);
 
     await botaoVisivel(page, "Cancelar").click();
-    await expect(page).toHaveURL(/\/encomendas$/);
+    await expect(page).toHaveURL(/\/gestao\/encomendas$/);
   });
 
   test("no celular, o botão voltar do navegador fecha o formulário e permanece em /encomendas", async ({
@@ -111,18 +111,18 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
     test.skip(test.info().project.name !== "celular", "Caso específico do celular");
 
     await fazerLogin(page);
-    await page.goto("/encomendas");
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas");
+    await page.goto("/gestao/encomendas?nova");
     await expect(page.getByRole("dialog")).toBeVisible();
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/encomendas$/);
+    await expect(page).toHaveURL(/\/gestao\/encomendas$/);
     await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 5000 });
   });
 
   test("recarregar /encomendas?nova reabre o formulário", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await expect(page.getByRole("dialog")).toBeVisible();
 
     await page.reload();
@@ -136,11 +136,11 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
     await fazerLogin(page);
     const nome = nomeUnico("editar preenchido");
 
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await preencherMinimo(page, { nome, cliente: "Cliente do teste de edição" });
     await salvarComRetry(page, nome);
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     // O Gantt do desktop ainda não tem um `Link` por linha (gap pré-existente de 03-04, fora do
     // escopo deste plano — ver 03-05-SUMMARY.md "Next Phase Readiness") — o cartão mobile
     // (`CartaoEncomenda`) é um `<a href>` real e sempre existe no DOM nos dois tamanhos de tela
@@ -149,7 +149,7 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
     const hrefDoDetalhe = await cartao.getAttribute("href");
     expect(hrefDoDetalhe).not.toBeNull();
     await page.goto(hrefDoDetalhe!);
-    await expect(page).toHaveURL(/\/encomendas\/[^/]+$/);
+    await expect(page).toHaveURL(/\/gestao\/encomendas\/[^/]+$/);
     await page.getByRole("link", { name: "Editar" }).click();
 
     await expect(page).toHaveURL(/\?editar=/);
@@ -161,7 +161,7 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const nome = nomeUnico("erro de validação");
     await campoVisivel(page, "Nome da encomenda").fill(nome);
@@ -181,7 +181,7 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
 
   test("todo campo tem font-size >= 16px e altura >= 44px", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const campoNome = campoVisivel(page, "Nome da encomenda");
     const tamanhoDaFonte = await campoNome.evaluate((el) =>
@@ -198,7 +198,7 @@ test.describe("formulário de encomenda — contêiner, URL e estados", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     await campoVisivel(page, "Nome da encomenda").focus();
 
@@ -236,7 +236,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const linhas = page.locator('[data-testid^="item-linha-"]').and(page.locator(":visible"));
     await expect(linhas).toHaveCount(1);
@@ -247,7 +247,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const remover = page.getByRole("button", { name: /Remover/ }).and(page.locator(":visible"));
     const setaCima = page
@@ -269,7 +269,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     await botaoVisivel(page, "Adicionar item").click();
 
@@ -291,7 +291,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
 
   test("boundingBox() das setas mede pelo menos 44x44", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await botaoVisivel(page, "Adicionar item").click();
 
     const setaBaixo = page
@@ -308,7 +308,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
   }) => {
     await fazerLogin(page);
     const nome = nomeUnico("reordenar na criacao");
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     await campoVisivel(page, "Nome da encomenda").fill(nome);
     await campoVisivel(page, "Data de início").fill("2026-08-12");
@@ -330,14 +330,14 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
 
     await salvarComRetry(page, nome);
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     // O cartão mobile é um `<a href>` real, sempre no DOM nos dois tamanhos de tela (D-02) — ver
     // o comentário equivalente no teste "editar={id}" acima.
     const cartao = page.locator('[data-testid^="cartao-encomenda-"]', { hasText: nome });
     const hrefDoDetalhe = await cartao.getAttribute("href");
     expect(hrefDoDetalhe).not.toBeNull();
     await page.goto(hrefDoDetalhe!);
-    await expect(page).toHaveURL(/\/encomendas\/[^/]+$/);
+    await expect(page).toHaveURL(/\/gestao\/encomendas\/[^/]+$/);
     await expect(page.getByText("Segundo item")).toBeVisible();
   });
 
@@ -349,7 +349,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
 
     // Cria com dois itens já persistidos (ambos com `idDoBanco` — só assim a seta chama
     // `reordenarItemEncomenda`, 03-06-PLAN.md "Decisão que este plano fecha").
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Nome da encomenda").fill(nome);
     await campoVisivel(page, "Data de início").fill("2026-08-12");
     await campoVisivel(page, "Descrição do item 1").fill("Item A");
@@ -359,12 +359,12 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
     await campoVisivel(page, "Quantidade do item 2").fill("2");
     await salvarComRetry(page, nome);
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     const cartao = page.locator('[data-testid^="cartao-encomenda-"]', { hasText: nome });
     const hrefDoDetalhe = await cartao.getAttribute("href");
     expect(hrefDoDetalhe).not.toBeNull();
 
-    // O formulário lê `editar` da URL do ÍNDICE (`/encomendas?editar={id}`), não da rota de
+    // O formulário lê `editar` da URL do ÍNDICE (`/gestao/encomendas?editar={id}`), não da rota de
     // detalhe — abre pelo mesmo link "Editar" que a tela de detalhe usa.
     await page.goto(hrefDoDetalhe!);
     await page.getByRole("link", { name: "Editar" }).click();
@@ -396,7 +396,7 @@ test.describe("itens da encomenda — linha em branco, setas de 44px e a última
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const nome = nomeUnico("descricao longa");
     await campoVisivel(page, "Nome da encomenda").fill(nome);
@@ -416,7 +416,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     for (const etapa of ["queima1", "queima2", "entrega"] as const) {
       const rotulo = ROTULO_ETAPA[etapa];
@@ -432,7 +432,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Data de início").fill("2026-08-12");
 
     const rodape = page
@@ -452,7 +452,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Data de início").fill("2026-08-12");
 
     const rodape = page
@@ -473,7 +473,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Data de início").fill("2026-08-12");
 
     for (const etapa of ["producao", "secagem", "esmaltacao"] as const) {
@@ -493,7 +493,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
 
   test("os números do rodapé usam tabular-nums", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Data de início").fill("2026-08-12");
 
     const numero = page
@@ -522,7 +522,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     const rodape = page
       .locator('[data-testid="rodape-formulario"]')
@@ -582,7 +582,7 @@ test.describe("rodapé do formulário — duração total e conclusão prevista 
 test.describe("espera dos marcos — visível e explícita", () => {
   test("cada linha de marco tem moldura visível de >= 44px de altura", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     for (const etapa of ["queima1", "queima2", "entrega"] as const) {
       const linha = page
@@ -605,7 +605,7 @@ test.describe("espera dos marcos — visível e explícita", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     for (const etapa of ["queima1", "queima2", "entrega"] as const) {
       const campo = page.getByTestId(`campo-espera-${etapa}`).and(page.locator(":visible"));
@@ -624,7 +624,7 @@ test.describe("espera dos marcos — visível e explícita", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     for (const etapa of ["queima1", "queima2", "entrega"] as const) {
       const campo = page.getByTestId(`campo-espera-${etapa}`).and(page.locator(":visible"));

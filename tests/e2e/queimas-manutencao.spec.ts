@@ -6,11 +6,11 @@ import { test, expect, type Page } from "@playwright/test";
 // specs irmãs de Fornos: servidor Next único compartilhado por toda a suíte.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -21,11 +21,11 @@ function nomeUnico(rotulo: string): string {
 // detalhe pelo Link do próprio nome no cartão — nunca por inserção direta no banco. Mesmo
 // helper de `tests/e2e/queimas-detalhe.spec.ts`.
 async function cadastrarFornoEAbrirDetalhe(page: Page, nome: string): Promise<string> {
-  await page.goto("/queimas?novo");
+  await page.goto("/gestao/queimas?novo");
   await page.getByLabel("Nome").fill(nome);
   await page.getByLabel("Limite").fill("50");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
 
   const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
   await expect(cartao).toHaveCount(1);
@@ -34,7 +34,7 @@ async function cadastrarFornoEAbrirDetalhe(page: Page, nome: string): Promise<st
     throw new Error(`Não encontrou o cartão do forno "${nome}" para descobrir o id.`);
   }
   const id = testId.replace("cartao-forno-", "");
-  await page.goto(`/queimas/${id}`);
+  await page.goto(`/gestao/queimas/${id}`);
   return id;
 }
 
@@ -54,12 +54,12 @@ async function esperarToastDeManutencao(page: Page) {
 // "Registrar manutenção" só existe na página do forno (D-03), mas "Queimar" só existe no cartão
 // do índice — o registro acontece lá e a navegação volta ao detalhe em seguida.
 async function registrarQueimaEVoltarAoDetalhe(page: Page, id: string, nome: string): Promise<void> {
-  await page.goto("/queimas");
+  await page.goto("/gestao/queimas");
   const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
   await cartao.getByRole("button", { name: "Queimar" }).click();
   await cartao.getByTestId("tipo-queima-biscoito").click();
   await expect(page.getByText("Queima registrada.")).toBeVisible({ timeout: 5000 });
-  await page.goto(`/queimas/${id}`);
+  await page.goto(`/gestao/queimas/${id}`);
 }
 
 test.describe("manutenção e ciclo desativar/reativar", () => {
@@ -115,7 +115,7 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     // antes da escrita; o toast em si já está provado na primeira manutenção, acima.
     const respostaDaSegundaManutencao = page.waitForResponse(
       (resposta) =>
-        resposta.url().includes(`/queimas/${id}`) && resposta.request().method() === "POST",
+        resposta.url().includes(`/gestao/queimas/${id}`) && resposta.request().method() === "POST",
       { timeout: 15000 },
     );
     await page.getByTestId("confirmar-registrar-manutencao").click();
@@ -167,14 +167,14 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     // "Todos" aqui, este teste nunca encontraria o cartão. Achado pela varredura completa de
     // fim de fase (04-07): este teste foi escrito no plano 04-04, antes do filtro existir, e
     // nenhum plano depois voltou a rodá-lo sem `--grep` até este ponto.
-    await page.goto("/queimas");
+    await page.goto("/gestao/queimas");
     await page.getByTestId("filtro-fornos-todos").click();
     const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
     await expect(cartao).toHaveCount(1);
     await expect(cartao.getByRole("button", { name: "Queimar" })).toHaveCount(0);
     await expect(cartao.getByRole("link", { name: nome })).toBeVisible();
 
-    await page.goto(`/queimas/${id}`);
+    await page.goto(`/gestao/queimas/${id}`);
     await expect(page.getByTestId("medidor-contador")).toContainText("2 / 50");
     await expect(page.getByRole("heading", { name: nome, level: 1 })).toBeVisible();
 
@@ -186,7 +186,7 @@ test.describe("manutenção e ciclo desativar/reativar", () => {
     await expect(page.getByText("Forno reativado.")).toBeVisible({ timeout: 5000 });
     await expect(page.getByTestId("medidor-contador")).toContainText("2 / 50", { timeout: 10000 });
 
-    await page.goto("/queimas");
+    await page.goto("/gestao/queimas");
     const cartaoReativado = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
     await expect(cartaoReativado.getByRole("button", { name: "Queimar" })).toBeVisible();
   });

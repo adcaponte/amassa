@@ -6,7 +6,7 @@ import { ROTULO_ETAPA, SUFIXO_ESPERA, textoDaEsperaNaTrilha, textoDaSituacao } f
 
 import { definirEsperaDaEtapa } from "./apoio/etapas-no-banco";
 
-// Página de detalhe (`/encomendas/[id]`, D-01/D-04): a trilha vertical de seis etapas com as
+// Página de detalhe (`/gestao/encomendas/[id]`, D-01/D-04): a trilha vertical de seis etapas com as
 // datas certas (Tarefa 1), o ajuste rápido sem otimismo (Tarefa 2) e as ações de ciclo de vida
 // com a hierarquia cancelar/excluir (Tarefa 3) — 03-05-PLAN.md. `calcularCronograma`/
 // `situacaoEm`/`textoDaSituacao` são importados diretos dos módulos puros de produção (zero
@@ -15,11 +15,11 @@ import { definirEsperaDaEtapa } from "./apoio/etapas-no-banco";
 // tests/e2e/encomendas-indice.spec.ts).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Desde o plano 06, `FormularioEncomenda` monta `Dialog` (desktop) E `Sheet` (celular) ao mesmo
@@ -50,7 +50,7 @@ async function criarEncomenda(
   const TENTATIVAS_MAXIMAS = 3;
 
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Nome da encomenda").fill(opcoes.nome);
     if (opcoes.cliente) {
       await campoVisivel(page, "Cliente").fill(opcoes.cliente);
@@ -61,10 +61,10 @@ async function criarEncomenda(
     await botaoVisivel(page, "Salvar").click();
 
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
       return;
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(opcoes.nome, { exact: true }).count();
       if (jaFoiCriada > 0) {
         return;
@@ -113,13 +113,13 @@ function nomeLongoSemEspaco(): string {
   return semPreenchimento.padEnd(120, "x").slice(0, 120);
 }
 
-// Navega para `/encomendas`, acha o cartão da lista mobile pelo nome (existe no DOM nos dois
+// Navega para `/gestao/encomendas`, acha o cartão da lista mobile pelo nome (existe no DOM nos dois
 // projetos — D-02, só escondido por CSS no desktop) e lê o `id` do próprio `data-testid` que
 // `cartao-encomenda.tsx` expõe — nunca clica (o Gantt desktop ainda não linka para o detalhe,
 // só o cartão mobile faz isso), e nunca INSERE direto no banco: o `id` sai do mesmo dado real
 // que a Server Action gravou.
 async function abrirDetalhe(page: Page, nome: string): Promise<string> {
-  await page.goto("/encomendas");
+  await page.goto("/gestao/encomendas");
   const cartao = page.locator('[data-testid^="cartao-encomenda-"]').filter({ hasText: nome });
   await expect(cartao).toHaveCount(1);
   const testId = await cartao.getAttribute("data-testid");
@@ -127,7 +127,7 @@ async function abrirDetalhe(page: Page, nome: string): Promise<string> {
     throw new Error(`Não encontrou o cartão da encomenda "${nome}" para descobrir o id.`);
   }
   const id = testId.replace("cartao-encomenda-", "");
-  await page.goto(`/encomendas/${id}`);
+  await page.goto(`/gestao/encomendas/${id}`);
   return id;
 }
 
@@ -154,7 +154,7 @@ test.describe("detalhe da encomenda", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas/00000000-0000-0000-0000-000000000000");
+    await page.goto("/gestao/encomendas/00000000-0000-0000-0000-000000000000");
 
     await expect(page.getByRole("heading", { name: "Esta página não existe." })).toBeVisible();
   });
@@ -311,7 +311,7 @@ test.describe("detalhe da encomenda", () => {
 
     const voltar = page.getByTestId("voltar-pagina").and(page.locator(":visible"));
     await expect(voltar).toBeVisible();
-    await expect(voltar).toHaveAttribute("href", "/encomendas");
+    await expect(voltar).toHaveAttribute("href", "/gestao/encomendas");
 
     const caixa = await voltar.boundingBox();
     expect(caixa).not.toBeNull();
@@ -321,7 +321,7 @@ test.describe("detalhe da encomenda", () => {
     await expect(page.getByRole("heading", { name: nome, level: 1 })).toBeVisible();
 
     await voltar.click();
-    await expect(page).toHaveURL(/\/encomendas$/);
+    await expect(page).toHaveURL(/\/gestao\/encomendas$/);
     await expect(page.getByRole("heading", { name: "Encomendas", level: 1 })).toBeVisible();
   });
 });
@@ -812,7 +812,7 @@ test.describe("ações da encomenda", () => {
     await expect(dialogo).toBeVisible();
     await dialogo.getByRole("button", { name: "Excluir", exact: true }).click();
 
-    await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
     await expect(page.getByText("Encomenda excluída.")).toBeVisible();
     await expect(page.getByText(nome, { exact: true })).toHaveCount(0);
   });
@@ -898,7 +898,7 @@ test.describe("ações da encomenda", () => {
     // nenhum, então aqui o portão precisa ser a resposta da própria Server Action.
     const respostaDaConclusao = page.waitForResponse(
       (resposta) =>
-        resposta.url().includes(`/encomendas/${id}`) && resposta.request().method() === "POST",
+        resposta.url().includes(`/gestao/encomendas/${id}`) && resposta.request().method() === "POST",
       { timeout: 15000 },
     );
     await page.getByRole("button", { name: "Marcar como concluída" }).click();
@@ -940,7 +940,7 @@ test.describe("ações da encomenda", () => {
     // trava está armada, que é a pré-condição deste teste.
     const respostaDaConclusao = page.waitForResponse(
       (resposta) =>
-        resposta.url().includes(`/encomendas/${id}`) && resposta.request().method() === "POST",
+        resposta.url().includes(`/gestao/encomendas/${id}`) && resposta.request().method() === "POST",
       { timeout: 15000 },
     );
     await page.getByRole("button", { name: "Marcar como concluída" }).click();
@@ -987,14 +987,14 @@ test.describe("ações da encomenda", () => {
       timeout: 10000,
     });
 
-    // `expect.poll` reabre `/encomendas` a cada tentativa (navegação nova, nunca cache de
+    // `expect.poll` reabre `/gestao/encomendas` a cada tentativa (navegação nova, nunca cache de
     // cliente) — dá margem para a revalidação do servidor propagar sob a suíte em paralelo,
     // sem depender de um único instante de leitura. Escopado pelo `id` (no próprio
     // `data-testid`), não pelo texto do nome — mais preciso que casar substring.
     await expect
       .poll(
         async () => {
-          await page.goto("/encomendas");
+          await page.goto("/gestao/encomendas");
           return page.getByTestId(`cartao-encomenda-${idCancelada}`).count();
         },
         { timeout: 15000 },
@@ -1003,7 +1003,7 @@ test.describe("ações da encomenda", () => {
     await expect
       .poll(
         async () => {
-          await page.goto("/encomendas");
+          await page.goto("/gestao/encomendas");
           return page.getByTestId(`cartao-encomenda-${idConcluida}`).count();
         },
         { timeout: 15000 },

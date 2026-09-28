@@ -16,11 +16,11 @@ import {
 // público.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -39,7 +39,7 @@ async function criarItem(
     entregaPrevistaEm?: string;
   },
 ) {
-  await page.goto("/abertura?item=novo");
+  await page.goto("/gestao/abertura?item=novo");
   await page.getByLabel("O que é").fill(opcoes.nome);
   if (opcoes.categoria) {
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -61,11 +61,11 @@ async function criarItem(
     await page.getByLabel("Chega em (opcional)").fill(opcoes.entregaPrevistaEm);
   }
   await page.getByRole("button", { name: "Adicionar item" }).click();
-  await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 }
 
 async function criarTarefaComPrazo(page: Page, opcoes: { descricao: string; prazoEm: string }) {
-  await page.goto("/abertura?aba=tarefas&tarefa=nova");
+  await page.goto("/gestao/abertura?aba=tarefas&tarefa=nova");
   await page.getByLabel("O que fazer").fill(opcoes.descricao);
   await page.getByLabel("Até quando").fill(opcoes.prazoEm);
   await page.getByRole("button", { name: "Adicionar tarefa" }).click();
@@ -84,7 +84,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura?aba=meses");
+    await page.goto("/gestao/abertura?aba=meses");
 
     const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO_MESES, level: 2 });
     await expect(frase).toBeVisible();
@@ -98,7 +98,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     const botao = page.getByTestId("abertura-editar-inauguracao");
     await expect(botao).toHaveText(FRASE_DEFINIR_INAUGURACAO);
@@ -133,7 +133,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       primeiraParcelaEm: hojeStr,
     });
 
-    await page.goto("/abertura?aba=meses");
+    await page.goto("/gestao/abertura?aba=meses");
 
     const mesAtual = page.getByTestId("abertura-mes").filter({ hasText: "este mês" });
     await expect(mesAtual).toHaveCount(1);
@@ -180,7 +180,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       primeiraParcelaEm: hojeStr,
     });
 
-    await page.goto("/abertura?aba=meses");
+    await page.goto("/gestao/abertura?aba=meses");
     await expect(
       page.getByTestId("abertura-mes-composicao").filter({ hasText: nomeComprido }),
     ).toBeVisible();
@@ -192,7 +192,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
 
     expect(
       scrollWidth,
-      `/abertura?aba=meses rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/abertura?aba=meses rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 
@@ -221,7 +221,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     await criarTarefaComPrazo(page, { descricao: descricaoAtrasada, prazoEm: "2020-01-01" });
 
     // Comprometido e Sai neste mês agora só existem na aba Por mês.
-    await page.goto("/abertura?aba=meses");
+    await page.goto("/gestao/abertura?aba=meses");
 
     const blocoComprometido = page.getByTestId("abertura-bloco-comprometido");
     const blocoMes = page.getByTestId("abertura-bloco-mes");
@@ -252,7 +252,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     expect(saiNesteMes).toBeGreaterThanOrEqual(4400 + 1500);
 
     // Precisa de atenção agora só existe na aba Itens (a padrão).
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     const blocoAtencao = page.getByTestId("abertura-bloco-atencao");
     await expect(blocoAtencao).toBeVisible();
@@ -292,11 +292,11 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     abaEsperada: "itens" | "tarefas" | "meses" | "cotacoes";
     cartoes: readonly ("comprometido" | "mes" | "atencao")[];
   }[] = [
-    { url: "/abertura", abaEsperada: "itens", cartoes: ["atencao"] },
-    { url: "/abertura?aba=itens", abaEsperada: "itens", cartoes: ["atencao"] },
-    { url: "/abertura?aba=tarefas", abaEsperada: "tarefas", cartoes: [] },
-    { url: "/abertura?aba=meses", abaEsperada: "meses", cartoes: ["comprometido", "mes"] },
-    { url: "/abertura?aba=cotacoes", abaEsperada: "cotacoes", cartoes: [] },
+    { url: "/gestao/abertura", abaEsperada: "itens", cartoes: ["atencao"] },
+    { url: "/gestao/abertura?aba=itens", abaEsperada: "itens", cartoes: ["atencao"] },
+    { url: "/gestao/abertura?aba=tarefas", abaEsperada: "tarefas", cartoes: [] },
+    { url: "/gestao/abertura?aba=meses", abaEsperada: "meses", cartoes: ["comprometido", "mes"] },
+    { url: "/gestao/abertura?aba=cotacoes", abaEsperada: "cotacoes", cartoes: [] },
   ];
 
   test("cada aba mostra só os cartões dela — Itens: atenção; Por mês: comprometido e sai neste mês; Tarefas e Cotações: nenhum, sem faixa vazia", async ({
@@ -339,43 +339,43 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     // verdade a navegação/hidratação assentar) ANTES de medir, senão a medida corre o risco de
     // pegar o DOM a meio caminho da navegação anterior e devolver `null`.
     if (test.info().project.name === "celular") {
-      await page.goto("/abertura");
+      await page.goto("/gestao/abertura");
       const blocoAtencaoCelular = page.getByTestId("abertura-bloco-atencao");
       const painelCelular = page.getByTestId("abertura-painel-resumo");
       await expect(blocoAtencaoCelular).toBeVisible();
       await expect(painelCelular).toBeVisible();
       const caixaAtencao = await blocoAtencaoCelular.boundingBox();
       const caixaPainel = await painelCelular.boundingBox();
-      expect(caixaAtencao, "/abertura: bloco de atenção sem boundingBox").not.toBeNull();
-      expect(caixaPainel, "/abertura: painel sem boundingBox").not.toBeNull();
+      expect(caixaAtencao, "/gestao/abertura: bloco de atenção sem boundingBox").not.toBeNull();
+      expect(caixaPainel, "/gestao/abertura: painel sem boundingBox").not.toBeNull();
       // Celular: coluna inteira — mais de 0,75 da largura do painel.
       expect(caixaAtencao!.width).toBeGreaterThan(caixaPainel!.width * 0.75);
 
-      await page.goto("/abertura?aba=meses");
+      await page.goto("/gestao/abertura?aba=meses");
       const blocoComprometidoCelular = page.getByTestId("abertura-bloco-comprometido");
       const blocoMesCelular = page.getByTestId("abertura-bloco-mes");
       await expect(blocoComprometidoCelular).toBeVisible();
       await expect(blocoMesCelular).toBeVisible();
       const caixaComprometidoCelular = await blocoComprometidoCelular.boundingBox();
       const caixaMesCelular = await blocoMesCelular.boundingBox();
-      expect(caixaComprometidoCelular, "/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
-      expect(caixaMesCelular, "/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
+      expect(caixaComprometidoCelular, "/gestao/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
+      expect(caixaMesCelular, "/gestao/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
       // Celular: empilhados, na ordem Comprometido → Sai neste mês.
       expect(caixaMesCelular!.y).toBeGreaterThan(caixaComprometidoCelular!.y);
     } else {
-      await page.goto("/abertura");
+      await page.goto("/gestao/abertura");
       const blocoAtencaoDesktop = page.getByTestId("abertura-bloco-atencao");
       const painelDesktop = page.getByTestId("abertura-painel-resumo");
       await expect(blocoAtencaoDesktop).toBeVisible();
       await expect(painelDesktop).toBeVisible();
       const caixaAtencaoDesktop = await blocoAtencaoDesktop.boundingBox();
       const caixaPainelDesktop = await painelDesktop.boundingBox();
-      expect(caixaAtencaoDesktop, "/abertura: bloco de atenção sem boundingBox").not.toBeNull();
-      expect(caixaPainelDesktop, "/abertura: painel sem boundingBox").not.toBeNull();
+      expect(caixaAtencaoDesktop, "/gestao/abertura: bloco de atenção sem boundingBox").not.toBeNull();
+      expect(caixaPainelDesktop, "/gestao/abertura: painel sem boundingBox").not.toBeNull();
       // Desktop: uma das três colunas — largura menor que metade do painel.
       expect(caixaAtencaoDesktop!.width).toBeLessThan(caixaPainelDesktop!.width / 2);
 
-      await page.goto("/abertura?aba=meses");
+      await page.goto("/gestao/abertura?aba=meses");
       const blocoComprometidoDesktop = page.getByTestId("abertura-bloco-comprometido");
       const blocoMesDesktop = page.getByTestId("abertura-bloco-mes");
       const painelMeses = page.getByTestId("abertura-painel-resumo");
@@ -385,13 +385,13 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       const caixaComprometidoDesktop = await blocoComprometidoDesktop.boundingBox();
       const caixaMesDesktop = await blocoMesDesktop.boundingBox();
       const caixaPainelMeses = await painelMeses.boundingBox();
-      expect(caixaComprometidoDesktop, "/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
-      expect(caixaMesDesktop, "/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
-      expect(caixaPainelMeses, "/abertura?aba=meses: painel sem boundingBox").not.toBeNull();
+      expect(caixaComprometidoDesktop, "/gestao/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
+      expect(caixaMesDesktop, "/gestao/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
+      expect(caixaPainelMeses, "/gestao/abertura?aba=meses: painel sem boundingBox").not.toBeNull();
       // Desktop: mesma linha (diferença de `y` menor que 2px) e cada um ocupa uma coluna.
       expect(
         Math.abs(caixaComprometidoDesktop!.y - caixaMesDesktop!.y),
-        "/abertura?aba=meses: comprometido e mes deveriam estar na mesma linha no desktop",
+        "/gestao/abertura?aba=meses: comprometido e mes deveriam estar na mesma linha no desktop",
       ).toBeLessThan(2);
       expect(caixaComprometidoDesktop!.width).toBeLessThan(caixaPainelMeses!.width / 2);
       expect(caixaMesDesktop!.width).toBeLessThan(caixaPainelMeses!.width / 2);
@@ -415,7 +415,7 @@ test.describe("abertura painel — a data de inauguração editável e a contage
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     const botao = page.getByTestId("abertura-editar-inauguracao");
     const regressiva = page.getByTestId("abertura-regressiva");

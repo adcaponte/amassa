@@ -12,11 +12,11 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // público.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -40,7 +40,7 @@ async function criarItem(
     entregaPrevistaEm?: string;
   },
 ) {
-  await page.goto("/abertura?item=novo");
+  await page.goto("/gestao/abertura?item=novo");
   await page.getByLabel("O que é").fill(opcoes.nome);
   if (opcoes.categoria) {
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -51,14 +51,14 @@ async function criarItem(
     await page.getByLabel("Chega em (opcional)").fill(opcoes.entregaPrevistaEm);
   }
   await page.getByRole("button", { name: "Adicionar item" }).click();
-  await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 }
 
 async function criarTarefa(
   page: Page,
   opcoes: { descricao: string; vinculoAoItem?: string },
 ) {
-  await page.goto("/abertura?aba=tarefas&tarefa=nova");
+  await page.goto("/gestao/abertura?aba=tarefas&tarefa=nova");
   await page.getByLabel("O que fazer").fill(opcoes.descricao);
   if (opcoes.vinculoAoItem) {
     await page.getByRole("combobox", { name: "Ligada a algum item?" }).click();
@@ -175,7 +175,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
 
     // `criarTarefa` deixa a página na aba Tarefas — volta para a aba Itens (a etiqueta "N
     // tarefas abertas" só é desenhada por `lista-itens.tsx`).
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     // O item mostra 1 tarefa aberta (D-13) antes de editar.
     await expect(
@@ -205,7 +205,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     await page.getByLabel("Em quantas vezes").fill("3");
     await page.getByRole("button", { name: "Salvar alterações" }).click();
 
-    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 
     // (a) a linha mostra os valores novos — e o nome antigo não sobrevive em lugar nenhum
     // (a linha foi ATUALIZADA, nunca apagada e recriada ao lado da antiga: se tivesse apagado e
@@ -225,7 +225,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
 
     // (c) o item continua mostrando a tarefa aberta, do lado da tarefa também — precisa da aba
     // Tarefas (a linha da tarefa não existe na aba Itens).
-    await page.goto("/abertura?aba=tarefas");
+    await page.goto("/gestao/abertura?aba=tarefas");
     await expect(
       linhaDeTarefa(page, descricaoTarefa).getByTestId("abertura-vinculo-item"),
     ).toHaveText(nomeItemEditado);
@@ -259,7 +259,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura?item=00000000-0000-0000-0000-000000000000");
+    await page.goto("/gestao/abertura?item=00000000-0000-0000-0000-000000000000");
 
     await expect(page.getByRole("heading", { name: "Novo item" })).toBeVisible();
     await expect(page.getByLabel("O que é")).toHaveValue("");
@@ -311,7 +311,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     await criarTarefa(page, { descricao: descricaoTarefa1, vinculoAoItem: nomeItem });
     await criarTarefa(page, { descricao: descricaoTarefa2, vinculoAoItem: nomeItem });
 
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
     await linhaDeItem(page, nomeItem).getByTestId("abertura-remover-item").click();
 
     const dialogo = page.getByRole("alertdialog");
@@ -330,7 +330,7 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     );
 
     // As duas tarefas continuam na lista, agora sem vínculo — nenhuma foi apagada.
-    await page.goto("/abertura?aba=tarefas");
+    await page.goto("/gestao/abertura?aba=tarefas");
     const linhaTarefa1 = linhaDeTarefa(page, descricaoTarefa1);
     const linhaTarefa2 = linhaDeTarefa(page, descricaoTarefa2);
     await expect(linhaTarefa1).toBeVisible();

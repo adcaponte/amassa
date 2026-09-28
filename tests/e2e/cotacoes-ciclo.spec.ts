@@ -23,11 +23,11 @@ const OPCOES_EXECUCAO = {
 };
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Mesmo orçamento de caracteres documentado em `cotacoes-categorias.spec.ts`: o envoltório fixo
@@ -74,7 +74,7 @@ async function criarCategoria(page: Page, nome: string) {
   await expect(page.getByRole("heading", { name: "Nova categoria" })).toBeVisible();
   await page.getByLabel("Nome", { exact: true }).fill(nome);
   await page.getByRole("button", { name: "Criar" }).click();
-  await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 }
 
 type DadosDaCotacao = {
@@ -117,7 +117,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
     const empresaOriginal = nomeUnico("Fornecedor Original");
     const empresaNova = nomeUnico("Fornecedor Editado");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeCategoria);
     await criarCotacao(page, { empresa: empresaOriginal, produto: "Forno 180L", preco: "1500" });
 
@@ -150,7 +150,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
     await expect(botaoFavorito).toHaveAttribute("aria-pressed", "true");
 
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     // O nome ANTIGO desaparece por completo — não presumir que o novo o contém.
     await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaOriginal })).toHaveCount(0);
@@ -199,7 +199,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
       const nomeCategoria = nomeUnico("Categoria Compartilhada");
       const empresa = nomeUnico("Fornecedor Compartilhado");
 
-      await page.goto("/abertura?aba=cotacoes");
+      await page.goto("/gestao/abertura?aba=cotacoes");
       await criarCategoria(page, nomeCategoria);
       await criarCotacao(page, { empresa, preco: "1000" });
       const urlComACategoria = page.url();
@@ -207,11 +207,11 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
       // Segundo contexto de navegador — sessão própria, cookie próprio, nunca a mesma aba.
       segundoContexto = await browser.newContext();
       const segundaPagina = await segundoContexto.newPage();
-      await segundaPagina.goto("/login");
+      await segundaPagina.goto("/gestao/login");
       await segundaPagina.getByLabel("E-mail").fill(gestor.email);
       await segundaPagina.getByLabel("Senha").fill(gestor.senha);
       await segundaPagina.getByRole("button", { name: "Entrar" }).click();
-      await expect(segundaPagina).toHaveURL(/\/$/);
+      await expect(segundaPagina).toHaveURL(/\/gestao$/);
 
       // (a) A segunda conta VÊ a cotação criada pela primeira — nenhum filtro por usuário (D-17).
       await segundaPagina.goto(urlComACategoria);
@@ -224,7 +224,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
       await expect(segundaPagina.getByLabel("Empresa")).toHaveValue(empresa);
       await segundaPagina.getByLabel("Preço").fill("2500");
       await segundaPagina.getByRole("button", { name: "Salvar" }).click();
-      await expect(segundaPagina).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, {
+      await expect(segundaPagina).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, {
         timeout: 10000,
       });
 
@@ -250,7 +250,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
     const empresaA = nomeUnico("Fornecedor A");
     const empresaB = nomeUnico("Fornecedor B");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeCategoria);
     await criarCotacao(page, { empresa: empresaA });
     await criarCotacao(page, { empresa: empresaB });
@@ -279,7 +279,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
 
     // Confirma de verdade.
     await page.getByRole("button", { name: "Excluir", exact: true }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     // (a) a linha de A desapareceu; (b) a de B continua; (c) a contagem caiu exatamente em um.
     await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaA })).toHaveCount(0);
@@ -297,7 +297,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
     const empresaFavorito = nomeUnico("Fornecedor Favorito");
     const empresaDescartada = nomeUnico("Fornecedor Descartado");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeCategoria);
     await criarCotacao(page, { empresa: empresaCotando, preco: "1200" });
     await criarCotacao(page, { empresa: empresaFavorito, situacao: "favorito" });
@@ -310,7 +310,7 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
     await expect(page.getByRole("heading", { name: "Editar cotação" })).toBeVisible();
     await page.getByRole("button", { name: "descartado", exact: true }).click();
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     // Recarrega — a prova de que a descartada não é um estado só de cliente que some ao voltar.
     await page.reload();

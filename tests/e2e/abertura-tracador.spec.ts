@@ -16,11 +16,11 @@ import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_ITEM } from "@/lib/a
 // nenhum dado de pessoa real em lugar nenhum, o repositório é público.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Mesmo par de locators de `tests/e2e/casca.spec.ts` (`abrirMenuDoUsuario`) — o gatilho do
@@ -87,7 +87,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO, level: 2 });
     await expect(frase).toHaveCount(1);
@@ -99,7 +99,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
       .getByRole("link", { name: ROTULO_NOVO_ITEM });
     await expect(botaoDoEstadoVazio).toBeVisible();
     await expect(botaoDoEstadoVazio).not.toHaveAttribute("aria-disabled", "true");
-    await expect(botaoDoEstadoVazio).toHaveAttribute("href", "/abertura?item=novo");
+    await expect(botaoDoEstadoVazio).toHaveAttribute("href", "/gestao/abertura?item=novo");
 
     // O botão precisa FUNCIONAR, abrindo o formulário do primeiríssimo item — não ser inerte
     // (achado do 03-06, replicado em Queimas e aqui).
@@ -123,7 +123,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await abrirMenuDoUsuario(page);
     await itemAbertura.click();
 
-    await expect(page).toHaveURL(/\/abertura$/);
+    await expect(page).toHaveURL(/\/gestao\/abertura$/);
     await expect(page.getByRole("heading", { name: "Abertura do Espaço", level: 1 })).toBeVisible();
 
     // A barra inferior do celular continua com exatamente 5 itens — nenhum sexto item foi
@@ -143,7 +143,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     const nomeVista = nomeUnico("Estante de secagem");
 
     // Item a prazo — Móveis, 6 parcelas de 10 dias a partir de hoje.
-    await page.goto("/abertura?item=novo");
+    await page.goto("/gestao/abertura?item=novo");
     await page.getByLabel("O que é").fill(nomePrazo);
     await page.getByRole("combobox", { name: "Categoria" }).click();
     await page.getByRole("option", { name: "Móveis" }).click();
@@ -153,10 +153,10 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await page.getByLabel("Em quantas vezes").fill("6");
     await page.getByRole("button", { name: "Adicionar item" }).click();
 
-    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 
     // Item à vista — Equipamentos, sem entrega prevista.
-    await page.goto("/abertura?item=novo");
+    await page.goto("/gestao/abertura?item=novo");
     await page.getByLabel("O que é").fill(nomeVista);
     await page.getByRole("combobox", { name: "Categoria" }).click();
     await page.getByRole("option", { name: "Equipamentos" }).click();
@@ -165,7 +165,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await expect(page.getByLabel("Em quantas vezes")).toHaveCount(0);
     await page.getByRole("button", { name: "Adicionar item" }).click();
 
-    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 
     // Dois cabeçalhos de grupo, cada um com contagem e soma do grupo.
     const linhaPrazo = page.getByTestId("abertura-linha-item").filter({ hasText: nomePrazo });
@@ -205,13 +205,13 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await fazerLogin(page);
     const nome = nomeUnico("Prateleiras de parede");
 
-    await page.goto("/abertura?item=novo");
+    await page.goto("/gestao/abertura?item=novo");
     await page.getByLabel("O que é").fill(nome);
     await page.getByLabel("Valor total").fill("1500");
     // "Chega em (opcional)" permanece em branco de propósito.
     await page.getByRole("button", { name: "Adicionar item" }).click();
 
-    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 
     const linha = page.getByTestId("abertura-linha-item").filter({ hasText: nome });
     await expect(linha).toBeVisible();
@@ -222,7 +222,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
   // 44px de altura, e nenhuma rolagem horizontal no viewport do celular (UI-06).
   test("os campos do formulário têm no mínimo 44px de altura", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/abertura?item=novo");
+    await page.goto("/gestao/abertura?item=novo");
 
     for (const rotulo of ["O que é", "Valor total"]) {
       const caixa = await page.getByLabel(rotulo).boundingBox();
@@ -239,7 +239,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
   test("a 320px de largura, /abertura não exige rolagem horizontal", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -248,7 +248,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
 
     expect(
       scrollWidth,
-      `/abertura rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/abertura rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 });

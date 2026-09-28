@@ -27,16 +27,16 @@ import { test, expect, type Page } from "@playwright/test";
 // módulo, saudação do painel e título de um cartão do painel — para que ancorar em um só nunca
 // mais esconda uma regressão nos outros.
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 test.describe("design system — cor e tipografia computadas no navegador (UI-01, D-09)", () => {
   test("botão 'Entrar' resolve para o terracota do design system", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
 
     const botao = page.getByRole("button", { name: "Entrar" });
     const cor = await botao.evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -48,7 +48,7 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
   });
 
   test("o <body> resolve para o fundo areia do design system", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
 
     const cor = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
@@ -78,7 +78,7 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
     const familiaCorpo = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
 
     // Ponto 3 — título de uma tela de módulo (`CabecalhoPagina`, papel `display`).
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     const familiaTituloModulo = await page
       .getByRole("heading", { name: "Encomendas", level: 1 })
       .evaluate((el) => getComputedStyle(el).fontFamily);
@@ -96,7 +96,7 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
   test("os campos de login têm fonte de pelo menos 16px e altura mínima de 44px (UI-09)", async ({
     page,
   }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
 
     for (const rotulo of ["E-mail", "Senha"]) {
       const campo = page.getByLabel(rotulo);

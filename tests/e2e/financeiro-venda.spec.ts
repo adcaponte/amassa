@@ -17,11 +17,11 @@ import {
 // banco (CLAUDE.md).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -51,7 +51,7 @@ function atalho(page: Page, nome: string) {
 // URL já limpa em ".../financeiro?aba=venda". Não é flakiness de infraestrutura nem hidratação
 // perdida — é a asserção testando um estado TRANSIENTE do próprio produto. O fragmento "aba=venda"
 // é estável nos dois momentos (antes e depois da limpeza) e só aparece depois da navegação de
-// sucesso (o `goto("/financeiro")` de cada teste começa sem nenhuma query string) — por isso é o
+// sucesso (o `goto("/gestao/financeiro")` de cada teste começa sem nenhuma query string) — por isso é o
 // sinal certo para esperar, sem timeout maior, sem retry e sem tocar no comportamento do produto.
 async function esperarVendaLancada(page: Page) {
   await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
@@ -108,7 +108,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
 
     await atalho(page, nomeCafe).click();
@@ -170,7 +170,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeRefil).click();
     await atalho(page, nomeCopo).click();
@@ -210,7 +210,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeQueima).click();
     await atalho(page, nomeQueima).click();
@@ -289,7 +289,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
 
     await atalho(page, nomeHora).click();
@@ -347,7 +347,7 @@ test.describe("financeiro venda", () => {
     }
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeAula).click();
     await atalho(page, nomePincel8).click();
@@ -373,7 +373,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
 
@@ -400,7 +400,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
 
@@ -437,7 +437,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
 
     await page.getByTestId("venda-filtro-loja").click();
     await expect(atalho(page, nomeLoja)).toBeVisible();
@@ -468,7 +468,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeA).click();
     await atalho(page, nomeA).click();
@@ -508,7 +508,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "Lista completa e atalhos" }).click();
     await page.getByLabel("Buscar", { exact: true }).fill(suf);
 
@@ -541,7 +541,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
     await expect(linhaDoCarrinho(page, nome)).toBeVisible();
@@ -576,7 +576,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
     await page.getByLabel("Data").fill(ontem);
@@ -609,7 +609,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
     await page.getByRole("button", { name: "Pix", exact: true }).click();
@@ -632,7 +632,7 @@ test.describe("financeiro venda", () => {
     const descricao = `[e2e] Aporte dos sócios ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -672,7 +672,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeKit).click();
     await atalho(page, nomePrato).click();
@@ -732,7 +732,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeKit).click();
     await atalho(page, nomePrato).click();
@@ -759,7 +759,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
     await page.getByTestId("venda-desconto").fill("3");
@@ -782,7 +782,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
 
@@ -814,7 +814,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
 
@@ -857,7 +857,7 @@ test.describe("financeiro venda", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nome).click();
     await page.getByTestId("venda-desconto").fill("50");
@@ -869,7 +869,7 @@ test.describe("financeiro venda", () => {
   test("a 320px de largura, a Venda não rola na horizontal", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,

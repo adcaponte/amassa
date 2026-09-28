@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 // O traçado ponta a ponta do Comparador de Compras (04.3-01-PLAN.md, Tarefa 1): da quarta aba
-// `/abertura?aba=cotacoes` até uma categoria e uma cotação reais, criadas pela tela, com o preço
+// `/gestao/abertura?aba=cotacoes` até uma categoria e uma cotação reais, criadas pela tela, com o preço
 // convertido para centavos no Postgres e voltando formatado — a prova de que o dado saiu do
 // protótipo com `localStorage` e foi para o banco, que é a razão desta fase existir. "cotacoes
 // tracador" no título do bloco é o recorte usado pelo orçamento de e2e deste plano
@@ -15,11 +15,11 @@ import { test, expect, type Page } from "@playwright/test";
 // real de fornecedor, telefone ou pessoa em lugar nenhum (o repositório é público).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -43,7 +43,7 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
 
   test("a aba Cotações existe, navega por query string e cabe a 320px", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/abertura");
+    await page.goto("/gestao/abertura");
 
     const abaCotacoes = page.getByTestId("abertura-aba-cotacoes");
     await expect(abaCotacoes).toBeVisible();
@@ -65,7 +65,7 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
     ]);
     expect(
       scrollWidth,
-      `/abertura?aba=cotacoes rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/abertura?aba=cotacoes rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 
@@ -78,7 +78,7 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
     const nomeDaEmpresa = nomeUnico("Cerâmica Modelo");
 
     // --- Criar categoria (D-14, <10s: um diálogo, um campo, um clique) ---
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     // O comparador pode subir vazio (D-18 a D-21 retiradas): sem NENHUMA categoria, o botão fica
     // no estado vazio (`BotaoVazioCotacoes`); com pelo menos uma, na pílula tracejada
     // (`PilulaNovaCategoria`) — os dois têm o mesmo texto visível "+ Nova categoria".
@@ -92,7 +92,7 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
 
     // Navegação COMPLETA (D-23) para a categoria recém-criada — só o servidor sabe o
     // identificador que nasceu.
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, {
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, {
       timeout: 10000,
     });
     const urlComACategoria = page.url();

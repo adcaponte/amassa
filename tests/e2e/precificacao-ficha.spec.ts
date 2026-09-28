@@ -16,11 +16,11 @@ import { test, expect, type Page } from "@playwright/test";
 // verificação humana do plano 13. Registrado no SUMMARY.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -28,7 +28,7 @@ function sufixoUnico(): string {
 }
 
 async function abrirNovaPeca(page: Page) {
-  await page.goto("/financeiro?aba=pecas");
+  await page.goto("/gestao/financeiro?aba=pecas");
   await page.getByTestId("nova-peca").click();
   await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
 }
@@ -75,7 +75,7 @@ test.describe("precificacao ficha", () => {
 
     // O aviso some da URL logo depois de mostrar o toast (`AvisoFinanceiro`, mesmo padrão da
     // 04.4) — a asserção de URL não exige `&aviso=peca-salva` sobrevivendo, só o `?peca=<id>`.
-    await expect(page).toHaveURL(/\/financeiro\?aba=pecas&peca=[0-9a-f-]{36}/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=pecas&peca=[0-9a-f-]{36}/, { timeout: 10000 });
     await expect(page.getByText("Peça salva.")).toBeVisible();
     // O diálogo reabre em modo edição com a peça recém-criada — prova de que ela existe.
     await expect(page.getByRole("heading", { name: "Precificar peça" })).toBeVisible();
@@ -90,7 +90,7 @@ test.describe("precificacao ficha", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
 
     const linha = linhaDoCatalogo(page, nomeDaPecaDeLinha);
     await expect(linha).toBeVisible();
@@ -101,7 +101,7 @@ test.describe("precificacao ficha", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=pecas&peca=${idDaPecaDeLinha}`);
+    await page.goto(`/gestao/financeiro?aba=pecas&peca=${idDaPecaDeLinha}`);
     await expect(page.getByRole("heading", { name: "Precificar peça" })).toBeVisible();
     await expect(page.getByTestId("ficha-campo-preco-praticado")).toHaveValue("95,00");
 
@@ -109,7 +109,7 @@ test.describe("precificacao ficha", () => {
     await page.getByRole("button", { name: "Salvar" }).click();
     await expect(page.getByText("Peça salva.")).toBeVisible();
 
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
     const linha = linhaDoCatalogo(page, nomeDaPecaDeLinha);
     await expect(linha).toContainText("R$ 110,00");
   });
@@ -185,7 +185,7 @@ test.describe("precificacao ficha", () => {
     await page.getByRole("button", { name: "Salvar" }).click();
     await expect(page.getByText("Peça salva.")).toBeVisible();
 
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
     await expect(page.getByText(nome, { exact: true })).toHaveCount(0);
   });
 

@@ -20,11 +20,11 @@ import { apagarContaFixaPeloNome, criarContaFixaInativa } from "./apoio/semear-c
 // interface realmente usa (NFC x NFD), produzindo uma falha que não tem nada a ver com o
 // comportamento real da aplicação. Importar a mesma constante elimina essa classe de erro.
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Mesmo princípio de tests/e2e/casca.spec.ts e tests/e2e/sessao.spec.ts: escolher o elemento
@@ -47,37 +47,37 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 //
 // 03-08-PLAN.md (Tarefa 2, fechamento da fase) acrescenta as três telas novas daquela fase que
 // ainda não tinham entrado aqui: o formulário aberto (`?nova`, Dialog/Sheet do plano 06) e a
-// folha de impressão (`/encomendas/imprimir`, D-18/ENC-14 do plano 08). `04.4-02-PLAN.md`
-// (Tarefa 1) acrescenta `/financeiro` e `/cadastros`, as duas rotas-base do Financeiro.
+// folha de impressão (`/gestao/encomendas/imprimir`, D-18/ENC-14 do plano 08). `04.4-02-PLAN.md`
+// (Tarefa 1) acrescenta `/gestao/financeiro` e `/gestao/cadastros`, as duas rotas-base do Financeiro.
 // `04.4-11-PLAN.md` (Tarefa 2, fechamento da fase) acrescenta as seis sub-rotas que faltavam —
-// as três abas de `/financeiro` além da Venda (default sem `?aba=`) e as três sub-abas de
-// `/cadastros` além do Catálogo (default sem `?sub=`). `04.5-01-PLAN.md` (Tarefa 4, D-04)
-// substitui `/orcamentos` (a casca vazia, removida) por `/financeiro?aba=orcamentos` e acrescenta
-// `/financeiro?aba=pecas` — as duas abas novas do Financeiro. `04.5-13-PLAN.md` (Tarefa 1,
-// fechamento da fase) acrescenta `/cadastros?sub=parametros` (D-03, a última sub-aba nova de
+// as três abas de `/gestao/financeiro` além da Venda (default sem `?aba=`) e as três sub-abas de
+// `/gestao/cadastros` além do Catálogo (default sem `?sub=`). `04.5-01-PLAN.md` (Tarefa 4, D-04)
+// substitui `/orcamentos` (a casca vazia, removida) por `/gestao/financeiro?aba=orcamentos` e acrescenta
+// `/gestao/financeiro?aba=pecas` — as duas abas novas do Financeiro. `04.5-13-PLAN.md` (Tarefa 1,
+// fechamento da fase) acrescenta `/gestao/cadastros?sub=parametros` (D-03, a última sub-aba nova de
 // Cadastros); a rota do documento do cliente (`?documento=1`) precisa de um id de orçamento real
 // e por isso tem o próprio `test.describe` mais abaixo, fora deste laço estático. Mesmas
 // `REGRAS_AUDITADAS` de sempre — nenhuma regra nova, nenhuma afrouxada.
 const ROTAS_DA_FASE = [
-  "/login",
-  "/",
-  "/encomendas",
-  "/encomendas?nova",
-  "/encomendas/imprimir",
-  "/agenda",
-  "/queimas",
-  "/estoque",
-  "/financeiro",
-  "/financeiro?aba=despesa",
-  "/financeiro?aba=caixa",
-  "/financeiro?aba=mes",
-  "/financeiro?aba=orcamentos",
-  "/financeiro?aba=pecas",
-  "/cadastros",
-  "/cadastros?sub=categorias",
-  "/cadastros?sub=fixas",
-  "/cadastros?sub=taxas",
-  "/cadastros?sub=parametros",
+  "/gestao/login",
+  "/gestao",
+  "/gestao/encomendas",
+  "/gestao/encomendas?nova",
+  "/gestao/encomendas/imprimir",
+  "/gestao/agenda",
+  "/gestao/queimas",
+  "/gestao/estoque",
+  "/gestao/financeiro",
+  "/gestao/financeiro?aba=despesa",
+  "/gestao/financeiro?aba=caixa",
+  "/gestao/financeiro?aba=mes",
+  "/gestao/financeiro?aba=orcamentos",
+  "/gestao/financeiro?aba=pecas",
+  "/gestao/cadastros",
+  "/gestao/cadastros?sub=categorias",
+  "/gestao/cadastros?sub=fixas",
+  "/gestao/cadastros?sub=taxas",
+  "/gestao/cadastros?sub=parametros",
 ] as const;
 
 // Regras às quais esta fase se compromete — restringir com withRules é escolha deliberada
@@ -87,12 +87,12 @@ const ROTAS_DA_FASE = [
 const REGRAS_AUDITADAS = ["color-contrast", "button-name", "link-name", "aria-allowed-attr"];
 
 async function irParaRotaAutenticada(page: Page, rota: (typeof ROTAS_DA_FASE)[number]) {
-  if (rota === "/login") {
-    await page.goto("/login");
+  if (rota === "/gestao/login") {
+    await page.goto("/gestao/login");
     return;
   }
   await fazerLogin(page);
-  if (rota !== "/") {
+  if (rota !== "/gestao") {
     await page.goto(rota);
   }
 }
@@ -176,7 +176,7 @@ test.describe("acessibilidade — navegação por teclado (UI-09)", () => {
   test("dá para chegar do e-mail até 'Entrar' e logar usando só Tab e Enter, sem mouse (UI-09)", async ({
     page,
   }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
 
     // Começa do <body> — nenhum clique, nenhum foco programático antes do primeiro Tab.
     await page.keyboard.press("Tab");
@@ -191,7 +191,7 @@ test.describe("acessibilidade — navegação por teclado (UI-09)", () => {
     await expect(page.getByRole("button", { name: "Entrar" })).toBeFocused();
 
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
   });
 
   test("depois de logado, dá para chegar ao menu do usuário e abri-lo usando só o teclado (UI-09)", async ({
@@ -227,7 +227,7 @@ test.describe("acessibilidade — varredura de contraste com axe-core (UI-09)", 
     test(`${rota} não tem violação de color-contrast, button-name, link-name ou aria-allowed-attr (UI-09)`, async ({
       page,
     }, testInfo) => {
-      // `/cadastros?sub=fixas` é a única rota da varredura cujo achado de contraste real (WINDOWS
+      // `/gestao/cadastros?sub=fixas` é a única rota da varredura cujo achado de contraste real (WINDOWS
       // #4) só existe numa conta fixa DESATIVADA — a linha esmaecida (`opacity-70` sobre
       // `lista-contas-fixas.tsx`) que dilui `--color-tinta-fraca` abaixo de 4.5:1. Com o banco
       // vazio (ou só com contas ATIVAS), o `<span>` de metadado nem existe na árvore de
@@ -237,7 +237,7 @@ test.describe("acessibilidade — varredura de contraste com axe-core (UI-09)", 
       // mesmo cuidado de `tests/e2e/cadastros-contas-fixas.spec.ts`) e apaga no `finally` — a
       // tabela é GLOBAL e compartilhada, e uma linha esquecida quebraria a contagem de "toda
       // conta ativa" que "Gerar as contas" faz em outro arquivo de spec.
-      const ehRotaDeContasFixas = rota === "/cadastros?sub=fixas";
+      const ehRotaDeContasFixas = rota === "/gestao/cadastros?sub=fixas";
       const nomeDaContaSemeada = `Conta de teste a11y ${testInfo.project.name}-${Date.now()}`;
 
       if (ehRotaDeContasFixas) {
@@ -282,7 +282,7 @@ test.describe("acessibilidade — sem rolagem horizontal a 320px (UI-06, reconfe
     await page.setViewportSize({ width: 320, height: 800 });
 
     for (const rota of ROTAS_DA_FASE) {
-      await page.goto(rota === "/login" ? "/login" : rota);
+      await page.goto(rota === "/gestao/login" ? "/gestao/login" : rota);
 
       const [scrollWidth, clientWidth] = await page.evaluate(() => [
         document.documentElement.scrollWidth,
@@ -334,11 +334,11 @@ test.describe("acessibilidade — truncamento de nome longo (backstop do 02b-UI-
     const senhaLonga = linhaSenha.slice("SENHA: ".length).trim();
 
     try {
-      await page.goto("/login");
+      await page.goto("/gestao/login");
       await page.getByLabel("E-mail").fill(emailLongo);
       await page.getByLabel("Senha").fill(senhaLonga);
       await page.getByRole("button", { name: "Entrar" }).click();
-      await expect(page).toHaveURL(/\/$/);
+      await expect(page).toHaveURL(/\/gestao$/);
 
       const avatarCelular = page.getByRole("button", { name: NOME_ACESSIVEL_MENU_USUARIO });
       const estaNoCelular = await avatarCelular.isVisible().catch(() => false);
@@ -403,11 +403,11 @@ test.describe("acessibilidade — o documento do cliente (rota nova da Fase 04.5
   }) => {
     await fazerLogin(page);
 
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
     await page.getByRole("button", { name: "Novo orçamento" }).click();
-    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
     const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
-    const urlDoDocumento = `/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`;
+    const urlDoDocumento = `/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`;
 
     await page.goto(urlDoDocumento);
     await expect(page.getByTestId("folha-a4")).toBeVisible();

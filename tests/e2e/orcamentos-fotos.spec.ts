@@ -8,20 +8,20 @@ import sharp from "sharp";
 // nenhum arquivo binário novo versionado além do fixture sintético da Tarefa 2.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Cria um orçamento novo a partir da lista e devolve o id (mesmo molde de
 // `tests/e2e/orcamentos-editor.spec.ts::criarOrcamento`, redeclarado aqui — cada spec deste
 // projeto tem sua própria cópia dos helpers, nunca um módulo compartilhado).
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/financeiro?aba=orcamentos");
+  await page.goto("/gestao/financeiro?aba=orcamentos");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
   const url = new URL(page.url());
   return url.searchParams.get("orcamento") ?? "";
 }
@@ -36,7 +36,7 @@ async function criarOrcamento(page: Page): Promise<string> {
 // Meio segundo é uma folga generosa e barata perto do custo fixo de ~53s do e2e; nenhuma parte
 // do produto depende deste atraso, só o teste.
 async function abrirEditorDoOrcamento(page: Page, orcamentoId: string): Promise<void> {
-  await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.waitForTimeout(500);
 }
 
@@ -49,7 +49,7 @@ test.describe("orcamentos fotos", () => {
 
   let orcamentoId = "";
 
-  test("(a)(b) enviar uma imagem: a célula de espera aparece, depois vira a foto de verdade, servida por /api/orcamentos/fotos/<id> com content-type image/jpeg", async ({
+  test("(a)(b) enviar uma imagem: a célula de espera aparece, depois vira a foto de verdade, servida por /gestao/api/orcamentos/fotos/<id> com content-type image/jpeg", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -99,7 +99,7 @@ test.describe("orcamentos fotos", () => {
     const imagem = grade.getByTestId("foto-celula").first().locator("img");
     await expect(imagem).toBeVisible();
     const src = await imagem.getAttribute("src");
-    expect(src).toMatch(/^\/api\/orcamentos\/fotos\/[0-9a-f-]+$/);
+    expect(src).toMatch(/^\/gestao\/api\/orcamentos\/fotos\/[0-9a-f-]+$/);
 
     const resposta = await page.request.get(src!);
     expect(resposta.status()).toBe(200);

@@ -11,11 +11,11 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // confere só que o aviso aparece com ALGUMA contagem positiva.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -23,9 +23,9 @@ function sufixoUnico(): string {
 }
 
 async function criarOrcamento(page: Page): Promise<void> {
-  await page.goto("/financeiro?aba=orcamentos");
+  await page.goto("/gestao/financeiro?aba=orcamentos");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
 }
 
 function orcamentoIdDaUrl(page: Page): string {
@@ -40,7 +40,7 @@ async function blurEEsperarNavegacao(page: Page, campo: Locator): Promise<void> 
 }
 
 async function acrescentarPecaExclusiva(page: Page, orcamentoId: string, nome: string, precoReais: string): Promise<void> {
-  await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
   await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
 
@@ -110,7 +110,7 @@ test.describe("orcamentos total", () => {
 
   test("(b) trocar o plano para '3 parcelas' mostra três parcelas cuja soma é igual ao total", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const totalTexto = (await page.getByTestId("orcamento-total").textContent()) ?? "";
     const totalCentavos = reaisParaCentavos(totalTexto);
@@ -137,7 +137,7 @@ test.describe("orcamentos total", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const selectPlano = page.getByTestId("orcamento-plano-select");
     await Promise.all([
@@ -169,7 +169,7 @@ test.describe("orcamentos total", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const painel = page.getByTestId("orcamento-so-para-voce");
     await expect(painel).toBeVisible();
@@ -193,7 +193,7 @@ test.describe("orcamentos total", () => {
 
   test("(e) escrever observações e recarregar mantém o texto", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const observacoes = `[e2e] Entrega em caixa reforçada ${suf}`;
     const campoObservacoes = page.getByTestId("orcamento-observacoes");
@@ -212,7 +212,7 @@ test.describe("orcamentos total", () => {
 
     // Observações no limite de 300 caracteres (must_have backstop) — preenchido ANTES da
     // conferência de rolagem a 320px, para que o texto mais longo possível já esteja na tela.
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     const observacoesNoLimite = `[e2e] ${"x".repeat(294)}`.slice(0, 300);
     const campoObservacoes = page.getByTestId("orcamento-observacoes");
     await campoObservacoes.fill(observacoesNoLimite);
@@ -220,7 +220,7 @@ test.describe("orcamentos total", () => {
     await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await expect(page.getByTestId("orcamento-total")).toBeVisible();
 
     const larguraDeRolagem = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -239,7 +239,7 @@ test.describe("orcamentos total", () => {
     expect(Math.abs((boxTotalEstreito?.x ?? 0) - (boxPecasEstreito?.x ?? 0))).toBeLessThan(5);
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await expect(page.getByTestId("orcamento-total")).toBeVisible();
 
     const boxTotalLargo = await page.getByRole("heading", { name: "Total e pagamento" }).boundingBox();

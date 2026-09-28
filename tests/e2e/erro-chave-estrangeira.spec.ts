@@ -19,11 +19,11 @@ import { criarCategoriaDeDespesa } from "./apoio/semear-financeiro";
 // condição global do banco (convenção do CLAUDE.md).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -47,11 +47,11 @@ test.describe("chave estrangeira — a linha referenciada sumiu entre montar o f
     await fazerLogin(page);
     const nome = nomeUnico("Forno FK");
 
-    await page.goto("/queimas?novo");
+    await page.goto("/gestao/queimas?novo");
     await page.getByLabel("Nome").fill(nome);
     await page.getByLabel("Limite").fill("50");
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
 
     const cartao = cartaoDoForno(page, nome);
     await expect(cartao).toBeVisible();
@@ -76,13 +76,13 @@ test.describe("chave estrangeira — a linha referenciada sumiu entre montar o f
     await fazerLogin(page);
     const nomeDoItem = nomeUnico("Item FK");
 
-    await page.goto("/abertura?item=novo");
+    await page.goto("/gestao/abertura?item=novo");
     await page.getByLabel("O que é").fill(nomeDoItem);
     await page.getByLabel("Valor total").fill("1000");
     await page.getByRole("button", { name: "Adicionar item" }).click();
-    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 
-    await page.goto("/abertura?aba=tarefas&tarefa=nova");
+    await page.goto("/gestao/abertura?aba=tarefas&tarefa=nova");
     await expect(page.getByRole("heading", { name: "Nova tarefa" })).toBeVisible();
 
     const descricao = nomeUnico("Tarefa ligada ao item FK");
@@ -111,12 +111,12 @@ test.describe("chave estrangeira — a linha referenciada sumiu entre montar o f
     await fazerLogin(page);
     const nomeDaCategoria = nomeUnico("Categoria FK");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await page.getByRole("link", { name: "+ Nova categoria" }).first().click();
     await expect(page.getByRole("heading", { name: "Nova categoria" })).toBeVisible();
     await page.getByLabel("Nome", { exact: true }).fill(nomeDaCategoria);
     await page.getByRole("button", { name: "Criar" }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     await page.getByRole("link", { name: "+ Nova cotação" }).first().click();
     await expect(page.getByRole("heading", { name: "Nova cotação" })).toBeVisible();
@@ -149,7 +149,7 @@ test.describe("chave estrangeira — a linha referenciada sumiu entre montar o f
     const categoriaId = await criarCategoriaDeDespesa(nomeDaCategoria);
     const descricao = nomeUnico("Despesa FK");
 
-    await page.goto("/financeiro?aba=despesa");
+    await page.goto("/gestao/financeiro?aba=despesa");
     await page.getByTestId("despesa-modo-outra").click();
     await page.getByLabel("Descrição").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();

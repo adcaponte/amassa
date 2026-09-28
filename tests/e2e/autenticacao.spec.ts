@@ -36,7 +36,7 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
   test.describe.configure({ mode: "serial" });
 
   test("senha errada para a conta que existe mostra a mensagem única", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
     await page.getByLabel("Senha").fill("senha-errada-de-proposito");
     await page.getByRole("button", { name: "Entrar" }).click();
@@ -51,7 +51,7 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
   });
 
   test("e-mail que não existe mostra exatamente a mesma mensagem que senha errada", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill("ninguem-tem-conta-aqui@exemplo.test");
     await page.getByLabel("Senha").fill("qualquer-coisa");
     await page.getByRole("button", { name: "Entrar" }).click();
@@ -64,7 +64,7 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
   });
 
   test("entrar com a senha certa depois de um erro anterior (abaixo do limite) funciona", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
     await page.getByLabel("Senha").fill("senha-errada-de-proposito-2");
     await page.getByRole("button", { name: "Entrar" }).click();
@@ -76,7 +76,7 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
 
     // O acerto zera o contador daquele e-mail — provado indiretamente aqui pelo login
     // funcionar mesmo depois do erro anterior.
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
     // A raiz virou o painel inicial (D-16, 02b-03) — a saudação substitui o heading "AMASSA".
     await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
   });
@@ -99,7 +99,7 @@ test.describe("autenticação — mensagem única e limite de tentativas", () =>
     // reaproveitaria um contador já esgotado pela tentativa anterior).
     const emailBloqueio = `bloqueio.teste.${testInfo.project.name}.${testInfo.retry}@exemplo.test`;
 
-    await page.goto("/login");
+    await page.goto("/gestao/login");
 
     // A mensagem de credencial inválida é IDÊNTICA nas cinco primeiras tentativas — por isso
     // não basta esperar o texto aparecer entre uma tentativa e a próxima: o alerta da

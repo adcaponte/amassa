@@ -1,15 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// Página de detalhe do forno (`/queimas/[id]`, FOR-09/FOR-10) — 04-03-PLAN.md, Tarefa 3. Sem
+// Página de detalhe do forno (`/gestao/queimas/[id]`, FOR-09/FOR-10) — 04-03-PLAN.md, Tarefa 3. Sem
 // etiqueta de vazio: cada teste cadastra o próprio forno, roda em `desktop`/`celular` depois da
 // cadeia `vazio-*` (playwright.config.ts).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -19,11 +19,11 @@ function nomeUnico(rotulo: string): string {
 // Cadastra o forno pelo índice (D-02: sem tela de cadastro dedicada) e navega para a página de
 // detalhe pelo Link do próprio nome no cartão — nunca por inserção direta no banco.
 async function cadastrarFornoEAbrirDetalhe(page: Page, nome: string): Promise<string> {
-  await page.goto("/queimas?novo");
+  await page.goto("/gestao/queimas?novo");
   await page.getByLabel("Nome").fill(nome);
   await page.getByLabel("Limite").fill("50");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
 
   const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
   await expect(cartao).toHaveCount(1);
@@ -32,7 +32,7 @@ async function cadastrarFornoEAbrirDetalhe(page: Page, nome: string): Promise<st
     throw new Error(`Não encontrou o cartão do forno "${nome}" para descobrir o id.`);
   }
   const id = testId.replace("cartao-forno-", "");
-  await page.goto(`/queimas/${id}`);
+  await page.goto(`/gestao/queimas/${id}`);
   return id;
 }
 
@@ -40,7 +40,7 @@ async function cadastrarFornoEAbrirDetalhe(page: Page, nome: string): Promise<st
 // ainda não tem o botão "Queimar" (chega no plano 04-04); por isso o registro acontece no
 // índice e a navegação volta para o detalhe em seguida, sempre pela interface, nunca por SQL.
 async function registrarQueimaEVoltarAoDetalhe(page: Page, id: string, nome: string): Promise<void> {
-  await page.goto("/queimas");
+  await page.goto("/gestao/queimas");
   const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
   await cartao.getByRole("button", { name: "Queimar" }).click();
   await cartao.getByTestId("tipo-queima-biscoito").click();
@@ -48,7 +48,7 @@ async function registrarQueimaEVoltarAoDetalhe(page: Page, id: string, nome: str
   await expect(cartao.getByTestId("medidor-contador")).toContainText(/^\d+ \/ 50$/, {
     timeout: 10000,
   });
-  await page.goto(`/queimas/${id}`);
+  await page.goto(`/gestao/queimas/${id}`);
 }
 
 test.describe("detalhe do forno", () => {
@@ -136,7 +136,7 @@ test.describe("detalhe do forno", () => {
     await expect(page.getByRole("alertdialog")).toBeVisible();
     await page.getByRole("alertdialog").getByRole("button", { name: "Excluir", exact: true }).click();
 
-    await expect(page).toHaveURL(new RegExp(`/queimas/${id}$`));
+    await expect(page).toHaveURL(new RegExp(`/gestao/queimas/${id}$`));
     await expect(page.getByTestId(`linha-queima-${idDaLinhaExcluida}`)).toHaveCount(0, {
       timeout: 10000,
     });

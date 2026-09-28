@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 
 // O traçado ponta a ponta de Cadastros (04.4-02-PLAN.md, Tarefa 3): da barra do Financeiro até
-// `/cadastros`, as quatro sub-abas, e Categorias/Taxas funcionando de verdade — criar, editar,
+// `/gestao/cadastros`, as quatro sub-abas, e Categorias/Taxas funcionando de verdade — criar, editar,
 // travar por uso, desativar/reativar (nunca apagar) e a taxa da maquininha. Nomes inventados e
 // reconhecíveis como tal ("[e2e] ..."), nenhuma afirmação GLOBAL do banco (CLAUDE.md: "Teste não
 // pode afirmar condição global do banco sem isolamento") — a lista de categorias sempre tem pelo
@@ -16,11 +16,11 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // "31" foi salvo).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -45,10 +45,10 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
   }) => {
     await fazerLogin(page);
 
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByTestId("financeiro-aba-cadastros").click();
 
-    await expect(page).toHaveURL(/\/cadastros$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros$/);
     await expect(page.getByRole("heading", { name: "Cadastros", level: 1 })).toBeVisible();
 
     // A MESMA barra do Financeiro aparece no topo (D-06) — "Cadastros" selecionada, "Venda"
@@ -71,7 +71,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
   }) => {
     await fazerLogin(page);
 
-    await page.goto("/cadastros?sub=categorias");
+    await page.goto("/gestao/cadastros?sub=categorias");
     await expect(
       blocoDoGrupo(page, "Geral (custos da casa)").getByText("Juros, multas e descontos"),
     ).toBeVisible();
@@ -88,7 +88,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
     await page.getByRole("option", { name: "Loja" }).click();
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=categorias$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=categorias$/);
 
     const linhaCriada = page.getByTestId("categoria-linha").filter({ hasText: nomeCriada });
     await expect(linhaCriada).toBeVisible();
@@ -111,7 +111,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
     await page.getByLabel("Nome").fill(nomeEditado);
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=categorias$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=categorias$/);
     const linhaEditada = page.getByTestId("categoria-linha").filter({ hasText: nomeEditado });
     await expect(linhaEditada).toBeVisible();
 
@@ -122,7 +122,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
     await page.getByRole("option", { name: "Custos diretos de uma área" }).click();
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=categorias$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=categorias$/);
     await expect(
       blocoDoGrupo(page, "Custos diretos de uma área").getByText(nomeEditado),
     ).toBeVisible();
@@ -151,7 +151,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=categorias");
+    await page.goto("/gestao/cadastros?sub=categorias");
 
     await page.getByTestId("nova-categoria").click();
     await page.getByRole("combobox", { name: "Tipo" }).click();
@@ -168,13 +168,13 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
   }) => {
     await fazerLogin(page);
 
-    await page.goto("/cadastros?sub=taxas");
+    await page.goto("/gestao/cadastros?sub=taxas");
     await expect(page.getByRole("heading", { name: "Taxa do cartão" })).toBeVisible();
 
     await page.getByTestId("taxa-campo").fill("3,5");
     await page.getByRole("button", { name: "Salvar taxa" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=taxas$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=taxas$/);
     await expect(page.getByTestId("taxa-campo")).toHaveValue("3,5");
     // "Salvar taxa" navega de verdade (`window.location.assign`) — a asserção de valor acima
     // passa só com o HTML da renderização no servidor, antes de o React hidratar e anexar o
@@ -201,7 +201,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
   }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/cadastros?sub=categorias");
+    await page.goto("/gestao/cadastros?sub=categorias");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -210,7 +210,7 @@ test.describe("cadastros base — a casa dos Cadastros e as regras de Categorias
 
     expect(
       scrollWidth,
-      `/cadastros?sub=categorias rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/cadastros?sub=categorias rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 });

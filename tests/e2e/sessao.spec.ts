@@ -25,11 +25,11 @@ test.describe("sessão", () => {
   test.describe.configure({ mode: "serial" });
 
   async function fazerLogin(page: Page) {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
     await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
     await page.getByRole("button", { name: "Entrar" }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
   }
 
   // A 02b-02 moveu o botão Sair para dentro do menu do usuário (D-15): no celular ele fica
@@ -84,7 +84,7 @@ test.describe("sessão", () => {
     expect(cookieDeSessao!.sameSite).toBe("Lax");
   });
 
-  test("um contexto novo com o estado salvo abre a raiz sem novo login", async ({
+  test("um contexto novo com o estado salvo abre /gestao sem novo login", async ({
     page,
     context,
     browser,
@@ -97,23 +97,24 @@ test.describe("sessão", () => {
     const novoContexto = await browser.newContext({ storageState: estadoDeArmazenamento });
     const novaPagina = await novoContexto.newPage();
 
-    await novaPagina.goto("/");
+    await novaPagina.goto("/gestao");
 
-    await expect(novaPagina).toHaveURL(/\/$/);
-    // A raiz virou o painel inicial (D-16, 02b-03) — a saudação substitui o antigo heading
-    // "AMASSA" da rota provisória.
+    await expect(novaPagina).toHaveURL(/\/gestao$/);
+    // O Início continua sendo o painel (D-16, 02b-03) — a saudação substitui o antigo heading
+    // "AMASSA" da rota provisória. Fase 04.6 (D-03/D-21): o painel vive em `/gestao`, não mais
+    // na raiz — a raiz virou o site público e não lê sessão nenhuma.
     await expect(novaPagina.getByRole("heading", { name: /^Olá, / })).toBeVisible();
 
     await novoContexto.close();
   });
 
-  test("depois de sair o botao de voltar cai em /login", async ({ page }) => {
+  test("depois de sair o botao de voltar cai em /gestao/login", async ({ page }) => {
     await fazerLogin(page);
     await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
 
     await abrirMenuDoUsuario(page);
     await page.getByRole("button", { name: "Sair" }).click();
-    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
 
     // O caso que o cabeçalho Cache-Control: no-store da Tarefa 1 existe para fazer passar:
     // sem ele, o navegador serve a tela protegida do próprio cache (bfcache) em vez de pedir
@@ -122,16 +123,16 @@ test.describe("sessão", () => {
     // protegida do cache, ele apareceria aqui.
     await page.goBack();
 
-    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
     await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
 
     // O voltar só olha o histórico; a pergunta de AUTH-06 é se o SERVIDOR ainda aceita a sessão.
     // Um documento novo (sem histórico, sem cache) responde isso. Antes de o middleware parar de
     // renovar o token em resposta de fetch() do roteador (lib/auth/renovacao-sessao.ts), um
-    // prefetch que saía antes da saída e voltava depois dela regravava o cookie e a raiz abria o
-    // painel: 28 de 80 repetições, inclusive casos em que o voltar acima passava.
-    await page.goto("/");
-    await expect(page).toHaveURL(/\/login(\?|$)/);
+    // prefetch que saía antes da saída e voltava depois dela regravava o cookie e `/gestao`
+    // abria o painel: 28 de 80 repetições, inclusive casos em que o voltar acima passava.
+    await page.goto("/gestao");
+    await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
     await expect(page.getByText("SEU DIA HOJE")).not.toBeVisible();
   });
 
@@ -154,18 +155,18 @@ test.describe("sessão", () => {
     }
     const senha = linhaSenha.slice("SENHA: ".length).trim();
 
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill(email);
     await page.getByLabel("Senha").fill(senha);
     await page.getByRole("button", { name: "Entrar" }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
     await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
 
     await alternarAtivo(email, false);
 
     await page.reload();
 
-    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
     await expect(page.getByText("Sua sessão foi encerrada. Entre novamente.")).toBeVisible();
 
     // Prova em par de AUTH-09: o acesso saiu (afirmado acima) E a linha continua no banco

@@ -10,11 +10,11 @@ import { hojeNoAtelie } from "./apoio/semear-financeiro";
 // nenhum dado real do ateliê, o repositório é público.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -22,9 +22,9 @@ function sufixoUnico(): string {
 }
 
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/financeiro?aba=orcamentos");
+  await page.goto("/gestao/financeiro?aba=orcamentos");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
   return orcamentoIdDaUrl(page);
 }
 
@@ -59,7 +59,7 @@ async function acrescentarPecaExclusiva(
   nome: string,
   precoReais: string,
 ): Promise<void> {
-  await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
   await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
 
@@ -205,7 +205,7 @@ test.describe("orcamentos aprovacao", () => {
 
   test("(b) confirmar cria a venda, o orçamento vira aprovado e o veredito mostra os dois links", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&aprovar=1`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}&aprovar=1`);
     await expect(page.getByRole("heading", { name: "Cliente aprovou" })).toBeVisible();
 
     const botaoCriar = page.getByRole("button", { name: "Criar" });
@@ -226,8 +226,8 @@ test.describe("orcamentos aprovacao", () => {
     await expect(linkEncomenda).toBeVisible();
     documentoHref = (await linkVenda.getAttribute("href")) ?? "";
     encomendaHref = (await linkEncomenda.getAttribute("href")) ?? "";
-    expect(documentoHref).toMatch(/^\/financeiro\?aba=caixa&documentoId=/);
-    expect(encomendaHref).toMatch(/^\/encomendas\//);
+    expect(documentoHref).toMatch(/^\/gestao\/financeiro\?aba=caixa&documentoId=/);
+    expect(encomendaHref).toMatch(/^\/gestao\/encomendas\//);
   });
 
   test("(c) 🔴 'Ver venda no Financeiro' mostra o documento com o total certo e o sinal a receber (não recebido), vencendo hoje; o saldo vence na entrega", async ({
@@ -272,7 +272,7 @@ test.describe("orcamentos aprovacao", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     await page.getByTestId("veredito-ver-encomenda").click();
     await expect(page).toHaveURL(new RegExp(encomendaHref.replace(/\//g, "\\/")));
@@ -315,7 +315,7 @@ test.describe("orcamentos aprovacao", () => {
     await page.goto(documentoHref);
     await expect(page.getByTestId("documento-detalhe")).toContainText("Cancelado por");
 
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText("aprovado");
 
     const aviso = page.getByTestId("orcamento-aviso-venda-cancelada");
@@ -329,7 +329,7 @@ test.describe("orcamentos aprovacao", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const botoes = page.getByTestId("orcamento-acoes").getByRole("button");
     await expect(botoes).toHaveCount(2);
@@ -374,7 +374,7 @@ test.describe("orcamentos aprovacao", () => {
     await marcarComoEnviado(page);
 
     await page.setViewportSize({ width: 320, height: 700 });
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId3}&aprovar=1`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId3}&aprovar=1`);
     await expect(page.getByRole("heading", { name: "Cliente aprovou" })).toBeVisible();
     await expect(page.getByTestId("aprovar-linha-venda")).toHaveCount(8);
 
@@ -428,7 +428,7 @@ test.describe("orcamentos aprovacao", () => {
     const bloco = page.getByTestId("orcamento-aviso-aprovado");
     await expect(bloco).toContainText("ordem aberta na Produção");
     const hrefDaEncomenda = (await page.getByTestId("veredito-ver-encomenda").getAttribute("href")) ?? "";
-    expect(hrefDaEncomenda).toMatch(/^\/encomendas\//);
+    expect(hrefDaEncomenda).toMatch(/^\/gestao\/encomendas\//);
 
     // Cancela pela tela real da Produção — o caminho do dono, nunca uma escrita direta no banco.
     // Duplo clique defensivo pelo mesmo motivo de `encomendas-filtros.spec.ts::cancelarViaDetalhe`:
@@ -450,7 +450,7 @@ test.describe("orcamentos aprovacao", () => {
 
     // Depois: o orçamento continua aprovado, e o veredito para de afirmar uma ordem que a
     // Produção já não tem aberta.
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId4}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId4}`);
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText("aprovado");
 
     const blocoDepois = page.getByTestId("orcamento-aviso-aprovado");

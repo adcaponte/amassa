@@ -18,11 +18,11 @@ import {
 // `--grep "histórico de encomendas"` (Tarefa 3).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function campoVisivel(page: Page, rotulo: string) {
@@ -76,7 +76,7 @@ async function criarEncomenda(
   const TENTATIVAS_MAXIMAS = 3;
 
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Nome da encomenda").fill(opcoes.nome);
     if (opcoes.cliente) {
       await campoVisivel(page, "Cliente").fill(opcoes.cliente);
@@ -95,10 +95,10 @@ async function criarEncomenda(
     await botaoVisivel(page, "Salvar").click();
 
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
       return;
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(opcoes.nome, { exact: true }).count();
       if (jaFoiCriada > 0) {
         return;
@@ -114,7 +114,7 @@ async function criarEncomenda(
 // descobrir o `id` sem depender de clicar num elemento visível — a mesma técnica de
 // `tests/e2e/encomendas-detalhe.spec.ts`.
 async function abrirDetalhe(page: Page, nome: string): Promise<string> {
-  await page.goto("/encomendas");
+  await page.goto("/gestao/encomendas");
   const cartao = page.locator('[data-testid^="cartao-encomenda-"]').filter({ hasText: nome });
   await expect(cartao).toHaveCount(1);
   const testId = await cartao.getAttribute("data-testid");
@@ -122,7 +122,7 @@ async function abrirDetalhe(page: Page, nome: string): Promise<string> {
     throw new Error(`Não encontrou o cartão da encomenda "${nome}" para descobrir o id.`);
   }
   const id = testId.replace("cartao-encomenda-", "");
-  await page.goto(`/encomendas/${id}`);
+  await page.goto(`/gestao/encomendas/${id}`);
   // `page.goto` só espera o evento `load` — a hidratação do React (que anexa o `onClick` dos
   // botões da trilha) roda um instante depois, ainda mais sob os dois workers do Playwright
   // disputando CPU. Sem esta espera, um clique imediato em "Marcar como concluída"/"Cancelar
@@ -158,7 +158,7 @@ async function concluirViaDetalhe(page: Page, nome: string): Promise<string> {
     const gravacao = page
       .waitForResponse(
         (resposta) =>
-          resposta.url().includes(`/encomendas/${id}`) && resposta.request().method() === "POST",
+          resposta.url().includes(`/gestao/encomendas/${id}`) && resposta.request().method() === "POST",
         { timeout: 8000 },
       )
       .catch(() => null);
@@ -247,7 +247,7 @@ async function selecionarOpcao(page: Page, rotuloDoControle: string, rotuloDaOpc
 test.describe("filtro de encomendas", () => {
   // Mesma prudência de tests/e2e/encomendas-indice.spec.ts: login é uma conferência argon2id
   // deliberadamente lenta, e o primeiro teste depende do banco de teste efêmero estar
-  // genuinamente vazio — precisa ser o PRIMEIRO a tocar `/encomendas` neste arquivo.
+  // genuinamente vazio — precisa ser o PRIMEIRO a tocar `/gestao/encomendas` neste arquivo.
   test.describe.configure({ mode: "serial" });
 
   // Declarado ANTES dos demais de propósito (mesma disciplina de 03-04): rodando com o grep
@@ -258,7 +258,7 @@ test.describe("filtro de encomendas", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
 
     await expect(page.getByText(FRASE_FILTRO_VAZIO_TITULO)).toHaveCount(0);
     await expect(page.getByText(FRASE_VAZIO_TITULO)).toHaveCount(1);
@@ -276,7 +276,7 @@ test.describe("filtro de encomendas", () => {
     await criarEncomenda(page, { nome: nomeA, dataInicio: dataEmDias(3) });
     await criarEncomenda(page, { nome: nomeB, dataInicio: dataEmDias(4) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await expect(textoVisivel(page, nomeA)).toBeVisible();
     await expect(textoVisivel(page, nomeB)).toBeVisible();
 
@@ -307,7 +307,7 @@ test.describe("filtro de encomendas", () => {
     const nome = nomeUnico("Encontrável de novo após limpar");
     await criarEncomenda(page, { nome, dataInicio: dataEmDias(5) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await campoVisivel(page, "Buscar encomendas").fill("termo-que-nao-existe-em-nenhuma-encomenda-xyz");
 
     await expect(textoVisivel(page, FRASE_FILTRO_VAZIO_TITULO)).toBeVisible();
@@ -343,7 +343,7 @@ test.describe("filtro de encomendas", () => {
     await criarEncomenda(page, { nome: nomeA, dataInicio: dataA });
     await criarEncomenda(page, { nome: nomeB, dataInicio: dataB });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
 
     const larguraAntes = Number(
       await page.getByTestId("intervalo-do-gantt").getAttribute("data-largura-em-pixels"),
@@ -380,7 +380,7 @@ test.describe("filtro de encomendas", () => {
     await criarEncomenda(page, { nome: nomeZebra, dataInicio: dataEmDias(1) });
     await criarEncomenda(page, { nome: nomeAbaco, dataInicio: dataEmDias(2) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await campoVisivel(page, "Buscar encomendas").fill(marcador);
 
     // Padrão (D-12: data de início) — Zebra (data mais cedo) vem antes de Ábaco.
@@ -420,7 +420,7 @@ test.describe("filtro de encomendas", () => {
     const nome = nomeUnico("Reaparece após recarregar");
     await criarEncomenda(page, { nome, dataInicio: dataEmDias(6) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await campoVisivel(page, "Buscar encomendas").fill("termo-que-nao-existe-em-nenhuma-encomenda-xyz");
     await expect(textoVisivel(page, FRASE_FILTRO_VAZIO_TITULO)).toBeVisible();
 
@@ -438,7 +438,7 @@ test.describe("filtro de encomendas", () => {
     await fazerLogin(page);
     await criarEncomenda(page, { nome: nomeUnico("Para a barra do desktop existir"), dataInicio: dataEmDias(7) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     const barra = page.getByTestId("filtro-desktop");
     await expect(barra).toBeVisible();
     await expect(barra.getByLabel("Buscar encomendas")).toBeVisible();
@@ -453,7 +453,7 @@ test.describe("filtro de encomendas", () => {
     await fazerLogin(page);
     await criarEncomenda(page, { nome: nomeUnico("Para a barra do celular existir"), dataInicio: dataEmDias(8) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     const barra = page.getByTestId("filtro-celular");
     await expect(barra).toBeVisible();
     await expect(barra.getByLabel("Buscar encomendas")).toBeVisible();
@@ -493,7 +493,7 @@ test.describe("histórico de encomendas", () => {
     // status para escolher "Concluídas".
     await criarEncomenda(page, { nome: nomeUnico("Só para o filtro existir"), dataInicio: dataEmDias(1) });
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await selecionarOpcao(page, ROTULO_STATUS, "Concluídas");
 
     await expect(textoVisivel(page, FRASE_HISTORICO_VAZIO)).toBeVisible();
@@ -509,7 +509,7 @@ test.describe("histórico de encomendas", () => {
     await criarEncomenda(page, { nome, dataInicio: dataEmDias(-395) });
     await concluirViaDetalhe(page, nome);
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     // A janela filtra ANTES de chegar ao navegador (lib/encomendas/consultas.ts) — esta
     // encomenda simplesmente não está no HTML, em nenhum filtro, nunca "escondida" por CSS
     // (diferente da alternância Gantt/cartão de D-02, aqui ela nem existe no DOM). Checado por
@@ -540,7 +540,7 @@ test.describe("histórico de encomendas", () => {
     });
     const id = await concluirViaDetalhe(page, nome);
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await selecionarOpcao(page, ROTULO_STATUS, "Concluídas");
 
     await expect(page.getByTestId("lista-historico")).toBeVisible();
@@ -559,7 +559,7 @@ test.describe("histórico de encomendas", () => {
     expect(caixa?.height).toBeGreaterThanOrEqual(56);
 
     await linha.click();
-    await expect(page).toHaveURL(new RegExp(`/encomendas/${id}$`));
+    await expect(page).toHaveURL(new RegExp(`/gestao/encomendas/${id}$`));
   });
 
   test('badge "Cancelada" nunca usa a cor de erro, e o período mostra "cancelada em {data}", nunca uma conclusão que nunca aconteceu', async ({
@@ -570,7 +570,7 @@ test.describe("histórico de encomendas", () => {
     await criarEncomenda(page, { nome, dataInicio: dataEmDias(-5) });
     const id = await cancelarViaDetalhe(page, nome);
 
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     await selecionarOpcao(page, ROTULO_STATUS, "Canceladas");
 
     const linha = page.getByTestId(`linha-historico-${id}`);
@@ -598,7 +598,7 @@ test.describe("histórico de encomendas", () => {
     const idConcluida = await concluirViaDetalhe(page, nomeConcluida);
 
     // Status padrão ao (re)carregar é "Todas" (D-12/FILTRO_PADRAO).
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
 
     await expect(textoVisivel(page, nomeAtiva)).toBeVisible();
     await expect(page.getByTestId("gantt-desktop")).toHaveCount(1);

@@ -10,18 +10,18 @@ import { diaDoMes, mesReservado } from "./apoio/mes-reservado";
 // caso no PRÓPRIO mês reservado (`mes-reservado.ts`), nenhuma afirmação de número global do banco.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 async function esperarVendaLancada(page: Page) {
   await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
 }
 
-// NUNCA `toHaveURL(/\?aba=despesa/)` — a Despesa parte de `/financeiro?aba=despesa` (o fragmento
+// NUNCA `toHaveURL(/\?aba=despesa/)` — a Despesa parte de `/gestao/financeiro?aba=despesa` (o fragmento
 // já é verdade ANTES de qualquer ação), então essa checagem não provaria nada (mesma classe de
 // achado real documentada em `04.4-08-SUMMARY.md`: asserção de URL trivialmente verdadeira). O
 // TOAST "Despesa nº N lançada" só aparece depois da navegação de sucesso — é o sinal real.
@@ -30,7 +30,7 @@ async function esperarDespesaLancada(page: Page) {
 }
 
 async function irParaMes(page: Page, mes: string) {
-  await page.goto(`/financeiro?aba=mes&mes=${mes}`);
+  await page.goto(`/gestao/financeiro?aba=mes&mes=${mes}`);
 }
 
 async function lancarVendaLivre(
@@ -43,7 +43,7 @@ async function lancarVendaLivre(
     forma,
   }: { data: string; descricao: string; categoria: string; valor: string; forma: "Pix" | "Dinheiro" | "Cartão" },
 ) {
-  await page.goto("/financeiro");
+  await page.goto("/gestao/financeiro");
   // `page.goto` só espera o evento `load` — a hidratação do React (que anexa o `onChange` do
   // campo "Data" controlado) roda um instante depois, ainda mais sob 8 workers disputando CPU.
   // Sem esta espera, `.fill()` no campo pode escrever o valor no DOM ANTES do handler existir; o
@@ -72,7 +72,7 @@ async function lancarDespesaOutra(
     forma,
   }: { data: string; descricao: string; categoria: string; valor: string; forma: "Pix" | "Dinheiro" | "Cartão" },
 ) {
-  await page.goto("/financeiro?aba=despesa");
+  await page.goto("/gestao/financeiro?aba=despesa");
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.getByTestId("despesa-modo-outra").click();
   await page.getByLabel("Data").fill(data);
@@ -153,7 +153,7 @@ test.describe("financeiro mes", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByLabel("Data").fill(diaDoMes(mes, 10));
     await page.getByTestId("venda-busca").fill(suf);
     await page.getByTestId("venda-atalho").filter({ hasText: nomeCafe }).click();
@@ -210,7 +210,7 @@ test.describe("financeiro mes", () => {
       forma: "Pix",
     });
 
-    await page.goto("/financeiro?aba=despesa");
+    await page.goto("/gestao/financeiro?aba=despesa");
     await page.waitForLoadState("networkidle").catch(() => {});
     await page.getByTestId("despesa-modo-compra").click();
     await page.getByLabel("Data").fill(diaDoMes(mes, 8));
@@ -320,7 +320,7 @@ test.describe("financeiro mes", () => {
     await expect(areaDaTabela(page, "cafeteria")).toContainText("R$ 999,00");
 
     // Cancela pelo extrato do MESMO mês reservado (nunca uma afirmação global).
-    await page.goto(`/financeiro?aba=caixa&mes=${mes}`);
+    await page.goto(`/gestao/financeiro?aba=caixa&mes=${mes}`);
     await page.waitForLoadState("networkidle").catch(() => {});
     const linha = page.getByTestId("extrato-linha").filter({ hasText: descricao });
     await linha.getByTestId("extrato-ver").click();

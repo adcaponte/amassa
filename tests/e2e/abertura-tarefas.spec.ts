@@ -26,11 +26,11 @@ import { semearTarefasDeAbertura } from "./apoio/semear-abertura";
 // público.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -57,7 +57,7 @@ function criarGestorDedicado(rotulo: string): { nome: string; email: string } {
 }
 
 async function abrirFormularioDeTarefa(page: Page) {
-  await page.goto("/abertura?aba=tarefas&tarefa=nova");
+  await page.goto("/gestao/abertura?aba=tarefas&tarefa=nova");
   await expect(page.getByRole("heading", { name: "Nova tarefa" })).toBeVisible();
 }
 
@@ -76,7 +76,7 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura?aba=tarefas");
+    await page.goto("/gestao/abertura?aba=tarefas");
 
     const frase = page.getByRole("heading", { name: FRASE_VAZIO_TITULO_TAREFAS, level: 2 });
     await expect(frase).toHaveCount(1);
@@ -90,7 +90,7 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     await expect(botaoDoEstadoVazio).not.toHaveAttribute("aria-disabled", "true");
     await expect(botaoDoEstadoVazio).toHaveAttribute(
       "href",
-      "/abertura?aba=tarefas&tarefa=nova",
+      "/gestao/abertura?aba=tarefas&tarefa=nova",
     );
 
     // O botão precisa FUNCIONAR, abrindo o formulário da primeiríssima tarefa — não ser inerte
@@ -164,7 +164,7 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     ]);
 
     await fazerLogin(page);
-    await page.goto("/abertura?aba=tarefas");
+    await page.goto("/gestao/abertura?aba=tarefas");
 
     const grupo = page.getByTestId("abertura-grupo-tarefa").filter({ hasText: "Montagem" });
     await expect(grupo).toBeVisible();
@@ -249,11 +249,11 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     await fazerLogin(page);
     const nomeDoItem = nomeUnico("Forno elétrico 220V");
 
-    await page.goto("/abertura?item=novo");
+    await page.goto("/gestao/abertura?item=novo");
     await page.getByLabel("O que é").fill(nomeDoItem);
     await page.getByLabel("Valor total").fill("12000");
     await page.getByRole("button", { name: "Adicionar item" }).click();
-    await expect(page).toHaveURL(/\/abertura$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura$/, { timeout: 10000 });
 
     async function cadastrarTarefaLigadaAoItem(descricao: string) {
       await abrirFormularioDeTarefa(page);
@@ -279,7 +279,7 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     ).toHaveText(nomeDoItem);
 
     // Lado do ITEM: mostra "2 tarefas abertas" — a leitura que D-13 chama de mais importante.
-    await page.goto("/abertura?aba=itens");
+    await page.goto("/gestao/abertura?aba=itens");
     const linhaDoItem = page.getByTestId("abertura-linha-item").filter({ hasText: nomeDoItem });
     await expect(linhaDoItem).toBeVisible();
     await expect(linhaDoItem.getByTestId("abertura-tarefas-abertas")).toHaveText(
@@ -291,14 +291,14 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
     // mesmo com um nome de item comprido (o nome único de teste tem mais de 40 caracteres).
     await page.setViewportSize({ width: 320, height: 800 });
     for (const aba of ["itens", "tarefas"] as const) {
-      await page.goto(`/abertura?aba=${aba}`);
+      await page.goto(`/gestao/abertura?aba=${aba}`);
       const [scrollWidth, clientWidth] = await page.evaluate(() => [
         document.documentElement.scrollWidth,
         document.documentElement.clientWidth,
       ]);
       expect(
         scrollWidth,
-        `/abertura?aba=${aba} rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+        `/gestao/abertura?aba=${aba} rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
       ).toBeLessThanOrEqual(clientWidth);
     }
   });
@@ -335,7 +335,7 @@ test.describe("abertura tarefas — traçado do lado de tarefas do módulo Abert
 
       // (b) O nome não aparece mais na lista de escolha de uma NOVA tarefa — `listarGestoresAtivos`
       // filtra por `ativo = true`. As duas leituras são deliberadamente diferentes (D-11).
-      await page.goto("/abertura?aba=tarefas&tarefa=nova");
+      await page.goto("/gestao/abertura?aba=tarefas&tarefa=nova");
       await page.getByRole("combobox", { name: "Quem" }).click();
       await expect(page.getByRole("option", { name: gestor.nome })).toHaveCount(0);
     } finally {

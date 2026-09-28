@@ -1,18 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
 
 // O traçado ponta a ponta do módulo Financeiro (04.4-01-PLAN.md, Tarefa 1): uma venda de "valor
-// livre" lançada à vista em `/financeiro` chega ao extrato e ao saldo do Caixa, sobrevivendo a
+// livre" lançada à vista em `/gestao/financeiro` chega ao extrato e ao saldo do Caixa, sobrevivendo a
 // um recarregamento. Nomes inventados e reconhecíveis como tal ("[e2e] ..."), nenhuma afirmação
 // GLOBAL do banco (CLAUDE.md: "Teste não pode afirmar condição global do banco sem isolamento") —
 // a única condição conferida é a consistência do tile de saldo contra o saldo depois do próprio
 // movimento mais recente desenhado na mesma execução, nunca um valor absoluto.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -27,7 +27,7 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
 
     const descricao = nomeUnico("Uso do espaço (oficina fechada)");
 
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await expect(page.getByRole("heading", { name: "Financeiro", level: 1 })).toBeVisible();
 
     await page.getByRole("button", { name: "+ Valor livre" }).click();
@@ -49,7 +49,7 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
     await expect(botaoLancar).toBeEnabled();
     await botaoLancar.click();
 
-    // Navegação completa para `/financeiro?aba=venda&aviso=lancado&documento=<id>` — o aviso é
+    // Navegação completa para `/gestao/financeiro?aba=venda&aviso=lancado&documento=<id>` — o aviso é
     // montado pela página a partir do banco. A asserção confere só "aba=venda" (estável), NUNCA
     // o fragmento "&aviso=lancado&documento=": `AvisoFinanceiro` mostra o toast e, no MESMO
     // efeito, já limpa `aviso`/`documento`/`parcela` da URL com `history.replaceState` (por
@@ -58,7 +58,7 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
     // fazendo a asserção testar um estado já limpo e nunca mais bater com o fragmento transiente
     // — achado real (04.4-03, `tests/e2e/financeiro-venda.spec.ts`, diagnosticado com
     // `--trace on`), não flakiness de infraestrutura. "aba=venda" é estável nos dois momentos e
-    // só aparece depois da navegação de sucesso (o `goto("/financeiro")" do teste começa sem
+    // só aparece depois da navegação de sucesso (o `goto("/gestao/financeiro")" do teste começa sem
     // query string nenhuma).
     await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
     await expect(
@@ -100,7 +100,7 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
   }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -108,7 +108,7 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
     ]);
     expect(
       scrollWidth,
-      `/financeiro rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/financeiro rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
     const caixaBotaoLancar = await page.getByRole("button", { name: "Lançar venda" }).boundingBox();

@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-// O banner agregado de `/queimas` (FOR-06), o cartão "Fornos em atenção" do painel inicial
+// O banner agregado de `/gestao/queimas` (FOR-06), o cartão "Fornos em atenção" do painel inicial
 // (FOR-13) e o filtro Ativos/Desativados/Todos (a metade final de FOR-11) — 04-05-PLAN.md,
 // Tarefa 3. Uma única invocação de `npm run test:e2e --grep "banner de fornos"` para todo o
 // arquivo — o describe de topo entra no título de todos os casos abaixo, então o `--grep` do
@@ -29,11 +29,11 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
   test.describe.configure({ mode: "serial", retries: 2 });
 
   async function fazerLogin(page: Page) {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
     await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
     await page.getByRole("button", { name: "Entrar" }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
   }
 
   function nomeUnico(rotulo: string): string {
@@ -41,11 +41,11 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
   }
 
   async function cadastrarForno(page: Page, nome: string, limite: number): Promise<void> {
-    await page.goto("/queimas?novo");
+    await page.goto("/gestao/queimas?novo");
     await page.getByLabel("Nome").fill(nome);
     await page.getByLabel("Limite").fill(String(limite));
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
   }
 
   function cartaoDoForno(page: Page, nome: string) {
@@ -96,7 +96,7 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
       await expect(bannerTexto).not.toContainText(nome);
     }
 
-    await page.goto("/");
+    await page.goto("/gestao");
     const cartaoPainel = page.getByTestId("cartao-painel-fornos-em-atencao");
     if ((await cartaoPainel.count()) > 0) {
       await expect(cartaoPainel).not.toContainText(nome);
@@ -161,7 +161,7 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     expect(texto).toMatch(/^\d+ fornos precisam de atenção:/);
 
     // E11: o mesmo aviso chega ao painel inicial, com o forno crítico visível.
-    await page.goto("/");
+    await page.goto("/gestao");
     const cartaoPainelTexto = await page
       .getByTestId("cartao-painel-fornos-em-atencao")
       .innerText();
@@ -184,7 +184,7 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     const nomeDecoy = nomeUnico("Forno só para o filtro existir");
     await cadastrarForno(page, nomeDecoy, 100);
 
-    await page.goto("/queimas");
+    await page.goto("/gestao/queimas");
     await page.getByTestId("filtro-fornos-desativados").click();
     await expect(page.getByText("Nada por aqui com esse filtro.")).toBeVisible();
     // Distinto do vazio "nenhum forno existe" — os dois nunca se confundem.
@@ -200,13 +200,13 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     }
     const id = testId.replace("cartao-forno-", "");
 
-    await page.goto(`/queimas/${id}`);
+    await page.goto(`/gestao/queimas/${id}`);
     await page.getByTestId(`acoes-forno-${id}`).click();
     await page.getByTestId("desativar-forno").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Desativar forno" }).click();
     await expect(page.getByText("Forno desativado.")).toBeVisible({ timeout: 5000 });
 
-    await page.goto("/queimas");
+    await page.goto("/gestao/queimas");
     await page.getByTestId("filtro-fornos-desativados").click();
     await expect(cartaoDoForno(page, nome)).toBeVisible();
     await expect(page.getByText("Nada por aqui com esse filtro.")).toHaveCount(0);

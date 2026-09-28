@@ -20,11 +20,11 @@ import {
 // forma de chave em vez de texto (parâmetro é numérico, não aceita um sufixo de nome).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function chaveDeValorParaEditar(): "material_argila" | "material_esmalte" {
@@ -114,8 +114,8 @@ test.describe("precificacao parametros @parametro-global", () => {
   test("a sub-aba Parâmetros abre, mostra os cinco grupos e ao menos 18 campos", async ({ page }) => {
     await fazerLogin(page);
 
-    await page.goto("/cadastros?sub=parametros");
-    await expect(page).toHaveURL(/\/cadastros\?sub=parametros$/);
+    await page.goto("/gestao/cadastros?sub=parametros");
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=parametros$/);
     await expect(page.getByTestId("cadastros-sub-parametros")).toHaveAttribute("aria-selected", "true");
 
     for (const grupo of ["Material", "Trabalho", "Forno", "Perda", "No preço"]) {
@@ -146,7 +146,7 @@ test.describe("precificacao parametros @parametro-global", () => {
     expect(antesDoHistorico).toBeGreaterThanOrEqual(2); // a semente de hoje + a linha antiga acima.
 
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=parametros");
+    await page.goto("/gestao/cadastros?sub=parametros");
 
     const linha = page.getByTestId(`parametro-${chave}`);
     const novoValorTexto = test.info().project.name.endsWith("celular") ? "77,7" : "88,8";
@@ -158,7 +158,7 @@ test.describe("precificacao parametros @parametro-global", () => {
     // já mostra o texto digitado antes mesmo de a rede responder; sem esperar a navegação, uma
     // gravação que falhasse silenciosamente ainda pareceria ter passado).
     await page.waitForLoadState("load");
-    await expect(page).toHaveURL(/\/cadastros\?sub=parametros$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=parametros$/);
 
     await expect(page.getByTestId(`parametro-desde-${chave}`)).toHaveText(`desde ${hojeComoNaTela()}`);
     await expect(linha.locator("input")).toHaveValue(novoValorTexto);
@@ -180,14 +180,14 @@ test.describe("precificacao parametros @parametro-global", () => {
     const chave = chaveDoSeloParaAlternar();
 
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=parametros");
+    await page.goto("/gestao/cadastros?sub=parametros");
 
     const selo = page.getByTestId(`parametro-selo-${chave}`);
     const estadoInicial = await selo.getAttribute("aria-pressed");
     const novoEstado = estadoInicial === "true" ? "false" : "true";
 
     await selo.click();
-    await expect(page).toHaveURL(/\/cadastros\?sub=parametros$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=parametros$/);
     await expect(page.getByTestId(`parametro-selo-${chave}`)).toHaveAttribute("aria-pressed", novoEstado);
     await expect(page.getByTestId(`parametro-selo-${chave}`)).toHaveText(
       novoEstado === "true" ? "medido" : "estimado",
@@ -201,7 +201,7 @@ test.describe("precificacao parametros @parametro-global", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=parametros");
+    await page.goto("/gestao/cadastros?sub=parametros");
 
     await page.getByTestId("abrir-calcular-hora").click();
     await expect(page.getByRole("heading", { name: "Calcular minha hora" })).toBeVisible();
@@ -218,7 +218,7 @@ test.describe("precificacao parametros @parametro-global", () => {
 
     await page.getByRole("button", { name: "Usar esta hora" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=parametros/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=parametros/);
     await expect(page.getByText("Hora atualizada.")).toBeVisible();
     await expect(page.getByTestId("parametro-desde-trabalho_hora")).toHaveText(
       `desde ${hojeComoNaTela()}`,
@@ -227,7 +227,7 @@ test.describe("precificacao parametros @parametro-global", () => {
 
   test("a taxa do cartão aparece como leitura, sem campo editável", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=parametros");
+    await page.goto("/gestao/cadastros?sub=parametros");
 
     const linhaDaTaxa = page.getByTestId("taxa-do-cartao-leitura");
     await expect(linhaDaTaxa).toBeVisible();
@@ -240,7 +240,7 @@ test.describe("precificacao parametros @parametro-global", () => {
   }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto("/cadastros?sub=parametros");
+    await page.goto("/gestao/cadastros?sub=parametros");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -248,7 +248,7 @@ test.describe("precificacao parametros @parametro-global", () => {
     ]);
     expect(
       scrollWidth,
-      `/cadastros?sub=parametros rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/cadastros?sub=parametros rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
     for (const sub of ["catalogo", "categorias", "fixas", "taxas", "parametros"]) {

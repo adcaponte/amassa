@@ -12,11 +12,11 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 // versionado (o repositório é público).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Mesmo orçamento de caracteres documentado em `cotacoes-categorias.spec.ts`.
@@ -39,7 +39,7 @@ async function criarCategoria(page: Page, nome: string) {
   await expect(page.getByRole("heading", { name: "Nova categoria" })).toBeVisible();
   await page.getByLabel("Nome", { exact: true }).fill(nome);
   await page.getByRole("button", { name: "Criar" }).click();
-  await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 }
 
 type DadosDaCotacao = {
@@ -110,7 +110,7 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
     const empresaB = nomeUnico("Fornecedor B 500");
     const empresaA = nomeUnico("Fornecedor A 1000");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeCategoria);
     await criarCotacao(page, { empresa: empresaD, preco: "2000" });
     await criarCotacao(page, { empresa: empresaSemPreco });
@@ -165,7 +165,7 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
     const empresaComAlerta = nomeUnico("Fornecedor Alerta");
     const empresaSemAlerta = nomeUnico("Fornecedor Sem Alerta");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeCategoria);
     await criarCotacao(page, {
       empresa: empresaComAlerta,
@@ -246,7 +246,7 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
     const empresaY = nomeUnico("Fornecedor Y");
     const empresaDescartada = nomeUnico("Fornecedor Z Descartado");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeCategoria);
     await criarCotacao(page, { empresa: empresaX, preco: "1000" });
     // Campo "Diferenciais" com valor PRÓPRIO em cada cotação — a prova de que cada coluna é a
@@ -254,13 +254,13 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
     await page.getByRole("link", { name: `Editar cotação de «${empresaX}»` }).click();
     await page.getByLabel("Diferenciais", { exact: false }).fill("Isolamento reforçado.");
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     await criarCotacao(page, { empresa: empresaY, preco: "2000" });
     await page.getByRole("link", { name: `Editar cotação de «${empresaY}»` }).click();
     await page.getByLabel("Diferenciais", { exact: false }).fill("Entrega mais rápida.");
     await page.getByRole("button", { name: "Salvar" }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     await criarCotacao(page, { empresa: empresaDescartada, situacao: "descartado" });
 

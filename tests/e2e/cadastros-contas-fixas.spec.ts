@@ -12,11 +12,11 @@ import { hojeNoAtelie } from "./apoio/semear-financeiro";
 // resposta do dono de 2026-09-20.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -24,7 +24,7 @@ function sufixoUnico(): string {
 }
 
 async function irParaContasFixas(page: Page) {
-  await page.goto("/cadastros?sub=fixas");
+  await page.goto("/gestao/cadastros?sub=fixas");
 }
 
 // A tabela de contas fixas é GLOBAL e compartilhada — o botão "+ Nova conta fixa" existe em DOIS
@@ -74,7 +74,7 @@ async function criarContaFixaPelaTela(
   await page.getByLabel("Valor esperado", { exact: true }).fill(dados.valor);
   await page.getByLabel("Dia de vencimento").fill(dados.dia);
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page).toHaveURL(/\/cadastros\?sub=fixas$/);
+  await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=fixas$/);
 }
 
 test.describe("cadastros contas fixas", () => {
@@ -164,7 +164,7 @@ test.describe("cadastros contas fixas", () => {
       timeout: 10000,
     });
 
-    await page.goto("/financeiro?aba=caixa");
+    await page.goto("/gestao/financeiro?aba=caixa");
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloInternetGerado)).toHaveCount(0);
 
@@ -175,7 +175,7 @@ test.describe("cadastros contas fixas", () => {
       timeout: 10000,
     });
 
-    await page.goto("/financeiro?aba=caixa");
+    await page.goto("/gestao/financeiro?aba=caixa");
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloInternetGerado)).toHaveCount(0);
 
@@ -280,7 +280,7 @@ test.describe("cadastros contas fixas", () => {
       timeout: 10000,
     });
 
-    await page.goto("/financeiro?aba=caixa");
+    await page.goto("/gestao/financeiro?aba=caixa");
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloDesativadaTerceiroMes)).toHaveCount(0);
 
@@ -295,7 +295,7 @@ test.describe("cadastros contas fixas", () => {
       timeout: 10000,
     });
 
-    await page.goto("/financeiro?aba=caixa");
+    await page.goto("/gestao/financeiro?aba=caixa");
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloContabilidadeQuartoMes)).toHaveCount(1);
 
@@ -308,7 +308,7 @@ test.describe("cadastros contas fixas", () => {
       page.getByText(`As contas de ${nomeDoMes(terceiroMes)} já existiam.`),
     ).toBeVisible({ timeout: 10000 });
 
-    await page.goto("/financeiro?aba=caixa");
+    await page.goto("/gestao/financeiro?aba=caixa");
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
 
     // A PRIMEIRA opção é o mês CORRENTE — a suposição que a excluía caiu (resposta do dono,
@@ -354,7 +354,7 @@ test.describe("cadastros contas fixas", () => {
 
     expect(
       scrollWidth,
-      `/cadastros?sub=fixas rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/cadastros?sub=fixas rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 });

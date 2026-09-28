@@ -4,8 +4,8 @@ import { DIAS_PADRAO } from "@/lib/encomendas/cronograma";
 import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
 
 // Traçado de ponta a ponta desta fase (03-01-PLAN.md, Tarefa 2): logar, abrir
-// `/encomendas?nova` (contrato de URL de D-03), criar uma encomenda com um item, e confirmar
-// que a lista de `/encomendas` mostra o nome e a data de conclusão calculada em cascata pelo
+// `/gestao/encomendas?nova` (contrato de URL de D-03), criar uma encomenda com um item, e confirmar
+// que a lista de `/gestao/encomendas` mostra o nome e a data de conclusão calculada em cascata pelo
 // módulo puro `lib/encomendas/cronograma.ts`. Depois, recarregar e confirmar que a encomenda
 // continua lá — a prova de que a persistência é real (ENC-12), não estado de cliente.
 //
@@ -17,11 +17,11 @@ import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
 // Mesmo helper `fazerLogin` de tests/e2e/casca.spec.ts, duplicado aqui por convenção do
 // projeto (cada spec é independente, sem módulo de apoio compartilhado além do globalSetup).
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Desde o plano 06, `FormularioEncomenda` monta `Dialog` (desktop) E `Sheet` (celular) ao mesmo
@@ -48,10 +48,10 @@ async function salvarComRetry(page: Page, nome: string) {
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
     await botaoVisivel(page, "Salvar").click();
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
       return;
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(nome, { exact: true }).count();
       if (jaFoiCriada > 0) {
         return;
@@ -67,7 +67,7 @@ async function salvarComRetry(page: Page, nome: string) {
 // tela (D-02) — o Gantt do desktop ainda não linka por linha (gap pré-existente de 03-04/03-05,
 // fora do escopo desta fase). Extrai o `href` dali, independente do viewport do projeto atual.
 async function hrefDoDetalhe(page: Page, nome: string): Promise<string> {
-  await page.goto("/encomendas");
+  await page.goto("/gestao/encomendas");
   const cartao = page.locator('[data-testid^="cartao-encomenda-"]').filter({ hasText: nome });
   await expect(cartao).toHaveCount(1);
   const href = await cartao.getAttribute("href");
@@ -88,7 +88,7 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     // inventado (proibição PR-1 do plano): nenhum nome real de cliente ou encomenda do ateliê.
     const nomeDaEncomenda = `[e2e] Peças de teste ${test.info().project.name} ${Date.now()}`;
 
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
 
     await campoVisivel(page, "Nome da encomenda").fill(nomeDaEncomenda);
     await campoVisivel(page, "Cliente").fill("Cliente inventado para teste");
@@ -102,12 +102,12 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     // em paralelo, uma submissão isolada ocasionalmente fica presa em `?nova` sem redirecionar
     // (instabilidade do webServer local de desenvolvimento, não do dado — mesmo diagnóstico de
     // tests/e2e/encomendas-indice.spec.ts#criarEncomenda). Se acontecer aqui, um recarregamento
-    // de `/encomendas` confirma se a transação já tinha sido concluída no servidor antes de
+    // de `/gestao/encomendas` confirma se a transação já tinha sido concluída no servidor antes de
     // desistir — nunca reenvia o formulário, que criaria uma segunda encomenda com o mesmo nome.
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(nomeDaEncomenda, { exact: true }).count();
       if (jaFoiCriada === 0) {
         throw erro;
@@ -139,7 +139,7 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     await fazerLogin(page);
     const nome = nomeUnico("Fluxo completo");
 
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Nome da encomenda").fill(nome);
     await campoVisivel(page, "Cliente").fill("Cliente do fluxo completo [e2e]");
     await campoVisivel(page, "Data de início").fill("2026-08-12");
@@ -176,7 +176,7 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     await campoVisivel(page, "Nome da encomenda").fill(nomeEditado);
     await campoVisivel(page, ROTULO_ETAPA.secagem).fill("10");
     await botaoVisivel(page, "Salvar").click();
-    await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
 
     // Confere a mudança de verdade: o nome novo aparece no índice (Gantt/cartão, D-02) e a
     // trilha do detalhe reflete a nova duração total (32 - 15 + 10 = 27 dias).
@@ -198,7 +198,7 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
     await expect(dialogo.getByText("Os 2 itens dela serão apagados.")).toBeVisible();
     await dialogo.getByRole("button", { name: "Excluir", exact: true }).click();
 
-    await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
     await expect(page.getByText("Encomenda excluída.")).toBeVisible();
     await expect(page.getByText(nomeEditado, { exact: true })).toHaveCount(0);
   });
@@ -223,10 +223,10 @@ test.describe("encomendas — traçado de ponta a ponta", () => {
 
       // Contexto B abre o índice ANTES da criação — é o "outro dispositivo" já com a tela
       // aberta no ateliê.
-      await paginaB.goto("/encomendas");
+      await paginaB.goto("/gestao/encomendas");
 
       const nome = nomeUnico("ENC-12 dois contextos");
-      await paginaA.goto("/encomendas?nova");
+      await paginaA.goto("/gestao/encomendas?nova");
       await campoVisivel(paginaA, "Nome da encomenda").fill(nome);
       await campoVisivel(paginaA, "Cliente").fill("Cliente do ENC-12 [e2e]");
       await campoVisivel(paginaA, "Data de início").fill("2026-08-12");

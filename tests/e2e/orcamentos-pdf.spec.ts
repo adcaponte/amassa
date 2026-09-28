@@ -23,11 +23,11 @@ import sharp from "sharp";
 //       provados por teste unitário/acceptance_criteria), não por leitura do arquivo final.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -35,9 +35,9 @@ function sufixoUnico(): string {
 }
 
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/financeiro?aba=orcamentos");
+  await page.goto("/gestao/financeiro?aba=orcamentos");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
   const url = new URL(page.url());
   return url.searchParams.get("orcamento") ?? "";
 }
@@ -52,7 +52,7 @@ async function acrescentarPecaExclusiva(
   nome: string,
   precoReais: string,
 ): Promise<void> {
-  await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
   await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
 
@@ -178,7 +178,7 @@ test.describe("orcamentos pdf", () => {
 
   test("(b) 'Baixar PDF' entrega um arquivo PDF de verdade, com o número do orçamento no nome", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await abrirDocumentoDoCliente(page);
 
     const numeroTexto = (await page.getByTestId("folha-a4").locator("header").textContent()) ?? "";
@@ -200,7 +200,7 @@ test.describe("orcamentos pdf", () => {
 
   test("(c) acentuação: 'José Conceição' e 'Orçamento' aparecem íntegros na tela do documento", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await abrirDocumentoDoCliente(page);
 
     const folha = page.getByTestId("folha-a4");
@@ -212,7 +212,7 @@ test.describe("orcamentos pdf", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const painel = page.getByTestId("orcamento-so-para-voce");
     await expect(painel).toBeVisible();
@@ -240,14 +240,14 @@ test.describe("orcamentos pdf", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await abrirDocumentoDoCliente(page);
 
     let liberarResposta: (() => void) | null = null;
     const respostaLiberada = new Promise<void>((resolve) => {
       liberarResposta = resolve;
     });
-    await page.route(`**/api/orcamentos/${orcamentoId}/pdf`, async (route) => {
+    await page.route(`**/gestao/api/orcamentos/${orcamentoId}/pdf`, async (route) => {
       await respostaLiberada;
       await route.continue();
     });
@@ -266,12 +266,12 @@ test.describe("orcamentos pdf", () => {
 
   test("(f) a rota do PDF pedida sem sessão responde 401 e não devolve o arquivo", async ({ page, browser }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const contextoSemSessao = await browser.newContext();
     try {
       const resposta = await contextoSemSessao.request.get(
-        new URL(`/api/orcamentos/${orcamentoId}/pdf`, page.url()).toString(),
+        new URL(`/gestao/api/orcamentos/${orcamentoId}/pdf`, page.url()).toString(),
       );
       expect(resposta.status()).toBe(401);
       expect(resposta.headers()["content-type"]).not.toContain("application/pdf");
@@ -283,7 +283,7 @@ test.describe("orcamentos pdf", () => {
   test("(g) a 320px a folha rola dentro do próprio contêiner, e a PÁGINA não rola na horizontal", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await abrirDocumentoDoCliente(page);
 
     await expect(page.getByTestId("folha-a4")).toBeVisible();

@@ -11,11 +11,11 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 // zero e o mínimo), R$ 20 dá vermelho.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -23,7 +23,7 @@ function sufixoUnico(): string {
 }
 
 async function abrirNovaPeca(page: Page) {
-  await page.goto("/financeiro?aba=pecas");
+  await page.goto("/gestao/financeiro?aba=pecas");
   await page.getByTestId("nova-peca").first().click();
   await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
 }
@@ -56,9 +56,9 @@ async function criarPecaDeLinha(page: Page, nome: string, precoReais: string): P
 
 // Cria um orçamento novo a partir da lista e devolve a página já no editor.
 async function criarOrcamento(page: Page): Promise<void> {
-  await page.goto("/financeiro?aba=orcamentos");
+  await page.goto("/gestao/financeiro?aba=orcamentos");
   await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
 }
 
 function orcamentoIdDaUrl(page: Page): string {
@@ -136,7 +136,7 @@ test.describe("orcamentos editor", () => {
     await fazerLogin(page);
     await criarPecaDeLinha(page, nomeDaPecaDeLinha, "95");
 
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await page.getByRole("button", { name: "+ Peça da lista" }).click();
 
     const dialogoEscolher = page.getByTestId("orcamento-escolher-peca");
@@ -170,7 +170,7 @@ test.describe("orcamentos editor", () => {
 
   test("(c) mudar 'cada' para um valor abaixo do mínimo vira o selo âmbar ou vermelho", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const linha = page.getByTestId("orcamento-linha").filter({ hasText: nomeDaPecaDeLinha });
     const campoPreco = linha.getByTestId("orcamento-linha-preco");
@@ -192,7 +192,7 @@ test.describe("orcamentos editor", () => {
     const nomeExclusiva = `[e2e] Exclusiva do pedido ${suf}`;
 
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
     await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
@@ -212,13 +212,13 @@ test.describe("orcamentos editor", () => {
     ).toBeVisible();
 
     // D-19: uma exclusiva de pedido não aparece na aba Peças.
-    await page.goto("/financeiro?aba=pecas");
+    await page.goto("/gestao/financeiro?aba=pecas");
     await expect(page.getByText(nomeExclusiva, { exact: true })).toHaveCount(0);
   });
 
   test("(e) 'tirar' pede confirmação nomeando a peça e, ao confirmar, ela sai e o total cai", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
 
     const linha = page.getByTestId("orcamento-linha").filter({ hasText: nomeDaPecaDeLinha });
     await expect(linha).toBeVisible();
@@ -242,10 +242,10 @@ test.describe("orcamentos editor", () => {
 
   test("(f) a lista de orçamentos mostra o total do orçamento editado", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     const totalNoEditor = await page.getByTestId("orcamento-total-pecas").textContent();
 
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
     // Localiza a linha da lista pelo id do orçamento, dentro do link "Abrir" (o href carrega o
     // id) — nunca por texto de título/cliente, que outra suíte/worker também pode gerar.
     const linhaDoOrcamento = page.locator(`li:has(a[href*="orcamento=${orcamentoId}"])`);
@@ -258,7 +258,7 @@ test.describe("orcamentos editor", () => {
   }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await expect(page.getByTestId("orcamento-cabecalho")).toBeVisible();
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [

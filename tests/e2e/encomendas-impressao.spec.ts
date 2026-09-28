@@ -3,17 +3,17 @@ import AxeBuilder from "@axe-core/playwright";
 
 import { marcarComoRascunho } from "./apoio/marcar-rascunho";
 
-// A folha A4 de impressão (`/encomendas/imprimir`, D-18/ENC-14, 03-08-PLAN.md Tarefa 1):
+// A folha A4 de impressão (`/gestao/encomendas/imprimir`, D-18/ENC-14, 03-08-PLAN.md Tarefa 1):
 // escopo próprio e fixo (sempre `rascunho`+`em_producao`, nunca o filtro/busca/ordenação da
 // tela), quatro colunas exatas, sem truncamento, `@media print` medido de verdade com
 // `page.emulateMedia({ media: "print" })` — nunca por leitura do CSS.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Desde o plano 06, `FormularioEncomenda` monta `Dialog` (desktop) E `Sheet` (celular) ao mesmo
@@ -64,7 +64,7 @@ async function criarEncomenda(
   const TENTATIVAS_MAXIMAS = 3;
 
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Nome da encomenda").fill(opcoes.nome);
     if (opcoes.cliente) {
       await campoVisivel(page, "Cliente").fill(opcoes.cliente);
@@ -75,10 +75,10 @@ async function criarEncomenda(
     await botaoVisivel(page, "Salvar").click();
 
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
       break;
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(opcoes.nome, { exact: true }).count();
       if (jaFoiCriada === 0) {
         if (tentativa === TENTATIVAS_MAXIMAS) throw erro;
@@ -98,7 +98,7 @@ async function criarEncomenda(
 }
 
 async function abrirDetalhe(page: Page, id: string) {
-  await page.goto(`/encomendas/${id}`);
+  await page.goto(`/gestao/encomendas/${id}`);
 }
 
 test.describe("impressão de encomendas", () => {
@@ -113,7 +113,7 @@ test.describe("impressão de encomendas", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
 
     // `expect(...).toBeDisabled()`/`toBeVisible()` fazem o auto-retry do Playwright (ao
     // contrário de `.count()`, que lê o DOM uma única vez sem esperar) — é o que torna esta
@@ -122,13 +122,13 @@ test.describe("impressão de encomendas", () => {
     await expect(botaoImprimir).toBeDisabled();
     await expect(page.getByText("Nada ativo para imprimir agora.")).toBeVisible();
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     await expect(page.getByText("Nada ativo para imprimir agora.")).toBeVisible();
   });
 
-  test("/encomendas/imprimir sem sessão redireciona para /login", async ({ page }) => {
-    await page.goto("/encomendas/imprimir");
-    await expect(page).toHaveURL(/\/login/);
+  test("/gestao/encomendas/imprimir sem sessão redireciona para /login", async ({ page }) => {
+    await page.goto("/gestao/encomendas/imprimir");
+    await expect(page).toHaveURL(/\/gestao\/login/);
   });
 
   test("mostra o cabeçalho, a tabela de 4 colunas exatas e uma linha por encomenda ativa, com nome e caractere composto idênticos ao banco", async ({
@@ -138,7 +138,7 @@ test.describe("impressão de encomendas", () => {
     const nome = `[e2e] Coleção Açúcar Ñ ${test.info().project.name} ${Date.now()}`;
     const id = await criarEncomenda(page, { nome, cliente: "Cliente inventado", dataInicio: hojeBrasilia() });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
 
     await expect(page.getByRole("heading", { name: "AMASSA — Encomendas ativas" })).toBeVisible();
     await expect(page.getByTestId("impresso-em")).toContainText("Impresso em");
@@ -176,7 +176,7 @@ test.describe("impressão de encomendas", () => {
       timeout: 10000,
     });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     await expect(page.getByTestId(`linha-impressao-${idAtiva}`)).toBeVisible();
     await expect(page.getByTestId(`linha-impressao-${idCancelada}`)).toHaveCount(0);
     await expect(page.getByTestId(`linha-impressao-${idConcluida}`)).toHaveCount(0);
@@ -188,13 +188,13 @@ test.describe("impressão de encomendas", () => {
     const id = await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
 
     // Filtro no índice que EXCLUI a encomenda recém-criada (D-11, roda no cliente).
-    await page.goto("/encomendas");
+    await page.goto("/gestao/encomendas");
     const busca = page.getByPlaceholder("Buscar por nome, cliente ou item…").and(page.locator(":visible"));
     await busca.fill("um termo que não bate com nada disto");
     await expect(page.getByText("Nada por aqui com esse filtro.")).toBeVisible();
 
     // A folha usa escopo PRÓPRIO — o filtro acima nunca chega até ela.
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     await expect(page.getByTestId(`linha-impressao-${id}`)).toBeVisible();
   });
 
@@ -204,7 +204,7 @@ test.describe("impressão de encomendas", () => {
     const id = await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
     await marcarComoRascunho(id);
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     await expect(page.getByTestId(`impressao-nome-${id}`)).toHaveText(`${nome} (rascunho)`);
   });
 
@@ -218,7 +218,7 @@ test.describe("impressão de encomendas", () => {
     // "concluída"). 30 dias não bastava mais (caía dentro do vão de espera antes da Entrega).
     const id = await criarEncomenda(page, { nome, dataInicio: dataEmDias(-40) });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     const celulaEtapa = page.getByTestId(`impressao-etapa-${id}`);
     await expect(celulaEtapa).toContainText("(atrasada)");
 
@@ -233,7 +233,7 @@ test.describe("impressão de encomendas", () => {
     const nome = nomeUnico("Impressão futuro");
     const id = await criarEncomenda(page, { nome, dataInicio: dataEmDias(30) });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     const celulaEtapa = page.getByTestId(`impressao-etapa-${id}`);
     await expect(celulaEtapa).toContainText("Começa em 30 dias");
   });
@@ -245,7 +245,7 @@ test.describe("impressão de encomendas", () => {
     const nomeLongo = (base + sufixo).padEnd(120, "x").slice(0, 120);
     const id = await criarEncomenda(page, { nome: nomeLongo, dataInicio: hojeBrasilia() });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     const celula = page.getByTestId(`impressao-nome-${id}`);
     await expect(celula).toContainText(nomeLongo);
 
@@ -275,7 +275,7 @@ test.describe("impressão de encomendas", () => {
       ids.push(id);
     }
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     for (const id of ids) {
       await expect(page.getByTestId(`linha-impressao-${id}`)).toBeVisible();
     }
@@ -288,7 +288,7 @@ test.describe("impressão de encomendas", () => {
     const nome = nomeUnico("Impressão escala");
     const id = await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     await page.emulateMedia({ media: "print" });
 
     const th = page.getByRole("columnheader", { name: "Nome" });
@@ -316,7 +316,7 @@ test.describe("impressão de encomendas", () => {
     const nome = nomeUnico("Impressão axe");
     await criarEncomenda(page, { nome, dataInicio: hojeBrasilia() });
 
-    await page.goto("/encomendas/imprimir");
+    await page.goto("/gestao/encomendas/imprimir");
     const resultado = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
 
     expect(

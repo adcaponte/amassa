@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// Relatórios `/queimas/relatorios` (D-01, D-07, D-08, FOR-12) — 04-06-PLAN.md, Tarefa 3. Sem
+// Relatórios `/gestao/queimas/relatorios` (D-01, D-07, D-08, FOR-12) — 04-06-PLAN.md, Tarefa 3. Sem
 // etiqueta de vazio: cria dado, roda em `desktop`/`celular` depois da cadeia `vazio-*`
 // (playwright.config.ts). As estatísticas do topo são um total GLOBAL do ateliê — sob execução
 // paralela, outros arquivos de spec também registram queimas ao mesmo tempo (CLAUDE.md
@@ -21,11 +21,11 @@ import { test, expect, type Page } from "@playwright/test";
 // quantas linhas concorrentes existem no banco no instante da leitura.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -33,11 +33,11 @@ function nomeUnico(rotulo: string): string {
 }
 
 async function cadastrarForno(page: Page, nome: string): Promise<void> {
-  await page.goto("/queimas?novo");
+  await page.goto("/gestao/queimas?novo");
   await page.getByLabel("Nome").fill(nome);
   await page.getByLabel("Limite").fill("50");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
 }
 
 function cartaoDoForno(page: Page, nome: string) {
@@ -50,11 +50,11 @@ async function registrarUmaQueima(
   tipo: "biscoito" | "esmalte" | "ouro",
   totalEsperadoDepois: number,
 ): Promise<void> {
-  // Idempotente: o teste intercala navegações para `/queimas/relatorios` (ler estatísticas)
-  // entre registros — sempre volta para `/queimas` antes de procurar o cartão, em vez de assumir
+  // Idempotente: o teste intercala navegações para `/gestao/queimas/relatorios` (ler estatísticas)
+  // entre registros — sempre volta para `/gestao/queimas` antes de procurar o cartão, em vez de assumir
   // qual página está aberta.
-  if (!/\/queimas$/.test(new URL(page.url()).pathname)) {
-    await page.goto("/queimas");
+  if (!/\/gestao\/queimas$/.test(new URL(page.url()).pathname)) {
+    await page.goto("/gestao/queimas");
   }
   const cartao = cartaoDoForno(page, nomeDoForno);
   await cartao.getByRole("button", { name: "Queimar" }).click();
@@ -72,24 +72,24 @@ async function lerEstatistica(page: Page, testId: string): Promise<number> {
 test.describe("relatórios de queimas", () => {
   // `mode: "serial"` + `retries: 2`: o servidor Next é ÚNICO e compartilhado por toda a suíte
   // (mesmo achado de 04-02-SUMMARY.md/04-05-SUMMARY.md) — registrar 4 queimas seguidas mais uma
-  // navegação para `/queimas/relatorios` é sensível a lentidão transitória sob carga alta local.
+  // navegação para `/gestao/queimas/relatorios` é sensível a lentidão transitória sob carga alta local.
   test.describe.configure({ mode: "serial", retries: 2 });
 
   test("o seletor de topo navega entre /queimas e /queimas/relatorios, com aria-current e o botão voltar funcionando", async ({
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/queimas");
+    await page.goto("/gestao/queimas");
 
     await expect(page.getByTestId("seletor-queimas-fornos")).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("seletor-queimas-relatorios")).not.toHaveAttribute("aria-current", "page");
 
     await page.getByTestId("seletor-queimas-relatorios").click();
-    await expect(page).toHaveURL(/\/queimas\/relatorios$/);
+    await expect(page).toHaveURL(/\/gestao\/queimas\/relatorios$/);
     await expect(page.getByTestId("seletor-queimas-relatorios")).toHaveAttribute("aria-current", "page");
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/queimas$/);
+    await expect(page).toHaveURL(/\/gestao\/queimas$/);
     await expect(page.getByTestId("seletor-queimas-fornos")).toHaveAttribute("aria-current", "page");
   });
 
@@ -117,7 +117,7 @@ test.describe("relatórios de queimas", () => {
     // Linha de base — lida DEPOIS da primeira queima (garante o painel populado) e ANTES do
     // restante, para o teste afirmar só a DIFERENÇA que ele mesmo provocou dali em diante (nunca
     // um total absoluto do ateliê inteiro).
-    await page.goto("/queimas/relatorios");
+    await page.goto("/gestao/queimas/relatorios");
     await expect(page.getByTestId("estatisticas-queimas")).toBeVisible();
     const totalAntes = await lerEstatistica(page, "total");
     const biscoitoAntes = await lerEstatistica(page, "biscoito");
@@ -129,7 +129,7 @@ test.describe("relatórios de queimas", () => {
     await registrarUmaQueima(page, nome, "esmalte", 2);
     await registrarUmaQueima(page, nome, "ouro", 3);
 
-    await page.goto("/queimas/relatorios");
+    await page.goto("/gestao/queimas/relatorios");
     await expect(page.getByTestId("estatisticas-queimas")).toBeVisible();
 
     const totalDepois = await lerEstatistica(page, "total");
@@ -155,7 +155,7 @@ test.describe("relatórios de queimas", () => {
     );
     await page.getByTestId("alternador-granularidade-mes").click();
     await expect(page.getByTestId("alternador-granularidade-mes")).toHaveAttribute("aria-checked", "true");
-    await expect(page).toHaveURL(/\/queimas\/relatorios$/);
+    await expect(page).toHaveURL(/\/gestao\/queimas\/relatorios$/);
 
     expect(await lerEstatistica(page, "total")).toBe(totalDepois);
     expect(await lerEstatistica(page, "biscoito")).toBe(biscoitoDepois);
@@ -179,7 +179,7 @@ test.describe("relatórios de queimas", () => {
     await cadastrarForno(page, nome);
     await registrarUmaQueima(page, nome, "biscoito", 1);
 
-    await page.goto("/queimas/relatorios");
+    await page.goto("/gestao/queimas/relatorios");
     const containerDoGrafico = page.getByTestId("grafico-tipo-rolagem");
     await expect(containerDoGrafico).toBeVisible();
 

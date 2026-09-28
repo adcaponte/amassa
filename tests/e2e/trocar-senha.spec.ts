@@ -48,7 +48,7 @@ test.describe("trocar senha", () => {
   }
 
   async function entrar(page: Page, email: string, senha: string) {
-    await page.goto("/login");
+    await page.goto("/gestao/login");
     await page.getByLabel("E-mail").fill(email);
     await page.getByLabel("Senha").fill(senha);
     await page.getByRole("button", { name: "Entrar" }).click();
@@ -58,9 +58,9 @@ test.describe("trocar senha", () => {
     const { email, senha } = await criarConta(testInfo);
 
     await entrar(page, email, senha);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
 
-    await page.goto("/conta/senha");
+    await page.goto("/gestao/conta/senha");
     await page.getByLabel("Senha atual").fill("com-certeza-nao-e-a-senha-certa");
     await page.getByLabel("Senha nova", { exact: true }).fill("panela-barro-forno-quente");
     await page.getByLabel("Confirme a senha nova").fill("panela-barro-forno-quente");
@@ -73,16 +73,16 @@ test.describe("trocar senha", () => {
     // A senha não foi trocada: sair e entrar de novo com a senha ORIGINAL chega em `/`.
     await page.context().clearCookies();
     await entrar(page, email, senha);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
   });
 
   test("senha nova curta é recusada pelo servidor", async ({ page }, testInfo) => {
     const { email, senha } = await criarConta(testInfo);
 
     await entrar(page, email, senha);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
 
-    await page.goto("/conta/senha");
+    await page.goto("/gestao/conta/senha");
     await page.getByLabel("Senha atual").fill(senha);
     await page.getByLabel("Senha nova", { exact: true }).fill("a".repeat(11));
     await page.getByLabel("Confirme a senha nova").fill("a".repeat(11));
@@ -98,9 +98,9 @@ test.describe("trocar senha", () => {
     const senhaNova = "panela-barro-forno-quente";
 
     await entrar(page, email, senha);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
 
-    await page.goto("/conta/senha");
+    await page.goto("/gestao/conta/senha");
     await page.getByLabel("Senha atual").fill(senha);
     await page.getByLabel("Senha nova", { exact: true }).fill(senhaNova);
     await page.getByLabel("Confirme a senha nova").fill(senhaNova);
@@ -113,9 +113,9 @@ test.describe("trocar senha", () => {
     await page.context().clearCookies();
 
     await entrar(page, email, senha);
-    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
 
     await entrar(page, email, senhaNova);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/gestao$/);
   });
 });

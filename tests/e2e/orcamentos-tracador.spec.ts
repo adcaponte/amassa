@@ -12,11 +12,11 @@ import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_ORCAMENTO } from "@/
 // muleta (mesma disciplina de `tests/e2e/abertura-tracador.spec.ts`).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
@@ -24,7 +24,7 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
 
     await expect(page.getByRole("heading", { name: FRASE_VAZIO_TITULO, level: 2 })).toBeVisible();
     await expect(page.getByText(FRASE_VAZIO_CORPO)).toBeVisible();
@@ -41,15 +41,15 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
 
     const botao = page.getByRole("button", { name: ROTULO_NOVO_ORCAMENTO });
     await expect(botao).toBeVisible();
     await botao.click();
 
-    // Navegação COMPLETA para `/financeiro?aba=orcamentos&orcamento=<id>` (component
+    // Navegação COMPLETA para `/gestao/financeiro?aba=orcamentos&orcamento=<id>` (component
     // `NovoOrcamentoBotao`, `window.location.assign`) — a URL final carrega o id do rascunho.
-    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
 
     // O número já vem pronto no primeiro carregamento — sem nenhum estado intermediário "sem
     // número ainda" (04.5-UI-SPEC.md, seção "Numeração"). Usa o primeiro da lista (ordenada por
@@ -65,7 +65,7 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
   }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -73,7 +73,7 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     ]);
     expect(
       scrollWidth,
-      `/financeiro?aba=orcamentos rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/financeiro?aba=orcamentos rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
     // A quebra em duas fileiras é determinística (espaçador `basis-full`, não o navegador) — a
@@ -103,12 +103,12 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
 
     const titulo = `Jogo de mesa para a prova de largura ${Date.now().toString(36)}`;
 
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
     await page
       .getByTestId("orcamentos-lista")
       .getByRole("button", { name: ROTULO_NOVO_ORCAMENTO })
       .click();
-    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
 
     const campoTitulo = page.getByTestId("orcamento-campo-titulo");
     await campoTitulo.fill(titulo);
@@ -116,7 +116,7 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     // ser IDÊNTICA à atual, e aí o `load` resolve contra um carregamento velho.
     await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campoTitulo.blur()]);
 
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
     const cartao = page.getByTestId("orcamento-linha").filter({ hasText: titulo });
     await expect(cartao).toBeVisible();
 
@@ -145,7 +145,7 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
 
   test("todo botão visível da aba Orçamentos mede ao menos 44px de altura", async ({ page }) => {
     await fazerLogin(page);
-    await page.goto("/financeiro?aba=orcamentos");
+    await page.goto("/gestao/financeiro?aba=orcamentos");
 
     // Escopado a <main> — a casca ao redor (avatar/menu do usuário) tem seus próprios botões,
     // que não são o que este critério mede (mesmo padrão de tests/e2e/casca.spec.ts).

@@ -19,11 +19,11 @@ import { fraseConfirmarRemoverCategoria } from "@/lib/cotacoes/textos";
 // real de fornecedor em arquivo versionado (o repositório é público).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // O nome de categoria tem teto de 60 pontos de código (Zod + `check` do banco) — o envoltório
@@ -54,7 +54,7 @@ async function criarCategoria(page: Page, nome: string, { porEnter = false } = {
   } else {
     await page.getByRole("button", { name: "Criar" }).click();
   }
-  await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 }
 
 async function criarCotacao(page: Page, empresa: string) {
@@ -72,7 +72,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
 
     const vazio = page.getByTestId("cotacoes-vazio-categorias");
     await expect(vazio).toBeVisible();
@@ -100,7 +100,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     const nomeB = nomeUnico("Torno de Teste");
     const nomeC = nomeUnico("Moedor de Teste");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeA);
     await criarCategoria(page, nomeB);
     // A terceira, submetida pela tecla Enter — sem clicar no botão "Criar".
@@ -165,7 +165,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     ]);
     expect(
       scrollWidth,
-      `/abertura?aba=cotacoes rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/abertura?aba=cotacoes rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 
@@ -177,7 +177,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     const nomeAntigo = nomeUnico("Fornos Renomear");
     const nomeNovo = nomeUnico("Fornos Renomeado");
 
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeAntigo);
 
     await page.getByTestId("cotacoes-editar-categoria").click();
@@ -190,7 +190,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     await page.getByLabel("Nome", { exact: true }).fill(nomeNovo);
     await page.getByRole("button", { name: "Salvar", exact: true }).click();
 
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes&categoria=[0-9a-f-]+$/, { timeout: 10000 });
 
     // O nome antigo desaparece POR COMPLETO — não presumir que o novo contém o antigo como
     // pedaço (os dois vêm de sufixos aleatórios diferentes — lição do plano 04.2-03).
@@ -207,7 +207,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
 
     // --- Caso zero: categoria vazia ---
     const nomeVazia = nomeUnico("Categoria Vazia");
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeVazia);
 
     await page.getByTestId("cotacoes-editar-categoria").click();
@@ -225,12 +225,12 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     await page.getByTestId("cotacoes-editar-categoria").click();
     await page.getByRole("button", { name: "Excluir categoria" }).click();
     await page.getByRole("button", { name: "Excluir", exact: true }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes(&categoria=[0-9a-f-]+)?$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes(&categoria=[0-9a-f-]+)?$/, { timeout: 10000 });
     await expect(page.getByTestId("cotacoes-sub-aba").filter({ hasText: nomeVazia })).toHaveCount(0);
 
     // --- Caso um: uma cotação (singular) ---
     const nomeUma = nomeUnico("Categoria Uma Cotacao");
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeUma);
     const empresaUnica = nomeUnico("Fornecedor Único");
     await criarCotacao(page, empresaUnica);
@@ -240,7 +240,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     const fraseUma = fraseConfirmarRemoverCategoria(nomeUma, 1);
     await expect(page.getByText(fraseUma)).toBeVisible();
     await page.getByRole("button", { name: "Excluir", exact: true }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes(&categoria=[0-9a-f-]+)?$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes(&categoria=[0-9a-f-]+)?$/, { timeout: 10000 });
 
     // A pílula E a cotação dela desapareceram junto (a cascata da migração 0012).
     await expect(page.getByTestId("cotacoes-sub-aba").filter({ hasText: nomeUma })).toHaveCount(0);
@@ -248,7 +248,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
 
     // --- Caso muitas: duas cotações (plural com número) ---
     const nomeDuas = nomeUnico("Categoria Duas Cotacoes");
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nomeDuas);
     const empresaX = nomeUnico("Fornecedor X");
     const empresaY = nomeUnico("Fornecedor Y");
@@ -260,7 +260,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     const fraseDuas = fraseConfirmarRemoverCategoria(nomeDuas, 2);
     await expect(page.getByText(fraseDuas)).toBeVisible();
     await page.getByRole("button", { name: "Excluir", exact: true }).click();
-    await expect(page).toHaveURL(/\/abertura\?aba=cotacoes(&categoria=[0-9a-f-]+)?$/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/gestao\/abertura\?aba=cotacoes(&categoria=[0-9a-f-]+)?$/, { timeout: 10000 });
 
     await expect(page.getByTestId("cotacoes-sub-aba").filter({ hasText: nomeDuas })).toHaveCount(0);
     await expect(linhasOuCartoesVisiveis(page).filter({ hasText: empresaX })).toHaveCount(0);
@@ -273,7 +273,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     await fazerLogin(page);
 
     const nome = nomeUnico("Categoria Sem Cotacao");
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nome);
 
     const vazio = page.getByTestId("cotacoes-vazio-cotacoes");
@@ -294,7 +294,7 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     await fazerLogin(page);
 
     const nome = nomeUnico("Categoria Erro");
-    await page.goto("/abertura?aba=cotacoes");
+    await page.goto("/gestao/abertura?aba=cotacoes");
     await criarCategoria(page, nome);
     const urlComACategoria = page.url();
 

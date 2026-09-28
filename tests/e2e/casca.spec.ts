@@ -16,7 +16,7 @@ function listaDaNavegacaoPeloProjeto(nomeDoProjeto: string) {
   return nomeDoProjeto.includes("celular") ? ITENS_NAVEGACAO_CELULAR : ITENS_NAVEGACAO_LATERAL;
 }
 //
-// Barra lateral e barra inferior estão SEMPRE as duas no DOM (app/(app)/layout.tsx renderiza
+// Barra lateral e barra inferior estão SEMPRE as duas no DOM (app/gestao/(app)/layout.tsx renderiza
 // as duas incondicionalmente; só o CSS — "hidden md:flex" numa, "md:hidden" na outra —
 // decide qual fica visível por breakpoint). Um elemento com "display: none" sai da árvore de
 // acessibilidade do navegador, então localizar por papel/nome acessível (getByRole) já resolve
@@ -24,11 +24,11 @@ function listaDaNavegacaoPeloProjeto(nomeDoProjeto: string) {
 // `testInfo.project.name`, o mesmo princípio que tests/e2e/sessao.spec.ts já usa para o
 // gatilho do menu do usuário.
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Escolhe a navegação principal visível no viewport atual: a barra inferior tem
@@ -65,20 +65,20 @@ type TelaDeModulo = {
   notaBotao: string;
 };
 
-// `/encomendas` saiu desta lista na Fase 3 (03-01-PLAN.md, Tarefa 2), e `/queimas` sai agora,
+// `/gestao/encomendas` saiu desta lista na Fase 3 (03-01-PLAN.md, Tarefa 2), e `/gestao/queimas` sai agora,
 // na varredura completa de fim de fase da Fase 4 (04-07-PLAN.md, Tarefa 1): em ambos os casos o
 // botão deixou de ser inerte (agora é um fluxo real, com persistência via Postgres) e a nota
 // "Chega na Fase N." deixou de fazer sentido — as duas mudanças são o objetivo da própria fase,
 // não uma regressão. A tela ainda tem cabeçalho + estado vazio com frase de contexto quando não
 // há forno nenhum, mas isso deixou de caber no contrato genérico "sempre a mesma casca vazia,
 // nunca modificável" que este teste verifica só para os módulos que ainda não foram construídos.
-// Cobertura de `/queimas` (cabeçalho, cadastro, registro de queima, persistência) vive em
+// Cobertura de `/gestao/queimas` (cabeçalho, cadastro, registro de queima, persistência) vive em
 // `tests/e2e/queimas-*.spec.ts`. Achado pela varredura completa sem `--grep` (04-07): este teste
-// nunca tinha rodado depois que `/queimas` deixou de ser um placeholder, porque nenhum plano da
+// nunca tinha rodado depois que `/gestao/queimas` deixou de ser um placeholder, porque nenhum plano da
 // Fase 4 tocava `tests/e2e/casca.spec.ts` nem invocava o e2e sem `--grep` até este ponto.
 const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
   {
-    href: "/agenda",
+    href: "/gestao/agenda",
     tituloPagina: "Agenda",
     tituloVazio: "Nenhuma turma na grade ainda.",
     corpo: "Cadastre a primeira turma e as aulas da semana aparecem aqui, com data e presença por aluna.",
@@ -86,7 +86,7 @@ const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
     notaBotao: "Chega na Fase 5.",
   },
   {
-    href: "/estoque",
+    href: "/gestao/estoque",
     tituloPagina: "Estoque",
     tituloVazio: "Nada no estoque ainda.",
     corpo: "Cadastre o primeiro material — cerâmica, pintura ou bordado — para começar a controlar o saldo.",
@@ -96,13 +96,13 @@ const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
 ];
 
 const ROTAS_A_320PX = [
-  "/",
-  "/encomendas",
-  "/agenda",
-  "/queimas",
-  "/estoque",
-  "/financeiro?aba=orcamentos",
-  "/login",
+  "/gestao",
+  "/gestao/encomendas",
+  "/gestao/agenda",
+  "/gestao/queimas",
+  "/gestao/estoque",
+  "/gestao/financeiro?aba=orcamentos",
+  "/gestao/login",
 ];
 
 test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => {
@@ -142,7 +142,7 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     for (const item of itens) {
       await navegacao.getByRole("link", { name: item.rotulo }).click();
 
-      const padraoDeUrl = item.href === "/" ? /\/$/ : new RegExp(`${item.href}$`);
+      const padraoDeUrl = item.href === "/gestao" ? /\/gestao$/ : new RegExp(`${item.href}$`);
       await expect(page).toHaveURL(padraoDeUrl);
 
       await expect(navegacao.getByRole("link", { name: item.rotulo })).toHaveAttribute(
@@ -183,7 +183,7 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
 
     // Fase 04.5 (D-04): a casca vazia `/orcamentos` saiu — o menu leva à aba Orçamentos DENTRO
     // do Financeiro, nunca a uma rota própria.
-    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos$/);
+    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos$/);
   });
 
   test("no desktop, a barra lateral tem largura fixa de 240px (UI-03)", async ({ page }) => {
@@ -258,7 +258,7 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     await abrirMenuDoUsuario(page);
     await itemOrcamentos.click();
 
-    await expect(page).toHaveURL(/\/financeiro\?aba=orcamentos$/);
+    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos$/);
     await expect(page.getByTestId("financeiro-aba-orcamentos")).toHaveAttribute(
       "aria-selected",
       "true",
@@ -279,8 +279,8 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     // ("AMASSA" fixo). Uma rota só não distingue um título derivado de uma string fixa que
     // coincide com o esperado.
     const rotasEtitulos = [
-      { href: "/encomendas", titulo: "Encomendas" },
-      { href: "/queimas", titulo: "Queimas" },
+      { href: "/gestao/encomendas", titulo: "Encomendas" },
+      { href: "/gestao/queimas", titulo: "Queimas" },
     ];
 
     for (const { href, titulo } of rotasEtitulos) {

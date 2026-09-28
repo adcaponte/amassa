@@ -9,18 +9,18 @@ import { diaDoMes, mesReservado } from "./apoio/mes-reservado";
 // reservado (`mes-reservado.ts`) — nenhuma afirmação de número global do banco.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 async function esperarVendaLancada(page: Page) {
   await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
 }
 
-// NUNCA `toHaveURL(/\?aba=despesa/)` — a Despesa parte de `/financeiro?aba=despesa` (o fragmento
+// NUNCA `toHaveURL(/\?aba=despesa/)` — a Despesa parte de `/gestao/financeiro?aba=despesa` (o fragmento
 // já é verdade ANTES de qualquer ação), então essa checagem não provaria nada (mesma classe de
 // achado real documentada em `04.4-08-SUMMARY.md`: asserção de URL trivialmente verdadeira). O
 // TOAST "Despesa nº N lançada" só aparece depois da navegação de sucesso — é o sinal real.
@@ -34,7 +34,7 @@ async function lancarVendaLivre(
   page: Page,
   { data, descricao, valor, forma }: { data: string; descricao: string; valor: string; forma: "Pix" | "Dinheiro" | "Cartão" },
 ) {
-  await page.goto("/financeiro");
+  await page.goto("/gestao/financeiro");
   // `page.goto` só espera o evento `load` — a hidratação do React (que anexa o `onChange` do
   // campo "Data" controlado) roda um instante depois, ainda mais sob 8 workers disputando CPU.
   // Sem esta espera, `.fill()` no campo pode escrever o valor no DOM ANTES do handler existir; o
@@ -58,7 +58,7 @@ async function lancarDespesaLivre(
   page: Page,
   { data, descricao, valor, forma }: { data: string; descricao: string; valor: string; forma: "Pix" | "Dinheiro" | "Cartão" },
 ) {
-  await page.goto("/financeiro?aba=despesa");
+  await page.goto("/gestao/financeiro?aba=despesa");
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.getByTestId("despesa-modo-outra").click();
   await page.getByLabel("Data").fill(data);
@@ -107,7 +107,7 @@ test.describe("financeiro extrato", () => {
     await lancarDespesaLivre(page, { data: diaDoMes(mes, 14), descricao: nome14, valor: "20", forma: "Dinheiro" });
     await lancarVendaLivre(page, { data: diaDoMes(mes, 15), descricao: nome15, valor: "30", forma: "Pix" });
 
-    await page.goto(`/financeiro?aba=caixa&mes=${mes}`);
+    await page.goto(`/gestao/financeiro?aba=caixa&mes=${mes}`);
 
     // As quatro linhas em ordem do mais recente (dia15, dia14, dia12, dia10).
     const linhas = page.getByTestId("extrato-linha");
@@ -146,7 +146,7 @@ test.describe("financeiro extrato", () => {
     // documentada para o total global de Queimas).
     const nome05 = `[e2e] Extrato retroativo dia05 ${suf}`;
     await lancarVendaLivre(page, { data: diaDoMes(mes, 5), descricao: nome05, valor: "7", forma: "Pix" });
-    await page.goto(`/financeiro?aba=caixa&mes=${mes}`);
+    await page.goto(`/gestao/financeiro?aba=caixa&mes=${mes}`);
 
     const saldo15Depois = await saldoDepoisCentavos(page, nome15);
     const saldo14Depois = await saldoDepoisCentavos(page, nome14);
@@ -231,7 +231,7 @@ test.describe("financeiro extrato", () => {
     await lancarVendaLivre(page, { data: diaDoMes(mes, 12), descricao: nomeDinheiro, valor: "20", forma: "Dinheiro" });
     await lancarDespesaLivre(page, { data: diaDoMes(mes, 14), descricao: nomeDespesa, valor: "5", forma: "Dinheiro" });
 
-    await page.goto(`/financeiro?aba=caixa&mes=${mes}`);
+    await page.goto(`/gestao/financeiro?aba=caixa&mes=${mes}`);
 
     // "Todas" (sem `forma=` na URL) mostra o total do mês inteiro: 100 (Pix) + 20 (Dinheiro) − 5
     // (despesa em Dinheiro) = 115 — o dono, item 13: "aparece a frase com a soma em todas
@@ -258,7 +258,7 @@ test.describe("financeiro extrato", () => {
   test("a 320px de largura, o extrato não rola na horizontal", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/financeiro?aba=caixa");
+    await page.goto("/gestao/financeiro?aba=caixa");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,

@@ -18,11 +18,11 @@ import {
 // semeia os próprios itens com sufixo único e usa a BUSCA para achá-los.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -86,7 +86,7 @@ function dicaAvistaAberto(page: Page) {
 }
 
 async function irParaCaixa(page: Page) {
-  await page.goto("/financeiro?aba=caixa");
+  await page.goto("/gestao/financeiro?aba=caixa");
 }
 
 function cartaoDaConta(page: Page, titulo: string) {
@@ -115,7 +115,7 @@ test.describe("financeiro pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomePacote).click();
     await expect(page.getByTestId("venda-total")).toContainText("R$ 900,00");
@@ -160,7 +160,7 @@ test.describe("financeiro pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeItem).click();
     await expect(page.getByTestId("venda-total")).toContainText("R$ 150,01");
@@ -219,7 +219,7 @@ test.describe("financeiro pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomePapel).click();
     await atalho(page, nomePincel).click();
@@ -246,7 +246,7 @@ test.describe("financeiro pagamento", () => {
     const descricao = `[e2e] Valor livre misto ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -283,7 +283,7 @@ test.describe("financeiro pagamento", () => {
     const descricao = `[e2e] Valor livre misto cartão ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -315,7 +315,7 @@ test.describe("financeiro pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeItem).click();
     await expect(page.getByTestId("venda-total")).toContainText("R$ 300,00");
@@ -362,7 +362,7 @@ test.describe("financeiro pagamento", () => {
     });
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeItem).click();
 
@@ -394,7 +394,7 @@ test.describe("financeiro pagamento", () => {
 
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeItem).click();
 
@@ -436,7 +436,7 @@ test.describe("financeiro pagamento", () => {
 
     await fazerLogin(page);
     await page.setViewportSize({ width: 360, height: 900 });
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await buscarNaVenda(page, suf);
     await atalho(page, nomeItem).click();
 
@@ -465,7 +465,7 @@ test.describe("financeiro pagamento", () => {
     const descricaoExtra = `[e2e] Venda avista aberta extra ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -527,7 +527,7 @@ test.describe("financeiro pagamento", () => {
     const descricao = `[e2e] Outra forma parcial ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -572,7 +572,7 @@ test.describe("financeiro pagamento", () => {
     const descricao = `[e2e] Cartao avista aberto ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByRole("button", { name: "+ Valor livre" }).click();
     await page.getByLabel("O que é").fill(descricao);
     await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -604,7 +604,7 @@ test.describe("financeiro pagamento", () => {
     const descricao = `[e2e] Despesa avista aberta ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/financeiro?aba=despesa");
+    await page.goto("/gestao/financeiro?aba=despesa");
     await page.getByTestId("despesa-modo-outra").click();
 
     await page.getByLabel("Descrição").fill(descricao);

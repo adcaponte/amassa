@@ -10,11 +10,11 @@ import { semearItem } from "./apoio/semear-financeiro";
 // achá-los.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -22,7 +22,7 @@ function sufixoUnico(): string {
 }
 
 async function irParaDespesa(page: Page) {
-  await page.goto("/financeiro?aba=despesa");
+  await page.goto("/gestao/financeiro?aba=despesa");
 }
 
 function atalhoDeCompra(page: Page, nome: string) {

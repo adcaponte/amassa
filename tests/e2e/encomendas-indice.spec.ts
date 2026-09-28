@@ -28,11 +28,11 @@ import { marcarComoRascunho } from "./apoio/marcar-rascunho";
 // mesmo com dado concorrente de outros arquivos de teste no mesmo banco efêmero.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 // Desde o plano 06, `FormularioEncomenda` monta `Dialog` (desktop) E `Sheet` (celular) ao mesmo
@@ -70,7 +70,7 @@ async function criarEncomenda(
   const TENTATIVAS_MAXIMAS = 3;
 
   for (let tentativa = 1; tentativa <= TENTATIVAS_MAXIMAS; tentativa++) {
-    await page.goto("/encomendas?nova");
+    await page.goto("/gestao/encomendas?nova");
     await campoVisivel(page, "Nome da encomenda").fill(opcoes.nome);
     if (opcoes.cliente) {
       await campoVisivel(page, "Cliente").fill(opcoes.cliente);
@@ -92,10 +92,10 @@ async function criarEncomenda(
     await botaoVisivel(page, "Salvar").click();
 
     try {
-      await expect(page).toHaveURL(/\/encomendas$/, { timeout: 10000 });
+      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
       return;
     } catch (erro) {
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
       const jaFoiCriada = await page.getByText(opcoes.nome, { exact: true }).count();
       if (jaFoiCriada > 0) {
         return;
@@ -204,7 +204,7 @@ test.describe("índice de encomendas", () => {
   test.describe("Estados obrigatórios (ENC-13)", () => {
     // Declarado ANTES dos demais describes de propósito: em modo serial, a ordem de execução
     // segue a ordem de declaração — o teste de "banco vazio" precisa ser o PRIMEIRO a tocar
-    // `/encomendas` neste arquivo, antes de qualquer outro teste criar uma encomenda. Rodando
+    // `/gestao/encomendas` neste arquivo, antes de qualquer outro teste criar uma encomenda. Rodando
     // com o grep deste arquivo (`--grep "índice de encomendas"`, o comando de verificação desta
     // tarefa), nenhum outro arquivo de spec entra na mesma execução, então o banco de teste
     // efêmero (recriado do zero a cada `npm run test:e2e`) está genuinamente vazio aqui.
@@ -212,7 +212,7 @@ test.describe("índice de encomendas", () => {
       page,
     }) => {
       await fazerLogin(page);
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       // ENC-13/empty + ENC-13/adjacency: o título do estado vazio (papel `título`, `<h2>`)
       // aparece exatamente uma vez — nunca uma cópia por metade (Gantt/lista, D-02).
@@ -221,7 +221,7 @@ test.describe("índice de encomendas", () => {
       await expect(frase).toBeVisible();
 
       // O botão do estado vazio está HABILITADO (D-13 do UI-SPEC — a primeira vez que o botão
-      // do estado vazio faz alguma coisa) e leva a `/encomendas?nova`. Dois links "Nova
+      // do estado vazio faz alguma coisa) e leva a `/gestao/encomendas?nova`. Dois links "Nova
       // encomenda" existem na tela (cabeçalho + estado vazio) — escopado ao `data-testid` do
       // próprio `EstadoVazio` para não depender de `.last()`/`.first()` entre os dois.
       //
@@ -234,7 +234,7 @@ test.describe("índice de encomendas", () => {
         .getByRole("link", { name: ROTULO_NOVA_ENCOMENDA });
       await expect(botaoDoEstadoVazio).toBeVisible();
       await expect(botaoDoEstadoVazio).not.toHaveAttribute("aria-disabled", "true");
-      await expect(botaoDoEstadoVazio).toHaveAttribute("href", "/encomendas?nova");
+      await expect(botaoDoEstadoVazio).toHaveAttribute("href", "/gestao/encomendas?nova");
     });
 
     test("com uma encomenda no banco, a frase 'A roda ainda não gira.' não está no documento", async ({
@@ -318,7 +318,7 @@ test.describe("índice de encomendas", () => {
         nome: nomeUnico("Gantt hoje"),
         dataInicio: dataEmDias(0),
       });
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const { intervalo, hoje } = await lerIntervaloDoGantt(page);
       const linhaHoje = page.getByTestId("linha-hoje");
@@ -367,7 +367,7 @@ test.describe("índice de encomendas", () => {
         nome: nomeUnico("Gantt rolagem"),
         dataInicio: dataEmDias(0),
       });
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const areaRolavel = page.getByTestId("gantt-area-rolavel");
       const { intervalo, hoje } = await lerIntervaloDoGantt(page);
@@ -414,7 +414,7 @@ test.describe("índice de encomendas", () => {
         nome: nomeUnico("Gantt gesto"),
         dataInicio: dataEmDias(0),
       });
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const areaRolavel = page.getByTestId("gantt-area-rolavel");
       const { intervalo, hoje } = await lerIntervaloDoGantt(page);
@@ -469,7 +469,7 @@ test.describe("índice de encomendas", () => {
       // este teste pegaria isso.
       await criarEncomenda(page, { nome: nomeTarde, dataInicio: dataEmDias(40) });
       await criarEncomenda(page, { nome: nomeCedo, dataInicio: dataEmDias(20) });
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const nomesNaTela = await page
         .locator('[data-testid^="gantt-linha-"]')
@@ -562,10 +562,10 @@ test.describe("índice de encomendas", () => {
 
       // Leitura determinística do `href`, sem depender de navegação — prova o destino exato.
       const link = linha.getByRole("link");
-      await expect(link).toHaveAttribute("href", `/encomendas/${id}`);
+      await expect(link).toHaveAttribute("href", `/gestao/encomendas/${id}`);
 
       await link.click();
-      await expect(page).toHaveURL(new RegExp(`/encomendas/${id}$`));
+      await expect(page).toHaveURL(new RegExp(`/gestao/encomendas/${id}$`));
       // Prova que abriu a encomenda CERTA, não uma qualquer.
       await expect(page.getByText(nome, { exact: true })).toBeVisible();
     });
@@ -619,7 +619,7 @@ test.describe("índice de encomendas", () => {
       // Só a primeira encomenda vira rascunho — a de controle fica em `em_producao`.
       await marcarComoRascunho(idRascunho);
       // Recarrega para o servidor renderizar de novo lendo o status já gravado no banco.
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const linhaRascunho = page.getByTestId(`gantt-linha-${idRascunho}`);
       await expect(linhaRascunho).toBeVisible();
@@ -715,7 +715,7 @@ test.describe("índice de encomendas", () => {
           dataInicio: dataEmDias(indice),
         });
       }
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const [scrollWidth, clientWidth] = await page.evaluate(() => [
         document.documentElement.scrollWidth,
@@ -866,7 +866,7 @@ test.describe("índice de encomendas", () => {
 
       await criarEncomenda(page, { nome: nomeTarde, dataInicio: dataEmDias(45) });
       await criarEncomenda(page, { nome: nomeCedo, dataInicio: dataEmDias(25) });
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const nomesNaTela = await page
         .locator('[data-testid^="cartao-encomenda-"]')
@@ -989,7 +989,7 @@ test.describe("índice de encomendas", () => {
       const idControle = await idDaEncomenda(page, nomeControle);
 
       await marcarComoRascunho(idRascunho);
-      await page.goto("/encomendas");
+      await page.goto("/gestao/encomendas");
 
       const cartaoRascunho = page.getByTestId(`cartao-encomenda-${idRascunho}`);
       await expect(cartaoRascunho).toBeVisible();

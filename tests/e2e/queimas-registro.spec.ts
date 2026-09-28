@@ -5,11 +5,11 @@ import { test, expect, type Page } from "@playwright/test";
 // da cadeia `vazio-*` (playwright.config.ts).
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function nomeUnico(rotulo: string): string {
@@ -17,11 +17,11 @@ function nomeUnico(rotulo: string): string {
 }
 
 async function cadastrarForno(page: Page, nome: string): Promise<void> {
-  await page.goto("/queimas?novo");
+  await page.goto("/gestao/queimas?novo");
   await page.getByLabel("Nome").fill(nome);
   await page.getByLabel("Limite").fill("50");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page).toHaveURL(/\/queimas$/, { timeout: 10000 });
+  await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
 }
 
 function cartaoDoForno(page: Page, nome: string) {

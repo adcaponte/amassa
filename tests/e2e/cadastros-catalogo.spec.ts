@@ -11,11 +11,11 @@ import { test, expect, type Page } from "@playwright/test";
 // por `--grep` como muleta.
 
 async function fazerLogin(page: Page) {
-  await page.goto("/login");
+  await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");
   await page.getByLabel("Senha").fill(process.env.E2E_SENHA_TESTE ?? "");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/gestao$/);
 }
 
 function sufixoUnico(): string {
@@ -58,7 +58,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
 
     const titulo = page.getByRole("heading", { name: "Nada no catálogo ainda.", level: 2 });
     await expect(titulo).toHaveCount(1);
@@ -85,7 +85,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     const nomeCafe = `[e2e] Café 200 ml ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
 
     // 1. Cria o insumo "Grão de café" — só estoque próprio, unidade g, categoria da compra
     // "Insumos da cafeteria". O catálogo pode estar vazio ou não neste ponto (outro worker pode
@@ -100,7 +100,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     await page.getByRole("option", { name: "Insumos da cafeteria" }).click();
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=catalogo$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=catalogo$/);
     const linhaGrao = linhaDoCatalogo(page, nomeGrao);
     await expect(linhaGrao).toBeVisible();
     await expect(linhaGrao).toContainText("só insumo");
@@ -117,7 +117,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     await page.getByRole("checkbox", { name: "Nos mais usados" }).click();
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=catalogo$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=catalogo$/);
     const linhaCafe = linhaDoCatalogo(page, nomeCafe);
     await expect(linhaCafe).toBeVisible();
     await expect(linhaCafe).toContainText("R$ 8,00");
@@ -132,11 +132,11 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     await expect(page.getByTestId("ficha-linha")).toContainText(`15 g de ${nomeGrao}`);
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=catalogo$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=catalogo$/);
     await expect(linhaCafe).toContainText(`gasta 15 g de ${nomeGrao}`);
 
     // 4. Na Venda, busca o café, põe na venda e o efeito mostra o que sai do estoque.
-    await page.goto("/financeiro");
+    await page.goto("/gestao/financeiro");
     await page.getByTestId("venda-busca").fill(suf);
     await page.getByTestId("venda-atalho").filter({ hasText: nomeCafe }).click();
 
@@ -147,7 +147,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     // 5. Tenta salvar um item sem "Aparece na venda" e sem "Tem estoque próprio" — a frase
     // aparece e o diálogo continua aberto e preenchido (nunca chega a submeter: o botão fica
     // desabilitado pela MESMA validação que o servidor usa).
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
     await page.getByTestId("novo-item").click();
     const nomeSemNada = `[e2e] Sem nada ${sufixoUnico()}`;
     await page.getByLabel("Nome").fill(nomeSemNada);
@@ -181,7 +181,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
     await page.getByRole("option", { name: "Bebidas e comidas" }).click();
     await page.getByRole("button", { name: "Salvar" }).click();
 
-    await expect(page).toHaveURL(/\/cadastros\?sub=catalogo$/);
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=catalogo$/);
     await expect(
       linhaDoCatalogo(page, nomeSemPreco),
     ).toContainText("valor na hora");
@@ -192,7 +192,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
   }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto("/cadastros?sub=catalogo");
+    await page.goto("/gestao/cadastros?sub=catalogo");
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -201,7 +201,7 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
 
     expect(
       scrollWidth,
-      `/cadastros?sub=catalogo rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+      `/gestao/cadastros?sub=catalogo rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
   });
 });
