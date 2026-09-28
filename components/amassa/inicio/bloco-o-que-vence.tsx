@@ -61,6 +61,7 @@ export async function BlocoOQueVence({ hoje }: BlocoOQueVenceProps) {
           {linhas.map(({ conta, vencida }) => (
             <div
               key={conta.parcelaId}
+              data-testid="inicio-vence-linha"
               className="flex flex-col gap-1 border-b border-border pb-3 last:border-0 last:pb-0"
             >
               <div className="flex items-start justify-between gap-3">
