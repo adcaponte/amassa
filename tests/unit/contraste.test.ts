@@ -12,13 +12,32 @@ import { luminanciaRelativa, razaoDeContraste } from "@/lib/acessibilidade/contr
 // `tests/unit/tokens.test.ts` — para mudar um neutro reexecutar esta conferência sozinho.
 const globalsCss = readFileSync(join(process.cwd(), "app/globals.css"), "utf-8");
 
-function tokenDoSite(nome: string): string {
-  const padrao = new RegExp(`--color-site-${nome}:\\s*(#[0-9A-Fa-f]{6});`);
+// Resolve o valor de UMA variável CSS (`--nome: valor;`) em app/globals.css — pode ser um hex
+// literal ou uma referência `var(--outra-variavel)` (D-19: sete dos treze tokens do site
+// referenciam um token da plataforma, de propósito, para os dois nunca divergirem sem ninguém
+// notar). Segue a cadeia de `var(...)` até achar hex, ou lança se não achar em 5 saltos (limite
+// de segurança contra ciclo, nunca esperado num CSS real).
+function resolverVariavelCss(nomeDaVariavel: string, saltosRestantes = 5): string {
+  if (saltosRestantes <= 0) {
+    throw new Error(`cadeia de var(...) longa demais ao resolver ${nomeDaVariavel} — possível ciclo`);
+  }
+  const padrao = new RegExp(`${nomeDaVariavel}:\\s*([^;]+);`);
   const encontrado = globalsCss.match(padrao);
   if (!encontrado) {
-    throw new Error(`token --color-site-${nome} não encontrado em app/globals.css`);
+    throw new Error(`variável ${nomeDaVariavel} não encontrada em app/globals.css`);
   }
-  return encontrado[1];
+  const valorBruto = encontrado[1].trim();
+  const casoHex = valorBruto.match(/^#[0-9A-Fa-f]{6}$/);
+  if (casoHex) return valorBruto;
+
+  const casoVar = valorBruto.match(/^var\((--[a-z0-9-]+)\)$/i);
+  if (casoVar) return resolverVariavelCss(casoVar[1], saltosRestantes - 1);
+
+  throw new Error(`valor "${valorBruto}" de ${nomeDaVariavel} não é hex nem var(...) — formato inesperado`);
+}
+
+function tokenDoSite(nome: string): string {
+  return resolverVariavelCss(`--color-site-${nome}`);
 }
 
 describe("lib/acessibilidade/contraste — razaoDeContraste e luminanciaRelativa (SIT-10)", () => {

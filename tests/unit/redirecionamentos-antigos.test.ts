@@ -9,10 +9,11 @@ import {
   REDIRECIONAMENTOS_ANTIGOS,
 } from "../../lib/rotas/redirecionamentos-antigos";
 
-// Onda 1 desta fase: o site público ainda não existe (chega no plano 04.6-03/04). A única rota
-// pública do site, hoje, é a própria raiz. QUANDO o plano 04 criar `app/sitemap.ts` com as
-// seções do site, esta lista precisa crescer junto — é o teste de disjunção (h) abaixo que grita
-// se um caminho antigo um dia colidir com uma rota nova do site.
+// Conferida no plano 04 (Fase 04.6): a lista continua só a raiz. `app/sitemap.ts` (novo neste
+// plano) não é rota de CONTEÚDO do site — é o XML que o buscador lê, sem seção nem âncora
+// própria — então não entra aqui. A interseção com os 13 caminhos antigos continua vazia; a
+// reserva de nome (D-01) vale até 2027-03-28 — depois disso, esta lista pode crescer sem medo
+// de colidir com um caminho antigo já removido.
 const ROTAS_PUBLICAS_DO_SITE_ONDA_1 = ["/"];
 
 // Casa um `source` de redirecionamento (que pode ter um segmento dinâmico `:id`) contra um

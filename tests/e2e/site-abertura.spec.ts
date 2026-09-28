@@ -5,10 +5,10 @@ import { test, expect, type Page } from "@playwright/test";
 // da barra fixa, nunca atrás dela. Rodam nos dois projetos (desktop e celular) do
 // playwright.config.ts.
 //
-// As seções #espaco, #agenda, #encomendas e #onde AINDA NÃO EXISTEM neste plano (04.6-03) — os
-// botões fixos já apontam para lá, mas o destino é do plano 04.6-04. O caso (f) mede a âncora
-// que JÁ existe (`#topo`, na marca), e deixa o comentário abaixo para quem for exercitar
-// `#agenda`/`#encomendas` depois.
+// Escrito no plano 03 (28/09/2026), quando as seções #espaco, #agenda, #encomendas e #onde
+// ainda não existiam — os botões fixos já apontavam para lá, mas sem destino. O plano 04 as
+// construiu; o caso (f) aqui continua medindo só a âncora de `#topo` (a marca), e o caso
+// equivalente para `#agenda`/`#encomendas` está em tests/e2e/site-secoes.spec.ts, caso (b).
 test.describe("site abertura", () => {
   test.beforeEach(async ({ page }) => {
     // scroll-behavior: smooth só se aplica sem esta preferência (app/globals.css) — desligá-la
@@ -190,8 +190,8 @@ test.describe("site abertura", () => {
 });
 
 // O caso equivalente para `#agenda`/`#encomendas` (a âncora dos botões fixos, não a da marca)
-// é do plano 04.6-04 — as seções ainda não existem para serem exercitadas de verdade.
+// está em tests/e2e/site-secoes.spec.ts, caso (b) — as seções existem a partir do plano 04.
 async function irParaTopo(page: Page) {
   await page.evaluate(() => window.scrollTo(0, 0));
 }
-void irParaTopo; // reservado para o plano 04.6-04 reaproveitar, se fizer sentido — sem uso aqui.
+void irParaTopo; // sem uso neste arquivo — mantido por se um caso futuro do traçador precisar.

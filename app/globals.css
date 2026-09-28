@@ -216,7 +216,12 @@
   --color-site-papel:       #FFFDFA;
   --color-site-areia:       #EADFD2;
   --color-site-tinta:       #231C18;
-  --color-site-tinta-fraca: #7C6C62;
+  /* Achado real da Fase 04.6, plano 04 (SIT-10): o valor original media 4,47:1 contra
+     --color-site-fundo — abaixo do 4,5:1 que AA exige (lib/acessibilidade/contraste.ts prova
+     isso medindo, não afirmando). Escurecido para 4,77:1, mesma família de tom, sem mudar
+     --color-site-borda nem nenhum outro token. Detalhe com os dois valores em
+     tests/unit/tokens.test.ts, ao lado desta mesma linha. */
+  --color-site-tinta-fraca: #786858;
   --color-site-borda:       #E3D8CC;
 
   /* acentos do site — SETE referências, nunca hex copiado: os seis acentos (mais o tom médio de

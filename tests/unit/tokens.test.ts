@@ -171,7 +171,10 @@ describe("app/globals.css — tokens do site público (D-19, Fase 04.6)", () => 
     ["--color-site-papel", "#FFFDFA"],
     ["--color-site-areia", "#EADFD2"],
     ["--color-site-tinta", "#231C18"],
-    ["--color-site-tinta-fraca", "#7C6C62"],
+    // Corrigido na Fase 04.6, plano 04 (SIT-10): #7C6C62 media 4,47:1 contra --color-site-fundo
+    // — abaixo do 4,5:1 que AA exige, medido por lib/acessibilidade/contraste.ts. #786858 mede
+    // 4,77:1, mesma família de tom.
+    ["--color-site-tinta-fraca", "#786858"],
     ["--color-site-borda", "#E3D8CC"],
   ])("neutro do site %s vale %s (hex literal)", (chave, valorEsperado) => {
     const padrao = new RegExp(`${chave}:\\s*${valorEsperado};`, "i");

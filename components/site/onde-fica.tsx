@@ -48,6 +48,9 @@ export function OndeFica() {
             {CONTEUDO_SITE.ondeTitulo}
           </h2>
 
+          {/* min-h-11 nos dois links de contato (WhatsApp, Instagram): SIT-10 exige 44px de
+              alvo de toque em TODO link de contato, não só nos botões — um link de texto sublinhado
+              sem altura mínima mede a altura da linha (bem menos que 44px). */}
           <div data-testid="site-contato" className="mt-5 grid gap-3.5 text-[15.5px] text-site-tinta">
             <CampoDeContato rotulo="Endereço">{contato.endereco}</CampoDeContato>
             <CampoDeContato rotulo="Horário">{contato.horario}</CampoDeContato>
@@ -56,7 +59,11 @@ export function OndeFica() {
                 <b className="mb-0.5 block text-xs font-semibold tracking-[0.12em] text-site-tinta-fraca uppercase">
                   WhatsApp
                 </b>
-                <BotaoWhatsapp mensagem="site" rotulo={contato.whatsappRotulo} className="text-site-barro underline" />
+                <BotaoWhatsapp
+                  mensagem="site"
+                  rotulo={contato.whatsappRotulo}
+                  className="inline-flex min-h-11 items-center text-site-barro underline"
+                />
               </div>
             ) : null}
             {instagramPreenchido ? (
@@ -64,7 +71,12 @@ export function OndeFica() {
                 <b className="mb-0.5 block text-xs font-semibold tracking-[0.12em] text-site-tinta-fraca uppercase">
                   Instagram
                 </b>
-                <a href={contato.instagramUrl} target="_blank" rel="noopener" className="text-site-barro underline">
+                <a
+                  href={contato.instagramUrl}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex min-h-11 items-center text-site-barro underline"
+                >
                   {contato.instagramUsuario}
                 </a>
               </div>
