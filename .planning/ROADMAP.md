@@ -640,31 +640,63 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 1. Tudo que hoje responde na raiz responde em `/gestao`, e um endereço antigo salvo no celular
    (`/encomendas`, `/financeiro`) cai no novo por redirecionamento explícito — sem coringa que
    engula rota futura do site
+
 2. A raiz serve o site público sem ler sessão nem banco, e continua no ar com o Postgres derrubado
 3. `robots.txt` bloqueia `/gestao`, as telas da plataforma têm `noindex`, e nenhuma página pública
    tem link para a plataforma
+
 4. O Início mostra os cinco blocos, cada um com estado vazio, de carregamento e de erro próprios;
    bloco que falha não derruba a página
+
 5. As anotações são uma folha só da casa: o que um escreve, o outro vê, com quem salvou e quando,
    e aviso antes de sobrescrever texto que mudou no servidor
+
 6. A barra de baixo tem exatamente Início · Financeiro · Produção · Agenda; Queimas, Estoque e
    Cadastros continuam a um toque pelo Início e pela lateral
+
 7. O site abre sem login, os botões fixos rolam até a seção certa, e a seção de aulas mostra o
    estado "sem agenda" sem quebrar nem inventar evento
+
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
 **Plans:** 8 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 04.6-01-PLAN.md — Rotas: a árvore desce para `/gestao`, o proxy protege só esse prefixo, 13 redirecionamentos listados um a um, `robots.txt` e os dois 404 (onda 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 04.6-02-PLAN.md — Rotas: a varredura e2e completa, comparada spec a spec com `RETRATO-DA-SUITE.md`, e o retrato atualizado (onda 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 04.6-03-PLAN.md — Site: conteúdo em arquivo, tokens num bloco só, Fraunces, barras fixas, abertura e rodapé — provado de fora com o Postgres derrubado (onda 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 04.6-04-PLAN.md — Site: o espaço, aulas no estado sem Agenda, encomendas, onde fica, SEO e o contraste medido (onda 4)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 04.6-05-PLAN.md — Navegação final: 4 itens na barra de baixo, lateral completa, menu do usuário com 3 itens, "Produção" como rótulo (onda 5)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 04.6-06-PLAN.md — Início: saudação, pílulas, índice e os quatro blocos de leitura, com os três estados por bloco (onda 6)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 04.6-07-PLAN.md — Anotações da casa: a folha única, a migração `0022` versionada, e o aviso antes de sobrescrever (onda 7)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
 - [ ] 04.6-08-PLAN.md — Portão: última varredura, Roteiro 14, migração aplicada pelo dono, GES-04 em produção e a caminhada dos 8 critérios (onda 8, **não autônomo**)
+
+**Cross-cutting constraints:**
+
+- `npm run verificar` sai 0.
 
 **A ordem é decisão do dono (D-21 do CONTEXT):** rotas → site → navegação → Início. As oito ondas são
 sequenciais. Duas varreduras e2e completas estão autorizadas na fase — uma fechando o grupo das rotas
@@ -806,6 +838,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
+| 04.6. `/gestao`, Início e site público | 0/8 | Planned | - (planejada 2026-09-28, commit `c0fe5ff`) |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

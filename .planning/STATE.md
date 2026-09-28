@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase_name: Plataforma em /gestao, Início novo, navegação e site público
-status: awaiting-owner
-stopped_at: Phase 04.6 context gathered — pronta para /gsd-plan-phase 04.6
-last_updated: "2026-09-28T00:35:38.203Z"
+status: ready_to_execute
+stopped_at: Phase 04.6 planejada — 8 planos em 8 ondas, pronta para /gsd-execute-phase 04.6
+last_updated: "2026-09-28T01:51:16.772Z"
 progress:
   total_phases: 12
   completed_phases: 10
-  total_plans: 78
+  total_plans: 86
   completed_plans: 78
 current_phase: 04.6
 last_activity: 2026-09-28
-last_activity_desc: "Sessão autônoma de 28/09 (madrugada): Fase 04.6 criada e registrada — protótipos, briefings e 24 requisitos (GES-01..14, SIT-01..10). PARADA no passo 2 esperando o dono responder DISCUSSAO-PREPARADA.md. Também: dois achados do Cowork corrigidos com RED/GREEN, quatro janelas da WINDOWS fechadas com evidência, quatro documentos de estado vencidos corrigidos, e o retrato da suíte e2e escrito antes de as rotas mudarem"
+last_activity_desc: "Fase 04.6 PLANEJADA em 28/09: 8 planos em 8 ondas (rotas → site → navegação → Início, a ordem travada em D-21), commit `c0fe5ff`. Gates medidos, não afirmados: 24/24 requisitos em frontmatter, 21/21 decisões cobertas (`check.decision-coverage-plan` devolveu passed), 78/78 arestas do probe reconciliadas, plano 08 `autonomous: false`. Antes disso, na madrugada de 28/09: Fase 04.6 criada e registrada — protótipos, briefings e 24 requisitos (GES-01..14, SIT-01..10); a parada do passo 2 esperando DISCUSSAO-PREPARADA.md foi resolvida quando o dono respondeu, em 28/09. Também: dois achados do Cowork corrigidos com RED/GREEN, quatro janelas da WINDOWS fechadas com evidência, quatro documentos de estado vencidos corrigidos, e o retrato da suíte e2e escrito antes de as rotas mudarem"
 ---
 
 # Project State
@@ -23,13 +23,29 @@ last_activity_desc: "Sessão autônoma de 28/09 (madrugada): Fase 04.6 criada e 
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **04.6** (`/gestao`, Início novo, navegação e site público) — registrada em 28/09/2026 e **parada esperando o dono**. A 04.5 fechou em 27/09 (14/14 planos, portão humano cumprido).
+**Current focus:** Fase **04.6** (`/gestao`, Início novo, navegação e site público) — **planejada** em 28/09/2026: 8 planos em 8 ondas, commit `c0fe5ff`. A 04.5 fechou em 27/09 (14/14 planos, portão humano cumprido).
 
 ## Current Position
 
-Phase: **04.6 (Plataforma em `/gestao`, Início novo, navegação e site público)** — **registrada,
-não planejada**, em 2026-09-28. É o item 3 de `Claude outputs/FILA-DO-CODE.md`, destravado quando
+Phase: **04.6 (Plataforma em `/gestao`, Início novo, navegação e site público)** — **planejada,
+não executada**, em 2026-09-28. É o item 3 de `Claude outputs/FILA-DO-CODE.md`, destravado quando
 a 04.5 fechou.
+
+**Planejamento concluído em 2026-09-28, commit `c0fe5ff`:** 8 planos em 8 ondas sequenciais, na
+ordem que D-21 travou — rotas (01, 02) → site (03, 04) → navegação (05) → Início (06, 07) → portão
+(08). O plano 08 é `autonomous: false`: aplicar a migração `0022` à mão depois de backup, conferir
+GES-04 em produção no celular, e a caminhada dos 8 critérios.
+
+**Como sei que os gates passaram** (medido, não afirmado): `check.decision-coverage-plan` devolveu
+`{"passed":true,"total":21,"covered":21}`; as 24 IDs de requisito aparecem no `requirements` do
+frontmatter dos planos (conferido por `grep` id a id); as 78 arestas do probe reconciliam
+74 covered + 4 backstop + 0 descartadas na tabela do plano 08; há exatamente **duas** varreduras e2e
+completas (plano 02 linha 139 e plano 08 linha 245) e nenhum `npm run build` como passo separado.
+
+**Corrigido no caminho:** a seção da Fase 04.6 no `ROADMAP.md` era a única das 14 sem linha
+`**Requirements**:`. Sem ela `phase_req_ids` vinha `null` e o gate de cobertura de requisitos
+pulava calado. As 24 IDs foram acrescentadas — a matriz de rastreabilidade do `REQUIREMENTS.md`
+já as atribuía a esta fase.
 
 **O que ficou pronto (passo 1 do item da fila, commit `129e3a0`):** a fase existe no ROADMAP entre
 a 04.5 e a Phase 5, com objetivo, decisões já tomadas, riscos e 8 critérios de sucesso; os dois
@@ -37,9 +53,12 @@ protótipos e os dois briefings estão em `.planning/phases/04.6-gestao-inicio-e
 com as 12 imagens; o `REQUIREMENTS.md` ganhou **GES-01..14** (endereço, Início, navegação) e
 **SIT-01..10** (site público), com rastreio e cobertura de 136 para 160.
 
-🔴 **Parada de propósito no passo 2.** A fila é explícita: *"não planeje nem execute antes de o
-Theo responder"*. As perguntas estão em `Claude outputs/gestao/DISCUSSAO-PREPARADA.md`, cada uma
-com recomendação. **Restam quatro que precisam dele** — para onde "Paguei/Recebi" leva, se os
+**Histórico — a parada do passo 2, resolvida em 28/09.** A fila era explícita: *"não planeje nem
+execute antes de o Theo responder"*. Ele respondeu em 28/09; o `04.6-CONTEXT.md` registra as 21
+decisões travadas e o `04.6-DISCUSSION-LOG.md` a conversa. O parágrafo abaixo é o retrato de
+**antes** dessa resposta, guardado como registro. As perguntas estavam em
+`Claude outputs/gestao/DISCUSSAO-PREPARADA.md`, cada uma com recomendação. **Restavam quatro que
+precisavam dele** (todas respondidas em 28/09) — para onde "Paguei/Recebi" leva, se os
 neutros diferentes entre site e plataforma são intenção, os dois buracos de conteúdo (foto da
 fachada e logo), e quem é a fonte de verdade do preço público — mais uma quinta que eu comecei a
 consertar e revertí (item 10: salvar peça devolve à lista ou reabre a peça?).
@@ -737,7 +756,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T00:35:38.118Z
-Stopped at: Phase 04.6 context gathered — pronta para /gsd-plan-phase 04.6
-"Atualizar preços")
-Resume file: .planning/phases/04.6-gestao-inicio-e-site-publico/04.6-CONTEXT.md
+Last session: 2026-09-28 (planejamento da Fase 04.6)
+Stopped at: Phase 04.6 planejada — 8 planos em 8 ondas, commit `c0fe5ff`; pronta para /gsd-execute-phase 04.6
+Resume file: .planning/phases/04.6-gestao-inicio-e-site-publico/04.6-01-PLAN.md

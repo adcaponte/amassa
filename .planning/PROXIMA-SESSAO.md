@@ -18,9 +18,16 @@
 
 2. **Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.** **É a próxima**,
    e **já existe no ROADMAP** desde 28/09, com protótipos, briefings e 24 requisitos (GES-01..14,
-   SIT-01..10). **Parada esperando o dono responder**
-   `Claude outputs/gestao/DISCUSSAO-PREPARADA.md` — a fila é explícita: não planejar nem executar
-   antes disso.
+   SIT-01..10). **Planejada em 28/09** (commit `c0fe5ff`): 8 planos em 8 ondas sequenciais, na ordem
+   travada em D-21 — rotas (01, 02) → site (03, 04) → navegação (05) → Início (06, 07) → portão (08).
+   **Falta executar:** `/gsd-execute-phase 04.6`.
+
+   **Corrigido em 28/09:** este arquivo dizia "parada esperando o dono responder
+   `Claude outputs/gestao/DISCUSSAO-PREPARADA.md`". Ele respondeu em 28/09 — as 21 decisões travadas
+   estão em `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-CONTEXT.md` — e o planejamento
+   veio depois, respeitando a regra da fila. **A metade "não dar push sem confirmar" continua
+   valendo:** o plano 08 é `autonomous: false` e põe o push, a migração `0022` e GES-04 em produção
+   nas mãos dele.
 
    **Correção do que este arquivo dizia antes:** o planejamento do site **não** está mais fora do
    repositório, e **não há mais "Em breve"**. O dono aprovou o protótipo do site inteiro em
