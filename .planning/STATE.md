@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-04-PLAN.md
-last_updated: "2026-09-28T09:15:56.753Z"
+stopped_at: Concluido 04.6-05-PLAN.md
+last_updated: "2026-09-28T09:37:27.057Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 82
+  completed_plans: 83
 last_activity: 2026-09-28
 last_activity_desc: "Fase 04.6, PLANO 04 EXECUTADO em 28/09: as cinco seções que faltavam da página pública — OEspaco/AulasEOficinas/Encomendas/FaixaDaFachada/OndeFica, mais CartaoDoSite compartilhado. D-20 provado nos dois lugares que o exigem (a fachada devolve null inteiro; o mapa idem, com if em volta do envelope). Aulas e oficinas mostra o estado sem Agenda (D-16), sem importar lib/agenda nem o banco (nova asserção em site-isolamento.test.ts). lib/acessibilidade/contraste.ts (razaoDeContraste/luminanciaRelativa, WCAG 2.1, puro) mede o contraste da faixa amarela e mais cinco pares — achado real: --color-site-tinta-fraca media 4,47:1 contra --color-site-fundo (abaixo do 4,5 AA), corrigido para #786858 (4,77:1) em app/globals.css e tests/unit/tokens.test.ts. app/sitemap.ts (uma entrada, sem sessão nem banco) + metadataBase/openGraph em app/page.tsx (dimensões reais via sharp). tests/e2e/site-secoes.spec.ts (10 casos) passa 52/52 nos dois viewports — segunda invocação, a primeira achou um bug de raciocínio no próprio teste (caso b comparava boundingBox() da viewport, que por design é igual para as duas âncoras; a prova certa é window.scrollY). SIT-01, SIT-04, SIT-07, SIT-08, SIT-09 e SIT-10 marcadas como concluídas. npm run verificar limpo. Quatro commits: 8812e3e (Tarefa 1), 6e9a518 (Tarefa 2), 1bf629f (Tarefa 3 RED), a9f3654 (Tarefa 3 GREEN). Detalhe completo: 04.6-04-SUMMARY.md."
 ---
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 04 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 05 de 8 concluído em 28/09).
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -150,6 +150,31 @@ reverificado. SIT-01, SIT-04, SIT-07, SIT-08, SIT-09 e SIT-10 marcadas como conc
 extensão de D-18 à chave `agLivre` (plano 03) continua **pendente de confirmação do dono**, sem
 nenhuma decisão nova deste plano sobre ela.
 Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-04-SUMMARY.md`.
+
+**Plano 05 (a navegação final) entregou:** `lib/navegacao/itens.ts` com as duas listas
+independentes de propósito — `ITENS_NAVEGACAO_CELULAR` caiu de 5 para **4** itens (Início ·
+Financeiro · Produção · Agenda) e `ITENS_NAVEGACAO_LATERAL` subiu de 6 para **7** (ganhou
+Cadastros pela primeira vez) — nenhuma derivada da outra por `filter`/`slice` (D-11); `ChaveDeIcone`
+ganhou a sétima chave (`cadastros`) e os dois mapas `ICONES` (`barra-inferior.tsx`,
+`barra-lateral.tsx`) ganharam `SlidersHorizontal` no mesmo commit, cobrados pelo
+`Record<ChaveDeIcone, LucideIcon>`; "Produção" é só o rótulo novo de Encomendas (D-13/GES-14) —
+`href` e `icone` continuam `/gestao/encomendas`/`encomendas`, nenhuma rota mudou, e o título da
+tela móvel (`derivarTituloDaTela`) pega o rótulo novo sozinho, sem edição própria; `menu-usuario.tsx`
+perdeu Orçamentos nas DUAS variantes (celular e desktop) — ficam Abertura do Espaço, Trocar senha e
+Sair (D-12/GES-13), com a porta `?aba=orcamentos` continuando aberta dentro do Financeiro (ORC-17).
+`tests/unit/navegacao.test.ts` reescrito (27 testes) e `tests/e2e/casca.spec.ts` reescrito (62
+casos, 31 por projeto) provam as 8 arestas de GES-12/13/14. Dois commits: `c3b4493` (Tarefa 1),
+`79429b4` (Tarefa 2). `npm run verificar` limpo (1236 testes unitários).
+🔧 **Duas invocações de `npm run test:e2e -- --grep "casca"` nesta tarefa** (acima do orçamento de
+uma por tarefa do CLAUDE.md): a primeira achou dois bugs de raciocínio no PRÓPRIO teste novo, não
+no código do app — (1) o caso de `/gestao/conta/senha` usava `getByRole("navigation", ...)` para
+provar que a barra oculta por CSS continua no DOM, mas `getByRole` exclui elementos ocultos da
+árvore de acessibilidade por padrão (corrigido para um `locator` CSS direto); (2) o caso de 320px
+terminava navegando para `/gestao/login` (sem casca) e tentava contar ali os itens da barra de
+baixo (corrigido navegando de volta para `/gestao` antes de medir). A segunda invocação passou
+limpa, 62/62. GES-12, GES-13 e GES-14 marcadas como concluídas — UI-02/UI-04 **não** foram
+reescritas, como o plano manda (a nota de sucessor fica para o plano 08).
+Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-05-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):
@@ -473,7 +498,7 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [██████████] 95% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
+Progress: [██████████] 97% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
 congelado de quando a Fase 04.4 fechou; `gsd_run query state.update-progress` da execução do
 plano 04.6-03 encontrou esta linha (a única "Progress:" do arquivo, dentro da seção histórica)
 e a bumpou por engano para 94% — revertido aqui de propósito, porque este parágrafo é um
@@ -589,6 +614,7 @@ sem uma linha "Progress:" própria).
 | Phase 04.6 P02 | 26min | 2 tasks | 16 files |
 | Phase 04.6 P03 | 55min | 3 tasks | 33 files |
 | Phase 04.6 P04 | ~65min | 3 tasks | 19 files |
+| Phase 04.6 P05 | 17min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -823,6 +849,7 @@ Recent decisions affecting current work:
 - [Phase ?]: conteudo/site.ts não precisou de nenhuma mudança no plano 04 — o plano 03 já tinha escrito todos os textos das seções novas
 - [Phase ?]: components/site/secao.tsx ganhou um prop testId (data-testid do <section>) — aditivo, fora da lista de arquivos do plano, necessário para os testid site-espaco/site-agenda/site-encomendas/site-onde
 - [Phase ?]: Achado real: --color-site-tinta-fraca media 4,47:1 contra --color-site-fundo (abaixo de 4,5 AA); corrigido para #786858 (4,77:1) em app/globals.css e tests/unit/tokens.test.ts
+- [Phase ?]: GES-12/13/14: navegação final — barra de baixo com 4 itens, lateral com 7 (Cadastros incluído), menu do usuário com 3 itens sem Orçamentos, e Produção como rótulo novo de Encomendas com rota/ícone intactos (D-11/D-12/D-13)
 
 ### Pending Todos
 
@@ -897,6 +924,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T09:15:56.706Z
-Stopped at: Concluido 04.6-04-PLAN.md
+Last session: 2026-09-28T09:37:27.010Z
+Stopped at: Concluido 04.6-05-PLAN.md
 Resume file: None

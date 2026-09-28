@@ -282,14 +282,14 @@
 
 **Navegação**
 
-- [ ] **GES-12**: A barra de baixo do celular tem **Início · Financeiro · Produção · Agenda**. A
+- [x] **GES-12**: A barra de baixo do celular tem **Início · Financeiro · Produção · Agenda**. A
   barra lateral do computador tem Início mais todos os módulos. Módulo novo entra no índice e na
   lateral, **nunca na barra de baixo**
 
-- [ ] **GES-13**: O menu do usuário fica com **Abertura do Espaço** (até ser arquivada), Trocar
+- [x] **GES-13**: O menu do usuário fica com **Abertura do Espaço** (até ser arquivada), Trocar
   senha e Sair — Orçamentos sai dele, porque já vive dentro do Financeiro (ORC-17)
 
-- [ ] **GES-14**: "Produção" é **só o rótulo novo** de Encomendas nesta fase: muda o nome no menu
+- [x] **GES-14**: "Produção" é **só o rótulo novo** de Encomendas nesta fase: muda o nome no menu
   e nos títulos; a rota pode continuar `/gestao/encomendas` até o redesenho decidir. Nada do
   redesenho é antecipado
 
@@ -583,9 +583,9 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-09 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-10 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-11 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-12 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-13 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-14 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-12 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-13 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-14 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-01 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-02 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-03 | Phase 04.6 — /gestao, Início e site público | Complete |
