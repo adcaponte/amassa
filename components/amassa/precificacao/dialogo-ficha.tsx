@@ -408,7 +408,13 @@ export function DialogoFicha({
       }
       // Navegação COMPLETA — nunca a atualização client-side do roteador do Next — o servidor é
       // quem sabe a peça salva. Editada de dentro de um orçamento ("ver cálculo"), volta para o
-      // editor; editada pela aba Peças, volta para a lista de peças com o aviso de sempre.
+      // editor; editada pela aba Peças, **reabre a própria ficha** (`?peca=`), com o aviso.
+      //
+      // Reabrir é DELIBERADO, decidido pelo dono em 28/09/2026: numa tela de precificação, ele
+      // acabou de digitar medidas e quer ver o número, o selo e a barra de custo que saíram
+      // daquilo, sem procurar a linha na lista. Até esta data o comentário aqui prometia "volta
+      // para a lista" e o código fazia o contrário — o comentário é que estava errado, e foi ele
+      // que mudou. Não "consertar" isto para voltar à lista sem falar com ele.
       window.location.assign(
         vindoDoOrcamentoId
           ? `/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`

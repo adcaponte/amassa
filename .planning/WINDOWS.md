@@ -771,6 +771,18 @@ last_updated: 2026-09-27T18:24:29.468Z
     "reason": "",
     "recorded_at": "2026-09-27T18:24:17.096Z",
     "resolved_at": null
+  },
+  {
+    "id": 59,
+    "kind": "deviation",
+    "phase": "04.5-financeiro-parte-2",
+    "file": "components/amassa/precificacao/dialogo-ficha.tsx",
+    "line": 409,
+    "description": "Achado da verificacao do Cowork (27/09/2026): \"ao salvar peca nova a tela reabre a mesma peca em edicao em vez de voltar a lista\". Confirmado — a URL de volta leva ?peca=<id>, que e o parametro que ABRE a ficha, enquanto o comentario logo acima prometia \"volta para a lista de pecas\". RESOLVIDO em 28/09/2026 SEM mudanca de comportamento: o dono decidiu que reabrir a ficha esta certo — numa tela de precificacao ele acabou de digitar medidas e quer ver o numero, o selo e a barra de custo sem procurar a linha. Quem mentia era o comentario, e foi ele que mudou. Nota historica: cheguei a aplicar a mudanca de codigo e revertí ao descobrir que o teste (b) de precificacao-pecas.spec.ts depende do comportamento atual (le o id da peca criada de url.searchParams.get(\"peca\"), e esse id alimenta casos posteriores) — o que tirou a mudanca da categoria \"opcao claramente recomendada\" e levou a pergunta ao dono.",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-09-28T00:26:54.662Z",
+    "resolved_at": "2026-09-28T00:26:54.663Z"
   }
 ]
 ````
