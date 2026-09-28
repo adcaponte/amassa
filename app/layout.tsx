@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archivo_Narrow, Inter } from "next/font/google";
+import { Archivo_Narrow, Fraunces, Inter } from "next/font/google";
 
 import "./globals.css";
 
@@ -17,6 +17,17 @@ const archivoNarrow = Archivo_Narrow({
   subsets: ["latin"],
   weight: ["600", "700"],
   variable: "--fonte-archivo",
+  display: "swap",
+});
+
+// D-14/D-19 (Fase 04.6, site público): Fraunces é a fonte de título SÓ do site — a plataforma
+// continua em Archivo Narrow, de propósito (D-19: "cara de convite" vs. "cara de ferramenta").
+// Mesmo padrão das outras duas: baixada no `next build`, servida pelo próprio domínio, nenhum
+// arquivo de fonte versionado, nenhuma requisição a CDN em produção.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--fonte-fraunces",
   display: "swap",
 });
 
@@ -43,7 +54,7 @@ export default function RootLayout({
     // variável) e o preflight do Tailwind vencia em silêncio — o build passava, o console
     // ficava limpo, e a tela toda saía na pilha padrão do sistema. Achado e corrigido no
     // portão de retorno do tracer (Tarefa 2, 02b-01).
-    <html lang="pt-BR" className={`${inter.variable} ${archivoNarrow.variable}`}>
+    <html lang="pt-BR" className={`${inter.variable} ${archivoNarrow.variable} ${fraunces.variable}`}>
       <body className="font-sans antialiased">{children}</body>
     </html>
   );

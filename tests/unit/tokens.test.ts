@@ -161,3 +161,53 @@ describe("app/globals.css — tokens do design system (D-08, D-09)", () => {
     expect(globalsCss).toMatch(/--text-nav:\s*12px;/);
   });
 });
+
+// D-19 (Fase 04.6, site público): os neutros do site moram num bloco `@theme` próprio, hex
+// literal, separado dos tokens da plataforma acima — e os acentos são idênticos aos da
+// plataforma POR CONSTRUÇÃO (referência `var(...)`), nunca por cópia de hex.
+describe("app/globals.css — tokens do site público (D-19, Fase 04.6)", () => {
+  it.each([
+    ["--color-site-fundo", "#F6F1EA"],
+    ["--color-site-papel", "#FFFDFA"],
+    ["--color-site-areia", "#EADFD2"],
+    ["--color-site-tinta", "#231C18"],
+    ["--color-site-tinta-fraca", "#7C6C62"],
+    ["--color-site-borda", "#E3D8CC"],
+  ])("neutro do site %s vale %s (hex literal)", (chave, valorEsperado) => {
+    const padrao = new RegExp(`${chave}:\\s*${valorEsperado};`, "i");
+    expect(globalsCss).toMatch(padrao);
+  });
+
+  it.each([
+    ["--color-site-tinta-media", "var(--color-tinta-media)"],
+    ["--color-site-barro", "var(--color-acento)"],
+    ["--color-site-barro-escuro", "var(--color-acento-hover)"],
+    ["--color-site-barro-claro", "var(--color-area-pecas)"],
+    ["--color-site-cerrado", "var(--color-area-loja)"],
+    ["--color-site-folha", "var(--color-area-espaco)"],
+    ["--color-site-sol", "var(--color-destaque)"],
+  ])("acento do site %s referencia %s — nunca hex copiado", (chave, referenciaEsperada) => {
+    // Âncora de início de linha: sem ela, "--color-site-barro" também casaria dentro de
+    // "--color-site-barro-escuro" (prefixo compartilhado) e a asserção diria pouco.
+    const padrao = new RegExp(
+      `^\\s*${chave}:\\s*${referenciaEsperada.replace(/[()]/g, "\\$&")};`,
+      "m",
+    );
+    expect(globalsCss).toMatch(padrao);
+  });
+
+  it("--altura-barra-site existe uma vez só, consumida em dois lugares (padding-top e scroll-margin-top)", () => {
+    expect(globalsCss).toMatch(/--altura-barra-site:\s*64px;/);
+  });
+
+  it("--font-titulo-site aponta para --fonte-fraunces", () => {
+    expect(globalsCss).toMatch(/--font-titulo-site:\s*var\(--fonte-fraunces\)/);
+  });
+
+  it("o bloco de tokens do site não contém nenhum hex além dos seis neutros", () => {
+    const inicioDoBloco = globalsCss.lastIndexOf("@theme");
+    const blocoDoSite = globalsCss.slice(inicioDoBloco);
+    const hexEncontrados = blocoDoSite.match(/#[0-9A-Fa-f]{6}/g) ?? [];
+    expect(hexEncontrados).toHaveLength(6);
+  });
+});

@@ -203,6 +203,53 @@
   --color-sidebar-ring:               var(--color-acento);
 }
 
+/* Bloco de tokens do SITE PÚBLICO (Fase 04.6, D-19) — moram aqui e só aqui, separados dos
+   tokens da plataforma acima. É intenção, não deriva: o site tem cara de convite (Fraunces,
+   fundo mais quente), a plataforma cara de ferramenta (Archivo Narrow) — mas o dono quer poder
+   "aproximar da plataforma" um dia, e isso vira editar as SEIS linhas de hex abaixo, num lugar
+   só, nunca uma caça a hex espalhado por `components/site/`.
+   Nenhum componente do site pode escrever um hex literal (T-04.6-*, verificado por grep em
+   `tests/unit/site-isolamento.test.ts` e no portão de aceite deste plano) — só os nomes abaixo. */
+@theme {
+  /* neutros do site — os seis hex literais, e só estes seis em todo o bloco */
+  --color-site-fundo:       #F6F1EA;
+  --color-site-papel:       #FFFDFA;
+  --color-site-areia:       #EADFD2;
+  --color-site-tinta:       #231C18;
+  --color-site-tinta-fraca: #7C6C62;
+  --color-site-borda:       #E3D8CC;
+
+  /* acentos do site — SETE referências, nunca hex copiado: os seis acentos (mais o tom médio de
+     texto) são idênticos aos da plataforma POR CONSTRUÇÃO. Copiar o hex permitiria os dois
+     divergirem sem ninguém notar; referenciar a mesma variável torna a divergência impossível. */
+  --color-site-tinta-media: var(--color-tinta-media);
+  --color-site-barro:        var(--color-acento);
+  --color-site-barro-escuro: var(--color-acento-hover);
+  --color-site-barro-claro:  var(--color-area-pecas);
+  --color-site-cerrado:      var(--color-area-loja);
+  --color-site-folha:        var(--color-area-espaco);
+  --color-site-sol:          var(--color-destaque);
+
+  /* altura da barra fixa do site — consumida em DOIS lugares: o `padding-top` do corpo da
+     página (`app/page.tsx`) e o `scroll-margin-top` de cada seção (`components/site/secao.tsx`).
+     Separar isso em dois números faz a âncora voltar a parar atrás da barra — exatamente o
+     defeito que SIT-05 existe para prevenir. Mude aqui, e só aqui. */
+  --altura-barra-site: 64px;
+
+  /* Fraunces vira utilitário de título do site (`font-titulo-site`), do mesmo jeito que a
+     plataforma expõe `--font-titulo` acima. A variável CSS (`--fonte-fraunces`) é escrita no
+     `<html>` por `app/layout.tsx`, via `next/font/google`. */
+  --font-titulo-site: var(--fonte-fraunces), Georgia, serif;
+}
+
+/* SIT-05: o protótipo rola macio até a seção; quem pediu MENOS movimento (prefers-reduced-motion)
+   nunca recebe rolagem suave — a media query é a própria condição de existir da regra. */
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    scroll-behavior: smooth;
+  }
+}
+
 /* Deslocamento do aviso (toast) acima da barra inferior — achado da conferência do dono em
    26/09/2026 (04.4-13-PLAN.md, Tarefa 1): no celular, o aviso com "Desfazer" (D-03) aparecia
    embaralhado com a barra de navegação de baixo, escondendo o único controle que desfaz um
