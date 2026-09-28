@@ -27,6 +27,7 @@ import {
   rotuloContagemDeFotos,
   rotuloReferenciaGenerica,
 } from "@/lib/orcamentos/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -307,14 +308,14 @@ function CelulaDeFotoExistente({ orcamentoId, vivo, foto, numero, aoRemover }: C
 
   return (
     <figure data-testid="foto-celula" className="m-0 flex flex-col gap-1">
-      {/* `<img>` puro, de propósito: o arquivo servido por `/api/orcamentos/fotos/[id]` JÁ
-          passou pelo pipeline de `lib/orcamentos/fotos.ts` (no máximo 1600px, JPEG qualidade
-          82) — o otimizador do `next/image` reprocessaria uma imagem autenticada que já está
-          no tamanho certo, sem ganho, e exigiria configuração extra para uma rota que não é um
-          arquivo estático. */}
+      {/* `<img>` puro, de propósito: o arquivo servido por `/gestao/api/orcamentos/fotos/[id]`
+          (Fase 04.6, T-04.6-04) JÁ passou pelo pipeline de `lib/orcamentos/fotos.ts` (no máximo
+          1600px, JPEG qualidade 82) — o otimizador do `next/image` reprocessaria uma imagem
+          autenticada que já está no tamanho certo, sem ganho, e exigiria configuração extra
+          para uma rota que não é um arquivo estático. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={`/api/orcamentos/fotos/${foto.id}`}
+        src={`${rotaDeGestao("/api/orcamentos/fotos")}/${foto.id}`}
         alt={textoAlternativo}
         className="border-border aspect-square w-full rounded-md border object-cover"
       />

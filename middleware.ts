@@ -7,6 +7,7 @@ import { NextResponse, type NextMiddleware } from "next/server";
 import { configuracaoBase } from "./lib/auth/auth.config";
 import { podeRenovarSessao, semRenovacaoDaSessao } from "./lib/auth/renovacao-sessao";
 import { ehRotaPublica } from "./lib/auth/rotas-publicas";
+import { ehRotaDeApi } from "./lib/rotas/gestao";
 
 // O `auth` do Auth.js já É um `NextMiddleware` (decide liberar ou redirecionar para
 // /login). O `as` abaixo só declara o tipo que o próprio pacote usa para essa forma de
@@ -22,7 +23,7 @@ const autenticar = NextAuth(configuracaoBase).auth as NextMiddleware;
 // login), escondendo exatamente o caso que precisa ficar visível como falha. Só o FORMATO da
 // resposta muda aqui — a decisão de autorização continua inteiramente do Auth.js.
 function ehRotaDeApiNaoPublica(caminho: string): boolean {
-  return caminho.startsWith("/api/") && !ehRotaPublica(caminho);
+  return ehRotaDeApi(caminho) && !ehRotaPublica(caminho);
 }
 
 function ehRedirecionamento(resposta: Response): boolean {
@@ -33,8 +34,8 @@ function ehRedirecionamento(resposta: Response): boolean {
 // impede o navegador de guardar a página em cache — mas SÓ para rota protegida. Sem ele, o
 // botão de voltar do navegador serve a tela do próprio cache depois da saída, mostrando
 // conteúdo do ateliê sem sessão (o que AUTH-06 proíbe; ver tests/e2e/sessao.spec.ts). As
-// rotas públicas (`/login`, `/api/health`) não têm nada sensível a esconder do cache e não
-// recebem o cabeçalho.
+// rotas públicas (`/gestao/login`, `/api/health`) não têm nada sensível a esconder do cache e
+// não recebem o cabeçalho.
 //
 // E, em resposta a um fetch() de leitura do roteador (prefetch ou navegação RSC), tira a
 // renovação do token de sessão que o Auth.js anexa a toda resposta: um prefetch que sai antes da
@@ -66,8 +67,13 @@ const middleware: NextMiddleware = async (requisicao, evento) => {
 export default middleware;
 
 export const config = {
-  // Deixa passar sem checagem: arquivos internos do Next, arquivos estáticos e a própria
-  // rota de callback de autenticação (`/api/auth/*`) — ela precisa responder mesmo sem
-  // sessão, ou ninguém consegue entrar.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth).*)"],
+  // Fase 04.6 (D-03): o proxy passa a proteger SÓ `/gestao` — leitura literal da decisão do
+  // dono, e o que garante D-15 (o site público sobrevive ao Postgres cair): para qualquer
+  // caminho fora de `/gestao`, `autenticar()` acima nem roda, então o `authorized()` do Auth.js
+  // nunca é consultado e nenhuma requisição à raiz ou ao site toca sessão ou banco. O matcher
+  // antigo (tudo, exceto estáticos e o callback) cobria a plataforma inteira porque ela vivia na
+  // raiz; agora que ela vive só sob `/gestao`, é este prefixo — nomeado, não mais implícito — que
+  // é a cerca real. `tests/unit/arvore-de-rotas.test.ts` é o portão que grita se uma rota
+  // autenticada nascer fora dele sem ninguém notar.
+  matcher: ["/gestao/:path*"],
 };

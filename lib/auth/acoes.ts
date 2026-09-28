@@ -5,6 +5,7 @@ import { AuthError } from "next-auth";
 
 import { ErroBloqueado, signIn, signOut } from "@/lib/auth/auth";
 import { credenciaisEntradaSchema } from "@/lib/auth/entrada-credenciais";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // Único ponto que valida a entrada do formulário e chama o Auth.js. Este arquivo NÃO toca o
 // banco — quem consulta a tabela `usuarios` é a função de checagem de credenciais do provedor,
@@ -22,7 +23,7 @@ export async function entrar(dadosFormulario: FormData) {
   if (!resultado.success) {
     // Formato inválido usa a mesma mensagem única — o formulário nunca diz qual campo está
     // errado por um motivo relacionado a credenciais.
-    redirect("/login?erro=credenciais");
+    redirect(`${rotaDeGestao("/login")}?erro=credenciais`);
   }
 
   const emailNormalizado = resultado.data.email.trim().toLowerCase();
@@ -31,17 +32,19 @@ export async function entrar(dadosFormulario: FormData) {
     await signIn("credentials", {
       email: emailNormalizado,
       senha: resultado.data.senha,
-      redirectTo: "/",
+      // Fase 04.6 (D-03/D-21): a plataforma desceu para `/gestao` — `rotaDeGestao("/")`
+      // devolve exatamente o prefixo `/gestao`, nunca `/gestao/` com barra sobrando.
+      redirectTo: rotaDeGestao("/"),
     });
   } catch (erro) {
     // Bloqueio não é credencial inválida — tem mensagem própria, com os minutos restantes.
     // Checado antes do `AuthError` genérico porque `ErroBloqueado` também é um `AuthError`.
     if (erro instanceof ErroBloqueado) {
       const minutos = Math.max(1, Math.ceil(erro.segundosParaLiberar / 60));
-      redirect(`/login?erro=bloqueado&minutos=${minutos}`);
+      redirect(`${rotaDeGestao("/login")}?erro=bloqueado&minutos=${minutos}`);
     }
     if (erro instanceof AuthError) {
-      redirect("/login?erro=credenciais");
+      redirect(`${rotaDeGestao("/login")}?erro=credenciais`);
     }
     // O próprio `signIn` bem-sucedido lança um erro de redirecionamento do Next.js — não é
     // um `AuthError`, e precisa continuar subindo para o Next.js tratar.
@@ -54,5 +57,5 @@ export async function entrar(dadosFormulario: FormData) {
 // de `entrar()` acima. Não confundir com `exigirUsuario()` (autorização de rota); esta
 // função é só saída.
 export async function sair() {
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirectTo: rotaDeGestao("/login") });
 }

@@ -22,7 +22,9 @@ const RENOVACAO_DA_SESSAO_EM_SEGUNDOS = 24 * 60 * 60;
 
 export const configuracaoBase = {
   pages: {
-    signIn: "/login",
+    // Fase 04.6 (D-03/D-21): a plataforma inteira desceu para `/gestao`, e a tela de login foi
+    // junto (`app/gestao/(auth)/login`).
+    signIn: "/gestao/login",
   },
   session: {
     strategy: "jwt",
@@ -35,6 +37,13 @@ export const configuracaoBase = {
   // mesmo sítio é a relaxada (necessária para o redirect de login funcionar).
   cookies: {
     sessionToken: {
+      // Fase 04.6: NÃO acrescente um campo de caminho aqui. Sem ele, o Auth.js grava o cookie
+      // em `/`, e ele continua valendo tanto para `/gestao/*` quanto para a rota de callback em
+      // `/api/auth/*` — que fica FORA de `/gestao` de propósito (T-04.6-03). Restringir o
+      // cookie só ao prefixo da plataforma pareceria um "conserto" (o cookie só serve a
+      // plataforma, por que não escopar?), mas quebraria o callback do login: o navegador
+      // deixaria de enviar o cookie para a rota de autenticação, e o ciclo de entrada nunca
+      // completaria.
       options: {
         httpOnly: true,
         secure: true,

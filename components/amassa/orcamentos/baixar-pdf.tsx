@@ -14,6 +14,7 @@ import {
   ROTULO_BAIXAR_PDF,
   ROTULO_GERANDO_PDF,
 } from "@/lib/orcamentos/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type BaixarPdfProps = {
   orcamentoId: string;
@@ -35,7 +36,8 @@ export function BaixarPdf({ orcamentoId }: BaixarPdfProps) {
     setErro(null);
 
     try {
-      const resposta = await fetch(`/api/orcamentos/${orcamentoId}/pdf`);
+      // Fase 04.6 (T-04.6-04): a rota se mudou para dentro da cerca protegida.
+      const resposta = await fetch(`${rotaDeGestao("/api/orcamentos")}/${orcamentoId}/pdf`);
       if (!resposta.ok) {
         setErro(FRASE_ERRO_GERAR_PDF);
         return;

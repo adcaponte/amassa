@@ -23,6 +23,7 @@ import {
   TITULO_DOCUMENTO_PRAZO,
   TITULO_DOCUMENTO_REFERENCIAS,
 } from "@/lib/orcamentos/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { BaixarPdf } from "./baixar-pdf";
 
@@ -144,7 +145,7 @@ export function VerComoOClienteVe({ orcamentoId, documento }: VerComoOClienteVeP
                       {/* eslint-disable-next-line @next/next/no-img-element -- foto de referência
                           servida por rota autenticada (não é asset otimizável do next/image). */}
                       <img
-                        src={`/api/orcamentos/fotos/${referencia.id}`}
+                        src={`${rotaDeGestao("/api/orcamentos/fotos")}/${referencia.id}`}
                         alt={referencia.legenda ?? "referência"}
                         className="aspect-square w-full rounded border border-[#D8CFC7] object-cover"
                       />
