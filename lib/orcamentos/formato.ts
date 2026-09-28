@@ -22,7 +22,14 @@ export function rotuloDeRevisao(revisao: number): string {
 // formatarHoras` (até 3 casas) porque "fornada" é um conceito agregado do ORÇAMENTO, não da
 // ficha.
 export function formatarFornadas(milesimos: number): string {
-  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(milesimos / 1000);
+  // `minimumFractionDigits: 1` junto com o máximo (achado da verificação do Cowork em produção,
+  // 27/09/2026): sem ele, a frase saía "0 fornada(s) de biscoito · 0,1 de esmalte" — duas
+  // precisões na mesma linha. O `n1` do protótipo sempre mostra a casa decimal, mesmo zero, e é
+  // o que `formatarPercentualDeVariacao`, logo abaixo, já fazia.
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(milesimos / 1000);
 }
 
 // "10,0" / "9,4" a partir de um percentual já com uma casa decimal (lib/orcamentos/atualizacao.ts

@@ -122,9 +122,12 @@ export function fraseNoForno(entrada: {
   origemEsmalte: "calculado" | "informado";
   origemBiscoito: "calculado" | "informado";
 }): string {
+  // O plural de "nível" é concordado (achado da verificação do Cowork em produção, 27/09/2026:
+  // a ficha de uma peça alta escrevia "1 níveis"). Zero vai no plural, como manda o português.
+  const palavraNivel = entrada.niveis === 1 ? "nível" : "níveis";
   const parteEsmalte =
     entrada.origemEsmalte === "calculado"
-      ? `${entrada.esmalte} por fornada de esmalte (${entrada.porPrateleira} por prateleira × ${entrada.niveis} níveis)`
+      ? `${entrada.esmalte} por fornada de esmalte (${entrada.porPrateleira} por prateleira × ${entrada.niveis} ${palavraNivel})`
       : `${entrada.esmalte} por fornada de esmalte (contado por você)`;
   const parteBiscoito =
     entrada.origemBiscoito === "calculado"
