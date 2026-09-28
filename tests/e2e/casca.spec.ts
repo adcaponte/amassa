@@ -2,16 +2,16 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 
-// Cobre UI-02 (5 itens no celular / 6 no desktop desde a Fase 04.4, D-04/D-05; item ativo),
-// UI-03 (240px na lateral), UI-04 (Orçamentos fora da navegação principal), UI-06 (sem rolagem
-// horizontal a 320px) e UI-07 (cabeçalho + estado vazio + botão inerte com nota) da casca
-// construída nos planos 02 e 03 da Fase 2b. Roda nos dois projetos (desktop e celular)
-// declarados em playwright.config.ts.
+// Cobre GES-12 (4 itens no celular / 7 no desktop, navegação final da Fase 04.6, D-11), GES-13
+// (menu do usuário com 3 itens, D-12) e GES-14 ("Produção" como rótulo, D-13) — mais o que
+// sobrou de UI-02/UI-03/UI-06/UI-07 da casca construída nos planos 02/03 da Fase 2b, que a
+// navegação nova não muda. Roda nos dois projetos (desktop e celular) declarados em
+// playwright.config.ts.
 //
-// Celular e lateral divergem desde a Fase 04.4 (D-04/D-05: Financeiro entrou nas duas, Estoque
-// saiu só da barra do celular) — `listaDaNavegacaoPeloProjeto` escolhe a lista certa pelo NOME
-// do projeto Playwright (o único sinal confiável de "qual viewport" nestes dois testes
-// específicos, que precisam saber de ANTEMÃO quantos itens esperar antes de olhar para o DOM).
+// Celular e lateral são constantes INDEPENDENTES desde o plano 05 (D-11) — a de baixo nunca é
+// derivada da lateral por corte. `listaDaNavegacaoPeloProjeto` escolhe a lista certa pelo NOME
+// do projeto Playwright (o único sinal confiável de "qual viewport" nestes testes específicos,
+// que precisam saber de ANTEMÃO quantos itens esperar antes de olhar para o DOM).
 function listaDaNavegacaoPeloProjeto(nomeDoProjeto: string) {
   return nomeDoProjeto.includes("celular") ? ITENS_NAVEGACAO_CELULAR : ITENS_NAVEGACAO_LATERAL;
 }
@@ -54,6 +54,14 @@ async function abrirMenuDoUsuario(page: Page) {
   } else {
     await gatilhoDesktop.click();
   }
+}
+
+// Localiza o contêiner dos itens do menu do usuário pelo `data-testid` (as duas variantes o
+// têm) — contar por aqui é o que permite provar "exatamente três" sem depender de texto nem de
+// papel ARIA, que divergem entre a variante celular (link/botão soltos) e a desktop (menuitem do
+// Radix).
+function localizarItensDoMenu(page: Page) {
+  return page.getByTestId("casca-menu-usuario-itens");
 }
 
 type TelaDeModulo = {
@@ -101,11 +109,12 @@ const ROTAS_A_320PX = [
   "/gestao/agenda",
   "/gestao/queimas",
   "/gestao/estoque",
+  "/gestao/cadastros",
   "/gestao/financeiro?aba=orcamentos",
   "/gestao/login",
 ];
 
-test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => {
+test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07)", () => {
   // Cada teste faz o próprio login (fazerLogin), e cada login é uma conferência real de hash
   // argon2id — deliberadamente lenta (mesmo custo documentado em
   // tests/e2e/autenticacao.spec.ts e tests/e2e/sessao.spec.ts, que já rodam em série pelo
@@ -116,7 +125,9 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
   // entre si.
   test.describe.configure({ mode: "serial" });
 
-  test("a navegação principal visível tem os itens de ITENS_NAVEGACAO_CELULAR (5, celular) ou ITENS_NAVEGACAO_LATERAL (6, desktop), na ordem (UI-02, D-04/D-05)", async ({
+  // Casos (a)/(b) do plano 05: a contagem e a ordem exatas das duas listas, na navegação de
+  // verdade — não só na constante.
+  test("a navegação principal visível tem os itens de ITENS_NAVEGACAO_CELULAR (4, celular: Início · Financeiro · Produção · Agenda) ou ITENS_NAVEGACAO_LATERAL (7, desktop, terminando em Cadastros), na ordem (GES-12, D-11)", async ({
     page,
   }, testInfo) => {
     await fazerLogin(page);
@@ -131,7 +142,31 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     }
   });
 
-  test("cada item leva a sua rota e só ele expõe aria-current entre os visíveis (UI-02)", async ({
+  // Caso (c) do plano 05: Queimas e Estoque não aparecem na barra de baixo do celular — a mesma
+  // asserção acima já prova isso pela contagem/ordem de 4 itens, mas este teste nomeia a
+  // ausência explicitamente (celular) e a presença alcançável (desktop), em vez de deixar a
+  // garantia implícita numa contagem genérica.
+  test("Queimas e Estoque não aparecem na barra de baixo do celular, e continuam alcançáveis pela lateral no desktop (GES-12, D-11)", async ({
+    page,
+  }, testInfo) => {
+    await fazerLogin(page);
+
+    const navegacao = await localizarNavegacaoPrincipal(page);
+    const ehCelular = testInfo.project.name.includes("celular");
+
+    const linkQueimas = navegacao.getByRole("link", { name: "Queimas" });
+    const linkEstoque = navegacao.getByRole("link", { name: "Estoque" });
+
+    if (ehCelular) {
+      await expect(linkQueimas).toHaveCount(0);
+      await expect(linkEstoque).toHaveCount(0);
+    } else {
+      await expect(linkQueimas).toBeVisible();
+      await expect(linkEstoque).toBeVisible();
+    }
+  });
+
+  test("cada item leva a sua rota e só ele expõe aria-current entre os visíveis (GES-12)", async ({
     page,
   }, testInfo) => {
     await fazerLogin(page);
@@ -158,32 +193,70 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     }
   });
 
-  test("Orçamentos não aparece na navegação principal e só é alcançável pelo menu do usuário (UI-04)", async ({
+  // Caso (f) do plano 05: um caminho que não é módulo (a tela de trocar senha) não acende
+  // nenhum item de navegação — mas as duas barras (a visível e a oculta por CSS) continuam
+  // renderizadas no DOM.
+  test("em /gestao/conta/senha nenhum item de navegação tem aria-current, e as duas barras continuam visíveis (GES-12, aresta empty)", async ({
     page,
   }) => {
     await fazerLogin(page);
+    await page.goto("/gestao/conta/senha");
 
-    // No desktop, o `DropdownMenuItem asChild` do Radix aplica role="menuitem" no elemento
-    // recebido (a mesma armadilha do botão Sair documentada em menu-usuario.tsx) — o link de
-    // Orçamentos perde o papel nativo de "link" e passa a responder por "menuitem". No
-    // celular, fora do DropdownMenu, o mesmo <Link> mantém role="link" normalmente. Combinar
-    // os dois papéis é o que torna esta busca válida nos dois projetos, sem depender de qual
-    // está ativo.
-    const itemOrcamentos = page
-      .getByRole("link", { name: "Orçamentos" })
-      .or(page.getByRole("menuitem", { name: "Orçamentos" }));
+    const navegacao = await localizarNavegacaoPrincipal(page);
+    await expect(navegacao.locator('[aria-current="page"]')).toHaveCount(0);
 
-    // Nenhum dos 5 links da navegação principal (visível em nenhum dos dois projetos) chama
-    // "Orçamentos" — o conteúdo do menu do usuário fica desmontado (Radix Sheet/DropdownMenu)
-    // enquanto fechado, então esta busca de página inteira não encontra nada por engano.
-    await expect(itemOrcamentos).toHaveCount(0);
+    // A barra inferior tem role="navigation" própria; a lateral é o `[data-slot="sidebar"]` —
+    // uma das duas está oculta por CSS (`display: none`), nunca ausente do DOM. `getByRole`
+    // exclui elementos ocultos da árvore de acessibilidade por padrão — contar por aqui exigiria
+    // `{ hidden: true }`; o seletor CSS direto (`locator`) encontra o elemento independente de
+    // estar visível, que é exatamente o que "nunca ausente do DOM" precisa provar.
+    await expect(page.locator('nav[aria-label="Navegação principal"]')).toHaveCount(1);
+    await expect(page.locator('[data-slot="sidebar"]')).toHaveCount(1);
+  });
 
+  // Caso (d) do plano 05: o menu do usuário fica com exatamente três itens, nas duas variantes,
+  // e nenhum deles é Orçamentos.
+  test("o menu do usuário tem exatamente três itens, e nenhum é Orçamentos (GES-13, D-12)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
     await abrirMenuDoUsuario(page);
-    await itemOrcamentos.click();
 
-    // Fase 04.5 (D-04): a casca vazia `/orcamentos` saiu — o menu leva à aba Orçamentos DENTRO
-    // do Financeiro, nunca a uma rota própria.
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos$/);
+    const itensDoMenu = localizarItensDoMenu(page);
+    await expect(itensDoMenu).toBeVisible();
+    await expect(itensDoMenu.locator(":scope > *")).toHaveCount(3);
+    await expect(itensDoMenu.getByText("Orçamentos")).toHaveCount(0);
+
+    await expect(itensDoMenu.getByText("Abertura do Espaço")).toBeVisible();
+    await expect(itensDoMenu.getByText("Trocar senha")).toBeVisible();
+    await expect(itensDoMenu.getByText("Sair")).toBeVisible();
+  });
+
+  // Caso (e) do plano 05: Orçamentos saiu do menu, mas não da plataforma — a porta continua
+  // aberta por URL direta, a mesma que ORC-17 criou dentro do Financeiro.
+  test("/gestao/financeiro?aba=orcamentos continua abrindo a aba de Orçamentos — a porta sobreviveu, só o atalho do menu saiu (GES-13)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/gestao/financeiro?aba=orcamentos");
+
+    await expect(page.getByTestId("financeiro-aba-orcamentos")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  // Caso (h) do plano 05: sem resíduo — nenhum separador órfão, nenhum ícone importado sem uso
+  // (isso o `lint` já cobra), e "Sair" segue funcionando depois da remoção de Orçamentos.
+  test("Sair continua funcionando depois da remoção de Orçamentos do menu (GES-13, aresta empty)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await abrirMenuDoUsuario(page);
+
+    await localizarItensDoMenu(page).getByText("Sair").click();
+
+    await expect(page).toHaveURL(/\/gestao\/login$/);
   });
 
   test("no desktop, a barra lateral tem largura fixa de 240px (UI-03)", async ({ page }) => {
@@ -201,9 +274,12 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     expect(caixa?.width).toBe(240);
   });
 
-  test("nenhuma das sete rotas exige rolagem horizontal a 320px de largura (UI-06)", async ({
+  // Caso (h) do plano 05 (a segunda metade — a primeira é o teste do menu acima): a 320px, com
+  // quatro itens em vez de cinco, a barra de baixo não rola na horizontal e cada alvo mede pelo
+  // menos 44px de altura.
+  test("nenhuma das oito rotas exige rolagem horizontal a 320px de largura, e cada item da barra de baixo mede ao menos 44px de altura (UI-06, GES-12)", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
 
@@ -219,6 +295,22 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
         scrollWidth,
         `a rota ${rota} rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
       ).toBeLessThanOrEqual(clientWidth);
+    }
+
+    if (testInfo.project.name.includes("celular")) {
+      // A última rota do laço acima é /gestao/login, que não tem casca (sem barra de baixo) —
+      // volta para uma rota autenticada antes de medir os alvos de toque.
+      await page.goto("/gestao");
+
+      const navegacao = page.getByRole("navigation", { name: "Navegação principal" });
+      const links = navegacao.getByRole("link");
+      const quantidade = await links.count();
+      expect(quantidade).toBe(4);
+
+      for (let indice = 0; indice < quantidade; indice += 1) {
+        const caixa = await links.nth(indice).boundingBox();
+        expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+      }
     }
   });
 
@@ -242,30 +334,9 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     }
   });
 
-  // Fase 04.5 (D-04): a casca vazia `/orcamentos` foi SUBSTITUÍDA pela aba Orçamentos do
-  // Financeiro — este caso não verifica mais o texto de uma página própria (que não existe
-  // mais); vira a prova de que o menu do usuário leva à aba certa, já selecionada, e que
-  // nenhuma segunda porta para "Orçamentos" sobrou viva.
-  test("o menu do usuário leva à aba Orçamentos do Financeiro, já selecionada (UI-04)", async ({
-    page,
-  }) => {
-    await fazerLogin(page);
-
-    const itemOrcamentos = page
-      .getByRole("link", { name: "Orçamentos" })
-      .or(page.getByRole("menuitem", { name: "Orçamentos" }));
-
-    await abrirMenuDoUsuario(page);
-    await itemOrcamentos.click();
-
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos$/);
-    await expect(page.getByTestId("financeiro-aba-orcamentos")).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-  });
-
-  test("no celular, o cabeçalho mostra o título da tela atual, não um valor fixo (UI-07)", async ({
+  // Caso (g) do plano 05: tocar em Produção na barra de baixo chega a /gestao/encomendas, e o
+  // título da tela mostra "Produção" — a rota e o encoding do rótulo, provados juntos.
+  test("no celular, o cabeçalho mostra o título da tela atual, não um valor fixo — inclusive 'Produção' (GES-14, UI-07)", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -275,12 +346,13 @@ test.describe("casca de navegação (UI-02, UI-03, UI-04, UI-06, UI-07)", () => 
     // próprio para localizá-lo.
     const cabecalho = page.getByRole("banner");
 
-    // Duas rotas, não uma: o próprio defeito era um valor que por acaso ficava constante
-    // ("AMASSA" fixo). Uma rota só não distingue um título derivado de uma string fixa que
-    // coincide com o esperado.
+    // Três rotas, não uma: o próprio defeito original era um valor que por acaso ficava
+    // constante ("AMASSA" fixo). Uma rota só não distingue um título derivado de uma string fixa
+    // que coincide com o esperado.
     const rotasEtitulos = [
-      { href: "/gestao/encomendas", titulo: "Encomendas" },
+      { href: "/gestao/encomendas", titulo: "Produção" },
       { href: "/gestao/queimas", titulo: "Queimas" },
+      { href: "/gestao/cadastros", titulo: "Cadastros" },
     ];
 
     for (const { href, titulo } of rotasEtitulos) {
