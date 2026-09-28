@@ -5,6 +5,7 @@ import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cr
 import { hojeEmBrasilia } from "@/lib/encomendas/formato";
 import { buscarEncomenda, obterOrigemDaEncomenda } from "@/lib/encomendas/consultas";
 import { ROTULO_VER_ORCAMENTO, textoCriadoAPartirDoOrcamento } from "@/lib/orcamentos/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { AcoesEncomenda } from "@/components/amassa/encomendas/acoes-encomenda";
 import { TrilhaEtapas } from "@/components/amassa/encomendas/trilha-etapas";
@@ -71,7 +72,9 @@ export default async function PaginaDetalheEncomenda({
           <p data-testid="encomenda-origem-orcamento" className="text-apoio text-muted-foreground">
             {textoCriadoAPartirDoOrcamento(origemDoOrcamento.numero)}{" "}
             <a
-              href={`/financeiro?aba=orcamentos&orcamento=${origemDoOrcamento.orcamentoId}`}
+              href={rotaDeGestao(
+                `/financeiro?aba=orcamentos&orcamento=${origemDoOrcamento.orcamentoId}`,
+              )}
               className="font-medium underline underline-offset-2"
             >
               {ROTULO_VER_ORCAMENTO}

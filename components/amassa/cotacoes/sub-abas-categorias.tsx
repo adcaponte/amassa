@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { CategoriaDeCotacao } from "@/lib/cotacoes/consultas";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { BotaoEditarCategoria } from "@/components/amassa/cotacoes/botao-editar-categoria";
 import { PilulaNovaCategoria } from "@/components/amassa/cotacoes/pilula-nova-categoria";
@@ -42,7 +43,7 @@ export function SubAbasCategorias({
         return (
           <Link
             key={categoria.id}
-            href={`/abertura?aba=cotacoes&categoria=${categoria.id}`}
+            href={rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoria.id}`)}
             role="tab"
             aria-selected={ativa}
             data-testid="cotacoes-sub-aba"

@@ -4,6 +4,7 @@ import { memo } from "react";
 import Link from "next/link";
 
 import { abaDaUrl, type AbaAbertura } from "@/lib/abertura/abas";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { useAbaAtual } from "@/components/amassa/abertura/contexto-navegacao";
 
@@ -48,7 +49,7 @@ function AbasAberturaConteudoBase({ abaAtual }: { abaAtual: AbaAbertura }) {
         return (
           <Link
             key={aba.valor}
-            href={`/abertura?aba=${aba.valor}`}
+            href={rotaDeGestao(`/abertura?aba=${aba.valor}`)}
             role="tab"
             aria-selected={selecionada}
             data-testid={`abertura-aba-${aba.valor}`}

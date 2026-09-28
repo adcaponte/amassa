@@ -7,6 +7,7 @@ import {
   textoVeredito,
 } from "@/lib/orcamentos/textos";
 import { vereditoDaAprovacao, type StatusEncomenda } from "@/lib/orcamentos/situacao";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type VereditoDaAprovacaoProps = {
   documentoId: string;
@@ -57,7 +58,7 @@ export function VereditoDaAprovacao({
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           <a
             data-testid="veredito-ver-venda"
-            href={`/financeiro?aba=caixa&documentoId=${documentoId}`}
+            href={rotaDeGestao(`/financeiro?aba=caixa&documentoId=${documentoId}`)}
             className="text-corpo font-medium underline underline-offset-2"
           >
             {ROTULO_VER_VENDA_NO_FINANCEIRO}
@@ -67,7 +68,7 @@ export function VereditoDaAprovacao({
             // aconteceu com ela, exatamente como o "Ver venda no Financeiro" (D-25).
             <a
               data-testid="veredito-ver-encomenda"
-              href={`/encomendas/${encomendaId}`}
+              href={rotaDeGestao(`/encomendas/${encomendaId}`)}
               className="text-corpo font-medium underline underline-offset-2"
             >
               {ROTULO_VER_ENCOMENDA_NA_PRODUCAO}

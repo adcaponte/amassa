@@ -11,6 +11,7 @@ import {
   TITULO_LISTA_ORCAMENTOS,
 } from "@/lib/orcamentos/textos";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { ChipDeSituacao } from "./chip-de-situacao";
 import { NovoOrcamentoBotao } from "./novo-orcamento-botao";
 
@@ -58,7 +59,7 @@ export function ListaOrcamentos({ orcamentos, hoje }: ListaOrcamentosProps) {
             className="border-border flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3"
           >
             <a
-              href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
+              href={rotaDeGestao(`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`)}
               className="flex min-w-0 flex-col sm:flex-1"
             >
               <span className="text-corpo text-foreground break-words">
@@ -82,7 +83,7 @@ export function ListaOrcamentos({ orcamentos, hoje }: ListaOrcamentosProps) {
               <ChipDeSituacao situacao={situacaoDoOrcamento(orcamento, hoje)} />
 
               <a
-                href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`}
+                href={rotaDeGestao(`/financeiro?aba=orcamentos&orcamento=${orcamento.id}`)}
                 className="text-corpo hover:bg-muted flex min-h-[44px] flex-none items-center rounded-md px-3 font-medium"
               >
                 {ROTULO_ABRIR_ORCAMENTO}

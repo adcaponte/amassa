@@ -44,6 +44,7 @@ import {
   type ResultadoDaFicha,
 } from "@/lib/precificacao/ficha";
 import { quantasCabem, type MedidasUteisDoForno } from "@/lib/precificacao/forno";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { AbrirEscolherPecaBotao, EscolherPeca } from "./escolher-peca";
 import { AcoesDoOrcamento } from "./acoes-do-orcamento";
@@ -478,7 +479,9 @@ export async function EditorOrcamento({
                 <div className="flex flex-wrap gap-3">
                   <AbrirEscolherPecaBotao orcamentoId={orcamento.id} />
                   <a
-                    href={`/financeiro?aba=orcamentos&orcamento=${orcamento.id}&peca=novo`}
+                    href={rotaDeGestao(
+                      `/financeiro?aba=orcamentos&orcamento=${orcamento.id}&peca=novo`,
+                    )}
                     className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium"
                   >
                     {ROTULO_MAIS_PECA_EXCLUSIVA}

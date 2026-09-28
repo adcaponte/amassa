@@ -6,6 +6,7 @@ import { medirForno } from "@/lib/queimas/contador";
 import type { FornoMedido } from "@/lib/queimas/consultas";
 import { formatarInstanteCurto } from "@/lib/queimas/formato";
 import { fraseDoRodape, textoDoNivel } from "@/lib/queimas/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { Medidor } from "./medidor";
 import { RegistrarQueima } from "./registrar-queima";
@@ -55,7 +56,7 @@ export function CartaoForno({ forno }: CartaoFornoProps) {
     >
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
         <Link
-          href={`/queimas/${forno.id}`}
+          href={rotaDeGestao(`/queimas/${forno.id}`)}
           className="text-titulo text-foreground focus-visible:ring-ring inline-flex min-h-[44px] items-center rounded-md [overflow-wrap:anywhere] focus-visible:ring-2 focus-visible:outline-none"
         >
           {forno.nome}

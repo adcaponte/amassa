@@ -15,6 +15,7 @@ import {
   textoPagoEm,
 } from "@/lib/financeiro/textos";
 import { ROTULO_VER_ORCAMENTO, textoCriadoAPartirDoOrcamento } from "@/lib/orcamentos/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmarCancelarDocumento } from "./confirmar-cancelar-documento";
@@ -147,7 +148,9 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
                 >
                   {textoCriadoAPartirDoOrcamento(documento.origemOrcamento.numero)}{" "}
                   <a
-                    href={`/financeiro?aba=orcamentos&orcamento=${documento.origemOrcamento.orcamentoId}`}
+                    href={rotaDeGestao(
+                      `/financeiro?aba=orcamentos&orcamento=${documento.origemOrcamento.orcamentoId}`,
+                    )}
                     className="font-medium underline underline-offset-2"
                   >
                     {ROTULO_VER_ORCAMENTO}

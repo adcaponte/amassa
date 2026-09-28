@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import type { SubCadastros } from "@/lib/cadastros/abas";
 import {
   ROTULO_SUB_CATALOGO,
@@ -87,7 +88,7 @@ function Pilula({
 }) {
   return (
     <Link
-      href={`/cadastros?sub=${sub.valor}`}
+      href={rotaDeGestao(`/cadastros?sub=${sub.valor}`)}
       role="tab"
       aria-selected={selecionada}
       data-testid={`cadastros-sub-${sub.valor}`}

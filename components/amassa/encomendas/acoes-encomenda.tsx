@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { ConfirmarCancelar } from "./confirmar-cancelar";
 import { ConfirmarExcluir } from "./confirmar-excluir";
@@ -34,7 +35,7 @@ export function AcoesEncomenda({ id, nome, quantidadeDeItens }: AcoesEncomendaPr
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-3">
         <Button asChild variant="default" className="min-h-[44px]">
-          <Link href={`/encomendas?editar=${id}`}>Editar</Link>
+          <Link href={rotaDeGestao(`/encomendas?editar=${id}`)}>Editar</Link>
         </Button>
 
         <Button

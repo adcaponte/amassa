@@ -7,6 +7,7 @@ import {
   textoDaContagemDeItens,
   textoDaSituacao,
 } from "@/lib/encomendas/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import type { EncomendaDoIndice } from "./lista-encomendas";
 import { TrilhaSegmentos } from "./trilha-segmentos";
@@ -27,7 +28,7 @@ export function CartaoEncomenda({ encomenda, hoje }: CartaoEncomendaProps) {
 
   return (
     <Link
-      href={`/encomendas/${encomenda.id}`}
+      href={rotaDeGestao(`/encomendas/${encomenda.id}`)}
       className="focus-visible:ring-ring block min-h-[56px] rounded-xl focus-visible:ring-2 focus-visible:outline-none"
       data-testid={`cartao-encomenda-${encomenda.id}`}
     >

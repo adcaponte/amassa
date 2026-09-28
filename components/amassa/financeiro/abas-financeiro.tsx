@@ -13,6 +13,7 @@ import {
   ROTULO_ABA_PECAS,
   ROTULO_ABA_VENDA,
 } from "@/lib/financeiro/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 
 // A barra de sub-navegação do Financeiro (`role="tablist"`), mesmo padrão visual e estrutural de
@@ -123,7 +124,7 @@ function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) 
       {PRIMEIRA_FILEIRA.map((aba) => (
         <Pilula
           key={aba.valor}
-          href={`/financeiro?aba=${aba.valor}`}
+          href={rotaDeGestao(`/financeiro?aba=${aba.valor}`)}
           selecionada={!emCadastros && aba.valor === abaAtual}
           testId={`financeiro-aba-${aba.valor}`}
           rotulo={aba.rotulo}
@@ -140,7 +141,7 @@ function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) 
       {SEGUNDA_FILEIRA.map((aba) => (
         <Pilula
           key={aba.valor}
-          href={`/financeiro?aba=${aba.valor}`}
+          href={rotaDeGestao(`/financeiro?aba=${aba.valor}`)}
           selecionada={!emCadastros && aba.valor === abaAtual}
           testId={`financeiro-aba-${aba.valor}`}
           rotulo={aba.rotulo}
@@ -152,7 +153,7 @@ function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) 
           nunca por `abaAtual` (que só existe dentro de `/financeiro`). Só mudou de fileira nesta
           fase — continua a última pílula da barra. */}
       <Pilula
-        href="/gestao/cadastros"
+        href={rotaDeGestao("/cadastros")}
         selecionada={emCadastros}
         testId="financeiro-aba-cadastros"
         rotulo={ROTULO_CADASTROS}

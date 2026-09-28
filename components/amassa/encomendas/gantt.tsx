@@ -13,6 +13,7 @@ import {
 } from "@/lib/encomendas/gantt";
 import { formatarDiaCurto } from "@/lib/encomendas/formato";
 import { ROTULO_ETAPA, SELO_RASCUNHO, textoDaContagemDeItens } from "@/lib/encomendas/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // Geometria fora do contrato vinculante (18px/dia, 46px de limiar) — dimensões de leiaute que
 // este componente é livre para escolher (03-CONTEXT.md "Claude's Discretion" — estrutura de
@@ -165,7 +166,7 @@ export function Gantt({ encomendas, hoje }: GanttProps) {
                     style={{ width: LARGURA_COLUNA_FIXA, height: ALTURA_LINHA }}
                   >
                     <Link
-                      href={`/encomendas/${encomenda.id}`}
+                      href={rotaDeGestao(`/encomendas/${encomenda.id}`)}
                       className="focus-visible:ring-ring flex h-full w-full flex-col justify-center gap-0.5 px-4 focus-visible:ring-2 focus-visible:outline-none"
                     >
                       <div className="flex items-center gap-2">

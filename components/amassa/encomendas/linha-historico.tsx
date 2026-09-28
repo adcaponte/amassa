@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { formatarDiaCurto, formatarPeriodo, hojeEmBrasilia } from "@/lib/encomendas/formato";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import type { EncomendaDoIndice } from "./lista-encomendas";
 
@@ -74,7 +75,7 @@ export function LinhaHistorico({ encomenda }: LinhaHistoricoProps) {
 
   return (
     <Link
-      href={`/encomendas/${encomenda.id}`}
+      href={rotaDeGestao(`/encomendas/${encomenda.id}`)}
       className="focus-visible:ring-ring block min-h-14 rounded-xl focus-visible:ring-2 focus-visible:outline-none"
       data-testid={`linha-historico-${encomenda.id}`}
     >

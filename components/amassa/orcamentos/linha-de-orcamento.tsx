@@ -19,6 +19,7 @@ import {
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { ResultadoDaFicha } from "@/lib/precificacao/ficha";
 import { FRASE_DIVISOR_INVALIDO, FRASE_NAO_CABE_NO_FORNO } from "@/lib/precificacao/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -183,7 +184,7 @@ export function LinhaDeOrcamento({
             />
           </label>
           <a
-            href={`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&peca=${fichaId}`}
+            href={rotaDeGestao(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&peca=${fichaId}`)}
             className="text-corpo hover:bg-muted flex min-h-[44px] items-center rounded-md px-2 underline"
           >
             {ROTULO_VER_CALCULO}
