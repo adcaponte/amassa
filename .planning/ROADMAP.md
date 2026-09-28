@@ -659,7 +659,7 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
-**Plans:** 2/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 **Wave 1**
@@ -672,7 +672,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04.6-03-PLAN.md — Site: conteúdo em arquivo, tokens num bloco só, Fraunces, barras fixas, abertura e rodapé — provado de fora com o Postgres derrubado (onda 3)
+- [x] 04.6-03-PLAN.md — Site: conteúdo em arquivo, tokens num bloco só, Fraunces, barras fixas, abertura e rodapé — provado de fora com o Postgres derrubado (onda 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -838,7 +838,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
-| 04.6. `/gestao`, Início e site público | 2/8 | In Progress|  |
+| 04.6. `/gestao`, Início e site público | 3/8 | In Progress|  |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

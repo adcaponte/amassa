@@ -299,11 +299,11 @@
   protótipo: faixa "em construção" · abertura · o espaço · aulas e oficinas · encomendas · faixa
   da fachada · onde fica e contato · rodapé
 
-- [ ] **SIT-02**: 🔴 **A página é estática e continua no ar com o Postgres derrubado.** Os textos
+- [x] **SIT-02**: 🔴 **A página é estática e continua no ar com o Postgres derrubado.** Os textos
   vêm de arquivo de conteúdo versionado e as imagens de `public/site/`; nada lê sessão. Só a
   seção da agenda lê o banco, com cache e revalidação por tempo, nunca a cada visita
 
-- [ ] **SIT-03**: Trocar um texto ou uma foto é **commit e deploy** — nenhuma tabela nova. O
+- [x] **SIT-03**: Trocar um texto ou uma foto é **commit e deploy** — nenhuma tabela nova. O
   cadastro editável pelo `/gestao` fica para depois, e o arquivo de conteúdo vira o valor inicial
   dele quando existir
 
@@ -311,11 +311,11 @@
   construção". **Nenhum dado de cliente** no repositório; endereço, horário, telefone comercial e
   Instagram são públicos por natureza
 
-- [ ] **SIT-05**: Os botões fixos "Agenda" e "Encomendas" ficam sempre visíveis — barra superior
+- [x] **SIT-05**: Os botões fixos "Agenda" e "Encomendas" ficam sempre visíveis — barra superior
   no computador, barra inferior no celular — e rolam até a seção, com a âncora **abaixo** da barra
   fixa, não escondida atrás dela
 
-- [ ] **SIT-06**: Os botões de WhatsApp apontam para `https://wa.me/55<número>` com mensagem
+- [x] **SIT-06**: Os botões de WhatsApp apontam para `https://wa.me/55<número>` com mensagem
   pré-preenchida por contexto; o número é campo do arquivo de conteúdo
 
 - [ ] **SIT-07**: ⚠️ **Enquanto a Agenda não existir**, a seção de aulas mostra o texto de
@@ -587,11 +587,11 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-13 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | GES-14 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | SIT-01 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-02 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-03 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| SIT-02 | Phase 04.6 — /gestao, Início e site público | Complete |
+| SIT-03 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-04 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-05 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| SIT-06 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| SIT-05 | Phase 04.6 — /gestao, Início e site público | Complete |
+| SIT-06 | Phase 04.6 — /gestao, Início e site público | Complete |
 | SIT-07 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | SIT-08 | Phase 04.6 — /gestao, Início e site público | Not Started |
 | SIT-09 | Phase 04.6 — /gestao, Início e site público | Not Started |

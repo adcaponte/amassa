@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-02-PLAN.md (1 commit de codigo, 58b4da2); varredura e2e completa provada (734 passed, 9 failed conhecidas/consertadas, 0 flaky)
-last_updated: "2026-09-28T07:51:48.390Z"
+stopped_at: Concluido 04.6-03-PLAN.md
+last_updated: "2026-09-28T08:37:31.388Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 80
+  completed_plans: 81
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 01 EXECUTADO em 28/09: a plataforma inteira desceu para /gestao (commits ccfe41f/2739716/e206a90/84ad637). middleware.ts protege só /gestao; os 13 endereços antigos redirecionam (permanent:false, data 2027-03-28); robots.txt bloqueia /gestao; os dois 404 (público/com casca) diferenciados por data-testid; tests/e2e/rotas.spec.ts criado (12 casos). npm run verificar limpo (lint, tsc, verificar-acoes, 1175 testes unitários, test:migracoes). 🔴 A única invocação de e2e autorizada do plano (--grep \"rotas /gestao\") NÃO completou — 5/5 tentativas travaram no webServer do Playwright (timeout 180s), diagnosticado NA HORA como problema de ambiente e DESMENTIDO no mesmo dia pelo orquestrador: a sonda de prontidão do Playwright (isURLAvailable, playwright-core/lib/coreBundle.js:8514) só aceita status >= 200 e < 404, e a raiz passou a devolver 404 quando a plataforma desceu para /gestao — corrigido apontando webServer.url para /api/health; registrado como item aberto (ver 04.6-01-SUMMARY.md, seção Issues Encountered — a tentativa de gravar em WINDOWS.md falhou por uma inconsistência pré-existente nas contagens daquele arquivo)."
+last_activity_desc: "Fase 04.6, PLANO 03 EXECUTADO em 28/09: o traçador do site público — conteudo/site.ts (29 trechos do protótipo v11, zero import), lib/site/whatsapp.ts, app/page.tsx + components/site/ (força-static, sem sessão nem banco, provado por tests/unit/site-isolamento.test.ts percorrendo o grafo de import inteiro), bloco @theme do site em app/globals.css (D-19: 6 hex + 7 var(...)), e scripts/testar-site-sem-banco.mjs provando DE FORA que a raiz responde 200 com o Postgres realmente parado (D-15/SIT-02). tests/e2e/site-abertura.spec.ts (10 casos) passa nos dois viewports. npm run verificar limpo. Quatro commits: ea9d546 (Tarefa 1), d70b2d0 (Tarefa 2 RED), 8faf5e1 (Tarefa 2 GREEN), e158662 (Tarefa 3). Três bugs Rule 1 corrigidos na validação (não no app): kill de árvore de processos no Windows precisa de taskkill /T /F; spawn com shell:true+array de args é depreciado; dois seletores do e2e colidiam com texto de outros elementos (o rótulo Encomendas também nomeia um link de navegação; getByRole por nome faz substring sem exact:true). D-18 estendida a uma quarta chave (agLivre) — pendente de confirmação do dono. SIT-01 não marcada como concluída (plano 04.6-04 também a reclama e fecha as seções que faltam). Detalhe completo: 04.6-03-SUMMARY.md."
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 02 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 03 de 8 concluído em 28/09).
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -79,6 +79,41 @@ clicar) mas que quebrariam de vez depois de `2027-03-28` (a remoção dos redire
 servidor único sob carga não é determinística. Commit único: `58b4da2`. `npm run verificar` limpo.
 `Claude outputs/RETRATO-DA-SUITE.md` atualizado com a seção "A medição do depois". Detalhe
 completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-02-SUMMARY.md`.
+
+**Plano 03 (o traçador do site público) entregou:** `conteudo/site.ts` com os 29 trechos do
+protótipo v11 estruturados (os nove com marcação viraram campos, nunca string HTML), zero
+import, sem preço nas quatro chaves que D-18 manda esvaziar; `lib/site/whatsapp.ts::hrefDoWhatsapp`
+como única porta para `wa.me`; `app/page.tsx` + `components/site/` (`secao`, `barra-superior`,
+`barra-inferior-fixa`, `faixa-em-construcao`, `abertura`, `rodape`, `imagem-do-site`,
+`decoracao`, `botao-whatsapp`) com `export const dynamic = "force-static"` — provado sem
+sessão nem banco por `tests/unit/site-isolamento.test.ts`, que percorre o grafo de import
+inteiro a partir de `app/page.tsx` e nomeia a cadeia completa numa violação; bloco `@theme`
+do site em `app/globals.css` (D-19: 6 hex literais + 7 `var(...)` que tornam os acentos
+idênticos aos da plataforma por construção, não cópia) + Fraunces em `app/layout.tsx` (D-14).
+`scripts/testar-site-sem-banco.mjs` (`npm run test:site-sem-banco`, **não** encadeado em
+`verificar`) prova DE FORA — subindo o app de verdade e parando o contêiner do Postgres no
+meio — que a raiz continua respondendo 200 com o MESMO HTML (D-15/SIT-02), e que
+`/gestao/financeiro` não vaza tela de módulo sem banco. `tests/e2e/site-abertura.spec.ts`
+(10 casos, a-j) passa nos dois viewports (50 passed, 2 skipped por viewport). Quatro commits:
+`ea9d546` (Tarefa 1), `d70b2d0` (Tarefa 2, RED — teste de isolamento antes de `app/page.tsx`
+existir), `8faf5e1` (Tarefa 2, GREEN), `e158662` (Tarefa 3). `npm run verificar` limpo.
+🔧 **Três bugs Rule 1, achados e corrigidos durante a própria validação da Tarefa 3, nenhum no
+app:** (1) `processoDoApp.kill()` não derrubava a árvore de processos no Windows — `spawn`
+com `shell: true` cria `cmd.exe -> npm -> next`, e só `taskkill /pid <pid> /T /F` mata a árvore
+inteira; (2) o mesmo `spawn` usava array de args com `shell: true`, o padrão que o Node avisa
+como depreciado (DEP0190) — trocado por uma única string de comando; (3) dois seletores do
+e2e colidiam com texto de OUTRO elemento da página, não com defeito do app — o filtro por
+regex dos botões fixos também casava com o link de navegação rotulado "Encomendas", e
+`getByRole` por nome faz correspondência por SUBSTRING sem `exact: true` (então "O espaço"
+casava com o botão "Conhecer o espaço"). Duas invocações de `--grep "site abertura"` nesta
+tarefa (a primeira achou os dois bugs de seletor) — acima do orçamento de uma por tarefa do
+CLAUDE.md, registrado como o próprio CLAUDE.md pede quando o `--grep` falha e precisa ser
+corrigido e reverificado. **Pendente de confirmação do dono:** D-18 foi estendida a uma quarta
+chave (`agLivre`, "uso livre do ateliê" também perdeu o preço) — a regra que D-18 enuncia é
+mais ampla que a lista original de três chaves. **SIT-01 não foi marcada como concluída**
+apesar de estar nos `requirements` do plano: `04.6-04-PLAN.md` também a reclama e é quem
+constrói as seções (`#espaco`, `#agenda`, `#encomendas`, `#onde`) que a página ainda não tem.
+Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-03-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):
@@ -402,7 +437,12 @@ O QUE FICOU ABERTO (nada bloqueia a fase; detalhe em `04.4-VERIFICATION.md`):
   - **Varredura completa do e2e não fica 100% verde** por causa de #3 e #32 — a repetição do CI
     absorve; nunca foi um teste do Financeiro.
 
-Progress: [█████████░] 93% (64 de 64 planos da 04.4 executados, verificados e no ar)
+Progress: [█████████░] 93% (64 de 64 planos da 04.4 executados, verificados e no ar) — retrato
+congelado de quando a Fase 04.4 fechou; `gsd_run query state.update-progress` da execução do
+plano 04.6-03 encontrou esta linha (a única "Progress:" do arquivo, dentro da seção histórica)
+e a bumpou por engano para 94% — revertido aqui de propósito, porque este parágrafo é um
+retrato de 2026-09-27, não a posição atual do projeto (essa vive em "## Current Position",
+sem uma linha "Progress:" própria).
 
 ## Performance Metrics
 
@@ -511,6 +551,7 @@ Progress: [█████████░] 93% (64 de 64 planos da 04.4 executad
 | Phase 04.5 P14 | ~2h15min | 5 tasks | 13 files |
 | Phase 04.6 P01 | ~2h | 3 tasks | 152 files |
 | Phase 04.6 P02 | 26min | 2 tasks | 16 files |
+| Phase 04.6 P03 | 55min | 3 tasks | 33 files |
 
 ## Accumulated Context
 
@@ -741,6 +782,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Tres specs de e2e mutavam parametro global de precificacao sem restaurar (poluicao real entre arquivos); corrigido com test.afterAll restaurando direto no banco em cada um
 - [Phase ?]: 04.6-01: redirecionamentos-antigos.ts usa literal proprio do prefixo /gestao (zero import de valor), nunca importado de lib/rotas/gestao.ts
 - [Phase ?]: 04.6-02: corrigidos 15 literais de rota sem prefixo /gestao (4 causavam falha e2e, 11 funcionavam so por indirecao via redirect ate 2027-03-28)
+- [Phase ?]: D-18 estendida a agLivre (preco de uso livre) sem numero no site — pendente de confirmacao do dono (04.6-03)
 
 ### Pending Todos
 
@@ -815,6 +857,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:51:48.335Z
-Stopped at: Concluido 04.6-02-PLAN.md (1 commit de codigo, 58b4da2); varredura e2e completa provada (734 passed, 9 failed conhecidas/consertadas, 0 flaky)
+Last session: 2026-09-28T08:37:31.335Z
+Stopped at: Concluido 04.6-03-PLAN.md
 Resume file: None
