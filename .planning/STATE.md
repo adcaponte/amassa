@@ -25,6 +25,14 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
 **Current focus:** Phase 04.6 — gestao-inicio-e-site-publico
 
+## Decisões do dono durante a execução da Fase 04.6
+
+- **D-18 ("sem preço no site") vale também para a chave `agLivre`** — confirmado pelo dono em
+  28/09/2026, respondendo ao orquestrador durante a onda 5: "a decisão D-18 pode manter assim.
+  nenhum preço no site agora". O plano 03 havia estendido a decisão por conta própria (a regra
+  enunciada é mais ampla que as três chaves que ela nomeava) e deixado a confirmação pendente;
+  **não está mais pendente**. Nenhuma das quatro chaves de conteúdo leva número de preço.
+
 ## Current Position
 
 Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 05 de 8 concluído em 28/09).
