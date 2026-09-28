@@ -84,6 +84,7 @@ export default async function PaginaFinanceiro({
     documento?: string;
     documentoId?: string;
     parcela?: string;
+    parcelaFoco?: string;
     mes?: string;
     forma?: string;
     peca?: string;
@@ -93,8 +94,19 @@ export default async function PaginaFinanceiro({
 }) {
   await exigirUsuario();
 
-  const { aba, aviso, documento, documentoId, parcela, mes, forma, peca, exclusivas, orcamento } =
-    await searchParams;
+  const {
+    aba,
+    aviso,
+    documento,
+    documentoId,
+    parcela,
+    parcelaFoco,
+    mes,
+    forma,
+    peca,
+    exclusivas,
+    orcamento,
+  } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
   const abaDespesa = abaAtual === "despesa";
@@ -112,6 +124,14 @@ export default async function PaginaFinanceiro({
   const REGEX_UUID_DOCUMENTO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const documentoParaAbrirId =
     abaCaixa && documentoId && REGEX_UUID_DOCUMENTO.test(documentoId) ? documentoId : null;
+
+  // "Paguei"/"Recebi" no Início, na parcela específica (D-06, 04.6-06-PLAN.md) — `?parcelaFoco=
+  // <uuid>` chega SÓ na aba Caixa, validado pela MESMA regex de UUID que já valida
+  // `documentoId` acima; valor inválido é ignorado em silêncio, como o resto do arquivo faz.
+  // Chave DIFERENTE de `?parcela=` (usada por `avisoDaUrl`, linha abaixo, para o aviso de
+  // pagamento já feito) — um FOCA uma linha, o outro ANUNCIA um pagamento; nunca a mesma coisa.
+  const parcelaFocoId =
+    abaCaixa && parcelaFoco && REGEX_UUID_DOCUMENTO.test(parcelaFoco) ? parcelaFoco : null;
 
   // `?orcamento=<uuid>` abre o editor daquele orçamento na mesma rota (must_have do
   // 04.5-06-PLAN.md) — um `<Link>` normal, nunca um estado de cliente.
@@ -340,6 +360,7 @@ export default async function PaginaFinanceiro({
             documentos={documentosParaDetalhe}
             hoje={hoje}
             documentoParaAbrirId={documentoParaAbrirId}
+            parcelaParaFocarId={parcelaFocoId}
           />
           {extratoFiltrado ? (
             <ExtratoCaixa

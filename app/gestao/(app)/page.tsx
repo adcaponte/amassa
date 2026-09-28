@@ -5,6 +5,7 @@ import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { dataLongaEmPortugues, saudacaoDe } from "@/lib/inicio/saudacao";
 import { BlocoAgendaDeHoje } from "@/components/amassa/inicio/bloco-agenda-de-hoje";
 import { BlocoEsqueleto } from "@/components/amassa/inicio/bloco-esqueleto";
+import { BlocoOQueVence } from "@/components/amassa/inicio/bloco-o-que-vence";
 import { IndiceDosModulos } from "@/components/amassa/inicio/indice-dos-modulos";
 import { PilulasDeAtalho } from "@/components/amassa/inicio/pilulas-de-atalho";
 
@@ -46,15 +47,18 @@ export default async function Inicio() {
           (D-09): um `Suspense` único desfaria duas coisas de uma vez — o esqueleto deixaria de
           ser por bloco, e uma leitura lenta seguraria a página inteira.
 
-          Nesta tarefa (1/3) só o bloco da Agenda existe de ponta a ponta — é o traçador que
-          prova o mecanismo de esqueleto/erro/retentativa antes de existirem quatro blocos. Os
-          outros três entram nas Tarefas 2 e 3 deste mesmo plano. */}
+          Traçador (Tarefa 1): a Agenda provou o mecanismo de esqueleto/erro/retentativa com um
+          bloco só, antes de existirem quatro. As Tarefas 2 e 3 encaixam os outros três abaixo,
+          sem tocar na Agenda. */}
       <div data-testid="inicio-blocos" className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Suspense fallback={<BlocoEsqueleto titulo="Agenda de hoje" linhas={3} />}>
           <BlocoAgendaDeHoje />
         </Suspense>
 
-        {/* Tarefa 2 — BlocoOQueVence entra aqui, na segunda posição. */}
+        <Suspense fallback={<BlocoEsqueleto titulo="O que vence" linhas={3} />}>
+          <BlocoOQueVence hoje={hoje} />
+        </Suspense>
+
         {/* Tarefa 3 — BlocoProducao entra aqui, na terceira posição. */}
         {/* Tarefa 3 — BlocoEstoque entra aqui, na quarta posição. */}
         {/* Plano 07 — o 5º bloco (Anotações da casa) entra aqui, sem mexer nos quatro acima. */}
