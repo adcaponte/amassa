@@ -206,6 +206,19 @@ section>.wrap,header.hero>.wrap{position:relative;z-index:1}
   <p class="eyebrow">Aulas e oficinas</p>
   <h2 data-t="a-titulo">Agenda do ateliê</h2>
   <p class="lead" style="margin-top:12px" data-t="a-lead">Turmas fixas para quem quer aprender de verdade, e oficinas de uma tarde para quem quer só experimentar. Material sempre incluso. Para reservar, é pelo WhatsApp.</p>
+  <div id="agenda-antes">
+    <div class="tres" style="margin-top:28px">
+      <div class="cartao" style="--c:var(--folha)"><h3><i></i>Turmas fixas</h3><p data-t="ag-turmas">Aula toda semana, no mesmo dia e horário, com a Andressa. Torno e modelagem manual, do zero ao esmalte. Mensalidade com material incluso.</p></div>
+      <div class="cartao" style="--c:var(--sol)"><h3><i></i>Oficinas de uma tarde</h3><p data-t="ag-oficinas">Uma data, um tema, poucas vagas: pintura em biscoito, xícaras, enfeites de fim de ano. Para quem quer só experimentar.</p></div>
+      <div class="cartao" style="--c:var(--cerrado)"><h3><i></i>Uso livre do ateliê</h3><p data-t="ag-livre">Já sabe modelar? Venha no seu ritmo: R$ 35 por hora, ferramentas e queima inclusas.</p></div>
+    </div>
+    <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <a class="btn zap" data-zap="Oi! Quero saber das próximas aulas e oficinas." href="#">Quero saber das próximas aulas</a>
+      <a class="btn" data-zap="Oi! Quero saber a disponibilidade do uso livre." href="#">Disponibilidade do uso livre</a>
+      <span class="dica" data-t="ag-aviso">O calendário com as datas e vagas entra aqui em breve.</span>
+    </div>
+  </div>
+  <div id="agenda-viva" hidden>
   <div class="duas">
     <div class="cal">
       <div class="nav"><button type="button" data-a="nav" data-v="-1" aria-label="mês anterior">‹</button><span id="cal-mes"></span><button type="button" data-a="nav" data-v="1" aria-label="próximo mês">›</button></div>
@@ -214,6 +227,8 @@ section>.wrap,header.hero>.wrap{position:relative;z-index:1}
     </div>
     <div><p class="dica" id="cal-titulo" style="margin-bottom:10px;font-weight:600;color:var(--tinta)"></p><div class="eventos" id="cal-lista"></div></div>
   </div>
+  </div>
+  <p class="dica" style="margin-top:18px"><button type="button" class="btn" style="min-height:34px;font-size:12.5px;padding:4px 12px" id="alt-agenda">protótipo: ver como fica quando a Agenda existir</button></p>
 </div></section>
 
 <section class="enc" id="encomendas"><div class="flor d" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 450"><defs>
@@ -241,7 +256,7 @@ section>.wrap,header.hero>.wrap{position:relative;z-index:1}
       <div><span data-t="p2"><b>A gente manda o orçamento</b>Preço, prazo e como fica. Você aprova quando quiser.</span></div>
       <div><span data-t="p3"><b>Sinal, produção e entrega</b>Metade no início; o resto na retirada. Cerâmica leva tempo: conte com 4 a 8 semanas.</span></div>
     </div>
-    <div class="acoes" style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn zap" href="#contato">Pedir um orçamento pelo WhatsApp</a></div>
+    <div class="acoes" style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn zap" data-zap="Oi! Quero pedir um orçamento de peças." href="#">Pedir um orçamento pelo WhatsApp</a></div>
   </div>
 </div></section>
 
@@ -268,10 +283,10 @@ section>.wrap,header.hero>.wrap{position:relative;z-index:1}
     <div class="info" style="margin-top:20px" id="contato" data-t="contato">
       <div><b>Endereço</b>Rua [nome da rua], nº [00] — Centro Histórico, Pirenópolis, GO</div>
       <div><b>Horário</b>Quarta a domingo, 9h às 18h. Segunda e terça fechado.</div>
-      <div><b>WhatsApp</b><a href="#">(62) 9 0000-0000</a></div>
-      <div><b>Instagram</b><a href="#">@amassacerrado</a></div>
+      <div><b>WhatsApp</b><a data-zap="Oi! Vim pelo site do ateliê." href="#">(62) 9 0000-0000</a></div>
+      <div><b>Instagram</b><a href="https://instagram.com/amassacerrado" target="_blank" rel="noopener">@amassacerrado</a></div>
     </div>
-    <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn zap" href="#">Chamar no WhatsApp</a><a class="btn" href="#">Abrir no mapa</a></div>
+    <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn zap" data-zap="Oi! Vim pelo site do ateliê." href="#">Chamar no WhatsApp</a><a class="btn" href="https://www.google.com/maps/search/?api=1&query=AMASSA+CERRADO+Piren%C3%B3polis" target="_blank" rel="noopener">Abrir no mapa</a></div>
   </div>
   <div class="arte larga" data-img="mapa">mapa (Google Maps) entra aqui</div>
 </div></section>
@@ -284,6 +299,9 @@ section>.wrap,header.hero>.wrap{position:relative;z-index:1}
 <script id="textos" type="application/json">{"c3-t": "Loja", "c3-p": "Em nossa loja temos peças prontas de diversas formas assim como materiais artisticos e de papelaria."}</script>
 <script>
 /* agenda pública de exemplo — na plataforma vem do módulo Agenda (só o que for marcado como público) */
+/* WhatsApp: UM número (só dígitos, com 55 e DDD), vindo do arquivo de conteúdo; cada botão leva a sua mensagem */
+const ZAP='5562900000000';const zap=m=>'https://wa.me/'+ZAP+'?text='+encodeURIComponent(m);
+document.querySelectorAll('[data-zap]').forEach(a=>{a.href=zap(a.dataset.zap);a.target='_blank';a.rel='noopener'});
 const HOJE='2026-12-18',MES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],DOWL=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 const dt=i=>new Date(i+'T12:00:00'),iso=d=>d.toISOString().slice(0,10),mais=(i,n)=>{const d=dt(i);d.setDate(d.getDate()+n);return iso(d)},dBR=i=>i.slice(8)+'/'+i.slice(5,7);
 const EV=[];const turma=(nome,dow,ini,fim,valor,vagas,ocup)=>{for(let d='2026-12-01';d<='2027-02-28';d=mais(d,1))if(dt(d).getDay()===dow&&!(d>='2026-12-24'&&d<='2027-01-02'))EV.push({d,ini,fim,t:'turma',nome,valor,vagas,ocup,rec:'toda '+DOWL[dow]})};
@@ -292,7 +310,7 @@ EV.push({d:'2026-12-19',ini:'15:00',fim:'17:00',t:'of',nome:'Oficina de Natal: e
 const FECHADO=['2026-12-25','2027-01-01'];
 let mes=HOJE.slice(0,7),sel=null;
 const cor=e=>e.vagas-e.ocup>0?(e.t==='turma'?'var(--folha)':'var(--sol)'):'var(--borda)';
-const card=e=>{const l=e.vagas-e.ocup;return `<div class="ev" style="--c:${cor(e)};--v:${l<=0?'var(--barro-c)':l<=2?'#B45309':'var(--cerrado)'}"><b>${e.nome}</b><span>${e.t==='turma'?'Turma fixa · '+e.rec+', '+e.ini+' às '+e.fim:DOWL[dt(e.d).getDay()]+', '+dBR(e.d)+' · '+e.ini+' às '+e.fim}</span><span>${e.t==='turma'?'R$ '+e.valor+' por mês':'R$ '+e.valor+' por pessoa'} · material incluso · <span class="vagas">${l<=0?'esgotado':l===1?'última vaga':l<=2?'últimas '+l+' vagas':l+' vagas'}</span></span>${l>0?'<a class="btn zap" href="#contato">Reservar pelo WhatsApp</a>':''}</div>`};
+const card=e=>{const l=e.vagas-e.ocup;return `<div class="ev" style="--c:${cor(e)};--v:${l<=0?'var(--barro-c)':l<=2?'#B45309':'var(--cerrado)'}"><b>${e.nome}</b><span>${e.t==='turma'?'Turma fixa · '+e.rec+', '+e.ini+' às '+e.fim:DOWL[dt(e.d).getDay()]+', '+dBR(e.d)+' · '+e.ini+' às '+e.fim}</span><span>${e.t==='turma'?'R$ '+e.valor+' por mês':'R$ '+e.valor+' por pessoa'} · material incluso · <span class="vagas">${l<=0?'esgotado':l===1?'última vaga':l<=2?'últimas '+l+' vagas':l+' vagas'}</span></span>${l>0?`<a class="btn zap" href="${zap('Oi! Quero reservar: '+e.nome+(e.t==='turma'?' ('+e.rec+')':' ('+dBR(e.d)+')')+'.')}" target="_blank" rel="noopener">Reservar pelo WhatsApp</a>`:''}</div>`};
 function desenhar(){const m0=mes+'-01',ini=mais(m0,-((dt(m0).getDay()+6)%7));document.getElementById('cal-mes').textContent=MES[+mes.slice(5)-1]+' de '+mes.slice(0,4);let h=['seg','ter','qua','qui','sex','sáb','dom'].map(d=>`<b>${d}</b>`).join('');
   for(let i=0;i<42;i++){const d=mais(ini,i);if(i>=35&&d.slice(0,7)!==mes)break;const evs=EV.filter(e=>e.d===d),f=FECHADO.includes(d),fora=d.slice(0,7)!==mes;h+=`<button type="button" data-a="dia" data-v="${d}" ${(evs.length||f)&&!fora?'':'disabled'} class="${d===sel?'sel':''}"><span>${+d.slice(8)}</span><span class="pts">${f?'<i style="--c:var(--tinta-f)"></i>':evs.map(e=>`<i style="--c:${cor(e)}"></i>`).join('')}</span></button>`}
   document.getElementById('cal-grade').innerHTML=h;
@@ -301,6 +319,7 @@ function desenhar(){const m0=mes+'-01',ini=mais(m0,-((dt(m0).getDay()+6)%7));doc
   else{tit.textContent='Em '+MES[+mes.slice(5)-1];const v=new Set();const l=EV.filter(e=>e.d.startsWith(mes)&&e.d>=HOJE).sort((a,b)=>(a.d+a.ini).localeCompare(b.d+b.ini)).filter(e=>e.t!=='turma'||(!v.has(e.nome)&&v.add(e.nome)));lista.innerHTML=l.map(card).join('')||'<p class="dica">Nada marcado neste mês ainda.</p>'}}
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='nav'){const d=dt(mes+'-01');d.setMonth(d.getMonth()+ +b.dataset.v);mes=iso(d).slice(0,7);sel=null}else sel=sel===b.dataset.v?null:b.dataset.v;desenhar()});
 desenhar();
+document.getElementById('alt-agenda').onclick=e=>{const v=document.getElementById('agenda-viva'),an=document.getElementById('agenda-antes');v.hidden=!v.hidden;an.hidden=!v.hidden;e.target.textContent=v.hidden?'protótipo: ver como fica quando a Agenda existir':'protótipo: voltar ao estado de dezembro (sem Agenda)'};
 </script>
 
 <script>

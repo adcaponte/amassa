@@ -31,9 +31,14 @@ comercial e Instagram são públicos por natureza; nada de dado de cliente).
   como está; o Theo manda os valores e o Code troca. Os textos do protótipo são a versão inicial.
 - Fotos atuais: as da pasta `imagens/` desta pasta (o protótipo as carrega embutidas; no site
   viram arquivos otimizados).
-- Botões de WhatsApp: link `https://wa.me/55<número>` com mensagem pré-preenchida por contexto
-  ("Quero reservar: <nome da oficina, data>" · "Quero um orçamento" · "Quero saber a disponibilidade
-  do uso livre"). O número é um campo do arquivo de conteúdo.
+- **Botões de WhatsApp — agora reais no protótipo (28/09)**: um único número no arquivo de
+  conteúdo (`ZAP`, só dígitos com 55 e DDD; no protótipo é o placeholder `5562900000000`), e cada
+  botão leva a sua mensagem por `https://wa.me/<número>?text=<mensagem>`, em nova aba. As mensagens
+  estão no HTML, em `data-zap` ou montadas no cartão do evento: "Oi! Quero pedir um orçamento de
+  peças." · "Oi! Vim pelo site do ateliê." (contato e rodapé) · "Oi! Quero saber das próximas aulas e
+  oficinas." · "Oi! Quero saber a disponibilidade do uso livre." · "Oi! Quero reservar: <nome>
+  (<toda terça | dd/mm>)." (cartão de evento, quando o calendário existir). O Instagram é link
+  direto; "Abrir no mapa" abre o Google Maps com a busca pelo nome até o endereço existir.
 - Mapa: embed do Google Maps a partir do endereço; enquanto não houver endereço, o placeholder.
 - **Cadastro editável pelo `/gestao` fica para depois** (Polimento, ou quando o Theo e a Andressa
   sentirem falta de editar sozinhos). Já tem protótipo — `prototipo-cadastro.html`, "Cadastro do
@@ -50,9 +55,14 @@ Cartão: nome, quando, preço (mês ou por pessoa), "material incluso", **vagas 
 últimas 2 · última vaga · esgotado) e "Reservar pelo WhatsApp" (some quando esgotado). **Sem nome de
 aluno, sem reserva online.** Bloco fixo "Uso livre" com texto e "Consulte disponibilidade".
 
-⚠️ **Enquanto a Agenda não existir**, a seção mostra o texto de apresentação e o botão do WhatsApp,
-**sem calendário** (não inventar dados; não expor a agenda antiga). O calendário liga quando a fase
-Agenda entrar. Renderização no servidor, cache curto (minutos).
+⚠️ **Enquanto a Agenda não existir — e é este o estado que vai ao ar em dezembro — a seção tem
+desenho próprio, no protótipo desde 28/09** (é o estado padrão ao abrir; o botão "protótipo: ver
+como fica quando a Agenda existir" alterna para o calendário): título e texto da seção; **três
+cartões de texto** (Turmas fixas · Oficinas de uma tarde · Uso livre do ateliê, cada um editável no
+arquivo de conteúdo); **dois botões de WhatsApp** — "Quero saber das próximas aulas" e
+"Disponibilidade do uso livre" — e a frase "O calendário com as datas e vagas entra aqui em breve."
+Nada de dado inventado, nada de calendário vazio. Quando a Agenda entrar, os três cartões saem e o
+calendário entra no lugar; os botões continuam. Renderização no servidor, cache curto (minutos).
 
 ## 4. Técnica
 
