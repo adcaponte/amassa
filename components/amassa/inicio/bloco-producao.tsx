@@ -96,8 +96,15 @@ export async function BlocoProducao({ hoje }: BlocoProducaoProps) {
                 <div className="flex flex-wrap items-center gap-2 text-apoio text-muted-foreground">
                   {linha.etapaAtual ? (
                     <span
-                      className="rounded px-1.5 py-0.5 font-semibold text-white"
-                      style={{ backgroundColor: `var(--color-${linha.etapaAtual})` }}
+                      className="rounded px-1.5 py-0.5 font-semibold"
+                      style={{
+                        backgroundColor: `var(--color-${linha.etapaAtual})`,
+                        // "secagem" (#C9B896) é claro demais para texto branco (1,94:1, abaixo
+                        // do 4,5:1 de AA) — MESMA correção já aplicada em gantt.tsx (`corDoTexto`)
+                        // para o mesmo token, que este bloco não tinha reaproveitado (achado da
+                        // varredura de acessibilidade do plano 04.6-08).
+                        color: linha.etapaAtual === "secagem" ? "#3A331F" : "#FFFFFF",
+                      }}
                     >
                       {ROTULO_ETAPA[linha.etapaAtual]}
                     </span>

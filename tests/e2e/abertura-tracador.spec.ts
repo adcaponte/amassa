@@ -108,7 +108,7 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await expect(page.getByRole("heading", { name: "Novo item" })).toBeVisible();
   });
 
-  test("o módulo é alcançado pelo menu do usuário, e a barra inferior do celular continua com 5 itens", async ({
+  test("o módulo é alcançado pelo menu do usuário, e a barra inferior do celular continua sem este módulo", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -126,11 +126,13 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await expect(page).toHaveURL(/\/gestao\/abertura$/);
     await expect(page.getByRole("heading", { name: "Abertura do Espaço", level: 1 })).toBeVisible();
 
-    // A barra inferior do celular continua com exatamente 5 itens — nenhum sexto item foi
-    // acrescentado por este módulo temporário (`lib/navegacao/itens.ts` intocado).
+    // A barra inferior do celular tem exatamente **4** itens desde a navegação final da Fase
+    // 04.6 (GES-12: Início · Financeiro · Produção · Agenda) — caiu de 5 para 4, e nenhum item
+    // deste módulo temporário foi acrescentado a ela (`lib/navegacao/itens.ts` intocado por este
+    // módulo; achado da varredura completa do plano 04.6-08, esta asserção ainda contava 5).
     if (test.info().project.name === "celular") {
       const barraInferior = page.getByRole("navigation", { name: "Navegação principal" });
-      await expect(barraInferior.getByRole("link")).toHaveCount(5);
+      await expect(barraInferior.getByRole("link")).toHaveCount(4);
     }
   });
 

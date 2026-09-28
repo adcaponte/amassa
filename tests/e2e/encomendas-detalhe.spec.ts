@@ -322,7 +322,10 @@ test.describe("detalhe da encomenda", () => {
 
     await voltar.click();
     await expect(page).toHaveURL(/\/gestao\/encomendas$/);
-    await expect(page.getByRole("heading", { name: "Encomendas", level: 1 })).toBeVisible();
+    // "Produção" é só o rótulo novo de Encomendas desde a Fase 04.6 (D-13/GES-14) — a rota não
+    // mudou, mas `CabecalhoPagina` do índice já mostra o rótulo novo (achado da varredura
+    // completa do plano 04.6-08; esta asserção ainda apontava para o nome antigo).
+    await expect(page.getByRole("heading", { name: "Produção", level: 1 })).toBeVisible();
   });
 });
 
