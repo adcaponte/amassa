@@ -41,7 +41,7 @@ export type CabecalhoMovelProps = {
 // que `ITENS_NAVEGACAO_LATERAL` devolve normalmente. Qualquer caminho sem casamento (ex.: /login,
 // antes do redirect) cai no `undefined` e quem chama decide o retrocesso.
 function derivarTituloDaTela(caminho: string): string | undefined {
-  if (ehItemAtivo(caminho, "/cadastros")) {
+  if (ehItemAtivo(caminho, "/gestao/cadastros")) {
     return "Cadastros";
   }
 

@@ -77,7 +77,7 @@ function CaixaMarcacaoBase({ tipo, id, nome, marcado, aoMudar }: CaixaMarcacaoPr
     // Os números derivados (contagem "não chegou"/"atrasada" do cabeçalho de grupo, etiqueta de
     // tarefas abertas do item) precisam acompanhar — nunca uma tela onde a caixa muda mas o
     // cabeçalho continua com o número antigo. `marcarItemResolvido`/`marcarTarefaConcluida`
-    // (lib/abertura/acoes.ts) já chamam `revalidatePath("/abertura")` DENTRO da própria Server
+    // (lib/abertura/acoes.ts) já chamam `revalidatePath("/gestao/abertura")` DENTRO da própria Server
     // Action — o Next.js já inclui a árvore revalidada na resposta da própria ação, sem precisar
     // de um `router.refresh()` explícito depois (confirmado lendo `serverActionReducer` no
     // runtime do Next e medindo: os números derivados atualizam igual sem ele).

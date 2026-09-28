@@ -6,5 +6,5 @@
 import { redirect } from "next/navigation";
 
 export async function irParaInicio() {
-  redirect("/");
+  redirect("/gestao");
 }

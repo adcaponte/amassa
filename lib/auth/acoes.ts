@@ -22,8 +22,11 @@ export async function entrar(dadosFormulario: FormData) {
 
   if (!resultado.success) {
     // Formato inválido usa a mesma mensagem única — o formulário nunca diz qual campo está
-    // errado por um motivo relacionado a credenciais.
-    redirect(`${rotaDeGestao("/login")}?erro=credenciais`);
+    // errado por um motivo relacionado a credenciais. Literal `/gestao/login` (Fase 04.6,
+    // D-03/D-21) — não `rotaDeGestao("/login")`: o argumento reproduziria o caminho antigo por
+    // extenso, exatamente o que `tests/unit/redirecionamentos-antigos.test.ts` e a varredura
+    // mecânica desta fase existem para não deixar sobrar.
+    redirect("/gestao/login?erro=credenciais");
   }
 
   const emailNormalizado = resultado.data.email.trim().toLowerCase();
@@ -41,10 +44,10 @@ export async function entrar(dadosFormulario: FormData) {
     // Checado antes do `AuthError` genérico porque `ErroBloqueado` também é um `AuthError`.
     if (erro instanceof ErroBloqueado) {
       const minutos = Math.max(1, Math.ceil(erro.segundosParaLiberar / 60));
-      redirect(`${rotaDeGestao("/login")}?erro=bloqueado&minutos=${minutos}`);
+      redirect(`/gestao/login?erro=bloqueado&minutos=${minutos}`);
     }
     if (erro instanceof AuthError) {
-      redirect(`${rotaDeGestao("/login")}?erro=credenciais`);
+      redirect("/gestao/login?erro=credenciais");
     }
     // O próprio `signIn` bem-sucedido lança um erro de redirecionamento do Next.js — não é
     // um `AuthError`, e precisa continuar subindo para o Next.js tratar.
@@ -57,5 +60,5 @@ export async function entrar(dadosFormulario: FormData) {
 // de `entrar()` acima. Não confundir com `exigirUsuario()` (autorização de rota); esta
 // função é só saída.
 export async function sair() {
-  await signOut({ redirectTo: rotaDeGestao("/login") });
+  await signOut({ redirectTo: "/gestao/login" });
 }

@@ -68,7 +68,7 @@ export async function criarItemDeAbertura(
       })
       .returning({ id: aberturaItens.id });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     // Erro de banco (restrição violada, conexão perdida etc.) nunca engolido — registrado e
@@ -125,7 +125,7 @@ export async function criarTarefaDeAbertura(
       })
       .returning({ id: aberturaTarefas.id });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     if (ehViolacaoDeChaveEstrangeira(erro)) {
@@ -162,7 +162,7 @@ export async function marcarItemResolvido(
       .set({ resolvido: dados.resolvido })
       .where(eq(aberturaItens.id, dados.id));
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: dados.id, resolvido: dados.resolvido } };
   } catch (erro) {
     console.error("Falha ao marcar item de abertura:", erro);
@@ -187,7 +187,7 @@ export async function marcarTarefaConcluida(
       .set({ concluida: dados.concluida })
       .where(eq(aberturaTarefas.id, dados.id));
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: dados.id, concluida: dados.concluida } };
   } catch (erro) {
     console.error("Falha ao marcar tarefa de abertura:", erro);
@@ -231,7 +231,7 @@ export async function atualizarItemDeAbertura(
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     console.error("Falha ao atualizar item de abertura:", erro);
@@ -285,7 +285,7 @@ export async function atualizarTarefaDeAbertura(
       return { ok: false, erro: FRASE_TAREFA_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     if (ehViolacaoDeChaveEstrangeira(erro)) {
@@ -342,7 +342,7 @@ export async function removerItemDeAbertura(
       return contagem;
     });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { tarefasSoltas } };
   } catch (erro) {
     if (erro instanceof ItemDeAberturaNaoEncontrado) {
@@ -381,7 +381,7 @@ export async function definirDataDeInauguracao(
         set: { inauguracaoEm },
       });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { inauguracaoEm } };
   } catch (erro) {
     console.error("Falha ao gravar a data de inauguração:", erro);
@@ -412,7 +412,7 @@ export async function removerTarefaDeAbertura(
       return { ok: false, erro: FRASE_TAREFA_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     console.error("Falha ao remover tarefa de abertura:", erro);

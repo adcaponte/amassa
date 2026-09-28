@@ -32,7 +32,7 @@ export function BotaoImprimir({ contagemAtivas }: BotaoImprimirProps) {
 
   return (
     <Button asChild variant="outline" className="min-h-[44px]">
-      <Link href="/encomendas/imprimir">
+      <Link href="/gestao/encomendas/imprimir">
         <Printer aria-hidden="true" className="size-4" />
         {ROTULO_IMPRIMIR}
       </Link>

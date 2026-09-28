@@ -15,11 +15,20 @@ export type EstadoErroProps = {
   titulo: string;
   corpo: string;
   acao?: ReactNode;
+  // Fase 04.6: opcional — os dois 404 (`app/not-found.tsx`, público, e
+  // `app/gestao/(app)/not-found.tsx`, com casca) precisam de um identificador diferente no
+  // elemento raiz para `tests/e2e/rotas.spec.ts` provar qual dos dois apareceu (GES-06).
+  // Nenhum outro consumidor de `EstadoErro` precisa passar isto.
+  dataTestId?: string;
 };
 
-export function EstadoErro({ titulo, corpo, acao }: EstadoErroProps) {
+export function EstadoErro({ titulo, corpo, acao, dataTestId }: EstadoErroProps) {
   return (
-    <div role="alert" className="flex flex-1 items-center justify-center px-6 py-16">
+    <div
+      role="alert"
+      data-testid={dataTestId}
+      className="flex flex-1 items-center justify-center px-6 py-16"
+    >
       {/* max-w-prose: mesma largura máxima de leitura do EstadoVazio — o texto quebra em
           linhas, nunca exige rolagem horizontal (UI-06). */}
       <div className="flex max-w-prose flex-col items-center gap-3 text-center">

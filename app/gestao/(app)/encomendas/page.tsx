@@ -99,7 +99,7 @@ export default async function PaginaEncomendas({
               abertura do formulário é um estado endereçável da própria rota (D-03), não um
               diálogo controlado por estado de cliente. */}
           <Button asChild variant="default" className="min-h-[44px]">
-            <Link href="/encomendas?nova">{ROTULO_NOVA_ENCOMENDA}</Link>
+            <Link href="/gestao/encomendas?nova">{ROTULO_NOVA_ENCOMENDA}</Link>
           </Button>
         </div>
       </CabecalhoPagina>
@@ -118,7 +118,7 @@ export default async function PaginaEncomendas({
           titulo={FRASE_VAZIO_TITULO}
           corpo={FRASE_VAZIO_CORPO}
           rotuloBotao={ROTULO_NOVA_ENCOMENDA}
-          hrefBotao="/encomendas?nova"
+          hrefBotao="/gestao/encomendas?nova"
         />
       ) : (
         <ListaEncomendas encomendas={encomendasOrdenadas} hoje={hoje} />

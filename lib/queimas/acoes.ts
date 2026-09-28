@@ -52,7 +52,7 @@ export async function criarForno(
       })
       .returning({ id: fornos.id });
 
-    revalidatePath("/queimas");
+    revalidatePath("/gestao/queimas");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     // Erro de banco (restrição violada, conexão perdida etc.) nunca engolido — registrado e
@@ -89,7 +89,7 @@ export async function registrarQueima(
       })
       .returning({ id: queimas.id, ocorridaEm: queimas.ocorridaEm });
 
-    revalidatePath("/queimas");
+    revalidatePath("/gestao/queimas");
     return { ok: true, dados: { id: linha.id, ocorridaEm: linha.ocorridaEm.toISOString() } };
   } catch (erro) {
     if (ehViolacaoDeChaveEstrangeira(erro)) {
@@ -129,8 +129,8 @@ export async function excluirQueima(
   // exclusão confirmada do histórico (plano 04-03) acontece nesta rota e permanece nela depois
   // do sucesso, sem navegar; o "Desfazer" do toast (plano 04-01) continua em `/queimas`, coberto
   // pela primeira chamada.
-  revalidatePath("/queimas");
-  revalidatePath("/queimas/[id]", "page");
+  revalidatePath("/gestao/queimas");
+  revalidatePath("/gestao/queimas/[id]", "page");
   return { ok: true, dados: { id: linha.id } };
 }
 
@@ -167,8 +167,8 @@ export async function atualizarForno(
       return { ok: false, erro: MENSAGEM_FORNO_NAO_EXISTE };
     }
 
-    revalidatePath("/queimas");
-    revalidatePath("/queimas/[id]", "page");
+    revalidatePath("/gestao/queimas");
+    revalidatePath("/gestao/queimas/[id]", "page");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     console.error("Falha ao atualizar forno:", erro);
@@ -243,8 +243,8 @@ export async function registrarManutencao(
       return linha;
     });
 
-    revalidatePath("/queimas");
-    revalidatePath("/queimas/[id]", "page");
+    revalidatePath("/gestao/queimas");
+    revalidatePath("/gestao/queimas/[id]", "page");
     return {
       ok: true,
       dados: { id: linhaDeManutencao.id, queimasAcumuladas: linhaDeManutencao.queimasAcumuladas },
@@ -286,8 +286,8 @@ export async function desativarForno(
     };
   }
 
-  revalidatePath("/queimas");
-  revalidatePath("/queimas/[id]", "page");
+  revalidatePath("/gestao/queimas");
+  revalidatePath("/gestao/queimas/[id]", "page");
   return { ok: true, dados: { id: linha.id } };
 }
 
@@ -317,7 +317,7 @@ export async function reativarForno(
     };
   }
 
-  revalidatePath("/queimas");
-  revalidatePath("/queimas/[id]", "page");
+  revalidatePath("/gestao/queimas");
+  revalidatePath("/gestao/queimas/[id]", "page");
   return { ok: true, dados: { id: linha.id } };
 }

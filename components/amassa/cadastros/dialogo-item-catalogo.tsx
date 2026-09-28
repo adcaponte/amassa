@@ -284,7 +284,7 @@ export function DialogoItemCatalogo({
 
     // Navegação COMPLETA, nunca um hook de roteador do Next (04.4-UI-SPEC.md) — só o servidor
     // sabe a lista atualizada do catálogo.
-    window.location.assign("/cadastros?sub=catalogo");
+    window.location.assign("/gestao/cadastros?sub=catalogo");
   }
 
   const titulo = modoEdicao ? TITULO_DIALOGO_EDITAR_ITEM : TITULO_DIALOGO_NOVO_ITEM;

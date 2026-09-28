@@ -64,7 +64,7 @@ function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
   function fechar() {
     setErro(null);
     abridor.abrirRemoverItem(null);
-    irParaSemNavegar("/abertura");
+    irParaSemNavegar("/gestao/abertura");
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {
@@ -98,7 +98,7 @@ function ConfirmarRemoverItemBase({ itens }: ConfirmarRemoverItemProps) {
     // que as vezes mostrava o valor velho.
     // Sem `toast` de sucesso: ele nao sobrevive ao carregamento. A propria lista ja atualizada
     // e a confirmacao -- mais forte que um aviso que some em tres segundos.
-    window.location.assign("/abertura");
+    window.location.assign("/gestao/abertura");
   }
 
   return (

@@ -46,7 +46,7 @@ export default async function PaginaQueimas() {
     <>
       <CabecalhoPagina titulo="Queimas">
         <Button asChild variant="default" className="min-h-[44px]">
-          <Link href="/queimas?novo">{ROTULO_NOVO_FORNO}</Link>
+          <Link href="/gestao/queimas?novo">{ROTULO_NOVO_FORNO}</Link>
         </Button>
       </CabecalhoPagina>
 
@@ -68,7 +68,7 @@ export default async function PaginaQueimas() {
           titulo={FRASE_VAZIO_TITULO}
           corpo={FRASE_VAZIO_CORPO}
           rotuloBotao={ROTULO_NOVO_FORNO}
-          hrefBotao="/queimas?novo"
+          hrefBotao="/gestao/queimas?novo"
         />
       ) : (
         <ListaFornos fornos={fornosDoIndice} />

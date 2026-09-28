@@ -38,5 +38,5 @@ export function hrefDaAbaPecas(destino: DestinoDaAbaPecas = {}): string {
     parametros.set("aviso", destino.aviso);
   }
 
-  return `/financeiro?${parametros.toString()}`;
+  return `/gestao/financeiro?${parametros.toString()}`;
 }

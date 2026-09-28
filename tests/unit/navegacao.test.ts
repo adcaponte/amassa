@@ -14,18 +14,22 @@ const LISTAS = [
 ] as const;
 
 describe("ehItemAtivo", () => {
-  it("a raiz casa só por igualdade exata", () => {
-    expect(ehItemAtivo("/", "/")).toBe(true);
-    expect(ehItemAtivo("/encomendas", "/")).toBe(false);
+  it("o Início (/gestao) casa só por igualdade exata", () => {
+    expect(ehItemAtivo("/gestao", "/gestao")).toBe(true);
+    expect(ehItemAtivo("/gestao/encomendas", "/gestao")).toBe(false);
   });
 
   it("um href de módulo casa com o próprio caminho e com sub-rotas futuras", () => {
-    expect(ehItemAtivo("/encomendas", "/encomendas")).toBe(true);
-    expect(ehItemAtivo("/encomendas/42", "/encomendas")).toBe(true);
+    expect(ehItemAtivo("/gestao/encomendas", "/gestao/encomendas")).toBe(true);
+    expect(ehItemAtivo("/gestao/encomendas/42", "/gestao/encomendas")).toBe(true);
   });
 
   it("prefixo de texto solto não basta — exige a barra separadora", () => {
-    expect(ehItemAtivo("/encomendasx", "/encomendas")).toBe(false);
+    expect(ehItemAtivo("/gestao/encomendasx", "/gestao/encomendas")).toBe(false);
+  });
+
+  it("uma sub-rota da plataforma não acende o Início por ele ser prefixo de tudo", () => {
+    expect(ehItemAtivo("/gestao/financeiro", "/gestao")).toBe(false);
   });
 
   for (const { nome, lista } of LISTAS) {
@@ -37,7 +41,7 @@ describe("ehItemAtivo", () => {
 
     it(`caminho desconhecido não casa com nenhum item (lista ${nome})`, () => {
       for (const item of lista) {
-        expect(ehItemAtivo("/rota-que-nao-existe", item.href)).toBe(false);
+        expect(ehItemAtivo("/gestao/rota-que-nao-existe", item.href)).toBe(false);
       }
     });
 
@@ -63,16 +67,24 @@ describe("ITENS_NAVEGACAO_CELULAR", () => {
     ]);
   });
 
+  it("todo href vive sob /gestao", () => {
+    for (const item of ITENS_NAVEGACAO_CELULAR) {
+      expect(item.href === "/gestao" || item.href.startsWith("/gestao/")).toBe(true);
+    }
+  });
+
   it("não tem Estoque — saiu da barra do celular na Fase 04.4 (D-04)", () => {
-    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/estoque")).toBe(false);
+    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/gestao/estoque")).toBe(false);
   });
 
-  it("nenhum item leva a /orcamentos — Orçamentos é item do menu do usuário, não da navegação principal (UI-04)", () => {
-    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/orcamentos")).toBe(false);
+  it("nenhum item leva a /gestao/orcamentos — Orçamentos é item do menu do usuário, não da navegação principal (UI-04)", () => {
+    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/gestao/orcamentos")).toBe(
+      false,
+    );
   });
 
-  it("nenhum item leva a /cadastros — Cadastros é alcançado pelo Financeiro, não pela navegação principal (D-06)", () => {
-    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/cadastros")).toBe(false);
+  it("nenhum item leva a /gestao/cadastros — Cadastros é alcançado pelo Financeiro, não pela navegação principal (D-06)", () => {
+    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/gestao/cadastros")).toBe(false);
   });
 });
 
@@ -89,11 +101,19 @@ describe("ITENS_NAVEGACAO_LATERAL", () => {
     ]);
   });
 
-  it("nenhum item leva a /orcamentos — Orçamentos é item do menu do usuário, não da navegação principal (UI-04)", () => {
-    expect(ITENS_NAVEGACAO_LATERAL.some((item) => item.href === "/orcamentos")).toBe(false);
+  it("todo href vive sob /gestao", () => {
+    for (const item of ITENS_NAVEGACAO_LATERAL) {
+      expect(item.href === "/gestao" || item.href.startsWith("/gestao/")).toBe(true);
+    }
   });
 
-  it("nenhum item leva a /cadastros — Cadastros é alcançado pelo Financeiro, não pela navegação principal (D-06)", () => {
-    expect(ITENS_NAVEGACAO_LATERAL.some((item) => item.href === "/cadastros")).toBe(false);
+  it("nenhum item leva a /gestao/orcamentos — Orçamentos é item do menu do usuário, não da navegação principal (UI-04)", () => {
+    expect(ITENS_NAVEGACAO_LATERAL.some((item) => item.href === "/gestao/orcamentos")).toBe(
+      false,
+    );
+  });
+
+  it("nenhum item leva a /gestao/cadastros — Cadastros é alcançado pelo Financeiro, não pela navegação principal (D-06)", () => {
+    expect(ITENS_NAVEGACAO_LATERAL.some((item) => item.href === "/gestao/cadastros")).toBe(false);
   });
 });

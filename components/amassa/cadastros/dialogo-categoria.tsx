@@ -117,7 +117,7 @@ export function DialogoCategoria({ aberto, categoriaParaEditar, onFechar }: Dial
 
     // Navegação COMPLETA, nunca um hook de roteador do Next (04.4-UI-SPEC.md): só o servidor
     // sabe a lista atualizada de categorias.
-    window.location.assign("/cadastros?sub=categorias");
+    window.location.assign("/gestao/cadastros?sub=categorias");
   }
 
   const titulo = modoEdicao ? TITULO_DIALOGO_EDITAR_CATEGORIA : TITULO_DIALOGO_NOVA_CATEGORIA;

@@ -21,7 +21,7 @@ export function BotaoVazioAbertura({
   rotulo: string;
 }) {
   const abridor = useAbridorAbertura();
-  const href = tipo === "item" ? "/abertura?item=novo" : "/abertura?aba=tarefas&tarefa=nova";
+  const href = tipo === "item" ? "/gestao/abertura?item=novo" : "/gestao/abertura?aba=tarefas&tarefa=nova";
 
   return (
     <Button asChild variant="default" className="min-h-[44px]">

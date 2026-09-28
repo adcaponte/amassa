@@ -53,7 +53,7 @@ export function FormularioTaxa({ pontosBaseAtuais }: FormularioTaxaProps) {
       return;
     }
 
-    window.location.assign("/cadastros?sub=taxas");
+    window.location.assign("/gestao/cadastros?sub=taxas");
   }
 
   return (

@@ -66,7 +66,7 @@ export function ConfirmarExcluir({
           })`;
     toast.success(mensagem);
     aoMudarAberto(false);
-    router.push("/encomendas");
+    router.push("/gestao/encomendas");
   }
 
   const textoCorpo =

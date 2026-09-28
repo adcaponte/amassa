@@ -110,7 +110,7 @@ export async function definirTaxaDoCartao(
         set: { taxaCartaoPontosBase: pontosBase },
       });
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { pontosBase } };
   } catch (erro) {
     console.error("Falha ao gravar a taxa do cartão:", erro);
@@ -140,7 +140,7 @@ export async function criarCategoria(
       .values({ nome: dados.nome, grupo: dados.grupo, area: dados.area })
       .returning({ id: categorias.id });
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     if (ehViolacaoDeUnicidade(erro)) {
@@ -225,7 +225,7 @@ export async function editarCategoria(
         .where(eq(categorias.id, dados.id));
     });
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id: dados.id } };
   } catch (erro) {
     if (erro instanceof CategoriaNaoEncontrada) {
@@ -272,7 +272,7 @@ export async function definirCategoriaAtiva(
       return { ok: false, erro: FRASE_CATEGORIA_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id, ativa } };
   } catch (erro) {
     console.error("Falha ao (des)ativar categoria:", erro);
@@ -391,8 +391,8 @@ export async function criarItem(entradaBruta: unknown): Promise<ResultadoDeAcao<
       return linha.id;
     });
 
-    revalidatePath("/cadastros");
-    revalidatePath("/financeiro");
+    revalidatePath("/gestao/cadastros");
+    revalidatePath("/gestao/financeiro");
     return { ok: true, dados: { id: idDoItem } };
   } catch (erro) {
     console.error("Falha ao gravar item do catálogo:", erro);
@@ -542,8 +542,8 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
       }
     });
 
-    revalidatePath("/cadastros");
-    revalidatePath("/financeiro");
+    revalidatePath("/gestao/cadastros");
+    revalidatePath("/gestao/financeiro");
     return { ok: true, dados: { id: dados.id } };
   } catch (erro) {
     if (erro instanceof ItemNaoEncontrado) {
@@ -610,7 +610,7 @@ export async function criarContaFixa(entradaBruta: unknown): Promise<ResultadoDe
       })
       .returning({ id: contasFixas.id });
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     console.error("Falha ao gravar conta fixa:", erro);
@@ -644,7 +644,7 @@ export async function atualizarValorDaContaFixa(
       return { ok: false, erro: FRASE_CONTA_FIXA_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id, valorCentavos: valorTexto } };
   } catch (erro) {
     console.error("Falha ao atualizar o valor da conta fixa:", erro);
@@ -678,7 +678,7 @@ export async function definirContaFixaAtiva(
       return { ok: false, erro: FRASE_CONTA_FIXA_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id, ativa } };
   } catch (erro) {
     console.error("Falha ao (des)ativar conta fixa:", erro);
@@ -771,8 +771,8 @@ export async function gerarContasDoMes(
       return total;
     });
 
-    revalidatePath("/financeiro");
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/financeiro");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { criadas, mes } };
   } catch (erro) {
     console.error("Falha ao gerar as contas do mês:", erro);

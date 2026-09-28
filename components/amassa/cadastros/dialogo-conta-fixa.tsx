@@ -92,7 +92,7 @@ export function DialogoContaFixa({ aberto, categorias, onFechar }: DialogoContaF
 
     // Navegação COMPLETA, nunca um hook de roteador do Next (04.4-UI-SPEC.md): só o servidor
     // sabe a lista atualizada de contas fixas.
-    window.location.assign("/cadastros?sub=fixas");
+    window.location.assign("/gestao/cadastros?sub=fixas");
   }
 
   return (

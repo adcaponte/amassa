@@ -63,7 +63,7 @@ export default async function Painel() {
                   )}
                 </p>
                 <Link
-                  href="/queimas"
+                  href="/gestao/queimas"
                   className="text-apoio text-acento focus-visible:ring-ring inline-flex min-h-[44px] w-fit items-center rounded-md font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
                 >
                   Ver fornos

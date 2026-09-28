@@ -43,10 +43,10 @@ function BotaoAdicionarAberturaConteudoBase({ aba }: { aba: string | null }) {
           comentario do abridor em contexto-navegacao.tsx. Sem o segundo caminho, um toque
           cuja navegacao nao confirma nao abre nada. */}
       <Link
-        href={abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo"}
+        href={abaTarefas ? "/gestao/abertura?aba=tarefas&tarefa=nova" : "/gestao/abertura?item=novo"}
         onClick={(evento) => {
           evento.preventDefault();
-          irParaSemNavegar(abaTarefas ? "/abertura?aba=tarefas&tarefa=nova" : "/abertura?item=novo");
+          irParaSemNavegar(abaTarefas ? "/gestao/abertura?aba=tarefas&tarefa=nova" : "/gestao/abertura?item=novo");
           if (abaTarefas) abridor.abrirTarefa("nova");
           else abridor.abrirItem("novo");
         }}

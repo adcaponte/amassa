@@ -33,7 +33,7 @@ export default function ErroDetalheDaEncomenda({
             Tentar de novo
           </Button>
           <Button asChild variant="outline">
-            <Link href="/encomendas">Voltar para Encomendas</Link>
+            <Link href="/gestao/encomendas">Voltar para Encomendas</Link>
           </Button>
         </div>
       }

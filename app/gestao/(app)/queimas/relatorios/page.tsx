@@ -56,7 +56,7 @@ export default async function PaginaRelatoriosDeQueimas() {
           titulo={FRASE_RELATORIOS_VAZIO_TITULO}
           corpo={FRASE_RELATORIOS_VAZIO_CORPO}
           rotuloBotao={ROTULO_VER_FORNOS}
-          hrefBotao="/queimas"
+          hrefBotao="/gestao/queimas"
         />
       ) : (
         // Estatísticas primeiro, gráficos depois — D-07: é a ordem que o celular exige, e no

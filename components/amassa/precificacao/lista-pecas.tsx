@@ -45,7 +45,7 @@ export type ListaPecasProps = {
   parametros: ParametrosVigentesResultado;
 };
 
-const HREF_NOVA_PECA = "/financeiro?aba=pecas&peca=novo";
+const HREF_NOVA_PECA = "/gestao/financeiro?aba=pecas&peca=novo";
 
 // Mesma paleta de `components/amassa/precificacao/selo-de-preco.tsx::CLASSE_DO_FAROL`,
 // redeclarada aqui (D-15 do projeto: cada módulo tem sua própria cópia) — o selo da LISTA é um
@@ -159,12 +159,12 @@ export function ListaPecas({ fichas, mostrarExclusivas, parametros }: ListaPecas
         <div className="flex flex-col items-start gap-2">
           <p className="text-corpo text-foreground">{FRASE_ERRO_TITULO}</p>
           <p className="text-apoio text-muted-foreground">{FRASE_ERRO_CORPO}</p>
-          <a
-            href="/financeiro?aba=pecas"
+          <Link
+            href="/gestao/financeiro?aba=pecas"
             className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
           >
             {ROTULO_TENTAR_DE_NOVO}
-          </a>
+          </Link>
         </div>
       </div>
     );

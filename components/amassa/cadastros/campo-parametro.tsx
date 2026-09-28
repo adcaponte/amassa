@@ -75,7 +75,7 @@ export function CampoParametro({
       return;
     }
 
-    window.location.assign("/cadastros?sub=parametros");
+    window.location.assign("/gestao/cadastros?sub=parametros");
   }
 
   async function alternarSelo() {
@@ -92,7 +92,7 @@ export function CampoParametro({
       return;
     }
 
-    window.location.assign("/cadastros?sub=parametros");
+    window.location.assign("/gestao/cadastros?sub=parametros");
   }
 
   return (

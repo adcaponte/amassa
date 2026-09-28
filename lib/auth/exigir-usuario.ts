@@ -53,10 +53,10 @@ export function avaliarAutorizacao(registro: LinhaDeUsuario | undefined): Result
 
 // A casca: lê a sessão pelo Auth.js, busca a linha atual de `usuarios` pelo e-mail do
 // token (o mesmo índice funcional `lower(email)` que o login usa), passa pela função pura
-// acima e, na recusa, redireciona para `/login` com um marcador de sessão encerrada — a
-// mesma frase serve para sessão vencida e para conta desativada (T-02a-21): dizer "sua
-// conta foi desativada" para quem só ficou fora 31 dias seria confuso, e para quem está
-// sondando seria informação de graça.
+// acima e, na recusa, redireciona para `/gestao/login` (Fase 04.6, D-03/D-21) com um marcador
+// de sessão encerrada — a mesma frase serve para sessão vencida e para conta desativada
+// (T-02a-21): dizer "sua conta foi desativada" para quem só ficou fora 31 dias seria confuso, e
+// para quem está sondando seria informação de graça.
 //
 // `@/lib/auth/auth` é importado de forma DINÂMICA aqui dentro, não no topo do arquivo:
 // `lib/auth/auth.ts` importa `next-auth`, que por sua vez alcança `next/server` de um jeito
@@ -82,7 +82,7 @@ export async function exigirUsuario(): Promise<UsuarioAutorizado> {
 
   const resultado = avaliarAutorizacao(registro);
   if (!resultado.autorizado) {
-    redirect("/login?sessao=encerrada");
+    redirect("/gestao/login?sessao=encerrada");
   }
 
   return resultado.usuario;

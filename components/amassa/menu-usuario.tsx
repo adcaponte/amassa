@@ -49,7 +49,7 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
         </SheetHeader>
         <div className="flex flex-col gap-1 px-4 pb-4">
           <Link
-            href="/abertura"
+            href="/gestao/abertura"
             onClick={aoNavegar}
             className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
           >
@@ -57,7 +57,7 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
             Abertura do Espaço
           </Link>
           <Link
-            href="/financeiro?aba=orcamentos"
+            href="/gestao/financeiro?aba=orcamentos"
             onClick={aoNavegar}
             className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
           >
@@ -65,7 +65,7 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
             Orçamentos
           </Link>
           <Link
-            href="/conta/senha"
+            href="/gestao/conta/senha"
             onClick={aoNavegar}
             className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-corpo text-foreground hover:bg-accent"
           >
@@ -113,19 +113,19 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/abertura" className="flex items-center gap-1.5">
+          <Link href="/gestao/abertura" className="flex items-center gap-1.5">
             <Store aria-hidden="true" />
             Abertura do Espaço
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/financeiro?aba=orcamentos" className="flex items-center gap-1.5">
+          <Link href="/gestao/financeiro?aba=orcamentos" className="flex items-center gap-1.5">
             <Calculator aria-hidden="true" />
             Orçamentos
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/conta/senha" className="flex items-center gap-1.5">
+          <Link href="/gestao/conta/senha" className="flex items-center gap-1.5">
             <KeyRound aria-hidden="true" />
             Trocar senha
           </Link>

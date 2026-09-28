@@ -95,7 +95,7 @@ export function DialogoCalcularHora({ aberto, onFechar }: DialogoCalcularHoraPro
 
     // Navegação COMPLETA, nunca a atualização client-side do roteador — a linha nova do
     // parâmetro `trabalho_hora` só existe depois desta ida ao servidor.
-    window.location.assign("/cadastros?sub=parametros&aviso=hora-atualizada");
+    window.location.assign("/gestao/cadastros?sub=parametros&aviso=hora-atualizada");
   }
 
   return (

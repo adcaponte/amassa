@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { somarDias } from "@/lib/financeiro/calendario";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import {
@@ -408,12 +410,12 @@ export async function EditorOrcamento({
           data-testid="orcamento-cabecalho"
           className="flex flex-wrap items-center justify-between gap-3"
         >
-          <a
-            href="/financeiro?aba=orcamentos"
+          <Link
+            href="/gestao/financeiro?aba=orcamentos"
             className="text-corpo hover:bg-muted flex min-h-[44px] items-center rounded-md px-3"
           >
             {ROTULO_TODOS}
-          </a>
+          </Link>
           <div className="flex items-center gap-2">
             <span data-testid="orcamento-numero" className="text-corpo text-foreground">
               {`nº ${numeroDeOrcamento(orcamento.ano, orcamento.sequencial)}${rotuloDeRevisao(orcamento.revisao)}`}

@@ -159,7 +159,7 @@ export function FormularioEncomenda({ encomendaParaEditar = null }: FormularioEn
 
   function fechar() {
     setErro(null);
-    router.push("/encomendas");
+    router.push("/gestao/encomendas");
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {
@@ -198,7 +198,7 @@ export function FormularioEncomenda({ encomendaParaEditar = null }: FormularioEn
     }
 
     toast.success(modoEdicao ? "Encomenda salva." : "Encomenda criada.");
-    router.push("/encomendas");
+    router.push("/gestao/encomendas");
     router.refresh();
   }
 

@@ -71,7 +71,7 @@ export function ConfirmarRemoverCategoria({
     // de criação, via `resolverCategoriaAtiva` em `page.tsx`) ou se não sobrou nenhuma (o
     // comparador volta ao estado vazio de zero categorias). Sem `toast` de sucesso: ele não
     // sobrevive à navegação completa — a própria lista já atualizada é a confirmação.
-    window.location.assign("/abertura?aba=cotacoes");
+    window.location.assign("/gestao/abertura?aba=cotacoes");
   }
 
   return (

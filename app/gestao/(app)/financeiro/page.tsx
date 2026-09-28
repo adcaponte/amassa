@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { abaDaUrl, formaDaUrl, mesDaUrl } from "@/lib/financeiro/abas";
 import { avisoDaUrl } from "@/lib/financeiro/avisos";
@@ -401,12 +403,12 @@ export default async function PaginaFinanceiro({
               <p className="text-corpo text-foreground">
                 {!orcamentoParaEditar ? FRASE_ORCAMENTO_NAO_ENCONTRADO : FRASE_ERRO_CARREGAR_ORCAMENTO}
               </p>
-              <a
-                href="/financeiro?aba=orcamentos"
+              <Link
+                href="/gestao/financeiro?aba=orcamentos"
                 className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
               >
                 {ROTULO_TODOS}
-              </a>
+              </Link>
             </div>
           )
         ) : (

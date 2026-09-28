@@ -272,8 +272,8 @@ export async function criarFicha(
       return ficha.id;
     });
 
-    revalidatePath("/financeiro");
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/financeiro");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id: idDaFicha } };
   } catch (erro) {
     if (erro instanceof CategoriaDeVendaInvalida) {
@@ -391,8 +391,8 @@ export async function editarFicha(
         .where(eq(fichasPrecificacao.id, dados.id));
     });
 
-    revalidatePath("/financeiro");
-    revalidatePath("/cadastros");
+    revalidatePath("/gestao/financeiro");
+    revalidatePath("/gestao/cadastros");
     return { ok: true, dados: { id: dados.id } };
   } catch (erro) {
     if (erro instanceof CategoriaDeVendaInvalida) {
@@ -454,7 +454,7 @@ export async function apagarFicha(entradaBruta: unknown): Promise<ResultadoDeAca
       await tx.delete(fichasPrecificacao).where(eq(fichasPrecificacao.id, id));
     });
 
-    revalidatePath("/financeiro");
+    revalidatePath("/gestao/financeiro");
     return { ok: true, dados: { id } };
   } catch (erro) {
     if (erro instanceof FichaNaoEncontrada) {

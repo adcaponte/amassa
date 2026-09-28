@@ -17,7 +17,7 @@ import { ROTULO_FORNOS, ROTULO_RELATORIOS } from "@/lib/queimas/textos";
 // botão de imprimir da Fase 3.
 type ItemDoSeletor = {
   rotulo: string;
-  href: "/queimas" | "/queimas/relatorios";
+  href: "/gestao/queimas" | "/gestao/queimas/relatorios";
   testId: string;
   ativo: (pathname: string) => boolean;
 };
@@ -25,15 +25,15 @@ type ItemDoSeletor = {
 const ITENS: readonly ItemDoSeletor[] = [
   {
     rotulo: ROTULO_FORNOS,
-    href: "/queimas",
+    href: "/gestao/queimas",
     testId: "fornos",
-    ativo: (pathname) => !pathname.startsWith("/queimas/relatorios"),
+    ativo: (pathname) => !pathname.startsWith("/gestao/queimas/relatorios"),
   },
   {
     rotulo: ROTULO_RELATORIOS,
-    href: "/queimas/relatorios",
+    href: "/gestao/queimas/relatorios",
     testId: "relatorios",
-    ativo: (pathname) => pathname.startsWith("/queimas/relatorios"),
+    ativo: (pathname) => pathname.startsWith("/gestao/queimas/relatorios"),
   },
 ];
 

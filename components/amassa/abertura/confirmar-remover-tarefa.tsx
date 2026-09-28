@@ -50,7 +50,7 @@ function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
   function fechar() {
     setErro(null);
     abridor.abrirRemoverTarefa(null);
-    irParaSemNavegar("/abertura?aba=tarefas");
+    irParaSemNavegar("/gestao/abertura?aba=tarefas");
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {
@@ -80,7 +80,7 @@ function ConfirmarRemoverTarefaBase({ tarefas }: ConfirmarRemoverTarefaProps) {
     // que as vezes mostrava o valor velho.
     // Sem `toast` de sucesso: ele nao sobrevive ao carregamento. A propria lista ja atualizada
     // e a confirmacao -- mais forte que um aviso que some em tres segundos.
-    window.location.assign("/abertura?aba=tarefas");
+    window.location.assign("/gestao/abertura?aba=tarefas");
   }
 
   return (

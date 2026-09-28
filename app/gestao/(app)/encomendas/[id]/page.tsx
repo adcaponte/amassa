@@ -54,7 +54,7 @@ export default async function PaginaDetalheEncomenda({
     <>
       <CabecalhoPagina
         titulo={encomenda.nome}
-        voltar={{ href: "/encomendas", rotulo: "Voltar para as encomendas" }}
+        voltar={{ href: "/gestao/encomendas", rotulo: "Voltar para as encomendas" }}
       >
         <AcoesEncomenda
           id={encomenda.id}

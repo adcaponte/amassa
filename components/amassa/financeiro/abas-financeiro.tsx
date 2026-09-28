@@ -38,14 +38,14 @@ const PRIMEIRA_FILEIRA: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
   { valor: "mes", rotulo: ROTULO_ABA_MES },
 ];
 
-// "Cadastros" fecha a segunda fileira (não entra aqui — é um `<Link href="/cadastros">` de
+// "Cadastros" fecha a segunda fileira (não entra aqui — é um `<Link href="/gestao/cadastros">` de
 // verdade, montado abaixo, sempre a última pílula da barra).
 const SEGUNDA_FILEIRA: readonly { valor: AbaFinanceiro; rotulo: string }[] = [
   { valor: "orcamentos", rotulo: ROTULO_ABA_ORCAMENTOS },
   { valor: "pecas", rotulo: ROTULO_ABA_PECAS },
 ];
 
-// "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um `?aba=` — Cadastros é
+// "Cadastros" (D-06): é um `<Link href="/gestao/cadastros">` de VERDADE, não um `?aba=` — Cadastros é
 // rota própria. Fica selecionada quando `pathname` começa com `/cadastros`, nunca por `abaAtual`
 // (que só existe dentro de `/financeiro`). Fecha a segunda fileira, sétima e última pílula da
 // barra desde a Fase 04.5.
@@ -69,7 +69,7 @@ export type AbasFinanceiroProps = {
 // (components/amassa/abertura/abas-abertura.tsx).
 export function AbasFinanceiro({ abaAtual }: AbasFinanceiroProps) {
   const pathname = usePathname();
-  const emCadastros = pathname.startsWith("/cadastros");
+  const emCadastros = pathname.startsWith("/gestao/cadastros");
   return <AbasFinanceiroConteudo abaAtual={abaAtual} emCadastros={emCadastros} />;
 }
 
@@ -147,12 +147,12 @@ function AbasFinanceiroConteudoBase({ abaAtual, emCadastros }: PropsDoConteudo) 
         />
       ))}
 
-      {/* "Cadastros" (D-06): é um `<Link href="/cadastros">` de VERDADE, não um `?aba=` —
+      {/* "Cadastros" (D-06): é um `<Link href="/gestao/cadastros">` de VERDADE, não um `?aba=` —
           Cadastros é rota própria. Fica selecionada quando `pathname` começa com `/cadastros`,
           nunca por `abaAtual` (que só existe dentro de `/financeiro`). Só mudou de fileira nesta
           fase — continua a última pílula da barra. */}
       <Pilula
-        href="/cadastros"
+        href="/gestao/cadastros"
         selecionada={emCadastros}
         testId="financeiro-aba-cadastros"
         rotulo={ROTULO_CADASTROS}

@@ -493,7 +493,7 @@ export async function definirAtalhoDoItem(
     .set(tipo === "venda" ? { atalhoVenda: marcado } : { atalhoCompra: marcado })
     .where(eq(itensCatalogo.id, itemId));
 
-  revalidatePath("/financeiro");
+  revalidatePath("/gestao/financeiro");
   return { ok: true, dados: { marcado } };
 }
 
@@ -539,7 +539,7 @@ export async function cancelarDocumento(
       return documento.numero;
     });
 
-    revalidatePath("/financeiro");
+    revalidatePath("/gestao/financeiro");
     return { ok: true, dados: { documentoId, numero } };
   } catch (erro) {
     if (erro instanceof DocumentoNaoEncontrado) {
@@ -703,7 +703,7 @@ export async function registrarPagamento(
         .where(eq(parcelas.id, parcela.id));
     });
 
-    revalidatePath("/financeiro");
+    revalidatePath("/gestao/financeiro");
     return { ok: true, dados: { parcelaId: dados.parcelaId } };
   } catch (erro) {
     if (erro instanceof ParcelaNaoEncontrada) {
@@ -836,7 +836,7 @@ export async function desfazerPagamento(
         .where(eq(parcelas.id, parcela.id));
     });
 
-    revalidatePath("/financeiro");
+    revalidatePath("/gestao/financeiro");
     return { ok: true, dados: { parcelaId } };
   } catch (erro) {
     if (erro instanceof ParcelaNaoEncontrada) {

@@ -57,7 +57,7 @@ export async function criarCategoriaDeCotacao(
       .values({ nome: dados.nome })
       .returning({ id: cotacaoCategorias.id });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     console.error("Falha ao gravar categoria de cotação:", erro);
@@ -98,7 +98,7 @@ export async function criarCotacao(
       })
       .returning({ id: cotacoes.id, categoriaId: cotacoes.categoriaId });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id, categoriaId: linha.categoriaId } };
   } catch (erro) {
     if (ehViolacaoDeChaveEstrangeira(erro)) {
@@ -154,7 +154,7 @@ export async function atualizarCotacao(
       return { ok: false, erro: FRASE_COTACAO_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id, categoriaId: linha.categoriaId } };
   } catch (erro) {
     console.error("Falha ao atualizar cotação:", erro);
@@ -187,7 +187,7 @@ export async function renomearCategoriaDeCotacao(
       return { ok: false, erro: FRASE_CATEGORIA_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { id: linha.id } };
   } catch (erro) {
     console.error("Falha ao renomear categoria de cotação:", erro);
@@ -237,7 +237,7 @@ export async function removerCategoriaDeCotacao(
       return contagem;
     });
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { cotacoesRemovidas } };
   } catch (erro) {
     if (erro instanceof CategoriaDeCotacaoNaoEncontrada) {
@@ -276,7 +276,7 @@ export async function removerCotacao(
       return { ok: false, erro: FRASE_COTACAO_NAO_EXISTE_MAIS };
     }
 
-    revalidatePath("/abertura");
+    revalidatePath("/gestao/abertura");
     return { ok: true, dados: { categoriaId: linha.categoriaId } };
   } catch (erro) {
     console.error("Falha ao remover cotação:", erro);

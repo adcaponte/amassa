@@ -2,6 +2,11 @@
 // ou script deve montar um caminho de foto por conta própria (T-04.5-13): toda travessia passa
 // por `caminhoDaFoto()`.
 //
+// Fase 04.6: a rota que serve o byte se mudou de `/api/orcamentos/fotos/[id]` para
+// `/gestao/api/orcamentos/fotos/[id]` (T-04.6-04) — só a URL. O caminho no DISCO, decidido por
+// este módulo, não mudou: continua o mesmo bind mount de `docker/compose.yml` (04.5-03, D-30).
+// Mexer neste arquivo por causa da mudança de rota quebraria o backup das fotos.
+//
 // Uma exceção deliberada à regra "módulo puro, sem leitura do ambiente" de `lib/`
 // (01-ARQUITETURA.md §3): este arquivo lê `process.env.CAMINHO_FOTOS`, porque decidir ONDE a
 // foto mora É o trabalho dele. Nenhuma regra de NEGÓCIO depende do relógio ou de I/O aqui —

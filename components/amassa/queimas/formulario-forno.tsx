@@ -97,7 +97,7 @@ export function FormularioForno({ fornoParaEditar = null }: FormularioFornoProps
 
   function fechar() {
     setErro(null);
-    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/queimas");
+    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/gestao/queimas");
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {
@@ -124,7 +124,7 @@ export function FormularioForno({ fornoParaEditar = null }: FormularioFornoProps
     }
 
     toast.success(modoEdicao ? "Forno salvo." : "Forno cadastrado.");
-    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/queimas");
+    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/gestao/queimas");
     router.refresh();
   }
 

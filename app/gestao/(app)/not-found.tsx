@@ -14,6 +14,7 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 export default function NaoEncontradoApp() {
   return (
     <EstadoErro
+      dataTestId="quatro-cento-e-quatro-gestao"
       titulo="Esta página não existe."
       corpo="Verifique o endereço ou volte para o painel."
       acao={

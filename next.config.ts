@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { REDIRECIONAMENTOS_ANTIGOS } from "./lib/rotas/redirecionamentos-antigos";
+
 const nextConfig: NextConfig = {
   // Saída mínima (sem devDependencies) usada pela imagem de produção do serviço `app`.
   output: "standalone",
@@ -12,6 +14,12 @@ const nextConfig: NextConfig = {
       // `TAMANHO_MAXIMO_BYTES`).
       bodySizeLimit: "20mb",
     },
+  },
+  // Fase 04.6 (D-01/D-21): os 13 endereços antigos da plataforma, de quando ela respondia na
+  // raiz. A lista mora em `lib/rotas/redirecionamentos-antigos.ts` — um módulo puro — para
+  // poder ser testada sem subir o Next inteiro; este arquivo só a espalha.
+  async redirects() {
+    return [...REDIRECIONAMENTOS_ANTIGOS];
   },
 };
 

@@ -20,9 +20,14 @@ const archivoNarrow = Archivo_Narrow({
   display: "swap",
 });
 
+// Fase 04.6 (D-03): a partir desta fase "/" é o site público institucional — este metadata
+// deixou de descrever a plataforma interna e passa a ser o que qualquer visitante da internet
+// lê. O SEO completo (Open Graph, sitemap) é do plano 04 desta fase; aqui só se fecha o
+// vazamento de informação que a versão antiga tinha (T-04.6-02: "Plataforma de gestão" contava
+// a existência de um sistema interno para qualquer motor de busca).
 export const metadata: Metadata = {
-  title: "AMASSA",
-  description: "Plataforma de gestão do ateliê AMASSA.",
+  title: "AMASSA CERRADO",
+  description: "Cerâmica artesanal de alta temperatura em Pirenópolis.",
 };
 
 export default function RootLayout({

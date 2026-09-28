@@ -148,7 +148,7 @@ function FormularioItemBase({ hoje, itemParaEditar: itemDoServidor }: Formulario
   function fechar() {
     setErro(null);
     abridor.abrirItem(null);
-    irParaSemNavegar("/abertura");
+    irParaSemNavegar("/gestao/abertura");
   }
 
   const formaPagamento = form.watch("formaPagamento");
@@ -191,7 +191,7 @@ function FormularioItemBase({ hoje, itemParaEditar: itemDoServidor }: Formulario
     // que as vezes mostrava o valor velho.
     // Sem `toast` de sucesso: ele nao sobrevive ao carregamento. A propria lista ja atualizada
     // e a confirmacao -- mais forte que um aviso que some em tres segundos.
-    window.location.assign("/abertura");
+    window.location.assign("/gestao/abertura");
   }
 
   const { register, control, formState } = form;

@@ -92,7 +92,7 @@ export async function criarEncomenda(
     return { ok: false, erro: "Não deu para salvar. Verifique a internet e tente de novo." };
   }
 
-  revalidatePath("/encomendas");
+  revalidatePath("/gestao/encomendas");
   return { ok: true, dados: { id: idDaEncomenda } };
 }
 
@@ -216,8 +216,8 @@ export async function atualizarEncomenda(
     throw erro;
   }
 
-  revalidatePath("/encomendas");
-  revalidatePath("/encomendas/[id]", "page");
+  revalidatePath("/gestao/encomendas");
+  revalidatePath("/gestao/encomendas/[id]", "page");
   return { ok: true, dados: { id: dados.id } };
 }
 
@@ -248,9 +248,9 @@ export async function cancelarEncomenda(
   // estado desta encomenda no veredito da aprovação (04.5-14). Sem revalidar aqui, aquela
   // tela continuaria servindo a árvore antiga — verde, dizendo "ordem aberta na Produção" —
   // mesmo com a consulta já corrigida.
-  revalidatePath("/encomendas");
-  revalidatePath("/financeiro");
-  revalidatePath("/encomendas/[id]", "page");
+  revalidatePath("/gestao/encomendas");
+  revalidatePath("/gestao/financeiro");
+  revalidatePath("/gestao/encomendas/[id]", "page");
   return { ok: true, dados: { nome: linha.nome } };
 }
 
@@ -295,8 +295,8 @@ export async function concluirEncomenda(
 
   const cronograma = calcularCronograma(linha.dataInicio, etapasDaEncomenda);
 
-  revalidatePath("/encomendas");
-  revalidatePath("/encomendas/[id]", "page");
+  revalidatePath("/gestao/encomendas");
+  revalidatePath("/gestao/encomendas/[id]", "page");
   return { ok: true, dados: { nome: linha.nome, dataDeConclusao: cronograma.dataDeConclusao } };
 }
 
@@ -339,8 +339,8 @@ export async function excluirEncomenda(
       return { nome: linha.nome, itensApagados: itensDaEncomenda.length };
     });
 
-    revalidatePath("/encomendas");
-    revalidatePath("/encomendas/[id]", "page");
+    revalidatePath("/gestao/encomendas");
+    revalidatePath("/gestao/encomendas/[id]", "page");
     return { ok: true, dados: dadosDeExclusao };
   } catch (erro) {
     if (erro instanceof EncomendaNaoEncontrada) {
@@ -451,8 +451,8 @@ export async function ajustarEtapaEncomenda(entradaBruta: unknown): Promise<
       };
     });
 
-    revalidatePath("/encomendas");
-    revalidatePath("/encomendas/[id]", "page");
+    revalidatePath("/gestao/encomendas");
+    revalidatePath("/gestao/encomendas/[id]", "page");
     return { ok: true, dados: resposta };
   } catch (erro) {
     if (erro instanceof EncomendaNaoEncontrada) {
@@ -540,7 +540,7 @@ export async function reordenarItemEncomenda(
     throw erro;
   }
 
-  revalidatePath("/encomendas");
-  revalidatePath("/encomendas/[id]", "page");
+  revalidatePath("/gestao/encomendas");
+  revalidatePath("/gestao/encomendas/[id]", "page");
   return { ok: true, dados: null };
 }

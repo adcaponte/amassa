@@ -55,7 +55,7 @@ export function ListaParametros({ resultado }: ListaParametrosProps) {
         corpo={FRASE_ERRO_CORPO}
         acao={
           <Button asChild variant="default" className="min-h-[44px]">
-            <Link href="/cadastros?sub=parametros">{ROTULO_TENTAR_DE_NOVO}</Link>
+            <Link href="/gestao/cadastros?sub=parametros">{ROTULO_TENTAR_DE_NOVO}</Link>
           </Button>
         }
       />
