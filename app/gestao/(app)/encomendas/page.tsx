@@ -92,7 +92,9 @@ export default async function PaginaEncomendas({
 
   return (
     <>
-      <CabecalhoPagina titulo="Encomendas">
+      {/* "Produção" é só o rótulo novo de Encomendas nesta fase (D-13/GES-14) — a rota, o
+          arquivo, a função e o import continuam "encomendas"; só o texto que a pessoa lê mudou. */}
+      <CabecalhoPagina titulo="Produção">
         <div className="flex flex-wrap items-center gap-3">
           <BotaoImprimir contagemAtivas={contagemAtivas} />
           {/* Único botão terracota da tela (03-UI-SPEC.md §Color) — Link, não Button, porque a

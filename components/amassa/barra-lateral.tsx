@@ -3,7 +3,16 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Archive, CalendarDays, Flame, Home, Package, Wallet, type LucideIcon } from "lucide-react";
+import {
+  Archive,
+  CalendarDays,
+  Flame,
+  Home,
+  Package,
+  SlidersHorizontal,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ehItemAtivo, ITENS_NAVEGACAO_LATERAL, type ChaveDeIcone } from "@/lib/navegacao/itens";
@@ -21,6 +30,9 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 
+// Mesmo mapa (e mesma exigência de `Record<ChaveDeIcone, LucideIcon>` completo) que
+// `barra-inferior.tsx` — a chave nova entra nos DOIS arquivos no mesmo commit, ou o TypeScript
+// recusa a build.
 const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   inicio: Home,
   encomendas: Package,
@@ -28,14 +40,15 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   agenda: CalendarDays,
   queimas: Flame,
   estoque: Archive,
+  cadastros: SlidersHorizontal,
 };
 
 // Barra lateral do desktop (>= 768px): fixa em 240px, nunca recolhe (D-12 — decisão
 // consciente que simplifica a §5 da fonte, que sugeria recolhível). `collapsible="none"`
 // desliga o comportamento padrão de colapso/cookie do componente Sidebar do shadcn; a
 // largura vem da própria variável --sidebar-width que o SidebarProvider expõe. Itera
-// ITENS_NAVEGACAO_LATERAL (6 itens, D-05: ganhou o Financeiro sem perder o Estoque) — diverge
-// de ITENS_NAVEGACAO_CELULAR (5 itens) desde a Fase 04.4.
+// ITENS_NAVEGACAO_LATERAL (7 itens, D-11 da Fase 04.6: Início mais TODOS os módulos, Cadastros
+// incluído pela primeira vez) — diverge de ITENS_NAVEGACAO_CELULAR (4 itens) de propósito.
 export type BarraLateralProps = {
   nome: string;
   className?: string;

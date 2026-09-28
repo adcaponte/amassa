@@ -31,15 +31,19 @@ export type CabecalhoMovelProps = {
 
 // Deriva o título da tela atual a partir do mesmo caminho que a navegação usa para decidir o
 // item ativo (ehItemAtivo) — uma só fonte de verdade para "em que tela eu estou". Lê SEMPRE a
-// lista LATERAL (a mais completa, 6 itens) — nunca a do celular: se lesse a do celular,
-// `/estoque` no celular perderia o título, porque saiu da barra do celular na Fase 04.4 (D-04)
-// mas continua sendo uma rota alcançável por URL direta, com cabeçalho próprio. `/cadastros` fica
-// fora das duas listas de propósito (D-06 — não é item da navegação principal), mas ainda precisa
-// de um título aqui; reaproveita ehItemAtivo com o mesmo href da página em vez de inventar uma
-// segunda forma de comparação de rota. Orçamentos NÃO tem mais um `if` próprio (Fase 04.5, D-04):
-// a casca vazia `/orcamentos` saiu, e a aba dentro de `/financeiro` já usa o título "Financeiro"
-// que `ITENS_NAVEGACAO_LATERAL` devolve normalmente. Qualquer caminho sem casamento (ex.: /login,
-// antes do redirect) cai no `undefined` e quem chama decide o retrocesso.
+// lista LATERAL (a mais completa, 7 itens desde a Fase 04.6/D-11) — nunca a do celular: se lesse
+// a do celular, `/gestao/estoque` no celular perderia o título, porque saiu da barra do celular
+// na Fase 04.4 (D-04) e continua fora dela na navegação final (D-11), mas segue sendo uma rota
+// alcançável por URL direta (e pelo Início, plano 06), com cabeçalho próprio. É também por isso
+// que a renomeação "Produção" (D-13/GES-14) chega ao título da tela móvel SEM edição própria
+// deste arquivo — só editando a lista lateral. `/gestao/cadastros` já é item da própria
+// ITENS_NAVEGACAO_LATERAL desde a Fase 04.6 (D-11); o `if` abaixo é hoje redundante com o
+// `.find` que já casaria o mesmo caminho, mas preservado sem risco — não é o caso especial
+// "escrito à mão para Encomendas" que este plano teria motivo para tocar. Orçamentos NÃO tem
+// `if` próprio (Fase 04.5, D-04): a casca vazia `/orcamentos` saiu, e a aba dentro de
+// `/financeiro` já usa o título "Financeiro" que `ITENS_NAVEGACAO_LATERAL` devolve normalmente.
+// Qualquer caminho sem casamento (ex.: /login, antes do redirect) cai no `undefined` e quem
+// chama decide o retrocesso.
 function derivarTituloDaTela(caminho: string): string | undefined {
   if (ehItemAtivo(caminho, "/gestao/cadastros")) {
     return "Cadastros";
