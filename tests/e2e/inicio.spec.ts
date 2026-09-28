@@ -120,7 +120,10 @@ test.describe("inicio", () => {
     // Agenda: a linha de ocupação fica visível MESMO em dia vazio (D-07) — nunca some junto com
     // a frase de vazio. `toContainText`, não `toHaveText`: o testid cobre o contêiner inteiro
     // ("Agora no espaço" + o número), não só o número.
-    await expect(page.getByTestId("inicio-ocupacao")).toContainText("0 de 10 lugares");
+    // Contagem, sem denominador: a capacidade do espaço saiu em 29/09/2026, por decisão do dono
+    // no portão da Fase 04.6 (o 10 vinha do protótipo, não de medição — ver lib/agenda/espaco.ts).
+    await expect(page.getByTestId("inicio-ocupacao")).toContainText("0 pessoas");
+    await expect(page.getByTestId("inicio-ocupacao")).not.toContainText("lugares");
     await expect(page.getByTestId("inicio-bloco-agenda")).toContainText(
       "Nada marcado para hoje. O espaço está livre.",
     );

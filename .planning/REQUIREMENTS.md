@@ -268,10 +268,17 @@
 
 **Início**
 
-- [x] **GES-07**: O Início mostra, nesta ordem: Agenda de hoje (com "Agora no espaço: N de M
-  lugares"), O que vence, Produção, Estoque acabando e Anotações. **Sem saldo** (decisão do
-  dono). Depois dos blocos vêm as pílulas de atalho para os módulos fora da barra e o índice de
-  todos os módulos
+- [x] **GES-07**: O Início mostra, nesta ordem: Agenda de hoje (com "Agora no espaço: N pessoas"),
+  O que vence, Produção, Estoque acabando e Anotações. **Sem saldo** (decisão do dono). Depois dos
+  blocos vêm as pílulas de atalho para os módulos fora da barra e o índice de todos os módulos
+  — **Alterado em 29/09/2026, no portão de verificação humana da própria fase (item 13):** este
+  requisito dizia "Agora no espaço: N de **M lugares**". O denominador vinha do protótipo aprovado
+  ("3 de 10 lugares"), nunca de uma medição do espaço. Perguntado quantos lugares o espaço tem, o
+  dono respondeu que a pergunta não se aplica — "no espaço em si pode ser que caiba mais, pode ser
+  que eu coloque umas mesas a mais na parte externa" — e que a gestão é dele, no dia, "de acordo
+  com as pessoas que estão e o que estão fazendo". A linha permanece como CONTAGEM, que é o número
+  que alimenta essa decisão; a fração saiu. **Não afeta o limite por turma**, que é outra coisa e
+  segue valendo na Fase 5 (AGD-02/03/04)
 
 - [x] **GES-08**: Cada bloco tem estado **vazio, de carregamento e de erro próprios**, com as
   frases do protótipo. Bloco que falha não derruba a página: o erro fica só naquele bloco

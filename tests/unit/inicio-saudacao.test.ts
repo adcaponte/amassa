@@ -55,12 +55,29 @@ describe("dataLongaEmPortugues", () => {
   });
 });
 
+// A capacidade do espaço saiu em 29/09/2026, por decisão do dono no portão da Fase 04.6 (item 13
+// da verificação humana): o espaço não tem número fixo de lugares, e o 10 que estava aqui vinha do
+// protótipo, não de medição. A linha permanente virou CONTAGEM, sem denominador. O limite por
+// turma é outra coisa e continua valendo (Fase 5, AGD-02/03/04).
 describe("ocupacaoDoEspaco", () => {
-  it("0 ocupados devolve '0 de 10 lugares' — a linha permanente em dia vazio (D-07)", () => {
-    expect(ocupacaoDoEspaco(0)).toBe("0 de 10 lugares");
+  it("0 ocupados devolve '0 pessoas' — a linha permanente em dia vazio (D-07)", () => {
+    expect(ocupacaoDoEspaco(0)).toBe("0 pessoas");
   });
 
-  it("3 ocupados devolve '3 de 10 lugares'", () => {
-    expect(ocupacaoDoEspaco(3)).toBe("3 de 10 lugares");
+  it("3 ocupados devolve '3 pessoas'", () => {
+    expect(ocupacaoDoEspaco(3)).toBe("3 pessoas");
+  });
+
+  it("1 ocupado devolve '1 pessoa', no singular", () => {
+    expect(ocupacaoDoEspaco(1)).toBe("1 pessoa");
+  });
+
+  // Portão contra a volta do denominador: nenhuma saída pode falar de "lugares" nem trazer uma
+  // fração, que é o que a decisão do dono retirou.
+  it("nenhuma saída menciona lugares nem uma fração", () => {
+    for (const n of [0, 1, 2, 10, 37]) {
+      expect(ocupacaoDoEspaco(n)).not.toMatch(/lugar/i);
+      expect(ocupacaoDoEspaco(n)).not.toMatch(/\bde\s+\d/);
+    }
   });
 });
