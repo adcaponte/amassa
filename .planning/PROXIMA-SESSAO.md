@@ -1,4 +1,4 @@
-# Próxima sessão — ATUALIZADO em 2026-09-28
+# Próxima sessão — ATUALIZADO em 2026-09-29
 
 > **A porta de entrada de qualquer sessão agora é `ESTADO-ATUAL.md`, na raiz do projeto** (mora só
 > neste computador; está no `.gitignore`). Ele tem o negócio, o que está no ar, a ordem de trabalho e
@@ -7,7 +7,7 @@
 
 ## Ordem atual
 
-> ⚠️ **A lista de 2026-09-17 abaixo está cumprida ou superada.** Atualizada em 2026-09-28. A ordem
+> ⚠️ **A lista de 2026-09-17 abaixo está cumprida ou superada.** Atualizada em 2026-09-29. A ordem
 > de trabalho de verdade mora em `Claude outputs/FILA-DO-CODE.md`, mantida pelo Cowork; esta seção
 > só a espelha.
 
@@ -16,21 +16,32 @@
    (Financeiro, parte 2 — Precificação e Orçamento, **concluída em 27/09**, 14 planos, 23 dos 25
    itens da verificação humana passando de primeira e os dois outros corrigidos no plano 14).
 
-2. **Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.** **Executada em
-   28/09** — 8 planos, o portão (plano 08, Tarefa 1) já rodou a última varredura completa (798
-   passed · 13 failed, todas com veredito — nove janelas conhecidas, uma contenção nova confirmada
-   isolada, três correções reais achadas e feitas nesta mesma execução), escreveu o Roteiro 14
-   (`docs/operacao/14-gestao-e-site-publico.md`) e `04.6-VERIFICACAO-HUMANA.md`. **Falta o dono:**
-   as Tarefas 2 (push, Roteiro 14 no servidor, migração `0022` depois de backup, GES-04 conferida
-   em produção no celular) e 3 (a caminhada dos 8 critérios) do plano `04.6-08-PLAN.md` — portões
-   humanos bloqueantes, nunca automatizáveis. **A fase não fecha por contagem de planos** — fecha
-   quando `04.6-VERIFICACAO-HUMANA.md` for percorrido, como a 04.4 e a 04.5 antes dela.
+2. ~~**Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.**~~ **Executada em
+   28/09 e com o portão humano percorrido em 28-29/09/2026** — 8 planos, faltando apenas o
+   fechamento formal pelo orquestrador (`phase.complete` + verificador). **Como sei:**
+   `04.6-VERIFICACAO-HUMANA.md` tem os 16 itens respondidos, nenhum reprovado; o dono aplicou a
+   migração `0022` pelo Roteiro 14 e colou as quatro conferências de fora (tabela, semente de 1
+   linha, gatilho, `delete` revogado); `gh run list` em 29/09 mostra o run `36443052672` verde
+   (2ª tentativa, commit `72b8881` — a 1ª caiu na busca de fonte do Google, transitório, janela 60
+   do `WINDOWS.md` segue aberta); e `curl` de fora em 29/09 devolve `/gestao` → 307 com
+   `callbackUrl` no domínio público (GES-04 fechada). Detalhe: `04.6-08-SUMMARY.md`.
+   **A última varredura e2e (`798 passed · 13 failed · 37 skipped · 74 did not run`) não
+   exercitou tudo: os ~74 que não rodaram são a cadeia `parametros-*`**, estrutural e anterior à
+   fase. **Não publicado ainda:** `223748a` (o espaço sem capacidade fixa) e `41ba169`
+   (correção do Roteiro 14) estão só locais — `git log origin/main..main` em 29/09 mostrava 5
+   commits antes do de fechamento; o `git push` é do dono.
+
+   **Abertos que esta fase deixa:** os textos do site (o dono está preparando um lote de edições;
+   registrado em `WINDOWS.md`) e a **ambiguidade do limite por turma** — ele decidiu que o
+   *espaço* não tem capacidade fixa, mas a frase sobre "remover os avisos de lotação na agenda"
+   servia também às *turmas*, e o máximo por turma é algo que ele disse querer. AGD-02/03/04 não
+   foram tocados; voltar à mesa quando a Fase 5 for discutida.
 
    **Corrigido em 28/09 (execução do plano 08):** este arquivo dizia "falta executar
    `/gsd-execute-phase 04.6`". Os 8 planos executaram no mesmo dia (28/09) — o texto acima descrevia
    o estado ANTES da execução, preservado como registro logo abaixo. **A metade "não dar push sem
    confirmar" continua valendo:** o plano 08 é `autonomous: false` e põe o push, a migração `0022`
-   e GES-04 em produção nas mãos dele — nada foi publicado nem migrado em produção até aqui.
+   e GES-04 em produção nas mãos dele — em 28/09 nada tinha sido publicado nem migrado em produção; **em 29/09 isso deixou de ser verdade** (ver o parágrafo do item 2 acima: o dono publicou, migrou e conferiu). O que continua sem push são só `223748a`, `41ba169` e o commit de fechamento.
 
    **Correção do que este arquivo dizia antes:** o planejamento do site **não** está mais fora do
    repositório, e **não há mais "Em breve"**. O dono aprovou o protótipo do site inteiro em
@@ -39,7 +50,8 @@
    nem altere nada em `C:\Users\Andre\amassa-cerrado`.
 
 3. **Fase 6 — Estoque**, com protótipo antes da execução — 🔒 depois da 04.6 estar no ar (item 4
-   da fila). O protótipo já foi aprovado em 18/09 e revisto em 20/09, e o **adendo**
+   da fila). *(Condição cumprida em 29/09/2026: a 04.6 está no ar — deploy `72b8881`, run
+   `36443052672` verde — e falta só o fechamento formal. O dono ainda decide quando começar.)* O protótipo já foi aprovado em 18/09 e revisto em 20/09, e o **adendo**
    (`Claude outputs/estoque/ADENDO.md`) vence o briefing antigo. O restante deste arquivo, a
    partir de "Como começar", foi escrito para ela e continua valendo nas lições técnicas.
 

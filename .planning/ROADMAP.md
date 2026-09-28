@@ -659,12 +659,17 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
-**Plans:** 8/8 plans executed. **Status: EXECUTANDO, aguardando o dono** — a Tarefa 1 do plano
-`04.6-08` (a última varredura, o Roteiro 14, `04.6-VERIFICACAO-HUMANA.md`, os requisitos e os
-documentos de estado) está concluída; as Tarefas 2 (`git push`, Roteiro 14 no servidor, migração
-`0022`, GES-04 em produção) e 3 (a caminhada dos 8 critérios acima) são portões humanos bloqueantes
-— **esta fase não fecha por contagem de planos**, fecha quando o dono percorrer
-`04.6-VERIFICACAO-HUMANA.md`, como a 04.4 e a 04.5 antes dela.
+**Plans:** 8/8 plans executed. **Status (corrigido em 29/09/2026): o portão humano foi percorrido;
+falta só o fechamento formal da fase** (`phase.complete` e o verificador — o checkbox no topo deste
+arquivo continua `[ ]` até lá). *(Até 28/09 esta linha dizia "EXECUTANDO, aguardando o dono"; era
+verdade e deixou de ser.)* **Evidência:** `04.6-VERIFICACAO-HUMANA.md` tem os 16 itens `[x]` com
+resultado, nenhum reprovado; a migração `0022` foi aplicada pelo dono e conferida de fora (tabela,
+semente de 1 linha, gatilho, `delete` revogado); `gh run list` em 29/09 mostra o run
+`36443052672` verde (2ª tentativa, commit `72b8881`); e `curl` de fora em 29/09 devolve
+`/gestao` → 307 com `callbackUrl` no domínio público (GES-04). **Os 8 critérios de sucesso acima
+foram todos percorridos pelo dono e passaram** (itens 1 a 8 da caminhada, um por critério; o item
+0 é GES-04, a conferência de produção que o "Riscos conhecidos" acima exige). **Esta fase não fecha por contagem de planos** — fecha pela
+caminhada, como a 04.4 e a 04.5, e ela foi percorrida. Detalhe: `04.6-08-SUMMARY.md`.
 
 Plans:
 **Wave 1**
@@ -697,7 +702,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [x] 04.6-08-PLAN.md — Portão: última varredura, Roteiro 14, migração aplicada pelo dono, GES-04 em produção e a caminhada dos 8 critérios (onda 8, **não autônomo**) — Tarefa 1 concluída (798→800 passed depois de 2 correções + 1 achado real de contraste, comparados spec a spec com `RETRATO-DA-SUITE.md`; Roteiro 14 e `04.6-VERIFICACAO-HUMANA.md` escritos); **Tarefas 2 e 3 aguardam o dono**
+- [x] 04.6-08-PLAN.md — Portão: última varredura, Roteiro 14, migração aplicada pelo dono, GES-04 em produção e a caminhada dos 8 critérios (onda 8, **não autônomo**) — **concluído em 29/09/2026** (3 de 3 tarefas). Última varredura `798 passed · 13 failed · 37 skipped · 74 did not run` — **os ~74 não executaram** (cadeia `parametros-*`, estrutural e anterior à fase) —, 13 falhas classificadas linha a linha (8 conhecidas + 1 contenção nova + 4 linhas de 3 defeitos causados pela fase, corrigidos em `4858846`); Roteiro 14 executado pelo dono no servidor (migração `0022` provada de fora, Caddy inalterado por `sha256sum`); GES-04 fechada em produção; caminhada de 16 itens sem reprovação. *(Até 28/09 esta linha dizia "Tarefa 1 concluída… Tarefas 2 e 3 aguardam o dono"; e "798→800 passed" era o total depois das correções, número que não consegui reconferir e por isso saiu.)*
 
 **Cross-cutting constraints:**
 
@@ -843,7 +848,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.3. Comparador de Compras | 5/5 | Complete    | 2026-09-18 |
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
-| 04.6. `/gestao`, Início e site público | 7/8 | In Progress|  |
+| 04.6. `/gestao`, Início e site público | 8/8 | Verificação humana concluída em 29/09/2026; aguarda fechamento formal | Migração 0022 aplicada pelo dono; GES-04 conferida em produção (deploy `72b8881`, run `36443052672`) |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

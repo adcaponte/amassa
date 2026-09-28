@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
-status: paused
-stopped_at: PAUSADO em 28/09/2026 as 17h05 — plano 04.6-08 em 1/3, Tarefas 2 e 3 sao do dono (push, Roteiro 14, migracao 0022, celular). BLOQUEIO: pipeline vermelho no run 36443052672 (build da imagem, busca de fonte do Google), NAO e defeito de codigo — build do CI reproduzido local e passou. Retomada: .planning/phases/04.6-gestao-inicio-e-site-publico/.continue-here.md
-last_updated: "2026-09-28T13:30:00.000Z"
+status: verifying
+stopped_at: "Plano 04.6-08 CONCLUIDO em 29/09/2026 (3 de 3 tarefas) — portao humano percorrido pelo dono: Roteiro 14 no servidor (migracao 0022 aplicada e conferida de fora), GES-04 em producao com callbackUrl no dominio publico, caminhada de 16 itens sem reprovacao. Falta so o fechamento da fase pelo orquestrador (phase.complete + verificador). Nada publicado: 6 commits locais, git push e do dono."
+last_updated: "2026-09-29T00:50:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
-  completed_plans: 85
-last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) — Tarefa 1 EXECUTADA em 28/09, autonoma: a segunda e ultima varredura e2e completa da fase rodou (798 passed - 13 failed - 37 skipped - 74 did not run, 9.6m), comparada spec a spec contra Claude outputs/RETRATO-DA-SUITE.md pelas quatro classes do plano 02 — 9 das 13 sao janelas ja conhecidas e abertas (WINDOWS #3/#34 autenticacao, #58 contas-fixas, #50 orcamentos-fotos x2, #57 orcamentos-aprovacao, #35 orcamentos-tracador), reconfirmadas como contencao de servidor unico sob carga; 1 (orcamentos-editor.spec.ts:85) e nova mas confirmada como a MESMA classe por reexecucao isolada --workers=1 (127 passed, 1 skipped); e 3 eram causadas por esta fase e FORAM CORRIGIDAS aqui — encomendas-detalhe.spec.ts:304 e abertura-tracador.spec.ts:111 ainda esperavam o rotulo/contagem antigos (Produção substituiu Encomendas, D-13/GES-14; a barra caiu de 5 para 4 itens, GES-12) e bloco-producao.tsx (o Início, plano 06) nao reaproveitou o corDoTexto que gantt.tsx ja usa para o token --color-secagem (1,94:1 de contraste, abaixo do 4,5:1 AA) — os tres reverificados limpos na mesma invocacao isolada. Nenhuma falha nova ficou sem veredito. npm run verificar (0), npm run test:site-sem-banco (0) e npx tsc --noEmit/eslint limpos. docs/operacao/14-gestao-e-site-publico.md (Roteiro 14, novo) e 04.6-VERIFICACAO-HUMANA.md (novo, 8 criterios do ROADMAP + GES-04 + LUGARES_DO_ESPACO + as tres perguntas da Tarefa 3) escritos. REQUIREMENTS.md corrigido (GES-05/06 destravados na tabela de rastreio — ja estavam [x], a tabela dizia Not Started, mesma classe da WINDOWS #43; UI-02/UI-04 substituidos por GES-12/GES-13; decisao sobre PNL-01..05 registrada em prosa; SIT-02 com nota de deferimento explicito — a metade estatica cumprida, a leitura da agenda com cache fica para a Fase Agenda). GES-04 CONTINUA Not Started de proposito — so fecha na Tarefa 2, em producao. Tarefas 2 (push, Roteiro 14 no servidor, migracao 0022, GES-04 em producao) e 3 (a caminhada dos 8 criterios) sao portoes humanos bloqueantes: NADA foi publicado (git push e do dono), NENHUMA migracao foi aplicada em banco nenhum alem do efemero de teste. Detalhe completo: 04.6-08-SUMMARY.md (quando escrito ao final desta sessao)."
+  completed_plans: 86
+last_activity: 2026-09-29
+last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2026: Tarefas 2 e 3 percorridas pelo dono. Migracao 0022 aplicada por ele e conferida de fora (tabela, semente de 1 linha, gatilho, delete revogado para amassa_app). Deploy: run 36443052672, 2a tentativa verde, commit 72b8881 (a 1a caiu na busca de fonte do Google, transitorio — janela 60 segue aberta). GES-04 medida de fora em 29/09 por curl: /gestao -> 307 para /gestao/login com callbackUrl no dominio publico. Caminhada: 16 de 16 itens respondidos, nenhum reprovado; decisoes: D-06 mantida, espaco sem capacidade fixa (223748a), textos do site sobem como estao (pendencia declarada do dono). Varredura final: 798 passed - 13 failed - 37 skipped - 74 did not run; os 74 NAO executaram (cadeia parametros-*, estrutural e anterior a fase). Detalhe: 04.6-08-SUMMARY.md."
 ---
 
 # Project State
@@ -33,11 +33,65 @@ See: .planning/PROJECT.md (updated 2026-08-05)
   enunciada é mais ampla que as três chaves que ela nomeava) e deixado a confirmação pendente;
   **não está mais pendente**. Nenhuma das quatro chaves de conteúdo leva número de preço.
 
+- **"Paguei"/"Recebi" continuam levando ao Caixa, sem pagar do Início (D-06 mantida)** — dono,
+  29/09/2026, portão de verificação humana, item 12: "pode manter assim. eu confirmo la no caixa
+  corretamente para nao lançar nada errado."
+
+- **O espaço não tem capacidade fixa** — dono, 29/09/2026, item 13: "no espaço em si pode ser que
+  caiba mais, pode ser que eu coloque umas mesas a mais na parte externa". `LUGARES_DO_ESPACO = 10`
+  saiu; a linha do Início é uma contagem ("N pessoas"). Implementado em `223748a`. **Não afeta o
+  limite por turma (AGD-02/03/04, Fase 5)** — a frase dele sobre "remover os avisos de lotação na
+  agenda" era ambígua entre os dois níveis; voltar à mesa na discussão da Fase 5.
+
+- **Os textos do site sobem como estão; o acabamento é dele** — dono, 29/09/2026, item 14: "esses
+  textos eu vou alterando, estou fazendo um pacote de alteração para rodar de uma vez so". Pendência
+  declarada, não defeito; registrada em `WINDOWS.md`.
+
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING. **Plano 08 (o portão da fase), Tarefa 1
-concluída em 28/09; Tarefas 2 e 3 são portões humanos bloqueantes, aguardando o dono.** A fase
-não fecha por contagem de planos — fecha quando `04.6-VERIFICACAO-HUMANA.md` for percorrido.
+Phase: 04.6 (gestao-inicio-e-site-publico) — **8 de 8 planos executados; o portão humano foi
+percorrido em 28-29/09/2026; falta só o fechamento formal da fase pelo orquestrador**
+(`phase.complete` + verificador). *(Corrigido em 29/09/2026. Até 28/09 este parágrafo dizia
+"EXECUTING… Tarefas 2 e 3 aguardando o dono" e o `status` do frontmatter dizia `paused`; ambos
+eram verdade em 28/09 e deixaram de ser.)* **Como sei que o portão foi percorrido:** o dono
+respondeu os 16 itens de `04.6-VERIFICACAO-HUMANA.md` (todos `[x]`, nenhum reprovado); colou a
+saída do servidor com as quatro conferências da migração `0022`; `gh run list` em 29/09 mostra o
+run `36443052672` verde (2ª tentativa, commit `72b8881`); e `curl` de fora em 29/09 devolve
+`/gestao` → 307 com `callbackUrl` no domínio público. Detalhe: `04.6-08-SUMMARY.md`.
+
+**Em produção é `72b8881`.** Os commits `223748a` (espaço sem capacidade fixa) e `41ba169`
+(correção do Roteiro 14) e o de fechamento **não estão no ar** — `git log origin/main..main`
+em 29/09 mostrava 5 commits locais antes do de fechamento. O `git push` é do dono.
+
+### Plano 08 — fechamento (29/09/2026)
+
+**Tarefa 2 (o dono, no servidor) — feita.** Migração `0022` aplicada depois de backup; quatro
+conferências de fora batendo com a migração: tabela `anotacoes_da_casa` existe; semente de
+exatamente 1 linha (`texto = ''`, `salvo_por` nulo); gatilho `tocar_atualizado_em_anotacoes_da_casa`;
+privilégios de `amassa_app` select/insert/update `t` e **delete `f`** (o banco recusa apagar a
+folha). Caddy inalterado: `sha256sum /opt/amassa/Caddyfile` = `ef7cf139…e2ec2e`, igual ao
+`docker/Caddyfile` do repositório. `AUTH_URL` sem linha no `.env` do servidor, vale o padrão sem
+caminho do `compose.yml`. **GES-04 fechada** — evidência: `/gestao` → 307 para
+`/gestao/login?callbackUrl=https%3A%2F%2Famassacerrado.com.br%2Fgestao` (a classe do defeito de
+17/09, `WINDOWS #2`, fechada em produção), e o cookie sobreviveu à mudança de rota (editar a URL
+para `/gestao` abriu logado, sem credencial).
+
+**Tarefa 3 (o dono, no celular) — feita.** 16 de 16 itens respondidos, nenhum reprovado. Decisões:
+D-06 mantida (item 12); **o espaço não tem capacidade fixa** (item 13, já implementado em
+`223748a`; **não** afeta o limite por turma, AGD-02/03/04, cuja ambiguidade fica para a discussão
+da Fase 5); textos do site sobem como estão e o acabamento é pendência declarada do dono (item 14,
+registrada em `WINDOWS.md`); Google ainda não indexou, consultado em 29/09/2026 (item 15).
+
+**A última varredura e2e NÃO exercitou tudo.** `798 passed · 13 failed · 37 skipped · 74 did not
+run` — os ~74 que não rodaram são a cadeia `parametros-*`, que o Playwright não inicia enquanto
+`desktop`/`celular` tiverem falha; estrutural e anterior à fase. Contagem por linha (tabela do
+retrato): 8 conhecidas iguais + 1 da mesma classe de contenção + 4 linhas de 3 defeitos causados
+pela fase (corrigidos em `4858846`).
+
+**Pipeline:** o run `36443052672` falhou na 1ª tentativa no build da imagem (busca de fonte do
+Google) e passou na 2ª sem mudança de código — transitório, mas a janela 60 do `WINDOWS.md`
+**continua aberta** (a dependência de rede do build é real). O bloqueio de "pipeline vermelho" que
+este arquivo registrava desde 28/09 17h05 **acabou**.
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -73,6 +127,10 @@ seção "Issues Encountered" → "Correção do diagnóstico". **Continua aberto
 `.planning/WINDOWS.md` tem inconsistência de contagem no frontmatter que bloqueia
 `gsd-tools windows append` (causa raiz identificada pelo plano 02: a tabela markdown do arquivo
 termina no id 58, mas o espelho JSON ao final já tem um id 59 — nunca sincronizados).
+**[Resolvido em 28/09/2026, commit `3db167c`; medido em 29/09/2026 — `gsd-tools windows append`
+gravou uma entrada nova sem erro (o ledger foi de 60 para 61 entradas). O diagnóstico do "pipe sem
+escape" acima estava errado: os pipes já estavam escapados e o que barrava era a aritmética do
+frontmatter.]**
 
 **Plano 02 (a varredura completa, e o veredito de cada divergência) entregou:** a primeira prova
 real de que o `webServer` do Playwright sobe depois da mudança de rotas — `npm run test:e2e`, sem
@@ -303,6 +361,15 @@ migração `0022`, depois de backup) e Parte C (GES-04 em produção, no celular
 caminhada dos 8 critérios na Tarefa 3. **Nada foi publicado, nenhuma migração foi aplicada em
 banco nenhum além do efêmero de teste.** Detalhe completo, quando escrito ao final desta sessão:
 `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-08-SUMMARY.md`.
+
+> **Nota de 29/09/2026 sobre o parágrafo acima — é o retrato de 28/09, da Tarefa 1, e três frases
+> dele não descrevem mais o presente:** "GES-04 continua `[ ]`" (agora `[x]`, ver "Plano 08 —
+> fechamento" no topo desta seção); "Tarefas 2 e 3 são portões humanos bloqueantes" (ambas
+> percorridas); "nenhuma migração foi aplicada" (a `0022` foi, pelo dono, e está conferida de
+> fora). O `04.6-08-SUMMARY.md` agora existe. E uma correção de contagem: "9 conhecidas + 1 nova + 3
+> causadas pela fase" soma 13, mas a tabela por linha do retrato dá **8 + 1 + 4** (as "3" são três
+> defeitos que geram quatro linhas de teste falhando; as conhecidas são 8 linhas de 6 janelas).
+> Uso a tabela por linha porque cada linha pode ser conferida.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):

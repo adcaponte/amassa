@@ -256,9 +256,16 @@
 - [x] **GES-03**: O proxy protege **só** `/gestao`. A raiz e as páginas do site não leem sessão
   nem banco
 
-- [ ] **GES-04**: `AUTH_URL`, `callbackUrl` e cookies levam o login de volta para dentro de
+- [x] **GES-04**: `AUTH_URL`, `callbackUrl` e cookies levam o login de volta para dentro de
   `/gestao`, conferido **em produção** — o defeito do `0.0.0.0:3000` de 2026-09-17 é o precedente
   a não repetir
+  > **Cumprido em 29/09/2026, em produção — e só por isto.** Evidência: `curl` de fora em
+  > 29/09/2026 — `/gestao` → 307 para
+  > `https://amassacerrado.com.br/gestao/login?callbackUrl=https%3A%2F%2Famassacerrado.com.br%2Fgestao`
+  > (o `callbackUrl` é o domínio público, não `0.0.0.0:3000`); o dono entrou, saiu, entrou de novo e
+  > testou duas abas no celular, e editar a URL para `/gestao` abriu a plataforma ainda logado, sem
+  > credencial (o cookie sobreviveu à mudança de rota). `AUTH_URL` no servidor: sem linha no
+  > `.env`, vale o padrão sem caminho do `compose.yml`. `04.6-VERIFICACAO-HUMANA.md`, item 0.
 
 - [x] **GES-05**: `robots.txt` bloqueia `/gestao`, as telas da plataforma trazem `noindex`, e
   **nenhuma página pública tem link para a plataforma** — acesso só por endereço
@@ -602,7 +609,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-01 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-02 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-03 | Phase 04.6 — /gestao, Início e site público | Complete |
-| GES-04 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-04 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-05 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-06 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-07 | Phase 04.6 — /gestao, Início e site público | Complete |
@@ -648,7 +655,12 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-09-28 (plano 04.6-08) — corrigido o descompasso entre a tabela de rastreio e
+*Last updated: 2026-09-29 (fechamento do plano 04.6-08) — **GES-04 passou a `[x]`/Complete**, com a
+evidência de produção anotada no próprio requisito; GES-07 já havia sido corrigido no commit
+`223748a` (o espaço sem capacidade fixa, palavras do dono). Os 24 requisitos da Fase 04.6 estão
+`[x]`; a nota de SIT-02 (metade da agenda deferida para a Fase Agenda) continua valendo.*
+*Last updated antes (28/09/2026, plano 04.6-08, Tarefa 1; a frase "GES-04 continua Not Started" era
+verdade naquele dia e não é mais) — corrigido o descompasso entre a tabela de rastreio e
 os checkboxes de GES-05/GES-06 (ambos já `[x]` desde o plano 04.6-01, `e206a90`/`84ad637`; a
 tabela dizia "Not Started" — a mesma classe de gap já registrada em `WINDOWS.md #43`, achada e
 corrigida aqui). GES-04 continua "Not Started" de propósito: só fecha depois da Parte C da Tarefa
