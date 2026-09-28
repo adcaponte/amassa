@@ -659,7 +659,12 @@ precedente a não repetir é o defeito do `0.0.0.0:3000` de 17/09: conferir em p
 
 8. Nenhum dado de cliente em arquivo de conteúdo; nenhum preço real de dado privado exposto
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans executed. **Status: EXECUTANDO, aguardando o dono** — a Tarefa 1 do plano
+`04.6-08` (a última varredura, o Roteiro 14, `04.6-VERIFICACAO-HUMANA.md`, os requisitos e os
+documentos de estado) está concluída; as Tarefas 2 (`git push`, Roteiro 14 no servidor, migração
+`0022`, GES-04 em produção) e 3 (a caminhada dos 8 critérios acima) são portões humanos bloqueantes
+— **esta fase não fecha por contagem de planos**, fecha quando o dono percorrer
+`04.6-VERIFICACAO-HUMANA.md`, como a 04.4 e a 04.5 antes dela.
 
 Plans:
 **Wave 1**
@@ -692,7 +697,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 04.6-08-PLAN.md — Portão: última varredura, Roteiro 14, migração aplicada pelo dono, GES-04 em produção e a caminhada dos 8 critérios (onda 8, **não autônomo**)
+- [x] 04.6-08-PLAN.md — Portão: última varredura, Roteiro 14, migração aplicada pelo dono, GES-04 em produção e a caminhada dos 8 critérios (onda 8, **não autônomo**) — Tarefa 1 concluída (798→800 passed depois de 2 correções + 1 achado real de contraste, comparados spec a spec com `RETRATO-DA-SUITE.md`; Roteiro 14 e `04.6-VERIFICACAO-HUMANA.md` escritos); **Tarefas 2 e 3 aguardam o dono**
 
 **Cross-cutting constraints:**
 

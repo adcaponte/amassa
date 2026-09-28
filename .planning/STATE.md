@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 04.6
 current_phase_name: gestao-inicio-e-site-publico
 status: executing
-stopped_at: Concluido 04.6-07-PLAN.md
-last_updated: "2026-09-28T11:00:05.795Z"
+stopped_at: "Plano 08, Tarefa 1 concluida (28/09) — Tarefas 2 e 3 sao portoes humanos bloqueantes, aguardando o dono"
+last_updated: "2026-09-28T13:30:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 10
   total_plans: 86
   completed_plans: 85
 last_activity: 2026-09-28
-last_activity_desc: "Fase 04.6, PLANO 07 EXECUTADO em 28/09: as Anotações da casa, o quinto e último bloco do Início. db/schema.ts::anotacoesDaCasa (linha única garantida no banco) + migração 0022_anotacoes-da-casa.sql GERADA e VERSIONADA (NAO aplicada em producao — plano 08, pelo dono, depois de backup). lib/anotacoes/folha.ts::decidirGravacao — a primeira deteccao de escrita velha concorrente do projeto, provada com duas transacoes Postgres reais em scripts/testar-migracoes.mjs::conferirAnotacoesDaCasa. lib/anotacoes/{esquemas,textos,consultas,acoes}.ts (NFC + limite de 10.000 pontos de codigo; salvarAnotacoes grava ou avisa dentro de select...for update). components/amassa/inicio/{bloco-anotacoes,editor-de-anotacoes}.tsx — debounce de 1200ms, indicador salvando/salvo, autoria, aviso de conflito NA MESMA LINHA (manter o meu / ver o dela, nenhum dialogo). tests/e2e/anotacoes.spec.ts (17 casos, advisory lock para a linha unica global) + tests/e2e/inicio.spec.ts (ordem de 5 blocos): 66/66 (desktop + celular), apos corrigir DOIS bugs pre-existentes achados no caminho (Rule 1) — rodarNpm em scripts/testar-e2e.mjs so escapava espaco, nao | do cmd.exe do Windows; ordemDosBlocos() contava o esqueleto de carregamento (mesmo prefixo data-testid) como bloco resolvido. GES-10 marcada como concluida. npm run verificar limpo (1295 testes unitarios, test:migracoes com as 4 conferencias novas). Tres commits: 9dff7c5 (Tarefa 1), 2e01121 (Tarefa 2), f664a51 (Tarefa 3). Detalhe completo: 04.6-07-SUMMARY.md."
+last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) — Tarefa 1 EXECUTADA em 28/09, autonoma: a segunda e ultima varredura e2e completa da fase rodou (798 passed - 13 failed - 37 skipped - 74 did not run, 9.6m), comparada spec a spec contra Claude outputs/RETRATO-DA-SUITE.md pelas quatro classes do plano 02 — 9 das 13 sao janelas ja conhecidas e abertas (WINDOWS #3/#34 autenticacao, #58 contas-fixas, #50 orcamentos-fotos x2, #57 orcamentos-aprovacao, #35 orcamentos-tracador), reconfirmadas como contencao de servidor unico sob carga; 1 (orcamentos-editor.spec.ts:85) e nova mas confirmada como a MESMA classe por reexecucao isolada --workers=1 (127 passed, 1 skipped); e 3 eram causadas por esta fase e FORAM CORRIGIDAS aqui — encomendas-detalhe.spec.ts:304 e abertura-tracador.spec.ts:111 ainda esperavam o rotulo/contagem antigos (Produção substituiu Encomendas, D-13/GES-14; a barra caiu de 5 para 4 itens, GES-12) e bloco-producao.tsx (o Início, plano 06) nao reaproveitou o corDoTexto que gantt.tsx ja usa para o token --color-secagem (1,94:1 de contraste, abaixo do 4,5:1 AA) — os tres reverificados limpos na mesma invocacao isolada. Nenhuma falha nova ficou sem veredito. npm run verificar (0), npm run test:site-sem-banco (0) e npx tsc --noEmit/eslint limpos. docs/operacao/14-gestao-e-site-publico.md (Roteiro 14, novo) e 04.6-VERIFICACAO-HUMANA.md (novo, 8 criterios do ROADMAP + GES-04 + LUGARES_DO_ESPACO + as tres perguntas da Tarefa 3) escritos. REQUIREMENTS.md corrigido (GES-05/06 destravados na tabela de rastreio — ja estavam [x], a tabela dizia Not Started, mesma classe da WINDOWS #43; UI-02/UI-04 substituidos por GES-12/GES-13; decisao sobre PNL-01..05 registrada em prosa; SIT-02 com nota de deferimento explicito — a metade estatica cumprida, a leitura da agenda com cache fica para a Fase Agenda). GES-04 CONTINUA Not Started de proposito — so fecha na Tarefa 2, em producao. Tarefas 2 (push, Roteiro 14 no servidor, migracao 0022, GES-04 em producao) e 3 (a caminhada dos 8 criterios) sao portoes humanos bloqueantes: NADA foi publicado (git push e do dono), NENHUMA migracao foi aplicada em banco nenhum alem do efemero de teste. Detalhe completo: 04.6-08-SUMMARY.md (quando escrito ao final desta sessao)."
 ---
 
 # Project State
@@ -35,7 +35,9 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING (plano 07 de 8 concluído em 28/09).
+Phase: 04.6 (gestao-inicio-e-site-publico) — EXECUTING. **Plano 08 (o portão da fase), Tarefa 1
+concluída em 28/09; Tarefas 2 e 3 são portões humanos bloqueantes, aguardando o dono.** A fase
+não fecha por contagem de planos — fecha quando `04.6-VERIFICACAO-HUMANA.md` for percorrido.
 
 **Plano 01 (rotas — o traçador da fase, o mais arriscado) entregou:** a plataforma inteira desceu
 de `/` para `/gestao` — `app/(app)`/`app/(auth)`/`app/api/orcamentos` viraram `app/gestao/...`
@@ -253,6 +255,54 @@ corrigida com a mesma técnica de segurar a requisição de propósito já usada
 `orcamentos-fotos.spec.ts`). GES-10 marcada como concluída. `npm run verificar` limpo (1295 testes
 unitários, `test:migracoes` com as quatro conferências novas de `anotacoes_da_casa`).
 Detalhe completo: `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-07-SUMMARY.md`.
+
+**Plano 08 (o portão da fase), Tarefa 1 (a última varredura, o Roteiro 14, a caminhada, e os
+documentos de estado) entregou, em 28/09:** medido antes de escrever qualquer coisa sobre produção
+— `git log origin/main..main` mostrou **35 commits locais não publicados** (o mais antigo,
+`8ca6e3b`, de antes desta fase começar; o mais recente até aqui, `80d26e3`, o fechamento do plano
+07); `gh run list` mostrou o último pipeline (`36361455093`) verde em 28/09, mas rodou ANTES de
+qualquer commit desta fase — **nenhum código da Fase 04.6 passou pelo CI ainda**, porque nada foi
+publicado. **A segunda e última varredura e2e completa da fase** (`npm run test:e2e`, sem `--grep`,
+sem `--no-deps`) rodou: `798 passed · 13 failed · 37 skipped · 74 did not run` (9,6min), comparada
+spec a spec com `Claude outputs/RETRATO-DA-SUITE.md` (a medição "do depois" do plano 02, a única
+referência válida — as rotas não mudam mais entre um plano e outro). Das 13: **9 são janelas já
+conhecidas e abertas**, todas contenção de servidor Next único sob carga, cada uma com o próprio
+número no `WINDOWS.md` — `autenticacao.spec.ts:84` (desktop+celular, #3/#34, defeito real de
+segurança pré-existente, fora do escopo desta fase), `cadastros-contas-fixas.spec.ts:112` (#58,
+fragilidade de teste), `orcamentos-fotos.spec.ts:175` (desktop+celular, #50),
+`orcamentos-aprovacao.spec.ts:364` (#57), `orcamentos-tracador.spec.ts:63` (#35); **1 é nova mas
+confirmada da MESMA classe** por reexecução isolada (`orcamentos-editor.spec.ts:85`, `--workers=1`,
+passou limpa — contenção, não regressão); **3 eram causadas por planos anteriores desta MESMA
+fase e foram corrigidas aqui** (Rule 1, mesmo padrão do plano 02 com os `href`s perdidos):
+`encomendas-detalhe.spec.ts:304` e `abertura-tracador.spec.ts:111` ainda esperavam o rótulo
+"Encomendas" e a contagem de 5 itens da barra de baixo, que os planos 05/06 já tinham mudado para
+"Produção" (D-13/GES-14) e 4 itens (GES-12); e `components/amassa/inicio/bloco-producao.tsx`
+(plano 06) não reaproveitava a correção de contraste que `gantt.tsx` já tem para o token
+`--color-secagem` (1,94:1 medido pelo axe-core, abaixo do 4,5:1 de AA) — corrigido com o mesmo
+`corDoTexto` condicional. **Nenhuma falha nova ficou sem veredito.** `npm run verificar` (lint,
+`tsc --noEmit`, `verificar-acoes`, 1281 testes unitários, `test:migracoes`) e
+`npm run test:site-sem-banco` saíram `0`. `docs/operacao/14-gestao-e-site-publico.md` (Roteiro 14,
+novo) escrito — guarda de banco, backup, migração `0022`, conferência de fora, o Caddy que NÃO
+muda (mesmo processo Next servindo `/` e `/gestao`), `AUTH_URL` que continua sem caminho no fim
+(a classe exata do defeito de 17/09), e o atalho do celular. `04.6-VERIFICACAO-HUMANA.md` (novo)
+cobre os 8 critérios do ROADMAP, GES-04 (registrado para fechar só depois da Tarefa 2, em
+produção), a pergunta sobre `LUGARES_DO_ESPACO = 10`, e as três perguntas de julgamento da Tarefa 3
+— D-18/`agLivre` **não** entrou como pergunta nova, porque o dono já confirmou em 28/09 (ver
+"Decisões do dono" acima) que a extensão vale e nenhum documento mais a chama de pendente.
+`REQUIREMENTS.md` corrigido: GES-05/GES-06 destravados na tabela de rastreio (já estavam `[x]`
+desde o plano 01, a tabela dizia "Not Started" — mesma classe de gap da `WINDOWS.md #43`, achada e
+corrigida aqui); UI-02/UI-04 substituídos por GES-12/GES-13 com data e commit; a decisão sobre
+PNL-01..05 escrita em prosa (quatro cumpridos na prática pelo Início, PNL-04 fica para a Phase 7);
+SIT-02 com nota de deferimento explícito (a metade estática cumprida e provada; a leitura da
+agenda com cache fica para a Fase Agenda). **GES-04 continua `[ ]` de propósito** — só fecha
+depois da Parte C da Tarefa 2, em produção; nenhum requisito foi marcado por este plano sem a
+caminhada confirmar. Dois commits: um `fix` (as três correções Rule 1 achadas pela varredura) e um
+`docs` (Roteiro 14, caminhada, REQUIREMENTS, e os documentos de estado). 🔴 **Tarefas 2 e 3 são
+portões humanos bloqueantes** — Parte A (`git push`, do dono) e Parte B (Roteiro 14 no servidor,
+migração `0022`, depois de backup) e Parte C (GES-04 em produção, no celular) da Tarefa 2; a
+caminhada dos 8 critérios na Tarefa 3. **Nada foi publicado, nenhuma migração foi aplicada em
+banco nenhum além do efêmero de teste.** Detalhe completo, quando escrito ao final desta sessão:
+`.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-08-SUMMARY.md`.
 
 **Planejamento concluído em 2026-09-28, commit `c0fe5ff`** (histórico, anterior à execução do plano
 01, preservado abaixo):

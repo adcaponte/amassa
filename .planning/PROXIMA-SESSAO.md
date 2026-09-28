@@ -16,18 +16,21 @@
    (Financeiro, parte 2 — Precificação e Orçamento, **concluída em 27/09**, 14 planos, 23 dos 25
    itens da verificação humana passando de primeira e os dois outros corrigidos no plano 14).
 
-2. **Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.** **É a próxima**,
-   e **já existe no ROADMAP** desde 28/09, com protótipos, briefings e 24 requisitos (GES-01..14,
-   SIT-01..10). **Planejada em 28/09** (commit `c0fe5ff`): 8 planos em 8 ondas sequenciais, na ordem
-   travada em D-21 — rotas (01, 02) → site (03, 04) → navegação (05) → Início (06, 07) → portão (08).
-   **Falta executar:** `/gsd-execute-phase 04.6`.
+2. **Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.** **Executada em
+   28/09** — 8 planos, o portão (plano 08, Tarefa 1) já rodou a última varredura completa (798
+   passed · 13 failed, todas com veredito — nove janelas conhecidas, uma contenção nova confirmada
+   isolada, três correções reais achadas e feitas nesta mesma execução), escreveu o Roteiro 14
+   (`docs/operacao/14-gestao-e-site-publico.md`) e `04.6-VERIFICACAO-HUMANA.md`. **Falta o dono:**
+   as Tarefas 2 (push, Roteiro 14 no servidor, migração `0022` depois de backup, GES-04 conferida
+   em produção no celular) e 3 (a caminhada dos 8 critérios) do plano `04.6-08-PLAN.md` — portões
+   humanos bloqueantes, nunca automatizáveis. **A fase não fecha por contagem de planos** — fecha
+   quando `04.6-VERIFICACAO-HUMANA.md` for percorrido, como a 04.4 e a 04.5 antes dela.
 
-   **Corrigido em 28/09:** este arquivo dizia "parada esperando o dono responder
-   `Claude outputs/gestao/DISCUSSAO-PREPARADA.md`". Ele respondeu em 28/09 — as 21 decisões travadas
-   estão em `.planning/phases/04.6-gestao-inicio-e-site-publico/04.6-CONTEXT.md` — e o planejamento
-   veio depois, respeitando a regra da fila. **A metade "não dar push sem confirmar" continua
-   valendo:** o plano 08 é `autonomous: false` e põe o push, a migração `0022` e GES-04 em produção
-   nas mãos dele.
+   **Corrigido em 28/09 (execução do plano 08):** este arquivo dizia "falta executar
+   `/gsd-execute-phase 04.6`". Os 8 planos executaram no mesmo dia (28/09) — o texto acima descrevia
+   o estado ANTES da execução, preservado como registro logo abaixo. **A metade "não dar push sem
+   confirmar" continua valendo:** o plano 08 é `autonomous: false` e põe o push, a migração `0022`
+   e GES-04 em produção nas mãos dele — nada foi publicado nem migrado em produção até aqui.
 
    **Correção do que este arquivo dizia antes:** o planejamento do site **não** está mais fora do
    repositório, e **não há mais "Em breve"**. O dono aprovou o protótipo do site inteiro em

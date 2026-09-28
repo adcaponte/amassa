@@ -49,11 +49,17 @@
 - [x] **UI-01**: As cores e fontes são as do AMASSA, não o padrão do Tailwind, em todo componente shadcn instalado
 - [x] **UI-02**: No celular, a barra inferior tem 5 itens (Início, Encomendas, Financeiro, Agenda, Queimas); no desktop, a barra lateral tem esses cinco mais Estoque (Fase 04.4, D-04/D-05)
   > **Atualizado na Fase 04.4:** o texto original tinha Estoque no lugar de Financeiro na barra do celular, e as duas barras eram idênticas. Desde D-04/D-05, elas divergem: o Financeiro entrou nas duas, mas o Estoque só saiu da barra do celular (tela vazia até a Fase 6) — no desktop ele continua.
-  > **Será substituído pela Fase 04.6 (GES-12), ainda não executada:** a barra provisória de 5 itens dá lugar a Início · Financeiro · Produção · Agenda. O texto acima **continua descrevendo o que está no ar hoje** e só muda quando a 04.6 subir — não reescrever antes.
+  > 🔁 **Substituído pela Fase 04.6 (GES-12), commit `c3b4493` (plano 04.6-05), 2026-09-28.** A
+  > barra provisória de 5 itens deu lugar a Início · Financeiro · Produção · Agenda (4 itens no
+  > celular). O texto acima **continua verdadeiro como registro histórico do que esteve no ar
+  > entre a Fase 04.4 e a Fase 04.6** — não é apagado, só deixa de descrever o presente.
 
 - [x] **UI-03**: No desktop, a barra lateral de 240px tem os mesmos itens mais o menu do usuário no rodapé
 - [x] **UI-04**: Orçamentos aparece no menu do usuário, não na navegação principal
-  > **Ainda verdadeiro em 2026-09-28** — conferido em `components/amassa/menu-usuario.tsx`: o item continua no menu, apontando para `/financeiro?aba=orcamentos` desde a Fase 04.5 (ORC-17). **Será substituído pela Fase 04.6 (GES-13), ainda não executada**, que enxuga o menu para Abertura do Espaço · Trocar senha · Sair.
+  > **Verdadeiro entre 2026-09-26 e 2026-09-28** — conferido em `components/amassa/menu-usuario.tsx`: o item ficou no menu, apontando para `/financeiro?aba=orcamentos` desde a Fase 04.5 (ORC-17).
+  > 🔁 **Substituído pela Fase 04.6 (GES-13), commit `79429b4` (plano 04.6-05), 2026-09-28.** O
+  > menu do usuário enxugou para Abertura do Espaço · Trocar senha · Sair — Orçamentos saiu dele
+  > porque já vive dentro do Financeiro (ORC-17 continua valendo).
 
 - [x] **UI-05**: A navegação funciona confortavelmente com o polegar, no celular
 - [x] **UI-06**: Nenhuma tela exige rolagem horizontal no celular
@@ -302,6 +308,13 @@
 - [x] **SIT-02**: 🔴 **A página é estática e continua no ar com o Postgres derrubado.** Os textos
   vêm de arquivo de conteúdo versionado e as imagens de `public/site/`; nada lê sessão. Só a
   seção da agenda lê o banco, com cache e revalidação por tempo, nunca a cada visita
+  > **Deferimento explícito (plano 08, 2026-09-28) — não leia este `[x]` como cumprido por
+  > inteiro.** A metade que sobe nesta fase — estática, sem sessão, provada de fora por
+  > `npm run test:site-sem-banco` derrubando o Postgres de verdade (plano 03) — está cumprida e
+  > provada. A segunda metade do enunciado original, "a seção da agenda lê o banco com cache e
+  > revalidação", **não existe ainda**: enquanto a Agenda não existir, essa seção mostra o estado
+  > "sem Agenda" (D-16, SIT-07), sem ler banco nenhum. Fica para a Fase Agenda, por D-03/D-15/D-16
+  > e SIT-07 — deferimento registrado, não lacuna esquecida.
 
 - [x] **SIT-03**: Trocar um texto ou uma foto é **commit e deploy** — nenhuma tabela nova. O
   cadastro editável pelo `/gestao` fica para depois, e o arquivo de conteúdo vira o valor inicial
@@ -329,12 +342,19 @@
 - [x] **SIT-10**: Acessibilidade e celular como no resto: alvos de 44px, sem rolagem lateral a
   320px, contraste AA
 
-> **Relação com PNL-01..PNL-05 (Painel Inicial, Phase 7):** o Início desta fase cumpre, na
-> prática, PNL-01 (responder "o que preciso fazer hoje" sem clique), PNL-02 (encomendas por
-> etapa), PNL-03 (aulas de hoje) e PNL-05 (estoque baixo). **PNL-04 (fornos em atenção ou
-> crítico) fica de fora** — não está entre os blocos do protótipo aprovado. Quando a 04.6 fechar,
-> rever se PNL-01..03 e PNL-05 são marcados como cumpridos aqui ou se a Phase 7 ainda tem escopo
-> próprio.
+> **Relação com PNL-01..PNL-05 (Painel Inicial, Phase 7) — decisão registrada no plano 08,
+> 2026-09-28, não subentendida.** O Início desta fase cumpre, **na prática**, quatro dos cinco:
+> PNL-01 (responder "o que preciso fazer hoje" sem clique — os cinco blocos do Início fazem
+> exatamente isso), PNL-02 (bloco "Produção" mostra encomendas por etapa), PNL-03 (bloco "Agenda de
+> hoje" mostra o dia, ainda que estático até a Fase 5 existir) e PNL-05 (bloco "Estoque acabando").
+> **PNL-04 (fornos em atenção ou crítico) fica de fora do Início por decisão** — não está entre os
+> cinco blocos do protótipo aprovado (`prototipo-gestao.html`) nem do briefing, e não é antecipado
+> aqui. PNL-04 **continua da Phase 7**, sem outro plano assumido. Os checkboxes de PNL-01..05
+> permanecem `[ ]` na tabela abaixo — a decisão de que o Início desta fase os cumpre **na prática**
+> é uma nota de rastreabilidade, não uma marcação de conclusão fora da fase dona do requisito
+> (Phase 7); quando a Phase 7 for planejada, ela decide se reafirma PNL-01..03/05 como já
+> resolvidos ou se ainda tem escopo próprio sobre eles (ex.: UI-10/UI-11, medidos sobre o sistema
+> inteiro).
 
 ### Painel Inicial e Entrega
 
@@ -576,8 +596,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | GES-02 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-03 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-04 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-05 | Phase 04.6 — /gestao, Início e site público | Not Started |
-| GES-06 | Phase 04.6 — /gestao, Início e site público | Not Started |
+| GES-05 | Phase 04.6 — /gestao, Início e site público | Complete |
+| GES-06 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-07 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-08 | Phase 04.6 — /gestao, Início e site público | Complete |
 | GES-09 | Phase 04.6 — /gestao, Início e site público | Complete |
@@ -621,4 +641,10 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-09-26 — ORC-01..18 promovidos da v2 e reescritos para a Fase 04.5; 136/136 requisitos mapeados*
+*Last updated: 2026-09-28 (plano 04.6-08) — corrigido o descompasso entre a tabela de rastreio e
+os checkboxes de GES-05/GES-06 (ambos já `[x]` desde o plano 04.6-01, `e206a90`/`84ad637`; a
+tabela dizia "Not Started" — a mesma classe de gap já registrada em `WINDOWS.md #43`, achada e
+corrigida aqui). GES-04 continua "Not Started" de propósito: só fecha depois da Parte C da Tarefa
+2 do plano 04.6-08, em produção. UI-02/UI-04 substituídos por GES-12/GES-13; decisão sobre
+PNL-01..05 registrada; nota de deferimento explícito em SIT-02. 160/160 requisitos mapeados.*
+*Last updated antes: 2026-09-26 — ORC-01..18 promovidos da v2 e reescritos para a Fase 04.5; 136/136 requisitos mapeados*
