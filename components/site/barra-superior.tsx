@@ -28,7 +28,15 @@ export function BarraSuperior() {
           AMASSA CERRADO
         </a>
 
-        <div className="hidden items-center gap-5 text-[15px] font-medium text-site-tinta-media md:flex">
+        {/* Os quatro links de seção só entram a partir de 880px, não de 768px (`md`). Em 768px a
+            marca + quatro links + dois botões não cabem: "Encomendas" terminava em 778 numa tela
+            de 768 — medido em produção em 29/09/2026. O próprio protótipo aprovado tem o mesmo
+            defeito na virada dele (760px: "Encomendas" até 810). 880px é um ponto de quebra que o
+            protótipo já usa em três seções, e dá folga para diferença de fonte entre sistemas.
+            Decisão tomada sem o dono, registrada; reverter é voltar `min-[880px]:flex` para
+            `md:flex` — e aceitar o botão cortado entre 768 e ~795px. Guardado por
+            tests/e2e/site-abertura.spec.ts, caso (k). */}
+        <div className="hidden items-center gap-5 text-[15px] font-medium text-site-tinta-media min-[880px]:flex">
           {LINKS_DE_SECAO.map((link) => (
             <a key={link.href} href={link.href} className="flex min-h-11 items-center hover:text-site-tinta">
               {link.rotulo}
@@ -36,7 +44,14 @@ export function BarraSuperior() {
           ))}
         </div>
 
-        <div className="flex gap-2">
+        {/* Os dois botões fixos ficam ESCONDIDOS no celular — exatamente como o protótipo aprovado
+            renderiza (`nav.topo .fixos{display:none}` abaixo de 760px; medido em 29/09/2026). Lá
+            quem os entrega é a barra de baixo (`barra-inferior-fixa.tsx`, `md:hidden`), então os
+            dois pontos de quebra são complementares: em nenhuma largura os botões somem das duas
+            barras. Antes eles apareciam aqui também, e "Encomendas" saía cortado na borda da tela
+            — em 375px lia-se "Encom". O executor do plano 03 seguiu a regra de celular da linha 33
+            do CSS do protótipo sem ver que a linha 37 a anula pela cascata. */}
+        <div className="hidden gap-2 md:flex">
           <a
             data-testid="site-botao-agenda"
             href="#agenda"
