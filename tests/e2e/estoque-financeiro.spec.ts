@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { semearVendaSemMovimentacao } from "./apoio/semear-documento-antigo";
 import { movimentacoesDoItem, saldoNoBanco, semearMaterial } from "./apoio/semear-estoque";
 import { semearItem } from "./apoio/semear-financeiro";
 
@@ -77,6 +78,28 @@ async function comprarPelaTela(page: Page, nome: string, quantos: string, custou
   await botao.click();
   await expect(page).toHaveURL(/\?aba=despesa/, { timeout: 10000 });
   await expect(page.getByText(/^Despesa nº \d+ lançada/)).toBeVisible({ timeout: 5000 });
+}
+
+// Cancela pelo Caixa, a partir da linha do extrato: "Ver" → "Cancelar esta venda/despesa" →
+// confirmação → o TOAST (o sinal real de que o servidor respondeu — ver `financeiro-caixa.spec.ts`).
+async function cancelarPeloCaixa(page: Page, linha: Locator, tipo: "venda" | "despesa") {
+  await expect(linha).toBeVisible();
+  await linha.getByTestId("extrato-ver").click();
+  const detalhe = page.getByTestId("documento-detalhe");
+  await expect(detalhe).toBeVisible();
+  const numero = /nº (\d+)/.exec(await detalhe.innerText())?.[1] ?? "";
+  await detalhe.getByRole("button", { name: `Cancelar esta ${tipo}` }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: `Cancelar ${tipo}`, exact: true })
+    .click();
+  await expect(
+    page.getByText(`Lançamento nº ${numero} cancelado. Continua visível, riscado.`),
+  ).toBeVisible({ timeout: 10000 });
+}
+
+function linhaDoExtrato(page: Page, texto: string) {
+  return page.getByTestId("extrato-linha").filter({ hasText: texto });
 }
 
 test.describe("estoque financeiro", () => {
@@ -240,5 +263,146 @@ test.describe("estoque financeiro", () => {
     await expect(page).toHaveURL(/\?aba=venda/, { timeout: 10000 });
 
     expect(await movimentacoesDoItem(argila)).toHaveLength(0);
+  });
+  test("(f) cancelar a venda devolve ao insumo exatamente o que ela tirou, com as duas linhas no livro (D-23)", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeArgila = `[e2e] Argila do estorno ${suf}`;
+    const argila = await semearMaterial({
+      nome: nomeArgila,
+      unidade: "kg",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+    });
+    const nomeCaneca = `[e2e] Caneca do estorno ${suf}`;
+    await semearProdutoComFicha({
+      nome: nomeCaneca,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 5000,
+      insumoId: argila,
+      quantidade: "0.08",
+    });
+
+    await fazerLogin(page);
+    await comprarPelaTela(page, nomeArgila, "25", "125");
+    expect(await saldoNoBanco(argila)).toBe(25000);
+
+    await venderPelaTela(page, suf, [{ nome: nomeCaneca, vezes: 2 }]);
+    expect(await saldoNoBanco(argila)).toBe(24840);
+
+    await page.goto("/gestao/financeiro?aba=caixa");
+    await cancelarPeloCaixa(page, linhaDoExtrato(page, nomeCaneca), "venda");
+
+    // O saldo volta ao de antes da venda — e nada foi apagado: compra, saída e estorno no livro.
+    expect(await saldoNoBanco(argila)).toBe(25000);
+    const linhas = await movimentacoesDoItem(argila);
+    expect(linhas).toHaveLength(3);
+    const [, saida, estorno] = linhas;
+    expect(saida).toMatchObject({ origem: "venda", tipo: "saida", quantidadeMilesimos: -160 });
+    // 160 g de 25 kg que custaram R$ 125,00 → R$ 0,80.
+    expect(saida.valorCentavos).toBe(-80);
+    expect(estorno).toMatchObject({
+      origem: "venda",
+      tipo: "entrada",
+      quantidadeMilesimos: 160,
+      // D-23: volta ao custo que a venda levou.
+      valorCentavos: 80,
+      valorInformadoCentavos: 80,
+      area: saida.area,
+      estornoDeId: saida.id,
+      documentoId: saida.documentoId,
+      documentoLinhaId: saida.documentoLinhaId,
+    });
+
+    await page.goto("/gestao/estoque");
+    await expect(cartaoDoItem(page, argila).getByTestId("estoque-cartao-saldo")).toHaveText("25");
+  });
+
+  test("(g) cancelar uma compra já consumida em parte sai ao custo médio corrente, sem valor de sinal trocado (D-24)", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeCopo = `[e2e] Copo para pintar ${suf}`;
+    const copo = await semearItem({
+      nome: nomeCopo,
+      categoriaVenda: "Peças para pintar",
+      precoCentavos: 4500,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "un",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await comprarPelaTela(page, nomeCopo, "10", "30");
+    await venderPelaTela(page, suf, [{ nome: nomeCopo, vezes: 4 }]);
+    expect(await saldoNoBanco(copo)).toBe(6000);
+
+    await page.goto("/gestao/financeiro?aba=caixa");
+    // O nome do copo aparece na compra E na venda — a compra é a linha de saída de dinheiro.
+    await cancelarPeloCaixa(
+      page,
+      linhaDoExtrato(page, nomeCopo).filter({ hasText: /−\s*R\$/ }),
+      "despesa",
+    );
+
+    const linhas = await movimentacoesDoItem(copo);
+    expect(linhas).toHaveLength(3);
+    const [compra, venda, estorno] = linhas;
+    expect(compra).toMatchObject({ origem: "compra", tipo: "entrada", quantidadeMilesimos: 10000, valorCentavos: 3000 });
+    expect(venda).toMatchObject({ origem: "venda", tipo: "saida", quantidadeMilesimos: -4000, valorCentavos: -1200 });
+    // D-24: a saída do estorno vale 10 un ao custo médio do instante (R$ 18,00 / 6 un = R$ 3,00).
+    expect(estorno).toMatchObject({
+      origem: "compra",
+      tipo: "saida",
+      quantidadeMilesimos: -10000,
+      valorCentavos: -3000,
+      valorInformadoCentavos: null,
+      area: null,
+      estornoDeId: compra.id,
+      documentoId: compra.documentoId,
+    });
+    const quantidade = linhas.reduce((soma, linha) => soma + linha.quantidadeMilesimos, 0);
+    const valor = linhas.reduce((soma, linha) => soma + linha.valorCentavos, 0);
+    expect(quantidade).toBe(-4000);
+    expect(valor).toBe(-1200);
+    // O valor nunca tem o sinal trocado em relação à quantidade.
+    expect(Math.sign(valor) === Math.sign(quantidade) || valor === 0).toBe(true);
+  });
+
+  test("(h) cancelar uma venda de antes do Estoque funciona e não inventa movimentação (EST-17/D-05)", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const copo = await semearItem({
+      nome: `[e2e] Copo antigo ${suf}`,
+      categoriaVenda: "Peças para pintar",
+      precoCentavos: 4500,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "un",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+      atalhoCompra: false,
+    });
+    const descricao = `[e2e] Venda antiga ${suf}`;
+    await semearVendaSemMovimentacao({
+      itemId: copo,
+      categoria: "Peças para pintar",
+      quantidade: 2,
+      valorCentavos: 9000,
+      descricao,
+    });
+    expect(await movimentacoesDoItem(copo)).toHaveLength(0);
+
+    await fazerLogin(page);
+    await page.goto("/gestao/financeiro?aba=caixa");
+    await cancelarPeloCaixa(page, linhaDoExtrato(page, descricao), "venda");
+
+    await expect(linhaDoExtrato(page, descricao)).toContainText("cancelada");
+    expect(await movimentacoesDoItem(copo)).toHaveLength(0);
+    expect(await saldoNoBanco(copo)).toBe(0);
   });
 });

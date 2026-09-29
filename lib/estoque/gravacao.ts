@@ -35,7 +35,7 @@
 // seria tirado no primeiro comando da transação, ANTES da trava, e o `SUM` sairia velho.
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
 import { categorias, fichaTecnica, itensCatalogo, movimentacoesEstoque } from "@/db/schema";
@@ -44,7 +44,7 @@ import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
 import { ESTADO_VAZIO, valorarMovimento, type EstadoDoItem } from "./custo";
-import type { PedidoDeMovimentacao } from "./pedidos";
+import type { MovimentacaoOriginal, PedidoDeMovimentacao } from "./pedidos";
 
 // O tipo da transação do Drizzle, derivado do próprio `db` — mesma técnica de
 // `lib/anotacoes/acoes.ts` (nunca importado de `drizzle-orm/node-postgres`).
@@ -321,4 +321,36 @@ export async function areasDasCategorias(
     .from(categorias)
     .where(inArray(categorias.id, unicos));
   return new Map(linhas.map((linha) => [linha.id, linha.area]));
+}
+
+// As movimentações de um documento que ainda NÃO foram estornadas, na ordem do livro (`numero`) —
+// o que `cancelarDocumento` espelha (D-04). Só as originais (`estorno_de_id` nulo) e sem nenhuma
+// linha apontando para elas (`not exists`): a segunda proteção contra estorno duplo, ao lado do
+// índice único `movimentacoes_estoque_estorno_de_uk`. Chamada DEPOIS da trava do documento: a
+// ordem de travas documento → itens nunca inverte.
+export async function originaisSemEstorno(
+  tx: TransacaoDoBanco,
+  documentoId: string,
+): Promise<MovimentacaoOriginal[]> {
+  return tx
+    .select({
+      id: movimentacoesEstoque.id,
+      itemId: movimentacoesEstoque.itemId,
+      origem: movimentacoesEstoque.origem,
+      tipo: movimentacoesEstoque.tipo,
+      quantidadeMilesimos: movimentacoesEstoque.quantidadeMilesimos,
+      valorCentavos: movimentacoesEstoque.valorCentavos,
+      area: movimentacoesEstoque.area,
+      documentoId: movimentacoesEstoque.documentoId,
+      documentoLinhaId: movimentacoesEstoque.documentoLinhaId,
+    })
+    .from(movimentacoesEstoque)
+    .where(
+      and(
+        eq(movimentacoesEstoque.documentoId, documentoId),
+        isNull(movimentacoesEstoque.estornoDeId),
+        sql`not exists (select 1 from movimentacoes_estoque as estorno where estorno.estorno_de_id = ${movimentacoesEstoque.id})`,
+      ),
+    )
+    .orderBy(asc(movimentacoesEstoque.numero));
 }

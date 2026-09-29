@@ -13,8 +13,9 @@ import {
   areasDasCategorias,
   carregarItensParaEfeito,
   gravarMovimentacoes,
+  originaisSemEstorno,
 } from "@/lib/estoque/gravacao";
-import { pedidosDaCompra, pedidosDaVenda } from "@/lib/estoque/pedidos";
+import { pedidosDaCompra, pedidosDaVenda, pedidosDoEstorno } from "@/lib/estoque/pedidos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { obterConfiguracaoFinanceira } from "./consultas";
@@ -565,13 +566,24 @@ export async function definirAtalhoDoItem(
   const { itemId, tipo, marcado } = resultado.data;
 
   const [item] = await db
-    .select({ aparecenaVenda: itensCatalogo.aparecenaVenda, controlaEstoque: itensCatalogo.controlaEstoque })
+    .select({
+      aparecenaVenda: itensCatalogo.aparecenaVenda,
+      controlaEstoque: itensCatalogo.controlaEstoque,
+      ativo: itensCatalogo.ativo,
+    })
     .from(itensCatalogo)
     .where(eq(itensCatalogo.id, itemId))
     .limit(1);
 
   if (!item) {
     return { ok: false, erro: "Esse item não existe mais. Recarregue a página e tente de novo." };
+  }
+  // Item desativado (D-20) não ganha atalho — o seletor já o esconde.
+  if (!item.ativo) {
+    return {
+      ok: false,
+      erro: "Esse item está desativado — reative em Cadastros → Catálogo para marcar atalho.",
+    };
   }
   if (tipo === "venda" && !item.aparecenaVenda) {
     return { ok: false, erro: "Esse item não aparece na venda — não dá para marcar atalho." };
@@ -623,6 +635,20 @@ export async function cancelarDocumento(
         throw new DocumentoJaCancelado();
       }
 
+      // O estorno do estoque (Fase 06, D-04): UMA movimentação espelho por original, com
+      // `estorno_de_id` apontando para ela, o mesmo documento e a mesma origem — nada é apagado.
+      // Vem DEPOIS da trava do documento (acima) e da checagem de "já cancelado": a ordem de travas
+      // documento → itens nunca inverte, e duas pessoas cancelando ao mesmo tempo produzem um
+      // conjunto de estornos só (a segunda cai em `DocumentoJaCancelado`; o índice único
+      // `movimentacoes_estoque_estorno_de_uk` segura no banco se algum caminho futuro tentar).
+      //
+      // Pitfall 4: o estorno espelha o LIVRO — recalcular pela ficha de hoje devolveria o que a
+      // venda nunca tirou. O valor é decidido em `lib/estoque/custo.ts` (D-23/D-24). Documento sem
+      // movimentação (anterior ao Estoque, "outra despesa", venda só de valor livre) passa com lista
+      // vazia e não mexe em saldo nenhum (D-05). D-33: esta transação passa a depender da `0023`.
+      const originais = await originaisSemEstorno(tx, documentoId);
+      await gravarMovimentacoes(tx, pedidosDoEstorno(originais), { registradoPor: usuario.id });
+
       await tx
         .update(documentos)
         .set({ canceladoEm: new Date(), canceladoPor: usuario.id })
@@ -632,6 +658,8 @@ export async function cancelarDocumento(
     });
 
     revalidatePath("/gestao/financeiro");
+    revalidatePath(rotaDeGestao("/estoque"));
+    revalidatePath(rotaDeGestao("/"));
     return { ok: true, dados: { documentoId, numero } };
   } catch (erro) {
     if (erro instanceof DocumentoNaoEncontrado) {

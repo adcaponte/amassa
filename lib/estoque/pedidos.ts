@@ -11,7 +11,7 @@
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
-import type { Movimento } from "./custo";
+import { movimentoDoEstorno, type Movimento } from "./custo";
 import { areaDoDestino, type DestinoDeSaida } from "./destinos";
 
 export type OrigemDaMovimentacao = "venda" | "compra" | "producao" | "manual";
@@ -198,4 +198,48 @@ export function pedidosDaCompra(
     }
   }
   return pedidos;
+}
+
+// ---------------------------------------------------------------------------------------------
+// O estorno do cancelamento (plano 06-03, D-04).
+//
+// O estorno ESPELHA o livro, nunca recalcula (Pitfall 4): chamar `efeitoNoEstoque` de novo usaria
+// a ficha técnica de HOJE — que pode ter mudado desde a venda — e devolveria ao estoque um insumo
+// que a venda nunca tirou. Documento lançado antes do Estoque não tem movimentação: zero originais,
+// zero estornos (D-05). O VALOR de cada estorno é decidido em `movimentoDoEstorno`
+// (lib/estoque/custo.ts, D-23/D-24 — o único lugar onde essa regra mora).
+// ---------------------------------------------------------------------------------------------
+
+// Uma movimentação gravada que ainda não tem estorno (`originaisSemEstorno` em gravacao.ts).
+export type MovimentacaoOriginal = {
+  id: string;
+  itemId: string;
+  origem: OrigemDaMovimentacao;
+  tipo: TipoDaMovimentacao;
+  quantidadeMilesimos: number;
+  valorCentavos: number;
+  area: AreaFinanceira | null;
+  documentoId: string | null;
+  documentoLinhaId: string | null;
+};
+
+// Um pedido espelho por original, na mesma ordem: tipo oposto, mesma origem, `estornoDeId` = id da
+// original, documento/linha/área copiados. Quando o estorno é uma ENTRADA (volta de uma venda), o
+// `check` da 0023 exige valor informado — é o absoluto do valor da original.
+export function pedidosDoEstorno(originais: readonly MovimentacaoOriginal[]): PedidoDeMovimentacao[] {
+  return originais.map((original) => {
+    const movimento = movimentoDoEstorno(original);
+    const tipo: TipoDaMovimentacao = movimento.tipo === "saida" ? "saida" : "entrada";
+    return {
+      itemId: original.itemId,
+      origem: original.origem,
+      tipo,
+      movimento,
+      ...(tipo === "entrada" ? { valorInformadoCentavos: Math.abs(original.valorCentavos) } : {}),
+      estornoDeId: original.id,
+      ...(original.area ? { area: original.area } : {}),
+      ...(original.documentoId ? { documentoId: original.documentoId } : {}),
+      ...(original.documentoLinhaId ? { documentoLinhaId: original.documentoLinhaId } : {}),
+    };
+  });
 }
