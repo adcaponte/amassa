@@ -515,3 +515,85 @@ export function textoToastMaterialCadastrado(nome: string): string {
   return `${nome} cadastrado. Registre a entrada para dar saldo a ele.`;
 }
 export const TOAST_MATERIAL_ATUALIZADO = "Material atualizado.";
+
+// ---------------------------------------------------------------------------------------------
+// A contagem do estoque e o painel da primeira abertura (plano 06-10) — UI-SPEC §Contagem do
+// estoque, §Painel da primeira abertura, §Estados vazios, §Erros.
+// ---------------------------------------------------------------------------------------------
+
+// §Ações.
+export const ROTULO_CONTAR_ESTOQUE = "Contar estoque";
+export const ROTULO_COMECAR_CONTAGEM = "Começar a contagem";
+export const ROTULO_CONFIRMAR_CONTAGEM = "Confirmar contagem";
+export const ROTULO_GRAVANDO = "Gravando…";
+export const ROTULO_CONTAR_DE_NOVO = "Contar de novo";
+
+// §Estados vazios — "Primeira abertura (itens existem, nenhum foi contado)".
+export const TITULO_PRIMEIRA_ABERTURA = "Antes de tudo, conte o que tem na prateleira.";
+export const CORPO_PRIMEIRA_ABERTURA =
+  "O Estoque começa pela contagem: diga quanto tem de cada material e quanto custou. Vendas e compras lançadas antes de hoje não entram. Dá para parar no meio — cada item fica gravado quando você confirma.";
+export const FRASE_FALTA_ALGUM_MATERIAL = "Falta algum material?";
+
+// A tela de contagem.
+export const TITULO_CONTAGEM = "Contagem do estoque";
+export function textoProgressoDaContagem(contados: number, total: number): string {
+  return `${contados} de ${total} contados hoje`;
+}
+export const TITULO_GRUPO_PRIMEIRA = "Ainda sem contagem";
+export const FRASE_GRUPO_PRIMEIRA =
+  "Conte o que tem na prateleira e diga quanto custou. É daqui que o Estoque começa — vendas e compras de antes não entram.";
+export const TITULO_GRUPO_CONFERENCIA = "Conferência";
+export const FRASE_GRUPO_CONFERENCIA =
+  "Conte e confirme material por material. Só grava o que mudou; se já estava certo, nada é gravado.";
+export function textoQuantosMateriais(quantos: number): string {
+  return quantos === 1 ? "1 material" : `${quantos} materiais`;
+}
+export const NOTA_PARAR_NO_MEIO =
+  "Dá para parar no meio: cada material fica gravado quando você confirma.";
+export function textoEmUnidade(unidade: string): string {
+  return `em ${unidade}`;
+}
+export const ROTULO_BUSCA_CONTAGEM = "Buscar material para contar";
+
+// §Rótulos — os campos da linha.
+export const ROTULO_CONTADO_DA_CONTAGEM = "Contado";
+export function ariaContadoDaContagem(nome: string, unidade: string): string {
+  return `Contado de ${nome}, em ${unidade}`;
+}
+export const ROTULO_CUSTOU_AO_TODO = "Custou ao todo";
+export function ariaCustouAoTodo(nome: string): string {
+  return `Quanto custou ao todo ${nome}`;
+}
+export function dicaCustouAoTodo(diferenca: string, unidade: string): string {
+  return `o que você pagou por ${diferenca} ${unidade} — uma estimativa serve se não souber exato`;
+}
+
+// §Pré-visualização da contagem (minúscula: é a continuação da linha, não uma frase solta).
+export function previaDaContagemTexto(de: string, para: string, unidade: string): string {
+  return `o saldo passa de ${de} para ${para} ${unidade}`;
+}
+export const PREVIA_CONTAGEM_JA_CERTA = "já está certo — nada será gravado";
+
+// Depois de gravar: a linha compacta e o anúncio do leitor de tela.
+export function textoContadoGravado(saldo: string, unidade: string, hora: string): string {
+  return `✓ Contado: ${saldo} ${unidade} · hoje ${hora}`;
+}
+export const TEXTO_CONFERIDO_JA_CERTO = "✓ Conferido — já estava certo";
+export function anuncioDaContagem(nome: string, de: string, para: string, unidade: string): string {
+  return `${nome}: o saldo passou de ${de} para ${para} ${unidade}.`;
+}
+export function anuncioDaContagemConferida(nome: string): string {
+  return `${nome}: conferido, já estava certo.`;
+}
+
+// §Estados vazios — contagem.
+export const TITULO_NADA_PARA_CONTAR = "Nada para contar.";
+export const CORPO_NADA_PARA_CONTAR = "Cadastre o primeiro material e volte aqui.";
+export const CORPO_NADA_COM_FILTRO_CONTAGEM = "Tente outro nome, ou toque em Tudo.";
+
+// §Erros — contagem.
+export const FRASE_ERRO_CARREGAR_CONTAGEM =
+  "Não deu para carregar a contagem. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_GRAVAR_CONTAGEM =
+  "Não deu para gravar esta contagem. Verifique a internet e toque em Confirmar contagem de novo.";
+export const FRASE_CUSTO_DA_CONTAGEM = "Diga quanto custou — uma estimativa serve.";

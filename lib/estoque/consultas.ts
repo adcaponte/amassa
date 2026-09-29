@@ -560,3 +560,94 @@ export async function listarCategoriasDeCompraAtivas(): Promise<CategoriaDeCompr
     .where(and(eq(categorias.ativa, true), inArray(categorias.grupo, ["custo", "geral"])))
     .orderBy(asc(categorias.nome));
 }
+
+// ---------------------------------------------------------------------------------------------
+// A contagem (plano 06-10).
+// ---------------------------------------------------------------------------------------------
+
+export type MaterialDaContagem = {
+  id: string;
+  nome: string;
+  unidade: Unidade;
+  area: AreaFinanceira;
+  categoriaCompraNome: string | null;
+  ativo: boolean;
+  // Já tem movimentação `manual` → está em "Conferência"; senão em "Ainda sem contagem" (UI-D2).
+  // A tela usa só para agrupar e para a prévia — quem DECIDE o modo é `gravarContagem`, sob a trava.
+  temManual: boolean;
+  // O saldo de agora. A tela só o mostra DEPOIS de a pessoa digitar (UI-D16, contagem às cegas).
+  saldoMilesimos: number;
+  // A contagem mais recente de HOJE (dia civil de Brasília): uma movimentação manual com motivo
+  // `saldo_inicial` ou de tipo `ajuste`. `null` = não foi contado hoje. Instante em ISO.
+  contadoHojeEm: string | null;
+  contadoHojeMilesimos: number | null;
+  // O custo de uma peça pela ficha (peça pronta, D-22): "Custou ao todo" vem preenchido.
+  custoPorPecaCentavos: number | null;
+};
+
+// Os materiais ATIVOS com estoque próprio, para a tela de contagem — lidos da mesma `listarSaldos`
+// (a mesma regra de saldo e de área de toda tela), mais duas consultas casadas por `Map`: quem já
+// tem movimentação manual, e a contagem de hoje de cada um. "Contado hoje" vem do banco, não de um
+// rascunho (D-18): sobrevive a recarregar a página. `hoje` ("AAAA-MM-DD", de `hojeEmBrasilia`)
+// chega por argumento — este módulo não lê o relógio; o corte do dia é a meia-noite de Brasília.
+export async function listarParaContagem(hoje: string): Promise<MaterialDaContagem[]> {
+  const saldos = (await listarSaldos()).filter((item) => item.ativo);
+  if (saldos.length === 0) {
+    return [];
+  }
+  const ids = saldos.map((item) => item.id);
+
+  const [comManual, contagensDeHoje, custos] = await Promise.all([
+    db
+      .selectDistinct({ itemId: movimentacoesEstoque.itemId })
+      .from(movimentacoesEstoque)
+      .where(
+        and(inArray(movimentacoesEstoque.itemId, ids), eq(movimentacoesEstoque.origem, "manual")),
+      ),
+    db
+      .selectDistinctOn([movimentacoesEstoque.itemId], {
+        itemId: movimentacoesEstoque.itemId,
+        // Milissegundos desde a época, como texto do `pg` — independe do analisador de data do
+        // driver e do fuso do processo.
+        instanteMs: sql<string>`(extract(epoch from ${movimentacoesEstoque.criadoEm}) * 1000)::bigint`,
+        saldoContadoMilesimos: movimentacoesEstoque.saldoContadoMilesimos,
+      })
+      .from(movimentacoesEstoque)
+      .where(
+        and(
+          inArray(movimentacoesEstoque.itemId, ids),
+          eq(movimentacoesEstoque.origem, "manual"),
+          sql`(${movimentacoesEstoque.motivo} = 'saldo_inicial' or ${movimentacoesEstoque.tipo} = 'ajuste')`,
+          sql`${movimentacoesEstoque.criadoEm} >= (${hoje}::date)::timestamp at time zone 'America/Sao_Paulo'`,
+        ),
+      )
+      .orderBy(movimentacoesEstoque.itemId, desc(movimentacoesEstoque.numero)),
+    custosDasPecasProntas(
+      saldos.filter((item) => item.ehPecaPronta).map((item) => item.id),
+      hoje,
+    ),
+  ]);
+
+  const manuais = new Set(comManual.map((linha) => linha.itemId));
+  const contagemPorItem = new Map(contagensDeHoje.map((linha) => [linha.itemId, linha]));
+
+  return saldos.map((item) => {
+    const contagem = contagemPorItem.get(item.id);
+    return {
+      id: item.id,
+      nome: item.nome,
+      unidade: item.unidade,
+      area: item.area,
+      categoriaCompraNome: item.categoriaCompraNome,
+      ativo: item.ativo,
+      temManual: manuais.has(item.id),
+      saldoMilesimos: item.saldoMilesimos,
+      contadoHojeEm: contagem ? new Date(Number(contagem.instanteMs)).toISOString() : null,
+      contadoHojeMilesimos:
+        contagem && contagem.saldoContadoMilesimos !== null
+          ? Number(contagem.saldoContadoMilesimos)
+          : null,
+      custoPorPecaCentavos: custos.get(item.id) ?? null,
+    };
+  });
+}

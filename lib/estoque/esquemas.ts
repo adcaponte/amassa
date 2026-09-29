@@ -22,6 +22,7 @@ import {
 import { DESTINOS_DE_SAIDA, ehDestinoDeSaida, type DestinoDeSaida } from "./destinos";
 import {
   FRASE_CONTADO_VAZIO,
+  FRASE_CUSTO_DA_CONTAGEM,
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
   FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
@@ -189,6 +190,44 @@ export const esquemaRegistrarMovimentacao = esquemaPorTipo.transform((dados) => 
 });
 
 export type RegistrarMovimentacaoValidado = z.infer<typeof esquemaRegistrarMovimentacao>;
+
+// ---------------------------------------------------------------------------------------------
+// A contagem (plano 06-10). Do cliente chegam SÓ o id, o texto do contado e o texto do custo — o
+// MODO (primeira ou conferência) e a diferença são decididos no servidor, sob a trava (T-06-45).
+// ---------------------------------------------------------------------------------------------
+
+// "Custou ao todo" é opcional AQUI: se ele é exigido depende da diferença contra o saldo do
+// instante, e só `planejarContagem`, sob a trava, sabe ("Diga quanto custou — uma estimativa
+// serve."). Vazio vira nulo; texto inválido recebe a frase de `converterReaisParaCentavos`.
+const esquemaCustouDaContagem = z
+  .string({ error: FRASE_CUSTO_DA_CONTAGEM })
+  .nullish()
+  .transform((texto, contexto) => {
+    if (texto === null || texto === undefined || texto.trim() === "") {
+      return null;
+    }
+    const conversao = converterReaisParaCentavos(texto);
+    if (!conversao.ok) {
+      contexto.addIssue({ code: "custom", message: conversao.erro });
+      return z.NEVER;
+    }
+    return conversao.centavos;
+  });
+
+export const esquemaConfirmarContagem = z
+  .object({
+    itemId: esquemaItemId,
+    // Aceita zero (D-32): "Diga quanto tem na prateleira — pode ser zero." quando vazio.
+    contadoTexto: esquemaContado,
+    custouTexto: esquemaCustouDaContagem,
+  })
+  .transform((dados) => ({
+    itemId: dados.itemId,
+    contadoMilesimos: dados.contadoTexto,
+    custouCentavos: dados.custouTexto,
+  }));
+
+export type ConfirmarContagemValidado = z.infer<typeof esquemaConfirmarContagem>;
 
 // ---------------------------------------------------------------------------------------------
 // A folha de um material (plano 06-09).

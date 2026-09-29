@@ -247,6 +247,45 @@ export function contadorDaLista(
   return textoContador(mostrados, daSituacao.length, formatarDinheiro(valor));
 }
 
+// ---------------------------------------------------------------------------------------------
+// O bloco "Estoque acabando" do Início (plano 06-10, D-10, D-21) — a MESMA regra do banner e da
+// pílula Acabando (`alertaDoItem`): o Início não compara saldo com mínimo por conta própria.
+// ---------------------------------------------------------------------------------------------
+
+export const LINHAS_NO_INICIO = 5;
+
+export type LinhaDoInicio<T> = T & { situacao: Exclude<SituacaoDoSaldo, "ok"> };
+
+// Até 5 linhas — negativo primeiro, depois acabando, cada grupo por nome (`ordenarSaldos`) — e
+// `maisN` com o que ficou de fora ("e mais {N}"). Material ok, com mínimo zero e saldo positivo, ou
+// desativado (UI-D11) nunca entra.
+export function itensParaOInicio<
+  T extends Pick<SaldoParaLista, "id" | "nome" | "ativo" | "saldoMilesimos" | "estoqueMinimoMilesimos">,
+>(itens: readonly T[]): { linhas: LinhaDoInicio<T>[]; maisN: number } {
+  const comAlerta = ordenarSaldos(itens).flatMap((item) => {
+    const situacao = alertaDoItem(item);
+    return situacao === "ok" ? [] : [{ ...item, situacao }];
+  });
+  return {
+    linhas: comAlerta.slice(0, LINHAS_NO_INICIO),
+    maisN: Math.max(0, comAlerta.length - LINHAS_NO_INICIO),
+  };
+}
+
+// "Nunca contado" (UI-SPEC §Bloco Estoque acabando): há material, e nenhuma movimentação manual foi
+// gravada. É a mesma condição do painel da primeira abertura (UI-D3), lida da mesma
+// `estadoDoEstoque` — o Início convida a contar em vez de listar negativos que só existem porque
+// ninguém contou ainda.
+export function estoqueNuncaContado({
+  temMaterial,
+  temManual,
+}: {
+  temMaterial: boolean;
+  temManual: boolean;
+}): boolean {
+  return temMaterial && !temManual;
+}
+
 // O custo médio que a tela mostra, em centavos por unidade — `null` ("—") quando o material nunca
 // teve entrada com preço (D-26: a saída dele grava custo zero, e "R$ 0,00/kg" seria mentira).
 export function custoMedioParaExibir(
@@ -292,7 +331,7 @@ export function planejarAjuste({
 
 // Milésimos inteiros → "3", "2,5", "−1" (sinal de menos TIPOGRÁFICO). A divisão por 1000 só
 // acontece aqui, na hora de mostrar.
-function textoDeMilesimos(milesimos: number): string {
+export function textoDeMilesimos(milesimos: number): string {
   const absoluto = formatarQuantidade(String(Math.abs(milesimos) / 1000));
   return milesimos < 0 ? `−${absoluto}` : absoluto;
 }

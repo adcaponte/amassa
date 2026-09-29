@@ -51,7 +51,13 @@ import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
 import { ESTADO_VAZIO, valorarMovimento, type EstadoDoItem } from "./custo";
-import { pedidoDeAjuste, type MovimentacaoOriginal, type PedidoDeMovimentacao } from "./pedidos";
+import { modoDoMaterial, planejarContagem, type ModoDaContagem } from "./contagem";
+import {
+  pedidoDeAjuste,
+  pedidoDeContagem,
+  type MovimentacaoOriginal,
+  type PedidoDeMovimentacao,
+} from "./pedidos";
 import { planejarAjuste } from "./saldo";
 
 // O tipo da transação do Drizzle, derivado do próprio `db` — mesma técnica de
@@ -437,4 +443,83 @@ export async function encomendaEmAndamento(
     )
     .for("key share");
   return linha ?? null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// A contagem (plano 06-10): material por material, sob a trava, sem rascunho (D-18).
+// ---------------------------------------------------------------------------------------------
+
+export type ResultadoDaContagem =
+  | {
+      recusa: string;
+      modo: ModoDaContagem;
+      saldoAntesMilesimos: number;
+    }
+  | {
+      recusa: null;
+      gravou: boolean;
+      modo: ModoDaContagem;
+      saldoAntesMilesimos: number;
+      saldoDepoisMilesimos: number;
+      diferencaMilesimos: number;
+    };
+
+// D-17 refinado + D-18: trava o item; DEPOIS da trava lê o estado e se o item já tem movimentação
+// `manual` — o MODO é decidido aqui, dentro da transação, nunca pelo cliente (T-06-45: fingir
+// "primeira" para gravar uma entrada com custo não funciona, porque quem diz é o livro). Depois
+// `planejarContagem` contra o saldo DO INSTANTE (T-06-46): uma venda no meio da contagem fica certa
+// nas duas ordens — antes da trava, a diferença já sai com ela; depois, a venda espera a trava.
+// "nada" não insere; "recusa" (custo faltando numa primeira contagem que ficou positiva) devolve a
+// frase sem inserir. Senão, `pedidoDeContagem` pela porta única, na mesma `tx`.
+export async function gravarContagem(
+  tx: TransacaoDoBanco,
+  dados: { itemId: string; contadoMilesimos: number; custouCentavos: number | null },
+  contexto: { registradoPor: string },
+): Promise<ResultadoDaContagem> {
+  await travarItens(tx, [dados.itemId]);
+  // Em sequência, não em paralelo: as duas leituras usam a MESMA conexão da transação.
+  const estados = await lerEstados(tx, [dados.itemId]);
+  const manual = await tx
+    .select({ id: movimentacoesEstoque.id })
+    .from(movimentacoesEstoque)
+    .where(
+      and(eq(movimentacoesEstoque.itemId, dados.itemId), eq(movimentacoesEstoque.origem, "manual")),
+    )
+    .limit(1);
+  const estado = estados.get(dados.itemId) ?? ESTADO_VAZIO;
+  const modo = modoDoMaterial({ temManual: manual.length > 0 });
+
+  const plano = planejarContagem({
+    modo,
+    saldoMilesimos: estado.saldoMilesimos,
+    contadoMilesimos: dados.contadoMilesimos,
+    custouCentavos: dados.custouCentavos,
+  });
+  if (plano.tipo === "recusa") {
+    return { recusa: plano.erro, modo, saldoAntesMilesimos: estado.saldoMilesimos };
+  }
+  if (plano.tipo === "nada") {
+    return {
+      recusa: null,
+      gravou: false,
+      modo,
+      saldoAntesMilesimos: estado.saldoMilesimos,
+      saldoDepoisMilesimos: estado.saldoMilesimos,
+      diferencaMilesimos: 0,
+    };
+  }
+
+  const pedido = pedidoDeContagem(plano, {
+    itemId: dados.itemId,
+    contadoMilesimos: dados.contadoMilesimos,
+  });
+  const [gravada] = await gravarMovimentacoes(tx, [pedido], contexto);
+  return {
+    recusa: null,
+    gravou: true,
+    modo,
+    saldoAntesMilesimos: gravada.saldoAntesMilesimos,
+    saldoDepoisMilesimos: gravada.saldoDepoisMilesimos,
+    diferencaMilesimos: gravada.quantidadeMilesimos,
+  };
 }

@@ -11,6 +11,7 @@
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
+import type { PlanoDeContagem } from "./contagem";
 import { movimentoDoEstorno, type Movimento } from "./custo";
 import { areaDoDestino, type DestinoDeSaida } from "./destinos";
 
@@ -112,6 +113,45 @@ export function pedidoDeAjuste(dados: {
     saldoContadoMilesimos: dados.contadoMilesimos,
     ...(dados.nota ? { nota: dados.nota } : {}),
   };
+}
+
+// A contagem (plano 06-10): o plano JÁ foi decidido por `planejarContagem` (contagem.ts) contra o
+// saldo lido sob a trava (`gravarContagem`) — a diferença e o modo nunca vêm do cliente (T-06-45).
+// Primeira contagem com diferença positiva → entrada COM PREÇO ("Custou ao todo"), motivo
+// `saldo_inicial` e o contado em `saldo_contado_milesimos` (o `check`
+// `..._saldo_contado_so_ajuste_ou_inicial` o permite só assim). Senão → o ajuste de sempre
+// (`pedidoDeAjuste`), com o motivo quando é a primeira contagem. "nada" e "recusa" não são pedido.
+export function pedidoDeContagem(
+  plano: PlanoDeContagem,
+  dados: { itemId: string; contadoMilesimos: number },
+): PedidoDeMovimentacao {
+  if (plano.tipo === "entrada") {
+    return {
+      itemId: dados.itemId,
+      origem: "manual",
+      tipo: "entrada",
+      movimento: {
+        tipo: "entrada_com_preco",
+        milesimos: plano.diferencaMilesimos,
+        pagoCentavos: plano.custouCentavos,
+      },
+      valorInformadoCentavos: plano.custouCentavos,
+      motivo: plano.motivo,
+      saldoContadoMilesimos: dados.contadoMilesimos,
+    };
+  }
+  if (plano.tipo === "ajuste") {
+    return {
+      ...pedidoDeAjuste({
+        itemId: dados.itemId,
+        diferencaMilesimos: plano.diferencaMilesimos,
+        contadoMilesimos: dados.contadoMilesimos,
+        nota: null,
+      }),
+      ...(plano.motivo ? { motivo: plano.motivo } : {}),
+    };
+  }
+  throw new RangeError(`pedidoDeContagem: um plano "${plano.tipo}" não grava nada.`);
 }
 
 // ---------------------------------------------------------------------------------------------

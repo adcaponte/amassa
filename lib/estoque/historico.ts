@@ -237,6 +237,11 @@ const FORMATO_DA_HORA = new Intl.DateTimeFormat("pt-BR", {
   hourCycle: "h23",
 });
 
+// "14:32" em Brasília — a hora da linha compacta da contagem ("✓ Contado: … · hoje 14:32").
+export function horaEmBrasilia(instante: Date): string {
+  return FORMATO_DA_HORA.format(instante);
+}
+
 // "AAAA-MM-DD" do dia civil anterior — conta sobre `Date.UTC`, nunca o fuso do processo.
 function diaAnterior(diaIso: string): string {
   return somarDias(diaIso, -1);

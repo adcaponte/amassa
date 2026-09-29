@@ -28,6 +28,7 @@ import {
 import {
   campoDoMaterial,
   entradaDeItemDoMaterial,
+  esquemaConfirmarContagem,
   esquemaLerMaterial,
   esquemaNovoMaterial,
   esquemaRegistrarMovimentacao,
@@ -38,11 +39,13 @@ import {
 import {
   encomendaEmAndamento,
   gravarAjuste,
+  gravarContagem,
   gravarMovimentacoes,
   itemTemFichaDePrecificacao,
   travarItens,
   type TransacaoDoBanco,
 } from "./gravacao";
+import type { ModoDaContagem } from "./contagem";
 import type { ProdutoQueGasta } from "./historico";
 import { areaDoItemNoEstoque } from "./saldo";
 import { pedidoDeEntradaManual, pedidoDeSaidaManual, type PedidoDeMovimentacao } from "./pedidos";
@@ -51,6 +54,7 @@ import {
   FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
   FRASE_ERRO_CARREGAR_MATERIAL,
   FRASE_FALHA_AO_CADASTRAR,
+  FRASE_FALHA_AO_GRAVAR_CONTAGEM,
   FRASE_FALHA_AO_REGISTRAR,
   FRASE_FALHA_AO_SALVAR_MATERIAL,
   FRASE_MATERIAL_NAO_EXISTE_MAIS,
@@ -87,6 +91,15 @@ class MaterialDesativado extends Error {
 }
 class EncomendaForaDeAndamento extends Error {}
 class CustoDaPecaProntaZerado extends Error {}
+// A primeira contagem ficou positiva SOB A TRAVA e veio sem custo — a frase é a de `planejarContagem`.
+class CustoDaContagemFaltando extends Error {
+  constructor(
+    mensagem: string,
+    readonly saldoMilesimos: number,
+  ) {
+    super(mensagem);
+  }
+}
 
 // O nome da encomenda, CONGELADO em `nota` (Pitfall 10): se ela for apagada, `encomenda_id` vira
 // nulo (`on delete set null`) e o nome fica. O nome tem até 120 caracteres (check de `encomendas`),
@@ -458,4 +471,100 @@ export async function salvarMaterial(entradaBruta: unknown): Promise<ResultadoDo
   revalidatePath(rotaDeGestao("/estoque"));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: { id: itemId } };
+}
+
+// ---------------------------------------------------------------------------------------------
+// A contagem (plano 06-10): uma ação por material confirmado — sem rascunho (D-18).
+// ---------------------------------------------------------------------------------------------
+
+export type ContagemConfirmada = {
+  nome: string;
+  unidade: Unidade;
+  // `false` = diferença zero no servidor: "✓ Conferido — já estava certo", nada gravado.
+  gravou: boolean;
+  modo: ModoDaContagem;
+  saldoAntesMilesimos: number;
+  saldoDepoisMilesimos: number;
+  diferencaMilesimos: number;
+  // O instante da confirmação, em ISO — a linha compacta mostra "hoje {HH:MM}".
+  confirmadaEm: string;
+};
+
+// A falha diz em que campo mora (a linha põe a frase embaixo dele) e, quando o servidor viu um
+// saldo diferente do da página, qual — a linha refaz a prévia e mostra "Custou ao todo" se a
+// diferença, agora, passou a ser positiva.
+export type ResultadoDaContagemConfirmada =
+  | { ok: true; dados: ContagemConfirmada }
+  | { ok: false; erro: string; campo: "contado" | "custou" | null; saldoMilesimos: number | null };
+
+export async function confirmarContagem(entradaBruta: unknown): Promise<ResultadoDaContagemConfirmada> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaConfirmarContagem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    const problema = resultado.error.issues[0];
+    const caminho = problema?.path[0];
+    return {
+      ok: false,
+      erro: problema?.message ?? "Não deu para validar os dados enviados.",
+      campo: caminho === "contadoTexto" ? "contado" : caminho === "custouTexto" ? "custou" : null,
+      saldoMilesimos: null,
+    };
+  }
+  const dados = resultado.data;
+
+  let confirmada: ContagemConfirmada;
+  try {
+    confirmada = await db.transaction(async (tx): Promise<ContagemConfirmada> => {
+      // O material pode ter sido desativado (ou perdido o estoque próprio) entre abrir a tela de
+      // contagem e confirmar esta linha — decidido sob a trava.
+      const travados = await travarItens(tx, [dados.itemId]);
+      const item = travados.get(dados.itemId);
+      if (!item || !item.controlaEstoque || item.unidade === null) {
+        throw new MaterialNaoEncontrado();
+      }
+      if (!item.ativo) {
+        throw new MaterialDesativado(item.nome);
+      }
+
+      const contagem = await gravarContagem(tx, dados, { registradoPor: usuario.id });
+      if (contagem.recusa !== null) {
+        throw new CustoDaContagemFaltando(contagem.recusa, contagem.saldoAntesMilesimos);
+      }
+      return {
+        nome: item.nome,
+        unidade: item.unidade,
+        gravou: contagem.gravou,
+        modo: contagem.modo,
+        saldoAntesMilesimos: contagem.saldoAntesMilesimos,
+        saldoDepoisMilesimos: contagem.saldoDepoisMilesimos,
+        diferencaMilesimos: contagem.diferencaMilesimos,
+        confirmadaEm: new Date().toISOString(),
+      };
+    });
+  } catch (erro) {
+    if (erro instanceof MaterialNaoEncontrado) {
+      return { ok: false, erro: FRASE_MATERIAL_NAO_EXISTE_MAIS, campo: null, saldoMilesimos: null };
+    }
+    if (erro instanceof MaterialDesativado) {
+      return { ok: false, erro: fraseMaterialDesativado(erro.nome), campo: null, saldoMilesimos: null };
+    }
+    if (erro instanceof CustoDaContagemFaltando) {
+      return { ok: false, erro: erro.message, campo: "custou", saldoMilesimos: erro.saldoMilesimos };
+    }
+    // T-06-08: o texto do banco nunca chega à tela; o SQLSTATE fica só no log.
+    console.error(
+      `Falha ao gravar contagem de estoque (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_GRAVAR_CONTAGEM, campo: null, saldoMilesimos: null };
+  }
+
+  // Fora do `try`: a contagem já está no livro; revalidar nunca vira "não deu para gravar".
+  if (confirmada.gravou) {
+    revalidatePath(rotaDeGestao("/estoque"));
+    revalidatePath(rotaDeGestao("/estoque/contagem"));
+    revalidatePath(rotaDeGestao("/"));
+  }
+  return { ok: true, dados: confirmada };
 }
