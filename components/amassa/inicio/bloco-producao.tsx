@@ -108,9 +108,19 @@ export async function BlocoProducao({ hoje }: BlocoProducaoProps) {
                     >
                       {ROTULO_ETAPA[linha.etapaAtual]}
                     </span>
-                  ) : (
+                  ) : linha.atrasoDias !== null ? (
+                    // CR-04: a linha mais urgente da amostra. Par medido em
+                    // tests/unit/contraste.test.ts (text-erro sobre bg-erro-fundo).
+                    <span className="rounded bg-erro-fundo px-1.5 py-0.5 font-semibold text-erro">
+                      Atrasada · {pluralDias(linha.atrasoDias)}
+                    </span>
+                  ) : linha.diasAteInicio !== null ? (
+                    <span className="rounded bg-muted px-1.5 py-0.5">
+                      Começa em {pluralDias(linha.diasAteInicio)}
+                    </span>
+                  ) : linha.emEspera ? (
                     <span className="rounded bg-muted px-1.5 py-0.5">Em espera</span>
-                  )}
+                  ) : null}
                   {descricao && <span>{descricao}</span>}
                 </div>
               </div>

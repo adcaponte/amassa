@@ -21,16 +21,28 @@ export type LinhaDeProducao = {
   id: string;
   titulo: string;
   // `null` quando a `Situacao` não tem uma etapa atual definida (a ordem ainda não começou, já
-  // concluiu/cancelou, está atrasada sem etapa localizável, ou está no vão de espera antes de um
-  // marco) — casos defensivos: `listarEncomendasAtivas()` só traz `rascunho`/`em_producao`, mas
-  // este módulo não presume isso.
+  // concluiu/cancelou, está atrasada, ou está no vão de espera antes de um marco). Nesses casos
+  // a tela NÃO pode presumir o porquê: são os três campos do fim deste tipo que dizem.
   etapaAtual: Etapa | null;
   // A etapa que vem depois, e quantos dias faltam para ela — os dois vêm juntos ou nenhum.
   // `null` na última etapa (Entrega): não há "o que vem depois", e a tela OMITE a frase em vez
   // de mostrar algo vazio.
   proximaEtapa: Etapa | null;
   diasAteProxima: number | null;
+  // CR-04 da revisão da Fase 04.6: sem estes três, toda linha sem etapa atual saía como "Em
+  // espera" — inclusive a encomenda com a entrega VENCIDA, a linha mais urgente que a amostra
+  // pode mostrar. `listarEncomendasAtivas()` traz `em_producao`, então "atrasada" é caso de uso
+  // normal, não defesa.
+  // Dias desde a data prevista de conclusão, quando a encomenda está atrasada; `null` senão.
+  atrasoDias: number | null;
+  // Dias até o início, quando a encomenda ainda não começou; `null` senão.
+  diasAteInicio: number | null;
+  // Verdadeiro só na situação `em-espera` de verdade (o vão entre uma etapa e o próximo marco).
+  emEspera: boolean;
 };
+
+// Os três campos de CR-04 zerados — o caso comum de toda linha que não é nenhum dos três.
+const SEM_SINAL = { atrasoDias: null, diasAteInicio: null, emEspera: false } as const;
 
 export type EncomendaParaProducao = {
   id: string;
@@ -53,15 +65,30 @@ export function producaoEmAndamento(
           etapaAtual: situacao.etapa,
           proximaEtapa: situacao.proximaEtapa,
           diasAteProxima: situacao.diasAteProxima,
+          ...SEM_SINAL,
         };
 
       case "em-etapa-marco":
-        return { id, titulo, etapaAtual: situacao.etapa, proximaEtapa: null, diasAteProxima: null };
+        return {
+          id,
+          titulo,
+          etapaAtual: situacao.etapa,
+          proximaEtapa: null,
+          diasAteProxima: null,
+          ...SEM_SINAL,
+        };
 
       case "ultima-etapa":
         // Entrega é a última etapa desenhada — não há próxima (o campo "o que vem depois" fica
         // nulo, e a tela omite a frase em vez de mostrar texto vazio).
-        return { id, titulo, etapaAtual: situacao.etapa, proximaEtapa: null, diasAteProxima: null };
+        return {
+          id,
+          titulo,
+          etapaAtual: situacao.etapa,
+          proximaEtapa: null,
+          diasAteProxima: null,
+          ...SEM_SINAL,
+        };
 
       case "em-espera":
         // A peça está parada entre o fim de uma etapa e o início do próximo marco — não há
@@ -72,15 +99,46 @@ export function producaoEmAndamento(
           etapaAtual: null,
           proximaEtapa: situacao.proximaEtapa,
           diasAteProxima: situacao.diasAteProxima,
+          ...SEM_SINAL,
+          emEspera: true,
         };
 
-      // "nao-comecou", "atrasada", "concluida", "cancelada", "sem-etapas": nenhum tem uma etapa
-      // ATUAL no sentido dos ramos acima — devolvidos sem tag nem próxima etapa, nunca com um
-      // valor inventado. `listarEncomendasAtivas()` só traz `rascunho`/`em_producao`, então
-      // "concluida"/"cancelada" são inalcançáveis na prática; ficam aqui só como defesa (o
-      // mesmo espírito de `situacaoEm`, que também trata "sem-etapas" como defesa).
+      case "atrasada":
+        return {
+          id,
+          titulo,
+          etapaAtual: null,
+          proximaEtapa: null,
+          diasAteProxima: null,
+          ...SEM_SINAL,
+          atrasoDias: situacao.diasDeAtraso,
+        };
+
+      case "nao-comecou":
+        return {
+          id,
+          titulo,
+          etapaAtual: null,
+          proximaEtapa: null,
+          diasAteProxima: null,
+          ...SEM_SINAL,
+          diasAteInicio: situacao.diasAteInicio,
+        };
+
+      // "concluida", "cancelada", "sem-etapas": nenhum tem etapa atual nem sinal — devolvidos
+      // sem tag nem próxima etapa, nunca com um valor inventado. `listarEncomendasAtivas()` só
+      // traz `rascunho`/`em_producao`, então "concluida"/"cancelada" são inalcançáveis na
+      // prática; ficam aqui só como defesa (o mesmo espírito de `situacaoEm`, que também trata
+      // "sem-etapas" como defesa).
       default:
-        return { id, titulo, etapaAtual: null, proximaEtapa: null, diasAteProxima: null };
+        return {
+          id,
+          titulo,
+          etapaAtual: null,
+          proximaEtapa: null,
+          diasAteProxima: null,
+          ...SEM_SINAL,
+        };
     }
   });
 }
