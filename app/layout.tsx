@@ -54,7 +54,17 @@ export default function RootLayout({
     // variável) e o preflight do Tailwind vencia em silêncio — o build passava, o console
     // ficava limpo, e a tela toda saía na pilha padrão do sistema. Achado e corrigido no
     // portão de retorno do tracer (Tarefa 2, 02b-01).
-    <html lang="pt-BR" className={`${inter.variable} ${archivoNarrow.variable} ${fraunces.variable}`}>
+    //
+    // `data-scroll-behavior="smooth"` (WR-02 da revisão da Fase 04.6): `globals.css` liga a
+    // rolagem suave no `:root` para as âncoras do site público, e o mesmo CSS vale em `/gestao`.
+    // Com este atributo, o roteador do Next 16 desliga a rolagem suave durante a troca de rota
+    // (`disableSmoothScrollDuringRouteTransition`) — sem ele, toda navegação da plataforma a
+    // partir de uma lista rolada animava até o topo. As âncoras do site continuam suaves.
+    <html
+      lang="pt-BR"
+      data-scroll-behavior="smooth"
+      className={`${inter.variable} ${archivoNarrow.variable} ${fraunces.variable}`}
+    >
       <body className="font-sans antialiased">{children}</body>
     </html>
   );
