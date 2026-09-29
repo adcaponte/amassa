@@ -774,21 +774,25 @@ ponta a ponta) tornam-se os planos desta fase.
 
 **Goal**: Saber o que existe, o que está acabando e para onde o material foi — saldo sempre
 derivado das movimentações, nunca uma coluna editável.
-**Corresponde a**: M5 do `03-ROADMAP.md`. As 9 fases do milestone (migração `0005_estoque` +
-view `saldos_materiais`, `lib/estoque/saldo.ts` com testes, CRUD de materiais por categoria,
-registro de movimentação pensado para celular, lista de saldos com busca/filtro, histórico por
-material, bloco de alertas no painel inicial, vínculo opcional com aula/fornada/encomenda, teste
-ponta a ponta) tornam-se os planos desta fase.
-**Depends on**: Phase 2b (independente das Fases 3, 4 e 5)
-**Requirements**: EST-01, EST-02, EST-03, EST-04, EST-05, EST-06, EST-07, EST-08, EST-09, EST-10, EST-11, EST-12
+**Corresponde a**: M5 do `03-ROADMAP.md`, **reescrito pelo `ADENDO.md` de 20/09** (copiado para a
+pasta da fase; onde contradiz o briefing de 18/09, o adendo vence). 🔴 **Não existe tabela de
+materiais nem view `saldos_materiais`**: o Estoque trabalha sobre `itens_catalogo` e `ficha_tecnica`
+(Fase 04.4), acrescenta ao item só mínimo e observações, e troca `lib/financeiro/efeito-estoque.ts`
+de "mostrar" para "gravar", na mesma transação do documento. *Até 29/09 esta linha ainda descrevia
+o plano de 18/09 — migração `0005_estoque`, view `saldos_materiais` e CRUD de materiais por categoria.*
+**Depends on**: Fase 04.4 (o catálogo `itens_catalogo`, a `ficha_tecnica` e `lib/financeiro/efeito-estoque.ts`) e Fase 04.6 (o bloco "Estoque acabando" do Início) — ambas concluídas. *Até 29/09 dizia "Phase 2b (independente das Fases 3, 4 e 5)", escrito antes da inversão de ordem de 19/09.*
+**Requirements**: EST-01, EST-02, EST-03, EST-04, EST-05, EST-06, EST-07, EST-08, EST-09, EST-10, EST-11, EST-12, EST-13, EST-14, EST-15, EST-16, EST-17, EST-18, EST-19, EST-20, EST-21
 **Success Criteria** (what must be TRUE):
 
   1. Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
-  2. Material abaixo do mínimo aparece destacado na lista e no painel inicial
+  2. Item abaixo do mínimo aparece destacado na lista e no bloco "Estoque acabando" do Início
   3. O histórico mostra toda movimentação com autor e data
   4. Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
   5. Registrar uma baixa no celular leva menos de 15 segundos
   6. O saldo mostrado bate com a soma manual do histórico
+  7. Uma venda lançada no Financeiro baixa o estoque na mesma transação — o item ou, com ficha técnica, cada insumo —, e cancelá-la gera estorno, nunca apaga
+  8. A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
+  9. Saldo negativo aparece com aviso e nunca impede uma venda
 
 **Plans**: TBD
 **UI hint**: yes

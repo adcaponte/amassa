@@ -127,17 +127,26 @@
 ### Estoque
 
 - [ ] **EST-01**: Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
-- [ ] **EST-02**: Materiais são organizados em cerâmica, pintura e bordado, com unidade, estoque mínimo, custo, fornecedor e observações
-- [ ] **EST-03**: Material abaixo do mínimo aparece destacado na lista e no painel inicial
-- [ ] **EST-04**: Material com estoque mínimo zero nunca entra em alerta
+- [ ] **EST-02**: **Não existe cadastro próprio de materiais.** O Estoque trabalha sobre os itens de `itens_catalogo` (Fase 04.4) com `controla_estoque`: unidade e categoria vêm do item; o Estoque acrescenta ao item só o que é dele — **mínimo** e **observações**. Saldo e custo médio são **derivados** das movimentações, nunca campo editável *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)* — o texto antigo pedia organização em cerâmica, pintura e bordado, com custo e fornecedor como campos do material
+- [ ] **EST-03**: Item abaixo do mínimo aparece destacado na lista e no bloco **"Estoque acabando" do Início** (alimentado por `lib/estoque/consultas`, ADENDO §4) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
+- [ ] **EST-04**: Item com estoque mínimo zero nunca entra em alerta *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
 - [ ] **EST-05**: O histórico mostra toda movimentação com autor, data e tipo
 - [ ] **EST-06**: Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
 - [ ] **EST-07**: No tipo `ajuste`, a tela pede o saldo contado na prateleira, não a diferença
 - [ ] **EST-08**: Um ajuste que dá diferença zero não grava nada e responde "Conferido. O saldo já estava correto."
 - [ ] **EST-09**: Registrar uma baixa no celular leva menos de 15 segundos
 - [ ] **EST-10**: O saldo mostrado bate com a soma manual do histórico
-- [ ] **EST-11**: Uma movimentação pode referenciar opcionalmente uma aula, fornada ou encomenda de origem
-- [ ] **EST-12**: A lista de saldos tem busca e filtro por categoria
+- [ ] **EST-11**: A origem de toda movimentação é `venda`, `compra`, `producao` ou `manual`. As saídas manuais são: consumo em aula (**texto livre** até a Agenda existir) · consumo em encomenda (**referência opcional à encomenda real**, não texto livre) · consumo na cafeteria (só o que não passa por venda — degustação, consumo interno) · uso do ateliê · perda ou quebra. **"Venda na loja" não é saída manual**: venda só nasce no Financeiro (ADENDO §3) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)* — o texto antigo previa vínculo com aula, **fornada** ou encomenda; o adendo não lista fornada entre os destinos
+- [ ] **EST-12**: A lista de saldos tem busca e filtro por **área do Financeiro** (Cafeteria · Espaço · Peças · Loja · Geral), herdada da categoria de compra do item e, na falta, da de venda — não uma segunda classificação do Estoque (ADENDO §2) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
+- [ ] **EST-13**: "Novo material" no Estoque cria um item de `itens_catalogo` com `controla_estoque = true`, com a mesma validação do Cadastros; e item criado pelo Cadastros com `controla_estoque` aparece no Estoque sozinho (ADENDO §1)
+- [ ] **EST-14**: Lançar uma venda no Financeiro grava a movimentação de estoque **na mesma transação do documento** — item com estoque baixa ele mesmo; item com ficha técnica baixa cada insumo — usando o cálculo que `lib/financeiro/efeito-estoque.ts` já faz, **sem recalcular por outro caminho** (a Fase 04.4 só *mostra* esse efeito; a Fase 6 passa a *gravá-lo*) (ADENDO §3)
+- [ ] **EST-15**: Uma compra de material no Financeiro dá entrada no estoque na mesma transação, com custo = valor da linha ÷ quantidade (ADENDO §3)
+- [ ] **EST-16**: Cancelar uma venda ou uma compra gera **movimentação de estorno** com a mesma referência; nenhuma movimentação é apagada (ADENDO §3)
+- [ ] **EST-17**: Vendas e compras lançadas antes de o Estoque existir **não** geram movimentação retroativa. O Estoque começa por **contagem**: saldo inicial por item, como entrada manual com custo, e a primeira abertura da tela conduz essa contagem (ADENDO §3 e §6 — o estoque inicial não vem mais de importação da Abertura)
+- [ ] **EST-18**: Saldo negativo é permitido **com aviso** e **nunca bloqueia uma venda** (ADENDO §3)
+- [ ] **EST-19**: Cada saída grava o **custo médio do instante** do lançamento; no cálculo, dinheiro em centavos inteiros e quantidade em milésimos inteiros, como a Fase 04.4 já faz (ADENDO §4)
+- [ ] **EST-20**: O item-insumo mostra onde é gasto pela ficha técnica ("gasto por: Café 200 ml (15 g), …"); editar a ficha continua em Cadastros → Catálogo (ADENDO §4)
+- [ ] **EST-21**: Categoria **"Peça pronta"** (área Peças): itens vendáveis com estoque. Até a Produção ser redesenhada, a entrada é manual, informando o custo — o da ficha de precificação, quando houver (ADENDO §4)
 
 ### Abertura do Espaço (módulo temporário)
 
@@ -543,6 +552,15 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | EST-10 | Phase 6 — Estoque | Pending |
 | EST-11 | Phase 6 — Estoque | Pending |
 | EST-12 | Phase 6 — Estoque | Pending |
+| EST-13 | Phase 6 — Estoque | Pending |
+| EST-14 | Phase 6 — Estoque | Pending |
+| EST-15 | Phase 6 — Estoque | Pending |
+| EST-16 | Phase 6 — Estoque | Pending |
+| EST-17 | Phase 6 — Estoque | Pending |
+| EST-18 | Phase 6 — Estoque | Pending |
+| EST-19 | Phase 6 — Estoque | Pending |
+| EST-20 | Phase 6 — Estoque | Pending |
+| EST-21 | Phase 6 — Estoque | Pending |
 
 | ABE-01 | Phase 4.2 — Abertura do Espaço | Pending |
 | ABE-02 | Phase 4.2 — Abertura do Espaço | Pending |
