@@ -9,6 +9,13 @@ import { db } from "@/db";
 import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
+import {
+  areasDasCategorias,
+  carregarItensParaEfeito,
+  gravarMovimentacoes,
+} from "@/lib/estoque/gravacao";
+import { pedidosDaCompra, pedidosDaVenda } from "@/lib/estoque/pedidos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
@@ -157,6 +164,7 @@ export async function lancarVenda(
             nome: itensCatalogo.nome,
             categoriaVendaId: itensCatalogo.categoriaVendaId,
             aparecenaVenda: itensCatalogo.aparecenaVenda,
+            ativo: itensCatalogo.ativo,
           })
           .from(itensCatalogo)
           .where(inArray(itensCatalogo.id, idsDeItens))
@@ -168,7 +176,9 @@ export async function lancarVenda(
       continue;
     }
     const item = itemPorId.get(linha.itemId);
-    if (!item || !item.aparecenaVenda || !item.categoriaVendaId) {
+    // Item desativado (D-20) é recusado com a mesma frase: o seletor já o esconde, e um cliente
+    // adulterado não o lança (T-06-15).
+    if (!item || !item.ativo || !item.aparecenaVenda || !item.categoriaVendaId) {
       return {
         ok: false,
         erro: "Um dos itens saiu do catálogo — tire a linha e tente de novo.",
@@ -188,7 +198,7 @@ export async function lancarVenda(
         })
         .returning({ id: documentos.id, numero: documentos.numero });
 
-      await tx.insert(documentoLinhas).values(
+      const linhasGravadas = await tx.insert(documentoLinhas).values(
         dados.linhas.map((linha, indice) => {
           // O valor gravado é o FINAL (já com a parte do desconto desta linha, se houver) — nunca
           // o subtotal bruto (D-09: "não é linha separada", o desconto mora dentro das linhas).
@@ -214,7 +224,50 @@ export async function lancarVenda(
             valorCentavos,
           };
         }),
-      );
+      ).returning({ id: documentoLinhas.id, ordem: documentoLinhas.ordem });
+
+      // A baixa de estoque (Fase 06, D-03), DENTRO desta transação: a venda e o livro comitam
+      // juntos ou não comitam — nunca uma venda sem a baixa, nem uma baixa sem a venda. Uma falha
+      // aqui cai no `catch` abaixo e o gestor lê `FRASE_FALHA_AO_SALVAR` (o erro vai só para o log).
+      //
+      // D-33: a partir daqui ESTA TRANSAÇÃO DEPENDE DA MIGRAÇÃO `0023` (tabela
+      // `movimentacoes_estoque`). Publicar este código antes de aplicar a `0023` quebra toda venda.
+      //
+      // O cálculo é `efeitoNoEstoque`, por linha, dentro de `pedidosDaVenda` — a ação não calcula
+      // efeito nenhum. As linhas vêm do `returning`: o `id` de cada uma vira `documento_linha_id`,
+      // e é a inserção delas que segura `FOR KEY SHARE` nos itens (por isso a trava de
+      // `gravarMovimentacoes` é `no key update`). Nenhuma checagem de saldo (D-06): negativo não
+      // bloqueia, não atrasa e não pede confirmação — o Estoque é consequência da venda.
+      const idDaLinhaPorOrdem = new Map(linhasGravadas.map((linha) => [linha.ordem, linha.id]));
+      const linhasDeItem = dados.linhas.flatMap((linha, indice) => {
+        if (linha.tipo !== "item") {
+          return [];
+        }
+        // Não-nulos: o item foi conferido no laço de validação; a linha acabou de ser inserida.
+        const item = itemPorId.get(linha.itemId)!;
+        return [
+          {
+            documentoLinhaId: idDaLinhaPorOrdem.get(indice)!,
+            itemId: item.id,
+            quantidade: linha.quantidade,
+            categoriaId: item.categoriaVendaId!,
+          },
+        ];
+      });
+      if (linhasDeItem.length > 0) {
+        const itensParaEfeito = await carregarItensParaEfeito(
+          tx,
+          linhasDeItem.map((linha) => linha.itemId),
+        );
+        const areaPorCategoria = await areasDasCategorias(
+          tx,
+          linhasDeItem.map((linha) => linha.categoriaId),
+        );
+        const pedidos = pedidosDaVenda(linhasDeItem, itensParaEfeito, areaPorCategoria).map(
+          (pedido) => ({ ...pedido, documentoId: documento.id }),
+        );
+        await gravarMovimentacoes(tx, pedidos, { registradoPor: usuario.id });
+      }
 
       await tx.insert(parcelas).values(
         dados.parcelas.map((parcela, indice) => {
@@ -241,6 +294,8 @@ export async function lancarVenda(
       return { id: documento.id, numero: documento.numero };
     });
 
+    revalidatePath(rotaDeGestao("/estoque"));
+    revalidatePath(rotaDeGestao("/"));
     return { ok: true, dados: { id, numero } };
   } catch (erro) {
     if (ehViolacaoDeChaveEstrangeira(erro)) {
@@ -304,6 +359,7 @@ export async function lancarDespesa(
               nome: itensCatalogo.nome,
               controlaEstoque: itensCatalogo.controlaEstoque,
               categoriaCompraId: itensCatalogo.categoriaCompraId,
+              ativo: itensCatalogo.ativo,
             })
             .from(itensCatalogo)
             .where(inArray(itensCatalogo.id, idsDeItens))
@@ -312,6 +368,13 @@ export async function lancarDespesa(
 
     for (const linha of dados.linhas) {
       const item = itemPorId.get(linha.itemId);
+      // Item desativado (D-20): mesma frase da Venda — o seletor da Compra já o esconde (T-06-15).
+      if (item && !item.ativo) {
+        return {
+          ok: false,
+          erro: "Um dos itens saiu do catálogo — tire a linha e tente de novo.",
+        };
+      }
       if (!item || !item.controlaEstoque || !item.categoriaCompraId) {
         return {
           ok: false,
@@ -406,7 +469,7 @@ export async function lancarDespesa(
         })
         .returning({ id: documentos.id, numero: documentos.numero });
 
-      await tx.insert(documentoLinhas).values(
+      const linhasGravadas = await tx.insert(documentoLinhas).values(
         linhasParaGravar.map((linha, indice) => ({
           documentoId: documento.id,
           ordem: indice,
@@ -417,7 +480,32 @@ export async function lancarDespesa(
           quantidadeEstoque: linha.quantidadeEstoque,
           valorCentavos: linha.valorCentavos,
         })),
-      );
+      ).returning({ id: documentoLinhas.id, ordem: documentoLinhas.ordem });
+
+      // A entrada de estoque da compra de material (Fase 06, EST-15), DENTRO desta transação — só
+      // no modo "compra"; "outra despesa" não mexe no estoque. Uma entrada por linha, com o valor
+      // da linha como `valor_informado_centavos` (o custo unitário é valor ÷ quantidade na hora de
+      // mostrar, nunca gravado arredondado — D-19). D-33: esta transação passa a depender da
+      // `0023`. O custo do estoque é o da nota LANÇADA: um "Paguei" com outro valor depois não gera
+      // correção de custo (D-30, Pitfall 14).
+      if (dados.modo === "compra") {
+        const idDaLinhaPorOrdem = new Map(linhasGravadas.map((linha) => [linha.ordem, linha.id]));
+        const linhasDeCompra = linhasParaGravar.map((linha, indice) => ({
+          documentoLinhaId: idDaLinhaPorOrdem.get(indice)!,
+          itemId: linha.itemId,
+          quantidadeEstoque: linha.quantidadeEstoque,
+          valorCentavos: linha.valorCentavos,
+        }));
+        const itensParaEfeito = await carregarItensParaEfeito(
+          tx,
+          linhasDeCompra.flatMap((linha) => (linha.itemId ? [linha.itemId] : [])),
+        );
+        const pedidos = pedidosDaCompra(linhasDeCompra, itensParaEfeito).map((pedido) => ({
+          ...pedido,
+          documentoId: documento.id,
+        }));
+        await gravarMovimentacoes(tx, pedidos, { registradoPor: usuario.id });
+      }
 
       // Despesa NUNCA tem taxa — `taxaPontosBase` sempre nulo, mesmo quando a forma é "cartao"
       // (o preço já é o que o fornecedor cobrou; a taxa da maquininha só existe do lado de quem
@@ -438,6 +526,10 @@ export async function lancarDespesa(
       return { id: documento.id, numero: documento.numero };
     });
 
+    if (dados.modo === "compra") {
+      revalidatePath(rotaDeGestao("/estoque"));
+      revalidatePath(rotaDeGestao("/"));
+    }
     return { ok: true, dados: { id, numero } };
   } catch (erro) {
     if (ehViolacaoDeChaveEstrangeira(erro)) {

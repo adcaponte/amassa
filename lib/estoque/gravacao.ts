@@ -38,8 +38,10 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { itensCatalogo, movimentacoesEstoque } from "@/db/schema";
+import { categorias, fichaTecnica, itensCatalogo, movimentacoesEstoque } from "@/db/schema";
+import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import type { Unidade } from "@/lib/cadastros/catalogo";
+import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
 import { ESTADO_VAZIO, valorarMovimento, type EstadoDoItem } from "./custo";
 import type { PedidoDeMovimentacao } from "./pedidos";
@@ -241,4 +243,82 @@ export async function gravarMovimentacoes(
       saldoDepoisMilesimos: valorado.estadoDepois.saldoMilesimos,
     };
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Leituras que a venda e a compra do Financeiro fazem COM A `tx`, dentro da transação do documento
+// (plano 06-03).
+// ---------------------------------------------------------------------------------------------
+
+// Os itens de que `efeitoNoEstoque` precisa para as linhas de um documento: os vendidos/comprados e
+// os insumos das fichas deles, no formato de `listarItensParaEfeito` (lib/financeiro/consultas.ts)
+// — mas lidos com a `tx` e só os ids que importam, não o catálogo inteiro.
+//
+// SEM filtrar `ativo` (D-20, 06-RESEARCH.md §Pergunta 6): um insumo desativado dentro da ficha de um
+// produto ativo continua sendo baixado. Quem recusa item desativado é a validação da ação, e só para
+// o item da LINHA.
+//
+// A ficha é lida ANTES da trava dos itens (§Pergunta 5): se uma edição de ficha comitar entre esta
+// leitura e a trava, a venda fica equivalente a ter acontecido um instante antes dela — consistente,
+// porque todo insumo daquela ficha é travado por `gravarMovimentacoes`.
+export async function carregarItensParaEfeito(
+  tx: TransacaoDoBanco,
+  idsVendidos: readonly string[],
+): Promise<ItemParaEfeito[]> {
+  const vendidos = idsUnicosEmOrdem(idsVendidos);
+  if (vendidos.length === 0) {
+    return [];
+  }
+
+  const fichas = await tx
+    .select({
+      itemId: fichaTecnica.itemId,
+      insumoId: fichaTecnica.insumoId,
+      quantidade: fichaTecnica.quantidade,
+    })
+    .from(fichaTecnica)
+    .where(inArray(fichaTecnica.itemId, vendidos));
+
+  const fichaPorItem = new Map<string, { insumoId: string; quantidade: string }[]>();
+  for (const linha of fichas) {
+    const lista = fichaPorItem.get(linha.itemId) ?? [];
+    lista.push({ insumoId: linha.insumoId, quantidade: linha.quantidade });
+    fichaPorItem.set(linha.itemId, lista);
+  }
+
+  const todos = idsUnicosEmOrdem([...vendidos, ...fichas.map((linha) => linha.insumoId)]);
+  const itens = await tx
+    .select({
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      unidade: itensCatalogo.unidade,
+      controlaEstoque: itensCatalogo.controlaEstoque,
+    })
+    .from(itensCatalogo)
+    .where(inArray(itensCatalogo.id, todos));
+
+  return itens.map((item) => ({
+    id: item.id,
+    nome: item.nome,
+    unidade: item.unidade,
+    controlaEstoque: item.controlaEstoque,
+    ficha: fichaPorItem.get(item.id) ?? [],
+  }));
+}
+
+// A área de cada categoria (a de VENDA da linha, na baixa por venda — D-27). Categoria que não
+// existe não aparece no mapa.
+export async function areasDasCategorias(
+  tx: TransacaoDoBanco,
+  ids: readonly string[],
+): Promise<Map<string, AreaFinanceira>> {
+  const unicos = idsUnicosEmOrdem(ids);
+  if (unicos.length === 0) {
+    return new Map();
+  }
+  const linhas = await tx
+    .select({ id: categorias.id, area: categorias.area })
+    .from(categorias)
+    .where(inArray(categorias.id, unicos));
+  return new Map(linhas.map((linha) => [linha.id, linha.area]));
 }

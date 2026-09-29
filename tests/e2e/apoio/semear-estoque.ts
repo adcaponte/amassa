@@ -51,6 +51,7 @@ export async function semearMaterial(dados: MaterialParaSemear): Promise<string>
 }
 
 export type MovimentacaoNoBanco = {
+  id: string;
   numero: number;
   origem: string;
   tipo: string;
@@ -59,6 +60,11 @@ export type MovimentacaoNoBanco = {
   quantidadeMilesimos: number;
   valorCentavos: number;
   valorInformadoCentavos: number | null;
+  // Vínculos com o Financeiro (plano 06-03): venda e compra apontam o documento e a linha; o
+  // estorno aponta a movimentação que ele espelha.
+  documentoId: string | null;
+  documentoLinhaId: string | null;
+  estornoDeId: string | null;
 };
 
 // As linhas do livro de um item, na ORDEM DO LIVRO (`numero`, nunca `criado_em`). `bigint` volta
@@ -66,6 +72,7 @@ export type MovimentacaoNoBanco = {
 export async function movimentacoesDoItem(itemId: string): Promise<MovimentacaoNoBanco[]> {
   return comCliente(async (cliente) => {
     const resultado = await cliente.query<{
+      id: string;
       numero: string;
       origem: string;
       tipo: string;
@@ -74,15 +81,19 @@ export async function movimentacoesDoItem(itemId: string): Promise<MovimentacaoN
       quantidade_milesimos: string;
       valor_centavos: string;
       valor_informado_centavos: string | null;
+      documento_id: string | null;
+      documento_linha_id: string | null;
+      estorno_de_id: string | null;
     }>(
-      `select numero, origem, tipo, destino, area, quantidade_milesimos, valor_centavos,
-              valor_informado_centavos
+      `select id, numero, origem, tipo, destino, area, quantidade_milesimos, valor_centavos,
+              valor_informado_centavos, documento_id, documento_linha_id, estorno_de_id
          from movimentacoes_estoque
         where item_id = $1
         order by numero`,
       [itemId],
     );
     return resultado.rows.map((linha) => ({
+      id: linha.id,
       numero: Number(linha.numero),
       origem: linha.origem,
       tipo: linha.tipo,
@@ -92,6 +103,9 @@ export async function movimentacoesDoItem(itemId: string): Promise<MovimentacaoN
       valorCentavos: Number(linha.valor_centavos),
       valorInformadoCentavos:
         linha.valor_informado_centavos === null ? null : Number(linha.valor_informado_centavos),
+      documentoId: linha.documento_id,
+      documentoLinhaId: linha.documento_linha_id,
+      estornoDeId: linha.estorno_de_id,
     }));
   });
 }

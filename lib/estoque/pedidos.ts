@@ -1,6 +1,7 @@
 // Módulo puro do Estoque — o PEDIDO de movimentação: o que se quer gravar, antes de ser valorado.
-// Só imports de módulos puros do próprio Estoque; nenhuma linha alcança React, Next, drizzle-orm, pg
-// ou `@/db` (grep de aceite do plano 06-01). As uniões de origem, tipo e motivo são REDECLARADAS à
+// Só imports de módulos puros (os do próprio Estoque e, desde o plano 06-03, o cálculo
+// `lib/financeiro/efeito-estoque.ts`, puro, sem import de banco); nenhuma linha alcança React, Next,
+// drizzle-orm, pg ou `@/db` (grep de aceite do plano 06-01). As uniões de origem, tipo e motivo são REDECLARADAS à
 // mão, espelhando os enums da migração 0023 (`origem_movimentacao`, `tipo_movimentacao`,
 // `motivo_movimentacao`) — nenhum import de `@/db/schema` é permitido aqui.
 //
@@ -8,6 +9,7 @@
 // entrada com preço, quanto se pagou). O valor de cada linha é decidido por `lib/estoque/custo.ts`
 // sob a trava de `lib/estoque/gravacao.ts` — nunca aceito do cliente, nunca calculado aqui.
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
+import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
 import type { Movimento } from "./custo";
 import { areaDoDestino, type DestinoDeSaida } from "./destinos";
@@ -68,4 +70,132 @@ export function pedidoDeSaidaManual(dados: {
     destino: dados.destino,
     area: areaDoDestino(dados.destino),
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Os pedidos do Financeiro (plano 06-03): a venda baixa, a compra dá entrada.
+//
+// POR LINHA, e não pelo documento inteiro (06-RESEARCH.md §Pergunta 1): `efeitoNoEstoque` é
+// chamado UMA vez por linha do documento. O efeito agregado perde duas coisas que o livro precisa:
+// (a) a LINHA — e, com ela, a área que pagou (dois produtos de áreas diferentes gastando o mesmo
+// insumo viram uma saída só, sem área certa); (b) na compra, o CUSTO por linha — o agregado soma a
+// quantidade e fica com o custo da última linha do mesmo item. A função é linear em inteiros, então
+// continua sendo o MESMO cálculo (D-03): `tests/unit/financeiro-efeito-estoque.test.ts` prova que
+// Σ efeito([linha_i]) por item == efeito(linhas). Nenhum segundo cálculo de ficha × quantidade
+// existe no código — este arquivo só traduz a saída de `efeitoNoEstoque` em pedidos.
+// ---------------------------------------------------------------------------------------------
+
+// Uma linha de venda JÁ INSERIDA em `documento_linhas` (o `documentoLinhaId` vem do `returning`).
+export type LinhaDeVendaGravada = {
+  documentoLinhaId: string;
+  // `null` numa linha de valor livre — não tira nada do estoque.
+  itemId: string | null;
+  quantidade: number;
+  // A categoria de VENDA da linha: a área da baixa sai dela (D-27).
+  categoriaId: string;
+};
+
+// Uma linha de compra de material JÁ INSERIDA.
+export type LinhaDeCompraGravada = {
+  documentoLinhaId: string;
+  itemId: string | null;
+  // Texto decimal com ponto ("25", "0.001") — o que chegou, na unidade do item.
+  quantidadeEstoque: string | null;
+  // O valor da linha (o que a nota diz). O custo unitário NUNCA é gravado arredondado: é valor ÷
+  // quantidade na hora de mostrar (EST-15/D-19 — 3 un por R$ 10,00 não viram 333 × 3 = R$ 9,99).
+  valorCentavos: number;
+};
+
+// Saídas da venda, na ordem das linhas e, dentro de uma linha, na ordem do efeito. O `documentoId`
+// é acrescentado pela ação (o pedido nasce aqui sem ele). Saldo nunca é consultado: negativo não
+// bloqueia venda (D-06).
+export function pedidosDaVenda(
+  linhas: readonly LinhaDeVendaGravada[],
+  itens: readonly ItemParaEfeito[],
+  areaPorCategoria: ReadonlyMap<string, AreaFinanceira>,
+): PedidoDeMovimentacao[] {
+  const pedidos: PedidoDeMovimentacao[] = [];
+  for (const linha of linhas) {
+    if (!linha.itemId) {
+      continue;
+    }
+    const efeito = efeitoNoEstoque(
+      [{ itemId: linha.itemId, quantidade: linha.quantidade }],
+      itens,
+      "venda",
+    );
+    if (efeito.length === 0) {
+      continue;
+    }
+    const area = areaPorCategoria.get(linha.categoriaId);
+    if (!area) {
+      // O `check` `movimentacoes_estoque_venda_exige_area` recusaria de qualquer jeito; falhar aqui
+      // dá uma mensagem de log que diz o porquê.
+      throw new Error(
+        `pedidosDaVenda: a categoria ${linha.categoriaId} da linha ${linha.documentoLinhaId} não tem área conhecida.`,
+      );
+    }
+    for (const entrada of efeito) {
+      if (entrada.variacaoMilesimos === 0) {
+        continue;
+      }
+      pedidos.push({
+        itemId: entrada.itemId,
+        origem: "venda",
+        tipo: "saida",
+        movimento: { tipo: "saida", milesimos: Math.abs(entrada.variacaoMilesimos) },
+        area,
+        documentoLinhaId: linha.documentoLinhaId,
+      });
+    }
+  }
+  return pedidos;
+}
+
+// Entradas da compra, uma por linha. Valor 0 (se um dia o conversor deixar passar) vira entrada SEM
+// preço — à taxa corrente (R6) — em vez de fingir que o material custou zero; o valor informado
+// continua sendo o da nota, 0.
+export function pedidosDaCompra(
+  linhas: readonly LinhaDeCompraGravada[],
+  itens: readonly ItemParaEfeito[],
+): PedidoDeMovimentacao[] {
+  const pedidos: PedidoDeMovimentacao[] = [];
+  for (const linha of linhas) {
+    if (!linha.itemId || !linha.quantidadeEstoque) {
+      continue;
+    }
+    const efeito = efeitoNoEstoque(
+      [
+        {
+          itemId: linha.itemId,
+          quantidade: 1,
+          quantidadeEstoque: linha.quantidadeEstoque,
+          valorCentavos: linha.valorCentavos,
+        },
+      ],
+      itens,
+      "compra",
+    );
+    for (const entrada of efeito) {
+      if (entrada.variacaoMilesimos <= 0) {
+        continue;
+      }
+      pedidos.push({
+        itemId: entrada.itemId,
+        origem: "compra",
+        tipo: "entrada",
+        movimento:
+          linha.valorCentavos > 0
+            ? {
+                tipo: "entrada_com_preco",
+                milesimos: entrada.variacaoMilesimos,
+                pagoCentavos: linha.valorCentavos,
+              }
+            : { tipo: "entrada_sem_preco", milesimos: entrada.variacaoMilesimos },
+        valorInformadoCentavos: linha.valorCentavos,
+        documentoLinhaId: linha.documentoLinhaId,
+      });
+    }
+  }
+  return pedidos;
 }

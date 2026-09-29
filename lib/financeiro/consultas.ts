@@ -197,8 +197,8 @@ export type ItemDoCatalogoParaVenda = {
   atalhoVenda: boolean;
 };
 
-// Só itens que APARECEM NA VENDA (`aparece_na_venda = true`), com a área que vem da categoria de
-// venda — o gestor nunca escolhe área, ela é sempre derivada (briefing §2). Ordem de criação,
+// Só itens ATIVOS (D-20 — desativado some do seletor) que APARECEM NA VENDA
+// (`aparece_na_venda = true`), com a área que vem da categoria de venda — o gestor nunca escolhe área, ela é sempre derivada (briefing §2). Ordem de criação,
 // mesma disciplina de `listarCategoriasParaEscolha` (nenhuma reordenação manual nesta fase).
 export async function listarCatalogoDaVenda(): Promise<ItemDoCatalogoParaVenda[]> {
   return db
@@ -211,7 +211,7 @@ export async function listarCatalogoDaVenda(): Promise<ItemDoCatalogoParaVenda[]
     })
     .from(itensCatalogo)
     .innerJoin(categorias, eq(itensCatalogo.categoriaVendaId, categorias.id))
-    .where(eq(itensCatalogo.aparecenaVenda, true))
+    .where(and(eq(itensCatalogo.aparecenaVenda, true), eq(itensCatalogo.ativo, true)))
     .orderBy(asc(itensCatalogo.criadoEm));
 }
 
@@ -223,7 +223,7 @@ export type ItemDoCatalogoParaCompra = {
   atalhoCompra: boolean;
 };
 
-// Só itens que CONTROLAM ESTOQUE (`controla_estoque = true`), com a área da categoria de COMPRA
+// Só itens ATIVOS (D-20) que CONTROLAM ESTOQUE (`controla_estoque = true`), com a área da categoria de COMPRA
 // — mesma disciplina de `listarCatalogoDaVenda` (ordem de criação, área nunca escolhida pelo
 // usuário, ela vem da categoria). `unidade` nunca é nula aqui: a restrição
 // `itens_catalogo_controla_exige_unidade_e_categoria_compra` do banco garante as duas juntas.
@@ -238,13 +238,14 @@ export async function listarCatalogoDaCompra(): Promise<ItemDoCatalogoParaCompra
     })
     .from(itensCatalogo)
     .innerJoin(categorias, eq(itensCatalogo.categoriaCompraId, categorias.id))
-    .where(eq(itensCatalogo.controlaEstoque, true))
+    .where(and(eq(itensCatalogo.controlaEstoque, true), eq(itensCatalogo.ativo, true)))
     .orderBy(asc(itensCatalogo.criadoEm));
 
   return linhas.map((linha) => ({ ...linha, unidade: linha.unidade ?? "un" }));
 }
 
-// TODOS os itens do catálogo, com a ficha técnica embutida — alimenta
+// TODOS os itens do catálogo — inclusive os desativados (D-20: insumo desativado dentro de ficha
+// ativa continua baixando) —, com a ficha técnica embutida — alimenta
 // `lib/financeiro/efeito-estoque.ts::efeitoNoEstoque`. DUAS consultas (itens + fichas), nunca uma
 // consulta por item, mesma disciplina de `listarMovimentos` acima.
 export async function listarItensParaEfeito(): Promise<ItemParaEfeito[]> {
