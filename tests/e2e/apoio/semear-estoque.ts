@@ -129,3 +129,98 @@ export async function desativarNoBanco(itemId: string): Promise<void> {
     cliente.query("update itens_catalogo set ativo = false where id = $1", [itemId]),
   );
 }
+
+// Uma encomenda EM ANDAMENTO (o status padrão do banco é `em_producao`), para o vínculo "Qual
+// encomenda?" da saída "Consumo em encomenda" (plano 06-06). Nome inventado, prefixo `[e2e]`.
+// Devolve o id.
+export async function semearEncomendaAtiva(nome: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const resultado = await cliente.query<{ id: string }>(
+      "insert into encomendas (nome, data_inicio) values ($1, current_date) returning id",
+      [nome],
+    );
+    return resultado.rows[0].id;
+  });
+}
+
+export type DadosDaFicha = {
+  argilaMiligramas: number;
+  esmalteMiligramas: number;
+  horasMilesimos: number;
+  embalagemCentavos: number;
+  // "Já contei" — quantas cabem por fornada, para o custo não depender das medidas do forno.
+  cabemPorFornada: number;
+};
+
+const FICHA_PADRAO: DadosDaFicha = {
+  argilaMiligramas: 400000,
+  esmalteMiligramas: 50000,
+  horasMilesimos: 500,
+  embalagemCentavos: 200,
+  cabemPorFornada: 10,
+};
+
+// Liga uma ficha de precificação NÃO exclusiva ao item — é isso que faz dele uma "peça pronta"
+// (D-29) e dá o custo por peça que a entrada manual traz preenchido (EST-21, plano 06-06). A ficha
+// é criada em nome do primeiro usuário do banco de teste (o `criado_por` é obrigatório).
+export async function ligarFichaDePrecificacao(
+  itemId: string,
+  dados: Partial<DadosDaFicha> = {},
+): Promise<string> {
+  const ficha = { ...FICHA_PADRAO, ...dados };
+  return comCliente(async (cliente) => {
+    const resultado = await cliente.query<{ id: string }>(
+      `insert into fichas_precificacao
+         (nome, argila_miligramas, esmalte_miligramas, horas_milesimos, embalagem_centavos,
+          largura_mm, profundidade_mm, altura_mm,
+          cabem_biscoito_informado, cabem_esmalte_informado, exclusiva, item_catalogo_id,
+          criado_por)
+       values ($1, $2, $3, $4, $5, 100, 100, 100, $6, $6, false, $7,
+               (select id from usuarios order by criado_em limit 1))
+       returning id`,
+      [
+        `[e2e] Ficha ${itemId.slice(0, 8)}`,
+        ficha.argilaMiligramas,
+        ficha.esmalteMiligramas,
+        ficha.horasMilesimos,
+        ficha.embalagemCentavos,
+        ficha.cabemPorFornada,
+        itemId,
+      ],
+    );
+    return resultado.rows[0].id;
+  });
+}
+
+// As notas e os vínculos gravados nas linhas do livro (plano 06-06): o nome da encomenda congelado
+// em `nota`, a turma, "o que aconteceu?", o motivo do ajuste e o SALDO CONTADO do ajuste.
+export type VinculoNoBanco = {
+  nota: string | null;
+  encomendaId: string | null;
+  saldoContadoMilesimos: number | null;
+  motivo: string | null;
+};
+
+export async function vinculosDoItem(itemId: string): Promise<VinculoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const resultado = await cliente.query<{
+      nota: string | null;
+      encomenda_id: string | null;
+      saldo_contado_milesimos: string | null;
+      motivo: string | null;
+    }>(
+      `select nota, encomenda_id, saldo_contado_milesimos, motivo::text as motivo
+         from movimentacoes_estoque
+        where item_id = $1
+        order by numero`,
+      [itemId],
+    );
+    return resultado.rows.map((linha) => ({
+      nota: linha.nota,
+      encomendaId: linha.encomenda_id,
+      saldoContadoMilesimos:
+        linha.saldo_contado_milesimos === null ? null : Number(linha.saldo_contado_milesimos),
+      motivo: linha.motivo,
+    }));
+  });
+}

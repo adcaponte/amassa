@@ -65,7 +65,8 @@ test.describe("estoque tracador", () => {
     await expect(folha.getByTestId("folha-tipo-saida")).toHaveAttribute("aria-checked", "true");
     await folha.getByTestId("folha-quantidade").fill("2");
     await folha.getByTestId("folha-destino-atelie").click();
-    await expect(folha.getByTestId("folha-destino-atelie")).toHaveAttribute("aria-pressed", "true");
+    // A grade virou `radiogroup` no plano 06-06 (uma saída tem exatamente um destino — EST-11).
+    await expect(folha.getByTestId("folha-destino-atelie")).toHaveAttribute("aria-checked", "true");
     await expect(folha.getByTestId("folha-registrar")).toHaveText("Registrar baixa");
     await folha.getByTestId("folha-registrar").click();
 

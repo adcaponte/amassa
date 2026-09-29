@@ -34,7 +34,7 @@ import { BannerEstoque } from "./banner-estoque";
 import { BarraFerramentasSaldos } from "./barra-ferramentas-saldos";
 import { CartaoSaldo } from "./cartao-saldo";
 import { FiltroSituacao } from "./filtro-situacao";
-import { FolhaMovimentacao } from "./folha-movimentacao";
+import { useEstoque } from "./provedor-estoque";
 import { TabelaSaldos } from "./tabela-saldos";
 
 export type AbaSaldosProps = {
@@ -63,14 +63,14 @@ type TipoDeVazio = "filtro" | "acabando" | "desativados";
 // de `lib/estoque/saldo.ts` (`ordenarSaldos`, `filtrarSaldos`, `resumoDoBanner` via banner,
 // `contadorDaLista`) — nenhum componente compara saldo com mínimo por conta própria.
 //
-// A folha de movimentação continua abrindo pelo "Dar baixa" (traçador, 06-01), montada com `key`
-// do item: cada abertura nasce limpa.
+// "Dar baixa" abre a folha de movimentação em Saída pelo `ProvedorDoEstoque` (plano 06-06) — o
+// único lugar que abre folha nesta página; é o toque 1 dos 4 da baixa (EST-09).
 export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
   const [busca, setBusca] = useState("");
   const [area, setArea] = useState<AreaFinanceira | null>(null);
   const [acabando, setAcabando] = useState(acabandoInicial);
   const [situacao, setSituacao] = useState<FiltroDeSituacao>("ativos");
-  const [aberto, setAberto] = useState<SaldoDoItem | null>(null);
+  const { abrirFolha } = useEstoque();
 
   // Ordena UMA vez: filtrar depois nunca reordena (EST-03 · ordering).
   const ordenados = useMemo(() => ordenarSaldos(saldos), [saldos]);
@@ -79,6 +79,10 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
   const daSituacao = filtrarSaldos(ordenados, { busca: "", area: null, acabando: false, situacao });
   const visiveis = filtrarSaldos(ordenados, { busca, area, acabando, situacao });
   const contador = contadorDaLista(visiveis.length, daSituacao, formatarReais);
+
+  function darBaixa(saldo: SaldoDoItem) {
+    abrirFolha({ itemId: saldo.id, tipo: "saida" });
+  }
 
   function mudarAcabando(ligado: boolean) {
     setAcabando(ligado);
@@ -172,11 +176,11 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
             <ul className="flex flex-col gap-2 min-[980px]:hidden" aria-label="Saldos do estoque">
               {visiveis.map((saldo) => (
                 <li key={saldo.id}>
-                  <CartaoSaldo saldo={saldo} aoDarBaixa={setAberto} />
+                  <CartaoSaldo saldo={saldo} aoDarBaixa={darBaixa} />
                 </li>
               ))}
             </ul>
-            <TabelaSaldos saldos={visiveis} aoDarBaixa={setAberto} />
+            <TabelaSaldos saldos={visiveis} aoDarBaixa={darBaixa} />
           </>
         )}
 
@@ -189,10 +193,6 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
           {NOTA_SALDOS_DEPOIS_DO_AJUSTE}
         </p>
       </div>
-
-      {aberto ? (
-        <FolhaMovimentacao key={aberto.id} saldo={aberto} aoFechar={() => setAberto(null)} />
-      ) : null}
     </>
   );
 }

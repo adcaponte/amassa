@@ -1,0 +1,145 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import type { AreaFinanceira } from "@/lib/financeiro/textos";
+import type { EncomendaParaVinculo, SaldoDoItem } from "@/lib/estoque/consultas";
+
+import { FolhaMovimentacao } from "./folha-movimentacao";
+import { SeletorMaterial } from "./seletor-material";
+
+export type TipoDeMovimentacao = "entrada" | "saida" | "ajuste";
+
+// O que a folha e o seletor precisam, carregado JUNTO com a lista de saldos (a mesma consulta da
+// aba Saldos — `listarSaldosDaRequisicao`): as encomendas em andamento para "Qual encomenda?" e o
+// custo por peça de cada peça pronta com ficha (`custosDasPecasProntas`), como objeto simples (o
+// `Map` do servidor não atravessa a fronteira como `Map` em todo lugar; um objeto sempre).
+export type DadosDoEstoque = {
+  saldos: SaldoDoItem[];
+  encomendas: EncomendaParaVinculo[];
+  custosDasPecasProntas: Record<string, number>;
+};
+
+// "carregando" até a seção de saldos resolver; "erro" quando a consulta falhou (o seletor mostra o
+// `EstadoErro` com "Tentar de novo", nunca uma lista vazia que pareça "nenhum material").
+export type ListaDoEstoque =
+  | { estado: "carregando" }
+  | { estado: "erro" }
+  | ({ estado: "pronta" } & DadosDoEstoque);
+
+export type PedidoDeFolha = { itemId: string; tipo: TipoDeMovimentacao };
+
+type ContextoDoEstoque = {
+  lista: ListaDoEstoque;
+  abrirSeletor: (tipo?: TipoDeMovimentacao) => void;
+  abrirFolha: (pedido: PedidoDeFolha) => void;
+};
+
+const Contexto = createContext<ContextoDoEstoque | null>(null);
+// O setter mora num contexto à parte: quem só ENTREGA a lista (`EntregaDoEstoque`) não precisa
+// redesenhar a cada mudança de folha aberta.
+const ContextoDaEntrega = createContext<((lista: ListaDoEstoque) => void) | null>(null);
+
+export function useEstoque(): ContextoDoEstoque {
+  const contexto = useContext(Contexto);
+  if (!contexto) {
+    throw new Error("useEstoque precisa estar dentro de <ProvedorDoEstoque>.");
+  }
+  return contexto;
+}
+
+// Cada abertura ganha uma `chave` nova: a folha e o seletor são montados com ela e nascem limpos,
+// sem efeito que zere estado à mão (o mesmo princípio do `key` do traçador).
+type FolhaAberta = PedidoDeFolha & { chave: number };
+type SeletorAberto = { tipo: TipoDeMovimentacao; chave: number };
+
+// O ÚNICO lugar que abre a folha de movimentação e o seletor "Qual material?" (key link do plano
+// 06-06): o "Dar baixa" do cartão, a barra fixa do celular, o botão do cabeçalho e (plano 06-09) a
+// folha do material e "Cadastrar material" chamam `abrirFolha`/`abrirSeletor` — nunca uma segunda
+// folha. Também guarda a área escolhida no seletor enquanto a página está aberta (herdado de
+// `escolhaFrente` do protótipo).
+//
+// A lista chega pela `EntregaDoEstoque`, que a seção de saldos desenha quando resolve. A barra fixa
+// e o botão do cabeçalho não dependem dela: renderizam na primeira pintura; se forem tocados antes
+// de a lista chegar, o seletor mostra o esqueleto.
+export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
+  const [lista, setLista] = useState<ListaDoEstoque>({ estado: "carregando" });
+  const [areaDoSeletor, setAreaDoSeletor] = useState<AreaFinanceira | null>(null);
+  const [folha, setFolha] = useState<FolhaAberta | null>(null);
+  const [seletor, setSeletor] = useState<SeletorAberto | null>(null);
+  // Só um contador para as chaves de montagem — nunca desenha nada, por isso é referência.
+  const ultimaChave = useRef(0);
+
+  const abrirSeletor = useCallback((tipo: TipoDeMovimentacao = "saida") => {
+    ultimaChave.current += 1;
+    setFolha(null);
+    setSeletor({ tipo, chave: ultimaChave.current });
+  }, []);
+
+  const abrirFolha = useCallback((pedido: PedidoDeFolha) => {
+    ultimaChave.current += 1;
+    setSeletor(null);
+    setFolha({ ...pedido, chave: ultimaChave.current });
+  }, []);
+
+  const valor = useMemo<ContextoDoEstoque>(
+    () => ({ lista, abrirSeletor, abrirFolha }),
+    [lista, abrirSeletor, abrirFolha],
+  );
+
+  const saldoDaFolha =
+    folha && lista.estado === "pronta"
+      ? (lista.saldos.find((saldo) => saldo.id === folha.itemId) ?? null)
+      : null;
+
+  return (
+    <ContextoDaEntrega.Provider value={setLista}>
+      <Contexto.Provider value={valor}>
+        {children}
+
+        {seletor ? (
+          <SeletorMaterial
+            key={seletor.chave}
+            lista={lista}
+            area={areaDoSeletor}
+            aoMudarArea={setAreaDoSeletor}
+            aoEscolher={(itemId) => abrirFolha({ itemId, tipo: seletor.tipo })}
+            aoFechar={() => setSeletor(null)}
+          />
+        ) : null}
+
+        {folha && saldoDaFolha && lista.estado === "pronta" ? (
+          <FolhaMovimentacao
+            key={folha.chave}
+            saldo={saldoDaFolha}
+            tipoInicial={folha.tipo}
+            encomendas={lista.encomendas}
+            custoPorPecaCentavos={lista.custosDasPecasProntas[saldoDaFolha.id] ?? null}
+            aoTrocarMaterial={(tipo) => abrirSeletor(tipo)}
+            aoFechar={() => setFolha(null)}
+          />
+        ) : null}
+      </Contexto.Provider>
+    </ContextoDaEntrega.Provider>
+  );
+}
+
+// O componente cliente pequeno que a seção de saldos (Server Component) desenha para ENTREGAR a
+// lista — ou o erro — ao provedor. Não desenha nada. Cada `router.refresh()` traz props novas e o
+// efeito entrega a lista nova (o saldo da folha e do seletor acompanha o que foi gravado).
+export function EntregaDoEstoque({ lista }: { lista: ListaDoEstoque }) {
+  const entregar = useContext(ContextoDaEntrega);
+  useEffect(() => {
+    entregar?.(lista);
+  }, [entregar, lista]);
+  return null;
+}

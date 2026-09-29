@@ -236,3 +236,35 @@ export function textoToastAjuste(dados: { nome: string; diferenca: string; unida
 }
 // Um vínculo que não chegou como texto (só acontece com pedido forjado — a folha sempre manda texto).
 export const FRASE_TEXTO_INVALIDO = "Não deu para entender esse texto. Escreva de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// A folha na tela (plano 06-06) — o seletor "Qual material?", a caixa "escolhido" e a barra fixa.
+// ---------------------------------------------------------------------------------------------
+
+// §Seletor "Qual material?" (folha) — título e sub ("pela área", não "pela frente" — D-12).
+export const TITULO_SELETOR = "Qual material?";
+export const SUB_SELETOR = "Filtre pela área ou busque pelo nome";
+// §Rótulos e dicas de campo — "Busca do seletor".
+export const PLACEHOLDER_BUSCA_SELETOR = "Buscar material";
+// §Estados vazios — "Seletor — busca sem resultado" (herdado).
+export const TITULO_SELETOR_SEM_RESULTADO = "Nenhum material com esse nome";
+export const CORPO_SELETOR_SEM_RESULTADO = "Confira a escrita, ou toque em Tudo.";
+// Nenhum material ATIVO para movimentar (todos desativados). A UI-SPEC não tem esta linha: o vazio
+// sem nenhum material esconde a barra fixa (plano 06-09); este é o caso raro de só haver
+// desativados — frase no molde de "Nenhum material desativado.".
+export const TITULO_SELETOR_SEM_ATIVOS = "Nenhum material ativo.";
+export const CORPO_SELETOR_SEM_ATIVOS =
+  "Material desativado não se movimenta. Reative um pelo filtro Desativados da aba Saldos.";
+// "1 material encontrado" / "{N} materiais encontrados" (herdado) — nunca "1 materiais".
+export function textoMateriaisEncontrados(quantos: number): string {
+  return quantos === 1 ? "1 material encontrado" : `${quantos} materiais encontrados`;
+}
+// O selo "⚠ {n}" da área leva este texto oculto, para o leitor de tela ler "3 acabando".
+export const TEXTO_OCULTO_DO_SELO = " acabando";
+// Material cuja categoria de compra sumiu não pode sumir da sanfona (herdado do protótipo).
+export const SEM_CATEGORIA = "Sem categoria";
+
+// §Folha de movimentação → caixa "escolhido".
+export function textoSaldoDeAgora(saldo: string, unidade: string): string {
+  return `saldo de agora: ${saldo} ${unidade}`;
+}
