@@ -72,11 +72,16 @@ e responda:
   fase que tocam o **valor do cancelamento**, e foram tomadas numa noite sem você.
 - **D-29** — se quer uma categoria de compra própria para a peça produzida na casa (sim / não /
   depois). Nesta fase nada foi semeado.
+- **As duas escolhas que a revisão de código achou** (29/09, `06-REVIEW.md` WR-01 e WR-02), na mesma
+  Parte 0, §0.1: o valor do estorno de venda quando o saldo está zerado ou negativo na hora de
+  cancelar, e se o estorno de venda conta como "última entrada com preço".
 
-**Se trocar D-23 ou D-24: pare aqui.** Peça o ajuste no branch `gsd/phase-06-estoque` — é um ramo
-de `movimentoDoEstorno` em `lib/estoque/custo.ts` e o bloco "D-23/D-24" de
-`tests/unit/estoque-custo.test.ts` —, espere `npm run verificar` sair verde, e só então siga. A
-troca **não** mexe na migração: o branch só-migração do Passo 2 continua valendo como está.
+**Se trocar D-23, D-24 ou alguma das duas escolhas da revisão: pare aqui.** Peça o ajuste no branch
+`gsd/phase-06-estoque` — é um ramo de `movimentoDoEstorno`/`valorarMovimento` em
+`lib/estoque/custo.ts` (a WR-02 também mexe nas consultas da "última entrada com preço") e os testes
+do bloco "D-23/D-24" de `tests/unit/estoque-custo.test.ts` —, espere `npm run verificar` sair verde,
+e só então siga. A troca **não** mexe na migração: o branch só-migração do Passo 2 continua valendo
+como está.
 
 ---
 
