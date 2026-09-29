@@ -794,7 +794,7 @@ o plano de 18/09 — migração `0005_estoque`, view `saldos_materiais` e CRUD d
   8. A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
   9. Saldo negativo aparece com aviso e nunca impede uma venda
 
-**Plans:** 6/11 plans executed
+**Plans:** 7/11 plans executed
 
 11 planos, uma onda por plano, sequenciais (os scripts de teste sobem
 Postgres com nome e porta fixos e o projeto não usa worktrees). Planejado em 29/09/2026, sessão noturna, sem o dono;
@@ -808,7 +808,7 @@ orçamento de contexto e foram divididos — eram 9 planos). 🔴 Todo o código
 - [x] 06-04-PLAN.md — Aba Saldos completa: área do Financeiro, busca, “Acabando”, negativo como aviso próprio, banner, tabela, situação, contraste (onda 4)
 - [x] 06-05-PLAN.md — As regras e o servidor da folha: ajuste pelo contado, vínculos, peça pronta pela ficha, a prévia — puros e aplicados sob a trava (onda 5)
 - [x] 06-06-PLAN.md — A folha na tela, em 4 toques: seletor, atalhos, cinco destinos, vínculos, prévia, peça pronta, barra fixa (onda 6)
-- [ ] 06-07-PLAN.md — Abas Histórico e Para onde foi: autor e hora, nada editável, estorno visível, consumo por área sem venda cancelada (onda 7)
+- [x] 06-07-PLAN.md — Abas Histórico e Para onde foi: autor e hora, nada editável, estorno visível, consumo por área sem venda cancelada (onda 7)
 - [ ] 06-08-PLAN.md — Fora do Estoque: Cadastros desativa em vez de apagar e trava a unidade; a Venda diz “fica com −X” sem bloquear (onda 8)
 - [ ] 06-09-PLAN.md — Folha do material (soma = saldo, “gasto por”), “+ Novo material” com a validação do Cadastros, editar mínimo/observações, desativar (onda 9)
 - [ ] 06-10-PLAN.md — Contagem (primeira e conferência, pela diferença, sob trava), painel da primeira abertura, bloco “Estoque acabando” do Início real (onda 10)
@@ -873,5 +873,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
-| 6. Estoque | 6/11 | In Progress|  |
+| 6. Estoque | 7/11 | In Progress|  |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
