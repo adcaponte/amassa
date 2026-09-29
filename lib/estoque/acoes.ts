@@ -8,7 +8,18 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import { esquemaRegistrarMovimentacao, type RegistrarMovimentacaoValidado } from "./esquemas";
+import {
+  gastoPor,
+  historicoDoMaterial,
+  resumoDoMaterial,
+  type LinhaDoHistorico,
+  type ResumoDoMaterial,
+} from "./consultas";
+import {
+  esquemaLerMaterial,
+  esquemaRegistrarMovimentacao,
+  type RegistrarMovimentacaoValidado,
+} from "./esquemas";
 import {
   encomendaEmAndamento,
   gravarAjuste,
@@ -17,10 +28,12 @@ import {
   travarItens,
   type TransacaoDoBanco,
 } from "./gravacao";
+import type { ProdutoQueGasta } from "./historico";
 import { pedidoDeEntradaManual, pedidoDeSaidaManual, type PedidoDeMovimentacao } from "./pedidos";
 import {
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
+  FRASE_ERRO_CARREGAR_MATERIAL,
   FRASE_FALHA_AO_REGISTRAR,
   FRASE_MATERIAL_NAO_EXISTE_MAIS,
   LIMITE_DO_VINCULO,
@@ -218,4 +231,63 @@ export async function registrarMovimentacao(
     revalidatePath(rotaDeGestao("/"));
   }
   return { ok: true, dados: registrada };
+}
+
+// ---------------------------------------------------------------------------------------------
+// A folha de um material (plano 06-09).
+// ---------------------------------------------------------------------------------------------
+
+export type FolhaDoMaterial = {
+  resumo: ResumoDoMaterial;
+  gastoPor: ProdutoQueGasta[];
+  // As `limite` movimentações mais recentes DESTE material, pela ordem do livro (`numero` desc).
+  linhas: LinhaDoHistorico[];
+  // Há mais linhas além desta página: a nota "Somando de cima para baixo…" não aparece.
+  temMais: boolean;
+  // O "agora" do SERVIDOR — o "Hoje"/"Ontem" de cada linha é calculado contra ele, como na aba
+  // Histórico (que lê o relógio no Server Component).
+  agora: Date;
+};
+
+// A folha do material (plano 06-09): o resumo, as observações, o "Gasto por" e o livro dele. É uma
+// LEITURA, mas é Server Action chamada do cliente — a regra vale igual: `exigirUsuario()` é a
+// PRIMEIRA instrução (T-06-39). Do cliente chegam só o id e o tamanho da página, que o Zod limita a
+// múltiplos de 50 até 1000 (T-06-42).
+export async function lerFolhaDoMaterial(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<FolhaDoMaterial>> {
+  await exigirUsuario();
+
+  const resultado = esquemaLerMaterial.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_MATERIAL_NAO_EXISTE_MAIS };
+  }
+  const { itemId, limite } = resultado.data;
+
+  try {
+    const resumo = await resumoDoMaterial(itemId);
+    if (!resumo) {
+      return { ok: false, erro: FRASE_MATERIAL_NAO_EXISTE_MAIS };
+    }
+    const [produtos, pagina] = await Promise.all([
+      gastoPor(itemId, resumo.unidade),
+      historicoDoMaterial(itemId, limite),
+    ]);
+    return {
+      ok: true,
+      dados: {
+        resumo,
+        gastoPor: produtos,
+        linhas: pagina.linhas,
+        temMais: pagina.haMais,
+        agora: new Date(),
+      },
+    };
+  } catch (erro) {
+    console.error(
+      `Falha ao carregar a folha do material (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_ERRO_CARREGAR_MATERIAL };
+  }
 }

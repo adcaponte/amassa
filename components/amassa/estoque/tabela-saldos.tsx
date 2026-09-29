@@ -15,7 +15,9 @@ import {
   COLUNA_VALOR,
   META_PECA_PRONTA,
   ROTULO_DAR_BAIXA,
+  ROTULO_HISTORICO_DO_MATERIAL,
   SEM_MINIMO_NA_TABELA,
+  rotuloHistoricoDe,
 } from "@/lib/estoque/textos";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,7 @@ import {
 export type TabelaSaldosProps = {
   saldos: readonly SaldoDoItem[];
   aoDarBaixa: (saldo: SaldoDoItem) => void;
+  aoVerHistorico: (saldo: SaldoDoItem) => void;
 };
 
 const CABECALHO =
@@ -44,7 +47,7 @@ const CABECALHO =
 // Cada linha repete os `data-testid` do cartão do traçador (`estoque-cartao`,
 // `estoque-cartao-saldo`, `estoque-cartao-unidade`, `estoque-dar-baixa`): no desktop é ela que está
 // visível, e os e2e de 06-01/06-03 continuam achando o material pelo mesmo nome.
-export function TabelaSaldos({ saldos, aoDarBaixa }: TabelaSaldosProps) {
+export function TabelaSaldos({ saldos, aoDarBaixa, aoVerHistorico }: TabelaSaldosProps) {
   return (
     <div
       data-testid="estoque-tabela"
@@ -133,18 +136,30 @@ export function TabelaSaldos({ saldos, aoDarBaixa }: TabelaSaldosProps) {
                   {formatarReais(saldo.valorCentavos)}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  {saldo.ativo ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {saldo.ativo ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="text-corpo min-h-[44px] px-4 font-semibold"
+                        aria-label={`${ROTULO_DAR_BAIXA} em ${saldo.nome}`}
+                        data-testid="estoque-dar-baixa"
+                        onClick={() => aoDarBaixa(saldo)}
+                      >
+                        {ROTULO_DAR_BAIXA}
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
                       className="text-corpo min-h-[44px] px-4 font-semibold"
-                      aria-label={`${ROTULO_DAR_BAIXA} em ${saldo.nome}`}
-                      data-testid="estoque-dar-baixa"
-                      onClick={() => aoDarBaixa(saldo)}
+                      aria-label={rotuloHistoricoDe(saldo.nome)}
+                      data-testid="estoque-historico-material"
+                      onClick={() => aoVerHistorico(saldo)}
                     >
-                      {ROTULO_DAR_BAIXA}
+                      {ROTULO_HISTORICO_DO_MATERIAL}
                     </Button>
-                  ) : null}
+                  </div>
                 </td>
               </tr>
             );

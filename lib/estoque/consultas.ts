@@ -15,6 +15,7 @@ import {
   categorias,
   documentos,
   encomendas,
+  fichaTecnica,
   fichasPrecificacao,
   itensCatalogo,
   movimentacoesEstoque,
@@ -28,7 +29,12 @@ import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { TipoDoHistorico } from "./abas";
 import type { EntradaComPreco } from "./custo";
-import type { MovimentacaoParaDescrever, SaidaParaOndeFoi } from "./historico";
+import {
+  ordenarGastoPor,
+  type MovimentacaoParaDescrever,
+  type ProdutoQueGasta,
+  type SaidaParaOndeFoi,
+} from "./historico";
 import { areaDoItemNoEstoque } from "./saldo";
 
 export type SaldoDoItem = {
@@ -61,6 +67,12 @@ export type SaldoDoItem = {
 // `alias`; depois, em paralelo, (2) as somas do livro, (3) a última entrada de cada item e (4) quais
 // itens têm ficha de precificação.
 export async function listarSaldos(): Promise<SaldoDoItem[]> {
+  return lerSaldos(undefined);
+}
+
+// O corpo de `listarSaldos`, com um filtro extra opcional (um item só, na folha do material — plano
+// 06-09): a mesma regra de saldo, valor, área e custo em qualquer tela que mostre um material.
+async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
   const categoriaCompra = alias(categorias, "categoria_compra_do_material");
   const categoriaVenda = alias(categorias, "categoria_venda_do_material");
 
@@ -78,7 +90,7 @@ export async function listarSaldos(): Promise<SaldoDoItem[]> {
     .from(itensCatalogo)
     .leftJoin(categoriaCompra, eq(itensCatalogo.categoriaCompraId, categoriaCompra.id))
     .leftJoin(categoriaVenda, eq(itensCatalogo.categoriaVendaId, categoriaVenda.id))
-    .where(eq(itensCatalogo.controlaEstoque, true))
+    .where(and(eq(itensCatalogo.controlaEstoque, true), filtroExtra))
     .orderBy(asc(itensCatalogo.nome));
 
   if (itens.length === 0) {
@@ -294,6 +306,23 @@ export async function listarHistorico({
   tipo: TipoDoHistorico;
   limite: number;
 }): Promise<{ linhas: LinhaDoHistorico[]; haMais: boolean }> {
+  return lerLinhasDoLivro(filtroDoTipo(tipo), limite);
+}
+
+// O livro de UM material (plano 06-09, a folha do material): a MESMA consulta de
+// `listarHistorico` — mesmas junções, mesma ordem por `numero` decrescente, `limite + 1` —, só
+// filtrada pelo item. A folha e a aba Histórico desenham o mesmo `LinhaMovimentacao` a partir dela.
+export async function historicoDoMaterial(
+  itemId: string,
+  limite: number,
+): Promise<{ linhas: LinhaDoHistorico[]; haMais: boolean }> {
+  return lerLinhasDoLivro(eq(movimentacoesEstoque.itemId, itemId), limite);
+}
+
+async function lerLinhasDoLivro(
+  filtro: SQL | undefined,
+  limite: number,
+): Promise<{ linhas: LinhaDoHistorico[]; haMais: boolean }> {
   const estorno = alias(movimentacoesEstoque, "estorno_da_movimentacao");
 
   const linhas = await db
@@ -324,7 +353,7 @@ export async function listarHistorico({
     .innerJoin(usuarios, eq(movimentacoesEstoque.registradoPor, usuarios.id))
     .leftJoin(documentos, eq(movimentacoesEstoque.documentoId, documentos.id))
     .leftJoin(estorno, eq(estorno.estornoDeId, movimentacoesEstoque.id))
-    .where(filtroDoTipo(tipo))
+    .where(filtro)
     .orderBy(desc(movimentacoesEstoque.numero))
     .limit(limite + 1);
 
@@ -420,4 +449,63 @@ export async function saidasParaOndeFoi({
     ehEstorno: linha.estornoDeId !== null,
     estornada: linha.estornoId !== null,
   }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// A folha de um material (plano 06-09): o resumo e o "Gasto por". Leitura pura — nenhuma escrita.
+// ---------------------------------------------------------------------------------------------
+
+// O resumo da folha do material: a MESMA linha que `listarSaldos` dá para ele (saldo, valor, custo
+// médio, mínimo, área, categoria, ativo), mais o que só a folha mostra — as observações e quantas
+// movimentações o livro dele tem (o "{N} movimentações" da confirmação de desativar). `null` quando
+// o item não existe ou não tem estoque próprio.
+export type ResumoDoMaterial = SaldoDoItem & {
+  observacoes: string | null;
+  movimentacoes: number;
+};
+
+export async function resumoDoMaterial(itemId: string): Promise<ResumoDoMaterial | null> {
+  const [saldos, extras, contagem] = await Promise.all([
+    lerSaldos(eq(itensCatalogo.id, itemId)),
+    db
+      .select({ observacoes: itensCatalogo.observacoes })
+      .from(itensCatalogo)
+      .where(eq(itensCatalogo.id, itemId)),
+    db
+      .select({ quantas: count() })
+      .from(movimentacoesEstoque)
+      .where(eq(movimentacoesEstoque.itemId, itemId)),
+  ]);
+  const saldo = saldos[0];
+  if (!saldo) {
+    return null;
+  }
+  return {
+    ...saldo,
+    observacoes: extras[0]?.observacoes ?? null,
+    movimentacoes: contagem[0] ? Number(contagem[0].quantas) : 0,
+  };
+}
+
+// Onde o material é gasto (EST-20, D-08): os produtos ATIVOS cuja ficha técnica o usa como insumo,
+// com a quantidade da ficha — o texto do `numeric`, sem passar por `number` — e a unidade do
+// material. Produto desativado não vende, então não gasta: fica fora (a mesma leitura de
+// `definirItemAtivo`, que só olha fichas de produto ativo). Cada produto aparece uma vez
+// (`unique(item_id, insumo_id)`); a ordem por nome em pt-BR é de `ordenarGastoPor` (historico.ts).
+export async function gastoPor(
+  itemId: string,
+  unidadeDoInsumo: Unidade,
+): Promise<ProdutoQueGasta[]> {
+  const linhas = await db
+    .select({ produto: itensCatalogo.nome, quantidade: fichaTecnica.quantidade })
+    .from(fichaTecnica)
+    .innerJoin(itensCatalogo, eq(fichaTecnica.itemId, itensCatalogo.id))
+    .where(and(eq(fichaTecnica.insumoId, itemId), eq(itensCatalogo.ativo, true)));
+  return ordenarGastoPor(
+    linhas.map((linha) => ({
+      produto: linha.produto,
+      quantidade: linha.quantidade,
+      unidadeDoInsumo,
+    })),
+  );
 }

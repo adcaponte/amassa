@@ -12,8 +12,12 @@ import {
 } from "react";
 
 import type { AreaFinanceira } from "@/lib/financeiro/textos";
+import { LIMITE_DO_HISTORICO } from "@/lib/estoque/abas";
+import { lerFolhaDoMaterial } from "@/lib/estoque/acoes";
 import type { EncomendaParaVinculo, SaldoDoItem } from "@/lib/estoque/consultas";
+import { FRASE_ERRO_CARREGAR_MATERIAL } from "@/lib/estoque/textos";
 
+import { FolhaMaterial, type PromessaDaFolhaDoMaterial } from "./folha-material";
 import { FolhaMovimentacao } from "./folha-movimentacao";
 import { SeletorMaterial } from "./seletor-material";
 
@@ -42,6 +46,8 @@ type ContextoDoEstoque = {
   lista: ListaDoEstoque;
   abrirSeletor: (tipo?: TipoDeMovimentacao) => void;
   abrirFolha: (pedido: PedidoDeFolha) => void;
+  // A folha de um material (plano 06-09) — o "Histórico" do cartão e da tabela.
+  abrirFolhaDoMaterial: (itemId: string) => void;
   // "Ver só esses" do banner (plano 06-07): o banner mora ACIMA das abas, e a pílula "Acabando" é
   // estado da `AbaSaldos`. A aba registra aqui o que fazer; `verSoAcabando` devolve `false` quando
   // nenhuma aba Saldos está montada (Histórico, Para onde foi) — aí o banner navega para
@@ -67,6 +73,16 @@ export function useEstoque(): ContextoDoEstoque {
 // sem efeito que zere estado à mão (o mesmo princípio do `key` do traçador).
 type FolhaAberta = PedidoDeFolha & { chave: number };
 type SeletorAberto = { tipo: TipoDeMovimentacao; chave: number };
+type FolhaDoMaterialAberta = { itemId: string; chave: number; promessa: PromessaDaFolhaDoMaterial };
+
+// A leitura da folha do material, disparada no TOQUE (nunca num efeito): a folha a lê com `use()`.
+// Nunca rejeita — a falha de rede vira a frase da UI-SPEC, mostrada dentro da folha.
+function carregarFolhaDoMaterial(itemId: string, limite: number): PromessaDaFolhaDoMaterial {
+  return lerFolhaDoMaterial({ itemId, limite }).catch((falha: unknown) => {
+    console.error("Falha ao carregar a folha do material:", falha);
+    return { ok: false as const, erro: FRASE_ERRO_CARREGAR_MATERIAL };
+  });
+}
 
 // O ÚNICO lugar que abre a folha de movimentação e o seletor "Qual material?" (key link do plano
 // 06-06): o "Dar baixa" do cartão, a barra fixa do celular, o botão do cabeçalho e (plano 06-09) a
@@ -82,20 +98,47 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
   const [areaDoSeletor, setAreaDoSeletor] = useState<AreaFinanceira | null>(null);
   const [folha, setFolha] = useState<FolhaAberta | null>(null);
   const [seletor, setSeletor] = useState<SeletorAberto | null>(null);
+  const [folhaDoMaterial, setFolhaDoMaterial] = useState<FolhaDoMaterialAberta | null>(null);
   // Só um contador para as chaves de montagem — nunca desenha nada, por isso é referência.
   const ultimaChave = useRef(0);
 
-  const abrirSeletor = useCallback((tipo: TipoDeMovimentacao = "saida") => {
-    ultimaChave.current += 1;
+  // Uma folha por vez: abrir qualquer uma fecha as outras.
+  const fecharTudo = useCallback(() => {
     setFolha(null);
-    setSeletor({ tipo, chave: ultimaChave.current });
+    setSeletor(null);
+    setFolhaDoMaterial(null);
   }, []);
 
-  const abrirFolha = useCallback((pedido: PedidoDeFolha) => {
-    ultimaChave.current += 1;
-    setSeletor(null);
-    setFolha({ ...pedido, chave: ultimaChave.current });
-  }, []);
+  const abrirSeletor = useCallback(
+    (tipo: TipoDeMovimentacao = "saida") => {
+      ultimaChave.current += 1;
+      fecharTudo();
+      setSeletor({ tipo, chave: ultimaChave.current });
+    },
+    [fecharTudo],
+  );
+
+  const abrirFolha = useCallback(
+    (pedido: PedidoDeFolha) => {
+      ultimaChave.current += 1;
+      fecharTudo();
+      setFolha({ ...pedido, chave: ultimaChave.current });
+    },
+    [fecharTudo],
+  );
+
+  const abrirFolhaDoMaterial = useCallback(
+    (itemId: string) => {
+      ultimaChave.current += 1;
+      fecharTudo();
+      setFolhaDoMaterial({
+        itemId,
+        chave: ultimaChave.current,
+        promessa: carregarFolhaDoMaterial(itemId, LIMITE_DO_HISTORICO),
+      });
+    },
+    [fecharTudo],
+  );
 
   // A ação "Ver só esses" da aba Saldos montada — referência, não estado: registrar não redesenha.
   const acaoDoAcabando = useRef<(() => void) | null>(null);
@@ -112,9 +155,21 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
   }, []);
 
   const valor = useMemo<ContextoDoEstoque>(
-    () => ({ lista, abrirSeletor, abrirFolha, registrarVerSoAcabando, verSoAcabando }),
-    [lista, abrirSeletor, abrirFolha, registrarVerSoAcabando, verSoAcabando],
+    () => ({
+      lista,
+      abrirSeletor,
+      abrirFolha,
+      abrirFolhaDoMaterial,
+      registrarVerSoAcabando,
+      verSoAcabando,
+    }),
+    [lista, abrirSeletor, abrirFolha, abrirFolhaDoMaterial, registrarVerSoAcabando, verSoAcabando],
   );
+
+  const saldoDaFolhaDoMaterial =
+    folhaDoMaterial && lista.estado === "pronta"
+      ? (lista.saldos.find((saldo) => saldo.id === folhaDoMaterial.itemId) ?? null)
+      : null;
 
   const saldoDaFolha =
     folha && lista.estado === "pronta"
@@ -146,6 +201,18 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
             custoPorPecaCentavos={lista.custosDasPecasProntas[saldoDaFolha.id] ?? null}
             aoTrocarMaterial={(tipo) => abrirSeletor(tipo)}
             aoFechar={() => setFolha(null)}
+          />
+        ) : null}
+
+        {folhaDoMaterial ? (
+          <FolhaMaterial
+            key={folhaDoMaterial.chave}
+            itemId={folhaDoMaterial.itemId}
+            saldo={saldoDaFolhaDoMaterial}
+            promessaInicial={folhaDoMaterial.promessa}
+            carregar={(limite) => carregarFolhaDoMaterial(folhaDoMaterial.itemId, limite)}
+            aoRegistrarMovimentacao={(itemId) => abrirFolha({ itemId, tipo: "saida" })}
+            aoFechar={() => setFolhaDoMaterial(null)}
           />
         ) : null}
       </Contexto.Provider>

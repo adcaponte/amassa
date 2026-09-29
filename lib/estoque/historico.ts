@@ -407,3 +407,38 @@ export function agregarParaOndeFoi(
     barras: barras.map((item) => item.barra),
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// A folha de um material (plano 06-09): "Gasto por" (EST-20, D-08).
+// ---------------------------------------------------------------------------------------------
+
+// Um produto cuja ficha técnica gasta o material: o nome do produto como gravado, a quantidade da
+// ficha (texto decimal com ponto, como o `numeric` volta do `pg`) e a unidade DO INSUMO (a do
+// material — a ficha técnica sempre mede o insumo na unidade dele).
+export type ProdutoQueGasta = {
+  produto: string;
+  quantidade: string;
+  unidadeDoInsumo: Unidade;
+};
+
+const ORDEM_PT_BR = new Intl.Collator("pt-BR");
+
+// "Gasto por" em ordem de nome do produto, pt-BR ("Água tônica" antes de "Café"), sem mutar a
+// entrada. Cada produto aparece uma vez: `ficha_tecnica` tem `unique(item_id, insumo_id)`.
+export function ordenarGastoPor<T extends Pick<ProdutoQueGasta, "produto">>(
+  produtos: readonly T[],
+): T[] {
+  return [...produtos].sort((a, b) => ORDEM_PT_BR.compare(a.produto, b.produto));
+}
+
+// "Café 200 ml (15 g) · Café refil (30 g)" — todos os produtos, na ordem recebida, nunca
+// truncado (a tela quebra por palavra). A quantidade sai por `formatarQuantidade` e a unidade pelo
+// rótulo da tela (litro é "L"). Nenhum produto = texto vazio: a seção não aparece.
+export function textoGastoPor(produtos: readonly ProdutoQueGasta[]): string {
+  return produtos
+    .map(
+      (linha) =>
+        `${linha.produto} (${formatarQuantidade(linha.quantidade)} ${ROTULO_UNIDADE[linha.unidadeDoInsumo]})`,
+    )
+    .join(SEPARADOR);
+}

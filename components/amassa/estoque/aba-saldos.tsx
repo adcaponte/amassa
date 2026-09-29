@@ -70,7 +70,7 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
   const [area, setArea] = useState<AreaFinanceira | null>(null);
   const [acabando, setAcabando] = useState(acabandoInicial);
   const [situacao, setSituacao] = useState<FiltroDeSituacao>("ativos");
-  const { abrirFolha, registrarVerSoAcabando } = useEstoque();
+  const { abrirFolha, abrirFolhaDoMaterial, registrarVerSoAcabando } = useEstoque();
 
   // Ordena UMA vez: filtrar depois nunca reordena (EST-03 · ordering).
   const ordenados = useMemo(() => ordenarSaldos(saldos), [saldos]);
@@ -82,6 +82,11 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
 
   function darBaixa(saldo: SaldoDoItem) {
     abrirFolha({ itemId: saldo.id, tipo: "saida" });
+  }
+
+  // "Histórico" (cartão e tabela, plano 06-09) abre a folha do material pelo mesmo provedor.
+  function verHistorico(saldo: SaldoDoItem) {
+    abrirFolhaDoMaterial(saldo.id);
   }
 
   function mudarAcabando(ligado: boolean) {
@@ -182,11 +187,11 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
             <ul className="flex flex-col gap-2 min-[980px]:hidden" aria-label="Saldos do estoque">
               {visiveis.map((saldo) => (
                 <li key={saldo.id}>
-                  <CartaoSaldo saldo={saldo} aoDarBaixa={darBaixa} />
+                  <CartaoSaldo saldo={saldo} aoDarBaixa={darBaixa} aoVerHistorico={verHistorico} />
                 </li>
               ))}
             </ul>
-            <TabelaSaldos saldos={visiveis} aoDarBaixa={darBaixa} />
+            <TabelaSaldos saldos={visiveis} aoDarBaixa={darBaixa} aoVerHistorico={verHistorico} />
           </>
         )}
 

@@ -12,7 +12,9 @@ import {
   META_PECA_PRONTA,
   META_SEM_MINIMO,
   ROTULO_DAR_BAIXA,
+  ROTULO_HISTORICO_DO_MATERIAL,
   SEM_CUSTO_CONHECIDO,
+  rotuloHistoricoDe,
   textoCustoMedio,
   textoMetaMinimo,
 } from "@/lib/estoque/textos";
@@ -105,6 +107,8 @@ export function textoDoMinimo(saldo: SaldoDoItem): string {
 export type CartaoSaldoProps = {
   saldo: SaldoDoItem;
   aoDarBaixa: (saldo: SaldoDoItem) => void;
+  // "Histórico" (plano 06-09): a folha do material — também no desativado, onde é o único botão.
+  aoVerHistorico: (saldo: SaldoDoItem) => void;
 };
 
 // O cartão da aba Saldos abaixo de 980px (UI-SPEC §"Estados e Comportamento → Aba Saldos
@@ -117,7 +121,7 @@ export type CartaoSaldoProps = {
 // Os `data-testid` (`estoque-cartao`, `estoque-cartao-saldo`, `estoque-cartao-unidade`,
 // `estoque-dar-baixa`) são os do traçador (06-01) e a tabela os repete na linha — os e2e de
 // 06-01/06-03 acham o material pelo que estiver VISÍVEL na largura da tela.
-export function CartaoSaldo({ saldo, aoDarBaixa }: CartaoSaldoProps) {
+export function CartaoSaldo({ saldo, aoDarBaixa, aoVerHistorico }: CartaoSaldoProps) {
   const alerta = alertaDoItem(saldo);
   const unidade = ROTULO_UNIDADE[saldo.unidade];
   const meta = [
@@ -179,6 +183,16 @@ export function CartaoSaldo({ saldo, aoDarBaixa }: CartaoSaldoProps) {
             {ROTULO_DAR_BAIXA}
           </Button>
         ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          className="text-corpo min-h-[44px] px-4 font-semibold"
+          aria-label={rotuloHistoricoDe(saldo.nome)}
+          data-testid="estoque-historico-material"
+          onClick={() => aoVerHistorico(saldo)}
+        >
+          {ROTULO_HISTORICO_DO_MATERIAL}
+        </Button>
         <span
           data-testid="estoque-cartao-custo"
           className="text-apoio text-tinta-fraca ml-auto whitespace-nowrap tabular-nums"

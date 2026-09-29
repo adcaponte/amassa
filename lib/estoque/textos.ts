@@ -401,3 +401,40 @@ export const NOTA_DESTINO_RODAPE_ANTES =
 export const NOTA_DESTINO_RODAPE_INSTANTE = "no instante da saída";
 export const NOTA_DESTINO_RODAPE_DEPOIS =
   " — o custo médio vem das entradas, que é onde o preço de compra é registrado. Por isso a entrada pergunta quanto custou.";
+
+// ---------------------------------------------------------------------------------------------
+// A folha de um material (plano 06-09) — resumo, "Gasto por", o livro dele e o rodapé.
+// ---------------------------------------------------------------------------------------------
+
+// §Ações — "Ação do cartão/linha": o nome acessível inclui o material (WCAG 2.5.3).
+export const ROTULO_HISTORICO_DO_MATERIAL = "Histórico";
+export function rotuloHistoricoDe(nome: string): string {
+  return `Histórico de ${nome}`;
+}
+// §Ações — "Folha do material — rodapé" ("Editar material" encurta para caber a 360px).
+export const ROTULO_EDITAR_MATERIAL_CURTO = "Editar";
+export const ROTULO_REATIVAR_MATERIAL = "Reativar material";
+export const ROTULO_REATIVANDO = "Reativando…";
+
+// §Folha do material → caixa de resumo: "{R$}/{un} · {R$} em estoque · mínimo {m} {un}".
+export function textoValorEmEstoque(reais: string): string {
+  return `${reais} em estoque`;
+}
+
+// §Folha do material → "Gasto por" (EST-20, D-08). Só leitura; a ficha se edita no Catálogo.
+export const ROTULO_GASTO_POR = "Gasto por";
+export const ROTULO_EDITAR_FICHAS = "Editar fichas em Cadastros → Catálogo";
+
+// §Estados vazios — "Folha do material — sem movimentação".
+export const TITULO_MATERIAL_SEM_MOVIMENTACAO = "Nenhuma movimentação";
+export const CORPO_MATERIAL_SEM_MOVIMENTACAO =
+  "Este material foi cadastrado, mas ainda não entrou nem saiu nada.";
+
+// §Erros — "Carregar a folha do material" (dentro da folha).
+export const FRASE_ERRO_CARREGAR_MATERIAL =
+  "Não deu para carregar o histórico deste material. Verifique a internet e tente de novo.";
+
+// §Notas de rodapé — "Folha do material". Em partes, para o saldo sair em negrito. Só aparece com
+// a lista COMPLETA: com "Mostrar mais 50" à vista, somar a página não dá o saldo e a frase mentiria.
+export const NOTA_SOMA_ANTES = "Somando de cima para baixo você chega ao saldo de ";
+export const NOTA_SOMA_DEPOIS = ". É assim que o sistema calcula — não há outra fonte.";

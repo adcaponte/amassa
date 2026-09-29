@@ -9,6 +9,11 @@ import { z } from "zod";
 
 import { converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 
+import {
+  LIMITE_DO_HISTORICO,
+  LIMITE_MAXIMO_DO_HISTORICO,
+  PASSO_DO_HISTORICO,
+} from "./abas";
 import { DESTINOS_DE_SAIDA, ehDestinoDeSaida, type DestinoDeSaida } from "./destinos";
 import {
   FRASE_CONTADO_VAZIO,
@@ -176,3 +181,31 @@ export const esquemaRegistrarMovimentacao = esquemaPorTipo.transform((dados) => 
 });
 
 export type RegistrarMovimentacaoValidado = z.infer<typeof esquemaRegistrarMovimentacao>;
+
+// ---------------------------------------------------------------------------------------------
+// A folha de um material (plano 06-09).
+// ---------------------------------------------------------------------------------------------
+
+// O tamanho da página da folha do material: múltiplo de 50, de 50 a 1000 — a mesma regra de
+// `limiteDaUrl` (abas.ts) da aba Histórico. Qualquer outra coisa (texto, fração, fora do passo,
+// acima do teto) vira 50 em vez de recusar: é um parâmetro de paginação, não um dado do usuário, e
+// o teto impede que um pedido forjado leia o livro inteiro de uma vez (T-06-42).
+const esquemaLimiteDaFolha = z.unknown().transform((valor) => {
+  if (
+    typeof valor !== "number" ||
+    !Number.isInteger(valor) ||
+    valor < LIMITE_DO_HISTORICO ||
+    valor > LIMITE_MAXIMO_DO_HISTORICO ||
+    valor % PASSO_DO_HISTORICO !== 0
+  ) {
+    return LIMITE_DO_HISTORICO;
+  }
+  return valor;
+});
+
+export const esquemaLerMaterial = z.object({
+  itemId: esquemaItemId,
+  limite: esquemaLimiteDaFolha,
+});
+
+export type LerMaterialValidado = z.infer<typeof esquemaLerMaterial>;
