@@ -6,7 +6,6 @@ import { hrefDoCaixa } from "@/lib/financeiro/navegacao";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import { rotuloBotaoBaixa, ROTULO_TAG_VENCIDA, textoVence } from "@/lib/financeiro/textos";
 import { TEXTOS_DOS_BLOCOS } from "@/lib/inicio/textos";
-import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { EstadoErro } from "@/components/amassa/estado-erro";
 import { BlocoDoInicio } from "./bloco-do-inicio";
 import { TentarDeNovo } from "./tentar-de-novo";
@@ -45,7 +44,8 @@ export async function BlocoOQueVence({ hoje }: BlocoOQueVenceProps) {
     <BlocoDoInicio
       titulo="O que vence"
       acaoRotulo="abrir caixa"
-      acaoHref={rotaDeGestao("/financeiro")}
+      // D-06: "abrir caixa" abre a aba Caixa — sem `?aba=`, o Financeiro abre na Venda.
+      acaoHref={hrefDoCaixa()}
       dataTestId="inicio-bloco-vence"
     >
       {falhou ? (
