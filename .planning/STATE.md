@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04.6
-current_phase_name: gestao-inicio-e-site-publico
-status: verifying
-stopped_at: "Plano 04.6-08 CONCLUIDO em 29/09/2026 (3 de 3 tarefas) — portao humano percorrido pelo dono: Roteiro 14 no servidor (migracao 0022 aplicada e conferida de fora), GES-04 em producao com callbackUrl no dominio publico, caminhada de 16 itens sem reprovacao. Falta so o fechamento da fase pelo orquestrador (phase.complete + verificador). Nada publicado: 6 commits locais, git push e do dono."
-last_updated: "2026-09-29T00:50:00.000Z"
+current_phase: 06
+current_phase_name: Estoque
+status: ready_to_discuss
+stopped_at: "Fase 04.6 CONCLUIDA em 29/09/2026 (phase.complete depois da verificacao passed 9/9, commit e3527e4). Proxima: Fase 06 Estoque, que o orquestrador segue durante a noite sob autorizacao do dono em opcoes recomendadas — ver topo do corpo"
+last_updated: "2026-09-29T02:30:39.922Z"
 progress:
   total_phases: 12
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 86
   completed_plans: 86
 last_activity: 2026-09-29
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Phase 04.6 — gestao-inicio-e-site-publico
+**Current focus:** Fase **06 — Estoque**, a próxima. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Decisões do dono durante a execução da Fase 04.6
 
@@ -49,7 +49,7 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 
 ## Current Position
 
-Phase: 04.6 (gestao-inicio-e-site-publico) — **8 de 8 planos executados; o portão humano foi
+Phase: 06 — Estoque
 percorrido em 28-29/09/2026; falta só o fechamento formal da fase pelo orquestrador**
 (`phase.complete` + verificador). *(Corrigido em 29/09/2026. Até 28/09 este parágrafo dizia
 "EXECUTING… Tarefas 2 e 3 aguardando o dono" e o `status` do frontmatter dizia `paused`; ambos
@@ -704,7 +704,7 @@ sem uma linha "Progress:" própria).
 
 **Velocity:**
 
-- Total plans completed: 31
+- Total plans completed: 39
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -717,6 +717,7 @@ sem uma linha "Progress:" própria).
 | 2b | 5 | - | - |
 | 04.1 | 6 | - | - |
 | 04.3 | 5 | - | - |
+| 04.6 | 8 | - | - |
 
 **Recent Trend:**
 
