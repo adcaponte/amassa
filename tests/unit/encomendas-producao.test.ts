@@ -28,6 +28,9 @@ describe("producaoEmAndamento", () => {
         etapaAtual: "producao",
         proximaEtapa: "secagem",
         diasAteProxima: 3,
+        atrasoDias: null,
+        diasAteInicio: null,
+        emEspera: false,
       },
     ]);
   });
@@ -90,5 +93,57 @@ describe("producaoEmAndamento", () => {
     expect(linha.etapaAtual).toBe("entrega");
     expect(linha.proximaEtapa).toBeNull();
     expect(linha.diasAteProxima).toBeNull();
+  });
+
+  // CR-04 (revisão da Fase 04.6): "atrasada" e "nao-comecou" caíam no `default`, com
+  // `etapaAtual: null` — e o bloco pintava toda linha sem etapa como "Em espera". Uma encomenda
+  // com a entrega vencida, a linha mais urgente que a amostra pode mostrar, aparecia como parada.
+  it("encomenda atrasada carrega os dias de atraso, e não é marcada como em espera", () => {
+    const situacao: Situacao = { tipo: "atrasada", dataPrevista: "2026-12-10", diasDeAtraso: 3 };
+    const [linha] = producaoEmAndamento([encomenda("1", "[e2e] Ordem atrasada", situacao)]);
+    expect(linha).toEqual({
+      id: "1",
+      titulo: "[e2e] Ordem atrasada",
+      etapaAtual: null,
+      proximaEtapa: null,
+      diasAteProxima: null,
+      atrasoDias: 3,
+      diasAteInicio: null,
+      emEspera: false,
+    });
+  });
+
+  it("encomenda que ainda não começou carrega os dias até o início, e não é marcada como em espera", () => {
+    const situacao: Situacao = { tipo: "nao-comecou", diasAteInicio: 2, dataInicio: "2026-12-20" };
+    const [linha] = producaoEmAndamento([encomenda("1", "[e2e] Ordem futura", situacao)]);
+    expect(linha).toEqual({
+      id: "1",
+      titulo: "[e2e] Ordem futura",
+      etapaAtual: null,
+      proximaEtapa: null,
+      diasAteProxima: null,
+      atrasoDias: null,
+      diasAteInicio: 2,
+      emEspera: false,
+    });
+  });
+
+  it("só a situação em-espera é marcada como em espera", () => {
+    const todas: Situacao[] = [
+      { tipo: "nao-comecou", diasAteInicio: 2, dataInicio: "2026-12-20" },
+      { tipo: "em-etapa-intervalo", etapa: "producao", proximaEtapa: "secagem", diasAteProxima: 3 },
+      { tipo: "em-etapa-marco", etapa: "queima1" },
+      { tipo: "ultima-etapa", etapa: "entrega", diasAteEntrega: 1 },
+      { tipo: "atrasada", dataPrevista: "2026-12-10", diasDeAtraso: 5 },
+      { tipo: "concluida", dataDeConclusao: "2026-12-10" },
+      { tipo: "cancelada" },
+      { tipo: "sem-etapas" },
+      { tipo: "em-espera", proximaEtapa: "queima2", diasAteProxima: 2 },
+    ];
+    const linhas = producaoEmAndamento(
+      todas.map((situacao, indice) => encomenda(String(indice), `[e2e] Ordem ${indice}`, situacao)),
+    );
+    const emEspera = linhas.filter((linha) => linha.emEspera).map((linha) => linha.id);
+    expect(emEspera).toEqual(["8"]);
   });
 });

@@ -168,3 +168,37 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
     expect(fonte).toMatch(/"secagem"\s*\?/);
   });
 });
+
+// CR-04 (revisão da Fase 04.6): o bloco Produção do Início ganhou duas tags sem etapa — a de
+// encomenda atrasada e a de encomenda que ainda não começou —, além da "Em espera" que já
+// existia. O mesmo bloco já tinha saído com uma pílula a 1,94:1, achada só por leitura; aqui cada
+// par que as tags usam é MEDIDO, lido do `app/globals.css` real. Achado real se reprovar: o token
+// ou o par muda, nunca o limiar.
+describe("contraste das tags sem etapa do bloco Produção do Início (CR-04)", () => {
+  const PARES_DAS_TAGS = [
+    ["Atrasada", "erro", "erro-fundo", "text-erro", "bg-erro-fundo"],
+    ["Começa em / Em espera", "muted-foreground", "muted", "text-muted-foreground", "bg-muted"],
+  ] as const;
+
+  it.each(PARES_DAS_TAGS)(
+    "a tag %s (--color-%s sobre --color-%s) passa AA (>= 4.5)",
+    (_rotulo, tokenDoTexto, tokenDoFundo) => {
+      const texto = tokenDaPlataforma(tokenDoTexto);
+      const fundo = tokenDaPlataforma(tokenDoFundo);
+      const razao = razaoDeContraste(texto, fundo);
+      expect(razao, `${texto} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it.each(PARES_DAS_TAGS)(
+    "o bloco Produção usa de fato o par medido da tag %s",
+    (_rotulo, _texto, _fundo, classeDoTexto, classeDoFundo) => {
+      const fonte = readFileSync(
+        join(process.cwd(), "components/amassa/inicio/bloco-producao.tsx"),
+        "utf-8",
+      );
+      expect(fonte).toContain(classeDoTexto);
+      expect(fonte).toContain(classeDoFundo);
+    },
+  );
+});
