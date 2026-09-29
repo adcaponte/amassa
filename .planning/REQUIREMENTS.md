@@ -71,6 +71,11 @@
 
 ### Encomendas
 
+> *29/09/2026:* os ENC-* abaixo descrevem o modelo por calendário (Fases 3 e 04.1) e continuam
+> como registro do que foi entregue. **A Fase 06.1 (Produção) os substitui** pelos PRD-01..20 — etapa
+> marcada como feita em vez de deduzida da data, quadro por etapa, folhas A4 novas (PRD-19/20 no lugar
+> do ENC-14). Nenhum ENC-* foi desmarcado: eram verdade no modelo antigo.
+
 - [x] **ENC-01**: Criar uma encomenda com nome, cliente, data de início e as 6 etapas mostra as datas calculadas em cascata
 - [x] **ENC-02**: Mudar a duração de uma etapa desloca todas as etapas seguintes
 - [x] **ENC-03**: Os três marcos (queima 1, queima 2, entrega) aparecem como losango, sempre acontecem e sempre duram 1 dia — o campo numérico ao lado de cada um é a espera **antes** do marco, nunca a duração dele.
@@ -88,6 +93,34 @@
 - [x] **ENC-13**: O estado vazio mostra "A roda ainda não gira"
 - [x] **ENC-14**: Um botão de imprimir produz uma folha A4 com as encomendas ativas — nome, cliente, etapa atual e data de conclusão — legível e cabendo em uma página no volume atual do ateliê
 - [x] **ENC-15** (Fase 04.1): O gestor diz quantos dias a peça fica parada antes de cada um dos três marcos (queima de biscoito, queima de esmalte, entrega), digitando o número num campo com o sufixo "dias depois"; a espera desloca o marco e todas as etapas seguintes na cascata, e **nenhuma data é armazenada** — a espera é um contador relativo de dias, e `data_inicio` continua sendo a única âncora gravada (D-01). Padrões dados pelo dono: espera 0 na queima de biscoito, 3 na queima de esmalte e 5 na entrega (D-05).
+
+### Produção — redesenho das Encomendas (Fase 06.1)
+
+> Transcrição do `BRIEFING.md` de 20/09/2026 e do `prototipo.html` aprovado ("Produção AMASSA"),
+> copiados para `.planning/phases/06.1-producao/` em 29/09/2026. O protótipo vence sobre a interface;
+> o briefing vence sobre regra de dado que a tela não mostra. Substituem o modelo por calendário dos
+> ENC-* (Fase 3 e 04.1), que ficam acima como registro.
+
+- [ ] **PRD-01**: O módulo se chama **Produção** e a tela principal responde "o que está em produção e em que etapa está" (§1, §2.3). *A rota — `/gestao/producao` com redirecionamento ou manter `/gestao/encomendas` — é a única questão aberta do briefing (§9) e fica para a discussão da fase.*
+- [ ] **PRD-02**: O esquema de Encomendas é refeito do jeito que servir à Produção; os dados de teste são apagados, sem migração de dados (§1 — confirmado pelo dono em 20/09 e de novo em 29/09/2026: "pode sim zerar todos os dados. nada é real ainda."). Apagar tabela em produção é migração aplicada pelo dono, à mão, depois de backup
+- [ ] **PRD-03**: Etapa se marca como feita — "Terminei: {etapa}" — em um toque, guardando a data real, com "Desfazer a última"; a situação deixa de ser deduzida da data (§2.1)
+- [ ] **PRD-04**: Dois caminhos: **completo** (produção → secagem → queima de biscoito → esmaltação → queima de esmalte → entrega/guardar) e **termina no biscoito** (produção → secagem → queima de biscoito → fim) (§2.2)
+- [ ] **PRD-05**: Quadro por etapa — seis colunas no computador, seções empilhadas no celular — com filtros Tudo · Encomendas · Da casa; horas de trabalho **não** aparecem no quadro, só dentro da ordem (§2.3, §5)
+- [ ] **PRD-06**: A ordem anda inteira: a etapa só termina quando todas as peças passaram; o parcial ("já passaram 18 de 30") é campo opcional que aparece no cartão e não move a ordem (§2.4)
+- [ ] **PRD-07**: Linha do tempo como segunda vista (alternador Quadro | Linha do tempo que lembra a escolha): uma linha por ordem, trecho cheio = aconteceu, listrado = previsto, linha de hoje, traço da entrega prometida, nome fixo à esquerda e barras que rolam de lado no celular; ordem aguardando o sinal não aparece (§2.5, §5)
+- [ ] **PRD-08**: Peças a mais, de segurança, por peça da ordem; o cliente não vê nem paga as peças a mais (§2.6, §2.7)
+- [ ] **PRD-09**: Dois tipos de ordem: **Encomenda** (nasce de orçamento aprovado ou de "Nova ordem", tem cliente, termina em Entrega) e **Produção da casa** (nasce de "Nova ordem", sem cliente, termina em Guardar no estoque) (§3)
+- [ ] **PRD-10**: A ordem vinda de orçamento carrega título, cliente, peças com quantidade, cor, personalização, fotos de referência (as do orçamento, sem duplicar arquivo), a ficha de cada peça (gramas, medidas, horas, custo) e os vínculos orçamento ↔ venda ↔ ordem, navegáveis nos dois sentidos; substitui a criação provisória de encomenda da Fase 04.5 (§3)
+- [ ] **PRD-11**: A ordem vinda de orçamento nasce **aguardando o sinal**, fora do quadro e sem contar prazo; a liberação é manual, na própria Produção ("Sinal recebido — começar" / "Começar assim mesmo"), e o início passa a ser a data da ativação; a tela só mostra, para consulta, se a parcela do sinal já consta como recebida no Caixa (§3)
+- [ ] **PRD-12**: Prazos: cada etapa tem dias previstos (os padrões atuais) e, quando feita, data real; os previstos só se ajustam nas etapas futuras (− / +); "dias nesta etapa", "previsão de conclusão" e o selo na prioridade *aguardando o sinal* · *vai atrasar N dias* · *+N dias nesta etapa* · *no ritmo*; a regra dos marcos e da espera da Fase 04.1 deixa de existir; tudo em módulo puro `lib/producao/`, testado, que recebe "hoje" (§4)
+- [ ] **PRD-13**: Três números no topo — em produção (ordens e peças) · esperando o forno · aguardando sinal — e a fila **esperando o forno**: ordens cuja etapa atual é uma queima, com fornadas estimadas = Σ peças que ainda não passaram ÷ quantas cabem (da precificação, pelas medidas), dita como estimativa (§5)
+- [ ] **PRD-14**: Material usado: previsto por ordem = Σ (gramas da ficha × peças feitas, com as a mais) para argila e esmalte, "baixado X de Y kg" e aviso quando passa do previsto; Baixa total (preenchida com o que falta) · Baixa parcial · "+ Dar baixa de outro material", perguntando qual item do Estoque; cada baixa é movimentação do Estoque com origem `manual`, destino "consumo em encomenda" e vínculo real com a ordem; baixa é opcional; cancelar a ordem não devolve material (a tela avisa) (§6)
+- [ ] **PRD-15**: Conclusão: a tela pergunta só **quantas se perderam** por peça e deriva o resto — feitas = pedido + a mais; boas = feitas − perdidas; entregues = mín(pedido, boas); extras boas = máx(0, boas − pedido) (na produção da casa, todas as boas); faltam = máx(0, pedido − boas), que permite "Concluir como entrega parcial", com aviso (§7)
+- [ ] **PRD-16**: Destino das extras boas: entram no Estoque como pronta entrega (origem `producao`, custo da ficha de precificação) ou ficam sem destino; sugestão automática — peça exclusiva → sem destino, peça de linha → Estoque —, sempre trocável; peça exclusiva que for para o estoque vira item do catálogo, conduzida pela tela (§7). *Fecha a pendência do EST-21: a entrada de peça pronta deixa de ser só manual.*
+- [ ] **PRD-17**: Perda técnica (perdidas ÷ feitas) e extras sem destino guardados **separados**, por ordem e por peça; a Precificação mostra o acumulado ("perda medida nos últimos N meses: X%") ao lado do parâmetro "perda", e trocar o parâmetro continua manual (§7)
+- [ ] **PRD-18**: Concluir uma encomenda não mexe em parcela — o saldo a receber continua no Caixa; cancelar a ordem **não** cancela a venda, e a tela diz isso e manda decidir o sinal no Financeiro (§7)
+- [ ] **PRD-19**: **Folha da ordem** A4, de bancada: nome, cliente, número, início e entrega; peças com pedido · a mais · fazer, argila por peça e medidas; cor e personalização; fotos de referência; etapas com caixa de marcar, "feita em" e "quantas passaram" em branco (as feitas vêm marcadas); material previsto; "perdidas / extras boas"; pauta de anotações; **sem preço nem custo** (§7.1)
+- [ ] **PRD-20**: **Folha geral** A4 — o quadro no papel, ordens por etapa com peças, dias na etapa, entrega e caixa de "feito", aguardando sinal no fim; as duas folhas com rodapé "folha impressa em {data} · o que vale é o que está na plataforma", por CSS de impressão, sem PDF no servidor; substitui a folha A4 do ENC-14 (§7.1)
 
 ### Contador de Queima
 
@@ -579,6 +612,26 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | EST-19 | Phase 6 — Estoque | Complete |
 | EST-20 | Phase 6 — Estoque | Complete |
 | EST-21 | Phase 6 — Estoque | Complete |
+| PRD-01 | Phase 06.1 — Produção | Pending |
+| PRD-02 | Phase 06.1 — Produção | Pending |
+| PRD-03 | Phase 06.1 — Produção | Pending |
+| PRD-04 | Phase 06.1 — Produção | Pending |
+| PRD-05 | Phase 06.1 — Produção | Pending |
+| PRD-06 | Phase 06.1 — Produção | Pending |
+| PRD-07 | Phase 06.1 — Produção | Pending |
+| PRD-08 | Phase 06.1 — Produção | Pending |
+| PRD-09 | Phase 06.1 — Produção | Pending |
+| PRD-10 | Phase 06.1 — Produção | Pending |
+| PRD-11 | Phase 06.1 — Produção | Pending |
+| PRD-12 | Phase 06.1 — Produção | Pending |
+| PRD-13 | Phase 06.1 — Produção | Pending |
+| PRD-14 | Phase 06.1 — Produção | Pending |
+| PRD-15 | Phase 06.1 — Produção | Pending |
+| PRD-16 | Phase 06.1 — Produção | Pending |
+| PRD-17 | Phase 06.1 — Produção | Pending |
+| PRD-18 | Phase 06.1 — Produção | Pending |
+| PRD-19 | Phase 06.1 — Produção | Pending |
+| PRD-20 | Phase 06.1 — Produção | Pending |
 
 | ABE-01 | Phase 4.2 — Abertura do Espaço | Pending |
 | ABE-02 | Phase 4.2 — Abertura do Espaço | Pending |
@@ -676,8 +729,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 169 total (ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
-- Mapped to phases: 169/169
+- v1 requirements: 189 total (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
+- Mapped to phases: 189/189
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -695,6 +748,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 04.4 | M6 → Financeiro, parte 1 | FNC-01..17 | 17 |
 | Phase 04.5 | M6 → Financeiro, parte 2 | ORC-01..18 (reescritos, promovidos da v2) | 18 |
 | Phase 04.6 | M6 → separação dos dois públicos | GES-01..14, SIT-01..10 | 24 |
+| Phase 06.1 | Produção (redesenho das Encomendas) | PRD-01..20 (briefing de 20/09) | 20 |
 
 ---
 *Requirements defined: 2026-08-05*

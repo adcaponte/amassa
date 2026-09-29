@@ -52,6 +52,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [x] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)* (completed 2026-09-29)
+- [ ] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -826,6 +827,31 @@ orçamento de contexto e foram divididos — eram 9 planos). 🔴 Todo o código
 - [x] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**). *Em 29/09/2026 (manhã): Tarefas 1 e 2 feitas no branch — a rota, o Roteiro 15, a caminhada `06-VERIFICACAO-HUMANA.md`, a varredura completa e o branch local só-migração `gsd/phase-06-estoque-migracao` (ver `06-11-SUMMARY.md`). Depois delas, a revisão de código da fase (`06-REVIEW.md`: 0 bloqueios, 5 avisos — WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0). **Aberto: a Tarefa 3, o portão do dono** — a Parte 0 foi respondida pelo dono em 29/09 de manhã (D-23/D-24 valem; WR-01/WR-02 pela alternativa, `f05c373`; D-29 sim, "Produção da casa" semeada na `0023`, `b13d300`; só-migração em `0848b8c`); faltam o Roteiro 15 e a caminhada. Os 9 critérios acima só se marcam depois dela.* **Concluído em 29/09/2026, tarde — o dono aprovou no chat** ("repassei toda verificação. o cowork tambem verificou. Aprovado."): Roteiro 15 feito por ele, com as saídas coladas no chat e conferidas pelo orquestrador — só-migração publicado (`origin/main` = `0848b8c`, run `36550036925` verde), backup, `db:migrate` ("Migrações aplicadas com sucesso."), conferência SQL (tabela vazia, colunas, `update`/`delete` falsos, gatilho, índice, "Produção da casa" = 1), merge `2345850` (run `36587755269` verde) e `/api/health/estoque` 200 `{"status":"ok"}`; a caminhada no celular percorrida por ele, sem anotação por item nem os tempos da baixa; e a verificação independente do Cowork (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`, 19 passos em produção, nenhum 🔴).
 
 **UI hint**: yes
+
+### Phase 06.1: Produção — redesenho das Encomendas (INSERTED)
+
+**Goal:** O módulo de Encomendas deixa de ser "cronograma calculado pelo calendário" e vira
+**"o que está em produção e em que etapa está"** — etapas marcadas como feitas, produção da casa ao
+lado das encomendas, e ligação real com Orçamento, Financeiro e Estoque.
+**Corresponde a**: item 5 da `FILA-DO-CODE.md`; briefing e protótipo aprovados pelo dono em 20/09/2026
+(`.planning/phases/06.1-producao/BRIEFING.md` e `prototipo.html`). Substitui o modelo dos ENC-*.
+**Requirements**: PRD-01, PRD-02, PRD-03, PRD-04, PRD-05, PRD-06, PRD-07, PRD-08, PRD-09, PRD-10, PRD-11, PRD-12, PRD-13, PRD-14, PRD-15, PRD-16, PRD-17, PRD-18, PRD-19, PRD-20
+**Depends on:** Phase 6 (Estoque — baixa de material e entrada de peça pronta), Phase 04.5 (orçamento
+aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04.6 (`/gestao`)
+**Success Criteria** (what must be TRUE):
+  1. Uma ordem vinda de orçamento aprovado nasce aguardando o sinal, fora do quadro e sem contar prazo, e só começa quando o dono a libera — o início vira a data da liberação
+  2. "Terminei: {etapa}" em um toque leva a ordem à etapa seguinte e guarda a data real; "Desfazer a última" volta
+  3. O quadro mostra cada ordem ativa na etapa atual, com o selo certo (aguardando o sinal · vai atrasar N dias · +N dias nesta etapa · no ritmo), e a fila "esperando o forno" com as fornadas estimadas
+  4. A linha do tempo mostra o que aconteceu (cheio) e o previsto (listrado), com hoje e a entrega prometida
+  5. Dar baixa de material numa ordem grava uma movimentação no Estoque com vínculo real àquela ordem
+  6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
+  7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
+  8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
 
 ### Phase 7: Polimento e Entrega
 

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Produção AMASSA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --fundo:#F6F3F0;--sup:#FFFFFF;--sup2:#EFEAE5;--borda:#E8E2DC;--borda-f:#D8CFC7;
+  --tinta:#1D2221;--tinta-m:#5A4C44;--tinta-f:#6E5F56;
+  --acento:#894025;--acento-h:#5B2916;--acento-fundo:#F3EDE9;--destaque:#FFBD59;
+  --ok:#15803D;--ok-f:#DCFCE7;--at:#B45309;--at-f:#FEF3C7;--erro:#B91C1C;--erro-f:#FEE2E2;
+  --cafeteria:#8B6F47;--producao:#8B6F47;--secagem:#A8946B;--queima1:#C2451B;--esmaltacao:#2E7D8C;--queima2:#7A3527;--entrega:#5B7553;--espaco:#2E7D8C;--pecas:#C2451B;--loja:#5B7553;--geral:#6E5F56;
+  --r-sm:6px;--r:10px;--r-lg:14px;
+}
+*{box-sizing:border-box}button{color:var(--tinta)}[hidden]{display:none!important}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo Narrow",Inter,sans-serif;margin:0;text-wrap:balance}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:16px 120px}
+.num{font-variant-numeric:tabular-nums}
+header.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+header.top h1{font-size:26px}
+header.top .sub{font-size:13px;color:var(--tinta-f)}
+.aviso{font-size:13px;color:var(--tinta-m);background:var(--acento-fundo);border:1px solid var(--borda);border-radius:var(--r);padding:8px 12px;margin-bottom:14px}
+.aviso button{font:inherit;font-size:13px;color:var(--acento);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+
+/* abas */
+nav.abas{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--sup);border-top:1px solid var(--borda-f);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.abas button{flex:1 1 0;max-width:160px;min-height:58px;border:0;background:none;font:600 13px Inter,sans-serif;color:var(--tinta-f);cursor:pointer;border-top:3px solid transparent}
+nav.abas button[aria-current="page"]{color:var(--acento);border-top-color:var(--acento)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+/* blocos */
+.duas{display:grid;gap:16px}.duas>*{min-width:0}
+@media(min-width:880px){.duas{grid-template-columns:1.15fr 1fr;align-items:start}}
+.bloco{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:12px}
+.bloco h2{font-size:19px}
+.bloco h3{font-size:15px;color:var(--tinta-m);letter-spacing:.04em;text-transform:uppercase}
+.dica{font-size:13px;color:var(--tinta-f);margin:0}
+.campos{display:flex;gap:10px;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:3px;flex:1 1 140px;font-size:12.5px;color:var(--tinta-m);font-weight:500}
+input,select{font:16px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:9px 10px;min-height:44px;width:100%}
+input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--acento)}
+.pilulas{display:flex;gap:6px;flex-wrap:wrap}
+.pil{font:500 13.5px Inter,sans-serif;min-height:38px;padding:6px 13px;border-radius:999px;border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta-m);cursor:pointer}
+.pil[aria-pressed=true]{background:var(--acento);border-color:var(--acento);color:#fff}
+.pil.ex{border-style:dashed;font-size:12.5px;min-height:34px}
+.btn{font:600 15px Inter,sans-serif;min-height:46px;padding:10px 16px;border-radius:var(--r);border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta);cursor:pointer}
+.btn.pri{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.pri:hover{background:var(--acento-h)}
+.btn.pri:disabled{background:var(--borda-f);border-color:var(--borda-f);color:var(--tinta-f);cursor:not-allowed}
+.btn.mini{min-height:38px;padding:6px 12px;font-size:13.5px}
+.btn.perigo{color:var(--erro);border-color:var(--erro)}
+
+/* catálogo em grade */
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px}
+.item{color:var(--tinta);text-align:left;border:1px solid var(--borda);border-left:4px solid var(--c,var(--borda-f));background:var(--sup);border-radius:var(--r);padding:9px 10px;min-height:64px;cursor:pointer;font:inherit;display:flex;flex-direction:column;justify-content:space-between;gap:2px}
+.item:active{background:var(--acento-fundo)}
+.item b{font-size:14px;font-weight:600;line-height:1.25}
+.item span{font-size:13px;color:var(--tinta-f)}
+
+.li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;border-bottom:1px solid var(--borda)}
+.li:last-child{border-bottom:0}
+.li .pega{display:flex;align-items:center;gap:8px;text-align:left;font:inherit;font-size:15px;font-weight:500;background:none;border:0;min-height:48px;cursor:pointer;color:var(--tinta);padding:0}
+.li .pr{font-size:13.5px;color:var(--tinta-f)}
+.li .estrela{width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--borda-f)}
+.li .estrela[aria-pressed=true]{color:var(--at)}
+.vermini{font:inherit;font-size:12.5px;color:var(--acento);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;min-height:28px}
+.apos{font-size:12.5px;color:var(--tinta-f);text-align:right}
+/* linhas do carrinho */
+.linhas{display:flex;flex-direction:column}
+.ln{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--borda)}
+.ln .nome{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px}
+.ponto{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.ln .sub{font-weight:600;text-align:right}
+.ln .ctrl{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.passo{display:flex;align-items:center;border:1px solid var(--borda-f);border-radius:var(--r-sm);overflow:hidden}
+.passo button{width:44px;height:44px;border:0;background:var(--sup2);font-size:20px;cursor:pointer;color:var(--tinta)}
+.passo output{min-width:40px;text-align:center;font-weight:600}
+.ctrl input{width:104px}
+.ctrl .x{margin-left:auto;border:0;background:none;color:var(--tinta-f);font-size:13px;text-decoration:underline;cursor:pointer;min-height:44px}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-family:"Archivo Narrow",sans-serif;font-size:26px;font-weight:700}
+.vazio{color:var(--tinta-f);font-size:14px;padding:14px 0;text-align:center}
+.parc{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;font-size:13px;color:var(--tinta-m)}
+.parc label{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.falta{font-size:13.5px;color:var(--erro);background:var(--erro-f);border-radius:var(--r-sm);padding:6px 10px}
+details.est{font-size:13.5px;color:var(--tinta-m);border:1px dashed var(--borda-f);border-radius:var(--r);padding:8px 12px}
+details.est summary{cursor:pointer;font-weight:600}
+details.est ul{margin:6px 0 0;padding-left:18px}
+
+/* caixa */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:12px 14px}
+.tile small{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-f);font-weight:600}
+.tile strong{font-family:"Archivo Narrow",sans-serif;font-size:26px}
+.tile.saldo{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.tile.saldo small{color:#D8CFC7}
+.conta{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--borda);align-items:center}
+.conta:last-child,.ln:last-child{border-bottom:0}
+.conta .t{font-weight:600;font-size:15px}
+.conta .d{font-size:13px;color:var(--tinta-f);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.conta .v{font-weight:600;text-align:right}
+.conta .acoes{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.conta.foco{background:var(--at-f);margin-inline:-14px;padding-inline:14px}
+.conta.canc .t,.conta.canc .v{text-decoration:line-through;color:var(--tinta-f)}
+.tag{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--sup2);color:var(--tinta-m)}
+.tag.venc{background:var(--erro-f);color:var(--erro)}
+.tag.ok{background:var(--ok-f);color:var(--ok)}
+.pos{color:var(--ok)}.neg{color:var(--erro)}
+
+/* mês */
+.mes-nav{display:flex;align-items:center;gap:10px}
+.mes-nav h2{min-width:150px;text-align:center}
+.tabela{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--tinta-f);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--borda-f)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 8px;border-bottom:1px solid var(--borda);text-align:right;white-space:nowrap}
+td:first-child{font-weight:600}
+@media(max-width:480px){table{font-size:13px}th,td{padding-inline:4px}th{font-size:11px;letter-spacing:0}}
+tfoot td{font-weight:700;border-bottom:0}
+.regua{display:flex;flex-direction:column;gap:8px}
+.regua .rot{display:flex;justify-content:space-between;font-size:13px;color:var(--tinta-m)}
+.barra{display:flex;height:22px;border-radius:var(--r-sm);overflow:hidden;background:var(--sup2)}
+.barra i{display:block;height:100%}
+.veredito{font-size:15px;font-weight:600;padding:10px 12px;border-radius:var(--r)}
+.veredito.bom{background:var(--ok-f);color:var(--ok)}
+.veredito.ruim{background:var(--erro-f);color:var(--erro)}
+.lista-simples{display:flex;flex-direction:column}
+.lista-simples div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--borda);font-size:14.5px}
+.lista-simples div:last-child{border-bottom:0}
+
+/* folha e toast */
+#veu{position:fixed;inset:0;background:rgba(29,34,33,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+#folha{background:var(--sup);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+@media(min-width:700px){#veu{align-items:center}#folha{border-radius:18px}}
+#folha h2{font-size:21px}
+.rodape{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom,0px));background:var(--tinta);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;z-index:40;max-width:calc(100% - 32px)}
+@media(prefers-reduced-motion:no-preference){#toast{transition:opacity .2s}}
+
+.quadro{display:grid;gap:12px}
+@media(min-width:980px){.quadro{grid-template-columns:repeat(6,minmax(0,1fr));align-items:start}}
+.col{background:var(--sup2);border-radius:var(--r-lg);padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.col h3{font-size:14px;display:flex;align-items:center;gap:7px;color:var(--tinta-m);letter-spacing:.03em;text-transform:uppercase}
+.col h3 span{margin-left:auto;background:var(--sup);border-radius:999px;padding:0 8px;font-family:Inter,sans-serif}
+.col .vazio{padding:4px 0;text-align:left}
+.ord{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;width:100%;background:var(--sup);border:1px solid var(--borda);border-radius:var(--r);padding:10px 12px;cursor:pointer;font:inherit;margin-top:0}
+.bloco .ord{margin-top:8px}
+.ord .t{font-weight:600;font-size:15px}.ord .d{font-size:13px;color:var(--tinta-f)}
+.trilha{display:flex;flex-direction:column}
+.etp{display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:9px 0;border-bottom:1px solid var(--borda);align-items:start}
+.etp:last-child{border-bottom:0}
+.etp .bola{width:14px;height:14px;border-radius:50%;border:2px solid var(--c);margin-top:4px}
+.etp.feita .bola{background:var(--c)}.etp.atual .bola{box-shadow:0 0 0 4px var(--acento-fundo);background:var(--sup)}
+.etp b{font-size:15px}.etp small{display:block;font-size:13px;color:var(--tinta-f)}
+.etp.atual b{color:var(--acento)}
+.etp:not(.feita):not(.atual) b{color:var(--tinta-f);font-weight:500}
+.ajuste{display:flex;border:1px solid var(--borda-f);border-radius:var(--r-sm);overflow:hidden}
+.ajuste button{width:40px;height:40px;border:0;background:var(--sup2);font-size:18px;cursor:pointer}
+.refs{display:flex;gap:8px;flex-wrap:wrap}
+.foto{width:72px;height:72px;border:1px dashed var(--borda-f);border-radius:var(--r-sm);display:grid;place-items:center;font-size:12px;color:var(--tinta-f)}
+.tile strong{display:inline}
+.tag.at{background:var(--at-f);color:var(--at)}
+.tempo{--nome:150px;position:relative;overflow-x:auto;background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:8px 0}
+.tl{display:flex;align-items:center;min-height:52px;border-bottom:1px solid var(--borda);width:max-content;min-width:100%}
+.tl:last-of-type{border-bottom:0}
+.tl.cab{min-height:26px}
+.tn{flex:none;width:var(--nome);position:sticky;left:0;z-index:2;background:var(--sup);text-align:left;border:0;padding:6px 10px;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-self:stretch;justify-content:center;border-right:1px solid var(--borda)}
+.tn b{font-size:13.5px;line-height:1.2}.tn small{font-size:11.5px;color:var(--tinta-f)}
+.tb{position:relative;height:22px;flex:none}
+.sg{position:absolute;top:3px;height:16px;border-radius:3px}
+.sg.pl{background:repeating-linear-gradient(135deg,var(--c) 0 3px,transparent 3px 6px);opacity:.55;border:1px solid var(--c)}
+.ent{position:absolute;top:-4px;width:3px;height:30px;background:var(--tinta);border-radius:2px}
+.sm{position:absolute;top:4px;font-size:11px;color:var(--tinta-f);border-left:1px solid var(--borda-f);padding-left:3px;white-space:nowrap}
+.hoje{position:absolute;top:0;bottom:0;width:2px;background:var(--erro);z-index:1;pointer-events:none}
+.legenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--tinta-f);margin-top:8px}
+.legenda span{display:inline-flex;align-items:center;gap:5px}
+body.com-papel .wrap{display:none}
+#papel{padding:16px;background:var(--sup2);min-height:100%}
+.barra-papel{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;max-width:760px;margin:0 auto 14px}
+.folha-a4{background:#FFFDFB;color:#1D2221;max-width:760px;margin:0 auto;padding:clamp(18px,5vw,48px);box-shadow:0 2px 14px rgba(0,0,0,.12);font-size:14px;line-height:1.5;border-top:10px solid #894025;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.marca-p{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.marca-p .logo-vaga{width:58px;height:58px;border:1.5px dashed #B9724F;border-radius:50%;display:grid;place-items:center;font-size:11px;color:#894025;flex:none}
+.marca-p b{display:block;font-family:"Archivo Narrow",sans-serif;font-size:19px;letter-spacing:.08em;color:#894025}
+.marca-p small{display:block;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#6E5F56}
+.folha-a4 header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.olho{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:#894025;font-weight:600}
+.folha-a4 h1{font-size:32px;line-height:1.1;margin-top:2px}.folha-a4 header p{margin:4px 0 0;font-size:14px;color:#5A4C44}.folha-a4 .dir{text-align:right;font-size:12.5px;color:#6E5F56}
+.selo-ent{display:inline-flex;flex-direction:column;align-items:center;border:1.5px solid #894025;border-radius:12px;padding:6px 14px;color:#894025;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+.selo-ent b{font-family:"Archivo Narrow",sans-serif;font-size:19px;letter-spacing:.02em;color:#1D2221}
+.regua-p{display:flex;gap:4px;margin:6px 0 18px}
+.regua-p span{flex:1 1 0;min-width:0;font-size:10.5px;text-align:center;padding:16px 2px 0;color:#6E5F56;position:relative;line-height:1.2}
+.regua-p span::before{content:"";position:absolute;left:0;right:0;top:0;height:9px;border-radius:5px;border:1.5px solid var(--c);background:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--c) 22%,transparent) 4px 8px)}
+.regua-p span.f::before{background:var(--c)}
+.regua-p span.a{color:#1D2221;font-weight:700}.regua-p span.a::before{background:linear-gradient(90deg,var(--c) 50%,transparent 50%)}
+.folha-a4 h2{font-family:"Archivo Narrow",sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 6px;color:#894025;display:flex;align-items:center;gap:8px}
+.folha-a4 h2::after{content:"";flex:1;height:1px;background:#E0C8BB}
+.folha-a4 h2.etq{color:#1D2221}.folha-a4 h2.etq::before{content:"";width:14px;height:14px;border-radius:50%;background:var(--c);flex:none}
+.folha-a4 h2.etq span{order:3;font-family:Inter,sans-serif;font-size:12px;background:var(--c);color:#fff;border-radius:999px;padding:1px 9px;letter-spacing:0}
+.folha-a4 p{margin:4px 0}.folha-a4 .fraco{font-size:12px;color:#6E5F56}
+.folha-a4 table{font-size:13px}.folha-a4 td:first-child{white-space:normal}
+.folha-a4 thead th{border-bottom:1.5px solid #894025;color:#894025}
+.folha-a4 tbody tr:nth-child(even) td{background:#F8F2EC}
+.folha-a4 td small{display:block;font-weight:400;color:#6E5F56;font-size:12px}
+.folha-a4 .escreve{border-bottom:1px solid #B9724F;min-width:90px}
+.etapas td:nth-child(2),.etapas th:nth-child(2){text-align:left;font-weight:600}
+.etapas tbody tr:nth-child(even) td{background:none}
+.caixa{display:inline-block;width:18px;height:18px;border:2px solid var(--c,#894025);border-radius:5px;vertical-align:middle;position:relative}
+.caixa.x{background:var(--c,#894025)}
+.caixa.x::after{content:"";position:absolute;left:4px;top:0;width:5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.folha-a4 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 28px}
+.linha{display:inline-block;width:90px;border-bottom:1px solid #B9724F;height:14px}
+.pauta{height:120px;background:repeating-linear-gradient(transparent 0 23px,#E0C8BB 23px 24px)}
+.refs-p{display:flex;gap:10px}.refs-p .foto{width:110px;height:110px;border-color:#B9724F;border-radius:10px;color:#894025}
+.folha-a4 footer{margin-top:22px;padding-top:10px;border-top:1px solid #E0C8BB;font-size:11.5px;color:#6E5F56;text-align:center;font-style:italic}
+@media(max-width:520px){.folha-a4 table{font-size:11.5px}.folha-a4 th,.folha-a4 td{padding-inline:3px}.folha-a4 th{font-size:10px;letter-spacing:0}}
+@media print{.barra-papel,#toast{display:none!important}#papel{padding:0;background:#fff}.folha-a4{box-shadow:none;max-width:none;padding:0}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><h1>Produção</h1><span class="sub">protótipo · "hoje" é 18/12/2026 · dados inventados</span></header>
+  <div class="aviso">O que você mexer fica salvo só neste navegador. <button type="button" data-a="zerar">Voltar aos dados de exemplo</button></div>
+  <main id="tela"></main>
+</div>
+<div id="papel" hidden></div>
+<div id="veu" hidden><div id="folha" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status" hidden></div>
+<script>
+const HOJE='2026-12-18';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dBR=i=>{const[y,m,d]=i.split('-');return d+'/'+m};
+const maisDias=(iso,n)=>{const t=new Date(iso+'T00:00:00Z');t.setUTCDate(t.getUTCDate()+n);return t.toISOString().slice(0,10)};
+const dias=(a,b)=>Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/864e5);
+const n1=n=>(+n||0).toLocaleString('pt-BR',{maximumFractionDigits:1});
+const brl=n=>(+n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const ET={producao:['Produção','producao',5],secagem:['Secagem','secagem',10],biscoito:['Queima de biscoito','queima1',2],esmaltacao:['Esmaltação','esmaltacao',2],esmalte:['Queima de esmalte','queima2',2],final:['Entrega','entrega',1]};
+const CAM={completo:['producao','secagem','biscoito','esmaltacao','esmalte','final'],biscoito:['producao','secagem','biscoito','final']};
+const nomeEtapa=(o,e)=>e==='final'?(o.tipo==='casa'?'Guardar no estoque':'Entrega'):ET[e][0];
+function semente(){const S={filtro:'todas',aba:'quadro',ver:null,seq:14,ordens:[]};
+  const O=(id,nome,tipo,cliente,caminho,itens,inicio,entrega,feitas,x={})=>S.ordens.push({id,nome,tipo,cliente,caminho,itens,inicio,entrega,feitas,plan:Object.fromEntries(CAM[caminho].map(e=>[e,ET[e][2]])),passaram:{},baixas:[],status:'ativa',...x});
+  O(9,'Xícaras com logo','encomenda','Café da Praça','completo',[{argila:180,esmalte:25,extra:5,excl:true,med:'9 × 7 × 6',nome:'Xícara de café',q:60,cor:'branco acetinado',obs:'carimbo do logo no fundo',horas:.35,cabB:54,cabE:30,custo:21}],'2026-12-04','2027-01-20',{producao:'2026-12-10'},{orc:38,venda:31,fotos:2,baixas:[{tipo:'argila',item:'Argila branca',q:8,un:'kg'}]});
+  O(10,'Jogo de café da manhã','encomenda','Pousada do Rio','completo',[{argila:1500,esmalte:100,extra:3,excl:false,med:'27 × 27 × 3',nome:'Prato raso 27 cm',q:24,cor:'verde-musgo fosco',obs:'borda irregular',horas:.85,cabB:9,cabE:5,custo:68},{argila:450,esmalte:60,extra:2,excl:false,med:'12 × 9 × 10',nome:'Caneca 300 ml',q:24,cor:'verde-musgo fosco',obs:'',horas:.6,cabB:21,cabE:12,custo:41}],HOJE,'2027-02-10',{},{orc:39,venda:33,fotos:3,aguardaSinal:true});
+  O(11,'Canecas para a loja','casa','','completo',[{argila:450,esmalte:60,med:'12 × 9 × 10',nome:'Caneca 300 ml',q:16,cor:'azul cobalto',obs:'',horas:.6,cabB:21,cabE:12,custo:41}],'2026-11-20','',{producao:'2026-11-25',secagem:'2026-12-06',biscoito:'2026-12-09'},{passaram:{}});
+  O(12,'Copos em biscoito para pintar','casa','','biscoito',[{argila:300,esmalte:0,med:'8 × 8 × 10',nome:'Copo 10 cm para pintar',q:30,cor:'',obs:'',horas:.3,cabB:36,cabE:0,custo:14}],'2026-11-28','',{producao:'2026-12-02',secagem:'2026-12-14'},{passaram:{biscoito:18}});
+  O(13,'Boleira de casamento','encomenda','Helena','completo',[{argila:2200,esmalte:160,extra:1,excl:true,med:'30 × 30 × 12',nome:'Boleira',q:2,cor:'rosa antigo',obs:'pé alto, 12 cm',horas:1.8,cabB:1,cabE:1,custo:118}],'2026-11-10','2026-12-20',{producao:'2026-11-14',secagem:'2026-11-27',biscoito:'2026-11-30',esmaltacao:'2026-12-03'},{orc:31,venda:24,fotos:1});
+  O(7,'Pratos de sobremesa','encomenda','Bistrô Serra','completo',[{argila:500,esmalte:40,med:'15 × 15 × 2',nome:'Prato 15 cm',q:20,cor:'areia',obs:'',horas:.4,cabB:16,cabE:8,custo:24}],'2026-10-20','2026-12-05',Object.fromEntries(CAM.completo.map((e,i)=>[e,maisDias('2026-10-26',i*8)])),{status:'concluida',boas:19,venda:18,orc:22});
+  return S}
+let S;try{S=JSON.parse(localStorage.getItem('amassa-prod4')||'null')}catch(e){}
+if(!S||!S.ordens)S=semente();
+const salvar=()=>{try{localStorage.setItem('amassa-prod4',JSON.stringify(S))}catch(e){}};
+const ordem=id=>S.ordens.find(o=>o.id===id);
+const previsto=(o,t)=>o.itens.reduce((s,i)=>s+(i[t]||0)*feitas(i),0)/1000;
+const baixado=(o,t)=>o.baixas.filter(b=>b.tipo===t).reduce((s,b)=>s+(b.un==='g'?b.q/1000:b.q),0);
+const MATS={argila:['Argila branca','Argila terracota','Argila preta'],esmalte:['Esmalte transparente','Esmalte verde-musgo','Esmalte azul cobalto','Esmalte branco acetinado'],outro:['Engobe','Óxido de ferro','Gesso','Embalagem']};
+const feitas=i=>i.q+(i.extra||0);
+const pecas=o=>o.itens.reduce((s,i)=>s+feitas(i),0);
+const pedidas=o=>o.itens.reduce((s,i)=>s+i.q,0);
+const atual=o=>CAM[o.caminho].find(e=>!o.feitas[e])||null;
+function leitura(o){const cam=CAM[o.caminho],e=atual(o);if(!e)return{e:null};const i=cam.indexOf(e),desde=i?o.feitas[cam[i-1]]:o.inicio,nessa=Math.max(0,dias(desde,HOJE)),plano=o.plan[e],resto=cam.slice(i+1).reduce((s,x)=>s+o.plan[x],0),prev=maisDias(HOJE,Math.max(0,plano-nessa)+resto);
+  const estouro=nessa-plano,folga=o.entrega?dias(prev,o.entrega):null;return{e,i,nessa,plano,estouro,prev,folga}}
+function selo(o,L){if(o.aguardaSinal)return['','aguardando o sinal'];if(o.entrega&&L.folga<0)return['venc','vai atrasar '+(-L.folga)+' dia(s)'];if(L.estouro>0)return['at','+'+L.estouro+' dia(s) nesta etapa'];return['ok','no ritmo']}
+
+function cartao(o){const L=leitura(o),[cl,tx]=selo(o,L),p=o.passaram[L.e];
+  return `<button type="button" class="ord" data-a="ver" data-v="${o.id}"><span class="t">${esc(o.nome)}</span><span class="d">${o.tipo==='casa'?'<span class="tag">da casa</span>':esc(o.cliente)} · ${pedidas(o)} peça(s)${pecas(o)>pedidas(o)?' + '+(pecas(o)-pedidas(o))+' a mais':''}${p?` · <b>${p} de ${pecas(o)}</b> já passaram`:''}</span>
+  <span class="d">${o.aguardaSinal?'ainda não começou':`há <b>${L.nessa}</b> dia(s) nesta etapa · previsto ${L.plano}`}${o.entrega?` · entrega ${dBR(o.entrega)}`:''}</span><span class="tag ${cl}">${tx}</span></button>`}
+function telaQuadro(){const ativas=S.ordens.filter(o=>o.status==='ativa'&&(S.filtro==='todas'||o.tipo===S.filtro)),esp=ativas.filter(o=>o.aguardaSinal),and=ativas.filter(o=>!o.aguardaSinal);
+  const fila=and.filter(o=>['biscoito','esmalte'].includes(atual(o))),forn=t=>fila.filter(o=>atual(o)===t).reduce((s,o)=>s+o.itens.reduce((a,i)=>{const c=t==='biscoito'?i.cabB:i.cabE;return a+(c?(feitas(i)-(o.passaram[t]||0)*feitas(i)/pecas(o))/c:0)},0),0);
+  const cols=['producao','secagem','biscoito','esmaltacao','esmalte','final'];
+  return `<div class="rodape" style="justify-content:space-between;align-items:center;margin-bottom:10px"><div class="pilulas">${[['todas','Tudo'],['encomenda','Encomendas'],['casa','Da casa']].map(([k,t])=>`<button type="button" class="pil" aria-pressed="${S.filtro===k}" data-a="filtro" data-v="${k}">${t}</button>`).join('')}</div><span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-a="papel-geral">Imprimir</button><button type="button" class="btn pri" data-a="nova">Nova ordem</button></span></div>
+  <div class="tiles" style="margin-bottom:14px"><div class="tile"><small>Em produção</small><strong class="num">${and.length}</strong> <span class="dica">ordens · ${and.reduce((s,o)=>s+pecas(o),0)} peças</span></div><div class="tile"><small>Esperando o forno</small><strong class="num">${fila.length}</strong> <span class="dica">≈ ${n1(forn('biscoito'))} fornada(s) de biscoito · ${n1(forn('esmalte'))} de esmalte</span></div><div class="tile"><small>Aguardando sinal</small><strong class="num">${esp.length}</strong> <span class="dica">não contam prazo ainda</span></div></div>
+  <div class="pilulas" style="margin-bottom:10px">${[['quadro','Quadro por etapa'],['tempo','Linha do tempo']].map(([k,t])=>`<button type="button" class="pil" aria-pressed="${(S.vista||'quadro')===k}" data-a="vista" data-v="${k}">${t}</button>`).join('')}</div>
+  ${S.vista==='tempo'?telaTempo():`<div class="quadro">${cols.map(c=>{const l=and.filter(o=>atual(o)===c);return `<section class="col"><h3><i class="ponto" style="--c:var(--${ET[c][1]})"></i>${c==='final'?'Entrega / estoque':ET[c][0]} <span class="num">${l.length}</span></h3>${l.map(cartao).join('')||'<p class="vazio">—</p>'}</section>`}).join('')}</div>`}
+  ${esp.length?`<section class="bloco" style="margin-top:16px"><h2>Aguardando o sinal</h2><p class="dica">Vieram de orçamento aprovado. Começam a contar quando o sinal for recebido no Caixa — ou quando você decidir começar assim mesmo.</p>${esp.map(cartao).join('')}</section>`:''}
+  <div class="rodape" style="justify-content:flex-start;margin-top:16px"><button type="button" class="btn mini" data-a="aba" data-v="feitas">Ver concluídas (${S.ordens.filter(o=>o.status!=='ativa').length})</button></div>`}
+function telaTempo(){const os=S.ordens.filter(o=>o.status==='ativa'&&!o.aguardaSinal&&(S.filtro==='todas'||o.tipo===S.filtro));if(!os.length)return '<p class="vazio">Nenhuma ordem em andamento.</p>';
+  const PX=11,ini=maisDias(os.map(o=>o.inicio).sort()[0],-2),fim=maisDias(os.map(o=>{const L=leitura(o);return [L.prev,o.entrega||L.prev].sort().pop()}).sort().pop(),5),tot=dias(ini,fim),x=d=>dias(ini,d)*PX;
+  let sem=[];for(let d=ini;d<fim;d=maisDias(d,1)){if(new Date(d+'T00:00:00Z').getUTCDay()===1)sem.push(d)}
+  const linhas=os.map(o=>{const cam=CAM[o.caminho],L=leitura(o);let ant=o.inicio,seg='';cam.forEach(e=>{const cor=`var(--${ET[e][1]})`;if(o.feitas[e]){seg+=`<i class="sg" style="left:${x(ant)}px;width:${Math.max(3,x(o.feitas[e])-x(ant))}px;background:${cor}" title="${nomeEtapa(o,e)}"></i>`;ant=o.feitas[e]}else if(e===L.e){seg+=`<i class="sg" style="left:${x(ant)}px;width:${Math.max(3,x(HOJE)-x(ant))}px;background:${cor}" title="${nomeEtapa(o,e)}"></i>`;const r=Math.max(0,L.plano-L.nessa);seg+=`<i class="sg pl" style="left:${x(HOJE)}px;width:${r*PX}px;--c:${cor}"></i>`;ant=maisDias(HOJE,r)}else{seg+=`<i class="sg pl" style="left:${x(ant)}px;width:${o.plan[e]*PX}px;--c:${cor}" title="${nomeEtapa(o,e)} (previsto)"></i>`;ant=maisDias(ant,o.plan[e])}});
+    const [cl,tx]=selo(o,L);return `<div class="tl"><button type="button" class="tn" data-a="ver" data-v="${o.id}"><b>${esc(o.nome)}</b><small>${nomeEtapa(o,L.e)} · <span class="${cl==='venc'?'neg':''}">${tx}</span></small></button><div class="tb" style="width:${tot*PX}px">${seg}${o.entrega?`<i class="ent" style="left:${x(o.entrega)}px" title="entrega prometida ${dBR(o.entrega)}"></i>`:''}</div></div>`}).join('');
+  return `<div class="tempo"><div class="tl cab"><span class="tn"></span><div class="tb" style="width:${tot*PX}px">${sem.map(d=>`<span class="sm" style="left:${x(d)}px">${dBR(d)}</span>`).join('')}</div></div>${linhas}<i class="hoje" style="left:calc(var(--nome) + ${x(HOJE)}px)"></i></div>
+  <div class="legenda">${['producao','secagem','biscoito','esmaltacao','esmalte','final'].map(e=>`<span><i class="ponto" style="--c:var(--${ET[e][1]})"></i>${e==='final'?'Entrega / estoque':ET[e][0]}</span>`).join('')}<span><i class="ent" style="position:static;display:inline-block;height:12px"></i> entrega prometida</span><span>cor cheia = já aconteceu · listrado = previsto · linha vertical = hoje</span></div>`}
+function telaFeitas(){return `<div class="rodape" style="justify-content:flex-start;margin-bottom:10px"><button type="button" class="btn mini" data-a="aba" data-v="quadro">◀ Quadro</button></div><section class="bloco"><h2>Concluídas</h2>${S.ordens.filter(o=>o.status!=='ativa').map(o=>{const t=dias(o.inicio,o.feitas.final||HOJE);return `<div class="conta"><span class="t">${esc(o.nome)}</span><span class="v num">${t} dias</span><span class="d">${o.tipo==='casa'?'da casa':esc(o.cliente)} · ${o.boas??pecas(o)} de ${pecas(o)} peças boas</span><button type="button" class="btn mini" data-a="ver" data-v="${o.id}">Abrir</button></div>`}).join('')||'<p class="vazio">Nenhuma ainda.</p>'}</section>`}
+function telaOrdem(o){const cam=CAM[o.caminho],L=leitura(o),ativa=o.status==='ativa',[cl,tx]=ativa&&L.e?selo(o,L):['ok','concluída'],horas=o.itens.reduce((s,i)=>s+feitas(i)*i.horas,0);
+  let ant=o.inicio;const linhas=cam.map((e,i)=>{const feita=o.feitas[e],eAtual=ativa&&L.e===e,real=feita?dias(ant,feita):eAtual?L.nessa:null;const h=`<div class="etp ${feita?'feita':eAtual?'atual':''}"><i class="bola" style="--c:var(--${ET[e][1]})"></i><div><b>${nomeEtapa(o,e)}</b><small>${feita?`feita em ${dBR(feita)} · levou ${real} dia(s), previsto ${o.plan[e]}`:eAtual?(o.aguardaSinal?'ainda não começou':`há ${real} dia(s) · previsto ${o.plan[e]}`):`previsto ${o.plan[e]} dia(s)`}</small>
+    ${eAtual&&!o.aguardaSinal&&e!=='final'&&pecas(o)>1?`<label class="dica" style="display:flex;align-items:center;gap:8px;margin-top:6px">já passaram <input id="pas-${o.id}" class="num" style="width:80px" inputmode="numeric" value="${o.passaram[e]||''}" placeholder="0" data-c="passaram"> de ${pecas(o)}</label>`:''}</div>
+    ${!feita&&!eAtual&&ativa?`<span class="ajuste"><button type="button" data-a="dia" data-v="${e}" data-n="-1" aria-label="menos um dia">−</button><button type="button" data-a="dia" data-v="${e}" data-n="1" aria-label="mais um dia">+</button></span>`:''}</div>`;if(feita)ant=feita;return h}).join('');
+  return `<div class="rodape" style="justify-content:space-between;align-items:center;margin-bottom:12px"><button type="button" class="btn mini" data-a="voltar">◀ Quadro</button><span style="display:flex;gap:8px;align-items:center"><span class="tag ${cl}">${tx}</span><button type="button" class="btn mini" data-a="papel-ordem">Imprimir folha</button></span></div>
+  <div class="duas"><div style="display:flex;flex-direction:column;gap:16px"><section class="bloco"><h2>${esc(o.nome)}</h2><p class="dica">${o.tipo==='casa'?'Produção da casa':'Encomenda de '+esc(o.cliente)} · ${o.caminho==='biscoito'?'termina no biscoito':'caminho completo'} · começou ${dBR(o.inicio)}${o.entrega?' · entrega prometida '+dBR(o.entrega):''}</p>
+   ${o.aguardaSinal?`<div class="falta" style="background:var(--at-f);color:var(--at)">Aguardando o sinal. O prazo só começa a contar depois.</div><div class="rodape" style="justify-content:flex-start"><button type="button" class="btn pri" data-a="liberar">Sinal recebido — começar</button><button type="button" class="btn" data-a="liberar">Começar assim mesmo</button></div>`:''}
+   <div class="trilha">${linhas}</div>
+   ${ativa&&L.e&&!o.aguardaSinal?`<div class="rodape"><button type="button" class="btn" data-a="desfazer" ${L.i?'':'disabled'}>Desfazer a última</button><button type="button" class="btn pri" data-a="${L.e==='final'?'concluir':'feita'}">${L.e==='final'?(o.tipo==='casa'?'Guardar no estoque':'Entreguei'):'Terminei: '+nomeEtapa(o,L.e)}</button></div><p class="dica">Previsão de conclusão: <b>${dBR(L.prev)}</b>${o.entrega?(L.folga>=0?` · ${L.folga} dia(s) de folga`:` · <b class="neg">${-L.folga} dia(s) depois do prometido</b>`):''}. A etapa só termina quando todas as peças passaram por ela.</p>`:''}
+   ${!ativa?`<div class="veredito bom">${o.itens[0].res?o.itens.map(i=>`${esc(i.nome)}: ${o.tipo==='casa'?'':i.res.entregues+' entregues · '}${i.res.paraEstoque?i.res.paraEstoque+' para o estoque · ':''}${i.res.semDestino?i.res.semDestino+' sem destino · ':''}${i.res.perdidas} perdidas de ${i.res.feitas}`).join('<br>'):(o.boas??pecas(o))+' de '+pecas(o)+' peças boas'}<br>${dias(o.inicio,o.feitas.final||HOJE)} dias do início ao fim.</div>`:''}</section></div>
+  <div style="display:flex;flex-direction:column;gap:16px"><section class="bloco"><h2>Peças</h2>${o.itens.map(i=>`<div class="conta"><span class="t">${i.q}× ${esc(i.nome)}${i.extra?` <span class="tag">+${i.extra} a mais</span>`:''}</span><span class="v dica num">${n1(feitas(i)*i.horas)} h</span><span class="d">${[i.cor?'Cor: '+esc(i.cor):'',esc(i.obs),i.excl?'peça exclusiva':''].filter(Boolean).join(' · ')||'sem personalização'}</span><span></span>${ativa&&o.tipo==='encomenda'?`<label class="dica" style="grid-column:1/-1;display:flex;align-items:center;gap:8px">fazer a mais, de segurança <input id="ex-${o.id}-${o.itens.indexOf(i)}" class="num" style="width:76px" inputmode="numeric" value="${i.extra||0}" data-c="extra" data-n="${o.itens.indexOf(i)}"></label>`:''}</div>`).join('')}
+   ${o.fotos?`<div class="refs">${Array.from({length:o.fotos},(_,k)=>`<div class="foto">foto ${k+1}</div>`).join('')}</div>`:''}
+   <p class="dica">Trabalho estimado: <b>${n1(horas)} h</b>${o.orc?` · veio do <u>orçamento nº ${o.orc}</u> · <u>venda nº ${o.venda}</u> no Financeiro`:''}</p></section>
+  <section class="bloco"><h2>Material usado</h2><p class="dica">O previsto vem da ficha de cada peça (gramas × quantidade). Dar baixa tira do Estoque com destino "esta ordem".</p>
+   ${['argila','esmalte'].map(t=>{const pv=previsto(o,t),bx=baixado(o,t),falta=Math.max(0,pv-bx);return pv?`<div class="conta"><span class="t">${t==='argila'?'Argila':'Esmalte'}</span><span class="v num">${n1(bx)} de ${n1(pv)} kg</span><span class="d">${falta?'faltam '+n1(falta)+' kg do previsto':bx>pv?'gastou '+n1(bx-pv)+' kg a mais que o previsto':'previsto todo baixado'}</span><span></span>${ativa?`<div class="acoes"><button type="button" class="btn mini" data-a="baixa" data-v="${t}" data-n="parcial">Baixa parcial</button><button type="button" class="btn mini pri" data-a="baixa" data-v="${t}" data-n="total" ${falta?'':'disabled'}>Baixa total</button></div>`:''}</div>`:''}).join('')}
+   ${o.baixas.length?`<h3 style="margin-top:6px">Baixas feitas</h3><div class="lista-simples">${o.baixas.map(b=>`<div><span>${esc(b.item)}</span><span class="num">${n1(b.q)} ${b.un}</span></div>`).join('')}</div>`:''}
+   ${ativa?`<div class="rodape" style="justify-content:flex-start"><button type="button" class="btn mini" data-a="baixa" data-v="outro">+ Dar baixa de outro material</button></div>`:''}</section>
+  ${ativa?`<section class="bloco"><div class="rodape" style="justify-content:flex-start"><button type="button" class="btn perigo" data-a="cancelar">Cancelar ordem</button></div></section>`:''}</div></div>`}
+function contaConc(o,i,k){const f=feitas(i),perd=Math.min(f,Math.max(0,Math.round(num(($('#pd-'+k)||{}).value||0)))),boas=f-perd,casa=o.tipo==='casa',entregues=casa?0:Math.min(i.q,boas),sobra=casa?boas:Math.max(0,boas-i.q),faltam=casa?0:Math.max(0,i.q-boas),d=$('#ds-'+k),destino=sobra?(d?d.value:(i.excl?'sem':'estoque')):null;
+  return{feitas:f,perdidas:perd,boas,entregues,extrasBoas:casa?0:sobra,faltam,destino,paraEstoque:destino==='estoque'?sobra:0,semDestino:destino==='sem'?sobra:0}}
+function resConc(){const o=ordem(S.ver);let falta=0;o.itens.forEach((i,k)=>{const antigo=$('#ds-'+k)?$('#ds-'+k).value:null,r=contaConc(o,i,k);falta+=r.faltam;const sobra=o.tipo==='casa'?r.boas:r.extrasBoas,padrao=antigo||(i.excl?'sem':'estoque');
+    $('#rs-'+k).innerHTML=`<div class="lista-simples">${o.tipo==='casa'?'':`<div><span>Entregues ao cliente</span><span class="num"><b>${r.entregues}</b> de ${i.q}</span></div>`}<div><span>${o.tipo==='casa'?'Boas':'Extras boas'}</span><span class="num"><b>${sobra}</b></span></div><div><span>Perdidas</span><span class="num">${r.perdidas} de ${r.feitas} feitas</span></div></div>
+    ${r.faltam?`<div class="falta">Faltam ${r.faltam} para completar o pedido. Dá para concluir como entrega parcial, ou voltar e produzir mais.</div>`:''}
+    ${sobra?`<label class="campo">O que fazer com ${o.tipo==='casa'?'as boas':'as '+sobra+' extras boas'}<select id="ds-${k}" data-conc="1"><option value="estoque" ${padrao==='estoque'?'selected':''}>Entram no Estoque como pronta entrega · custo ${brl(i.custo)} cada</option><option value="sem" ${padrao==='sem'?'selected':''}>Sem destino — ${i.excl?'peça exclusiva, não posso vender':'não vou vender'} (conta como perda)</option></select></label>`:''}`});
+  $('#bt-conc').textContent=falta?'Concluir como entrega parcial':'Concluir';
+  $('#rs-geral').innerHTML=o.tipo==='casa'?'':`<p class="dica">O saldo a receber continua no Caixa (venda nº ${o.venda||'—'}). A perda real desta ordem alimenta o parâmetro "perda" da precificação — é ele que paga as peças feitas a mais.</p>`}
+const dLong=i=>{const[y,m,d]=i.split('-');return d+'/'+m+'/'+y};
+function abrirPapel(h){$('#papel').innerHTML=`<div class="barra-papel"><button type="button" class="btn" data-a="papel-fechar">◀ Voltar</button><button type="button" class="btn pri" data-a="imprimir">Imprimir</button></div>`+h;$('#papel').hidden=false;document.body.classList.add('com-papel');window.scrollTo(0,0)}
+const MARCA=`<div class="marca-p"><span class="logo-vaga">logo</span><span><b>AMASSA CERRADO</b><small>ateliê · produção</small></span></div>`;
+function papelOrdem(o){const cam=CAM[o.caminho],at=atual(o);abrirPapel(`<article class="folha-a4">${MARCA}<header><div><span class="olho">${o.tipo==='casa'?'Produção da casa':'Encomenda'} · ordem nº ${o.id}</span><h1>${esc(o.nome)}</h1><p>${o.tipo==='casa'?'para a loja e o espaço':'para <b>'+esc(o.cliente)+'</b>'}${o.orc?' · orçamento nº '+o.orc:''}</p></div><div class="dir">${o.entrega?`<span class="selo-ent">entrega<b>${dLong(o.entrega)}</b></span>`:''}<p>início ${dLong(o.inicio)}</p></div></header>
+  <div class="regua-p">${cam.map(e=>`<span class="${o.feitas[e]?'f':e===at?'a':''}" style="--c:var(--${ET[e][1]})">${nomeEtapa(o,e)}</span>`).join('')}</div>
+  <table><thead><tr><th>Peça</th><th>Pedido</th><th>A mais</th><th>Fazer</th><th>Argila</th><th>Medidas (cm)</th></tr></thead><tbody>${o.itens.map(i=>`<tr><td>${esc(i.nome)}<small>${[i.cor?'Cor: '+esc(i.cor):'',esc(i.obs)].filter(Boolean).join(' · ')}</small></td><td class="num">${o.tipo==='casa'?'—':i.q}</td><td class="num">${i.extra||0}</td><td class="num"><b>${feitas(i)}</b></td><td class="num">${i.argila} g</td><td class="num">${i.med||'—'}</td></tr>`).join('')}</tbody></table>
+  ${o.fotos?`<h2>Referências</h2><div class="refs-p">${Array.from({length:o.fotos},(_,k)=>`<div class="foto">foto ${k+1}</div>`).join('')}</div>`:''}
+  <h2>Etapas</h2><table class="etapas"><thead><tr><th></th><th>Etapa</th><th>Previsto</th><th>Feita em</th><th>Quantas passaram</th></tr></thead><tbody>${cam.map(e=>`<tr><td><span class="caixa ${o.feitas[e]?'x':''}" style="--c:var(--${ET[e][1]})"></span></td><td><i class="ponto" style="--c:var(--${ET[e][1]});display:inline-block;margin-right:7px"></i>${nomeEtapa(o,e)}</td><td class="num">${o.plan[e]} dia(s)</td><td class="escreve">${o.feitas[e]?dLong(o.feitas[e]):''}</td><td class="escreve"></td></tr>`).join('')}</tbody></table>
+  <div class="cols"><div><h2>Material previsto</h2><p>Argila: <b>${n1(previsto(o,'argila'))} kg</b></p>${previsto(o,'esmalte')?`<p>Esmalte: <b>${n1(previsto(o,'esmalte'))} kg</b></p>`:''}<p class="fraco">Anote o que usou e dê baixa depois.</p></div><div><h2>No fim</h2><p>Perdidas: <span class="linha"></span></p><p>Extras boas: <span class="linha"></span></p></div></div>
+  <h2>Anotações</h2><div class="pauta"></div><footer>AMASSA CERRADO · folha impressa em ${dLong(HOJE)} · o que vale é o que está na plataforma</footer></article>`)}
+function papelGeral(){const os=S.ordens.filter(o=>o.status==='ativa'),cols=['producao','secagem','biscoito','esmaltacao','esmalte','final'];abrirPapel(`<article class="folha-a4">${MARCA}<header><div><span class="olho">quadro da semana</span><h1>O que está em produção</h1><p>por etapa, do barro à entrega</p></div><div class="dir"><b>${dLong(HOJE)}</b><p>${os.filter(o=>!o.aguardaSinal).length} ordens · ${os.filter(o=>!o.aguardaSinal).reduce((s,o)=>s+pecas(o),0)} peças</p></div></header>
+  ${cols.map(c=>{const l=os.filter(o=>!o.aguardaSinal&&atual(o)===c);return l.length?`<h2 class="etq" style="--c:var(--${ET[c][1]})">${c==='final'?'Entrega / estoque':ET[c][0]}<span>${l.length}</span></h2><table><thead><tr><th>Ordem</th><th>Peças</th><th>Nesta etapa</th><th>Entrega</th><th>Feito</th></tr></thead><tbody>${l.map(o=>{const L=leitura(o);return `<tr><td>${esc(o.nome)}<small>${o.tipo==='casa'?'da casa':esc(o.cliente)}</small></td><td class="num">${pecas(o)}${o.passaram[c]?`<small>${o.passaram[c]} já passaram</small>`:''}</td><td class="num">${L.nessa} dia(s) · previsto ${L.plano}</td><td class="num">${o.entrega?dLong(o.entrega):'—'}</td><td><span class="caixa" style="--c:var(--${ET[c][1]})"></span></td></tr>`}).join('')}</tbody></table>`:''}).join('')}
+  ${os.some(o=>o.aguardaSinal)?`<h2>Aguardando sinal</h2><table><tbody>${os.filter(o=>o.aguardaSinal).map(o=>`<tr><td>${esc(o.nome)}<small>${esc(o.cliente)}</small></td><td class="num">${pecas(o)} peças</td><td class="num">${o.entrega?'entrega '+dLong(o.entrega):''}</td></tr>`).join('')}</tbody></table>`:''}
+  <footer>AMASSA CERRADO · folha impressa em ${dLong(HOJE)} · o que vale é o que está na plataforma</footer></article>`)}
+function desenhar(){$('#tela').innerHTML=S.ver?telaOrdem(ordem(S.ver)):S.aba==='feitas'?telaFeitas():telaQuadro();salvar()}
+function abrirFolha(h){$('#folha').innerHTML=h;$('#veu').hidden=false}
+const fechar=()=>$('#veu').hidden=true;
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3200)}
+const num=v=>+String(v).replace(',','.')||0;
+let folhaBaixa={};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b){if(e.target.id==='veu')fechar();return}const a=b.dataset.a,v=b.dataset.v,o=S.ver&&ordem(S.ver);
+  switch(a){
+   case'papel-ordem':return papelOrdem(o);case'papel-geral':return papelGeral();case'papel-fechar':$('#papel').hidden=true;document.body.classList.remove('com-papel');return;
+   case'imprimir':try{window.print()}catch(x){}return toast('Se nada abrir aqui, é limite do protótipo. Na plataforma este botão imprime.');
+   case'filtro':S.filtro=v;break;case'vista':S.vista=v;break;case'aba':S.aba=v;break;case'ver':S.ver=+v;window.scrollTo(0,0);break;case'voltar':S.ver=null;break;
+   case'liberar':o.aguardaSinal=false;o.inicio=HOJE;toast('Ordem liberada. O prazo começa a contar hoje.');break;
+   case'feita':{const et=atual(o);o.feitas[et]=HOJE;delete o.passaram[et];toast('Feito: '+nomeEtapa(o,et)+'. Agora: '+nomeEtapa(o,atual(o))+'.');break}
+   case'desfazer':{const c=CAM[o.caminho],f=c.filter(x=>o.feitas[x]).pop();if(f)delete o.feitas[f];break}
+   case'dia':o.plan[v]=Math.max(1,o.plan[v]+(+b.dataset.n));break;
+   case'concluir':abrirFolha(`<h2>${o.tipo==='casa'?'Guardar no estoque':'Entrega'}</h2><p class="dica">Diga quantas se perderam no caminho (racharam, escorreu esmalte, quebraram). O resto a tela calcula.</p>
+     ${o.itens.map((i,k)=>`<div class="ln"><span class="nome">${esc(i.nome)}</span><span class="sub dica num">${o.tipo==='casa'?'fez '+feitas(i):'pedido '+i.q+' · fez '+feitas(i)}</span><label class="campo" style="grid-column:1/-1;max-width:200px">Quantas se perderam<input id="pd-${k}" class="num" inputmode="numeric" value="0" data-conc="1"></label><div id="rs-${k}" style="grid-column:1/-1"></div></div>`).join('')}
+     <div id="rs-geral"></div><div class="rodape"><button type="button" class="btn" data-a="fechar">Voltar</button><button type="button" class="btn pri" data-a="concluir-ok" id="bt-conc">Concluir</button></div>`);return resConc();
+   case'concluir-ok':{o.itens.forEach((i,k)=>{i.res=contaConc(o,i,k)});o.boas=o.itens.reduce((s,i)=>s+i.res.boas,0);o.feitas.final=HOJE;o.status='concluida';fechar();const est=o.itens.reduce((s,i)=>s+i.res.paraEstoque,0);toast((o.tipo==='casa'?'Ordem concluída.':'Ordem entregue.')+(est?' '+est+' peça(s) entraram no Estoque como pronta entrega.':''));break}
+   case'baixa':{const t=v,total=b.dataset.n==='total',falta=t==='outro'?0:Math.max(0,previsto(o,t)-baixado(o,t));folhaBaixa={t};
+     return abrirFolha(`<h2>${t==='outro'?'Dar baixa de outro material':(total?'Baixa total':'Baixa parcial')+' · '+(t==='argila'?'argila':'esmalte')}</h2>${t==='outro'?'':`<p class="dica">Previsto ${n1(previsto(o,t))} kg · já baixado ${n1(baixado(o,t))} kg · faltam ${n1(falta)} kg.</p>`}
+     <div class="campos"><label class="campo">Qual material do estoque<select id="bx-item">${MATS[t].map(m=>`<option>${m}</option>`).join('')}</select></label><label class="campo">Quanto<input id="bx-q" class="num" inputmode="decimal" value="${total?String(Math.round(falta*100)/100).replace('.',','):''}" placeholder="ex.: 2,5"></label><label class="campo">Unidade<select id="bx-un"><option>kg</option><option>g</option>${t==='outro'?'<option>un</option>':''}</select></label></div>
+     <p class="dica">${total?'Veio preenchido com o que falta do previsto. Pode ajustar se gastou diferente.':'Na plataforma, a lista vem do Estoque e a unidade vem do item.'} A ficha diz "argila" e "esmalte" sem dizer qual — por isso a escolha aqui.</p>
+     <div class="rodape"><button type="button" class="btn" data-a="fechar">Cancelar</button><button type="button" class="btn pri" data-a="baixa-ok">Dar baixa</button></div>`)}
+   case'baixa-ok':{const q=num($('#bx-q').value);if(!q)return toast('Informe a quantidade.');o.baixas.push({tipo:folhaBaixa.t,item:$('#bx-item').value,q,un:$('#bx-un').value});fechar();toast('Baixa registrada: '+n1(q)+' '+$('#bx-un').value+' de '+$('#bx-item').value+'.');break}
+   case'cancelar':return abrirFolha(`<h2>Cancelar "${esc(o.nome)}"?</h2><p class="dica">A ordem sai do quadro e fica no histórico como cancelada. As baixas de material já feitas <b>não</b> voltam para o estoque sozinhas.${o.venda?' A venda nº '+o.venda+' no Financeiro <b>não</b> é cancelada junto — decida lá o que fazer com o sinal.':''}</p><div class="rodape"><button type="button" class="btn" data-a="fechar">Manter</button><button type="button" class="btn perigo" data-a="cancelar-ok">Cancelar ordem</button></div>`);
+   case'cancelar-ok':o.status='cancelada';S.ver=null;fechar();break;
+   case'nova':return abrirFolha(`<h2>Nova ordem</h2><label class="campo">Nome<input id="n-nome" placeholder="ex.: Canecas para a loja"></label><div class="campos"><label class="campo">Tipo<select id="n-tipo"><option value="casa">Produção da casa</option><option value="encomenda">Encomenda</option></select></label><label class="campo">Caminho<select id="n-cam"><option value="completo">Completo, até o esmalte</option><option value="biscoito">Termina no biscoito</option></select></label></div><div class="campos"><label class="campo">Cliente (se for encomenda)<input id="n-cli"></label><label class="campo">Entrega prometida (opcional)<input type="date" id="n-ent"></label></div><div class="campos"><label class="campo" style="flex:2 1 160px">Peça<input id="n-peca" placeholder="ex.: Caneca 300 ml"></label><label class="campo">Quantas<input id="n-q" class="num" inputmode="numeric" value="1"></label></div><p class="dica">Encomenda normalmente nasce sozinha, do orçamento aprovado. Aqui é para produção da casa e para o pedido combinado de boca. Na plataforma, a peça vem da lista de Peças precificadas.</p><div class="rodape"><button type="button" class="btn" data-a="fechar">Cancelar</button><button type="button" class="btn pri" data-a="nova-ok">Criar</button></div>`);
+   case'nova-ok':{const nome=$('#n-nome').value.trim(),peca=$('#n-peca').value.trim();if(!nome||!peca)return toast('Dê um nome à ordem e diga qual é a peça.');const cam=$('#n-cam').value,id=++S.seq;S.ordens.push({id,nome,tipo:$('#n-tipo').value,cliente:$('#n-cli').value.trim(),caminho:cam,itens:[{argila:400,esmalte:50,nome:peca,q:Math.max(1,Math.round(num($('#n-q').value))),cor:'',obs:'',horas:.5,cabB:20,cabE:10,custo:30}],inicio:HOJE,entrega:$('#n-ent').value,feitas:{},plan:Object.fromEntries(CAM[cam].map(e=>[e,ET[e][2]])),passaram:{},baixas:[],status:'ativa'});S.ver=id;fechar();break}
+   case'fechar':return fechar();
+   case'zerar':S=semente();toast('Dados de exemplo restaurados.');break;
+   default:return}
+  desenhar()});
+document.addEventListener('input',e=>{if(e.target.dataset.conc&&e.target.tagName==='INPUT')resConc()});
+document.addEventListener('change',e=>{if(e.target.dataset.conc){if(e.target.tagName==='SELECT')resConc();return}if(e.target.dataset.c==='extra'){const o=ordem(S.ver);o.itens[+e.target.dataset.n].extra=Math.max(0,Math.round(num(e.target.value)));return desenhar()}
+  if(e.target.dataset.c==='passaram'){const o=ordem(S.ver),n=Math.round(num(e.target.value));o.passaram[atual(o)]=Math.min(pecas(o),Math.max(0,n));desenhar()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')fechar()});
+desenhar();
+</script>
+
+</body>
+</html>

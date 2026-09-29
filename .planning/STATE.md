@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06
-current_phase_name: Estoque
-status: phase_complete
-stopped_at: "Fase 06 Estoque CONCLUIDA em 29/09/2026: verificacao passed 30/30 (2ed2d0b), portao aprovado pelo dono, no ar em 2345850. Proximo: item 5 (Producao) e/ou 6 (Agenda) da FILA-DO-CODE — fases ainda por criar; o dono ja respondeu que a Producao pode zerar todos os dados de Encomendas."
-last_updated: "2026-09-29T16:24:42.503Z"
+current_phase: 06.1
+current_phase_name: Produção
+status: discussing
+stopped_at: "Fase 06.1 Producao criada em 29/09/2026 (item 5 da fila): briefing, prototipo e PDF copiados, PRD-01..20 transcritos, ROADMAP com objetivo e 8 criterios. Proximo: discussao com o dono (rota, reaproveitamento do cronograma/Gantt)."
+last_updated: "2026-09-29T22:56:18.133Z"
 progress:
-  total_phases: 12
+  total_phases: 13
   completed_phases: 12
   total_plans: 97
   completed_plans: 97
@@ -254,8 +254,12 @@ com `npm run verificar` rodado pelo verificador no `main`; o portão 06-11 aprov
 `phase.complete` marcou a fase no ROADMAP (11/11, 29/09). O `STATE.md` foi escrito à mão (o verbo
 do `gsd-tools` o estragou e apontava a próxima fase para o Polimento, contra a fila).
 
-**Próximo:** item 5 da `FILA-DO-CODE.md` (Produção — redesenho das Encomendas) e/ou item 6 (Agenda);
-nenhuma das duas fases existe ainda no ROADMAP. Resposta do dono para a Produção, no chat em
+**Próximo — em andamento (29/09/2026, noite):** a **Fase 06.1 — Produção** (item 5 da fila) foi criada:
+`.planning/phases/06.1-producao/` com o briefing, o protótipo e o PDF das folhas; **PRD-01..20**
+transcritos do briefing em `REQUIREMENTS.md` (os ENC-* ficam como registro do modelo antigo); ROADMAP com
+objetivo, dependências e 8 critérios. **Próximo passo: a discussão com o dono** — a rota (§9 do briefing)
+e o reaproveitamento do cronograma e do Gantt atuais. O dono decidiu fazer um módulo por vez (Agenda
+depois). *Até esta noite a linha dizia "nenhuma das duas fases existe ainda no ROADMAP".* Resposta do dono para a Produção, no chat em
 29/09/2026: **"O item 5 da produção pode sim zerar todos os dados. nada é real ainda."**
 
 *Até o fim da tarde de 29/09 este parágrafo dizia "06-11 concluído; próximo: verificação da fase e
@@ -1416,6 +1420,8 @@ bloqueia**; cada um diz a fonte.*
 | 260927-r12 | Roteiro 12 conferido inteiro no servidor (stat 100 101 750 no diretorio das fotos + escrita de dentro do conteiner sem erro de permissao, colados pelo dono em 27/09/2026) — a ressalva de 04.5-VERIFICACAO-HUMANA.md dizendo que a pasta nao tinha sido conferida virou registro da prova | 2026-09-27 | 94d8135 | — |
 
 ### Roadmap Evolution
+
+- Phase 06.1 inserted after Phase 6: Produção — redesenho das Encomendas (item 5 da fila; 29/09/2026). Pasta renomeada de `06.1-produ-o` (slug do `gsd-tools`, que tira o ç e o ã) para `06.1-producao`.
 
 - Phase 3 edited: ENC-14 (botao de imprimir folha A4) adicionado aos requisitos e criterios de sucesso
 - Phase 3 edited: criterios 4 e 13 reconciliados com o quick 260812-2et (BRIEF-NOTURNO): Gantt passou de celulas quinzenais para semanais (segunda a domingo), a timeline deixou de abrir centralizada para abrir em hoje na borda esquerda, e o nome da encomenda virou link. Supersessao deliberada, nao regressao — os 18px/dia do 03-UI-SPEC.md continuam valendo
