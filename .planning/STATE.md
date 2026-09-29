@@ -13,7 +13,7 @@ progress:
   total_plans: 97
   completed_plans: 96
 last_activity: 2026-09-29
-last_activity_desc: "Fase 06, plano 06-11 (portao), Tarefas 1 e 2 em 29/09/2026: /api/health/estoque, Roteiro 15 (docs/operacao/15-migracao-estoque.md), caminhada 06-VERIFICACAO-HUMANA.md, a unica varredura e2e completa da fase (948 passed - 12 failed - 1 flaky - 38 skipped - 61 did not run, commit 01d643d; nenhuma falha do Estoque, todas classificadas), e o branch LOCAL gsd/phase-06-estoque-migracao (80a4b83, so os 4 arquivos da 0023 sobre main, npm run verificar verde). Nada publicado, nenhuma migracao aplicada. Aguardando o dono (Tarefa 3). A linha anterior deste campo descrevia o fechamento da 04.6-08 (29/09) e esta no registro da 04.6 abaixo."
+last_activity_desc: "Fase 06 em 29/09/2026 (madrugada e manha, sem o dono): planos 06-01 a 06-10 concluidos e o 06-11 (portao) com as Tarefas 1 e 2 feitas no branch gsd/phase-06-estoque — /api/health/estoque, Roteiro 15, caminhada 06-VERIFICACAO-HUMANA.md, a unica varredura e2e completa (948 passed - 12 failed - 1 flaky - 38 skipped - 61 did not run, nenhuma falha do Estoque) e o branch LOCAL so-migracao; depois, revisao de codigo (06-REVIEW.md: 0 bloqueios, 5 avisos; WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0) e os documentos do main sincronizados com os do branch. Nada publicado, nenhuma migracao aplicada. Aguardando o dono (Tarefa 3 do 06-11). Hashes e medicoes: 06-11-SUMMARY.md e o adendo dele."
 ---
 
 # Project State
@@ -170,7 +170,7 @@ para ele ler antes do servidor:
     só-migração) e **o branch só-migração foi refeito sobre esse `main`**, com `npm run verificar`
     de novo. *Por quê:* o `main` dizia "em execução" desde a meia-noite — documento velho é defeito
     (sua regra); e o Passo 2 manda comparar `git log origin/main..main` com a lista do
-    `06-11-SUMMARY.md`: agora são **18 commits — os 17 da lista mais esse commit de documentos**
+    `06-11-SUMMARY.md`: agora são **os 17 da lista mais os commits só de documentos que sincronizaram o `main`**
     ("docs(state): main com o estado da fase 06 …"), registrado no adendo do SUMMARY. **Desfazer:**
     nada a desfazer; no Passo 6 esses três arquivos chegam iguais dos dois lados.
 

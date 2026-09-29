@@ -30,8 +30,8 @@
 >    entrada com preço"). Antes de qualquer comando no servidor.
 > 2. **Roteiro 15** (`docs/operacao/15-migracao-estoque.md`): publicar só a migração → backup →
 >    `0023` → conferência SQL → publicar o código → `/api/health/estoque`. O `push` do Passo 2 leva
->    junto os commits locais de `main` — **18**: os 17 da lista do `06-11-SUMMARY.md` mais o commit
->    de documentos que sincronizou o `main` (entre eles o SIT-10).
+>    junto os commits locais de `main` — os 17 da lista do `06-11-SUMMARY.md` mais os commits
+>    de documentos que sincronizaram o `main` (entre eles o SIT-10).
 > 3. **A contagem inicial real e a Parte 2 da caminhada**, no celular, com cronômetro na baixa.
 > 4. As decisões tomadas sem você: "Decidido sem o Theo" no topo de `.planning/STATE.md` (itens 1 a
 >    28) e a Parte 0 da caminhada.
