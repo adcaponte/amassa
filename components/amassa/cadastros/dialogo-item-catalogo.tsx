@@ -18,6 +18,7 @@ import type {
   ItemDoCatalogoCompleto,
 } from "@/lib/cadastros/consultas";
 import {
+  FRASE_FALHA_AO_SALVAR,
   PLACEHOLDER_PRECO,
   ROTULO_APARECE_NA_VENDA,
   ROTULO_CANCELAR,
@@ -348,18 +349,25 @@ export function DialogoItemCatalogo({
     }
     setErroDaDesativacao(null);
     setAlternandoAtivo(true);
-    const resposta = await definirItemAtivo({ id: itemParaEditar.id, ativo: false });
-    setAlternandoAtivo(false);
+    // try/finally (revisão WR-05): se a ação rejeitar (internet caiu, publicação em andamento), a
+    // confirmação não pode ficar presa em "Desativando…" — ela recusa fechar enquanto está pendente.
+    try {
+      const resposta = await definirItemAtivo({ id: itemParaEditar.id, ativo: false });
+      if (!resposta.ok) {
+        setErroDaDesativacao(resposta.erro);
+        return;
+      }
 
-    if (!resposta.ok) {
-      setErroDaDesativacao(resposta.erro);
-      return;
+      toast.success(textoItemDesativado(resposta.dados.nome));
+      setConfirmandoDesativacao(false);
+      onFechar();
+      router.refresh();
+    } catch (falha) {
+      console.error("Falha ao desativar item:", falha);
+      setErroDaDesativacao(FRASE_FALHA_AO_SALVAR);
+    } finally {
+      setAlternandoAtivo(false);
     }
-
-    toast.success(textoItemDesativado(resposta.dados.nome));
-    setConfirmandoDesativacao(false);
-    onFechar();
-    router.refresh();
   }
 
   // Reativar não pede confirmação — é reversível (06-UI-SPEC.md §Cadastros → Catálogo).
@@ -369,17 +377,22 @@ export function DialogoItemCatalogo({
     }
     setErroDoServidor(null);
     setAlternandoAtivo(true);
-    const resposta = await definirItemAtivo({ id: itemParaEditar.id, ativo: true });
-    setAlternandoAtivo(false);
+    try {
+      const resposta = await definirItemAtivo({ id: itemParaEditar.id, ativo: true });
+      if (!resposta.ok) {
+        setErroDoServidor(resposta.erro);
+        return;
+      }
 
-    if (!resposta.ok) {
-      setErroDoServidor(resposta.erro);
-      return;
+      toast.success(textoItemReativado(resposta.dados.nome));
+      onFechar();
+      router.refresh();
+    } catch (falha) {
+      console.error("Falha ao reativar item:", falha);
+      setErroDoServidor(FRASE_FALHA_AO_SALVAR);
+    } finally {
+      setAlternandoAtivo(false);
     }
-
-    toast.success(textoItemReativado(resposta.dados.nome));
-    onFechar();
-    router.refresh();
   }
 
   const saldoTextoDoItem =
