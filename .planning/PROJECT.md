@@ -16,9 +16,10 @@ substitui a antiga Calculadora de Orçamento).
 
 **Não confundir os dois negócios.** A **AMASSA** de **Goiânia** (amassaceramica.com.br, com loja
 Shopify) é de outras sócias e está **fora do escopo** — sem redirecionamento, sem dado compartilhado.
-O domínio deste projeto é **amassacerrado.com.br**. Hoje a plataforma responde na raiz; está
-**decidido** que a raiz vira o site público institucional da AMASSA CERRADO e a plataforma passa
-para `/gestao`, sem link a partir do site (mudança ainda não feita).
+O domínio deste projeto é **amassacerrado.com.br**. A raiz é o **site público institucional** da
+AMASSA CERRADO e a plataforma responde em **`/gestao`**, sem link a partir do site — mudança feita
+na Fase 04.6 e no ar desde 28/09/2026 (conferido de fora em 29/09: `/` devolve 200 com o site,
+`/gestao` devolve 307 para `/gestao/login`). *Até 28/09 esta frase dizia "mudança ainda não feita".*
 
 As regras de negócio dos documentos originais (`amassa-plataforma/00-BRIEFING.md`) vieram do
 material da AMASSA de Goiânia. Pirenópolis pode operar diferente: confirme com o dono antes de
@@ -51,6 +52,12 @@ dar baixa em material não for confortável no celular, o sistema não é usado 
   preço anulável ("sob consulta"), descartadas visíveis, detalhe com alertas e comparação lado a
   lado; a segunda conta de gestor vê e edita os mesmos dados; as tabelas sobrevivem ao desmonte da
   Abertura — Fase 04.3 (CMP-01 a CMP-09, verificado 9/9, no ar desde 2026-09-18)
+- ✓ Dois públicos separados no mesmo domínio: a plataforma inteira em `/gestao` (acesso só por
+  endereço, `robots.txt` bloqueando, endereços antigos redirecionando até 2027-03-28) e, na raiz, o
+  site público estático, que continua no ar com o Postgres derrubado; o Início de verdade (cinco
+  blocos, cada um resistindo sozinho a falhar, e as Anotações da casa como folha única
+  compartilhada) e a navegação final (Início · Financeiro · Produção · Agenda) — Fase 04.6
+  (GES-01 a GES-14, SIT-01 a SIT-10, verificado 9/9, no ar desde 2026-09-28)
 
 ### Active
 
@@ -247,19 +254,19 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-18 after Fase 04.3 (Comparador de Compras).*
+*Last updated: 2026-09-29 after Fase 04.6 (`/gestao`, Início novo, navegação e site público).*
 *Ressalva de sincronia: só a seção Requirements do Módulo 1 (Encomendas) foi reconciliada até a Fase 04.1.*
-*As Fases 2b, 3 e 4 concluíram sem passar por aqui — os itens delas continuam listados em Active mesmo já entregues.*
+*As Fases 2b, 3, 4, 04.2, 04.4 e 04.5 concluíram sem passar por aqui — os itens delas continuam listados em Active mesmo já entregues (a 04.3 e a 04.6 foram registradas em Validated).*
 *A fonte de verdade de status por requisito é `.planning/REQUIREMENTS.md`.*
 
-**Estado atual:** Fase 04.1 concluída e verificada (17/17 must-haves). Em produção: a fundação
-das Fases 1 e 2a — login com e-mail e senha (Auth.js v5 + argon2id), sessão de 30 dias,
-`exigirUsuario()` como porta única de autorização com portão de máquina no pipeline, contas de
-gestor pela linha de comando, banco com papel de aplicação separado do dono, e backup diário às
-03:15 de Brasília, enviado ao armazenamento externo, vigiado por monitor externo e **restaurado de
-verdade** num Postgres limpo (decisão D-11 satisfeita) — mais a casca de navegação da Fase 2b, o
-**Gestor de Encomendas** (Fase 3) e o **Contador de Queima** (Fase 4). A Fase 04.1 corrigiu a
-premissa do cronograma: os três marcos sempre acontecem e sempre duram 1 dia, e o número ao lado de
-cada um é a espera **antes** do marco — migração `0009_espera-dos-marcos` aplicada à mão em
-produção. Faltam os módulos Agenda de Aulas (Fase 5, próxima), Estoque (Fase 6) e o polimento final
-(Fase 7).
+**Estado atual (29/09/2026):** Fase **04.6 concluída e verificada** (9/9; `phase.complete` em
+`598fbc7`). Em produção, conferido de fora: o site público na raiz e a plataforma em `/gestao`,
+com login, backup diário restaurável, Encomendas, Contador de Queima, Abertura do Espaço,
+Comparador de Compras, Financeiro (partes 1 e 2, com precificação e orçamentos em PDF), o Início
+novo e a navegação final. **Próxima: Fase 06, Estoque** — item 4 da fila, destravado em 29/09.
+Depois dela, na ordem da fila: Produção (redesenho das Encomendas), Agenda e a contagem de
+Queimas. O status por requisito mora em `.planning/REQUIREMENTS.md`, e o de cada fase no
+`ROADMAP.md`.
+
+*Até 29/09 este parágrafo descrevia a Fase 04.1 como a última concluída — ficou para trás
+enquanto oito fases passavam; substituído, e o histórico de cada uma está nos SUMMARY dela.*

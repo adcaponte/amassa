@@ -13,9 +13,10 @@ substitui a antiga Calculadora de Orçamento).
 
 **Não confundir os dois negócios.** A **AMASSA** de **Goiânia** (amassaceramica.com.br, com loja
 Shopify) é de outras sócias e está **fora do escopo** — sem redirecionamento, sem dado compartilhado.
-O domínio deste projeto é **amassacerrado.com.br**. Hoje a plataforma responde na raiz; está
-**decidido** que a raiz vira o site público institucional da AMASSA CERRADO e a plataforma passa
-para `/gestao`, sem link a partir do site (mudança ainda não feita).
+O domínio deste projeto é **amassacerrado.com.br**. A raiz é o **site público institucional** da
+AMASSA CERRADO e a plataforma responde em **`/gestao`**, sem link a partir do site — mudança feita
+na Fase 04.6 e no ar desde 28/09/2026 (conferido de fora em 29/09: `/` devolve 200 com o site,
+`/gestao` devolve 307 para `/gestao/login`). *Até 28/09 esta frase dizia "mudança ainda não feita".*
 
 As regras de negócio dos documentos originais (`amassa-plataforma/00-BRIEFING.md`) vieram do
 material da AMASSA de Goiânia. Pirenópolis pode operar diferente: confirme com o dono antes de
