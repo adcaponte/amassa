@@ -794,13 +794,13 @@ o plano de 18/09 — migração `0005_estoque`, view `saldos_materiais` e CRUD d
   8. A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
   9. Saldo negativo aparece com aviso e nunca impede uma venda
 
-**Plans:** 11 plans — uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e
-porta fixos e o projeto não usa worktrees). Planejado em 29/09/2026, sessão noturna, sem o dono;
+**Plans:** 1/11 plans executed — 11 planos, uma onda por plano, sequenciais (os scripts de teste sobem
+Postgres com nome e porta fixos e o projeto não usa worktrees). Planejado em 29/09/2026, sessão noturna, sem o dono;
 revisado na mesma noite pela verificação dos planos (o traçador e a folha de movimentação estouravam o
 orçamento de contexto e foram divididos — eram 9 planos). 🔴 Todo o código vive no branch
 `gsd/phase-06-estoque`, fora de `main`, até o portão (D-33).
 
-- [ ] 06-01-PLAN.md — Traçador: 5 kg entram, 2 kg saem, o cartão mostra 3 kg; migração `0023` versionada (não aplicada), custo médio puro, a porta de escrita sob trava (onda 1)
+- [x] 06-01-PLAN.md — Traçador: 5 kg entram, 2 kg saem, o cartão mostra 3 kg; migração `0023` versionada (não aplicada), custo médio puro, a porta de escrita sob trava (onda 1)
 - [ ] 06-02-PLAN.md — O traçador nas bordas: a bateria do custo médio (sete casos, invariantes, estorno D-23/D-24) e o banco provando o livro — imutável, coerente, sem impasse entre duas vendas (onda 2)
 - [ ] 06-03-PLAN.md — O Financeiro grava: venda baixa, compra dá entrada, cancelar estorna — na mesma transação, por linha; `ativo` nos seletores (onda 3)
 - [ ] 06-04-PLAN.md — Aba Saldos completa: área do Financeiro, busca, “Acabando”, negativo como aviso próprio, banner, tabela, situação, contraste (onda 4)
@@ -871,5 +871,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
-| 6. Estoque | 0/TBD | Not started | - |
+| 6. Estoque | 1/11 | In Progress|  |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

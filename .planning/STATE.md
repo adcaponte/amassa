@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
 status: executing
-stopped_at: "Fase 06 Estoque: execucao iniciada na noite de 29/09, sem o dono, no branch gsd/phase-06-estoque (criado pelo plano 06-01). Planos seguidos, um por onda."
-last_updated: "2026-09-29T04:41:41.574Z"
+stopped_at: "Fase 06 Estoque: plano 06-01 (tracador) concluido em 29/09 no branch gsd/phase-06-estoque (2e6fd2b, SUMMARY 04ae9af). Proximo: 06-02."
+last_updated: "2026-09-29T04:58:17.904Z"
 progress:
   total_phases: 12
   completed_phases: 11
   total_plans: 97
-  completed_plans: 86
+  completed_plans: 87
 last_activity: 2026-09-29
 last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2026: Tarefas 2 e 3 percorridas pelo dono. Migracao 0022 aplicada por ele e conferida de fora (tabela, semente de 1 linha, gatilho, delete revogado para amassa_app). Deploy: run 36443052672, 2a tentativa verde, commit 72b8881 (a 1a caiu na busca de fonte do Google, transitorio — janela 60 segue aberta). GES-04 medida de fora em 29/09 por curl: /gestao -> 307 para /gestao/login com callbackUrl no dominio publico. Caminhada: 16 de 16 itens respondidos, nenhum reprovado; decisoes: D-06 mantida, espaco sem capacidade fixa (223748a), textos do site sobem como estao (pendencia declarada do dono). Varredura final: 798 passed - 13 failed - 37 skipped - 74 did not run; os 74 NAO executaram (cadeia parametros-*, estrutural e anterior a fase). Detalhe: 04.6-08-SUMMARY.md."
 ---
@@ -134,7 +134,9 @@ mesma falha resistir três vezes.
 ## Current Position
 
 Phase: 06 — Estoque — **em execução desde 29/09/2026** (sessão noturna, sem o dono), no branch
-`gsd/phase-06-estoque` — o `main` só recebe documentos. Antes:
+`gsd/phase-06-estoque` — o `main` só recebe documentos. **Planos concluídos: 06-01** (traçador:
+`2e6fd2b`; `npm run verificar` verde e um e2e com `--grep "estoque tracador"`, 44 passed, segundo
+`06-01-SUMMARY.md`). Antes:
 **planejada** (29/09/2026, sessão noturna, sem o dono):
 **11 planos** em 11 ondas seguidas, aprovados pelo `gsd-plan-checker` na 2ª rodada — requisitos
 21/21, decisões 33/33, análise de lacunas limpa. Feito antes do
