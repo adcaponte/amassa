@@ -408,4 +408,51 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
     // levaria −1000 e deixaria V = 551 − 1000 = −449 com Q = 5000 > 0 — valor negativo com
     // quantidade positiva, o invariante quebrado. É por isso que D-24 usa o custo corrente.
   });
+
+  // Revisão de código da Fase 06, WR-01 — o caso que o exemplo de D-23 não mostra. FIXA o que o
+  // código faz HOJE; não é a regra aprovada. O dono escolhe em `06-VERIFICACAO-HUMANA.md` §0.1
+  // entre isto e a alternativa (com Q ≤ 0, o estorno de venda entra ao custo médio do instante, como
+  // R6, e a prateleira não é reprecificada: a 1 un ficaria valendo R$ 50,00). Se ele trocar, este
+  // teste muda junto com `movimentoDoEstorno`/`valorarMovimento`.
+  it("comportamento atual — a confirmar pelo dono (WR-01): com o saldo negativo, cancelar uma venda antiga reprecifica a prateleira ao custo daquela venda (R3)", () => {
+    // Um item em un. A última compra foi a R$ 10,00/un e a prateleira está vazia.
+    const inicio = estado(0, 0, { valorCentavos: 1000, milesimos: 1000 });
+
+    const vendaA = valorarMovimento(inicio, { tipo: "saida", milesimos: 2000 });
+    expect(vendaA.valorCentavos).toBe(-2000);
+    expect(vendaA.estadoDepois).toMatchObject({ saldoMilesimos: -2000, valorCentavos: -2000 });
+
+    // Compra de 5 un por R$ 250,00 (R$ 50,00/un) tira do negativo — R3.
+    const compra = valorarMovimento(vendaA.estadoDepois, {
+      tipo: "entrada_com_preco",
+      milesimos: 5000,
+      pagoCentavos: 25000,
+    });
+    expect(compra.valorCentavos).toBe(17000);
+    expect(compra.estadoDepois).toMatchObject({ saldoMilesimos: 3000, valorCentavos: 15000 });
+
+    const vendaB = valorarMovimento(compra.estadoDepois, { tipo: "saida", milesimos: 4000 });
+    expect(vendaB.valorCentavos).toBe(-20000);
+    expect(vendaB.estadoDepois).toMatchObject({ saldoMilesimos: -1000, valorCentavos: -5000 });
+
+    // Cancela a venda A com o saldo em −1 un.
+    const estornoA = valorarMovimento(
+      vendaB.estadoDepois,
+      movimentoDoEstorno({
+        quantidadeMilesimos: vendaA.quantidadeMilesimos,
+        valorCentavos: vendaA.valorCentavos,
+      }),
+    );
+    // A venda levou R$ 20,00; o estorno grava +R$ 60,00 (R3: V' = round(1000 × 2000 / 2000) = 1000;
+    // valor = 1000 − (−5000)).
+    expect(estornoA.quantidadeMilesimos).toBe(2000);
+    expect(estornoA.valorCentavos).toBe(6000);
+    expect(estornoA.estadoDepois.saldoMilesimos).toBe(1000);
+    expect(estornoA.estadoDepois.valorCentavos).toBe(1000);
+    // A 1 un que sobrou vale R$ 10,00 — o custo da venda antiga —, embora a última compra tenha
+    // sido a R$ 50,00/un.
+    expect(custoMedioCentavosPorUnidade(estornoA.estadoDepois)).toBe(1000);
+    // E o estorno vira a "última entrada com preço" (revisão WR-02).
+    expect(estornoA.estadoDepois.ultimaEntradaComPreco).toEqual({ valorCentavos: 2000, milesimos: 2000 });
+  });
 });

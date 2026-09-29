@@ -58,6 +58,46 @@ zera certinho, e o médio fica em R$ 4,94/kg.
 - *Alternativa:* voltar ao custo médio de hoje (R$ 10,00 no exemplo). Também funciona; o "Para onde
   foi" da venda cancelada deixa de zerar exato.
 
+**D-23 quando o estoque está zerado ou negativo na hora de cancelar — o caso que o exemplo acima não
+mostra.** *(Achado da revisão de código de 29/09, `06-REVIEW.md` WR-01. Nada foi mudado no código:
+a escolha é sua.)*
+
+O exemplo acima tem estoque sobrando quando a venda é cancelada. Mas o saldo pode estar em zero ou
+negativo nessa hora — o sistema permite saldo negativo (D-06), e toda venda feita antes da contagem
+inicial deixa o material negativo (Roteiro 15, Passo 8). Nesse caso o código de hoje **não** devolve
+o material ao valor que a venda levou: ele trata a devolução como uma entrada que tira o estoque do
+negativo, e o custo da prateleira inteira passa a ser o custo daquela venda antiga.
+
+Exemplo, com um item em unidades:
+
+| | Quantidade | Valor em estoque | Custo por unidade |
+|---|---|---|---|
+| A última compra foi a R$ 10,00/un; a prateleira está vazia | 0 un | R$ 0,00 | R$ 10,00 |
+| Venda A leva 2 un (a R$ 10,00 cada) | −2 un | −R$ 20,00 | |
+| Compra de 5 un por R$ 250,00 (R$ 50,00/un) | 3 un | R$ 150,00 | R$ 50,00 |
+| Venda B leva 4 un | −1 un | −R$ 50,00 | |
+| **Cancela a venda A — o que o código faz hoje** | **1 un** | **R$ 10,00** | **R$ 10,00** |
+| *Cancela a venda A — a alternativa* | *1 un* | *R$ 50,00* | *R$ 50,00* |
+
+- **O que o código faz hoje:** a venda A tinha levado R$ 20,00, mas o cancelamento grava **+R$ 60,00**,
+  e a unidade que sobrou passa a valer **R$ 10,00**, embora a última compra tenha sido a R$ 50,00. O
+  valor em estoque fica mais baixo, e as próximas baixas desse material saem a R$ 10,00/un até a
+  próxima compra. O "Para onde foi" continua certo: a venda cancelada sai de lá de qualquer jeito.
+- **A alternativa que a revisão sugere:** quando o estoque está em zero ou negativo na hora de
+  cancelar, o material volta ao **custo médio daquele momento** (a mesma conta de um ajuste para
+  mais), e a prateleira não muda de preço: a unidade continua valendo **R$ 50,00**. O cancelamento
+  grava +R$ 100,00 — também diferente dos R$ 20,00 da venda.
+- **Nenhuma das duas consegue gravar exatamente os R$ 20,00 nesse caso:** a conta deixaria 1 unidade
+  valendo −R$ 30,00, um número que não existe. Com estoque positivo na hora de cancelar, as duas
+  fazem a mesma coisa — o exemplo de cima.
+
+Trocar para a alternativa mexe em `movimentoDoEstorno` e `valorarMovimento` (`lib/estoque/custo.ts`)
+e no teste "comportamento atual — a confirmar pelo dono (WR-01)" de
+`tests/unit/estoque-custo.test.ts`. Não mexe na migração.
+
+- [ ] **D-23 com estoque zerado ou negativo:** fica como hoje (a prateleira passa ao custo da venda
+  antiga) / troco para a alternativa (volta ao custo médio do momento) / outra: ____________
+
 **D-24 — compra cancelada: o material sai ao custo médio de agora, não ao que a compra custou.**
 
 Não é gosto, é conserto de um defeito. Exemplo com números:

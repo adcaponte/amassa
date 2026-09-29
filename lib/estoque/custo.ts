@@ -155,8 +155,13 @@ export function valorarMovimento(estado: EstadoDoItem, movimento: Movimento): Mo
 // editar só esta função e `tests/unit/estoque-custo.test.ts`.
 //
 // O estorno ESPELHA a movimentação gravada, nunca recalcula o efeito (Pitfall 4):
-// - original com quantidade NEGATIVA (saída de venda) → volta como entrada COM preço, ao custo que
-//   a venda levou (D-23): o "Para onde foi" de uma venda cancelada zera exatamente;
+// - original com quantidade NEGATIVA (saída de venda) → volta como entrada COM preço, com o preço
+//   igual ao valor que a venda levou (D-23). O VALOR GRAVADO só é esse quando o saldo é positivo
+//   no cancelamento (R2); com saldo zero ou negativo, `valorarMovimento` aplica R1, R3 ou R4, e o
+//   valor gravado difere — em R3 a prateleira inteira passa ao custo da venda antiga (revisão de
+//   código WR-01; comportamento a confirmar pelo dono em `06-VERIFICACAO-HUMANA.md` §0.1). Que o
+//   "Para onde foi" de uma venda cancelada zera sempre NÃO vem desta função: vem de
+//   `contaComoConsumo` (`lib/estoque/historico.ts`), que deixa de fora a saída estornada e o estorno;
 // - original com quantidade POSITIVA (entrada de compra) → sai ao custo médio CORRENTE (D-24): ao
 //   custo original, o estoque poderia ficar com valor negativo e quantidade positiva quando houve
 //   consumo entre a compra e o cancelamento (contraexemplo em 06-RESEARCH.md §Pergunta 3).
