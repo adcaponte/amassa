@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
-status: planning
-stopped_at: "Fase 06 Estoque: UI-SPEC aprovada (8d3d310) na noite de 29/09. Proximo: plan-phase 06 a partir do passo 5.6 (contrato de UI encontrado)."
-last_updated: "2026-09-29T02:30:39.922Z"
+status: ready_to_execute
+stopped_at: "Fase 06 Estoque: 11 planos aprovados pelo verificador de planos na 2a rodada (noite de 29/09). Proximo: executar no branch gsd/phase-06-estoque, sem --auto."
+last_updated: "2026-09-29T04:40:24.609Z"
 progress:
   total_phases: 12
   completed_phases: 11
-  total_plans: 86
+  total_plans: 97
   completed_plans: 86
 last_activity: 2026-09-29
 last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2026: Tarefas 2 e 3 percorridas pelo dono. Migracao 0022 aplicada por ele e conferida de fora (tabela, semente de 1 linha, gatilho, delete revogado para amassa_app). Deploy: run 36443052672, 2a tentativa verde, commit 72b8881 (a 1a caiu na busca de fonte do Google, transitorio — janela 60 segue aberta). GES-04 medida de fora em 29/09 por curl: /gestao -> 307 para /gestao/login com callbackUrl no dominio publico. Caminhada: 16 de 16 itens respondidos, nenhum reprovado; decisoes: D-06 mantida, espaco sem capacidade fixa (223748a), textos do site sobem como estao (pendencia declarada do dono). Varredura final: 798 passed - 13 failed - 37 skipped - 74 did not run; os 74 NAO executaram (cadeia parametros-*, estrutural e anterior a fase). Detalhe: 04.6-08-SUMMARY.md."
@@ -91,6 +91,22 @@ mesma falha resistir três vezes.
     contagem (UI-D3), contagem às cegas (UI-D16). Achado para o projeto, **não corrigido**: o fechar
     padrão de `dialog.tsx`/`sheet.tsx` diz "Close" em inglês e tem menos de 44px — fica para a
     Fase 7; o Estoque não o usa.
+12. **As sondagens de bordas e de estado da interface rodaram com tipos declarados por mim.** Os
+    classificadores do GSD só leem pistas em inglês e devolveram os requisitos e as superfícies em
+    português como "sem classificação". Declarei a forma de cada requisito (EST-01..EST-21: 84 bordas)
+    e o tipo de cada superfície (E1..E12: 74 pares) — a cobertura depende dessa leitura minha.
+13. **Os planos da Fase 06 não param para decisões "de mão única"** (`REVERSIBILITY_GATES=false`).
+    Nada da fase é de mão única antes de o próprio dono aplicar a migração e fazer o merge, e o
+    último plano já é o portão dele. As classificações continuam anotadas nas tarefas.
+14. **06-01 e o antigo 06-04 foram divididos** (recomendação do verificador de planos: passavam do
+    orçamento de contexto) — a fase tem 11 planos, não 9.
+15. **O roteiro do dono ganhou um passo antes do backup: publicar só a migração.** A migração em
+    produção roda pela imagem `ferramentas`, que o pipeline só constrói a partir de `main`; sem esse
+    passo a `0023` não chega ao servidor antes do código. O branch `gsd/phase-06-estoque-migracao`
+    leva só o SQL da `0023`, o `meta/` dela e `scripts/testar-migracoes.mjs` — **não** leva
+    `db/schema.ts`, e o app que sobe com esse push é o de hoje. Entre esse push e o merge da fase,
+    ninguém roda `db:generate` em `main` (geraria uma migração que desfaz a `0023`). Está no plano
+    06-11, Passo 2.
 
 
 ## Decisões do dono durante a execução da Fase 04.6
@@ -117,7 +133,9 @@ mesma falha resistir três vezes.
 
 ## Current Position
 
-Phase: 06 — Estoque — **planejando** (29/09/2026, sessão noturna, sem o dono). Feito antes do
+Phase: 06 — Estoque — **planejada, pronta para executar** (29/09/2026, sessão noturna, sem o dono):
+**11 planos** em 11 ondas seguidas, aprovados pelo `gsd-plan-checker` na 2ª rodada — requisitos
+21/21, decisões 33/33, análise de lacunas limpa. Feito antes do
 plano: contexto (`5ad73a0`), pesquisa (`b09d7a3`), estratégia de validação (`67177bc`) e o
 contrato de UI aprovado pelo `gsd-ui-checker` (`8d3d310`, `06-UI-SPEC.md`). **Como sei:**
 `git log --oneline` em 29/09.

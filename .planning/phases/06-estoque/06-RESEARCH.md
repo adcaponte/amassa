@@ -861,7 +861,12 @@ export async function BlocoEstoque() {
 | A6 | A área que "paga" a baixa de uma venda é a área da categoria de venda da linha | Pergunta 1 | "Para onde foi" atribuiria consumo à área errada |
 | A7 | `saldo <= mínimo` (igual ao protótipo, `prototipo.html:607-608`) conta como "acabando" | EST-03 | Com `<`, item exatamente no mínimo não alerta |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Todas as sete resolvidas em 29/09/2026 — pelas decisões do `06-CONTEXT.md` (D-17 refinado, D-20
+> corrigido, D-21 refinado, D-29, D-30, D-31) e pelos planos `06-01`..`06-11` (numeração da revisão 1
+> do planejamento). O texto original de cada pergunta foi mantido; a linha **RESOLVED** embaixo diz
+> como ficou e onde está.
 
 1. **Apagar item do catálogo (D-20) versus `revoke delete` do FNC-10.**
    - O que se sabe: o D-20 `[auto]` permite apagar item sem movimentação e sem venda; o banco hoje
@@ -870,10 +875,20 @@ export async function BlocoEstoque() {
      mexe numa garantia do dono. Se o planejador não quiser esperar o dono, entregar **só desativar**
      nesta fase e deixar o apagar para quando ele confirmar — desativar cobre toda a necessidade do
      D-11.
+   - **RESOLVED (29/09/2026):** só desativar nesta fase (D-20 corrigido pela pesquisa). Nenhum
+     `grant delete`: o `revoke delete on itens_catalogo` da `0015` continua e `itens_catalogo` segue em
+     `TABELAS_SEM_DELETE`. Plano 06-08 (`definirItemAtivo`, a ação única de desativar/reativar, no
+     Cadastros), plano 06-09 (desativar pelo Estoque, pela mesma ação) e plano 06-02 (`test:migracoes`
+     confirma a tabela em `TABELAS_SEM_DELETE`). Apagar fica para quando o dono confirmar.
 2. **Saldo negativo com mínimo zero alerta?** EST-04 (travado): "mínimo zero nunca entra em alerta";
    D-21 `[auto]`: "saldo negativo conta como acabando" no Início. Recomendação: tratar negativo como
    **aviso próprio** ("saldo negativo"), distinto de "abaixo do mínimo", para o EST-04 continuar
    literalmente verdadeiro; mostrar os dois no bloco do Início com rótulos diferentes.
+   - **RESOLVED (29/09/2026):** como recomendado — D-21 refinado: saldo negativo é aviso próprio
+     (“Saldo negativo”, em `--color-erro`), separado de “abaixo do mínimo” (“Acabando”, âmbar), e
+     mínimo zero nunca alerta, então o EST-04 continua literal. A regra é uma função só,
+     `situacaoDoSaldo` (plano 06-04: negativo vence, nunca os dois chips); o bloco do Início mostra os
+     dois com rótulos diferentes (plano 06-10).
 3. **O que é a "categoria Peça pronta" (D-09/EST-21) no banco.** A semente tem `('Peças prontas',
    'receita', 'pecas')` `[VERIFIED: db/migrations/0016_categorias-iniciais.sql]` — categoria de
    **venda**. Mas item com estoque exige categoria de **compra** (grupo `custo`/`geral`), e a
@@ -883,17 +898,37 @@ export async function BlocoEstoque() {
    Estoque identifica peça pronta por **ter ficha de precificação ligada** (`fichas_precificacao.item_catalogo_id`
    — é o que o D-22 precisa), sem depender de nome de categoria; perguntar ao dono se quer uma
    categoria de compra própria semeada.
+   - **RESOLVED (29/09/2026):** D-29 — peça pronta é o material com ficha de precificação ligada,
+     nunca um nome de categoria. `ehPecaPronta` em `listarSaldos` (plano 06-04); `peca_pronta` e o
+     custo pela ficha decididos no servidor (plano 06-05); o custo preenchido e editável na folha
+     (plano 06-06, D-22). Nenhuma categoria é semeada nesta fase; a pergunta da categoria de compra
+     própria vai ao dono na Parte 0 da caminhada (plano 06-11).
 4. **Ficha de preço "exclusiva" desliga o item** (`lib/precificacao/acoes.ts:328-343`) — o item
    continua existindo e vendável. Deveria virar `ativo = false`? Fora do escopo declarado; registrar.
+   - **RESOLVED (29/09/2026):** fora do escopo da Fase 06, registrado aqui. Nenhum plano muda
+     `lib/precificacao/acoes.ts`: o comportamento de hoje continua (o item fica existindo, vendável e
+     com `ativo` verdadeiro, o padrão da coluna nova). Se o dono quiser que a ficha exclusiva desative
+     o item, é trabalho para depois, sobre o `definirItemAtivo` do plano 06-08.
 5. **Saldo inicial pela diferença (Pitfall 3).** Muda a letra do D-17 ("entrada manual") só no caso de
    já haver movimentação antes da contagem. Recomendação: implementar pela diferença e dizer isso na
    tela ("o saldo passa de −2 para 10"), que é a regra "o saldo passa de X para Y" do protótipo.
+   - **RESOLVED (29/09/2026):** pela diferença, contra o saldo do instante, sob a trava — D-17
+     refinado pela pesquisa. Plano 06-10: `planejarContagem` (sobre o `planejarAjuste` do plano 06-05)
+     e `gravarContagem`, que decide o modo e a diferença depois da trava; a tela diz “o saldo passa de
+     −2 para 10”, e o e2e `estoque contagem` prova o caso da venda antes da contagem.
 6. **Compra paga com valor diferente depois da entrada (Pitfall 14).** Opções: aceitar (o custo do
    estoque é o da nota lançada) ou gravar uma movimentação de correção de custo (quantidade zero não
    é permitida pelo `check`, então seria outro tipo). Recomendação: aceitar nesta fase e registrar.
+   - **RESOLVED (29/09/2026):** aceito e registrado — D-30: o custo do estoque é o da nota lançada;
+     nenhuma movimentação de correção de custo nesta fase (fora do escopo). O plano 06-03 tem a
+     verdade que o afirma (“Paguei” com valor diferente não gera movimentação).
 7. **"Para onde foi" inclui as vendas?** O protótipo mostrava "Venda na loja" como destino; o adendo
    tirou-o das saídas **manuais**. Recomendação: mostrar a baixa por venda como uma barra própria
    ("Vendido · pelo Financeiro"), com a área da linha, porque é consumo real de insumo.
+   - **RESOLVED (29/09/2026):** sim, como recomendado — D-31: a barra própria “Vendido · pelo
+     Financeiro”, com uma linha por área que vendeu, entre as seis barras sempre presentes; venda
+     cancelada não conta (Pitfall 15). Plano 06-07 (`agregarParaOndeFoi`). “Venda na loja” segue fora
+     das saídas manuais (D-15; plano 06-06 afirma a ausência).
 
 ## Environment Availability
 
