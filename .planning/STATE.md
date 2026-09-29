@@ -4,9 +4,9 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.1
 current_phase_name: Produção
-status: discussing
-stopped_at: "Fase 06.1 Producao criada em 29/09/2026 (item 5 da fila): briefing, prototipo e PDF copiados, PRD-01..20 transcritos, ROADMAP com objetivo e 8 criterios. Proximo: discussao com o dono (rota, reaproveitamento do cronograma/Gantt)."
-last_updated: "2026-09-29T22:56:18.133Z"
+status: ready_to_plan
+stopped_at: "Fase 06.1 Producao: contexto capturado em 30/09/2026 com o dono (06.1-CONTEXT.md, D-01..D-08). Proximo: planejar a fase (/gsd-plan-phase 06.1)."
+last_updated: "2026-09-29T23:08:08.237Z"
 progress:
   total_phases: 13
   completed_phases: 12
@@ -257,8 +257,11 @@ do `gsd-tools` o estragou e apontava a próxima fase para o Polimento, contra a 
 **Próximo — em andamento (29/09/2026, noite):** a **Fase 06.1 — Produção** (item 5 da fila) foi criada:
 `.planning/phases/06.1-producao/` com o briefing, o protótipo e o PDF das folhas; **PRD-01..20**
 transcritos do briefing em `REQUIREMENTS.md` (os ENC-* ficam como registro do modelo antigo); ROADMAP com
-objetivo, dependências e 8 critérios. **Próximo passo: a discussão com o dono** — a rota (§9 do briefing)
-e o reaproveitamento do cronograma e do Gantt atuais. O dono decidiu fazer um módulo por vez (Agenda
+objetivo, dependências e 8 critérios. **Discussão feita com o dono em 30/09/2026** (formulário no chat): `06.1-CONTEXT.md`, D-01..D-08 —
+`/gestao/producao` com redirecionamento; peça da Nova ordem pela ficha quando houver, senão texto livre
+(produção da casa exige catálogo); linha do tempo do protótipo; orçamentos aprovados ativos ganham ordem
+"aguardando o sinal" na migração; venda cancelada cancela a ordem só se ainda aguarda o sinal; perda medida
+de 6 meses. **Próximo: planejar a fase.** *(Até 30/09 dizia "próximo passo: a discussão com o dono".)* O dono decidiu fazer um módulo por vez (Agenda
 depois). *Até esta noite a linha dizia "nenhuma das duas fases existe ainda no ROADMAP".* Resposta do dono para a Produção, no chat em
 29/09/2026: **"O item 5 da produção pode sim zerar todos os dados. nada é real ainda."**
 
