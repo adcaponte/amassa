@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
 status: executing
-stopped_at: "Fase 06 Estoque: plano 06-04 concluido em 29/09 no branch gsd/phase-06-estoque. Proximo: 06-05."
-last_updated: "2026-09-29T05:44:15.268Z"
+stopped_at: "Fase 06 Estoque: plano 06-05 concluido em 29/09 no branch gsd/phase-06-estoque. Proximo: 06-06."
+last_updated: "2026-09-29T05:57:16.692Z"
 progress:
   total_phases: 12
   completed_phases: 11
   total_plans: 97
-  completed_plans: 90
+  completed_plans: 91
 last_activity: 2026-09-29
 last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2026: Tarefas 2 e 3 percorridas pelo dono. Migracao 0022 aplicada por ele e conferida de fora (tabela, semente de 1 linha, gatilho, delete revogado para amassa_app). Deploy: run 36443052672, 2a tentativa verde, commit 72b8881 (a 1a caiu na busca de fonte do Google, transitorio — janela 60 segue aberta). GES-04 medida de fora em 29/09 por curl: /gestao -> 307 para /gestao/login com callbackUrl no dominio publico. Caminhada: 16 de 16 itens respondidos, nenhum reprovado; decisoes: D-06 mantida, espaco sem capacidade fixa (223748a), textos do site sobem como estao (pendencia declarada do dono). Varredura final: 798 passed - 13 failed - 37 skipped - 74 did not run; os 74 NAO executaram (cadeia parametros-*, estrutural e anterior a fase). Detalhe: 04.6-08-SUMMARY.md."
 ---
@@ -134,9 +134,9 @@ mesma falha resistir três vezes.
 ## Current Position
 
 Phase: 06 — Estoque — **em execução desde 29/09/2026** (sessão noturna, sem o dono), no branch
-`gsd/phase-06-estoque` — o `main` só recebe documentos. **Planos concluídos: 06-01, 06-02, 06-03, 06-04** (traçador:
+`gsd/phase-06-estoque` — o `main` só recebe documentos. **Planos concluídos: 06-01, 06-02, 06-03, 06-04, 06-05** (traçador:
 `2e6fd2b`; `npm run verificar` verde e um e2e com `--grep "estoque tracador"`, 44 passed, segundo
-`06-01-SUMMARY.md`; 06-02: custo médio e o livro provados — sete casos, invariantes, D-23/D-24, 42501/23514/23505/P0001 e duas vendas sem impasse no Postgres efêmero (`7e99910`, `7bac218`); 06-03: venda baixa, compra dá entrada e cancelar estorna, na transação do documento (`d8c043f`, `19a3053`); dois e2e com `--grep`, 108 e 82 passed; 06-04: aba Saldos com a regra do alerta pura em `lib/estoque/saldo.ts` (`862dd53`, `13c17b4`); um e2e com `--grep`, 80 passed). Antes:
+`06-01-SUMMARY.md`; 06-02: custo médio e o livro provados — sete casos, invariantes, D-23/D-24, 42501/23514/23505/P0001 e duas vendas sem impasse no Postgres efêmero (`7e99910`, `7bac218`); 06-03: venda baixa, compra dá entrada e cancelar estorna, na transação do documento (`d8c043f`, `19a3053`); dois e2e com `--grep`, 108 e 82 passed; 06-04: aba Saldos com a regra do alerta pura em `lib/estoque/saldo.ts` (`862dd53`, `13c17b4`); um e2e com `--grep`, 80 passed; 06-05: regras e servidor da folha — ajuste pelo contado sob a trava, vínculos, custo da peça pronta pela ficha, prévia (`303229a`); sem e2e, como planejado). Antes:
 **planejada** (29/09/2026, sessão noturna, sem o dono):
 **11 planos** em 11 ondas seguidas, aprovados pelo `gsd-plan-checker` na 2ª rodada — requisitos
 21/21, decisões 33/33, análise de lacunas limpa. Feito antes do
