@@ -160,3 +160,5 @@ export const NOTA_SALDOS_ANTES_DO_AJUSTE =
   " Ele é sempre a soma do histórico — entradas menos saídas, mais ajustes. Não existe campo para corrigir um saldo à mão: se a prateleira discorda do sistema, registre um ";
 export const NOTA_SALDOS_AJUSTE = "ajuste";
 export const NOTA_SALDOS_DEPOIS_DO_AJUSTE = ", que fica no histórico com seu nome e a data.";
+// §Aba Saldos → tabela: a coluna Mínimo mostra "—" quando o mínimo é zero (nunca avisa).
+export const SEM_MINIMO_NA_TABELA = "—";

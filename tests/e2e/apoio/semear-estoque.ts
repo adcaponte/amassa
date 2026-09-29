@@ -120,3 +120,12 @@ export async function saldoNoBanco(itemId: string): Promise<number> {
     return Number(resultado.rows[0]?.saldo ?? 0);
   });
 }
+
+// Desativa um material direto no banco de teste — SÓ para montar o cenário do filtro
+// "Desativados" (plano 06-04). A ação de desativar de verdade, com a confirmação da UI-SPEC, é do
+// plano 06-08; este auxiliar não a substitui nem a prova.
+export async function desativarNoBanco(itemId: string): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query("update itens_catalogo set ativo = false where id = $1", [itemId]),
+  );
+}

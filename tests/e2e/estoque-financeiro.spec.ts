@@ -24,7 +24,11 @@ function sufixoUnico(): string {
 const CATEGORIA_DE_COMPRA = "Argila, esmalte e insumos";
 
 function cartaoDoItem(page: Page, itemId: string) {
-  return page.locator(`[data-testid="estoque-cartao"][data-item-id="${itemId}"]`);
+  // Cartão (< 980px) e linha da tabela (≥ 980px) levam o mesmo `data-testid` desde o plano 06-04;
+  // só um dos dois está visível em cada largura.
+  return page
+    .locator(`[data-testid="estoque-cartao"][data-item-id="${itemId}"]`)
+    .filter({ visible: true });
 }
 
 // Um produto de venda com ficha técnica de UM insumo.
