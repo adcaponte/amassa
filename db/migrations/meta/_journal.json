@@ -162,6 +162,13 @@
       "when": 1790591627672,
       "tag": "0022_anotacoes-da-casa",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790657090335,
+      "tag": "0023_estoque",
+      "breakpoints": true
     }
   ]
 }

@@ -72,6 +72,11 @@ const TABELAS_ESPERADAS = [
   // Fase 04.6, plano 07 — Anotações da casa (migração 0022_anotacoes-da-casa). Permanente, não
   // sai com a Abertura — não entra em TABELAS_DA_REMOCAO_ABERTURA.
   "anotacoes_da_casa",
+  // Fase 06 — Estoque (migração 0023_estoque). Permanente; não entra em
+  // TABELAS_DA_REMOCAO_ABERTURA. O livro imutável de onde o saldo sai (não existe tabela de
+  // materiais nem de saldos — D-01/EST-02). As conferências do livro (revoke, gatilho da unidade,
+  // checks) e a prova de concorrência são do plano 06-02.
+  "movimentacoes_estoque",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -1938,6 +1943,695 @@ async function conferirAnotacoesDaCasa(cliente) {
   await cliente.query("update anotacoes_da_casa set texto = '', salvo_por = null");
 }
 
+// ————————————————————————————————————————————————————————————————————————————————————————————
+// Fase 06 — Estoque (plano 06-02, Tarefa 2). O livro `movimentacoes_estoque` (migração 0023)
+// provado pelo Postgres de verdade: imutável para `amassa_app` (EST-06), coerente pelos `check`s,
+// um estorno por linha, a encomenda apagada sem apagar o consumo (Pitfall 10), a unidade travada
+// depois da primeira movimentação (Pitfall 6) — e, em `conferirConcorrenciaDoEstoque`, duas
+// vendas do mesmo insumo sem impasse (Pitfall 2).
+// ————————————————————————————————————————————————————————————————————————————————————————————
+
+// O SQLSTATE de uma promessa que deveria falhar — `null` quando ela passa. No `pg` puro o código
+// está no próprio erro (`erro.code`); é o Drizzle que o embrulha em `erro.cause.code`.
+async function codigoDoErro(executar) {
+  try {
+    await executar();
+    return null;
+  } catch (erro) {
+    return erro.code ?? `sem código (${erro.message})`;
+  }
+}
+
+// `insert` numa linha do livro a partir de um objeto { coluna: valor } — as colunas vêm só deste
+// arquivo, nunca de entrada externa. Devolve o id.
+async function inserirMovimentacao(conexao, campos) {
+  const colunas = Object.keys(campos);
+  const marcadores = colunas.map((_, indice) => `$${indice + 1}`);
+  const { rows } = await conexao.query(
+    `insert into movimentacoes_estoque (${colunas.join(", ")}) values (${marcadores.join(", ")}) returning id`,
+    Object.values(campos),
+  );
+  return rows[0].id;
+}
+
+// Q e V do item — a mesma soma que `lib/estoque/gravacao.ts::lerEstados` faz. `sum(bigint)` volta
+// como texto do `pg` → `Number`.
+async function estadoDoItemNoLivro(conexao, itemId) {
+  const { rows } = await conexao.query(
+    `select coalesce(sum(quantidade_milesimos), 0) as q, coalesce(sum(valor_centavos), 0) as v
+       from movimentacoes_estoque where item_id = $1`,
+    [itemId],
+  );
+  return { q: Number(rows[0].q), v: Number(rows[0].v) };
+}
+
+// Um documento com uma linha do item e a parcela que fecha a soma — a restrição ADIADA
+// `conferir_soma_do_documento` (0015) só deixa comitar assim. Chamada DENTRO de uma transação
+// aberta por quem chama. A linha com `item_id` faz a checagem de chave estrangeira segurar
+// `FOR KEY SHARE` no item até o fim da transação — é isso que o Pitfall 2 é.
+async function inserirDocumentoComItem(conexao, { tipo, itemId, categoriaId, usuarioId, valor }) {
+  const { rows: documento } = await conexao.query(
+    `insert into documentos (tipo, data, criado_por) values ($1, current_date, $2) returning id`,
+    [tipo, usuarioId],
+  );
+  const documentoId = documento[0].id;
+  const { rows: linha } = await conexao.query(
+    `insert into documento_linhas (documento_id, ordem, item_id, descricao, categoria_id, valor_centavos, quantidade_estoque)
+     values ($1, 1, $2, 'Linha de prova do estoque (migração)', $3, $4, $5) returning id`,
+    [documentoId, itemId, categoriaId, valor, tipo === "despesa" ? "5" : null],
+  );
+  await conexao.query(
+    `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+     values ($1, 1, current_date, $2, 'pix', current_date, $3)`,
+    [documentoId, valor, usuarioId],
+  );
+  return { documentoId, linhaId: linha[0].id };
+}
+
+// Faxina do Estoque, como DONO das tabelas (o `revoke` vale só para `amassa_app`). O livro sai
+// num `delete` só (estorno e original juntos: a chave `estorno_de_id` é NO ACTION, conferida no
+// fim do comando). Os documentos saem com as duas restrições de soma desligadas dentro da
+// transação — o mesmo motivo, e o mesmo cuidado, da faxina de `conferirFinanceiro`. Em CI o
+// Playwright roda depois contra o MESMO banco, e o vazio do Estoque (`@vazio-global`) exige
+// que nenhum material de prova sobre.
+async function apagarDadosDeProvaDoEstoque(
+  conexao,
+  { itemIds = [], documentoIds = [], encomendaIds = [], usuarioId = null },
+) {
+  try {
+    await conexao.query("begin");
+    await conexao.query("delete from movimentacoes_estoque where item_id = any($1::uuid[])", [itemIds]);
+    await conexao.query("alter table documento_linhas disable trigger conferir_soma_apos_linha");
+    await conexao.query("alter table parcelas disable trigger conferir_soma_apos_parcela");
+    await conexao.query("delete from parcelas where documento_id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("delete from documento_linhas where documento_id = any($1::uuid[])", [
+      documentoIds,
+    ]);
+    await conexao.query("delete from documentos where id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
+    await conexao.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
+    await conexao.query("delete from itens_catalogo where id = any($1::uuid[])", [itemIds]);
+    await conexao.query("delete from encomendas where id = any($1::uuid[])", [encomendaIds]);
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado (ver a faxina de `conferirFinanceiro`): um `throw` aqui esconderia a falha
+    // de asserção que o `try` de quem chama já tenha lançado.
+    console.error(`Estoque: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+async function conferirEstoque(conexao) {
+  console.log("  conferirEstoque...");
+
+  const { rows: usuarioInserido } = await conexao.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste do Estoque', 'usuaria-estoque@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+  const categoriaCompraId = (
+    await conexao.query("select id from categorias where nome = 'Argila, esmalte e insumos'")
+  ).rows[0].id;
+  const categoriaVendaId = (await conexao.query("select id from categorias where nome = 'Peças prontas'"))
+    .rows[0].id;
+
+  const itemIds = [];
+  const documentoIds = [];
+  const encomendaIds = [];
+
+  try {
+    // Dois materiais de prova, com nomes que nenhuma outra conferência usa. O primeiro também
+    // aparece na venda — assim desligar o estoque próprio dele não esbarra no `check`
+    // `itens_catalogo_aparece_ou_controla`, e a recusa do item (e) é do gatilho, não do check.
+    const { rows: comLivro } = await conexao.query(
+      `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id, aparece_na_venda, categoria_venda_id)
+       values ('Argila de prova do livro (migração)', true, 'kg', $1, true, $2) returning id`,
+      [categoriaCompraId, categoriaVendaId],
+    );
+    const itemId = comLivro[0].id;
+    itemIds.push(itemId);
+    const { rows: semLivro } = await conexao.query(
+      `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id)
+       values ('Esmalte de prova sem movimentação (migração)', true, 'kg', $1) returning id`,
+      [categoriaCompraId],
+    );
+    const itemSemMovimentacaoId = semLivro[0].id;
+    itemIds.push(itemSemMovimentacaoId);
+
+    const { rows: encomendaInserida } = await conexao.query(
+      `insert into encomendas (nome, data_inicio, criado_por)
+       values ('Encomenda de prova do estoque (migração)', current_date, $1) returning id`,
+      [usuarioId],
+    );
+    const encomendaId = encomendaInserida[0].id;
+    encomendaIds.push(encomendaId);
+
+    const base = { item_id: itemId, registrado_por: usuarioId };
+    const entradaManual = {
+      ...base,
+      origem: "manual",
+      tipo: "entrada",
+      quantidade_milesimos: 5000,
+      valor_centavos: 2100,
+      valor_informado_centavos: 2100,
+    };
+    const saidaManual = {
+      ...base,
+      origem: "manual",
+      tipo: "saida",
+      destino: "atelie",
+      area: "pecas",
+      quantidade_milesimos: -2000,
+      valor_centavos: -840,
+    };
+
+    // (b, parte válida) Um `insert` válido de cada tipo passa: entrada, saída e ajuste manuais,
+    // saída de venda e entrada de compra (com documento que comita), e o estorno de venda (c).
+    const idEntrada = await inserirMovimentacao(conexao, entradaManual);
+    await inserirMovimentacao(conexao, saidaManual);
+    await inserirMovimentacao(conexao, {
+      ...base,
+      origem: "manual",
+      tipo: "ajuste",
+      quantidade_milesimos: 500,
+      valor_centavos: 210,
+      saldo_contado_milesimos: 3500,
+    });
+
+    await conexao.query("begin");
+    let idSaidaDeVenda;
+    try {
+      const venda = await inserirDocumentoComItem(conexao, {
+        tipo: "venda",
+        itemId,
+        categoriaId: categoriaVendaId,
+        usuarioId,
+        valor: 3000,
+      });
+      documentoIds.push(venda.documentoId);
+      idSaidaDeVenda = await inserirMovimentacao(conexao, {
+        ...base,
+        origem: "venda",
+        tipo: "saida",
+        area: "pecas",
+        documento_id: venda.documentoId,
+        documento_linha_id: venda.linhaId,
+        quantidade_milesimos: -1000,
+        valor_centavos: -420,
+      });
+      const compra = await inserirDocumentoComItem(conexao, {
+        tipo: "despesa",
+        itemId,
+        categoriaId: categoriaCompraId,
+        usuarioId,
+        valor: 2500,
+      });
+      documentoIds.push(compra.documentoId);
+      await inserirMovimentacao(conexao, {
+        ...base,
+        origem: "compra",
+        tipo: "entrada",
+        documento_id: compra.documentoId,
+        documento_linha_id: compra.linhaId,
+        quantidade_milesimos: 5000,
+        valor_centavos: 2500,
+        valor_informado_centavos: 2500,
+      });
+      await conexao.query("commit");
+    } catch (erro) {
+      await conexao.query("rollback").catch(() => {});
+      throw new Error(
+        `Uma venda e uma compra válidas, com a movimentação de cada uma, deveriam comitar — ${erro.message}`,
+      );
+    }
+
+    // (a) EST-06: o livro não tem porta de edição para a aplicação.
+    const { rows: privilegios } = await conexao.query(
+      `select
+         has_table_privilege('amassa_app', 'movimentacoes_estoque', 'select') as pode_select,
+         has_table_privilege('amassa_app', 'movimentacoes_estoque', 'insert') as pode_insert,
+         has_table_privilege('amassa_app', 'movimentacoes_estoque', 'update') as pode_update,
+         has_table_privilege('amassa_app', 'movimentacoes_estoque', 'delete') as pode_delete`,
+    );
+    afirmar(
+      privilegios[0].pode_select && privilegios[0].pode_insert,
+      "O papel amassa_app deveria ter select e insert em movimentacoes_estoque — registrar é sempre uma linha nova.",
+    );
+    afirmar(
+      !privilegios[0].pode_update && !privilegios[0].pode_delete,
+      "O papel amassa_app NÃO deveria ter update nem delete em movimentacoes_estoque (EST-06) — " +
+        "o `revoke update, delete` da migração 0023 não está valendo.",
+    );
+
+    // E não é só o catálogo de privilégios que diz: um `update` e um `delete` reais, como
+    // `amassa_app`, sobre uma linha que existe, são recusados pelo banco com 42501.
+    async function comoAmassaApp(sql, parametros) {
+      await conexao.query("begin");
+      try {
+        await conexao.query("set local role amassa_app");
+        return await codigoDoErro(() => conexao.query(sql, parametros));
+      } finally {
+        await conexao.query("rollback");
+      }
+    }
+    const codigoDoUpdate = await comoAmassaApp(
+      "update movimentacoes_estoque set nota = 'Reescrita proibida' where id = $1",
+      [idEntrada],
+    );
+    afirmar(
+      codigoDoUpdate === "42501",
+      `Um update em movimentacoes_estoque como amassa_app deveria falhar com 42501 (sem privilégio), veio ${codigoDoUpdate}.`,
+    );
+    const codigoDoDelete = await comoAmassaApp("delete from movimentacoes_estoque where id = $1", [
+      idEntrada,
+    ]);
+    afirmar(
+      codigoDoDelete === "42501",
+      `Um delete em movimentacoes_estoque como amassa_app deveria falhar com 42501 (sem privilégio), veio ${codigoDoDelete}.`,
+    );
+    const codigoDoInsert = await comoAmassaApp(
+      `insert into movimentacoes_estoque (item_id, registrado_por, origem, tipo, quantidade_milesimos, valor_centavos, valor_informado_centavos)
+       values ($1, $2, 'manual', 'entrada', 1000, 420, 420)`,
+      [itemId, usuarioId],
+    );
+    afirmar(
+      codigoDoInsert === null,
+      `O papel amassa_app deveria conseguir inserir no livro (número gerado pelo banco), veio ${codigoDoInsert}.`,
+    );
+
+    // (b) Os `check`s da 0023: cada linha incoerente é recusada com 23514.
+    const LINHAS_INCOERENTES = [
+      ["saída com quantidade positiva", { ...saidaManual, quantidade_milesimos: 2000 }],
+      ["entrada com quantidade negativa", { ...entradaManual, quantidade_milesimos: -5000 }],
+      [
+        "origem venda sem documento_id",
+        { ...base, origem: "venda", tipo: "saida", area: "pecas", quantidade_milesimos: -1000, valor_centavos: -420 },
+      ],
+      [
+        "saída manual sem destino",
+        { ...base, origem: "manual", tipo: "saida", area: "pecas", quantidade_milesimos: -1000, valor_centavos: -420 },
+      ],
+      [
+        "ajuste sem saldo_contado_milesimos",
+        { ...base, origem: "manual", tipo: "ajuste", quantidade_milesimos: 1000, valor_centavos: 420 },
+      ],
+      [
+        "encomenda_id com destino aula",
+        { ...saidaManual, destino: "aula", area: "espaco", encomenda_id: encomendaId },
+      ],
+      ["nota com 161 caracteres", { ...entradaManual, nota: "n".repeat(161) }],
+      ["origem manual com estorno_de_id", { ...saidaManual, estorno_de_id: idEntrada }],
+      ["entrada sem valor_informado_centavos", { ...entradaManual, valor_informado_centavos: null }],
+    ];
+    for (const [descricao, campos] of LINHAS_INCOERENTES) {
+      const codigo = await codigoDoErro(() => inserirMovimentacao(conexao, campos));
+      afirmar(
+        codigo === "23514",
+        `Uma movimentação com ${descricao} deveria ser recusada por um check (23514), veio ${codigo}.`,
+      );
+    }
+
+    // (c) Um estorno por original: o primeiro estorno da saída de venda passa; o segundo, com o
+    // MESMO estorno_de_id, é recusado pelo único `movimentacoes_estoque_estorno_de_uk` (23505).
+    const estornoDaVenda = {
+      ...base,
+      origem: "venda",
+      tipo: "entrada",
+      area: "pecas",
+      documento_id: documentoIds[0],
+      estorno_de_id: idSaidaDeVenda,
+      quantidade_milesimos: 1000,
+      valor_centavos: 420,
+      valor_informado_centavos: 420,
+    };
+    const codigoDoPrimeiroEstorno = await codigoDoErro(() =>
+      inserirMovimentacao(conexao, estornoDaVenda),
+    );
+    afirmar(
+      codigoDoPrimeiroEstorno === null,
+      `O estorno da saída de venda deveria passar, veio ${codigoDoPrimeiroEstorno}.`,
+    );
+    const codigoDoSegundoEstorno = await codigoDoErro(() =>
+      inserirMovimentacao(conexao, estornoDaVenda),
+    );
+    afirmar(
+      codigoDoSegundoEstorno === "23505",
+      `Um segundo estorno da MESMA movimentação deveria ser recusado com 23505, veio ${codigoDoSegundoEstorno}.`,
+    );
+
+    // (d) Pitfall 10 / suposição A2 da pesquisa: `amassa_app` apaga uma encomenda referenciada
+    // por uma saída com destino encomenda — a ação referencial `on delete set null` roda com o
+    // dono da tabela, então o `revoke update` não a impede — e o consumo continua no livro.
+    const idConsumoDaEncomenda = await inserirMovimentacao(conexao, {
+      ...saidaManual,
+      destino: "encomenda",
+      encomenda_id: encomendaId,
+      quantidade_milesimos: -500,
+      valor_centavos: -210,
+    });
+    await conexao.query("begin");
+    try {
+      await conexao.query("set local role amassa_app");
+      const codigoDaExclusao = await codigoDoErro(() =>
+        conexao.query("delete from encomendas where id = $1", [encomendaId]),
+      );
+      afirmar(
+        codigoDaExclusao === null,
+        `Apagar, como amassa_app, uma encomenda com consumo de material deveria funcionar (on delete set null), veio ${codigoDaExclusao}.`,
+      );
+      await conexao.query("commit");
+    } catch (erro) {
+      await conexao.query("rollback").catch(() => {});
+      throw erro;
+    }
+    const { rows: consumoDepois } = await conexao.query(
+      "select encomenda_id, destino from movimentacoes_estoque where id = $1",
+      [idConsumoDaEncomenda],
+    );
+    afirmar(
+      consumoDepois.length === 1,
+      "A movimentação de consumo em encomenda deveria continuar no livro depois de a encomenda ser apagada.",
+    );
+    afirmar(
+      consumoDepois[0].encomenda_id === null && consumoDepois[0].destino === "encomenda",
+      `Depois de apagar a encomenda, o consumo deveria ficar com encomenda_id nulo e destino "encomenda", veio encomenda_id ${consumoDepois[0].encomenda_id} e destino "${consumoDepois[0].destino}".`,
+    );
+
+    // (e) Pitfall 6: item com movimentação não muda de unidade nem deixa de controlar estoque
+    // (gatilho `travar_unidade_do_item_com_movimentacao`, P0001); o resto do item continua livre.
+    const codigoDaUnidade = await codigoDoErro(() =>
+      conexao.query("update itens_catalogo set unidade = 'g' where id = $1", [itemId]),
+    );
+    afirmar(
+      codigoDaUnidade === "P0001",
+      `Mudar a unidade de um item com movimentação deveria ser recusado pelo gatilho (P0001), veio ${codigoDaUnidade}.`,
+    );
+    const codigoDoEstoqueProprio = await codigoDoErro(() =>
+      conexao.query("update itens_catalogo set controla_estoque = false where id = $1", [itemId]),
+    );
+    afirmar(
+      codigoDoEstoqueProprio === "P0001",
+      `Desligar o estoque próprio de um item com movimentação deveria ser recusado pelo gatilho (P0001), veio ${codigoDoEstoqueProprio}.`,
+    );
+    const codigoDoNome = await codigoDoErro(() =>
+      conexao.query("update itens_catalogo set nome = 'Argila de prova renomeada (migração)' where id = $1", [
+        itemId,
+      ]),
+    );
+    afirmar(
+      codigoDoNome === null,
+      `Renomear um item com movimentação deveria continuar livre, veio ${codigoDoNome}.`,
+    );
+    const codigoDaUnidadeSemLivro = await codigoDoErro(() =>
+      conexao.query("update itens_catalogo set unidade = 'g' where id = $1", [itemSemMovimentacaoId]),
+    );
+    afirmar(
+      codigoDaUnidadeSemLivro === null,
+      `Mudar a unidade de um item SEM movimentação deveria passar, veio ${codigoDaUnidadeSemLivro}.`,
+    );
+
+    // (f) As colunas novas de `itens_catalogo`: nascem ativo e com mínimo zero; mínimo negativo e
+    // observação vazia ou longa demais são recusados pelos `check`s.
+    const { rows: colunasNovas } = await conexao.query(
+      "select ativo, estoque_minimo_milesimos, observacoes from itens_catalogo where id = $1",
+      [itemSemMovimentacaoId],
+    );
+    afirmar(
+      colunasNovas[0].ativo === true &&
+        Number(colunasNovas[0].estoque_minimo_milesimos) === 0 &&
+        colunasNovas[0].observacoes === null,
+      `Item novo deveria nascer ativo, com mínimo 0 e sem observação, veio ${JSON.stringify(colunasNovas[0])}.`,
+    );
+    for (const [descricao, sql, parametros] of [
+      ["mínimo negativo", "update itens_catalogo set estoque_minimo_milesimos = -1 where id = $1", []],
+      ["observação só de espaços", "update itens_catalogo set observacoes = '   ' where id = $1", []],
+      ["observação com 501 caracteres", "update itens_catalogo set observacoes = $2 where id = $1", ["o".repeat(501)]],
+    ]) {
+      const codigo = await codigoDoErro(() =>
+        conexao.query(sql, [itemSemMovimentacaoId, ...parametros]),
+      );
+      afirmar(codigo === "23514", `Um item com ${descricao} deveria ser recusado por um check (23514), veio ${codigo}.`);
+    }
+
+    // (g) D-20 corrigido pela pesquisa: item se desativa, nunca se apaga — `itens_catalogo`
+    // continua sem delete para `amassa_app` (a mesma lista `TABELAS_SEM_DELETE` de
+    // `conferirFinanceiro`, que a fase não muda).
+    const { rows: deleteDoItem } = await conexao.query(
+      "select has_table_privilege('amassa_app', 'itens_catalogo', 'delete') as pode_deletar",
+    );
+    afirmar(
+      deleteDoItem[0].pode_deletar === false,
+      "O papel amassa_app não deveria ter delete em itens_catalogo — item com histórico se desativa, nunca se apaga.",
+    );
+  } finally {
+    await apagarDadosDeProvaDoEstoque(conexao, { itemIds, documentoIds, encomendaIds, usuarioId });
+  }
+}
+
+// Espera até a conexão `pid` estar parada numa trava — é o que garante que "B pediu a trava e
+// está esperando" antes de A seguir, sem depender de `setTimeout` e sorte.
+async function esperarBloqueada(observador, pid, contexto) {
+  for (let tentativa = 0; tentativa < 200; tentativa++) {
+    const { rows } = await observador.query(
+      "select wait_event_type from pg_stat_activity where pid = $1",
+      [pid],
+    );
+    if (rows[0]?.wait_event_type === "Lock") return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`${contexto}: a conexão ${pid} deveria estar esperando uma trava, e não ficou.`);
+}
+
+// Nunca deixar uma promessa pendente rejeitar sem dono (o Node derrubaria o processo): toda
+// consulta que fica esperando uma trava vira { ok, erro } no instante em que é criada.
+function semRejeicaoSolta(promessa) {
+  return promessa.then(
+    (resultado) => ({ ok: true, resultado }),
+    (erro) => ({ ok: false, erro }),
+  );
+}
+
+// Plano 06-02, Tarefa 2 — duas conexões de verdade, no molde de
+// `conferirNumeracaoConcorrenteDeOrcamento`. A trava é a MESMA consulta de
+// `lib/estoque/gravacao.ts::travarItens`: uma consulta, ids em ordem, `for no key update`.
+async function conferirConcorrenciaDoEstoque(url = process.env.DATABASE_URL_TESTE) {
+  console.log("  conferirConcorrenciaDoEstoque...");
+
+  const TRAVA_NO_KEY_UPDATE =
+    "select id from itens_catalogo where id = any($1::uuid[]) order by id for no key update";
+  const TRAVA_EXCLUSIVA = "select id from itens_catalogo where id = any($1::uuid[]) order by id for update";
+
+  const conexaoA = new Client({ connectionString: url });
+  const conexaoB = new Client({ connectionString: url });
+  const observador = new Client({ connectionString: url });
+  await Promise.all([conexaoA.connect(), conexaoB.connect(), observador.connect()]);
+  const pidA = (await conexaoA.query("select pg_backend_pid() as pid")).rows[0].pid;
+  const pidB = (await conexaoB.query("select pg_backend_pid() as pid")).rows[0].pid;
+
+  let usuarioId = null;
+  const itemIds = [];
+  const documentoIds = [];
+
+  try {
+    const { rows: usuarioInserido } = await observador.query(
+      `insert into usuarios (nome, email, senha_hash)
+       values ('Usuária de Teste da Concorrência do Estoque', 'usuaria-estoque-concorrencia@exemplo.test', 'hash-fake-de-teste')
+       returning id`,
+    );
+    usuarioId = usuarioInserido[0].id;
+    const categoriaCompraId = (
+      await observador.query("select id from categorias where nome = 'Argila, esmalte e insumos'")
+    ).rows[0].id;
+    const categoriaVendaId = (
+      await observador.query("select id from categorias where nome = 'Peças prontas'")
+    ).rows[0].id;
+    const { rows: itemInserido } = await observador.query(
+      `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id, aparece_na_venda, categoria_venda_id)
+       values ('Argila de prova da concorrência (migração)', true, 'kg', $1, true, $2) returning id`,
+      [categoriaCompraId, categoriaVendaId],
+    );
+    const itemX = itemInserido[0].id;
+    itemIds.push(itemX);
+    // 10 kg por R$ 50,00: R$ 0,50 por 1000 milésimos — toda baixa abaixo em milhares é exata.
+    await inserirMovimentacao(observador, {
+      item_id: itemX,
+      registrado_por: usuarioId,
+      origem: "manual",
+      tipo: "entrada",
+      quantidade_milesimos: 10000,
+      valor_centavos: 5000,
+      valor_informado_centavos: 5000,
+    });
+
+    async function abrirVenda(conexao) {
+      await conexao.query("begin");
+      const venda = await inserirDocumentoComItem(conexao, {
+        tipo: "venda",
+        itemId: itemX,
+        categoriaId: categoriaVendaId,
+        usuarioId,
+        valor: 1000,
+      });
+      documentoIds.push(venda.documentoId);
+      return venda;
+    }
+
+    // Lê Q e V JÁ sob a trava e grava a saída da venda ao custo médio do instante.
+    async function gravarSaidaDaVenda(conexao, venda, milesimos) {
+      const estado = await estadoDoItemNoLivro(conexao, itemX);
+      await inserirMovimentacao(conexao, {
+        item_id: itemX,
+        registrado_por: usuarioId,
+        origem: "venda",
+        tipo: "saida",
+        area: "pecas",
+        documento_id: venda.documentoId,
+        documento_linha_id: venda.linhaId,
+        quantidade_milesimos: -milesimos,
+        valor_centavos: -Math.round((milesimos * estado.v) / estado.q),
+      });
+      return estado;
+    }
+
+    // Ajuste para o contado C: d = C − Q lido sob a trava (D-18), ao custo médio do instante.
+    async function gravarAjuste(conexao, contadoMilesimos) {
+      const estado = await estadoDoItemNoLivro(conexao, itemX);
+      const diferenca = contadoMilesimos - estado.q;
+      afirmar(diferenca !== 0, "A prova do ajuste precisa de uma diferença diferente de zero.");
+      await inserirMovimentacao(conexao, {
+        item_id: itemX,
+        registrado_por: usuarioId,
+        origem: "manual",
+        tipo: "ajuste",
+        saldo_contado_milesimos: contadoMilesimos,
+        quantidade_milesimos: diferenca,
+        valor_centavos: Math.round((diferenca * estado.v) / estado.q),
+      });
+      return estado;
+    }
+
+    // (1) O CAMINHO ESCOLHIDO NÃO TRAVA. As duas vendas inserem a linha do MESMO item X (cada
+    // uma segurando `FOR KEY SHARE` em X pela chave estrangeira); A trava X com `no key update`,
+    // B pede a mesma trava e espera; A grava e comita; B segue e lê a soma JÁ com a saída de A
+    // (READ COMMITTED: cada comando vê o que comitou antes dele), grava a sua e comita.
+    const inicio = await estadoDoItemNoLivro(observador, itemX);
+    const vendaA = await abrirVenda(conexaoA);
+    const vendaB = await abrirVenda(conexaoB);
+    await conexaoA.query(TRAVA_NO_KEY_UPDATE, [[itemX]]);
+    const travaB = semRejeicaoSolta(conexaoB.query(TRAVA_NO_KEY_UPDATE, [[itemX]]));
+    await esperarBloqueada(observador, pidB, "Venda × venda (no key update)");
+    await gravarSaidaDaVenda(conexaoA, vendaA, 2000);
+    await conexaoA.query("commit");
+    const resultadoTravaB = await travaB;
+    afirmar(
+      resultadoTravaB.ok,
+      `A segunda venda deveria conseguir a trava depois de a primeira comitar — veio ${resultadoTravaB.erro?.code} (${resultadoTravaB.erro?.message}). Um 40P01 aqui é o impasse do Pitfall 2.`,
+    );
+    const vistoPorB = await gravarSaidaDaVenda(conexaoB, vendaB, 3000);
+    await conexaoB.query("commit");
+    afirmar(
+      vistoPorB.q === inicio.q - 2000,
+      `Sob a trava, a segunda venda deveria ler o saldo JÁ com a saída da primeira (${inicio.q - 2000}), leu ${vistoPorB.q}.`,
+    );
+    const depoisDasVendas = await estadoDoItemNoLivro(observador, itemX);
+    afirmar(
+      depoisDasVendas.q === inicio.q - 5000,
+      `Duas vendas concorrentes de 2000 e 3000 milésimos deveriam deixar ${inicio.q - 5000}, deixaram ${depoisDasVendas.q}.`,
+    );
+    afirmar(
+      depoisDasVendas.v === inicio.v - 2500,
+      `As duas saídas ao custo médio (R$ 0,50 por 1000) deveriam tirar 2500 centavos do valor, o valor ficou ${depoisDasVendas.v} (era ${inicio.v}).`,
+    );
+
+    // (2) O CONTROLE: a mesma sequência pedindo o bloqueio exclusivo de linha (`for update`).
+    // A pede e espera o `FOR KEY SHARE` de B; B pede e espera o de A — ciclo, e o Postgres
+    // derruba uma das duas com 40P01. É por isto que `gravacao.ts` usa `no key update` —
+    // Pitfall 2; suposição A1 da pesquisa provada. Nada aqui comita.
+    await abrirVenda(conexaoA);
+    await abrirVenda(conexaoB);
+    const travaExclusivaA = semRejeicaoSolta(conexaoA.query(TRAVA_EXCLUSIVA, [[itemX]]));
+    await esperarBloqueada(observador, pidA, "Controle com for update");
+    const travaExclusivaB = semRejeicaoSolta(conexaoB.query(TRAVA_EXCLUSIVA, [[itemX]]));
+    const [resultadoA, resultadoB] = await Promise.all([travaExclusivaA, travaExclusivaB]);
+    await conexaoA.query("rollback");
+    await conexaoB.query("rollback");
+    const codigosDoControle = [resultadoA, resultadoB].map((resultado) =>
+      resultado.ok ? "ok" : resultado.erro.code,
+    );
+    afirmar(
+      codigosDoControle.filter((codigo) => codigo === "40P01").length === 1 &&
+        codigosDoControle.filter((codigo) => codigo === "ok").length === 1,
+      `Com "for update", uma das duas vendas deveria terminar em impasse (40P01) e a outra seguir — vieram A=${codigosDoControle[0]}, B=${codigosDoControle[1]}.`,
+    );
+    const depoisDoControle = await estadoDoItemNoLivro(observador, itemX);
+    afirmar(
+      depoisDoControle.q === depoisDasVendas.q,
+      "O controle do impasse foi todo revertido — o saldo não deveria ter mudado.",
+    );
+
+    // (3) AJUSTE × VENDA (EST-07/EST-08, D-18) — nas duas ordens o final é determinístico.
+    // Ordem 1: o ajuste trava primeiro e leva o saldo ao contado C; a venda, que esperava, baixa
+    // depois. Final = C − venda.
+    const CONTADO_1 = 8000;
+    await conexaoA.query("begin");
+    await conexaoA.query(TRAVA_NO_KEY_UPDATE, [[itemX]]);
+    const vendaDepoisDoAjuste = await abrirVenda(conexaoB);
+    const travaDaVenda = semRejeicaoSolta(conexaoB.query(TRAVA_NO_KEY_UPDATE, [[itemX]]));
+    await esperarBloqueada(observador, pidB, "Ajuste antes da venda");
+    await gravarAjuste(conexaoA, CONTADO_1);
+    await conexaoA.query("commit");
+    const resultadoTravaDaVenda = await travaDaVenda;
+    afirmar(
+      resultadoTravaDaVenda.ok,
+      `A venda deveria conseguir a trava depois do ajuste — veio ${resultadoTravaDaVenda.erro?.code}.`,
+    );
+    await gravarSaidaDaVenda(conexaoB, vendaDepoisDoAjuste, 1000);
+    await conexaoB.query("commit");
+    const depoisDaOrdem1 = await estadoDoItemNoLivro(observador, itemX);
+    afirmar(
+      depoisDaOrdem1.q === CONTADO_1 - 1000,
+      `Ajuste para ${CONTADO_1} seguido de venda de 1000 deveria deixar ${CONTADO_1 - 1000}, deixou ${depoisDaOrdem1.q}.`,
+    );
+
+    // Ordem 2: a venda trava primeiro e baixa; o ajuste, que esperava, lê o saldo JÁ baixado e
+    // leva ao contado. Final = C, exato.
+    const CONTADO_2 = 9000;
+    const vendaAntesDoAjuste = await abrirVenda(conexaoB);
+    await conexaoB.query(TRAVA_NO_KEY_UPDATE, [[itemX]]);
+    await conexaoA.query("begin");
+    const travaDoAjuste = semRejeicaoSolta(conexaoA.query(TRAVA_NO_KEY_UPDATE, [[itemX]]));
+    await esperarBloqueada(observador, pidA, "Venda antes do ajuste");
+    await gravarSaidaDaVenda(conexaoB, vendaAntesDoAjuste, 1000);
+    await conexaoB.query("commit");
+    const resultadoTravaDoAjuste = await travaDoAjuste;
+    afirmar(
+      resultadoTravaDoAjuste.ok,
+      `O ajuste deveria conseguir a trava depois da venda — veio ${resultadoTravaDoAjuste.erro?.code}.`,
+    );
+    const vistoPeloAjuste = await gravarAjuste(conexaoA, CONTADO_2);
+    await conexaoA.query("commit");
+    afirmar(
+      vistoPeloAjuste.q === depoisDaOrdem1.q - 1000,
+      `Sob a trava, o ajuste deveria ler o saldo JÁ baixado pela venda (${depoisDaOrdem1.q - 1000}), leu ${vistoPeloAjuste.q}.`,
+    );
+    const depoisDaOrdem2 = await estadoDoItemNoLivro(observador, itemX);
+    afirmar(
+      depoisDaOrdem2.q === CONTADO_2,
+      `Venda seguida de ajuste para ${CONTADO_2} deveria deixar exatamente ${CONTADO_2}, deixou ${depoisDaOrdem2.q}.`,
+    );
+  } finally {
+    await conexaoA.query("rollback").catch(() => {});
+    await conexaoB.query("rollback").catch(() => {});
+    // Os documentos das transações revertidas nunca existiram; apagar id inexistente não custa.
+    await apagarDadosDeProvaDoEstoque(observador, { itemIds, documentoIds, usuarioId });
+    await Promise.all([conexaoA.end(), conexaoB.end(), observador.end()]);
+  }
+}
+
 // Retrato do CONTEÚDO das três tabelas da Abertura (contagem embutida no próprio JSON, ordenado
 // por id) — comparado antes/depois da prova da virada para confirmar que o script de importação
 // (04.4-04-PLAN.md, Tarefa 2) só LÊ `abertura_itens` e nunca escreve em tabela nenhuma da
@@ -2382,6 +3076,8 @@ async function conferirBanco() {
     await conferirSementeDeParametros(cliente);
     await conferirCorrecaoDoFusoDaSemente(cliente);
     await conferirAnotacoesDaCasa(cliente);
+    await conferirEstoque(cliente);
+    await conferirConcorrenciaDoEstoque();
   } finally {
     await cliente.end();
   }
