@@ -4,12 +4,12 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
-status: executing
-stopped_at: "06-11 concluido; proximo: verificacao da fase e phase.complete. Portao aprovado pelo dono no chat em 29/09/2026 a tarde (Roteiro 15 feito por ele: 0023 aplicada, merge 2345850 publicado, run 36587755269 verde, /api/health/estoque 200) e verificacao independente do Cowork em producao sem nenhum vermelho."
-last_updated: "2026-09-29T16:20:00.000Z"
+status: phase_complete
+stopped_at: "Fase 06 Estoque CONCLUIDA em 29/09/2026: verificacao passed 30/30 (2ed2d0b), portao aprovado pelo dono, no ar em 2345850. Proximo: item 5 (Producao) e/ou 6 (Agenda) da FILA-DO-CODE — fases ainda por criar; o dono ja respondeu que a Producao pode zerar todos os dados de Encomendas."
+last_updated: "2026-09-29T16:24:42.503Z"
 progress:
   total_phases: 12
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 97
   completed_plans: 97
 last_activity: 2026-09-29
@@ -176,6 +176,13 @@ para ele ler antes do servidor:
     nada a desfazer; no Passo 6 esses três arquivos chegam iguais dos dois lados.
 
 
+## Decisões do dono — próximas fases
+
+- **Produção (item 5 da fila) pode zerar todos os dados de Encomendas** — dono, no chat, 29/09/2026:
+  "O item 5 da produção pode sim zerar todos os dados. nada é real ainda." É a confirmação que o
+  passo 2 do item 5 da fila pedia antes de planejar migração que apague tabela. Aplicar em produção
+  continua sendo dele, à mão, depois de backup.
+
 ## Decisões do dono — Fase 06 (Parte 0 da caminhada, 29/09/2026)
 
 Todas respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário (`06-VERIFICACAO-HUMANA.md` Parte 0, caixas marcadas com Resultado). Aplicadas no
@@ -241,10 +248,18 @@ adendo de `06-11-SUMMARY.md`).
 
 ## Current Position
 
-**Agora (29/09/2026, tarde): 06-11 concluído; próximo: verificação da fase e `phase.complete`.**
-Os 11 planos da Fase 06 estão concluídos (11/11 no ROADMAP) e o portão foi aprovado pelo dono
-("Decisões do dono — Fase 06", acima). A fase **não** está marcada concluída — isso é da
-verificação da fase.
+**Agora (29/09/2026, fim da tarde): a Fase 06 — Estoque está CONCLUÍDA.** Como sei: verificação da
+fase `passed`, 30 de 30 (`06-VERIFICATION.md`, `2ed2d0b`) — os 9 critérios do ROADMAP e EST-01..21,
+com `npm run verificar` rodado pelo verificador no `main`; o portão 06-11 aprovado pelo dono no chat;
+`phase.complete` marcou a fase no ROADMAP (11/11, 29/09). O `STATE.md` foi escrito à mão (o verbo
+do `gsd-tools` o estragou e apontava a próxima fase para o Polimento, contra a fila).
+
+**Próximo:** item 5 da `FILA-DO-CODE.md` (Produção — redesenho das Encomendas) e/ou item 6 (Agenda);
+nenhuma das duas fases existe ainda no ROADMAP. Resposta do dono para a Produção, no chat em
+29/09/2026: **"O item 5 da produção pode sim zerar todos os dados. nada é real ainda."**
+
+*Até o fim da tarde de 29/09 este parágrafo dizia "06-11 concluído; próximo: verificação da fase e
+`phase.complete`" — as duas coisas foram feitas.*
 
 **Em produção é `2345850`** (o merge da Fase 06) — como sei: `git ls-remote origin
 refs/heads/main` = `234585063890…` (medido às 16:15 UTC de 29/09); run `36587755269` verde
