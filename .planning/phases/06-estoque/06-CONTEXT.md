@@ -110,7 +110,10 @@ Agenda existir); cadastro de embalagem.
     por item pela folha de ajuste, sem visão do todo nem de quem já foi contado.
 - **D-17 `[auto]`:** Na **primeira abertura**, a contagem geral roda em modo **"saldo inicial"**: para
   cada item, a quantidade contada e "quanto custou ao todo" viram uma **entrada manual com custo**
-  (D-05, D-11). Item deixado em branco não é tocado.
+  (D-05, D-11). Item deixado em branco não é tocado. **Refinado pela pesquisa (29/09):** a entrada
+  grava a **diferença** entre o contado e o saldo do instante — se já houver movimentação antes da
+  contagem (uma venda entre o deploy e a contagem), o saldo termina exatamente no contado. A tela diz
+  "o saldo passa de −2 para 10", que é a regra do rodapé do protótipo (06-RESEARCH.md, Pitfall 3).
 - **D-18 `[auto]`:** Depois da primeira, a contagem geral roda em modo **inventário**: cada item contado
   com diferença gera um **ajuste** com a semântica de EST-07/EST-08 (pede o saldo contado; diferença
   zero não grava). **Cada item grava ao ser confirmado** — não existe rascunho de contagem.
@@ -137,7 +140,11 @@ Agenda existir); cadastro de embalagem.
   Desativado: some dos seletores de Venda e de Compra e da lista padrão do Estoque; continua no
   histórico e nos relatórios; pode ser reativado. A lista de saldos ganha o filtro
   **Ativos · Desativados · Todos**, como o das Queimas (`components/amassa/queimas/filtro-fornos.tsx`).
-  Item **sem** movimentação e **sem** venda pode ser apagado, com confirmação dizendo o que se perde.
+  ~~Item **sem** movimentação e **sem** venda pode ser apagado, com confirmação dizendo o que se perde.~~
+  **Corrigido pela pesquisa (29/09): nesta fase o item só se DESATIVA, nunca se apaga.** O banco já
+  proíbe apagar de `itens_catalogo` — `revoke delete` para `amassa_app` desde a migração `0015`, regra
+  FNC-10 do dono — e `scripts/testar-migracoes.mjs` afirma essa proibição. Liberar o apagar mexeria
+  numa garantia dele; desativar cobre tudo o que o D-11 pede. Apagar fica para quando ele confirmar.
   — **Reversibility:** costly — a coluna nova entra por migração; enquanto a migração estiver só
   escrita e versionada é trivial desfazer, e ela só vira definitiva quando o dono a aplica à mão depois
   de backup (regra do projeto), que é o momento natural de revisar.
@@ -147,8 +154,10 @@ Agenda existir); cadastro de embalagem.
 ### Aviso de saldo negativo
 - **D-21 `[auto]`:** O aviso de saldo negativo (D-06) aparece em três lugares, **nunca bloqueando**:
   na pré-visualização que o painel de Venda já mostra ("O que esta venda tira do estoque"), como "fica
-  com −X"; na lista de saldos, destacado junto com os abaixo do mínimo; e no bloco "Estoque acabando"
-  do Início, onde saldo negativo conta como acabando.
+  com −X"; na lista de saldos; e no bloco "Estoque acabando" do Início. **Refinado pela pesquisa
+  (29/09):** saldo negativo é um **aviso próprio** ("saldo negativo"), **separado** de "abaixo do
+  mínimo" — assim o EST-04 ("mínimo zero nunca alerta", travado) continua literalmente verdadeiro. O
+  bloco do Início mostra os dois, com rótulos diferentes.
 
 ### Custo da Peça pronta
 - **D-22 `[auto]`:** A entrada manual de uma Peça pronta **preenche o custo** a partir da ficha de
@@ -156,6 +165,62 @@ Agenda existir); cadastro de embalagem.
   editável. Sem ficha, o campo vem vazio e é obrigatório.
   - *Por quê:* o §4 do adendo diz "informando o custo — o da ficha de precificação, quando houver";
     preencher é a leitura que poupa digitação sem tirar o controle.
+
+### Refinamentos da pesquisa — decisões novas `[auto]` (29/09/2026)
+Cada uma resolve uma questão que a pesquisa (`06-RESEARCH.md`, "Open Questions" e "Assumptions Log")
+deixou aberta, pela opção que ela recomendou.
+
+- **D-23 `[auto]` — valor do estorno de VENDA:** o estorno devolve o material **ao custo que a venda
+  levou**, não ao custo de hoje. É o espelho exato da saída: o "Para onde foi" de uma venda cancelada
+  zera certinho, e a regra é simples de explicar. (Assumption A4.)
+- **D-24 `[auto]` — valor do estorno de COMPRA:** o estorno sai **ao custo médio corrente**, não ao
+  custo original da compra. **Não é preferência, é correção:** devolver ao custo original pode deixar o
+  estoque com **valor negativo e quantidade positiva** quando houve consumo entre a compra e o
+  cancelamento — contraexemplo na pesquisa (Pergunta 3): 10 un a R$ 0,01, compra 1 un a R$ 10,00,
+  saem 5, cancelar a compra ao custo original deixa o valor negativo. Ao custo corrente o invariante
+  `sinal(valor) ∈ {sinal(quantidade), 0}` nunca quebra; o preço é o médio não "desmisturar" a compra
+  cancelada. (Assumption A3.)
+  — **Reversibility:** reversible — é um ramo do módulo puro `lib/estoque/custo.ts`, coberto por teste.
+  > 🔴 **D-23 e D-24 são as únicas decisões desta fase que tocam o valor do cancelamento.** A regra do
+  > dono manda não decidir sozinho regra de cancelamento que ele não decidiu. Adotadas mesmo assim
+  > porque **nada da Fase 06 chega à produção sem ele**: o código fica num branch separado e a
+  > migração só ele aplica — ele revisa antes do merge. Estão no topo da lista dele para confirmar.
+- **D-25 `[auto]` — algoritmo de custo:** **custo médio móvel**, com os grampos do ERPNext para
+  estoque negativo, exatamente como a pesquisa especifica (Pergunta 3: regras R1–R6, a tabela de sete
+  casos com números, arredondamento meio-para-cima em `BigInt`). Mora em `lib/estoque/custo.ts`,
+  puro. Cada movimentação grava o seu `valor_centavos`; o histórico mostra o valor da nota
+  (`valor_informado_centavos`) quando ele difere (entrada com saldo negativo reprecifica).
+- **D-26 `[auto]`:** Saída com saldo zero usa o custo da **última entrada com preço**; sem nenhuma,
+  custo zero (aparece como R$ 0,00 no "Para onde foi"). (Assumption A5.)
+- **D-27 `[auto]` — área que "paga" cada movimentação:** a **área do item** (filtro da lista, D-12) vem
+  da categoria de **compra** primeiro, e da de venda na falta — como o adendo §2 manda. A pesquisa
+  achou que `areaDoItem` de hoje faz o contrário (venda primeiro): o Estoque usa a ordem do adendo,
+  **sem alterar** a atribuição que o Financeiro já faz. Já a baixa **por venda** é paga pela área da
+  **categoria de venda da linha** — é quem vendeu. (Assumption A6.)
+- **D-28 `[auto]`:** `saldo <= mínimo` conta como acabando — igual ao protótipo
+  (`prototipo.html:607-608`). (Assumption A7.)
+- **D-29 `[auto]` — "Peça pronta":** identificada pela **ficha de precificação ligada**
+  (`fichas_precificacao.item_catalogo_id`), não por nome de categoria. A pesquisa achou que item com
+  estoque exige categoria de **compra** (grupo custo/geral), e a semente só tem "Peças prontas" como
+  categoria de **venda** — peça produzida não tem categoria de compra natural. **Pergunta para o dono,
+  não decidida:** se quer uma categoria de compra própria semeada para a produção da casa.
+- **D-30 `[auto]`:** Compra paga depois com valor diferente do lançado: o custo do estoque é o **da
+  nota lançada**; nenhuma movimentação de correção de custo nesta fase. Registrado. (Pesquisa, Pitfall 14.)
+- **D-31 `[auto]` — "Para onde foi" inclui as vendas:** a baixa por venda aparece como barra própria,
+  **"Vendido · pelo Financeiro"**, com a área da linha — é consumo real de insumo. "Venda na loja" segue
+  fora das saídas **manuais** (D-15).
+- **D-32 `[auto]` — contagem com saldo zero:** a contagem e o ajuste aceitam **zero** como saldo
+  contado (prateleira vazia). A pesquisa achou que `converterQuantidade` de hoje recusa zero; o
+  Estoque precisa aceitá-lo.
+
+### Ordem de publicação — 🔴 obrigatória
+- **D-33:** A gravação de movimentação vai **dentro** da transação da venda e da compra. **Se esse
+  código chegar à produção antes da migração, TODA venda e toda compra de material quebram** — não um
+  bloco isolado, o lançamento inteiro. A migração da fase só **acrescenta** (tabela nova, colunas com
+  padrão, `grant`s), então é segura com o código antigo. **A ordem é: backup → aplicar a migração →
+  só então publicar o código.** O último plano da fase (o portão humano) escreve o roteiro nessa ordem.
+  Enquanto isso, o código da fase vive **fora de `main`**, num branch próprio, para que um `git push`
+  de rotina em `main` nunca o publique antes da hora. (06-RESEARCH.md, Pitfall 1.)
 
 ### Claude's Discretion
 Decisões técnicas que o dono não precisa ver — ficam com a pesquisa e o planejamento:
@@ -175,6 +240,10 @@ Decisões técnicas que o dono não precisa ver — ficam com a pesquisa e o pla
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Especificação da fase
+- `.planning/phases/06-estoque/06-RESEARCH.md` — **ler antes de planejar**: as sete perguntas de
+  integração respondidas pelo código (arquivo e linha), o algoritmo de custo com os sete casos, a
+  concorrência (`for("no key update")`, não `for("update")`), e os 16 pitfalls — o 1 é a ordem de
+  publicação (D-33).
 - `.planning/phases/06-estoque/ADENDO.md` — **vence o briefing de 18/09 onde o contradiz.** §1 o
   catálogo único, §2 frentes × áreas, §3 origens e destinos, §4 o que é novo, §5 o que continua, §6
   correções de planejamento, §7 os três pontos em aberto (decididos acima em D-13, D-16..D-19).
