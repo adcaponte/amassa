@@ -187,6 +187,57 @@ test.describe("site abertura", () => {
     const url = new URL(hrefWhatsapp!);
     expect(url.searchParams.get("text")?.length ?? 0).toBeGreaterThan(0);
   });
+
+  // Achado da verificação da fase (29/09/2026, SIT-10): no celular a barra de cima mostrava os
+  // dois botões fixos e "Encomendas" ficava CORTADO na borda da tela — em 375px lia-se "Encom". O
+  // caso (g) não pegava: ele mede rolagem horizontal da PÁGINA, e um elemento que transborda de
+  // uma barra `position: fixed` não aumenta a largura da página. Este caso mede o que importa — a
+  // borda de cada alvo contra a borda da tela — e em toda a faixa, porque o mesmo defeito voltava
+  // em 768px (a virada para desktop, quando os quatro links entram antes de caber).
+  //
+  // Mede também a outra metade do contrato: esconder os botões de cima no celular só é certo
+  // porque a barra de baixo os entrega. Em NENHUMA largura os dois botões podem sumir das duas
+  // barras ao mesmo tempo.
+  test("(k) em nenhuma largura um alvo da barra de cima passa da borda, e Agenda/Encomendas estão sempre em alguma barra", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "Varre as larguras por conta própria — basta um projeto.");
+
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+
+    for (const largura of [320, 375, 393, 430, 767, 768, 800, 879, 880, 1024, 1280]) {
+      await page.setViewportSize({ width: largura, height: 812 });
+      await page.evaluate(() => document.fonts.ready);
+
+      const medida = await page.evaluate(() => {
+        const larguraDaTela = document.documentElement.clientWidth;
+        const visivel = (e: Element) => {
+          const caixa = e.getBoundingClientRect();
+          return caixa.width > 0 && caixa.height > 0 && getComputedStyle(e).visibility !== "hidden";
+        };
+        const barraDeCima = document.querySelector('[data-testid="site-barra-superior"]');
+        const alvos = barraDeCima ? [...barraDeCima.querySelectorAll("a, button")].filter(visivel) : [];
+        const cortados = alvos
+          .filter((e) => e.getBoundingClientRect().right > larguraDaTela + 0.5)
+          .map((e) => `"${(e.textContent ?? "").trim()}" termina em ${Math.round(e.getBoundingClientRect().right)}`);
+        const botaoVisivel = (id: string) =>
+          [...document.querySelectorAll(`[data-testid="${id}"]`)].some(visivel);
+        return {
+          larguraDaTela,
+          cortados,
+          agendaAlcancavel: botaoVisivel("site-botao-agenda"),
+          encomendasAlcancavel: botaoVisivel("site-botao-encomendas"),
+        };
+      });
+
+      expect(medida.cortados, `a ${largura}px (tela de ${medida.larguraDaTela}px): ${medida.cortados.join(" ; ")}`).toEqual(
+        [],
+      );
+      expect(medida.agendaAlcancavel, `a ${largura}px o botão Agenda não está em nenhuma barra`).toBe(true);
+      expect(medida.encomendasAlcancavel, `a ${largura}px o botão Encomendas não está em nenhuma barra`).toBe(true);
+    }
+  });
 });
 
 // O caso equivalente para `#agenda`/`#encomendas` (a âncora dos botões fixos, não a da marca)
