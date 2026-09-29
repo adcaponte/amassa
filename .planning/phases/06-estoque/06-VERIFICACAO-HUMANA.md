@@ -250,7 +250,8 @@ passo mostrou (pode colar a saída).
   - **Resultado:**
 - [ ] **Passo 3 — Backup** (`sucesso = t`, horário de agora, tamanho plausível)
   - **Resultado:**
-- [ ] **Passo 4 — `db:migrate`** ("Migrações aplicadas com sucesso.", código 0)
+- [ ] **Passo 4 — `db:migrate`** (`0023_estoque.sql` listada na imagem antes; "Migrações aplicadas
+  com sucesso.", código 0)
   - **Resultado:**
 - [ ] **Passo 5 — Conferência SQL, antes do código** (tabela e 0 movimentações; 3 colunas com os
   padrões; `pode_editar = f` e `pode_apagar = f`; gatilho; índice; `/api/health` 200)

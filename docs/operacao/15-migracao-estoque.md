@@ -13,6 +13,12 @@ o erro pode ser do roteiro: **pare naquele passo** e não improvise.
 > ordem é: **backup → aplicar a `0023` → conferir de fora → só então publicar o código.** É por isso
 > que o código da fase mora no branch `gsd/phase-06-estoque`, fora de `main`: um `git push` de
 > rotina em `main` nunca o publica antes da hora.
+>
+> 🔴 **Mas o pipeline também roda à mão — e aí publica o branch que você escolher.** Até o Passo 6,
+> **não** use "Run workflow" em Actions → "Entrega contínua" no GitHub (nem `gh workflow run`) com
+> o branch `gsd/phase-06-estoque` selecionado: o job `implantar` não confere de que branch veio o
+> código, e publicaria o código da fase antes da migração — o mesmo defeito do D-33. Se precisar
+> rodar o pipeline à mão antes do Passo 6, só com `main` selecionado.
 
 **O que este roteiro faz, em uma frase por passo:**
 
@@ -195,11 +201,21 @@ Passo 4 se ele der errado.
 
 ```bash
 docker compose pull ferramentas
+docker compose run --rm ferramentas ls db/migrations | grep 0023_estoque
+```
+
+**O que faz:** baixa a imagem `ferramentas` publicada pelo run do Passo 2 e confere que a `0023`
+está dentro dela, **antes** de migrar.
+
+**O que você deve ver:** uma linha, `0023_estoque.sql`. **Nada? Pare aqui** — a imagem baixada é
+velha (o run do Passo 2 não terminou, ou não publicou), e o `db:migrate` abaixo diria "Migrações
+aplicadas com sucesso." sem aplicar nada. Volte ao `gh run list` do Passo 2.
+
+```bash
 docker compose run --rm ferramentas npm run db:migrate
 ```
 
-**O que faz:** baixa a imagem `ferramentas` publicada pelo run do Passo 2 (a que tem a `0023`
-dentro) e aplica as migrações que faltam — só a `0023`.
+**O que faz:** aplica as migrações que faltam — só a `0023`.
 
 **O que você deve ver:** `Migrações aplicadas com sucesso.`, saindo com código `0`. Seguro repetir:
 o Drizzle pula o que já foi aplicado.
@@ -372,6 +388,40 @@ as vendas voltam a não mexer em estoque — quando o código voltar, confira a 
 
 > Depois de um revert, `main` volta a ter a `0023` sem o `db/schema.ts` que a gerou — a proibição de
 > `db:generate` do Passo 2 **volta a valer** até o código ser reintegrado.
+
+**Caso B, depois — voltar com o código.** 🔴 **Rodar o Passo 6 de novo NÃO funciona depois do Caso
+B.** Para o git, os commits do branch da fase já foram integrados (o revert desfez o efeito deles,
+não a integração): `git merge --no-ff gsd/phase-06-estoque` responde `Already up to date`, ou traz
+só os commits feitos depois. O código do Estoque continuaria fora do ar enquanto parece ter sido
+publicado. O caminho é desfazer o revert:
+
+```bash
+git switch main
+git log --oneline -10
+git revert <o hash do commit "Revert "Merge branch 'gsd/phase-06-estoque'"">
+```
+
+**O que faz:** `git log` mostra os últimos commits; ache o do revert do Caso B (a mensagem começa
+com `Revert "Merge branch 'gsd/phase-06-estoque'"`). `git revert` desse commit cria um commit novo
+que devolve todo o código da fase — o "revert do revert".
+
+**O que você deve ver:** o editor com a mensagem (`Revert "Revert "Merge branch…""`) — salve e
+feche — e a lista de arquivos da fase de volta.
+
+Se o Caso B aconteceu por um defeito, a correção entra **agora**, antes do `push`: se ela foi feita
+como commits novos no branch da fase, `git merge --no-ff gsd/phase-06-estoque` traz esses commits
+(e só eles — o resto já voltou pelo revert do revert). Conflito fora de `.planning/` — pare e
+chame. Depois:
+
+```bash
+git push
+gh run list --limit 3
+```
+
+**O que você deve ver:** o run verde, os quatro jobs. Então refaça a conferência do **Passo 7**
+(`/api/health/estoque` em `200` e `{"status":"ok"}`, com data e hora) e confira a contagem no
+celular — as vendas do intervalo em que o código esteve revertido não mexeram no estoque. A
+proibição de `db:generate` acaba de novo aqui.
 
 Se nenhum dos dois casos descreve o que você está vendo: **pare e chame** antes de improvisar num
 banco ou num servidor de produção.
