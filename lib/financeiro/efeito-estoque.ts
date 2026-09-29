@@ -145,3 +145,74 @@ export function formatarEfeito(entrada: EntradaDoEfeito): string {
   const quantidadeTexto = formatarQuantidade(String(Math.abs(quantidade)));
   return `${sinal}${quantidadeTexto} ${unidadeExibida(entrada.unidade)} · ${entrada.nome}`;
 }
+
+// Milésimos inteiros com sinal → "1 kg", "−0,05 L" — o "−" tipográfico, como no resto do módulo.
+function quantidadeComUnidade(milesimos: number, unidade: string): string {
+  const absoluto = formatarQuantidade(String(Math.abs(milesimos) / 1000));
+  return `${milesimos < 0 ? "−" : ""}${absoluto} ${unidadeExibida(unidade)}`;
+}
+
+export type EfeitoComSaldo = {
+  // O mesmo texto de `formatarEfeito` — o formato novo só ACRESCENTA ao fim da linha, para os e2e
+  // que leem o prefixo ("−15 g · {nome}") continuarem valendo.
+  texto: string;
+  // "fica com 1 kg" / "fica com −1 kg"; `null` quando o saldo não carregou (a linha volta ao
+  // formato de antes, sem aviso — a venda nunca depende do Estoque, D-21).
+  ficaCom: string | null;
+  negativo: boolean;
+};
+
+// "−2 kg · Argila" + "fica com 1 kg" (plano 06-08, D-21). `saldoAtualMilesimos` é o saldo do livro
+// ANTES do lançamento (`listarSaldos`); a conta é soma de inteiros, nunca ponto flutuante.
+export function formatarEfeitoComSaldo(
+  entrada: EntradaDoEfeito,
+  saldoAtualMilesimos?: number,
+): EfeitoComSaldo {
+  const texto = formatarEfeito(entrada);
+  if (saldoAtualMilesimos === undefined) {
+    return { texto, ficaCom: null, negativo: false };
+  }
+  const saldoFinal = saldoAtualMilesimos + entrada.variacaoMilesimos;
+  return {
+    texto,
+    ficaCom: `fica com ${quantidadeComUnidade(saldoFinal, entrada.unidade)}`,
+    negativo: saldoFinal < 0,
+  };
+}
+
+export type MaterialQueFicaNegativo = {
+  itemId: string;
+  nome: string;
+  saldoFinalMilesimos: number;
+  // "−1 kg" — já formatado, para `textoAvisoVendaNegativa` (textos.ts não formata número).
+  saldoFinalTexto: string;
+};
+
+// Os materiais que o lançamento deixa abaixo de zero, na ordem do efeito. Material sem saldo
+// conhecido fica de fora; `saldos` nulo (a consulta do Estoque falhou) → lista vazia, e o painel
+// não avisa nada (D-21: nunca bloqueia, nunca depende do Estoque).
+export function materiaisQueFicamNegativos(
+  efeito: EfeitoNoEstoque,
+  saldos: ReadonlyMap<string, number> | null,
+): MaterialQueFicaNegativo[] {
+  if (!saldos) {
+    return [];
+  }
+  const negativos: MaterialQueFicaNegativo[] = [];
+  for (const entrada of efeito) {
+    const saldoAtual = saldos.get(entrada.itemId);
+    if (saldoAtual === undefined) {
+      continue;
+    }
+    const saldoFinalMilesimos = saldoAtual + entrada.variacaoMilesimos;
+    if (saldoFinalMilesimos < 0) {
+      negativos.push({
+        itemId: entrada.itemId,
+        nome: entrada.nome,
+        saldoFinalMilesimos,
+        saldoFinalTexto: quantidadeComUnidade(saldoFinalMilesimos, entrada.unidade),
+      });
+    }
+  }
+  return negativos;
+}

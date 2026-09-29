@@ -151,7 +151,14 @@ const MENSAGEM_QUANTIDADE_ALTA = "Essa quantidade passa de 999.999 — confira o
 
 // "0,04" → "0.04"; "15" → "15"; "2,250" → "2.25" — texto decimal normalizado com PONTO e até 3
 // casas, maior que zero e até 999999. Vírgula ou ponto como separador decimal.
-export function converterQuantidade(textoBruto: string): ResultadoDeConversaoDeQuantidade {
+//
+// `{ aceitaZero: true }` (Fase 6, D-32 / 06-RESEARCH.md Pitfall 9): aceita também zero — só o saldo
+// contado do Estoque pede, porque "a prateleira está vazia" é uma resposta válida. É OPÇÃO
+// EXPLÍCITA: sem ela, o comportamento é o de sempre, e todo outro chamador continua recusando zero.
+export function converterQuantidade(
+  textoBruto: string,
+  opcoes?: { aceitaZero?: boolean },
+): ResultadoDeConversaoDeQuantidade {
   const normalizado = textoBruto.replace(/\s/g, "").replace(",", ".");
 
   if (!/^\d+(\.\d{1,3})?$/.test(normalizado)) {
@@ -159,6 +166,9 @@ export function converterQuantidade(textoBruto: string): ResultadoDeConversaoDeQ
   }
 
   const valor = Number(normalizado);
+  if (valor === 0 && opcoes?.aceitaZero === true) {
+    return { ok: true, quantidade: "0" };
+  }
   if (valor <= 0) {
     return { ok: false, erro: MENSAGEM_QUANTIDADE_INVALIDA };
   }

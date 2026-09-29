@@ -35,6 +35,9 @@ export type FichaTecnicaProps = {
   // Só itens com estoque próprio, sem o próprio item (já filtrado por quem chama —
   // `DialogoItemCatalogo`, que sabe o id do item em edição).
   insumosCandidatos: readonly InsumoParaFicha[];
+  // Todos os insumos que a ficha pode MOSTRAR — os candidatos mais os que já estão na ficha,
+  // inclusive desativados (plano 06-08). Sem ele, usa os candidatos.
+  insumosConhecidos?: readonly InsumoParaFicha[];
   aoAdicionar: (insumoId: string, quantidadeTexto: string) => void;
   aoTirar: (indice: number) => void;
   erro: string | null;
@@ -47,6 +50,7 @@ export type FichaTecnicaProps = {
 export function FichaTecnica({
   linhas,
   insumosCandidatos,
+  insumosConhecidos,
   aoAdicionar,
   aoTirar,
   erro,
@@ -56,7 +60,7 @@ export function FichaTecnica({
   const [erroLocal, setErroLocal] = useState<string | null>(null);
 
   function descricaoDoInsumo(id: string): string {
-    const insumo = insumosCandidatos.find((candidato) => candidato.id === id);
+    const insumo = (insumosConhecidos ?? insumosCandidatos).find((candidato) => candidato.id === id);
     if (!insumo) {
       return "?";
     }

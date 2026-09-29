@@ -13,13 +13,17 @@ import {
   FRASE_VENDA_SEM_CATEGORIA,
   ROTULO_UNIDADE,
   areaDoItem,
+  categoriaDeCompraValida,
+  categoriaDeVendaValida,
   fraseInsumoSemEstoque,
   fraseItemEhInsumoDe,
   podeDeixarDeTerEstoque,
+  podeDesativarItem,
   validarItem,
   type EntradaDeItem,
   type InsumoDisponivel,
 } from "../../lib/cadastros/catalogo";
+import { esquemaAtivacaoDeItem } from "../../lib/cadastros/esquemas";
 
 const CATEGORIA_VENDA_ID = "11111111-1111-1111-1111-111111111111";
 const CATEGORIA_COMPRA_ID = "22222222-2222-2222-2222-222222222222";
@@ -305,5 +309,94 @@ describe("ROTULO_UNIDADE", () => {
     expect(ROTULO_UNIDADE.kg).toBe("kg");
     expect(ROTULO_UNIDADE.ml).toBe("ml");
     expect(ROTULO_UNIDADE.m).toBe("m");
+  });
+});
+
+// Plano 06-08 (D-20): item se desativa, nunca se apaga — e desativar um insumo que ainda está na
+// ficha técnica de um produto ATIVO é recusado com a frase que já existe, senão uma venda baixaria
+// estoque de um material que ninguém vê mais (pesquisa §Pergunta 6).
+describe("podeDesativarItem", () => {
+  it("recusa com o nome do produto ativo que usa o item como insumo", () => {
+    const resultado = podeDesativarItem(INSUMO_ID, [{ itemNome: "Café coado", insumoId: INSUMO_ID }]);
+    expect(resultado).toEqual({
+      ok: false,
+      erro: "Esse item é insumo de Café coado — tire da ficha técnica antes.",
+    });
+  });
+
+  it("usa o PRIMEIRO produto da lista quando há mais de um", () => {
+    const resultado = podeDesativarItem(INSUMO_ID, [
+      { itemNome: "Café coado", insumoId: INSUMO_ID },
+      { itemNome: "Café com leite", insumoId: INSUMO_ID },
+    ]);
+    expect(resultado).toEqual({ ok: false, erro: fraseItemEhInsumoDe("Café coado") });
+  });
+
+  it("aceita quando a lista de fichas de produtos ativos é vazia", () => {
+    expect(podeDesativarItem(INSUMO_ID, [])).toEqual({ ok: true });
+  });
+
+  it("aceita quando as fichas da lista usam OUTRO insumo", () => {
+    expect(
+      podeDesativarItem(INSUMO_ID, [{ itemNome: "Bolo de fubá", insumoId: OUTRO_INSUMO_ID }]),
+    ).toEqual({ ok: true });
+  });
+});
+
+// Movidos de `lib/cadastros/acoes.ts` para o módulo puro (Pitfall 7): o "Novo material" do Estoque
+// (plano 06-09) usa a MESMA validação, e um arquivo `"use server"` não pode exportar função síncrona.
+describe("categoriaDeVendaValida", () => {
+  it("aceita categoria de receita ativa", () => {
+    expect(categoriaDeVendaValida({ grupo: "receita", ativa: true }, "x", null)).toBe(true);
+  });
+
+  it("aceita a categoria ATUAL do item mesmo desativada", () => {
+    expect(categoriaDeVendaValida({ grupo: "receita", ativa: false }, "x", "x")).toBe(true);
+  });
+
+  it("recusa categoria desativada que não é a atual", () => {
+    expect(categoriaDeVendaValida({ grupo: "receita", ativa: false }, "x", "y")).toBe(false);
+  });
+
+  it("recusa categoria que não é de receita, ou que não existe", () => {
+    expect(categoriaDeVendaValida({ grupo: "custo", ativa: true }, "x", null)).toBe(false);
+    expect(categoriaDeVendaValida(undefined, "x", null)).toBe(false);
+  });
+});
+
+describe("categoriaDeCompraValida", () => {
+  it("aceita a categoria ATUAL do item mesmo desativada", () => {
+    expect(categoriaDeCompraValida({ grupo: "custo", ativa: false }, "x", "x")).toBe(true);
+  });
+
+  it("aceita custo e geral ativos", () => {
+    expect(categoriaDeCompraValida({ grupo: "custo", ativa: true }, "x", null)).toBe(true);
+    expect(categoriaDeCompraValida({ grupo: "geral", ativa: true }, "x", null)).toBe(true);
+  });
+
+  it("recusa receita, fora, desativada nova e inexistente", () => {
+    expect(categoriaDeCompraValida({ grupo: "receita", ativa: true }, "x", null)).toBe(false);
+    expect(categoriaDeCompraValida({ grupo: "fora", ativa: true }, "x", null)).toBe(false);
+    expect(categoriaDeCompraValida({ grupo: "custo", ativa: false }, "x", null)).toBe(false);
+    expect(categoriaDeCompraValida(undefined, "x", null)).toBe(false);
+  });
+});
+
+// Um uuid v4 de verdade — os ids de fantasia acima ("5555…") não passam no `esquemaId` (Zod exige
+// versão e variante RFC 4122).
+const UUID_VALIDO = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
+describe("esquemaAtivacaoDeItem", () => {
+  it("aceita { id: uuid, ativo: boolean }", () => {
+    const resultado = esquemaAtivacaoDeItem.safeParse({ id: UUID_VALIDO, ativo: false });
+    expect(resultado.success).toBe(true);
+  });
+
+  it("recusa id que não é uuid", () => {
+    expect(esquemaAtivacaoDeItem.safeParse({ id: "nao-e-uuid", ativo: true }).success).toBe(false);
+  });
+
+  it("recusa ativo que não é booleano", () => {
+    expect(esquemaAtivacaoDeItem.safeParse({ id: UUID_VALIDO, ativo: "sim" }).success).toBe(false);
   });
 });

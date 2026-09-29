@@ -1,7 +1,7 @@
 // Leituras do módulo Cadastros. Sem `"use server"` — não são Server Actions, mesmo molde de
 // `lib/financeiro/consultas.ts`: consultas chamadas direto do Server Component da página;
 // `lib/cadastros/acoes.ts` fica só com escrita.
-import { and, asc, count, countDistinct, eq, inArray, isNotNull, or } from "drizzle-orm";
+import { and, asc, count, countDistinct, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -12,6 +12,7 @@ import {
   documentoLinhas,
   fichaTecnica,
   itensCatalogo,
+  movimentacoesEstoque,
 } from "@/db/schema";
 
 import { areaDoItem, type InsumoDisponivel, type Unidade } from "./catalogo";
@@ -142,6 +143,12 @@ export type ItemDoCatalogoCompleto = {
   categoriaCompra: CategoriaResumida | null;
   area: AreaFinanceira;
   ficha: LinhaDaFichaTecnica[];
+  // Plano 06-08 (D-20): item desativado continua listado (depois dos ativos, com o chip
+  // "Desativado"); `movimentacoes` e `saldoMilesimos` alimentam a confirmação de desativar ("O
+  // histórico ({N} movimentações) e o saldo de {X} {un} continuam guardados").
+  ativo: boolean;
+  movimentacoes: number;
+  saldoMilesimos: number;
 };
 
 // TODOS os itens do catálogo, com a categoria de venda/compra (nome, área, ativa — mesmo com a
@@ -154,11 +161,12 @@ export async function listarCatalogoCompleto(): Promise<ItemDoCatalogoCompleto[]
   const categoriaVenda = alias(categorias, "categoria_venda_do_item");
   const categoriaCompra = alias(categorias, "categoria_compra_do_item");
 
-  const [itens, fichas] = await Promise.all([
+  const [itens, fichas, livro] = await Promise.all([
     db
       .select({
         id: itensCatalogo.id,
         nome: itensCatalogo.nome,
+        ativo: itensCatalogo.ativo,
         precoVendaCentavos: itensCatalogo.precoVendaCentavos,
         aparecenaVenda: itensCatalogo.aparecenaVenda,
         atalhoVenda: itensCatalogo.atalhoVenda,
@@ -185,7 +193,25 @@ export async function listarCatalogoCompleto(): Promise<ItemDoCatalogoCompleto[]
         quantidade: fichaTecnica.quantidade,
       })
       .from(fichaTecnica),
+    // Contagem e saldo por item, num agregado só do livro (`sum` de `bigint` volta como texto do
+    // `pg` → `Number`, seguro abaixo de 2^53 — mesma leitura de `listarSaldos`). Casado por `Map`
+    // abaixo, nunca uma consulta por item.
+    db
+      .select({
+        itemId: movimentacoesEstoque.itemId,
+        movimentacoes: count(),
+        saldo: sql<string>`sum(${movimentacoesEstoque.quantidadeMilesimos})`,
+      })
+      .from(movimentacoesEstoque)
+      .groupBy(movimentacoesEstoque.itemId),
   ]);
+
+  const livroPorItem = new Map(
+    livro.map((linha) => [
+      linha.itemId,
+      { movimentacoes: Number(linha.movimentacoes), saldoMilesimos: Number(linha.saldo ?? 0) },
+    ]),
+  );
 
   // Insumo É um item do catálogo — nome/unidade dele já vêm da MESMA consulta acima, nunca uma
   // terceira consulta.
@@ -207,7 +233,7 @@ export async function listarCatalogoCompleto(): Promise<ItemDoCatalogoCompleto[]
     fichaPorItem.set(linha.itemId, lista);
   }
 
-  return itens.map((item) => {
+  const catalogo = itens.map((item) => {
     const categoriaVendaResumida: CategoriaResumida | null = item.categoriaVendaId
       ? {
           id: item.categoriaVendaId,
@@ -240,16 +266,24 @@ export async function listarCatalogoCompleto(): Promise<ItemDoCatalogoCompleto[]
       categoriaCompra: categoriaCompraResumida,
       area: areaDoItem(categoriaVendaResumida, categoriaCompraResumida),
       ficha: fichaPorItem.get(item.id) ?? [],
+      ativo: item.ativo,
+      movimentacoes: livroPorItem.get(item.id)?.movimentacoes ?? 0,
+      saldoMilesimos: livroPorItem.get(item.id)?.saldoMilesimos ?? 0,
     };
   });
+
+  // Ativos antes dos desativados, sem mudar a ordem (de criação) dentro de cada grupo — dois
+  // filtros em vez de `sort`, que deixa a ordem relativa explícita.
+  return [...catalogo.filter((item) => item.ativo), ...catalogo.filter((item) => !item.ativo)];
 }
 
 export type InsumoParaFicha = InsumoDisponivel & { unidade: Unidade | null };
 
-// TODOS os itens do catálogo — id, nome, controlaEstoque (o mesmo formato que `validarItem`
+// Os itens ATIVOS do catálogo — id, nome, controlaEstoque (o mesmo formato que `validarItem`
 // espera) e a unidade (para o diálogo mostrar "15 g de Grão de café", não só o nome). Usada pelo
 // diálogo para a MESMA checagem que o servidor faz, e para a lista de insumos candidatos da
-// ficha técnica.
+// ficha técnica. Item desativado não é candidato a insumo NOVO (plano 06-08, D-20); o insumo
+// desativado que já está na ficha de um item o diálogo tira do próprio catálogo carregado.
 export async function listarInsumosDisponiveis(): Promise<InsumoParaFicha[]> {
   const itens = await db
     .select({
@@ -259,6 +293,7 @@ export async function listarInsumosDisponiveis(): Promise<InsumoParaFicha[]> {
       unidade: itensCatalogo.unidade,
     })
     .from(itensCatalogo)
+    .where(eq(itensCatalogo.ativo, true))
     .orderBy(asc(itensCatalogo.nome));
 
   return itens.map((item) => ({ ...item, unidade: item.unidade as Unidade | null }));

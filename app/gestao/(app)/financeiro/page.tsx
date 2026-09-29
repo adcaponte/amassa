@@ -22,6 +22,7 @@ import { mesAnterior, mesSeguinte } from "@/lib/financeiro/calendario";
 import { filtrarExtrato, montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
 import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { resumoDoMes } from "@/lib/financeiro/mes";
+import { listarSaldos } from "@/lib/estoque/consultas";
 import {
   textoCancelado,
   textoDespesaLancada,
@@ -76,6 +77,21 @@ const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const
 // `searchParams` é `Promise` no Next.js 15. `?aba=` decide Venda, Despesa, Caixa ou Mês; o aviso
 // pós-navegação é resolvido AQUI, no servidor, a partir de `?aviso=lancado&documento=<id>` — o
 // texto pronto desce para `AvisoFinanceiro`, que só mostra o toast, nunca monta a frase sozinho.
+// O saldo de cada material ANTES do lançamento, para o efeito da Venda e da Compra dizer "fica com
+// …" (plano 06-08, D-21) — a MESMA leitura da aba Saldos (`listarSaldos`). Num `try`/`catch`
+// PRÓPRIO, fora do `Promise.all` que derrubaria a página: se o Estoque falhar, registra no log e
+// devolve `null`, e o painel volta ao formato de antes, sem aviso e sem bloqueio — a venda nunca
+// depende do Estoque para ser lançada (T-06-37).
+async function carregarSaldosParaOEfeito(): Promise<Map<string, number> | null> {
+  try {
+    const saldos = await listarSaldos();
+    return new Map(saldos.map((saldo) => [saldo.id, saldo.saldoMilesimos]));
+  } catch (erro) {
+    console.error("Não deu para carregar os saldos do Estoque no Financeiro:", erro);
+    return null;
+  }
+}
+
 export default async function PaginaFinanceiro({
   searchParams,
 }: {
@@ -167,6 +183,7 @@ export default async function PaginaFinanceiro({
     categoriasParaDespesa,
     catalogoDaCompra,
     itensParaEfeito,
+    saldosParaEfeito,
     configuracao,
     movimentos,
     parcelasEmAberto,
@@ -190,6 +207,7 @@ export default async function PaginaFinanceiro({
     abaDespesa ? listarCategoriasParaEscolha(["geral", "custo", "fora"]) : Promise.resolve([]),
     abaDespesa ? listarCatalogoDaCompra() : Promise.resolve([]),
     abaVenda || abaDespesa ? listarItensParaEfeito() : Promise.resolve([]),
+    abaVenda || abaDespesa ? carregarSaldosParaOEfeito() : Promise.resolve(null),
     // A Venda e a Despesa também precisam da configuração — o pagamento (04.4-06/07-PLAN.md) lê
     // a taxa do cartão e a data do saldo inicial para o aviso do cartão e a conferência das
     // parcelas.
@@ -388,6 +406,7 @@ export default async function PaginaFinanceiro({
           categoriasParaDespesa={categoriasParaDespesa}
           catalogoDaCompra={catalogoDaCompra}
           itensParaEfeito={itensParaEfeito}
+          saldos={saldosParaEfeito}
           configuracao={{
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
@@ -467,6 +486,7 @@ export default async function PaginaFinanceiro({
           categorias={categoriasParaValorLivre}
           catalogo={catalogo}
           itensParaEfeito={itensParaEfeito}
+          saldos={saldosParaEfeito}
           configuracao={{
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,

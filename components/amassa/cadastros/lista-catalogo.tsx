@@ -13,6 +13,7 @@ import {
   FRASE_VAZIO_CATALOGO_CORPO,
   FRASE_VAZIO_CATALOGO_TITULO,
   ROTULO_AREA,
+  ROTULO_CHIP_DESATIVADO,
   ROTULO_EDITAR_ITEM,
   ROTULO_NOVO_ITEM,
   ROTULO_SEM_VALOR,
@@ -134,6 +135,16 @@ export function ListaCatalogo({ catalogo, categoriasParaItem, insumosDisponiveis
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1">
+                      {/* Plano 06-08 (D-20): chip neutro, sem opacidade reduzida — o item continua
+                          legível e editável; desativado só some da Venda e da Compra. */}
+                      {!item.ativo && (
+                        <span
+                          data-testid="catalogo-chip-desativado"
+                          className="text-apoio bg-superficie-2 text-tinta-fraca rounded-full px-2 py-0.5 font-semibold"
+                        >
+                          {ROTULO_CHIP_DESATIVADO}
+                        </span>
+                      )}
                       {!item.aparecenaVenda && (
                         <span
                           data-testid="catalogo-etiqueta"

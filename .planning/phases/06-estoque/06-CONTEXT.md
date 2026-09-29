@@ -185,6 +185,18 @@ deixou aberta, pela opção que ela recomendou.
   > dono manda não decidir sozinho regra de cancelamento que ele não decidiu. Adotadas mesmo assim
   > porque **nada da Fase 06 chega à produção sem ele**: o código fica num branch separado e a
   > migração só ele aplica — ele revisa antes do merge. Estão no topo da lista dele para confirmar.
+  >
+  > ✅ **Confirmadas pelo dono em 29/09/2026** — D-23 **vale** e D-24 **vale**, sem mudança; respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário (`06-VERIFICACAO-HUMANA.md` Parte 0).
+  > O `[auto]` fica como história de como a decisão nasceu. A D-23 ganhou, na mesma resposta, o
+  > complemento da **D-23a** abaixo (o caso do saldo zero ou negativo, WR-01).
+- **D-23a (dono, 29/09/2026) — venda cancelada com saldo zero ou negativo na hora de cancelar (WR-01
+  da revisão de código):** o material volta ao **custo médio do instante** — a mesma conta de um ajuste
+  para mais (R6: valor = round(Δ × A), com A a taxa corrente de `06-RESEARCH.md` §Pergunta 3, e com
+  saldo zero a da última entrada com preço) — e a prateleira **não** é reprecificada pelo
+  cancelamento. Com saldo positivo continua a D-23 (volta o que a venda levou). R1 vem antes das duas
+  (se o estorno zera o saldo, grava −V). Em código: a regra R7 de `lib/estoque/custo.ts` (o movimento
+  `estorno_de_venda`). Escolhida a alternativa da revisão; respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário (`06-VERIFICACAO-HUMANA.md` Parte 0). Antes, o código aplicava R3 e a
+  prateleira inteira passava ao custo da venda antiga.
 - **D-25 `[auto]` — algoritmo de custo:** **custo médio móvel**, com os grampos do ERPNext para
   estoque negativo, exatamente como a pesquisa especifica (Pergunta 3: regras R1–R6, a tabela de sete
   casos com números, arredondamento meio-para-cima em `BigInt`). Mora em `lib/estoque/custo.ts`,
@@ -192,6 +204,12 @@ deixou aberta, pela opção que ela recomendou.
   (`valor_informado_centavos`) quando ele difere (entrada com saldo negativo reprecifica).
 - **D-26 `[auto]`:** Saída com saldo zero usa o custo da **última entrada com preço**; sem nenhuma,
   custo zero (aparece como R$ 0,00 no "Para onde foi"). (Assumption A5.)
+  — **Emendada pelo dono em 29/09/2026 (WR-02 da revisão de código):** o **estorno de venda não conta**
+  como entrada com preço. "Última entrada com preço" = compra, entrada manual (e peça pronta) e
+  contagem (saldo inicial). Material nunca comprado continua mostrando "—" mesmo depois de uma venda
+  cancelada. Em código, três lugares em sincronia: `valorarMovimento` (`lib/estoque/custo.ts`) não o
+  guarda, e `lerEstados` (`lib/estoque/gravacao.ts`) e `listarSaldos` (`lib/estoque/consultas.ts`)
+  filtram `estorno_de_id is null`. Escolhida a alternativa da revisão; respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário (`06-VERIFICACAO-HUMANA.md` Parte 0).
 - **D-27 `[auto]` — área que "paga" cada movimentação:** a **área do item** (filtro da lista, D-12) vem
   da categoria de **compra** primeiro, e da de venda na falta — como o adendo §2 manda. A pesquisa
   achou que `areaDoItem` de hoje faz o contrário (venda primeiro): o Estoque usa a ordem do adendo,
@@ -204,6 +222,10 @@ deixou aberta, pela opção que ela recomendou.
   estoque exige categoria de **compra** (grupo custo/geral), e a semente só tem "Peças prontas" como
   categoria de **venda** — peça produzida não tem categoria de compra natural. **Pergunta para o dono,
   não decidida:** se quer uma categoria de compra própria semeada para a produção da casa.
+  — ✅ **Respondida pelo dono em 29/09/2026: sim, "Produção da casa"**, área Peças, grupo `custo`,
+  **criada agora** — semeada no fim de `db/migrations/0023_estoque.sql` (idempotente, `where not
+  exists` sobre o nome normalizado), conferida por `test:migracoes` e pelo Roteiro 15, Passo 5.5;
+  respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário (`06-VERIFICACAO-HUMANA.md` Parte 0). A "Peça pronta" continua reconhecida pela ficha ligada, não por esta categoria.
 - **D-30 `[auto]`:** Compra paga depois com valor diferente do lançado: o custo do estoque é o **da
   nota lançada**; nenhuma movimentação de correção de custo nesta fase. Registrado. (Pesquisa, Pitfall 14.)
 - **D-31 `[auto]` — "Para onde foi" inclui as vendas:** a baixa por venda aparece como barra própria,

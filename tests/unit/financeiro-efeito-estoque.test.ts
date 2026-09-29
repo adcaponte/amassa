@@ -3,9 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   efeitoNoEstoque,
   formatarEfeito,
+  formatarEfeitoComSaldo,
+  materiaisQueFicamNegativos,
   type ItemParaEfeito,
   type LinhaParaEfeito,
 } from "@/lib/financeiro/efeito-estoque";
+import {
+  DICA_EFEITO_ESTOQUE,
+  DICA_EFEITO_ESTOQUE_COMPRA,
+  textoAvisoVendaNegativa,
+} from "@/lib/financeiro/textos";
 
 const grao: ItemParaEfeito = {
   id: "grao",
@@ -273,5 +280,183 @@ describe("formatarEfeito", () => {
     expect(
       formatarEfeito({ itemId: "leite", nome: "Leite", unidade: "l", variacaoMilesimos: -500 }),
     ).toBe("−0,5 L · Leite");
+  });
+});
+
+// Plano 06-03 (D-03, 06-RESEARCH.md §Pergunta 1): o Financeiro GRAVA o efeito chamando
+// `efeitoNoEstoque([linha], ...)` uma vez por linha — para cada movimentação levar a sua linha e a
+// área dela. Isso só é o "mesmo cálculo" se a função for linear em inteiros: a soma, por item, dos
+// efeitos de cada linha tem de ser igual ao efeito do documento inteiro.
+describe("efeitoNoEstoque — por linha = documento inteiro", () => {
+  const todos = [grao, paoCongelado, cafe, refil, paoDeQueijo, copo, horaDeUso, boleiraComFichaEEstoque, esmalte, leite];
+
+  function somaPorItem(efeitos: { itemId: string; variacaoMilesimos: number }[]): Map<string, number> {
+    const soma = new Map<string, number>();
+    for (const entrada of efeitos) {
+      soma.set(entrada.itemId, (soma.get(entrada.itemId) ?? 0) + entrada.variacaoMilesimos);
+    }
+    return soma;
+  }
+
+  function conferir(linhas: LinhaParaEfeito[], sentido: "venda" | "compra") {
+    const porLinha = linhas.flatMap((linha) => efeitoNoEstoque([linha], todos, sentido));
+    const inteiro = efeitoNoEstoque(linhas, todos, sentido);
+    expect(somaPorItem(porLinha)).toEqual(somaPorItem(inteiro));
+  }
+
+  it("venda com o mesmo insumo em duas linhas (Café + Refil + Café)", () => {
+    conferir([linhaDeItem("cafe", 1), linhaDeItem("refil", 2), linhaDeItem("cafe", 3)], "venda");
+  });
+
+  it("venda mista: ficha, estoque próprio, ficha+estoque, sem estoque e valor livre", () => {
+    conferir(
+      [
+        linhaDeItem("pao", 40),
+        linhaDeItem("copo", 2),
+        linhaDeItem("boleira", 1),
+        linhaDeItem("hora", 3),
+        { itemId: null, quantidade: 1 },
+        linhaDeItem("pao", 4),
+      ],
+      "venda",
+    );
+  });
+
+  it("compra com o mesmo material em duas linhas", () => {
+    conferir(
+      [
+        { itemId: "esmalte", quantidade: 1, quantidadeEstoque: "100", valorCentavos: 240000 },
+        { itemId: "leite", quantidade: 1, quantidadeEstoque: "0.5", valorCentavos: 300 },
+        { itemId: "esmalte", quantidade: 1, quantidadeEstoque: "20", valorCentavos: 50000 },
+      ],
+      "compra",
+    );
+  });
+});
+
+// Plano 06-08 (D-21): cada linha do efeito diz como o material fica depois do lançamento, e a
+// Venda avisa do negativo sem nunca bloquear. Saldo `undefined` = os saldos não carregaram — a
+// linha volta ao formato de sempre, sem "fica com".
+describe("formatarEfeitoComSaldo", () => {
+  const argila = { itemId: "argila", nome: "Argila", unidade: "kg", variacaoMilesimos: -2000 };
+
+  it("venda de 2 kg com 3 kg no estoque fica com 1 kg", () => {
+    expect(formatarEfeitoComSaldo(argila, 3000)).toEqual({
+      texto: "−2 kg · Argila",
+      ficaCom: "fica com 1 kg",
+      negativo: false,
+    });
+  });
+
+  it("venda de 2 kg com 1 kg no estoque fica com −1 kg, negativo", () => {
+    expect(formatarEfeitoComSaldo(argila, 1000)).toEqual({
+      texto: "−2 kg · Argila",
+      ficaCom: "fica com −1 kg",
+      negativo: true,
+    });
+  });
+
+  it("zerar o estoque não é negativo", () => {
+    expect(formatarEfeitoComSaldo(argila, 2000)).toEqual({
+      texto: "−2 kg · Argila",
+      ficaCom: "fica com 0 kg",
+      negativo: false,
+    });
+  });
+
+  it("sem saldo (não carregou) → sem 'fica com', nunca negativo", () => {
+    expect(formatarEfeitoComSaldo(argila, undefined)).toEqual({
+      texto: "−2 kg · Argila",
+      ficaCom: null,
+      negativo: false,
+    });
+  });
+
+  it("compra de 25 kg com saldo −1 kg fica com 24 kg", () => {
+    expect(
+      formatarEfeitoComSaldo({ ...argila, variacaoMilesimos: 25000 }, -1000),
+    ).toEqual({ texto: "+25 kg · Argila", ficaCom: "fica com 24 kg", negativo: false });
+  });
+
+  it("litro aparece como L maiúsculo e decimal em pt-BR", () => {
+    expect(
+      formatarEfeitoComSaldo(
+        { itemId: "leite", nome: "Leite", unidade: "l", variacaoMilesimos: -200 },
+        150,
+      ),
+    ).toEqual({ texto: "−0,2 L · Leite", ficaCom: "fica com −0,05 L", negativo: true });
+  });
+
+  it("o texto é o mesmo de formatarEfeito — o formato novo só acrescenta ao fim", () => {
+    expect(formatarEfeitoComSaldo(argila, 3000).texto).toBe(formatarEfeito(argila));
+  });
+});
+
+describe("materiaisQueFicamNegativos", () => {
+  const efeito = [
+    { itemId: "argila", nome: "Argila", unidade: "kg", variacaoMilesimos: -2000 },
+    { itemId: "esmalte", nome: "Esmalte", unidade: "g", variacaoMilesimos: -50000 },
+    { itemId: "grao", nome: "Grão", unidade: "g", variacaoMilesimos: -15000 },
+  ];
+
+  it("devolve só os que terminam abaixo de zero, com o saldo final", () => {
+    const saldos = new Map([
+      ["argila", 1000],
+      ["esmalte", 100000],
+      ["grao", 0],
+    ]);
+    expect(materiaisQueFicamNegativos(efeito, saldos)).toEqual([
+      { itemId: "argila", nome: "Argila", saldoFinalMilesimos: -1000, saldoFinalTexto: "−1 kg" },
+      { itemId: "grao", nome: "Grão", saldoFinalMilesimos: -15000, saldoFinalTexto: "−15 g" },
+    ]);
+  });
+
+  it("saldos nulo (não carregaram) → lista vazia", () => {
+    expect(materiaisQueFicamNegativos(efeito, null)).toEqual([]);
+  });
+
+  it("item sem saldo conhecido no mapa fica de fora", () => {
+    expect(materiaisQueFicamNegativos(efeito, new Map([["esmalte", 100000]]))).toEqual([]);
+  });
+
+  it("compra nunca deixa negativo o que já estava positivo", () => {
+    expect(
+      materiaisQueFicamNegativos(
+        [{ itemId: "argila", nome: "Argila", unidade: "kg", variacaoMilesimos: 5000 }],
+        new Map([["argila", 0]]),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("textoAvisoVendaNegativa", () => {
+  it("um material → nomeia e diz o saldo", () => {
+    expect(
+      textoAvisoVendaNegativa([
+        { itemId: "argila", nome: "Argila", saldoFinalMilesimos: -1000, saldoFinalTexto: "−1 kg" },
+      ]),
+    ).toBe(
+      "Esta venda deixa Argila com saldo negativo (−1 kg). Pode lançar — depois confira a prateleira.",
+    );
+  });
+
+  it("dois ou mais → diz quantos, nunca a lista de nomes", () => {
+    expect(
+      textoAvisoVendaNegativa([
+        { itemId: "argila", nome: "Argila", saldoFinalMilesimos: -1000, saldoFinalTexto: "−1 kg" },
+        { itemId: "grao", nome: "Grão", saldoFinalMilesimos: -15000, saldoFinalTexto: "−15 g" },
+      ]),
+    ).toBe(
+      "Esta venda deixa 2 materiais com saldo negativo. Pode lançar — depois confira a prateleira.",
+    );
+  });
+});
+
+describe("dicas do efeito — deixaram de ser falsas", () => {
+  it("venda e compra dizem que o lançamento mexe no estoque", () => {
+    expect(DICA_EFEITO_ESTOQUE).toBe("Ao lançar a venda, isto sai do estoque.");
+    expect(DICA_EFEITO_ESTOQUE_COMPRA).toBe(
+      'O custo de cada unidade sai de "custou ao todo" ÷ quantidade. Ao lançar, isto entra no estoque.',
+    );
   });
 });

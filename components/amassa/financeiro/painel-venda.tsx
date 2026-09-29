@@ -7,7 +7,11 @@ import type { CategoriaParaEscolha, ItemDoCatalogoParaVenda } from "@/lib/financ
 import { repartirDesconto, type Desconto } from "@/lib/financeiro/desconto";
 import { converterPercentualParaPontosBase, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { areasDaVenda, listaEmPortugues } from "@/lib/financeiro/documento";
-import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
+import {
+  efeitoNoEstoque,
+  materiaisQueFicamNegativos,
+  type ItemParaEfeito,
+} from "@/lib/financeiro/efeito-estoque";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import { conferirParcelas, dividirEmDuasFormas, gerarPlano, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
 import { CHAVE_RASCUNHO_VENDA, lerRascunho, serializarRascunho, type LinhaDoRascunho } from "@/lib/financeiro/rascunho";
@@ -24,6 +28,7 @@ import {
   TITULO_ESTA_VENDA,
   TITULO_O_QUE_FOI_VENDIDO,
   textoDataRetroativa,
+  textoAvisoVendaNegativa,
   textoDicaDeAreas,
   type FormaDePagamento,
 } from "@/lib/financeiro/textos";
@@ -78,6 +83,9 @@ export type PainelVendaProps = {
   catalogo: ItemDoCatalogoParaVenda[];
   itensParaEfeito: ItemParaEfeito[];
   configuracao: { taxaCartaoPontosBase: number; dataSaldoInicial: string | null };
+  // Plano 06-08 (D-21): o saldo de cada material antes da venda (`listarSaldos`); `null` quando a
+  // consulta do Estoque falhou — o painel fica como era, sem "fica com" e sem aviso.
+  saldos?: ReadonlyMap<string, number> | null;
 };
 
 // O painel de venda completo (04.4-03-PLAN.md, 04.4-06-PLAN.md): catálogo com atalhos/busca/lista
@@ -86,7 +94,14 @@ export type PainelVendaProps = {
 // O rascunho sobrevive a trocar de aba/recarregar via `lib/financeiro/rascunho.ts`, na mesma aba
 // do navegador — o PAGAMENTO fica de fora do rascunho de propósito: mudar de aba e voltar não
 // deve reencontrar parcelas geradas para um total que já mudou.
-export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, configuracao }: PainelVendaProps) {
+export function PainelVenda({
+  hoje,
+  categorias,
+  catalogo,
+  itensParaEfeito,
+  configuracao,
+  saldos = null,
+}: PainelVendaProps) {
   const [dialogoValorLivreAberto, setDialogoValorLivreAberto] = useState(false);
   const [dialogoListaAberto, setDialogoListaAberto] = useState(false);
   const [linhas, setLinhas] = useState<LinhaLocal[]>([]);
@@ -439,6 +454,9 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
     itensParaEfeito,
     "venda",
   );
+  // D-21/D-06: o aviso de negativo é só informação — a condição de habilitar "Lançar venda"
+  // (`podeLancar`, acima) NÃO olha para isto.
+  const materiaisNegativos = materiaisQueFicamNegativos(efeito, saldos);
 
   function tocarItemDoCatalogo(item: ItemDoCatalogoParaVenda) {
     setLinhas((atual) => {
@@ -695,11 +713,23 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
           erroDeGeracao={erroDoPlano}
         />
 
-        <EfeitoEstoque efeito={efeito} />
+        <EfeitoEstoque efeito={efeito} saldos={saldos} />
 
         {erro && (
           <p role="alert" aria-live="assertive" className="text-apoio text-destructive">
             {erro}
+          </p>
+        )}
+
+        {/* FORA do `<details>` do efeito, que nasce fechado (Pitfall 16): o aviso de negativo tem
+            de ser visto sem abrir nada, logo acima dos botões — e nunca desabilita "Lançar venda". */}
+        {materiaisNegativos.length > 0 && (
+          <p
+            role="status"
+            data-testid="venda-aviso-negativo"
+            className="text-apoio bg-atencao-fundo text-atencao rounded-md px-3 py-2 break-words"
+          >
+            {textoAvisoVendaNegativa(materiaisNegativos)}
           </p>
         )}
 

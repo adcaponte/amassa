@@ -284,6 +284,29 @@
   }
 }
 
+/* Barra de ação fixa do Estoque (Fase 06, UI-D6) — "Registrar movimentação" preso ACIMA da barra
+   inferior no celular (`components/amassa/estoque/barra-acao-fixa.tsx`). A altura é 8 + 52 + 8
+   (padding sm + botão de 52px + padding sm) e é a ÚNICA fonte desse número: a barra usa esta
+   variável como altura, e a página a usa para reservar o espaço embaixo do último cartão.
+
+   Quando a barra existe na página (`data-acao-fixa`), o aviso (toast) sobe a altura dela a mais —
+   senão ele cobriria o próprio "Registrar movimentação", justo o botão que se toca logo depois de
+   ler o aviso. A mesma técnica da 04.4 acima: o `Toaster` é montado uma vez no layout e só lê
+   `--deslocamento-aviso`; quem muda é a variável, nunca a prop. Só abaixo de `md` (768px) — acima
+   dele a barra não existe e o bloco `min-width: 48rem` acima continua valendo (esta regra tem
+   especificidade maior, por isso a condição de largura é obrigatória aqui). */
+:root {
+  --altura-acao-fixa: 68px;
+}
+
+@media (width < 48rem) {
+  :root:has([data-acao-fixa]) {
+    --deslocamento-aviso: calc(
+      var(--altura-barra-inferior) + var(--altura-acao-fixa) + env(safe-area-inset-bottom) + 16px
+    );
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

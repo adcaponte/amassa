@@ -7,6 +7,7 @@ import {
   semearItem,
   somarDiasAoHoje,
 } from "./apoio/semear-financeiro";
+import { saldoNoBanco } from "./apoio/semear-estoque";
 
 // A Venda completa (04.4-03-PLAN.md): carrinho pelo catálogo (atalhos, busca, lista completa,
 // valor livre), quantidade, preço editável com etiqueta "tabela", desconto (04.4-03-PLAN.md
@@ -879,5 +880,74 @@ test.describe("financeiro venda", () => {
       scrollWidth,
       `Venda rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
+  });
+
+  // Plano 06-08 (D-21, EST-18): cada linha do efeito diz como o material fica, e a venda que deixa
+  // um material negativo AVISA fora do recolhível — sem nunca desabilitar "Lançar venda" (D-06).
+  // O insumo é do próprio teste e nasce sem saldo (nenhuma movimentação), então qualquer venda o
+  // deixa negativo. Nome longo de propósito: o aviso e a linha quebram por palavra a 320px.
+  test("o efeito diz como o material fica e avisa do negativo sem bloquear", async ({ page }) => {
+    const suf = sufixoUnico();
+    const nomeInsumo = `${`[e2e] Grão de café especial torrado na semana passada para o balcão `.slice(0, 80)}${suf}`;
+    const nomeProduto = `[e2e] Café coado ${suf}`;
+    const insumoId = await semearItem({
+      nome: nomeInsumo,
+      apareceNaVenda: false,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "g",
+      categoriaCompra: "Insumos da cafeteria",
+      atalhoCompra: false,
+    });
+    await semearItem({
+      nome: nomeProduto,
+      categoriaVenda: "Bebidas e comidas",
+      precoCentavos: 800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+      ficha: [{ insumoId, quantidade: "15" }],
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/financeiro");
+    await buscarNaVenda(page, suf);
+    await atalho(page, nomeProduto).click();
+
+    // O aviso aparece sem abrir o recolhível — ele mora FORA do `<details>`.
+    const aviso = page.getByTestId("venda-aviso-negativo");
+    await expect(aviso).toBeVisible();
+    await expect(aviso).toHaveAttribute("role", "status");
+    await expect(aviso).toContainText(
+      `Esta venda deixa ${nomeInsumo} com saldo negativo (−15 g). Pode lançar — depois confira a prateleira.`,
+    );
+    const efeito = page.getByTestId("venda-efeito");
+    await expect(efeito).not.toHaveAttribute("open", "");
+    await expect(efeito.getByTestId("venda-aviso-negativo")).toHaveCount(0);
+
+    // Abrindo o recolhível: o prefixo de sempre, e "fica com −15 g" ao fim da linha.
+    await efeito.locator("summary").click();
+    await expect(efeito).toContainText(`−15 g · ${nomeInsumo}`);
+    await expect(efeito.getByTestId("efeito-fica-com")).toHaveText("fica com −15 g");
+
+    // A 320px, a linha longa e o aviso quebram por palavra — nada rola na horizontal.
+    await page.setViewportSize({ width: 320, height: 800 });
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidth,
+      `a Venda com o aviso de negativo rola a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
+
+    // "Lançar venda" continua habilitado e a venda lança — o negativo nunca bloqueia.
+    await page.getByRole("button", { name: "Dinheiro", exact: true }).click();
+    const botaoLancar = page.getByRole("button", { name: "Lançar venda" });
+    await expect(botaoLancar).toBeEnabled();
+    await botaoLancar.click();
+    await esperarVendaLancada(page);
+    await expect.poll(() => saldoNoBanco(insumoId)).toBe(-15000);
   });
 });

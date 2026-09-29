@@ -202,3 +202,65 @@ describe("contraste das tags sem etapa do bloco Produção do Início (CR-04)", 
     },
   );
 });
+
+// Fase 06 (Estoque), plano 06-04: os pares de cor que a fase passa a usar, P1 a P17b da tabela
+// "Color → Pares de contraste" de `.planning/phases/06-estoque/06-UI-SPEC.md`, cada um lido do
+// `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui. Mínimo 4,5 para texto
+// normal; 3,0 para elemento não-texto (borda de 4px, preenchimento de barra) e para texto grande.
+// Achado real se reprovar: o token (ou o par que o componente usa) muda, nunca o limiar.
+describe("contraste do Estoque (06-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const TEXTO_GRANDE = 3.0;
+
+  const PARES = [
+    // Margem quase nula — qualquer ajuste de paleta reprova aqui de propósito (P1 = 4,51:1).
+    ["P1", "atencao", "atencao-fundo", TEXTO_NORMAL, "banner e chip “Acabando”"],
+    ["P2", "atencao", "superficie", TEXTO_NORMAL, "saldo acabando no cartão e na tabela"],
+    ["P3", "erro", "superficie", TEXTO_NORMAL, "saldo negativo"],
+    ["P4", "erro", "erro-fundo", TEXTO_NORMAL, "chips “Saldo negativo” e “Perda”"],
+    ["P5", "acento", "acento-fundo", TEXTO_NORMAL, "pílula marcada, destino marcado"],
+    ["P6", "acento-hover", "acento-fundo", TEXTO_NORMAL, "“o saldo passa de X para Y”"],
+    ["P7", "primary-foreground", "acento", TEXTO_NORMAL, "segmento marcado, botão primário"],
+    ["P8", "tinta-media", "superficie-2", TEXTO_NORMAL, "prévia neutra, atalhos, notas"],
+    ["P9", "tinta-fraca", "superficie-2", TEXTO_NORMAL, "chip “Desativado”"],
+    ["P10", "sucesso", "superficie", TEXTO_NORMAL, "número de entrada, “✓ Contado”"],
+    // Margem quase nula — qualquer ajuste de paleta reprova aqui de propósito (P11 = 4,57:1).
+    ["P11", "sucesso", "sucesso-fundo", TEXTO_NORMAL, "chip “Venda”"],
+    ["P12", "acento", "superficie-2", NAO_TEXTO, "barra do “Para onde foi”"],
+    ["P13", "erro", "superficie-2", NAO_TEXTO, "barra “Perda ou quebra”"],
+    ["P14", "atencao", "superficie", NAO_TEXTO, "borda esquerda de 4px — acabando"],
+    ["P15", "erro", "superficie", NAO_TEXTO, "borda esquerda de 4px — negativo"],
+    ["P16", "erro", "atencao-fundo", TEXTO_NORMAL, "linha “Com saldo negativo: …” no banner"],
+    // P17a e P17b são válidos SÓ em Display 28px/700 (texto grande, WCAG 1.4.3). P17a (4,20:1)
+    // reprovaria como texto normal: o componente nunca pode usar `atencao` sobre `superficie-2`
+    // abaixo de 24px (ou 18,66px em 700).
+    ["P17a", "atencao", "superficie-2", TEXTO_GRANDE, "saldo acabando no resumo da folha (Display)"],
+    ["P17b", "erro", "superficie-2", TEXTO_GRANDE, "saldo negativo no resumo da folha (Display)"],
+  ] as const;
+
+  it("a tabela tem os 18 pares da UI-SPEC (P1..P16, P17a, P17b)", () => {
+    expect(PARES.map(([par]) => par)).toEqual([
+      ...Array.from({ length: 16 }, (_, indice) => `P${indice + 1}`),
+      "P17a",
+      "P17b",
+    ]);
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = tokenDaPlataforma(tokenDaFrente);
+      const fundo = tokenDaPlataforma(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+
+  it("P17a só passa por ser texto grande — como texto normal reprovaria (o limite é real)", () => {
+    const razao = razaoDeContraste(tokenDaPlataforma("atencao"), tokenDaPlataforma("superficie-2"));
+    expect(razao).toBeLessThan(TEXTO_NORMAL);
+  });
+});

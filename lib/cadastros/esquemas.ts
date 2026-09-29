@@ -202,6 +202,14 @@ export function esquemaItem(insumosDisponiveis: ReadonlyMap<string, InsumoDispon
     });
 }
 
+// Desativar/reativar item (plano 06-08, D-20): o estado DESEJADO, nunca "inverter" — mesma
+// disciplina de `esquemaAtivacao` (categorias). Item nunca se apaga (FNC-10): esta é a única forma
+// de tirar um item de circulação.
+export const esquemaAtivacaoDeItem = z.object({
+  id: esquemaId,
+  ativo: z.boolean({ message: "Não deu para entender o pedido. Recarregue a página e tente de novo." }),
+});
+
 export function esquemaEdicaoDeItem(insumosDisponiveis: ReadonlyMap<string, InsumoDisponivel>) {
   return z
     .object({ id: esquemaId, ...camposDeItemBase })

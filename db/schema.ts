@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -605,11 +606,30 @@ export const itensCatalogo = pgTable(
     atalhoCompra: boolean("atalho_compra").notNull().default(false),
     unidade: unidadeEstoque("unidade"),
     categoriaCompraId: uuid("categoria_compra_id").references(() => categorias.id),
+    // Fase 06 — Estoque (migração 0023, D-01/D-20): o Estoque NÃO tem cadastro próprio; acrescenta
+    // ao item só o que é dele. Mínimo em MILÉSIMOS inteiros da unidade (mesma escala de
+    // `movimentacoes_estoque.quantidade_milesimos`); zero = "nunca avisa" (EST-04). `ativo` no
+    // MESMO padrão de `categorias.ativa`: item com movimentação ou venda se desativa, nunca se
+    // apaga (o `revoke delete` da 0015 continua valendo). Nenhuma coluna de SALDO aqui — o saldo é
+    // sempre a soma do livro (EST-02).
+    estoqueMinimoMilesimos: bigint("estoque_minimo_milesimos", { mode: "number" })
+      .notNull()
+      .default(0),
+    observacoes: text("observacoes"),
+    ativo: boolean("ativo").notNull().default(true),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
     atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (tabela) => [
     check("itens_catalogo_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    check(
+      "itens_catalogo_minimo_nao_negativo",
+      sql`${tabela.estoqueMinimoMilesimos} >= 0`,
+    ),
+    check(
+      "itens_catalogo_observacoes_comprimento",
+      sql`${tabela.observacoes} is null or length(trim(${tabela.observacoes})) between 1 and 500`,
+    ),
     check(
       "itens_catalogo_preco_no_intervalo",
       sql`${tabela.precoVendaCentavos} is null or (${tabela.precoVendaCentavos} >= 1 and ${tabela.precoVendaCentavos} <= 1000000000)`,
@@ -1330,5 +1350,166 @@ export const anotacoesDaCasa = pgTable(
     unique("anotacoes_da_casa_linha_unica_uk").on(tabela.linhaUnica),
     check("anotacoes_da_casa_linha_unica", sql`${tabela.linhaUnica}`),
     check("anotacoes_da_casa_texto_comprimento", sql`length(${tabela.texto}) <= 10000`),
+  ],
+);
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// Fase 06 — Estoque (migração 0023_estoque). O LIVRO IMUTÁVEL de onde o saldo sai.
+//
+// D-01 (ADENDO §1): NÃO existe tabela de materiais — o Estoque trabalha sobre `itens_catalogo`
+// com `controla_estoque`. EST-02: NÃO existe coluna de saldo nem view de saldos em lugar nenhum —
+// o saldo é `SUM(quantidade_milesimos)` e o valor em estoque é `SUM(valor_centavos)` sobre esta
+// tabela, lidos por `lib/estoque/consultas.ts::listarSaldos`. Correção é um AJUSTE (linha nova);
+// cancelamento é um ESTORNO (linha nova que aponta para a original por `estorno_de_id`). A migração
+// 0023 revoga `update` e `delete` de `amassa_app` — é o `revoke` que a 0003 antecipava.
+//
+// D-02 (ADENDO §3): a origem é `venda` · `compra` · `producao` · `manual`. `producao` existe no
+// modelo mas nada a produz até o redesenho da Produção.
+//
+// Deliberadamente SEM `atualizado_em` e SEM gatilho de toque — a exceção que
+// `02-MODELO-DE-DADOS.md` §0 abre para esta tabela (a mesma de `execucoes_backup` acima): linha
+// escrita nunca é alterada.
+//
+// A ORDEM do livro é `numero` (identity), NUNCA `criado_em`: `now()` é o instante de INÍCIO da
+// transação — todas as linhas de uma venda empatam, e uma transação que começou antes e comitou
+// depois ficaria "antes" (06-RESEARCH.md §Pergunta 4).
+//
+// 🔴 D-33 — ordem de publicação: o código que grava aqui de dentro da venda e da compra QUEBRA TODA
+// VENDA se chegar à produção antes da migração. Backup → migração 0023 → conferência de fora → só
+// então o código (roteiro do plano 06-11). A migração só ACRESCENTA, então o código antigo roda com
+// ela aplicada.
+//
+// Quantidade em MILÉSIMOS inteiros e dinheiro em CENTAVOS inteiros, ambos `bigint` (Pitfall 11: a
+// linha de venda aceita 99.999 unidades e a ficha 999.999 por unidade — passa de 2^31). O valor de
+// cada linha é decidido por `lib/estoque/custo.ts` (custo médio móvel, D-25), sob a trava de
+// `lib/estoque/gravacao.ts` — a única porta de escrita desta tabela.
+export const origemMovimentacao = pgEnum("origem_movimentacao", [
+  "venda",
+  "compra",
+  "producao",
+  "manual",
+]);
+export const tipoMovimentacao = pgEnum("tipo_movimentacao", ["entrada", "saida", "ajuste"]);
+// Os cinco destinos da saída MANUAL (D-15), cada um com a área que paga em
+// `lib/estoque/destinos.ts` (D-14). "Venda na loja" não existe: venda só nasce no Financeiro.
+export const destinoSaida = pgEnum("destino_saida", [
+  "aula",
+  "encomenda",
+  "cafeteria",
+  "atelie",
+  "perda",
+]);
+export const motivoMovimentacao = pgEnum("motivo_movimentacao", ["saldo_inicial", "peca_pronta"]);
+
+export const movimentacoesEstoque = pgTable(
+  "movimentacoes_estoque",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    numero: bigint("numero", { mode: "number" }).notNull().generatedAlwaysAsIdentity(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => itensCatalogo.id),
+    origem: origemMovimentacao("origem").notNull(),
+    tipo: tipoMovimentacao("tipo").notNull(),
+    motivo: motivoMovimentacao("motivo"),
+    destino: destinoSaida("destino"),
+    // A área do Financeiro que PAGOU esta saída: saída manual pelo destino (D-14), venda pela
+    // categoria de venda da linha (D-27). Decidida no servidor, nunca aceita do cliente.
+    area: areaFinanceira("area"),
+    // Com sinal: entrada > 0, saída < 0, ajuste qualquer (a diferença contra o saldo do instante).
+    quantidadeMilesimos: bigint("quantidade_milesimos", { mode: "number" }).notNull(),
+    // Efeito COM SINAL no valor em estoque (custo médio do instante, D-07).
+    valorCentavos: bigint("valor_centavos", { mode: "number" }).notNull(),
+    // O que se pagou/digitou numa entrada ("quanto custou ao todo", nota da compra). Pode diferir
+    // de `valor_centavos` quando a entrada chega com saldo negativo e reprecifica (caso 4).
+    valorInformadoCentavos: bigint("valor_informado_centavos", { mode: "number" }),
+    // O que se contou na prateleira — obrigatório no ajuste, permitido no saldo inicial.
+    saldoContadoMilesimos: bigint("saldo_contado_milesimos", { mode: "number" }),
+    documentoId: uuid("documento_id").references(() => documentos.id),
+    documentoLinhaId: uuid("documento_linha_id").references(() => documentoLinhas.id),
+    // `set null` (Pitfall 10): `excluirEncomenda` apaga de verdade — uma FK `restrict` aqui
+    // transformaria "excluir encomenda" em tela de erro. A ação referencial roda com o privilégio
+    // do dono da tabela, por isso funciona mesmo com `update` revogado de `amassa_app`.
+    encomendaId: uuid("encomenda_id").references(() => encomendas.id, { onDelete: "set null" }),
+    // Texto livre curto: turma (até a Agenda existir), "o que aconteceu?", motivo do ajuste.
+    nota: text("nota"),
+    // Um estorno por original (restrição única abaixo).
+    estornoDeId: uuid("estorno_de_id").references((): AnyPgColumn => movimentacoesEstoque.id),
+    registradoPor: uuid("registrado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("movimentacoes_estoque_numero_uk").on(tabela.numero),
+    unique("movimentacoes_estoque_estorno_de_uk").on(tabela.estornoDeId),
+    check("movimentacoes_estoque_quantidade_nao_zero", sql`${tabela.quantidadeMilesimos} <> 0`),
+    check(
+      "movimentacoes_estoque_sinal_do_tipo",
+      sql`(${tabela.tipo} = 'entrada' and ${tabela.quantidadeMilesimos} > 0) or (${tabela.tipo} = 'saida' and ${tabela.quantidadeMilesimos} < 0) or ${tabela.tipo} = 'ajuste'`,
+    ),
+    // Venda só sai (ou estorna entrando); compra só entra (ou estorna saindo); produção só entra;
+    // manual nunca é estorno (correção manual é ajuste).
+    check(
+      "movimentacoes_estoque_origem_tipo_estorno",
+      sql`(${tabela.origem} = 'venda' and ((${tabela.tipo} = 'saida' and ${tabela.estornoDeId} is null) or (${tabela.tipo} = 'entrada' and ${tabela.estornoDeId} is not null))) or (${tabela.origem} = 'compra' and ((${tabela.tipo} = 'entrada' and ${tabela.estornoDeId} is null) or (${tabela.tipo} = 'saida' and ${tabela.estornoDeId} is not null))) or (${tabela.origem} = 'producao' and ${tabela.tipo} = 'entrada' and ${tabela.estornoDeId} is null) or (${tabela.origem} = 'manual' and ${tabela.estornoDeId} is null)`,
+    ),
+    check(
+      "movimentacoes_estoque_documento_da_origem",
+      sql`(${tabela.documentoId} is not null) = (${tabela.origem} in ('venda', 'compra'))`,
+    ),
+    check(
+      "movimentacoes_estoque_destino_da_saida_manual",
+      sql`(${tabela.destino} is not null) = (${tabela.origem} = 'manual' and ${tabela.tipo} = 'saida')`,
+    ),
+    check(
+      "movimentacoes_estoque_destino_exige_area",
+      sql`${tabela.destino} is null or ${tabela.area} is not null`,
+    ),
+    check(
+      "movimentacoes_estoque_venda_exige_area",
+      sql`${tabela.origem} <> 'venda' or ${tabela.area} is not null`,
+    ),
+    check(
+      "movimentacoes_estoque_encomenda_so_no_destino_encomenda",
+      sql`${tabela.encomendaId} is null or ${tabela.destino} = 'encomenda'`,
+    ),
+    check(
+      "movimentacoes_estoque_valor_informado_da_entrada",
+      sql`(${tabela.valorInformadoCentavos} is not null) = (${tabela.tipo} = 'entrada')`,
+    ),
+    check(
+      "movimentacoes_estoque_valor_informado_nao_negativo",
+      sql`${tabela.valorInformadoCentavos} is null or ${tabela.valorInformadoCentavos} >= 0`,
+    ),
+    check(
+      "movimentacoes_estoque_saldo_contado_nao_negativo",
+      sql`${tabela.saldoContadoMilesimos} is null or ${tabela.saldoContadoMilesimos} >= 0`,
+    ),
+    check(
+      "movimentacoes_estoque_ajuste_exige_saldo_contado",
+      sql`${tabela.tipo} <> 'ajuste' or ${tabela.saldoContadoMilesimos} is not null`,
+    ),
+    check(
+      "movimentacoes_estoque_saldo_contado_so_ajuste_ou_inicial",
+      sql`${tabela.saldoContadoMilesimos} is null or ${tabela.tipo} = 'ajuste' or ${tabela.motivo} = 'saldo_inicial'`,
+    ),
+    check(
+      "movimentacoes_estoque_motivo_so_manual",
+      sql`${tabela.motivo} is null or ${tabela.origem} = 'manual'`,
+    ),
+    check(
+      "movimentacoes_estoque_motivo_do_tipo",
+      sql`${tabela.motivo} is null or (${tabela.motivo} = 'saldo_inicial' and ${tabela.tipo} in ('entrada', 'ajuste')) or (${tabela.motivo} = 'peca_pronta' and ${tabela.tipo} = 'entrada')`,
+    ),
+    check(
+      "movimentacoes_estoque_nota_comprimento",
+      sql`${tabela.nota} is null or length(trim(${tabela.nota})) between 1 and 160`,
+    ),
+    index("movimentacoes_estoque_item_numero_idx").on(tabela.itemId, tabela.numero),
+    index("movimentacoes_estoque_documento_idx").on(tabela.documentoId),
+    index("movimentacoes_estoque_criado_em_idx").on(tabela.criadoEm),
   ],
 );
