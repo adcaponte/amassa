@@ -70,7 +70,7 @@ export function MenuUsuario({ nome, variante, aoNavegar }: MenuUsuarioProps) {
               `type="submit"`, o `onClick` corre ANTES do envio: o formulario sumia e a Server
               Action `sair` nunca chegava a rodar. No celular, tocar em "Sair" nao deslogava —
               a pessoa continuava na sessao, num aparelho que o ateliê compartilha.
-              Fechar o Sheet nao e necessario aqui: `sair` navega para /login e o layout
+              Fechar o Sheet nao e necessario aqui: `sair` navega para /gestao/login e o layout
               inteiro desmonta junto. Ver tests/e2e/sessao.spec.ts:110, que pega isto. */}
           <form action={sair}>
             <button

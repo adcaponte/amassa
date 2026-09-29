@@ -275,9 +275,16 @@
 
 **Início**
 
-- [x] **GES-07**: O Início mostra, nesta ordem: Agenda de hoje (com "Agora no espaço: N pessoas"),
-  O que vence, Produção, Estoque acabando e Anotações. **Sem saldo** (decisão do dono). Depois dos
-  blocos vêm as pílulas de atalho para os módulos fora da barra e o índice de todos os módulos
+- [x] **GES-07**: O Início mostra, de cima para baixo: a saudação; as **pílulas de atalho** para os
+  módulos fora da barra; os cinco blocos, nesta ordem — Agenda de hoje (com "Agora no espaço: N
+  pessoas"), O que vence, Produção, Estoque acabando e Anotações; e, **depois** deles, o índice de
+  todos os módulos. **Sem saldo** (decisão do dono)
+  — **Corrigido em 29/09/2026, pela verificação da fase:** este requisito dizia que as pílulas vinham
+  "depois dos blocos". Não vêm, e nunca vieram: o protótipo aprovado as põe ANTES
+  (`prototipo-gestao.html:217`, `telaInicio()`: saudação → `.pilulas` → `.dia` com os blocos), o plano 06
+  seguiu o protótipo, e o código também (`app/gestao/(app)/page.tsx`: `<PilulasDeAtalho />` na linha 44,
+  os blocos de 59 a 75, `<IndiceDosModulos />` na 80). O protótipo vence sobre a interface, então quem
+  estava errado era o texto; o índice, esse sim, sempre esteve depois
   — **Alterado em 29/09/2026, no portão de verificação humana da própria fase (item 13):** este
   requisito dizia "Agora no espaço: N de **M lugares**". O denominador vinha do protótipo aprovado
   ("3 de 10 lugares"), nunca de uma medição do espaço. Perguntado quantos lugares o espaço tem, o
