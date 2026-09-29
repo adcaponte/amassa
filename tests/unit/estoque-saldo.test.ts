@@ -6,13 +6,18 @@ import {
   alertaDoItem,
   areaDoItemNoEstoque,
   areasComMaterial,
+  atalhosDaUnidade,
   contadorDaLista,
   custoMedioParaExibir,
+  custoPreenchidoDaPecaPronta,
   filtrarSaldos,
   normalizarBusca,
   ordenarSaldos,
+  planejarAjuste,
+  previaDaMovimentacao,
   resumoDoBanner,
   situacaoDoSaldo,
+  type EntradaDaPrevia,
   type SaldoParaLista,
 } from "@/lib/estoque/saldo";
 
@@ -353,5 +358,222 @@ describe("custoMedioParaExibir — EST-02 · empty / partial E1", () => {
       ultimaEntradaComPreco: { valorCentavos: 2100, milesimos: 5000 },
     });
     expect(custoMedioParaExibir(argila)).toBe(420);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// A folha completa (06-05-PLAN.md): o ajuste pelo contado, a prévia do rodapé, os atalhos e o
+// custo da peça pronta. A prévia e o servidor leem as MESMAS funções — uma regra, duas leituras.
+// ---------------------------------------------------------------------------------------------
+
+describe("planejarAjuste — EST-07/EST-08", () => {
+  it("contado igual ao saldo → nada a gravar", () => {
+    expect(planejarAjuste({ saldoMilesimos: 2500, contadoMilesimos: 2500 })).toEqual({
+      tipo: "nada",
+    });
+  });
+
+  it("1 milésimo a menos → ajuste de −1", () => {
+    expect(planejarAjuste({ saldoMilesimos: 2500, contadoMilesimos: 2499 })).toEqual({
+      tipo: "ajuste",
+      diferencaMilesimos: -1,
+    });
+  });
+
+  it("1 milésimo a mais → ajuste de +1", () => {
+    expect(planejarAjuste({ saldoMilesimos: 2500, contadoMilesimos: 2501 })).toEqual({
+      tipo: "ajuste",
+      diferencaMilesimos: 1,
+    });
+  });
+
+  it("saldo −2000 e prateleira vazia (contado 0) → ajuste de +2000", () => {
+    expect(planejarAjuste({ saldoMilesimos: -2000, contadoMilesimos: 0 })).toEqual({
+      tipo: "ajuste",
+      diferencaMilesimos: 2000,
+    });
+  });
+
+  it("“2,5” e “2,500” sobre 2500 milésimos: os dois chegam como 2500 — diferença zero", () => {
+    // A comparação é em inteiros: nenhum decimal chega aqui.
+    expect(planejarAjuste({ saldoMilesimos: 2500, contadoMilesimos: 2500 }).tipo).toBe("nada");
+  });
+
+  it("idempotente: depois de gravar a diferença, o mesmo contado de novo não grava nada", () => {
+    const primeiro = planejarAjuste({ saldoMilesimos: 3000, contadoMilesimos: 1200 });
+    expect(primeiro).toEqual({ tipo: "ajuste", diferencaMilesimos: -1800 });
+    const saldoDepois = 3000 + (primeiro.tipo === "ajuste" ? primeiro.diferencaMilesimos : 0);
+    expect(planejarAjuste({ saldoMilesimos: saldoDepois, contadoMilesimos: 1200 })).toEqual({
+      tipo: "nada",
+    });
+  });
+
+  it("contado negativo é recusado — a validação já barra, mas a regra não finge", () => {
+    expect(() => planejarAjuste({ saldoMilesimos: 0, contadoMilesimos: -1 })).toThrow(RangeError);
+  });
+});
+
+function previa(parcial: Partial<EntradaDaPrevia>): EntradaDaPrevia {
+  return {
+    tipo: "saida",
+    unidade: "kg",
+    saldoMilesimos: 5000,
+    valorCentavos: 2100,
+    ultimaEntradaComPreco: { valorCentavos: 2100, milesimos: 5000 },
+    minimoMilesimos: 0,
+    quantidadeMilesimos: null,
+    contadoMilesimos: null,
+    custoCentavos: null,
+    ...parcial,
+  };
+}
+
+function textoDa(resultado: { partes: readonly { texto: string }[] }): string {
+  return resultado.partes.map((parte) => parte.texto).join("");
+}
+
+describe("previaDaMovimentacao — o rodapé da folha (UI-SPEC §Pré-visualização)", () => {
+  it("campo vazio → “Digite a quantidade para ver o saldo novo.”, neutra", () => {
+    const resultado = previaDaMovimentacao(previa({ quantidadeMilesimos: null }));
+    expect(textoDa(resultado)).toBe("Digite a quantidade para ver o saldo novo.");
+    expect(resultado.tom).toBe("neutra");
+  });
+
+  it("ajuste com o contado vazio também pede a quantidade", () => {
+    const resultado = previaDaMovimentacao(previa({ tipo: "ajuste", contadoMilesimos: null }));
+    expect(textoDa(resultado)).toBe("Digite a quantidade para ver o saldo novo.");
+    expect(resultado.tom).toBe("neutra");
+  });
+
+  it("saída de 2 sobre 5 kg com mínimo 4 → saldo, valor ao custo médio e o aviso do mínimo, em atenção", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ quantidadeMilesimos: 2000, minimoMilesimos: 4000 }),
+    );
+    expect(textoDa(resultado)).toBe(
+      "O saldo passa de 5 para 3 kg. Vale R$ 8,40 ao custo médio. Passa a ficar abaixo do mínimo (4 kg).",
+    );
+    expect(resultado.tom).toBe("atencao");
+  });
+
+  it("os números vão em destaque (negrito na tela)", () => {
+    const resultado = previaDaMovimentacao(previa({ quantidadeMilesimos: 2000 }));
+    const fortes = resultado.partes.filter((parte) => parte.forte).map((parte) => parte.texto);
+    expect(fortes).toEqual(["5", "3 kg", "R$ 8,40"]);
+  });
+
+  it("saída sem mínimo, que não deixa negativo → só saldo e valor, tom de acento", () => {
+    const resultado = previaDaMovimentacao(previa({ quantidadeMilesimos: 2000 }));
+    expect(textoDa(resultado)).toBe("O saldo passa de 5 para 3 kg. Vale R$ 8,40 ao custo médio.");
+    expect(resultado.tom).toBe("acento");
+  });
+
+  it("saída que deixa −1 milésimo → a frase do negativo, tom de erro, e nada bloqueia (D-06)", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ quantidadeMilesimos: 5001, minimoMilesimos: 4000 }),
+    );
+    expect(textoDa(resultado)).toContain("O saldo passa de 5 para −0,001 kg.");
+    expect(textoDa(resultado)).toContain(
+      "Isso deixa o saldo negativo — só registre se tiver certeza.",
+    );
+    expect(textoDa(resultado)).not.toContain("abaixo do mínimo");
+    expect(resultado.tom).toBe("erro");
+  });
+
+  it("o valor da saída é o de `valorarMovimento` — a mesma regra que vai gravar", () => {
+    // 1 kg sai de 3 kg que valem R$ 10,00: 1000 × 1000/3000 = 333,33… → 333.
+    const resultado = previaDaMovimentacao(
+      previa({ saldoMilesimos: 3000, valorCentavos: 1000, quantidadeMilesimos: 1000 }),
+    );
+    expect(textoDa(resultado)).toContain("Vale R$ 3,33 ao custo médio.");
+  });
+
+  it("entrada com custo → saldo novo e custo unitário", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ tipo: "entrada", quantidadeMilesimos: 25000, custoCentavos: 12500 }),
+    );
+    expect(textoDa(resultado)).toBe("O saldo passa de 5 para 30 kg. Custo unitário: R$ 5,00/kg.");
+    expect(resultado.tom).toBe("acento");
+  });
+
+  it("entrada sem custo → só o saldo novo", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ tipo: "entrada", quantidadeMilesimos: 2000, custoCentavos: null }),
+    );
+    expect(textoDa(resultado)).toBe("O saldo passa de 5 para 7 kg.");
+  });
+
+  it("entrada em litros usa o rótulo “L”", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ tipo: "entrada", unidade: "l", quantidadeMilesimos: 2000, custoCentavos: 1000 }),
+    );
+    expect(textoDa(resultado)).toBe("O saldo passa de 5 para 7 L. Custo unitário: R$ 5,00/L.");
+  });
+
+  it("ajuste com diferença → “Diferença de −2 kg. O saldo passa de 5 para 3 kg.”", () => {
+    const resultado = previaDaMovimentacao(previa({ tipo: "ajuste", contadoMilesimos: 3000 }));
+    expect(textoDa(resultado)).toBe("Diferença de −2 kg. O saldo passa de 5 para 3 kg.");
+    expect(resultado.tom).toBe("acento");
+  });
+
+  it("ajuste para mais leva o sinal de +", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ tipo: "ajuste", saldoMilesimos: -2000, valorCentavos: 0, contadoMilesimos: 0 }),
+    );
+    expect(textoDa(resultado)).toBe("Diferença de +2 kg. O saldo passa de −2 para 0 kg.");
+  });
+
+  it("ajuste com o contado igual ao saldo → “O saldo já está certo. Nada será gravado.”, neutra", () => {
+    const resultado = previaDaMovimentacao(previa({ tipo: "ajuste", contadoMilesimos: 5000 }));
+    expect(textoDa(resultado)).toBe("O saldo já está certo. Nada será gravado.");
+    expect(resultado.tom).toBe("neutra");
+  });
+});
+
+describe("atalhosDaUnidade — os botões que somam ao campo", () => {
+  it("un → +1 +2 +5 +10", () => {
+    expect(atalhosDaUnidade("un")).toEqual([1, 2, 5, 10]);
+  });
+
+  it("g e ml → +50 +100 +250 +500", () => {
+    expect(atalhosDaUnidade("g")).toEqual([50, 100, 250, 500]);
+    expect(atalhosDaUnidade("ml")).toEqual([50, 100, 250, 500]);
+  });
+
+  it("kg → +1 +5 +10 +25", () => {
+    expect(atalhosDaUnidade("kg")).toEqual([1, 5, 10, 25]);
+  });
+
+  it("L e m → +1 +2 +5 +10", () => {
+    expect(atalhosDaUnidade("l")).toEqual([1, 2, 5, 10]);
+    expect(atalhosDaUnidade("m")).toEqual([1, 2, 5, 10]);
+  });
+});
+
+describe("custoPreenchidoDaPecaPronta — EST-21/D-22", () => {
+  it("R$ 12,34 por peça × 3 peças → R$ 37,02", () => {
+    expect(
+      custoPreenchidoDaPecaPronta({ custoPorPecaCentavos: 1234, quantidadeMilesimos: 3000 }),
+    ).toBe(3702);
+  });
+
+  it("R$ 12,34 × 1,5 → 1851 (em inteiros)", () => {
+    expect(
+      custoPreenchidoDaPecaPronta({ custoPorPecaCentavos: 1234, quantidadeMilesimos: 1500 }),
+    ).toBe(1851);
+  });
+
+  it("o meio arredonda para cima: 1 centavo × 0,5 → 1", () => {
+    expect(custoPreenchidoDaPecaPronta({ custoPorPecaCentavos: 1, quantidadeMilesimos: 500 })).toBe(
+      1,
+    );
+  });
+
+  it("não perde precisão quando o produto intermediário passa de 2^53", () => {
+    expect(
+      custoPreenchidoDaPecaPronta({
+        custoPorPecaCentavos: 1_000_000_000,
+        quantidadeMilesimos: 999_999_001,
+      }),
+    ).toBe(999_999_001_000_000);
   });
 });

@@ -99,3 +99,27 @@ describe("converterQuantidade", () => {
     expect(resultado.ok).toBe(false);
   });
 });
+
+// A variante que aceita zero é OPÇÃO EXPLÍCITA (06-RESEARCH.md Pitfall 9, D-32): só o saldo
+// contado do Estoque a pede — "prateleira vazia" é um contado válido. Sem a opção, nada muda.
+describe("converterQuantidade — { aceitaZero: true }", () => {
+  it('"0" com a opção é aceito como "0"', () => {
+    expect(converterQuantidade("0", { aceitaZero: true })).toEqual({ ok: true, quantidade: "0" });
+  });
+
+  it('"0,000" com a opção também vira "0"', () => {
+    expect(converterQuantidade("0,000", { aceitaZero: true })).toEqual({
+      ok: true,
+      quantidade: "0",
+    });
+  });
+
+  it('"0" sem a opção continua recusado', () => {
+    expect(converterQuantidade("0").ok).toBe(false);
+    expect(converterQuantidade("0", { aceitaZero: false }).ok).toBe(false);
+  });
+
+  it.each(["-1", "1,2345", "1000000", ""])('"%s" continua recusado mesmo com a opção', (texto) => {
+    expect(converterQuantidade(texto, { aceitaZero: true }).ok).toBe(false);
+  });
+});

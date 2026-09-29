@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import {
+  pedidoDeAjuste,
+  pedidoDeEntradaManual,
+  pedidoDeSaidaManual,
   pedidosDaCompra,
   pedidosDaVenda,
   pedidosDoEstorno,
@@ -295,5 +298,150 @@ describe("pedidosDoEstorno", () => {
   it("vários originais → um estorno por original, na mesma ordem", () => {
     const pedidos = pedidosDoEstorno([saidaDeVenda, entradaDeCompra]);
     expect(pedidos.map((pedido) => pedido.estornoDeId)).toEqual(["mov-1", "mov-2"]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Os pedidos manuais da folha completa (06-05-PLAN.md): o ajuste, a peça pronta e os vínculos.
+// ---------------------------------------------------------------------------------------------
+
+describe("pedidoDeAjuste — EST-07", () => {
+  it("diferença −300 com contado 1200 → ajuste que SAI 300, com o contado gravado", () => {
+    expect(
+      pedidoDeAjuste({
+        itemId: "argila",
+        diferencaMilesimos: -300,
+        contadoMilesimos: 1200,
+        nota: "Conferência da prateleira",
+      }),
+    ).toEqual({
+      itemId: "argila",
+      origem: "manual",
+      tipo: "ajuste",
+      movimento: { tipo: "saida", milesimos: 300 },
+      saldoContadoMilesimos: 1200,
+      nota: "Conferência da prateleira",
+    });
+  });
+
+  it("diferença positiva → entrada SEM preço (à taxa corrente, R6)", () => {
+    const pedido = pedidoDeAjuste({
+      itemId: "argila",
+      diferencaMilesimos: 2000,
+      contadoMilesimos: 0 + 2000,
+      nota: null,
+    });
+    expect(pedido.movimento).toEqual({ tipo: "entrada_sem_preco", milesimos: 2000 });
+    expect(pedido.tipo).toBe("ajuste");
+    expect(pedido.saldoContadoMilesimos).toBe(2000);
+    expect(pedido).not.toHaveProperty("nota");
+  });
+
+  it("contado zero é gravado como zero, não como ausente", () => {
+    const pedido = pedidoDeAjuste({
+      itemId: "argila",
+      diferencaMilesimos: -1500,
+      contadoMilesimos: 0,
+      nota: null,
+    });
+    expect(pedido.saldoContadoMilesimos).toBe(0);
+  });
+
+  it("ajuste nunca leva valor informado, destino, área nem encomenda", () => {
+    const pedido = pedidoDeAjuste({
+      itemId: "argila",
+      diferencaMilesimos: 1,
+      contadoMilesimos: 1,
+      nota: null,
+    });
+    expect(pedido).not.toHaveProperty("valorInformadoCentavos");
+    expect(pedido).not.toHaveProperty("destino");
+    expect(pedido).not.toHaveProperty("area");
+    expect(pedido).not.toHaveProperty("encomendaId");
+  });
+
+  it("diferença zero não vira pedido — quem chama já decidiu “nada” (EST-08)", () => {
+    expect(() =>
+      pedidoDeAjuste({ itemId: "argila", diferencaMilesimos: 0, contadoMilesimos: 1, nota: null }),
+    ).toThrow(RangeError);
+  });
+});
+
+describe("pedidoDeEntradaManual — a peça pronta (D-09/D-29)", () => {
+  it("pecaPronta: true → motivo “peca_pronta”", () => {
+    const pedido = pedidoDeEntradaManual({
+      itemId: "caneca",
+      milesimos: 3000,
+      custoCentavos: 3702,
+      pecaPronta: true,
+    });
+    expect(pedido.motivo).toBe("peca_pronta");
+    expect(pedido.movimento).toEqual({
+      tipo: "entrada_com_preco",
+      milesimos: 3000,
+      pagoCentavos: 3702,
+    });
+    expect(pedido.valorInformadoCentavos).toBe(3702);
+  });
+
+  it("sem pecaPronta → nenhum motivo (entrada manual comum)", () => {
+    const pedido = pedidoDeEntradaManual({ itemId: "argila", milesimos: 5000, custoCentavos: 2100 });
+    expect(pedido).not.toHaveProperty("motivo");
+    expect(
+      pedidoDeEntradaManual({
+        itemId: "argila",
+        milesimos: 5000,
+        custoCentavos: 2100,
+        pecaPronta: false,
+      }),
+    ).not.toHaveProperty("motivo");
+  });
+});
+
+describe("pedidoDeSaidaManual — os vínculos (EST-11)", () => {
+  it("encomenda com id e o rótulo congelado na nota", () => {
+    expect(
+      pedidoDeSaidaManual({
+        itemId: "argila",
+        milesimos: 500,
+        destino: "encomenda",
+        encomendaId: "enc-1",
+        nota: "Jogo de pratos",
+      }),
+    ).toEqual({
+      itemId: "argila",
+      origem: "manual",
+      tipo: "saida",
+      movimento: { tipo: "saida", milesimos: 500 },
+      destino: "encomenda",
+      area: "pecas",
+      encomendaId: "enc-1",
+      nota: "Jogo de pratos",
+    });
+  });
+
+  it("vínculos nulos não entram no pedido (a coluna fica nula)", () => {
+    const pedido = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 500,
+      destino: "aula",
+      encomendaId: null,
+      nota: null,
+    });
+    expect(pedido).not.toHaveProperty("nota");
+    expect(pedido).not.toHaveProperty("encomendaId");
+    expect(pedido.area).toBe("espaco");
+  });
+
+  it("encomenda fora do destino encomenda é descartada (o check do banco recusaria)", () => {
+    const pedido = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 500,
+      destino: "perda",
+      encomendaId: "enc-1",
+      nota: "Caiu da prateleira",
+    });
+    expect(pedido).not.toHaveProperty("encomendaId");
+    expect(pedido.nota).toBe("Caiu da prateleira");
   });
 });
