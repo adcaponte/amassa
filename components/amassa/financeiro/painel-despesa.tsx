@@ -89,6 +89,9 @@ export type PainelDespesaProps = {
   catalogoDaCompra: ItemDoCatalogoParaCompra[];
   itensParaEfeito: ItemParaEfeito[];
   configuracao: { taxaCartaoPontosBase: number; dataSaldoInicial: string | null };
+  // Plano 06-08 (D-21): o saldo de cada material antes da compra, para "fica com …"; `null` quando
+  // a consulta do Estoque falhou (o efeito volta ao formato de antes). Sem aviso: compra só soma.
+  saldos?: ReadonlyMap<string, number> | null;
 };
 
 // O painel de Despesa completo (04.4-07-PLAN.md): as duas pílulas (compra · outra), compra de
@@ -107,6 +110,7 @@ export function PainelDespesa({
   catalogoDaCompra,
   itensParaEfeito,
   configuracao,
+  saldos = null,
 }: PainelDespesaProps) {
   const [modo, setModo] = useState<ModoDespesa>("compra");
 
@@ -747,6 +751,7 @@ export function PainelDespesa({
               dica={DICA_EFEITO_ESTOQUE_COMPRA}
               abertoPorPadrao
               testId="despesa-efeito"
+              saldos={saldos}
             />
           )}
 

@@ -189,8 +189,23 @@ export function textoDicaDeAreas(listaDeAreas: string): string {
 export const TITULO_O_QUE_FOI_VENDIDO = "O que foi vendido";
 export const TITULO_ESTA_VENDA = "Esta venda";
 export const TITULO_EFEITO_ESTOQUE_VENDA = "O que esta venda tira do estoque";
-export const DICA_EFEITO_ESTOQUE =
-  "Aparece aqui para validar a regra. Passa a valer quando o módulo Estoque estiver ligado.";
+// Plano 06-08 (D-21): o Estoque está ligado — a frase antiga, que dizia que o efeito só valeria
+// "quando o módulo Estoque estiver ligado", ficou falsa.
+export const DICA_EFEITO_ESTOQUE = "Ao lançar a venda, isto sai do estoque.";
+
+// O aviso de saldo negativo da Venda (06-UI-SPEC.md §Painel de Venda e de Compra): um material →
+// o nome e o saldo final; dois ou mais → quantos, nunca a lista de nomes. Nunca bloqueia (D-06).
+// `saldoFinalTexto` chega já formatado ("−1 kg") de `materiaisQueFicamNegativos`.
+export function textoAvisoVendaNegativa<T extends { nome: string; saldoFinalTexto: string }>(
+  materiais: readonly T[],
+): string {
+  const fim = "Pode lançar — depois confira a prateleira.";
+  if (materiais.length === 1) {
+    const [material] = materiais;
+    return `Esta venda deixa ${material.nome} com saldo negativo (${material.saldoFinalTexto}). ${fim}`;
+  }
+  return `Esta venda deixa ${materiais.length} materiais com saldo negativo. ${fim}`;
+}
 export const ROTULO_DATA = "Data";
 export const ROTULO_PESSOA_OPCIONAL = "Pessoa (opcional)";
 
@@ -303,7 +318,7 @@ export function textoRotuloQuantos(unidadeExibida: string): string {
 
 export const TITULO_EFEITO_ESTOQUE_COMPRA = "O que esta compra põe no estoque";
 export const DICA_EFEITO_ESTOQUE_COMPRA =
-  'O custo de cada unidade sai de "custou ao todo" ÷ quantidade. Vale quando o Estoque estiver ligado.';
+  'O custo de cada unidade sai de "custou ao todo" ÷ quantidade. Ao lançar, isto entra no estoque.';
 
 export const TITULO_TODO_MATERIAL_DE_ESTOQUE = "Todo material de estoque";
 export const DICA_LISTA_COMPLETA_COMPRA =
