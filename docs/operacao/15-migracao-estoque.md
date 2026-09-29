@@ -24,7 +24,7 @@ o erro pode ser do roteiro: **pare naquele passo** e não improvise.
 
 | Passo | Onde | O quê |
 |---|---|---|
-| 0 | celular | Você responde D-23/D-24 e D-29 (decisões tomadas sem você) |
+| 0 | celular | Você responde D-23/D-24 e D-29 (decisões tomadas sem você) — **feito em 29/09/2026** |
 | 1 | servidor | Guarda: confirmar servidor e banco certos |
 | 2 | seu computador | Publicar **só** a migração (sem nenhum código novo) |
 | 3 | servidor | Backup, conferido por linha e tamanho |
@@ -38,9 +38,11 @@ o erro pode ser do roteiro: **pare naquele passo** e não improvise.
 **O que a `0023` muda no banco — e por que o app de hoje continua rodando com ela.** Ela só
 **acrescenta**: a tabela nova `movimentacoes_estoque` (o livro do estoque, que nasce vazia), três
 colunas novas em `itens_catalogo`, todas com padrão (`estoque_minimo_milesimos` = 0, `observacoes`
-nula, `ativo` verdadeiro), e um gatilho que só age sobre item **que já tem movimentação** — como o
-livro nasce vazio, ele não tem sobre quem agir até o código novo gravar a primeira. Nenhuma coluna
-existente muda, nenhuma é apagada. Por isso o app de hoje, que não sabe de nada disso, continua
+nula, `ativo` verdadeiro), um gatilho que só age sobre item **que já tem movimentação** — como o
+livro nasce vazio, ele não tem sobre quem agir até o código novo gravar a primeira —, e **uma
+categoria de compra nova, "Produção da casa"** (área Peças; a sua resposta à D-29 em 29/09/2026 —
+não entra se você já tiver uma categoria com esse nome). Nenhuma coluna existente muda, nenhuma é
+apagada. Por isso o app de hoje, que não sabe de nada disso, continua
 funcionando com a `0023` aplicada — o Passo 5 confere isso de fora (`/api/health` em 200).
 
 **O que este roteiro NÃO faz:**
@@ -64,6 +66,24 @@ string de conexão — o repositório é público.
 
 ## Passo 0 — As decisões que só você toma
 
+> ✅ **Feito em 29/09/2026, pela manhã** — você respondeu a Parte 0 de
+> `.planning/phases/06-estoque/06-VERIFICACAO-HUMANA.md` no chat, por formulário, e as mudanças já
+> estão no branch da fase e no branch só-migração (o `06-11-SUMMARY.md`, no adendo, tem os commits e
+> o `npm run verificar` verde dos dois). O que você decidiu:
+>
+> - **D-23** (venda cancelada volta ao custo que a venda levou) e **D-24** (compra cancelada sai ao
+>   custo médio de agora): **valem**, sem mudança.
+> - **WR-01** (venda cancelada com o saldo zerado ou negativo na hora de cancelar): **a
+>   alternativa** — o material volta ao custo médio do instante, e a prateleira não é reprecificada
+>   pelo cancelamento. Com saldo positivo, continua a D-23.
+> - **WR-02**: **a venda cancelada não conta** como "última entrada com preço" — só compra, entrada
+>   manual (e peça pronta) e contagem contam. Material nunca comprado continua mostrando "—".
+> - **D-29**: **sim** — a categoria de compra **"Produção da casa"**, área Peças, entra como semente
+>   **dentro da própria `0023`** (o Passo 5.5 confere). Por isso o branch só-migração ganhou um
+>   commit novo em 29/09: os quatro arquivos continuam os mesmos quatro, com a semente.
+
+O texto abaixo é o que este passo pedia antes das respostas — fica como registro.
+
 Antes de qualquer comando: abra `.planning/phases/06-estoque/06-VERIFICACAO-HUMANA.md`, **Parte 0**,
 e responda:
 
@@ -71,7 +91,7 @@ e responda:
   cancelada sai ao custo médio de agora) — com o exemplo em números. São as duas únicas decisões da
   fase que tocam o **valor do cancelamento**, e foram tomadas numa noite sem você.
 - **D-29** — se quer uma categoria de compra própria para a peça produzida na casa (sim / não /
-  depois). Nesta fase nada foi semeado.
+  depois). *(Até a sua resposta de 29/09, nada tinha sido semeado.)*
 - **As duas escolhas que a revisão de código achou** (29/09, `06-REVIEW.md` WR-01 e WR-02), na mesma
   Parte 0, §0.1: o valor do estorno de venda quando o saldo está zerado ou negativo na hora de
   cancelar, e se o estorno de venda conta como "última entrada com preço".
@@ -80,8 +100,8 @@ e responda:
 `gsd/phase-06-estoque` — é um ramo de `movimentoDoEstorno`/`valorarMovimento` em
 `lib/estoque/custo.ts` (a WR-02 também mexe nas consultas da "última entrada com preço") e os testes
 do bloco "D-23/D-24" de `tests/unit/estoque-custo.test.ts` —, espere `npm run verificar` sair verde,
-e só então siga. A troca **não** mexe na migração: o branch só-migração do Passo 2 continua valendo
-como está.
+e só então siga. A troca de D-23/D-24/WR-01/WR-02 **não** mexe na migração; a D-29 sim (foi o que
+aconteceu em 29/09 — o branch só-migração foi atualizado).
 
 ---
 
@@ -288,7 +308,18 @@ docker compose exec postgres psql -U amassa_owner -d amassa -c "select indexname
 item que já tem movimentação não muda de unidade — 5 kg não viram 5 g); e uma linha,
 `movimentacoes_estoque_estorno_de_uk` (uma movimentação só pode ser estornada uma vez).
 
-**5.5 — O app de hoje continua de pé com a migração:**
+**5.5 — A categoria de compra "Produção da casa" (D-29), uma vez só:**
+
+```bash
+docker compose exec postgres psql -U amassa_owner -d amassa -c "select count(*) from categorias where nome = 'Produção da casa';"
+docker compose exec postgres psql -U amassa_owner -d amassa -c "select nome, grupo, area, ativa from categorias where nome = 'Produção da casa';"
+```
+
+**O que você deve ver:** `1`; e uma linha, `Produção da casa | custo | pecas | t`. `0` — a semente
+não rodou (volte ao Passo 4). Se você já tinha criado pela tela uma categoria com esse nome, a sua
+fica como estava (a semente não duplica) e a segunda linha mostra o grupo e a área que você deu.
+
+**5.6 — O app de hoje continua de pé com a migração:**
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" https://amassacerrado.com.br/api/health
@@ -394,7 +425,7 @@ gh run list --limit 3
 
 **O que faz:** `git revert -m 1` cria um commit novo que desfaz tudo o que a integração da fase
 trouxe, mantendo o histórico. O app volta ao de antes. O banco **fica com a `0023`** — ela é aditiva,
-e o Passo 5.5 já provou que o app de antes roda com ela. A `0023` também continua em `main`: ela
+e o Passo 5.6 já provou que o app de antes roda com ela. A `0023` também continua em `main`: ela
 chegou no Passo 2, antes da integração, e o revert não a toca.
 
 **O que você deve ver:** o run verde, e `/api/health` em `200`. Enquanto o código estiver revertido,

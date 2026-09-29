@@ -11,7 +11,8 @@ updated: 2026-09-29
 **Gerado por:** execução do plano `06-11-PLAN.md`, Tarefa 1, em 29/09/2026 — na sessão noturna,
 sem você.
 
-**Status:** **não percorrida.** Nada da Fase 06 está no ar: o código mora no branch
+**Status (29/09/2026, manhã):** **Parte 0 respondida** (respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário) e aplicada no código e na
+migração — ver o fim de cada item da Parte 0. **Partes 1 e 2 não percorridas.** Nada da Fase 06 está no ar: o código mora no branch
 `gsd/phase-06-estoque`, a migração `0023` está escrita e versionada mas **não aplicada**, e nenhum
 requisito EST foi marcado cumprido. Esta fase fecha por esta caminhada, não por contagem de planos.
 
@@ -41,6 +42,14 @@ documento também. Use nomes inventados com "[teste]" na frente.
 ---
 
 ## Parte 0 — Antes do servidor: as decisões tomadas sem você
+
+> ✅ **Respondida em 29/09/2026, pela manhã** (respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário). Resumo: **D-23 vale**, **D-24 vale**,
+> **WR-01 → a alternativa** (com saldo zero ou negativo, a venda cancelada volta ao custo médio do
+> momento), **WR-02 → a alternativa** (a venda cancelada não conta como "última entrada com preço"),
+> **D-29 → sim, "Produção da casa"**, área Peças, semeada na `0023`. Os textos de explicação abaixo
+> ficam como estavam — são o registro da escolha; onde dizem "o que o código faz hoje", leia "o que o
+> código fazia até 29/09 de manhã". Os commits e o `npm run verificar` estão no adendo de
+> `06-11-SUMMARY.md`.
 
 ### 0.1 🔴 D-23 e D-24 — o valor do estorno (responda antes do Roteiro 15)
 
@@ -95,8 +104,12 @@ Trocar para a alternativa mexe em `movimentoDoEstorno` e `valorarMovimento` (`li
 e no teste "comportamento atual — a confirmar pelo dono (WR-01)" de
 `tests/unit/estoque-custo.test.ts`. Não mexe na migração.
 
-- [ ] **D-23 com estoque zerado ou negativo:** fica como hoje (a prateleira passa ao custo da venda
-  antiga) / troco para a alternativa (volta ao custo médio do momento) / outra: ____________
+- [x] **D-23 com estoque zerado ou negativo:** fica como hoje (a prateleira passa ao custo da venda
+  antiga) / **troco para a alternativa (volta ao custo médio do momento)** / outra: ____________
+- **Resultado:** alternativa — respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário. Aplicado no branch da fase: o estorno de venda com saldo zero
+  ou negativo grava ao custo médio do instante (`lib/estoque/custo.ts`, regra R7); no exemplo, a
+  1 un fica valendo R$ 50,00 (teste "WR-01 decidido pelo dono em 29/09" em
+  `tests/unit/estoque-custo.test.ts`).
 
 **A venda cancelada conta como "a última entrada com preço"?** *(Achado da revisão de código de
 29/09, `06-REVIEW.md` WR-02. Nada foi mudado no código: a escolha é sua. Mexe na D-26.)*
@@ -127,8 +140,12 @@ Trocar para a alternativa mexe em três lugares que andam juntos — `valorarMov
 `lib/estoque/gravacao.ts`, `listarSaldos` em `lib/estoque/consultas.ts`) — e nos testes "comportamento
 atual — a confirmar pelo dono (WR-02)" de `tests/unit/estoque-custo.test.ts`. Não mexe na migração.
 
-- [ ] **Venda cancelada como "última entrada com preço":** fica como hoje (conta) / troco para a
-  alternativa (não conta) / outra: ____________
+- [x] **Venda cancelada como "última entrada com preço":** fica como hoje (conta) / **troco para a
+  alternativa (não conta)** / outra: ____________
+- **Resultado:** alternativa (não conta) — respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário. Aplicado nos três lugares: `valorarMovimento`
+  não guarda o estorno como última entrada, e `lerEstados`/`listarSaldos` filtram
+  `estorno_de_id is null`. No exemplo, a baixa com prateleira vazia sai a R$ 50,00, e o material
+  nunca comprado continua mostrando "—".
 
 **D-24 — compra cancelada: o material sai ao custo médio de agora, não ao que a compra custou.**
 
@@ -150,9 +167,9 @@ existe. Ao custo médio, isso nunca acontece. O preço: o médio não "desmistur
 um estorno. O agente troca, roda `npm run verificar`, e só então o Roteiro 15 segue. A troca não
 mexe na migração.
 
-- [ ] **D-23 (venda cancelada volta ao custo que a venda levou):** vale / troco para ____________
-- [ ] **D-24 (compra cancelada sai ao custo médio de agora):** vale / troco para ____________
-- **Resultado:**
+- [x] **D-23 (venda cancelada volta ao custo que a venda levou):** **vale** / troco para ____________
+- [x] **D-24 (compra cancelada sai ao custo médio de agora):** **vale** / troco para ____________
+- **Resultado:** as duas valem, sem mudança — respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário.
 
 ### 0.2 D-29 — uma pergunta, não uma decisão
 
@@ -165,8 +182,11 @@ como categoria de **venda** — a peça produzida não tem categoria de compra n
 Peças.) Nada foi semeado nesta fase. Se sim, ela entra como semente numa migração futura, ou você a
 cria em Cadastros → Categorias.
 
-- [ ] **D-29:** sim (nome: ____________) / não / depois
-- **Resultado:**
+- [x] **D-29:** **sim (nome: Produção da casa)** / não / depois
+- **Resultado:** sim — respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário. Semeada no fim da própria `db/migrations/0023_estoque.sql` (área
+  Peças, grupo custo — o das categorias de compra da semente 0016), idempotente; o Roteiro 15,
+  Passo 5.5, confere no servidor que ela existe uma vez. Por isso o branch só-migração ganhou um
+  commit novo em 29/09.
 
 ### 0.3 As decisões `[auto]` do contexto — para você saber, e como desfazer cada uma
 
@@ -254,7 +274,8 @@ passo mostrou (pode colar a saída).
   com sucesso.", código 0)
   - **Resultado:**
 - [ ] **Passo 5 — Conferência SQL, antes do código** (tabela e 0 movimentações; 3 colunas com os
-  padrões; `pode_editar = f` e `pode_apagar = f`; gatilho; índice; `/api/health` 200)
+  padrões; `pode_editar = f` e `pode_apagar = f`; gatilho; índice; "Produção da casa" contada
+  `1` (5.5, D-29); `/api/health` 200)
   - **Resultado:**
 - [ ] **Passo 6 — Publicar o código da fase** (merge sem conflito fora de `.planning/`; run verde —
   número do run)
