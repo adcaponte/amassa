@@ -5,8 +5,10 @@ import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import {
   pedidosDaCompra,
   pedidosDaVenda,
+  pedidosDoEstorno,
   type LinhaDeCompraGravada,
   type LinhaDeVendaGravada,
+  type MovimentacaoOriginal,
 } from "@/lib/estoque/pedidos";
 
 // Os pedidos do Financeiro (plano 06-03): a venda baixa e a compra dá entrada, UMA chamada de
@@ -228,5 +230,70 @@ describe("pedidosDaCompra", () => {
       ITENS,
     );
     expect(pedidos).toEqual([]);
+  });
+});
+
+// O estorno do cancelamento (D-04, D-23/D-24, Pitfall 4): espelha o GRAVADO, nunca recalcula.
+describe("pedidosDoEstorno", () => {
+  const saidaDeVenda: MovimentacaoOriginal = {
+    id: "mov-1",
+    itemId: "argila",
+    origem: "venda",
+    tipo: "saida",
+    quantidadeMilesimos: -2000,
+    valorCentavos: -840,
+    area: "cafeteria",
+    documentoId: "doc-1",
+    documentoLinhaId: "linha-1",
+  };
+  const entradaDeCompra: MovimentacaoOriginal = {
+    id: "mov-2",
+    itemId: "argila",
+    origem: "compra",
+    tipo: "entrada",
+    quantidadeMilesimos: 25000,
+    valorCentavos: 12500,
+    area: null,
+    documentoId: "doc-2",
+    documentoLinhaId: "linha-2",
+  };
+
+  it("saída de venda (−2000, −840, cafeteria) → entrada com preço de 2000 por 840, mesma área, documento e linha (D-23)", () => {
+    expect(pedidosDoEstorno([saidaDeVenda])).toEqual([
+      {
+        itemId: "argila",
+        origem: "venda",
+        tipo: "entrada",
+        movimento: { tipo: "entrada_com_preco", milesimos: 2000, pagoCentavos: 840 },
+        valorInformadoCentavos: 840,
+        estornoDeId: "mov-1",
+        area: "cafeteria",
+        documentoId: "doc-1",
+        documentoLinhaId: "linha-1",
+      },
+    ]);
+  });
+
+  it("entrada de compra (+25000, +12500) → saída de 25000, sem área e sem valor informado (D-24)", () => {
+    expect(pedidosDoEstorno([entradaDeCompra])).toEqual([
+      {
+        itemId: "argila",
+        origem: "compra",
+        tipo: "saida",
+        movimento: { tipo: "saida", milesimos: 25000 },
+        estornoDeId: "mov-2",
+        documentoId: "doc-2",
+        documentoLinhaId: "linha-2",
+      },
+    ]);
+  });
+
+  it("lista vazia de originais → lista vazia de pedidos (documento anterior ao Estoque, D-05)", () => {
+    expect(pedidosDoEstorno([])).toEqual([]);
+  });
+
+  it("vários originais → um estorno por original, na mesma ordem", () => {
+    const pedidos = pedidosDoEstorno([saidaDeVenda, entradaDeCompra]);
+    expect(pedidos.map((pedido) => pedido.estornoDeId)).toEqual(["mov-1", "mov-2"]);
   });
 });
