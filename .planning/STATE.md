@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
-status: ready_to_plan
-stopped_at: "Fase 06 Estoque: contexto capturado em --auto na noite de 29/09 (commit 5ad73a0, 06-CONTEXT.md). Proximo: planejar a fase. A 04.6 fechou antes (598fbc7)."
+status: planning
+stopped_at: "Fase 06 Estoque: UI-SPEC aprovada (8d3d310) na noite de 29/09. Proximo: plan-phase 06 a partir do passo 5.6 (contrato de UI encontrado)."
 last_updated: "2026-09-29T02:30:39.922Z"
 progress:
   total_phases: 12
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque** — contexto capturado em 29/09 (`5ad73a0`), pronta para planejar. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06 — Estoque** — contexto, pesquisa, validação e contrato de UI prontos em 29/09 (`8d3d310`); planejando. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -74,6 +74,23 @@ mesma falha resistir três vezes.
    um por decisão nova do adendo, e a entrada da Fase 6 no ROADMAP corrigida — ela ainda prometia a
    tabela de materiais que o adendo proíbe. É transcrição do adendo, mas a forma (quais requisitos
    novos, com que texto) é escolha minha. **"Fornada" saiu do EST-11** porque o adendo não a lista.
+9. **A pesquisa da Fase 06 rodou mesmo com `workflow.research: false`** (`b09d7a3`). A fase grava
+   movimentação dentro da transação da venda e da compra e mexe em custo médio — risco alto demais
+   para planejar sem ler o Financeiro linha a linha. Ela **refinou três decisões `[auto]`** (D-17,
+   D-20, D-21) e acrescentou D-23 a D-33 em `06-CONTEXT.md`. **Desfazer:** apagar
+   `06-RESEARCH.md` e replanejar só pelo contexto — não recomendado.
+10. 🔴 **D-23 e D-24 — o valor do estorno** (as únicas decisões da fase que tocam cancelamento):
+    venda cancelada devolve o material ao custo que a venda levou; compra cancelada sai ao custo
+    médio de agora (ao custo original, o estoque pode ficar com valor negativo e quantidade
+    positiva — contraexemplo na pesquisa, Pergunta 3). Adotadas porque nada da fase chega à
+    produção sem ele: o código fica no branch `gsd/phase-06-estoque` e a migração só ele aplica.
+    **Confirmar antes do merge.** Desfazer é um ramo de `lib/estoque/custo.ts`.
+11. **Contrato de UI da Fase 06 aprovado sem o dono** (`8d3d310`): 16 decisões de interface UI-D1 a
+    UI-D16 em `06-UI-SPEC.md`, cada uma com a alternativa descartada — as mais visíveis: barra de
+    abas neutra (UI-D1), contagem em tela própria (UI-D2), primeira abertura só com o painel de
+    contagem (UI-D3), contagem às cegas (UI-D16). Achado para o projeto, **não corrigido**: o fechar
+    padrão de `dialog.tsx`/`sheet.tsx` diz "Close" em inglês e tem menos de 44px — fica para a
+    Fase 7; o Estoque não o usa.
 
 
 ## Decisões do dono durante a execução da Fase 04.6
@@ -100,21 +117,25 @@ mesma falha resistir três vezes.
 
 ## Current Position
 
-Phase: 06 — Estoque
-percorrido em 28-29/09/2026; falta só o fechamento formal da fase pelo orquestrador**
-(`phase.complete` + verificador). *(Corrigido em 29/09/2026. Até 28/09 este parágrafo dizia
-"EXECUTING… Tarefas 2 e 3 aguardando o dono" e o `status` do frontmatter dizia `paused`; ambos
-eram verdade em 28/09 e deixaram de ser.)* **Como sei que o portão foi percorrido:** o dono
-respondeu os 16 itens de `04.6-VERIFICACAO-HUMANA.md` (todos `[x]`, nenhum reprovado); colou a
-saída do servidor com as quatro conferências da migração `0022`; `gh run list` em 29/09 mostra o
-run `36443052672` verde (2ª tentativa, commit `72b8881`); e `curl` de fora em 29/09 devolve
-`/gestao` → 307 com `callbackUrl` no domínio público. Detalhe: `04.6-08-SUMMARY.md`.
+Phase: 06 — Estoque — **planejando** (29/09/2026, sessão noturna, sem o dono). Feito antes do
+plano: contexto (`5ad73a0`), pesquisa (`b09d7a3`), estratégia de validação (`67177bc`) e o
+contrato de UI aprovado pelo `gsd-ui-checker` (`8d3d310`, `06-UI-SPEC.md`). **Como sei:**
+`git log --oneline` em 29/09.
 
-**Em produção é `72b8881`.** Os commits `223748a` (espaço sem capacidade fixa) e `41ba169`
-(correção do Roteiro 14) e o de fechamento **não estão no ar** — `git log origin/main..main`
-em 29/09 mostrava 5 commits locais antes do de fechamento. O `git push` é do dono.
+**Em produção é `ecdca87`** — medido em 29/09/2026: `git log origin/main` aponta para ele,
+`gh run list` mostra o run `36509335475` verde para esse commit, e
+`curl -s https://amassacerrado.com.br/ | grep -c 'hidden gap-2 md:flex'` devolve **0**: a correção
+da barra de cima do site (SIT-10, `ddfecfd`) **não está no ar**. `git log origin/main..main`
+mostrava 14 commits locais nessa hora — a correção do SIT-10 e o fechamento da 04.6 entre eles.
+O `git push` é do dono.
 
-### Plano 08 — fechamento (29/09/2026)
+### Fase 04.6 — registro (concluída em 29/09/2026)
+
+*(Os parágrafos abaixo são o registro da 04.6 como foi escrito durante a execução; valem como
+história. A fase fechou em 29/09: `phase.complete` em `598fbc7`, verificação `passed` 9 de 9 em
+`e3527e4`.)*
+
+#### Plano 08 — fechamento (29/09/2026)
 
 **Tarefa 2 (o dono, no servidor) — feita.** Migração `0022` aplicada depois de backup; quatro
 conferências de fora batendo com a migração: tabela `anotacoes_da_casa` existe; semente de
