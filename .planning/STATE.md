@@ -25,6 +25,46 @@ See: .planning/PROJECT.md (updated 2026-08-05)
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
 **Current focus:** Fase **06 — Estoque**, a próxima. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
+## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
+
+**A autorização, nas palavras dele, em chat:** às ~02h40 — fechar a 04.6 e preparar o Estoque; às
+~04h, ampliada — *"vai seguindo. jaja eu acordo. roda o maximo que puder em opçoes recomendadas."*
+Leitura adotada: seguir o mais longe possível; onde houver decisão com opção recomendada, tomar a
+recomendada e registrá-la aqui, com o porquê e como desfazer.
+
+**Limites que continuam valendo mesmo com isso** (regra permanente do dono para execução sem ele):
+nada de `git push`; nada de servidor, `.env` ou migração APLICADA (migração só escrita e versionada);
+parar em checkpoint de verificação humana; parar em decisão que contrarie briefing, adendo ou
+protótipo, ou que mude regra de dinheiro, saldo ou cancelamento que ele ainda não decidiu; parar se a
+mesma falha resistir três vezes.
+
+### Decidido sem o Theo (cada item é reversível)
+
+1. **Os links de seção do site entram em 880px, não em 768px** (`ddfecfd`). Em 768px a marca, os
+   quatro links e os dois botões não cabem e "Encomendas" cortava na borda. O próprio protótipo
+   aprovado tem o mesmo defeito na virada dele (760px). 880px é um ponto de quebra que o protótipo já
+   usa em três seções. **Desfazer:** em `components/site/barra-superior.tsx`, voltar
+   `min-[880px]:flex` para `md:flex` — e aceitar o botão cortado entre 768 e ~795px.
+2. **Entre 880 e ~900px, três links do site quebram em duas linhas** ("O / espaço") — deixado assim,
+   classificado como cosmético pelo verificador. Nada corta. `whitespace-nowrap` sozinho
+   reintroduziria o corte; a correção de verdade seria subir o ponto de quebra para ~920px.
+3. **Três falhas novas da varredura foram classificadas como contenção de carga, não regressão:**
+   `rotas.spec.ts:168`, `sessao.spec.ts:111`, `financeiro-venda.spec.ts:495` (desktop). Evidência:
+   rodadas isoladas passaram nos dois viewports (`42 passed`). Ressalva registrada: "passa isolado"
+   prova que não é defeito determinístico, não prova que as correções não deixaram as páginas um pouco
+   mais pesadas sob carga.
+4. **Aviso de conflito das Anotações mudou de comportamento** (parte da correção do CR-03,
+   `af5383e`): com o aviso na tela, digitar não o esconde mais nem grava por cima — ele espera "manter
+   o meu" ou "ver o dela". O comportamento antigo entrava em laço (a próxima gravação ia com a versão
+   velha e reabria o conflito). **Desfazer** exigiria reintroduzir o laço; o caminho seria outro desenho.
+5. **A revisão de código olhou 135 arquivos de produção, não os 253 do escopo automático** — ficaram
+   fora 79 arquivos de teste (já exercitados por duas varreduras completas), 32 movidos sem mudar uma
+   linha, 5 fotos, 1 markdown, 1 apagado. O workflow manda estreitar acima de 50. **Desfazer:**
+   `/gsd-code-review 04.6 --files=<os testes>` revisa o que ficou de fora.
+6. **O texto do GES-07 foi corrigido** (`0f29a99`): dizia que as pílulas de atalho vinham depois dos
+   blocos; o protótipo, o plano 06 e o código as põem antes. O protótipo vence sobre a interface.
+
+
 ## Decisões do dono durante a execução da Fase 04.6
 
 - **D-18 ("sem preço no site") vale também para a chave `agLivre`** — confirmado pelo dono em

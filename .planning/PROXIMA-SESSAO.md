@@ -1,5 +1,45 @@
 # Próxima sessão — ATUALIZADO em 2026-09-29
 
+> **🟢 ATUALIZAÇÃO DE 29/09/2026, MADRUGADA — A FASE 04.6 ESTÁ FECHADA.** O que vem logo abaixo
+> deste bloco é o retrato de 29/09 de manhã cedo e dizia, no presente, "falta o fechamento formal e
+> o push de 6 commits" — as duas coisas aconteceram depois. Mantido como registro.
+>
+> **Como sei (medido, não afirmado):**
+> - **Fechamento formal feito:** verificação da fase `passed`, 9 de 9 — os 8 critérios do ROADMAP e
+>   os 24 requisitos (commit `e3527e4`); `phase.complete` em `598fbc7`; ROADMAP com a 04.6 marcada.
+> - **Revisão de código rodou antes** (`82ac7c2`): 4 bloqueadores, **todos conferidos no código**
+>   pelo orquestrador, e o dono mandou corrigir antes de fechar. Corrigidos 7 achados em 9 commits
+>   (`2604b1a`..`9605a8d`, relatório `d835434`) — entre eles **perda de texto nas Anotações** (a
+>   gravação pendente era cancelada ao sair da tela, com o indicador dizendo "salvo") e o **aviso de
+>   conflito contra a própria gravação**; encomenda atrasada aparecendo como "Em espera"; e ~65
+>   navegações ainda nos endereços antigos, que só funcionavam pelo redirecionamento temporário.
+> - **Essas correções ESTÃO no ar:** o dono deu o push; `gh run list` mostra o run `36509335475`
+>   verde nos quatro jobs, inclusive `Implantar no VPS`; e o `<html>` de produção traz
+>   `data-scroll-behavior="smooth"`, atributo que só essas correções introduziram.
+> - **Varredura completa sobre o código corrigido:** `826 passed · 10 failed · 1 flaky · 37 skipped ·
+>   48 did not run`. Spec a spec: 7 falhas são as janelas antigas conhecidas; 3 eram novas
+>   (`rotas.spec.ts:168`, `sessao.spec.ts:111`, `financeiro-venda.spec.ts:495`) e **passaram
+>   isoladas nos dois viewports** — contenção de carga, não regressão. Os "did not run" são a cadeia
+>   `parametros-*`, estrutural e anterior à fase.
+> - **O verificador achou um defeito que ninguém tinha visto:** no celular, a barra de cima do site
+>   cortava o botão "Encomendas" (em 375px lia-se "Encom"). Confirmado em produção por screenshot,
+>   corrigido em `748b1c6` (teste vermelho) → `ddfecfd` (verde), seguindo o protótipo aprovado,
+>   que esconde esses botões no celular. **Esta correção NÃO está no ar ainda.**
+>
+> **🔴 O que depende de você:**
+> 1. **`git push`** — 7 commits locais (`git log origin/main..main` em 29/09 madrugada): a correção
+>    da barra do site (`748b1c6`, `ddfecfd`) e documentos. Depois do deploy, confira:
+>    `curl -s https://amassacerrado.com.br/ | grep -c 'hidden gap-2 md:flex'` deve dar **1**.
+> 2. **As decisões tomadas sem você esta noite**, todas reversíveis e cada uma com o jeito de desfazer — ver "Decidido sem o Theo" no
+>    topo do `.planning/STATE.md`.
+> 3. **Uma mudança de comportamento para saber:** nas Anotações, com o aviso de conflito na tela,
+>    digitar não o esconde mais — ele espera você escolher "manter o meu" ou "ver o dela". O jeito
+>    antigo entrava em laço.
+>
+> **Em seguida:** Fase **06 — Estoque** (item 4 da fila), que o orquestrador segue durante a noite
+> sob a sua autorização de 29/09 ("roda o máximo que puder em opções recomendadas").
+
+
 > **A porta de entrada de qualquer sessão agora é `ESTADO-ATUAL.md`, na raiz do projeto** (mora só
 > neste computador; está no `.gitignore`). Ele tem o negócio, o que está no ar, a ordem de trabalho e
 > as pendências. Este arquivo continua valendo pelas **lições técnicas** da seção "O que a Fase 4.2
