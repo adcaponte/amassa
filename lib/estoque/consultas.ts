@@ -109,8 +109,9 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
       .from(movimentacoesEstoque)
       .where(inArray(movimentacoesEstoque.itemId, ids))
       .groupBy(movimentacoesEstoque.itemId),
-    // A mesma regra de `lerEstados`: a última linha de tipo "entrada" pela ordem do livro
-    // (`numero`); com `valor_informado_centavos`, ela é a última entrada com preço.
+    // A mesma regra de `lerEstados`: a última linha de tipo "entrada" que NÃO é estorno de venda
+    // (WR-02, decidido pelo dono em 29/09/2026), pela ordem do livro (`numero`); com
+    // `valor_informado_centavos`, ela é a última entrada com preço.
     db
       .selectDistinctOn([movimentacoesEstoque.itemId], {
         itemId: movimentacoesEstoque.itemId,
@@ -118,7 +119,13 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
         quantidadeMilesimos: movimentacoesEstoque.quantidadeMilesimos,
       })
       .from(movimentacoesEstoque)
-      .where(and(inArray(movimentacoesEstoque.itemId, ids), eq(movimentacoesEstoque.tipo, "entrada")))
+      .where(
+        and(
+          inArray(movimentacoesEstoque.itemId, ids),
+          eq(movimentacoesEstoque.tipo, "entrada"),
+          isNull(movimentacoesEstoque.estornoDeId),
+        ),
+      )
       .orderBy(movimentacoesEstoque.itemId, desc(movimentacoesEstoque.numero)),
     db
       .selectDistinct({ itemId: fichasPrecificacao.itemCatalogoId })

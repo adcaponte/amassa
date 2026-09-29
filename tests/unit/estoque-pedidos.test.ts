@@ -261,13 +261,13 @@ describe("pedidosDoEstorno", () => {
     documentoLinhaId: "linha-2",
   };
 
-  it("saída de venda (−2000, −840, cafeteria) → entrada com preço de 2000 por 840, mesma área, documento e linha (D-23)", () => {
+  it("saída de venda (−2000, −840, cafeteria) → estorno de venda de 2000 que levou 840, mesma área, documento e linha (D-23)", () => {
     expect(pedidosDoEstorno([saidaDeVenda])).toEqual([
       {
         itemId: "argila",
         origem: "venda",
         tipo: "entrada",
-        movimento: { tipo: "entrada_com_preco", milesimos: 2000, pagoCentavos: 840 },
+        movimento: { tipo: "estorno_de_venda", milesimos: 2000, valorDaVendaCentavos: 840 },
         valorInformadoCentavos: 840,
         estornoDeId: "mov-1",
         area: "cafeteria",

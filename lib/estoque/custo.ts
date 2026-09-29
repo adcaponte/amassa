@@ -5,10 +5,13 @@
 // trava e insere o que esta função devolve.
 //
 // O algoritmo é o CUSTO MÉDIO MÓVEL com os grampos do ERPNext para estoque negativo, exatamente
-// como `06-RESEARCH.md` §Pergunta 3 especifica (regras R1–R6, a tabela dos sete casos):
+// como `06-RESEARCH.md` §Pergunta 3 especifica (regras R1–R6, a tabela dos sete casos), mais a
+// regra R7 do estorno de venda, decidida pelo dono em 29/09/2026:
 //
 //   Estado: Q (Σ quantidade, milésimos, pode ser negativo), V (Σ valor, centavos), e a última
-//   entrada com preço. Movimento com Δ (milésimos, com sinal); Q' = Q + Δ.
+//   entrada com preço (compra, entrada manual, peça pronta ou contagem — NUNCA o estorno de uma
+//   venda: WR-02, decidido pelo dono em 29/09/2026). Movimento com Δ (milésimos, com sinal);
+//   Q' = Q + Δ.
 //   Taxa corrente A: Q ≠ 0 → V/Q; Q = 0 → a da última entrada com preço; sem nenhuma → 0 (D-26).
 //
 //   R1  Q' = 0                                  → valor = −V   (zera o resíduo de arredondamento)
@@ -17,6 +20,9 @@
 //   R4  entrada COM preço, Q < 0 e Q' < 0       → valor = round(Δ × A)
 //   R5  saída                                   → valor = −round(|Δ| × A)
 //   R6  entrada SEM preço (ajuste para mais)    → valor = round(Δ × A)
+//   R7  estorno de venda (S = o que a venda levou):
+//         Q > 0 → valor = S            (como R2 — D-23)
+//         Q ≤ 0 → valor = round(Δ × A) (como R6 — WR-01, decidido pelo dono em 29/09/2026)
 //   Ordem: R1 primeiro; depois a regra do tipo.
 //
 // A taxa A é mantida como RAZÃO EXATA (numerador, denominador), nunca como um custo unitário
@@ -42,15 +48,20 @@ export const ESTADO_VAZIO: EstadoDoItem = {
   ultimaEntradaComPreco: null,
 };
 
-// Milésimos SEMPRE positivos; o sinal vem do tipo. União fechada: não existe um quarto caso.
-// - `entrada_com_preco`: compra, entrada manual ("quanto custou ao todo"), saldo inicial, peça
-//   pronta e estorno de venda.
+// Milésimos SEMPRE positivos; o sinal vem do tipo. União fechada: não existe um quinto caso.
+// - `entrada_com_preco`: compra, entrada manual ("quanto custou ao todo"), saldo inicial e peça
+//   pronta. Só ela vira a "última entrada com preço".
 // - `entrada_sem_preco`: ajuste para mais.
 // - `saida`: saída manual, venda, ajuste para menos e estorno de compra.
+// - `estorno_de_venda`: a volta de uma saída cancelada, com o valor que ela levou (R7). Grava no
+//   livro como `tipo = 'entrada'` com `estorno_de_id` preenchido — por isso as duas consultas da
+//   última entrada com preço (`lerEstados` em gravacao.ts, `listarSaldos` em consultas.ts) filtram
+//   `estorno_de_id is null`, na mesma regra desta função (WR-02).
 export type Movimento =
   | { tipo: "entrada_com_preco"; milesimos: number; pagoCentavos: number }
   | { tipo: "entrada_sem_preco"; milesimos: number }
-  | { tipo: "saida"; milesimos: number };
+  | { tipo: "saida"; milesimos: number }
+  | { tipo: "estorno_de_venda"; milesimos: number; valorDaVendaCentavos: number };
 
 export type MovimentoValorado = {
   // Com sinal: positivo nas entradas, negativo nas saídas.
@@ -127,6 +138,15 @@ export function valorarMovimento(estado: EstadoDoItem, movimento: Movimento): Mo
       // R4 — continua negativo: mantém a taxa corrente.
       valor = arredondarRazao(delta * taxa.numerador, taxa.denominador);
     }
+  } else if (movimento.tipo === "estorno_de_venda") {
+    if (q > ZERO) {
+      // R7 com saldo positivo — volta ao valor que a venda levou (D-23).
+      valor = BigInt(movimento.valorDaVendaCentavos);
+    } else {
+      // R7 com saldo zero ou negativo — à taxa corrente, como R6 (WR-01): o cancelamento não
+      // reprecifica a prateleira pelo custo da venda antiga.
+      valor = arredondarRazao(delta * taxa.numerador, taxa.denominador);
+    }
   } else if (movimento.tipo === "saida") {
     // R5 — sai ao custo médio do instante (D-07).
     valor = -arredondarRazao(-delta * taxa.numerador, taxa.denominador);
@@ -135,6 +155,7 @@ export function valorarMovimento(estado: EstadoDoItem, movimento: Movimento): Mo
     valor = arredondarRazao(delta * taxa.numerador, taxa.denominador);
   }
 
+  // O estorno de venda NÃO atualiza a última entrada com preço (WR-02).
   const ultimaEntradaComPreco =
     movimento.tipo === "entrada_com_preco"
       ? { valorCentavos: movimento.pagoCentavos, milesimos: movimento.milesimos }
@@ -151,16 +172,19 @@ export function valorarMovimento(estado: EstadoDoItem, movimento: Movimento): Mo
   };
 }
 
-// D-23/D-24 tomadas SEM o dono na noite de 29/09 — confirmar antes do merge. Trocar a regra é
-// editar só esta função e `tests/unit/estoque-custo.test.ts`.
+// D-23/D-24 foram tomadas sem o dono (`[auto]` em 06-CONTEXT.md) e CONFIRMADAS por ele na manhã
+// de 29/09/2026 (formulário no chat; `06-VERIFICACAO-HUMANA.md` Parte 0). Trocar a regra é editar
+// esta função, o ramo R7 de `valorarMovimento` e `tests/unit/estoque-custo.test.ts`.
 //
 // O estorno ESPELHA a movimentação gravada, nunca recalcula o efeito (Pitfall 4):
-// - original com quantidade NEGATIVA (saída de venda) → volta como entrada COM preço, com o preço
-//   igual ao valor que a venda levou (D-23). O VALOR GRAVADO só é esse quando o saldo é positivo
-//   no cancelamento (R2); com saldo zero ou negativo, `valorarMovimento` aplica R1, R3 ou R4, e o
-//   valor gravado difere — em R3 a prateleira inteira passa ao custo da venda antiga (revisão de
-//   código WR-01; comportamento a confirmar pelo dono em `06-VERIFICACAO-HUMANA.md` §0.1). Que o
-//   "Para onde foi" de uma venda cancelada zera sempre NÃO vem desta função: vem de
+// - original com quantidade NEGATIVA (saída de venda) → volta como `estorno_de_venda`, carregando
+//   o valor absoluto que a venda levou. Regra decidida pelo dono em 29/09 (R7):
+//     · R1 primeiro: se o estorno zera o saldo, grava −V;
+//     · saldo POSITIVO no cancelamento → grava o valor que a venda levou (D-23);
+//     · saldo ZERO ou NEGATIVO → grava ao custo médio do instante, como um ajuste para mais (WR-01):
+//       a prateleira NÃO é reprecificada pelo custo da venda antiga;
+//     · o estorno NUNCA vira a "última entrada com preço" (WR-02).
+//   Que o "Para onde foi" de uma venda cancelada zera sempre NÃO vem desta função: vem de
 //   `contaComoConsumo` (`lib/estoque/historico.ts`), que deixa de fora a saída estornada e o estorno;
 // - original com quantidade POSITIVA (entrada de compra) → sai ao custo médio CORRENTE (D-24): ao
 //   custo original, o estoque poderia ficar com valor negativo e quantidade positiva quando houve
@@ -171,9 +195,9 @@ export function movimentoDoEstorno(original: {
 }): Movimento {
   if (original.quantidadeMilesimos < 0) {
     return {
-      tipo: "entrada_com_preco",
+      tipo: "estorno_de_venda",
       milesimos: -original.quantidadeMilesimos,
-      pagoCentavos: Math.abs(original.valorCentavos),
+      valorDaVendaCentavos: Math.abs(original.valorCentavos),
     };
   }
   if (original.quantidadeMilesimos > 0) {

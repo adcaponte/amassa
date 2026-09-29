@@ -236,12 +236,15 @@ describe("valorarMovimento — as bordas", () => {
 });
 
 // Gerador pseudoaleatório com semente fixa (LCG de 32 bits, constantes de Numerical Recipes) —
-// a sequência é a mesma em toda execução; nada de aleatoriedade do ambiente.
+// a sequência é a mesma em toda execução; nada de aleatoriedade do ambiente. Usa os bits ALTOS
+// (`s >>> 8`): os baixos de um LCG módulo 2^32 têm período curto — com `s % 4`, o sorteio do tipo
+// caía num ciclo e a entrada com preço aparecia UMA vez em 500 passos (achado em 29/09/2026, ao pôr
+// o estorno de venda no passeio).
 function criarGerador(semente: number): (minimo: number, maximo: number) => number {
   let s = semente >>> 0;
   return (minimo, maximo) => {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    return minimo + (s % (maximo - minimo + 1));
+    return minimo + ((s >>> 8) % (maximo - minimo + 1));
   };
 }
 
@@ -249,16 +252,22 @@ function sinal(n: number): -1 | 0 | 1 {
   return n > 0 ? 1 : n < 0 ? -1 : 0;
 }
 
-type Passo = { valorCentavos: number; estado: EstadoDoItem };
+type Passo = {
+  valorCentavos: number;
+  estado: EstadoDoItem;
+  tipo: Movimento["tipo"];
+  saldoAntes: number;
+};
 
 function rodarSequencia(semente: number, tamanho: number): Passo[] {
   const sortear = criarGerador(semente);
   const passos: Passo[] = [];
   let atual = ESTADO_VAZIO;
   for (let i = 0; i < tamanho; i++) {
-    // Metade entradas (com e sem preço), metade saídas: passeio sem deriva, que cruza o zero e
-    // entra no negativo. A cada 50 passos com saldo positivo, uma saída do saldo exato força R1.
-    const escolha = sortear(0, 3);
+    // Metade entradas (com preço, sem preço e estorno de venda — R7, WR-01/WR-02 decididos pelo
+    // dono em 29/09), metade saídas: passeio sem deriva, que cruza o zero e entra no negativo. A
+    // cada 50 passos com saldo positivo, uma saída do saldo exato força R1.
+    const escolha = sortear(0, 5);
     const milesimos = sortear(1, 30000);
     const zerar = i % 50 === 49 && atual.saldoMilesimos > 0;
     const movimento: Movimento = zerar
@@ -267,10 +276,17 @@ function rodarSequencia(semente: number, tamanho: number): Passo[] {
         ? { tipo: "entrada_com_preco", milesimos, pagoCentavos: sortear(0, 50000) }
         : escolha === 1
           ? { tipo: "entrada_sem_preco", milesimos }
-          : { tipo: "saida", milesimos };
+          : escolha === 2
+            ? { tipo: "estorno_de_venda", milesimos, valorDaVendaCentavos: sortear(0, 50000) }
+            : { tipo: "saida", milesimos };
     const resultado = valorarMovimento(atual, movimento);
     atual = resultado.estadoDepois;
-    passos.push({ valorCentavos: resultado.valorCentavos, estado: atual });
+    passos.push({
+      valorCentavos: resultado.valorCentavos,
+      estado: atual,
+      tipo: movimento.tipo,
+      saldoAntes: resultado.estadoDepois.saldoMilesimos - resultado.quantidadeMilesimos,
+    });
   }
   return passos;
 }
@@ -296,6 +312,13 @@ describe("valorarMovimento — os invariantes (500 movimentos, semente fixa)", (
     expect(passos.some((passo) => passo.estado.saldoMilesimos < 0)).toBe(true);
     expect(passos.some((passo) => passo.estado.saldoMilesimos > 0)).toBe(true);
     expect(passos.some((passo) => passo.estado.saldoMilesimos === 0)).toBe(true);
+    // E precisa exercitar cada tipo — o estorno de venda com o saldo dos dois lados (R7).
+    for (const tipo of ["entrada_com_preco", "entrada_sem_preco", "saida"] as const) {
+      expect(passos.some((passo) => passo.tipo === tipo), `nenhum passo "${tipo}"`).toBe(true);
+    }
+    const estornos = passos.filter((passo) => passo.tipo === "estorno_de_venda");
+    expect(estornos.some((passo) => passo.saldoAntes > 0)).toBe(true);
+    expect(estornos.some((passo) => passo.saldoAntes < 0)).toBe(true);
   });
 
   it("é pura: rodar a mesma sequência duas vezes dá os mesmos valores", () => {
@@ -319,17 +342,19 @@ describe("custoMedioCentavosPorUnidade", () => {
   });
 });
 
-describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes do merge)", () => {
-  // Um lugar só para a revisão do dono ler. Trocar a regra é editar `movimentoDoEstorno` em
-  // `lib/estoque/custo.ts` e este bloco — nenhum outro módulo calcula o valor de um estorno.
+describe("D-23/D-24 — o valor do estorno (confirmadas pelo dono em 29/09/2026)", () => {
+  // Um lugar só para a revisão do dono ler. Trocar a regra é editar `movimentoDoEstorno` e o ramo
+  // R7 de `valorarMovimento` em `lib/estoque/custo.ts`, e este bloco — nenhum outro módulo calcula
+  // o valor de um estorno. D-23 e D-24 foram tomadas sem o dono e confirmadas por ele na manhã de
+  // 29/09/2026, no chat (`06-VERIFICACAO-HUMANA.md` Parte 0).
 
-  it("D-23: o estorno de uma saída de venda volta como entrada ao valor absoluto que a venda levou", () => {
+  it("D-23: o estorno de uma saída de venda volta como estorno de venda carregando o valor absoluto que a venda levou", () => {
     expect(
       movimentoDoEstorno({ quantidadeMilesimos: -2000, valorCentavos: -840 }),
     ).toEqual({
-      tipo: "entrada_com_preco",
+      tipo: "estorno_de_venda",
       milesimos: 2000,
-      pagoCentavos: 840,
+      valorDaVendaCentavos: 840,
     });
   });
 
@@ -359,6 +384,11 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
     expect(resultado.estadoDepois.valorCentavos).toBe(12840);
     // R$ 4,94/kg (12840 / 26 = 493,8 → 494).
     expect(custoMedioCentavosPorUnidade(resultado.estadoDepois)).toBe(494);
+    // O estorno não vira a última entrada com preço (WR-02): continua a compra do caso 4.
+    expect(resultado.estadoDepois.ultimaEntradaComPreco).toEqual({
+      valorCentavos: 12500,
+      milesimos: 25000,
+    });
   });
 
   it("D-24: 10 un a R$ 0,01, compra de 1 un por R$ 10,00, saem 5, a compra é estornada — o valor nunca fica negativo com quantidade positiva", () => {
@@ -409,13 +439,17 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
     // levaria −1000 e deixaria V = 551 − 1000 = −449 com Q = 5000 > 0 — valor negativo com
     // quantidade positiva, o invariante quebrado. É por isso que D-24 usa o custo corrente.
   });
+});
 
-  // Revisão de código da Fase 06, WR-01 — o caso que o exemplo de D-23 não mostra. FIXA o que o
-  // código faz HOJE; não é a regra aprovada. O dono escolhe em `06-VERIFICACAO-HUMANA.md` §0.1
-  // entre isto e a alternativa (com Q ≤ 0, o estorno de venda entra ao custo médio do instante, como
-  // R6, e a prateleira não é reprecificada: a 1 un ficaria valendo R$ 50,00). Se ele trocar, este
-  // teste muda junto com `movimentoDoEstorno`/`valorarMovimento`.
-  it("comportamento atual — a confirmar pelo dono (WR-01): com o saldo negativo, cancelar uma venda antiga reprecifica a prateleira ao custo daquela venda (R3)", () => {
+describe("WR-01 e WR-02 — decididos pelo dono em 29/09/2026 (a alternativa da revisão, nos dois)", () => {
+  // Revisão de código da Fase 06. O dono escolheu, no chat, na manhã de 29/09/2026
+  // (`06-VERIFICACAO-HUMANA.md` Parte 0):
+  // - WR-01: com o saldo zero ou negativo na hora de cancelar, a venda volta ao custo médio do
+  //   instante (como um ajuste para mais) — a prateleira não é reprecificada pelo cancelamento;
+  // - WR-02: o estorno de venda NÃO conta como "última entrada com preço" — só compra, entrada
+  //   manual (e peça pronta) e contagem contam.
+
+  it("WR-01 decidido pelo dono em 29/09: com o saldo negativo, cancelar uma venda antiga devolve ao custo médio do instante — a 1 un que sobra vale R$ 50,00, não o custo da venda", () => {
     // Um item em un. A última compra foi a R$ 10,00/un e a prateleira está vazia.
     const inicio = estado(0, 0, { valorCentavos: 1000, milesimos: 1000 });
 
@@ -444,25 +478,62 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
         valorCentavos: vendaA.valorCentavos,
       }),
     );
-    // A venda levou R$ 20,00; o estorno grava +R$ 60,00 (R3: V' = round(1000 × 2000 / 2000) = 1000;
-    // valor = 1000 − (−5000)).
+    // Ao custo médio do instante (−5000 / −1000 = R$ 50,00/un): round(2000 × 5) = +10000.
     expect(estornoA.quantidadeMilesimos).toBe(2000);
-    expect(estornoA.valorCentavos).toBe(6000);
+    expect(estornoA.valorCentavos).toBe(10000);
     expect(estornoA.estadoDepois.saldoMilesimos).toBe(1000);
-    expect(estornoA.estadoDepois.valorCentavos).toBe(1000);
-    // A 1 un que sobrou vale R$ 10,00 — o custo da venda antiga —, embora a última compra tenha
-    // sido a R$ 50,00/un.
-    expect(custoMedioCentavosPorUnidade(estornoA.estadoDepois)).toBe(1000);
-    // E o estorno vira a "última entrada com preço" (revisão WR-02).
-    expect(estornoA.estadoDepois.ultimaEntradaComPreco).toEqual({ valorCentavos: 2000, milesimos: 2000 });
+    expect(estornoA.estadoDepois.valorCentavos).toBe(5000);
+    // A 1 un que sobrou vale R$ 50,00 — o custo da última compra, não o da venda cancelada.
+    expect(custoMedioCentavosPorUnidade(estornoA.estadoDepois)).toBe(5000);
+    // E o estorno não vira a última entrada com preço (WR-02): continua a compra.
+    expect(estornoA.estadoDepois.ultimaEntradaComPreco).toEqual({
+      valorCentavos: 25000,
+      milesimos: 5000,
+    });
   });
 
-  // Revisão de código da Fase 06, WR-02 — o estorno de venda conta como "última entrada com preço"
-  // (é uma `entrada_com_preco`, como `06-RESEARCH.md` §Pergunta 3 o define). FIXA o que o código faz
-  // HOJE; não é a regra aprovada. A alternativa da revisão (o estorno não conta) mexe na D-26 e
-  // está em `06-VERIFICACAO-HUMANA.md` §0.1 para o dono escolher. Se ele trocar, estes dois testes
-  // mudam junto com `valorarMovimento` e as consultas `lerEstados`/`listarSaldos`.
-  it("comportamento atual — a confirmar pelo dono (WR-02): com a prateleira vazia, a baixa sai pelo custo da venda cancelada, não pelo da última compra", () => {
+  it("WR-01 decidido pelo dono em 29/09: com o saldo zero, a venda cancelada volta ao custo da última compra", () => {
+    // Última compra a R$ 50,00/un; prateleira vazia. A venda antiga levou 1 un a R$ 10,00.
+    const inicio = estado(0, 0, { valorCentavos: 5000, milesimos: 1000 });
+
+    const estorno = valorarMovimento(
+      inicio,
+      movimentoDoEstorno({ quantidadeMilesimos: -1000, valorCentavos: -1000 }),
+    );
+
+    expect(estorno.valorCentavos).toBe(5000);
+    expect(estorno.estadoDepois).toEqual({
+      saldoMilesimos: 1000,
+      valorCentavos: 5000,
+      ultimaEntradaComPreco: { valorCentavos: 5000, milesimos: 1000 },
+    });
+  });
+
+  it("WR-01 decidido pelo dono em 29/09: R1 continua primeiro — o cancelamento que zera o saldo grava −V, e Q = 0 ⇒ V = 0", () => {
+    const inicio = estado(-2000, -900, { valorCentavos: 1000, milesimos: 1000 });
+
+    const estorno = valorarMovimento(
+      inicio,
+      movimentoDoEstorno({ quantidadeMilesimos: -2000, valorCentavos: -840 }),
+    );
+
+    expect(estorno.valorCentavos).toBe(900);
+    expect(estorno.estadoDepois).toMatchObject({ saldoMilesimos: 0, valorCentavos: 0 });
+  });
+
+  it("WR-01 decidido pelo dono em 29/09: com o saldo positivo nada muda — volta o valor que a venda levou (D-23)", () => {
+    const inicio = estado(3000, 15000, { valorCentavos: 25000, milesimos: 5000 });
+
+    const estorno = valorarMovimento(
+      inicio,
+      movimentoDoEstorno({ quantidadeMilesimos: -2000, valorCentavos: -2000 }),
+    );
+
+    expect(estorno.valorCentavos).toBe(2000);
+    expect(estorno.estadoDepois).toMatchObject({ saldoMilesimos: 5000, valorCentavos: 17000 });
+  });
+
+  it("WR-02 decidido pelo dono em 29/09: com a prateleira vazia depois de uma venda cancelada, a baixa sai pelo custo da última COMPRA", () => {
     // A última compra foi a R$ 50,00/un; a prateleira está vazia.
     const inicio = estado(0, 0, { valorCentavos: 5000, milesimos: 1000 });
 
@@ -471,18 +542,18 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
       inicio,
       movimentoDoEstorno({ quantidadeMilesimos: -1000, valorCentavos: -1000 }),
     );
-    expect(estorno.estadoDepois.ultimaEntradaComPreco).toEqual({ valorCentavos: 1000, milesimos: 1000 });
+    expect(estorno.estadoDepois.ultimaEntradaComPreco).toEqual({ valorCentavos: 5000, milesimos: 1000 });
 
     // A unidade sai de novo e a prateleira zera.
     const zera = valorarMovimento(estorno.estadoDepois, { tipo: "saida", milesimos: 1000 });
     expect(zera.estadoDepois).toMatchObject({ saldoMilesimos: 0, valorCentavos: 0 });
 
-    // A baixa seguinte, com saldo zero (D-26), sai a R$ 10,00 — não a R$ 50,00.
+    // A baixa seguinte, com saldo zero (D-26), sai a R$ 50,00 — a última compra, não a venda.
     const seguinte = valorarMovimento(zera.estadoDepois, { tipo: "saida", milesimos: 1000 });
-    expect(seguinte.valorCentavos).toBe(-1000);
+    expect(seguinte.valorCentavos).toBe(-5000);
   });
 
-  it("comportamento atual — a confirmar pelo dono (WR-02): cancelar uma venda feita antes de qualquer entrada com preço faz a tela mostrar R$ 0,00/un em vez de “—”", () => {
+  it("WR-02 decidido pelo dono em 29/09: cancelar uma venda de material nunca comprado continua mostrando “—”", () => {
     // Nunca houve entrada com preço: a tela mostra "—".
     expect(custoMedioParaExibir(ESTADO_VAZIO)).toBeNull();
 
@@ -491,7 +562,7 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
     expect(venda.valorCentavos).toBe(0);
     expect(custoMedioParaExibir(venda.estadoDepois)).toBeNull();
 
-    // O cancelamento entra "com preço" de R$ 0,00 — e passa a ser a última entrada com preço.
+    // O cancelamento não é "entrada com preço": o custo continua desconhecido.
     const estorno = valorarMovimento(
       venda.estadoDepois,
       movimentoDoEstorno({ quantidadeMilesimos: venda.quantidadeMilesimos, valorCentavos: venda.valorCentavos }),
@@ -499,9 +570,8 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
     expect(estorno.estadoDepois).toEqual({
       saldoMilesimos: 0,
       valorCentavos: 0,
-      ultimaEntradaComPreco: { valorCentavos: 0, milesimos: 1000 },
+      ultimaEntradaComPreco: null,
     });
-    // Hoje: 0 centavos por unidade ("R$ 0,00/un"). Pela alternativa da revisão, seria `null` ("—").
-    expect(custoMedioParaExibir(estorno.estadoDepois)).toBe(0);
+    expect(custoMedioParaExibir(estorno.estadoDepois)).toBeNull();
   });
 });

@@ -122,8 +122,8 @@ export async function travarItens(
 // transação. `sum()` de `bigint` volta como texto do `pg` (numeric) → `Number(...)`, seguro abaixo
 // de 2^53. Item sem nenhuma linha no livro não aparece no mapa: quem lê usa `ESTADO_VAZIO`.
 //
-// "Última entrada com preço" = a linha de `tipo = 'entrada'` de maior `numero` (a ordem do livro,
-// nunca `criado_em`). Toda linha de entrada tem `valor_informado_centavos` (check da 0023): é o
+// "Última entrada com preço" = a linha de `tipo = 'entrada'` SEM `estorno_de_id` (o estorno de
+// venda não conta — WR-02) de maior `numero` (a ordem do livro, nunca `criado_em`). Toda linha de entrada tem `valor_informado_centavos` (check da 0023): é o
 // preço pago P daquela entrada, o mesmo que `custo.ts` guarda em `estadoDepois`.
 export async function lerEstados(
   tx: TransacaoDoBanco,
@@ -156,6 +156,9 @@ export async function lerEstados(
       and(
         inArray(movimentacoesEstoque.itemId, unicos),
         eq(movimentacoesEstoque.tipo, "entrada"),
+        // O estorno de venda não conta (WR-02, decidido pelo dono em 29/09/2026) — a mesma regra
+        // de `valorarMovimento`, que não o guarda como última entrada com preço.
+        isNull(movimentacoesEstoque.estornoDeId),
       ),
     )
     .orderBy(movimentacoesEstoque.itemId, desc(movimentacoesEstoque.numero));
