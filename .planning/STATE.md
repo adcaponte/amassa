@@ -4,9 +4,9 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
-status: ready_to_execute
-stopped_at: "Fase 06 Estoque: 11 planos aprovados pelo verificador de planos na 2a rodada (noite de 29/09). Proximo: executar no branch gsd/phase-06-estoque, sem --auto."
-last_updated: "2026-09-29T04:40:24.609Z"
+status: executing
+stopped_at: "Fase 06 Estoque: execucao iniciada na noite de 29/09, sem o dono, no branch gsd/phase-06-estoque (criado pelo plano 06-01). Planos seguidos, um por onda."
+last_updated: "2026-09-29T04:41:41.574Z"
 progress:
   total_phases: 12
   completed_phases: 11
@@ -133,7 +133,9 @@ mesma falha resistir três vezes.
 
 ## Current Position
 
-Phase: 06 — Estoque — **planejada, pronta para executar** (29/09/2026, sessão noturna, sem o dono):
+Phase: 06 — Estoque — **em execução desde 29/09/2026** (sessão noturna, sem o dono), no branch
+`gsd/phase-06-estoque` — o `main` só recebe documentos. Antes:
+**planejada** (29/09/2026, sessão noturna, sem o dono):
 **11 planos** em 11 ondas seguidas, aprovados pelo `gsd-plan-checker` na 2ª rodada — requisitos
 21/21, decisões 33/33, análise de lacunas limpa. Feito antes do
 plano: contexto (`5ad73a0`), pesquisa (`b09d7a3`), estratégia de validação (`67177bc`) e o
