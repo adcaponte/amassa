@@ -1,11 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { anotacoesDaCasa, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { esquemaSalvarAnotacoes } from "./esquemas";
 import { decidirGravacao } from "./folha";
@@ -56,8 +58,9 @@ export async function salvarAnotacoes(entradaBruta: unknown): Promise<ResultadoD
   }
   const { texto, vistoEm } = resultado.data;
 
+  let resultadoDaGravacao: ResultadoDeSalvarAnotacoes;
   try {
-    return await db.transaction(async (tx) => {
+    resultadoDaGravacao = await db.transaction(async (tx) => {
       // Trava a linha única ANTES de decidir — nenhuma escrita concorrente decide por fora
       // (for update). É esta trava, e a comparação DEPOIS dela, que fecha a janela de corrida
       // que D-08 pede: sem ela, duas transações concorrentes poderiam ler o mesmo
@@ -118,4 +121,15 @@ export async function salvarAnotacoes(entradaBruta: unknown): Promise<ResultadoD
     );
     return { ok: false, motivo: "erro", erro: FRASE_ERRO_AO_SALVAR };
   }
+
+  // WR-03 da revisão da Fase 04.6: depois de uma gravação de verdade (já confirmada — fora da
+  // transação, e fora do `try`, para uma falha aqui nunca virar "não deu para salvar" de um
+  // texto que já está no banco), o Início é revalidado. Sem isso, voltar ao Início pelo botão
+  // "voltar" do navegador podia remontar o editor com as props de ANTES da gravação — o texto
+  // velho na caixa e, na próxima tecla, um conflito contra a própria gravação. O editor em tela
+  // não perde nada: ele semeia o estado das props uma vez só, e ninguém passa `key` para ele.
+  if (resultadoDaGravacao.ok) {
+    revalidatePath(rotaDeGestao("/"));
+  }
+  return resultadoDaGravacao;
 }
