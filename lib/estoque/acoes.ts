@@ -91,8 +91,10 @@ class MaterialDesativado extends Error {
 }
 class EncomendaForaDeAndamento extends Error {}
 class CustoDaPecaProntaZerado extends Error {}
-// A primeira contagem ficou positiva SOB A TRAVA e veio sem custo — a frase é a de `planejarContagem`.
-class CustoDaContagemFaltando extends Error {
+// A contagem recusada SOB A TRAVA, com a frase de `gravarContagem`: a primeira contagem ficou
+// positiva e veio sem custo (`planejarContagem`), ou o custo foi digitado contra um saldo que já
+// mudou (`conferirSaldoDoCusto`, revisão WR-03). As duas moram no "Custou ao todo".
+class RecusaDaContagem extends Error {
   constructor(
     mensagem: string,
     readonly saldoMilesimos: number,
@@ -527,9 +529,13 @@ export async function confirmarContagem(entradaBruta: unknown): Promise<Resultad
         throw new MaterialDesativado(item.nome);
       }
 
-      const contagem = await gravarContagem(tx, dados, { registradoPor: usuario.id });
+      const contagem = await gravarContagem(
+        tx,
+        { ...dados, unidade: item.unidade },
+        { registradoPor: usuario.id },
+      );
       if (contagem.recusa !== null) {
-        throw new CustoDaContagemFaltando(contagem.recusa, contagem.saldoAntesMilesimos);
+        throw new RecusaDaContagem(contagem.recusa, contagem.saldoAntesMilesimos);
       }
       return {
         nome: item.nome,
@@ -549,7 +555,7 @@ export async function confirmarContagem(entradaBruta: unknown): Promise<Resultad
     if (erro instanceof MaterialDesativado) {
       return { ok: false, erro: fraseMaterialDesativado(erro.nome), campo: null, saldoMilesimos: null };
     }
-    if (erro instanceof CustoDaContagemFaltando) {
+    if (erro instanceof RecusaDaContagem) {
       return { ok: false, erro: erro.message, campo: "custou", saldoMilesimos: erro.saldoMilesimos };
     }
     // T-06-08: o texto do banco nunca chega à tela; o SQLSTATE fica só no log.

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   agruparContagem,
+  conferirSaldoDoCusto,
   modoDoMaterial,
   planejarContagem,
   previaDaContagem,
@@ -12,7 +13,9 @@ import { esquemaConfirmarContagem } from "@/lib/estoque/esquemas";
 import { pedidoDeContagem } from "@/lib/estoque/pedidos";
 import {
   FRASE_CONTADO_VAZIO,
+  FRASE_CONTAGEM_DESATUALIZADA,
   FRASE_CUSTO_DA_CONTAGEM,
+  fraseSaldoMudouNaContagem,
 } from "@/lib/estoque/textos";
 
 // A contagem do estoque (06-10-PLAN.md, Tarefa 1). Um `it` por comportamento do `<behavior>` do
@@ -283,36 +286,101 @@ describe("pedidoDeContagem — o que vai para o livro", () => {
   });
 });
 
+describe("conferirSaldoDoCusto — o custo vale para a diferença que a pessoa viu (revisão WR-03)", () => {
+  it("primeira contagem com custo e o saldo mudou no meio: recusa dizendo de quanto para quanto", () => {
+    // A tela mostrou −2 e a pessoa contou 10: precificou 12 un. Uma venda levou o saldo a −3.
+    const plano = planejarContagem({
+      modo: "primeira",
+      saldoMilesimos: -3000,
+      contadoMilesimos: 10000,
+      custouCentavos: 12000,
+    });
+    expect(plano.tipo).toBe("entrada");
+    expect(conferirSaldoDoCusto({ plano, saldoEsperadoMilesimos: -2000, unidade: "un" })).toBe(
+      "O saldo mudou de −2 para −3 un enquanto você contava — confira o custo e confirme de novo.",
+    );
+    expect(fraseSaldoMudouNaContagem("−2", "−3", "un")).toBe(
+      "O saldo mudou de −2 para −3 un enquanto você contava — confira o custo e confirme de novo.",
+    );
+  });
+
+  it("primeira contagem com custo e o saldo igual ao da tela: segue", () => {
+    const plano = planejarContagem({
+      modo: "primeira",
+      saldoMilesimos: -2000,
+      contadoMilesimos: 10000,
+      custouCentavos: 12000,
+    });
+    expect(conferirSaldoDoCusto({ plano, saldoEsperadoMilesimos: -2000, unidade: "un" })).toBeNull();
+  });
+
+  it("ajuste e diferença zero não levam custo: seguem contra o saldo do instante, mesmo que ele tenha mudado", () => {
+    const ajusteDaPrimeira = planejarContagem({
+      modo: "primeira",
+      saldoMilesimos: 5000,
+      contadoMilesimos: 3000,
+      custouCentavos: null,
+    });
+    const ajusteDaConferencia = planejarContagem({
+      modo: "conferencia",
+      saldoMilesimos: -3000,
+      contadoMilesimos: 10000,
+      custouCentavos: 12000,
+    });
+    const nada = planejarContagem({
+      modo: "primeira",
+      saldoMilesimos: 4000,
+      contadoMilesimos: 4000,
+      custouCentavos: null,
+    });
+    expect(ajusteDaConferencia.tipo).toBe("ajuste");
+    for (const plano of [ajusteDaPrimeira, ajusteDaConferencia, nada]) {
+      expect(conferirSaldoDoCusto({ plano, saldoEsperadoMilesimos: 1000, unidade: "kg" })).toBeNull();
+    }
+  });
+});
+
 describe("esquemaConfirmarContagem — o que o servidor aceita", () => {
   const itemId = "7b0c9f3e-2d4a-4c1b-9a8e-1f2d3c4b5a69";
 
   it("contado aceita zero; custo opcional vira centavos ou nulo", () => {
-    expect(esquemaConfirmarContagem.parse({ itemId, contadoTexto: "0" })).toEqual({
+    expect(esquemaConfirmarContagem.parse({ itemId, contadoTexto: "0", saldoEsperadoMilesimos: 0 })).toEqual({
       itemId,
       contadoMilesimos: 0,
       custouCentavos: null,
+      saldoEsperadoMilesimos: 0,
     });
-    expect(esquemaConfirmarContagem.parse({ itemId, contadoTexto: "10", custouTexto: "50,00" })).toEqual({
+    expect(esquemaConfirmarContagem.parse({ itemId, contadoTexto: "10", custouTexto: "50,00", saldoEsperadoMilesimos: -2000 })).toEqual({
       itemId,
       contadoMilesimos: 10000,
       custouCentavos: 5000,
+      saldoEsperadoMilesimos: -2000,
     });
-    expect(esquemaConfirmarContagem.parse({ itemId, contadoTexto: "2,5", custouTexto: "" })).toEqual({
+    expect(esquemaConfirmarContagem.parse({ itemId, contadoTexto: "2,5", custouTexto: "", saldoEsperadoMilesimos: 4000 })).toEqual({
       itemId,
       contadoMilesimos: 2500,
       custouCentavos: null,
+      saldoEsperadoMilesimos: 4000,
     });
   });
 
+  it("revisão WR-03: sem o saldo que a tela usou (ou com um que não é inteiro), recusa pedindo para recarregar", () => {
+    for (const saldoEsperadoMilesimos of [undefined, null, "4000", 1.5]) {
+      const resultado = esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "4", saldoEsperadoMilesimos });
+      expect(resultado.success).toBe(false);
+      expect(resultado.error?.issues[0]?.message).toBe(FRASE_CONTAGEM_DESATUALIZADA);
+    }
+  });
+
   it("contado vazio é recusado com a frase “pode ser zero”", () => {
-    const resultado = esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "" });
+    const resultado = esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "", saldoEsperadoMilesimos: 0 });
     expect(resultado.success).toBe(false);
     expect(resultado.error?.issues[0]?.message).toBe(FRASE_CONTADO_VAZIO);
     expect(FRASE_CONTADO_VAZIO).toBe("Diga quanto tem na prateleira — pode ser zero.");
   });
 
   it("custo inválido é recusado", () => {
-    expect(esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "1", custouTexto: "abc" }).success).toBe(
+    expect(esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "1", custouTexto: "abc", saldoEsperadoMilesimos: 0 }).success).toBe(
       false,
     );
   });

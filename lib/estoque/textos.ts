@@ -597,3 +597,11 @@ export const FRASE_ERRO_CARREGAR_CONTAGEM =
 export const FRASE_FALHA_AO_GRAVAR_CONTAGEM =
   "Não deu para gravar esta contagem. Verifique a internet e toque em Confirmar contagem de novo.";
 export const FRASE_CUSTO_DA_CONTAGEM = "Diga quanto custou — uma estimativa serve.";
+// Revisão WR-03: o "Custou ao todo" foi digitado para a diferença contra o saldo da tela, e o saldo
+// mudou (uma venda no meio da contagem). A linha recebe o saldo novo e refaz a dica do custo.
+export function fraseSaldoMudouNaContagem(de: string, para: string, unidade: string): string {
+  return `O saldo mudou de ${de} para ${para} ${unidade} enquanto você contava — confira o custo e confirme de novo.`;
+}
+// O pedido chegou sem o saldo que a tela mostrava (tela aberta antes de uma atualização do sistema).
+export const FRASE_CONTAGEM_DESATUALIZADA =
+  "Esta tela da contagem está desatualizada. Recarregue a página e confirme de novo.";

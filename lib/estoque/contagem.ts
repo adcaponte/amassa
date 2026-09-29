@@ -16,6 +16,7 @@ import { ORDEM_DAS_AREAS, normalizarBusca, planejarAjuste, textoDeMilesimos } fr
 import {
   FRASE_CUSTO_DA_CONTAGEM,
   PREVIA_CONTAGEM_JA_CERTA,
+  fraseSaldoMudouNaContagem,
   previaDaContagemTexto,
   textoProgressoDaContagem,
 } from "./textos";
@@ -95,6 +96,32 @@ export function planejarContagem({
     saldoAntesMilesimos: saldoMilesimos,
     saldoDepoisMilesimos: contadoMilesimos,
   };
+}
+
+// Revisão WR-03 — o custo digitado vale para a diferença que a pessoa VIU. A dica do "Custou ao
+// todo" diz "o que você pagou por {diferença} {un}", e essa diferença saiu do saldo da tela. Se,
+// sob a trava, o saldo é outro (uma venda no meio da contagem), gravar aquele custo na diferença
+// nova mudaria o custo por unidade sem ninguém saber — e é dele que toda saída seguinte é valorada.
+// Então: plano de ENTRADA (a única que leva o custo digitado) contra um saldo diferente do esperado
+// → a frase, com o saldo de antes e o de agora. Diferença zero e ajuste não levam custo: seguem
+// como estão, contra o saldo do instante.
+export function conferirSaldoDoCusto({
+  plano,
+  saldoEsperadoMilesimos,
+  unidade,
+}: {
+  plano: PlanoDeContagem;
+  saldoEsperadoMilesimos: number;
+  unidade: Unidade;
+}): string | null {
+  if (plano.tipo !== "entrada" || plano.saldoAntesMilesimos === saldoEsperadoMilesimos) {
+    return null;
+  }
+  return fraseSaldoMudouNaContagem(
+    textoDeMilesimos(saldoEsperadoMilesimos),
+    textoDeMilesimos(plano.saldoAntesMilesimos),
+    ROTULO_UNIDADE[unidade],
+  );
 }
 
 // A prévia da linha, depois de digitar (UI-D16: antes disso o saldo do sistema não aparece):

@@ -22,6 +22,7 @@ import {
 import { DESTINOS_DE_SAIDA, ehDestinoDeSaida, type DestinoDeSaida } from "./destinos";
 import {
   FRASE_CONTADO_VAZIO,
+  FRASE_CONTAGEM_DESATUALIZADA,
   FRASE_CUSTO_DA_CONTAGEM,
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
@@ -220,11 +221,18 @@ export const esquemaConfirmarContagem = z
     // Aceita zero (D-32): "Diga quanto tem na prateleira — pode ser zero." quando vazio.
     contadoTexto: esquemaContado,
     custouTexto: esquemaCustouDaContagem,
+    // Revisão WR-03: o saldo contra o qual a TELA calculou a diferença que a pessoa precificou. NÃO
+    // decide nada — a diferença e o modo continuam do servidor (T-06-45). Serve só para o servidor
+    // recusar um custo digitado para uma diferença que, sob a trava, já é outra.
+    saldoEsperadoMilesimos: z
+      .number({ error: FRASE_CONTAGEM_DESATUALIZADA })
+      .int({ error: FRASE_CONTAGEM_DESATUALIZADA }),
   })
   .transform((dados) => ({
     itemId: dados.itemId,
     contadoMilesimos: dados.contadoTexto,
     custouCentavos: dados.custouTexto,
+    saldoEsperadoMilesimos: dados.saldoEsperadoMilesimos,
   }));
 
 export type ConfirmarContagemValidado = z.infer<typeof esquemaConfirmarContagem>;

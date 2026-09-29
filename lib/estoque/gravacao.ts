@@ -51,7 +51,12 @@ import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
 import { ESTADO_VAZIO, valorarMovimento, type EstadoDoItem } from "./custo";
-import { modoDoMaterial, planejarContagem, type ModoDaContagem } from "./contagem";
+import {
+  conferirSaldoDoCusto,
+  modoDoMaterial,
+  planejarContagem,
+  type ModoDaContagem,
+} from "./contagem";
 import {
   pedidoDeAjuste,
   pedidoDeContagem,
@@ -470,10 +475,18 @@ export type ResultadoDaContagem =
 // `planejarContagem` contra o saldo DO INSTANTE (T-06-46): uma venda no meio da contagem fica certa
 // nas duas ordens — antes da trava, a diferença já sai com ela; depois, a venda espera a trava.
 // "nada" não insere; "recusa" (custo faltando numa primeira contagem que ficou positiva) devolve a
-// frase sem inserir. Senão, `pedidoDeContagem` pela porta única, na mesma `tx`.
+// frase sem inserir. Também recusa (revisão WR-03, `conferirSaldoDoCusto`) a entrada com custo
+// cujo saldo do instante difere do que a tela usou para a pessoa precificar — devolve o saldo novo
+// para a linha refazer a dica. Senão, `pedidoDeContagem` pela porta única, na mesma `tx`.
 export async function gravarContagem(
   tx: TransacaoDoBanco,
-  dados: { itemId: string; contadoMilesimos: number; custouCentavos: number | null },
+  dados: {
+    itemId: string;
+    contadoMilesimos: number;
+    custouCentavos: number | null;
+    saldoEsperadoMilesimos: number;
+    unidade: Unidade;
+  },
   contexto: { registradoPor: string },
 ): Promise<ResultadoDaContagem> {
   await travarItens(tx, [dados.itemId]);
@@ -497,6 +510,14 @@ export async function gravarContagem(
   });
   if (plano.tipo === "recusa") {
     return { recusa: plano.erro, modo, saldoAntesMilesimos: estado.saldoMilesimos };
+  }
+  const saldoMudou = conferirSaldoDoCusto({
+    plano,
+    saldoEsperadoMilesimos: dados.saldoEsperadoMilesimos,
+    unidade: dados.unidade,
+  });
+  if (saldoMudou !== null) {
+    return { recusa: saldoMudou, modo, saldoAntesMilesimos: estado.saldoMilesimos };
   }
   if (plano.tipo === "nada") {
     return {

@@ -469,4 +469,58 @@ test.describe("estoque contagem", () => {
     await expect(linha.getByTestId("contagem-contado")).toHaveValue("2");
     expect(await movimentacoesDoItem(itemId)).toHaveLength(0);
   });
+
+  test("(f) uma venda depois de a tela carregar: o custo digitado não vai para outra diferença (revisão WR-03)", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Prato para pintar ${suf}`;
+    const itemId = await semearItem({
+      nome,
+      categoriaVenda: "Peças para pintar",
+      precoCentavos: 4500,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "un",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await abrirContagem(page, suf);
+    const linha = linhaDaContagem(page, itemId);
+    await expect(linha).toBeVisible();
+
+    // Com a contagem aberta (saldo 0 na tela), outra aba vende 1 un: o saldo real vai a −1.
+    const outraAba = await page.context().newPage();
+    await venderPelaTela(outraAba, suf, nome, 1);
+    await outraAba.close();
+    expect(await saldoNoBanco(itemId)).toBe(-1000);
+
+    await linha.getByTestId("contagem-contado").fill("10");
+    await expect(linha).toContainText("o que você pagou por 10 un");
+    await linha.getByTestId("contagem-custou").fill("100,00");
+    await linha.getByTestId("contagem-confirmar").click();
+    await expect(linha.getByTestId("contagem-erro")).toHaveText(
+      "O saldo mudou de 0 para −1 un enquanto você contava — confira o custo e confirme de novo.",
+    );
+    // A dica se refaz com a diferença do servidor, e nada da contagem foi gravado.
+    await expect(linha).toContainText("o que você pagou por 11 un");
+    await expect(linha.getByTestId("contagem-custou")).toHaveValue("100,00");
+    const soAVenda = await contagensDoItem(itemId);
+    expect(soAVenda).toHaveLength(1);
+    expect(soAVenda[0]).toMatchObject({ origem: "venda", tipo: "saida" });
+
+    // Conferido o custo, confirmar de novo grava a diferença que a pessoa viu.
+    await linha.getByTestId("contagem-confirmar").click();
+    await expect(linha.getByTestId("contagem-feito")).toContainText("✓ Contado: 10 un");
+    expect(await saldoNoBanco(itemId)).toBe(10000);
+    const gravadas = await contagensDoItem(itemId);
+    expect(gravadas[gravadas.length - 1]).toMatchObject({
+      tipo: "entrada",
+      quantidadeMilesimos: 11000,
+      valorInformadoCentavos: 10000,
+    });
+  });
 });

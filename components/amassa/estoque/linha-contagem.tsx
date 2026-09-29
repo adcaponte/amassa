@@ -161,6 +161,9 @@ export function LinhaContagem({ item, aoConfirmar }: LinhaContagemProps) {
         itemId: item.id,
         contadoTexto,
         custouTexto: pedeCusto ? custouTexto : "",
+        // Revisão WR-03: o saldo contra o qual a dica do custo foi calculada. Se o do servidor for
+        // outro, ele recusa e devolve o novo — a dica abaixo se refaz com a diferença certa.
+        saldoEsperadoMilesimos: saldo,
       });
       if (!resultado.ok) {
         if (resultado.saldoMilesimos !== null) {
