@@ -262,7 +262,8 @@ roteiro e na caminhada, e foram respeitados nesta execução.
 
 ## Tarefa 3 — pendente (checkpoint humano, `gate="blocking"`)
 
-Aguardando o dono, nesta ordem: Parte 0 de `06-VERIFICACAO-HUMANA.md` (D-23/D-24/D-29) → Roteiro 15
+*(29/09/2026, manhã: a Parte 0 foi respondida e aplicada — ver o segundo adendo, no fim. Falta o
+resto.)* Aguardando o dono, nesta ordem: Parte 0 de `06-VERIFICACAO-HUMANA.md` (D-23/D-24/D-29) → Roteiro 15
 no servidor → contagem inicial real → Parte 2 da caminhada com cronômetro. Depois do "aprovado":
 registrar as respostas em `06-CONTEXT.md` (sem apagar o `[auto]`), marcar em `REQUIREMENTS.md` e no
 `ROADMAP.md` só o que a caminhada confirmou, e ✅ com data na fila — com `git log origin/main..main`,
@@ -303,3 +304,76 @@ Escrito depois do que está acima, que continua valendo como registro das Tarefa
   tentativa falhou no `tsc` por tipos gerados de um `next build` anterior do branch da fase em
   `.next/types/` (artefato local, ignorado pelo git, que o CI não tem); apagado esse diretório
   gerado, passou.
+
+## Adendo — 29/09/2026, ~09h00–09h30 UTC: a Parte 0 respondida pelo dono e aplicada
+
+Continuação da Tarefa 3 (sem aprová-la: o Roteiro 15 e a caminhada continuam do dono). O dono
+respondeu a Parte 0 **no chat, em 29/09/2026, pela manhã, por formulário**: **D-23 vale**, **D-24
+vale**, **WR-01 → a alternativa**, **WR-02 → a alternativa (a venda cancelada não conta)**, **D-29 →
+sim, "Produção da casa"**, área Peças.
+
+**Commits no branch `gsd/phase-06-estoque`:**
+
+- `f05c373` fix(06-11): estorno de venda pela regra decidida pelo dono em 29/09 (WR-01, WR-02) —
+  novo `Movimento` `estorno_de_venda` (regra R7 de `lib/estoque/custo.ts`: R1 primeiro; saldo
+  positivo → o valor que a venda levou, D-23; saldo zero ou negativo → round(Δ × A), como R6) que
+  não atualiza a última entrada com preço; `isNull(estornoDeId)` em `lerEstados`
+  (`lib/estoque/gravacao.ts`) e `listarSaldos` (`lib/estoque/consultas.ts`). Os três testes
+  "comportamento atual — a confirmar pelo dono" trocados por seis "WR-01/WR-02 decidido pelo dono em
+  29/09" (o exemplo da revisão: a 1 un fica valendo R$ 50,00; a baixa com prateleira vazia sai pela
+  última compra; o material nunca comprado continua `null`/"—"; R1 primeiro; saldo positivo = D-23).
+- `b13d300` feat(06-11): semente da categoria de compra "Produção da casa" na 0023 (D-29) —
+  `insert … select 'Produção da casa', 'custo', 'pecas' where not exists (… lower(trim(nome)) …)` no
+  fim da `0023`; `scripts/testar-migracoes.mjs` passa a esperar 25 categorias semeadas e confere
+  que a nova existe uma vez depois de migrar e continua uma ao reaplicar a instrução. `db/schema.ts`,
+  `_journal.json` e `0023_snapshot.json` sem mudança (dado, não estrutura — o snapshot descreve só
+  estrutura).
+- `a69bb69` docs(06-11): Parte 0 marcada na caminhada, `06-CONTEXT.md` (D-23/D-24 confirmadas,
+  D-23a, D-26 emendada, D-29 respondida) e Roteiro 15 (Passo 0 feito; Passo 5.5 novo:
+  `select count(*) from categorias where nome = 'Produção da casa'` → 1; o antigo 5.5 virou 5.6).
+- O commit de documentos de estado (este adendo, `STATE.md`, `PROXIMA-SESSAO.md`) vem logo depois.
+
+**Branch só-migração:** `0848b8c` "chore(06): só a migração 0023 — com a semente da categoria
+Produção da casa (D-29, dono 29/09)", **commit novo sobre `2907667`** (sem amend). `git diff
+--name-only main gsd/phase-06-estoque-migracao` = exatamente `db/migrations/0023_estoque.sql`,
+`db/migrations/meta/0023_snapshot.json`, `db/migrations/meta/_journal.json`,
+`scripts/testar-migracoes.mjs`; `git diff --quiet gsd/phase-06-estoque gsd/phase-06-estoque-migracao
+-- <os quatro>` saiu **0**. `main` não foi tocado.
+
+**Verificação:**
+
+- `npm run verificar` no branch da fase (antes dos commits, sobre o mesmo conteúdo): **exit 0** —
+  lint, `tsc`, `verificar-acoes` 80 ações e 0 violações, 92 arquivos e **1627 testes**,
+  `test:migracoes` "Todas as afirmações passaram.".
+- `npm run verificar` no só-migração `0848b8c`, depois de `rm -rf .next/types .next/dev/types`:
+  **exit 0** — 74 ações e 0 violações, 85 arquivos e **1325 testes**, `test:migracoes` "Todas as
+  afirmações passaram.".
+- **Um** e2e: `npm run test:e2e -- --grep "estoque financeiro|estoque abas|estoque material|cadastros"`
+  → **140 passed, 2 skipped** (1,9 min de testes; ~2 min no total). Cobre os cancelamentos
+  (`estoque financeiro` (f)(g)(h), `estoque abas` (c), `estoque material` (a)) e as telas de
+  Cadastros (listas de categorias e o catálogo, onde a categoria nova aparece) — e, de carona, testes de
+24 specs cujo título cita "cadastros" (abertura, encomendas, queimas, acessibilidade…). Nenhum teste contava
+  categorias nem listava as de compra por posição (grep em `tests/e2e` e `tests/unit`); o único que
+  contava — "exatamente 24" em `test:migracoes` — foi atualizado para 25.
+
+**Desvios (regras 1–3):**
+
+- **[Rule 1] O passeio aleatório do teste de invariantes quase não exercitava a entrada com preço.**
+  O gerador usava os bits baixos de um LCG módulo 2^32 (`s % 4`), que têm período curto: em 500
+  passos, a entrada com preço aparecia **uma** vez. Achado ao pôr o estorno de venda no passeio (ele
+  também não aparecia). Correção: `(s >>> 8) % n`, seis escolhas (com preço, sem preço, estorno de
+  venda e três de saída), e o teste agora afirma que cada tipo aparece e que o estorno ocorre com
+  saldo positivo e com saldo negativo. Os invariantes `Q = 0 ⇒ V = 0` e `sinal(V) ∈ {sinal(Q), 0}`
+  continuam valendo em todos os passos. Arquivo: `tests/unit/estoque-custo.test.ts` (`f05c373`).
+- `tests/unit/estoque-pedidos.test.ts` esperava o espelho antigo (`entrada_com_preco`) em
+  `pedidosDoEstorno` — atualizado para `estorno_de_venda` (`f05c373`). O `valorInformadoCentavos`
+  gravado continua o absoluto da original (o `check` da 0023 o exige em toda entrada).
+
+**Registrado, não corrigido:** uma compra com valor zero grava `tipo = 'entrada'` com
+`valor_informado_centavos = 0` e `Movimento` `entrada_sem_preco` — `valorarMovimento` não a guarda
+como última entrada com preço, mas as duas consultas a leem como uma (R$ 0,00). É anterior a esta
+mudança e fora do que o dono decidiu; fica para a próxima revisão.
+
+**Ainda pendente (Tarefa 3):** Roteiro 15 no servidor (o Passo 2 publica o só-migração `0848b8c`) →
+contagem inicial real → Parte 2 da caminhada com cronômetro. 06-11 **não** concluído; nenhum
+requisito EST marcado.

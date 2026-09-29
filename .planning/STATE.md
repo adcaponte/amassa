@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
 status: executing
-stopped_at: "Fase 06 Estoque: codigo completo e revisado no branch gsd/phase-06-estoque (revisao cc466af, correcoes ate e82a19e), nao publicado. 06-11 Tarefas 1-2 feitas; Tarefa 3 (portao do dono) pendente: Parte 0 (D-23/D-24/D-29 e as escolhas WR-01/WR-02), Roteiro 15, caminhada."
-last_updated: "2026-09-29T08:55:00.000Z"
+stopped_at: "Fase 06 Estoque: codigo completo e revisado no branch gsd/phase-06-estoque, nao publicado. 06-11 Tarefas 1-2 feitas; Tarefa 3 (portao do dono): Parte 0 FEITA em 29/09 de manha (D-23/D-24 valem; WR-01 e WR-02 pela alternativa, aplicadas em f05c373; D-29 sim, 'Producao da casa' semeada na 0023 em b13d300; branch so-migracao em 0848b8c). Proximo: Roteiro 15 no servidor, depois contagem inicial e caminhada."
+last_updated: "2026-09-29T09:30:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 11
   total_plans: 97
   completed_plans: 96
 last_activity: 2026-09-29
-last_activity_desc: "Fase 06 em 29/09/2026 (madrugada e manha, sem o dono): planos 06-01 a 06-10 concluidos e o 06-11 (portao) com as Tarefas 1 e 2 feitas no branch gsd/phase-06-estoque — /api/health/estoque, Roteiro 15, caminhada 06-VERIFICACAO-HUMANA.md, a unica varredura e2e completa (948 passed - 12 failed - 1 flaky - 38 skipped - 61 did not run, nenhuma falha do Estoque) e o branch LOCAL so-migracao; depois, revisao de codigo (06-REVIEW.md: 0 bloqueios, 5 avisos; WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0) e os documentos do main sincronizados com os do branch. Nada publicado, nenhuma migracao aplicada. Aguardando o dono (Tarefa 3 do 06-11). Hashes e medicoes: 06-11-SUMMARY.md e o adendo dele."
+last_activity_desc: "Fase 06 em 29/09/2026 (madrugada e manha, sem o dono): planos 06-01 a 06-10 concluidos e o 06-11 (portao) com as Tarefas 1 e 2 feitas no branch gsd/phase-06-estoque — /api/health/estoque, Roteiro 15, caminhada 06-VERIFICACAO-HUMANA.md, a unica varredura e2e completa (948 passed - 12 failed - 1 flaky - 38 skipped - 61 did not run, nenhuma falha do Estoque) e o branch LOCAL so-migracao; depois, revisao de codigo (06-REVIEW.md: 0 bloqueios, 5 avisos; WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0) e os documentos do main sincronizados com os do branch. Nada publicado, nenhuma migracao aplicada. Em 29/09 de manha o dono respondeu a Parte 0 no chat (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim) e as respostas foram aplicadas no branch da fase e no so-migracao (0848b8c), com npm run verificar verde nos dois. Aguardando o dono: Roteiro 15, contagem, caminhada. Hashes e medicoes: 06-11-SUMMARY.md e o adendo dele."
 ---
 
 # Project State
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 06 em 29/09/2026 (madrugada e manha, sem o dono): plan
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque** — **código completo e revisado no branch `gsd/phase-06-estoque`, não publicado; aguardando o dono** (portão 06-11, Tarefa 3: Parte 0 da caminhada, Roteiro 15, caminhada). *Até 29/09 de manhã esta linha dizia "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06 — Estoque** — **código completo e revisado no branch `gsd/phase-06-estoque`, não publicado; aguardando o dono** (portão 06-11, Tarefa 3: a Parte 0 foi respondida e aplicada em 29/09 de manhã; faltam o Roteiro 15 e a caminhada). *Até 29/09 de manhã esta linha dizia "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -162,7 +162,8 @@ para ele ler antes do servidor:
     dois `meta/` gerados da `0023`. **Desfazer:** `/gsd-code-review 06 --files=<os de teste>`.
 27. **Das correções da revisão, só os avisos que não mudam regra** (WR-03, WR-04, WR-05) e duas
     conferências de roteiro (IN-02, IN-04 — só texto; o pipeline não foi tocado). **WR-01 e WR-02
-    ficaram com você** (Parte 0, §0.1). Os demais informativos ficaram no relatório — o IN-01 (um
+    ficaram com você** (Parte 0, §0.1) — *e você as decidiu em 29/09 de manhã; ver "Decisões do dono —
+    Fase 06" abaixo.* Os demais informativos ficaram no relatório — o IN-01 (um
     `grant` explícito na `0023`) mexeria na migração que você vai aplicar e no branch só-migração;
     o IN-09 (publicar os dois branches no GitHub como cópia de segurança) é `push`, que é seu.
 28. **Os documentos de estado do `main` foram sincronizados com os do branch** (`STATE.md`,
@@ -174,6 +175,24 @@ para ele ler antes do servidor:
     ("docs(state): main com o estado da fase 06 …"), registrado no adendo do SUMMARY. **Desfazer:**
     nada a desfazer; no Passo 6 esses três arquivos chegam iguais dos dois lados.
 
+
+## Decisões do dono — Fase 06 (Parte 0 da caminhada, 29/09/2026)
+
+Todas respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário (`06-VERIFICACAO-HUMANA.md` Parte 0, caixas marcadas com Resultado). Aplicadas no
+branch `gsd/phase-06-estoque` e no só-migração; `npm run verificar` verde nos dois (saídas no
+adendo de `06-11-SUMMARY.md`).
+
+- **D-23 vale** — venda cancelada volta ao custo que a venda levou. Sem mudança.
+- **D-24 vale** — compra cancelada sai ao custo médio de agora. Sem mudança.
+- **WR-01 → a alternativa** — com saldo zero ou negativo na hora de cancelar, a venda volta ao
+  custo médio do instante (como um ajuste para mais) e a prateleira não é reprecificada; com saldo
+  positivo, D-23. R1 continua primeiro. Em `f05c373` (regra R7 de `lib/estoque/custo.ts`).
+- **WR-02 → a alternativa** — a venda cancelada **não** conta como "última entrada com preço" (só
+  compra, entrada manual/peça pronta e contagem). Material nunca comprado continua "—". Em
+  `f05c373` (`valorarMovimento`, `lerEstados`, `listarSaldos`).
+- **D-29 → sim** — categoria de compra **"Produção da casa"**, área Peças, grupo `custo`, semeada no
+  fim da `0023` (idempotente), em `b13d300`; o Roteiro 15 ganhou o Passo 5.5 para conferi-la.
+  O branch só-migração ganhou o commit `0848b8c` por cima de `2907667` (os mesmos quatro arquivos).
 
 ## Decisões do dono durante a execução da Fase 04.6
 
@@ -199,9 +218,10 @@ para ele ler antes do servidor:
 
 ## Current Position
 
-**Agora (29/09/2026, manhã): a Fase 06 está com o código completo no branch `gsd/phase-06-estoque`,
-NÃO publicada, e o portão (plano 06-11) aguarda o dono.** 06-11 não está concluído — só as Tarefas 1
-e 2, que são do executor:
+**Agora (29/09/2026, depois da Parte 0): a Fase 06 está com o código completo no branch
+`gsd/phase-06-estoque`, NÃO publicada; a Parte 0 foi respondida pelo dono e aplicada; o portão
+(plano 06-11) aguarda o Roteiro 15.** 06-11 não está concluído — as Tarefas 1 e 2 são do executor, e
+da Tarefa 3 só a Parte 0 está feita:
 
 - **Tarefa 1** (`01d643d`): `/api/health/estoque` (pública, 200 `{status:"ok"}` só com a `0023`
   aplicada; e2e `estoque saude` 48 passed); `docs/operacao/15-migracao-estoque.md` (Roteiro 15, na
@@ -231,9 +251,16 @@ e 2, que são do executor:
   **Ressalva:** a varredura completa (948 passed) rodou ANTES dessas correções; os caminhos
   corrigidos foram reverificados só por esse `--grep`. Os informativos não feitos (IN-01 `grant`
   explícito na `0023`, IN-03, IN-05 a IN-09) estão em `06-REVIEW.md` — nenhum bloqueia.
-- **Aguardando o dono (Tarefa 3, checkpoint bloqueante):** Parte 0 da caminhada (confirmar ou trocar
-  **D-23/D-24**, responder **D-29**, e escolher nas duas questões da revisão, WR-01 e WR-02) → Roteiro 15 no servidor → contagem inicial real → Parte 2 da
-  caminhada, com a baixa cronometrada. Nenhum requisito EST foi marcado `[x]`.
+- **Parte 0 — FEITA (29/09/2026, manhã):** respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário. D-23 e D-24 valem; WR-01 e WR-02 pela
+  alternativa (`f05c373`); D-29 sim, "Produção da casa" semeada na `0023` (`b13d300`); documentos em
+  `a69bb69`. **Branch só-migração agora em `0848b8c`** (um commit novo sobre `2907667`; `git diff
+  --name-only main gsd/phase-06-estoque-migracao` = os quatro arquivos, idênticos aos do branch da
+  fase). **Como sei:** `npm run verificar` exit 0 no branch da fase (80 ações, 1627 testes,
+  `test:migracoes` passou) e no só-migração (74 ações, 1325 testes, `test:migracoes` passou); um e2e
+  `--grep "estoque financeiro|estoque abas|estoque material|cadastros"`, 140 passed, 2 skipped.
+- **Aguardando o dono (Tarefa 3, checkpoint bloqueante):** Roteiro 15 no servidor (Passo 2 publica
+  o só-migração `0848b8c`) → contagem inicial real → Parte 2 da caminhada, com a baixa cronometrada.
+  Nenhum requisito EST foi marcado `[x]`.
 
 Phase: 06 — Estoque — **em execução desde 29/09/2026** (sessão noturna, sem o dono), no branch
 `gsd/phase-06-estoque` — o `main` só recebe documentos. **Planos concluídos: 06-01, 06-02, 06-03, 06-04, 06-05, 06-06, 06-07, 06-08, 06-09, 06-10** (traçador:
@@ -1328,6 +1355,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T10:59:48.242Z
-Stopped at: Concluido 04.6-07-PLAN.md
-Resume file: None
+Last session: 2026-09-29 (manhã) — Parte 0 da Fase 06 aplicada no branch `gsd/phase-06-estoque`
+Stopped at: 06-11 Tarefa 3 — Parte 0 feita; próximo passo do dono: Roteiro 15 (só-migração em `0848b8c`)
+Resume file: .planning/phases/06-estoque/06-VERIFICACAO-HUMANA.md (Parte 1)
+*(Até 29/09 esta seção dizia "Concluido 04.6-07-PLAN.md", de 28/09 — estava velha.)*

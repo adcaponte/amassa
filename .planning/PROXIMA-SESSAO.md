@@ -1,6 +1,28 @@
-# Próxima sessão — ATUALIZADO em 2026-09-29 (manhã)
+# Próxima sessão — ATUALIZADO em 2026-09-29 (manhã, depois da Parte 0)
 
-> **🟡 ATUALIZAÇÃO DE 29/09/2026, MANHÃ — A FASE 06 (ESTOQUE) ESTÁ PRONTA NO BRANCH E ESPERA VOCÊ.**
+> **🟢 ATUALIZAÇÃO DE 29/09/2026, MANHÃ (~09h30 UTC) — PARTE 0 RESPONDIDA E APLICADA. O PRÓXIMO PASSO
+> É O ROTEIRO 15.** Você respondeu a Parte 0 no chat, por formulário: **D-23 vale, D-24 vale, WR-01 e
+> WR-02 pela alternativa, D-29 sim ("Produção da casa", área Peças).**
+>
+> **Como sei (medido nesta manhã):**
+> - **Código (WR-01, WR-02):** `f05c373` no branch `gsd/phase-06-estoque` — estorno de venda com
+>   saldo zero ou negativo volta ao custo médio do instante; estorno de venda não conta como "última
+>   entrada com preço". **Migração (D-29):** `b13d300` — a semente idempotente no fim da `0023`.
+>   **Documentos:** `a69bb69` (caminhada, contexto, Roteiro 15 com o novo Passo 5.5).
+> - **Branch só-migração em `0848b8c`** (um commit novo sobre `2907667`): `git diff --name-only main
+>   gsd/phase-06-estoque-migracao` = os quatro arquivos, idênticos aos do branch da fase.
+> - **`npm run verificar` exit 0 nos dois branches** (fase: 1627 testes; só-migração: 1325 testes;
+>   `test:migracoes` passou nos dois, com a categoria contada 1 depois de migrar e depois de
+>   reaplicar). E2e `--grep "estoque financeiro|estoque abas|estoque material|cadastros"`: 140
+>   passed, 2 skipped.
+> - Nada publicado, nenhuma migração aplicada, nenhum requisito EST marcado.
+>
+> **🔴 O que depende de você, nesta ordem:**
+> 1. **Roteiro 15** (`docs/operacao/15-migracao-estoque.md`, a partir do Passo 1; o Passo 0 está
+>    feito). O Passo 2 publica o só-migração `0848b8c`; o Passo 5.5 é novo (a categoria, contada 1).
+> 2. **A contagem inicial real e a Parte 2 da caminhada**, no celular, com cronômetro na baixa.
+
+> **🟡 ATUALIZAÇÃO DE 29/09/2026, MANHÃ (antes da Parte 0) — A FASE 06 (ESTOQUE) ESTÁ PRONTA NO BRANCH E ESPERA VOCÊ.**
 > Nada dela está no ar, de propósito: o código grava dentro de toda venda e compra, e se subir antes
 > da migração `0023`, toda venda quebra (D-33).
 >
@@ -23,8 +45,9 @@
 >   vieram depois o fechamento da 04.6 e o planejamento da Fase 06 (só documentos). O SIT-10 continua
 >   fora do ar (`grep -c 'hidden gap-2 md:flex'` = 0).
 >
-> **🔴 O que depende de você, nesta ordem:**
-> 1. **`06-VERIFICACAO-HUMANA.md`, Parte 0** — confirmar ou trocar **D-23/D-24** (o valor do estorno,
+> **🔴 O que depende de você, nesta ordem:** *(retrato de antes da Parte 0 — o item 1 foi FEITO em
+> 29/09 de manhã, ver o bloco acima; o branch só-migração agora está em `0848b8c`)*
+> 1. ~~**`06-VERIFICACAO-HUMANA.md`, Parte 0**~~ — ✅ respondida em 29/09/2026, manhã — confirmar ou trocar **D-23/D-24** (o valor do estorno,
 >    com o exemplo em números), responder **D-29**, e escolher nas duas questões da revisão (**WR-01**:
 >    estorno de venda com saldo zerado ou negativo; **WR-02**: se o estorno conta como "última
 >    entrada com preço"). Antes de qualquer comando no servidor.
