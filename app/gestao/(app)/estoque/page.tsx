@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { estadoDoEstoque } from "@/lib/estoque/consultas";
+import { estoqueNuncaContado } from "@/lib/estoque/saldo";
 import {
   abaDoEstoqueDaUrl,
   limiteDaUrl,
@@ -13,6 +14,7 @@ import { AbasEstoque } from "@/components/amassa/estoque/abas-estoque";
 import { BannerDoEstoque } from "@/components/amassa/estoque/banner-estoque";
 import {
   BarraAcaoFixa,
+  BotaoContarEstoque,
   BotaoNovoMaterial,
   BotaoRegistrarMovimentacao,
 } from "@/components/amassa/estoque/barra-acao-fixa";
@@ -49,14 +51,20 @@ type ParametroDaUrl = string | string[] | undefined;
 // `?acabando=1` só liga a pílula "Acabando" no cliente; nenhuma consulta muda por ele.
 //
 // A página reserva embaixo a altura da barra fixa + 16px no celular: a última linha e as notas de
-// rodapé nunca ficam atrás dela. "Contar estoque" entra no plano que constrói o destino dele (06-10)
-// — botão sem destino é defeito.
+// rodapé nunca ficam atrás dela. "Contar estoque" (plano 06-10) vem antes das outras ações do
+// cabeçalho, nas duas larguras.
 //
 // Sem NENHUM material (plano 06-09, UI-D3): a decisão é tomada AQUI, antes de pintar
 // (`estadoDoEstoque`), para a barra fixa nunca aparecer e depois sumir. Nesse estado não há barra
 // fixa nem ações no cabeçalho — não há o que movimentar, e o único terracota é o "+ Novo material"
 // do vazio. Se essa leitura falhar, a página segue como se houvesse material: a seção de saldos
 // mostra o próprio erro, e as ações continuam à mão.
+//
+// PRIMEIRA ABERTURA (plano 06-10, UI-D3, D-16): há material e NENHUMA movimentação manual — a MESMA
+// `estadoDoEstoque`, lida antes de pintar. A aba Saldos troca a lista pelo painel que conduz à
+// contagem; banner, barra fixa e as ações do cabeçalho somem (o único terracota é "Começar a
+// contagem"); a barra de abas continua, e Histórico e Para onde foi seguem acessíveis — podem já ter
+// linhas vindas do Financeiro. Se a leitura falhar, vale o estado normal (a seção mostra o erro).
 export default async function PaginaEstoque({
   searchParams,
 }: {
@@ -74,25 +82,29 @@ export default async function PaginaEstoque({
   const abaAtual = abaDoEstoqueDaUrl(aba);
 
   let temMaterial = true;
+  let temManual = true;
   try {
-    ({ temMaterial } = await estadoDoEstoque());
+    ({ temMaterial, temManual } = await estadoDoEstoque());
   } catch (erro) {
     console.error("Falha ao ler o estado do Estoque:", erro);
   }
+  const primeiraAbertura = estoqueNuncaContado({ temMaterial, temManual });
+  const comAcoes = temMaterial && !primeiraAbertura;
 
   return (
     <ProvedorDoEstoque>
-      <div className={temMaterial ? "pb-[calc(var(--altura-acao-fixa)+16px)] md:pb-0" : undefined}>
+      <div className={comAcoes ? "pb-[calc(var(--altura-acao-fixa)+16px)] md:pb-0" : undefined}>
         <CabecalhoPagina titulo="Estoque">
-          {temMaterial ? (
-            <>
+          {comAcoes ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <BotaoContarEstoque />
               <BotaoNovoMaterial />
               <BotaoRegistrarMovimentacao />
-            </>
+            </div>
           ) : null}
         </CabecalhoPagina>
 
-        <BannerDoEstoque />
+        {primeiraAbertura ? null : <BannerDoEstoque />}
 
         <div className="pt-6">
           <AbasEstoque abaAtual={abaAtual} />
@@ -100,7 +112,7 @@ export default async function PaginaEstoque({
 
         {abaAtual === "saldos" ? (
           <Suspense fallback={<EsqueletoSaldos />}>
-            <SecaoSaldos acabandoInicial={acabando === "1"} />
+            <SecaoSaldos acabandoInicial={acabando === "1"} primeiraAbertura={primeiraAbertura} />
           </Suspense>
         ) : (
           <>
@@ -119,7 +131,7 @@ export default async function PaginaEstoque({
           </>
         )}
       </div>
-      {temMaterial ? <BarraAcaoFixa /> : null}
+      {comAcoes ? <BarraAcaoFixa /> : null}
     </ProvedorDoEstoque>
   );
 }

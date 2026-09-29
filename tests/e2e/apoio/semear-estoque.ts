@@ -261,3 +261,50 @@ export async function nomeDoUsuario(email: string): Promise<string> {
     return resultado.rows[0]?.nome ?? "";
   });
 }
+
+// Um material SEM nenhuma movimentação (plano 06-10) — o que "Ainda sem contagem" e a primeira
+// abertura pedem. É o próprio `semearMaterial` (que nunca escreve no livro); o nome existe para o
+// teste dizer o que precisa, e para continuar certo se um dia `semearMaterial` passar a dar saldo.
+export async function semearMaterialSemMovimentacao(dados: MaterialParaSemear): Promise<string> {
+  return semearMaterial(dados);
+}
+
+export type ContagemNoBanco = {
+  origem: string;
+  tipo: string;
+  motivo: string | null;
+  quantidadeMilesimos: number;
+  valorInformadoCentavos: number | null;
+  saldoContadoMilesimos: number | null;
+};
+
+// O que a contagem gravou para um item: motivo e saldo contado, na ordem do livro (plano 06-10).
+export async function contagensDoItem(itemId: string): Promise<ContagemNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const resultado = await cliente.query<{
+      origem: string;
+      tipo: string;
+      motivo: string | null;
+      quantidade_milesimos: string;
+      valor_informado_centavos: string | null;
+      saldo_contado_milesimos: string | null;
+    }>(
+      `select origem, tipo, motivo, quantidade_milesimos, valor_informado_centavos,
+              saldo_contado_milesimos
+         from movimentacoes_estoque
+        where item_id = $1
+        order by numero`,
+      [itemId],
+    );
+    return resultado.rows.map((linha) => ({
+      origem: linha.origem,
+      tipo: linha.tipo,
+      motivo: linha.motivo,
+      quantidadeMilesimos: Number(linha.quantidade_milesimos),
+      valorInformadoCentavos:
+        linha.valor_informado_centavos === null ? null : Number(linha.valor_informado_centavos),
+      saldoContadoMilesimos:
+        linha.saldo_contado_milesimos === null ? null : Number(linha.saldo_contado_milesimos),
+    }));
+  });
+}

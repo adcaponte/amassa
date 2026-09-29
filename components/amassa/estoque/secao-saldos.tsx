@@ -11,10 +11,13 @@ import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 import { AbaSaldos } from "./aba-saldos";
 import { BotaoNovoMaterial } from "./barra-acao-fixa";
 import { lerDadosDoEstoque } from "./carregador-do-seletor";
+import { PainelPrimeiraAbertura } from "./painel-primeira-abertura";
 import { EntregaDoEstoque, type DadosDoEstoque } from "./provedor-estoque";
 
 export type SecaoSaldosProps = {
   acabandoInicial: boolean;
+  // Há material e nenhuma movimentação manual (UI-D3) — decidido pela página, antes de pintar.
+  primeiraAbertura?: boolean;
 };
 
 // A seção de saldos — Server Component `async`, montada dentro de um `Suspense` da página (o
@@ -32,7 +35,7 @@ export type SecaoSaldosProps = {
 // O banner é derivado da MESMA lista, pelo provedor, acima das abas (`BannerDoEstoque`, plano 06-07):
 // se a consulta falha ou ainda carrega, ele não existe — o `EstadoErro` é a única mensagem (UI ·
 // error/loading · E2).
-export async function SecaoSaldos({ acabandoInicial }: SecaoSaldosProps) {
+export async function SecaoSaldos({ acabandoInicial, primeiraAbertura = false }: SecaoSaldosProps) {
   let dados: DadosDoEstoque | null = null;
 
   try {
@@ -71,6 +74,18 @@ export async function SecaoSaldos({ acabandoInicial }: SecaoSaldosProps) {
           testId="estoque-vazio"
           botao={<BotaoNovoMaterial destaque />}
         />
+      </>
+    );
+  }
+
+  // Primeira abertura (plano 06-10, UI-D3): o painel que conduz à contagem no lugar da barra de
+  // ferramentas e da lista. A lista continua ENTREGUE ao provedor — o "+ Novo material" do painel
+  // precisa das categorias de compra que vêm com ela.
+  if (primeiraAbertura) {
+    return (
+      <>
+        {entrega}
+        <PainelPrimeiraAbertura />
       </>
     );
   }

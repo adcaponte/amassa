@@ -228,6 +228,9 @@ test.describe("inicio", () => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto("/gestao");
+    // `count()` não espera: sob carga o `main` ainda pode estar vazio quando o `goto` volta (mesma
+    // classe de WINDOWS #35/#51). Espera o índice aparecer antes de medir e contar (plano 06-10).
+    await expect(page.getByTestId("inicio-indice")).toBeVisible();
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,

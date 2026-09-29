@@ -1,6 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { ClipboardCheck } from "lucide-react";
+
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import {
+  ROTULO_CONTAR_ESTOQUE,
   ROTULO_NOVO_MATERIAL,
   ROTULO_NOVO_MATERIAL_CURTO,
   ROTULO_REGISTRAR_MOVIMENTACAO,
@@ -91,6 +96,38 @@ export function BotaoNovoMaterial({ destaque = false }: { destaque?: boolean }) 
       className="text-corpo hidden min-h-[44px] px-4 font-semibold md:inline-flex"
     >
       {ROTULO_NOVO_MATERIAL}
+    </Button>
+  );
+}
+
+// "+ Novo material" `outline` e VISÍVEL em qualquer largura (plano 06-10): no painel da primeira
+// abertura e no vazio da contagem, onde ele é a saída "Falta algum material?" e não a ação do
+// cabeçalho (que some no celular, onde a barra fixa tem o "+ Material").
+export function BotaoNovoMaterialNaLista({ testId }: { testId: string }) {
+  const { abrirNovoMaterial } = useEstoque();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      data-testid={testId}
+      onClick={abrirNovoMaterial}
+      className="text-corpo min-h-[44px] px-4 font-semibold"
+    >
+      {ROTULO_NOVO_MATERIAL}
+    </Button>
+  );
+}
+
+// "Contar estoque" no cabeçalho (plano 06-10): `outline`, ícone de prancheta, nas duas larguras e
+// ANTES das outras ações — leva à tela de contagem. Some na primeira abertura (lá quem conduz é o
+// painel) e sem nenhum material (não há o que contar).
+export function BotaoContarEstoque() {
+  return (
+    <Button asChild variant="outline" className="text-corpo min-h-[44px] px-4 font-semibold">
+      <Link href={rotaDeGestao("/estoque/contagem")} data-testid="estoque-contar">
+        <ClipboardCheck aria-hidden="true" />
+        {ROTULO_CONTAR_ESTOQUE}
+      </Link>
     </Button>
   );
 }
