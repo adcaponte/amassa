@@ -116,7 +116,7 @@ const TIPOS: readonly { valor: TipoDeMovimentacao; rotulo: string }[] = [
 
 // Milésimos inteiros → o texto que VAI PARA O CAMPO ("12", "2,5") — sem separador de milhar: o
 // "1.000" de `formatarQuantidade` voltaria como 1 pela conversão do campo.
-function milesimosParaCampo(milesimos: number): string {
+export function milesimosParaCampo(milesimos: number): string {
   const inteiro = Math.trunc(milesimos / 1000);
   const resto = milesimos % 1000;
   if (resto === 0) {

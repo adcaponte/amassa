@@ -1,6 +1,10 @@
 "use client";
 
-import { ROTULO_REGISTRAR_MOVIMENTACAO } from "@/lib/estoque/textos";
+import {
+  ROTULO_NOVO_MATERIAL,
+  ROTULO_NOVO_MATERIAL_CURTO,
+  ROTULO_REGISTRAR_MOVIMENTACAO,
+} from "@/lib/estoque/textos";
 import { Button } from "@/components/ui/button";
 
 import { useEstoque } from "./provedor-estoque";
@@ -10,12 +14,14 @@ import { useEstoque } from "./provedor-estoque";
 // dela. Altura `--altura-acao-fixa` (68px = 8 + 52 + 8), fundo `--color-fundo` a 94% com desfoque,
 // borda de cima. O atributo `data-acao-fixa` é o que faz o aviso (toast) subir acima dela
 // (`app/globals.css`, UI-D6). Não depende de dado nenhum: pinta junto com a página; a lista chega
-// ao provedor depois. "+ Material" entra no plano 06-09, com a folha que ele abre.
+// ao provedor depois. "+ Material" (`outline`, 52px — UI-D5: a 360px o rótulo longo não cabe ao lado)
+// abre o "+ Novo material" (plano 06-09). Sem nenhum material, a página nem desenha a barra: o
+// único terracota é o "+ Novo material" do estado vazio (UI-D3, decidido no servidor).
 //
 // A 320px, "Registrar movimentação" pode quebrar em duas linhas dentro dos 52px — permitido, nunca
 // reticências (`whitespace-normal`, altura mínima e não fixa no botão).
 export function BarraAcaoFixa() {
-  const { abrirSeletor } = useEstoque();
+  const { abrirSeletor, abrirNovoMaterial } = useEstoque();
   return (
     <div
       data-acao-fixa=""
@@ -29,6 +35,15 @@ export function BarraAcaoFixa() {
         className="text-corpo h-auto min-h-[52px] flex-1 font-semibold leading-tight whitespace-normal"
       >
         {ROTULO_REGISTRAR_MOVIMENTACAO}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        data-testid="estoque-acao-fixa-material"
+        onClick={abrirNovoMaterial}
+        className="text-corpo h-auto min-h-[52px] px-4 font-semibold"
+      >
+        {ROTULO_NOVO_MATERIAL_CURTO}
       </Button>
     </div>
   );
@@ -46,6 +61,36 @@ export function BotaoRegistrarMovimentacao() {
       className="text-corpo hidden min-h-[44px] px-4 font-semibold md:inline-flex"
     >
       {ROTULO_REGISTRAR_MOVIMENTACAO}
+    </Button>
+  );
+}
+
+// "+ Novo material". No cabeçalho, a partir de 768px, `outline` (o terracota é de "Registrar
+// movimentação"); no estado vazio sem nenhum material, PRIMÁRIO — lá ele é o único terracota da tela
+// (UI-D3). Abre a folha "Novo material" pelo provedor.
+export function BotaoNovoMaterial({ destaque = false }: { destaque?: boolean }) {
+  const { abrirNovoMaterial } = useEstoque();
+  if (destaque) {
+    return (
+      <Button
+        type="button"
+        data-testid="estoque-vazio-novo-material"
+        onClick={abrirNovoMaterial}
+        className="text-corpo min-h-[44px] px-4 font-semibold"
+      >
+        {ROTULO_NOVO_MATERIAL}
+      </Button>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      data-testid="estoque-novo-material"
+      onClick={abrirNovoMaterial}
+      className="text-corpo hidden min-h-[44px] px-4 font-semibold md:inline-flex"
+    >
+      {ROTULO_NOVO_MATERIAL}
     </Button>
   );
 }

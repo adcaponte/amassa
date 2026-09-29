@@ -9,6 +9,7 @@ import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 
 import { AbaSaldos } from "./aba-saldos";
+import { BotaoNovoMaterial } from "./barra-acao-fixa";
 import { lerDadosDoEstoque } from "./carregador-do-seletor";
 import { EntregaDoEstoque, type DadosDoEstoque } from "./provedor-estoque";
 
@@ -57,13 +58,19 @@ export async function SecaoSaldos({ acabandoInicial }: SecaoSaldosProps) {
   const { saldos } = dados;
   const entrega = <EntregaDoEstoque lista={{ estado: "pronta", ...dados }} />;
 
-  // Nenhum item com estoque próprio: o vazio do traçador (06-01). O botão "+ Novo material" entra
-  // no plano 06-09, junto com a folha que ele abre — botão sem destino é defeito.
+  // Nenhum item com estoque próprio: o vazio do traçador (06-01), com "+ Novo material" PRIMÁRIO
+  // (plano 06-09) — nesse estado a página não desenha a barra fixa nem as ações do cabeçalho, e
+  // este é o único terracota da tela (UI-D3).
   if (saldos.length === 0) {
     return (
       <>
         {entrega}
-        <EstadoVazio titulo={TITULO_ESTOQUE_VAZIO} corpo={CORPO_ESTOQUE_VAZIO} testId="estoque-vazio" />
+        <EstadoVazio
+          titulo={TITULO_ESTOQUE_VAZIO}
+          corpo={CORPO_ESTOQUE_VAZIO}
+          testId="estoque-vazio"
+          botao={<BotaoNovoMaterial destaque />}
+        />
       </>
     );
   }

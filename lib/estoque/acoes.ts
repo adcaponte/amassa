@@ -2,8 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 
+import { and, eq } from "drizzle-orm";
+
 import { db } from "@/db";
-import type { Unidade } from "@/lib/cadastros/catalogo";
+import { categorias, itensCatalogo } from "@/db/schema";
+import {
+  FRASE_ESTOQUE_SEM_CATEGORIA_COMPRA,
+  categoriaDeCompraValida,
+  type Unidade,
+} from "@/lib/cadastros/catalogo";
+import { esquemaItem } from "@/lib/cadastros/esquemas";
+import { FRASE_CATEGORIA_DE_COMPRA_INVALIDA } from "@/lib/cadastros/textos";
+import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
@@ -16,8 +26,13 @@ import {
   type ResumoDoMaterial,
 } from "./consultas";
 import {
+  campoDoMaterial,
+  entradaDeItemDoMaterial,
   esquemaLerMaterial,
+  esquemaNovoMaterial,
   esquemaRegistrarMovimentacao,
+  esquemaSalvarMaterial,
+  type CampoDoMaterial,
   type RegistrarMovimentacaoValidado,
 } from "./esquemas";
 import {
@@ -29,12 +44,15 @@ import {
   type TransacaoDoBanco,
 } from "./gravacao";
 import type { ProdutoQueGasta } from "./historico";
+import { areaDoItemNoEstoque } from "./saldo";
 import { pedidoDeEntradaManual, pedidoDeSaidaManual, type PedidoDeMovimentacao } from "./pedidos";
 import {
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
   FRASE_ERRO_CARREGAR_MATERIAL,
+  FRASE_FALHA_AO_CADASTRAR,
   FRASE_FALHA_AO_REGISTRAR,
+  FRASE_FALHA_AO_SALVAR_MATERIAL,
   FRASE_MATERIAL_NAO_EXISTE_MAIS,
   LIMITE_DO_VINCULO,
   fraseMaterialDesativado,
@@ -290,4 +308,154 @@ export async function lerFolhaDoMaterial(
     );
     return { ok: false, erro: FRASE_ERRO_CARREGAR_MATERIAL };
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// "+ Novo material" e "Editar material" (plano 06-09). O Estoque NÃO tem cadastro próprio (D-01):
+// cria um item do catálogo pela validação do Cadastros e, depois, só mexe no que é dele — o mínimo e
+// as observações. Nenhuma das duas ações muda nome, unidade ou categoria de item existente, nenhuma
+// apaga linha, e nenhuma grava `ativo` (desativar e reativar são de `definirItemAtivo`, a ação
+// ÚNICA do Cadastros — D-20).
+// ---------------------------------------------------------------------------------------------
+
+// O erro volta com o campo, para aparecer embaixo dele (UI-D9).
+export type ResultadoDoMaterial<T> =
+  | { ok: true; dados: T }
+  | { ok: false; erro: string; campo: CampoDoMaterial };
+
+function falhaDeValidacao(resultado: {
+  error: { issues: { message: string; path: readonly PropertyKey[] }[] };
+}): { ok: false; erro: string; campo: CampoDoMaterial } {
+  const problema = resultado.error.issues[0];
+  const erro = problema?.message ?? "Não deu para validar os dados enviados.";
+  return { ok: false, erro, campo: campoDoMaterial(problema?.path ?? [], erro) };
+}
+
+export type MaterialCadastrado = {
+  id: string;
+  nome: string;
+  unidade: Unidade;
+  estoqueMinimoMilesimos: number;
+  // A área do material no Estoque (a da categoria de compra) e o nome da categoria — para a folha de
+  // movimentação abrir em Entrada para ele antes de a lista da página chegar (UI-D12).
+  area: AreaFinanceira;
+  categoriaCompraNome: string;
+};
+
+// "+ Novo material" (EST-13): `exigirUsuario()` é a PRIMEIRA instrução (T-06-39). O nome, a
+// unidade e a categoria passam pela FÁBRICA do Cadastros (`esquemaItem`), sobre a entrada montada
+// no formato dela — as frases do Cadastros saem sozinhas, na ordem dos campos da folha; o mínimo e
+// as observações, por `esquemaNovoMaterial`. A categoria é lida do banco e conferida por
+// `categoriaDeCompraValida` (existe, é de custo ou geral, está ativa — T-06-40), a mesma regra do
+// Cadastros. Nome repetido é permitido, como no Cadastros (o catálogo não tem nome único). O toque
+// duplo é barrado na folha (botão desabilitado em voo).
+export async function criarMaterial(
+  entradaBruta: unknown,
+): Promise<ResultadoDoMaterial<MaterialCadastrado>> {
+  await exigirUsuario();
+
+  const item = esquemaItem(new Map()).safeParse(entradaDeItemDoMaterial(entradaBruta));
+  if (!item.success) {
+    return falhaDeValidacao(item);
+  }
+  const doEstoque = esquemaNovoMaterial.safeParse(entradaBruta);
+  if (!doEstoque.success) {
+    return falhaDeValidacao(doEstoque);
+  }
+  const { nome, unidade, categoriaCompraId } = item.data;
+  const { minimoTexto, observacoesTexto } = doEstoque.data;
+  if (unidade === null || categoriaCompraId === null) {
+    // `validarItem` já recusou os dois casos com a frase do Cadastros — isto só estreita o tipo.
+    return { ok: false, erro: FRASE_ESTOQUE_SEM_CATEGORIA_COMPRA, campo: "categoria" };
+  }
+
+  let cadastrado: MaterialCadastrado;
+  try {
+    const [categoria] = await db
+      .select({
+        grupo: categorias.grupo,
+        ativa: categorias.ativa,
+        nome: categorias.nome,
+        area: categorias.area,
+      })
+      .from(categorias)
+      .where(eq(categorias.id, categoriaCompraId));
+    if (!categoria || !categoriaDeCompraValida(categoria, categoriaCompraId, null)) {
+      return { ok: false, erro: FRASE_CATEGORIA_DE_COMPRA_INVALIDA, campo: "categoria" };
+    }
+
+    const [linha] = await db
+      .insert(itensCatalogo)
+      .values({
+        nome,
+        categoriaVendaId: null,
+        precoVendaCentavos: null,
+        aparecenaVenda: false,
+        atalhoVenda: false,
+        controlaEstoque: true,
+        atalhoCompra: false,
+        unidade,
+        categoriaCompraId,
+        estoqueMinimoMilesimos: minimoTexto,
+        observacoes: observacoesTexto,
+      })
+      .returning({ id: itensCatalogo.id });
+
+    cadastrado = {
+      id: linha.id,
+      nome,
+      unidade,
+      estoqueMinimoMilesimos: minimoTexto,
+      area: areaDoItemNoEstoque({ compra: categoria.area, venda: null }),
+      categoriaCompraNome: categoria.nome,
+    };
+  } catch (erro) {
+    console.error(
+      `Falha ao cadastrar material (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CADASTRAR, campo: "geral" };
+  }
+
+  // Fora do `try`: o item já está gravado. O mesmo item aparece no Estoque, no Catálogo e na Compra.
+  revalidatePath(rotaDeGestao("/estoque"));
+  revalidatePath(rotaDeGestao("/cadastros"));
+  revalidatePath(rotaDeGestao("/financeiro"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: cadastrado };
+}
+
+// "Editar material" (EST-02, D-01): `exigirUsuario()` é a PRIMEIRA instrução (T-06-39). Atualiza
+// SÓ o mínimo e as observações de um item que existe e tem estoque próprio — o `update` nunca
+// escreve outra coluna (T-06-41; o gatilho P0001 da 0023 guarda a unidade de qualquer forma).
+export async function salvarMaterial(entradaBruta: unknown): Promise<ResultadoDoMaterial<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaSalvarMaterial.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return falhaDeValidacao(resultado);
+  }
+  const { itemId, minimoTexto, observacoesTexto } = resultado.data;
+
+  let atualizados: { id: string }[];
+  try {
+    atualizados = await db
+      .update(itensCatalogo)
+      .set({ estoqueMinimoMilesimos: minimoTexto, observacoes: observacoesTexto })
+      .where(and(eq(itensCatalogo.id, itemId), eq(itensCatalogo.controlaEstoque, true)))
+      .returning({ id: itensCatalogo.id });
+  } catch (erro) {
+    console.error(
+      `Falha ao salvar material (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR_MATERIAL, campo: "geral" };
+  }
+  if (atualizados.length === 0) {
+    return { ok: false, erro: FRASE_MATERIAL_NAO_EXISTE_MAIS, campo: "geral" };
+  }
+
+  revalidatePath(rotaDeGestao("/estoque"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: { id: itemId } };
 }

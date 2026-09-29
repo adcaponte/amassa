@@ -160,5 +160,14 @@ test.describe("estoque tracador", () => {
       "Cadastre o primeiro material — argila, esmalte, café, embalagem — para acompanhar o que entra e o que sai.",
     );
     await expect(page.getByTestId("estoque-cartao")).toHaveCount(0);
+
+    // Plano 06-09 (UI-D3): o vazio tem "+ Novo material" PRIMÁRIO — o único terracota da tela —, e
+    // a página não desenha a barra fixa nem as ações do cabeçalho (não há o que movimentar). Só
+    // leitura: o botão não é tocado, para o banco continuar sem material para a cadeia.
+    await expect(vazio.getByRole("button", { name: "+ Novo material" })).toBeVisible();
+    await expect(page.getByTestId("estoque-acao-fixa")).toHaveCount(0);
+    await expect(page.getByTestId("estoque-acao-fixa-material")).toHaveCount(0);
+    await expect(page.getByTestId("estoque-novo-material")).toHaveCount(0);
+    await expect(page.getByTestId("estoque-registrar-movimentacao")).toHaveCount(0);
   });
 });

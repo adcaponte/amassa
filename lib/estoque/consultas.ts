@@ -509,3 +509,54 @@ export async function gastoPor(
     })),
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// "+ Novo material" e o estado da página (plano 06-09).
+// ---------------------------------------------------------------------------------------------
+
+export type EstadoDoEstoque = {
+  // Existe pelo menos um item com estoque próprio (ativo ou desativado) — sem nenhum, a aba Saldos
+  // mostra o vazio "Nada no estoque ainda.", e a página esconde a barra fixa e as ações do cabeçalho
+  // (o único terracota é o "+ Novo material" do vazio). É a MESMA condição do vazio da seção de
+  // saldos (`listarSaldos` sem linha), para as duas decisões nunca discordarem.
+  temMaterial: boolean;
+  // Já existe alguma movimentação de origem `manual` — a "primeira abertura" (UI-D3) é a falta
+  // dela; quem decide o painel da contagem é o plano 06-10.
+  temManual: boolean;
+};
+
+// Decidido no servidor ANTES de pintar (UI · loading · E12): a barra fixa nunca aparece para
+// depois sumir. Dois `exists` baratos, em paralelo.
+export async function estadoDoEstoque(): Promise<EstadoDoEstoque> {
+  const [material, manual] = await Promise.all([
+    db
+      .select({ id: itensCatalogo.id })
+      .from(itensCatalogo)
+      .where(eq(itensCatalogo.controlaEstoque, true))
+      .limit(1),
+    db
+      .select({ id: movimentacoesEstoque.id })
+      .from(movimentacoesEstoque)
+      .where(eq(movimentacoesEstoque.origem, "manual"))
+      .limit(1),
+  ]);
+  return { temMaterial: material.length > 0, temManual: manual.length > 0 };
+}
+
+export type CategoriaDeCompraAtiva = {
+  id: string;
+  nome: string;
+  area: AreaFinanceira;
+};
+
+// As opções de "Categoria da compra" do "+ Novo material": as categorias ATIVAS dos grupos
+// `custo` e `geral` — o mesmo critério de `listarCategoriasParaItem` (Cadastros), que a ação
+// confere de novo por `categoriaDeCompraValida` com a categoria lida do banco (T-06-40). Com a
+// área, para a opção "{categoria} · {área}" e a dica "diz a área — {área}".
+export async function listarCategoriasDeCompraAtivas(): Promise<CategoriaDeCompraAtiva[]> {
+  return db
+    .select({ id: categorias.id, nome: categorias.nome, area: categorias.area })
+    .from(categorias)
+    .where(and(eq(categorias.ativa, true), inArray(categorias.grupo, ["custo", "geral"])))
+    .orderBy(asc(categorias.nome));
+}

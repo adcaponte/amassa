@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { estadoDoEstoque } from "@/lib/estoque/consultas";
 import {
   abaDoEstoqueDaUrl,
   limiteDaUrl,
@@ -12,6 +13,7 @@ import { AbasEstoque } from "@/components/amassa/estoque/abas-estoque";
 import { BannerDoEstoque } from "@/components/amassa/estoque/banner-estoque";
 import {
   BarraAcaoFixa,
+  BotaoNovoMaterial,
   BotaoRegistrarMovimentacao,
 } from "@/components/amassa/estoque/barra-acao-fixa";
 import { CarregadorDoSeletor } from "@/components/amassa/estoque/carregador-do-seletor";
@@ -47,8 +49,14 @@ type ParametroDaUrl = string | string[] | undefined;
 // `?acabando=1` só liga a pílula "Acabando" no cliente; nenhuma consulta muda por ele.
 //
 // A página reserva embaixo a altura da barra fixa + 16px no celular: a última linha e as notas de
-// rodapé nunca ficam atrás dela. "+ Novo material" e "Contar estoque" entram nos planos que
-// constroem o destino deles (06-09, 06-10) — botão sem destino é defeito.
+// rodapé nunca ficam atrás dela. "Contar estoque" entra no plano que constrói o destino dele (06-10)
+// — botão sem destino é defeito.
+//
+// Sem NENHUM material (plano 06-09, UI-D3): a decisão é tomada AQUI, antes de pintar
+// (`estadoDoEstoque`), para a barra fixa nunca aparecer e depois sumir. Nesse estado não há barra
+// fixa nem ações no cabeçalho — não há o que movimentar, e o único terracota é o "+ Novo material"
+// do vazio. Se essa leitura falhar, a página segue como se houvesse material: a seção de saldos
+// mostra o próprio erro, e as ações continuam à mão.
 export default async function PaginaEstoque({
   searchParams,
 }: {
@@ -65,11 +73,23 @@ export default async function PaginaEstoque({
   const { aba, tipo, limite, periodo, acabando } = await searchParams;
   const abaAtual = abaDoEstoqueDaUrl(aba);
 
+  let temMaterial = true;
+  try {
+    ({ temMaterial } = await estadoDoEstoque());
+  } catch (erro) {
+    console.error("Falha ao ler o estado do Estoque:", erro);
+  }
+
   return (
     <ProvedorDoEstoque>
-      <div className="pb-[calc(var(--altura-acao-fixa)+16px)] md:pb-0">
+      <div className={temMaterial ? "pb-[calc(var(--altura-acao-fixa)+16px)] md:pb-0" : undefined}>
         <CabecalhoPagina titulo="Estoque">
-          <BotaoRegistrarMovimentacao />
+          {temMaterial ? (
+            <>
+              <BotaoNovoMaterial />
+              <BotaoRegistrarMovimentacao />
+            </>
+          ) : null}
         </CabecalhoPagina>
 
         <BannerDoEstoque />
@@ -99,7 +119,7 @@ export default async function PaginaEstoque({
           </>
         )}
       </div>
-      <BarraAcaoFixa />
+      {temMaterial ? <BarraAcaoFixa /> : null}
     </ProvedorDoEstoque>
   );
 }

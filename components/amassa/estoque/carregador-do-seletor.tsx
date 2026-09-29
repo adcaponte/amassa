@@ -1,5 +1,6 @@
 import {
   custosDasPecasProntas,
+  listarCategoriasDeCompraAtivas,
   listarEncomendasParaVinculo,
   listarSaldosDaRequisicao,
 } from "@/lib/estoque/consultas";
@@ -16,11 +17,18 @@ import { EntregaDoEstoque, type DadosDoEstoque, type ListaDoEstoque } from "./pr
 export async function lerDadosDoEstoque(): Promise<DadosDoEstoque> {
   const saldos = await listarSaldosDaRequisicao();
   const pecasProntas = saldos.filter((saldo) => saldo.ehPecaPronta).map((saldo) => saldo.id);
-  const [encomendas, custos] = await Promise.all([
+  const [encomendas, custos, categoriasDeCompra] = await Promise.all([
     listarEncomendasParaVinculo(),
     custosDasPecasProntas(pecasProntas, hojeEmBrasilia(new Date())),
+    // As opções do "+ Novo material" (plano 06-09) — uma consulta pequena, junto com o resto.
+    listarCategoriasDeCompraAtivas(),
   ]);
-  return { saldos, encomendas, custosDasPecasProntas: Object.fromEntries(custos) };
+  return {
+    saldos,
+    encomendas,
+    custosDasPecasProntas: Object.fromEntries(custos),
+    categoriasDeCompra,
+  };
 }
 
 // Fora da aba Saldos (Histórico, Para onde foi), ninguém entrega a lista ao `ProvedorDoEstoque` —

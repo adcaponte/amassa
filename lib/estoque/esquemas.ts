@@ -7,6 +7,11 @@
 // item é peça pronta (T-06-23) são decididos no servidor, sob a trava — nunca aceitos daqui.
 import { z } from "zod";
 
+import {
+  FRASE_ESTOQUE_SEM_CATEGORIA_COMPRA,
+  FRASE_ESTOQUE_SEM_UNIDADE,
+  type Unidade,
+} from "@/lib/cadastros/catalogo";
 import { converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 
 import {
@@ -20,11 +25,14 @@ import {
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
   FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
+  FRASE_MINIMO_INVALIDO,
+  FRASE_OBSERVACOES_LONGAS,
   FRASE_QUANTIDADE_INVALIDA,
   FRASE_QUANTIDADE_ZERO,
   FRASE_MATERIAL_NAO_EXISTE_MAIS,
   FRASE_TEXTO_INVALIDO,
   FRASE_VINCULO_LONGO,
+  LIMITE_DAS_OBSERVACOES,
   LIMITE_DO_VINCULO,
 } from "./textos";
 
@@ -209,3 +217,142 @@ export const esquemaLerMaterial = z.object({
 });
 
 export type LerMaterialValidado = z.infer<typeof esquemaLerMaterial>;
+
+// ---------------------------------------------------------------------------------------------
+// "+ Novo material" e "Editar material" (plano 06-09). O nome, a unidade e a categoria de compra
+// NÃO são validados aqui: a ação monta a entrada no formato de `esquemaItem` (Cadastros) e usa a
+// fábrica de lá — EST-13 é literal, "a mesma validação do Cadastros", com as mesmas frases. Aqui
+// fica só o que o Estoque acrescenta ao item: o mínimo e as observações (D-01).
+// ---------------------------------------------------------------------------------------------
+
+const UNIDADES_DO_MATERIAL = ["un", "g", "kg", "ml", "l", "m"] as const satisfies readonly Unidade[];
+
+// Estoque mínimo em milésimos da unidade (EST-02 · boundary): zero ou mais — zero = nunca avisa —,
+// até 3 casas, pela variante EXPLÍCITA `aceitaZero` de `converterQuantidade` (Pitfall 9). Vazio
+// vale zero (o campo começa em 0; apagá-lo é "sem mínimo"). Negativo, texto e 4 casas: a frase do
+// mínimo. O `check itens_catalogo_minimo_nao_negativo` do banco é a última camada.
+const esquemaMinimo = z.string({ error: FRASE_MINIMO_INVALIDO }).transform((texto, contexto) => {
+  const normalizado = texto.replace(/\s/g, "").replace(",", ".");
+  if (normalizado === "") {
+    return 0;
+  }
+  const formatoValido = /^\d+(\.\d{1,3})?$/.test(normalizado);
+  const conversao = converterQuantidade(normalizado, { aceitaZero: true });
+  if (!conversao.ok) {
+    // Formato certo mas recusado = passou do teto (a frase de `converterQuantidade` diz qual).
+    contexto.addIssue({
+      code: "custom",
+      message: formatoValido ? conversao.erro : FRASE_MINIMO_INVALIDO,
+    });
+    return z.NEVER;
+  }
+  return Math.round(Number(conversao.quantidade) * 1000);
+});
+
+// Observações (EST-02 · encoding): NFC, aparadas, CONTADAS EM PONTOS DE CÓDIGO (`[...texto]` — um
+// emoji conta 1, como o `length()` do Postgres) de 0 a 500; vazio vira nulo. Espelha o `check
+// itens_catalogo_observacoes_comprimento` (`length(trim(observacoes)) between 1 and 500`).
+const esquemaObservacoes = z
+  .string({ error: FRASE_TEXTO_INVALIDO })
+  .nullish()
+  .transform((texto, contexto) => {
+    if (texto === null || texto === undefined) {
+      return null;
+    }
+    const normalizado = texto.normalize("NFC").trim();
+    if (normalizado === "") {
+      return null;
+    }
+    if ([...normalizado].length > LIMITE_DAS_OBSERVACOES) {
+      contexto.addIssue({ code: "custom", message: FRASE_OBSERVACOES_LONGAS });
+      return z.NEVER;
+    }
+    return normalizado;
+  });
+
+export const esquemaNovoMaterial = z.object({
+  // Só a FORMA — o conteúdo é de `esquemaItem` (ver `entradaDeItemDoMaterial`).
+  nome: z.string({ error: FRASE_TEXTO_INVALIDO }),
+  unidade: z.enum(UNIDADES_DO_MATERIAL, { error: FRASE_ESTOQUE_SEM_UNIDADE }).nullable(),
+  categoriaCompraId: z.string({ error: FRASE_ESTOQUE_SEM_CATEGORIA_COMPRA }).nullable(),
+  minimoTexto: esquemaMinimo,
+  observacoesTexto: esquemaObservacoes,
+});
+
+export type NovoMaterialValidado = z.infer<typeof esquemaNovoMaterial>;
+
+export const esquemaSalvarMaterial = z.object({
+  itemId: esquemaItemId,
+  minimoTexto: esquemaMinimo,
+  observacoesTexto: esquemaObservacoes,
+});
+
+export type SalvarMaterialValidado = z.infer<typeof esquemaSalvarMaterial>;
+
+function textoOuVazio(valor: unknown): string {
+  return typeof valor === "string" ? valor : "";
+}
+
+function textoOuNulo(valor: unknown): string | null {
+  return typeof valor === "string" && valor !== "" ? valor : null;
+}
+
+// A entrada do "+ Novo material" no formato EXATO de `esquemaItem` (lib/cadastros/esquemas.ts): o
+// item do Estoque é um item do catálogo sem venda (sem categoria de venda, sem preço, fora da venda
+// e dos mais usados), com estoque próprio, fora dos atalhos da compra e sem ficha técnica. Lê a
+// entrada CRUA com cuidado (ela ainda não passou por Zod nenhum): o que não for texto vira vazio
+// ou nulo, e a fábrica do Cadastros devolve a frase dela.
+export function entradaDeItemDoMaterial(entradaBruta: unknown) {
+  const bruta =
+    typeof entradaBruta === "object" && entradaBruta !== null
+      ? (entradaBruta as Record<string, unknown>)
+      : {};
+  return {
+    nome: textoOuVazio(bruta.nome),
+    categoriaVendaId: null,
+    precoTexto: "",
+    aparecenaVenda: false,
+    atalhoVenda: false,
+    controlaEstoque: true,
+    atalhoCompra: false,
+    unidade: textoOuNulo(bruta.unidade),
+    categoriaCompraId: textoOuNulo(bruta.categoriaCompraId),
+    ficha: [],
+  };
+}
+
+// Os campos das duas folhas de material, para o erro voltar para BAIXO do campo certo (UI-D9).
+export type CampoDoMaterial =
+  | "nome"
+  | "unidade"
+  | "categoria"
+  | "minimo"
+  | "observacoes"
+  | "geral";
+
+const CAMPO_DO_CAMINHO: Record<string, CampoDoMaterial> = {
+  nome: "nome",
+  unidade: "unidade",
+  categoriaCompraId: "categoria",
+  minimoTexto: "minimo",
+  observacoesTexto: "observacoes",
+};
+
+// O campo de um problema do Zod: pelo caminho (o nome, o mínimo, as observações) ou, quando a
+// regra é de `validarItem` (sem caminho), pela frase do Cadastros.
+export function campoDoMaterial(
+  caminho: readonly PropertyKey[],
+  mensagem: string,
+): CampoDoMaterial {
+  const primeiro = caminho[0];
+  if (typeof primeiro === "string" && primeiro in CAMPO_DO_CAMINHO) {
+    return CAMPO_DO_CAMINHO[primeiro];
+  }
+  if (mensagem === FRASE_ESTOQUE_SEM_UNIDADE) {
+    return "unidade";
+  }
+  if (mensagem === FRASE_ESTOQUE_SEM_CATEGORIA_COMPRA) {
+    return "categoria";
+  }
+  return "geral";
+}

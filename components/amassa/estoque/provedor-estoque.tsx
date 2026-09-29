@@ -10,15 +10,30 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import type { AreaFinanceira } from "@/lib/financeiro/textos";
 import { LIMITE_DO_HISTORICO } from "@/lib/estoque/abas";
-import { lerFolhaDoMaterial } from "@/lib/estoque/acoes";
-import type { EncomendaParaVinculo, SaldoDoItem } from "@/lib/estoque/consultas";
-import { FRASE_ERRO_CARREGAR_MATERIAL } from "@/lib/estoque/textos";
+import {
+  lerFolhaDoMaterial,
+  type FolhaDoMaterial,
+  type MaterialCadastrado,
+} from "@/lib/estoque/acoes";
+import type {
+  CategoriaDeCompraAtiva,
+  EncomendaParaVinculo,
+  SaldoDoItem,
+} from "@/lib/estoque/consultas";
+import {
+  FRASE_ERRO_CARREGAR_MATERIAL,
+  textoToastMaterialCadastrado,
+} from "@/lib/estoque/textos";
 
+import { FolhaEditarMaterial } from "./folha-editar-material";
 import { FolhaMaterial, type PromessaDaFolhaDoMaterial } from "./folha-material";
 import { FolhaMovimentacao } from "./folha-movimentacao";
+import { FolhaNovoMaterial } from "./folha-novo-material";
 import { SeletorMaterial } from "./seletor-material";
 
 export type TipoDeMovimentacao = "entrada" | "saida" | "ajuste";
@@ -31,6 +46,8 @@ export type DadosDoEstoque = {
   saldos: SaldoDoItem[];
   encomendas: EncomendaParaVinculo[];
   custosDasPecasProntas: Record<string, number>;
+  // As opções de "Categoria da compra" do "+ Novo material" (plano 06-09).
+  categoriasDeCompra: CategoriaDeCompraAtiva[];
 };
 
 // "carregando" até a seção de saldos resolver; "erro" quando a consulta falhou (o seletor mostra o
@@ -40,7 +57,13 @@ export type ListaDoEstoque =
   | { estado: "erro" }
   | ({ estado: "pronta" } & DadosDoEstoque);
 
-export type PedidoDeFolha = { itemId: string; tipo: TipoDeMovimentacao };
+export type PedidoDeFolha = {
+  itemId: string;
+  tipo: TipoDeMovimentacao;
+  // O material recém-cadastrado (UI-D12): a folha de movimentação abre em Entrada para ele ANTES de
+  // a lista da página voltar do `router.refresh()` — quando ela chega, vale a linha dela.
+  material?: SaldoDoItem;
+};
 
 type ContextoDoEstoque = {
   lista: ListaDoEstoque;
@@ -48,6 +71,8 @@ type ContextoDoEstoque = {
   abrirFolha: (pedido: PedidoDeFolha) => void;
   // A folha de um material (plano 06-09) — o "Histórico" do cartão e da tabela.
   abrirFolhaDoMaterial: (itemId: string) => void;
+  // "+ Novo material" (cabeçalho, barra fixa, estado vazio — plano 06-09).
+  abrirNovoMaterial: () => void;
   // "Ver só esses" do banner (plano 06-07): o banner mora ACIMA das abas, e a pílula "Acabando" é
   // estado da `AbaSaldos`. A aba registra aqui o que fazer; `verSoAcabando` devolve `false` quando
   // nenhuma aba Saldos está montada (Histórico, Para onde foi) — aí o banner navega para
@@ -74,6 +99,25 @@ export function useEstoque(): ContextoDoEstoque {
 type FolhaAberta = PedidoDeFolha & { chave: number };
 type SeletorAberto = { tipo: TipoDeMovimentacao; chave: number };
 type FolhaDoMaterialAberta = { itemId: string; chave: number; promessa: PromessaDaFolhaDoMaterial };
+type EdicaoAberta = { dados: FolhaDoMaterial; chave: number };
+
+// O saldo do material recém-cadastrado, antes de a lista da página trazê-lo: saldo zero, sem
+// entrada com preço, ativo, e não é peça pronta (acabou de nascer — não tem ficha de precificação).
+function saldoDoMaterialNovo(material: MaterialCadastrado): SaldoDoItem {
+  return {
+    id: material.id,
+    nome: material.nome,
+    unidade: material.unidade,
+    ativo: true,
+    estoqueMinimoMilesimos: material.estoqueMinimoMilesimos,
+    saldoMilesimos: 0,
+    valorCentavos: 0,
+    area: material.area,
+    categoriaCompraNome: material.categoriaCompraNome,
+    ehPecaPronta: false,
+    ultimaEntradaComPreco: null,
+  };
+}
 
 // A leitura da folha do material, disparada no TOQUE (nunca num efeito): a folha a lê com `use()`.
 // Nunca rejeita — a falha de rede vira a frase da UI-SPEC, mostrada dentro da folha.
@@ -99,6 +143,9 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
   const [folha, setFolha] = useState<FolhaAberta | null>(null);
   const [seletor, setSeletor] = useState<SeletorAberto | null>(null);
   const [folhaDoMaterial, setFolhaDoMaterial] = useState<FolhaDoMaterialAberta | null>(null);
+  const [edicao, setEdicao] = useState<EdicaoAberta | null>(null);
+  const [novoMaterial, setNovoMaterial] = useState<{ chave: number } | null>(null);
+  const router = useRouter();
   // Só um contador para as chaves de montagem — nunca desenha nada, por isso é referência.
   const ultimaChave = useRef(0);
 
@@ -107,6 +154,8 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
     setFolha(null);
     setSeletor(null);
     setFolhaDoMaterial(null);
+    setEdicao(null);
+    setNovoMaterial(null);
   }, []);
 
   const abrirSeletor = useCallback(
@@ -140,6 +189,32 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
     [fecharTudo],
   );
 
+  const abrirNovoMaterial = useCallback(() => {
+    ultimaChave.current += 1;
+    fecharTudo();
+    setNovoMaterial({ chave: ultimaChave.current });
+  }, [fecharTudo]);
+
+  const abrirEdicao = useCallback(
+    (dados: FolhaDoMaterial) => {
+      ultimaChave.current += 1;
+      fecharTudo();
+      setEdicao({ dados, chave: ultimaChave.current });
+    },
+    [fecharTudo],
+  );
+
+  // "Cadastrar material" deu certo (UI-D12): o toast herdado manda registrar a entrada, e a folha de
+  // movimentação já abre em Entrada para o material novo — a MESMA folha, pelo mesmo `abrirFolha`.
+  const aoCadastrarMaterial = useCallback(
+    (material: MaterialCadastrado) => {
+      toast.success(textoToastMaterialCadastrado(material.nome));
+      abrirFolha({ itemId: material.id, tipo: "entrada", material: saldoDoMaterialNovo(material) });
+      router.refresh();
+    },
+    [abrirFolha, router],
+  );
+
   // A ação "Ver só esses" da aba Saldos montada — referência, não estado: registrar não redesenha.
   const acaoDoAcabando = useRef<(() => void) | null>(null);
   const registrarVerSoAcabando = useCallback((acao: (() => void) | null) => {
@@ -160,10 +235,19 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
       abrirSeletor,
       abrirFolha,
       abrirFolhaDoMaterial,
+      abrirNovoMaterial,
       registrarVerSoAcabando,
       verSoAcabando,
     }),
-    [lista, abrirSeletor, abrirFolha, abrirFolhaDoMaterial, registrarVerSoAcabando, verSoAcabando],
+    [
+      lista,
+      abrirSeletor,
+      abrirFolha,
+      abrirFolhaDoMaterial,
+      abrirNovoMaterial,
+      registrarVerSoAcabando,
+      verSoAcabando,
+    ],
   );
 
   const saldoDaFolhaDoMaterial =
@@ -171,9 +255,10 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
       ? (lista.saldos.find((saldo) => saldo.id === folhaDoMaterial.itemId) ?? null)
       : null;
 
+  // A linha da lista, quando ela já tem o material; senão, o material recém-cadastrado.
   const saldoDaFolha =
     folha && lista.estado === "pronta"
-      ? (lista.saldos.find((saldo) => saldo.id === folha.itemId) ?? null)
+      ? (lista.saldos.find((saldo) => saldo.id === folha.itemId) ?? folha.material ?? null)
       : null;
 
   return (
@@ -212,7 +297,25 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
             promessaInicial={folhaDoMaterial.promessa}
             carregar={(limite) => carregarFolhaDoMaterial(folhaDoMaterial.itemId, limite)}
             aoRegistrarMovimentacao={(itemId) => abrirFolha({ itemId, tipo: "saida" })}
+            aoEditar={abrirEdicao}
             aoFechar={() => setFolhaDoMaterial(null)}
+          />
+        ) : null}
+
+        {novoMaterial ? (
+          <FolhaNovoMaterial
+            key={novoMaterial.chave}
+            lista={lista}
+            aoCadastrar={aoCadastrarMaterial}
+            aoFechar={() => setNovoMaterial(null)}
+          />
+        ) : null}
+
+        {edicao ? (
+          <FolhaEditarMaterial
+            key={edicao.chave}
+            resumo={edicao.dados.resumo}
+            aoFechar={() => setEdicao(null)}
           />
         ) : null}
       </Contexto.Provider>

@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
 
 import {
   movimentacoesDoItem,
@@ -321,5 +322,305 @@ test.describe("estoque material folha", () => {
     await expect(movimentacao).toBeVisible();
     await expect(movimentacao.getByTestId("folha-tipo-saida")).toHaveAttribute("aria-checked", "true");
     await expect(movimentacao.getByTestId("folha-escolhido")).toContainText(nome);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// "+ Novo material", "Editar material" e desativar pelo Estoque (Tarefa 2).
+// ---------------------------------------------------------------------------------------------
+
+// Quantos itens do catálogo têm estas observações — para provar que um cadastro recusado não gravou
+// nada (o nome, vazio, não serve para achar a linha). Só leitura.
+async function itensComObservacoes(observacoes: string): Promise<number> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    const resultado = await cliente.query<{ quantos: string }>(
+      "select count(*) as quantos from itens_catalogo where observacoes = $1",
+      [observacoes],
+    );
+    return Number(resultado.rows[0]?.quantos ?? 0);
+  } finally {
+    await cliente.end();
+  }
+}
+
+function ehDesktop(page: Page): boolean {
+  return (page.viewportSize()?.width ?? 0) >= 768;
+}
+
+// "+ Novo material" no cabeçalho a partir de 768px; "+ Material" na barra fixa abaixo (UI-D5).
+async function abrirNovoMaterial(page: Page): Promise<Locator> {
+  if (ehDesktop(page)) {
+    await expect(page.getByTestId("estoque-acao-fixa-material")).toBeHidden();
+    await page.getByTestId("estoque-novo-material").click();
+  } else {
+    await expect(page.getByTestId("estoque-novo-material")).toBeHidden();
+    await expect(page.getByTestId("estoque-acao-fixa-material")).toHaveText("+ Material");
+    await page.getByTestId("estoque-acao-fixa-material").click();
+  }
+  const folha = page.getByTestId("folha-novo-material");
+  await expect(folha).toBeVisible();
+  return folha;
+}
+
+async function escolherCategoria(folha: Locator, nome: string) {
+  const seletor = folha.getByTestId("novo-material-categoria");
+  const valor = await seletor.locator("option", { hasText: nome }).first().getAttribute("value");
+  await seletor.selectOption(valor ?? "");
+}
+
+// O cartão (ou a linha da tabela) visível de um material, achado pelo NOME — o material nasceu pela
+// tela, e o teste ainda não sabe o id.
+function cartaoPeloNome(page: Page, nome: string) {
+  return page.getByTestId("estoque-cartao").filter({ visible: true }).filter({ hasText: nome });
+}
+
+async function abrirEdicao(page: Page, itemId: string): Promise<Locator> {
+  const folha = await abrirFolhaDoMaterial(page, itemId);
+  await folha.getByTestId("folha-material-editar").click();
+  const edicao = page.getByTestId("folha-editar-material");
+  await expect(edicao).toBeVisible();
+  return edicao;
+}
+
+test.describe("estoque material cadastro", () => {
+  test("(a) critério 1 pelo caminho do dono: cadastrar Argila em kg, a entrada de 5 kg que a folha abre sozinha, a baixa de 2 — 3 kg", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    // Garante que a página tem material (senão ela mostra o vazio, sem cabeçalho nem barra).
+    await semearMaterial({ nome: `[e2e] Âncora ${suf}`, unidade: "un", categoriaCompra: CATEGORIA_DE_COMPRA });
+    const nome = `[e2e] Argila ${suf}`;
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+
+    const folha = await abrirNovoMaterial(page);
+    // Nenhum campo de saldo (D-17): a nota diz onde o saldo inicial entra.
+    await expect(folha).toContainText(
+      "Não existe campo de saldo aqui. O saldo inicial entra pela contagem, com custo — assim ele nasce dentro do histórico.",
+    );
+    await expect(folha).toContainText("Preço de venda, atalhos e ficha técnica ficam em Cadastros → Catálogo.");
+    await expect(folha.getByTestId("novo-material-minimo")).toHaveValue("0");
+    await folha.getByTestId("novo-material-nome").fill(nome);
+    await folha.getByTestId("novo-material-unidade").selectOption("kg");
+    await escolherCategoria(folha, CATEGORIA_DE_COMPRA);
+    await expect(folha.getByText(/^diz a área — /)).toBeVisible();
+    await folha.getByTestId("novo-material-cadastrar").click();
+
+    await expect(page.getByText(`${nome} cadastrado. Registre a entrada para dar saldo a ele.`)).toBeVisible();
+    await expect(folha).toBeHidden();
+
+    // UI-D12: a folha de movimentação abre sozinha, em Entrada, para o material novo.
+    const movimentacao = page.getByTestId("folha-movimentacao");
+    await expect(movimentacao).toBeVisible();
+    await expect(movimentacao.getByTestId("folha-tipo-entrada")).toHaveAttribute("aria-checked", "true");
+    await expect(movimentacao.getByTestId("folha-escolhido")).toContainText(nome);
+    await movimentacao.getByTestId("folha-quantidade").fill("5");
+    await movimentacao.getByTestId("folha-custo").fill("21,00");
+    await expect(movimentacao.getByTestId("folha-registrar")).toHaveText("Registrar entrada");
+    await movimentacao.getByTestId("folha-registrar").click();
+    await expect(page.getByText(`Entrada de 5 kg em ${nome}.`)).toBeVisible();
+    await expect(movimentacao).toBeHidden();
+
+    const cartao = cartaoPeloNome(page, nome);
+    await expect(cartao.getByTestId("estoque-cartao-saldo")).toHaveText("5");
+    const itemId = (await cartao.getAttribute("data-item-id")) ?? "";
+
+    await movimentarPelaFolha(page, itemId, { tipo: "saida", quantidade: "2", destino: "atelie" });
+    await expect(cartaoDoItem(page, itemId).getByTestId("estoque-cartao-saldo")).toHaveText("3");
+    await expect(cartaoDoItem(page, itemId).getByTestId("estoque-cartao-unidade")).toHaveText("kg");
+    expect(await saldoNoBanco(itemId)).toBe(3000);
+  });
+
+  test("(b) nome vazio: “Dê um nome ao item.” embaixo do campo, a folha continua preenchida e nada grava", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    await semearMaterial({ nome: `[e2e] Âncora ${suf}`, unidade: "un", categoriaCompra: CATEGORIA_DE_COMPRA });
+    const marcador = `[e2e] marcador do cadastro recusado ${suf}`;
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    const folha = await abrirNovoMaterial(page);
+    await folha.getByTestId("novo-material-nome").fill("   ");
+    await folha.getByTestId("novo-material-unidade").selectOption("g");
+    await escolherCategoria(folha, CATEGORIA_DE_COMPRA);
+    await folha.getByTestId("novo-material-observacoes").fill(marcador);
+    await folha.getByTestId("novo-material-cadastrar").click();
+
+    const erro = folha.getByTestId("material-erro");
+    await expect(erro).toHaveText("Dê um nome ao item.");
+    await expect(erro).toHaveAttribute("data-campo", "nome");
+    await expect(erro).toHaveAttribute("role", "alert");
+    await expect(folha).toBeVisible();
+    await expect(folha.getByTestId("novo-material-observacoes")).toHaveValue(marcador);
+    await expect(folha.getByTestId("novo-material-unidade")).toHaveValue("g");
+
+    // Sem unidade: a frase do Cadastros, embaixo da unidade.
+    await folha.getByTestId("novo-material-nome").fill(`[e2e] Sem unidade ${suf}`);
+    await folha.getByTestId("novo-material-unidade").selectOption("");
+    await folha.getByTestId("novo-material-cadastrar").click();
+    await expect(folha.getByTestId("material-erro")).toHaveText("Escolha a unidade do estoque.");
+    await expect(folha.getByTestId("material-erro")).toHaveAttribute("data-campo", "unidade");
+
+    expect(await itensComObservacoes(marcador)).toBe(0);
+  });
+
+  test("(c) Editar muda só o mínimo e as observações: mínimo 4 deixa o cartão Acabando; 501 letras são recusadas", async ({
+    page,
+  }) => {
+    const nome = `[e2e] Esmalte editado ${sufixoUnico()}`;
+    const itemId = await semearMaterial({ nome, unidade: "un", categoriaCompra: CATEGORIA_DE_COMPRA });
+    await semearMovimentacoesEmMassa(itemId, 3, process.env.E2E_EMAIL_TESTE ?? "");
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    await expect(cartaoDoItem(page, itemId).getByTestId("estoque-cartao-saldo")).toHaveText("3");
+
+    const edicao = await abrirEdicao(page, itemId);
+    // Nome, unidade e categoria só para leitura (D-01): os dois únicos campos são mínimo e observações.
+    await expect(edicao.getByTestId("editar-material-catalogo")).toContainText(nome);
+    await expect(edicao.getByTestId("editar-material-catalogo")).toContainText(CATEGORIA_DE_COMPRA);
+    await expect(
+      edicao.getByRole("link", { name: "Nome, unidade e categoria mudam em Cadastros → Catálogo" }),
+    ).toBeVisible();
+    await expect(edicao.getByRole("textbox")).toHaveCount(2);
+    await expect(edicao.getByTestId("editar-material-minimo")).toHaveValue("0");
+
+    await edicao.getByTestId("editar-material-minimo").fill("4");
+    await edicao.getByTestId("editar-material-observacoes").fill("x".repeat(501));
+    await edicao.getByTestId("editar-material-salvar").click();
+    const erro = edicao.getByTestId("material-erro");
+    await expect(erro).toHaveText("As observações cabem em até 500 letras.");
+    await expect(erro).toHaveAttribute("data-campo", "observacoes");
+
+    await edicao.getByTestId("editar-material-observacoes").fill("Secar antes de pesar.");
+    await edicao.getByTestId("editar-material-salvar").click();
+    await expect(page.getByText("Material atualizado.")).toBeVisible();
+    await expect(edicao).toBeHidden();
+
+    const cartao = cartaoDoItem(page, itemId);
+    await expect(cartao).toContainText("4 un");
+    await expect(cartao.getByTestId("estoque-chip-acabando")).toBeVisible();
+    await expect(cartao).toHaveAttribute("data-alerta", "acabando");
+
+    const folha = await abrirFolhaDoMaterial(page, itemId);
+    await expect(folha.getByTestId("folha-material-observacoes")).toHaveText("Secar antes de pesar.");
+    await expect(folha.getByTestId("folha-material-resumo")).toContainText("mínimo 4 un");
+    await expect(folha.getByTestId("folha-material-resumo")).toHaveAttribute("data-alerta", "acabando");
+  });
+
+  test("(d) Desativar diz que nada é apagado, tira o material do padrão, e Reativar o traz de volta", async ({
+    page,
+  }) => {
+    const nome = `[e2e] Barbante desativado ${sufixoUnico()}`;
+    const itemId = await semearMaterial({ nome, unidade: "un", categoriaCompra: CATEGORIA_DE_COMPRA });
+    await semearMovimentacoesEmMassa(itemId, 2, process.env.E2E_EMAIL_TESTE ?? "");
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    const edicao = await abrirEdicao(page, itemId);
+    await edicao.getByTestId("editar-material-desativar").click();
+
+    const confirmacao = page.getByTestId("confirmar-desativacao");
+    await expect(confirmacao).toBeVisible();
+    await expect(confirmacao).toContainText(`Desativar ${nome}?`);
+    await expect(confirmacao).toContainText(
+      "Ele some da Venda, da Compra e da lista do Estoque. O histórico (2 movimentações) e o saldo de 2 un continuam guardados — nada é apagado — e dá para reativar quando quiser.",
+    );
+    await confirmacao.getByTestId("confirmar-desativacao-botao").click();
+    await expect(page.getByText(`${nome} desativado. Continua no filtro Desativados.`)).toBeVisible();
+    await expect(confirmacao).toBeHidden();
+    await expect(edicao).toBeHidden();
+
+    // Some do padrão ("Ativos") e aparece em "Desativados", com o chip e sem "Dar baixa".
+    await expect(cartaoDoItem(page, itemId)).toHaveCount(0);
+    await page.getByTestId("estoque-filtro-situacao-desativados").click();
+    const cartao = cartaoDoItem(page, itemId);
+    await expect(cartao.getByTestId("estoque-chip-desativado")).toBeVisible();
+    await expect(cartao.getByTestId("estoque-dar-baixa")).toHaveCount(0);
+    // O livro continua lá: nada foi apagado.
+    expect(await movimentacoesDoItem(itemId)).toHaveLength(2);
+
+    const folha = await abrirFolhaDoMaterial(page, itemId);
+    await expect(folha.getByTestId("folha-material-registrar")).toHaveCount(0);
+    await expect(folha.getByTestId("historico-linha")).toHaveCount(2);
+    const reativar = folha.getByTestId("folha-material-reativar");
+    await expect(reativar).toHaveText("Reativar material");
+    await reativar.click();
+    await expect(page.getByText(`${nome} reativado.`)).toBeVisible();
+    await expect(folha.getByTestId("folha-material-registrar")).toBeVisible();
+    await expect(folha.getByTestId("folha-material-reativar")).toHaveCount(0);
+
+    await folha.getByTestId("folha-material-fechar").click();
+    await page.getByTestId("estoque-filtro-situacao-ativos").click();
+    await expect(cartaoDoItem(page, itemId).getByTestId("estoque-dar-baixa")).toBeVisible();
+  });
+
+  test("(e) insumo da ficha de um produto ativo: desativar é recusado com a frase dentro do diálogo", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Grão em uso ${suf}`;
+    const itemId = await semearMaterial({ nome, unidade: "g", categoriaCompra: CATEGORIA_DE_COMPRA });
+    const produto = `[e2e] Café coado ${suf}`;
+    await semearItem({
+      nome: produto,
+      categoriaVenda: "Peças prontas",
+      precoCentavos: 800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+      ficha: [{ insumoId: itemId, quantidade: "15" }],
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    const edicao = await abrirEdicao(page, itemId);
+    await edicao.getByTestId("editar-material-desativar").click();
+    const confirmacao = page.getByTestId("confirmar-desativacao");
+    await confirmacao.getByTestId("confirmar-desativacao-botao").click();
+
+    const recusa = confirmacao.getByRole("alert");
+    await expect(recusa).toContainText(`Esse item é insumo de ${produto} — tire da ficha técnica antes.`);
+    await expect(recusa.getByRole("link", { name: "Abrir Cadastros → Catálogo" })).toBeVisible();
+    await expect(confirmacao).toBeVisible();
+
+    await confirmacao.getByRole("button", { name: "Voltar" }).click();
+    await edicao.getByRole("button", { name: "Fechar" }).click();
+    await expect(cartaoDoItem(page, itemId).getByTestId("estoque-chip-desativado")).toHaveCount(0);
+  });
+
+  test("(f) o material do “+ Novo material” aparece no Catálogo com estoque próprio e fora da venda", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    await semearMaterial({ nome: `[e2e] Âncora ${suf}`, unidade: "un", categoriaCompra: CATEGORIA_DE_COMPRA });
+    const nome = `[e2e] Embalagem do catálogo ${suf}`;
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    const folha = await abrirNovoMaterial(page);
+    await folha.getByTestId("novo-material-nome").fill(nome);
+    await folha.getByTestId("novo-material-unidade").selectOption("un");
+    await escolherCategoria(folha, CATEGORIA_DE_COMPRA);
+    await folha.getByTestId("novo-material-minimo").fill("2");
+    await folha.getByTestId("novo-material-cadastrar").click();
+    await expect(page.getByText(`${nome} cadastrado. Registre a entrada para dar saldo a ele.`)).toBeVisible();
+    await page.getByTestId("folha-movimentacao").getByRole("button", { name: "Fechar" }).click();
+
+    await page.goto("/gestao/cadastros?sub=catalogo");
+    const item = page
+      .getByTestId("catalogo-item")
+      .filter({ has: page.getByText(nome, { exact: true }) });
+    await expect(item).toBeVisible();
+    await expect(item.getByTestId("catalogo-etiqueta").filter({ hasText: "só insumo" })).toBeVisible();
+    await expect(item.getByTestId("catalogo-etiqueta").filter({ hasText: "estoque em un" })).toBeVisible();
+    await item.getByRole("button", { name: "Editar", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Tem estoque próprio" })).toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "Aparece na venda" })).not.toBeChecked();
   });
 });

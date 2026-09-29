@@ -438,3 +438,80 @@ export const FRASE_ERRO_CARREGAR_MATERIAL =
 // a lista COMPLETA: com "Mostrar mais 50" à vista, somar a página não dá o saldo e a frase mentiria.
 export const NOTA_SOMA_ANTES = "Somando de cima para baixo você chega ao saldo de ";
 export const NOTA_SOMA_DEPOIS = ". É assim que o sistema calcula — não há outra fonte.";
+
+// ---------------------------------------------------------------------------------------------
+// "+ Novo material" e "Editar material" (plano 06-09) — a mesma validação do Cadastros (EST-13) e
+// só o que é do Estoque na edição (D-01).
+// ---------------------------------------------------------------------------------------------
+
+// §Ações — "CTA secundário — Estoque, novo material" (UI-D5: "+ Material" na barra fixa).
+export const ROTULO_NOVO_MATERIAL = "+ Novo material";
+export const ROTULO_NOVO_MATERIAL_CURTO = "+ Material";
+export const ROTULO_CADASTRAR_MATERIAL = "Cadastrar material";
+export const ROTULO_CADASTRANDO = "Cadastrando…";
+export const ROTULO_VOLTAR_AO_ESTOQUE = "Voltar ao estoque";
+export const ROTULO_SALVAR_MATERIAL = "Salvar material";
+export const ROTULO_SALVANDO = "Salvando…";
+export const ROTULO_DESATIVAR_MATERIAL = "Desativar material";
+
+// Títulos das duas folhas (o cabeçalho herdado do protótipo: título e, embaixo, o que é a folha ou
+// o nome do material).
+export const TITULO_NOVO_MATERIAL = "Novo material";
+export const SUB_NOVO_MATERIAL = "O que passa a ser controlado";
+export const TITULO_EDITAR_MATERIAL = "Editar material";
+
+// §Rótulos e dicas de campo.
+export const ROTULO_NOME_DO_MATERIAL = "Nome";
+export const ROTULO_UNIDADE_DO_MATERIAL = "Unidade";
+export const DICA_UNIDADE_DO_MATERIAL = "em que você conta este material";
+export const ROTULO_CATEGORIA_DA_COMPRA = "Categoria da compra";
+export function dicaCategoriaDaCompra(area: string | null): string {
+  return area === null ? "diz a área do material" : `diz a área — ${area}`;
+}
+export const OPCAO_ESCOLHA = "Escolha…";
+export function opcaoCategoriaDaCompra(categoria: string, area: string): string {
+  return `${categoria} · ${area}`;
+}
+export const ROTULO_ESTOQUE_MINIMO = "Estoque mínimo";
+export const DICA_ESTOQUE_MINIMO = "zero = nunca avisa";
+export function dicaEstoqueMinimoEm(unidade: string): string {
+  return `em ${unidade} — zero = nunca avisa`;
+}
+export const ROTULO_OBSERVACOES = "Observações";
+export const DICA_OBSERVACOES = "opcional — o que a próxima pessoa precisa saber";
+// O `check itens_catalogo_observacoes_comprimento` do banco é o mesmo limite, em caracteres.
+export const LIMITE_DAS_OBSERVACOES = 500;
+
+// §Notas de rodapé — "Novo material" (D-17), em partes para o negrito em "contagem".
+export const NOTA_NOVO_MATERIAL_ANTES =
+  "Não existe campo de saldo aqui. O saldo inicial entra pela ";
+export const NOTA_NOVO_MATERIAL_DESTAQUE = "contagem";
+export const NOTA_NOVO_MATERIAL_DEPOIS = ", com custo — assim ele nasce dentro do histórico.";
+export const LINHA_O_RESTO_FICA_NO_CATALOGO =
+  "Preço de venda, atalhos e ficha técnica ficam em Cadastros → Catálogo.";
+
+// §Estados vazios — "Novo material" sem nenhuma categoria de compra ativa (ligado a D-29): a frase
+// com o link no lugar do seletor, e o motivo visível ao lado do botão indisponível.
+export const FRASE_SEM_CATEGORIA_DE_COMPRA_ANTES =
+  "Nenhuma categoria de compra ativa — crie uma em ";
+export const ROTULO_LINK_CATEGORIAS = "Cadastros → Categorias";
+export const MOTIVO_SEM_CATEGORIA_DE_COMPRA =
+  "Sem uma categoria de compra ativa, o material não tem área — crie a categoria primeiro.";
+
+// "Editar material" — o que é do Cadastros aparece para leitura, com o caminho para mudar.
+export const ROTULO_CAMPOS_DO_CATALOGO =
+  "Nome, unidade e categoria mudam em Cadastros → Catálogo";
+
+// §Erros.
+export const FRASE_MINIMO_INVALIDO = "O mínimo precisa ser zero ou mais.";
+export const FRASE_OBSERVACOES_LONGAS = "As observações cabem em até 500 letras.";
+export const FRASE_FALHA_AO_CADASTRAR =
+  "Não deu para cadastrar. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_SALVAR_MATERIAL =
+  "Não deu para salvar. Verifique a internet e tente de novo.";
+
+// §Toasts.
+export function textoToastMaterialCadastrado(nome: string): string {
+  return `${nome} cadastrado. Registre a entrada para dar saldo a ele.`;
+}
+export const TOAST_MATERIAL_ATUALIZADO = "Material atualizado.";
