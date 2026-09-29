@@ -33,7 +33,7 @@ describe("esquemaRegistrarMovimentacao — a quantidade", () => {
   it("aceita “2,5” como 2500 milésimos", () => {
     const resultado = saida("2,5");
     expect(resultado.success).toBe(true);
-    if (resultado.success) {
+    if (resultado.success && resultado.data.tipo === "saida") {
       expect(resultado.data.quantidadeTexto).toBe(2500);
     }
   });
@@ -41,7 +41,7 @@ describe("esquemaRegistrarMovimentacao — a quantidade", () => {
   it("aceita “0,001” como 1 milésimo — a menor quantidade que existe", () => {
     const resultado = saida("0,001");
     expect(resultado.success).toBe(true);
-    if (resultado.success) {
+    if (resultado.success && resultado.data.tipo === "saida") {
       expect(resultado.data.quantidadeTexto).toBe(1);
     }
   });
@@ -196,7 +196,7 @@ describe("esquemaRegistrarMovimentacao — o ajuste pelo saldo contado", () => {
     );
     const vazio = ajuste("3", "   ");
     expect(vazio.success && vazio.data.tipo === "ajuste" && vazio.data.motivoTexto).toBe(null);
-    const comMotivo = ajuste("3", "  Conferéncia da prateleira  ");
+    const comMotivo = ajuste("3", "  Conferência da prateleira  ");
     expect(comMotivo.success).toBe(true);
     if (comMotivo.success && comMotivo.data.tipo === "ajuste") {
       expect(comMotivo.data.motivoTexto).toBe("Conferência da prateleira");

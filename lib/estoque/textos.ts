@@ -162,3 +162,77 @@ export const NOTA_SALDOS_AJUSTE = "ajuste";
 export const NOTA_SALDOS_DEPOIS_DO_AJUSTE = ", que fica no histórico com seu nome e a data.";
 // §Aba Saldos → tabela: a coluna Mínimo mostra "—" quando o mínimo é zero (nunca avisa).
 export const SEM_MINIMO_NA_TABELA = "—";
+
+// ---------------------------------------------------------------------------------------------
+// A folha completa (plano 06-05) — ajuste, vínculos da saída, peça pronta e a prévia do rodapé.
+// ---------------------------------------------------------------------------------------------
+
+// §Ações — o botão de gravar segue o segmento marcado; os segmentos.
+export const ROTULO_AJUSTE = "Ajuste";
+export const ROTULO_REGISTRAR_AJUSTE = "Registrar ajuste";
+export const ROTULO_TROCAR_MATERIAL = "Trocar material";
+export function rotuloDoBotaoDeGravar(tipo: "entrada" | "saida" | "ajuste"): string {
+  if (tipo === "entrada") {
+    return ROTULO_REGISTRAR_ENTRADA;
+  }
+  return tipo === "saida" ? ROTULO_REGISTRAR_BAIXA : ROTULO_REGISTRAR_AJUSTE;
+}
+export function rotuloDoAtalho(quantidade: string, unidade: string): string {
+  return `Somar ${quantidade} ${unidade}`;
+}
+
+// §Rótulos e dicas de campo — o ajuste.
+export const ROTULO_CONTADO = "Quanto tem na prateleira agora?";
+export function dicaDoContado(unidade: string): string {
+  return `em ${unidade} — conte, não calcule a diferença`;
+}
+export const ROTULO_MOTIVO_AJUSTE = "Por quê?";
+export const DICA_MOTIVO_AJUSTE = "opcional, mas ajuda quem ler depois";
+export const PLACEHOLDER_MOTIVO_AJUSTE = "Conferência da prateleira";
+
+// §Rótulos e dicas de campo — os vínculos da saída (todos opcionais).
+export const ROTULO_VINCULO_TURMA = "Qual turma?";
+export const ROTULO_VINCULO_ENCOMENDA = "Qual encomenda?";
+export const ROTULO_VINCULO_O_QUE_ACONTECEU = "O que aconteceu?";
+export const DICA_VINCULO_OPCIONAL = "opcional";
+export const OPCAO_NENHUMA_ENCOMENDA = "Nenhuma";
+// §Rótulos e dicas de campo → destinos: a dica abaixo da grade quando "Consumo na cafeteria" está
+// marcado (D-15).
+export const DICA_CAFETERIA =
+  "Só o que não passa por venda — degustação, consumo interno. O que é vendido com ficha técnica já sai pela venda.";
+
+// §Folha de movimentação → Entrada: a nota da compra (UI-D14), para material que NÃO é peça
+// pronta — compra de verdade se lança no Financeiro (o Estoque nunca lança nada no Caixa).
+export const NOTA_COMPRA_NO_FINANCEIRO =
+  "Comprou? Lance em Financeiro → Despesa → Compra de material — ela já dá entrada aqui sozinha.";
+export const ROTULO_IR_PARA_COMPRA = "Ir para Compra de material";
+// §Rótulos e dicas de campo → custo da peça pronta com ficha (D-22). `custoPorPeca` chega
+// formatado ("R$ 12,34").
+export function dicaCustoPecaPronta(custoPorPeca: string): string {
+  return `Pela ficha de precificação: ${custoPorPeca} por peça. Pode mudar.`;
+}
+
+// §Erros — o ajuste e os vínculos.
+export const FRASE_CONTADO_VAZIO = "Diga quanto tem na prateleira — pode ser zero.";
+// O `check` `movimentacoes_estoque_nota_comprimento` do banco é o mesmo limite, em caracteres.
+export const LIMITE_DO_VINCULO = 160;
+export const FRASE_VINCULO_LONGO = "Esse texto cabe em até 160 letras — resuma um pouco.";
+export const FRASE_ENCOMENDA_FORA_DE_ANDAMENTO =
+  "Essa encomenda não está mais em andamento — escolha outra ou deixe em branco.";
+
+// §Pré-visualização — "o saldo passa de X para Y" (rodapé da folha). As partes em destaque são
+// montadas por `previaDaMovimentacao` (saldo.ts); aqui só os pedaços de texto.
+export const PREVIA_VAZIA = "Digite a quantidade para ver o saldo novo.";
+export const PREVIA_SALDO_JA_CERTO = "O saldo já está certo. Nada será gravado.";
+export const PREVIA_NEGATIVO = " Isso deixa o saldo negativo — só registre se tiver certeza.";
+export function previaAbaixoDoMinimo(minimo: string, unidade: string): string {
+  return ` Passa a ficar abaixo do mínimo (${minimo} ${unidade}).`;
+}
+
+// §Toasts — o ajuste.
+export const TOAST_CONFERIDO = "Conferido. O saldo já estava correto.";
+export function textoToastAjuste(dados: { nome: string; diferenca: string; unidade: string }): string {
+  return `Ajuste em ${dados.nome}: ${dados.diferenca} ${dados.unidade}.`;
+}
+// Um vínculo que não chegou como texto (só acontece com pedido forjado — a folha sempre manda texto).
+export const FRASE_TEXTO_INVALIDO = "Não deu para entender esse texto. Escreva de novo.";

@@ -8,11 +8,21 @@
 // (planos seguintes) leem esta mesma função.
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { cache } from "react";
 
 import { db } from "@/db";
-import { categorias, fichasPrecificacao, itensCatalogo, movimentacoesEstoque } from "@/db/schema";
+import {
+  categorias,
+  encomendas,
+  fichasPrecificacao,
+  itensCatalogo,
+  movimentacoesEstoque,
+} from "@/db/schema";
 import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
+import { calcularPeca } from "@/lib/precificacao/calculo";
+import { parametrosVigentes } from "@/lib/precificacao/consultas";
+import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { EntradaComPreco } from "./custo";
 import { areaDoItemNoEstoque } from "./saldo";
@@ -139,4 +149,107 @@ export async function listarSaldos(): Promise<SaldoDoItem[]> {
       },
     ];
   });
+}
+
+// A mesma `listarSaldos`, memorizada POR REQUISIÇÃO (`cache` do React): a página, a folha e o
+// seletor que a leem na mesma renderização fazem UMA consulta só. Fora de uma requisição (teste,
+// script) se comporta como a função pura. Nunca guarda nada entre requisições.
+export const listarSaldosDaRequisicao = cache(listarSaldos);
+
+// ---------------------------------------------------------------------------------------------
+// A folha completa (plano 06-05): as encomendas do vínculo e o custo da peça pronta.
+// ---------------------------------------------------------------------------------------------
+
+export type EncomendaParaVinculo = {
+  id: string;
+  // O que o índice de Encomendas mostra como título do cartão (o nome da encomenda).
+  rotulo: string;
+  clienteNome: string | null;
+};
+
+// As opções de "Qual encomenda?" (D-15): as encomendas EM ANDAMENTO — o mesmo critério de
+// `listarEncomendasAtivas` (lib/encomendas/consultas.ts: rascunho ou em produção), na mesma ordem
+// (`data_inicio` ascendente), sem itens nem etapas (a folha só precisa do rótulo). A ação confere
+// de novo, dentro da transação, que a escolhida continua em andamento (`encomendaEmAndamento`).
+export async function listarEncomendasParaVinculo(): Promise<EncomendaParaVinculo[]> {
+  return db
+    .select({ id: encomendas.id, rotulo: encomendas.nome, clienteNome: encomendas.clienteNome })
+    .from(encomendas)
+    .where(inArray(encomendas.status, ["rascunho", "em_producao"]))
+    .orderBy(asc(encomendas.dataInicio));
+}
+
+// EST-21/D-22: o custo por peça de cada peça pronta, pela ficha de precificação LIGADA ao item (a
+// exclusiva não tem item). `parametrosVigentes(hoje)` UMA vez; depois, por ficha, `quantasCabem` +
+// `calcularPeca({ canal: "direto" }).custoCentavos` — o mesmo caminho e o mesmo número que a
+// Precificação mostra (`lib/orcamentos/acoes.ts::precoInicialDaLinha`). Parâmetro faltando, peça
+// que não cabe ou divisor inválido → o item fica FORA do mapa: o campo de custo vem vazio e
+// obrigatório (D-22), nunca um zero inventado. Lido com a página ("parâmetros de hoje"); se a ficha
+// mudar entre abrir a folha e gravar, grava-se o valor mostrado ou digitado — o servidor não
+// recalcula por trás da pessoa. `hoje` chega por argumento: este módulo não lê o relógio.
+export async function custosDasPecasProntas(
+  itemIds: readonly string[],
+  hoje: string,
+): Promise<Map<string, number>> {
+  const custos = new Map<string, number>();
+  const unicos = [...new Set(itemIds)];
+  if (unicos.length === 0) {
+    return custos;
+  }
+
+  const fichas = await db
+    .select({
+      itemId: fichasPrecificacao.itemCatalogoId,
+      argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+      esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+      horasMilesimos: fichasPrecificacao.horasMilesimos,
+      embalagemCentavos: fichasPrecificacao.embalagemCentavos,
+      larguraMm: fichasPrecificacao.larguraMm,
+      profundidadeMm: fichasPrecificacao.profundidadeMm,
+      alturaMm: fichasPrecificacao.alturaMm,
+      cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
+      cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
+    })
+    .from(fichasPrecificacao)
+    .where(
+      and(
+        eq(fichasPrecificacao.exclusiva, false),
+        inArray(fichasPrecificacao.itemCatalogoId, unicos),
+      ),
+    );
+  if (fichas.length === 0) {
+    return custos;
+  }
+
+  const parametros = await parametrosVigentes(hoje);
+  if (!parametros.ok) {
+    return custos;
+  }
+
+  for (const ficha of fichas) {
+    if (ficha.itemId === null) {
+      continue;
+    }
+    const cabem = quantasCabem(
+      { larguraMm: ficha.larguraMm, profundidadeMm: ficha.profundidadeMm, alturaMm: ficha.alturaMm },
+      parametros.forno,
+      { biscoito: ficha.cabemBiscoitoInformado, esmalte: ficha.cabemEsmalteInformado },
+    );
+    const resultado = calcularPeca({
+      ficha: {
+        argilaMiligramas: ficha.argilaMiligramas,
+        esmalteMiligramas: ficha.esmalteMiligramas,
+        horasMilesimos: ficha.horasMilesimos,
+        embalagemCentavos: ficha.embalagemCentavos,
+      },
+      cabem,
+      parametros: parametros.calculo,
+      taxaCartaoPontosBase: parametros.taxaCartaoPontosBase,
+      canal: "direto",
+    });
+    if (resultado.ok && resultado.custoCentavos > 0) {
+      custos.set(ficha.itemId, resultado.custoCentavos);
+    }
+  }
+  return custos;
 }

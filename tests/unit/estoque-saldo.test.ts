@@ -429,7 +429,11 @@ function previa(parcial: Partial<EntradaDaPrevia>): EntradaDaPrevia {
 }
 
 function textoDa(resultado: { partes: readonly { texto: string }[] }): string {
-  return resultado.partes.map((parte) => parte.texto).join("");
+  // `Intl` separa "R$" do número com espaço não separável; o teste compara com espaço comum.
+  return resultado.partes
+    .map((parte) => parte.texto)
+    .join("")
+    .replace(/ /g, " ");
 }
 
 describe("previaDaMovimentacao — o rodapé da folha (UI-SPEC §Pré-visualização)", () => {
@@ -457,7 +461,9 @@ describe("previaDaMovimentacao — o rodapé da folha (UI-SPEC §Pré-visualiza�
 
   it("os números vão em destaque (negrito na tela)", () => {
     const resultado = previaDaMovimentacao(previa({ quantidadeMilesimos: 2000 }));
-    const fortes = resultado.partes.filter((parte) => parte.forte).map((parte) => parte.texto);
+    const fortes = resultado.partes
+      .filter((parte) => parte.forte)
+      .map((parte) => parte.texto.replace(/ /g, " "));
     expect(fortes).toEqual(["5", "3 kg", "R$ 8,40"]);
   });
 

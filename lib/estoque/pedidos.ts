@@ -37,10 +37,15 @@ export type PedidoDeMovimentacao = {
 
 // Entrada manual ("Registrar entrada"): entra com preço — "quanto custou ao todo" é o valor
 // informado da nota e o preço do custo médio (R2/R3).
+//
+// `pecaPronta` (D-09/D-29, plano 06-05): a peça pronta entra à mão, com custo, até a Produção
+// existir; o motivo `peca_pronta` a distingue no histórico. Quem decide se o item É peça pronta é a
+// ação, pela ficha de precificação ligada, dentro da transação — nunca o cliente (T-06-23).
 export function pedidoDeEntradaManual(dados: {
   itemId: string;
   milesimos: number;
   custoCentavos: number;
+  pecaPronta?: boolean;
 }): PedidoDeMovimentacao {
   return {
     itemId: dados.itemId,
@@ -52,15 +57,20 @@ export function pedidoDeEntradaManual(dados: {
       pagoCentavos: dados.custoCentavos,
     },
     valorInformadoCentavos: dados.custoCentavos,
+    ...(dados.pecaPronta ? { motivo: "peca_pronta" as const } : {}),
   };
 }
 
 // Saída manual ("Registrar baixa"): o destino é obrigatório, e a ÁREA que paga sai dele (D-14) —
-// nunca do cliente.
+// nunca do cliente. `nota` é o vínculo em texto (turma, "o que aconteceu?" ou o nome CONGELADO da
+// encomenda — Pitfall 10: se ela for apagada, o nome fica); `encomendaId` só existe no destino
+// encomenda (o `check` `movimentacoes_estoque_encomenda_so_no_destino_encomenda` recusaria).
 export function pedidoDeSaidaManual(dados: {
   itemId: string;
   milesimos: number;
   destino: DestinoDeSaida;
+  nota?: string | null;
+  encomendaId?: string | null;
 }): PedidoDeMovimentacao {
   return {
     itemId: dados.itemId,
@@ -69,6 +79,38 @@ export function pedidoDeSaidaManual(dados: {
     movimento: { tipo: "saida", milesimos: dados.milesimos },
     destino: dados.destino,
     area: areaDoDestino(dados.destino),
+    ...(dados.destino === "encomenda" && dados.encomendaId
+      ? { encomendaId: dados.encomendaId }
+      : {}),
+    ...(dados.nota ? { nota: dados.nota } : {}),
+  };
+}
+
+// Ajuste pelo saldo contado (EST-07): a DIFERENÇA já foi decidida por `planejarAjuste` (saldo.ts)
+// contra o saldo lido SOB A TRAVA (`gravarAjuste`) — nunca vem do cliente (T-06-22). Para menos,
+// sai ao custo médio (R5); para mais, entra SEM preço, à taxa corrente (R6). O contado vai gravado
+// em `saldo_contado_milesimos` com o que foi digitado. Diferença zero não é pedido: é "nada a
+// gravar" (EST-08), decidido antes.
+export function pedidoDeAjuste(dados: {
+  itemId: string;
+  diferencaMilesimos: number;
+  contadoMilesimos: number;
+  nota: string | null;
+}): PedidoDeMovimentacao {
+  if (dados.diferencaMilesimos === 0) {
+    throw new RangeError("pedidoDeAjuste: diferença zero não grava nada (EST-08).");
+  }
+  const milesimos = Math.abs(dados.diferencaMilesimos);
+  return {
+    itemId: dados.itemId,
+    origem: "manual",
+    tipo: "ajuste",
+    movimento:
+      dados.diferencaMilesimos < 0
+        ? { tipo: "saida", milesimos }
+        : { tipo: "entrada_sem_preco", milesimos },
+    saldoContadoMilesimos: dados.contadoMilesimos,
+    ...(dados.nota ? { nota: dados.nota } : {}),
   };
 }
 

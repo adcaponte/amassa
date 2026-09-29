@@ -5,14 +5,21 @@
 // mínimo zero nunca alerta, e negativo é aviso próprio (D-21), nunca disfarçado de "acabando".
 //
 // Nenhum import que alcance React, Next, drizzle-orm, pg ou `@/db`; não lê o relógio. Os imports
-// de valor são só de módulos também puros e sem import nenhum (`custo.ts`, `textos.ts`). Números
-// formatados (dinheiro, quantidade) chegam por função de quem chama — este módulo não formata.
+// de valor são só de módulos também puros (`custo.ts`, `textos.ts`, e — desde o plano 06-05, para a
+// prévia do rodapé — `lib/financeiro/formato.ts` e `ROTULO_UNIDADE` de `lib/cadastros/catalogo.ts`,
+// ambos sem import de valor nenhum). As funções da lista (banner, contador) recebem o formatador de
+// quem chama; a prévia formata aqui porque a frase inteira é a regra.
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
-import type { Unidade } from "@/lib/cadastros/catalogo";
+import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
+import { formatarQuantidade, formatarReais } from "@/lib/financeiro/formato";
 
-import { custoMedioCentavosPorUnidade, type EntradaComPreco } from "./custo";
+import { custoMedioCentavosPorUnidade, valorarMovimento, type EntradaComPreco } from "./custo";
 import {
   PREFIXO_LINHA_NEGATIVOS,
+  PREVIA_NEGATIVO,
+  PREVIA_SALDO_JA_CERTO,
+  PREVIA_VAZIA,
+  previaAbaixoDoMinimo,
   textoContador,
   textoEMais,
   tituloBannerAcabando,
@@ -253,4 +260,195 @@ export function custoMedioParaExibir(
     valorCentavos: item.valorCentavos,
     ultimaEntradaComPreco: item.ultimaEntradaComPreco,
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// A folha completa (plano 06-05): o ajuste pelo contado, a prévia do rodapé, os atalhos e o custo
+// da peça pronta. A prévia (plano 06-06, no cliente) e o servidor (`gravarAjuste`, sob a trava)
+// leem as MESMAS funções — como `conferirParcelas` na Venda: uma regra, duas leituras. A diferença
+// é o saldo: a prévia usa o carregado com a página; o servidor, o lido sob a trava no instante da
+// gravação (D-18). Se alguém mexeu no meio, vale o servidor — a prévia era só prévia.
+// ---------------------------------------------------------------------------------------------
+
+export type PlanoDeAjuste = { tipo: "nada" } | { tipo: "ajuste"; diferencaMilesimos: number };
+
+// EST-07/EST-08: o ajuste pergunta o CONTADO (nunca a diferença). Diferença = contado − saldo, em
+// milésimos inteiros ("2,5" e "2,500" já chegaram como os mesmos 2500). Zero → nada a gravar.
+export function planejarAjuste({
+  saldoMilesimos,
+  contadoMilesimos,
+}: {
+  saldoMilesimos: number;
+  contadoMilesimos: number;
+}): PlanoDeAjuste {
+  if (!Number.isSafeInteger(contadoMilesimos) || contadoMilesimos < 0) {
+    throw new RangeError(
+      `planejarAjuste: o contado precisa ser um inteiro de milésimos, zero ou mais (recebido ${contadoMilesimos}).`,
+    );
+  }
+  const diferencaMilesimos = contadoMilesimos - saldoMilesimos;
+  return diferencaMilesimos === 0 ? { tipo: "nada" } : { tipo: "ajuste", diferencaMilesimos };
+}
+
+// Milésimos inteiros → "3", "2,5", "−1" (sinal de menos TIPOGRÁFICO). A divisão por 1000 só
+// acontece aqui, na hora de mostrar.
+function textoDeMilesimos(milesimos: number): string {
+  const absoluto = formatarQuantidade(String(Math.abs(milesimos) / 1000));
+  return milesimos < 0 ? `−${absoluto}` : absoluto;
+}
+
+// Meio-para-cima em inteiros exatos (`BigInt(...)` e não literais `0n`: o tsconfig mira ES2017).
+function multiplicarEDividir(a: number, b: number, divisor: number): number {
+  const produto = BigInt(a) * BigInt(b);
+  const d = BigInt(divisor);
+  const dois = BigInt(2);
+  return Number((dois * produto + d) / (dois * d));
+}
+
+export type TomDaPrevia = "neutra" | "acento" | "atencao" | "erro";
+
+// Um pedaço da frase; `forte` = em negrito na tela (os números — UI-SPEC §Pré-visualização).
+export type ParteDaPrevia = { texto: string; forte?: boolean };
+
+export type PreviaDaMovimentacao = { tom: TomDaPrevia; partes: ParteDaPrevia[] };
+
+export type EntradaDaPrevia = {
+  tipo: "entrada" | "saida" | "ajuste";
+  unidade: Unidade;
+  // O estado do material com a página — o mesmo `SaldoDoItem` da lista (saldo, valor e a última
+  // entrada com preço bastam para o custo médio de `valorarMovimento`).
+  saldoMilesimos: number;
+  valorCentavos: number;
+  ultimaEntradaComPreco: EntradaComPreco | null;
+  minimoMilesimos: number;
+  // Entrada e saída: o que foi digitado, já em milésimos; `null` = campo vazio ou inválido.
+  quantidadeMilesimos: number | null;
+  // Ajuste: o contado, já em milésimos (aceita zero); `null` = campo vazio ou inválido.
+  contadoMilesimos: number | null;
+  // Entrada: "quanto custou ao todo", em centavos; `null` = ainda sem custo.
+  custoCentavos: number | null;
+};
+
+function frasePassaDe(
+  deMilesimos: number,
+  paraMilesimos: number,
+  unidade: string,
+): ParteDaPrevia[] {
+  return [
+    { texto: "O saldo passa de " },
+    { texto: textoDeMilesimos(deMilesimos), forte: true },
+    { texto: " para " },
+    { texto: `${textoDeMilesimos(paraMilesimos)} ${unidade}`, forte: true },
+    { texto: "." },
+  ];
+}
+
+// O rodapé da folha: as frases literais da UI-SPEC (tabela "Pré-visualização"). Não bloqueia nada —
+// saída que deixa negativo só avisa (D-06). O valor da saída é o de `valorarMovimento`, a MESMA regra
+// que vai gravar. Não lê relógio.
+export function previaDaMovimentacao(entrada: EntradaDaPrevia): PreviaDaMovimentacao {
+  const unidade = ROTULO_UNIDADE[entrada.unidade];
+  const saldo = entrada.saldoMilesimos;
+
+  if (entrada.tipo === "ajuste") {
+    if (entrada.contadoMilesimos === null) {
+      return { tom: "neutra", partes: [{ texto: PREVIA_VAZIA }] };
+    }
+    const plano = planejarAjuste({ saldoMilesimos: saldo, contadoMilesimos: entrada.contadoMilesimos });
+    if (plano.tipo === "nada") {
+      return { tom: "neutra", partes: [{ texto: PREVIA_SALDO_JA_CERTO }] };
+    }
+    const sinal = plano.diferencaMilesimos > 0 ? "+" : "−";
+    return {
+      tom: "acento",
+      partes: [
+        { texto: "Diferença de " },
+        {
+          texto: `${sinal}${textoDeMilesimos(Math.abs(plano.diferencaMilesimos))} ${unidade}`,
+          forte: true,
+        },
+        { texto: ". " },
+        ...frasePassaDe(saldo, entrada.contadoMilesimos, unidade),
+      ],
+    };
+  }
+
+  const quantidade = entrada.quantidadeMilesimos;
+  if (quantidade === null || quantidade <= 0) {
+    return { tom: "neutra", partes: [{ texto: PREVIA_VAZIA }] };
+  }
+
+  if (entrada.tipo === "entrada") {
+    const partes = frasePassaDe(saldo, saldo + quantidade, unidade);
+    if (entrada.custoCentavos !== null) {
+      // Custo por UNIDADE inteira (1 unidade = 1000 milésimos), só para mostrar — nunca gravado
+      // arredondado (D-19).
+      const unitario = multiplicarEDividir(entrada.custoCentavos, 1000, quantidade);
+      partes.push(
+        { texto: " Custo unitário: " },
+        { texto: `${formatarReais(unitario)}/${unidade}`, forte: true },
+        { texto: "." },
+      );
+    }
+    return { tom: "acento", partes };
+  }
+
+  // Saída.
+  const valorado = valorarMovimento(
+    {
+      saldoMilesimos: saldo,
+      valorCentavos: entrada.valorCentavos,
+      ultimaEntradaComPreco: entrada.ultimaEntradaComPreco,
+    },
+    { tipo: "saida", milesimos: quantidade },
+  );
+  const depois = valorado.estadoDepois.saldoMilesimos;
+  const partes = [
+    ...frasePassaDe(saldo, depois, unidade),
+    { texto: " Vale " },
+    { texto: formatarReais(Math.abs(valorado.valorCentavos)), forte: true },
+    { texto: " ao custo médio." },
+  ];
+  // A MESMA regra de alerta da lista: negativo vence acabando, mínimo zero nunca avisa.
+  const situacao = situacaoDoSaldo({ saldo: depois, minimo: entrada.minimoMilesimos });
+  if (situacao === "negativo") {
+    partes.push({ texto: PREVIA_NEGATIVO });
+    return { tom: "erro", partes };
+  }
+  if (situacao === "acabando") {
+    partes.push({
+      texto: previaAbaixoDoMinimo(textoDeMilesimos(entrada.minimoMilesimos), unidade),
+    });
+    return { tom: "atencao", partes };
+  }
+  return { tom: "acento", partes };
+}
+
+// Os atalhos de quantidade (herdados, SOMAM ao campo), em unidades inteiras: `ml` segue `g` (a
+// mesma ordem de grandeza); `L` e `m` seguem `un`.
+const ATALHOS_POR_UNIDADE: Record<Unidade, readonly number[]> = {
+  un: [1, 2, 5, 10],
+  g: [50, 100, 250, 500],
+  ml: [50, 100, 250, 500],
+  kg: [1, 5, 10, 25],
+  l: [1, 2, 5, 10],
+  m: [1, 2, 5, 10],
+};
+
+export function atalhosDaUnidade(unidade: Unidade): readonly number[] {
+  return ATALHOS_POR_UNIDADE[unidade];
+}
+
+// EST-21/D-22: o custo que a entrada de uma peça pronta traz preenchido — custo da peça pela ficha
+// × quantidade, em inteiros, meio-para-cima. O custo por peça é o `custoCentavos` de `calcularPeca`
+// (canal direto), o mesmo número que a Precificação mostra; quem chama o lê com a página
+// (`custosDasPecasProntas`) e o servidor grava o que foi mostrado ou digitado — não recalcula.
+export function custoPreenchidoDaPecaPronta({
+  custoPorPecaCentavos,
+  quantidadeMilesimos,
+}: {
+  custoPorPecaCentavos: number;
+  quantidadeMilesimos: number;
+}): number {
+  return multiplicarEDividir(custoPorPecaCentavos, quantidadeMilesimos, 1000);
 }

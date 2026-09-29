@@ -38,13 +38,21 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { categorias, fichaTecnica, itensCatalogo, movimentacoesEstoque } from "@/db/schema";
+import {
+  categorias,
+  encomendas,
+  fichaTecnica,
+  fichasPrecificacao,
+  itensCatalogo,
+  movimentacoesEstoque,
+} from "@/db/schema";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 
 import { ESTADO_VAZIO, valorarMovimento, type EstadoDoItem } from "./custo";
-import type { MovimentacaoOriginal, PedidoDeMovimentacao } from "./pedidos";
+import { pedidoDeAjuste, type MovimentacaoOriginal, type PedidoDeMovimentacao } from "./pedidos";
+import { planejarAjuste } from "./saldo";
 
 // O tipo da transação do Drizzle, derivado do próprio `db` — mesma técnica de
 // `lib/anotacoes/acoes.ts` (nunca importado de `drizzle-orm/node-postgres`).
@@ -353,4 +361,80 @@ export async function originaisSemEstorno(
       ),
     )
     .orderBy(asc(movimentacoesEstoque.numero));
+}
+
+// ---------------------------------------------------------------------------------------------
+// A folha completa (plano 06-05): o ajuste pelo contado e as leituras que a ação faz COM A `tx`.
+// ---------------------------------------------------------------------------------------------
+
+export type ResultadoDoAjuste =
+  | { gravou: false; saldoMilesimos: number }
+  | { gravou: true; movimentacao: MovimentacaoGravada };
+
+// EST-07/EST-08 — D-18: o ajuste é decidido CONTRA O SALDO DO INSTANTE DA GRAVAÇÃO, nunca contra o
+// da prévia. Trava o item, lê o estado DEPOIS da trava e só então `planejarAjuste`: se outra pessoa
+// vendeu ou deu baixa entre abrir a folha e gravar, a diferença já sai com isso — o saldo final é
+// exatamente o contado (ajuste depois da venda) ou o contado menos a venda (venda depois do ajuste;
+// a venda espera a trava). Diferença zero → nada é inserido (EST-08). Senão o pedido vai por
+// `gravarMovimentacoes`, a porta única, na mesma `tx`: a trava já está segura (pedir de novo não
+// espera) e a segunda leitura devolve o mesmo estado. A prova com duas conexões é do plano 06-02.
+export async function gravarAjuste(
+  tx: TransacaoDoBanco,
+  dados: { itemId: string; contadoMilesimos: number; nota: string | null },
+  contexto: { registradoPor: string },
+): Promise<ResultadoDoAjuste> {
+  await travarItens(tx, [dados.itemId]);
+  const estados = await lerEstados(tx, [dados.itemId]);
+  const estado = estados.get(dados.itemId) ?? ESTADO_VAZIO;
+
+  const plano = planejarAjuste({
+    saldoMilesimos: estado.saldoMilesimos,
+    contadoMilesimos: dados.contadoMilesimos,
+  });
+  if (plano.tipo === "nada") {
+    return { gravou: false, saldoMilesimos: estado.saldoMilesimos };
+  }
+
+  const pedido = pedidoDeAjuste({
+    itemId: dados.itemId,
+    diferencaMilesimos: plano.diferencaMilesimos,
+    contadoMilesimos: dados.contadoMilesimos,
+    nota: dados.nota,
+  });
+  const [movimentacao] = await gravarMovimentacoes(tx, [pedido], contexto);
+  return { gravou: true, movimentacao };
+}
+
+// D-29: "peça pronta" = item com ficha de precificação LIGADA (`fichas_precificacao.item_catalogo_id`;
+// a exclusiva não tem item, pelo `check` de exclusividade). Lido com a `tx`, dentro da transação da
+// entrada — o motivo `peca_pronta` nunca vem do cliente (T-06-23).
+export async function itemTemFichaDePrecificacao(
+  tx: TransacaoDoBanco,
+  itemId: string,
+): Promise<boolean> {
+  const [linha] = await tx
+    .select({ id: fichasPrecificacao.id })
+    .from(fichasPrecificacao)
+    .where(eq(fichasPrecificacao.itemCatalogoId, itemId))
+    .limit(1);
+  return linha !== undefined;
+}
+
+// A encomenda do vínculo, se ainda está EM ANDAMENTO (o critério de `listarEncomendasAtivas`:
+// rascunho ou em produção) — `null` se não existe ou foi encerrada (T-06-24). `for key share`
+// segura a linha até o fim da transação: ninguém a apaga entre esta leitura e o `insert` da
+// movimentação (a chave estrangeira pediria a mesma trava de qualquer jeito). Devolve o nome — o
+// que o índice de Encomendas mostra —, que a ação congela em `nota` (Pitfall 10).
+export async function encomendaEmAndamento(
+  tx: TransacaoDoBanco,
+  encomendaId: string,
+): Promise<{ id: string; nome: string } | null> {
+  const [linha] = await tx
+    .select({ id: encomendas.id, nome: encomendas.nome })
+    .from(encomendas)
+    .where(
+      and(eq(encomendas.id, encomendaId), inArray(encomendas.status, ["rascunho", "em_producao"])),
+    )
+    .for("key share");
+  return linha ?? null;
 }
