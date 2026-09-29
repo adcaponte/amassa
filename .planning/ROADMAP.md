@@ -853,6 +853,8 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 06.1 to break down)
 
+**UI hint**: yes
+
 ### Phase 7: Polimento e Entrega
 
 **Goal**: Transformar algo que funciona em algo que se pode confiar — painel inicial de
