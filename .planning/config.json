@@ -89,5 +89,20 @@
     "source_grounding_authority": "grep"
   },
   "mode": "yolo",
-  "granularity": "standard"
+  "granularity": "standard",
+  "model_overrides": {
+    "gsd-executor": "opus",
+    "gsd-phase-researcher": "opus",
+    "gsd-project-researcher": "opus",
+    "gsd-verifier": "opus",
+    "gsd-ui-researcher": "opus",
+    "gsd-doc-writer": "opus",
+    "gsd-advisor-researcher": "opus",
+    "gsd-ai-researcher": "opus",
+    "gsd-code-fixer": "opus",
+    "gsd-code-reviewer": "opus",
+    "gsd-doc-synthesizer": "opus",
+    "gsd-domain-researcher": "opus",
+    "gsd-eval-auditor": "opus"
+  }
 }
