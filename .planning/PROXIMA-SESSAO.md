@@ -1,4 +1,40 @@
-# Próxima sessão — ATUALIZADO em 2026-09-29
+# Próxima sessão — ATUALIZADO em 2026-09-29 (manhã)
+
+> **🟡 ATUALIZAÇÃO DE 29/09/2026, MANHÃ — A FASE 06 (ESTOQUE) ESTÁ PRONTA NO BRANCH E ESPERA VOCÊ.**
+> Nada dela está no ar, de propósito: o código grava dentro de toda venda e compra, e se subir antes
+> da migração `0023`, toda venda quebra (D-33).
+>
+> **Como sei (medido nesta manhã):**
+> - **Código completo no branch `gsd/phase-06-estoque`** — 11 planos, 06-01 a 06-10 concluídos e o
+>   06-11 (o portão) com as Tarefas 1 e 2 feitas: `/api/health/estoque`, o Roteiro 15, a caminhada
+>   `06-VERIFICACAO-HUMANA.md`, e a única varredura completa da fase — `948 passed · 12 failed · 1
+>   flaky · 38 skipped · 61 did not run`, **nenhuma falha do Estoque**, todas classificadas
+>   (`Claude outputs/RETRATO-DA-SUITE.md`). `npm run verificar` verde.
+> - **Revisão de código rodada ANTES do seu portão** (`06-REVIEW.md`): 0 bloqueios, 5 avisos. Três
+>   corrigidos (WR-03 custo da contagem, WR-04 roteiro, WR-05 diálogo do Catálogo — `06-REVIEW-FIX.md`,
+>   `verificar` verde e um e2e com `--grep`, 66 passed). **WR-01 e WR-02 são regras de dinheiro do
+>   cancelamento: ficaram com você**, na Parte 0, §0.1, com números.
+> - **Pronto para o Passo 2 do roteiro:** o branch LOCAL `gsd/phase-06-estoque-migracao` leva só os
+>   quatro arquivos da `0023` sobre o seu `main` local, com `npm run verificar` verde (refeito às ~09h
+>   UTC sobre o `main` com os documentos sincronizados — hash no adendo do `06-11-SUMMARY.md`).
+> - **Produção continua em `ecdca87`** (`git ls-remote`), run `36509335475` verde o mais recente
+>   (`gh run list`), `/api/health/backup` 200, `/api/health/estoque` 404 (esperado: não publicado).
+>   `git log origin/main..main` = **17 commits** locais — o bloco da madrugada, logo abaixo, dizia 7;
+>   vieram depois o fechamento da 04.6 e o planejamento da Fase 06 (só documentos). O SIT-10 continua
+>   fora do ar (`grep -c 'hidden gap-2 md:flex'` = 0).
+>
+> **🔴 O que depende de você, nesta ordem:**
+> 1. **`06-VERIFICACAO-HUMANA.md`, Parte 0** — confirmar ou trocar **D-23/D-24** (o valor do estorno,
+>    com o exemplo em números), responder **D-29**, e escolher nas duas questões da revisão (**WR-01**:
+>    estorno de venda com saldo zerado ou negativo; **WR-02**: se o estorno conta como "última
+>    entrada com preço"). Antes de qualquer comando no servidor.
+> 2. **Roteiro 15** (`docs/operacao/15-migracao-estoque.md`): publicar só a migração → backup →
+>    `0023` → conferência SQL → publicar o código → `/api/health/estoque`. O `push` do Passo 2 leva
+>    junto os commits locais de `main` — **18**: os 17 da lista do `06-11-SUMMARY.md` mais o commit
+>    de documentos que sincronizou o `main` (entre eles o SIT-10).
+> 3. **A contagem inicial real e a Parte 2 da caminhada**, no celular, com cronômetro na baixa.
+> 4. As decisões tomadas sem você: "Decidido sem o Theo" no topo de `.planning/STATE.md` (itens 1 a
+>    28) e a Parte 0 da caminhada.
 
 > **🟢 ATUALIZAÇÃO DE 29/09/2026, MADRUGADA — A FASE 04.6 ESTÁ FECHADA.** O que vem logo abaixo
 > deste bloco é o retrato de 29/09 de manhã cedo e dizia, no presente, "falta o fechamento formal e
@@ -57,8 +93,8 @@
    itens da verificação humana passando de primeira e os dois outros corrigidos no plano 14).
 
 2. ~~**Fase 04.6 — plataforma em `/gestao`, Início novo, navegação e site público.**~~ **Executada em
-   28/09 e com o portão humano percorrido em 28-29/09/2026** — 8 planos, faltando apenas o
-   fechamento formal pelo orquestrador (`phase.complete` + verificador). **Como sei:**
+   28/09 e com o portão humano percorrido em 28-29/09/2026** — 8 planos. *Fechamento formal feito na madrugada de 29/09 (`598fbc7`, verificação `e3527e4`); até então esta linha dizia "faltando apenas o
+   fechamento formal pelo orquestrador (`phase.complete` + verificador)".* **Como sei:**
    `04.6-VERIFICACAO-HUMANA.md` tem os 16 itens respondidos, nenhum reprovado; o dono aplicou a
    migração `0022` pelo Roteiro 14 e colou as quatro conferências de fora (tabela, semente de 1
    linha, gatilho, `delete` revogado); `gh run list` em 29/09 mostra o run `36443052672` verde
@@ -91,7 +127,7 @@
 
 3. **Fase 6 — Estoque**, com protótipo antes da execução — 🔒 depois da 04.6 estar no ar (item 4
    da fila). *(Condição cumprida em 29/09/2026: a 04.6 está no ar — deploy `72b8881`, run
-   `36443052672` verde — e falta só o fechamento formal. O dono ainda decide quando começar.)* O protótipo já foi aprovado em 18/09 e revisto em 20/09, e o **adendo**
+   `36443052672` verde. **Atualizado em 29/09 de manhã:** a fase foi discutida em `--auto`, planejada e executada na noite de 29/09 sob a autorização dele; o código está no branch `gsd/phase-06-estoque`, não publicado, e o portão 06-11 espera o dono — ver o bloco do topo.)* O protótipo já foi aprovado em 18/09 e revisto em 20/09, e o **adendo**
    (`Claude outputs/estoque/ADENDO.md`) vence o briefing antigo. O restante deste arquivo, a
    partir de "Como começar", foi escrito para ela e continua valendo nas lições técnicas.
 

@@ -51,7 +51,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
-- [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
+- [ ] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026: código completo no branch `gsd/phase-06-estoque`, não publicado; aguardando o portão do dono (06-11, Tarefa 3). Até 29/09 esta linha dizia "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.*
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -794,23 +794,25 @@ o plano de 18/09 — migração `0005_estoque`, view `saldos_materiais` e CRUD d
   8. A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
   9. Saldo negativo aparece com aviso e nunca impede uma venda
 
-**Plans:** 11 plans — uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e
-porta fixos e o projeto não usa worktrees). Planejado em 29/09/2026, sessão noturna, sem o dono;
+**Plans:** 10/11 plans executed
+
+11 planos, uma onda por plano, sequenciais (os scripts de teste sobem
+Postgres com nome e porta fixos e o projeto não usa worktrees). Planejado em 29/09/2026, sessão noturna, sem o dono;
 revisado na mesma noite pela verificação dos planos (o traçador e a folha de movimentação estouravam o
 orçamento de contexto e foram divididos — eram 9 planos). 🔴 Todo o código vive no branch
 `gsd/phase-06-estoque`, fora de `main`, até o portão (D-33).
 
-- [ ] 06-01-PLAN.md — Traçador: 5 kg entram, 2 kg saem, o cartão mostra 3 kg; migração `0023` versionada (não aplicada), custo médio puro, a porta de escrita sob trava (onda 1)
-- [ ] 06-02-PLAN.md — O traçador nas bordas: a bateria do custo médio (sete casos, invariantes, estorno D-23/D-24) e o banco provando o livro — imutável, coerente, sem impasse entre duas vendas (onda 2)
-- [ ] 06-03-PLAN.md — O Financeiro grava: venda baixa, compra dá entrada, cancelar estorna — na mesma transação, por linha; `ativo` nos seletores (onda 3)
-- [ ] 06-04-PLAN.md — Aba Saldos completa: área do Financeiro, busca, “Acabando”, negativo como aviso próprio, banner, tabela, situação, contraste (onda 4)
-- [ ] 06-05-PLAN.md — As regras e o servidor da folha: ajuste pelo contado, vínculos, peça pronta pela ficha, a prévia — puros e aplicados sob a trava (onda 5)
-- [ ] 06-06-PLAN.md — A folha na tela, em 4 toques: seletor, atalhos, cinco destinos, vínculos, prévia, peça pronta, barra fixa (onda 6)
-- [ ] 06-07-PLAN.md — Abas Histórico e Para onde foi: autor e hora, nada editável, estorno visível, consumo por área sem venda cancelada (onda 7)
-- [ ] 06-08-PLAN.md — Fora do Estoque: Cadastros desativa em vez de apagar e trava a unidade; a Venda diz “fica com −X” sem bloquear (onda 8)
-- [ ] 06-09-PLAN.md — Folha do material (soma = saldo, “gasto por”), “+ Novo material” com a validação do Cadastros, editar mínimo/observações, desativar (onda 9)
-- [ ] 06-10-PLAN.md — Contagem (primeira e conferência, pela diferença, sob trava), painel da primeira abertura, bloco “Estoque acabando” do Início real (onda 10)
-- [ ] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**)
+- [x] 06-01-PLAN.md — Traçador: 5 kg entram, 2 kg saem, o cartão mostra 3 kg; migração `0023` versionada (não aplicada), custo médio puro, a porta de escrita sob trava (onda 1)
+- [x] 06-02-PLAN.md — O traçador nas bordas: a bateria do custo médio (sete casos, invariantes, estorno D-23/D-24) e o banco provando o livro — imutável, coerente, sem impasse entre duas vendas (onda 2)
+- [x] 06-03-PLAN.md — O Financeiro grava: venda baixa, compra dá entrada, cancelar estorna — na mesma transação, por linha; `ativo` nos seletores (onda 3)
+- [x] 06-04-PLAN.md — Aba Saldos completa: área do Financeiro, busca, “Acabando”, negativo como aviso próprio, banner, tabela, situação, contraste (onda 4)
+- [x] 06-05-PLAN.md — As regras e o servidor da folha: ajuste pelo contado, vínculos, peça pronta pela ficha, a prévia — puros e aplicados sob a trava (onda 5)
+- [x] 06-06-PLAN.md — A folha na tela, em 4 toques: seletor, atalhos, cinco destinos, vínculos, prévia, peça pronta, barra fixa (onda 6)
+- [x] 06-07-PLAN.md — Abas Histórico e Para onde foi: autor e hora, nada editável, estorno visível, consumo por área sem venda cancelada (onda 7)
+- [x] 06-08-PLAN.md — Fora do Estoque: Cadastros desativa em vez de apagar e trava a unidade; a Venda diz “fica com −X” sem bloquear (onda 8)
+- [x] 06-09-PLAN.md — Folha do material (soma = saldo, “gasto por”), “+ Novo material” com a validação do Cadastros, editar mínimo/observações, desativar (onda 9)
+- [x] 06-10-PLAN.md — Contagem (primeira e conferência, pela diferença, sob trava), painel da primeira abertura, bloco “Estoque acabando” do Início real (onda 10)
+- [ ] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**). *Em 29/09/2026 (manhã): Tarefas 1 e 2 feitas no branch — a rota, o Roteiro 15, a caminhada `06-VERIFICACAO-HUMANA.md`, a varredura completa e o branch local só-migração `gsd/phase-06-estoque-migracao` (ver `06-11-SUMMARY.md`). Depois delas, a revisão de código da fase (`06-REVIEW.md`: 0 bloqueios, 5 avisos — WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0). **Aberto: a Tarefa 3, o portão do dono** — Parte 0 (D-23/D-24/D-29 e as escolhas WR-01/WR-02), Roteiro 15 e a caminhada. Os 9 critérios acima só se marcam depois dela.*
 
 **UI hint**: yes
 
@@ -871,5 +873,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
-| 6. Estoque | 0/TBD | Not started | - |
+| 6. Estoque | 10/11 | In Progress|  |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

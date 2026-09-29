@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
 status: executing
-stopped_at: "Fase 06 Estoque: execucao iniciada na noite de 29/09, sem o dono, no branch gsd/phase-06-estoque (criado pelo plano 06-01). Planos seguidos, um por onda."
-last_updated: "2026-09-29T04:41:41.574Z"
+stopped_at: "Fase 06 Estoque: codigo completo e revisado no branch gsd/phase-06-estoque (revisao cc466af, correcoes ate e82a19e), nao publicado. 06-11 Tarefas 1-2 feitas; Tarefa 3 (portao do dono) pendente: Parte 0 (D-23/D-24/D-29 e as escolhas WR-01/WR-02), Roteiro 15, caminhada."
+last_updated: "2026-09-29T08:55:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 11
   total_plans: 97
-  completed_plans: 86
+  completed_plans: 96
 last_activity: 2026-09-29
-last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2026: Tarefas 2 e 3 percorridas pelo dono. Migracao 0022 aplicada por ele e conferida de fora (tabela, semente de 1 linha, gatilho, delete revogado para amassa_app). Deploy: run 36443052672, 2a tentativa verde, commit 72b8881 (a 1a caiu na busca de fonte do Google, transitorio — janela 60 segue aberta). GES-04 medida de fora em 29/09 por curl: /gestao -> 307 para /gestao/login com callbackUrl no dominio publico. Caminhada: 16 de 16 itens respondidos, nenhum reprovado; decisoes: D-06 mantida, espaco sem capacidade fixa (223748a), textos do site sobem como estao (pendencia declarada do dono). Varredura final: 798 passed - 13 failed - 37 skipped - 74 did not run; os 74 NAO executaram (cadeia parametros-*, estrutural e anterior a fase). Detalhe: 04.6-08-SUMMARY.md."
+last_activity_desc: "Fase 06, plano 06-11 (portao), Tarefas 1 e 2 em 29/09/2026: /api/health/estoque, Roteiro 15 (docs/operacao/15-migracao-estoque.md), caminhada 06-VERIFICACAO-HUMANA.md, a unica varredura e2e completa da fase (948 passed - 12 failed - 1 flaky - 38 skipped - 61 did not run, commit 01d643d; nenhuma falha do Estoque, todas classificadas), e o branch LOCAL gsd/phase-06-estoque-migracao (80a4b83, so os 4 arquivos da 0023 sobre main, npm run verificar verde). Nada publicado, nenhuma migracao aplicada. Aguardando o dono (Tarefa 3). A linha anterior deste campo descrevia o fechamento da 04.6-08 (29/09) e esta no registro da 04.6 abaixo."
 ---
 
 # Project State
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque** — contexto, pesquisa, validação e contrato de UI prontos em 29/09 (`8d3d310`); planejando. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06 — Estoque** — **código completo e revisado no branch `gsd/phase-06-estoque`, não publicado; aguardando o dono** (portão 06-11, Tarefa 3: Parte 0 da caminhada, Roteiro 15, caminhada). *Até 29/09 de manhã esta linha dizia "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -108,6 +108,72 @@ mesma falha resistir três vezes.
     ninguém roda `db:generate` em `main` (geraria uma migração que desfaz a `0023`). Está no plano
     06-11, Passo 2.
 
+**Decididos durante a EXECUÇÃO da Fase 06 (29/09/2026, manhã)** — tirados das seções de decisões e
+desvios dos SUMMARYs `06-01` a `06-11`; também listados na Parte 0.5 de `06-VERIFICACAO-HUMANA.md`,
+para ele ler antes do servidor:
+
+16. **Material desativado nunca alerta** (06-04): fica fora do banner, de "Acabando", do Início e
+    da borda/número em destaque; só leva o chip neutro "Desativado". *Por quê:* aviso sobre material
+    que não se movimenta treina a pessoa a ignorar avisos; a UI-SPEC dá ao desativado só o chip.
+    **Desfazer:** tirar o ramo do desativado em `alertaDoItem` (`lib/estoque/saldo.ts`).
+17. **Custo zero: aceito na entrada manual comum, recusado em dois lugares** — a entrada manual
+    aceita R$ 0,00 (doação, amostra — 06-01); a entrada de **peça pronta** (06-05, EST-21) e a
+    **primeira contagem acima do saldo** (06-10) recusam zero. *Por quê:* nas duas recusas o custo
+    é o que dá valor ao estoque (a peça pela ficha, a contagem inicial pelo "custou ao todo"); na
+    entrada comum, zero é um caso real. **Desfazer:** recusar zero em toda entrada é uma linha em
+    `pedidoDaFolha` (`lib/estoque/acoes.ts`); aceitar zero nas outras duas, um ramo em
+    `pedidoDaFolha` e outro em `planejarContagem` (`lib/estoque/contagem.ts`).
+18. **O ajuste no Histórico mostra o sinal real da diferença** ("+1", "−0,9"), não um "±" literal
+    (06-07). *Por quê:* é o que o protótipo faz (`linhaMov`) e o que o toast do ajuste já dizia; o
+    "{±d}" da UI-SPEC foi lido como notação de "diferença com sinal". **Desfazer:** o texto da
+    linha em `lib/estoque/historico.ts` (`SinalDaMovimentacao`).
+19. **Material desativado conta como "ter material" para o estado vazio** (06-09). *Por quê:* com a
+    leitura do plano ("com estoque próprio E ativo"), um estoque só de desativados perderia a barra
+    e o "+ Novo material" sem mostrar o vazio — não haveria caminho para cadastrar pelo Estoque.
+    **Desfazer:** `temMaterial` em `estadoDoEstoque` (`lib/estoque/consultas.ts`).
+20. **"Gasto por" lista só produtos ativos** (06-09). *Por quê:* produto desativado não vende, então
+    não gasta; é a mesma leitura de `definirItemAtivo`. **Desfazer:** tirar o filtro de `ativo` da
+    consulta da folha do material.
+21. **"Ir para Compra de material" leva a `/gestao/financeiro?aba=despesa`** (06-06). *Por quê:* o
+    painel de Despesa já abre no modo compra; não existe parâmetro de URL para o modo, e criar um
+    estaria fora do plano. **Desfazer:** criar o parâmetro no painel de Despesa e apontar o link.
+22. **A grade de destinos da baixa é um `radiogroup` de escolha única** (06-06, EST-11): setas movem,
+    tocar de novo no marcado desmarca. *Por quê:* uma saída tem exatamente um destino — o `check` do
+    banco exige isso; o traçador passou a afirmar `aria-checked` em vez de `aria-pressed`.
+    **Desfazer:** não recomendado — o banco recusaria duas escolhas de qualquer jeito.
+23. **O Roteiro 15 ganhou o passo só-migração, executado como planejado** (06-11): o branch LOCAL
+    `gsd/phase-06-estoque-migracao` foi criado a partir do `main` local com os quatro arquivos da
+    `0023`, e `npm run verificar` passou nele (hash e saída em `06-11-SUMMARY.md`). *Por quê:* a
+    migração em produção roda pela imagem `ferramentas`, que o pipeline só constrói a partir de
+    `main`; sem esse passo a `0023` não chega ao servidor antes do código (item 15). **Desfazer:**
+    `git branch -D gsd/phase-06-estoque-migracao` — ele não foi publicado; o dono o integra no Passo
+    2 do roteiro.
+24. **`/api/health/estoque` entrou na lista pública explícita de `tests/unit/arvore-de-rotas.test.ts`**
+    (06-11). *Por quê:* o portão estrutural da 04.6 reprova toda rota fora de `/gestao` que não
+    esteja nomeada — e a rota é pública de propósito (Passo 7 do roteiro, monitor externo), no
+    molde de `/api/health/backup`, com o corpo só `{ status }`. **Desfazer:** apagar a rota e a
+    linha da lista.
+25. **A revisão de código da Fase 06 rodou antes do seu portão, não depois** (`cc466af`). No fluxo
+    do GSD ela vem depois que todos os planos fecham — e o 06-11 só fecha depois do Passo 6 do
+    roteiro, que publica o código. Revisar só depois de publicar seria pior para quem lança venda.
+    **Desfazer:** não há o que desfazer; a revisão pode ser repetida depois (`/gsd-code-review 06`).
+26. **A revisão olhou 71 arquivos, não os 100 do diff do branch**: ficaram fora 26 de teste (já
+    exercitados pela varredura completa e pelos e2e dos planos), `scripts/testar-migracoes.mjs` e os
+    dois `meta/` gerados da `0023`. **Desfazer:** `/gsd-code-review 06 --files=<os de teste>`.
+27. **Das correções da revisão, só os avisos que não mudam regra** (WR-03, WR-04, WR-05) e duas
+    conferências de roteiro (IN-02, IN-04 — só texto; o pipeline não foi tocado). **WR-01 e WR-02
+    ficaram com você** (Parte 0, §0.1). Os demais informativos ficaram no relatório — o IN-01 (um
+    `grant` explícito na `0023`) mexeria na migração que você vai aplicar e no branch só-migração;
+    o IN-09 (publicar os dois branches no GitHub como cópia de segurança) é `push`, que é seu.
+28. **Os documentos de estado do `main` foram sincronizados com os do branch** (`STATE.md`,
+    `ROADMAP.md`, `PROXIMA-SESSAO.md`, num commit só de documentos, depois do corte do branch
+    só-migração) e **o branch só-migração foi refeito sobre esse `main`**, com `npm run verificar`
+    de novo. *Por quê:* o `main` dizia "em execução" desde a meia-noite — documento velho é defeito
+    (sua regra); e o Passo 2 manda comparar `git log origin/main..main` com a lista do
+    `06-11-SUMMARY.md`: agora são **18 commits — os 17 da lista mais esse commit de documentos**
+    ("docs(state): main com o estado da fase 06 …"), registrado no adendo do SUMMARY. **Desfazer:**
+    nada a desfazer; no Passo 6 esses três arquivos chegam iguais dos dois lados.
+
 
 ## Decisões do dono durante a execução da Fase 04.6
 
@@ -133,8 +199,46 @@ mesma falha resistir três vezes.
 
 ## Current Position
 
+**Agora (29/09/2026, manhã): a Fase 06 está com o código completo no branch `gsd/phase-06-estoque`,
+NÃO publicada, e o portão (plano 06-11) aguarda o dono.** 06-11 não está concluído — só as Tarefas 1
+e 2, que são do executor:
+
+- **Tarefa 1** (`01d643d`): `/api/health/estoque` (pública, 200 `{status:"ok"}` só com a `0023`
+  aplicada; e2e `estoque saude` 48 passed); `docs/operacao/15-migracao-estoque.md` (Roteiro 15, na
+  ordem do D-33, com o passo só-migração antes do backup e o caminho de volta); e
+  `06-VERIFICACAO-HUMANA.md` (Partes 0, 1 e 2).
+- **Tarefa 2:** a única varredura e2e completa da fase — `948 passed · 12 failed · 1 flaky · 38
+  skipped · 61 did not run` sobre `01d643d`, **nenhuma falha do Estoque**, as 13 classificadas
+  (dez janelas ou contenções já conhecidas; `rotas:168` e `abertura-edicao:73` passaram isoladas);
+  tabela em `Claude outputs/RETRATO-DA-SUITE.md`. E o **branch LOCAL `gsd/phase-06-estoque-migracao`**
+  (`80a4b83` na criação; **refeito às ~09h UTC** sobre o `main` com os documentos sincronizados —
+  o hash novo e o `verificar` dele estão no adendo do `06-11-SUMMARY.md`): exatamente os quatro arquivos da `0023` sobre o `main` local (`git diff --name-only
+  main gsd/phase-06-estoque-migracao` = os quatro), com `npm run verificar` verde nele (74 ações,
+  1325 testes, `test:migracoes` passou). **Como sei:** as saídas estão em `06-11-SUMMARY.md`.
+- **Revisão de código da fase, rodada ANTES do portão** (depois das Tarefas 1 e 2, entre 08:20 e
+  08:50 UTC): 71 arquivos de produção e o Roteiro 15 — **0 bloqueios, 5 avisos, 9 informativos**
+  (`06-REVIEW.md`, `cc466af`). Corrigidos: **WR-03** — o custo da primeira contagem era aplicado a
+  uma diferença que o servidor recalculava sob a trava, sem avisar se uma venda tinha mudado o saldo
+  no meio; agora recusa com "O saldo mudou de X para Y…" (`68bacb0`); **WR-04** — o caminho de
+  volta do Roteiro 15 depois de um `git revert -m 1` (`9460e8f`, com mais duas conferências de
+  roteiro: listar a `0023` na imagem antes do `db:migrate`, e não rodar o pipeline à mão no branch
+  da fase); **WR-05** — o diálogo do Catálogo travava em "Desativando…" se a ação falhasse
+  (`f9216d1`); e o Passo 0 do roteiro (`3e3ff21`). **WR-01 e WR-02 NÃO foram corrigidos no código:
+  são regras de dinheiro do cancelamento que você não decidiu** — viraram duas escolhas na Parte 0,
+  §0.1, com números, e o comportamento de hoje ficou preso por teste (`c99d9c9`, `7c2612f`).
+  **Como sei:** `06-REVIEW-FIX.md` (`e82a19e`) — `npm run verificar` verde (1624 testes) e UM e2e
+  com `--grep "estoque contagem|estoque primeira abertura|cadastros catalogo ativo"`, 66 passed.
+  **Ressalva:** a varredura completa (948 passed) rodou ANTES dessas correções; os caminhos
+  corrigidos foram reverificados só por esse `--grep`. Os informativos não feitos (IN-01 `grant`
+  explícito na `0023`, IN-03, IN-05 a IN-09) estão em `06-REVIEW.md` — nenhum bloqueia.
+- **Aguardando o dono (Tarefa 3, checkpoint bloqueante):** Parte 0 da caminhada (confirmar ou trocar
+  **D-23/D-24**, responder **D-29**, e escolher nas duas questões da revisão, WR-01 e WR-02) → Roteiro 15 no servidor → contagem inicial real → Parte 2 da
+  caminhada, com a baixa cronometrada. Nenhum requisito EST foi marcado `[x]`.
+
 Phase: 06 — Estoque — **em execução desde 29/09/2026** (sessão noturna, sem o dono), no branch
-`gsd/phase-06-estoque` — o `main` só recebe documentos. Antes:
+`gsd/phase-06-estoque` — o `main` só recebe documentos. **Planos concluídos: 06-01, 06-02, 06-03, 06-04, 06-05, 06-06, 06-07, 06-08, 06-09, 06-10** (traçador:
+`2e6fd2b`; `npm run verificar` verde e um e2e com `--grep "estoque tracador"`, 44 passed, segundo
+`06-01-SUMMARY.md`; 06-02: custo médio e o livro provados — sete casos, invariantes, D-23/D-24, 42501/23514/23505/P0001 e duas vendas sem impasse no Postgres efêmero (`7e99910`, `7bac218`); 06-03: venda baixa, compra dá entrada e cancelar estorna, na transação do documento (`d8c043f`, `19a3053`); dois e2e com `--grep`, 108 e 82 passed; 06-04: aba Saldos com a regra do alerta pura em `lib/estoque/saldo.ts` (`862dd53`, `13c17b4`); um e2e com `--grep`, 80 passed; 06-05: regras e servidor da folha — ajuste pelo contado sob a trava, vínculos, custo da peça pronta pela ficha, prévia (`303229a`); sem e2e, como planejado; 06-06: a folha na tela — baixa em 4 toques a partir de Saldos provada por e2e no celular e no desktop (`55c721c`; um e2e com `--grep`, 86 passed); 06-07: abas Histórico e Para onde foi, leitura pura do livro (`a904ce6`, `02b0aa6`); dois e2e com `--grep` — o 1º com 2 falhas de um auxiliar de teste, corrigido; o 2º, 54 passed; 06-08: Cadastros desativa em vez de apagar e trava a unidade de item com histórico; a Venda diz "fica com −X" e avisa do negativo sem bloquear (`5764dbf`, `003b4a9`); dois e2e com `--grep`, 52 e 114 passed; 06-09: folha do material (a soma do livro bate com o saldo), "+ Novo material" com a validação do Cadastros, editar mínimo/observações, desativar pela ação única (`0bb2e26`, `7731da4`); dois e2e com `--grep`, 74 e 80 passed; 06-10: contagem pela diferença sob a trava, painel da primeira abertura e o bloco do Início real (`f503c12`, `6723ecb`); e2e rodou 3 vezes — duas falhas de teste corrigidas (um passo do próprio teste; um teste de 320px do Início que contava antes de a página pintar), a 3ª com 48 passed). Antes:
 **planejada** (29/09/2026, sessão noturna, sem o dono):
 **11 planos** em 11 ondas seguidas, aprovados pelo `gsd-plan-checker` na 2ª rodada — requisitos
 21/21, decisões 33/33, análise de lacunas limpa. Feito antes do
@@ -148,6 +252,16 @@ contrato de UI aprovado pelo `gsd-ui-checker` (`8d3d310`, `06-UI-SPEC.md`). **Co
 da barra de cima do site (SIT-10, `ddfecfd`) **não está no ar**. `git log origin/main..main`
 mostrava 14 commits locais nessa hora — a correção do SIT-10 e o fechamento da 04.6 entre eles.
 O `git push` é do dono.
+
+**Remedido em 29/09/2026, entre 08:04 e 08:19 UTC (plano 06-11):** `git ls-remote origin
+refs/heads/main` = `ecdca87` (produção continua nele); `gh run list --limit 5` — o mais recente é o
+`36509335475`, verde, de 01:44 UTC; `git log origin/main..main --oneline` = **17 commits** (os 14 de
+antes mais três de planejamento da Fase 06 — só documentos; a lista está em `06-11-SUMMARY.md`);
+`curl` de fora: `/api/health` 200, `/api/health/backup` **200**, `/api/health/estoque` **404** (a
+rota só existe no branch da fase — é o esperado), e o `grep -c 'hidden gap-2 md:flex'` na raiz
+continua **0** (o SIT-10 continua fora do ar). Nenhum branch `gsd/*` no remoto (`git ls-remote
+origin 'refs/heads/gsd/*'` vazio). *O parágrafo acima, com "14 commits", é a medição anterior da
+mesma madrugada.*
 
 ### Fase 04.6 — registro (concluída em 29/09/2026)
 
