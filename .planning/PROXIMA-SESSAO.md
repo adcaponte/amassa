@@ -1,5 +1,16 @@
 # Próxima sessão — ATUALIZADO em 2026-09-29 (tarde, portão da Fase 06 aprovado)
 
+> **🟢 ATUALIZAÇÃO DE 29/09/2026, FIM DA TARDE — A FASE 06 (ESTOQUE) ESTÁ CONCLUÍDA E NO AR.**
+> Como sei: verificação da fase `passed`, 30 de 30 (`.planning/phases/06-estoque/06-VERIFICATION.md`,
+> commit `2ed2d0b`); portão 06-11 aprovado pelo Theo no chat; `phase.complete` no ROADMAP; produção
+> em `2345850` (run `36587755269` verde, `/api/health/estoque` 200). Os blocos abaixo que dizem
+> "próximo: verificação da fase" foram superados. Três commits só de documentos no `main` local
+> esperam o `push` do Theo (`32ebdfd`, `2ed2d0b`, `af142f0`).
+>
+> **Próximo:** item 5 da fila (Produção) e/ou 6 (Agenda) — fases ainda por criar. O Theo já confirmou
+> para a Produção: "pode sim zerar todos os dados. nada é real ainda." (29/09). Pendências pequenas
+> e as 7 observações do Cowork estão em Pending Todos do `STATE.md`.
+
 > **🟢 ATUALIZAÇÃO DE 29/09/2026, TARDE — O ESTOQUE ESTÁ NO AR E O PORTÃO FOI APROVADO.** Você fez o
 > Roteiro 15 e a caminhada e aprovou no chat ("repassei toda verificação. o cowork tambem verificou.
 > Aprovado."). O plano 06-11 está concluído; os 11 planos da fase também. **Próximo: a verificação
