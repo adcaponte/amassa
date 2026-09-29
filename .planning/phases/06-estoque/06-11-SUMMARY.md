@@ -275,3 +275,28 @@ registrar as respostas em `06-CONTEXT.md` (sem apagar o `[auto]`), marcar em `RE
 - Commits existem: `01d643d` e `57beeb9` em `gsd/phase-06-estoque`; `80a4b83` em
   `gsd/phase-06-estoque-migracao` (local).
 - `git branch --show-current` = `gsd/phase-06-estoque`; `main` em `a8c7bad`; nada publicado.
+
+## Adendo do orquestrador — 29/09/2026, 08:50–08:55 UTC (depois das Tarefas 1 e 2)
+
+Escrito depois do que está acima, que continua valendo como registro das Tarefas 1 e 2.
+
+- **Revisão de código da fase, antes do portão** (`06-REVIEW.md`, `cc466af`): 71 arquivos, 0
+  bloqueios, 5 avisos, 9 informativos. Corrigidos WR-03, WR-04 e WR-05 e duas conferências de
+  roteiro (IN-02, IN-04), em `68bacb0`, `9460e8f`, `f9216d1` e `3e3ff21`; WR-01 e WR-02 são regras
+  de dinheiro do cancelamento e foram postos na Parte 0, §0.1, sem mudar o código (`c99d9c9`,
+  `7c2612f`). Relatório: `06-REVIEW-FIX.md` (`e82a19e`) — `npm run verificar` verde e UM e2e com
+  `--grep "estoque contagem|estoque primeira abertura|cadastros catalogo ativo"`, 66 passed. **A
+  varredura completa desta tarefa rodou antes dessas correções.**
+- **O `main` ganhou um commit depois do corte do branch só-migração:** `c4713e1` "docs(state): main
+  com o estado da fase 06 — igual ao branch gsd/phase-06-estoque" — só `STATE.md`, `ROADMAP.md` e
+  `PROXIMA-SESSAO.md`, iguais aos do branch da fase (o `main` dizia "em execução"). Portanto
+  **`git log origin/main..main` lista agora 18 commits: os 17 da lista acima mais `c4713e1`.**
+- **O branch só-migração foi refeito sobre esse `main`** (`git rebase main`): `80a4b83` →
+  **`a4aefbc`**. `git diff --name-only main gsd/phase-06-estoque-migracao` continua listando
+  exatamente os quatro arquivos, e eles são idênticos aos do branch da fase (`git diff --quiet
+  gsd/phase-06-estoque gsd/phase-06-estoque-migracao -- <os quatro>` sai 0).
+- **`npm run verificar` em `a4aefbc`** (08:53–08:54 UTC): exit 0 — `verificar-acoes` 74 ações, 0
+  violações; 85 arquivos, 1325 testes; `test:migracoes` "Todas as afirmações passaram.". A primeira
+  tentativa falhou no `tsc` por tipos gerados de um `next build` anterior do branch da fase em
+  `.next/types/` (artefato local, ignorado pelo git, que o CI não tem); apagado esse diretório
+  gerado, passou.
