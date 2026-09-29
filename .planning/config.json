@@ -103,6 +103,27 @@
     "gsd-code-reviewer": "opus",
     "gsd-doc-synthesizer": "opus",
     "gsd-domain-researcher": "opus",
-    "gsd-eval-auditor": "opus"
+    "gsd-eval-auditor": "opus",
+    "gsd-planner": "opus",
+    "gsd-roadmapper": "opus",
+    "gsd-research-synthesizer": "opus",
+    "gsd-debugger": "opus",
+    "gsd-codebase-mapper": "opus",
+    "gsd-plan-checker": "opus",
+    "gsd-integration-checker": "opus",
+    "gsd-nyquist-auditor": "opus",
+    "gsd-pattern-mapper": "opus",
+    "gsd-ui-checker": "opus",
+    "gsd-ui-auditor": "opus",
+    "gsd-doc-verifier": "opus",
+    "gsd-assumptions-analyzer": "opus",
+    "gsd-debug-session-manager": "opus",
+    "gsd-doc-classifier": "opus",
+    "gsd-eval-planner": "opus",
+    "gsd-framework-selector": "opus",
+    "gsd-intel-updater": "opus",
+    "gsd-mempalace-curator": "opus",
+    "gsd-security-auditor": "opus",
+    "gsd-user-profiler": "opus"
   }
 }
