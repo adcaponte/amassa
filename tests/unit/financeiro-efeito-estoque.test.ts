@@ -275,3 +275,54 @@ describe("formatarEfeito", () => {
     ).toBe("−0,5 L · Leite");
   });
 });
+
+// Plano 06-03 (D-03, 06-RESEARCH.md §Pergunta 1): o Financeiro GRAVA o efeito chamando
+// `efeitoNoEstoque([linha], ...)` uma vez por linha — para cada movimentação levar a sua linha e a
+// área dela. Isso só é o "mesmo cálculo" se a função for linear em inteiros: a soma, por item, dos
+// efeitos de cada linha tem de ser igual ao efeito do documento inteiro.
+describe("efeitoNoEstoque — por linha = documento inteiro", () => {
+  const todos = [grao, paoCongelado, cafe, refil, paoDeQueijo, copo, horaDeUso, boleiraComFichaEEstoque, esmalte, leite];
+
+  function somaPorItem(efeitos: { itemId: string; variacaoMilesimos: number }[]): Map<string, number> {
+    const soma = new Map<string, number>();
+    for (const entrada of efeitos) {
+      soma.set(entrada.itemId, (soma.get(entrada.itemId) ?? 0) + entrada.variacaoMilesimos);
+    }
+    return soma;
+  }
+
+  function conferir(linhas: LinhaParaEfeito[], sentido: "venda" | "compra") {
+    const porLinha = linhas.flatMap((linha) => efeitoNoEstoque([linha], todos, sentido));
+    const inteiro = efeitoNoEstoque(linhas, todos, sentido);
+    expect(somaPorItem(porLinha)).toEqual(somaPorItem(inteiro));
+  }
+
+  it("venda com o mesmo insumo em duas linhas (Café + Refil + Café)", () => {
+    conferir([linhaDeItem("cafe", 1), linhaDeItem("refil", 2), linhaDeItem("cafe", 3)], "venda");
+  });
+
+  it("venda mista: ficha, estoque próprio, ficha+estoque, sem estoque e valor livre", () => {
+    conferir(
+      [
+        linhaDeItem("pao", 40),
+        linhaDeItem("copo", 2),
+        linhaDeItem("boleira", 1),
+        linhaDeItem("hora", 3),
+        { itemId: null, quantidade: 1 },
+        linhaDeItem("pao", 4),
+      ],
+      "venda",
+    );
+  });
+
+  it("compra com o mesmo material em duas linhas", () => {
+    conferir(
+      [
+        { itemId: "esmalte", quantidade: 1, quantidadeEstoque: "100", valorCentavos: 240000 },
+        { itemId: "leite", quantidade: 1, quantidadeEstoque: "0.5", valorCentavos: 300 },
+        { itemId: "esmalte", quantidade: 1, quantidadeEstoque: "20", valorCentavos: 50000 },
+      ],
+      "compra",
+    );
+  });
+});
