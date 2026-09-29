@@ -2,7 +2,7 @@
 phase: 06-estoque
 plan: 11
 subsystem: estoque
-status: checkpoint
+status: complete
 tags: [estoque, portao, health-check, roteiro-15, migracao-0023, varredura-e2e, verificacao-humana]
 requires:
   - "06-01..06-10 — todo o código do Estoque no branch gsd/phase-06-estoque"
@@ -36,25 +36,30 @@ decisions:
   - "O material de teste da caminhada entra com custo R$ 0,00 e termina desativado, para não somar dinheiro no Para onde foi"
   - "abertura-edicao.spec.ts:73 (desktop), nova na varredura, classificada como contenção por reexecução isolada (passou nos dois projetos); nenhuma janela nova aberta, pelo precedente do 04.6-08"
 metrics:
-  duration: "~30 min (08:54 → 09:25 pelo relógio desta máquina; 07:54 → 08:25 UTC, 29/09/2026)"
-  completed: null
+  duration: "Tarefas 1 e 2: ~30 min (07:54 → 08:25 UTC, 29/09/2026); a Tarefa 3 (o dono) fechou às ~16:15 UTC do mesmo dia"
+  completed: 2026-09-29
 estimate:
   tokens: 80000
   tasks: 3
 actuals:
-  tokens: 21500
-  tasks: 2
-  commits: 3
+  tokens: 40000   # chars/4 sobre as linhas acrescentadas pelos 11 commits do 06-11 e por este fechamento (era 21500 só com as Tarefas 1 e 2)
+  tasks: 3
+  commits: 13   # 01d643d 57beeb9 e9a45d7 0df5d55 b9bb4e8 f05c373 b13d300 a69bb69 c545e81 922604b, os dois do só-migração que chegaram ao main (2907667, 0848b8c) e o fechamento
 ---
 
-# Phase 06 Plan 11: O portão do Estoque — Summary (Tarefas 1 e 2; a Tarefa 3 aguarda o dono)
+# Phase 06 Plan 11: O portão do Estoque — Summary (as três tarefas; o portão aprovado pelo dono em 29/09/2026)
 
 **`/api/health/estoque` prova de fora que o app publicado enxerga a `0023`; o Roteiro 15 publica a
 migração antes do código, na ordem do D-33; a caminhada põe D-23/D-24 antes de qualquer comando no
 servidor; e a única varredura completa da fase passou sem nenhuma falha do Estoque — com o branch
 só-migração pronto, local, para o dono.**
 
-> 🔴 **A Tarefa 3 NÃO foi feita e NÃO foi aprovada.** É o checkpoint humano bloqueante do dono:
+> ✅ **Atualização de 29/09/2026, tarde — a Tarefa 3 foi feita e APROVADA pelo dono** ("repassei
+> toda verificação. o cowork tambem verificou. Aprovado."). A migração `0023` está aplicada em
+> produção e o código da fase está no ar desde o merge `2345850`. Evidência na seção "Tarefa 3 —
+> aprovada", no fim. **O parágrafo abaixo é o retrato da manhã, mantido como registro.**
+>
+> 🔴 *(29/09/2026, manhã)* **A Tarefa 3 NÃO foi feita e NÃO foi aprovada.** É o checkpoint humano bloqueante do dono:
 > responder a Parte 0 (D-23/D-24/D-29), rodar o Roteiro 15 no servidor, fazer a contagem inicial
 > real e percorrer a caminhada com cronômetro. Nada foi publicado, nenhuma migração foi aplicada,
 > nenhum requisito EST foi marcado `[x]`, e o 06-11 não está marcado concluído em lugar nenhum.
@@ -260,7 +265,7 @@ provado pelo e2e e pelo grep de aceite); a ordem D-33 (T-06-50), a guarda do ser
 D-23/D-24 antes do servidor (T-06-52) e o executor sem publicar nem migrar (T-06-53) estão no
 roteiro e na caminhada, e foram respeitados nesta execução.
 
-## Tarefa 3 — pendente (checkpoint humano, `gate="blocking"`)
+## Tarefa 3 — pendente (checkpoint humano, `gate="blocking"`) — *registro da manhã; aprovada à tarde, ver "Tarefa 3 — aprovada" no fim*
 
 *(29/09/2026, manhã: a Parte 0 foi respondida e aplicada — ver o segundo adendo, no fim. Falta o
 resto.)* Aguardando o dono, nesta ordem: Parte 0 de `06-VERIFICACAO-HUMANA.md` (D-23/D-24/D-29) → Roteiro 15
@@ -269,7 +274,7 @@ registrar as respostas em `06-CONTEXT.md` (sem apagar o `[auto]`), marcar em `RE
 `ROADMAP.md` só o que a caminhada confirmou, e ✅ com data na fila — com `git log origin/main..main`,
 `gh run list` e `curl /api/health/estoque` medidos.
 
-## Self-Check: PASSED
+## Self-Check: PASSED *(o das Tarefas 1 e 2, 29/09 de manhã; o do fechamento está no fim)*
 
 - Arquivos existem: `app/api/health/estoque/route.ts`, `tests/e2e/estoque-saude.spec.ts`,
   `docs/operacao/15-migracao-estoque.md`, `.planning/phases/06-estoque/06-VERIFICACAO-HUMANA.md`.
@@ -374,6 +379,95 @@ Produção da casa (D-29, dono 29/09)", **commit novo sobre `2907667`** (sem ame
 como última entrada com preço, mas as duas consultas a leem como uma (R$ 0,00). É anterior a esta
 mudança e fora do que o dono decidiu; fica para a próxima revisão.
 
-**Ainda pendente (Tarefa 3):** Roteiro 15 no servidor (o Passo 2 publica o só-migração `0848b8c`) →
+**Ainda pendente (Tarefa 3)** *(retrato da manhã — feito à tarde, ver abaixo)*: Roteiro 15 no servidor (o Passo 2 publica o só-migração `0848b8c`) →
 contagem inicial real → Parte 2 da caminhada com cronômetro. 06-11 **não** concluído; nenhum
 requisito EST marcado.
+
+## Tarefa 3 — aprovada (29/09/2026, tarde)
+
+**O dono aprovou no chat:** "repassei toda verificação. o cowork tambem verificou. Aprovado."
+
+### Parte 1 — o Roteiro 15, feito por ele (saídas coladas no chat, conferidas pelo orquestrador)
+
+- **Passo 0:** a Parte 0, respondida de manhã (adendo acima).
+- **Passo 2:** `git log origin/main..main` = **19 commits** — os 17 da lista acima mais `c4713e1` e
+  `f44f6dc`, como o primeiro adendo previa; merge do só-migração em fast-forward; `push`;
+  `origin/main` = `0848b8c`; run **`36550036925`** verde (20m47s). O SIT-10 subiu junto:
+  `curl … | grep -c 'hidden gap-2 md:flex'` = **1**, medido pelo orquestrador.
+- **Passo 3:** backup antes de migrar — declaração do dono no chat (a linha de `sucesso`, o horário
+  e o tamanho não foram colados).
+- **Passo 4:** `docker compose pull ferramentas`; `ls db/migrations | grep 0023_estoque` →
+  `0023_estoque.sql`; `npm run db:migrate` → "Migrações aplicadas com sucesso."
+- **Passo 5 (SQL colado):** `movimentacoes_estoque` existe com **0 linhas**; `itens_catalogo` com
+  `ativo` (padrão `true`, NOT NULL), `estoque_minimo_milesimos` (padrão `0`, NOT NULL) e
+  `observacoes` (anulável) — 14 itens, 14 ativos, 14 com mínimo zero; `amassa_app` select `t`,
+  insert `t`, **update `f`, delete `f`**; gatilho `travar_unidade_do_item_com_movimentacao` em
+  `itens_catalogo`; índice `movimentacoes_estoque_estorno_de_uk`; "Produção da casa" contada **1**
+  (custo, pecas, ativa); `/api/health` 200.
+- **Passo 6:** `git merge --no-ff gsd/phase-06-estoque`, com conflito só em `.planning/STATE.md`,
+  `ROADMAP.md` e `PROXIMA-SESSAO.md`, resolvido com a versão do branch (`--theirs`); merge
+  **`2345850`** (commit às 15:07 UTC, pelo carimbo do próprio commit); `push`. O orquestrador
+  conferiu `git diff gsd/phase-06-estoque main` vazio e nenhum marcador de conflito. Run
+  **`36587755269`** verde (24m44s).
+- **Passo 7:** `/api/health/estoque` → **200 `{"status":"ok"}`** (curl do dono; confirmado pelo
+  orquestrador, junto com `/`, `/api/health` e `/api/health/backup` 200 e `/gestao/estoque` → 307
+  para o login).
+- O Passo 1 (guarda) não teve saída colada — o Passo 5 prova a estrutura nova no banco de produção.
+
+### Parte 2 — o celular
+
+Percorrida pelo dono em 29/09/2026 — aprovado no chat, **sem anotação por item nem os tempos
+medidos da baixa**. As caixas da Parte 2 em `06-VERIFICACAO-HUMANA.md` ficaram em branco de
+propósito; cada seção ganhou uma linha "Registro de 29/09" dizendo o que a cobre.
+
+### Evidência independente — a verificação do Cowork
+
+`Claude outputs/estoque/VERIFICACAO-COWORK-06.md` (fora do git), 29/09/2026, 12h35–13h05 de
+Brasília (15h35–16h05 UTC). **Estático**, num clone limpo em `2345850`: `lint` 0 avisos, `tsc`
+limpo, `verificar-acoes` 80 ações e 0 violações, **1627 testes**, `test:migracoes` passou (a primeira
+rodada dele falhou por reaproveitar um banco de teste de 26/09; em banco novo passou — não é
+defeito do código). **Online**, 19 passos em produção com um material de teste só, **nenhum 🔴**;
+provou pelo browser os critérios **1, 2, 3, 4, 6, 7, 8 e 9**; o **5** (cronômetro) e a contagem
+inicial real ficam com o dono — ele viu "Bolo do dia" contado pelo dono às 12h35 e, às 12h46, "2
+de 7 contados hoje". *(O relatório diz "origin/main às 16:07 UTC" para o merge; 16:07 é o relógio
+desta máquina, UTC+1 — o commit é de 15:07 UTC.)*
+
+**Dados de teste que ele deixou em produção** (todos `[teste cowork]`): o item `[teste cowork]
+argila da caminhada` desativado (7 movimentações, saldo 2,5 kg, R$ 0,00); as vendas **nº 22** e
+**nº 23** canceladas; a ficha técnica de `[teste cowork] Caneca 300 ml` posta e retirada.
+
+**O que ele achou que merece um olhar (nenhum bloqueia)** — levado a `.planning/STATE.md`, Pending
+Todos, com a fonte:
+
+1. Custo obrigatório na entrada manual: vazio recusa, "0" aceita — coerente com o "obrigatório" da
+   UI-SPEC; se a intenção era "vazio = zero", falta um padrão. Regra do dono.
+2. Baixa de 2 kg = 5 toques (atalhos fixos 1 · 5 · 10 · 25).
+3. Páginas com blocos em streaming levando 10–25 s para trocar o esqueleto pelo conteúdo (Início,
+   Histórico, Catálogo) — do carregamento do `/gestao`, não desta fase; candidato ao Polimento.
+4. Anotações do Início mostrando "15h45" — hora em UTC (04.6) ou data faltando.
+5. Compra com valor 0 lida como "R$ 0,00/un" (já registrado no adendo acima).
+6. Busca da Venda por trecho contíguo ("cowork Caneca" não acha "[teste cowork] Caneca").
+7. As decisões `[auto]` das §0.3/§0.4 da caminhada ainda sem resposta.
+
+### O que foi marcado, e com que evidência
+
+- **`REQUIREMENTS.md`:** EST-01..21 `[x]` e Complete na rastreabilidade, com um bloco de evidência
+  requisito a requisito (passo do Cowork + e2e/unitários). **EST-09** só pela aprovação do dono,
+  "sem o tempo medido registrado". De carona: a linha da Fase 6 na cobertura dizia "EST-01..12 ·
+  12" e o total 160 — os EST-13..21 de 29/09 não tinham entrado nessas contas; agora 21 e 169.
+- **`ROADMAP.md`:** 06-11 `[x]` (`roadmap.update-plan-progress 06 06-11 complete` — conferido no
+  diff que só trocou o `[ ]`, o "10/11" → "11/11" e a linha da tabela, sem comer texto), com a nota
+  datada; os 9 critérios de sucesso `[x]` com a fonte de cada um. **A fase NÃO foi marcada
+  concluída** — a verificação da fase e o `phase.complete` vêm depois.
+- **`06-VERIFICACAO-HUMANA.md`:** `status: approved`; Parte 1 com o Resultado de cada passo; Parte 2
+  com o bloco do fechamento e o registro por seção.
+
+## Self-Check (fechamento, 29/09/2026 tarde): PASSED
+
+- `git branch --show-current` = `main`; `main` = `origin/main` = `2345850` antes deste fechamento
+  (nada foi enviado por ele).
+- Commits existem em `main`: `01d643d`, `57beeb9`, `f05c373`, `b13d300`, `a69bb69`, `2907667`,
+  `0848b8c`, `2345850`.
+- `.planning/phases/06-estoque/06-VERIFICACAO-HUMANA.md` e `Claude outputs/estoque/VERIFICACAO-COWORK-06.md`
+  existem; `grep -c '^- \[x\] \*\*EST-' .planning/REQUIREMENTS.md` = 21.
+- Só documentos em `.planning/` mudaram neste fechamento — `npm run verificar` não foi necessário.

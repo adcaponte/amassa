@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
 status: executing
-stopped_at: "Fase 06 Estoque: codigo completo e revisado no branch gsd/phase-06-estoque, nao publicado. 06-11 Tarefas 1-2 feitas; Tarefa 3 (portao do dono): Parte 0 FEITA em 29/09 de manha (D-23/D-24 valem; WR-01 e WR-02 pela alternativa, aplicadas em f05c373; D-29 sim, 'Producao da casa' semeada na 0023 em b13d300; branch so-migracao em 0848b8c). Proximo: Roteiro 15 no servidor, depois contagem inicial e caminhada."
-last_updated: "2026-09-29T09:30:00.000Z"
+stopped_at: "06-11 concluido; proximo: verificacao da fase e phase.complete. Portao aprovado pelo dono no chat em 29/09/2026 a tarde (Roteiro 15 feito por ele: 0023 aplicada, merge 2345850 publicado, run 36587755269 verde, /api/health/estoque 200) e verificacao independente do Cowork em producao sem nenhum vermelho."
+last_updated: "2026-09-29T16:20:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 11
   total_plans: 97
-  completed_plans: 96
+  completed_plans: 97
 last_activity: 2026-09-29
-last_activity_desc: "Fase 06 em 29/09/2026 (madrugada e manha, sem o dono): planos 06-01 a 06-10 concluidos e o 06-11 (portao) com as Tarefas 1 e 2 feitas no branch gsd/phase-06-estoque — /api/health/estoque, Roteiro 15, caminhada 06-VERIFICACAO-HUMANA.md, a unica varredura e2e completa (948 passed - 12 failed - 1 flaky - 38 skipped - 61 did not run, nenhuma falha do Estoque) e o branch LOCAL so-migracao; depois, revisao de codigo (06-REVIEW.md: 0 bloqueios, 5 avisos; WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0) e os documentos do main sincronizados com os do branch. Nada publicado, nenhuma migracao aplicada. Em 29/09 de manha o dono respondeu a Parte 0 no chat (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim) e as respostas foram aplicadas no branch da fase e no so-migracao (0848b8c), com npm run verificar verde nos dois. Aguardando o dono: Roteiro 15, contagem, caminhada. Hashes e medicoes: 06-11-SUMMARY.md e o adendo dele."
+last_activity_desc: "Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
 ---
 
 # Project State
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 06 em 29/09/2026 (madrugada e manha, sem o dono): plan
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque** — **código completo e revisado no branch `gsd/phase-06-estoque`, não publicado; aguardando o dono** (portão 06-11, Tarefa 3: a Parte 0 foi respondida e aplicada em 29/09 de manhã; faltam o Roteiro 15 e a caminhada). *Até 29/09 de manhã esta linha dizia "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06 — Estoque** — **no ar desde o merge `2345850` (29/09/2026, tarde); os 11 planos concluídos; o portão 06-11 aprovado pelo dono.** Próximo: a verificação da fase e o `phase.complete`. *De manhã esta linha dizia "código completo no branch, não publicado; aguardando o dono"; até 29/09 de manhã, "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -194,6 +194,29 @@ adendo de `06-11-SUMMARY.md`).
   fim da `0023` (idempotente), em `b13d300`; o Roteiro 15 ganhou o Passo 5.5 para conferi-la.
   O branch só-migração ganhou o commit `0848b8c` por cima de `2907667` (os mesmos quatro arquivos).
 
+### O portão 06-11 — aprovado pelo dono em 29/09/2026, tarde
+
+- **A aprovação, no chat:** "repassei toda verificação. o cowork tambem verificou. Aprovado."
+- **Roteiro 15, feito por ele** (saídas coladas no chat e conferidas pelo orquestrador; registro
+  passo a passo em `06-VERIFICACAO-HUMANA.md`, Parte 1): Passo 2 — `git log origin/main..main` = 19
+  commits (os 17 da lista do `06-11-SUMMARY.md` mais `c4713e1` e `f44f6dc`), fast-forward, `push`,
+  `origin/main` = `0848b8c`, run **`36550036925`** verde (20m47s), e o SIT-10 no ar junto; Passo 3 —
+  backup antes de migrar (declaração dele); Passo 4 — `docker compose pull ferramentas`, a `0023`
+  listada na imagem, "Migrações aplicadas com sucesso."; Passo 5 — `movimentacoes_estoque` com 0
+  linhas, as três colunas com os padrões (14 itens, 14 ativos, 14 com mínimo zero), `amassa_app`
+  sem `update` nem `delete`, gatilho, índice, "Produção da casa" = 1, `/api/health` 200; Passo 6 —
+  `git merge --no-ff gsd/phase-06-estoque`, conflito só nos três documentos de estado, resolvido
+  com a versão do branch, merge **`2345850`**, run **`36587755269`** verde (24m44s); Passo 7 —
+  `/api/health/estoque` 200 `{"status":"ok"}`.
+- **A caminhada no celular (Parte 2):** percorrida por ele — aprovada **sem anotação por item nem os
+  tempos medidos da baixa**. Por isso o EST-09 (< 15 s) está marcado só pela aprovação dele.
+- **Verificação independente do Cowork** (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`, fora do
+  git; 29/09, 12h35–13h05 de Brasília): estático limpo num clone em `2345850` (80 ações, 1627
+  testes, `test:migracoes`), 19 passos em produção, nenhum 🔴, critérios 1, 2, 3, 4, 6, 7, 8 e 9
+  provados pelo browser. As sete observações dele estão em Pending Todos.
+- **As decisões `[auto]` (§0.3, §0.4, §0.5 da caminhada) continuam sem resposta** — a aprovação não
+  trocou nenhuma; valem como estão até ele pedir.
+
 ## Decisões do dono durante a execução da Fase 04.6
 
 - **D-18 ("sem preço no site") vale também para a chave `agLivre`** — confirmado pelo dono em
@@ -218,7 +241,24 @@ adendo de `06-11-SUMMARY.md`).
 
 ## Current Position
 
-**Agora (29/09/2026, depois da Parte 0): a Fase 06 está com o código completo no branch
+**Agora (29/09/2026, tarde): 06-11 concluído; próximo: verificação da fase e `phase.complete`.**
+Os 11 planos da Fase 06 estão concluídos (11/11 no ROADMAP) e o portão foi aprovado pelo dono
+("Decisões do dono — Fase 06", acima). A fase **não** está marcada concluída — isso é da
+verificação da fase.
+
+**Em produção é `2345850`** (o merge da Fase 06) — como sei: `git ls-remote origin
+refs/heads/main` = `234585063890…` (medido às 16:15 UTC de 29/09); run `36587755269` verde
+(24m44s, conferido pelo orquestrador); `/api/health/estoque` 200 `{"status":"ok"}`, `/`,
+`/api/health` e `/api/health/backup` 200, `/gestao/estoque` → 307 para o login (medidos pelo
+orquestrador); e a migração `0023` provada no banco pela conferência SQL do Passo 5 do Roteiro 15,
+colada pelo dono. O SIT-10 (barra de cima do site) está no ar desde o run `36550036925`
+(`grep -c 'hidden gap-2 md:flex'` = 1). `main` local = `origin/main`: nada por publicar antes
+deste fechamento, que é só de documentos e **não** foi enviado (o `push` é do dono).
+
+*Os parágrafos seguintes são o retrato da manhã de 29/09, mantidos como registro — "NÃO publicada",
+"aguarda o Roteiro 15" e "Em produção é `ecdca87`" eram verdade até a tarde.*
+
+**Antes (29/09/2026, depois da Parte 0): a Fase 06 está com o código completo no branch
 `gsd/phase-06-estoque`, NÃO publicada; a Parte 0 foi respondida pelo dono e aplicada; o portão
 (plano 06-11) aguarda o Roteiro 15.** 06-11 não está concluído — as Tarefas 1 e 2 são do executor, e
 da Tarefa 3 só a Parte 0 está feita:
@@ -1045,6 +1085,7 @@ sem uma linha "Progress:" própria).
 | Phase 04.6 P04 | ~65min | 3 tasks | 19 files |
 | Phase 04.6 P05 | 17min | 2 tasks | 8 files |
 | Phase 04.6 P07 | 75min | 3 tasks | 18 files |
+| Phase 06 P11 | ~30min do executor (Tarefas 1-2) + o dia do dono (Tarefa 3, aprovada 29/09 à tarde) | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1284,14 +1325,45 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+*Até 29/09/2026 esta seção dizia "None yet." Os itens abaixo vêm da verificação do Cowork da Fase 06
+(`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`, §2, 29/09/2026) e do portão 06-11. **Nenhum
+bloqueia**; cada um diz a fonte.*
+
+- **Custo obrigatório na entrada manual do Estoque** (Cowork, obs. 1): "Quanto custou ao todo" vazio
+  recusa; "0" digitado aceita. Coerente com o "obrigatório" da `06-UI-SPEC.md`; se a intenção for
+  "vazio = zero", falta um padrão em `pedidoDaFolha`. **Regra do dono** — perguntar.
+- **Baixa de 2 kg = 5 toques** (Cowork, obs. 2): os atalhos são fixos (1 · 5 · 10 · 25). A meta
+  "< 15 s" segue folgada pelo que ele viu; atalhos por material ou "últimos usados" seriam ideia nova.
+- **Páginas com streaming levando 10–25 s** para trocar o esqueleto pelo conteúdo — Início, Histórico,
+  Catálogo (Cowork, obs. 3; o HTML chega em 0,3 s, o que demora é o `Suspense` resolver; a 04.5 já
+  tinha 5–9 s). **Não é do Estoque — é o carregamento do `/gestao`.** Medir no celular do ateliê;
+  **candidato ao Polimento (Fase 7)**.
+- **Anotações do Início mostrando "Andressa salvou às 15h45"** às 13h03 de Brasília (Cowork, obs. 4):
+  ou a hora está em UTC (defeito da 04.6), ou falta a data (salvo ontem). Conferir com a Andressa.
+- **Compra com valor 0 lida como "R$ 0,00/un"** (Cowork, obs. 5; já registrado no adendo do
+  `06-11-SUMMARY.md`): grava `entrada_sem_preco`, mas `lerEstados`/`listarSaldos` a leem como última
+  entrada com preço. Próxima revisão de código.
+- **Busca da Venda por trecho contíguo** (Cowork, obs. 6): "cowork Caneca" não acha "[teste cowork]
+  Caneca". Só registro; mudar seria busca por palavras.
+- **Decisões `[auto]` sem resposta** (Cowork, obs. 7): §0.3 (D-13…D-32), §0.4 (UI-D1…UI-D16) e §0.5 de
+  `06-VERIFICACAO-HUMANA.md`. As que mais mudam o dia a dia, segundo ele: **perda paga por Peças
+  (D-14)**, **saldo negativo dentro da pílula "Acabando" (D-21/UI-D7)**, **material desativado nunca
+  avisa**. Valem como estão até o dono pedir troca.
+- **Contagem inicial: quantos materiais foram contados não está registrado** (portão 06-11). O
+  Cowork viu, às 12h46 de 29/09, "2 de 7 contados hoje" — "Bolo do dia" (pelo dono) e o material de
+  teste dele; cinco "Ainda sem contagem". Conferir em `/gestao/estoque/contagem`.
+- **EST-09 sem o tempo medido** (portão 06-11): o dono aprovou sem enviar os dois tempos da baixa.
+  Se um dia quiser o número, é a Parte 2, critério 5, da caminhada.
+- **Dados de teste em produção** (Cowork, §3): o item `[teste cowork] argila da caminhada`
+  (desativado) e as vendas nº 22 e 23 (canceladas, riscadas no Caixa de setembro). O livro não
+  apaga; ficam para sempre, com o prefixo.
 
 ### Blockers/Concerns
 
 - **04.4-11 bloqueado na Tarefa 3 (checkpoint:human-action, `gate="blocking"`) — migração 0014/0015/0016 em produção.** O dono precisa abrir a sessão SSH, dizer "pode enviar" (para os commits desta fase serem enviados e o pipeline publicar), e seguir `docs/operacao/10-migracao-financeiro.md` do passo 1 ao 5. A Tarefa 4 (verificação humana, `04.4-VERIFICACAO-HUMANA.md`, 17 itens + 8 perguntas do planejador) segue depois. Só então a Fase 04.4 fecha de fato.
 - M6 (Calculadora de Orçamento) permanece bloqueada até as planilhas de precificação do Theo existirem. Não afeta a Fase 7 (Polimento), que não depende de M6.
 - Fonte de títulos (Vinila Condensed vs. Archivo Narrow) é decisão pendente do Theo — usar Archivo Narrow até lá (ver `04-DESIGN-SYSTEM.md`).
-- Lista real de materiais do ateliê precisa ser levantada durante a Fase 6 (Estoque), senão o módulo nasce vazio.
+- Lista real de materiais do ateliê precisa ser levantada durante a Fase 6 (Estoque), senão o módulo nasce vazio. *(29/09/2026: a Fase 06 está no ar e a contagem inicial começou — "Bolo do dia" contado pelo dono; às 12h46 eram "2 de 7 contados hoje", cinco sem contagem. Ver Pending Todos.)*
 - Pré-requisitos de conta (domínio, VPS Contabo, GitHub, armazenamento externo de backup) precisam existir antes de a Fase 1 poder começar de fato.
 - Protecao da branch main (bloquear force-push e exclusao) pendente de configuracao manual pelo dono via GitHub Settings > Branches
 - 01-05 Task 2 parcial: falta cadastrar NEXT_PUBLIC_SITE_URL e DEPLOY_ATIVO no repositorio GitHub, observar a primeira execucao real do workflow e provar o portao com um PR de teste quebrado — requer gh CLI/credenciais que a sessao de execucao nao tinha (ver 01-05-SUMMARY.md User Setup Required)
@@ -1355,7 +1427,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29 (manhã) — Parte 0 da Fase 06 aplicada no branch `gsd/phase-06-estoque`
-Stopped at: 06-11 Tarefa 3 — Parte 0 feita; próximo passo do dono: Roteiro 15 (só-migração em `0848b8c`)
-Resume file: .planning/phases/06-estoque/06-VERIFICACAO-HUMANA.md (Parte 1)
-*(Até 29/09 esta seção dizia "Concluido 04.6-07-PLAN.md", de 28/09 — estava velha.)*
+Last session: 2026-09-29 (tarde) — portão 06-11 aprovado pelo dono; Fase 06 no ar (`2345850`)
+Stopped at: 06-11 concluído; próximo: verificação da fase e phase.complete
+Resume file: None
+*(De manhã esta seção dizia "06-11 Tarefa 3 — Parte 0 feita; próximo passo do dono: Roteiro 15";
+até 29/09, "Concluido 04.6-07-PLAN.md", de 28/09.)*

@@ -51,7 +51,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
-- [ ] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026: código completo no branch `gsd/phase-06-estoque`, não publicado; aguardando o portão do dono (06-11, Tarefa 3). Até 29/09 esta linha dizia "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.*
+- [ ] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)*
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -784,17 +784,28 @@ o plano de 18/09 — migração `0005_estoque`, view `saldos_materiais` e CRUD d
 **Requirements**: EST-01, EST-02, EST-03, EST-04, EST-05, EST-06, EST-07, EST-08, EST-09, EST-10, EST-11, EST-12, EST-13, EST-14, EST-15, EST-16, EST-17, EST-18, EST-19, EST-20, EST-21
 **Success Criteria** (what must be TRUE):
 
-  1. Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
-  2. Item abaixo do mínimo aparece destacado na lista e no bloco "Estoque acabando" do Início
-  3. O histórico mostra toda movimentação com autor e data
-  4. Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
-  5. Registrar uma baixa no celular leva menos de 15 segundos
-  6. O saldo mostrado bate com a soma manual do histórico
-  7. Uma venda lançada no Financeiro baixa o estoque na mesma transação — o item ou, com ficha técnica, cada insumo —, e cancelá-la gera estorno, nunca apaga
-  8. A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
-  9. Saldo negativo aparece com aviso e nunca impede uma venda
+  1. [x] Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
+  2. [x] Item abaixo do mínimo aparece destacado na lista e no bloco "Estoque acabando" do Início
+  3. [x] O histórico mostra toda movimentação com autor e data
+  4. [x] Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
+  5. [x] Registrar uma baixa no celular leva menos de 15 segundos
+  6. [x] O saldo mostrado bate com a soma manual do histórico
+  7. [x] Uma venda lançada no Financeiro baixa o estoque na mesma transação — o item ou, com ficha técnica, cada insumo —, e cancelá-la gera estorno, nunca apaga
+  8. [x] A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
+  9. [x] Saldo negativo aparece com aviso e nunca impede uma venda
 
-**Plans:** 10/11 plans executed
+  *Marcados em 29/09/2026, depois do portão 06-11. Evidência, critério a critério: **1, 2, 3, 4, 6,
+  7, 8 e 9** — provados em produção pela verificação independente do Cowork (29/09, 12h35–13h05,
+  sobre `2345850`; `Claude outputs/estoque/VERIFICACAO-COWORK-06.md`, passos 1–18: 1 → passos 3–4
+  (5 kg, baixa, rodapé certo), 2 → passo 5, 3 → passo 6 ("Hoje, 12:43 · admin"), 4 → passos 7–8,
+  6 → passo 6, 7 → passos 11 e 13, 8 → passo 15 e a contagem inicial do dono, 9 → passo 12),
+  além dos e2e da fase (`tests/e2e/estoque-*.spec.ts`, verdes na varredura do 06-11 e no pipeline
+  `36587755269`) e da aprovação do dono no chat em 29/09 ("repassei toda verificação. o cowork
+  tambem verificou. Aprovado."). **5 (menos de 15 s)** — só pela aprovação do dono, **sem o tempo
+  medido registrado**; o e2e prova os 4 toques a partir de Saldos (06-06), não o tempo. Registro
+  completo em `06-VERIFICACAO-HUMANA.md` e `06-11-SUMMARY.md`.*
+
+**Plans:** 11/11 plans executed
 
 11 planos, uma onda por plano, sequenciais (os scripts de teste sobem
 Postgres com nome e porta fixos e o projeto não usa worktrees). Planejado em 29/09/2026, sessão noturna, sem o dono;
@@ -812,7 +823,7 @@ orçamento de contexto e foram divididos — eram 9 planos). 🔴 Todo o código
 - [x] 06-08-PLAN.md — Fora do Estoque: Cadastros desativa em vez de apagar e trava a unidade; a Venda diz “fica com −X” sem bloquear (onda 8)
 - [x] 06-09-PLAN.md — Folha do material (soma = saldo, “gasto por”), “+ Novo material” com a validação do Cadastros, editar mínimo/observações, desativar (onda 9)
 - [x] 06-10-PLAN.md — Contagem (primeira e conferência, pela diferença, sob trava), painel da primeira abertura, bloco “Estoque acabando” do Início real (onda 10)
-- [ ] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**). *Em 29/09/2026 (manhã): Tarefas 1 e 2 feitas no branch — a rota, o Roteiro 15, a caminhada `06-VERIFICACAO-HUMANA.md`, a varredura completa e o branch local só-migração `gsd/phase-06-estoque-migracao` (ver `06-11-SUMMARY.md`). Depois delas, a revisão de código da fase (`06-REVIEW.md`: 0 bloqueios, 5 avisos — WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0). **Aberto: a Tarefa 3, o portão do dono** — a Parte 0 foi respondida pelo dono em 29/09 de manhã (D-23/D-24 valem; WR-01/WR-02 pela alternativa, `f05c373`; D-29 sim, "Produção da casa" semeada na `0023`, `b13d300`; só-migração em `0848b8c`); faltam o Roteiro 15 e a caminhada. Os 9 critérios acima só se marcam depois dela.*
+- [x] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**). *Em 29/09/2026 (manhã): Tarefas 1 e 2 feitas no branch — a rota, o Roteiro 15, a caminhada `06-VERIFICACAO-HUMANA.md`, a varredura completa e o branch local só-migração `gsd/phase-06-estoque-migracao` (ver `06-11-SUMMARY.md`). Depois delas, a revisão de código da fase (`06-REVIEW.md`: 0 bloqueios, 5 avisos — WR-03/04/05 corrigidos, WR-01/02 postos na Parte 0). **Aberto: a Tarefa 3, o portão do dono** — a Parte 0 foi respondida pelo dono em 29/09 de manhã (D-23/D-24 valem; WR-01/WR-02 pela alternativa, `f05c373`; D-29 sim, "Produção da casa" semeada na `0023`, `b13d300`; só-migração em `0848b8c`); faltam o Roteiro 15 e a caminhada. Os 9 critérios acima só se marcam depois dela.* **Concluído em 29/09/2026, tarde — o dono aprovou no chat** ("repassei toda verificação. o cowork tambem verificou. Aprovado."): Roteiro 15 feito por ele, com as saídas coladas no chat e conferidas pelo orquestrador — só-migração publicado (`origin/main` = `0848b8c`, run `36550036925` verde), backup, `db:migrate` ("Migrações aplicadas com sucesso."), conferência SQL (tabela vazia, colunas, `update`/`delete` falsos, gatilho, índice, "Produção da casa" = 1), merge `2345850` (run `36587755269` verde) e `/api/health/estoque` 200 `{"status":"ok"}`; a caminhada no celular percorrida por ele, sem anotação por item nem os tempos da baixa; e a verificação independente do Cowork (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`, 19 passos em produção, nenhum 🔴).
 
 **UI hint**: yes
 
@@ -873,5 +884,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
-| 6. Estoque | 10/11 | In Progress|  |
+| 6. Estoque | 11/11 | In Progress|  |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

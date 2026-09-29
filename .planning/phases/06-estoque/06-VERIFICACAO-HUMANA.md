@@ -1,7 +1,8 @@
 ---
 phase: 06-estoque
 plan: 11
-status: pending
+status: approved
+approved: 2026-09-29
 started: 2026-09-29
 updated: 2026-09-29
 ---
@@ -10,6 +11,15 @@ updated: 2026-09-29
 
 **Gerado por:** execução do plano `06-11-PLAN.md`, Tarefa 1, em 29/09/2026 — na sessão noturna,
 sem você.
+
+**Status (29/09/2026, tarde): APROVADA pelo dono no chat** — "repassei toda verificação. o cowork
+tambem verificou. Aprovado." A Parte 0 foi respondida de manhã; a Parte 1 (o Roteiro 15) foi feita
+por ele, com as saídas coladas no chat e conferidas pelo orquestrador; a Parte 2 foi percorrida por
+ele **sem anotação por item nem os tempos medidos da baixa**; e o Cowork fez uma verificação
+independente em produção (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`, fora do git). O
+registro está no início da Parte 1 e da Parte 2. A Fase 06 está no ar desde o merge `2345850`.
+*O parágrafo seguinte é o status da manhã, mantido como registro — "nada da Fase 06 está no ar" era
+verdade até o Roteiro 15.*
 
 **Status (29/09/2026, manhã):** **Parte 0 respondida** (respondido pelo dono no chat em 29/09/2026, pela manhã, por formulário) e aplicada no código e na
 migração — ver o fim de cada item da Parte 0. **Partes 1 e 2 não percorridas.** Nada da Fase 06 está no ar: o código mora no branch
@@ -213,7 +223,7 @@ agora — marque só as que quiser trocar.
 | D-32 | Contagem e ajuste aceitam **zero** (prateleira vazia) | Uma linha no esquema da contagem |
 
 - [ ] **Quero trocar alguma destas:** ____________ (ou "nenhuma")
-- **Resultado:**
+- **Resultado:** *(29/09/2026)* sem resposta do dono — a aprovação não trocou nenhuma; ficam como estão até ele pedir. Lembrete em `.planning/STATE.md`, Pending Todos (o Cowork destacou D-14, D-21 e "material desativado nunca avisa").
 
 ### 0.4 As decisões de interface (UI-D1 a UI-D16)
 
@@ -237,7 +247,7 @@ agora — marque só as que quiser trocar.
 | UI-D16 | Contagem às cegas: o saldo do sistema só aparece depois de digitar | Mostrar "o sistema diz X" ao lado do campo |
 
 - [ ] **Quero trocar alguma destas:** ____________ (ou "nenhuma")
-- **Resultado:**
+- **Resultado:** *(29/09/2026)* sem resposta do dono — ficam como estão até ele pedir (lembrete em `.planning/STATE.md`).
 
 ### 0.5 Escolhas feitas durante a execução (29/09) — para você saber
 
@@ -254,38 +264,95 @@ Estão também em `.planning/STATE.md`, "Decidido sem o Theo", com o porquê e c
   servidor antes do código.
 
 - [ ] **Quero trocar alguma destas:** ____________ (ou "nenhuma")
-- **Resultado:**
+- **Resultado:** *(29/09/2026)* sem resposta do dono — ficam como estão até ele pedir (lembrete em `.planning/STATE.md`). O Cowork viu que a entrada manual **recusa o campo de custo vazio** e aceita "0" digitado — a frase acima ("aceita R$ 0,00") vale para o zero digitado.
 
 ---
 
 ## Parte 1 — O servidor: o Roteiro 15
 
+> ✅ **Feita pelo dono em 29/09/2026**, com as saídas coladas no chat e conferidas pelo orquestrador
+> (as conferências feitas de fora estão marcadas como tal em cada passo). Resumo: o só-migração foi
+> publicado (`origin/main` = `0848b8c`, run `36550036925` verde), backup antes de migrar,
+> `db:migrate` com sucesso, a conferência SQL bateu inteira, o código da fase entrou no merge
+> `2345850` (run `36587755269` verde) e `/api/health/estoque` responde 200 `{"status":"ok"}`. **O
+> Estoque está no ar desde esse merge.**
+
 Siga `docs/operacao/15-migracao-estoque.md`, **na ordem, sem pular**. Aqui você só anota o que cada
 passo mostrou (pode colar a saída).
 
 - [ ] **Passo 1 — Guarda** (host, `theo`, `/opt/amassa`, banco `amassa`)
-  - **Resultado:**
-- [ ] **Passo 2 — Publicar só a migração** (`git log origin/main..main` bateu com a lista do
+  - **Resultado:** *(29/09/2026)* saída não colada no chat — o dono fez o roteiro e aprovou; o
+    Passo 5 conferiu a estrutura nova no banco de produção, o que implica o banco certo. Caixa
+    deixada em branco por não haver saída registrada.
+- [x] **Passo 2 — Publicar só a migração** (`git log origin/main..main` bateu com a lista do
   `06-11-SUMMARY.md`; `git diff --name-only` com os 4 arquivos; run verde — número do run)
-  - **Resultado:**
-- [ ] **Passo 3 — Backup** (`sucesso = t`, horário de agora, tamanho plausível)
-  - **Resultado:**
-- [ ] **Passo 4 — `db:migrate`** (`0023_estoque.sql` listada na imagem antes; "Migrações aplicadas
+  - **Resultado:** *(29/09/2026, colado no chat)* `git log origin/main..main` = **19 commits** — os
+    17 da lista do SUMMARY mais `c4713e1` e `f44f6dc` (os dois só de documentos, previstos no adendo
+    do SUMMARY); merge do só-migração em fast-forward; `push` feito; `origin/main` = `0848b8c`; run
+    **`36550036925`** verde (20m47s). O SIT-10 subiu junto: `curl … | grep -c 'hidden gap-2 md:flex'`
+    = **1**, medido pelo orquestrador (era 0 de manhã).
+- [x] **Passo 3 — Backup** (`sucesso = t`, horário de agora, tamanho plausível)
+  - **Resultado:** *(29/09/2026)* backup feito antes de migrar — **declaração do dono no chat**; a
+    linha de `sucesso`, o horário e o tamanho não foram colados.
+- [x] **Passo 4 — `db:migrate`** (`0023_estoque.sql` listada na imagem antes; "Migrações aplicadas
   com sucesso.", código 0)
-  - **Resultado:**
-- [ ] **Passo 5 — Conferência SQL, antes do código** (tabela e 0 movimentações; 3 colunas com os
+  - **Resultado:** *(29/09/2026, colado no chat)* `docker compose pull ferramentas`;
+    `ls db/migrations | grep 0023_estoque` → `0023_estoque.sql`; `npm run db:migrate` → "Migrações
+    aplicadas com sucesso."
+- [x] **Passo 5 — Conferência SQL, antes do código** (tabela e 0 movimentações; 3 colunas com os
   padrões; `pode_editar = f` e `pode_apagar = f`; gatilho; índice; "Produção da casa" contada
   `1` (5.5, D-29); `/api/health` 200)
-  - **Resultado:**
-- [ ] **Passo 6 — Publicar o código da fase** (merge sem conflito fora de `.planning/`; run verde —
+  - **Resultado:** *(29/09/2026, colado no chat)* `movimentacoes_estoque` existe, **0 linhas**;
+    `itens_catalogo` com as colunas novas — `ativo` padrão `true` NOT NULL,
+    `estoque_minimo_milesimos` padrão `0` NOT NULL, `observacoes` anulável — 14 itens, 14 ativos, 14
+    com mínimo zero; `amassa_app`: select `t`, insert `t`, **update `f`, delete `f`**; gatilho
+    `travar_unidade_do_item_com_movimentacao` em `itens_catalogo`; índice
+    `movimentacoes_estoque_estorno_de_uk`; categoria **"Produção da casa"** contada **1** (custo,
+    pecas, ativa); `/api/health` 200.
+- [x] **Passo 6 — Publicar o código da fase** (merge sem conflito fora de `.planning/`; run verde —
   número do run)
-  - **Resultado:**
-- [ ] **Passo 7 — `/api/health/estoque`** → `200` e `{"status":"ok"}` — **com data e hora**
-  - **Resultado:**
+  - **Resultado:** *(29/09/2026)* `git merge --no-ff gsd/phase-06-estoque` com conflito **só** em
+    `.planning/STATE.md`, `ROADMAP.md` e `PROXIMA-SESSAO.md`, resolvido com a versão do branch
+    (`--theirs`); merge **`2345850`**; `push` feito. O orquestrador conferiu `git diff
+    gsd/phase-06-estoque main` vazio e nenhum marcador de conflito. Run **`36587755269`** verde
+    (24m44s).
+- [x] **Passo 7 — `/api/health/estoque`** → `200` e `{"status":"ok"}` — **com data e hora**
+  - **Resultado:** *(29/09/2026, tarde)* **200 `{"status":"ok"}`** pelo `curl` do dono, confirmado
+    de fora pelo orquestrador — junto com `/`, `/api/health` e `/api/health/backup` 200, e
+    `/gestao/estoque` → 307 para o login. O Cowork também o mediu 200 às 12h35 (Brasília).
 
 ---
 
 ## Parte 2 — O celular, no ateliê
+
+> ✅ **Percorrida pelo dono em 29/09/2026 — aprovado no chat, sem anotação por item nem os tempos
+> medidos da baixa.** Nas palavras dele: "repassei toda verificação. o cowork tambem verificou.
+> Aprovado."
+>
+> **Evidência independente — a verificação do Cowork** (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`,
+> fora do git): 29/09/2026, 12h35–13h05 de Brasília. **Estático** num clone limpo em `2345850`:
+> `lint` 0 avisos, `tsc` limpo, `verificar-acoes` 80 ações e 0 violações, **1627** testes unitários,
+> `test:migracoes` passou. **Online**, em produção, 19 passos com um material de teste só
+> (`[teste cowork] argila da caminhada`, custo R$ 0,00, desativado no fim), **nenhum 🔴**; provou pelo
+> browser os critérios **1, 2, 3, 4, 6, 7, 8 e 9**. O **5** (cronômetro) e a contagem inicial real
+> são do dono — o Cowork viu, às 12h35, "Bolo do dia" contado por ele (3 un · R$ 8,00 · saldo
+> inicial) e, às 12h46, "2 de 7 contados hoje" (o Bolo do dia e o material de teste).
+>
+> **As caixas abaixo continuam em branco de propósito:** o dono não relatou item a item. Cada seção
+> ganhou uma linha "Registro de 29/09" dizendo o que cobre o item — a aprovação dele e, onde ele o
+> fez de fato, o passo do Cowork.
+>
+> **O que o Cowork deixou em produção** (fica para sempre; tudo com o prefixo `[teste cowork]`): o
+> item `[teste cowork] argila da caminhada`, **desativado**, com 7 movimentações e saldo 2,5 kg a R$
+> 0,00; as vendas **nº 22** (R$ 2,00) e **nº 23** (R$ 4,00), Pix, **canceladas**; a ficha técnica de
+> `[teste cowork] Caneca 300 ml` posta e retirada. Nenhuma compra, orçamento, encomenda ou pessoa.
+>
+> **O que ele achou que merece um olhar** (nenhum é bloqueio — registrado em `.planning/STATE.md`,
+> Pending Todos): custo obrigatório na entrada manual (vazio recusa, 0 aceita); baixa de 2 kg em 5
+> toques (atalhos fixos 1 · 5 · 10 · 25); páginas com streaming levando 10–25 s (Início, Histórico,
+> Catálogo — do carregamento do `/gestao`, não desta fase); "15h45" nas Anotações do Início talvez
+> em UTC; compra de valor 0 lida como "R$ 0,00/un"; busca da Venda por trecho contíguo; as
+> decisões `[auto]` das §0.3 e §0.4 ainda sem resposta (a §0.5 também).
 
 Peça **no celular**, de pé, no ateliê. Comece pela contagem: sem ela o Estoque mostra só o painel da
 primeira abertura.
@@ -303,6 +370,7 @@ primeira abertura.
   para Y") — é a contagem às cegas. Se houve venda entre a publicação e a contagem, o material
   aparece negativo e termina **exatamente** no que você contou.
 - [ ] **Resultado:** (quantos materiais contou, e se algo estranhou)
+  - *Registro de 29/09:* contagem do dono — quantos materiais ele contou não foi relatado. O Cowork viu, às 12h35, o painel da primeira abertura já resolvido e "Bolo do dia" contado pelo dono (3 un · R$ 8,00 · saldo inicial · 12:35); às 12h46, a tela de contagem dizia "2 de 7 contados hoje" (o Bolo do dia e o material de teste dele) e "Ainda sem contagem · 5 materiais". Coberto pela aprovação do dono; se os outros cinco foram contados depois, não está registrado.
 
 ### B. Os 9 critérios do ROADMAP
 
@@ -317,6 +385,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   ateliê" → "Registrar baixa".
 - **O que esperar:** o cartão mostra **3 kg**.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pela verificação do Cowork, passos 1, 3 e 4 — entrada de 5 kg a R$ 0,00, baixa em "Uso do ateliê", o rodapé "O saldo passa de 5 para 3 kg" e o cartão em 3 kg.
 
 #### 2. Item abaixo do mínimo aparece destacado na lista e no bloco "Estoque acabando" do Início
 
@@ -325,6 +394,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   "Acabando" filtra só ele (e os reais que estiverem acabando). No **Início**, o bloco "Estoque
   acabando" lista "[teste] argila da caminhada — 3 kg · mínimo 5 kg".
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pelo Cowork, passo 5 — chip "Acabando", banner "1 material está acabando · … · Ver só esses", cartão "mínimo 5 kg" e, no Início, "Estoque acabando · [teste cowork] argila da caminhada · Acabando · 3 kg · mínimo 5 kg".
 
 #### 3. O histórico mostra toda movimentação com autor e data
 
@@ -332,6 +402,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
 - **O que esperar:** cada linha — a contagem, a entrada, a baixa — com **quem** registrou e
   **quando** (dia e hora de Brasília). As da Andressa com o nome dela.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pelo Cowork, passo 6 — "Hoje, 12:43 · admin" (15:43 UTC, ou seja, hora de Brasília). Linhas com o nome da Andressa não foram vistas: o Cowork entrou como `admin`.
 
 #### 4. Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
 
@@ -341,6 +412,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   movimentação" → **Ajuste** → "Quanto tem na prateleira agora?". Faça um: no material de teste,
   ajuste para **2,5** → a linha nova aparece como ajuste, e a antiga continua lá.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pelo Cowork, passos 7 e 8 — ajuste igual ao saldo: "O saldo já está certo. Nada será gravado."; ajuste para 2,5 kg: linha nova "−0,5 · Ajuste de conferência" e as anteriores intactas; nenhum botão de editar ou apagar em lugar nenhum.
 
 #### 5. Registrar uma baixa no celular leva menos de 15 segundos — 🔴 com cronômetro (EST-09)
 
@@ -353,7 +425,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   toques**.
 - **O que esperar:** menos de **15 s** nos dois caminhos, com a mão como ela fica no ateliê.
 - [ ] **Tempo a partir de Saldos:** ____ s  ·  **Tempo a partir do Início:** ____ s
-- **Resultado:**
+- **Resultado:** *(29/09/2026)* **tempo não registrado — aprovado pelo dono** no chat, sem os dois tempos. O Cowork não cronometrou; contou **4 toques** a partir de Saldos quando a quantidade é um atalho (1 · 5 · 10 · 25) e **5** para 2 kg (passo 4). O e2e da 06-06 prova os 4 toques, não o tempo.
 
 #### 6. O saldo mostrado bate com a soma manual do histórico
 
@@ -361,6 +433,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
 - **O que esperar:** +5 − 2 + o ajuste − 1 (a baixa cronometrada) = o saldo do topo da folha. A folha
   mesma diz que a soma das linhas bate com o saldo.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pelo Cowork, passo 6 — a folha do material diz "Somando de cima para baixo você chega ao saldo de 3 kg".
 
 #### 7. Uma venda lançada no Financeiro baixa o estoque na mesma transação — o item ou, com ficha técnica, cada insumo —, e cancelá-la gera estorno, nunca apaga
 
@@ -372,12 +445,14 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   fica, marcada **"Estornada"**, e aparece uma linha nova **"Estorno"** devolvendo o material — nada
   some. O saldo volta ao de antes.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pelo Cowork, passos 10, 11 e 13 — um produto com ficha técnica (`[teste cowork] Caneca 300 ml` gasta 0,5 kg da argila); a venda nº 22 mostrou o quadro "O que esta venda tira do estoque" e gravou "−1 kg · Venda · do Financeiro · venda nº 22"; ao cancelar as nº 22 e 23, linhas novas "Estorno", as originais com o chip "Estornada", o saldo de volta a 2,5 kg.
 
 #### 8. A primeira abertura do Estoque conduz a contagem inicial; vendas e compras anteriores não geram movimentação retroativa
 
 - **O que conferir:** o item A acima (o painel apareceu, e a contagem foi feita por ele); e, no
   Histórico, **nenhuma** linha de venda ou compra com data anterior à publicação da fase.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat), pela conferência SQL do Roteiro 15 (Passo 5: **0 movimentações** logo depois da migração — nada retroativo) e pelo Cowork, passo 15 (a contagem diz "vendas e compras de antes não entram") e o painel da primeira abertura já resolvido pela contagem do dono.
 
 #### 9. Saldo negativo aparece com aviso e nunca impede uma venda
 
@@ -388,6 +463,7 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   lançar — depois confira a prateleira."** Lance: **a venda é lançada** normalmente. No Estoque, o
   material aparece com o chip **"Saldo negativo"**. Cancele a venda de teste em seguida.
 - [ ] **Resultado:**
+  - *Registro de 29/09:* coberto pela aprovação do dono em 29/09 (chat) e pelo Cowork, passo 12 — "−2 kg · fica com −0,5 kg" e o aviso "Esta venda deixa [material] com saldo negativo (−0,5 kg). Pode lançar — depois confira a prateleira."; a venda nº 23 foi lançada; no Estoque, o banner "1 material com saldo negativo (−0,5 kg)"; cancelada em seguida (passo 13).
 
 ### C. O resto da caminhada
 
@@ -395,16 +471,16 @@ teste — crie-o uma vez, no começo: **"+ Material"** → nome "[teste] argila 
   material". Esperado: ele some da lista padrão, do seletor da baixa e do Início; aparece no filtro
   **Desativados** (no fim da lista); não tem "Dar baixa". Reative pela folha dele ("Reativar
   material") e desative de novo — **ele fica desativado ao fim da caminhada.**
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* desativar coberto pela aprovação do dono e pelo Cowork, passos 17 e 18 — recusou com o item na ficha técnica; sem a ficha, a confirmação disse o que se perde, o item sumiu do banner e do Início ("Nenhum material abaixo do mínimo."), apareceu em "Desativados" com o chip e sem "Dar baixa". **Reativar não foi feito pelo Cowork** — só pela aprovação do dono. O material dele ficou desativado.
 - [ ] **Um material real no Cadastros.** Em Cadastros → Catálogo, abra um item com movimentação e
   tente trocar a unidade. Esperado: recusa, com "a unidade e o “Tem estoque próprio” não mudam mais.
   Se ele saiu de uso, desative." Nada é apagado — só há "Desativar".
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* coberto pela aprovação do dono e pelo Cowork, passo 9 — no material de teste com movimentação (não num material real), trocar kg→g recusou com "Este item já tem movimentação no Estoque — a unidade e o "Tem estoque próprio" não mudam mais…".
 - [ ] **EST-09 com a Andressa, ao mesmo tempo** (backstop). Os dois no mesmo material real, cada um no
   seu celular, contam "já" e tocam "Registrar baixa" juntos. Esperado: **as duas gravam**, o saldo
   reflete as duas baixas, o Histórico tem as duas linhas (uma com cada nome), e a baixa continua
   abaixo de 15 s — a trava do banco dura só a gravação.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* **não coberto pelo Cowork** — só pela aprovação do dono, sem anotação. A concorrência é provada pelo `test:migracoes` (`conferirConcorrenciaDoEstoque`) e pela 06-02.
 
 ### D. As conferências que só um celular de verdade revela (backstops)
 
@@ -418,46 +494,52 @@ no seu, e a de 320px pode ir pela opção (b).
 
 - [ ] **D1 — A barra de baixo a 320px** (06-06). "Registrar movimentação" pode quebrar em duas linhas;
   nada corta, e o aviso (toast) de uma baixa aparece **acima** da barra, nunca por cima.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* em parte pelo Cowork, passo 16 — a 320 px, `scrollWidth` = 320 na lista e no diálogo de baixa, nada passa da borda (cosmético: a aba "Para onde foi" quebra em duas linhas). O toast acima da barra não foi registrado. O resto, pela aprovação do dono.
 - [ ] **D2 — Seletor com a lista em erro** (06-06) — (b) recomendado: exige forçar a falha da
   consulta. Esperado: com a lista sem carregar, o seletor mostra "Tentar de novo", nunca uma lista
   vazia que pareça "nenhum material".
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork — só pela aprovação do dono; nenhuma captura (b) registrada.
 - [ ] **D3 — Vínculo de 160 letras no Histórico** (06-07). Numa baixa do material de teste, destino
   "Perda ou quebra", escreva um "O que aconteceu" longo (até 160 letras). No Histórico, a linha 2
   quebra por palavra, sem cortar.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork — só pela aprovação do dono.
 - [ ] **D4 — Valor alto no "Para onde foi" a 320px** (06-07) — (b) recomendado ("R$ 123.456,78").
   Esperado: o valor não quebra, o nome do destino quebra.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork — só pela aprovação do dono; nenhuma captura (b) registrada.
 - [ ] **D5 — Quantidade longa no Histórico a 320px** (06-07) — (b) recomendado ("−1.234,567 kg").
   Esperado: a coluna da quantidade não corta nem empurra o texto.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork — só pela aprovação do dono; nenhuma captura (b) registrada.
 - [ ] **D6 — O efeito na Venda a 320px** (06-08) — (b) recomendado (nome de 120 letras). Esperado:
   "−2 kg · {nome} · fica com −1 kg" quebra por palavra, sem rolar para o lado.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork a 320 px (ele viu o efeito na Venda, passos 11 e 12, sem registrar a largura) — só pela aprovação do dono; nenhuma captura (b) registrada.
 - [ ] **D7 — O resumo da folha do material a 320px** (06-09). Saldo grande e valores de 6 dígitos:
   a linha de apoio quebra sem cortar. (a) com um material real de valor alto, ou (b).
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork — só pela aprovação do dono.
 - [ ] **D8 — "Gasto por" com muitos produtos** (06-09). Um insumo usado em 8 ou mais fichas (a
   argila, talvez): a folha dele lista todos, separados por " · ", sem cortar. (a) se existir, ou (b).
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork com 8+ fichas (ele viu o "Gasto por" com uma, passo 10) — só pela aprovação do dono.
 - [ ] **D9 — Sem nenhuma categoria de compra ativa** (06-09, ligado a D-29) — (b) recomendado
   (desativar as categorias em produção quebraria a Compra). Esperado: "+ Novo material" diz
   "Nenhuma categoria de compra ativa — crie uma em Cadastros → Categorias." com o link, e o botão
   fica indisponível com o motivo à vista.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork — só pela aprovação do dono; nenhuma captura (b) registrada.
 - [ ] **D10 — Contagem com 60+ materiais** (06-10). Na tela de contagem, a primeira pintura aparece
   em até 1 s no celular (com o esqueleto antes). (a) se você tiver 60 materiais, ou (b).
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork (7 materiais, não 60) — só pela aprovação do dono.
 - [ ] **D11 — A linha da contagem a 320px** (06-10). Com "Custou ao todo" visível (primeira contagem
   acima do saldo), nada corta e o botão "Confirmar contagem" mantém o tamanho de toque.
-  - **Resultado:**
+  - **Resultado:** *(registro de 29/09)* não coberto pelo Cowork a 320 px — só pela aprovação do dono.
 
 ---
 
 ## Fechamento
 
 - [ ] **Todos os itens acima têm Resultado**, e o material de teste ficou **desativado**.
+  - *Registro de 29/09:* caixa em branco — os Resultados da Parte 2 são o registro acima, não
+    anotação do dono item a item. O material de teste do Cowork ficou desativado (passo 18); se o
+    dono criou um "[teste] argila da caminhada" próprio, não foi relatado.
 - **Aprovado?** Responda ao agente "aprovado", com D-23/D-24/D-29 e os dois tempos da baixa — ou diga
   o que falhou e em que passo parou.
+- **Resposta (29/09/2026, tarde, no chat):** **aprovado** — "repassei toda verificação. o cowork
+  tambem verificou. Aprovado." D-23/D-24/D-29 já tinham sido respondidas de manhã (Parte 0). **Os
+  dois tempos da baixa não foram enviados.**

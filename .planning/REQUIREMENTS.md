@@ -126,27 +126,45 @@
 
 ### Estoque
 
-- [ ] **EST-01**: Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
-- [ ] **EST-02**: **Não existe cadastro próprio de materiais.** O Estoque trabalha sobre os itens de `itens_catalogo` (Fase 04.4) com `controla_estoque`: unidade e categoria vêm do item; o Estoque acrescenta ao item só o que é dele — **mínimo** e **observações**. Saldo e custo médio são **derivados** das movimentações, nunca campo editável *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)* — o texto antigo pedia organização em cerâmica, pintura e bordado, com custo e fornecedor como campos do material
-- [ ] **EST-03**: Item abaixo do mínimo aparece destacado na lista e no bloco **"Estoque acabando" do Início** (alimentado por `lib/estoque/consultas`, ADENDO §4) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
-- [ ] **EST-04**: Item com estoque mínimo zero nunca entra em alerta *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
-- [ ] **EST-05**: O histórico mostra toda movimentação com autor, data e tipo
-- [ ] **EST-06**: Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
-- [ ] **EST-07**: No tipo `ajuste`, a tela pede o saldo contado na prateleira, não a diferença
-- [ ] **EST-08**: Um ajuste que dá diferença zero não grava nada e responde "Conferido. O saldo já estava correto."
-- [ ] **EST-09**: Registrar uma baixa no celular leva menos de 15 segundos
-- [ ] **EST-10**: O saldo mostrado bate com a soma manual do histórico
-- [ ] **EST-11**: A origem de toda movimentação é `venda`, `compra`, `producao` ou `manual`. As saídas manuais são: consumo em aula (**texto livre** até a Agenda existir) · consumo em encomenda (**referência opcional à encomenda real**, não texto livre) · consumo na cafeteria (só o que não passa por venda — degustação, consumo interno) · uso do ateliê · perda ou quebra. **"Venda na loja" não é saída manual**: venda só nasce no Financeiro (ADENDO §3) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)* — o texto antigo previa vínculo com aula, **fornada** ou encomenda; o adendo não lista fornada entre os destinos
-- [ ] **EST-12**: A lista de saldos tem busca e filtro por **área do Financeiro** (Cafeteria · Espaço · Peças · Loja · Geral), herdada da categoria de compra do item e, na falta, da de venda — não uma segunda classificação do Estoque (ADENDO §2) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
-- [ ] **EST-13**: "Novo material" no Estoque cria um item de `itens_catalogo` com `controla_estoque = true`, com a mesma validação do Cadastros; e item criado pelo Cadastros com `controla_estoque` aparece no Estoque sozinho (ADENDO §1)
-- [ ] **EST-14**: Lançar uma venda no Financeiro grava a movimentação de estoque **na mesma transação do documento** — item com estoque baixa ele mesmo; item com ficha técnica baixa cada insumo — usando o cálculo que `lib/financeiro/efeito-estoque.ts` já faz, **sem recalcular por outro caminho** (a Fase 04.4 só *mostra* esse efeito; a Fase 6 passa a *gravá-lo*) (ADENDO §3)
-- [ ] **EST-15**: Uma compra de material no Financeiro dá entrada no estoque na mesma transação, com custo = valor da linha ÷ quantidade (ADENDO §3)
-- [ ] **EST-16**: Cancelar uma venda ou uma compra gera **movimentação de estorno** com a mesma referência; nenhuma movimentação é apagada (ADENDO §3)
-- [ ] **EST-17**: Vendas e compras lançadas antes de o Estoque existir **não** geram movimentação retroativa. O Estoque começa por **contagem**: saldo inicial por item, como entrada manual com custo, e a primeira abertura da tela conduz essa contagem (ADENDO §3 e §6 — o estoque inicial não vem mais de importação da Abertura)
-- [ ] **EST-18**: Saldo negativo é permitido **com aviso** e **nunca bloqueia uma venda** (ADENDO §3)
-- [ ] **EST-19**: Cada saída grava o **custo médio do instante** do lançamento; no cálculo, dinheiro em centavos inteiros e quantidade em milésimos inteiros, como a Fase 04.4 já faz (ADENDO §4)
-- [ ] **EST-20**: O item-insumo mostra onde é gasto pela ficha técnica ("gasto por: Café 200 ml (15 g), …"); editar a ficha continua em Cadastros → Catálogo (ADENDO §4)
-- [ ] **EST-21**: Categoria **"Peça pronta"** (área Peças): itens vendáveis com estoque. Até a Produção ser redesenhada, a entrada é manual, informando o custo — o da ficha de precificação, quando houver (ADENDO §4)
+- [x] **EST-01**: Cadastrar 5 kg de argila, dar baixa de 2 kg, e o saldo mostrar exatamente 3 kg
+- [x] **EST-02**: **Não existe cadastro próprio de materiais.** O Estoque trabalha sobre os itens de `itens_catalogo` (Fase 04.4) com `controla_estoque`: unidade e categoria vêm do item; o Estoque acrescenta ao item só o que é dele — **mínimo** e **observações**. Saldo e custo médio são **derivados** das movimentações, nunca campo editável *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)* — o texto antigo pedia organização em cerâmica, pintura e bordado, com custo e fornecedor como campos do material
+- [x] **EST-03**: Item abaixo do mínimo aparece destacado na lista e no bloco **"Estoque acabando" do Início** (alimentado por `lib/estoque/consultas`, ADENDO §4) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
+- [x] **EST-04**: Item com estoque mínimo zero nunca entra em alerta *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
+- [x] **EST-05**: O histórico mostra toda movimentação com autor, data e tipo
+- [x] **EST-06**: Não existe nenhuma forma de editar ou apagar uma movimentação pela interface — só registrar um ajuste
+- [x] **EST-07**: No tipo `ajuste`, a tela pede o saldo contado na prateleira, não a diferença
+- [x] **EST-08**: Um ajuste que dá diferença zero não grava nada e responde "Conferido. O saldo já estava correto."
+- [x] **EST-09**: Registrar uma baixa no celular leva menos de 15 segundos *(aprovado pelo dono em 29/09/2026 sem o tempo medido registrado — o e2e da 06-06 prova os 4 toques a partir de Saldos, não o tempo)*
+- [x] **EST-10**: O saldo mostrado bate com a soma manual do histórico
+- [x] **EST-11**: A origem de toda movimentação é `venda`, `compra`, `producao` ou `manual`. As saídas manuais são: consumo em aula (**texto livre** até a Agenda existir) · consumo em encomenda (**referência opcional à encomenda real**, não texto livre) · consumo na cafeteria (só o que não passa por venda — degustação, consumo interno) · uso do ateliê · perda ou quebra. **"Venda na loja" não é saída manual**: venda só nasce no Financeiro (ADENDO §3) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)* — o texto antigo previa vínculo com aula, **fornada** ou encomenda; o adendo não lista fornada entre os destinos
+- [x] **EST-12**: A lista de saldos tem busca e filtro por **área do Financeiro** (Cafeteria · Espaço · Peças · Loja · Geral), herdada da categoria de compra do item e, na falta, da de venda — não uma segunda classificação do Estoque (ADENDO §2) *(corrigido em 29/09/2026 pela §6 do `ADENDO.md` de 20/09 — o texto anterior está no histórico do git)*
+- [x] **EST-13**: "Novo material" no Estoque cria um item de `itens_catalogo` com `controla_estoque = true`, com a mesma validação do Cadastros; e item criado pelo Cadastros com `controla_estoque` aparece no Estoque sozinho (ADENDO §1)
+- [x] **EST-14**: Lançar uma venda no Financeiro grava a movimentação de estoque **na mesma transação do documento** — item com estoque baixa ele mesmo; item com ficha técnica baixa cada insumo — usando o cálculo que `lib/financeiro/efeito-estoque.ts` já faz, **sem recalcular por outro caminho** (a Fase 04.4 só *mostra* esse efeito; a Fase 6 passa a *gravá-lo*) (ADENDO §3)
+- [x] **EST-15**: Uma compra de material no Financeiro dá entrada no estoque na mesma transação, com custo = valor da linha ÷ quantidade (ADENDO §3)
+- [x] **EST-16**: Cancelar uma venda ou uma compra gera **movimentação de estorno** com a mesma referência; nenhuma movimentação é apagada (ADENDO §3)
+- [x] **EST-17**: Vendas e compras lançadas antes de o Estoque existir **não** geram movimentação retroativa. O Estoque começa por **contagem**: saldo inicial por item, como entrada manual com custo, e a primeira abertura da tela conduz essa contagem (ADENDO §3 e §6 — o estoque inicial não vem mais de importação da Abertura)
+- [x] **EST-18**: Saldo negativo é permitido **com aviso** e **nunca bloqueia uma venda** (ADENDO §3)
+- [x] **EST-19**: Cada saída grava o **custo médio do instante** do lançamento; no cálculo, dinheiro em centavos inteiros e quantidade em milésimos inteiros, como a Fase 04.4 já faz (ADENDO §4)
+- [x] **EST-20**: O item-insumo mostra onde é gasto pela ficha técnica ("gasto por: Café 200 ml (15 g), …"); editar a ficha continua em Cadastros → Catálogo (ADENDO §4)
+- [x] **EST-21**: Categoria **"Peça pronta"** (área Peças): itens vendáveis com estoque. Até a Produção ser redesenhada, a entrada é manual, informando o custo — o da ficha de precificação, quando houver (ADENDO §4)
+
+> **EST-01..21 marcados `[x]` em 29/09/2026, no fechamento do plano 06-11 (portão aprovado pelo
+> dono no chat: "repassei toda verificação. o cowork tambem verificou. Aprovado.").** A fase está
+> no ar desde o merge `2345850` (run `36587755269` verde; `/api/health/estoque` 200). Evidência de
+> cada um, além da aprovação: os e2e da fase (`tests/e2e/estoque-*.spec.ts`, verdes na varredura do
+> 06-11 e no pipeline) e os testes unitários e de migração (`npm run verificar`, 1627 testes,
+> `test:migracoes`), **e** a verificação do Cowork em produção (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`,
+> fora do git), passo a passo: EST-01 (passos 3–4), EST-02 (1, 9), EST-03 (5), EST-04 (1: "sem
+> mínimo", nenhum alerta), EST-05 (6), EST-06 (7–8), EST-07 (8), EST-08 (7 — o texto na tela é
+> "O saldo já está certo. Nada será gravado." na prévia; o toast "Conferido. O saldo já estava
+> correto." é o de `lib/estoque/textos.ts`), EST-10 (6), EST-11 (4), EST-12 (1: pílula "Peças"),
+> EST-13 (1), EST-14 (10–11), EST-15 (a "Compra nº 21 · Boleira 25cm · 5 un · R$ 10,00" de alguém
+> da casa entrou como "do Financeiro", R$ 2,00/un), EST-16 (13; compra cancelada só pelo e2e
+> `estoque-financeiro` (g)), EST-17 (15, a contagem do dono e o Passo 5 do Roteiro 15 com 0
+> movimentações logo depois da migração), EST-18 (12), EST-19 (leitura de `lib/estoque/custo.ts`
+> contra as decisões; valores provados pelos unitários), EST-20 (10), EST-21 (só e2e
+> `estoque-movimentacao` (g) e unitários — o Cowork não lançou peça pronta). **EST-09 é a exceção:** só
+> a aprovação do dono, sem o tempo medido.
 
 ### Abertura do Espaço (módulo temporário)
 
@@ -540,27 +558,27 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | AGD-14 | Phase 5 — Agenda de Aulas | Pending |
 | AGD-15 | Phase 5 — Agenda de Aulas | Pending |
 | AGD-16 | Phase 5 — Agenda de Aulas | Pending |
-| EST-01 | Phase 6 — Estoque | Pending |
-| EST-02 | Phase 6 — Estoque | Pending |
-| EST-03 | Phase 6 — Estoque | Pending |
-| EST-04 | Phase 6 — Estoque | Pending |
-| EST-05 | Phase 6 — Estoque | Pending |
-| EST-06 | Phase 6 — Estoque | Pending |
-| EST-07 | Phase 6 — Estoque | Pending |
-| EST-08 | Phase 6 — Estoque | Pending |
-| EST-09 | Phase 6 — Estoque | Pending |
-| EST-10 | Phase 6 — Estoque | Pending |
-| EST-11 | Phase 6 — Estoque | Pending |
-| EST-12 | Phase 6 — Estoque | Pending |
-| EST-13 | Phase 6 — Estoque | Pending |
-| EST-14 | Phase 6 — Estoque | Pending |
-| EST-15 | Phase 6 — Estoque | Pending |
-| EST-16 | Phase 6 — Estoque | Pending |
-| EST-17 | Phase 6 — Estoque | Pending |
-| EST-18 | Phase 6 — Estoque | Pending |
-| EST-19 | Phase 6 — Estoque | Pending |
-| EST-20 | Phase 6 — Estoque | Pending |
-| EST-21 | Phase 6 — Estoque | Pending |
+| EST-01 | Phase 6 — Estoque | Complete |
+| EST-02 | Phase 6 — Estoque | Complete |
+| EST-03 | Phase 6 — Estoque | Complete |
+| EST-04 | Phase 6 — Estoque | Complete |
+| EST-05 | Phase 6 — Estoque | Complete |
+| EST-06 | Phase 6 — Estoque | Complete |
+| EST-07 | Phase 6 — Estoque | Complete |
+| EST-08 | Phase 6 — Estoque | Complete |
+| EST-09 | Phase 6 — Estoque | Complete |
+| EST-10 | Phase 6 — Estoque | Complete |
+| EST-11 | Phase 6 — Estoque | Complete |
+| EST-12 | Phase 6 — Estoque | Complete |
+| EST-13 | Phase 6 — Estoque | Complete |
+| EST-14 | Phase 6 — Estoque | Complete |
+| EST-15 | Phase 6 — Estoque | Complete |
+| EST-16 | Phase 6 — Estoque | Complete |
+| EST-17 | Phase 6 — Estoque | Complete |
+| EST-18 | Phase 6 — Estoque | Complete |
+| EST-19 | Phase 6 — Estoque | Complete |
+| EST-20 | Phase 6 — Estoque | Complete |
+| EST-21 | Phase 6 — Estoque | Complete |
 
 | ABE-01 | Phase 4.2 — Abertura do Espaço | Pending |
 | ABE-02 | Phase 4.2 — Abertura do Espaço | Pending |
@@ -658,8 +676,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 160 total (ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6)
-- Mapped to phases: 160/160
+- v1 requirements: 169 total (ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
+- Mapped to phases: 169/169
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -672,7 +690,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 04.1 | M2 (reabertura) | ENC-15 (novo), ENC-03 (reaberto), ENC-04 (retirado) | 1 |
 | Phase 4 | M4 | FOR-01..13 | 13 |
 | Phase 5 | M3 | AGD-01..16 | 16 |
-| Phase 6 | M5 | EST-01..12 | 12 |
+| Phase 6 | M5 | EST-01..21 (13–21 acrescentados em 29/09 pelo ADENDO) | 21 |
 | Phase 7 | M7 | UI-10..11, PNL-01..07 | 9 |
 | Phase 04.4 | M6 → Financeiro, parte 1 | FNC-01..17 | 17 |
 | Phase 04.5 | M6 → Financeiro, parte 2 | ORC-01..18 (reescritos, promovidos da v2) | 18 |
@@ -680,7 +698,11 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-09-29 (fechamento do plano 04.6-08) — **GES-04 passou a `[x]`/Complete**, com a
+*Last updated: 2026-09-29, tarde (fechamento do plano 06-11) — **EST-01..21 passaram a `[x]`/Complete**,
+com a evidência no bloco logo depois de EST-21 (EST-09 só pela aprovação do dono, sem o tempo
+medido); a linha da Fase 6 na cobertura passou de "EST-01..12 · 12" para 21, e o total de 160 para
+169 — os EST-13..21 tinham sido acrescentados em 29/09 sem atualizar essas contas.*
+*Last updated antes: 2026-09-29 (fechamento do plano 04.6-08) — **GES-04 passou a `[x]`/Complete**, com a
 evidência de produção anotada no próprio requisito; GES-07 já havia sido corrigido no commit
 `223748a` (o espaço sem capacidade fixa, palavras do dono). Os 24 requisitos da Fase 04.6 estão
 `[x]`; a nota de SIT-02 (metade da agenda deferida para a Fase Agenda) continua valendo.*

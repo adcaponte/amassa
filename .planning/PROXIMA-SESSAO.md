@@ -1,4 +1,29 @@
-# Próxima sessão — ATUALIZADO em 2026-09-29 (manhã, depois da Parte 0)
+# Próxima sessão — ATUALIZADO em 2026-09-29 (tarde, portão da Fase 06 aprovado)
+
+> **🟢 ATUALIZAÇÃO DE 29/09/2026, TARDE — O ESTOQUE ESTÁ NO AR E O PORTÃO FOI APROVADO.** Você fez o
+> Roteiro 15 e a caminhada e aprovou no chat ("repassei toda verificação. o cowork tambem verificou.
+> Aprovado."). O plano 06-11 está concluído; os 11 planos da fase também. **Próximo: a verificação
+> da fase e o `phase.complete`** (do orquestrador — nada depende de você para isso).
+>
+> **Como sei:**
+> - **Produção em `2345850`** (o merge da fase): `git ls-remote origin refs/heads/main` =
+>   `234585063890…` (16:15 UTC); run `36587755269` verde; `/api/health/estoque` 200
+>   `{"status":"ok"}`; a `0023` conferida no banco pelo SQL que você colou (Passo 5).
+> - **Cowork** verificou em produção (`Claude outputs/estoque/VERIFICACAO-COWORK-06.md`): 19 passos,
+>   nenhum 🔴, 7 observações que não bloqueiam — em `.planning/STATE.md`, Pending Todos.
+> - **EST-01..21 marcados** em `REQUIREMENTS.md`, com a evidência de cada um; o EST-09 (< 15 s) só
+>   pela sua aprovação, porque os tempos não vieram.
+>
+> **O que fica com você, sem pressa:**
+> 1. **Terminar a contagem inicial**, se ainda não terminou: às 12h46 o Cowork viu "2 de 7 contados
+>    hoje" — só o "Bolo do dia" era seu. `/gestao/estoque/contagem`.
+> 2. **As decisões `[auto]`** das §0.3/§0.4/§0.5 de `06-VERIFICACAO-HUMANA.md` — valem como estão até
+>    você pedir troca. O Cowork destacou perda paga por Peças (D-14), saldo negativo dentro de
+>    "Acabando" (D-21) e material desativado nunca avisar.
+> 3. **Custo vazio na entrada manual** recusa (zero digitado aceita) — está certo assim?
+> 4. **"Andressa salvou às 15h45"** nas Anotações do Início às 13h de Brasília — hora em UTC ou data
+>    faltando? Confira com ela.
+> 5. **O `push` deste fechamento** (só documentos em `.planning/`) é seu, quando quiser.
 
 > **🟢 ATUALIZAÇÃO DE 29/09/2026, MANHÃ (~09h30 UTC) — PARTE 0 RESPONDIDA E APLICADA. O PRÓXIMO PASSO
 > É O ROTEIRO 15.** Você respondeu a Parte 0 no chat, por formulário: **D-23 vale, D-24 vale, WR-01 e
