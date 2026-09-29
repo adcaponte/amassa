@@ -4,8 +4,8 @@
 > Como sei: verificação da fase `passed`, 30 de 30 (`.planning/phases/06-estoque/06-VERIFICATION.md`,
 > commit `2ed2d0b`); portão 06-11 aprovado pelo Theo no chat; `phase.complete` no ROADMAP; produção
 > em `2345850` (run `36587755269` verde, `/api/health/estoque` 200). Os blocos abaixo que dizem
-> "próximo: verificação da fase" foram superados. Três commits só de documentos no `main` local
-> esperam o `push` do Theo (`32ebdfd`, `2ed2d0b`, `af142f0`).
+> "próximo: verificação da fase" foram superados. Os commits só de documentos do fechamento, no `main`
+> local, esperam o `push` do Theo (`git log origin/main..main` mostra quais).
 >
 > **Próximo:** item 5 da fila (Produção) e/ou 6 (Agenda) — fases ainda por criar. O Theo já confirmou
 > para a Produção: "pode sim zerar todos os dados. nada é real ainda." (29/09). Pendências pequenas
