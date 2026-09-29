@@ -18,6 +18,7 @@ import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { ComparacaoCotacoes } from "@/components/amassa/cotacoes/comparacao-cotacoes";
 import { ListaCotacoes } from "@/components/amassa/cotacoes/lista-cotacoes";
 import { Button } from "@/components/ui/button";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type PainelCotacoesProps = {
   categoriaId: string;
@@ -78,7 +79,7 @@ export function PainelCotacoes({ categoriaId, categoriaNome, cotacoes }: PainelC
     [cotacoesOrdenadas, marcados],
   );
 
-  const hrefNovaCotacao = `/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=novo`;
+  const hrefNovaCotacao = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=novo`);
 
   return (
     <div className="flex flex-col gap-4">

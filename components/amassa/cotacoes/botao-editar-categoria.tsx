@@ -7,6 +7,7 @@ import type { CategoriaDeCotacao } from "@/lib/cotacoes/consultas";
 import { rotuloEditarCategoria } from "@/lib/cotacoes/textos";
 import { useAbridorDeCotacoes } from "@/components/amassa/cotacoes/contexto-cotacoes";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // Botão-só-ícone que abre `DialogoCategoria` em modo de RENOMEAR (D-15, UI-SPEC §"Sub-abas de
 // categoria": botão "···" com `aria-label="Editar categoria «{nome}»"`) — SÓ existe para a
@@ -20,7 +21,7 @@ import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 // 44px com o glifo menor dentro, mesma técnica de `ferramentas-linha.tsx`.
 export function BotaoEditarCategoria({ categoria }: { categoria: CategoriaDeCotacao }) {
   const abridor = useAbridorDeCotacoes();
-  const href = `/abertura?aba=cotacoes&categoria=${categoria.id}&categoriaDialogo=${categoria.id}`;
+  const href = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoria.id}&categoriaDialogo=${categoria.id}`);
 
   return (
     <Link

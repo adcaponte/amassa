@@ -36,6 +36,7 @@ import { EfeitoEstoque } from "./efeito-estoque";
 import { GradeCatalogo, type FiltroDeArea } from "./grade-catalogo";
 import { LinhaCarrinho, type LinhaDoCarrinho } from "./linha-carrinho";
 import { ListaCompleta } from "./lista-completa";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
 
@@ -568,7 +569,7 @@ export function PainelVenda({ hoje, categorias, catalogo, itensParaEfeito, confi
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
     // Navegação completa de propósito (nunca `router.push`/`router.refresh`) — a página resolve
     // o aviso no servidor a partir de `?aviso=lancado&documento=<id>`.
-    window.location.assign(`/financeiro?aba=venda&aviso=lancado&documento=${resposta.dados.id}`);
+    window.location.assign(rotaDeGestao(`/financeiro?aba=venda&aviso=lancado&documento=${resposta.dados.id}`));
   }
 
   return (

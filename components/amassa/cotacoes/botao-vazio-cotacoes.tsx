@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAbridorDeCotacoes } from "@/components/amassa/cotacoes/contexto-cotacoes";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Button } from "@/components/ui/button";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // O botão dos DOIS estados vazios do comparador (UI-SPEC §"Copywriting Contract"): "Nenhuma
 // categoria ainda" abre o diálogo de categoria; "Nenhuma cotação aqui ainda" abre o formulário de
@@ -23,8 +24,8 @@ export function BotaoVazioCotacoes({
   const abridor = useAbridorDeCotacoes();
   const href =
     tipo === "categoria"
-      ? `/abertura?aba=cotacoes${categoriaId ? `&categoria=${categoriaId}` : ""}&categoriaDialogo=nova`
-      : `/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=novo`;
+      ? rotaDeGestao(`/abertura?aba=cotacoes${categoriaId ? `&categoria=${categoriaId}` : ""}&categoriaDialogo=nova`)
+      : rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=novo`);
 
   return (
     <Button asChild variant="default" className="min-h-[44px]">

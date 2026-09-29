@@ -68,6 +68,7 @@ import { EditorOrcamento } from "@/components/amassa/orcamentos/editor-orcamento
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -310,7 +311,7 @@ export default async function PaginaFinanceiro({
   // prontas).
   function hrefDoExtrato(mesAlvo: string, formaAlvo: typeof formaDoExtrato): string {
     const sufixoForma = formaAlvo === "todas" ? "" : `&forma=${formaAlvo}`;
-    return `/financeiro?aba=caixa&mes=${mesAlvo}${sufixoForma}`;
+    return rotaDeGestao(`/financeiro?aba=caixa&mes=${mesAlvo}${sufixoForma}`);
   }
   const hrefMesAnteriorDoExtrato = hrefDoExtrato(mesAnterior(mesAtual), formaDoExtrato);
   const hrefMesSeguinteDoExtrato = hrefDoExtrato(mesSeguinte(mesAtual), formaDoExtrato);
@@ -323,8 +324,8 @@ export default async function PaginaFinanceiro({
   const resumoMesAtual = abaMes
     ? resumoDoMes({ mes: mesAtual, documentos: documentosDoMes, parcelasPagas: parcelasPagasNoMes })
     : null;
-  const hrefMesAnteriorDaTela = `/financeiro?aba=mes&mes=${mesAnterior(mesAtual)}`;
-  const hrefMesSeguinteDaTela = `/financeiro?aba=mes&mes=${mesSeguinte(mesAtual)}`;
+  const hrefMesAnteriorDaTela = rotaDeGestao(`/financeiro?aba=mes&mes=${mesAnterior(mesAtual)}`);
+  const hrefMesSeguinteDaTela = rotaDeGestao(`/financeiro?aba=mes&mes=${mesSeguinte(mesAtual)}`);
 
   // O detalhe do documento ("Ver") acha o documento numa lista JÁ carregada — nunca uma segunda
   // consulta ao abrir (key_link do plano). `idsParaDetalhe` é a UNIÃO dos documentos das contas em

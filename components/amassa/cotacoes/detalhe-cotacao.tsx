@@ -12,6 +12,7 @@ import { CamposLongos } from "@/components/amassa/cotacoes/campos-longos";
 import { PrecoCotacao } from "@/components/amassa/cotacoes/preco-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type DetalheCotacaoProps = {
   // A lista de cotações da categoria ATIVA, já carregada por `page.tsx` — nunca uma segunda
@@ -35,7 +36,7 @@ export function DetalheCotacao({ cotacoes }: DetalheCotacaoProps) {
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("detalhe");
     const query = parametros.toString();
-    irParaSemNavegar(`/abertura${query ? `?${query}` : ""}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura${query ? `?${query}` : ""}`));
   }
 
   // Fecha o detalhe e abre o formulário de edição DA MESMA cotação — troca `detalhe` por
@@ -49,7 +50,7 @@ export function DetalheCotacao({ cotacoes }: DetalheCotacaoProps) {
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("detalhe");
     parametros.set("cotacao", cotacao.id);
-    irParaSemNavegar(`/abertura?${parametros.toString()}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura?${parametros.toString()}`));
     abridor.abrirCotacao(cotacao);
   }
 

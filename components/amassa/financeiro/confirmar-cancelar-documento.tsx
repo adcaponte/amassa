@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ConfirmarCancelarDocumentoProps = {
   // O documento já encontrado pelo `DialogoDocumento` (nunca uma segunda busca aqui) — nulo
@@ -56,7 +57,7 @@ export function ConfirmarCancelarDocumento({
     }
 
     window.location.assign(
-      `/financeiro?aba=caixa&aviso=cancelado&documento=${resposta.dados.documentoId}`,
+      rotaDeGestao(`/financeiro?aba=caixa&aviso=cancelado&documento=${resposta.dados.documentoId}`),
     );
   }
 

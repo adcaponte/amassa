@@ -10,6 +10,7 @@ import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { CamposLongos } from "@/components/amassa/cotacoes/campos-longos";
 import { PrecoCotacao } from "@/components/amassa/cotacoes/preco-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ComparacaoCotacoesProps = {
   // As cotações MARCADAS, já na ordem que a lista está mostrando (`PainelCotacoes` já aplicou
@@ -53,7 +54,7 @@ export function ComparacaoCotacoes({ cotacoes, categoriaId }: ComparacaoCotacoes
         // cor SÓLIDA que não passa pela composição alfa que derrubava o contraste do texto, e
         // continua lendo como "menos em destaque" ao lado das colunas normais.
         const descartada = cotacao.situacao === "descartado";
-        const hrefEditar = `/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=${cotacao.id}`;
+        const hrefEditar = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=${cotacao.id}`);
 
         return (
           <div

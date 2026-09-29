@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { gerarContasDoMes } from "@/lib/cadastros/acoes";
 import { ROTULO_MES_DA_GERACAO, rotuloGerarContas } from "@/lib/cadastros/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type OpcaoDeMesParaGeracao = {
   // "YYYY-MM" — a chave que a ação de fato recebe.
@@ -58,7 +59,7 @@ export function BotaoGerarContas({ meses, mesInicial, existeContaAtiva }: BotaoG
     // Navegação COMPLETA com o aviso na URL — o servidor monta o texto certo ("N criada(s)" ou
     // "já existiam"), nunca um toast local antes de a lista real ter carregado.
     window.location.assign(
-      `/cadastros?sub=fixas&aviso=contas-geradas&quantidade=${resposta.dados.criadas}&mes=${resposta.dados.mes}`,
+      rotaDeGestao(`/cadastros?sub=fixas&aviso=contas-geradas&quantidade=${resposta.dados.criadas}&mes=${resposta.dados.mes}`),
     );
   }
 

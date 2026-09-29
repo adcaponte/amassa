@@ -73,7 +73,7 @@ export function SubAbasCategorias({
       })}
 
       <PilulaNovaCategoria
-        hrefBase={`/abertura?aba=cotacoes${categoriaAtivaId ? `&categoria=${categoriaAtivaId}` : ""}`}
+        hrefBase={rotaDeGestao(`/abertura?aba=cotacoes${categoriaAtivaId ? `&categoria=${categoriaAtivaId}` : ""}`)}
       />
 
       {/* Só existe categoria ATIVA (a barra nunca sobe sem nenhuma categoria selecionada quando

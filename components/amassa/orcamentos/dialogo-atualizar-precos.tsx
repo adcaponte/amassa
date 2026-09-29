@@ -28,6 +28,7 @@ import {
   rotuloMinimoHoje,
   rotuloSubiu,
 } from "@/lib/orcamentos/textos";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type ModoDoDialogoAtualizarPrecos = "rascunho" | "congelado";
 
@@ -86,7 +87,7 @@ export function DialogoAtualizarPrecos({
 
   function fechar() {
     setErro(null);
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId));
   }
 
   async function confirmar() {
@@ -110,7 +111,7 @@ export function DialogoAtualizarPrecos({
     // Navegação COMPLETA — o cabeçalho (revisão, data, validade) e o histórico só o servidor
     // sabem depois de gravar, nunca uma atualização otimista no cliente.
     const aviso = modo === "congelado" ? "orcamento-revisao-criada" : "orcamento-atualizado";
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&aviso=${aviso}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId, { aviso }));
   }
 
   return (

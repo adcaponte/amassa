@@ -15,6 +15,7 @@ import {
 import { formatarReais } from "@/lib/financeiro/formato";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type PecaParaEscolherProps = {
   id: string;
@@ -35,7 +36,7 @@ export function AbrirEscolherPecaBotao({ orcamentoId }: { orcamentoId: string })
   return (
     <button
       type="button"
-      onClick={() => irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&escolherPeca=1`)}
+      onClick={() => irParaSemNavegar(hrefDoOrcamento(orcamentoId, { escolherPeca: "1" }))}
       className="border-border hover:bg-muted text-corpo flex min-h-[44px] items-center rounded-md border px-4"
     >
       {ROTULO_MAIS_PECA_DA_LISTA}
@@ -56,7 +57,7 @@ export function EscolherPeca({ orcamentoId, pecas }: EscolherPecaProps) {
 
   function fechar() {
     setErro(null);
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId));
   }
 
   async function escolher(fichaId: string) {
@@ -76,7 +77,7 @@ export function EscolherPeca({ orcamentoId, pecas }: EscolherPecaProps) {
 
     // Navegação COMPLETA — a linha nova, com o preço que só o servidor decidiu, precisa vir do
     // recarregamento, nunca de uma atualização otimista no cliente.
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   return (

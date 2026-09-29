@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ConfirmarRemoverCotacaoProps = {
   // A lista de cotações da categoria ATIVA, já carregada por `page.tsx` — nunca uma segunda
@@ -41,7 +42,7 @@ export function ConfirmarRemoverCotacao({ cotacoes }: ConfirmarRemoverCotacaoPro
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("cotacaoRemover");
     const query = parametros.toString();
-    irParaSemNavegar(`/abertura${query ? `?${query}` : ""}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura${query ? `?${query}` : ""}`));
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {
@@ -66,7 +67,7 @@ export function ConfirmarRemoverCotacao({ cotacoes }: ConfirmarRemoverCotacaoPro
     // continua a mesma. Sem `toast` de sucesso: ele não sobrevive à navegação completa — a
     // própria lista já atualizada, sem a linha, é a confirmação mais forte que um aviso que some
     // em três segundos.
-    window.location.assign(`/abertura?aba=cotacoes&categoria=${resposta.dados.categoriaId}`);
+    window.location.assign(rotaDeGestao(`/abertura?aba=cotacoes&categoria=${resposta.dados.categoriaId}`));
   }
 
   return (

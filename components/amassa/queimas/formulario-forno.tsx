@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // D-02: não existe tela de cadastro dedicada — este componente é o ÚNICO caminho de criação de
 // forno, aberto por `?novo` (masculino — "novo forno", mesma convenção de `?nova` em
@@ -97,7 +98,9 @@ export function FormularioForno({ fornoParaEditar = null }: FormularioFornoProps
 
   function fechar() {
     setErro(null);
-    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/gestao/queimas");
+    router.push(
+      rotaDeGestao(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/queimas"),
+    );
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {
@@ -124,7 +127,9 @@ export function FormularioForno({ fornoParaEditar = null }: FormularioFornoProps
     }
 
     toast.success(modoEdicao ? "Forno salvo." : "Forno cadastrado.");
-    router.push(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/gestao/queimas");
+    router.push(
+      rotaDeGestao(modoEdicao && fornoParaEditar ? `/queimas/${fornoParaEditar.id}` : "/queimas"),
+    );
     router.refresh();
   }
 

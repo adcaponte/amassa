@@ -14,6 +14,7 @@ import {
   TITULO_PARA_QUEM_E_QUANDO,
 } from "@/lib/orcamentos/textos";
 import { formatarDataCurta } from "@/lib/financeiro/formato";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type CabecalhoDoOrcamentoProps = {
   orcamentoId: string;
@@ -72,7 +73,7 @@ export function CabecalhoDoOrcamento({
     }
 
     // Navegação COMPLETA — mesma disciplina do resto do módulo.
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   if (!vivo) {

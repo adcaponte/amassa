@@ -10,6 +10,7 @@ import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cot
 import { MarcarCotacao } from "@/components/amassa/cotacoes/marcar-cotacao";
 import { PrecoCotacao } from "@/components/amassa/cotacoes/preco-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type LinhaCotacaoProps = {
   cotacao: Cotacao;
@@ -28,7 +29,7 @@ export function LinhaCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcacao
   // documentado em `cartao-cotacao.tsx`: 60% de opacidade reprova mesmo diluindo o token de tinta
   // mais escuro do sistema).
   const temAlerta = cotacao.alertas.length > 0;
-  const hrefDetalhe = `/abertura?aba=cotacoes&categoria=${categoriaId}&detalhe=${cotacao.id}`;
+  const hrefDetalhe = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&detalhe=${cotacao.id}`);
 
   return (
     <tr data-testid="cotacoes-linha" className="border-border border-b last:border-0">

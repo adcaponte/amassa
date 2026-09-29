@@ -7,6 +7,7 @@ import { criarOrcamento } from "@/lib/orcamentos/acoes";
 import { ROTULO_NOVO_ORCAMENTO } from "@/lib/orcamentos/textos";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 // "Novo orçamento" — o único acento terracota da tela (04.5-UI-SPEC.md §Color). Cliente porque
 // precisa de estado local de "enviando" e de decidir a navegação depois da resposta do servidor.
@@ -35,7 +36,7 @@ export function NovoOrcamentoBotao({ className }: { className?: string }) {
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${resultado.dados.id}`);
+    window.location.assign(hrefDoOrcamento(resultado.dados.id));
   }
 
   return (

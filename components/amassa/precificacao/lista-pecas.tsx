@@ -191,7 +191,7 @@ export function ListaPecas({ fichas, mostrarExclusivas, parametros }: ListaPecas
 
   const fichasExclusivas = fichas.filter((ficha) => ficha.exclusiva);
   const fichasVisiveis = mostrarExclusivas ? fichas : fichas.filter((ficha) => !ficha.exclusiva);
-  const hrefAlternador = `/financeiro?aba=pecas&exclusivas=${mostrarExclusivas ? "0" : "1"}`;
+  const hrefAlternador = hrefDaAbaPecas({ mostrarExclusivas: !mostrarExclusivas });
 
   return (
     <div className="flex flex-col gap-4 px-6 py-6 md:px-8" data-testid="pecas-lista">

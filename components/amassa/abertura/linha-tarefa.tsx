@@ -9,6 +9,7 @@ import { textoDaUrgencia } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
 import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // Client Component pelo MESMO motivo de `linha-item.tsx` — leia o comentário de lá. Em resumo:
 // o risco no texto, o esmaecido e a etiqueta de urgência dependiam de o servidor redesenhar a
@@ -98,8 +99,8 @@ export function LinhaDeTarefa({ tarefa, hoje }: { tarefa: TarefaDaAbertura; hoje
         id={tarefa.id}
         tipo="tarefa"
         nome={tarefa.descricao}
-        hrefEditar={`/abertura?aba=tarefas&tarefa=${tarefa.id}`}
-        hrefRemover={`/abertura?aba=tarefas&removerTarefa=${tarefa.id}`}
+        hrefEditar={rotaDeGestao(`/abertura?aba=tarefas&tarefa=${tarefa.id}`)}
+        hrefRemover={rotaDeGestao(`/abertura?aba=tarefas&removerTarefa=${tarefa.id}`)}
       />
     </div>
   );

@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // Segundo caminho de escrita: o `zodResolver` no navegador é conveniência, nunca a verdade
 // (CLAUDE.md §Validação) — `criarCotacao` revalida no servidor com `esquemaCotacao`, que é quem
@@ -144,7 +145,7 @@ function FormularioCotacaoBase({
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("cotacao");
     const query = parametros.toString();
-    irParaSemNavegar(`/abertura${query ? `?${query}` : ""}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura${query ? `?${query}` : ""}`));
   }
 
   // Tarefa 2 (04.3-03): o botão de perigo do modo de edição só ABRE a confirmação
@@ -158,7 +159,7 @@ function FormularioCotacaoBase({
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("cotacao");
     parametros.set("cotacaoRemover", cotacaoParaEditar.id);
-    irParaSemNavegar(`/abertura?${parametros.toString()}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura?${parametros.toString()}`));
   }
 
   async function aoSubmeter(valores: ValoresDoFormulario) {
@@ -182,7 +183,7 @@ function FormularioCotacaoBase({
     // Sem `toast` de sucesso: ele não sobrevive à navegação completa — a própria lista já
     // atualizada é a confirmação (divergência deliberada das linhas de aviso do §Copywriting
     // Contract do UI-SPEC, justificada por D-23 e pelo precedente de `formulario-item.tsx`).
-    window.location.assign(`/abertura?aba=cotacoes&categoria=${resposta.dados.categoriaId}`);
+    window.location.assign(rotaDeGestao(`/abertura?aba=cotacoes&categoria=${resposta.dados.categoriaId}`));
   }
 
   const { register, control, formState } = form;

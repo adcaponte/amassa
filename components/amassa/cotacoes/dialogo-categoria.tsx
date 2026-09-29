@@ -21,6 +21,7 @@ import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type DialogoCategoriaProps = {
   // A linha da categoria em edição, buscada pela PÁGINA (`obterCategoriaDeCotacao`) — vale
@@ -71,7 +72,7 @@ export function DialogoCategoria({ categoriaParaEditar: categoriaDoServidor }: D
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("categoriaDialogo");
     const query = parametros.toString();
-    irParaSemNavegar(`/abertura${query ? `?${query}` : ""}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura${query ? `?${query}` : ""}`));
   }
 
   // O botão de perigo só ABRE a confirmação (`ConfirmarRemoverCategoria`, Tarefa 2) — quem
@@ -86,7 +87,7 @@ export function DialogoCategoria({ categoriaParaEditar: categoriaDoServidor }: D
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("categoriaDialogo");
     parametros.set("categoriaRemover", categoriaDialogoAberta);
-    irParaSemNavegar(`/abertura?${parametros.toString()}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura?${parametros.toString()}`));
   }
 
   async function salvar() {
@@ -116,7 +117,7 @@ export function DialogoCategoria({ categoriaParaEditar: categoriaDoServidor }: D
     // Navegação COMPLETA (D-23): abrir/fechar é `history.pushState`, mas GRAVAR termina em
     // `window.location.assign` — só o servidor sabe o identificador (criação) ou o nome
     // atualizado (renomeio) que valem a partir de agora.
-    window.location.assign(`/abertura?aba=cotacoes&categoria=${resposta.dados.id}`);
+    window.location.assign(rotaDeGestao(`/abertura?aba=cotacoes&categoria=${resposta.dados.id}`));
   }
 
   const titulo = modoEdicao ? TITULO_DIALOGO_EDITAR_CATEGORIA : TITULO_DIALOGO_NOVA_CATEGORIA;

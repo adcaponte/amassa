@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { SeloDePreco } from "@/components/amassa/precificacao/selo-de-preco";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type LinhaDeOrcamentoProps = {
   orcamentoId: string;
@@ -115,7 +116,7 @@ export function LinhaDeOrcamento({
 
     // Navegação COMPLETA — o subtotal/total do orçamento e o "preço mínimo" desta e de outras
     // linhas dependem do que só o servidor recalcula.
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   async function confirmarTirar(evento: { preventDefault: () => void }) {
@@ -132,7 +133,7 @@ export function LinhaDeOrcamento({
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   const subtotalCentavos = quantidade * precoUnitarioCentavos;

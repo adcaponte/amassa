@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { DialogoCategoria } from "@/components/amassa/cadastros/dialogo-categoria";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ListaCategoriasProps = {
   categorias: CategoriaComUso[];
@@ -56,7 +57,7 @@ export function ListaCategorias({ categorias }: ListaCategoriasProps) {
     // (`avisoDaUrl`/`AvisoCadastros`), nunca um `toast` disparado aqui antes de a lista real
     // (com a linha riscada) ter carregado.
     window.location.assign(
-      `/cadastros?sub=categorias&aviso=${novoEstado ? "categoria-reativada" : "categoria-desativada"}`,
+      rotaDeGestao(`/cadastros?sub=categorias&aviso=${novoEstado ? "categoria-reativada" : "categoria-desativada"}`),
     );
   }
 

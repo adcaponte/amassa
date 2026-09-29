@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { DialogoContaFixa } from "@/components/amassa/cadastros/dialogo-conta-fixa";
 import { ValorContaFixa } from "@/components/amassa/cadastros/valor-conta-fixa";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ListaContasFixasProps = {
   contasFixas: ContaFixaResumida[];
@@ -57,7 +58,7 @@ export function ListaContasFixas({
     // Navegação COMPLETA com o aviso na URL — o servidor resolve o texto do toast a partir dele
     // (`avisoDaUrl`/`AvisoCadastros`), mesma disciplina de `ListaCategorias::alternarAtiva`.
     window.location.assign(
-      `/cadastros?sub=fixas&aviso=${novoEstado ? "conta-fixa-reativada" : "conta-fixa-desativada"}`,
+      rotaDeGestao(`/cadastros?sub=fixas&aviso=${novoEstado ? "conta-fixa-reativada" : "conta-fixa-desativada"}`),
     );
   }
 

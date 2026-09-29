@@ -10,6 +10,7 @@ import { ROTULO_A_PRAZO, ROTULO_A_VISTA } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { CaixaMarcacao } from "@/components/amassa/abertura/caixa-marcacao";
 import { FerramentasLinha } from "@/components/amassa/abertura/ferramentas-linha";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 // Client Component, e é DE PROPÓSITO — esta linha era um Server Component e o defeito estava
 // exatamente aí. Medido em produção (servidor `standalone`, o mesmo do VPS): marcar um item
@@ -148,8 +149,8 @@ export function LinhaDeItem({
         id={item.id}
         tipo="item"
         nome={item.nome}
-        hrefEditar={`/abertura?item=${item.id}`}
-        hrefRemover={`/abertura?removerItem=${item.id}`}
+        hrefEditar={rotaDeGestao(`/abertura?item=${item.id}`)}
+        hrefRemover={rotaDeGestao(`/abertura?removerItem=${item.id}`)}
       />
     </div>
   );

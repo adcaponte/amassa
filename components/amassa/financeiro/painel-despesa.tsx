@@ -59,6 +59,7 @@ import { EfeitoEstoque } from "./efeito-estoque";
 import { GradeCatalogo } from "./grade-catalogo";
 import { LinhaCompra } from "./linha-compra";
 import { ListaCompleta } from "./lista-completa";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
 
@@ -510,7 +511,7 @@ export function PainelDespesa({
     }
 
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
-    window.location.assign(`/financeiro?aba=despesa&aviso=lancado&documento=${resposta.dados.id}`);
+    window.location.assign(rotaDeGestao(`/financeiro?aba=despesa&aviso=lancado&documento=${resposta.dados.id}`));
   }
 
   const categoriaOutraEscolhida = categoriasParaDespesa.find((categoria) => categoria.id === categoriaOutraId);

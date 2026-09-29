@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { desfazerPagamento } from "@/lib/financeiro/acoes";
 import { FRASE_FALHA_AO_DESFAZER, ROTULO_DESFAZER } from "@/lib/financeiro/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type AvisoFinanceiroProps = {
   // O texto PRONTO, montado pela página no servidor a partir de `?aviso=...` — este componente
@@ -41,7 +42,7 @@ export function AvisoFinanceiro({ texto, desfazer }: AvisoFinanceiroProps) {
                 return;
               }
               window.location.assign(
-                `/financeiro?aba=caixa&aviso=desfeito&parcela=${resposta.dados.parcelaId}`,
+                rotaDeGestao(`/financeiro?aba=caixa&aviso=desfeito&parcela=${resposta.dados.parcelaId}`),
               );
             })();
           },

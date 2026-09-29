@@ -13,6 +13,7 @@ import {
   ROTULOS_DO_PLANO_DE_PAGAMENTO,
   TITULO_TOTAL_E_PAGAMENTO,
 } from "@/lib/orcamentos/textos";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type TotalEPagamentoProps = {
   orcamentoId: string;
@@ -74,7 +75,7 @@ export function TotalEPagamento({
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   async function salvarObservacoes() {
@@ -90,7 +91,7 @@ export function TotalEPagamento({
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   return (

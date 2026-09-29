@@ -24,6 +24,7 @@ import {
   TITULO_NO_FINANCEIRO_UMA_VENDA,
   rotuloAbrirOrdem,
 } from "@/lib/orcamentos/textos";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type DialogoAprovarProps = {
   orcamentoId: string;
@@ -52,7 +53,7 @@ export function DialogoAprovar({ orcamentoId, plano, entregaPrevistaFormatada }:
 
   function fechar() {
     setErro(null);
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId));
   }
 
   async function confirmar() {
@@ -72,7 +73,7 @@ export function DialogoAprovar({ orcamentoId, plano, entregaPrevistaFormatada }:
     // Navegação COMPLETA — o chip, o veredito e os dois links só o servidor sabe montar depois de
     // gravar (o toast lê `orcamentoParaEditar` recarregado, nunca um estado otimista do cliente).
     window.location.assign(
-      `/financeiro?aba=orcamentos&orcamento=${orcamentoId}&aviso=orcamento-aprovado`,
+      hrefDoOrcamento(orcamentoId, { aviso: "orcamento-aprovado" }),
     );
   }
 

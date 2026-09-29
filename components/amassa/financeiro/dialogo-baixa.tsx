@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
 
@@ -85,7 +86,7 @@ export function DialogoBaixa({ selecao, contas, hoje, aoFechar }: DialogoBaixaPr
       return;
     }
 
-    window.location.assign(`/financeiro?aba=caixa&aviso=pago&parcela=${resposta.dados.parcelaId}`);
+    window.location.assign(rotaDeGestao(`/financeiro?aba=caixa&aviso=pago&parcela=${resposta.dados.parcelaId}`));
   }
 
   return (

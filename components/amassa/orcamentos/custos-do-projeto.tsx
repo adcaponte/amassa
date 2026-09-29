@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type CustosDoProjetoProps = {
   orcamentoId: string;
@@ -116,7 +117,7 @@ export function CustosDoProjeto({ orcamentoId, vivo, custos, freteCentavos, plan
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   function acrescentarLinhaLocal() {
@@ -150,7 +151,7 @@ export function CustosDoProjeto({ orcamentoId, vivo, custos, freteCentavos, plan
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   async function salvarFrete() {
@@ -171,7 +172,7 @@ export function CustosDoProjeto({ orcamentoId, vivo, custos, freteCentavos, plan
       return;
     }
 
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    window.location.assign(hrefDoOrcamento(orcamentoId));
   }
 
   const linhaEmConfirmacao = linhas.find((l) => l.chave === confirmandoTirar);

@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ConfirmarRemoverCategoriaProps = {
   // A lista INTEIRA de categorias e o MESMO mapa de contagem calculado uma vez em `page.tsx`
@@ -45,7 +46,7 @@ export function ConfirmarRemoverCategoria({
     const parametros = new URLSearchParams(window.location.search);
     parametros.delete("categoriaRemover");
     const query = parametros.toString();
-    irParaSemNavegar(`/abertura${query ? `?${query}` : ""}`);
+    irParaSemNavegar(rotaDeGestao(`/abertura${query ? `?${query}` : ""}`));
   }
 
   async function confirmar(evento: { preventDefault: () => void }) {

@@ -26,6 +26,7 @@ import {
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { BaixarPdf } from "./baixar-pdf";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type VerComoOClienteVeProps = {
   orcamentoId: string;
@@ -41,7 +42,7 @@ export function VerComoOClienteVe({ orcamentoId, documento }: VerComoOClienteVeP
   }
 
   function voltar() {
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId));
   }
 
   return (

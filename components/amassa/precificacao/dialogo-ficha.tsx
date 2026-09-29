@@ -53,6 +53,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { ResultadoDaFicha } from "./resultado-da-ficha";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type DialogoFichaProps = {
   // `null` = fechado; `"novo"` = criar do zero; a ficha carregada = editar (D-18: o campo de
@@ -180,7 +181,7 @@ export function DialogoFicha({
   // (Server Component), então não recebe um `onFechar` de fora: nenhuma função cruza a fronteira
   // servidor→cliente.
   const urlDeVolta = vindoDoOrcamentoId
-    ? `/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`
+    ? hrefDoOrcamento(vindoDoOrcamentoId)
     : hrefDaAbaPecas({ mostrarExclusivas: mostrandoExclusivas });
   function fechar() {
     window.location.assign(urlDeVolta);
@@ -417,8 +418,8 @@ export function DialogoFicha({
       // que mudou. Não "consertar" isto para voltar à lista sem falar com ele.
       window.location.assign(
         vindoDoOrcamentoId
-          ? `/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`
-          : `/financeiro?aba=pecas&peca=${resposta.dados.id}&aviso=peca-salva`,
+          ? hrefDoOrcamento(vindoDoOrcamentoId)
+          : hrefDaAbaPecas({ peca: resposta.dados.id, aviso: "peca-salva" }),
       );
       return;
     }
@@ -438,7 +439,7 @@ export function DialogoFicha({
 
     if (!vindoDoOrcamentoId) {
       setEnviando(false);
-      window.location.assign(`/financeiro?aba=pecas&peca=${idDaFicha}&aviso=peca-salva`);
+      window.location.assign(hrefDaAbaPecas({ peca: idDaFicha, aviso: "peca-salva" }));
       return;
     }
 
@@ -450,7 +451,7 @@ export function DialogoFicha({
       setErroDoServidor(`A peça foi criada, mas não entrou no orçamento: ${respostaLinha.erro}`);
       return;
     }
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${vindoDoOrcamentoId}`);
+    window.location.assign(hrefDoOrcamento(vindoDoOrcamentoId));
   }
 
   const titulo = modoEdicao ? TITULO_DIALOGO_FICHA_EDITAR : TITULO_DIALOGO_FICHA_NOVA;

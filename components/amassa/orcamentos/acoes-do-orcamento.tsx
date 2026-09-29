@@ -24,6 +24,7 @@ import {
 import type { StatusEncomenda } from "@/lib/orcamentos/situacao";
 
 import { VereditoDaAprovacao } from "./veredito-da-aprovacao";
+import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 
 export type AcoesDoOrcamentoProps = {
   orcamentoId: string;
@@ -68,7 +69,7 @@ export function AcoesDoOrcamento({
   const [erro, setErro] = useState<string | null>(null);
 
   function irParaEditorComAviso(aviso: string, idAlvo: string) {
-    window.location.assign(`/financeiro?aba=orcamentos&orcamento=${idAlvo}&aviso=${aviso}`);
+    window.location.assign(hrefDoOrcamento(idAlvo, { aviso }));
   }
 
   async function aoClicarEnviar() {
@@ -123,7 +124,7 @@ export function AcoesDoOrcamento({
   const podeEnviar = temCliente && temPeca;
 
   function abrirAtualizarPrecos() {
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&atualizarPrecos=1`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId, { atualizarPrecos: "1" }));
   }
 
   // "Ver como o cliente vê" (04.5-11-PLAN.md) — disponível em QUALQUER status (protótipo,
@@ -132,7 +133,7 @@ export function AcoesDoOrcamento({
   // montado ao lado do editor, esperando por `?documento=1` — trocar a URL sem navegar é o que
   // torna a pré-visualização instantânea, sem chamada nova ao servidor.
   function abrirDocumentoDoCliente() {
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId, { documento: "1" }));
   }
 
   // "Cliente aprovou" (04.5-12-PLAN.md) — mesma disciplina de `abrirAtualizarPrecos`: abrir é
@@ -140,7 +141,7 @@ export function AcoesDoOrcamento({
   // por `?aprovar=1`, com o plano JÁ calculado por prop — nenhuma chamada nova ao servidor só para
   // abrir).
   function abrirAprovacao() {
-    irParaSemNavegar(`/financeiro?aba=orcamentos&orcamento=${orcamentoId}&aprovar=1`);
+    irParaSemNavegar(hrefDoOrcamento(orcamentoId, { aprovar: "1" }));
   }
 
   const botaoAtualizarPrecos = (rotulo: string) => (

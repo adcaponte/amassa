@@ -7,6 +7,7 @@ import type { Cotacao } from "@/lib/cotacoes/consultas";
 import { rotuloEditarCotacao, rotuloRemoverCotacao } from "@/lib/cotacoes/textos";
 import { useAbridorDeCotacoes } from "@/components/amassa/cotacoes/contexto-cotacoes";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type FerramentasCotacaoProps = {
   cotacao: Cotacao;
@@ -27,8 +28,8 @@ export type FerramentasCotacaoProps = {
 // `ConfirmarRemoverCategoria`), então só a presença de `?cotacaoRemover=<id>` na URL importa.
 export function FerramentasCotacao({ cotacao, categoriaId }: FerramentasCotacaoProps) {
   const abridor = useAbridorDeCotacoes();
-  const hrefEditar = `/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=${cotacao.id}`;
-  const hrefRemover = `/abertura?aba=cotacoes&categoria=${categoriaId}&cotacaoRemover=${cotacao.id}`;
+  const hrefEditar = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&cotacao=${cotacao.id}`);
+  const hrefRemover = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&cotacaoRemover=${cotacao.id}`);
 
   return (
     <div className="flex flex-none items-center gap-0.5">

@@ -10,6 +10,7 @@ import { FerramentasCotacao } from "@/components/amassa/cotacoes/ferramentas-cot
 import { MarcarCotacao } from "@/components/amassa/cotacoes/marcar-cotacao";
 import { PrecoCotacao } from "@/components/amassa/cotacoes/preco-cotacao";
 import { SeloSituacao } from "@/components/amassa/cotacoes/selo-situacao";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type CartaoCotacaoProps = {
   cotacao: Cotacao;
@@ -31,7 +32,7 @@ export function CartaoCotacao({ cotacao, categoriaId, marcado, aoAlternarMarcaca
   // `--color-tinta-fraca` (5.4:1), que reprova ainda mais rápido. Sem uma segunda pista visual
   // aqui, o selo continua sendo a única e suficiente (comentário original do plano 04.3-03).
   const temAlerta = cotacao.alertas.length > 0;
-  const hrefDetalhe = `/abertura?aba=cotacoes&categoria=${categoriaId}&detalhe=${cotacao.id}`;
+  const hrefDetalhe = rotaDeGestao(`/abertura?aba=cotacoes&categoria=${categoriaId}&detalhe=${cotacao.id}`);
 
   return (
     <div data-testid="cotacoes-cartao" className="flex flex-col gap-1.5 p-4">
