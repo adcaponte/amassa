@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
-status: ready_to_discuss
-stopped_at: "Fase 04.6 CONCLUIDA em 29/09/2026 (phase.complete depois da verificacao passed 9/9, commit e3527e4). Proxima: Fase 06 Estoque, que o orquestrador segue durante a noite sob autorizacao do dono em opcoes recomendadas — ver topo do corpo"
+status: ready_to_plan
+stopped_at: "Fase 06 Estoque: contexto capturado em --auto na noite de 29/09 (commit 5ad73a0, 06-CONTEXT.md). Proximo: planejar a fase. A 04.6 fechou antes (598fbc7)."
 last_updated: "2026-09-29T02:30:39.922Z"
 progress:
   total_phases: 12
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 04.6, PLANO 08 (o portao da fase) CONCLUIDO em 29/09/2
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque**, a próxima. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06 — Estoque** — contexto capturado em 29/09 (`5ad73a0`), pronta para planejar. A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -63,6 +63,17 @@ mesma falha resistir três vezes.
    `/gsd-code-review 04.6 --files=<os testes>` revisa o que ficou de fora.
 6. **O texto do GES-07 foi corrigido** (`0f29a99`): dizia que as pílulas de atalho vinham depois dos
    blocos; o protótipo, o plano 06 e o código as põem antes. O protótipo vence sobre a interface.
+7. **Discussão da Fase 06 (Estoque) feita em `--auto`** (`5ad73a0`): sete decisões `[auto]` em
+   `.planning/phases/06-estoque/06-CONTEXT.md` — D-13, D-14 e D-16 a D-22 —, cada uma com o porquê e a
+   alternativa descartada, e o registro opção por opção em `06-DISCUSSION-LOG.md`. As mais
+   consequentes: **uma tela de contagem geral** (D-16 — a primeira abertura tem de contar tudo, pelo §3
+   do adendo, e o protótipo não desenha esse fluxo) e **a coluna `ativo` no catálogo** (D-20 — para
+   desativar em vez de apagar, no padrão de `categorias.ativa`). As decisões travadas pelo `ADENDO.md`
+   de 20/09 não foram rediscutidas.
+8. **Passo 1 do Estoque** (`0f03508`): EST-02/03/04/11/12 corrigidos e EST-13 a EST-21 acrescentados,
+   um por decisão nova do adendo, e a entrada da Fase 6 no ROADMAP corrigida — ela ainda prometia a
+   tabela de materiais que o adendo proíbe. É transcrição do adendo, mas a forma (quais requisitos
+   novos, com que texto) é escolha minha. **"Fornada" saiu do EST-11** porque o adendo não a lista.
 
 
 ## Decisões do dono durante a execução da Fase 04.6
