@@ -10,8 +10,13 @@
 >   `06-VERIFICACAO-HUMANA.md`, e a única varredura completa da fase — `948 passed · 12 failed · 1
 >   flaky · 38 skipped · 61 did not run`, **nenhuma falha do Estoque**, todas classificadas
 >   (`Claude outputs/RETRATO-DA-SUITE.md`). `npm run verificar` verde.
-> - **Pronto para o Passo 2 do roteiro:** o branch LOCAL `gsd/phase-06-estoque-migracao` (`80a4b83`)
->   leva só os quatro arquivos da `0023` sobre o seu `main` local, com `npm run verificar` verde.
+> - **Revisão de código rodada ANTES do seu portão** (`06-REVIEW.md`): 0 bloqueios, 5 avisos. Três
+>   corrigidos (WR-03 custo da contagem, WR-04 roteiro, WR-05 diálogo do Catálogo — `06-REVIEW-FIX.md`,
+>   `verificar` verde e um e2e com `--grep`, 66 passed). **WR-01 e WR-02 são regras de dinheiro do
+>   cancelamento: ficaram com você**, na Parte 0, §0.1, com números.
+> - **Pronto para o Passo 2 do roteiro:** o branch LOCAL `gsd/phase-06-estoque-migracao` leva só os
+>   quatro arquivos da `0023` sobre o seu `main` local, com `npm run verificar` verde (refeito às ~09h
+>   UTC sobre o `main` com os documentos sincronizados — hash no adendo do `06-11-SUMMARY.md`).
 > - **Produção continua em `ecdca87`** (`git ls-remote`), run `36509335475` verde o mais recente
 >   (`gh run list`), `/api/health/backup` 200, `/api/health/estoque` 404 (esperado: não publicado).
 >   `git log origin/main..main` = **17 commits** locais — o bloco da madrugada, logo abaixo, dizia 7;
@@ -20,13 +25,16 @@
 >
 > **🔴 O que depende de você, nesta ordem:**
 > 1. **`06-VERIFICACAO-HUMANA.md`, Parte 0** — confirmar ou trocar **D-23/D-24** (o valor do estorno,
->    com o exemplo em números) e responder **D-29**. Antes de qualquer comando no servidor.
+>    com o exemplo em números), responder **D-29**, e escolher nas duas questões da revisão (**WR-01**:
+>    estorno de venda com saldo zerado ou negativo; **WR-02**: se o estorno conta como "última
+>    entrada com preço"). Antes de qualquer comando no servidor.
 > 2. **Roteiro 15** (`docs/operacao/15-migracao-estoque.md`): publicar só a migração → backup →
 >    `0023` → conferência SQL → publicar o código → `/api/health/estoque`. O `push` do Passo 2 leva
->    junto os 17 commits locais de `main` (entre eles o SIT-10).
+>    junto os commits locais de `main` — **18**: os 17 da lista do `06-11-SUMMARY.md` mais o commit
+>    de documentos que sincronizou o `main` (entre eles o SIT-10).
 > 3. **A contagem inicial real e a Parte 2 da caminhada**, no celular, com cronômetro na baixa.
 > 4. As decisões tomadas sem você: "Decidido sem o Theo" no topo de `.planning/STATE.md` (itens 1 a
->    24) e a Parte 0 da caminhada.
+>    28) e a Parte 0 da caminhada.
 
 > **🟢 ATUALIZAÇÃO DE 29/09/2026, MADRUGADA — A FASE 04.6 ESTÁ FECHADA.** O que vem logo abaixo
 > deste bloco é o retrato de 29/09 de manhã cedo e dizia, no presente, "falta o fechamento formal e

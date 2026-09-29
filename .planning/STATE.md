@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: Estoque
 status: executing
-stopped_at: "Fase 06 Estoque: plano 06-11 (o portao) com Tarefas 1 e 2 feitas em 29/09 no branch gsd/phase-06-estoque; Tarefa 3 (checkpoint humano) aguardando o dono — Parte 0 da caminhada (D-23/D-24/D-29), Roteiro 15, caminhada. 06-11 NAO concluido."
-last_updated: "2026-09-29T08:20:00.000Z"
+stopped_at: "Fase 06 Estoque: codigo completo e revisado no branch gsd/phase-06-estoque (revisao cc466af, correcoes ate e82a19e), nao publicado. 06-11 Tarefas 1-2 feitas; Tarefa 3 (portao do dono) pendente: Parte 0 (D-23/D-24/D-29 e as escolhas WR-01/WR-02), Roteiro 15, caminhada."
+last_updated: "2026-09-29T08:55:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 11
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 06, plano 06-11 (portao), Tarefas 1 e 2 em 29/09/2026:
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque** — **código completo no branch `gsd/phase-06-estoque`, não publicado; aguardando o dono** (portão 06-11, Tarefa 3: Parte 0 da caminhada, Roteiro 15, caminhada). *Até 29/09 de manhã esta linha dizia "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06 — Estoque** — **código completo e revisado no branch `gsd/phase-06-estoque`, não publicado; aguardando o dono** (portão 06-11, Tarefa 3: Parte 0 da caminhada, Roteiro 15, caminhada). *Até 29/09 de manhã esta linha dizia "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -153,6 +153,26 @@ para ele ler antes do servidor:
     esteja nomeada — e a rota é pública de propósito (Passo 7 do roteiro, monitor externo), no
     molde de `/api/health/backup`, com o corpo só `{ status }`. **Desfazer:** apagar a rota e a
     linha da lista.
+25. **A revisão de código da Fase 06 rodou antes do seu portão, não depois** (`cc466af`). No fluxo
+    do GSD ela vem depois que todos os planos fecham — e o 06-11 só fecha depois do Passo 6 do
+    roteiro, que publica o código. Revisar só depois de publicar seria pior para quem lança venda.
+    **Desfazer:** não há o que desfazer; a revisão pode ser repetida depois (`/gsd-code-review 06`).
+26. **A revisão olhou 71 arquivos, não os 100 do diff do branch**: ficaram fora 26 de teste (já
+    exercitados pela varredura completa e pelos e2e dos planos), `scripts/testar-migracoes.mjs` e os
+    dois `meta/` gerados da `0023`. **Desfazer:** `/gsd-code-review 06 --files=<os de teste>`.
+27. **Das correções da revisão, só os avisos que não mudam regra** (WR-03, WR-04, WR-05) e duas
+    conferências de roteiro (IN-02, IN-04 — só texto; o pipeline não foi tocado). **WR-01 e WR-02
+    ficaram com você** (Parte 0, §0.1). Os demais informativos ficaram no relatório — o IN-01 (um
+    `grant` explícito na `0023`) mexeria na migração que você vai aplicar e no branch só-migração;
+    o IN-09 (publicar os dois branches no GitHub como cópia de segurança) é `push`, que é seu.
+28. **Os documentos de estado do `main` foram sincronizados com os do branch** (`STATE.md`,
+    `ROADMAP.md`, `PROXIMA-SESSAO.md`, num commit só de documentos, depois do corte do branch
+    só-migração) e **o branch só-migração foi refeito sobre esse `main`**, com `npm run verificar`
+    de novo. *Por quê:* o `main` dizia "em execução" desde a meia-noite — documento velho é defeito
+    (sua regra); e o Passo 2 manda comparar `git log origin/main..main` com a lista do
+    `06-11-SUMMARY.md`: agora são **18 commits — os 17 da lista mais esse commit de documentos**
+    ("docs(state): main com o estado da fase 06 …"), registrado no adendo do SUMMARY. **Desfazer:**
+    nada a desfazer; no Passo 6 esses três arquivos chegam iguais dos dois lados.
 
 
 ## Decisões do dono durante a execução da Fase 04.6
@@ -191,11 +211,28 @@ e 2, que são do executor:
   skipped · 61 did not run` sobre `01d643d`, **nenhuma falha do Estoque**, as 13 classificadas
   (dez janelas ou contenções já conhecidas; `rotas:168` e `abertura-edicao:73` passaram isoladas);
   tabela em `Claude outputs/RETRATO-DA-SUITE.md`. E o **branch LOCAL `gsd/phase-06-estoque-migracao`**
-  (`80a4b83`): exatamente os quatro arquivos da `0023` sobre o `main` local (`git diff --name-only
+  (`80a4b83` na criação; **refeito às ~09h UTC** sobre o `main` com os documentos sincronizados —
+  o hash novo e o `verificar` dele estão no adendo do `06-11-SUMMARY.md`): exatamente os quatro arquivos da `0023` sobre o `main` local (`git diff --name-only
   main gsd/phase-06-estoque-migracao` = os quatro), com `npm run verificar` verde nele (74 ações,
   1325 testes, `test:migracoes` passou). **Como sei:** as saídas estão em `06-11-SUMMARY.md`.
+- **Revisão de código da fase, rodada ANTES do portão** (depois das Tarefas 1 e 2, entre 08:20 e
+  08:50 UTC): 71 arquivos de produção e o Roteiro 15 — **0 bloqueios, 5 avisos, 9 informativos**
+  (`06-REVIEW.md`, `cc466af`). Corrigidos: **WR-03** — o custo da primeira contagem era aplicado a
+  uma diferença que o servidor recalculava sob a trava, sem avisar se uma venda tinha mudado o saldo
+  no meio; agora recusa com "O saldo mudou de X para Y…" (`68bacb0`); **WR-04** — o caminho de
+  volta do Roteiro 15 depois de um `git revert -m 1` (`9460e8f`, com mais duas conferências de
+  roteiro: listar a `0023` na imagem antes do `db:migrate`, e não rodar o pipeline à mão no branch
+  da fase); **WR-05** — o diálogo do Catálogo travava em "Desativando…" se a ação falhasse
+  (`f9216d1`); e o Passo 0 do roteiro (`3e3ff21`). **WR-01 e WR-02 NÃO foram corrigidos no código:
+  são regras de dinheiro do cancelamento que você não decidiu** — viraram duas escolhas na Parte 0,
+  §0.1, com números, e o comportamento de hoje ficou preso por teste (`c99d9c9`, `7c2612f`).
+  **Como sei:** `06-REVIEW-FIX.md` (`e82a19e`) — `npm run verificar` verde (1624 testes) e UM e2e
+  com `--grep "estoque contagem|estoque primeira abertura|cadastros catalogo ativo"`, 66 passed.
+  **Ressalva:** a varredura completa (948 passed) rodou ANTES dessas correções; os caminhos
+  corrigidos foram reverificados só por esse `--grep`. Os informativos não feitos (IN-01 `grant`
+  explícito na `0023`, IN-03, IN-05 a IN-09) estão em `06-REVIEW.md` — nenhum bloqueia.
 - **Aguardando o dono (Tarefa 3, checkpoint bloqueante):** Parte 0 da caminhada (confirmar ou trocar
-  **D-23/D-24**, responder **D-29**) → Roteiro 15 no servidor → contagem inicial real → Parte 2 da
+  **D-23/D-24**, responder **D-29**, e escolher nas duas questões da revisão, WR-01 e WR-02) → Roteiro 15 no servidor → contagem inicial real → Parte 2 da
   caminhada, com a baixa cronometrada. Nenhum requisito EST foi marcado `[x]`.
 
 Phase: 06 — Estoque — **em execução desde 29/09/2026** (sessão noturna, sem o dono), no branch
