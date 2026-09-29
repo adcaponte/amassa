@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-import { criarItem, editarItem } from "@/lib/cadastros/acoes";
+import { criarItem, definirItemAtivo, editarItem } from "@/lib/cadastros/acoes";
 import {
   ROTULO_UNIDADE,
   podeDeixarDeTerEstoque,
@@ -21,15 +23,20 @@ import {
   ROTULO_CANCELAR,
   ROTULO_CATEGORIA_DA_COMPRA,
   ROTULO_CATEGORIA_DE_VENDA,
+  ROTULO_DESATIVAR_ITEM,
   ROTULO_NOME,
   ROTULO_NOS_ATALHOS_DA_COMPRA,
   ROTULO_NOS_MAIS_USADOS,
   ROTULO_PRECO_DE_VENDA,
+  ROTULO_REATIVANDO,
+  ROTULO_REATIVAR_ITEM,
   ROTULO_SALVAR_ITEM,
   ROTULO_TEM_ESTOQUE_PROPRIO,
   ROTULO_UNIDADE_CAMPO,
   TITULO_DIALOGO_EDITAR_ITEM,
   TITULO_DIALOGO_NOVO_ITEM,
+  textoItemDesativado,
+  textoItemReativado,
 } from "@/lib/cadastros/textos";
 import { converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +51,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { formatarMilesimos } from "@/components/amassa/estoque/cartao-saldo";
+
+import { ConfirmarDesativacao } from "./confirmar-desativacao";
 import { FichaTecnica, type LinhaDeFichaEmEdicao } from "./ficha-tecnica";
 
 export type DialogoItemCatalogoProps = {
@@ -96,7 +106,13 @@ export function DialogoItemCatalogo({
   const [ficha, setFicha] = useState<LinhaDeFichaEmEdicao[]>([]);
   const [erroDoServidor, setErroDoServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Desativar/reativar (plano 06-08, D-20) — a confirmação só existe para desativar; reativar é
+  // reversível e grava direto.
+  const [confirmandoDesativacao, setConfirmandoDesativacao] = useState(false);
+  const [alternandoAtivo, setAlternandoAtivo] = useState(false);
+  const [erroDaDesativacao, setErroDaDesativacao] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (aberto) {
@@ -122,14 +138,50 @@ export function DialogoItemCatalogo({
         })) ?? [],
       );
       setErroDoServidor(null);
+      setConfirmandoDesativacao(false);
+      setErroDaDesativacao(null);
       const idDoTimer = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(idDoTimer);
     }
   }, [aberto, itemParaEditar]);
 
+  // Os insumos que JÁ estão na ficha do item em edição, tirados do catálogo carregado — inclusive
+  // os desativados, que `insumosDisponiveis` (só ativos) não traz: um insumo desativado já na
+  // ficha continua lá e continua válido ao salvar (plano 06-08, mesma regra do servidor em
+  // `carregarInsumosDisponiveis(itemIdEmEdicao)`), mas nunca é oferecido como insumo NOVO.
+  const insumosDaFichaAtual = useMemo<InsumoParaFicha[]>(() => {
+    if (!itemParaEditar) {
+      return [];
+    }
+    const itemPorId = new Map(catalogo.map((item) => [item.id, item]));
+    return itemParaEditar.ficha.flatMap((linha) => {
+      const insumo = itemPorId.get(linha.insumoId);
+      return insumo
+        ? [
+            {
+              id: insumo.id,
+              nome: insumo.nome,
+              controlaEstoque: insumo.controlaEstoque,
+              unidade: insumo.unidade,
+            },
+          ]
+        : [];
+    });
+  }, [catalogo, itemParaEditar]);
+
+  const insumosConhecidos = useMemo(
+    () => [
+      ...insumosDisponiveis,
+      ...insumosDaFichaAtual.filter(
+        (insumo) => !insumosDisponiveis.some((disponivel) => disponivel.id === insumo.id),
+      ),
+    ],
+    [insumosDisponiveis, insumosDaFichaAtual],
+  );
+
   const insumosPorId = useMemo(
-    () => new Map(insumosDisponiveis.map((insumo) => [insumo.id, insumo])),
-    [insumosDisponiveis],
+    () => new Map(insumosConhecidos.map((insumo) => [insumo.id, insumo])),
+    [insumosConhecidos],
   );
 
   // Só itens com estoque próprio, sem o próprio item — mesma regra do protótipo
@@ -286,6 +338,54 @@ export function DialogoItemCatalogo({
     // sabe a lista atualizada do catálogo.
     window.location.assign("/gestao/cadastros?sub=catalogo");
   }
+
+  // Desativar: a ação é a porta ÚNICA (`definirItemAtivo`); a recusa (insumo de ficha ativa)
+  // aparece dentro da confirmação. Ao dar certo, fecha tudo e o servidor redesenha a lista (o item
+  // desce para depois dos ativos, com o chip "Desativado").
+  async function desativar() {
+    if (!itemParaEditar || alternandoAtivo) {
+      return;
+    }
+    setErroDaDesativacao(null);
+    setAlternandoAtivo(true);
+    const resposta = await definirItemAtivo({ id: itemParaEditar.id, ativo: false });
+    setAlternandoAtivo(false);
+
+    if (!resposta.ok) {
+      setErroDaDesativacao(resposta.erro);
+      return;
+    }
+
+    toast.success(textoItemDesativado(resposta.dados.nome));
+    setConfirmandoDesativacao(false);
+    onFechar();
+    router.refresh();
+  }
+
+  // Reativar não pede confirmação — é reversível (06-UI-SPEC.md §Cadastros → Catálogo).
+  async function reativar() {
+    if (!itemParaEditar || alternandoAtivo) {
+      return;
+    }
+    setErroDoServidor(null);
+    setAlternandoAtivo(true);
+    const resposta = await definirItemAtivo({ id: itemParaEditar.id, ativo: true });
+    setAlternandoAtivo(false);
+
+    if (!resposta.ok) {
+      setErroDoServidor(resposta.erro);
+      return;
+    }
+
+    toast.success(textoItemReativado(resposta.dados.nome));
+    onFechar();
+    router.refresh();
+  }
+
+  const saldoTextoDoItem =
+    itemParaEditar && itemParaEditar.movimentacoes > 0
+      ? `${formatarMilesimos(itemParaEditar.saldoMilesimos)} ${ROTULO_UNIDADE[itemParaEditar.unidade ?? "un"]}`
+      : null;
 
   const titulo = modoEdicao ? TITULO_DIALOGO_EDITAR_ITEM : TITULO_DIALOGO_NOVO_ITEM;
 
@@ -444,12 +544,36 @@ export function DialogoItemCatalogo({
           <FichaTecnica
             linhas={ficha}
             insumosCandidatos={insumosCandidatos}
+            insumosConhecidos={insumosConhecidos}
             aoAdicionar={adicionarNaFicha}
             aoTirar={tirarDaFicha}
             erro={null}
           />
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
+            {modoEdicao && itemParaEditar && (
+              <button
+                type="button"
+                data-testid={itemParaEditar.ativo ? "catalogo-desativar" : "catalogo-reativar"}
+                disabled={alternandoAtivo || enviando}
+                aria-busy={alternandoAtivo && !itemParaEditar.ativo ? "true" : undefined}
+                onClick={() => {
+                  if (itemParaEditar.ativo) {
+                    setErroDaDesativacao(null);
+                    setConfirmandoDesativacao(true);
+                  } else {
+                    void reativar();
+                  }
+                }}
+                className="border-border hover:bg-muted text-corpo text-tinta mr-auto flex min-h-[44px] items-center rounded-md border px-4 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {itemParaEditar.ativo
+                  ? ROTULO_DESATIVAR_ITEM
+                  : alternandoAtivo
+                    ? ROTULO_REATIVANDO
+                    : ROTULO_REATIVAR_ITEM}
+              </button>
+            )}
             <button
               type="button"
               onClick={onFechar}
@@ -467,6 +591,23 @@ export function DialogoItemCatalogo({
             </button>
           </div>
         </form>
+
+        {itemParaEditar && (
+          <ConfirmarDesativacao
+            aberto={confirmandoDesativacao}
+            substantivo="item"
+            nome={itemParaEditar.nome}
+            movimentacoes={itemParaEditar.movimentacoes}
+            saldoTexto={saldoTextoDoItem}
+            pendente={alternandoAtivo}
+            erro={erroDaDesativacao}
+            aoConfirmar={() => void desativar()}
+            aoVoltar={() => {
+              setConfirmandoDesativacao(false);
+              setErroDaDesativacao(null);
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

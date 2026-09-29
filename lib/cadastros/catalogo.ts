@@ -177,3 +177,49 @@ export function podeDeixarDeTerEstoque(
   }
   return { ok: true };
 }
+
+// Um item só pode ser DESATIVADO se nenhum produto ATIVO o usa como insumo (plano 06-08, D-20 —
+// pesquisa §Pergunta 6): senão uma venda desse produto baixaria estoque de um material que ninguém
+// vê mais. Quem chama passa só as fichas de produtos com `ativo = true`; a recusa diz o nome do
+// PRIMEIRO produto encontrado, com a mesma frase de `podeDeixarDeTerEstoque`.
+export function podeDesativarItem(
+  itemId: string,
+  fichasDeProdutosAtivos: readonly FichaDeOutroItem[],
+): ResultadoDeValidacao {
+  const usoEncontrado = fichasDeProdutosAtivos.find((linha) => linha.insumoId === itemId);
+  if (usoEncontrado) {
+    return { ok: false, erro: fraseItemEhInsumoDe(usoEncontrado.itemNome) };
+  }
+  return { ok: true };
+}
+
+// Categoria de venda: precisa existir, ser do grupo `receita` e estar ATIVA — exceto quando é a
+// MESMA categoria que o item já tinha (`categoriaVendaIdAtual`), caso em que uma categoria
+// desativada continua válida (04.4-UI-SPEC.md: "item cuja categoria foi desativada continua...
+// editável, com o nome da categoria — a categoria desativada aparece como a opção atual").
+//
+// Mora aqui, e não em `lib/cadastros/acoes.ts`, desde o plano 06-08 (Pitfall 7): o "Novo material"
+// do Estoque usa a MESMA validação do Cadastros (EST-13), e um arquivo `"use server"` só pode
+// exportar função assíncrona.
+export function categoriaDeVendaValida(
+  categoria: { grupo: string; ativa: boolean } | undefined,
+  categoriaVendaId: string,
+  categoriaVendaIdAtual: string | null,
+): boolean {
+  if (!categoria || categoria.grupo !== "receita") {
+    return false;
+  }
+  return categoria.ativa || categoriaVendaId === categoriaVendaIdAtual;
+}
+
+// Categoria de compra: existir, ser do grupo `custo` OU `geral`, e a mesma regra de ATIVA acima.
+export function categoriaDeCompraValida(
+  categoria: { grupo: string; ativa: boolean } | undefined,
+  categoriaCompraId: string,
+  categoriaCompraIdAtual: string | null,
+): boolean {
+  if (!categoria || (categoria.grupo !== "custo" && categoria.grupo !== "geral")) {
+    return false;
+  }
+  return categoria.ativa || categoriaCompraId === categoriaCompraIdAtual;
+}

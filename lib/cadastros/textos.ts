@@ -137,6 +137,60 @@ export const FRASE_CATEGORIA_DE_COMPRA_INVALIDA =
 export const FRASE_ITEM_NAO_EXISTE_MAIS =
   "Esse item não existe mais. Recarregue a página e tente de novo.";
 
+// Desativar/reativar item e a trava da unidade (06-UI-SPEC.md §Cadastros → Catálogo, §Toasts,
+// §Confirmação; Pitfall 6). Item nunca se apaga — desativa (D-20, FNC-10).
+export const FRASE_ITEM_COM_MOVIMENTACAO =
+  "Este item já tem movimentação no Estoque — a unidade e o “Tem estoque próprio” não mudam mais. Se ele saiu de uso, desative.";
+export const ROTULO_CHIP_DESATIVADO = "Desativado";
+export const ROTULO_DESATIVAR_ITEM = "Desativar item";
+export const ROTULO_REATIVAR_ITEM = "Reativar item";
+export const ROTULO_REATIVANDO = "Reativando…";
+
+// Toast do Cadastros ao desativar — sem o "Continua no filtro Desativados." do Estoque: no
+// Catálogo não há filtro, o item continua na lista com o chip "Desativado".
+export function textoItemDesativado(nome: string): string {
+  return `${nome} desativado.`;
+}
+
+// Toast do Estoque ao desativar um material (06-UI-SPEC.md §Toasts) — a mesma ação, outra tela.
+export function textoMaterialDesativado(nome: string): string {
+  return `${nome} desativado. Continua no filtro Desativados.`;
+}
+
+export function textoItemReativado(nome: string): string {
+  return `${nome} reativado.`;
+}
+
+// A confirmação de desativar — a ÚNICA desta fase (06-UI-SPEC.md §Confirmação), partilhada pelo
+// Cadastros ("item") e pelo Estoque ("material"). `saldoTexto` já vem formatado por quem chama
+// ("1,5 kg") — este módulo nunca formata número.
+export type SubstantivoDaDesativacao = "item" | "material";
+
+export function tituloDaDesativacao(nome: string): string {
+  return `Desativar ${nome}?`;
+}
+
+export function corpoDaDesativacao(movimentacoes: number, saldoTexto: string | null): string {
+  const inicio = "Ele some da Venda, da Compra e da lista do Estoque.";
+  if (movimentacoes === 0) {
+    return `${inicio} Nada é apagado, e dá para reativar quando quiser.`;
+  }
+  const historico = movimentacoes === 1 ? "1 movimentação" : `${movimentacoes} movimentações`;
+  const guardados =
+    saldoTexto === null
+      ? `O histórico (${historico}) continua guardado`
+      : `O histórico (${historico}) e o saldo de ${saldoTexto} continuam guardados`;
+  return `${inicio} ${guardados} — nada é apagado — e dá para reativar quando quiser.`;
+}
+
+export function rotuloConfirmarDesativacao(substantivo: SubstantivoDaDesativacao): string {
+  return `Desativar ${substantivo}`;
+}
+
+export const ROTULO_DESATIVANDO = "Desativando…";
+export const ROTULO_VOLTAR = "Voltar";
+export const ROTULO_ABRIR_CATALOGO = "Abrir Cadastros → Catálogo";
+
 export const FRASE_VAZIO_FIXAS_TITULO = "Nenhuma conta fixa ainda.";
 export const FRASE_VAZIO_FIXAS_CORPO =
   "Cadastre o aluguel, a internet e outras contas que se repetem todo mês.";

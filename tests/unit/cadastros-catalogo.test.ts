@@ -382,9 +382,13 @@ describe("categoriaDeCompraValida", () => {
   });
 });
 
+// Um uuid v4 de verdade — os ids de fantasia acima ("5555…") não passam no `esquemaId` (Zod exige
+// versão e variante RFC 4122).
+const UUID_VALIDO = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
 describe("esquemaAtivacaoDeItem", () => {
   it("aceita { id: uuid, ativo: boolean }", () => {
-    const resultado = esquemaAtivacaoDeItem.safeParse({ id: ITEM_ID, ativo: false });
+    const resultado = esquemaAtivacaoDeItem.safeParse({ id: UUID_VALIDO, ativo: false });
     expect(resultado.success).toBe(true);
   });
 
@@ -393,6 +397,6 @@ describe("esquemaAtivacaoDeItem", () => {
   });
 
   it("recusa ativo que não é booleano", () => {
-    expect(esquemaAtivacaoDeItem.safeParse({ id: ITEM_ID, ativo: "sim" }).success).toBe(false);
+    expect(esquemaAtivacaoDeItem.safeParse({ id: UUID_VALIDO, ativo: "sim" }).success).toBe(false);
   });
 });

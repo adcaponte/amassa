@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { desativarNoBanco, semearMaterial } from "./apoio/semear-estoque";
+import { semearItem } from "./apoio/semear-financeiro";
+
 // O traçado ponta a ponta do Catálogo em Cadastros (04.4-05-PLAN.md): criar um insumo só com
 // estoque próprio, criar um item vendável, editar a ficha técnica dele, ver o efeito na Venda, e
 // as recusas humanas (nem venda nem estoque; item em uso como insumo de outro). Nomes inventados
@@ -203,5 +206,203 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
       scrollWidth,
       `/gestao/cadastros?sub=catalogo rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
+  });
+});
+
+// Plano 06-08 (D-20): item se DESATIVA, nunca se apaga. Cada caso semeia os próprios itens com
+// sufixo único ("[e2e] … {sufixo}") e só afirma sobre eles — nenhuma condição global do banco.
+const CATEGORIA_DE_VENDA = "Bebidas e comidas";
+const CATEGORIA_DE_COMPRA = "Argila, esmalte e insumos";
+
+async function abrirEdicao(page: Page, nome: string) {
+  await linhaDoCatalogo(page, nome).getByRole("button", { name: "Editar" }).click();
+  await expect(page.getByRole("heading", { name: "Editar item" })).toBeVisible();
+}
+
+test.describe("cadastros catalogo ativo — desativar em vez de apagar", () => {
+  test("(a) desativar tira da Venda sem apagar, e reativar devolve", async ({ page }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Bolo de fubá ${suf}`;
+    await semearItem({
+      nome,
+      categoriaVenda: CATEGORIA_DE_VENDA,
+      precoCentavos: 1200,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/cadastros?sub=catalogo");
+    await abrirEdicao(page, nome);
+
+    await page.getByTestId("catalogo-desativar").click();
+    const confirmacao = page.getByTestId("confirmar-desativacao");
+    await expect(confirmacao).toBeVisible();
+    await expect(confirmacao).toContainText(`Desativar ${nome}?`);
+    await expect(confirmacao).toContainText("Nada é apagado");
+    await confirmacao.getByRole("button", { name: "Desativar item" }).click();
+
+    await expect(page.getByText(`${nome} desativado.`)).toBeVisible();
+    await expect(
+      linhaDoCatalogo(page, nome).getByTestId("catalogo-chip-desativado"),
+    ).toHaveText("Desativado");
+
+    // Na Venda, a busca pelo sufixo não acha mais o item.
+    await page.goto("/gestao/financeiro");
+    await page.getByTestId("venda-busca").fill(suf);
+    await expect(page.getByTestId("venda-atalho").filter({ hasText: nome })).toHaveCount(0);
+
+    // Reativar grava direto, sem confirmação, e o item volta à Venda.
+    await page.goto("/gestao/cadastros?sub=catalogo");
+    await abrirEdicao(page, nome);
+    await page.getByTestId("catalogo-reativar").click();
+    await expect(page.getByText(`${nome} reativado.`)).toBeVisible();
+    await expect(
+      linhaDoCatalogo(page, nome).getByTestId("catalogo-chip-desativado"),
+    ).toHaveCount(0);
+
+    await page.goto("/gestao/financeiro");
+    await page.getByTestId("venda-busca").fill(suf);
+    await expect(page.getByTestId("venda-atalho").filter({ hasText: nome })).toHaveCount(1);
+  });
+
+  test("(b) insumo da ficha de um produto ativo não desativa, e a recusa diz qual produto", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeInsumo = `[e2e] Grão ${suf}`;
+    const nomeProduto = `[e2e] Café coado ${suf}`;
+    const insumoId = await semearMaterial({
+      nome: nomeInsumo,
+      unidade: "g",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+    });
+    await semearItem({
+      nome: nomeProduto,
+      categoriaVenda: CATEGORIA_DE_VENDA,
+      precoCentavos: 800,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+      ficha: [{ insumoId, quantidade: "15" }],
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/cadastros?sub=catalogo");
+    await abrirEdicao(page, nomeInsumo);
+
+    await page.getByTestId("catalogo-desativar").click();
+    const confirmacao = page.getByTestId("confirmar-desativacao");
+    await confirmacao.getByRole("button", { name: "Desativar item" }).click();
+    await expect(confirmacao.getByRole("alert")).toContainText(
+      `Esse item é insumo de ${nomeProduto} — tire da ficha técnica antes.`,
+    );
+    await confirmacao.getByRole("button", { name: "Voltar" }).click();
+    await expect(confirmacao).toBeHidden();
+
+    await page.reload();
+    await expect(linhaDoCatalogo(page, nomeInsumo)).toBeVisible();
+    await expect(
+      linhaDoCatalogo(page, nomeInsumo).getByTestId("catalogo-chip-desativado"),
+    ).toHaveCount(0);
+  });
+
+  test("(c) item com movimentação no Estoque não troca de unidade", async ({ page }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Argila ${suf}`;
+    const itemId = await semearMaterial({ nome, unidade: "kg", categoriaCompra: CATEGORIA_DE_COMPRA });
+
+    await fazerLogin(page);
+
+    // Uma entrada pela folha do Estoque — a porta de verdade do livro.
+    await page.goto("/gestao/estoque");
+    const cartao = page
+      .locator(`[data-testid="estoque-cartao"][data-item-id="${itemId}"]`)
+      .filter({ visible: true });
+    await cartao.getByTestId("estoque-dar-baixa").click();
+    const folha = page.getByTestId("folha-movimentacao");
+    await folha.getByTestId("folha-tipo-entrada").click();
+    await folha.getByTestId("folha-quantidade").fill("5");
+    await folha.getByTestId("folha-custo").fill("21,00");
+    await folha.getByTestId("folha-registrar").click();
+    await expect(page.getByText(`Entrada de 5 kg em ${nome}.`)).toBeVisible();
+
+    await page.goto("/gestao/cadastros?sub=catalogo");
+    await abrirEdicao(page, nome);
+    await page.getByRole("combobox", { name: "Unidade" }).click();
+    await page.getByRole("option", { name: "g", exact: true }).click();
+    await page.getByRole("button", { name: "Salvar" }).click();
+
+    await expect(
+      page.getByText(
+        "Este item já tem movimentação no Estoque — a unidade e o “Tem estoque próprio” não mudam mais. Se ele saiu de uso, desative.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Editar item" })).toBeVisible();
+
+    await page.reload();
+    await expect(linhaDoCatalogo(page, nome)).toContainText("estoque em kg");
+  });
+
+  test("(d) insumo desativado não é opção nova na ficha, mas continua na ficha que já o tinha", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeDesativado = `[e2e] Esmalte antigo ${suf}`;
+    const nomeAtivo = `[e2e] Esmalte novo ${suf}`;
+    const nomeComFicha = `[e2e] Caneca pintada ${suf}`;
+    const nomeSemFicha = `[e2e] Prato raso ${suf}`;
+    const desativadoId = await semearMaterial({
+      nome: nomeDesativado,
+      unidade: "g",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+    });
+    await semearMaterial({ nome: nomeAtivo, unidade: "g", categoriaCompra: CATEGORIA_DE_COMPRA });
+    await semearItem({
+      nome: nomeComFicha,
+      categoriaVenda: CATEGORIA_DE_VENDA,
+      precoCentavos: 5000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+      ficha: [{ insumoId: desativadoId, quantidade: "15" }],
+    });
+    await semearItem({
+      nome: nomeSemFicha,
+      categoriaVenda: CATEGORIA_DE_VENDA,
+      precoCentavos: 4000,
+      apareceNaVenda: true,
+      atalhoVenda: false,
+      controlaEstoque: false,
+      atalhoCompra: false,
+    });
+    // Montagem do cenário: o insumo já estava numa ficha quando foi desativado. Pela tela isso
+    // seria recusado (caso b) — o banco é o único jeito de chegar aqui, como num item desativado
+    // antes de a regra existir.
+    await desativarNoBanco(desativadoId);
+
+    await fazerLogin(page);
+    await page.goto("/gestao/cadastros?sub=catalogo");
+
+    // Outro produto: o desativado não aparece como insumo novo; o ativo, sim.
+    await abrirEdicao(page, nomeSemFicha);
+    await page.getByRole("combobox", { name: "Insumo" }).click();
+    await expect(page.getByRole("option", { name: nomeAtivo })).toBeVisible();
+    await expect(page.getByRole("option", { name: nomeDesativado })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Cancelar" }).click();
+
+    // O produto que já tinha o insumo desativado na ficha continua com ele e salva sem erro.
+    await abrirEdicao(page, nomeComFicha);
+    await expect(page.getByTestId("ficha-linha")).toContainText(`15 g de ${nomeDesativado}`);
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=catalogo$/);
+    await expect(linhaDoCatalogo(page, nomeComFicha)).toContainText(
+      `gasta 15 g de ${nomeDesativado}`,
+    );
   });
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { count, eq, inArray, or } from "drizzle-orm";
+import { and, count, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -12,19 +12,28 @@ import {
   documentos,
   fichaTecnica,
   itensCatalogo,
+  movimentacoesEstoque,
   parcelas,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { primeiroDiaDoMes } from "@/lib/financeiro/calendario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import { podeDeixarDeTerEstoque, type InsumoDisponivel } from "./catalogo";
+import {
+  categoriaDeCompraValida,
+  categoriaDeVendaValida,
+  podeDeixarDeTerEstoque,
+  podeDesativarItem,
+  type InsumoDisponivel,
+} from "./catalogo";
 import { podeMudarGrupoEArea } from "./categorias";
 import { mesPermitidoParaGeracao, tituloDaContaFixa, vencimentoNoMes } from "./contas-fixas";
 import {
   esquemaAtivacao,
   esquemaAtivacaoDeContaFixa,
+  esquemaAtivacaoDeItem,
   esquemaCategoria,
   esquemaContaFixa,
   esquemaEdicaoDeCategoria,
@@ -42,6 +51,7 @@ import {
   FRASE_CATEGORIA_DA_CONTA_FIXA_INVALIDA,
   FRASE_CONTA_FIXA_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_SALVAR,
+  FRASE_ITEM_COM_MOVIMENTACAO,
   FRASE_ITEM_NAO_EXISTE_MAIS,
   FRASE_MES_DE_GERACAO_INVALIDO,
   FRASE_NOME_REPETIDO,
@@ -76,12 +86,38 @@ function ehErroDoGatilhoDeTravamento(erro: unknown): boolean {
   return codigoDoErroPostgres(erro) === "P0001";
 }
 
+// O P0001 do gatilho `travar_unidade_do_item_com_movimentacao` (migração 0023, Pitfall 6) — a
+// última camada da trava de unidade de `editarItem`. Só esse gatilho vira FRASE_ITEM_COM_MOVIMENTACAO:
+// o `pg` põe o nome da função PL/pgSQL em `where` ("PL/pgSQL function
+// travar_unidade_do_item_com_movimentacao() line N at RAISE"), e a mensagem do `raise` fala em
+// "já tem movimentação de estoque". Olha a raiz e a `cause` (o drizzle embrulha o erro do `pg`).
+function ehErroDaTravaDeUnidade(erro: unknown): boolean {
+  if (codigoDoErroPostgres(erro) !== "P0001") {
+    return false;
+  }
+  const candidatos: unknown[] = [erro];
+  if (typeof erro === "object" && erro !== null && "cause" in erro) {
+    candidatos.push(erro.cause);
+  }
+  return candidatos.some((candidato) => {
+    if (typeof candidato !== "object" || candidato === null) {
+      return false;
+    }
+    const { where, message } = candidato as { where?: unknown; message?: unknown };
+    return (
+      (typeof where === "string" && where.includes("travar_unidade_do_item_com_movimentacao")) ||
+      (typeof message === "string" && message.includes("já tem movimentação de estoque"))
+    );
+  });
+}
+
 class CategoriaNaoEncontrada extends Error {}
 class CategoriaComUsoNaoPodeMudar extends Error {}
 class ItemNaoEncontrado extends Error {}
 class CategoriaDeVendaInvalida extends Error {}
 class CategoriaDeCompraInvalida extends Error {}
 class ItemEhInsumoDeOutro extends Error {}
+class ItemComMovimentacao extends Error {}
 
 // A taxa do cartão é a configuração global de linha única (`configuracao_financeira`, a mesma
 // tabela de `obterConfiguracaoFinanceira`, lib/financeiro/consultas.ts) — `insert ... on
@@ -280,48 +316,43 @@ export async function definirCategoriaAtiva(
   }
 }
 
-// Todos os itens do catálogo (id, nome, controlaEstoque) — o universo candidato a insumo que
-// `validarItem` (lib/cadastros/catalogo.ts) precisa para dizer QUAL insumo não tem estoque
-// próprio. Carregado ANTES do parse porque `esquemaItem`/`esquemaEdicaoDeItem` são fábricas que
-// fecham sobre esse mapa (mesma regra do diálogo — key_links do plano).
-async function carregarInsumosDisponiveis(): Promise<Map<string, InsumoDisponivel>> {
+// Os itens que podem estar na ficha técnica (id, nome, controlaEstoque) — o universo candidato a
+// insumo que `validarItem` (lib/cadastros/catalogo.ts) precisa para dizer QUAL insumo não tem
+// estoque próprio. Carregado ANTES do parse porque `esquemaItem`/`esquemaEdicaoDeItem` são
+// fábricas que fecham sobre esse mapa (mesma regra do diálogo — key_links do plano).
+//
+// Plano 06-08 (D-20, pesquisa §Pergunta 6): item DESATIVADO não entra como insumo NOVO; mas o
+// insumo desativado que JÁ está na ficha do item em edição continua válido ao salvar — a mesma
+// regra de "categoria desativada continua como opção atual". Ao criar (`itemIdEmEdicao` ausente),
+// só os ativos.
+async function carregarInsumosDisponiveis(
+  itemIdEmEdicao?: string,
+): Promise<Map<string, InsumoDisponivel>> {
+  const jaNaFicha = itemIdEmEdicao
+    ? db
+        .select({ insumoId: fichaTecnica.insumoId })
+        .from(fichaTecnica)
+        .where(eq(fichaTecnica.itemId, itemIdEmEdicao))
+    : null;
+
   const itens = await db
     .select({
       id: itensCatalogo.id,
       nome: itensCatalogo.nome,
       controlaEstoque: itensCatalogo.controlaEstoque,
     })
-    .from(itensCatalogo);
+    .from(itensCatalogo)
+    .where(
+      jaNaFicha
+        ? or(eq(itensCatalogo.ativo, true), inArray(itensCatalogo.id, jaNaFicha))
+        : eq(itensCatalogo.ativo, true),
+    );
 
   return new Map(itens.map((item) => [item.id, item]));
 }
 
-// Categoria de venda: precisa existir, ser do grupo `receita` e estar ATIVA — exceto quando é a
-// MESMA categoria que o item já tinha (`categoriaVendaIdAtual`), caso em que uma categoria
-// desativada continua válida (04.4-UI-SPEC.md: "item cuja categoria foi desativada continua...
-// editável, com o nome da categoria — a categoria desativada aparece como a opção atual").
-function categoriaDeVendaValida(
-  categoria: { grupo: string; ativa: boolean } | undefined,
-  categoriaVendaId: string,
-  categoriaVendaIdAtual: string | null,
-): boolean {
-  if (!categoria || categoria.grupo !== "receita") {
-    return false;
-  }
-  return categoria.ativa || categoriaVendaId === categoriaVendaIdAtual;
-}
-
-// Categoria de compra: existir, ser do grupo `custo` OU `geral`, e a mesma regra de ATIVA acima.
-function categoriaDeCompraValida(
-  categoria: { grupo: string; ativa: boolean } | undefined,
-  categoriaCompraId: string,
-  categoriaCompraIdAtual: string | null,
-): boolean {
-  if (!categoria || (categoria.grupo !== "custo" && categoria.grupo !== "geral")) {
-    return false;
-  }
-  return categoria.ativa || categoriaCompraId === categoriaCompraIdAtual;
-}
+// `categoriaDeVendaValida`/`categoriaDeCompraValida` moram em `lib/cadastros/catalogo.ts` desde o
+// plano 06-08 (Pitfall 7) — o "Novo material" do Estoque usa a MESMA validação.
 
 // Único caminho de criação de item do catálogo (FNC-13). `exigirUsuario()` é a PRIMEIRA instrução
 // do corpo. `criarItem` nunca precisa checar `podeDeixarDeTerEstoque` (o item ainda não existe,
@@ -400,6 +431,22 @@ export async function criarItem(entradaBruta: unknown): Promise<ResultadoDeAcao<
   }
 }
 
+// O id do item em edição, lido da entrada AINDA não validada, só para carregar os insumos que já
+// estão na ficha dele — e só se for um uuid bem formado (o resto o Zod recusa logo depois; nada
+// que não seja uuid chega ao banco).
+function idBrutoValido(entradaBruta: unknown): string | undefined {
+  if (
+    typeof entradaBruta === "object" &&
+    entradaBruta !== null &&
+    "id" in entradaBruta &&
+    typeof entradaBruta.id === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entradaBruta.id)
+  ) {
+    return entradaBruta.id;
+  }
+  return undefined;
+}
+
 // Editar SEMPRE atualiza a linha existente e troca a ficha técnica INTEIRA dentro da MESMA
 // transação (apaga as linhas do item, insere as novas) — `ficha_tecnica` é a única tabela do
 // catálogo com `delete` liberado, justamente por isso (key_links do plano). `exigirUsuario()` é a
@@ -441,7 +488,7 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
     }
   }
 
-  const insumosDisponiveis = await carregarInsumosDisponiveis();
+  const insumosDisponiveis = await carregarInsumosDisponiveis(idBrutoValido(entradaBruta));
   const resultado = esquemaEdicaoDeItem(insumosDisponiveis).safeParse(entradaBruta);
   if (!resultado.success) {
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
@@ -455,6 +502,7 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
           categoriaVendaId: itensCatalogo.categoriaVendaId,
           categoriaCompraId: itensCatalogo.categoriaCompraId,
           controlaEstoque: itensCatalogo.controlaEstoque,
+          unidade: itensCatalogo.unidade,
         })
         .from(itensCatalogo)
         .where(eq(itensCatalogo.id, dados.id))
@@ -515,6 +563,23 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
         }
       }
 
+      // Pitfall 6: item que já tem movimentação no Estoque não muda de unidade (5 kg virariam 5 g)
+      // nem deixa de ter estoque próprio (sumiria do Estoque com saldo). Decidido sob a trava do
+      // item; o gatilho `travar_unidade_do_item_com_movimentacao` da 0023 é a última camada, e o
+      // P0001 dele vira a MESMA frase no `catch` abaixo.
+      const unidadeMudou = (itemAtual.unidade ?? null) !== (dados.unidade ?? null);
+      const deixaDeTerEstoque = itemAtual.controlaEstoque && !dados.controlaEstoque;
+      if (unidadeMudou || deixaDeTerEstoque) {
+        const [movimentacao] = await tx
+          .select({ id: movimentacoesEstoque.id })
+          .from(movimentacoesEstoque)
+          .where(eq(movimentacoesEstoque.itemId, dados.id))
+          .limit(1);
+        if (movimentacao) {
+          throw new ItemComMovimentacao();
+        }
+      }
+
       await tx
         .update(itensCatalogo)
         .set({
@@ -544,8 +609,12 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
 
     revalidatePath("/gestao/cadastros");
     revalidatePath("/gestao/financeiro");
+    revalidatePath(rotaDeGestao("/estoque"));
     return { ok: true, dados: { id: dados.id } };
   } catch (erro) {
+    if (erro instanceof ItemComMovimentacao || ehErroDaTravaDeUnidade(erro)) {
+      return { ok: false, erro: FRASE_ITEM_COM_MOVIMENTACAO };
+    }
     if (erro instanceof ItemNaoEncontrado) {
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
     }
@@ -559,6 +628,73 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
       return { ok: false, erro: erro.message };
     }
     console.error("Falha ao editar item do catálogo:", erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
+  }
+}
+
+// Item do catálogo nunca se apaga — desativar/reativar é a ÚNICA forma de tirá-lo de circulação
+// (plano 06-08, D-20 corrigido pela pesquisa): o `revoke delete on itens_catalogo` da 0015 (FNC-10)
+// continua, e `test:migracoes` o afirma. É a porta ÚNICA de ativar/desativar item — o Cadastros e o
+// Estoque (plano 06-09) chamam esta mesma ação. Recebe o estado DESEJADO, nunca "inverte".
+//
+// Ao DESATIVAR, dentro da transação e com o item travado (`for update`, o mesmo de `editarItem`):
+// recusa se o item é insumo da ficha técnica de um produto ATIVO (`podeDesativarItem`) — senão uma
+// venda baixaria estoque de um material que ninguém vê mais. Reativar não tem condição.
+// `exigirUsuario()` é a PRIMEIRA instrução do corpo.
+export async function definirItemAtivo(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ id: string; ativo: boolean; nome: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAtivacaoDeItem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { id, ativo } = resultado.data;
+
+  try {
+    const nome = await db.transaction(async (tx) => {
+      const [itemAtual] = await tx
+        .select({ nome: itensCatalogo.nome })
+        .from(itensCatalogo)
+        .where(eq(itensCatalogo.id, id))
+        .for("update");
+
+      if (!itemAtual) {
+        throw new ItemNaoEncontrado();
+      }
+
+      if (!ativo) {
+        const fichasDeProdutosAtivos = await tx
+          .select({ itemNome: itensCatalogo.nome, insumoId: fichaTecnica.insumoId })
+          .from(fichaTecnica)
+          .innerJoin(itensCatalogo, eq(fichaTecnica.itemId, itensCatalogo.id))
+          .where(and(eq(fichaTecnica.insumoId, id), eq(itensCatalogo.ativo, true)))
+          .orderBy(itensCatalogo.nome);
+
+        const podeDesativar = podeDesativarItem(id, fichasDeProdutosAtivos);
+        if (!podeDesativar.ok) {
+          throw new ItemEhInsumoDeOutro(podeDesativar.erro);
+        }
+      }
+
+      await tx.update(itensCatalogo).set({ ativo }).where(eq(itensCatalogo.id, id));
+      return itemAtual.nome;
+    });
+
+    revalidatePath("/gestao/cadastros");
+    revalidatePath("/gestao/financeiro");
+    revalidatePath(rotaDeGestao("/estoque"));
+    revalidatePath(rotaDeGestao("/"));
+    return { ok: true, dados: { id, ativo, nome } };
+  } catch (erro) {
+    if (erro instanceof ItemNaoEncontrado) {
+      return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof ItemEhInsumoDeOutro) {
+      return { ok: false, erro: erro.message };
+    }
+    console.error("Falha ao (des)ativar item do catálogo:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
