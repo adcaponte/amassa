@@ -51,7 +51,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
-- [ ] **Phase 6: Estoque** - Materiais por categoria com saldo sempre derivado das movimentações
+- [ ] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026: código completo no branch `gsd/phase-06-estoque`, não publicado; aguardando o portão do dono (06-11, Tarefa 3). Até 29/09 esta linha dizia "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.*
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -812,7 +812,7 @@ orçamento de contexto e foram divididos — eram 9 planos). 🔴 Todo o código
 - [x] 06-08-PLAN.md — Fora do Estoque: Cadastros desativa em vez de apagar e trava a unidade; a Venda diz “fica com −X” sem bloquear (onda 8)
 - [x] 06-09-PLAN.md — Folha do material (soma = saldo, “gasto por”), “+ Novo material” com a validação do Cadastros, editar mínimo/observações, desativar (onda 9)
 - [x] 06-10-PLAN.md — Contagem (primeira e conferência, pela diferença, sob trava), painel da primeira abertura, bloco “Estoque acabando” do Início real (onda 10)
-- [ ] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**)
+- [ ] 06-11-PLAN.md — Portão: `/api/health/estoque`, Roteiro 15 na ordem do D-33, a única varredura completa, documentos de estado, e o dono — D-23/D-24, migração, publicação, contagem real e cronômetro (onda 11, **não autônomo**). *Em 29/09/2026 (manhã): Tarefas 1 e 2 feitas no branch — a rota, o Roteiro 15, a caminhada `06-VERIFICACAO-HUMANA.md`, a varredura completa e o branch local só-migração `gsd/phase-06-estoque-migracao` (ver `06-11-SUMMARY.md`). **Aberto: a Tarefa 3, o portão do dono** — Parte 0 (D-23/D-24/D-29), Roteiro 15 e a caminhada. Os 9 critérios acima só se marcam depois dela.*
 
 **UI hint**: yes
 
