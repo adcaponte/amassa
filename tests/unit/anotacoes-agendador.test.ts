@@ -323,7 +323,10 @@ describe("agendador das Anotações — erro e conflito", () => {
 
     agendador.manterOMeu(V_DE_OUTRA_PESSOA);
     expect(chamadas).toHaveLength(2);
-    expect(chamadas[1]).toMatchObject({ texto: "meu texto, e mais", vistoEm: V_DE_OUTRA_PESSOA });
+    expect(chamadas[1]).toMatchObject({
+      texto: "meu texto, e mais",
+      vistoEm: V_DE_OUTRA_PESSOA,
+    });
 
     await chamadas[1].responder({ tipo: "gravado", versao: V2 });
     expect(agendador.situacao()).toBe("salvo");

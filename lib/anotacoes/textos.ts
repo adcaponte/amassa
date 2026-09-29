@@ -11,6 +11,15 @@ export const FRASE_DE_APOIO = "Uma folha só, da casa: o que um escreve, o outro
 // O indicador ao lado do título (D-08/GES-10) — nunca um botão "Salvar" como única porta.
 export const ROTULO_INDICADOR_SALVANDO = "salvando…";
 export const ROTULO_INDICADOR_SALVO = "salvo";
+// Da primeira tecla até a gravação que a cobre terminar (CR-02 da revisão da Fase 04.6): o
+// indicador nunca diz "salvo" enquanto há texto que o servidor ainda não tem.
+export const ROTULO_INDICADOR_PENDENTE = "editando…";
+
+// A pergunta do navegador ao fechar ou recarregar a aba com texto ainda não salvo (CR-02) — a
+// requisição pode ser abortada no meio, então a tela pergunta antes. Os navegadores atuais
+// mostram uma frase própria no lugar desta, mas ela fica aqui para os que ainda a exibem.
+export const FRASE_ALTERACOES_NAO_SALVAS =
+  "Você tem alterações não salvas nas Anotações. Se sair agora, elas podem se perder.";
 
 // O aviso de conflito (D-08): na MESMA linha do cabeçalho, nunca um diálogo no meio do caminho.
 export const FRASE_AVISO_DE_CONFLITO =
