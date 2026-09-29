@@ -22,6 +22,11 @@ const ARQUIVOS_DE_ROTA_PUBLICOS = [
   "app/sitemap.ts",
   "app/api/health/route.ts",
   "app/api/health/backup/route.ts",
+  // Decidida no plano 06-11 (Fase 06): pública de propósito, no molde de `/api/health/backup` —
+  // é o Passo 7 do Roteiro 15 (prova de fora que o app publicado enxerga a migração 0023) e o
+  // monitor externo. O corpo é só `{ status }`: nunca contagem, saldo, valor ou nome de banco
+  // (T-06-49, `tests/e2e/estoque-saude.spec.ts`).
+  "app/api/health/estoque/route.ts",
   "app/api/auth/[...nextauth]/route.ts",
 ];
 
