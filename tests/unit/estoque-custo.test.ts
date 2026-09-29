@@ -8,6 +8,7 @@ import {
   type EstadoDoItem,
   type Movimento,
 } from "@/lib/estoque/custo";
+import { custoMedioParaExibir } from "@/lib/estoque/saldo";
 
 // A bateria do custo médio (planos 06-01 e 06-02). Os números esperados são os da tabela de
 // `06-RESEARCH.md` §Pergunta 3, LITERALMENTE — se um caso não bater, a correção vai no módulo puro
@@ -454,5 +455,53 @@ describe("D-23/D-24 — o valor do estorno (tomado sem o dono; confirmar antes d
     expect(custoMedioCentavosPorUnidade(estornoA.estadoDepois)).toBe(1000);
     // E o estorno vira a "última entrada com preço" (revisão WR-02).
     expect(estornoA.estadoDepois.ultimaEntradaComPreco).toEqual({ valorCentavos: 2000, milesimos: 2000 });
+  });
+
+  // Revisão de código da Fase 06, WR-02 — o estorno de venda conta como "última entrada com preço"
+  // (é uma `entrada_com_preco`, como `06-RESEARCH.md` §Pergunta 3 o define). FIXA o que o código faz
+  // HOJE; não é a regra aprovada. A alternativa da revisão (o estorno não conta) mexe na D-26 e
+  // está em `06-VERIFICACAO-HUMANA.md` §0.1 para o dono escolher. Se ele trocar, estes dois testes
+  // mudam junto com `valorarMovimento` e as consultas `lerEstados`/`listarSaldos`.
+  it("comportamento atual — a confirmar pelo dono (WR-02): com a prateleira vazia, a baixa sai pelo custo da venda cancelada, não pelo da última compra", () => {
+    // A última compra foi a R$ 50,00/un; a prateleira está vazia.
+    const inicio = estado(0, 0, { valorCentavos: 5000, milesimos: 1000 });
+
+    // Cancela uma venda antiga, que levou 1 un a R$ 10,00.
+    const estorno = valorarMovimento(
+      inicio,
+      movimentoDoEstorno({ quantidadeMilesimos: -1000, valorCentavos: -1000 }),
+    );
+    expect(estorno.estadoDepois.ultimaEntradaComPreco).toEqual({ valorCentavos: 1000, milesimos: 1000 });
+
+    // A unidade sai de novo e a prateleira zera.
+    const zera = valorarMovimento(estorno.estadoDepois, { tipo: "saida", milesimos: 1000 });
+    expect(zera.estadoDepois).toMatchObject({ saldoMilesimos: 0, valorCentavos: 0 });
+
+    // A baixa seguinte, com saldo zero (D-26), sai a R$ 10,00 — não a R$ 50,00.
+    const seguinte = valorarMovimento(zera.estadoDepois, { tipo: "saida", milesimos: 1000 });
+    expect(seguinte.valorCentavos).toBe(-1000);
+  });
+
+  it("comportamento atual — a confirmar pelo dono (WR-02): cancelar uma venda feita antes de qualquer entrada com preço faz a tela mostrar R$ 0,00/un em vez de “—”", () => {
+    // Nunca houve entrada com preço: a tela mostra "—".
+    expect(custoMedioParaExibir(ESTADO_VAZIO)).toBeNull();
+
+    // A venda sai a R$ 0,00 (D-26: sem nenhuma entrada com preço, custo zero).
+    const venda = valorarMovimento(ESTADO_VAZIO, { tipo: "saida", milesimos: 1000 });
+    expect(venda.valorCentavos).toBe(0);
+    expect(custoMedioParaExibir(venda.estadoDepois)).toBeNull();
+
+    // O cancelamento entra "com preço" de R$ 0,00 — e passa a ser a última entrada com preço.
+    const estorno = valorarMovimento(
+      venda.estadoDepois,
+      movimentoDoEstorno({ quantidadeMilesimos: venda.quantidadeMilesimos, valorCentavos: venda.valorCentavos }),
+    );
+    expect(estorno.estadoDepois).toEqual({
+      saldoMilesimos: 0,
+      valorCentavos: 0,
+      ultimaEntradaComPreco: { valorCentavos: 0, milesimos: 1000 },
+    });
+    // Hoje: 0 centavos por unidade ("R$ 0,00/un"). Pela alternativa da revisão, seria `null` ("—").
+    expect(custoMedioParaExibir(estorno.estadoDepois)).toBe(0);
   });
 });

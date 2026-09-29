@@ -98,6 +98,38 @@ e no teste "comportamento atual — a confirmar pelo dono (WR-01)" de
 - [ ] **D-23 com estoque zerado ou negativo:** fica como hoje (a prateleira passa ao custo da venda
   antiga) / troco para a alternativa (volta ao custo médio do momento) / outra: ____________
 
+**A venda cancelada conta como "a última entrada com preço"?** *(Achado da revisão de código de
+29/09, `06-REVIEW.md` WR-02. Nada foi mudado no código: a escolha é sua. Mexe na D-26.)*
+
+A D-26 diz: quando a prateleira está em zero, a baixa sai pelo custo da **última entrada com preço**.
+Hoje, o cancelamento de uma venda **conta** como entrada com preço — a pesquisa da fase o definiu
+assim (`06-RESEARCH.md`, Pergunta 3). Duas consequências:
+
+- **O custo de uma baixa com prateleira vazia pode vir de uma venda cancelada, não da última
+  compra.** Exemplo: a última compra foi a R$ 50,00/un e a prateleira está vazia. Cancela-se uma
+  venda antiga, que tinha levado 1 un a R$ 10,00. Essa unidade volta, sai de novo, e a prateleira
+  zera. A baixa seguinte, com a prateleira vazia, sai a **R$ 10,00** (o custo da venda cancelada), e
+  não a R$ 50,00 (a última compra).
+- **A tela pode mostrar "R$ 0,00/un" onde promete "—".** Um material que nunca teve compra nem
+  entrada com preço mostra "—" no custo médio (não se sabe o custo). Se ele for vendido antes da
+  primeira compra (a venda sai a R$ 0,00, pela D-26) e essa venda for cancelada, o cancelamento
+  vira uma "entrada com preço" de R$ 0,00, e a tela passa a mostrar **"R$ 0,00/un"** — como se o
+  custo fosse zero, e não desconhecido.
+
+- **O que o código faz hoje:** o cancelamento de venda conta como a última entrada com preço (as
+  duas consequências acima acontecem).
+- **A alternativa que a revisão sugere:** o cancelamento **não** conta. A "última entrada com
+  preço" passa a ser só compra, entrada manual e contagem. No exemplo, a baixa com prateleira vazia
+  sairia a R$ 50,00, e o material nunca comprado continuaria mostrando "—".
+
+Trocar para a alternativa mexe em três lugares que andam juntos — `valorarMovimento`
+(`lib/estoque/custo.ts`) e as duas consultas da última entrada (`lerEstados` em
+`lib/estoque/gravacao.ts`, `listarSaldos` em `lib/estoque/consultas.ts`) — e nos testes "comportamento
+atual — a confirmar pelo dono (WR-02)" de `tests/unit/estoque-custo.test.ts`. Não mexe na migração.
+
+- [ ] **Venda cancelada como "última entrada com preço":** fica como hoje (conta) / troco para a
+  alternativa (não conta) / outra: ____________
+
 **D-24 — compra cancelada: o material sai ao custo médio de agora, não ao que a compra custou.**
 
 Não é gosto, é conserto de um defeito. Exemplo com números:
