@@ -939,8 +939,9 @@ async function conferirFinanceiro(cliente) {
   const contasFixasDeTeste = [];
 
   try {
-    // 1. Semente (D-02/D-14): exatamente 24 categorias, as 23 do protótipo com grupo/área
-    // certos, mais "Juros, multas e descontos" com chave_do_sistema = 'diferenca'.
+    // 1. Semente (D-02/D-14): exatamente 25 categorias — as 23 do protótipo com grupo/área
+    // certos, mais "Juros, multas e descontos" com chave_do_sistema = 'diferenca' (as 24 da 0016),
+    // mais "Produção da casa" (custo/pecas), semeada no fim da 0023 (D-29, dono em 29/09/2026).
     const GRUPO_E_AREA_ESPERADOS = new Map([
       ["Bebidas e comidas", ["receita", "cafeteria"]],
       ["Uso do espaço", ["receita", "espaco"]],
@@ -966,14 +967,15 @@ async function conferirFinanceiro(cliente) {
       ["Aporte dos sócios", ["fora", "geral"]],
       ["Retirada de lucro", ["fora", "geral"]],
       ["Juros, multas e descontos", ["geral", "geral"]],
+      ["Produção da casa", ["custo", "pecas"]],
     ]);
 
     const { rows: categoriasSemeadas } = await cliente.query(
       "select nome, grupo, area, chave_do_sistema from categorias",
     );
     afirmar(
-      categoriasSemeadas.length === 24,
-      `Deveriam existir exatamente 24 categorias semeadas pela migração 0016, vieram ${categoriasSemeadas.length}.`,
+      categoriasSemeadas.length === 25,
+      `Deveriam existir exatamente 25 categorias semeadas (24 pela migração 0016, 1 pela 0023), vieram ${categoriasSemeadas.length}.`,
     );
     for (const [nome, [grupoEsperado, areaEsperada]] of GRUPO_E_AREA_ESPERADOS) {
       const linha = categoriasSemeadas.find((atual) => atual.nome === nome);
@@ -1012,8 +1014,45 @@ async function conferirFinanceiro(cliente) {
     }
     const { rows: categoriasAposReaplicar } = await cliente.query("select count(*)::int as total from categorias");
     afirmar(
-      categoriasAposReaplicar[0].total === 24,
-      `Reaplicar a semente de categorias (0016) não deveria duplicar nada — esperado 24, veio ${categoriasAposReaplicar[0].total}.`,
+      categoriasAposReaplicar[0].total === 25,
+      `Reaplicar a semente de categorias (0016) não deveria duplicar nada — esperado 25, veio ${categoriasAposReaplicar[0].total}.`,
+    );
+
+    // A semente de "Produção da casa" (fim da 0023, D-29): existe UMA vez depois de migrar, e
+    // continua uma só quando a instrução roda de novo (o `where not exists` sobre o nome
+    // normalizado). É a mesma conferência que o Roteiro 15, Passo 5, pede ao dono no servidor.
+    const contarProducaoDaCasa = async () =>
+      (
+        await cliente.query(
+          "select count(*)::int as total from categorias where nome = 'Produção da casa'",
+        )
+      ).rows[0].total;
+    afirmar(
+      (await contarProducaoDaCasa()) === 1,
+      `A categoria "Produção da casa" deveria existir exatamente uma vez depois da 0023, veio ${await contarProducaoDaCasa()}.`,
+    );
+    const instrucaoDaSementeDaCasa = readFileSync(
+      path.join(process.cwd(), "db", "migrations", "0023_estoque.sql"),
+      "utf8",
+    )
+      .replace(/\r\n/g, "\n")
+      .split("--> statement-breakpoint")
+      .map((bloco) =>
+        bloco
+          .split("\n")
+          .filter((linha) => !linha.trim().startsWith("--"))
+          .join("\n")
+          .trim(),
+      )
+      .find((instrucao) => instrucao.startsWith("insert into categorias"));
+    afirmar(
+      Boolean(instrucaoDaSementeDaCasa),
+      'A migração 0023 deveria terminar com a semente "insert into categorias" de "Produção da casa".',
+    );
+    await cliente.query(instrucaoDaSementeDaCasa);
+    afirmar(
+      (await contarProducaoDaCasa()) === 1,
+      `Reaplicar a semente de "Produção da casa" (0023) não deveria duplicá-la — veio ${await contarProducaoDaCasa()}.`,
     );
 
     const idCategoriaReceita = categoriasSemeadas.find((linha) => linha.nome === "Uso do espaço")

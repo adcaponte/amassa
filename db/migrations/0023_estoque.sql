@@ -12,7 +12,9 @@
 --     correção é ajuste, cancelamento é estorno, nunca edição nem exclusão (EST-06);
 -- (2) a função e o gatilho `travar_unidade_do_item_com_movimentacao` em `itens_catalogo`: item que
 --     já tem movimentação não muda de unidade nem deixa de controlar estoque (Pitfall 6 — 5 kg
---     virariam 5 g, ou o item sumiria do Estoque com saldo).
+--     virariam 5 g, ou o item sumiria do Estoque com saldo);
+-- (3) a semente da categoria de compra "Produção da casa" (D-29, pedida pelo dono em 29/09/2026),
+--     no fim do arquivo.
 --
 -- Recriação condicional (`create or replace function`, `drop trigger if exists` antes de
 -- `create trigger`): reaplicar os blocos à mão num banco parcialmente migrado não deve explodir.
@@ -127,3 +129,18 @@ drop trigger if exists travar_unidade_do_item_com_movimentacao on itens_catalogo
 create trigger travar_unidade_do_item_com_movimentacao
   before update on itens_catalogo
   for each row execute function travar_unidade_do_item_com_movimentacao();
+--> statement-breakpoint
+
+-- (3) SEMENTE (D-29, respondida pelo dono no chat em 29/09/2026, pela manhã, por formulário): a
+-- categoria de COMPRA "Produção da casa", área Peças, grupo `custo` — o mesmo grupo das categorias
+-- de compra da semente 0016 ("Argila, esmalte e insumos" etc.). É a categoria de compra natural da
+-- peça produzida na casa que vai para o estoque (a "Peça pronta" continua reconhecida pela ficha de
+-- precificação ligada, não por esta categoria). Dado, não estrutura: nenhum `db/schema.ts`, nenhum
+-- snapshot do Drizzle muda. Idempotente — `where not exists` sobre o nome normalizado (o mesmo
+-- critério do índice único `categorias_nome_normalizado_idx`): reaplicar não duplica, e se o dono já
+-- tiver criado uma categoria com esse nome pela tela, a dele fica como está.
+insert into categorias (nome, grupo, area)
+select 'Produção da casa', 'custo', 'pecas'
+where not exists (
+  select 1 from categorias where lower(trim(nome)) = lower(trim('Produção da casa'))
+);
