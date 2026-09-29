@@ -268,3 +268,136 @@ export const SEM_CATEGORIA = "Sem categoria";
 export function textoSaldoDeAgora(saldo: string, unidade: string): string {
   return `saldo de agora: ${saldo} ${unidade}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// As abas Histórico e Para onde foi (plano 06-07) — a barra de abas, as linhas do livro, as barras
+// por destino, os vazios, os erros e as notas de rodapé.
+// ---------------------------------------------------------------------------------------------
+
+// §Layout, item 3 — a barra de abas (neutra, UI-D1).
+export const ROTULO_ABA_SALDOS = "Saldos";
+export const ROTULO_ABA_HISTORICO = "Histórico";
+export const ROTULO_ABA_DESTINO = "Para onde foi";
+export const ROTULO_BARRA_DE_ABAS = "Ver";
+
+// §Aba Histórico — as pílulas (herdadas) e o contador. Nunca "1 movimentações".
+export const ROTULO_PILULA_HISTORICO_TUDO = "Tudo";
+export const ROTULO_PILULA_ENTRADAS = "Entradas";
+export const ROTULO_PILULA_SAIDAS = "Saídas";
+export const ROTULO_PILULA_AJUSTES = "Ajustes";
+export const ROTULO_FILTRAR_HISTORICO = "Filtrar o histórico por tipo";
+export function textoContadorDoHistorico(quantas: number): string {
+  return quantas === 1 ? "1 movimentação" : `${quantas} movimentações`;
+}
+// §Ações — "Histórico — paginação".
+export const ROTULO_MOSTRAR_MAIS = "Mostrar mais 50";
+
+// §Aba Histórico — a linha 2 de cada tipo (a tabela "Movimentação × Linha 2 × Chips"). Os números
+// e os nomes chegam formatados; a junção " · " é de `descreverMovimentacao` (historico.ts).
+export const LINHA_VENDIDO = "Vendido";
+export const LINHA_ENTRADA = "Entrada";
+export const LINHA_PECA_PRONTA = "peça pronta";
+export const LINHA_SALDO_INICIAL = "Saldo inicial";
+export const LINHA_AJUSTE = "Ajuste de conferência";
+export const LINHA_ESTORNO = "Estorno";
+export function textoVendaNumero(numero: number): string {
+  return `venda nº ${numero}`;
+}
+export function textoCompraNumero(numero: number): string {
+  return `Compra nº ${numero}`;
+}
+export function textoPagaPor(area: string): string {
+  return `paga por ${area}`;
+}
+export function textoDocumentoCancelado(tipo: "venda" | "compra", numero: number): string {
+  return `${tipo} nº ${numero} cancelada`;
+}
+export function textoContadoNaPrateleira(contado: string, unidade: string): string {
+  return `contado ${contado} ${unidade} na prateleira`;
+}
+export function textoContado(contado: string, unidade: string): string {
+  return `contado ${contado} ${unidade}`;
+}
+export function textoPrecoPorUnidade(reais: string, unidade: string): string {
+  return `${reais}/${unidade}`;
+}
+
+// §Aba Histórico — os chips da linha. "Estornada" é neutro; "Perda" em erro; "Venda" em sucesso;
+// "do Financeiro" com a borda tracejada terracota.
+export const CHIP_PERDA = "Perda";
+export const CHIP_VENDA = "Venda";
+export const CHIP_DO_FINANCEIRO = "do Financeiro";
+export const CHIP_ESTORNO = "Estorno";
+export const CHIP_ESTORNADA = "Estornada";
+export const CHIP_SALDO_INICIAL = "Saldo inicial";
+
+// §Estados vazios — Histórico.
+export const TITULO_HISTORICO_VAZIO = "Nada registrado ainda";
+export const CORPO_HISTORICO_VAZIO =
+  "Toda entrada, saída e ajuste aparece aqui, com quem fez e quando — inclusive o que vem das vendas e compras do Financeiro.";
+export const TITULO_HISTORICO_TIPO_VAZIO = "Nada deste tipo ainda.";
+export const CORPO_HISTORICO_TIPO_VAZIO = "Toque em Tudo para ver todas as movimentações.";
+export const ROTULO_VER_TUDO = "Ver tudo";
+
+// §Erros — as duas abas.
+export const FRASE_ERRO_CARREGAR_HISTORICO =
+  "Não deu para carregar o histórico. Verifique a internet e tente de novo.";
+export const FRASE_ERRO_CARREGAR_DESTINO =
+  "Não deu para carregar para onde foi o material. Verifique a internet e tente de novo.";
+
+// §Notas de rodapé — Histórico (1) e (2). Em partes: o destaque em negrito, as palavras em itálico.
+export const NOTA_HISTORICO_DESTAQUE = "Nada aqui pode ser apagado nem editado.";
+export const NOTA_HISTORICO_ANTES_DO_AJUSTE =
+  " O histórico é a única fonte do saldo — se ele pudesse ser reescrito, o saldo deixaria de ser confiável. Errou a quantidade? Registre um ";
+export const NOTA_HISTORICO_AJUSTE = "ajuste";
+export const NOTA_HISTORICO_DEPOIS_DO_AJUSTE = ": os dois ficam visíveis, e dá para ver o que aconteceu.";
+// Reescrita para valer também para compra (D-04).
+export const NOTA_FINANCEIRO_DESTAQUE = "As linhas marcadas “do Financeiro” não foram digitadas aqui.";
+export const NOTA_FINANCEIRO_ANTES_DO_ESTORNO =
+  " Vendas e compras são lançadas no Financeiro, que tira e põe no estoque sozinho. A regra vale igual para elas: ninguém edita nem apaga. Venda ou compra cancelada não some — o Financeiro registra um ";
+export const NOTA_FINANCEIRO_ESTORNO = "estorno";
+export const NOTA_FINANCEIRO_DEPOIS_DO_ESTORNO = ", e as duas linhas ficam.";
+
+// §Aba Para onde foi — as pílulas do período (herdadas; padrão 30) e o contador.
+export const ROTULO_PERIODO_30 = "Últimos 30 dias";
+export const ROTULO_PERIODO_90 = "90 dias";
+export const ROTULO_PERIODO_TUDO = "Tudo";
+export const ROTULO_FILTRAR_PERIODO = "Escolher o período";
+export function textoSaidasNoPeriodo(quantas: number): string {
+  return quantas === 1 ? "1 saída no período" : `${quantas} saídas no período`;
+}
+export const ROTULO_MATERIAL_CONSUMIDO = "Material consumido no período";
+// D-31: a baixa por venda é a sexta barra.
+export const NOME_BARRA_VENDAS = "Vendido · pelo Financeiro";
+// A sub-linha de cada barra: "{Área} · {n} saída(s) · {p}% do período"; na de vendas,
+// "{n} baixa(s) · {p}% do período"; sem nada, "nenhuma saída".
+export const SEM_SAIDA = "nenhuma saída";
+export function textoQuantasSaidas(quantas: number): string {
+  return quantas === 1 ? "1 saída" : `${quantas} saídas`;
+}
+export function textoQuantasBaixas(quantas: number): string {
+  return quantas === 1 ? "1 baixa" : `${quantas} baixas`;
+}
+export function textoDoPeriodo(percentual: number): string {
+  return `${percentual}% do período`;
+}
+export function rotuloDaBarra(nome: string, valor: string, percentual: number): string {
+  return `${nome}: ${valor}, ${percentual}% do período`;
+}
+
+// §Estados vazios — Para onde foi.
+export const TITULO_DESTINO_VAZIO = "Nenhuma saída no período";
+export const CORPO_DESTINO_VAZIO =
+  "Quando você der baixa em algum material, ou quando uma venda tirar insumos do estoque, ele aparece aqui separado por destino.";
+
+// §Notas de rodapé — Para onde foi (topo e rodapé), em partes para o negrito.
+export const NOTA_DESTINO_TOPO_ANTES = "Este número diz ";
+export const NOTA_DESTINO_TOPO_DESTAQUE = "qual área pagou cada grama de material";
+export const NOTA_DESTINO_TOPO_DEPOIS =
+  ". Sem o destino na saída, tudo viraria um custo só, e a margem de cada área ficaria errada.";
+export const NOTA_DESTINO_RODAPE_DESTAQUE = "Como o valor é calculado.";
+export const NOTA_DESTINO_RODAPE_ANTES =
+  " Cada saída vale a quantidade vezes o custo médio do material ";
+export const NOTA_DESTINO_RODAPE_INSTANTE = "no instante da saída";
+export const NOTA_DESTINO_RODAPE_DEPOIS =
+  " — o custo médio vem das entradas, que é onde o preço de compra é registrado. Por isso a entrada pergunta quanto custou.";

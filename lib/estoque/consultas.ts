@@ -6,17 +6,19 @@
 // `SUM(quantidade_milesimos)` e `SUM(valor_centavos)` sobre `movimentacoes_estoque`, calculados
 // AQUI, na hora da leitura. A lista, o banner, o bloco do Início, a contagem e o painel de Venda
 // (planos seguintes) leem esta mesma função.
-import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { cache } from "react";
 
 import { db } from "@/db";
 import {
   categorias,
+  documentos,
   encomendas,
   fichasPrecificacao,
   itensCatalogo,
   movimentacoesEstoque,
+  usuarios,
 } from "@/db/schema";
 import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
@@ -24,7 +26,9 @@ import { calcularPeca } from "@/lib/precificacao/calculo";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
 
+import type { TipoDoHistorico } from "./abas";
 import type { EntradaComPreco } from "./custo";
+import type { MovimentacaoParaDescrever, SaidaParaOndeFoi } from "./historico";
 import { areaDoItemNoEstoque } from "./saldo";
 
 export type SaldoDoItem = {
@@ -252,4 +256,168 @@ export async function custosDasPecasProntas(
     }
   }
   return custos;
+}
+
+// ---------------------------------------------------------------------------------------------
+// O livro lido (plano 06-07): a aba Histórico e a aba Para onde foi. Leitura pura — nenhuma escrita.
+// ---------------------------------------------------------------------------------------------
+
+// Uma linha do Histórico: o que `descreverMovimentacao` (historico.ts) precisa, mais quem registrou,
+// quando, e o material. `numero` é a ordem do livro (identity única — nunca empata).
+export type LinhaDoHistorico = MovimentacaoParaDescrever & {
+  id: string;
+  numero: number;
+  itemId: string;
+  itemNome: string;
+  registradoPorNome: string;
+  criadoEm: Date;
+};
+
+function filtroDoTipo(tipo: TipoDoHistorico): SQL | undefined {
+  return tipo === "tudo" ? undefined : eq(movimentacoesEstoque.tipo, tipo);
+}
+
+// As `limite` movimentações mais recentes, de todos os materiais, pela ORDEM DE GRAVAÇÃO (`numero`
+// decrescente) — nunca `criado_em`, que empata dentro de uma transação (uma venda que baixa dois
+// insumos grava as duas linhas no mesmo instante; EST-05 · ordering/adjacency). Lê `limite + 1` para
+// saber se há mais sem uma segunda consulta.
+//
+// UMA consulta: o material (nome, unidade), quem registrou (`registrado_por` é `not null` — o autor
+// nunca falta), o documento do Financeiro (número) e a marca `estornada` — a junção com o estorno
+// que aponta para a linha; a restrição única `movimentacoes_estoque_estorno_de_uk` garante no máximo
+// um, então a junção nunca duplica linha. `tipo` e `limite` chegam já normalizados por
+// `lib/estoque/abas.ts` (T-06-28/T-06-29).
+export async function listarHistorico({
+  tipo,
+  limite,
+}: {
+  tipo: TipoDoHistorico;
+  limite: number;
+}): Promise<{ linhas: LinhaDoHistorico[]; haMais: boolean }> {
+  const estorno = alias(movimentacoesEstoque, "estorno_da_movimentacao");
+
+  const linhas = await db
+    .select({
+      id: movimentacoesEstoque.id,
+      numero: movimentacoesEstoque.numero,
+      itemId: movimentacoesEstoque.itemId,
+      itemNome: itensCatalogo.nome,
+      unidade: itensCatalogo.unidade,
+      origem: movimentacoesEstoque.origem,
+      tipo: movimentacoesEstoque.tipo,
+      motivo: movimentacoesEstoque.motivo,
+      destino: movimentacoesEstoque.destino,
+      area: movimentacoesEstoque.area,
+      quantidadeMilesimos: movimentacoesEstoque.quantidadeMilesimos,
+      valorCentavos: movimentacoesEstoque.valorCentavos,
+      valorInformadoCentavos: movimentacoesEstoque.valorInformadoCentavos,
+      saldoContadoMilesimos: movimentacoesEstoque.saldoContadoMilesimos,
+      nota: movimentacoesEstoque.nota,
+      estornoDeId: movimentacoesEstoque.estornoDeId,
+      documentoNumero: documentos.numero,
+      registradoPorNome: usuarios.nome,
+      criadoEm: movimentacoesEstoque.criadoEm,
+      estornoId: estorno.id,
+    })
+    .from(movimentacoesEstoque)
+    .innerJoin(itensCatalogo, eq(movimentacoesEstoque.itemId, itensCatalogo.id))
+    .innerJoin(usuarios, eq(movimentacoesEstoque.registradoPor, usuarios.id))
+    .leftJoin(documentos, eq(movimentacoesEstoque.documentoId, documentos.id))
+    .leftJoin(estorno, eq(estorno.estornoDeId, movimentacoesEstoque.id))
+    .where(filtroDoTipo(tipo))
+    .orderBy(desc(movimentacoesEstoque.numero))
+    .limit(limite + 1);
+
+  const haMais = linhas.length > limite;
+  // Item com movimentação tem unidade (o gatilho da 0023 trava a unidade e `controla_estoque`) — o
+  // filtro só estreita o tipo; nenhuma linha real é descartada.
+  const doLivro = linhas.slice(0, limite).flatMap((linha) => {
+    if (linha.unidade === null) {
+      return [];
+    }
+    return [
+      {
+        id: linha.id,
+        numero: linha.numero,
+        itemId: linha.itemId,
+        itemNome: linha.itemNome,
+        unidade: linha.unidade,
+        origem: linha.origem,
+        tipo: linha.tipo,
+        motivo: linha.motivo,
+        destino: linha.destino,
+        area: linha.area,
+        quantidadeMilesimos: linha.quantidadeMilesimos,
+        valorCentavos: linha.valorCentavos,
+        valorInformadoCentavos: linha.valorInformadoCentavos,
+        saldoContadoMilesimos: linha.saldoContadoMilesimos,
+        nota: linha.nota,
+        documentoNumero: linha.documentoNumero,
+        ehEstorno: linha.estornoDeId !== null,
+        estornada: linha.estornoId !== null,
+        registradoPorNome: linha.registradoPorNome,
+        criadoEm: linha.criadoEm,
+      },
+    ];
+  });
+
+  return { linhas: doLivro, haMais };
+}
+
+// Quantas movimentações o livro tem, no tipo pedido — o "{N} movimentações" das pílulas.
+export async function contarHistorico({ tipo }: { tipo: TipoDoHistorico }): Promise<number> {
+  const [resultado] = await db
+    .select({ quantas: count() })
+    .from(movimentacoesEstoque)
+    .where(filtroDoTipo(tipo));
+  return resultado ? Number(resultado.quantas) : 0;
+}
+
+// As saídas do período para o "Para onde foi": de origem `manual` ou `venda`, que NÃO são estorno,
+// com a marca `estornada` (a mesma junção de `listarHistorico`). Quem decide o que conta como
+// consumo é `agregarParaOndeFoi` (historico.ts), por regra testada — este `where` só economiza
+// linhas. `desde` é a data civil de início ("AAAA-MM-DD", de `inicioDoPeriodo`): o corte é a
+// meia-noite desse dia EM BRASÍLIA, convertida no próprio Postgres (`at time zone`), nunca o fuso do
+// banco nem o do processo; `null` = "Tudo". UMA consulta, nunca uma por destino.
+export async function saidasParaOndeFoi({
+  desde,
+}: {
+  desde: string | null;
+}): Promise<SaidaParaOndeFoi[]> {
+  const estorno = alias(movimentacoesEstoque, "estorno_da_saida");
+
+  const condicoes: SQL[] = [
+    eq(movimentacoesEstoque.tipo, "saida"),
+    inArray(movimentacoesEstoque.origem, ["manual", "venda"]),
+    isNull(movimentacoesEstoque.estornoDeId),
+  ];
+  if (desde !== null) {
+    condicoes.push(
+      sql`${movimentacoesEstoque.criadoEm} >= (${desde}::date)::timestamp at time zone 'America/Sao_Paulo'`,
+    );
+  }
+
+  const linhas = await db
+    .select({
+      origem: movimentacoesEstoque.origem,
+      tipo: movimentacoesEstoque.tipo,
+      destino: movimentacoesEstoque.destino,
+      area: movimentacoesEstoque.area,
+      valorCentavos: movimentacoesEstoque.valorCentavos,
+      estornoDeId: movimentacoesEstoque.estornoDeId,
+      estornoId: estorno.id,
+    })
+    .from(movimentacoesEstoque)
+    .leftJoin(estorno, eq(estorno.estornoDeId, movimentacoesEstoque.id))
+    .where(and(...condicoes));
+
+  return linhas.map((linha) => ({
+    origem: linha.origem,
+    tipo: linha.tipo,
+    destino: linha.destino,
+    area: linha.area,
+    valorCentavos: linha.valorCentavos,
+    ehEstorno: linha.estornoDeId !== null,
+    estornada: linha.estornoId !== null,
+  }));
 }
