@@ -216,3 +216,9 @@ Nenhuma superfície fora do `<threat_model>`:
 - **T-06-27:** `exigirUsuario()` continua a primeira instrução, e `verificar-acoes` passa.
 
 Nenhuma Server Action nova: `verificar-acoes` continua com 75.
+
+## Self-Check: PASSED
+
+- Commits `d619243`, `303229a` e `9fa40f5` existem no branch `gsd/phase-06-estoque`; `main` continua em `a8c7bad`.
+- Os 12 arquivos da lista `files_modified` estão nos commits `d619243` e `303229a`.
+- `STATE.md` e `ROADMAP.md` não foram modificados por este plano (são do orquestrador).
