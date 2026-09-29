@@ -134,7 +134,10 @@ passo publica **todos** eles, não só a migração — o branch só-migração 
 
 **O que você deve ver:** a mesma lista que o executor registrou em
 `.planning/phases/06-estoque/06-11-SUMMARY.md`, na seção "O branch só-migração", medida no instante
-em que criou o branch. São commits de documento e as correções já feitas antes da Fase 06 (entre
+em que criou o branch — **mais os dois commits só de documentos do adendo no fim desse SUMMARY**
+(`c4713e1` e `f44f6dc`, "docs(state): main com o estado da fase 06 …", que sincronizaram o `STATE`,
+o `ROADMAP` e a `PROXIMA-SESSAO` do `main` depois do corte; o branch só-migração foi refeito sobre
+eles). Se você já tiver dado `push` do `main` antes, a lista vem menor ou vazia — tudo bem. São commits de documento e as correções já feitas antes da Fase 06 (entre
 elas a da barra de cima do site, SIT-10). Se aparecer um commit que você não reconhece, **pare
 aqui** e pergunte antes de publicar.
 
@@ -144,6 +147,12 @@ git diff --name-only main gsd/phase-06-estoque-migracao
 
 **O que você deve ver:** exatamente os quatro arquivos acima, nada mais. Um quinto arquivo —
 **pare aqui**.
+
+**Antes de trocar de branch:** este roteiro e a caminhada (`06-VERIFICACAO-HUMANA.md`) só existem
+no branch da fase. Ao fazer `git switch main`, os dois **somem do disco** até o Passo 6 — justamente
+durante o backup e a migração. Siga daqui em diante pela cópia de leitura em
+`Claude outputs/estoque/` (fora do git, não some), ou deixe este arquivo aberto num editor que não
+recarregue do disco.
 
 ```bash
 git switch main
