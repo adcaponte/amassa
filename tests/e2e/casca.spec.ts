@@ -81,7 +81,10 @@ type TelaDeModulo = {
 // há forno nenhum, mas isso deixou de caber no contrato genérico "sempre a mesma casca vazia,
 // nunca modificável" que este teste verifica só para os módulos que ainda não foram construídos.
 // Cobertura de `/gestao/queimas` (cabeçalho, cadastro, registro de queima, persistência) vive em
-// `tests/e2e/queimas-*.spec.ts`. Achado pela varredura completa sem `--grep` (04-07): este teste
+// `tests/e2e/queimas-*.spec.ts`. `/gestao/estoque` sai pelo mesmo motivo na Fase 06 (plano 06-01): a
+// tela passou a ler o livro de verdade, o vazio ganhou a frase da UI-SPEC e fica sem botão até o
+// plano 06-09 — coberta por `tests/e2e/estoque-tracador.spec.ts` (o vazio, na cadeia `@vazio-global`).
+// Achado pela varredura completa sem `--grep` (04-07): este teste
 // nunca tinha rodado depois que `/gestao/queimas` deixou de ser um placeholder, porque nenhum plano da
 // Fase 4 tocava `tests/e2e/casca.spec.ts` nem invocava o e2e sem `--grep` até este ponto.
 const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
@@ -92,14 +95,6 @@ const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
     corpo: "Cadastre a primeira turma e as aulas da semana aparecem aqui, com data e presença por aluna.",
     rotuloBotao: "Nova turma",
     notaBotao: "Chega na Fase 5.",
-  },
-  {
-    href: "/gestao/estoque",
-    tituloPagina: "Estoque",
-    tituloVazio: "Nada no estoque ainda.",
-    corpo: "Cadastre o primeiro material — cerâmica, pintura ou bordado — para começar a controlar o saldo.",
-    rotuloBotao: "Novo material",
-    notaBotao: "Chega na Fase 6.",
   },
 ];
 

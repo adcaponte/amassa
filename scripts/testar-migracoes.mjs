@@ -72,6 +72,11 @@ const TABELAS_ESPERADAS = [
   // Fase 04.6, plano 07 — Anotações da casa (migração 0022_anotacoes-da-casa). Permanente, não
   // sai com a Abertura — não entra em TABELAS_DA_REMOCAO_ABERTURA.
   "anotacoes_da_casa",
+  // Fase 06 — Estoque (migração 0023_estoque). Permanente; não entra em
+  // TABELAS_DA_REMOCAO_ABERTURA. O livro imutável de onde o saldo sai (não existe tabela de
+  // materiais nem de saldos — D-01/EST-02). As conferências do livro (revoke, gatilho da unidade,
+  // checks) e a prova de concorrência são do plano 06-02.
+  "movimentacoes_estoque",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção

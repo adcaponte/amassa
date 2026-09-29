@@ -1,0 +1,244 @@
+// A ÚNICA porta de escrita de `movimentacoes_estoque` (plano 06-01). Nenhum outro arquivo insere
+// nesta tabela — grep de aceite: `insert(movimentacoesEstoque)` só aparece aqui.
+//
+// 🔴 SEM a diretiva `use server`, de propósito (06-RESEARCH.md Pattern 4 / Pitfall 7): toda função exportada de
+// um arquivo com a diretiva vira Server Action — chamável pelo navegador — e `npm run
+// verificar-acoes` exigiria `exigirUsuario()` na primeira linha de cada uma. Estas funções recebem
+// a TRANSAÇÃO de quem chama (a ação do Estoque hoje; a venda, a compra e o cancelamento do
+// Financeiro no plano 06-03), por isso só são alcançáveis de dentro do servidor, depois que a ação
+// que as chama já autorizou o usuário.
+//
+// A sequência, sempre dentro de UMA transação:
+//   1. TRAVAR os itens afetados — UMA consulta, ids únicos em ordem de id, `for no key update`;
+//   2. LER Q (Σ quantidade), V (Σ valor) e a última entrada com preço de cada item — DEPOIS da trava;
+//   3. VALORAR cada pedido em sequência com `lib/estoque/custo.ts` (o estado de um item avança pedido
+//      a pedido, para duas linhas do mesmo item no mesmo documento);
+//   4. INSERIR tudo num `insert ... values` só.
+//
+// Por que `for no key update` e não `for update` (Pitfall 2): ao inserir uma linha em
+// `documento_linhas` com `item_id = X`, a checagem de chave estrangeira segura `FOR KEY SHARE` na
+// linha X de `itens_catalogo`. `FOR UPDATE` conflita com `FOR KEY SHARE` — duas vendas do mesmo item
+// entrariam em impasse (A insere a linha, B insere a linha, A pede a trava e espera B, B pede e
+// espera A). `FOR NO KEY UPDATE` não conflita com `FOR KEY SHARE`, e continua excluindo outra
+// `FOR NO KEY UPDATE` — é o que serializa duas decisões sobre o mesmo saldo. A ordem fixa por id
+// elimina o impasse entre duas vendas que tocam os mesmos insumos em ordens diferentes. O plano 06-02
+// prova as duas coisas com duas conexões de verdade.
+//
+// Ordem de travas do sistema inteiro (06-RESEARCH.md §Pergunta 5), para nunca haver ciclo:
+// DOCUMENTO → ITENS. `cancelarDocumento` trava o documento e depois os itens; `lancarVenda`/
+// `lancarDespesa` criam o documento (linha nova, ninguém mais a vê) e depois travam os itens;
+// `editarItem` trava só o item. Nenhum caminho trava itens e depois um documento existente.
+//
+// Por que READ COMMITTED (o padrão do Postgres, que `db/index.ts` não muda) e NÃO `repeatable read`:
+// em READ COMMITTED cada comando enxerga o que foi comitado antes de ELE começar — o `SUM` lido
+// depois da trava enxerga a gravação de quem segurava a trava antes. Em `repeatable read` o retrato
+// seria tirado no primeiro comando da transação, ANTES da trava, e o `SUM` sairia velho.
+import { randomUUID } from "node:crypto";
+
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+
+import type { db } from "@/db";
+import { itensCatalogo, movimentacoesEstoque } from "@/db/schema";
+import type { Unidade } from "@/lib/cadastros/catalogo";
+
+import { ESTADO_VAZIO, valorarMovimento, type EstadoDoItem } from "./custo";
+import type { PedidoDeMovimentacao } from "./pedidos";
+
+// O tipo da transação do Drizzle, derivado do próprio `db` — mesma técnica de
+// `lib/anotacoes/acoes.ts` (nunca importado de `drizzle-orm/node-postgres`).
+export type TransacaoDoBanco = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type ItemTravado = {
+  id: string;
+  nome: string;
+  unidade: Unidade | null;
+  ativo: boolean;
+  controlaEstoque: boolean;
+};
+
+export type MovimentacaoGravada = {
+  id: string;
+  numero: number;
+  itemId: string;
+  quantidadeMilesimos: number;
+  valorCentavos: number;
+  saldoAntesMilesimos: number;
+  saldoDepoisMilesimos: number;
+};
+
+function idsUnicosEmOrdem(ids: readonly string[]): string[] {
+  return [...new Set(ids)].sort();
+}
+
+// Trava os itens numa consulta só, em ordem de id, com `for no key update` (ver o cabeçalho).
+// Devolve o que a ação precisa para decidir (existe? ativo? tem estoque próprio?) — lido JÁ sob a
+// trava. Item ausente do mapa = não existe mais.
+export async function travarItens(
+  tx: TransacaoDoBanco,
+  ids: readonly string[],
+): Promise<Map<string, ItemTravado>> {
+  const unicos = idsUnicosEmOrdem(ids);
+  if (unicos.length === 0) {
+    return new Map();
+  }
+  const linhas = await tx
+    .select({
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      unidade: itensCatalogo.unidade,
+      ativo: itensCatalogo.ativo,
+      controlaEstoque: itensCatalogo.controlaEstoque,
+    })
+    .from(itensCatalogo)
+    .where(inArray(itensCatalogo.id, unicos))
+    .orderBy(asc(itensCatalogo.id))
+    .for("no key update");
+
+  return new Map(linhas.map((linha) => [linha.id, linha]));
+}
+
+// Q, V e a última entrada com preço de cada item — chamada SÓ depois de `travarItens` na mesma
+// transação. `sum()` de `bigint` volta como texto do `pg` (numeric) → `Number(...)`, seguro abaixo
+// de 2^53. Item sem nenhuma linha no livro não aparece no mapa: quem lê usa `ESTADO_VAZIO`.
+//
+// "Última entrada com preço" = a linha de `tipo = 'entrada'` de maior `numero` (a ordem do livro,
+// nunca `criado_em`). Toda linha de entrada tem `valor_informado_centavos` (check da 0023): é o
+// preço pago P daquela entrada, o mesmo que `custo.ts` guarda em `estadoDepois`.
+export async function lerEstados(
+  tx: TransacaoDoBanco,
+  ids: readonly string[],
+): Promise<Map<string, EstadoDoItem>> {
+  const unicos = idsUnicosEmOrdem(ids);
+  const estados = new Map<string, EstadoDoItem>();
+  if (unicos.length === 0) {
+    return estados;
+  }
+
+  const somas = await tx
+    .select({
+      itemId: movimentacoesEstoque.itemId,
+      saldo: sql<string>`sum(${movimentacoesEstoque.quantidadeMilesimos})`,
+      valor: sql<string>`sum(${movimentacoesEstoque.valorCentavos})`,
+    })
+    .from(movimentacoesEstoque)
+    .where(inArray(movimentacoesEstoque.itemId, unicos))
+    .groupBy(movimentacoesEstoque.itemId);
+
+  const ultimasEntradas = await tx
+    .selectDistinctOn([movimentacoesEstoque.itemId], {
+      itemId: movimentacoesEstoque.itemId,
+      valorInformadoCentavos: movimentacoesEstoque.valorInformadoCentavos,
+      quantidadeMilesimos: movimentacoesEstoque.quantidadeMilesimos,
+    })
+    .from(movimentacoesEstoque)
+    .where(
+      and(
+        inArray(movimentacoesEstoque.itemId, unicos),
+        eq(movimentacoesEstoque.tipo, "entrada"),
+      ),
+    )
+    .orderBy(movimentacoesEstoque.itemId, desc(movimentacoesEstoque.numero));
+
+  const ultimaPorItem = new Map(ultimasEntradas.map((linha) => [linha.itemId, linha]));
+
+  for (const soma of somas) {
+    const ultima = ultimaPorItem.get(soma.itemId);
+    estados.set(soma.itemId, {
+      saldoMilesimos: Number(soma.saldo),
+      valorCentavos: Number(soma.valor),
+      ultimaEntradaComPreco:
+        ultima && ultima.valorInformadoCentavos !== null
+          ? { valorCentavos: ultima.valorInformadoCentavos, milesimos: ultima.quantidadeMilesimos }
+          : null,
+    });
+  }
+  return estados;
+}
+
+function conferirTipoDoPedido(pedido: PedidoDeMovimentacao): void {
+  const { tipo, movimento } = pedido;
+  const coerente =
+    tipo === "ajuste" ||
+    (tipo === "entrada" && movimento.tipo !== "saida") ||
+    (tipo === "saida" && movimento.tipo === "saida");
+  if (!coerente) {
+    throw new Error(
+      `gravarMovimentacoes: pedido de tipo "${tipo}" com movimento "${movimento.tipo}" — incoerente.`,
+    );
+  }
+}
+
+// Trava → lê → valora em sequência → insere, na transação de quem chama. Devolve as linhas gravadas
+// na MESMA ordem dos pedidos, com o saldo antes e depois de cada uma (o toast diz o que foi
+// GRAVADO, não o que a folha previu).
+export async function gravarMovimentacoes(
+  tx: TransacaoDoBanco,
+  pedidos: readonly PedidoDeMovimentacao[],
+  contexto: { registradoPor: string },
+): Promise<MovimentacaoGravada[]> {
+  if (pedidos.length === 0) {
+    return [];
+  }
+
+  const ids = pedidos.map((pedido) => pedido.itemId);
+  await travarItens(tx, ids);
+  const estados = await lerEstados(tx, ids);
+
+  // O id de cada linha nasce aqui (e não no `default` do banco) para casar a linha devolvida pelo
+  // `returning` com o pedido que a originou sem depender da ordem de retorno do `insert`.
+  const valoradas = pedidos.map((pedido) => {
+    conferirTipoDoPedido(pedido);
+    const estadoAntes = estados.get(pedido.itemId) ?? ESTADO_VAZIO;
+    const valorado = valorarMovimento(estadoAntes, pedido.movimento);
+    estados.set(pedido.itemId, valorado.estadoDepois);
+    return {
+      id: randomUUID(),
+      pedido,
+      valorado,
+      saldoAntesMilesimos: estadoAntes.saldoMilesimos,
+    };
+  });
+
+  const gravadas = await tx
+    .insert(movimentacoesEstoque)
+    .values(
+      valoradas.map(({ id, pedido, valorado }) => ({
+        id,
+        itemId: pedido.itemId,
+        origem: pedido.origem,
+        tipo: pedido.tipo,
+        motivo: pedido.motivo ?? null,
+        destino: pedido.destino ?? null,
+        area: pedido.area ?? null,
+        quantidadeMilesimos: valorado.quantidadeMilesimos,
+        valorCentavos: valorado.valorCentavos,
+        valorInformadoCentavos: pedido.valorInformadoCentavos ?? null,
+        saldoContadoMilesimos: pedido.saldoContadoMilesimos ?? null,
+        documentoId: pedido.documentoId ?? null,
+        documentoLinhaId: pedido.documentoLinhaId ?? null,
+        encomendaId: pedido.encomendaId ?? null,
+        nota: pedido.nota ?? null,
+        estornoDeId: pedido.estornoDeId ?? null,
+        registradoPor: contexto.registradoPor,
+      })),
+    )
+    .returning({ id: movimentacoesEstoque.id, numero: movimentacoesEstoque.numero });
+
+  const numeroPorId = new Map(gravadas.map((linha) => [linha.id, linha.numero]));
+
+  return valoradas.map(({ id, pedido, valorado, saldoAntesMilesimos }) => {
+    const numero = numeroPorId.get(id);
+    if (numero === undefined) {
+      throw new Error("gravarMovimentacoes: uma linha inserida não voltou no returning.");
+    }
+    return {
+      id,
+      numero,
+      itemId: pedido.itemId,
+      quantidadeMilesimos: valorado.quantidadeMilesimos,
+      valorCentavos: valorado.valorCentavos,
+      saldoAntesMilesimos,
+      saldoDepoisMilesimos: valorado.estadoDepois.saldoMilesimos,
+    };
+  });
+}
