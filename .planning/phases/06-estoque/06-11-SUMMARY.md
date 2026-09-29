@@ -287,15 +287,18 @@ Escrito depois do que está acima, que continua valendo como registro das Tarefa
   `7c2612f`). Relatório: `06-REVIEW-FIX.md` (`e82a19e`) — `npm run verificar` verde e UM e2e com
   `--grep "estoque contagem|estoque primeira abertura|cadastros catalogo ativo"`, 66 passed. **A
   varredura completa desta tarefa rodou antes dessas correções.**
-- **O `main` ganhou um commit depois do corte do branch só-migração:** `c4713e1` "docs(state): main
-  com o estado da fase 06 — igual ao branch gsd/phase-06-estoque" — só `STATE.md`, `ROADMAP.md` e
-  `PROXIMA-SESSAO.md`, iguais aos do branch da fase (o `main` dizia "em execução"). Portanto
-  **`git log origin/main..main` lista agora 18 commits: os 17 da lista acima mais `c4713e1`.**
-- **O branch só-migração foi refeito sobre esse `main`** (`git rebase main`): `80a4b83` →
-  **`a4aefbc`**. `git diff --name-only main gsd/phase-06-estoque-migracao` continua listando
+- **O `main` ganhou dois commits depois do corte do branch só-migração, só de documentos:**
+  `c4713e1` "docs(state): main com o estado da fase 06 — igual ao branch gsd/phase-06-estoque" e
+  `f44f6dc` "docs(state): main com o estado da fase 06 — ressincronizado com o branch" — só
+  `STATE.md`, `ROADMAP.md` e `PROXIMA-SESSAO.md`, iguais aos do branch da fase (o `main` dizia "em
+  execução"). Portanto **`git log origin/main..main` lista agora 19 commits: os 17 da lista acima
+  mais `c4713e1` e `f44f6dc`** (medido às 08:55 UTC).
+- **O branch só-migração foi refeito sobre esse `main`** (`git rebase main`, duas vezes, uma por
+  commit de documentos): `80a4b83` → `a4aefbc` → **`2907667`** (o atual). `git diff --name-only main gsd/phase-06-estoque-migracao` continua listando
   exatamente os quatro arquivos, e eles são idênticos aos do branch da fase (`git diff --quiet
   gsd/phase-06-estoque gsd/phase-06-estoque-migracao -- <os quatro>` sai 0).
-- **`npm run verificar` em `a4aefbc`** (08:53–08:54 UTC): exit 0 — `verificar-acoes` 74 ações, 0
+- **`npm run verificar` em `a4aefbc`** (08:53–08:54 UTC) **e de novo em `2907667`** (08:55–08:56
+  UTC): exit 0 nas duas — `verificar-acoes` 74 ações, 0
   violações; 85 arquivos, 1325 testes; `test:migracoes` "Todas as afirmações passaram.". A primeira
   tentativa falhou no `tsc` por tipos gerados de um `next build` anterior do branch da fase em
   `.next/types/` (artefato local, ignorado pelo git, que o CI não tem); apagado esse diretório
