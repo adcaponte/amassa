@@ -10,7 +10,9 @@ import {
   contadorDaLista,
   custoMedioParaExibir,
   custoPreenchidoDaPecaPronta,
+  estoqueNuncaContado,
   filtrarSaldos,
+  itensParaOInicio,
   normalizarBusca,
   ordenarSaldos,
   planejarAjuste,
@@ -581,5 +583,56 @@ describe("custoPreenchidoDaPecaPronta — EST-21/D-22", () => {
         quantidadeMilesimos: 999_999_001,
       }),
     ).toBe(999_999_001_000_000);
+  });
+});
+
+// O bloco "Estoque acabando" do Início (06-10-PLAN.md, Tarefa 1): a mesma regra de alerta, até 5
+// linhas, negativo primeiro, e o "e mais {N}" com o resto.
+describe("itensParaOInicio — D-10, D-21, EST-03", () => {
+  it("negativos antes de acabando, cada grupo por nome; ok e mínimo zero com saldo positivo nunca entram", () => {
+    const itens = [
+      item({ nome: "Sacola", saldoMilesimos: 1000, estoqueMinimoMilesimos: 5000 }),
+      item({ nome: "Esmalte", saldoMilesimos: -500, estoqueMinimoMilesimos: 0 }),
+      item({ nome: "Argila", saldoMilesimos: 2000, estoqueMinimoMilesimos: 2000 }),
+      item({ nome: "Café", saldoMilesimos: 9000, estoqueMinimoMilesimos: 2000 }),
+      item({ nome: "Copo", saldoMilesimos: 3000, estoqueMinimoMilesimos: 0 }),
+      item({ nome: "Bico", saldoMilesimos: -1000, estoqueMinimoMilesimos: 1000 }),
+    ];
+    const resultado = itensParaOInicio(itens);
+    expect(resultado.linhas.map((linha) => [linha.nome, linha.situacao])).toEqual([
+      ["Bico", "negativo"],
+      ["Esmalte", "negativo"],
+      ["Argila", "acabando"],
+      ["Sacola", "acabando"],
+    ]);
+    expect(resultado.maisN).toBe(0);
+  });
+
+  it("no máximo 5 linhas; o resto vira maisN", () => {
+    const itens = Array.from({ length: 8 }, (_, indice) =>
+      item({ nome: `Material ${indice}`, saldoMilesimos: 0, estoqueMinimoMilesimos: 1000 }),
+    );
+    const resultado = itensParaOInicio(itens);
+    expect(resultado.linhas).toHaveLength(5);
+    expect(resultado.maisN).toBe(3);
+  });
+
+  it("material desativado não alerta no Início", () => {
+    const resultado = itensParaOInicio([
+      item({ nome: "Parado", ativo: false, saldoMilesimos: -1000, estoqueMinimoMilesimos: 0 }),
+    ]);
+    expect(resultado).toEqual({ linhas: [], maisN: 0 });
+  });
+});
+
+describe("estoqueNuncaContado — o Início convida a contar em vez de alarmar", () => {
+  it("material sem nenhuma movimentação manual → nunca contado", () => {
+    expect(estoqueNuncaContado({ temMaterial: true, temManual: false })).toBe(true);
+  });
+
+  it("qualquer outra combinação → falso", () => {
+    expect(estoqueNuncaContado({ temMaterial: true, temManual: true })).toBe(false);
+    expect(estoqueNuncaContado({ temMaterial: false, temManual: false })).toBe(false);
+    expect(estoqueNuncaContado({ temMaterial: false, temManual: true })).toBe(false);
   });
 });
