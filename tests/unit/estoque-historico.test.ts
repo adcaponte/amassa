@@ -7,11 +7,14 @@ import {
   tipoDoHistoricoDaUrl,
 } from "@/lib/estoque/abas";
 import { DESTINOS_DE_SAIDA } from "@/lib/estoque/destinos";
+import { esquemaLerMaterial } from "@/lib/estoque/esquemas";
 import {
   agregarParaOndeFoi,
   descreverMovimentacao,
   inicioDoPeriodo,
+  ordenarGastoPor,
   quandoTexto,
+  textoGastoPor,
   type MovimentacaoParaDescrever,
   type SaidaParaOndeFoi,
 } from "@/lib/estoque/historico";
@@ -516,5 +519,94 @@ describe("agregarParaOndeFoi — qual área pagou cada grama (D-12, D-31, Pitfal
       opcoes,
     );
     expect(resultado.barras.find((barra) => barra.chave === "venda")?.saidas).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// A folha de um material (06-09-PLAN.md, Tarefa 1): o "Gasto por" (EST-20, D-08) e a entrada da
+// ação que lê a folha.
+// ---------------------------------------------------------------------------------------------
+
+describe("textoGastoPor — onde o insumo é gasto pela ficha técnica (EST-20)", () => {
+  it("dois produtos, separados por “ · ”, cada um com a quantidade e a unidade do insumo", () => {
+    expect(
+      textoGastoPor([
+        { produto: "Café 200 ml", quantidade: "15", unidadeDoInsumo: "g" },
+        { produto: "Café refil", quantidade: "30", unidadeDoInsumo: "g" },
+      ]),
+    ).toBe("Café 200 ml (15 g) · Café refil (30 g)");
+  });
+
+  it("um produto só mostra só ele, sem separador (zero-one-many)", () => {
+    expect(textoGastoPor([{ produto: "Café 200 ml", quantidade: "15", unidadeDoInsumo: "g" }])).toBe(
+      "Café 200 ml (15 g)",
+    );
+  });
+
+  it("litro aparece “L” e a quantidade sai em pt-BR, sem zeros à direita", () => {
+    expect(
+      textoGastoPor([{ produto: "Leite vaporizado", quantidade: "0.150", unidadeDoInsumo: "l" }]),
+    ).toBe("Leite vaporizado (0,15 L)");
+  });
+
+  it("nenhum produto dá texto vazio — a seção nem aparece (EST-20 · empty)", () => {
+    expect(textoGastoPor([])).toBe("");
+  });
+
+  it("o nome do produto sai como gravado, nunca truncado (EST-20 · encoding)", () => {
+    const longo = "Café coado na hora com leite vaporizado e canela ".repeat(2).trim();
+    expect(textoGastoPor([{ produto: longo, quantidade: "15", unidadeDoInsumo: "g" }])).toBe(
+      `${longo} (15 g)`,
+    );
+  });
+});
+
+describe("ordenarGastoPor — a ordem do “Gasto por” (EST-20 · ordering)", () => {
+  it("ordena pelo nome do produto em pt-BR: “Água tônica” antes de “Café”", () => {
+    const entrada = [
+      { produto: "Café 200 ml", quantidade: "15", unidadeDoInsumo: "g" as const },
+      { produto: "Água tônica", quantidade: "5", unidadeDoInsumo: "g" as const },
+      { produto: "bolo de milho", quantidade: "20", unidadeDoInsumo: "g" as const },
+    ];
+    expect(ordenarGastoPor(entrada).map((linha) => linha.produto)).toEqual([
+      "Água tônica",
+      "bolo de milho",
+      "Café 200 ml",
+    ]);
+  });
+
+  it("não muta a lista recebida", () => {
+    const entrada = [
+      { produto: "Café", quantidade: "15", unidadeDoInsumo: "g" as const },
+      { produto: "Água", quantidade: "5", unidadeDoInsumo: "g" as const },
+    ];
+    const copia = entrada.map((linha) => ({ ...linha }));
+    ordenarGastoPor(entrada);
+    expect(entrada).toEqual(copia);
+  });
+});
+
+describe("esquemaLerMaterial — o pedido da folha do material", () => {
+  const ITEM = "3f2c6a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f";
+
+  it("aceita { itemId: uuid, limite: 50 }", () => {
+    const resultado = esquemaLerMaterial.safeParse({ itemId: ITEM, limite: 50 });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).toEqual({ itemId: ITEM, limite: 50 });
+  });
+
+  it("aceita múltiplos de 50 até 1000", () => {
+    expect(esquemaLerMaterial.parse({ itemId: ITEM, limite: 100 }).limite).toBe(100);
+    expect(esquemaLerMaterial.parse({ itemId: ITEM, limite: 1000 }).limite).toBe(1000);
+  });
+
+  it("limite inválido, fora do passo ou acima do teto vira 50 (T-06-42)", () => {
+    for (const limite of [undefined, null, "abc", "100", 0, -50, 75, 49.5, 1050, 5000, Number.NaN]) {
+      expect(esquemaLerMaterial.parse({ itemId: ITEM, limite }).limite).toBe(50);
+    }
+  });
+
+  it("recusa um id que não é uuid", () => {
+    expect(esquemaLerMaterial.safeParse({ itemId: "abc", limite: 50 }).success).toBe(false);
   });
 });
