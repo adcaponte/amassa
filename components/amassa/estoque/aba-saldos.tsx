@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { AreaFinanceira } from "@/lib/financeiro/textos";
@@ -30,7 +30,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 
-import { BannerEstoque } from "./banner-estoque";
 import { BarraFerramentasSaldos } from "./barra-ferramentas-saldos";
 import { CartaoSaldo } from "./cartao-saldo";
 import { FiltroSituacao } from "./filtro-situacao";
@@ -58,10 +57,11 @@ function sincronizarAcabandoNaUrl(ligado: boolean): void {
 
 type TipoDeVazio = "filtro" | "acabando" | "desativados";
 
-// A aba Saldos (UI-SPEC §Aba Saldos): banner, barra de ferramentas, cartões abaixo de 980px e
-// tabela a partir de 980px, o filtro de situação no fim e a nota de rodapé. Toda classificação vem
-// de `lib/estoque/saldo.ts` (`ordenarSaldos`, `filtrarSaldos`, `resumoDoBanner` via banner,
-// `contadorDaLista`) — nenhum componente compara saldo com mínimo por conta própria.
+// A aba Saldos (UI-SPEC §Aba Saldos): barra de ferramentas, cartões abaixo de 980px e tabela a
+// partir de 980px, o filtro de situação no fim e a nota de rodapé. O banner saiu daqui no plano
+// 06-07: mora acima das abas (`BannerDoEstoque`), derivado da mesma lista pelo provedor. Toda
+// classificação vem de `lib/estoque/saldo.ts` (`ordenarSaldos`, `filtrarSaldos`, `resumoDoBanner`
+// via banner, `contadorDaLista`) — nenhum componente compara saldo com mínimo por conta própria.
 //
 // "Dar baixa" abre a folha de movimentação em Saída pelo `ProvedorDoEstoque` (plano 06-06) — o
 // único lugar que abre folha nesta página; é o toque 1 dos 4 da baixa (EST-09).
@@ -70,7 +70,7 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
   const [area, setArea] = useState<AreaFinanceira | null>(null);
   const [acabando, setAcabando] = useState(acabandoInicial);
   const [situacao, setSituacao] = useState<FiltroDeSituacao>("ativos");
-  const { abrirFolha } = useEstoque();
+  const { abrirFolha, registrarVerSoAcabando } = useEstoque();
 
   // Ordena UMA vez: filtrar depois nunca reordena (EST-03 · ordering).
   const ordenados = useMemo(() => ordenarSaldos(saldos), [saldos]);
@@ -89,12 +89,20 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
     sincronizarAcabandoNaUrl(ligado);
   }
 
-  // "Ver só esses" (banner): Acabando ligado, sobre todas as áreas — como no protótipo.
-  function verSoEsses() {
+  // "Ver só esses" (banner): Acabando ligado, sobre todas as áreas — como no protótipo. O banner
+  // mora acima das abas desde o plano 06-07 e chama esta ação pelo provedor; com a aba Saldos
+  // desmontada, ele navega para `?aba=saldos&acabando=1`. Só setters estáveis — a ação não muda.
+  const verSoEsses = useCallback(() => {
     setArea(null);
     setSituacao("ativos");
-    mudarAcabando(true);
-  }
+    setAcabando(true);
+    sincronizarAcabandoNaUrl(true);
+  }, []);
+
+  useEffect(() => {
+    registrarVerSoAcabando(verSoEsses);
+    return () => registrarVerSoAcabando(null);
+  }, [registrarVerSoAcabando, verSoEsses]);
 
   function limparFiltros() {
     setBusca("");
@@ -117,8 +125,6 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
 
   return (
     <>
-      <BannerEstoque saldos={saldos} aoVerSoEsses={verSoEsses} />
-
       <div className="flex flex-col gap-4 px-6 py-8 md:px-8">
         <BarraFerramentasSaldos
           busca={busca}

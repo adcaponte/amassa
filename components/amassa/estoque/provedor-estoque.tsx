@@ -42,6 +42,12 @@ type ContextoDoEstoque = {
   lista: ListaDoEstoque;
   abrirSeletor: (tipo?: TipoDeMovimentacao) => void;
   abrirFolha: (pedido: PedidoDeFolha) => void;
+  // "Ver só esses" do banner (plano 06-07): o banner mora ACIMA das abas, e a pílula "Acabando" é
+  // estado da `AbaSaldos`. A aba registra aqui o que fazer; `verSoAcabando` devolve `false` quando
+  // nenhuma aba Saldos está montada (Histórico, Para onde foi) — aí o banner navega para
+  // `?aba=saldos&acabando=1`.
+  registrarVerSoAcabando: (acao: (() => void) | null) => void;
+  verSoAcabando: () => boolean;
 };
 
 const Contexto = createContext<ContextoDoEstoque | null>(null);
@@ -91,9 +97,23 @@ export function ProvedorDoEstoque({ children }: { children: ReactNode }) {
     setFolha({ ...pedido, chave: ultimaChave.current });
   }, []);
 
+  // A ação "Ver só esses" da aba Saldos montada — referência, não estado: registrar não redesenha.
+  const acaoDoAcabando = useRef<(() => void) | null>(null);
+  const registrarVerSoAcabando = useCallback((acao: (() => void) | null) => {
+    acaoDoAcabando.current = acao;
+  }, []);
+  const verSoAcabando = useCallback(() => {
+    const acao = acaoDoAcabando.current;
+    if (acao === null) {
+      return false;
+    }
+    acao();
+    return true;
+  }, []);
+
   const valor = useMemo<ContextoDoEstoque>(
-    () => ({ lista, abrirSeletor, abrirFolha }),
-    [lista, abrirSeletor, abrirFolha],
+    () => ({ lista, abrirSeletor, abrirFolha, registrarVerSoAcabando, verSoAcabando }),
+    [lista, abrirSeletor, abrirFolha, registrarVerSoAcabando, verSoAcabando],
   );
 
   const saldoDaFolha =

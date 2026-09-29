@@ -3,8 +3,10 @@
 // reusado (o material É um item do catálogo com estoque próprio — D-01; não existe tabela de
 // materiais). Nomes sempre inventados, com prefixo `[e2e]` — nenhum dado real no repositório.
 //
-// Este auxiliar NUNCA grava em `movimentacoes_estoque`: o livro só se escreve pela tela (a porta
-// única `lib/estoque/gravacao.ts`). Aqui só se lê, para o teste conferir o que ficou gravado.
+// O livro só se escreve pela tela (a porta única `lib/estoque/gravacao.ts`): este auxiliar lê o
+// livro para o teste conferir o que ficou gravado. A ÚNICA exceção é `semearMovimentacoesEmMassa`
+// (plano 06-07), que insere entradas manuais válidas em volume só para provar a paginação do
+// Histórico — 51 folhas pela tela custariam minutos e não provariam nada a mais.
 import { Client } from "pg";
 
 import { semearItem } from "./semear-financeiro";
@@ -222,5 +224,40 @@ export async function vinculosDoItem(itemId: string): Promise<VinculoNoBanco[]> 
         linha.saldo_contado_milesimos === null ? null : Number(linha.saldo_contado_milesimos),
       motivo: linha.motivo,
     }));
+  });
+}
+
+// Insere `quantas` entradas manuais de 1 unidade por R$ 1,00 (valor informado igual ao gravado,
+// preço constante: o custo médio fica coerente) num item DO PRÓPRIO TESTE, em nome da conta de
+// `usuarioEmail` — SÓ para provar a paginação do Histórico (50 por vez + "Mostrar mais 50",
+// plano 06-07). Um `insert` só, pela `generate_series`; cada linha ganha o seu `numero` da
+// identity. Respeita todos os `check`s da 0023 (entrada manual: sem destino, sem área, com valor
+// informado).
+export async function semearMovimentacoesEmMassa(
+  itemId: string,
+  quantas: number,
+  usuarioEmail: string,
+): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query(
+      `insert into movimentacoes_estoque
+         (item_id, origem, tipo, quantidade_milesimos, valor_centavos, valor_informado_centavos,
+          registrado_por)
+       select $1, 'manual', 'entrada', 1000, 100, 100,
+              (select id from usuarios where lower(email) = lower($3))
+         from generate_series(1, $2::int)`,
+      [itemId, quantas, usuarioEmail],
+    ),
+  );
+}
+
+// O nome da conta de teste, como o Histórico o mostra em "Hoje, 14:32 · {nome}".
+export async function nomeDoUsuario(email: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const resultado = await cliente.query<{ nome: string }>(
+      "select nome from usuarios where lower(email) = lower($1)",
+      [email],
+    );
+    return resultado.rows[0]?.nome ?? "";
   });
 }

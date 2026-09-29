@@ -1,14 +1,17 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
 import { resumoDoBanner, type SaldoParaLista } from "@/lib/estoque/saldo";
 import { ROTULO_VER_SO_ESSES } from "@/lib/estoque/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 import { formatarMilesimos } from "./cartao-saldo";
+import { useEstoque } from "./provedor-estoque";
 
 export type BannerEstoqueProps = {
   // A MESMA lista da seção de saldos (nunca uma segunda consulta): banner e cartões não discordam.
@@ -20,8 +23,10 @@ export type BannerEstoqueProps = {
 // `queimas/banner-atencao.tsx`: nenhum alerta → `null`; a ausência é a informação. Quem decide
 // quem entra é `resumoDoBanner` (lib/estoque/saldo.ts), nunca este componente.
 //
-// Carregando ou com erro, ele simplesmente não existe: é renderizado pela `AbaSaldos`, que só
-// monta depois que `listarSaldos` respondeu — sem esqueleto próprio, sem mensagem própria.
+// Carregando ou com erro, ele simplesmente não existe: desde o plano 06-07 ele mora ACIMA das abas
+// (`BannerDoEstoque`, abaixo) e é derivado da lista que o provedor recebeu — a da aba Saldos ou a do
+// `CarregadorDoSeletor` nas outras abas, a MESMA consulta em `cache` da requisição. Sem esqueleto
+// próprio, sem mensagem própria.
 //
 // Cores: fundo `atencao-fundo`, borda e texto `atencao` (P1, 4,51:1); título só-negativos e a linha
 // "Com saldo negativo" em `erro` sobre `atencao-fundo` (P16, 5,81:1). Nenhum hex do protótipo.
@@ -78,4 +83,25 @@ export function BannerEstoque({ saldos, aoVerSoEsses }: BannerEstoqueProps) {
       </div>
     </section>
   );
+}
+
+// O banner da página, acima das abas (UI-SPEC §Layout, itens 2 e 3): lê a lista do provedor e só
+// existe quando ela chegou — `null` enquanto carrega ou quando falhou (UI · loading/error · E2).
+// "Ver só esses" liga a pílula "Acabando" da aba Saldos, se ela estiver montada; nas outras abas,
+// leva a `?aba=saldos&acabando=1`, que monta a aba Saldos já com a pílula ligada.
+export function BannerDoEstoque() {
+  const { lista, verSoAcabando } = useEstoque();
+  const router = useRouter();
+
+  if (lista.estado !== "pronta") {
+    return null;
+  }
+
+  function aoVerSoEsses() {
+    if (!verSoAcabando()) {
+      router.push(rotaDeGestao("/estoque?aba=saldos&acabando=1"));
+    }
+  }
+
+  return <BannerEstoque saldos={lista.saldos} aoVerSoEsses={aoVerSoEsses} />;
 }

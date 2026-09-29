@@ -1,12 +1,4 @@
 import {
-  custosDasPecasProntas,
-  listarEncomendasParaVinculo,
-  listarSaldosDaRequisicao,
-  type EncomendaParaVinculo,
-  type SaldoDoItem,
-} from "@/lib/estoque/consultas";
-import { hojeEmBrasilia } from "@/lib/financeiro/formato";
-import {
   CORPO_ESTOQUE_VAZIO,
   FRASE_ERRO_CARREGAR_SALDOS,
   TITULO_ERRO,
@@ -17,7 +9,8 @@ import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 
 import { AbaSaldos } from "./aba-saldos";
-import { EntregaDoEstoque } from "./provedor-estoque";
+import { lerDadosDoEstoque } from "./carregador-do-seletor";
+import { EntregaDoEstoque, type DadosDoEstoque } from "./provedor-estoque";
 
 export type SecaoSaldosProps = {
   acabandoInicial: boolean;
@@ -30,31 +23,24 @@ export type SecaoSaldosProps = {
 //
 // Junto com a lista vêm o que a folha de movimentação precisa (plano 06-06): as encomendas em
 // andamento ("Qual encomenda?") e o custo por peça das peças prontas com ficha, com os parâmetros
-// de HOJE em Brasília. Tudo vai ao `ProvedorDoEstoque` pela `EntregaDoEstoque` — o seletor "Qual
+// de HOJE em Brasília — lidos por `lerDadosDoEstoque` (carregador-do-seletor.tsx), a MESMA função que
+// entrega a lista ao provedor nas outras abas (plano 06-07). Tudo vai ao `ProvedorDoEstoque` pela `EntregaDoEstoque` — o seletor "Qual
 // material?" usa esta MESMA lista e abre sem consulta nova. Se a leitura falha, o provedor recebe o
 // erro: o seletor mostra o mesmo `EstadoErro`, nunca uma lista vazia que pareça "nenhum material".
 //
-// O banner é derivado da MESMA lista, dentro da `AbaSaldos`: se a consulta falha ou ainda carrega,
-// ele não existe — o `EstadoErro` é a única mensagem (UI · error/loading · E2).
+// O banner é derivado da MESMA lista, pelo provedor, acima das abas (`BannerDoEstoque`, plano 06-07):
+// se a consulta falha ou ainda carrega, ele não existe — o `EstadoErro` é a única mensagem (UI ·
+// error/loading · E2).
 export async function SecaoSaldos({ acabandoInicial }: SecaoSaldosProps) {
-  let saldos: SaldoDoItem[] = [];
-  let encomendas: EncomendaParaVinculo[] = [];
-  let custos = new Map<string, number>();
-  let falhou = false;
+  let dados: DadosDoEstoque | null = null;
 
   try {
-    saldos = await listarSaldosDaRequisicao();
-    const pecasProntas = saldos.filter((saldo) => saldo.ehPecaPronta).map((saldo) => saldo.id);
-    [encomendas, custos] = await Promise.all([
-      listarEncomendasParaVinculo(),
-      custosDasPecasProntas(pecasProntas, hojeEmBrasilia(new Date())),
-    ]);
+    dados = await lerDadosDoEstoque();
   } catch (erro) {
     console.error("Falha ao carregar os saldos do Estoque:", erro);
-    falhou = true;
   }
 
-  if (falhou) {
+  if (dados === null) {
     return (
       <>
         <EntregaDoEstoque lista={{ estado: "erro" }} />
@@ -68,16 +54,8 @@ export async function SecaoSaldos({ acabandoInicial }: SecaoSaldosProps) {
     );
   }
 
-  const entrega = (
-    <EntregaDoEstoque
-      lista={{
-        estado: "pronta",
-        saldos,
-        encomendas,
-        custosDasPecasProntas: Object.fromEntries(custos),
-      }}
-    />
-  );
+  const { saldos } = dados;
+  const entrega = <EntregaDoEstoque lista={{ estado: "pronta", ...dados }} />;
 
   // Nenhum item com estoque próprio: o vazio do traçador (06-01). O botão "+ Novo material" entra
   // no plano 06-09, junto com a folha que ele abre — botão sem destino é defeito.
