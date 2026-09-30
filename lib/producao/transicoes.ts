@@ -4,7 +4,7 @@
 // `@/db` (grep de aceite do plano 06.1-01).
 //
 // "Terminei" (plano 01), "Liberar" (plano 03) e, no plano 05, desfazer a última, ajustar os dias
-// previstos e o parcial. Cancelar é do plano 06.
+// previstos e o parcial; no plano 06, cancelar.
 
 import type { EtapaProducao, StatusOrdem } from "./etapas";
 import { etapasOrdenadas, type OrdemParaLeitura } from "./leitura";
@@ -194,4 +194,18 @@ export function planejarParcial(
     return { tipo: "recusa", motivo: "fora-da-faixa" };
   }
   return { tipo: "ok", passaram };
+}
+
+export type PlanoDeCancelamento = { tipo: "ok" } | { tipo: "recusa"; motivo: "ja-encerrada" };
+
+// "Cancelar ordem" (PRD-18) — lida sob a trava. Só a ordem aguardando o sinal ou ativa se cancela;
+// concluída e cancelada valem pelo que aconteceu (o segundo toque, noutro celular, recebe a frase
+// de estado mudado e nada é gravado). O plano decide SÓ o status da ordem: cancelar a ordem nunca
+// cancela a venda, nunca toca parcela e nunca devolve material ao estoque (briefing §6) — a ação
+// não escreve em nenhuma dessas tabelas.
+export function planejarCancelamento(ordem: { status: StatusOrdem }): PlanoDeCancelamento {
+  if (ordem.status === "aguardando_sinal" || ordem.status === "ativa") {
+    return { tipo: "ok" };
+  }
+  return { tipo: "recusa", motivo: "ja-encerrada" };
 }

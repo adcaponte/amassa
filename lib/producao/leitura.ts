@@ -50,7 +50,8 @@ export type Selo =
   | { tipo: "vai-atrasar"; dias: number }
   | { tipo: "passou-nesta-etapa"; dias: number }
   | { tipo: "no-ritmo" }
-  | { tipo: "encerrada" };
+  | { tipo: "encerrada" }
+  | { tipo: "cancelada" };
 
 // As etapas por posição (cópia — nunca muda a lista de quem chamou), conferindo as duas invariantes
 // que o banco não expressa: as feitas formam um PREFIXO do caminho, e o `feita_em` delas não
@@ -142,6 +143,9 @@ export function leituraDaOrdem(ordem: OrdemParaLeitura, hoje: string): LeituraDa
 export function seloDaOrdem(leitura: LeituraDaOrdem): Selo {
   if (leitura.tipo === "aguardando") {
     return { tipo: "aguardando-sinal" };
+  }
+  if (leitura.tipo === "cancelada") {
+    return { tipo: "cancelada" };
   }
   if (leitura.tipo !== "em-andamento") {
     return { tipo: "encerrada" };

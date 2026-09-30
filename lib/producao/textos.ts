@@ -76,7 +76,8 @@ type SeloParaTexto =
   | { tipo: "vai-atrasar"; dias: number }
   | { tipo: "passou-nesta-etapa"; dias: number }
   | { tipo: "no-ritmo" }
-  | { tipo: "encerrada" };
+  | { tipo: "encerrada" }
+  | { tipo: "cancelada" };
 
 export function textoSelo(selo: SeloParaTexto): string {
   switch (selo.tipo) {
@@ -90,6 +91,8 @@ export function textoSelo(selo: SeloParaTexto): string {
       return "no ritmo";
     case "encerrada":
       return "encerrada";
+    case "cancelada":
+      return "cancelada";
   }
 }
 
@@ -363,3 +366,59 @@ export const FRASE_JA_LIBERADA = "Esta ordem já foi liberada. A tela foi atuali
 export const FRASE_ORDEM_CANCELADA_ATUALIZADA = "Esta ordem foi cancelada. A tela foi atualizada.";
 export const FRASE_FALHA_AO_LIBERAR =
   "Não deu para liberar a ordem. Verifique a internet e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Cancelar a ordem (plano 06, PRD-18) e a venda cancelada no Caixa (D-07)
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_CANCELAR_ORDEM = "Cancelar ordem";
+export const ROTULO_MANTER_ORDEM = "Manter ordem";
+export const ROTULO_CANCELANDO = "Cancelando…";
+export function tituloConfirmarCancelar(nome: string): string {
+  return `Cancelar "${nome}"?`;
+}
+// O corpo muda por caso (UI-SPEC §Confirmações): quantas baixas ficam, e o que acontece com a venda.
+// `vendaNumero` nulo = ordem sem venda (da casa, de boca). `vendaCancelada` = a venda já foi
+// cancelada no Caixa (D-07) — aí não há sinal a decidir.
+export function textoConfirmarCancelar(d: {
+  baixasFeitas: number;
+  vendaNumero: number | null;
+  vendaCancelada: boolean;
+}): string {
+  const baixas =
+    d.baixasFeitas > 0
+      ? `A ordem sai do quadro e fica em Concluídas e canceladas. As baixas de material já feitas (${d.baixasFeitas}) não voltam para o estoque sozinhas.`
+      : "A ordem sai do quadro e fica em Concluídas e canceladas. Nenhuma baixa de material foi feita.";
+  if (d.vendaNumero === null) {
+    return baixas;
+  }
+  return d.vendaCancelada
+    ? `${baixas} A venda nº ${d.vendaNumero} já foi cancelada no Financeiro.`
+    : `${baixas} A venda nº ${d.vendaNumero} no Financeiro não é cancelada junto — decida lá o que fazer com o sinal.`;
+}
+export const TOAST_CANCELADA = "Ordem cancelada. Ela continua em Concluídas e canceladas.";
+export const FRASE_JA_ENCERRADA =
+  "Esta ordem já foi concluída ou cancelada. A tela foi atualizada.";
+export const FRASE_FALHA_AO_CANCELAR =
+  "Não deu para cancelar a ordem. Verifique a internet e tente de novo.";
+
+// Resultado da ordem cancelada (caixa neutra — cancelada não é sucesso).
+export function textoResultadoCancelada(d: {
+  canceladaEmDiaMes: string;
+  canceladaPorNome: string | null;
+  pelaVendaNumero: number | null;
+}): string {
+  if (d.pelaVendaNumero !== null) {
+    return `Cancelada em ${d.canceladaEmDiaMes}, junto com a venda nº ${d.pelaVendaNumero}.`;
+  }
+  // A conta de quem cancelou pode ter sido removida (`cancelada_por` sem nome) — a data basta.
+  return d.canceladaPorNome
+    ? `Cancelada em ${d.canceladaEmDiaMes} por ${d.canceladaPorNome}.`
+    : `Cancelada em ${d.canceladaEmDiaMes}.`;
+}
+
+// A venda cancelada no Caixa com a ordem já liberada (D-07): o aviso na ordem e o chip no cartão.
+export function textoAvisoVendaCancelada(vendaNumero: number): string {
+  return `A venda nº ${vendaNumero} foi cancelada no Financeiro. A ordem continua — decida se ela segue ou se cancela.`;
+}
+export const CHIP_VENDA_CANCELADA = "venda cancelada";

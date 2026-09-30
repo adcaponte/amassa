@@ -26,6 +26,8 @@ import { AcoesDaOrdem } from "@/components/amassa/producao/acoes-da-ordem";
 import { BlocoPecas } from "@/components/amassa/producao/bloco-pecas";
 import { CaixaAguardando } from "@/components/amassa/producao/caixa-aguardando";
 import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
+import { ConfirmarCancelarOrdem } from "@/components/amassa/producao/confirmar-cancelar-ordem";
+import { ResultadoDaOrdem } from "@/components/amassa/producao/resultado-da-ordem";
 import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 
 // `/gestao/producao/[id]` — a ordem (Fase 06.1). `exigirUsuario()` como PRIMEIRA instrução — regra
@@ -36,8 +38,9 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // "Etapas" com o sub-título (UI-D17), a caixa "Aguardando o sinal" (plano 03), a trilha com o −/+
 // das etapas futuras e o parcial da atual (plano 05), as ações — "Desfazer a última" e "Terminei",
 // numa barra fixa no celular (UI-D3) — e a previsão de conclusão (plano 05); o bloco "Peças" (plano
-// 04). Material, cancelar e a conclusão chegam nos planos seguintes. Na etapa Entrega o "Terminei"
-// não aparece: a última etapa se conclui (plano 11).
+// 04); "Cancelar ordem" num bloco próprio e o resultado da cancelada (plano 06). Material e a
+// conclusão chegam nos planos seguintes. Na etapa Entrega o "Terminei" não aparece: a última etapa
+// se conclui (plano 11).
 export default async function PaginaOrdem({ params }: { params: Promise<{ id: string }> }) {
   await exigirUsuario();
   const { id } = await params;
@@ -60,6 +63,8 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   const feitas = etapas.filter((etapa) => etapa.feitaEm !== null);
   const ultimaFeita = feitas.at(-1);
   const folga = leitura.tipo === "em-andamento" ? textoPrevisao(leitura.folgaDias) : null;
+  // Aguardando ou ativa: a ordem ainda se cancela (PRD-18). Concluída e cancelada não têm ações.
+  const emAberto = ordem.status === "aguardando_sinal" || ordem.status === "ativa";
 
   return (
     <>
@@ -162,18 +167,54 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
               <p className="text-apoio text-tinta-fraca">{DICA_ETAPA_INTEIRA}</p>
             </div>
           ) : null}
+
+          {ordem.status === "cancelada" && ordem.canceladaEm ? (
+            // No lugar das ações e da previsão: a caixa neutra da cancelada (nada fica editável).
+            <ResultadoDaOrdem
+              resultado={{
+                tipo: "cancelada",
+                canceladaEmDiaMes: formatarDiaMes(hojeEmBrasilia(ordem.canceladaEm)),
+                canceladaPorNome: ordem.canceladaPorNome,
+                pelaVendaNumero: ordem.canceladaPelaVenda ? ordem.vendaNumero : null,
+              }}
+            />
+          ) : null}
         </section>
 
-        <BlocoPecas
-          ordemId={ordem.id}
-          podeDefinirAMais={
-            ordem.tipo === "encomenda" &&
-            (ordem.status === "aguardando_sinal" || ordem.status === "ativa")
-          }
-          pecas={ordem.pecas}
-          fotos={ordem.fotos}
-          origem={ordem.origem}
-        />
+        <div className="flex flex-col gap-6">
+          <BlocoPecas
+            ordemId={ordem.id}
+            podeDefinirAMais={
+              ordem.tipo === "encomenda" &&
+              (ordem.status === "aguardando_sinal" || ordem.status === "ativa")
+            }
+            pecas={ordem.pecas}
+            fotos={ordem.fotos}
+            origem={ordem.origem}
+          />
+
+          {emAberto || ordem.status === "cancelada" ? (
+            // O bloco com "Cancelar ordem" (aguardando ou ativa), só o botão, à esquerda. Montado
+            // também na cancelada, escondido: a recusa de um segundo "Cancelar" (outro celular)
+            // continua visível no diálogo depois que a tela recarrega a ordem já cancelada.
+            <div
+              data-testid="ordem-bloco-cancelar"
+              className={cn(
+                "bg-superficie border-borda flex rounded-lg border p-4",
+                !emAberto && "hidden",
+              )}
+            >
+              <ConfirmarCancelarOrdem
+                ordemId={ordem.id}
+                nome={ordem.nome}
+                baixasFeitas={ordem.baixasFeitas}
+                vendaNumero={ordem.vendaNumero}
+                vendaCancelada={ordem.vendaCancelada}
+                podeCancelar={emAberto}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
     </>
   );

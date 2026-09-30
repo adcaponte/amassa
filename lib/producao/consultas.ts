@@ -2,18 +2,20 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   documentos,
   fichasPrecificacao,
+  movimentacoesEstoque,
   orcamentoFotos,
   orcamentos,
   ordemEtapas,
   ordemPecas,
   ordensProducao,
   parcelas,
+  usuarios,
 } from "@/db/schema";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 
@@ -45,6 +47,9 @@ export type OrigemDaOrdem = {
   documentoNumero: number | null;
   // A parcela 1 da venda (a do sinal) — o destino do link "venda nº {M}" no Caixa.
   parcelaDoSinalId: string | null;
+  // A venda foi cancelada no Caixa (`documentos.cancelado_em`) — D-07, derivado na LEITURA: a
+  // ordem liberada não muda no banco quando a venda cai.
+  documentoCancelado: boolean;
 };
 
 export type OrdemEmAndamento = OrdemParaLeitura & {
@@ -81,6 +86,18 @@ export type OrdemCarregada = OrdemEmAndamento & {
   origem: OrigemDaOrdem | null;
   // `null` para ordem sem orçamento (produção da casa, pedido de boca) ou orçamento sem venda.
   sinal: SinalDaOrdem | null;
+  // Plano 06 (PRD-18, D-07) — o que a confirmação de cancelar e o resultado da cancelada dizem.
+  // Quantas baixas de material o livro do Estoque tem ligadas a esta ordem (saída manual "consumo
+  // em encomenda") — cancelar NÃO as devolve.
+  baixasFeitas: number;
+  // A venda do orçamento que abriu a ordem (`null` sem orçamento ou sem venda) e se ela já foi
+  // cancelada no Caixa.
+  vendaNumero: number | null;
+  vendaCancelada: boolean;
+  canceladaEm: Date | null;
+  // O nome de quem cancelou, lido por junção com `usuarios`; `null` na ordem não cancelada.
+  canceladaPorNome: string | null;
+  canceladaPelaVenda: boolean;
 };
 
 const COLUNAS_DA_ORDEM = {
@@ -188,15 +205,22 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
   if (!FORMA_DE_UUID.test(id)) {
     return null;
   }
-  const [ordem] = await db
-    .select(COLUNAS_DA_ORDEM)
+  const [linha] = await db
+    .select({
+      ...COLUNAS_DA_ORDEM,
+      canceladaEm: ordensProducao.canceladaEm,
+      canceladaPelaVenda: ordensProducao.canceladaPelaVenda,
+      canceladaPorNome: usuarios.nome,
+    })
     .from(ordensProducao)
+    .leftJoin(usuarios, eq(usuarios.id, ordensProducao.canceladaPor))
     .where(eq(ordensProducao.id, id))
     .limit(1);
-  if (!ordem) {
+  if (!linha) {
     return null;
   }
-  const [etapas, pecas, sinal, origem, fotos] = await Promise.all([
+  const { canceladaEm, canceladaPelaVenda, canceladaPorNome, ...ordem } = linha;
+  const [etapas, pecas, sinal, origem, fotos, baixasFeitas] = await Promise.all([
     db
       .select(COLUNAS_DA_ETAPA)
       .from(ordemEtapas)
@@ -211,6 +235,7 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
     sinalDaOrdem(id),
     origemDaOrdem(id),
     fotosDaOrdem(id),
+    baixasDaOrdem(id),
   ]);
   return {
     ...ordem,
@@ -219,6 +244,12 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
     sinal,
     origem,
     fotos,
+    baixasFeitas,
+    vendaNumero: origem?.documentoNumero ?? null,
+    vendaCancelada: origem?.documentoCancelado ?? false,
+    canceladaEm,
+    canceladaPorNome,
+    canceladaPelaVenda,
     totalPecas: pecas.reduce((total, peca) => total + peca.quantidade, 0),
     totalAMais: pecas.reduce((total, peca) => total + peca.aMais, 0),
   };
@@ -254,6 +285,7 @@ export async function origemDaOrdem(ordemId: string): Promise<OrigemDaOrdem | nu
       ano: orcamentos.ano,
       sequencial: orcamentos.sequencial,
       documentoNumero: documentos.numero,
+      documentoCanceladoEm: documentos.canceladoEm,
       parcelaDoSinalId: parcelas.id,
     })
     .from(orcamentos)
@@ -272,7 +304,21 @@ export async function origemDaOrdem(ordemId: string): Promise<OrigemDaOrdem | nu
     orcamentoNumero: numeroDeOrcamento(linha.ano, linha.sequencial),
     documentoNumero: linha.documentoNumero,
     parcelaDoSinalId: linha.parcelaDoSinalId,
+    documentoCancelado: linha.documentoCanceladoEm !== null,
   };
+}
+
+// Quantas baixas de material o livro do Estoque tem ligadas à ordem: a saída manual "consumo em
+// encomenda" com `encomenda_id` = a ordem (o nome da coluna é histórico — aponta para a ordem desde
+// a 0024). Só `select`. É o "{N}" da confirmação de cancelar: essas baixas não voltam sozinhas.
+export async function baixasDaOrdem(ordemId: string): Promise<number> {
+  const [linha] = await db
+    .select({ quantas: count() })
+    .from(movimentacoesEstoque)
+    .where(
+      and(eq(movimentacoesEstoque.encomendaId, ordemId), eq(movimentacoesEstoque.origem, "manual")),
+    );
+  return Number(linha?.quantas ?? 0);
 }
 
 // As fotos de referência do orçamento que abriu a ordem — SÓ os ids das linhas de

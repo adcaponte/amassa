@@ -112,3 +112,11 @@ export const esquemaRegistrarParcial = z
   }));
 
 export type RegistrarParcialValidado = z.infer<typeof esquemaRegistrarParcial>;
+
+// "Cancelar ordem" (plano 06, PRD-18): só o id da ordem. O status, a data e quem cancelou são
+// decididos no servidor, sob a trava da ordem — nunca aceitos daqui (T-06.1-24/25).
+export const esquemaCancelarOrdem = z.object({
+  ordemId: z.string().uuid(FRASE_ORDEM_NAO_EXISTE),
+});
+
+export type CancelarOrdemValidado = z.infer<typeof esquemaCancelarOrdem>;

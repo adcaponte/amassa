@@ -722,3 +722,111 @@ export async function quantidadesDoClienteNoBanco(
     };
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-06 — cancelar a ordem (PRD-18) e a venda cancelada no Caixa (D-07)
+// ---------------------------------------------------------------------------------------------
+
+// Uma baixa de material ligada à ordem, gravada direto no livro: a saída manual "consumo em
+// encomenda" (destino `encomenda`, área `pecas`, `encomenda_id` = a ordem, `material_da_ordem` =
+// argila) de 1 unidade do item. Respeita os checks da 0023/0024. O caminho da tela (a folha de
+// baixa) é do plano 08 — aqui só importa que o livro TEM uma baixa que o cancelamento não devolve.
+export async function semearBaixaDaOrdem(ordemId: string, itemId: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const usuarioId = await idDoUsuarioDeTeste(cliente);
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into movimentacoes_estoque
+         (item_id, origem, tipo, destino, area, quantidade_milesimos, valor_centavos,
+          encomenda_id, material_da_ordem, registrado_por)
+       values ($1, 'manual', 'saida', 'encomenda', 'pecas', -1000, -100, $2, 'argila', $3)
+       returning id`,
+      [itemId, ordemId, usuarioId],
+    );
+    return rows[0].id;
+  });
+}
+
+// Quantas linhas o livro do Estoque tem de um item — o cancelamento da ORDEM não grava nenhuma.
+export async function movimentacoesDoItemNoBanco(itemId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ quantas: number }>(
+      "select count(*)::int as quantas from movimentacoes_estoque where item_id = $1",
+      [itemId],
+    );
+    return rows[0].quantas;
+  });
+}
+
+export type CancelamentoNoBanco = {
+  status: StatusOrdem;
+  inicio: string | null;
+  // O `cancelada_em` como texto (para provar que um segundo cancelamento não o reescreve).
+  canceladaEm: string | null;
+  canceladaPorEmail: string | null;
+  canceladaPelaVenda: boolean;
+};
+
+// O cancelamento como está gravado na ordem.
+export async function cancelamentoDaOrdemNoBanco(ordemId: string): Promise<CancelamentoNoBanco> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      status: StatusOrdem;
+      inicio: string | null;
+      cancelada_em: string | null;
+      email: string | null;
+      cancelada_pela_venda: boolean;
+    }>(
+      `select o.status, o.inicio::text as inicio, o.cancelada_em::text as cancelada_em,
+              u.email, o.cancelada_pela_venda
+         from ordens_producao o
+         left join usuarios u on u.id = o.cancelada_por
+        where o.id = $1`,
+      [ordemId],
+    );
+    const linha = rows[0];
+    if (!linha) {
+      throw new Error(`cancelamentoDaOrdemNoBanco: a ordem ${ordemId} não existe.`);
+    }
+    return {
+      status: linha.status,
+      inicio: linha.inicio,
+      canceladaEm: linha.cancelada_em,
+      canceladaPorEmail: linha.email,
+      canceladaPelaVenda: linha.cancelada_pela_venda,
+    };
+  });
+}
+
+export type VendaNoBanco = {
+  cancelada: boolean;
+  parcelas: { numero: number; valorCentavos: number; vencimento: string; pagoEm: string | null }[];
+};
+
+// A venda e as parcelas dela, como estão no banco — cancelar a ORDEM não pode mexer em nada disto.
+export async function vendaNoBanco(documentoId: string): Promise<VendaNoBanco> {
+  return comCliente(async (cliente) => {
+    const documento = await cliente.query<{ cancelada: boolean }>(
+      "select cancelado_em is not null as cancelada from documentos where id = $1",
+      [documentoId],
+    );
+    const parcelas = await cliente.query<{
+      numero: number;
+      valor_centavos: number;
+      vencimento: string;
+      pago_em: string | null;
+    }>(
+      `select numero, valor_centavos, vencimento::text as vencimento, pago_em::text as pago_em
+         from parcelas where documento_id = $1 order by numero`,
+      [documentoId],
+    );
+    return {
+      cancelada: documento.rows[0].cancelada,
+      parcelas: parcelas.rows.map((linha) => ({
+        numero: linha.numero,
+        valorCentavos: Number(linha.valor_centavos),
+        vencimento: linha.vencimento,
+        pagoEm: linha.pago_em,
+      })),
+    };
+  });
+}

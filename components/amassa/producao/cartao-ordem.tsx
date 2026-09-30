@@ -24,6 +24,7 @@ const COR_DO_SELO: Record<Selo["tipo"], string> = {
   "vai-atrasar": "bg-erro-fundo text-erro",
   "aguardando-sinal": "bg-superficie-2 text-tinta-media",
   encerrada: "bg-superficie-2 text-tinta-media",
+  cancelada: "bg-superficie-2 text-tinta-media",
 };
 
 export function ChipDoSelo({ selo }: { selo: Selo }) {

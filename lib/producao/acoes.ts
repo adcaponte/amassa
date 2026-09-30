@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
@@ -14,6 +14,7 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import type { EtapaProducao } from "./etapas";
 import {
   esquemaAjustarDiasPrevistos,
+  esquemaCancelarOrdem,
   esquemaDefinirAMais,
   esquemaDesfazerEtapa,
   esquemaLiberarOrdem,
@@ -28,6 +29,7 @@ import {
 } from "./gravacao";
 import {
   planejarAjusteDePrevisto,
+  planejarCancelamento,
   planejarDesfazer,
   planejarLiberacao,
   planejarParcial,
@@ -39,12 +41,14 @@ import {
   FRASE_AJUSTE_NAO_FUTURA,
   FRASE_AJUSTE_NO_LIMITE,
   FRASE_FALHA_AO_AJUSTAR,
+  FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_DESFAZER,
   FRASE_FALHA_AO_LIBERAR,
   FRASE_FALHA_AO_SALVAR_A_MAIS,
   FRASE_FALHA_AO_SALVAR_PARCIAL,
   FRASE_FALHA_AO_MARCAR,
   FRASE_JA_DESFEITA,
+  FRASE_JA_ENCERRADA,
   FRASE_JA_LIBERADA,
   FRASE_JA_MARCADA,
   FRASE_NADA_A_DESFAZER,
@@ -464,4 +468,56 @@ export async function registrarParcial(
 
   revalidarOrdem(dados.ordemId);
   return { ok: true, dados: registrado };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Cancelar a ordem (plano 06, PRD-18)
+// ---------------------------------------------------------------------------------------------
+
+// "Cancelar ordem" (PRD-18 — a tela já pediu confirmação dizendo quantas baixas ficam e o que
+// acontece com a venda). `exigirUsuario()` é a PRIMEIRA instrução (T-06.1-26, cobrado por `npm run
+// verificar-acoes`). Do cliente chega só o id: sob a trava da ordem (`for no key update`), o módulo
+// puro só aceita aguardando ou ativa, e a ação grava `status = 'cancelada'`, `cancelada_em = now()` e
+// `cancelada_por` = quem cancelou — e NADA MAIS (T-06.1-24): nenhuma escrita na venda, nas parcelas
+// nem no livro do Estoque. O sinal continua no Caixa (o dono decide lá) e o material baixado não
+// volta sozinho (briefing §6). O segundo toque (outro celular) recebe "já foi concluída ou
+// cancelada" sem gravar nada. Nenhuma trava de documento aqui: a Produção nunca trava documento
+// (ordem de travas DOCUMENTO → ORDEM → ITENS, `lib/producao/gravacao.ts`).
+export async function cancelarOrdem(entradaBruta: unknown): Promise<ResultadoDeAcao<{ ordemId: string }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaCancelarOrdem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { ordemId } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const ordem = await travarOrdem(tx, ordemId);
+      if (!ordem) {
+        throw new RecusaDaProducao(FRASE_ORDEM_NAO_EXISTE);
+      }
+      const plano = planejarCancelamento(ordem);
+      if (plano.tipo === "recusa") {
+        throw new RecusaDaProducao(FRASE_JA_ENCERRADA);
+      }
+      await tx
+        .update(ordensProducao)
+        .set({ status: "cancelada", canceladaEm: sql`now()`, canceladaPor: usuario.id })
+        .where(eq(ordensProducao.id, ordemId));
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaProducao) {
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao cancelar ordem da produção (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CANCELAR };
+  }
+
+  revalidarOrdem(ordemId);
+  return { ok: true, dados: { ordemId } };
 }
