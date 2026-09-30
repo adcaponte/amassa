@@ -8,6 +8,14 @@ import { formatarDataCurta, formatarPercentual } from "@/lib/financeiro/formato"
 import { parametrosDoPrecoFazemSentido } from "@/lib/precificacao/calculo";
 import type { ParametrosVigentesResultado } from "@/lib/precificacao/consultas";
 import { CATALOGO_DE_PARAMETROS, type GrupoDeParametro } from "@/lib/precificacao/parametros";
+import type { PerdaMedida } from "@/lib/producao/perda";
+import {
+  FRASE_PERDA_MEDIDA_ERRO,
+  FRASE_PERDA_SEM_MEDIDA,
+  TITULO_PERDA_MEDIDA,
+  textoExplicacaoDaPerdaMedida,
+  textoPercentualDaPerdaMedida,
+} from "@/lib/producao/textos";
 import {
   DICA_ESTIMADO_MEDIDO,
   DICA_PERCENTUAL_DIVIDE,
@@ -31,6 +39,9 @@ import { DialogoCalcularHora } from "./dialogo-calcular-hora";
 
 export type ListaParametrosProps = {
   resultado: ParametrosVigentesResultado;
+  // A perda medida dos últimos 6 meses (D-08), calculada no Server Component; "erro" quando a
+  // leitura falhou — só a linha dela avisa.
+  perdaMedida: PerdaMedida | "erro";
 };
 
 // A ordem dos cinco grupos vem do PRÓPRIO catálogo (nunca reescrita à mão aqui) — mesma ordem do
@@ -42,7 +53,7 @@ const GRUPOS_EM_ORDEM: readonly GrupoDeParametro[] = [
 // "use client" (mesmo molde de `ListaCategorias`/`ListaContasFixas`): o único estado local é
 // "o diálogo de Calcular minha hora está aberto" — os 18 campos e o selo são
 // `CampoParametro`, cada um dono da própria gravação.
-export function ListaParametros({ resultado }: ListaParametrosProps) {
+export function ListaParametros({ resultado, perdaMedida }: ListaParametrosProps) {
   const [dialogoHoraAberto, setDialogoHoraAberto] = useState(false);
 
   // `faltando`: uma chave sem nenhuma linha vigente — não deveria acontecer em produção (D-17:
@@ -110,6 +121,42 @@ export function ListaParametros({ resultado }: ListaParametrosProps) {
               >
                 {ROTULO_CALCULAR_HORA}
               </button>
+            </div>
+          )}
+
+          {grupo === "Perda" && (
+            // A perda MEDIDA (D-08): SÓ LEITURA, no molde da taxa do cartão — nenhum botão, nenhuma
+            // escrita. Trocar o parâmetro acima continua sendo à mão.
+            <div
+              data-testid="parametros-perda-medida"
+              className="border-border flex flex-wrap items-start justify-between gap-3 border-t pt-3"
+            >
+              {perdaMedida === "erro" ? (
+                <p role="alert" className="text-apoio text-erro">
+                  {FRASE_PERDA_MEDIDA_ERRO}
+                </p>
+              ) : perdaMedida.pontosBase === null ? (
+                <p className="text-apoio text-muted-foreground">{FRASE_PERDA_SEM_MEDIDA}</p>
+              ) : (
+                <>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-corpo text-foreground font-semibold">{TITULO_PERDA_MEDIDA}</span>
+                    <span className="text-apoio text-muted-foreground">
+                      {textoExplicacaoDaPerdaMedida(
+                        perdaMedida.perdidas,
+                        perdaMedida.feitas,
+                        perdaMedida.ordens,
+                      )}
+                    </span>
+                  </div>
+                  <span
+                    data-testid="perda-medida-valor"
+                    className="text-corpo text-foreground tabular-nums"
+                  >
+                    {textoPercentualDaPerdaMedida(perdaMedida.pontosBase)}
+                  </span>
+                </>
+              )}
             </div>
           )}
 

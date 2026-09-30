@@ -932,3 +932,29 @@ export function textoDiasDoInicioAoFim(n: number): string {
   return `${dias(n)} do início ao fim.`;
 }
 export const SELO_CONCLUIDA = "concluída";
+
+// ---------------------------------------------------------------------------------------------
+// A perda medida em Cadastros → Parâmetros (plano 12, D-08 — UI-SPEC §"Cadastros → Parâmetros —
+// perda medida", §Estados vazios, §Erros). Só leitura: nenhum botão troca o parâmetro.
+// ---------------------------------------------------------------------------------------------
+
+export const TITULO_PERDA_MEDIDA = "Perda medida nos últimos 6 meses";
+export const FRASE_PERDA_SEM_MEDIDA = "Ainda sem medida: nenhuma ordem concluída nos últimos 6 meses.";
+export const FRASE_PERDA_MEDIDA_ERRO = "Não deu para carregar a perda medida.";
+
+// "{p} de {f} peças feitas se perderam, em {n} ordens concluídas. As extras sem destino não entram
+// nesta conta. O parâmetro continua sendo trocado aqui, à mão." — plural de verdade ("1 ordem
+// concluída", "1 de 1 peça feita", "1 … se perdeu").
+export function textoExplicacaoDaPerdaMedida(perdidas: number, feitas: number, ordens: number): string {
+  const pecasFeitas = feitas === 1 ? "peça feita" : "peças feitas";
+  const verbo = perdidas === 1 ? "se perdeu" : "se perderam";
+  const ordensConcluidas = ordens === 1 ? "1 ordem concluída" : `${ordens} ordens concluídas`;
+  return `${perdidas} de ${feitas} ${pecasFeitas} ${verbo}, em ${ordensConcluidas}. As extras sem destino não entram nesta conta. O parâmetro continua sendo trocado aqui, à mão.`;
+}
+
+// "4,0%" a partir de 400 pontos-base — uma casa, meio-para-cima, em inteiros (nunca `toFixed`
+// sobre ponto flutuante).
+export function textoPercentualDaPerdaMedida(pontosBase: number): string {
+  const decimos = Math.floor((pontosBase + 5) / 10);
+  return `${Math.floor(decimos / 10)},${decimos % 10}%`;
+}

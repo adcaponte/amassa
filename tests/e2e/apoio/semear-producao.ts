@@ -943,12 +943,17 @@ export type OrdemEncerradaParaSemear = {
       concluidaEm: string;
       perdidas: number;
       entregaParcial?: boolean;
+      // Plano 12 (perda medida): extras boas que ficaram sem destino — nunca entram na perda.
+      semDestino?: number;
     }
   | {
       status: "cancelada";
       // O DIA do cancelamento (`YYYY-MM-DD`): gravado como meio-dia de Brasília nesse dia.
       canceladaEm: string;
       canceladaPelaVenda?: boolean;
+      // Plano 12 (perda medida): perdidas registradas numa ordem que depois foi cancelada — a
+      // cancelada fica fora da conta.
+      perdidas?: number;
     }
 );
 
@@ -983,9 +988,13 @@ export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Pro
     await cliente.query("begin");
     try {
       if (dados.status === "concluida") {
+        const semDestino = dados.semDestino ?? 0;
         await cliente.query(
-          `update ordem_pecas set perdidas = $2, para_estoque = 0, sem_destino = 0 where ordem_id = $1`,
-          [ordemId, dados.perdidas],
+          `update ordem_pecas
+              set perdidas = $2, para_estoque = 0, sem_destino = $3,
+                  destino_extras = case when $3::int > 0 then 'sem_destino'::destino_extras end
+            where ordem_id = $1`,
+          [ordemId, dados.perdidas, semDestino],
         );
         await cliente.query(
           `update ordens_producao
@@ -994,6 +1003,12 @@ export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Pro
           [ordemId, dados.concluidaEm, dados.entregaParcial ?? false],
         );
       } else {
+        if (dados.perdidas !== undefined) {
+          await cliente.query(
+            `update ordem_pecas set perdidas = $2, para_estoque = 0, sem_destino = 0 where ordem_id = $1`,
+            [ordemId, dados.perdidas],
+          );
+        }
         const canceladaPor = await idDoUsuarioDeTeste(cliente);
         await cliente.query(
           `update ordens_producao

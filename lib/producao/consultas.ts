@@ -2,7 +2,7 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { and, asc, count, desc, eq, inArray, isNotNull, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -38,6 +38,7 @@ import {
   type MaterialPrevisto,
   type PecaParaPrevisto,
 } from "./material";
+import type { ConclusaoParaAPerda } from "./perda";
 
 export type PecaDaOrdem = {
   id: string;
@@ -840,4 +841,37 @@ export async function dadosDaConclusao(ordemId: string, hoje: string): Promise<D
       categoria.nome.trim().toLocaleLowerCase("pt-BR") === NOME_PECAS_PRONTAS.toLocaleLowerCase("pt-BR"),
   );
   return { pecas, categoriasDeVenda, categoriaPecasProntasId: pecasProntas?.id ?? null };
+}
+
+// ---------------------------------------------------------------------------------------------
+// A perda medida (plano 12, D-08, PRD-17).
+// ---------------------------------------------------------------------------------------------
+
+// As ordens CONCLUÍDAS desde `desde` (inclusive), somadas por ordem: as perdidas e as feitas
+// (quantidade + a mais) de todas as peças. Canceladas ficam fora (só `status = 'concluida'`); a
+// produção da casa entra. As extras sem destino (`sem_destino`) NÃO são lidas — não são perda
+// (briefing §7). A conta é o módulo puro `perdaMedida` (`./perda`); esta leitura só traz os números.
+export async function conclusoesParaAPerda(desde: string): Promise<ConclusaoParaAPerda[]> {
+  const linhas = await db
+    .select({
+      concluidaEm: ordensProducao.concluidaEm,
+      perdidas: sql<string>`coalesce(sum(${ordemPecas.perdidas}), 0)`,
+      feitas: sql<string>`coalesce(sum(${ordemPecas.quantidade} + ${ordemPecas.aMais}), 0)`,
+    })
+    .from(ordensProducao)
+    .innerJoin(ordemPecas, eq(ordemPecas.ordemId, ordensProducao.id))
+    .where(
+      and(
+        eq(ordensProducao.status, "concluida"),
+        isNotNull(ordensProducao.concluidaEm),
+        gte(ordensProducao.concluidaEm, desde),
+      ),
+    )
+    .groupBy(ordensProducao.id, ordensProducao.concluidaEm);
+
+  return linhas.flatMap((linha) =>
+    linha.concluidaEm === null
+      ? []
+      : [{ concluidaEm: linha.concluidaEm, perdidas: Number(linha.perdidas), feitas: Number(linha.feitas) }],
+  );
 }
