@@ -342,6 +342,7 @@ export async function EditorOrcamento({
             entregaPrevista: orcamento.entregaPrevista,
           },
           linhasResolvidas.map((linha) => ({
+            fichaId: linha.fichaId,
             nome: linha.nomeResolvido,
             quantidade: linha.quantidade,
             precoUnitarioCentavos: linha.precoUnitarioCentavos,

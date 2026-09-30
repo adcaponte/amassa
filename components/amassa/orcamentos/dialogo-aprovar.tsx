@@ -77,8 +77,15 @@ export function DialogoAprovar({ orcamentoId, plano, entregaPrevistaFormatada }:
     );
   }
 
-  const itensTexto = plano.itensDaEncomenda
-    .map((item) => nomeDaLinha({ nome: item.descricao, quantidade: item.quantidade }))
+  // As peças da ordem (Fase 06.1): o nome congelado e, quando há, a cor — o mesmo texto que o
+  // dono lia antes, agora montado das colunas próprias da peça.
+  const itensTexto = plano.pecasDaOrdem
+    .map((peca) =>
+      nomeDaLinha({
+        nome: peca.cor ? `${peca.descricao} — ${peca.cor}` : peca.descricao,
+        quantidade: peca.quantidade,
+      }),
+    )
     .join(", ");
 
   return (

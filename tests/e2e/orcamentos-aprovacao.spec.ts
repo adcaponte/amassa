@@ -2,10 +2,20 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 
 import { formatarDataCurta } from "@/lib/financeiro/formato";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
+import {
+  cancelarOrdemNoBanco,
+  diaEmBrasilia,
+  etapasDaOrdemNoBanco,
+  linhasDoOrcamentoNoBanco,
+  ordemNoBanco,
+  pecasDaOrdemNoBanco,
+  vinculoDoOrcamento,
+} from "./apoio/semear-producao";
 
 // A aprovação (04.5-12-PLAN.md, D-25/ORC-11): "Cliente aprovou" cria, numa transação só, a venda
-// na parte 1 (sinal EM ABERTO vencendo hoje, saldo na entrega prevista) e, se marcado, a encomenda
-// no módulo atual — com os vínculos navegáveis nos dois sentidos. Cancelar a venda depois não
+// na parte 1 (sinal EM ABERTO vencendo hoje, saldo na entrega prevista) e, se marcado, a ORDEM DE
+// PRODUÇÃO (Fase 06.1, plano 03: aguardando o sinal, sem início, com as peças das linhas e as seis
+// etapas) — com os vínculos navegáveis nos dois sentidos. Cancelar a venda depois não
 // apaga nem reabre o orçamento. Nomes inventados e únicos por execução ("[e2e] ... {sufixo}") —
 // nenhum dado real do ateliê, o repositório é público.
 
@@ -227,7 +237,58 @@ test.describe("orcamentos aprovacao", () => {
     documentoHref = (await linkVenda.getAttribute("href")) ?? "";
     encomendaHref = (await linkEncomenda.getAttribute("href")) ?? "";
     expect(documentoHref).toMatch(/^\/gestao\/financeiro\?aba=caixa&documentoId=/);
-    expect(encomendaHref).toMatch(/^\/gestao\/encomendas\//);
+    expect(encomendaHref).toMatch(/^\/gestao\/producao\/[0-9a-f-]{36}$/);
+
+    // Fase 06.1 (PRD-10/PRD-11): a ordem gravada na MESMA transação — aguardando o sinal, sem
+    // início, com o nome, o cliente e a entrega do orçamento; o orçamento aponta para ela.
+    const ordemId = encomendaHref.split("/").pop() ?? "";
+    expect(await vinculoDoOrcamento(orcamentoId)).toBe(ordemId);
+    const ordem = await ordemNoBanco(ordemId);
+    expect(ordem).toEqual({
+      tipo: "encomenda",
+      caminho: "completo",
+      status: "aguardando_sinal",
+      nome: `[e2e] Jogo Aprovação ${suf}`,
+      clienteNome: `[e2e] Cliente Aprovação ${suf}`,
+      entregaPrometida: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      inicio: null,
+    });
+    expect(formatarDataCurta(ordem?.entregaPrometida ?? "")).toBe(entregaFormatada);
+
+    // As seis etapas do caminho completo, nenhuma feita, com os previstos do D-10.
+    const etapas = await etapasDaOrdemNoBanco(ordemId);
+    expect(etapas.map((etapa) => [etapa.etapa, etapa.diasPrevistos, etapa.feitaEm])).toEqual([
+      ["producao", 5, null],
+      ["secagem", 15, null],
+      ["queima1", 1, null],
+      ["esmaltacao", 1, null],
+      ["queima2", 4, null],
+      ["entrega", 6, null],
+    ]);
+
+    // Uma peça por linha, na ordem das linhas, com a ficha, a quantidade e a cor da linha; a
+    // descrição é o nome congelado (sem a cor, que tem coluna própria). Custo de projeto e frete
+    // não viram peça.
+    const linhas = await linhasDoOrcamentoNoBanco(orcamentoId);
+    const pecas = await pecasDaOrdemNoBanco(ordemId);
+    expect(pecas).toEqual([
+      {
+        posicao: 0,
+        fichaId: linhas[0].fichaId,
+        descricao: nomeDaPeca1,
+        quantidade: linhas[0].quantidade,
+        cor: "verde-musgo",
+        personalizacao: null,
+      },
+      {
+        posicao: 1,
+        fichaId: linhas[1].fichaId,
+        descricao: nomeDaPeca2,
+        quantidade: linhas[1].quantidade,
+        cor: null,
+        personalizacao: null,
+      },
+    ]);
   });
 
   test("(c) 🔴 'Ver venda no Financeiro' mostra o documento com o total certo e o sinal a receber (não recebido), vencendo hoje; o saldo vence na entrega", async ({
@@ -268,7 +329,7 @@ test.describe("orcamentos aprovacao", () => {
     await expect(page.getByTestId("orcamento-chip").first()).toHaveText("aprovado");
   });
 
-  test("(e) 'Ver encomenda na Produção' mostra a encomenda com o título, o cliente e um item por peça com a cor na descrição; a tela dela mostra a linha de origem", async ({
+  test("(e) 'Ver encomenda na Produção' abre a ordem na Produção com o título e uma peça por linha, com a cor", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -279,13 +340,13 @@ test.describe("orcamentos aprovacao", () => {
 
     await expect(page.getByRole("heading", { name: `[e2e] Jogo Aprovação ${suf}` })).toBeVisible();
 
-    const itens = page.getByRole("region", { name: "Itens da encomenda" });
-    await expect(itens).toContainText(`${nomeDaPeca1} — verde-musgo`);
-    await expect(itens).toContainText(nomeDaPeca2);
-
-    const origem = page.getByTestId("encomenda-origem-orcamento");
-    await expect(origem).toBeVisible();
-    await expect(origem).toContainText(`Criado a partir do orçamento ${orcamentoNumero}`);
+    // A cor fica na sub-linha da peça, não na descrição. A linha de origem ("Criado a partir do
+    // orçamento") da página da ordem é do plano 06.1-04.
+    const pecas = page.getByTestId("ordem-peca");
+    await expect(pecas).toHaveCount(2);
+    await expect(pecas.nth(0)).toContainText(nomeDaPeca1);
+    await expect(pecas.nth(0)).toContainText("verde-musgo");
+    await expect(pecas.nth(1)).toContainText(nomeDaPeca2);
   });
 
   test("(f) 🔴 cancelar a venda no Financeiro não apaga nem reabre o orçamento — ele continua aprovado e mostra o aviso", async ({
@@ -340,7 +401,7 @@ test.describe("orcamentos aprovacao", () => {
     await expect(page.getByRole("button", { name: "Cliente aprovou" })).toHaveCount(0);
   });
 
-  test("(h) desmarcar a caixa da ordem cria só a venda — nenhuma encomenda, e o veredito mostra um único link", async ({
+  test("(h) desmarcar a caixa da ordem cria só a venda — nenhuma ordem, e o veredito mostra um único link", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -359,6 +420,7 @@ test.describe("orcamentos aprovacao", () => {
     await expect(page.getByText(/^Venda \d+ criada no Financeiro\.$/)).toBeVisible();
     await expect(page.getByTestId("veredito-ver-venda")).toBeVisible();
     await expect(page.getByTestId("veredito-ver-encomenda")).toHaveCount(0);
+    expect(await vinculoDoOrcamento(orcamentoId2)).toBeNull();
   });
 
   test("(i) a 320px o diálogo de aprovação rola no corpo, o rodapé continua visível e os alvos de toque medem ao menos 44px (backstop com oito peças)", async ({
@@ -408,7 +470,7 @@ test.describe("orcamentos aprovacao", () => {
   // (f) acima, do outro lado do vínculo: lá a VENDA é cancelada, aqui a ENCOMENDA. Este lado do
   // critério 14 nunca foi implementado — `textoVeredito` recebia `encomendaId !== null`, que
   // responde "o id existe?", nunca "a ordem está aberta?".
-  test("(j) 🔴 cancelar a ENCOMENDA na Produção tira o 'ordem aberta' do veredito e avisa — o orçamento continua aprovado", async ({
+  test("(j) 🔴 a ORDEM cancelada tira o 'ordem aberta' do veredito e avisa — o orçamento continua aprovado", async ({
     page,
   }) => {
     const sufDaOrdem = sufixoUnico();
@@ -427,26 +489,14 @@ test.describe("orcamentos aprovacao", () => {
     // Antes: a ordem existe e está aberta — o veredito pode dizer isso, e é verde.
     const bloco = page.getByTestId("orcamento-aviso-aprovado");
     await expect(bloco).toContainText("ordem aberta na Produção");
-    const hrefDaEncomenda = (await page.getByTestId("veredito-ver-encomenda").getAttribute("href")) ?? "";
-    expect(hrefDaEncomenda).toMatch(/^\/gestao\/encomendas\//);
+    const hrefDaOrdem = (await page.getByTestId("veredito-ver-encomenda").getAttribute("href")) ?? "";
+    expect(hrefDaOrdem).toMatch(/^\/gestao\/producao\/[0-9a-f-]{36}$/);
 
-    // Cancela pela tela real da Produção — o caminho do dono, nunca uma escrita direta no banco.
-    // Duplo clique defensivo pelo mesmo motivo de `encomendas-filtros.spec.ts::cancelarViaDetalhe`:
-    // o primeiro clique pode chegar antes da hidratação anexar o `onClick`.
-    await page.goto(hrefDaEncomenda);
-    const botaoCancelar = page.getByRole("button", { name: "Cancelar encomenda" });
-    const dialogoCancelar = page.getByRole("alertdialog");
-    await botaoCancelar.click();
-    const dialogoAbriu = await dialogoCancelar
-      .waitFor({ state: "visible", timeout: 3000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!dialogoAbriu) {
-      await botaoCancelar.click();
-    }
-    await dialogoCancelar.getByRole("button", { name: "Cancelar encomenda" }).click();
-    await expect(page.getByText("Encomenda cancelada.")).toBeVisible();
-    await expect(page.locator("body")).toContainText("Cancelada", { timeout: 10000 });
+    // Fase 06.1: o "Cancelar ordem" da Produção é do plano 06.1-06 — até lá a ordem é liberada e
+    // cancelada direto no banco (com os checks de `inicio`/`cancelada_em`/`cancelada_por`). O que
+    // este caso prova é o que o ORÇAMENTO diz de uma ordem cancelada; o caminho da tela ganha o
+    // próprio e2e lá.
+    await cancelarOrdemNoBanco(hrefDaOrdem.split("/").pop() ?? "", diaEmBrasilia());
 
     // Depois: o orçamento continua aprovado, e o veredito para de afirmar uma ordem que a
     // Produção já não tem aberta.

@@ -134,3 +134,134 @@ export async function etapasDaOrdemNoBanco(ordemId: string): Promise<EtapaNoBanc
     }));
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-03 — a ordem que nasce da aprovação do orçamento
+// ---------------------------------------------------------------------------------------------
+
+export type OrdemNoBanco = {
+  tipo: TipoOrdem;
+  caminho: CaminhoOrdem;
+  status: StatusOrdem;
+  nome: string;
+  clienteNome: string | null;
+  entregaPrometida: string | null;
+  inicio: string | null;
+};
+
+// A linha da ordem como está no banco — datas como texto `YYYY-MM-DD` (mesma razão de
+// `etapasDaOrdemNoBanco`). `null` se ela não existe.
+export async function ordemNoBanco(ordemId: string): Promise<OrdemNoBanco | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      tipo: TipoOrdem;
+      caminho: CaminhoOrdem;
+      status: StatusOrdem;
+      nome: string;
+      cliente_nome: string | null;
+      entrega_prometida: string | null;
+      inicio: string | null;
+    }>(
+      `select tipo, caminho, status, nome, cliente_nome, entrega_prometida::text as entrega_prometida,
+              inicio::text as inicio
+         from ordens_producao where id = $1`,
+      [ordemId],
+    );
+    const linha = rows[0];
+    if (!linha) {
+      return null;
+    }
+    return {
+      tipo: linha.tipo,
+      caminho: linha.caminho,
+      status: linha.status,
+      nome: linha.nome,
+      clienteNome: linha.cliente_nome,
+      entregaPrometida: linha.entrega_prometida,
+      inicio: linha.inicio,
+    };
+  });
+}
+
+export type PecaNoBanco = {
+  posicao: number;
+  fichaId: string | null;
+  descricao: string;
+  quantidade: number;
+  cor: string | null;
+  personalizacao: string | null;
+};
+
+// As peças da ordem, por posição.
+export async function pecasDaOrdemNoBanco(ordemId: string): Promise<PecaNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      posicao: number;
+      ficha_id: string | null;
+      descricao: string;
+      quantidade: number;
+      cor: string | null;
+      personalizacao: string | null;
+    }>(
+      `select posicao, ficha_id, descricao, quantidade, cor, personalizacao
+         from ordem_pecas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      posicao: linha.posicao,
+      fichaId: linha.ficha_id,
+      descricao: linha.descricao,
+      quantidade: linha.quantidade,
+      cor: linha.cor,
+      personalizacao: linha.personalizacao,
+    }));
+  });
+}
+
+// As linhas do orçamento na ordem de `ordem` — o que as peças da ordem precisam espelhar.
+export async function linhasDoOrcamentoNoBanco(
+  orcamentoId: string,
+): Promise<{ fichaId: string; quantidade: number; cor: string | null }[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ ficha_id: string; quantidade: number; cor: string | null }>(
+      `select ficha_id, quantidade, cor from orcamento_linhas where orcamento_id = $1 order by ordem`,
+      [orcamentoId],
+    );
+    return rows.map((linha) => ({ fichaId: linha.ficha_id, quantidade: linha.quantidade, cor: linha.cor }));
+  });
+}
+
+// O vínculo gravado no orçamento (`orcamentos.encomenda_id`, o nome histórico do vínculo com a ordem).
+export async function vinculoDoOrcamento(orcamentoId: string): Promise<string | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ encomenda_id: string | null }>(
+      `select encomenda_id from orcamentos where id = $1`,
+      [orcamentoId],
+    );
+    return rows[0]?.encomenda_id ?? null;
+  });
+}
+
+// Libera e cancela a ordem direto no banco, respeitando os checks (`cancelada_em` e
+// `cancelada_por` junto do status). Só enquanto o "Cancelar ordem" da tela não existe (plano
+// 06.1-06): o teste que precisa de uma ordem cancelada confere o que o ORÇAMENTO diz dela, não o
+// caminho do cancelamento.
+//
+// Por que "libera e cancela" (com `inicio` = `liberadaEm` quando ainda não havia): o check
+// `ordens_producao_aguardando_sem_inicio` é `(status = 'aguardando_sinal') = (inicio is null)` —
+// uma ordem cancelada PRECISA ter início. Cancelar uma ordem ainda aguardando o sinal com o início
+// nulo é recusado pelo banco (23514); registrado no SUMMARY do plano 06.1-03 para o plano 06.
+export async function cancelarOrdemNoBanco(ordemId: string, liberadaEm: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update ordens_producao
+          set status = 'cancelada', inicio = coalesce(inicio, $2::date), cancelada_em = now(),
+              cancelada_por = (select id from usuarios order by criado_em limit 1)
+        where id = $1`,
+      [ordemId, liberadaEm],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`cancelarOrdemNoBanco: a ordem ${ordemId} não existe.`);
+    }
+  });
+}

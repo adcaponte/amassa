@@ -20,9 +20,10 @@
 // trava documento.
 import { asc, eq } from "drizzle-orm";
 
-import { ordemEtapas, ordensProducao } from "@/db/schema";
+import { ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 
+import { etapasIniciais } from "./etapas";
 import type { EtapaDaOrdem } from "./leitura";
 
 export type { TransacaoDoBanco };
@@ -83,4 +84,71 @@ export async function lerEtapasDaOrdem(
     .from(ordemEtapas)
     .where(eq(ordemEtapas.ordemId, ordemId))
     .orderBy(asc(ordemEtapas.posicao));
+}
+
+export type PecaDaOrdemDoOrcamento = {
+  fichaId: string;
+  descricao: string;
+  quantidade: number;
+  cor: string | null;
+  personalizacao: string | null;
+};
+
+export type OrdemDoOrcamento = {
+  nome: string;
+  clienteNome: string | null;
+  entregaPrometida: string | null;
+  pecas: readonly PecaDaOrdemDoOrcamento[];
+  criadoPor: string;
+};
+
+// A ordem que nasce de "Cliente aprovou" (PRD-10/PRD-11), gravada com a TRANSAÇÃO de
+// `lib/orcamentos/acoes.ts::aprovarOrcamento` — a mesma que trava o orçamento, grava a venda e, na
+// mesma instrução do `status = 'aprovado'`, o vínculo `orcamentos.encomenda_id` com o id devolvido
+// aqui. Nasce SEMPRE encomenda, caminho completo, aguardando o sinal e sem início (T-06.1-11): o
+// prazo só começa a contar quando o dono libera na Produção (`liberarOrdem`). As seis etapas vêm de
+// `etapasIniciais("completo")` (os previstos do D-10); as peças, uma por linha do orçamento, com
+// `posicao` = índice na ordem das linhas. Devolve o id da ordem.
+export async function criarOrdemDoOrcamento(
+  tx: TransacaoDoBanco,
+  dados: OrdemDoOrcamento,
+): Promise<string> {
+  const [ordem] = await tx
+    .insert(ordensProducao)
+    .values({
+      tipo: "encomenda",
+      caminho: "completo",
+      status: "aguardando_sinal",
+      inicio: null,
+      nome: dados.nome,
+      clienteNome: dados.clienteNome,
+      entregaPrometida: dados.entregaPrometida,
+      criadoPor: dados.criadoPor,
+    })
+    .returning({ id: ordensProducao.id });
+
+  await tx.insert(ordemEtapas).values(
+    etapasIniciais("completo").map((etapa) => ({
+      ordemId: ordem.id,
+      etapa: etapa.etapa,
+      posicao: etapa.posicao,
+      diasPrevistos: etapa.diasPrevistos,
+    })),
+  );
+
+  if (dados.pecas.length > 0) {
+    await tx.insert(ordemPecas).values(
+      dados.pecas.map((peca, posicao) => ({
+        ordemId: ordem.id,
+        posicao,
+        fichaId: peca.fichaId,
+        descricao: peca.descricao,
+        quantidade: peca.quantidade,
+        cor: peca.cor,
+        personalizacao: peca.personalizacao,
+      })),
+    );
+  }
+
+  return ordem.id;
 }
