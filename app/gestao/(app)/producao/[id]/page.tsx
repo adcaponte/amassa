@@ -10,17 +10,10 @@ import {
   levouDias,
   seloDaOrdem,
 } from "@/lib/producao/leitura";
-import {
-  ROTULO_VOLTAR_PRODUCAO,
-  TITULO_ETAPAS,
-  TITULO_PECAS,
-  textoAMais,
-  textoLinhaDaPeca,
-  textoSubLinhaDaPeca,
-  textoSubtituloDaOrdem,
-} from "@/lib/producao/textos";
+import { ROTULO_VOLTAR_PRODUCAO, TITULO_ETAPAS, textoSubtituloDaOrdem } from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { BlocoPecas } from "@/components/amassa/producao/bloco-pecas";
 import { BotaoTerminei } from "@/components/amassa/producao/botao-terminei";
 import { CaixaAguardando } from "@/components/amassa/producao/caixa-aguardando";
 import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
@@ -31,7 +24,8 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // id malformado — os dois respondem igual) → `notFound()`, o 404 do grupo protegido.
 //
 // Neste plano: o cabeçalho (nome com quebra livre, nunca truncado — `CabecalhoPagina`), o bloco
-// "Etapas" com a trilha e o "Terminei: {Etapa}", e as peças; na ordem aguardando o sinal, a caixa
+// "Etapas" com a trilha e o "Terminei: {Etapa}", e o bloco "Peças" (plano 04: horas, sub-linha, as
+// fotos do orçamento e a linha de origem com os links para o orçamento e a venda); na ordem aguardando o sinal, a caixa
 // âmbar com a leitura do sinal no Caixa e os botões de liberar (plano 03). Desfazer, ajuste de
 // dias, parcial, a barra fixa do celular, material, cancelar, previsão e a conclusão chegam nos
 // planos seguintes. Na etapa Entrega o botão não aparece: a última etapa se conclui (plano 11).
@@ -112,37 +106,7 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
           ) : null}
         </section>
 
-        <section
-          aria-labelledby="ordem-pecas-titulo"
-          className="bg-superficie border-borda flex flex-col gap-2 rounded-lg border p-4"
-        >
-          <h2 id="ordem-pecas-titulo" className="text-titulo text-tinta">
-            {TITULO_PECAS}
-          </h2>
-          <ul className="flex flex-col">
-            {ordem.pecas.map((peca) => (
-              <li
-                key={peca.id}
-                data-testid="ordem-peca"
-                className="border-borda flex flex-col gap-1 border-b py-4 last:border-b-0"
-              >
-                <span className="text-corpo text-tinta flex flex-wrap items-center gap-2 font-semibold [overflow-wrap:anywhere]">
-                  {textoLinhaDaPeca(peca.quantidade, peca.descricao)}
-                  {peca.aMais > 0 ? (
-                    <span className="text-apoio bg-superficie-2 text-tinta-media rounded-full px-2 font-semibold">
-                      {textoAMais(peca.aMais)}
-                    </span>
-                  ) : null}
-                </span>
-                {textoSubLinhaDaPeca(peca.cor, peca.personalizacao) ? (
-                  <span className="text-apoio text-tinta-fraca [overflow-wrap:anywhere]">
-                    {textoSubLinhaDaPeca(peca.cor, peca.personalizacao)}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
+        <BlocoPecas pecas={ordem.pecas} fotos={ordem.fotos} origem={ordem.origem} />
       </div>
     </>
   );

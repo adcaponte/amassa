@@ -137,16 +137,75 @@ export const TITULO_PECAS = "Peças";
 export function textoLinhaDaPeca(quantidade: number, descricao: string): string {
   return `${quantidade}× ${descricao}`;
 }
-// "Cor: azul · com o nome gravado" — `null` quando a peça não tem cor nem personalização.
-export function textoSubLinhaDaPeca(cor: string | null, personalizacao: string | null): string | null {
-  const partes = [cor ? `Cor: ${cor}` : null, personalizacao].filter(
-    (parte): parte is string => Boolean(parte),
-  );
-  return partes.length > 0 ? partes.join(" · ") : null;
+// "Cor: azul · com o nome gravado · peça exclusiva" (UI-SPEC §Copywriting, "Peça — sub-linha"):
+// sem personalização, "sem personalização" no lugar dela; sem cor, o trecho some; peça sem ficha
+// ganha " · sem ficha" no fim (e nunca "peça exclusiva" — quem diz se é exclusiva é a ficha).
+export function textoSubLinhaDaPeca(peca: {
+  cor: string | null;
+  personalizacao: string | null;
+  temFicha: boolean;
+  exclusiva: boolean;
+}): string {
+  const partes = [
+    peca.cor ? `Cor: ${peca.cor}` : null,
+    peca.personalizacao ?? "sem personalização",
+    peca.temFicha && peca.exclusiva ? "peça exclusiva" : null,
+    peca.temFicha ? null : "sem ficha",
+  ].filter((parte): parte is string => Boolean(parte));
+  return partes.join(" · ");
 }
 export function textoAMais(aMais: number): string {
   return `+${aMais} a mais`;
 }
+
+// Horas de trabalho — o ÚNICO lugar da fase que mostra horas (PRD-05): o bloco "Peças" da ordem.
+// Milésimos de hora (a escala de `fichas_precificacao.horas_milesimos`) → "1,2 h", sempre com uma
+// casa decimal (o `n1` do protótipo), pt-BR.
+export function textoHoras(milesimos: number): string {
+  const horas = new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(milesimos / 1000);
+  return `${horas} h`;
+}
+
+// A linha de origem da ordem, em partes — quem desenha põe os links nos trechos do orçamento e da
+// venda. "Trabalho estimado: {h} h · veio do orçamento nº {N} · venda nº {M} no Financeiro"; ordem
+// sem orçamento: só as horas; nenhuma peça com ficha: "sem estimativa (peça sem ficha)".
+export const TEXTO_TRABALHO_ESTIMADO = "Trabalho estimado:";
+export const TEXTO_SEM_ESTIMATIVA = "sem estimativa (peça sem ficha)";
+export const TEXTO_VEIO_DO = "veio do";
+export function textoOrcamentoDaOrigem(numeroDoOrcamento: string): string {
+  return `orçamento nº ${numeroDoOrcamento}`;
+}
+export function textoVendaDaOrigem(numeroDaVenda: number): string {
+  return `venda nº ${numeroDaVenda}`;
+}
+export const TEXTO_NO_FINANCEIRO = "no Financeiro";
+// A linha inteira em texto corrido (`null` nas horas = nenhuma peça com ficha).
+export function textoOrigemDaOrdem(d: {
+  horasMilesimos: number | null;
+  orcamentoNumero: string | null;
+  documentoNumero: number | null;
+}): string {
+  const horas = d.horasMilesimos === null ? TEXTO_SEM_ESTIMATIVA : textoHoras(d.horasMilesimos);
+  const partes = [`${TEXTO_TRABALHO_ESTIMADO} ${horas}`];
+  if (d.orcamentoNumero) {
+    partes.push(`${TEXTO_VEIO_DO} ${textoOrcamentoDaOrigem(d.orcamentoNumero)}`);
+  }
+  if (d.documentoNumero !== null) {
+    partes.push(`${textoVendaDaOrigem(d.documentoNumero)} ${TEXTO_NO_FINANCEIRO}`);
+  }
+  return partes.join(" · ");
+}
+
+// As fotos de referência do orçamento, na ordem em que o orçamento as mostra.
+export function altDaFotoDeReferencia(n: number, total: number): string {
+  return `Foto de referência ${n} de ${total}`;
+}
+
+// O link de volta no diálogo do documento do Financeiro (PRD-10, "navegáveis nos dois sentidos").
+export const ROTULO_VER_ORDEM_NA_PRODUCAO = "Ver ordem na Produção";
 
 // ---------------------------------------------------------------------------------------------
 // Aguardando o sinal e liberar (plano 03, PRD-11)

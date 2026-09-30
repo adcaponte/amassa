@@ -359,12 +359,24 @@ export async function semearFicha(
   return { fichaId, itemId };
 }
 
+export type PecaDeOrcamentoParaSemear = {
+  quantidade: number;
+  cor?: string | null;
+  personalizacao?: string | null;
+  // Horas da ficha exclusiva criada para a peça, em milésimos (padrão 600 = 0,6 h).
+  horasMilesimos?: number;
+};
+
 export type OrdemDeOrcamentoParaSemear = {
   // O nome da ordem (e o título do orçamento). Quem chama embute "[e2e] … {sufixo}".
   nome: string;
   plano: "sinal" | "avista" | "3x";
   // A parcela 1 da venda (o sinal; no à vista, o pagamento inteiro) já consta como recebida hoje?
   sinalPago: boolean;
+  // As peças (uma linha do orçamento, da venda e da ordem por peça, cada uma com a SUA ficha
+  // exclusiva). Padrão: uma peça, 2 unidades, sem cor nem personalização. A peça `n` (base 1) se
+  // chama "{nome} · peça" na primeira e "{nome} · peça {n}" nas seguintes.
+  pecas?: PecaDeOrcamentoParaSemear[];
 };
 
 export type OrdemDeOrcamentoSemeada = {
@@ -376,36 +388,86 @@ export type OrdemDeOrcamentoSemeada = {
   entregaPrometida: string;
 };
 
+export function nomeDaPecaSemeada(nomeDaOrdem: string, indice: number): string {
+  return (indice === 0 ? `${nomeDaOrdem} · peça` : `${nomeDaOrdem} · peça ${indice + 1}`).slice(0, 120);
+}
+
 // O retrato de "Cliente aprovou" com a caixa da ordem marcada, gravado direto no banco numa
-// transação: uma ficha exclusiva; o documento de venda (uma linha em "Encomendas") com as parcelas
-// numeradas do plano (a 1 vence hoje e, se `sinalPago`, já recebida hoje); a ordem
-// encomenda/completo aguardando o sinal, sem início, com as seis etapas e a peça da linha; e o
-// orçamento APROVADO, com o snapshot congelado, uma linha e os dois vínculos. Total R$ 180,00
-// (2 × R$ 90,00).
+// transação: uma ficha exclusiva por peça; o documento de venda (uma linha por peça em
+// "Encomendas") com as parcelas numeradas do plano (a 1 vence hoje e, se `sinalPago`, já recebida
+// hoje); a ordem encomenda/completo aguardando o sinal, sem início, com as seis etapas e as peças; e
+// o orçamento APROVADO, com o snapshot congelado, as linhas e os dois vínculos. R$ 90,00 por
+// unidade (o padrão dá R$ 180,00).
 export async function semearOrdemDeOrcamento(
   dados: OrdemDeOrcamentoParaSemear,
 ): Promise<OrdemDeOrcamentoSemeada> {
+  const semeado = await semearOrcamentoAprovado(dados, true);
+  if (!semeado.ordemId) {
+    throw new Error("semearOrdemDeOrcamento: a ordem não foi criada.");
+  }
+  return { ...semeado, ordemId: semeado.ordemId };
+}
+
+// O mesmo orçamento aprovado, mas SEM ordem de produção (a caixa desmarcada na aprovação):
+// `encomenda_id` nulo — a venda existe, a ordem não.
+export async function semearOrcamentoAprovadoSemOrdem(
+  dados: OrdemDeOrcamentoParaSemear,
+): Promise<Omit<OrdemDeOrcamentoSemeada, "ordemId">> {
+  const { ordemId: _ordemId, ...resto } = await semearOrcamentoAprovado(dados, false);
+  void _ordemId;
+  return resto;
+}
+
+async function semearOrcamentoAprovado(
+  dados: OrdemDeOrcamentoParaSemear,
+  comOrdem: boolean,
+): Promise<Omit<OrdemDeOrcamentoSemeada, "ordemId"> & { ordemId: string | null }> {
   const hoje = hojeNoAtelie();
   const entregaPrometida = somarDiasAoHoje(40);
   const categoriaEncomendas = await buscarCategoriaPorNome("Encomendas");
-  const nomeDaPeca = `${dados.nome} · peça`.slice(0, 120);
-  const { fichaId } = await semearFicha({
-    nome: nomeDaPeca,
-    exclusiva: true,
-    comItem: false,
-    argilaMiligramas: 450000,
-    esmalteMiligramas: 60000,
-    larguraMm: 120,
-    profundidadeMm: 90,
-    alturaMm: 100,
-    horasMilesimos: 600,
-  });
-
-  const quantidade = 2;
+  const pecasPedidas = dados.pecas ?? [{ quantidade: 2 }];
   const precoUnitario = 9000;
-  const total = quantidade * precoUnitario;
+  const pecas: {
+    nome: string;
+    fichaId: string;
+    quantidade: number;
+    cor: string | null;
+    personalizacao: string | null;
+    horasMilesimos: number;
+  }[] = [];
+  for (const [indice, peca] of pecasPedidas.entries()) {
+    const nome = nomeDaPecaSemeada(dados.nome, indice);
+    const horasMilesimos = peca.horasMilesimos ?? 600;
+    const { fichaId } = await semearFicha({
+      nome,
+      exclusiva: true,
+      comItem: false,
+      argilaMiligramas: 450000,
+      esmalteMiligramas: 60000,
+      larguraMm: 120,
+      profundidadeMm: 90,
+      alturaMm: 100,
+      horasMilesimos,
+    });
+    pecas.push({
+      nome,
+      fichaId,
+      quantidade: peca.quantidade,
+      cor: peca.cor ?? null,
+      personalizacao: peca.personalizacao ?? null,
+      horasMilesimos,
+    });
+  }
+
+  const total = pecas.reduce((soma, peca) => soma + peca.quantidade * precoUnitario, 0);
+  const metade = Math.round(total / 2);
+  const terco = Math.floor(total / 3);
   const valores: number[] =
-    dados.plano === "avista" ? [total] : dados.plano === "sinal" ? [9000, 9000] : [6000, 6000, 6000];
+    dados.plano === "avista"
+      ? [total]
+      : dados.plano === "sinal"
+        ? [metade, total - metade]
+        : [terco, terco, total - 2 * terco];
   const clienteNome = `[e2e] Cliente de ${dados.nome}`.slice(0, 160);
 
   return comCliente(async (conexao) => {
@@ -418,12 +480,14 @@ export async function semearOrdemDeOrcamento(
         [hoje, clienteNome, criadoPor],
       );
       const documentoId = documentos[0].id;
-      await conexao.query(
-        `insert into documento_linhas
-           (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
-         values ($1, 0, $2, $3, $4, $5)`,
-        [documentoId, nomeDaPeca, categoriaEncomendas, quantidade, total],
-      );
+      for (const [indice, peca] of pecas.entries()) {
+        await conexao.query(
+          `insert into documento_linhas
+             (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [documentoId, indice, peca.nome, categoriaEncomendas, peca.quantidade, peca.quantidade * precoUnitario],
+        );
+      }
       let parcelaSinalId = "";
       for (const [indice, valor] of valores.entries()) {
         const pago = indice === 0 && dados.sinalPago;
@@ -445,36 +509,40 @@ export async function semearOrdemDeOrcamento(
         }
       }
 
-      const { rows: ordens } = await conexao.query<{ id: string }>(
-        `insert into ordens_producao
-           (tipo, caminho, status, nome, cliente_nome, entrega_prometida, inicio, criado_por)
-         values ('encomenda', 'completo', 'aguardando_sinal', $1, $2, $3, null, $4) returning id`,
-        [dados.nome, clienteNome, entregaPrometida, criadoPor],
-      );
-      const ordemId = ordens[0].id;
-      for (const etapa of etapasIniciais("completo")) {
-        await conexao.query(
-          `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos) values ($1, $2, $3, $4)`,
-          [ordemId, etapa.etapa, etapa.posicao, etapa.diasPrevistos],
+      let ordemId: string | null = null;
+      if (comOrdem) {
+        const { rows: ordens } = await conexao.query<{ id: string }>(
+          `insert into ordens_producao
+             (tipo, caminho, status, nome, cliente_nome, entrega_prometida, inicio, criado_por)
+           values ('encomenda', 'completo', 'aguardando_sinal', $1, $2, $3, null, $4) returning id`,
+          [dados.nome, clienteNome, entregaPrometida, criadoPor],
         );
+        ordemId = ordens[0].id;
+        for (const etapa of etapasIniciais("completo")) {
+          await conexao.query(
+            `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos) values ($1, $2, $3, $4)`,
+            [ordemId, etapa.etapa, etapa.posicao, etapa.diasPrevistos],
+          );
+        }
+        for (const [indice, peca] of pecas.entries()) {
+          await conexao.query(
+            `insert into ordem_pecas
+               (ordem_id, posicao, ficha_id, descricao, quantidade, cor, personalizacao)
+             values ($1, $2, $3, $4, $5, $6, $7)`,
+            [ordemId, indice, peca.fichaId, peca.nome, peca.quantidade, peca.cor, peca.personalizacao],
+          );
+        }
       }
-      await conexao.query(
-        `insert into ordem_pecas (ordem_id, posicao, ficha_id, descricao, quantidade)
-         values ($1, 0, $2, $3, $4)`,
-        [ordemId, fichaId, nomeDaPeca, quantidade],
-      );
 
       const snapshot = {
-        linhas: [
-          {
-            nome: nomeDaPeca,
-            custoCentavos: 4000,
-            minimoCentavos: 8000,
-            zeroCentavos: 5000,
-            horasMilesimos: 600,
-            quantasCabem: { biscoito: 20, esmalte: 15 },
-          },
-        ],
+        linhas: pecas.map((peca) => ({
+          nome: peca.nome,
+          custoCentavos: 4000,
+          minimoCentavos: 8000,
+          zeroCentavos: 5000,
+          horasMilesimos: peca.horasMilesimos,
+          quantasCabem: { biscoito: 20, esmalte: 15 },
+        })),
         impostoETaxaPontosBase: 0,
         parametrosEstimados: 0,
         congeladoEm: new Date().toISOString(),
@@ -518,12 +586,14 @@ export async function semearOrdemDeOrcamento(
       if (!orcamentoId) {
         throw new Error("semearOrdemDeOrcamento: não achei um sequencial livre para o orçamento.");
       }
-      await conexao.query(
-        `insert into orcamento_linhas
-           (orcamento_id, ficha_id, quantidade, preco_unitario_centavos, ordem)
-         values ($1, $2, $3, $4, 0)`,
-        [orcamentoId, fichaId, quantidade, precoUnitario],
-      );
+      for (const [indice, peca] of pecas.entries()) {
+        await conexao.query(
+          `insert into orcamento_linhas
+             (orcamento_id, ficha_id, quantidade, preco_unitario_centavos, cor, personalizacao, ordem)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [orcamentoId, peca.fichaId, peca.quantidade, precoUnitario, peca.cor, peca.personalizacao, indice],
+        );
+      }
 
       await conexao.query("commit");
       return { ordemId, orcamentoId, documentoId, parcelaSinalId, entregaPrometida };
@@ -531,6 +601,45 @@ export async function semearOrdemDeOrcamento(
       await conexao.query("rollback").catch(() => {});
       throw erro;
     }
+  });
+}
+
+// Plano 06.1-04 — uma foto de referência do orçamento, só a LINHA de `orcamento_fotos` (no molde do
+// que o upload grava: nome "<uuid>.jpg" e `ordem` 0..2). O arquivo em disco não existe — o teste
+// confere o `href` e o `alt` da miniatura, nunca a imagem. Devolve o id da linha.
+export async function semearFotoDeOrcamento(orcamentoId: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const anexadoPor = await idDoUsuarioDeTeste(cliente);
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into orcamento_fotos (orcamento_id, ordem, arquivo, bytes, anexado_por)
+       values ($1, (select count(*) from orcamento_fotos where orcamento_id = $1),
+               gen_random_uuid()::text || '.jpg', 0, $2)
+       returning id`,
+      [orcamentoId, anexadoPor],
+    );
+    return rows[0].id;
+  });
+}
+
+// O número de uma venda (`documentos.numero`, a identidade) — para conferir o "venda nº {M}".
+export async function numeroDoDocumentoNoBanco(documentoId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ numero: number }>(
+      "select numero from documentos where id = $1",
+      [documentoId],
+    );
+    return Number(rows[0].numero);
+  });
+}
+
+// O número "ORC-{ano}-{sequencial}" de um orçamento, montado como a aplicação monta.
+export async function numeroDoOrcamentoNoBanco(orcamentoId: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ ano: number; sequencial: number }>(
+      "select ano, sequencial from orcamentos where id = $1",
+      [orcamentoId],
+    );
+    return `ORC-${rows[0].ano}-${String(rows[0].sequencial).padStart(3, "0")}`;
   });
 }
 

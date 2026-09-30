@@ -5,7 +5,17 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { orcamentos, ordemEtapas, ordemPecas, ordensProducao, parcelas } from "@/db/schema";
+import {
+  documentos,
+  fichasPrecificacao,
+  orcamentoFotos,
+  orcamentos,
+  ordemEtapas,
+  ordemPecas,
+  ordensProducao,
+  parcelas,
+} from "@/db/schema";
+import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
@@ -18,6 +28,23 @@ export type PecaDaOrdem = {
   aMais: number;
   cor: string | null;
   personalizacao: string | null;
+  // A ficha é referência, não cópia (Modelo de dados da pesquisa): `exclusiva` e as horas são
+  // lidas AO VIVO pela `ficha_id` — nulos quando a peça não tem ficha.
+  fichaId: string | null;
+  exclusiva: boolean | null;
+  // Horas de UMA peça, em milésimos (a escala da ficha). Só a página da ordem lê (PRD-05).
+  horasMilesimos: number | null;
+};
+
+// De onde a ordem veio (PRD-10): o orçamento aprovado que a abriu e a venda que ele gerou. `null`
+// para ordem sem orçamento (produção da casa, pedido de boca). Só ids e números — nenhum caminho.
+export type OrigemDaOrdem = {
+  orcamentoId: string;
+  orcamentoNumero: string;
+  // `null` só se o orçamento não tiver venda (não acontece com orçamento aprovado; defensivo).
+  documentoNumero: number | null;
+  // A parcela 1 da venda (a do sinal) — o destino do link "venda nº {M}" no Caixa.
+  parcelaDoSinalId: string | null;
 };
 
 export type OrdemEmAndamento = OrdemParaLeitura & {
@@ -48,6 +75,10 @@ export type SinalDaOrdem = {
 
 export type OrdemCarregada = OrdemEmAndamento & {
   pecas: PecaDaOrdem[];
+  // Os ids de `orcamento_fotos` do orçamento ligado, na ordem do orçamento — a foto sai só pela
+  // rota autenticada `/gestao/api/orcamentos/fotos/{id}`; nenhum arquivo é copiado (briefing §3).
+  fotos: string[];
+  origem: OrigemDaOrdem | null;
   // `null` para ordem sem orçamento (produção da casa, pedido de boca) ou orçamento sem venda.
   sinal: SinalDaOrdem | null;
 };
@@ -82,6 +113,9 @@ const COLUNAS_DA_PECA = {
   aMais: ordemPecas.aMais,
   cor: ordemPecas.cor,
   personalizacao: ordemPecas.personalizacao,
+  fichaId: ordemPecas.fichaId,
+  exclusiva: fichasPrecificacao.exclusiva,
+  horasMilesimos: fichasPrecificacao.horasMilesimos,
 };
 
 function agruparPorOrdem<T extends { ordemId: string }>(linhas: readonly T[]): Map<string, T[]> {
@@ -162,7 +196,7 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
   if (!ordem) {
     return null;
   }
-  const [etapas, pecas, sinal] = await Promise.all([
+  const [etapas, pecas, sinal, origem, fotos] = await Promise.all([
     db
       .select(COLUNAS_DA_ETAPA)
       .from(ordemEtapas)
@@ -171,15 +205,20 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
     db
       .select(COLUNAS_DA_PECA)
       .from(ordemPecas)
+      .leftJoin(fichasPrecificacao, eq(fichasPrecificacao.id, ordemPecas.fichaId))
       .where(eq(ordemPecas.ordemId, id))
       .orderBy(asc(ordemPecas.posicao)),
     sinalDaOrdem(id),
+    origemDaOrdem(id),
+    fotosDaOrdem(id),
   ]);
   return {
     ...ordem,
     etapas: etapas.map(semOrdemId),
     pecas: pecas.map(semOrdemId),
     sinal,
+    origem,
+    fotos,
     totalPecas: pecas.reduce((total, peca) => total + peca.quantidade, 0),
     totalAMais: pecas.reduce((total, peca) => total + peca.aMais, 0),
   };
@@ -203,4 +242,47 @@ export async function sinalDaOrdem(ordemId: string): Promise<SinalDaOrdem | null
     .where(eq(orcamentos.encomendaId, ordemId))
     .limit(1);
   return linha ?? null;
+}
+
+// A origem da ordem (PRD-10): ordem → `orcamentos.encomenda_id` (único — um orçamento aponta para no
+// máximo uma ordem) → o número do orçamento, o da venda (`documentos.numero`) e a parcela 1 dela.
+// Só `select`.
+export async function origemDaOrdem(ordemId: string): Promise<OrigemDaOrdem | null> {
+  const [linha] = await db
+    .select({
+      orcamentoId: orcamentos.id,
+      ano: orcamentos.ano,
+      sequencial: orcamentos.sequencial,
+      documentoNumero: documentos.numero,
+      parcelaDoSinalId: parcelas.id,
+    })
+    .from(orcamentos)
+    .leftJoin(documentos, eq(documentos.id, orcamentos.documentoId))
+    .leftJoin(
+      parcelas,
+      and(eq(parcelas.documentoId, orcamentos.documentoId), eq(parcelas.numero, 1)),
+    )
+    .where(eq(orcamentos.encomendaId, ordemId))
+    .limit(1);
+  if (!linha) {
+    return null;
+  }
+  return {
+    orcamentoId: linha.orcamentoId,
+    orcamentoNumero: numeroDeOrcamento(linha.ano, linha.sequencial),
+    documentoNumero: linha.documentoNumero,
+    parcelaDoSinalId: linha.parcelaDoSinalId,
+  };
+}
+
+// As fotos de referência do orçamento que abriu a ordem — SÓ os ids das linhas de
+// `orcamento_fotos`, na `ordem` do orçamento. O nome do arquivo em disco nunca sai daqui (T-06.1-15).
+export async function fotosDaOrdem(ordemId: string): Promise<string[]> {
+  const linhas = await db
+    .select({ id: orcamentoFotos.id })
+    .from(orcamentoFotos)
+    .innerJoin(orcamentos, eq(orcamentos.id, orcamentoFotos.orcamentoId))
+    .where(eq(orcamentos.encomendaId, ordemId))
+    .orderBy(asc(orcamentoFotos.ordem));
+  return linhas.map((linha) => linha.id);
 }
