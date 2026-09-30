@@ -958,3 +958,69 @@ export function textoPercentualDaPerdaMedida(pontosBase: number): string {
   const decimos = Math.floor((pontosBase + 5) / 10);
   return `${Math.floor(decimos / 10)},${decimos % 10}%`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// As folhas A4 (plano 13, PRD-19/PRD-20 — UI-SPEC §"Folhas A4", §Copywriting). A folha da ordem
+// não tem nenhuma frase de dinheiro: é folha de bancada.
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_IMPRIMIR_FOLHA = "Imprimir folha";
+export const ROTULO_IMPRIMIR_FOLHA_GERAL = "Imprimir folha geral";
+export const ROTULO_VOLTAR_ORDEM = "Voltar à ordem";
+export const FRASE_ERRO_MONTAR_FOLHA =
+  "Não deu para montar a folha. Verifique a internet e tente de novo.";
+
+// A marca das duas folhas.
+export const MARCA_DA_FOLHA = "AMASSA CERRADO";
+export const SUB_MARCA_DA_FOLHA = "ateliê · produção";
+
+// "AMASSA CERRADO · folha impressa em {dd/mm/aaaa} · o que vale é o que está na plataforma".
+export function textoRodapeDaFolha(impressaEm: string): string {
+  return `${MARCA_DA_FOLHA} · folha impressa em ${impressaEm} · o que vale é o que está na plataforma`;
+}
+
+// Folha da ordem — cabeçalho.
+export function textoOlhoDaOrdem(tipo: "encomenda" | "casa", numero: number): string {
+  return `${tipo === "casa" ? "Produção da casa" : "Encomenda"} · ordem nº ${numero}`;
+}
+export const TEXTO_PARA = "para";
+export const TEXTO_PARA_A_CASA = "para a loja e o espaço";
+export const ROTULO_SELO_ENTREGA = "Entrega";
+export function textoInicioNaFolha(inicio: string): string {
+  return `início ${inicio}`;
+}
+
+// Folha da ordem — tabela de peças.
+export const CABECALHO_PECAS_DA_FOLHA = [
+  "Peça",
+  "Pedido",
+  "A mais",
+  "Fazer",
+  "Argila",
+  "Medidas (cm)",
+] as const;
+// "Cor: azul · com o nome gravado" — o que houver, na ordem; nada: `null`.
+export function textoDetalheDaPecaNaFolha(cor: string | null, personalizacao: string | null): string | null {
+  const partes = [cor ? `Cor: ${cor}` : null, personalizacao].filter((parte): parte is string =>
+    Boolean(parte),
+  );
+  return partes.length > 0 ? partes.join(" · ") : null;
+}
+export const TITULO_REFERENCIAS = "Referências";
+
+// Folha da ordem — tabela de etapas.
+export const SR_CAIXA_DA_ETAPA = "Feita";
+export const SR_ETAPA_FEITA = "feita";
+export const SR_ETAPA_A_FAZER = "a fazer";
+export const CABECALHO_ETAPAS_DA_FOLHA = ["Etapa", "Previsto", "Feita em", "Quantas passaram"] as const;
+export const SR_LINHA_DE_ESCREVER = "em branco, para escrever à mão";
+
+// Folha da ordem — material previsto e "No fim".
+export const TITULO_MATERIAL_PREVISTO = "Material previsto";
+export const DICA_MATERIAL_NA_FOLHA = "Anote o que usou e dê baixa depois.";
+export function textoSemFichaNaFolha(quantas: number): string {
+  return `Sem ficha: ${pecas(quantas)} fora do previsto.`;
+}
+export const FRASE_SEM_MATERIAL_NA_FOLHA = "Sem material previsto — nenhuma peça tem ficha.";
+export const TITULO_NO_FIM = "No fim";
+export const TITULO_ANOTACOES = "Anotações";

@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Printer } from "lucide-react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -14,6 +16,7 @@ import {
 } from "@/lib/producao/leitura";
 import {
   DICA_ETAPA_INTEIRA,
+  ROTULO_IMPRIMIR_FOLHA,
   ROTULO_VOLTAR_PRODUCAO,
   SELO_CONCLUIDA,
   TEXTO_PREVISAO_DE_CONCLUSAO,
@@ -25,6 +28,7 @@ import {
 import { totalDeFeitas } from "@/lib/producao/transicoes";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { AcoesDaOrdem } from "@/components/amassa/producao/acoes-da-ordem";
 import { CarregadorDoSeletor } from "@/components/amassa/estoque/carregador-do-seletor";
@@ -112,17 +116,33 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
         titulo={ordem.nome}
         voltar={{ href: rotaDeGestao("/producao"), rotulo: ROTULO_VOLTAR_PRODUCAO }}
       >
-        {ordem.status === "concluida" ? (
-          <span
-            data-testid="producao-selo"
-            data-selo="concluida"
-            className="text-apoio bg-sucesso-fundo text-sucesso inline-flex rounded-full px-2 py-1 font-semibold whitespace-nowrap"
+        <div className="flex flex-wrap items-center gap-2">
+          {ordem.status === "concluida" ? (
+            <span
+              data-testid="producao-selo"
+              data-selo="concluida"
+              className="text-apoio bg-sucesso-fundo text-sucesso inline-flex rounded-full px-2 py-1 font-semibold whitespace-nowrap"
+            >
+              {SELO_CONCLUIDA}
+            </span>
+          ) : (
+            <ChipDoSelo selo={selo} />
+          )}
+          {/* A folha A4 de bancada (plano 13, PRD-19) — sem preço nem custo. */}
+          <Button
+            asChild
+            variant="outline"
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
           >
-            {SELO_CONCLUIDA}
-          </span>
-        ) : (
-          <ChipDoSelo selo={selo} />
-        )}
+            <Link
+              href={rotaDeGestao(`/producao/${ordem.id}/imprimir`)}
+              data-testid="ordem-imprimir-folha"
+            >
+              <Printer aria-hidden="true" className="size-4" />
+              {ROTULO_IMPRIMIR_FOLHA}
+            </Link>
+          </Button>
+        </div>
       </CabecalhoPagina>
 
       <div

@@ -727,6 +727,24 @@ export async function liberarOrdemNoBanco(ordemId: string, inicio: string): Prom
   });
 }
 
+// Plano 13 — grava o "a mais" de uma peça (por posição) direto no banco, para a folha A4 provar o
+// "Fazer = pedido + a mais" sem repetir o caminho da tela (provado no plano 04).
+export async function definirAMaisNoBanco(
+  ordemId: string,
+  posicao: number,
+  aMais: number,
+): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      "update ordem_pecas set a_mais = $3 where ordem_id = $1 and posicao = $2",
+      [ordemId, posicao, aMais],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`definirAMaisNoBanco: a ordem ${ordemId} não tem peça na posição ${posicao}.`);
+    }
+  });
+}
+
 // O `a_mais` de cada peça da ordem, por posição.
 export async function aMaisDasPecasNoBanco(ordemId: string): Promise<number[]> {
   return comCliente(async (cliente) => {

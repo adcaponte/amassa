@@ -29,6 +29,7 @@ import {
 import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
+import type { OrdemParaAFolha } from "./folhas";
 import type { CabemDaFicha, PecaEmResumo } from "./forno";
 import type { TransacaoDoBanco } from "./gravacao";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
@@ -306,6 +307,89 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
       fichaId: peca.fichaId,
       quantidade: peca.quantidade,
       aMais: peca.aMais,
+    })),
+  };
+}
+
+// A folha da ordem A4 (plano 13, PRD-19) — folha de BANCADA. A defesa contra dinheiro no papel é por
+// construção: esta leitura seleciona SÓ as colunas que a folha usa (a ordem, as etapas, as peças com
+// as gramas e as medidas da ficha, o número do orçamento e os ids das fotos). Nenhuma coluna de
+// dinheiro nem de trabalho estimado entra aqui (T-06.1-49), e o tipo `OrdemParaAFolha` não as tem.
+// `null` se a ordem não existe (ou o id é malformado).
+export async function ordemParaAFolha(id: string): Promise<OrdemParaAFolha | null> {
+  if (!FORMA_DE_UUID.test(id)) {
+    return null;
+  }
+  const [ordem] = await db
+    .select(COLUNAS_DA_ORDEM)
+    .from(ordensProducao)
+    .where(eq(ordensProducao.id, id))
+    .limit(1);
+  if (!ordem) {
+    return null;
+  }
+  const [etapas, pecas, orcamento, fotos] = await Promise.all([
+    db
+      .select(COLUNAS_DA_ETAPA)
+      .from(ordemEtapas)
+      .where(eq(ordemEtapas.ordemId, id))
+      .orderBy(asc(ordemEtapas.posicao)),
+    db
+      .select({
+        posicao: ordemPecas.posicao,
+        descricao: ordemPecas.descricao,
+        quantidade: ordemPecas.quantidade,
+        aMais: ordemPecas.aMais,
+        cor: ordemPecas.cor,
+        personalizacao: ordemPecas.personalizacao,
+        fichaId: fichasPrecificacao.id,
+        argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+        esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+        larguraMm: fichasPrecificacao.larguraMm,
+        profundidadeMm: fichasPrecificacao.profundidadeMm,
+        alturaMm: fichasPrecificacao.alturaMm,
+      })
+      .from(ordemPecas)
+      .leftJoin(fichasPrecificacao, eq(fichasPrecificacao.id, ordemPecas.fichaId))
+      .where(eq(ordemPecas.ordemId, id))
+      .orderBy(asc(ordemPecas.posicao)),
+    db
+      .select({ ano: orcamentos.ano, sequencial: orcamentos.sequencial })
+      .from(orcamentos)
+      .where(eq(orcamentos.encomendaId, id))
+      .limit(1),
+    fotosDaOrdem(id),
+  ]);
+  const [doOrcamento] = orcamento;
+  return {
+    numero: ordem.numero,
+    nome: ordem.nome,
+    tipo: ordem.tipo,
+    caminho: ordem.caminho,
+    status: ordem.status,
+    clienteNome: ordem.clienteNome,
+    entregaPrometida: ordem.entregaPrometida,
+    inicio: ordem.inicio,
+    etapas: etapas.map(semOrdemId),
+    orcamentoNumero: doOrcamento ? numeroDeOrcamento(doOrcamento.ano, doOrcamento.sequencial) : null,
+    fotos,
+    pecas: pecas.map((peca) => ({
+      posicao: peca.posicao,
+      descricao: peca.descricao,
+      quantidade: peca.quantidade,
+      aMais: peca.aMais,
+      cor: peca.cor,
+      personalizacao: peca.personalizacao,
+      ficha:
+        peca.fichaId === null
+          ? null
+          : {
+              argilaMiligramas: peca.argilaMiligramas ?? 0,
+              esmalteMiligramas: peca.esmalteMiligramas ?? 0,
+              larguraMm: peca.larguraMm ?? 0,
+              profundidadeMm: peca.profundidadeMm ?? 0,
+              alturaMm: peca.alturaMm ?? 0,
+            },
     })),
   };
 }
