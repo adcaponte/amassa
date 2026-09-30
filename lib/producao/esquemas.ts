@@ -6,6 +6,9 @@
 // daqui.
 import { z } from "zod";
 
+import { textoParaMilesimos } from "@/lib/estoque/esquemas";
+import { FRASE_QUANTIDADE_INVALIDA } from "@/lib/estoque/textos";
+
 import {
   ORDEM_DAS_COLUNAS,
   type CaminhoOrdem,
@@ -21,6 +24,8 @@ import {
   FRASE_ENCOMENDA_SEM_ITEM,
   FRASE_ENTREGA_INVALIDA,
   FRASE_ENTREGA_NO_PASSADO,
+  FRASE_ESCOLHA_O_MATERIAL,
+  FRASE_FALHA_AO_DAR_BAIXA,
   FRASE_FALHA_AO_AJUSTAR,
   FRASE_JA_DESFEITA,
   FRASE_JA_MARCADA,
@@ -402,3 +407,40 @@ export function validarNovaOrdem(entradaBruta: unknown, hoje: string): Validacao
   }
   return { ok: false, erros };
 }
+
+// ---------------------------------------------------------------------------------------------
+// "Dar baixa" pela ordem (plano 10, PRD-14). Do cliente chegam SÓ o id da ordem, o id do item do
+// Estoque, o TEXTO da quantidade e qual material previsto a baixa cobre (T-06.1-36): o destino é
+// fixo ("consumo em encomenda"), a área sai de `areaDoDestino`, o valor em R$ do custo médio sob a
+// trava do item, e o nome congelado na nota é lido da ordem sob a trava — nada disso vem daqui.
+// A quantidade passa pela MESMA conversão da folha do Estoque (`textoParaMilesimos`: > 0, até 3
+// casas, na unidade do item).
+// ---------------------------------------------------------------------------------------------
+
+const esquemaQuantidadeDaBaixa = z
+  .string({ error: FRASE_QUANTIDADE_INVALIDA })
+  .transform((texto, contexto) => {
+    const resultado = textoParaMilesimos(texto);
+    if (!resultado.ok) {
+      contexto.addIssue({ code: "custom", message: resultado.erro });
+      return z.NEVER;
+    }
+    return resultado.milesimos;
+  });
+
+export const esquemaDarBaixaNaOrdem = z
+  .object({
+    ordemId: z.string({ error: FRASE_ORDEM_NAO_EXISTE }).uuid(FRASE_ORDEM_NAO_EXISTE),
+    itemId: z.string({ error: FRASE_ESCOLHA_O_MATERIAL }).uuid(FRASE_ESCOLHA_O_MATERIAL),
+    quantidadeTexto: esquemaQuantidadeDaBaixa,
+    // "+ Dar baixa de outro material" manda nulo: a coluna `material_da_ordem` fica vazia.
+    material: z.enum(["argila", "esmalte"], { error: FRASE_FALHA_AO_DAR_BAIXA }).nullable(),
+  })
+  .transform(({ ordemId, itemId, quantidadeTexto, material }) => ({
+    ordemId,
+    itemId,
+    milesimos: quantidadeTexto,
+    material,
+  }));
+
+export type DarBaixaNaOrdemValidado = z.infer<typeof esquemaDarBaixaNaOrdem>;

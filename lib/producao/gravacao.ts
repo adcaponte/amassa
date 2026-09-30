@@ -41,6 +41,8 @@ export class RecusaDaProducao extends Error {
 
 export type OrdemTravada = {
   id: string;
+  // O nome, lido SOB a trava — a baixa de material o congela na `nota` do livro (plano 10).
+  nome: string;
   tipo: "encomenda" | "casa";
   caminho: "completo" | "biscoito";
   status: "aguardando_sinal" | "ativa" | "concluida" | "cancelada";
@@ -58,6 +60,7 @@ export async function travarOrdem(
   const [linha] = await tx
     .select({
       id: ordensProducao.id,
+      nome: ordensProducao.nome,
       tipo: ordensProducao.tipo,
       caminho: ordensProducao.caminho,
       status: ordensProducao.status,

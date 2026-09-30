@@ -14,7 +14,11 @@ import {
   ordensProducao,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import type { Unidade } from "@/lib/cadastros/catalogo";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
+import { gravarMovimentacoes, travarItens } from "@/lib/estoque/gravacao";
+import { pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
+import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
@@ -28,6 +32,7 @@ import { etapasIniciais, type EtapaProducao } from "./etapas";
 import {
   esquemaAjustarDiasPrevistos,
   esquemaCancelarOrdem,
+  esquemaDarBaixaNaOrdem,
   esquemaDefinirAMais,
   esquemaDesfazerEtapa,
   esquemaLiberarOrdem,
@@ -63,6 +68,7 @@ import {
   FRASE_AJUSTE_NO_LIMITE,
   FRASE_FALHA_AO_AJUSTAR,
   FRASE_FALHA_AO_CANCELAR,
+  FRASE_FALHA_AO_DAR_BAIXA,
   FRASE_FALHA_AO_DESFAZER,
   FRASE_FALHA_AO_LIBERAR,
   FRASE_FALHA_AO_SALVAR_A_MAIS,
@@ -82,6 +88,7 @@ import {
   FRASE_PECA_NAO_EXISTE,
   FRASE_ULTIMA_ETAPA,
   FRASE_ERRO_CARREGAR_MAIS,
+  fraseMaterialDesativadoNaBaixa,
   textoParcialInvalido,
 } from "./textos";
 
@@ -768,4 +775,100 @@ export async function carregarMaisConcluidas(
     );
     return { ok: false, erro: FRASE_ERRO_CARREGAR_MAIS };
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Dar baixa" pela ordem (plano 10, PRD-14, critério 5 do ROADMAP).
+// ---------------------------------------------------------------------------------------------
+
+export type BaixaDaOrdemRegistrada = {
+  nome: string;
+  unidade: Unidade;
+  // Com sinal, como gravado (a saída é negativa).
+  quantidadeMilesimos: number;
+  saldoDepoisMilesimos: number;
+};
+
+// A baixa de material feita pela própria ordem. `exigirUsuario()` é a PRIMEIRA instrução
+// (T-06.1-39, cobrado por `npm run verificar-acoes`). Do cliente chegam só os ids, o texto da
+// quantidade e qual material previsto ela cobre (T-06.1-36).
+//
+// A Produção NUNCA grava no livro por conta própria: o pedido é o MESMO `pedidoDeSaidaManual` da
+// folha do Estoque (destino "consumo em encomenda" → área `pecas` por `areaDoDestino`), e quem grava
+// é `gravarMovimentacoes`, a porta única — o valor em R$ sai do custo médio lido sob a trava do
+// item, nunca daqui.
+//
+// Ordem de travas DOCUMENTO → ORDEM → ITENS (`lib/producao/gravacao.ts`, Pitfall 5): a ORDEM
+// primeiro, com `for no key update` (aguardando ou ativa — senão a frase de estado mudado), e só
+// depois o ITEM (`travarItens`, e de novo dentro de `gravarMovimentacoes`, na mesma transação). A
+// folha do Estoque trava o item e depois LÊ a ordem com `for key share`, que não conflita com
+// `for no key update`: baixa e conclusão nunca entram em impasse (T-06.1-37).
+export async function darBaixaNaOrdem(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<BaixaDaOrdemRegistrada>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaDarBaixaNaOrdem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  let registrada: BaixaDaOrdemRegistrada;
+  try {
+    registrada = await db.transaction(async (tx): Promise<BaixaDaOrdemRegistrada> => {
+      const ordem = await travarOrdem(tx, dados.ordemId);
+      if (!ordem) {
+        throw new RecusaDaProducao(FRASE_ORDEM_NAO_EXISTE);
+      }
+      if (ordem.status !== "aguardando_sinal" && ordem.status !== "ativa") {
+        throw new RecusaDaProducao(FRASE_ORDEM_NAO_ESTA_EM_ANDAMENTO);
+      }
+
+      // Decide sob a trava do item (T-06.1-38): ele pode ter sido desativado — ou perdido o
+      // estoque próprio — entre abrir a folha e tocar em "Dar baixa".
+      const travados = await travarItens(tx, [dados.itemId]);
+      const item = travados.get(dados.itemId);
+      if (!item || !item.controlaEstoque || item.unidade === null) {
+        throw new RecusaDaProducao(FRASE_MATERIAL_NAO_EXISTE_MAIS);
+      }
+      if (!item.ativo) {
+        throw new RecusaDaProducao(fraseMaterialDesativadoNaBaixa(item.nome));
+      }
+
+      const pedido = pedidoDeSaidaManual({
+        itemId: item.id,
+        milesimos: dados.milesimos,
+        destino: "encomenda",
+        encomendaId: ordem.id,
+        // O nome da ordem CONGELADO (Pitfall 10 da Fase 06): o histórico do Estoque lê dali.
+        nota: ordem.nome,
+        materialDaOrdem: dados.material,
+      });
+      const [gravada] = await gravarMovimentacoes(tx, [pedido], { registradoPor: usuario.id });
+      return {
+        nome: item.nome,
+        unidade: item.unidade,
+        quantidadeMilesimos: gravada.quantidadeMilesimos,
+        saldoDepoisMilesimos: gravada.saldoDepoisMilesimos,
+      };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaProducao) {
+      return { ok: false, erro: erro.frase };
+    }
+    // O texto do banco nunca chega à tela. O SQLSTATE fica só no log — lido de `erro.cause.code`
+    // por `codigoDoErroPostgres` (o Drizzle embrulha o erro do `pg`).
+    console.error(
+      `Falha ao dar baixa de material na ordem (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_DAR_BAIXA };
+  }
+
+  // Fora do `try`: a gravação já está confirmada.
+  revalidatePath(rotaDeGestao(`/producao/${dados.ordemId}`));
+  revalidatePath(rotaDeGestao("/estoque"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: registrada };
 }

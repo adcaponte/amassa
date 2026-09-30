@@ -241,6 +241,7 @@ export async function gravarMovimentacoes(
         documentoId: pedido.documentoId ?? null,
         documentoLinhaId: pedido.documentoLinhaId ?? null,
         encomendaId: pedido.encomendaId ?? null,
+        materialDaOrdem: pedido.materialDaOrdem ?? null,
         nota: pedido.nota ?? null,
         estornoDeId: pedido.estornoDeId ?? null,
         registradoPor: contexto.registradoPor,

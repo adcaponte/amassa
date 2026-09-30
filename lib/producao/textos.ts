@@ -650,3 +650,109 @@ export const CORPO_LINHA_DO_TEMPO_VAZIA_COM_AGUARDANDO =
   "As ordens aguardando o sinal entram aqui quando forem liberadas.";
 export const CORPO_LINHA_DO_TEMPO_VAZIA_SEM_AGUARDANDO =
   "Crie uma ordem ou aprove um orçamento para ela aparecer aqui.";
+
+// ---------------------------------------------------------------------------------------------
+// Material usado e a folha de baixa (plano 10, PRD-14) — UI-SPEC §Copywriting.
+// ---------------------------------------------------------------------------------------------
+
+export const TITULO_MATERIAL = "Material usado";
+export const DICA_MATERIAL =
+  'O previsto vem da ficha de cada peça (gramas × peças feitas, com as a mais). Dar baixa tira do Estoque como "consumo em encomenda", ligado a esta ordem.';
+// Chaves = `MaterialDaOrdem` (lib/producao/material.ts), repetidas à mão — este arquivo não importa nada.
+export const ROTULO_DO_MATERIAL: Readonly<Record<"argila" | "esmalte", string>> = {
+  argila: "Argila",
+  esmalte: "Esmalte",
+};
+// "{X} de {Y} kg" — as duas quantidades já formatadas.
+export function textoBaixadoDoPrevisto(baixadoKg: string, previstoKg: string): string {
+  return `${baixadoKg} de ${previstoKg} kg`;
+}
+export function textoFaltamDoPrevisto(faltamKg: string): string {
+  return `faltam ${faltamKg} kg do previsto`;
+}
+export function textoGastouAMais(aMaisKg: string): string {
+  return `gastou ${aMaisKg} kg a mais que o previsto`;
+}
+export const TEXTO_PREVISTO_TODO_BAIXADO = "previsto todo baixado";
+export function textoPecasSemFichaNoPrevisto(quantas: number): string {
+  return quantas === 1
+    ? "1 peça sem ficha não entra no previsto."
+    : `${quantas} peças sem ficha não entram no previsto.`;
+}
+export const FRASE_SEM_MATERIAL_PREVISTO =
+  "Sem material previsto: nenhuma peça desta ordem tem ficha de precificação.";
+export function textoBaixasEmOutrasUnidades(quantas: number): string {
+  return quantas === 1
+    ? "1 baixa em outra unidade não entra na conta de kg."
+    : `${quantas} baixas em outras unidades não entram na conta de kg.`;
+}
+export const TITULO_BAIXAS_FEITAS = "Baixas feitas";
+// A sub-linha de uma baixa feita: "{dd/mm} · {quem registrou}".
+export function textoSubLinhaDaBaixa(diaMes: string, quem: string): string {
+  return `${diaMes} · ${quem}`;
+}
+export const ROTULO_BAIXA_TOTAL = "Baixa total";
+export const ROTULO_BAIXA_PARCIAL = "Baixa parcial";
+export const ROTULO_BAIXA_DE_OUTRO_MATERIAL = "+ Dar baixa de outro material";
+export function ariaLabelBaixa(rotulo: string, material: "argila" | "esmalte"): string {
+  return `${rotulo} de ${ROTULO_DO_MATERIAL[material].toLowerCase()}`;
+}
+
+// A folha de baixa.
+export function tituloDaFolhaDeBaixa(
+  modo: "total" | "parcial" | "outro",
+  material: "argila" | "esmalte" | null,
+): string {
+  if (modo === "outro" || material === null) {
+    return "Dar baixa de outro material";
+  }
+  return `${modo === "total" ? ROTULO_BAIXA_TOTAL : ROTULO_BAIXA_PARCIAL} · ${material}`;
+}
+// "Previsto {X} kg · já baixado {Y} kg · faltam {Z} kg." — quando já passou do previsto, a última
+// parte diz quanto passou (nunca "faltam 0").
+export function textoResumoDaFolhaDeBaixa(d: {
+  previstoKg: string;
+  baixadoKg: string;
+  faltamKg: string | null;
+  aMaisKg: string | null;
+}): string {
+  const fim = d.aMaisKg !== null ? `${d.aMaisKg} kg a mais` : `faltam ${d.faltamKg ?? "0"} kg`;
+  return `Previsto ${d.previstoKg} kg · já baixado ${d.baixadoKg} kg · ${fim}.`;
+}
+export const ROTULO_QUAL_MATERIAL_DO_ESTOQUE = "Qual material do estoque";
+export const ROTULO_ESCOLHER_MATERIAL = "Escolher material";
+export const ROTULO_TROCAR_MATERIAL = "Trocar material";
+export const ROTULO_QUANTO = "Quanto";
+export function dicaDoQuanto(unidade: string): string {
+  return `em ${unidade}`;
+}
+export function dicaUnidadeNaoComparavel(unidade: string): string {
+  return `Este material é contado em ${unidade} — digite quanto usou.`;
+}
+export const DICA_BAIXA_TOTAL =
+  'Veio preenchido com o que falta do previsto. Pode ajustar se gastou diferente. A ficha diz "argila" e "esmalte" sem dizer qual — por isso a escolha aqui.';
+export const DICA_BAIXA_PARCIAL =
+  'A ficha diz "argila" e "esmalte" sem dizer qual — por isso a escolha aqui.';
+export const ROTULO_DAR_BAIXA = "Dar baixa";
+export const ROTULO_DANDO_BAIXA = "Dando baixa…";
+// O toast: "Baixa registrada: {q} {un} de {material}." (+ " O saldo ficou em {−X} {un}.").
+export function textoToastBaixaDaOrdem(d: {
+  quantidade: string;
+  unidade: string;
+  nome: string;
+  saldoNegativo: string | null;
+}): string {
+  const base = `Baixa registrada: ${d.quantidade} ${d.unidade} de ${d.nome}.`;
+  return d.saldoNegativo ? `${base} O saldo ficou em ${d.saldoNegativo} ${d.unidade}.` : base;
+}
+
+// Erros da baixa (embaixo do campo; a folha continua aberta).
+export const FRASE_ESCOLHA_O_MATERIAL = "Escolha o material do estoque.";
+export function fraseQuantidadeNaUnidade(unidade: string): string {
+  return `Digite a quantidade em ${unidade} — por exemplo, 2 ou 0,5.`;
+}
+export const FRASE_FALHA_AO_DAR_BAIXA =
+  "Não deu para dar baixa. Verifique a internet e tente de novo.";
+export function fraseMaterialDesativadoNaBaixa(nome: string): string {
+  return `${nome} foi desativado enquanto você registrava. Reative-o no Estoque para dar baixa.`;
+}
