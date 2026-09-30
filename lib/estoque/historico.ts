@@ -22,6 +22,7 @@ import type {
   TipoDaMovimentacao,
 } from "./pedidos";
 import {
+  CHIP_DA_PRODUCAO,
   CHIP_DO_FINANCEIRO,
   CHIP_ESTORNADA,
   CHIP_ESTORNO,
@@ -29,6 +30,7 @@ import {
   CHIP_SALDO_INICIAL,
   CHIP_VENDA,
   LINHA_AJUSTE,
+  LINHA_DA_PRODUCAO,
   LINHA_ENTRADA,
   LINHA_ESTORNO,
   LINHA_PECA_PRONTA,
@@ -80,7 +82,7 @@ export type MovimentacaoParaDescrever = {
 export type SinalDaMovimentacao = "+" | "−";
 // Entrada em verde, saída na cor da tinta, ajuste em terracota (UI-SPEC §Aba Histórico).
 export type TomDaMovimentacao = "sucesso" | "tinta" | "acento";
-export type TomDoChip = "perda" | "venda" | "financeiro" | "neutro";
+export type TomDoChip = "perda" | "venda" | "financeiro" | "producao" | "neutro";
 export type ChipDaMovimentacao = { rotulo: string; tom: TomDoChip };
 
 export type DescricaoDaMovimentacao = {
@@ -180,6 +182,10 @@ export function descreverMovimentacao(linha: MovimentacaoParaDescrever): Descric
         formatarReais(valorDaNota),
         preco,
       ]);
+    } else if (linha.origem === "producao") {
+      // A peça pronta da conclusão (Fase 06.1, plano 11): a nota é o nome da ordem, congelado.
+      linha2 = juntar([LINHA_DA_PRODUCAO, linha.nota, formatarReais(valorDaNota), preco]);
+      chips.push({ rotulo: CHIP_DA_PRODUCAO, tom: "producao" });
     } else {
       linha2 = juntar([
         LINHA_ENTRADA,

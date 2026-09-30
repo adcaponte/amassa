@@ -302,6 +302,9 @@ export const LINHA_PECA_PRONTA = "peça pronta";
 export const LINHA_SALDO_INICIAL = "Saldo inicial";
 export const LINHA_AJUSTE = "Ajuste de conferência";
 export const LINHA_ESTORNO = "Estorno";
+// Fase 06.1 (plano 11): a peça pronta que entrou pela conclusão de uma ordem — “Da Produção · {nome da
+// ordem} · {R$} · {R$}/{un}”.
+export const LINHA_DA_PRODUCAO = "Da Produção";
 export function textoVendaNumero(numero: number): string {
   return `venda nº ${numero}`;
 }
@@ -329,6 +332,8 @@ export function textoPrecoPorUnidade(reais: string, unidade: string): string {
 export const CHIP_PERDA = "Perda";
 export const CHIP_VENDA = "Venda";
 export const CHIP_DO_FINANCEIRO = "do Financeiro";
+// O mesmo desenho do “do Financeiro” (acento, borda tracejada) — a linha veio de outro módulo.
+export const CHIP_DA_PRODUCAO = "da Produção";
 export const CHIP_ESTORNO = "Estorno";
 export const CHIP_ESTORNADA = "Estornada";
 export const CHIP_SALDO_INICIAL = "Saldo inicial";

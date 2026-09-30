@@ -66,6 +66,34 @@ export function pedidoDeEntradaManual(dados: {
   };
 }
 
+// A peça pronta que entra pela CONCLUSÃO de uma ordem de produção (Fase 06.1, plano 11 — PRD-16):
+// origem `producao`, entrada com preço — o custo total é a quantidade × o custo de cada peça (o da
+// ficha, ou o digitado quando a ficha não dá custo, D-14), decidido pela ação no servidor. O vínculo
+// é real: `encomendaId` = a ordem (o `check` da 0024 aceita a ordem na origem `producao`), e a `nota`
+// leva o nome da ordem congelado. SEM `motivo`: o `check` `movimentacoes_estoque_motivo_so_manual`
+// recusaria o `peca_pronta` fora da origem manual — a origem já diz de onde a peça veio.
+export function pedidoDeEntradaDaProducao(dados: {
+  itemId: string;
+  milesimos: number;
+  custoCentavos: number;
+  ordemId: string;
+  nota: string;
+}): PedidoDeMovimentacao {
+  return {
+    itemId: dados.itemId,
+    origem: "producao",
+    tipo: "entrada",
+    movimento: {
+      tipo: "entrada_com_preco",
+      milesimos: dados.milesimos,
+      pagoCentavos: dados.custoCentavos,
+    },
+    valorInformadoCentavos: dados.custoCentavos,
+    encomendaId: dados.ordemId,
+    nota: dados.nota,
+  };
+}
+
 // Saída manual ("Registrar baixa"): o destino é obrigatório, e a ÁREA que paga sai dele (D-14) —
 // nunca do cliente. `nota` é o vínculo em texto (turma, "o que aconteceu?" ou o nome CONGELADO da
 // encomenda — Pitfall 10: se ela for apagada, o nome fica); `encomendaId` (o id da ORDEM de
