@@ -495,3 +495,42 @@ export const FRASE_TIPO_INVALIDO = "Escolha se é produção da casa ou encomend
 export const FRASE_CAMINHO_INVALIDO = "Escolha o caminho da ordem.";
 export const FRASE_FALHA_AO_CRIAR =
   "Não deu para criar a ordem. Nada foi gravado — verifique a internet e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Os três números do topo (plano 08, PRD-13; UI-SPEC §"Três números do topo"). Os rótulos vão em
+// caixa alta pelo CSS (`uppercase`) — o leitor de tela lê a palavra, não as letras soltas.
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_NUMERO_EM_PRODUCAO = "Em produção";
+export const ROTULO_NUMERO_FORNO = "Esperando o forno";
+export const ROTULO_NUMERO_AGUARDANDO = "Aguardando sinal";
+// "3 ordens · 48 peças" (peças = pedido + a mais).
+export function textoSubEmProducao(quantasOrdens: number, quantasPecas: number): string {
+  return `${ordens(quantasOrdens)} · ${pecas(quantasPecas)}`;
+}
+// O "≈" é desenho (`aria-hidden`); quem ouve escuta "aproximadamente" (`sr-only`).
+export const SIMBOLO_APROXIMADAMENTE = "≈";
+export const SR_APROXIMADAMENTE = "aproximadamente";
+// Uma casa decimal, pt-BR, sem ",0": 2,5 · 1 · 0,3.
+export function formatarFornadas(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(valor);
+}
+// "1 fornada" · "2,5 fornadas" · "0 fornadas".
+export function textoFornadas(valor: number): string {
+  return `${formatarFornadas(valor)} ${valor === 1 ? "fornada" : "fornadas"}`;
+}
+// Os dois trechos da primeira sub-linha, cada um precedido do "≈" pelo componente:
+// "≈ 2,5 fornadas de biscoito · ≈ 1 de esmalte".
+export function textoFornadasDeBiscoito(valor: number): string {
+  return `${textoFornadas(valor)} de biscoito`;
+}
+export function textoFornadasDeEsmalte(valor: number): string {
+  return `${formatarFornadas(valor)} de esmalte`;
+}
+export const LINHA_ESTIMATIVA_FORNO = "estimativa pelo que cabe no forno";
+export function textoPecasSemEstimativa(quantas: number): string {
+  return `${pecas(quantas)} sem estimativa — sem ficha ou sem medida`;
+}
+export const FRASE_FILA_DO_FORNO_VAZIA = "nenhuma fornada na fila";
+export const SUB_AGUARDANDO_SINAL = "não contam prazo ainda";
+export const ARIA_NUMEROS_DO_TOPO = "Resumo da produção";

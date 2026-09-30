@@ -19,8 +19,11 @@ import {
   usuarios,
 } from "@/db/schema";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
+import { parametrosVigentes } from "@/lib/precificacao/consultas";
+import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
+import type { CabemDaFicha, PecaEmResumo } from "./forno";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
 
 export type PecaDaOrdem = {
@@ -65,6 +68,8 @@ export type OrdemEmAndamento = OrdemParaLeitura & {
   // Pedido e a mais somados por ordem — o "{n} peças + {m} a mais" do cartão.
   totalPecas: number;
   totalAMais: number;
+  // As peças no que a fila do forno precisa (plano 08, PRD-13): a ficha e as feitas de cada uma.
+  pecasEmResumo: PecaEmResumo[];
   // A venda do orçamento que abriu a ordem foi cancelada no Caixa (D-07) — derivado na LEITURA
   // (ordem → `orcamentos` → `documentos.cancelado_em`): a ordem liberada não muda no banco quando a
   // venda cai; o cartão mostra o chip "venda cancelada" (UI-D19) e o dono decide.
@@ -179,11 +184,13 @@ export async function listarOrdensEmAndamento(): Promise<OrdemEmAndamento[]> {
     db
       .select({
         ordemId: ordemPecas.ordemId,
+        fichaId: ordemPecas.fichaId,
         quantidade: ordemPecas.quantidade,
         aMais: ordemPecas.aMais,
       })
       .from(ordemPecas)
-      .where(inArray(ordemPecas.ordemId, ids)),
+      .where(inArray(ordemPecas.ordemId, ids))
+      .orderBy(asc(ordemPecas.ordemId), asc(ordemPecas.posicao)),
     // As ordens destas cuja venda (a do orçamento que as abriu) já foi cancelada no Caixa.
     db
       .select({ ordemId: orcamentos.encomendaId })
@@ -202,6 +209,7 @@ export async function listarOrdensEmAndamento(): Promise<OrdemEmAndamento[]> {
       etapas: (etapasPorOrdem.get(ordem.id) ?? []).map(semOrdemId),
       totalPecas: pecasDaOrdem.reduce((total, peca) => total + peca.quantidade, 0),
       totalAMais: pecasDaOrdem.reduce((total, peca) => total + peca.aMais, 0),
+      pecasEmResumo: pecasDaOrdem.map(semOrdemId),
       vendaCancelada: comVendaCancelada.has(ordem.id),
     };
   });
@@ -264,7 +272,62 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
     canceladaPelaVenda,
     totalPecas: pecas.reduce((total, peca) => total + peca.quantidade, 0),
     totalAMais: pecas.reduce((total, peca) => total + peca.aMais, 0),
+    pecasEmResumo: pecas.map((peca) => ({
+      fichaId: peca.fichaId,
+      quantidade: peca.quantidade,
+      aMais: peca.aMais,
+    })),
   };
+}
+
+// Quanto cabe no forno por ficha (plano 08, PRD-13) — o "cabem" que a fila do forno divide. Uma
+// conta só (T-06.1-33): `parametrosVigentes(hoje)` UMA vez e `quantasCabem` da Precificação por
+// ficha, com os dois "já contei" — o mesmo número que a Precificação mostra (molde de
+// `custosDasPecasProntas`, lib/estoque/consultas.ts). Fica FORA do mapa, e a peça conta como "sem
+// estimativa": parâmetro faltando (nunca um zero inventado) e ficha apagada. Ficha sem medida
+// (algum lado 0 — a ficha recém-criada é válida, mas inútil) e sem o "já contei" daquela queima
+// entra com 0 naquela queima, que o módulo puro trata como "sem estimativa". `hoje` chega por
+// argumento: este módulo não lê o relógio.
+export async function cabemPorFicha(
+  fichaIds: readonly string[],
+  hoje: string,
+): Promise<Map<string, CabemDaFicha>> {
+  const mapa = new Map<string, CabemDaFicha>();
+  const unicos = [...new Set(fichaIds)];
+  if (unicos.length === 0) {
+    return mapa;
+  }
+  const [fichas, parametros] = await Promise.all([
+    db
+      .select({
+        id: fichasPrecificacao.id,
+        larguraMm: fichasPrecificacao.larguraMm,
+        profundidadeMm: fichasPrecificacao.profundidadeMm,
+        alturaMm: fichasPrecificacao.alturaMm,
+        cabemBiscoitoInformado: fichasPrecificacao.cabemBiscoitoInformado,
+        cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
+      })
+      .from(fichasPrecificacao)
+      .where(inArray(fichasPrecificacao.id, unicos)),
+    parametrosVigentes(hoje),
+  ]);
+  if (!parametros.ok) {
+    return mapa;
+  }
+  for (const ficha of fichas) {
+    const cabem = quantasCabem(
+      { larguraMm: ficha.larguraMm, profundidadeMm: ficha.profundidadeMm, alturaMm: ficha.alturaMm },
+      parametros.forno,
+      { biscoito: ficha.cabemBiscoitoInformado, esmalte: ficha.cabemEsmalteInformado },
+    );
+    const comMedida = ficha.larguraMm > 0 && ficha.profundidadeMm > 0 && ficha.alturaMm > 0;
+    mapa.set(ficha.id, {
+      cabe: cabem.cabe,
+      biscoito: comMedida || !cabem.biscoitoAutomatico ? cabem.biscoito : 0,
+      esmalte: comMedida || !cabem.esmalteAutomatico ? cabem.esmalte : 0,
+    });
+  }
+  return mapa;
 }
 
 // A leitura do sinal no Caixa: ordem → `orcamentos.encomenda_id` → `orcamentos.documento_id` →

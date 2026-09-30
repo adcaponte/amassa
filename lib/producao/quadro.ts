@@ -1,8 +1,10 @@
 // Módulo puro da Produção (Fase 06.1) — o quadro por etapa: seis colunas em ordem fixa, cada ordem
 // ATIVA na coluna da sua etapa atual. Nenhuma linha alcança React, Next, drizzle-orm, pg ou `@/db`
-// (grep de aceite do plano 06.1-01). Filtros e os três números do topo são do plano 08.
+// (grep de aceite do plano 06.1-01). Filtros e os três números do topo: plano 08.
 
-import { ORDEM_DAS_COLUNAS, type EtapaProducao } from "./etapas";
+import { ETAPAS_DE_QUEIMA, ORDEM_DAS_COLUNAS, type EtapaProducao, type TipoOrdem } from "./etapas";
+// Só o TIPO — `forno.ts` importa `colunasDoQuadro` daqui; um import de valor fecharia um ciclo.
+import type { FornadasEstimadas } from "./forno";
 import { etapaAtual, type OrdemParaLeitura } from "./leitura";
 
 export type ColunaDoQuadro<T> = { etapa: EtapaProducao; ordens: T[] };
@@ -49,4 +51,52 @@ export function colunasDoQuadro<T extends OrdemParaLeitura & { id: string; nome:
     etapa,
     ordens: ordenarNaColuna(porEtapa.get(etapa) ?? []),
   }));
+}
+
+// Os filtros do quadro (PRD-05), na ordem das pílulas "Tudo · Encomendas · Da casa". O filtro é
+// estado do cliente (não vai para a URL) e começa em "todas".
+export type FiltroDoQuadro = "todas" | TipoOrdem;
+export const FILTROS_DO_QUADRO: readonly FiltroDoQuadro[] = ["todas", "encomenda", "casa"];
+
+// "encomenda" e "casa" são disjuntos e cobrem tudo (cada ordem tem exatamente um tipo). Devolve uma
+// cópia na mesma ordem; a lista recebida não muda.
+export function filtrarOrdens<T extends { readonly tipo: TipoOrdem }>(
+  ordens: readonly T[],
+  filtro: FiltroDoQuadro,
+): T[] {
+  return filtro === "todas" ? [...ordens] : ordens.filter((ordem) => ordem.tipo === filtro);
+}
+
+export type NumerosDoTopo = {
+  // "EM PRODUÇÃO": as ordens liberadas e as peças delas (pedido + a mais).
+  emProducao: { ordens: number; pecas: number };
+  // "ESPERANDO O FORNO": as ordens nas colunas de queima e as fornadas estimadas da fila.
+  esperandoOForno: { ordens: number; fornadas: FornadasEstimadas };
+  // "AGUARDANDO SINAL".
+  aguardando: number;
+};
+
+// Os três números do topo, sobre as ordens JÁ filtradas (os três obedecem ao filtro — protótipo
+// 272-276). A fila do forno são as colunas de queima do próprio quadro, a mesma conta de
+// `esperandoOForno`; as fornadas chegam prontas (`fornadasEstimadas` da mesma fila, filtrada igual).
+export function numerosDoTopo<
+  T extends OrdemParaLeitura & {
+    id: string;
+    nome: string;
+    readonly totalPecas: number;
+    readonly totalAMais: number;
+  },
+>(ordens: readonly T[], fornadas: FornadasEstimadas): NumerosDoTopo {
+  const ativas = ordens.filter((ordem) => ordem.status === "ativa");
+  const naFila = colunasDoQuadro(ativas)
+    .filter((coluna) => ETAPAS_DE_QUEIMA.includes(coluna.etapa))
+    .reduce((total, coluna) => total + coluna.ordens.length, 0);
+  return {
+    emProducao: {
+      ordens: ativas.length,
+      pecas: ativas.reduce((total, ordem) => total + ordem.totalPecas + ordem.totalAMais, 0),
+    },
+    esperandoOForno: { ordens: naFila, fornadas },
+    aguardando: ordens.filter((ordem) => ordem.status === "aguardando_sinal").length,
+  };
 }
