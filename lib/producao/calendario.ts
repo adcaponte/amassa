@@ -88,3 +88,20 @@ export function formatarDiaMes(data: string): string {
   const { mes, dia } = partes(data);
   return `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}`;
 }
+
+// `data` − `meses` meses CIVIS, com o dia ajustado ao último dia do mês de chegada quando ele não
+// existe lá: 31/08 − 6 = 28/02 (29/02 no ano bissexto); 30/09 − 6 = 30/03. É a janela da perda
+// medida (D-08, `lib/producao/perda.ts`). `meses` ≥ 0.
+export function subtrairMeses(data: string, meses: number): string {
+  const { ano, mes, dia } = partes(data);
+  const indiceDoMes = ano * 12 + (mes - 1) - meses;
+  const anoDeChegada = Math.floor(indiceDoMes / 12);
+  const mesDeChegada = indiceDoMes - anoDeChegada * 12 + 1;
+  const primeiroDoSeguinte =
+    mesDeChegada === 12
+      ? diasDesdeAEpoca(anoDeChegada + 1, 1, 1)
+      : diasDesdeAEpoca(anoDeChegada, mesDeChegada + 1, 1);
+  const ultimoDia = primeiroDoSeguinte - diasDesdeAEpoca(anoDeChegada, mesDeChegada, 1);
+  const diaDeChegada = Math.min(dia, ultimoDia);
+  return `${String(anoDeChegada).padStart(4, "0")}-${String(mesDeChegada).padStart(2, "0")}-${String(diaDeChegada).padStart(2, "0")}`;
+}
