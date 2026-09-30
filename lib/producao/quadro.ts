@@ -5,7 +5,7 @@
 import { ETAPAS_DE_QUEIMA, ORDEM_DAS_COLUNAS, type EtapaProducao, type TipoOrdem } from "./etapas";
 // Só o TIPO — `forno.ts` importa `colunasDoQuadro` daqui; um import de valor fecharia um ciclo.
 import type { FornadasEstimadas } from "./forno";
-import { etapaAtual, type OrdemParaLeitura } from "./leitura";
+import { etapaAtual, leituraDaOrdem, seloDaOrdem, type OrdemParaLeitura, type Selo } from "./leitura";
 
 export type ColunaDoQuadro<T> = { etapa: EtapaProducao; ordens: T[] };
 
@@ -108,6 +108,50 @@ export function numerosDoTopo<
       pecas: ativas.reduce((total, ordem) => total + ordem.totalPecas + ordem.totalAMais, 0),
     },
     esperandoOForno: { ordens: naFila, fornadas },
+    aguardando: ordens.filter((ordem) => ordem.status === "aguardando_sinal").length,
+  };
+}
+
+// O bloco "Produção" do Início (D-16, UI-D9): responde "o que precisa de mim?". Só as ordens
+// LIBERADAS viram linha — até 5 —, na urgência do selo (vai atrasar → +N nesta etapa → no ritmo)
+// e, no empate, por início (depois nome e id, o desempate de `ordenarNaColuna`). As que passam de 5
+// viram "e mais N"; as que aguardam o sinal viram só uma contagem. Concluída e cancelada não entram.
+export const LIMITE_DE_LINHAS_DO_INICIO = 5;
+
+export type LinhaDoInicio<T> = { ordem: T; etapa: EtapaProducao; selo: Selo };
+
+export type LinhasDoInicio<T> = {
+  linhas: LinhaDoInicio<T>[];
+  maisN: number;
+  aguardando: number;
+};
+
+const URGENCIA_DO_SELO: Partial<Record<Selo["tipo"], number>> = {
+  "vai-atrasar": 0,
+  "passou-nesta-etapa": 1,
+  "no-ritmo": 2,
+};
+
+export function linhasParaOInicio<T extends OrdemParaLeitura & { id: string; nome: string }>(
+  ordens: readonly T[],
+  hoje: string,
+): LinhasDoInicio<T> {
+  const liberadas = ordenarNaColuna(ordens.filter((ordem) => ordem.status === "ativa"));
+  const lidas: LinhaDoInicio<T>[] = [];
+  for (const ordem of liberadas) {
+    const leitura = leituraDaOrdem(ordem, hoje);
+    if (leitura.tipo !== "em-andamento") {
+      continue;
+    }
+    lidas.push({ ordem, etapa: leitura.etapa, selo: seloDaOrdem(leitura) });
+  }
+  // `sort` é estável: dentro da mesma urgência fica a ordem de `ordenarNaColuna` (início, nome, id).
+  lidas.sort(
+    (a, b) => (URGENCIA_DO_SELO[a.selo.tipo] ?? 3) - (URGENCIA_DO_SELO[b.selo.tipo] ?? 3),
+  );
+  return {
+    linhas: lidas.slice(0, LIMITE_DE_LINHAS_DO_INICIO),
+    maisN: Math.max(0, lidas.length - LIMITE_DE_LINHAS_DO_INICIO),
     aguardando: ordens.filter((ordem) => ordem.status === "aguardando_sinal").length,
   };
 }
