@@ -433,6 +433,64 @@ describe("pedidoDeSaidaManual — os vínculos (EST-11)", () => {
     expect(pedido.area).toBe("espaco");
   });
 
+  it("a baixa da ordem (Produção, PRD-14): destino encomenda, a ordem e o material da ordem vão juntos", () => {
+    expect(
+      pedidoDeSaidaManual({
+        itemId: "argila",
+        milesimos: 2200,
+        destino: "encomenda",
+        encomendaId: "ordem-1",
+        nota: "[e2e] Jogo de canecas",
+        materialDaOrdem: "argila",
+      }),
+    ).toEqual({
+      itemId: "argila",
+      origem: "manual",
+      tipo: "saida",
+      movimento: { tipo: "saida", milesimos: 2200 },
+      destino: "encomenda",
+      area: "pecas",
+      encomendaId: "ordem-1",
+      nota: "[e2e] Jogo de canecas",
+      materialDaOrdem: "argila",
+    });
+  });
+
+  it("“outro material” pela ordem: sem materialDaOrdem, a coluna fica nula", () => {
+    const pedido = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 100,
+      destino: "encomenda",
+      encomendaId: "ordem-1",
+      nota: "Ordem",
+      materialDaOrdem: null,
+    });
+    expect(pedido).not.toHaveProperty("materialDaOrdem");
+    expect(pedido.encomendaId).toBe("ordem-1");
+  });
+
+  it("materialDaOrdem sem a ordem, ou fora do destino encomenda, não vai (o check `material_da_ordem_so_na_baixa` recusaria)", () => {
+    const semOrdem = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 100,
+      destino: "encomenda",
+      encomendaId: null,
+      materialDaOrdem: "esmalte",
+    });
+    expect(semOrdem).not.toHaveProperty("materialDaOrdem");
+    expect(semOrdem).not.toHaveProperty("encomendaId");
+
+    const outroDestino = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 100,
+      destino: "aula",
+      encomendaId: "ordem-1",
+      materialDaOrdem: "argila",
+    });
+    expect(outroDestino).not.toHaveProperty("materialDaOrdem");
+    expect(outroDestino).not.toHaveProperty("encomendaId");
+  });
+
   it("encomenda fora do destino encomenda é descartada (o check do banco recusaria)", () => {
     const pedido = pedidoDeSaidaManual({
       itemId: "argila",
