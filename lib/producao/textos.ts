@@ -769,9 +769,6 @@ export const FRASE_CONCLUSAO_JA_CONCLUIDA =
 export const FRASE_FALHA_AO_CONCLUIR =
   "Não deu para concluir. Nada foi gravado — verifique a internet e tente de novo.";
 export const FRASE_CUSTO_DE_CADA_PECA_VAZIO = "Diga o custo de cada peça — uma estimativa serve.";
-// Até o plano 12 trazer o passo "Transformar em peça de linha" (D-12), o servidor recusa.
-export const FRASE_EXCLUSIVA_PRECISA_VIRAR_LINHA =
-  "Para entrar no Estoque, a peça exclusiva precisa virar peça de linha.";
 export const FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE =
   "Esta peça não tem ficha, e nesta fase só peça com ficha entra no Estoque. As extras boas ficam sem destino.";
 export const FRASE_PECAS_DA_ORDEM_MUDARAM =
@@ -846,6 +843,24 @@ export const DICA_CUSTO_FICHA_NAO_CALCULA =
 export function textoPreviaDoCusto(boas: number, cada: string, total: string): string {
   return `${boas} × ${cada} = ${total} entram no Estoque`;
 }
+// D-12 (plano 12): a extra boa de peça EXCLUSIVA que vai para o Estoque passa pelo passo que a torna
+// peça de linha — a categoria de venda e o preço vêm preenchidos ("Peças prontas" e o preço
+// praticado da ficha), e a promoção é a mesma da Precificação (`promoverFichaParaLinha`).
+export const TITULO_TRANSFORMAR_EM_LINHA = "Transformar em peça de linha";
+export const TEXTO_TRANSFORMAR_EM_LINHA =
+  "Para entrar no Estoque, a peça precisa estar no catálogo. Ela deixa de ser exclusiva e passa a ser peça de linha, com preço de venda — vai aparecer na Venda.";
+export const ROTULO_CATEGORIA_DE_VENDA = "Categoria de venda";
+export const PLACEHOLDER_CATEGORIA_DE_VENDA = "Escolha a categoria";
+export const ROTULO_PRECO_DE_VENDA = "Preço de venda";
+export const DICA_PRECO_DE_VENDA = "é o preço que vai aparecer na Venda";
+// O nome exato que a migração 0016 semeou — a folha a deixa escolhida quando existe.
+export const NOME_CATEGORIA_PECAS_PRONTAS = "Peças prontas";
+export const FRASE_PRECO_DE_VENDA_VAZIO = "Diga o preço de venda — é o que vai aparecer na Venda.";
+export const FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA = "Escolha a categoria de venda.";
+// A categoria escolhida foi desativada (ou saiu de Receitas) enquanto a folha estava aberta — a
+// mesma frase da Precificação (cada módulo com a sua cópia).
+export const FRASE_CATEGORIA_DE_VENDA_INVALIDA =
+  "Essa categoria de venda não existe mais, ou não é do grupo Receitas. Escolha outra.";
 // D-13: o item da peça ainda não controla estoque — a conclusão o liga.
 export function textoItemVaiControlarEstoque(item: string): string {
   return `${item} ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria Produção da casa). Vai passar a aparecer no Estoque.`;

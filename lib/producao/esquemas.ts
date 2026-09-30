@@ -26,6 +26,7 @@ import {
   FRASE_ENCOMENDA_SEM_ITEM,
   FRASE_ENTREGA_INVALIDA,
   FRASE_ENTREGA_NO_PASSADO,
+  FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA,
   FRASE_ESCOLHA_O_MATERIAL,
   FRASE_FALHA_AO_DAR_BAIXA,
   FRASE_FALHA_AO_AJUSTAR,
@@ -40,6 +41,7 @@ import {
   FRASE_PARCIAL_NAO_INTEIRO,
   FRASE_PECA_NAO_EXISTE,
   FRASE_PECA_VAZIA,
+  FRASE_PRECO_DE_VENDA_VAZIO,
   FRASE_QUANTIDADE_DA_PECA,
   FRASE_TIPO_INVALIDO,
   textoPecasDemais,
@@ -488,6 +490,41 @@ const esquemaCustoDaPeca = z
     return conversao.centavos;
   });
 
+// "Transformar em peça de linha" (D-12, plano 12): a categoria de venda e o preço de venda com que a
+// peça EXCLUSIVA vira peça de linha para entrar no Estoque. Vem SÓ quando a folha mostra o passo
+// (peça exclusiva, destino Estoque); se ele é exigido depende de a ficha ainda ser exclusiva SOB A
+// TRAVA, o que só o servidor decide. A categoria é conferida no banco (existe, ativa, Receitas —
+// T-06.1-46); o preço passa pelo conversor do Financeiro e precisa ser > 0.
+const esquemaPrecoDeVenda = z
+  .string({ error: FRASE_PRECO_DE_VENDA_VAZIO })
+  .transform((texto, contexto): number => {
+    const conversao = converterReaisParaCentavos(texto);
+    if (!conversao.ok) {
+      contexto.addIssue({ code: "custom", message: conversao.erro });
+      return z.NEVER;
+    }
+    if (conversao.centavos === null || conversao.centavos <= 0) {
+      contexto.addIssue({ code: "custom", message: FRASE_PRECO_DE_VENDA_VAZIO });
+      return z.NEVER;
+    }
+    return conversao.centavos;
+  });
+
+const esquemaPromocaoDaPeca = z
+  .object(
+    {
+      categoriaVendaId: z
+        .string({ error: FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA })
+        .uuid(FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA),
+      precoTexto: esquemaPrecoDeVenda,
+    },
+    { error: FRASE_FALHA_AO_CONCLUIR },
+  )
+  .transform(({ categoriaVendaId, precoTexto }) => ({
+    categoriaVendaId,
+    precoCentavos: precoTexto,
+  }));
+
 export const esquemaConcluirOrdem = z.object({
   ordemId: z.string({ error: FRASE_ORDEM_NAO_EXISTE }).uuid(FRASE_ORDEM_NAO_EXISTE),
   pecas: z
@@ -501,12 +538,14 @@ export const esquemaConcluirOrdem = z.object({
             .nullish()
             .transform((destino) => destino ?? null),
           custoTexto: esquemaCustoDaPeca,
+          promocao: esquemaPromocaoDaPeca.nullish().transform((promocao) => promocao ?? null),
         })
-        .transform(({ pecaId, perdidasTexto, destino, custoTexto }) => ({
+        .transform(({ pecaId, perdidasTexto, destino, custoTexto, promocao }) => ({
           pecaId,
           perdidas: perdidasTexto,
           destino,
           custoCentavos: custoTexto,
+          promocao,
         })),
       { error: FRASE_FALHA_AO_CONCLUIR },
     )

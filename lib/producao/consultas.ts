@@ -21,7 +21,11 @@ import {
 import type { Unidade } from "@/lib/cadastros/catalogo";
 import { custosDasFichas } from "@/lib/estoque/consultas";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
-import { parametrosVigentes } from "@/lib/precificacao/consultas";
+import {
+  listarCategoriasDeVenda,
+  parametrosVigentes,
+  type CategoriaDeVenda,
+} from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
@@ -730,6 +734,9 @@ export type PecaParaConcluir = {
     controlaEstoque: boolean;
     ativo: boolean;
   } | null;
+  // O preço praticado guardado NA FICHA — só a exclusiva o tem (na de linha ele é o do item, D-18).
+  // É o preço que o passo "Transformar em peça de linha" traz preenchido (D-12).
+  precoPraticadoCentavos: number | null;
   // O custo de UMA peça pela ficha (`custosDasFichas` — a mesma conta do Estoque); `null` sem
   // ficha ou quando a ficha não dá custo hoje (D-14: a folha pede o custo).
   custoPelaFichaCentavos: number | null;
@@ -752,6 +759,7 @@ export async function lerPecasParaConcluir(
       aMais: ordemPecas.aMais,
       fichaId: ordemPecas.fichaId,
       exclusiva: fichasPrecificacao.exclusiva,
+      precoPraticadoCentavos: fichasPrecificacao.precoPraticadoCentavos,
       itemId: itensCatalogo.id,
       itemNome: itensCatalogo.nome,
       itemUnidade: itensCatalogo.unidade,
@@ -777,6 +785,7 @@ export async function lerPecasParaConcluir(
     aMais: peca.aMais,
     fichaId: peca.fichaId,
     exclusiva: peca.fichaId === null ? null : (peca.exclusiva ?? null),
+    precoPraticadoCentavos: peca.precoPraticadoCentavos ?? null,
     item:
       peca.itemId === null
         ? null
@@ -790,23 +799,45 @@ export async function lerPecasParaConcluir(
   }));
 }
 
+// O que a folha de conclusão recebe: as peças e, para o passo "Transformar em peça de linha"
+// (D-12), as categorias de venda ATIVAS do grupo Receitas e o id de "Peças prontas" (a sugestão;
+// `null` quando a categoria não existe mais ou está desativada — a folha pede para escolher).
+export type DadosDaConclusao = {
+  pecas: PecaParaConcluir[];
+  categoriasDeVenda: CategoriaDeVenda[];
+  categoriaPecasProntasId: string | null;
+};
+
+// O nome exato que a migração 0016 semeou (a mesma frase de `NOME_CATEGORIA_PECAS_PRONTAS` em
+// `./textos`, repetida aqui para a consulta não importar o módulo de frases).
+const NOME_PECAS_PRONTAS = "Peças prontas";
+
 // Só `select`, sem trava: é o que a folha MOSTRA e o custo que a ação leva para dentro da
 // transação (como `aprovarOrcamento` lê a configuração antes). A decisão — status, contas, item
-// sem estoque — é refeita sob a trava da ordem. `hoje` chega por argumento.
-export async function dadosDaConclusao(
-  ordemId: string,
-  hoje: string,
-): Promise<PecaParaConcluir[]> {
+// sem estoque, a ficha ainda exclusiva — é refeita sob a trava da ordem. `hoje` chega por
+// argumento. As categorias de venda só são lidas quando alguma peça é exclusiva (é só ela que
+// mostra o passo do D-12).
+export async function dadosDaConclusao(ordemId: string, hoje: string): Promise<DadosDaConclusao> {
   if (!FORMA_DE_UUID.test(ordemId)) {
-    return [];
+    return { pecas: [], categoriasDeVenda: [], categoriaPecasProntasId: null };
   }
-  const pecas = await lerPecasParaConcluir(db, ordemId);
+  const lidas = await lerPecasParaConcluir(db, ordemId);
   const custos = await custosDasFichas(
-    pecas.flatMap((peca) => (peca.fichaId === null ? [] : [peca.fichaId])),
+    lidas.flatMap((peca) => (peca.fichaId === null ? [] : [peca.fichaId])),
     hoje,
   );
-  return pecas.map((peca) => ({
+  const pecas = lidas.map((peca) => ({
     ...peca,
     custoPelaFichaCentavos: peca.fichaId === null ? null : (custos.get(peca.fichaId) ?? null),
   }));
+  if (!pecas.some((peca) => peca.exclusiva === true)) {
+    return { pecas, categoriasDeVenda: [], categoriaPecasProntasId: null };
+  }
+  // A MESMA lista do diálogo da ficha na Precificação (ativas, grupo Receitas).
+  const categoriasDeVenda = await listarCategoriasDeVenda();
+  const pecasProntas = categoriasDeVenda.find(
+    (categoria) =>
+      categoria.nome.trim().toLocaleLowerCase("pt-BR") === NOME_PECAS_PRONTAS.toLocaleLowerCase("pt-BR"),
+  );
+  return { pecas, categoriasDeVenda, categoriaPecasProntasId: pecasProntas?.id ?? null };
 }

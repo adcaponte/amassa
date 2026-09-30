@@ -71,10 +71,10 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   const etapaParaTerminar =
     leitura.tipo === "em-andamento" && leitura.indice < etapas.length - 1 ? leitura.etapa : null;
   // A etapa atual é a última (Entrega): "Entreguei" / "Guardar no estoque" abre a conclusão (plano
-  // 11). As peças com a ficha, o item e o custo pela ficha são lidos só então — e de novo, sob a
-  // trava, pela ação.
+  // 11). As peças com a ficha, o item e o custo pela ficha (e, com peça exclusiva, as categorias de
+  // venda do passo D-12, plano 12) são lidos só então — e de novo, sob a trava, pela ação.
   const naUltimaEtapa = leitura.tipo === "em-andamento" && leitura.indice === etapas.length - 1;
-  const pecasParaConcluir = naUltimaEtapa ? await dadosDaConclusao(ordem.id, hoje) : null;
+  const dadosParaConcluir = naUltimaEtapa ? await dadosDaConclusao(ordem.id, hoje) : null;
   const feitas = etapas.filter((etapa) => etapa.feitaEm !== null);
   const ultimaFeita = feitas.at(-1);
   const folga = leitura.tipo === "em-andamento" ? textoPrevisao(leitura.folgaDias) : null;
@@ -207,8 +207,8 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
               tipo={ordem.tipo}
               etapaParaTerminar={etapaParaTerminar}
               conclusao={
-                pecasParaConcluir
-                  ? { pecas: pecasParaConcluir, vendaNumero: ordem.vendaNumero }
+                dadosParaConcluir
+                  ? { ...dadosParaConcluir, vendaNumero: ordem.vendaNumero }
                   : null
               }
               ultimaFeita={

@@ -5,12 +5,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { categorias, fichasPrecificacao, itensCatalogo, parametrosPrecificacao } from "@/db/schema";
+import { fichasPrecificacao, itensCatalogo, parametrosPrecificacao } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { esquemaId } from "@/lib/financeiro/esquemas";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
-import { contarOrcamentosDaFicha } from "./consultas";
+import { contarOrcamentosDaFicha, contarOrdensDaFicha } from "./consultas";
 import {
   esquemaCalculoDaHora,
   esquemaEdicaoDeFicha,
@@ -18,6 +18,12 @@ import {
   esquemaSeloDeParametro,
   esquemaValorDeParametro,
 } from "./esquemas";
+import {
+  CategoriaDeVendaInvalida,
+  FichaNaoEncontrada,
+  conferirCategoriaDeVenda,
+  promoverFichaParaLinha,
+} from "./gravacao";
 import { calcularHora } from "./hora";
 import type { ChaveDeParametro } from "./parametros";
 import {
@@ -26,7 +32,7 @@ import {
   FRASE_FICHA_NAO_EXISTE_MAIS,
   FRASE_INFORME_AS_HORAS,
   FRASE_PARAMETRO_NAO_EXISTE_MAIS,
-  fraseFichaEmUso,
+  fraseFichaEmUsoCompleta,
 } from "./textos";
 
 // Mesma forma de `lib/financeiro/acoes.ts`/`lib/cadastros/acoes.ts` — cada módulo redeclara hoje,
@@ -175,16 +181,9 @@ export async function usarHoraCalculada(
 // Ficha de peça (04.5-04-PLAN.md — D-18/D-19)
 // ---------------------------------------------------------------------------------------------
 
-class CategoriaDeVendaInvalida extends Error {}
-class FichaNaoEncontrada extends Error {}
-
-// Categoria de venda: existir, estar ATIVA, e ser do grupo `receita` — a MESMA regra de
-// `lib/cadastros/acoes.ts::categoriaDeVendaValida`, redeclarada aqui (cada módulo tem sua própria
-// cópia, D-15 do projeto). Pura: recebe o retrato JÁ carregado do banco, nunca confia no que o
-// cliente diz sobre a categoria (T-04.5-19).
-function categoriaDeVendaEhValida(categoria: { grupo: string; ativa: boolean } | undefined): boolean {
-  return !!categoria && categoria.ativa && categoria.grupo === "receita";
-}
+// `CategoriaDeVendaInvalida`, `FichaNaoEncontrada` e a regra da categoria de venda (existir, estar
+// ATIVA, ser do grupo `receita` — T-04.5-19) moram em `./gravacao`, junto da promoção a peça de
+// linha que `editarFicha` e a conclusão da ordem usam (D-12, Fase 06.1).
 
 // Cria a ficha e, se não for exclusiva, o item de catálogo que a representa — na MESMA transação
 // (key_links do plano: se o item falhar, a ficha não nasce meio ligada). `exigirUsuario()` é a
@@ -235,14 +234,7 @@ export async function criarFicha(
       // ficha não-exclusiva sem categoria de venda antes de chegar aqui.
       const categoriaVendaId = dados.categoriaVendaId!;
 
-      const [categoria] = await tx
-        .select({ ativa: categorias.ativa, grupo: categorias.grupo })
-        .from(categorias)
-        .where(eq(categorias.id, categoriaVendaId))
-        .limit(1);
-      if (!categoriaDeVendaEhValida(categoria)) {
-        throw new CategoriaDeVendaInvalida();
-      }
+      await conferirCategoriaDeVenda(tx, categoriaVendaId);
 
       // Sempre cria um item NOVO — "vincular a um item existente" (mencionado no BRIEFING) fica
       // para quando uma tela oferecer esse seletor; o diálogo desta fase (04.5-04-PLAN.md,
@@ -342,53 +334,21 @@ export async function editarFicha(
         return;
       }
 
-      // Não-nulo: `validarFicha` já recusou uma ficha não-exclusiva sem categoria antes daqui.
-      const categoriaVendaId = dados.categoriaVendaId!;
-
-      const [categoria] = await tx
-        .select({ ativa: categorias.ativa, grupo: categorias.grupo })
-        .from(categorias)
-        .where(eq(categorias.id, categoriaVendaId))
-        .limit(1);
-      if (!categoriaDeVendaEhValida(categoria)) {
-        throw new CategoriaDeVendaInvalida();
-      }
-
-      let itemCatalogoId = fichaAtual.itemCatalogoId;
-      if (itemCatalogoId) {
-        // Já era de linha: atualiza o item existente — nome e preço mudam nele, NUNCA na ficha.
-        await tx
-          .update(itensCatalogo)
-          .set({
-            nome: dados.nome,
-            categoriaVendaId,
-            precoVendaCentavos: dados.precoPraticadoCentavos,
-          })
-          .where(eq(itensCatalogo.id, itemCatalogoId));
-      } else {
-        // Promoção de exclusiva → de linha: o item nasce agora, com o preço que a ficha tinha.
-        const [item] = await tx
-          .insert(itensCatalogo)
-          .values({
-            nome: dados.nome,
-            categoriaVendaId,
-            precoVendaCentavos: dados.precoPraticadoCentavos,
-            aparecenaVenda: true,
-          })
-          .returning({ id: itensCatalogo.id });
-        itemCatalogoId = item.id;
-      }
-
-      // Ficha de linha (D-18): o preço praticado É o do item — a coluna da ficha fica NULA.
+      // Os campos da ficha (o nome novo incluído) primeiro; depois a promoção a peça de linha —
+      // `promoverFichaParaLinha` (lib/precificacao/gravacao.ts, a MESMA que a conclusão da ordem
+      // usa, D-12) confere a categoria de venda, cria o item (ou atualiza o que a ficha já tem, com
+      // o nome novo) e grava `exclusiva = false`, o item e o preço praticado NULO (D-18).
       await tx
         .update(fichasPrecificacao)
-        .set({
-          ...camposComuns,
-          precoPraticadoCentavos: null,
-          exclusiva: false,
-          itemCatalogoId,
-        })
+        .set(camposComuns)
         .where(eq(fichasPrecificacao.id, dados.id));
+
+      // Não-nulo: `validarFicha` já recusou uma ficha não-exclusiva sem categoria antes daqui.
+      await promoverFichaParaLinha(tx, {
+        fichaId: dados.id,
+        categoriaVendaId: dados.categoriaVendaId!,
+        precoCentavos: dados.precoPraticadoCentavos,
+      });
     });
 
     revalidatePath("/gestao/financeiro");
@@ -413,7 +373,10 @@ export async function editarFicha(
 // ---------------------------------------------------------------------------------------------
 
 class FichaEmUso extends Error {
-  constructor(public readonly quantidadeDeOrcamentos: number) {
+  constructor(
+    public readonly quantidadeDeOrcamentos: number,
+    public readonly quantidadeDeOrdens: number,
+  ) {
     super("ficha em uso");
   }
 }
@@ -421,8 +384,10 @@ class FichaEmUso extends Error {
 const esquemaApagarFicha = z.object({ id: esquemaId });
 
 // `exigirUsuario()` é a PRIMEIRA instrução do corpo. Trava a linha (`for update`), CONTA os
-// orçamentos que a usam DENTRO da mesma transação (`contarOrcamentosDaFicha`, lib/precificacao/
-// consultas.ts) e só então apaga — contar antes e apagar depois, fora de uma transação, é a
+// orçamentos e as ORDENS DE PRODUÇÃO que a usam DENTRO da mesma transação
+// (`contarOrcamentosDaFicha`/`contarOrdensDaFicha`, lib/precificacao/consultas.ts — as ordens desde
+// a Fase 06.1, Pitfall 11: a chave estrangeira de `ordem_pecas.ficha_id` recusaria com um 23503
+// cru) e só então apaga — contar antes e apagar depois, fora de uma transação, é a
 // corrida clássica: alguém acrescenta a peça a um orçamento entre a contagem e a exclusão
 // (T-04.5-24). Nunca toca `itens_catalogo` — a ficha some, o item (quando existir) continua.
 export async function apagarFicha(entradaBruta: unknown): Promise<ResultadoDeAcao<{ id: string }>> {
@@ -447,8 +412,9 @@ export async function apagarFicha(entradaBruta: unknown): Promise<ResultadoDeAca
       }
 
       const quantidadeDeOrcamentos = await contarOrcamentosDaFicha(tx, id);
-      if (quantidadeDeOrcamentos > 0) {
-        throw new FichaEmUso(quantidadeDeOrcamentos);
+      const quantidadeDeOrdens = await contarOrdensDaFicha(tx, id);
+      if (quantidadeDeOrcamentos > 0 || quantidadeDeOrdens > 0) {
+        throw new FichaEmUso(quantidadeDeOrcamentos, quantidadeDeOrdens);
       }
 
       await tx.delete(fichasPrecificacao).where(eq(fichasPrecificacao.id, id));
@@ -461,7 +427,10 @@ export async function apagarFicha(entradaBruta: unknown): Promise<ResultadoDeAca
       return { ok: false, erro: FRASE_FICHA_NAO_EXISTE_MAIS };
     }
     if (erro instanceof FichaEmUso) {
-      return { ok: false, erro: fraseFichaEmUso(erro.quantidadeDeOrcamentos) };
+      return {
+        ok: false,
+        erro: fraseFichaEmUsoCompleta(erro.quantidadeDeOrcamentos, erro.quantidadeDeOrdens),
+      };
     }
     console.error("Falha ao apagar ficha de precificação:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };

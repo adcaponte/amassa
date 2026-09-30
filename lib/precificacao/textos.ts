@@ -191,3 +191,24 @@ export function fraseFichaEmUso(quantidadeDeOrcamentos: number): string {
   const orcamentos = quantidadeDeOrcamentos === 1 ? "1 orçamento" : `${quantidadeDeOrcamentos} orçamentos`;
   return `Esta peça está em ${orcamentos}. Não dá para apagar.`;
 }
+
+// Fase 06.1 (plano 12, Pitfall 11): a ficha que uma ORDEM DE PRODUÇÃO usa também não se apaga — a
+// frase da UI-SPEC, com o plural de verdade ("1 ordem de produção" / "2 ordens de produção").
+export function fraseFichaEmOrdensDeProducao(quantidadeDeOrdens: number): string {
+  const ordens =
+    quantidadeDeOrdens === 1 ? "1 ordem de produção" : `${quantidadeDeOrdens} ordens de produção`;
+  return `Esta peça é usada em ${ordens} — não dá para apagar.`;
+}
+
+// A recusa de `apagarFicha` junta as duas contagens: a dos orçamentos (quando houver) e a das
+// ordens (quando houver) — uma frase de cada, na ordem em que o diálogo sempre as mostrou.
+export function fraseFichaEmUsoCompleta(quantidadeDeOrcamentos: number, quantidadeDeOrdens: number): string {
+  const frases: string[] = [];
+  if (quantidadeDeOrcamentos > 0) {
+    frases.push(fraseFichaEmUso(quantidadeDeOrcamentos));
+  }
+  if (quantidadeDeOrdens > 0) {
+    frases.push(fraseFichaEmOrdensDeProducao(quantidadeDeOrdens));
+  }
+  return frases.join(" ");
+}

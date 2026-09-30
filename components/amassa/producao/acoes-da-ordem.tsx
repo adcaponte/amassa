@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { PecaParaConcluir } from "@/lib/producao/consultas";
+import type { DadosDaConclusao } from "@/lib/producao/consultas";
 import { rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "@/lib/producao/etapas";
 import {
   ROTULO_DESFAZER,
@@ -24,7 +24,7 @@ export type AcoesDaOrdemProps = {
   // vira "Entreguei" / "Guardar no estoque" e abre a folha de conclusão — plano 11).
   etapaParaTerminar: EtapaProducao | null;
   // O que a folha de conclusão precisa — só quando a etapa atual é a última (`null` antes).
-  conclusao: { pecas: PecaParaConcluir[]; vendaNumero: number | null } | null;
+  conclusao: (DadosDaConclusao & { vendaNumero: number | null }) | null;
   // A última etapa feita, com a data que o desfazer apaga; `null` sem nenhuma feita.
   ultimaFeita: AlvoDoDesfazer | null;
 };
@@ -89,6 +89,8 @@ export function AcoesDaOrdem({
           tipo={tipo}
           vendaNumero={conclusao.vendaNumero}
           pecas={conclusao.pecas}
+          categoriasDeVenda={conclusao.categoriasDeVenda}
+          categoriaPecasProntasId={conclusao.categoriaPecasProntasId}
           aoFechar={() => setAberturaDaConclusao(null)}
         />
       ) : null}

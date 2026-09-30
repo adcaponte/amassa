@@ -21,6 +21,11 @@ import { gravarMovimentacoes, travarItens } from "@/lib/estoque/gravacao";
 import { pedidoDeEntradaDaProducao, pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
 import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import {
+  CategoriaDeVendaInvalida,
+  FichaNaoEncontrada,
+  promoverFichaParaLinha,
+} from "@/lib/precificacao/gravacao";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
@@ -102,7 +107,7 @@ import {
   FRASE_CONCLUSAO_ETAPA_MUDOU,
   FRASE_CONCLUSAO_JA_CONCLUIDA,
   FRASE_CUSTO_DE_CADA_PECA_VAZIO,
-  FRASE_EXCLUSIVA_PRECISA_VIRAR_LINHA,
+  FRASE_CATEGORIA_DE_VENDA_INVALIDA,
   FRASE_FALHA_AO_CONCLUIR,
   FRASE_PECAS_DA_ORDEM_MUDARAM,
   FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA,
@@ -922,8 +927,10 @@ class RecusaDaConclusao extends Error {
   }
 }
 
-// A chave do campo de cada peça na folha: `perdidas-{id}`, `destino-{id}`, `custo-{id}`.
-function campoDaPeca(tipo: "perdidas" | "destino" | "custo", pecaId: string): string {
+// A chave do campo de cada peça na folha: `perdidas-{id}`, `destino-{id}`, `custo-{id}` e, no
+// passo "Transformar em peça de linha" (D-12), `categoria-{id}` e `preco-{id}`.
+type CampoDaPeca = "perdidas" | "destino" | "custo" | "categoria" | "preco";
+function campoDaPeca(tipo: CampoDaPeca, pecaId: string): string {
   return `${tipo}-${pecaId}`;
 }
 
@@ -940,12 +947,16 @@ function camposDaRecusaDoEsquema(
   if (!peca || typeof peca.pecaId !== "string") {
     return undefined;
   }
-  const tipo =
+  const tipo: CampoDaPeca =
     questao.path[2] === "custoTexto"
       ? "custo"
       : questao.path[2] === "destino"
         ? "destino"
-        : "perdidas";
+        : questao.path[2] === "promocao"
+          ? questao.path[3] === "categoriaVendaId"
+            ? "categoria"
+            : "preco"
+          : "perdidas";
   return { [campoDaPeca(tipo, peca.pecaId)]: questao.message };
 }
 
@@ -962,7 +973,9 @@ function camposDaRecusaDoEsquema(
 // Pitfall 5): trava a ORDEM (`for no key update`) e confere, sob a trava, que ela está ATIVA com a
 // etapa atual `entrega` — a segunda conclusão (toque duplo, outro celular) recebe "já foi
 // concluída" e NADA entra duas vezes no Estoque (T-06.1-40). Relê as peças, refaz as contas pelo
-// módulo puro (`derivarPeca`, briefing §7) e decide o destino; trava os ITENS; liga o estoque do
+// módulo puro (`derivarPeca`, briefing §7) e decide o destino; promove a ficha EXCLUSIVA cuja extra
+// vai ao Estoque a peça de linha (D-12, plano 12 — `promoverFichaParaLinha`, a mesma de
+// `editarFicha`, com a categoria e o preço que a folha mandou); trava os ITENS; liga o estoque do
 // item que ainda não controla (D-13: `un` quando não tem unidade, categoria de compra "Produção da
 // casa" — ANTES de `gravarMovimentacoes`, que recusaria item sem estoque próprio); grava as
 // entradas pela porta única (`pedidoDeEntradaDaProducao` + `gravarMovimentacoes`); e grava, por
@@ -989,7 +1002,7 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
   try {
     const lidas = await dadosDaConclusao(dados.ordemId, hoje);
     custoPorFicha = new Map(
-      lidas.flatMap((peca) =>
+      lidas.pecas.flatMap((peca) =>
         peca.fichaId !== null && peca.custoPelaFichaCentavos !== null
           ? [[peca.fichaId, peca.custoPelaFichaCentavos] as const]
           : [],
@@ -1062,22 +1075,30 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
             : derivada.extrasBoas === 0
               ? null
               : (enviada.destino ?? destinoSugerido({ tipo: ordem.tipo, exclusiva, temFicha }));
+        // D-12: a extra boa de peça EXCLUSIVA que vai para o Estoque vira peça de linha — com a
+        // categoria e o preço que a folha mandou (`promocao`), pela MESMA promoção da Precificação.
+        let promocao: { fichaId: string; categoriaVendaId: string; precoCentavos: number } | null =
+          null;
         if (ordem.tipo === "encomenda" && destino === "estoque") {
           if (!temFicha) {
             campos[campoDaPeca("destino", peca.id)] = FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE;
             return [];
           }
-          if (exclusiva) {
-            // O plano 12 troca esta recusa pelo passo "Transformar em peça de linha" (D-12).
-            campos[campoDaPeca("destino", peca.id)] = FRASE_EXCLUSIVA_PRECISA_VIRAR_LINHA;
-            return [];
+          if (exclusiva && peca.fichaId !== null) {
+            if (enviada.promocao === null) {
+              // A folha não mostrou o passo: ela viu a ficha como de linha, e sob a trava ela é
+              // exclusiva (mudou na Precificação enquanto a folha estava aberta). A tela recarrega
+              // e mostra o passo.
+              throw new RecusaDaConclusao(FRASE_PECAS_DA_ORDEM_MUDARAM, { recarregar: true });
+            }
+            promocao = { fichaId: peca.fichaId, ...enviada.promocao };
           }
         }
         const distribuicao = distribuirExtras(derivada, destino ?? "sem_destino", ordem.tipo);
 
         let custoUnitario: number | null = null;
         if (distribuicao.paraEstoque > 0) {
-          if (peca.item === null) {
+          if (peca.item === null && promocao === null) {
             campos[campoDaPeca("destino", peca.id)] = FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE;
             return [];
           }
@@ -1089,20 +1110,51 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
             return [];
           }
         }
-        return [{ peca, derivada, distribuicao, custoUnitario }];
+        return [
+          {
+            peca,
+            derivada,
+            distribuicao,
+            custoUnitario,
+            promocao: distribuicao.paraEstoque > 0 ? promocao : null,
+            itemId: peca.item?.id ?? null,
+          },
+        ];
       });
       const [primeira] = Object.values(campos);
       if (primeira !== undefined) {
         throw new RecusaDaConclusao(primeira, { campos });
       }
 
-      // Os ITENS, depois da ordem. Sob a trava do item: existe, está ativo, e — se ainda não
-      // controla estoque — é ligado AQUI (D-13), antes de `gravarMovimentacoes`.
+      // D-12: as fichas EXCLUSIVAS que mandam extras ao Estoque viram peça de linha AQUI — depois
+      // da trava da ordem e antes da trava dos itens (ordem → ficha → itens: `editarFicha` trava
+      // a ficha e depois o item, a mesma direção; nenhum caminho trava um item e depois uma ficha).
+      // O item nasce aparecendo na Venda e SEM estoque próprio (como `editarFicha` o cria); o passo
+      // D-13 logo abaixo o liga, na mesma transação.
+      for (const decidida of decididas) {
+        if (decidida.promocao === null) {
+          continue;
+        }
+        try {
+          decidida.itemId = await promoverFichaParaLinha(tx, decidida.promocao);
+        } catch (erro) {
+          if (erro instanceof CategoriaDeVendaInvalida) {
+            throw new RecusaDaConclusao(FRASE_CATEGORIA_DE_VENDA_INVALIDA, {
+              campos: { [campoDaPeca("categoria", decidida.peca.id)]: FRASE_CATEGORIA_DE_VENDA_INVALIDA },
+            });
+          }
+          if (erro instanceof FichaNaoEncontrada) {
+            throw new RecusaDaConclusao(FRASE_PECAS_DA_ORDEM_MUDARAM, { recarregar: true });
+          }
+          throw erro;
+        }
+      }
+
+      // Os ITENS, depois da ordem (e da ficha promovida). Sob a trava do item: existe, está ativo,
+      // e — se ainda não controla estoque — é ligado AQUI (D-13), antes de `gravarMovimentacoes`.
       const paraEstoque = decididas.filter((decidida) => decidida.distribuicao.paraEstoque > 0);
       const itemIds = [
-        ...new Set(
-          paraEstoque.flatMap((decidida) => (decidida.peca.item ? [decidida.peca.item.id] : [])),
-        ),
+        ...new Set(paraEstoque.flatMap((decidida) => (decidida.itemId ? [decidida.itemId] : []))),
       ];
       const travados = await travarItens(tx, itemIds);
       const itensLigados: string[] = [];
@@ -1148,10 +1200,10 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
       // As entradas, pela porta única do Estoque. 1 peça = 1 unidade do item (milésimos × 1000);
       // o custo total = custo de cada peça × quantidade (inteiros em centavos).
       const pedidos = paraEstoque.flatMap((decidida) =>
-        decidida.peca.item && decidida.custoUnitario !== null
+        decidida.itemId && decidida.custoUnitario !== null
           ? [
               pedidoDeEntradaDaProducao({
-                itemId: decidida.peca.item.id,
+                itemId: decidida.itemId,
                 milesimos: decidida.distribuicao.paraEstoque * 1000,
                 custoCentavos: decidida.custoUnitario * decidida.distribuicao.paraEstoque,
                 ordemId: ordem.id,

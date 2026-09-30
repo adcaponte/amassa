@@ -5,13 +5,17 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
+import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import type { CategoriaDeVenda } from "@/lib/precificacao/consultas";
 import { concluirOrdem } from "@/lib/producao/acoes";
 import type { PecaParaConcluir } from "@/lib/producao/consultas";
 import type { TipoOrdem } from "@/lib/producao/etapas";
 import {
   DICA_CONCLUSAO,
   FRASE_CUSTO_DE_CADA_PECA_VAZIO,
+  FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA,
   FRASE_FALHA_AO_CONCLUIR,
+  FRASE_PRECO_DE_VENDA_VAZIO,
   ROTULO_CONCLUINDO,
   ROTULO_CONCLUIR_ORDEM,
   ROTULO_CONCLUIR_PARCIAL,
@@ -31,18 +35,46 @@ import {
 } from "@/components/ui/dialog";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
-import { SecaoPecaConclusao, lerPeca, type ValoresDaPeca } from "./secao-peca-conclusao";
+import {
+  SecaoPecaConclusao,
+  lerPeca,
+  type ErrosDaPeca,
+  type ValoresDaPeca,
+} from "./secao-peca-conclusao";
 
-type ErrosDaPeca = { perdidas?: string; destino?: string; custo?: string };
+const CAMPOS_DA_PECA = ["perdidas", "destino", "custo", "categoria", "preco"] as const;
 
-// As chaves de campo que `concluirOrdem` devolve: `perdidas-{id}`, `destino-{id}`, `custo-{id}`.
+// "9000" centavos → "90,00" — o preço praticado da ficha no campo "Preço de venda" (D-12), no
+// formato que `converterReaisParaCentavos` lê de volta (a mesma técnica do diálogo da ficha).
+function textoDeCentavos(centavos: number | null): string {
+  return centavos === null ? "" : (centavos / 100).toFixed(2).replace(".", ",");
+}
+
+// A conferência do passo D-12 antes de enviar (conveniência — o servidor confere de novo): a
+// categoria escolhida e o preço de venda > 0.
+function errosDaPromocao(valores: ValoresDaPeca): Pick<ErrosDaPeca, "categoria" | "preco"> {
+  const erros: Pick<ErrosDaPeca, "categoria" | "preco"> = {};
+  if (valores.categoriaVendaId === "") {
+    erros.categoria = FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA;
+  }
+  const preco = converterReaisParaCentavos(valores.precoTexto);
+  if (!preco.ok) {
+    erros.preco = preco.erro;
+  } else if (preco.centavos === null || preco.centavos <= 0) {
+    erros.preco = FRASE_PRECO_DE_VENDA_VAZIO;
+  }
+  return erros;
+}
+
+// As chaves de campo que `concluirOrdem` devolve: `perdidas-{id}`, `destino-{id}`, `custo-{id}`
+// e, no passo D-12, `categoria-{id}` e `preco-{id}`.
 function errosPorPeca(campos: Record<string, string> | undefined): Record<string, ErrosDaPeca> {
   const porPeca: Record<string, ErrosDaPeca> = {};
   for (const [chave, frase] of Object.entries(campos ?? {})) {
     const separador = chave.indexOf("-");
     const tipo = chave.slice(0, separador);
     const pecaId = chave.slice(separador + 1);
-    if (tipo === "perdidas" || tipo === "destino" || tipo === "custo") {
+    if ((CAMPOS_DA_PECA as readonly string[]).includes(tipo)) {
       porPeca[pecaId] = { ...porPeca[pecaId], [tipo]: frase };
     }
   }
@@ -55,6 +87,9 @@ export type FolhaConclusaoProps = {
   // A venda do orçamento que abriu a ordem — "O saldo a receber continua no Caixa (venda nº {N})".
   vendaNumero: number | null;
   pecas: PecaParaConcluir[];
+  // O passo "Transformar em peça de linha" (D-12): as categorias de venda e a sugestão.
+  categoriasDeVenda: readonly CategoriaDeVenda[];
+  categoriaPecasProntasId: string | null;
   aoFechar: () => void;
 };
 
@@ -67,11 +102,28 @@ export type FolhaConclusaoProps = {
 // fecha e recarrega.
 //
 // Quem abre a monta com `key` nova a cada abertura: nasce limpa.
-export function FolhaConclusao({ ordemId, tipo, vendaNumero, pecas, aoFechar }: FolhaConclusaoProps) {
+export function FolhaConclusao({
+  ordemId,
+  tipo,
+  vendaNumero,
+  pecas,
+  categoriasDeVenda,
+  categoriaPecasProntasId,
+  aoFechar,
+}: FolhaConclusaoProps) {
   const router = useRouter();
   const [valores, setValores] = useState<Record<string, ValoresDaPeca>>(() =>
     Object.fromEntries(
-      pecas.map((peca) => [peca.id, { perdidasTexto: "", destino: null, custoTexto: "" }]),
+      pecas.map((peca) => [
+        peca.id,
+        {
+          perdidasTexto: "",
+          destino: null,
+          custoTexto: "",
+          categoriaVendaId: categoriaPecasProntasId ?? "",
+          precoTexto: textoDeCentavos(peca.precoPraticadoCentavos),
+        },
+      ]),
     ),
   );
   const [erros, setErros] = useState<Record<string, ErrosDaPeca>>({});
@@ -105,9 +157,16 @@ export function FolhaConclusao({ ordemId, tipo, vendaNumero, pecas, aoFechar }: 
         return;
       }
       const erro = novos[pecas[indice].id];
-      const alvo = erro.custo
-        ? document.getElementById(`conclusao-${pecas[indice].id}-custo`)
-        : camposPerdidas.current[indice];
+      const idBase = `conclusao-${pecas[indice].id}`;
+      const alvo = erro.perdidas
+        ? camposPerdidas.current[indice]
+        : erro.categoria
+          ? document.getElementById(`${idBase}-categoria`)
+          : erro.preco
+            ? document.getElementById(`${idBase}-preco`)
+            : erro.custo
+              ? document.getElementById(`${idBase}-custo`)
+              : camposPerdidas.current[indice];
       alvo?.focus();
     });
   }
@@ -121,8 +180,14 @@ export function FolhaConclusao({ ordemId, tipo, vendaNumero, pecas, aoFechar }: 
     for (const { peca, lida } of lidas) {
       if (!lida.derivada.ok) {
         locais[peca.id] = { perdidas: lida.derivada.frase };
-      } else if (lida.precisaDeCusto && valores[peca.id].custoTexto.trim() === "") {
-        locais[peca.id] = { custo: FRASE_CUSTO_DE_CADA_PECA_VAZIO };
+        continue;
+      }
+      const daPeca: ErrosDaPeca = lida.precisaDePromocao ? errosDaPromocao(valores[peca.id]) : {};
+      if (lida.precisaDeCusto && valores[peca.id].custoTexto.trim() === "") {
+        daPeca.custo = FRASE_CUSTO_DE_CADA_PECA_VAZIO;
+      }
+      if (Object.keys(daPeca).length > 0) {
+        locais[peca.id] = daPeca;
       }
     }
     if (Object.keys(locais).length > 0) {
@@ -142,6 +207,13 @@ export function FolhaConclusao({ ordemId, tipo, vendaNumero, pecas, aoFechar }: 
           perdidasTexto: valores[peca.id].perdidasTexto,
           destino: lida.destino,
           custoTexto: lida.precisaDeCusto ? valores[peca.id].custoTexto : null,
+          // Só quando a folha mostra o passo "Transformar em peça de linha" (D-12).
+          promocao: lida.precisaDePromocao
+            ? {
+                categoriaVendaId: valores[peca.id].categoriaVendaId,
+                precoTexto: valores[peca.id].precoTexto,
+              }
+            : null,
         })),
       });
       if (resposta.ok) {
@@ -229,6 +301,7 @@ export function FolhaConclusao({ ordemId, tipo, vendaNumero, pecas, aoFechar }: 
                 valores={valores[peca.id]}
                 aoMudar={(novos) => mudar(peca.id, novos)}
                 erros={erros[peca.id] ?? {}}
+                categoriasDeVenda={categoriasDeVenda}
                 desabilitado={enviando}
                 campoPerdidasRef={(elemento) => {
                   camposPerdidas.current[indice] = elemento;

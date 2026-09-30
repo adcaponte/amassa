@@ -1201,3 +1201,63 @@ export async function estoqueDoItemNoBanco(
     };
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-12 — a peça exclusiva que vira peça de linha (D-12)
+// ---------------------------------------------------------------------------------------------
+
+export type FichaNoBanco = {
+  exclusiva: boolean;
+  itemCatalogoId: string | null;
+  precoPraticadoCentavos: number | null;
+};
+
+// A ficha como está no banco: exclusiva, o item do catálogo e o preço praticado guardado nela.
+export async function fichaNoBanco(fichaId: string): Promise<FichaNoBanco> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      exclusiva: boolean;
+      item_catalogo_id: string | null;
+      preco_praticado_centavos: number | null;
+    }>(
+      `select exclusiva, item_catalogo_id, preco_praticado_centavos
+         from fichas_precificacao where id = $1`,
+      [fichaId],
+    );
+    return {
+      exclusiva: rows[0].exclusiva,
+      itemCatalogoId: rows[0].item_catalogo_id,
+      precoPraticadoCentavos: rows[0].preco_praticado_centavos,
+    };
+  });
+}
+
+export type ItemDaVendaNoBanco = {
+  nome: string;
+  precoVendaCentavos: number | null;
+  apareceNaVenda: boolean;
+  categoriaVenda: string | null;
+};
+
+// O lado "Venda" do item do catálogo: nome, preço, se aparece na Venda e a categoria de venda.
+export async function itemDaVendaNoBanco(itemId: string): Promise<ItemDaVendaNoBanco> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      nome: string;
+      preco_venda_centavos: number | null;
+      aparece_na_venda: boolean;
+      categoria_venda: string | null;
+    }>(
+      `select i.nome, i.preco_venda_centavos, i.aparece_na_venda, c.nome as categoria_venda
+         from itens_catalogo i left join categorias c on c.id = i.categoria_venda_id
+        where i.id = $1`,
+      [itemId],
+    );
+    return {
+      nome: rows[0].nome,
+      precoVendaCentavos: rows[0].preco_venda_centavos,
+      apareceNaVenda: rows[0].aparece_na_venda,
+      categoriaVenda: rows[0].categoria_venda,
+    };
+  });
+}

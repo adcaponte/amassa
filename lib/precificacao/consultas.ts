@@ -13,6 +13,7 @@ import {
   fichasPrecificacao,
   itensCatalogo,
   orcamentoLinhas,
+  ordemPecas,
   parametrosPrecificacao,
 } from "@/db/schema";
 import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
@@ -366,6 +367,20 @@ export async function contarOrcamentosDaFicha(tx: TransacaoDoBanco, fichaId: str
     .select({ total: countDistinct(orcamentoLinhas.orcamentoId) })
     .from(orcamentoLinhas)
     .where(eq(orcamentoLinhas.fichaId, fichaId));
+
+  return Number(linha?.total ?? 0);
+}
+
+// Irmã de `contarOrcamentosDaFicha`, também chamada DENTRO da transação de `apagarFicha` (Fase
+// 06.1, plano 12 — Pitfall 11): desde o plano 07, uma ordem feita à mão aponta para a ficha
+// (`ordem_pecas.ficha_id`), e a chave estrangeira recusaria a exclusão com um 23503 cru. Conta
+// ORDENS distintas (de qualquer status — a concluída e a cancelada também guardam a ficha no
+// histórico), não peças.
+export async function contarOrdensDaFicha(tx: TransacaoDoBanco, fichaId: string): Promise<number> {
+  const [linha] = await tx
+    .select({ total: countDistinct(ordemPecas.ordemId) })
+    .from(ordemPecas)
+    .where(eq(ordemPecas.fichaId, fichaId));
 
   return Number(linha?.total ?? 0);
 }

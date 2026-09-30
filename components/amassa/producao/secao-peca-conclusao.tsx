@@ -11,6 +11,7 @@ import {
   type DestinoDasExtras,
   type PecaDerivada,
 } from "@/lib/producao/conclusao";
+import type { CategoriaDeVenda } from "@/lib/precificacao/consultas";
 import type { PecaParaConcluir } from "@/lib/producao/consultas";
 import type { TipoOrdem } from "@/lib/producao/etapas";
 import {
@@ -41,11 +42,25 @@ import {
 } from "@/lib/producao/textos";
 import { cn } from "@/lib/utils";
 
+import { TransformarEmLinha } from "./transformar-em-linha";
+
 // O que a pessoa digitou/escolheu numa peça. `destino` nulo = a sugestão (`destinoSugerido`).
+// `categoriaVendaId`/`precoTexto`: o passo "Transformar em peça de linha" da peça exclusiva (D-12),
+// nascidos com "Peças prontas" e o preço praticado da ficha.
 export type ValoresDaPeca = {
   perdidasTexto: string;
   destino: DestinoDasExtras | null;
   custoTexto: string;
+  categoriaVendaId: string;
+  precoTexto: string;
+};
+
+export type ErrosDaPeca = {
+  perdidas?: string;
+  destino?: string;
+  custo?: string;
+  categoria?: string;
+  preco?: string;
 };
 
 // A leitura da peça pelo MESMO módulo puro que o servidor roda de novo sob a trava
@@ -62,6 +77,8 @@ export function lerPeca(
   semDestino: number;
   faltam: number;
   precisaDeCusto: boolean;
+  // D-12: a peça exclusiva manda extras ao Estoque — a folha mostra "Transformar em peça de linha".
+  precisaDePromocao: boolean;
 } {
   const limpo = valores.perdidasTexto.trim();
   const perdidas = limpo === "" ? 0 : /^\d{1,9}$/.test(limpo) ? Number(limpo) : Number.NaN;
@@ -69,11 +86,20 @@ export function lerPeca(
   const temFicha = peca.fichaId !== null;
   const exclusiva = peca.exclusiva === true;
   const sugerido = destinoSugerido({ tipo, exclusiva, temFicha });
-  // Sem ficha e exclusiva (até o plano 12) só vão a "sem destino"; na casa, sempre ao Estoque.
+  // Sem ficha só vai a "sem destino" (D-12); na casa, sempre ao Estoque. A exclusiva escolhe (a
+  // sugestão é "sem destino"); indo ao Estoque, passa pelo passo "Transformar em peça de linha".
   const destino: DestinoDasExtras =
-    tipo === "casa" ? "estoque" : !temFicha || exclusiva ? "sem_destino" : (valores.destino ?? sugerido);
+    tipo === "casa" ? "estoque" : !temFicha ? "sem_destino" : (valores.destino ?? sugerido);
   if (!derivada.ok) {
-    return { derivada, destino, paraEstoque: 0, semDestino: 0, faltam: 0, precisaDeCusto: false };
+    return {
+      derivada,
+      destino,
+      paraEstoque: 0,
+      semDestino: 0,
+      faltam: 0,
+      precisaDeCusto: false,
+      precisaDePromocao: false,
+    };
   }
   const { paraEstoque, semDestino } = distribuirExtras(derivada, destino, tipo);
   return {
@@ -83,6 +109,7 @@ export function lerPeca(
     semDestino,
     faltam: derivada.faltam,
     precisaDeCusto: paraEstoque > 0 && peca.custoPelaFichaCentavos === null,
+    precisaDePromocao: tipo === "encomenda" && exclusiva && paraEstoque > 0,
   };
 }
 
@@ -92,7 +119,9 @@ export type SecaoPecaConclusaoProps = {
   valores: ValoresDaPeca;
   aoMudar: (valores: ValoresDaPeca) => void;
   // As frases de erro desta peça (do servidor ou da conferência antes de enviar).
-  erros: { perdidas?: string; destino?: string; custo?: string };
+  erros: ErrosDaPeca;
+  // As categorias de venda do passo "Transformar em peça de linha" (D-12) — vazias sem exclusiva.
+  categoriasDeVenda: readonly CategoriaDeVenda[];
   desabilitado: boolean;
   campoPerdidasRef: Ref<HTMLInputElement>;
   // O Enter do "Quantas se perderam" leva à próxima peça (`enterKeyHint="next"`).
@@ -102,13 +131,15 @@ export type SecaoPecaConclusaoProps = {
 // Uma peça da folha de conclusão (UI-SPEC §"Folha de conclusão"): o nome (Corpo 600, quebra livre) e,
 // à direita, "pedido {q} · fez {f}" (casa: "fez {f}"); o campo "Quantas se perderam" (padrão 0); as
 // contas derivadas numa lista `aria-live`; a caixa "Faltam…"; o destino das extras (encomenda com
-// extras boas); o "Custo de cada peça" quando a ficha não dá custo (D-14); a caixa do D-13.
+// extras boas); o passo "Transformar em peça de linha" da exclusiva que vai ao Estoque (D-12); o
+// "Custo de cada peça" quando a ficha não dá custo (D-14); a caixa do D-13.
 export function SecaoPecaConclusao({
   peca,
   tipo,
   valores,
   aoMudar,
   erros,
+  categoriasDeVenda,
   desabilitado,
   campoPerdidasRef,
   aoAvancar,
@@ -295,20 +326,18 @@ export function SecaoPecaConclusao({
               aria-describedby={erros.destino ? `${idBase}-erro-destino` : undefined}
               className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             >
-              {exclusiva
-                ? // A opção "Entram no Estoque" da exclusiva chega com o passo "Transformar em peça
-                  // de linha" (plano 12, D-12). Até lá, só "sem destino".
-                  opcaoDoDestino("sem_destino", ROTULO_SEM_DESTINO, TEXTO_EXCLUSIVA_NAO_VOU_VENDER)
-                : [
-                    opcaoDoDestino(
-                      "estoque",
-                      ROTULO_ENTRAM_NO_ESTOQUE,
-                      peca.custoPelaFichaCentavos !== null
-                        ? textoCustoPelaFicha(formatarReais(peca.custoPelaFichaCentavos))
-                        : TEXTO_VOCE_DIZ_O_CUSTO,
-                    ),
-                    opcaoDoDestino("sem_destino", ROTULO_SEM_DESTINO, TEXTO_NAO_VOU_VENDER),
-                  ]}
+              {opcaoDoDestino(
+                "estoque",
+                ROTULO_ENTRAM_NO_ESTOQUE,
+                peca.custoPelaFichaCentavos !== null
+                  ? textoCustoPelaFicha(formatarReais(peca.custoPelaFichaCentavos))
+                  : TEXTO_VOCE_DIZ_O_CUSTO,
+              )}
+              {opcaoDoDestino(
+                "sem_destino",
+                ROTULO_SEM_DESTINO,
+                exclusiva ? TEXTO_EXCLUSIVA_NAO_VOU_VENDER : TEXTO_NAO_VOU_VENDER,
+              )}
             </div>
             {erros.destino ? (
               <p id={`${idBase}-erro-destino`} role="alert" className="text-apoio text-erro">
@@ -317,6 +346,19 @@ export function SecaoPecaConclusao({
             ) : null}
           </div>
         )
+      ) : null}
+
+      {lida.precisaDePromocao ? (
+        <TransformarEmLinha
+          pecaId={peca.id}
+          idBase={idBase}
+          categoriasDeVenda={categoriasDeVenda}
+          categoriaVendaId={valores.categoriaVendaId}
+          precoTexto={valores.precoTexto}
+          erros={{ categoria: erros.categoria, preco: erros.preco }}
+          desabilitado={desabilitado}
+          aoMudar={(mudanca) => aoMudar({ ...valores, ...mudanca })}
+        />
       ) : null}
 
       {lida.precisaDeCusto ? (
