@@ -15,6 +15,8 @@ import {
   type TipoOrdem,
 } from "@/lib/producao/etapas";
 
+import { buscarCategoriaPorNome, hojeNoAtelie, semearItem, somarDiasAoHoje } from "./semear-financeiro";
+
 async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise<T> {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -263,5 +265,297 @@ export async function cancelarOrdemNoBanco(ordemId: string, liberadaEm: string):
     if (rowCount !== 1) {
       throw new Error(`cancelarOrdemNoBanco: a ordem ${ordemId} não existe.`);
     }
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-03 — fichas e a ordem vinda de orçamento aprovado (reusadas pelos planos 06, 07, 08,
+// 10 e 11)
+// ---------------------------------------------------------------------------------------------
+
+async function idDoUsuarioDeTeste(cliente: Client): Promise<string> {
+  const email = process.env.E2E_EMAIL_TESTE;
+  if (!email) {
+    throw new Error("semear-producao: a variável E2E_EMAIL_TESTE não está definida.");
+  }
+  const { rows } = await cliente.query<{ id: string }>(
+    "select id from usuarios where lower(email) = lower($1) limit 1",
+    [email],
+  );
+  const id = rows[0]?.id;
+  if (!id) {
+    throw new Error(`semear-producao: nenhum usuário com o e-mail "${email}".`);
+  }
+  return id;
+}
+
+export type FichaParaSemearNaProducao = {
+  nome: string;
+  // Exclusiva = peça de um pedido só, sem item do catálogo; de linha = com item do catálogo
+  // (`comItem`), sem preço praticado próprio (o check `fichas_precificacao_exclusividade_coerente`).
+  exclusiva: boolean;
+  comItem: boolean;
+  argilaMiligramas: number;
+  esmalteMiligramas: number;
+  larguraMm: number;
+  profundidadeMm: number;
+  alturaMm: number;
+  horasMilesimos: number;
+  cabemBiscoitoInformado?: number | null;
+  cabemEsmalteInformado?: number | null;
+};
+
+// Uma ficha de precificação com medidas, gramas e horas. De linha (`comItem`): cria antes o item do
+// catálogo que ela representa (aparece na venda, "Peças prontas", sem controlar estoque). Devolve os
+// dois ids (`itemId` nulo na exclusiva).
+export async function semearFicha(
+  dados: FichaParaSemearNaProducao,
+): Promise<{ fichaId: string; itemId: string | null }> {
+  if (dados.exclusiva === dados.comItem) {
+    throw new Error("semearFicha: ficha exclusiva não tem item; ficha de linha tem (comItem).");
+  }
+  const itemId = dados.comItem
+    ? await semearItem({
+        nome: dados.nome,
+        categoriaVenda: "Peças prontas",
+        precoCentavos: 8000,
+        apareceNaVenda: true,
+        atalhoVenda: false,
+        controlaEstoque: false,
+        atalhoCompra: false,
+      })
+    : null;
+
+  const fichaId = await comCliente(async (cliente) => {
+    const criadoPor = await idDoUsuarioDeTeste(cliente);
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into fichas_precificacao
+         (nome, argila_miligramas, esmalte_miligramas, horas_milesimos, largura_mm, profundidade_mm,
+          altura_mm, cabem_biscoito_informado, cabem_esmalte_informado, preco_praticado_centavos,
+          exclusiva, item_catalogo_id, criado_por)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       returning id`,
+      [
+        dados.nome,
+        dados.argilaMiligramas,
+        dados.esmalteMiligramas,
+        dados.horasMilesimos,
+        dados.larguraMm,
+        dados.profundidadeMm,
+        dados.alturaMm,
+        dados.cabemBiscoitoInformado ?? null,
+        dados.cabemEsmalteInformado ?? null,
+        dados.exclusiva ? 9000 : null,
+        dados.exclusiva,
+        itemId,
+        criadoPor,
+      ],
+    );
+    return rows[0]?.id;
+  });
+  if (!fichaId) {
+    throw new Error(`semearFicha: falha ao inserir a ficha "${dados.nome}".`);
+  }
+  return { fichaId, itemId };
+}
+
+export type OrdemDeOrcamentoParaSemear = {
+  // O nome da ordem (e o título do orçamento). Quem chama embute "[e2e] … {sufixo}".
+  nome: string;
+  plano: "sinal" | "avista" | "3x";
+  // A parcela 1 da venda (o sinal; no à vista, o pagamento inteiro) já consta como recebida hoje?
+  sinalPago: boolean;
+};
+
+export type OrdemDeOrcamentoSemeada = {
+  ordemId: string;
+  orcamentoId: string;
+  documentoId: string;
+  // A parcela `numero = 1` da venda — a do sinal.
+  parcelaSinalId: string;
+  entregaPrometida: string;
+};
+
+// O retrato de "Cliente aprovou" com a caixa da ordem marcada, gravado direto no banco numa
+// transação: uma ficha exclusiva; o documento de venda (uma linha em "Encomendas") com as parcelas
+// numeradas do plano (a 1 vence hoje e, se `sinalPago`, já recebida hoje); a ordem
+// encomenda/completo aguardando o sinal, sem início, com as seis etapas e a peça da linha; e o
+// orçamento APROVADO, com o snapshot congelado, uma linha e os dois vínculos. Total R$ 180,00
+// (2 × R$ 90,00).
+export async function semearOrdemDeOrcamento(
+  dados: OrdemDeOrcamentoParaSemear,
+): Promise<OrdemDeOrcamentoSemeada> {
+  const hoje = hojeNoAtelie();
+  const entregaPrometida = somarDiasAoHoje(40);
+  const categoriaEncomendas = await buscarCategoriaPorNome("Encomendas");
+  const nomeDaPeca = `${dados.nome} · peça`.slice(0, 120);
+  const { fichaId } = await semearFicha({
+    nome: nomeDaPeca,
+    exclusiva: true,
+    comItem: false,
+    argilaMiligramas: 450000,
+    esmalteMiligramas: 60000,
+    larguraMm: 120,
+    profundidadeMm: 90,
+    alturaMm: 100,
+    horasMilesimos: 600,
+  });
+
+  const quantidade = 2;
+  const precoUnitario = 9000;
+  const total = quantidade * precoUnitario;
+  const valores: number[] =
+    dados.plano === "avista" ? [total] : dados.plano === "sinal" ? [9000, 9000] : [6000, 6000, 6000];
+  const clienteNome = `[e2e] Cliente de ${dados.nome}`.slice(0, 160);
+
+  return comCliente(async (conexao) => {
+    const criadoPor = await idDoUsuarioDeTeste(conexao);
+    await conexao.query("begin");
+    try {
+      const { rows: documentos } = await conexao.query<{ id: string }>(
+        `insert into documentos (tipo, data, pessoa_nome, criado_por)
+         values ('venda'::tipo_documento, $1, $2, $3) returning id`,
+        [hoje, clienteNome, criadoPor],
+      );
+      const documentoId = documentos[0].id;
+      await conexao.query(
+        `insert into documento_linhas
+           (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
+         values ($1, 0, $2, $3, $4, $5)`,
+        [documentoId, nomeDaPeca, categoriaEncomendas, quantidade, total],
+      );
+      let parcelaSinalId = "";
+      for (const [indice, valor] of valores.entries()) {
+        const pago = indice === 0 && dados.sinalPago;
+        const { rows } = await conexao.query<{ id: string }>(
+          `insert into parcelas
+             (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+           values ($1, $2, $3, $4, 'pix'::forma_pagamento, $5, $6) returning id`,
+          [
+            documentoId,
+            indice + 1,
+            indice === 0 ? hoje : entregaPrometida,
+            valor,
+            pago ? hoje : null,
+            pago ? criadoPor : null,
+          ],
+        );
+        if (indice === 0) {
+          parcelaSinalId = rows[0].id;
+        }
+      }
+
+      const { rows: ordens } = await conexao.query<{ id: string }>(
+        `insert into ordens_producao
+           (tipo, caminho, status, nome, cliente_nome, entrega_prometida, inicio, criado_por)
+         values ('encomenda', 'completo', 'aguardando_sinal', $1, $2, $3, null, $4) returning id`,
+        [dados.nome, clienteNome, entregaPrometida, criadoPor],
+      );
+      const ordemId = ordens[0].id;
+      for (const etapa of etapasIniciais("completo")) {
+        await conexao.query(
+          `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos) values ($1, $2, $3, $4)`,
+          [ordemId, etapa.etapa, etapa.posicao, etapa.diasPrevistos],
+        );
+      }
+      await conexao.query(
+        `insert into ordem_pecas (ordem_id, posicao, ficha_id, descricao, quantidade)
+         values ($1, 0, $2, $3, $4)`,
+        [ordemId, fichaId, nomeDaPeca, quantidade],
+      );
+
+      const snapshot = {
+        linhas: [
+          {
+            nome: nomeDaPeca,
+            custoCentavos: 4000,
+            minimoCentavos: 8000,
+            zeroCentavos: 5000,
+            horasMilesimos: 600,
+            quantasCabem: { biscoito: 20, esmalte: 15 },
+          },
+        ],
+        impostoETaxaPontosBase: 0,
+        parametrosEstimados: 0,
+        congeladoEm: new Date().toISOString(),
+      };
+      const ano = Number(hoje.slice(0, 4));
+      // O sequencial disputa com os orçamentos que outros testes criam pela tela: tenta o próximo
+      // livre e, na colisão (23505), tenta de novo a partir de um ponto de salvamento.
+      let orcamentoId = "";
+      for (let tentativa = 0; tentativa < 5 && !orcamentoId; tentativa += 1) {
+        await conexao.query("savepoint orcamento");
+        try {
+          const { rows } = await conexao.query<{ id: string }>(
+            `insert into orcamentos
+               (ano, sequencial, status, cliente_nome, titulo, data, entrega_prevista, plano,
+                congelado_em, snapshot, documento_id, encomenda_id, criado_por)
+             values ($1, (select coalesce(max(sequencial), 0) + 1 from orcamentos where ano = $1),
+                     'aprovado', $2, $3, $4, $5, $6, now(), $7::jsonb, $8, $9, $10)
+             returning id`,
+            [
+              ano,
+              clienteNome,
+              dados.nome.slice(0, 160),
+              hoje,
+              entregaPrometida,
+              dados.plano,
+              JSON.stringify(snapshot),
+              documentoId,
+              ordemId,
+              criadoPor,
+            ],
+          );
+          orcamentoId = rows[0].id;
+          await conexao.query("release savepoint orcamento");
+        } catch (erro) {
+          await conexao.query("rollback to savepoint orcamento");
+          if ((erro as { code?: string }).code !== "23505") {
+            throw erro;
+          }
+        }
+      }
+      if (!orcamentoId) {
+        throw new Error("semearOrdemDeOrcamento: não achei um sequencial livre para o orçamento.");
+      }
+      await conexao.query(
+        `insert into orcamento_linhas
+           (orcamento_id, ficha_id, quantidade, preco_unitario_centavos, ordem)
+         values ($1, $2, $3, $4, 0)`,
+        [orcamentoId, fichaId, quantidade, precoUnitario],
+      );
+
+      await conexao.query("commit");
+      return { ordemId, orcamentoId, documentoId, parcelaSinalId, entregaPrometida };
+    } catch (erro) {
+      await conexao.query("rollback").catch(() => {});
+      throw erro;
+    }
+  });
+}
+
+// Muda o início de uma ordem já liberada — só para o e2e provar que um segundo "Liberar" não o
+// reescreve (com o início igual a hoje, os dois seriam indistinguíveis).
+export async function definirInicioNoBanco(ordemId: string, inicio: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update ordens_producao set inicio = $2 where id = $1 and status = 'ativa'`,
+      [ordemId, inicio],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`definirInicioNoBanco: a ordem ${ordemId} não existe ou não está ativa.`);
+    }
+  });
+}
+
+// O `pago_em` de uma parcela como texto `YYYY-MM-DD` (ou `null`) — para provar que a Produção só lê
+// o Caixa: liberar a ordem não toca na parcela do sinal.
+export async function pagoEmDaParcela(parcelaId: string): Promise<string | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ pago_em: string | null }>(
+      "select pago_em::text as pago_em from parcelas where id = $1",
+      [parcelaId],
+    );
+    return rows[0]?.pago_em ?? null;
   });
 }

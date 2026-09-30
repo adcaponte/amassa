@@ -22,6 +22,7 @@ import {
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { BotaoTerminei } from "@/components/amassa/producao/botao-terminei";
+import { CaixaAguardando } from "@/components/amassa/producao/caixa-aguardando";
 import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
 import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 
@@ -30,9 +31,10 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // id malformado — os dois respondem igual) → `notFound()`, o 404 do grupo protegido.
 //
 // Neste plano: o cabeçalho (nome com quebra livre, nunca truncado — `CabecalhoPagina`), o bloco
-// "Etapas" com a trilha e o "Terminei: {Etapa}", e as peças. Desfazer, ajuste de dias, parcial, a
-// barra fixa do celular, liberar, material, cancelar, previsão e a conclusão chegam nos planos
-// seguintes. Na etapa Entrega o botão não aparece: a última etapa se conclui (plano 11).
+// "Etapas" com a trilha e o "Terminei: {Etapa}", e as peças; na ordem aguardando o sinal, a caixa
+// âmbar com a leitura do sinal no Caixa e os botões de liberar (plano 03). Desfazer, ajuste de
+// dias, parcial, a barra fixa do celular, material, cancelar, previsão e a conclusão chegam nos
+// planos seguintes. Na etapa Entrega o botão não aparece: a última etapa se conclui (plano 11).
 export default async function PaginaOrdem({ params }: { params: Promise<{ id: string }> }) {
   await exigirUsuario();
   const { id } = await params;
@@ -82,6 +84,26 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
               })}
             </p>
           </div>
+
+          {ordem.status === "aguardando_sinal" || ordem.status === "ativa" ? (
+            // Montada nos dois estados, no mesmo lugar: a recusa de um segundo "Liberar" continua
+            // visível depois que a tela recarrega a ordem já liberada (ver `CaixaAguardando`).
+            <CaixaAguardando
+              ordemId={ordem.id}
+              aguardando={ordem.status === "aguardando_sinal"}
+              sinal={
+                ordem.status === "aguardando_sinal" && ordem.sinal
+                  ? {
+                      avista: ordem.sinal.plano === "avista",
+                      parcelaId: ordem.sinal.parcelaId,
+                      recebidoEmDiaMes: ordem.sinal.recebidoEm
+                        ? formatarDiaMes(ordem.sinal.recebidoEm)
+                        : null,
+                    }
+                  : null
+              }
+            />
+          ) : null}
 
           <TrilhaEtapas tipo={ordem.tipo} etapas={etapas} leitura={leitura} levou={levou} />
 

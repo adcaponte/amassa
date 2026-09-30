@@ -5,19 +5,22 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { ordemEtapas } from "@/db/schema";
+import { ordemEtapas, ordensProducao } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import type { EtapaProducao } from "./etapas";
-import { esquemaTerminarEtapa } from "./esquemas";
+import { esquemaLiberarOrdem, esquemaTerminarEtapa } from "./esquemas";
 import { lerEtapasDaOrdem, RecusaDaProducao, travarOrdem } from "./gravacao";
-import { planejarTerminar } from "./transicoes";
+import { planejarLiberacao, planejarTerminar } from "./transicoes";
 import {
+  FRASE_FALHA_AO_LIBERAR,
   FRASE_FALHA_AO_MARCAR,
+  FRASE_JA_LIBERADA,
   FRASE_JA_MARCADA,
+  FRASE_ORDEM_CANCELADA_ATUALIZADA,
   FRASE_ORDEM_NAO_ESTA_EM_ANDAMENTO,
   FRASE_ORDEM_NAO_EXISTE,
   FRASE_ULTIMA_ETAPA,
@@ -95,4 +98,63 @@ export async function terminarEtapa(
   revalidatePath(rotaDeGestao(`/producao/${dados.ordemId}`));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: terminada };
+}
+
+export type OrdemLiberada = { inicio: string };
+
+const FRASE_DA_RECUSA_DE_LIBERAR = {
+  "ja-liberada": FRASE_JA_LIBERADA,
+  cancelada: FRASE_ORDEM_CANCELADA_ATUALIZADA,
+} as const;
+
+// "Sinal recebido — começar" / "Começar assim mesmo" (PRD-11). `exigirUsuario()` é a PRIMEIRA
+// instrução (T-06.1-14, cobrado por `npm run verificar-acoes`). Do cliente chega só o id da ordem:
+// sob a trava da ordem (`for no key update`), o servidor decide com o módulo puro que ela ainda
+// aguarda o sinal e grava `status = 'ativa'` e `inicio` = o "hoje" de Brasília, decidido AQUI. O
+// segundo toque (outro celular, toque duplo) encontra a ordem já ativa e recebe "já foi liberada"
+// sem gravar nada — o início não muda (T-06.1-12). A liberação é sempre manual: receber o sinal no
+// Caixa não chega aqui (briefing §3), e esta ação só lê a ordem — nunca parcela nem documento.
+export async function liberarOrdem(entradaBruta: unknown): Promise<ResultadoDeAcao<OrdemLiberada>> {
+  // Nenhuma coluna de "quem liberou" nesta fase — a sessão só precisa existir.
+  await exigirUsuario();
+
+  const resultado = esquemaLiberarOrdem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { ordemId } = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let liberada: OrdemLiberada;
+  try {
+    liberada = await db.transaction(async (tx): Promise<OrdemLiberada> => {
+      const ordem = await travarOrdem(tx, ordemId);
+      if (!ordem) {
+        throw new RecusaDaProducao(FRASE_ORDEM_NAO_EXISTE);
+      }
+      const plano = planejarLiberacao(ordem, hoje);
+      if (plano.tipo === "recusa") {
+        throw new RecusaDaProducao(FRASE_DA_RECUSA_DE_LIBERAR[plano.motivo]);
+      }
+      await tx
+        .update(ordensProducao)
+        .set({ status: "ativa", inicio: plano.inicio })
+        .where(eq(ordensProducao.id, ordemId));
+      return { inicio: plano.inicio };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaProducao) {
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao liberar ordem da produção (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_LIBERAR };
+  }
+
+  revalidatePath(rotaDeGestao("/producao"));
+  revalidatePath(rotaDeGestao(`/producao/${ordemId}`));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: liberada };
 }

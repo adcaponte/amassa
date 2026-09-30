@@ -147,3 +147,48 @@ export function textoSubLinhaDaPeca(cor: string | null, personalizacao: string |
 export function textoAMais(aMais: number): string {
   return `+${aMais} a mais`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Aguardando o sinal e liberar (plano 03, PRD-11)
+// ---------------------------------------------------------------------------------------------
+
+// Seção da página da Produção (id `aguardando-o-sinal`, destino do link do Início).
+export const TITULO_SECAO_AGUARDANDO = "Aguardando o sinal";
+export const DICA_SECAO_AGUARDANDO =
+  "Vieram de orçamento aprovado. Começam a contar quando o sinal for recebido no Caixa — ou quando você decidir começar assim mesmo.";
+// Linha 3 do cartão da ordem aguardando: "ainda não começou · entrega 05/03" (sem entrega, só o
+// primeiro trecho).
+export function textoAguardandoNoCartao(entregaDiaMes: string | null): string {
+  return entregaDiaMes
+    ? `${TEXTO_AINDA_NAO_COMECOU} · ${textoEntregaNoCartao(entregaDiaMes)}`
+    : TEXTO_AINDA_NAO_COMECOU;
+}
+
+// Caixa âmbar da página da ordem.
+export const FRASE_AGUARDANDO = "Aguardando o sinal. O prazo só começa a contar depois.";
+
+// A linha do sinal, lida da parcela 1 da venda (só leitura — a Produção nunca escreve no Caixa).
+// No plano à vista a parcela 1 é o pagamento inteiro da aprovação, não um "sinal".
+export function textoSinal(avista: boolean, recebidoEmDiaMes: string | null): string {
+  if (avista) {
+    return recebidoEmDiaMes
+      ? `Pagamento na aprovação: recebido em ${recebidoEmDiaMes}.`
+      : "O pagamento da aprovação ainda não consta como recebido no Caixa.";
+  }
+  return recebidoEmDiaMes
+    ? `Sinal recebido no Caixa em ${recebidoEmDiaMes}.`
+    : "O sinal ainda não consta como recebido no Caixa.";
+}
+export const ROTULO_VER_NO_CAIXA = "ver no Caixa";
+
+// Liberar.
+export const ROTULO_LIBERAR = "Sinal recebido — começar";
+export const ROTULO_COMECAR_ASSIM_MESMO = "Começar assim mesmo";
+export const ROTULO_LIBERANDO = "Liberando…";
+export const TOAST_LIBERADA = "Ordem liberada. O prazo começa a contar hoje.";
+export const FRASE_JA_LIBERADA = "Esta ordem já foi liberada. A tela foi atualizada.";
+// Mesmo molde da "já foi liberada" (decidido sem o Theo, plano 03): a ordem foi cancelada entre
+// abrir a tela e tocar.
+export const FRASE_ORDEM_CANCELADA_ATUALIZADA = "Esta ordem foi cancelada. A tela foi atualizada.";
+export const FRASE_FALHA_AO_LIBERAR =
+  "Não deu para liberar a ordem. Verifique a internet e tente de novo.";

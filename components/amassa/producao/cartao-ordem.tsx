@@ -5,6 +5,7 @@ import type { OrdemEmAndamento } from "@/lib/producao/consultas";
 import type { LeituraDaOrdem, Selo } from "@/lib/producao/leitura";
 import {
   CHIP_DA_CASA,
+  textoAguardandoNoCartao,
   textoDiasNestaEtapa,
   textoEntregaNoCartao,
   textoPecasNoCartao,
@@ -41,7 +42,9 @@ export function ChipDoSelo({ selo }: { selo: Selo }) {
 
 export type CartaoOrdemProps = {
   ordem: OrdemEmAndamento;
-  leitura: Extract<LeituraDaOrdem, { tipo: "em-andamento" }>;
+  // No quadro, a leitura da ordem liberada; na seção "Aguardando o sinal" (plano 03), a aguardando —
+  // a linha 3 vira "ainda não começou · entrega {dd/mm}".
+  leitura: Extract<LeituraDaOrdem, { tipo: "em-andamento" } | { tipo: "aguardando" }>;
   selo: Selo;
 };
 
@@ -72,14 +75,22 @@ export function CartaoOrdem({ ordem, leitura, selo }: CartaoOrdemProps) {
         <span aria-hidden="true">·</span>
         <span>{textoPecasNoCartao(ordem.totalPecas, ordem.totalAMais)}</span>
       </span>
-      <span className="text-apoio text-tinta-fraca">
-        <span data-testid="producao-cartao-dias">
-          {textoDiasNestaEtapa(leitura.diasNestaEtapa, leitura.previstoDaEtapa)}
+      {leitura.tipo === "aguardando" ? (
+        <span data-testid="producao-cartao-aguardando" className="text-apoio text-tinta-fraca">
+          {textoAguardandoNoCartao(
+            ordem.entregaPrometida ? formatarDiaMes(ordem.entregaPrometida) : null,
+          )}
         </span>
-        {ordem.entregaPrometida ? (
-          <> · {textoEntregaNoCartao(formatarDiaMes(ordem.entregaPrometida))}</>
-        ) : null}
-      </span>
+      ) : (
+        <span className="text-apoio text-tinta-fraca">
+          <span data-testid="producao-cartao-dias">
+            {textoDiasNestaEtapa(leitura.diasNestaEtapa, leitura.previstoDaEtapa)}
+          </span>
+          {ordem.entregaPrometida ? (
+            <> · {textoEntregaNoCartao(formatarDiaMes(ordem.entregaPrometida))}</>
+          ) : null}
+        </span>
+      )}
       <span className="mt-1">
         <ChipDoSelo selo={selo} />
       </span>

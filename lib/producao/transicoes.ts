@@ -3,10 +3,10 @@
 // do servidor e grava o que ele devolveu. Nenhuma linha alcança React, Next, drizzle-orm, pg ou
 // `@/db` (grep de aceite do plano 06.1-01).
 //
-// Neste plano, só "Terminei". Desfazer, ajustar previsto, liberar, parcial e cancelar são dos planos
-// 03, 05 e 06.
+// "Terminei" (plano 01) e "Liberar" (plano 03). Desfazer, ajustar previsto, parcial e cancelar são
+// dos planos 05 e 06.
 
-import type { EtapaProducao } from "./etapas";
+import type { EtapaProducao, StatusOrdem } from "./etapas";
 import { etapasOrdenadas, type OrdemParaLeitura } from "./leitura";
 
 export type PlanoDeTerminar =
@@ -47,4 +47,29 @@ export function planejarTerminar(
     proxima: etapas[indice + 1].etapa,
     limparPassaram: true,
   };
+}
+
+export type PlanoDeLiberacao =
+  | {
+      tipo: "ok";
+      // Sempre o "hoje" do servidor — a data de início nunca vem do cliente.
+      inicio: string;
+    }
+  | { tipo: "recusa"; motivo: "ja-liberada" | "cancelada" };
+
+// "Sinal recebido — começar" / "Começar assim mesmo" (PRD-11): as duas liberam do mesmo jeito. Só
+// a ordem aguardando o sinal se libera; o início vira o dia da liberação. Lida sob a trava, a ordem
+// que já não aguarda foi liberada (ou até concluída) noutro celular — recusa sem gravar, e o início
+// não muda. A cancelada tem frase própria.
+export function planejarLiberacao(
+  ordem: { status: StatusOrdem; inicio: string | null },
+  hoje: string,
+): PlanoDeLiberacao {
+  if (ordem.status === "aguardando_sinal") {
+    return { tipo: "ok", inicio: hoje };
+  }
+  if (ordem.status === "cancelada") {
+    return { tipo: "recusa", motivo: "cancelada" };
+  }
+  return { tipo: "recusa", motivo: "ja-liberada" };
 }

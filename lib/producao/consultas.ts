@@ -2,10 +2,10 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
-import { ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
+import { orcamentos, ordemEtapas, ordemPecas, ordensProducao, parcelas } from "@/db/schema";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
@@ -34,7 +34,23 @@ export type OrdemEmAndamento = OrdemParaLeitura & {
   totalAMais: number;
 };
 
-export type OrdemCarregada = OrdemEmAndamento & { pecas: PecaDaOrdem[] };
+// O sinal da ordem vinda de orçamento (plano 03, PRD-11): a parcela `numero = 1` da venda criada
+// na aprovação — em todos os planos ("sinal", "avista", "3x") a aprovação grava a parcela da
+// aprovação como a primeira (`lib/orcamentos/acoes.ts`, suposição A6 da pesquisa). "Consta como
+// recebido" = `pago_em` preenchido. SÓ LEITURA: a Produção nunca escreve em `parcelas` nem em
+// `documentos` (briefing §3; T-06.1-13) — receber o sinal no Caixa não libera a ordem sozinho.
+export type SinalDaOrdem = {
+  plano: (typeof orcamentos.plano.enumValues)[number];
+  parcelaId: string;
+  // `YYYY-MM-DD` ou `null` quando ainda não consta como recebida.
+  recebidoEm: string | null;
+};
+
+export type OrdemCarregada = OrdemEmAndamento & {
+  pecas: PecaDaOrdem[];
+  // `null` para ordem sem orçamento (produção da casa, pedido de boca) ou orçamento sem venda.
+  sinal: SinalDaOrdem | null;
+};
 
 const COLUNAS_DA_ORDEM = {
   id: ordensProducao.id,
@@ -146,7 +162,7 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
   if (!ordem) {
     return null;
   }
-  const [etapas, pecas] = await Promise.all([
+  const [etapas, pecas, sinal] = await Promise.all([
     db
       .select(COLUNAS_DA_ETAPA)
       .from(ordemEtapas)
@@ -157,12 +173,34 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
       .from(ordemPecas)
       .where(eq(ordemPecas.ordemId, id))
       .orderBy(asc(ordemPecas.posicao)),
+    sinalDaOrdem(id),
   ]);
   return {
     ...ordem,
     etapas: etapas.map(semOrdemId),
     pecas: pecas.map(semOrdemId),
+    sinal,
     totalPecas: pecas.reduce((total, peca) => total + peca.quantidade, 0),
     totalAMais: pecas.reduce((total, peca) => total + peca.aMais, 0),
   };
+}
+
+// A leitura do sinal no Caixa: ordem → `orcamentos.encomenda_id` → `orcamentos.documento_id` →
+// `parcelas` (`numero = 1`). Só `select`, sem trava. `null` quando a ordem não veio de orçamento
+// aprovado com venda.
+export async function sinalDaOrdem(ordemId: string): Promise<SinalDaOrdem | null> {
+  const [linha] = await db
+    .select({
+      plano: orcamentos.plano,
+      parcelaId: parcelas.id,
+      recebidoEm: parcelas.pagoEm,
+    })
+    .from(orcamentos)
+    .innerJoin(
+      parcelas,
+      and(eq(parcelas.documentoId, orcamentos.documentoId), eq(parcelas.numero, 1)),
+    )
+    .where(eq(orcamentos.encomendaId, ordemId))
+    .limit(1);
+  return linha ?? null;
 }

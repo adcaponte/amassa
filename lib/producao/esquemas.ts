@@ -17,3 +17,11 @@ export const esquemaTerminarEtapa = z.object({
 });
 
 export type TerminarEtapaValidado = z.infer<typeof esquemaTerminarEtapa>;
+
+// "Sinal recebido — começar" / "Começar assim mesmo" (plano 03): só o id da ordem. O status e a
+// data de início são decididos no servidor, sob a trava da ordem (T-06.1-12).
+export const esquemaLiberarOrdem = z.object({
+  ordemId: z.string().uuid(FRASE_ORDEM_NAO_EXISTE),
+});
+
+export type LiberarOrdemValidado = z.infer<typeof esquemaLiberarOrdem>;
