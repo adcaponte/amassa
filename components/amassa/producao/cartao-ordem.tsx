@@ -1,0 +1,88 @@
+import Link from "next/link";
+
+import { formatarDiaMes } from "@/lib/producao/calendario";
+import type { OrdemEmAndamento } from "@/lib/producao/consultas";
+import type { LeituraDaOrdem, Selo } from "@/lib/producao/leitura";
+import {
+  CHIP_DA_CASA,
+  textoDiasNestaEtapa,
+  textoEntregaNoCartao,
+  textoPecasNoCartao,
+  textoSelo,
+} from "@/lib/producao/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
+import { cn } from "@/lib/utils";
+
+// As cores do selo (UI-SPEC §Color): "no ritmo" sucesso; "+N nesta etapa" atenção; "vai atrasar"
+// erro; "aguardando o sinal" e "encerrada" neutros. A cor nunca é a única pista — o texto está
+// sempre escrito.
+const COR_DO_SELO: Record<Selo["tipo"], string> = {
+  "no-ritmo": "bg-sucesso-fundo text-sucesso",
+  "passou-nesta-etapa": "bg-atencao-fundo text-atencao",
+  "vai-atrasar": "bg-erro-fundo text-erro",
+  "aguardando-sinal": "bg-superficie-2 text-tinta-media",
+  encerrada: "bg-superficie-2 text-tinta-media",
+};
+
+export function ChipDoSelo({ selo }: { selo: Selo }) {
+  return (
+    <span
+      data-testid="producao-selo"
+      data-selo={selo.tipo}
+      className={cn(
+        "text-apoio inline-flex rounded-full px-2 py-1 font-semibold whitespace-nowrap",
+        COR_DO_SELO[selo.tipo],
+      )}
+    >
+      {textoSelo(selo)}
+    </span>
+  );
+}
+
+export type CartaoOrdemProps = {
+  ordem: OrdemEmAndamento;
+  leitura: Extract<LeituraDaOrdem, { tipo: "em-andamento" }>;
+  selo: Selo;
+};
+
+// O cartão de uma ordem no quadro (UI-SPEC §"Quadro por etapa → Cartão de ordem"): o bloco inteiro é
+// um `<Link>` para a ordem — nenhuma ação no cartão ("Terminei" mora na ordem, para não marcar a
+// etapa errada rolando o quadro com a mão suja). Nome em Corpo 600 com quebra livre, nunca
+// truncado; detalhe; "há N dias nesta etapa · previsto P" e a entrega; o selo. Nenhuma hora
+// (PRD-05). O nome acessível do link é o texto do cartão (não sobrescrito).
+export function CartaoOrdem({ ordem, leitura, selo }: CartaoOrdemProps) {
+  return (
+    <Link
+      href={rotaDeGestao(`/producao/${ordem.id}`)}
+      data-testid="producao-cartao"
+      data-ordem-id={ordem.id}
+      className="bg-superficie border-borda focus-visible:ring-ring flex min-h-[44px] flex-col gap-1 rounded-md border p-4 text-left focus-visible:ring-2 focus-visible:outline-none md:hover:bg-superficie-2 xl:p-3"
+    >
+      <span className="text-corpo text-tinta font-semibold [overflow-wrap:anywhere]">
+        {ordem.nome}
+      </span>
+      <span className="text-apoio text-tinta-fraca flex flex-wrap items-center gap-x-1 [overflow-wrap:anywhere]">
+        {ordem.tipo === "casa" ? (
+          <span className="bg-superficie-2 text-tinta-media rounded-full px-2 font-semibold">
+            {CHIP_DA_CASA}
+          </span>
+        ) : ordem.clienteNome ? (
+          <span>{ordem.clienteNome}</span>
+        ) : null}
+        <span aria-hidden="true">·</span>
+        <span>{textoPecasNoCartao(ordem.totalPecas, ordem.totalAMais)}</span>
+      </span>
+      <span className="text-apoio text-tinta-fraca">
+        <span data-testid="producao-cartao-dias">
+          {textoDiasNestaEtapa(leitura.diasNestaEtapa, leitura.previstoDaEtapa)}
+        </span>
+        {ordem.entregaPrometida ? (
+          <> · {textoEntregaNoCartao(formatarDiaMes(ordem.entregaPrometida))}</>
+        ) : null}
+      </span>
+      <span className="mt-1">
+        <ChipDoSelo selo={selo} />
+      </span>
+    </Link>
+  );
+}
