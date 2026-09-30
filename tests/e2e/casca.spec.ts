@@ -100,7 +100,7 @@ const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
 
 const ROTAS_A_320PX = [
   "/gestao",
-  "/gestao/encomendas",
+  "/gestao/producao",
   "/gestao/agenda",
   "/gestao/queimas",
   "/gestao/estoque",
@@ -329,8 +329,9 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
     }
   });
 
-  // Caso (g) do plano 05: tocar em Produção na barra de baixo chega a /gestao/encomendas, e o
-  // título da tela mostra "Produção" — a rota e o encoding do rótulo, provados juntos.
+  // Caso (g) do plano 05: tocar em Produção na barra de baixo chega à Produção, e o título da tela
+  // mostra "Produção" — a rota e o encoding do rótulo, provados juntos. Fase 06.1 (D-03): a rota é
+  // /gestao/producao.
   test("no celular, o cabeçalho mostra o título da tela atual, não um valor fixo — inclusive 'Produção' (GES-14, UI-07)", async ({
     page,
   }) => {
@@ -345,7 +346,7 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
     // constante ("AMASSA" fixo). Uma rota só não distingue um título derivado de uma string fixa
     // que coincide com o esperado.
     const rotasEtitulos = [
-      { href: "/gestao/encomendas", titulo: "Produção" },
+      { href: "/gestao/producao", titulo: "Produção" },
       { href: "/gestao/queimas", titulo: "Queimas" },
       { href: "/gestao/cadastros", titulo: "Cadastros" },
     ];

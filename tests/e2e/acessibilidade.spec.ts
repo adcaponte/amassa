@@ -61,9 +61,11 @@ async function localizarGatilhoDoMenu(page: Page): Promise<Locator> {
 const ROTAS_DA_FASE = [
   "/gestao/login",
   "/gestao",
-  "/gestao/encomendas",
-  "/gestao/encomendas?nova",
-  "/gestao/encomendas/imprimir",
+  // Fase 06.1 (plano 14, D-03): as três rotas de Encomendas dão lugar às da Produção.
+  "/gestao/producao",
+  "/gestao/producao?nova=1",
+  "/gestao/producao/imprimir",
+  "/gestao/producao/concluidas",
   "/gestao/agenda",
   "/gestao/queimas",
   "/gestao/estoque",

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type APIResponse, type Page } from "@playwright/test";
 
 // Fase 04.6, plano 01 (Tarefa 3) — a prova de ponta a ponta da mudança mais arriscada da fase: a
 // plataforma inteira desceu para `/gestao`, o proxy passou a proteger só esse prefixo, os 13
@@ -181,5 +181,77 @@ test.describe("rotas /gestao", () => {
     await page.getByRole("button", { name: "Sair" }).click();
 
     await expect(page).toHaveURL(/\/gestao\/login(\?|$)/);
+  });
+});
+
+// Fase 06.1, plano 14 (D-03, D-17): o módulo de Encomendas virou a Produção. Os três endereços
+// antigos dele redirecionam (307, `permanent: false`) para o equivalente em `/gestao/producao` —
+// ANTES da sessão (o `redirects()` do Next roda antes do proxy), por isso sem login. Nenhum caso cria
+// dado. `maxRedirects: 0` confere o primeiro salto.
+test.describe("producao rotas", () => {
+  async function conferirRedirecionamento(
+    resposta: APIResponse,
+    destino: string,
+  ): Promise<string> {
+    expect(resposta.status(), `deveria responder 307`).toBe(307);
+    const local = resposta.headers()["location"] ?? "";
+    expect(new URL(local, "http://localhost").pathname).toBe(destino);
+    return local;
+  }
+
+  test("/gestao/encomendas vai para /gestao/producao, com a query preservada", async ({ request }) => {
+    await conferirRedirecionamento(
+      await request.get("/gestao/encomendas", { maxRedirects: 0 }),
+      "/gestao/producao",
+    );
+    const local = await conferirRedirecionamento(
+      await request.get("/gestao/encomendas?nova=1", { maxRedirects: 0 }),
+      "/gestao/producao",
+    );
+    expect(new URL(local, "http://localhost").searchParams.get("nova")).toBe("1");
+  });
+
+  test("/gestao/encomendas/{id} vai para /gestao/producao/{id}", async ({ request }) => {
+    const id = "22222222-2222-4222-8222-222222222222";
+    await conferirRedirecionamento(
+      await request.get(`/gestao/encomendas/${id}`, { maxRedirects: 0 }),
+      `/gestao/producao/${id}`,
+    );
+  });
+
+  test("/gestao/encomendas/imprimir vai para /gestao/producao/imprimir (o literal vence o :id)", async ({
+    request,
+  }) => {
+    await conferirRedirecionamento(
+      await request.get("/gestao/encomendas/imprimir", { maxRedirects: 0 }),
+      "/gestao/producao/imprimir",
+    );
+  });
+
+  test("/gestao/encomendasx não redireciona para a Produção — com sessão, é o 404 da plataforma", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    // Nenhum salto: nem para a Produção, nem para lugar nenhum. (O catch-all `[...naoEncontrado]`
+    // da casca responde a página de 404 em streaming — o status HTTP não é o que prova; a tela é,
+    // como no caso (i) acima.)
+    const resposta = await page.request.get("/gestao/encomendasx", { maxRedirects: 0 });
+    expect(resposta.headers()["location"]).toBeUndefined();
+    expect(resposta.status() >= 300 && resposta.status() < 400).toBe(false);
+
+    await page.goto("/gestao/encomendasx");
+    await expect(page).toHaveURL(/\/gestao\/encomendasx$/);
+    await expect(page.getByTestId("quatro-cento-e-quatro-gestao")).toBeVisible();
+  });
+
+  test("requisições paralelas ao endereço antigo recebem o mesmo 307, sem gravar nada", async ({
+    request,
+  }) => {
+    const respostas = await Promise.all(
+      Array.from({ length: 5 }, () => request.get("/gestao/encomendas", { maxRedirects: 0 })),
+    );
+    for (const resposta of respostas) {
+      await conferirRedirecionamento(resposta, "/gestao/producao");
+    }
   });
 });

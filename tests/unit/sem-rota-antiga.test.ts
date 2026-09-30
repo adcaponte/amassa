@@ -4,7 +4,11 @@ import { join, relative, sep } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-import { REDIRECIONAMENTOS_ANTIGOS } from "../../lib/rotas/redirecionamentos-antigos";
+import {
+  PREFIXOS_DA_PRODUCAO,
+  REDIRECIONAMENTOS_ANTIGOS,
+  REDIRECIONAMENTOS_DA_PRODUCAO,
+} from "../../lib/rotas/redirecionamentos-antigos";
 
 // CR-01 da revisão da Fase 04.6: a plataforma mudou da raiz para `/gestao`, e 65 pontos de
 // navegação (`router.push`, `window.location.assign`, `history.pushState`, `href`) continuaram
@@ -33,9 +37,11 @@ const ARQUIVOS_EXCLUIDOS = new Set([
 
 // De cada `source` (que pode ter segmento dinâmico, ex. `/encomendas/:id`), o prefixo estático —
 // `/encomendas/:id` vira `/encomendas`, que já cobre `/encomendas/123` pela regra de fronteira.
+// Fase 06.1 (D-03): os `source` de `REDIRECIONAMENTOS_DA_PRODUCAO` (`/gestao/encomendas…`) entram
+// na mesma lista — o redirecionamento da Produção é só para favoritos; nenhum link interno o usa.
 const PREFIXOS_ANTIGOS: readonly string[] = [
   ...new Set(
-    REDIRECIONAMENTOS_ANTIGOS.map(({ source }) => {
+    [...REDIRECIONAMENTOS_ANTIGOS, ...REDIRECIONAMENTOS_DA_PRODUCAO].map(({ source }) => {
       const segmentos = source.split("/");
       const indiceDinamico = segmentos.findIndex((segmento) => segmento.startsWith(":"));
       const estaticos =
@@ -76,6 +82,18 @@ function listarArquivos(pasta: string): string[] {
 // que é ARGUMENTO dela está certo por construção: `rotaDeGestao("/estoque")` vira
 // `/gestao/estoque`.
 const PORTA_DA_GESTAO = "rotaDeGestao";
+
+// Fase 06.1 (D-03): a exceção acima tem uma exceção. `rotaDeGestao("/encomendas")` monta o endereço
+// antigo do módulo de Encomendas, que hoje só existe como redirecionamento para a Produção — então
+// o caminho antigo das encomendas (com ou sem sub-rota) é proibido também como argumento da porta.
+// Derivado da constante, nunca escrito à mão: `/gestao/encomendas` sem o `/gestao`.
+const CAMINHO_ANTIGO_DA_PRODUCAO_NA_PORTA = PREFIXOS_DA_PRODUCAO.antigo.slice("/gestao".length);
+
+function comecaPorCaminho(texto: string, prefixo: string): boolean {
+  if (!texto.startsWith(prefixo)) return false;
+  const proximo = texto.charAt(prefixo.length);
+  return proximo === "" || proximo === "/" || proximo === "?" || proximo === "#";
+}
 
 // Sobe da folha até achar a chamada `rotaDeGestao(...)` que recebe o literal como argumento —
 // atravessando só o que monta um texto a partir de pedaços (ternário, parênteses, `+`, template,
@@ -119,8 +137,11 @@ function ocorrenciasNoTexto(arquivo: string, conteudo: string): Ocorrencia[] {
 
   const achados: Ocorrencia[] = [];
   const registrar = (no: ts.Node, texto: string) => {
-    if (prefixoAntigoDe(texto) === null) return;
-    if (estaDentroDaPortaDaGestao(no)) return;
+    if (estaDentroDaPortaDaGestao(no)) {
+      if (!comecaPorCaminho(texto, CAMINHO_ANTIGO_DA_PRODUCAO_NA_PORTA)) return;
+    } else if (prefixoAntigoDe(texto) === null) {
+      return;
+    }
     const { line } = fonte.getLineAndCharacterOfPosition(no.getStart(fonte));
     achados.push({ arquivo, linha: line + 1, texto });
   };
@@ -184,9 +205,36 @@ describe("nenhuma navegação da plataforma aponta para o endereço antigo da ra
     expect(linhas).toEqual([2, 3, 7]);
   });
 
+  it("Fase 06.1: acusa o caminho antigo das encomendas cru e também como argumento de rotaDeGestao", () => {
+    expect(CAMINHO_ANTIGO_DA_PRODUCAO_NA_PORTA).toBe("/encomendas");
+    expect(PREFIXOS_ANTIGOS).toContain(PREFIXOS_DA_PRODUCAO.antigo);
+    const codigo = [
+      `const a = "${PREFIXOS_DA_PRODUCAO.antigo}";`,
+      `const b = rotaDeGestao("/encomendas");`,
+      "const c = rotaDeGestao(`/encomendas/${id}`);",
+      `const d = rotaDeGestao("/encomendas?nova=1");`,
+      `const e = rotaDeGestao("/producao");`,
+      `const f = rotaDeGestao("/encomendasx");`,
+      `const g = "${PREFIXOS_DA_PRODUCAO.novo}";`,
+    ].join("\n");
+    const linhas = ocorrenciasNoTexto("exemplo.tsx", codigo).map(({ linha }) => linha);
+    expect(linhas).toEqual([1, 2, 3, 4]);
+  });
+
   it("zero literais começando por um caminho antigo em app/, components/ e lib/", () => {
+    // TEMPORÁRIO (plano 06.1-14, Tarefa 2 → Tarefa 3): o módulo antigo de Encomendas ainda existe
+    // entre as duas tarefas e é todo ele o endereço antigo; a Tarefa 3 o apaga e tira esta linha.
+    const MODULO_ANTIGO_A_APAGAR = [
+      join("lib", "encomendas") + sep,
+      join("components", "amassa", "encomendas") + sep,
+      join("app", "gestao", "(app)", "encomendas") + sep,
+    ];
     const ocorrencias = PASTAS.flatMap((pasta) => listarArquivos(join(RAIZ, pasta)))
       .filter((caminho) => !ARQUIVOS_EXCLUIDOS.has(relative(RAIZ, caminho)))
+      .filter(
+        (caminho) =>
+          !MODULO_ANTIGO_A_APAGAR.some((pasta) => relative(RAIZ, caminho).startsWith(pasta)),
+      )
       .flatMap(ocorrenciasEm);
 
     const relatorio = ocorrencias.map(

@@ -81,9 +81,9 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
     const familiaCorpo = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
 
     // Ponto 3 — título de uma tela de módulo (`CabecalhoPagina`, papel `display`). Fase 04.6,
-    // plano 05 (D-13): "Produção" é o rótulo novo de Encomendas — a rota continua
-    // `/gestao/encomendas`, só o texto do heading mudou.
-    await page.goto("/gestao/encomendas");
+    // plano 05 (D-13): "Produção" é o rótulo novo de Encomendas. Fase 06.1 (D-03): a rota é
+    // `/gestao/producao`.
+    await page.goto("/gestao/producao");
     const familiaTituloModulo = await page
       .getByRole("heading", { name: "Produção", level: 1 })
       .evaluate((el) => getComputedStyle(el).fontFamily);
