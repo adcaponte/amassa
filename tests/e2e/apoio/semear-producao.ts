@@ -841,3 +841,57 @@ export async function vendaNoBanco(documentoId: string): Promise<VendaNoBanco> {
     };
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-07 — a "Nova ordem"
+// ---------------------------------------------------------------------------------------------
+
+// Um item que JÁ controla estoque, sem ficha de precificação (D-13: aparece em "Itens do estoque"
+// na produção da casa) — unidade `un`, categoria de compra "Produção da casa" (a semente da 0023).
+export async function semearItemDoEstoque(dados: { nome: string }): Promise<string> {
+  return semearItem({
+    nome: dados.nome,
+    apareceNaVenda: false,
+    atalhoVenda: false,
+    controlaEstoque: true,
+    unidade: "un",
+    categoriaCompra: "Produção da casa",
+    atalhoCompra: false,
+  });
+}
+
+// Os ids das ordens com este nome exato, das mais antigas às mais novas — o e2e da Nova ordem usa
+// nomes únicos, então conta as ordens que ELE criou (nunca uma afirmação global do banco).
+export async function ordensComONomeNoBanco(nome: string): Promise<string[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      "select id from ordens_producao where nome = $1 order by numero",
+      [nome],
+    );
+    return rows.map((linha) => linha.id);
+  });
+}
+
+// As peças da ordem com a origem de cada uma (ficha, item ou nenhuma = texto livre).
+export async function origemDasPecasNoBanco(
+  ordemId: string,
+): Promise<{ descricao: string; quantidade: number; fichaId: string | null; itemId: string | null }[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      descricao: string;
+      quantidade: number;
+      ficha_id: string | null;
+      item_catalogo_id: string | null;
+    }>(
+      `select descricao, quantidade, ficha_id, item_catalogo_id
+         from ordem_pecas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      descricao: linha.descricao,
+      quantidade: linha.quantidade,
+      fichaId: linha.ficha_id,
+      itemId: linha.item_catalogo_id,
+    }));
+  });
+}

@@ -10,6 +10,8 @@ import {
 } from "@/lib/producao/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { BotaoNovaOrdem } from "@/components/amassa/producao/botao-nova-ordem";
+import { FolhaNovaOrdem } from "@/components/amassa/producao/folha-nova-ordem";
 import {
   QuadroProducao,
   type ColunaNoQuadro,
@@ -21,9 +23,9 @@ import { SecaoAguardando } from "@/components/amassa/producao/secao-aguardando";
 // decidido AQUI, no servidor (Brasília), e passado ao módulo puro — o cliente nunca decide o dia.
 //
 // O cabeçalho, as seis colunas (plano 01) e a seção "Aguardando o sinal" (plano 03), que vem da
-// MESMA consulta — o mesmo `loading.tsx` e o mesmo `error.tsx` desta rota valem para ela. Pílulas
-// de filtro, três números, linha do tempo, "Nova ordem" e "Imprimir folha geral" chegam nos planos
-// seguintes.
+// MESMA consulta — o mesmo `loading.tsx` e o mesmo `error.tsx` desta rota valem para ela. O "Nova
+// ordem" e a folha dele (`?nova=1`) são do plano 07. Pílulas de filtro, três números, linha do
+// tempo e "Imprimir folha geral" chegam nos planos seguintes.
 export default async function PaginaProducao() {
   await exigirUsuario();
   const hoje = hojeEmBrasilia(new Date());
@@ -33,6 +35,8 @@ export default async function PaginaProducao() {
   // A ordem aguardando o sinal NÃO entra no quadro — fica na seção própria até ser liberada.
   const aguardando = ordens.filter((ordem) => ordem.status === "aguardando_sinal");
 
+  // Sem nenhuma ordem liberada nem aguardando, o único terracota é o "Nova ordem" do vazio — o
+  // cabeçalho fica sem o seu (UI-D11). A folha (`?nova=1`) vale nos dois casos.
   if (ativas.length === 0 && aguardando.length === 0) {
     return (
       <>
@@ -40,8 +44,10 @@ export default async function PaginaProducao() {
         <EstadoVazio
           titulo={TITULO_PRODUCAO_VAZIA}
           corpo={CORPO_PRODUCAO_VAZIA}
+          botao={<BotaoNovaOrdem />}
           testId="producao-vazia"
         />
+        <FolhaNovaOrdem hoje={hoje} />
       </>
     );
   }
@@ -59,11 +65,14 @@ export default async function PaginaProducao() {
 
   return (
     <>
-      <CabecalhoPagina titulo={TITULO_PRODUCAO} />
+      <CabecalhoPagina titulo={TITULO_PRODUCAO}>
+        <BotaoNovaOrdem />
+      </CabecalhoPagina>
       <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
         <QuadroProducao colunas={colunas} />
         <SecaoAguardando ordens={aguardando} />
       </div>
+      <FolhaNovaOrdem hoje={hoje} />
     </>
   );
 }
