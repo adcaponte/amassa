@@ -871,7 +871,7 @@ um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `
 - [x] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12) *Concluído em 30/09/2026 no branch (`41ab957`..`99d86e9`): verificar verde (1982 testes); e2e 74 e 41 passed — ver `06.1-12-SUMMARY.md`.*
 - [x] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13) *Concluído em 30/09/2026 no branch (`76f036a`..`64958b9`): verificar verde (2010 testes); e2e 3 invocações (uma para reverificar falha própria), as últimas 59 e 57 passed — ver `06.1-13-SUMMARY.md`.*
 - [x] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14) *Concluído em 30/09/2026 no branch (`1e51a42`..`a990201`): `0025` escrita e provada no Postgres efêmero, não aplicada; verificar verde (1776 testes, o módulo antigo saiu); e2e 6 invocações (3 previstas), a última `producao rotas` 60 passed — ver `06.1-14-SUMMARY.md`.*
-- [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**)
+- [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**) *Em 30/09/2026: Tarefas 1 e 2 feitas no branch (`2acbd72`..`7769b3c`); a Tarefa 3, o portão do dono, está aberta.*
 
 **UI hint**: yes
 
