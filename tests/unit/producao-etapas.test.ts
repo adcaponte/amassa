@@ -145,3 +145,23 @@ describe("rótulos", () => {
     ]);
   });
 });
+
+describe("etapasIniciais e a ordenação por posição (PRD-04 · ordering)", () => {
+  it("devolve posição 0..n−1 na ordem de ETAPAS_DO_CAMINHO, sem repetição, nos dois caminhos", () => {
+    for (const caminho of CAMINHOS_DE_ORDEM) {
+      const etapas = etapasIniciais(caminho);
+      expect(etapas.map((etapa) => etapa.etapa)).toEqual(ETAPAS_DO_CAMINHO[caminho]);
+      expect(etapas.map((etapa) => etapa.posicao)).toEqual(
+        ETAPAS_DO_CAMINHO[caminho].map((_, indice) => indice),
+      );
+      expect(new Set(etapas.map((etapa) => etapa.etapa)).size).toBe(etapas.length);
+      expect(new Set(etapas.map((etapa) => etapa.posicao)).size).toBe(etapas.length);
+    }
+  });
+
+  it("cada chamada devolve uma lista nova — mexer nela não muda a próxima", () => {
+    const primeira = etapasIniciais("completo");
+    primeira.reverse();
+    expect(etapasIniciais("completo")[0]).toMatchObject({ etapa: "producao", posicao: 0 });
+  });
+});
