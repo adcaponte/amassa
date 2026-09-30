@@ -465,6 +465,8 @@ export const NOTA_PECA_SEM_FICHA =
 export const FRASE_CATALOGO_VAZIO_CASA =
   "Nenhuma peça no catálogo ainda. Precifique uma peça de linha em Financeiro → Peças, ou ligue o estoque de um item em Cadastros → Catálogo.";
 export const FRASE_PECAS_TIRADAS = "As peças que só servem a encomenda foram tiradas.";
+// Revisão 06.1, WR-107: enquanto o catálogo carrega, "Criar ordem" fica desligado e diz por quê.
+export const FRASE_CATALOGO_CARREGANDO = "Carregando as peças do catálogo…";
 export const FRASE_ERRO_CARREGAR_CATALOGO =
   "Não deu para carregar as peças do catálogo. Verifique a internet e tente de novo.";
 export const DICA_FIM_NOVA_ORDEM =

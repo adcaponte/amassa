@@ -17,6 +17,7 @@ import {
   DICA_FIM_NOVA_ORDEM,
   DICA_PECA_CASA,
   DICA_PECA_ENCOMENDA,
+  FRASE_CATALOGO_CARREGANDO,
   FRASE_CATALOGO_VAZIO_CASA,
   FRASE_ERRO_CARREGAR_CATALOGO,
   FRASE_FALHA_AO_CRIAR,
@@ -167,6 +168,16 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
     catalogoPronto !== null &&
     catalogoPronto.fichasDeLinha.length === 0 &&
     catalogoPronto.itensDoEstoque.length === 0;
+  // Revisão 06.1, WR-107: sem o catálogo pronto as linhas de peça não existem na tela — um toque em
+  // "Criar ordem" daria um erro preso a um campo que não está lá (nada visível acontecia). O botão
+  // fica desligado e aponta para o texto que diz por quê (carregando, ou o erro com "Tentar de novo").
+  const motivoDoCriarDesligado = catalogoDaCasaVazio
+    ? "nova-ordem-catalogo-vazio"
+    : catalogo.estado === "carregando"
+      ? "nova-ordem-catalogo-carregando-texto"
+      : catalogo.estado === "erro"
+        ? "nova-ordem-catalogo-erro-texto"
+        : undefined;
 
   function registrarCampo(campo: string) {
     return (elemento: HTMLElement | null) => {
@@ -202,6 +213,10 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
     setErroGeral(semCampo ? semCampo[1] : null);
     const primeiro = conhecidos.find((campo) => campo in novos);
     if (primeiro) {
+      // O campo pode não estar na tela (WR-107): a frase vai também para o rodapé, nunca some.
+      if (!semCampo && !campos.current[primeiro]) {
+        setErroGeral(novos[primeiro] ?? null);
+      }
       window.requestAnimationFrame(() => campos.current[primeiro]?.focus());
     }
   }
@@ -331,7 +346,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
   }
 
   async function criar() {
-    if (emVoo.current || catalogoDaCasaVazio) {
+    if (emVoo.current || motivoDoCriarDesligado !== undefined) {
       return;
     }
     const entrada = pedido();
@@ -447,6 +462,9 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
     if (catalogo.estado === "carregando") {
       return (
         <div data-testid="nova-ordem-catalogo-carregando" className="flex flex-col gap-3" aria-busy="true">
+          <p id="nova-ordem-catalogo-carregando-texto" className="text-apoio text-tinta-media">
+            {FRASE_CATALOGO_CARREGANDO}
+          </p>
           <Skeleton className="h-11 w-full" />
           <Skeleton className="h-11 w-full" />
           <Skeleton className="h-11 w-full" />
@@ -460,7 +478,9 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
           data-testid="nova-ordem-catalogo-erro"
           className="bg-superficie-2 flex flex-col items-start gap-3 rounded-md p-4"
         >
-          <p className="text-apoio text-erro">{FRASE_ERRO_CARREGAR_CATALOGO}</p>
+          <p id="nova-ordem-catalogo-erro-texto" className="text-apoio text-erro">
+            {FRASE_ERRO_CARREGAR_CATALOGO}
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -705,9 +725,9 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
               <button
                 type="submit"
                 data-testid="nova-ordem-criar"
-                disabled={enviando || catalogoDaCasaVazio}
+                disabled={enviando || motivoDoCriarDesligado !== undefined}
                 aria-busy={enviando}
-                aria-describedby={catalogoDaCasaVazio ? "nova-ordem-catalogo-vazio" : undefined}
+                aria-describedby={motivoDoCriarDesligado}
                 className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[52px] flex-1 items-center justify-center rounded-md px-4 font-semibold focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {enviando ? ROTULO_CRIANDO : ROTULO_CRIAR_ORDEM}
