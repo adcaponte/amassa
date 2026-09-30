@@ -17,8 +17,22 @@ import type { ReactNode } from "react";
 // travas de 1 s e duas frases de erro independentes. Aqui há um "Terminei" só, na ordem de
 // tabulação que a UI-SPEC pede (trilha → ações → peças) nas duas larguras. Na última etapa o
 // primário é "Entreguei" / "Guardar no estoque" (plano 11), que abre a folha de conclusão; na ordem
-// concluída ou cancelada a barra não existe (quem desenha só a monta na ordem ativa).
-export function BarraAcaoFixa({ children }: { children: ReactNode }) {
+// concluída ou cancelada a barra não existe: `escondida` desenha o MESMO elemento sem nada de barra
+// (nem fixa, nem `data-testid`), só para os filhos continuarem montados — a frase de uma recusa
+// ("já tinha sido marcada", a ordem cancelada noutro celular) sobrevive à recarga que tira a ordem
+// do estado ativo (revisão 06.1, WR-104; o molde de `CaixaAguardando`).
+export function BarraAcaoFixa({
+  children,
+  escondida = false,
+}: {
+  children: ReactNode;
+  escondida?: boolean;
+}) {
+  if (escondida) {
+    // `contents`: sem caixa própria — vazio, não abre espaço na coluna da página; com a frase, ela
+    // entra no fluxo como qualquer linha do bloco.
+    return <div className="contents">{children}</div>;
+  }
   return (
     <div
       data-acao-fixa=""

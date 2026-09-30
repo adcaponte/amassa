@@ -21,6 +21,10 @@ export type AjusteDiasProps = {
   tipo: TipoOrdem;
   etapa: EtapaProducao;
   diasPrevistos: number;
+  // A etapa ainda se ajusta (futura; aguardando o sinal: todas)? Quem desenha o mantém montado em
+  // toda linha (revisão 06.1, WR-104): quando a recarga tira o −/+ (a etapa virou a atual noutro
+  // celular), a frase da recusa continua na linha — o toque não se perde em silêncio.
+  ajustavel: boolean;
 };
 
 // O par −/+ de uma etapa FUTURA (UI-SPEC §"Página da ordem" → Trilha; PRD-12): dois botões de 44×44
@@ -33,7 +37,7 @@ export type AjusteDiasProps = {
 //
 // Devolve DOIS itens da grade da linha (`24px 1fr auto`): o par na terceira coluna e, quando há
 // erro, a frase numa linha nova a partir da segunda coluna.
-export function AjusteDias({ ordemId, tipo, etapa, diasPrevistos }: AjusteDiasProps) {
+export function AjusteDias({ ordemId, tipo, etapa, diasPrevistos, ajustavel }: AjusteDiasProps) {
   const router = useRouter();
   const idMinimo = useId();
   const idMaximo = useId();
@@ -67,6 +71,26 @@ export function AjusteDias({ ordemId, tipo, etapa, diasPrevistos }: AjusteDiasPr
       emVoo.current = false;
       setGravando(false);
     }
+  }
+
+  const fraseDeErro = erro ? (
+    <p
+      data-testid={`ordem-ajuste-erro-${etapa}`}
+      role="alert"
+      className="text-apoio text-erro col-span-2 col-start-2"
+    >
+      {erro}
+    </p>
+  ) : null;
+
+  if (!ajustavel) {
+    // A terceira coluna da grade continua ocupada; a frase, se houver, na linha de baixo.
+    return (
+      <>
+        <span />
+        {fraseDeErro}
+      </>
+    );
   }
 
   const classeDoBotao =
@@ -110,15 +134,7 @@ export function AjusteDias({ ordemId, tipo, etapa, diasPrevistos }: AjusteDiasPr
           {SR_MAXIMO_365_DIAS}
         </span>
       </div>
-      {erro ? (
-        <p
-          data-testid={`ordem-ajuste-erro-${etapa}`}
-          role="alert"
-          className="text-apoio text-erro col-span-2 col-start-2"
-        >
-          {erro}
-        </p>
-      ) : null}
+      {fraseDeErro}
     </>
   );
 }

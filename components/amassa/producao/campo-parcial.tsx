@@ -21,6 +21,10 @@ export type CampoParcialProps = {
   // Σ (quantidade + a mais) das peças.
   total: number;
   passaram: number | null;
+  // O campo aparece? Só na etapa atual de ordem ativa, que não é a última, com mais de uma peça.
+  // Quem desenha o mantém montado em toda linha (revisão 06.1, WR-104): quando a recarga tira o
+  // campo (outro celular marcou a etapa), a frase da recusa continua na linha.
+  visivel: boolean;
 };
 
 // "Já passaram [ ] de {total}" (UI-SPEC §"Página da ordem" → Trilha; PRD-06): informativo — nunca
@@ -29,7 +33,14 @@ export type CampoParcialProps = {
 // e só se o número mudou. Vazio = sem parcial. Em voo: "Salvando…" ao lado (`aria-live`). Erro:
 // embaixo, `role="alert"`, com o número digitado preservado. Nenhum toast: o número fica no campo
 // e o cartão do quadro acompanha.
-export function CampoParcial({ ordemId, tipo, etapa, total, passaram }: CampoParcialProps) {
+export function CampoParcial({
+  ordemId,
+  tipo,
+  etapa,
+  total,
+  passaram,
+  visivel,
+}: CampoParcialProps) {
   const router = useRouter();
   const idDoErro = useId();
   const emVoo = useRef(false);
@@ -73,6 +84,16 @@ export function CampoParcial({ ordemId, tipo, etapa, total, passaram }: CampoPar
     }
   }
 
+  const fraseDeErro = erro ? (
+    <p id={idDoErro} data-testid="ordem-parcial-erro" role="alert" className="text-apoio text-erro">
+      {erro}
+    </p>
+  ) : null;
+
+  if (!visivel) {
+    return fraseDeErro ? <div className="mt-2">{fraseDeErro}</div> : null;
+  }
+
   return (
     <div className="mt-2 flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -106,11 +127,7 @@ export function CampoParcial({ ordemId, tipo, etapa, total, passaram }: CampoPar
           ) : null}
         </span>
       </div>
-      {erro ? (
-        <p id={idDoErro} data-testid="ordem-parcial-erro" role="alert" className="text-apoio text-erro">
-          {erro}
-        </p>
-      ) : null}
+      {fraseDeErro}
     </div>
   );
 }

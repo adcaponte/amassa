@@ -12,6 +12,7 @@ import {
   rotuloTerminei,
   textoToastTerminei,
 } from "@/lib/producao/textos";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 // O botão novo ("Terminei: {próxima}") só aceita toque 1 s depois de aparecer — dois toques
@@ -26,8 +27,12 @@ const LIMITE_DA_ESPERA_PELA_TELA_MS = 10000;
 export type BotaoTermineiProps = {
   ordemId: string;
   tipo: TipoOrdem;
-  // A etapa atual que a tela MOSTRA — vai para o servidor como `etapaEsperada` (Pitfall 7).
-  etapa: EtapaProducao;
+  // A etapa atual que a tela MOSTRA — vai para o servidor como `etapaEsperada` (Pitfall 7). `null`
+  // quando não há o que terminar (a Entrega se conclui; a ordem saiu do andamento): sem botão, só a
+  // frase da última recusa — quem desenha o mantém montado (revisão 06.1, WR-104).
+  etapa: EtapaProducao | null;
+  // Mora na barra de ação fixa (ordem ativa)? Fora dela, a frase vai no fluxo da página.
+  naBarra: boolean;
 };
 
 // "Terminei: {Etapa}" (UI-SPEC §Ações): primário, sem confirmação, sem campo, sem teclado — o
@@ -36,7 +41,9 @@ export type BotaoTermineiProps = {
 // nunca reticências. Enquanto grava: "Marcando…", `disabled`, `aria-busy`. Sucesso: toast "Feito: X.
 // Agora: Y." — SEM botão de desfazer (UI-D16: desfazer só pela confirmação que diz a data que se
 // perde); a resposta da ação traz a página revalidada. Recusa ("já tinha sido marcada", outro
-// celular) ou falha: a frase embaixo do botão (no celular, logo ACIMA da barra), `role="alert"`, e a tela recarrega o estado.
+// celular) ou falha: a frase embaixo do botão (no celular, logo ACIMA da barra), `role="alert"`, e
+// a tela recarrega o estado — mesmo que a recarga tire o botão (a ordem chegou à Entrega, ou saiu do
+// andamento), a frase fica (WR-104).
 //
 // As travas: (1) depois de marcar AQUI, o botão fica travado enquanto ainda mostra a etapa que foi
 // marcada — até a tela trazer a nova (ou 10 s, com uma recarga de novo) —, e não por um tempo fixo
@@ -44,7 +51,7 @@ export type BotaoTermineiProps = {
 // muda (marcada aqui, desfeita, ou mudada noutro celular e trazida por uma recarga), o botão novo
 // ignora toques por 1000 ms. O componente NÃO muda de chave quando a etapa muda: a frase de erro e
 // as travas sobrevivem.
-export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
+export function BotaoTerminei({ ordemId, tipo, etapa, naBarra }: BotaoTermineiProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [gravando, setGravando] = useState(false);
@@ -87,7 +94,7 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   }, [inicioDaEspera]);
 
   async function aoTocar() {
-    if (emVoo.current || esperando || aguardandoTela) {
+    if (etapa === null || emVoo.current || esperando || aguardandoTela) {
       return;
     }
     emVoo.current = true;
@@ -120,6 +127,28 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
     }
   }
 
+  // As classes da frase: a bolha logo acima da barra no celular (a barra fixa é o bloco de referência
+  // do `absolute`), no fluxo no desktop; fora da barra, sempre no fluxo.
+  const classeDaFrase = naBarra
+    ? "text-apoio text-erro bg-superficie border-borda absolute inset-x-0 bottom-full mb-2 rounded-md border p-2 shadow-sm md:static md:mb-0 md:border-0 md:bg-transparent md:p-0 md:text-right md:shadow-none"
+    : "text-apoio text-erro";
+  const frase = erro ? (
+    <p data-testid="ordem-terminei-erro" role="alert" className={classeDaFrase}>
+      {erro}
+    </p>
+  ) : null;
+
+  if (etapa === null) {
+    // Sem botão. Na barra, a bolha se ancora na própria barra (ganha a margem lateral dela).
+    return frase && naBarra ? (
+      <p data-testid="ordem-terminei-erro" role="alert" className={cn(classeDaFrase, "mx-6 md:mx-0")}>
+        {erro}
+      </p>
+    ) : (
+      frase
+    );
+  }
+
   return (
     <div className="relative flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
       <Button
@@ -132,15 +161,7 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
       >
         {gravando ? ROTULO_MARCANDO : rotuloTerminei(rotuloDaEtapa(etapa, tipo))}
       </Button>
-      {erro ? (
-        <p
-          data-testid="ordem-terminei-erro"
-          role="alert"
-          className="text-apoio text-erro bg-superficie border-borda absolute inset-x-0 bottom-full mb-2 rounded-md border p-2 shadow-sm md:static md:mb-0 md:border-0 md:bg-transparent md:p-0 md:text-right md:shadow-none"
-        >
-          {erro}
-        </p>
-      ) : null}
+      {frase}
     </div>
   );
 }

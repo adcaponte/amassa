@@ -63,6 +63,10 @@ function estadoDaEtapa(
 // TODAS — nada começou; feita e atual nunca, valem pelo que aconteceu; concluída e cancelada, em
 // nenhuma). Na etapa atual de ordem ativa, não sendo a última e com mais de uma peça, o campo
 // "já passaram [ ] de {total}".
+//
+// Os dois ficam MONTADOS em toda linha, e só se escondem (revisão 06.1, WR-104 — o molde de
+// `CaixaAguardando`): a recusa de um toque que chegou tarde (outro celular marcou a etapa, e a
+// recarga tirou o −/+ ou o campo daquela linha) continua na tela, em vez de sumir com o controle.
 export function TrilhaEtapas({
   ordemId,
   tipo,
@@ -140,28 +144,24 @@ export function TrilhaEtapas({
               >
                 {linhaDeBaixo}
               </span>
-              {comParcial ? (
-                // A chave é a etapa: quando a atual muda, o campo nasce de novo, vazio.
-                <CampoParcial
-                  key={etapa.etapa}
-                  ordemId={ordemId}
-                  tipo={tipo}
-                  etapa={etapa.etapa}
-                  total={totalDeFeitas}
-                  passaram={etapa.passaram}
-                />
-              ) : null}
-            </div>
-            {ajustavel ? (
-              <AjusteDias
+              {/* Um por linha (a linha tem a chave da etapa): quando a atual muda, o campo da linha
+                  nova mostra o parcial DELA, e o da velha só guarda a frase de uma recusa. */}
+              <CampoParcial
                 ordemId={ordemId}
                 tipo={tipo}
                 etapa={etapa.etapa}
-                diasPrevistos={etapa.diasPrevistos}
+                total={totalDeFeitas}
+                passaram={etapa.passaram}
+                visivel={comParcial}
               />
-            ) : (
-              <span />
-            )}
+            </div>
+            <AjusteDias
+              ordemId={ordemId}
+              tipo={tipo}
+              etapa={etapa.etapa}
+              diasPrevistos={etapa.diasPrevistos}
+              ajustavel={ajustavel}
+            />
           </li>
         );
       })}

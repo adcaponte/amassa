@@ -19,6 +19,11 @@ import { FolhaConclusao } from "./folha-conclusao";
 
 export type AcoesDaOrdemProps = {
   ordemId: string;
+  // A ordem está em andamento? A página monta este componente SEMPRE, no mesmo lugar (revisão 06.1,
+  // WR-104 — o molde de `CaixaAguardando`): quando outro celular conclui ou cancela a ordem, a recarga
+  // a tira do estado ativo e a barra some, mas o componente continua montado e a frase da recusa
+  // (do "Terminei" ou do "Desfazer") fica na tela.
+  ativa: boolean;
   tipo: TipoOrdem;
   // A etapa atual quando ela ainda se "termina"; `null` na última (a Entrega se CONCLUI: o botão
   // vira "Entreguei" / "Guardar no estoque" e abre a folha de conclusão — plano 11).
@@ -29,13 +34,14 @@ export type AcoesDaOrdemProps = {
   ultimaFeita: AlvoDoDesfazer | null;
 };
 
-// As ações da ordem ATIVA (quem desenha só a monta nesse estado): "Desfazer a última" (`outline`,
+// As ações da ordem ATIVA (fora dela, só a frase da última recusa — ver `ativa`): "Desfazer a última" (`outline`,
 // desabilitado sem nenhuma etapa feita) e "Terminei: {Etapa}" (primário) — na última etapa,
 // "Entreguei" / "Guardar no estoque", que abre a folha de conclusão (plano 11). No celular, na barra de
 // ação fixa acima da navegação; no desktop, a fileira à direita (ver `BarraAcaoFixa`). "Desfazer"
 // abre a confirmação com a etapa e a data FOTOGRAFADAS no toque (UI-D4).
 export function AcoesDaOrdem({
   ordemId,
+  ativa,
   tipo,
   etapaParaTerminar,
   conclusao,
@@ -48,28 +54,38 @@ export function AcoesDaOrdem({
 
   return (
     <>
-      <BarraAcaoFixa>
-        <Button
-          type="button"
-          variant="outline"
-          data-testid="ordem-desfazer"
-          disabled={ultimaFeita === null}
-          aria-label={
-            ultimaFeita ? ariaLabelDesfazerNaBarra(rotuloDaEtapa(ultimaFeita.etapa, tipo)) : undefined
-          }
-          onClick={() => {
-            if (ultimaFeita) {
-              setAlvo(ultimaFeita);
-              setAberto(true);
+      <BarraAcaoFixa escondida={!ativa}>
+        {ativa ? (
+          <Button
+            type="button"
+            variant="outline"
+            data-testid="ordem-desfazer"
+            disabled={ultimaFeita === null}
+            aria-label={
+              ultimaFeita
+                ? ariaLabelDesfazerNaBarra(rotuloDaEtapa(ultimaFeita.etapa, tipo))
+                : undefined
             }
-          }}
-          className="text-corpo h-auto min-h-[52px] shrink-0 px-4 font-semibold"
-        >
-          <RotuloDesfazer curto={ROTULO_DESFAZER} longo={ROTULO_DESFAZER_A_ULTIMA} />
-        </Button>
-        {etapaParaTerminar ? (
-          <BotaoTerminei ordemId={ordemId} tipo={tipo} etapa={etapaParaTerminar} />
-        ) : conclusao ? (
+            onClick={() => {
+              if (ultimaFeita) {
+                setAlvo(ultimaFeita);
+                setAberto(true);
+              }
+            }}
+            className="text-corpo h-auto min-h-[52px] shrink-0 px-4 font-semibold"
+          >
+            <RotuloDesfazer curto={ROTULO_DESFAZER} longo={ROTULO_DESFAZER_A_ULTIMA} />
+          </Button>
+        ) : null}
+        {/* Montado sempre, no mesmo lugar (WR-104): na Entrega, ou com a ordem fora do andamento, ele
+            não tem botão — só a frase da recusa, se houver, que assim sobrevive à recarga. */}
+        <BotaoTerminei
+          ordemId={ordemId}
+          tipo={tipo}
+          etapa={ativa ? etapaParaTerminar : null}
+          naBarra={ativa}
+        />
+        {ativa && etapaParaTerminar === null && conclusao ? (
           // A última etapa: "Entreguei" (encomenda) / "Guardar no estoque" (casa) abre a conclusão —
           // sem campo parcial, sem gravar nada no toque (UI-SPEC §Ações).
           <Button

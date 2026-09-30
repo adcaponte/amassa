@@ -221,23 +221,24 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
             totalDeFeitas={total}
           />
 
-          {ativa ? (
-            <AcoesDaOrdem
-              ordemId={ordem.id}
-              tipo={ordem.tipo}
-              etapaParaTerminar={etapaParaTerminar}
-              conclusao={
-                dadosParaConcluir
-                  ? { ...dadosParaConcluir, vendaNumero: ordem.vendaNumero }
-                  : null
-              }
-              ultimaFeita={
-                ultimaFeita?.feitaEm
-                  ? { etapa: ultimaFeita.etapa, feitaEmDiaMes: formatarDiaMes(ultimaFeita.feitaEm) }
-                  : null
-              }
-            />
-          ) : null}
+          {/* Montadas em TODO estado, no mesmo lugar (revisão 06.1, WR-104 — o molde de
+              `CaixaAguardando`): fora da ordem ativa não há barra nem botão, mas a frase de uma
+              recusa ("já tinha sido marcada", a ordem concluída ou cancelada noutro celular)
+              continua na tela depois da recarga que tira a ordem do andamento. */}
+          <AcoesDaOrdem
+            ordemId={ordem.id}
+            ativa={ativa}
+            tipo={ordem.tipo}
+            etapaParaTerminar={etapaParaTerminar}
+            conclusao={
+              dadosParaConcluir ? { ...dadosParaConcluir, vendaNumero: ordem.vendaNumero } : null
+            }
+            ultimaFeita={
+              ultimaFeita?.feitaEm
+                ? { etapa: ultimaFeita.etapa, feitaEmDiaMes: formatarDiaMes(ultimaFeita.feitaEm) }
+                : null
+            }
+          />
 
           {leitura.tipo === "em-andamento" ? (
             <div className="flex flex-col gap-1">
