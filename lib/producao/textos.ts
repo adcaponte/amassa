@@ -463,7 +463,7 @@ export function ariaTirarPeca(numero: number, nomeDaPeca: string | null): string
 export const NOTA_PECA_SEM_FICHA =
   "Sem ficha de precificação: esta peça fica sem material previsto e fora da estimativa do forno.";
 export const FRASE_CATALOGO_VAZIO_CASA =
-  "Nenhuma peça no catálogo ainda. Precifique uma peça de linha em Financeiro → Peças, ou ligue o estoque de um item em Cadastros → Catálogo.";
+  "Nenhuma peça no catálogo ainda. Precifique uma peça de linha em Financeiro → Peças, ou ligue o estoque de um item contado em unidades em Cadastros → Catálogo.";
 export const FRASE_PECAS_TIRADAS = "As peças que só servem a encomenda foram tiradas.";
 // Revisão 06.1, WR-107: enquanto o catálogo carrega, "Criar ordem" fica desligado e diz por quê.
 export const FRASE_CATALOGO_CARREGANDO = "Carregando as peças do catálogo…";
