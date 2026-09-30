@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { Printer } from "lucide-react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/producao/quadro";
 import {
   CORPO_PRODUCAO_VAZIA,
+  ROTULO_IMPRIMIR_FOLHA_GERAL,
   rotuloVerConcluidas,
   TITULO_PRODUCAO,
   TITULO_PRODUCAO_VAZIA,
@@ -63,7 +65,7 @@ function VerConcluidas({ quantas }: { quantas: number }) {
 // três filtros, para trocar de filtro nunca pedir nada ao servidor (plano 08). A vista (Quadro por
 // etapa · Linha do tempo) vem do cookie `producao_vista`, lido AQUI antes de pintar — a página já
 // sai do servidor na vista certa, sem piscar a errada (plano 09, UI-D18). "Imprimir folha geral"
-// chega no plano 13.
+// (plano 13) fica no cabeçalho, antes de "Nova ordem" — e some no vazio total, junto com ele (UI-D11).
 export default async function PaginaProducao() {
   await exigirUsuario();
   const hoje = hojeEmBrasilia(new Date());
@@ -127,7 +129,23 @@ export default async function PaginaProducao() {
   return (
     <>
       <CabecalhoPagina titulo={TITULO_PRODUCAO}>
-        <BotaoNovaOrdem />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* A folha geral A4 (plano 13, PRD-20) — sempre todas as ordens, sem o filtro da tela. */}
+          <Button
+            asChild
+            variant="outline"
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
+          >
+            <Link
+              href={rotaDeGestao("/producao/imprimir")}
+              data-testid="producao-imprimir-folha-geral"
+            >
+              <Printer aria-hidden="true" className="size-4" />
+              {ROTULO_IMPRIMIR_FOLHA_GERAL}
+            </Link>
+          </Button>
+          <BotaoNovaOrdem />
+        </div>
       </CabecalhoPagina>
       <PainelProducao
         ordens={ordens}

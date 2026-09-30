@@ -974,7 +974,7 @@ export const FRASE_ERRO_MONTAR_FOLHA =
 export const MARCA_DA_FOLHA = "AMASSA CERRADO";
 export const SUB_MARCA_DA_FOLHA = "ateliê · produção";
 
-// "AMASSA CERRADO · folha impressa em {dd/mm/aaaa} · o que vale é o que está na plataforma".
+// O rodapé das duas folhas (herdado, PRD-20), com a data do dia em que a folha foi impressa.
 export function textoRodapeDaFolha(impressaEm: string): string {
   return `${MARCA_DA_FOLHA} · folha impressa em ${impressaEm} · o que vale é o que está na plataforma`;
 }
@@ -1024,3 +1024,31 @@ export function textoSemFichaNaFolha(quantas: number): string {
 export const FRASE_SEM_MATERIAL_NA_FOLHA = "Sem material previsto — nenhuma peça tem ficha.";
 export const TITULO_NO_FIM = "No fim";
 export const TITULO_ANOTACOES = "Anotações";
+
+// Folha geral (PRD-20) — o quadro no papel, por etapa.
+export const OLHO_FOLHA_GERAL = "quadro da semana";
+export const TITULO_FOLHA_GERAL = "O que está em produção";
+export const SUB_FOLHA_GERAL = "por etapa, do barro à entrega";
+// "{n} ordens · {p} peças" — só as liberadas.
+export function textoTotaisDaFolhaGeral(quantasOrdens: number, quantasPecas: number): string {
+  return `${ordens(quantasOrdens)} · ${pecas(quantasPecas)}`;
+}
+export const CABECALHO_FOLHA_GERAL = ["Ordem", "Peças", "Nesta etapa", "Entrega", "Feito"] as const;
+export function textoJaPassaramNaFolha(passaram: number): string {
+  return `${passaram} ${ROTULO_JA_PASSARAM}`;
+}
+// "{N} dias · previsto {P}".
+export function textoNestaEtapaNaFolha(diasNestaEtapa: number, previsto: number): string {
+  return `${dias(diasNestaEtapa)} · previsto ${previsto}`;
+}
+export function srContadorDaSecao(quantas: number): string {
+  return ordens(quantas);
+}
+export const SR_CAIXA_FEITO = "em branco, para marcar à mão";
+export const TITULO_AGUARDANDO_NA_FOLHA = "Aguardando sinal";
+export function textoEntregaNaFolhaGeral(entrega: string): string {
+  return `entrega ${entrega}`;
+}
+export const TITULO_NADA_PARA_IMPRIMIR = "Nada para imprimir.";
+export const CORPO_NADA_PARA_IMPRIMIR =
+  "Quando houver ordem em produção ou aguardando o sinal, a folha geral mostra todas, por etapa.";

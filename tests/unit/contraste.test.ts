@@ -162,6 +162,8 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   it.each([
     ["components/amassa/inicio/bloco-producao.tsx"],
     ["components/amassa/encomendas/gantt.tsx"],
+    // Fase 06.1, plano 13 (Q13): o contador colorido da seção de etapa da folha geral A4.
+    ["components/amassa/producao/folha-geral.tsx"],
   ])("%s carrega a mesma regra de cor de texto (a duplicação não pode divergir)", (caminho) => {
     const fonte = readFileSync(join(process.cwd(), caminho), "utf-8");
     expect(fonte).toContain(TINTA_SOBRE_CLARO);

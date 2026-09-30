@@ -154,3 +154,119 @@ test.describe("producao folha da ordem", () => {
     await expect(page.getByRole("heading", { name: "Esta página não existe." })).toBeVisible();
   });
 });
+
+// A ordem fixa das seções de etapa da folha geral (a mesma das colunas do quadro).
+const ORDEM_DAS_SECOES = ["producao", "secagem", "queima1", "esmaltacao", "queima2", "entrega"];
+
+test.describe("producao folha geral", () => {
+  // A folha geral mostra TODAS as ordens do banco (sem filtro). O teste semeia as suas e só afirma
+  // o que vale qualquer que seja o resto: onde as SUAS caem, a ordem relativa das seções, nenhuma
+  // seção de etapa vazia e "Aguardando sinal" por último.
+  test("duas liberadas em etapas diferentes e uma aguardando: seções na ordem das etapas, nenhuma vazia, Aguardando sinal no fim; no papel o título fica", async ({
+    page,
+  }) => {
+    const nomeNaProducao = nomeUnico("Geral na produção");
+    const nomeNaQueima = nomeUnico("Geral na queima");
+    const nomeAguardando = nomeUnico("Geral aguardando");
+    const naProducao = await semearOrdem({
+      nome: nomeNaProducao,
+      tipo: "casa",
+      caminho: "completo",
+      status: "ativa",
+      inicio: diaEmBrasilia(-2),
+      etapasFeitas: [],
+      pecas: [{ descricao: `${nomeNaProducao} · caneca`, quantidade: 6 }],
+    });
+    const naQueima = await semearOrdem({
+      nome: nomeNaQueima,
+      tipo: "encomenda",
+      caminho: "completo",
+      status: "ativa",
+      clienteNome: `[e2e] Cliente de ${nomeNaQueima}`,
+      entregaPrometida: diaEmBrasilia(30),
+      inicio: diaEmBrasilia(-20),
+      etapasFeitas: [
+        { etapa: "producao", feitaEm: diaEmBrasilia(-15) },
+        { etapa: "secagem", feitaEm: diaEmBrasilia(-1) },
+      ],
+      passaramNaAtual: 3,
+      pecas: [{ descricao: `${nomeNaQueima} · prato`, quantidade: 8, aMais: 2 }],
+    });
+    const aguardando = await semearOrdem({
+      nome: nomeAguardando,
+      tipo: "encomenda",
+      caminho: "completo",
+      status: "aguardando_sinal",
+      clienteNome: `[e2e] Cliente de ${nomeAguardando}`,
+      entregaPrometida: diaEmBrasilia(45),
+      inicio: null,
+      etapasFeitas: [],
+      pecas: [{ descricao: `${nomeAguardando} · tigela`, quantidade: 5 }],
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/producao");
+    await page.getByTestId("producao-imprimir-folha-geral").click();
+    await expect(page).toHaveURL(/\/gestao\/producao\/imprimir$/);
+
+    const folha = page.getByTestId("folha-geral");
+    await expect(page.getByTestId("folha-geral-titulo")).toHaveText("O que está em produção");
+    await expect(page.getByTestId("folha-geral-totais")).toHaveText(/^\d+ ordens? · \d+ peças?$/);
+
+    // Cada uma na seção da sua etapa; a aguardando só na seção do fim.
+    const linha = (id: string) => page.locator(`[data-testid="folha-geral-linha"][data-ordem-id="${id}"]`);
+    await expect(page.getByTestId("folha-geral-secao-producao").locator(`[data-ordem-id="${naProducao}"]`)).toHaveCount(1);
+    const daQueima = page.getByTestId("folha-geral-secao-queima1").locator(`[data-ordem-id="${naQueima}"]`);
+    await expect(daQueima).toHaveCount(1);
+    await expect(daQueima).toContainText(`[e2e] Cliente de ${nomeNaQueima}`);
+    await expect(daQueima).toContainText("10");
+    await expect(daQueima).toContainText("3 já passaram");
+    await expect(daQueima).toContainText("1 dia · previsto 1");
+    await expect(page.getByTestId("folha-geral-secao-producao").locator(`[data-ordem-id="${naProducao}"]`)).toContainText("da casa");
+    await expect(linha(aguardando)).toHaveCount(1);
+    const secaoAguardando = page.getByTestId("folha-geral-aguardando");
+    await expect(secaoAguardando.locator(`[data-ordem-id="${aguardando}"]`)).toContainText("5 peças");
+    await expect(secaoAguardando).not.toContainText(nomeNaProducao);
+
+    // As seções: as de etapa na ordem fixa, nenhuma vazia, e "Aguardando sinal" por último.
+    const secoes = await folha.locator("section").evaluateAll((elementos) =>
+      elementos.map((elemento) => ({
+        testId: elemento.getAttribute("data-testid") ?? "",
+        linhas: elemento.querySelectorAll('[data-testid="folha-geral-linha"]').length,
+      })),
+    );
+    expect(secoes.at(-1)?.testId).toBe("folha-geral-aguardando");
+    const deEtapa = secoes.slice(0, -1).map((secao) => secao.testId.replace("folha-geral-secao-", ""));
+    expect(deEtapa).toContain("producao");
+    expect(deEtapa).toContain("queima1");
+    expect(deEtapa).toEqual(ORDEM_DAS_SECOES.filter((etapa) => deEtapa.includes(etapa)));
+    expect(secoes.every((secao) => secao.linhas > 0)).toBe(true);
+
+    await expect(page.getByTestId("folha-rodape")).toContainText(
+      "o que vale é o que está na plataforma",
+    );
+
+    // No papel (UI-D20): o título continua visível; a barra de botões, não.
+    await page.emulateMedia({ media: "print" });
+    await expect(page.getByTestId("folha-geral-titulo")).toBeVisible();
+    await expect(page.getByTestId("folha-barra")).toBeHidden();
+  });
+});
+
+// Só leitura, na cadeia `vazio-*` (antes de qualquer spec criar ordem): sem nenhuma ordem, a folha
+// geral é o estado vazio, e a Produção não oferece imprimir (UI-D11).
+test("producao nada para imprimir @vazio-global", async ({ page }) => {
+  await fazerLogin(page);
+  await page.goto("/gestao/producao/imprimir");
+  const vazio = page.getByTestId("producao-imprimir-vazio");
+  await expect(vazio).toBeVisible();
+  await expect(vazio).toContainText("Nada para imprimir.");
+  await expect(vazio).toContainText(
+    "Quando houver ordem em produção ou aguardando o sinal, a folha geral mostra todas, por etapa.",
+  );
+  await expect(page.getByTestId("folha-geral")).toHaveCount(0);
+
+  await page.goto("/gestao/producao");
+  await expect(page.getByTestId("producao-vazio")).toBeVisible();
+  await expect(page.getByTestId("producao-imprimir-folha-geral")).toHaveCount(0);
+});

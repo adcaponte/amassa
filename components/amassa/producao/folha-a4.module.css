@@ -262,17 +262,19 @@
   box-shadow: 0 0 0 1px var(--color-tinta-fraca);
 }
 
+/* O contador da seção da folha geral: fundo e cor do texto chegam pelo `style` do componente — a
+   regra "secagem ? #3A331F : branco" mora num lugar só, cobrada por `tests/unit/contraste.test.ts`. */
 .contador {
   display: inline-block;
+  order: 3;
   padding: 0 8px;
   border-radius: 9999px;
-  background: var(--c);
-  color: #ffffff;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }
 
-.contador[data-etapa="secagem"] {
-  color: #3a331f;
+.secaoEtapa {
+  color: var(--color-tinta);
 }
 
 /* Linha de escrever à mão: 1px `tinta-fraca` (precisa aparecer impressa). */

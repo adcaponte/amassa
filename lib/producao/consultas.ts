@@ -29,7 +29,7 @@ import {
 import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
-import type { OrdemParaAFolha } from "./folhas";
+import type { OrdemParaAFolha, OrdemParaAFolhaGeral } from "./folhas";
 import type { CabemDaFicha, PecaEmResumo } from "./forno";
 import type { TransacaoDoBanco } from "./gravacao";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
@@ -392,6 +392,47 @@ export async function ordemParaAFolha(id: string): Promise<OrdemParaAFolha | nul
             },
     })),
   };
+}
+
+// A folha geral A4 (plano 13, PRD-20): TODAS as ordens liberadas e aguardando o sinal — sem filtro,
+// independente do que a tela mostra (mesma regra da folha antiga, D-18 da Fase 3) —, com as etapas
+// (o parcial `passaram` incluído) e os totais de pedido e a mais. Nenhuma coluna de dinheiro.
+export async function ordensParaAFolhaGeral(): Promise<OrdemParaAFolhaGeral[]> {
+  const ordens = await db
+    .select(COLUNAS_DA_ORDEM)
+    .from(ordensProducao)
+    .where(inArray(ordensProducao.status, ["aguardando_sinal", "ativa"]))
+    .orderBy(asc(ordensProducao.numero));
+  if (ordens.length === 0) {
+    return [];
+  }
+  const ids = ordens.map((ordem) => ordem.id);
+  const [etapas, pecas] = await Promise.all([
+    db
+      .select(COLUNAS_DA_ETAPA)
+      .from(ordemEtapas)
+      .where(inArray(ordemEtapas.ordemId, ids))
+      .orderBy(asc(ordemEtapas.ordemId), asc(ordemEtapas.posicao)),
+    db
+      .select({
+        ordemId: ordemPecas.ordemId,
+        quantidade: ordemPecas.quantidade,
+        aMais: ordemPecas.aMais,
+      })
+      .from(ordemPecas)
+      .where(inArray(ordemPecas.ordemId, ids)),
+  ]);
+  const etapasPorOrdem = agruparPorOrdem(etapas);
+  const pecasPorOrdem = agruparPorOrdem(pecas);
+  return ordens.map((ordem) => {
+    const pecasDaOrdem = pecasPorOrdem.get(ordem.id) ?? [];
+    return {
+      ...ordem,
+      etapas: (etapasPorOrdem.get(ordem.id) ?? []).map(semOrdemId),
+      totalPecas: pecasDaOrdem.reduce((total, peca) => total + peca.quantidade, 0),
+      totalAMais: pecasDaOrdem.reduce((total, peca) => total + peca.aMais, 0),
+    };
+  });
 }
 
 // Quanto cabe no forno por ficha (plano 08, PRD-13) — o "cabem" que a fila do forno divide. Uma
