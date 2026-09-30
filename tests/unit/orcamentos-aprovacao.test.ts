@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { DIAS_PADRAO } from "@/lib/encomendas/cronograma";
 import { planejarAprovacao, type LinhaParaAprovacao } from "@/lib/orcamentos/aprovacao";
 
 const HOJE = "2026-10-01";
 const ENTREGA_PREVISTA = "2026-11-15";
+const FICHA_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const FICHA_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 function linha(sobrescrita: Partial<LinhaParaAprovacao> = {}): LinhaParaAprovacao {
   return {
+    fichaId: FICHA_A,
     nome: "Caneca cônica",
     quantidade: 1,
     precoUnitarioCentavos: 5000,
@@ -226,105 +228,97 @@ describe("planejarAprovacao", () => {
     expect(somaDasParcelas).toBe(somaDasLinhas);
   });
 
-  it("os itens da encomenda são um por peça, com a mesma descrição da linha de venda", () => {
+  // Fase 06.1 (plano 03): a aprovação abre a ORDEM DE PRODUÇÃO — uma peça por linha, na ordem das
+  // linhas, com a ficha, a cor e a personalização em campos próprios (não mais concatenadas numa
+  // descrição de item). As etapas não vêm mais daqui: nascem de `etapasIniciais` na gravação.
+  const ORCAMENTO = {
+    numero: "ORC-2026-001",
+    titulo: "Jogo de jantar",
+    plano: "avista" as const,
+    sinalPercentual: 50,
+    freteCentavos: 0,
+    entregaPrevista: ENTREGA_PREVISTA,
+  };
+
+  it("as peças da ordem são uma por linha, na ordem das linhas, com a ficha, a cor e a personalização", () => {
     const plano = planejarAprovacao(
-      {
-        numero: "ORC-2026-001",
-        titulo: "Jogo de jantar",
-        plano: "avista",
-        sinalPercentual: 50,
-        freteCentavos: 0,
-        entregaPrevista: ENTREGA_PREVISTA,
-      },
+      ORCAMENTO,
       [
-        linha({ nome: "Caneca cônica", quantidade: 4, cor: "verde-musgo" }),
-        linha({ nome: "Prato raso", quantidade: 2, cor: null }),
+        linha({ fichaId: FICHA_A, nome: "Caneca cônica", quantidade: 4, cor: "verde-musgo" }),
+        linha({
+          fichaId: FICHA_B,
+          nome: "Prato raso",
+          quantidade: 2,
+          cor: null,
+          personalizacao: "gravação: Maria",
+        }),
       ],
       [],
       HOJE,
     );
 
-    expect(plano.itensDaEncomenda).toHaveLength(2);
-    expect(plano.itensDaEncomenda[0]).toEqual({
-      descricao: "Caneca cônica — verde-musgo",
-      quantidade: 4,
-    });
-    expect(plano.itensDaEncomenda[1]).toEqual({ descricao: "Prato raso", quantidade: 2 });
+    expect(plano.pecasDaOrdem).toEqual([
+      {
+        fichaId: FICHA_A,
+        descricao: "Caneca cônica",
+        quantidade: 4,
+        cor: "verde-musgo",
+        personalizacao: null,
+      },
+      {
+        fichaId: FICHA_B,
+        descricao: "Prato raso",
+        quantidade: 2,
+        cor: null,
+        personalizacao: "gravação: Maria",
+      },
+    ]);
   });
 
-  it("trunca com segurança a descrição do item da encomenda além de 200 pontos de código", () => {
-    const nomeGigante = "P".repeat(190);
-    const personalizacaoGigante = "x".repeat(100);
+  it("custos de projeto e frete não viram peça da ordem", () => {
     const plano = planejarAprovacao(
-      {
-        numero: "ORC-2026-001",
-        titulo: "Jogo de jantar",
-        plano: "avista",
-        sinalPercentual: 50,
-        freteCentavos: 0,
-        entregaPrevista: ENTREGA_PREVISTA,
-      },
-      [linha({ nome: nomeGigante, cor: null, personalizacao: personalizacaoGigante })],
-      [],
-      HOJE,
-    );
-
-    expect([...plano.itensDaEncomenda[0].descricao].length).toBe(200);
-    // Corta em fronteira segura de ponto de código — o começo da string sobrevive intacto.
-    expect(plano.itensDaEncomenda[0].descricao.startsWith("P".repeat(190))).toBe(true);
-  });
-
-  it("o nome da encomenda é o título do orçamento", () => {
-    const plano = planejarAprovacao(
-      {
-        numero: "ORC-2026-001",
-        titulo: "Jogo de jantar",
-        plano: "avista",
-        sinalPercentual: 50,
-        freteCentavos: 0,
-        entregaPrevista: ENTREGA_PREVISTA,
-      },
+      { ...ORCAMENTO, freteCentavos: 2500 },
       [linha()],
-      [],
+      [{ descricao: "Molde exclusivo", valorCentavos: 10000 }],
       HOJE,
     );
 
-    expect(plano.nomeDaEncomenda).toBe("Jogo de jantar");
+    expect(plano.pecasDaOrdem).toHaveLength(1);
   });
 
-  it("quando o título está vazio, o nome da encomenda é 'Orçamento {número}'", () => {
-    const plano = planejarAprovacao(
-      {
-        numero: "ORC-2026-001",
-        titulo: null,
-        plano: "avista",
-        sinalPercentual: 50,
-        freteCentavos: 0,
-        entregaPrevista: ENTREGA_PREVISTA,
-      },
-      [linha()],
-      [],
-      HOJE,
-    );
+  it("trunca com segurança a descrição da peça além de 160 pontos de código (o teto de ordem_pecas)", () => {
+    const plano = planejarAprovacao(ORCAMENTO, [linha({ nome: `${"P".repeat(150)}${"😀".repeat(20)}` })], [], HOJE);
 
-    expect(plano.nomeDaEncomenda).toBe("Orçamento ORC-2026-001");
+    const descricao = plano.pecasDaOrdem[0].descricao;
+    expect([...descricao].length).toBe(160);
+    expect(descricao.startsWith("P".repeat(150))).toBe(true);
+    // Corta em fronteira de ponto de código — nenhum emoji partido ao meio.
+    expect(descricao.endsWith("😀")).toBe(true);
   });
 
-  it("o cronograma da encomenda é o padrão do módulo, sem nenhuma alteração", () => {
-    const plano = planejarAprovacao(
-      {
-        numero: "ORC-2026-001",
-        titulo: "Jogo de jantar",
-        plano: "avista",
-        sinalPercentual: 50,
-        freteCentavos: 0,
-        entregaPrevista: ENTREGA_PREVISTA,
-      },
-      [linha()],
-      [],
-      HOJE,
-    );
+  it("o plano não carrega mais etapas nem itens de encomenda", () => {
+    const plano = planejarAprovacao(ORCAMENTO, [linha()], [], HOJE);
 
-    expect(plano.etapasDaEncomenda).toEqual(DIAS_PADRAO);
+    expect(plano).not.toHaveProperty("etapasDaEncomenda");
+    expect(plano).not.toHaveProperty("itensDaEncomenda");
+    expect(plano).not.toHaveProperty("nomeDaEncomenda");
+  });
+
+  it("o nome da ordem é o título do orçamento", () => {
+    const plano = planejarAprovacao(ORCAMENTO, [linha()], [], HOJE);
+
+    expect(plano.nomeDaOrdem).toBe("Jogo de jantar");
+  });
+
+  it("quando o título está vazio, o nome da ordem é 'Orçamento {número}'", () => {
+    const plano = planejarAprovacao({ ...ORCAMENTO, titulo: "  " }, [linha()], [], HOJE);
+
+    expect(plano.nomeDaOrdem).toBe("Orçamento ORC-2026-001");
+  });
+
+  it("o nome da ordem é truncado com segurança em 120 pontos de código", () => {
+    const plano = planejarAprovacao({ ...ORCAMENTO, titulo: "J".repeat(160) }, [linha()], [], HOJE);
+
+    expect([...plano.nomeDaOrdem].length).toBe(120);
   });
 });
