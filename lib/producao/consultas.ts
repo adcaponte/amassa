@@ -2,7 +2,7 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -64,6 +64,10 @@ export type OrdemEmAndamento = OrdemParaLeitura & {
   // Pedido e a mais somados por ordem — o "{n} peças + {m} a mais" do cartão.
   totalPecas: number;
   totalAMais: number;
+  // A venda do orçamento que abriu a ordem foi cancelada no Caixa (D-07) — derivado na LEITURA
+  // (ordem → `orcamentos` → `documentos.cancelado_em`): a ordem liberada não muda no banco quando a
+  // venda cai; o cartão mostra o chip "venda cancelada" (UI-D19) e o dono decide.
+  vendaCancelada: boolean;
 };
 
 // O sinal da ordem vinda de orçamento (plano 03, PRD-11): a parcela `numero = 1` da venda criada
@@ -90,10 +94,9 @@ export type OrdemCarregada = OrdemEmAndamento & {
   // Quantas baixas de material o livro do Estoque tem ligadas a esta ordem (saída manual "consumo
   // em encomenda") — cancelar NÃO as devolve.
   baixasFeitas: number;
-  // A venda do orçamento que abriu a ordem (`null` sem orçamento ou sem venda) e se ela já foi
-  // cancelada no Caixa.
+  // O número da venda do orçamento que abriu a ordem (`null` sem orçamento ou sem venda). Se ela já
+  // foi cancelada no Caixa, é o `vendaCancelada` de `OrdemEmAndamento`.
   vendaNumero: number | null;
-  vendaCancelada: boolean;
   canceladaEm: Date | null;
   // O nome de quem cancelou, lido por junção com `usuarios`; `null` na ordem não cancelada.
   canceladaPorNome: string | null;
@@ -166,7 +169,7 @@ export async function listarOrdensEmAndamento(): Promise<OrdemEmAndamento[]> {
     return [];
   }
   const ids = ordens.map((ordem) => ordem.id);
-  const [etapas, pecas] = await Promise.all([
+  const [etapas, pecas, vendasCanceladas] = await Promise.all([
     db
       .select(COLUNAS_DA_ETAPA)
       .from(ordemEtapas)
@@ -180,9 +183,16 @@ export async function listarOrdensEmAndamento(): Promise<OrdemEmAndamento[]> {
       })
       .from(ordemPecas)
       .where(inArray(ordemPecas.ordemId, ids)),
+    // As ordens destas cuja venda (a do orçamento que as abriu) já foi cancelada no Caixa.
+    db
+      .select({ ordemId: orcamentos.encomendaId })
+      .from(orcamentos)
+      .innerJoin(documentos, eq(documentos.id, orcamentos.documentoId))
+      .where(and(inArray(orcamentos.encomendaId, ids), isNotNull(documentos.canceladoEm))),
   ]);
   const etapasPorOrdem = agruparPorOrdem(etapas);
   const pecasPorOrdem = agruparPorOrdem(pecas);
+  const comVendaCancelada = new Set(vendasCanceladas.map((linha) => linha.ordemId));
 
   return ordens.map((ordem) => {
     const pecasDaOrdem = pecasPorOrdem.get(ordem.id) ?? [];
@@ -191,6 +201,7 @@ export async function listarOrdensEmAndamento(): Promise<OrdemEmAndamento[]> {
       etapas: (etapasPorOrdem.get(ordem.id) ?? []).map(semOrdemId),
       totalPecas: pecasDaOrdem.reduce((total, peca) => total + peca.quantidade, 0),
       totalAMais: pecasDaOrdem.reduce((total, peca) => total + peca.aMais, 0),
+      vendaCancelada: comVendaCancelada.has(ordem.id),
     };
   });
 }

@@ -5,6 +5,7 @@ import {
   cancelamentoDaOrdemNoBanco,
   diaEmBrasilia,
   diaMes,
+  liberarOrdemNoBanco,
   movimentacoesDoItemNoBanco,
   numeroDoDocumentoNoBanco,
   semearBaixaDaOrdem,
@@ -23,6 +24,7 @@ import {
 const CATEGORIA_DE_COMPRA = "Argila, esmalte e insumos";
 const TOAST_CANCELADA = "Ordem cancelada. Ela continua em Concluídas e canceladas.";
 const FRASE_JA_ENCERRADA = "Esta ordem já foi concluída ou cancelada. A tela foi atualizada.";
+const FRASE_ORDEM_CANCELADA = "Esta ordem foi cancelada. A tela foi atualizada.";
 
 async function fazerLogin(page: Page) {
   await page.goto("/gestao/login");
@@ -35,6 +37,20 @@ async function fazerLogin(page: Page) {
 function nomeUnico(rotulo: string): string {
   const sufixo = `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   return `[e2e] ${rotulo} ${sufixo}`;
+}
+
+// Cancela a venda pelo caminho real do Caixa (o mesmo de `orcamentos-aprovacao.spec.ts` (f)): o
+// detalhe do documento → "Cancelar esta venda" → "Cancelar venda". Espera o TOAST, nunca a URL (o
+// aviso some da URL no mesmo instante — WINDOWS #49/#52).
+async function cancelarVendaPelaTela(page: Page, documentoId: string) {
+  await page.goto(`/gestao/financeiro?aba=caixa&documentoId=${documentoId}`);
+  const detalhe = page.getByTestId("documento-detalhe");
+  await expect(detalhe).toBeVisible();
+  await detalhe.getByRole("button", { name: "Cancelar esta venda" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar venda", exact: true }).click();
+  await expect(page.getByText(/Lançamento nº \d+ cancelado\. Continua visível, riscado\./)).toBeVisible({
+    timeout: 10000,
+  });
 }
 
 function semearOrdemAtivaDaCasa(nome: string) {
@@ -188,5 +204,138 @@ test.describe("producao cancelar ordem", () => {
     // Nada foi regravado: o mesmo instante, a mesma pessoa.
     expect(await cancelamentoDaOrdemNoBanco(ordemId)).toEqual(primeiro);
     await outraAba.close();
+  });
+});
+
+// A venda cancelada no Caixa chega à Produção (D-07, PRD-18): na MESMA transação de
+// `cancelarDocumento`, a ordem que ainda aguardava o sinal cai junto (`cancelada_pela_venda`); a já
+// liberada NÃO muda no banco — ganha o aviso (derivado na leitura) e o chip no quadro, e o dono
+// decide. Todas cancelam a venda pela tela do Financeiro, o caminho real.
+test.describe("producao venda cancelada", () => {
+  test("(a) ordem aguardando o sinal: cancelar a venda cancela a ordem junto — sai de “Aguardando o sinal” e diz “junto com a venda”", async ({
+    page,
+  }) => {
+    const { ordemId, documentoId } = await semearOrdemDeOrcamento({
+      nome: nomeUnico("Jogo cai com a venda"),
+      plano: "sinal",
+      sinalPago: false,
+    });
+    const numeroDaVenda = await numeroDoDocumentoNoBanco(documentoId);
+    const hoje = diaEmBrasilia();
+    const email = process.env.E2E_EMAIL_TESTE ?? "";
+
+    await fazerLogin(page);
+    await page.goto("/gestao/producao");
+    await expect(page.locator(`#aguardando-o-sinal [data-ordem-id="${ordemId}"]`)).toBeVisible();
+
+    await cancelarVendaPelaTela(page, documentoId);
+
+    const gravado = await cancelamentoDaOrdemNoBanco(ordemId);
+    expect(gravado).toMatchObject({ status: "cancelada", inicio: null, canceladaPelaVenda: true });
+    expect(gravado.canceladaEm).not.toBeNull();
+    expect(gravado.canceladaPorEmail?.toLowerCase()).toBe(email.toLowerCase());
+    expect((await vendaNoBanco(documentoId)).cancelada).toBe(true);
+
+    await page.goto("/gestao/producao");
+    await expect(page.locator(`[data-testid="producao-cartao"][data-ordem-id="${ordemId}"]`)).toHaveCount(0);
+
+    await page.goto(`/gestao/producao/${ordemId}`);
+    await expect(page.getByTestId("ordem-resultado")).toHaveText(
+      `Cancelada em ${diaMes(hoje)}, junto com a venda nº ${numeroDaVenda}.`,
+    );
+    await expect(page.getByTestId("producao-selo")).toHaveText("cancelada");
+    await expect(page.getByTestId("ordem-caixa-aguardando")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-cancelar")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-aviso-venda-cancelada")).toHaveCount(0);
+  });
+
+  test("(b) ordem já liberada: cancelar a venda NÃO muda a ordem — chip no quadro, aviso com “Cancelar ordem” dentro, que cancela", async ({
+    page,
+  }) => {
+    const { ordemId, documentoId } = await semearOrdemDeOrcamento({
+      nome: nomeUnico("Jogo liberado sem venda"),
+      plano: "sinal",
+      sinalPago: true,
+    });
+    const hoje = diaEmBrasilia();
+    await liberarOrdemNoBanco(ordemId, hoje);
+    const numeroDaVenda = await numeroDoDocumentoNoBanco(documentoId);
+    const quemCancelou = await nomeDoUsuario(process.env.E2E_EMAIL_TESTE ?? "");
+
+    await fazerLogin(page);
+    await cancelarVendaPelaTela(page, documentoId);
+
+    // D-07: a liberada segue — nada gravado nela.
+    expect(await cancelamentoDaOrdemNoBanco(ordemId)).toMatchObject({
+      status: "ativa",
+      inicio: hoje,
+      canceladaEm: null,
+      canceladaPelaVenda: false,
+    });
+
+    // UI-D19: o chip "venda cancelada" no cartão do quadro.
+    await page.goto("/gestao/producao");
+    const cartao = page.getByTestId("producao-quadro").locator(`[data-ordem-id="${ordemId}"]`);
+    await expect(cartao).toBeVisible();
+    await expect(cartao.getByTestId("cartao-venda-cancelada")).toHaveText("venda cancelada");
+
+    // A ordem: o aviso com o "Cancelar ordem" DENTRO, e só esse (o bloco de baixo some).
+    await page.goto(`/gestao/producao/${ordemId}`);
+    const aviso = page.getByTestId("ordem-aviso-venda-cancelada");
+    await expect(aviso).toHaveAttribute("role", "status");
+    await expect(aviso).toContainText(
+      `A venda nº ${numeroDaVenda} foi cancelada no Financeiro. A ordem continua — decida se ela segue ou se cancela.`,
+    );
+    await expect(page.getByTestId("ordem-cancelar")).toHaveCount(1);
+    await expect(page.getByTestId("ordem-bloco-cancelar")).toBeHidden();
+
+    await aviso.getByTestId("ordem-cancelar").click();
+    const dialogo = page.getByTestId("ordem-confirmar-cancelar");
+    await expect(dialogo).toContainText(`A venda nº ${numeroDaVenda} já foi cancelada no Financeiro.`);
+    await expect(dialogo).not.toContainText("não é cancelada junto");
+    await page.getByTestId("ordem-confirmar-cancelar-sim").click();
+    await expect(page.getByText(TOAST_CANCELADA)).toBeVisible();
+    await expect(page.getByTestId("ordem-resultado")).toHaveText(
+      `Cancelada em ${diaMes(hoje)} por ${quemCancelou}.`,
+    );
+    await expect(page.getByTestId("ordem-aviso-venda-cancelada")).toHaveCount(0);
+    expect(await cancelamentoDaOrdemNoBanco(ordemId)).toMatchObject({
+      status: "cancelada",
+      inicio: hoje,
+      canceladaPelaVenda: false,
+    });
+  });
+
+  test("(c) aba velha da ordem aguardando cuja venda foi cancelada: “Sinal recebido — começar” → “Esta ordem foi cancelada.” e nada muda", async ({
+    page,
+    context,
+  }) => {
+    const { ordemId, documentoId } = await semearOrdemDeOrcamento({
+      nome: nomeUnico("Jogo aba velha"),
+      plano: "sinal",
+      sinalPago: true,
+    });
+    const numeroDaVenda = await numeroDoDocumentoNoBanco(documentoId);
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/producao/${ordemId}`);
+    await expect(page.getByTestId("ordem-liberar")).toBeVisible();
+
+    // Noutra aba, a venda é cancelada no Caixa — a ordem cai junto.
+    const caixa = await context.newPage();
+    await cancelarVendaPelaTela(caixa, documentoId);
+    await caixa.close();
+    const cancelada = await cancelamentoDaOrdemNoBanco(ordemId);
+    expect(cancelada).toMatchObject({ status: "cancelada", inicio: null, canceladaPelaVenda: true });
+
+    // A aba velha ainda mostra a caixa e libera: recusado sob a trava da ordem.
+    await page.getByTestId("ordem-liberar").click();
+    await expect(page.getByTestId("ordem-liberar-erro")).toHaveText(FRASE_ORDEM_CANCELADA);
+    // A tela foi atualizada: a caixa sumiu, a frase ficou, e o resultado diz o que aconteceu.
+    await expect(page.getByTestId("ordem-caixa-aguardando")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-liberar-erro")).toHaveText(FRASE_ORDEM_CANCELADA);
+    await expect(page.getByTestId("ordem-resultado")).toContainText(`junto com a venda nº ${numeroDaVenda}.`);
+
+    expect(await cancelamentoDaOrdemNoBanco(ordemId)).toEqual(cancelada);
   });
 });

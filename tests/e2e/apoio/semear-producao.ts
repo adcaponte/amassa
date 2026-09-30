@@ -550,18 +550,28 @@ async function semearOrcamentoAprovado(
         congeladoEm: new Date().toISOString(),
       };
       const ano = Number(hoje.slice(0, 4));
-      // O sequencial disputa com os orçamentos que outros testes criam pela tela: tenta o próximo
-      // livre e, na colisão (23505), tenta de novo a partir de um ponto de salvamento.
+      // O sequencial sai do MESMO contador que a aplicação usa (`contadores_orcamento`,
+      // `lib/orcamentos/numero.ts`). Até o plano 06.1-06 saía de `max(sequencial) + 1`, que passava
+      // por fora do contador: o próximo "Novo orçamento" feito pela tela, em paralelo, recebia do
+      // contador um número que o semeador já tinha usado e caía em 23505
+      // (`orcamentos_ano_sequencial_uk`). O contador trava a linha do ano até o fim desta transação,
+      // então a tela espera em vez de colidir. A nova tentativa em 23505 fica para um orçamento que
+      // ainda tenha sido gravado por fora do contador (cada volta pede um número novo).
       let orcamentoId = "";
       for (let tentativa = 0; tentativa < 5 && !orcamentoId; tentativa += 1) {
+        const { rows: contador } = await conexao.query<{ ultimo_numero: number }>(
+          `insert into contadores_orcamento (ano, ultimo_numero) values ($1, 1)
+           on conflict (ano) do update set ultimo_numero = contadores_orcamento.ultimo_numero + 1
+           returning ultimo_numero`,
+          [ano],
+        );
         await conexao.query("savepoint orcamento");
         try {
           const { rows } = await conexao.query<{ id: string }>(
             `insert into orcamentos
                (ano, sequencial, status, cliente_nome, titulo, data, entrega_prevista, plano,
                 congelado_em, snapshot, documento_id, encomenda_id, criado_por)
-             values ($1, (select coalesce(max(sequencial), 0) + 1 from orcamentos where ano = $1),
-                     'aprovado', $2, $3, $4, $5, $6, now(), $7::jsonb, $8, $9, $10)
+             values ($1, $11, 'aprovado', $2, $3, $4, $5, $6, now(), $7::jsonb, $8, $9, $10)
              returning id`,
             [
               ano,
@@ -574,6 +584,7 @@ async function semearOrcamentoAprovado(
               documentoId,
               ordemId,
               criadoPor,
+              contador[0].ultimo_numero,
             ],
           );
           orcamentoId = rows[0].id;

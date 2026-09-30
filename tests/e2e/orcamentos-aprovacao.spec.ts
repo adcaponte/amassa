@@ -492,10 +492,10 @@ test.describe("orcamentos aprovacao", () => {
     const hrefDaOrdem = (await page.getByTestId("veredito-ver-encomenda").getAttribute("href")) ?? "";
     expect(hrefDaOrdem).toMatch(/^\/gestao\/producao\/[0-9a-f-]{36}$/);
 
-    // Fase 06.1: o "Cancelar ordem" da Produção é do plano 06.1-06 — até lá a ordem é liberada e
-    // cancelada direto no banco (com os checks de `inicio`/`cancelada_em`/`cancelada_por`). O que
-    // este caso prova é o que o ORÇAMENTO diz de uma ordem cancelada; o caminho da tela ganha o
-    // próprio e2e lá.
+    // Fase 06.1: a ordem é liberada e cancelada direto no banco (com os checks de
+    // `inicio`/`cancelada_em`/`cancelada_por`). O que este caso prova é o que o ORÇAMENTO diz de
+    // uma ordem cancelada; o caminho da tela ("Cancelar ordem", plano 06.1-06) tem o próprio e2e em
+    // `producao-cancelar.spec.ts`.
     await cancelarOrdemNoBanco(hrefDaOrdem.split("/").pop() ?? "", diaEmBrasilia());
 
     // Depois: o orçamento continua aprovado, e o veredito para de afirmar uma ordem que a

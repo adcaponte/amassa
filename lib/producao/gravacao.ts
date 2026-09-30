@@ -15,12 +15,14 @@
 // update` — é o que serializa duas decisões sobre a mesma ordem (dois celulares, toque duplo).
 //
 // Ordem de travas do sistema inteiro, para nunca haver ciclo (extensão do "DOCUMENTO → ITENS" de
-// `lib/estoque/gravacao.ts`): DOCUMENTO → ORDEM → ITENS. O cancelamento de venda trava o documento e
-// depois a ordem; a conclusão e a baixa travam a ordem e depois os itens; nenhuma ação da Produção
-// trava documento.
-import { asc, eq } from "drizzle-orm";
+// `lib/estoque/gravacao.ts`): DOCUMENTO → ORDEM → ITENS. O cancelamento de venda
+// (`lib/financeiro/acoes.ts::cancelarDocumento`) trava o documento, depois a ordem ligada à venda
+// (`cancelarOrdemDaVendaCancelada`, abaixo — plano 06, D-07) e só então os itens do estorno
+// (`gravarMovimentacoes`); a conclusão e a baixa travam a ordem e depois os itens; nenhuma ação da
+// Produção trava documento.
+import { asc, eq, sql } from "drizzle-orm";
 
-import { ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
+import { orcamentos, ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 
 import { etapasIniciais } from "./etapas";
@@ -151,4 +153,44 @@ export async function criarOrdemDoOrcamento(
   }
 
   return ordem.id;
+}
+
+// D-07 — a venda cancelada no Caixa chega à Produção. Chamada com a TRANSAÇÃO de
+// `lib/financeiro/acoes.ts::cancelarDocumento`, depois da trava do documento e da checagem de "já
+// cancelado", e ANTES do estorno do Estoque (ordem de travas DOCUMENTO → ORDEM → ITENS, no topo
+// deste arquivo). Acha a ordem ligada à venda pelo orçamento (o vínculo mora só em `orcamentos`:
+// `documento_id` → `encomenda_id`) e trava SÓ a ordem, com `for no key update` (Pitfall 5). Se ela
+// ainda aguarda o sinal, cai junto com a venda: `cancelada`, com `cancelada_pela_venda = true`. Em
+// qualquer outro status NADA é gravado (T-06.1-22): a ordem liberada segue, e o aviso "venda
+// cancelada" é derivado na leitura (`documentos.cancelado_em`) — o dono decide. Venda sem ordem
+// (orçamento aprovado com a caixa desmarcada, venda direta, ordem de boca ou da casa): a consulta
+// não acha nada e o cancelamento da venda segue igual ao de sempre. Devolve o que fez, para quem
+// chama poder registrar.
+export async function cancelarOrdemDaVendaCancelada(
+  tx: TransacaoDoBanco,
+  documentoId: string,
+  usuarioId: string,
+): Promise<"cancelada-junto" | "so-aviso" | "sem-ordem"> {
+  const [ordem] = await tx
+    .select({ id: ordensProducao.id, status: ordensProducao.status })
+    .from(ordensProducao)
+    .innerJoin(orcamentos, eq(orcamentos.encomendaId, ordensProducao.id))
+    .where(eq(orcamentos.documentoId, documentoId))
+    .for("no key update", { of: ordensProducao });
+  if (!ordem) {
+    return "sem-ordem";
+  }
+  if (ordem.status !== "aguardando_sinal") {
+    return "so-aviso";
+  }
+  await tx
+    .update(ordensProducao)
+    .set({
+      status: "cancelada",
+      canceladaEm: sql`now()`,
+      canceladaPor: usuarioId,
+      canceladaPelaVenda: true,
+    })
+    .where(eq(ordensProducao.id, ordem.id));
+  return "cancelada-junto";
 }

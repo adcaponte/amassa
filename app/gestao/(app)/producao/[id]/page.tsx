@@ -23,6 +23,7 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { AcoesDaOrdem } from "@/components/amassa/producao/acoes-da-ordem";
+import { AvisoVendaCancelada } from "@/components/amassa/producao/aviso-venda-cancelada";
 import { BlocoPecas } from "@/components/amassa/producao/bloco-pecas";
 import { CaixaAguardando } from "@/components/amassa/producao/caixa-aguardando";
 import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
@@ -38,7 +39,8 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // "Etapas" com o sub-título (UI-D17), a caixa "Aguardando o sinal" (plano 03), a trilha com o −/+
 // das etapas futuras e o parcial da atual (plano 05), as ações — "Desfazer a última" e "Terminei",
 // numa barra fixa no celular (UI-D3) — e a previsão de conclusão (plano 05); o bloco "Peças" (plano
-// 04); "Cancelar ordem" num bloco próprio e o resultado da cancelada (plano 06). Material e a
+// 04); "Cancelar ordem" num bloco próprio, o resultado da cancelada e o aviso de venda cancelada
+// no Caixa (plano 06, D-07). Material e a
 // conclusão chegam nos planos seguintes. Na etapa Entrega o "Terminei" não aparece: a última etapa
 // se conclui (plano 11).
 export default async function PaginaOrdem({ params }: { params: Promise<{ id: string }> }) {
@@ -65,6 +67,10 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   const folga = leitura.tipo === "em-andamento" ? textoPrevisao(leitura.folgaDias) : null;
   // Aguardando ou ativa: a ordem ainda se cancela (PRD-18). Concluída e cancelada não têm ações.
   const emAberto = ordem.status === "aguardando_sinal" || ordem.status === "ativa";
+  // D-07: a venda desta ordem LIBERADA foi cancelada no Caixa — derivado na leitura, a ordem não
+  // mudou. O aviso traz o "Cancelar ordem" dentro, e o bloco de baixo some.
+  const avisoVisivel = ordem.status === "ativa" && ordem.vendaCancelada && ordem.vendaNumero !== null;
+  const cancelarNoBloco = emAberto && !avisoVisivel;
 
   return (
     <>
@@ -104,9 +110,26 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
             </p>
           </div>
 
-          {ordem.status === "aguardando_sinal" || ordem.status === "ativa" ? (
-            // Montada nos dois estados, no mesmo lugar: a recusa de um segundo "Liberar" continua
-            // visível depois que a tela recarrega a ordem já liberada (ver `CaixaAguardando`).
+          {ordem.vendaCancelada &&
+          ordem.vendaNumero !== null &&
+          (ordem.status === "ativa" || ordem.status === "cancelada") ? (
+            // Montado também depois de cancelada (caixa escondida), no mesmo lugar: a recusa de um
+            // segundo "Cancelar ordem" continua visível no diálogo (ver `AvisoVendaCancelada`).
+            <AvisoVendaCancelada
+              ordemId={ordem.id}
+              nome={ordem.nome}
+              vendaNumero={ordem.vendaNumero}
+              baixasFeitas={ordem.baixasFeitas}
+              visivel={avisoVisivel}
+            />
+          ) : null}
+
+          {ordem.status === "aguardando_sinal" ||
+          ordem.status === "ativa" ||
+          ordem.status === "cancelada" ? (
+            // Montada nos três estados, no mesmo lugar: a recusa de um segundo "Liberar" continua
+            // visível depois que a tela recarrega a ordem já liberada — ou já cancelada, junto com a
+            // venda no Caixa (D-07) — (ver `CaixaAguardando`).
             <CaixaAguardando
               ordemId={ordem.id}
               aguardando={ordem.status === "aguardando_sinal"}
@@ -194,14 +217,15 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
           />
 
           {emAberto || ordem.status === "cancelada" ? (
-            // O bloco com "Cancelar ordem" (aguardando ou ativa), só o botão, à esquerda. Montado
+            // O bloco com "Cancelar ordem" (aguardando ou ativa), só o botão, à esquerda — escondido
+            // enquanto o aviso de venda cancelada mostra o dele (nunca dois botões iguais). Montado
             // também na cancelada, escondido: a recusa de um segundo "Cancelar" (outro celular)
             // continua visível no diálogo depois que a tela recarrega a ordem já cancelada.
             <div
               data-testid="ordem-bloco-cancelar"
               className={cn(
                 "bg-superficie border-borda flex rounded-lg border p-4",
-                !emAberto && "hidden",
+                !cancelarNoBloco && "hidden",
               )}
             >
               <ConfirmarCancelarOrdem
@@ -210,7 +234,7 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
                 baixasFeitas={ordem.baixasFeitas}
                 vendaNumero={ordem.vendaNumero}
                 vendaCancelada={ordem.vendaCancelada}
-                podeCancelar={emAberto}
+                podeCancelar={cancelarNoBloco}
               />
             </div>
           ) : null}

@@ -5,6 +5,7 @@ import type { OrdemEmAndamento } from "@/lib/producao/consultas";
 import type { LeituraDaOrdem, Selo } from "@/lib/producao/leitura";
 import {
   CHIP_DA_CASA,
+  CHIP_VENDA_CANCELADA,
   textoAguardandoNoCartao,
   textoDiasNestaEtapa,
   textoEntregaNoCartao,
@@ -108,8 +109,18 @@ export function CartaoOrdem({ ordem, leitura, selo }: CartaoOrdemProps) {
           ) : null}
         </span>
       )}
-      <span className="mt-1">
+      <span className="mt-1 flex flex-wrap gap-2">
         <ChipDoSelo selo={selo} />
+        {/* UI-D19: a venda desta ordem LIBERADA foi cancelada no Caixa (D-07) — derivado na leitura;
+            a ordem segue até o dono decidir. */}
+        {leitura.tipo === "em-andamento" && ordem.vendaCancelada ? (
+          <span
+            data-testid="cartao-venda-cancelada"
+            className="bg-atencao-fundo text-atencao text-apoio inline-flex rounded-full px-2 py-1 font-semibold whitespace-nowrap"
+          >
+            {CHIP_VENDA_CANCELADA}
+          </span>
+        ) : null}
       </span>
     </Link>
   );
