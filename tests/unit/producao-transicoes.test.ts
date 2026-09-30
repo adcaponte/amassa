@@ -4,6 +4,7 @@ import { etapasIniciais } from "@/lib/producao/etapas";
 import type { OrdemParaLeitura } from "@/lib/producao/leitura";
 import {
   planejarAjusteDePrevisto,
+  planejarCancelamento,
   planejarDesfazer,
   planejarLiberacao,
   planejarParcial,
@@ -469,5 +470,39 @@ describe("planejarParcial", () => {
   it("salvar o mesmo parcial de novo dá o mesmo valor (idempotente)", () => {
     const jaCom18 = comParcial(naSecagem, "secagem", 18);
     expect(planejarParcial(jaCom18, "secagem", 18, 30)).toEqual({ tipo: "ok", passaram: 18 });
+  });
+});
+
+// Plano 06 (PRD-18): cancelar a ordem só de aguardando ou ativa — decidido sob a trava. Concluída e
+// cancelada valem pelo que aconteceu: o segundo "Cancelar" (outro celular, toque duplo) recebe a
+// frase de estado já mudado, sem gravar nada. O plano só decide o status: venda, parcela e estoque
+// não entram (a ação não escreve neles).
+describe("planejarCancelamento", () => {
+  it("ordem aguardando o sinal → ok", () => {
+    expect(planejarCancelamento({ status: "aguardando_sinal" })).toEqual({ tipo: "ok" });
+  });
+
+  it("ordem ativa → ok", () => {
+    expect(planejarCancelamento({ status: "ativa" })).toEqual({ tipo: "ok" });
+  });
+
+  it("ordem concluída → recusa ja-encerrada", () => {
+    expect(planejarCancelamento({ status: "concluida" })).toEqual({
+      tipo: "recusa",
+      motivo: "ja-encerrada",
+    });
+  });
+
+  it("ordem já cancelada → recusa ja-encerrada (cancelar de novo não grava)", () => {
+    expect(planejarCancelamento({ status: "cancelada" })).toEqual({
+      tipo: "recusa",
+      motivo: "ja-encerrada",
+    });
+  });
+
+  it("aceita a ordem inteira lida para a trilha (só o status decide)", () => {
+    expect(planejarCancelamento(ordem({ feitas: { producao: "2026-03-03" } }))).toEqual({
+      tipo: "ok",
+    });
   });
 });

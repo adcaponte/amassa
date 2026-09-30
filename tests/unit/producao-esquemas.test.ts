@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   esquemaAjustarDiasPrevistos,
+  esquemaCancelarOrdem,
   esquemaDefinirAMais,
   esquemaDesfazerEtapa,
   esquemaRegistrarParcial,
@@ -158,5 +159,25 @@ describe("esquemaRegistrarParcial", () => {
 
   it("a frase do parcial fora da faixa é a da UI-SPEC", () => {
     expect(textoParcialInvalido(30)).toBe("Diga um número de 0 a 30.");
+  });
+});
+
+// "Cancelar ordem" (plano 06, PRD-18): do cliente chega SÓ o id — nada de status, data ou quem
+// cancelou; o resto o servidor decide sob a trava.
+describe("esquemaCancelarOrdem", () => {
+  it("aceita o id da ordem e descarta qualquer outro campo", () => {
+    const resultado = esquemaCancelarOrdem.safeParse({
+      ordemId: ORDEM,
+      status: "concluida",
+      canceladaPor: PECA,
+    });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).toEqual({ ordemId: ORDEM });
+  });
+
+  it.each([["não é uuid"], [""]])("recusa ordemId %p com a frase de ordem inexistente", (ordemId) => {
+    const resultado = esquemaCancelarOrdem.safeParse({ ordemId });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]?.message).toBe(FRASE_ORDEM_NAO_EXISTE);
   });
 });

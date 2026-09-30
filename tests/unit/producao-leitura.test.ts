@@ -164,9 +164,13 @@ describe("seloDaOrdem", () => {
     expect(seloDaOrdem(emAndamento(0, 0))).toEqual({ tipo: "no-ritmo" });
   });
 
-  it("concluída e cancelada → encerrada", () => {
+  it("concluída → encerrada", () => {
     expect(seloDaOrdem({ tipo: "concluida" })).toEqual({ tipo: "encerrada" });
-    expect(seloDaOrdem({ tipo: "cancelada" })).toEqual({ tipo: "encerrada" });
+  });
+
+  // Plano 06: a cancelada tem selo próprio, "cancelada" (neutro) — cancelada não é sucesso.
+  it("cancelada → cancelada", () => {
+    expect(seloDaOrdem({ tipo: "cancelada" })).toEqual({ tipo: "cancelada" });
   });
 });
 
