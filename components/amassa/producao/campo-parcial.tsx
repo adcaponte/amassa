@@ -33,6 +33,10 @@ export type CampoParcialProps = {
 // e só se o número mudou. Vazio = sem parcial. Em voo: "Salvando…" ao lado (`aria-live`). Erro:
 // embaixo, `role="alert"`, com o número digitado preservado. Nenhum toast: o número fica no campo
 // e o cartão do quadro acompanha.
+//
+// Valor novo do servidor (outro celular gravou o parcial, desfez ou marcou uma etapa — revisão 06.1,
+// WR-105): a base da comparação passa a ser ele, sempre; e o campo o mostra, a menos que a pessoa
+// esteja editando (digitou e ainda não gravou) ou tenha uma recusa na tela.
 export function CampoParcial({
   ordemId,
   tipo,
@@ -44,12 +48,23 @@ export function CampoParcial({
   const router = useRouter();
   const idDoErro = useId();
   const emVoo = useRef(false);
-  const inicial = passaram === null ? "" : String(passaram);
-  const [texto, setTexto] = useState(inicial);
-  // O último valor que o servidor confirmou — sair do campo sem mudar nada não grava.
-  const [gravado, setGravado] = useState(inicial);
+  const doServidor = passaram === null ? "" : String(passaram);
+  const [texto, setTexto] = useState(doServidor);
+  // O último valor que o servidor confirmou (ou trouxe) — sair do campo sem mudar nada não grava.
+  const [gravado, setGravado] = useState(doServidor);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // A pessoa digitou algo que ainda não foi gravado.
+  const [editado, setEditado] = useState(false);
+  const [ultimoDoServidor, setUltimoDoServidor] = useState(doServidor);
+
+  if (doServidor !== ultimoDoServidor) {
+    setUltimoDoServidor(doServidor);
+    setGravado(doServidor);
+    if (!editado && !erro) {
+      setTexto(doServidor);
+    }
+  }
 
   async function salvar() {
     if (emVoo.current || texto.trim() === gravado) {
@@ -69,6 +84,7 @@ export function CampoParcial({
           resultado.dados.passaram === null ? "" : String(resultado.dados.passaram);
         setGravado(confirmado);
         setTexto(confirmado);
+        setEditado(false);
       } else {
         setErro(resultado.erro);
         // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui. No
@@ -109,7 +125,10 @@ export function CampoParcial({
             aria-invalid={erro ? true : undefined}
             aria-describedby={erro ? idDoErro : undefined}
             value={texto}
-            onChange={(evento) => setTexto(evento.target.value)}
+            onChange={(evento) => {
+              setTexto(evento.target.value);
+              setEditado(true);
+            }}
             onBlur={() => void salvar()}
             onKeyDown={(evento) => {
               if (evento.key === "Enter") {

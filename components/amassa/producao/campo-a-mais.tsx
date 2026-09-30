@@ -24,15 +24,32 @@ export type CampoAMaisProps = {
 // e o chip e o cartão acompanham pela resposta da ação (que revalida a página). Em voo: "Salvando…" ao lado. Erro:
 // embaixo do campo, `role="alert"`, com o número digitado preservado — nunca apagado pela
 // atualização da tela (UI-SPEC §"Dois celulares ao mesmo tempo").
+//
+// Valor novo do servidor (outro celular mudou, e a tela recarregou — revisão 06.1, WR-105): a base
+// da comparação passa a ser ele, sempre; e o campo o mostra, a menos que a pessoa esteja editando
+// (digitou e ainda não gravou) ou tenha uma recusa na tela. Sem isso, o campo ficava no número
+// velho e "0" digitado sobre um 3 do servidor não gravava, porque batia com a base velha.
 export function CampoAMais({ ordemId, pecaId, nomeDaPeca, aMais }: CampoAMaisProps) {
   const router = useRouter();
   const idDoErro = useId();
   const emVoo = useRef(false);
-  const [texto, setTexto] = useState(String(aMais));
-  // O último valor que o servidor confirmou — sair do campo sem mudar nada não grava.
-  const [gravado, setGravado] = useState(String(aMais));
+  const doServidor = String(aMais);
+  const [texto, setTexto] = useState(doServidor);
+  // O último valor que o servidor confirmou (ou trouxe) — sair do campo sem mudar nada não grava.
+  const [gravado, setGravado] = useState(doServidor);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // A pessoa digitou algo que ainda não foi gravado.
+  const [editado, setEditado] = useState(false);
+  const [ultimoDoServidor, setUltimoDoServidor] = useState(doServidor);
+
+  if (doServidor !== ultimoDoServidor) {
+    setUltimoDoServidor(doServidor);
+    setGravado(doServidor);
+    if (!editado && !erro) {
+      setTexto(doServidor);
+    }
+  }
 
   async function salvar() {
     if (emVoo.current || texto.trim() === gravado) {
@@ -47,6 +64,7 @@ export function CampoAMais({ ordemId, pecaId, nomeDaPeca, aMais }: CampoAMaisPro
         const confirmado = String(resultado.dados.aMais);
         setGravado(confirmado);
         setTexto(confirmado);
+        setEditado(false);
       } else {
         setErro(resultado.erro);
         // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui. No
@@ -77,7 +95,10 @@ export function CampoAMais({ ordemId, pecaId, nomeDaPeca, aMais }: CampoAMaisPro
             aria-invalid={erro ? true : undefined}
             aria-describedby={erro ? idDoErro : undefined}
             value={texto}
-            onChange={(evento) => setTexto(evento.target.value)}
+            onChange={(evento) => {
+              setTexto(evento.target.value);
+              setEditado(true);
+            }}
             onBlur={() => void salvar()}
             onKeyDown={(evento) => {
               if (evento.key === "Enter") {
