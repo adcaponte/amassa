@@ -49,7 +49,8 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // Até aqui: o cabeçalho (nome com quebra livre, nunca truncado — `CabecalhoPagina`); o bloco
 // "Etapas" com o sub-título (UI-D17), a caixa "Aguardando o sinal" (plano 03), a trilha com o −/+
 // das etapas futuras e o parcial da atual (plano 05), as ações — "Desfazer a última" e "Terminei",
-// numa barra fixa no celular (UI-D3) — e a previsão de conclusão (plano 05); o bloco "Peças" (plano
+// numa fileira no fim do bloco (UI-D3, trocado pelo dono em 30/09/2026) — e a previsão de
+// conclusão (plano 05); o bloco "Peças" (plano
 // 04); "Cancelar ordem" num bloco próprio, o resultado da cancelada e o aviso de venda cancelada
 // no Caixa (plano 06, D-07); o bloco "Material usado" com a baixa pela ordem (plano 10 — a lista do
 // seletor "Qual material?" chega pelo MESMO carregador do Estoque, num `Suspense` que não segura a
@@ -145,13 +146,7 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
         </div>
       </CabecalhoPagina>
 
-      <div
-        className={cn(
-          "grid grid-cols-1 items-start gap-6 px-6 py-6 md:px-8 lg:grid-cols-[1.15fr_1fr]",
-          // No celular, a barra de ação fixa cobre o fim da página: reserva a altura dela a mais.
-          ativa && "pb-[calc(var(--altura-acao-fixa)+16px)] md:pb-6",
-        )}
-      >
+      <div className="grid grid-cols-1 items-start gap-6 px-6 py-6 md:px-8 lg:grid-cols-[1.15fr_1fr]">
         <section
           aria-labelledby="ordem-etapas-titulo"
           className="bg-superficie border-borda flex flex-col gap-4 rounded-lg border p-4"
@@ -222,7 +217,7 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
           />
 
           {/* Montadas em TODO estado, no mesmo lugar (revisão 06.1, WR-104 — o molde de
-              `CaixaAguardando`): fora da ordem ativa não há barra nem botão, mas a frase de uma
+              `CaixaAguardando`): fora da ordem ativa não há fileira nem botão, mas a frase de uma
               recusa ("já tinha sido marcada", a ordem concluída ou cancelada noutro celular)
               continua na tela depois da recarga que tira a ordem do andamento. */}
           <AcoesDaOrdem

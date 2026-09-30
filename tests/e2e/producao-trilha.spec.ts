@@ -11,7 +11,7 @@ import {
 // A trilha na mão (Fase 06.1, plano 05 — PRD-03, PRD-06, PRD-12; UI-D3, UI-D4, UI-D16): desfazer a
 // última com confirmação que diz a data que se perde; o −/+ dos dias previstos só nas etapas
 // futuras (aguardando: em todas); o parcial "já passaram [ ] de {total}" que aparece no quadro e
-// nunca move a ordem; a previsão de conclusão; e o "Terminei" numa barra fixa no celular. Cada
+// nunca move a ordem; a previsão de conclusão; e o "Terminei" no fim do bloco da trilha. Cada
 // teste semeia a PRÓPRIA ordem com nome único e a acha pelo id — nenhuma afirmação global do banco.
 // Nomes inventados com prefixo `[e2e]`.
 
@@ -192,7 +192,7 @@ test.describe("producao trilha", () => {
     await expect(page.getByTestId("ordem-etapa-producao")).toContainText("previsto 4 dias");
     expect(etapaNoBanco(await etapasDaOrdemNoBanco(ordemId), "producao").diasPrevistos).toBe(4);
 
-    await expect(page.getByTestId("ordem-barra-fixa")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-acoes")).toHaveCount(0);
     await expect(page.getByTestId("ordem-previsao")).toHaveCount(0);
   });
 
@@ -263,10 +263,12 @@ test.describe("producao trilha", () => {
     await expect(page.getByTestId("ordem-parcial")).toHaveCount(0);
   });
 
-  test("(d) celular: “Terminei” e “Desfazer” numa barra fixa, sem rolar; desktop: fileira no bloco", async ({
+  // UI-D3 trocado pelo dono em 30/09/2026 (Parte 0): sem barra fixa — no celular e no desktop, a
+  // fileira "Desfazer" + "Terminei" fica no fluxo, no fim do bloco "Etapas", logo depois da trilha.
+  test("(d) “Terminei” e “Desfazer” no fim do bloco da trilha, sem barra fixa, nas duas larguras", async ({
     page,
   }) => {
-    const ordemId = await semearNaTrilha(nomeUnico("Barra fixa"), {
+    const ordemId = await semearNaTrilha(nomeUnico("Fileira de ações"), {
       caminho: "biscoito",
       inicio: diaEmBrasilia(-20),
       etapasFeitas: [
@@ -278,32 +280,33 @@ test.describe("producao trilha", () => {
     await fazerLogin(page);
     await page.goto(`/gestao/producao/${ordemId}`);
 
-    const barra = page.getByTestId("ordem-barra-fixa");
-    const terminei = barra.getByTestId("ordem-terminei");
-    const desfazer = barra.getByTestId("ordem-desfazer");
+    const fileira = page.getByRole("region", { name: "Etapas" }).getByTestId("ordem-acoes");
+    const terminei = fileira.getByTestId("ordem-terminei");
+    const desfazer = fileira.getByTestId("ordem-desfazer");
     await expect(terminei).toHaveText("Terminei: Queima de biscoito");
+    await expect(desfazer).toHaveAccessibleName("Desfazer a última etapa: Secagem");
+
+    // No fluxo, nas duas larguras: nada preso na tela, nada que empurre o aviso (toast) para cima.
+    await expect(fileira).toHaveCSS("position", "static");
+    await expect(page.locator("[data-acao-fixa]")).toHaveCount(0);
+    // Logo depois da trilha: a fileira começa abaixo do fim da última etapa.
+    const caixaDaTrilha = await page.getByTestId("ordem-trilha").boundingBox();
+    const caixaDaFileira = await fileira.boundingBox();
+    const caixaDoTerminei = await terminei.boundingBox();
+    const caixaDoDesfazer = await desfazer.boundingBox();
+    expect(caixaDaTrilha && caixaDaFileira && caixaDoTerminei && caixaDoDesfazer).toBeTruthy();
+    expect(caixaDaFileira!.y).toBeGreaterThanOrEqual(caixaDaTrilha!.y + caixaDaTrilha!.height);
+    expect(caixaDoTerminei!.height).toBeGreaterThanOrEqual(52);
+    expect(caixaDoDesfazer!.height).toBeGreaterThanOrEqual(44);
 
     if (test.info().project.name.includes("celular")) {
-      await expect(barra).toHaveCSS("position", "fixed");
-      await expect(barra).toHaveAttribute("data-acao-fixa", "");
-      // Sem rolar: o botão já está na tela ao abrir a ordem.
-      await expect(terminei).toBeInViewport();
-      await expect(desfazer).toBeInViewport();
       // `innerText`: o rótulo da outra largura existe no DOM, escondido (`md:hidden` / `hidden md:inline`).
       await expect(desfazer).toHaveText("Desfazer", { useInnerText: true });
-      await expect(desfazer).toHaveAccessibleName("Desfazer a última etapa: Secagem");
-      // A barra fica acima da barra de navegação e o "Terminei" ocupa o resto da largura.
-      const caixaDaBarra = await barra.boundingBox();
-      const caixaDoBotao = await terminei.boundingBox();
-      expect(caixaDaBarra && caixaDoBotao).toBeTruthy();
-      expect(caixaDoBotao!.height).toBeGreaterThanOrEqual(52);
+      // Os dois na mesma linha, e o "Terminei" ocupa o resto da largura.
+      expect(Math.abs(caixaDoTerminei!.y - caixaDoDesfazer!.y)).toBeLessThan(2);
+      expect(caixaDoTerminei!.width).toBeGreaterThan(caixaDoDesfazer!.width);
     } else {
-      // No desktop não há barra fixa: a fileira fica no bloco "Etapas", à direita.
-      await expect(barra).toHaveCSS("position", "static");
       await expect(desfazer).toHaveText("Desfazer a última", { useInnerText: true });
-      await expect(
-        page.getByRole("region", { name: "Etapas" }).getByTestId("ordem-terminei"),
-      ).toBeVisible();
     }
   });
 

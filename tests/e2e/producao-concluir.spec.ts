@@ -169,7 +169,7 @@ test.describe("producao concluir", () => {
     );
     await expect(resultado.getByTestId("ordem-entrega-parcial")).toHaveCount(0);
     await expect(page.getByTestId("producao-selo")).toHaveText("concluída");
-    await expect(page.getByTestId("ordem-barra-fixa")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-acoes")).toHaveCount(0);
     await expect(page.getByTestId("ordem-concluir")).toHaveCount(0);
 
     // O histórico do Estoque: "Da Produção · {ordem} · …" com o chip "da Produção".

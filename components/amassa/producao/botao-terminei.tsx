@@ -31,17 +31,15 @@ export type BotaoTermineiProps = {
   // quando não há o que terminar (a Entrega se conclui; a ordem saiu do andamento): sem botão, só a
   // frase da última recusa — quem desenha o mantém montado (revisão 06.1, WR-104).
   etapa: EtapaProducao | null;
-  // Mora na barra de ação fixa (ordem ativa)? Fora dela, a frase vai no fluxo da página.
-  naBarra: boolean;
 };
 
 // "Terminei: {Etapa}" (UI-SPEC §Ações): primário, sem confirmação, sem campo, sem teclado — o
-// segundo toque do caminho do quadro à etapa marcada (Valor central). No celular ele mora na barra
-// de ação fixa (`BarraAcaoFixa`, UI-D3): `flex-1`, 52px no mínimo, quebra em duas linhas a 320px,
-// nunca reticências. Enquanto grava: "Marcando…", `disabled`, `aria-busy`. Sucesso: toast "Feito: X.
+// segundo toque do caminho do quadro à etapa marcada (Valor central). Mora na fileira do fim do
+// bloco "Etapas" (`FileiraDeAcoes`, UI-D3 — sem barra fixa desde 30/09/2026, troca do dono): no
+// celular `flex-1`, 52px no mínimo, quebra em duas linhas a 320px, nunca reticências. Enquanto grava: "Marcando…", `disabled`, `aria-busy`. Sucesso: toast "Feito: X.
 // Agora: Y." — SEM botão de desfazer (UI-D16: desfazer só pela confirmação que diz a data que se
 // perde); a resposta da ação traz a página revalidada. Recusa ("já tinha sido marcada", outro
-// celular) ou falha: a frase embaixo do botão (no celular, logo ACIMA da barra), `role="alert"`, e
+// celular) ou falha: a frase embaixo do botão, `role="alert"`, e
 // a tela recarrega o estado — mesmo que a recarga tire o botão (a ordem chegou à Entrega, ou saiu do
 // andamento), a frase fica (WR-104).
 //
@@ -51,7 +49,7 @@ export type BotaoTermineiProps = {
 // muda (marcada aqui, desfeita, ou mudada noutro celular e trazida por uma recarga), o botão novo
 // ignora toques por 1000 ms. O componente NÃO muda de chave quando a etapa muda: a frase de erro e
 // as travas sobrevivem.
-export function BotaoTerminei({ ordemId, tipo, etapa, naBarra }: BotaoTermineiProps) {
+export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [gravando, setGravando] = useState(false);
@@ -127,30 +125,26 @@ export function BotaoTerminei({ ordemId, tipo, etapa, naBarra }: BotaoTermineiPr
     }
   }
 
-  // As classes da frase: a bolha logo acima da barra no celular (a barra fixa é o bloco de referência
-  // do `absolute`), no fluxo no desktop; fora da barra, sempre no fluxo.
-  const classeDaFrase = naBarra
-    ? "text-apoio text-erro bg-superficie border-borda absolute inset-x-0 bottom-full mb-2 rounded-md border p-2 shadow-sm md:static md:mb-0 md:border-0 md:bg-transparent md:p-0 md:text-right md:shadow-none"
-    : "text-apoio text-erro";
+  // A frase fica no fluxo, embaixo do botão (sem barra fixa, não há bolha a ancorar). Com o botão,
+  // segue a coluna dele (à direita no desktop); sem botão, `w-full` — na fileira, que quebra linha,
+  // ela ganha a própria linha depois dos botões.
   const frase = erro ? (
-    <p data-testid="ordem-terminei-erro" role="alert" className={classeDaFrase}>
+    <p
+      data-testid="ordem-terminei-erro"
+      role="alert"
+      className={cn("text-apoio text-erro", etapa === null ? "w-full" : "md:text-right")}
+    >
       {erro}
     </p>
   ) : null;
 
   if (etapa === null) {
-    // Sem botão. Na barra, a bolha se ancora na própria barra (ganha a margem lateral dela).
-    return frase && naBarra ? (
-      <p data-testid="ordem-terminei-erro" role="alert" className={cn(classeDaFrase, "mx-6 md:mx-0")}>
-        {erro}
-      </p>
-    ) : (
-      frase
-    );
+    // Sem botão: só a frase da última recusa, se houver (WR-104).
+    return frase;
   }
 
   return (
-    <div className="relative flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
+    <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
       <Button
         type="button"
         data-testid="ordem-terminei"

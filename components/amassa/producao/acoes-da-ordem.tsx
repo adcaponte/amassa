@@ -12,7 +12,7 @@ import {
 } from "@/lib/producao/textos";
 import { Button } from "@/components/ui/button";
 
-import { BarraAcaoFixa, RotuloDesfazer } from "./barra-acao-fixa";
+import { FileiraDeAcoes, RotuloDesfazer } from "./fileira-de-acoes";
 import { BotaoTerminei } from "./botao-terminei";
 import { ConfirmarDesfazer, type AlvoDoDesfazer } from "./confirmar-desfazer";
 import { FolhaConclusao } from "./folha-conclusao";
@@ -21,7 +21,7 @@ export type AcoesDaOrdemProps = {
   ordemId: string;
   // A ordem está em andamento? A página monta este componente SEMPRE, no mesmo lugar (revisão 06.1,
   // WR-104 — o molde de `CaixaAguardando`): quando outro celular conclui ou cancela a ordem, a recarga
-  // a tira do estado ativo e a barra some, mas o componente continua montado e a frase da recusa
+  // a tira do estado ativo e a fileira some, mas o componente continua montado e a frase da recusa
   // (do "Terminei" ou do "Desfazer") fica na tela.
   ativa: boolean;
   tipo: TipoOrdem;
@@ -36,8 +36,9 @@ export type AcoesDaOrdemProps = {
 
 // As ações da ordem ATIVA (fora dela, só a frase da última recusa — ver `ativa`): "Desfazer a última" (`outline`,
 // desabilitado sem nenhuma etapa feita) e "Terminei: {Etapa}" (primário) — na última etapa,
-// "Entreguei" / "Guardar no estoque", que abre a folha de conclusão (plano 11). No celular, na barra de
-// ação fixa acima da navegação; no desktop, a fileira à direita (ver `BarraAcaoFixa`). "Desfazer"
+// "Entreguei" / "Guardar no estoque", que abre a folha de conclusão (plano 11). Numa fileira no fim
+// do bloco "Etapas", em toda largura (ver `FileiraDeAcoes`; sem barra fixa no celular desde
+// 30/09/2026 — UI-D3 trocado pelo dono na Parte 0). "Desfazer"
 // abre a confirmação com a etapa e a data FOTOGRAFADAS no toque (UI-D4).
 export function AcoesDaOrdem({
   ordemId,
@@ -54,7 +55,7 @@ export function AcoesDaOrdem({
 
   return (
     <>
-      <BarraAcaoFixa escondida={!ativa}>
+      <FileiraDeAcoes escondida={!ativa}>
         {ativa ? (
           <Button
             type="button"
@@ -77,14 +78,6 @@ export function AcoesDaOrdem({
             <RotuloDesfazer curto={ROTULO_DESFAZER} longo={ROTULO_DESFAZER_A_ULTIMA} />
           </Button>
         ) : null}
-        {/* Montado sempre, no mesmo lugar (WR-104): na Entrega, ou com a ordem fora do andamento, ele
-            não tem botão — só a frase da recusa, se houver, que assim sobrevive à recarga. */}
-        <BotaoTerminei
-          ordemId={ordemId}
-          tipo={tipo}
-          etapa={ativa ? etapaParaTerminar : null}
-          naBarra={ativa}
-        />
         {ativa && etapaParaTerminar === null && conclusao ? (
           // A última etapa: "Entreguei" (encomenda) / "Guardar no estoque" (casa) abre a conclusão —
           // sem campo parcial, sem gravar nada no toque (UI-SPEC §Ações).
@@ -97,7 +90,16 @@ export function AcoesDaOrdem({
             {rotuloDoConcluir(tipo)}
           </Button>
         ) : null}
-      </BarraAcaoFixa>
+        {/* Montado sempre, no mesmo lugar (WR-104): na Entrega, ou com a ordem fora do andamento, ele
+            não tem botão — só a frase da recusa, se houver, que assim sobrevive à recarga. Vem por
+            último no DOM: com botão, o "Entreguei" não existe (a ordem de tabulação continua
+            Desfazer → Terminei); sem botão, a frase ocupa uma linha inteira DEPOIS dos botões. */}
+        <BotaoTerminei
+          ordemId={ordemId}
+          tipo={tipo}
+          etapa={ativa ? etapaParaTerminar : null}
+        />
+      </FileiraDeAcoes>
       {conclusao && aberturaDaConclusao !== null ? (
         <FolhaConclusao
           key={aberturaDaConclusao}

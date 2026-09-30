@@ -107,9 +107,9 @@ test.describe("producao cancelar ordem", () => {
       `Cancelada em ${diaMes(hoje)} por ${quemCancelou}.`,
     );
     await expect(page.getByTestId("producao-selo")).toHaveText("cancelada");
-    // Nada fica editável: sem ações, sem barra fixa, sem "Cancelar ordem", sem −/+.
+    // Nada fica editável: sem a fileira de ações, sem "Cancelar ordem", sem −/+.
     await expect(page.getByTestId("ordem-cancelar")).toHaveCount(0);
-    await expect(page.getByTestId("ordem-barra-fixa")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-acoes")).toHaveCount(0);
     await expect(page.getByTestId("ordem-terminei")).toHaveCount(0);
     await expect(page.getByTestId("ordem-previsao")).toHaveCount(0);
     await expect(page.getByTestId(/^ordem-ajuste-/)).toHaveCount(0);
