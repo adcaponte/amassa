@@ -39,7 +39,7 @@ import { SeletorMaterial } from "./seletor-material";
 export type TipoDeMovimentacao = "entrada" | "saida" | "ajuste";
 
 // O que a folha e o seletor precisam, carregado JUNTO com a lista de saldos (a mesma consulta da
-// aba Saldos — `listarSaldosDaRequisicao`): as encomendas em andamento para "Qual encomenda?" e o
+// aba Saldos — `listarSaldosDaRequisicao`): as ordens de produção para "Qual ordem?" e o
 // custo por peça de cada peça pronta com ficha (`custosDasPecasProntas`), como objeto simples (o
 // `Map` do servidor não atravessa a fronteira como `Map` em todo lugar; um objeto sempre).
 export type DadosDoEstoque = {

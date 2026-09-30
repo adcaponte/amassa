@@ -14,11 +14,11 @@ import { db } from "@/db";
 import {
   categorias,
   documentos,
-  encomendas,
   fichaTecnica,
   fichasPrecificacao,
   itensCatalogo,
   movimentacoesEstoque,
+  ordensProducao,
   usuarios,
 } from "@/db/schema";
 import type { Unidade } from "@/lib/cadastros/catalogo";
@@ -180,26 +180,42 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
 export const listarSaldosDaRequisicao = cache(listarSaldos);
 
 // ---------------------------------------------------------------------------------------------
-// A folha completa (plano 06-05): as encomendas do vínculo e o custo da peça pronta.
+// A folha completa (plano 06-05): as ordens do vínculo e o custo da peça pronta.
 // ---------------------------------------------------------------------------------------------
 
+// Fase 06.1 (plano 02): "encomenda" nos nomes do Estoque (`EncomendaParaVinculo`, `encomendaId`,
+// `listarEncomendasParaVinculo`, `encomendaEmAndamento`) é o destino "Consumo em encomenda" — o
+// vínculo aponta para a ORDEM DE PRODUÇÃO (encomenda ou produção da casa), como a coluna
+// `movimentacoes_estoque.encomenda_id` desde a 0024. Os nomes ficam pela mesma razão dos nomes de
+// coluna do plano 06.1-01: o Estoque verificado não muda de campo.
 export type EncomendaParaVinculo = {
   id: string;
-  // O que o índice de Encomendas mostra como título do cartão (o nome da encomenda).
+  // O texto da opção: "{nome} · {cliente}" na encomenda, "{nome} · da casa" na produção da casa.
   rotulo: string;
-  clienteNome: string | null;
 };
 
-// As opções de "Qual encomenda?" (D-15): as encomendas EM ANDAMENTO — o mesmo critério de
-// `listarEncomendasAtivas` (lib/encomendas/consultas.ts: rascunho ou em produção), na mesma ordem
-// (`data_inicio` ascendente), sem itens nem etapas (a folha só precisa do rótulo). A ação confere
-// de novo, dentro da transação, que a escolhida continua em andamento (`encomendaEmAndamento`).
+// A opção de "Qual ordem?" (UI-SPEC, §Religamentos fora da Produção).
+export function rotuloDaOrdemParaVinculo(nome: string, clienteNome: string | null): string {
+  return `${nome} · ${clienteNome ?? "da casa"}`;
+}
+
+// As opções de "Qual ordem?" (UI-D12): as ordens EM ANDAMENTO ou AGUARDANDO O SINAL, pelo número
+// (a mais antiga primeiro). A ação confere de novo, dentro da transação, que a escolhida continua
+// num desses dois estados (`encomendaEmAndamento`, `lib/estoque/gravacao.ts`).
 export async function listarEncomendasParaVinculo(): Promise<EncomendaParaVinculo[]> {
-  return db
-    .select({ id: encomendas.id, rotulo: encomendas.nome, clienteNome: encomendas.clienteNome })
-    .from(encomendas)
-    .where(inArray(encomendas.status, ["rascunho", "em_producao"]))
-    .orderBy(asc(encomendas.dataInicio));
+  const linhas = await db
+    .select({
+      id: ordensProducao.id,
+      nome: ordensProducao.nome,
+      clienteNome: ordensProducao.clienteNome,
+    })
+    .from(ordensProducao)
+    .where(inArray(ordensProducao.status, ["aguardando_sinal", "ativa"]))
+    .orderBy(asc(ordensProducao.numero));
+  return linhas.map((linha) => ({
+    id: linha.id,
+    rotulo: rotuloDaOrdemParaVinculo(linha.nome, linha.clienteNome),
+  }));
 }
 
 // EST-21/D-22: o custo por peça de cada peça pronta, pela ficha de precificação LIGADA ao item (a

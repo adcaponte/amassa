@@ -40,11 +40,11 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { db } from "@/db";
 import {
   categorias,
-  encomendas,
   fichaTecnica,
   fichasPrecificacao,
   itensCatalogo,
   movimentacoesEstoque,
+  ordensProducao,
 } from "@/db/schema";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import type { Unidade } from "@/lib/cadastros/catalogo";
@@ -434,20 +434,26 @@ export async function itemTemFichaDePrecificacao(
   return linha !== undefined;
 }
 
-// A encomenda do vínculo, se ainda está EM ANDAMENTO (o critério de `listarEncomendasAtivas`:
-// rascunho ou em produção) — `null` se não existe ou foi encerrada (T-06-24). `for key share`
-// segura a linha até o fim da transação: ninguém a apaga entre esta leitura e o `insert` da
-// movimentação (a chave estrangeira pediria a mesma trava de qualquer jeito). Devolve o nome — o
-// que o índice de Encomendas mostra —, que a ação congela em `nota` (Pitfall 10).
+// A ORDEM DE PRODUÇÃO do vínculo "Consumo em encomenda" (Fase 06.1 — o nome da função é o do
+// destino; ver o comentário de `EncomendaParaVinculo`), se ainda está aguardando o sinal ou em
+// andamento — `null` se não existe, foi concluída ou cancelada (T-06.1-09). `for key share`, e não
+// `for no key update`: este é o lado LEITOR da ordem de travas DOCUMENTO → ORDEM → ITENS; a
+// Produção trava a ordem com `for no key update` (`lib/producao/gravacao.ts::travarOrdem`), que
+// não conflita com esta (Pitfall 5) — dar baixa não espera um "Terminei", nem o contrário. A trava
+// segura a linha até o fim da transação (a chave estrangeira pediria a mesma de qualquer jeito).
+// Devolve o nome, que a ação congela em `nota` (Pitfall 10).
 export async function encomendaEmAndamento(
   tx: TransacaoDoBanco,
   encomendaId: string,
 ): Promise<{ id: string; nome: string } | null> {
   const [linha] = await tx
-    .select({ id: encomendas.id, nome: encomendas.nome })
-    .from(encomendas)
+    .select({ id: ordensProducao.id, nome: ordensProducao.nome })
+    .from(ordensProducao)
     .where(
-      and(eq(encomendas.id, encomendaId), inArray(encomendas.status, ["rascunho", "em_producao"])),
+      and(
+        eq(ordensProducao.id, encomendaId),
+        inArray(ordensProducao.status, ["aguardando_sinal", "ativa"]),
+      ),
     )
     .for("key share");
   return linha ?? null;

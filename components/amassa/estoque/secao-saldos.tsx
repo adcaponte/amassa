@@ -25,8 +25,8 @@ export type SecaoSaldosProps = {
 // `try`/`catch`; a falha vai para o log do servidor (nunca detalhe do banco na tela — T-06-20) e a
 // tela mostra o `EstadoErro` com a frase humana e "Tentar de novo".
 //
-// Junto com a lista vêm o que a folha de movimentação precisa (plano 06-06): as encomendas em
-// andamento ("Qual encomenda?") e o custo por peça das peças prontas com ficha, com os parâmetros
+// Junto com a lista vêm o que a folha de movimentação precisa (plano 06-06): as ordens de
+// produção ("Qual ordem?") e o custo por peça das peças prontas com ficha, com os parâmetros
 // de HOJE em Brasília — lidos por `lerDadosDoEstoque` (carregador-do-seletor.tsx), a MESMA função que
 // entrega a lista ao provedor nas outras abas (plano 06-07). Tudo vai ao `ProvedorDoEstoque` pela `EntregaDoEstoque` — o seletor "Qual
 // material?" usa esta MESMA lista e abre sem consulta nova. Se a leitura falha, o provedor recebe o

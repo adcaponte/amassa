@@ -21,10 +21,11 @@ import {
   DICA_DESTINO,
   DICA_MOTIVO_AJUSTE,
   DICA_VINCULO_OPCIONAL,
+  DICA_VINCULO_ORDEM,
   FRASE_CONTADO_VAZIO,
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
-  FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
+  FRASE_ORDEM_FORA_DE_ANDAMENTO,
   FRASE_FALHA_AO_REGISTRAR,
   FRASE_QUANTIDADE_INVALIDA,
   FRASE_QUANTIDADE_ZERO,
@@ -99,7 +100,8 @@ type ErroDaFolha = { campo: CampoDaFolha; mensagem: string };
 export type FolhaMovimentacaoProps = {
   saldo: SaldoDoItem;
   tipoInicial: TipoDeMovimentacao;
-  // As encomendas em andamento, carregadas com a página (`listarEncomendasParaVinculo`).
+  // As ordens de produção aguardando o sinal ou em andamento, carregadas com a página
+  // (`listarEncomendasParaVinculo`) — o vínculo "Qual ordem?" do destino "Consumo em encomenda".
   encomendas: readonly EncomendaParaVinculo[];
   // Custo por peça pela ficha de precificação (`custosDasPecasProntas`); `null` = sem ficha, ou
   // ficha sem custo calculável — o custo vem vazio e obrigatório (D-22).
@@ -320,7 +322,7 @@ export function FolhaMovimentacao({
   function campoDaFraseDoServidor(mensagem: string): CampoDaFolha {
     if (mensagem === FRASE_CUSTO_OBRIGATORIO) return "custo";
     if (mensagem === FRASE_DESTINO_OBRIGATORIO) return "destino";
-    if (mensagem === FRASE_ENCOMENDA_FORA_DE_ANDAMENTO) return "vinculo";
+    if (mensagem === FRASE_ORDEM_FORA_DE_ANDAMENTO) return "vinculo";
     if (mensagem === FRASE_CONTADO_VAZIO) return tipo === "ajuste" ? "contado" : "geral";
     if (mensagem === FRASE_VINCULO_LONGO) return tipo === "ajuste" ? "motivo" : "vinculo";
     if (mensagem === FRASE_QUANTIDADE_ZERO || mensagem === FRASE_QUANTIDADE_INVALIDA) {
@@ -718,7 +720,7 @@ export function FolhaMovimentacao({
                       {ROTULO_VINCULO_ENCOMENDA}
                     </label>
                     <p id="folha-vinculo-encomenda-dica" className="text-apoio text-tinta-fraca">
-                      {DICA_VINCULO_OPCIONAL}
+                      {DICA_VINCULO_ORDEM}
                     </p>
                     <select
                       id="folha-vinculo-encomenda"
@@ -736,9 +738,7 @@ export function FolhaMovimentacao({
                       <option value="">{OPCAO_NENHUMA_ENCOMENDA}</option>
                       {encomendas.map((encomenda) => (
                         <option key={encomenda.id} value={encomenda.id}>
-                          {encomenda.clienteNome
-                            ? `${encomenda.rotulo} · ${encomenda.clienteNome}`
-                            : encomenda.rotulo}
+                          {encomenda.rotulo}
                         </option>
                       ))}
                     </select>

@@ -51,7 +51,7 @@ import { areaDoItemNoEstoque } from "./saldo";
 import { pedidoDeEntradaManual, pedidoDeSaidaManual, type PedidoDeMovimentacao } from "./pedidos";
 import {
   FRASE_CUSTO_OBRIGATORIO,
-  FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
+  FRASE_ORDEM_FORA_DE_ANDAMENTO,
   FRASE_ERRO_CARREGAR_MATERIAL,
   FRASE_FALHA_AO_CADASTRAR,
   FRASE_FALHA_AO_GRAVAR_CONTAGEM,
@@ -89,7 +89,7 @@ class MaterialDesativado extends Error {
     super(`Material desativado: ${nome}`);
   }
 }
-class EncomendaForaDeAndamento extends Error {}
+class OrdemForaDeAndamento extends Error {}
 class CustoDaPecaProntaZerado extends Error {}
 // A contagem recusada SOB A TRAVA, com a frase de `gravarContagem`: a primeira contagem ficou
 // positiva e veio sem custo (`planejarContagem`), ou o custo foi digitado contra um saldo que já
@@ -103,8 +103,8 @@ class RecusaDaContagem extends Error {
   }
 }
 
-// O nome da encomenda, CONGELADO em `nota` (Pitfall 10): se ela for apagada, `encomenda_id` vira
-// nulo (`on delete set null`) e o nome fica. O nome tem até 120 caracteres (check de `encomendas`),
+// O nome da ordem de produção, CONGELADO em `nota` (Pitfall 10): o histórico lê o nome dali, mesmo
+// que a ordem mude de nome depois. O nome tem até 120 caracteres (check de `ordens_producao`),
 // abaixo dos 160 da `nota` — o corte por pontos de código é só defesa.
 function notaDaEncomenda(nome: string): string {
   return [...nome.normalize("NFC").trim()].slice(0, LIMITE_DO_VINCULO).join("");
@@ -112,8 +112,8 @@ function notaDaEncomenda(nome: string): string {
 
 type DadosDeEntradaOuSaida = Exclude<RegistrarMovimentacaoValidado, { tipo: "ajuste" }>;
 
-// O pedido da entrada ou da saída, montado DENTRO da transação: a peça pronta e a encomenda são
-// conferidas no banco, com a `tx`, nunca aceitas do cliente (T-06-23, T-06-24).
+// O pedido da entrada ou da saída, montado DENTRO da transação: a peça pronta e a ordem do vínculo
+// são conferidas no banco, com a `tx`, nunca aceitas do cliente (T-06-23, T-06.1-09).
 async function pedidoDaFolha(
   tx: TransacaoDoBanco,
   dados: DadosDeEntradaOuSaida,
@@ -138,12 +138,12 @@ async function pedidoDaFolha(
   let encomendaId: string | null = null;
   let nota: string | null = dados.turmaTexto ?? dados.oQueAconteceuTexto;
   if (dados.encomendaId) {
-    const encomenda = await encomendaEmAndamento(tx, dados.encomendaId);
-    if (!encomenda) {
-      throw new EncomendaForaDeAndamento();
+    const ordem = await encomendaEmAndamento(tx, dados.encomendaId);
+    if (!ordem) {
+      throw new OrdemForaDeAndamento();
     }
-    encomendaId = encomenda.id;
-    nota = notaDaEncomenda(encomenda.nome);
+    encomendaId = ordem.id;
+    nota = notaDaEncomenda(ordem.nome);
   }
   return pedidoDeSaidaManual({
     itemId: dados.itemId,
@@ -241,8 +241,8 @@ export async function registrarMovimentacao(
     if (erro instanceof MaterialDesativado) {
       return { ok: false, erro: fraseMaterialDesativado(erro.nome) };
     }
-    if (erro instanceof EncomendaForaDeAndamento) {
-      return { ok: false, erro: FRASE_ENCOMENDA_FORA_DE_ANDAMENTO };
+    if (erro instanceof OrdemForaDeAndamento) {
+      return { ok: false, erro: FRASE_ORDEM_FORA_DE_ANDAMENTO };
     }
     if (erro instanceof CustoDaPecaProntaZerado) {
       return { ok: false, erro: FRASE_CUSTO_OBRIGATORIO };

@@ -192,7 +192,9 @@ export const PLACEHOLDER_MOTIVO_AJUSTE = "Conferência da prateleira";
 
 // §Rótulos e dicas de campo — os vínculos da saída (todos opcionais).
 export const ROTULO_VINCULO_TURMA = "Qual turma?";
-export const ROTULO_VINCULO_ENCOMENDA = "Qual encomenda?";
+// Fase 06.1 (UI-D12): o vínculo aponta para a ordem de produção — encomenda ou produção da casa.
+export const ROTULO_VINCULO_ENCOMENDA = "Qual ordem?";
+export const DICA_VINCULO_ORDEM = "opcional — ordens em andamento ou aguardando o sinal";
 export const ROTULO_VINCULO_O_QUE_ACONTECEU = "O que aconteceu?";
 export const DICA_VINCULO_OPCIONAL = "opcional";
 export const OPCAO_NENHUMA_ENCOMENDA = "Nenhuma";
@@ -217,8 +219,8 @@ export const FRASE_CONTADO_VAZIO = "Diga quanto tem na prateleira — pode ser z
 // O `check` `movimentacoes_estoque_nota_comprimento` do banco é o mesmo limite, em caracteres.
 export const LIMITE_DO_VINCULO = 160;
 export const FRASE_VINCULO_LONGO = "Esse texto cabe em até 160 letras — resuma um pouco.";
-export const FRASE_ENCOMENDA_FORA_DE_ANDAMENTO =
-  "Essa encomenda não está mais em andamento — escolha outra ou deixe em branco.";
+export const FRASE_ORDEM_FORA_DE_ANDAMENTO =
+  "Essa ordem já foi concluída ou cancelada. Escolha outra, ou nenhuma.";
 
 // §Pré-visualização — "o saldo passa de X para Y" (rodapé da folha). As partes em destaque são
 // montadas por `previaDaMovimentacao` (saldo.ts); aqui só os pedaços de texto.
