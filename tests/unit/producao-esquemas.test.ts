@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   esquemaAjustarDiasPrevistos,
   esquemaCancelarOrdem,
+  esquemaConcluirOrdem,
   esquemaCriarOrdem,
   esquemaDefinirAMais,
   esquemaDesfazerEtapa,
@@ -489,5 +490,28 @@ describe("validarNovaOrdem", () => {
     expect(resultado.ok && resultado.dados.pecas).toEqual([
       { origem: "ficha", fichaId: FICHA, quantidade: 1 },
     ]);
+  });
+});
+
+// Revisão 06.1, WR-02: a conclusão não tem o teto de 50 da "Nova ordem" — a ordem vinda de orçamento
+// tem uma peça por linha, sem limite, e a lista é conferida sob a trava contra as peças da ordem.
+describe("esquemaConcluirOrdem", () => {
+  function pecaDaConclusao(indice: number) {
+    const sufixo = indice.toString(16).padStart(12, "0");
+    return { pecaId: `5e4d3c2b-1a09-4f8e-8d7c-${sufixo}`, perdidasTexto: "", destino: null };
+  }
+
+  it(`aceita mais peças que LIMITE_DE_PECAS_POR_ORDEM (${LIMITE_DE_PECAS_POR_ORDEM}) — a ordem do orçamento não tem teto`, () => {
+    const quantas = LIMITE_DE_PECAS_POR_ORDEM + 30;
+    const resultado = esquemaConcluirOrdem.safeParse({
+      ordemId: ORDEM,
+      pecas: Array.from({ length: quantas }, (_, indice) => pecaDaConclusao(indice)),
+    });
+    expect(resultado.success).toBe(true);
+    expect(resultado.success && resultado.data.pecas).toHaveLength(quantas);
+  });
+
+  it("continua recusando a lista vazia", () => {
+    expect(esquemaConcluirOrdem.safeParse({ ordemId: ORDEM, pecas: [] }).success).toBe(false);
   });
 });

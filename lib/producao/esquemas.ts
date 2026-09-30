@@ -549,8 +549,14 @@ export const esquemaConcluirOrdem = z.object({
         })),
       { error: FRASE_FALHA_AO_CONCLUIR },
     )
-    .min(1, FRASE_FALHA_AO_CONCLUIR)
-    .max(LIMITE_DE_PECAS_POR_ORDEM, FRASE_FALHA_AO_CONCLUIR),
+    // SEM teto fixo aqui (revisão 06.1, WR-02): a ordem vinda de orçamento (`criarOrdemDoOrcamento`
+    // e o bloco D-02 da 0024) tem uma peça por linha do orçamento, sem limite — um teto de 50
+    // deixaria a ordem de 51 linhas presa na Entrega para sempre. Quem confere a lista é
+    // `concluirOrdem`, SOB A TRAVA: cada peça da ordem exatamente uma vez, contra as peças que a
+    // própria ordem tem (senão "As peças desta ordem mudaram…" e a tela recarrega). O teto de 50
+    // (`LIMITE_DE_PECAS_POR_ORDEM`) continua só na CRIAÇÃO à mão, em `esquemaCriarOrdem`; o corpo
+    // de uma Server Action já é limitado pelo `bodySizeLimit` de `next.config.ts`.
+    .min(1, FRASE_FALHA_AO_CONCLUIR),
 });
 
 export type ConcluirOrdemValidado = z.infer<typeof esquemaConcluirOrdem>;
