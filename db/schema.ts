@@ -217,6 +217,161 @@ export const encomendaEtapas = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------------------------
+// Fase 06.1 — Produção (migração 0024_producao). O redesenho das Encomendas: a ordem de produção
+// deixa de ter um cronograma CALCULADO pelo calendário e passa a ter etapas MARCADAS como feitas
+// (`ordem_etapas.feita_em`, a data real, decidida no servidor). A etapa atual é a primeira sem
+// `feita_em`; nada aqui deduz a etapa da data (PRD-12).
+//
+// - D-01: as tabelas `encomendas*` acima FICAM neste arquivo até o plano 06.1-14 — a `0024` só
+//   cria, religa e grava o dado do D-02; quem apaga as velhas é a `0025`. Gerar as duas num diff
+//   só faria o `drizzle-kit` perguntar "criada ou renomeada?" (06.1-RESEARCH.md, Pitfall 3).
+// - D-02: orçamento aprovado e ativo com encomenda provisória ganha, NA migração, a ordem
+//   "aguardando o sinal" — com o MESMO id da encomenda (bloco à mão da `0024`).
+// - D-09: a `0024` e a `0025` vão na mesma publicação e são aplicadas numa sessão só de
+//   `db:migrate`, pelo dono, depois de backup (Roteiro 16, plano 06.1-15).
+// - D-10: os dias previstos padrão (5/15/1/1/4/6) moram em `lib/producao/etapas.ts`
+//   (`DIAS_PREVISTOS_PADRAO`); o bloco (b) da `0024` repete os números e um teste compara.
+// - Os dois vínculos que apontavam para `encomendas` (`orcamentos.encomenda_id` e
+//   `movimentacoes_estoque.encomenda_id`) MANTÊM O NOME e passam a apontar para
+//   `ordens_producao` — "encomenda_id" é o nome histórico do vínculo com a ordem de produção.
+//   Decisão do plano 06.1-01: renomear faria o `drizzle-kit` perguntar (Pitfall 3), o destino
+//   "Consumo em encomenda" do livro continua existindo com esse nome, e o Estoque, que está no
+//   ar e verificado, não precisa mudar de nome de campo. Sem `on delete`: ordem não se apaga
+//   (`revoke delete` das três tabelas para `amassa_app`, à mão na `0024`) — só se cancela.
+//
+// `etapa_producao` tem os MESMOS seis valores de `etapa_encomenda`: é o que mantém os tokens
+// `--color-{etapa}` de `app/globals.css` (os "NÃO ALTERAR") valendo sem tradução.
+// ---------------------------------------------------------------------------------------------
+export const tipoOrdem = pgEnum("tipo_ordem", ["encomenda", "casa"]);
+export const caminhoOrdem = pgEnum("caminho_ordem", ["completo", "biscoito"]);
+export const statusOrdem = pgEnum("status_ordem", [
+  "aguardando_sinal",
+  "ativa",
+  "concluida",
+  "cancelada",
+]);
+export const etapaProducao = pgEnum("etapa_producao", [
+  "producao",
+  "secagem",
+  "queima1",
+  "esmaltacao",
+  "queima2",
+  "entrega",
+]);
+export const destinoExtras = pgEnum("destino_extras", ["estoque", "sem_destino"]);
+// Qual material do previsto uma baixa "consumo em encomenda" cobre (a ficha diz "argila" e
+// "esmalte" sem dizer qual item do estoque — a escolha é de quem dá a baixa).
+export const materialDaOrdem = pgEnum("material_da_ordem", ["argila", "esmalte"]);
+
+// A ordem de produção: encomenda (tem cliente) ou produção da casa. `inicio` nulo = aguardando o
+// sinal (o prazo ainda não conta); `concluida_em` e `cancelada_em` andam junto do status — os
+// `check`s abaixo fazem disso invariante do banco, não só da tela. Datas civis em `date`
+// (`mode: "string"`, `YYYY-MM-DD` do banco à tela); o cancelamento é um momento (`timestamptz`).
+export const ordensProducao = pgTable(
+  "ordens_producao",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    // "ordem nº 9" — gerado pelo banco, nunca pela aplicação.
+    numero: integer("numero").notNull().generatedAlwaysAsIdentity(),
+    tipo: tipoOrdem("tipo").notNull(),
+    caminho: caminhoOrdem("caminho").notNull().default("completo"),
+    status: statusOrdem("status").notNull(),
+    nome: text("nome").notNull(),
+    clienteNome: text("cliente_nome"),
+    entregaPrometida: date("entrega_prometida", { mode: "string" }),
+    inicio: date("inicio", { mode: "string" }),
+    concluidaEm: date("concluida_em", { mode: "string" }),
+    entregaParcial: boolean("entrega_parcial").notNull().default(false),
+    canceladaEm: timestamp("cancelada_em", { withTimezone: true }),
+    canceladaPor: uuid("cancelada_por").references(() => usuarios.id),
+    // D-07: a ordem ainda aguardando o sinal cancelada JUNTO com a venda no Caixa.
+    canceladaPelaVenda: boolean("cancelada_pela_venda").notNull().default(false),
+    // `set null`, como em `encomendas`: desativar/remover uma conta nunca apaga o histórico.
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("ordens_producao_numero_uk").on(tabela.numero),
+    check(
+      "ordens_producao_nome_comprimento",
+      sql`length(trim(${tabela.nome})) between 1 and 120`,
+    ),
+    check(
+      "ordens_producao_cliente_comprimento",
+      sql`${tabela.clienteNome} is null or length(trim(${tabela.clienteNome})) between 1 and 160`,
+    ),
+    check(
+      "ordens_producao_cliente_so_em_encomenda",
+      sql`${tabela.tipo} = 'encomenda' or ${tabela.clienteNome} is null`,
+    ),
+    check(
+      "ordens_producao_aguardando_sem_inicio",
+      sql`(${tabela.status} = 'aguardando_sinal') = (${tabela.inicio} is null)`,
+    ),
+    check(
+      "ordens_producao_concluida_com_data",
+      sql`(${tabela.status} = 'concluida') = (${tabela.concluidaEm} is not null)`,
+    ),
+    check(
+      "ordens_producao_cancelada_com_data",
+      sql`(${tabela.status} = 'cancelada') = (${tabela.canceladaEm} is not null)`,
+    ),
+    check(
+      "ordens_producao_cancelada_por",
+      sql`${tabela.canceladaEm} is null or ${tabela.canceladaPor} is not null`,
+    ),
+    check(
+      "ordens_producao_parcial_so_concluida",
+      sql`not ${tabela.entregaParcial} or ${tabela.status} = 'concluida'`,
+    ),
+    check(
+      "ordens_producao_pela_venda_so_cancelada",
+      sql`not ${tabela.canceladaPelaVenda} or ${tabela.status} = 'cancelada'`,
+    ),
+    index("ordens_producao_status_idx").on(tabela.status),
+    // A perda medida dos últimos 6 meses (D-08) lê por data de conclusão.
+    index("ordens_producao_concluida_em_idx").on(tabela.concluidaEm),
+  ],
+);
+
+// As etapas do caminho da ordem (6 no completo, 4 no que termina no biscoito), uma linha por
+// etapa. `feita_em` é o dia REAL em que a etapa foi marcada como feita; `passaram` é o parcial
+// informativo da etapa atual ("já passaram 30 de 40"), apagado quando ela termina. As regras que o
+// banco não expressa (as feitas formam um prefixo do caminho; `feita_em` não decresce; `passaram`
+// só na etapa atual) moram no módulo puro `lib/producao/` e nos testes dele.
+export const ordemEtapas = pgTable(
+  "ordem_etapas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    ordemId: uuid("ordem_id")
+      .notNull()
+      .references(() => ordensProducao.id),
+    etapa: etapaProducao("etapa").notNull(),
+    posicao: integer("posicao").notNull(),
+    diasPrevistos: integer("dias_previstos").notNull(),
+    feitaEm: date("feita_em", { mode: "string" }),
+    passaram: integer("passaram"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("ordem_etapas_ordem_etapa_uk").on(tabela.ordemId, tabela.etapa),
+    unique("ordem_etapas_ordem_posicao_uk").on(tabela.ordemId, tabela.posicao),
+    check("ordem_etapas_posicao_faixa", sql`${tabela.posicao} between 0 and 5`),
+    check("ordem_etapas_dias_previstos_faixa", sql`${tabela.diasPrevistos} between 1 and 365`),
+    check(
+      "ordem_etapas_passaram_nao_negativo",
+      sql`${tabela.passaram} is null or ${tabela.passaram} >= 0`,
+    ),
+  ],
+);
+
 // Fase 4 — Contador de Queima (módulo de Fornos). SQL literal em
 // amassa-plataforma/02-MODELO-DE-DADOS.md §3. Migração 0007_queimas (não 0004 — ver Desvio 1 de
 // 04-01-PLAN.md: o `.planning/ROADMAP.md` nomeia a migração antes da ordem de execução ter sido
@@ -1077,6 +1232,67 @@ export const fichasPrecificacao = pgTable(
   ],
 );
 
+// Fase 06.1 — as peças de uma ordem de produção (migração 0024_producao). A ficha é REFERÊNCIA,
+// não cópia: material previsto e fornadas leem a ficha ao vivo. Peça da casa escolhida em "Itens
+// do estoque", sem ficha, leva só o item (D-13); peça em texto livre não leva nenhum dos dois
+// (D-04). `descricao` é congelada (o nome do snapshot do orçamento, da ficha ou o texto livre).
+// `perdidas`, `para_estoque` e `sem_destino` nascem nulos e são preenchidos JUNTOS na conclusão.
+export const ordemPecas = pgTable(
+  "ordem_pecas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    ordemId: uuid("ordem_id")
+      .notNull()
+      .references(() => ordensProducao.id),
+    posicao: integer("posicao").notNull(),
+    fichaId: uuid("ficha_id").references(() => fichasPrecificacao.id),
+    itemCatalogoId: uuid("item_catalogo_id").references(() => itensCatalogo.id),
+    descricao: text("descricao").notNull(),
+    quantidade: integer("quantidade").notNull(),
+    aMais: integer("a_mais").notNull().default(0),
+    cor: text("cor"),
+    personalizacao: text("personalizacao"),
+    perdidas: integer("perdidas"),
+    destinoExtras: destinoExtras("destino_extras"),
+    paraEstoque: integer("para_estoque"),
+    semDestino: integer("sem_destino"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("ordem_pecas_ordem_posicao_uk").on(tabela.ordemId, tabela.posicao),
+    check("ordem_pecas_posicao_nao_negativa", sql`${tabela.posicao} >= 0`),
+    check(
+      "ordem_pecas_descricao_comprimento",
+      sql`length(trim(${tabela.descricao})) between 1 and 160`,
+    ),
+    check("ordem_pecas_quantidade_faixa", sql`${tabela.quantidade} between 1 and 100000`),
+    check("ordem_pecas_a_mais_faixa", sql`${tabela.aMais} between 0 and 100000`),
+    check(
+      "ordem_pecas_cor_comprimento",
+      sql`${tabela.cor} is null or length(trim(${tabela.cor})) between 1 and 80`,
+    ),
+    check(
+      "ordem_pecas_personalizacao_comprimento",
+      sql`${tabela.personalizacao} is null or length(trim(${tabela.personalizacao})) between 1 and 200`,
+    ),
+    check(
+      "ordem_pecas_perdidas_faixa",
+      sql`${tabela.perdidas} is null or ${tabela.perdidas} between 0 and ${tabela.quantidade} + ${tabela.aMais}`,
+    ),
+    check(
+      "ordem_pecas_conclusao_junta",
+      sql`(${tabela.perdidas} is null and ${tabela.paraEstoque} is null and ${tabela.semDestino} is null) or (${tabela.perdidas} is not null and ${tabela.paraEstoque} is not null and ${tabela.semDestino} is not null)`,
+    ),
+    check(
+      "ordem_pecas_destinos_cabem",
+      sql`${tabela.paraEstoque} is null or (${tabela.paraEstoque} >= 0 and ${tabela.semDestino} >= 0 and ${tabela.paraEstoque} + ${tabela.semDestino} <= ${tabela.quantidade} + ${tabela.aMais} - ${tabela.perdidas})`,
+    ),
+  ],
+);
+
 // Um orçamento (D-05/D-06/D-07/D-21/D-22). `sequencial` nasce de
 // `lib/orcamentos/numero.ts::proximoSequencialDeOrcamento`, dentro da MESMA transação que grava
 // esta linha — nunca de uma contagem lida antes (D-06). `snapshot`/`congeladoEm` gravam juntos,
@@ -1105,7 +1321,9 @@ export const orcamentos = pgTable(
     congeladoEm: timestamp("congelado_em", { withTimezone: true }),
     snapshot: jsonb("snapshot"),
     documentoId: uuid("documento_id").references(() => documentos.id),
-    encomendaId: uuid("encomenda_id").references(() => encomendas.id),
+    // Fase 06.1 (migração 0024): "encomenda_id" é o nome histórico do vínculo com a ORDEM DE
+    // PRODUÇÃO — aponta para `ordens_producao` desde a 0024 (ver o comentário de `ordensProducao`).
+    encomendaId: uuid("encomenda_id").references(() => ordensProducao.id),
     criadoPor: uuid("criado_por")
       .notNull()
       .references(() => usuarios.id),
@@ -1429,10 +1647,16 @@ export const movimentacoesEstoque = pgTable(
     saldoContadoMilesimos: bigint("saldo_contado_milesimos", { mode: "number" }),
     documentoId: uuid("documento_id").references(() => documentos.id),
     documentoLinhaId: uuid("documento_linha_id").references(() => documentoLinhas.id),
-    // `set null` (Pitfall 10): `excluirEncomenda` apaga de verdade — uma FK `restrict` aqui
-    // transformaria "excluir encomenda" em tela de erro. A ação referencial roda com o privilégio
-    // do dono da tabela, por isso funciona mesmo com `update` revogado de `amassa_app`.
-    encomendaId: uuid("encomenda_id").references(() => encomendas.id, { onDelete: "set null" }),
+    // Fase 06.1 (migração 0024): "encomenda_id" é o nome histórico do vínculo com a ORDEM DE
+    // PRODUÇÃO — aponta para `ordens_producao` desde a 0024. Até a 0023 apontava para `encomendas`
+    // com `on delete set null` (Pitfall 10 da Fase 06: `excluirEncomenda` apagava de verdade). A
+    // ordem não se apaga (`revoke delete` para `amassa_app`), então o vínculo não tem `on delete`.
+    // Na saída manual é o "Consumo em encomenda" ligado à ordem; na entrada `producao` (peça
+    // pronta que entra no Estoque na conclusão) é obrigatório — os `check`s abaixo.
+    encomendaId: uuid("encomenda_id").references(() => ordensProducao.id),
+    // Qual material do previsto da ordem esta baixa cobre (Fase 06.1) — só na saída manual
+    // "consumo em encomenda" ligada a uma ordem.
+    materialDaOrdem: materialDaOrdem("material_da_ordem"),
     // Texto livre curto: turma (até a Agenda existir), "o que aconteceu?", motivo do ajuste.
     nota: text("nota"),
     // Um estorno por original (restrição única abaixo).
@@ -1472,9 +1696,19 @@ export const movimentacoesEstoque = pgTable(
       "movimentacoes_estoque_venda_exige_area",
       sql`${tabela.origem} <> 'venda' or ${tabela.area} is not null`,
     ),
+    // Fase 06.1: substitui `movimentacoes_estoque_encomenda_so_no_destino_encomenda` — o vínculo
+    // com a ordem vale na saída "consumo em encomenda" E na entrada da produção.
     check(
-      "movimentacoes_estoque_encomenda_so_no_destino_encomenda",
-      sql`${tabela.encomendaId} is null or ${tabela.destino} = 'encomenda'`,
+      "movimentacoes_estoque_ordem_so_no_destino_encomenda_ou_producao",
+      sql`${tabela.encomendaId} is null or ${tabela.destino} = 'encomenda' or ${tabela.origem} = 'producao'`,
+    ),
+    check(
+      "movimentacoes_estoque_producao_com_ordem",
+      sql`${tabela.origem} <> 'producao' or ${tabela.encomendaId} is not null`,
+    ),
+    check(
+      "movimentacoes_estoque_material_da_ordem_so_na_baixa",
+      sql`${tabela.materialDaOrdem} is null or (${tabela.origem} = 'manual' and ${tabela.destino} = 'encomenda' and ${tabela.encomendaId} is not null)`,
     ),
     check(
       "movimentacoes_estoque_valor_informado_da_entrada",

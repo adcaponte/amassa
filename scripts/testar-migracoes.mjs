@@ -77,6 +77,13 @@ const TABELAS_ESPERADAS = [
   // materiais nem de saldos — D-01/EST-02). As conferências do livro (revoke, gatilho da unidade,
   // checks) e a prova de concorrência são do plano 06-02.
   "movimentacoes_estoque",
+  // Fase 06.1 — Produção (migração 0024_producao). Permanentes; não entram em
+  // TABELAS_DA_REMOCAO_ABERTURA. As três `encomenda*` do bloco da Fase 3 continuam até o plano
+  // 06.1-14 (a `0025` as apaga). As conferências completas das tabelas novas e a prova do D-02
+  // em banco próprio são do plano 06.1-02; aqui, o vínculo do livro com a ordem (conferirEstoque).
+  "ordens_producao",
+  "ordem_etapas",
+  "ordem_pecas",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -1985,7 +1992,8 @@ async function conferirAnotacoesDaCasa(cliente) {
 // ————————————————————————————————————————————————————————————————————————————————————————————
 // Fase 06 — Estoque (plano 06-02, Tarefa 2). O livro `movimentacoes_estoque` (migração 0023)
 // provado pelo Postgres de verdade: imutável para `amassa_app` (EST-06), coerente pelos `check`s,
-// um estorno por linha, a encomenda apagada sem apagar o consumo (Pitfall 10), a unidade travada
+// um estorno por linha, o consumo ligado à ORDEM de produção que não se apaga (desde a 0024 da Fase
+// 06.1; até ela, "a encomenda apagada sem apagar o consumo", Pitfall 10), a unidade travada
 // depois da primeira movimentação (Pitfall 6) — e, em `conferirConcorrenciaDoEstoque`, duas
 // vendas do mesmo insumo sem impasse (Pitfall 2).
 // ————————————————————————————————————————————————————————————————————————————————————————————
@@ -2055,7 +2063,7 @@ async function inserirDocumentoComItem(conexao, { tipo, itemId, categoriaId, usu
 // que nenhum material de prova sobre.
 async function apagarDadosDeProvaDoEstoque(
   conexao,
-  { itemIds = [], documentoIds = [], encomendaIds = [], usuarioId = null },
+  { itemIds = [], documentoIds = [], ordemIds = [], usuarioId = null },
 ) {
   try {
     await conexao.query("begin");
@@ -2070,7 +2078,11 @@ async function apagarDadosDeProvaDoEstoque(
     await conexao.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
     await conexao.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
     await conexao.query("delete from itens_catalogo where id = any($1::uuid[])", [itemIds]);
-    await conexao.query("delete from encomendas where id = any($1::uuid[])", [encomendaIds]);
+    // A ordem de prova sai pela conexão de DONO — `amassa_app` não tem `delete` em
+    // `ordens_producao` (revoke da 0024), e é exatamente isso que o caso (d) prova. Depois do
+    // livro (o vínculo `encomenda_id` é NO ACTION).
+    await conexao.query("delete from ordem_etapas where ordem_id = any($1::uuid[])", [ordemIds]);
+    await conexao.query("delete from ordens_producao where id = any($1::uuid[])", [ordemIds]);
     if (usuarioId) {
       await conexao.query("delete from usuarios where id = $1", [usuarioId]);
     }
@@ -2100,7 +2112,7 @@ async function conferirEstoque(conexao) {
 
   const itemIds = [];
   const documentoIds = [];
-  const encomendaIds = [];
+  const ordemIds = [];
 
   try {
     // Dois materiais de prova, com nomes que nenhuma outra conferência usa. O primeiro também
@@ -2121,13 +2133,17 @@ async function conferirEstoque(conexao) {
     const itemSemMovimentacaoId = semLivro[0].id;
     itemIds.push(itemSemMovimentacaoId);
 
-    const { rows: encomendaInserida } = await conexao.query(
-      `insert into encomendas (nome, data_inicio, criado_por)
-       values ('Encomenda de prova do estoque (migração)', current_date, $1) returning id`,
+    // Desde a 0024 (Fase 06.1) o vínculo `movimentacoes_estoque.encomenda_id` aponta para a ORDEM
+    // DE PRODUÇÃO — o nome da coluna é histórico. A ordem de prova é da casa, ativa, com `inicio`
+    // (o check `ordens_producao_aguardando_sem_inicio`).
+    const { rows: ordemInserida } = await conexao.query(
+      `insert into ordens_producao (tipo, caminho, status, nome, inicio, criado_por)
+       values ('casa', 'completo', 'ativa', 'Ordem de prova do estoque (migração)', current_date, $1)
+       returning id`,
       [usuarioId],
     );
-    const encomendaId = encomendaInserida[0].id;
-    encomendaIds.push(encomendaId);
+    const ordemId = ordemInserida[0].id;
+    ordemIds.push(ordemId);
 
     const base = { item_id: itemId, registrado_por: usuarioId };
     const entradaManual = {
@@ -2280,7 +2296,7 @@ async function conferirEstoque(conexao) {
       ],
       [
         "encomenda_id com destino aula",
-        { ...saidaManual, destino: "aula", area: "espaco", encomenda_id: encomendaId },
+        { ...saidaManual, destino: "aula", area: "espaco", encomenda_id: ordemId },
       ],
       ["nota com 161 caracteres", { ...entradaManual, nota: "n".repeat(161) }],
       ["origem manual com estorno_de_id", { ...saidaManual, estorno_de_id: idEntrada }],
@@ -2322,42 +2338,51 @@ async function conferirEstoque(conexao) {
       `Um segundo estorno da MESMA movimentação deveria ser recusado com 23505, veio ${codigoDoSegundoEstorno}.`,
     );
 
-    // (d) Pitfall 10 / suposição A2 da pesquisa: `amassa_app` apaga uma encomenda referenciada
-    // por uma saída com destino encomenda — a ação referencial `on delete set null` roda com o
-    // dono da tabela, então o `revoke update` não a impede — e o consumo continua no livro.
-    const idConsumoDaEncomenda = await inserirMovimentacao(conexao, {
+    // (d) Fase 06.1 (migração 0024) — reescrito a partir do `set null` da Fase 06 (Pitfall 10): o
+    // vínculo do livro agora aponta para a ORDEM DE PRODUÇÃO. Uma saída "consumo em encomenda"
+    // ligada à ordem é aceita; e a ordem NÃO se apaga — `amassa_app` recebe 42501 (o `revoke
+    // delete` da 0024), com o consumo intacto no livro e ainda ligado à ordem.
+    const idConsumoDaOrdem = await inserirMovimentacao(conexao, {
       ...saidaManual,
       destino: "encomenda",
-      encomenda_id: encomendaId,
+      encomenda_id: ordemId,
       quantidade_milesimos: -500,
       valor_centavos: -210,
     });
-    await conexao.query("begin");
-    try {
-      await conexao.query("set local role amassa_app");
-      const codigoDaExclusao = await codigoDoErro(() =>
-        conexao.query("delete from encomendas where id = $1", [encomendaId]),
-      );
-      afirmar(
-        codigoDaExclusao === null,
-        `Apagar, como amassa_app, uma encomenda com consumo de material deveria funcionar (on delete set null), veio ${codigoDaExclusao}.`,
-      );
-      await conexao.query("commit");
-    } catch (erro) {
-      await conexao.query("rollback").catch(() => {});
-      throw erro;
-    }
+    const codigoDaExclusaoDaOrdem = await comoAmassaApp(
+      "delete from ordens_producao where id = $1",
+      [ordemId],
+    );
+    afirmar(
+      codigoDaExclusaoDaOrdem === "42501",
+      `Apagar, como amassa_app, uma ordem de produção deveria falhar com 42501 (revoke delete da 0024 — ordem só se cancela), veio ${codigoDaExclusaoDaOrdem}.`,
+    );
     const { rows: consumoDepois } = await conexao.query(
       "select encomenda_id, destino from movimentacoes_estoque where id = $1",
-      [idConsumoDaEncomenda],
+      [idConsumoDaOrdem],
     );
     afirmar(
       consumoDepois.length === 1,
-      "A movimentação de consumo em encomenda deveria continuar no livro depois de a encomenda ser apagada.",
+      "A movimentação de consumo em encomenda deveria continuar no livro depois da tentativa de apagar a ordem.",
     );
     afirmar(
-      consumoDepois[0].encomenda_id === null && consumoDepois[0].destino === "encomenda",
-      `Depois de apagar a encomenda, o consumo deveria ficar com encomenda_id nulo e destino "encomenda", veio encomenda_id ${consumoDepois[0].encomenda_id} e destino "${consumoDepois[0].destino}".`,
+      consumoDepois[0].encomenda_id === ordemId && consumoDepois[0].destino === "encomenda",
+      `O consumo deveria continuar ligado à ordem, com destino "encomenda", veio encomenda_id ${consumoDepois[0].encomenda_id} e destino "${consumoDepois[0].destino}".`,
+    );
+    // O vínculo aponta para `ordens_producao` de verdade: um id que não é de ordem nenhuma é
+    // recusado pela chave estrangeira nova (23503).
+    const codigoDoVinculoSemOrdem = await codigoDoErro(() =>
+      inserirMovimentacao(conexao, {
+        ...saidaManual,
+        destino: "encomenda",
+        encomenda_id: "00000000-0000-4000-8000-000000000000",
+        quantidade_milesimos: -500,
+        valor_centavos: -210,
+      }),
+    );
+    afirmar(
+      codigoDoVinculoSemOrdem === "23503",
+      `Uma saída ligada a um id que não é de ordem nenhuma deveria ser recusada pela chave estrangeira (23503), veio ${codigoDoVinculoSemOrdem}.`,
     );
 
     // (e) Pitfall 6: item com movimentação não muda de unidade nem deixa de controlar estoque
@@ -2427,7 +2452,7 @@ async function conferirEstoque(conexao) {
       "O papel amassa_app não deveria ter delete em itens_catalogo — item com histórico se desativa, nunca se apaga.",
     );
   } finally {
-    await apagarDadosDeProvaDoEstoque(conexao, { itemIds, documentoIds, encomendaIds, usuarioId });
+    await apagarDadosDeProvaDoEstoque(conexao, { itemIds, documentoIds, ordemIds, usuarioId });
   }
 }
 
