@@ -27,6 +27,11 @@ const ARQUIVOS_DE_ROTA_PUBLICOS = [
   // monitor externo. O corpo é só `{ status }`: nunca contagem, saldo, valor ou nome de banco
   // (T-06-49, `tests/e2e/estoque-saude.spec.ts`).
   "app/api/health/estoque/route.ts",
+  // Decidida no plano 06.1-15 (Fase 06.1): pública de propósito, no molde de
+  // `/api/health/estoque` — é o Passo 6 do Roteiro 16 (prova de fora que o app publicado enxerga
+  // as migrações 0024 e 0025) e o monitor externo. O corpo é só `{ status }`: nunca contagem de
+  // ordens, nome, valor ou nome de banco (T-06.1-56, `tests/e2e/producao-saude.spec.ts`).
+  "app/api/health/producao/route.ts",
   "app/api/auth/[...nextauth]/route.ts",
 ];
 
