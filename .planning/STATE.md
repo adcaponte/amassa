@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 06.1
 current_phase_name: Produção
 status: executing
-stopped_at: "Fase 06.1 Producao: codigo completo no branch local gsd/phase-06.1-producao, revisao feita, Parte 0 respondida pelo dono e aplicada (6910df8). AGUARDANDO O DONO: Roteiro 16 -> caminhada. Nada publicado, nenhuma migracao aplicada."
-last_updated: "2026-09-30T19:32:38.811Z"
+stopped_at: "Fase 06.1 Producao NO AR desde 30/09/2026 (merge 1846563, run 36769632264 verde, 0024+0025 aplicadas pelo dono, /api/health/producao 200). Falta a caminhada no celular (Parte 2) e o aprovado do dono; depois verificacao da fase e phase.complete."
+last_updated: "2026-09-30T20:44:01.570Z"
 progress:
   total_phases: 13
   completed_phases: 12
