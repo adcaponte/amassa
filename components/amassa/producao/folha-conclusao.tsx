@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import type { CategoriaDeCompraAtiva } from "@/lib/estoque/consultas";
 import type { CategoriaDeVenda } from "@/lib/precificacao/consultas";
 import { concluirOrdem } from "@/lib/producao/acoes";
 import type { PecaParaConcluir } from "@/lib/producao/consultas";
@@ -13,6 +14,7 @@ import type { TipoOrdem } from "@/lib/producao/etapas";
 import {
   DICA_CONCLUSAO,
   FRASE_CUSTO_DE_CADA_PECA_VAZIO,
+  FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA,
   FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA,
   FRASE_FALHA_AO_CONCLUIR,
   FRASE_PRECO_DE_VENDA_VAZIO,
@@ -42,7 +44,14 @@ import {
   type ValoresDaPeca,
 } from "./secao-peca-conclusao";
 
-const CAMPOS_DA_PECA = ["perdidas", "destino", "custo", "categoria", "preco"] as const;
+const CAMPOS_DA_PECA = [
+  "perdidas",
+  "destino",
+  "custo",
+  "categoria",
+  "preco",
+  "categoriaCompra",
+] as const;
 
 // "9000" centavos → "90,00" — o preço praticado da ficha no campo "Preço de venda" (D-12), no
 // formato que `converterReaisParaCentavos` lê de volta (a mesma técnica do diálogo da ficha).
@@ -67,7 +76,7 @@ function errosDaPromocao(valores: ValoresDaPeca): Pick<ErrosDaPeca, "categoria" 
 }
 
 // As chaves de campo que `concluirOrdem` devolve: `perdidas-{id}`, `destino-{id}`, `custo-{id}`
-// e, no passo D-12, `categoria-{id}` e `preco-{id}`.
+// e, no passo D-12, `categoria-{id}` e `preco-{id}`; no seletor do D-13, `categoriaCompra-{id}`.
 function errosPorPeca(campos: Record<string, string> | undefined): Record<string, ErrosDaPeca> {
   const porPeca: Record<string, ErrosDaPeca> = {};
   for (const [chave, frase] of Object.entries(campos ?? {})) {
@@ -90,6 +99,10 @@ export type FolhaConclusaoProps = {
   // O passo "Transformar em peça de linha" (D-12): as categorias de venda e a sugestão.
   categoriasDeVenda: readonly CategoriaDeVenda[];
   categoriaPecasProntasId: string | null;
+  // O seletor "Categoria da compra" do D-13 (trocado pelo dono em 30/09/2026): as categorias de
+  // compra ativas e a marcada ao abrir ("Produção da casa"; `null` quando não existe/desativada).
+  categoriasDeCompra: readonly CategoriaDeCompraAtiva[];
+  categoriaProducaoDaCasaId: string | null;
   aoFechar: () => void;
 };
 
@@ -109,6 +122,8 @@ export function FolhaConclusao({
   pecas,
   categoriasDeVenda,
   categoriaPecasProntasId,
+  categoriasDeCompra,
+  categoriaProducaoDaCasaId,
   aoFechar,
 }: FolhaConclusaoProps) {
   const router = useRouter();
@@ -122,6 +137,7 @@ export function FolhaConclusao({
           custoTexto: "",
           categoriaVendaId: categoriaPecasProntasId ?? "",
           precoTexto: textoDeCentavos(peca.precoPraticadoCentavos),
+          categoriaCompraId: categoriaProducaoDaCasaId ?? "",
         },
       ]),
     ),
@@ -160,7 +176,9 @@ export function FolhaConclusao({
       const idBase = `conclusao-${pecas[indice].id}`;
       const alvo = erro.perdidas
         ? camposPerdidas.current[indice]
-        : erro.categoria
+        : erro.categoriaCompra
+          ? document.getElementById(`${idBase}-categoria-compra`)
+          : erro.categoria
           ? document.getElementById(`${idBase}-categoria`)
           : erro.preco
             ? document.getElementById(`${idBase}-preco`)
@@ -185,6 +203,9 @@ export function FolhaConclusao({
       const daPeca: ErrosDaPeca = lida.precisaDePromocao ? errosDaPromocao(valores[peca.id]) : {};
       if (lida.precisaDeCusto && valores[peca.id].custoTexto.trim() === "") {
         daPeca.custo = FRASE_CUSTO_DE_CADA_PECA_VAZIO;
+      }
+      if (lida.precisaDeCategoriaDeCompra && valores[peca.id].categoriaCompraId === "") {
+        daPeca.categoriaCompra = FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA;
       }
       if (Object.keys(daPeca).length > 0) {
         locais[peca.id] = daPeca;
@@ -213,6 +234,10 @@ export function FolhaConclusao({
                 categoriaVendaId: valores[peca.id].categoriaVendaId,
                 precoTexto: valores[peca.id].precoTexto,
               }
+            : null,
+          // Só quando a folha mostra o seletor "Categoria da compra" (D-13, 30/09/2026).
+          categoriaCompraId: lida.precisaDeCategoriaDeCompra
+            ? valores[peca.id].categoriaCompraId
             : null,
         })),
       });
@@ -303,6 +328,7 @@ export function FolhaConclusao({
                 aoMudar={(novos) => mudar(peca.id, novos)}
                 erros={erros[peca.id] ?? {}}
                 categoriasDeVenda={categoriasDeVenda}
+                categoriasDeCompra={categoriasDeCompra}
                 desabilitado={enviando}
                 campoPerdidasRef={(elemento) => {
                   camposPerdidas.current[indice] = elemento;

@@ -26,6 +26,7 @@ import {
   FRASE_ENCOMENDA_SEM_ITEM,
   FRASE_ENTREGA_INVALIDA,
   FRASE_ENTREGA_NO_PASSADO,
+  FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA,
   FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA,
   FRASE_ESCOLHA_O_MATERIAL,
   FRASE_FALHA_AO_DAR_BAIXA,
@@ -551,13 +552,23 @@ export const esquemaConcluirOrdem = z.object({
             .transform((destino) => destino ?? null),
           custoTexto: esquemaCustoDaPeca,
           promocao: esquemaPromocaoDaPeca.nullish().transform((promocao) => promocao ?? null),
+          // D-13, trocado pelo dono em 30/09/2026: a categoria de compra escolhida para o item
+          // que passa a controlar estoque SEM ter categoria. Vem só quando a folha mostra o
+          // seletor; se ela é exigida (o item, sob a trava, não tem categoria) e se é uma categoria
+          // de compra ATIVA, quem decide é `concluirOrdem`, no banco (`categoriaDeCompraValida`).
+          categoriaCompraId: z
+            .string({ error: FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA })
+            .uuid(FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA)
+            .nullish()
+            .transform((id) => id ?? null),
         })
-        .transform(({ pecaId, perdidasTexto, destino, custoTexto, promocao }) => ({
+        .transform(({ pecaId, perdidasTexto, destino, custoTexto, promocao, categoriaCompraId }) => ({
           pecaId,
           perdidas: perdidasTexto,
           destino,
           custoCentavos: custoTexto,
           promocao,
+          categoriaCompraId,
         })),
       { error: FRASE_FALHA_AO_CONCLUIR },
     )

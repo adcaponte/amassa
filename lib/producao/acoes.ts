@@ -15,7 +15,7 @@ import {
   ordensProducao,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
+import { ROTULO_UNIDADE, categoriaDeCompraValida, type Unidade } from "@/lib/cadastros/catalogo";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { gravarMovimentacoes, travarItens } from "@/lib/estoque/gravacao";
 import { pedidoDeEntradaDaProducao, pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
@@ -29,6 +29,7 @@ import {
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
+  categoriaDeCompraAoLigar,
   derivarPeca,
   destinoSugerido,
   distribuirExtras,
@@ -110,14 +111,14 @@ import {
   FRASE_CONCLUSAO_ETAPA_MUDOU,
   FRASE_CONCLUSAO_JA_CONCLUIDA,
   FRASE_CUSTO_DE_CADA_PECA_VAZIO,
+  FRASE_CATEGORIA_DE_COMPRA_INVALIDA_NA_CONCLUSAO,
   FRASE_CATEGORIA_DE_VENDA_INVALIDA,
   FRASE_FALHA_AO_CONCLUIR,
   FRASE_PECAS_DA_ORDEM_MUDARAM,
-  FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA,
   FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE,
-  NOME_CATEGORIA_PRODUCAO_DA_CASA,
   fraseBaixaMudouEnquantoPreenchia,
   fraseItemDesativadoNaConclusao,
+  fraseItemFicouSemCategoriaDeCompra,
   fraseItemNaoGuardaPecas,
   fraseItemNaoGuardaPecasNaConclusao,
   fraseMaterialDesativadoNaBaixa,
@@ -967,8 +968,9 @@ class RecusaDaConclusao extends Error {
 }
 
 // A chave do campo de cada peça na folha: `perdidas-{id}`, `destino-{id}`, `custo-{id}` e, no
-// passo "Transformar em peça de linha" (D-12), `categoria-{id}` e `preco-{id}`.
-type CampoDaPeca = "perdidas" | "destino" | "custo" | "categoria" | "preco";
+// passo "Transformar em peça de linha" (D-12), `categoria-{id}` e `preco-{id}`; no seletor do D-13
+// (trocado pelo dono em 30/09/2026), `categoriaCompra-{id}`.
+type CampoDaPeca = "perdidas" | "destino" | "custo" | "categoria" | "preco" | "categoriaCompra";
 function campoDaPeca(tipo: CampoDaPeca, pecaId: string): string {
   return `${tipo}-${pecaId}`;
 }
@@ -995,7 +997,9 @@ function camposDaRecusaDoEsquema(
           ? questao.path[3] === "categoriaVendaId"
             ? "categoria"
             : "preco"
-          : "perdidas";
+          : questao.path[2] === "categoriaCompraId"
+            ? "categoriaCompra"
+            : "perdidas";
   return { [campoDaPeca(tipo, peca.pecaId)]: questao.message };
 }
 
@@ -1015,8 +1019,10 @@ function camposDaRecusaDoEsquema(
 // módulo puro (`derivarPeca`, briefing §7) e decide o destino; promove a ficha EXCLUSIVA cuja extra
 // vai ao Estoque a peça de linha (D-12, plano 12 — `promoverFichaParaLinha`, a mesma de
 // `editarFicha`, com a categoria e o preço que a folha mandou); trava os ITENS; liga o estoque do
-// item que ainda não controla (D-13: `un` quando não tem unidade, categoria de compra "Produção da
-// casa" — ANTES de `gravarMovimentacoes`, que recusaria item sem estoque próprio); grava as
+// item que ainda não controla (D-13: `un` quando não tem unidade; a categoria de compra que o item já
+// tem, ou — sem nenhuma — a escolhida na folha, conferida como categoria de compra ativa; trocado
+// pelo dono em 30/09/2026 — ANTES de `gravarMovimentacoes`, que recusaria item sem estoque
+// próprio); grava as
 // entradas pela porta única (`pedidoDeEntradaDaProducao` + `gravarMovimentacoes`); e grava, por
 // peça, perdidas, destino, para o estoque e sem destino SEPARADOS (PRD-17), a etapa `entrega` feita
 // hoje e a ordem `concluida`. NENHUMA escrita em parcela nem em documento (PRD-18, T-06.1-43): o
@@ -1157,6 +1163,9 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
             custoUnitario,
             promocao: distribuicao.paraEstoque > 0 ? promocao : null,
             itemId: peca.item?.id ?? null,
+            // D-13: a categoria de compra escolhida na folha — só usada se o item, sob a trava,
+            // passar a controlar estoque sem ter categoria (`categoriaDeCompraAoLigar`).
+            categoriaCompraId: enviada.categoriaCompraId,
           },
         ];
       });
@@ -1197,7 +1206,6 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
       ];
       const travados = await travarItens(tx, itemIds);
       const itensLigados: string[] = [];
-      let categoriaProducaoDaCasa: string | null = null;
       for (const itemId of itemIds) {
         const item = travados.get(itemId);
         if (!item) {
@@ -1220,28 +1228,50 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
         if (item.controlaEstoque) {
           continue;
         }
-        if (categoriaProducaoDaCasa === null) {
+        // D-13, trocado pelo dono em 30/09/2026: o item que JÁ TEM categoria de compra fica com
+        // ela; o que não tem recebe a escolhida na folha (nascida com "Produção da casa"). Lida
+        // aqui, com o item já travado acima — é o valor que vale, não o que a folha viu.
+        const [daLinha] = await tx
+          .select({ categoriaCompraId: itensCatalogo.categoriaCompraId })
+          .from(itensCatalogo)
+          .where(eq(itensCatalogo.id, item.id));
+        const doItem = paraEstoque.filter((decidida) => decidida.itemId === item.id);
+        const escolheu = doItem.find((decidida) => decidida.categoriaCompraId !== null) ?? doItem[0];
+        const decisao = categoriaDeCompraAoLigar(
+          daLinha?.categoriaCompraId ?? null,
+          escolheu?.categoriaCompraId ?? null,
+        );
+        if (decisao.tipo === "falta") {
+          // A folha não mostrou o seletor: ela viu o item com categoria, e sob a trava ele está
+          // sem (mudou em Cadastros enquanto a folha estava aberta). A tela recarrega e mostra.
+          throw new RecusaDaConclusao(fraseItemFicouSemCategoriaDeCompra(item.nome), {
+            recarregar: true,
+          });
+        }
+        if (decisao.tipo === "escolhida") {
+          // A escolhida precisa ser uma categoria de compra ATIVA (grupos custo e geral) — o mesmo
+          // critério do "+ Novo material" do Estoque e do Cadastros (T-06-40).
           const [categoria] = await tx
-            .select({ id: categorias.id })
+            .select({ grupo: categorias.grupo, ativa: categorias.ativa })
             .from(categorias)
-            .where(
-              sql`lower(trim(${categorias.nome})) = lower(trim(${NOME_CATEGORIA_PRODUCAO_DA_CASA}))`,
-            )
-            .limit(1);
-          if (!categoria) {
-            console.error(
-              `Conclusão da ordem ${dados.ordemId}: a categoria de compra "${NOME_CATEGORIA_PRODUCAO_DA_CASA}" (semente da 0023) não existe — o estoque do item ${item.id} não pôde ser ligado.`,
-            );
-            throw new RecusaDaConclusao(FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA);
+            .where(eq(categorias.id, decisao.categoriaCompraId));
+          if (!categoriaDeCompraValida(categoria, decisao.categoriaCompraId, null)) {
+            throw new RecusaDaConclusao(FRASE_CATEGORIA_DE_COMPRA_INVALIDA_NA_CONCLUSAO, {
+              campos: escolheu
+                ? {
+                    [campoDaPeca("categoriaCompra", escolheu.peca.id)]:
+                      FRASE_CATEGORIA_DE_COMPRA_INVALIDA_NA_CONCLUSAO,
+                  }
+                : undefined,
+            });
           }
-          categoriaProducaoDaCasa = categoria.id;
         }
         await tx
           .update(itensCatalogo)
           .set({
             controlaEstoque: true,
             unidade: sql`coalesce(${itensCatalogo.unidade}, 'un')`,
-            categoriaCompraId: categoriaProducaoDaCasa,
+            categoriaCompraId: decisao.categoriaCompraId,
           })
           .where(eq(itensCatalogo.id, item.id));
         itensLigados.push(item.nome);

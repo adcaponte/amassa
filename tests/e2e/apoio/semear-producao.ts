@@ -1235,6 +1235,25 @@ export async function estoqueDoItemNoBanco(
   });
 }
 
+// D-13, trocado pelo dono em 30/09/2026: dá ao item (que ainda não controla estoque) uma categoria
+// de compra existente, pelo nome — para provar que a conclusão a MANTÉM.
+export async function definirCategoriaDeCompraDoItemNoBanco(
+  itemId: string,
+  nomeDaCategoria: string,
+): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update itens_catalogo
+          set categoria_compra_id = (select id from categorias where nome = $2)
+        where id = $1`,
+      [itemId, nomeDaCategoria],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`item ${itemId} não encontrado`);
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------------------------
 // Plano 06.1-12 — a peça exclusiva que vira peça de linha (D-12)
 // ---------------------------------------------------------------------------------------------

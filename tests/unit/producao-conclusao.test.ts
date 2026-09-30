@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  categoriaDeCompraAoLigar,
   derivarPeca,
   destinoSugerido,
   distribuirExtras,
   itemGuardaPecas,
+  pecaPedeCategoriaDeCompra,
   resumoDaConclusao,
   type PecaDerivada,
 } from "@/lib/producao/conclusao";
 import {
   fraseItemNaoGuardaPecas,
   fraseItemNaoGuardaPecasNaConclusao,
+  textoItemVaiControlarEstoque,
 } from "@/lib/producao/textos";
 
 // A conclusão da ordem (06.1-11-PLAN.md, Tarefa 1): as cinco fórmulas do briefing §7, verbatim, em
@@ -220,6 +223,77 @@ describe("itemGuardaPecas", () => {
     );
     expect(fraseItemNaoGuardaPecasNaConclusao("[teste] Argila vermelha", "kg", "casa")).toContain(
       "cancele esta ordem e crie outra com um item contado em unidades",
+    );
+  });
+});
+
+// D-13, trocado pelo dono na Parte 0 (30/09/2026): o item que já tem categoria de compra fica com a
+// dele; o item sem categoria recebe a escolhida na folha de conclusão; sem as duas, falta.
+describe("categoriaDeCompraAoLigar", () => {
+  const DA_CASA = "0b1c2d3e-4f50-4a6b-8c7d-000000000001";
+  const OUTRA = "0b1c2d3e-4f50-4a6b-8c7d-000000000002";
+
+  it("o item que já tem categoria fica com a dele — a escolhida é ignorada", () => {
+    expect(categoriaDeCompraAoLigar(OUTRA, DA_CASA)).toEqual({ tipo: "mantem", categoriaCompraId: OUTRA });
+    expect(categoriaDeCompraAoLigar(OUTRA, null)).toEqual({ tipo: "mantem", categoriaCompraId: OUTRA });
+  });
+
+  it("o item sem categoria recebe a escolhida na folha", () => {
+    expect(categoriaDeCompraAoLigar(null, DA_CASA)).toEqual({
+      tipo: "escolhida",
+      categoriaCompraId: DA_CASA,
+    });
+  });
+
+  it("sem categoria e sem escolha (nula ou vazia), falta — o servidor recusa", () => {
+    expect(categoriaDeCompraAoLigar(null, null)).toEqual({ tipo: "falta" });
+    expect(categoriaDeCompraAoLigar(null, "")).toEqual({ tipo: "falta" });
+  });
+});
+
+describe("pecaPedeCategoriaDeCompra", () => {
+  const semCategoria = { controlaEstoque: false, categoriaCompraId: null };
+
+  it("pede quando o item vai passar a controlar estoque sem categoria", () => {
+    expect(pecaPedeCategoriaDeCompra({ paraEstoque: 3, item: semCategoria, vaiSerPromovida: false })).toBe(true);
+  });
+
+  it("não pede quando o item já tem categoria — ele a mantém", () => {
+    expect(
+      pecaPedeCategoriaDeCompra({
+        paraEstoque: 3,
+        item: { controlaEstoque: false, categoriaCompraId: "0b1c2d3e-4f50-4a6b-8c7d-000000000002" },
+        vaiSerPromovida: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("não pede quando o item já controla estoque — nada é ligado", () => {
+    expect(
+      pecaPedeCategoriaDeCompra({
+        paraEstoque: 3,
+        item: { controlaEstoque: true, categoriaCompraId: null },
+        vaiSerPromovida: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("não pede quando nada vai ao Estoque", () => {
+    expect(pecaPedeCategoriaDeCompra({ paraEstoque: 0, item: semCategoria, vaiSerPromovida: false })).toBe(false);
+    expect(pecaPedeCategoriaDeCompra({ paraEstoque: 0, item: null, vaiSerPromovida: true })).toBe(false);
+  });
+
+  it("pede na exclusiva promovida (D-12): o item nasce agora, sem categoria", () => {
+    expect(pecaPedeCategoriaDeCompra({ paraEstoque: 2, item: null, vaiSerPromovida: true })).toBe(true);
+    expect(pecaPedeCategoriaDeCompra({ paraEstoque: 2, item: null, vaiSerPromovida: false })).toBe(false);
+  });
+
+  it("a caixa diz a categoria que o item já tem, ou aponta para o seletor", () => {
+    expect(textoItemVaiControlarEstoque("[teste] Prato raso", "Louça da casa")).toBe(
+      "[teste] Prato raso ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria Louça da casa). Vai passar a aparecer no Estoque.",
+    );
+    expect(textoItemVaiControlarEstoque("[teste] Prato raso", null)).toBe(
+      "[teste] Prato raso ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, na categoria da compra escolhida abaixo). Vai passar a aparecer no Estoque.",
     );
   });
 });

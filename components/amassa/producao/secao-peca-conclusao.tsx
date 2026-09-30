@@ -8,14 +8,22 @@ import {
   derivarPeca,
   destinoSugerido,
   distribuirExtras,
+  pecaPedeCategoriaDeCompra,
   type DestinoDasExtras,
   type PecaDerivada,
 } from "@/lib/producao/conclusao";
+import { ROTULO_AREA } from "@/lib/cadastros/textos";
+import type { CategoriaDeCompraAtiva } from "@/lib/estoque/consultas";
 import type { CategoriaDeVenda } from "@/lib/precificacao/consultas";
 import type { PecaParaConcluir } from "@/lib/producao/consultas";
 import type { TipoOrdem } from "@/lib/producao/etapas";
 import {
+  DICA_CATEGORIA_DA_COMPRA,
+  DICA_CATEGORIA_DA_COMPRA_DA_PROMOVIDA,
   DICA_CUSTO_FICHA_NAO_CALCULA,
+  FRASE_SEM_CATEGORIA_DE_COMPRA_ATIVA,
+  OPCAO_ESCOLHA_A_CATEGORIA_DA_COMPRA,
+  ROTULO_CATEGORIA_DA_COMPRA,
   DICA_CUSTO_SEM_FICHA,
   ROTULO_BOAS,
   ROTULO_CUSTO_DE_CADA_PECA,
@@ -38,6 +46,7 @@ import {
   textoItemVaiControlarEstoque,
   textoPedidoEFeitas,
   textoPerdidasDeFeitas,
+  opcaoCategoriaDaCompraNaConclusao,
   textoPreviaDoCusto,
 } from "@/lib/producao/textos";
 import { cn } from "@/lib/utils";
@@ -46,13 +55,15 @@ import { TransformarEmLinha } from "./transformar-em-linha";
 
 // O que a pessoa digitou/escolheu numa peça. `destino` nulo = a sugestão (`destinoSugerido`).
 // `categoriaVendaId`/`precoTexto`: o passo "Transformar em peça de linha" da peça exclusiva (D-12),
-// nascidos com "Peças prontas" e o preço praticado da ficha.
+// nascidos com "Peças prontas" e o preço praticado da ficha. `categoriaCompraId`: o seletor do D-13
+// (trocado pelo dono em 30/09/2026), nascido com "Produção da casa" (`""` = nenhuma escolhida).
 export type ValoresDaPeca = {
   perdidasTexto: string;
   destino: DestinoDasExtras | null;
   custoTexto: string;
   categoriaVendaId: string;
   precoTexto: string;
+  categoriaCompraId: string;
 };
 
 export type ErrosDaPeca = {
@@ -61,6 +72,7 @@ export type ErrosDaPeca = {
   custo?: string;
   categoria?: string;
   preco?: string;
+  categoriaCompra?: string;
 };
 
 // A leitura da peça pelo MESMO módulo puro que o servidor roda de novo sob a trava
@@ -79,6 +91,9 @@ export function lerPeca(
   precisaDeCusto: boolean;
   // D-12: a peça exclusiva manda extras ao Estoque — a folha mostra "Transformar em peça de linha".
   precisaDePromocao: boolean;
+  // D-13 (30/09/2026): o item passa a controlar estoque sem ter categoria de compra — a folha
+  // mostra o seletor "Categoria da compra".
+  precisaDeCategoriaDeCompra: boolean;
 } {
   const limpo = valores.perdidasTexto.trim();
   const perdidas = limpo === "" ? 0 : /^\d{1,9}$/.test(limpo) ? Number(limpo) : Number.NaN;
@@ -99,9 +114,11 @@ export function lerPeca(
       faltam: 0,
       precisaDeCusto: false,
       precisaDePromocao: false,
+      precisaDeCategoriaDeCompra: false,
     };
   }
   const { paraEstoque, semDestino } = distribuirExtras(derivada, destino, tipo);
+  const precisaDePromocao = tipo === "encomenda" && exclusiva && paraEstoque > 0;
   return {
     derivada,
     destino,
@@ -109,7 +126,12 @@ export function lerPeca(
     semDestino,
     faltam: derivada.faltam,
     precisaDeCusto: paraEstoque > 0 && peca.custoPelaFichaCentavos === null,
-    precisaDePromocao: tipo === "encomenda" && exclusiva && paraEstoque > 0,
+    precisaDePromocao,
+    precisaDeCategoriaDeCompra: pecaPedeCategoriaDeCompra({
+      paraEstoque,
+      item: peca.item,
+      vaiSerPromovida: precisaDePromocao,
+    }),
   };
 }
 
@@ -122,6 +144,8 @@ export type SecaoPecaConclusaoProps = {
   erros: ErrosDaPeca;
   // As categorias de venda do passo "Transformar em peça de linha" (D-12) — vazias sem exclusiva.
   categoriasDeVenda: readonly CategoriaDeVenda[];
+  // As categorias de compra ATIVAS do seletor do D-13 — vazias quando nenhuma peça pode pedi-lo.
+  categoriasDeCompra: readonly CategoriaDeCompraAtiva[];
   desabilitado: boolean;
   campoPerdidasRef: Ref<HTMLInputElement>;
   // O Enter do "Quantas se perderam" leva à próxima peça (`enterKeyHint="next"`).
@@ -132,7 +156,8 @@ export type SecaoPecaConclusaoProps = {
 // à direita, "pedido {q} · fez {f}" (casa: "fez {f}"); o campo "Quantas se perderam" (padrão 0); as
 // contas derivadas numa lista `aria-live`; a caixa "Faltam…"; o destino das extras (encomenda com
 // extras boas); o passo "Transformar em peça de linha" da exclusiva que vai ao Estoque (D-12); o
-// "Custo de cada peça" quando a ficha não dá custo (D-14); a caixa do D-13.
+// "Custo de cada peça" quando a ficha não dá custo (D-14); a caixa do D-13 e, quando o item vai
+// controlar estoque sem categoria de compra, o seletor "Categoria da compra" (30/09/2026).
 export function SecaoPecaConclusao({
   peca,
   tipo,
@@ -140,6 +165,7 @@ export function SecaoPecaConclusao({
   aoMudar,
   erros,
   categoriasDeVenda,
+  categoriasDeCompra,
   desabilitado,
   campoPerdidasRef,
   aoAvancar,
@@ -421,8 +447,67 @@ export function SecaoPecaConclusao({
           data-testid={`conclusao-liga-estoque-${peca.id}`}
           className="bg-superficie-2 text-tinta-media text-apoio rounded-md p-3 [overflow-wrap:anywhere]"
         >
-          {textoItemVaiControlarEstoque(peca.item.nome)}
+          {textoItemVaiControlarEstoque(
+            peca.item.nome,
+            peca.item.categoriaCompraId === null ? null : (peca.item.categoriaCompraNome ?? null),
+          )}
         </p>
+      ) : null}
+
+      {lida.precisaDeCategoriaDeCompra ? (
+        // D-13, trocado pelo dono em 30/09/2026: o item vai controlar estoque e não tem categoria
+        // de compra — a pessoa escolhe aqui (nasce com "Produção da casa"). O mesmo seletor nativo
+        // e as mesmas opções "{categoria} · {área}" do "+ Novo material" do Estoque.
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`${idBase}-categoria-compra`} className="text-corpo text-tinta font-semibold">
+            {ROTULO_CATEGORIA_DA_COMPRA}
+          </label>
+          <p id={`${idBase}-categoria-compra-dica`} className="text-apoio text-tinta-fraca">
+            {peca.item === null ? DICA_CATEGORIA_DA_COMPRA_DA_PROMOVIDA : DICA_CATEGORIA_DA_COMPRA}
+          </p>
+          {categoriasDeCompra.length === 0 ? (
+            <p
+              data-testid={`conclusao-sem-categoria-compra-${peca.id}`}
+              className="text-apoio text-tinta-media bg-superficie-2 border-borda rounded-md border px-4 py-2"
+            >
+              {FRASE_SEM_CATEGORIA_DE_COMPRA_ATIVA}
+            </p>
+          ) : (
+            <select
+              id={`${idBase}-categoria-compra`}
+              data-testid={`conclusao-categoria-compra-${peca.id}`}
+              aria-required="true"
+              aria-invalid={erros.categoriaCompra !== undefined}
+              aria-describedby={[
+                `${idBase}-categoria-compra-dica`,
+                erros.categoriaCompra ? `${idBase}-erro-categoria-compra` : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={desabilitado}
+              value={valores.categoriaCompraId}
+              onChange={(evento) => aoMudar({ ...valores, categoriaCompraId: evento.target.value })}
+              className="border-borda-forte bg-superficie text-corpo text-tinta focus-visible:ring-ring min-h-[44px] w-full rounded-md border px-3 text-base focus-visible:ring-2 focus-visible:outline-none aria-invalid:border-erro"
+            >
+              <option value="">{OPCAO_ESCOLHA_A_CATEGORIA_DA_COMPRA}</option>
+              {categoriasDeCompra.map((categoria) => (
+                <option key={categoria.id} value={categoria.id}>
+                  {opcaoCategoriaDaCompraNaConclusao(categoria.nome, ROTULO_AREA[categoria.area])}
+                </option>
+              ))}
+            </select>
+          )}
+          {erros.categoriaCompra ? (
+            <p
+              id={`${idBase}-erro-categoria-compra`}
+              role="alert"
+              data-testid={`conclusao-erro-categoria-compra-${peca.id}`}
+              className="text-apoio text-erro"
+            >
+              {erros.categoriaCompra}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

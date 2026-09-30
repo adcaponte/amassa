@@ -785,8 +785,16 @@ export const FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE =
   "Esta peça não tem ficha, e nesta fase só peça com ficha entra no Estoque. As extras boas ficam sem destino.";
 export const FRASE_PECAS_DA_ORDEM_MUDARAM =
   "As peças desta ordem mudaram enquanto você concluía. A tela foi atualizada.";
-export const FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA =
-  "Não achei a categoria de compra “Produção da casa”, que o Estoque usa para a peça feita aqui. Crie-a em Cadastros → Categorias e tente de novo.";
+// D-13 (trocado pelo dono em 30/09/2026): o item sem categoria de compra recebe a escolhida na folha.
+export const FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA = "Escolha a categoria da compra.";
+// A escolhida foi desativada (ou deixou de ser de compra) enquanto a folha estava aberta.
+export const FRASE_CATEGORIA_DE_COMPRA_INVALIDA_NA_CONCLUSAO =
+  "Essa categoria da compra não existe mais, ou foi desativada. Escolha outra.";
+// Sob a trava, o item ficou sem categoria de compra e a folha não tinha mostrado o seletor (outro
+// celular tirou a categoria dele): a tela recarrega e mostra o seletor.
+export function fraseItemFicouSemCategoriaDeCompra(nome: string): string {
+  return `${nome} ficou sem categoria da compra enquanto você concluía — talvez em outro celular. A tela foi atualizada: escolha a categoria e conclua de novo.`;
+}
 export function fraseItemDesativadoNaConclusao(nome: string): string {
   return `${nome} está desativado no Estoque. Reative-o para guardar as peças.`;
 }
@@ -802,7 +810,8 @@ export function fraseItemNaoGuardaPecasNaConclusao(
       : "cancele esta ordem e crie outra com um item contado em unidades";
   return `${nome} é contado em ${unidade} no Estoque, e a Produção só guarda peças contadas em unidades. Nada foi gravado — ${saida}.`;
 }
-// O nome exato que a migração 0023 semeou — a conclusão procura a categoria por ele (D-13).
+// O nome exato que a migração 0023 semeou — a folha de conclusão a deixa marcada no seletor do D-13
+// quando existe (a consulta tem a sua cópia, `NOME_PRODUCAO_DA_CASA` em `./consultas`).
 export const NOME_CATEGORIA_PRODUCAO_DA_CASA = "Produção da casa";
 export const FRASE_CONCLUSAO_ETAPA_MUDOU =
   "Esta ordem não está mais na entrega — talvez em outro celular. A tela foi atualizada.";
@@ -885,9 +894,25 @@ export const FRASE_ESCOLHA_A_CATEGORIA_DE_VENDA = "Escolha a categoria de venda.
 // mesma frase da Precificação (cada módulo com a sua cópia).
 export const FRASE_CATEGORIA_DE_VENDA_INVALIDA =
   "Essa categoria de venda não existe mais, ou não é do grupo Receitas. Escolha outra.";
-// D-13: o item da peça ainda não controla estoque — a conclusão o liga.
-export function textoItemVaiControlarEstoque(item: string): string {
-  return `${item} ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria Produção da casa). Vai passar a aparecer no Estoque.`;
+// D-13: o item da peça ainda não controla estoque — a conclusão o liga. Trocado pelo dono em
+// 30/09/2026: o item que já tem categoria de compra fica com ela (`categoria` = o nome dela); o que
+// não tem (`null`) recebe a escolhida no seletor logo abaixo.
+export function textoItemVaiControlarEstoque(item: string, categoria: string | null): string {
+  return categoria === null
+    ? `${item} ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, na categoria da compra escolhida abaixo). Vai passar a aparecer no Estoque.`
+    : `${item} ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria ${categoria}). Vai passar a aparecer no Estoque.`;
+}
+// O seletor do D-13 na peça: o mesmo rótulo e as mesmas opções "{categoria} · {área}" do
+// "+ Novo material" do Estoque. Na peça exclusiva promovida (D-12), a dica diz que o item é novo.
+export const ROTULO_CATEGORIA_DA_COMPRA = "Categoria da compra";
+export const DICA_CATEGORIA_DA_COMPRA = "onde as peças vão aparecer no Estoque";
+export const DICA_CATEGORIA_DA_COMPRA_DA_PROMOVIDA =
+  "a peça de linha nova passa a controlar estoque em unidades — é onde ela vai aparecer no Estoque";
+export const OPCAO_ESCOLHA_A_CATEGORIA_DA_COMPRA = "Escolha…";
+export const FRASE_SEM_CATEGORIA_DE_COMPRA_ATIVA =
+  "Não há nenhuma categoria da compra ativa. Crie uma em Cadastros → Categorias e volte para concluir.";
+export function opcaoCategoriaDaCompraNaConclusao(categoria: string, area: string): string {
+  return `${categoria} · ${area}`;
 }
 // As notas do fim da folha.
 const FRASE_PERDA_MEDIDA =

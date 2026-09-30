@@ -19,6 +19,7 @@ import {
   FRASE_ENCOMENDA_SEM_ITEM,
   FRASE_ENTREGA_INVALIDA,
   FRASE_ENTREGA_NO_PASSADO,
+  FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA,
   FRASE_FALHA_AO_AJUSTAR,
   FRASE_NOME_DA_ORDEM_LONGO,
   FRASE_NOME_DA_ORDEM_VAZIO,
@@ -513,5 +514,32 @@ describe("esquemaConcluirOrdem", () => {
 
   it("continua recusando a lista vazia", () => {
     expect(esquemaConcluirOrdem.safeParse({ ordemId: ORDEM, pecas: [] }).success).toBe(false);
+  });
+
+  // D-13, trocado pelo dono em 30/09/2026: a categoria de compra escolhida na folha.
+  it("sem o seletor, a categoria de compra chega nula", () => {
+    const resultado = esquemaConcluirOrdem.safeParse({ ordemId: ORDEM, pecas: [pecaDaConclusao(1)] });
+    expect(resultado.success && resultado.data.pecas[0].categoriaCompraId).toBeNull();
+  });
+
+  it("aceita o id da categoria de compra escolhida", () => {
+    const categoria = "0b1c2d3e-4f50-4a6b-8c7d-000000000001";
+    const resultado = esquemaConcluirOrdem.safeParse({
+      ordemId: ORDEM,
+      pecas: [{ ...pecaDaConclusao(1), categoriaCompraId: categoria }],
+    });
+    expect(resultado.success && resultado.data.pecas[0].categoriaCompraId).toBe(categoria);
+  });
+
+  it.each(["", "producao-da-casa", 42])("recusa a categoria de compra %j com a frase de escolher", (valor) => {
+    const resultado = esquemaConcluirOrdem.safeParse({
+      ordemId: ORDEM,
+      pecas: [{ ...pecaDaConclusao(1), categoriaCompraId: valor }],
+    });
+    expect(resultado.success).toBe(false);
+    expect(!resultado.success && resultado.error.issues[0].message).toBe(
+      FRASE_ESCOLHA_A_CATEGORIA_DE_COMPRA,
+    );
+    expect(!resultado.success && resultado.error.issues[0].path).toEqual(["pecas", 0, "categoriaCompraId"]);
   });
 });

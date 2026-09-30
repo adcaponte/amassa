@@ -80,6 +80,47 @@ export function itemGuardaPecas(unidade: string | null): boolean {
   return unidade === null || unidade === "un";
 }
 
+// D-13, como o dono o trocou na Parte 0 (30/09/2026): ao ligar o estoque de um item na conclusão,
+// o item que JÁ TEM categoria de compra fica com a dele; o item SEM categoria recebe a que a pessoa
+// escolheu na folha de conclusão (que nasce com "Produção da casa" marcada). Sem categoria e sem
+// escolha, falta — o servidor recusa. A escolha, quando há categoria, é ignorada. Quem confere que a
+// escolhida é uma categoria de compra ativa é o servidor, no banco (`categoriaDeCompraValida`).
+export type CategoriaDeCompraAoLigar =
+  | { tipo: "mantem"; categoriaCompraId: string }
+  | { tipo: "escolhida"; categoriaCompraId: string }
+  | { tipo: "falta" };
+
+export function categoriaDeCompraAoLigar(
+  atual: string | null,
+  escolhida: string | null,
+): CategoriaDeCompraAoLigar {
+  if (atual !== null) {
+    return { tipo: "mantem", categoriaCompraId: atual };
+  }
+  if (escolhida !== null && escolhida !== "") {
+    return { tipo: "escolhida", categoriaCompraId: escolhida };
+  }
+  return { tipo: "falta" };
+}
+
+// Quando a folha de conclusão mostra o seletor "Categoria da compra" numa peça: ela manda peças ao
+// Estoque E o item vai passar a controlar estoque SEM ter categoria de compra — o item da peça que
+// ainda não controla e não tem categoria, ou o item que a promoção da exclusiva (D-12) cria agora
+// (nasce sem categoria). Item que já controla estoque não é ligado; item com categoria a mantém.
+export function pecaPedeCategoriaDeCompra(p: {
+  paraEstoque: number;
+  item: { controlaEstoque: boolean; categoriaCompraId: string | null } | null;
+  vaiSerPromovida: boolean;
+}): boolean {
+  if (p.paraEstoque <= 0) {
+    return false;
+  }
+  if (p.item === null) {
+    return p.vaiSerPromovida;
+  }
+  return !p.item.controlaEstoque && p.item.categoriaCompraId === null;
+}
+
 export type DistribuicaoDasExtras = { paraEstoque: number; semDestino: number };
 
 // Quantas boas vão para o Estoque e quantas ficam sem destino. Casa: todas as boas para o Estoque

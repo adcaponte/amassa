@@ -6,6 +6,7 @@ import { and, asc, count, desc, eq, gte, inArray, isNotNull, notExists, sql } fr
 
 import { db } from "@/db";
 import {
+  categorias,
   documentos,
   fichasPrecificacao,
   itensCatalogo,
@@ -19,7 +20,11 @@ import {
   usuarios,
 } from "@/db/schema";
 import type { Unidade } from "@/lib/cadastros/catalogo";
-import { custosDasFichas } from "@/lib/estoque/consultas";
+import {
+  custosDasFichas,
+  listarCategoriasDeCompraAtivas,
+  type CategoriaDeCompraAtiva,
+} from "@/lib/estoque/consultas";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import {
   listarCategoriasDeVenda,
@@ -902,6 +907,11 @@ export type PecaParaConcluir = {
     unidade: Unidade | null;
     controlaEstoque: boolean;
     ativo: boolean;
+    // A categoria de compra que o item já tem (D-13, trocado pelo dono em 30/09/2026: o item que
+    // tem categoria fica com ela; o que não tem recebe a escolhida na folha). O nome, para a caixa
+    // "… passa a controlar (em unidades, categoria {nome})".
+    categoriaCompraId: string | null;
+    categoriaCompraNome: string | null;
   } | null;
   // O preço praticado guardado NA FICHA — só a exclusiva o tem (na de linha ele é o do item, D-18).
   // É o preço que o passo "Transformar em peça de linha" traz preenchido (D-12).
@@ -934,6 +944,8 @@ export async function lerPecasParaConcluir(
       itemUnidade: itensCatalogo.unidade,
       itemControlaEstoque: itensCatalogo.controlaEstoque,
       itemAtivo: itensCatalogo.ativo,
+      itemCategoriaCompraId: itensCatalogo.categoriaCompraId,
+      itemCategoriaCompraNome: categorias.nome,
     })
     .from(ordemPecas)
     .leftJoin(fichasPrecificacao, eq(fichasPrecificacao.id, ordemPecas.fichaId))
@@ -944,6 +956,7 @@ export async function lerPecasParaConcluir(
         sql`coalesce(${fichasPrecificacao.itemCatalogoId}, ${ordemPecas.itemCatalogoId})`,
       ),
     )
+    .leftJoin(categorias, eq(categorias.id, itensCatalogo.categoriaCompraId))
     .where(eq(ordemPecas.ordemId, ordemId))
     .orderBy(asc(ordemPecas.posicao));
 
@@ -964,6 +977,8 @@ export async function lerPecasParaConcluir(
             unidade: peca.itemUnidade ?? null,
             controlaEstoque: peca.itemControlaEstoque ?? false,
             ativo: peca.itemAtivo ?? false,
+            categoriaCompraId: peca.itemCategoriaCompraId ?? null,
+            categoriaCompraNome: peca.itemCategoriaCompraNome ?? null,
           },
   }));
 }
@@ -971,24 +986,45 @@ export async function lerPecasParaConcluir(
 // O que a folha de conclusão recebe: as peças e, para o passo "Transformar em peça de linha"
 // (D-12), as categorias de venda ATIVAS do grupo Receitas e o id de "Peças prontas" (a sugestão;
 // `null` quando a categoria não existe mais ou está desativada — a folha pede para escolher).
+//
+// E, para o seletor "Categoria da compra" do D-13 (trocado pelo dono em 30/09/2026), as categorias
+// de compra ATIVAS — a MESMA lista do "+ Novo material" do Estoque (`listarCategoriasDeCompraAtivas`,
+// grupos custo e geral) — e o id de "Produção da casa" (a marcada ao abrir; `null` quando ela não
+// existe mais ou está desativada — a folha pede para escolher).
 export type DadosDaConclusao = {
   pecas: PecaParaConcluir[];
   categoriasDeVenda: CategoriaDeVenda[];
   categoriaPecasProntasId: string | null;
+  categoriasDeCompra: CategoriaDeCompraAtiva[];
+  categoriaProducaoDaCasaId: string | null;
 };
 
-// O nome exato que a migração 0016 semeou (a mesma frase de `NOME_CATEGORIA_PECAS_PRONTAS` em
-// `./textos`, repetida aqui para a consulta não importar o módulo de frases).
+// Os nomes exatos que as migrações 0016 e 0023 semearam (as mesmas frases de
+// `NOME_CATEGORIA_PECAS_PRONTAS` e `NOME_CATEGORIA_PRODUCAO_DA_CASA` em `./textos`, repetidas aqui
+// para a consulta não importar o módulo de frases).
 const NOME_PECAS_PRONTAS = "Peças prontas";
+const NOME_PRODUCAO_DA_CASA = "Produção da casa";
+
+function mesmoNome(nome: string, procurado: string): boolean {
+  return nome.trim().toLocaleLowerCase("pt-BR") === procurado.toLocaleLowerCase("pt-BR");
+}
 
 // Só `select`, sem trava: é o que a folha MOSTRA e o custo que a ação leva para dentro da
 // transação (como `aprovarOrcamento` lê a configuração antes). A decisão — status, contas, item
-// sem estoque, a ficha ainda exclusiva — é refeita sob a trava da ordem. `hoje` chega por
-// argumento. As categorias de venda só são lidas quando alguma peça é exclusiva (é só ela que
-// mostra o passo do D-12).
+// sem estoque, a ficha ainda exclusiva, a categoria de compra — é refeita sob a trava da ordem.
+// `hoje` chega por argumento. As categorias de venda só são lidas quando alguma peça é exclusiva
+// (é só ela que mostra o passo do D-12); as de compra, quando alguma peça pode pedir o seletor do
+// D-13 (item que ainda não controla estoque e não tem categoria, ou a exclusiva que pode ser
+// promovida e nasce sem categoria).
 export async function dadosDaConclusao(ordemId: string, hoje: string): Promise<DadosDaConclusao> {
   if (!FORMA_DE_UUID.test(ordemId)) {
-    return { pecas: [], categoriasDeVenda: [], categoriaPecasProntasId: null };
+    return {
+      pecas: [],
+      categoriasDeVenda: [],
+      categoriaPecasProntasId: null,
+      categoriasDeCompra: [],
+      categoriaProducaoDaCasaId: null,
+    };
   }
   const lidas = await lerPecasParaConcluir(db, ordemId);
   const custos = await custosDasFichas(
@@ -999,16 +1035,32 @@ export async function dadosDaConclusao(ordemId: string, hoje: string): Promise<D
     ...peca,
     custoPelaFichaCentavos: peca.fichaId === null ? null : (custos.get(peca.fichaId) ?? null),
   }));
-  if (!pecas.some((peca) => peca.exclusiva === true)) {
-    return { pecas, categoriasDeVenda: [], categoriaPecasProntasId: null };
-  }
+  const temExclusiva = pecas.some((peca) => peca.exclusiva === true);
+  const podePedirCategoriaDeCompra =
+    temExclusiva ||
+    pecas.some(
+      (peca) =>
+        peca.item !== null && !peca.item.controlaEstoque && peca.item.categoriaCompraId === null,
+    );
+
   // A MESMA lista do diálogo da ficha na Precificação (ativas, grupo Receitas).
-  const categoriasDeVenda = await listarCategoriasDeVenda();
-  const pecasProntas = categoriasDeVenda.find(
-    (categoria) =>
-      categoria.nome.trim().toLocaleLowerCase("pt-BR") === NOME_PECAS_PRONTAS.toLocaleLowerCase("pt-BR"),
+  const [categoriasDeVenda, categoriasDeCompra] = await Promise.all([
+    temExclusiva ? listarCategoriasDeVenda() : Promise.resolve([]),
+    podePedirCategoriaDeCompra ? listarCategoriasDeCompraAtivas() : Promise.resolve([]),
+  ]);
+  const pecasProntas = categoriasDeVenda.find((categoria) =>
+    mesmoNome(categoria.nome, NOME_PECAS_PRONTAS),
   );
-  return { pecas, categoriasDeVenda, categoriaPecasProntasId: pecasProntas?.id ?? null };
+  const producaoDaCasa = categoriasDeCompra.find((categoria) =>
+    mesmoNome(categoria.nome, NOME_PRODUCAO_DA_CASA),
+  );
+  return {
+    pecas,
+    categoriasDeVenda,
+    categoriaPecasProntasId: pecasProntas?.id ?? null,
+    categoriasDeCompra,
+    categoriaProducaoDaCasaId: producaoDaCasa?.id ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

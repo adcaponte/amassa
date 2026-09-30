@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { ligarFichaDePrecificacao } from "./apoio/semear-estoque";
 import {
   conclusaoDaOrdemNoBanco,
+  definirCategoriaDeCompraDoItemNoBanco,
   diaEmBrasilia,
   entradasDaProducaoNoBanco,
   estoqueDoItemNoBanco,
@@ -38,6 +39,8 @@ function nomeUnico(rotulo: string): string {
 }
 
 const INICIO = diaEmBrasilia(-10);
+// Uma categoria de compra da semente 0016 (grupo custo), diferente de "Produção da casa" (D-13).
+const CATEGORIA_DE_COMPRA_ESCOLHIDA = "Argila, esmalte e insumos";
 const ETAPAS_ANTES_DA_ENTREGA = (["producao", "secagem", "queima1", "esmaltacao", "queima2"] as const).map(
   (etapa) => ({ etapa, feitaEm: diaEmBrasilia(-1) }),
 );
@@ -297,7 +300,9 @@ test.describe("producao concluir", () => {
     );
   });
 
-  test("(d) produção da casa com peça de linha cujo item não controla estoque: a caixa do D-13, e o item passa a controlar em un, “Produção da casa”", async ({
+  // D-13, trocado pelo dono em 30/09/2026 (Parte 0): o item SEM categoria de compra recebe a que a
+  // pessoa escolhe na folha — o seletor nasce com "Produção da casa"; aqui ela escolhe outra.
+  test("(d) produção da casa com peça de linha cujo item não controla estoque nem tem categoria: a caixa do D-13, o seletor com “Produção da casa”, e o item passa a controlar em un na categoria escolhida", async ({
     page,
   }) => {
     const nome = nomeUnico("Concluir liga estoque");
@@ -330,8 +335,16 @@ test.describe("producao concluir", () => {
     const custoPelaFicha = Number(await secao.getAttribute("data-custo-pela-ficha"));
     expect(custoPelaFicha).toBeGreaterThan(0);
     await expect(folha.locator('[data-testid^="conclusao-liga-estoque-"]')).toHaveText(
-      `${nome} · prato ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria Produção da casa). Vai passar a aparecer no Estoque.`,
+      `${nome} · prato ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, na categoria da compra escolhida abaixo). Vai passar a aparecer no Estoque.`,
     );
+    const seletor = folha.locator('select[data-testid^="conclusao-categoria-compra-"]');
+    await expect(seletor).toHaveAccessibleName("Categoria da compra");
+    await expect(seletor.locator("option:checked")).toContainText("Produção da casa");
+    const outra = await seletor
+      .locator("option", { hasText: CATEGORIA_DE_COMPRA_ESCOLHIDA })
+      .getAttribute("value");
+    expect(outra).toBeTruthy();
+    await seletor.selectOption(outra!);
     await folha.getByTestId("conclusao-gravar").click();
     await expect(
       page.getByText(
@@ -342,7 +355,7 @@ test.describe("producao concluir", () => {
     expect(await estoqueDoItemNoBanco(itemId)).toEqual({
       controlaEstoque: true,
       unidade: "un",
-      categoriaCompra: "Produção da casa",
+      categoriaCompra: CATEGORIA_DE_COMPRA_ESCOLHIDA,
     });
     const entradas = await entradasDaProducaoNoBanco(ordemId);
     expect(entradas).toHaveLength(1);
@@ -350,6 +363,59 @@ test.describe("producao concluir", () => {
       itemId,
       quantidadeMilesimos: 2000,
       valorInformadoCentavos: custoPelaFicha * 2,
+    });
+  });
+
+  // D-13, trocado pelo dono em 30/09/2026: o item que JÁ TEM categoria de compra fica com a dele —
+  // a caixa a diz, e a folha não mostra o seletor.
+  test("(d2) item que não controla estoque mas já tem categoria de compra: fica com a dele, sem seletor", async ({
+    page,
+  }) => {
+    const nome = nomeUnico("Concluir mantém categoria");
+    const { fichaId, itemId } = await semearFicha({
+      nome: `${nome} · tigela`,
+      exclusiva: false,
+      comItem: true,
+      argilaMiligramas: 300_000,
+      esmalteMiligramas: 30_000,
+      larguraMm: 150,
+      profundidadeMm: 150,
+      alturaMm: 60,
+      horasMilesimos: 500,
+      cabemBiscoitoInformado: 10,
+      cabemEsmalteInformado: 10,
+    });
+    if (!itemId) {
+      throw new Error("a ficha de linha precisa de item");
+    }
+    await definirCategoriaDeCompraDoItemNoBanco(itemId, CATEGORIA_DE_COMPRA_ESCOLHIDA);
+    expect(await estoqueDoItemNoBanco(itemId)).toMatchObject({
+      controlaEstoque: false,
+      categoriaCompra: CATEGORIA_DE_COMPRA_ESCOLHIDA,
+    });
+    const ordemId = await semearOrdemNaEntrega({
+      nome,
+      tipo: "casa",
+      pecas: [{ descricao: `${nome} · tigela`, quantidade: 3, fichaId }],
+    });
+    await fazerLogin(page);
+
+    const folha = await abrirConclusao(page, ordemId);
+    await expect(folha.locator('[data-testid^="conclusao-liga-estoque-"]')).toHaveText(
+      `${nome} · tigela ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria ${CATEGORIA_DE_COMPRA_ESCOLHIDA}). Vai passar a aparecer no Estoque.`,
+    );
+    await expect(folha.locator('[data-testid^="conclusao-categoria-compra-"]')).toHaveCount(0);
+    await folha.getByTestId("conclusao-gravar").click();
+    await expect(
+      page.getByText(
+        `Ordem concluída. 3 peças entraram no Estoque como pronta entrega. ${nome} · tigela passou a aparecer no Estoque.`,
+      ),
+    ).toBeVisible();
+
+    expect(await estoqueDoItemNoBanco(itemId)).toEqual({
+      controlaEstoque: true,
+      unidade: "un",
+      categoriaCompra: CATEGORIA_DE_COMPRA_ESCOLHIDA,
     });
   });
 

@@ -109,6 +109,8 @@ export function AcoesDaOrdem({
           pecas={conclusao.pecas}
           categoriasDeVenda={conclusao.categoriasDeVenda}
           categoriaPecasProntasId={conclusao.categoriaPecasProntasId}
+          categoriasDeCompra={conclusao.categoriasDeCompra}
+          categoriaProducaoDaCasaId={conclusao.categoriaProducaoDaCasaId}
           aoFechar={() => setAberturaDaConclusao(null)}
         />
       ) : null}
