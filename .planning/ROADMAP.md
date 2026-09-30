@@ -847,7 +847,7 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 13/15 plans executed
+**Plans:** 14/15 plans executed
 
 15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
@@ -870,7 +870,7 @@ um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `
 - [x] 06.1-11-PLAN.md — Concluir: as fórmulas do §7 verbatim, a entrada `producao` no Estoque ao custo da ficha, D-13 e D-14 (onda 11) *Concluído em 30/09/2026 no branch (`9d1c71f`..`9b11e52`): verificar verde (1961 testes); e2e 2 invocações (a 1ª quebrou num auxiliar do próprio teste), a última `producao concluir` 60 passed — ver `06.1-11-SUMMARY.md`.*
 - [x] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12) *Concluído em 30/09/2026 no branch (`41ab957`..`99d86e9`): verificar verde (1982 testes); e2e 74 e 41 passed — ver `06.1-12-SUMMARY.md`.*
 - [x] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13) *Concluído em 30/09/2026 no branch (`76f036a`..`64958b9`): verificar verde (2010 testes); e2e 3 invocações (uma para reverificar falha própria), as últimas 59 e 57 passed — ver `06.1-13-SUMMARY.md`.*
-- [ ] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14)
+- [x] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14) *Concluído em 30/09/2026 no branch (`1e51a42`..`a990201`): `0025` escrita e provada no Postgres efêmero, não aplicada; verificar verde (1776 testes, o módulo antigo saiu); e2e 6 invocações (3 previstas), a última `producao rotas` 60 passed — ver `06.1-14-SUMMARY.md`.*
 - [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**)
 
 **UI hint**: yes
@@ -933,5 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 13/15 | In Progress | - |
+| 06.1. Produção — redesenho das Encomendas | 14/15 | In Progress | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
