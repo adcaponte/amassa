@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 06.1
 current_phase_name: Produção
 status: executing
-stopped_at: "Fase 06.1 Producao em execucao (pedida pelo dono em 30/09/2026): planos 01..04 concluidos no branch local gsd/phase-06.1-producao; proximo o 05. Nada publicado."
-last_updated: "2026-09-30T07:09:52Z"
+stopped_at: "Fase 06.1 Producao em execucao (pedida pelo dono em 30/09/2026): planos 01..05 concluidos no branch local gsd/phase-06.1-producao; proximo o 06. Nada publicado."
+last_updated: "2026-09-30T07:32:55Z"
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 112
-  completed_plans: 101
+  completed_plans: 102
 last_activity: 2026-09-30
 last_activity_desc: "Fase 06.1 (Producao): execucao iniciada em 30/09/2026 (~05h45 UTC) pelo dono, via /gsd-execute-phase 06.1 — 15 planos sequenciais no branch gsd/phase-06.1-producao; nada publicado. Antes: Fase 06.1 (Producao) planejada na noite de 29 para 30/09/2026, via /gsd-plan-phase 06.1: pesquisa (d5da574); as nove perguntas abertas dela respondidas pelo dono no chat, D-09..D-17 (d25f70b; a D-09 contra a recomendacao: uma publicacao e uma sessao de db:migrate); VALIDATION (6e97783); depois, com o dono dormindo e pelas opcoes recomendadas, UI-SPEC (34b1715), mapa de padroes (095826a) e 15 planos. Nada executado, nada publicado. Antes disso — Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
 ---
@@ -334,6 +334,7 @@ portão (plano 15). Como sei: o comando dele nesta sessão; nenhum `06.1-*-SUMMA
 fase e nenhum commit `06.1-0*` no `git log` no início da execução.
 
 **Progresso da execução (atualizado pelo orquestrador a cada plano):**
+- **06.1-05** (30/09, ~08h00 UTC) — a trilha na mão: desfazer com confirmação (UI-D4), −/+ dos dias previstos, parcial, previsão, e o "Terminei" na barra fixa do celular (UI-D3) — um único conjunto de botões que vira barra abaixo de 768px (desvio registrado no SUMMARY). Como sei: commits `1f9299b`..`5ebf902`; `npm run verificar` verde (86 ações, 1777 testes); e2e `--grep "producao (trilha|tracador|sinal|pecas|a mais)"` 90 passed/2 failed (asserção do próprio teste, corrigida) e `--grep "producao trilha"` 62 passed, segundo `06.1-05-SUMMARY.md`. Para a caminhada: "Terminei: Queima de biscoito" em 320px.
 - **06.1-04** (30/09, ~07h35 UTC) — bloco Peças (horas da ficha, cor, personalização, fotos do orçamento pela rota autenticada), vínculos ordem ↔ orçamento/venda nos dois sentidos, "a mais" só em encomenda. Como sei: commits `6bb43b7`..`86b5507`; `npm run verificar` verde (83 ações, 1726 testes); e2e `--grep "producao pecas"` 54 passed e `--grep "producao a mais"` 52 passed, segundo `06.1-04-SUMMARY.md`.
 - **06.1-03** (30/09, ~07h15 UTC) — aprovar o orçamento abre a ordem aguardando o sinal na mesma transação; seção "Aguardando o sinal", sinal lido do Caixa, liberação manual (`liberarOrdem`). Como sei: commits `dc9d8db`..`4b4b6cf`; `npm run verificar` verde (82 ações, 1708 testes); e2e `--grep "orcamentos aprovacao"` 66 passed e `--grep "producao sinal"` 56 passed, segundo `06.1-03-SUMMARY.md`. **Achado:** o check `ordens_producao_aguardando_sem_inicio` da `0024` recusa cancelar ordem aguardando (início nulo) — contra o D-07. **Decidido sem o Theo (orquestrador):** corrigir na `0024` ainda não aplicada, aceitando `cancelada` com ou sem início, como primeiro passo do plano 06. Desfazer: voltar o check à forma do plano 01.
 - **06.1-02** (30/09, ~06h45 UTC) — bordas da leitura e do "Terminei" (etapa com data anterior à da etapa de antes agora é dado corrompido e dá erro); o banco da Produção e o D-02 provados em banco próprio parado na `0023`; o "Qual ordem?" do Estoque ligado às ordens. Como sei: commits `38bda81`..`311b57e`; `npm run verificar` verde (1699 testes) e um e2e `--grep "estoque movimentacao"` 68 passed, segundo `06.1-02-SUMMARY.md`. **Autorização do dono, no chat, durante o plano 02:** "vou sair por varias horas. vai seguindo no recomendado" — valem os limites da execução sem ele (sem push, servidor, `.env`, migração aplicada; parar no portão).

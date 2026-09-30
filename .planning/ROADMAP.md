@@ -847,7 +847,7 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 4/15 plans executed
+**Plans:** 5/15 plans executed
 
 15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
@@ -861,7 +861,7 @@ um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `
 - [x] 06.1-02-PLAN.md — O traçador nas bordas: leitura e "Terminei" em todos os casos de calendário e de estado; a conferência da Produção e a prova do D-02 em banco próprio; o vínculo "Qual ordem?" do Estoque (onda 2) *Concluído em 30/09/2026 no branch (`38bda81`..`311b57e`): verificar verde (1699 testes, `test:migracoes` com o D-02 em banco próprio); e2e `--grep "estoque movimentacao"` 68 passed — ver `06.1-02-SUMMARY.md`.*
 - [x] 06.1-03-PLAN.md — Do orçamento aprovado à ordem aguardando o sinal, na mesma transação; a seção "aguardando o sinal", o sinal lido do Caixa e a liberação manual (onda 3) *Concluído em 30/09/2026 no branch (`dc9d8db`..`4b4b6cf`): verificar verde (1708 testes); e2e 3 invocações (uma para reverificar falha própria), a última 56 passed — ver `06.1-03-SUMMARY.md`.*
 - [x] 06.1-04-PLAN.md — O bloco Peças (cor, personalização, horas, fotos do orçamento sem copiar arquivo, vínculos nos dois sentidos) e as peças a mais, só em encomenda (onda 4) *Concluído em 30/09/2026 no branch (`6bb43b7`..`86b5507`): verificar verde (1726 testes); e2e `producao pecas` 54 e `producao a mais` 52 passed — ver `06.1-04-SUMMARY.md`.*
-- [ ] 06.1-05-PLAN.md — A trilha na mão: desfazer com confirmação, −/+ dos dias previstos das etapas futuras, o parcial, a previsão e a barra fixa do "Terminei" no celular (onda 5)
+- [x] 06.1-05-PLAN.md — A trilha na mão: desfazer com confirmação, −/+ dos dias previstos das etapas futuras, o parcial, a previsão e a barra fixa do "Terminei" no celular (onda 5) *Concluído em 30/09/2026 no branch (`1f9299b`..`5ebf902`): verificar verde (1777 testes); e2e 2 invocações, a última `producao trilha` 62 passed — ver `06.1-05-SUMMARY.md`.*
 - [ ] 06.1-06-PLAN.md — Cancelar a ordem sem mexer em venda, parcela nem estoque; a D-07 dentro do `cancelarDocumento` (onda 6)
 - [ ] 06.1-07-PLAN.md — A "Nova ordem": produção da casa e pedido de boca, "+ outra peça", D-04/D-05/D-13 conferidas no servidor (onda 7)
 - [ ] 06.1-08-PLAN.md — O quadro inteiro: filtros, os três números, a fila do forno em fornadas estimadas, estados vazio/carregando/erro, concluídas e canceladas (onda 8)
@@ -933,5 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 4/15 | In Progress | - |
+| 06.1. Produção — redesenho das Encomendas | 5/15 | In Progress | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
