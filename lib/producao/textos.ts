@@ -228,6 +228,98 @@ export const FRASE_FALHA_AO_SALVAR_A_MAIS =
   "Não deu para salvar as peças a mais. Verifique a internet e tente de novo.";
 
 // ---------------------------------------------------------------------------------------------
+// A trilha na mão (plano 05): desfazer a última (PRD-03), ajustar os dias previstos (PRD-12), o
+// parcial (PRD-06) e a previsão de conclusão.
+// ---------------------------------------------------------------------------------------------
+
+// Desfazer — a confirmação (UI-D4, `AlertDialog`) diz a data que se perde.
+export const ROTULO_DESFAZER_A_ULTIMA = "Desfazer a última";
+export const ROTULO_DESFAZER = "Desfazer";
+export function ariaLabelDesfazerNaBarra(rotuloDaEtapa: string): string {
+  return `Desfazer a última etapa: ${rotuloDaEtapa}`;
+}
+export function tituloConfirmarDesfazer(rotuloDaEtapa: string): string {
+  return `Desfazer: ${rotuloDaEtapa}?`;
+}
+export function textoConfirmarDesfazer(rotuloDaEtapa: string, feitaEmDiaMes: string): string {
+  return `A ${rotuloDaEtapa} volta a ser a etapa atual, e a data em que ela foi marcada como feita (${feitaEmDiaMes}) se perde. Se marcar de novo, vale a data do dia em que marcar.`;
+}
+export function rotuloConfirmarDesfazer(rotuloDaEtapa: string): string {
+  return `Desfazer ${rotuloDaEtapa}`;
+}
+export const ROTULO_VOLTAR = "Voltar";
+export const ROTULO_DESFAZENDO = "Desfazendo…";
+export function textoToastDesfeito(rotuloDaEtapa: string): string {
+  return `Desfeito: ${rotuloDaEtapa} voltou a ser a etapa atual.`;
+}
+export const FRASE_JA_DESFEITA = "Essa etapa já tinha sido desfeita. A tela foi atualizada.";
+// Nenhuma etapa feita quando o "Desfazer" chegou ao servidor (o botão já estava desabilitado — só
+// acontece se outro celular desfez antes). Mesmo molde das frases de estado mudado (decidido sem o
+// Theo, plano 05).
+export const FRASE_NADA_A_DESFAZER =
+  "Nenhuma etapa desta ordem está feita — não há o que desfazer. A tela foi atualizada.";
+export const FRASE_FALHA_AO_DESFAZER =
+  "Não deu para desfazer. Verifique a internet e tente de novo.";
+
+// Ajuste dos dias previstos — nenhum toast: o número muda na própria linha.
+export function ariaLabelUmDiaAMenos(rotuloDaEtapa: string): string {
+  return `Um dia a menos em ${rotuloDaEtapa}`;
+}
+export function ariaLabelUmDiaAMais(rotuloDaEtapa: string): string {
+  return `Um dia a mais em ${rotuloDaEtapa}`;
+}
+export const SR_MINIMO_1_DIA = "mínimo 1 dia";
+export const SR_MAXIMO_365_DIAS = "máximo 365 dias";
+export const FRASE_FALHA_AO_AJUSTAR =
+  "Não deu para mudar os dias previstos. Verifique a internet e tente de novo.";
+// A etapa deixou de ser futura (marcada noutro celular) ou o previsto chegou ao limite noutro
+// celular — as duas só chegam ao servidor quando a tela está velha (decidido sem o Theo, plano 05).
+export const FRASE_AJUSTE_NAO_FUTURA =
+  "Esta etapa já começou ou já foi feita — os dias dela valem pelo que aconteceu. A tela foi atualizada.";
+export const FRASE_AJUSTE_NO_LIMITE =
+  "Os dias previstos de uma etapa vão de 1 a 365. A tela foi atualizada.";
+
+// Parcial — "já passaram [ ] de {total}"; nenhum toast: o número fica no campo e o cartão acompanha.
+export const ROTULO_JA_PASSARAM = "já passaram";
+export function textoDeTotal(total: number): string {
+  return `de ${total}`;
+}
+export function ariaLabelParcial(rotuloDaEtapa: string, total: number): string {
+  return `Quantas peças já passaram pela ${rotuloDaEtapa}, de ${total}`;
+}
+export function textoParcialInvalido(total: number): string {
+  return `Diga um número de 0 a ${total}.`;
+}
+// A frase do Zod quando o texto não é um inteiro — a ação a troca por `textoParcialInvalido(total)`
+// assim que sabe o total; esta só aparece se nem isso der para ler.
+export const FRASE_PARCIAL_NAO_INTEIRO = "Diga um número inteiro de peças, de 0 até o total.";
+// A etapa atual mudou entre abrir a tela e salvar (marcada ou desfeita noutro celular).
+export const FRASE_PARCIAL_ETAPA_MUDOU =
+  "A etapa atual mudou — talvez em outro celular. A tela foi atualizada.";
+export const FRASE_PARCIAL_ULTIMA_ETAPA =
+  "Na última etapa quem conta as peças é a conclusão da ordem. A tela foi atualizada.";
+export const FRASE_FALHA_AO_SALVAR_PARCIAL =
+  "Não deu para salvar quantas já passaram. Verifique a internet e tente de novo.";
+// No cartão do quadro: " · 18 de 30 já passaram" (1: "1 de 30 já passou").
+export function textoParcialNoCartao(passaram: number, total: number): string {
+  return passaram === 1 ? `1 de ${total} já passou` : `${passaram} de ${total} já passaram`;
+}
+
+// Previsão de conclusão (só ordem ativa), embaixo da trilha: "Previsão de conclusão: {dd/mm}" +
+// " · {N} dias de folga" / " · {N} dias depois do prometido" (erro, 600) / sem entrega: só a data.
+export const TEXTO_PREVISAO_DE_CONCLUSAO = "Previsão de conclusão:";
+export type TrechoDaFolga = { tipo: "folga" | "atraso"; texto: string } | null;
+export function textoPrevisao(folgaDias: number | null): TrechoDaFolga {
+  if (folgaDias === null) {
+    return null;
+  }
+  return folgaDias >= 0
+    ? { tipo: "folga", texto: `${dias(folgaDias)} de folga` }
+    : { tipo: "atraso", texto: `${dias(-folgaDias)} depois do prometido` };
+}
+export const DICA_ETAPA_INTEIRA = "A etapa só termina quando todas as peças passaram por ela.";
+
+// ---------------------------------------------------------------------------------------------
 // Aguardando o sinal e liberar (plano 03, PRD-11)
 // ---------------------------------------------------------------------------------------------
 

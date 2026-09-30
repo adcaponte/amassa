@@ -9,8 +9,12 @@ import { z } from "zod";
 import { ORDEM_DAS_COLUNAS, type EtapaProducao } from "./etapas";
 import {
   FRASE_A_MAIS_INVALIDO,
+  FRASE_FALHA_AO_AJUSTAR,
+  FRASE_JA_DESFEITA,
   FRASE_JA_MARCADA,
   FRASE_ORDEM_NAO_EXISTE,
+  FRASE_PARCIAL_ETAPA_MUDOU,
+  FRASE_PARCIAL_NAO_INTEIRO,
   FRASE_PECA_NAO_EXISTE,
 } from "./textos";
 
@@ -58,3 +62,53 @@ export const esquemaDefinirAMais = z
   .transform(({ ordemId, pecaId, aMaisTexto }) => ({ ordemId, pecaId, aMais: aMaisTexto }));
 
 export type DefinirAMaisValidado = z.infer<typeof esquemaDefinirAMais>;
+
+// "Desfazer a última" (plano 05, PRD-03): o id e a etapa que a confirmação mostrava — o servidor só
+// desfaz se ela ainda for a última feita, sob a trava (Pitfall 7).
+export const esquemaDesfazerEtapa = z.object({
+  ordemId: z.string().uuid(FRASE_ORDEM_NAO_EXISTE),
+  etapaEsperada: z.enum(ETAPAS, { error: FRASE_JA_DESFEITA }),
+});
+
+export type DesfazerEtapaValidado = z.infer<typeof esquemaDesfazerEtapa>;
+
+// "−"/"+" nos dias previstos (plano 05, PRD-12): um dia por toque — nunca um número digitado.
+export const esquemaAjustarDiasPrevistos = z.object({
+  ordemId: z.string().uuid(FRASE_ORDEM_NAO_EXISTE),
+  etapa: z.enum(ETAPAS, { error: FRASE_FALHA_AO_AJUSTAR }),
+  delta: z.union([z.literal(-1), z.literal(1)], { error: FRASE_FALHA_AO_AJUSTAR }),
+});
+
+export type AjustarDiasPrevistosValidado = z.infer<typeof esquemaAjustarDiasPrevistos>;
+
+// "Já passaram [ ] de {total}" (plano 05, PRD-06): o texto do campo vira inteiro ≥ 0 UMA vez, aqui.
+// Só dígitos — "2,5", "1e3", "-1" são recusados, não arredondados. Vazio é `null` (sem parcial). A
+// faixa superior (o total de feitas) não é daqui: o módulo puro a decide sob a trava, lendo as
+// peças da ordem.
+const esquemaPassaram = z
+  .string({ error: FRASE_PARCIAL_NAO_INTEIRO })
+  .transform((texto, contexto): number | null => {
+    const limpo = texto.trim();
+    if (limpo === "") {
+      return null;
+    }
+    if (!/^\d{1,9}$/.test(limpo)) {
+      contexto.addIssue({ code: "custom", message: FRASE_PARCIAL_NAO_INTEIRO });
+      return z.NEVER;
+    }
+    return Number(limpo);
+  });
+
+export const esquemaRegistrarParcial = z
+  .object({
+    ordemId: z.string().uuid(FRASE_ORDEM_NAO_EXISTE),
+    etapaEsperada: z.enum(ETAPAS, { error: FRASE_PARCIAL_ETAPA_MUDOU }),
+    passaramTexto: esquemaPassaram,
+  })
+  .transform(({ ordemId, etapaEsperada, passaramTexto }) => ({
+    ordemId,
+    etapaEsperada,
+    passaram: passaramTexto,
+  }));
+
+export type RegistrarParcialValidado = z.infer<typeof esquemaRegistrarParcial>;
