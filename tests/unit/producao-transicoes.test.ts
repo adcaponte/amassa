@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { etapasIniciais } from "@/lib/producao/etapas";
 import type { OrdemParaLeitura } from "@/lib/producao/leitura";
-import { planejarLiberacao, planejarTerminar } from "@/lib/producao/transicoes";
+import {
+  planejarAjusteDePrevisto,
+  planejarDesfazer,
+  planejarLiberacao,
+  planejarParcial,
+  planejarTerminar,
+  totalDeFeitas,
+} from "@/lib/producao/transicoes";
 
 // Fase 06.1 (plano 01): "Terminei" decidido sob a trava da ordem, contra a etapa ESPERADA (o que o
 // botão mostrava) — é o que recusa o toque duplo e o segundo celular (Pitfall 7). As demais
@@ -220,5 +227,247 @@ describe("planejarLiberacao", () => {
       tipo: "ok",
       inicio: "2026-10-01",
     });
+  });
+});
+
+// Fase 06.1 (plano 05): desfazer a última, ajustar os dias previstos e o parcial — as três mexidas
+// na trilha, decididas sob a trava da ordem contra o que a pessoa viu na tela (Pitfall 7).
+
+function comParcial(base: OrdemParaLeitura, etapa: string, passaram: number): OrdemParaLeitura {
+  return {
+    ...base,
+    etapas: base.etapas.map((linha) => (linha.etapa === etapa ? { ...linha, passaram } : linha)),
+  };
+}
+
+describe("planejarDesfazer", () => {
+  const duasFeitas = ordem({ feitas: { producao: "2026-03-05", secagem: "2026-03-20" } });
+
+  it("esperada = a última feita → ok, e a ordem fica sem parcial nenhum", () => {
+    expect(planejarDesfazer(duasFeitas, "secagem")).toEqual({
+      tipo: "ok",
+      etapa: "secagem",
+      limparParciais: true,
+    });
+  });
+
+  it("o parcial da etapa atual (que volta a ser futura) não sobrevive (Pitfall 8)", () => {
+    expect(planejarDesfazer(comParcial(duasFeitas, "queima1", 4), "secagem")).toMatchObject({
+      tipo: "ok",
+      etapa: "secagem",
+      limparParciais: true,
+    });
+  });
+
+  it("esperada é uma feita que não é a última → recusa “já desfeita”", () => {
+    expect(planejarDesfazer(duasFeitas, "producao")).toEqual({
+      tipo: "recusa",
+      motivo: "ja-desfeita",
+    });
+  });
+
+  it("esperada é a atual ou uma futura → recusa “já desfeita” (outro celular desfez antes)", () => {
+    expect(planejarDesfazer(duasFeitas, "queima1")).toEqual({
+      tipo: "recusa",
+      motivo: "ja-desfeita",
+    });
+    expect(planejarDesfazer(duasFeitas, "entrega")).toEqual({
+      tipo: "recusa",
+      motivo: "ja-desfeita",
+    });
+  });
+
+  it("nenhuma etapa feita → recusa “nada a desfazer”", () => {
+    expect(planejarDesfazer(ordem(), "producao")).toEqual({
+      tipo: "recusa",
+      motivo: "nada-a-desfazer",
+    });
+  });
+
+  it("ordem aguardando, concluída ou cancelada → recusa “não ativa”", () => {
+    for (const status of ["aguardando_sinal", "concluida", "cancelada"] as const) {
+      expect(
+        planejarDesfazer(ordem({ status, feitas: { producao: "2026-03-05" } }), "producao"),
+      ).toEqual({ tipo: "recusa", motivo: "nao-ativa" });
+    }
+  });
+
+  it("na entrega (tudo antes feito) desfaz a última queima — no biscoito, a de biscoito", () => {
+    const naEntrega = ordem({
+      caminho: "biscoito",
+      feitas: { producao: "2026-03-05", secagem: "2026-03-20", queima1: "2026-03-21" },
+    });
+    expect(planejarDesfazer(naEntrega, "queima1")).toMatchObject({ tipo: "ok", etapa: "queima1" });
+  });
+
+  it("desfazer a etapa feita no mesmo dia da anterior é aceito", () => {
+    const mesmoDia = ordem({ feitas: { producao: "2026-03-05", secagem: "2026-03-05" } });
+    expect(planejarDesfazer(mesmoDia, "secagem")).toMatchObject({ tipo: "ok", etapa: "secagem" });
+  });
+});
+
+describe("planejarAjusteDePrevisto", () => {
+  const naSecagem = ordem({ feitas: { producao: "2026-03-05" } });
+
+  it("etapa futura +1 de 15 → 16; −1 de 4 → 3", () => {
+    expect(planejarAjusteDePrevisto(ordem(), "secagem", 1)).toEqual({
+      tipo: "ok",
+      etapa: "secagem",
+      diasPrevistos: 16,
+    });
+    expect(planejarAjusteDePrevisto(naSecagem, "queima2", -1)).toEqual({
+      tipo: "ok",
+      etapa: "queima2",
+      diasPrevistos: 3,
+    });
+  });
+
+  it("−1 de 1 → recusa “limite”; +1 de 365 → recusa “limite”", () => {
+    expect(planejarAjusteDePrevisto(naSecagem, "queima1", -1)).toEqual({
+      tipo: "recusa",
+      motivo: "limite",
+    });
+    const no365 = {
+      ...naSecagem,
+      etapas: naSecagem.etapas.map((linha) =>
+        linha.etapa === "entrega" ? { ...linha, diasPrevistos: 365 } : linha,
+      ),
+    };
+    expect(planejarAjusteDePrevisto(no365, "entrega", 1)).toEqual({
+      tipo: "recusa",
+      motivo: "limite",
+    });
+    expect(planejarAjusteDePrevisto(no365, "entrega", -1)).toEqual({
+      tipo: "ok",
+      etapa: "entrega",
+      diasPrevistos: 364,
+    });
+  });
+
+  it("etapa atual → recusa “não futura”; etapa feita → recusa “não futura”", () => {
+    expect(planejarAjusteDePrevisto(naSecagem, "secagem", 1)).toEqual({
+      tipo: "recusa",
+      motivo: "nao-futura",
+    });
+    expect(planejarAjusteDePrevisto(naSecagem, "producao", 1)).toEqual({
+      tipo: "recusa",
+      motivo: "nao-futura",
+    });
+  });
+
+  it("ordem aguardando o sinal → todas as etapas aceitam, inclusive a primeira", () => {
+    const aguardando = ordem({ status: "aguardando_sinal", inicio: null });
+    for (const linha of aguardando.etapas) {
+      expect(planejarAjusteDePrevisto(aguardando, linha.etapa, 1)).toEqual({
+        tipo: "ok",
+        etapa: linha.etapa,
+        diasPrevistos: linha.diasPrevistos + 1,
+      });
+    }
+  });
+
+  it("ordem concluída ou cancelada → recusa “não ativa”", () => {
+    for (const status of ["concluida", "cancelada"] as const) {
+      expect(planejarAjusteDePrevisto(ordem({ status }), "entrega", 1)).toEqual({
+        tipo: "recusa",
+        motivo: "nao-ativa",
+      });
+    }
+  });
+
+  it("delta fora de ±1 → recusa “delta inválido”", () => {
+    for (const delta of [0, 2, -2, 0.5, Number.NaN]) {
+      expect(planejarAjusteDePrevisto(naSecagem, "entrega", delta)).toEqual({
+        tipo: "recusa",
+        motivo: "delta-invalido",
+      });
+    }
+  });
+
+  it("etapa fora do caminho (esmaltação no biscoito) → recusa “não futura”", () => {
+    expect(planejarAjusteDePrevisto(ordem({ caminho: "biscoito" }), "esmaltacao", 1)).toEqual({
+      tipo: "recusa",
+      motivo: "nao-futura",
+    });
+  });
+});
+
+describe("totalDeFeitas", () => {
+  it("soma quantidade + a mais de cada peça", () => {
+    expect(
+      totalDeFeitas([
+        { quantidade: 20, aMais: 4 },
+        { quantidade: 6, aMais: 0 },
+      ]),
+    ).toBe(30);
+    expect(totalDeFeitas([])).toBe(0);
+  });
+});
+
+describe("planejarParcial", () => {
+  const naSecagem = ordem({ feitas: { producao: "2026-03-05" } });
+
+  it("total 30, 18 na etapa atual → 18", () => {
+    expect(planejarParcial(naSecagem, "secagem", 18, 30)).toEqual({ tipo: "ok", passaram: 18 });
+  });
+
+  it("0 e vazio → sem parcial (null)", () => {
+    expect(planejarParcial(naSecagem, "secagem", 0, 30)).toEqual({ tipo: "ok", passaram: null });
+    expect(planejarParcial(naSecagem, "secagem", null, 30)).toEqual({ tipo: "ok", passaram: null });
+  });
+
+  it("o total exato é aceito; 31 de 30 → recusa “fora da faixa”", () => {
+    expect(planejarParcial(naSecagem, "secagem", 30, 30)).toEqual({ tipo: "ok", passaram: 30 });
+    expect(planejarParcial(naSecagem, "secagem", 31, 30)).toEqual({
+      tipo: "recusa",
+      motivo: "fora-da-faixa",
+    });
+  });
+
+  it("não inteiro ou negativo → recusa “fora da faixa” (o Zod já recusa antes)", () => {
+    expect(planejarParcial(naSecagem, "secagem", 2.5, 30)).toEqual({
+      tipo: "recusa",
+      motivo: "fora-da-faixa",
+    });
+    expect(planejarParcial(naSecagem, "secagem", -1, 30)).toEqual({
+      tipo: "recusa",
+      motivo: "fora-da-faixa",
+    });
+  });
+
+  it("etapa esperada ≠ atual → recusa “etapa mudou” (outro celular marcou ou desfez)", () => {
+    expect(planejarParcial(naSecagem, "producao", 5, 30)).toEqual({
+      tipo: "recusa",
+      motivo: "etapa-mudou",
+    });
+    expect(planejarParcial(naSecagem, "queima1", 5, 30)).toEqual({
+      tipo: "recusa",
+      motivo: "etapa-mudou",
+    });
+  });
+
+  it("etapa atual entrega → recusa “última etapa”", () => {
+    const naEntrega = ordem({
+      caminho: "biscoito",
+      feitas: { producao: "2026-03-05", secagem: "2026-03-20", queima1: "2026-03-21" },
+    });
+    expect(planejarParcial(naEntrega, "entrega", 5, 30)).toEqual({
+      tipo: "recusa",
+      motivo: "ultima-etapa",
+    });
+  });
+
+  it("ordem não ativa → recusa “não ativa”", () => {
+    for (const status of ["aguardando_sinal", "concluida", "cancelada"] as const) {
+      expect(planejarParcial(ordem({ status }), "producao", 5, 30)).toEqual({
+        tipo: "recusa",
+        motivo: "nao-ativa",
+      });
+    }
+  });
+
+  it("salvar o mesmo parcial de novo dá o mesmo valor (idempotente)", () => {
+    const jaCom18 = comParcial(naSecagem, "secagem", 18);
+    expect(planejarParcial(jaCom18, "secagem", 18, 30)).toEqual({ tipo: "ok", passaram: 18 });
   });
 });
