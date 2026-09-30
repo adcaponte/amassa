@@ -18,6 +18,11 @@ import { Button } from "@/components/ui/button";
 // rápidos nunca marcam duas etapas (UI-SPEC §"Orçamento de toques").
 const ESPERA_DEPOIS_DE_MUDAR_MS = 1000;
 
+// Depois de marcar, o botão velho fica travado até a tela trazer a etapa nova (revisão 06.1,
+// WR-103). Se ela não chegar neste tempo (rede lenta, resposta perdida), pede a recarga de novo e
+// solta o botão — um toque a mais ali só recebe a recusa "já tinha sido marcada", nunca marca duas.
+const LIMITE_DA_ESPERA_PELA_TELA_MS = 10000;
+
 export type BotaoTermineiProps = {
   ordemId: string;
   tipo: TipoOrdem;
@@ -30,12 +35,15 @@ export type BotaoTermineiProps = {
 // de ação fixa (`BarraAcaoFixa`, UI-D3): `flex-1`, 52px no mínimo, quebra em duas linhas a 320px,
 // nunca reticências. Enquanto grava: "Marcando…", `disabled`, `aria-busy`. Sucesso: toast "Feito: X.
 // Agora: Y." — SEM botão de desfazer (UI-D16: desfazer só pela confirmação que diz a data que se
-// perde); a resposta da ação traz a página revalidada. Recusa ("já tinha sido marcada", outro celular) ou falha: a frase
-// embaixo do botão (no celular, logo ACIMA da barra), `role="alert"`, e a tela recarrega o estado.
+// perde); a resposta da ação traz a página revalidada. Recusa ("já tinha sido marcada", outro
+// celular) ou falha: a frase embaixo do botão (no celular, logo ACIMA da barra), `role="alert"`, e a tela recarrega o estado.
 //
-// A trava de 1 s: guarda a etapa que o botão mostra; quando ela muda (marcada aqui, desfeita, ou
-// mudada noutro celular e trazida por uma recarga), o botão ignora toques por 1000 ms.
-// O componente NÃO muda de chave quando a etapa muda: a frase de erro e a trava sobrevivem.
+// As travas: (1) depois de marcar AQUI, o botão fica travado enquanto ainda mostra a etapa que foi
+// marcada — até a tela trazer a nova (ou 10 s, com uma recarga de novo) —, e não por um tempo fixo
+// que pode acabar antes da tela nova chegar (revisão 06.1, WR-103); (2) quando a etapa mostrada
+// muda (marcada aqui, desfeita, ou mudada noutro celular e trazida por uma recarga), o botão novo
+// ignora toques por 1000 ms. O componente NÃO muda de chave quando a etapa muda: a frase de erro e
+// as travas sobrevivem.
 export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   const router = useRouter();
   const emVoo = useRef(false);
@@ -45,13 +53,30 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   const [inicioDaEspera, setInicioDaEspera] = useState(0);
   const [etapaVista, setEtapaVista] = useState(etapa);
   const [erro, setErro] = useState<string | null>(null);
+  // A etapa que ESTE botão acabou de marcar, enquanto a tela ainda não trouxe a seguinte. Guardar a
+  // etapa (e não um "sim/não") resolve a ordem incerta entre a resposta da ação e o desenho novo: se
+  // a tela nova chegou antes do `await` voltar, a etapa mostrada já é outra e nada fica travado.
+  const [aguardandoDe, setAguardandoDe] = useState<EtapaProducao | null>(null);
+  const aguardandoTela = aguardandoDe !== null && aguardandoDe === etapa;
 
   // A etapa mudou desde o último desenho: o botão novo acabou de aparecer.
   if (etapaVista !== etapa) {
     setEtapaVista(etapa);
+    setAguardandoDe(null);
     setEsperando(true);
     setInicioDaEspera((anterior) => anterior + 1);
   }
+
+  useEffect(() => {
+    if (!aguardandoTela) {
+      return;
+    }
+    const temporizador = window.setTimeout(() => {
+      router.refresh();
+      setAguardandoDe(null);
+    }, LIMITE_DA_ESPERA_PELA_TELA_MS);
+    return () => window.clearTimeout(temporizador);
+  }, [aguardandoTela, router]);
 
   useEffect(() => {
     if (inicioDaEspera === 0) {
@@ -62,7 +87,7 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   }, [inicioDaEspera]);
 
   async function aoTocar() {
-    if (emVoo.current || esperando) {
+    if (emVoo.current || esperando || aguardandoTela) {
       return;
     }
     emVoo.current = true;
@@ -78,8 +103,7 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
           ),
         );
         // Até a tela trazer a etapa nova, o botão velho não aceita toque.
-        setEsperando(true);
-        setInicioDaEspera((anterior) => anterior + 1);
+        setAguardandoDe(etapa);
       } else {
         setErro(resultado.erro);
         // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui. No
@@ -102,7 +126,7 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
         type="button"
         data-testid="ordem-terminei"
         className="text-corpo h-auto min-h-[52px] px-6 font-semibold leading-tight whitespace-normal"
-        disabled={gravando || esperando}
+        disabled={gravando || esperando || aguardandoTela}
         aria-busy={gravando ? "true" : undefined}
         onClick={aoTocar}
       >
