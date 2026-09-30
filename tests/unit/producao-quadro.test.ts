@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { etapasIniciais, ORDEM_DAS_COLUNAS } from "@/lib/producao/etapas";
 import type { OrdemParaLeitura } from "@/lib/producao/leitura";
-import { colunasDoQuadro, ordenarNaColuna } from "@/lib/producao/quadro";
+import {
+  colunasDoQuadro,
+  FILTROS_DO_QUADRO,
+  filtrarOrdens,
+  numerosDoTopo,
+  ordenarNaColuna,
+} from "@/lib/producao/quadro";
 
 // Fase 06.1 (plano 01): o quadro por etapa — seis colunas em ordem fixa, cada ordem ativa na
 // coluna da etapa atual; filtros e os três números do topo são do plano 08.
@@ -101,5 +107,115 @@ describe("ordenarNaColuna (PRD-01 · ordering)", () => {
     ];
     ordenarNaColuna(lista);
     expect(lista.map((o) => o.id)).toEqual(["b", "a"]);
+  });
+});
+
+// Fase 06.1 (plano 08, PRD-05 · adjacency, PRD-13): os filtros e os três números do topo.
+
+type OrdemComPecas = OrdemDeTeste & { totalPecas: number; totalAMais: number };
+
+function comPecas(base: OrdemDeTeste, totalPecas: number, totalAMais = 0): OrdemComPecas {
+  return { ...base, totalPecas, totalAMais };
+}
+
+describe("filtrarOrdens (PRD-05 · adjacency)", () => {
+  const lista = [
+    ordem("a", "Pratos", { tipo: "encomenda" }),
+    ordem("b", "Canecas", { tipo: "casa" }),
+    ordem("c", "Tigelas", { tipo: "encomenda", status: "aguardando_sinal", inicio: null }),
+    ordem("d", "Bules", { tipo: "casa", status: "aguardando_sinal", inicio: null }),
+  ];
+
+  it("“todas” devolve tudo, na mesma ordem", () => {
+    expect(filtrarOrdens(lista, "todas").map((o) => o.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("“encomenda” e “casa” são disjuntos e a união é “todas”", () => {
+    const encomendas = filtrarOrdens(lista, "encomenda").map((o) => o.id);
+    const daCasa = filtrarOrdens(lista, "casa").map((o) => o.id);
+    expect(encomendas).toEqual(["a", "c"]);
+    expect(daCasa).toEqual(["b", "d"]);
+    expect(encomendas.filter((id) => daCasa.includes(id))).toEqual([]);
+    expect([...encomendas, ...daCasa].sort()).toEqual(
+      filtrarOrdens(lista, "todas")
+        .map((o) => o.id)
+        .sort(),
+    );
+  });
+
+  it("os três filtros, na ordem das pílulas", () => {
+    expect([...FILTROS_DO_QUADRO]).toEqual(["todas", "encomenda", "casa"]);
+  });
+
+  it("não muda a lista recebida", () => {
+    const copia = [...lista];
+    filtrarOrdens(lista, "casa");
+    expect(lista).toEqual(copia);
+  });
+});
+
+describe("numerosDoTopo (PRD-13)", () => {
+  const semFornadas = { biscoito: 0, esmalte: 0, pecasSemEstimativa: 0 };
+
+  it("sem ordem: tudo zero", () => {
+    expect(numerosDoTopo([], semFornadas)).toEqual({
+      emProducao: { ordens: 0, pecas: 0 },
+      esperandoOForno: { ordens: 0, fornadas: semFornadas },
+      aguardando: 0,
+    });
+  });
+
+  it("conta ordens liberadas e peças (pedido + a mais), a fila do forno e as aguardando", () => {
+    const fornadas = { biscoito: 2.5, esmalte: 1, pecasSemEstimativa: 3 };
+    const numeros = numerosDoTopo(
+      [
+        comPecas(ordem("a", "Pratos"), 10, 2),
+        comPecas(
+          ordem("b", "Canecas", {
+            feitas: { producao: "2026-03-05", secagem: "2026-03-20" },
+          }),
+          30,
+        ),
+        comPecas(
+          ordem("c", "Tigelas", {
+            feitas: {
+              producao: "2026-03-05",
+              secagem: "2026-03-20",
+              queima1: "2026-03-21",
+              esmaltacao: "2026-03-22",
+            },
+          }),
+          5,
+          1,
+        ),
+        comPecas(ordem("d", "Bules", { status: "aguardando_sinal", inicio: null }), 8),
+        comPecas(ordem("e", "Xícaras", { status: "aguardando_sinal", inicio: null }), 4),
+      ],
+      fornadas,
+    );
+    expect(numeros).toEqual({
+      // a (12), b (30) e c (6) — as aguardando não entram.
+      emProducao: { ordens: 3, pecas: 48 },
+      // b em queima1, c em queima2.
+      esperandoOForno: { ordens: 2, fornadas },
+      aguardando: 2,
+    });
+  });
+
+  it("obedece ao filtro: conta só as ordens que recebe", () => {
+    const lista = [
+      comPecas(ordem("a", "Pratos", { tipo: "encomenda" }), 10),
+      comPecas(ordem("b", "Canecas", { tipo: "casa" }), 7, 3),
+      comPecas(ordem("c", "Tigelas", { tipo: "casa", status: "aguardando_sinal", inicio: null }), 4),
+    ];
+    expect(numerosDoTopo(filtrarOrdens(lista, "casa"), semFornadas)).toEqual({
+      emProducao: { ordens: 1, pecas: 10 },
+      esperandoOForno: { ordens: 0, fornadas: semFornadas },
+      aguardando: 1,
+    });
+    expect(numerosDoTopo(filtrarOrdens(lista, "encomenda"), semFornadas).emProducao).toEqual({
+      ordens: 1,
+      pecas: 10,
+    });
   });
 });
