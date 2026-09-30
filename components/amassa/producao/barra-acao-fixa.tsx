@@ -15,7 +15,9 @@ import type { ReactNode } from "react";
 // Por que um elemento só, e não uma barra `md:hidden` mais uma fileira `hidden md:flex`: os dois
 // botões existiriam duas vezes na página (um escondido) — dois `data-testid="ordem-terminei"`, duas
 // travas de 1 s e duas frases de erro independentes. Aqui há um "Terminei" só, na ordem de
-// tabulação que a UI-SPEC pede (trilha → ações → peças) nas duas larguras.
+// tabulação que a UI-SPEC pede (trilha → ações → peças) nas duas larguras. Na última etapa o
+// primário é "Entreguei" / "Guardar no estoque" (plano 11), que abre a folha de conclusão; na ordem
+// concluída ou cancelada a barra não existe (quem desenha só a monta na ordem ativa).
 export function BarraAcaoFixa({ children }: { children: ReactNode }) {
   return (
     <div

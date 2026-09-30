@@ -2,35 +2,49 @@
 
 import { useState } from "react";
 
+import type { PecaParaConcluir } from "@/lib/producao/consultas";
 import { rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "@/lib/producao/etapas";
 import {
   ROTULO_DESFAZER,
   ROTULO_DESFAZER_A_ULTIMA,
   ariaLabelDesfazerNaBarra,
+  rotuloDoConcluir,
 } from "@/lib/producao/textos";
 import { Button } from "@/components/ui/button";
 
 import { BarraAcaoFixa, RotuloDesfazer } from "./barra-acao-fixa";
 import { BotaoTerminei } from "./botao-terminei";
 import { ConfirmarDesfazer, type AlvoDoDesfazer } from "./confirmar-desfazer";
+import { FolhaConclusao } from "./folha-conclusao";
 
 export type AcoesDaOrdemProps = {
   ordemId: string;
   tipo: TipoOrdem;
-  // A etapa atual quando ela ainda se "termina"; `null` na última (a Entrega se conclui — o
-  // "Entreguei" / "Guardar no estoque" chega com a conclusão, plano 11).
+  // A etapa atual quando ela ainda se "termina"; `null` na última (a Entrega se CONCLUI: o botão
+  // vira "Entreguei" / "Guardar no estoque" e abre a folha de conclusão — plano 11).
   etapaParaTerminar: EtapaProducao | null;
+  // O que a folha de conclusão precisa — só quando a etapa atual é a última (`null` antes).
+  conclusao: { pecas: PecaParaConcluir[]; vendaNumero: number | null } | null;
   // A última etapa feita, com a data que o desfazer apaga; `null` sem nenhuma feita.
   ultimaFeita: AlvoDoDesfazer | null;
 };
 
 // As ações da ordem ATIVA (quem desenha só a monta nesse estado): "Desfazer a última" (`outline`,
-// desabilitado sem nenhuma etapa feita) e "Terminei: {Etapa}" (primário). No celular, na barra de
+// desabilitado sem nenhuma etapa feita) e "Terminei: {Etapa}" (primário) — na última etapa,
+// "Entreguei" / "Guardar no estoque", que abre a folha de conclusão (plano 11). No celular, na barra de
 // ação fixa acima da navegação; no desktop, a fileira à direita (ver `BarraAcaoFixa`). "Desfazer"
 // abre a confirmação com a etapa e a data FOTOGRAFADAS no toque (UI-D4).
-export function AcoesDaOrdem({ ordemId, tipo, etapaParaTerminar, ultimaFeita }: AcoesDaOrdemProps) {
+export function AcoesDaOrdem({
+  ordemId,
+  tipo,
+  etapaParaTerminar,
+  conclusao,
+  ultimaFeita,
+}: AcoesDaOrdemProps) {
   const [alvo, setAlvo] = useState<AlvoDoDesfazer | null>(null);
   const [aberto, setAberto] = useState(false);
+  // Cada abertura da folha de conclusão ganha uma chave nova: ela nasce limpa.
+  const [aberturaDaConclusao, setAberturaDaConclusao] = useState<number | null>(null);
 
   return (
     <>
@@ -55,8 +69,29 @@ export function AcoesDaOrdem({ ordemId, tipo, etapaParaTerminar, ultimaFeita }: 
         </Button>
         {etapaParaTerminar ? (
           <BotaoTerminei ordemId={ordemId} tipo={tipo} etapa={etapaParaTerminar} />
+        ) : conclusao ? (
+          // A última etapa: "Entreguei" (encomenda) / "Guardar no estoque" (casa) abre a conclusão —
+          // sem campo parcial, sem gravar nada no toque (UI-SPEC §Ações).
+          <Button
+            type="button"
+            data-testid="ordem-concluir"
+            onClick={() => setAberturaDaConclusao((anterior) => (anterior ?? 0) + 1)}
+            className="text-corpo h-auto min-h-[52px] min-w-0 flex-1 px-6 leading-tight font-semibold whitespace-normal md:flex-none"
+          >
+            {rotuloDoConcluir(tipo)}
+          </Button>
         ) : null}
       </BarraAcaoFixa>
+      {conclusao && aberturaDaConclusao !== null ? (
+        <FolhaConclusao
+          key={aberturaDaConclusao}
+          ordemId={ordemId}
+          tipo={tipo}
+          vendaNumero={conclusao.vendaNumero}
+          pecas={conclusao.pecas}
+          aoFechar={() => setAberturaDaConclusao(null)}
+        />
+      ) : null}
       <ConfirmarDesfazer
         ordemId={ordemId}
         tipo={tipo}

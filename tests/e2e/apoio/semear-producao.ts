@@ -51,6 +51,8 @@ export type PecaParaSemear = {
   quantidade: number;
   aMais?: number;
   fichaId?: string | null;
+  // Plano 11: a peça da casa escolhida em "Itens do estoque", sem ficha (D-13/D-14).
+  itemCatalogoId?: string | null;
 };
 
 export type OrdemParaSemear = {
@@ -108,9 +110,17 @@ export async function semearOrdem(dados: OrdemParaSemear): Promise<string> {
       }
       for (const [posicao, peca] of dados.pecas.entries()) {
         await cliente.query(
-          `insert into ordem_pecas (ordem_id, posicao, descricao, quantidade, a_mais, ficha_id)
-           values ($1, $2, $3, $4, $5, $6)`,
-          [ordemId, posicao, peca.descricao, peca.quantidade, peca.aMais ?? 0, peca.fichaId ?? null],
+          `insert into ordem_pecas (ordem_id, posicao, descricao, quantidade, a_mais, ficha_id, item_catalogo_id)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            ordemId,
+            posicao,
+            peca.descricao,
+            peca.quantidade,
+            peca.aMais ?? 0,
+            peca.fichaId ?? null,
+            peca.itemCatalogoId ?? null,
+          ],
         );
       }
       await cliente.query("commit");
@@ -1054,5 +1064,140 @@ export async function baixasDaOrdemNoBanco(ordemId: string): Promise<BaixaDaOrde
       materialDaOrdem: linha.material_da_ordem,
       nota: linha.nota,
     }));
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-11 — concluir a ordem (PRD-15/PRD-16/PRD-18)
+// ---------------------------------------------------------------------------------------------
+
+// Marca como feitas, no dia dado, todas as etapas da ordem MENOS a Entrega — a ordem fica na última
+// etapa, pronta para concluir. Para a ordem vinda de orçamento (já liberada), sem repetir os
+// "Terminei" da tela, provados no plano 01.
+export async function levarAteAEntregaNoBanco(ordemId: string, feitaEm: string): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query(
+      "update ordem_etapas set feita_em = $2, passaram = null where ordem_id = $1 and etapa <> 'entrega'",
+      [ordemId, feitaEm],
+    ),
+  );
+}
+
+export type ConclusaoNoBanco = {
+  status: StatusOrdem;
+  concluidaEm: string | null;
+  entregaParcial: boolean;
+  entregaFeitaEm: string | null;
+  pecas: {
+    perdidas: number | null;
+    destinoExtras: string | null;
+    paraEstoque: number | null;
+    semDestino: number | null;
+  }[];
+};
+
+// O que a conclusão gravou: a ordem, a etapa Entrega e, por peça (por posição), perdidas, destino,
+// para o estoque e sem destino.
+export async function conclusaoDaOrdemNoBanco(ordemId: string): Promise<ConclusaoNoBanco> {
+  return comCliente(async (cliente) => {
+    const ordem = await cliente.query<{
+      status: StatusOrdem;
+      concluida_em: string | null;
+      entrega_parcial: boolean;
+      entrega_feita_em: string | null;
+    }>(
+      `select o.status, o.concluida_em::text as concluida_em, o.entrega_parcial,
+              (select feita_em::text from ordem_etapas where ordem_id = o.id and etapa = 'entrega')
+                as entrega_feita_em
+         from ordens_producao o where o.id = $1`,
+      [ordemId],
+    );
+    const pecas = await cliente.query<{
+      perdidas: number | null;
+      destino_extras: string | null;
+      para_estoque: number | null;
+      sem_destino: number | null;
+    }>(
+      `select perdidas, destino_extras::text as destino_extras, para_estoque, sem_destino
+         from ordem_pecas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    const linha = ordem.rows[0];
+    return {
+      status: linha.status,
+      concluidaEm: linha.concluida_em,
+      entregaParcial: linha.entrega_parcial,
+      entregaFeitaEm: linha.entrega_feita_em,
+      pecas: pecas.rows.map((peca) => ({
+        perdidas: peca.perdidas,
+        destinoExtras: peca.destino_extras,
+        paraEstoque: peca.para_estoque,
+        semDestino: peca.sem_destino,
+      })),
+    };
+  });
+}
+
+export type EntradaDaProducaoNoBanco = {
+  itemId: string;
+  quantidadeMilesimos: number;
+  valorCentavos: number;
+  valorInformadoCentavos: number | null;
+  motivo: string | null;
+  nota: string | null;
+};
+
+// As entradas `producao` ligadas à ordem, na ordem do livro.
+export async function entradasDaProducaoNoBanco(
+  ordemId: string,
+): Promise<EntradaDaProducaoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      item_id: string;
+      quantidade_milesimos: string;
+      valor_centavos: string;
+      valor_informado_centavos: string | null;
+      motivo: string | null;
+      nota: string | null;
+    }>(
+      `select item_id, quantidade_milesimos, valor_centavos, valor_informado_centavos,
+              motivo::text as motivo, nota
+         from movimentacoes_estoque
+        where encomenda_id = $1 and origem = 'producao' and tipo = 'entrada'
+        order by numero`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      itemId: linha.item_id,
+      quantidadeMilesimos: Number(linha.quantidade_milesimos),
+      valorCentavos: Number(linha.valor_centavos),
+      valorInformadoCentavos:
+        linha.valor_informado_centavos === null ? null : Number(linha.valor_informado_centavos),
+      motivo: linha.motivo,
+      nota: linha.nota,
+    }));
+  });
+}
+
+// O estoque do item: se controla, a unidade e o nome da categoria de compra (D-13).
+export async function estoqueDoItemNoBanco(
+  itemId: string,
+): Promise<{ controlaEstoque: boolean; unidade: string | null; categoriaCompra: string | null }> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      controla_estoque: boolean;
+      unidade: string | null;
+      categoria_compra: string | null;
+    }>(
+      `select i.controla_estoque, i.unidade::text as unidade, c.nome as categoria_compra
+         from itens_catalogo i left join categorias c on c.id = i.categoria_compra_id
+        where i.id = $1`,
+      [itemId],
+    );
+    return {
+      controlaEstoque: rows[0].controla_estoque,
+      unidade: rows[0].unidade,
+      categoriaCompra: rows[0].categoria_compra,
+    };
   });
 }

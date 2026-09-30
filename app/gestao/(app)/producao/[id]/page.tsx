@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
-import { formatarDiaMes } from "@/lib/producao/calendario";
-import { materialDaOrdem, obterOrdem } from "@/lib/producao/consultas";
+import { diasEntre, formatarDiaMes } from "@/lib/producao/calendario";
+import { derivarPeca } from "@/lib/producao/conclusao";
+import { dadosDaConclusao, materialDaOrdem, obterOrdem } from "@/lib/producao/consultas";
 import {
   etapasOrdenadas,
   leituraDaOrdem,
@@ -14,9 +15,11 @@ import {
 import {
   DICA_ETAPA_INTEIRA,
   ROTULO_VOLTAR_PRODUCAO,
+  SELO_CONCLUIDA,
   TEXTO_PREVISAO_DE_CONCLUSAO,
   TITULO_ETAPAS,
   textoPrevisao,
+  textoResultadoDaPeca,
   textoSubtituloDaOrdem,
 } from "@/lib/producao/textos";
 import { totalDeFeitas } from "@/lib/producao/transicoes";
@@ -46,8 +49,8 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // 04); "Cancelar ordem" num bloco próprio, o resultado da cancelada e o aviso de venda cancelada
 // no Caixa (plano 06, D-07); o bloco "Material usado" com a baixa pela ordem (plano 10 — a lista do
 // seletor "Qual material?" chega pelo MESMO carregador do Estoque, num `Suspense` que não segura a
-// página). A conclusão chega no plano seguinte. Na etapa Entrega o "Terminei" não aparece: a última etapa
-// se conclui (plano 11).
+// página). Plano 11: na etapa Entrega o "Terminei" vira "Entreguei" / "Guardar no estoque", que abre
+// a folha de conclusão; a concluída mostra o resultado (caixa `sucesso`) e o selo "concluída".
 export default async function PaginaOrdem({ params }: { params: Promise<{ id: string }> }) {
   await exigirUsuario();
   const { id } = await params;
@@ -67,6 +70,11 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   const ativa = leitura.tipo === "em-andamento";
   const etapaParaTerminar =
     leitura.tipo === "em-andamento" && leitura.indice < etapas.length - 1 ? leitura.etapa : null;
+  // A etapa atual é a última (Entrega): "Entreguei" / "Guardar no estoque" abre a conclusão (plano
+  // 11). As peças com a ficha, o item e o custo pela ficha são lidos só então — e de novo, sob a
+  // trava, pela ação.
+  const naUltimaEtapa = leitura.tipo === "em-andamento" && leitura.indice === etapas.length - 1;
+  const pecasParaConcluir = naUltimaEtapa ? await dadosDaConclusao(ordem.id, hoje) : null;
   const feitas = etapas.filter((etapa) => etapa.feitaEm !== null);
   const ultimaFeita = feitas.at(-1);
   const folga = leitura.tipo === "em-andamento" ? textoPrevisao(leitura.folgaDias) : null;
@@ -104,7 +112,17 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
         titulo={ordem.nome}
         voltar={{ href: rotaDeGestao("/producao"), rotulo: ROTULO_VOLTAR_PRODUCAO }}
       >
-        <ChipDoSelo selo={selo} />
+        {ordem.status === "concluida" ? (
+          <span
+            data-testid="producao-selo"
+            data-selo="concluida"
+            className="text-apoio bg-sucesso-fundo text-sucesso inline-flex rounded-full px-2 py-1 font-semibold whitespace-nowrap"
+          >
+            {SELO_CONCLUIDA}
+          </span>
+        ) : (
+          <ChipDoSelo selo={selo} />
+        )}
       </CabecalhoPagina>
 
       <div
@@ -188,6 +206,11 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
               ordemId={ordem.id}
               tipo={ordem.tipo}
               etapaParaTerminar={etapaParaTerminar}
+              conclusao={
+                pecasParaConcluir
+                  ? { pecas: pecasParaConcluir, vendaNumero: ordem.vendaNumero }
+                  : null
+              }
               ultimaFeita={
                 ultimaFeita?.feitaEm
                   ? { etapa: ultimaFeita.etapa, feitaEmDiaMes: formatarDiaMes(ultimaFeita.feitaEm) }
@@ -215,6 +238,36 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
               </p>
               <p className="text-apoio text-tinta-fraca">{DICA_ETAPA_INTEIRA}</p>
             </div>
+          ) : null}
+
+          {ordem.status === "concluida" && ordem.concluidaEm ? (
+            // No lugar das ações e da previsão: o resultado da concluída (caixa `sucesso`). As
+            // contas saem do MESMO módulo puro, sobre o que a conclusão gravou.
+            <ResultadoDaOrdem
+              resultado={{
+                tipo: "concluida",
+                linhas: ordem.pecas.map((peca) => {
+                  const perdidas = peca.perdidas ?? 0;
+                  const derivada = derivarPeca({
+                    tipo: ordem.tipo,
+                    pedido: peca.quantidade,
+                    aMais: peca.aMais,
+                    perdidas,
+                  });
+                  return textoResultadoDaPeca({
+                    descricao: peca.descricao,
+                    tipo: ordem.tipo,
+                    entregues: derivada.ok ? derivada.entregues : 0,
+                    paraEstoque: peca.paraEstoque ?? 0,
+                    semDestino: peca.semDestino ?? 0,
+                    perdidas,
+                    feitas: peca.quantidade + peca.aMais,
+                  });
+                }),
+                diasDoInicioAoFim: ordem.inicio ? diasEntre(ordem.inicio, ordem.concluidaEm) : 0,
+                entregaParcial: ordem.entregaParcial,
+              }}
+            />
           ) : null}
 
           {ordem.status === "cancelada" && ordem.canceladaEm ? (

@@ -785,3 +785,135 @@ export function fraseItemDesativadoNaConclusao(nome: string): string {
 export const NOME_CATEGORIA_PRODUCAO_DA_CASA = "Produção da casa";
 export const FRASE_CONCLUSAO_ETAPA_MUDOU =
   "Esta ordem não está mais na entrega — talvez em outro celular. A tela foi atualizada.";
+
+// A folha de conclusão (Tarefa 3 do plano 11).
+export const ROTULO_ENTREGUEI = "Entreguei";
+export const ROTULO_GUARDAR_NO_ESTOQUE = "Guardar no estoque";
+export function rotuloDoConcluir(tipo: "encomenda" | "casa"): string {
+  return tipo === "encomenda" ? ROTULO_ENTREGUEI : ROTULO_GUARDAR_NO_ESTOQUE;
+}
+export function tituloDaFolhaDeConclusao(tipo: "encomenda" | "casa"): string {
+  return tipo === "encomenda" ? "Entrega" : "Guardar no estoque";
+}
+export const DICA_CONCLUSAO =
+  "Diga quantas se perderam no caminho (racharam, escorreu esmalte, quebraram). O resto a tela calcula.";
+export function textoPedidoEFeitas(pedido: number, feitas: number): string {
+  return `pedido ${pedido} · fez ${feitas}`;
+}
+export function textoFeitas(feitas: number): string {
+  return `fez ${feitas}`;
+}
+export const ROTULO_QUANTAS_SE_PERDERAM = "Quantas se perderam";
+export function ariaQuantasSePerderam(nomeDaPeca: string): string {
+  return `Quantas se perderam de ${nomeDaPeca}`;
+}
+export const ROTULO_ENTREGUES_AO_CLIENTE = "Entregues ao cliente";
+export const ROTULO_EXTRAS_BOAS = "Extras boas";
+export const ROTULO_BOAS = "Boas";
+export const ROTULO_PERDIDAS = "Perdidas";
+export function textoParteDeTotal(parte: number, total: number): string {
+  return `${parte} de ${total}`;
+}
+export function textoPerdidasDeFeitas(perdidas: number, feitas: number): string {
+  return `${perdidas} de ${feitas} feitas`;
+}
+export function textoFaltamParaCompletar(faltam: number): string {
+  return `Faltam ${faltam} para completar o pedido. Dá para concluir como entrega parcial, ou voltar e produzir mais.`;
+}
+export function rotuloDestinoDasExtras(extras: number): string {
+  return extras === 1 ? "O que fazer com a 1 extra boa" : `O que fazer com as ${extras} extras boas`;
+}
+export const ROTULO_ENTRAM_NO_ESTOQUE = "Entram no Estoque como pronta entrega";
+export function textoCustoPelaFicha(reais: string): string {
+  return `custo ${reais} cada, pela ficha`;
+}
+export const TEXTO_VOCE_DIZ_O_CUSTO = "você diz o custo abaixo";
+export const ROTULO_SEM_DESTINO = "Sem destino";
+export const TEXTO_NAO_VOU_VENDER = "não vou vender";
+export const TEXTO_EXCLUSIVA_NAO_VOU_VENDER = "peça exclusiva, não vou vender";
+// D-12: a peça em texto livre não tem ficha — as extras ficam sem destino, e a tela diz por quê.
+export function textoExtrasSemFicha(extras: number): string {
+  return extras === 1
+    ? "A 1 extra boa fica sem destino: esta peça não tem ficha, e nesta fase só peça com ficha entra no Estoque."
+    : `As ${extras} extras boas ficam sem destino: esta peça não tem ficha, e nesta fase só peça com ficha entra no Estoque.`;
+}
+// D-14: o custo quando a ficha não dá (UI-D12 — por peça, com a prévia do total).
+export const ROTULO_CUSTO_DE_CADA_PECA = "Custo de cada peça";
+export const DICA_CUSTO_SEM_FICHA =
+  "Esta peça não tem ficha de precificação — diga quanto custou cada uma, para o Estoque saber quanto ela vale.";
+export const DICA_CUSTO_FICHA_NAO_CALCULA =
+  "A ficha desta peça não dá um custo hoje (falta parâmetro ou ela não cabe no forno) — diga quanto custou cada uma.";
+export function textoPreviaDoCusto(boas: number, cada: string, total: string): string {
+  return `${boas} × ${cada} = ${total} entram no Estoque`;
+}
+// D-13: o item da peça ainda não controla estoque — a conclusão o liga.
+export function textoItemVaiControlarEstoque(item: string): string {
+  return `${item} ainda não controla estoque. Ao concluir, ele passa a controlar (em unidades, categoria Produção da casa). Vai passar a aparecer no Estoque.`;
+}
+// As notas do fim da folha.
+const FRASE_PERDA_MEDIDA =
+  'As perdidas desta ordem entram na perda medida que aparece ao lado do parâmetro "perda", em Cadastros → Parâmetros — é essa perda que paga as peças feitas a mais.';
+export function textoNotaDaEncomenda(vendaNumero: number | null): string {
+  return vendaNumero === null
+    ? FRASE_PERDA_MEDIDA
+    : `O saldo a receber continua no Caixa (venda nº ${vendaNumero}). ${FRASE_PERDA_MEDIDA}`;
+}
+export function textoNotaDaCasa(boas: number): string {
+  return boas === 1
+    ? "A 1 boa entra no Estoque como pronta entrega."
+    : `As ${boas} boas entram no Estoque como pronta entrega.`;
+}
+export const ROTULO_CONCLUIR_ORDEM = "Concluir ordem";
+export const ROTULO_CONCLUIR_PARCIAL = "Concluir como entrega parcial";
+export const ROTULO_CONCLUINDO = "Concluindo…";
+// O toast: "Ordem entregue." / "Ordem concluída." + as peças no Estoque + os itens ligados (D-13).
+export function textoToastConclusao(d: {
+  tipo: "encomenda" | "casa";
+  pecasNoEstoque: number;
+  itensLigados: readonly string[];
+}): string {
+  const partes = [d.tipo === "encomenda" ? "Ordem entregue." : "Ordem concluída."];
+  if (d.pecasNoEstoque > 0) {
+    partes.push(
+      d.pecasNoEstoque === 1
+        ? "1 peça entrou no Estoque como pronta entrega."
+        : `${d.pecasNoEstoque} peças entraram no Estoque como pronta entrega.`,
+    );
+  }
+  for (const item of d.itensLigados) {
+    partes.push(`${item} passou a aparecer no Estoque.`);
+  }
+  return partes.join(" ");
+}
+// O resultado da concluída (caixa `sucesso`): uma linha por peça, trechos zerados omitidos, a casa
+// sem "entregues"; e "{N} dias do início ao fim.".
+export function textoResultadoDaPeca(d: {
+  descricao: string;
+  tipo: "encomenda" | "casa";
+  entregues: number;
+  paraEstoque: number;
+  semDestino: number;
+  perdidas: number;
+  feitas: number;
+}): string {
+  const partes: string[] = [];
+  if (d.tipo === "encomenda" && d.entregues > 0) {
+    partes.push(d.entregues === 1 ? "1 entregue" : `${d.entregues} entregues`);
+  }
+  if (d.paraEstoque > 0) {
+    partes.push(`${d.paraEstoque} para o estoque`);
+  }
+  if (d.semDestino > 0) {
+    partes.push(`${d.semDestino} sem destino`);
+  }
+  if (d.perdidas > 0) {
+    partes.push(
+      d.perdidas === 1 ? `1 perdida de ${d.feitas}` : `${d.perdidas} perdidas de ${d.feitas}`,
+    );
+  }
+  return `${d.descricao}: ${partes.length > 0 ? partes.join(" · ") : `nenhuma de ${d.feitas}`}`;
+}
+export function textoDiasDoInicioAoFim(n: number): string {
+  return `${dias(n)} do início ao fim.`;
+}
+export const SELO_CONCLUIDA = "concluída";
