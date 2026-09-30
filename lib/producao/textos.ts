@@ -14,8 +14,7 @@ export const FRASE_ERRO_CARREGAR_PRODUCAO =
 export const FRASE_ERRO_CARREGAR_ORDEM =
   "Não deu para carregar esta ordem. Verifique a internet e tente de novo.";
 
-// Vazio. Sem botão ainda: o "Nova ordem" do vazio chega com a folha de Nova ordem (plano 07) —
-// botão sem destino é defeito.
+// Vazio. O "Nova ordem" do vazio é o único terracota da tela — o cabeçalho fica sem o seu (UI-D11).
 export const TITULO_PRODUCAO_VAZIA = "Nada em produção agora.";
 export const CORPO_PRODUCAO_VAZIA =
   "Uma encomenda aparece aqui sozinha quando o cliente aprova o orçamento. Para produção da casa ou pedido combinado de boca, crie uma ordem.";
@@ -422,3 +421,77 @@ export function textoAvisoVendaCancelada(vendaNumero: number): string {
   return `A venda nº ${vendaNumero} foi cancelada no Financeiro. A ordem continua — decida se ela segue ou se cancela.`;
 }
 export const CHIP_VENDA_CANCELADA = "venda cancelada";
+
+// ---------------------------------------------------------------------------------------------
+// "Nova ordem" (plano 07, PRD-09, D-04/D-05/D-11/D-13/D-14) — UI-SPEC §Copywriting.
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_NOVA_ORDEM = "Nova ordem";
+export const TITULO_NOVA_ORDEM = "Nova ordem";
+export const ROTULO_NOME_DA_ORDEM = "Nome";
+export const PLACEHOLDER_NOME_DA_ORDEM = "ex.: Reposição de canecas";
+export const ROTULO_TIPO_DA_ORDEM = "Tipo";
+export const ROTULO_TIPO_CASA = "Produção da casa";
+export const ROTULO_TIPO_ENCOMENDA = "Encomenda";
+export const ROTULO_CAMINHO_DA_ORDEM = "Caminho";
+export const ROTULO_CAMINHO_COMPLETO = "Completo, até o esmalte";
+export const ROTULO_CAMINHO_BISCOITO = "Termina no biscoito";
+export const ROTULO_CLIENTE_DA_ORDEM = "Cliente";
+export const ROTULO_ENTREGA_PROMETIDA = "Entrega prometida (opcional)";
+export const TITULO_PECAS_DA_NOVA_ORDEM = "Peças";
+export const ROTULO_PECA = "Peça";
+export const DICA_PECA_ENCOMENDA = "da lista de Peças precificadas, ou escreva o nome";
+export const DICA_PECA_CASA =
+  "precisa ser do catálogo — a produção da casa termina guardada no estoque";
+export const PLACEHOLDER_PECA = "Escolha a peça";
+export const GRUPO_PECAS_DE_LINHA = "Peças de linha";
+export const GRUPO_PECAS_EXCLUSIVAS = "Peças exclusivas";
+export const GRUPO_PECAS_PRECIFICADAS = "Peças precificadas";
+export const GRUPO_ITENS_DO_ESTOQUE = "Itens do estoque";
+export const OPCAO_OUTRA_PECA = "Outra peça — escrever o nome";
+export const ROTULO_NOME_DA_PECA = "Nome da peça";
+export const ROTULO_QUANTAS = "Quantas";
+export const ROTULO_OUTRA_PECA = "+ outra peça";
+export const ROTULO_CRIAR_ORDEM = "Criar ordem";
+export const ROTULO_CRIANDO = "Criando…";
+export const ROTULO_FECHAR = "Fechar";
+// O "X" de tirar (só da 2ª peça em diante): o nome da peça quando já escolhida, o número quando não.
+export function ariaTirarPeca(numero: number, nomeDaPeca: string | null): string {
+  return nomeDaPeca ? `Tirar ${nomeDaPeca}` : `Tirar a peça ${numero}`;
+}
+// D-04 / D-14 — embaixo da peça em texto livre ou do item do estoque sem ficha; não bloqueia.
+export const NOTA_PECA_SEM_FICHA =
+  "Sem ficha de precificação: esta peça fica sem material previsto e fora da estimativa do forno.";
+export const FRASE_CATALOGO_VAZIO_CASA =
+  "Nenhuma peça no catálogo ainda. Precifique uma peça de linha em Financeiro → Peças, ou ligue o estoque de um item em Cadastros → Catálogo.";
+export const FRASE_PECAS_TIRADAS = "As peças que só servem a encomenda foram tiradas.";
+export const FRASE_ERRO_CARREGAR_CATALOGO =
+  "Não deu para carregar as peças do catálogo. Verifique a internet e tente de novo.";
+export const DICA_FIM_NOVA_ORDEM =
+  "Encomenda normalmente nasce sozinha, do orçamento aprovado. Aqui é para produção da casa e para o pedido combinado de boca.";
+export const TOAST_ORDEM_CRIADA = "Ordem criada.";
+
+// Erros da Nova ordem — embaixo do campo, `role="alert"` (UI-SPEC §Erros). As frases de "passa de N
+// letras" seguem as do Orçamento (`lib/orcamentos/textos.ts`).
+export const FRASE_NOME_DA_ORDEM_VAZIO = "Dê um nome à ordem.";
+export const FRASE_NOME_DA_ORDEM_LONGO = "O nome da ordem passa de 120 letras — encurte.";
+export const FRASE_PECA_VAZIA = "Diga qual é a peça.";
+export const FRASE_NOME_DA_PECA_LONGO = "O nome da peça passa de 160 letras — encurte.";
+export const FRASE_CLIENTE_VAZIO = "Diga para quem é a encomenda.";
+export const FRASE_CLIENTE_LONGO = "O nome do cliente passa de 160 letras — encurte.";
+export const FRASE_QUANTIDADE_DA_PECA =
+  "A quantidade precisa ser um número inteiro de 1 a 100.000.";
+export const FRASE_ENTREGA_NO_PASSADO = "A entrega prometida precisa ser hoje ou depois.";
+export const FRASE_ENTREGA_INVALIDA = "Essa data não é válida.";
+export const FRASE_CASA_PRECISA_DO_CATALOGO =
+  "A produção da casa precisa de peça do catálogo — ela termina guardada no estoque.";
+export const FRASE_ENCOMENDA_SEM_ITEM =
+  "Na encomenda, a peça vem de uma ficha de precificação ou é escrita à mão. Escolha outra.";
+export const FRASE_PECA_SAIU_DO_CATALOGO = "Essa peça não está mais no catálogo. Escolha outra.";
+export function textoPecasDemais(limite: number): string {
+  return `Uma ordem cabe até ${limite} peças. Crie outra ordem para o resto.`;
+}
+export const FRASE_TIPO_INVALIDO = "Escolha se é produção da casa ou encomenda.";
+export const FRASE_CAMINHO_INVALIDO = "Escolha o caminho da ordem.";
+export const FRASE_FALHA_AO_CRIAR =
+  "Não deu para criar a ordem. Nada foi gravado — verifique a internet e tente de novo.";
