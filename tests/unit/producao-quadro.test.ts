@@ -6,6 +6,7 @@ import {
   colunasDoQuadro,
   FILTROS_DO_QUADRO,
   filtrarOrdens,
+  linhasParaOInicio,
   NOME_DO_COOKIE_DA_VISTA,
   numerosDoTopo,
   ordenarNaColuna,
@@ -246,5 +247,109 @@ describe("vistaDoCookie", () => {
   it("escolher de novo a mesma vista não muda nada (idempotente)", () => {
     expect(vistaDoCookie(vistaDoCookie("tempo"))).toBe("tempo");
     expect(vistaDoCookie(vistaDoCookie("quadro"))).toBe("quadro");
+  });
+});
+
+// Plano 14 (D-16, UI-D9): o bloco "Produção" do Início — até 5 ordens liberadas, por urgência do
+// selo (vai atrasar → +N nesta etapa → no ritmo) e, no empate, por início; "e mais N"; e quantas
+// aguardam o sinal.
+describe("linhasParaOInicio (D-16)", () => {
+  const HOJE = "2026-03-10";
+
+  function liberada(
+    id: string,
+    inicio: string,
+    extra: Partial<OrdemParaLeitura> = {},
+  ): OrdemDeTeste {
+    return ordem(id, `Ordem ${id}`, { inicio, ...extra });
+  }
+
+  const vaiAtrasar1 = liberada("a1", "2026-03-05", {
+    tipo: "encomenda",
+    entregaPrometida: "2026-03-15",
+  });
+  const vaiAtrasar2 = liberada("a2", "2026-03-02", {
+    tipo: "encomenda",
+    entregaPrometida: "2026-03-20",
+  });
+  // Casa, sem entrega: 9 dias na Produção, previsto 5 → +4 nesta etapa.
+  const passou = liberada("p1", "2026-03-01");
+  const noRitmo = [
+    liberada("r1", "2026-03-09"),
+    liberada("r2", "2026-03-06"),
+    liberada("r3", "2026-03-08"),
+    liberada("r4", "2026-03-07"),
+  ];
+  const aguardando = ["g1", "g2", "g3"].map((id) =>
+    ordem(id, `Aguardando ${id}`, { status: "aguardando_sinal", inicio: null }),
+  );
+
+  it("7 liberadas e 3 aguardando: 5 linhas por urgência e início, mais 2, 3 aguardando", () => {
+    const resultado = linhasParaOInicio(
+      [...noRitmo, vaiAtrasar1, ...aguardando, passou, vaiAtrasar2],
+      HOJE,
+    );
+    expect(resultado.linhas.map((linha) => linha.ordem.id)).toEqual(["a2", "a1", "p1", "r2", "r4"]);
+    expect(resultado.linhas.map((linha) => linha.selo.tipo)).toEqual([
+      "vai-atrasar",
+      "vai-atrasar",
+      "passou-nesta-etapa",
+      "no-ritmo",
+      "no-ritmo",
+    ]);
+    expect(resultado.linhas.every((linha) => linha.etapa === "producao")).toBe(true);
+    expect(resultado.maisN).toBe(2);
+    expect(resultado.aguardando).toBe(3);
+  });
+
+  it("a etapa da linha é a etapa atual da ordem", () => {
+    const { linhas } = linhasParaOInicio(
+      [ordem("s1", "Canecas", { inicio: "2026-03-01", feitas: { producao: "2026-03-06" } })],
+      HOJE,
+    );
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].etapa).toBe("secagem");
+    expect(linhas[0].selo).toEqual({ tipo: "no-ritmo" });
+  });
+
+  it("só aguardando: nenhuma linha, a contagem das aguardando", () => {
+    expect(linhasParaOInicio(aguardando, HOJE)).toEqual({ linhas: [], maisN: 0, aguardando: 3 });
+  });
+
+  it("nenhuma ordem: nenhuma linha, nada aguardando", () => {
+    expect(linhasParaOInicio([], HOJE)).toEqual({ linhas: [], maisN: 0, aguardando: 0 });
+  });
+
+  it("concluída e cancelada não entram nem contam", () => {
+    const resultado = linhasParaOInicio(
+      [
+        ordem("c1", "Concluída", { status: "concluida" }),
+        ordem("x1", "Cancelada", { status: "cancelada" }),
+        noRitmo[0],
+      ],
+      HOJE,
+    );
+    expect(resultado.linhas.map((linha) => linha.ordem.id)).toEqual(["r1"]);
+    expect(resultado.maisN).toBe(0);
+    expect(resultado.aguardando).toBe(0);
+  });
+
+  it("ordem sem entrega prometida nunca recebe “vai atrasar” (UI E13·partial)", () => {
+    const antiga = liberada("v1", "2026-01-01");
+    const { linhas } = linhasParaOInicio([antiga], HOJE);
+    expect(linhas[0].selo.tipo).toBe("passou-nesta-etapa");
+  });
+
+  it("exatamente 5 liberadas: sem “e mais”", () => {
+    const { linhas, maisN } = linhasParaOInicio([...noRitmo, passou], HOJE);
+    expect(linhas).toHaveLength(5);
+    expect(maisN).toBe(0);
+  });
+
+  it("não muda a lista recebida", () => {
+    const lista = [...noRitmo, vaiAtrasar1];
+    const copia = [...lista];
+    linhasParaOInicio(lista, HOJE);
+    expect(lista).toEqual(copia);
   });
 });
