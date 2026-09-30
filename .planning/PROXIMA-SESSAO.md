@@ -2,6 +2,8 @@
 
 *Até 30/09/2026, ~11h UTC, este título dizia "madrugada, Fase 06.1 planejada".*
 
+> **Adendo de 30/09/2026, ~12h45 UTC — revisão de código antes do portão:** 112 arquivos de produção revisados em duas partes (`06.1-REVIEW.md`, `a4c00f3`): 0 bloqueios, 11 avisos, 18 informativos. **10 avisos corrigidos** mais IN-02 e IN-08 (texto do Roteiro 16: entre o deploy e o `db:migrate` quebram também todo cancelamento no Caixa e toda gravação no Estoque) — `06.1-REVIEW-FIX.md` (`813f547`). Como sei: `npm run verificar` verde (85 ações, 1792 testes, `test:migracoes`); e2e `--grep "producao|estoque movimentacao"` 217 passed/1 failed (`producao-quadro:153`, a regex do teste casou com o sufixo aleatório do nome — falha do teste, não do código) e `--grep "producao quadro"` 54 passed. **O WR-01 ficou com você**, na Parte 0, §0.6 (ordem da casa com ficha que vira exclusiva no meio da produção não conclui — recomendado: recusar tornar exclusiva a ficha usada por ordem da casa ativa), junto com a confirmação do WR-03 (o seletor da casa só oferece itens em `un`).
+
 > **🟡 ATUALIZAÇÃO DE 30/09/2026, MANHÃ (~11h UTC) — A FASE 06.1 (PRODUÇÃO) ESTÁ COM O CÓDIGO
 > COMPLETO NO BRANCH `gsd/phase-06.1-producao`, NÃO PUBLICADO. AGUARDANDO VOCÊ.** Os 15 planos rodaram
 > (o 15, o portão, até a parte do executor): a Produção em `/gestao/producao`, o módulo antigo de
