@@ -9,10 +9,8 @@
 //
 // Nenhuma regra reescrita: etapa atual, dias nesta etapa e previsto vêm de `leitura.ts`; o
 // material previsto de `material.ts` (esmalte zerado no caminho biscoito); rótulos de `etapas.ts`;
-// a ordem dentro da seção de `quadro.ts`; o "{X} kg" é o MESMO texto do bloco da tela.
-import { formatarQuantidade } from "@/lib/financeiro/formato";
-import { textoDeMilesimos } from "@/lib/estoque/saldo";
-
+// a ordem dentro da seção de `quadro.ts`; o peso ("850 g" / "1,25 kg") é o MESMO texto do bloco da
+// tela — `textoDePeso` (`./peso`, regra do dono de 30/09/2026).
 import {
   rotuloDaColuna,
   rotuloDaEtapa,
@@ -22,7 +20,8 @@ import {
   type TipoOrdem,
 } from "./etapas";
 import { etapasOrdenadas, leituraDaOrdem, type EtapaDaOrdem, type OrdemParaLeitura } from "./leitura";
-import { materialPrevisto, mgEmMilesimos } from "./material";
+import { materialPrevisto } from "./material";
+import { textoDePeso } from "./peso";
 import { colunasDoQuadro, ordenarNaColuna } from "./quadro";
 import { formatarDataCompleta } from "./textos";
 
@@ -75,7 +74,7 @@ export type PecaDaFolha = {
   aMais: number;
   // Pedido + a mais: o que a bancada faz.
   fazer: number;
-  // "350 g" de argila por peça; sem ficha "—".
+  // "350 g" de argila por peça ("1,2 kg" a partir de 1 000 g — `textoDePeso`); sem ficha "—".
   argila: string;
   // "9,5 × 8 × 10,5" (cm); sem ficha ou sem medida "—".
   medidas: string;
@@ -94,9 +93,10 @@ export type MaterialDaFolha =
   | { tipo: "sem-ficha" }
   | {
       tipo: "previsto";
-      argilaKg: string;
+      // "4,2 kg" / "850 g", com a unidade (`textoDePeso`, 30/09/2026).
+      argila: string;
       // `null` no caminho biscoito e quando o previsto é 0 — a linha some.
-      esmalteKg: string | null;
+      esmalte: string | null;
       // Peças FEITAS (pedido + a mais) sem ficha, fora do previsto.
       pecasSemFicha: number;
     };
@@ -133,16 +133,6 @@ export function medidasEmCm(larguraMm: number, profundidadeMm: number, alturaMm:
     return TRACO;
   }
   return lados.map((lado) => CENTIMETRO.format(lado / 10)).join(" × ");
-}
-
-// "350" a partir de 350 000 mg (até 3 casas, sem zeros à direita).
-function gramas(miligramas: number): string {
-  return formatarQuantidade(String(miligramas / 1000));
-}
-
-// "4,2" a partir de miligramas — o mesmo texto do bloco "Material usado" da tela.
-function quilos(miligramas: number): string {
-  return textoDeMilesimos(mgEmMilesimos(Math.max(0, miligramas), "kg") ?? 0);
 }
 
 function reguaDaOrdem(status: StatusOrdem, etapas: readonly EtapaDaOrdem[]): EstadoNaRegua[] {
@@ -183,7 +173,7 @@ export function linhasDaFolhaDaOrdem(ordem: OrdemParaAFolha): FolhaDaOrdem {
       pedido: daCasa ? TRACO : peca.quantidade,
       aMais: peca.aMais,
       fazer: peca.quantidade + peca.aMais,
-      argila: peca.ficha === null ? TRACO : `${gramas(peca.ficha.argilaMiligramas)} g`,
+      argila: peca.ficha === null ? TRACO : textoDePeso(peca.ficha.argilaMiligramas),
       medidas:
         peca.ficha === null
           ? TRACO
@@ -200,8 +190,8 @@ export function linhasDaFolhaDaOrdem(ordem: OrdemParaAFolha): FolhaDaOrdem {
     material: algumaComFicha
       ? {
           tipo: "previsto",
-          argilaKg: quilos(previsto.argilaMg),
-          esmalteKg: previsto.esmalteMg > 0 ? quilos(previsto.esmalteMg) : null,
+          argila: textoDePeso(previsto.argilaMg),
+          esmalte: previsto.esmalteMg > 0 ? textoDePeso(previsto.esmalteMg) : null,
           pecasSemFicha: previsto.pecasSemFicha,
         }
       : { tipo: "sem-ficha" },

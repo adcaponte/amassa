@@ -6,12 +6,12 @@ import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
 import { textoDeMilesimos } from "@/lib/estoque/saldo";
 import {
   baixadoEmMg,
-  mgEmMilesimos,
   situacaoDoMaterial,
   type MaterialDaOrdem,
   type MaterialPrevisto,
   type SituacaoDoMaterial,
 } from "@/lib/producao/material";
+import { textoDePeso } from "@/lib/producao/peso";
 import {
   DICA_MATERIAL,
   FRASE_SEM_MATERIAL_PREVISTO,
@@ -62,18 +62,14 @@ const MATERIAIS: readonly MaterialDaOrdem[] = ["argila", "esmalte"];
 
 const CLASSE_BOTAO = "text-corpo h-auto min-h-[44px] px-4 font-semibold";
 
-// "4,2" a partir de miligramas.
-function kg(mg: number): string {
-  return textoDeMilesimos(mgEmMilesimos(Math.max(0, mg), "kg") ?? 0);
-}
 
 function textoDaSituacao(situacao: SituacaoDoMaterial): string {
   if (situacao.tipo === "completo") {
     return TEXTO_PREVISTO_TODO_BAIXADO;
   }
   return situacao.tipo === "passou"
-    ? textoGastouAMais(kg(situacao.diferencaMg))
-    : textoFaltamDoPrevisto(kg(situacao.diferencaMg));
+    ? textoGastouAMais(textoDePeso(situacao.diferencaMg))
+    : textoFaltamDoPrevisto(textoDePeso(situacao.diferencaMg));
 }
 
 // O bloco "Material usado" da ordem (UI-SPEC §"Coluna da direita — Bloco Material usado"): a dica,
@@ -144,7 +140,7 @@ export function BlocoMaterial({
                   data-testid="ordem-material-conta"
                   className="text-corpo text-tinta font-semibold tabular-nums"
                 >
-                  {textoBaixadoDoPrevisto(kg(linha.baixadoMg), kg(linha.previstoMg))}
+                  {textoBaixadoDoPrevisto(textoDePeso(linha.baixadoMg), textoDePeso(linha.previstoMg))}
                 </span>
               </div>
               <p

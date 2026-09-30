@@ -145,8 +145,8 @@ export function baixaTotalSugerida(
   return mgEmMilesimos(Math.max(0, previstoMg - baixadoMg), unidade);
 }
 
-// Miligramas (≥ 0) → milésimos da unidade, meio para cima; `null` = unidade não comparável. É
-// também o que a tela usa para mostrar "{X} kg" (`mgEmMilesimos(mg, "kg")`).
+// Miligramas (≥ 0) → milésimos da unidade, meio para cima; `null` = unidade não comparável. A
+// tela mostra o peso por `textoDePeso` (`./peso`, 30/09/2026) — esta conversão é da baixa.
 export function mgEmMilesimos(mg: number, unidade: Unidade): number | null {
   const fator = miligramasPorMilesimo(unidade);
   if (fator === null) {

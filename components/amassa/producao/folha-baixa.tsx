@@ -17,9 +17,9 @@ import {
   textoSaldoDeAgora,
 } from "@/lib/estoque/textos";
 import { darBaixaNaOrdem } from "@/lib/producao/acoes";
+import { textoDePeso } from "@/lib/producao/peso";
 import {
   baixaTotalSugerida,
-  mgEmMilesimos,
   miligramasPorMilesimo,
   situacaoDoMaterial,
   type MaterialDaOrdem,
@@ -75,10 +75,6 @@ type ErroDaBaixa = { campo: CampoDaBaixa; mensagem: string };
 
 const SUFIXO_DESATIVADO = "Reative-o no Estoque para dar baixa.";
 
-// "4,2" a partir de miligramas — a conta de kg da ordem.
-function kg(mg: number): string {
-  return textoDeMilesimos(mgEmMilesimos(Math.max(0, mg), "kg") ?? 0);
-}
 
 // A folha de baixa de material da ordem (UI-SPEC §"Folha de baixa de material"): o resumo do
 // previsto, o material do Estoque pelo seletor "Qual material?" da Fase 06 (só ativos, busca) com a
@@ -314,10 +310,10 @@ export function FolhaBaixa({
                 className="text-apoio text-tinta-media"
               >
                 {textoResumoDaFolhaDeBaixa({
-                  previstoKg: kg(pedido.previstoMg),
-                  baixadoKg: kg(pedido.baixadoMg),
-                  faltamKg: situacao.tipo === "passou" ? null : kg(pedido.previstoMg - pedido.baixadoMg),
-                  aMaisKg: situacao.tipo === "passou" ? kg(situacao.diferencaMg) : null,
+                  previsto: textoDePeso(pedido.previstoMg),
+                  baixado: textoDePeso(pedido.baixadoMg),
+                  faltam: situacao.tipo === "passou" ? null : textoDePeso(pedido.previstoMg - pedido.baixadoMg),
+                  aMais: situacao.tipo === "passou" ? textoDePeso(situacao.diferencaMg) : null,
                 })}
               </DialogDescription>
             ) : (

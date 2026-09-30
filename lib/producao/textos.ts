@@ -670,15 +670,16 @@ export const ROTULO_DO_MATERIAL: Readonly<Record<"argila" | "esmalte", string>> 
   argila: "Argila",
   esmalte: "Esmalte",
 };
-// "{X} de {Y} kg" — as duas quantidades já formatadas.
-export function textoBaixadoDoPrevisto(baixadoKg: string, previstoKg: string): string {
-  return `${baixadoKg} de ${previstoKg} kg`;
+// "{X} de {Y}" — os dois pesos já formatados COM a unidade (`textoDePeso`, `./peso`: "850 g" abaixo
+// de 1 000 g, "1,25 kg" a partir dele — regra do dono de 30/09/2026): "850 g de 1,25 kg".
+export function textoBaixadoDoPrevisto(baixado: string, previsto: string): string {
+  return `${baixado} de ${previsto}`;
 }
-export function textoFaltamDoPrevisto(faltamKg: string): string {
-  return `faltam ${faltamKg} kg do previsto`;
+export function textoFaltamDoPrevisto(faltam: string): string {
+  return `faltam ${faltam} do previsto`;
 }
-export function textoGastouAMais(aMaisKg: string): string {
-  return `gastou ${aMaisKg} kg a mais que o previsto`;
+export function textoGastouAMais(aMais: string): string {
+  return `gastou ${aMais} a mais que o previsto`;
 }
 export const TEXTO_PREVISTO_TODO_BAIXADO = "previsto todo baixado";
 export function textoPecasSemFichaNoPrevisto(quantas: number): string {
@@ -715,16 +716,17 @@ export function tituloDaFolhaDeBaixa(
   }
   return `${modo === "total" ? ROTULO_BAIXA_TOTAL : ROTULO_BAIXA_PARCIAL} · ${material}`;
 }
-// "Previsto {X} kg · já baixado {Y} kg · faltam {Z} kg." — quando já passou do previsto, a última
-// parte diz quanto passou (nunca "faltam 0").
+// "Previsto {X} · já baixado {Y} · faltam {Z}." — os pesos já com a unidade (`textoDePeso`,
+// 30/09/2026): "Previsto 4,2 kg · já baixado 850 g · faltam 3,35 kg.". Quando já passou do previsto,
+// a última parte diz quanto passou (nunca "faltam 0").
 export function textoResumoDaFolhaDeBaixa(d: {
-  previstoKg: string;
-  baixadoKg: string;
-  faltamKg: string | null;
-  aMaisKg: string | null;
+  previsto: string;
+  baixado: string;
+  faltam: string | null;
+  aMais: string | null;
 }): string {
-  const fim = d.aMaisKg !== null ? `${d.aMaisKg} kg a mais` : `faltam ${d.faltamKg ?? "0"} kg`;
-  return `Previsto ${d.previstoKg} kg · já baixado ${d.baixadoKg} kg · ${fim}.`;
+  const fim = d.aMais !== null ? `${d.aMais} a mais` : `faltam ${d.faltam ?? "0 g"}`;
+  return `Previsto ${d.previsto} · já baixado ${d.baixado} · ${fim}.`;
 }
 export const ROTULO_QUAL_MATERIAL_DO_ESTOQUE = "Qual material do estoque";
 export const ROTULO_ESCOLHER_MATERIAL = "Escolher material";

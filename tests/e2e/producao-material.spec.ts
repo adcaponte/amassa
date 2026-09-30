@@ -31,7 +31,8 @@ function nomeUnico(rotulo: string): string {
 type Cenario = { nome: string; ordemId: string; itemId: string; materialNome: string };
 
 // Uma ficha com 350 g de argila e 40 g de esmalte, uma ordem ATIVA de 10 peças + 2 a mais dessa
-// ficha (previsto: 4,2 kg de argila e 0,48 kg de esmalte no caminho completo) e um material em kg
+// ficha (previsto: 4,2 kg de argila e 480 g de esmalte no caminho completo — o peso na regra do dono
+// de 30/09/2026: gramas inteiras abaixo de 1 000 g, kg com até duas casas a partir dele) e um material em kg
 // com 20 kg de saldo (20 entradas de 1 kg a R$ 1,00).
 async function semearCenario(
   rotulo: string,
@@ -93,12 +94,12 @@ test.describe("producao material", () => {
 
     const argila = bloco.getByTestId("ordem-material-argila");
     await expect(argila).toContainText("Argila");
-    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("0 de 4,2 kg");
+    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("0 g de 4,2 kg");
     await expect(argila.getByTestId("ordem-material-situacao")).toHaveText(
       "faltam 4,2 kg do previsto",
     );
     const esmalte = bloco.getByTestId("ordem-material-esmalte");
-    await expect(esmalte.getByTestId("ordem-material-conta")).toHaveText("0 de 0,48 kg");
+    await expect(esmalte.getByTestId("ordem-material-conta")).toHaveText("0 g de 480 g");
 
     // Sem baixa: "Baixas feitas" não aparece; os botões são `outline` e existem os três.
     await expect(bloco.getByTestId("ordem-baixas-feitas")).toHaveCount(0);
@@ -120,7 +121,7 @@ test.describe("producao material", () => {
     const folha = page.getByTestId("folha-baixa");
     await expect(folha.getByRole("heading", { name: "Baixa total · argila" })).toBeVisible();
     await expect(folha.getByTestId("folha-baixa-resumo")).toHaveText(
-      "Previsto 4,2 kg · já baixado 0 kg · faltam 4,2 kg.",
+      "Previsto 4,2 kg · já baixado 0 g · faltam 4,2 kg.",
     );
     // Sem baixa anterior, sem pré-escolha: o botão largo abre o seletor da Fase 06.
     await folha.getByTestId("folha-baixa-escolher").click();
@@ -139,7 +140,7 @@ test.describe("producao material", () => {
     await expect(page.getByTestId("folha-baixa")).toHaveCount(0);
 
     const argila = bloco.getByTestId("ordem-material-argila");
-    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("4,2 de 4,2 kg");
+    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("4,2 kg de 4,2 kg");
     await expect(argila.getByTestId("ordem-material-situacao")).toHaveText("previsto todo baixado");
     await expect(bloco.getByTestId("ordem-baixa-total-argila")).toBeDisabled();
     const feitas = bloco.getByTestId("ordem-baixas-feitas");
@@ -175,7 +176,7 @@ test.describe("producao material", () => {
 
     const bloco = page.getByTestId("ordem-material");
     const argila = bloco.getByTestId("ordem-material-argila");
-    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("1 de 4,2 kg");
+    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("1 kg de 4,2 kg");
     await expect(argila.getByTestId("ordem-material-situacao")).toHaveText(
       "faltam 3,2 kg do previsto",
     );
@@ -203,9 +204,9 @@ test.describe("producao material", () => {
     await folha.getByTestId("folha-baixa-dar").click();
     await expect(page.getByText(`Baixa registrada: 3,5 kg de ${cenario.materialNome}.`)).toBeVisible();
 
-    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("4,5 de 4,2 kg");
+    await expect(argila.getByTestId("ordem-material-conta")).toHaveText("4,5 kg de 4,2 kg");
     await expect(argila.getByTestId("ordem-material-situacao")).toHaveText(
-      "gastou 0,3 kg a mais que o previsto",
+      "gastou 300 g a mais que o previsto",
     );
     await expect(bloco.getByTestId("ordem-baixa-total-argila")).toBeDisabled();
     await expect(bloco.getByTestId("ordem-baixas-feitas").getByTestId("ordem-baixa-feita")).toHaveCount(2);
@@ -220,7 +221,7 @@ test.describe("producao material", () => {
 
     const bloco = page.getByTestId("ordem-material");
     await expect(bloco.getByTestId("ordem-material-argila").getByTestId("ordem-material-conta")).toHaveText(
-      "0 de 4,2 kg",
+      "0 g de 4,2 kg",
     );
     await expect(bloco.getByTestId("ordem-material-esmalte")).toHaveCount(0);
     await expect(bloco.getByTestId("ordem-baixa-parcial-esmalte")).toHaveCount(0);
@@ -253,7 +254,7 @@ test.describe("producao material", () => {
     // A baixa de outro material não entra na conta da argila, mas aparece em "Baixas feitas".
     await expect(
       bloco.getByTestId("ordem-material-argila").getByTestId("ordem-material-conta"),
-    ).toHaveText("0 de 4,2 kg");
+    ).toHaveText("0 g de 4,2 kg");
     await expect(bloco.getByTestId("ordem-baixas-feitas").getByTestId("ordem-baixa-feita")).toHaveCount(1);
 
     const noBanco = await baixasDaOrdemNoBanco(cenario.ordemId);
@@ -286,7 +287,7 @@ test.describe("producao material", () => {
     await page.reload();
     await expect(
       page.getByTestId("ordem-material-argila").getByTestId("ordem-material-conta"),
-    ).toHaveText("1 de 4,2 kg");
+    ).toHaveText("1 kg de 4,2 kg");
     expect(await baixasDaOrdemNoBanco(cenario.ordemId)).toHaveLength(1);
   });
 });

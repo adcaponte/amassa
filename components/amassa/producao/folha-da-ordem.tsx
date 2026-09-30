@@ -283,14 +283,12 @@ export function FolhaDaOrdemA4({ folha, impressaEm }: { folha: FolhaDaOrdem; imp
             <>
               <p>
                 {ROTULO_DO_MATERIAL.argila}:{" "}
-                <span className={`${estilos.numero} font-semibold`}>{folha.material.argilaKg} kg</span>
+                <span className={`${estilos.numero} font-semibold`}>{folha.material.argila}</span>
               </p>
-              {folha.material.esmalteKg ? (
+              {folha.material.esmalte ? (
                 <p>
                   {ROTULO_DO_MATERIAL.esmalte}:{" "}
-                  <span className={`${estilos.numero} font-semibold`}>
-                    {folha.material.esmalteKg} kg
-                  </span>
+                  <span className={`${estilos.numero} font-semibold`}>{folha.material.esmalte}</span>
                 </p>
               ) : null}
               {folha.material.pecasSemFicha > 0 ? (

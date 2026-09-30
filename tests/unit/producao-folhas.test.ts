@@ -118,6 +118,13 @@ describe("linhasDaFolhaDaOrdem — a folha de bancada", () => {
     expect(folha.pecas[1]).toMatchObject({ argila: "—", medidas: "—" });
   });
 
+  it("argila por peça a partir de 1 000 g sai em kg, até duas casas (regra do dono, 30/09/2026)", () => {
+    const folha = linhasDaFolhaDaOrdem(
+      ordem({ pecas: [peca({ ficha: { ...FICHA_CANECA, argilaMiligramas: 1_250_000 } })] }),
+    );
+    expect(folha.pecas[0]).toMatchObject({ argila: "1,25 kg" });
+  });
+
   it("peças pela posição, não pela ordem em que chegaram", () => {
     const folha = linhasDaFolhaDaOrdem(
       ordem({
@@ -150,27 +157,27 @@ describe("linhasDaFolhaDaOrdem — a folha de bancada", () => {
     expect(aguardando.inicio).toBeNull();
   });
 
-  it("material previsto em kg: argila e esmalte do caminho completo (feitas = pedido + a mais)", () => {
-    // 12 feitas × 350 g = 4,2 kg; 12 × 40 g = 0,48 kg.
+  it("material previsto com a unidade (textoDePeso, 30/09/2026): argila e esmalte do caminho completo (feitas = pedido + a mais)", () => {
+    // 12 feitas × 350 g = 4,2 kg; 12 × 40 g = 480 g (abaixo de 1 000 g, gramas inteiras).
     const folha = linhasDaFolhaDaOrdem(ordem());
     expect(folha.material).toEqual({
       tipo: "previsto",
-      argilaKg: "4,2",
-      esmalteKg: "0,48",
+      argila: "4,2 kg",
+      esmalte: "480 g",
       pecasSemFicha: 0,
     });
   });
 
   it("caminho biscoito: o esmalte some (null), mesmo com gramas na ficha", () => {
     const folha = linhasDaFolhaDaOrdem(ordem({ caminho: "biscoito", etapas: etapas("biscoito") }));
-    expect(folha.material).toMatchObject({ tipo: "previsto", argilaKg: "4,2", esmalteKg: null });
+    expect(folha.material).toMatchObject({ tipo: "previsto", argila: "4,2 kg", esmalte: null });
   });
 
   it("esmalte 0 na ficha: o esmalte some (null)", () => {
     const folha = linhasDaFolhaDaOrdem(
       ordem({ pecas: [peca({ ficha: { ...FICHA_CANECA, esmalteMiligramas: 0 } })] }),
     );
-    expect(folha.material).toMatchObject({ tipo: "previsto", esmalteKg: null });
+    expect(folha.material).toMatchObject({ tipo: "previsto", esmalte: null });
   });
 
   it("peças sem ficha contam à parte; nenhuma peça com ficha → 'sem-ficha'", () => {
