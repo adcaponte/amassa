@@ -534,3 +534,22 @@ export function textoPecasSemEstimativa(quantas: number): string {
 export const FRASE_FILA_DO_FORNO_VAZIA = "nenhuma fornada na fila";
 export const SUB_AGUARDANDO_SINAL = "não contam prazo ainda";
 export const ARIA_NUMEROS_DO_TOPO = "Resumo da produção";
+
+// ---------------------------------------------------------------------------------------------
+// Filtros do quadro (plano 08, PRD-05) — "Tudo · Encomendas · Da casa"; o filtro não vai para a URL.
+// ---------------------------------------------------------------------------------------------
+
+export const ARIA_FILTRAR_ORDENS = "Filtrar ordens";
+// Chaves = `FiltroDoQuadro` (lib/producao/quadro.ts), repetidas à mão — este arquivo não importa nada.
+export const ROTULO_DO_FILTRO: Readonly<Record<"todas" | "encomenda" | "casa", string>> = {
+  todas: "Tudo",
+  encomenda: "Encomendas",
+  casa: "Da casa",
+};
+// Filtro sem nenhuma ordem (liberada ou aguardando) — os três números ficam, zerados.
+export const TITULO_FILTRO_VAZIO: Readonly<Record<"encomenda" | "casa", string>> = {
+  encomenda: "Nenhuma encomenda em andamento.",
+  casa: "Nenhuma ordem da casa em andamento.",
+};
+export const CORPO_FILTRO_VAZIO = "Toque em Tudo para ver todas.";
+export const ROTULO_VER_TUDO = "Ver tudo";

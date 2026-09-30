@@ -44,7 +44,14 @@ export function diaMes(data: string): string {
   return `${dia}/${mes}`;
 }
 
-export type PecaParaSemear = { descricao: string; quantidade: number; aMais?: number };
+// `fichaId` (plano 08): a peça ligada a uma ficha de precificação — a fila do forno lê o "cabem"
+// dela ao vivo.
+export type PecaParaSemear = {
+  descricao: string;
+  quantidade: number;
+  aMais?: number;
+  fichaId?: string | null;
+};
 
 export type OrdemParaSemear = {
   nome: string;
@@ -59,6 +66,8 @@ export type OrdemParaSemear = {
   pecas: PecaParaSemear[];
   entregaPrometida?: string | null;
   clienteNome?: string | null;
+  // O parcial da etapa ATUAL (a primeira não feita) — "já passaram N de T" (plano 08).
+  passaramNaAtual?: number | null;
 };
 
 // Uma ordem com as etapas do caminho (com `feita_em` nas feitas) e as peças, numa transação.
@@ -82,18 +91,26 @@ export async function semearOrdem(dados: OrdemParaSemear): Promise<string> {
       );
       const ordemId = rows[0].id;
       const feitas = new Map(dados.etapasFeitas.map((feita) => [feita.etapa, feita.feitaEm]));
+      const atual = etapasIniciais(dados.caminho).find((etapa) => !feitas.has(etapa.etapa));
       for (const etapa of etapasIniciais(dados.caminho)) {
         await cliente.query(
-          `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos, feita_em)
-           values ($1, $2, $3, $4, $5)`,
-          [ordemId, etapa.etapa, etapa.posicao, etapa.diasPrevistos, feitas.get(etapa.etapa) ?? null],
+          `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos, feita_em, passaram)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [
+            ordemId,
+            etapa.etapa,
+            etapa.posicao,
+            etapa.diasPrevistos,
+            feitas.get(etapa.etapa) ?? null,
+            etapa.etapa === atual?.etapa ? (dados.passaramNaAtual ?? null) : null,
+          ],
         );
       }
       for (const [posicao, peca] of dados.pecas.entries()) {
         await cliente.query(
-          `insert into ordem_pecas (ordem_id, posicao, descricao, quantidade, a_mais)
-           values ($1, $2, $3, $4, $5)`,
-          [ordemId, posicao, peca.descricao, peca.quantidade, peca.aMais ?? 0],
+          `insert into ordem_pecas (ordem_id, posicao, descricao, quantidade, a_mais, ficha_id)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [ordemId, posicao, peca.descricao, peca.quantidade, peca.aMais ?? 0, peca.fichaId ?? null],
         );
       }
       await cliente.query("commit");
