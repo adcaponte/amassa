@@ -10,25 +10,34 @@ import {
   levouDias,
   seloDaOrdem,
 } from "@/lib/producao/leitura";
-import { ROTULO_VOLTAR_PRODUCAO, TITULO_ETAPAS, textoSubtituloDaOrdem } from "@/lib/producao/textos";
+import {
+  DICA_ETAPA_INTEIRA,
+  ROTULO_VOLTAR_PRODUCAO,
+  TEXTO_PREVISAO_DE_CONCLUSAO,
+  TITULO_ETAPAS,
+  textoPrevisao,
+  textoSubtituloDaOrdem,
+} from "@/lib/producao/textos";
+import { totalDeFeitas } from "@/lib/producao/transicoes";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
+import { cn } from "@/lib/utils";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { AcoesDaOrdem } from "@/components/amassa/producao/acoes-da-ordem";
 import { BlocoPecas } from "@/components/amassa/producao/bloco-pecas";
-import { BotaoTerminei } from "@/components/amassa/producao/botao-terminei";
 import { CaixaAguardando } from "@/components/amassa/producao/caixa-aguardando";
 import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
 import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 
-// `/gestao/producao/[id]` — a ordem (Fase 06.1, plano 01: o traçador). `exigirUsuario()` como
-// PRIMEIRA instrução — regra do CLAUDE.md. `params` é `Promise` no Next.js 15. Ordem inexistente (ou
-// id malformado — os dois respondem igual) → `notFound()`, o 404 do grupo protegido.
+// `/gestao/producao/[id]` — a ordem (Fase 06.1). `exigirUsuario()` como PRIMEIRA instrução — regra
+// do CLAUDE.md. `params` é `Promise` no Next.js 15. Ordem inexistente (ou id malformado — os dois
+// respondem igual) → `notFound()`, o 404 do grupo protegido.
 //
-// Neste plano: o cabeçalho (nome com quebra livre, nunca truncado — `CabecalhoPagina`), o bloco
-// "Etapas" com a trilha e o "Terminei: {Etapa}", e o bloco "Peças" (plano 04: horas, sub-linha, as
-// fotos do orçamento e a linha de origem com os links para o orçamento e a venda); na ordem aguardando o sinal, a caixa
-// âmbar com a leitura do sinal no Caixa e os botões de liberar (plano 03). Desfazer, ajuste de
-// dias, parcial, a barra fixa do celular, material, cancelar, previsão e a conclusão chegam nos
-// planos seguintes. Na etapa Entrega o botão não aparece: a última etapa se conclui (plano 11).
+// Até aqui: o cabeçalho (nome com quebra livre, nunca truncado — `CabecalhoPagina`); o bloco
+// "Etapas" com o sub-título (UI-D17), a caixa "Aguardando o sinal" (plano 03), a trilha com o −/+
+// das etapas futuras e o parcial da atual (plano 05), as ações — "Desfazer a última" e "Terminei",
+// numa barra fixa no celular (UI-D3) — e a previsão de conclusão (plano 05); o bloco "Peças" (plano
+// 04). Material, cancelar e a conclusão chegam nos planos seguintes. Na etapa Entrega o "Terminei"
+// não aparece: a última etapa se conclui (plano 11).
 export default async function PaginaOrdem({ params }: { params: Promise<{ id: string }> }) {
   await exigirUsuario();
   const { id } = await params;
@@ -44,8 +53,13 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   const selo = seloDaOrdem(leitura);
   const etapas = etapasOrdenadas(ordem);
   const levou = levouDias(ordem);
-  const podeTerminar =
-    leitura.tipo === "em-andamento" && leitura.indice < etapas.length - 1;
+  const total = totalDeFeitas(ordem.pecas);
+  const ativa = leitura.tipo === "em-andamento";
+  const etapaParaTerminar =
+    leitura.tipo === "em-andamento" && leitura.indice < etapas.length - 1 ? leitura.etapa : null;
+  const feitas = etapas.filter((etapa) => etapa.feitaEm !== null);
+  const ultimaFeita = feitas.at(-1);
+  const folga = leitura.tipo === "em-andamento" ? textoPrevisao(leitura.folgaDias) : null;
 
   return (
     <>
@@ -56,7 +70,13 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
         <ChipDoSelo selo={selo} />
       </CabecalhoPagina>
 
-      <div className="grid grid-cols-1 items-start gap-6 px-6 py-6 md:px-8 lg:grid-cols-[1.15fr_1fr]">
+      <div
+        className={cn(
+          "grid grid-cols-1 items-start gap-6 px-6 py-6 md:px-8 lg:grid-cols-[1.15fr_1fr]",
+          // No celular, a barra de ação fixa cobre o fim da página: reserva a altura dela a mais.
+          ativa && "pb-[calc(var(--altura-acao-fixa)+16px)] md:pb-6",
+        )}
+      >
         <section
           aria-labelledby="ordem-etapas-titulo"
           className="bg-superficie border-borda flex flex-col gap-4 rounded-lg border p-4"
@@ -99,10 +119,48 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
             />
           ) : null}
 
-          <TrilhaEtapas tipo={ordem.tipo} etapas={etapas} leitura={leitura} levou={levou} />
+          <TrilhaEtapas
+            ordemId={ordem.id}
+            tipo={ordem.tipo}
+            status={ordem.status}
+            etapas={etapas}
+            leitura={leitura}
+            levou={levou}
+            totalDeFeitas={total}
+          />
 
-          {podeTerminar && leitura.tipo === "em-andamento" ? (
-            <BotaoTerminei ordemId={ordem.id} tipo={ordem.tipo} etapa={leitura.etapa} />
+          {ativa ? (
+            <AcoesDaOrdem
+              ordemId={ordem.id}
+              tipo={ordem.tipo}
+              etapaParaTerminar={etapaParaTerminar}
+              ultimaFeita={
+                ultimaFeita?.feitaEm
+                  ? { etapa: ultimaFeita.etapa, feitaEmDiaMes: formatarDiaMes(ultimaFeita.feitaEm) }
+                  : null
+              }
+            />
+          ) : null}
+
+          {leitura.tipo === "em-andamento" ? (
+            <div className="flex flex-col gap-1">
+              <p data-testid="ordem-previsao" className="text-apoio text-tinta-media">
+                {TEXTO_PREVISAO_DE_CONCLUSAO}{" "}
+                <span className="font-semibold">{formatarDiaMes(leitura.previsaoDeConclusao)}</span>
+                {folga ? (
+                  <>
+                    {" · "}
+                    <span
+                      data-testid="ordem-previsao-folga"
+                      className={cn("font-semibold", folga.tipo === "atraso" && "text-erro")}
+                    >
+                      {folga.texto}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              <p className="text-apoio text-tinta-fraca">{DICA_ETAPA_INTEIRA}</p>
+            </div>
           ) : null}
         </section>
 

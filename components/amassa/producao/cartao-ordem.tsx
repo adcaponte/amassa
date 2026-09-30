@@ -8,6 +8,7 @@ import {
   textoAguardandoNoCartao,
   textoDiasNestaEtapa,
   textoEntregaNoCartao,
+  textoParcialNoCartao,
   textoPecasNoCartao,
   textoSelo,
 } from "@/lib/producao/textos";
@@ -52,8 +53,15 @@ export type CartaoOrdemProps = {
 // um `<Link>` para a ordem — nenhuma ação no cartão ("Terminei" mora na ordem, para não marcar a
 // etapa errada rolando o quadro com a mão suja). Nome em Corpo 600 com quebra livre, nunca
 // truncado; detalhe; "há N dias nesta etapa · previsto P" e a entrega; o selo. Nenhuma hora
-// (PRD-05). O nome acessível do link é o texto do cartão (não sobrescrito).
+// (PRD-05). O nome acessível do link é o texto do cartão (não sobrescrito). Plano 05: o parcial da
+// etapa atual na linha 2, quando houver.
 export function CartaoOrdem({ ordem, leitura, selo }: CartaoOrdemProps) {
+  // O parcial da etapa ATUAL (plano 05, PRD-06): " · 18 de 30 já passaram" — informativo; vazio ou
+  // zero não aparece. Só na ordem liberada (a aguardando não tem etapa atual começada).
+  const parcial =
+    leitura.tipo === "em-andamento"
+      ? (ordem.etapas.find((etapa) => etapa.etapa === leitura.etapa)?.passaram ?? null)
+      : null;
   return (
     <Link
       href={rotaDeGestao(`/producao/${ordem.id}`)}
@@ -74,6 +82,14 @@ export function CartaoOrdem({ ordem, leitura, selo }: CartaoOrdemProps) {
         ) : null}
         <span aria-hidden="true">·</span>
         <span>{textoPecasNoCartao(ordem.totalPecas, ordem.totalAMais)}</span>
+        {parcial !== null ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <span data-testid="producao-cartao-parcial">
+              {textoParcialNoCartao(parcial, ordem.totalPecas + ordem.totalAMais)}
+            </span>
+          </>
+        ) : null}
       </span>
       {leitura.tipo === "aguardando" ? (
         <span data-testid="producao-cartao-aguardando" className="text-apoio text-tinta-fraca">

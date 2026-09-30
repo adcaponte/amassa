@@ -1,5 +1,10 @@
 import { formatarDiaMes } from "@/lib/producao/calendario";
-import { rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "@/lib/producao/etapas";
+import {
+  rotuloDaEtapa,
+  type EtapaProducao,
+  type StatusOrdem,
+  type TipoOrdem,
+} from "@/lib/producao/etapas";
 import type { EtapaDaOrdem, LeituraDaOrdem } from "@/lib/producao/leitura";
 import {
   SR_ATUAL,
@@ -12,14 +17,21 @@ import {
 } from "@/lib/producao/textos";
 import { cn } from "@/lib/utils";
 
+import { AjusteDias } from "./ajuste-dias";
+import { CampoParcial } from "./campo-parcial";
+
 export type EstadoDaEtapa = "feita" | "atual" | "futura";
 
 export type TrilhaEtapasProps = {
+  ordemId: string;
   tipo: TipoOrdem;
+  status: StatusOrdem;
   // Por posição (a página as passa já ordenadas pelo módulo puro).
   etapas: readonly EtapaDaOrdem[];
   leitura: LeituraDaOrdem;
   levou: ReadonlyMap<EtapaProducao, number>;
+  // Σ (quantidade + a mais) das peças — o "{total}" do parcial.
+  totalDeFeitas: number;
 };
 
 // Qual é o estado de cada linha: a etapa atual da leitura; na ordem aguardando o sinal, a primeira
@@ -41,11 +53,25 @@ function estadoDaEtapa(
   return "futura";
 }
 
-// A trilha da ordem (UI-SPEC §"Página da ordem" → Trilha): uma linha por etapa do caminho, grade
-// `24px 1fr auto`, ponto de 16px com a borda na cor da etapa (decorativo). Feita × atual × futura
-// não depende de cor — a linha de baixo escreve "feita em dd/mm", "há N dias", "previsto P dias",
-// e um `sr-only` antes do nome diz "Feita:", "Etapa atual:" ou "Próxima:".
-export function TrilhaEtapas({ tipo, etapas, leitura, levou }: TrilhaEtapasProps) {
+// A trilha da ordem (UI-SPEC §"Página da ordem" → Trilha): uma linha por etapa do caminho (6 no
+// completo, 4 no que termina no biscoito), grade `24px 1fr auto`, ponto de 16px com a borda na cor
+// da etapa (decorativo). Feita × atual × futura não depende de cor — a linha de baixo escreve
+// "feita em dd/mm", "há N dias", "previsto P dias", e um `sr-only` antes do nome diz "Feita:",
+// "Etapa atual:" ou "Próxima:".
+//
+// Plano 05: à direita das etapas FUTURAS, o par −/+ dos dias previstos (aguardando o sinal: em
+// TODAS — nada começou; feita e atual nunca, valem pelo que aconteceu; concluída e cancelada, em
+// nenhuma). Na etapa atual de ordem ativa, não sendo a última e com mais de uma peça, o campo
+// "já passaram [ ] de {total}".
+export function TrilhaEtapas({
+  ordemId,
+  tipo,
+  status,
+  etapas,
+  leitura,
+  levou,
+  totalDeFeitas,
+}: TrilhaEtapasProps) {
   return (
     <ol data-testid="ordem-trilha" className="flex flex-col">
       {etapas.map((etapa, indice) => {
@@ -59,19 +85,28 @@ export function TrilhaEtapas({ tipo, etapas, leitura, levou }: TrilhaEtapasProps
             etapa.diasPrevistos,
           );
         } else if (estado === "atual") {
+          // Aguardando o sinal: a primeira etapa também tem −/+, então o previsto dela aparece junto
+          // do "ainda não começou" — senão o toque mudaria um número que a tela não mostra.
           linhaDeBaixo =
             leitura.tipo === "em-andamento"
               ? textoEtapaAtual(leitura.diasNestaEtapa, leitura.previstoDaEtapa)
-              : TEXTO_AINDA_NAO_COMECOU;
+              : `${TEXTO_AINDA_NAO_COMECOU} · ${textoEtapaFutura(etapa.diasPrevistos)}`;
         } else {
           linhaDeBaixo = textoEtapaFutura(etapa.diasPrevistos);
         }
+        const ajustavel =
+          status === "aguardando_sinal" || (status === "ativa" && estado === "futura");
+        const comParcial =
+          status === "ativa" &&
+          estado === "atual" &&
+          indice < etapas.length - 1 &&
+          totalDeFeitas > 1;
         return (
           <li
             key={etapa.etapa}
             data-testid={`ordem-etapa-${etapa.etapa}`}
             data-estado={estado}
-            className="border-borda grid grid-cols-[24px_1fr_auto] items-start gap-4 border-b py-2 last:border-b-0"
+            className="border-borda grid grid-cols-[24px_1fr_auto] items-start gap-x-4 gap-y-1 border-b py-2 last:border-b-0"
           >
             <span
               aria-hidden="true"
@@ -99,11 +134,34 @@ export function TrilhaEtapas({ tipo, etapas, leitura, levou }: TrilhaEtapasProps
                 </span>
                 {rotulo}
               </span>
-              <span data-testid="ordem-etapa-linha" className="text-apoio text-tinta-fraca">
+              <span
+                data-testid="ordem-etapa-linha"
+                className="text-apoio text-tinta-fraca [overflow-wrap:anywhere]"
+              >
                 {linhaDeBaixo}
               </span>
+              {comParcial ? (
+                // A chave é a etapa: quando a atual muda, o campo nasce de novo, vazio.
+                <CampoParcial
+                  key={etapa.etapa}
+                  ordemId={ordemId}
+                  tipo={tipo}
+                  etapa={etapa.etapa}
+                  total={totalDeFeitas}
+                  passaram={etapa.passaram}
+                />
+              ) : null}
             </div>
-            <span />
+            {ajustavel ? (
+              <AjusteDias
+                ordemId={ordemId}
+                tipo={tipo}
+                etapa={etapa.etapa}
+                diasPrevistos={etapa.diasPrevistos}
+              />
+            ) : (
+              <span />
+            )}
           </li>
         );
       })}
