@@ -756,3 +756,5 @@ export const FRASE_FALHA_AO_DAR_BAIXA =
 export function fraseMaterialDesativadoNaBaixa(nome: string): string {
   return `${nome} foi desativado enquanto você registrava. Reative-o no Estoque para dar baixa.`;
 }
+// A prévia antes de escolher o material (a folha ainda não sabe de qual saldo falar).
+export const TEXTO_ESCOLHA_PARA_VER_O_SALDO = "Escolha o material para ver o saldo novo.";

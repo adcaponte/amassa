@@ -1003,3 +1003,56 @@ export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Pro
   });
   return ordemId;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-10 — o material da ordem (PRD-14)
+// ---------------------------------------------------------------------------------------------
+
+export type BaixaDaOrdemNoBanco = {
+  itemId: string;
+  origem: string;
+  tipo: string;
+  destino: string | null;
+  area: string | null;
+  quantidadeMilesimos: number;
+  encomendaId: string | null;
+  materialDaOrdem: string | null;
+  nota: string | null;
+};
+
+// As linhas do livro ligadas à ordem (`encomenda_id` = a ordem), na ORDEM DO LIVRO. Só leitura: a
+// baixa se grava pela tela (a porta única do Estoque).
+export async function baixasDaOrdemNoBanco(ordemId: string): Promise<BaixaDaOrdemNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      item_id: string;
+      origem: string;
+      tipo: string;
+      destino: string | null;
+      area: string | null;
+      quantidade_milesimos: string;
+      encomenda_id: string | null;
+      material_da_ordem: string | null;
+      nota: string | null;
+    }>(
+      `select item_id, origem::text as origem, tipo::text as tipo, destino::text as destino,
+              area::text as area, quantidade_milesimos, encomenda_id,
+              material_da_ordem::text as material_da_ordem, nota
+         from movimentacoes_estoque
+        where encomenda_id = $1
+        order by numero`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      itemId: linha.item_id,
+      origem: linha.origem,
+      tipo: linha.tipo,
+      destino: linha.destino,
+      area: linha.area,
+      quantidadeMilesimos: Number(linha.quantidade_milesimos),
+      encomendaId: linha.encomenda_id,
+      materialDaOrdem: linha.material_da_ordem,
+      nota: linha.nota,
+    }));
+  });
+}

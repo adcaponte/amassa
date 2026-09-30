@@ -18,6 +18,7 @@ import {
   parcelas,
   usuarios,
 } from "@/db/schema";
+import type { Unidade } from "@/lib/cadastros/catalogo";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
@@ -25,6 +26,12 @@ import { quantasCabem } from "@/lib/precificacao/forno";
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
 import type { CabemDaFicha, PecaEmResumo } from "./forno";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
+import {
+  materialPrevisto,
+  type MaterialDaOrdem,
+  type MaterialPrevisto,
+  type PecaParaPrevisto,
+} from "./material";
 
 export type PecaDaOrdem = {
   id: string;
@@ -558,4 +565,127 @@ export async function contarConcluidasECanceladas(): Promise<number> {
     .from(ordensProducao)
     .where(inArray(ordensProducao.status, [...STATUS_ENCERRADOS]));
   return Number(linha?.quantas ?? 0);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Material usado (plano 10, PRD-14).
+// ---------------------------------------------------------------------------------------------
+
+// Uma baixa de material feita pela ordem: a saída manual "consumo em encomenda" com
+// `encomenda_id` = a ordem (o nome da coluna é histórico — aponta para a ordem desde a 0024).
+export type BaixaDaOrdem = {
+  id: string;
+  itemId: string;
+  nome: string;
+  unidade: Unidade;
+  // Com sinal, como gravado (a saída é negativa), na unidade do ITEM.
+  quantidadeMilesimos: number;
+  // `null` = "+ Dar baixa de outro material".
+  material: MaterialDaOrdem | null;
+  criadoEm: Date;
+  registradoPorNome: string;
+};
+
+export type MaterialDaOrdemCarregado = {
+  previsto: MaterialPrevisto;
+  // Alguma peça da ordem tem ficha — sem nenhuma, a frase "Sem material previsto…".
+  algumaPecaComFicha: boolean;
+  // Na ordem do livro (`numero`).
+  baixas: BaixaDaOrdem[];
+  // O item da ÚLTIMA baixa de cada material nesta ordem — a pré-escolha da folha (UI-D6).
+  ultimoItem: Record<MaterialDaOrdem, string | null>;
+};
+
+// O previsto (gramas da ficha lidas AO VIVO pela `ficha_id` × feitas, pelo módulo puro) e as baixas
+// da ordem com o item, a unidade e quem registrou. Só `select`, sem trava. `null` se a ordem não
+// existe.
+export async function materialDaOrdem(ordemId: string): Promise<MaterialDaOrdemCarregado | null> {
+  if (!FORMA_DE_UUID.test(ordemId)) {
+    return null;
+  }
+  const [ordens, pecas, baixas] = await Promise.all([
+    db
+      .select({ caminho: ordensProducao.caminho })
+      .from(ordensProducao)
+      .where(eq(ordensProducao.id, ordemId))
+      .limit(1),
+    db
+      .select({
+        quantidade: ordemPecas.quantidade,
+        aMais: ordemPecas.aMais,
+        fichaId: fichasPrecificacao.id,
+        argilaMiligramas: fichasPrecificacao.argilaMiligramas,
+        esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
+      })
+      .from(ordemPecas)
+      .leftJoin(fichasPrecificacao, eq(fichasPrecificacao.id, ordemPecas.fichaId))
+      .where(eq(ordemPecas.ordemId, ordemId))
+      .orderBy(asc(ordemPecas.posicao)),
+    db
+      .select({
+        id: movimentacoesEstoque.id,
+        itemId: movimentacoesEstoque.itemId,
+        nome: itensCatalogo.nome,
+        unidade: itensCatalogo.unidade,
+        quantidadeMilesimos: movimentacoesEstoque.quantidadeMilesimos,
+        material: movimentacoesEstoque.materialDaOrdem,
+        criadoEm: movimentacoesEstoque.criadoEm,
+        registradoPorNome: usuarios.nome,
+      })
+      .from(movimentacoesEstoque)
+      .innerJoin(itensCatalogo, eq(itensCatalogo.id, movimentacoesEstoque.itemId))
+      .innerJoin(usuarios, eq(usuarios.id, movimentacoesEstoque.registradoPor))
+      .where(
+        and(
+          eq(movimentacoesEstoque.encomendaId, ordemId),
+          eq(movimentacoesEstoque.origem, "manual"),
+          eq(movimentacoesEstoque.destino, "encomenda"),
+        ),
+      )
+      .orderBy(asc(movimentacoesEstoque.numero)),
+  ]);
+  const [ordem] = ordens;
+  if (!ordem) {
+    return null;
+  }
+
+  const pecasParaPrevisto: PecaParaPrevisto[] = pecas.map((peca) => ({
+    quantidade: peca.quantidade,
+    aMais: peca.aMais,
+    ficha:
+      peca.fichaId === null
+        ? null
+        : {
+            argilaMiligramas: peca.argilaMiligramas ?? 0,
+            esmalteMiligramas: peca.esmalteMiligramas ?? 0,
+          },
+  }));
+
+  // O item do livro sempre controla estoque e tem unidade (só um material recebe baixa); a unidade
+  // nula do catálogo não chega aqui — conferido por defesa, a linha sai da lista.
+  const baixasDaOrdem: BaixaDaOrdem[] = baixas.flatMap((baixa) =>
+    baixa.unidade === null
+      ? []
+      : [
+          {
+            ...baixa,
+            unidade: baixa.unidade,
+            quantidadeMilesimos: Number(baixa.quantidadeMilesimos),
+          },
+        ],
+  );
+
+  const ultimoItem: Record<MaterialDaOrdem, string | null> = { argila: null, esmalte: null };
+  for (const baixa of baixasDaOrdem) {
+    if (baixa.material !== null) {
+      ultimoItem[baixa.material] = baixa.itemId;
+    }
+  }
+
+  return {
+    previsto: materialPrevisto(pecasParaPrevisto, ordem.caminho),
+    algumaPecaComFicha: pecasParaPrevisto.some((peca) => peca.ficha !== null),
+    baixas: baixasDaOrdem,
+    ultimoItem,
+  };
 }

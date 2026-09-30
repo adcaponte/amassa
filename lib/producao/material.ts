@@ -127,11 +127,16 @@ export function baixaTotalSugerida(
   baixadoMg: number,
   unidade: Unidade,
 ): number | null {
+  return mgEmMilesimos(Math.max(0, previstoMg - baixadoMg), unidade);
+}
+
+// Miligramas (≥ 0) → milésimos da unidade, meio para cima; `null` = unidade não comparável. É
+// também o que a tela usa para mostrar "{X} kg" (`mgEmMilesimos(mg, "kg")`).
+export function mgEmMilesimos(mg: number, unidade: Unidade): number | null {
   const fator = miligramasPorMilesimo(unidade);
   if (fator === null) {
     return null;
   }
-  const faltaMg = Math.max(0, previstoMg - baixadoMg);
   // Inteiros não negativos: `floor((2·a + d) / (2·d))` é a divisão com meio para cima, exata.
-  return Math.floor((2 * faltaMg + fator) / (2 * fator));
+  return Math.floor((2 * mg + fator) / (2 * fator));
 }

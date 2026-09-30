@@ -4,6 +4,7 @@ import {
   baixaTotalSugerida,
   baixadoEmMg,
   materialPrevisto,
+  mgEmMilesimos,
   miligramasPorMilesimo,
   situacaoDoMaterial,
   type BaixaParaSomar,
@@ -148,6 +149,14 @@ describe("situacaoDoMaterial", () => {
 
   it("nada baixado → faltam o previsto inteiro", () => {
     expect(situacaoDoMaterial(480_000, 0)).toEqual({ tipo: "faltam", diferencaMg: 480_000 });
+  });
+});
+
+describe("mgEmMilesimos", () => {
+  it("4 200 000 mg → 4 200 milésimos de kg (4,2 kg); em g, os mesmos 4 200 000; em un, null", () => {
+    expect(mgEmMilesimos(4_200_000, "kg")).toBe(4_200);
+    expect(mgEmMilesimos(4_200_000, "g")).toBe(4_200_000);
+    expect(mgEmMilesimos(4_200_000, "un")).toBeNull();
   });
 });
 

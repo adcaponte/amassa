@@ -487,6 +487,24 @@ describe("previaDaMovimentacao — o rodapé da folha (UI-SPEC §Pré-visualiza�
     expect(resultado.tom).toBe("erro");
   });
 
+  it("a baixa da ordem (Produção): “O saldo de {material} passa de…”, sem o valor em R$", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ quantidadeMilesimos: 2000, nomeDoMaterial: "[e2e] Argila", semValor: true }),
+    );
+    expect(textoDa(resultado)).toBe("O saldo de [e2e] Argila passa de 5 para 3 kg.");
+    expect(resultado.tom).toBe("acento");
+  });
+
+  it("a baixa da ordem que deixa negativo continua avisando, sem bloquear", () => {
+    const resultado = previaDaMovimentacao(
+      previa({ quantidadeMilesimos: 6000, nomeDoMaterial: "[e2e] Argila", semValor: true }),
+    );
+    expect(textoDa(resultado)).toBe(
+      "O saldo de [e2e] Argila passa de 5 para −1 kg. Isso deixa o saldo negativo — só registre se tiver certeza.",
+    );
+    expect(resultado.tom).toBe("erro");
+  });
+
   it("o valor da saída é o de `valorarMovimento` — a mesma regra que vai gravar", () => {
     // 1 kg sai de 3 kg que valem R$ 10,00: 1000 × 1000/3000 = 333,33… → 333.
     const resultado = previaDaMovimentacao(

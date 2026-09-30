@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
-import { obterOrdem } from "@/lib/producao/consultas";
+import { materialDaOrdem, obterOrdem } from "@/lib/producao/consultas";
 import {
   etapasOrdenadas,
   leituraDaOrdem,
@@ -23,7 +24,10 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { AcoesDaOrdem } from "@/components/amassa/producao/acoes-da-ordem";
+import { CarregadorDoSeletor } from "@/components/amassa/estoque/carregador-do-seletor";
+import { ProvedorDoEstoque } from "@/components/amassa/estoque/provedor-estoque";
 import { AvisoVendaCancelada } from "@/components/amassa/producao/aviso-venda-cancelada";
+import { BlocoMaterial } from "@/components/amassa/producao/bloco-material";
 import { BlocoPecas } from "@/components/amassa/producao/bloco-pecas";
 import { CaixaAguardando } from "@/components/amassa/producao/caixa-aguardando";
 import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
@@ -40,15 +44,16 @@ import { TrilhaEtapas } from "@/components/amassa/producao/trilha-etapas";
 // das etapas futuras e o parcial da atual (plano 05), as ações — "Desfazer a última" e "Terminei",
 // numa barra fixa no celular (UI-D3) — e a previsão de conclusão (plano 05); o bloco "Peças" (plano
 // 04); "Cancelar ordem" num bloco próprio, o resultado da cancelada e o aviso de venda cancelada
-// no Caixa (plano 06, D-07). Material e a
-// conclusão chegam nos planos seguintes. Na etapa Entrega o "Terminei" não aparece: a última etapa
+// no Caixa (plano 06, D-07); o bloco "Material usado" com a baixa pela ordem (plano 10 — a lista do
+// seletor "Qual material?" chega pelo MESMO carregador do Estoque, num `Suspense` que não segura a
+// página). A conclusão chega no plano seguinte. Na etapa Entrega o "Terminei" não aparece: a última etapa
 // se conclui (plano 11).
 export default async function PaginaOrdem({ params }: { params: Promise<{ id: string }> }) {
   await exigirUsuario();
   const { id } = await params;
 
-  const ordem = await obterOrdem(id);
-  if (!ordem) {
+  const [ordem, material] = await Promise.all([obterOrdem(id), materialDaOrdem(id)]);
+  if (!ordem || !material) {
     notFound();
   }
 
@@ -71,6 +76,27 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   // mudou. O aviso traz o "Cancelar ordem" dentro, e o bloco de baixo some.
   const avisoVisivel = ordem.status === "ativa" && ordem.vendaCancelada && ordem.vendaNumero !== null;
   const cancelarNoBloco = emAberto && !avisoVisivel;
+
+  const blocoMaterial = (
+    <BlocoMaterial
+      ordemId={ordem.id}
+      emAberto={emAberto}
+      previsto={material.previsto}
+      algumaPecaComFicha={material.algumaPecaComFicha}
+      ultimoItem={material.ultimoItem}
+      baixas={material.baixas.map((baixa) => ({
+        id: baixa.id,
+        itemId: baixa.itemId,
+        nome: baixa.nome,
+        unidade: baixa.unidade,
+        quantidadeMilesimos: baixa.quantidadeMilesimos,
+        material: baixa.material,
+        // O dia de Brasília do instante gravado — decidido no servidor.
+        diaMes: formatarDiaMes(hojeEmBrasilia(baixa.criadoEm)),
+        registradoPorNome: baixa.registradoPorNome,
+      }))}
+    />
+  );
 
   return (
     <>
@@ -215,6 +241,20 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
             fotos={ordem.fotos}
             origem={ordem.origem}
           />
+
+          {emAberto ? (
+            // O seletor "Qual material?" da folha de baixa lê a lista do Estoque pelo provedor da
+            // Fase 06, entregue pelo mesmo carregador da aba Saldos (fallback nulo: o bloco aparece
+            // já, e o seletor mostra o esqueleto até a lista chegar).
+            <ProvedorDoEstoque>
+              <Suspense fallback={null}>
+                <CarregadorDoSeletor />
+              </Suspense>
+              {blocoMaterial}
+            </ProvedorDoEstoque>
+          ) : (
+            blocoMaterial
+          )}
 
           {emAberto || ordem.status === "cancelada" ? (
             // O bloco com "Cancelar ordem" (aguardando ou ativa), só o botão, à esquerda — escondido
