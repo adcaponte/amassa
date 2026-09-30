@@ -38,6 +38,7 @@ import {
 } from "./conclusao";
 import {
   dadosDaConclusao,
+  lerBaixasDoMaterialDaOrdem,
   lerPecasParaConcluir,
   listarCatalogoDaNovaOrdem,
   listarConcluidasECanceladas,
@@ -45,6 +46,7 @@ import {
   type OrdemEncerrada,
 } from "./consultas";
 import { etapasIniciais, type EtapaProducao, type TipoOrdem } from "./etapas";
+import { baixadoMudou } from "./material";
 import {
   esquemaAjustarDiasPrevistos,
   esquemaCancelarOrdem,
@@ -114,6 +116,7 @@ import {
   FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA,
   FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE,
   NOME_CATEGORIA_PRODUCAO_DA_CASA,
+  fraseBaixaMudouEnquantoPreenchia,
   fraseItemDesativadoNaConclusao,
   fraseItemNaoGuardaPecas,
   fraseItemNaoGuardaPecasNaConclusao,
@@ -826,9 +829,23 @@ export type BaixaDaOrdemRegistrada = {
   saldoDepoisMilesimos: number;
 };
 
+// A recusa da baixa pode pedir que a tela recarregue (revisão 06.1, WR-101): a "Baixa total" partiu
+// de um "já baixado" que mudou sob a trava — a folha fecha e a frase vai para um toast.
+export type ResultadoDeDarBaixa =
+  | { ok: true; dados: BaixaDaOrdemRegistrada }
+  | { ok: false; erro: string; recarregar?: boolean };
+
+class BaixaMudouNoMeio extends Error {
+  constructor(readonly frase: string) {
+    super(frase);
+    this.name = "BaixaMudouNoMeio";
+  }
+}
+
 // A baixa de material feita pela própria ordem. `exigirUsuario()` é a PRIMEIRA instrução
 // (T-06.1-39, cobrado por `npm run verificar-acoes`). Do cliente chegam só os ids, o texto da
-// quantidade e qual material previsto ela cobre (T-06.1-36).
+// quantidade, qual material previsto ela cobre (T-06.1-36) e, na "Baixa total", quanto a tela
+// acreditava já baixado — conferido sob a trava da ordem (revisão 06.1, WR-101).
 //
 // A Produção NUNCA grava no livro por conta própria: o pedido é o MESMO `pedidoDeSaidaManual` da
 // folha do Estoque (destino "consumo em encomenda" → área `pecas` por `areaDoDestino`), e quem grava
@@ -840,9 +857,7 @@ export type BaixaDaOrdemRegistrada = {
 // depois o ITEM (`travarItens`, e de novo dentro de `gravarMovimentacoes`, na mesma transação). A
 // folha do Estoque segue a mesma ordem, ORDEM → ITEM, com a mesma trava (revisão 06.1, WR-04):
 // baixa, conclusão e cancelamento se serializam na ordem e nunca entram em impasse (T-06.1-37).
-export async function darBaixaNaOrdem(
-  entradaBruta: unknown,
-): Promise<ResultadoDeAcao<BaixaDaOrdemRegistrada>> {
+export async function darBaixaNaOrdem(entradaBruta: unknown): Promise<ResultadoDeDarBaixa> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaDarBaixaNaOrdem.safeParse(entradaBruta);
@@ -860,6 +875,16 @@ export async function darBaixaNaOrdem(
       }
       if (ordem.status !== "aguardando_sinal" && ordem.status !== "ativa") {
         throw new RecusaDaProducao(FRASE_ORDEM_NAO_ESTA_EM_ANDAMENTO);
+      }
+
+      // "Baixa total" (revisão 06.1, WR-101): a tela calculou o total a partir do que ACREDITAVA
+      // já baixado. Sob a trava da ordem — toda baixa ligada a ela passa por esta mesma trava — a
+      // soma do livro é a verdade; se mudou, outra baixa entrou no meio e o total dobraria.
+      if (dados.material !== null && dados.baixadoEsperadoMg !== null) {
+        const baixas = await lerBaixasDoMaterialDaOrdem(tx, ordem.id, dados.material);
+        if (baixadoMudou(dados.baixadoEsperadoMg, baixas, dados.material)) {
+          throw new BaixaMudouNoMeio(fraseBaixaMudouEnquantoPreenchia(dados.material));
+        }
       }
 
       // Decide sob a trava do item (T-06.1-38): ele pode ter sido desativado — ou perdido o
@@ -891,6 +916,9 @@ export async function darBaixaNaOrdem(
       };
     });
   } catch (erro) {
+    if (erro instanceof BaixaMudouNoMeio) {
+      return { ok: false, erro: erro.frase, recarregar: true };
+    }
     if (erro instanceof RecusaDaProducao) {
       return { ok: false, erro: erro.frase };
     }

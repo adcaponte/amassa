@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   baixaTotalSugerida,
   baixadoEmMg,
+  baixadoMudou,
   materialPrevisto,
   mgEmMilesimos,
   miligramasPorMilesimo,
@@ -10,6 +11,8 @@ import {
   type BaixaParaSomar,
   type PecaParaPrevisto,
 } from "@/lib/producao/material";
+import { esquemaDarBaixaNaOrdem } from "@/lib/producao/esquemas";
+import { fraseBaixaMudouEnquantoPreenchia } from "@/lib/producao/textos";
 
 // O material da ordem (Fase 06.1, plano 10, PRD-14): o previsto sai da ficha de cada peça (gramas ×
 // peças feitas, com as a mais), o baixado sai do livro do Estoque convertido pela unidade do ITEM
@@ -183,5 +186,57 @@ describe("baixaTotalSugerida", () => {
     expect(baixaTotalSugerida(1_500, 0, "kg")).toBe(2);
     expect(baixaTotalSugerida(1_499, 0, "kg")).toBe(1);
     expect(baixaTotalSugerida(400, 0, "kg")).toBe(0);
+  });
+});
+
+// Revisão 06.1, WR-101: a "Baixa total" manda o que a tela acreditava já baixado; o servidor refaz a
+// soma sob a trava da ordem e recusa quando outra baixa entrou no meio (dois celulares).
+describe("baixadoMudou — a Baixa total contra o livro", () => {
+  const argila2kg: BaixaParaSomar = { quantidadeMilesimos: -2000, unidade: "kg", material: "argila" };
+  const esmalte100g: BaixaParaSomar = {
+    quantidadeMilesimos: -100_000,
+    unidade: "g",
+    material: "esmalte",
+  };
+
+  it("nulo (baixa parcial ou outro material) nunca recusa", () => {
+    expect(baixadoMudou(null, [argila2kg], "argila")).toBe(false);
+  });
+
+  it("o livro bate com a tela → segue", () => {
+    expect(baixadoMudou(0, [], "argila")).toBe(false);
+    expect(baixadoMudou(2_000_000, [argila2kg, esmalte100g], "argila")).toBe(false);
+  });
+
+  it("outro celular deu baixa de 10 kg no meio → recusa (a tela viu 0)", () => {
+    const outra: BaixaParaSomar = { quantidadeMilesimos: -10_000, unidade: "kg", material: "argila" };
+    expect(baixadoMudou(0, [outra], "argila")).toBe(true);
+  });
+
+  it("baixa de OUTRO material no meio não conta", () => {
+    expect(baixadoMudou(0, [esmalte100g], "argila")).toBe(false);
+  });
+
+  it("o esquema leva o esperado só quando há material", () => {
+    const base = {
+      ordemId: "0b7e8a4c-1f2d-4c3b-9a8e-7d6c5b4a3f21",
+      itemId: "5e4d3c2b-1a09-4f8e-8d7c-6b5a49382716",
+      quantidadeTexto: "2",
+    };
+    const total = esquemaDarBaixaNaOrdem.safeParse({ ...base, material: "argila", baixadoEsperadoMg: 1500 });
+    expect(total.success && total.data.baixadoEsperadoMg).toBe(1500);
+    const parcial = esquemaDarBaixaNaOrdem.safeParse({ ...base, material: "argila" });
+    expect(parcial.success && parcial.data.baixadoEsperadoMg).toBe(null);
+    const outro = esquemaDarBaixaNaOrdem.safeParse({ ...base, material: null, baixadoEsperadoMg: 1500 });
+    expect(outro.success && outro.data.baixadoEsperadoMg).toBe(null);
+    expect(
+      esquemaDarBaixaNaOrdem.safeParse({ ...base, material: "argila", baixadoEsperadoMg: -1 }).success,
+    ).toBe(false);
+  });
+
+  it("a frase diz o material e o que fazer", () => {
+    expect(fraseBaixaMudouEnquantoPreenchia("argila")).toBe(
+      "Outra baixa de argila foi registrada enquanto você preenchia — nada foi gravado. A tela foi atualizada: confira o que falta e dê baixa de novo, se precisar.",
+    );
   });
 });

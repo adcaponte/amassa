@@ -35,6 +35,7 @@ import type { TransacaoDoBanco } from "./gravacao";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
 import {
   materialPrevisto,
+  type BaixaParaSomar,
   type MaterialDaOrdem,
   type MaterialPrevisto,
   type PecaParaPrevisto,
@@ -840,6 +841,44 @@ export async function materialDaOrdem(ordemId: string): Promise<MaterialDaOrdemC
     baixas: baixasDaOrdem,
     ultimoItem,
   };
+}
+
+// As baixas de UM material desta ordem, como `baixadoEmMg` as soma — o mesmo filtro de
+// `materialDaOrdem` (saída manual "consumo em encomenda" ligada à ordem). Recebe a TRANSAÇÃO:
+// `darBaixaNaOrdem` a chama depois de travar a ordem (revisão 06.1, WR-101), e toda baixa ligada à
+// ordem passa pela mesma trava (a da Produção e, desde o WR-04, a da folha do Estoque).
+export async function lerBaixasDoMaterialDaOrdem(
+  executor: TransacaoDoBanco | typeof db,
+  ordemId: string,
+  material: MaterialDaOrdem,
+): Promise<BaixaParaSomar[]> {
+  const linhas = await executor
+    .select({
+      quantidadeMilesimos: movimentacoesEstoque.quantidadeMilesimos,
+      unidade: itensCatalogo.unidade,
+    })
+    .from(movimentacoesEstoque)
+    .innerJoin(itensCatalogo, eq(itensCatalogo.id, movimentacoesEstoque.itemId))
+    .where(
+      and(
+        eq(movimentacoesEstoque.encomendaId, ordemId),
+        eq(movimentacoesEstoque.origem, "manual"),
+        eq(movimentacoesEstoque.destino, "encomenda"),
+        eq(movimentacoesEstoque.materialDaOrdem, material),
+      ),
+    );
+  // A unidade nula não chega aqui (só material com estoque recebe baixa) — fora, como na tela.
+  return linhas.flatMap((linha) =>
+    linha.unidade === null
+      ? []
+      : [
+          {
+            quantidadeMilesimos: Number(linha.quantidadeMilesimos),
+            unidade: linha.unidade,
+            material,
+          },
+        ],
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

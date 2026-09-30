@@ -761,6 +761,11 @@ export const FRASE_FALHA_AO_DAR_BAIXA =
 export function fraseMaterialDesativadoNaBaixa(nome: string): string {
   return `${nome} foi desativado enquanto você registrava. Reative-o no Estoque para dar baixa.`;
 }
+// "Baixa total" recusada sob a trava (revisão 06.1, WR-101): o "total" que a tela calculou já não
+// vale. Aparece num toast — a folha fecha e a tela recarrega com o que falta de verdade.
+export function fraseBaixaMudouEnquantoPreenchia(material: "argila" | "esmalte"): string {
+  return `Outra baixa de ${material} foi registrada enquanto você preenchia — nada foi gravado. A tela foi atualizada: confira o que falta e dê baixa de novo, se precisar.`;
+}
 // A prévia antes de escolher o material (a folha ainda não sabe de qual saldo falar).
 export const TEXTO_ESCOLHA_PARA_VER_O_SALDO = "Escolha o material para ver o saldo novo.";
 

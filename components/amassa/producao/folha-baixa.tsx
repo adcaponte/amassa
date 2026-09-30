@@ -199,7 +199,19 @@ export function FolhaBaixa({
         itemId: saldo.id,
         quantidadeTexto,
         material: pedido.material,
+        // Revisão 06.1, WR-101: na "Baixa total", o que esta tela acreditava já baixado — o servidor
+        // refaz a soma sob a trava da ordem e recusa se outra baixa entrou no meio.
+        baixadoEsperadoMg: pedido.modo === "total" ? pedido.baixadoMg : null,
       });
+      if (!resposta.ok && resposta.recarregar) {
+        // O "total" desta folha já não vale: ela fecha, a frase fica no toast (que sobrevive à
+        // recarga) e a tela recarrega com o que falta de verdade — a recusa volta antes de qualquer
+        // `revalidatePath`, então a recarga é daqui.
+        toast.error(resposta.erro);
+        aoFechar();
+        router.refresh();
+        return;
+      }
       if (!resposta.ok) {
         // A folha continua aberta e preenchida.
         const campo = campoDaFraseDoServidor(resposta.erro);

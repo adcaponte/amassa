@@ -104,6 +104,21 @@ export function baixadoEmMg(
   return { mg, foraDaConta };
 }
 
+// "Baixa total" (revisão 06.1, WR-101): a tela calculou o "total" a partir de `esperadoMg`; sob a
+// trava da ordem, as baixas do livro dizem quanto já saiu DE FATO. Diferente → outra baixa entrou
+// no meio (outro celular, ou a tela não tinha recarregado) e o "total" dela já não vale. `null` =
+// não é "Baixa total", nada a conferir.
+export function baixadoMudou(
+  esperadoMg: number | null,
+  baixas: readonly BaixaParaSomar[],
+  material: MaterialDaOrdem,
+): boolean {
+  if (esperadoMg === null) {
+    return false;
+  }
+  return baixadoEmMg(baixas, material).mg !== esperadoMg;
+}
+
 export type SituacaoDoMaterial =
   | { tipo: "completo" }
   | { tipo: "faltam"; diferencaMg: number }

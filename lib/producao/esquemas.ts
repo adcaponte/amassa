@@ -440,12 +440,24 @@ export const esquemaDarBaixaNaOrdem = z
     quantidadeTexto: esquemaQuantidadeDaBaixa,
     // "+ Dar baixa de outro material" manda nulo: a coluna `material_da_ordem` fica vazia.
     material: z.enum(["argila", "esmalte"], { error: FRASE_FALHA_AO_DAR_BAIXA }).nullable(),
+    // "Baixa total" (revisão 06.1, WR-101): o que a tela acreditava já baixado deste material, em
+    // miligramas — a conta do "total" partiu dele. O servidor refaz a soma SOB A TRAVA DA ORDEM e
+    // recusa se mudou (outro celular, ou tela sem recarregar). Nulo na parcial e no "outro".
+    baixadoEsperadoMg: z
+      .number({ error: FRASE_FALHA_AO_DAR_BAIXA })
+      .int(FRASE_FALHA_AO_DAR_BAIXA)
+      .min(0, FRASE_FALHA_AO_DAR_BAIXA)
+      .max(Number.MAX_SAFE_INTEGER, FRASE_FALHA_AO_DAR_BAIXA)
+      .nullish()
+      .transform((valor) => valor ?? null),
   })
-  .transform(({ ordemId, itemId, quantidadeTexto, material }) => ({
+  .transform(({ ordemId, itemId, quantidadeTexto, material, baixadoEsperadoMg }) => ({
     ordemId,
     itemId,
     milesimos: quantidadeTexto,
     material,
+    // Sem material, não há "total" a conferir.
+    baixadoEsperadoMg: material === null ? null : baixadoEsperadoMg,
   }));
 
 export type DarBaixaNaOrdemValidado = z.infer<typeof esquemaDarBaixaNaOrdem>;
