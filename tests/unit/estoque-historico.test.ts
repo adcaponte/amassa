@@ -184,6 +184,24 @@ describe("descreverMovimentacao — uma frase por tipo de movimentação (UI-SPE
     expect(semNbsp(descricao.linha2)).toBe("Entrada · peça pronta · R$ 48,00 · R$ 12,00/un");
   });
 
+  it("entrada da Produção: “Da Produção · {ordem} · {R$} · {R$}/{un}” e o chip da Produção (PRD-16)", () => {
+    const descricao = descreverMovimentacao(
+      mov({
+        origem: "producao",
+        tipo: "entrada",
+        unidade: "un",
+        quantidadeMilesimos: 2000,
+        valorCentavos: 7404,
+        valorInformadoCentavos: 7404,
+        nota: "Canecas da Ana",
+      }),
+    );
+    expect(semNbsp(descricao.linha2)).toBe("Da Produção · Canecas da Ana · R$ 74,04 · R$ 37,02/un");
+    expect(descricao.chips).toEqual([{ rotulo: "da Produção", tom: "producao" }]);
+    expect(descricao.sinal).toBe("+");
+    expect(descricao.tom).toBe("sucesso");
+  });
+
   it("ajuste: contado na prateleira e o motivo; número em terracota com o sentido da diferença", () => {
     const descricao = descreverMovimentacao(
       mov({

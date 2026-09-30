@@ -4,6 +4,7 @@ import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import {
   pedidoDeAjuste,
+  pedidoDeEntradaDaProducao,
   pedidoDeEntradaManual,
   pedidoDeSaidaManual,
   pedidosDaCompra,
@@ -395,6 +396,32 @@ describe("pedidoDeEntradaManual — a peça pronta (D-09/D-29)", () => {
         pecaPronta: false,
       }),
     ).not.toHaveProperty("motivo");
+  });
+});
+
+describe("pedidoDeEntradaDaProducao — a peça pronta vinda da conclusão (PRD-16)", () => {
+  it("origem producao, entrada com preço, valor informado, a ordem e a nota — e nenhum motivo", () => {
+    const pedido = pedidoDeEntradaDaProducao({
+      itemId: "caneca",
+      milesimos: 2000,
+      custoCentavos: 7404,
+      ordemId: "ordem-1",
+      nota: "Canecas [e2e]",
+    });
+    expect(pedido).toEqual({
+      itemId: "caneca",
+      origem: "producao",
+      tipo: "entrada",
+      movimento: { tipo: "entrada_com_preco", milesimos: 2000, pagoCentavos: 7404 },
+      valorInformadoCentavos: 7404,
+      encomendaId: "ordem-1",
+      nota: "Canecas [e2e]",
+    });
+    // O check `movimentacoes_estoque_motivo_so_manual` recusaria o motivo numa origem producao.
+    expect(pedido).not.toHaveProperty("motivo");
+    expect(pedido).not.toHaveProperty("destino");
+    expect(pedido).not.toHaveProperty("area");
+    expect(pedido).not.toHaveProperty("documentoId");
   });
 });
 
