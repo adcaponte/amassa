@@ -264,3 +264,74 @@ describe("contraste do Estoque (06-UI-SPEC.md)", () => {
     expect(razao).toBeLessThan(TEXTO_NORMAL);
   });
 });
+
+// Fase 06.1 (Produção), plano 09: os pares de cor que a fase usa, Q1 a Q12 e Q14 da tabela "Color →
+// Pares de contraste" de `.planning/phases/06.1-producao/06.1-UI-SPEC.md`, cada um lido do
+// `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui. Pares que o Estoque já
+// prova entram de novo com o uso da Produção: o teste cobre o uso, não só o par. (Q13 é o bloco
+// "contraste das pílulas de etapa", acima.) Achado real se reprovar: o token (ou o par que o
+// componente usa) muda, nunca o limiar.
+describe("contraste da Produção (06.1-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const ETAPAS_COM_COR_PROPRIA = ["producao", "queima1", "esmaltacao", "queima2", "entrega"] as const;
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    // Margem quase nula — qualquer ajuste de paleta reprova aqui de propósito (Q1 = 4,51:1).
+    ["Q1", "atencao", "atencao-fundo", TEXTO_NORMAL, "selo “+N dias nesta etapa”, caixa “Aguardando o sinal”, chip “Entrega parcial”"],
+    // Margem curta (Q2 = 4,57:1).
+    ["Q2", "sucesso", "sucesso-fundo", TEXTO_NORMAL, "selo “no ritmo”, selo “concluída”"],
+    ["Q3", "erro", "erro-fundo", TEXTO_NORMAL, "selo “vai atrasar”, caixa “Faltam {n}…”"],
+    ["Q4", "tinta-media", "superficie-2", TEXTO_NORMAL, "selo “aguardando o sinal”, chips neutros, nome da coluna"],
+    ["Q5", "tinta-fraca", "superficie-2", TEXTO_NORMAL, "“—” de coluna vazia, contador da coluna"],
+    ["Q6", "tinta-fraca", "superficie", TEXTO_NORMAL, "detalhe do cartão, legenda, cabeçalho de semana"],
+    ["Q7", "acento", "superficie", TEXTO_NORMAL, "etapa atual na trilha, links, títulos da folha"],
+    ["Q8", "erro", "superficie", TEXTO_NORMAL, "“vai atrasar” na coluna fixa, linha de hoje, “Cancelar ordem”"],
+    ["Q9", "atencao", "superficie", TEXTO_NORMAL, "“gastou X kg a mais que o previsto”"],
+    ...ETAPAS_COM_COR_PROPRIA.map(
+      (etapa) =>
+        ["Q10", etapa, "superficie", NAO_TEXTO, "segmento cheio e borda do listrado da linha do tempo"] as const,
+    ),
+    ...ETAPAS_COM_COR_PROPRIA.map(
+      (etapa) => ["Q11", etapa, "superficie-2", NAO_TEXTO, "ponto de etapa no cabeçalho da coluna"] as const,
+    ),
+    ["Q12", "tinta-fraca", "superficie", NAO_TEXTO, "contorno de 1px da secagem (UI-D13) sobre o painel"],
+    ["Q12", "tinta-fraca", "superficie-2", NAO_TEXTO, "contorno de 1px da secagem (UI-D13) sobre a coluna"],
+    ["Q14", "tinta", "superficie", NAO_TEXTO, "traço da entrega prometida"],
+  ];
+
+  it("a tabela tem Q1..Q12 e Q14 (Q13 é o bloco das pílulas de etapa)", () => {
+    expect([...new Set(PARES.map(([par]) => par))]).toEqual([
+      ...Array.from({ length: 12 }, (_, indice) => `Q${indice + 1}`),
+      "Q14",
+    ]);
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = tokenDaPlataforma(tokenDaFrente);
+      const fundo = tokenDaPlataforma(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+
+  it("a secagem sem contorno continua reprovada como objeto gráfico — por isso o contorno de tinta-fraca (UI-D13)", () => {
+    // Se um dia o token mudar e isto passar, o contorno pode sair; enquanto não, ele é obrigatório.
+    const secagem = tokenDaPlataforma("secagem");
+    expect(razaoDeContraste(secagem, tokenDaPlataforma("superficie"))).toBeLessThan(NAO_TEXTO);
+    expect(razaoDeContraste(secagem, tokenDaPlataforma("superficie-2"))).toBeLessThan(NAO_TEXTO);
+  });
+
+  it("a linha do tempo desenha a secagem com o contorno de tinta-fraca e não repete hex", () => {
+    const fonte = readFileSync(
+      join(process.cwd(), "components/amassa/producao/linha-do-tempo.tsx"),
+      "utf-8",
+    );
+    expect(fonte).toMatch(/"secagem"\s*\?\s*"var\(--color-tinta-fraca\)"/);
+    expect(fonte).not.toMatch(/#[0-9A-Fa-f]{6}/);
+  });
+});

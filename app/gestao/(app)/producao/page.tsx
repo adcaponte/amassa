@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
@@ -9,7 +10,13 @@ import {
 } from "@/lib/producao/consultas";
 import { esperandoOForno, fornadasEstimadas, type FornadasEstimadas } from "@/lib/producao/forno";
 import { leituraDaOrdem, seloDaOrdem } from "@/lib/producao/leitura";
-import { FILTROS_DO_QUADRO, filtrarOrdens, type FiltroDoQuadro } from "@/lib/producao/quadro";
+import {
+  FILTROS_DO_QUADRO,
+  filtrarOrdens,
+  NOME_DO_COOKIE_DA_VISTA,
+  vistaDoCookie,
+  type FiltroDoQuadro,
+} from "@/lib/producao/quadro";
 import {
   CORPO_PRODUCAO_VAZIA,
   rotuloVerConcluidas,
@@ -53,16 +60,21 @@ function VerConcluidas({ quantas }: { quantas: number }) {
 // Tudo sai de UMA leitura (`listarOrdensEmAndamento`) mais o "cabem" das fichas da fila do forno —
 // o mesmo `loading.tsx` e o mesmo `error.tsx` valem para os números, o quadro e a seção
 // "Aguardando o sinal". O filtro é do cliente (`PainelProducao`); as fornadas vão prontas para os
-// três filtros, para trocar de filtro nunca pedir nada ao servidor (plano 08). Linha do tempo e
-// "Imprimir folha geral" chegam nos planos 09 e 13.
+// três filtros, para trocar de filtro nunca pedir nada ao servidor (plano 08). A vista (Quadro por
+// etapa · Linha do tempo) vem do cookie `producao_vista`, lido AQUI antes de pintar — a página já
+// sai do servidor na vista certa, sem piscar a errada (plano 09, UI-D18). "Imprimir folha geral"
+// chega no plano 13.
 export default async function PaginaProducao() {
   await exigirUsuario();
   const hoje = hojeEmBrasilia(new Date());
 
-  const [ordens, encerradas] = await Promise.all([
+  const [ordens, encerradas, cookiesDaRequisicao] = await Promise.all([
     listarOrdensEmAndamento(),
     contarConcluidasECanceladas(),
+    cookies(),
   ]);
+  // Valor desconhecido (forjado, velho) vira "quadro" (T-06.1-34).
+  const vistaInicial = vistaDoCookie(cookiesDaRequisicao.get(NOME_DO_COOKIE_DA_VISTA)?.value);
 
   // Sem nenhuma ordem liberada nem aguardando, o único terracota é o "Nova ordem" do vazio — o
   // cabeçalho fica sem botão nenhum (UI-D11). A folha (`?nova=1`) vale nos dois casos.
@@ -121,6 +133,8 @@ export default async function PaginaProducao() {
         ordens={ordens}
         leituras={leituras}
         fornadasPorFiltro={fornadasPorFiltro}
+        vistaInicial={vistaInicial}
+        hoje={hoje}
         rodape={encerradas > 0 ? <VerConcluidas quantas={encerradas} /> : undefined}
       />
       <FolhaNovaOrdem hoje={hoje} />

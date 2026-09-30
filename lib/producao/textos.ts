@@ -607,3 +607,46 @@ export function textoSubLinhaCancelada(d: {
   const base = `${d.quem} · cancelada em ${formatarDataCompleta(d.canceladaEm)}`;
   return d.pelaVenda ? `${base} junto com a venda` : base;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Alternador de vista e linha do tempo (plano 09, PRD-07, D-06) — frases herdadas do protótipo e
+// do Gantt das Encomendas (UI-SPEC §Copywriting).
+// ---------------------------------------------------------------------------------------------
+
+export const ARIA_ALTERNADOR_VISTA = "Ver a produção como";
+// Chaves = `VistaDaProducao` (lib/producao/quadro.ts), repetidas à mão — este arquivo não importa nada.
+export const ROTULO_DA_VISTA: Readonly<Record<"quadro" | "tempo", string>> = {
+  quadro: "Quadro por etapa",
+  tempo: "Linha do tempo",
+};
+export const ARIA_LINHA_DO_TEMPO = "Linha do tempo das ordens — rola para os lados";
+export function srLinhaDeHoje(hojeDiaMes: string): string {
+  return `Uma linha vermelha marca hoje, ${hojeDiaMes}.`;
+}
+// O nome acessível inteiro da coluna fixa (o visível é truncado numa linha): "{nome}: {Etapa atual}, {selo}".
+export function ariaLabelLinhaDaOrdem(nome: string, rotuloDaEtapa: string, selo: string): string {
+  return `${nome}: ${rotuloDaEtapa}, ${selo}`;
+}
+// Os segmentos (`role="img"`): feita, atual (o cheio e o listrado dela) e prevista.
+export function ariaLabelSegmentoFeito(rotuloDaEtapa: string, feitaEmDiaMes: string, levou: number): string {
+  return `${rotuloDaEtapa}: feita em ${feitaEmDiaMes}, levou ${dias(levou)}`;
+}
+export function ariaLabelSegmentoAtual(rotuloDaEtapa: string, diasNestaEtapa: number, previsto: number): string {
+  return `${rotuloDaEtapa}: etapa atual, há ${dias(diasNestaEtapa)}, previsto ${previsto}`;
+}
+export function ariaLabelSegmentoPrevisto(rotuloDaEtapa: string, previsto: number): string {
+  return `${rotuloDaEtapa}: prevista, ${dias(previsto)}`;
+}
+export function ariaLabelEntregaPrometida(diaMes: string): string {
+  return `Entrega prometida: ${diaMes}`;
+}
+export const LEGENDA_ENTREGA_PROMETIDA = "entrega prometida";
+export const LEGENDA_LINHA_DO_TEMPO =
+  "cor cheia = já aconteceu · listrado = previsto · linha vertical = hoje";
+export const ARIA_LEGENDA_LINHA_DO_TEMPO = "Legenda da linha do tempo";
+// Sem nenhuma ordem liberada no filtro atual.
+export const TITULO_LINHA_DO_TEMPO_VAZIA = "Nenhuma ordem em andamento.";
+export const CORPO_LINHA_DO_TEMPO_VAZIA_COM_AGUARDANDO =
+  "As ordens aguardando o sinal entram aqui quando forem liberadas.";
+export const CORPO_LINHA_DO_TEMPO_VAZIA_SEM_AGUARDANDO =
+  "Crie uma ordem ou aprove um orçamento para ela aparecer aqui.";
