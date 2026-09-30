@@ -28,7 +28,7 @@ export type AjusteDiasProps = {
 // (aguardando o sinal: em todas); o servidor confere de novo, sob a trava. "−" desabilitado em 1 e
 // "+" em 365, cada um apontando (`aria-describedby`) para o `sr-only` que diz o porquê. Toques
 // seguidos vão um de cada vez: enquanto um grava, o par fica `aria-busy` e o toque seguinte é
-// ignorado. O "previsto P" da linha muda quando o servidor confirma (`router.refresh()`). Nenhum
+// ignorado. O "previsto P" da linha muda quando o servidor confirma (a resposta da ação). Nenhum
 // toast (UI-SPEC §Toasts). Erro: na linha da etapa, embaixo do nome, `role="alert"`.
 //
 // Devolve DOIS itens da grade da linha (`24px 1fr auto`): o par na terceira coluna e, quando há
@@ -55,13 +55,17 @@ export function AjusteDias({ ordemId, tipo, etapa, diasPrevistos }: AjusteDiasPr
       const resultado = await ajustarDiasPrevistos({ ordemId, etapa, delta });
       if (!resultado.ok) {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui.
+        router.refresh();
       }
+      // Sucesso: sem `router.refresh()` — a ação já revalida esta página e a resposta dela traz a
+      // árvore nova (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
     } catch {
       setErro(FRASE_FALHA_AO_AJUSTAR);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setGravando(false);
-      router.refresh();
     }
   }
 

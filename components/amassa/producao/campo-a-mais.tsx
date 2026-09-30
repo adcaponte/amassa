@@ -21,7 +21,7 @@ export type CampoAMaisProps = {
 // "Fazer a mais, de segurança" (UI-SPEC §"Bloco Peças"; plano 04, PRD-08): um número por peça, só em
 // encomenda aguardando ou ativa (quem desenha decide; o servidor recusa o resto). Grava ao sair do
 // campo ou no Enter — e só se o número mudou. Nenhum toast (UI-SPEC §Toasts): o número fica no campo
-// e o chip e o cartão acompanham depois do `router.refresh()`. Em voo: "Salvando…" ao lado. Erro:
+// e o chip e o cartão acompanham pela resposta da ação (que revalida a página). Em voo: "Salvando…" ao lado. Erro:
 // embaixo do campo, `role="alert"`, com o número digitado preservado — nunca apagado pela
 // atualização da tela (UI-SPEC §"Dois celulares ao mesmo tempo").
 export function CampoAMais({ ordemId, pecaId, nomeDaPeca, aMais }: CampoAMaisProps) {
@@ -49,13 +49,16 @@ export function CampoAMais({ ordemId, pecaId, nomeDaPeca, aMais }: CampoAMaisPro
         setTexto(confirmado);
       } else {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui. No
+        // sucesso, não — a ação já revalida a página (revisão 06.1, WR-106).
+        router.refresh();
       }
     } catch {
       setErro(FRASE_FALHA_AO_SALVAR_A_MAIS);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setSalvando(false);
-      router.refresh();
     }
   }
 

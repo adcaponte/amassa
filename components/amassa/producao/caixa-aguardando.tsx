@@ -40,8 +40,8 @@ export type CaixaAguardandoProps = {
 // principal, a linha do sinal lida do Caixa (só leitura, com o link "ver no Caixa") e os dois botões
 // que liberam — "Sinal recebido — começar" (primário) e "Começar assim mesmo" (`outline`), que some
 // quando o sinal já consta recebido (UI-D14). Os dois chamam `liberarOrdem`: o servidor decide
-// status e data. Enquanto grava: "Liberando…", `disabled`, `aria-busy`. Sucesso: toast e
-// `router.refresh()` (a caixa some, a ordem vai para o quadro). Recusa (liberada ou cancelada noutro
+// status e data. Enquanto grava: "Liberando…", `disabled`, `aria-busy`. Sucesso: toast, e a resposta
+// da ação traz a página revalidada (a caixa some, a ordem vai para o quadro). Recusa (liberada ou cancelada noutro
 // celular) ou falha: a frase `role="alert"` e a tela recarrega o estado.
 export function CaixaAguardando({ ordemId, aguardando, sinal }: CaixaAguardandoProps) {
   const router = useRouter();
@@ -60,16 +60,20 @@ export function CaixaAguardando({ ordemId, aguardando, sinal }: CaixaAguardandoP
     try {
       const resultado = await liberarOrdem({ ordemId });
       if (resultado.ok) {
+        // Sem `router.refresh()`: a ação já revalida esta página e a resposta dela traz a árvore
+        // nova (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
         toast.success(TOAST_LIBERADA);
       } else {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui.
+        router.refresh();
       }
     } catch {
       setErro(FRASE_FALHA_AO_LIBERAR);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setGravando(null);
-      router.refresh();
     }
   }
 

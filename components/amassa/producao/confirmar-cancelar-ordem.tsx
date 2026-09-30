@@ -52,8 +52,8 @@ export type ConfirmarCancelarOrdemProps = {
 // confirmar, o que NÃO acontece — as baixas de material já feitas não voltam para o estoque, e a
 // venda no Financeiro não é cancelada junto (o dono decide lá o que fazer com o sinal). O botão de
 // confirmar não fecha antes da resposta do servidor (molde de `ConfirmarCancelarDocumento`); em voo
-// "Cancelando…", os dois botões desabilitados e `aria-busy`. Sucesso: toast e `router.refresh()` (a
-// página mostra o resultado da cancelada). Recusa ou falha: a frase dentro do diálogo, `role="alert"`,
+// "Cancelando…", os dois botões desabilitados e `aria-busy`. Sucesso: toast, e a resposta da ação
+// traz a página revalidada (a página mostra o resultado da cancelada). Recusa ou falha: a frase dentro do diálogo, `role="alert"`,
 // e a tela recarrega o estado.
 export function ConfirmarCancelarOrdem({
   ordemId,
@@ -90,17 +90,21 @@ export function ConfirmarCancelarOrdem({
     try {
       const resultado = await cancelarOrdem({ ordemId });
       if (resultado.ok) {
+        // Sem `router.refresh()`: a ação já revalida esta página e a resposta dela traz a árvore
+        // nova (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
         toast.success(TOAST_CANCELADA);
         setAberto(false);
       } else {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui.
+        router.refresh();
       }
     } catch {
       setErro(FRASE_FALHA_AO_CANCELAR);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setEnviando(false);
-      router.refresh();
     }
   }
 

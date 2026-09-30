@@ -217,9 +217,10 @@ export function FolhaConclusao({
         })),
       });
       if (resposta.ok) {
+        // Sem `router.refresh()`: a ação já revalida esta página e a resposta dela traz a árvore
+        // nova (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
         toast.success(textoToastConclusao(resposta.dados));
         aoFechar();
-        router.refresh();
         return;
       }
       if (resposta.recarregar) {

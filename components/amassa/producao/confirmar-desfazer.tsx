@@ -43,8 +43,8 @@ export type ConfirmarDesfazerProps = {
 // "Desfazer a última" (UI-D4, UI-SPEC §Confirmações): `AlertDialog` que diz a data que se perde —
 // desfazer apaga o dia REAL em que a etapa foi marcada, e marcar de novo grava o de hoje. O botão de
 // confirmar não fecha antes da resposta do servidor (molde de `ConfirmarCancelarDocumento`); em voo
-// "Desfazendo…", os dois botões desabilitados e `aria-busy`. Sucesso: toast "Desfeito: …" e
-// `router.refresh()`. Recusa ou falha: a frase dentro do diálogo, `role="alert"`, e a tela
+// "Desfazendo…", os dois botões desabilitados e `aria-busy`. Sucesso: toast "Desfeito: …" (a
+// resposta da ação traz a página revalidada). Recusa ou falha: a frase dentro do diálogo, `role="alert"`, e a tela
 // recarrega o estado.
 export function ConfirmarDesfazer({
   ordemId,
@@ -67,16 +67,20 @@ export function ConfirmarDesfazer({
     try {
       const resultado = await desfazerEtapa({ ordemId, etapaEsperada: alvo.etapa });
       if (resultado.ok) {
+        // Sem `router.refresh()`: a ação já revalida esta página e a resposta dela traz a árvore
+        // nova (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
         toast.success(textoToastDesfeito(rotuloDaEtapa(resultado.dados.etapa, tipo)));
         aoFechar();
       } else {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui.
+        router.refresh();
       }
     } catch {
       setErro(FRASE_FALHA_AO_DESFAZER);
+      router.refresh();
     } finally {
       setEnviando(false);
-      router.refresh();
     }
   }
 

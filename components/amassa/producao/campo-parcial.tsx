@@ -60,13 +60,16 @@ export function CampoParcial({ ordemId, tipo, etapa, total, passaram }: CampoPar
         setTexto(confirmado);
       } else {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui. No
+        // sucesso, não — a ação já revalida a página (revisão 06.1, WR-106).
+        router.refresh();
       }
     } catch {
       setErro(FRASE_FALHA_AO_SALVAR_PARCIAL);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setSalvando(false);
-      router.refresh();
     }
   }
 

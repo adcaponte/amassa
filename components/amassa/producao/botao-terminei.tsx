@@ -30,11 +30,11 @@ export type BotaoTermineiProps = {
 // de ação fixa (`BarraAcaoFixa`, UI-D3): `flex-1`, 52px no mínimo, quebra em duas linhas a 320px,
 // nunca reticências. Enquanto grava: "Marcando…", `disabled`, `aria-busy`. Sucesso: toast "Feito: X.
 // Agora: Y." — SEM botão de desfazer (UI-D16: desfazer só pela confirmação que diz a data que se
-// perde) — e `router.refresh()`. Recusa ("já tinha sido marcada", outro celular) ou falha: a frase
+// perde); a resposta da ação traz a página revalidada. Recusa ("já tinha sido marcada", outro celular) ou falha: a frase
 // embaixo do botão (no celular, logo ACIMA da barra), `role="alert"`, e a tela recarrega o estado.
 //
 // A trava de 1 s: guarda a etapa que o botão mostra; quando ela muda (marcada aqui, desfeita, ou
-// mudada noutro celular e trazida pelo `router.refresh()`), o botão ignora toques por 1000 ms.
+// mudada noutro celular e trazida por uma recarga), o botão ignora toques por 1000 ms.
 // O componente NÃO muda de chave quando a etapa muda: a frase de erro e a trava sobrevivem.
 export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   const router = useRouter();
@@ -82,13 +82,17 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
         setInicioDaEspera((anterior) => anterior + 1);
       } else {
         setErro(resultado.erro);
+        // A recusa volta antes de qualquer `revalidatePath`: a recarga do estado é daqui. No
+        // sucesso, não — a ação já revalida esta página e a resposta dela traz a árvore nova
+        // (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
+        router.refresh();
       }
     } catch {
       setErro(FRASE_FALHA_AO_MARCAR);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setGravando(false);
-      router.refresh();
     }
   }
 

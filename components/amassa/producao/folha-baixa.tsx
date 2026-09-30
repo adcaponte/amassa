@@ -233,8 +233,9 @@ export function FolhaBaixa({
             gravada.saldoDepoisMilesimos < 0 ? textoDeMilesimos(gravada.saldoDepoisMilesimos) : null,
         }),
       );
+      // Sem `router.refresh()`: a ação já revalida esta página e a resposta dela traz a árvore nova
+      // (revisão 06.1, WR-106; `.planning/debug/abertura-navegacao-trava.md`).
       aoFechar();
-      router.refresh();
     } catch (falha) {
       console.error("Falha ao dar baixa de material na ordem:", falha);
       setErro({ campo: "geral", mensagem: FRASE_FALHA_AO_DAR_BAIXA });
