@@ -933,5 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 0/15 | Planned | - |
+| 06.1. Produção — redesenho das Encomendas | 0/15 | In Progress | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

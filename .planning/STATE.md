@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.1
 current_phase_name: Produção
-status: ready_to_execute
-stopped_at: "Fase 06.1 Producao: planejada na noite de 29 para 30/09/2026 — 15 planos (06.1-01..15, uma onda cada), verificacao dos planos sem bloqueio (1 aviso refutado por medicao). Nada executado, nada publicado. Proximo: executar (/gsd-execute-phase 06.1), quando o dono quiser."
-last_updated: "2026-09-30T01:30:00.000Z"
+status: executing
+stopped_at: "Fase 06.1 Producao: execucao iniciada em 30/09/2026 as ~02h45 de Brasilia, pedida pelo dono no chat (/gsd-execute-phase 06.1). Planos sequenciais no branch local gsd/phase-06.1-producao (criado pelo plano 01). Nada publicado."
+last_updated: "2026-09-30T05:47:00.000Z"
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 112
   completed_plans: 97
 last_activity: 2026-09-30
-last_activity_desc: "Fase 06.1 (Producao) planejada na noite de 29 para 30/09/2026, via /gsd-plan-phase 06.1: pesquisa (d5da574); as nove perguntas abertas dela respondidas pelo dono no chat, D-09..D-17 (d25f70b; a D-09 contra a recomendacao: uma publicacao e uma sessao de db:migrate); VALIDATION (6e97783); depois, com o dono dormindo e pelas opcoes recomendadas, UI-SPEC (34b1715), mapa de padroes (095826a) e 15 planos. Nada executado, nada publicado. Antes disso — Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
+last_activity_desc: "Fase 06.1 (Producao): execucao iniciada em 30/09/2026 (~05h45 UTC) pelo dono, via /gsd-execute-phase 06.1 — 15 planos sequenciais no branch gsd/phase-06.1-producao; nada publicado. Antes: Fase 06.1 (Producao) planejada na noite de 29 para 30/09/2026, via /gsd-plan-phase 06.1: pesquisa (d5da574); as nove perguntas abertas dela respondidas pelo dono no chat, D-09..D-17 (d25f70b; a D-09 contra a recomendacao: uma publicacao e uma sessao de db:migrate); VALIDATION (6e97783); depois, com o dono dormindo e pelas opcoes recomendadas, UI-SPEC (34b1715), mapa de padroes (095826a) e 15 planos. Nada executado, nada publicado. Antes disso — Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
 ---
 
 # Project State
@@ -23,7 +23,7 @@ last_activity_desc: "Fase 06.1 (Producao) planejada na noite de 29 para 30/09/20
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06.1 — Produção** — **planejada na noite de 29 para 30/09/2026: 15 planos (`06.1-01..15`, uma onda cada), nada executado, nada publicado.** Próximo: executar (`/gsd-execute-phase 06.1`), quando o dono quiser — o código vai para o branch `gsd/phase-06.1-producao` e só chega a `main` no portão (plano 15). Como sei: os 15 `PLAN.md` na pasta da fase e no commit do plano desta sessão; `git log origin/main..main` só com commits de documento. *Até 30/09 esta linha falava da Fase 06: "no ar desde o merge `2345850` (29/09/2026, tarde); os 11 planos concluídos; o portão 06-11 aprovado pelo dono. Próximo: a verificação da fase e o `phase.complete`" — as duas coisas foram feitas em 29/09 (`af142f0`, verificação `passed` 30/30).* *De manhã de 29/09 a linha da Fase 06 dizia "código completo no branch, não publicado; aguardando o dono"; até 29/09 de manhã, "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06.1 — Produção** — **em execução desde 30/09/2026, ~02h45 de Brasília (05h45 UTC), pedida pelo dono no chat (`/gsd-execute-phase 06.1`): 15 planos sequenciais no branch local `gsd/phase-06.1-producao`, que o plano 01 cria a partir deste `main`; nada publicado.** O código só chega a `main` no portão (plano 15, do dono). Como sei: o comando dele nesta sessão; `git branch -a` sem o branch da fase antes do plano 01; nenhum `06.1-*-SUMMARY.md` na pasta da fase no início. *Até 30/09, ~02h45, esta linha dizia: "planejada na noite de 29 para 30/09/2026: 15 planos (`06.1-01..15`, uma onda cada), nada executado, nada publicado. Próximo: executar (`/gsd-execute-phase 06.1`), quando o dono quiser".* *Até 30/09 de madrugada esta linha falava da Fase 06: "no ar desde o merge `2345850` (29/09/2026, tarde); os 11 planos concluídos; o portão 06-11 aprovado pelo dono. Próximo: a verificação da fase e o `phase.complete`" — as duas coisas foram feitas em 29/09 (`af142f0`, verificação `passed` 30/30).* *De manhã de 29/09 a linha da Fase 06 dizia "código completo no branch, não publicado; aguardando o dono"; até 29/09 de manhã, "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
 
 ## Noite de 29 para 30/09/2026 — o planejamento da Fase 06.1 e as decisões tomadas sem o dono
 
@@ -325,8 +325,16 @@ adendo de `06-11-SUMMARY.md`).
 
 ## Current Position
 
-**Agora (30/09/2026, madrugada): a Fase 06.1 — Produção está PLANEJADA; nada executado, nada
-publicado.** Como sei: os 15 planos `06.1-01..15-PLAN.md` em `.planning/phases/06.1-producao/`
+**Agora (30/09/2026, desde ~02h45 de Brasília): a Fase 06.1 — Produção está EM EXECUÇÃO, pedida
+pelo dono no chat (`/gsd-execute-phase 06.1`).** Os 15 planos rodam em sequência, um executor por
+plano, no branch local `gsd/phase-06.1-producao` (criado pelo plano 01 a partir deste `main`); este
+`STATE.md` e o `ROADMAP.md` são atualizados à mão pelo orquestrador depois de cada plano, no branch.
+Nada publicado: `push`, merge em `main`, servidor e as migrações `0024`/`0025` são do dono, no
+portão (plano 15). Como sei: o comando dele nesta sessão; nenhum `06.1-*-SUMMARY.md` na pasta da
+fase e nenhum commit `06.1-0*` no `git log` no início da execução.
+
+**Em 30/09/2026, madrugada (antes da execução): a Fase 06.1 — Produção estava PLANEJADA; nada executado, nada
+publicado.** *(Até ~02h45 de 30/09 este parágrafo começava com "Agora".)* Como sei: os 15 planos `06.1-01..15-PLAN.md` em `.planning/phases/06.1-producao/`
 (commit do plano desta sessão), com `verify.plan-structure` e `frontmatter.validate` limpos (rodados
 pelo planejador); os 20 PRD no campo `requirements` dos planos e as 17 decisões cobertas
 (`check.decision-coverage-plan`: 17/17, rodado pelo orquestrador); o verificador de planos sem
