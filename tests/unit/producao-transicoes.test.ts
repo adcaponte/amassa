@@ -119,7 +119,9 @@ describe("planejarTerminar nas bordas", () => {
       const etapas = etapasIniciais(caminho).map((etapa) => etapa.etapa);
       // A atual percorre todas as posições que ainda se "terminam" (todas menos a entrega).
       for (let atual = 0; atual < etapas.length - 1; atual += 1) {
-        const feitas = Object.fromEntries(etapas.slice(0, atual).map((etapa) => [etapa, "2026-03-05"]));
+        const feitas = Object.fromEntries(
+          etapas.slice(0, atual).map((etapa) => [etapa, "2026-03-05"]),
+        );
         const naPosicao = ordem({ caminho, feitas });
         for (const esperada of etapas) {
           if (esperada === etapas[atual]) {
