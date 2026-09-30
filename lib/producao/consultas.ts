@@ -2,12 +2,13 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { and, asc, count, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   documentos,
   fichasPrecificacao,
+  itensCatalogo,
   movimentacoesEstoque,
   orcamentoFotos,
   orcamentos,
@@ -342,4 +343,53 @@ export async function fotosDaOrdem(ordemId: string): Promise<string[]> {
     .where(eq(orcamentos.encomendaId, ordemId))
     .orderBy(asc(orcamentoFotos.ordem));
   return linhas.map((linha) => linha.id);
+}
+
+// O seletor de peça da "Nova ordem" (plano 07, D-04/D-05/D-13) — só `id` e `nome`, por nome:
+// - `fichasDeLinha`: fichas de precificação NÃO exclusivas e com item do catálogo — "Peças de
+//   linha" na encomenda, "Peças precificadas" na casa;
+// - `fichasExclusivas`: "Peças exclusivas" (só na encomenda);
+// - `itensDoEstoque`: itens que já controlam estoque, ativos, que não são item de nenhuma ficha de
+//   linha — "Itens do estoque" (só na casa; sem ficha: sem material previsto, D-14).
+// A lista é conveniência: a regra é conferida de novo no banco por `criarOrdem`.
+export type OpcaoDoCatalogo = { id: string; nome: string };
+
+export type CatalogoDaNovaOrdem = {
+  fichasDeLinha: OpcaoDoCatalogo[];
+  fichasExclusivas: OpcaoDoCatalogo[];
+  itensDoEstoque: OpcaoDoCatalogo[];
+};
+
+export async function listarCatalogoDaNovaOrdem(): Promise<CatalogoDaNovaOrdem> {
+  const [fichasDeLinha, fichasExclusivas, itensDoEstoque] = await Promise.all([
+    db
+      .select({ id: fichasPrecificacao.id, nome: fichasPrecificacao.nome })
+      .from(fichasPrecificacao)
+      .where(
+        and(eq(fichasPrecificacao.exclusiva, false), isNotNull(fichasPrecificacao.itemCatalogoId)),
+      )
+      .orderBy(asc(fichasPrecificacao.nome), asc(fichasPrecificacao.id)),
+    db
+      .select({ id: fichasPrecificacao.id, nome: fichasPrecificacao.nome })
+      .from(fichasPrecificacao)
+      .where(eq(fichasPrecificacao.exclusiva, true))
+      .orderBy(asc(fichasPrecificacao.nome), asc(fichasPrecificacao.id)),
+    db
+      .select({ id: itensCatalogo.id, nome: itensCatalogo.nome })
+      .from(itensCatalogo)
+      .where(
+        and(
+          eq(itensCatalogo.controlaEstoque, true),
+          eq(itensCatalogo.ativo, true),
+          notExists(
+            db
+              .select({ um: sql`1` })
+              .from(fichasPrecificacao)
+              .where(eq(fichasPrecificacao.itemCatalogoId, itensCatalogo.id)),
+          ),
+        ),
+      )
+      .orderBy(asc(itensCatalogo.nome), asc(itensCatalogo.id)),
+  ]);
+  return { fichasDeLinha, fichasExclusivas, itensDoEstoque };
 }

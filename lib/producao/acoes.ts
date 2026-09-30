@@ -2,16 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
+import {
+  fichasPrecificacao,
+  itensCatalogo,
+  ordemEtapas,
+  ordemPecas,
+  ordensProducao,
+} from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import type { EtapaProducao } from "./etapas";
+import { listarCatalogoDaNovaOrdem, type CatalogoDaNovaOrdem } from "./consultas";
+import { etapasIniciais, type EtapaProducao } from "./etapas";
 import {
   esquemaAjustarDiasPrevistos,
   esquemaCancelarOrdem,
@@ -20,6 +27,9 @@ import {
   esquemaLiberarOrdem,
   esquemaRegistrarParcial,
   esquemaTerminarEtapa,
+  validarNovaOrdem,
+  type ErrosDaNovaOrdem,
+  type NovaOrdemValidada,
 } from "./esquemas";
 import {
   lerEtapasDaOrdem,
@@ -38,6 +48,11 @@ import {
 } from "./transicoes";
 import {
   FRASE_A_MAIS_SO_ENCOMENDA,
+  FRASE_CASA_PRECISA_DO_CATALOGO,
+  FRASE_ENCOMENDA_SEM_ITEM,
+  FRASE_ERRO_CARREGAR_CATALOGO,
+  FRASE_FALHA_AO_CRIAR,
+  FRASE_PECA_SAIU_DO_CATALOGO,
   FRASE_AJUSTE_NAO_FUTURA,
   FRASE_AJUSTE_NO_LIMITE,
   FRASE_FALHA_AO_AJUSTAR,
@@ -520,4 +535,202 @@ export async function cancelarOrdem(entradaBruta: unknown): Promise<ResultadoDeA
 
   revalidarOrdem(ordemId);
   return { ok: true, dados: { ordemId } };
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Nova ordem" (plano 07, PRD-09, D-04/D-05/D-11/D-13)
+// ---------------------------------------------------------------------------------------------
+
+// A lista do seletor de peça, carregada AO ABRIR a folha. `exigirUsuario()` é a PRIMEIRA instrução
+// (T-06.1-29). Só leitura: `id` e `nome` de fichas e itens.
+export async function carregarCatalogoDaNovaOrdem(): Promise<ResultadoDeAcao<CatalogoDaNovaOrdem>> {
+  await exigirUsuario();
+
+  try {
+    return { ok: true, dados: await listarCatalogoDaNovaOrdem() };
+  } catch (erro) {
+    console.error(
+      `Falha ao carregar o catálogo da Nova ordem (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_ERRO_CARREGAR_CATALOGO };
+  }
+}
+
+// A recusa de `criarOrdem` pode trazer, além da frase geral, a frase de cada campo — a folha as
+// mostra embaixo de cada um (UI-SPEC §Erros) e põe o foco no primeiro.
+export type ResultadoDeCriarOrdem =
+  | { ok: true; dados: { id: string } }
+  | { ok: false; erro: string; campos?: ErrosDaNovaOrdem };
+
+// Uma recusa da conferência no banco, presa à peça em que aconteceu.
+class RecusaDaPeca extends Error {
+  constructor(
+    readonly campo: string,
+    readonly frase: string,
+  ) {
+    super(frase);
+    this.name = "RecusaDaPeca";
+  }
+}
+
+// "Criar ordem" (PRD-09). `exigirUsuario()` é a PRIMEIRA instrução (T-06.1-29, cobrado por `npm run
+// verificar-acoes`). O Zod valida a forma no servidor (T-06.1-28) e a entrega prometida é conferida
+// contra o HOJE de Brasília, decidido aqui (UI-D15). Depois, dentro da transação, as fichas e os
+// itens citados são lidos do BANCO e a regra D-05/D-13 é conferida de novo (T-06.1-27) — o seletor
+// da tela é só conveniência: na casa, a ficha precisa ser de LINHA (não exclusiva, com item) e o
+// item precisa controlar estoque e estar ativo; ficha ou item que não existe mais é recusado com
+// frase. A descrição de cada peça é CONGELADA (nome da ficha, nome do item ou o texto livre); a
+// `ficha_id` continua a referência viva. A ordem nasce `ativa`, com `inicio` = hoje e as etapas do
+// caminho com os previstos do D-10; as peças na ordem recebida (`posicao`). Nenhuma escrita em
+// venda, linha de venda ou parcela (T-06.1-30): a ordem de boca não cria venda nesta fase. O
+// `numero` vem da identity do banco — duas pessoas criando ao mesmo tempo nunca colidem.
+export async function criarOrdem(entradaBruta: unknown): Promise<ResultadoDeCriarOrdem> {
+  const usuario = await exigirUsuario();
+
+  const hoje = hojeEmBrasilia(new Date());
+  const validacao = validarNovaOrdem(entradaBruta, hoje);
+  if (!validacao.ok) {
+    const [primeira] = Object.values(validacao.erros);
+    return {
+      ok: false,
+      erro: primeira ?? "Não deu para validar os dados enviados.",
+      campos: validacao.erros,
+    };
+  }
+  const dados = validacao.dados;
+
+  let id: string;
+  try {
+    id = await db.transaction(async (tx): Promise<string> => {
+      const descricoes = await conferirPecas(tx, dados);
+
+      const [ordem] = await tx
+        .insert(ordensProducao)
+        .values({
+          tipo: dados.tipo,
+          caminho: dados.caminho,
+          status: "ativa",
+          inicio: hoje,
+          nome: dados.nome,
+          clienteNome: dados.clienteNome,
+          entregaPrometida: dados.entregaPrometida,
+          criadoPor: usuario.id,
+        })
+        .returning({ id: ordensProducao.id });
+
+      await tx.insert(ordemEtapas).values(
+        etapasIniciais(dados.caminho).map((etapa) => ({
+          ordemId: ordem.id,
+          etapa: etapa.etapa,
+          posicao: etapa.posicao,
+          diasPrevistos: etapa.diasPrevistos,
+        })),
+      );
+
+      await tx.insert(ordemPecas).values(
+        dados.pecas.map((peca, posicao) => ({
+          ordemId: ordem.id,
+          posicao,
+          fichaId: peca.origem === "ficha" ? peca.fichaId : null,
+          itemCatalogoId: peca.origem === "item" ? peca.itemCatalogoId : null,
+          descricao: descricoes[posicao],
+          quantidade: peca.quantidade,
+        })),
+      );
+
+      return ordem.id;
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaPeca) {
+      return { ok: false, erro: erro.frase, campos: { [erro.campo]: erro.frase } };
+    }
+    console.error(
+      `Falha ao criar ordem da produção (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CRIAR };
+  }
+
+  revalidatePath(rotaDeGestao("/producao"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: { id } };
+}
+
+// D-05/D-13 conferidas no BANCO, peça a peça, e a descrição congelada de cada uma (na mesma ordem
+// das peças). Lança `RecusaDaPeca` presa à peça — nada foi gravado ainda.
+async function conferirPecas(
+  tx: TransacaoDoBanco,
+  dados: NovaOrdemValidada,
+): Promise<string[]> {
+  const fichaIds = [
+    ...new Set(dados.pecas.flatMap((peca) => (peca.origem === "ficha" ? [peca.fichaId] : []))),
+  ];
+  const itemIds = [
+    ...new Set(
+      dados.pecas.flatMap((peca) => (peca.origem === "item" ? [peca.itemCatalogoId] : [])),
+    ),
+  ];
+
+  const fichas = new Map(
+    (fichaIds.length === 0
+      ? []
+      : await tx
+          .select({
+            id: fichasPrecificacao.id,
+            nome: fichasPrecificacao.nome,
+            exclusiva: fichasPrecificacao.exclusiva,
+            itemCatalogoId: fichasPrecificacao.itemCatalogoId,
+          })
+          .from(fichasPrecificacao)
+          .where(inArray(fichasPrecificacao.id, fichaIds))
+    ).map((ficha) => [ficha.id, ficha]),
+  );
+  const itens = new Map(
+    (itemIds.length === 0
+      ? []
+      : await tx
+          .select({
+            id: itensCatalogo.id,
+            nome: itensCatalogo.nome,
+            controlaEstoque: itensCatalogo.controlaEstoque,
+            ativo: itensCatalogo.ativo,
+          })
+          .from(itensCatalogo)
+          .where(inArray(itensCatalogo.id, itemIds))
+    ).map((item) => [item.id, item]),
+  );
+
+  const ehCasa = dados.tipo === "casa";
+  return dados.pecas.map((peca, indice) => {
+    const campo = `peca-${indice}`;
+    if (peca.origem === "livre") {
+      // O esquema já recusa texto livre na casa; conferido de novo aqui por defesa.
+      if (ehCasa) {
+        throw new RecusaDaPeca(campo, FRASE_CASA_PRECISA_DO_CATALOGO);
+      }
+      return peca.descricao;
+    }
+    if (peca.origem === "ficha") {
+      const ficha = fichas.get(peca.fichaId);
+      if (!ficha) {
+        throw new RecusaDaPeca(campo, FRASE_PECA_SAIU_DO_CATALOGO);
+      }
+      if (ehCasa && (ficha.exclusiva || ficha.itemCatalogoId === null)) {
+        throw new RecusaDaPeca(campo, FRASE_CASA_PRECISA_DO_CATALOGO);
+      }
+      return ficha.nome;
+    }
+    if (!ehCasa) {
+      throw new RecusaDaPeca(campo, FRASE_ENCOMENDA_SEM_ITEM);
+    }
+    const item = itens.get(peca.itemCatalogoId);
+    if (!item) {
+      throw new RecusaDaPeca(campo, FRASE_PECA_SAIU_DO_CATALOGO);
+    }
+    if (!item.controlaEstoque || !item.ativo) {
+      throw new RecusaDaPeca(campo, FRASE_CASA_PRECISA_DO_CATALOGO);
+    }
+    return item.nome;
+  });
 }
