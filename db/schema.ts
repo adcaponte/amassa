@@ -308,9 +308,11 @@ export const ordensProducao = pgTable(
       "ordens_producao_cliente_so_em_encomenda",
       sql`${tabela.tipo} = 'encomenda' or ${tabela.clienteNome} is null`,
     ),
+    // Aguardando o sinal não tem início; ativa e concluída têm. A cancelada aceita os dois: a que
+    // caiu ainda aguardando (D-07, "Cancelar ordem") fica sem início, a liberada guarda o dela.
     check(
       "ordens_producao_aguardando_sem_inicio",
-      sql`(${tabela.status} = 'aguardando_sinal') = (${tabela.inicio} is null)`,
+      sql`(${tabela.status} = 'aguardando_sinal' and ${tabela.inicio} is null) or (${tabela.status} in ('ativa', 'concluida') and ${tabela.inicio} is not null) or ${tabela.status} = 'cancelada'`,
     ),
     check(
       "ordens_producao_concluida_com_data",

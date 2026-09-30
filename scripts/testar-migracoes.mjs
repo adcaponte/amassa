@@ -3278,6 +3278,14 @@ async function conferirProducao(conexao) {
         ["ordens_producao_aguardando_sem_inicio"],
       ],
       [
+        "ordem concluída SEM início",
+        `insert into ordens_producao (tipo, status, nome, inicio, concluida_em)
+         values ('casa', 'concluida', '[migracao] Recusada', null, current_date)`,
+        [],
+        "23514",
+        ["ordens_producao_aguardando_sem_inicio"],
+      ],
+      [
         "ordem da casa com cliente",
         `insert into ordens_producao (tipo, status, nome, inicio, cliente_nome)
          values ('casa', 'ativa', '[migracao] Recusada', current_date, 'Cliente [migracao]')`,
@@ -3358,6 +3366,29 @@ async function conferirProducao(conexao) {
       codigoDaConclusaoValida === null,
       `Uma peça concluída com perdidas, para_estoque e sem_destino juntos, e cabendo, deveria ser aceita, veio ${codigoDaConclusaoValida}.`,
     );
+    // A ordem cancelada aceita os dois inícios (06.1-06): sem início é a que caiu ainda aguardando
+    // o sinal (D-07, "Cancelar ordem"); com início é a que já tinha sido liberada.
+    for (const [descricao, inicio] of [
+      ["SEM início (caiu aguardando o sinal)", null],
+      ["COM início (já tinha sido liberada)", "2026-09-01"],
+    ]) {
+      const { rows: cancelada, codigo } = await conexao
+        .query(
+          `insert into ordens_producao (tipo, status, nome, inicio, cancelada_em, cancelada_por)
+           values ('casa', 'cancelada', '[migracao] Cancelada', $1::date, now(), $2)
+           returning id`,
+          [inicio, usuarioId],
+        )
+        .then(
+          (resultado) => ({ rows: resultado.rows, codigo: null }),
+          (erro) => ({ rows: [], codigo: `${erro.code ?? "?"} (${erro.constraint ?? erro.message})` }),
+        );
+      if (cancelada[0]) ordemIds.push(cancelada[0].id);
+      afirmar(
+        codigo === null && cancelada.length === 1,
+        `Produção: uma ordem cancelada ${descricao} deveria ser aceita, veio ${codigo}.`,
+      );
+    }
 
     // (b) Nada se apaga na Produção (T-06.1-10): `amassa_app` recebe 42501 num `delete` real de
     // cada uma das três tabelas, e as linhas continuam lá.

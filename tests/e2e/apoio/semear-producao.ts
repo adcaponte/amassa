@@ -51,7 +51,8 @@ export type OrdemParaSemear = {
   tipo: TipoOrdem;
   caminho: CaminhoOrdem;
   status: StatusOrdem;
-  // Nulo só em `aguardando_sinal` (o check `ordens_producao_aguardando_sem_inicio`).
+  // Nulo em `aguardando_sinal`; obrigatório em `ativa`/`concluida`; livre em `cancelada` (o check
+  // `ordens_producao_aguardando_sem_inicio`, corrigido no plano 06.1-06).
   inicio: string | null;
   // As etapas já feitas, com a data — precisam ser um prefixo do caminho.
   etapasFeitas: { etapa: EtapaProducao; feitaEm: string }[];
@@ -249,10 +250,11 @@ export async function vinculoDoOrcamento(orcamentoId: string): Promise<string | 
 // 06.1-06): o teste que precisa de uma ordem cancelada confere o que o ORÇAMENTO diz dela, não o
 // caminho do cancelamento.
 //
-// Por que "libera e cancela" (com `inicio` = `liberadaEm` quando ainda não havia): o check
-// `ordens_producao_aguardando_sem_inicio` é `(status = 'aguardando_sinal') = (inicio is null)` —
-// uma ordem cancelada PRECISA ter início. Cancelar uma ordem ainda aguardando o sinal com o início
-// nulo é recusado pelo banco (23514); registrado no SUMMARY do plano 06.1-03 para o plano 06.
+// Por que "libera e cancela" (com `inicio` = `liberadaEm` quando ainda não havia): até o plano
+// 06.1-06 o check `ordens_producao_aguardando_sem_inicio` era `(status = 'aguardando_sinal') =
+// (inicio is null)`, e uma ordem cancelada PRECISAVA ter início (23514, achado do plano 06.1-03).
+// O plano 06 afrouxou o check — a cancelada aceita início nulo — e este atalho ficou como estava:
+// a ordem liberada e depois cancelada continua sendo um estado real, e o caso (j) não muda.
 export async function cancelarOrdemNoBanco(ordemId: string, liberadaEm: string): Promise<void> {
   await comCliente(async (cliente) => {
     const { rowCount } = await cliente.query(

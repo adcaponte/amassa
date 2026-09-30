@@ -105,7 +105,7 @@ CREATE TABLE "ordens_producao" (
 	CONSTRAINT "ordens_producao_nome_comprimento" CHECK (length(trim("ordens_producao"."nome")) between 1 and 120),
 	CONSTRAINT "ordens_producao_cliente_comprimento" CHECK ("ordens_producao"."cliente_nome" is null or length(trim("ordens_producao"."cliente_nome")) between 1 and 160),
 	CONSTRAINT "ordens_producao_cliente_so_em_encomenda" CHECK ("ordens_producao"."tipo" = 'encomenda' or "ordens_producao"."cliente_nome" is null),
-	CONSTRAINT "ordens_producao_aguardando_sem_inicio" CHECK (("ordens_producao"."status" = 'aguardando_sinal') = ("ordens_producao"."inicio" is null)),
+	CONSTRAINT "ordens_producao_aguardando_sem_inicio" CHECK (("ordens_producao"."status" = 'aguardando_sinal' and "ordens_producao"."inicio" is null) or ("ordens_producao"."status" in ('ativa', 'concluida') and "ordens_producao"."inicio" is not null) or "ordens_producao"."status" = 'cancelada'),
 	CONSTRAINT "ordens_producao_concluida_com_data" CHECK (("ordens_producao"."status" = 'concluida') = ("ordens_producao"."concluida_em" is not null)),
 	CONSTRAINT "ordens_producao_cancelada_com_data" CHECK (("ordens_producao"."status" = 'cancelada') = ("ordens_producao"."cancelada_em" is not null)),
 	CONSTRAINT "ordens_producao_cancelada_por" CHECK ("ordens_producao"."cancelada_em" is null or "ordens_producao"."cancelada_por" is not null),

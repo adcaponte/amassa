@@ -4217,7 +4217,7 @@
         },
         "ordens_producao_aguardando_sem_inicio": {
           "name": "ordens_producao_aguardando_sem_inicio",
-          "value": "(\"ordens_producao\".\"status\" = 'aguardando_sinal') = (\"ordens_producao\".\"inicio\" is null)"
+          "value": "(\"ordens_producao\".\"status\" = 'aguardando_sinal' and \"ordens_producao\".\"inicio\" is null) or (\"ordens_producao\".\"status\" in ('ativa', 'concluida') and \"ordens_producao\".\"inicio\" is not null) or \"ordens_producao\".\"status\" = 'cancelada'"
         },
         "ordens_producao_concluida_com_data": {
           "name": "ordens_producao_concluida_com_data",
