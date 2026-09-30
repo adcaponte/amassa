@@ -847,7 +847,7 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 0/15 plans executed
+**Plans:** 1/15 plans executed
 
 15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
@@ -857,7 +857,7 @@ Verificação dos planos: 0 bloqueios; 1 aviso ("quatro tarefas" em seis planos)
 um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `main`, até o portão (plano
 15); código e migração saem numa publicação só e o dono migra numa sessão só de `db:migrate` (D-09).
 
-- [ ] 06.1-01-PLAN.md — Traçador: uma ordem na Produção, "Terminei: Produção", e ela está na Secagem com a data de hoje; o esquema inteiro da fase na `0024` (dado do D-02 antes da FK nova), o branch e `TABELAS_ESPERADAS` (onda 1)
+- [x] 06.1-01-PLAN.md — Traçador: uma ordem na Produção, "Terminei: Produção", e ela está na Secagem com a data de hoje; o esquema inteiro da fase na `0024` (dado do D-02 antes da FK nova), o branch e `TABELAS_ESPERADAS` (onda 1) *Concluído em 30/09/2026 no branch (`8d51e70`..`65a52d0`): `0024` versionada, não aplicada; verificar verde (1676 testes); e2e `--grep "producao tracador"` 52 passed — ver `06.1-01-SUMMARY.md`.*
 - [ ] 06.1-02-PLAN.md — O traçador nas bordas: leitura e "Terminei" em todos os casos de calendário e de estado; a conferência da Produção e a prova do D-02 em banco próprio; o vínculo "Qual ordem?" do Estoque (onda 2)
 - [ ] 06.1-03-PLAN.md — Do orçamento aprovado à ordem aguardando o sinal, na mesma transação; a seção "aguardando o sinal", o sinal lido do Caixa e a liberação manual (onda 3)
 - [ ] 06.1-04-PLAN.md — O bloco Peças (cor, personalização, horas, fotos do orçamento sem copiar arquivo, vínculos nos dois sentidos) e as peças a mais, só em encomenda (onda 4)
@@ -933,5 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 0/15 | In Progress | - |
+| 06.1. Produção — redesenho das Encomendas | 1/15 | In Progress | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
