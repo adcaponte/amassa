@@ -15,8 +15,13 @@ import {
   textoVendaDaOrigem,
 } from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
+import { CampoAMais } from "./campo-a-mais";
 
 export type BlocoPecasProps = {
+  ordemId: string;
+  // O campo "fazer a mais, de segurança" só existe em encomenda aguardando o sinal ou ativa (D-15;
+  // na casa todas as boas vão para o estoque). Quem decide é a página; o servidor confere de novo.
+  podeDefinirAMais: boolean;
   pecas: PecaDaOrdem[];
   // Ids de `orcamento_fotos` — a foto sai pela rota autenticada que já existe; nada é copiado.
   fotos: string[];
@@ -36,7 +41,7 @@ function horasDaPeca(peca: PecaDaOrdem): number | null {
 // foto inteira em nova aba por `/gestao/api/orcamentos/fotos/{id}` — a rota que já existe, com
 // `exigirUsuario()`; nenhum arquivo copiado) e a linha de origem com os links para o orçamento e
 // para a venda.
-export function BlocoPecas({ pecas, fotos, origem }: BlocoPecasProps) {
+export function BlocoPecas({ ordemId, podeDefinirAMais, pecas, fotos, origem }: BlocoPecasProps) {
   const horasPorPeca = pecas.map(horasDaPeca);
   const comFicha = horasPorPeca.filter((horas): horas is number => horas !== null);
   const horasDaOrdem = comFicha.length > 0 ? comFicha.reduce((total, h) => total + h, 0) : null;
@@ -92,6 +97,14 @@ export function BlocoPecas({ pecas, fotos, origem }: BlocoPecasProps) {
                   exclusiva: peca.exclusiva === true,
                 })}
               </span>
+              {podeDefinirAMais ? (
+                <CampoAMais
+                  ordemId={ordemId}
+                  pecaId={peca.id}
+                  nomeDaPeca={peca.descricao}
+                  aMais={peca.aMais}
+                />
+              ) : null}
             </li>
           );
         })}

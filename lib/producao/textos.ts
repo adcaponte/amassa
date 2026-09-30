@@ -208,6 +208,26 @@ export function altDaFotoDeReferencia(n: number, total: number): string {
 export const ROTULO_VER_ORDEM_NA_PRODUCAO = "Ver ordem na Produção";
 
 // ---------------------------------------------------------------------------------------------
+// "Fazer a mais, de segurança" (plano 04, PRD-08) — só em encomenda (D-15); o cliente nunca vê.
+// ---------------------------------------------------------------------------------------------
+
+export const ROTULO_A_MAIS = "fazer a mais, de segurança";
+export function ariaLabelAMais(nomeDaPeca: string): string {
+  return `Peças a mais de ${nomeDaPeca}`;
+}
+export const ROTULO_SALVANDO = "Salvando…";
+export const FRASE_A_MAIS_INVALIDO = "Diga um número inteiro, zero ou mais.";
+export const FRASE_A_MAIS_SO_ENCOMENDA =
+  "Na produção da casa todas as boas vão para o estoque — não há peças a mais.";
+// A peça sumiu da ordem entre abrir a tela e gravar (id forjado ou ordem refeita) — mesmo molde das
+// frases de estado mudado (decidido sem o Theo, plano 04).
+export const FRASE_PECA_NAO_EXISTE = "Esta peça não está mais nesta ordem. A tela foi atualizada.";
+// A UI-SPEC não traz a frase da falha de rede do "a mais"; mesmo molde das outras (decidido sem o
+// Theo, plano 04).
+export const FRASE_FALHA_AO_SALVAR_A_MAIS =
+  "Não deu para salvar as peças a mais. Verifique a internet e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
 // Aguardando o sinal e liberar (plano 03, PRD-11)
 // ---------------------------------------------------------------------------------------------
 

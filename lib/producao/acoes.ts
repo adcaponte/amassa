@@ -5,24 +5,27 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { ordemEtapas, ordensProducao } from "@/db/schema";
+import { ordemEtapas, ordemPecas, ordensProducao } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import type { EtapaProducao } from "./etapas";
-import { esquemaLiberarOrdem, esquemaTerminarEtapa } from "./esquemas";
+import { esquemaDefinirAMais, esquemaLiberarOrdem, esquemaTerminarEtapa } from "./esquemas";
 import { lerEtapasDaOrdem, RecusaDaProducao, travarOrdem } from "./gravacao";
 import { planejarLiberacao, planejarTerminar } from "./transicoes";
 import {
+  FRASE_A_MAIS_SO_ENCOMENDA,
   FRASE_FALHA_AO_LIBERAR,
+  FRASE_FALHA_AO_SALVAR_A_MAIS,
   FRASE_FALHA_AO_MARCAR,
   FRASE_JA_LIBERADA,
   FRASE_JA_MARCADA,
   FRASE_ORDEM_CANCELADA_ATUALIZADA,
   FRASE_ORDEM_NAO_ESTA_EM_ANDAMENTO,
   FRASE_ORDEM_NAO_EXISTE,
+  FRASE_PECA_NAO_EXISTE,
   FRASE_ULTIMA_ETAPA,
 } from "./textos";
 
@@ -157,4 +160,60 @@ export async function liberarOrdem(entradaBruta: unknown): Promise<ResultadoDeAc
   revalidatePath(rotaDeGestao(`/producao/${ordemId}`));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: liberada };
+}
+
+export type AMaisDefinido = { aMais: number };
+
+// "Fazer a mais, de segurança" (PRD-08). `exigirUsuario()` é a PRIMEIRA instrução (T-06.1-18,
+// cobrado por `npm run verificar-acoes`). Do cliente chegam os ids da ordem e da peça e o TEXTO do
+// campo — o Zod o converte em inteiro 0..100.000 (T-06.1-16). Sob a trava da ordem: só encomenda
+// (D-15 — na casa todas as boas vão para o estoque) e só aguardando o sinal ou ativa (concluída ou
+// cancelada vale pelo que aconteceu); a peça precisa ser DESTA ordem (o `where` casa os dois ids).
+// Grava SÓ `ordem_pecas.a_mais`: nenhuma linha de orçamento, de venda ou parcela muda — o cliente
+// nunca vê nem paga as a mais (briefing §2.7, T-06.1-17).
+export async function definirAMais(entradaBruta: unknown): Promise<ResultadoDeAcao<AMaisDefinido>> {
+  // Nenhuma coluna de "quem mudou" nesta fase — a sessão só precisa existir.
+  await exigirUsuario();
+
+  const resultado = esquemaDefinirAMais.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { ordemId, pecaId, aMais } = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const ordem = await travarOrdem(tx, ordemId);
+      if (!ordem) {
+        throw new RecusaDaProducao(FRASE_ORDEM_NAO_EXISTE);
+      }
+      if (ordem.tipo !== "encomenda") {
+        throw new RecusaDaProducao(FRASE_A_MAIS_SO_ENCOMENDA);
+      }
+      if (ordem.status !== "aguardando_sinal" && ordem.status !== "ativa") {
+        throw new RecusaDaProducao(FRASE_ORDEM_NAO_ESTA_EM_ANDAMENTO);
+      }
+      const gravadas = await tx
+        .update(ordemPecas)
+        .set({ aMais })
+        .where(and(eq(ordemPecas.id, pecaId), eq(ordemPecas.ordemId, ordemId)))
+        .returning({ id: ordemPecas.id });
+      if (gravadas.length !== 1) {
+        throw new RecusaDaProducao(FRASE_PECA_NAO_EXISTE);
+      }
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaProducao) {
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao salvar peças a mais (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR_A_MAIS };
+  }
+
+  revalidatePath(rotaDeGestao("/producao"));
+  revalidatePath(rotaDeGestao(`/producao/${ordemId}`));
+  return { ok: true, dados: { aMais } };
 }

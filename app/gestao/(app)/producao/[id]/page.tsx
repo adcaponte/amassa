@@ -106,7 +106,16 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
           ) : null}
         </section>
 
-        <BlocoPecas pecas={ordem.pecas} fotos={ordem.fotos} origem={ordem.origem} />
+        <BlocoPecas
+          ordemId={ordem.id}
+          podeDefinirAMais={
+            ordem.tipo === "encomenda" &&
+            (ordem.status === "aguardando_sinal" || ordem.status === "ativa")
+          }
+          pecas={ordem.pecas}
+          fotos={ordem.fotos}
+          origem={ordem.origem}
+        />
       </div>
     </>
   );

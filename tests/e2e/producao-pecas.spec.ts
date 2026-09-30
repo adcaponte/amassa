@@ -1,10 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import {
+  aMaisDasPecasNoBanco,
   diaEmBrasilia,
+  liberarOrdemNoBanco,
   nomeDaPecaSemeada,
   numeroDoDocumentoNoBanco,
   numeroDoOrcamentoNoBanco,
+  quantidadesDoClienteNoBanco,
   semearFotoDeOrcamento,
   semearOrcamentoAprovadoSemOrdem,
   semearOrdem,
@@ -164,5 +167,98 @@ test.describe("producao pecas", () => {
     await expect(origem).toBeVisible({ timeout: 10000 });
     await expect(origem.getByRole("link", { name: "Ver orçamento" })).toBeVisible();
     await expect(page.getByTestId("documento-ver-ordem")).toHaveCount(0);
+  });
+});
+
+// "Fazer a mais, de segurança" (plano 04, PRD-08): só em encomenda, grava ao sair do campo, e o
+// cliente nunca vê — as linhas da venda e do orçamento continuam com as mesmas quantidades.
+test.describe("producao a mais", () => {
+  test("(a) encomenda ativa: 5 a mais gravam ao sair do campo — chip na peça, cartão do quadro, e a venda intacta", async ({
+    page,
+  }) => {
+    const nome = nomeUnico("Xícaras de segurança");
+    const { ordemId, orcamentoId, documentoId } = await semearOrdemDeOrcamento({
+      nome,
+      plano: "sinal",
+      sinalPago: true,
+    });
+    await liberarOrdemNoBanco(ordemId, diaEmBrasilia());
+    const antes = await quantidadesDoClienteNoBanco(documentoId, orcamentoId);
+    expect(antes.venda).toEqual([2]);
+    expect(antes.orcamento).toEqual([2]);
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/producao/${ordemId}`);
+
+    const peca = page.getByTestId("ordem-peca").first();
+    await expect(peca.getByTestId("ordem-a-mais-chip")).toHaveCount(0);
+    const campo = page.getByLabel(`Peças a mais de ${nomeDaPecaSemeada(nome, 0)}`);
+    await expect(campo).toHaveValue("0");
+    await expect(peca).toContainText("fazer a mais, de segurança");
+    await expect(campo).toHaveAttribute("inputmode", "numeric");
+    await campo.fill("5");
+    await campo.blur();
+
+    await expect(peca.getByTestId("ordem-a-mais-chip")).toHaveText("+5 a mais");
+    await expect(campo).toHaveValue("5");
+    await expect(page.getByTestId("ordem-a-mais-erro")).toHaveCount(0);
+    expect(await aMaisDasPecasNoBanco(ordemId)).toEqual([5]);
+
+    // O cliente nunca vê nem paga as a mais: nada mudou na venda nem no orçamento.
+    expect(await quantidadesDoClienteNoBanco(documentoId, orcamentoId)).toEqual(antes);
+
+    // O cartão do quadro soma: "{n} peças + {m} a mais".
+    await page.goto("/gestao/producao");
+    const cartao = page.locator(`[data-testid="producao-cartao"][data-ordem-id="${ordemId}"]`);
+    await expect(cartao).toContainText("2 peças + 5 a mais");
+  });
+
+  test("(b) “2,5” é recusado embaixo do campo, o número digitado fica e nada é gravado; o Enter também grava", async ({
+    page,
+  }) => {
+    const nome = nomeUnico("A mais inválido");
+    const { ordemId } = await semearOrdemDeOrcamento({ nome, plano: "sinal", sinalPago: false });
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/producao/${ordemId}`);
+
+    // Aguardando o sinal também tem o campo (encomenda aguardando ou ativa).
+    const campo = page.getByLabel(`Peças a mais de ${nomeDaPecaSemeada(nome, 0)}`);
+    await campo.fill("2,5");
+    await campo.press("Enter");
+
+    const erro = page.getByTestId("ordem-a-mais-erro");
+    await expect(erro).toHaveText("Diga um número inteiro, zero ou mais.");
+    await expect(erro).toHaveAttribute("role", "alert");
+    await expect(campo).toHaveValue("2,5");
+    await expect(campo).toHaveAttribute("aria-invalid", "true");
+    expect(await aMaisDasPecasNoBanco(ordemId)).toEqual([0]);
+
+    // Corrigido e confirmado com Enter: grava, e a frase some.
+    await campo.fill("3");
+    await campo.press("Enter");
+    await expect(page.getByTestId("ordem-a-mais-chip")).toHaveText("+3 a mais");
+    await expect(erro).toHaveCount(0);
+    expect(await aMaisDasPecasNoBanco(ordemId)).toEqual([3]);
+  });
+
+  test("(c) produção da casa: o campo não existe", async ({ page }) => {
+    const nome = nomeUnico("Casa sem a mais");
+    const ordemId = await semearOrdem({
+      nome,
+      tipo: "casa",
+      caminho: "completo",
+      status: "ativa",
+      inicio: diaEmBrasilia(),
+      etapasFeitas: [],
+      pecas: [{ descricao: `${nome} · prato`, quantidade: 6 }],
+    });
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/producao/${ordemId}`);
+
+    await expect(page.getByTestId("ordem-peca")).toHaveCount(1);
+    await expect(page.getByTestId("ordem-a-mais")).toHaveCount(0);
+    await expect(page.getByTestId("ordem-pecas")).not.toContainText("fazer a mais, de segurança");
   });
 });

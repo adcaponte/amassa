@@ -668,3 +668,55 @@ export async function pagoEmDaParcela(parcelaId: string): Promise<string | null>
     return rows[0]?.pago_em ?? null;
   });
 }
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-04 — "fazer a mais, de segurança"
+// ---------------------------------------------------------------------------------------------
+
+// Libera a ordem direto no banco (o que "Começar assim mesmo" grava), para o teste que precisa de
+// uma encomenda ATIVA vinda de orçamento sem repetir o caminho da tela, já provado no plano 03.
+export async function liberarOrdemNoBanco(ordemId: string, inicio: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update ordens_producao set status = 'ativa', inicio = $2
+        where id = $1 and status = 'aguardando_sinal'`,
+      [ordemId, inicio],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`liberarOrdemNoBanco: a ordem ${ordemId} não existe ou não aguarda o sinal.`);
+    }
+  });
+}
+
+// O `a_mais` de cada peça da ordem, por posição.
+export async function aMaisDasPecasNoBanco(ordemId: string): Promise<number[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ a_mais: number }>(
+      "select a_mais from ordem_pecas where ordem_id = $1 order by posicao",
+      [ordemId],
+    );
+    return rows.map((linha) => linha.a_mais);
+  });
+}
+
+// As quantidades das linhas da venda e do orçamento, na ordem — o que o cliente paga e recebe. O "a
+// mais" nunca pode mudá-las (briefing §2.7).
+export async function quantidadesDoClienteNoBanco(
+  documentoId: string,
+  orcamentoId: string,
+): Promise<{ venda: number[]; orcamento: number[]; totalDaVendaCentavos: number }> {
+  return comCliente(async (cliente) => {
+    const venda = await cliente.query<{ quantidade: string; valor_centavos: number }>(
+      "select quantidade::text as quantidade, valor_centavos from documento_linhas where documento_id = $1 order by ordem",
+      [documentoId],
+    );
+    const orcamento = await cliente.query<{ quantidade: number }>(
+      "select quantidade from orcamento_linhas where orcamento_id = $1 order by ordem",
+      [orcamentoId],
+    );
+    return {
+      venda: venda.rows.map((linha) => Number(linha.quantidade)),
+      orcamento: orcamento.rows.map((linha) => linha.quantidade),
+      totalDaVendaCentavos: venda.rows.reduce((total, linha) => total + Number(linha.valor_centavos), 0),
+    };
+  });
+}
