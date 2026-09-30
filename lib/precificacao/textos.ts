@@ -212,3 +212,19 @@ export function fraseFichaEmUsoCompleta(quantidadeDeOrcamentos: number, quantida
   }
   return frases.join(" ");
 }
+
+// Revisão 06.1, WR-01 — o dono escolheu a opção (a) na Parte 0 (30/09/2026): a ficha de linha que
+// uma ordem da PRODUÇÃO DA CASA ainda aberta usa não vira "exclusiva" — a ordem ficaria sem item
+// onde guardar as peças. A frase diz qual ordem (ou quantas, com as duas primeiras pelo nome) e o
+// que fazer. `nomes` nunca vem vazio: `editarFicha` só a chama quando achou pelo menos uma ordem.
+export function fraseFichaNaProducaoDaCasa(nomes: readonly string[]): string {
+  if (nomes.length === 1) {
+    return `A ficha está na produção da casa “${nomes[0]}”. Conclua ou cancele a ordem na Produção antes de torná-la exclusiva. Nada foi gravado.`;
+  }
+  const citadas = nomes.slice(0, 2).map((nome) => `“${nome}”`);
+  const lista =
+    nomes.length === 2
+      ? `${citadas[0]} e ${citadas[1]}`
+      : `${citadas[0]}, ${citadas[1]} e mais ${nomes.length - 2}`;
+  return `A ficha está em ${nomes.length} ordens da produção da casa ainda abertas (${lista}). Conclua ou cancele essas ordens na Produção antes de torná-la exclusiva. Nada foi gravado.`;
+}

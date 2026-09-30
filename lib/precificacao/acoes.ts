@@ -10,7 +10,11 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { esquemaId } from "@/lib/financeiro/esquemas";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
-import { contarOrcamentosDaFicha, contarOrdensDaFicha } from "./consultas";
+import {
+  contarOrcamentosDaFicha,
+  contarOrdensDaFicha,
+  ordensDaCasaAbertasDaFicha,
+} from "./consultas";
 import {
   esquemaCalculoDaHora,
   esquemaEdicaoDeFicha,
@@ -33,6 +37,7 @@ import {
   FRASE_INFORME_AS_HORAS,
   FRASE_PARAMETRO_NAO_EXISTE_MAIS,
   fraseFichaEmUsoCompleta,
+  fraseFichaNaProducaoDaCasa,
 } from "./textos";
 
 // Mesma forma de `lib/financeiro/acoes.ts`/`lib/cadastros/acoes.ts` — cada módulo redeclara hoje,
@@ -276,9 +281,18 @@ export async function criarFicha(
   }
 }
 
+// Revisão 06.1, WR-01 (opção (a) do dono, 30/09/2026): a recusa de marcar "exclusiva" uma ficha que
+// uma ordem da produção da casa ainda aberta usa — com os nomes das ordens, para a frase.
+class FichaNaProducaoDaCasa extends Error {
+  constructor(public readonly nomesDasOrdens: readonly string[]) {
+    super("ficha na produção da casa");
+  }
+}
+
 // Edita a ficha, incluindo as duas transições de D-18/D-19: desmarcar "exclusiva" promove a peça a
 // de linha (cria ou usa o item); marcar "exclusiva" numa ficha de linha desliga o item — que
-// CONTINUA existindo, porque pode haver venda já lançada nele (comentário pedido pelo plano).
+// CONTINUA existindo, porque pode haver venda já lançada nele (comentário pedido pelo plano) —, e
+// é recusado enquanto uma ordem da produção da casa aberta usar a ficha (WR-01, 30/09/2026).
 // `exigirUsuario()` é a PRIMEIRA instrução do corpo.
 export async function editarFicha(
   entradaBruta: unknown,
@@ -294,13 +308,29 @@ export async function editarFicha(
   try {
     await db.transaction(async (tx) => {
       const [fichaAtual] = await tx
-        .select({ itemCatalogoId: fichasPrecificacao.itemCatalogoId })
+        .select({
+          itemCatalogoId: fichasPrecificacao.itemCatalogoId,
+          exclusiva: fichasPrecificacao.exclusiva,
+        })
         .from(fichasPrecificacao)
         .where(eq(fichasPrecificacao.id, dados.id))
         .for("update");
 
       if (!fichaAtual) {
         throw new FichaNaoEncontrada();
+      }
+
+      // Revisão 06.1, WR-01 — opção (a), escolhida pelo dono na Parte 0 (30/09/2026): a ficha de
+      // LINHA que uma ordem da produção da casa ainda aberta usa não vira exclusiva. Marcar
+      // exclusiva tira o item da ficha, e na Entrega "Guardar no estoque" recusaria toda vez. Lido
+      // SOB a trava da ficha (`for update` acima): `criarOrdem` lê a ficha com `for key share` (e o
+      // `insert` da peça também a pede, pela chave estrangeira), então uma ordem da casa nova ou
+      // entra antes — e aparece aqui — ou espera esta gravação e vê a ficha já exclusiva.
+      if (dados.exclusiva && !fichaAtual.exclusiva) {
+        const ordensDaCasa = await ordensDaCasaAbertasDaFicha(tx, dados.id);
+        if (ordensDaCasa.length > 0) {
+          throw new FichaNaProducaoDaCasa(ordensDaCasa);
+        }
       }
 
       const camposComuns = {
@@ -360,6 +390,9 @@ export async function editarFicha(
     }
     if (erro instanceof FichaNaoEncontrada) {
       return { ok: false, erro: FRASE_FICHA_NAO_EXISTE_MAIS };
+    }
+    if (erro instanceof FichaNaProducaoDaCasa) {
+      return { ok: false, erro: fraseFichaNaProducaoDaCasa(erro.nomesDasOrdens) };
     }
     console.error("Falha ao editar ficha de precificação:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };

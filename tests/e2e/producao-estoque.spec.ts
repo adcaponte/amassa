@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import {
+  cancelarOrdemNoBanco,
   conclusaoDaOrdemNoBanco,
   diaEmBrasilia,
   entradasDaProducaoNoBanco,
@@ -261,5 +262,43 @@ test.describe("producao estoque", () => {
     });
     // A promoção pela Precificação NÃO liga estoque (Pitfall 6) — só a conclusão faz isso (D-13).
     expect((await estoqueDoItemNoBanco(ficha.itemCatalogoId)).controlaEstoque).toBe(false);
+  });
+
+  // Revisão 06.1, WR-01 — o dono escolheu (a) na Parte 0 (30/09/2026): a Precificação recusa marcar
+  // "exclusiva" a ficha que uma ordem da produção da casa ainda aberta usa (a ordem ficaria sem item
+  // onde guardar as peças); cancelada a ordem, a mesma edição passa.
+  test("(e) ficha de linha numa produção da casa aberta: marcar “exclusiva” é recusado com o nome da ordem; cancelada a ordem, passa", async ({
+    page,
+  }) => {
+    const nome = nomeUnico("Casa usa a ficha");
+    const { fichaId, itemId } = await fichaDoVaso(`${nome} · caneca`, false);
+    expect(itemId).toBeTruthy();
+    const ordemId = await semearOrdem({
+      nome,
+      tipo: "casa",
+      caminho: "completo",
+      status: "ativa",
+      inicio: INICIO,
+      etapasFeitas: [],
+      pecas: [{ descricao: `${nome} · caneca`, quantidade: 6, fichaId }],
+      clienteNome: null,
+    });
+    await fazerLogin(page);
+
+    await page.goto(`/gestao/financeiro?aba=pecas&peca=${fichaId}`);
+    await expect(page.getByRole("heading", { name: "Precificar peça" })).toBeVisible();
+    await page.getByRole("checkbox", { name: /Peça exclusiva deste pedido/ }).click();
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "produção da casa" })).toHaveText(
+      `A ficha está na produção da casa “${nome}”. Conclua ou cancele a ordem na Produção antes de torná-la exclusiva. Nada foi gravado.`,
+    );
+    // Nada gravado: a ficha continua de linha, com o item.
+    expect(await fichaNoBanco(fichaId)).toMatchObject({ exclusiva: false, itemCatalogoId: itemId });
+
+    // Cancelada a ordem, a mesma edição passa.
+    await cancelarOrdemNoBanco(ordemId, INICIO);
+    await page.getByRole("button", { name: "Salvar" }).click();
+    await expect(page.getByText("Peça salva.")).toBeVisible();
+    expect(await fichaNoBanco(fichaId)).toMatchObject({ exclusiva: true, itemCatalogoId: null });
   });
 });

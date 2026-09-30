@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -731,6 +731,13 @@ async function conferirPecas(
           })
           .from(fichasPrecificacao)
           .where(inArray(fichasPrecificacao.id, fichaIds))
+          // Revisão 06.1, WR-01 (30/09/2026): `for key share` — a mesma trava que o `insert` da
+          // peça pede pela chave estrangeira, só que ANTES de conferir "exclusiva". `editarFicha`
+          // trava a ficha com `for update` e, sob ela, recusa torná-la exclusiva com ordem da casa
+          // aberta: ou esta ordem entra antes (e a Precificação a vê), ou espera e lê a ficha já
+          // exclusiva (e recusa aqui). Em ordem de id; não conflita com `for no key update`.
+          .orderBy(asc(fichasPrecificacao.id))
+          .for("key share")
     ).map((ficha) => [ficha.id, ficha]),
   );
   const itens = new Map(
