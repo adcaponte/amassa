@@ -847,7 +847,7 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 10/15 plans executed
+**Plans:** 11/15 plans executed
 
 15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
@@ -867,7 +867,7 @@ um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `
 - [x] 06.1-08-PLAN.md — O quadro inteiro: filtros, os três números, a fila do forno em fornadas estimadas, estados vazio/carregando/erro, concluídas e canceladas (onda 8) *Concluído em 30/09/2026 no branch (`eba5eaf`..`4c7a357`): verificar verde (1849 testes); e2e 56 e 52 passed — ver `06.1-08-SUMMARY.md`.*
 - [x] 06.1-09-PLAN.md — A linha do tempo, com o cookie `producao_vista`, e o bloco de contraste da Produção no `contraste.test.ts` (onda 9) *Concluído em 30/09/2026 no branch (`1df8536`..`4f43951`): verificar verde (1908 testes); e2e `producao linha do tempo` 58 passed — ver `06.1-09-SUMMARY.md`.*
 - [x] 06.1-10-PLAN.md — Material previsto × baixado; a baixa pela ordem por `gravarMovimentacoes`, com `material_da_ordem` (onda 10) *Concluído em 30/09/2026 no branch (`0876cc3`..`0f5f783`): verificar verde (1936 testes); e2e `producao material` 62 passed — ver `06.1-10-SUMMARY.md`.*
-- [ ] 06.1-11-PLAN.md — Concluir: as fórmulas do §7 verbatim, a entrada `producao` no Estoque ao custo da ficha, D-13 e D-14 (onda 11)
+- [x] 06.1-11-PLAN.md — Concluir: as fórmulas do §7 verbatim, a entrada `producao` no Estoque ao custo da ficha, D-13 e D-14 (onda 11) *Concluído em 30/09/2026 no branch (`9d1c71f`..`9b11e52`): verificar verde (1961 testes); e2e 2 invocações (a 1ª quebrou num auxiliar do próprio teste), a última `producao concluir` 60 passed — ver `06.1-11-SUMMARY.md`.*
 - [ ] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12)
 - [ ] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13)
 - [ ] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14)
@@ -933,5 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 10/15 | In Progress | - |
+| 06.1. Produção — redesenho das Encomendas | 11/15 | In Progress | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

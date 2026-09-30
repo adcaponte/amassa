@@ -5,13 +5,13 @@ milestone_name: milestone
 current_phase: 06.1
 current_phase_name: Produção
 status: executing
-stopped_at: "Fase 06.1 Producao em execucao (pedida pelo dono em 30/09/2026): planos 01..10 concluidos no branch local gsd/phase-06.1-producao; proximo o 11. Nada publicado."
-last_updated: "2026-09-30T09:16:08Z"
+stopped_at: "Fase 06.1 Producao em execucao (pedida pelo dono em 30/09/2026): planos 01..11 concluidos no branch local gsd/phase-06.1-producao; proximo o 12. Nada publicado."
+last_updated: "2026-09-30T09:41:14Z"
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 112
-  completed_plans: 107
+  completed_plans: 108
 last_activity: 2026-09-30
 last_activity_desc: "Fase 06.1 (Producao): execucao iniciada em 30/09/2026 (~05h45 UTC) pelo dono, via /gsd-execute-phase 06.1 — 15 planos sequenciais no branch gsd/phase-06.1-producao; nada publicado. Antes: Fase 06.1 (Producao) planejada na noite de 29 para 30/09/2026, via /gsd-plan-phase 06.1: pesquisa (d5da574); as nove perguntas abertas dela respondidas pelo dono no chat, D-09..D-17 (d25f70b; a D-09 contra a recomendacao: uma publicacao e uma sessao de db:migrate); VALIDATION (6e97783); depois, com o dono dormindo e pelas opcoes recomendadas, UI-SPEC (34b1715), mapa de padroes (095826a) e 15 planos. Nada executado, nada publicado. Antes disso — Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
 ---
@@ -334,6 +334,7 @@ portão (plano 15). Como sei: o comando dele nesta sessão; nenhum `06.1-*-SUMMA
 fase e nenhum commit `06.1-0*` no `git log` no início da execução.
 
 **Progresso da execução (atualizado pelo orquestrador a cada plano):**
+- **06.1-11** (30/09, ~10h35 UTC) — concluir: "Entreguei"/"Guardar no estoque" pergunta só as perdidas por peça; as fórmulas do §7 no módulo puro e de novo no servidor sob a trava; extras boas de peça de linha (e as boas da casa) entram no Estoque ao custo da ficha ou digitado (D-14), ligando o item na mesma transação (D-13); nada no Caixa. Como sei: commits `9d1c71f`..`9b11e52`; `npm run verificar` verde (92 ações, 1961 testes); e2e `--grep "producao concluir"` 10 failed/50 passed (aspas perdidas num auxiliar de teste) e depois 60 passed, segundo `06.1-11-SUMMARY.md`. Para a Parte 0: o D-13 troca a categoria de compra do item para "Produção da casa" mesmo se ele já tinha outra (leitura literal do D-13).
 - **06.1-10** (30/09, ~10h05 UTC) — material usado: previsto de argila/esmalte pela ficha × peças (com as a mais; biscoito não prevê esmalte), baixado, e a baixa pela ordem por `gravarMovimentacoes` com `material_da_ordem` (custo médio de sempre, nenhuma regra de custo nova). Como sei: commits `0876cc3`..`0f5f783`; `npm run verificar` verde (91 ações, 1936 testes); e2e `--grep "producao material"` 62 passed, segundo `06.1-10-SUMMARY.md`.
 - **06.1-09** (30/09, ~09h40 UTC) — linha do tempo (feito cheio, previsto listrado, hoje e a entrega prometida), a vista lembrada no cookie `producao_vista`, contraste da Produção no `contraste.test.ts`. Como sei: commits `1df8536`..`4f43951`; `npm run verificar` verde (1908 testes); e2e `--grep "producao linha do tempo"` 58 passed, segundo `06.1-09-SUMMARY.md`.
 - **06.1-08** (30/09, ~09h20 UTC) — o quadro inteiro: filtros Tudo/Encomendas/Da casa, os três números, a fila do forno em fornadas estimadas ("sem estimativa" para peça sem ficha ou sem medida), `/gestao/producao/concluidas` de 50 em 50. Como sei: commits `eba5eaf`..`4c7a357`; `npm run verificar` verde (90 ações, 1849 testes); e2e `--grep "producao quadro|producao numeros|producao vazia"` 56 passed e `--grep "producao concluidas"` 52 passed, segundo `06.1-08-SUMMARY.md`.
