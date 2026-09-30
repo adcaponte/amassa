@@ -67,6 +67,17 @@ export function filtrarOrdens<T extends { readonly tipo: TipoOrdem }>(
   return filtro === "todas" ? [...ordens] : ordens.filter((ordem) => ordem.tipo === filtro);
 }
 
+// As duas vistas da Produção (plano 09, PRD-07, UI-D18): "Quadro por etapa" e "Linha do tempo". A
+// escolha fica num cookie por navegador (`path=/gestao`, 1 ano), escrito no cliente ao trocar e lido
+// no servidor antes de pintar — sem piscar a vista errada. O valor vem do navegador: qualquer coisa
+// fora da união fechada vira "quadro" (T-06.1-34); o cookie não alimenta consulta nem HTML cru.
+export type VistaDaProducao = "quadro" | "tempo";
+export const NOME_DO_COOKIE_DA_VISTA = "producao_vista";
+
+export function vistaDoCookie(valor: string | null | undefined): VistaDaProducao {
+  return valor === "tempo" ? "tempo" : "quadro";
+}
+
 export type NumerosDoTopo = {
   // "EM PRODUÇÃO": as ordens liberadas e as peças delas (pedido + a mais).
   emProducao: { ordens: number; pecas: number };
