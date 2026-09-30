@@ -847,11 +847,31 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 0 plans
+**Plans:** 0/15 plans executed
 
-Plans:
+15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
+projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
+perguntas abertas dela respondidas pelo dono no chat (D-09..D-17); depois, com o dono dormindo e pelas
+opções recomendadas, UI-SPEC, mapa de padrões e planos (lista em "Decidido sem o Theo", no `STATE.md`).
+Verificação dos planos: 0 bloqueios; 1 aviso ("quatro tarefas" em seis planos) refutado por medição — cada
+um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `main`, até o portão (plano
+15); código e migração saem numa publicação só e o dono migra numa sessão só de `db:migrate` (D-09).
 
-- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
+- [ ] 06.1-01-PLAN.md — Traçador: uma ordem na Produção, "Terminei: Produção", e ela está na Secagem com a data de hoje; o esquema inteiro da fase na `0024` (dado do D-02 antes da FK nova), o branch e `TABELAS_ESPERADAS` (onda 1)
+- [ ] 06.1-02-PLAN.md — O traçador nas bordas: leitura e "Terminei" em todos os casos de calendário e de estado; a conferência da Produção e a prova do D-02 em banco próprio; o vínculo "Qual ordem?" do Estoque (onda 2)
+- [ ] 06.1-03-PLAN.md — Do orçamento aprovado à ordem aguardando o sinal, na mesma transação; a seção "aguardando o sinal", o sinal lido do Caixa e a liberação manual (onda 3)
+- [ ] 06.1-04-PLAN.md — O bloco Peças (cor, personalização, horas, fotos do orçamento sem copiar arquivo, vínculos nos dois sentidos) e as peças a mais, só em encomenda (onda 4)
+- [ ] 06.1-05-PLAN.md — A trilha na mão: desfazer com confirmação, −/+ dos dias previstos das etapas futuras, o parcial, a previsão e a barra fixa do "Terminei" no celular (onda 5)
+- [ ] 06.1-06-PLAN.md — Cancelar a ordem sem mexer em venda, parcela nem estoque; a D-07 dentro do `cancelarDocumento` (onda 6)
+- [ ] 06.1-07-PLAN.md — A "Nova ordem": produção da casa e pedido de boca, "+ outra peça", D-04/D-05/D-13 conferidas no servidor (onda 7)
+- [ ] 06.1-08-PLAN.md — O quadro inteiro: filtros, os três números, a fila do forno em fornadas estimadas, estados vazio/carregando/erro, concluídas e canceladas (onda 8)
+- [ ] 06.1-09-PLAN.md — A linha do tempo, com o cookie `producao_vista`, e o bloco de contraste da Produção no `contraste.test.ts` (onda 9)
+- [ ] 06.1-10-PLAN.md — Material previsto × baixado; a baixa pela ordem por `gravarMovimentacoes`, com `material_da_ordem` (onda 10)
+- [ ] 06.1-11-PLAN.md — Concluir: as fórmulas do §7 verbatim, a entrada `producao` no Estoque ao custo da ficha, D-13 e D-14 (onda 11)
+- [ ] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12)
+- [ ] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13)
+- [ ] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14)
+- [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**)
 
 **UI hint**: yes
 
@@ -913,4 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
+| 06.1. Produção — redesenho das Encomendas | 0/15 | Planned | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

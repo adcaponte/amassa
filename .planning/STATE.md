@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.1
 current_phase_name: Produção
-status: ready_to_plan
-stopped_at: "Fase 06.1 Producao: contexto capturado em 30/09/2026 com o dono (06.1-CONTEXT.md, D-01..D-08). Proximo: planejar a fase (/gsd-plan-phase 06.1)."
-last_updated: "2026-09-29T23:08:08.237Z"
+status: ready_to_execute
+stopped_at: "Fase 06.1 Producao: planejada na noite de 29 para 30/09/2026 — 15 planos (06.1-01..15, uma onda cada), verificacao dos planos sem bloqueio (1 aviso refutado por medicao). Nada executado, nada publicado. Proximo: executar (/gsd-execute-phase 06.1), quando o dono quiser."
+last_updated: "2026-09-30T01:30:00.000Z"
 progress:
   total_phases: 13
   completed_phases: 12
-  total_plans: 97
+  total_plans: 112
   completed_plans: 97
-last_activity: 2026-09-29
-last_activity_desc: "Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
+last_activity: 2026-09-30
+last_activity_desc: "Fase 06.1 (Producao) planejada na noite de 29 para 30/09/2026, via /gsd-plan-phase 06.1: pesquisa (d5da574); as nove perguntas abertas dela respondidas pelo dono no chat, D-09..D-17 (d25f70b; a D-09 contra a recomendacao: uma publicacao e uma sessao de db:migrate); VALIDATION (6e97783); depois, com o dono dormindo e pelas opcoes recomendadas, UI-SPEC (34b1715), mapa de padroes (095826a) e 15 planos. Nada executado, nada publicado. Antes disso — Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de madrugada e de manha, sem o dono, no branch gsd/phase-06-estoque; o 06-11 (portao) teve as Tarefas 1 e 2 feitas pelo executor e a Tarefa 3 pelo dono — Parte 0 de manha (D-23/D-24 valem; WR-01/WR-02 pela alternativa; D-29 sim), Roteiro 15 a tarde (so-migracao publicado, run 36550036925 verde; backup; 0023 aplicada; conferencia SQL; merge 2345850, run 36587755269 verde; /api/health/estoque 200) e a caminhada aprovada no chat, sem os tempos medidos da baixa. Cowork verificou em producao (Claude outputs/estoque/VERIFICACAO-COWORK-06.md): 19 passos, nenhum vermelho, 7 observacoes nao bloqueantes. EST-01..21 marcados. Proximo: verificacao da fase e phase.complete."
 ---
 
 # Project State
@@ -23,7 +23,84 @@ last_activity_desc: "Fase 06 em 29/09/2026: planos 06-01 a 06-10 concluidos de m
 See: .planning/PROJECT.md (updated 2026-08-05)
 
 **Core value:** Substituir os controles espalhados do ateliê por um sistema que funciona de pé, no ateliê, com a mão suja, num celular.
-**Current focus:** Fase **06 — Estoque** — **no ar desde o merge `2345850` (29/09/2026, tarde); os 11 planos concluídos; o portão 06-11 aprovado pelo dono.** Próximo: a verificação da fase e o `phase.complete`. *De manhã esta linha dizia "código completo no branch, não publicado; aguardando o dono"; até 29/09 de manhã, "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+**Current focus:** Fase **06.1 — Produção** — **planejada na noite de 29 para 30/09/2026: 15 planos (`06.1-01..15`, uma onda cada), nada executado, nada publicado.** Próximo: executar (`/gsd-execute-phase 06.1`), quando o dono quiser — o código vai para o branch `gsd/phase-06.1-producao` e só chega a `main` no portão (plano 15). Como sei: os 15 `PLAN.md` na pasta da fase e no commit do plano desta sessão; `git log origin/main..main` só com commits de documento. *Até 30/09 esta linha falava da Fase 06: "no ar desde o merge `2345850` (29/09/2026, tarde); os 11 planos concluídos; o portão 06-11 aprovado pelo dono. Próximo: a verificação da fase e o `phase.complete`" — as duas coisas foram feitas em 29/09 (`af142f0`, verificação `passed` 30/30).* *De manhã de 29/09 a linha da Fase 06 dizia "código completo no branch, não publicado; aguardando o dono"; até 29/09 de manhã, "planejando" — a fase foi planejada e executada na mesma noite.* A **04.6 fechou em 29/09/2026**: `phase.complete` depois da verificação `passed` 9 de 9 (commit `e3527e4`), com revisão de código e as correções dela no caminho.
+
+## Noite de 29 para 30/09/2026 — o planejamento da Fase 06.1 e as decisões tomadas sem o dono
+
+**O que o dono decidiu no chat, antes de dormir** (formulários durante o `/gsd-plan-phase 06.1`):
+pesquisar antes de planejar; gerar o UI-SPEC na mesma rodada (o portão de UI não via tela na fase —
+só reconhece palavras em inglês — e a 06.1 não tinha a linha `**UI hint**: yes` das outras fases com
+tela; acrescentada em `f4ce380`); e as nove perguntas abertas da pesquisa, que viraram D-09..D-17
+(`d25f70b`) — oito pela recomendação e a **D-09 escrita por ele**, contra a recomendação: uma
+publicação e uma sessão de `db:migrate` ("se o unico problema for o site ficar meio quebrado por um
+momento, nao tem problema. ainda nao estamos operando na plataforma."). Ele também perguntou se a
+sessão tinha começado antes do `9f5eeec` — não: o retrato do git no início da sessão já mostrava o
+`9f5eeec` como último commit, e o CONTEXT no disco é idêntico ao dele (`git diff 9f5eeec` vazio).
+
+**A autorização, nas palavras dele:** *"vou dormir. se aparecer decisão recomendada, pode seguir."*
+Limites que continuam valendo (a regra permanente de execução sem ele): nada de `git push`, servidor,
+`.env` ou migração aplicada; parar em checkpoint humano; e não começar a execução — o pedido foi
+planejar.
+
+### Decidido sem o Theo — 06.1 (cada item é reversível)
+
+1. **As 11 recomendações do verificador de UI aplicadas ao UI-SPEC** (`34b1715`): rótulos com
+   substantivo ("Manter ordem", "Concluir ordem", "Imprimir folha geral", "Imprimir folha"), ponto de
+   etapa de 8px na folha geral, padding de 12px só a partir de 1280px, quatro saídas do protótipo
+   registradas, o erro do "Mostrar mais 50", a exceção do peso 700 declarada. O verificador já tinha
+   aprovado sem elas. **Desfazer:** reverter o trecho no `06.1-UI-SPEC.md`.
+2. **As escolhas de interface do próprio UI-SPEC** — UI-D1..UI-D20, na seção "Decisões desta UI-SPEC
+   (tomadas sem o dono — cada uma reversível)". As três que mais pedem o olho do dono: **UI-D2** (seis
+   colunas só a partir de 1280px — com a barra lateral de 240px, nos 980px do protótipo as colunas
+   ficam estreitas demais), **UI-D3** (barra fixa do "Terminei" no celular) e **UI-D4** ("Desfazer"
+   pede confirmação — a regra de remoção do CLAUDE.md; desfazer apaga a data real da etapa).
+   **Desfazer:** trocar a linha no UI-SPEC antes do plano que a implementa (05 para UI-D3/D4, 08
+   para UI-D2).
+3. **A primeira passada do verificador de UI foi refeita** — ela mesma disse ter lido 529 das 1293
+   linhas e não ter aberto o CONTEXT. A segunda (arquivo inteiro, CONTEXT inteiro, protótipo) aprovou
+   com D-01..D-17 cumpridas, linha a linha.
+4. **As duas sondas em modo `--auto`**, com os tipos escritos à mão (o classificador delas só lê
+   inglês): **considerações de UI** — 96 pares, 83 cobertos, 13 checagem na verificação, 0 em
+   aberto; 29 linhas "(sonda)" acrescentadas à tabela do UI-SPEC; **bordas dos PRD-01..20** — 79,
+   75 cobertas, 4 checagem na verificação (a janela entre deploy e migração da D-09, dois "Aprovar"
+   simultâneos, acento e texto longo nas duas folhas impressas). Nenhuma descartada; todas nos
+   `must_haves` dos planos — as 124 linhas de UI e as 79 bordas conferidas pelo planejador por
+   script; as 79 bordas também pelo verificador de planos.
+5. **O portão de schema adaptado como na Fase 06:** em vez do `drizzle-kit push` que ele manda, a
+   migração gerada e completada à mão, provada pelo `test:migracoes`; aplicar em produção é do dono,
+   no plano 15.
+6. **As escolhas do planejador** (dentro do "Claude's Discretion"): **branch
+   `gsd/phase-06.1-producao`** até o portão, mesmo com a D-09 (fase pela metade em `main` iria ao ar
+   no primeiro push e ficaria quebrada por dias, não "por um momento"); **manter os nomes de coluna
+   `encomenda_id`** (orçamento e livro do Estoque) apontando para `ordens_producao` — renomear faria o
+   `drizzle-kit` parar na pergunta interativa; custoso de desfazer; o modelo de dados da pesquisa
+   (`ordens_producao`, `ordem_etapas`, `ordem_pecas`, a coluna `material_da_ordem`); **dois arquivos
+   de migração** (`0024` cria, religa e grava o D-02; `0025` apaga), publicados e aplicados juntos;
+   **a data de remoção do redirecionamento** = dia da implementação + 6 meses, conferida no Roteiro
+   16; **limite de 50 peças por ordem**; a chave de ícone `encomendas` do menu mantida; concluir grava
+   `feita_em` na etapa Entrega; `custosDasFichas` extraído para o custo ter um cálculo só.
+7. **O aviso do verificador de planos foi refutado, sem rodada de revisão:** "seis planos com 4
+   tarefas" — cada um tem 3 (a contagem dele somou o invólucro `<tasks>`); o tamanho em linhas
+   (253–386) é o dos planos da Fase 06, que foram executados. As demais afirmações dele conferidas por
+   amostragem (checagens em 12 planos, `drizzle-kit push` proibido nos 15, e2e sem `--grep` só na
+   varredura do 15, `exigirUsuario` nos 11 planos com ação de servidor).
+8. **Três requisitos anotados** (`3cc3a51`): PRD-01 (rota decidida), PRD-08 ("a mais" só em
+   encomenda), PRD-12 (dias previstos com a espera somada) — nota datada; texto original preservado.
+9. **Uma linha do CONTEXT corrigida** (`d25f70b`): o "cabem no forno" vem de
+   `lib/precificacao/forno.ts::quantasCabem` e das colunas `cabem_*_informado`, não de `calculo.ts`
+   — achado da pesquisa, conferido no código.
+
+**Lacunas temporárias entre planos** (só no branch, nunca publicadas): depois do 01, os e2e de aprovar
+orçamento com ordem e do vínculo do Estoque falham até os planos 03 e 02; no 11, extra boa de peça
+exclusiva só vai a "sem destino" — "Entram no Estoque" chega no 12. O SUMMARY do 01 as lista.
+
+**Achado para depois (Fase 7, não desta):** `app/globals.css` esconde todo `<header>` na impressão —
+qualquer página impressa com `<header>` perde o cabeçalho no papel (UI-D20; nas folhas da 06.1 o
+cabeçalho é `<div>`).
+
+**O que o dono faz ao voltar:** ler esta lista (e as UI-D2/D3/D4 no UI-SPEC); publicar os commits de
+documento quando quiser (`git log origin/main..main` — só documentos de `.planning/`); e, quando
+quiser, `/gsd-execute-phase 06.1`.
 
 ## Sessão noturna de 29/09/2026 — autorização e decisões tomadas sem o dono
 
@@ -248,7 +325,19 @@ adendo de `06-11-SUMMARY.md`).
 
 ## Current Position
 
-**Agora (29/09/2026, fim da tarde): a Fase 06 — Estoque está CONCLUÍDA.** Como sei: verificação da
+**Agora (30/09/2026, madrugada): a Fase 06.1 — Produção está PLANEJADA; nada executado, nada
+publicado.** Como sei: os 15 planos `06.1-01..15-PLAN.md` em `.planning/phases/06.1-producao/`
+(commit do plano desta sessão), com `verify.plan-structure` e `frontmatter.validate` limpos (rodados
+pelo planejador); os 20 PRD no campo `requirements` dos planos e as 17 decisões cobertas
+(`check.decision-coverage-plan`: 17/17, rodado pelo orquestrador); o verificador de planos sem
+bloqueio (1 aviso refutado — ver "Decidido sem o Theo — 06.1", item 7). Artefatos da fase: pesquisa
+(`d5da574`, perguntas resolvidas em `0cebf75`), CONTEXT refinado (`d25f70b`), VALIDATION (`6e97783`),
+UI-SPEC aprovado (`34b1715`), mapa de padrões (`095826a`). **Nada foi executado nem publicado:**
+`git log origin/main..main` (contra o `origin/main` local) mostra só commits de documento. **Próximo:**
+`/gsd-execute-phase 06.1` quando o dono quiser — o código vai para o branch `gsd/phase-06.1-producao`.
+
+**Em 29/09/2026, fim da tarde: a Fase 06 — Estoque ficou CONCLUÍDA.** *(Até 30/09 esta linha
+começava com "Agora".)* Como sei: verificação da
 fase `passed`, 30 de 30 (`06-VERIFICATION.md`, `2ed2d0b`) — os 9 critérios do ROADMAP e EST-01..21,
 com `npm run verificar` rodado pelo verificador no `main`; o portão 06-11 aprovado pelo dono no chat;
 `phase.complete` marcou a fase no ROADMAP (11/11, 29/09). O `STATE.md` foi escrito à mão (o verbo
@@ -261,7 +350,8 @@ objetivo, dependências e 8 critérios. **Discussão feita com o dono em 30/09/2
 `/gestao/producao` com redirecionamento; peça da Nova ordem pela ficha quando houver, senão texto livre
 (produção da casa exige catálogo); linha do tempo do protótipo; orçamentos aprovados ativos ganham ordem
 "aguardando o sinal" na migração; venda cancelada cancela a ordem só se ainda aguarda o sinal; perda medida
-de 6 meses. **Próximo: planejar a fase.** *(Até 30/09 dizia "próximo passo: a discussão com o dono".)* O dono decidiu fazer um módulo por vez (Agenda
+de 6 meses. **Planejada na noite de 29 para 30/09/2026** (ver o parágrafo "Agora" acima). *(Até
+30/09 de madrugada dizia "Próximo: planejar a fase"; antes, "próximo passo: a discussão com o dono".)* O dono decidiu fazer um módulo por vez (Agenda
 depois). *Até esta noite a linha dizia "nenhuma das duas fases existe ainda no ROADMAP".* Resposta do dono para a Produção, no chat em
 29/09/2026: **"O item 5 da produção pode sim zerar todos os dados. nada é real ainda."**
 
@@ -1425,6 +1515,7 @@ bloqueia**; cada um diz a fonte.*
 ### Roadmap Evolution
 
 - Phase 06.1 inserted after Phase 6: Produção — redesenho das Encomendas (item 5 da fila; 29/09/2026). Pasta renomeada de `06.1-produ-o` (slug do `gsd-tools`, que tira o ç e o ã) para `06.1-producao`.
+- Phase 06.1 ganhou `**UI hint**: yes` (30/09/2026, `f4ce380`) — faltava; sem ela o portão de UI do plan-phase dizia `frontend: false` (só lê palavras em inglês). Planejada na mesma noite: 15 planos, linha nova na tabela de progresso.
 
 - Phase 3 edited: ENC-14 (botao de imprimir folha A4) adicionado aos requisitos e criterios de sucesso
 - Phase 3 edited: criterios 4 e 13 reconciliados com o quick 260812-2et (BRIEF-NOTURNO): Gantt passou de celulas quinzenais para semanais (segunda a domingo), a timeline deixou de abrir centralizada para abrir em hoje na borda esquerda, e o nome da encomenda virou link. Supersessao deliberada, nao regressao — os 18px/dia do 03-UI-SPEC.md continuam valendo
@@ -1451,8 +1542,11 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29 (tarde) — portão 06-11 aprovado pelo dono; Fase 06 no ar (`2345850`)
-Stopped at: 06-11 concluído; próximo: verificação da fase e phase.complete
-Resume file: None
+Last session: 2026-09-30 (noite de 29 para 30/09) — `/gsd-plan-phase 06.1`: pesquisa, D-09..D-17 com o dono, UI-SPEC, mapa de padrões e 15 planos (o dono dormindo a partir do UI-SPEC)
+Stopped at: Fase 06.1 planejada; próximo: `/gsd-execute-phase 06.1`, quando o dono quiser
+Resume file: .planning/phases/06.1-producao/06.1-01-PLAN.md
+*(Até 30/09 esta seção dizia "Last session: 2026-09-29 (tarde) — portão 06-11 aprovado pelo dono;
+Fase 06 no ar (`2345850`)" e "Stopped at: 06-11 concluído; próximo: verificação da fase e
+phase.complete" — as duas feitas em 29/09, `af142f0`.)*
 *(De manhã esta seção dizia "06-11 Tarefa 3 — Parte 0 feita; próximo passo do dono: Roteiro 15";
 até 29/09, "Concluido 04.6-07-PLAN.md", de 28/09.)*

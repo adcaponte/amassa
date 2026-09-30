@@ -1,4 +1,26 @@
-# Próxima sessão — ATUALIZADO em 2026-09-29 (tarde, portão da Fase 06 aprovado)
+# Próxima sessão — ATUALIZADO em 2026-09-30 (madrugada, Fase 06.1 planejada)
+
+> **🟢 ATUALIZAÇÃO DE 30/09/2026, MADRUGADA — A FASE 06.1 (PRODUÇÃO) ESTÁ PLANEJADA. NADA FOI
+> EXECUTADO NEM PUBLICADO.** Você respondeu no chat, antes de dormir, as nove perguntas da pesquisa
+> (D-09..D-17 no `06.1-CONTEXT.md`; a D-09 foi a sua: uma publicação e uma sessão de `db:migrate`) e
+> autorizou seguir pelas recomendadas. Depois disso saíram, sem você, o UI-SPEC, o mapa de padrões e
+> **15 planos** (`06.1-01..15`, uma onda cada, no branch `gsd/phase-06.1-producao` na execução).
+> O bloco de 29/09 logo abaixo, que diz "item 5 da fila (Produção) … fases ainda por criar", foi
+> superado: a 06.1 foi criada, discutida e planejada.
+>
+> **Como sei:** os 15 `PLAN.md` na pasta da fase; `check.decision-coverage-plan` 17/17; os 20 PRD nos
+> `requirements` dos planos; o verificador de planos sem bloqueio (o único aviso, "4 tarefas", refutado
+> por medição: cada plano tem 3). `git log origin/main..main` só com commits de documento.
+>
+> **O que fica com você, sem pressa:**
+> 1. **Ler "Decidido sem o Theo — 06.1"** no topo do `.planning/STATE.md` — nove itens, cada um com
+>    como desfazer. Os três de interface que mais pedem o seu olho: **UI-D2** (seis colunas só a
+>    partir de 1280px), **UI-D3** (barra fixa do "Terminei" no celular) e **UI-D4** ("Desfazer" pede
+>    confirmação), no `06.1-UI-SPEC.md`.
+> 2. **O `push`** dos commits de documento desta noite, quando quiser.
+> 3. **Quando quiser executar:** `/gsd-execute-phase 06.1`. O último plano (15) é o seu portão: o
+>    Roteiro 16 — backup, publicação, esperar o job `implantar`, `db:migrate`, `/api/health/producao`,
+>    conferir as ordens do D-02, abrir um orçamento aprovado.
 
 > **🟢 ATUALIZAÇÃO DE 29/09/2026, FIM DA TARDE — A FASE 06 (ESTOQUE) ESTÁ CONCLUÍDA E NO AR.**
 > Como sei: verificação da fase `passed`, 30 de 30 (`.planning/phases/06-estoque/06-VERIFICATION.md`,
