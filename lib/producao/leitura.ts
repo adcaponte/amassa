@@ -52,20 +52,31 @@ export type Selo =
   | { tipo: "no-ritmo" }
   | { tipo: "encerrada" };
 
-// As etapas por posição (cópia — nunca muda a lista de quem chamou), conferindo a invariante que o
-// banco não expressa: as feitas formam um PREFIXO do caminho. Uma feita depois de uma não feita é
-// dado corrompido — RangeError, nunca uma leitura inventada.
+// As etapas por posição (cópia — nunca muda a lista de quem chamou), conferindo as duas invariantes
+// que o banco não expressa: as feitas formam um PREFIXO do caminho, e o `feita_em` delas não
+// decresce (uma etapa não termina antes da anterior; no mesmo dia pode). Qualquer das duas quebrada
+// é dado corrompido — RangeError dizendo qual etapa, nunca uma leitura inventada.
 export function etapasOrdenadas(ordem: Pick<OrdemParaLeitura, "etapas">): EtapaDaOrdem[] {
   const etapas = [...ordem.etapas].sort((a, b) => a.posicao - b.posicao);
   let achouNaoFeita = false;
+  let anterior: EtapaDaOrdem | null = null;
   for (const etapa of etapas) {
     if (etapa.feitaEm === null) {
       achouNaoFeita = true;
-    } else if (achouNaoFeita) {
+      continue;
+    }
+    if (achouNaoFeita) {
       throw new RangeError(
         `Etapa "${etapa.etapa}" feita depois de uma etapa ainda não feita — as feitas precisam ser um prefixo do caminho.`,
       );
     }
+    // Datas civis `YYYY-MM-DD`: a comparação de texto é a de calendário.
+    if (anterior !== null && etapa.feitaEm < (anterior.feitaEm as string)) {
+      throw new RangeError(
+        `Etapa "${etapa.etapa}" feita em ${etapa.feitaEm}, antes de "${anterior.etapa}" (${anterior.feitaEm}) — as datas das feitas não podem voltar no tempo.`,
+      );
+    }
+    anterior = etapa;
   }
   return etapas;
 }
