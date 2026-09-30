@@ -6,8 +6,10 @@ import {
   colunasDoQuadro,
   FILTROS_DO_QUADRO,
   filtrarOrdens,
+  NOME_DO_COOKIE_DA_VISTA,
   numerosDoTopo,
   ordenarNaColuna,
+  vistaDoCookie,
 } from "@/lib/producao/quadro";
 
 // Fase 06.1 (plano 01): o quadro por etapa — seis colunas em ordem fixa, cada ordem ativa na
@@ -217,5 +219,32 @@ describe("numerosDoTopo (PRD-13)", () => {
       ordens: 1,
       pecas: 10,
     });
+  });
+});
+
+// Plano 09 (PRD-07, UI-D18): a vista "Quadro por etapa · Linha do tempo" lembrada por cookie. O
+// valor vem do navegador — qualquer coisa fora da união fechada vira "quadro" (T-06.1-34).
+describe("vistaDoCookie", () => {
+  it("o cookie se chama producao_vista", () => {
+    expect(NOME_DO_COOKIE_DA_VISTA).toBe("producao_vista");
+  });
+
+  it("tempo → tempo; quadro → quadro", () => {
+    expect(vistaDoCookie("tempo")).toBe("tempo");
+    expect(vistaDoCookie("quadro")).toBe("quadro");
+  });
+
+  it("ausente, vazio ou desconhecido → quadro", () => {
+    expect(vistaDoCookie(undefined)).toBe("quadro");
+    expect(vistaDoCookie(null)).toBe("quadro");
+    expect(vistaDoCookie("")).toBe("quadro");
+    expect(vistaDoCookie("x")).toBe("quadro");
+    expect(vistaDoCookie("TEMPO")).toBe("quadro");
+    expect(vistaDoCookie("tempo ")).toBe("quadro");
+  });
+
+  it("escolher de novo a mesma vista não muda nada (idempotente)", () => {
+    expect(vistaDoCookie(vistaDoCookie("tempo"))).toBe("tempo");
+    expect(vistaDoCookie(vistaDoCookie("quadro"))).toBe("quadro");
   });
 });
