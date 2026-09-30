@@ -72,6 +72,14 @@ export function destinoSugerido(p: {
   return "estoque";
 }
 
+// A Produção guarda PEÇAS: na entrada do Estoque, 1 peça = 1 unidade do item (revisão 06.1, WR-03).
+// Só serve o item contado em unidades (`un`) — ou ainda sem unidade, que o D-13 liga em `un` na
+// própria conclusão. Um item em kg, g, ml, L ou m é material, não peça: "10 peças" viraria "10 kg"
+// de argila e mexeria no custo médio dela. Conferido no seletor, na criação e sob a trava do item.
+export function itemGuardaPecas(unidade: string | null): boolean {
+  return unidade === null || unidade === "un";
+}
+
 export type DistribuicaoDasExtras = { paraEstoque: number; semDestino: number };
 
 // Quantas boas vão para o Estoque e quantas ficam sem destino. Casa: todas as boas para o Estoque

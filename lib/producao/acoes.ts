@@ -15,7 +15,7 @@ import {
   ordensProducao,
 } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import type { Unidade } from "@/lib/cadastros/catalogo";
+import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { gravarMovimentacoes, travarItens } from "@/lib/estoque/gravacao";
 import { pedidoDeEntradaDaProducao, pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
@@ -32,6 +32,7 @@ import {
   derivarPeca,
   destinoSugerido,
   distribuirExtras,
+  itemGuardaPecas,
   resumoDaConclusao,
   type DestinoDasExtras,
 } from "./conclusao";
@@ -114,6 +115,8 @@ import {
   FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE,
   NOME_CATEGORIA_PRODUCAO_DA_CASA,
   fraseItemDesativadoNaConclusao,
+  fraseItemNaoGuardaPecas,
+  fraseItemNaoGuardaPecasNaConclusao,
   fraseMaterialDesativadoNaBaixa,
   textoParcialInvalido,
 } from "./textos";
@@ -735,6 +738,7 @@ async function conferirPecas(
             nome: itensCatalogo.nome,
             controlaEstoque: itensCatalogo.controlaEstoque,
             ativo: itensCatalogo.ativo,
+            unidade: itensCatalogo.unidade,
           })
           .from(itensCatalogo)
           .where(inArray(itensCatalogo.id, itemIds))
@@ -770,6 +774,13 @@ async function conferirPecas(
     }
     if (!item.controlaEstoque || !item.ativo) {
       throw new RecusaDaPeca(campo, FRASE_CASA_PRECISA_DO_CATALOGO);
+    }
+    // Revisão 06.1, WR-03: 1 peça = 1 unidade do item — material em kg, g, ml… não é peça.
+    if (!itemGuardaPecas(item.unidade)) {
+      throw new RecusaDaPeca(
+        campo,
+        fraseItemNaoGuardaPecas(item.nome, item.unidade ? ROTULO_UNIDADE[item.unidade] : ""),
+      );
     }
     return item.nome;
   });
@@ -1166,6 +1177,17 @@ export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeC
         }
         if (!item.ativo) {
           throw new RecusaDaConclusao(fraseItemDesativadoNaConclusao(item.nome));
+        }
+        // Revisão 06.1, WR-03: a entrada abaixo é "1 peça = 1 unidade do item" — só serve item em
+        // `un` (ou sem unidade, que o D-13 liga em `un` logo abaixo). Decidido sob a trava do item.
+        if (!itemGuardaPecas(item.unidade)) {
+          throw new RecusaDaConclusao(
+            fraseItemNaoGuardaPecasNaConclusao(
+              item.nome,
+              item.unidade ? ROTULO_UNIDADE[item.unidade] : "",
+              ordem.tipo,
+            ),
+          );
         }
         if (item.controlaEstoque) {
           continue;

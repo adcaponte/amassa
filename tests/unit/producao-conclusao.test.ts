@@ -4,9 +4,14 @@ import {
   derivarPeca,
   destinoSugerido,
   distribuirExtras,
+  itemGuardaPecas,
   resumoDaConclusao,
   type PecaDerivada,
 } from "@/lib/producao/conclusao";
+import {
+  fraseItemNaoGuardaPecas,
+  fraseItemNaoGuardaPecasNaConclusao,
+} from "@/lib/producao/textos";
 
 // A conclusão da ordem (06.1-11-PLAN.md, Tarefa 1): as cinco fórmulas do briefing §7, verbatim, em
 // inteiros; o destino sugerido das extras; a divisão das boas entre Estoque e "sem destino"; e o
@@ -188,5 +193,33 @@ describe("resumoDaConclusao — a entrega parcial e as somas", () => {
 
   it("lista vazia → nada parcial, nada a guardar", () => {
     expect(resumoDaConclusao([])).toEqual({ entregaParcial: false, paraEstoque: 0, semDestino: 0 });
+  });
+});
+
+// Revisão 06.1, WR-03: a Produção guarda peças — 1 peça = 1 unidade do item. Material em kg, g, ml,
+// L ou m nunca recebe peça (nem no seletor, nem na criação, nem sob a trava da conclusão).
+describe("itemGuardaPecas", () => {
+  it("aceita o item contado em unidades", () => {
+    expect(itemGuardaPecas("un")).toBe(true);
+  });
+
+  it("aceita o item ainda sem unidade — o D-13 o liga em un na conclusão", () => {
+    expect(itemGuardaPecas(null)).toBe(true);
+  });
+
+  it.each(["kg", "g", "ml", "l", "m"])("recusa o material contado em %s", (unidade) => {
+    expect(itemGuardaPecas(unidade)).toBe(false);
+  });
+
+  it("as frases dizem a unidade e o que fazer", () => {
+    expect(fraseItemNaoGuardaPecas("[teste] Argila vermelha", "kg")).toBe(
+      "[teste] Argila vermelha é contado em kg no Estoque, e a produção da casa guarda peças inteiras. Escolha um item contado em unidades.",
+    );
+    expect(fraseItemNaoGuardaPecasNaConclusao("[teste] Argila vermelha", "kg", "encomenda")).toContain(
+      "mande as extras desta peça para “sem destino”",
+    );
+    expect(fraseItemNaoGuardaPecasNaConclusao("[teste] Argila vermelha", "kg", "casa")).toContain(
+      "cancele esta ordem e crie outra com um item contado em unidades",
+    );
   });
 });

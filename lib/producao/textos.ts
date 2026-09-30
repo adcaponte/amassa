@@ -488,6 +488,11 @@ export const FRASE_CASA_PRECISA_DO_CATALOGO =
 export const FRASE_ENCOMENDA_SEM_ITEM =
   "Na encomenda, a peça vem de uma ficha de precificação ou é escrita à mão. Escolha outra.";
 export const FRASE_PECA_SAIU_DO_CATALOGO = "Essa peça não está mais no catálogo. Escolha outra.";
+// Revisão 06.1, WR-03: a produção da casa guarda peças (1 peça = 1 unidade) — item contado em kg, g,
+// ml, L ou m é material. `unidade` chega já escrita (`ROTULO_UNIDADE`).
+export function fraseItemNaoGuardaPecas(nome: string, unidade: string): string {
+  return `${nome} é contado em ${unidade} no Estoque, e a produção da casa guarda peças inteiras. Escolha um item contado em unidades.`;
+}
 export function textoPecasDemais(limite: number): string {
   return `Uma ordem cabe até ${limite} peças. Crie outra ordem para o resto.`;
 }
@@ -777,6 +782,18 @@ export const FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA =
   "Não achei a categoria de compra “Produção da casa”, que o Estoque usa para a peça feita aqui. Crie-a em Cadastros → Categorias e tente de novo.";
 export function fraseItemDesativadoNaConclusao(nome: string): string {
   return `${nome} está desativado no Estoque. Reative-o para guardar as peças.`;
+}
+// Revisão 06.1, WR-03: sob a trava, o item que receberia as peças é contado em outra unidade.
+export function fraseItemNaoGuardaPecasNaConclusao(
+  nome: string,
+  unidade: string,
+  tipo: "encomenda" | "casa",
+): string {
+  const saida =
+    tipo === "encomenda"
+      ? "mande as extras desta peça para “sem destino”"
+      : "cancele esta ordem e crie outra com um item contado em unidades";
+  return `${nome} é contado em ${unidade} no Estoque, e a Produção só guarda peças contadas em unidades. Nada foi gravado — ${saida}.`;
 }
 // O nome exato que a migração 0023 semeou — a conclusão procura a categoria por ele (D-13).
 export const NOME_CATEGORIA_PRODUCAO_DA_CASA = "Produção da casa";

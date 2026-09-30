@@ -567,8 +567,9 @@ export async function fotosDaOrdem(ordemId: string): Promise<string[]> {
 // - `fichasDeLinha`: fichas de precificação NÃO exclusivas e com item do catálogo — "Peças de
 //   linha" na encomenda, "Peças precificadas" na casa;
 // - `fichasExclusivas`: "Peças exclusivas" (só na encomenda);
-// - `itensDoEstoque`: itens que já controlam estoque, ativos, que não são item de nenhuma ficha de
-//   linha — "Itens do estoque" (só na casa; sem ficha: sem material previsto, D-14).
+// - `itensDoEstoque`: itens que já controlam estoque, ativos, contados em unidades (`un`), que não
+//   são item de nenhuma ficha de linha — "Itens do estoque" (só na casa; sem ficha: sem material
+//   previsto, D-14).
 // A lista é conveniência: a regra é conferida de novo no banco por `criarOrdem`.
 export type OpcaoDoCatalogo = { id: string; nome: string };
 
@@ -599,6 +600,9 @@ export async function listarCatalogoDaNovaOrdem(): Promise<CatalogoDaNovaOrdem> 
         and(
           eq(itensCatalogo.controlaEstoque, true),
           eq(itensCatalogo.ativo, true),
+          // Só o contado em unidades (revisão 06.1, WR-03 — `itemGuardaPecas`): argila em kg,
+          // esmalte em g ou café em ml são material, não peça que a casa produz.
+          eq(itensCatalogo.unidade, "un"),
           notExists(
             db
               .select({ um: sql`1` })
