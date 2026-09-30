@@ -25,13 +25,23 @@ divergir do descrito, o erro pode ser do roteiro: **pare naquele passo** e não 
 > 🔴 **As duas janelas — por que a ordem não se inverte (D-09).**
 >
 > **Janela 1, aceita por você:** entre o fim do job `implantar` (Passo 4) e o fim do `db:migrate`
-> (Passo 5), o **código novo roda sobre o banco velho**. Nesse intervalo, a Produção
-> (`/gestao/producao`), a aprovação de orçamento (que agora abre a ordem), o cancelamento de venda
-> (que agora olha a ordem), o vínculo "Qual ordem?" do Estoque e o bloco "Produção" do Início falham
-> com a tela de erro — e, como o livro do Estoque ganha uma coluna nova na `0024`, lançar venda com
-> estoque e abrir o Histórico do Estoque também podem falhar. Você aceitou isso no D-09 ("se o unico
-> problema for o site ficar meio quebrado por um momento, nao tem problema. ainda nao estamos
-> operando na plataforma."). Por isso a migração vem **logo depois** do `implantar` — alguns minutos,
+> (Passo 5), o **código novo roda sobre o banco velho**. Nesse intervalo falham com a tela de erro
+> (ou com "não deu para…"):
+>
+> - a Produção (`/gestao/producao`), o vínculo "Qual ordem?" do Estoque e o bloco "Produção" do
+>   Início;
+> - a aprovação de orçamento (que agora abre a ordem);
+> - **todo cancelamento no Caixa — de venda E de despesa**: o cancelamento agora procura a ordem
+>   ligada ao documento (D-07) antes de qualquer outra coisa, e essa tabela ainda não existe;
+> - **toda gravação no livro do Estoque**, porque toda linha nova do livro leva a coluna
+>   `material_da_ordem`, que só nasce na `0024`: lançar venda com item de estoque, lançar compra de
+>   material (despesa com material), e no Estoque a entrada, a saída, o ajuste e a contagem;
+> - abrir o Histórico do Estoque também pode falhar.
+>
+> Ou seja: nesse meio-tempo, **não lance nem cancele nada no Financeiro e não mexa no Estoque**
+> (revisão de código de 30/09/2026, IN-08 — até ela, este parágrafo citava só "lançar venda com
+> estoque"). Você aceitou isso no D-09 ("se o unico problema for o site ficar meio quebrado por um
+> momento, nao tem problema. ainda nao estamos operando na plataforma."). Por isso a migração vem **logo depois** do `implantar` — alguns minutos,
 > não horas — e ninguém lança nada nesse meio-tempo.
 >
 > **Janela 2, proibida:** migrar **antes** de o `implantar` terminar. A imagem `ferramentas` (a que
