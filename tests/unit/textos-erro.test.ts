@@ -5,11 +5,13 @@ import {
   FRASE_ERRO_TITULO,
   ROTULO_TENTAR_DE_NOVO,
 } from "../../lib/erro/textos";
-import { FRASE_ERRO_TITULO as FRASE_ERRO_TITULO_ENCOMENDAS } from "../../lib/encomendas/textos";
+import { TITULO_ERRO as TITULO_ERRO_PRODUCAO } from "../../lib/producao/textos";
 
 describe("lib/erro/textos — voz única das fronteiras de erro", () => {
-  it("FRASE_ERRO_TITULO é exatamente igual ao FRASE_ERRO_TITULO de lib/encomendas/textos.ts", () => {
-    expect(FRASE_ERRO_TITULO).toBe(FRASE_ERRO_TITULO_ENCOMENDAS);
+  // Fase 06.1 (plano 14): a comparação era com `lib/encomendas/textos.ts`, apagado; a frase
+  // equivalente é o `TITULO_ERRO` de `lib/producao/textos.ts` (zero imports, mesma razão).
+  it("FRASE_ERRO_TITULO é exatamente igual ao TITULO_ERRO de lib/producao/textos.ts", () => {
+    expect(FRASE_ERRO_TITULO).toBe(TITULO_ERRO_PRODUCAO);
   });
 
   it('FRASE_ERRO_CORPO_GENERICO diz o que fazer — contém "tente de novo"', () => {

@@ -2,8 +2,8 @@
 // alcança React, Next, drizzle-orm, pg ou `@/db` (grep de aceite do plano 06.1-01), e "hoje" nunca é
 // lido do relógio por dentro — quem precisa dele o recebe como argumento.
 //
-// CÓPIA PRÓPRIA da aritmética civil de `lib/encomendas/cronograma.ts` (algoritmo de Howard Hinnant,
-// "days_from_civil" / "civil_from_days"), feita antes de o plano 06.1-14 apagar aquela pasta. Datas
+// CÓPIA PRÓPRIA da aritmética civil do antigo `lib/encomendas/cronograma.ts` (algoritmo de Howard
+// Hinnant, "days_from_civil" / "civil_from_days"), feita antes de o plano 06.1-14 apagar aquela pasta. Datas
 // trafegam como string `YYYY-MM-DD` do começo ao fim; a conta interna é puro inteiro (dias desde
 // 1970-01-01, proléptico gregoriano). Nenhuma instância de `Date` entra na conta — é onde o fuso do
 // runtime poderia deslocar o dia.

@@ -57,6 +57,11 @@ export default defineConfig({
   //
   // Custo: alguns segundos de login a mais por etapa da cadeia. O que se compra é a prova de
   // ENC-13 (o estado vazio "A roda ainda não gira.") rodando na suíte completa, não só sob grep.
+  //
+  // (30/09/2026, plano 06.1-14: os specs de Encomendas saíram com o módulo, e com eles os quatro
+  // testes citados acima. A cadeia continua pelo mesmo motivo, com os `@vazio-global` que ficaram —
+  // Início, Produção, Estoque, Queimas… — e os `@vazio-historico` do Estoque e da perda medida da
+  // Produção.)
   projects: [
     {
       name: "vazio-celular",

@@ -222,19 +222,8 @@ describe("nenhuma navegação da plataforma aponta para o endereço antigo da ra
   });
 
   it("zero literais começando por um caminho antigo em app/, components/ e lib/", () => {
-    // TEMPORÁRIO (plano 06.1-14, Tarefa 2 → Tarefa 3): o módulo antigo de Encomendas ainda existe
-    // entre as duas tarefas e é todo ele o endereço antigo; a Tarefa 3 o apaga e tira esta linha.
-    const MODULO_ANTIGO_A_APAGAR = [
-      join("lib", "encomendas") + sep,
-      join("components", "amassa", "encomendas") + sep,
-      join("app", "gestao", "(app)", "encomendas") + sep,
-    ];
     const ocorrencias = PASTAS.flatMap((pasta) => listarArquivos(join(RAIZ, pasta)))
       .filter((caminho) => !ARQUIVOS_EXCLUIDOS.has(relative(RAIZ, caminho)))
-      .filter(
-        (caminho) =>
-          !MODULO_ANTIGO_A_APAGAR.some((pasta) => relative(RAIZ, caminho).startsWith(pasta)),
-      )
       .flatMap(ocorrenciasEm);
 
     const relatorio = ocorrencias.map(

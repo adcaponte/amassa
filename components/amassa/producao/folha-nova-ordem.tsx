@@ -100,9 +100,14 @@ function enderecoSemNova(): string {
 // A folha "Nova ordem" (UI-SPEC §"Folha Nova ordem (diálogo)"), aberta por `?nova=1` — abrir e
 // fechar mexem só na URL (`pushState`, molde de `escolher-peca.tsx`). A folha nasce limpa a cada
 // abertura (o formulário só existe enquanto ela está aberta).
+//
+// Plano 06.1-14: `?nova` sem valor também abre. É o que o índice antigo de Encomendas gravava
+// (`/gestao/encomendas?nova`); o redirecionamento de seis meses leva a query junto, e a UI-SPEC
+// promete que esse favorito antigo "cai na ação certa".
 export function FolhaNovaOrdem({ hoje }: { hoje: string }) {
   const parametros = useSearchParams();
-  if (parametros.get("nova") !== "1") {
+  const nova = parametros.get("nova");
+  if (nova !== "1" && nova !== "") {
     return null;
   }
   return <FormularioNovaOrdem hoje={hoje} aoFechar={() => irParaSemNavegar(enderecoSemNova())} />;

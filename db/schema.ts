@@ -96,136 +96,17 @@ export const execucoesBackup = pgTable(
   ],
 );
 
-// Fase 3 — Gestor de Encomendas. SQL literal em amassa-plataforma/02-MODELO-DE-DADOS.md §1; as
-// datas de cada etapa NÃO são armazenadas aqui — são calculadas em cascata a partir de
-// `dataInicio` pelo módulo puro `lib/encomendas/cronograma.ts` (evita duas versões da verdade
-// quando `dias` muda).
-export const statusEncomenda = pgEnum("status_encomenda", [
-  "rascunho",
-  "em_producao",
-  "concluida",
-  "cancelada",
-]);
-export const etapaEncomenda = pgEnum("etapa_encomenda", [
-  "producao",
-  "secagem",
-  "queima1",
-  "esmaltacao",
-  "queima2",
-  "entrega",
-]);
-
-// Uma encomenda do ateliê: nome, cliente (texto livre — sem ficha de cadastro nesta versão,
-//00-BRIEFING.md §5), data de início e status. `status` nasce `em_producao` (não `rascunho`) —
-// o formulário de criação desta fatia sempre grava uma encomenda pronta para o cronograma
-// rodar; `rascunho` existe no enum para o plano 03/04 tratarem sem migração nova.
-export const encomendas = pgTable(
-  "encomendas",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    nome: text("nome").notNull(),
-    clienteNome: text("cliente_nome"),
-    // `mode: "string"` — o dia civil trafega como `YYYY-MM-DD` do banco à interface, nunca
-    // vira `Date`: um `Date` cruzando o fuso do runtime desloca o dia (PD-05 do plano).
-    dataInicio: date("data_inicio", { mode: "string" }).notNull(),
-    status: statusEncomenda("status").notNull().default("em_producao"),
-    observacoes: text("observacoes"),
-    // `set null`, não `cascade`: desativar/remover um usuário no futuro não pode apagar as
-    // encomendas que ele criou (o histórico do ateliê sobrevive à conta que registrou).
-    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
-    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (tabela) => [
-    check("encomendas_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
-    index("encomendas_data_inicio_idx").on(tabela.dataInicio),
-    index("encomendas_status_idx").on(tabela.status),
-  ],
-);
-
-// Cada linha de item de uma encomenda ("40 × caneca cônica"). `ordem` decide a posição na
-// lista do formulário e é o que a reordenação por setas (D-16, plano 06) grava.
-export const encomendaItens = pgTable(
-  "encomenda_itens",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    encomendaId: uuid("encomenda_id")
-      .notNull()
-      .references(() => encomendas.id, { onDelete: "cascade" }),
-    descricao: text("descricao").notNull(),
-    quantidade: integer("quantidade").notNull(),
-    ordem: integer("ordem").notNull().default(0),
-    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (tabela) => [
-    check(
-      "encomenda_itens_descricao_comprimento",
-      sql`length(trim(${tabela.descricao})) between 1 and 200`,
-    ),
-    check("encomenda_itens_quantidade_positiva", sql`${tabela.quantidade} > 0`),
-    index("encomenda_itens_encomenda_idx").on(tabela.encomendaId),
-  ],
-);
-
-// As 6 etapas fixas de cada encomenda (produção · secagem · queima1 · esmaltação · queima2 ·
-// entrega), uma linha por etapa por encomenda (`unique`). `dias` é a duração; a partir da fase
-// 04.1 (D-06) os três marcos (queima1/queima2/entrega) SEMPRE acontecem e SEMPRE duram 1 dia —
-// `marcos_sempre_um_dia` é a defesa no nível do banco para o dia em que um caminho de escrita
-// novo esquecer o Zod (T-04.1-05). `espera_dias` é a espera ANTES do marco, nunca a duração dele
-// (D-07) — quantos dias a peça fica parada depois que a etapa anterior termina e antes daquele
-// marco acontecer. Continua sendo um contador RELATIVO de dias, nunca uma data: nenhuma data de
-// marco é armazenada aqui, só calculada em cascata por `lib/encomendas/cronograma.ts` a partir
-// de `encomendas.data_inicio` (D-01). `espera_so_em_marco` garante que produção, secagem e
-// esmaltação — trabalho contínuo, não espera (D-03) — nunca gravam espera diferente de 0.
-export const encomendaEtapas = pgTable(
-  "encomenda_etapas",
-  {
-    id: uuid("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    encomendaId: uuid("encomenda_id")
-      .notNull()
-      .references(() => encomendas.id, { onDelete: "cascade" }),
-    etapa: etapaEncomenda("etapa").notNull(),
-    dias: integer("dias").notNull().default(1),
-    esperaDias: integer("espera_dias").notNull().default(0),
-    ordem: integer("ordem").notNull(),
-    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (tabela) => [
-    unique("encomenda_etapas_encomenda_etapa_uk").on(tabela.encomendaId, tabela.etapa),
-    check(
-      "marcos_sempre_um_dia",
-      sql`${tabela.etapa} not in ('queima1','queima2','entrega') or ${tabela.dias} = 1`,
-    ),
-    check("encomenda_etapas_dias_nao_negativo", sql`${tabela.dias} >= 0`),
-    check(
-      "encomenda_etapas_espera_no_intervalo",
-      sql`${tabela.esperaDias} >= 0 and ${tabela.esperaDias} <= 365`,
-    ),
-    check(
-      "espera_so_em_marco",
-      sql`${tabela.etapa} in ('queima1','queima2','entrega') or ${tabela.esperaDias} = 0`,
-    ),
-    index("encomenda_etapas_encomenda_idx").on(tabela.encomendaId),
-  ],
-);
-
 // ---------------------------------------------------------------------------------------------
 // Fase 06.1 — Produção (migração 0024_producao). O redesenho das Encomendas: a ordem de produção
 // deixa de ter um cronograma CALCULADO pelo calendário e passa a ter etapas MARCADAS como feitas
 // (`ordem_etapas.feita_em`, a data real, decidida no servidor). A etapa atual é a primeira sem
 // `feita_em`; nada aqui deduz a etapa da data (PRD-12).
 //
-// - D-01: as tabelas `encomendas*` acima FICAM neste arquivo até o plano 06.1-14 — a `0024` só
-//   cria, religa e grava o dado do D-02; quem apaga as velhas é a `0025`. Gerar as duas num diff
-//   só faria o `drizzle-kit` perguntar "criada ou renomeada?" (06.1-RESEARCH.md, Pitfall 3).
+// - D-01: a `0024` só cria, religa e grava o dado do D-02; as tabelas velhas de Encomendas
+//   (`encomendas`, `encomenda_itens`, `encomenda_etapas`) e os tipos `status_encomenda` e
+//   `etapa_encomenda` saíram deste arquivo no plano 06.1-14, e quem as apaga do banco é a
+//   `0025_remover-encomendas`. Gerar as duas num diff só faria o `drizzle-kit` perguntar "criada
+//   ou renomeada?" (06.1-RESEARCH.md, Pitfall 3).
 // - D-02: orçamento aprovado e ativo com encomenda provisória ganha, NA migração, a ordem
 //   "aguardando o sinal" — com o MESMO id da encomenda (bloco à mão da `0024`).
 // - D-09: a `0024` e a `0025` vão na mesma publicação e são aplicadas numa sessão só de
@@ -240,8 +121,8 @@ export const encomendaEtapas = pgTable(
 //   ar e verificado, não precisa mudar de nome de campo. Sem `on delete`: ordem não se apaga
 //   (`revoke delete` das três tabelas para `amassa_app`, à mão na `0024`) — só se cancela.
 //
-// `etapa_producao` tem os MESMOS seis valores de `etapa_encomenda`: é o que mantém os tokens
-// `--color-{etapa}` de `app/globals.css` (os "NÃO ALTERAR") valendo sem tradução.
+// `etapa_producao` tem os MESMOS seis valores do antigo `etapa_encomenda`: é o que mantém os
+// tokens `--color-{etapa}` de `app/globals.css` (os "NÃO ALTERAR") valendo sem tradução.
 // ---------------------------------------------------------------------------------------------
 export const tipoOrdem = pgEnum("tipo_ordem", ["encomenda", "casa"]);
 export const caminhoOrdem = pgEnum("caminho_ordem", ["completo", "biscoito"]);
@@ -289,7 +170,8 @@ export const ordensProducao = pgTable(
     canceladaPor: uuid("cancelada_por").references(() => usuarios.id),
     // D-07: a ordem ainda aguardando o sinal cancelada JUNTO com a venda no Caixa.
     canceladaPelaVenda: boolean("cancelada_pela_venda").notNull().default(false),
-    // `set null`, como em `encomendas`: desativar/remover uma conta nunca apaga o histórico.
+    // `set null` (como era na antiga `encomendas`): desativar/remover uma conta nunca apaga o
+    // histórico.
     criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
     atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
@@ -381,8 +263,8 @@ export const ordemEtapas = pgTable(
 // aplicar em produção só no plano de fechamento (04-07), depois de um backup, à mão.
 //
 // `ocorrida_em`/`ocorridaEm` é timestamptz (instante), NUNCA date (dia civil) — o oposto de
-// `encomendas.dataInicio`: uma queima acontece num momento preciso do dia, não é um marco de
-// calendário. A view de apoio `fornos_medidos` do documento fonte NÃO é criada (Desvio 2): o
+// `ordens_producao.inicio` (e da antiga `encomendas.data_inicio`): uma queima acontece num
+// momento preciso do dia, não é um marco de calendário. A view de apoio `fornos_medidos` do documento fonte NÃO é criada (Desvio 2): o
 // módulo puro `lib/queimas/contador.ts` já calcula nível a partir de dados carregados, e
 // `lib/queimas/consultas.ts` reproduz o mesmo `left join lateral` — uma view a mais seria um
 // segundo lugar com a mesma regra, fora de `TABELAS_ESPERADAS` e invisível a `test:migracoes`.

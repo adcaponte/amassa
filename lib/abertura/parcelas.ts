@@ -60,7 +60,8 @@ function formatarDataCivil(ano: number, mes: number, dia: number): string {
 
 // Diferença em dias inteiros entre duas datas civis `YYYY-MM-DD` — `dataMaisTarde` menos
 // `dataMaisCedo`. Exportada: `lib/abertura/prazos.ts` do plano 02 importa daqui em vez de
-// escrever uma terceira cópia (a segunda já vive em `lib/encomendas/cronograma.ts`).
+// escrever mais uma cópia (a outra vive em `lib/producao/calendario.ts`; até o plano 06.1-14
+// vivia em `lib/encomendas/cronograma.ts`, apagado com o módulo de Encomendas).
 export function diferencaEmDias(dataMaisTarde: string, dataMaisCedo: string): number {
   const [anoA, mesA, diaA] = dataMaisTarde.split("-").map(Number);
   const [anoB, mesB, diaB] = dataMaisCedo.split("-").map(Number);

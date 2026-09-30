@@ -244,6 +244,22 @@ test.describe("producao rotas", () => {
     await expect(page.getByTestId("quatro-cento-e-quatro-gestao")).toBeVisible();
   });
 
+  // O favorito que o índice antigo gravava para "Nova encomenda" (`?nova`, sem valor) chega à
+  // Produção com a folha "Nova ordem" aberta — a promessa da UI-SPEC para o link antigo.
+  test("o favorito antigo /gestao/encomendas?nova abre a folha Nova ordem na Produção", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.goto("/gestao/encomendas?nova");
+    // O `redirects()` do Next reescreve `?nova` como `?nova=` — os dois abrem a folha.
+    await expect(page).toHaveURL(/\/gestao\/producao\?nova=?$/);
+    const folha = page.getByTestId("folha-nova-ordem");
+    await expect(folha).toBeVisible();
+    await folha.getByTestId("nova-ordem-voltar").click();
+    await expect(folha).toHaveCount(0);
+    await expect(page).not.toHaveURL(/nova/);
+  });
+
   test("requisições paralelas ao endereço antigo recebem o mesmo 307, sem gravar nada", async ({
     request,
   }) => {

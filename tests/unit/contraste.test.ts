@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { luminanciaRelativa, razaoDeContraste } from "@/lib/acessibilidade/contraste";
-import { ORDEM_DAS_ETAPAS } from "@/lib/encomendas/cronograma";
+import { ORDEM_DAS_COLUNAS } from "@/lib/producao/etapas";
 
 // O briefing do site (BRIEFING-site.md §4) manda CONFERIR o contraste da faixa amarela, não
 // afirmá-lo — "a faixa amarela `--sol` com texto `--tinta` passa; conferir". Uma frase de plano
@@ -117,9 +117,10 @@ describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
 
 // Fase 04.6, achado do plano 08 — a lacuna que este bloco fecha.
 //
-// `components/amassa/inicio/bloco-producao.tsx` e `components/amassa/encomendas/gantt.tsx`
-// pintam o rótulo da etapa DENTRO de uma pílula cuja cor de fundo é `--color-<etapa>`. A regra
-// da cor do texto é a mesma nos dois: tinta escura na `secagem` (o único token claro da
+// `components/amassa/inicio/bloco-producao.tsx` e `components/amassa/producao/folha-geral.tsx`
+// pintam o rótulo (ou o contador) da etapa DENTRO de uma pílula cuja cor de fundo é
+// `--color-<etapa>`. (Até a Fase 06.1 o segundo era o Gantt de Encomendas, apagado no plano 14.)
+// A regra da cor do texto é a mesma nos dois: tinta escura na `secagem` (o único token claro da
 // família), branco em todas as outras. Dois problemas que só um teste pega:
 //
 // 1. Um token de etapa pode ser reescrito sem ninguém remedir o par. Foi exatamente o que
@@ -130,7 +131,7 @@ describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
 // 2. A regra está DUPLICADA em dois componentes. Se um deles mudar e o outro não, a mesma
 //    pílula passa a ter contraste diferente em duas telas.
 //
-// A lista de etapas vem de `ORDEM_DAS_ETAPAS`, não escrita à mão aqui: uma etapa nova sem token
+// A lista de etapas vem de `ORDEM_DAS_COLUNAS` (`lib/producao/etapas.ts`), não escrita à mão aqui: uma etapa nova sem token
 // (ou com um token que reprova) cai neste teste, não na tela do ateliê.
 describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado do plano 04.6-08)", () => {
   // A mesma regra dos dois componentes, num lugar só, para o teste poder cobrá-la dos dois.
@@ -138,7 +139,7 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   const BRANCO = "#FFFFFF";
   const corDoTextoDaEtapa = (etapa: string) => (etapa === "secagem" ? TINTA_SOBRE_CLARO : BRANCO);
 
-  it.each(ORDEM_DAS_ETAPAS.map((etapa) => [etapa] as const))(
+  it.each(ORDEM_DAS_COLUNAS.map((etapa) => [etapa] as const))(
     "a pílula da etapa %s passa AA (>= 4.5) com a cor de texto que os componentes escolhem",
     (etapa) => {
       const fundo = tokenDaPlataforma(etapa);
@@ -151,7 +152,7 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   );
 
   it("a secagem é mesmo o único token de etapa que precisa de texto escuro", () => {
-    const precisamDeEscuro = ORDEM_DAS_ETAPAS.filter(
+    const precisamDeEscuro = ORDEM_DAS_COLUNAS.filter(
       (etapa) => razaoDeContraste(tokenDaPlataforma(etapa), BRANCO) < 4.5,
     );
     // Se outro token entrar nesta lista, a regra `secagem ? escuro : branco` dos dois
@@ -161,7 +162,6 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
 
   it.each([
     ["components/amassa/inicio/bloco-producao.tsx"],
-    ["components/amassa/encomendas/gantt.tsx"],
     // Fase 06.1, plano 13 (Q13): o contador colorido da seção de etapa da folha geral A4.
     ["components/amassa/producao/folha-geral.tsx"],
   ])("%s carrega a mesma regra de cor de texto (a duplicação não pode divergir)", (caminho) => {

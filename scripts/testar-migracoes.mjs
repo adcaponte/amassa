@@ -27,10 +27,9 @@ const TABELAS_ESPERADAS = [
   "verificacao_infraestrutura",
   "usuarios",
   "execucoes_backup",
-  // Fase 3 — Gestor de Encomendas (migração 0005_encomendas).
-  "encomendas",
-  "encomenda_itens",
-  "encomenda_etapas",
+  // (As três tabelas da Fase 3 — `encomendas`, `encomenda_itens`, `encomenda_etapas`, da 0005 —
+  // saíram: a 0025_remover-encomendas da Fase 06.1 as apaga; a prova está em
+  // `provarMigracaoDaProducaoEmBancoProprio`.)
   // Fase 4 — Contador de Queima (migração 0007_queimas).
   "fornos",
   "queimas",
@@ -78,9 +77,10 @@ const TABELAS_ESPERADAS = [
   // checks) e a prova de concorrência são do plano 06-02.
   "movimentacoes_estoque",
   // Fase 06.1 — Produção (migração 0024_producao). Permanentes; não entram em
-  // TABELAS_DA_REMOCAO_ABERTURA. As três `encomenda*` do bloco da Fase 3 continuam até o plano
-  // 06.1-14 (a `0025` as apaga). As conferências completas das tabelas novas e a prova do D-02
-  // em banco próprio são do plano 06.1-02; aqui, o vínculo do livro com a ordem (conferirEstoque).
+  // TABELAS_DA_REMOCAO_ABERTURA. As três `encomenda*` da Fase 3 foram apagadas pela `0025`
+  // (plano 06.1-14). As conferências completas das tabelas novas e a prova do D-02 e da `0025`
+  // em banco próprio são dos planos 06.1-02 e 06.1-14; aqui, o vínculo do livro com a ordem
+  // (conferirEstoque).
   "ordens_producao",
   "ordem_etapas",
   "ordem_pecas",
@@ -3907,8 +3907,107 @@ async function conferirDadoDoD02(cliente, semente) {
   );
 }
 
+// ————————————————————————————————————————————————————————————————————————————————————————————
+// Fase 06.1, plano 14 — a `0025_remover-encomendas`, no MESMO banco próprio da prova do D-02, logo
+// depois da `0024` (a ordem em que o dono as aplica, D-09). Ela só pode apagar as três tabelas e os
+// dois tipos de Encomendas (T-06.1-54): as chaves estrangeiras das outras tabelas, a função
+// compartilhada `tocar_atualizado_em()`, os gatilhos das tabelas da Produção e o dado migrado pela
+// `0024` (a ordem, as etapas, as peças, o vínculo do orçamento e o da baixa) ficam iguais.
+// ————————————————————————————————————————————————————————————————————————————————————————————
+const TABELAS_DE_ENCOMENDAS = ["encomendas", "encomenda_itens", "encomenda_etapas"];
+const TIPOS_DE_ENCOMENDAS = ["status_encomenda", "etapa_encomenda"];
+
+// O que a `0025` não pode mudar — lido antes e depois dela, comparado como texto.
+async function retratoForaDeEncomendas(cliente, semente) {
+  const { rows: chaves } = await cliente.query(
+    `select conrelid::regclass::text as tabela, conname, pg_get_constraintdef(oid) as definicao
+       from pg_constraint
+      where contype = 'f' and connamespace = 'public'::regnamespace
+        and conrelid::regclass::text <> all($1::text[])
+      order by 1, 2`,
+    [TABELAS_DE_ENCOMENDAS],
+  );
+  const { rows: gatilhos } = await cliente.query(
+    `select tgrelid::regclass::text as tabela, tgname
+       from pg_trigger
+      where not tgisinternal and tgrelid::regclass::text <> all($1::text[])
+      order by 1, 2`,
+    [TABELAS_DE_ENCOMENDAS],
+  );
+  const ordemId = semente.casos.A.encomendaId;
+  const { rows: ordem } = await cliente.query(
+    `select id, tipo, caminho, status, nome, cliente_nome, entrega_prometida::text as entrega,
+            inicio, criado_por
+       from ordens_producao where id = $1`,
+    [ordemId],
+  );
+  const { rows: etapas } = await cliente.query(
+    `select etapa, posicao, dias_previstos, feita_em, passaram
+       from ordem_etapas where ordem_id = $1 order by posicao`,
+    [ordemId],
+  );
+  const { rows: pecas } = await cliente.query(
+    `select posicao, ficha_id, descricao, quantidade, a_mais, cor, personalizacao
+       from ordem_pecas where ordem_id = $1 order by posicao`,
+    [ordemId],
+  );
+  const { rows: vinculos } = await cliente.query(
+    `select (select encomenda_id from orcamentos where id = $1) as orcamento_a,
+            (select encomenda_id from movimentacoes_estoque where id = $2) as baixa_a,
+            (select count(*) from ordens_producao)::int as ordens`,
+    [semente.casos.A.orcamentoId, semente.baixas.A],
+  );
+  return { chaves, gatilhos, ordem, etapas, pecas, vinculos };
+}
+
+async function conferirRemocaoDasEncomendas(cliente, antes, depois) {
+  const { rows: tabelas } = await cliente.query(
+    `select table_name from information_schema.tables
+      where table_schema = 'public' and table_name = any($1::text[])`,
+    [TABELAS_DE_ENCOMENDAS],
+  );
+  afirmar(
+    tabelas.length === 0,
+    `0025: as tabelas de Encomendas deveriam ter sumido, ainda existem ${tabelas.map((t) => t.table_name).join(", ")}.`,
+  );
+  const { rows: tipos } = await cliente.query(
+    "select typname from pg_type where typname = any($1::text[])",
+    [TIPOS_DE_ENCOMENDAS],
+  );
+  afirmar(
+    tipos.length === 0,
+    `0025: os tipos status_encomenda e etapa_encomenda deveriam ter sumido, ainda existem ${tipos.map((t) => t.typname).join(", ")}.`,
+  );
+  const { rows: funcao } = await cliente.query(
+    "select 1 from pg_proc where proname = 'tocar_atualizado_em' and pronamespace = 'public'::regnamespace",
+  );
+  afirmar(funcao.length === 1, "0025: a função compartilhada tocar_atualizado_em() deveria continuar existindo.");
+  const { rows: gatilhosDeEncomendas } = await cliente.query(
+    "select tgname from pg_trigger where tgname like 'tocar_atualizado_em_encomenda%'",
+  );
+  afirmar(
+    gatilhosDeEncomendas.length === 0,
+    `0025: os gatilhos das tabelas de Encomendas deveriam ter sumido com elas, restam ${gatilhosDeEncomendas.map((g) => g.tgname).join(", ")}.`,
+  );
+  for (const parte of ["chaves", "gatilhos", "ordem", "etapas", "pecas", "vinculos"]) {
+    afirmar(
+      JSON.stringify(depois[parte]) === JSON.stringify(antes[parte]),
+      `0025: "${parte}" fora de Encomendas mudou — antes ${JSON.stringify(antes[parte])}, depois ${JSON.stringify(depois[parte])}.`,
+    );
+  }
+  afirmar(
+    antes.ordem.length === 1 && antes.etapas.length === 6 && antes.pecas.length === 2,
+    `0025: a prova deveria comparar a ordem migrada com as 6 etapas e as 2 peças — veio ${JSON.stringify({ ordem: antes.ordem.length, etapas: antes.etapas.length, pecas: antes.pecas.length })}.`,
+  );
+  afirmar(
+    antes.chaves.some((chave) => chave.conname === "orcamentos_encomenda_id_ordens_producao_id_fk") &&
+      antes.gatilhos.some((gatilho) => gatilho.tgname === "tocar_atualizado_em_ordens_producao"),
+    "0025: o retrato deveria incluir a chave do orçamento para a ordem e o gatilho da ordem (senão a comparação não prova nada).",
+  );
+}
+
 async function provarMigracaoDaProducaoEmBancoProprio() {
-  // (1) 0000..0023, os três casos, e só então a 0024.
+  // (1) 0000..0023, os três casos, e só então a 0024 — e, no mesmo banco, a 0025.
   const comDado = await criarBancoProprio("producao");
   try {
     console.log(`Provando o D-02 da 0024 sobre dado existente, em banco proprio ("${comDado.nome}")...`);
@@ -3919,6 +4018,12 @@ async function provarMigracaoDaProducaoEmBancoProprio() {
       const semente = await semearCasosDoD02(cliente);
       await aplicarMigracoesAte(cliente, 24, 24);
       await conferirDadoDoD02(cliente, semente);
+
+      console.log("Provando a 0025 (apaga as tabelas de Encomendas) no mesmo banco, depois da 0024...");
+      const antes = await retratoForaDeEncomendas(cliente, semente);
+      await aplicarMigracoesAte(cliente, 25, 25);
+      const depois = await retratoForaDeEncomendas(cliente, semente);
+      await conferirRemocaoDasEncomendas(cliente, antes, depois);
     } finally {
       await cliente.end();
     }
