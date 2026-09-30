@@ -171,19 +171,22 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   });
 });
 
-// CR-04 (revisão da Fase 04.6): o bloco Produção do Início ganhou duas tags sem etapa — a de
-// encomenda atrasada e a de encomenda que ainda não começou —, além da "Em espera" que já
-// existia. O mesmo bloco já tinha saído com uma pílula a 1,94:1, achada só por leitura; aqui cada
-// par que as tags usam é MEDIDO, lido do `app/globals.css` real. Achado real se reprovar: o token
-// ou o par muda, nunca o limiar.
-describe("contraste das tags sem etapa do bloco Produção do Início (CR-04)", () => {
-  const PARES_DAS_TAGS = [
-    ["Atrasada", "erro", "erro-fundo", "text-erro", "bg-erro-fundo"],
-    ["Começa em / Em espera", "muted-foreground", "muted", "text-muted-foreground", "bg-muted"],
+// Fase 06.1 (plano 14, D-16): o bloco Produção do Início deixou as tags sem etapa do modelo antigo
+// ("Atrasada", "Começa em", "Em espera" — CR-04 da 04.6) e passou a mostrar o SELO da ordem, o mesmo
+// chip do quadro (`ChipDoSelo`, em `cartao-ordem.tsx`), e a linha "{N} aguardando o sinal". Cada par
+// de cor que eles usam — Q1 a Q4 da tabela "Pares de contraste" de `06.1-UI-SPEC.md` — é MEDIDO aqui,
+// lido do `app/globals.css` real. Q1 (4,51) e Q2 (4,57) passam por pouco: um ajuste de paleta
+// reprova aqui de propósito. Achado real se reprovar: o token ou o par muda, nunca o limiar.
+describe("contraste dos selos e da linha de aguardando do bloco Produção do Início (Q1–Q4)", () => {
+  const PARES_DO_SELO = [
+    ["Q1 · +N nesta etapa", "atencao", "atencao-fundo", "text-atencao", "bg-atencao-fundo"],
+    ["Q2 · no ritmo", "sucesso", "sucesso-fundo", "text-sucesso", "bg-sucesso-fundo"],
+    ["Q3 · vai atrasar", "erro", "erro-fundo", "text-erro", "bg-erro-fundo"],
+    ["Q4 · aguardando o sinal", "tinta-media", "superficie-2", "text-tinta-media", "bg-superficie-2"],
   ] as const;
 
-  it.each(PARES_DAS_TAGS)(
-    "a tag %s (--color-%s sobre --color-%s) passa AA (>= 4.5)",
+  it.each(PARES_DO_SELO)(
+    "o par %s (--color-%s sobre --color-%s) passa AA (>= 4.5)",
     (_rotulo, tokenDoTexto, tokenDoFundo) => {
       const texto = tokenDaPlataforma(tokenDoTexto);
       const fundo = tokenDaPlataforma(tokenDoFundo);
@@ -192,17 +195,26 @@ describe("contraste das tags sem etapa do bloco Produção do Início (CR-04)", 
     },
   );
 
-  it.each(PARES_DAS_TAGS)(
-    "o bloco Produção usa de fato o par medido da tag %s",
+  it.each(PARES_DO_SELO)(
+    "o chip do selo usa de fato o par medido %s",
     (_rotulo, _texto, _fundo, classeDoTexto, classeDoFundo) => {
       const fonte = readFileSync(
-        join(process.cwd(), "components/amassa/inicio/bloco-producao.tsx"),
+        join(process.cwd(), "components/amassa/producao/cartao-ordem.tsx"),
         "utf-8",
       );
-      expect(fonte).toContain(classeDoTexto);
-      expect(fonte).toContain(classeDoFundo);
+      expect(fonte).toContain(`${classeDoFundo} ${classeDoTexto}`);
     },
   );
+
+  it("o bloco Produção usa o chip do selo do quadro e o par Q4 na linha de aguardando", () => {
+    const fonte = readFileSync(
+      join(process.cwd(), "components/amassa/inicio/bloco-producao.tsx"),
+      "utf-8",
+    );
+    expect(fonte).toContain("<ChipDoSelo");
+    expect(fonte).toContain("text-tinta-media");
+    expect(fonte).toContain("bg-superficie-2");
+  });
 });
 
 // Fase 06 (Estoque), plano 06-04: os pares de cor que a fase passa a usar, P1 a P17b da tabela

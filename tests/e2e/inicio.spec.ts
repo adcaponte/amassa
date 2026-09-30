@@ -1,10 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { dataLongaEmPortugues } from "@/lib/inicio/saudacao";
-import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
+import { TEXTOS_DOS_BLOCOS, textoAguardandoOSinal } from "@/lib/inicio/textos";
+import { rotuloDaEtapa } from "@/lib/producao/etapas";
 
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
-import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
+import { hojeNoAtelie } from "./apoio/semear-financeiro";
+import { diaEmBrasilia, semearOrdem } from "./apoio/semear-producao";
 
 // O Início de verdade (04.6-06-PLAN.md): saudação com nome e data, pílulas, índice, e os quatro
 // blocos de leitura — Agenda de hoje, O que vence, Produção e Estoque acabando —, cada um com os
@@ -26,46 +28,6 @@ async function fazerLogin(page: Page) {
 
 function nomeUnico(rotulo: string): string {
   return `[e2e] ${rotulo} ${test.info().project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// `getByLabel`/`getByRole` sozinhos casam com DOIS elementos quando `FormularioEncomenda` monta
-// Dialog (desktop) e Sheet (celular) ao mesmo tempo — mesma armadilha documentada em
-// `tests/e2e/encomendas-indice.spec.ts`; `:visible` escolhe a metade real do viewport do
-// projeto Playwright atual.
-function campoVisivel(page: Page, rotulo: string) {
-  return page.getByLabel(rotulo).and(page.locator(":visible"));
-}
-
-function botaoVisivel(page: Page, nome: string) {
-  return page.getByRole("button", { name: nome }).and(page.locator(":visible"));
-}
-
-// Cria uma encomenda pelo formulário real — nunca por INSERT direto (não há auxiliar de
-// semeadura para Encomendas, ao contrário do Financeiro). Uma retentativa, pelo mesmo motivo
-// documentado em `encomendas-indice.spec.ts`: o ambiente local, sem retry do Playwright fora do
-// CI, ocasionalmente fica preso em `?nova` sem redirecionar mesmo com dado válido.
-async function criarEncomenda(page: Page, opcoes: { nome: string; dataInicio: string }) {
-  for (let tentativa = 1; tentativa <= 2; tentativa++) {
-    await page.goto("/gestao/encomendas?nova");
-    await campoVisivel(page, "Nome da encomenda").fill(opcoes.nome);
-    await campoVisivel(page, "Data de início").fill(opcoes.dataInicio);
-    await campoVisivel(page, "Descrição do item 1").fill("Item de teste [e2e]");
-    await campoVisivel(page, "Quantidade do item 1").fill("1");
-    await botaoVisivel(page, "Salvar").click();
-
-    try {
-      await expect(page).toHaveURL(/\/gestao\/encomendas$/, { timeout: 10000 });
-      return;
-    } catch (erro) {
-      await page.goto("/gestao/encomendas");
-      if ((await page.getByText(opcoes.nome, { exact: true }).count()) > 0) {
-        return;
-      }
-      if (tentativa === 2) {
-        throw erro;
-      }
-    }
-  }
 }
 
 // Os cinco blocos, na ordem de GES-07 (o 5º, Anotações, entrou no plano 07) — lidos pelo
@@ -134,6 +96,13 @@ test.describe("inicio", () => {
     await expect(page.getByTestId("inicio-bloco-estoque")).toContainText(
       "Nenhum material abaixo do mínimo.",
     );
+
+    // Produção (Fase 06.1, D-16): banco sem ordem nenhuma — a frase do vazio e o convite a criar
+    // uma ordem, sem a linha de aguardando.
+    const blocoProducao = page.getByTestId("inicio-bloco-producao");
+    await expect(blocoProducao).toContainText(TEXTOS_DOS_BLOCOS.producao.vazio);
+    await expect(blocoProducao).toContainText(TEXTOS_DOS_BLOCOS.producao.vazioSemAguardando);
+    await expect(blocoProducao.getByTestId("inicio-producao-aguardando")).toHaveCount(0);
   });
 
   // Caso (e): a parcela vencendo hoje aparece no bloco, e "Paguei"/"Recebi" leva ao Caixa NA
@@ -177,27 +146,61 @@ test.describe("inicio", () => {
     await expect(linhaFocada.getByRole("button", { name: "Paguei" })).toBeVisible();
   });
 
-  // Caso (f): a Produção mostra a etapa atual de uma encomenda em andamento, e nenhuma linha
-  // contém o estado que o redesenho da Produção ainda vai decidir (D-10).
-  test("uma encomenda em andamento mostra a etapa atual no bloco Produção, sem antecipar o redesenho", async ({
+  // Caso (f), Fase 06.1 (D-16): o bloco Produção lê o modelo novo — a ordem liberada vira uma
+  // linha-link com a pílula da etapa e o selo; a que espera o sinal entra só na contagem da linha
+  // final. Afirma a PRÓPRIA ordem e uma contagem >= 1, nunca o total do banco (outros testes semeiam
+  // ordens ao mesmo tempo).
+  test("uma ordem liberada aparece no bloco Produção com a etapa e o selo, e as que esperam o sinal viram uma linha", async ({
     page,
   }) => {
+    // Até 5 linhas, a que vai atrasar primeiro e, no empate, a de início mais antigo: começada há
+    // 200 dias e com a entrega prometida ontem, esta fica no topo mesmo com outras ordens no banco.
+    const nomeLiberada = nomeUnico("Ordem liberada no Início");
+    const ordemId = await semearOrdem({
+      nome: nomeLiberada,
+      tipo: "encomenda",
+      caminho: "completo",
+      status: "ativa",
+      inicio: diaEmBrasilia(-200),
+      etapasFeitas: [],
+      pecas: [{ descricao: "[e2e] Peça do Início", quantidade: 1 }],
+      clienteNome: "[e2e] Cliente do Início",
+      entregaPrometida: diaEmBrasilia(-1),
+    });
+    await semearOrdem({
+      nome: nomeUnico("Ordem aguardando no Início"),
+      tipo: "encomenda",
+      caminho: "completo",
+      status: "aguardando_sinal",
+      inicio: null,
+      etapasFeitas: [],
+      pecas: [{ descricao: "[e2e] Peça aguardando", quantidade: 1 }],
+    });
+
     await fazerLogin(page);
 
-    const nome = nomeUnico("Encomenda em produção");
-    // Dois dias atrás: ainda dentro dos 5 dias padrão de Produção (DIAS_PADRAO), com 3 dias
-    // até a Secagem começar.
-    await criarEncomenda(page, { nome, dataInicio: somarDiasAoHoje(-2) });
-
-    await page.goto("/gestao");
-
     const blocoProducao = page.getByTestId("inicio-bloco-producao");
-    const linha = blocoProducao.filter({ hasText: nome });
+    const linha = blocoProducao.getByTestId("inicio-producao-linha").filter({ hasText: nomeLiberada });
     await expect(linha).toBeVisible();
-    await expect(linha).toContainText(ROTULO_ETAPA.producao);
-    await expect(linha).toContainText(ROTULO_ETAPA.secagem);
+    await expect(linha).toContainText(`${nomeLiberada} · [e2e] Cliente do Início`);
+    await expect(linha).toHaveAttribute("href", `/gestao/producao/${ordemId}`);
+    await expect(linha.getByTestId("inicio-producao-etapa")).toHaveText(rotuloDaEtapa("producao", "encomenda"));
+    const selo = linha.getByTestId("producao-selo");
+    await expect(selo).toHaveAttribute("data-selo", "vai-atrasar");
+    await expect(selo).toContainText("vai atrasar");
 
-    await expect(blocoProducao).not.toContainText(/aguardando sinal/i);
+    const aguardando = blocoProducao.getByTestId("inicio-producao-aguardando");
+    await expect(aguardando).toHaveText(/^\d+ aguardando o sinal$/);
+    const quantas = Number.parseInt((await aguardando.textContent()) ?? "0", 10);
+    expect(quantas).toBeGreaterThanOrEqual(1);
+    await expect(aguardando).toHaveText(textoAguardandoOSinal(quantas));
+    await expect(aguardando).toHaveAttribute("href", "/gestao/producao#aguardando-o-sinal");
+
+    // O modelo antigo sumiu: nem o "vai para X em N dias" do cronograma calculado.
+    await expect(blocoProducao).not.toContainText(/vai para /);
+    await expect(
+      blocoProducao.getByRole("link", { name: "abrir produção" }),
+    ).toHaveAttribute("href", "/gestao/producao");
   });
 
   test("as pílulas mostram os módulos fora da barra de baixo, e o índice mostra um cartão por módulo mais o de próximos módulos", async ({

@@ -1,14 +1,17 @@
-import { DIAS_PADRAO, calcularCronograma, situacaoEm } from "@/lib/encomendas/cronograma";
-import { listarEncomendasAtivas } from "@/lib/encomendas/consultas";
-import { ROTULO_ETAPA } from "@/lib/encomendas/textos";
+import Link from "next/link";
+
+import { listarOrdensEmAndamento, type OrdemEmAndamento } from "@/lib/producao/consultas";
+import { rotuloDaEtapa } from "@/lib/producao/etapas";
+import { linhasParaOInicio, type LinhasDoInicio } from "@/lib/producao/quadro";
+import { CHIP_DA_CASA } from "@/lib/producao/textos";
 import {
-  producaoEmAndamento,
-  type EncomendaParaProducao,
-  type LinhaDeProducao,
-} from "@/lib/encomendas/producao-em-andamento";
-import { TEXTOS_DOS_BLOCOS } from "@/lib/inicio/textos";
+  TEXTOS_DOS_BLOCOS,
+  textoAguardandoOSinal,
+  textoEMaisOrdens,
+} from "@/lib/inicio/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { EstadoErro } from "@/components/amassa/estado-erro";
+import { ChipDoSelo } from "@/components/amassa/producao/cartao-ordem";
 import { BlocoDoInicio } from "./bloco-do-inicio";
 import { TentarDeNovo } from "./tentar-de-novo";
 
@@ -16,116 +19,111 @@ export type BlocoProducaoProps = {
   hoje: string;
 };
 
-function tituloDaEncomenda(nome: string, clienteNome: string | null): string {
-  return clienteNome ? `${nome} · ${clienteNome}` : nome;
-}
-
-function pluralDias(quantidade: number): string {
-  return quantidade === 1 ? "1 dia" : `${quantidade} dias`;
-}
-
-function textoDoQueVemDepois(linha: LinhaDeProducao): string | null {
-  if (linha.proximaEtapa === null || linha.diasAteProxima === null) {
-    return null;
+// "{nome} · {cliente}" na encomenda; "{nome} · da casa" na produção da casa; só o nome na encomenda
+// sem cliente (pedido de boca).
+function tituloDaOrdem(ordem: OrdemEmAndamento): string {
+  if (ordem.tipo === "casa") {
+    return `${ordem.nome} · ${CHIP_DA_CASA}`;
   }
-  return `vai para ${ROTULO_ETAPA[linha.proximaEtapa]} em ${pluralDias(linha.diasAteProxima)}`;
+  return ordem.clienteNome ? `${ordem.nome} · ${ordem.clienteNome}` : ordem.nome;
 }
 
-// Server Component `async` com `try`/`catch` PRÓPRIO (D-09). Reaproveita as funções que o
-// módulo de Encomendas já tem — `calcularCronograma`/`situacaoEm` (`lib/encomendas/cronograma.ts`,
-// o mesmo par que `app/gestao/(app)/encomendas/page.tsx` usa) — para chegar à etapa atual e a
-// próxima; nenhuma regra nova nasce aqui (GES-09). `producaoEmAndamento` (módulo puro, só
-// `import type`) é quem garante, pelo TIPO, que o estado que o redesenho da Produção ainda vai
-// decidir (D-10) nunca aparece nesta amostra.
+const CLASSE_DO_LINK =
+  "text-acento focus-visible:ring-ring inline-flex min-h-[44px] items-center rounded-md font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none";
+
+// O bloco "Produção" do Início (Fase 06.1, D-16) — Server Component `async` com `try`/`catch`
+// PRÓPRIO (D-09 da 04.6): a falha da Produção vira `EstadoErro` + "Tentar de novo" DENTRO do bloco;
+// o esqueleto já está no `Suspense` da página. Lê o modelo novo: as ordens liberadas, até 5, pela
+// urgência do selo (`linhasParaOInicio`, módulo puro — nenhuma regra nasce aqui), cada uma um link
+// para a ordem com a etapa e o selo; e quantas esperam o sinal, numa linha final.
 export async function BlocoProducao({ hoje }: BlocoProducaoProps) {
-  let falhou = false;
-  let linhas: LinhaDeProducao[] = [];
+  let resultado: LinhasDoInicio<OrdemEmAndamento> | null = null;
 
   try {
-    const encomendas = await listarEncomendasAtivas();
-    const encomendasParaProducao: EncomendaParaProducao[] = encomendas.map((encomenda) => {
-      const cronograma = calcularCronograma(
-        encomenda.dataInicio,
-        encomenda.etapas.length > 0
-          ? encomenda.etapas.map((etapa) => ({
-              etapa: etapa.etapa,
-              dias: etapa.dias,
-              esperaDias: etapa.esperaDias,
-            }))
-          : DIAS_PADRAO,
-      );
-      return {
-        id: encomenda.id,
-        titulo: tituloDaEncomenda(encomenda.nome, encomenda.clienteNome),
-        situacao: situacaoEm(cronograma, encomenda.status, hoje),
-      };
-    });
-    linhas = producaoEmAndamento(encomendasParaProducao);
+    resultado = linhasParaOInicio(await listarOrdensEmAndamento(), hoje);
   } catch (erro) {
+    // `resultado` continua `null`: o bloco mostra o erro próprio.
     console.error("Falha ao carregar a produção no Início:", erro);
-    falhou = true;
   }
+
+  const linhaAguardando =
+    resultado !== null && resultado.aguardando > 0 ? (
+      <Link
+        href={`${rotaDeGestao("/producao")}#aguardando-o-sinal`}
+        data-testid="inicio-producao-aguardando"
+        className="text-apoio text-tinta-media bg-superficie-2 focus-visible:ring-ring flex min-h-[44px] items-center rounded-md px-4 py-2 font-medium focus-visible:ring-2 focus-visible:outline-none"
+      >
+        {textoAguardandoOSinal(resultado.aguardando)}
+      </Link>
+    ) : null;
 
   return (
     <BlocoDoInicio
       titulo="Produção"
       acaoRotulo="abrir produção"
-      acaoHref={rotaDeGestao("/encomendas")}
+      acaoHref={rotaDeGestao("/producao")}
       dataTestId="inicio-bloco-producao"
     >
-      {falhou ? (
+      {resultado === null ? (
         <EstadoErro
           titulo="Algo não funcionou."
           corpo={TEXTOS_DOS_BLOCOS.producao.erro}
           acao={<TentarDeNovo />}
         />
-      ) : linhas.length === 0 ? (
-        <p className="text-corpo text-muted-foreground">{TEXTOS_DOS_BLOCOS.producao.vazio}</p>
+      ) : resultado.linhas.length === 0 ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-corpo text-muted-foreground">{TEXTOS_DOS_BLOCOS.producao.vazio}</p>
+            <p className="text-apoio text-muted-foreground">
+              {resultado.aguardando > 0
+                ? TEXTOS_DOS_BLOCOS.producao.vazioComAguardando
+                : TEXTOS_DOS_BLOCOS.producao.vazioSemAguardando}
+            </p>
+          </div>
+          {linhaAguardando}
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {linhas.map((linha) => {
-            const descricao = textoDoQueVemDepois(linha);
-            return (
-              <div
-                key={linha.id}
-                className="flex flex-col gap-1 border-b border-border pb-3 last:border-0 last:pb-0"
-              >
-                <span className="text-corpo font-semibold text-foreground line-clamp-1">
-                  {linha.titulo}
+          {resultado.linhas.map(({ ordem, etapa, selo }) => (
+            <Link
+              key={ordem.id}
+              href={rotaDeGestao(`/producao/${ordem.id}`)}
+              data-testid="inicio-producao-linha"
+              data-ordem-id={ordem.id}
+              className="focus-visible:ring-ring flex min-h-[44px] flex-col gap-1 rounded-md border-b border-border pb-3 last:border-0 last:pb-0 focus-visible:ring-2 focus-visible:outline-none md:hover:bg-superficie-2"
+            >
+              <span className="text-corpo text-foreground line-clamp-1 font-semibold">
+                {tituloDaOrdem(ordem)}
+              </span>
+              <span className="text-apoio flex flex-wrap items-center gap-2">
+                <span
+                  data-testid="inicio-producao-etapa"
+                  data-etapa={etapa}
+                  className="rounded px-1.5 py-0.5 font-semibold"
+                  style={{
+                    backgroundColor: `var(--color-${etapa})`,
+                    // "secagem" (#C9B896) é claro demais para texto branco (1,94:1, abaixo do 4,5:1
+                    // de AA) — a mesma regra do contador da folha geral (`folha-geral.tsx`); o par é
+                    // medido em tests/unit/contraste.test.ts, que lê este arquivo.
+                    color: etapa === "secagem" ? "#3A331F" : "#FFFFFF",
+                  }}
+                >
+                  {rotuloDaEtapa(etapa, ordem.tipo)}
                 </span>
-                <div className="flex flex-wrap items-center gap-2 text-apoio text-muted-foreground">
-                  {linha.etapaAtual ? (
-                    <span
-                      className="rounded px-1.5 py-0.5 font-semibold"
-                      style={{
-                        backgroundColor: `var(--color-${linha.etapaAtual})`,
-                        // "secagem" (#C9B896) é claro demais para texto branco (1,94:1, abaixo
-                        // do 4,5:1 de AA) — MESMA correção já aplicada em gantt.tsx (`corDoTexto`)
-                        // para o mesmo token, que este bloco não tinha reaproveitado (achado da
-                        // varredura de acessibilidade do plano 04.6-08).
-                        color: linha.etapaAtual === "secagem" ? "#3A331F" : "#FFFFFF",
-                      }}
-                    >
-                      {ROTULO_ETAPA[linha.etapaAtual]}
-                    </span>
-                  ) : linha.atrasoDias !== null ? (
-                    // CR-04: a linha mais urgente da amostra. Par medido em
-                    // tests/unit/contraste.test.ts (text-erro sobre bg-erro-fundo).
-                    <span className="rounded bg-erro-fundo px-1.5 py-0.5 font-semibold text-erro">
-                      Atrasada · {pluralDias(linha.atrasoDias)}
-                    </span>
-                  ) : linha.diasAteInicio !== null ? (
-                    <span className="rounded bg-muted px-1.5 py-0.5">
-                      Começa em {pluralDias(linha.diasAteInicio)}
-                    </span>
-                  ) : linha.emEspera ? (
-                    <span className="rounded bg-muted px-1.5 py-0.5">Em espera</span>
-                  ) : null}
-                  {descricao && <span>{descricao}</span>}
-                </div>
-              </div>
-            );
-          })}
+                <ChipDoSelo selo={selo} />
+              </span>
+            </Link>
+          ))}
+          {resultado.maisN > 0 ? (
+            <Link
+              href={rotaDeGestao("/producao")}
+              data-testid="inicio-producao-mais"
+              className={`text-apoio ${CLASSE_DO_LINK}`}
+            >
+              {textoEMaisOrdens(resultado.maisN)}
+            </Link>
+          ) : null}
+          {linhaAguardando}
         </div>
       )}
     </BlocoDoInicio>
