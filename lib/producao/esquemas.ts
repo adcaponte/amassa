@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 import { textoParaMilesimos } from "@/lib/estoque/esquemas";
+import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { FRASE_QUANTIDADE_INVALIDA } from "@/lib/estoque/textos";
 
 import {
@@ -21,12 +22,14 @@ import {
   FRASE_CASA_PRECISA_DO_CATALOGO,
   FRASE_CLIENTE_LONGO,
   FRASE_CLIENTE_VAZIO,
+  FRASE_CUSTO_DE_CADA_PECA_VAZIO,
   FRASE_ENCOMENDA_SEM_ITEM,
   FRASE_ENTREGA_INVALIDA,
   FRASE_ENTREGA_NO_PASSADO,
   FRASE_ESCOLHA_O_MATERIAL,
   FRASE_FALHA_AO_DAR_BAIXA,
   FRASE_FALHA_AO_AJUSTAR,
+  FRASE_FALHA_AO_CONCLUIR,
   FRASE_JA_DESFEITA,
   FRASE_JA_MARCADA,
   FRASE_NOME_DA_ORDEM_LONGO,
@@ -444,3 +447,71 @@ export const esquemaDarBaixaNaOrdem = z
   }));
 
 export type DarBaixaNaOrdemValidado = z.infer<typeof esquemaDarBaixaNaOrdem>;
+
+// ---------------------------------------------------------------------------------------------
+// Concluir a ordem (plano 11, PRD-15/PRD-16). Do cliente chegam, por peça, SÓ o texto das perdidas,
+// o destino das extras e o texto do custo (T-06.1-42) — boas, entregues, extras e faltam são
+// refeitas no servidor pelo módulo puro (`derivarPeca`), sob a trava da ordem; o custo pela ficha é
+// calculado no servidor e o digitado só vale quando a ficha não dá custo (T-06.1-41).
+// ---------------------------------------------------------------------------------------------
+
+// "Quantas se perderam": vazio é 0 (o padrão da tela). Só dígitos viram número; qualquer outra
+// coisa ("2,5", "-1", "1e3") vira `NaN`, que `derivarPeca` recusa com "Diga um número de 0 a
+// {feitas}." — a frase precisa das feitas, que só a peça lida sob a trava conhece.
+const esquemaPerdidas = z.string({ error: FRASE_FALHA_AO_CONCLUIR }).transform((texto): number => {
+  const limpo = texto.trim();
+  if (limpo === "") {
+    return 0;
+  }
+  return /^\d{1,9}$/.test(limpo) ? Number(limpo) : Number.NaN;
+});
+
+// "Custo de cada peça" (D-14): opcional AQUI — se ele é exigido depende de a ficha dar custo, o que
+// só o servidor decide. Vazio vira nulo; zero é recusado (um custo inventado de zero distorceria o
+// custo médio); texto inválido recebe a frase de `converterReaisParaCentavos`.
+const esquemaCustoDaPeca = z
+  .string({ error: FRASE_CUSTO_DE_CADA_PECA_VAZIO })
+  .nullish()
+  .transform((texto, contexto): number | null => {
+    if (texto === null || texto === undefined || texto.trim() === "") {
+      return null;
+    }
+    const conversao = converterReaisParaCentavos(texto);
+    if (!conversao.ok) {
+      contexto.addIssue({ code: "custom", message: conversao.erro });
+      return z.NEVER;
+    }
+    if (conversao.centavos === null || conversao.centavos <= 0) {
+      contexto.addIssue({ code: "custom", message: FRASE_CUSTO_DE_CADA_PECA_VAZIO });
+      return z.NEVER;
+    }
+    return conversao.centavos;
+  });
+
+export const esquemaConcluirOrdem = z.object({
+  ordemId: z.string({ error: FRASE_ORDEM_NAO_EXISTE }).uuid(FRASE_ORDEM_NAO_EXISTE),
+  pecas: z
+    .array(
+      z
+        .object({
+          pecaId: z.string({ error: FRASE_PECA_NAO_EXISTE }).uuid(FRASE_PECA_NAO_EXISTE),
+          perdidasTexto: esquemaPerdidas,
+          destino: z
+            .enum(["estoque", "sem_destino"], { error: FRASE_FALHA_AO_CONCLUIR })
+            .nullish()
+            .transform((destino) => destino ?? null),
+          custoTexto: esquemaCustoDaPeca,
+        })
+        .transform(({ pecaId, perdidasTexto, destino, custoTexto }) => ({
+          pecaId,
+          perdidas: perdidasTexto,
+          destino,
+          custoCentavos: custoTexto,
+        })),
+      { error: FRASE_FALHA_AO_CONCLUIR },
+    )
+    .min(1, FRASE_FALHA_AO_CONCLUIR)
+    .max(LIMITE_DE_PECAS_POR_ORDEM, FRASE_FALHA_AO_CONCLUIR),
+});
+
+export type ConcluirOrdemValidado = z.infer<typeof esquemaConcluirOrdem>;

@@ -218,27 +218,27 @@ export async function listarEncomendasParaVinculo(): Promise<EncomendaParaVincul
   }));
 }
 
-// EST-21/D-22: o custo por peça de cada peça pronta, pela ficha de precificação LIGADA ao item (a
-// exclusiva não tem item). `parametrosVigentes(hoje)` UMA vez; depois, por ficha, `quantasCabem` +
+// EST-21/D-22 (e, desde a Fase 06.1, a conclusão da ordem — PRD-16): o custo de UMA peça pela
+// ficha de precificação. `parametrosVigentes(hoje)` UMA vez; depois, por ficha, `quantasCabem` +
 // `calcularPeca({ canal: "direto" }).custoCentavos` — o mesmo caminho e o mesmo número que a
-// Precificação mostra (`lib/orcamentos/acoes.ts::precoInicialDaLinha`). Parâmetro faltando, peça
-// que não cabe ou divisor inválido → o item fica FORA do mapa: o campo de custo vem vazio e
-// obrigatório (D-22), nunca um zero inventado. Lido com a página ("parâmetros de hoje"); se a ficha
-// mudar entre abrir a folha e gravar, grava-se o valor mostrado ou digitado — o servidor não
-// recalcula por trás da pessoa. `hoje` chega por argumento: este módulo não lê o relógio.
-export async function custosDasPecasProntas(
-  itemIds: readonly string[],
+// Precificação mostra (`lib/orcamentos/acoes.ts::precoInicialDaLinha`), com a perda embutida.
+// Parâmetro faltando, peça que não cabe ou divisor inválido → a ficha fica FORA do mapa: o campo de
+// custo vem vazio e obrigatório (D-22 da Fase 06, D-14 da 06.1), nunca um zero inventado. É a
+// ÚNICA cópia desta conta: `custosDasPecasProntas` (Estoque) e `dadosDaConclusao` (Produção) leem
+// daqui. `hoje` chega por argumento: este módulo não lê o relógio.
+export async function custosDasFichas(
+  fichaIds: readonly string[],
   hoje: string,
 ): Promise<Map<string, number>> {
   const custos = new Map<string, number>();
-  const unicos = [...new Set(itemIds)];
+  const unicos = [...new Set(fichaIds)];
   if (unicos.length === 0) {
     return custos;
   }
 
   const fichas = await db
     .select({
-      itemId: fichasPrecificacao.itemCatalogoId,
+      id: fichasPrecificacao.id,
       argilaMiligramas: fichasPrecificacao.argilaMiligramas,
       esmalteMiligramas: fichasPrecificacao.esmalteMiligramas,
       horasMilesimos: fichasPrecificacao.horasMilesimos,
@@ -250,12 +250,7 @@ export async function custosDasPecasProntas(
       cabemEsmalteInformado: fichasPrecificacao.cabemEsmalteInformado,
     })
     .from(fichasPrecificacao)
-    .where(
-      and(
-        eq(fichasPrecificacao.exclusiva, false),
-        inArray(fichasPrecificacao.itemCatalogoId, unicos),
-      ),
-    );
+    .where(inArray(fichasPrecificacao.id, unicos));
   if (fichas.length === 0) {
     return custos;
   }
@@ -266,9 +261,6 @@ export async function custosDasPecasProntas(
   }
 
   for (const ficha of fichas) {
-    if (ficha.itemId === null) {
-      continue;
-    }
     const cabem = quantasCabem(
       { larguraMm: ficha.larguraMm, profundidadeMm: ficha.profundidadeMm, alturaMm: ficha.alturaMm },
       parametros.forno,
@@ -287,7 +279,47 @@ export async function custosDasPecasProntas(
       canal: "direto",
     });
     if (resultado.ok && resultado.custoCentavos > 0) {
-      custos.set(ficha.itemId, resultado.custoCentavos);
+      custos.set(ficha.id, resultado.custoCentavos);
+    }
+  }
+  return custos;
+}
+
+// EST-21/D-22: o custo por peça de cada peça pronta, pela ficha de precificação LIGADA ao item (a
+// exclusiva não tem item) — a conta é a de `custosDasFichas`, aqui só traduzida de ficha para
+// item. Lido com a página ("parâmetros de hoje"); se a ficha mudar entre abrir a folha e gravar,
+// grava-se o valor mostrado ou digitado — o servidor não recalcula por trás da pessoa.
+export async function custosDasPecasProntas(
+  itemIds: readonly string[],
+  hoje: string,
+): Promise<Map<string, number>> {
+  const custos = new Map<string, number>();
+  const unicos = [...new Set(itemIds)];
+  if (unicos.length === 0) {
+    return custos;
+  }
+
+  const fichas = await db
+    .select({ id: fichasPrecificacao.id, itemId: fichasPrecificacao.itemCatalogoId })
+    .from(fichasPrecificacao)
+    .where(
+      and(
+        eq(fichasPrecificacao.exclusiva, false),
+        inArray(fichasPrecificacao.itemCatalogoId, unicos),
+      ),
+    );
+  if (fichas.length === 0) {
+    return custos;
+  }
+
+  const porFicha = await custosDasFichas(
+    fichas.map((ficha) => ficha.id),
+    hoje,
+  );
+  for (const ficha of fichas) {
+    const custo = porFicha.get(ficha.id);
+    if (ficha.itemId !== null && custo !== undefined) {
+      custos.set(ficha.itemId, custo);
     }
   }
   return custos;

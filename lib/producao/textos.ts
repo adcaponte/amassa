@@ -758,3 +758,30 @@ export function fraseMaterialDesativadoNaBaixa(nome: string): string {
 }
 // A prévia antes de escolher o material (a folha ainda não sabe de qual saldo falar).
 export const TEXTO_ESCOLHA_PARA_VER_O_SALDO = "Escolha o material para ver o saldo novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Conclusão da ordem (plano 11, PRD-15/PRD-16/PRD-18 — UI-SPEC §Folha de conclusão, §Copywriting).
+// ---------------------------------------------------------------------------------------------
+
+// Recusas do servidor (a folha as mostra; a de estado mudado recarrega a tela).
+export const FRASE_CONCLUSAO_JA_CONCLUIDA =
+  "Esta ordem já foi concluída — talvez em outro celular. A tela foi atualizada.";
+export const FRASE_FALHA_AO_CONCLUIR =
+  "Não deu para concluir. Nada foi gravado — verifique a internet e tente de novo.";
+export const FRASE_CUSTO_DE_CADA_PECA_VAZIO = "Diga o custo de cada peça — uma estimativa serve.";
+// Até o plano 12 trazer o passo "Transformar em peça de linha" (D-12), o servidor recusa.
+export const FRASE_EXCLUSIVA_PRECISA_VIRAR_LINHA =
+  "Para entrar no Estoque, a peça exclusiva precisa virar peça de linha.";
+export const FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE =
+  "Esta peça não tem ficha, e nesta fase só peça com ficha entra no Estoque. As extras boas ficam sem destino.";
+export const FRASE_PECAS_DA_ORDEM_MUDARAM =
+  "As peças desta ordem mudaram enquanto você concluía. A tela foi atualizada.";
+export const FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA =
+  "Não achei a categoria de compra “Produção da casa”, que o Estoque usa para a peça feita aqui. Crie-a em Cadastros → Categorias e tente de novo.";
+export function fraseItemDesativadoNaConclusao(nome: string): string {
+  return `${nome} está desativado no Estoque. Reative-o para guardar as peças.`;
+}
+// O nome exato que a migração 0023 semeou — a conclusão procura a categoria por ele (D-13).
+export const NOME_CATEGORIA_PRODUCAO_DA_CASA = "Produção da casa";
+export const FRASE_CONCLUSAO_ETAPA_MUDOU =
+  "Esta ordem não está mais na entrega — talvez em outro celular. A tela foi atualizada.";

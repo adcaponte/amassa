@@ -19,12 +19,14 @@ import {
   usuarios,
 } from "@/db/schema";
 import type { Unidade } from "@/lib/cadastros/catalogo";
+import { custosDasFichas } from "@/lib/estoque/consultas";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { CaminhoOrdem, StatusOrdem, TipoOrdem } from "./etapas";
 import type { CabemDaFicha, PecaEmResumo } from "./forno";
+import type { TransacaoDoBanco } from "./gravacao";
 import type { EtapaDaOrdem, OrdemParaLeitura } from "./leitura";
 import {
   materialPrevisto,
@@ -47,6 +49,11 @@ export type PecaDaOrdem = {
   exclusiva: boolean | null;
   // Horas de UMA peça, em milésimos (a escala da ficha). Só a página da ordem lê (PRD-05).
   horasMilesimos: number | null;
+  // O que a conclusão gravou (plano 11) — nulos até a ordem ser concluída, preenchidos JUNTOS
+  // (check `ordem_pecas_conclusao_junta`). A perda técnica e as extras sem destino ficam separadas.
+  perdidas: number | null;
+  paraEstoque: number | null;
+  semDestino: number | null;
 };
 
 // De onde a ordem veio (PRD-10): o orçamento aprovado que a abriu e a venda que ele gerou. `null`
@@ -114,6 +121,9 @@ export type OrdemCarregada = OrdemEmAndamento & {
   // O nome de quem cancelou, lido por junção com `usuarios`; `null` na ordem não cancelada.
   canceladaPorNome: string | null;
   canceladaPelaVenda: boolean;
+  // Plano 11 — a conclusão: o dia em que foi concluída e se foi entrega parcial.
+  concluidaEm: string | null;
+  entregaParcial: boolean;
 };
 
 const COLUNAS_DA_ORDEM = {
@@ -149,6 +159,9 @@ const COLUNAS_DA_PECA = {
   fichaId: ordemPecas.fichaId,
   exclusiva: fichasPrecificacao.exclusiva,
   horasMilesimos: fichasPrecificacao.horasMilesimos,
+  perdidas: ordemPecas.perdidas,
+  paraEstoque: ordemPecas.paraEstoque,
+  semDestino: ordemPecas.semDestino,
 };
 
 function agruparPorOrdem<T extends { ordemId: string }>(linhas: readonly T[]): Map<string, T[]> {
@@ -238,6 +251,8 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
       canceladaEm: ordensProducao.canceladaEm,
       canceladaPelaVenda: ordensProducao.canceladaPelaVenda,
       canceladaPorNome: usuarios.nome,
+      concluidaEm: ordensProducao.concluidaEm,
+      entregaParcial: ordensProducao.entregaParcial,
     })
     .from(ordensProducao)
     .leftJoin(usuarios, eq(usuarios.id, ordensProducao.canceladaPor))
@@ -246,7 +261,8 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
   if (!linha) {
     return null;
   }
-  const { canceladaEm, canceladaPelaVenda, canceladaPorNome, ...ordem } = linha;
+  const { canceladaEm, canceladaPelaVenda, canceladaPorNome, concluidaEm, entregaParcial, ...ordem } =
+    linha;
   const [etapas, pecas, sinal, origem, fotos, baixasFeitas] = await Promise.all([
     db
       .select(COLUNAS_DA_ETAPA)
@@ -277,6 +293,8 @@ export async function obterOrdem(id: string): Promise<OrdemCarregada | null> {
     canceladaEm,
     canceladaPorNome,
     canceladaPelaVenda,
+    concluidaEm,
+    entregaParcial,
     totalPecas: pecas.reduce((total, peca) => total + peca.quantidade, 0),
     totalAMais: pecas.reduce((total, peca) => total + peca.aMais, 0),
     pecasEmResumo: pecas.map((peca) => ({
@@ -688,4 +706,107 @@ export async function materialDaOrdem(ordemId: string): Promise<MaterialDaOrdemC
     baixas: baixasDaOrdem,
     ultimoItem,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// A conclusão (plano 11, PRD-15/PRD-16, D-12/D-13/D-14).
+// ---------------------------------------------------------------------------------------------
+
+// O que a folha de conclusão (e a ação, FORA da transação) precisa de cada peça. O item é o da
+// ficha de LINHA (`fichas_precificacao.item_catalogo_id`) ou, na produção da casa sem ficha, o da
+// própria peça (`ordem_pecas.item_catalogo_id`); peça exclusiva e peça em texto livre não têm item.
+export type PecaParaConcluir = {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  aMais: number;
+  fichaId: string | null;
+  // `null` quando a peça não tem ficha.
+  exclusiva: boolean | null;
+  item: {
+    id: string;
+    nome: string;
+    unidade: Unidade | null;
+    controlaEstoque: boolean;
+    ativo: boolean;
+  } | null;
+  // O custo de UMA peça pela ficha (`custosDasFichas` — a mesma conta do Estoque); `null` sem
+  // ficha ou quando a ficha não dá custo hoje (D-14: a folha pede o custo).
+  custoPelaFichaCentavos: number | null;
+};
+
+export type PecaLidaParaConcluir = Omit<PecaParaConcluir, "custoPelaFichaCentavos">;
+
+// As peças da ordem com a ficha e o item, por posição. Recebe o executor: a folha lê com o `db`
+// (`dadosDaConclusao`); a ação `concluirOrdem` lê com a TRANSAÇÃO, depois de travar a ordem — o
+// que ela decide reflete o banco sob a trava, nunca o que a folha viu.
+export async function lerPecasParaConcluir(
+  executor: TransacaoDoBanco | typeof db,
+  ordemId: string,
+): Promise<PecaLidaParaConcluir[]> {
+  const pecas = await executor
+    .select({
+      id: ordemPecas.id,
+      descricao: ordemPecas.descricao,
+      quantidade: ordemPecas.quantidade,
+      aMais: ordemPecas.aMais,
+      fichaId: ordemPecas.fichaId,
+      exclusiva: fichasPrecificacao.exclusiva,
+      itemId: itensCatalogo.id,
+      itemNome: itensCatalogo.nome,
+      itemUnidade: itensCatalogo.unidade,
+      itemControlaEstoque: itensCatalogo.controlaEstoque,
+      itemAtivo: itensCatalogo.ativo,
+    })
+    .from(ordemPecas)
+    .leftJoin(fichasPrecificacao, eq(fichasPrecificacao.id, ordemPecas.fichaId))
+    .leftJoin(
+      itensCatalogo,
+      eq(
+        itensCatalogo.id,
+        sql`coalesce(${fichasPrecificacao.itemCatalogoId}, ${ordemPecas.itemCatalogoId})`,
+      ),
+    )
+    .where(eq(ordemPecas.ordemId, ordemId))
+    .orderBy(asc(ordemPecas.posicao));
+
+  return pecas.map((peca) => ({
+    id: peca.id,
+    descricao: peca.descricao,
+    quantidade: peca.quantidade,
+    aMais: peca.aMais,
+    fichaId: peca.fichaId,
+    exclusiva: peca.fichaId === null ? null : (peca.exclusiva ?? null),
+    item:
+      peca.itemId === null
+        ? null
+        : {
+            id: peca.itemId,
+            nome: peca.itemNome ?? "",
+            unidade: peca.itemUnidade ?? null,
+            controlaEstoque: peca.itemControlaEstoque ?? false,
+            ativo: peca.itemAtivo ?? false,
+          },
+  }));
+}
+
+// Só `select`, sem trava: é o que a folha MOSTRA e o custo que a ação leva para dentro da
+// transação (como `aprovarOrcamento` lê a configuração antes). A decisão — status, contas, item
+// sem estoque — é refeita sob a trava da ordem. `hoje` chega por argumento.
+export async function dadosDaConclusao(
+  ordemId: string,
+  hoje: string,
+): Promise<PecaParaConcluir[]> {
+  if (!FORMA_DE_UUID.test(ordemId)) {
+    return [];
+  }
+  const pecas = await lerPecasParaConcluir(db, ordemId);
+  const custos = await custosDasFichas(
+    pecas.flatMap((peca) => (peca.fichaId === null ? [] : [peca.fichaId])),
+    hoje,
+  );
+  return pecas.map((peca) => ({
+    ...peca,
+    custoPelaFichaCentavos: peca.fichaId === null ? null : (custos.get(peca.fichaId) ?? null),
+  }));
 }

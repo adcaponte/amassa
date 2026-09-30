@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import {
+  categorias,
   fichasPrecificacao,
   itensCatalogo,
   ordemEtapas,
@@ -17,21 +18,31 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import type { Unidade } from "@/lib/cadastros/catalogo";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { gravarMovimentacoes, travarItens } from "@/lib/estoque/gravacao";
-import { pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
+import { pedidoDeEntradaDaProducao, pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
 import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
+  derivarPeca,
+  destinoSugerido,
+  distribuirExtras,
+  resumoDaConclusao,
+  type DestinoDasExtras,
+} from "./conclusao";
+import {
+  dadosDaConclusao,
+  lerPecasParaConcluir,
   listarCatalogoDaNovaOrdem,
   listarConcluidasECanceladas,
   type CatalogoDaNovaOrdem,
   type OrdemEncerrada,
 } from "./consultas";
-import { etapasIniciais, type EtapaProducao } from "./etapas";
+import { etapasIniciais, type EtapaProducao, type TipoOrdem } from "./etapas";
 import {
   esquemaAjustarDiasPrevistos,
   esquemaCancelarOrdem,
+  esquemaConcluirOrdem,
   esquemaDarBaixaNaOrdem,
   esquemaDefinirAMais,
   esquemaDesfazerEtapa,
@@ -88,6 +99,16 @@ import {
   FRASE_PECA_NAO_EXISTE,
   FRASE_ULTIMA_ETAPA,
   FRASE_ERRO_CARREGAR_MAIS,
+  FRASE_CONCLUSAO_ETAPA_MUDOU,
+  FRASE_CONCLUSAO_JA_CONCLUIDA,
+  FRASE_CUSTO_DE_CADA_PECA_VAZIO,
+  FRASE_EXCLUSIVA_PRECISA_VIRAR_LINHA,
+  FRASE_FALHA_AO_CONCLUIR,
+  FRASE_PECAS_DA_ORDEM_MUDARAM,
+  FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA,
+  FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE,
+  NOME_CATEGORIA_PRODUCAO_DA_CASA,
+  fraseItemDesativadoNaConclusao,
   fraseMaterialDesativadoNaBaixa,
   textoParcialInvalido,
 } from "./textos";
@@ -871,4 +892,330 @@ export async function darBaixaNaOrdem(
   revalidatePath(rotaDeGestao("/estoque"));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: registrada };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Concluir a ordem (plano 11, PRD-15/PRD-16/PRD-18, critério 6 do ROADMAP; D-12/D-13/D-14/D-15).
+// ---------------------------------------------------------------------------------------------
+
+export type OrdemConcluida = {
+  tipo: TipoOrdem;
+  // Quantas peças entraram no Estoque como pronta entrega (a soma de `para_estoque`).
+  pecasNoEstoque: number;
+  // Os nomes dos itens que passaram a controlar estoque nesta conclusão (D-13).
+  itensLigados: string[];
+};
+
+// A recusa da conclusão pode trazer a frase de cada campo (embaixo do campo, a folha aberta) e
+// dizer que o ESTADO mudou (já concluída, etapa desfeita noutro celular) — aí a tela recarrega.
+export type ResultadoDeConcluirOrdem =
+  | { ok: true; dados: OrdemConcluida }
+  | { ok: false; erro: string; campos?: Record<string, string>; recarregar?: boolean };
+
+class RecusaDaConclusao extends Error {
+  constructor(
+    readonly frase: string,
+    readonly opcoes: { campos?: Record<string, string>; recarregar?: boolean } = {},
+  ) {
+    super(frase);
+    this.name = "RecusaDaConclusao";
+  }
+}
+
+// A chave do campo de cada peça na folha: `perdidas-{id}`, `destino-{id}`, `custo-{id}`.
+function campoDaPeca(tipo: "perdidas" | "destino" | "custo", pecaId: string): string {
+  return `${tipo}-${pecaId}`;
+}
+
+// A recusa do Zod presa ao campo da peça, quando dá para saber qual (o id vem do que chegou).
+function camposDaRecusaDoEsquema(
+  entradaBruta: unknown,
+  questao: { path: PropertyKey[]; message: string } | undefined,
+): Record<string, string> | undefined {
+  if (!questao || questao.path[0] !== "pecas" || typeof questao.path[1] !== "number") {
+    return undefined;
+  }
+  const pecas = (entradaBruta as { pecas?: unknown } | null)?.pecas;
+  const peca = Array.isArray(pecas) ? (pecas[questao.path[1]] as { pecaId?: unknown }) : undefined;
+  if (!peca || typeof peca.pecaId !== "string") {
+    return undefined;
+  }
+  const tipo =
+    questao.path[2] === "custoTexto"
+      ? "custo"
+      : questao.path[2] === "destino"
+        ? "destino"
+        : "perdidas";
+  return { [campoDaPeca(tipo, peca.pecaId)]: questao.message };
+}
+
+// "Entreguei" (encomenda) / "Guardar no estoque" (casa) → "Concluir ordem". `exigirUsuario()` é a
+// PRIMEIRA instrução (T-06.1-44, cobrado por `npm run verificar-acoes`).
+//
+// Do cliente chegam, por peça, SÓ o texto das perdidas, o destino das extras e o custo digitado
+// (T-06.1-42). O custo pela ficha é lido FORA da transação (`dadosDaConclusao` →
+// `custosDasFichas`, a mesma conta do Estoque — parâmetros vigentes, `quantasCabem` e o cálculo
+// da peça no canal direto), como `aprovarOrcamento` lê a configuração; o digitado só vale quando a
+// ficha não dá custo (T-06.1-41, D-14).
+//
+// Dentro da transação, na ordem de travas DOCUMENTO → ORDEM → ITENS (`lib/producao/gravacao.ts`,
+// Pitfall 5): trava a ORDEM (`for no key update`) e confere, sob a trava, que ela está ATIVA com a
+// etapa atual `entrega` — a segunda conclusão (toque duplo, outro celular) recebe "já foi
+// concluída" e NADA entra duas vezes no Estoque (T-06.1-40). Relê as peças, refaz as contas pelo
+// módulo puro (`derivarPeca`, briefing §7) e decide o destino; trava os ITENS; liga o estoque do
+// item que ainda não controla (D-13: `un` quando não tem unidade, categoria de compra "Produção da
+// casa" — ANTES de `gravarMovimentacoes`, que recusaria item sem estoque próprio); grava as
+// entradas pela porta única (`pedidoDeEntradaDaProducao` + `gravarMovimentacoes`); e grava, por
+// peça, perdidas, destino, para o estoque e sem destino SEPARADOS (PRD-17), a etapa `entrega` feita
+// hoje e a ordem `concluida`. NENHUMA escrita em parcela nem em documento (PRD-18, T-06.1-43): o
+// saldo a receber continua no Caixa.
+export async function concluirOrdem(entradaBruta: unknown): Promise<ResultadoDeConcluirOrdem> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaConcluirOrdem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    const questao = resultado.error.issues[0];
+    return {
+      ok: false,
+      erro: questao?.message ?? FRASE_FALHA_AO_CONCLUIR,
+      campos: camposDaRecusaDoEsquema(entradaBruta, questao),
+    };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  // FORA da transação: o custo de cada peça pela ficha, com os parâmetros de hoje.
+  let custoPorFicha: Map<string, number>;
+  try {
+    const lidas = await dadosDaConclusao(dados.ordemId, hoje);
+    custoPorFicha = new Map(
+      lidas.flatMap((peca) =>
+        peca.fichaId !== null && peca.custoPelaFichaCentavos !== null
+          ? [[peca.fichaId, peca.custoPelaFichaCentavos] as const]
+          : [],
+      ),
+    );
+  } catch (erro) {
+    console.error(
+      `Falha ao ler o custo das fichas para concluir (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CONCLUIR };
+  }
+
+  let concluida: OrdemConcluida;
+  try {
+    concluida = await db.transaction(async (tx): Promise<OrdemConcluida> => {
+      const ordem = await travarOrdem(tx, dados.ordemId);
+      if (!ordem) {
+        throw new RecusaDaConclusao(FRASE_ORDEM_NAO_EXISTE, { recarregar: true });
+      }
+      if (ordem.status === "concluida") {
+        throw new RecusaDaConclusao(FRASE_CONCLUSAO_JA_CONCLUIDA, { recarregar: true });
+      }
+      if (ordem.status === "cancelada") {
+        throw new RecusaDaConclusao(FRASE_JA_ENCERRADA, { recarregar: true });
+      }
+      if (ordem.status !== "ativa") {
+        throw new RecusaDaConclusao(FRASE_ORDEM_NAO_ESTA_EM_ANDAMENTO, { recarregar: true });
+      }
+      const etapas = await lerEtapasDaOrdem(tx, dados.ordemId);
+      const atual = etapas.find((etapa) => etapa.feitaEm === null);
+      if (!atual || atual.etapa !== "entrega") {
+        throw new RecusaDaConclusao(FRASE_CONCLUSAO_ETAPA_MUDOU, { recarregar: true });
+      }
+
+      // Cada peça da ordem exatamente uma vez — nem a mais, nem a menos, nem repetida.
+      const pecas = await lerPecasParaConcluir(tx, dados.ordemId);
+      const enviadas = new Map(dados.pecas.map((peca) => [peca.pecaId, peca]));
+      if (
+        enviadas.size !== dados.pecas.length ||
+        enviadas.size !== pecas.length ||
+        pecas.some((peca) => !enviadas.has(peca.id))
+      ) {
+        throw new RecusaDaConclusao(FRASE_PECAS_DA_ORDEM_MUDARAM, { recarregar: true });
+      }
+
+      const campos: Record<string, string> = {};
+      const decididas = pecas.flatMap((peca) => {
+        const enviada = enviadas.get(peca.id);
+        if (!enviada) {
+          return [];
+        }
+        const derivada = derivarPeca({
+          tipo: ordem.tipo,
+          pedido: peca.quantidade,
+          aMais: peca.aMais,
+          perdidas: enviada.perdidas,
+        });
+        if (!derivada.ok) {
+          campos[campoDaPeca("perdidas", peca.id)] = derivada.frase;
+          return [];
+        }
+
+        const temFicha = peca.fichaId !== null;
+        const exclusiva = peca.exclusiva === true;
+        // Casa: tudo para o Estoque, sem escolha (D-15). Encomenda sem extras: nada a decidir.
+        const destino: DestinoDasExtras | null =
+          ordem.tipo === "casa"
+            ? "estoque"
+            : derivada.extrasBoas === 0
+              ? null
+              : (enviada.destino ?? destinoSugerido({ tipo: ordem.tipo, exclusiva, temFicha }));
+        if (ordem.tipo === "encomenda" && destino === "estoque") {
+          if (!temFicha) {
+            campos[campoDaPeca("destino", peca.id)] = FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE;
+            return [];
+          }
+          if (exclusiva) {
+            // O plano 12 troca esta recusa pelo passo "Transformar em peça de linha" (D-12).
+            campos[campoDaPeca("destino", peca.id)] = FRASE_EXCLUSIVA_PRECISA_VIRAR_LINHA;
+            return [];
+          }
+        }
+        const distribuicao = distribuirExtras(derivada, destino ?? "sem_destino", ordem.tipo);
+
+        let custoUnitario: number | null = null;
+        if (distribuicao.paraEstoque > 0) {
+          if (peca.item === null) {
+            campos[campoDaPeca("destino", peca.id)] = FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE;
+            return [];
+          }
+          custoUnitario =
+            (peca.fichaId !== null ? custoPorFicha.get(peca.fichaId) : undefined) ??
+            enviada.custoCentavos;
+          if (custoUnitario === null) {
+            campos[campoDaPeca("custo", peca.id)] = FRASE_CUSTO_DE_CADA_PECA_VAZIO;
+            return [];
+          }
+        }
+        return [{ peca, derivada, distribuicao, custoUnitario }];
+      });
+      const [primeira] = Object.values(campos);
+      if (primeira !== undefined) {
+        throw new RecusaDaConclusao(primeira, { campos });
+      }
+
+      // Os ITENS, depois da ordem. Sob a trava do item: existe, está ativo, e — se ainda não
+      // controla estoque — é ligado AQUI (D-13), antes de `gravarMovimentacoes`.
+      const paraEstoque = decididas.filter((decidida) => decidida.distribuicao.paraEstoque > 0);
+      const itemIds = [
+        ...new Set(
+          paraEstoque.flatMap((decidida) => (decidida.peca.item ? [decidida.peca.item.id] : [])),
+        ),
+      ];
+      const travados = await travarItens(tx, itemIds);
+      const itensLigados: string[] = [];
+      let categoriaProducaoDaCasa: string | null = null;
+      for (const itemId of itemIds) {
+        const item = travados.get(itemId);
+        if (!item) {
+          throw new RecusaDaConclusao(FRASE_PECAS_DA_ORDEM_MUDARAM, { recarregar: true });
+        }
+        if (!item.ativo) {
+          throw new RecusaDaConclusao(fraseItemDesativadoNaConclusao(item.nome));
+        }
+        if (item.controlaEstoque) {
+          continue;
+        }
+        if (categoriaProducaoDaCasa === null) {
+          const [categoria] = await tx
+            .select({ id: categorias.id })
+            .from(categorias)
+            .where(
+              sql`lower(trim(${categorias.nome})) = lower(trim(${NOME_CATEGORIA_PRODUCAO_DA_CASA}))`,
+            )
+            .limit(1);
+          if (!categoria) {
+            console.error(
+              `Conclusão da ordem ${dados.ordemId}: a categoria de compra "${NOME_CATEGORIA_PRODUCAO_DA_CASA}" (semente da 0023) não existe — o estoque do item ${item.id} não pôde ser ligado.`,
+            );
+            throw new RecusaDaConclusao(FRASE_SEM_CATEGORIA_PRODUCAO_DA_CASA);
+          }
+          categoriaProducaoDaCasa = categoria.id;
+        }
+        await tx
+          .update(itensCatalogo)
+          .set({
+            controlaEstoque: true,
+            unidade: sql`coalesce(${itensCatalogo.unidade}, 'un')`,
+            categoriaCompraId: categoriaProducaoDaCasa,
+          })
+          .where(eq(itensCatalogo.id, item.id));
+        itensLigados.push(item.nome);
+      }
+
+      // As entradas, pela porta única do Estoque. 1 peça = 1 unidade do item (milésimos × 1000);
+      // o custo total = custo de cada peça × quantidade (inteiros em centavos).
+      const pedidos = paraEstoque.flatMap((decidida) =>
+        decidida.peca.item && decidida.custoUnitario !== null
+          ? [
+              pedidoDeEntradaDaProducao({
+                itemId: decidida.peca.item.id,
+                milesimos: decidida.distribuicao.paraEstoque * 1000,
+                custoCentavos: decidida.custoUnitario * decidida.distribuicao.paraEstoque,
+                ordemId: ordem.id,
+                // O nome da ordem CONGELADO: o histórico do Estoque mostra "Da Produção · {nome}".
+                nota: ordem.nome,
+              }),
+            ]
+          : [],
+      );
+      await gravarMovimentacoes(tx, pedidos, { registradoPor: usuario.id });
+
+      for (const decidida of decididas) {
+        await tx
+          .update(ordemPecas)
+          .set({
+            perdidas: decidida.derivada.perdidas,
+            destinoExtras:
+              decidida.distribuicao.paraEstoque > 0
+                ? "estoque"
+                : decidida.distribuicao.semDestino > 0
+                  ? "sem_destino"
+                  : null,
+            paraEstoque: decidida.distribuicao.paraEstoque,
+            semDestino: decidida.distribuicao.semDestino,
+          })
+          .where(and(eq(ordemPecas.id, decidida.peca.id), eq(ordemPecas.ordemId, ordem.id)));
+      }
+
+      await tx
+        .update(ordemEtapas)
+        .set({ feitaEm: hoje, passaram: null })
+        .where(and(eq(ordemEtapas.ordemId, ordem.id), eq(ordemEtapas.etapa, "entrega")));
+
+      const resumo = resumoDaConclusao(
+        decididas.map((decidida) => ({
+          faltam: decidida.derivada.faltam,
+          paraEstoque: decidida.distribuicao.paraEstoque,
+          semDestino: decidida.distribuicao.semDestino,
+        })),
+      );
+      await tx
+        .update(ordensProducao)
+        .set({ status: "concluida", concluidaEm: hoje, entregaParcial: resumo.entregaParcial })
+        .where(eq(ordensProducao.id, ordem.id));
+
+      return { tipo: ordem.tipo, pecasNoEstoque: resumo.paraEstoque, itensLigados };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaConclusao) {
+      return { ok: false, erro: erro.frase, ...erro.opcoes };
+    }
+    // O texto do banco nunca chega à tela. O SQLSTATE fica só no log — lido de `erro.cause.code`
+    // por `codigoDoErroPostgres` (o Drizzle embrulha o erro do `pg`).
+    console.error(
+      `Falha ao concluir ordem da produção (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CONCLUIR };
+  }
+
+  // Fora do `try`: a gravação já está confirmada.
+  revalidatePath(rotaDeGestao("/producao"));
+  revalidatePath(rotaDeGestao(`/producao/${dados.ordemId}`));
+  revalidatePath(rotaDeGestao("/estoque"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: concluida };
 }
