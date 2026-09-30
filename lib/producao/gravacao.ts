@@ -7,12 +7,14 @@
 // aprovação do orçamento e o cancelamento de venda nos planos 03 e 06), por isso só são alcançáveis
 // de dentro do servidor, depois que a ação que as chama já autorizou o usuário.
 //
-// Por que `for no key update` na ordem, e NUNCA a trava exclusiva de linha (Pitfall 5): a folha do
-// Estoque trava o ITEM e depois lê a ordem do vínculo com `for key share` (a checagem da chave
-// estrangeira do `insert` no livro pede a mesma trava). A trava exclusiva de linha conflita com
-// `for key share` — a baixa (item → ordem) e a conclusão (ordem → itens) fechariam um impasse.
-// `for no key update` não conflita com `for key share` e continua excluindo outra `for no key
-// update` — é o que serializa duas decisões sobre a mesma ordem (dois celulares, toque duplo).
+// Por que `for no key update` na ordem, e NUNCA a trava exclusiva de linha (Pitfall 5): toda
+// gravação no livro ligada à ordem passa pela checagem da chave estrangeira, que pede `for key
+// share` na linha da ordem — e a trava exclusiva de linha conflitaria com ela. `for no key update`
+// não conflita com `for key share` e continua excluindo outra `for no key update` — é o que
+// serializa duas decisões sobre a mesma ordem (dois celulares, toque duplo). A folha do Estoque
+// usa esta MESMA trava, na ordem ORDEM → ITEM (`lib/estoque/gravacao.ts::encomendaEmAndamento`,
+// revisão 06.1, WR-04): até a revisão ela travava o item e depois lia a ordem com `for key share`,
+// que não serializava com o cancelamento nem com a conclusão.
 //
 // Ordem de travas do sistema inteiro, para nunca haver ciclo (extensão do "DOCUMENTO → ITENS" de
 // `lib/estoque/gravacao.ts`): DOCUMENTO → ORDEM → ITENS. O cancelamento de venda

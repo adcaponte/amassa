@@ -838,8 +838,8 @@ export type BaixaDaOrdemRegistrada = {
 // Ordem de travas DOCUMENTO → ORDEM → ITENS (`lib/producao/gravacao.ts`, Pitfall 5): a ORDEM
 // primeiro, com `for no key update` (aguardando ou ativa — senão a frase de estado mudado), e só
 // depois o ITEM (`travarItens`, e de novo dentro de `gravarMovimentacoes`, na mesma transação). A
-// folha do Estoque trava o item e depois LÊ a ordem com `for key share`, que não conflita com
-// `for no key update`: baixa e conclusão nunca entram em impasse (T-06.1-37).
+// folha do Estoque segue a mesma ordem, ORDEM → ITEM, com a mesma trava (revisão 06.1, WR-04):
+// baixa, conclusão e cancelamento se serializam na ordem e nunca entram em impasse (T-06.1-37).
 export async function darBaixaNaOrdem(
   entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<BaixaDaOrdemRegistrada>> {

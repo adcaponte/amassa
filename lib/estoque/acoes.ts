@@ -112,11 +112,30 @@ function notaDaEncomenda(nome: string): string {
 
 type DadosDeEntradaOuSaida = Exclude<RegistrarMovimentacaoValidado, { tipo: "ajuste" }>;
 
+// A ordem do vínculo "Consumo em encomenda", TRAVADA e conferida em andamento — ou `null` quando a
+// saída não tem vínculo. Chamada ANTES de `travarItens` (ordem de travas DOCUMENTO → ORDEM → ITENS,
+// revisão 06.1, WR-04 — ver `encomendaEmAndamento`).
+async function travarOrdemDoVinculo(
+  tx: TransacaoDoBanco,
+  dados: RegistrarMovimentacaoValidado,
+): Promise<{ id: string; nome: string } | null> {
+  if (dados.tipo !== "saida" || !dados.encomendaId) {
+    return null;
+  }
+  const ordem = await encomendaEmAndamento(tx, dados.encomendaId);
+  if (!ordem) {
+    throw new OrdemForaDeAndamento();
+  }
+  return ordem;
+}
+
 // O pedido da entrada ou da saída, montado DENTRO da transação: a peça pronta e a ordem do vínculo
-// são conferidas no banco, com a `tx`, nunca aceitas do cliente (T-06-23, T-06.1-09).
+// são conferidas no banco, com a `tx`, nunca aceitas do cliente (T-06-23, T-06.1-09). A ordem do
+// vínculo chega já travada (`travarOrdemDoVinculo`).
 async function pedidoDaFolha(
   tx: TransacaoDoBanco,
   dados: DadosDeEntradaOuSaida,
+  ordemDoVinculo: { id: string; nome: string } | null,
 ): Promise<PedidoDeMovimentacao> {
   if (dados.tipo === "entrada") {
     // D-09/D-29: peça pronta = item com ficha de precificação ligada. Até a Produção existir, ela
@@ -137,13 +156,9 @@ async function pedidoDaFolha(
 
   let encomendaId: string | null = null;
   let nota: string | null = dados.turmaTexto ?? dados.oQueAconteceuTexto;
-  if (dados.encomendaId) {
-    const ordem = await encomendaEmAndamento(tx, dados.encomendaId);
-    if (!ordem) {
-      throw new OrdemForaDeAndamento();
-    }
-    encomendaId = ordem.id;
-    nota = notaDaEncomenda(ordem.nome);
+  if (ordemDoVinculo) {
+    encomendaId = ordemDoVinculo.id;
+    nota = notaDaEncomenda(ordemDoVinculo.nome);
   }
   return pedidoDeSaidaManual({
     itemId: dados.itemId,
@@ -178,6 +193,11 @@ export async function registrarMovimentacao(
   let registrada: MovimentacaoRegistrada;
   try {
     registrada = await db.transaction(async (tx): Promise<MovimentacaoRegistrada> => {
+      // A ORDEM do vínculo primeiro, e só depois o ITEM (DOCUMENTO → ORDEM → ITENS, revisão 06.1,
+      // WR-04): com a mesma trava da Produção, a baixa espera quem cancela ou conclui a ordem e
+      // relê o status — nunca grava consumo ligado a uma ordem que acabou de ser encerrada.
+      const ordemDoVinculo = await travarOrdemDoVinculo(tx, dados);
+
       // Decide sob a trava: o item pode ter sido desativado (ou perdido o estoque próprio) entre
       // abrir a folha e tocar em "Registrar".
       const travados = await travarItens(tx, [dados.itemId]);
@@ -220,7 +240,7 @@ export async function registrarMovimentacao(
         };
       }
 
-      const pedido = await pedidoDaFolha(tx, dados);
+      const pedido = await pedidoDaFolha(tx, dados, ordemDoVinculo);
       const [gravada] = await gravarMovimentacoes(tx, [pedido], { registradoPor: usuario.id });
 
       return {

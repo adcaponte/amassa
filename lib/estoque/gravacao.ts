@@ -437,27 +437,31 @@ export async function itemTemFichaDePrecificacao(
 
 // A ORDEM DE PRODUÇÃO do vínculo "Consumo em encomenda" (Fase 06.1 — o nome da função é o do
 // destino; ver o comentário de `EncomendaParaVinculo`), se ainda está aguardando o sinal ou em
-// andamento — `null` se não existe, foi concluída ou cancelada (T-06.1-09). `for key share`, e não
-// `for no key update`: este é o lado LEITOR da ordem de travas DOCUMENTO → ORDEM → ITENS; a
-// Produção trava a ordem com `for no key update` (`lib/producao/gravacao.ts::travarOrdem`), que
-// não conflita com esta (Pitfall 5) — dar baixa não espera um "Terminei", nem o contrário. A trava
-// segura a linha até o fim da transação (a chave estrangeira pediria a mesma de qualquer jeito).
+// andamento — `null` se não existe, foi concluída ou cancelada (T-06.1-09).
+//
+// Trava `for no key update` — a MESMA da Produção (`lib/producao/gravacao.ts::travarOrdem`) — e é
+// chamada ANTES de `travarItens`, na ordem de travas do sistema DOCUMENTO → ORDEM → ITENS (revisão
+// 06.1, WR-04). Até a revisão ela lia com `for key share` DEPOIS do item: essa trava não conflita
+// com a de quem cancela ou conclui a ordem (que muda `status`, coluna que não é chave), então a
+// folha lia "ativa" no mesmo instante em que a ordem virava cancelada, e gravava uma baixa ligada a
+// uma ordem encerrada. Com a mesma trava, a baixa espera o cancelamento (ou a conclusão) terminar,
+// relê o status e recusa; e, como a ordem vem antes do item aqui e na Produção (`darBaixaNaOrdem`,
+// `concluirOrdem`), nenhum impasse novo aparece. A trava segura a linha até o fim da transação —
+// a chave estrangeira do `insert` no livro pede `for key share`, que a própria transação já cobre.
 // Devolve o nome, que a ação congela em `nota` (Pitfall 10).
 export async function encomendaEmAndamento(
   tx: TransacaoDoBanco,
   encomendaId: string,
 ): Promise<{ id: string; nome: string } | null> {
   const [linha] = await tx
-    .select({ id: ordensProducao.id, nome: ordensProducao.nome })
+    .select({ id: ordensProducao.id, nome: ordensProducao.nome, status: ordensProducao.status })
     .from(ordensProducao)
-    .where(
-      and(
-        eq(ordensProducao.id, encomendaId),
-        inArray(ordensProducao.status, ["aguardando_sinal", "ativa"]),
-      ),
-    )
-    .for("key share");
-  return linha ?? null;
+    .where(eq(ordensProducao.id, encomendaId))
+    .for("no key update");
+  if (!linha || (linha.status !== "aguardando_sinal" && linha.status !== "ativa")) {
+    return null;
+  }
+  return { id: linha.id, nome: linha.nome };
 }
 
 // ---------------------------------------------------------------------------------------------
