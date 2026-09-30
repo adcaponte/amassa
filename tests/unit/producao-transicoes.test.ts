@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { etapasIniciais } from "@/lib/producao/etapas";
 import type { OrdemParaLeitura } from "@/lib/producao/leitura";
-import { planejarTerminar } from "@/lib/producao/transicoes";
+import { planejarLiberacao, planejarTerminar } from "@/lib/producao/transicoes";
 
 // Fase 06.1 (plano 01): "Terminei" decidido sob a trava da ordem, contra a etapa ESPERADA (o que o
 // botão mostrava) — é o que recusa o toque duplo e o segundo celular (Pitfall 7). As demais
@@ -176,5 +176,49 @@ describe("planejarTerminar nas bordas", () => {
     expect(
       planejarTerminar(ordem({ feitas: { producao: "2026-12-30" } }), "secagem", "2027-01-02"),
     ).toMatchObject({ tipo: "ok", feitaEm: "2027-01-02", proxima: "queima1" });
+  });
+});
+
+// Fase 06.1 (plano 03, PRD-11): liberar a ordem que aguarda o sinal. Só de `aguardando_sinal`; o
+// início é o "hoje" do servidor. O segundo "Liberar" (outro celular, toque duplo) é recusado e o
+// início não muda.
+describe("planejarLiberacao", () => {
+  const aguardando = { status: "aguardando_sinal" as const, inicio: null };
+
+  it("ordem aguardando o sinal → ok, com início = hoje", () => {
+    expect(planejarLiberacao(aguardando, "2026-10-01")).toEqual({ tipo: "ok", inicio: "2026-10-01" });
+  });
+
+  it("o início é sempre o hoje recebido — virada de ano e 29/02", () => {
+    expect(planejarLiberacao(aguardando, "2027-01-01")).toEqual({ tipo: "ok", inicio: "2027-01-01" });
+    expect(planejarLiberacao(aguardando, "2028-02-29")).toEqual({ tipo: "ok", inicio: "2028-02-29" });
+  });
+
+  it("ordem já ativa → recusa ja-liberada (o início não muda)", () => {
+    expect(planejarLiberacao({ status: "ativa", inicio: "2026-09-20" }, "2026-10-01")).toEqual({
+      tipo: "recusa",
+      motivo: "ja-liberada",
+    });
+  });
+
+  it("ordem concluída → recusa ja-liberada", () => {
+    expect(planejarLiberacao({ status: "concluida", inicio: "2026-08-01" }, "2026-10-01")).toEqual({
+      tipo: "recusa",
+      motivo: "ja-liberada",
+    });
+  });
+
+  it("ordem cancelada → recusa cancelada", () => {
+    expect(planejarLiberacao({ status: "cancelada", inicio: "2026-08-01" }, "2026-10-01")).toEqual({
+      tipo: "recusa",
+      motivo: "cancelada",
+    });
+  });
+
+  it("aceita a ordem inteira da leitura (o que a ação passa depois de travar)", () => {
+    expect(planejarLiberacao(ordem({ status: "aguardando_sinal", inicio: null }), "2026-10-01")).toEqual({
+      tipo: "ok",
+      inicio: "2026-10-01",
+    });
   });
 });
