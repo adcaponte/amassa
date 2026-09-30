@@ -9,8 +9,11 @@ export const dynamic = "force-dynamic";
 // `matcher` de `middleware.ts` só alcança `/gestao`. Existe para duas coisas:
 //
 // 1. O Passo 6 do Roteiro 16 (`docs/operacao/16-migracao-producao.md`): depois do `implantar` e do
-//    `db:migrate`, um `curl` de fora prova que o app PUBLICADO enxerga as migrações 0024 e 0025 —
-//    200 só se a tabela das ordens e a coluna `material_da_ordem` do livro do Estoque existem.
+//    `db:migrate`, um `curl` de fora prova que o app PUBLICADO enxerga a migração 0024 — 200 só se
+//    a tabela das ordens e a coluna `material_da_ordem` do livro do Estoque existem, e as duas
+//    nascem na 0024. Ela NÃO mede a 0025 (que só apaga as tabelas de Encomendas): a 0025 vai na
+//    mesma transação do `db:migrate` (D-09), então na prática vem junto, mas quem a prova é o SQL do
+//    Passo 7.1 (revisão 06.1, IN-02 — cada afirmação com a evidência que de fato mede).
 //    Entre o fim do `implantar` e o `db:migrate` (a janela do D-09) ela fica 503: é o sinal de que
 //    a migração ainda falta. A prova de dentro é o SQL do Passo 7.
 // 2. O monitoramento externo, no molde de `/api/health/estoque`: se alguém restaurar um backup
