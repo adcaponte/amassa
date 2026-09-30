@@ -21,16 +21,16 @@ const LISTAS = [
 describe("ehItemAtivo", () => {
   it("o Início (/gestao) casa só por igualdade exata", () => {
     expect(ehItemAtivo("/gestao", "/gestao")).toBe(true);
-    expect(ehItemAtivo("/gestao/encomendas", "/gestao")).toBe(false);
+    expect(ehItemAtivo("/gestao/producao", "/gestao")).toBe(false);
   });
 
   it("um href de módulo casa com o próprio caminho e com sub-rotas futuras", () => {
-    expect(ehItemAtivo("/gestao/encomendas", "/gestao/encomendas")).toBe(true);
-    expect(ehItemAtivo("/gestao/encomendas/42", "/gestao/encomendas")).toBe(true);
+    expect(ehItemAtivo("/gestao/producao", "/gestao/producao")).toBe(true);
+    expect(ehItemAtivo("/gestao/producao/42", "/gestao/producao")).toBe(true);
   });
 
   it("prefixo de texto solto não basta — exige a barra separadora", () => {
-    expect(ehItemAtivo("/gestao/encomendasx", "/gestao/encomendas")).toBe(false);
+    expect(ehItemAtivo("/gestao/producaox", "/gestao/producao")).toBe(false);
   });
 
   // Caso (g) do plano: a regra de item ativo do Início veio do plano 01 e este plano não a
@@ -154,14 +154,15 @@ describe(`todo href das duas listas vive sob ${PREFIXO_GESTAO}`, () => {
   });
 });
 
-// Casos (d) e (e) do plano — D-13/GES-14: "Produção" é só o rótulo novo, a rota e o ícone do
-// módulo de Encomendas não mudaram.
-describe("\"Produção\" é só o rótulo — a rota e o ícone continuam de Encomendas (D-13/GES-14)", () => {
+// Casos (d) e (e) do plano 04.6 — D-13/GES-14 deu o rótulo "Produção" ao módulo de Encomendas. Fase
+// 06.1 (D-03): o item aponta DIRETO para `/gestao/producao` (o endereço antigo só redireciona);
+// a chave de ícone "encomendas" fica — é chave de mapa, sem efeito visível.
+describe("\"Produção\" aponta para /gestao/producao, com a chave de ícone de sempre (D-03)", () => {
   for (const { nome, lista } of LISTAS) {
     it(`lista ${nome}`, () => {
       const producao = lista.find((item) => item.rotulo === "Produção");
       expect(producao).toBeDefined();
-      expect(producao?.href).toBe("/gestao/encomendas");
+      expect(producao?.href).toBe("/gestao/producao");
       expect(producao?.icone).toBe("encomendas");
     });
   }

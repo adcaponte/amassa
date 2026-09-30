@@ -26,7 +26,7 @@ import {
   FRASE_CUSTO_DA_CONTAGEM,
   FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
-  FRASE_ENCOMENDA_FORA_DE_ANDAMENTO,
+  FRASE_ORDEM_FORA_DE_ANDAMENTO,
   FRASE_MINIMO_INVALIDO,
   FRASE_OBSERVACOES_LONGAS,
   FRASE_QUANTIDADE_INVALIDA,
@@ -143,11 +143,11 @@ const esquemaTextoLivre = z
     return normalizado;
   });
 
-// A encomenda do destino "Consumo em encomenda" (D-15): referência opcional à encomenda real, por
-// id. "Nenhuma" chega como texto vazio → nulo. Se ela existe e está em andamento é a AÇÃO que
-// confere, dentro da transação (T-06-24) — aqui só a forma.
+// A ordem do destino "Consumo em encomenda" (D-15; ordem de produção desde a Fase 06.1): referência
+// opcional, por id. "Nenhuma" chega como texto vazio → nulo. Se ela existe e está aguardando o
+// sinal ou em andamento é a AÇÃO que confere, dentro da transação (T-06.1-09) — aqui só a forma.
 const esquemaEncomendaId = z
-  .union([z.literal(""), z.string().uuid(FRASE_ENCOMENDA_FORA_DE_ANDAMENTO)])
+  .union([z.literal(""), z.string().uuid(FRASE_ORDEM_FORA_DE_ANDAMENTO)])
   .nullish()
   .transform((valor) => (valor ? valor : null));
 

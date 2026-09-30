@@ -5,7 +5,7 @@
 // outro módulo monta o `ParametrosDoCalculo` na mão. A taxa do cartão nunca é lida de novo aqui:
 // vem de `obterConfiguracaoFinanceira` (lib/financeiro/consultas.ts), a mesma leitura que a 04.4
 // já faz — D-16, "não duplicar".
-import { and, asc, countDistinct, desc, eq, lte } from "drizzle-orm";
+import { and, asc, countDistinct, desc, eq, inArray, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -13,6 +13,8 @@ import {
   fichasPrecificacao,
   itensCatalogo,
   orcamentoLinhas,
+  ordemPecas,
+  ordensProducao,
   parametrosPrecificacao,
 } from "@/db/schema";
 import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
@@ -368,4 +370,43 @@ export async function contarOrcamentosDaFicha(tx: TransacaoDoBanco, fichaId: str
     .where(eq(orcamentoLinhas.fichaId, fichaId));
 
   return Number(linha?.total ?? 0);
+}
+
+// Irmã de `contarOrcamentosDaFicha`, também chamada DENTRO da transação de `apagarFicha` (Fase
+// 06.1, plano 12 — Pitfall 11): desde o plano 07, uma ordem feita à mão aponta para a ficha
+// (`ordem_pecas.ficha_id`), e a chave estrangeira recusaria a exclusão com um 23503 cru. Conta
+// ORDENS distintas (de qualquer status — a concluída e a cancelada também guardam a ficha no
+// histórico), não peças.
+export async function contarOrdensDaFicha(tx: TransacaoDoBanco, fichaId: string): Promise<number> {
+  const [linha] = await tx
+    .select({ total: countDistinct(ordemPecas.ordemId) })
+    .from(ordemPecas)
+    .where(eq(ordemPecas.fichaId, fichaId));
+
+  return Number(linha?.total ?? 0);
+}
+
+// Revisão 06.1, WR-01 — resposta do dono na Parte 0 (30/09/2026), opção (a): os NOMES das ordens da
+// PRODUÇÃO DA CASA ainda abertas (aguardando o sinal ou em andamento) que usam a ficha. Chamada
+// DENTRO da transação de `editarFicha`, depois da trava da ficha (`for update`): marcar "exclusiva"
+// tira o item da ficha, e a ordem da casa ficaria sem onde guardar as peças na Entrega. Uma ordem
+// só aparece uma vez, por nome.
+export async function ordensDaCasaAbertasDaFicha(
+  tx: TransacaoDoBanco,
+  fichaId: string,
+): Promise<string[]> {
+  const linhas = await tx
+    .selectDistinct({ id: ordensProducao.id, nome: ordensProducao.nome })
+    .from(ordemPecas)
+    .innerJoin(ordensProducao, eq(ordensProducao.id, ordemPecas.ordemId))
+    .where(
+      and(
+        eq(ordemPecas.fichaId, fichaId),
+        eq(ordensProducao.tipo, "casa"),
+        inArray(ordensProducao.status, ["ativa", "aguardando_sinal"]),
+      ),
+    )
+    .orderBy(asc(ordensProducao.nome), asc(ordensProducao.id));
+
+  return linhas.map((linha) => linha.nome);
 }

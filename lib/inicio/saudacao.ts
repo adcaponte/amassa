@@ -1,7 +1,7 @@
 // Módulo puro, sem nenhum import: `lib/inicio/` só pode conter apresentação pura (GES-09) —
 // nenhuma consulta, nenhuma regra de negócio. Regra de módulo mora no módulo (a janela de sete
-// dias em `lib/financeiro/vencimentos.ts`, a amostra de produção em
-// `lib/encomendas/producao-em-andamento.ts`, a capacidade do espaço em `lib/agenda/espaco.ts`).
+// dias em `lib/financeiro/vencimentos.ts`, as linhas da produção em `lib/producao/quadro.ts`
+// (`linhasParaOInicio`), a capacidade do espaço em `lib/agenda/espaco.ts`).
 //
 // Nota sobre `date-fns`: o PLAN.md deste plano cita `lib/queimas/formato.ts` como "molde" e pede
 // para usar `date-fns` com o locale `ptBR` — mas aquele próprio arquivo documenta, no seu

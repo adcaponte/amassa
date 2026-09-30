@@ -1,0 +1,361 @@
+/* As duas folhas A4 da Produção (Fase 06.1, plano 13 — PRD-19, PRD-20; UI-SPEC §"Folhas A4").
+   O `@page` (A4, margem 15mm) e o que some da casca na impressão moram em `app/globals.css` — regra
+   global do documento, que não sobrevive dentro de um módulo CSS. Este arquivo cuida do que é da
+   folha: o papel na tela, as tabelas (cabeçalho que repete, linha que nunca parte ao meio, texto
+   longo que quebra em vez de estourar), a régua, as caixas de marcar e a pauta.
+
+   Tipografia: os MESMOS quatro papéis em px da tela (28/20/16/14), aplicados pelas classes
+   utilitárias no JSX — nenhum texto da folha abaixo de 14px, na tela e no papel (UI-SPEC
+   §Typography). A escala em pt da folha antiga (8pt/10pt) não vem para cá.
+
+   Cor: `print-color-adjust: exact` na folha (herdado pelos filhos) — sem ele o navegador tira os
+   fundos na impressão e a régua, as caixas marcadas, a zebra e a pauta saem em branco. */
+
+.pagina {
+  min-height: 100%;
+  padding: 16px;
+  background: var(--color-superficie-2);
+}
+
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 768px;
+  margin: 0 auto 16px;
+}
+
+.folha {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 24px;
+  border-top: 8px solid var(--color-acento);
+  background: var(--color-superficie);
+  color: var(--color-tinta);
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+  overflow-wrap: anywhere;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media (min-width: 768px) {
+  .folha {
+    padding: 48px;
+  }
+}
+
+/* Marca: o `Logo` (56px de altura; menor numa tela estreita, para caber a 320px) + o nome. */
+.marca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.logo {
+  font-size: clamp(32px, 12vw, 56px);
+  line-height: 1;
+}
+
+.marcaNome {
+  letter-spacing: 0.08em;
+}
+
+/* Cabeçalho em duas pontas — um `<div>`, nunca `<header>` (UI-D20). */
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  break-inside: avoid;
+}
+
+.cabecalhoTexto {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.cabecalhoDireita {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  text-align: right;
+}
+
+.caixaAlta {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.seloEntrega {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  border: 2px solid var(--color-acento);
+  border-radius: var(--radius-lg);
+}
+
+/* Régua das etapas: uma faixa por etapa, barra de 8px com borda de 2px da cor da etapa.
+   Feita = cheia; atual = metade cheia; futura = listrada. */
+.regua {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 24px;
+  break-inside: avoid;
+}
+
+.reguaEtapa {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  padding-top: 16px;
+  text-align: center;
+  color: var(--color-tinta-fraca);
+  hyphens: auto;
+}
+
+.reguaEtapa::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 8px;
+  border: 2px solid var(--c);
+  border-radius: 9999px;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 4px,
+    color-mix(in srgb, var(--c) 22%, transparent) 4px 8px
+  );
+}
+
+.reguaEtapa[data-estado="feita"]::before {
+  background: var(--c);
+}
+
+.reguaEtapa[data-estado="atual"] {
+  color: var(--color-tinta);
+  font-weight: 600;
+}
+
+.reguaEtapa[data-estado="atual"]::before {
+  background: linear-gradient(90deg, var(--c) 50%, transparent 50%);
+}
+
+/* A secagem (#C9B896, token "NÃO ALTERAR") some sobre o branco — contorno `tinta-fraca` (UI-D13). */
+.reguaEtapa[data-etapa="secagem"]::before {
+  border-color: var(--color-tinta-fraca);
+}
+
+/* Títulos de seção: caixa alta, com o fio até a borda; nunca órfãos no pé da página. */
+.secao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 8px;
+  break-after: avoid;
+  break-inside: avoid;
+}
+
+.secao::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-borda-forte);
+}
+
+.bloco {
+  break-inside: avoid;
+}
+
+/* Tabelas: largura fixa (nunca estoura a 320px), texto longo quebra, cabeçalho repete na folha
+   seguinte, linha nunca parte ao meio. */
+.tabela {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.tabela thead {
+  display: table-header-group;
+}
+
+.tabela th {
+  padding: 8px;
+  border-bottom: 2px solid var(--color-acento);
+  color: var(--color-acento);
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+  vertical-align: bottom;
+}
+
+.tabela td {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-borda);
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.tabela tr {
+  break-inside: avoid;
+}
+
+.zebra tbody tr:nth-child(even) td {
+  background: var(--color-fundo);
+}
+
+.numero {
+  font-variant-numeric: tabular-nums;
+}
+
+.colunaCaixa {
+  width: 44px;
+}
+
+/* A caixa de marcar à mão: 20px, borda de 2px da etapa; cheia com o "✓" quando feita. */
+.caixa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--c);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.caixa[data-feita="true"] {
+  background: var(--c);
+}
+
+/* Secagem: "✓" em #3A331F (o branco reprova sobre #C9B896 — Q13) e contorno `tinta-fraca`. */
+.caixa[data-etapa="secagem"] {
+  border-color: var(--color-tinta-fraca);
+  color: #3a331f;
+}
+
+.ponto {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--c);
+}
+
+.ponto[data-etapa="secagem"] {
+  box-shadow: 0 0 0 1px var(--color-tinta-fraca);
+}
+
+/* O contador da seção da folha geral: fundo e cor do texto chegam pelo `style` do componente — a
+   regra "secagem ? #3A331F : branco" mora num lugar só, cobrada por `tests/unit/contraste.test.ts`. */
+.contador {
+  display: inline-block;
+  order: 3;
+  padding: 0 8px;
+  border-radius: 9999px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.secaoEtapa {
+  color: var(--color-tinta);
+}
+
+/* Linha de escrever à mão: 1px `tinta-fraca` (precisa aparecer impressa). */
+.escrever {
+  display: block;
+  height: 20px;
+  border-bottom: 1px solid var(--color-tinta-fraca);
+}
+
+.linhaCurta {
+  display: inline-block;
+  width: 96px;
+  height: 20px;
+  vertical-align: bottom;
+  border-bottom: 1px solid var(--color-tinta-fraca);
+}
+
+.referencias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  break-inside: avoid;
+}
+
+.foto {
+  display: block;
+  width: 112px;
+  height: 112px;
+  overflow: hidden;
+  border: 1px solid var(--color-borda-forte);
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  break-inside: avoid;
+}
+
+.duasColunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 4px 24px;
+  break-inside: avoid;
+}
+
+.pauta {
+  height: 120px;
+  background: repeating-linear-gradient(
+    transparent 0 23px,
+    var(--color-borda-forte) 23px 24px
+  );
+  break-inside: avoid;
+}
+
+.rodape {
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-borda-forte);
+  color: var(--color-tinta-fraca);
+  font-style: italic;
+  text-align: center;
+  break-inside: avoid;
+}
+
+@media print {
+  /* A barra ("Voltar" · "Imprimir folha") não vai para o papel. O `print:hidden` do JSX sozinho
+     não basta: o Tailwind v4 põe os utilitários numa `@layer`, e o `display: flex` deste módulo —
+     sem camada — vence qualquer regra em camada, seja qual for a especificidade. */
+  .barra {
+    display: none;
+  }
+
+  .pagina {
+    padding: 0;
+    background: none;
+  }
+
+  .folha {
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .logo {
+    font-size: 56px;
+  }
+}

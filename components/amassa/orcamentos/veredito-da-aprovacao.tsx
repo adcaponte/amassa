@@ -6,7 +6,7 @@ import {
   ROTULO_VER_VENDA_NO_FINANCEIRO,
   textoVeredito,
 } from "@/lib/orcamentos/textos";
-import { vereditoDaAprovacao, type StatusEncomenda } from "@/lib/orcamentos/situacao";
+import { vereditoDaAprovacao, type StatusOrdem } from "@/lib/orcamentos/situacao";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type VereditoDaAprovacaoProps = {
@@ -15,7 +15,7 @@ export type VereditoDaAprovacaoProps = {
   encomendaId: string | null;
   // O ESTADO da ordem, não só a existência dela (04.5-14) — `null` quando não há encomenda
   // vinculada. A tela não interpreta este valor: quem decide é `vereditoDaAprovacao`.
-  encomendaStatus: StatusEncomenda | null;
+  encomendaStatus: StatusOrdem | null;
   // "existe uma venda cancelada vinculada?" (D-25) — o orçamento continua aprovado; a venda em si
   // segue existindo e navegável (o "Ver venda no Financeiro" continua válido: é lá que se vê que
   // ela foi cancelada), só ganha a linha de aviso abaixo.
@@ -65,10 +65,11 @@ export function VereditoDaAprovacao({
           </a>
           {encomendaId && (
             // O link continua válido mesmo com a ordem cancelada — é lá que se vê o que
-            // aconteceu com ela, exatamente como o "Ver venda no Financeiro" (D-25).
+            // aconteceu com ela, exatamente como o "Ver venda no Financeiro" (D-25). Desde a
+            // Fase 06.1, a página da ordem na Produção.
             <a
               data-testid="veredito-ver-encomenda"
-              href={rotaDeGestao(`/encomendas/${encomendaId}`)}
+              href={rotaDeGestao(`/producao/${encomendaId}`)}
               className="text-corpo font-medium underline underline-offset-2"
             >
               {ROTULO_VER_ENCOMENDA_NA_PRODUCAO}

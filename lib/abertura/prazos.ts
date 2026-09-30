@@ -1,6 +1,7 @@
 // Módulo puro: recebe dados, devolve dados. O único import permitido no arquivo inteiro é
 // `diferencaEmDias` de `lib/abertura/parcelas.ts` — uma única aritmética de calendário no
-// módulo, nunca uma terceira cópia (a segunda já vive em `lib/encomendas/cronograma.ts`). Nada
+// módulo, nunca mais uma cópia (a outra vive em `lib/producao/calendario.ts`; até o plano 06.1-14
+// vivia em `lib/encomendas/cronograma.ts`, apagado com o módulo de Encomendas). Nada
 // de React, nada do cliente do banco, nenhuma leitura de relógio: `hoje` entra sempre por
 // argumento como string `YYYY-MM-DD`.
 //

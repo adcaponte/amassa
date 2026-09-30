@@ -76,34 +76,42 @@ describe("vereditoDaAprovacao", () => {
     });
   });
 
-  it("encomenda em produção: a ordem está aberta e o bloco é verde", () => {
+  // Fase 06.1 (Pitfall 14): o status agora é o da ORDEM DE PRODUÇÃO — "aberta" é aguardando o sinal
+  // OU liberada; concluída e cancelada mantêm os vereditos que já existiam.
+  it("ordem aguardando o sinal: está aberta (nasceu na aprovação e ainda não começou) e o bloco é verde", () => {
     expect(
-      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "em_producao", vendaCancelada: false }),
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "aguardando_sinal", vendaCancelada: false }),
     ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "sucesso" });
   });
 
-  it("🔴 encomenda cancelada: a ordem NÃO está aberta, e o bloco deixa de ser verde", () => {
+  it("ordem ativa (liberada): está aberta e o bloco é verde", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "ativa", vendaCancelada: false }),
+    ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "sucesso" });
+  });
+
+  it("🔴 ordem cancelada: NÃO está aberta, e o bloco deixa de ser verde", () => {
     expect(
       vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "cancelada", vendaCancelada: false }),
     ).toEqual({ ordemAberta: false, ordemCancelada: true, semantica: "atencao" });
   });
 
-  it("encomenda concluída: a ordem não está mais aberta, mas isso não é um aviso — é um fim feliz", () => {
+  it("ordem concluída: não está mais aberta, mas isso não é um aviso — é um fim feliz", () => {
     expect(
       vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "concluida", vendaCancelada: false }),
     ).toEqual({ ordemAberta: false, ordemCancelada: false, semantica: "sucesso" });
   });
 
-  it("encomenda em rascunho conta como aberta — não foi cancelada nem concluída", () => {
-    expect(
-      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "rascunho", vendaCancelada: false }),
-    ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "sucesso" });
-  });
-
   it("venda cancelada sozinha já rebaixa o bloco, mesmo com a ordem aberta (D-25)", () => {
     expect(
-      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "em_producao", vendaCancelada: true }),
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "aguardando_sinal", vendaCancelada: true }),
     ).toEqual({ ordemAberta: true, ordemCancelada: false, semantica: "atencao" });
+  });
+
+  it("venda E ordem canceladas: o bloco é de atenção e a ordem não é afirmada aberta", () => {
+    expect(
+      vereditoDaAprovacao({ encomendaId: ID, encomendaStatus: "cancelada", vendaCancelada: true }),
+    ).toEqual({ ordemAberta: false, ordemCancelada: true, semantica: "atencao" });
   });
 
   it("id sem status conhecido nunca é tratado como aberta", () => {

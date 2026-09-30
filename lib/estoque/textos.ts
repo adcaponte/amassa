@@ -192,7 +192,9 @@ export const PLACEHOLDER_MOTIVO_AJUSTE = "Conferência da prateleira";
 
 // §Rótulos e dicas de campo — os vínculos da saída (todos opcionais).
 export const ROTULO_VINCULO_TURMA = "Qual turma?";
-export const ROTULO_VINCULO_ENCOMENDA = "Qual encomenda?";
+// Fase 06.1 (UI-D12): o vínculo aponta para a ordem de produção — encomenda ou produção da casa.
+export const ROTULO_VINCULO_ENCOMENDA = "Qual ordem?";
+export const DICA_VINCULO_ORDEM = "opcional — ordens em andamento ou aguardando o sinal";
 export const ROTULO_VINCULO_O_QUE_ACONTECEU = "O que aconteceu?";
 export const DICA_VINCULO_OPCIONAL = "opcional";
 export const OPCAO_NENHUMA_ENCOMENDA = "Nenhuma";
@@ -217,8 +219,8 @@ export const FRASE_CONTADO_VAZIO = "Diga quanto tem na prateleira — pode ser z
 // O `check` `movimentacoes_estoque_nota_comprimento` do banco é o mesmo limite, em caracteres.
 export const LIMITE_DO_VINCULO = 160;
 export const FRASE_VINCULO_LONGO = "Esse texto cabe em até 160 letras — resuma um pouco.";
-export const FRASE_ENCOMENDA_FORA_DE_ANDAMENTO =
-  "Essa encomenda não está mais em andamento — escolha outra ou deixe em branco.";
+export const FRASE_ORDEM_FORA_DE_ANDAMENTO =
+  "Essa ordem já foi concluída ou cancelada. Escolha outra, ou nenhuma.";
 
 // §Pré-visualização — "o saldo passa de X para Y" (rodapé da folha). As partes em destaque são
 // montadas por `previaDaMovimentacao` (saldo.ts); aqui só os pedaços de texto.
@@ -300,6 +302,9 @@ export const LINHA_PECA_PRONTA = "peça pronta";
 export const LINHA_SALDO_INICIAL = "Saldo inicial";
 export const LINHA_AJUSTE = "Ajuste de conferência";
 export const LINHA_ESTORNO = "Estorno";
+// Fase 06.1 (plano 11): a peça pronta que entrou pela conclusão de uma ordem — “Da Produção · {nome da
+// ordem} · {R$} · {R$}/{un}”.
+export const LINHA_DA_PRODUCAO = "Da Produção";
 export function textoVendaNumero(numero: number): string {
   return `venda nº ${numero}`;
 }
@@ -327,6 +332,8 @@ export function textoPrecoPorUnidade(reais: string, unidade: string): string {
 export const CHIP_PERDA = "Perda";
 export const CHIP_VENDA = "Venda";
 export const CHIP_DO_FINANCEIRO = "do Financeiro";
+// O mesmo desenho do “do Financeiro” (acento, borda tracejada) — a linha veio de outro módulo.
+export const CHIP_DA_PRODUCAO = "da Produção";
 export const CHIP_ESTORNO = "Estorno";
 export const CHIP_ESTORNADA = "Estornada";
 export const CHIP_SALDO_INICIAL = "Saldo inicial";

@@ -23,6 +23,9 @@ export const TEXTOS_DOS_BLOCOS = {
   producao: {
     vazio: "Nenhuma ordem em andamento.",
     erro: "Não deu para carregar a produção.",
+    // Fase 06.1 (D-16): a segunda frase do vazio depende de haver ordem esperando o sinal.
+    vazioComAguardando: "Elas entram em andamento quando forem liberadas, na Produção.",
+    vazioSemAguardando: "Abra a Produção para criar uma ordem.",
   },
   estoque: {
     vazio: "Nenhum material abaixo do mínimo.",
@@ -30,7 +33,24 @@ export const TEXTOS_DOS_BLOCOS = {
     naoContado: "O estoque ainda não foi contado.",
     linkNaoContado: "começar a contagem",
   },
-} satisfies Record<ChaveDoBloco, TextosDoBloco & { naoContado?: string; linkNaoContado?: string }>;
+} satisfies Record<
+  ChaveDoBloco,
+  TextosDoBloco & {
+    naoContado?: string;
+    linkNaoContado?: string;
+    vazioComAguardando?: string;
+    vazioSemAguardando?: string;
+  }
+>;
+
+// Bloco "Produção" (Fase 06.1, D-16): a linha final das ordens que esperam o sinal e o "e mais N"
+// das liberadas que passam das 5 linhas (UI-D9).
+export function textoAguardandoOSinal(quantas: number): string {
+  return `${quantas} aguardando o sinal`;
+}
+export function textoEMaisOrdens(quantas: number): string {
+  return `e mais ${quantas}`;
+}
 
 // Reexportado, não duplicado: `lib/erro/textos.ts` já é a voz única do rótulo "Tentar de novo"
 // (usado por `app/gestao/(app)/error.tsx`) e é um módulo puro sem import — reimportá-lo aqui não

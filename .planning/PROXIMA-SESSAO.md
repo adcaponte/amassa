@@ -1,7 +1,55 @@
-# Próxima sessão — ATUALIZADO em 2026-09-30 (madrugada, Fase 06.1 planejada)
+# Próxima sessão — ATUALIZADO em 2026-09-30 (manhã, Fase 06.1 com o código completo no branch; aguardando você)
+
+*Até 30/09/2026, ~11h UTC, este título dizia "madrugada, Fase 06.1 planejada".*
+
+> **Adendo de 30/09/2026, tarde — Parte 0 respondida pelo Theo e aplicada no branch** (`e335e2b`, `4b29211`..`6910df8`, `06.1-PARTE0-AJUSTES.md`; `npm run verificar` verde e e2e 234 passed). Próximo, dele: Roteiro 16 → caminhada.
+
+
+> **Adendo de 30/09/2026, ~12h45 UTC — revisão de código antes do portão:** 112 arquivos de produção revisados em duas partes (`06.1-REVIEW.md`, `a4c00f3`): 0 bloqueios, 11 avisos, 18 informativos. **10 avisos corrigidos** mais IN-02 e IN-08 (texto do Roteiro 16: entre o deploy e o `db:migrate` quebram também todo cancelamento no Caixa e toda gravação no Estoque) — `06.1-REVIEW-FIX.md` (`813f547`). Como sei: `npm run verificar` verde (85 ações, 1792 testes, `test:migracoes`); e2e `--grep "producao|estoque movimentacao"` 217 passed/1 failed (`producao-quadro:153`, a regex do teste casou com o sufixo aleatório do nome — falha do teste, não do código) e `--grep "producao quadro"` 54 passed. **O WR-01 ficou com você**, na Parte 0, §0.6 (ordem da casa com ficha que vira exclusiva no meio da produção não conclui — recomendado: recusar tornar exclusiva a ficha usada por ordem da casa ativa), junto com a confirmação do WR-03 (o seletor da casa só oferece itens em `un`).
+
+> **🟡 ATUALIZAÇÃO DE 30/09/2026, MANHÃ (~11h UTC) — A FASE 06.1 (PRODUÇÃO) ESTÁ COM O CÓDIGO
+> COMPLETO NO BRANCH `gsd/phase-06.1-producao`, NÃO PUBLICADO. AGUARDANDO VOCÊ.** Os 15 planos rodaram
+> (o 15, o portão, até a parte do executor): a Produção em `/gestao/producao`, o módulo antigo de
+> Encomendas apagado do código, `/gestao/encomendas*` redirecionando, as migrações `0024` e `0025`
+> escritas e provadas no Postgres de teste — **não aplicadas** —, `/api/health/producao`, o Roteiro 16
+> e a caminhada.
+>
+> **Como sei (medido em 30/09/2026, 11h08 UTC):**
+> - **Nada publicado:** `git ls-remote origin refs/heads/main` = `cd7453e` (o mesmo do `origin/main`
+>   local); `git log origin/main..main` = 12 commits, todos `docs(06.1)` da preparação da fase
+>   (`ef8d598`..`9e7c6e7`); `gh run list` — o último run é o `36641765972` (`cd7453e`, 29/09 22h48
+>   UTC, verde), nenhum depois; `curl https://amassacerrado.com.br/api/health/producao` = **404** (a
+>   rota só existe no branch), `/api/health/backup` = 200, `/gestao/encomendas` = 307 para o login (o
+>   módulo antigo ainda no ar).
+> - **O branch:** `git log main..gsd/phase-06.1-producao` com os commits dos planos 01 a 15;
+>   `npm run verificar` verde no último (85 ações, 1776 testes, `test:migracoes` com a `0024` e a
+>   `0025` provadas em banco próprio). A única varredura e2e completa da fase (30/09, 11h08 UTC,
+>   `39f0982`): **917 passed · 14 failed · 1 flaky · 7 skipped · 49 did not run** — **nenhuma falha
+>   da Produção** (157 testes `producao` passaram); uma falha causada pela fase (`design-system:58`,
+>   corrida com o esqueleto da Produção) corrigida em `27b7125`; as outras são janelas conhecidas ou
+>   passaram em série, e `financeiro-mes:114` (celular) virou a janela #62. Detalhe no
+>   `06.1-15-SUMMARY.md` e em `Claude outputs/RETRATO-DA-SUITE.md`. **34 invocações de e2e na fase**
+>   (30 nos planos 01–14, 4 no 15).
+> - Nenhum requisito PRD marcado (só a caminhada marca).
+>
+> **🔴 O que depende de você, nesta ordem:**
+> 1. **A Parte 0** de `.planning/phases/06.1-producao/06.1-VERIFICACAO-HUMANA.md` — as decisões
+>    tomadas sem você na fase inteira, cada uma com "como desfazer"; primeiro UI-D4, UI-D3 e UI-D2, e
+>    as que mudam o que o sistema grava (a correção do check da `0024`; o D-13 trocando a categoria de
+>    compra do item para "Produção da casa"). Troca aqui é barata.
+> 2. **O Roteiro 16** (`docs/operacao/16-migracao-producao.md`): guarda → contagem antes → backup →
+>    `git merge --no-ff gsd/phase-06.1-producao` + `git push` → esperar o job `implantar` **terminar**
+>    → `db:migrate` logo em seguida (a `0024` e a `0025` numa transação só) → `/api/health/producao`
+>    200 → SQL depois → o celular → **anotar o dia da publicação** (se não for 30/09,
+>    `DATA_DE_REMOCAO_DA_PRODUCAO` muda de `2027-03-30` para publicação + 6 meses).
+> 3. **A caminhada no celular** (Parte 2): os 8 critérios, o "Terminei" em dois toques cronometrado e
+>    as conferências de tela e de papel.
+>
+> Cópias de leitura do roteiro e da caminhada, fora do git: `Claude outputs/producao/`.
 
 > **🟢 ATUALIZAÇÃO DE 30/09/2026, MADRUGADA — A FASE 06.1 (PRODUÇÃO) ESTÁ PLANEJADA. NADA FOI
-> EXECUTADO NEM PUBLICADO.** Você respondeu no chat, antes de dormir, as nove perguntas da pesquisa
+> EXECUTADO NEM PUBLICADO.** *(Até ~02h45 de 30/09, quando a execução começou. Registro: o bloco acima
+> é o presente.)* Você respondeu no chat, antes de dormir, as nove perguntas da pesquisa
 > (D-09..D-17 no `06.1-CONTEXT.md`; a D-09 foi a sua: uma publicação e uma sessão de `db:migrate`) e
 > autorizou seguir pelas recomendadas. Depois disso saíram, sem você, o UI-SPEC, o mapa de padrões e
 > **15 planos** (`06.1-01..15`, uma onda cada, no branch `gsd/phase-06.1-producao` na execução).

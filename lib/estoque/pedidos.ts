@@ -18,6 +18,9 @@ import { areaDoDestino, type DestinoDeSaida } from "./destinos";
 export type OrigemDaMovimentacao = "venda" | "compra" | "producao" | "manual";
 export type TipoDaMovimentacao = "entrada" | "saida" | "ajuste";
 export type MotivoDaMovimentacao = "saldo_inicial" | "peca_pronta";
+// Espelha o enum `material_da_ordem` da 0024 (Fase 06.1): a baixa feita pela ORDEM marca se foi a
+// argila ou o esmalte previstos; "outro material" não marca nada.
+export type MaterialDaOrdemNaBaixa = "argila" | "esmalte";
 
 export type PedidoDeMovimentacao = {
   itemId: string;
@@ -32,6 +35,7 @@ export type PedidoDeMovimentacao = {
   documentoId?: string;
   documentoLinhaId?: string;
   encomendaId?: string;
+  materialDaOrdem?: MaterialDaOrdemNaBaixa;
   nota?: string;
   estornoDeId?: string;
 };
@@ -62,17 +66,53 @@ export function pedidoDeEntradaManual(dados: {
   };
 }
 
+// A peça pronta que entra pela CONCLUSÃO de uma ordem de produção (Fase 06.1, plano 11 — PRD-16):
+// origem `producao`, entrada com preço — o custo total é a quantidade × o custo de cada peça (o da
+// ficha, ou o digitado quando a ficha não dá custo, D-14), decidido pela ação no servidor. O vínculo
+// é real: `encomendaId` = a ordem (o `check` da 0024 aceita a ordem na origem `producao`), e a `nota`
+// leva o nome da ordem congelado. SEM `motivo`: o `check` `movimentacoes_estoque_motivo_so_manual`
+// recusaria o `peca_pronta` fora da origem manual — a origem já diz de onde a peça veio.
+export function pedidoDeEntradaDaProducao(dados: {
+  itemId: string;
+  milesimos: number;
+  custoCentavos: number;
+  ordemId: string;
+  nota: string;
+}): PedidoDeMovimentacao {
+  return {
+    itemId: dados.itemId,
+    origem: "producao",
+    tipo: "entrada",
+    movimento: {
+      tipo: "entrada_com_preco",
+      milesimos: dados.milesimos,
+      pagoCentavos: dados.custoCentavos,
+    },
+    valorInformadoCentavos: dados.custoCentavos,
+    encomendaId: dados.ordemId,
+    nota: dados.nota,
+  };
+}
+
 // Saída manual ("Registrar baixa"): o destino é obrigatório, e a ÁREA que paga sai dele (D-14) —
 // nunca do cliente. `nota` é o vínculo em texto (turma, "o que aconteceu?" ou o nome CONGELADO da
-// encomenda — Pitfall 10: se ela for apagada, o nome fica); `encomendaId` só existe no destino
-// encomenda (o `check` `movimentacoes_estoque_encomenda_so_no_destino_encomenda` recusaria).
+// encomenda — Pitfall 10: se ela for apagada, o nome fica); `encomendaId` (o id da ORDEM de
+// produção, desde a 0024) só existe no destino encomenda (o `check`
+// `movimentacoes_estoque_ordem_so_no_destino_encomenda_ou_producao` recusaria).
+//
+// `materialDaOrdem` (Fase 06.1, plano 10 — a baixa feita pela própria ordem, PRD-14) só vai JUNTO
+// com o destino encomenda e a ordem: é o que o `check`
+// `movimentacoes_estoque_material_da_ordem_so_na_baixa` exige. Fora disso é descartado, como o
+// `encomendaId`.
 export function pedidoDeSaidaManual(dados: {
   itemId: string;
   milesimos: number;
   destino: DestinoDeSaida;
   nota?: string | null;
   encomendaId?: string | null;
+  materialDaOrdem?: MaterialDaOrdemNaBaixa | null;
 }): PedidoDeMovimentacao {
+  const encomendaId = dados.destino === "encomenda" ? (dados.encomendaId ?? null) : null;
   return {
     itemId: dados.itemId,
     origem: "manual",
@@ -80,10 +120,9 @@ export function pedidoDeSaidaManual(dados: {
     movimento: { tipo: "saida", milesimos: dados.milesimos },
     destino: dados.destino,
     area: areaDoDestino(dados.destino),
-    ...(dados.destino === "encomenda" && dados.encomendaId
-      ? { encomendaId: dados.encomendaId }
-      : {}),
+    ...(encomendaId ? { encomendaId } : {}),
     ...(dados.nota ? { nota: dados.nota } : {}),
+    ...(encomendaId && dados.materialDaOrdem ? { materialDaOrdem: dados.materialDaOrdem } : {}),
   };
 }
 

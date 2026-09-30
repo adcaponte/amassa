@@ -442,11 +442,11 @@ export const ROTULO_A_RECEBER = "a receber";
 // (D-25: o dono confirma no Caixa quando o dinheiro cai de verdade).
 export const DICA_SINAL_A_RECEBER =
   'O sinal entra em "A receber" com vencimento hoje — você confirma no Caixa quando o dinheiro cair. O saldo vence na data de entrega.';
-// Acréscimo deliberado ao protótipo (planner_assumptions do plano 12): a versão real da ordem não
-// carrega foto/ficha anexadas — cor e personalização vão na descrição do item, e a encomenda ganha
-// a linha de origem que leva de volta ao orçamento (fotos e ficha ficam a um toque de distância).
+// Fase 06.1 (06.1-UI-SPEC.md §Religamentos): a ordem nova nasce aguardando o sinal e carrega a
+// ficha, a cor e a personalização de cada peça em campos próprios, e as fotos do orçamento (lidas
+// pelo vínculo, sem cópia). A frase anterior ("fotos e ficha continuam… pelo orçamento") ficou falsa.
 export const DICA_ORDEM_DE_PRODUCAO =
-  "A ordem leva a cor e a personalização de cada peça na descrição do item. Fotos e ficha continuam a um toque de distância, pelo orçamento.";
+  "A ordem nasce aguardando o sinal e só começa a contar quando você liberar, na Produção. Ela leva as peças, a cor, a personalização, as fotos e a ficha de cada peça.";
 export function rotuloAbrirOrdem(itensTexto: string, entregaFormatada: string): string {
   return `Abrir a ordem com ${itensTexto}, entrega em ${entregaFormatada}`;
 }

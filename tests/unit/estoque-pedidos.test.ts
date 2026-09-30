@@ -4,6 +4,7 @@ import type { ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import {
   pedidoDeAjuste,
+  pedidoDeEntradaDaProducao,
   pedidoDeEntradaManual,
   pedidoDeSaidaManual,
   pedidosDaCompra,
@@ -398,6 +399,32 @@ describe("pedidoDeEntradaManual — a peça pronta (D-09/D-29)", () => {
   });
 });
 
+describe("pedidoDeEntradaDaProducao — a peça pronta vinda da conclusão (PRD-16)", () => {
+  it("origem producao, entrada com preço, valor informado, a ordem e a nota — e nenhum motivo", () => {
+    const pedido = pedidoDeEntradaDaProducao({
+      itemId: "caneca",
+      milesimos: 2000,
+      custoCentavos: 7404,
+      ordemId: "ordem-1",
+      nota: "Canecas [e2e]",
+    });
+    expect(pedido).toEqual({
+      itemId: "caneca",
+      origem: "producao",
+      tipo: "entrada",
+      movimento: { tipo: "entrada_com_preco", milesimos: 2000, pagoCentavos: 7404 },
+      valorInformadoCentavos: 7404,
+      encomendaId: "ordem-1",
+      nota: "Canecas [e2e]",
+    });
+    // O check `movimentacoes_estoque_motivo_so_manual` recusaria o motivo numa origem producao.
+    expect(pedido).not.toHaveProperty("motivo");
+    expect(pedido).not.toHaveProperty("destino");
+    expect(pedido).not.toHaveProperty("area");
+    expect(pedido).not.toHaveProperty("documentoId");
+  });
+});
+
 describe("pedidoDeSaidaManual — os vínculos (EST-11)", () => {
   it("encomenda com id e o rótulo congelado na nota", () => {
     expect(
@@ -431,6 +458,64 @@ describe("pedidoDeSaidaManual — os vínculos (EST-11)", () => {
     expect(pedido).not.toHaveProperty("nota");
     expect(pedido).not.toHaveProperty("encomendaId");
     expect(pedido.area).toBe("espaco");
+  });
+
+  it("a baixa da ordem (Produção, PRD-14): destino encomenda, a ordem e o material da ordem vão juntos", () => {
+    expect(
+      pedidoDeSaidaManual({
+        itemId: "argila",
+        milesimos: 2200,
+        destino: "encomenda",
+        encomendaId: "ordem-1",
+        nota: "[e2e] Jogo de canecas",
+        materialDaOrdem: "argila",
+      }),
+    ).toEqual({
+      itemId: "argila",
+      origem: "manual",
+      tipo: "saida",
+      movimento: { tipo: "saida", milesimos: 2200 },
+      destino: "encomenda",
+      area: "pecas",
+      encomendaId: "ordem-1",
+      nota: "[e2e] Jogo de canecas",
+      materialDaOrdem: "argila",
+    });
+  });
+
+  it("“outro material” pela ordem: sem materialDaOrdem, a coluna fica nula", () => {
+    const pedido = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 100,
+      destino: "encomenda",
+      encomendaId: "ordem-1",
+      nota: "Ordem",
+      materialDaOrdem: null,
+    });
+    expect(pedido).not.toHaveProperty("materialDaOrdem");
+    expect(pedido.encomendaId).toBe("ordem-1");
+  });
+
+  it("materialDaOrdem sem a ordem, ou fora do destino encomenda, não vai (o check `material_da_ordem_so_na_baixa` recusaria)", () => {
+    const semOrdem = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 100,
+      destino: "encomenda",
+      encomendaId: null,
+      materialDaOrdem: "esmalte",
+    });
+    expect(semOrdem).not.toHaveProperty("materialDaOrdem");
+    expect(semOrdem).not.toHaveProperty("encomendaId");
+
+    const outroDestino = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 100,
+      destino: "aula",
+      encomendaId: "ordem-1",
+      materialDaOrdem: "argila",
+    });
+    expect(outroDestino).not.toHaveProperty("materialDaOrdem");
+    expect(outroDestino).not.toHaveProperty("encomendaId");
   });
 
   it("encomenda fora do destino encomenda é descartada (o check do banco recusaria)", () => {

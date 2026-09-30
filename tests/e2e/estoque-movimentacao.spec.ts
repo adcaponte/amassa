@@ -5,8 +5,8 @@ import {
   ligarFichaDePrecificacao,
   movimentacoesDoItem,
   saldoNoBanco,
-  semearEncomendaAtiva,
   semearMaterial,
+  semearOrdemAtiva,
   vinculosDoItem,
 } from "./apoio/semear-estoque";
 
@@ -223,22 +223,28 @@ test.describe("estoque movimentacao", () => {
     expect(await movimentacoesDoItem(itemId)).toHaveLength(0);
   });
 
-  test("(f) os vínculos: a encomenda escolhida e a turma ficam gravados", async ({ page }) => {
+  test("(f) os vínculos: a ordem escolhida e a turma ficam gravados", async ({ page }) => {
     const sufixo = sufixoUnico();
     const nome = `[e2e] Argila ${sufixo}`;
-    const nomeDaEncomenda = `[e2e] Encomenda ${sufixo}`;
+    const nomeDaOrdem = `[e2e] Ordem ${sufixo}`;
     const itemId = await semearMaterial({ nome, unidade: "kg", categoriaCompra: CATEGORIA_DE_COMPRA });
-    const encomendaId = await semearEncomendaAtiva(nomeDaEncomenda);
+    // Fase 06.1: o vínculo aponta para a ORDEM de produção (aqui, da casa).
+    const ordemId = await semearOrdemAtiva(nomeDaOrdem);
     await abrirEstoque(page);
 
     const folha = folhaDe(page);
     await cartaoDoItem(page, itemId).getByTestId("estoque-dar-baixa").click();
     await atalho(folha, 1).click();
     await folha.getByTestId("folha-destino-encomenda").click();
-    const seletorDeEncomenda = folha.getByTestId("folha-vinculo-encomenda");
+    const seletorDeOrdem = folha.getByLabel("Qual ordem?");
+    await expect(seletorDeOrdem).toHaveAttribute("data-testid", "folha-vinculo-encomenda");
+    await expect(folha.getByText("opcional — ordens em andamento ou aguardando o sinal")).toBeVisible();
     // "Nenhuma" é a primeira opção — o vínculo é opcional.
-    await expect(seletorDeEncomenda.locator("option").first()).toHaveText("Nenhuma");
-    await seletorDeEncomenda.selectOption(encomendaId);
+    await expect(seletorDeOrdem.locator("option").first()).toHaveText("Nenhuma");
+    await expect(seletorDeOrdem.locator(`option[value="${ordemId}"]`)).toHaveText(
+      `${nomeDaOrdem} · da casa`,
+    );
+    await seletorDeOrdem.selectOption(ordemId);
     await folha.getByTestId("folha-registrar").click();
     await expect(page.getByText(`Baixa de 1 kg em ${nome}.`)).toBeVisible();
     await expect(folha).toBeHidden();
@@ -255,7 +261,8 @@ test.describe("estoque movimentacao", () => {
     const vinculos = await vinculosDoItem(itemId);
     expect(linhas.map((linha) => linha.destino)).toEqual(["encomenda", "aula"]);
     expect(linhas.map((linha) => linha.area)).toEqual(["pecas", "espaco"]);
-    expect(vinculos[0]).toMatchObject({ encomendaId, nota: nomeDaEncomenda });
+    // `encomenda_id` do livro = id da ORDEM; a nota congela o nome dela.
+    expect(vinculos[0]).toMatchObject({ encomendaId: ordemId, nota: nomeDaOrdem });
     expect(vinculos[1]).toMatchObject({ encomendaId: null, nota: "Turma de terça [e2e]" });
   });
 

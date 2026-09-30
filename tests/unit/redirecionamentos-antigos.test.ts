@@ -5,8 +5,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   CAMINHOS_ANTIGOS,
+  DATA_DE_REMOCAO_DA_PRODUCAO,
   DATA_DE_REMOCAO_DOS_REDIRECIONAMENTOS,
+  PREFIXOS_DA_PRODUCAO,
   REDIRECIONAMENTOS_ANTIGOS,
+  REDIRECIONAMENTOS_DA_PRODUCAO,
 } from "../../lib/rotas/redirecionamentos-antigos";
 
 // Conferida no plano 04 (Fase 04.6): a lista continua só a raiz. `app/sitemap.ts` (novo neste
@@ -100,5 +103,75 @@ describe("REDIRECIONAMENTOS_ANTIGOS", () => {
     expect(indiceRelatorios).toBeGreaterThanOrEqual(0);
     expect(indiceId).toBeGreaterThanOrEqual(0);
     expect(indiceRelatorios).toBeLessThan(indiceId);
+  });
+});
+
+// Fase 06.1 (D-03, D-17): os endereços antigos do módulo de Encomendas, que virou a Produção,
+// redirecionam por seis meses — lista explícita, sem curinga, destinos internos fixos (T-06.1-52).
+describe("REDIRECIONAMENTOS_DA_PRODUCAO", () => {
+  it("são exatamente 3 entradas, na ordem: a raiz do módulo, /imprimir e :id", () => {
+    expect(REDIRECIONAMENTOS_DA_PRODUCAO.map(({ source }) => source)).toEqual([
+      "/gestao/encomendas",
+      "/gestao/encomendas/imprimir",
+      "/gestao/encomendas/:id",
+    ]);
+  });
+
+  it("cada destino é o equivalente em /gestao/producao", () => {
+    expect(REDIRECIONAMENTOS_DA_PRODUCAO.map(({ destination }) => destination)).toEqual([
+      "/gestao/producao",
+      "/gestao/producao/imprimir",
+      "/gestao/producao/:id",
+    ]);
+    expect(PREFIXOS_DA_PRODUCAO).toEqual({
+      antigo: "/gestao/encomendas",
+      novo: "/gestao/producao",
+    });
+    for (const { source, destination } of REDIRECIONAMENTOS_DA_PRODUCAO) {
+      expect(source.startsWith(PREFIXOS_DA_PRODUCAO.antigo)).toBe(true);
+      expect(destination.startsWith(PREFIXOS_DA_PRODUCAO.novo)).toBe(true);
+    }
+  });
+
+  it("o literal /imprimir vem antes de :id (senão :id casaria com imprimir)", () => {
+    const sources = REDIRECIONAMENTOS_DA_PRODUCAO.map(({ source }) => source);
+    expect(sources.indexOf("/gestao/encomendas/imprimir")).toBeLessThan(
+      sources.indexOf("/gestao/encomendas/:id"),
+    );
+  });
+
+  it("nenhum curinga, permanent false em todas, nenhum destino casa com um source (sem laço)", () => {
+    const todos = [...REDIRECIONAMENTOS_ANTIGOS, ...REDIRECIONAMENTOS_DA_PRODUCAO];
+    for (const redirecionamento of REDIRECIONAMENTOS_DA_PRODUCAO) {
+      expect(redirecionamento.source.includes("*")).toBe(false);
+      expect(redirecionamento.destination.includes("*")).toBe(false);
+      expect(redirecionamento.permanent).toBe(false);
+      for (const { source } of todos) {
+        expect(casaComSource(source, redirecionamento.destination)).toBe(false);
+      }
+    }
+  });
+
+  it("não mexe nos 13 da raiz", () => {
+    expect(REDIRECIONAMENTOS_ANTIGOS).toHaveLength(13);
+    expect(DATA_DE_REMOCAO_DOS_REDIRECIONAMENTOS).toBe("2027-03-28");
+  });
+
+  it("a data de remoção é AAAA-MM-DD, depois de 2026-09-30, e está no comentário do módulo", () => {
+    expect(DATA_DE_REMOCAO_DA_PRODUCAO).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(DATA_DE_REMOCAO_DA_PRODUCAO > "2026-09-30").toBe(true);
+    // Seis meses civis depois do dia da implementação (2026-09-30): nunca antes de 2027-03-30.
+    expect(DATA_DE_REMOCAO_DA_PRODUCAO >= "2027-03-30").toBe(true);
+    const conteudo = readFileSync(
+      join(process.cwd(), "lib/rotas/redirecionamentos-antigos.ts"),
+      "utf8",
+    );
+    expect(conteudo).toContain(`remover após ${DATA_DE_REMOCAO_DA_PRODUCAO}`);
+  });
+
+  it("next.config.ts devolve as duas listas", () => {
+    const conteudo = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
+    expect(conteudo).toContain("...REDIRECIONAMENTOS_ANTIGOS");
+    expect(conteudo).toContain("...REDIRECIONAMENTOS_DA_PRODUCAO");
   });
 });

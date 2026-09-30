@@ -191,3 +191,40 @@ export function fraseFichaEmUso(quantidadeDeOrcamentos: number): string {
   const orcamentos = quantidadeDeOrcamentos === 1 ? "1 orçamento" : `${quantidadeDeOrcamentos} orçamentos`;
   return `Esta peça está em ${orcamentos}. Não dá para apagar.`;
 }
+
+// Fase 06.1 (plano 12, Pitfall 11): a ficha que uma ORDEM DE PRODUÇÃO usa também não se apaga — a
+// frase da UI-SPEC, com o plural de verdade ("1 ordem de produção" / "2 ordens de produção").
+export function fraseFichaEmOrdensDeProducao(quantidadeDeOrdens: number): string {
+  const ordens =
+    quantidadeDeOrdens === 1 ? "1 ordem de produção" : `${quantidadeDeOrdens} ordens de produção`;
+  return `Esta peça é usada em ${ordens} — não dá para apagar.`;
+}
+
+// A recusa de `apagarFicha` junta as duas contagens: a dos orçamentos (quando houver) e a das
+// ordens (quando houver) — uma frase de cada, na ordem em que o diálogo sempre as mostrou.
+export function fraseFichaEmUsoCompleta(quantidadeDeOrcamentos: number, quantidadeDeOrdens: number): string {
+  const frases: string[] = [];
+  if (quantidadeDeOrcamentos > 0) {
+    frases.push(fraseFichaEmUso(quantidadeDeOrcamentos));
+  }
+  if (quantidadeDeOrdens > 0) {
+    frases.push(fraseFichaEmOrdensDeProducao(quantidadeDeOrdens));
+  }
+  return frases.join(" ");
+}
+
+// Revisão 06.1, WR-01 — o dono escolheu a opção (a) na Parte 0 (30/09/2026): a ficha de linha que
+// uma ordem da PRODUÇÃO DA CASA ainda aberta usa não vira "exclusiva" — a ordem ficaria sem item
+// onde guardar as peças. A frase diz qual ordem (ou quantas, com as duas primeiras pelo nome) e o
+// que fazer. `nomes` nunca vem vazio: `editarFicha` só a chama quando achou pelo menos uma ordem.
+export function fraseFichaNaProducaoDaCasa(nomes: readonly string[]): string {
+  if (nomes.length === 1) {
+    return `A ficha está na produção da casa “${nomes[0]}”. Conclua ou cancele a ordem na Produção antes de torná-la exclusiva. Nada foi gravado.`;
+  }
+  const citadas = nomes.slice(0, 2).map((nome) => `“${nome}”`);
+  const lista =
+    nomes.length === 2
+      ? `${citadas[0]} e ${citadas[1]}`
+      : `${citadas[0]}, ${citadas[1]} e mais ${nomes.length - 2}`;
+  return `A ficha está em ${nomes.length} ordens da produção da casa ainda abertas (${lista}). Conclua ou cancele essas ordens na Produção antes de torná-la exclusiva. Nada foi gravado.`;
+}

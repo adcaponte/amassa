@@ -15,6 +15,7 @@ import {
   textoPagoEm,
 } from "@/lib/financeiro/textos";
 import { ROTULO_VER_ORCAMENTO, textoCriadoAPartirDoOrcamento } from "@/lib/orcamentos/textos";
+import { ROTULO_VER_ORDEM_NA_PRODUCAO } from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -155,6 +156,20 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
                   >
                     {ROTULO_VER_ORCAMENTO}
                   </a>
+                  {/* Fase 06.1 (PRD-10): a volta à ordem que a aprovação abriu — só quando ela
+                      existe (orçamento aprovado sem ordem, venda avulsa: nada). */}
+                  {documento.origemOrcamento.ordemId ? (
+                    <>
+                      {" · "}
+                      <a
+                        data-testid="documento-ver-ordem"
+                        href={rotaDeGestao(`/producao/${documento.origemOrcamento.ordemId}`)}
+                        className="font-medium underline underline-offset-2"
+                      >
+                        {ROTULO_VER_ORDEM_NA_PRODUCAO}
+                      </a>
+                    </>
+                  ) : null}
                 </p>
               )}
 

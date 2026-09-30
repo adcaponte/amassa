@@ -1,0 +1,167 @@
+// Módulo puro da Produção (Fase 06.1, plano 11) — a CONCLUSÃO de uma ordem. A tela pergunta uma
+// coisa por peça, quantas se perderam, e o resto sai daqui. As contas rodam no cliente (para mostrar
+// enquanto se digita) e DE NOVO no servidor, sob a trava da ordem, para gravar — o cliente nunca
+// manda boas, extras nem faltam (T-06.1-42). Nenhuma linha alcança React, Next, drizzle-orm, pg ou
+// `@/db` (grep de aceite do plano 06.1-11).
+
+import type { TipoOrdem } from "./etapas";
+
+export type DestinoDasExtras = "estoque" | "sem_destino";
+
+export type PecaDerivada = {
+  ok: true;
+  feitas: number;
+  perdidas: number;
+  boas: number;
+  entregues: number;
+  extrasBoas: number;
+  faltam: number;
+};
+
+export type RecusaDaPeca = { ok: false; frase: string };
+
+// As cinco fórmulas do BRIEFING.md §7, verbatim, em inteiros:
+//
+//   feitas      = pedido + a mais
+//   boas        = feitas − perdidas
+//   entregues   = mín(pedido, boas)            (produção da casa: não há entrega)
+//   extras boas = máx(0, boas − pedido)        (produção da casa: todas as boas)
+//   faltam      = máx(0, pedido − boas)  → permite "Concluir como entrega parcial", com aviso
+//
+// Na produção da casa não há cliente: entregues 0, as extras são todas as boas e nada falta.
+// `perdidas` fora de 0..feitas, ou não inteira, é recusada com a frase da tela.
+export function derivarPeca(p: {
+  tipo: TipoOrdem;
+  pedido: number;
+  aMais: number;
+  perdidas: number;
+}): PecaDerivada | RecusaDaPeca {
+  const feitas = p.pedido + p.aMais;
+  if (!Number.isInteger(p.perdidas) || p.perdidas < 0 || p.perdidas > feitas) {
+    return { ok: false, frase: `Diga um número de 0 a ${feitas}.` };
+  }
+  const boas = feitas - p.perdidas;
+  if (p.tipo === "casa") {
+    return { ok: true, feitas, perdidas: p.perdidas, boas, entregues: 0, extrasBoas: boas, faltam: 0 };
+  }
+  return {
+    ok: true,
+    feitas,
+    perdidas: p.perdidas,
+    boas,
+    entregues: Math.min(p.pedido, boas),
+    extrasBoas: Math.max(0, boas - p.pedido),
+    faltam: Math.max(0, p.pedido - boas),
+  };
+}
+
+// A sugestão do destino das extras boas (briefing §7; D-12, D-15). Casa: sempre o Estoque, sem
+// escolha. Encomenda: peça de linha → Estoque; exclusiva → sem destino; peça em texto livre (sem
+// ficha) → sem destino, e nesta fase só isso (D-12).
+export function destinoSugerido(p: {
+  tipo: TipoOrdem;
+  exclusiva: boolean;
+  temFicha: boolean;
+}): DestinoDasExtras {
+  if (p.tipo === "casa") {
+    return "estoque";
+  }
+  if (!p.temFicha || p.exclusiva) {
+    return "sem_destino";
+  }
+  return "estoque";
+}
+
+// A Produção guarda PEÇAS: na entrada do Estoque, 1 peça = 1 unidade do item (revisão 06.1, WR-03).
+// Só serve o item contado em unidades (`un`) — ou ainda sem unidade, que o D-13 liga em `un` na
+// própria conclusão. Um item em kg, g, ml, L ou m é material, não peça: "10 peças" viraria "10 kg"
+// de argila e mexeria no custo médio dela. Conferido no seletor, na criação e sob a trava do item.
+export function itemGuardaPecas(unidade: string | null): boolean {
+  return unidade === null || unidade === "un";
+}
+
+// D-13, como o dono o trocou na Parte 0 (30/09/2026): ao ligar o estoque de um item na conclusão,
+// o item que JÁ TEM categoria de compra fica com a dele; o item SEM categoria recebe a que a pessoa
+// escolheu na folha de conclusão (que nasce com "Produção da casa" marcada). Sem categoria e sem
+// escolha, falta — o servidor recusa. A escolha, quando há categoria, é ignorada. Quem confere que a
+// escolhida é uma categoria de compra ativa é o servidor, no banco (`categoriaDeCompraValida`).
+export type CategoriaDeCompraAoLigar =
+  | { tipo: "mantem"; categoriaCompraId: string }
+  | { tipo: "escolhida"; categoriaCompraId: string }
+  | { tipo: "falta" };
+
+export function categoriaDeCompraAoLigar(
+  atual: string | null,
+  escolhida: string | null,
+): CategoriaDeCompraAoLigar {
+  if (atual !== null) {
+    return { tipo: "mantem", categoriaCompraId: atual };
+  }
+  if (escolhida !== null && escolhida !== "") {
+    return { tipo: "escolhida", categoriaCompraId: escolhida };
+  }
+  return { tipo: "falta" };
+}
+
+// Quando a folha de conclusão mostra o seletor "Categoria da compra" numa peça: ela manda peças ao
+// Estoque E o item vai passar a controlar estoque SEM ter categoria de compra — o item da peça que
+// ainda não controla e não tem categoria, ou o item que a promoção da exclusiva (D-12) cria agora
+// (nasce sem categoria). Item que já controla estoque não é ligado; item com categoria a mantém.
+export function pecaPedeCategoriaDeCompra(p: {
+  paraEstoque: number;
+  item: { controlaEstoque: boolean; categoriaCompraId: string | null } | null;
+  vaiSerPromovida: boolean;
+}): boolean {
+  if (p.paraEstoque <= 0) {
+    return false;
+  }
+  if (p.item === null) {
+    return p.vaiSerPromovida;
+  }
+  return !p.item.controlaEstoque && p.item.categoriaCompraId === null;
+}
+
+export type DistribuicaoDasExtras = { paraEstoque: number; semDestino: number };
+
+// Quantas boas vão para o Estoque e quantas ficam sem destino. Casa: todas as boas para o Estoque
+// (D-15), qualquer destino que chegue. Encomenda: as extras boas para o destino escolhido; sem
+// extras, zero e zero. A soma nunca passa das boas (o `check` `ordem_pecas_destinos_cabem`).
+export function distribuirExtras(
+  peca: PecaDerivada,
+  destino: DestinoDasExtras,
+  tipo: TipoOrdem,
+): DistribuicaoDasExtras {
+  if (tipo === "casa") {
+    return { paraEstoque: peca.boas, semDestino: 0 };
+  }
+  if (peca.extrasBoas === 0) {
+    return { paraEstoque: 0, semDestino: 0 };
+  }
+  return destino === "estoque"
+    ? { paraEstoque: peca.extrasBoas, semDestino: 0 }
+    : { paraEstoque: 0, semDestino: peca.extrasBoas };
+}
+
+export type ResumoDaConclusao = {
+  entregaParcial: boolean;
+  paraEstoque: number;
+  semDestino: number;
+};
+
+// O resumo da ordem: é entrega parcial se ALGUMA peça ficou faltando; e as somas do que entra no
+// Estoque e do que fica sem destino (o toast e o rótulo do botão leem daqui).
+export function resumoDaConclusao(
+  pecas: readonly { faltam: number; paraEstoque: number; semDestino: number }[],
+): ResumoDaConclusao {
+  let entregaParcial = false;
+  let paraEstoque = 0;
+  let semDestino = 0;
+  for (const peca of pecas) {
+    if (peca.faltam > 0) {
+      entregaParcial = true;
+    }
+    paraEstoque += peca.paraEstoque;
+    semDestino += peca.semDestino;
+  }
+  return { entregaParcial, paraEstoque, semDestino };
+}

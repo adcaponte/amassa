@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
-import { REDIRECIONAMENTOS_ANTIGOS } from "./lib/rotas/redirecionamentos-antigos";
+import {
+  REDIRECIONAMENTOS_ANTIGOS,
+  REDIRECIONAMENTOS_DA_PRODUCAO,
+} from "./lib/rotas/redirecionamentos-antigos";
 
 const nextConfig: NextConfig = {
   // Saída mínima (sem devDependencies) usada pela imagem de produção do serviço `app`.
@@ -18,8 +21,10 @@ const nextConfig: NextConfig = {
   // Fase 04.6 (D-01/D-21): os 13 endereços antigos da plataforma, de quando ela respondia na
   // raiz. A lista mora em `lib/rotas/redirecionamentos-antigos.ts` — um módulo puro — para
   // poder ser testada sem subir o Next inteiro; este arquivo só a espalha.
+  // Fase 06.1 (D-03, D-17): depois deles, os três endereços antigos do módulo de Encomendas, que
+  // viraram a Produção — mesma lista explícita, no mesmo módulo, com data de remoção própria.
   async redirects() {
-    return [...REDIRECIONAMENTOS_ANTIGOS];
+    return [...REDIRECIONAMENTOS_ANTIGOS, ...REDIRECIONAMENTOS_DA_PRODUCAO];
   },
 };
 

@@ -366,15 +366,21 @@ export type EntradaDaPrevia = {
   contadoMilesimos: number | null;
   // Entrada: "quanto custou ao todo", em centavos; `null` = ainda sem custo.
   custoCentavos: number | null;
+  // A folha de baixa da ORDEM (Fase 06.1, plano 10): "O saldo de {material} passa de…" e sem o
+  // valor em R$ da saída — o valor sai do custo médio no Estoque e não aparece na Produção
+  // (06.1-UI-SPEC §Folha de baixa). Ausentes, a frase é a de sempre.
+  nomeDoMaterial?: string;
+  semValor?: boolean;
 };
 
 function frasePassaDe(
   deMilesimos: number,
   paraMilesimos: number,
   unidade: string,
+  nomeDoMaterial?: string,
 ): ParteDaPrevia[] {
   return [
-    { texto: "O saldo passa de " },
+    { texto: nomeDoMaterial ? `O saldo de ${nomeDoMaterial} passa de ` : "O saldo passa de " },
     { texto: textoDeMilesimos(deMilesimos), forte: true },
     { texto: " para " },
     { texto: `${textoDeMilesimos(paraMilesimos)} ${unidade}`, forte: true },
@@ -443,10 +449,14 @@ export function previaDaMovimentacao(entrada: EntradaDaPrevia): PreviaDaMoviment
   );
   const depois = valorado.estadoDepois.saldoMilesimos;
   const partes = [
-    ...frasePassaDe(saldo, depois, unidade),
-    { texto: " Vale " },
-    { texto: formatarReais(Math.abs(valorado.valorCentavos)), forte: true },
-    { texto: " ao custo médio." },
+    ...frasePassaDe(saldo, depois, unidade, entrada.nomeDoMaterial),
+    ...(entrada.semValor
+      ? []
+      : [
+          { texto: " Vale " },
+          { texto: formatarReais(Math.abs(valorado.valorCentavos)), forte: true },
+          { texto: " ao custo médio." },
+        ]),
   ];
   // A MESMA regra de alerta da lista: negativo vence acabando, mínimo zero nunca avisa.
   const situacao = situacaoDoSaldo({ saldo: depois, minimo: entrada.minimoMilesimos });

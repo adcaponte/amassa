@@ -409,6 +409,10 @@ export type ParcelaDoDocumentoParaDetalhe = {
 export type OrigemDoDocumento = {
   orcamentoId: string;
   numero: string;
+  // A ordem de produção que a aprovação abriu (Fase 06.1, PRD-10 — "navegáveis nos dois
+  // sentidos"): `orcamentos.encomenda_id`, o nome histórico do vínculo com `ordens_producao`.
+  // `null` quando o orçamento foi aprovado sem ordem.
+  ordemId: string | null;
 };
 
 export type DocumentoParaDetalhe = {
@@ -455,6 +459,7 @@ export async function listarDocumentosParaDetalhe(
         origemOrcamentoId: orcamentos.id,
         origemOrcamentoAno: orcamentos.ano,
         origemOrcamentoSequencial: orcamentos.sequencial,
+        origemOrdemId: orcamentos.encomendaId,
       })
       .from(documentos)
       .leftJoin(usuarios, eq(documentos.canceladoPor, usuarios.id))
@@ -551,6 +556,7 @@ export async function listarDocumentosParaDetalhe(
         ? {
             orcamentoId: documento.origemOrcamentoId,
             numero: numeroDeOrcamento(documento.origemOrcamentoAno!, documento.origemOrcamentoSequencial!),
+            ordemId: documento.origemOrdemId,
           }
         : null,
     });
@@ -565,12 +571,23 @@ export async function listarDocumentosParaDetalhe(
 // o porquê (chave circular e segunda verdade que poderiam divergir).
 export async function obterOrigemDoDocumento(documentoId: string): Promise<OrigemDoDocumento | null> {
   const [linha] = await db
-    .select({ id: orcamentos.id, ano: orcamentos.ano, sequencial: orcamentos.sequencial })
+    .select({
+      id: orcamentos.id,
+      ano: orcamentos.ano,
+      sequencial: orcamentos.sequencial,
+      ordemId: orcamentos.encomendaId,
+    })
     .from(orcamentos)
     .where(eq(orcamentos.documentoId, documentoId))
     .limit(1);
 
-  return linha ? { orcamentoId: linha.id, numero: numeroDeOrcamento(linha.ano, linha.sequencial) } : null;
+  return linha
+    ? {
+        orcamentoId: linha.id,
+        numero: numeroDeOrcamento(linha.ano, linha.sequencial),
+        ordemId: linha.ordemId,
+      }
+    : null;
 }
 
 export type ParcelaParaAviso = {

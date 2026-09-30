@@ -81,9 +81,15 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
     const familiaCorpo = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
 
     // Ponto 3 — título de uma tela de módulo (`CabecalhoPagina`, papel `display`). Fase 04.6,
-    // plano 05 (D-13): "Produção" é o rótulo novo de Encomendas — a rota continua
-    // `/gestao/encomendas`, só o texto do heading mudou.
-    await page.goto("/gestao/encomendas");
+    // plano 05 (D-13): "Produção" é o rótulo novo de Encomendas. Fase 06.1 (D-03): a rota é
+    // `/gestao/producao`.
+    await page.goto("/gestao/producao");
+    // Plano 06.1-15: o esqueleto da Produção (`producao/loading.tsx`) desenha o MESMO `h1`
+    // "Produção" do `CabecalhoPagina`. Sem esta espera, o localizador achava o `h1` do esqueleto,
+    // o React o trocava pelo da página pronta, e o `getComputedStyle` de um elemento já fora do
+    // documento devolvia "" — falhou uma vez na varredura completa, sob carga. "Nova ordem" só
+    // existe na página pronta (no cabeçalho ou no vazio), nunca no esqueleto.
+    await expect(page.getByTestId("nova-ordem-abrir").first()).toBeVisible();
     const familiaTituloModulo = await page
       .getByRole("heading", { name: "Produção", level: 1 })
       .evaluate((el) => getComputedStyle(el).fontFamily);

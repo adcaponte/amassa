@@ -169,6 +169,20 @@
       "when": 1790657090335,
       "tag": "0023_estoque",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790747511127,
+      "tag": "0024_producao",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790765091259,
+      "tag": "0025_remover-encomendas",
+      "breakpoints": true
     }
   ]
 }

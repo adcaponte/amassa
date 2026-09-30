@@ -10,6 +10,7 @@
 import { Client } from "pg";
 
 import { semearItem } from "./semear-financeiro";
+import { diaEmBrasilia, semearOrdem } from "./semear-producao";
 
 async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise<T> {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
@@ -132,16 +133,18 @@ export async function desativarNoBanco(itemId: string): Promise<void> {
   );
 }
 
-// Uma encomenda EM ANDAMENTO (o status padrão do banco é `em_producao`), para o vínculo "Qual
-// encomenda?" da saída "Consumo em encomenda" (plano 06-06). Nome inventado, prefixo `[e2e]`.
-// Devolve o id.
-export async function semearEncomendaAtiva(nome: string): Promise<string> {
-  return comCliente(async (cliente) => {
-    const resultado = await cliente.query<{ id: string }>(
-      "insert into encomendas (nome, data_inicio) values ($1, current_date) returning id",
-      [nome],
-    );
-    return resultado.rows[0].id;
+// Uma ordem de produção DA CASA, ATIVA (começou hoje, nenhuma etapa feita), para o vínculo "Qual
+// ordem?" da saída "Consumo em encomenda" (Fase 06.1, plano 02 — substitui o auxiliar antigo,
+// que semeava a tabela `encomendas`). Nome inventado, prefixo `[e2e]`. Devolve o id.
+export async function semearOrdemAtiva(nome: string): Promise<string> {
+  return semearOrdem({
+    nome,
+    tipo: "casa",
+    caminho: "completo",
+    status: "ativa",
+    inicio: diaEmBrasilia(),
+    etapasFeitas: [],
+    pecas: [{ descricao: "[e2e] Caneca da ordem", quantidade: 4 }],
   });
 }
 

@@ -21,7 +21,7 @@ import {
   ROTULO_VER_COMO_CLIENTE_VE,
   ROTULO_VOLTAR_PARA_RASCUNHO,
 } from "@/lib/orcamentos/textos";
-import type { StatusEncomenda } from "@/lib/orcamentos/situacao";
+import type { StatusOrdem } from "@/lib/orcamentos/situacao";
 
 import { VereditoDaAprovacao } from "./veredito-da-aprovacao";
 import { hrefDoOrcamento } from "@/lib/financeiro/navegacao";
@@ -39,7 +39,7 @@ export type AcoesDoOrcamentoProps = {
   encomendaId: string | null;
   // O ESTADO da ordem vinculada (04.5-14) — só repassado adiante; quem decide o que ele
   // significa é `vereditoDaAprovacao` (lib/orcamentos/situacao.ts), nunca esta barra.
-  encomendaStatus: StatusEncomenda | null;
+  encomendaStatus: StatusOrdem | null;
   vendaCancelada: boolean;
 };
 

@@ -1,0 +1,1315 @@
+// Auxiliar de teste da Produção (Fase 06.1): semeia ordens e LÊ as etapas direto do banco de teste,
+// pelo cliente `pg` — mesmo molde de `tests/e2e/apoio/semear-estoque.ts`. Nomes sempre inventados,
+// com prefixo `[e2e]` — nenhum dado real no repositório. As etapas nascem de `etapasIniciais` (o
+// módulo puro), a mesma fonte dos dias previstos que a aplicação usa.
+//
+// Datas civis vêm como texto `YYYY-MM-DD` de quem chama (o dia de Brasília, calculado no teste) —
+// nunca `current_date` do Postgres, que roda em UTC e erra o dia à noite.
+import { Client } from "pg";
+
+import {
+  etapasIniciais,
+  type CaminhoOrdem,
+  type EtapaProducao,
+  type StatusOrdem,
+  type TipoOrdem,
+} from "@/lib/producao/etapas";
+
+import { buscarCategoriaPorNome, hojeNoAtelie, semearItem, somarDiasAoHoje } from "./semear-financeiro";
+
+async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise<T> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    return await operacao(cliente);
+  } finally {
+    await cliente.end();
+  }
+}
+
+// O dia civil de Brasília — a mesma conta de `hojeEmBrasilia` da aplicação.
+export function diaEmBrasilia(deslocamentoEmDias = 0): string {
+  const agora = new Date(Date.now() + deslocamentoEmDias * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(agora);
+}
+
+// "05/03" a partir de `YYYY-MM-DD`.
+export function diaMes(data: string): string {
+  const [, mes, dia] = data.split("-");
+  return `${dia}/${mes}`;
+}
+
+// `fichaId` (plano 08): a peça ligada a uma ficha de precificação — a fila do forno lê o "cabem"
+// dela ao vivo.
+export type PecaParaSemear = {
+  descricao: string;
+  quantidade: number;
+  aMais?: number;
+  fichaId?: string | null;
+  // Plano 11: a peça da casa escolhida em "Itens do estoque", sem ficha (D-13/D-14).
+  itemCatalogoId?: string | null;
+};
+
+export type OrdemParaSemear = {
+  nome: string;
+  tipo: TipoOrdem;
+  caminho: CaminhoOrdem;
+  status: StatusOrdem;
+  // Nulo em `aguardando_sinal`; obrigatório em `ativa`/`concluida`; livre em `cancelada` (o check
+  // `ordens_producao_aguardando_sem_inicio`, corrigido no plano 06.1-06).
+  inicio: string | null;
+  // As etapas já feitas, com a data — precisam ser um prefixo do caminho.
+  etapasFeitas: { etapa: EtapaProducao; feitaEm: string }[];
+  pecas: PecaParaSemear[];
+  entregaPrometida?: string | null;
+  clienteNome?: string | null;
+  // O parcial da etapa ATUAL (a primeira não feita) — "já passaram N de T" (plano 08).
+  passaramNaAtual?: number | null;
+};
+
+// Uma ordem com as etapas do caminho (com `feita_em` nas feitas) e as peças, numa transação.
+// Devolve o id.
+export async function semearOrdem(dados: OrdemParaSemear): Promise<string> {
+  return comCliente(async (cliente) => {
+    await cliente.query("begin");
+    try {
+      const { rows } = await cliente.query<{ id: string }>(
+        `insert into ordens_producao (tipo, caminho, status, nome, cliente_nome, entrega_prometida, inicio)
+         values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+        [
+          dados.tipo,
+          dados.caminho,
+          dados.status,
+          dados.nome,
+          dados.clienteNome ?? null,
+          dados.entregaPrometida ?? null,
+          dados.inicio,
+        ],
+      );
+      const ordemId = rows[0].id;
+      const feitas = new Map(dados.etapasFeitas.map((feita) => [feita.etapa, feita.feitaEm]));
+      const atual = etapasIniciais(dados.caminho).find((etapa) => !feitas.has(etapa.etapa));
+      for (const etapa of etapasIniciais(dados.caminho)) {
+        await cliente.query(
+          `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos, feita_em, passaram)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [
+            ordemId,
+            etapa.etapa,
+            etapa.posicao,
+            etapa.diasPrevistos,
+            feitas.get(etapa.etapa) ?? null,
+            etapa.etapa === atual?.etapa ? (dados.passaramNaAtual ?? null) : null,
+          ],
+        );
+      }
+      for (const [posicao, peca] of dados.pecas.entries()) {
+        await cliente.query(
+          `insert into ordem_pecas (ordem_id, posicao, descricao, quantidade, a_mais, ficha_id, item_catalogo_id)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            ordemId,
+            posicao,
+            peca.descricao,
+            peca.quantidade,
+            peca.aMais ?? 0,
+            peca.fichaId ?? null,
+            peca.itemCatalogoId ?? null,
+          ],
+        );
+      }
+      await cliente.query("commit");
+      return ordemId;
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      throw erro;
+    }
+  });
+}
+
+export type EtapaNoBanco = {
+  etapa: EtapaProducao;
+  posicao: number;
+  diasPrevistos: number;
+  feitaEm: string | null;
+  passaram: number | null;
+};
+
+// As etapas da ordem como estão no banco, por posição — `feita_em` como texto `YYYY-MM-DD` (o
+// `pg` devolveria `Date` para uma coluna `date`, e o fuso do Node deslocaria o dia).
+export async function etapasDaOrdemNoBanco(ordemId: string): Promise<EtapaNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      etapa: EtapaProducao;
+      posicao: number;
+      dias_previstos: number;
+      feita_em: string | null;
+      passaram: number | null;
+    }>(
+      `select etapa, posicao, dias_previstos, feita_em::text as feita_em, passaram
+         from ordem_etapas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      etapa: linha.etapa,
+      posicao: linha.posicao,
+      diasPrevistos: linha.dias_previstos,
+      feitaEm: linha.feita_em,
+      passaram: linha.passaram,
+    }));
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-03 — a ordem que nasce da aprovação do orçamento
+// ---------------------------------------------------------------------------------------------
+
+export type OrdemNoBanco = {
+  tipo: TipoOrdem;
+  caminho: CaminhoOrdem;
+  status: StatusOrdem;
+  nome: string;
+  clienteNome: string | null;
+  entregaPrometida: string | null;
+  inicio: string | null;
+};
+
+// A linha da ordem como está no banco — datas como texto `YYYY-MM-DD` (mesma razão de
+// `etapasDaOrdemNoBanco`). `null` se ela não existe.
+export async function ordemNoBanco(ordemId: string): Promise<OrdemNoBanco | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      tipo: TipoOrdem;
+      caminho: CaminhoOrdem;
+      status: StatusOrdem;
+      nome: string;
+      cliente_nome: string | null;
+      entrega_prometida: string | null;
+      inicio: string | null;
+    }>(
+      `select tipo, caminho, status, nome, cliente_nome, entrega_prometida::text as entrega_prometida,
+              inicio::text as inicio
+         from ordens_producao where id = $1`,
+      [ordemId],
+    );
+    const linha = rows[0];
+    if (!linha) {
+      return null;
+    }
+    return {
+      tipo: linha.tipo,
+      caminho: linha.caminho,
+      status: linha.status,
+      nome: linha.nome,
+      clienteNome: linha.cliente_nome,
+      entregaPrometida: linha.entrega_prometida,
+      inicio: linha.inicio,
+    };
+  });
+}
+
+export type PecaNoBanco = {
+  posicao: number;
+  fichaId: string | null;
+  descricao: string;
+  quantidade: number;
+  cor: string | null;
+  personalizacao: string | null;
+};
+
+// As peças da ordem, por posição.
+export async function pecasDaOrdemNoBanco(ordemId: string): Promise<PecaNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      posicao: number;
+      ficha_id: string | null;
+      descricao: string;
+      quantidade: number;
+      cor: string | null;
+      personalizacao: string | null;
+    }>(
+      `select posicao, ficha_id, descricao, quantidade, cor, personalizacao
+         from ordem_pecas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      posicao: linha.posicao,
+      fichaId: linha.ficha_id,
+      descricao: linha.descricao,
+      quantidade: linha.quantidade,
+      cor: linha.cor,
+      personalizacao: linha.personalizacao,
+    }));
+  });
+}
+
+// As linhas do orçamento na ordem de `ordem` — o que as peças da ordem precisam espelhar.
+export async function linhasDoOrcamentoNoBanco(
+  orcamentoId: string,
+): Promise<{ fichaId: string; quantidade: number; cor: string | null }[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ ficha_id: string; quantidade: number; cor: string | null }>(
+      `select ficha_id, quantidade, cor from orcamento_linhas where orcamento_id = $1 order by ordem`,
+      [orcamentoId],
+    );
+    return rows.map((linha) => ({ fichaId: linha.ficha_id, quantidade: linha.quantidade, cor: linha.cor }));
+  });
+}
+
+// O vínculo gravado no orçamento (`orcamentos.encomenda_id`, o nome histórico do vínculo com a ordem).
+export async function vinculoDoOrcamento(orcamentoId: string): Promise<string | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ encomenda_id: string | null }>(
+      `select encomenda_id from orcamentos where id = $1`,
+      [orcamentoId],
+    );
+    return rows[0]?.encomenda_id ?? null;
+  });
+}
+
+// Libera e cancela a ordem direto no banco, respeitando os checks (`cancelada_em` e
+// `cancelada_por` junto do status). Só enquanto o "Cancelar ordem" da tela não existe (plano
+// 06.1-06): o teste que precisa de uma ordem cancelada confere o que o ORÇAMENTO diz dela, não o
+// caminho do cancelamento.
+//
+// Por que "libera e cancela" (com `inicio` = `liberadaEm` quando ainda não havia): até o plano
+// 06.1-06 o check `ordens_producao_aguardando_sem_inicio` era `(status = 'aguardando_sinal') =
+// (inicio is null)`, e uma ordem cancelada PRECISAVA ter início (23514, achado do plano 06.1-03).
+// O plano 06 afrouxou o check — a cancelada aceita início nulo — e este atalho ficou como estava:
+// a ordem liberada e depois cancelada continua sendo um estado real, e o caso (j) não muda.
+export async function cancelarOrdemNoBanco(ordemId: string, liberadaEm: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update ordens_producao
+          set status = 'cancelada', inicio = coalesce(inicio, $2::date), cancelada_em = now(),
+              cancelada_por = (select id from usuarios order by criado_em limit 1)
+        where id = $1`,
+      [ordemId, liberadaEm],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`cancelarOrdemNoBanco: a ordem ${ordemId} não existe.`);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-03 — fichas e a ordem vinda de orçamento aprovado (reusadas pelos planos 06, 07, 08,
+// 10 e 11)
+// ---------------------------------------------------------------------------------------------
+
+async function idDoUsuarioDeTeste(cliente: Client): Promise<string> {
+  const email = process.env.E2E_EMAIL_TESTE;
+  if (!email) {
+    throw new Error("semear-producao: a variável E2E_EMAIL_TESTE não está definida.");
+  }
+  const { rows } = await cliente.query<{ id: string }>(
+    "select id from usuarios where lower(email) = lower($1) limit 1",
+    [email],
+  );
+  const id = rows[0]?.id;
+  if (!id) {
+    throw new Error(`semear-producao: nenhum usuário com o e-mail "${email}".`);
+  }
+  return id;
+}
+
+export type FichaParaSemearNaProducao = {
+  nome: string;
+  // Exclusiva = peça de um pedido só, sem item do catálogo; de linha = com item do catálogo
+  // (`comItem`), sem preço praticado próprio (o check `fichas_precificacao_exclusividade_coerente`).
+  exclusiva: boolean;
+  comItem: boolean;
+  argilaMiligramas: number;
+  esmalteMiligramas: number;
+  larguraMm: number;
+  profundidadeMm: number;
+  alturaMm: number;
+  horasMilesimos: number;
+  cabemBiscoitoInformado?: number | null;
+  cabemEsmalteInformado?: number | null;
+};
+
+// Uma ficha de precificação com medidas, gramas e horas. De linha (`comItem`): cria antes o item do
+// catálogo que ela representa (aparece na venda, "Peças prontas", sem controlar estoque). Devolve os
+// dois ids (`itemId` nulo na exclusiva).
+export async function semearFicha(
+  dados: FichaParaSemearNaProducao,
+): Promise<{ fichaId: string; itemId: string | null }> {
+  if (dados.exclusiva === dados.comItem) {
+    throw new Error("semearFicha: ficha exclusiva não tem item; ficha de linha tem (comItem).");
+  }
+  const itemId = dados.comItem
+    ? await semearItem({
+        nome: dados.nome,
+        categoriaVenda: "Peças prontas",
+        precoCentavos: 8000,
+        apareceNaVenda: true,
+        atalhoVenda: false,
+        controlaEstoque: false,
+        atalhoCompra: false,
+      })
+    : null;
+
+  const fichaId = await comCliente(async (cliente) => {
+    const criadoPor = await idDoUsuarioDeTeste(cliente);
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into fichas_precificacao
+         (nome, argila_miligramas, esmalte_miligramas, horas_milesimos, largura_mm, profundidade_mm,
+          altura_mm, cabem_biscoito_informado, cabem_esmalte_informado, preco_praticado_centavos,
+          exclusiva, item_catalogo_id, criado_por)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       returning id`,
+      [
+        dados.nome,
+        dados.argilaMiligramas,
+        dados.esmalteMiligramas,
+        dados.horasMilesimos,
+        dados.larguraMm,
+        dados.profundidadeMm,
+        dados.alturaMm,
+        dados.cabemBiscoitoInformado ?? null,
+        dados.cabemEsmalteInformado ?? null,
+        dados.exclusiva ? 9000 : null,
+        dados.exclusiva,
+        itemId,
+        criadoPor,
+      ],
+    );
+    return rows[0]?.id;
+  });
+  if (!fichaId) {
+    throw new Error(`semearFicha: falha ao inserir a ficha "${dados.nome}".`);
+  }
+  return { fichaId, itemId };
+}
+
+export type PecaDeOrcamentoParaSemear = {
+  quantidade: number;
+  cor?: string | null;
+  personalizacao?: string | null;
+  // Horas da ficha exclusiva criada para a peça, em milésimos (padrão 600 = 0,6 h).
+  horasMilesimos?: number;
+};
+
+export type OrdemDeOrcamentoParaSemear = {
+  // O nome da ordem (e o título do orçamento). Quem chama embute "[e2e] … {sufixo}".
+  nome: string;
+  plano: "sinal" | "avista" | "3x";
+  // A parcela 1 da venda (o sinal; no à vista, o pagamento inteiro) já consta como recebida hoje?
+  sinalPago: boolean;
+  // As peças (uma linha do orçamento, da venda e da ordem por peça, cada uma com a SUA ficha
+  // exclusiva). Padrão: uma peça, 2 unidades, sem cor nem personalização. A peça `n` (base 1) se
+  // chama "{nome} · peça" na primeira e "{nome} · peça {n}" nas seguintes.
+  pecas?: PecaDeOrcamentoParaSemear[];
+};
+
+export type OrdemDeOrcamentoSemeada = {
+  ordemId: string;
+  orcamentoId: string;
+  documentoId: string;
+  // A parcela `numero = 1` da venda — a do sinal.
+  parcelaSinalId: string;
+  entregaPrometida: string;
+};
+
+export function nomeDaPecaSemeada(nomeDaOrdem: string, indice: number): string {
+  return (indice === 0 ? `${nomeDaOrdem} · peça` : `${nomeDaOrdem} · peça ${indice + 1}`).slice(0, 120);
+}
+
+// O retrato de "Cliente aprovou" com a caixa da ordem marcada, gravado direto no banco numa
+// transação: uma ficha exclusiva por peça; o documento de venda (uma linha por peça em
+// "Encomendas") com as parcelas numeradas do plano (a 1 vence hoje e, se `sinalPago`, já recebida
+// hoje); a ordem encomenda/completo aguardando o sinal, sem início, com as seis etapas e as peças; e
+// o orçamento APROVADO, com o snapshot congelado, as linhas e os dois vínculos. R$ 90,00 por
+// unidade (o padrão dá R$ 180,00).
+export async function semearOrdemDeOrcamento(
+  dados: OrdemDeOrcamentoParaSemear,
+): Promise<OrdemDeOrcamentoSemeada> {
+  const semeado = await semearOrcamentoAprovado(dados, true);
+  if (!semeado.ordemId) {
+    throw new Error("semearOrdemDeOrcamento: a ordem não foi criada.");
+  }
+  return { ...semeado, ordemId: semeado.ordemId };
+}
+
+// O mesmo orçamento aprovado, mas SEM ordem de produção (a caixa desmarcada na aprovação):
+// `encomenda_id` nulo — a venda existe, a ordem não.
+export async function semearOrcamentoAprovadoSemOrdem(
+  dados: OrdemDeOrcamentoParaSemear,
+): Promise<Omit<OrdemDeOrcamentoSemeada, "ordemId">> {
+  const { ordemId: _ordemId, ...resto } = await semearOrcamentoAprovado(dados, false);
+  void _ordemId;
+  return resto;
+}
+
+async function semearOrcamentoAprovado(
+  dados: OrdemDeOrcamentoParaSemear,
+  comOrdem: boolean,
+): Promise<Omit<OrdemDeOrcamentoSemeada, "ordemId"> & { ordemId: string | null }> {
+  const hoje = hojeNoAtelie();
+  const entregaPrometida = somarDiasAoHoje(40);
+  const categoriaEncomendas = await buscarCategoriaPorNome("Encomendas");
+  const pecasPedidas = dados.pecas ?? [{ quantidade: 2 }];
+  const precoUnitario = 9000;
+  const pecas: {
+    nome: string;
+    fichaId: string;
+    quantidade: number;
+    cor: string | null;
+    personalizacao: string | null;
+    horasMilesimos: number;
+  }[] = [];
+  for (const [indice, peca] of pecasPedidas.entries()) {
+    const nome = nomeDaPecaSemeada(dados.nome, indice);
+    const horasMilesimos = peca.horasMilesimos ?? 600;
+    const { fichaId } = await semearFicha({
+      nome,
+      exclusiva: true,
+      comItem: false,
+      argilaMiligramas: 450000,
+      esmalteMiligramas: 60000,
+      larguraMm: 120,
+      profundidadeMm: 90,
+      alturaMm: 100,
+      horasMilesimos,
+    });
+    pecas.push({
+      nome,
+      fichaId,
+      quantidade: peca.quantidade,
+      cor: peca.cor ?? null,
+      personalizacao: peca.personalizacao ?? null,
+      horasMilesimos,
+    });
+  }
+
+  const total = pecas.reduce((soma, peca) => soma + peca.quantidade * precoUnitario, 0);
+  const metade = Math.round(total / 2);
+  const terco = Math.floor(total / 3);
+  const valores: number[] =
+    dados.plano === "avista"
+      ? [total]
+      : dados.plano === "sinal"
+        ? [metade, total - metade]
+        : [terco, terco, total - 2 * terco];
+  const clienteNome = `[e2e] Cliente de ${dados.nome}`.slice(0, 160);
+
+  return comCliente(async (conexao) => {
+    const criadoPor = await idDoUsuarioDeTeste(conexao);
+    await conexao.query("begin");
+    try {
+      const { rows: documentos } = await conexao.query<{ id: string }>(
+        `insert into documentos (tipo, data, pessoa_nome, criado_por)
+         values ('venda'::tipo_documento, $1, $2, $3) returning id`,
+        [hoje, clienteNome, criadoPor],
+      );
+      const documentoId = documentos[0].id;
+      for (const [indice, peca] of pecas.entries()) {
+        await conexao.query(
+          `insert into documento_linhas
+             (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [documentoId, indice, peca.nome, categoriaEncomendas, peca.quantidade, peca.quantidade * precoUnitario],
+        );
+      }
+      let parcelaSinalId = "";
+      for (const [indice, valor] of valores.entries()) {
+        const pago = indice === 0 && dados.sinalPago;
+        const { rows } = await conexao.query<{ id: string }>(
+          `insert into parcelas
+             (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+           values ($1, $2, $3, $4, 'pix'::forma_pagamento, $5, $6) returning id`,
+          [
+            documentoId,
+            indice + 1,
+            indice === 0 ? hoje : entregaPrometida,
+            valor,
+            pago ? hoje : null,
+            pago ? criadoPor : null,
+          ],
+        );
+        if (indice === 0) {
+          parcelaSinalId = rows[0].id;
+        }
+      }
+
+      let ordemId: string | null = null;
+      if (comOrdem) {
+        const { rows: ordens } = await conexao.query<{ id: string }>(
+          `insert into ordens_producao
+             (tipo, caminho, status, nome, cliente_nome, entrega_prometida, inicio, criado_por)
+           values ('encomenda', 'completo', 'aguardando_sinal', $1, $2, $3, null, $4) returning id`,
+          [dados.nome, clienteNome, entregaPrometida, criadoPor],
+        );
+        ordemId = ordens[0].id;
+        for (const etapa of etapasIniciais("completo")) {
+          await conexao.query(
+            `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos) values ($1, $2, $3, $4)`,
+            [ordemId, etapa.etapa, etapa.posicao, etapa.diasPrevistos],
+          );
+        }
+        for (const [indice, peca] of pecas.entries()) {
+          await conexao.query(
+            `insert into ordem_pecas
+               (ordem_id, posicao, ficha_id, descricao, quantidade, cor, personalizacao)
+             values ($1, $2, $3, $4, $5, $6, $7)`,
+            [ordemId, indice, peca.fichaId, peca.nome, peca.quantidade, peca.cor, peca.personalizacao],
+          );
+        }
+      }
+
+      const snapshot = {
+        linhas: pecas.map((peca) => ({
+          nome: peca.nome,
+          custoCentavos: 4000,
+          minimoCentavos: 8000,
+          zeroCentavos: 5000,
+          horasMilesimos: peca.horasMilesimos,
+          quantasCabem: { biscoito: 20, esmalte: 15 },
+        })),
+        impostoETaxaPontosBase: 0,
+        parametrosEstimados: 0,
+        congeladoEm: new Date().toISOString(),
+      };
+      const ano = Number(hoje.slice(0, 4));
+      // O sequencial sai do MESMO contador que a aplicação usa (`contadores_orcamento`,
+      // `lib/orcamentos/numero.ts`). Até o plano 06.1-06 saía de `max(sequencial) + 1`, que passava
+      // por fora do contador: o próximo "Novo orçamento" feito pela tela, em paralelo, recebia do
+      // contador um número que o semeador já tinha usado e caía em 23505
+      // (`orcamentos_ano_sequencial_uk`). O contador trava a linha do ano até o fim desta transação,
+      // então a tela espera em vez de colidir. A nova tentativa em 23505 fica para um orçamento que
+      // ainda tenha sido gravado por fora do contador (cada volta pede um número novo).
+      let orcamentoId = "";
+      for (let tentativa = 0; tentativa < 5 && !orcamentoId; tentativa += 1) {
+        const { rows: contador } = await conexao.query<{ ultimo_numero: number }>(
+          `insert into contadores_orcamento (ano, ultimo_numero) values ($1, 1)
+           on conflict (ano) do update set ultimo_numero = contadores_orcamento.ultimo_numero + 1
+           returning ultimo_numero`,
+          [ano],
+        );
+        await conexao.query("savepoint orcamento");
+        try {
+          const { rows } = await conexao.query<{ id: string }>(
+            `insert into orcamentos
+               (ano, sequencial, status, cliente_nome, titulo, data, entrega_prevista, plano,
+                congelado_em, snapshot, documento_id, encomenda_id, criado_por)
+             values ($1, $11, 'aprovado', $2, $3, $4, $5, $6, now(), $7::jsonb, $8, $9, $10)
+             returning id`,
+            [
+              ano,
+              clienteNome,
+              dados.nome.slice(0, 160),
+              hoje,
+              entregaPrometida,
+              dados.plano,
+              JSON.stringify(snapshot),
+              documentoId,
+              ordemId,
+              criadoPor,
+              contador[0].ultimo_numero,
+            ],
+          );
+          orcamentoId = rows[0].id;
+          await conexao.query("release savepoint orcamento");
+        } catch (erro) {
+          await conexao.query("rollback to savepoint orcamento");
+          if ((erro as { code?: string }).code !== "23505") {
+            throw erro;
+          }
+        }
+      }
+      if (!orcamentoId) {
+        throw new Error("semearOrdemDeOrcamento: não achei um sequencial livre para o orçamento.");
+      }
+      for (const [indice, peca] of pecas.entries()) {
+        await conexao.query(
+          `insert into orcamento_linhas
+             (orcamento_id, ficha_id, quantidade, preco_unitario_centavos, cor, personalizacao, ordem)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [orcamentoId, peca.fichaId, peca.quantidade, precoUnitario, peca.cor, peca.personalizacao, indice],
+        );
+      }
+
+      await conexao.query("commit");
+      return { ordemId, orcamentoId, documentoId, parcelaSinalId, entregaPrometida };
+    } catch (erro) {
+      await conexao.query("rollback").catch(() => {});
+      throw erro;
+    }
+  });
+}
+
+// Plano 06.1-04 — uma foto de referência do orçamento, só a LINHA de `orcamento_fotos` (no molde do
+// que o upload grava: nome "<uuid>.jpg" e `ordem` 0..2). O arquivo em disco não existe — o teste
+// confere o `href` e o `alt` da miniatura, nunca a imagem. Devolve o id da linha.
+export async function semearFotoDeOrcamento(orcamentoId: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const anexadoPor = await idDoUsuarioDeTeste(cliente);
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into orcamento_fotos (orcamento_id, ordem, arquivo, bytes, anexado_por)
+       values ($1, (select count(*) from orcamento_fotos where orcamento_id = $1),
+               gen_random_uuid()::text || '.jpg', 0, $2)
+       returning id`,
+      [orcamentoId, anexadoPor],
+    );
+    return rows[0].id;
+  });
+}
+
+// O número de uma venda (`documentos.numero`, a identidade) — para conferir o "venda nº {M}".
+export async function numeroDoDocumentoNoBanco(documentoId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ numero: number }>(
+      "select numero from documentos where id = $1",
+      [documentoId],
+    );
+    return Number(rows[0].numero);
+  });
+}
+
+// O número "ORC-{ano}-{sequencial}" de um orçamento, montado como a aplicação monta.
+export async function numeroDoOrcamentoNoBanco(orcamentoId: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ ano: number; sequencial: number }>(
+      "select ano, sequencial from orcamentos where id = $1",
+      [orcamentoId],
+    );
+    return `ORC-${rows[0].ano}-${String(rows[0].sequencial).padStart(3, "0")}`;
+  });
+}
+
+// Muda o início de uma ordem já liberada — só para o e2e provar que um segundo "Liberar" não o
+// reescreve (com o início igual a hoje, os dois seriam indistinguíveis).
+export async function definirInicioNoBanco(ordemId: string, inicio: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update ordens_producao set inicio = $2 where id = $1 and status = 'ativa'`,
+      [ordemId, inicio],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`definirInicioNoBanco: a ordem ${ordemId} não existe ou não está ativa.`);
+    }
+  });
+}
+
+// O `pago_em` de uma parcela como texto `YYYY-MM-DD` (ou `null`) — para provar que a Produção só lê
+// o Caixa: liberar a ordem não toca na parcela do sinal.
+export async function pagoEmDaParcela(parcelaId: string): Promise<string | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ pago_em: string | null }>(
+      "select pago_em::text as pago_em from parcelas where id = $1",
+      [parcelaId],
+    );
+    return rows[0]?.pago_em ?? null;
+  });
+}
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-04 — "fazer a mais, de segurança"
+// ---------------------------------------------------------------------------------------------
+
+// Libera a ordem direto no banco (o que "Começar assim mesmo" grava), para o teste que precisa de
+// uma encomenda ATIVA vinda de orçamento sem repetir o caminho da tela, já provado no plano 03.
+export async function liberarOrdemNoBanco(ordemId: string, inicio: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update ordens_producao set status = 'ativa', inicio = $2
+        where id = $1 and status = 'aguardando_sinal'`,
+      [ordemId, inicio],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`liberarOrdemNoBanco: a ordem ${ordemId} não existe ou não aguarda o sinal.`);
+    }
+  });
+}
+
+// Plano 13 — grava o "a mais" de uma peça (por posição) direto no banco, para a folha A4 provar o
+// "Fazer = pedido + a mais" sem repetir o caminho da tela (provado no plano 04).
+export async function definirAMaisNoBanco(
+  ordemId: string,
+  posicao: number,
+  aMais: number,
+): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      "update ordem_pecas set a_mais = $3 where ordem_id = $1 and posicao = $2",
+      [ordemId, posicao, aMais],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`definirAMaisNoBanco: a ordem ${ordemId} não tem peça na posição ${posicao}.`);
+    }
+  });
+}
+
+// O `a_mais` de cada peça da ordem, por posição.
+export async function aMaisDasPecasNoBanco(ordemId: string): Promise<number[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ a_mais: number }>(
+      "select a_mais from ordem_pecas where ordem_id = $1 order by posicao",
+      [ordemId],
+    );
+    return rows.map((linha) => linha.a_mais);
+  });
+}
+
+// As quantidades das linhas da venda e do orçamento, na ordem — o que o cliente paga e recebe. O "a
+// mais" nunca pode mudá-las (briefing §2.7).
+export async function quantidadesDoClienteNoBanco(
+  documentoId: string,
+  orcamentoId: string,
+): Promise<{ venda: number[]; orcamento: number[]; totalDaVendaCentavos: number }> {
+  return comCliente(async (cliente) => {
+    const venda = await cliente.query<{ quantidade: string; valor_centavos: number }>(
+      "select quantidade::text as quantidade, valor_centavos from documento_linhas where documento_id = $1 order by ordem",
+      [documentoId],
+    );
+    const orcamento = await cliente.query<{ quantidade: number }>(
+      "select quantidade from orcamento_linhas where orcamento_id = $1 order by ordem",
+      [orcamentoId],
+    );
+    return {
+      venda: venda.rows.map((linha) => Number(linha.quantidade)),
+      orcamento: orcamento.rows.map((linha) => linha.quantidade),
+      totalDaVendaCentavos: venda.rows.reduce((total, linha) => total + Number(linha.valor_centavos), 0),
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-06 — cancelar a ordem (PRD-18) e a venda cancelada no Caixa (D-07)
+// ---------------------------------------------------------------------------------------------
+
+// Uma baixa de material ligada à ordem, gravada direto no livro: a saída manual "consumo em
+// encomenda" (destino `encomenda`, área `pecas`, `encomenda_id` = a ordem, `material_da_ordem` =
+// argila) de 1 unidade do item. Respeita os checks da 0023/0024. O caminho da tela (a folha de
+// baixa) é do plano 08 — aqui só importa que o livro TEM uma baixa que o cancelamento não devolve.
+export async function semearBaixaDaOrdem(ordemId: string, itemId: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const usuarioId = await idDoUsuarioDeTeste(cliente);
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into movimentacoes_estoque
+         (item_id, origem, tipo, destino, area, quantidade_milesimos, valor_centavos,
+          encomenda_id, material_da_ordem, registrado_por)
+       values ($1, 'manual', 'saida', 'encomenda', 'pecas', -1000, -100, $2, 'argila', $3)
+       returning id`,
+      [itemId, ordemId, usuarioId],
+    );
+    return rows[0].id;
+  });
+}
+
+// Quantas linhas o livro do Estoque tem de um item — o cancelamento da ORDEM não grava nenhuma.
+export async function movimentacoesDoItemNoBanco(itemId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ quantas: number }>(
+      "select count(*)::int as quantas from movimentacoes_estoque where item_id = $1",
+      [itemId],
+    );
+    return rows[0].quantas;
+  });
+}
+
+export type CancelamentoNoBanco = {
+  status: StatusOrdem;
+  inicio: string | null;
+  // O `cancelada_em` como texto (para provar que um segundo cancelamento não o reescreve).
+  canceladaEm: string | null;
+  canceladaPorEmail: string | null;
+  canceladaPelaVenda: boolean;
+};
+
+// O cancelamento como está gravado na ordem.
+export async function cancelamentoDaOrdemNoBanco(ordemId: string): Promise<CancelamentoNoBanco> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      status: StatusOrdem;
+      inicio: string | null;
+      cancelada_em: string | null;
+      email: string | null;
+      cancelada_pela_venda: boolean;
+    }>(
+      `select o.status, o.inicio::text as inicio, o.cancelada_em::text as cancelada_em,
+              u.email, o.cancelada_pela_venda
+         from ordens_producao o
+         left join usuarios u on u.id = o.cancelada_por
+        where o.id = $1`,
+      [ordemId],
+    );
+    const linha = rows[0];
+    if (!linha) {
+      throw new Error(`cancelamentoDaOrdemNoBanco: a ordem ${ordemId} não existe.`);
+    }
+    return {
+      status: linha.status,
+      inicio: linha.inicio,
+      canceladaEm: linha.cancelada_em,
+      canceladaPorEmail: linha.email,
+      canceladaPelaVenda: linha.cancelada_pela_venda,
+    };
+  });
+}
+
+export type VendaNoBanco = {
+  cancelada: boolean;
+  parcelas: { numero: number; valorCentavos: number; vencimento: string; pagoEm: string | null }[];
+};
+
+// A venda e as parcelas dela, como estão no banco — cancelar a ORDEM não pode mexer em nada disto.
+export async function vendaNoBanco(documentoId: string): Promise<VendaNoBanco> {
+  return comCliente(async (cliente) => {
+    const documento = await cliente.query<{ cancelada: boolean }>(
+      "select cancelado_em is not null as cancelada from documentos where id = $1",
+      [documentoId],
+    );
+    const parcelas = await cliente.query<{
+      numero: number;
+      valor_centavos: number;
+      vencimento: string;
+      pago_em: string | null;
+    }>(
+      `select numero, valor_centavos, vencimento::text as vencimento, pago_em::text as pago_em
+         from parcelas where documento_id = $1 order by numero`,
+      [documentoId],
+    );
+    return {
+      cancelada: documento.rows[0].cancelada,
+      parcelas: parcelas.rows.map((linha) => ({
+        numero: linha.numero,
+        valorCentavos: Number(linha.valor_centavos),
+        vencimento: linha.vencimento,
+        pagoEm: linha.pago_em,
+      })),
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-07 — a "Nova ordem"
+// ---------------------------------------------------------------------------------------------
+
+// Um item que JÁ controla estoque, sem ficha de precificação (D-13: aparece em "Itens do estoque"
+// na produção da casa) — unidade `un`, categoria de compra "Produção da casa" (a semente da 0023).
+export async function semearItemDoEstoque(dados: { nome: string }): Promise<string> {
+  return semearItem({
+    nome: dados.nome,
+    apareceNaVenda: false,
+    atalhoVenda: false,
+    controlaEstoque: true,
+    unidade: "un",
+    categoriaCompra: "Produção da casa",
+    atalhoCompra: false,
+  });
+}
+
+// Os ids das ordens com este nome exato, das mais antigas às mais novas — o e2e da Nova ordem usa
+// nomes únicos, então conta as ordens que ELE criou (nunca uma afirmação global do banco).
+export async function ordensComONomeNoBanco(nome: string): Promise<string[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      "select id from ordens_producao where nome = $1 order by numero",
+      [nome],
+    );
+    return rows.map((linha) => linha.id);
+  });
+}
+
+// As peças da ordem com a origem de cada uma (ficha, item ou nenhuma = texto livre).
+export async function origemDasPecasNoBanco(
+  ordemId: string,
+): Promise<{ descricao: string; quantidade: number; fichaId: string | null; itemId: string | null }[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      descricao: string;
+      quantidade: number;
+      ficha_id: string | null;
+      item_catalogo_id: string | null;
+    }>(
+      `select descricao, quantidade, ficha_id, item_catalogo_id
+         from ordem_pecas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      descricao: linha.descricao,
+      quantidade: linha.quantidade,
+      fichaId: linha.ficha_id,
+      itemId: linha.item_catalogo_id,
+    }));
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-08 — ordens encerradas para a lista "Concluídas e canceladas"
+// ---------------------------------------------------------------------------------------------
+
+export type OrdemEncerradaParaSemear = {
+  nome: string;
+  tipo: TipoOrdem;
+  // A peça única da ordem: feitas = quantidade + a mais.
+  quantidade: number;
+  aMais?: number;
+  clienteNome?: string | null;
+  // `null` só na cancelada que nunca foi liberada (a que caiu junto com a venda ainda aguardando).
+  inicio: string | null;
+} & (
+  | {
+      status: "concluida";
+      // `YYYY-MM-DD`; as etapas do caminho completo ficam feitas neste dia.
+      concluidaEm: string;
+      perdidas: number;
+      entregaParcial?: boolean;
+      // Plano 12 (perda medida): extras boas que ficaram sem destino — nunca entram na perda.
+      semDestino?: number;
+    }
+  | {
+      status: "cancelada";
+      // O DIA do cancelamento (`YYYY-MM-DD`): gravado como meio-dia de Brasília nesse dia.
+      canceladaEm: string;
+      canceladaPelaVenda?: boolean;
+      // Plano 12 (perda medida): perdidas registradas numa ordem que depois foi cancelada — a
+      // cancelada fica fora da conta.
+      perdidas?: number;
+    }
+);
+
+// Uma ordem concluída ou cancelada. Nasce ativa (ou aguardando, sem início) por `semearOrdem` e é
+// encerrada numa segunda transação — os `check`s de `ordens_producao` exigem a data junto com o
+// status. A concluída grava as perdidas da peça (e zero para o estoque e sem destino), como a
+// conclusão faria; a cancelada fica com quem cancelou = a conta de teste. Devolve o id.
+export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Promise<string> {
+  const concluida = dados.status === "concluida";
+  const ordemId = await semearOrdem({
+    nome: dados.nome,
+    tipo: dados.tipo,
+    caminho: "completo",
+    status: dados.inicio === null ? "aguardando_sinal" : "ativa",
+    inicio: dados.inicio,
+    etapasFeitas: concluida
+      ? etapasIniciais("completo").map((etapa) => ({
+          etapa: etapa.etapa,
+          feitaEm: dados.concluidaEm,
+        }))
+      : [],
+    pecas: [
+      {
+        descricao: `[e2e] Peça de ${dados.nome}`,
+        quantidade: dados.quantidade,
+        aMais: dados.aMais ?? 0,
+      },
+    ],
+    clienteNome: dados.clienteNome ?? null,
+  });
+  await comCliente(async (cliente) => {
+    await cliente.query("begin");
+    try {
+      if (dados.status === "concluida") {
+        const semDestino = dados.semDestino ?? 0;
+        await cliente.query(
+          `update ordem_pecas
+              set perdidas = $2, para_estoque = 0, sem_destino = $3,
+                  destino_extras = case when $3::int > 0 then 'sem_destino'::destino_extras end
+            where ordem_id = $1`,
+          [ordemId, dados.perdidas, semDestino],
+        );
+        await cliente.query(
+          `update ordens_producao
+              set status = 'concluida', concluida_em = $2, entrega_parcial = $3
+            where id = $1`,
+          [ordemId, dados.concluidaEm, dados.entregaParcial ?? false],
+        );
+      } else {
+        if (dados.perdidas !== undefined) {
+          await cliente.query(
+            `update ordem_pecas set perdidas = $2, para_estoque = 0, sem_destino = 0 where ordem_id = $1`,
+            [ordemId, dados.perdidas],
+          );
+        }
+        const canceladaPor = await idDoUsuarioDeTeste(cliente);
+        await cliente.query(
+          `update ordens_producao
+              set status = 'cancelada',
+                  cancelada_em = ($2::date + time '12:00') at time zone 'America/Sao_Paulo',
+                  cancelada_por = $3,
+                  cancelada_pela_venda = $4
+            where id = $1`,
+          [ordemId, dados.canceladaEm, canceladaPor, dados.canceladaPelaVenda ?? false],
+        );
+      }
+      await cliente.query("commit");
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      throw erro;
+    }
+  });
+  return ordemId;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-10 — o material da ordem (PRD-14)
+// ---------------------------------------------------------------------------------------------
+
+export type BaixaDaOrdemNoBanco = {
+  itemId: string;
+  origem: string;
+  tipo: string;
+  destino: string | null;
+  area: string | null;
+  quantidadeMilesimos: number;
+  encomendaId: string | null;
+  materialDaOrdem: string | null;
+  nota: string | null;
+};
+
+// As linhas do livro ligadas à ordem (`encomenda_id` = a ordem), na ORDEM DO LIVRO. Só leitura: a
+// baixa se grava pela tela (a porta única do Estoque).
+export async function baixasDaOrdemNoBanco(ordemId: string): Promise<BaixaDaOrdemNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      item_id: string;
+      origem: string;
+      tipo: string;
+      destino: string | null;
+      area: string | null;
+      quantidade_milesimos: string;
+      encomenda_id: string | null;
+      material_da_ordem: string | null;
+      nota: string | null;
+    }>(
+      `select item_id, origem::text as origem, tipo::text as tipo, destino::text as destino,
+              area::text as area, quantidade_milesimos, encomenda_id,
+              material_da_ordem::text as material_da_ordem, nota
+         from movimentacoes_estoque
+        where encomenda_id = $1
+        order by numero`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      itemId: linha.item_id,
+      origem: linha.origem,
+      tipo: linha.tipo,
+      destino: linha.destino,
+      area: linha.area,
+      quantidadeMilesimos: Number(linha.quantidade_milesimos),
+      encomendaId: linha.encomenda_id,
+      materialDaOrdem: linha.material_da_ordem,
+      nota: linha.nota,
+    }));
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-11 — concluir a ordem (PRD-15/PRD-16/PRD-18)
+// ---------------------------------------------------------------------------------------------
+
+// Marca como feitas, no dia dado, todas as etapas da ordem MENOS a Entrega — a ordem fica na última
+// etapa, pronta para concluir. Para a ordem vinda de orçamento (já liberada), sem repetir os
+// "Terminei" da tela, provados no plano 01.
+export async function levarAteAEntregaNoBanco(ordemId: string, feitaEm: string): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query(
+      "update ordem_etapas set feita_em = $2, passaram = null where ordem_id = $1 and etapa <> 'entrega'",
+      [ordemId, feitaEm],
+    ),
+  );
+}
+
+export type ConclusaoNoBanco = {
+  status: StatusOrdem;
+  concluidaEm: string | null;
+  entregaParcial: boolean;
+  entregaFeitaEm: string | null;
+  pecas: {
+    perdidas: number | null;
+    destinoExtras: string | null;
+    paraEstoque: number | null;
+    semDestino: number | null;
+  }[];
+};
+
+// O que a conclusão gravou: a ordem, a etapa Entrega e, por peça (por posição), perdidas, destino,
+// para o estoque e sem destino.
+export async function conclusaoDaOrdemNoBanco(ordemId: string): Promise<ConclusaoNoBanco> {
+  return comCliente(async (cliente) => {
+    const ordem = await cliente.query<{
+      status: StatusOrdem;
+      concluida_em: string | null;
+      entrega_parcial: boolean;
+      entrega_feita_em: string | null;
+    }>(
+      `select o.status, o.concluida_em::text as concluida_em, o.entrega_parcial,
+              (select feita_em::text from ordem_etapas where ordem_id = o.id and etapa = 'entrega')
+                as entrega_feita_em
+         from ordens_producao o where o.id = $1`,
+      [ordemId],
+    );
+    const pecas = await cliente.query<{
+      perdidas: number | null;
+      destino_extras: string | null;
+      para_estoque: number | null;
+      sem_destino: number | null;
+    }>(
+      `select perdidas, destino_extras::text as destino_extras, para_estoque, sem_destino
+         from ordem_pecas where ordem_id = $1 order by posicao`,
+      [ordemId],
+    );
+    const linha = ordem.rows[0];
+    return {
+      status: linha.status,
+      concluidaEm: linha.concluida_em,
+      entregaParcial: linha.entrega_parcial,
+      entregaFeitaEm: linha.entrega_feita_em,
+      pecas: pecas.rows.map((peca) => ({
+        perdidas: peca.perdidas,
+        destinoExtras: peca.destino_extras,
+        paraEstoque: peca.para_estoque,
+        semDestino: peca.sem_destino,
+      })),
+    };
+  });
+}
+
+export type EntradaDaProducaoNoBanco = {
+  itemId: string;
+  quantidadeMilesimos: number;
+  valorCentavos: number;
+  valorInformadoCentavos: number | null;
+  motivo: string | null;
+  nota: string | null;
+};
+
+// As entradas `producao` ligadas à ordem, na ordem do livro.
+export async function entradasDaProducaoNoBanco(
+  ordemId: string,
+): Promise<EntradaDaProducaoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      item_id: string;
+      quantidade_milesimos: string;
+      valor_centavos: string;
+      valor_informado_centavos: string | null;
+      motivo: string | null;
+      nota: string | null;
+    }>(
+      `select item_id, quantidade_milesimos, valor_centavos, valor_informado_centavos,
+              motivo::text as motivo, nota
+         from movimentacoes_estoque
+        where encomenda_id = $1 and origem = 'producao' and tipo = 'entrada'
+        order by numero`,
+      [ordemId],
+    );
+    return rows.map((linha) => ({
+      itemId: linha.item_id,
+      quantidadeMilesimos: Number(linha.quantidade_milesimos),
+      valorCentavos: Number(linha.valor_centavos),
+      valorInformadoCentavos:
+        linha.valor_informado_centavos === null ? null : Number(linha.valor_informado_centavos),
+      motivo: linha.motivo,
+      nota: linha.nota,
+    }));
+  });
+}
+
+// O estoque do item: se controla, a unidade e o nome da categoria de compra (D-13).
+export async function estoqueDoItemNoBanco(
+  itemId: string,
+): Promise<{ controlaEstoque: boolean; unidade: string | null; categoriaCompra: string | null }> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      controla_estoque: boolean;
+      unidade: string | null;
+      categoria_compra: string | null;
+    }>(
+      `select i.controla_estoque, i.unidade::text as unidade, c.nome as categoria_compra
+         from itens_catalogo i left join categorias c on c.id = i.categoria_compra_id
+        where i.id = $1`,
+      [itemId],
+    );
+    return {
+      controlaEstoque: rows[0].controla_estoque,
+      unidade: rows[0].unidade,
+      categoriaCompra: rows[0].categoria_compra,
+    };
+  });
+}
+
+// D-13, trocado pelo dono em 30/09/2026: dá ao item (que ainda não controla estoque) uma categoria
+// de compra existente, pelo nome — para provar que a conclusão a MANTÉM.
+export async function definirCategoriaDeCompraDoItemNoBanco(
+  itemId: string,
+  nomeDaCategoria: string,
+): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      `update itens_catalogo
+          set categoria_compra_id = (select id from categorias where nome = $2)
+        where id = $1`,
+      [itemId, nomeDaCategoria],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`item ${itemId} não encontrado`);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-12 — a peça exclusiva que vira peça de linha (D-12)
+// ---------------------------------------------------------------------------------------------
+
+export type FichaNoBanco = {
+  exclusiva: boolean;
+  itemCatalogoId: string | null;
+  precoPraticadoCentavos: number | null;
+};
+
+// A ficha como está no banco: exclusiva, o item do catálogo e o preço praticado guardado nela.
+export async function fichaNoBanco(fichaId: string): Promise<FichaNoBanco> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      exclusiva: boolean;
+      item_catalogo_id: string | null;
+      preco_praticado_centavos: number | null;
+    }>(
+      `select exclusiva, item_catalogo_id, preco_praticado_centavos
+         from fichas_precificacao where id = $1`,
+      [fichaId],
+    );
+    return {
+      exclusiva: rows[0].exclusiva,
+      itemCatalogoId: rows[0].item_catalogo_id,
+      precoPraticadoCentavos: rows[0].preco_praticado_centavos,
+    };
+  });
+}
+
+export type ItemDaVendaNoBanco = {
+  nome: string;
+  precoVendaCentavos: number | null;
+  apareceNaVenda: boolean;
+  categoriaVenda: string | null;
+};
+
+// O lado "Venda" do item do catálogo: nome, preço, se aparece na Venda e a categoria de venda.
+export async function itemDaVendaNoBanco(itemId: string): Promise<ItemDaVendaNoBanco> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      nome: string;
+      preco_venda_centavos: number | null;
+      aparece_na_venda: boolean;
+      categoria_venda: string | null;
+    }>(
+      `select i.nome, i.preco_venda_centavos, i.aparece_na_venda, c.nome as categoria_venda
+         from itens_catalogo i left join categorias c on c.id = i.categoria_venda_id
+        where i.id = $1`,
+      [itemId],
+    );
+    return {
+      nome: rows[0].nome,
+      precoVendaCentavos: rows[0].preco_venda_centavos,
+      apareceNaVenda: rows[0].aparece_na_venda,
+      categoriaVenda: rows[0].categoria_venda,
+    };
+  });
+}

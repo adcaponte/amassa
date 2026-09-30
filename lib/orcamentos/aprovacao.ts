@@ -1,7 +1,8 @@
-// Módulo puro (D-14): as ÚNICAS importações de VALOR permitidas aqui são `parcelasDoPlano`
-// (`@/lib/orcamentos/plano`) e `DIAS_PADRAO` (`@/lib/encomendas/cronograma`) — as duas de módulos
-// puros. O resto é `import type`. Nenhuma leitura do relógio (`hoje`/`entregaPrevista` sempre
-// entram por argumento), nenhum React, nenhum cliente de banco.
+// Módulo puro (D-14): a ÚNICA importação de VALOR permitida aqui é `parcelasDoPlano`
+// (`@/lib/orcamentos/plano`), de módulo puro. O resto é `import type`. Nenhuma leitura do relógio
+// (`hoje`/`entregaPrevista` sempre entram por argumento), nenhum React, nenhum cliente de banco.
+// Fase 06.1 (plano 03): nada mais vem do módulo antigo de Encomendas — as etapas da ordem nascem
+// de `lib/producao/etapas.ts` dentro de `lib/producao/gravacao.ts::criarOrdemDoOrcamento`.
 //
 // 🔴 `planejarAprovacao` tem DOIS CONSUMIDORES e UMA ÚNICA VERDADE (D-25, key_link do
 // 04.5-12-PLAN.md): `DialogoAprovar` a chama para MOSTRAR exatamente o que vai ser criado, e
@@ -9,18 +10,17 @@
 // verdade. É o que garante que o dono confirmou exatamente o que foi gravado — reimplementar esta
 // conta do lado do servidor abriria a porta para o diálogo mentir sobre o que vai acontecer.
 
-import { DIAS_PADRAO, type DuracaoDeEtapa } from "@/lib/encomendas/cronograma";
 import {
   parcelasDoPlano,
   type ParcelaDoPlano,
   type PlanoDePagamentoDoOrcamento,
 } from "@/lib/orcamentos/plano";
 
-// `encomenda_itens.descricao` (db/schema.ts) aceita até 200 pontos de código — o mesmo teto de
-// `lib/orcamentos/esquemas.ts::esquemaLinhaDeOrcamento` (personalização). Truncar aqui garante que
-// a encomenda NUNCA falha ao nascer por causa de um texto comprido — a transação inteira (D-25)
-// não pode quebrar por um detalhe de rótulo.
-const LIMITE_DE_PONTOS_DE_CODIGO_DO_ITEM_DA_ENCOMENDA = 200;
+// `ordem_pecas.descricao` (db/schema.ts) aceita até 160 pontos de código. A descrição da peça da
+// ordem é SÓ o nome congelado no snapshot — a cor e a personalização têm colunas próprias na peça.
+// Truncar aqui garante que a ordem NUNCA falha ao nascer por causa de um nome comprido — a
+// transação inteira (D-25) não pode quebrar por um detalhe de rótulo.
+const LIMITE_DE_PONTOS_DE_CODIGO_DA_PECA_DA_ORDEM = 160;
 
 // `documento_linhas.descricao` (db/schema.ts, `lib/financeiro`) aceita até 160 pontos de código —
 // um teto MENOR que a soma dos três campos que compõem a descrição de uma peça (nome até 120 +
@@ -31,10 +31,10 @@ const LIMITE_DE_PONTOS_DE_CODIGO_DO_ITEM_DA_ENCOMENDA = 200;
 // esta descrição.
 const LIMITE_DE_PONTOS_DE_CODIGO_DA_LINHA_DE_VENDA = 160;
 
-// `encomendas.nome` (db/schema.ts) aceita até 120 pontos de código, mas `orcamentos.titulo`
-// aceita até 160 — mesma razão do limite acima: truncar em vez de deixar a criação da encomenda
+// `ordens_producao.nome` (db/schema.ts) aceita até 120 pontos de código, mas `orcamentos.titulo`
+// aceita até 160 — mesma razão do limite acima: truncar em vez de deixar a criação da ordem
 // falhar por causa do título do pedido.
-const LIMITE_DE_PONTOS_DE_CODIGO_DO_NOME_DA_ENCOMENDA = 120;
+const LIMITE_DE_PONTOS_DE_CODIGO_DO_NOME_DA_ORDEM = 120;
 
 // Trunca em PONTOS DE CÓDIGO (`[...texto]`), nunca em unidades UTF-16 (`String.slice`/`.length`)
 // — a mesma disciplina de `lib/orcamentos/esquemas.ts::contarPontosDeCodigo`: cortar por índice de
@@ -62,6 +62,9 @@ function descricaoDaPeca(nome: string, cor: string | null, personalizacao: strin
 }
 
 export type LinhaParaAprovacao = {
+  // A ficha da linha (`orcamento_linhas.ficha_id`, obrigatória) — vai para a peça da ordem, que lê
+  // as medidas, os gramas e as horas dela ao vivo.
+  fichaId: string;
   nome: string;
   quantidade: number;
   precoUnitarioCentavos: number;
@@ -96,9 +99,13 @@ export type LinhaDaVenda = {
   valorCentavos: number;
 };
 
-export type ItemDaEncomenda = {
+// Uma peça da ordem de produção (`ordem_pecas`) — uma por linha do orçamento, na ordem das linhas.
+export type PecaDaOrdem = {
+  fichaId: string;
   descricao: string;
   quantidade: number;
+  cor: string | null;
+  personalizacao: string | null;
 };
 
 export type PlanoDeAprovacao = {
@@ -110,17 +117,13 @@ export type PlanoDeAprovacao = {
   // soma delas fecha com `totalCentavos` por construção daquela função, nenhuma nasce paga (o
   // tipo `ParcelaDoPlano` nem tem campo de pagamento).
   parcelas: ParcelaDoPlano[];
-  nomeDaEncomenda: string;
-  itensDaEncomenda: ItemDaEncomenda[];
-  // O cronograma padrão do módulo de Encomendas (D-25: "sem nenhuma alteração") — reexportado
-  // daqui para `aprovarOrcamento`/`DialogoAprovar` lerem da MESMA fonte, sem um segundo import
-  // direto de `lib/encomendas/cronograma.ts` em cada um.
-  etapasDaEncomenda: readonly DuracaoDeEtapa[];
+  nomeDaOrdem: string;
+  pecasDaOrdem: PecaDaOrdem[];
 };
 
 // Recebe o orçamento, as linhas já resolvidas (do snapshot, já que aprovar só acontece a partir de
 // "enviado" — a tela nunca chama isto com uma linha viva/recalculável), os custos de projeto e o
-// "hoje", e devolve o plano inteiro: linhas da venda, parcelas e itens da encomenda.
+// "hoje", e devolve o plano inteiro: linhas da venda, parcelas e as peças da ordem.
 export function planejarAprovacao(
   orcamento: OrcamentoParaAprovacao,
   linhas: readonly LinhaParaAprovacao[],
@@ -162,35 +165,28 @@ export function planejarAprovacao(
     entregaPrevista: orcamento.entregaPrevista,
   });
 
-  // Os itens da encomenda são um por peça, com a MESMA descrição da linha de venda (cor e
-  // personalização inclusas) — truncada com segurança para o teto de `encomenda_itens.descricao`
-  // (200 pontos de código), separado do teto de 160 de `documento_linhas.descricao` acima.
-  const itensDaEncomenda: ItemDaEncomenda[] = linhas.map((linha) => ({
-    descricao: truncarComSeguranca(
-      descricaoDaPeca(linha.nome, linha.cor, linha.personalizacao),
-      LIMITE_DE_PONTOS_DE_CODIGO_DO_ITEM_DA_ENCOMENDA,
-    ),
+  // As peças da ordem são uma por linha, na ordem das linhas (custos de projeto e frete não são
+  // peça). A descrição é o nome congelado no snapshot; a cor e a personalização vão nos campos
+  // próprios da peça, sem concatenar.
+  const pecasDaOrdem: PecaDaOrdem[] = linhas.map((linha) => ({
+    fichaId: linha.fichaId,
+    descricao: truncarComSeguranca(linha.nome, LIMITE_DE_PONTOS_DE_CODIGO_DA_PECA_DA_ORDEM),
     quantidade: linha.quantidade,
+    cor: linha.cor,
+    personalizacao: linha.personalizacao,
   }));
 
-  // O nome da encomenda é o título do orçamento; vazio (ou só espaços) vira "Orçamento {número}"
-  // — nunca vazio, porque o módulo de Encomendas exige nome (`<behavior>` do plano, verbatim).
+  // O nome da ordem é o título do orçamento; vazio (ou só espaços) vira "Orçamento {número}" —
+  // nunca vazio, porque `ordens_producao.nome` exige de 1 a 120 caracteres.
   const tituloNormalizado = orcamento.titulo?.trim();
   const nomeBase = tituloNormalizado ? tituloNormalizado : `Orçamento ${orcamento.numero}`;
-  const nomeDaEncomenda = truncarComSeguranca(
-    nomeBase,
-    LIMITE_DE_PONTOS_DE_CODIGO_DO_NOME_DA_ENCOMENDA,
-  );
+  const nomeDaOrdem = truncarComSeguranca(nomeBase, LIMITE_DE_PONTOS_DE_CODIGO_DO_NOME_DA_ORDEM);
 
   return {
     linhasDaVenda,
     totalCentavos,
     parcelas,
-    nomeDaEncomenda,
-    itensDaEncomenda,
-    // O cronograma da encomenda é o padrão do módulo, sem nenhuma alteração (`<behavior>` do
-    // plano, verbatim) — a MESMA constante que `lib/encomendas/acoes.ts::criarEncomenda` recebe
-    // do formulário quando ninguém mexe nas 6 etapas.
-    etapasDaEncomenda: DIAS_PADRAO,
+    nomeDaOrdem,
+    pecasDaOrdem,
   };
 }

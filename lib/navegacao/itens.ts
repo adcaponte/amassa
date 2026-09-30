@@ -42,11 +42,12 @@ export type ItemDeNavegacao = {
 export const ITENS_NAVEGACAO_CELULAR: readonly ItemDeNavegacao[] = [
   { href: "/gestao", rotulo: "Início", icone: "inicio" },
   { href: "/gestao/financeiro", rotulo: "Financeiro", icone: "financeiro" },
-  // "Produção" é SÓ O RÓTULO NOVO de Encomendas nesta fase (D-13/GES-14): `href` e `icone`
-  // continuam apontando para o módulo de Encomendas como ele é hoje — nenhuma rota mudou, nenhum
-  // redirecionamento novo foi criado. O desenho novo do ícone (o protótipo usa um pote) pertence
-  // ao redesenho da Produção, que esta fase não antecipa; por isso `icone` continua "encomendas".
-  { href: "/gestao/encomendas", rotulo: "Produção", icone: "encomendas" },
+  // Fase 06.1 (D-03): a Produção mora em `/gestao/producao` — o menu aponta DIRETO para ela, nunca
+  // para o endereço antigo (`/gestao/encomendas` só redireciona, por seis meses, para favoritos).
+  // A chave de ícone continua "encomendas" de propósito: é só a chave do mapa `ICONES` das duas
+  // barras (o ícone `Package`), sem efeito visível; renomeá-la mexeria em três componentes e dois
+  // testes sem mudar nada na tela (decisão do plano 06.1-14).
+  { href: "/gestao/producao", rotulo: "Produção", icone: "encomendas" },
   { href: "/gestao/agenda", rotulo: "Agenda", icone: "agenda" },
 ];
 
@@ -55,7 +56,7 @@ export const ITENS_NAVEGACAO_CELULAR: readonly ItemDeNavegacao[] = [
 export const ITENS_NAVEGACAO_LATERAL: readonly ItemDeNavegacao[] = [
   { href: "/gestao", rotulo: "Início", icone: "inicio" },
   { href: "/gestao/financeiro", rotulo: "Financeiro", icone: "financeiro" },
-  { href: "/gestao/encomendas", rotulo: "Produção", icone: "encomendas" },
+  { href: "/gestao/producao", rotulo: "Produção", icone: "encomendas" },
   { href: "/gestao/agenda", rotulo: "Agenda", icone: "agenda" },
   { href: "/gestao/queimas", rotulo: "Queimas", icone: "queimas" },
   { href: "/gestao/estoque", rotulo: "Estoque", icone: "estoque" },
@@ -65,8 +66,8 @@ export const ITENS_NAVEGACAO_LATERAL: readonly ItemDeNavegacao[] = [
 // Quando `href` é o Início (`/gestao`), só há casamento por igualdade exata — senão Início
 // ficaria aceso em toda sub-rota, já que `/gestao` virou PREFIXO de tudo (Fase 04.6). Para
 // qualquer outro `href`, casa quando `caminho` é igual a `href` ou quando começa com `href`
-// seguido de uma barra separadora — isso cobre sub-rotas futuras (`/gestao/encomendas/42`) sem
-// casar por prefixo de texto solto (`/gestao/encomendasx` não é `/gestao/encomendas`). Caminho
+// seguido de uma barra separadora — isso cobre sub-rotas (`/gestao/producao/42`) sem
+// casar por prefixo de texto solto (`/gestao/producaox` não é `/gestao/producao`). Caminho
 // vazio nunca casa com nada.
 export function ehItemAtivo(caminho: string, href: string): boolean {
   if (!caminho) {

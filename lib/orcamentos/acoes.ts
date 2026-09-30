@@ -10,9 +10,6 @@ import {
   categorias,
   documentoLinhas,
   documentos,
-  encomendaEtapas,
-  encomendaItens,
-  encomendas,
   fichasPrecificacao,
   itensCatalogo,
   orcamentoFotos,
@@ -36,6 +33,7 @@ import { diasDeValidadeRestantes } from "@/lib/orcamentos/situacao";
 import { arredondarBonito, calcularPeca } from "@/lib/precificacao/calculo";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
+import { criarOrdemDoOrcamento } from "@/lib/producao/gravacao";
 
 import {
   esquemaAcrescentarLinha,
@@ -1159,6 +1157,7 @@ export async function aprovarOrcamento(
       // índice com as linhas do snapshot logo abaixo (mesma disciplina de `EditorOrcamento`).
       const linhasDoBanco = await tx
         .select({
+          fichaId: orcamentoLinhas.fichaId,
           quantidade: orcamentoLinhas.quantidade,
           precoUnitarioCentavos: orcamentoLinhas.precoUnitarioCentavos,
           cor: orcamentoLinhas.cor,
@@ -1203,6 +1202,7 @@ export async function aprovarOrcamento(
       // nunca da ficha viva — ela pode ter mudado de nome depois do envio.
       const leituraCongelada = lerDoSnapshot(orcamento.snapshot);
       const linhasParaAprovacao: LinhaParaAprovacao[] = linhasDoBanco.map((linha, indice) => ({
+        fichaId: linha.fichaId,
         nome: leituraCongelada.linhas[indice]?.nome || "",
         quantidade: linha.quantidade,
         precoUnitarioCentavos: linha.precoUnitarioCentavos,
@@ -1282,42 +1282,22 @@ export async function aprovarOrcamento(
         })),
       );
 
-      // 7. se marcado, grava a encomenda no módulo EXATAMENTE como ele é hoje — mesmas três
-      // tabelas e mesma forma de `lib/encomendas/acoes.ts::criarEncomenda`, sem tocar naquele
-      // arquivo nem no modelo de dados de Encomendas (git diff daquele módulo fica em zero).
-      let encomendaId: string | null = null;
-      if (abrirOrdemDeProducao) {
-        const [linhaEncomenda] = await tx
-          .insert(encomendas)
-          .values({
-            nome: plano.nomeDaEncomenda,
+      // 7. se marcado, abre a ORDEM DE PRODUÇÃO (Fase 06.1, PRD-10/PRD-11) na MESMA transação —
+      // aguardando o sinal, sem início, com as peças na ordem das linhas (ficha, cor e
+      // personalização de cada uma) e as seis etapas do caminho completo. Mora em
+      // `lib/producao/gravacao.ts`, arquivo SEM a diretiva de Server Action: se morasse aqui,
+      // viraria endpoint chamável pelo navegador. Aprovar de novo não cria segunda ordem: o
+      // orçamento está travado acima e só sai de "enviado" uma vez, e `orcamentos.encomenda_id` é
+      // único (`orcamentos_encomenda_id_uk`).
+      const encomendaId = abrirOrdemDeProducao
+        ? await criarOrdemDoOrcamento(tx, {
+            nome: plano.nomeDaOrdem,
             clienteNome: orcamento.clienteNome,
-            dataInicio: hoje,
+            entregaPrometida: orcamento.entregaPrevista,
+            pecas: plano.pecasDaOrdem,
             criadoPor: usuario.id,
           })
-          .returning({ id: encomendas.id });
-
-        await tx.insert(encomendaItens).values(
-          plano.itensDaEncomenda.map((item, indice) => ({
-            encomendaId: linhaEncomenda.id,
-            descricao: item.descricao,
-            quantidade: item.quantidade,
-            ordem: indice,
-          })),
-        );
-
-        await tx.insert(encomendaEtapas).values(
-          plano.etapasDaEncomenda.map((etapa, indice) => ({
-            encomendaId: linhaEncomenda.id,
-            etapa: etapa.etapa,
-            dias: etapa.dias,
-            esperaDias: etapa.esperaDias,
-            ordem: indice,
-          })),
-        );
-
-        encomendaId = linhaEncomenda.id;
-      }
+        : null;
 
       // 8. grava `status = 'aprovado'`, `documentoId` e `encomendaId` na MESMA instrução — nunca
       // existe um instante em que a venda existe e o orçamento não sabe, ou vice-versa.

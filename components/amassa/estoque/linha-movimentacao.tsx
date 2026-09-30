@@ -20,6 +20,8 @@ const COR_DA_QUANTIDADE: Record<TomDaMovimentacao, string> = {
 // inicial") em `tinta-fraca` sobre `superficie-2` (P9).
 const CLASSE_DO_CHIP: Record<TomDoChip, string> = {
   financeiro: "bg-acento-fundo text-acento border border-dashed border-acento",
+  // "da Produção" (Fase 06.1, plano 11): o mesmo desenho do "do Financeiro" — veio de outro módulo.
+  producao: "bg-acento-fundo text-acento border border-dashed border-acento",
   perda: "bg-erro-fundo text-erro",
   venda: "bg-sucesso-fundo text-sucesso",
   neutro: "bg-superficie-2 text-tinta-fraca",

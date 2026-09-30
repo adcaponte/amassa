@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fraseNoForno } from "@/lib/precificacao/textos";
+import { fraseFichaNaProducaoDaCasa, fraseNoForno } from "@/lib/precificacao/textos";
 
 // Achado da verificação do Cowork em produção (27/09/2026): a ficha da peça escrevia
 // "1 níveis" quando a peça alta só cabe num nível. O resto do projeto concorda o plural
@@ -40,5 +40,27 @@ describe("fraseNoForno", () => {
     expect(frase).toContain("contado por você");
     expect(frase).not.toContain("nível");
     expect(frase).not.toContain("níveis");
+  });
+});
+
+// Revisão 06.1, WR-01 — o dono escolheu (a) na Parte 0 (30/09/2026): marcar "exclusiva" uma ficha
+// que uma ordem da produção da casa ainda aberta usa é recusado, dizendo qual ordem e o que fazer.
+describe("fraseFichaNaProducaoDaCasa", () => {
+  it("uma ordem: diz o nome e manda concluir ou cancelar", () => {
+    expect(fraseFichaNaProducaoDaCasa(["[teste] Reposição de canecas"])).toBe(
+      "A ficha está na produção da casa “[teste] Reposição de canecas”. Conclua ou cancele a ordem na Produção antes de torná-la exclusiva. Nada foi gravado.",
+    );
+  });
+
+  it("duas ordens: as duas pelo nome", () => {
+    expect(fraseFichaNaProducaoDaCasa(["[teste] A", "[teste] B"])).toBe(
+      "A ficha está em 2 ordens da produção da casa ainda abertas (“[teste] A” e “[teste] B”). Conclua ou cancele essas ordens na Produção antes de torná-la exclusiva. Nada foi gravado.",
+    );
+  });
+
+  it("mais de duas: as duas primeiras pelo nome e quantas mais", () => {
+    expect(fraseFichaNaProducaoDaCasa(["[teste] A", "[teste] B", "[teste] C", "[teste] D"])).toBe(
+      "A ficha está em 4 ordens da produção da casa ainda abertas (“[teste] A”, “[teste] B” e mais 2). Conclua ou cancele essas ordens na Produção antes de torná-la exclusiva. Nada foi gravado.",
+    );
   });
 });

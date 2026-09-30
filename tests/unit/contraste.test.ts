@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { luminanciaRelativa, razaoDeContraste } from "@/lib/acessibilidade/contraste";
-import { ORDEM_DAS_ETAPAS } from "@/lib/encomendas/cronograma";
+import { ORDEM_DAS_COLUNAS } from "@/lib/producao/etapas";
 
 // O briefing do site (BRIEFING-site.md §4) manda CONFERIR o contraste da faixa amarela, não
 // afirmá-lo — "a faixa amarela `--sol` com texto `--tinta` passa; conferir". Uma frase de plano
@@ -117,9 +117,10 @@ describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
 
 // Fase 04.6, achado do plano 08 — a lacuna que este bloco fecha.
 //
-// `components/amassa/inicio/bloco-producao.tsx` e `components/amassa/encomendas/gantt.tsx`
-// pintam o rótulo da etapa DENTRO de uma pílula cuja cor de fundo é `--color-<etapa>`. A regra
-// da cor do texto é a mesma nos dois: tinta escura na `secagem` (o único token claro da
+// `components/amassa/inicio/bloco-producao.tsx` e `components/amassa/producao/folha-geral.tsx`
+// pintam o rótulo (ou o contador) da etapa DENTRO de uma pílula cuja cor de fundo é
+// `--color-<etapa>`. (Até a Fase 06.1 o segundo era o Gantt de Encomendas, apagado no plano 14.)
+// A regra da cor do texto é a mesma nos dois: tinta escura na `secagem` (o único token claro da
 // família), branco em todas as outras. Dois problemas que só um teste pega:
 //
 // 1. Um token de etapa pode ser reescrito sem ninguém remedir o par. Foi exatamente o que
@@ -130,7 +131,7 @@ describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
 // 2. A regra está DUPLICADA em dois componentes. Se um deles mudar e o outro não, a mesma
 //    pílula passa a ter contraste diferente em duas telas.
 //
-// A lista de etapas vem de `ORDEM_DAS_ETAPAS`, não escrita à mão aqui: uma etapa nova sem token
+// A lista de etapas vem de `ORDEM_DAS_COLUNAS` (`lib/producao/etapas.ts`), não escrita à mão aqui: uma etapa nova sem token
 // (ou com um token que reprova) cai neste teste, não na tela do ateliê.
 describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado do plano 04.6-08)", () => {
   // A mesma regra dos dois componentes, num lugar só, para o teste poder cobrá-la dos dois.
@@ -138,7 +139,7 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   const BRANCO = "#FFFFFF";
   const corDoTextoDaEtapa = (etapa: string) => (etapa === "secagem" ? TINTA_SOBRE_CLARO : BRANCO);
 
-  it.each(ORDEM_DAS_ETAPAS.map((etapa) => [etapa] as const))(
+  it.each(ORDEM_DAS_COLUNAS.map((etapa) => [etapa] as const))(
     "a pílula da etapa %s passa AA (>= 4.5) com a cor de texto que os componentes escolhem",
     (etapa) => {
       const fundo = tokenDaPlataforma(etapa);
@@ -151,7 +152,7 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   );
 
   it("a secagem é mesmo o único token de etapa que precisa de texto escuro", () => {
-    const precisamDeEscuro = ORDEM_DAS_ETAPAS.filter(
+    const precisamDeEscuro = ORDEM_DAS_COLUNAS.filter(
       (etapa) => razaoDeContraste(tokenDaPlataforma(etapa), BRANCO) < 4.5,
     );
     // Se outro token entrar nesta lista, a regra `secagem ? escuro : branco` dos dois
@@ -161,7 +162,8 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
 
   it.each([
     ["components/amassa/inicio/bloco-producao.tsx"],
-    ["components/amassa/encomendas/gantt.tsx"],
+    // Fase 06.1, plano 13 (Q13): o contador colorido da seção de etapa da folha geral A4.
+    ["components/amassa/producao/folha-geral.tsx"],
   ])("%s carrega a mesma regra de cor de texto (a duplicação não pode divergir)", (caminho) => {
     const fonte = readFileSync(join(process.cwd(), caminho), "utf-8");
     expect(fonte).toContain(TINTA_SOBRE_CLARO);
@@ -169,19 +171,22 @@ describe("contraste das pílulas de etapa nas telas de /gestao (GES-07, achado d
   });
 });
 
-// CR-04 (revisão da Fase 04.6): o bloco Produção do Início ganhou duas tags sem etapa — a de
-// encomenda atrasada e a de encomenda que ainda não começou —, além da "Em espera" que já
-// existia. O mesmo bloco já tinha saído com uma pílula a 1,94:1, achada só por leitura; aqui cada
-// par que as tags usam é MEDIDO, lido do `app/globals.css` real. Achado real se reprovar: o token
-// ou o par muda, nunca o limiar.
-describe("contraste das tags sem etapa do bloco Produção do Início (CR-04)", () => {
-  const PARES_DAS_TAGS = [
-    ["Atrasada", "erro", "erro-fundo", "text-erro", "bg-erro-fundo"],
-    ["Começa em / Em espera", "muted-foreground", "muted", "text-muted-foreground", "bg-muted"],
+// Fase 06.1 (plano 14, D-16): o bloco Produção do Início deixou as tags sem etapa do modelo antigo
+// ("Atrasada", "Começa em", "Em espera" — CR-04 da 04.6) e passou a mostrar o SELO da ordem, o mesmo
+// chip do quadro (`ChipDoSelo`, em `cartao-ordem.tsx`), e a linha "{N} aguardando o sinal". Cada par
+// de cor que eles usam — Q1 a Q4 da tabela "Pares de contraste" de `06.1-UI-SPEC.md` — é MEDIDO aqui,
+// lido do `app/globals.css` real. Q1 (4,51) e Q2 (4,57) passam por pouco: um ajuste de paleta
+// reprova aqui de propósito. Achado real se reprovar: o token ou o par muda, nunca o limiar.
+describe("contraste dos selos e da linha de aguardando do bloco Produção do Início (Q1–Q4)", () => {
+  const PARES_DO_SELO = [
+    ["Q1 · +N nesta etapa", "atencao", "atencao-fundo", "text-atencao", "bg-atencao-fundo"],
+    ["Q2 · no ritmo", "sucesso", "sucesso-fundo", "text-sucesso", "bg-sucesso-fundo"],
+    ["Q3 · vai atrasar", "erro", "erro-fundo", "text-erro", "bg-erro-fundo"],
+    ["Q4 · aguardando o sinal", "tinta-media", "superficie-2", "text-tinta-media", "bg-superficie-2"],
   ] as const;
 
-  it.each(PARES_DAS_TAGS)(
-    "a tag %s (--color-%s sobre --color-%s) passa AA (>= 4.5)",
+  it.each(PARES_DO_SELO)(
+    "o par %s (--color-%s sobre --color-%s) passa AA (>= 4.5)",
     (_rotulo, tokenDoTexto, tokenDoFundo) => {
       const texto = tokenDaPlataforma(tokenDoTexto);
       const fundo = tokenDaPlataforma(tokenDoFundo);
@@ -190,17 +195,26 @@ describe("contraste das tags sem etapa do bloco Produção do Início (CR-04)", 
     },
   );
 
-  it.each(PARES_DAS_TAGS)(
-    "o bloco Produção usa de fato o par medido da tag %s",
+  it.each(PARES_DO_SELO)(
+    "o chip do selo usa de fato o par medido %s",
     (_rotulo, _texto, _fundo, classeDoTexto, classeDoFundo) => {
       const fonte = readFileSync(
-        join(process.cwd(), "components/amassa/inicio/bloco-producao.tsx"),
+        join(process.cwd(), "components/amassa/producao/cartao-ordem.tsx"),
         "utf-8",
       );
-      expect(fonte).toContain(classeDoTexto);
-      expect(fonte).toContain(classeDoFundo);
+      expect(fonte).toContain(`${classeDoFundo} ${classeDoTexto}`);
     },
   );
+
+  it("o bloco Produção usa o chip do selo do quadro e o par Q4 na linha de aguardando", () => {
+    const fonte = readFileSync(
+      join(process.cwd(), "components/amassa/inicio/bloco-producao.tsx"),
+      "utf-8",
+    );
+    expect(fonte).toContain("<ChipDoSelo");
+    expect(fonte).toContain("text-tinta-media");
+    expect(fonte).toContain("bg-superficie-2");
+  });
 });
 
 // Fase 06 (Estoque), plano 06-04: os pares de cor que a fase passa a usar, P1 a P17b da tabela
@@ -262,5 +276,76 @@ describe("contraste do Estoque (06-UI-SPEC.md)", () => {
   it("P17a só passa por ser texto grande — como texto normal reprovaria (o limite é real)", () => {
     const razao = razaoDeContraste(tokenDaPlataforma("atencao"), tokenDaPlataforma("superficie-2"));
     expect(razao).toBeLessThan(TEXTO_NORMAL);
+  });
+});
+
+// Fase 06.1 (Produção), plano 09: os pares de cor que a fase usa, Q1 a Q12 e Q14 da tabela "Color →
+// Pares de contraste" de `.planning/phases/06.1-producao/06.1-UI-SPEC.md`, cada um lido do
+// `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui. Pares que o Estoque já
+// prova entram de novo com o uso da Produção: o teste cobre o uso, não só o par. (Q13 é o bloco
+// "contraste das pílulas de etapa", acima.) Achado real se reprovar: o token (ou o par que o
+// componente usa) muda, nunca o limiar.
+describe("contraste da Produção (06.1-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const ETAPAS_COM_COR_PROPRIA = ["producao", "queima1", "esmaltacao", "queima2", "entrega"] as const;
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    // Margem quase nula — qualquer ajuste de paleta reprova aqui de propósito (Q1 = 4,51:1).
+    ["Q1", "atencao", "atencao-fundo", TEXTO_NORMAL, "selo “+N dias nesta etapa”, caixa “Aguardando o sinal”, chip “Entrega parcial”"],
+    // Margem curta (Q2 = 4,57:1).
+    ["Q2", "sucesso", "sucesso-fundo", TEXTO_NORMAL, "selo “no ritmo”, selo “concluída”"],
+    ["Q3", "erro", "erro-fundo", TEXTO_NORMAL, "selo “vai atrasar”, caixa “Faltam {n}…”"],
+    ["Q4", "tinta-media", "superficie-2", TEXTO_NORMAL, "selo “aguardando o sinal”, chips neutros, nome da coluna"],
+    ["Q5", "tinta-fraca", "superficie-2", TEXTO_NORMAL, "“—” de coluna vazia, contador da coluna"],
+    ["Q6", "tinta-fraca", "superficie", TEXTO_NORMAL, "detalhe do cartão, legenda, cabeçalho de semana"],
+    ["Q7", "acento", "superficie", TEXTO_NORMAL, "etapa atual na trilha, links, títulos da folha"],
+    ["Q8", "erro", "superficie", TEXTO_NORMAL, "“vai atrasar” na coluna fixa, linha de hoje, “Cancelar ordem”"],
+    ["Q9", "atencao", "superficie", TEXTO_NORMAL, "“gastou X kg a mais que o previsto”"],
+    ...ETAPAS_COM_COR_PROPRIA.map(
+      (etapa) =>
+        ["Q10", etapa, "superficie", NAO_TEXTO, "segmento cheio e borda do listrado da linha do tempo"] as const,
+    ),
+    ...ETAPAS_COM_COR_PROPRIA.map(
+      (etapa) => ["Q11", etapa, "superficie-2", NAO_TEXTO, "ponto de etapa no cabeçalho da coluna"] as const,
+    ),
+    ["Q12", "tinta-fraca", "superficie", NAO_TEXTO, "contorno de 1px da secagem (UI-D13) sobre o painel"],
+    ["Q12", "tinta-fraca", "superficie-2", NAO_TEXTO, "contorno de 1px da secagem (UI-D13) sobre a coluna"],
+    ["Q14", "tinta", "superficie", NAO_TEXTO, "traço da entrega prometida"],
+  ];
+
+  it("a tabela tem Q1..Q12 e Q14 (Q13 é o bloco das pílulas de etapa)", () => {
+    expect([...new Set(PARES.map(([par]) => par))]).toEqual([
+      ...Array.from({ length: 12 }, (_, indice) => `Q${indice + 1}`),
+      "Q14",
+    ]);
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = tokenDaPlataforma(tokenDaFrente);
+      const fundo = tokenDaPlataforma(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+
+  it("a secagem sem contorno continua reprovada como objeto gráfico — por isso o contorno de tinta-fraca (UI-D13)", () => {
+    // Se um dia o token mudar e isto passar, o contorno pode sair; enquanto não, ele é obrigatório.
+    const secagem = tokenDaPlataforma("secagem");
+    expect(razaoDeContraste(secagem, tokenDaPlataforma("superficie"))).toBeLessThan(NAO_TEXTO);
+    expect(razaoDeContraste(secagem, tokenDaPlataforma("superficie-2"))).toBeLessThan(NAO_TEXTO);
+  });
+
+  it("a linha do tempo desenha a secagem com o contorno de tinta-fraca e não repete hex", () => {
+    const fonte = readFileSync(
+      join(process.cwd(), "components/amassa/producao/linha-do-tempo.tsx"),
+      "utf-8",
+    );
+    expect(fonte).toMatch(/"secagem"\s*\?\s*"var\(--color-tinta-fraca\)"/);
+    expect(fonte).not.toMatch(/#[0-9A-Fa-f]{6}/);
   });
 });

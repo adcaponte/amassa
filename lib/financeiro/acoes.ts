@@ -16,6 +16,7 @@ import {
   originaisSemEstorno,
 } from "@/lib/estoque/gravacao";
 import { pedidosDaCompra, pedidosDaVenda, pedidosDoEstorno } from "@/lib/estoque/pedidos";
+import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { obterConfiguracaoFinanceira } from "./consultas";
@@ -635,6 +636,13 @@ export async function cancelarDocumento(
         throw new DocumentoJaCancelado();
       }
 
+      // D-07 (Fase 06.1, plano 06): a ordem de produção ligada a esta venda pelo orçamento. Se ainda
+      // aguarda o sinal, é cancelada JUNTO, nesta transação (`cancelada_pela_venda`); se já foi
+      // liberada, nada muda nela — o aviso é derivado na leitura e o dono decide. Vem depois da
+      // trava do documento e da checagem de "já cancelado" (cancelar a venda de novo nunca mexe de
+      // novo na ordem) e ANTES do estorno, que trava os itens: DOCUMENTO → ORDEM → ITENS.
+      await cancelarOrdemDaVendaCancelada(tx, documentoId, usuario.id);
+
       // O estorno do estoque (Fase 06, D-04): UMA movimentação espelho por original, com
       // `estorno_de_id` apontando para ela, o mesmo documento e a mesma origem — nada é apagado.
       // Vem DEPOIS da trava do documento (acima) e da checagem de "já cancelado": a ordem de travas
@@ -659,6 +667,7 @@ export async function cancelarDocumento(
 
     revalidatePath("/gestao/financeiro");
     revalidatePath(rotaDeGestao("/estoque"));
+    revalidatePath(rotaDeGestao("/producao"));
     revalidatePath(rotaDeGestao("/"));
     return { ok: true, dados: { documentoId, numero } };
   } catch (erro) {

@@ -11,7 +11,7 @@ import { EntregaDoEstoque, type DadosDoEstoque, type ListaDoEstoque } from "./pr
 // O que a folha de movimentação, o seletor "Qual material?" e o banner precisam — lido numa função
 // só, para a aba Saldos (`SecaoSaldos`) e as outras abas (`CarregadorDoSeletor`) nunca divergirem: a
 // lista de saldos pela MESMA consulta em `cache` da requisição (`listarSaldosDaRequisicao`) e, em
-// paralelo, as encomendas em andamento e o custo por peça das peças prontas com os parâmetros de
+// paralelo, as ordens de produção do vínculo "Qual ordem?" e o custo por peça das peças prontas com os parâmetros de
 // HOJE em Brasília. O `Map` vira objeto simples antes de atravessar para o cliente. Lança se
 // qualquer leitura falhar — quem chama decide a tela de erro.
 export async function lerDadosDoEstoque(): Promise<DadosDoEstoque> {

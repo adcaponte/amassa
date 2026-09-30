@@ -847,7 +847,7 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 0/15 plans executed
+**Plans:** 14/15 plans executed
 
 15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
@@ -857,21 +857,21 @@ Verificação dos planos: 0 bloqueios; 1 aviso ("quatro tarefas" em seis planos)
 um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `main`, até o portão (plano
 15); código e migração saem numa publicação só e o dono migra numa sessão só de `db:migrate` (D-09).
 
-- [ ] 06.1-01-PLAN.md — Traçador: uma ordem na Produção, "Terminei: Produção", e ela está na Secagem com a data de hoje; o esquema inteiro da fase na `0024` (dado do D-02 antes da FK nova), o branch e `TABELAS_ESPERADAS` (onda 1)
-- [ ] 06.1-02-PLAN.md — O traçador nas bordas: leitura e "Terminei" em todos os casos de calendário e de estado; a conferência da Produção e a prova do D-02 em banco próprio; o vínculo "Qual ordem?" do Estoque (onda 2)
-- [ ] 06.1-03-PLAN.md — Do orçamento aprovado à ordem aguardando o sinal, na mesma transação; a seção "aguardando o sinal", o sinal lido do Caixa e a liberação manual (onda 3)
-- [ ] 06.1-04-PLAN.md — O bloco Peças (cor, personalização, horas, fotos do orçamento sem copiar arquivo, vínculos nos dois sentidos) e as peças a mais, só em encomenda (onda 4)
-- [ ] 06.1-05-PLAN.md — A trilha na mão: desfazer com confirmação, −/+ dos dias previstos das etapas futuras, o parcial, a previsão e a barra fixa do "Terminei" no celular (onda 5)
-- [ ] 06.1-06-PLAN.md — Cancelar a ordem sem mexer em venda, parcela nem estoque; a D-07 dentro do `cancelarDocumento` (onda 6)
-- [ ] 06.1-07-PLAN.md — A "Nova ordem": produção da casa e pedido de boca, "+ outra peça", D-04/D-05/D-13 conferidas no servidor (onda 7)
-- [ ] 06.1-08-PLAN.md — O quadro inteiro: filtros, os três números, a fila do forno em fornadas estimadas, estados vazio/carregando/erro, concluídas e canceladas (onda 8)
-- [ ] 06.1-09-PLAN.md — A linha do tempo, com o cookie `producao_vista`, e o bloco de contraste da Produção no `contraste.test.ts` (onda 9)
-- [ ] 06.1-10-PLAN.md — Material previsto × baixado; a baixa pela ordem por `gravarMovimentacoes`, com `material_da_ordem` (onda 10)
-- [ ] 06.1-11-PLAN.md — Concluir: as fórmulas do §7 verbatim, a entrada `producao` no Estoque ao custo da ficha, D-13 e D-14 (onda 11)
-- [ ] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12)
-- [ ] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13)
-- [ ] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14)
-- [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**)
+- [x] 06.1-01-PLAN.md — Traçador: uma ordem na Produção, "Terminei: Produção", e ela está na Secagem com a data de hoje; o esquema inteiro da fase na `0024` (dado do D-02 antes da FK nova), o branch e `TABELAS_ESPERADAS` (onda 1) *Concluído em 30/09/2026 no branch (`8d51e70`..`65a52d0`): `0024` versionada, não aplicada; verificar verde (1676 testes); e2e `--grep "producao tracador"` 52 passed — ver `06.1-01-SUMMARY.md`.*
+- [x] 06.1-02-PLAN.md — O traçador nas bordas: leitura e "Terminei" em todos os casos de calendário e de estado; a conferência da Produção e a prova do D-02 em banco próprio; o vínculo "Qual ordem?" do Estoque (onda 2) *Concluído em 30/09/2026 no branch (`38bda81`..`311b57e`): verificar verde (1699 testes, `test:migracoes` com o D-02 em banco próprio); e2e `--grep "estoque movimentacao"` 68 passed — ver `06.1-02-SUMMARY.md`.*
+- [x] 06.1-03-PLAN.md — Do orçamento aprovado à ordem aguardando o sinal, na mesma transação; a seção "aguardando o sinal", o sinal lido do Caixa e a liberação manual (onda 3) *Concluído em 30/09/2026 no branch (`dc9d8db`..`4b4b6cf`): verificar verde (1708 testes); e2e 3 invocações (uma para reverificar falha própria), a última 56 passed — ver `06.1-03-SUMMARY.md`.*
+- [x] 06.1-04-PLAN.md — O bloco Peças (cor, personalização, horas, fotos do orçamento sem copiar arquivo, vínculos nos dois sentidos) e as peças a mais, só em encomenda (onda 4) *Concluído em 30/09/2026 no branch (`6bb43b7`..`86b5507`): verificar verde (1726 testes); e2e `producao pecas` 54 e `producao a mais` 52 passed — ver `06.1-04-SUMMARY.md`.*
+- [x] 06.1-05-PLAN.md — A trilha na mão: desfazer com confirmação, −/+ dos dias previstos das etapas futuras, o parcial, a previsão e a barra fixa do "Terminei" no celular (onda 5) *Concluído em 30/09/2026 no branch (`1f9299b`..`5ebf902`): verificar verde (1777 testes); e2e 2 invocações, a última `producao trilha` 62 passed — ver `06.1-05-SUMMARY.md`.*
+- [x] 06.1-06-PLAN.md — Cancelar a ordem sem mexer em venda, parcela nem estoque; a D-07 dentro do `cancelarDocumento` (onda 6) *Concluído em 30/09/2026 no branch (`110ae6d`..`3979bda`), com a correção do check da `0024` primeiro; verificar verde (1786 testes); e2e 3 invocações, a última 114 passed — ver `06.1-06-SUMMARY.md`.*
+- [x] 06.1-07-PLAN.md — A "Nova ordem": produção da casa e pedido de boca, "+ outra peça", D-04/D-05/D-13 conferidas no servidor (onda 7) *Concluído em 30/09/2026 no branch (`b9fd5ce`..`0836e92`): verificar verde (1823 testes); e2e `producao nova ordem` 60 passed — ver `06.1-07-SUMMARY.md`.*
+- [x] 06.1-08-PLAN.md — O quadro inteiro: filtros, os três números, a fila do forno em fornadas estimadas, estados vazio/carregando/erro, concluídas e canceladas (onda 8) *Concluído em 30/09/2026 no branch (`eba5eaf`..`4c7a357`): verificar verde (1849 testes); e2e 56 e 52 passed — ver `06.1-08-SUMMARY.md`.*
+- [x] 06.1-09-PLAN.md — A linha do tempo, com o cookie `producao_vista`, e o bloco de contraste da Produção no `contraste.test.ts` (onda 9) *Concluído em 30/09/2026 no branch (`1df8536`..`4f43951`): verificar verde (1908 testes); e2e `producao linha do tempo` 58 passed — ver `06.1-09-SUMMARY.md`.*
+- [x] 06.1-10-PLAN.md — Material previsto × baixado; a baixa pela ordem por `gravarMovimentacoes`, com `material_da_ordem` (onda 10) *Concluído em 30/09/2026 no branch (`0876cc3`..`0f5f783`): verificar verde (1936 testes); e2e `producao material` 62 passed — ver `06.1-10-SUMMARY.md`.*
+- [x] 06.1-11-PLAN.md — Concluir: as fórmulas do §7 verbatim, a entrada `producao` no Estoque ao custo da ficha, D-13 e D-14 (onda 11) *Concluído em 30/09/2026 no branch (`9d1c71f`..`9b11e52`): verificar verde (1961 testes); e2e 2 invocações (a 1ª quebrou num auxiliar do próprio teste), a última `producao concluir` 60 passed — ver `06.1-11-SUMMARY.md`.*
+- [x] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12) *Concluído em 30/09/2026 no branch (`41ab957`..`99d86e9`): verificar verde (1982 testes); e2e 74 e 41 passed — ver `06.1-12-SUMMARY.md`.*
+- [x] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13) *Concluído em 30/09/2026 no branch (`76f036a`..`64958b9`): verificar verde (2010 testes); e2e 3 invocações (uma para reverificar falha própria), as últimas 59 e 57 passed — ver `06.1-13-SUMMARY.md`.*
+- [x] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14) *Concluído em 30/09/2026 no branch (`1e51a42`..`a990201`): `0025` escrita e provada no Postgres efêmero, não aplicada; verificar verde (1776 testes, o módulo antigo saiu); e2e 6 invocações (3 previstas), a última `producao rotas` 60 passed — ver `06.1-14-SUMMARY.md`.*
+- [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**) *Em 30/09/2026: Tarefas 1 e 2 feitas no branch (`2acbd72`..`7769b3c`); a Tarefa 3, o portão do dono, está aberta.* *Depois, ainda em 30/09: revisão de código da fase (`06.1-REVIEW.md`, 0 bloqueios) e correções (`06.1-REVIEW-FIX.md`); o WR-01 ficou na Parte 0.*
 
 **UI hint**: yes
 
@@ -933,5 +933,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 0/15 | In Progress | - |
+| 06.1. Produção — redesenho das Encomendas | 14/15 | In Progress | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
