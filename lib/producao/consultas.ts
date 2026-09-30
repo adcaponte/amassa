@@ -2,7 +2,7 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { and, asc, count, eq, inArray, isNotNull, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -455,4 +455,107 @@ export async function listarCatalogoDaNovaOrdem(): Promise<CatalogoDaNovaOrdem> 
       .orderBy(asc(itensCatalogo.nome), asc(itensCatalogo.id)),
   ]);
   return { fichasDeLinha, fichasExclusivas, itensDoEstoque };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Concluídas e canceladas (plano 08, UI-D8) — `/gestao/producao/concluidas`, 50 por vez.
+// ---------------------------------------------------------------------------------------------
+
+// Teto fixo por leitura (T-06.1-31): quem chama só escolhe o deslocamento.
+export const CONCLUIDAS_POR_VEZ = 50;
+
+export type OrdemEncerrada = {
+  id: string;
+  nome: string;
+  tipo: TipoOrdem;
+  clienteNome: string | null;
+  status: "concluida" | "cancelada";
+  inicio: string | null;
+  // `YYYY-MM-DD`.
+  concluidaEm: string | null;
+  // O DIA de Brasília do cancelamento (`cancelada_em` é instante) — `YYYY-MM-DD`.
+  canceladaEm: string | null;
+  canceladaPelaVenda: boolean;
+  entregaParcial: boolean;
+  // Somadas das peças: feitas = pedido + a mais; boas = feitas − perdidas. `null` quando alguma peça
+  // não tem as perdidas gravadas (a cancelada nunca passou pela conclusão).
+  boas: number | null;
+  feitas: number;
+};
+
+const STATUS_ENCERRADOS = ["concluida", "cancelada"] as const;
+
+// O dia de Brasília do cancelamento, calculado pelo Postgres com o fuso ESCRITO na consulta — o
+// banco não tem `TZ` (CLAUDE.md §Fuso). A concluída já guarda o dia civil.
+const DIA_DO_CANCELAMENTO = sql<string | null>`to_char(${ordensProducao.canceladaEm} at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`;
+const DIA_DO_ENCERRAMENTO = sql`coalesce(${ordensProducao.concluidaEm}, (${ordensProducao.canceladaEm} at time zone 'America/Sao_Paulo')::date)`;
+
+// As ordens concluídas e canceladas, mais recentes primeiro — pela data de conclusão ou de
+// cancelamento; no mesmo dia, a de número maior (a mais nova) antes, para a página seguinte nunca
+// repetir nem pular uma ordem. Molde "consulta principal + filhos casados por `Map`".
+export async function listarConcluidasECanceladas({
+  deslocamento,
+}: {
+  deslocamento: number;
+}): Promise<OrdemEncerrada[]> {
+  const ordens = await db
+    .select({
+      id: ordensProducao.id,
+      nome: ordensProducao.nome,
+      tipo: ordensProducao.tipo,
+      clienteNome: ordensProducao.clienteNome,
+      status: ordensProducao.status,
+      inicio: ordensProducao.inicio,
+      concluidaEm: ordensProducao.concluidaEm,
+      canceladaEm: DIA_DO_CANCELAMENTO,
+      canceladaPelaVenda: ordensProducao.canceladaPelaVenda,
+      entregaParcial: ordensProducao.entregaParcial,
+    })
+    .from(ordensProducao)
+    .where(inArray(ordensProducao.status, [...STATUS_ENCERRADOS]))
+    .orderBy(desc(DIA_DO_ENCERRAMENTO), desc(ordensProducao.numero))
+    .limit(CONCLUIDAS_POR_VEZ)
+    .offset(deslocamento);
+  if (ordens.length === 0) {
+    return [];
+  }
+  const pecas = await db
+    .select({
+      ordemId: ordemPecas.ordemId,
+      quantidade: ordemPecas.quantidade,
+      aMais: ordemPecas.aMais,
+      perdidas: ordemPecas.perdidas,
+    })
+    .from(ordemPecas)
+    .where(
+      inArray(
+        ordemPecas.ordemId,
+        ordens.map((ordem) => ordem.id),
+      ),
+    );
+  const pecasPorOrdem = agruparPorOrdem(pecas);
+
+  return ordens.map((ordem) => {
+    const dela = pecasPorOrdem.get(ordem.id) ?? [];
+    const feitas = dela.reduce((total, peca) => total + peca.quantidade + peca.aMais, 0);
+    const todasComPerdidas = dela.length > 0 && dela.every((peca) => peca.perdidas !== null);
+    return {
+      ...ordem,
+      // O `where` só deixa passar os dois; o tipo do Drizzle é o enum inteiro.
+      status: ordem.status === "concluida" ? "concluida" : "cancelada",
+      boas: todasComPerdidas
+        ? dela.reduce((total, peca) => total + peca.quantidade + peca.aMais - (peca.perdidas ?? 0), 0)
+        : null,
+      feitas,
+    };
+  });
+}
+
+// Quantas ordens concluídas e canceladas existem — o "(N)" do link da Produção e o "Mostrar mais 50".
+export async function contarConcluidasECanceladas(): Promise<number> {
+  const [linha] = await db
+    .select({ quantas: count() })
+    .from(ordensProducao)
+    .where(inArray(ordensProducao.status, [...STATUS_ENCERRADOS]));
+  return Number(linha?.quantas ?? 0);
 }

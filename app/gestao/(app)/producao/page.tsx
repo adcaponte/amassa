@@ -1,14 +1,23 @@
+import Link from "next/link";
+
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
-import { cabemPorFicha, listarOrdensEmAndamento } from "@/lib/producao/consultas";
+import {
+  cabemPorFicha,
+  contarConcluidasECanceladas,
+  listarOrdensEmAndamento,
+} from "@/lib/producao/consultas";
 import { esperandoOForno, fornadasEstimadas, type FornadasEstimadas } from "@/lib/producao/forno";
 import { leituraDaOrdem, seloDaOrdem } from "@/lib/producao/leitura";
 import { FILTROS_DO_QUADRO, filtrarOrdens, type FiltroDoQuadro } from "@/lib/producao/quadro";
 import {
   CORPO_PRODUCAO_VAZIA,
+  rotuloVerConcluidas,
   TITULO_PRODUCAO,
   TITULO_PRODUCAO_VAZIA,
 } from "@/lib/producao/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
+import { Button } from "@/components/ui/button";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { BotaoNovaOrdem } from "@/components/amassa/producao/botao-nova-ordem";
@@ -22,6 +31,25 @@ import {
 // CLAUDE.md, verificada por `npm run verificar-acoes`. "Hoje" é decidido AQUI, no servidor
 // (Brasília), e passado ao módulo puro — o cliente nunca decide o dia.
 //
+// "Ver concluídas e canceladas (N)" (`outline`, 44px) só aparece com N > 0 — também no vazio total,
+// para as encerradas nunca ficarem sem caminho quando nada está em andamento.
+function VerConcluidas({ quantas }: { quantas: number }) {
+  if (quantas === 0) {
+    return null;
+  }
+  return (
+    <Button
+      asChild
+      variant="outline"
+      className="text-corpo h-auto min-h-[44px] self-start px-4 font-semibold"
+    >
+      <Link href={rotaDeGestao("/producao/concluidas")} data-testid="producao-ver-concluidas">
+        {rotuloVerConcluidas(quantas)}
+      </Link>
+    </Button>
+  );
+}
+
 // Tudo sai de UMA leitura (`listarOrdensEmAndamento`) mais o "cabem" das fichas da fila do forno —
 // o mesmo `loading.tsx` e o mesmo `error.tsx` valem para os números, o quadro e a seção
 // "Aguardando o sinal". O filtro é do cliente (`PainelProducao`); as fornadas vão prontas para os
@@ -31,7 +59,10 @@ export default async function PaginaProducao() {
   await exigirUsuario();
   const hoje = hojeEmBrasilia(new Date());
 
-  const ordens = await listarOrdensEmAndamento();
+  const [ordens, encerradas] = await Promise.all([
+    listarOrdensEmAndamento(),
+    contarConcluidasECanceladas(),
+  ]);
 
   // Sem nenhuma ordem liberada nem aguardando, o único terracota é o "Nova ordem" do vazio — o
   // cabeçalho fica sem botão nenhum (UI-D11). A folha (`?nova=1`) vale nos dois casos.
@@ -45,6 +76,11 @@ export default async function PaginaProducao() {
           botao={<BotaoNovaOrdem />}
           testId="producao-vazio"
         />
+        {encerradas > 0 ? (
+          <div className="flex px-6 pb-6 md:px-8">
+            <VerConcluidas quantas={encerradas} />
+          </div>
+        ) : null}
         <FolhaNovaOrdem hoje={hoje} />
       </>
     );
@@ -81,7 +117,12 @@ export default async function PaginaProducao() {
       <CabecalhoPagina titulo={TITULO_PRODUCAO}>
         <BotaoNovaOrdem />
       </CabecalhoPagina>
-      <PainelProducao ordens={ordens} leituras={leituras} fornadasPorFiltro={fornadasPorFiltro} />
+      <PainelProducao
+        ordens={ordens}
+        leituras={leituras}
+        fornadasPorFiltro={fornadasPorFiltro}
+        rodape={encerradas > 0 ? <VerConcluidas quantas={encerradas} /> : undefined}
+      />
       <FolhaNovaOrdem hoje={hoje} />
     </>
   );

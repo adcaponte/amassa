@@ -912,3 +912,94 @@ export async function origemDasPecasNoBanco(
     }));
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06.1-08 — ordens encerradas para a lista "Concluídas e canceladas"
+// ---------------------------------------------------------------------------------------------
+
+export type OrdemEncerradaParaSemear = {
+  nome: string;
+  tipo: TipoOrdem;
+  // A peça única da ordem: feitas = quantidade + a mais.
+  quantidade: number;
+  aMais?: number;
+  clienteNome?: string | null;
+  // `null` só na cancelada que nunca foi liberada (a que caiu junto com a venda ainda aguardando).
+  inicio: string | null;
+} & (
+  | {
+      status: "concluida";
+      // `YYYY-MM-DD`; as etapas do caminho completo ficam feitas neste dia.
+      concluidaEm: string;
+      perdidas: number;
+      entregaParcial?: boolean;
+    }
+  | {
+      status: "cancelada";
+      // O DIA do cancelamento (`YYYY-MM-DD`): gravado como meio-dia de Brasília nesse dia.
+      canceladaEm: string;
+      canceladaPelaVenda?: boolean;
+    }
+);
+
+// Uma ordem concluída ou cancelada. Nasce ativa (ou aguardando, sem início) por `semearOrdem` e é
+// encerrada numa segunda transação — os `check`s de `ordens_producao` exigem a data junto com o
+// status. A concluída grava as perdidas da peça (e zero para o estoque e sem destino), como a
+// conclusão faria; a cancelada fica com quem cancelou = a conta de teste. Devolve o id.
+export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Promise<string> {
+  const concluida = dados.status === "concluida";
+  const ordemId = await semearOrdem({
+    nome: dados.nome,
+    tipo: dados.tipo,
+    caminho: "completo",
+    status: dados.inicio === null ? "aguardando_sinal" : "ativa",
+    inicio: dados.inicio,
+    etapasFeitas: concluida
+      ? etapasIniciais("completo").map((etapa) => ({
+          etapa: etapa.etapa,
+          feitaEm: dados.concluidaEm,
+        }))
+      : [],
+    pecas: [
+      {
+        descricao: `[e2e] Peça de ${dados.nome}`,
+        quantidade: dados.quantidade,
+        aMais: dados.aMais ?? 0,
+      },
+    ],
+    clienteNome: dados.clienteNome ?? null,
+  });
+  await comCliente(async (cliente) => {
+    await cliente.query("begin");
+    try {
+      if (dados.status === "concluida") {
+        await cliente.query(
+          `update ordem_pecas set perdidas = $2, para_estoque = 0, sem_destino = 0 where ordem_id = $1`,
+          [ordemId, dados.perdidas],
+        );
+        await cliente.query(
+          `update ordens_producao
+              set status = 'concluida', concluida_em = $2, entrega_parcial = $3
+            where id = $1`,
+          [ordemId, dados.concluidaEm, dados.entregaParcial ?? false],
+        );
+      } else {
+        const canceladaPor = await idDoUsuarioDeTeste(cliente);
+        await cliente.query(
+          `update ordens_producao
+              set status = 'cancelada',
+                  cancelada_em = ($2::date + time '12:00') at time zone 'America/Sao_Paulo',
+                  cancelada_por = $3,
+                  cancelada_pela_venda = $4
+            where id = $1`,
+          [ordemId, dados.canceladaEm, canceladaPor, dados.canceladaPelaVenda ?? false],
+        );
+      }
+      await cliente.query("commit");
+    } catch (erro) {
+      await cliente.query("rollback").catch(() => {});
+      throw erro;
+    }
+  });
+  return ordemId;
+}

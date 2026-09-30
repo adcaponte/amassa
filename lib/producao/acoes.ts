@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "@/db";
 import {
@@ -17,7 +18,12 @@ import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import { listarCatalogoDaNovaOrdem, type CatalogoDaNovaOrdem } from "./consultas";
+import {
+  listarCatalogoDaNovaOrdem,
+  listarConcluidasECanceladas,
+  type CatalogoDaNovaOrdem,
+  type OrdemEncerrada,
+} from "./consultas";
 import { etapasIniciais, type EtapaProducao } from "./etapas";
 import {
   esquemaAjustarDiasPrevistos,
@@ -75,6 +81,7 @@ import {
   FRASE_PARCIAL_ULTIMA_ETAPA,
   FRASE_PECA_NAO_EXISTE,
   FRASE_ULTIMA_ETAPA,
+  FRASE_ERRO_CARREGAR_MAIS,
   textoParcialInvalido,
 } from "./textos";
 
@@ -733,4 +740,32 @@ async function conferirPecas(
     }
     return item.nome;
   });
+}
+
+// "Mostrar mais 50" das Concluídas e canceladas (plano 08, UI-D8). Do cliente chega SÓ o
+// deslocamento — inteiro ≥ 0 (T-06.1-31); quantas vêm por vez é teto fixo do servidor
+// (`CONCLUIDAS_POR_VEZ`). Só leitura: nenhuma escrita, nenhum `revalidatePath`.
+const esquemaCarregarMaisConcluidas = z.object({
+  deslocamento: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+});
+
+export async function carregarMaisConcluidas(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<OrdemEncerrada[]>> {
+  await exigirUsuario();
+
+  const resultado = esquemaCarregarMaisConcluidas.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_ERRO_CARREGAR_MAIS };
+  }
+
+  try {
+    return { ok: true, dados: await listarConcluidasECanceladas(resultado.data) };
+  } catch (erro) {
+    console.error(
+      `Falha ao carregar mais concluídas (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_ERRO_CARREGAR_MAIS };
+  }
 }

@@ -553,3 +553,57 @@ export const TITULO_FILTRO_VAZIO: Readonly<Record<"encomenda" | "casa", string>>
 };
 export const CORPO_FILTRO_VAZIO = "Toque em Tudo para ver todas.";
 export const ROTULO_VER_TUDO = "Ver tudo";
+
+// ---------------------------------------------------------------------------------------------
+// Concluídas e canceladas (plano 08, UI-D8) — `/gestao/producao/concluidas`.
+// ---------------------------------------------------------------------------------------------
+
+export const TITULO_CONCLUIDAS = "Concluídas e canceladas";
+// O link embaixo do quadro — só com N > 0.
+export function rotuloVerConcluidas(quantas: number): string {
+  return `Ver concluídas e canceladas (${quantas})`;
+}
+export const TITULO_CONCLUIDAS_VAZIA = "Nenhuma ordem concluída ainda.";
+export const CORPO_CONCLUIDAS_VAZIA =
+  "Quando uma ordem for entregue, guardada no estoque ou cancelada, ela aparece aqui.";
+export const FRASE_ERRO_CARREGAR_CONCLUIDAS =
+  "Não deu para carregar as ordens concluídas. Verifique a internet e tente de novo.";
+export const ROTULO_MOSTRAR_MAIS_50 = "Mostrar mais 50";
+export const ROTULO_CARREGANDO = "Carregando…";
+export const FRASE_ERRO_CARREGAR_MAIS =
+  "Não deu para carregar mais ordens. Verifique a internet e tente de novo.";
+export const ROTULO_ABRIR = "Abrir";
+export function ariaLabelAbrirOrdem(nome: string): string {
+  return `Abrir ${nome}`;
+}
+export const CHIP_CANCELADA = "cancelada";
+export const CHIP_ENTREGA_PARCIAL = "Entrega parcial";
+export const ARIA_LISTA_CONCLUIDAS = "Ordens concluídas e canceladas";
+// "05/03/2026" a partir de `YYYY-MM-DD` (sem `Date` — o fuso do runtime nunca desloca o dia).
+export function formatarDataCompleta(data: string): string {
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+// A sub-linha da concluída: "{cliente | da casa} · {b} de {f} peças boas · concluída em {dd/mm/aaaa}".
+export function textoSubLinhaConcluida(d: {
+  quem: string;
+  boas: number | null;
+  feitas: number;
+  concluidaEm: string;
+}): string {
+  const partes = [d.quem];
+  if (d.boas !== null) {
+    partes.push(`${d.boas} de ${d.feitas} ${d.feitas === 1 ? "peça boa" : "peças boas"}`);
+  }
+  partes.push(`concluída em ${formatarDataCompleta(d.concluidaEm)}`);
+  return partes.join(" · ");
+}
+// A sub-linha da cancelada: "{cliente | da casa} · cancelada em {dd/mm/aaaa}" (+ " junto com a venda").
+export function textoSubLinhaCancelada(d: {
+  quem: string;
+  canceladaEm: string;
+  pelaVenda: boolean;
+}): string {
+  const base = `${d.quem} · cancelada em ${formatarDataCompleta(d.canceladaEm)}`;
+  return d.pelaVenda ? `${base} junto com a venda` : base;
+}
