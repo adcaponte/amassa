@@ -3123,6 +3123,835 @@ async function provarViradaEmBancoProprio() {
   }
 }
 
+// ————————————————————————————————————————————————————————————————————————————————————————————
+// Fase 06.1 — Produção (06.1-02-PLAN.md, Tarefa 2). Duas provas:
+//
+// `conferirProducao` — no banco comum, as invariantes das três tabelas novas (checks, uniques,
+// o `revoke delete` para `amassa_app`, os três gatilhos `tocar_atualizado_em_*`) e os checks
+// novos do livro do Estoque. Dado de prova com "[migracao]" no nome, apagado no fim pela conexão
+// de DONO (o `revoke` vale só para `amassa_app`).
+//
+// `provarMigracaoDaProducaoEmBancoProprio` — o dado do D-02 sobre dado EXISTENTE. O banco comum
+// sobe vazio e recebe todas as migrações de uma vez, então nunca tem um orçamento aprovado antes
+// da 0024; a prova precisa de um banco próprio onde 0000..0023 são aplicadas à mão, o dado é
+// semeado e só então a 0024 roda.
+// ————————————————————————————————————————————————————————————————————————————————————————————
+
+// SQLSTATE e nome da restrição de uma promessa que deveria falhar — `codigo: null` quando ela
+// passa. Pelo `pg` puro (o Drizzle é que embrulha em `erro.cause`).
+async function erroDoBanco(executar) {
+  try {
+    await executar();
+    return { codigo: null, restricao: null };
+  } catch (erro) {
+    return {
+      codigo: erro.code ?? `sem código (${erro.message})`,
+      restricao: erro.constraint ?? null,
+    };
+  }
+}
+
+// Os previstos padrão do D-10 — quarta cópia, só para semear (a terceira é a 0024; o módulo puro
+// e `tests/unit/producao-etapas.test.ts` guardam a paridade entre as outras).
+const ETAPAS_COMPLETO_DA_PROVA = [
+  ["producao", 0, 5],
+  ["secagem", 1, 15],
+  ["queima1", 2, 1],
+  ["esmaltacao", 3, 1],
+  ["queima2", 4, 4],
+  ["entrega", 5, 6],
+];
+const ETAPAS_BISCOITO_DA_PROVA = [
+  ["producao", 0, 5],
+  ["secagem", 1, 15],
+  ["queima1", 2, 1],
+  ["entrega", 3, 6],
+];
+
+// Um carimbo antigo, gravado no `insert` (que não tem gatilho): se o `update` seguinte o trocar, foi
+// o gatilho `tocar_atualizado_em_*` — sem depender de dois `now()` caírem em instantes diferentes.
+const CARIMBO_ANTIGO = "2000-01-01T00:00:00Z";
+
+async function apagarDadosDeProvaDaProducao(conexao, { itemIds, ordemIds, usuarioId }) {
+  try {
+    await conexao.query("begin");
+    await conexao.query("delete from movimentacoes_estoque where item_id = any($1::uuid[])", [itemIds]);
+    await conexao.query("delete from itens_catalogo where id = any($1::uuid[])", [itemIds]);
+    await conexao.query("delete from ordem_pecas where ordem_id = any($1::uuid[])", [ordemIds]);
+    await conexao.query("delete from ordem_etapas where ordem_id = any($1::uuid[])", [ordemIds]);
+    await conexao.query("delete from ordens_producao where id = any($1::uuid[])", [ordemIds]);
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado — mesma razão da faxina do Estoque.
+    console.error(`Produção: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+async function conferirProducao(conexao) {
+  console.log("  conferirProducao...");
+
+  const { rows: usuarioInserido } = await conexao.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste da Produção [migracao]', 'usuaria-producao@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+  const ordemIds = [];
+  const itemIds = [];
+
+  async function comoAmassaApp(sql, parametros) {
+    await conexao.query("begin");
+    try {
+      await conexao.query("set local role amassa_app");
+      return await erroDoBanco(() => conexao.query(sql, parametros));
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+
+  async function semearEtapas(ordemId, etapas) {
+    for (const [etapa, posicao, dias] of etapas) {
+      await conexao.query(
+        `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos, atualizado_em)
+         values ($1, $2, $3, $4, $5)`,
+        [ordemId, etapa, posicao, dias, CARIMBO_ANTIGO],
+      );
+    }
+  }
+
+  try {
+    // Uma ordem da casa ATIVA (com início, caminho que termina no biscoito — quatro etapas, o que
+    // deixa a posição 4 livre para isolar a recusa da etapa repetida) e uma encomenda AGUARDANDO
+    // o sinal (sem início, caminho completo), cada uma com as etapas; a da casa com uma peça.
+    const { rows: casaInserida } = await conexao.query(
+      `insert into ordens_producao (tipo, caminho, status, nome, inicio, criado_por, atualizado_em)
+       values ('casa', 'biscoito', 'ativa', '[migracao] Ordem da casa', current_date, $1, $2)
+       returning id`,
+      [usuarioId, CARIMBO_ANTIGO],
+    );
+    const casaId = casaInserida[0].id;
+    ordemIds.push(casaId);
+    const { rows: aguardandoInserida } = await conexao.query(
+      `insert into ordens_producao (tipo, caminho, status, nome, cliente_nome, entrega_prometida, criado_por)
+       values ('encomenda', 'completo', 'aguardando_sinal', '[migracao] Encomenda aguardando',
+               'Cliente de prova [migracao]', current_date + 40, $1)
+       returning id, inicio`,
+      [usuarioId],
+    );
+    const aguardandoId = aguardandoInserida[0].id;
+    ordemIds.push(aguardandoId);
+    afirmar(
+      aguardandoInserida[0].inicio === null,
+      "Uma ordem aguardando o sinal deveria nascer sem início.",
+    );
+    await semearEtapas(casaId, ETAPAS_BISCOITO_DA_PROVA);
+    await semearEtapas(aguardandoId, ETAPAS_COMPLETO_DA_PROVA);
+    const { rows: pecaInserida } = await conexao.query(
+      `insert into ordem_pecas (ordem_id, posicao, descricao, quantidade, a_mais, atualizado_em)
+       values ($1, 0, '[migracao] Caneca de prova', 10, 2, $2)
+       returning id`,
+      [casaId, CARIMBO_ANTIGO],
+    );
+    const pecaId = pecaInserida[0].id;
+
+    // (a) As recusas das três tabelas — cada uma com o SQLSTATE E o nome da restrição que recusou,
+    // para uma recusa por outro motivo não passar por esta.
+    const recusas = [
+      [
+        "ordem aguardando o sinal COM início",
+        `insert into ordens_producao (tipo, status, nome, inicio)
+         values ('casa', 'aguardando_sinal', '[migracao] Recusada', current_date)`,
+        [],
+        "23514",
+        ["ordens_producao_aguardando_sem_inicio"],
+      ],
+      [
+        "ordem ativa SEM início",
+        `insert into ordens_producao (tipo, status, nome, inicio)
+         values ('casa', 'ativa', '[migracao] Recusada', null)`,
+        [],
+        "23514",
+        ["ordens_producao_aguardando_sem_inicio"],
+      ],
+      [
+        "ordem da casa com cliente",
+        `insert into ordens_producao (tipo, status, nome, inicio, cliente_nome)
+         values ('casa', 'ativa', '[migracao] Recusada', current_date, 'Cliente [migracao]')`,
+        [],
+        "23514",
+        ["ordens_producao_cliente_so_em_encomenda"],
+      ],
+      [
+        "ordem concluída sem concluida_em",
+        "update ordens_producao set status = 'concluida' where id = $1",
+        [casaId],
+        "23514",
+        ["ordens_producao_concluida_com_data"],
+      ],
+      [
+        "dias previstos 0",
+        "update ordem_etapas set dias_previstos = 0 where ordem_id = $1 and etapa = 'secagem'",
+        [casaId],
+        "23514",
+        ["ordem_etapas_dias_previstos_faixa"],
+      ],
+      [
+        "dias previstos 366",
+        "update ordem_etapas set dias_previstos = 366 where ordem_id = $1 and etapa = 'secagem'",
+        [casaId],
+        "23514",
+        ["ordem_etapas_dias_previstos_faixa"],
+      ],
+      [
+        "a mesma etapa duas vezes na mesma ordem",
+        `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos)
+         values ($1, 'secagem', 4, 15)`,
+        [casaId],
+        "23505",
+        ["ordem_etapas_ordem_etapa_uk"],
+      ],
+      [
+        "duas etapas na mesma posição da mesma ordem",
+        `insert into ordem_etapas (ordem_id, etapa, posicao, dias_previstos)
+         values ($1, 'esmaltacao', 0, 1)`,
+        [casaId],
+        "23505",
+        ["ordem_etapas_ordem_posicao_uk"],
+      ],
+      [
+        "perdidas acima de quantidade + a mais",
+        `update ordem_pecas set perdidas = quantidade + a_mais + 1, para_estoque = 0, sem_destino = 0
+          where id = $1`,
+        [pecaId],
+        "23514",
+        // As duas recusam o mesmo valor (os destinos também não cabem num total negativo).
+        ["ordem_pecas_perdidas_faixa", "ordem_pecas_destinos_cabem"],
+      ],
+      [
+        "conclusão da peça pela metade (só perdidas)",
+        "update ordem_pecas set perdidas = 1 where id = $1",
+        [pecaId],
+        "23514",
+        ["ordem_pecas_conclusao_junta"],
+      ],
+    ];
+    for (const [descricao, sql, parametros, codigoEsperado, restricoes] of recusas) {
+      const { codigo, restricao } = await erroDoBanco(() => conexao.query(sql, parametros));
+      afirmar(
+        codigo === codigoEsperado && restricoes.includes(restricao),
+        `Produção: ${descricao} deveria ser recusada com ${codigoEsperado} por ${restricoes.join(" ou ")}, ` +
+          `veio ${codigo} (${restricao}).`,
+      );
+    }
+    // A mesma peça concluída com os três campos juntos, e cabendo, é aceita — o check não recusa tudo.
+    const { codigo: codigoDaConclusaoValida } = await erroDoBanco(() =>
+      conexao.query(
+        "update ordem_pecas set perdidas = 1, para_estoque = 2, sem_destino = 0 where id = $1",
+        [pecaId],
+      ),
+    );
+    afirmar(
+      codigoDaConclusaoValida === null,
+      `Uma peça concluída com perdidas, para_estoque e sem_destino juntos, e cabendo, deveria ser aceita, veio ${codigoDaConclusaoValida}.`,
+    );
+
+    // (b) Nada se apaga na Produção (T-06.1-10): `amassa_app` recebe 42501 num `delete` real de
+    // cada uma das três tabelas, e as linhas continuam lá.
+    for (const [tabela, coluna] of [
+      ["ordens_producao", "id"],
+      ["ordem_etapas", "ordem_id"],
+      ["ordem_pecas", "ordem_id"],
+    ]) {
+      const { codigo } = await comoAmassaApp(`delete from ${tabela} where ${coluna} = $1`, [casaId]);
+      afirmar(
+        codigo === "42501",
+        `Apagar de ${tabela}, como amassa_app, deveria falhar com 42501 (revoke delete da 0024), veio ${codigo}.`,
+      );
+      const { rows: privilegios } = await conexao.query(
+        `select has_table_privilege('amassa_app', $1, 'select') as pode_select,
+                has_table_privilege('amassa_app', $1, 'insert') as pode_insert,
+                has_table_privilege('amassa_app', $1, 'update') as pode_update,
+                has_table_privilege('amassa_app', $1, 'delete') as pode_delete`,
+        [tabela],
+      );
+      const { pode_select, pode_insert, pode_update, pode_delete } = privilegios[0];
+      afirmar(
+        pode_select && pode_insert && pode_update && !pode_delete,
+        `amassa_app deveria ter select, insert e update, e NÃO delete, em ${tabela} — veio ` +
+          `select=${pode_select}, insert=${pode_insert}, update=${pode_update}, delete=${pode_delete}.`,
+      );
+    }
+    const { rows: aindaLa } = await conexao.query(
+      `select (select count(*) from ordens_producao where id = $1)::int as ordens,
+              (select count(*) from ordem_etapas where ordem_id = $1)::int as etapas,
+              (select count(*) from ordem_pecas where ordem_id = $1)::int as pecas`,
+      [casaId],
+    );
+    afirmar(
+      aindaLa[0].ordens === 1 && aindaLa[0].etapas === 4 && aindaLa[0].pecas === 1,
+      `Depois das tentativas de apagar, a ordem, as 4 etapas e a peça deveriam continuar, veio ${JSON.stringify(aindaLa[0])}.`,
+    );
+
+    // (c) Os três gatilhos `tocar_atualizado_em_*`: um `update` que não menciona `atualizado_em`
+    // troca o carimbo antigo gravado no `insert`.
+    for (const [tabela, sql] of [
+      [
+        "ordens_producao",
+        "update ordens_producao set nome = '[migracao] Ordem da casa (renomeada)' where id = $1 returning atualizado_em",
+      ],
+      [
+        "ordem_etapas",
+        "update ordem_etapas set feita_em = current_date where ordem_id = $1 and etapa = 'producao' returning atualizado_em",
+      ],
+      [
+        "ordem_pecas",
+        "update ordem_pecas set cor = 'Azul [migracao]' where ordem_id = $1 returning atualizado_em",
+      ],
+    ]) {
+      const { rows } = await conexao.query(sql, [casaId]);
+      afirmar(
+        rows.length === 1 && new Date(rows[0].atualizado_em).getTime() > Date.parse("2001-01-01T00:00:00Z"),
+        `O gatilho tocar_atualizado_em_${tabela} deveria ter atualizado atualizado_em num update, veio ${rows[0]?.atualizado_em}.`,
+      );
+    }
+
+    // (d) Os checks novos do livro (0024). Um material de prova próprio.
+    const categoriaCompraId = (
+      await conexao.query("select id from categorias where nome = 'Argila, esmalte e insumos'")
+    ).rows[0].id;
+    const categoriaVendaId = (await conexao.query("select id from categorias where nome = 'Peças prontas'"))
+      .rows[0].id;
+    const { rows: itemInserido } = await conexao.query(
+      `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id, aparece_na_venda, categoria_venda_id)
+       values ('[migracao] Argila de prova da Produção', true, 'kg', $1, true, $2) returning id`,
+      [categoriaCompraId, categoriaVendaId],
+    );
+    const itemId = itemInserido[0].id;
+    itemIds.push(itemId);
+    const base = { item_id: itemId, registrado_por: usuarioId };
+
+    // (d.1) `material_da_ordem` numa saída de VENDA é recusado. O documento só existe dentro desta
+    // transação (a soma adiada nunca chega a ser conferida): nada comita.
+    await conexao.query("begin");
+    let erroDoMaterialNaVenda;
+    try {
+      const venda = await inserirDocumentoComItem(conexao, {
+        tipo: "venda",
+        itemId,
+        categoriaId: categoriaVendaId,
+        usuarioId,
+        valor: 3000,
+      });
+      await conexao.query("savepoint material_na_venda");
+      erroDoMaterialNaVenda = await erroDoBanco(() =>
+        inserirMovimentacao(conexao, {
+          ...base,
+          origem: "venda",
+          tipo: "saida",
+          area: "pecas",
+          documento_id: venda.documentoId,
+          documento_linha_id: venda.linhaId,
+          quantidade_milesimos: -1000,
+          valor_centavos: -420,
+          material_da_ordem: "argila",
+        }),
+      );
+      await conexao.query("rollback to savepoint material_na_venda");
+    } finally {
+      await conexao.query("rollback");
+    }
+    afirmar(
+      erroDoMaterialNaVenda.codigo === "23514" &&
+        erroDoMaterialNaVenda.restricao === "movimentacoes_estoque_material_da_ordem_so_na_baixa",
+      `material_da_ordem numa saída de venda deveria ser recusado (23514, material_da_ordem_so_na_baixa), veio ${erroDoMaterialNaVenda.codigo} (${erroDoMaterialNaVenda.restricao}).`,
+    );
+
+    // (d.2) Entrada da produção sem ordem é recusada; com a ordem, aceita, e sem `motivo`.
+    const entradaDaProducao = {
+      ...base,
+      origem: "producao",
+      tipo: "entrada",
+      quantidade_milesimos: 2000,
+      valor_centavos: 0,
+      valor_informado_centavos: 0,
+    };
+    const erroDaProducaoSemOrdem = await erroDoBanco(() =>
+      inserirMovimentacao(conexao, entradaDaProducao),
+    );
+    afirmar(
+      erroDaProducaoSemOrdem.codigo === "23514" &&
+        erroDaProducaoSemOrdem.restricao === "movimentacoes_estoque_producao_com_ordem",
+      `Uma entrada da produção sem ordem deveria ser recusada (23514, producao_com_ordem), veio ${erroDaProducaoSemOrdem.codigo} (${erroDaProducaoSemOrdem.restricao}).`,
+    );
+    const idEntradaDaProducao = await inserirMovimentacao(conexao, {
+      ...entradaDaProducao,
+      encomenda_id: casaId,
+    });
+    const { rows: entradaGravada } = await conexao.query(
+      "select encomenda_id, motivo from movimentacoes_estoque where id = $1",
+      [idEntradaDaProducao],
+    );
+    afirmar(
+      entradaGravada[0].encomenda_id === casaId && entradaGravada[0].motivo === null,
+      `A entrada da produção ligada à ordem deveria ficar com a ordem e sem motivo, veio ${JSON.stringify(entradaGravada[0])}.`,
+    );
+
+    // (d.3) A baixa "consumo em encomenda" com `material_da_ordem` e a ordem é aceita.
+    const idBaixaComMaterial = await inserirMovimentacao(conexao, {
+      ...base,
+      origem: "manual",
+      tipo: "saida",
+      destino: "encomenda",
+      area: "pecas",
+      encomenda_id: casaId,
+      material_da_ordem: "argila",
+      quantidade_milesimos: -500,
+      valor_centavos: 0,
+    });
+    const { rows: baixaGravada } = await conexao.query(
+      "select encomenda_id, material_da_ordem from movimentacoes_estoque where id = $1",
+      [idBaixaComMaterial],
+    );
+    afirmar(
+      baixaGravada[0].encomenda_id === casaId && baixaGravada[0].material_da_ordem === "argila",
+      `A baixa com material da ordem deveria gravar a ordem e "argila", veio ${JSON.stringify(baixaGravada[0])}.`,
+    );
+
+    // (d.4) O vínculo com a ordem continua recusado fora de "consumo em encomenda" e da produção.
+    const erroDoVinculoNaAula = await erroDoBanco(() =>
+      inserirMovimentacao(conexao, {
+        ...base,
+        origem: "manual",
+        tipo: "saida",
+        destino: "aula",
+        area: "espaco",
+        encomenda_id: casaId,
+        quantidade_milesimos: -500,
+        valor_centavos: 0,
+      }),
+    );
+    afirmar(
+      erroDoVinculoNaAula.codigo === "23514" &&
+        erroDoVinculoNaAula.restricao ===
+          "movimentacoes_estoque_ordem_so_no_destino_encomenda_ou_producao",
+      `Uma saída para aula ligada a uma ordem deveria ser recusada (23514, ordem_so_no_destino_encomenda_ou_producao), veio ${erroDoVinculoNaAula.codigo} (${erroDoVinculoNaAula.restricao}).`,
+    );
+  } finally {
+    await apagarDadosDeProvaDaProducao(conexao, { itemIds, ordemIds, usuarioId });
+  }
+}
+
+function entradasDoJournal() {
+  const journal = JSON.parse(
+    readFileSync(path.join("db", "migrations", "meta", "_journal.json"), "utf8"),
+  );
+  return [...journal.entries].sort((a, b) => a.idx - b.idx);
+}
+
+// Aplica À MÃO as migrações de `idxInicial` a `idxFinal` (inclusive), na ordem do `_journal.json`,
+// numa transação só — como o migrador do Drizzle faz: lê cada `.sql`, parte no marcador de
+// instrução do Drizzle e executa cada pedaço. Não grava o journal do Drizzle (`__drizzle_migrations`):
+// o banco que usa isto é descartável e nunca vê `db:migrate`.
+async function aplicarMigracoesAte(cliente, idxFinal, idxInicial = 0) {
+  const entradas = entradasDoJournal().filter(
+    (entrada) => entrada.idx >= idxInicial && entrada.idx <= idxFinal,
+  );
+  afirmar(
+    entradas.length === idxFinal - idxInicial + 1,
+    `O _journal.json deveria ter as migrações ${idxInicial}..${idxFinal}, achou ${entradas.length}.`,
+  );
+  await cliente.query("begin");
+  try {
+    for (const entrada of entradas) {
+      const conteudo = readFileSync(path.join("db", "migrations", `${entrada.tag}.sql`), "utf8");
+      for (const instrucao of conteudo.split("--> statement-breakpoint")) {
+        if (instrucao.trim() === "") continue;
+        try {
+          await cliente.query(instrucao);
+        } catch (erro) {
+          throw new Error(`migração ${entrada.tag}: ${erro.message} (${erro.code})`);
+        }
+      }
+    }
+    await cliente.query("commit");
+  } catch (erro) {
+    await cliente.query("rollback").catch(() => {});
+    throw erro;
+  }
+}
+
+// Cria um banco próprio, descartável, ao lado do banco de teste; devolve a URL dele e a faxina.
+async function criarBancoProprio(sufixo) {
+  const url = new URL(process.env.DATABASE_URL_TESTE);
+  const bancoDaProva = `${url.pathname.slice(1)}_${sufixo}`;
+  const urlAdmin = new URL(url);
+  urlAdmin.pathname = "/postgres";
+  const urlDaProva = new URL(url);
+  urlDaProva.pathname = `/${bancoDaProva}`;
+
+  async function comoAdmin(sql) {
+    const admin = new Client({ connectionString: urlAdmin.toString() });
+    await admin.connect();
+    try {
+      await admin.query(sql);
+    } finally {
+      await admin.end();
+    }
+  }
+  await comoAdmin(`drop database if exists "${bancoDaProva}"`);
+  await comoAdmin(`create database "${bancoDaProva}"`);
+  return {
+    nome: bancoDaProva,
+    url: urlDaProva.toString(),
+    apagar: () => comoAdmin(`drop database if exists "${bancoDaProva}"`),
+  };
+}
+
+// Semeia, num banco em 0023, os três casos do D-02 (A: venda ativa e encomenda em produção — vira
+// ordem; B: venda cancelada; C: encomenda concluída — nenhum dos dois vira) e duas baixas do
+// Estoque ligadas às encomendas A e C. Devolve os ids que as afirmações conferem.
+async function semearCasosDoD02(cliente) {
+  await cliente.query("begin");
+  try {
+    const usuarioId = (
+      await cliente.query(
+        `insert into usuarios (nome, email, senha_hash)
+         values ('Usuária do D-02 [migracao]', 'usuaria-d02@exemplo.test', 'hash-fake-de-teste')
+         returning id`,
+      )
+    ).rows[0].id;
+    const categoriaVendaId = (
+      await cliente.query("select id from categorias where nome = 'Peças prontas'")
+    ).rows[0].id;
+    const categoriaCompraId = (
+      await cliente.query("select id from categorias where nome = 'Argila, esmalte e insumos'")
+    ).rows[0].id;
+    const itemDeLinhaId = (
+      await cliente.query(
+        `insert into itens_catalogo (nome, aparece_na_venda, categoria_venda_id)
+         values ('[migracao] Caneca de linha', true, $1) returning id`,
+        [categoriaVendaId],
+      )
+    ).rows[0].id;
+    const argilaId = (
+      await cliente.query(
+        `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id)
+         values ('[migracao] Argila do D-02', true, 'kg', $1) returning id`,
+        [categoriaCompraId],
+      )
+    ).rows[0].id;
+    const fichaDeLinhaId = (
+      await cliente.query(
+        `insert into fichas_precificacao (nome, exclusiva, item_catalogo_id, criado_por)
+         values ('[migracao] Ficha da caneca', false, $1, $2) returning id`,
+        [itemDeLinhaId, usuarioId],
+      )
+    ).rows[0].id;
+    const fichaExclusivaId = (
+      await cliente.query(
+        `insert into fichas_precificacao (nome, exclusiva, criado_por)
+         values ('[migracao] Ficha do prato exclusivo', true, $1) returning id`,
+        [usuarioId],
+      )
+    ).rows[0].id;
+
+    const casos = {};
+    for (const [letra, sequencial, statusDaEncomenda, vendaCancelada] of [
+      ["A", 900201, "em_producao", false],
+      ["B", 900202, "em_producao", true],
+      ["C", 900203, "concluida", false],
+    ]) {
+      const encomendaId = (
+        await cliente.query(
+          `insert into encomendas (nome, cliente_nome, data_inicio, status, criado_por)
+           values ($1, $2, '2026-09-01', $3, $4) returning id`,
+          [`[migracao] Encomenda ${letra}`, `Cliente ${letra} [migracao]`, statusDaEncomenda, usuarioId],
+        )
+      ).rows[0].id;
+      const documentoId = (
+        await cliente.query(
+          `insert into documentos (tipo, data, criado_por, cancelado_em, cancelado_por)
+           values ('venda', '2026-09-01', $1, $2, $3) returning id`,
+          [usuarioId, vendaCancelada ? "2026-09-02T12:00:00Z" : null, vendaCancelada ? usuarioId : null],
+        )
+      ).rows[0].id;
+      await cliente.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+         values ($1, 1, 'Venda do orçamento [migracao]', $2, 12000)`,
+        [documentoId, categoriaVendaId],
+      );
+      await cliente.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
+         values ($1, 1, '2026-09-01', 12000, 'pix')`,
+        [documentoId],
+      );
+      const snapshot = {
+        linhas: [{ nome: `Caneca do snapshot ${letra}` }, { nome: `Prato do snapshot ${letra}` }],
+      };
+      const orcamentoId = (
+        await cliente.query(
+          `insert into orcamentos (ano, sequencial, status, cliente_nome, data, entrega_prevista,
+                                   snapshot, congelado_em, documento_id, encomenda_id, criado_por)
+           values (2026, $1, 'aprovado', $2, '2026-09-01', '2026-12-15', $3, now(), $4, $5, $6)
+           returning id`,
+          [sequencial, `Cliente ${letra} [migracao]`, JSON.stringify(snapshot), documentoId, encomendaId, usuarioId],
+        )
+      ).rows[0].id;
+      // A linha de `ordem` 1 é inserida ANTES da de `ordem` 0: a posição da peça tem de vir de
+      // `ordem`, não da ordem de inserção.
+      await cliente.query(
+        `insert into orcamento_linhas (orcamento_id, ficha_id, quantidade, preco_unitario_centavos, cor, personalizacao, ordem)
+         values ($1, $2, 3, 2000, null, 'Com inicial [migracao]', 1)`,
+        [orcamentoId, fichaExclusivaId],
+      );
+      await cliente.query(
+        `insert into orcamento_linhas (orcamento_id, ficha_id, quantidade, preco_unitario_centavos, cor, personalizacao, ordem)
+         values ($1, $2, 12, 500, 'Azul', null, 0)`,
+        [orcamentoId, fichaDeLinhaId],
+      );
+      casos[letra] = { encomendaId, documentoId, orcamentoId };
+    }
+
+    // Duas baixas "consumo em encomenda" — uma da encomenda A (vira ordem, o vínculo fica), outra
+    // da C (não vira, o vínculo sai e a nota fica).
+    const baixas = {};
+    for (const letra of ["A", "C"]) {
+      baixas[letra] = (
+        await cliente.query(
+          `insert into movimentacoes_estoque (item_id, origem, tipo, destino, area, encomenda_id, nota,
+                                              quantidade_milesimos, valor_centavos, registrado_por)
+           values ($1, 'manual', 'saida', 'encomenda', 'pecas', $2, $3, -500, 0, $4) returning id`,
+          [argilaId, casos[letra].encomendaId, `[migracao] Encomenda ${letra}`, usuarioId],
+        )
+      ).rows[0].id;
+    }
+    await cliente.query("commit");
+    return { usuarioId, fichaDeLinhaId, fichaExclusivaId, casos, baixas };
+  } catch (erro) {
+    await cliente.query("rollback").catch(() => {});
+    throw new Error(`semear os casos do D-02 em 0023 falhou: ${erro.message}`);
+  }
+}
+
+async function conferirDadoDoD02(cliente, semente) {
+  const { usuarioId, fichaDeLinhaId, fichaExclusivaId, casos, baixas } = semente;
+
+  // Só o caso A virou ordem — com o MESMO id da encomenda, aguardando o sinal, sem início.
+  const { rows: ordens } = await cliente.query(
+    `select id, tipo, caminho, status, nome, cliente_nome, entrega_prometida::text as entrega,
+            inicio, concluida_em, cancelada_em, criado_por
+       from ordens_producao`,
+  );
+  afirmar(
+    ordens.length === 1,
+    `D-02: só o orçamento aprovado com venda ativa e encomenda em andamento deveria virar ordem — ${ordens.length} ordens.`,
+  );
+  const ordem = ordens[0];
+  afirmar(
+    ordem.id === casos.A.encomendaId,
+    `D-02: a ordem deveria ter o MESMO id da encomenda A (${casos.A.encomendaId}), veio ${ordem.id}.`,
+  );
+  afirmar(
+    ordem.tipo === "encomenda" &&
+      ordem.caminho === "completo" &&
+      ordem.status === "aguardando_sinal" &&
+      ordem.inicio === null &&
+      ordem.concluida_em === null &&
+      ordem.cancelada_em === null &&
+      ordem.nome === "[migracao] Encomenda A" &&
+      ordem.cliente_nome === "Cliente A [migracao]" &&
+      ordem.entrega === "2026-12-15" &&
+      ordem.criado_por === usuarioId,
+    `D-02: a ordem deveria ser encomenda, completo, aguardando_sinal, sem início, com o nome da encomenda, o cliente e a entrega do orçamento — veio ${JSON.stringify(ordem)}.`,
+  );
+
+  const { rows: etapas } = await cliente.query(
+    `select etapa, posicao, dias_previstos, feita_em, passaram
+       from ordem_etapas where ordem_id = $1 order by posicao`,
+    [ordem.id],
+  );
+  const etapasEsperadas = ETAPAS_COMPLETO_DA_PROVA.map(([etapa, posicao, dias]) => ({
+    etapa,
+    posicao,
+    dias_previstos: dias,
+    feita_em: null,
+    passaram: null,
+  }));
+  afirmar(
+    JSON.stringify(etapas) === JSON.stringify(etapasEsperadas),
+    `D-02: a ordem deveria nascer com as seis etapas 5/15/1/1/4/6, nenhuma feita — veio ${JSON.stringify(etapas)}.`,
+  );
+
+  const { rows: pecas } = await cliente.query(
+    `select posicao, ficha_id, item_catalogo_id, descricao, quantidade, a_mais, cor, personalizacao
+       from ordem_pecas where ordem_id = $1 order by posicao`,
+    [ordem.id],
+  );
+  const pecasEsperadas = [
+    {
+      posicao: 0,
+      ficha_id: fichaDeLinhaId,
+      item_catalogo_id: null,
+      descricao: "Caneca do snapshot A",
+      quantidade: 12,
+      a_mais: 0,
+      cor: "Azul",
+      personalizacao: null,
+    },
+    {
+      posicao: 1,
+      ficha_id: fichaExclusivaId,
+      item_catalogo_id: null,
+      descricao: "Prato do snapshot A",
+      quantidade: 3,
+      a_mais: 0,
+      cor: null,
+      personalizacao: "Com inicial [migracao]",
+    },
+  ];
+  afirmar(
+    JSON.stringify(pecas) === JSON.stringify(pecasEsperadas),
+    `D-02: as peças deveriam vir das linhas do orçamento, na ordem de \`ordem\`, com a descrição do snapshot e a ficha — veio ${JSON.stringify(pecas)}.`,
+  );
+  const { rows: totais } = await cliente.query(
+    `select (select count(*) from ordem_etapas)::int as etapas,
+            (select count(*) from ordem_pecas)::int as pecas,
+            (select count(*) from encomendas)::int as encomendas`,
+  );
+  afirmar(
+    totais[0].etapas === 6 && totais[0].pecas === 2,
+    `D-02: nenhuma etapa ou peça fora da ordem A — veio ${JSON.stringify(totais[0])}.`,
+  );
+  afirmar(
+    totais[0].encomendas === 3,
+    `A 0024 só cria, grava e religa — as três encomendas deveriam continuar (quem apaga é a 0025), veio ${totais[0].encomendas}.`,
+  );
+
+  // Os vínculos: A fica; B (venda cancelada) e C (concluída) perdem o `encomenda_id`.
+  const { rows: vinculos } = await cliente.query(
+    "select id, encomenda_id from orcamentos where id = any($1::uuid[])",
+    [[casos.A.orcamentoId, casos.B.orcamentoId, casos.C.orcamentoId]],
+  );
+  const vinculoDe = new Map(vinculos.map((linha) => [linha.id, linha.encomenda_id]));
+  afirmar(
+    vinculoDe.get(casos.A.orcamentoId) === casos.A.encomendaId,
+    "D-02: o orçamento A deveria continuar ligado ao mesmo id, agora da ordem.",
+  );
+  afirmar(
+    vinculoDe.get(casos.B.orcamentoId) === null && vinculoDe.get(casos.C.orcamentoId) === null,
+    `D-02: os orçamentos B (venda cancelada) e C (encomenda concluída) deveriam ter encomenda_id nulo, veio B=${vinculoDe.get(casos.B.orcamentoId)} C=${vinculoDe.get(casos.C.orcamentoId)}.`,
+  );
+
+  // O livro: a baixa da encomenda que virou ordem continua ligada; a da que não virou perde o
+  // vínculo e guarda a nota (o nome congelado).
+  const { rows: livro } = await cliente.query(
+    "select id, encomenda_id, nota from movimentacoes_estoque where id = any($1::uuid[])",
+    [[baixas.A, baixas.C]],
+  );
+  const baixaDe = new Map(livro.map((linha) => [linha.id, linha]));
+  afirmar(
+    baixaDe.get(baixas.A).encomenda_id === casos.A.encomendaId &&
+      baixaDe.get(baixas.A).nota === "[migracao] Encomenda A",
+    `D-02: a baixa da encomenda A deveria continuar ligada à ordem de mesmo id, veio ${JSON.stringify(baixaDe.get(baixas.A))}.`,
+  );
+  afirmar(
+    baixaDe.get(baixas.C).encomenda_id === null &&
+      baixaDe.get(baixas.C).nota === "[migracao] Encomenda C",
+    `D-02: a baixa da encomenda C (concluída, não virou ordem) deveria ficar sem vínculo e com a nota intacta, veio ${JSON.stringify(baixaDe.get(baixas.C))}.`,
+  );
+
+  // A chave estrangeira é da ORDEM: um uuid qualquer em `orcamentos.encomenda_id` dá 23503.
+  const { codigo, restricao } = await erroDoBanco(() =>
+    cliente.query("update orcamentos set encomenda_id = gen_random_uuid() where id = $1", [
+      casos.B.orcamentoId,
+    ]),
+  );
+  afirmar(
+    codigo === "23503" && restricao === "orcamentos_encomenda_id_ordens_producao_id_fk",
+    `D-02: orcamentos.encomenda_id com um uuid que não é de ordem deveria dar 23503 pela FK para ordens_producao, veio ${codigo} (${restricao}).`,
+  );
+}
+
+async function provarMigracaoDaProducaoEmBancoProprio() {
+  // (1) 0000..0023, os três casos, e só então a 0024.
+  const comDado = await criarBancoProprio("producao");
+  try {
+    console.log(`Provando o D-02 da 0024 sobre dado existente, em banco proprio ("${comDado.nome}")...`);
+    const cliente = new Client({ connectionString: comDado.url });
+    await cliente.connect();
+    try {
+      await aplicarMigracoesAte(cliente, 23);
+      const semente = await semearCasosDoD02(cliente);
+      await aplicarMigracoesAte(cliente, 24, 24);
+      await conferirDadoDoD02(cliente, semente);
+    } finally {
+      await cliente.end();
+    }
+  } finally {
+    await comDado.apagar();
+  }
+
+  // (2) Sem nenhum orçamento, o D-02 não faz nada (PRD-02 · idempotency, D-02: "se não houver
+  // nenhum, a migração não faz nada").
+  const vazio = await criarBancoProprio("producao_vazio");
+  try {
+    console.log(`Provando o D-02 sem nenhum caso, em banco proprio ("${vazio.nome}")...`);
+    const cliente = new Client({ connectionString: vazio.url });
+    await cliente.connect();
+    try {
+      await aplicarMigracoesAte(cliente, 24);
+      const { rows } = await cliente.query(
+        `select (select count(*) from ordens_producao)::int as ordens,
+                (select count(*) from ordem_etapas)::int as etapas,
+                (select count(*) from ordem_pecas)::int as pecas`,
+      );
+      afirmar(
+        rows[0].ordens === 0 && rows[0].etapas === 0 && rows[0].pecas === 0,
+        `D-02 sem nenhum orçamento aprovado deveria não inserir nada, veio ${JSON.stringify(rows[0])}.`,
+      );
+    } finally {
+      await cliente.end();
+    }
+  } finally {
+    await vazio.apagar();
+  }
+
+  // (3) No banco comum, um segundo `db:migrate` não reaplica nada (journal do Drizzle): sai 0, o
+  // journal não cresce e as ordens não mudam.
+  console.log("Rodando o migrador uma segunda vez no banco comum (nao deve reaplicar nada)...");
+  const comum = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await comum.connect();
+  try {
+    const contar = async () =>
+      (
+        await comum.query(
+          `select (select count(*) from ordens_producao)::int as ordens,
+                  (select count(*) from drizzle.__drizzle_migrations)::int as journal`,
+        )
+      ).rows[0];
+    const antes = await contar();
+    afirmar(
+      antes.journal === entradasDoJournal().length,
+      `O journal do Drizzle no banco comum deveria ter ${entradasDoJournal().length} migrações, tem ${antes.journal}.`,
+    );
+    // `execSync` lança se o migrador sair diferente de 0.
+    rodarNpm("npm", ["run", "db:migrate"], {
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
+    });
+    const depois = await contar();
+    afirmar(
+      depois.journal === antes.journal && depois.ordens === antes.ordens,
+      `Um segundo db:migrate não deveria reaplicar nada — antes ${JSON.stringify(antes)}, depois ${JSON.stringify(depois)}.`,
+    );
+  } finally {
+    await comum.end();
+  }
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -3141,6 +3970,7 @@ async function conferirBanco() {
     await conferirCorrecaoDoFusoDaSemente(cliente);
     await conferirAnotacoesDaCasa(cliente);
     await conferirEstoque(cliente);
+    await conferirProducao(cliente);
     await conferirConcorrenciaDoEstoque();
   } finally {
     await cliente.end();
@@ -3149,6 +3979,10 @@ async function conferirBanco() {
   // Em banco PROPRIO, descartavel, criado agora e apagado no fim — nunca no banco que os
   // outros passos compartilham. Ver o comentario de `provarRemocaoEmBancoProprio`.
   await provarRemocaoEmBancoProprio();
+
+  // Idem — o D-02 da 0024 sobre dado existente precisa de um banco parado em 0023 (ver o
+  // comentario de `provarMigracaoDaProducaoEmBancoProprio`).
+  await provarMigracaoDaProducaoEmBancoProprio();
 
   // Idem — a virada roda o script de importação de verdade, num banco só dela (ver o
   // comentário de `provarViradaEmBancoProprio`, abaixo).
