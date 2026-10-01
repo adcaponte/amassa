@@ -110,7 +110,7 @@ CREATE TABLE "inscricoes" (
 	"criado_em" timestamp with time zone DEFAULT now() NOT NULL,
 	"atualizado_em" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "inscricoes_evento_cliente_uk" UNIQUE("evento_id","cliente_id"),
-	CONSTRAINT "inscricoes_direito_so_com_falta" CHECK (not "inscricoes"."direito_a_repor" or ("inscricoes"."presenca" = 'faltou' and "inscricoes"."tipo" in ('aluno','experimental'))),
+	CONSTRAINT "inscricoes_direito_so_com_falta" CHECK (not "inscricoes"."direito_a_repor" or ("inscricoes"."presenca" is not null and "inscricoes"."presenca" = 'faltou' and "inscricoes"."tipo" in ('aluno','experimental'))),
 	CONSTRAINT "inscricoes_cobrar_com_valor" CHECK ("inscricoes"."cobrar" = ("inscricoes"."valor_centavos" is not null)),
 	CONSTRAINT "inscricoes_reposicao_nao_cobra" CHECK ("inscricoes"."tipo" <> 'reposicao' or not "inscricoes"."cobrar"),
 	CONSTRAINT "inscricoes_aluno_nao_cobra" CHECK ("inscricoes"."tipo" <> 'aluno' or not "inscricoes"."cobrar"),
@@ -275,6 +275,8 @@ ALTER TABLE "movimentacoes_estoque" ADD CONSTRAINT "movimentacoes_estoque_uso_li
 ALTER TABLE "movimentacoes_estoque" ADD CONSTRAINT "movimentacoes_estoque_destino_uso_livre_com_vinculo" CHECK ("movimentacoes_estoque"."destino" is null or "movimentacoes_estoque"."destino"::text <> 'uso_livre' or "movimentacoes_estoque"."uso_livre_id" is not null);
 --> statement-breakpoint
 
+-- >>> semente da Agenda (marcador lido por `conferirAgenda`, em scripts/testar-migracoes.mjs, que
+-- reexecuta este trecho para provar que a semente é idempotente)
 -- (4) SEMENTE (D-04, D-17, AGE-17), no molde da 0023. (a) Garantir as duas categorias de venda da
 -- semente 0016 — se o dono renomeou ou apagou alguma, ela é recriada, senão a subconsulta do bloco
 -- (b) devolveria nulo e o check `itens_catalogo_aparece_exige_categoria_venda` derrubaria a
@@ -315,6 +317,7 @@ select 'Uso livre (hora)', c.id, null, true, false, true, 'uso_livre_hora'
  where lower(trim(c.nome)) = lower(trim('Uso do espaço'))
 on conflict (chave_do_sistema) do nothing;
 --> statement-breakpoint
+-- <<< semente da Agenda
 
 -- (5) D-17: item do sistema não se desativa, não sai da venda, não troca de chave e não se apaga
 -- (Pitfall 14: "Mensalidade" desativada faria toda cobrança falhar). Nome, preço e categoria

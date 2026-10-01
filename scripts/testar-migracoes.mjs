@@ -85,9 +85,9 @@ const TABELAS_ESPERADAS = [
   "ordem_etapas",
   "ordem_pecas",
   // Fase 5 — Agenda (migração 0026_agenda). Permanentes; não entram em
-  // TABELAS_DA_REMOCAO_ABERTURA. As conferências completas das invariantes (checks, chaves únicas,
-  // o enum em texto, o gatilho do item do sistema, a concorrência) são do plano 05-02; aqui,
-  // `conferirAgenda`: a semente dos três itens do sistema e o `revoke delete` de `clientes`.
+  // TABELAS_DA_REMOCAO_ABERTURA. As invariantes (privilégio, chaves únicas, checks, o enum em
+  // texto, a FK do uso livre com baixa, o gatilho e a semente do item do sistema) são provadas em
+  // `conferirAgenda` (plano 05-02).
   "clientes",
   "turmas",
   "turma_alunos",
@@ -4844,83 +4844,831 @@ async function provarMigracaoDaProducaoEmBancoProprio() {
   }
 }
 
-// Fase 5 — Agenda (plano 05-01, mínima): a semente da 0026 criou os três itens do sistema, cada um
-// com a chave certa, na categoria certa, sem preço (AGE-17: nenhum preço no código), aparecendo na
-// venda e sem controlar estoque; o gatilho `travar_item_do_sistema` recusa desativar um deles com
-// P0001; e `amassa_app` recebe 42501 ao apagar uma linha de `clientes` (revoke delete da 0026).
-// O resto das invariantes é do plano 05-02.
+// Fase 5 — Agenda. `conferirAgenda` prova, no banco comum, cada invariante da 0026 (plano 05-02;
+// a versão mínima do 05-01 conferia só a semente, o gatilho e um 42501), no molde de
+// `conferirProducao`: a conexão de DONO semeia e limpa; `amassa_app` (por `set local role`) prova
+// privilégio. Cada recusa confere o SQLSTATE E o nome da restrição — uma recusa por outro motivo
+// não passa por esta. Os casos que só testam rodam entre `begin`/`rollback`; o dado de prova que
+// precisa existir é comitado e sai no fim por `apagarDadosDeProvaDaAgenda`.
+//
+//   1. privilégio — 42501 ao apagar clientes, turmas, turma_alunos, mensalidades; delete aceito
+//      em eventos (fechado), inscricoes, usos_livres (reservado) e usos_livres_material (AGE-05);
+//   2. chaves — 23505 (eventos_turma_data_uk, inscricoes_evento_cliente_uk,
+//      mensalidades_turma_cliente_mes_uk, turma_alunos_ativo_uk que reabre depois de `saiu_em`);
+//   3. D-02 na chave — dois `on conflict (turma_id, cliente_id, mes) do nothing` deixam UMA linha;
+//   4. checks — 23514, um caso por check;
+//   5. D-01 — documento sem `cliente_id` continua entrando;
+//   6. D-06 — o destino `uso_livre` comparado como texto, usável depois do commit;
+//   7. AGE-20 — uso livre com baixa não se apaga (23503);
+//   8. D-17 — o gatilho `travar_item_do_sistema` (P0001) pelo dono e por `amassa_app`;
+//   9. semente — os três itens e as duas categorias; reexecutar o trecho não duplica;
+//  10. `nome_normalizado()`.
+const FRASE_DO_ITEM_DO_SISTEMA = "Este item é usado pela Agenda e não se desativa";
+
+async function apagarDadosDeProvaDaAgenda(
+  conexao,
+  { clienteIds = [], turmaIds = [], itemIds = [], usuarioId = null },
+) {
+  try {
+    await conexao.query("begin");
+    // Ordem das FKs: livro → material → uso livre → inscrição → mensalidade → matrícula → evento
+    // → turma → cliente → item → usuária. Tudo pela conexão de DONO (o `revoke` vale só para
+    // `amassa_app`; o livro não tem `delete` para ela desde a 0023).
+    await conexao.query("delete from movimentacoes_estoque where item_id = any($1::uuid[])", [itemIds]);
+    await conexao.query(
+      `delete from usos_livres_material
+        where uso_livre_id in (select id from usos_livres where cliente_id = any($1::uuid[]))`,
+      [clienteIds],
+    );
+    await conexao.query("delete from usos_livres where cliente_id = any($1::uuid[])", [clienteIds]);
+    await conexao.query("delete from inscricoes where cliente_id = any($1::uuid[])", [clienteIds]);
+    await conexao.query("delete from mensalidades where cliente_id = any($1::uuid[])", [clienteIds]);
+    await conexao.query("delete from turma_alunos where cliente_id = any($1::uuid[])", [clienteIds]);
+    await conexao.query(
+      "delete from eventos where turma_id = any($1::uuid[]) or titulo like '[prova]%'",
+      [turmaIds],
+    );
+    await conexao.query("delete from turmas where id = any($1::uuid[])", [turmaIds]);
+    await conexao.query("delete from clientes where id = any($1::uuid[])", [clienteIds]);
+    await conexao.query("delete from itens_catalogo where id = any($1::uuid[])", [itemIds]);
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado — mesma razão da faxina do Estoque.
+    console.error(`Agenda: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+// O trecho da semente da 0026, entre os marcadores, partido no marcador de instrução do Drizzle —
+// só os pedaços com SQL de verdade (os comentários puros ficam de fora).
+function trechoDaSementeDaAgenda() {
+  const sql = readFileSync(path.join("db", "migrations", "0026_agenda.sql"), "utf8");
+  const inicio = sql.indexOf("-- >>> semente da Agenda");
+  const fim = sql.indexOf("-- <<< semente da Agenda");
+  afirmar(inicio >= 0 && fim > inicio, "Agenda: os marcadores da semente sumiram da 0026.");
+  return sql
+    .slice(inicio, fim)
+    .split("--> statement-breakpoint")
+    .map((pedaco) =>
+      pedaco
+        .split(/\r?\n/)
+        .filter((linha) => !linha.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter((pedaco) => pedaco.length > 0);
+}
+
 async function conferirAgenda(conexao) {
   console.log("  conferirAgenda...");
 
-  const { rows: itens } = await conexao.query(
-    `select i.chave_do_sistema, i.nome, i.preco_venda_centavos, i.aparece_na_venda,
-            i.controla_estoque, i.ativo, c.nome as categoria
-       from itens_catalogo i
-       join categorias c on c.id = i.categoria_venda_id
-      where i.chave_do_sistema is not null
-      order by i.chave_do_sistema`,
-  );
+  // ——— 9. Semente (D-04, AGE-17) ———————————————————————————————————————————————————————————————
+  async function lerItensDoSistema() {
+    const { rows } = await conexao.query(
+      `select i.chave_do_sistema, i.nome, i.preco_venda_centavos, i.aparece_na_venda,
+              i.controla_estoque, i.ativo, c.nome as categoria, c.grupo, c.area
+         from itens_catalogo i
+         join categorias c on c.id = i.categoria_venda_id
+        where i.chave_do_sistema is not null
+        order by i.chave_do_sistema`,
+    );
+    return rows;
+  }
+  async function contarCategoriasDaSemente() {
+    const { rows } = await conexao.query(
+      `select nome, count(*)::int as quantas from categorias
+        where lower(trim(nome)) in (lower('Aulas e oficinas'), lower('Uso do espaço'))
+        group by nome order by nome`,
+    );
+    return rows;
+  }
   const esperados = [
     ["inscricao_oficina", "Inscrição em oficina", "Aulas e oficinas"],
     ["mensalidade", "Mensalidade", "Aulas e oficinas"],
     ["uso_livre_hora", "Uso livre (hora)", "Uso do espaço"],
   ];
-  afirmar(
-    itens.length === esperados.length,
-    `Agenda: a 0026 deveria semear ${esperados.length} itens do sistema, vieram ${itens.length}.`,
-  );
-  for (const [indice, [chave, nome, categoria]] of esperados.entries()) {
-    const item = itens[indice];
+  function conferirSemente(itens, momento) {
     afirmar(
-      item.chave_do_sistema === chave && item.nome === nome && item.categoria === categoria,
-      `Agenda: o item do sistema "${chave}" deveria se chamar "${nome}" na categoria "${categoria}", veio ${JSON.stringify(item)}.`,
+      itens.length === esperados.length,
+      `Agenda (${momento}): deveria haver ${esperados.length} itens do sistema, vieram ${itens.length}.`,
     );
+    for (const [indice, [chave, nome, categoria]] of esperados.entries()) {
+      const item = itens[indice];
+      afirmar(
+        item.chave_do_sistema === chave && item.nome === nome && item.categoria === categoria,
+        `Agenda (${momento}): o item do sistema "${chave}" deveria se chamar "${nome}" na categoria "${categoria}", veio ${JSON.stringify(item)}.`,
+      );
+      afirmar(
+        item.preco_venda_centavos === null &&
+          item.aparece_na_venda === true &&
+          item.controla_estoque === false &&
+          item.ativo === true &&
+          item.grupo === "receita" &&
+          item.area === "espaco",
+        `Agenda (${momento}): o item do sistema "${chave}" deveria nascer sem preço, na venda, sem estoque, ativo, numa categoria receita/espaco — veio ${JSON.stringify(item)}.`,
+      );
+    }
+  }
+  function conferirCategorias(categorias, momento) {
     afirmar(
-      item.preco_venda_centavos === null &&
-        item.aparece_na_venda === true &&
-        item.controla_estoque === false &&
-        item.ativo === true,
-      `Agenda: o item do sistema "${chave}" deveria nascer sem preço, na venda, sem estoque e ativo, veio ${JSON.stringify(item)}.`,
+      categorias.length === 2 && categorias.every((c) => c.quantas === 1),
+      `Agenda (${momento}): "Aulas e oficinas" e "Uso do espaço" deveriam existir uma vez cada, veio ${JSON.stringify(categorias)}.`,
     );
   }
+  conferirSemente(await lerItensDoSistema(), "depois da 0026");
+  conferirCategorias(await contarCategoriasDaSemente(), "depois da 0026");
 
-  // O gatilho do item do sistema (D-17): desativar "Mensalidade" é recusado com P0001.
+  // Idempotência: o trecho da semente roda DE NOVO — nada duplica (chave única e `where not exists`).
+  const pedacosDaSemente = trechoDaSementeDaAgenda();
+  afirmar(
+    pedacosDaSemente.length === 5,
+    `Agenda: o trecho da semente deveria ter 5 instruções (2 categorias + 3 itens), tem ${pedacosDaSemente.length}.`,
+  );
   await conexao.query("begin");
   try {
-    const { codigo } = await erroDoBanco(() =>
-      conexao.query("update itens_catalogo set ativo = false where chave_do_sistema = 'mensalidade'"),
-    );
-    afirmar(
-      codigo === "P0001",
-      `Agenda: desativar o item do sistema "mensalidade" deveria falhar com P0001 (travar_item_do_sistema), veio ${codigo}.`,
-    );
+    for (const pedaco of pedacosDaSemente) {
+      await conexao.query(pedaco);
+    }
+    conferirSemente(await lerItensDoSistema(), "semente reexecutada");
+    conferirCategorias(await contarCategoriasDaSemente(), "semente reexecutada");
   } finally {
     await conexao.query("rollback");
   }
 
-  // Pessoa não se apaga: `amassa_app` recebe 42501 num `delete` real de `clientes`.
-  const { rows: inserido } = await conexao.query(
-    "insert into clientes (nome) values ('[migracoes] Pessoa da prova') returning id",
+  // ——— 10. nome_normalizado() ——————————————————————————————————————————————————————————————————
+  const { rows: normalizados } = await conexao.query(
+    "select nome_normalizado('  JOÃO  da  Silva ') as joao, nome_normalizado('Ação') as acao",
   );
-  const clienteId = inserido[0].id;
-  try {
+  afirmar(
+    normalizados[0].joao === "joao da silva" && normalizados[0].acao === "acao",
+    `Agenda: nome_normalizado deveria tirar acento, baixar a caixa e colapsar espaços, veio ${JSON.stringify(normalizados[0])}.`,
+  );
+
+  // ——— Semente da prova (dono, comitada) ——————————————————————————————————————————————————————
+  const { rows: usuarioInserido } = await conexao.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste da Agenda [migracao]', 'usuaria-agenda@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+  const clienteIds = [];
+  const turmaIds = [];
+  const itemIds = [];
+
+  async function umaLinha(sql, parametros = []) {
+    const { rows } = await conexao.query(sql, parametros);
+    return rows[0];
+  }
+  // Roda e desfaz: o código do erro (ou `null`) e o nome da restrição.
+  async function tentar(sql, parametros = []) {
     await conexao.query("begin");
-    let codigo;
     try {
-      await conexao.query("set local role amassa_app");
-      ({ codigo } = await erroDoBanco(() =>
-        conexao.query("delete from clientes where id = $1", [clienteId]),
-      ));
+      return await erroDoBanco(() => conexao.query(sql, parametros));
     } finally {
       await conexao.query("rollback");
     }
-    afirmar(
-      codigo === "42501",
-      `Agenda: apagar de clientes, como amassa_app, deveria falhar com 42501 (revoke delete da 0026), veio ${codigo}.`,
-    );
-  } finally {
-    await conexao.query("delete from clientes where id = $1", [clienteId]);
   }
+  async function comoAmassaApp(sql, parametros = []) {
+    await conexao.query("begin");
+    try {
+      await conexao.query("set local role amassa_app");
+      return await erroDoBanco(() => conexao.query(sql, parametros));
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+  function esperar(resultado, codigoEsperado, restricoes, descricao) {
+    afirmar(
+      resultado.codigo === codigoEsperado &&
+        (restricoes === null || restricoes.includes(resultado.restricao)),
+      `Agenda: ${descricao} deveria dar ${codigoEsperado}` +
+        (restricoes ? ` (${restricoes.join(" ou ")})` : "") +
+        `, veio ${resultado.codigo} (${resultado.restricao}).`,
+    );
+  }
+
+  try {
+    const clienteA = (
+      await umaLinha("insert into clientes (nome) values ('[prova] Cliente A') returning id")
+    ).id;
+    const clienteB = (
+      await umaLinha("insert into clientes (nome) values ('[prova] Cliente B') returning id")
+    ).id;
+    clienteIds.push(clienteA, clienteB);
+    const turmaId = (
+      await umaLinha(
+        `insert into turmas (nome, dia_semana, inicio, fim, vagas, mensalidade_centavos, dia_vencimento, criado_por)
+         values ('[prova] Turma', 2, '19:00', '21:00', 8, 20000, 10, $1) returning id`,
+        [usuarioId],
+      )
+    ).id;
+    turmaIds.push(turmaId);
+    const eventoDaTurma = (
+      await umaLinha(
+        `insert into eventos (tipo, data, inicio, fim, vagas, turma_id)
+         values ('turma', current_date, '19:00', '21:00', 8, $1) returning id`,
+        [turmaId],
+      )
+    ).id;
+    const oficina = (
+      await umaLinha(
+        `insert into eventos (tipo, data, inicio, fim, vagas, titulo, preco_centavos)
+         values ('avulsa', current_date, '14:00', '17:00', 10, '[prova] Oficina', 15000) returning id`,
+      )
+    ).id;
+    const fechado = (
+      await umaLinha(
+        "insert into eventos (tipo, data, titulo) values ('fechado', current_date, '[prova] Fechado') returning id",
+      )
+    ).id;
+    const inscricao = (
+      await umaLinha(
+        `insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos)
+         values ($1, $2, 'oficina', true, 15000) returning id`,
+        [oficina, clienteA],
+      )
+    ).id;
+    const matricula = (
+      await umaLinha(
+        `insert into turma_alunos (turma_id, cliente_id, entrou_em)
+         values ($1, $2, current_date) returning id`,
+        [turmaId, clienteA],
+      )
+    ).id;
+    await conexao.query(
+      `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento)
+       values ($1, $2, date_trunc('month', current_date)::date,
+               20000, date_trunc('month', current_date)::date + 9)`,
+      [turmaId, clienteA],
+    );
+    const usoReservado = (
+      await umaLinha(
+        `insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas)
+         values ($1, current_date, '14:00', 2, 1) returning id`,
+        [clienteA],
+      )
+    ).id;
+    const usoComMaterial = (
+      await umaLinha(
+        `insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada)
+         values ($1, current_date, '14:00', 2, 1, 'no_espaco', '14:05') returning id`,
+        [clienteA],
+      )
+    ).id;
+    const usoComBaixa = (
+      await umaLinha(
+        `insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada)
+         values ($1, current_date, '15:00', 1, 1, 'no_espaco', '15:00') returning id`,
+        [clienteB],
+      )
+    ).id;
+    const categoriaCompraId = (
+      await umaLinha("select id from categorias where nome = 'Argila, esmalte e insumos'")
+    ).id;
+    const itemId = (
+      await umaLinha(
+        `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id)
+         values ('Argila de prova da Agenda [migracao]', true, 'kg', $1) returning id`,
+        [categoriaCompraId],
+      )
+    ).id;
+    itemIds.push(itemId);
+    const material = (
+      await umaLinha(
+        `insert into usos_livres_material (uso_livre_id, item_id, quantidade_milesimos, cobrar)
+         values ($1, $2, 1000, false) returning id`,
+        [usoComMaterial, itemId],
+      )
+    ).id;
+    await inserirMovimentacao(conexao, {
+      item_id: itemId,
+      registrado_por: usuarioId,
+      origem: "manual",
+      tipo: "entrada",
+      quantidade_milesimos: 5000,
+      valor_centavos: 2100,
+      valor_informado_centavos: 2100,
+    });
+
+    // ——— 1. Privilégio ——————————————————————————————————————————————————————————————————————
+    for (const [tabela, id] of [
+      ["clientes", clienteB],
+      ["turmas", turmaId],
+      ["turma_alunos", matricula],
+    ]) {
+      esperar(
+        await comoAmassaApp(`delete from ${tabela} where id = $1`, [id]),
+        "42501",
+        null,
+        `apagar de ${tabela} como amassa_app (revoke delete da 0026)`,
+      );
+    }
+    esperar(
+      await comoAmassaApp("delete from mensalidades where cliente_id = $1", [clienteA]),
+      "42501",
+      null,
+      "apagar de mensalidades como amassa_app (revoke delete da 0026)",
+    );
+    // AGE-05: o que se remove, sempre por ação — aceito (e desfeito).
+    for (const [tabela, id] of [
+      ["eventos", fechado],
+      ["inscricoes", inscricao],
+      ["usos_livres", usoReservado],
+      ["usos_livres_material", material],
+    ]) {
+      esperar(
+        await comoAmassaApp(`delete from ${tabela} where id = $1`, [id]),
+        null,
+        null,
+        `apagar de ${tabela} como amassa_app (AGE-05)`,
+      );
+    }
+
+    // ——— 2. Chaves (23505) ———————————————————————————————————————————————————————————————————
+    esperar(
+      await tentar(
+        `insert into eventos (tipo, data, inicio, fim, vagas, turma_id)
+         values ('turma', current_date, '19:00', '21:00', 8, $1)`,
+        [turmaId],
+      ),
+      "23505",
+      ["eventos_turma_data_uk"],
+      "uma segunda data da mesma turma no mesmo dia",
+    );
+    esperar(
+      await tentar(
+        `insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos)
+         values ($1, $2, 'oficina', true, 15000)`,
+        [oficina, clienteA],
+      ),
+      "23505",
+      ["inscricoes_evento_cliente_uk"],
+      "uma segunda inscrição do mesmo cliente no mesmo evento",
+    );
+    esperar(
+      await tentar(
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento)
+         values ($1, $2, date_trunc('month', current_date)::date,
+                 20000, date_trunc('month', current_date)::date + 9)`,
+        [turmaId, clienteA],
+      ),
+      "23505",
+      ["mensalidades_turma_cliente_mes_uk"],
+      "uma segunda mensalidade do mesmo trio turma/cliente/mês",
+    );
+    esperar(
+      await tentar(
+        "insert into turma_alunos (turma_id, cliente_id, entrou_em) values ($1, $2, current_date)",
+        [turmaId, clienteA],
+      ),
+      "23505",
+      ["turma_alunos_ativo_uk"],
+      "um segundo vínculo ATIVO do mesmo aluno na mesma turma",
+    );
+    // Depois de `saiu_em` no primeiro, o índice parcial volta a aceitar o mesmo aluno.
+    await conexao.query("begin");
+    try {
+      await conexao.query("update turma_alunos set saiu_em = current_date where id = $1", [matricula]);
+      const reentrada = await erroDoBanco(() =>
+        conexao.query(
+          "insert into turma_alunos (turma_id, cliente_id, entrou_em) values ($1, $2, current_date)",
+          [turmaId, clienteA],
+        ),
+      );
+      esperar(reentrada, null, null, "voltar à turma depois de saiu_em (turma_alunos_ativo_uk é parcial)");
+    } finally {
+      await conexao.query("rollback");
+    }
+    // Duas avulsas no mesmo dia (turma_id nulo) não colidem na eventos_turma_data_uk.
+    esperar(
+      await tentar(
+        `insert into eventos (tipo, data, inicio, fim, vagas, titulo, preco_centavos)
+         values ('avulsa', current_date, '09:00', '11:00', 6, '[prova] Outra oficina', 9000)`,
+      ),
+      null,
+      null,
+      "uma segunda avulsa no mesmo dia, sem turma",
+    );
+
+    // ——— 3. D-02 na chave: on conflict do nothing duas vezes → uma linha ——————————————————————
+    await conexao.query("begin");
+    try {
+      for (let vez = 0; vez < 2; vez += 1) {
+        await conexao.query(
+          `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento)
+           values ($1, $2, date_trunc('month', current_date)::date,
+                   20000, date_trunc('month', current_date)::date + 9)
+           on conflict (turma_id, cliente_id, mes) do nothing`,
+          [turmaId, clienteB],
+        );
+      }
+      const { rows } = await conexao.query(
+        "select count(*)::int as quantas from mensalidades where turma_id = $1 and cliente_id = $2",
+        [turmaId, clienteB],
+      );
+      afirmar(
+        rows[0].quantas === 1,
+        `Agenda (D-02): dois inserts on conflict do nothing do mesmo trio deveriam deixar UMA mensalidade, deixaram ${rows[0].quantas}.`,
+      );
+    } finally {
+      await conexao.query("rollback");
+    }
+
+    // ——— 4. Checks (23514) ——————————————————————————————————————————————————————————————————
+    const MES = "date_trunc('month', current_date)::date";
+    const recusas = [
+      // eventos
+      [
+        "fechado com horário",
+        "insert into eventos (tipo, data, titulo, inicio, fim) values ('fechado', current_date, '[prova] X', '09:00', '10:00')",
+        [],
+        ["eventos_fechado_sem_aula"],
+      ],
+      [
+        "data de turma sem horário",
+        "insert into eventos (tipo, data, vagas, turma_id) values ('turma', current_date + 1, 8, $1)",
+        [turmaId],
+        ["eventos_aula_com_horario"],
+      ],
+      [
+        "avulsa com fim <= início",
+        "insert into eventos (tipo, data, inicio, fim, vagas, titulo, preco_centavos) values ('avulsa', current_date, '10:00', '10:00', 6, '[prova] X', 100)",
+        [],
+        ["eventos_aula_com_horario"],
+      ],
+      [
+        "avulsa sem preço",
+        "insert into eventos (tipo, data, inicio, fim, vagas, titulo) values ('avulsa', current_date, '10:00', '11:00', 6, '[prova] X')",
+        [],
+        ["eventos_avulsa_com_titulo_e_preco"],
+      ],
+      [
+        "tipo turma sem turma_id",
+        "insert into eventos (tipo, data, inicio, fim, vagas) values ('turma', current_date, '10:00', '11:00', 6)",
+        [],
+        ["eventos_turma_so_no_tipo_turma"],
+      ],
+      [
+        "avulsa com turma_id",
+        "insert into eventos (tipo, data, inicio, fim, vagas, titulo, preco_centavos, turma_id) values ('avulsa', current_date + 2, '10:00', '11:00', 6, '[prova] X', 100, $1)",
+        [turmaId],
+        ["eventos_turma_so_no_tipo_turma"],
+      ],
+      [
+        "evento com 0 vagas",
+        "insert into eventos (tipo, data, inicio, fim, vagas, titulo, preco_centavos) values ('avulsa', current_date, '10:00', '11:00', 0, '[prova] X', 100)",
+        [],
+        ["eventos_vagas_faixa"],
+      ],
+      [
+        "evento com 1000 vagas",
+        "insert into eventos (tipo, data, inicio, fim, vagas, titulo, preco_centavos) values ('avulsa', current_date, '10:00', '11:00', 1000, '[prova] X', 100)",
+        [],
+        ["eventos_vagas_faixa"],
+      ],
+      // turmas
+      [
+        "turma com 0 vagas",
+        "insert into turmas (nome, dia_semana, inicio, fim, vagas, mensalidade_centavos, dia_vencimento) values ('[prova] X', 1, '19:00', '21:00', 0, 100, 10)",
+        [],
+        ["turmas_vagas_faixa"],
+      ],
+      [
+        "turma com vencimento no dia 29",
+        "insert into turmas (nome, dia_semana, inicio, fim, vagas, mensalidade_centavos, dia_vencimento) values ('[prova] X', 1, '19:00', '21:00', 8, 100, 29)",
+        [],
+        ["turmas_dia_vencimento_faixa"],
+      ],
+      [
+        "turma no dia da semana 7",
+        "insert into turmas (nome, dia_semana, inicio, fim, vagas, mensalidade_centavos, dia_vencimento) values ('[prova] X', 7, '19:00', '21:00', 8, 100, 10)",
+        [],
+        ["turmas_dia_semana_faixa"],
+      ],
+      [
+        "turma ativa com desativada_em",
+        "update turmas set desativada_em = now(), desativada_por = $2 where id = $1",
+        [turmaId, usuarioId],
+        ["turmas_ativa_coerente"],
+      ],
+      [
+        "turma com fim <= início",
+        "update turmas set fim = '19:00' where id = $1",
+        [turmaId],
+        ["turmas_fim_depois_do_inicio"],
+      ],
+      // mensalidades (cliente B: a chave do trio não interfere)
+      [
+        "mensalidade com mês no dia 2",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento) values ($1, $2, ${MES} + 1, 100, ${MES} + 9)`,
+        [turmaId, clienteB],
+        ["mensalidades_mes_primeiro_dia", "mensalidades_vencimento_no_mes"],
+      ],
+      [
+        "mensalidade com vencimento noutro mês",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento) values ($1, $2, ${MES}, 100, (${MES} + interval '1 month')::date)`,
+        [turmaId, clienteB],
+        ["mensalidades_vencimento_no_mes"],
+      ],
+      [
+        "mensalidade com valor 0",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento) values ($1, $2, ${MES}, 0, ${MES} + 9)`,
+        [turmaId, clienteB],
+        ["mensalidades_valor_faixa"],
+      ],
+      [
+        "mensalidade proporcional com aulas_restantes = aulas_no_mes",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento, aulas_restantes, aulas_no_mes) values ($1, $2, ${MES}, 100, ${MES} + 9, 4, 4)`,
+        [turmaId, clienteB],
+        ["mensalidades_proporcional_faixa"],
+      ],
+      [
+        "mensalidade proporcional só com aulas_restantes",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento, aulas_restantes) values ($1, $2, ${MES}, 100, ${MES} + 9, 2)`,
+        [turmaId, clienteB],
+        ["mensalidades_proporcional_junto"],
+      ],
+      [
+        "mensalidade com motivo de 201 caracteres",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento, dispensada_em, dispensada_por, motivo_dispensa) values ($1, $2, ${MES}, 100, ${MES} + 9, now(), $3, repeat('a', 201))`,
+        [turmaId, clienteB, usuarioId],
+        ["mensalidades_motivo_so_com_dispensa"],
+      ],
+      [
+        "mensalidade dispensada sem dispensada_por",
+        `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento, dispensada_em) values ($1, $2, ${MES}, 100, ${MES} + 9, now())`,
+        [turmaId, clienteB],
+        ["mensalidades_dispensada_por"],
+      ],
+      // inscrições (cliente B: a chave evento/cliente não interfere)
+      [
+        "reposição cobrando",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos) values ($1, $2, 'reposicao', true, 100)",
+        [eventoDaTurma, clienteB],
+        ["inscricoes_reposicao_nao_cobra"],
+      ],
+      [
+        "aluno cobrando",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos) values ($1, $2, 'aluno', true, 100)",
+        [eventoDaTurma, clienteB],
+        ["inscricoes_aluno_nao_cobra"],
+      ],
+      [
+        "oficina sem cobrar",
+        "insert into inscricoes (evento_id, cliente_id, tipo) values ($1, $2, 'oficina')",
+        [oficina, clienteB],
+        ["inscricoes_oficina_cobra"],
+      ],
+      [
+        "cobrar sem valor",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar) values ($1, $2, 'experimental', true)",
+        [eventoDaTurma, clienteB],
+        ["inscricoes_cobrar_com_valor"],
+      ],
+      [
+        "direito a repor sem falta",
+        "insert into inscricoes (evento_id, cliente_id, tipo, direito_a_repor) values ($1, $2, 'aluno', true)",
+        [eventoDaTurma, clienteB],
+        ["inscricoes_direito_so_com_falta"],
+      ],
+      [
+        "direito a repor numa oficina",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos, presenca, direito_a_repor) values ($1, $2, 'oficina', true, 100, 'faltou', true)",
+        [oficina, clienteB],
+        ["inscricoes_direito_so_com_falta"],
+      ],
+      [
+        // O check roda antes da chave estrangeira: um id qualquer basta para isolar a recusa.
+        "venda numa inscrição que não cobra",
+        "insert into inscricoes (evento_id, cliente_id, tipo, documento_id) values ($1, $2, 'aluno', gen_random_uuid())",
+        [eventoDaTurma, clienteB],
+        ["inscricoes_venda_so_cobrada"],
+      ],
+      [
+        "dispensa sem dispensada_por",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos, dispensada_em) values ($1, $2, 'oficina', true, 100, now())",
+        [oficina, clienteB],
+        ["inscricoes_dispensada_por"],
+      ],
+      [
+        "motivo sem dispensa",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos, motivo_dispensa) values ($1, $2, 'oficina', true, 100, 'motivo')",
+        [oficina, clienteB],
+        ["inscricoes_motivo_so_com_dispensa"],
+      ],
+      [
+        "motivo de dispensa com 201 caracteres",
+        "insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos, dispensada_em, dispensada_por, motivo_dispensa) values ($1, $2, 'oficina', true, 100, now(), $3, repeat('a', 201))",
+        [oficina, clienteB, usuarioId],
+        ["inscricoes_motivo_so_com_dispensa"],
+      ],
+      // usos livres
+      [
+        "uso livre reservado com chegada",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, chegada) values ($1, current_date, '14:00', 2, 1, '14:00')",
+        [clienteB],
+        ["usos_livres_chegada_por_estado"],
+      ],
+      [
+        "uso livre encerrado sem saída",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada) values ($1, current_date, '14:00', 2, 1, 'encerrado', '14:00')",
+        [clienteB],
+        ["usos_livres_encerrado_completo"],
+      ],
+      [
+        "uso livre com saída <= chegada",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada, saida, horas_cheias, preco_hora_centavos, valor_centavos) values ($1, current_date, '14:00', 2, 1, 'encerrado', '14:00', '13:00', 1, 100, 100)",
+        [clienteB],
+        ["usos_livres_saida_depois_da_chegada"],
+      ],
+      [
+        "uso livre com 13 horas previstas",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas) values ($1, current_date, '14:00', 13, 1)",
+        [clienteB],
+        ["usos_livres_horas_previstas_faixa"],
+      ],
+      [
+        "uso livre com 51 pessoas",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas) values ($1, current_date, '14:00', 2, 51)",
+        [clienteB],
+        ["usos_livres_pessoas_faixa"],
+      ],
+      // material do uso livre
+      [
+        "material com quantidade 0",
+        "insert into usos_livres_material (uso_livre_id, item_id, quantidade_milesimos, cobrar) values ($1, $2, 0, false)",
+        [usoComMaterial, itemId],
+        ["usos_livres_material_quantidade_positiva"],
+      ],
+      [
+        "material incluso com preço congelado",
+        "insert into usos_livres_material (uso_livre_id, item_id, quantidade_milesimos, cobrar, preco_unitario_centavos, valor_centavos) values ($1, $2, 1000, false, 100, 100)",
+        [usoComMaterial, itemId],
+        ["usos_livres_material_incluso_sem_preco"],
+      ],
+      [
+        "material com preço sem valor",
+        "insert into usos_livres_material (uso_livre_id, item_id, quantidade_milesimos, cobrar, preco_unitario_centavos) values ($1, $2, 1000, true, 100)",
+        [usoComMaterial, itemId],
+        ["usos_livres_material_preco_junto"],
+      ],
+      // documentos (D-01)
+      [
+        "documento com cliente_id e sem pessoa_nome",
+        "insert into documentos (tipo, data, criado_por, cliente_id) values ('venda', current_date, $1, $2)",
+        [usuarioId, clienteA],
+        ["documentos_cliente_exige_pessoa_nome"],
+      ],
+    ];
+    for (const [descricao, sql, parametros, restricoes] of recusas) {
+      esperar(await tentar(sql, parametros), "23514", restricoes, descricao);
+    }
+
+    // ——— 5. D-01: a Venda de hoje, sem cliente_id, continua entrando ————————————————————————
+    // Entre begin/rollback: a soma do documento (0015) é adiada e nunca chega a ser conferida.
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por, pessoa_nome) values ('venda', current_date, $1, 'Pessoa de prova')",
+        [usuarioId],
+      ),
+      null,
+      null,
+      "um documento de venda sem cliente_id (as colunas de hoje)",
+    );
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por) values ('venda', current_date, $1)",
+        [usuarioId],
+      ),
+      null,
+      null,
+      "um documento de venda sem cliente_id nem pessoa_nome",
+    );
+
+    // ——— 6. D-06: o valor novo do enum, usável depois do commit, e os dois checks em texto ———
+    const saidaParaUsoLivre = {
+      item_id: itemId,
+      registrado_por: usuarioId,
+      origem: "manual",
+      tipo: "saida",
+      area: "espaco",
+      quantidade_milesimos: -1000,
+      valor_centavos: -420,
+    };
+    const codigoDaBaixa = await codigoDoErro(() =>
+      inserirMovimentacao(conexao, { ...saidaParaUsoLivre, destino: "uso_livre", uso_livre_id: usoComBaixa }),
+    );
+    afirmar(
+      codigoDaBaixa === null,
+      `Agenda (D-06): uma saída manual com destino uso_livre e o vínculo deveria passar, veio ${codigoDaBaixa}.`,
+    );
+    esperar(
+      await tentar(
+        `insert into movimentacoes_estoque (item_id, registrado_por, origem, tipo, area, quantidade_milesimos, valor_centavos, destino)
+         values ($1, $2, 'manual', 'saida', 'espaco', -1000, -420, 'uso_livre')`,
+        [itemId, usuarioId],
+      ),
+      "23514",
+      ["movimentacoes_estoque_destino_uso_livre_com_vinculo"],
+      "destino uso_livre sem uso_livre_id",
+    );
+    esperar(
+      await tentar(
+        `insert into movimentacoes_estoque (item_id, registrado_por, origem, tipo, area, quantidade_milesimos, valor_centavos, destino, uso_livre_id)
+         values ($1, $2, 'manual', 'saida', 'espaco', -1000, -420, 'aula', $3)`,
+        [itemId, usuarioId, usoComBaixa],
+      ),
+      "23514",
+      ["movimentacoes_estoque_uso_livre_so_no_destino_uso_livre"],
+      "uso_livre_id com destino aula",
+    );
+
+    // ——— 7. AGE-20: uso livre com baixa não se apaga ————————————————————————————————————————
+    esperar(
+      await comoAmassaApp("delete from usos_livres where id = $1", [usoComBaixa]),
+      "23503",
+      ["movimentacoes_estoque_uso_livre_id_usos_livres_id_fk"],
+      "apagar, como amassa_app, um uso livre com movimentação ligada (AGE-20)",
+    );
+    const { rows: baixaQueFica } = await conexao.query(
+      "select count(*)::int as quantas from movimentacoes_estoque where uso_livre_id = $1",
+      [usoComBaixa],
+    );
+    afirmar(
+      baixaQueFica[0].quantas === 1,
+      `Agenda (AGE-20): a baixa do uso livre deveria continuar no livro, há ${baixaQueFica[0].quantas}.`,
+    );
+
+    // ——— 8. D-17: o gatilho, pelo dono e por amassa_app ———————————————————————————————————
+    const categoriaUsoDoEspaco = (
+      await umaLinha("select id from categorias where nome = 'Uso do espaço'")
+    ).id;
+    for (const [quem, executar] of [
+      ["o dono", tentar],
+      ["amassa_app", comoAmassaApp],
+    ]) {
+      for (const [descricao, sql] of [
+        ["desativar", "update itens_catalogo set ativo = false where chave_do_sistema = 'mensalidade'"],
+        ["tirar da venda", "update itens_catalogo set aparece_na_venda = false where chave_do_sistema = 'mensalidade'"],
+        ["trocar a chave", "update itens_catalogo set chave_do_sistema = 'uso_livre_hora' where chave_do_sistema = 'mensalidade'"],
+        ["apagar", "delete from itens_catalogo where chave_do_sistema = 'mensalidade'"],
+      ]) {
+        await conexao.query("begin");
+        try {
+          if (quem === "amassa_app") {
+            await conexao.query("set local role amassa_app");
+          }
+          let mensagem = "";
+          let codigo = null;
+          try {
+            await conexao.query(sql);
+          } catch (erro) {
+            codigo = erro.code;
+            mensagem = erro.message;
+          }
+          // `amassa_app` já não tem `delete` em `itens_catalogo` desde a 0015: o privilégio a barra
+          // (42501) antes de o gatilho rodar. O gatilho no `delete` é provado pelo dono.
+          if (quem === "amassa_app" && descricao === "apagar") {
+            afirmar(
+              codigo === "42501",
+              `Agenda (D-17): apagar um item do sistema, por amassa_app, deveria falhar com 42501 (revoke da 0015), veio ${codigo} (${mensagem}).`,
+            );
+          } else {
+            afirmar(
+              codigo === "P0001" && mensagem.includes(FRASE_DO_ITEM_DO_SISTEMA),
+              `Agenda (D-17): ${descricao} um item do sistema, por ${quem}, deveria falhar com P0001 e a frase do gatilho, veio ${codigo} (${mensagem}).`,
+            );
+          }
+        } finally {
+          await conexao.query("rollback");
+        }
+      }
+      for (const [descricao, sql, parametros] of [
+        ["renomear", "update itens_catalogo set nome = 'Mensalidade da turma' where chave_do_sistema = 'mensalidade'", []],
+        ["pôr preço", "update itens_catalogo set preco_venda_centavos = 3500 where chave_do_sistema = 'uso_livre_hora'", []],
+        ["trocar a categoria", "update itens_catalogo set categoria_venda_id = $1 where chave_do_sistema = 'mensalidade'", [categoriaUsoDoEspaco]],
+      ]) {
+        esperar(await executar(sql, parametros), null, null, `${descricao} um item do sistema, por ${quem}`);
+      }
+    }
+    // Os updates aceitos foram desfeitos (rollback): a semente continua intacta.
+    conferirSemente(await lerItensDoSistema(), "depois das provas do gatilho");
+  } finally {
+    await apagarDadosDeProvaDaAgenda(conexao, { clienteIds, turmaIds, itemIds, usuarioId });
+  }
+
+  const { rows: sobras } = await conexao.query(
+    `select (select count(*) from clientes where nome like '[prova]%')::int as clientes,
+            (select count(*) from turmas where nome like '[prova]%')::int as turmas,
+            (select count(*) from eventos where titulo like '[prova]%')::int as eventos`,
+  );
+  afirmar(
+    sobras[0].clientes === 0 && sobras[0].turmas === 0 && sobras[0].eventos === 0,
+    `Agenda: a faxina deveria apagar todo o dado de prova, sobrou ${JSON.stringify(sobras[0])}.`,
+  );
 }
 
 async function conferirBanco() {

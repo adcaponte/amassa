@@ -1897,7 +1897,7 @@ export const inscricoes = pgTable(
   (tabela) => [
     check(
       "inscricoes_direito_so_com_falta",
-      sql`not ${tabela.direitoARepor} or (${tabela.presenca} = 'faltou' and ${tabela.tipo} in ('aluno','experimental'))`,
+      sql`not ${tabela.direitoARepor} or (${tabela.presenca} is not null and ${tabela.presenca} = 'faltou' and ${tabela.tipo} in ('aluno','experimental'))`,
     ),
     check("inscricoes_cobrar_com_valor", sql`${tabela.cobrar} = (${tabela.valorCentavos} is not null)`),
     check("inscricoes_reposicao_nao_cobra", sql`${tabela.tipo} <> 'reposicao' or not ${tabela.cobrar}`),

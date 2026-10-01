@@ -2430,7 +2430,7 @@
       "checkConstraints": {
         "inscricoes_direito_so_com_falta": {
           "name": "inscricoes_direito_so_com_falta",
-          "value": "not \"inscricoes\".\"direito_a_repor\" or (\"inscricoes\".\"presenca\" = 'faltou' and \"inscricoes\".\"tipo\" in ('aluno','experimental'))"
+          "value": "not \"inscricoes\".\"direito_a_repor\" or (\"inscricoes\".\"presenca\" is not null and \"inscricoes\".\"presenca\" = 'faltou' and \"inscricoes\".\"tipo\" in ('aluno','experimental'))"
         },
         "inscricoes_cobrar_com_valor": {
           "name": "inscricoes_cobrar_com_valor",
