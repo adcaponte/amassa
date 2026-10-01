@@ -1,5 +1,6 @@
 import { hrefDoCaixa, hrefDoOrcamento } from "@/lib/financeiro/navegacao";
 import type { OrigemDaOrdem, PecaDaOrdem } from "@/lib/producao/consultas";
+import { horasDaOrdem, horasDaPeca } from "@/lib/producao/horas";
 import {
   TEXTO_NO_FINANCEIRO,
   TEXTO_SEM_ESTIMATIVA,
@@ -30,11 +31,6 @@ export type BlocoPecasProps = {
 
 const CLASSE_LINK = "text-acento font-semibold underline underline-offset-2";
 
-// Horas de uma linha de peça: horas da ficha × quantidade (o pedido, não as a mais). `null` sem ficha.
-function horasDaPeca(peca: PecaDaOrdem): number | null {
-  return peca.horasMilesimos === null ? null : peca.horasMilesimos * peca.quantidade;
-}
-
 // O bloco "Peças" da página da ordem (UI-SPEC §"Página da ordem → Coluna da direita"): uma linha por
 // peça com as horas à direita — o ÚNICO lugar da fase com horas (PRD-05) —, a sub-linha (cor,
 // personalização, exclusiva, sem ficha), as fotos de referência do orçamento (72×72, cada uma abre a
@@ -42,9 +38,9 @@ function horasDaPeca(peca: PecaDaOrdem): number | null {
 // `exigirUsuario()`; nenhum arquivo copiado) e a linha de origem com os links para o orçamento e
 // para a venda.
 export function BlocoPecas({ ordemId, podeDefinirAMais, pecas, fotos, origem }: BlocoPecasProps) {
+  // Horas da ficha × (pedido + a mais) — as a mais dão o mesmo trabalho (`lib/producao/horas.ts`).
   const horasPorPeca = pecas.map(horasDaPeca);
-  const comFicha = horasPorPeca.filter((horas): horas is number => horas !== null);
-  const horasDaOrdem = comFicha.length > 0 ? comFicha.reduce((total, h) => total + h, 0) : null;
+  const horasDaOrdemToda = horasDaOrdem(pecas);
 
   return (
     <section
@@ -140,10 +136,10 @@ export function BlocoPecas({ ordemId, podeDefinirAMais, pecas, fotos, origem }: 
 
       <p data-testid="ordem-origem" className="text-apoio text-tinta-fraca pt-2 [overflow-wrap:anywhere]">
         {TEXTO_TRABALHO_ESTIMADO}{" "}
-        {horasDaOrdem === null ? (
+        {horasDaOrdemToda === null ? (
           TEXTO_SEM_ESTIMATIVA
         ) : (
-          <span className="text-tinta font-semibold tabular-nums">{textoHoras(horasDaOrdem)}</span>
+          <span className="text-tinta font-semibold tabular-nums">{textoHoras(horasDaOrdemToda)}</span>
         )}
         {origem ? (
           <>

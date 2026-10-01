@@ -192,6 +192,8 @@ test.describe("producao a mais", () => {
 
     const peca = page.getByTestId("ordem-peca").first();
     await expect(peca.getByTestId("ordem-a-mais-chip")).toHaveCount(0);
+    // 2 peças de 0,6 h.
+    await expect(peca.getByTestId("ordem-peca-horas")).toHaveText("1,2 h");
     const campo = page.getByLabel(`Peças a mais de ${nomeDaPecaSemeada(nome, 0)}`);
     await expect(campo).toHaveValue("0");
     await expect(peca).toContainText("fazer a mais, de segurança");
@@ -203,6 +205,9 @@ test.describe("producao a mais", () => {
     await expect(campo).toHaveValue("5");
     await expect(page.getByTestId("ordem-a-mais-erro")).toHaveCount(0);
     expect(await aMaisDasPecasNoBanco(ordemId)).toEqual([5]);
+    // As a mais contam no trabalho estimado, como no material (dono, 01/10/2026): 7 × 0,6 h.
+    await expect(peca.getByTestId("ordem-peca-horas")).toHaveText("4,2 h");
+    await expect(page.getByTestId("ordem-origem")).toContainText("Trabalho estimado: 4,2 h");
 
     // O cliente nunca vê nem paga as a mais: nada mudou na venda nem no orçamento.
     expect(await quantidadesDoClienteNoBanco(documentoId, orcamentoId)).toEqual(antes);
