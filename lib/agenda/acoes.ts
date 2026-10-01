@@ -40,6 +40,7 @@ import {
 } from "./esquemas";
 import {
   contarPerdasAoCancelar,
+  garantirMensalidadesDoMes,
   inscreverAlunoDaquiParaFrente,
   inscreverAlunosNasDatas,
   marcarDatasDaTurma,
@@ -643,8 +644,9 @@ export type TurmaSalva = { mensalidadeMudou: boolean; datasAtualizadas: number }
 // TURMA: recusa a desativada; grava a turma e, nas datas com `data > hoje` e NÃO canceladas, o
 // horário, as vagas e o público (hoje e o passado ficam como foram — Assumption A9). O nome não é
 // copiado: as datas leem o nome da turma ao vivo. A mensalidade nova vale a partir do próximo mês,
-// porque cada mensalidade copia o valor da turma ao nascer — a guarda do Pitfall 6 (garantir a do
-// mês ANTES de gravar o valor novo) entra no plano 07, com a função que cria mensalidades.
+// porque cada mensalidade copia o valor da turma ao nascer — e a guarda do Pitfall 6 (plano 07):
+// ANTES de gravar o valor novo, na mesma transação, `garantirMensalidadesDoMes` faz nascer a do mês
+// corrente desta turma com o valor ANTIGO, mesmo que ninguém tenha aberto a Agenda no mês.
 export async function editarTurma(entradaBruta: unknown): Promise<ResultadoDoLancamento<TurmaSalva>> {
   await exigirUsuario();
 
@@ -672,6 +674,7 @@ export async function editarTurma(entradaBruta: unknown): Promise<ResultadoDoLan
       }
       // Sai do site quem deixou de ser pública: revalida se ela era OU passou a ser.
       publico = turma.publica || dados.publica;
+      await garantirMensalidadesDoMes(tx, mesDaData(hoje), turma.id);
       await tx
         .update(turmas)
         .set({

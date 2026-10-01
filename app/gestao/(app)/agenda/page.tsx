@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { db } from "@/db";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import {
   abaDaAgendaDaUrl,
@@ -21,6 +22,7 @@ import {
   turmasPorCliente,
   ultimasVindas,
 } from "@/lib/agenda/consultas";
+import { garantirMensalidadesDoMes } from "@/lib/agenda/gravacao";
 import { mesDaData } from "@/lib/agenda/mensalidade";
 import {
   agruparPorDia,
@@ -180,6 +182,10 @@ async function lerFicha(id: string | null, hoje: string): Promise<FichaDoServido
     if (pessoa === null) {
       return { estado: "inexistente", id };
     }
+    // D-02: a mensalidade do mês nasce ao abrir a ficha, ANTES de ler as turmas e as cobranças da
+    // pessoa — escrita idempotente pela chave única (o porquê está em `garantirMensalidadesDoMes`). A
+    // página já chamou `exigirUsuario()` na primeira linha (T-05-32).
+    await garantirMensalidadesDoMes(db, mesDaData(hoje));
     const [vindas, turmas] = await Promise.all([ultimasVindas(id, hoje), turmasDaPessoa(id, hoje)]);
     return { estado: "carregada", pessoa, conteudo: { vindas, turmas, mes: mesDaData(hoje) } };
   } catch (erro) {

@@ -7,6 +7,7 @@ import {
   fraseJaEstaNaTurma,
   TOAST_ENTROU_MENSALIDADE_CHEIA,
   TOAST_SAIU_DA_TURMA,
+  TOAST_TURMA_SALVA,
   toastEntrouProporcional,
   toastEntrouSemAulaNoMes,
 } from "@/lib/agenda/textos";
@@ -23,6 +24,7 @@ import {
   semearInscricao,
   semearMensalidade,
   semearTurmaComDatas,
+  turmasComNome,
   vinculosNoBanco,
 } from "./apoio/semear-agenda";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
@@ -315,5 +317,81 @@ test.describe("agenda entrar na turma", () => {
     await expect(
       page.getByTestId("pessoa-linha").filter({ hasText: nome }).getByTestId("pessoa-sub-linha"),
     ).toHaveText(`(00) 0000-0007 · ${turmaNome} (${NOMES_CURTOS_DOS_DIAS[diaDaSemanaDe(datas[0])]})`);
+  });
+
+  test("(f) D-02: abrir a ficha faz nascer a mensalidade do mês de quem já era aluno — uma só, mesmo abrindo de novo e em outra aba; a do mês passado continua", async ({
+    page,
+  }) => {
+    const mes = mesDeHoje();
+    const anterior = mesVizinho(mes, -1);
+    const suf = sufixoUnico();
+    const nome = `[e2e] Pessoa ${suf}`;
+    const clienteId = await semearCliente({ nome });
+    const { turmaId } = await semearTurma(`[e2e] Turma ${suf}`, [somarDiasAoHoje(5)]);
+    await semearAluno({ turmaId, clienteId, entrouEm: dataDoMes(anterior, 15) });
+    await semearMensalidade({
+      turmaId,
+      clienteId,
+      mes: `${anterior}-01`,
+      valorCentavos: 16000,
+      vencimento: dataDoMes(anterior, VENCIMENTO),
+    });
+    expect(await mensalidadesNoBanco(clienteId)).toHaveLength(1);
+
+    await fazerLogin(page);
+    await abrirFicha(page, clienteId);
+    await expect(linhaDaTurma(page, turmaId).getByTestId("turma-da-pessoa-caixa")).toBeChecked();
+
+    const doMes = (await mensalidadesNoBanco(clienteId)).filter((m) => m.mes === `${mes}-01`);
+    expect(doMes).toHaveLength(1);
+    expect(doMes[0]).toMatchObject({
+      turmaId,
+      valorCentavos: MENSALIDADE,
+      aulasRestantes: null,
+      aulasNoMes: null,
+      vencimento: dataDoMes(mes, VENCIMENTO),
+    });
+
+    // De novo, e em outra aba ao mesmo tempo: o banco continua com UMA do mês corrente.
+    const outra = await page.context().newPage();
+    await Promise.all([abrirFicha(page, clienteId), abrirFicha(outra, clienteId)]);
+    await outra.close();
+    const todas = await mensalidadesNoBanco(clienteId);
+    expect(todas.map((m) => m.mes)).toEqual([`${anterior}-01`, `${mes}-01`]);
+    expect(todas[0]).toMatchObject({ valorCentavos: 16000, vencimento: dataDoMes(anterior, VENCIMENTO) });
+  });
+
+  test("(g) Pitfall 6: mudar a mensalidade da turma no meio do mês, sem ninguém ter aberto a ficha, não muda a do mês — ela nasce com o valor antigo", async ({
+    page,
+  }) => {
+    const mes = mesDeHoje();
+    const anterior = mesVizinho(mes, -1);
+    const primeira = somarDiasAoHoje(4);
+    const suf = sufixoUnico();
+    const turmaNome = `[e2e] Turma ${suf}`;
+    const clienteId = await semearCliente({ nome: `[e2e] Pessoa ${suf}` });
+    const { turmaId } = await semearTurma(turmaNome, [primeira]);
+    await semearAluno({ turmaId, clienteId, entrouEm: dataDoMes(anterior, 20) });
+    // Ninguém abriu a ficha desta pessoa: a mensalidade do mês ainda não nasceu.
+    expect(await mensalidadesNoBanco(clienteId)).toEqual([]);
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);
+    const folha = page.getByTestId("folha-turma");
+    await expect(folha.getByTestId("turma-mensalidade")).toHaveValue("320,00");
+    await folha.getByTestId("turma-mensalidade").fill("450");
+    await folha.getByTestId("salvar-turma").click();
+    await expect(page.getByText(TOAST_TURMA_SALVA).first()).toBeVisible();
+
+    const [turma] = await turmasComNome(turmaNome);
+    expect(turma.mensalidadeCentavos).toBe(45000);
+    const mensalidades = await mensalidadesNoBanco(clienteId);
+    expect(mensalidades).toHaveLength(1);
+    expect(mensalidades[0]).toMatchObject({
+      turmaId,
+      mes: `${mes}-01`,
+      valorCentavos: MENSALIDADE,
+      vencimento: dataDoMes(mes, VENCIMENTO),
+    });
   });
 });

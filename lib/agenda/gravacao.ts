@@ -442,3 +442,48 @@ export async function tirarAlunoDasDatasFuturas(
   `);
   return resultado.rowCount ?? 0;
 }
+
+// Quem executa a instrução da D-02: o `db` (o carregamento da página) ou a transação de quem chama
+// (`editarTurma`).
+type ExecutorDoBanco = Pick<typeof db, "execute"> | Pick<TransacaoDoBanco, "execute">;
+
+// D-02 — a mensalidade do mês nasce ao ABRIR a tela, sem rotina no dia 1 (AGE-16), numa instrução só:
+// para cada vínculo ativo no dia 1 do mês de turma ATIVA, `insert … select … on conflict (turma_id,
+// cliente_id, mes) do nothing`, com o valor da turma NESTE momento e o vencimento no dia da turma
+// naquele mês (`dia_vencimento` vai até 28: `make_date` nunca cai num dia que o mês não tem).
+//
+// POR QUE UMA ESCRITA NO CARREGAMENTO (05-RESEARCH.md, Pergunta 8, opção A — aceita de propósito): ela
+// é idempotente por construção e só materializa um fato determinístico do mês. Rodar duas vezes, em
+// dois celulares, num prefetch ou num GET forjado dá o MESMO banco — a chave única
+// `mensalidades_turma_cliente_mes_uk` garante, nunca uma leitura prévia de "já existe?". Nada de
+// revalidar rota aqui: o Next proíbe isso no render, e a mesma requisição já lê depois de escrever.
+//
+// "Vínculo ativo no dia 1" = entrou ANTES do dia 1 (`entrou_em < dia 1`) e não tinha saído antes dele
+// (`saiu_em` nulo ou `>= dia 1`): quem já estava na turma no dia 1 e saiu depois também tem a do mês
+// (o resultado não pode depender de alguém ter aberto a Agenda no dia 1). Quem entrou DURANTE o mês —
+// inclusive NO dia 1 — não é tocado: a ação "entrar na turma" já decidiu a mensalidade do mês da
+// entrada (cheia, proporcional ou nenhuma, quando não sobra aula) na mesma transação.
+//
+// `turmaId` restringe a uma turma: `editarTurma` a chama DENTRO da sua transação e ANTES de gravar o
+// valor novo (Pitfall 6) — a mensalidade do mês corrente nasce com o valor antigo e não muda.
+export async function garantirMensalidadesDoMes(
+  executor: ExecutorDoBanco,
+  // "AAAA-MM".
+  mes: string,
+  turmaId?: string,
+): Promise<number> {
+  const primeiroDia = `${mes}-01`;
+  const resultado = await executor.execute(sql`
+    insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento)
+    select t.id, a.cliente_id, ${primeiroDia}::date, t.mensalidade_centavos,
+           make_date(extract(year from ${primeiroDia}::date)::int, extract(month from ${primeiroDia}::date)::int, t.dia_vencimento)
+      from turma_alunos a
+      join turmas t on t.id = a.turma_id
+     where t.ativa
+       and a.entrou_em < ${primeiroDia}::date
+       and (a.saiu_em is null or a.saiu_em >= ${primeiroDia}::date)
+       ${turmaId === undefined ? sql`` : sql`and t.id = ${turmaId}::uuid`}
+    on conflict (turma_id, cliente_id, mes) do nothing
+  `);
+  return resultado.rowCount ?? 0;
+}
