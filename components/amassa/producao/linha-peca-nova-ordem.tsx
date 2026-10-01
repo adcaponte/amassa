@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, type FocusEvent, type MouseEvent, type PointerEvent } from "react";
 import { X } from "lucide-react";
 
 import type { CatalogoDaNovaOrdem } from "@/lib/producao/consultas";
@@ -94,6 +95,40 @@ export type LinhaPecaNovaOrdemProps = {
   registrarCampoDaQuantidade: (elemento: HTMLElement | null) => void;
 };
 
+// "Quantas" vem com "1" e, ao tocar, seleciona tudo: o que se digita SUBSTITUI o 1 (Cowork,
+// 30/09/2026: "2" digitado sem apagar virava "12"; o dono decidiu manter o 1 e selecionar). Três
+// pedaços, por causa do celular:
+// - `onFocus` seleciona — basta no foco por teclado (Tab).
+// - No toque/clique, o `mouseup` que vem DEPOIS do foco põe o cursor no ponto tocado e desfaz a
+//   seleção (Safari do iOS e Chrome). O `pointerdown` marca "este toque deu o foco" (o campo ainda
+//   não estava focado) e o `mouseup` seguinte é impedido — só esse; os toques seguintes, com o campo
+//   já focado, posicionam o cursor normalmente.
+// - O iOS ainda pode aplicar o cursor depois do quadro do foco; a seleção é refeita no próximo
+//   ciclo, se o campo continuar focado.
+function useSelecionarTudoAoFocar() {
+  const focoPeloToque = useRef(false);
+  return {
+    onPointerDown: (evento: PointerEvent<HTMLInputElement>) => {
+      focoPeloToque.current = document.activeElement !== evento.currentTarget;
+    },
+    onFocus: (evento: FocusEvent<HTMLInputElement>) => {
+      const campo = evento.currentTarget;
+      campo.select();
+      window.setTimeout(() => {
+        if (document.activeElement === campo) {
+          campo.setSelectionRange(0, campo.value.length);
+        }
+      }, 0);
+    },
+    onMouseUp: (evento: MouseEvent<HTMLInputElement>) => {
+      if (focoPeloToque.current) {
+        focoPeloToque.current = false;
+        evento.preventDefault();
+      }
+    },
+  };
+}
+
 const CLASSE_DO_ITEM = "text-corpo min-h-[44px] py-2 whitespace-normal [overflow-wrap:anywhere]";
 const CLASSE_DO_GRUPO = "text-apoio text-tinta-media font-semibold";
 
@@ -115,6 +150,7 @@ export function LinhaPecaNovaOrdem({
   registrarCampoDaPeca,
   registrarCampoDaQuantidade,
 }: LinhaPecaNovaOrdemProps) {
+  const selecionarTudoAoFocar = useSelecionarTudoAoFocar();
   const lida = lerEscolha(linha.escolha);
   const ehLivre = lida.origem === "livre";
   const semFicha = ehLivre || lida.origem === "item";
@@ -227,6 +263,7 @@ export function LinhaPecaNovaOrdem({
             aria-describedby={erroDaQuantidade ? idErroDaQuantidade : undefined}
             value={linha.quantidade}
             onChange={(evento) => aoMudar({ quantidade: evento.target.value })}
+            {...selecionarTudoAoFocar}
             className="bg-superficie text-corpo md:text-corpo min-h-[44px] w-24 tabular-nums"
           />
         </div>

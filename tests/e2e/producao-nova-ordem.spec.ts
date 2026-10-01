@@ -115,7 +115,14 @@ test.describe("producao nova ordem", () => {
     await folha.getByTestId("nova-ordem-nome").fill(nome);
     await escolherPeca(page, 1, nomeDaFicha);
     await expect(folha.getByTestId("nova-ordem-nota-sem-ficha-1")).toHaveCount(0);
-    await folha.getByTestId("nova-ordem-quantidade-1").fill("12");
+    // "Quantas" vem com 1 e seleciona tudo ao tocar: digitar sem apagar substitui o 1, não vira
+    // "112" (Cowork, 30/09/2026 — decisão do dono). `click` + teclado, de propósito: o `fill`
+    // limparia o campo e esconderia o defeito.
+    const quantas = folha.getByTestId("nova-ordem-quantidade-1");
+    await expect(quantas).toHaveValue("1");
+    await quantas.click();
+    await page.keyboard.type("12");
+    await expect(quantas).toHaveValue("12");
     await folha.getByTestId("nova-ordem-criar").click();
 
     const ordemId = await esperarOrdemCriada(page, nome);
