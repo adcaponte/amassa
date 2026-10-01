@@ -9,6 +9,7 @@ import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { diasEntre, ehDataCivil } from "@/lib/producao/calendario";
 
 import { minutosDe } from "./horario";
+import { TIPOS_DE_COBRANCA } from "./receber";
 import { PRESENCAS } from "./tipos";
 import { SEMANAS_MAXIMAS, SEMANAS_MINIMAS } from "./turma";
 import { HORAS_PREVISTAS_MAXIMAS, HORAS_PREVISTAS_MINIMAS, PESSOAS_MAXIMAS, PESSOAS_MINIMAS } from "./uso-livre";
@@ -51,6 +52,7 @@ import {
   FRASE_SEMANAS,
   FRASE_VAGAS,
   FRASE_VENCIMENTO,
+  FRASE_FALHA_AO_RECEBER,
 } from "./textos";
 
 // "Veio" / "Faltou" / desmarcar: o id da inscrição e o estado DESEJADO (Pattern 2) — nunca
@@ -441,3 +443,26 @@ export const esquemaTirarMaterial = z.object({
 });
 
 export type TirarMaterialValidado = z.infer<typeof esquemaTirarMaterial>;
+
+// "Recebi agora" (AGE-15, UI-D4): do navegador chegam SÓ o tipo e o id da cobrança e a forma de
+// pagamento (T-05-53) — valor, descrição, categoria e cliente da venda vêm do banco, sob a trava. A
+// forma usa os mesmos valores do enum `forma_pagamento` do Financeiro. Entrada forjada recebe a frase de
+// falha (a tela nunca manda nada fora disto).
+export const FORMAS_DE_RECEBER = ["dinheiro", "pix", "cartao"] as const;
+export type FormaDeReceber = (typeof FORMAS_DE_RECEBER)[number];
+
+export const esquemaReceberAgora = z.object(
+  {
+    cobranca: z.object(
+      {
+        tipo: z.enum(TIPOS_DE_COBRANCA, { error: FRASE_FALHA_AO_RECEBER }),
+        id: z.uuid({ error: FRASE_FALHA_AO_RECEBER }),
+      },
+      { error: FRASE_FALHA_AO_RECEBER },
+    ),
+    forma: z.enum(FORMAS_DE_RECEBER, { error: FRASE_FALHA_AO_RECEBER }),
+  },
+  { error: FRASE_FALHA_AO_RECEBER },
+);
+
+export type ReceberAgoraValidado = z.infer<typeof esquemaReceberAgora>;

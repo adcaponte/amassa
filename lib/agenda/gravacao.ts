@@ -26,13 +26,25 @@
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, itensCatalogo, turmas, usosLivres } from "@/db/schema";
+import {
+  clientes,
+  documentos,
+  eventos,
+  inscricoes,
+  itensCatalogo,
+  mensalidades,
+  parcelas,
+  turmas,
+  usosLivres,
+  usosLivresMaterial,
+} from "@/db/schema";
 import { gravarMovimentacoes, travarItens, type TransacaoDoBanco } from "@/lib/estoque/gravacao";
 import { pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
 import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 
 import { fraseMaterialDesativadoNoUso, fraseMaterialPerdeuPreco } from "./textos";
+import type { CobrancaDaAgenda, MaterialDoUsoNaCobranca, TipoDeCobranca, VendaLigada } from "./receber";
 import type { EstadoUsoLivre, Presenca, TipoEvento, TipoInscricao } from "./tipos";
 import { valorDoMaterial } from "./uso-livre";
 
@@ -671,4 +683,310 @@ export async function baixarMaterialDoUso(
       valorCentavos: preco === null ? null : valorDoMaterial(material.quantidadeMilesimos, preco),
     };
   });
+}
+
+// ── A cobrança da Agenda e a venda dela (plano 11 — AGE-15, D-01, D-08) ────────────────────────────────
+//
+// Três tabelas cobram: `mensalidades`, `inscricoes` (cobradas — oficina e experimental cobrada) e
+// `usos_livres` (encerrados). Nenhuma guarda dinheiro recebido: o vínculo `documento_id` aponta a venda do
+// Financeiro, e “pago” é derivado das parcelas dela (`situacaoDaCobranca`, módulo puro). A mesma leitura
+// serve à lista de “A receber” (sem trava, pelo `db`) e ao “Recebi agora” (`travarCobranca`, sob a trava da
+// cobrança): os campos que a venda usa — valor, descrição, cliente — vêm SEMPRE daqui, nunca do navegador.
+
+export type ReferenciaDaCobranca = { tipo: TipoDeCobranca; id: string };
+
+type LeitorDeCobrancas = Pick<TransacaoDoBanco, "select">;
+
+type FiltroDeCobrancas = {
+  // Só uma cobrança (o “Recebi agora”).
+  id?: string;
+  // Só as que podem estar em “A receber”: sem venda ATIVA e não dispensadas — o resto da regra é do puro.
+  soLivres?: boolean;
+  // `for no key update` na linha da cobrança (a venda ligada é LIDA, nunca travada).
+  travar?: boolean;
+};
+
+function vendaLigada(linha: {
+  documentoId: string | null;
+  numeroDaVenda: number | null;
+  vendaCanceladaEm: Date | null;
+  dispensadaEm?: Date | null;
+}): VendaLigada {
+  return {
+    documentoId: linha.documentoId,
+    numeroDaVenda: linha.numeroDaVenda,
+    canceladoEm: linha.vendaCanceladaEm === null ? null : linha.vendaCanceladaEm.toISOString(),
+    // Preenchido depois por `contarParcelasEmAberto` (só as vendas ativas têm o que contar).
+    parcelasEmAberto: 0,
+    dispensadaEm: linha.dispensadaEm ? linha.dispensadaEm.toISOString() : null,
+  };
+}
+
+async function lerMensalidadesCobradas(leitor: LeitorDeCobrancas, filtro: FiltroDeCobrancas): Promise<CobrancaDaAgenda[]> {
+  const consulta = leitor
+    .select({
+      id: mensalidades.id,
+      clienteId: mensalidades.clienteId,
+      nome: clientes.nome,
+      valorCentavos: mensalidades.valorCentavos,
+      turma: turmas.nome,
+      mes: mensalidades.mes,
+      vencimento: mensalidades.vencimento,
+      aulasRestantes: mensalidades.aulasRestantes,
+      documentoId: mensalidades.documentoId,
+      numeroDaVenda: documentos.numero,
+      vendaCanceladaEm: documentos.canceladoEm,
+      dispensadaEm: mensalidades.dispensadaEm,
+    })
+    .from(mensalidades)
+    .innerJoin(clientes, eq(clientes.id, mensalidades.clienteId))
+    .innerJoin(turmas, eq(turmas.id, mensalidades.turmaId))
+    .leftJoin(documentos, eq(documentos.id, mensalidades.documentoId))
+    .where(
+      and(
+        filtro.id === undefined ? undefined : eq(mensalidades.id, filtro.id),
+        filtro.soLivres
+          ? and(or(isNull(mensalidades.documentoId), isNotNull(documentos.canceladoEm)), isNull(mensalidades.dispensadaEm))
+          : undefined,
+      ),
+    );
+  const linhas = filtro.travar ? await consulta.for("no key update", { of: mensalidades }) : await consulta;
+  return linhas.map((linha) => ({
+    tipo: "mensalidade" as const,
+    id: linha.id,
+    clienteId: linha.clienteId,
+    nome: linha.nome,
+    valorCentavos: linha.valorCentavos,
+    turma: linha.turma,
+    mes: linha.mes,
+    vencimento: linha.vencimento,
+    proporcional: linha.aulasRestantes !== null,
+    ...vendaLigada(linha),
+  }));
+}
+
+async function lerInscricoesCobradas(leitor: LeitorDeCobrancas, filtro: FiltroDeCobrancas): Promise<CobrancaDaAgenda[]> {
+  const consulta = leitor
+    .select({
+      id: inscricoes.id,
+      clienteId: inscricoes.clienteId,
+      nome: clientes.nome,
+      valorCentavos: inscricoes.valorCentavos,
+      tipo: inscricoes.tipo,
+      tituloDoEvento: eventos.titulo,
+      nomeDaTurma: turmas.nome,
+      data: eventos.data,
+      eventoCanceladoEm: eventos.canceladoEm,
+      documentoId: inscricoes.documentoId,
+      numeroDaVenda: documentos.numero,
+      vendaCanceladaEm: documentos.canceladoEm,
+      dispensadaEm: inscricoes.dispensadaEm,
+    })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
+    .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
+    .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+    .where(
+      and(
+        // Só a inscrição que COBRA: oficina e experimental cobrada. Aluno paga pela mensalidade;
+        // reposição e experimental gratuita nunca cobram (checks da 0026).
+        eq(inscricoes.cobrar, true),
+        filtro.id === undefined ? undefined : eq(inscricoes.id, filtro.id),
+        filtro.soLivres
+          ? and(
+              or(isNull(inscricoes.documentoId), isNotNull(documentos.canceladoEm)),
+              isNull(inscricoes.dispensadaEm),
+              isNull(eventos.canceladoEm),
+            )
+          : undefined,
+      ),
+    );
+  const linhas = filtro.travar ? await consulta.for("no key update", { of: inscricoes }) : await consulta;
+  return linhas.map((linha) => {
+    const experimental = linha.tipo === "experimental";
+    // A experimental é numa data de turma (o título é o nome da turma, lido ao vivo — a data de turma
+    // não guarda título); a oficina tem o título do evento.
+    const titulo = experimental
+      ? (linha.nomeDaTurma ?? linha.tituloDoEvento ?? "")
+      : (linha.tituloDoEvento ?? linha.nomeDaTurma ?? "");
+    return {
+      tipo: "inscricao" as const,
+      id: linha.id,
+      clienteId: linha.clienteId,
+      nome: linha.nome,
+      // Não-nulo na inscrição que cobra (check `inscricoes_cobrar_com_valor`).
+      valorCentavos: linha.valorCentavos ?? 0,
+      experimental,
+      titulo,
+      data: linha.data,
+      dataCancelada: linha.eventoCanceladoEm !== null,
+      ...vendaLigada(linha),
+    };
+  });
+}
+
+async function lerUsosLivresCobrados(leitor: LeitorDeCobrancas, filtro: FiltroDeCobrancas): Promise<CobrancaDaAgenda[]> {
+  const consulta = leitor
+    .select({
+      id: usosLivres.id,
+      clienteId: usosLivres.clienteId,
+      nome: clientes.nome,
+      valorCentavos: usosLivres.valorCentavos,
+      horas: usosLivres.horasCheias,
+      pessoas: usosLivres.pessoas,
+      precoHoraCentavos: usosLivres.precoHoraCentavos,
+      data: usosLivres.data,
+      documentoId: usosLivres.documentoId,
+      numeroDaVenda: documentos.numero,
+      vendaCanceladaEm: documentos.canceladoEm,
+    })
+    .from(usosLivres)
+    .innerJoin(clientes, eq(clientes.id, usosLivres.clienteId))
+    .leftJoin(documentos, eq(documentos.id, usosLivres.documentoId))
+    .where(
+      and(
+        // Só o uso ENCERRADO cobra (o valor nasce no encerramento — check `usos_livres_encerrado_completo`).
+        eq(usosLivres.estado, "encerrado"),
+        filtro.id === undefined ? undefined : eq(usosLivres.id, filtro.id),
+        filtro.soLivres ? or(isNull(usosLivres.documentoId), isNotNull(documentos.canceladoEm)) : undefined,
+      ),
+    );
+  const linhas = filtro.travar ? await consulta.for("no key update", { of: usosLivres }) : await consulta;
+  if (linhas.length === 0) {
+    return [];
+  }
+
+  // O material de cada uso, na ordem em que foi acrescentado — o cobrado vira linha LIVRE da venda (D-14),
+  // com o valor CONGELADO no encerramento. Lido depois da trava do uso (encerrado, a lista não muda mais).
+  const materiais = await leitor
+    .select({
+      usoLivreId: usosLivresMaterial.usoLivreId,
+      nome: itensCatalogo.nome,
+      unidade: itensCatalogo.unidade,
+      quantidadeMilesimos: usosLivresMaterial.quantidadeMilesimos,
+      cobrar: usosLivresMaterial.cobrar,
+      valorCentavos: usosLivresMaterial.valorCentavos,
+    })
+    .from(usosLivresMaterial)
+    .innerJoin(itensCatalogo, eq(itensCatalogo.id, usosLivresMaterial.itemId))
+    .where(inArray(usosLivresMaterial.usoLivreId, linhas.map((linha) => linha.id)))
+    .orderBy(asc(usosLivresMaterial.criadoEm), asc(usosLivresMaterial.id));
+  const materiaisPorUso = new Map<string, MaterialDoUsoNaCobranca[]>();
+  for (const { usoLivreId, unidade, ...material } of materiais) {
+    const doUso = materiaisPorUso.get(usoLivreId) ?? [];
+    doUso.push({ ...material, unidade: unidade ?? "un" });
+    materiaisPorUso.set(usoLivreId, doUso);
+  }
+
+  return linhas.map((linha) => ({
+    tipo: "uso_livre" as const,
+    id: linha.id,
+    clienteId: linha.clienteId,
+    nome: linha.nome,
+    // Não-nulos no encerrado (check `usos_livres_encerrado_completo`).
+    valorCentavos: linha.valorCentavos ?? 0,
+    horas: linha.horas ?? 0,
+    pessoas: linha.pessoas,
+    precoHoraCentavos: linha.precoHoraCentavos ?? 0,
+    data: linha.data,
+    materiais: materiaisPorUso.get(linha.id) ?? [],
+    ...vendaLigada({ ...linha, dispensadaEm: null }),
+  }));
+}
+
+// Quantas parcelas em aberto tem cada venda ATIVA ligada — `lancado` (alguma) ou `pago` (nenhuma). Uma
+// consulta só, pelo índice `parcelas_documento_idx`; venda cancelada ou ausente não precisa contar.
+async function contarParcelasEmAberto(
+  leitor: LeitorDeCobrancas,
+  cobrancas: CobrancaDaAgenda[],
+): Promise<CobrancaDaAgenda[]> {
+  const ativas = [
+    ...new Set(
+      cobrancas.flatMap((cobranca) =>
+        cobranca.documentoId !== null && cobranca.canceladoEm === null ? [cobranca.documentoId] : [],
+      ),
+    ),
+  ];
+  if (ativas.length === 0) {
+    return cobrancas;
+  }
+  const contagens = await leitor
+    .select({ documentoId: parcelas.documentoId, emAberto: count() })
+    .from(parcelas)
+    .where(and(inArray(parcelas.documentoId, ativas), isNull(parcelas.pagoEm)))
+    .groupBy(parcelas.documentoId);
+  const porDocumento = new Map(contagens.map((linha) => [linha.documentoId, Number(linha.emAberto)]));
+  return cobrancas.map((cobranca) =>
+    cobranca.documentoId === null
+      ? cobranca
+      : { ...cobranca, parcelasEmAberto: porDocumento.get(cobranca.documentoId) ?? 0 },
+  );
+}
+
+// As cobranças da Agenda, das três tabelas — `soLivres` para “A receber” (sem venda ativa, não
+// dispensadas). Sem trava: a lista é leitura; quem decide é o “Recebi agora”, sob a trava.
+export async function lerCobrancas(
+  leitor: LeitorDeCobrancas,
+  filtro: { soLivres?: boolean } = {},
+): Promise<CobrancaDaAgenda[]> {
+  const doMes = await lerMensalidadesCobradas(leitor, filtro);
+  const inscritas = await lerInscricoesCobradas(leitor, filtro);
+  const usos = await lerUsosLivresCobrados(leitor, filtro);
+  return contarParcelasEmAberto(leitor, [...doMes, ...inscritas, ...usos]);
+}
+
+// Trava a linha da COBRANÇA (`for no key update` — o elo MENSALIDADE / INSCRIÇÃO / USO LIVRE da ordem
+// global) e devolve tudo o que a venda precisa, lido sob a trava: dois “Recebi agora” na mesma cobrança
+// (toque duplo, dois celulares) se enfileiram aqui, e o segundo lê o `documento_id` que o primeiro gravou
+// (READ COMMITTED). A venda ligada — `numero` e `cancelado_em` — é LIDA, nunca travada: a Agenda não
+// trava documento existente, então não fecha ciclo com `cancelarDocumento` (DOCUMENTO → ORDEM → ITENS).
+// `null` se a cobrança não existe (ou não cobra).
+export async function travarCobranca(
+  tx: TransacaoDoBanco,
+  cobranca: ReferenciaDaCobranca,
+): Promise<CobrancaDaAgenda | null> {
+  return cobrancaPorReferencia(tx, cobranca, true);
+}
+
+// A mesma leitura, sem trava — a folha do uso livre encerrado (e a ficha, no plano 13) mostram a situação.
+export async function lerCobranca(
+  leitor: LeitorDeCobrancas,
+  cobranca: ReferenciaDaCobranca,
+): Promise<CobrancaDaAgenda | null> {
+  return cobrancaPorReferencia(leitor, cobranca, false);
+}
+
+async function cobrancaPorReferencia(
+  leitor: LeitorDeCobrancas,
+  cobranca: ReferenciaDaCobranca,
+  travar: boolean,
+): Promise<CobrancaDaAgenda | null> {
+  const filtro = { id: cobranca.id, travar };
+  const linhas =
+    cobranca.tipo === "mensalidade"
+      ? await lerMensalidadesCobradas(leitor, filtro)
+      : cobranca.tipo === "inscricao"
+        ? await lerInscricoesCobradas(leitor, filtro)
+        : await lerUsosLivresCobrados(leitor, filtro);
+  const [lida] = await contarParcelasEmAberto(leitor, linhas);
+  return lida ?? null;
+}
+
+// O vínculo cobrança → venda, NA MESMA transação da venda e sob a trava da cobrança (Pitfall 8): uma
+// cobrança nunca vira duas vendas ativas. Uma venda cancelada antes é sobrescrita — ela continua no
+// Caixa, cancelada, e a cobrança passa a apontar a nova (D-08).
+export async function vincularVenda(
+  tx: TransacaoDoBanco,
+  cobranca: ReferenciaDaCobranca,
+  documentoId: string,
+): Promise<void> {
+  const valores = { documentoId, atualizadoEm: new Date() };
+  if (cobranca.tipo === "mensalidade") {
+    await tx.update(mensalidades).set(valores).where(eq(mensalidades.id, cobranca.id));
+  } else if (cobranca.tipo === "inscricao") {
+    await tx.update(inscricoes).set(valores).where(eq(inscricoes.id, cobranca.id));
+  } else {
+    await tx.update(usosLivres).set(valores).where(eq(usosLivres.id, cobranca.id));
+  }
 }

@@ -5,17 +5,24 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { abaDaAgendaDaUrl, type AbaDaAgenda } from "@/lib/agenda/abas";
-import { ARIA_PARTES_DA_AGENDA, ROTULO_ABA_AGENDA, ROTULO_ABA_PESSOAS } from "@/lib/agenda/textos";
+import {
+  ARIA_PARTES_DA_AGENDA,
+  ROTULO_ABA_AGENDA,
+  ROTULO_ABA_PESSOAS,
+  rotuloDaAbaReceber,
+} from "@/lib/agenda/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 
-// As abas desta etapa. "A receber", "No site" e "Números" entram nos planos 11, 15 e 14 — quando as
-// cinco existirem, abaixo de 768px elas quebram em 3 + 2 (Agenda · Pessoas · A receber | No site ·
-// Números) com o espaçador `basis-full md:hidden` entre a terceira e a quarta, o mesmo mecanismo de
-// `abas-financeiro.tsx`/`sub-abas-cadastros.tsx` (UI-D1). Com duas, uma fileira basta.
-const ABAS: readonly { valor: AbaDaAgenda; rotulo: string; href: string }[] = [
-  { valor: "agenda", rotulo: ROTULO_ABA_AGENDA, href: rotaDeGestao("/agenda") },
-  { valor: "pessoas", rotulo: ROTULO_ABA_PESSOAS, href: rotaDeGestao("/agenda?aba=pessoas") },
+// As abas desta etapa: Agenda · Pessoas · A receber (+ " · {N}" quando há o que receber). "No site" e
+// "Números" entram nos planos 15 e 14 — quando as cinco existirem, abaixo de 768px elas quebram em 3 + 2
+// (Agenda · Pessoas · A receber | No site · Números) com o espaçador `basis-full md:hidden` entre a
+// terceira e a quarta, o mesmo mecanismo de `abas-financeiro.tsx`/`sub-abas-cadastros.tsx` (UI-D1). Com
+// três, uma fileira basta.
+const ABAS: readonly { valor: AbaDaAgenda; rotulo: (quantosAReceber: number) => string; href: string }[] = [
+  { valor: "agenda", rotulo: () => ROTULO_ABA_AGENDA, href: rotaDeGestao("/agenda") },
+  { valor: "pessoas", rotulo: () => ROTULO_ABA_PESSOAS, href: rotaDeGestao("/agenda?aba=pessoas") },
+  { valor: "receber", rotulo: rotuloDaAbaReceber, href: rotaDeGestao("/agenda?aba=receber") },
 ];
 
 const CLASSE_DA_ABA =
@@ -25,6 +32,9 @@ export type AbasDaAgendaProps = {
   // A página passa a aba que ela leu da URL; o `loading.tsx` não recebe a URL e deixa sem — aí a aba
   // vem do endereço atual.
   abaAtual?: AbaDaAgenda;
+  // Quantas cobranças estão em "A receber" (UI E15·zero-one-many): 0 ou ausente → "A receber" sem
+  // contador. A página lê no servidor, num `Suspense` próprio — as abas aparecem sem esperar a conta.
+  quantosAReceber?: number;
 };
 
 // As abas da Agenda (05-UI-SPEC.md §"Página /gestao/agenda", item 2; UI-D1): `tablist` "Partes da
@@ -33,7 +43,7 @@ export type AbasDaAgendaProps = {
 // agenda". Cada aba é um `<Link>` com `?aba=` — trocar de aba é navegação de página (o voltar do
 // navegador volta à aba anterior) e mostra o esqueleto do `loading.tsx`. Setas, Home e End movem o
 // foco entre as abas; Enter segue o link.
-export function AbasDaAgenda({ abaAtual }: AbasDaAgendaProps) {
+export function AbasDaAgenda({ abaAtual, quantosAReceber = 0 }: AbasDaAgendaProps) {
   const parametros = useSearchParams();
   const marcada = abaAtual ?? abaDaAgendaDaUrl(parametros.get("aba") ?? undefined);
   const elementos = useRef<Partial<Record<AbaDaAgenda, HTMLAnchorElement | null>>>({});
@@ -86,7 +96,7 @@ export function AbasDaAgenda({ abaAtual }: AbasDaAgendaProps) {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {aba.rotulo}
+            {aba.rotulo(quantosAReceber)}
           </Link>
         );
       })}

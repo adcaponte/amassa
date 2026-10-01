@@ -831,3 +831,156 @@ export async function saidasDoUsoNoBanco(usoLivreId: string): Promise<SaidaDoUso
     }));
   });
 }
+
+// ── A receber e o “Recebi agora” (plano 11 — AGE-15, D-01, D-08, D-14) ─────────────────────────────────
+
+// Um uso livre JÁ ENCERRADO, direto no banco, com a conta congelada (horas × pessoas × preço da hora +
+// material cobrado) e o material com o preço congelado — o retrato do fim do fluxo dos planos 09-10, sem
+// passar pela tela (a baixa do Estoque não é o que este caso prova: ela é do plano 10).
+export async function semearUsoLivreEncerrado(dados: {
+  clienteId: string;
+  data: string;
+  horas: number;
+  pessoas: number;
+  precoHoraCentavos: number;
+  materiais?: readonly {
+    itemId: string;
+    quantidadeMilesimos: number;
+    cobrar: boolean;
+    precoUnitarioCentavos?: number;
+  }[];
+}): Promise<{ usoLivreId: string; valorCentavos: number }> {
+  const materiais = (dados.materiais ?? []).map((material) => {
+    const preco = material.cobrar ? (material.precoUnitarioCentavos ?? 0) : null;
+    // O mesmo arredondamento de `valorDoMaterial` (meio para cima, ao centavo).
+    const valor = preco === null ? null : Math.floor((2 * material.quantidadeMilesimos * preco + 1000) / 2000);
+    return { ...material, preco, valor };
+  });
+  const valorCentavos =
+    dados.horas * dados.pessoas * dados.precoHoraCentavos +
+    materiais.reduce((soma, material) => soma + (material.valor ?? 0), 0);
+  const saida = `${String(10 + dados.horas).padStart(2, "0")}:00`;
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into usos_livres
+         (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada, saida, horas_cheias,
+          preco_hora_centavos, valor_centavos)
+       values ($1, $2, '10:00', $3, $4, 'encerrado', '10:00', $5, $3, $6, $7)
+       returning id`,
+      [dados.clienteId, dados.data, dados.horas, dados.pessoas, saida, dados.precoHoraCentavos, valorCentavos],
+    );
+    const usoLivreId = rows[0]?.id;
+    if (!usoLivreId) {
+      throw new Error("semearUsoLivreEncerrado: falha ao inserir.");
+    }
+    for (const material of materiais) {
+      await cliente.query(
+        `insert into usos_livres_material
+           (uso_livre_id, item_id, quantidade_milesimos, cobrar, preco_unitario_centavos, valor_centavos)
+         values ($1, $2, $3, $4, $5, $6)`,
+        [usoLivreId, material.itemId, material.quantidadeMilesimos, material.cobrar, material.preco, material.valor],
+      );
+    }
+    return { usoLivreId, valorCentavos };
+  });
+}
+
+// Um item do sistema (D-17), pela chave: o id e a categoria de venda.
+export async function itemDoSistemaNoBanco(
+  chave: "mensalidade" | "inscricao_oficina" | "uso_livre_hora",
+): Promise<{ id: string; categoriaVendaId: string }> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string; categoriaVendaId: string }>(
+      `select id, categoria_venda_id as "categoriaVendaId" from itens_catalogo where chave_do_sistema = $1`,
+      [chave],
+    );
+    const item = rows[0];
+    if (!item) {
+      throw new Error(`itemDoSistemaNoBanco: o item “${chave}” não existe.`);
+    }
+    return item;
+  });
+}
+
+export type VendaDaCobrancaNoBanco = {
+  documentoId: string;
+  numero: number;
+  data: string;
+  pessoaNome: string | null;
+  clienteId: string | null;
+  cancelado: boolean;
+  linhas: { itemId: string | null; descricao: string; categoriaId: string; quantidade: number; valorCentavos: number }[];
+  parcelas: {
+    vencimento: string;
+    valorCentavos: number;
+    forma: string;
+    pagoEm: string | null;
+    taxaPontosBase: number | null;
+  }[];
+  // Movimentações do Estoque ligadas a esta venda (nenhuma: os itens do sistema não controlam estoque e o
+  // material entra como linha livre — Pitfall 3).
+  movimentacoes: number;
+};
+
+const TABELA_DA_COBRANCA = { mensalidade: "mensalidades", inscricao: "inscricoes", uso_livre: "usos_livres" } as const;
+
+// A venda ligada a uma cobrança (o `documento_id` dela), com as linhas e as parcelas — `null` sem venda.
+export async function vendaDaCobranca(
+  tipo: keyof typeof TABELA_DA_COBRANCA,
+  id: string,
+): Promise<VendaDaCobrancaNoBanco | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      documentoId: string;
+      numero: string;
+      data: string;
+      pessoaNome: string | null;
+      clienteId: string | null;
+      cancelado: boolean;
+    }>(
+      `select d.id as "documentoId", d.numero, to_char(d.data, 'YYYY-MM-DD') as data, d.pessoa_nome as "pessoaNome",
+              d.cliente_id as "clienteId", d.cancelado_em is not null as cancelado
+         from ${TABELA_DA_COBRANCA[tipo]} c join documentos d on d.id = c.documento_id
+        where c.id = $1`,
+      [id],
+    );
+    const documento = rows[0];
+    if (!documento) {
+      return null;
+    }
+    const linhas = await cliente.query<VendaDaCobrancaNoBanco["linhas"][number]>(
+      `select item_id as "itemId", descricao, categoria_id as "categoriaId", quantidade, valor_centavos as "valorCentavos"
+         from documento_linhas where documento_id = $1 order by ordem`,
+      [documento.documentoId],
+    );
+    const parcelasDaVenda = await cliente.query<VendaDaCobrancaNoBanco["parcelas"][number]>(
+      `select to_char(vencimento, 'YYYY-MM-DD') as vencimento, valor_centavos as "valorCentavos", forma::text as forma,
+              to_char(pago_em, 'YYYY-MM-DD') as "pagoEm", taxa_pontos_base as "taxaPontosBase"
+         from parcelas where documento_id = $1 order by numero`,
+      [documento.documentoId],
+    );
+    const movimentacoes = await cliente.query<{ quantas: string }>(
+      "select count(*) as quantas from movimentacoes_estoque where documento_id = $1",
+      [documento.documentoId],
+    );
+    return {
+      ...documento,
+      numero: Number(documento.numero),
+      linhas: linhas.rows,
+      parcelas: parcelasDaVenda.rows,
+      movimentacoes: Number(movimentacoes.rows[0]?.quantas ?? 0),
+    };
+  });
+}
+
+// Quantas vendas têm o vínculo com esta pessoa (D-01) — a prova de “uma cobrança, uma venda”.
+export async function vendasDoCliente(clienteId: string): Promise<{ numero: number; cancelado: boolean }[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ numero: string; cancelado: boolean }>(
+      `select numero, cancelado_em is not null as cancelado from documentos
+        where cliente_id = $1 and tipo = 'venda' order by numero`,
+      [clienteId],
+    );
+    return rows.map((linha) => ({ numero: Number(linha.numero), cancelado: linha.cancelado }));
+  });
+}

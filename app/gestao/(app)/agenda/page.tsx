@@ -12,16 +12,19 @@ import {
   turmaDaUrl,
   usoDaUrl,
   vistaDaUrl,
+  type AbaDaAgenda,
   type VistaDaAgenda,
 } from "@/lib/agenda/abas";
 import {
   creditosDoCliente,
+  lerAReceber,
   lerMes,
   lerSemana,
   obterEvento,
   obterTurma,
   obterUsoLivre,
   precoDaHoraDoUsoLivre,
+  quantosAReceber,
   saldosDeReposicao,
   turmasDaPessoa,
   turmasPorCliente,
@@ -56,6 +59,7 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { CarregadorDoSeletor } from "@/components/amassa/estoque/carregador-do-seletor";
 import { ProvedorDoEstoque } from "@/components/amassa/estoque/provedor-estoque";
+import { AReceber, EsqueletoDoAReceber } from "@/components/amassa/agenda/a-receber";
 import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
 import { BarraDaAgenda } from "@/components/amassa/agenda/barra-da-agenda";
 import { FolhaLancar } from "@/components/amassa/agenda/folha-lancar";
@@ -98,9 +102,10 @@ function urlDaAgenda(consulta: string): string {
 // `?turma=` (a folha da turma, no lugar da folha da data — D-03, UI-D25), `?uso=` (a folha do uso
 // livre — plano 09).
 // `?lancar=1&dia=` (a folha "Lançar na agenda") é lido pelo cliente (`FolhaLancar`), que abre e
-// fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês) ou
-// "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta). "A receber", "Números" e "No site"
-// entram nos planos 11, 14 e 15.
+// fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês),
+// "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta) ou "receber" (plano 11 — o que
+// falta receber e o "Recebi agora"). "Números" e "No site"
+// entram nos planos 14 e 15.
 export default async function PaginaAgenda({
   searchParams,
 }: {
@@ -118,10 +123,19 @@ export default async function PaginaAgenda({
       {/* As abas 16px abaixo do cabeçalho; o conteúdo da aba 24px abaixo delas (05-UI-SPEC.md
           §"Página /gestao/agenda"). */}
       <div className="pt-4">
-        <AbasDaAgenda abaAtual={aba} />
+        {/* O contador " · {N}" de "A receber" espera o banco sem segurar as abas: enquanto conta, elas
+            aparecem sem ele (UI E15·zero-one-many). */}
+        <Suspense fallback={<AbasDaAgenda abaAtual={aba} />}>
+          <AbasComContagem aba={aba} hoje={hoje} />
+        </Suspense>
       </div>
       <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
-        {aba === "pessoas" ? (
+        {aba === "receber" ? (
+          // "A receber" (AGE-15) espera o banco atrás do esqueleto DELA (cabeçalho + sanfona + 4 linhas).
+          <Suspense fallback={<EsqueletoDoAReceber />}>
+            <AReceberCarregado hoje={hoje} />
+          </Suspense>
+        ) : aba === "pessoas" ? (
           // A lista de Pessoas espera o banco atrás do esqueleto DELA (busca + 6 linhas). Sem `key`
           // da busca: digitar não troca a lista pelo esqueleto nem tira o foco do campo.
           <Suspense fallback={<EsqueletoDasPessoas />}>
@@ -149,6 +163,29 @@ export default async function PaginaAgenda({
       </div>
     </>
   );
+}
+
+// As abas com o contador de "A receber". D-02: a mensalidade do mês nasce ANTES de contar (a mesma
+// escrita idempotente da ficha e da aba — o porquê está em `garantirMensalidadesDoMes`), para o número
+// da aba nunca ser menor que a lista. A conta que falha não derruba a página: as abas aparecem sem ela.
+async function AbasComContagem({ aba, hoje }: { aba: AbaDaAgenda; hoje: string }) {
+  let quantos = 0;
+  try {
+    await garantirMensalidadesDoMes(db, mesDaData(hoje));
+    quantos = await quantosAReceber();
+  } catch (erro) {
+    console.error("Falha ao contar o que falta receber:", erro);
+  }
+  return <AbasDaAgenda abaAtual={aba} quantosAReceber={quantos} />;
+}
+
+// A aba "A receber" (AGE-15): D-02 — a mensalidade do mês de quem já era aluno nasce ANTES de ler, pela
+// mesma escrita idempotente da ficha (a página já chamou `exigirUsuario()` na primeira linha). A leitura
+// que falha cai no `error.tsx` da página, como a lista de Pessoas.
+async function AReceberCarregado({ hoje }: { hoje: string }) {
+  await garantirMensalidadesDoMes(db, mesDaData(hoje));
+  const dados = await lerAReceber();
+  return <AReceber dados={dados} />;
 }
 
 // A aba Pessoas (AGE-06): o cadastro de clientes (D-01), lido por `lib/clientes` — o mesmo de

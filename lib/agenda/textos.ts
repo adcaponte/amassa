@@ -236,11 +236,16 @@ export const LEGENDA_USO_LIVRE = "Uso livre";
 export const DICA_DO_MES = "Toque num dia para abrir a semana dele.";
 export const FRASE_MES_VAZIO = "Nada marcado neste mês.";
 
-// As abas da Agenda (05-UI-SPEC.md §Ações; UI-D1) — "A receber", "No site" e "Números" entram nos
-// planos 11, 15 e 14.
+// As abas da Agenda (05-UI-SPEC.md §Ações; UI-D1) — "No site" e "Números" entram nos planos 15 e 14.
 export const ARIA_PARTES_DA_AGENDA = "Partes da Agenda";
 export const ROTULO_ABA_AGENDA = "Agenda";
 export const ROTULO_ABA_PESSOAS = "Pessoas";
+export const ROTULO_ABA_RECEBER = "A receber";
+
+// "A receber" sem contador com 0; " · {N}" com 1 ou mais (UI E15·zero-one-many).
+export function rotuloDaAbaReceber(quantos: number): string {
+  return quantos > 0 ? `${ROTULO_ABA_RECEBER} · ${quantos}` : ROTULO_ABA_RECEBER;
+}
 
 // A aba Pessoas (05-UI-SPEC.md §"Aba Pessoas", §Estados vazios; D-01). As frases do formulário, da
 // busca e do homônimo moram em `lib/clientes/textos.ts` — o cadastro é transversal.
@@ -907,3 +912,53 @@ export const FRASE_FALHA_AO_TIRAR_MATERIAL =
 export function contagemDeMateriais(quantos: number): string {
   return quantos === 1 ? "1 material" : `${quantos} materiais`;
 }
+
+// A aba "A receber" (05-UI-SPEC.md §"Aba A receber", §"Lote e A receber — linhas de leitura", §Estados
+// vazios, §Toasts, §Copywriting → Erros; AGE-15, D-08, UI-D3, UI-D4). A Agenda não guarda dinheiro: as
+// frases dizem que a venda nasce no Financeiro e que devolução e cancelamento se resolvem no Caixa.
+export const TITULO_A_RECEBER = "A receber pela agenda";
+export const FRASE_NINGUEM_DEVENDO = "Ninguém devendo.";
+export const CORPO_NINGUEM_DEVENDO =
+  "Mensalidades, inscrições e usos livres encerrados aparecem aqui até virarem venda.";
+export const DICA_FIM_A_RECEBER =
+  "Mensalidades, inscrições em oficina e horas de uso livre que ainda não viraram venda. Os dois botões criam a venda no Financeiro — o dinheiro só existe lá. “Recebi agora” pergunta a forma (dinheiro, pix, cartão) e cria a venda já paga, que entra no Caixa na hora. “Lançar na Venda” abre a venda preenchida para ajustar, e a parcela fica em “o que vence” do Caixa, no dia de vencimento da turma ou na data do evento. Quando o Caixa marcar “Recebi”, o “pago” aparece sozinho. Devolução e cancelamento se resolvem no Caixa.";
+export const ARIA_LISTA_A_RECEBER = "O que falta receber";
+
+// D-08: a cobrança cuja venda o Caixa cancelou volta sozinha, com esta tag (atenção).
+export function tagVendaCancelada(numero: number): string {
+  return `venda nº ${numero} cancelada`;
+}
+
+// "Recebi agora" (UI-D4: tocar a forma JÁ registra — dois toques).
+export const ROTULO_RECEBI_AGORA = "Recebi agora";
+export const TITULO_RECEBI_AGORA = "Recebi agora";
+export const DICA_RECEBI_AGORA = "Cria a venda já paga hoje, que entra no Caixa na hora.";
+export const ARIA_FORMAS_DE_RECEBER = "Como recebeu";
+export const ROTULO_REGISTRANDO = "Registrando…";
+export const ROTULO_FORMA_DE_RECEBER = { dinheiro: "Dinheiro", pix: "Pix", cartao: "Cartão" } as const;
+// A forma como o toast a escreve, no meio da frase.
+const FORMA_NO_TOAST = { dinheiro: "dinheiro", pix: "pix", cartao: "cartão" } as const;
+
+export function topoRecebiAgora(nome: string, descricao: string, valor: string): string {
+  return `${nome} · ${descricao} · ${valor}`;
+}
+
+// Embaixo do botão "Cartão": a taxa de Cadastros → Taxas.
+export function taxaDaMaquininha(percentual: string): string {
+  return `a maquininha fica com ${percentual}%`;
+}
+
+export function toastRecebiAgora(numero: number, forma: keyof typeof FORMA_NO_TOAST): string {
+  return `Venda nº ${numero} lançada e paga em ${FORMA_NO_TOAST[forma]}. Já está no Caixa de hoje.`;
+}
+
+// A corrida (Pitfall 8): duplo toque, dois celulares, ou a venda lançada em outro lugar.
+export function fraseJaLancado(numero: number): string {
+  return `Este item já foi lançado (venda nº ${numero}). A tela foi atualizada.`;
+}
+export const FRASE_FALHA_AO_RECEBER =
+  "Não deu para registrar. Nenhuma venda foi criada — verifique a internet e tente de novo.";
+// Sem frase própria na UI-SPEC: a cobrança sumiu (pessoa tirada da lista, data cancelada) ou foi
+// dispensada em outro celular entre abrir a lista e tocar a forma.
+export const FRASE_COBRANCA_SUMIU = "Este item não está mais em “A receber” — a tela foi atualizada.";
+export const FRASE_COBRANCA_DISPENSADA = "Esta cobrança foi dispensada — a tela foi atualizada.";

@@ -31,6 +31,7 @@ import {
   ROTULO_HORAS_CHEIAS,
   ROTULO_MARCANDO,
   ROTULO_MATERIAL_COBRADO,
+  ROTULO_RECEBI_AGORA,
   ROTULO_SAIU_AS,
   ROTULO_TENTAR_DE_NOVO,
   ROTULO_VALOR,
@@ -52,6 +53,7 @@ import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao"
 import { TagDoUsoLivre } from "./cartao-evento";
 import { CLASSE_DO_CAMPO_DA_AGENDA } from "./campos-turma";
 import { ConfirmarCancelarReserva } from "./confirmar-cancelar-reserva";
+import { FolhaRecebiAgora } from "./folha-recebi-agora";
 import { MaterialDoUsoLivre } from "./material-do-uso-livre";
 
 const LINHAS_DO_ESQUELETO = [0, 1, 2, 3] as const;
@@ -349,7 +351,8 @@ function Reservado({
 // num uso de hoje e com a saída prevista num de outro dia (UI-D7), a dica da hora cheia e "Encerrar e
 // cobrar". Sem o preço da hora no Catálogo, a caixa âmbar diz onde cadastrar e o botão fica desabilitado
 // com a frase como `aria-describedby` (AGE-17) — o servidor recusa do mesmo jeito. Encerrado: a conta
-// CONGELADA e "Encerrado · {h} h"; "Recebi agora" e "Lançar na Venda" são dos planos 11 e 12.
+// CONGELADA e "Encerrado · {h} h"; a receber, "Recebi agora" (plano 11) no rodapé — "Lançar na Venda" é
+// do plano 12.
 function UsoIniciado({
   uso,
   agora,
@@ -368,6 +371,8 @@ function UsoIniciado({
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const emVoo = useRef(false);
   const [encerrando, setEncerrando] = useState(false);
+  // A folha "Recebi agora" aberta por cima (plano 11), no uso encerrado e ainda a receber.
+  const [recebendo, setRecebendo] = useState(false);
 
   async function corrigir() {
     if (chegada === gravada.current) {
@@ -456,6 +461,13 @@ function UsoIniciado({
     // O "= {R$}" da linha das horas é só a parte das horas; o "Valor" é o gravado (horas + material).
     const valorDasHoras = valor - materialCobrado;
     const baixados = uso.materiais.filter((linha) => linha.baixado).length;
+    // "A receber" = sem venda ativa (ou com a venda cancelada no Caixa, D-08) e com valor — a situação
+    // vem do Financeiro, derivada no servidor. Lançado ou pago: só "Voltar à agenda".
+    const cobranca = uso.cobranca;
+    const aReceber =
+      cobranca !== null &&
+      valor > 0 &&
+      (cobranca.situacao === "a_receber" || cobranca.situacao === "venda_cancelada");
     return (
       <>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
@@ -488,11 +500,35 @@ function UsoIniciado({
             variant="outline"
             data-testid="uso-voltar"
             onClick={aoFechar}
-            className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
           >
             {ROTULO_VOLTAR_A_AGENDA}
           </Button>
+          {aReceber && cobranca !== null ? (
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="recebi-agora"
+              onClick={() => setRecebendo(true)}
+              className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+            >
+              {ROTULO_RECEBI_AGORA}
+            </Button>
+          ) : null}
         </div>
+        {recebendo && cobranca !== null ? (
+          <FolhaRecebiAgora
+            cobranca={{
+              tipo: "uso_livre",
+              id: uso.id,
+              nome: uso.titulo,
+              descricao: cobranca.descricao,
+              valorCentavos: valor,
+            }}
+            taxaCartaoPontosBase={cobranca.taxaCartaoPontosBase}
+            aoFechar={() => setRecebendo(false)}
+          />
+        ) : null}
       </>
     );
   }

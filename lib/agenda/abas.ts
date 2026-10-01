@@ -53,14 +53,16 @@ export function mesDaUrl(valor: ValorDaUrl, hoje: string): string {
   return hoje.slice(0, 7);
 }
 
-// As abas da Agenda (05-UI-SPEC.md §Rotas; UI-D1). Nesta etapa existem "agenda" (a semana/o mês,
-// padrão) e "pessoas" (o cadastro de clientes, D-01). "receber", "numeros" e "site" entram nos
-// planos 11, 14 e 15 — cada uma com a sua tela inteira; até lá caem no padrão.
-export const ABAS_DA_AGENDA = ["agenda", "pessoas"] as const;
+// As abas da Agenda (05-UI-SPEC.md §Rotas; UI-D1): "agenda" (a semana/o mês, padrão), "pessoas" (o
+// cadastro de clientes, D-01) e "receber" (o que falta receber — plano 11, AGE-15). "numeros" e "site"
+// entram nos planos 14 e 15 — cada uma com a sua tela inteira; até lá caem no padrão.
+export const ABAS_DA_AGENDA = ["agenda", "pessoas", "receber"] as const;
 export type AbaDaAgenda = (typeof ABAS_DA_AGENDA)[number];
 
 export function abaDaAgendaDaUrl(valor: ValorDaUrl): AbaDaAgenda {
-  return valor === "pessoas" ? "pessoas" : "agenda";
+  return typeof valor === "string" && (ABAS_DA_AGENDA as readonly string[]).includes(valor)
+    ? (valor as AbaDaAgenda)
+    : "agenda";
 }
 
 // `?busca=` (aba Pessoas) — o mesmo normalizador de Cadastros → Clientes: aparado, até 160 caracteres;

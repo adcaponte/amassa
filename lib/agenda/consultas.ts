@@ -23,10 +23,13 @@ import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { TurmaDaSubLinha } from "@/lib/clientes/lista";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { ultimoDiaDoMes } from "@/lib/financeiro/calendario";
+import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 import { somarDias } from "@/lib/producao/calendario";
 
 import {
   contarPerdasAoCancelar,
+  lerCobranca,
+  lerCobrancas,
   contarPerdasAoDesativar,
   type PerdasAoCancelar,
   type PerdasAoDesativar,
@@ -36,6 +39,14 @@ import {
 import { horaDe, minutosDe } from "./horario";
 import { mesDaData, valorDaAula } from "./mensalidade";
 import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
+import {
+  itensAReceber,
+  situacaoDaCobranca,
+  subLinhaDaCobranca,
+  totalAReceber,
+  type SituacaoDaCobranca,
+  type TipoDeCobranca,
+} from "./receber";
 import { creditosDeReposicao, type CreditosDeReposicao } from "./reposicao";
 import { gradeDoMes, type TipoDoPonto } from "./semana";
 import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor, type PessoaComSaldo } from "./seletor";
@@ -956,6 +967,16 @@ export type UsoLivreCarregado = UsoLivreDaSemana & {
   // O preço de venda de AGORA de cada item ativo com estoque próprio que TEM preço (D-14: "Cobrar" só
   // para eles) — só para a linha de acrescentar, antes de encerrar; vazio no uso encerrado.
   precosDeVenda: Record<string, number>;
+  // A cobrança do uso ENCERRADO (plano 11 — AGE-15): a situação derivada do Financeiro, o número da venda
+  // ligada, o topo do “Recebi agora” e a taxa do cartão de agora. Nula antes de encerrar.
+  cobranca: CobrancaDoUsoLivre | null;
+};
+
+export type CobrancaDoUsoLivre = {
+  situacao: SituacaoDaCobranca;
+  numeroDaVenda: number | null;
+  descricao: string;
+  taxaCartaoPontosBase: number;
 };
 
 export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreCarregado | null> {
@@ -978,7 +999,11 @@ export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreC
     return null;
   }
   const naSemana = usoLivreDaSemana(linha, hoje);
-  const precosDeVenda = linha.estado === "encerrado" ? {} : await precosDeVendaDoEstoque();
+  const encerrado = linha.estado === "encerrado";
+  const [precosDeVenda, cobranca] = await Promise.all([
+    encerrado ? Promise.resolve({}) : precosDeVendaDoEstoque(),
+    encerrado ? cobrancaDoUsoLivre(id) : Promise.resolve(null),
+  ]);
   return {
     ...naSemana,
     clienteId: linha.clienteId,
@@ -993,6 +1018,7 @@ export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreC
     precoHoraAtualCentavos: itens.usoLivreHora.precoVendaCentavos,
     materiais,
     precosDeVenda,
+    cobranca,
   };
 }
 
@@ -1067,4 +1093,71 @@ export async function precosDeVendaDoEstoque(): Promise<Record<string, number>> 
 // O preço da hora do uso livre agora (a dica da folha "Lançar na agenda") — pela chave, nunca pelo nome.
 export async function precoDaHoraDoUsoLivre(): Promise<number | null> {
   return (await obterItensDoSistema()).usoLivreHora.precoVendaCentavos;
+}
+
+// ── “A receber” (plano 11 — AGE-15; 05-UI-SPEC.md §“Aba A receber”) ─────────────────────────────────────
+
+// Uma linha de “A receber”, pronta para a tela: tudo o que ela mostra e a referência da cobrança — o
+// “Recebi agora” manda só `{ tipo, id }` e a forma; o resto o servidor relê sob a trava.
+export type LinhaAReceber = {
+  tipo: TipoDeCobranca;
+  id: string;
+  nome: string;
+  valorCentavos: number;
+  subLinha: string;
+  situacao: "a_receber" | "venda_cancelada";
+  // O número da venda cancelada (a tag “venda nº {N} cancelada”, D-08); nulo sem venda.
+  numeroDaVenda: number | null;
+};
+
+export type AReceberCarregado = {
+  linhas: LinhaAReceber[];
+  totalCentavos: number;
+  // A taxa do cartão de agora (Cadastros → Taxas) — a linha “a maquininha fica com {x}%” da folha.
+  taxaCartaoPontosBase: number;
+};
+
+// O que falta receber: as cobranças sem venda ativa e não dispensadas, pela regra do módulo puro (valor
+// > 0, data não cancelada, ordem por vencimento). Quem chama já garantiu as mensalidades do mês (D-02).
+export async function lerAReceber(): Promise<AReceberCarregado> {
+  const [cobrancas, configuracao] = await Promise.all([
+    lerCobrancas(db, { soLivres: true }),
+    obterConfiguracaoFinanceira(),
+  ]);
+  const itens = itensAReceber(cobrancas);
+  return {
+    linhas: itens.map((item) => ({
+      tipo: item.tipo,
+      id: item.id,
+      nome: item.nome,
+      valorCentavos: item.valorCentavos,
+      subLinha: subLinhaDaCobranca(item),
+      situacao: item.situacao,
+      numeroDaVenda: item.situacao === "venda_cancelada" ? item.numeroDaVenda : null,
+    })),
+    totalCentavos: totalAReceber(itens),
+    taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+  };
+}
+
+// O “ · {N}” da aba (UI E15·zero-one-many) — a mesma regra da lista.
+export async function quantosAReceber(): Promise<number> {
+  return itensAReceber(await lerCobrancas(db, { soLivres: true })).length;
+}
+
+// A cobrança do uso livre encerrado, para o rodapé da folha (“Recebi agora” enquanto a receber).
+async function cobrancaDoUsoLivre(usoLivreId: string): Promise<CobrancaDoUsoLivre | null> {
+  const [cobranca, configuracao] = await Promise.all([
+    lerCobranca(db, { tipo: "uso_livre", id: usoLivreId }),
+    obterConfiguracaoFinanceira(),
+  ]);
+  if (cobranca === null || cobranca.tipo !== "uso_livre") {
+    return null;
+  }
+  return {
+    situacao: situacaoDaCobranca(cobranca),
+    numeroDaVenda: cobranca.numeroDaVenda,
+    descricao: subLinhaDaCobranca(cobranca),
+    taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+  };
 }

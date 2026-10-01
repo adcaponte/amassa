@@ -210,13 +210,32 @@ export function subLinhaDaCobranca(cobranca: CobrancaDaAgenda): string {
       return cobranca.experimental
         ? `Aula experimental · ${cobranca.titulo} · ${formatarDiaMes(cobranca.data)}`
         : `${cobranca.titulo} · ${formatarDiaMes(cobranca.data)}`;
-    case "uso_livre": {
-      const material = materialCobrado(cobranca.materiais);
-      return `${textoDoUsoLivre(cobranca.horas, cobranca.pessoas)} · ${formatarDiaMes(cobranca.data)}${
-        material > 0 ? ` · material ${formatarReais(material)}` : ""
-      }`;
-    }
+    case "uso_livre":
+      return subLinhaDoUsoLivre({
+        horas: cobranca.horas,
+        pessoas: cobranca.pessoas,
+        data: cobranca.data,
+        materialCobradoCentavos: materialCobrado(cobranca.materiais),
+      });
   }
+}
+
+// “Uso livre · {h} h” + “ × {n} pessoas” + “ · {dd/mm}” + “ · material {R$}” — também o topo do “Recebi
+// agora” aberto da folha do uso encerrado.
+export function subLinhaDoUsoLivre({
+  horas,
+  pessoas,
+  data,
+  materialCobradoCentavos,
+}: {
+  horas: number;
+  pessoas: number;
+  data: string;
+  materialCobradoCentavos: number;
+}): string {
+  return `${textoDoUsoLivre(horas, pessoas)} · ${formatarDiaMes(data)}${
+    materialCobradoCentavos > 0 ? ` · material ${formatarReais(materialCobradoCentavos)}` : ""
+  }`;
 }
 
 // Os três itens do sistema (D-17), achados pela CHAVE por quem chama.

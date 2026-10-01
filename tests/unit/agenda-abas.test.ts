@@ -114,11 +114,11 @@ describe("abaDaAgendaDaUrl", () => {
     expect(abaDaAgendaDaUrl(undefined)).toBe("agenda");
   });
 
-  it.each(["agenda", "pessoas"] as const)("“%s” → a mesma aba", (aba) => {
+  it.each(["agenda", "pessoas", "receber"] as const)("“%s” → a mesma aba", (aba) => {
     expect(abaDaAgendaDaUrl(aba)).toBe(aba);
   });
 
-  it.each(["receber", "numeros", "site", "PESSOAS", "", "lixo"])("ainda não existe ou é lixo (“%s”) → agenda", (valor) => {
+  it.each(["numeros", "site", "PESSOAS", "RECEBER", "", "lixo"])("ainda não existe ou é lixo (“%s”) → agenda", (valor) => {
     expect(abaDaAgendaDaUrl(valor)).toBe("agenda");
   });
 

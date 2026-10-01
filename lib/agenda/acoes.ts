@@ -20,7 +20,10 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
+import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { gravarVenda } from "@/lib/financeiro/gravacao";
+import { conferirParcelas } from "@/lib/financeiro/parcelas";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
@@ -54,11 +57,13 @@ import {
   esquemaLancarTurma,
   esquemaMarcarChegada,
   esquemaMarcarMaisSemanas,
+  esquemaReceberAgora,
   esquemaReservarUsoLivre,
   esquemaSairDaTurma,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
   esquemaTirarMaterial,
+  type FormaDeReceber,
   type ModoDeColocar,
 } from "./esquemas";
 import {
@@ -80,6 +85,8 @@ import {
   travarInscricaoComVenda,
   travarTurma,
   travarUsoLivre,
+  travarCobranca,
+  vincularVenda,
   vendaAtivaEmDataFutura,
   type MaterialBaixado,
   type PerdasAoCancelar,
@@ -87,6 +94,7 @@ import {
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
+import { linhasDaVenda, situacaoDaCobranca, type ItensDoSistema as ItensDoSistemaParaVenda } from "./receber";
 import { horasCheias, proximoEstado, valorDoUsoLivre } from "./uso-livre";
 import type { EstadoUsoLivre, TipoInscricao } from "./tipos";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
@@ -137,6 +145,11 @@ import {
   FRASE_MATERIAL_SEM_PRECO,
   fraseMaterialDesativadoNoUso,
   SUFIXO_MATERIAL_DESATIVADO,
+  FRASE_COBRANCA_DISPENSADA,
+  FRASE_COBRANCA_SUMIU,
+  FRASE_FALHA_AO_RECEBER,
+  FRASE_ITENS_DA_AGENDA_SUMIRAM,
+  fraseJaLancado,
 } from "./textos";
 
 // Mesma forma de `lib/producao/acoes.ts` — cada módulo redeclara, não há tipo compartilhado.
@@ -1755,4 +1768,112 @@ export async function tirarMaterial(entradaBruta: unknown): Promise<ResultadoDeA
 
   revalidarTelasDaAgenda({ publico: false });
   return { ok: true, dados: { id: dados.materialId } };
+}
+
+// ── “Recebi agora” (plano 11 — AGE-15, D-01, D-04, D-14, UI-D4) ─────────────────────────────────────────
+
+export type RecebidoAgora = { documentoId: string; numero: number; forma: FormaDeReceber };
+
+// “Recebi agora”: a cobrança vira a Venda JÁ PAGA hoje, na forma tocada, e entra no Caixa do dia. A Agenda
+// não guarda dinheiro (§5): a venda é do Financeiro, gravada pelo MESMO escritor da Venda manual
+// (`gravarVenda`, `lib/financeiro/gravacao.ts`); a Agenda grava só o vínculo `documento_id`.
+// `exigirUsuario()` é a PRIMEIRA instrução (T-05-51). Do navegador chegam só o tipo e o id da cobrança e
+// a forma (T-05-53) — linhas, valor, descrição, categoria e cliente vêm do banco, sob a trava. A taxa e
+// os itens do sistema são lidos FORA da transação (como `lancarVenda`). Na transação, a ordem é COBRANÇA
+// (`for no key update`) → documento NOVO → ITENS (dentro de `gravarVenda`, só se houver linha com estoque
+// — nenhuma das três da Agenda tem): livre = sem venda ou com venda cancelada (D-08), e não dispensada;
+// senão a frase da corrida (Pitfall 8, T-05-54). O vínculo é gravado na MESMA transação da venda.
+export async function receberAgora(entradaBruta: unknown): Promise<ResultadoDeAcao<RecebidoAgora>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaReceberAgora.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let venda: { id: string; numero: number };
+  try {
+    const [configuracao, itens] = await Promise.all([obterConfiguracaoFinanceira(), obterItensDoSistema()]);
+    const itensParaVenda = itensDoSistemaParaVenda(itens);
+
+    venda = await db.transaction(async (tx) => {
+      const cobranca = await travarCobranca(tx, dados.cobranca);
+      if (!cobranca) {
+        throw new RecusaDaAgenda(FRASE_COBRANCA_SUMIU);
+      }
+      const situacao = situacaoDaCobranca(cobranca);
+      if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
+        throw new RecusaDaAgenda(fraseJaLancado(cobranca.numeroDaVenda));
+      }
+      if (situacao === "dispensada") {
+        throw new RecusaDaAgenda(FRASE_COBRANCA_DISPENSADA);
+      }
+      if (cobranca.tipo === "inscricao" && cobranca.dataCancelada) {
+        throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
+      }
+      // Cobrança de R$ 0 nunca aparece em “A receber” e nunca vira venda (AGE-15 · boundary).
+      if (cobranca.valorCentavos <= 0) {
+        throw new RecusaDaAgenda(FRASE_COBRANCA_SUMIU);
+      }
+
+      // As linhas do BANCO (D-04/D-14): o item do sistema com a descrição da cobrança e, no uso livre, o
+      // material cobrado como linha LIVRE na categoria do “Uso livre (hora)” (Pitfall 3).
+      const linhas = linhasDaVenda(cobranca, itensParaVenda);
+      const totalCentavos = linhas.reduce((total, linha) => total + linha.valorCentavos, 0);
+      const parcela = { vencimento: hoje, valorCentavos: totalCentavos, forma: dados.forma, pago: true };
+      // A mesma conferência da Venda manual (soma, data do saldo inicial) — com a frase dela.
+      const conferencia = conferirParcelas({
+        totalCentavos,
+        parcelas: [parcela],
+        hoje,
+        dataSaldoInicial: configuracao.dataSaldoInicial,
+      });
+      if (!conferencia.ok) {
+        throw new RecusaDaAgenda(conferencia.erro);
+      }
+
+      // D-01: `pessoa_nome` = o nome do cliente congelado agora, e o vínculo `cliente_id`. A taxa do
+      // cartão é congelada por `gravarVenda` na parcela paga no cartão — a regra que o Financeiro já aplica.
+      const gravada = await gravarVenda(
+        tx,
+        { data: hoje, pessoaNome: cobranca.nome, clienteId: cobranca.clienteId, linhas, parcelas: [parcela] },
+        { registradoPor: usuario.id, taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase },
+      );
+      await vincularVenda(tx, dados.cobranca, gravada.id);
+      return gravada;
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao registrar o “Recebi agora” (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_RECEBER };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  revalidatePath(rotaDeGestao("/financeiro"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: { documentoId: venda.id, numero: venda.numero, forma: dados.forma } };
+}
+
+// Os três itens do sistema como a venda os usa: id e categoria de venda. Item com chave nunca perde a
+// categoria (aparece na Venda — check e gatilho da 0026); a falta dela é o mesmo defeito de “sumiram”.
+function itensDoSistemaParaVenda(itens: Awaited<ReturnType<typeof obterItensDoSistema>>): ItensDoSistemaParaVenda {
+  const paraVenda = (item: { id: string; categoriaVendaId: string | null }) => {
+    if (item.categoriaVendaId === null) {
+      throw new Error(FRASE_ITENS_DA_AGENDA_SUMIRAM);
+    }
+    return { id: item.id, categoriaId: item.categoriaVendaId };
+  };
+  return {
+    mensalidade: paraVenda(itens.mensalidade),
+    inscricaoOficina: paraVenda(itens.inscricaoOficina),
+    usoLivreHora: paraVenda(itens.usoLivreHora),
+  };
 }
