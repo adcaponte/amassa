@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 30
+open_count: 29
 waived_count: 1
-fixed_count: 31
-total_count: 62
-last_updated: 2026-09-30T11:44:34.384Z
+fixed_count: 33
+total_count: 63
+last_updated: 2026-10-01T01:10:00.000Z
 ---
 
 # Broken Windows Ledger
@@ -76,7 +76,8 @@ last_updated: 2026-09-30T11:44:34.384Z
 | 59 | 04.5-financeiro-parte-2 | deviation | components/amassa/precificacao/dialogo-ficha.tsx | 409 | Achado da verificacao do Cowork (27/09/2026): "ao salvar peca nova a tela reabre a mesma peca em edicao em vez de voltar a lista". Confirmado — a URL de volta leva ?peca=<id>, que e o parametro que ABRE a ficha, enquanto o comentario logo acima prometia "volta para a lista de pecas". RESOLVIDO em 28/09/2026 SEM mudanca de comportamento: o dono decidiu que reabrir a ficha esta certo — numa tela de precificacao ele acabou de digitar medidas e quer ver o numero, o selo e a barra de custo sem procurar a linha. Quem mentia era o comentario, e foi ele que mudou. Nota historica: cheguei a aplicar a mudanca de codigo e revertí ao descobrir que o teste (b) de precificacao-pecas.spec.ts depende do comportamento atual (le o id da peca criada de url.searchParams.get("peca"), e esse id alimenta casos posteriores) — o que tirou a mudanca da categoria "opcao claramente recomendada" e levou a pergunta ao dono. | fixed |  | 2026-09-28T00:26:54.662Z | 2026-09-28T00:26:54.663Z |
 | 60 | 04.6-gestao-inicio-e-site-publico | deviation | docker/Dockerfile | 31 | A construcao da imagem depende de fonts.googleapis.com estar no ar: app/layout.tsx carrega tres fontes por next/font/google (Inter, Archivo Narrow e, desde o plano 04.6-03, Fraunces) e o RUN npm run build do docker/Dockerfile as baixa dentro do conteiner. Falhou por isso no run 36443052672 (28/09/2026, push do commit 72b8881): 14x "Module not found: Cannot resolve @vercel/turbopack-next/internal/font/google/font", que e o sintoma do Turbopack quando a busca da fonte falha. NAO e defeito de codigo: o comando exato do CI (docker build --target app --no-cache, inclusive com NEXT_PUBLIC_SITE_URL vazia) foi reproduzido na maquina do dono e PASSOU, npm run build correndo 90,8s dentro do Alpine, zero erro de fonte. Primeira ocorrencia deste modo em 20 runs (as outras 4 falhas recentes foram do Playwright). Distinguir transitorio de permanente exige re-executar o pipeline, e isso e do dono porque verde encadeia implantar. Correcao duravel possivel, NAO aplicada por contrariar decisao travada: versionar os arquivos de fonte e usar next/font/local — D-10 decidiu de proposito que nenhum arquivo de fonte e versionado, entao reabrir isso e decisao do dono. | open |  | 2026-09-28T15:43:18.429Z |  |
 | 61 | 04.6 | todo | conteudo/site.ts |  | Textos do site publico ainda com colchetes [...] e a faixa 'em construcao' no ar; o dono declarou em 29/09/2026 (VERIFICACAO-HUMANA item 14) que vai entregar um pacote unico de alteracoes de texto — pendencia declarada dele, nao defeito; fecha quando o lote entrar | open |  | 2026-09-28T23:41:02.301Z |  |
-| 62 | 06.1 | deviation | tests/e2e/financeiro-mes.spec.ts | 114 | 'areas (criterio 1): venda de tres areas paga no Pix' (celular) falhou na varredura completa do plano 06.1-15 (8 workers) E na execucao serial seguinte (--workers=1, 968 testes): o Mes de 2021-10 mostrou R$ 0,00 nas quatro areas. Passou isolado (so a cadeia vazio-*). Nenhum arquivo do Financeiro da venda ou do Mes mudou na fase. Hipotese nao provada: o teste preenche Data/busca antes da hidratacao do PainelVenda (useState(hoje)) quando o banco esta cheio, e a venda sai com a data de hoje; esperarVendaLancada so confere a URL ?aba=venda. Proximo passo: waitForLoadState networkidle + toHaveValue da Data antes de Lancar venda, como o helper de despesa do mesmo arquivo ja faz. | open |  | 2026-09-30T11:44:34.384Z |  |
+| 62 | 06.1 | deviation | tests/e2e/financeiro-mes.spec.ts | 114 | 'areas (criterio 1): venda de tres areas paga no Pix' (celular) falhou na varredura completa do plano 06.1-15 (8 workers) E na execucao serial seguinte (--workers=1, 968 testes): o Mes de 2021-10 mostrou R$ 0,00 nas quatro areas. Passou isolado (so a cadeia vazio-*). Nenhum arquivo do Financeiro da venda ou do Mes mudou na fase. Hipotese nao provada: o teste preenche Data/busca antes da hidratacao do PainelVenda (useState(hoje)) quando o banco esta cheio, e a venda sai com a data de hoje; esperarVendaLancada so confere a URL ?aba=venda. Proximo passo: waitForLoadState networkidle + toHaveValue da Data antes de Lancar venda, como o helper de despesa do mesmo arquivo ja faz. \|\| EXPLICADA E CORRIGIDA em 01/10/2026: no run 36796957676 (commit 3c14158) o caso falhou nas 3 tentativas do celular; o trace do retry #1 (artefato playwright-falhas) mostra o POST da venda com "data":"2026-09-30" (o hoje do servidor) em vez de 2021-10-10 -- a hipotese da hidratacao estava certa. Nao e fuso (diaDoMes e texto puro; o hoje enviado e o dia certo de Brasilia) nem colisao de mes reservado (2021-10 e so de mes-areas/celular). Corrigido no teste (fix(e2e) 6109d5f): preencherDataDaVenda() so segue quando a frase 'Lancando com data de ...' aparece, ou seja, quando o ESTADO do React tem a data; vale para o caso e para lancarVendaLivre. Prova: 98/98 no --grep de 01/10 00:59:48Z-01:02:01Z. | fixed |  | 2026-09-30T11:44:34.384Z | 2026-10-01T01:10:00.000Z |
+| 63 | 06.1 | deviation | tests/e2e/abertura-painel.spec.ts | 113 | 01/10/2026 (run 36796957676, commit 3c14158, e2e reprovou, nada implantado): 'item a vista + 6 parcelas no mes corrente' (desktop e celular, 3 tentativas cada) -- deterministico das 21h a meia-noite de Brasilia no ultimo dia do mes. O teste usava new Date().toISOString().slice(0,10) (dia UTC) e a aplicacao calcula 'este mes' em America/Sao_Paulo; o item nascia no mes seguinte. Corrigido no teste (fix(e2e) 1649e91) com hojeNoAtelie()/somarDiasAoHoje() de tests/e2e/apoio/semear-financeiro.ts, tambem em abertura-painel :178/:418 e abertura-edicao :129. Prova: npm run test:e2e -- --grep 'abertura painel\|financeiro mes\|abertura edicao\|abertura edição' passou 98/98 de 00:59:48Z a 01:02:01Z de 01/10 (21:59 de 30/09 em Brasilia, dentro da janela ruim). | fixed |  | 2026-10-01T01:10:00.000Z | 2026-10-01T01:10:00.000Z |
 
 ````json
 [
@@ -818,11 +819,23 @@ last_updated: 2026-09-30T11:44:34.384Z
     "phase": "06.1",
     "file": "tests/e2e/financeiro-mes.spec.ts",
     "line": 114,
-    "description": "'areas (criterio 1): venda de tres areas paga no Pix' (celular) falhou na varredura completa do plano 06.1-15 (8 workers) E na execucao serial seguinte (--workers=1, 968 testes): o Mes de 2021-10 mostrou R$ 0,00 nas quatro areas. Passou isolado (so a cadeia vazio-*). Nenhum arquivo do Financeiro da venda ou do Mes mudou na fase. Hipotese nao provada: o teste preenche Data/busca antes da hidratacao do PainelVenda (useState(hoje)) quando o banco esta cheio, e a venda sai com a data de hoje; esperarVendaLancada so confere a URL ?aba=venda. Proximo passo: waitForLoadState networkidle + toHaveValue da Data antes de Lancar venda, como o helper de despesa do mesmo arquivo ja faz.",
-    "status": "open",
+    "description": "'areas (criterio 1): venda de tres areas paga no Pix' (celular) falhou na varredura completa do plano 06.1-15 (8 workers) E na execucao serial seguinte (--workers=1, 968 testes): o Mes de 2021-10 mostrou R$ 0,00 nas quatro areas. Passou isolado (so a cadeia vazio-*). Nenhum arquivo do Financeiro da venda ou do Mes mudou na fase. Hipotese nao provada: o teste preenche Data/busca antes da hidratacao do PainelVenda (useState(hoje)) quando o banco esta cheio, e a venda sai com a data de hoje; esperarVendaLancada so confere a URL ?aba=venda. Proximo passo: waitForLoadState networkidle + toHaveValue da Data antes de Lancar venda, como o helper de despesa do mesmo arquivo ja faz. || EXPLICADA E CORRIGIDA em 01/10/2026: no run 36796957676 (commit 3c14158) o caso falhou nas 3 tentativas do celular; o trace do retry #1 (artefato playwright-falhas) mostra o POST da venda com \"data\":\"2026-09-30\" (o hoje do servidor) em vez de 2021-10-10 -- a hipotese da hidratacao estava certa. Nao e fuso (diaDoMes e texto puro; o hoje enviado e o dia certo de Brasilia) nem colisao de mes reservado (2021-10 e so de mes-areas/celular). Corrigido no teste (fix(e2e) 6109d5f): preencherDataDaVenda() so segue quando a frase 'Lancando com data de ...' aparece, ou seja, quando o ESTADO do React tem a data; vale para o caso e para lancarVendaLivre. Prova: 98/98 no --grep de 01/10 00:59:48Z-01:02:01Z.",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-30T11:44:34.384Z",
-    "resolved_at": null
+    "resolved_at": "2026-10-01T01:10:00.000Z"
+  },
+  {
+    "id": 63,
+    "kind": "deviation",
+    "phase": "06.1",
+    "file": "tests/e2e/abertura-painel.spec.ts",
+    "line": 113,
+    "description": "01/10/2026 (run 36796957676, commit 3c14158, e2e reprovou, nada implantado): 'item a vista + 6 parcelas no mes corrente' (desktop e celular, 3 tentativas cada) -- deterministico das 21h a meia-noite de Brasilia no ultimo dia do mes. O teste usava new Date().toISOString().slice(0,10) (dia UTC) e a aplicacao calcula 'este mes' em America/Sao_Paulo; o item nascia no mes seguinte. Corrigido no teste (fix(e2e) 1649e91) com hojeNoAtelie()/somarDiasAoHoje() de tests/e2e/apoio/semear-financeiro.ts, tambem em abertura-painel :178/:418 e abertura-edicao :129. Prova: npm run test:e2e -- --grep 'abertura painel|financeiro mes|abertura edicao|abertura edição' passou 98/98 de 00:59:48Z a 01:02:01Z de 01/10 (21:59 de 30/09 em Brasilia, dentro da janela ruim).",
+    "status": "fixed",
+    "reason": "",
+    "recorded_at": "2026-10-01T01:10:00.000Z",
+    "resolved_at": "2026-10-01T01:10:00.000Z"
   }
 ]
 ````
