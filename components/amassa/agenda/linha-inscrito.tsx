@@ -1,20 +1,26 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import Link from "next/link";
 import { Check, X } from "lucide-react";
 
 import { definirPresenca } from "@/lib/agenda/acoes";
 import type { InscritoCarregado } from "@/lib/agenda/consultas";
 import {
   fraseFalhaAoMarcarPresenca,
+  fraseJaVirouVenda,
   ROTULO_FALTOU,
   ROTULO_VEIO,
+  ROTULO_VER_NO_CAIXA,
   rotuloPresencaDe,
   TAG_EXPERIMENTAL,
   TAG_REPOSICAO,
 } from "@/lib/agenda/textos";
 import type { Presenca } from "@/lib/agenda/tipos";
+import { hrefDoCaixa } from "@/lib/financeiro/navegacao";
 import { cn } from "@/lib/utils";
+
+import { ConfirmarTirarDaLista } from "./confirmar-tirar-da-lista";
 
 export type LinhaInscritoProps = {
   inscrito: InscritoCarregado;
@@ -101,6 +107,27 @@ export function LinhaInscrito({ inscrito, somenteLeitura }: LinhaInscritoProps) 
           />
         </div>
       )}
+      {/* A linha de baixo (coluna inteira) da inscrição de oficina: "tirar da lista" ou, com a venda
+          ativa, a frase da UI-D14 + "ver no Caixa" — um botão que só existiria para ser recusado não
+          aparece (o servidor recusa do mesmo jeito se a tela estiver velha). As tags da situação do
+          pagamento chegam no plano 11; reposição e experimental, no plano 08. */}
+      {!somenteLeitura && inscrito.tipo === "oficina" ? (
+        <div className="col-span-2 flex flex-col">
+          {inscrito.venda !== null && !inscrito.venda.cancelada ? (
+            <p data-testid="venda-ativa" className="text-apoio text-tinta-fraca [overflow-wrap:anywhere]">
+              {fraseJaVirouVenda(inscrito.venda.numero)}{" "}
+              <Link
+                href={hrefDoCaixa()}
+                className="text-tinta-media inline-flex min-h-[44px] items-center underline underline-offset-4 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none"
+              >
+                {ROTULO_VER_NO_CAIXA}
+              </Link>
+            </p>
+          ) : (
+            <ConfirmarTirarDaLista inscricaoId={inscrito.id} nome={inscrito.nome} />
+          )}
+        </div>
+      ) : null}
       {erro ? (
         <p role="alert" className="text-apoio text-erro col-span-2">
           {erro}

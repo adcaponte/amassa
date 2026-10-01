@@ -262,3 +262,102 @@ export async function clientesComNome(nome: string): Promise<{ id: string; nome:
     return rows;
   });
 }
+
+export type InscricaoDoEvento = {
+  id: string;
+  clienteId: string;
+  tipo: TipoInscricao;
+  cobrar: boolean;
+  valorCentavos: number | null;
+  documentoId: string | null;
+};
+
+// As inscrições de uma data, como estão no banco — para provar o que "Colocar na lista" gravou.
+export async function inscricoesDoEvento(eventoId: string): Promise<InscricaoDoEvento[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<InscricaoDoEvento>(
+      `select id, cliente_id as "clienteId", tipo::text as tipo, cobrar, valor_centavos as "valorCentavos",
+              documento_id as "documentoId"
+         from inscricoes where evento_id = $1 order by criado_em, id`,
+      [eventoId],
+    );
+    return rows;
+  });
+}
+
+async function idDoGestorDeTeste(cliente: Client, quem: string): Promise<string> {
+  const email = process.env.E2E_EMAIL_TESTE;
+  if (!email) {
+    throw new Error(`${quem}: a variável E2E_EMAIL_TESTE não está definida.`);
+  }
+  const { rows } = await cliente.query<{ id: string }>(
+    "select id from usuarios where lower(email) = lower($1) limit 1",
+    [email],
+  );
+  const id = rows[0]?.id;
+  if (!id) {
+    throw new Error(`${quem}: nenhum usuário com o e-mail "${email}".`);
+  }
+  return id;
+}
+
+// Uma VENDA (documento + linha + parcela paga, a soma fechando — a restrição adiada
+// `conferir_soma_do_documento()` confere no `commit`) ligada à inscrição: o retrato de uma inscrição
+// que já virou venda no Caixa (D-08), sem passar pela tela de cobrança (plano 11). A linha usa a
+// categoria do item do sistema "Inscrição em oficina". Devolve o id e o número do documento.
+export async function ligarVendaAInscricao(dados: {
+  inscricaoId: string;
+  valorCentavos: number;
+  descricao: string;
+  data: string;
+}): Promise<{ documentoId: string; numero: number }> {
+  return comCliente(async (cliente) => {
+    const criadoPor = await idDoGestorDeTeste(cliente, "ligarVendaAInscricao");
+    const categoria = await cliente.query<{ categoriaId: string }>(
+      `select categoria_venda_id as "categoriaId" from itens_catalogo where chave_do_sistema = 'inscricao_oficina'`,
+    );
+    const categoriaId = categoria.rows[0]?.categoriaId;
+    if (!categoriaId) {
+      throw new Error("ligarVendaAInscricao: o item do sistema “Inscrição em oficina” não tem categoria de venda.");
+    }
+
+    await cliente.query("begin");
+    try {
+      const { rows } = await cliente.query<{ id: string; numero: number }>(
+        `insert into documentos (tipo, data, pessoa_nome, criado_por)
+         values ('venda'::tipo_documento, $1, $2, $3)
+         returning id, numero`,
+        [dados.data, dados.descricao, criadoPor],
+      );
+      const documento = rows[0];
+      await cliente.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
+         values ($1, 0, $2, $3, 1, $4)`,
+        [documento.id, dados.descricao, categoriaId, dados.valorCentavos],
+      );
+      await cliente.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+         values ($1, 1, $2, $3, 'dinheiro'::forma_pagamento, $2, $4)`,
+        [documento.id, dados.data, dados.valorCentavos, criadoPor],
+      );
+      await cliente.query("update inscricoes set documento_id = $1 where id = $2", [documento.id, dados.inscricaoId]);
+      await cliente.query("commit");
+      return { documentoId: documento.id, numero: Number(documento.numero) };
+    } catch (erro) {
+      await cliente.query("rollback");
+      throw erro;
+    }
+  });
+}
+
+// O Caixa cancelou a venda (carimbo de cancelamento, como `cancelarDocumento` grava) — o retrato do
+// D-08 sem passar pela tela do Financeiro.
+export async function cancelarDocumentoNoBanco(documentoId: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const canceladoPor = await idDoGestorDeTeste(cliente, "cancelarDocumentoNoBanco");
+    await cliente.query("update documentos set cancelado_em = now(), cancelado_por = $2 where id = $1", [
+      documentoId,
+      canceladoPor,
+    ]);
+  });
+}

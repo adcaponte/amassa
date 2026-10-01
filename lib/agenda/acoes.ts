@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNotNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { eventos, inscricoes } from "@/db/schema";
+import { clientes, eventos, inscricoes } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
@@ -14,11 +15,13 @@ import { lerDiaParaLancar, pessoasParaData, type DiaParaLancar, type PessoasPara
 import {
   esquemaBuscarPessoas,
   esquemaCancelarData,
+  esquemaColocarNaData,
   esquemaConferirDia,
   esquemaDefinirPresenca,
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaTirarBloqueio,
+  esquemaTirarDaLista,
 } from "./esquemas";
 import {
   contarPerdasAoCancelar,
@@ -26,6 +29,7 @@ import {
   temPerdas,
   travarEvento,
   travarInscricao,
+  travarInscricaoComVenda,
   type PerdasAoCancelar,
 } from "./gravacao";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
@@ -34,12 +38,16 @@ import {
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
+  FRASE_FALHA_AO_COLOCAR,
   FRASE_FALHA_AO_LANCAR,
   FRASE_FALHA_AO_TIRAR_BLOQUEIO,
+  FRASE_FALHA_AO_TIRAR_DA_LISTA,
   FRASE_FECHADO_NAO_SE_CANCELA,
   FRASE_JA_REMOVIDO,
   FRASE_FALHA_PRESENCA_GENERICA,
   FRASE_LANCAMENTO_NAO_EXISTE,
+  fraseInscricaoJaVirouVenda,
+  fraseJaEstaNaLista,
 } from "./textos";
 
 // Mesma forma de `lib/producao/acoes.ts` — cada módulo redeclara, não há tipo compartilhado.
@@ -380,4 +388,141 @@ export async function buscarPessoasParaData(entradaBruta: unknown): Promise<Resu
     console.error("Falha ao buscar pessoas para o seletor:", erro);
     return { ok: false, erro: FRASE_ERRO_CARREGAR_PESSOAS };
   }
+}
+
+export type Colocado = { inscricaoId: string; nome: string };
+
+// "Colocar na lista" numa aula ou oficina avulsa (AGE-10, AGE-12). `exigirUsuario()` primeiro
+// (T-05-23), Zod (só os dois ids — nenhum valor vem da tela, T-05-24). Sob a trava do EVENTO (`for no
+// key update`, a ordem global: EVENTO → CLIENTE → INSCRIÇÃO):
+// - data que não existe mais ou cancelada → a frase, nada gravado;
+// - data de turma → recusa com a frase genérica: o "Colocar alguém" da turma (experimental e
+//   reposição) chega no plano 08, que amplia esta ação;
+// - insere a inscrição `oficina`, `cobrar = true`, com o PREÇO DO EVENTO NESTE MOMENTO copiado para
+//   `valor_centavos` (cada inscrição paga à parte; mudar o evento depois não muda o que cada um deve).
+//   `on conflict (evento_id, cliente_id) do nothing` (T-05-26): dois gestores colocando a mesma pessoa
+//   terminam com UMA inscrição, e o segundo ouve "{nome} já está nesta lista — a tela foi atualizada.".
+// NUNCA recusa por lista cheia (AGE-11, briefing §2.8): nenhuma conta de vagas aqui nem no banco.
+export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeAcao<Colocado>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaColocarNaData.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  let publico = false;
+  let colocado: Colocado;
+  try {
+    colocado = await db.transaction(async (tx): Promise<Colocado> => {
+      const evento = await travarEvento(tx, dados.eventoId);
+      if (!evento) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      publico = evento.publico;
+      if (evento.cancelado) {
+        throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
+      }
+      if (evento.tipo !== "avulsa" || evento.precoCentavos === null) {
+        throw new RecusaDaAgenda(FRASE_FALHA_AO_COLOCAR);
+      }
+
+      const [cliente] = await tx
+        .select({ nome: clientes.nome })
+        .from(clientes)
+        .where(eq(clientes.id, dados.clienteId));
+      if (!cliente) {
+        throw new RecusaDaAgenda(FRASE_CLIENTE_NAO_EXISTE);
+      }
+
+      const [inserida] = await tx
+        .insert(inscricoes)
+        .values({
+          eventoId: evento.id,
+          clienteId: dados.clienteId,
+          tipo: "oficina",
+          cobrar: true,
+          valorCentavos: evento.precoCentavos,
+          criadoPor: usuario.id,
+        })
+        .onConflictDoNothing({ target: [inscricoes.eventoId, inscricoes.clienteId] })
+        .returning({ id: inscricoes.id });
+      if (!inserida) {
+        throw new RecusaDaAgenda(fraseJaEstaNaLista(cliente.nome));
+      }
+      return { inscricaoId: inserida.id, nome: cliente.nome };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      // A tela estava velha (já na lista, data cancelada): ela se atualiza junto com a frase.
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao colocar na lista (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_COLOCAR };
+  }
+
+  // As vagas que o site mostra mudaram, se a data é pública.
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: colocado };
+}
+
+export type TiradoDaLista = { nome: string };
+
+// "Tirar da lista" de uma oficina (05-UI-SPEC.md §Confirmações; D-08, UI-D14). `exigirUsuario()`
+// primeiro (T-05-23). Sob a trava da INSCRIÇÃO, com a venda ligada lida na mesma instrução (T-05-25):
+// - não existe mais → "Isso já tinha sido removido.";
+// - data cancelada → a frase (a lista da data cancelada é só de leitura);
+// - não é inscrição de oficina → a frase genérica (reposição e experimental chegam no plano 08; o
+//   aluno sai da turma pela ficha);
+// - ligada a uma venda NÃO cancelada → recusa com a frase da D-08, verbatim: a Agenda nunca devolve
+//   dinheiro nem desfaz venda — a devolução é no Caixa;
+// - sem venda, ou com a venda cancelada → apaga a inscrição (a venda cancelada continua no
+//   Financeiro, AGE-20). O `delete` só vem depois de todas as conferências.
+export async function tirarDaLista(entradaBruta: unknown): Promise<ResultadoDeAcao<TiradoDaLista>> {
+  await exigirUsuario();
+
+  const resultado = esquemaTirarDaLista.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_JA_REMOVIDO };
+  }
+
+  let publico = false;
+  let tirado: TiradoDaLista;
+  try {
+    tirado = await db.transaction(async (tx): Promise<TiradoDaLista> => {
+      const inscricao = await travarInscricaoComVenda(tx, resultado.data.inscricaoId);
+      if (!inscricao) {
+        throw new RecusaDaAgenda(FRASE_JA_REMOVIDO);
+      }
+      publico = inscricao.publico;
+      if (inscricao.eventoCancelado) {
+        throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
+      }
+      if (inscricao.tipo !== "oficina") {
+        throw new RecusaDaAgenda(FRASE_FALHA_AO_TIRAR_DA_LISTA);
+      }
+      if (inscricao.venda !== null && !inscricao.venda.cancelada) {
+        throw new RecusaDaAgenda(fraseInscricaoJaVirouVenda(inscricao.venda.numero));
+      }
+      await tx.delete(inscricoes).where(eq(inscricoes.id, inscricao.id));
+      return { nome: inscricao.nome };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao tirar da lista (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_TIRAR_DA_LISTA };
+  }
+
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: tirado };
 }

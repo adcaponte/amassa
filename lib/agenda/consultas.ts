@@ -7,11 +7,11 @@
 import { and, asc, count, desc, eq, gte, inArray, isNull, lte, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { somarDias } from "@/lib/producao/calendario";
 
-import { contarPerdasAoCancelar, type PerdasAoCancelar } from "./gravacao";
+import { contarPerdasAoCancelar, type PerdasAoCancelar, type VendaDaInscricao } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { ordenarInscritos } from "./presenca";
 import { gradeDoMes } from "./semana";
@@ -86,7 +86,19 @@ export type InscritoCarregado = {
   tipo: TipoInscricao;
   presenca: Presenca | null;
   direitoARepor: boolean;
+  // A cobrança desta inscrição: oficina sempre cobra, com o valor copiado do evento ao colocar.
+  cobrar: boolean;
+  valorCentavos: number | null;
+  // A venda ligada (D-08): ativa, a linha troca o "tirar da lista" pela frase da UI-D14.
+  venda: VendaDaInscricao | null;
 };
+
+export type { VendaDaInscricao };
+
+// A venda de uma inscrição como a folha a lê: o número e se o Caixa a cancelou — `null` sem venda.
+export function vendaDaInscricao(numero: number | null, canceladoEm: Date | null): VendaDaInscricao | null {
+  return numero === null ? null : { numero, cancelada: canceladoEm !== null };
+}
 
 export type EventoCarregado = EventoDaSemana & {
   precoCentavos: number | null;
@@ -136,12 +148,21 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
         tipo: inscricoes.tipo,
         presenca: inscricoes.presenca,
         direitoARepor: inscricoes.direitoARepor,
+        cobrar: inscricoes.cobrar,
+        valorCentavos: inscricoes.valorCentavos,
+        vendaNumero: documentos.numero,
+        vendaCanceladaEm: documentos.canceladoEm,
       })
       .from(inscricoes)
       .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
+      .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
       .where(eq(inscricoes.eventoId, id)),
     perdasAoCancelar(id),
   ]);
+  const inscritos = linhas.map(({ vendaNumero, vendaCanceladaEm, ...linha }) => ({
+    ...linha,
+    venda: vendaDaInscricao(vendaNumero, vendaCanceladaEm),
+  }));
 
   return {
     id: evento.id,
@@ -151,11 +172,11 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     fim: hhmm(evento.fim),
     titulo: evento.nomeDaTurma ?? evento.titulo ?? "",
     vagas: evento.vagas,
-    inscritos: linhas.length,
+    inscritos: inscritos.length,
     cancelado: evento.canceladoEm !== null,
     precoCentavos: evento.precoCentavos,
     publico: evento.publico,
-    inscricoes: ordenarInscritos(linhas),
+    inscricoes: ordenarInscritos(inscritos),
     perdasAoCancelar: perdas,
   };
 }

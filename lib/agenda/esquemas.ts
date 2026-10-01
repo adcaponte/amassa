@@ -12,10 +12,12 @@ import {
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
+  FRASE_FALHA_AO_COLOCAR,
   FRASE_FALHA_AO_LANCAR,
   FRASE_FALHA_PRESENCA_GENERICA,
   FRASE_FIM_ANTES_DO_COMECO,
   FRASE_HORARIO_VAZIO,
+  FRASE_JA_REMOVIDO,
   FRASE_LANCAMENTO_NAO_EXISTE,
   FRASE_MOTIVO_LONGO,
   FRASE_MOTIVO_VAZIO,
@@ -138,3 +140,19 @@ export const esquemaBuscarPessoas = z.object({
 });
 
 export type BuscarPessoasValidado = z.infer<typeof esquemaBuscarPessoas>;
+
+// "Colocar na lista" (AGE-10, AGE-12): só os dois ids. NENHUM valor vem da tela (T-05-24) — o preço
+// da inscrição é lido do evento sob a trava, no servidor.
+export const esquemaColocarNaData = z.object({
+  eventoId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
+  clienteId: z.uuid({ error: FRASE_FALHA_AO_COLOCAR }),
+});
+
+export type ColocarNaDataValidado = z.infer<typeof esquemaColocarNaData>;
+
+// "Tirar da lista" — só o id da inscrição; a venda ligada é lida sob a trava (D-08).
+export const esquemaTirarDaLista = z.object({
+  inscricaoId: z.uuid({ error: FRASE_JA_REMOVIDO }),
+});
+
+export type TirarDaListaValidado = z.infer<typeof esquemaTirarDaLista>;

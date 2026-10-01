@@ -22,7 +22,7 @@
 import { and, count, eq, isNotNull, isNull, or } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { documentos, eventos, inscricoes } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes } from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
@@ -85,6 +85,9 @@ export type EventoTravado = {
   tipo: TipoEvento;
   data: string;
   publico: boolean;
+  // O preço por pessoa da avulsa (nulo no fechado e na data de turma) — lido SOB A TRAVA: é o que a
+  // inscrição copia ao nascer (T-05-24).
+  precoCentavos: number | null;
   cancelado: boolean;
 };
 
@@ -99,6 +102,7 @@ export async function travarEvento(tx: TransacaoDoBanco, eventoId: string): Prom
       tipo: eventos.tipo,
       data: eventos.data,
       publico: eventos.publico,
+      precoCentavos: eventos.precoCentavos,
       canceladoEm: eventos.canceladoEm,
     })
     .from(eventos)
@@ -147,4 +151,59 @@ export async function contarPerdasAoCancelar(
 
 export function temPerdas(perdas: PerdasAoCancelar): boolean {
   return perdas.presencas > 0 || perdas.inscricoesAReceber > 0;
+}
+
+// A venda ligada a uma inscrição, como a Agenda a enxerga (D-08): o número e se o Caixa a cancelou.
+// Venda cancelada conta como livre — a cobrança volta a "A receber" por derivação, sem gravar nada.
+export type VendaDaInscricao = { numero: number; cancelada: boolean };
+
+export type InscricaoComVenda = {
+  id: string;
+  eventoId: string;
+  clienteId: string;
+  nome: string;
+  tipo: TipoInscricao;
+  // Do evento, lidos junto: se a data foi cancelada e se ela é pública (o site muda as vagas).
+  eventoCancelado: boolean;
+  publico: boolean;
+  venda: VendaDaInscricao | null;
+};
+
+// Trava a linha da INSCRIÇÃO (`for no key update ... of inscricoes`) e lê, na mesma instrução, o nome
+// da pessoa, o evento e a venda ligada — `documentos.numero` e `documentos.cancelado_em` são LIDOS,
+// nunca travados (a Agenda nunca trava um documento existente: ver a ordem global de travas no
+// topo). Um cancelamento no Caixa que confirme depois desta leitura não muda a decisão de quem já
+// leu — e a recusa da D-08 é a direção segura (nunca apaga uma inscrição que é venda ativa). `null`
+// se a inscrição não existe (tirada em outro celular).
+export async function travarInscricaoComVenda(
+  tx: TransacaoDoBanco,
+  inscricaoId: string,
+): Promise<InscricaoComVenda | null> {
+  const [linha] = await tx
+    .select({
+      id: inscricoes.id,
+      eventoId: inscricoes.eventoId,
+      clienteId: inscricoes.clienteId,
+      nome: clientes.nome,
+      tipo: inscricoes.tipo,
+      eventoCanceladoEm: eventos.canceladoEm,
+      publico: eventos.publico,
+      vendaNumero: documentos.numero,
+      vendaCanceladaEm: documentos.canceladoEm,
+    })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
+    .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+    .where(eq(inscricoes.id, inscricaoId))
+    .for("no key update", { of: inscricoes });
+  if (!linha) {
+    return null;
+  }
+  const { eventoCanceladoEm, vendaNumero, vendaCanceladaEm, ...resto } = linha;
+  return {
+    ...resto,
+    eventoCancelado: eventoCanceladoEm !== null,
+    venda: vendaNumero === null ? null : { numero: vendaNumero, cancelada: vendaCanceladaEm !== null },
+  };
 }

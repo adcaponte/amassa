@@ -23,8 +23,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
+import { ColocarAlguem } from "./colocar-alguem";
 import { CancelarEstaData } from "./confirmar-cancelar-data";
 import { LinhaInscrito } from "./linha-inscrito";
+import { naoFecharComOSeletorAberto } from "./seletor-pessoa";
 
 const PONTO_DO_TIPO = {
   turma: "bg-area-espaco",
@@ -82,6 +84,8 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
         data-testid="folha-evento"
         data-evento-id={evento.id}
         onOpenAutoFocus={(eventoDeFoco) => eventoDeFoco.preventDefault()}
+        // Esc com a lista do seletor de pessoa aberta fecha só a lista, não a folha.
+        onEscapeKeyDown={naoFecharComOSeletorAberto}
         className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
@@ -118,11 +122,18 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
             </div>
           ) : (
             <>
-              <h3 className="text-apoio text-tinta-media font-semibold tracking-[0.06em] uppercase">
+              {/* "{n} de {vagas}": n conta TODAS as inscrições da data (alunos, reposições,
+                  experimentais, oficina — AGE-11); passar das vagas só avisa (UI-D16). */}
+              <h3
+                data-testid="quem-vem"
+                className="text-apoio text-tinta-media font-semibold tracking-[0.06em] uppercase"
+              >
                 {tituloQuemVem(carregado.inscricoes.length, carregado.vagas ?? 0)}
               </h3>
               {carregado.inscricoes.length === 0 ? (
-                <p className="text-corpo text-tinta-fraca">{FRASE_NINGUEM_INSCRITO}</p>
+                <p data-testid="folha-evento-vazia" className="text-corpo text-tinta-fraca">
+                  {FRASE_NINGUEM_INSCRITO}
+                </p>
               ) : (
                 <ul className="flex flex-col" data-testid="folha-evento-lista">
                   {carregado.inscricoes.map((inscrito) => (
@@ -134,6 +145,11 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
                   ))}
                 </ul>
               )}
+              {/* "Colocar alguém" só em data não cancelada. Nesta etapa, só na aula ou oficina
+                  avulsa: em data de turma (experimental e reposição) ele chega no plano 08. */}
+              {!carregado.cancelado && carregado.tipo === "avulsa" ? (
+                <ColocarAlguem key={carregado.id} evento={carregado} />
+              ) : null}
               <p className="text-apoio text-tinta-fraca">
                 {carregado.tipo === "turma" ? DICA_FIM_TURMA : DICA_FIM_OFICINA}
               </p>
