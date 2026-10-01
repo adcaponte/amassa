@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { idDaUrl, semanaDaUrl } from "@/lib/agenda/abas";
+import { diaDaUrl, idDaUrl, lancarDaUrl, mesDaUrl, semanaDaUrl, vistaDaUrl } from "@/lib/agenda/abas";
 
 // Parâmetro desconhecido na URL cai no padrão, nunca em erro (UI E1·error).
 describe("semanaDaUrl", () => {
@@ -39,6 +39,60 @@ describe("idDaUrl", () => {
     expect(idDaUrl("1")).toBeNull();
     expect(idDaUrl("x' or 1=1 --")).toBeNull();
     expect(idDaUrl(["3f1c2a4e-9b7d-4c1e-8a2b-0d9e8f7a6b5c"])).toBeNull();
+  });
+});
+
+describe("diaDaUrl", () => {
+  it("aceita uma data civil válida", () => {
+    expect(diaDaUrl("2026-10-08")).toBe("2026-10-08");
+    expect(diaDaUrl("2028-02-29")).toBe("2028-02-29");
+  });
+
+  it("data impossível, lixo e lista viram null", () => {
+    expect(diaDaUrl("2026-02-30")).toBeNull();
+    expect(diaDaUrl("lixo")).toBeNull();
+    expect(diaDaUrl("")).toBeNull();
+    expect(diaDaUrl(undefined)).toBeNull();
+    expect(diaDaUrl(["2026-10-08"])).toBeNull();
+  });
+});
+
+describe("lancarDaUrl", () => {
+  it("só o 1 abre a folha", () => {
+    expect(lancarDaUrl("1")).toBe(true);
+    expect(lancarDaUrl("0")).toBe(false);
+    expect(lancarDaUrl("")).toBe(false);
+    expect(lancarDaUrl("sim")).toBe(false);
+    expect(lancarDaUrl(undefined)).toBe(false);
+    expect(lancarDaUrl(["1"])).toBe(false);
+  });
+});
+
+describe("vistaDaUrl", () => {
+  it("mes é mes; o resto é semana", () => {
+    expect(vistaDaUrl("mes")).toBe("mes");
+    expect(vistaDaUrl("semana")).toBe("semana");
+    expect(vistaDaUrl("ano")).toBe("semana");
+    expect(vistaDaUrl(undefined)).toBe("semana");
+    expect(vistaDaUrl(["mes"])).toBe("semana");
+  });
+});
+
+describe("mesDaUrl", () => {
+  const hoje = "2026-10-01";
+
+  it("AAAA-MM válido fica", () => {
+    expect(mesDaUrl("2026-12", hoje)).toBe("2026-12");
+    expect(mesDaUrl("2027-01", hoje)).toBe("2027-01");
+  });
+
+  it("lixo, mês 13, data inteira e lista caem no mês de hoje", () => {
+    expect(mesDaUrl("lixo", hoje)).toBe("2026-10");
+    expect(mesDaUrl("2026-13", hoje)).toBe("2026-10");
+    expect(mesDaUrl("2026-00", hoje)).toBe("2026-10");
+    expect(mesDaUrl("2026-12-01", hoje)).toBe("2026-10");
+    expect(mesDaUrl(undefined, hoje)).toBe("2026-10");
+    expect(mesDaUrl(["2026-12"], hoje)).toBe("2026-10");
   });
 });
 
