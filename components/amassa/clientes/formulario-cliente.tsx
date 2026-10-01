@@ -38,7 +38,7 @@ const TEXTOS_DO_CONTEXTO: Record<ContextoDoCadastro, { tituloNovo: string; salva
   cadastros: { tituloNovo: TITULO_NOVO_CLIENTE, salvar: ROTULO_SALVAR_CLIENTE },
 };
 
-export type ClienteSalvo = { id: string; nome: string; criado: boolean };
+export type ClienteSalvo = ClienteDaLista & { criado: boolean };
 
 export type FormularioClienteProps = {
   // "agenda": "Pessoa nova" / "Salvar pessoa"; "cadastros": "Novo cliente" / "Salvar cliente".

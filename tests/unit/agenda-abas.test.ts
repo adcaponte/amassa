@@ -3,7 +3,17 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { diaDaUrl, idDaUrl, lancarDaUrl, mesDaUrl, semanaDaUrl, vistaDaUrl } from "@/lib/agenda/abas";
+import {
+  abaDaAgendaDaUrl,
+  buscaDaUrl,
+  diaDaUrl,
+  idDaUrl,
+  lancarDaUrl,
+  mesDaUrl,
+  pessoaDaUrl,
+  semanaDaUrl,
+  vistaDaUrl,
+} from "@/lib/agenda/abas";
 
 // Parâmetro desconhecido na URL cai no padrão, nunca em erro (UI E1·error).
 describe("semanaDaUrl", () => {
@@ -96,12 +106,50 @@ describe("mesDaUrl", () => {
   });
 });
 
+// 05-04-PLAN.md, Tarefa 2: as abas da Agenda nascem — "agenda" e "pessoas" nesta etapa (os planos 11,
+// 14 e 15 acrescentam "receber", "numeros" e "site").
+describe("abaDaAgendaDaUrl", () => {
+  it("sem parâmetro, a aba Agenda", () => {
+    expect(abaDaAgendaDaUrl(undefined)).toBe("agenda");
+  });
+
+  it.each(["agenda", "pessoas"] as const)("“%s” → a mesma aba", (aba) => {
+    expect(abaDaAgendaDaUrl(aba)).toBe(aba);
+  });
+
+  it.each(["receber", "numeros", "site", "PESSOAS", "", "lixo"])("ainda não existe ou é lixo (“%s”) → agenda", (valor) => {
+    expect(abaDaAgendaDaUrl(valor)).toBe("agenda");
+  });
+
+  it("lista repetida (?aba=a&aba=b) → agenda", () => {
+    expect(abaDaAgendaDaUrl(["pessoas", "agenda"])).toBe("agenda");
+  });
+});
+
+describe("buscaDaUrl", () => {
+  it("apara; ausente ou lista → ''; corta em 160", () => {
+    expect(buscaDaUrl("  joao  ")).toBe("joao");
+    expect(buscaDaUrl(undefined)).toBe("");
+    expect(buscaDaUrl(["a", "b"])).toBe("");
+    expect(buscaDaUrl("x".repeat(200))).toHaveLength(160);
+  });
+});
+
+describe("pessoaDaUrl", () => {
+  it("só uuid; o resto é null", () => {
+    expect(pessoaDaUrl("0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e")).toBe("0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e");
+    expect(pessoaDaUrl(undefined)).toBeNull();
+    expect(pessoaDaUrl("1 or 1=1")).toBeNull();
+    expect(pessoaDaUrl(["0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e"])).toBeNull();
+  });
+});
+
 describe("pureza", () => {
   it("lib/agenda/abas.ts só importa módulos puros", () => {
     const fonte = readFileSync(join(process.cwd(), "lib/agenda/abas.ts"), "utf8");
     const imports = [...fonte.matchAll(/^import .* from "([^"]+)";$/gm)].map((casamento) => casamento[1]);
     for (const origem of imports) {
-      expect(["@/lib/producao/calendario", "./semana"]).toContain(origem);
+      expect(["@/lib/producao/calendario", "@/lib/clientes/lista", "./semana"]).toContain(origem);
     }
   });
 

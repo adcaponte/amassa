@@ -62,7 +62,7 @@ function revalidarTelasDoCadastro(): void {
 // quem decide é o gestor ("Usar … que já existe" ou "Criar outra pessoa"). Dois gestores cadastrando
 // a mesma pessoa ao mesmo tempo podem criar dois registros: é permitido (D-16), e quem cadastrar
 // depois é avisado.
-export async function criarCliente(entrada: unknown): Promise<ResultadoDoCadastro<{ id: string; nome: string }>> {
+export async function criarCliente(entrada: unknown): Promise<ResultadoDoCadastro<ClienteDaLista>> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaCliente.safeParse(entrada);
@@ -82,7 +82,7 @@ export async function criarCliente(entrada: unknown): Promise<ResultadoDoCadastr
     const [criado] = await db
       .insert(clientes)
       .values({ nome, telefone, criadoPor: usuario.id })
-      .returning({ id: clientes.id, nome: clientes.nome });
+      .returning({ id: clientes.id, nome: clientes.nome, telefone: clientes.telefone });
 
     revalidarTelasDoCadastro();
     return { ok: true, dados: criado };
@@ -99,7 +99,7 @@ export async function criarCliente(entrada: unknown): Promise<ResultadoDoCadastr
 // "Salvar mesmo assim" (`confirmarHomonimo: true`).
 export async function editarCliente(
   entrada: unknown,
-): Promise<ResultadoDoCadastro<{ id: string; nome: string }>> {
+): Promise<ResultadoDoCadastro<ClienteDaLista>> {
   await exigirUsuario();
 
   const resultado = esquemaEdicaoDeCliente.safeParse(entrada);
@@ -109,7 +109,7 @@ export async function editarCliente(
   const { id, nome, telefone, confirmarHomonimo } = resultado.data;
 
   try {
-    const resposta = await db.transaction(async (tx): Promise<ResultadoDoCadastro<{ id: string; nome: string }>> => {
+    const resposta = await db.transaction(async (tx): Promise<ResultadoDoCadastro<ClienteDaLista>> => {
       const [atual] = await tx
         .select({
           id: clientes.id,
@@ -133,7 +133,7 @@ export async function editarCliente(
         .update(clientes)
         .set({ nome, telefone })
         .where(eq(clientes.id, id))
-        .returning({ id: clientes.id, nome: clientes.nome });
+        .returning({ id: clientes.id, nome: clientes.nome, telefone: clientes.telefone });
       return { ok: true, dados: editado };
     });
 

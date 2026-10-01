@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -27,9 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { FormularioCliente, type ClienteSalvo } from "@/components/amassa/clientes/formulario-cliente";
-
-// A espera da busca enquanto se digita (05-UI-SPEC.md §"Aba Pessoas": 300 ms).
-const ESPERA_DA_BUSCA_MS = 300;
+import { useBuscaNaUrl } from "@/components/amassa/clientes/usar-busca-na-url";
 
 export type ListaClientesProps = {
   clientes: ClienteDaLista[];
@@ -59,31 +57,10 @@ function enderecoDosClientes(caminho: string, busca: string, quantos?: number): 
 export function ListaClientes({ clientes, haMais, busca, quantos }: ListaClientesProps) {
   const router = useRouter();
   const caminho = usePathname();
-  const [texto, setTexto] = useState(busca);
   const [alvo, setAlvo] = useState<AlvoDoFormulario | null>(null);
-
-  // A busca que esta tela mesma mandou para a URL — quando a URL muda por outro caminho ("Usar …
-  // que já existe", o voltar do navegador), o campo acompanha; quando é eco do que se digitou, não
-  // pisa no que a pessoa continuou digitando.
-  const ultimaEnviada = useRef(busca);
-  useEffect(() => {
-    if (busca !== ultimaEnviada.current) {
-      ultimaEnviada.current = busca;
-      setTexto(busca);
-    }
-  }, [busca]);
-
-  useEffect(() => {
-    const termo = texto.trim();
-    if (termo === ultimaEnviada.current) {
-      return;
-    }
-    const espera = window.setTimeout(() => {
-      ultimaEnviada.current = termo;
-      router.replace(enderecoDosClientes(caminho, termo), { scroll: false });
-    }, ESPERA_DA_BUSCA_MS);
-    return () => window.clearTimeout(espera);
-  }, [texto, caminho, router]);
+  const { texto, setTexto, buscarJa } = useBuscaNaUrl(busca, (termo) =>
+    router.replace(enderecoDosClientes(caminho, termo), { scroll: false }),
+  );
 
   function aoSalvar(salvo: ClienteSalvo) {
     setAlvo(null);
@@ -103,9 +80,7 @@ export function ListaClientes({ clientes, haMais, busca, quantos }: ListaCliente
         // nome (decisão do 05-04 — a UI-SPEC só define o "Usar" da Agenda e do seletor).
         aoUsarExistente={(homonimo) => {
           setAlvo(null);
-          ultimaEnviada.current = homonimo.nome;
-          setTexto(homonimo.nome);
-          router.replace(enderecoDosClientes(caminho, homonimo.nome), { scroll: false });
+          buscarJa(homonimo.nome);
         }}
       />
     );

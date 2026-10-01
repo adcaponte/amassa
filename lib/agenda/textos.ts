@@ -235,3 +235,42 @@ export const LEGENDA_TURMA_FIXA = "Turma fixa";
 export const LEGENDA_USO_LIVRE = "Uso livre";
 export const DICA_DO_MES = "Toque num dia para abrir a semana dele.";
 export const FRASE_MES_VAZIO = "Nada marcado neste mês.";
+
+// As abas da Agenda (05-UI-SPEC.md §Ações; UI-D1) — "A receber", "No site" e "Números" entram nos
+// planos 11, 15 e 14.
+export const ARIA_PARTES_DA_AGENDA = "Partes da Agenda";
+export const ROTULO_ABA_AGENDA = "Agenda";
+export const ROTULO_ABA_PESSOAS = "Pessoas";
+
+// A aba Pessoas (05-UI-SPEC.md §"Aba Pessoas", §Estados vazios; D-01). As frases do formulário, da
+// busca e do homônimo moram em `lib/clientes/textos.ts` — o cadastro é transversal.
+export const TITULO_PESSOAS = "Pessoas";
+export const ROTULO_MAIS_PESSOA = "+ Pessoa";
+export const ROTULO_ABRIR = "Abrir";
+
+export function ariaAbrirFicha(nome: string): string {
+  return `Abrir a ficha de ${nome}`;
+}
+
+export const FRASE_VAZIO_PESSOAS_TITULO = "Ninguém cadastrado ainda.";
+export const FRASE_VAZIO_PESSOAS_CORPO =
+  "Cadastre a primeira pessoa — ela aparece também em Cadastros → Clientes.";
+export const DICA_PESSOAS =
+  "É o cadastro de clientes da AMASSA — o mesmo de Cadastros → Clientes. As vendas que a Agenda cria ficam ligadas à pessoa.";
+
+// A ficha da pessoa (05-UI-SPEC.md §"Ficha da pessoa", §"Ficha da pessoa — linhas de leitura"). Os
+// quadros "A REPOR"/"A RECEBER" e as "Turmas fixas" entram nos planos 07, 08 e 11.
+export const ROTULO_SEM_TELEFONE = "sem telefone";
+export const ROTULO_EDITAR = "Editar";
+export const TITULO_ULTIMAS_VINDAS = "Últimas vindas";
+export const FRASE_AINDA_NAO_VEIO = "Ainda não veio.";
+export const TAG_VEIO = "veio";
+export const TAG_FALTOU = "faltou";
+export const FRASE_ERRO_CARREGAR_FICHA =
+  "Não deu para carregar esta ficha. Verifique a internet e tente de novo.";
+
+export function linhaDeVinda(diaMes: string, titulo: string): string {
+  return `${diaMes} · ${titulo}`;
+}
+// O título da ficha quando a leitura falhou sem que a tela soubesse quem é (link direto).
+export const TITULO_FICHA = "Ficha da pessoa";

@@ -4,7 +4,7 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientes, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
@@ -244,4 +244,43 @@ export async function lerMes(mes: string): Promise<LancamentoDoMes[]> {
       and(gte(eventos.data, primeiraCelula), lte(eventos.data, ultimaCelula), isNull(eventos.canceladoEm)),
     )
     .orderBy(asc(eventos.data), asc(eventos.inicio), asc(eventos.id));
+}
+
+// Uma linha de "Últimas vindas" da ficha da pessoa.
+export type VindaDaPessoa = {
+  inscricaoId: string;
+  data: string;
+  // Turma: o nome da turma; avulsa: o título.
+  titulo: string;
+  presenca: Presenca | null;
+};
+
+const TETO_DE_VINDAS = 8;
+
+// As últimas vindas da pessoa (05-UI-SPEC.md §"Ficha da pessoa — linhas de leitura": até 8, as mais
+// recentes primeiro): as inscrições dela em datas NÃO canceladas de hoje para trás — data futura
+// ainda não é vinda. É dado da Agenda, não do cadastro: por isso mora aqui, e não em `lib/clientes`.
+// Os usos livres ("Uso livre {h} h") entram aqui no plano 09.
+export async function ultimasVindas(clienteId: string, hoje: string): Promise<VindaDaPessoa[]> {
+  const linhas = await db
+    .select({
+      inscricaoId: inscricoes.id,
+      data: eventos.data,
+      titulo: eventos.titulo,
+      nomeDaTurma: turmas.nome,
+      presenca: inscricoes.presenca,
+    })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
+    .where(and(eq(inscricoes.clienteId, clienteId), isNull(eventos.canceladoEm), lte(eventos.data, hoje)))
+    .orderBy(desc(eventos.data), desc(eventos.inicio), asc(inscricoes.id))
+    .limit(TETO_DE_VINDAS);
+
+  return linhas.map((linha) => ({
+    inscricaoId: linha.inscricaoId,
+    data: linha.data,
+    titulo: linha.nomeDaTurma ?? linha.titulo ?? "",
+    presenca: linha.presenca,
+  }));
 }

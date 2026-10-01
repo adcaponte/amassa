@@ -1,13 +1,17 @@
+import { Suspense } from "react";
+
 import { TITULO_AGENDA } from "@/lib/agenda/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Esqueleto da Agenda no FORMATO da semana (05-UI-SPEC.md §"Estados → Carregando"): o cabeçalho
-// real, a barra de navegação ("‹ título ›" e o alternador), a fileira "+ Lançar na agenda · Hoje"
-// (52px) e 3 grupos de dia com 2 cartões de 64px cada. Trocar de semana usa este mesmo arquivo.
-// Nunca "carregando..." solto nem tela em branco (CLAUDE.md §Estados). Este arquivo não sabe a
-// vista (não recebe a URL): a semana é o padrão; a grade do MÊS espera o banco atrás do próprio
-// esqueleto (`EsqueletoDoMes`: cabeçalho dos dias + 35 células de 52px), num `Suspense` da página.
+// Esqueleto da Agenda (05-UI-SPEC.md §"Estados → Carregando"): o cabeçalho real, as ABAS REAIS (desde
+// o 05-04 — a aba marcada vem do endereço, porque este arquivo não recebe a URL) e o formato da aba
+// Agenda na vista semana: a barra de navegação ("‹ título ›" e o alternador), a fileira "+ Lançar na
+// agenda · Hoje" (52px) e 3 grupos de dia com 2 cartões de 64px cada. Trocar de semana, de mês ou de
+// aba usa este mesmo arquivo — nunca "carregando..." solto nem tela em branco (CLAUDE.md §Estados). A
+// grade do MÊS e a lista de Pessoas esperam o banco atrás do esqueleto próprio de cada uma, num
+// `Suspense` da página.
 const DIAS = [0, 1, 2] as const;
 const CARTOES = [0, 1] as const;
 
@@ -15,7 +19,13 @@ export default function CarregandoAgenda() {
   return (
     <div className="flex flex-col" aria-busy="true" data-testid="agenda-carregando">
       <CabecalhoPagina titulo={TITULO_AGENDA} />
-      <div className="flex max-w-3xl flex-col gap-4 px-6 pt-4 pb-6 md:px-8">
+      <div className="pt-4">
+        {/* `useSearchParams` dentro das abas: o `Suspense` com a forma delas evita qualquer salto. */}
+        <Suspense fallback={<AbasDaAgenda abaAtual="agenda" />}>
+          <AbasDaAgenda />
+        </Suspense>
+      </div>
+      <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-2">
             <Skeleton className="size-11 rounded-md" />

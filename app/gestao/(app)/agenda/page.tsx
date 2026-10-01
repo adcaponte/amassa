@@ -1,8 +1,17 @@
 import { Suspense } from "react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { idDaUrl, mesDaUrl, semanaDaUrl, vistaDaUrl, type VistaDaAgenda } from "@/lib/agenda/abas";
-import { lerMes, lerSemana, obterEvento } from "@/lib/agenda/consultas";
+import {
+  abaDaAgendaDaUrl,
+  buscaDaUrl,
+  idDaUrl,
+  mesDaUrl,
+  pessoaDaUrl,
+  semanaDaUrl,
+  vistaDaUrl,
+  type VistaDaAgenda,
+} from "@/lib/agenda/abas";
+import { lerMes, lerSemana, obterEvento, ultimasVindas } from "@/lib/agenda/consultas";
 import {
   agruparPorDia,
   gradeDoMes,
@@ -22,16 +31,28 @@ import {
   ROTULO_SEMANA_ANTERIOR,
   TITULO_AGENDA,
 } from "@/lib/agenda/textos";
+import { listarClientes, obterCliente, type ClienteDaLista } from "@/lib/clientes/consultas";
+import { quantosDaUrl } from "@/lib/clientes/lista";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { somarDias } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
 import { BarraDaAgenda } from "@/components/amassa/agenda/barra-da-agenda";
 import { FolhaLancar } from "@/components/amassa/agenda/folha-lancar";
 import { EsqueletoDoMes, GradeDoMes } from "@/components/amassa/agenda/grade-do-mes";
+import {
+  EsqueletoDasPessoas,
+  ListaPessoas,
+  type FichaDoServidor,
+} from "@/components/amassa/agenda/lista-pessoas";
 import { SemanaDaAgenda } from "@/components/amassa/agenda/semana-da-agenda";
 
 type ParametrosDaAgenda = {
+  aba?: string | string[];
+  busca?: string | string[];
+  quantos?: string | string[];
+  pessoa?: string | string[];
   vista?: string | string[];
   semana?: string | string[];
   mes?: string | string[];
@@ -50,7 +71,9 @@ function urlDaAgenda(consulta: string): string {
 // `lib/agenda/abas.ts`, parâmetro estranho cai no padrão, nunca em erro): `?vista=semana|mes`,
 // `?semana=` (qualquer dia; vira a segunda dela), `?mes=AAAA-MM`, `?evento=` (a folha aberta).
 // `?lancar=1&dia=` (a folha "Lançar na agenda") é lido pelo cliente (`FolhaLancar`), que abre e
-// fecha por `pushState`. As abas chegam nos planos seguintes.
+// fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês) ou
+// "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta). "A receber", "Números" e "No site"
+// entram nos planos 11, 14 e 15.
 export default async function PaginaAgenda({
   searchParams,
 }: {
@@ -59,21 +82,80 @@ export default async function PaginaAgenda({
   await exigirUsuario();
   const hoje = hojeEmBrasilia(new Date());
   const parametros = await searchParams;
+  const aba = abaDaAgendaDaUrl(parametros.aba);
   const vista = vistaDaUrl(parametros.vista);
 
   return (
     <>
       <CabecalhoPagina titulo={TITULO_AGENDA} />
-      <div className="flex max-w-3xl flex-col gap-4 px-6 pt-4 pb-6 md:px-8">
-        {vista === "mes" ? (
-          <VistaDoMes mes={mesDaUrl(parametros.mes, hoje)} hoje={hoje} />
+      {/* As abas 16px abaixo do cabeçalho; o conteúdo da aba 24px abaixo delas (05-UI-SPEC.md
+          §"Página /gestao/agenda"). */}
+      <div className="pt-4">
+        <AbasDaAgenda abaAtual={aba} />
+      </div>
+      <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
+        {aba === "pessoas" ? (
+          // A lista de Pessoas espera o banco atrás do esqueleto DELA (busca + 6 linhas). Sem `key`
+          // da busca: digitar não troca a lista pelo esqueleto nem tira o foco do campo.
+          <Suspense fallback={<EsqueletoDasPessoas />}>
+            <PessoasCarregadas
+              busca={buscaDaUrl(parametros.busca)}
+              quantos={quantosDaUrl(parametros.quantos)}
+              idDaPessoa={pessoaDaUrl(parametros.pessoa)}
+              hoje={hoje}
+            />
+          </Suspense>
         ) : (
-          <VistaDaSemana parametros={parametros} hoje={hoje} />
+          <>
+            {vista === "mes" ? (
+              <VistaDoMes mes={mesDaUrl(parametros.mes, hoje)} hoje={hoje} />
+            ) : (
+              <VistaDaSemana parametros={parametros} hoje={hoje} />
+            )}
+            <FolhaLancar hoje={hoje} />
+          </>
         )}
-        <FolhaLancar hoje={hoje} />
       </div>
     </>
   );
+}
+
+// A aba Pessoas (AGE-06): o cadastro de clientes (D-01), lido por `lib/clientes` — o mesmo de
+// Cadastros → Clientes. A lista que falha cai no `error.tsx` da página (UI E12·error); a FICHA que
+// falha mostra o erro dentro da folha (UI E13·error), por isso tem `try` próprio.
+async function PessoasCarregadas({
+  busca,
+  quantos,
+  idDaPessoa,
+  hoje,
+}: {
+  busca: string;
+  quantos: number;
+  idDaPessoa: string | null;
+  hoje: string;
+}) {
+  const [lista, ficha] = await Promise.all([listarClientes({ busca, quantos }), lerFicha(idDaPessoa, hoje)]);
+  return (
+    <ListaPessoas pessoas={lista.clientes} haMais={lista.haMais} busca={busca} quantos={quantos} ficha={ficha} />
+  );
+}
+
+async function lerFicha(id: string | null, hoje: string): Promise<FichaDoServidor> {
+  if (id === null) {
+    return { estado: "nenhuma" };
+  }
+  let pessoa: ClienteDaLista | null = null;
+  try {
+    pessoa = await obterCliente(id);
+    if (pessoa === null) {
+      return { estado: "inexistente", id };
+    }
+    const vindas = await ultimasVindas(id, hoje);
+    return { estado: "carregada", pessoa, conteudo: { vindas } };
+  } catch (erro) {
+    console.error("Falha ao carregar a ficha da pessoa:", erro);
+    return { estado: "erro", id, pessoa };
+  }
 }
 
 // O endereço de cada vista para o alternador: a semana leva ao mês dela (o de hoje, quando ela

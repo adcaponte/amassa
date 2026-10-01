@@ -1,7 +1,7 @@
 // Módulo puro da Agenda — o que a URL de `/gestao/agenda` pode pedir. Só imports de módulos puros;
 // nenhuma linha alcança React, Next, drizzle-orm, pg ou `@/db`. Parâmetro desconhecido, forjado ou
-// repetido cai no padrão — nunca em erro (UI E1·error). As abas (`?aba=`) chegam nos planos
-// seguintes, aqui mesmo.
+// repetido cai no padrão — nunca em erro (UI E1·error).
+import { buscaDaUrl as buscaDoCadastroDaUrl } from "@/lib/clientes/lista";
 import { ehDataCivil } from "@/lib/producao/calendario";
 
 import { segundaDaSemana } from "./semana";
@@ -51,4 +51,25 @@ export function mesDaUrl(valor: ValorDaUrl, hoje: string): string {
     return valor;
   }
   return hoje.slice(0, 7);
+}
+
+// As abas da Agenda (05-UI-SPEC.md §Rotas; UI-D1). Nesta etapa existem "agenda" (a semana/o mês,
+// padrão) e "pessoas" (o cadastro de clientes, D-01). "receber", "numeros" e "site" entram nos
+// planos 11, 14 e 15 — cada uma com a sua tela inteira; até lá caem no padrão.
+export const ABAS_DA_AGENDA = ["agenda", "pessoas"] as const;
+export type AbaDaAgenda = (typeof ABAS_DA_AGENDA)[number];
+
+export function abaDaAgendaDaUrl(valor: ValorDaUrl): AbaDaAgenda {
+  return valor === "pessoas" ? "pessoas" : "agenda";
+}
+
+// `?busca=` (aba Pessoas) — o mesmo normalizador de Cadastros → Clientes: aparado, até 160 caracteres;
+// lista repetida ou nada → "".
+export function buscaDaUrl(valor: ValorDaUrl): string {
+  return buscaDoCadastroDaUrl(valor);
+}
+
+// `?pessoa=` — a ficha da pessoa aberta (UI-D8). Só um uuid; qualquer outra coisa é `null`.
+export function pessoaDaUrl(valor: ValorDaUrl): string | null {
+  return idDaUrl(valor);
 }
