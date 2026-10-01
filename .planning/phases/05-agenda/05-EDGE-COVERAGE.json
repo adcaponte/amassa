@@ -1,0 +1,886 @@
+{
+  "items": [
+    {
+      "requirement_id": "AGE-01",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O botão de gravar da folha \"Lançar na agenda\" fica desabilitado enquanto a ação grava; um segundo toque durante a gravação não cria um segundo lançamento.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-01",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores lançando ao mesmo tempo criam dois lançamentos independentes; não existe trava nem aviso de sobreposição entre eventos (briefing §2.8).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-02",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois eventos no mesmo dia com o mesmo horário aparecem os dois, cada um com seu cartão; nenhum é fundido nem escondido.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-02",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dia sem lançamento mostra \"nada marcado\" na semana; mês sem lançamento mostra a grade sem pontos; nunca tela em branco.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-02",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Na semana, os eventos de cada dia vêm em ordem de hora de início, com desempate estável (tipo e depois id): a ordem não muda entre recarregamentos.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "\"Marcar quantas semanas\" aceita de 1 a 52 (padrão 8) e \"Mensalidade vence dia\" de 1 a 28; 0, 53, 29 e vazio são recusados pelo Zod no servidor com frase humana.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "\"Marcar mais N semanas\" começa na semana seguinte à última data existente da turma; a última data não é marcada de novo.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Turma sem aluno é válida: as datas existem com \"Ninguém inscrito ainda.\" e nenhuma mensalidade nasce para ela.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "As datas geradas são uma por semana, no dia da semana da turma, a partir de \"Primeira aula a partir de\" (UI-D10), em ordem de calendário.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "As datas são `date` civis calculadas no fuso America/Sao_Paulo e o horário é hora local sem segundos (Pitfall 9 da pesquisa): nenhuma data escorrega de dia por fuso.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Estender duas vezes seguidas não duplica data: a combinação turma + data é única no banco e a violação (23505, lida em `erro.cause.code`) é tratada como data já marcada.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-03",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores estendendo a mesma turma ao mesmo tempo terminam com cada data uma vez só — a garantia é a chave única, nunca uma leitura prévia de \"já existe?\".",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-04",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Cancelar uma data não altera a data da semana anterior nem a da seguinte da mesma turma.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-04",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Cancelar uma data sem inscritos funciona e só risca a data.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-04",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A data cancelada continua no lugar dela na semana, riscada e com a etiqueta \"cancelada\".",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-04",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Cancelar uma data já cancelada, ou desfazer um cancelamento já desfeito, não muda nada e não dá erro: a ação grava o estado desejado, nunca \"inverte\" (Pattern 2 da pesquisa).",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-04",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Se um gestor cancela a data enquanto outro marca presença nela, o estado final é coerente: data cancelada pelo ateliê nunca conta falta e não gera crédito de reposição.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-05",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Remover uma reserva ou um bloqueio que já foi removido responde com frase humana (\"Isso já tinha sido removido.\") e não com erro técnico.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-05",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Remover uma reserva enquanto outro gestor marca \"Chegou\" nela: o servidor recusa a remoção de uso livre já iniciado, conferindo o estado na própria instrução de escrita.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-06",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois clientes com o mesmo nome (homônimos, D-16) aparecem os dois na lista e no seletor, distinguidos pelo telefone; nenhum é fundido.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-06",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Busca sem resultado mostra \"Ninguém com esse nome.\"; cadastro vazio mostra o estado vazio com \"+ Pessoa\"; nome só com espaços é recusado no servidor.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-06",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Busca e aviso de homônimo comparam o nome normalizado — sem acento, sem diferença de maiúscula, espaços colapsados: \"joao\" acha \"João\".",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "AGE-06",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A lista de pessoas vem em ordem alfabética pelo nome normalizado, com desempate pelo id, 50 por vez (UI-D23).",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-06",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O botão de salvar pessoa fica desabilitado enquanto grava: um duplo toque não cria duas pessoas.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-06",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores cadastrando a mesma pessoa ao mesmo tempo podem criar dois registros — homônimos são permitidos (D-16); o aviso de homônimo aparece para quem cadastrar depois.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Entrar antes da primeira aula do mês gera a mensalidade cheia; entrar quando não resta nenhuma aula da turma no mês não gera mensalidade do mês corrente (o proporcional daria R$ 0).",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A aula de hoje conta como restante ao entrar (data ≥ hoje, como no protótipo); ao sair, a pessoa sai só das datas depois de hoje (data > hoje) e o que já aconteceu fica.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Turma sem nenhuma data no mês corrente: entrar não gera mensalidade do mês e o cálculo não divide por zero.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Ao entrar, a pessoa é inscrita em todas as datas futuras não canceladas da turma, inclusive as criadas depois por \"Marcar mais N semanas\" (Pitfall 5 da pesquisa).",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Proporcional = valor × aulas restantes ÷ aulas da turma no mês, em centavos inteiros, arredondado ao centavo com meio para cima (ex.: 32000 × 3 ÷ 4 = 24000; 10000 × 1 ÷ 3 = 3333); módulo puro testado.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Entrar duas vezes na mesma turma não duplica inscrição nem mensalidade: chaves únicas (data + cliente) e (turma + cliente + mês).",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-07",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Entrar na turma ao mesmo tempo em que outro gestor estende a turma: as datas novas também recebem o aluno ativo (Pitfall 5).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-08",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Tocar de novo na marcação atual desmarca; a ação grava o estado desejado enviado (veio · faltou · nada), então reenviar o mesmo pedido não inverte a marcação (Pattern 2).",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-08",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois celulares marcando a mesma pessoa: o último a gravar vence; a marcação otimista (UI-D11) se corrige com a resposta; cada pessoa tem uma marcação só por data.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-09",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Crédito de reposição nunca fica negativo: com 0 crédito a pessoa não aparece em \"Tem aula a repor\" e o servidor recusa colocá-la como reposição.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-09",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Crédito é inteiro e derivado das linhas (faltas com direito − reposições usadas), nunca um contador gravado à parte (Pattern 3 da pesquisa).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-09",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Marcar \"tem direito a repor\" duas vezes vale 1 crédito; tirar a falta (voltar a nada ou trocar para \"Veio\") remove o direito daquela data.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-09",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois celulares usando o último crédito da mesma pessoa em datas diferentes: só uma reposição é aceita (Pitfall 7 da pesquisa); a outra recebe frase humana dizendo que não há aula a repor.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-10",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Quem já está na lista daquela data não aparece no seletor \"Colocar alguém\".",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-10",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Sem ninguém com aula a repor, o grupo \"Tem aula a repor\" não aparece; busca sem resultado mostra só \"Cadastrar {nome}\" (UI-D5).",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-10",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "No seletor, \"Tem aula a repor\" vem primeiro; depois as demais pessoas em ordem alfabética.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-10",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Colocar a mesma pessoa duas vezes na mesma data é recusado: inscrição única por data + cliente.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-10",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores colocando a mesma pessoa na mesma data ao mesmo tempo terminam com uma inscrição só.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-11",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Com inscritos = vagas a folha mostra \"{n} de {vagas}\" e o aviso de lista cheia; colocar a pessoa seguinte avisa e grava (não bloqueia); vagas mínimas = 1.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-11",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Na lista da data, n conta todas as inscrições daquela data — alunos, reposições e experimentais (o site usa outra conta em \"Próximas\", D-12).",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-11",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Data sem inscritos mostra \"0 de {vagas}\" e \"Ninguém inscrito ainda.\".",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-11",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "backstop",
+      "resolution": "Abrir a lista \"Quem vem\" de uma data com 8 pessoas (alunos, uma reposição, uma experimental), recarregar duas vezes e conferir que a ordem não muda e segue a regra escrita no UI-SPEC/plano.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-11",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Não existe conta de ocupação do espaço nem soma de lugares entre eventos (briefing §2.8; decisão do dono de 29/09).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-12",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Oficina exige vagas ≥ 1 e preço por pessoa ≥ R$ 0,00; fim depois do começo (\"O fim precisa ser depois do começo.\").",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-12",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Preço digitado em reais com vírgula vira centavos inteiros sem ponto flutuante (\"120,50\" → 12050).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-12",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Inscrição na oficina é única por evento + cliente.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-12",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Inscrições simultâneas na mesma oficina são todas aceitas (lista cheia avisa e não bloqueia, AGE-11) e nenhuma pessoa fica inscrita duas vezes.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-13",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Horas cheias: 1 min = 1 h; 60 min = 1 h; 61 min = 2 h; saída igual ou antes da chegada é recusada (\"A saída precisa ser depois da chegada.\").",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-13",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Horas cheias = teto(minutos ÷ 60) em aritmética inteira de minutos; valor = horas cheias × pessoas × preço da hora + Σ material cobrado, em centavos — pessoas multiplica uma vez só (nota do AGE-13).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-13",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Encerrar um uso já encerrado é recusado com frase humana; \"Chegou\" num uso já iniciado não muda a hora de chegada.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-13",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores encerrando o mesmo uso: só um encerramento grava (transição condicionada ao estado na própria instrução) e as saídas do material não se duplicam.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Quantidade de material > 0 com até 3 casas decimais (milésimos); 0 ou negativa é recusada; saldo insuficiente segue exatamente a regra da saída manual do Estoque (Fase 6) — nenhuma regra nova de saldo nesta fase.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O mesmo material em duas linhas do mesmo uso vira duas saídas, cada uma com o vínculo ao uso livre; o \"Para onde foi\" do Estoque mostra o destino \"Uso livre do espaço\" (Pitfall 4).",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Encerrar um uso sem material não cria nenhuma saída de estoque.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "As saídas são gravadas na mesma transação do encerramento; se uma falhar, nada é gravado — nem o encerramento.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Quantidade em milésimos inteiros; custo médio do momento calculado como na saída manual do Estoque; preço cobrado congelado em centavos na linha do material (D-14).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Um uso só se encerra uma vez, então as saídas do material nunca são gravadas duas vezes.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-14",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Encerramentos simultâneos do mesmo uso resultam em uma única leva de saídas (mesma garantia do encerramento, AGE-13).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Cobrança de valor R$ 0 não aparece em \"A receber\" (experimental gratuita, proporcional zero).",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A mesma pessoa com mensalidade e inscrição no mesmo mês tem duas linhas em \"A receber\" e gera duas vendas — nunca fundidas automaticamente.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "\"A receber\" sem pendência mostra \"Ninguém devendo.\" (ou a copy do Copywriting Contract).",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "\"A receber\" vem ordenado por vencimento — mensalidade pelo dia de vencimento da turma, inscrição e uso livre pela data do evento —, com desempate pelo nome.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A venda criada leva o valor da cobrança em centavos, sem desconto automático; a taxa do cartão segue a regra que o Financeiro já aplica.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Uma cobrança vira no máximo uma venda ativa: tocar \"Recebi agora\" duas vezes, ou lançar pela Venda duas vezes, não cria duas vendas (Pitfall 8).",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-15",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores tocando \"Recebi agora\" na mesma cobrança: nasce uma venda; o outro recebe frase humana dizendo que ela já virou a venda nº N.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Recebe a mensalidade do mês todo aluno ativo na turma no momento da abertura da tela naquele mês; a parcela vence no dia de vencimento da turma (1–28) dentro do mês da mensalidade.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Na virada do mês, abrir a tela no dia 1 faz nascer as mensalidades do mês novo; as do mês anterior ainda não lançadas continuam em \"A receber\".",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Sem turma ativa ou sem aluno, nenhuma mensalidade nasce e a sanfona do lote não aparece.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O lote lista as mensalidades por turma e nome; o total do botão é a soma exata das linhas.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O total do lote em centavos é a soma das mensalidades, proporcionais incluídas.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Abrir a tela duas vezes, ou em dois celulares, não duplica mensalidade: chave única (turma + cliente + mês) com `on conflict do nothing` (D-02); o lote não cria venda para mensalidade já lançada.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-16",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores tocando \"Lançar estas {N} na Venda\" ao mesmo tempo: cada mensalidade vira uma venda só.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-17",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Se o item \"Uso livre (hora)\" não tiver preço de venda, encerrar um uso livre mostra frase humana dizendo onde cadastrar o preço em Cadastros, e nada é cobrado com valor inventado.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-17",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A Agenda acha os três itens pela chave estável (D-17), nunca pelo nome: renomear \"Mensalidade\" em Cadastros não quebra a Agenda.",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "AGE-17",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A migração semeia os três itens uma vez só (chave única); aplicar de novo não duplica.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-17",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Desativar ou tirar da venda um item do sistema é recusado pelo banco (gatilho), venha a tentativa de qualquer tela.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Vagas restantes: 3 ou mais → \"{n} vagas\"; 2 → \"últimas 2 vagas\"; 1 → \"última vaga\"; 0 ou menos → \"esgotado\" e \"Reservar pelo WhatsApp\" some (como o protótipo).",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Evento de hoje aparece no site o dia inteiro (critério \"de hoje em diante\" por data); dia fechado aparece como fechado, sem o motivo.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Sem evento público marcado, a seção mostra os três cartões de texto da 04.6 (D-11), nunca um calendário vazio.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Nenhum nome de pessoa nem telefone de cliente chega ao HTML público — nem em atributo nem em JSON embutido: a consulta do site não seleciona coluna de pessoa.",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "\"Próximas\" vem em ordem de data e hora; a turma fixa aparece uma vez só, na posição da sua próxima data.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O preço do cartão é formatado em reais pt-BR a partir de centavos (\"R$ 320,00 por mês\", \"R$ 120,00 por pessoa\", D-10); em \"Próximas\", vagas da turma = vagas − alunos ativos (D-12).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-18",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O site reflete uma mudança de evento público em até 5 minutos (cache com revalidação) ou na hora quando a ação da Agenda pede a revalidação; com o banco fora do ar, a seção cai no estado \"sem Agenda\" sem erro.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "AGE-19",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "No dia 1, \"do mês até hoje\" conta só o dia 1; os eventos de hoje contam.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-19",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O intervalo é do dia 1 do mês até hoje no fuso do ateliê, em meses de 28 a 31 dias.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "AGE-19",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Mês sem nenhuma marcação: presença mostra \"—\" (UI-D22), horas 0, a repor 0, pessoas 0.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "AGE-19",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "As barras por dia da semana vêm de segunda a domingo.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "AGE-19",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Presença % = veio ÷ marcadas, arredondada ao inteiro com meio para cima; horas-pessoa somam horas cheias × pessoas do uso livre e as horas da aula por pessoa presente.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-20",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dinheiro em centavos inteiros e quantidade em milésimos inteiros, dentro dos intervalos das colunas existentes; o módulo `lib/agenda/` recusa entrada fora do intervalo com erro de dado.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "AGE-20",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Nenhum número de ponto flutuante em dinheiro: o módulo puro trabalha com inteiros e os testes cobrem os arredondamentos do proporcional e do valor da aula (D-07).",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "AGE-20",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Cancelar evento ou inscrição não apaga venda nem movimentação de estoque; cancelar de novo não faz nada.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "AGE-20",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Apagar um uso livre que já gerou baixa de estoque é impedido pelo banco (chave estrangeira, 23503 lida em `erro.cause.code`) e a tela mostra frase humana.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    }
+  ],
+  "coverage": {
+    "applicable": 97,
+    "resolved": 97,
+    "unresolved": 0,
+    "byVerification": {
+      "explicit": 96,
+      "backstop": 1
+    }
+  }
+}

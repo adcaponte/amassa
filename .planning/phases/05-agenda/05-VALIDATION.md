@@ -81,6 +81,43 @@ Requirement → test map from the research; the planner assigns Task IDs and wav
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
+### Onde cada linha aterrissa nos planos (planejador, 01/10/2026)
+
+Os nomes de `--grep` da tabela acima eram a proposta da pesquisa; **valem os dos planos** (nomes escolhidos
+para nenhum `--grep` pegar o spec de outro plano por acidente — “agenda lancar” pegaria “agenda lancar na
+venda”):
+
+| Linha | Plano · tarefa | `--grep` / comando real |
+|---|---|---|
+| AGE-01 | 05-03 T1; 05-06 T2; 05-09 T2 | `agenda lancamento`; `agenda turma`; `agenda uso livre` |
+| AGE-02 | 05-01 T2; 05-03 T3 | `agenda tracador`; `agenda vistas` |
+| AGE-03 / D-03 | 05-06 T1-T3 | `tests/unit/agenda-turma.test.ts`; `agenda turma` |
+| AGE-04 | 05-03 T2; 05-08 T3 | `agenda cancelamento`; `agenda presenca` |
+| AGE-05 | 05-02 T1; 05-03 T2; 05-09 T2 | `test:migracoes`; `agenda cancelamento`; `agenda uso livre` |
+| AGE-06 / D-01 / D-16 | 05-04 T1-T2; 05-07 T2; 05-13 T2 | `cadastros clientes`; `agenda pessoas`; `agenda entrar na turma`; `agenda pagamento` |
+| AGE-07 / D-02 | 05-07 T1-T3 | `tests/unit/agenda-mensalidade.test.ts`; `agenda entrar na turma` |
+| AGE-08 | 05-01 T2; 05-08 T3; 05-14 T2 | `agenda tracador`; `agenda presenca`; `inicio` |
+| AGE-09 | 05-08 T1-T2 | `tests/unit/agenda-reposicao.test.ts`; `agenda reposicao` |
+| AGE-10 / D-07 | 05-05 T2; 05-08 T2-T3 | `agenda colocar`; `agenda reposicao`; `agenda presenca` |
+| AGE-11 | 05-05 T2; 05-08 T3 | `tests/unit/agenda-vagas.test.ts`; `agenda colocar`; `agenda presenca` |
+| AGE-12 | 05-03 T1; 05-05 T2 | `agenda lancamento`; `agenda colocar` |
+| AGE-13 / D-18 | 05-09 T1-T3 | `tests/unit/agenda-uso-livre.test.ts`; `agenda uso livre` |
+| AGE-14 / D-06 / D-14 | 05-01 T1; 05-10 T1-T2 | `tests/unit/agenda-paridade.test.ts`, `tests/unit/estoque-pedidos.test.ts`; `agenda material` |
+| AGE-15 / D-08 | 05-11 T1-T3; 05-12 T1-T2; 05-13 T2-T3 | `financeiro venda|financeiro tracador`; `agenda receber`; `agenda venda preenchida`; `agenda pagamento`; `agenda venda cancelada` |
+| AGE-16 | 05-07 T3; 05-12 T3 | `agenda entrar na turma`; `agenda mensalidades lote` |
+| AGE-17 / D-04 / D-17 | 05-02 T1-T2; 05-09 T2-T3 | `test:migracoes`; `cadastros itens da agenda`; `agenda uso livre` |
+| AGE-18 / D-10 / D-11 / D-12 | 05-15 T1-T3 | `tests/unit/agenda-publico.test.ts`; `site agenda|site secoes`; `agenda no site`; `npm run test:site-sem-banco` |
+| AGE-19 | 05-14 T1, T3 | `tests/unit/agenda-numeros.test.ts`; `agenda numeros` |
+| AGE-20 | 05-01 T1-T2; 05-02 T1; 05-07 T1; 05-13 T3 | pureza por leitura; `test:migracoes`; `agenda venda cancelada` |
+| D-05 / D-18 | 05-14 T1-T2 | `tests/unit/agenda-espaco.test.ts`; `inicio` |
+| D-09 | 05-13 T1 | `agenda dispensar` |
+| D-13 | 05-03 T1; 05-06 T2; 05-08 T3; 05-09 T2 | `agenda lancamento`; `agenda turma`; `agenda presenca`; `agenda uso livre` |
+| Valor central | 05-08 T3 (medição automática); 05-16 T3 (humana) | `agenda presenca`; caminhada |
+| Migração aplicada (D-15) | 05-16 T1, T3 | `agenda saude`; Roteiro 17 |
+
+Varredura completa sem `--grep` e `test:site-sem-banco`: só no 05-16 T2 (o `test:site-sem-banco` também roda
+no 05-15 T2, que muda a raiz).
+
 ---
 
 ## Wave 0 Requirements

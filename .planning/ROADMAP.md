@@ -751,7 +751,31 @@ público), Phase 6 (movimentações de estoque).
   8. O site mostra só aulas e oficinas públicas e não canceladas, com vagas restantes e "Reservar pelo WhatsApp", sem nome de ninguém
   9. Cancelar nunca apaga: fica riscado; venda e movimentação de estoque já geradas nunca são apagadas pela Agenda
 
-**Plans**: TBD
+**Plans**: 16 plans
+
+16 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
+projeto não usa worktrees — como nas Fases 06 e 06.1). Planejados em 01/10/2026, depois da pesquisa, das
+respostas do dono às dez perguntas dela (D-08..D-18), do UI-SPEC e do mapa de padrões. 🔴 O código vive no
+branch `gsd/phase-05-agenda`, fora de `main`, até o portão (plano 16); código e migração `0026` saem numa
+publicação só e o dono migra logo depois do `implantar` (D-15). Nada executado, nada publicado.
+
+- [ ] 05-01-PLAN.md — O banco inteiro da fase na `0026` (D-01 ao lado de `pessoa_nome`, enum em texto da D-06, D-09, D-14, D-17), o branch e `TABELAS_ESPERADAS`; depois o traçador: uma oficina na semana, a lista de quem vem, “Veio” em um toque (onda 1)
+- [ ] 05-02-PLAN.md — Cada invariante da `0026` provada no Postgres efêmero; os três itens “do sistema” em Cadastros, com o preço da hora cadastrável (onda 2)
+- [ ] 05-03-PLAN.md — Lançar aula avulsa e dia fechado (aviso da D-13), cancelar/desfazer data, tirar bloqueio; semana e mês (onda 3)
+- [ ] 05-04-PLAN.md — O cadastro de clientes (D-01, D-16) em Cadastros → Clientes e na aba Pessoas, com a ficha (onda 4)
+- [ ] 05-05-PLAN.md — O seletor de pessoa; colocar alguém numa oficina, lista cheia que só avisa, tirar da lista com a regra da D-08 (onda 5)
+- [ ] 05-06-PLAN.md — Turma fixa com N semanas e a folha da turma (D-03): editar, marcar mais, desativar (onda 6)
+- [ ] 05-07-PLAN.md — Entrar e sair da turma pela ficha, mensalidade proporcional, e a mensalidade que nasce ao abrir (D-02) (onda 7)
+- [ ] 05-08-PLAN.md — Presença da turma inteira, direito a repor e reposição sob trava, experimental cobrada ou gratuita (D-07) (onda 8)
+- [ ] 05-09-PLAN.md — Uso livre: reservar, chegou, cancelar reserva, encerrar por hora cheia; o esquecido de ontem (D-18) (onda 9)
+- [ ] 05-10-PLAN.md — Material do uso livre: baixa no Estoque com destino próprio e vínculo (D-06), cobrar só com preço (D-14) (onda 10)
+- [ ] 05-11-PLAN.md — `gravarVenda` extraído; “A receber” e “Recebi agora”; “pago” derivado e a venda cancelada que volta a “A receber” (D-08) (onda 11)
+- [ ] 05-12-PLAN.md — “Lançar na Venda” preenchido pela Agenda e o lote de mensalidades (onda 12)
+- [ ] 05-13-PLAN.md — Dispensar (D-09); o pagamento nas telas da Agenda, com Pessoas garantindo a mensalidade do mês (D-02); o ciclo da venda cancelada com o Caixa real; nada da Agenda apaga venda ou movimentação (onda 13)
+- [ ] 05-14-PLAN.md — O Início lê a Agenda e conta quem está no espaço (D-05, D-18); a aba Números (onda 14)
+- [ ] 05-15-PLAN.md — O calendário público do site por ISR, com preço, vagas e WhatsApp, sem nome de ninguém (D-10..D-12); a aba “No site” (onda 15)
+- [ ] 05-16-PLAN.md — Portão: `/api/health/agenda`, Roteiro 17 na ordem da D-15, a varredura completa e o site sem banco, documentos de estado e o passo do dono (onda 16, **não autônomo**)
+
 **UI hint**: yes
 
 #### Registro: a Fase 5 até 01/10/2026 (modelo antigo, nunca executado)
