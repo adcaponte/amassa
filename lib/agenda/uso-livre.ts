@@ -106,3 +106,33 @@ export function sugestaoDeSaida(
 ): string {
   return uso.data === agora.data ? horaDe(agora.minutos) : uso.saidaPrevista;
 }
+
+// Uma linha do "Material usado" para a conta (AGE-14, D-14): se cobra, se já saiu do Estoque, a
+// quantidade, o preço de venda de AGORA e o valor CONGELADO no encerramento.
+export type LinhaDeMaterialNaConta = {
+  cobrar: boolean;
+  baixado: boolean;
+  quantidadeMilesimos: number;
+  precoVendaAtualCentavos: number | null;
+  valorCentavos: number | null;
+};
+
+// O valor de uma linha: o CONGELADO numa linha já baixada; antes, a prévia com o preço de venda de
+// agora (o encerramento congela o daquele momento). `null` = incluso, ou cobrado sem preço (o
+// encerramento recusa e diz onde cadastrar).
+export function valorDaLinhaDeMaterial(linha: LinhaDeMaterialNaConta): number | null {
+  if (!linha.cobrar) {
+    return null;
+  }
+  if (linha.baixado) {
+    return linha.valorCentavos;
+  }
+  return linha.precoVendaAtualCentavos === null
+    ? null
+    : valorDoMaterial(linha.quantidadeMilesimos, linha.precoVendaAtualCentavos);
+}
+
+// Σ do material cobrado — a linha "Material cobrado" da conta e o que o "Valor" soma às horas.
+export function materialCobradoDaLista(linhas: readonly LinhaDeMaterialNaConta[]): number {
+  return linhas.reduce((soma, linha) => soma + (valorDaLinhaDeMaterial(linha) ?? 0), 0);
+}

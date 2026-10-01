@@ -2,13 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, eq, gt, isNotNull, isNull, max, or } from "drizzle-orm";
+import { and, asc, eq, gt, isNotNull, isNull, max, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, eventos, inscricoes, mensalidades, turmaAlunos, turmas, usosLivres } from "@/db/schema";
+import {
+  clientes,
+  eventos,
+  inscricoes,
+  itensCatalogo,
+  mensalidades,
+  turmaAlunos,
+  turmas,
+  usosLivres,
+  usosLivresMaterial,
+} from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
+import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
@@ -24,12 +35,14 @@ import {
   type PessoasParaData,
 } from "./consultas";
 import {
+  esquemaAcrescentarMaterial,
   esquemaBuscarPessoas,
   esquemaCancelarData,
   esquemaCancelarReserva,
   esquemaColocarNaData,
   esquemaConferirDia,
   esquemaCorrigirChegada,
+  esquemaDefinirCobrancaDoMaterial,
   esquemaDefinirDireitoARepor,
   esquemaDefinirPresenca,
   esquemaDesativarTurma,
@@ -45,9 +58,11 @@ import {
   esquemaSairDaTurma,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
+  esquemaTirarMaterial,
   type ModoDeColocar,
 } from "./esquemas";
 import {
+  baixarMaterialDoUso,
   contarPerdasAoCancelar,
   eventoDaInscricao,
   garantirMensalidadesDoMes,
@@ -66,7 +81,9 @@ import {
   travarTurma,
   travarUsoLivre,
   vendaAtivaEmDataFutura,
+  type MaterialBaixado,
   type PerdasAoCancelar,
+  type TransacaoDoBanco,
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
@@ -114,6 +131,12 @@ import {
   FRASE_USO_AINDA_NAO_COMECOU,
   FRASE_USO_COM_MATERIAL_BAIXADO,
   FRASE_USO_JA_ENCERRADO,
+  FRASE_FALHA_AO_ACRESCENTAR_MATERIAL,
+  FRASE_FALHA_AO_MUDAR_COBRANCA,
+  FRASE_FALHA_AO_TIRAR_MATERIAL,
+  FRASE_MATERIAL_SEM_PRECO,
+  fraseMaterialDesativadoNoUso,
+  SUFIXO_MATERIAL_DESATIVADO,
 } from "./textos";
 
 // Mesma forma de `lib/producao/acoes.ts` — cada módulo redeclara, não há tipo compartilhado.
@@ -1373,21 +1396,33 @@ export async function cancelarReserva(entradaBruta: unknown): Promise<ResultadoD
   return { ok: true, dados: removido };
 }
 
-export type UsoEncerrado = { horasCheias: number; valorCentavos: number; precoHoraCentavos: number };
+export type UsoEncerrado = {
+  horasCheias: number;
+  valorCentavos: number;
+  precoHoraCentavos: number;
+  // Plano 10: Σ do material cobrado (já dentro do valor) e quantas linhas saíram do Estoque.
+  materialCobradoCentavos: number;
+  materiaisBaixados: number;
+};
 
-// "Encerrar e cobrar" (AGE-13, AGE-17), sem material nesta etapa (o material e a baixa no Estoque são
-// o plano 10). `exigirUsuario()` primeiro (T-05-41); Zod ("HH:MM", saída depois da chegada). NUMA
-// transação, sob a trava do USO (`travarUsoLivre`, `for no key update` — T-05-44: dois gestores
-// encerrando o mesmo uso se serializam aqui e o segundo lê `encerrado`):
+// "Encerrar e cobrar" (AGE-13, AGE-14, AGE-17). `exigirUsuario()` primeiro (T-05-41, T-05-46); Zod
+// ("HH:MM", saída depois da chegada). NUMA transação, sob a trava do USO (`travarUsoLivre`, `for no key
+// update` — T-05-44, T-05-48: dois gestores encerrando o mesmo uso se serializam aqui e o segundo lê
+// `encerrado`, então as saídas do material nunca são gravadas duas vezes):
 // - o uso tem de estar `no_espaco` — encerrado → "Este uso livre já foi encerrado…" (a tela atualiza);
 // - o preço da hora é lido AGORA, pela CHAVE do item "Uso livre (hora)" (`obterItensDoSistema(tx)` —
 //   D-04, D-17), e sem preço nada é cobrado com valor inventado: a frase diz onde cadastrar;
-// - `horas_cheias = teto(minutos ÷ 60)` e `valor = horas cheias × pessoas × preço da hora` pelo módulo
-//   puro (pessoas multiplica UMA vez — nota do AGE-13), e o preço fica CONGELADO em
-//   `preco_hora_centavos` (mudar o Catálogo depois não muda o que já foi encerrado — T-05-42);
-// - o `update` ainda confere `estado = 'no_espaco'` na própria instrução.
+// - `horas_cheias = teto(minutos ÷ 60)` pelo módulo puro;
+// - o MATERIAL (plano 10, D-06/D-14): as linhas do uso são lidas sob a mesma trava e
+//   `baixarMaterialDoUso` grava UMA saída por linha — cobrada ou inclusa — pela porta única do livro
+//   (ordem USO LIVRE → ITENS), congela o preço de venda de agora no cobrado e devolve o valor dele;
+// - `valor = horas cheias × pessoas × preço da hora + Σ material cobrado` (pessoas multiplica UMA vez),
+//   e o preço da hora fica CONGELADO em `preco_hora_centavos` (T-05-42);
+// - o `update` ainda confere `estado = 'no_espaco'` na própria instrução, e cada linha de material
+//   ganha a sua `movimentacao_id` (única — uma linha vira no máximo uma saída).
+// Se qualquer passo falhar, NADA é gravado — nem o encerramento, nem a baixa.
 export async function encerrarUsoLivre(entradaBruta: unknown): Promise<ResultadoDoLancamento<UsoEncerrado>> {
-  await exigirUsuario();
+  const usuario = await exigirUsuario();
 
   const resultado = esquemaEncerrarUsoLivre.safeParse(entradaBruta);
   if (!resultado.success) {
@@ -1419,11 +1454,38 @@ export async function encerrarUsoLivre(entradaBruta: unknown): Promise<Resultado
       } catch {
         throw new RecusaDaAgenda(FRASE_SAIDA_ANTES_DA_CHEGADA);
       }
+
+      // O material, sob a trava do uso (acrescentar, mudar a cobrança e tirar travam o mesmo uso).
+      const materiais = await tx
+        .select({
+          id: usosLivresMaterial.id,
+          itemId: usosLivresMaterial.itemId,
+          quantidadeMilesimos: usosLivresMaterial.quantidadeMilesimos,
+          cobrar: usosLivresMaterial.cobrar,
+        })
+        .from(usosLivresMaterial)
+        .where(and(eq(usosLivresMaterial.usoLivreId, uso.id), isNull(usosLivresMaterial.movimentacaoId)))
+        .orderBy(asc(usosLivresMaterial.criadoEm), asc(usosLivresMaterial.id));
+      let baixados: MaterialBaixado[] = [];
+      if (materiais.length > 0) {
+        const [pessoa] = await tx
+          .select({ nome: clientes.nome })
+          .from(clientes)
+          .where(eq(clientes.id, uso.clienteId));
+        baixados = await baixarMaterialDoUso(
+          tx,
+          { id: uso.id, data: uso.data, nome: pessoa?.nome ?? "" },
+          materiais,
+          usuario.id,
+        );
+      }
+      const materialCobradoCentavos = baixados.reduce((soma, linha) => soma + (linha.valorCentavos ?? 0), 0);
+
       const valorCentavos = valorDoUsoLivre({
         horas,
         pessoas: uso.pessoas,
         precoHoraCentavos,
-        materialCobradoCentavos: 0,
+        materialCobradoCentavos,
       });
       const [gravado] = await tx
         .update(usosLivres)
@@ -1440,11 +1502,34 @@ export async function encerrarUsoLivre(entradaBruta: unknown): Promise<Resultado
       if (!gravado) {
         throw new RecusaDaAgenda(FRASE_USO_JA_ENCERRADO);
       }
-      return { horasCheias: horas, valorCentavos, precoHoraCentavos };
+      for (const linha of baixados) {
+        const [ligada] = await tx
+          .update(usosLivresMaterial)
+          .set({
+            movimentacaoId: linha.movimentacaoId,
+            precoUnitarioCentavos: linha.precoUnitarioCentavos,
+            valorCentavos: linha.valorCentavos,
+            atualizadoEm: new Date(),
+          })
+          .where(and(eq(usosLivresMaterial.id, linha.id), isNull(usosLivresMaterial.movimentacaoId)))
+          .returning({ id: usosLivresMaterial.id });
+        if (!ligada) {
+          // Impossível sob a trava do uso; se acontecer, a transação inteira volta (nada baixado).
+          throw new Error(`encerrarUsoLivre: a linha de material ${linha.id} não pôde ser ligada à baixa.`);
+        }
+      }
+      return {
+        horasCheias: horas,
+        valorCentavos,
+        precoHoraCentavos,
+        materialCobradoCentavos,
+        materiaisBaixados: baixados.length,
+      };
     });
   } catch (erro) {
     if (erro instanceof RecusaDaAgenda) {
-      // O estado mudou em outro celular (ou faltava o preço): a tela relê o servidor.
+      // O estado mudou em outro celular (ou faltava o preço, ou um material mudou no Estoque): a tela
+      // relê o servidor.
       revalidarTelasDaAgenda({ publico: false });
       return erro.frase === FRASE_SAIDA_ANTES_DA_CHEGADA
         ? { ok: false, erro: erro.frase, campos: { saida: erro.frase } }
@@ -1458,5 +1543,216 @@ export async function encerrarUsoLivre(entradaBruta: unknown): Promise<Resultado
   }
 
   revalidarTelasDaAgenda({ publico: false });
+  if (encerrado.materiaisBaixados > 0) {
+    revalidatePath(rotaDeGestao("/estoque"));
+  }
   return { ok: true, dados: encerrado };
+}
+
+// ── O material do uso livre (plano 10 — AGE-14, D-06, D-14) ─────────────────────────────────────────
+// As três ações só REGISTRAM a lista: nada sai do Estoque antes de encerrar. Todas travam o USO
+// (`for no key update`) e só mexem num uso `no_espaco` — a mesma trava do encerramento, então nenhuma
+// linha muda nem some enquanto a baixa está sendo gravada (T-05-48).
+
+// Trava o uso e recusa o que não está mais (ou ainda não está) no espaço.
+async function travarUsoNoEspaco(tx: TransacaoDoBanco, usoLivreId: string): Promise<void> {
+  const uso = await travarUsoLivre(tx, usoLivreId);
+  if (!uso) {
+    throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+  }
+  if (uso.estado !== "no_espaco") {
+    throw new RecusaDaAgenda(uso.estado === "encerrado" ? FRASE_USO_JA_ENCERRADO : FRASE_USO_AINDA_NAO_COMECOU);
+  }
+}
+
+// O item de estoque da linha, conferido: existe com estoque próprio, está ativo e — para cobrar — tem
+// preço de venda (D-14). Lido sem trava: aqui só a LISTA muda; o encerramento confere tudo de novo sob a
+// trava dos itens.
+async function conferirItemDoMaterial(tx: TransacaoDoBanco, itemId: string, cobrar: boolean): Promise<void> {
+  const [item] = await tx
+    .select({
+      nome: itensCatalogo.nome,
+      ativo: itensCatalogo.ativo,
+      controlaEstoque: itensCatalogo.controlaEstoque,
+      unidade: itensCatalogo.unidade,
+      precoVendaCentavos: itensCatalogo.precoVendaCentavos,
+    })
+    .from(itensCatalogo)
+    .where(eq(itensCatalogo.id, itemId));
+  if (!item || !item.controlaEstoque || item.unidade === null) {
+    throw new RecusaDaAgenda(FRASE_MATERIAL_NAO_EXISTE_MAIS);
+  }
+  if (!item.ativo) {
+    throw new RecusaDaAgenda(fraseMaterialDesativadoNoUso(item.nome));
+  }
+  if (cobrar && item.precoVendaCentavos === null) {
+    throw new RecusaDaAgenda(FRASE_MATERIAL_SEM_PRECO);
+  }
+}
+
+// O campo onde cada recusa do material mora na tela (embaixo do campo; o resto, no topo do bloco).
+function campoDaRecusaDoMaterial(frase: string): Record<string, string> | undefined {
+  if (frase === FRASE_MATERIAL_SEM_PRECO) {
+    return { cobrar: frase };
+  }
+  if (frase === FRASE_MATERIAL_NAO_EXISTE_MAIS || frase.endsWith(SUFIXO_MATERIAL_DESATIVADO)) {
+    return { itemId: frase };
+  }
+  return undefined;
+}
+
+// "+ Material" (AGE-14): uma linha nova no "Material usado" — o mesmo item em duas linhas é permitido e
+// vira duas saídas ao encerrar. Do cliente chegam o uso, o item, o TEXTO da quantidade e se cobra;
+// preço, valor e custo nunca (T-05-47).
+export async function acrescentarMaterial(entradaBruta: unknown): Promise<ResultadoDoLancamento<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaAcrescentarMaterial.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+
+  let criado: { id: string };
+  try {
+    criado = await db.transaction(async (tx) => {
+      await travarUsoNoEspaco(tx, dados.usoLivreId);
+      await conferirItemDoMaterial(tx, dados.itemId, dados.cobrar);
+      const [linha] = await tx
+        .insert(usosLivresMaterial)
+        .values({
+          usoLivreId: dados.usoLivreId,
+          itemId: dados.itemId,
+          quantidadeMilesimos: dados.quantidade,
+          cobrar: dados.cobrar,
+        })
+        .returning({ id: usosLivresMaterial.id });
+      if (!linha) {
+        throw new Error("acrescentarMaterial: a linha inserida não voltou.");
+      }
+      return linha;
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      const campos = campoDaRecusaDoMaterial(erro.frase);
+      return campos ? { ok: false, erro: erro.frase, campos } : { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao acrescentar material ao uso livre (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_ACRESCENTAR_MATERIAL };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: criado };
+}
+
+// "Cobrar · Incluso" numa linha já acrescentada (D-14): grava o estado DESEJADO, sem toast — toque duplo
+// e dois celulares convergem. "Cobrar" só com preço de venda, como ao acrescentar.
+export async function definirCobrancaDoMaterial(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ cobrar: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaDefinirCobrancaDoMaterial.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [linha] = await tx
+        .select({ usoLivreId: usosLivresMaterial.usoLivreId, itemId: usosLivresMaterial.itemId })
+        .from(usosLivresMaterial)
+        .where(eq(usosLivresMaterial.id, dados.materialId));
+      if (!linha) {
+        throw new RecusaDaAgenda(FRASE_JA_REMOVIDO);
+      }
+      await travarUsoNoEspaco(tx, linha.usoLivreId);
+      if (dados.cobrar) {
+        await conferirItemDoMaterial(tx, linha.itemId, true);
+      }
+      const [gravada] = await tx
+        .update(usosLivresMaterial)
+        .set({ cobrar: dados.cobrar, atualizadoEm: new Date() })
+        .where(and(eq(usosLivresMaterial.id, dados.materialId), isNull(usosLivresMaterial.movimentacaoId)))
+        .returning({ id: usosLivresMaterial.id });
+      if (!gravada) {
+        throw new RecusaDaAgenda(FRASE_JA_REMOVIDO);
+      }
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao mudar a cobrança do material (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_MUDAR_COBRANCA };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: { cobrar: dados.cobrar } };
+}
+
+// "Tirar o material" (só antes de encerrar — AGE-20): apaga a linha SEM baixa de um uso `no_espaco`,
+// condição conferida na própria instrução (`movimentacao_id is null`) sob a trava do uso. A linha já
+// baixada nunca se apaga — a movimentação do livro é para sempre (a FK sem `on delete` e o `unique`
+// também a protegem), e a Agenda nunca estorna nem apaga uma movimentação de estoque.
+export async function tirarMaterial(entradaBruta: unknown): Promise<ResultadoDeAcao<{ id: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaTirarMaterial.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [linha] = await tx
+        .select({ usoLivreId: usosLivresMaterial.usoLivreId })
+        .from(usosLivresMaterial)
+        .where(eq(usosLivresMaterial.id, dados.materialId));
+      if (!linha) {
+        throw new RecusaDaAgenda(FRASE_JA_REMOVIDO);
+      }
+      await travarUsoNoEspaco(tx, linha.usoLivreId);
+      const [apagada] = await tx
+        .delete(usosLivresMaterial)
+        .where(
+          and(
+            eq(usosLivresMaterial.id, dados.materialId),
+            eq(usosLivresMaterial.usoLivreId, linha.usoLivreId),
+            isNull(usosLivresMaterial.movimentacaoId),
+          ),
+        )
+        .returning({ id: usosLivresMaterial.id });
+      if (!apagada) {
+        throw new RecusaDaAgenda(FRASE_USO_JA_ENCERRADO);
+      }
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao tirar o material do uso livre (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_TIRAR_MATERIAL };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: { id: dados.materialId } };
 }

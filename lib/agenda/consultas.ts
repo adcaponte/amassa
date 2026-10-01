@@ -7,7 +7,19 @@
 import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, max, ne, notExists, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, itensCatalogo, mensalidades, turmaAlunos, turmas, usosLivres } from "@/db/schema";
+import {
+  clientes,
+  documentos,
+  eventos,
+  inscricoes,
+  itensCatalogo,
+  mensalidades,
+  turmaAlunos,
+  turmas,
+  usosLivres,
+  usosLivresMaterial,
+} from "@/db/schema";
+import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { TurmaDaSubLinha } from "@/lib/clientes/lista";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { ultimoDiaDoMes } from "@/lib/financeiro/calendario";
@@ -939,10 +951,15 @@ export type UsoLivreCarregado = UsoLivreDaSemana & {
   precoHoraCongeladoCentavos: number | null;
   valorCentavos: number | null;
   precoHoraAtualCentavos: number | null;
+  // O material do uso (plano 10 — AGE-14), na ordem em que foi acrescentado.
+  materiais: MaterialDoUso[];
+  // O preço de venda de AGORA de cada item ativo com estoque próprio que TEM preço (D-14: "Cobrar" só
+  // para eles) — só para a linha de acrescentar, antes de encerrar; vazio no uso encerrado.
+  precosDeVenda: Record<string, number>;
 };
 
 export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreCarregado | null> {
-  const [[linha], itens] = await Promise.all([
+  const [[linha], itens, materiais] = await Promise.all([
     db
       .select({
         ...COLUNAS_DO_USO_LIVRE,
@@ -955,11 +972,13 @@ export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreC
       .innerJoin(clientes, eq(clientes.id, usosLivres.clienteId))
       .where(eq(usosLivres.id, id)),
     obterItensDoSistema(),
+    materiaisDoUso(id),
   ]);
   if (!linha) {
     return null;
   }
   const naSemana = usoLivreDaSemana(linha, hoje);
+  const precosDeVenda = linha.estado === "encerrado" ? {} : await precosDeVendaDoEstoque();
   return {
     ...naSemana,
     clienteId: linha.clienteId,
@@ -972,7 +991,77 @@ export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreC
     precoHoraCongeladoCentavos: linha.precoHoraCentavos,
     valorCentavos: linha.valorCentavos,
     precoHoraAtualCentavos: itens.usoLivreHora.precoVendaCentavos,
+    materiais,
+    precosDeVenda,
   };
+}
+
+// Uma linha do "Material usado" (AGE-14): o item com o nome e a unidade de agora, a quantidade em
+// milésimos, se cobra, o preço de venda de AGORA (a prévia da conta antes de encerrar) e o que foi
+// CONGELADO no encerramento (preço unitário e valor — só no cobrado, D-14). `baixado` = já saiu do
+// Estoque (`movimentacao_id`): nunca mais se tira nem se muda.
+export type MaterialDoUso = {
+  id: string;
+  itemId: string;
+  nome: string;
+  unidade: Unidade;
+  quantidadeMilesimos: number;
+  cobrar: boolean;
+  precoVendaAtualCentavos: number | null;
+  precoUnitarioCentavos: number | null;
+  valorCentavos: number | null;
+  baixado: boolean;
+};
+
+// O material de um uso livre, na ordem em que foi acrescentado (`criado_em`, depois o id). O item de
+// estoque tem sempre unidade (o check do Catálogo exige unidade em quem controla estoque); a falta dela
+// cai em "un" só para a tela não quebrar.
+export async function materiaisDoUso(usoLivreId: string, leitor: LeitorDeConsulta = db): Promise<MaterialDoUso[]> {
+  const linhas = await (leitor as Pick<TransacaoDoBanco, "select">)
+    .select({
+      id: usosLivresMaterial.id,
+      itemId: usosLivresMaterial.itemId,
+      nome: itensCatalogo.nome,
+      unidade: itensCatalogo.unidade,
+      quantidadeMilesimos: usosLivresMaterial.quantidadeMilesimos,
+      cobrar: usosLivresMaterial.cobrar,
+      precoVendaAtualCentavos: itensCatalogo.precoVendaCentavos,
+      precoUnitarioCentavos: usosLivresMaterial.precoUnitarioCentavos,
+      valorCentavos: usosLivresMaterial.valorCentavos,
+      movimentacaoId: usosLivresMaterial.movimentacaoId,
+    })
+    .from(usosLivresMaterial)
+    .innerJoin(itensCatalogo, eq(itensCatalogo.id, usosLivresMaterial.itemId))
+    .where(eq(usosLivresMaterial.usoLivreId, usoLivreId))
+    .orderBy(asc(usosLivresMaterial.criadoEm), asc(usosLivresMaterial.id));
+  return linhas.map(({ movimentacaoId, unidade, ...linha }) => ({
+    ...linha,
+    unidade: unidade ?? "un",
+    baixado: movimentacaoId !== null,
+  }));
+}
+
+// O preço de venda de agora dos itens ativos com estoque próprio que têm preço — o que decide, na tela,
+// se a linha de acrescentar mostra "Cobrar" (D-14). O servidor confere de novo ao acrescentar e congela
+// ao encerrar; isto é só a tela.
+export async function precosDeVendaDoEstoque(): Promise<Record<string, number>> {
+  const linhas = await db
+    .select({ id: itensCatalogo.id, preco: itensCatalogo.precoVendaCentavos })
+    .from(itensCatalogo)
+    .where(
+      and(
+        eq(itensCatalogo.controlaEstoque, true),
+        eq(itensCatalogo.ativo, true),
+        isNotNull(itensCatalogo.precoVendaCentavos),
+      ),
+    );
+  const precos: Record<string, number> = {};
+  for (const linha of linhas) {
+    if (linha.preco !== null) {
+      precos[linha.id] = linha.preco;
+    }
+  }
+  return precos;
 }
 
 // O preço da hora do uso livre agora (a dica da folha "Lançar na agenda") — pela chave, nunca pelo nome.

@@ -30,6 +30,7 @@ import {
   ROTULO_FECHAR,
   ROTULO_HORAS_CHEIAS,
   ROTULO_MARCANDO,
+  ROTULO_MATERIAL_COBRADO,
   ROTULO_SAIU_AS,
   ROTULO_TENTAR_DE_NOVO,
   ROTULO_VALOR,
@@ -39,7 +40,7 @@ import {
   toastUsoEncerrado,
   tituloDoUsoLivre,
 } from "@/lib/agenda/textos";
-import { horasCheias, sugestaoDeSaida, valorDoUsoLivre } from "@/lib/agenda/uso-livre";
+import { horasCheias, materialCobradoDaLista, sugestaoDeSaida, valorDoUsoLivre } from "@/lib/agenda/uso-livre";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao"
 import { TagDoUsoLivre } from "./cartao-evento";
 import { CLASSE_DO_CAMPO_DA_AGENDA } from "./campos-turma";
 import { ConfirmarCancelarReserva } from "./confirmar-cancelar-reserva";
+import { MaterialDoUsoLivre } from "./material-do-uso-livre";
 
 const LINHAS_DO_ESQUELETO = [0, 1, 2, 3] as const;
 const FORMATO_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -428,7 +430,12 @@ function UsoIniciado({
         }
         return;
       }
-      toast.success(toastUsoEncerrado(resposta.dados.horasCheias, formatarReais(resposta.dados.valorCentavos)));
+      toast.success(
+        toastUsoEncerrado(resposta.dados.horasCheias, formatarReais(resposta.dados.valorCentavos), {
+          cobrado: resposta.dados.materialCobradoCentavos > 0,
+          baixado: resposta.dados.materiaisBaixados > 0,
+        }),
+      );
       // A ação revalidou a Agenda: a folha chega "encerrado" (a chave muda e este bloco sai).
     } catch {
       // A folha continua aberta e preenchida.
@@ -439,10 +446,16 @@ function UsoIniciado({
     }
   }
 
+  // O material cobrado da lista: o congelado no encerrado; antes, a prévia com o preço de agora.
+  const materialCobrado = materialCobradoDaLista(uso.materiais);
+
   if (uso.estado === "encerrado") {
     const horas = uso.horasCheias ?? 0;
     const preco = uso.precoHoraCongeladoCentavos ?? 0;
     const valor = uso.valorCentavos ?? 0;
+    // O "= {R$}" da linha das horas é só a parte das horas; o "Valor" é o gravado (horas + material).
+    const valorDasHoras = valor - materialCobrado;
+    const baixados = uso.materiais.filter((linha) => linha.baixado).length;
     return (
       <>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
@@ -450,14 +463,24 @@ function UsoIniciado({
             <LinhaDaConta rotulo={ROTULO_CONTA_PESSOAS} valor={String(uso.pessoas)} />
             <LinhaDaConta
               rotulo={ROTULO_HORAS_CHEIAS}
-              valor={linhaHorasCheias(horas, uso.pessoas, formatarReais(preco), formatarReais(valor))}
+              valor={linhaHorasCheias(horas, uso.pessoas, formatarReais(preco), formatarReais(valorDasHoras))}
               testId="uso-conta-horas"
             />
+            {materialCobrado > 0 ? (
+              <LinhaDaConta rotulo={ROTULO_MATERIAL_COBRADO} valor={formatarReais(materialCobrado)} testId="uso-conta-material" />
+            ) : null}
             <LinhaDaConta rotulo={ROTULO_VALOR} valor={formatarReais(valor)} testId="uso-conta-valor" forte />
           </div>
           <p data-testid="uso-encerrado" className="text-corpo text-tinta-media">
-            {linhaEncerrado(horas)}
+            {linhaEncerrado(horas, baixados)}
           </p>
+          <MaterialDoUsoLivre
+            usoLivreId={uso.id}
+            materiais={uso.materiais}
+            precosDeVenda={uso.precosDeVenda}
+            editavel={false}
+            desabilitado
+          />
         </div>
         <div className="border-border bg-popover flex flex-wrap justify-end gap-2 border-t px-6 py-4">
           <Button
@@ -484,9 +507,13 @@ function UsoIniciado({
       horas = null;
     }
   }
-  const valor =
+  const valorDasHoras =
     horas !== null && preco !== null
       ? valorDoUsoLivre({ horas, pessoas: uso.pessoas, precoHoraCentavos: preco, materialCobradoCentavos: 0 })
+      : null;
+  const valor =
+    horas !== null && preco !== null
+      ? valorDoUsoLivre({ horas, pessoas: uso.pessoas, precoHoraCentavos: preco, materialCobradoCentavos: materialCobrado })
       : null;
   const semPreco = preco === null;
 
@@ -500,12 +527,15 @@ function UsoIniciado({
             valor={
               horas === null
                 ? "—"
-                : preco === null || valor === null
+                : preco === null || valorDasHoras === null
                   ? `${horas} h`
-                  : linhaHorasCheias(horas, uso.pessoas, formatarReais(preco), formatarReais(valor))
+                  : linhaHorasCheias(horas, uso.pessoas, formatarReais(preco), formatarReais(valorDasHoras))
             }
             testId="uso-conta-horas"
           />
+          {materialCobrado > 0 ? (
+            <LinhaDaConta rotulo={ROTULO_MATERIAL_COBRADO} valor={formatarReais(materialCobrado)} testId="uso-conta-material" />
+          ) : null}
           <LinhaDaConta
             rotulo={ROTULO_VALOR}
             valor={valor === null ? "—" : formatarReais(valor)}
@@ -513,34 +543,39 @@ function UsoIniciado({
             forte
           />
         </div>
-        <div className="flex flex-wrap gap-4">
-          <CampoDeHora
-            id="uso-chegou-as"
-            testId="uso-chegou-as"
-            rotulo={ROTULO_CHEGOU_AS}
-            valor={chegada}
-            erro={erroDaChegada}
-            desabilitado={encerrando}
-            aoMudar={(novo) => {
-              setChegada(novo);
-              setErroDaChegada(null);
-              setErroDaSaida(null);
-            }}
-            aoSair={() => void corrigir()}
-          />
-          <CampoDeHora
-            id="uso-saiu-as"
-            testId="uso-saiu-as"
-            rotulo={ROTULO_SAIU_AS}
-            valor={saida}
-            erro={erroDaSaida}
-            desabilitado={encerrando}
-            aoMudar={(novo) => {
-              setSaida(novo);
-              setErroDaSaida(null);
-            }}
-          />
-        </div>
+        <CampoDeHora
+          id="uso-chegou-as"
+          testId="uso-chegou-as"
+          rotulo={ROTULO_CHEGOU_AS}
+          valor={chegada}
+          erro={erroDaChegada}
+          desabilitado={encerrando}
+          aoMudar={(novo) => {
+            setChegada(novo);
+            setErroDaChegada(null);
+            setErroDaSaida(null);
+          }}
+          aoSair={() => void corrigir()}
+        />
+        <MaterialDoUsoLivre
+          usoLivreId={uso.id}
+          materiais={uso.materiais}
+          precosDeVenda={uso.precosDeVenda}
+          editavel
+          desabilitado={encerrando}
+        />
+        <CampoDeHora
+          id="uso-saiu-as"
+          testId="uso-saiu-as"
+          rotulo={ROTULO_SAIU_AS}
+          valor={saida}
+          erro={erroDaSaida}
+          desabilitado={encerrando}
+          aoMudar={(novo) => {
+            setSaida(novo);
+            setErroDaSaida(null);
+          }}
+        />
         <p className="text-apoio text-tinta-fraca">{DICA_ENCERRAR}</p>
         {semPreco ? (
           <div

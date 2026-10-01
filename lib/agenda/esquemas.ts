@@ -3,6 +3,8 @@
 // cancelada, o direito a repor) é lido sob a trava no servidor (T-05-03, T-05-04).
 import { z } from "zod";
 
+import { textoParaMilesimos } from "@/lib/estoque/esquemas";
+import { FRASE_QUANTIDADE_INVALIDA } from "@/lib/estoque/textos";
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { diasEntre, ehDataCivil } from "@/lib/producao/calendario";
 
@@ -12,6 +14,9 @@ import { SEMANAS_MAXIMAS, SEMANAS_MINIMAS } from "./turma";
 import { HORAS_PREVISTAS_MAXIMAS, HORAS_PREVISTAS_MINIMAS, PESSOAS_MAXIMAS, PESSOAS_MINIMAS } from "./uso-livre";
 import {
   FRASE_DIA_DA_SEMANA,
+  FRASE_ESCOLHA_O_MATERIAL,
+  FRASE_FALHA_AO_ACRESCENTAR_MATERIAL,
+  FRASE_FALHA_AO_MUDAR_COBRANCA,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_ESCOLHA_QUEM_VEM,
@@ -397,3 +402,42 @@ export const esquemaEncerrarUsoLivre = z
   });
 
 export type EncerrarUsoLivreValidado = z.infer<typeof esquemaEncerrarUsoLivre>;
+
+// ── O material do uso livre (plano 10 — AGE-14, D-06, D-14) ─────────────────────────────────────────
+// Do cliente chegam só o uso, o item, o TEXTO da quantidade e se cobra (T-05-47): nenhum esquema aceita
+// preço, valor, custo ou área. O preço de venda é lido do Catálogo no servidor (e congelado ao encerrar);
+// o custo médio e a área são do livro do Estoque (`gravarMovimentacoes`, `areaDoDestino`).
+
+// "+ Material": a quantidade pela MESMA conversão da saída manual da Fase 06 (`textoParaMilesimos` —
+// vírgula ou ponto, até 3 casas, > 0, milésimos inteiros; as frases da 06). A tela troca a frase do
+// formato pela que diz a unidade ("Digite a quantidade em {unidade} — …"), que ela conhece.
+export const esquemaAcrescentarMaterial = z.object({
+  usoLivreId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
+  itemId: z.uuid({ error: FRASE_ESCOLHA_O_MATERIAL }),
+  quantidade: z.string({ error: FRASE_QUANTIDADE_INVALIDA }).transform((texto, contexto) => {
+    const resultado = textoParaMilesimos(texto);
+    if (!resultado.ok) {
+      contexto.addIssue({ code: "custom", message: resultado.erro });
+      return z.NEVER;
+    }
+    return resultado.milesimos;
+  }),
+  cobrar: z.boolean({ error: FRASE_FALHA_AO_ACRESCENTAR_MATERIAL }),
+});
+
+export type AcrescentarMaterialValidado = z.infer<typeof esquemaAcrescentarMaterial>;
+
+// "Cobrar · Incluso" numa linha já acrescentada: o estado DESEJADO (Pattern 2), nunca "inverter".
+export const esquemaDefinirCobrancaDoMaterial = z.object({
+  materialId: z.uuid({ error: FRASE_JA_REMOVIDO }),
+  cobrar: z.boolean({ error: FRASE_FALHA_AO_MUDAR_COBRANCA }),
+});
+
+export type DefinirCobrancaDoMaterialValidado = z.infer<typeof esquemaDefinirCobrancaDoMaterial>;
+
+// "Tirar o material": só o id — o estado do uso e a falta de baixa são conferidos sob a trava do uso.
+export const esquemaTirarMaterial = z.object({
+  materialId: z.uuid({ error: FRASE_JA_REMOVIDO }),
+});
+
+export type TirarMaterialValidado = z.infer<typeof esquemaTirarMaterial>;

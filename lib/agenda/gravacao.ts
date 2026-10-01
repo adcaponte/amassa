@@ -26,10 +26,15 @@
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, turmas, usosLivres } from "@/db/schema";
-import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
+import { clientes, documentos, eventos, inscricoes, itensCatalogo, turmas, usosLivres } from "@/db/schema";
+import { gravarMovimentacoes, travarItens, type TransacaoDoBanco } from "@/lib/estoque/gravacao";
+import { pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
+import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
+import { formatarDiaMes } from "@/lib/producao/calendario";
 
+import { fraseMaterialDesativadoNoUso, fraseMaterialPerdeuPreco } from "./textos";
 import type { EstadoUsoLivre, Presenca, TipoEvento, TipoInscricao } from "./tipos";
+import { valorDoMaterial } from "./uso-livre";
 
 export type { TransacaoDoBanco };
 
@@ -563,4 +568,107 @@ export async function travarUsoLivre(tx: TransacaoDoBanco, usoLivreId: string): 
     .where(eq(usosLivres.id, usoLivreId))
     .for("no key update");
   return linha ?? null;
+}
+
+// ── A baixa do material do uso livre (plano 10 — AGE-14, D-06, D-14) ────────────────────────────────
+
+// Uma linha de `usos_livres_material` ainda sem baixa, lida pela ação SOB a trava do uso.
+export type MaterialParaBaixar = {
+  id: string;
+  itemId: string;
+  quantidadeMilesimos: number;
+  cobrar: boolean;
+};
+
+// O que a ação grava de volta em cada linha: a saída do livro e, no cobrado, o preço de venda daquele
+// momento e o valor (D-14 — congelados; mudar o preço depois não muda nada).
+export type MaterialBaixado = {
+  id: string;
+  movimentacaoId: string;
+  precoUnitarioCentavos: number | null;
+  valorCentavos: number | null;
+};
+
+// A nota congelada da saída: "{nome} · {dd/mm}" — o histórico do Estoque a mostra como vínculo
+// ("Uso livre do espaço · paga por Espaço · {nome} · {dd/mm} · {R$}"). O check
+// `movimentacoes_estoque_nota_comprimento` aceita até 160 caracteres e o nome da pessoa pode ter 160:
+// o NOME é cortado (em pontos de código, como o `length()` do Postgres conta) para a data caber sempre.
+const LIMITE_DA_NOTA = 160;
+function notaDoUsoLivre(nome: string, diaMes: string): string {
+  const sufixo = ` · ${diaMes}`;
+  const nomeLimpo = [...nome.normalize("NFC").trim()].slice(0, LIMITE_DA_NOTA - [...sufixo].length).join("").trim();
+  return `${nomeLimpo}${sufixo}`;
+}
+
+// A baixa do material ao ENCERRAR, dentro da transação de `encerrarUsoLivre`, DEPOIS de travar o uso
+// (ordem USO LIVRE → ITENS — a mesma "registro → itens" do sistema; nenhuma trava de documento). UMA
+// saída por linha, inclusive as "incluso" (D-06: o Estoque passa a dizer quanto o uso livre consome),
+// pela porta única do livro — `pedidoDeSaidaManual` (destino `uso_livre`, área Espaço por
+// `areaDoDestino`, o vínculo `usoLivreId`) e `gravarMovimentacoes` (custo médio do momento, sob a trava
+// dos ITENS). A Agenda nunca escreve em `movimentacoes_estoque` direto. Saldo insuficiente segue a regra
+// da saída manual da Fase 6 (negativo é permitido, D-06 da 06) — nenhuma regra nova aqui.
+//
+// Recusa (RecusaDaAgenda, nada gravado — a transação inteira volta): item que sumiu ou perdeu o estoque
+// próprio, item desativado no meio, e item COBRADO que perdeu o preço de venda (D-14). O mesmo material
+// em duas linhas vira duas saídas (Pitfall 4). Sem material, nada é gravado.
+export async function baixarMaterialDoUso(
+  tx: TransacaoDoBanco,
+  uso: { id: string; data: string; nome: string },
+  materiais: readonly MaterialParaBaixar[],
+  registradoPor: string,
+): Promise<MaterialBaixado[]> {
+  if (materiais.length === 0) {
+    return [];
+  }
+  const ids = materiais.map((material) => material.itemId);
+  // ITENS travados (a mesma trava que `gravarMovimentacoes` pede de novo, já segura): o "ativo" e o
+  // preço lidos aqui valem até o fim da transação.
+  const travados = await travarItens(tx, ids);
+  const precos = new Map(
+    (
+      await tx
+        .select({ id: itensCatalogo.id, preco: itensCatalogo.precoVendaCentavos })
+        .from(itensCatalogo)
+        .where(inArray(itensCatalogo.id, [...new Set(ids)]))
+    ).map((linha) => [linha.id, linha.preco]),
+  );
+
+  for (const material of materiais) {
+    const item = travados.get(material.itemId);
+    if (!item || !item.controlaEstoque || item.unidade === null) {
+      throw new RecusaDaAgenda(FRASE_MATERIAL_NAO_EXISTE_MAIS);
+    }
+    if (!item.ativo) {
+      throw new RecusaDaAgenda(fraseMaterialDesativadoNoUso(item.nome));
+    }
+    if (material.cobrar && (precos.get(material.itemId) ?? null) === null) {
+      throw new RecusaDaAgenda(fraseMaterialPerdeuPreco(item.nome));
+    }
+  }
+
+  const nota = notaDoUsoLivre(uso.nome, formatarDiaMes(uso.data));
+  const pedidos = materiais.map((material) =>
+    pedidoDeSaidaManual({
+      itemId: material.itemId,
+      milesimos: material.quantidadeMilesimos,
+      destino: "uso_livre",
+      usoLivreId: uso.id,
+      nota,
+    }),
+  );
+  const gravadas = await gravarMovimentacoes(tx, pedidos, { registradoPor });
+
+  return materiais.map((material, indice) => {
+    const gravada = gravadas[indice];
+    if (!gravada) {
+      throw new Error("baixarMaterialDoUso: uma saída não voltou de gravarMovimentacoes.");
+    }
+    const preco = material.cobrar ? (precos.get(material.itemId) ?? null) : null;
+    return {
+      id: material.id,
+      movimentacaoId: gravada.id,
+      precoUnitarioCentavos: preco,
+      valorCentavos: preco === null ? null : valorDoMaterial(material.quantidadeMilesimos, preco),
+    };
+  });
 }

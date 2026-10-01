@@ -5,10 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   horasCheias,
+  materialCobradoDaLista,
   precisaEncerrar,
   proximoEstado,
   saidaPrevista,
   sugestaoDeSaida,
+  valorDaLinhaDeMaterial,
   valorDoMaterial,
   valorDoUsoLivre,
 } from "@/lib/agenda/uso-livre";
@@ -185,5 +187,39 @@ describe("sugestaoDeSaida (UI-D7)", () => {
     expect(sugestaoDeSaida({ data: "2026-09-30", saidaPrevista: "16:00" }, { data: "2026-10-01", minutos: 600 })).toBe(
       "16:00",
     );
+  });
+});
+
+// AGE-14 / D-14: a conta do material na folha — a prévia com o preço de agora, o congelado depois.
+describe("valorDaLinhaDeMaterial e materialCobradoDaLista", () => {
+  const base = { baixado: false, quantidadeMilesimos: 1200, precoVendaAtualCentavos: 1800, valorCentavos: null };
+
+  it("incluso não soma nada", () => {
+    expect(valorDaLinhaDeMaterial({ ...base, cobrar: false })).toBeNull();
+  });
+
+  it("cobrado antes de encerrar: a prévia com o preço de agora (1,2 × R$ 18,00 = R$ 21,60)", () => {
+    expect(valorDaLinhaDeMaterial({ ...base, cobrar: true })).toBe(2160);
+  });
+
+  it("cobrado já baixado: o valor congelado, mesmo que o preço de agora tenha mudado", () => {
+    expect(
+      valorDaLinhaDeMaterial({ ...base, cobrar: true, baixado: true, precoVendaAtualCentavos: 9999, valorCentavos: 2160 }),
+    ).toBe(2160);
+  });
+
+  it("cobrado sem preço de agora: sem valor (o encerramento recusa)", () => {
+    expect(valorDaLinhaDeMaterial({ ...base, cobrar: true, precoVendaAtualCentavos: null })).toBeNull();
+  });
+
+  it("a soma só conta o cobrado — duas linhas do mesmo item são duas parcelas", () => {
+    expect(
+      materialCobradoDaLista([
+        { ...base, cobrar: true },
+        { ...base, cobrar: true, quantidadeMilesimos: 500 },
+        { ...base, cobrar: false, quantidadeMilesimos: 9000 },
+      ]),
+    ).toBe(2160 + 900);
+    expect(materialCobradoDaLista([])).toBe(0);
   });
 });

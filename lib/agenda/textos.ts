@@ -820,10 +820,90 @@ export const FRASE_USO_JA_ENCERRADO =
 export const FRASE_FALHA_AO_ENCERRAR =
   "Não deu para encerrar. Nada foi gravado nem baixado — verifique a internet e tente de novo.";
 
-export function toastUsoEncerrado(horas: number, valor: string): string {
-  return `${horas === 1 ? "1 hora cheia" : `${horas} horas cheias`}: ${valor}.`;
+// "{h} hora(s) cheia(s)" + " + material" (só com material COBRADO, que está no valor) + ": {R$}." +
+// " Estoque baixado." (só quando alguma linha de material saiu do Estoque, cobrada ou inclusa).
+export function toastUsoEncerrado(
+  horas: number,
+  valor: string,
+  material: { cobrado: boolean; baixado: boolean } = { cobrado: false, baixado: false },
+): string {
+  const horasCheias = horas === 1 ? "1 hora cheia" : `${horas} horas cheias`;
+  const maisMaterial = material.cobrado ? " + material" : "";
+  const baixado = material.baixado ? " Estoque baixado." : "";
+  return `${horasCheias}${maisMaterial}: ${valor}.${baixado}`;
 }
 
-export function linhaEncerrado(horas: number): string {
-  return `Encerrado · ${horas} h`;
+// "Encerrado · {h} h" + " · estoque baixado ({n} materiais)" quando houve material (a tag de pagamento é
+// do plano 11).
+export function linhaEncerrado(horas: number, materiais = 0): string {
+  const base = `Encerrado · ${horas} h`;
+  return materiais > 0 ? `${base} · estoque baixado (${contagemDeMateriais(materiais)})` : base;
+}
+
+// ── O material do uso livre (plano 10 — AGE-14, D-06, D-14; 05-UI-SPEC.md §"Folha do uso livre",
+// §"Rótulos e dicas de campo" (Material —), §Confirmações "Tirar material", §Toasts (Encerrar), §Erros
+// (Material —)) ─────────────────────────────────────────────────────────────────────────────────────
+export const TITULO_MATERIAL_USADO = "Material usado";
+export const TEXTO_SEM_MATERIAL = "nenhum";
+export const DICA_MATERIAL_DO_USO =
+  "Tudo o que entra aqui dá baixa no Estoque ao encerrar, como “Uso livre do espaço”. “Cobrar” soma o material na conta da pessoa; “incluso” só baixa o estoque.";
+export const ROTULO_ITEM_DO_ESTOQUE = "Item do estoque";
+export const ROTULO_ESCOLHER_MATERIAL = "Escolher material";
+export const ROTULO_TROCAR_MATERIAL = "Trocar";
+export const ROTULO_QUANTO_DO_MATERIAL = "Quanto";
+export const ROTULO_INCLUSO = "Incluso";
+export const TEXTO_INCLUSO = "incluso";
+export const ROTULO_MAIS_MATERIAL = "+ Material";
+export const ROTULO_ACRESCENTANDO_MATERIAL = "Acrescentando…";
+export const ROTULO_TIRAR_MATERIAL = "tirar";
+export const ROTULO_MATERIAL_COBRADO = "Material cobrado";
+export const ARIA_COBRAR_O_MATERIAL = "Cobrar este material?";
+// D-14: "Cobrar" só aparece para item com preço de venda — sem ele, só "Incluso" e esta dica (e o servidor
+// recusa "cobrar" com a mesma frase).
+export const FRASE_MATERIAL_SEM_PRECO = "Cadastre o preço de venda em Cadastros para poder cobrar.";
+
+export function dicaQuantoDoMaterial(unidade: string): string {
+  return `em ${unidade}`;
+}
+
+// "{q} {un} · {nome do item}".
+export function linhaDoMaterial(quantidade: string, unidade: string, nome: string): string {
+  return `${quantidade} ${unidade} · ${nome}`;
+}
+
+export function ariaTirarMaterial(nome: string): string {
+  return `Tirar ${nome} da lista de material`;
+}
+
+// Confirmação "Tirar material" (UI-D13).
+export function tituloConfirmarTirarMaterial(nome: string): string {
+  return `Tirar ${nome} da lista?`;
+}
+export const CORPO_CONFIRMAR_TIRAR_MATERIAL = "Ainda não saiu do estoque — some só desta lista.";
+export const ROTULO_MANTER_O_MATERIAL = "Manter o material";
+export const ROTULO_TIRAR_O_MATERIAL = "Tirar o material";
+export const ROTULO_TIRANDO_MATERIAL = "Tirando…";
+
+// Erros do material.
+export const FRASE_ESCOLHA_O_MATERIAL = "Escolha o material do estoque.";
+export function fraseQuantidadeDoMaterial(unidade: string): string {
+  return `Digite a quantidade em ${unidade} — por exemplo, 2 ou 0,5.`;
+}
+export const SUFIXO_MATERIAL_DESATIVADO = "Reative-o no Estoque para usar.";
+export function fraseMaterialDesativadoNoUso(nome: string): string {
+  return `${nome} foi desativado enquanto você registrava. ${SUFIXO_MATERIAL_DESATIVADO}`;
+}
+export function fraseMaterialPerdeuPreco(nome: string): string {
+  return `O preço de venda de ${nome} foi apagado em Cadastros. Cadastre de novo ou mude a linha para “incluso”.`;
+}
+export const FRASE_FALHA_AO_ACRESCENTAR_MATERIAL =
+  "Não deu para acrescentar o material. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_MUDAR_COBRANCA =
+  "Não deu para mudar a cobrança do material. Toque de novo.";
+export const FRASE_FALHA_AO_TIRAR_MATERIAL =
+  "Não deu para tirar o material. Verifique a internet e tente de novo.";
+
+// "estoque baixado (1 material)" / "(2 materiais)" — o plural de verdade (backstop E9 zero-one-many).
+export function contagemDeMateriais(quantos: number): string {
+  return quantos === 1 ? "1 material" : `${quantos} materiais`;
 }

@@ -54,6 +54,8 @@ import { agoraEmBrasilia, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { somarDias } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
+import { CarregadorDoSeletor } from "@/components/amassa/estoque/carregador-do-seletor";
+import { ProvedorDoEstoque } from "@/components/amassa/estoque/provedor-estoque";
 import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
 import { BarraDaAgenda } from "@/components/amassa/agenda/barra-da-agenda";
 import { FolhaLancar } from "@/components/amassa/agenda/folha-lancar";
@@ -302,18 +304,29 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
         hrefHoje={`${urlDaAgenda(`semana=${hoje}`)}#dia-${hoje}`}
         hoje={hoje}
       />
-      <SemanaDaAgenda
-        dias={dias}
-        hoje={hoje}
-        turmaAberta={turmaAberta}
-        eventoAberto={eventoAberto}
-        eventoInexistente={idDoEvento !== null && eventoAberto === null}
-        usoAberto={usoAberto}
-        // UI-D7: o "Saiu às" de um uso de hoje vem com a hora de AGORA, decidida aqui, no servidor (Brasília)
-        // — nunca o relógio do celular.
-        agora={agoraEmBrasilia(new Date())}
-        rolarAte={parametros.semana === undefined && contemHoje ? hoje : null}
-      />
+      {/* O seletor "Qual material?" do uso livre (plano 10) lê a lista do Estoque pelo provedor da Fase 06,
+          entregue pelo mesmo carregador da aba Saldos — só com um uso NO ESPAÇO aberto (fallback nulo: a
+          folha aparece já, e o seletor mostra o esqueleto até a lista chegar). O provedor fica sempre, para a
+          árvore da semana não trocar de forma ao abrir e fechar a folha. */}
+      <ProvedorDoEstoque>
+        {usoAberto.estado === "carregado" && usoAberto.uso.estado === "no_espaco" ? (
+          <Suspense fallback={null}>
+            <CarregadorDoSeletor />
+          </Suspense>
+        ) : null}
+        <SemanaDaAgenda
+          dias={dias}
+          hoje={hoje}
+          turmaAberta={turmaAberta}
+          eventoAberto={eventoAberto}
+          eventoInexistente={idDoEvento !== null && eventoAberto === null}
+          usoAberto={usoAberto}
+          // UI-D7: o "Saiu às" de um uso de hoje vem com a hora de AGORA, decidida aqui, no servidor (Brasília)
+          // — nunca o relógio do celular.
+          agora={agoraEmBrasilia(new Date())}
+          rolarAte={parametros.semana === undefined && contemHoje ? hoje : null}
+        />
+      </ProvedorDoEstoque>
     </>
   );
 }

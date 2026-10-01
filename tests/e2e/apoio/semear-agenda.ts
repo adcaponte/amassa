@@ -700,3 +700,134 @@ export async function definirPrecoDaHora(centavos: number | null): Promise<void>
     );
   });
 }
+
+// ── O material do uso livre (plano 10 — AGE-14, D-06, D-14) ─────────────────────────────────────────
+
+// Um item de estoque para o uso livre: controla estoque, não aparece na venda, com ou sem preço de venda
+// (D-14: "Cobrar" só com preço) e, se pedido, um saldo de partida com custo — UMA entrada manual válida
+// (os `check`s da 0023: sem destino, sem área, com valor informado) para o custo médio do momento ser
+// conhecido. É a mesma exceção de `semearMovimentacoesEmMassa`: a saída que se prova é a da tela.
+export async function semearMaterialDoUso(dados: {
+  nome: string;
+  unidade: "un" | "g" | "kg" | "ml" | "l" | "m";
+  precoVendaCentavos: number | null;
+  saldo?: { milesimos: number; custoCentavos: number };
+}): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into itens_catalogo
+         (nome, preco_venda_centavos, aparece_na_venda, atalho_venda, controla_estoque, unidade,
+          categoria_compra_id, atalho_compra)
+       values ($1, $2, false, false, true, $3,
+               (select id from categorias where nome = 'Argila, esmalte e insumos' limit 1), false)
+       returning id`,
+      [dados.nome, dados.precoVendaCentavos, dados.unidade],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error("semearMaterialDoUso: falha ao inserir o item.");
+    }
+    if (dados.saldo) {
+      await cliente.query(
+        `insert into movimentacoes_estoque
+           (item_id, origem, tipo, quantidade_milesimos, valor_centavos, valor_informado_centavos, registrado_por)
+         values ($1, 'manual', 'entrada', $2, $3, $3,
+                 (select id from usuarios where lower(email) = lower($4)))`,
+        [id, dados.saldo.milesimos, dados.saldo.custoCentavos, process.env.E2E_EMAIL_TESTE ?? ""],
+      );
+    }
+    return id;
+  });
+}
+
+export async function definirPrecoDeVendaDoItem(itemId: string, centavos: number | null): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query("update itens_catalogo set preco_venda_centavos = $1 where id = $2", [centavos, itemId]),
+  );
+}
+
+// Uma linha de material já no uso (sem baixa) — o atalho para montar o cenário; a tela acrescenta igual.
+export async function semearMaterialNoUso(dados: {
+  usoLivreId: string;
+  itemId: string;
+  quantidadeMilesimos: number;
+  cobrar: boolean;
+}): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into usos_livres_material (uso_livre_id, item_id, quantidade_milesimos, cobrar)
+       values ($1, $2, $3, $4) returning id`,
+      [dados.usoLivreId, dados.itemId, dados.quantidadeMilesimos, dados.cobrar],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error("semearMaterialNoUso: falha ao inserir.");
+    }
+    return id;
+  });
+}
+
+export type MaterialDoUsoNoBanco = {
+  id: string;
+  itemId: string;
+  quantidadeMilesimos: number;
+  cobrar: boolean;
+  precoUnitarioCentavos: number | null;
+  valorCentavos: number | null;
+  movimentacaoId: string | null;
+};
+
+// As linhas de material de um uso, na ordem em que entraram.
+export async function materiaisDoUsoNoBanco(usoLivreId: string): Promise<MaterialDoUsoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<
+      Omit<MaterialDoUsoNoBanco, "quantidadeMilesimos"> & { quantidadeMilesimos: string }
+    >(
+      `select id, item_id as "itemId", quantidade_milesimos as "quantidadeMilesimos", cobrar,
+              preco_unitario_centavos as "precoUnitarioCentavos", valor_centavos as "valorCentavos",
+              movimentacao_id as "movimentacaoId"
+         from usos_livres_material where uso_livre_id = $1 order by criado_em, id`,
+      [usoLivreId],
+    );
+    return rows.map((linha) => ({ ...linha, quantidadeMilesimos: Number(linha.quantidadeMilesimos) }));
+  });
+}
+
+export type SaidaDoUsoNoBanco = {
+  id: string;
+  itemId: string;
+  origem: string;
+  tipo: string;
+  destino: string | null;
+  area: string | null;
+  quantidadeMilesimos: number;
+  valorCentavos: number;
+  nota: string | null;
+};
+
+// As movimentações do livro ligadas a um uso livre (`uso_livre_id`), na ordem do livro.
+export async function saidasDoUsoNoBanco(usoLivreId: string): Promise<SaidaDoUsoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{
+      id: string;
+      itemId: string;
+      origem: string;
+      tipo: string;
+      destino: string | null;
+      area: string | null;
+      quantidade: string;
+      valor: string;
+      nota: string | null;
+    }>(
+      `select id, item_id as "itemId", origem::text as origem, tipo::text as tipo, destino::text as destino,
+              area::text as area, quantidade_milesimos as quantidade, valor_centavos as valor, nota
+         from movimentacoes_estoque where uso_livre_id = $1 order by numero`,
+      [usoLivreId],
+    );
+    return rows.map(({ quantidade, valor, ...linha }) => ({
+      ...linha,
+      quantidadeMilesimos: Number(quantidade),
+      valorCentavos: Number(valor),
+    }));
+  });
+}
