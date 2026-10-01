@@ -66,7 +66,7 @@ test.describe("site secoes", () => {
     expect(rolagemNaAgenda).not.toBeCloseTo(rolagemNoEncomendas, 0);
   });
 
-  test("(c) a seção de aulas mostra exatamente três cartões e o aviso, sem grade nem navegação de mês", async ({
+  test("(c) @vazio-global sem evento público, a seção de aulas mostra exatamente três cartões e o aviso, sem grade nem navegação de mês", async ({
     page,
   }) => {
     await page.goto("/");
@@ -121,7 +121,7 @@ test.describe("site secoes", () => {
     await expect(page.getByTestId("site-contato")).toContainText("Rua [nome da rua]");
   });
 
-  test("(f) nenhum valor em dinheiro aparece em nenhuma seção", async ({ page }) => {
+  test("(f) @vazio-global sem evento público, nenhum valor em dinheiro aparece em nenhuma seção", async ({ page }) => {
     await page.goto("/");
 
     const textoDaPagina = await page.locator("body").innerText();

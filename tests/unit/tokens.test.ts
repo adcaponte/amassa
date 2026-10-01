@@ -189,6 +189,7 @@ describe("app/globals.css — tokens do site público (D-19, Fase 04.6)", () => 
     ["--color-site-cerrado", "var(--color-area-loja)"],
     ["--color-site-folha", "var(--color-area-espaco)"],
     ["--color-site-sol", "var(--color-destaque)"],
+    ["--color-site-ambar", "var(--color-atencao)"],
   ])("acento do site %s referencia %s — nunca hex copiado", (chave, referenciaEsperada) => {
     // Âncora de início de linha: sem ela, "--color-site-barro" também casaria dentro de
     // "--color-site-barro-escuro" (prefixo compartilhado) e a asserção diria pouco.

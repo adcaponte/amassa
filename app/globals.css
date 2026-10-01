@@ -234,6 +234,9 @@
   --color-site-cerrado:      var(--color-area-loja);
   --color-site-folha:        var(--color-area-espaco);
   --color-site-sol:          var(--color-destaque);
+  /* Fase 5, plano 15 (S2): o âmbar de "últimas 2 vagas"/"última vaga" no calendário do site —
+     referência à `atencao` da plataforma, nunca hex copiado. */
+  --color-site-ambar:        var(--color-atencao);
 
   /* altura da barra fixa do site — consumida em DOIS lugares: o `padding-top` do corpo da
      página (`app/page.tsx`) e o `scroll-margin-top` de cada seção (`components/site/secao.tsx`).

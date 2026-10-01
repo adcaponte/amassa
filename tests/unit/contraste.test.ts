@@ -100,6 +100,42 @@ describe("lib/acessibilidade/contraste — razaoDeContraste e luminanciaRelativa
   });
 });
 
+// Fase 5, plano 15 — os pares do calendário público (05-UI-SPEC.md §Color "Site público", S1-S8).
+describe("calendário do site — pares S1-S8 (AGE-18, UI-D17)", () => {
+  it.each([
+    ["S1 {n} vagas", "cerrado", "papel"],
+    ["S2 últimas vagas", "ambar", "papel"],
+    ["S3 esgotado", "barro-claro", "papel"],
+    ["S4 legenda no papel", "tinta-fraca", "papel"],
+    ["S4 legenda no painel", "tinta-fraca", "fundo"],
+    ["S7 título", "tinta", "papel"],
+    ["S7 linhas", "tinta-media", "papel"],
+  ])("%s: --color-site-%s sobre --color-site-%s passa AA (>= 4.5)", (_par, texto, fundo) => {
+    expect(razaoDeContraste(tokenDoSite(texto), tokenDoSite(fundo))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each([
+    ["S5 Reservar pelo WhatsApp", "cerrado"],
+    ["S6 aba marcada", "barro"],
+  ])("%s: branco sobre --color-site-%s passa AA (>= 4.5)", (_par, fundo) => {
+    expect(razaoDeContraste("#FFFFFF", tokenDoSite(fundo))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(["folha", "tinta-fraca", "barro"])(
+    "S8 ponto/contorno --color-site-%s sobre --color-site-papel passa 3:1 (não-texto)",
+    (cor) => {
+      expect(razaoDeContraste(tokenDoSite(cor), tokenDoSite("papel"))).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it.each(["sol", "borda"])(
+    "S8 --color-site-%s SOZINHO sobre --color-site-papel continua reprovado (< 3) — por isso o contorno e o ponto vazado",
+    (cor) => {
+      expect(razaoDeContraste(tokenDoSite(cor), tokenDoSite("papel"))).toBeLessThan(3);
+    },
+  );
+});
+
 describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
   it("devolve uma entrada só (a raiz), com lastModified, determinística entre chamadas", async () => {
     const modulo = await import("@/app/sitemap");

@@ -138,6 +138,13 @@ export const MENSAGENS_DO_WHATSAPP = {
 
 export type ChaveDeMensagemDoWhatsapp = keyof typeof MENSAGENS_DO_WHATSAPP;
 
+// Fase 5, plano 15 (AGE-18, D-10): a mensagem de "Reservar pelo WhatsApp" de cada cartão de evento,
+// herdada do protótipo do site — "Oi! Quero reservar: {nome} ({toda {dia} | {dd/mm}})." O modelo
+// mora aqui, ao lado das outras mensagens; nenhum componente monta essa frase.
+export function mensagemDeReserva(nome: string, quando: string): string {
+  return `Oi! Quero reservar: ${nome} (${quando}).`;
+}
+
 // D-20: slot sem foto (`arquivo: null`) não renderiza — nenhum retângulo, nenhuma moldura,
 // nenhuma legenda "foto ainda não recebida". `fachada` e `mapa` sobem vazios de propósito
 // neste plano; o plano 04 é quem exercita o estado vazio de verdade.

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { Abertura } from "@/components/site/abertura";
-import { AulasEOficinas } from "@/components/site/aulas-e-oficinas";
+import { AgendaPublica } from "@/components/site/agenda-publica";
 import { BarraInferiorFixa } from "@/components/site/barra-inferior-fixa";
 import { BarraSuperior } from "@/components/site/barra-superior";
 import { Encomendas } from "@/components/site/encomendas";
@@ -11,12 +11,18 @@ import { OEspaco } from "@/components/site/o-espaco";
 import { OndeFica } from "@/components/site/onde-fica";
 import { Rodape } from "@/components/site/rodape";
 import { SLOTS_DE_IMAGEM } from "@/conteudo/site";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
 // D-15/T-04.6-14: renderização estática, EXPLÍCITA — é isto que faz a raiz sobreviver ao
-// Postgres cair (prova de fora: scripts/testar-site-sem-banco.mjs, plano 03, Tarefa 3). Sem
-// nada dinâmico (sem cookies(), sem headers(), sem leitura de banco), o HTML sai inteiro da
-// build; pedir "/" duas vezes devolve exatamente o mesmo HTML, sem recalcular nada.
+// Postgres cair (prova de fora: scripts/testar-site-sem-banco.mjs). Sem cookies(), sem headers(),
+// sem sessão: o HTML sai pronto do cache, e pedir "/" duas vezes devolve o mesmo HTML.
+//
+// Fase 5, plano 15 (AGE-18, SIT-02): a seção `#agenda` lê a agenda pública — por ISR, nunca a cada
+// visita: o `revalidate` abaixo (5 min) regenera no máximo a cada 5 minutos, e as ações da Agenda que mudam o que
+// é público revalidam "/" na hora (`revalidarTelasDaAgenda`, lib/agenda/acoes.ts). Sem banco, a
+// seção cai no estado da 04.6 (`AgendaPublica`, try/catch) e a raiz continua 200.
 export const dynamic = "force-static";
+export const revalidate = 300;
 
 const TITULO_DO_SITE = "AMASSA CERRADO — ateliê de cerâmica, café e loja em Pirenópolis";
 const DESCRICAO_DO_SITE =
@@ -48,10 +54,10 @@ export const metadata: Metadata = {
   },
 };
 
-// A página inteira do site público (D-03/D-15): NENHUM import daqui alcança sessão ou banco —
-// tests/unit/site-isolamento.test.ts prova isso percorrendo o grafo de import a partir daqui,
-// e uma asserção própria confere que nenhum arquivo de components/site/ importa do módulo
-// Agenda (D-16): a seção de aulas é conteúdo estático até esse módulo existir.
+// A página inteira do site público (D-03/D-15): NENHUM import daqui alcança sessão, e o banco só
+// é alcançado por UMA exceção nomeada — a leitura pública da Agenda (lib/agenda/publico/consultas.ts).
+// tests/unit/site-isolamento.test.ts prova isso percorrendo o grafo de import a partir daqui, e
+// confere que components/site/ só importa da Agenda pela pasta lib/agenda/publico/.
 export default function PaginaDoSite() {
   return (
     <div className="min-h-screen bg-site-fundo pt-[var(--altura-barra-site)] pb-[84px] text-site-tinta md:pb-0">
@@ -59,7 +65,7 @@ export default function PaginaDoSite() {
       <BarraSuperior />
       <Abertura />
       <OEspaco />
-      <AulasEOficinas />
+      <AgendaPublica hoje={hojeEmBrasilia(new Date())} />
       <Encomendas />
       <FaixaDaFachada />
       <OndeFica />
