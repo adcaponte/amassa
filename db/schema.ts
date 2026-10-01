@@ -10,7 +10,9 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  smallint,
   text,
+  time,
   timestamp,
   unique,
   uniqueIndex,
@@ -658,10 +660,20 @@ export const itensCatalogo = pgTable(
       .default(0),
     observacoes: text("observacoes"),
     ativo: boolean("ativo").notNull().default(true),
+    // Fase 5 — Agenda (migração 0026, D-17): o item achado por CÓDIGO, nunca pelo nome editável —
+    // "Mensalidade", "Inscrição em oficina" e "Uso livre (hora)", semeados na 0026 sem preço
+    // (AGE-17). O gatilho `travar_item_do_sistema` (0026) recusa desativar, tirar da venda, trocar
+    // a chave ou apagar um item com chave; nome, preço e categoria continuam editáveis.
+    chaveDoSistema: text("chave_do_sistema"),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
     atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
   },
   (tabela) => [
+    unique("itens_catalogo_chave_do_sistema_uk").on(tabela.chaveDoSistema),
+    check(
+      "itens_catalogo_chave_do_sistema_valida",
+      sql`${tabela.chaveDoSistema} is null or ${tabela.chaveDoSistema} in ('mensalidade','inscricao_oficina','uso_livre_hora')`,
+    ),
     check("itens_catalogo_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
     check(
       "itens_catalogo_minimo_nao_negativo",
@@ -774,6 +786,11 @@ export const documentos = pgTable(
     // calculado na borda, nunca `current_date` cru nem `new Date()` dentro de módulo puro.
     data: date("data", { mode: "string" }).notNull(),
     pessoaNome: text("pessoa_nome"),
+    // Fase 5 — Agenda (D-01, "acrescentar ao lado agora, promover depois"): o vínculo com o
+    // cadastro de pessoas, AO LADO de `pessoa_nome` — que continua sendo gravado por toda venda,
+    // com o nome congelado. Nulo por padrão; só as vendas criadas pela Agenda o gravam. A Venda
+    // manual, o Orçamento e a Produção continuam com texto livre (ideia adiada do CONTEXT).
+    clienteId: uuid("cliente_id").references((): AnyPgColumn => clientes.id),
     titulo: text("titulo"),
     contaFixaId: uuid("conta_fixa_id").references(() => contasFixas.id),
     mesReferencia: date("mes_referencia", { mode: "string" }),
@@ -810,8 +827,15 @@ export const documentos = pgTable(
       "documentos_cancelado_em_e_por_juntos",
       sql`(${tabela.canceladoEm} is null and ${tabela.canceladoPor} is null) or (${tabela.canceladoEm} is not null and ${tabela.canceladoPor} is not null)`,
     ),
+    // D-01: vínculo com pessoa só com o nome congelado junto — `pessoa_nome` nunca fica vazio
+    // numa venda ligada ao cadastro.
+    check(
+      "documentos_cliente_exige_pessoa_nome",
+      sql`${tabela.clienteId} is null or ${tabela.pessoaNome} is not null`,
+    ),
     index("documentos_data_idx").on(tabela.data),
     index("documentos_tipo_data_idx").on(tabela.tipo, tabela.data),
+    index("documentos_cliente_idx").on(tabela.clienteId),
   ],
 );
 
@@ -1496,12 +1520,15 @@ export const origemMovimentacao = pgEnum("origem_movimentacao", [
 export const tipoMovimentacao = pgEnum("tipo_movimentacao", ["entrada", "saida", "ajuste"]);
 // Os cinco destinos da saída MANUAL (D-15), cada um com a área que paga em
 // `lib/estoque/destinos.ts` (D-14). "Venda na loja" não existe: venda só nasce no Financeiro.
+// Fase 5 (D-06, migração 0026): o sexto, `uso_livre`, NO FIM (o `drizzle-kit` gera `ADD VALUE`),
+// gravado só pela Agenda ao encerrar um uso livre, sempre com `uso_livre_id`.
 export const destinoSaida = pgEnum("destino_saida", [
   "aula",
   "encomenda",
   "cafeteria",
   "atelie",
   "perda",
+  "uso_livre",
 ]);
 export const motivoMovimentacao = pgEnum("motivo_movimentacao", ["saldo_inicial", "peca_pronta"]);
 
@@ -1543,7 +1570,12 @@ export const movimentacoesEstoque = pgTable(
     // Qual material do previsto da ordem esta baixa cobre (Fase 06.1) — só na saída manual
     // "consumo em encomenda" ligada a uma ordem.
     materialDaOrdem: materialDaOrdem("material_da_ordem"),
-    // Texto livre curto: turma (até a Agenda existir), "o que aconteceu?", motivo do ajuste.
+    // Fase 5 — Agenda (D-06, migração 0026): o uso livre que consumiu este material — só na saída
+    // manual de destino `uso_livre`, e obrigatório nela (os dois `check`s abaixo). Sem `on delete`:
+    // o uso livre com baixa não se apaga.
+    usoLivreId: uuid("uso_livre_id").references((): AnyPgColumn => usosLivres.id),
+    // Texto livre curto: a turma da saída "Consumo em aula" (continua em texto livre — o uso livre é
+    // que tem vínculo real), "o que aconteceu?", motivo do ajuste.
     nota: text("nota"),
     // Um estorno por original (restrição única abaixo).
     estornoDeId: uuid("estorno_de_id").references((): AnyPgColumn => movimentacoesEstoque.id),
@@ -1624,6 +1656,17 @@ export const movimentacoesEstoque = pgTable(
       "movimentacoes_estoque_motivo_do_tipo",
       sql`${tabela.motivo} is null or (${tabela.motivo} = 'saldo_inicial' and ${tabela.tipo} in ('entrada', 'ajuste')) or (${tabela.motivo} = 'peca_pronta' and ${tabela.tipo} = 'entrada')`,
     ),
+    // D-06: o enum comparado COMO TEXTO (`::text`). O migrador do Drizzle aplica todas as
+    // pendentes numa transação só, e o Postgres 17 recusa o literal de um valor de enum acrescentado
+    // na mesma transação ("unsafe use of new value", Pitfall 1) — o texto não instancia o valor.
+    check(
+      "movimentacoes_estoque_uso_livre_so_no_destino_uso_livre",
+      sql`${tabela.usoLivreId} is null or ${tabela.destino}::text = 'uso_livre'`,
+    ),
+    check(
+      "movimentacoes_estoque_destino_uso_livre_com_vinculo",
+      sql`${tabela.destino} is null or ${tabela.destino}::text <> 'uso_livre' or ${tabela.usoLivreId} is not null`,
+    ),
     check(
       "movimentacoes_estoque_nota_comprimento",
       sql`${tabela.nota} is null or length(trim(${tabela.nota})) between 1 and 160`,
@@ -1631,5 +1674,414 @@ export const movimentacoesEstoque = pgTable(
     index("movimentacoes_estoque_item_numero_idx").on(tabela.itemId, tabela.numero),
     index("movimentacoes_estoque_documento_idx").on(tabela.documentoId),
     index("movimentacoes_estoque_criado_em_idx").on(tabela.criadoEm),
+    index("movimentacoes_estoque_uso_livre_idx").on(tabela.usoLivreId),
+  ],
+);
+
+// =================================================================================================
+// Fase 5 — Agenda (migração 0026_agenda). Turmas fixas, aulas e oficinas avulsas, dia fechado, a
+// lista de quem vem a cada data com a presença, a mensalidade do mês e o uso livre do espaço — e o
+// cadastro de PESSOAS (`clientes`, D-01). Datas civis em `date` (`mode: "string"`); horas de
+// parede em `time` (o `pg` devolve "19:00:00" — `lib/agenda/horario.ts` aceita com e sem segundos,
+// Pitfall 9); carimbos em `timestamptz`; dinheiro em centavos `integer`; material em milésimos
+// `bigint`. Nenhuma tabela da fase guarda dinheiro PAGO: "pago" é sempre derivado de `documentos` +
+// `parcelas` do Financeiro pelo `documento_id` (§5, AGE-15). Nenhuma FK de dinheiro ou de livro
+// (`documento_id`, `uso_livre_id`, `movimentacao_id`) tem `on delete`: nada aqui apaga venda nem
+// movimentação (AGE-20).
+// =================================================================================================
+
+export const tipoEvento = pgEnum("tipo_evento", ["turma", "avulsa", "fechado"]);
+export const tipoInscricao = pgEnum("tipo_inscricao", ["aluno", "reposicao", "experimental", "oficina"]);
+// "Nada marcado" é NULL na coluna, nunca um valor do enum.
+export const presencaDaInscricao = pgEnum("presenca", ["veio", "faltou"]);
+export const estadoUsoLivre = pgEnum("estado_uso_livre", ["reservado", "no_espaco", "encerrado"]);
+
+// D-01 — o cadastro de pessoas, decisão de identidade do dono: "ACRESCENTAR AO LADO AGORA, PROMOVER
+// DEPOIS". `clientes` nasce AO LADO de `documentos.pessoa_nome`, que continua com o mesmo tipo, o
+// mesmo check e sendo preenchido por toda venda (o nome congelado no momento da venda — o Caixa, o
+// extrato, o PDF e o Mês leem `pessoa_nome`). `documentos.cliente_id` é NULO por padrão, sem
+// `on delete`, com o check `documentos_cliente_exige_pessoa_nome`; só as vendas criadas pela Agenda
+// gravam o vínculo. A Venda manual, o Orçamento (`orcamentos.cliente_nome`) e a Produção
+// (`ordens_producao.cliente_nome`) continuam com texto livre nesta fase — ligá-los ao cadastro é a
+// ideia ADIADA do CONTEXT. Ninguém "corrige" isto apagando `pessoa_nome` nem tornando `cliente_id`
+// obrigatório. Homônimos são permitidos (D-16): o índice por nome normalizado NÃO é único. Pessoa
+// não se apaga (`revoke delete` na 0026): vendas, presenças e mensalidades apontam para ela.
+export const clientes = pgTable(
+  "clientes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    telefone: text("telefone"),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    // O mesmo teto de `documentos.pessoa_nome`: o nome sempre cabe na venda.
+    check("clientes_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 160`),
+    check(
+      "clientes_telefone_comprimento",
+      sql`${tabela.telefone} is null or length(trim(${tabela.telefone})) between 1 and 40`,
+    ),
+    // `nome_normalizado()` é criada à mão na 0026, ANTES deste índice (minúsculas, sem acento,
+    // espaços colapsados) — "Joao" acha "João" no celular.
+    index("clientes_nome_normalizado_idx").on(sql`nome_normalizado(${tabela.nome})`),
+  ],
+);
+
+// A turma fixa (D-03): um dia da semana, um horário, vagas e a mensalidade. As DATAS da turma são
+// linhas de `eventos` (tipo `turma`); editar a turma muda só as datas futuras. Desativar é
+// `ativa = false` com o carimbo — turma não se apaga (`revoke delete`).
+export const turmas = pgTable(
+  "turmas",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    // 0 = domingo … 6 = sábado (o `getDay()` do protótipo).
+    diaSemana: smallint("dia_semana").notNull(),
+    inicio: time("inicio").notNull(),
+    fim: time("fim").notNull(),
+    vagas: integer("vagas").notNull(),
+    mensalidadeCentavos: integer("mensalidade_centavos").notNull(),
+    // Até 28: `make_date` nunca cai num dia que o mês não tem.
+    diaVencimento: integer("dia_vencimento").notNull(),
+    publica: boolean("publica").notNull().default(true),
+    ativa: boolean("ativa").notNull().default(true),
+    desativadaEm: timestamp("desativada_em", { withTimezone: true }),
+    desativadaPor: uuid("desativada_por").references(() => usuarios.id),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("turmas_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    check("turmas_dia_semana_faixa", sql`${tabela.diaSemana} between 0 and 6`),
+    check("turmas_fim_depois_do_inicio", sql`${tabela.fim} > ${tabela.inicio}`),
+    check("turmas_vagas_faixa", sql`${tabela.vagas} between 1 and 999`),
+    check(
+      "turmas_mensalidade_faixa",
+      sql`${tabela.mensalidadeCentavos} between 1 and 1000000000`,
+    ),
+    check("turmas_dia_vencimento_faixa", sql`${tabela.diaVencimento} between 1 and 28`),
+    check("turmas_ativa_coerente", sql`${tabela.ativa} = (${tabela.desativadaEm} is null)`),
+    check(
+      "turmas_desativada_por",
+      sql`${tabela.desativadaEm} is null or ${tabela.desativadaPor} is not null`,
+    ),
+  ],
+);
+
+// Quem é aluno de qual turma, e desde/até quando. Sair da turma é `saiu_em`, nunca apagar a linha
+// (`revoke delete`); a mesma pessoa pode voltar depois (linha nova). Uma matrícula ATIVA por
+// pessoa e turma (índice único parcial).
+export const turmaAlunos = pgTable(
+  "turma_alunos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    turmaId: uuid("turma_id")
+      .notNull()
+      .references(() => turmas.id),
+    clienteId: uuid("cliente_id")
+      .notNull()
+      .references(() => clientes.id),
+    entrouEm: date("entrou_em", { mode: "string" }).notNull(),
+    saiuEm: date("saiu_em", { mode: "string" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "turma_alunos_saida_depois_da_entrada",
+      sql`${tabela.saiuEm} is null or ${tabela.saiuEm} >= ${tabela.entrouEm}`,
+    ),
+    uniqueIndex("turma_alunos_ativo_uk")
+      .on(tabela.turmaId, tabela.clienteId)
+      .where(sql`${tabela.saiuEm} is null`),
+  ],
+);
+
+// Uma DATA na agenda: a data de uma turma fixa, uma aula/oficina avulsa ou o dia fechado ("dia
+// todo", com o motivo em `titulo`). Cancelar uma data é `cancelado_em` (a data continua visível
+// riscada); o dia fechado não se cancela, remove-se.
+export const eventos = pgTable(
+  "eventos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tipo: tipoEvento("tipo").notNull(),
+    data: date("data", { mode: "string" }).notNull(),
+    inicio: time("inicio"),
+    fim: time("fim"),
+    titulo: text("titulo"),
+    turmaId: uuid("turma_id").references(() => turmas.id),
+    vagas: integer("vagas"),
+    precoCentavos: integer("preco_centavos"),
+    publico: boolean("publico").notNull().default(false),
+    canceladoEm: timestamp("cancelado_em", { withTimezone: true }),
+    canceladoPor: uuid("cancelado_por").references(() => usuarios.id),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "eventos_turma_so_no_tipo_turma",
+      sql`(${tabela.tipo} = 'turma') = (${tabela.turmaId} is not null)`,
+    ),
+    check(
+      "eventos_fechado_sem_aula",
+      sql`${tabela.tipo} <> 'fechado' or (${tabela.inicio} is null and ${tabela.fim} is null and ${tabela.vagas} is null and ${tabela.precoCentavos} is null and not ${tabela.publico} and ${tabela.canceladoEm} is null and ${tabela.titulo} is not null)`,
+    ),
+    check(
+      "eventos_aula_com_horario",
+      sql`${tabela.tipo} = 'fechado' or (${tabela.inicio} is not null and ${tabela.fim} is not null and ${tabela.vagas} is not null and ${tabela.fim} > ${tabela.inicio})`,
+    ),
+    check(
+      "eventos_avulsa_com_titulo_e_preco",
+      sql`${tabela.tipo} <> 'avulsa' or (${tabela.titulo} is not null and ${tabela.precoCentavos} is not null)`,
+    ),
+    check(
+      "eventos_titulo_comprimento",
+      sql`${tabela.titulo} is null or length(trim(${tabela.titulo})) between 1 and 120`,
+    ),
+    check("eventos_vagas_faixa", sql`${tabela.vagas} is null or ${tabela.vagas} between 1 and 999`),
+    check(
+      "eventos_preco_faixa",
+      sql`${tabela.precoCentavos} is null or ${tabela.precoCentavos} between 0 and 1000000000`,
+    ),
+    check(
+      "eventos_cancelado_por",
+      sql`${tabela.canceladoEm} is null or ${tabela.canceladoPor} is not null`,
+    ),
+    // NULL não colide: avulsa e fechado (sem turma) nunca conflitam aqui.
+    unique("eventos_turma_data_uk").on(tabela.turmaId, tabela.data),
+    index("eventos_data_idx").on(tabela.data),
+  ],
+);
+
+// Quem vem numa data, com a presença. "Pago" é derivado do `documento_id` (a venda do Financeiro),
+// nunca uma coluna. A dispensa (D-09) é o "não cobrar desta vez", com o motivo. O crédito de
+// reposição é derivado das linhas (faltas com direito − reposições), nunca uma coluna "saldo".
+export const inscricoes = pgTable(
+  "inscricoes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    eventoId: uuid("evento_id")
+      .notNull()
+      .references(() => eventos.id),
+    clienteId: uuid("cliente_id")
+      .notNull()
+      .references(() => clientes.id),
+    tipo: tipoInscricao("tipo").notNull(),
+    presenca: presencaDaInscricao("presenca"),
+    direitoARepor: boolean("direito_a_repor").notNull().default(false),
+    cobrar: boolean("cobrar").notNull().default(false),
+    valorCentavos: integer("valor_centavos"),
+    documentoId: uuid("documento_id").references(() => documentos.id),
+    dispensadaEm: timestamp("dispensada_em", { withTimezone: true }),
+    dispensadaPor: uuid("dispensada_por").references(() => usuarios.id),
+    motivoDispensa: text("motivo_dispensa"),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "inscricoes_direito_so_com_falta",
+      sql`not ${tabela.direitoARepor} or (${tabela.presenca} = 'faltou' and ${tabela.tipo} in ('aluno','experimental'))`,
+    ),
+    check("inscricoes_cobrar_com_valor", sql`${tabela.cobrar} = (${tabela.valorCentavos} is not null)`),
+    check("inscricoes_reposicao_nao_cobra", sql`${tabela.tipo} <> 'reposicao' or not ${tabela.cobrar}`),
+    // O aluno paga pela mensalidade, nunca pela data.
+    check("inscricoes_aluno_nao_cobra", sql`${tabela.tipo} <> 'aluno' or not ${tabela.cobrar}`),
+    check("inscricoes_oficina_cobra", sql`${tabela.tipo} <> 'oficina' or ${tabela.cobrar}`),
+    check(
+      "inscricoes_valor_faixa",
+      sql`${tabela.valorCentavos} is null or ${tabela.valorCentavos} between 0 and 1000000000`,
+    ),
+    check("inscricoes_venda_so_cobrada", sql`${tabela.documentoId} is null or ${tabela.cobrar}`),
+    check("inscricoes_dispensa_so_cobrada", sql`${tabela.dispensadaEm} is null or ${tabela.cobrar}`),
+    check(
+      "inscricoes_dispensada_por",
+      sql`${tabela.dispensadaEm} is null or ${tabela.dispensadaPor} is not null`,
+    ),
+    check(
+      "inscricoes_motivo_so_com_dispensa",
+      sql`${tabela.motivoDispensa} is null or (${tabela.dispensadaEm} is not null and length(trim(${tabela.motivoDispensa})) between 1 and 200)`,
+    ),
+    unique("inscricoes_evento_cliente_uk").on(tabela.eventoId, tabela.clienteId),
+    index("inscricoes_cliente_idx").on(tabela.clienteId),
+    index("inscricoes_documento_idx").on(tabela.documentoId),
+  ],
+);
+
+// A mensalidade de um aluno numa turma num mês (D-02): nasce ao abrir a tela, por
+// `insert … on conflict do nothing` na chave única `mensalidades_turma_cliente_mes_uk` — idempotente
+// sem "já existe?". `mes` é sempre o dia 1. Proporcional = `aulas_restantes`/`aulas_no_mes` juntos.
+// Não se apaga (`revoke delete`): a dispensa (D-09) é o "não cobrar este mês".
+export const mensalidades = pgTable(
+  "mensalidades",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    turmaId: uuid("turma_id")
+      .notNull()
+      .references(() => turmas.id),
+    clienteId: uuid("cliente_id")
+      .notNull()
+      .references(() => clientes.id),
+    mes: date("mes", { mode: "string" }).notNull(),
+    valorCentavos: integer("valor_centavos").notNull(),
+    aulasRestantes: integer("aulas_restantes"),
+    aulasNoMes: integer("aulas_no_mes"),
+    vencimento: date("vencimento", { mode: "string" }).notNull(),
+    documentoId: uuid("documento_id").references(() => documentos.id),
+    dispensadaEm: timestamp("dispensada_em", { withTimezone: true }),
+    dispensadaPor: uuid("dispensada_por").references(() => usuarios.id),
+    motivoDispensa: text("motivo_dispensa"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("mensalidades_mes_primeiro_dia", sql`extract(day from ${tabela.mes}) = 1`),
+    // Proporcional zero não nasce (AGE-07).
+    check("mensalidades_valor_faixa", sql`${tabela.valorCentavos} between 1 and 1000000000`),
+    check(
+      "mensalidades_proporcional_junto",
+      sql`(${tabela.aulasRestantes} is null) = (${tabela.aulasNoMes} is null)`,
+    ),
+    check(
+      "mensalidades_proporcional_faixa",
+      sql`${tabela.aulasRestantes} is null or (${tabela.aulasRestantes} > 0 and ${tabela.aulasRestantes} < ${tabela.aulasNoMes})`,
+    ),
+    check(
+      "mensalidades_vencimento_no_mes",
+      sql`date_trunc('month', ${tabela.vencimento})::date = ${tabela.mes}`,
+    ),
+    check(
+      "mensalidades_dispensada_por",
+      sql`${tabela.dispensadaEm} is null or ${tabela.dispensadaPor} is not null`,
+    ),
+    check(
+      "mensalidades_motivo_so_com_dispensa",
+      sql`${tabela.motivoDispensa} is null or (${tabela.dispensadaEm} is not null and length(trim(${tabela.motivoDispensa})) between 1 and 200)`,
+    ),
+    unique("mensalidades_turma_cliente_mes_uk").on(tabela.turmaId, tabela.clienteId, tabela.mes),
+    index("mensalidades_documento_idx").on(tabela.documentoId),
+  ],
+);
+
+// O uso livre do espaço (AGE-13): reservado → no espaço → encerrado. No encerramento, as horas
+// cheias, o preço da hora e o valor ficam CONGELADOS aqui (o preço do Catálogo pode mudar depois).
+// A reserva não iniciada se apaga (por ação sob trava); o encerrado com venda ou baixa não — as FKs
+// sem `on delete` de `documento_id` e de `movimentacoes_estoque.uso_livre_id` impedem.
+export const usosLivres = pgTable(
+  "usos_livres",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    clienteId: uuid("cliente_id")
+      .notNull()
+      .references(() => clientes.id),
+    data: date("data", { mode: "string" }).notNull(),
+    chegadaPrevista: time("chegada_prevista").notNull(),
+    horasPrevistas: integer("horas_previstas").notNull(),
+    pessoas: integer("pessoas").notNull(),
+    estado: estadoUsoLivre("estado").notNull().default("reservado"),
+    chegada: time("chegada"),
+    saida: time("saida"),
+    horasCheias: integer("horas_cheias"),
+    precoHoraCentavos: integer("preco_hora_centavos"),
+    valorCentavos: integer("valor_centavos"),
+    documentoId: uuid("documento_id").references(() => documentos.id),
+    criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("usos_livres_horas_previstas_faixa", sql`${tabela.horasPrevistas} between 1 and 12`),
+    check("usos_livres_pessoas_faixa", sql`${tabela.pessoas} between 1 and 50`),
+    check(
+      "usos_livres_chegada_por_estado",
+      sql`(${tabela.estado} = 'reservado') = (${tabela.chegada} is null)`,
+    ),
+    check(
+      "usos_livres_encerrado_completo",
+      sql`(${tabela.estado} = 'encerrado' and ${tabela.saida} is not null and ${tabela.horasCheias} is not null and ${tabela.precoHoraCentavos} is not null and ${tabela.valorCentavos} is not null) or (${tabela.estado} <> 'encerrado' and ${tabela.saida} is null and ${tabela.horasCheias} is null and ${tabela.precoHoraCentavos} is null and ${tabela.valorCentavos} is null)`,
+    ),
+    check(
+      "usos_livres_saida_depois_da_chegada",
+      sql`${tabela.saida} is null or ${tabela.saida} > ${tabela.chegada}`,
+    ),
+    check(
+      "usos_livres_horas_cheias_faixa",
+      sql`${tabela.horasCheias} is null or ${tabela.horasCheias} between 1 and 24`,
+    ),
+    check(
+      "usos_livres_valor_faixa",
+      sql`${tabela.valorCentavos} is null or ${tabela.valorCentavos} between 0 and 1000000000`,
+    ),
+    check(
+      "usos_livres_venda_so_encerrado",
+      sql`${tabela.documentoId} is null or ${tabela.estado} = 'encerrado'`,
+    ),
+    index("usos_livres_data_idx").on(tabela.data),
+    index("usos_livres_documento_idx").on(tabela.documentoId),
+  ],
+);
+
+// O material usado num uso livre: incluso (não cobra) ou cobrado. O preço unitário e o valor são
+// CONGELADOS no encerramento (D-14), só no cobrado. A baixa do Estoque (D-06) nasce no encerramento
+// e fica ligada por `movimentacao_id` — uma baixa por linha.
+export const usosLivresMaterial = pgTable(
+  "usos_livres_material",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    usoLivreId: uuid("uso_livre_id")
+      .notNull()
+      .references(() => usosLivres.id),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => itensCatalogo.id),
+    quantidadeMilesimos: bigint("quantidade_milesimos", { mode: "number" }).notNull(),
+    cobrar: boolean("cobrar").notNull(),
+    precoUnitarioCentavos: integer("preco_unitario_centavos"),
+    valorCentavos: integer("valor_centavos"),
+    movimentacaoId: uuid("movimentacao_id").references(() => movimentacoesEstoque.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "usos_livres_material_quantidade_positiva",
+      sql`${tabela.quantidadeMilesimos} > 0`,
+    ),
+    check(
+      "usos_livres_material_incluso_sem_preco",
+      sql`${tabela.cobrar} or (${tabela.precoUnitarioCentavos} is null and ${tabela.valorCentavos} is null)`,
+    ),
+    check(
+      "usos_livres_material_preco_junto",
+      sql`(${tabela.precoUnitarioCentavos} is null) = (${tabela.valorCentavos} is null)`,
+    ),
+    check(
+      "usos_livres_material_cobrado_baixado_tem_preco",
+      sql`not ${tabela.cobrar} or ${tabela.movimentacaoId} is null or ${tabela.precoUnitarioCentavos} is not null`,
+    ),
+    unique("usos_livres_material_movimentacao_uk").on(tabela.movimentacaoId),
+    index("usos_livres_material_uso_idx").on(tabela.usoLivreId),
   ],
 );

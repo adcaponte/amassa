@@ -19,7 +19,7 @@ import {
   LIMITE_MAXIMO_DO_HISTORICO,
   PASSO_DO_HISTORICO,
 } from "./abas";
-import { DESTINOS_DE_SAIDA, ehDestinoDeSaida, type DestinoDeSaida } from "./destinos";
+import { DESTINOS_DE_SAIDA, ehDestinoDaFolha, type DestinoDeSaida } from "./destinos";
 import {
   FRASE_CONTADO_VAZIO,
   FRASE_CONTAGEM_DESATUALIZADA,
@@ -90,9 +90,11 @@ const esquemaCusto = z.string({ error: FRASE_CUSTO_OBRIGATORIO }).transform((tex
   return conversao.centavos;
 });
 
+// Só os cinco destinos da folha (D-06): `uso_livre` é gravado apenas pela Agenda, com vínculo — a
+// folha do Estoque o recusa aqui, e o `check` do banco recusa a saída `uso_livre` sem `uso_livre_id`.
 const esquemaDestino = z
   .unknown()
-  .refine((valor): valor is DestinoDeSaida => ehDestinoDeSaida(valor), FRASE_DESTINO_OBRIGATORIO)
+  .refine((valor): valor is DestinoDeSaida => ehDestinoDaFolha(valor), FRASE_DESTINO_OBRIGATORIO)
   .transform((valor) => valor as DestinoDeSaida);
 
 // O SALDO CONTADO do ajuste (EST-07, D-32): aceita zero — "a prateleira está vazia" é resposta

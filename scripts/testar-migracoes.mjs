@@ -84,6 +84,18 @@ const TABELAS_ESPERADAS = [
   "ordens_producao",
   "ordem_etapas",
   "ordem_pecas",
+  // Fase 5 — Agenda (migração 0026_agenda). Permanentes; não entram em
+  // TABELAS_DA_REMOCAO_ABERTURA. As conferências completas das invariantes (checks, chaves únicas,
+  // o enum em texto, o gatilho do item do sistema, a concorrência) são do plano 05-02; aqui,
+  // `conferirAgenda`: a semente dos três itens do sistema e o `revoke delete` de `clientes`.
+  "clientes",
+  "turmas",
+  "turma_alunos",
+  "eventos",
+  "inscricoes",
+  "mensalidades",
+  "usos_livres",
+  "usos_livres_material",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -4832,6 +4844,85 @@ async function provarMigracaoDaProducaoEmBancoProprio() {
   }
 }
 
+// Fase 5 — Agenda (plano 05-01, mínima): a semente da 0026 criou os três itens do sistema, cada um
+// com a chave certa, na categoria certa, sem preço (AGE-17: nenhum preço no código), aparecendo na
+// venda e sem controlar estoque; o gatilho `travar_item_do_sistema` recusa desativar um deles com
+// P0001; e `amassa_app` recebe 42501 ao apagar uma linha de `clientes` (revoke delete da 0026).
+// O resto das invariantes é do plano 05-02.
+async function conferirAgenda(conexao) {
+  console.log("  conferirAgenda...");
+
+  const { rows: itens } = await conexao.query(
+    `select i.chave_do_sistema, i.nome, i.preco_venda_centavos, i.aparece_na_venda,
+            i.controla_estoque, i.ativo, c.nome as categoria
+       from itens_catalogo i
+       join categorias c on c.id = i.categoria_venda_id
+      where i.chave_do_sistema is not null
+      order by i.chave_do_sistema`,
+  );
+  const esperados = [
+    ["inscricao_oficina", "Inscrição em oficina", "Aulas e oficinas"],
+    ["mensalidade", "Mensalidade", "Aulas e oficinas"],
+    ["uso_livre_hora", "Uso livre (hora)", "Uso do espaço"],
+  ];
+  afirmar(
+    itens.length === esperados.length,
+    `Agenda: a 0026 deveria semear ${esperados.length} itens do sistema, vieram ${itens.length}.`,
+  );
+  for (const [indice, [chave, nome, categoria]] of esperados.entries()) {
+    const item = itens[indice];
+    afirmar(
+      item.chave_do_sistema === chave && item.nome === nome && item.categoria === categoria,
+      `Agenda: o item do sistema "${chave}" deveria se chamar "${nome}" na categoria "${categoria}", veio ${JSON.stringify(item)}.`,
+    );
+    afirmar(
+      item.preco_venda_centavos === null &&
+        item.aparece_na_venda === true &&
+        item.controla_estoque === false &&
+        item.ativo === true,
+      `Agenda: o item do sistema "${chave}" deveria nascer sem preço, na venda, sem estoque e ativo, veio ${JSON.stringify(item)}.`,
+    );
+  }
+
+  // O gatilho do item do sistema (D-17): desativar "Mensalidade" é recusado com P0001.
+  await conexao.query("begin");
+  try {
+    const { codigo } = await erroDoBanco(() =>
+      conexao.query("update itens_catalogo set ativo = false where chave_do_sistema = 'mensalidade'"),
+    );
+    afirmar(
+      codigo === "P0001",
+      `Agenda: desativar o item do sistema "mensalidade" deveria falhar com P0001 (travar_item_do_sistema), veio ${codigo}.`,
+    );
+  } finally {
+    await conexao.query("rollback");
+  }
+
+  // Pessoa não se apaga: `amassa_app` recebe 42501 num `delete` real de `clientes`.
+  const { rows: inserido } = await conexao.query(
+    "insert into clientes (nome) values ('[migracoes] Pessoa da prova') returning id",
+  );
+  const clienteId = inserido[0].id;
+  try {
+    await conexao.query("begin");
+    let codigo;
+    try {
+      await conexao.query("set local role amassa_app");
+      ({ codigo } = await erroDoBanco(() =>
+        conexao.query("delete from clientes where id = $1", [clienteId]),
+      ));
+    } finally {
+      await conexao.query("rollback");
+    }
+    afirmar(
+      codigo === "42501",
+      `Agenda: apagar de clientes, como amassa_app, deveria falhar com 42501 (revoke delete da 0026), veio ${codigo}.`,
+    );
+  } finally {
+    await conexao.query("delete from clientes where id = $1", [clienteId]);
+  }
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -4851,6 +4942,7 @@ async function conferirBanco() {
     await conferirAnotacoesDaCasa(cliente);
     await conferirEstoque(cliente);
     await conferirProducao(cliente);
+    await conferirAgenda(cliente);
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
   } finally {

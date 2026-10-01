@@ -12,7 +12,7 @@ import { formatarReais } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { registrarMovimentacao } from "@/lib/estoque/acoes";
 import type { EncomendaParaVinculo, SaldoDoItem } from "@/lib/estoque/consultas";
-import { DESTINOS_DE_SAIDA, type DestinoDeSaida } from "@/lib/estoque/destinos";
+import { DESTINOS_DA_FOLHA_DO_ESTOQUE, type DestinoDeSaida } from "@/lib/estoque/destinos";
 import { contadoParaMilesimos, textoParaMilesimos } from "@/lib/estoque/esquemas";
 import { atalhosDaUnidade, custoPreenchidoDaPecaPronta } from "@/lib/estoque/saldo";
 import {
@@ -190,7 +190,7 @@ export function FolhaMovimentacao({
 
   const unidade = ROTULO_UNIDADE[saldo.unidade];
   const ehPecaPronta = saldo.ehPecaPronta;
-  const destinoMarcado = DESTINOS_DE_SAIDA.find((opcao) => opcao.valor === destino) ?? null;
+  const destinoMarcado = DESTINOS_DA_FOLHA_DO_ESTOQUE.find((opcao) => opcao.valor === destino) ?? null;
 
   const quantidadeTexto = tipo === "ajuste" ? "" : quantidades[tipo];
   const quantidadeEntrada = textoParaMilesimos(quantidades.entrada);
