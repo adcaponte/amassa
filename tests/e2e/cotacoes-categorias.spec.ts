@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Request } from "@playwright/test";
 
 import { fraseConfirmarRemoverCategoria } from "@/lib/cotacoes/textos";
 
@@ -320,14 +320,67 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     expect(corpo).not.toMatch(/digest/i);
     expect(corpo).not.toMatch(/at .+:\d+:\d+/);
 
-    // "Tentar de novo" (`reset()`) refaz a MESMA renderização — com o `categoriaDialogo`
-    // malformado ainda na URL, o erro se repete de propósito (não é um defeito: a tela não tem
-    // como saber que o parâmetro é inválido sem consultar o banco de novo). Voltar para a URL
-    // limpa (sem `categoriaDialogo=`) é o caminho real de recuperação, e prova que nada foi
-    // corrompido: a categoria criada continua lá.
+    // "Tentar de novo" (`retry()`, ver o teste seguinte) pede a tela de novo ao servidor — mas com
+    // o `categoriaDialogo` malformado ainda na URL, o erro se repete de propósito (não é um
+    // defeito: a tela não tem como saber que o parâmetro é inválido sem consultar o banco de
+    // novo). Voltar para a URL limpa (sem `categoriaDialogo=`) é o caminho real de recuperação, e
+    // prova que nada foi corrompido: a categoria criada continua lá.
     await page.goto(urlComACategoria);
     await expect(page.getByTestId("cotacoes-sub-aba").filter({ hasText: nome })).toBeVisible({
       timeout: 10000,
     });
+  });
+
+  test("\"Tentar de novo\" na fronteira de erro da Abertura pede a tela de novo ao servidor (WR-102)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    // Mesmo erro real do teste anterior (uuid malformado estoura no Postgres), sem precisar de
+    // categoria criada: `obterCategoriaDeCotacao` roda para qualquer `categoriaDialogo` que não
+    // seja "nova", desde que a aba seja Cotações.
+    await page.goto("/gestao/abertura?aba=cotacoes&categoriaDialogo=nao-e-um-uuid");
+    const tituloDoErro = page.getByRole("heading", { name: "Algo não funcionou.", level: 2 });
+    await expect(tituloDoErro).toBeVisible();
+    const botaoTentarDeNovo = page.getByRole("button", { name: "Tentar de novo" });
+
+    // O que este teste distingue (revisão 06.1, WR-102, estendido às telas antigas): o `reset()`
+    // do Next 16.3.5 só limpa o estado do boundary e redesenha o payload que já está no cliente —
+    // NENHUM pedido sai para o servidor e o mesmo erro volta na hora. O `retry()` faz
+    // `router.refresh()`, que busca o payload RSC da MESMA URL de novo. Então: clicar tem que
+    // gerar um pedido RSC desta rota, com o parâmetro malformado. Com `reset()` este pedido nunca
+    // existe e o `toPass` esgota.
+    //
+    // Limite, dito sem disfarce: como o identificador continua malformado, a resposta nova traz o
+    // MESMO erro, e a tela de erro volta. Este teste prova que o botão busca de novo, não que a
+    // tela se recupera — produzir aqui um erro que some sozinho entre a primeira renderização e
+    // o clique exigiria quebrar código de propósito ou mexer no banco por fora.
+    const eOPedidoDestaTela = (pedido: Request) => {
+      const url = new URL(pedido.url());
+      const eRsc = pedido.headers()["rsc"] === "1" || url.searchParams.has("_rsc");
+      return (
+        eRsc &&
+        url.pathname === "/gestao/abertura" &&
+        url.searchParams.get("categoriaDialogo") === "nao-e-um-uuid"
+      );
+    };
+
+    // `toPass`: um clique antes da hidratação não tem `onClick` ligado ainda e não pede nada —
+    // repetir o clique é inofensivo (o pior caso é uma segunda busca).
+    let pedidoDeNovo: Request | null = null;
+    await expect(async () => {
+      const esperaPeloPedido = page.waitForRequest(eOPedidoDestaTela, { timeout: 3000 });
+      await botaoTentarDeNovo.click();
+      pedidoDeNovo = await esperaPeloPedido;
+    }).toPass({ timeout: 20000 });
+    expect(pedidoDeNovo).not.toBeNull();
+
+    // A resposta nova chegou e foi desenhada: o erro voltou (o parâmetro continua malformado) e,
+    // como antes, sem vazar nada técnico na tela.
+    await expect(tituloDoErro).toBeVisible();
+    await expect(botaoTentarDeNovo).toBeVisible();
+    const corpo = await page.locator("body").innerText();
+    expect(corpo).not.toMatch(/invalid input syntax/i);
+    expect(corpo).not.toMatch(/digest/i);
   });
 });
