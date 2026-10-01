@@ -36,6 +36,8 @@ export type SemanaDaAgendaProps = {
   eventoAberto: EventoCarregado | null;
   // `?evento=` com um id que não existe (link velho, removido em outro celular): toast, sem folha.
   eventoInexistente: boolean;
+  // Ao abrir a aba sem `?semana=`, a página rola até o cabeçalho de hoje (UI-D27); `null` não rola.
+  rolarAte: string | null;
 };
 
 // A aba Agenda na vista Semana (05-UI-SPEC.md §"Aba Agenda — Semana", item 3): os sete grupos de
@@ -51,6 +53,7 @@ export function SemanaDaAgenda({
   dias,
   eventoAberto,
   eventoInexistente,
+  rolarAte,
 }: SemanaDaAgendaProps) {
   const router = useRouter();
   const caminho = usePathname();
@@ -77,6 +80,16 @@ export function SemanaDaAgenda({
     const consulta = novos.toString();
     return consulta === "" ? caminho : `${caminho}?${consulta}`;
   }
+
+  // Ao abrir sem `?semana=`: rola até hoje, INSTANTÂNEO (abrir a tela não é animação — e quem pediu
+  // menos movimento nunca recebe rolagem suave). Só na montagem: trocar de semana não rola de novo.
+  useEffect(() => {
+    if (rolarAte !== null) {
+      document.getElementById(`dia-${rolarAte}`)?.scrollIntoView({ block: "start", behavior: "instant" });
+    }
+    // Só na montagem, de propósito.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // O toast do link velho aparece UMA vez, e o parâmetro sai da URL.
   const avisado = useRef<string | null>(null);

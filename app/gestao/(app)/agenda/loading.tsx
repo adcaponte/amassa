@@ -3,8 +3,11 @@ import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Esqueleto da Agenda no FORMATO da semana (05-UI-SPEC.md §"Estados → Carregando"): o cabeçalho
-// real, a barra de navegação e 3 grupos de dia com 2 cartões de 64px cada. Trocar de semana usa
-// este mesmo arquivo. Nunca "carregando..." solto nem tela em branco (CLAUDE.md §Estados).
+// real, a barra de navegação ("‹ título ›" e o alternador), a fileira "+ Lançar na agenda · Hoje"
+// (52px) e 3 grupos de dia com 2 cartões de 64px cada. Trocar de semana usa este mesmo arquivo.
+// Nunca "carregando..." solto nem tela em branco (CLAUDE.md §Estados). Este arquivo não sabe a
+// vista (não recebe a URL): a semana é o padrão; a grade do MÊS espera o banco atrás do próprio
+// esqueleto (`EsqueletoDoMes`: cabeçalho dos dias + 35 células de 52px), num `Suspense` da página.
 const DIAS = [0, 1, 2] as const;
 const CARTOES = [0, 1] as const;
 
@@ -13,10 +16,17 @@ export default function CarregandoAgenda() {
     <div className="flex flex-col" aria-busy="true" data-testid="agenda-carregando">
       <CabecalhoPagina titulo={TITULO_AGENDA} />
       <div className="flex max-w-3xl flex-col gap-4 px-6 pt-4 pb-6 md:px-8">
-        <div className="flex items-center gap-2">
-          <Skeleton className="size-11 rounded-md" />
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="size-11 rounded-md" />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-11 rounded-md" />
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="size-11 rounded-md" />
+          </div>
+          <Skeleton className="h-[52px] w-40 rounded-md" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-[52px] flex-1 rounded-md" />
+          <Skeleton className="h-[52px] w-24 rounded-md" />
         </div>
         {DIAS.map((dia) => (
           <div key={dia} className="flex flex-col gap-2">

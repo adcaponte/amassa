@@ -13,6 +13,7 @@ import { somarDias } from "@/lib/producao/calendario";
 import { contarPerdasAoCancelar, type PerdasAoCancelar } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { ordenarInscritos } from "./presenca";
+import { gradeDoMes } from "./semana";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM } from "./textos";
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
 
@@ -224,4 +225,23 @@ export async function lerDiaParaLancar(data: string): Promise<DiaParaLancar> {
     fechadoMotivo: fechado ? (fechado.titulo ?? "") : null,
     lancamentos: linhas.filter((linha) => linha.tipo !== "fechado").length,
   };
+}
+
+// Um lançamento na grade do mês: o dia e o tipo — o resto (título, horário) não aparece na célula.
+export type LancamentoDoMes = { data: string; tipo: TipoEvento };
+
+// Os eventos NÃO cancelados entre a primeira e a última célula da grade do mês (as células de fora
+// do mês também têm pontos), por dia e início — cancelado não tem ponto (herdado). Os usos livres
+// entram aqui no plano 09.
+export async function lerMes(mes: string): Promise<LancamentoDoMes[]> {
+  const grade = gradeDoMes(mes);
+  const primeiraCelula = grade[0].data;
+  const ultimaCelula = grade[grade.length - 1].data;
+  return db
+    .select({ data: eventos.data, tipo: eventos.tipo })
+    .from(eventos)
+    .where(
+      and(gte(eventos.data, primeiraCelula), lte(eventos.data, ultimaCelula), isNull(eventos.canceladoEm)),
+    )
+    .orderBy(asc(eventos.data), asc(eventos.inicio), asc(eventos.id));
 }

@@ -223,3 +223,15 @@ export const FRASE_FALHA_AO_TIRAR_BLOQUEIO =
 export function toastBloqueioTirado(diaMes: string): string {
   return `Bloqueio de ${diaMes} tirado.`;
 }
+
+// A barra e a vista do mês (05-UI-SPEC.md §"Aba Agenda — Mês", §Copywriting → Ações, UI-D2).
+export const ROTULO_MES_ANTERIOR = "Mês anterior";
+export const ROTULO_PROXIMO_MES = "Próximo mês";
+export const ARIA_VER_AGENDA_POR = "Ver a agenda por";
+export const ROTULO_VISTA_SEMANA = "Semana";
+export const ROTULO_VISTA_MES = "Mês";
+export const CABECALHO_DOS_DIAS_DO_MES = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"] as const;
+export const LEGENDA_TURMA_FIXA = "Turma fixa";
+export const LEGENDA_USO_LIVRE = "Uso livre";
+export const DICA_DO_MES = "Toque num dia para abrir a semana dele.";
+export const FRASE_MES_VAZIO = "Nada marcado neste mês.";

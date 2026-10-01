@@ -106,3 +106,97 @@ export function agruparPorDia<T extends ItemDoDia>(segunda: string, itens: reado
     itens: ordenarNoDia(itens.filter((item) => item.data === data)),
   }));
 }
+
+// ——— A vista do mês (AGE-02; 05-UI-SPEC.md §"Aba Agenda — Mês") ———
+
+const NOMES_DOS_MESES = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+] as const;
+
+// "2026-12" → "dezembro de 2026".
+export function tituloDoMes(mes: string): string {
+  return `${NOMES_DOS_MESES[Number(mes.slice(5, 7)) - 1]} de ${mes.slice(0, 4)}`;
+}
+
+// O mês `delta` meses antes/depois de `mes` (AAAA-MM), cruzando o ano.
+export function mesVizinho(mes: string, delta: number): string {
+  const indice = Number(mes.slice(0, 4)) * 12 + (Number(mes.slice(5, 7)) - 1) + delta;
+  const ano = Math.floor(indice / 12);
+  const mesDoAno = indice - ano * 12 + 1;
+  return `${String(ano).padStart(4, "0")}-${String(mesDoAno).padStart(2, "0")}`;
+}
+
+export type CelulaDoMes = { data: string; doMes: boolean };
+
+// A grade do mês com SEGUNDA primeiro: 42 células a partir da segunda da semana do dia 1, e a 6ª
+// linha cortada quando ela é toda fora do mês (herdado do protótipo: `if(i>=35&&fora)break`) —
+// 35 ou 42 células. As células de fora do mês ficam (fundo `superficie-2`, número `tinta-fraca`).
+export function gradeDoMes(mes: string): CelulaDoMes[] {
+  const primeiroDia = `${mes}-01`;
+  const inicio = segundaDaSemana(primeiroDia);
+  const celulas = Array.from({ length: 42 }, (_, indice) => {
+    const data = somarDias(inicio, indice);
+    return { data, doMes: data.slice(0, 7) === mes };
+  });
+  return celulas[35].doMes ? celulas : celulas.slice(0, 35);
+}
+
+// O que a célula do mês sabe de um lançamento: o tipo (o uso livre entra no plano 09) e se foi
+// cancelado — cancelado não tem ponto nem conta no resumo.
+export type TipoDoPonto = TipoEvento | "uso_livre";
+export type LancamentoDoDia = { tipo: TipoDoPonto; cancelado?: boolean };
+
+const TETO_DE_PONTOS = 6;
+
+// Os pontos de uma célula: até seis, o fechado primeiro, cancelado sem ponto; o resto na ordem
+// recebida (a consulta já vem por início).
+export function pontosDoDia(lancamentos: readonly LancamentoDoDia[]): TipoDoPonto[] {
+  const validos = lancamentos.filter((lancamento) => !lancamento.cancelado);
+  const fechados = validos.filter((lancamento) => lancamento.tipo === "fechado");
+  const outros = validos.filter((lancamento) => lancamento.tipo !== "fechado");
+  return [...fechados, ...outros].slice(0, TETO_DE_PONTOS).map((lancamento) => lancamento.tipo);
+}
+
+const PLURAL_DO_TIPO: Record<Exclude<TipoDoPonto, "fechado">, readonly [string, string]> = {
+  turma: ["turma fixa", "turmas fixas"],
+  avulsa: ["oficina", "oficinas"],
+  uso_livre: ["uso livre", "usos livres"],
+};
+
+// O resumo da célula para o leitor de tela: "nada marcado" / "1 turma fixa, 2 oficinas, 1 uso
+// livre" / "dia fechado" — plural de verdade, contando TODOS os lançamentos (não só os seis
+// pontos desenhados); cancelado não conta.
+export function resumoDoDia(lancamentos: readonly LancamentoDoDia[]): string {
+  const validos = lancamentos.filter((lancamento) => !lancamento.cancelado);
+  const partes: string[] = [];
+  if (validos.some((lancamento) => lancamento.tipo === "fechado")) {
+    partes.push("dia fechado");
+  }
+  for (const tipo of ["turma", "avulsa", "uso_livre"] as const) {
+    const quantos = validos.filter((lancamento) => lancamento.tipo === tipo).length;
+    if (quantos > 0) {
+      const [singular, plural] = PLURAL_DO_TIPO[tipo];
+      partes.push(`${quantos} ${quantos === 1 ? singular : plural}`);
+    }
+  }
+  return partes.length === 0 ? "nada marcado" : partes.join(", ");
+}
+
+// O `aria-label` da célula: "{dia da semana}, {d} de {mês}: {resumo}" + " · hoje".
+export function rotuloDaCelulaDoMes(data: string, resumo: string, hoje: string): string {
+  const dia = Number(data.slice(8, 10));
+  const mes = NOMES_DOS_MESES[Number(data.slice(5, 7)) - 1];
+  const base = `${diaDaSemanaPorExtenso(data)}, ${dia} de ${mes}: ${resumo}`;
+  return data === hoje ? `${base} · hoje` : base;
+}
