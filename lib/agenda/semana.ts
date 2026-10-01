@@ -56,7 +56,12 @@ export type ItemDoDia = {
   tipo: TipoEvento;
   // Nulo no dia fechado ("dia todo"). Aceita "HH:MM" e "HH:MM:SS".
   inicio: string | null;
+  // O que o cartão mostra (nome da turma/aula, motivo do fechado) — desempata o mesmo horário.
+  titulo?: string;
 };
+
+// Ordem alfabética de gente: sem diferença de caixa nem de acento ("Ágata" junto de "agata").
+const ORDEM_DE_TITULO = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
 
 const POSICAO_DO_TIPO: ReadonlyMap<TipoEvento, number> = new Map(
   TIPOS_DE_EVENTO.map((tipo, indice) => [tipo, indice]),
@@ -73,6 +78,10 @@ function comparar(a: ItemDoDia, b: ItemDoDia): number {
   if (aInicio !== bInicio) {
     return aInicio - bInicio;
   }
+  const porTitulo = ORDEM_DE_TITULO.compare(a.titulo ?? "", b.titulo ?? "");
+  if (porTitulo !== 0) {
+    return porTitulo;
+  }
   const porTipo = (POSICAO_DO_TIPO.get(a.tipo) ?? 0) - (POSICAO_DO_TIPO.get(b.tipo) ?? 0);
   if (porTipo !== 0) {
     return porTipo;
@@ -80,8 +89,8 @@ function comparar(a: ItemDoDia, b: ItemDoDia): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-// Fechado primeiro ("dia todo"), depois por início, depois por tipo, depois por id — ordem
-// estável entre recarregamentos (AGE-02 · ordering). Dois eventos no mesmo horário aparecem os
+// Fechado primeiro ("dia todo"), depois por início, depois por título (05-UI-SPEC.md §"Aba Agenda —
+// Semana"; plano 03), depois por tipo, depois por id — ordem estável entre recarregamentos (AGE-02 · ordering). Dois eventos no mesmo horário aparecem os
 // dois (AGE-02 · adjacency): nada é fundido. Devolve uma lista nova.
 export function ordenarNoDia<T extends ItemDoDia>(itens: readonly T[]): T[] {
   return [...itens].sort(comparar);

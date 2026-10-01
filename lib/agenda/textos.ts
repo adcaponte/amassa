@@ -75,3 +75,77 @@ export function fraseFalhaAoMarcarPresenca(nome: string): string {
 // A frase genérica do servidor quando a presença não grava — a tela troca pela frase com o nome.
 export const FRASE_FALHA_PRESENCA_GENERICA =
   "Não deu para marcar a presença. Verifique a internet e tente de novo.";
+
+// Folha "Lançar na agenda" (05-UI-SPEC.md §"Folha "Lançar na agenda"", §Copywriting → Ações,
+// Rótulos, Erros, Toasts). Os tipos chegam aos poucos: avulsa e fechado aqui (plano 03), turma no
+// plano 06 e uso livre no plano 09 — cada um com o formulário inteiro, nunca uma pílula sem destino.
+export const TITULO_LANCAR_NA_AGENDA = "Lançar na agenda";
+export const ROTULO_HOJE = "Hoje";
+export const ROTULO_LANCAR_NO_DIA = "lançar";
+
+export function rotuloLancarNoDia(diaDaSemana: string, diaMes: string): string {
+  return `Lançar em ${diaDaSemana}, ${diaMes}`;
+}
+
+export const ARIA_O_QUE_LANCAR = "O que lançar";
+export const ROTULO_FECHADO_BLOQUEIO = "Fechado / bloqueio";
+export const ROTULO_VOLTAR = "Voltar";
+
+// O botão de gravar diz o que vai acontecer (UI-D9) — e, enquanto grava, o "…ndo…".
+export const ROTULO_LANCAR_AULA = "Lançar aula";
+export const ROTULO_FECHAR_O_DIA = "Fechar o dia";
+export const ROTULO_LANCANDO = "Lançando…";
+export const ROTULO_FECHANDO = "Fechando…";
+
+// Rótulos, padrões e dicas dos campos.
+export const ROTULO_NOME = "Nome";
+export const PLACEHOLDER_NOME_AULA = "ex.: Oficina de pintura em biscoito";
+export const ROTULO_DATA = "Data";
+export const ROTULO_COMECA = "Começa";
+export const ROTULO_TERMINA = "Termina";
+export const ROTULO_VAGAS = "Vagas";
+export const VAGAS_PADRAO = "8";
+export const ROTULO_PRECO_POR_PESSOA = "Preço por pessoa (R$)";
+export const ROTULO_MOSTRAR_NO_SITE = "Mostrar no calendário público do site";
+export const ROTULO_MOTIVO = "Motivo";
+export const PLACEHOLDER_MOTIVO = "ex.: feriado";
+export const DICA_MOTIVO = "não aparece no site — lá o dia aparece só como fechado";
+export const DICA_TIPO_AULA = "Uma data, com vagas e preço por pessoa. Material incluso.";
+export const DICA_TIPO_FECHADO =
+  "Fecha o dia: feriado, viagem, queima grande. No site o dia aparece só como “fechado”, sem o motivo.";
+
+// Erros de campo — embaixo do campo, nunca em toast.
+export const FRASE_NOME_DA_AULA = "Dê um nome à aula ou oficina.";
+export const FRASE_NOME_LONGO = "O nome pode ter até 120 caracteres.";
+export const FRASE_HORARIO_VAZIO = "Diga a hora de começo e de fim.";
+export const FRASE_FIM_ANTES_DO_COMECO = "O fim precisa ser depois do começo.";
+export const FRASE_PRECO_POR_PESSOA = "Diga o preço por pessoa — por exemplo, 120 ou 37,50.";
+export const FRASE_VAGAS = "Vagas: um número inteiro de 1 a 999.";
+export const FRASE_ESCOLHA_A_DATA = "Escolha a data.";
+export const FRASE_MOTIVO_VAZIO = "Diga o motivo do fechamento.";
+export const FRASE_MOTIVO_LONGO = "O motivo pode ter até 120 caracteres.";
+export const FRASE_FALHA_AO_LANCAR =
+  "Não deu para lançar. Nada foi gravado — verifique a internet e tente de novo.";
+
+// D-13: dia fechado avisa e NÃO bloqueia — o botão de gravar não muda, o servidor não recusa.
+export function avisoDiaFechado(motivo: string): string {
+  return `Este dia está fechado: ${motivo}. Dá para lançar mesmo assim.`;
+}
+
+export function avisoDiaComLancamentos(lancamentos: number): string {
+  if (lancamentos === 1) {
+    return "Este dia já tem 1 lançamento. Ele não é cancelado sozinho — as datas de turma aparecem com “dia fechado” para você cancelar com um toque.";
+  }
+  return `Este dia já tem ${lancamentos} lançamentos. Eles não são cancelados sozinhos — as datas de turma aparecem com “dia fechado” para você cancelar com um toque.`;
+}
+
+// Toasts do lançamento.
+export const TOAST_LANCADO = "Lançado na agenda.";
+
+export function toastDiaFechado(diaMes: string): string {
+  return `Dia ${diaMes} fechado.`;
+}
+
+// Cancelar esta data / desfazer (05-UI-SPEC.md §Confirmações, §Toasts; decisão E29 do plano 03).
+export const FRASE_FALHA_AO_CANCELAR =
+  "Não deu para cancelar a data. Verifique a internet e tente de novo.";

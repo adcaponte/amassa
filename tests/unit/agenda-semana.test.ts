@@ -82,6 +82,15 @@ describe("ordenarNoDia", () => {
     expect(ordenados.map((evento) => evento.id)).toEqual(["z", "b", "t", "a", "c"]);
   });
 
+  it("no mesmo horário, o título desempata antes do tipo (sem caixa nem acento); sem título, tipo e id", () => {
+    const ordenados = ordenarNoDia([
+      item({ id: "1", tipo: "turma", inicio: "19:00", titulo: "Torno à noite" }),
+      item({ id: "2", tipo: "avulsa", inicio: "19:00", titulo: "árvore de natal" }),
+      item({ id: "3", tipo: "avulsa", inicio: "19:00", titulo: "Bule" }),
+    ]);
+    expect(ordenados.map((evento) => evento.id)).toEqual(["2", "3", "1"]);
+  });
+
   it("dois eventos no mesmo horário aparecem os dois, e a ordem não muda entre chamadas", () => {
     const lista = [item({ id: "2", inicio: "14:00" }), item({ id: "1", inicio: "14:00" })];
     const primeira = ordenarNoDia(lista).map((evento) => evento.id);

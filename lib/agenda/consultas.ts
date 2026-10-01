@@ -4,7 +4,7 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientes, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
@@ -184,4 +184,27 @@ export async function obterItensDoSistema(): Promise<ItensDoSistema> {
     throw new Error(FRASE_ITENS_DA_AGENDA_SUMIRAM);
   }
   return { mensalidade, inscricaoOficina, usoLivreHora };
+}
+
+// O que a folha "Lançar na agenda" precisa saber do dia escolhido para o aviso da D-13 — e só isso:
+// o motivo do fechado (se o dia está fechado) e quantos lançamentos NÃO cancelados, fora o próprio
+// fechado, já estão nele. Nunca recusa nada: é aviso (D-13 — "avisa e não bloqueia"). Os usos
+// livres entram nesta conta no plano 09.
+export type DiaParaLancar = {
+  fechadoMotivo: string | null;
+  lancamentos: number;
+};
+
+export async function lerDiaParaLancar(data: string): Promise<DiaParaLancar> {
+  const linhas = await db
+    .select({ tipo: eventos.tipo, titulo: eventos.titulo })
+    .from(eventos)
+    .where(and(eq(eventos.data, data), isNull(eventos.canceladoEm)))
+    .orderBy(asc(eventos.criadoEm), asc(eventos.id));
+
+  const fechado = linhas.find((linha) => linha.tipo === "fechado");
+  return {
+    fechadoMotivo: fechado ? (fechado.titulo ?? "") : null,
+    lancamentos: linhas.filter((linha) => linha.tipo !== "fechado").length,
+  };
 }

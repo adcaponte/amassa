@@ -1,23 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { idDaUrl } from "@/lib/agenda/abas";
 import type { EventoCarregado, EventoDaSemana } from "@/lib/agenda/consultas";
+import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
   FRASE_LANCAMENTO_NAO_EXISTE,
   FRASE_NADA_MARCADO,
-  ROTULO_PROXIMA_SEMANA,
-  ROTULO_SEMANA_ANTERIOR,
+  ROTULO_LANCAR_NO_DIA,
+  rotuloLancarNoDia,
 } from "@/lib/agenda/textos";
+import { formatarDiaMes } from "@/lib/producao/calendario";
 import { cn } from "@/lib/utils";
+import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 
 import { CartaoEvento } from "./cartao-evento";
 import { FolhaEvento } from "./folha-evento";
+import { enderecoDaAgendaCom } from "./url-da-agenda";
 
 export type DiaDaSemanaNaTela = {
   data: string;
@@ -27,9 +30,6 @@ export type DiaDaSemanaNaTela = {
 };
 
 export type SemanaDaAgendaProps = {
-  titulo: string;
-  semanaAnterior: string;
-  proximaSemana: string;
   dias: DiaDaSemanaNaTela[];
   // O evento de `?evento=`, lido pelo servidor; `null` sem parâmetro ou quando ele não existe.
   eventoAberto: EventoCarregado | null;
@@ -37,20 +37,16 @@ export type SemanaDaAgendaProps = {
   eventoInexistente: boolean;
 };
 
-const CLASSE_DA_SETA =
-  "border-borda-forte bg-superficie text-tinta hover:bg-superficie-2 inline-flex size-11 items-center justify-center rounded-md border focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
-
-// A aba Agenda na vista Semana (05-UI-SPEC.md §"Aba Agenda — Semana"): a barra "‹ {título} ›" e os
-// sete grupos de dia, segunda a domingo, com os cartões já ordenados pelo módulo puro.
+// A aba Agenda na vista Semana (05-UI-SPEC.md §"Aba Agenda — Semana", item 3): os sete grupos de
+// dia, segunda a domingo, com os cartões já ordenados pelo módulo puro e o "+ lançar" de cada dia
+// (abre a folha "Lançar na agenda" com a data do dia, por `?lancar=1&dia=`). A barra de navegação
+// e o "+ Lançar na agenda" moram em `BarraDaAgenda`.
 //
 // A folha do evento abre por estado na URL (`?evento={id}`, UI-D8): o "voltar" do Android a fecha,
 // e um link (o Início, plano 14) a abre direto. Tocar no cartão abre a folha NA HORA, com o
 // cabeçalho que o cartão já conhece e o esqueleto da lista, e pede a URL nova ao servidor
 // (`router.push`) — a lista chega quando ele responde. Fechar faz o caminho inverso.
 export function SemanaDaAgenda({
-  titulo,
-  semanaAnterior,
-  proximaSemana,
   dias,
   eventoAberto,
   eventoInexistente,
@@ -110,42 +106,37 @@ export function SemanaDaAgenda({
 
   return (
     <div className="flex flex-col gap-4" data-testid="agenda-semana">
-      <nav aria-label="Semana" className="flex flex-wrap items-center gap-2">
-        <Link
-          href={`${caminho}?semana=${semanaAnterior}`}
-          aria-label={ROTULO_SEMANA_ANTERIOR}
-          data-testid="agenda-semana-anterior"
-          className={CLASSE_DA_SETA}
-        >
-          <ChevronLeft aria-hidden="true" />
-        </Link>
-        <h2
-          className="text-titulo text-tinta font-semibold whitespace-nowrap tabular-nums"
-          data-testid="agenda-titulo-semana"
-        >
-          {titulo}
-        </h2>
-        <Link
-          href={`${caminho}?semana=${proximaSemana}`}
-          aria-label={ROTULO_PROXIMA_SEMANA}
-          data-testid="agenda-proxima-semana"
-          className={CLASSE_DA_SETA}
-        >
-          <ChevronRight aria-hidden="true" />
-        </Link>
-      </nav>
-
       <div className="flex flex-col gap-4">
         {dias.map((dia) => (
-          <section key={dia.data} data-testid={`agenda-dia-${dia.data}`} aria-label={dia.rotulo}>
-            <h3
-              className={cn(
-                "text-apoio mb-2 font-semibold tracking-[0.06em] uppercase",
-                dia.ehHoje ? "text-acento" : "text-tinta-media",
-              )}
-            >
-              {dia.rotulo}
-            </h3>
+          <section
+            key={dia.data}
+            id={`dia-${dia.data}`}
+            data-testid={`agenda-dia-${dia.data}`}
+            aria-label={dia.rotulo}
+            className="scroll-mt-16 md:scroll-mt-4"
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <h3
+                className={cn(
+                  "text-apoio font-semibold tracking-[0.06em] uppercase",
+                  dia.ehHoje ? "text-acento" : "text-tinta-media",
+                )}
+              >
+                {dia.rotulo}
+              </h3>
+              <button
+                type="button"
+                data-testid="agenda-lancar-no-dia"
+                aria-label={rotuloLancarNoDia(diaDaSemanaPorExtenso(dia.data), formatarDiaMes(dia.data))}
+                onClick={() =>
+                  irParaSemNavegar(enderecoDaAgendaCom({ lancar: "1", dia: dia.data, evento: null }))
+                }
+                className="text-apoio text-acento inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-md px-2 font-semibold focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <Plus aria-hidden="true" className="size-4" />
+                {ROTULO_LANCAR_NO_DIA}
+              </button>
+            </div>
             {dia.eventos.length === 0 ? (
               <p className="text-apoio text-tinta-fraca pt-1 pb-2">{FRASE_NADA_MARCADO}</p>
             ) : (
