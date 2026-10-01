@@ -3579,6 +3579,747 @@ async function conferirProducao(conexao) {
   }
 }
 
+// ————————————————————————————————————————————————————————————————————————————————————————————
+// Fase 06.1 — as travas da Produção sob concorrência de verdade: os quatro
+// `behavior_unverified_items` de 06.1-VERIFICATION.md. No molde de `conferirConcorrenciaDoEstoque`
+// (Fase 06): duas conexões, transações intercaladas à mão, e `esperarBloqueada` garantindo que "B
+// pediu a trava e está esperando" antes de A seguir — sem `setTimeout` e sorte.
+//
+// Cada ação é reproduzida pelas MESMAS consultas de trava, no MESMO modo e na MESMA ordem que o
+// código emite (as constantes abaixo dizem de qual função vieram), e pelas mesmas escritas. O que a
+// ação lê SEM trava (etapas, peças, categoria) fica de fora: leitura simples não trava linha e não
+// muda quem espera quem. A e B rodam como `amassa_app` (`set local role`), o papel da aplicação, e
+// com `lock_timeout` de 5 s: uma ordem de travas errada aparece como 40P01 (o detector de impasse
+// age depois de 1 s, o `deadlock_timeout` padrão) ou como 55P03 — nunca como um processo pendurado.
+// O controle do caso (1) inverte a ordem de propósito e PRECISA dar 40P01: é o que prova que a
+// sonda enxergaria um impasse se a ordem do código estivesse errada.
+// ————————————————————————————————————————————————————————————————————————————————————————————
+
+const SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO = " — concorrência da produção [migracao]";
+
+// Faxina da sonda, como DONO das tabelas (o `revoke delete` vale só para `amassa_app`). Os itens
+// saem também pelo nome: o item que a promoção cria nasce numa transação da sonda, e se uma
+// asserção falhar antes de o id ser anotado ele ainda precisa sair (o `@vazio-global` do
+// Playwright roda depois contra o MESMO banco). Ordem: livro → peças → orçamentos → ordens →
+// fichas → venda (restrições de soma desligadas, como na faxina do Estoque) → itens → usuária.
+async function apagarDadosDeProvaDaConcorrenciaDaProducao(
+  conexao,
+  { itemIds, ordemIds, fichaIds, documentoIds, orcamentoIds, usuarioId },
+) {
+  try {
+    await conexao.query("begin");
+    const { rows: pelosNomes } = await conexao.query(
+      "select id from itens_catalogo where nome like $1",
+      [`%${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`],
+    );
+    const todosOsItens = [...new Set([...itemIds, ...pelosNomes.map((linha) => linha.id)])];
+    await conexao.query(
+      "delete from movimentacoes_estoque where item_id = any($1::uuid[]) or encomenda_id = any($2::uuid[])",
+      [todosOsItens, ordemIds],
+    );
+    await conexao.query("delete from ordem_pecas where ordem_id = any($1::uuid[])", [ordemIds]);
+    await conexao.query("delete from ordem_etapas where ordem_id = any($1::uuid[])", [ordemIds]);
+    await conexao.query("delete from orcamentos where id = any($1::uuid[])", [orcamentoIds]);
+    await conexao.query("delete from ordens_producao where id = any($1::uuid[])", [ordemIds]);
+    await conexao.query("delete from fichas_precificacao where id = any($1::uuid[])", [fichaIds]);
+    await conexao.query("alter table documento_linhas disable trigger conferir_soma_apos_linha");
+    await conexao.query("alter table parcelas disable trigger conferir_soma_apos_parcela");
+    await conexao.query("delete from parcelas where documento_id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("delete from documento_linhas where documento_id = any($1::uuid[])", [
+      documentoIds,
+    ]);
+    await conexao.query("delete from documentos where id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
+    await conexao.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
+    await conexao.query("delete from itens_catalogo where id = any($1::uuid[])", [todosOsItens]);
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado — mesma razão da faxina do Estoque.
+    console.error(`Concorrência da Produção: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+async function conferirConcorrenciaDaProducao(url = process.env.DATABASE_URL_TESTE) {
+  console.log("  conferirConcorrenciaDaProducao...");
+
+  // `lib/producao/gravacao.ts::travarOrdem` (baixa, conclusão, liberar, cancelar ordem) — e
+  // `lib/estoque/gravacao.ts::encomendaEmAndamento` (a folha do Estoque), a MESMA trava desde a
+  // revisão 06.1, WR-04.
+  const TRAVA_DA_ORDEM = `select id, nome, tipo, caminho, status, inicio, entrega_prometida
+       from ordens_producao where id = $1 for no key update`;
+  // `lib/estoque/gravacao.ts::travarItens` — uma consulta, ids em ordem de id, `for no key update`.
+  const TRAVA_DOS_ITENS = `select id, nome, unidade, ativo, controla_estoque
+       from itens_catalogo where id = any($1::uuid[]) order by id for no key update`;
+  // `lib/precificacao/gravacao.ts::promoverFichaParaLinha` (conclusão D-12 e `editarFicha`).
+  const TRAVA_DA_FICHA_NA_PROMOCAO =
+    "select nome, item_catalogo_id from fichas_precificacao where id = $1 for no key update";
+  // `lib/precificacao/acoes.ts::editarFicha`, a primeira instrução da transação.
+  const TRAVA_DA_FICHA_NA_EDICAO =
+    "select item_catalogo_id, exclusiva from fichas_precificacao where id = $1 for update";
+  // `lib/financeiro/acoes.ts::cancelarDocumento`, a primeira instrução da transação.
+  const TRAVA_DO_DOCUMENTO = "select numero, cancelado_em from documentos where id = $1 for update";
+  // `lib/producao/gravacao.ts::cancelarOrdemDaVendaCancelada` — a ordem achada pelo orçamento, e só
+  // ELA travada (`of ordens_producao`).
+  const TRAVA_DA_ORDEM_DA_VENDA = `select ordens_producao.id, ordens_producao.status
+       from ordens_producao inner join orcamentos on orcamentos.encomenda_id = ordens_producao.id
+      where orcamentos.documento_id = $1 for no key update of ordens_producao`;
+
+  const conexaoA = new Client({ connectionString: url });
+  const conexaoB = new Client({ connectionString: url });
+  const observador = new Client({ connectionString: url });
+  await Promise.all([conexaoA.connect(), conexaoB.connect(), observador.connect()]);
+  for (const conexao of [conexaoA, conexaoB]) {
+    await conexao.query("set lock_timeout = '5s'");
+    await conexao.query("set statement_timeout = '10s'");
+  }
+  const pidA = (await conexaoA.query("select pg_backend_pid() as pid")).rows[0].pid;
+  const pidB = (await conexaoB.query("select pg_backend_pid() as pid")).rows[0].pid;
+  const hoje = dataBrasiliaDeHoje();
+
+  let usuarioId = null;
+  const itemIds = [];
+  const ordemIds = [];
+  const fichaIds = [];
+  const documentoIds = [];
+  const orcamentoIds = [];
+
+  try {
+    const { rows: usuarioInserido } = await observador.query(
+      `insert into usuarios (nome, email, senha_hash)
+       values ('Usuária de Teste da Concorrência da Produção [migracao]', 'usuaria-producao-concorrencia@exemplo.test', 'hash-fake-de-teste')
+       returning id`,
+    );
+    usuarioId = usuarioInserido[0].id;
+    const categoriaCompraId = (
+      await observador.query("select id from categorias where nome = 'Argila, esmalte e insumos'")
+    ).rows[0].id;
+    const categoriaVendaId = (
+      await observador.query("select id from categorias where nome = 'Peças prontas'")
+    ).rows[0].id;
+
+    // O item do Estoque que a baixa e a conclusão disputam no caso (1) e a folha do Estoque baixa
+    // no (4): em `un`, com estoque próprio, 10 unidades por R$ 30,00 — R$ 3,00 a unidade.
+    const { rows: itemInserido } = await observador.query(
+      `insert into itens_catalogo (nome, controla_estoque, unidade, categoria_compra_id, aparece_na_venda, categoria_venda_id)
+       values ($1, true, 'un', $2, true, $3) returning id`,
+      [`Caneca de prova${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`, categoriaCompraId, categoriaVendaId],
+    );
+    const itemId = itemInserido[0].id;
+    itemIds.push(itemId);
+    await inserirMovimentacao(observador, {
+      item_id: itemId,
+      registrado_por: usuarioId,
+      origem: "manual",
+      tipo: "entrada",
+      quantidade_milesimos: 10000,
+      valor_centavos: 3000,
+      valor_informado_centavos: 3000,
+    });
+
+    async function criarOrdem(rotulo, { tipo = "casa", status = "ativa" } = {}) {
+      const { rows } = await observador.query(
+        `insert into ordens_producao (tipo, caminho, status, nome, cliente_nome, inicio, criado_por)
+         values ($1, 'completo', $2, $3, $4, $5, $6) returning id`,
+        [
+          tipo,
+          status,
+          `${rotulo}${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`,
+          tipo === "encomenda" ? `Cliente${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}` : null,
+          status === "ativa" ? hoje : null,
+          usuarioId,
+        ],
+      );
+      ordemIds.push(rows[0].id);
+      return rows[0].id;
+    }
+
+    async function lerOrdem(ordemId) {
+      const { rows } = await observador.query(
+        // Datas civis como texto: o `pg` transformaria `date` em `Date` no fuso do Node.
+        `select status, inicio::text as inicio, cancelada_em, cancelada_pela_venda,
+                concluida_em::text as concluida_em
+           from ordens_producao where id = $1`,
+        [ordemId],
+      );
+      return rows[0];
+    }
+
+    async function contarNoLivro(ordemId, origem, tipo) {
+      const { rows } = await observador.query(
+        `select count(*)::int as quantas from movimentacoes_estoque
+          where encomenda_id = $1 and origem = $2 and tipo = $3`,
+        [ordemId, origem, tipo],
+      );
+      return rows[0].quantas;
+    }
+
+    // ——— Os passos das ações, com as consultas do código ———
+
+    async function comecar(conexao) {
+      await conexao.query("begin");
+      await conexao.query("set local role amassa_app");
+    }
+
+    // A ação lança a recusa de dentro da transação (nada gravado, `rollback`); senão comita.
+    async function terminar(conexao, resultado) {
+      await conexao.query(resultado.recusa ? "rollback" : "commit");
+      return resultado;
+    }
+
+    async function travarOrdem(conexao, ordemId) {
+      return (await conexao.query(TRAVA_DA_ORDEM, [ordemId])).rows[0] ?? null;
+    }
+
+    const emAndamento = (ordem) =>
+      ordem !== null && (ordem.status === "aguardando_sinal" || ordem.status === "ativa");
+
+    // Depois da trava da ordem: `darBaixaNaOrdem` (lib/producao/acoes.ts) e
+    // `registrarMovimentacao` com "Qual ordem?" (lib/estoque/acoes.ts) emitem a MESMA sequência —
+    // ordem em andamento? → `travarItens` → `gravarMovimentacoes` (que trava de novo, já seguro,
+    // lê o estado e insere a saída "consumo em encomenda" ligada à ordem).
+    async function saidaSobAOrdem(conexao, ordem) {
+      if (!emAndamento(ordem)) {
+        return { recusa: `ordem ${ordem?.status ?? "inexistente"}` };
+      }
+      await conexao.query(TRAVA_DOS_ITENS, [[itemId]]);
+      await conexao.query(TRAVA_DOS_ITENS, [[itemId]]);
+      const estado = await estadoDoItemNoLivro(conexao, itemId);
+      const movimentacaoId = await inserirMovimentacao(conexao, {
+        item_id: itemId,
+        registrado_por: usuarioId,
+        origem: "manual",
+        tipo: "saida",
+        destino: "encomenda",
+        area: "pecas",
+        encomenda_id: ordem.id,
+        nota: ordem.nome,
+        quantidade_milesimos: -1000,
+        valor_centavos: -Math.round((1000 * estado.v) / estado.q),
+      });
+      return { movimentacaoId };
+    }
+
+    async function darBaixa(conexao, ordemId) {
+      await comecar(conexao);
+      const ordem = await travarOrdem(conexao, ordemId);
+      return terminar(conexao, await saidaSobAOrdem(conexao, ordem));
+    }
+
+    // `promoverFichaParaLinha`: trava a ficha, cria o item (ou atualiza o que ela já tem) e grava a
+    // ficha de linha. Devolve o item.
+    async function promover(conexao, fichaId) {
+      const ficha = (await conexao.query(TRAVA_DA_FICHA_NA_PROMOCAO, [fichaId])).rows[0];
+      let itemDaFicha = ficha.item_catalogo_id;
+      if (itemDaFicha) {
+        await conexao.query(
+          `update itens_catalogo set nome = $2, categoria_venda_id = $3, preco_venda_centavos = 4500
+            where id = $1`,
+          [itemDaFicha, ficha.nome, categoriaVendaId],
+        );
+      } else {
+        const { rows } = await conexao.query(
+          `insert into itens_catalogo (nome, categoria_venda_id, preco_venda_centavos, aparece_na_venda)
+           values ($1, $2, 4500, true) returning id`,
+          [ficha.nome, categoriaVendaId],
+        );
+        itemDaFicha = rows[0].id;
+      }
+      await conexao.query(
+        `update fichas_precificacao set preco_praticado_centavos = null, exclusiva = false, item_catalogo_id = $2
+          where id = $1`,
+        [fichaId, itemDaFicha],
+      );
+      return itemDaFicha;
+    }
+
+    // `concluirOrdem` depois da trava da ordem: ativa? → (D-12) a promoção da ficha exclusiva,
+    // ORDEM → FICHA → ITENS → `travarItens` → (D-13) liga o estoque do item que ainda não controla
+    // → `gravarMovimentacoes` (trava de novo, lê o estado, insere a entrada da produção) → a peça →
+    // a ordem `concluida`.
+    async function conclusaoSobAOrdem(conexao, ordem, { itemDaEntrada = null, fichaId = null, pecaId = null }) {
+      if (ordem?.status !== "ativa") {
+        return { recusa: `ordem ${ordem?.status ?? "inexistente"}` };
+      }
+      const itemFinal = fichaId ? await promover(conexao, fichaId) : itemDaEntrada;
+      const [item] = (await conexao.query(TRAVA_DOS_ITENS, [[itemFinal]])).rows;
+      if (!item.controla_estoque) {
+        await conexao.query(
+          `update itens_catalogo
+              set controla_estoque = true, unidade = coalesce(unidade, 'un'),
+                  categoria_compra_id = coalesce(categoria_compra_id, $2)
+            where id = $1`,
+          [itemFinal, categoriaCompraId],
+        );
+      }
+      await conexao.query(TRAVA_DOS_ITENS, [[itemFinal]]);
+      await estadoDoItemNoLivro(conexao, itemFinal);
+      await inserirMovimentacao(conexao, {
+        item_id: itemFinal,
+        registrado_por: usuarioId,
+        origem: "producao",
+        tipo: "entrada",
+        encomenda_id: ordem.id,
+        nota: ordem.nome,
+        quantidade_milesimos: 1000,
+        valor_centavos: 900,
+        valor_informado_centavos: 900,
+      });
+      if (pecaId) {
+        await conexao.query(
+          `update ordem_pecas set perdidas = 0, destino_extras = 'estoque', para_estoque = 1, sem_destino = 0
+            where id = $1`,
+          [pecaId],
+        );
+      }
+      await conexao.query(
+        "update ordens_producao set status = 'concluida', concluida_em = $2 where id = $1",
+        [ordem.id, hoje],
+      );
+      return { itemDaEntrada: itemFinal };
+    }
+
+    async function concluir(conexao, ordemId, opcoes) {
+      await comecar(conexao);
+      const ordem = await travarOrdem(conexao, ordemId);
+      return terminar(conexao, await conclusaoSobAOrdem(conexao, ordem, opcoes));
+    }
+
+    // `editarFicha` desmarcando "exclusiva": trava a ficha (`for update`), grava os campos (o nome
+    // novo) e promove pela MESMA `promoverFichaParaLinha` (que pede de novo a trava, já sua).
+    async function editarFichaPromovendo(conexao, fichaId, nomeNovo) {
+      await comecar(conexao);
+      const atual = (await conexao.query(TRAVA_DA_FICHA_NA_EDICAO, [fichaId])).rows[0];
+      if (!atual) {
+        return terminar(conexao, { recusa: "ficha inexistente" });
+      }
+      await conexao.query("update fichas_precificacao set nome = $2 where id = $1", [fichaId, nomeNovo]);
+      const itemDaFicha = await promover(conexao, fichaId);
+      return terminar(conexao, { itemDaFicha, eraExclusiva: atual.exclusiva });
+    }
+
+    // `cancelarDocumento` depois da trava do documento: já cancelado? → a ordem da venda
+    // (`cancelarOrdemDaVendaCancelada`: só ela, `for no key update`; aguardando → cancelada junto;
+    // senão nada) → o estorno do Estoque (venda só de valor: nenhuma original, `travarItens` de lista
+    // vazia não emite consulta) → o documento cancelado. Nenhuma escrita em parcela.
+    async function cancelamentoSobODocumento(conexao, documento, documentoId) {
+      if (documento.cancelado_em) {
+        return { recusa: "já cancelado" };
+      }
+      const [ordem] = (await conexao.query(TRAVA_DA_ORDEM_DA_VENDA, [documentoId])).rows;
+      let naOrdem = "sem-ordem";
+      if (ordem) {
+        naOrdem = "so-aviso";
+        if (ordem.status === "aguardando_sinal") {
+          await conexao.query(
+            `update ordens_producao
+                set status = 'cancelada', cancelada_em = now(), cancelada_por = $2, cancelada_pela_venda = true
+              where id = $1`,
+            [ordem.id, usuarioId],
+          );
+          naOrdem = "cancelada-junto";
+        }
+      }
+      await conexao.query(
+        `select id from movimentacoes_estoque m
+          where m.documento_id = $1 and m.estorno_de_id is null
+            and not exists (select 1 from movimentacoes_estoque e where e.estorno_de_id = m.id)`,
+        [documentoId],
+      );
+      await conexao.query(
+        "update documentos set cancelado_em = now(), cancelado_por = $2 where id = $1",
+        [documentoId, usuarioId],
+      );
+      return { naOrdem };
+    }
+
+    async function cancelarDocumento(conexao, documentoId) {
+      await comecar(conexao);
+      const [documento] = (await conexao.query(TRAVA_DO_DOCUMENTO, [documentoId])).rows;
+      return terminar(conexao, await cancelamentoSobODocumento(conexao, documento, documentoId));
+    }
+
+    // `liberarOrdem` depois da trava da ordem: `planejarLiberacao` só aceita aguardando o sinal.
+    async function liberacaoSobAOrdem(conexao, ordem) {
+      if (ordem?.status !== "aguardando_sinal") {
+        return { recusa: ordem?.status === "cancelada" ? "cancelada" : "ja-liberada" };
+      }
+      await conexao.query("update ordens_producao set status = 'ativa', inicio = $2 where id = $1", [
+        ordem.id,
+        hoje,
+      ]);
+      return { inicio: hoje };
+    }
+
+    async function liberarOrdem(conexao, ordemId) {
+      await comecar(conexao);
+      const ordem = await travarOrdem(conexao, ordemId);
+      return terminar(conexao, await liberacaoSobAOrdem(conexao, ordem));
+    }
+
+    // `cancelarOrdem` depois da trava da ordem: `planejarCancelamento` só aceita aguardando ou
+    // ativa; grava o cancelamento e NADA mais.
+    async function cancelamentoDaOrdemSobATrava(conexao, ordem) {
+      if (!emAndamento(ordem)) {
+        return { recusa: "já encerrada" };
+      }
+      await conexao.query(
+        "update ordens_producao set status = 'cancelada', cancelada_em = now(), cancelada_por = $2 where id = $1",
+        [ordem.id, usuarioId],
+      );
+      return { cancelada: true };
+    }
+
+    async function cancelarOrdem(conexao, ordemId) {
+      await comecar(conexao);
+      const ordem = await travarOrdem(conexao, ordemId);
+      return terminar(conexao, await cancelamentoDaOrdemSobATrava(conexao, ordem));
+    }
+
+    // Uma corrida que deveria terminar: devolve o resultado da ação, ou lança dizendo o SQLSTATE —
+    // um 40P01 é o impasse; um 55P03, a trava que nunca veio.
+    function exigirTermino(corrida, contexto) {
+      if (!corrida.ok) {
+        throw new Error(
+          `${contexto}: a transação que esperava deveria terminar, e caiu com ${corrida.erro?.code} (${corrida.erro?.message}). 40P01 é impasse — a ordem de travas DOCUMENTO → ORDEM → (FICHA →) ITENS foi quebrada.`,
+        );
+      }
+      return corrida.resultado;
+    }
+
+    // ——— (1) PRD-14: `darBaixaNaOrdem` × `concluirOrdem`, mesma ordem, mesmo item ———
+
+    // (1a) A baixa chega primeiro: segura SÓ a trava da ordem quando a conclusão pede a mesma e
+    // espera; a baixa então trava o item, grava e comita sem precisar de nada da conclusão; a
+    // conclusão relê a ordem (ainda ativa) e conclui. Uma saída e UMA entrada.
+    const ordem1a = await criarOrdem("Ordem 1a");
+    await comecar(conexaoA);
+    const ordemVistaPelaBaixa = await travarOrdem(conexaoA, ordem1a);
+    const conclusao1a = semRejeicaoSolta(concluir(conexaoB, ordem1a, { itemDaEntrada: itemId }));
+    await esperarBloqueada(observador, pidB, "(1a) Conclusão esperando a baixa");
+    const baixa1a = await terminar(conexaoA, await saidaSobAOrdem(conexaoA, ordemVistaPelaBaixa));
+    afirmar(!baixa1a.recusa, `(1a) A baixa com a ordem ativa deveria gravar, e recusou: ${baixa1a.recusa}.`);
+    const concluida1a = exigirTermino(await conclusao1a, "(1a) Baixa antes da conclusão");
+    afirmar(
+      !concluida1a.recusa,
+      `(1a) A conclusão, depois da baixa, deveria concluir a ordem ainda ativa, e recusou: ${concluida1a.recusa}.`,
+    );
+    afirmar(
+      (await contarNoLivro(ordem1a, "manual", "saida")) === 1 &&
+        (await contarNoLivro(ordem1a, "producao", "entrada")) === 1 &&
+        (await lerOrdem(ordem1a)).status === "concluida",
+      "(1a) Baixa seguida de conclusão deveria deixar uma saída, uma entrada da produção e a ordem concluída.",
+    );
+
+    // (1b) A conclusão chega primeiro: a baixa espera na ordem, relê `concluida` e recusa — nada
+    // ligado a ela entra depois de fechada. Uma entrada só, nenhuma saída.
+    const ordem1b = await criarOrdem("Ordem 1b");
+    await comecar(conexaoA);
+    const ordemVistaPelaConclusao = await travarOrdem(conexaoA, ordem1b);
+    const baixa1b = semRejeicaoSolta(darBaixa(conexaoB, ordem1b));
+    await esperarBloqueada(observador, pidB, "(1b) Baixa esperando a conclusão");
+    const concluida1b = await terminar(
+      conexaoA,
+      await conclusaoSobAOrdem(conexaoA, ordemVistaPelaConclusao, { itemDaEntrada: itemId }),
+    );
+    afirmar(!concluida1b.recusa, `(1b) A conclusão deveria concluir, e recusou: ${concluida1b.recusa}.`);
+    const recusada1b = exigirTermino(await baixa1b, "(1b) Conclusão antes da baixa");
+    afirmar(
+      recusada1b.recusa === "ordem concluida",
+      `(1b) A baixa, depois da conclusão, deveria reler a ordem concluída e recusar — veio ${JSON.stringify(recusada1b)}.`,
+    );
+    afirmar(
+      (await contarNoLivro(ordem1b, "manual", "saida")) === 0 &&
+        (await contarNoLivro(ordem1b, "producao", "entrada")) === 1,
+      "(1b) Conclusão seguida de baixa deveria deixar UMA entrada e nenhuma saída ligada à ordem fechada.",
+    );
+
+    // (1c) O CONTROLE: a baixa na ordem INVERSA (ITEM → ORDEM, como a folha do Estoque era antes da
+    // revisão WR-04) contra a conclusão (ORDEM → ITEM). A conclusão segura a ordem, a baixa segura
+    // o item; cada uma pede a da outra — ciclo, e o Postgres derruba uma com 40P01. Nada comita.
+    const ordem1c = await criarOrdem("Ordem 1c");
+    await comecar(conexaoA);
+    await comecar(conexaoB);
+    await travarOrdem(conexaoA, ordem1c);
+    await conexaoB.query(TRAVA_DOS_ITENS, [[itemId]]);
+    const conclusaoPedeItem = semRejeicaoSolta(conexaoA.query(TRAVA_DOS_ITENS, [[itemId]]));
+    await esperarBloqueada(observador, pidA, "(1c) Controle com a ordem invertida");
+    const baixaPedeOrdem = semRejeicaoSolta(conexaoB.query(TRAVA_DA_ORDEM, [ordem1c]));
+    const codigosDoControle = (await Promise.all([conclusaoPedeItem, baixaPedeOrdem])).map(
+      (corrida) => (corrida.ok ? "ok" : corrida.erro.code),
+    );
+    await conexaoA.query("rollback");
+    await conexaoB.query("rollback");
+    afirmar(
+      codigosDoControle.filter((codigo) => codigo === "40P01").length === 1 &&
+        codigosDoControle.filter((codigo) => codigo === "ok").length === 1,
+      `(1c) Com a baixa na ordem invertida (ITEM → ORDEM), uma das duas deveria cair em impasse (40P01) e a outra seguir — vieram conclusão=${codigosDoControle[0]}, baixa=${codigosDoControle[1]}. Sem isso a sonda não enxerga impasse nenhum.`,
+    );
+
+    // ——— (2) PRD-16: conclusão com promoção (ORDEM → FICHA → ITENS) × `editarFicha` (FICHA → ITEM) ———
+
+    async function criarFichaExclusivaComOrdem(rotulo) {
+      const { rows: ficha } = await observador.query(
+        `insert into fichas_precificacao (nome, exclusiva, criado_por) values ($1, true, $2) returning id`,
+        [`Prato exclusivo ${rotulo}${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`, usuarioId],
+      );
+      fichaIds.push(ficha[0].id);
+      const ordemId = await criarOrdem(`Ordem ${rotulo}`, { tipo: "encomenda" });
+      const { rows: peca } = await observador.query(
+        `insert into ordem_pecas (ordem_id, posicao, ficha_id, descricao, quantidade, a_mais)
+         values ($1, 0, $2, 'Prato exclusivo de prova [migracao]', 1, 1) returning id`,
+        [ordemId, ficha[0].id],
+      );
+      return { fichaId: ficha[0].id, ordemId, pecaId: peca[0].id };
+    }
+
+    async function conferirPromovidaUmaVez(caso, fichaId, ordemId, rotulo) {
+      const { rows: ficha } = await observador.query(
+        "select exclusiva, item_catalogo_id from fichas_precificacao where id = $1",
+        [fichaId],
+      );
+      const { rows: itens } = await observador.query(
+        "select id, controla_estoque from itens_catalogo where nome like $1",
+        [`Prato exclusivo ${rotulo}%`],
+      );
+      itemIds.push(...itens.map((item) => item.id));
+      const { rows: entradas } = await observador.query(
+        "select item_id from movimentacoes_estoque where encomenda_id = $1 and origem = 'producao'",
+        [ordemId],
+      );
+      afirmar(
+        ficha[0].exclusiva === false &&
+          itens.length === 1 &&
+          ficha[0].item_catalogo_id === itens[0].id &&
+          itens[0].controla_estoque === true &&
+          entradas.length === 1 &&
+          entradas[0].item_id === itens[0].id,
+        `${caso} A ficha deveria ser promovida UMA vez: de linha, um item só (com estoque próprio) e uma entrada nele — veio ficha ${JSON.stringify(ficha[0])}, ${itens.length} item(ns), ${entradas.length} entrada(s).`,
+      );
+    }
+
+    // (2a) A conclusão chega primeiro: segura a ordem e a ficha (`for no key update`) quando a
+    // edição pede a ficha (`for update`) e espera; a conclusão cria o item, liga o estoque, grava
+    // a entrada e comita; a edição relê a ficha JÁ de linha e atualiza o item dela — não cria outro.
+    const caso2a = await criarFichaExclusivaComOrdem("2a");
+    await comecar(conexaoA);
+    const ordemDa2a = await travarOrdem(conexaoA, caso2a.ordemId);
+    // A primeira consulta de `promoverFichaParaLinha`, para a edição chegar com a ficha já travada;
+    // `conclusaoSobAOrdem` a repete logo abaixo — pedir de novo uma trava que é sua não espera.
+    await conexaoA.query(TRAVA_DA_FICHA_NA_PROMOCAO, [caso2a.fichaId]);
+    const edicao2a = semRejeicaoSolta(
+      editarFichaPromovendo(
+        conexaoB,
+        caso2a.fichaId,
+        `Prato exclusivo 2a (editado)${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`,
+      ),
+    );
+    await esperarBloqueada(observador, pidB, "(2a) Edição da ficha esperando a conclusão");
+    const concluida2a = await terminar(
+      conexaoA,
+      await conclusaoSobAOrdem(conexaoA, ordemDa2a, { fichaId: caso2a.fichaId, pecaId: caso2a.pecaId }),
+    );
+    afirmar(!concluida2a.recusa, `(2a) A conclusão deveria promover e concluir, e recusou: ${concluida2a.recusa}.`);
+    const editada2a = exigirTermino(await edicao2a, "(2a) Conclusão antes da edição da ficha");
+    afirmar(
+      editada2a.eraExclusiva === false && editada2a.itemDaFicha === concluida2a.itemDaEntrada,
+      `(2a) A edição deveria reler a ficha JÁ promovida e reaproveitar o item da conclusão — veio ${JSON.stringify(editada2a)} (item da conclusão ${concluida2a.itemDaEntrada}).`,
+    );
+    await conferirPromovidaUmaVez("(2a)", caso2a.fichaId, caso2a.ordemId, "2a");
+
+    // (2b) A edição chega primeiro: segura a ficha (`for update`); a conclusão trava a ordem (livre)
+    // e espera na ficha; a edição promove (cria o item) e comita; a conclusão relê a ficha JÁ de
+    // linha, reaproveita o item, liga o estoque e grava a entrada nele.
+    const caso2b = await criarFichaExclusivaComOrdem("2b");
+    await comecar(conexaoA);
+    const fichaVistaPelaEdicao = (await conexaoA.query(TRAVA_DA_FICHA_NA_EDICAO, [caso2b.fichaId])).rows[0];
+    const conclusao2b = semRejeicaoSolta(
+      concluir(conexaoB, caso2b.ordemId, { fichaId: caso2b.fichaId, pecaId: caso2b.pecaId }),
+    );
+    await esperarBloqueada(observador, pidB, "(2b) Conclusão esperando a edição da ficha");
+    await conexaoA.query("update fichas_precificacao set nome = $2 where id = $1", [
+      caso2b.fichaId,
+      `Prato exclusivo 2b (editado)${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`,
+    ]);
+    const itemDaEdicao2b = await promover(conexaoA, caso2b.fichaId);
+    await conexaoA.query("commit");
+    afirmar(fichaVistaPelaEdicao.exclusiva === true, "(2b) A edição deveria ter achado a ficha ainda exclusiva.");
+    const concluida2b = exigirTermino(await conclusao2b, "(2b) Edição da ficha antes da conclusão");
+    afirmar(
+      !concluida2b.recusa && concluida2b.itemDaEntrada === itemDaEdicao2b,
+      `(2b) A conclusão deveria reaproveitar o item que a edição criou (${itemDaEdicao2b}) — veio ${JSON.stringify(concluida2b)}.`,
+    );
+    await conferirPromovidaUmaVez("(2b)", caso2b.fichaId, caso2b.ordemId, "2b");
+
+    // ——— (3) PRD-11/PRD-18: `cancelarDocumento` (a venda) × `liberarOrdem` (a ordem dela) ———
+
+    // Uma venda só de valor, com a parcela, e o orçamento aprovado que liga a venda à ordem
+    // aguardando o sinal — o vínculo de D-07 mora só em `orcamentos`.
+    async function criarVendaComOrdemAguardando(rotulo, sequencial) {
+      const ordemId = await criarOrdem(`Ordem ${rotulo}`, { tipo: "encomenda", status: "aguardando_sinal" });
+      // Documento, linha e parcela numa transação só: a restrição ADIADA de soma (0015) confere no
+      // `commit`.
+      await observador.query("begin");
+      const { rows: documento } = await observador.query(
+        "insert into documentos (tipo, data, criado_por) values ('venda', current_date, $1) returning id",
+        [usuarioId],
+      );
+      const documentoId = documento[0].id;
+      documentoIds.push(documentoId);
+      await observador.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+         values ($1, 1, 'Venda do orçamento [migracao]', $2, 12000)`,
+        [documentoId, categoriaVendaId],
+      );
+      await observador.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
+         values ($1, 1, current_date, 12000, 'pix')`,
+        [documentoId],
+      );
+      await observador.query("commit");
+      const { rows: orcamento } = await observador.query(
+        `insert into orcamentos (ano, sequencial, status, cliente_nome, data, entrega_prevista,
+                                 snapshot, congelado_em, documento_id, encomenda_id, criado_por)
+         values (2026, $1, 'aprovado', $2, current_date, current_date + 40, '{"linhas":[]}', now(), $3, $4, $5)
+         returning id`,
+        [sequencial, `Cliente${SUFIXO_DA_CONCORRENCIA_DA_PRODUCAO}`, documentoId, ordemId, usuarioId],
+      );
+      orcamentoIds.push(orcamento[0].id);
+      return { ordemId, documentoId };
+    }
+
+    async function retratoDasParcelas(documentoId) {
+      const { rows } = await observador.query(
+        "select row_to_json(p)::text as linha from parcelas p where documento_id = $1 order by numero",
+        [documentoId],
+      );
+      return rows.map((linha) => linha.linha).join("\n");
+    }
+
+    // (3a) A venda é cancelada primeiro: o cancelamento segura o documento e a ordem quando a
+    // liberação pede a ordem e espera; a ordem aguardando cai junto com a venda; a liberação relê
+    // `cancelada` e recusa ("Esta ordem foi cancelada…").
+    const caso3a = await criarVendaComOrdemAguardando("3a", 900311);
+    const parcelasAntes3a = await retratoDasParcelas(caso3a.documentoId);
+    await comecar(conexaoA);
+    const documentoDa3a = (await conexaoA.query(TRAVA_DO_DOCUMENTO, [caso3a.documentoId])).rows[0];
+    // A trava da ordem que `cancelarOrdemDaVendaCancelada` pede, para a liberação chegar com a
+    // ORDEM já presa (só com o documento ela passaria direto); `cancelamentoSobODocumento` a
+    // repete logo abaixo — pedir de novo uma trava que é sua não espera.
+    await conexaoA.query(TRAVA_DA_ORDEM_DA_VENDA, [caso3a.documentoId]);
+    const liberacao3a = semRejeicaoSolta(liberarOrdem(conexaoB, caso3a.ordemId));
+    await esperarBloqueada(observador, pidB, "(3a) Liberação esperando o cancelamento da venda");
+    const cancelamento3a = await terminar(
+      conexaoA,
+      await cancelamentoSobODocumento(conexaoA, documentoDa3a, caso3a.documentoId),
+    );
+    afirmar(
+      cancelamento3a.naOrdem === "cancelada-junto",
+      `(3a) A venda cancelada com a ordem ainda aguardando deveria cancelar a ordem junto — veio ${JSON.stringify(cancelamento3a)}.`,
+    );
+    const liberada3a = exigirTermino(await liberacao3a, "(3a) Venda cancelada antes da liberação");
+    const ordemDepois3a = await lerOrdem(caso3a.ordemId);
+    afirmar(
+      liberada3a.recusa === "cancelada" &&
+        ordemDepois3a.status === "cancelada" &&
+        ordemDepois3a.cancelada_pela_venda === true &&
+        ordemDepois3a.inicio === null,
+      `(3a) A liberação, depois da venda cancelada, deveria reler a ordem cancelada pela venda e recusar — veio liberação ${JSON.stringify(liberada3a)}, ordem ${JSON.stringify(ordemDepois3a)}.`,
+    );
+    afirmar(
+      (await retratoDasParcelas(caso3a.documentoId)) === parcelasAntes3a,
+      "(3a) Nenhuma parcela da venda deveria mudar.",
+    );
+
+    // (3b) A liberação chega primeiro: segura a ordem; o cancelamento trava o documento (livre) e
+    // espera na ordem; a liberação grava `ativa` e comita sem precisar do documento; o cancelamento
+    // relê a ordem `ativa`, não grava nada nela (só o aviso, derivado na leitura) e cancela a venda.
+    const caso3b = await criarVendaComOrdemAguardando("3b", 900312);
+    const parcelasAntes3b = await retratoDasParcelas(caso3b.documentoId);
+    await comecar(conexaoA);
+    const ordemVistaPelaLiberacao = await travarOrdem(conexaoA, caso3b.ordemId);
+    const cancelamento3b = semRejeicaoSolta(cancelarDocumento(conexaoB, caso3b.documentoId));
+    await esperarBloqueada(observador, pidB, "(3b) Cancelamento da venda esperando a liberação");
+    const liberada3b = await terminar(conexaoA, await liberacaoSobAOrdem(conexaoA, ordemVistaPelaLiberacao));
+    afirmar(!liberada3b.recusa, `(3b) A liberação deveria liberar, e recusou: ${liberada3b.recusa}.`);
+    const cancelada3b = exigirTermino(await cancelamento3b, "(3b) Liberação antes da venda cancelada");
+    const ordemDepois3b = await lerOrdem(caso3b.ordemId);
+    const { rows: documentoDepois3b } = await observador.query(
+      "select cancelado_em from documentos where id = $1",
+      [caso3b.documentoId],
+    );
+    afirmar(
+      cancelada3b.naOrdem === "so-aviso" &&
+        ordemDepois3b.status === "ativa" &&
+        ordemDepois3b.inicio === hoje &&
+        ordemDepois3b.cancelada_em === null &&
+        ordemDepois3b.cancelada_pela_venda === false &&
+        documentoDepois3b[0].cancelado_em !== null,
+      `(3b) Com a ordem já liberada, o cancelamento da venda deveria só cancelar a venda e deixar a ordem ativa — veio cancelamento ${JSON.stringify(cancelada3b)}, ordem ${JSON.stringify(ordemDepois3b)}.`,
+    );
+    afirmar(
+      (await retratoDasParcelas(caso3b.documentoId)) === parcelasAntes3b,
+      "(3b) Nenhuma parcela da venda deveria mudar.",
+    );
+
+    // ——— (4) WR-04: a folha do Estoque com "Qual ordem?" × `cancelarOrdem` ———
+
+    // (4a) O cancelamento chega primeiro: a baixa PRECISA esperar — com a `for key share` de antes
+    // da revisão ela não esperaria e leria "ativa" — relê `cancelada` e recusa. Nada no livro.
+    const ordem4a = await criarOrdem("Ordem 4a", { tipo: "encomenda" });
+    await comecar(conexaoA);
+    const ordemVistaPeloCancelamento = await travarOrdem(conexaoA, ordem4a);
+    const baixa4a = semRejeicaoSolta(darBaixa(conexaoB, ordem4a));
+    await esperarBloqueada(observador, pidB, "(4a) Baixa do Estoque esperando o cancelamento da ordem");
+    const cancelada4a = await terminar(
+      conexaoA,
+      await cancelamentoDaOrdemSobATrava(conexaoA, ordemVistaPeloCancelamento),
+    );
+    afirmar(!cancelada4a.recusa, `(4a) O cancelamento deveria cancelar, e recusou: ${cancelada4a.recusa}.`);
+    const recusada4a = exigirTermino(await baixa4a, "(4a) Cancelamento antes da baixa do Estoque");
+    afirmar(
+      recusada4a.recusa === "ordem cancelada" && (await contarNoLivro(ordem4a, "manual", "saida")) === 0,
+      `(4a) A baixa deveria reler a ordem cancelada e recusar, sem linha no livro — veio ${JSON.stringify(recusada4a)}.`,
+    );
+
+    // (4b) A baixa chega primeiro: o cancelamento espera, a baixa grava (a ordem estava ativa) e
+    // comita; o cancelamento segue. O material baixado não volta sozinho (briefing §6) — o que se
+    // prova aqui é só que a outra ordem de chegada também termina, sem impasse.
+    const ordem4b = await criarOrdem("Ordem 4b", { tipo: "encomenda" });
+    await comecar(conexaoA);
+    const ordemVistaPelaBaixa4b = await travarOrdem(conexaoA, ordem4b);
+    const cancelamento4b = semRejeicaoSolta(cancelarOrdem(conexaoB, ordem4b));
+    await esperarBloqueada(observador, pidB, "(4b) Cancelamento da ordem esperando a baixa do Estoque");
+    const baixa4b = await terminar(conexaoA, await saidaSobAOrdem(conexaoA, ordemVistaPelaBaixa4b));
+    afirmar(!baixa4b.recusa, `(4b) A baixa com a ordem ativa deveria gravar, e recusou: ${baixa4b.recusa}.`);
+    const cancelada4b = exigirTermino(await cancelamento4b, "(4b) Baixa do Estoque antes do cancelamento");
+    afirmar(
+      !cancelada4b.recusa &&
+        (await lerOrdem(ordem4b)).status === "cancelada" &&
+        (await contarNoLivro(ordem4b, "manual", "saida")) === 1,
+      `(4b) Baixa seguida de cancelamento deveria deixar a saída gravada antes e a ordem cancelada — veio ${JSON.stringify(cancelada4b)}.`,
+    );
+  } finally {
+    await conexaoA.query("rollback").catch(() => {});
+    await conexaoB.query("rollback").catch(() => {});
+    // A semente da venda abre transação no observador; uma falha no meio dela não pode deixar a
+    // faxina presa numa transação abortada.
+    await observador.query("rollback").catch(() => {});
+    await apagarDadosDeProvaDaConcorrenciaDaProducao(observador, {
+      itemIds,
+      ordemIds,
+      fichaIds,
+      documentoIds,
+      orcamentoIds,
+      usuarioId,
+    });
+    await Promise.all([conexaoA.end(), conexaoB.end(), observador.end()]);
+  }
+}
+
 function entradasDoJournal() {
   const journal = JSON.parse(
     readFileSync(path.join("db", "migrations", "meta", "_journal.json"), "utf8"),
@@ -4111,6 +4852,7 @@ async function conferirBanco() {
     await conferirEstoque(cliente);
     await conferirProducao(cliente);
     await conferirConcorrenciaDoEstoque();
+    await conferirConcorrenciaDaProducao();
   } finally {
     await cliente.end();
   }
