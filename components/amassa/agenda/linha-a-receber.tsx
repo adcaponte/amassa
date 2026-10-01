@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
 import type { LinhaAReceber as DadosDaLinha } from "@/lib/agenda/consultas";
-import { ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
+import { ROTULO_LANCAR_NA_VENDA, ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
+import { hrefDaVendaComOrigem } from "@/lib/financeiro/navegacao";
 import { Button } from "@/components/ui/button";
 
 export type LinhaAReceberProps = {
@@ -13,9 +16,10 @@ export type LinhaAReceberProps = {
 // Uma linha de “A receber” (05-UI-SPEC.md §“Aba A receber”, item 3; molde `.conta` do protótipo): grade
 // `1fr auto` — nome (Corpo 600) e valor (Corpo 600, `tabular-nums`) na primeira fileira; a sub-linha e as
 // tags (Apoio) na coluna inteira, quebrando sem empurrar o valor; e a fileira de ações (`flex-wrap`, gap
-// 8px) com “Recebi agora” (`outline`, 44px — UI-D3: o terracota da tela é só o lote). “Lançar na Venda”
-// entra no plano 12 e “Dispensar a cobrança” no 13. A 320px os botões da direita descem um embaixo do
-// outro (largura total), nunca rolam de lado.
+// 8px) com “Recebi agora” e “Lançar na Venda” (`outline`, 44px — UI-D3: o terracota da tela é só o lote).
+// “Lançar na Venda” (plano 12) abre a Venda do Financeiro preenchida — só leva `{ tipo, id }` na URL; o
+// servidor resolve o resto. “Dispensar a cobrança” entra no 13. A 320px os botões da direita descem um
+// embaixo do outro (largura total), nunca rolam de lado.
 export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
   return (
     <li
@@ -53,6 +57,15 @@ export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
           className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
         >
           {ROTULO_RECEBI_AGORA}
+        </Button>
+        <Button
+          asChild
+          variant="outline"
+          className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+        >
+          <Link data-testid="lancar-na-venda" href={hrefDaVendaComOrigem({ tipo: linha.tipo, id: linha.id })}>
+            {ROTULO_LANCAR_NA_VENDA}
+          </Link>
         </Button>
       </div>
     </li>

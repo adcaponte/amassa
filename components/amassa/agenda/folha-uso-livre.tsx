@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ import {
   ROTULO_ENCERRAR_E_COBRAR,
   ROTULO_FECHAR,
   ROTULO_HORAS_CHEIAS,
+  ROTULO_LANCAR_NA_VENDA,
   ROTULO_MARCANDO,
   ROTULO_MATERIAL_COBRADO,
   ROTULO_RECEBI_AGORA,
@@ -43,6 +45,7 @@ import {
 } from "@/lib/agenda/textos";
 import { horasCheias, materialCobradoDaLista, sugestaoDeSaida, valorDoUsoLivre } from "@/lib/agenda/uso-livre";
 import { formatarReais } from "@/lib/financeiro/formato";
+import { hrefDaVendaComOrigem } from "@/lib/financeiro/navegacao";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -351,8 +354,8 @@ function Reservado({
 // num uso de hoje e com a saída prevista num de outro dia (UI-D7), a dica da hora cheia e "Encerrar e
 // cobrar". Sem o preço da hora no Catálogo, a caixa âmbar diz onde cadastrar e o botão fica desabilitado
 // com a frase como `aria-describedby` (AGE-17) — o servidor recusa do mesmo jeito. Encerrado: a conta
-// CONGELADA e "Encerrado · {h} h"; a receber, "Recebi agora" (plano 11) no rodapé — "Lançar na Venda" é
-// do plano 12.
+// CONGELADA e "Encerrado · {h} h"; a receber, "Recebi agora" (plano 11, `outline`) e "Lançar na Venda"
+// (plano 12, o primário do rodapé) — "Voltar à agenda" continua ao lado (decisão do plano 11).
 function UsoIniciado({
   uso,
   agora,
@@ -513,6 +516,16 @@ function UsoIniciado({
               className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
             >
               {ROTULO_RECEBI_AGORA}
+            </Button>
+          ) : null}
+          {aReceber && cobranca !== null ? (
+            <Button
+              asChild
+              className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+            >
+              <Link data-testid="lancar-na-venda" href={hrefDaVendaComOrigem({ tipo: "uso_livre", id: uso.id })}>
+                {ROTULO_LANCAR_NA_VENDA}
+              </Link>
             </Button>
           ) : null}
         </div>

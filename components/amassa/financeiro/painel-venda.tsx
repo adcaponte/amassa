@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { DICA_PESSOA_TRAVADA, ROTULO_PESSOA_DA_AGENDA } from "@/lib/agenda/textos";
+import type { LinhaDaVendaDaAgenda } from "@/lib/agenda/receber";
 import { lancarVenda } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaVenda } from "@/lib/financeiro/consultas";
 import { repartirDesconto, type Desconto } from "@/lib/financeiro/desconto";
@@ -38,6 +40,7 @@ import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
 import { CampoDesconto, type ModoDeDesconto } from "./campo-desconto";
 import { DialogoValorLivre, type LinhaDeValorLivre } from "./dialogo-valor-livre";
 import { EfeitoEstoque } from "./efeito-estoque";
+import { FaixaDaAgenda } from "./faixa-da-agenda";
 import { GradeCatalogo, type FiltroDeArea } from "./grade-catalogo";
 import { LinhaCarrinho, type LinhaDoCarrinho } from "./linha-carrinho";
 import { ListaCompleta } from "./lista-completa";
@@ -55,6 +58,8 @@ type LinhaLocal =
       quantidade: number;
       valorUnitarioTexto: string;
       precoDeTabelaCentavos: number | null;
+      // A linha de origem da Venda aberta pela Agenda (UI-D26): sem o “tirar”, nunca abaixo de 1.
+      daAgenda?: boolean;
     }
   | {
       chave: string;
@@ -77,6 +82,65 @@ function centavosParaTexto(centavos: number): string {
   return (centavos / 100).toFixed(2).replace(".", ",");
 }
 
+// A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, UI-D26). Tudo resolvido no SERVIDOR pela
+// página (`cobrancaParaVenda`): o texto da origem (devolvido a `lancarVenda`, que relê a cobrança sob
+// a trava e sobrescreve pessoa, cliente e descrição), a faixa, e o “Vence em” do à vista em aberto.
+export type OrigemDaAgendaNoPainel = {
+  origem: string;
+  descricao: string;
+  nome: string;
+  // O vencimento da mensalidade; a data do evento ou do uso.
+  vencimento: string;
+  // A linha de origem é a primeira com este item (o item do sistema da cobrança).
+  itemDoSistemaId: string;
+};
+
+// O carrinho com que a Venda da Agenda começa: a pessoa (travada) e as linhas da cobrança.
+export type RascunhoInicialDaVenda = {
+  pessoa: string;
+  linhas: readonly LinhaDaVendaDaAgenda[];
+};
+
+// As linhas da cobrança viram linhas do carrinho: a de origem mostra a descrição da cobrança (o servidor
+// grava a mesma) e não leva “tabela R$” (o valor é o da cobrança, quantidade 1 — no uso livre, as horas
+// todas); o material cobrado do uso livre entra como linha livre, removível como qualquer outra.
+function linhasDoRascunhoInicial(
+  rascunho: RascunhoInicialDaVenda,
+  itemDoSistemaId: string,
+  catalogo: readonly ItemDoCatalogoParaVenda[],
+  categorias: readonly CategoriaParaEscolha[],
+): LinhaLocal[] {
+  const areaDoItem = new Map<string, string>(catalogo.map((item) => [item.id, item.area]));
+  const areaDaCategoria = new Map<string, string>(categorias.map((categoria) => [categoria.id, categoria.area]));
+  let origemMarcada = false;
+  return rascunho.linhas.map((linha, indice): LinhaLocal => {
+    const chave = `agenda-${indice}`;
+    if (linha.tipo === "item") {
+      const daAgenda = !origemMarcada && linha.itemId === itemDoSistemaId;
+      origemMarcada ||= daAgenda;
+      return {
+        chave,
+        tipo: "item",
+        itemId: linha.itemId,
+        nome: linha.descricao,
+        area: areaDoItem.get(linha.itemId) ?? "geral",
+        quantidade: linha.quantidade,
+        valorUnitarioTexto: centavosParaTexto(Math.round(linha.valorCentavos / linha.quantidade)),
+        precoDeTabelaCentavos: null,
+        daAgenda,
+      };
+    }
+    return {
+      chave,
+      tipo: "livre",
+      descricao: linha.descricao,
+      categoriaId: linha.categoriaId,
+      area: areaDaCategoria.get(linha.categoriaId) ?? "geral",
+      valorCentavos: linha.valorCentavos,
+    };
+  });
+}
+
 export type PainelVendaProps = {
   hoje: string;
   categorias: CategoriaParaEscolha[];
@@ -86,6 +150,9 @@ export type PainelVendaProps = {
   // Plano 06-08 (D-21): o saldo de cada material antes da venda (`listarSaldos`); `null` quando a
   // consulta do Estoque falhou — o painel fica como era, sem "fica com" e sem aviso.
   saldos?: ReadonlyMap<string, number> | null;
+  // Fase 05, plano 12: a Venda aberta pela Agenda. Sem os dois, o painel é a Venda manual de sempre.
+  origem?: OrigemDaAgendaNoPainel | null;
+  rascunhoInicial?: RascunhoInicialDaVenda | null;
 };
 
 // O painel de venda completo (04.4-03-PLAN.md, 04.4-06-PLAN.md): catálogo com atalhos/busca/lista
@@ -101,12 +168,22 @@ export function PainelVenda({
   itensParaEfeito,
   configuracao,
   saldos = null,
+  origem = null,
+  rascunhoInicial = null,
 }: PainelVendaProps) {
+  // A Venda da Agenda começa DIRETO do carrinho da origem (calculado já na renderização do servidor —
+  // nada de piscar o carrinho em montagem antes, Pitfall 10), com a pessoa travada e o à vista EM ABERTO
+  // vencendo no dia da cobrança (UI-D26).
+  const daAgenda = origem !== null && rascunhoInicial !== null;
+  const linhasDaOrigem = (): LinhaLocal[] =>
+    origem !== null && rascunhoInicial !== null
+      ? linhasDoRascunhoInicial(rascunhoInicial, origem.itemDoSistemaId, catalogo, categorias)
+      : [];
   const [dialogoValorLivreAberto, setDialogoValorLivreAberto] = useState(false);
   const [dialogoListaAberto, setDialogoListaAberto] = useState(false);
-  const [linhas, setLinhas] = useState<LinhaLocal[]>([]);
+  const [linhas, setLinhas] = useState<LinhaLocal[]>(linhasDaOrigem);
   const [data, setData] = useState(hoje);
-  const [pessoa, setPessoa] = useState("");
+  const [pessoa, setPessoa] = useState(rascunhoInicial?.pessoa ?? "");
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<FiltroDeArea>("tudo");
   const [descontoModo, setDescontoModo] = useState<ModoDeDesconto>("reais");
@@ -118,21 +195,34 @@ export function PainelVenda({
   // comum continua um toque só) e sobrevive à regeneração do plano quando o carrinho, a data ou o
   // plano mudam — é por isso que ela mora em estado PRÓPRIO, fora de `parcelasPagamento` (que é
   // recriado do zero a cada regeneração).
-  const [pagoAVista, setPagoAVista] = useState(true);
+  const [pagoAVista, setPagoAVista] = useState(!daAgenda);
   // O "Vence em" digitado à mão para o à vista em aberto — `null` até o dono editar o campo (a
   // parcela então vence na data do documento, o padrão de `gerarPlano`). Sobrevive à regeneração
   // do plano pela MESMA razão de `pagoAVista`: mudar o carrinho não deve apagar uma data já
   // escolhida (04.4-12-PLAN.md).
-  const [vencimentoAvistaAberto, setVencimentoAvistaAberto] = useState<string | null>(null);
+  const [vencimentoAvistaAberto, setVencimentoAvistaAberto] = useState<string | null>(
+    origem?.vencimento ?? null,
+  );
   const [parcelasPagamento, setParcelasPagamento] = useState<ParcelaDoBloco[]>([]);
   const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
+  // Havia uma venda em montagem no rascunho comum quando a Venda da Agenda abriu (a 2ª linha da faixa).
+  const [haviaVendaEmMontagem, setHaviaVendaEmMontagem] = useState(false);
 
   // Lê o rascunho UMA vez, ao montar — com os ids do catálogo JÁ carregado, para descartar linha
   // de item que sumiu (lerRascunho). Nunca sobrescreve um rascunho vazio por cima de nada.
+  //
+  // Com a origem da Agenda (Pitfall 10): o rascunho comum é LIDO só para saber se havia uma venda em
+  // montagem — nunca aplicado, nunca regravado (`rascunhoCarregado` fica falso, e o efeito de gravar
+  // abaixo não roda). A venda em montagem fica intacta e volta quando a Venda abrir sem origem.
   useEffect(() => {
+    if (daAgenda) {
+      const guardado = window.sessionStorage.getItem(CHAVE_RASCUNHO_VENDA) ?? "";
+      setHaviaVendaEmMontagem(lerRascunho(guardado, catalogo.map((item) => item.id)).linhas.length > 0);
+      return;
+    }
     const texto = window.sessionStorage.getItem(CHAVE_RASCUNHO_VENDA) ?? "";
     const catalogoPorId = new Map(catalogo.map((item) => [item.id, item]));
     const categoriaPorId = new Map(categorias.map((categoria) => [categoria.id, categoria]));
@@ -253,6 +343,10 @@ export function PainelVenda({
   });
 
   const todasValidas = linhasBase.every((linha) => linha.valido);
+  // A linha de origem da Venda da Agenda (sem o “tirar”, nunca abaixo de 1).
+  const chavesDaAgenda = new Set(
+    linhas.flatMap((linha) => (linha.tipo === "item" && linha.daAgenda ? [linha.chave] : [])),
+  );
 
   // Desconto (D-09/D-10, Tarefa 3) — a MESMA `repartirDesconto` do servidor, chamada aqui só
   // para MOSTRAR (o servidor refaz a conta do zero, nunca aceita o resultado do cliente).
@@ -507,7 +601,8 @@ export function PainelVenda({
         }
         const novaQuantidade = linha.quantidade + delta;
         if (novaQuantidade < 1) {
-          return [];
+          // A linha que veio da Agenda não sai da venda (UI-D26); o servidor recusa do mesmo jeito.
+          return linha.daAgenda ? [linha] : [];
         }
         return [{ ...linha, quantidade: novaQuantidade }];
       }),
@@ -521,13 +616,17 @@ export function PainelVenda({
   }
 
   function tirarLinha(chave: string) {
-    setLinhas((atual) => atual.filter((linha) => linha.chave !== chave));
+    setLinhas((atual) =>
+      atual.filter((linha) => linha.chave !== chave || (linha.tipo === "item" && linha.daAgenda === true)),
+    );
   }
 
   function limpar() {
-    setLinhas([]);
+    // Na Venda da Agenda, “Limpar” volta ao carrinho da origem (a linha de origem não sai) e NÃO toca no
+    // rascunho comum — a venda em montagem continua guardada (Pitfall 10).
+    setLinhas(linhasDaOrigem());
     setData(hoje);
-    setPessoa("");
+    setPessoa(rascunhoInicial?.pessoa ?? "");
     setBusca("");
     setFiltro("tudo");
     setDescontoModo("reais");
@@ -536,11 +635,13 @@ export function PainelVenda({
     setPlano("avista");
     setFormaPagamento("pix");
     setDuasFormas(false);
-    setPagoAVista(true);
-    setVencimentoAvistaAberto(null);
+    setPagoAVista(!daAgenda);
+    setVencimentoAvistaAberto(origem?.vencimento ?? null);
     setParcelasPagamento([]);
     setErroDoPlano(null);
-    window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
+    if (!daAgenda) {
+      window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
+    }
   }
 
   async function aoLancar() {
@@ -575,6 +676,8 @@ export function PainelVenda({
         pago: parcela.pago,
       })),
       ...(descontoTexto.trim() !== "" ? { desconto: { modo: descontoModo, texto: descontoTexto } } : {}),
+      // Só QUAL cobrança: o servidor sobrescreve pessoa, cliente e a descrição da linha de origem.
+      ...(origem !== null && daAgenda ? { origem: origem.origem } : {}),
     });
 
     setEnviando(false);
@@ -584,13 +687,20 @@ export function PainelVenda({
       return;
     }
 
+    if (daAgenda) {
+      // A volta à Agenda (UI-D26): “A receber” mostra o toast uma vez. O rascunho comum NÃO é apagado —
+      // a venda que estava em montagem continua guardada (Pitfall 10).
+      window.location.assign(rotaDeGestao(`/agenda?aba=receber&aviso=lancado&documento=${resposta.dados.id}`));
+      return;
+    }
+
     window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
     // Navegação completa de propósito (nunca `router.push`/`router.refresh`) — a página resolve
     // o aviso no servidor a partir de `?aviso=lancado&documento=<id>`.
     window.location.assign(rotaDeGestao(`/financeiro?aba=venda&aviso=lancado&documento=${resposta.dados.id}`));
   }
 
-  return (
+  const painel = (
     <div className="grid grid-cols-1 gap-6 px-6 py-6 md:grid-cols-[1.15fr_1fr] md:px-8">
       <section className="border-border bg-card flex flex-col gap-4 rounded-lg border p-4">
         <h2 className="text-titulo text-foreground">{TITULO_O_QUE_FOI_VENDIDO}</h2>
@@ -637,15 +747,35 @@ export function PainelVenda({
               className="text-corpo min-h-[44px]"
             />
           </label>
-          <label className="text-apoio text-muted-foreground flex flex-col gap-1">
-            {ROTULO_PESSOA_OPCIONAL}
-            <Input
-              value={pessoa}
-              onChange={(evento) => setPessoa(evento.target.value)}
-              placeholder={PLACEHOLDER_PESSOA_VENDA}
-              className="text-corpo min-h-[44px]"
-            />
-          </label>
+          {daAgenda ? (
+            // A pessoa TRAVADA (UI-D26): só leitura, com a dica. O nome inteiro rola dentro do campo; o
+            // servidor grava o nome do cliente da cobrança de qualquer jeito (T-05-58).
+            <label className="text-apoio text-muted-foreground flex min-w-0 flex-col gap-1">
+              {ROTULO_PESSOA_DA_AGENDA}
+              <Input
+                data-testid="pessoa-travada"
+                value={pessoa}
+                readOnly
+                aria-describedby="pessoa-travada-dica"
+                onChange={(evento) => setPessoa(evento.target.value)}
+                title={pessoa}
+                className="text-corpo bg-muted min-h-[44px]"
+              />
+              <span id="pessoa-travada-dica" data-testid="pessoa-travada-dica">
+                {DICA_PESSOA_TRAVADA}
+              </span>
+            </label>
+          ) : (
+            <label className="text-apoio text-muted-foreground flex flex-col gap-1">
+              {ROTULO_PESSOA_OPCIONAL}
+              <Input
+                value={pessoa}
+                onChange={(evento) => setPessoa(evento.target.value)}
+                placeholder={PLACEHOLDER_PESSOA_VENDA}
+                className="text-corpo min-h-[44px]"
+              />
+            </label>
+          )}
         </div>
 
         {data !== hoje && (
@@ -660,6 +790,7 @@ export function PainelVenda({
               <LinhaCarrinho
                 key={linha.chave}
                 linha={linha}
+                fixa={chavesDaAgenda.has(linha.chave)}
                 aoMudarQuantidade={mudarQuantidade}
                 aoMudarValorUnitario={mudarValorUnitario}
                 aoTirar={tirarLinha}
@@ -762,6 +893,18 @@ export function PainelVenda({
         aoFechar={() => setDialogoListaAberto(false)}
         aoTocarItem={tocarItemDoCatalogo}
       />
+    </div>
+  );
+
+  if (origem === null || !daAgenda) {
+    return painel;
+  }
+  return (
+    <div className="flex flex-col">
+      <div className="px-6 pt-6 md:px-8">
+        <FaixaDaAgenda descricao={origem.descricao} nome={origem.nome} haviaVendaEmMontagem={haviaVendaEmMontagem} />
+      </div>
+      {painel}
     </div>
   );
 }

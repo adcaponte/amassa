@@ -973,6 +973,7 @@ export function faixaDaAgenda(descricao: string, nome: string): string {
 export const FRASE_VENDA_EM_MONTAGEM_GUARDADA =
   "A venda que estava em montagem continua guardada — ela volta quando você abrir a Venda de novo.";
 export const ROTULO_VOLTAR_A_AGENDA_DA_VENDA = "Voltar à Agenda";
+export const ROTULO_PESSOA_DA_AGENDA = "Pessoa";
 export const DICA_PESSOA_TRAVADA = "vem da Agenda";
 export function fraseOrigemJaLancada(numero: number): string {
   return `Este item da Agenda já virou a venda nº ${numero}.`;

@@ -50,9 +50,11 @@ import {
   ROTULO_PROXIMO_MES,
   ROTULO_SEMANA_ANTERIOR,
   TITULO_AGENDA,
+  toastLancadoNaVenda,
 } from "@/lib/agenda/textos";
 import { listarClientes, obterCliente, type ClienteDaLista } from "@/lib/clientes/consultas";
 import { quantosDaUrl } from "@/lib/clientes/lista";
+import { obterDocumentoParaAviso } from "@/lib/financeiro/consultas";
 import { agoraEmBrasilia, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { somarDias } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
@@ -61,6 +63,7 @@ import { CarregadorDoSeletor } from "@/components/amassa/estoque/carregador-do-s
 import { ProvedorDoEstoque } from "@/components/amassa/estoque/provedor-estoque";
 import { AReceber, EsqueletoDoAReceber } from "@/components/amassa/agenda/a-receber";
 import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
+import { AvisoDaAgenda } from "@/components/amassa/agenda/aviso-da-agenda";
 import { BarraDaAgenda } from "@/components/amassa/agenda/barra-da-agenda";
 import { FolhaLancar } from "@/components/amassa/agenda/folha-lancar";
 import { EsqueletoDoMes, GradeDoMes } from "@/components/amassa/agenda/grade-do-mes";
@@ -88,6 +91,8 @@ type ParametrosDaAgenda = {
   uso?: string | string[];
   lancar?: string | string[];
   dia?: string | string[];
+  aviso?: string | string[];
+  documento?: string | string[];
 };
 
 function urlDaAgenda(consulta: string): string {
@@ -132,9 +137,17 @@ export default async function PaginaAgenda({
       <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
         {aba === "receber" ? (
           // "A receber" (AGE-15) espera o banco atrás do esqueleto DELA (cabeçalho + sanfona + 4 linhas).
-          <Suspense fallback={<EsqueletoDoAReceber />}>
-            <AReceberCarregado hoje={hoje} />
-          </Suspense>
+          <>
+            <Suspense fallback={<EsqueletoDoAReceber />}>
+              <AReceberCarregado hoje={hoje} />
+            </Suspense>
+            {/* A volta da Venda aberta pela Agenda (plano 12, UI-D26): o toast uma vez. */}
+            {parametros.aviso === "lancado" && idDaUrl(parametros.documento) !== null ? (
+              <Suspense fallback={null}>
+                <AvisoDoLancamento documentoId={idDaUrl(parametros.documento) ?? ""} />
+              </Suspense>
+            ) : null}
+          </>
         ) : aba === "pessoas" ? (
           // A lista de Pessoas espera o banco atrás do esqueleto DELA (busca + 6 linhas). Sem `key`
           // da busca: digitar não troca a lista pelo esqueleto nem tira o foco do campo.
@@ -186,6 +199,20 @@ async function AReceberCarregado({ hoje }: { hoje: string }) {
   await garantirMensalidadesDoMes(db, mesDaData(hoje));
   const dados = await lerAReceber();
   return <AReceber dados={dados} />;
+}
+
+// A volta do “Lançar na Venda” (plano 12): `?aba=receber&aviso=lancado&documento={id}` — o número da venda
+// é lido AQUI, no servidor; a frase pronta desce para `AvisoDaAgenda`, que mostra o toast uma vez e limpa a
+// URL. Documento que não existe (URL adulterada) ou leitura que falha: nenhum toast, a página segue.
+async function AvisoDoLancamento({ documentoId }: { documentoId: string }) {
+  let texto: string | null = null;
+  try {
+    const documento = await obterDocumentoParaAviso(documentoId);
+    texto = documento ? toastLancadoNaVenda(documento.numero) : null;
+  } catch (erro) {
+    console.error("Falha ao ler a venda da volta do “Lançar na Venda”:", erro);
+  }
+  return <AvisoDaAgenda texto={texto} />;
 }
 
 // A aba Pessoas (AGE-06): o cadastro de clientes (D-01), lido por `lib/clientes` — o mesmo de
