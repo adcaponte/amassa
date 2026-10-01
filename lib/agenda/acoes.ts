@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { eventos, inscricoes } from "@/db/schema";
@@ -12,17 +12,30 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { lerDiaParaLancar, type DiaParaLancar } from "./consultas";
 import {
+  esquemaCancelarData,
   esquemaConferirDia,
   esquemaDefinirPresenca,
   esquemaFecharDia,
   esquemaLancarAvulsa,
+  esquemaTirarBloqueio,
 } from "./esquemas";
-import { RecusaDaAgenda, travarInscricao } from "./gravacao";
+import {
+  contarPerdasAoCancelar,
+  RecusaDaAgenda,
+  temPerdas,
+  travarEvento,
+  travarInscricao,
+  type PerdasAoCancelar,
+} from "./gravacao";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
 import {
   FRASE_DATA_CANCELADA,
   FRASE_ESCOLHA_A_DATA,
+  FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_LANCAR,
+  FRASE_FALHA_AO_TIRAR_BLOQUEIO,
+  FRASE_FECHADO_NAO_SE_CANCELA,
+  FRASE_JA_REMOVIDO,
   FRASE_FALHA_PRESENCA_GENERICA,
   FRASE_LANCAMENTO_NAO_EXISTE,
 } from "./textos";
@@ -224,4 +237,126 @@ export async function conferirDiaParaLancar(
     console.error("Falha ao conferir o dia para lançar:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
   }
+}
+
+export type ResultadoCancelarData =
+  // Gravado (ou já estava assim — idempotente): o estado em que a data ficou.
+  | { situacao: "gravado"; cancelada: boolean; presencasLimpas: number }
+  // Nada gravado: cancelar perderia algo e a pessoa ainda não viu o quê (UI-D13).
+  | { situacao: "confirmar"; perdas: PerdasAoCancelar };
+
+// "Cancelar esta data" / "Desfazer cancelamento" (AGE-04, AGE-05 — cancelar nunca apaga). O cliente
+// manda o estado DESEJADO (Pattern 2): cancelar o que já está cancelado, ou desfazer o que já foi
+// desfeito, devolve sucesso sem gravar — dois celulares e o toque duplo convergem. Sob a trava do
+// EVENTO (`for no key update`, a mesma linha que `definirPresenca` lê com a inscrição):
+// - fechado → recusa (o fechado se tira, não se cancela);
+// - cancelar sem `confirmado` e com algo a perder → devolve as perdas e NÃO grava (a tela confirma);
+// - cancelar → `cancelado_em`/`cancelado_por` e, NA MESMA transação, limpa presença e direito a
+//   repor de todas as inscrições da data (cancelada pelo ateliê não conta falta para ninguém);
+// - desfazer → limpa os dois carimbos; as presenças NÃO voltam.
+// Venda e movimentação já geradas nunca são tocadas (AGE-20).
+export async function cancelarData(entradaBruta: unknown): Promise<ResultadoDeAcao<ResultadoCancelarData>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaCancelarData.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  let publico = false;
+  let gravado: ResultadoCancelarData;
+  try {
+    gravado = await db.transaction(async (tx): Promise<ResultadoCancelarData> => {
+      const evento = await travarEvento(tx, dados.eventoId);
+      if (!evento) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (evento.tipo === "fechado") {
+        throw new RecusaDaAgenda(FRASE_FECHADO_NAO_SE_CANCELA);
+      }
+      publico = evento.publico;
+      if (evento.cancelado === dados.cancelada) {
+        return { situacao: "gravado", cancelada: evento.cancelado, presencasLimpas: 0 };
+      }
+
+      if (!dados.cancelada) {
+        await tx
+          .update(eventos)
+          .set({ canceladoEm: null, canceladoPor: null })
+          .where(eq(eventos.id, evento.id));
+        return { situacao: "gravado", cancelada: false, presencasLimpas: 0 };
+      }
+
+      if (dados.confirmado !== true) {
+        const perdas = await contarPerdasAoCancelar(tx, evento.id);
+        if (temPerdas(perdas)) {
+          return { situacao: "confirmar", perdas };
+        }
+      }
+      await tx
+        .update(eventos)
+        .set({ canceladoEm: new Date(), canceladoPor: usuario.id })
+        .where(eq(eventos.id, evento.id));
+      const limpas = await tx
+        .update(inscricoes)
+        .set({ presenca: null, direitoARepor: false })
+        .where(
+          and(
+            eq(inscricoes.eventoId, evento.id),
+            or(isNotNull(inscricoes.presenca), eq(inscricoes.direitoARepor, true)),
+          ),
+        )
+        .returning({ id: inscricoes.id });
+      return { situacao: "gravado", cancelada: true, presencasLimpas: limpas.length };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao cancelar a data (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CANCELAR };
+  }
+
+  if (gravado.situacao === "gravado") {
+    // A data pública sai (ou volta) do site.
+    revalidarTelasDaAgenda({ publico });
+  }
+  return { ok: true, dados: gravado };
+}
+
+// "Tirar o bloqueio" (AGE-05): o fechado é o ÚNICO evento que se apaga — e o tipo é conferido NA
+// PRÓPRIA instrução de `delete` (T-05-15): um id de data de turma ou de avulsa não apaga nada.
+// Nenhuma linha afetada (tirado em outro celular, ou id que não é de fechado) → a frase humana,
+// nunca erro técnico. Revalida o site: o dia volta a aparecer aberto lá.
+export async function tirarBloqueio(entradaBruta: unknown): Promise<ResultadoDeAcao<{ data: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaTirarBloqueio.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_JA_REMOVIDO };
+  }
+
+  let removido: { data: string } | undefined;
+  try {
+    [removido] = await db
+      .delete(eventos)
+      .where(and(eq(eventos.id, resultado.data.eventoId), eq(eventos.tipo, "fechado")))
+      .returning({ data: eventos.data });
+  } catch (erro) {
+    console.error(
+      `Falha ao tirar o bloqueio (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_TIRAR_BLOQUEIO };
+  }
+  if (!removido) {
+    return { ok: false, erro: FRASE_JA_REMOVIDO };
+  }
+
+  revalidarTelasDaAgenda({ publico: true });
+  return { ok: true, dados: removido };
 }

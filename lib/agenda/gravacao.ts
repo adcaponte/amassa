@@ -19,12 +19,13 @@
 // Cada ação pula os elos que não usa. A Agenda nunca trava um documento EXISTENTE (só cria o seu,
 // que ninguém mais vê), então não fecha ciclo com `cancelarDocumento` do Financeiro
 // (DOCUMENTO → ORDEM → ITENS).
-import { eq } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull, or } from "drizzle-orm";
 
-import { eventos, inscricoes } from "@/db/schema";
+import type { db } from "@/db";
+import { documentos, eventos, inscricoes } from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 
-import type { Presenca, TipoInscricao } from "./tipos";
+import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
 
 export type { TransacaoDoBanco };
 
@@ -77,4 +78,73 @@ export async function travarInscricao(
   }
   const { canceladoEm, ...resto } = linha;
   return { ...resto, eventoCancelado: canceladoEm !== null };
+}
+
+export type EventoTravado = {
+  id: string;
+  tipo: TipoEvento;
+  data: string;
+  publico: boolean;
+  cancelado: boolean;
+};
+
+// Trava a linha do EVENTO até o fim da transação (`for no key update` — não conflita com o
+// `for key share` de uma inscrição nova, mas serializa duas decisões sobre o mesmo evento: cancelar
+// em dois celulares, cancelar e desfazer). É o elo EVENTO da ordem global de travas; quem trava
+// evento e depois inscrição segue a ordem. `null` se ele não existe (removido em outro celular).
+export async function travarEvento(tx: TransacaoDoBanco, eventoId: string): Promise<EventoTravado | null> {
+  const [linha] = await tx
+    .select({
+      id: eventos.id,
+      tipo: eventos.tipo,
+      data: eventos.data,
+      publico: eventos.publico,
+      canceladoEm: eventos.canceladoEm,
+    })
+    .from(eventos)
+    .where(eq(eventos.id, eventoId))
+    .for("no key update");
+  if (!linha) {
+    return null;
+  }
+  const { canceladoEm, ...resto } = linha;
+  return { ...resto, cancelado: canceladoEm !== null };
+}
+
+// O que se perde ao cancelar uma data (UI-D13): as presenças já marcadas (o cancelamento as limpa —
+// protótipo 352) e as inscrições cobradas que ainda estão em "A receber" (cobrar, não dispensadas,
+// sem venda ATIVA — venda cancelada devolve o item a "A receber", D-08). Venda e movimentação já
+// geradas nunca se apagam (AGE-20): quem já pagou continua no Financeiro.
+export type PerdasAoCancelar = { presencas: number; inscricoesAReceber: number };
+
+type LeitorDoBanco = Pick<typeof db, "select"> | Pick<TransacaoDoBanco, "select">;
+
+export async function contarPerdasAoCancelar(
+  leitor: LeitorDoBanco,
+  eventoId: string,
+): Promise<PerdasAoCancelar> {
+  const [presencas] = await (leitor as Pick<TransacaoDoBanco, "select">)
+    .select({ total: count() })
+    .from(inscricoes)
+    .where(and(eq(inscricoes.eventoId, eventoId), isNotNull(inscricoes.presenca)));
+  const [aReceber] = await (leitor as Pick<TransacaoDoBanco, "select">)
+    .select({ total: count() })
+    .from(inscricoes)
+    .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+    .where(
+      and(
+        eq(inscricoes.eventoId, eventoId),
+        eq(inscricoes.cobrar, true),
+        isNull(inscricoes.dispensadaEm),
+        or(isNull(inscricoes.documentoId), isNotNull(documentos.canceladoEm)),
+      ),
+    );
+  return {
+    presencas: Number(presencas?.total ?? 0),
+    inscricoesAReceber: Number(aReceber?.total ?? 0),
+  };
+}
+
+export function temPerdas(perdas: PerdasAoCancelar): boolean {
+  return perdas.presencas > 0 || perdas.inscricoesAReceber > 0;
 }

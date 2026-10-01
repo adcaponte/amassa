@@ -10,6 +10,7 @@ import { db } from "@/db";
 import { clientes, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
 import { somarDias } from "@/lib/producao/calendario";
 
+import { contarPerdasAoCancelar, type PerdasAoCancelar } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { ordenarInscritos } from "./presenca";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM } from "./textos";
@@ -86,8 +87,18 @@ export type InscritoCarregado = {
 
 export type EventoCarregado = EventoDaSemana & {
   precoCentavos: number | null;
+  publico: boolean;
   inscricoes: InscritoCarregado[];
+  // O que "Cancelar esta data" perderia agora — decide se a folha pede confirmação (UI-D13). O
+  // servidor confere de novo sob a trava ao cancelar.
+  perdasAoCancelar: PerdasAoCancelar;
 };
+
+export type { PerdasAoCancelar };
+
+export async function perdasAoCancelar(eventoId: string): Promise<PerdasAoCancelar> {
+  return contarPerdasAoCancelar(db, eventoId);
+}
 
 // O evento aberto na folha (`?evento={id}`), com os inscritos na ordem da folha — `null` se ele
 // não existe (link velho, removido em outro celular).
@@ -103,6 +114,7 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
       nomeDaTurma: turmas.nome,
       vagas: eventos.vagas,
       precoCentavos: eventos.precoCentavos,
+      publico: eventos.publico,
       canceladoEm: eventos.canceladoEm,
     })
     .from(eventos)
@@ -112,18 +124,21 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     return null;
   }
 
-  const linhas = await db
-    .select({
-      id: inscricoes.id,
-      clienteId: inscricoes.clienteId,
-      nome: clientes.nome,
-      tipo: inscricoes.tipo,
-      presenca: inscricoes.presenca,
-      direitoARepor: inscricoes.direitoARepor,
-    })
-    .from(inscricoes)
-    .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
-    .where(eq(inscricoes.eventoId, id));
+  const [linhas, perdas] = await Promise.all([
+    db
+      .select({
+        id: inscricoes.id,
+        clienteId: inscricoes.clienteId,
+        nome: clientes.nome,
+        tipo: inscricoes.tipo,
+        presenca: inscricoes.presenca,
+        direitoARepor: inscricoes.direitoARepor,
+      })
+      .from(inscricoes)
+      .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
+      .where(eq(inscricoes.eventoId, id)),
+    perdasAoCancelar(id),
+  ]);
 
   return {
     id: evento.id,
@@ -136,7 +151,9 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     inscritos: linhas.length,
     cancelado: evento.canceladoEm !== null,
     precoCentavos: evento.precoCentavos,
+    publico: evento.publico,
     inscricoes: ordenarInscritos(linhas),
+    perdasAoCancelar: perdas,
   };
 }
 

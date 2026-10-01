@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
+import { CancelarEstaData } from "./confirmar-cancelar-data";
 import { LinhaInscrito } from "./linha-inscrito";
 
 const PONTO_DO_TIPO = {
@@ -140,7 +141,11 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
           )}
         </div>
 
-        <div className="border-border bg-popover flex justify-end border-t px-6 py-4">
+        {/* Rodapé preso (`justify-between`): "Cancelar esta data" / "Desfazer cancelamento" à esquerda
+            (só depois de a folha saber o que se perderia), "Pronto" à direita. `flex-wrap`: a 320px
+            os dois quebram em duas linhas, cada um com 44px, nunca rolagem lateral. */}
+        <div className="border-border bg-popover flex flex-wrap items-start justify-between gap-2 border-t px-6 py-4">
+          {carregado !== null ? <CancelarEstaData key={carregado.id} evento={carregado} /> : <span />}
           <Button
             type="button"
             variant="default"

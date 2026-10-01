@@ -20,6 +20,7 @@ import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 
 import { CartaoEvento } from "./cartao-evento";
 import { FolhaEvento } from "./folha-evento";
+import { FolhaFechado } from "./folha-fechado";
 import { enderecoDaAgendaCom } from "./url-da-agenda";
 
 export type DiaDaSemanaNaTela = {
@@ -151,7 +152,18 @@ export function SemanaDaAgenda({
       </div>
 
       {aberto !== null && cabecalho !== null ? (
-        <FolhaEvento cabecalho={cabecalho} carregado={carregado} aoFechar={fechar} />
+        cabecalho.tipo === "fechado" ? (
+          <FolhaFechado
+            fechado={cabecalho}
+            // Quem tira o bloqueio não recebe o aviso "não existe mais" do que ela mesma tirou.
+            aoComecarATirar={() => {
+              avisado.current = cabecalho.id;
+            }}
+            aoFechar={fechar}
+          />
+        ) : (
+          <FolhaEvento cabecalho={cabecalho} carregado={carregado} aoFechar={fechar} />
+        )
       ) : null}
     </div>
   );
