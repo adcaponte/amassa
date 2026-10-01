@@ -1165,3 +1165,71 @@ export async function ligarVendaACobranca(dados: {
     }
   });
 }
+
+// ── AGE-20: a Agenda nunca apaga venda nem movimentação (plano 13) ──────────────────────────────────────
+
+export type RetratoDoDinheiro = {
+  documentos: { id: string; numero: number; cancelado: string | null; data: string; pessoaNome: string | null }[];
+  parcelas: { id: string; documentoId: string; valorCentavos: number; pagoEm: string | null }[];
+  movimentacoes: { id: string; documentoId: string | null; quantidadeMilesimos: number }[];
+};
+
+// O retrato, linha a linha, das vendas pedidas, das parcelas delas e das movimentações de estoque ligadas a
+// elas — para provar que nenhum gesto da Agenda apagou ou mudou nada (só o Caixa mexe nisto).
+export async function retratoDoDinheiro(documentoIds: readonly string[]): Promise<RetratoDoDinheiro> {
+  return comCliente(async (cliente) => {
+    const documentos = await cliente.query<RetratoDoDinheiro["documentos"][number] & { numero: string }>(
+      `select id, numero, to_char(cancelado_em, 'YYYY-MM-DD"T"HH24:MI:SS.US') as cancelado,
+              to_char(data, 'YYYY-MM-DD') as data, pessoa_nome as "pessoaNome"
+         from documentos where id = any($1::uuid[]) order by id`,
+      [documentoIds],
+    );
+    const parcelas = await cliente.query<RetratoDoDinheiro["parcelas"][number]>(
+      `select id, documento_id as "documentoId", valor_centavos as "valorCentavos",
+              to_char(pago_em, 'YYYY-MM-DD') as "pagoEm"
+         from parcelas where documento_id = any($1::uuid[]) order by id`,
+      [documentoIds],
+    );
+    const movimentacoes = await cliente.query<RetratoDoDinheiro["movimentacoes"][number]>(
+      `select id, documento_id as "documentoId", quantidade_milesimos as "quantidadeMilesimos"
+         from movimentacoes_estoque where documento_id = any($1::uuid[]) order by id`,
+      [documentoIds],
+    );
+    return {
+      documentos: documentos.rows.map((linha) => ({ ...linha, numero: Number(linha.numero) })),
+      parcelas: parcelas.rows,
+      movimentacoes: movimentacoes.rows,
+    };
+  });
+}
+
+export type IdsDoDinheiro = { documentos: string[]; parcelas: string[]; movimentacoes: string[] };
+
+// Os ids de TODAS as linhas de `documentos`, `parcelas` e `movimentacoes_estoque` agora. Outras specs
+// acrescentam linhas em paralelo — por isso a prova não é “a contagem não mudou”, e sim “nenhuma linha que
+// existia sumiu” (`idsQueSumiram`).
+export async function idsDoDinheiro(): Promise<IdsDoDinheiro> {
+  return comCliente(async (cliente) => {
+    const ler = async (tabela: string) =>
+      (await cliente.query<{ id: string }>(`select id from ${tabela}`)).rows.map((linha) => linha.id);
+    return {
+      documentos: await ler("documentos"),
+      parcelas: await ler("parcelas"),
+      movimentacoes: await ler("movimentacoes_estoque"),
+    };
+  });
+}
+
+// Quantas das linhas de `antes` não existem mais, por tabela.
+export async function idsQueSumiram(antes: IdsDoDinheiro): Promise<{ documentos: number; parcelas: number; movimentacoes: number }> {
+  const agora = await idsDoDinheiro();
+  const sumiram = (de: string[], em: string[]) => {
+    const existentes = new Set(em);
+    return de.filter((id) => !existentes.has(id)).length;
+  };
+  return {
+    documentos: sumiram(antes.documentos, agora.documentos),
+    parcelas: sumiram(antes.parcelas, agora.parcelas),
+    movimentacoes: sumiram(antes.movimentacoes, agora.movimentacoes),
+  };
+}
