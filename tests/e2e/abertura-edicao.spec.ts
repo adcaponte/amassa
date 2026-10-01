@@ -1,5 +1,7 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 
+import { hojeNoAtelie } from "./apoio/semear-financeiro";
+
 // O ciclo de vida das duas listas do módulo Abertura do Espaço (04.2-03-PLAN.md): marcar como
 // resolvido/concluído (otimista, D-07), o destaque de entrega vencida (D-04/ABE-04), editar no
 // lugar (D-18/ABE-11) e remover com confirmação nomeando o que se perde (D-14/ABE-10). Nenhum
@@ -126,7 +128,8 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
   }) => {
     await fazerLogin(page);
     const semData = nomeUnico("Mesa de apoio");
-    const hojeStr = new Date().toISOString().slice(0, 10);
+    // Dia civil de Brasília: o "hoje" do teste tem de ser o mesmo "hoje" da aplicação.
+    const hojeStr = hojeNoAtelie();
     const comHoje = nomeUnico("Rack de secagem");
 
     await criarItem(page, { nome: semData, valor: "500" });

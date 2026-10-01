@@ -7,6 +7,8 @@ import {
   ROTULO_ALTERAR_INAUGURACAO,
 } from "@/lib/abertura/textos";
 
+import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
+
 // O painel de três blocos e a visão "Por mês" do módulo Abertura do Espaço (04.2-04-PLAN.md):
 // D-16 (fluxo mensal com composição e escala nomeada), D-15 (os três blocos do topo) e D-17/ABE-14
 // (data de inauguração editável com contagem regressiva). Uma invocação de
@@ -113,7 +115,9 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
   }) => {
     await fazerLogin(page);
 
-    const hojeStr = new Date().toISOString().slice(0, 10);
+    // Dia civil de Brasília, nunca o de UTC: "este mês" é calculado no fuso do ateliê, e das 21h
+    // à meia-noite do último dia do mês o UTC já está no mês seguinte.
+    const hojeStr = hojeNoAtelie();
     const nomeVista = nomeUnico("Estante de secagem");
     const nomeParcelado = nomeUnico("Forno elétrico 200L");
 
@@ -172,7 +176,7 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
     const nomeComprido = nomeUnico(
       "Bancada de trabalho em madeira maciça com prateleiras auxiliares e rodízios travantes",
     );
-    const hojeStr = new Date().toISOString().slice(0, 10);
+    const hojeStr = hojeNoAtelie();
 
     await criarItem(page, {
       nome: nomeComprido,
@@ -426,9 +430,7 @@ test.describe("abertura painel — a data de inauguração editável e a contage
 
     // Abre a edição, digita uma data 10 dias no futuro, salva com o botão.
     await botao.click();
-    const daqui10Dias = new Date();
-    daqui10Dias.setDate(daqui10Dias.getDate() + 10);
-    const dataFutura = daqui10Dias.toISOString().slice(0, 10);
+    const dataFutura = somarDiasAoHoje(10);
 
     await campoData.fill(dataFutura);
     await page.getByRole("button", { name: "Salvar" }).click();
