@@ -43,3 +43,36 @@ export function formaDaUrl(valor: string | null | undefined): FormaDoFiltroDoExt
   }
   return "todas";
 }
+
+// A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa, UI-D26): o
+// “Lançar na Venda” abre `?aba=venda&origem={tipo}:{uuid}`. A união é REDECLARADA aqui (nenhum
+// import da Agenda: este módulo continua sem import nenhum); os três tipos são os de
+// `lib/agenda/receber.ts::TIPOS_DE_COBRANCA`. A origem só diz QUAL cobrança — a página resolve tudo
+// o mais no servidor (`cobrancaParaVenda`), e `lancarVenda` sobrescreve pessoa, cliente e descrição.
+export type TipoDaOrigemDaVenda = "mensalidade" | "inscricao" | "uso_livre";
+export type OrigemDaVenda = { tipo: TipoDaOrigemDaVenda; id: string };
+
+const FORMATO_DA_ORIGEM =
+  /^(mensalidade|inscricao|uso_livre):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+// Normaliza `?origem=` para a união fechada — tipo desconhecido, uuid inválido, vazio, ausente ou
+// a lista (o parâmetro repetido) viram `null`. O tipo é exato (minúsculo); o uuid volta minúsculo.
+export function origemDaUrl(valor: string | readonly string[] | null | undefined): OrigemDaVenda | null {
+  if (typeof valor !== "string") {
+    return null;
+  }
+  const casamento = FORMATO_DA_ORIGEM.exec(valor);
+  if (!casamento) {
+    return null;
+  }
+  const tipo = casamento[1];
+  if (tipo !== "mensalidade" && tipo !== "inscricao" && tipo !== "uso_livre") {
+    return null;
+  }
+  return { tipo, id: casamento[2].toLowerCase() };
+}
+
+// O texto de `?origem=` — o mesmo que o `PainelVenda` manda de volta para `lancarVenda`.
+export function textoDaOrigem(origem: OrigemDaVenda): string {
+  return `${origem.tipo}:${origem.id}`;
+}

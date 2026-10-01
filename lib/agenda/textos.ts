@@ -962,3 +962,52 @@ export const FRASE_FALHA_AO_RECEBER =
 // dispensada em outro celular entre abrir a lista e tocar a forma.
 export const FRASE_COBRANCA_SUMIU = "Este item não está mais em “A receber” — a tela foi atualizada.";
 export const FRASE_COBRANCA_DISPENSADA = "Esta cobrança foi dispensada — a tela foi atualizada.";
+
+// “Lançar na Venda” (plano 12 — AGE-15, UI-D3, UI-D26; 05-UI-SPEC.md §“Venda aberta pela Agenda”,
+// §Copywriting “Venda da Agenda”, §Erros “Venda da Agenda — origem inválida”, §Toasts “Lançar na Venda
+// (volta)”). A Venda do Financeiro abre preenchida; o servidor decide pessoa, cliente e descrição.
+export const ROTULO_LANCAR_NA_VENDA = "Lançar na Venda";
+export function faixaDaAgenda(descricao: string, nome: string): string {
+  return `Da Agenda · ${descricao} · ${nome}`;
+}
+export const FRASE_VENDA_EM_MONTAGEM_GUARDADA =
+  "A venda que estava em montagem continua guardada — ela volta quando você abrir a Venda de novo.";
+export const ROTULO_VOLTAR_A_AGENDA_DA_VENDA = "Voltar à Agenda";
+export const DICA_PESSOA_TRAVADA = "vem da Agenda";
+export function fraseOrigemJaLancada(numero: number): string {
+  return `Este item da Agenda já virou a venda nº ${numero}.`;
+}
+export const FRASE_ORIGEM_NAO_ACHADA =
+  "Não achei este item da Agenda. Volte à Agenda e toque em “Lançar na Venda” de novo.";
+export const FRASE_LINHA_DA_AGENDA_FALTANDO = "A linha que veio da Agenda precisa continuar na venda.";
+export function toastLancadoNaVenda(numero: number): string {
+  return `Lançado na venda nº ${numero}. A parcela está em “o que vence” do Caixa.`;
+}
+
+// O lote de mensalidades (plano 12 — AGE-16; §“Aba A receber” item 2, §“Lote e A receber — linhas de
+// leitura”, §Toasts “Lote”, §Erros “Lote — falhou”). Singular de verdade com UMA (backstop E16
+// zero-one-many, verdade 6 do plano): “Lançar esta 1 na Venda”, “1 mensalidade lançada na Venda”.
+export function resumoDoLote(quantas: number): string {
+  return `Lançar todas as mensalidades de uma vez (${quantas}) — ver quem entra`;
+}
+export function rotuloDoBotaoDoLote(quantas: number, total: string): string {
+  return quantas === 1 ? `Lançar esta 1 na Venda · ${total}` : `Lançar estas ${quantas} na Venda · ${total}`;
+}
+export const ROTULO_LANCANDO_LOTE = "Lançando…";
+export const DICA_DO_LOTE =
+  "Cria uma venda por mensalidade, com a parcela em aberto vencendo no dia da turma. Quem já pagou, você marca no Caixa.";
+export const ARIA_LISTA_DO_LOTE = "Mensalidades que entram no lote";
+export function linhaDoLote(nome: string, turma: string, mes: string, valor: string, proporcional: boolean): string {
+  return `${nome} · ${turma} · ${mes} · ${valor}${proporcional ? " (proporcional)" : ""}`;
+}
+export function toastDoLote(lancadas: number): string {
+  return lancadas === 1
+    ? "1 mensalidade lançada na Venda. A parcela está em “o que vence” do Caixa."
+    : `${lancadas} mensalidades lançadas na Venda. As parcelas estão em “o que vence” do Caixa.`;
+}
+// A corrida (outro celular lançou parte do lote, ou a mesma mensalidade pelo “Recebi agora”).
+export function fraseCorridaDoLote(lancadas: number, jaLancadas: number): string {
+  return `${lancadas} lançadas; ${jaLancadas} já estavam lançadas.`;
+}
+export const FRASE_FALHA_AO_LANCAR_LOTE =
+  "Não deu para lançar as mensalidades. Nenhuma venda foi criada — verifique a internet e tente de novo.";

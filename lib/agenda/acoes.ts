@@ -32,6 +32,7 @@ import {
   datasDaTurmaNoMes,
   fechadosEntre,
   lerDiaParaLancar,
+  itensDoSistemaParaVenda,
   obterItensDoSistema,
   pessoasParaData,
   type DiaParaLancar,
@@ -94,7 +95,7 @@ import {
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
-import { linhasDaVenda, situacaoDaCobranca, type ItensDoSistema as ItensDoSistemaParaVenda } from "./receber";
+import { linhasDaVenda, situacaoDaCobranca } from "./receber";
 import { horasCheias, proximoEstado, valorDoUsoLivre } from "./uso-livre";
 import type { EstadoUsoLivre, TipoInscricao } from "./tipos";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
@@ -148,7 +149,6 @@ import {
   FRASE_COBRANCA_DISPENSADA,
   FRASE_COBRANCA_SUMIU,
   FRASE_FALHA_AO_RECEBER,
-  FRASE_ITENS_DA_AGENDA_SUMIRAM,
   fraseJaLancado,
 } from "./textos";
 
@@ -1860,20 +1860,4 @@ export async function receberAgora(entradaBruta: unknown): Promise<ResultadoDeAc
   revalidatePath(rotaDeGestao("/financeiro"));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: { documentoId: venda.id, numero: venda.numero, forma: dados.forma } };
-}
-
-// Os três itens do sistema como a venda os usa: id e categoria de venda. Item com chave nunca perde a
-// categoria (aparece na Venda — check e gatilho da 0026); a falta dela é o mesmo defeito de “sumiram”.
-function itensDoSistemaParaVenda(itens: Awaited<ReturnType<typeof obterItensDoSistema>>): ItensDoSistemaParaVenda {
-  const paraVenda = (item: { id: string; categoriaVendaId: string | null }) => {
-    if (item.categoriaVendaId === null) {
-      throw new Error(FRASE_ITENS_DA_AGENDA_SUMIRAM);
-    }
-    return { id: item.id, categoriaId: item.categoriaVendaId };
-  };
-  return {
-    mensalidade: paraVenda(itens.mensalidade),
-    inscricaoOficina: paraVenda(itens.inscricaoOficina),
-    usoLivreHora: paraVenda(itens.usoLivreHora),
-  };
 }

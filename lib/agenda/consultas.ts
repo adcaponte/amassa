@@ -32,6 +32,7 @@ import {
   lerCobrancas,
   contarPerdasAoDesativar,
   type PerdasAoCancelar,
+  type ReferenciaDaCobranca,
   type PerdasAoDesativar,
   type TransacaoDoBanco,
   type VendaDaInscricao,
@@ -40,10 +41,15 @@ import { horaDe, minutosDe } from "./horario";
 import { mesDaData, valorDaAula } from "./mensalidade";
 import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
 import {
+  dataDeVencimento,
+  descricaoDaLinha,
   itensAReceber,
+  linhasDaVenda,
   situacaoDaCobranca,
   subLinhaDaCobranca,
   totalAReceber,
+  type ItensDoSistema as ItensDoSistemaParaVenda,
+  type LinhaDaVendaDaAgenda,
   type SituacaoDaCobranca,
   type TipoDeCobranca,
 } from "./receber";
@@ -1159,5 +1165,78 @@ async function cobrancaDoUsoLivre(usoLivreId: string): Promise<CobrancaDoUsoLivr
     numeroDaVenda: cobranca.numeroDaVenda,
     descricao: subLinhaDaCobranca(cobranca),
     taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+  };
+}
+
+// ── “Lançar na Venda” (plano 12 — AGE-15, mecanismo B da pesquisa, UI-D26) ──────────────────────────────
+
+// Os três itens do sistema como a venda os usa: id e categoria de venda. Item com chave nunca perde a
+// categoria (aparece na Venda — check e gatilho da 0026); a falta dela é o mesmo defeito de “sumiram”.
+// Movido de `acoes.ts` (plano 11) para servir também a `cobrancaParaVenda` e ao lote.
+export function itensDoSistemaParaVenda(itens: ItensDoSistema): ItensDoSistemaParaVenda {
+  const paraVenda = (item: { id: string; categoriaVendaId: string | null }) => {
+    if (item.categoriaVendaId === null) {
+      throw new Error(FRASE_ITENS_DA_AGENDA_SUMIRAM);
+    }
+    return { id: item.id, categoriaId: item.categoriaVendaId };
+  };
+  return {
+    mensalidade: paraVenda(itens.mensalidade),
+    inscricaoOficina: paraVenda(itens.inscricaoOficina),
+    usoLivreHora: paraVenda(itens.usoLivreHora),
+  };
+}
+
+// O que a Venda do Financeiro precisa para abrir preenchida a partir de uma cobrança da Agenda. Lido no
+// SERVIDOR pela página (`?aba=venda&origem=`): o navegador nunca manda descrição, cliente nem o valor-base
+// da cobrança — e, ao lançar, `lancarVenda` relê tudo sob a trava (`vincularCobranca`).
+export type CobrancaParaVenda =
+  | {
+      situacao: "livre";
+      clienteId: string;
+      clienteNome: string;
+      // D-04: a descrição da linha de origem (a faixa “Da Agenda · {descrição} · {nome}”).
+      descricao: string;
+      // O “Vence em” do à vista em aberto: o vencimento da mensalidade; a data do evento ou do uso.
+      vencimento: string;
+      // As linhas da venda (`linhasDaVenda`): a primeira é a linha de origem (o item do sistema).
+      linhas: LinhaDaVendaDaAgenda[];
+      itemDoSistemaId: string;
+    }
+  | { situacao: "ja_lancada"; numero: number }
+  | { situacao: "nao_achada" };
+
+export async function cobrancaParaVenda(origem: ReferenciaDaCobranca): Promise<CobrancaParaVenda> {
+  const [cobranca, itens] = await Promise.all([lerCobranca(db, origem), obterItensDoSistema()]);
+  if (cobranca === null) {
+    return { situacao: "nao_achada" };
+  }
+  const situacao = situacaoDaCobranca(cobranca);
+  if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
+    return { situacao: "ja_lancada", numero: cobranca.numeroDaVenda };
+  }
+  if (
+    situacao === "dispensada" ||
+    cobranca.valorCentavos <= 0 ||
+    (cobranca.tipo === "inscricao" && cobranca.dataCancelada)
+  ) {
+    return { situacao: "nao_achada" };
+  }
+  const paraVenda = itensDoSistemaParaVenda(itens);
+  const itemDoSistema =
+    cobranca.tipo === "mensalidade"
+      ? paraVenda.mensalidade
+      : cobranca.tipo === "inscricao"
+        ? paraVenda.inscricaoOficina
+        : paraVenda.usoLivreHora;
+  return {
+    situacao: "livre",
+    clienteId: cobranca.clienteId,
+    clienteNome: cobranca.nome,
+    descricao: descricaoDaLinha(cobranca),
+    vencimento: dataDeVencimento(cobranca),
+    // `linhasDaVenda` começa SEMPRE pela linha do item do sistema (a linha de origem).
+    linhas: linhasDaVenda(cobranca, paraVenda),
+    itemDoSistemaId: itemDoSistema.id,
   };
 }

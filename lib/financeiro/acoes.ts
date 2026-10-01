@@ -16,8 +16,13 @@ import {
 } from "@/lib/estoque/gravacao";
 import { pedidosDaCompra, pedidosDoEstorno } from "@/lib/estoque/pedidos";
 import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
+// O ÚNICO ajudante da Agenda que o Financeiro importa (Fase 05, plano 12), como `cancelarDocumento` já
+// importa `lib/producao/gravacao.ts`: a regra da cobrança fica em `lib/agenda/`, a venda em `gravarVenda`.
+import { RecusaDaAgenda, vincularCobranca } from "@/lib/agenda/gravacao";
+import { FRASE_LINHA_DA_AGENDA_FALTANDO } from "@/lib/agenda/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
+import { textoDaOrigem } from "./abas";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
 import { gravarVenda, type PedidoDeVenda } from "./gravacao";
@@ -66,7 +71,7 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
 // confere de novo no fim da transação — pega defeito do próprio servidor, não só do cliente.
 export async function lancarVenda(
   entradaBruta: unknown,
-): Promise<ResultadoDeAcao<{ id: string; numero: number }>> {
+): Promise<ResultadoDeAcao<{ id: string; numero: number; origem: string | null }>> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaVenda.safeParse(entradaBruta);
@@ -225,17 +230,55 @@ export async function lancarVenda(
       })),
     };
 
-    const { id, numero } = await db.transaction((tx) =>
-      gravarVenda(tx, pedido, {
+    const origem = dados.origem;
+    const { id, numero } = await db.transaction(async (tx) => {
+      if (!origem) {
+        return gravarVenda(tx, pedido, {
+          registradoPor: usuario.id,
+          taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+        });
+      }
+
+      // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, D-01, D-04, Pitfall 8). A ordem de
+      // travas é COBRANÇA → documento novo → ITENS: `vincularCobranca` trava a cobrança
+      // (`for no key update`) e confere, sob a trava, que ela ainda está livre ANTES de `gravarVenda`
+      // — senão lança `RecusaDaAgenda` com a frase da tela e nada é gravado. O servidor SOBRESCREVE a
+      // pessoa, o cliente e a descrição da linha de origem (a PRIMEIRA linha com o item do sistema
+      // daquela cobrança) pelo que a cobrança diz: o que o navegador mandou nesses campos não vale.
+      const vinculo = await vincularCobranca(tx, origem);
+      const indiceDaOrigem = pedido.linhas.findIndex(
+        (linha) => linha.tipo === "item" && linha.itemId === vinculo.itemDoSistemaId,
+      );
+      if (indiceDaOrigem < 0) {
+        throw new RecusaDaAgenda(FRASE_LINHA_DA_AGENDA_FALTANDO);
+      }
+      const pedidoDaOrigem: PedidoDeVenda = {
+        ...pedido,
+        pessoaNome: vinculo.clienteNome,
+        clienteId: vinculo.clienteId,
+        linhas: pedido.linhas.map((linha, indice) =>
+          indice === indiceDaOrigem ? { ...linha, descricao: vinculo.descricao } : linha,
+        ),
+      };
+      const gravada = await gravarVenda(tx, pedidoDaOrigem, {
         registradoPor: usuario.id,
         taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
-      }),
-    );
+      });
+      // O vínculo cobrança → venda na MESMA transação (uma cobrança nunca vira duas vendas ativas).
+      await vinculo.gravar(gravada.id);
+      return gravada;
+    });
 
     revalidatePath(rotaDeGestao("/estoque"));
     revalidatePath(rotaDeGestao("/"));
-    return { ok: true, dados: { id, numero } };
+    if (origem) {
+      revalidatePath(rotaDeGestao("/agenda"));
+    }
+    return { ok: true, dados: { id, numero, origem: origem ? textoDaOrigem(origem) : null } };
   } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      return { ok: false, erro: erro.frase };
+    }
     if (ehViolacaoDeChaveEstrangeira(erro)) {
       return {
         ok: false,

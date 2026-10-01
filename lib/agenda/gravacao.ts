@@ -43,8 +43,20 @@ import { pedidoDeSaidaManual } from "@/lib/estoque/pedidos";
 import { FRASE_MATERIAL_NAO_EXISTE_MAIS } from "@/lib/estoque/textos";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 
-import { fraseMaterialDesativadoNoUso, fraseMaterialPerdeuPreco } from "./textos";
-import type { CobrancaDaAgenda, MaterialDoUsoNaCobranca, TipoDeCobranca, VendaLigada } from "./receber";
+import {
+  FRASE_ORIGEM_NAO_ACHADA,
+  fraseMaterialDesativadoNoUso,
+  fraseMaterialPerdeuPreco,
+  fraseOrigemJaLancada,
+} from "./textos";
+import {
+  descricaoDaLinha,
+  situacaoDaCobranca,
+  type CobrancaDaAgenda,
+  type MaterialDoUsoNaCobranca,
+  type TipoDeCobranca,
+  type VendaLigada,
+} from "./receber";
 import type { EstadoUsoLivre, Presenca, TipoEvento, TipoInscricao } from "./tipos";
 import { valorDoMaterial } from "./uso-livre";
 
@@ -989,4 +1001,70 @@ export async function vincularVenda(
   } else {
     await tx.update(usosLivres).set(valores).where(eq(usosLivres.id, cobranca.id));
   }
+}
+
+// ── “Lançar na Venda” (plano 12 — AGE-15, D-01, D-04, D-08, Pitfall 8) ──────────────────────────────────
+
+// O item do sistema de cada tipo de cobrança, pela CHAVE (D-17) — o mesmo que `linhasDaVenda` usa: a
+// inscrição (oficina ou experimental cobrada) vai no item “Inscrição em oficina”.
+const CHAVE_DO_ITEM_DA_COBRANCA = {
+  mensalidade: "mensalidade",
+  inscricao: "inscricao_oficina",
+  uso_livre: "uso_livre_hora",
+} as const satisfies Record<TipoDeCobranca, string>;
+
+export type CobrancaVinculada = {
+  // D-01: o cliente da cobrança e o nome dele AGORA — `lancarVenda` sobrescreve `pessoa_nome`/`cliente_id`.
+  clienteId: string;
+  clienteNome: string;
+  // D-04: a descrição da linha de origem, derivada da cobrança — nunca a que o navegador mandou.
+  descricao: string;
+  // A linha de origem da venda é a PRIMEIRA linha com este item.
+  itemDoSistemaId: string;
+  // Grava o vínculo cobrança → venda; chamado DEPOIS de `gravarVenda`, na mesma transação.
+  gravar: (documentoId: string) => Promise<void>;
+};
+
+// A metade da Agenda do “Lançar na Venda” — chamada por `lancarVenda` (lib/financeiro/acoes.ts) DENTRO da
+// transação e ANTES de `gravarVenda` (a ordem de travas: COBRANÇA → documento novo → ITENS). Trava a
+// cobrança (`for no key update`) e confere, sob a trava, que ela está livre: sem venda ou com a venda
+// cancelada (D-08), não dispensada, com valor e — na inscrição — com a data de pé. Senão lança
+// `RecusaDaAgenda` com a frase da tela (nada foi gravado). Dois “Lançar na Venda”, ou um deles com o
+// “Recebi agora” ou com o lote, se enfileiram aqui: o segundo lê o `documento_id` do primeiro.
+export async function vincularCobranca(
+  tx: TransacaoDoBanco,
+  origem: ReferenciaDaCobranca,
+): Promise<CobrancaVinculada> {
+  const cobranca = await travarCobranca(tx, origem);
+  if (!cobranca) {
+    throw new RecusaDaAgenda(FRASE_ORIGEM_NAO_ACHADA);
+  }
+  const situacao = situacaoDaCobranca(cobranca);
+  if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
+    throw new RecusaDaAgenda(fraseOrigemJaLancada(cobranca.numeroDaVenda));
+  }
+  if (
+    situacao === "dispensada" ||
+    cobranca.valorCentavos <= 0 ||
+    (cobranca.tipo === "inscricao" && cobranca.dataCancelada)
+  ) {
+    throw new RecusaDaAgenda(FRASE_ORIGEM_NAO_ACHADA);
+  }
+
+  const [item] = await tx
+    .select({ id: itensCatalogo.id })
+    .from(itensCatalogo)
+    .where(eq(itensCatalogo.chaveDoSistema, CHAVE_DO_ITEM_DA_COBRANCA[cobranca.tipo]));
+  if (!item) {
+    // Defeito (o item do sistema não se apaga — 0026): cai na falha genérica de quem chama.
+    throw new Error(`vincularCobranca: o item do sistema “${CHAVE_DO_ITEM_DA_COBRANCA[cobranca.tipo]}” sumiu.`);
+  }
+
+  return {
+    clienteId: cobranca.clienteId,
+    clienteNome: cobranca.nome,
+    descricao: descricaoDaLinha(cobranca),
+    itemDoSistemaId: item.id,
+    gravar: (documentoId) => vincularVenda(tx, origem, documentoId),
+  };
 }
