@@ -5,6 +5,7 @@ import {
   ROTULO_DIA_TODO,
   subLinhaDoCartao,
   TAG_DIA_FECHADO,
+  TAG_MARCAR_PRESENCA,
 } from "@/lib/agenda/textos";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +64,13 @@ export function CartaoEvento({ evento, aoTocar }: CartaoEventoProps) {
         {evento.diaFechadoMotivo !== null ? (
           <span data-testid="tag-dia-fechado" className="bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold">
             {TAG_DIA_FECHADO}
+          </span>
+        ) : null}
+        {/* AGE-08: data passada, não cancelada, com alguém sem marcação — é por esta tag que se acha o que
+            pede ação na semana. */}
+        {evento.marcarPresenca ? (
+          <span data-testid="tag-marcar-presenca" className="bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold">
+            {TAG_MARCAR_PRESENCA}
           </span>
         ) : null}
       </span>

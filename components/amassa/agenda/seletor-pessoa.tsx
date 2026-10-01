@@ -8,6 +8,7 @@ import { buscarPessoasParaData } from "@/lib/agenda/acoes";
 import type { PessoasParaData } from "@/lib/agenda/consultas";
 import type { PessoaDoSeletor } from "@/lib/agenda/seletor";
 import {
+  complementoDaOpcaoARepor,
   FRASE_DIGITE_PARA_BUSCAR,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_HA_MAIS_PESSOAS,
@@ -251,7 +252,13 @@ export function SeletorPessoa({ rotulo, eventoId, aoEscolher, aoDigitar, desabil
     }
     let indice = 0;
     const grupos = estado.dados.grupos.map((grupo) => (
-      <div key={grupo.chave} role="group" aria-label={grupo.rotulo} className="flex flex-col">
+      <div
+        key={grupo.chave}
+        role="group"
+        aria-label={grupo.rotulo}
+        data-testid={grupo.chave === "a_repor" ? "grupo-a-repor" : "grupo-do-contexto"}
+        className="flex flex-col"
+      >
         <div
           role="presentation"
           className={cn(
@@ -274,7 +281,13 @@ export function SeletorPessoa({ rotulo, eventoId, aoEscolher, aoDigitar, desabil
                 ativa === meu ? "bg-superficie-2" : "hover:bg-superficie-2",
               )}
             >
-              <span className="text-corpo text-tinta font-semibold [overflow-wrap:anywhere]">{pessoa.nome}</span>
+              <span className="text-corpo text-tinta font-semibold [overflow-wrap:anywhere]">
+                {pessoa.nome}
+                {pessoa.aRepor !== undefined ? (
+                  // "{nome} — reposição · {n} a repor" (05-UI-SPEC.md §"Seletor de pessoa", grupo 1).
+                  <span className="text-atencao font-normal"> {complementoDaOpcaoARepor(pessoa.aRepor)}</span>
+                ) : null}
+              </span>
               {pessoa.telefone !== null ? (
                 <span className="text-apoio text-tinta-fraca [overflow-wrap:anywhere]">{pessoa.telefone}</span>
               ) : null}

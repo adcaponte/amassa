@@ -22,9 +22,10 @@ import {
   type VendaDaInscricao,
 } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
-import { ordenarInscritos } from "./presenca";
+import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
+import { creditosDeReposicao, type CreditosDeReposicao } from "./reposicao";
 import { gradeDoMes } from "./semana";
-import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor } from "./seletor";
+import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor, type PessoaComSaldo } from "./seletor";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM, rotuloDoGrupoDoSeletor } from "./textos";
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
 import { NOMES_CURTOS_DOS_DIAS, ORDEM_DOS_DIAS_NA_TELA, type FechadoDoDia } from "./turma";
@@ -50,6 +51,9 @@ export type EventoDaSemana = {
   // Data de turma num dia fechado (D-13): o motivo do fechado — a tag "dia fechado" do cartão e a
   // caixa do topo da folha. `null` fora do tipo `turma` ou quando o dia está aberto.
   diaFechadoMotivo: string | null;
+  // AGE-08: data anterior a hoje, não cancelada, com alguém sem marcação — a tag "marcar presença" do
+  // cartão e do sub-título da folha (`precisaMarcarPresenca`).
+  marcarPresenca: boolean;
 };
 
 // O motivo do fechado de cada dia (o primeiro lançado, se houver mais de um), entre os eventos lidos.
@@ -65,10 +69,14 @@ function motivosDosFechados(linhas: readonly { tipo: TipoEvento; data: string; t
 
 // Os eventos da semana que começa em `segunda` (segunda a domingo), com a contagem de inscritos —
 // a ordem do dia é do módulo puro (`agruparPorDia`), não do banco.
-export async function lerSemana(segunda: string): Promise<EventoDaSemana[]> {
+export async function lerSemana(segunda: string, hoje: string): Promise<EventoDaSemana[]> {
   const domingo = somarDias(segunda, 6);
   const contagem = db
-    .select({ eventoId: inscricoes.eventoId, inscritos: count().as("inscritos") })
+    .select({
+      eventoId: inscricoes.eventoId,
+      inscritos: count().as("inscritos"),
+      semMarcacao: sql<number>`count(*) filter (where ${inscricoes.presenca} is null)`.as("sem_marcacao"),
+    })
     .from(inscricoes)
     .groupBy(inscricoes.eventoId)
     .as("contagem");
@@ -85,6 +93,7 @@ export async function lerSemana(segunda: string): Promise<EventoDaSemana[]> {
       turmaId: eventos.turmaId,
       vagas: eventos.vagas,
       inscritos: contagem.inscritos,
+      semMarcacao: contagem.semMarcacao,
       canceladoEm: eventos.canceladoEm,
     })
     .from(eventos)
@@ -106,7 +115,24 @@ export async function lerSemana(segunda: string): Promise<EventoDaSemana[]> {
     cancelado: linha.canceladoEm !== null,
     turmaId: linha.turmaId,
     diaFechadoMotivo: linha.tipo === "turma" ? (motivos.get(linha.data) ?? null) : null,
+    marcarPresenca: pedePresenca(linha, Number(linha.inscritos ?? 0), Number(linha.semMarcacao ?? 0), hoje),
   }));
+}
+
+// A regra é do módulo puro; aqui só se monta, a partir das duas contagens, a lista que ela lê.
+function pedePresenca(
+  evento: { tipo: TipoEvento; data: string; canceladoEm: Date | null },
+  inscritos: number,
+  semMarcacao: number,
+  hoje: string,
+): boolean {
+  if (evento.tipo === "fechado") {
+    return false;
+  }
+  const lista = Array.from({ length: inscritos }, (_, indice) => ({
+    presenca: indice < semMarcacao ? null : ("veio" as const),
+  }));
+  return precisaMarcarPresenca({ data: evento.data, cancelada: evento.canceladoEm !== null, inscritos: lista }, hoje);
 }
 
 // Os dias fechados entre `de` e `ate` (inclusive), na ordem do calendário — o aviso D-13 da turma e
@@ -133,6 +159,9 @@ export type InscritoCarregado = {
   valorCentavos: number | null;
   // A venda ligada (D-08): ativa, a linha troca o "tirar da lista" pela frase da UI-D14.
   venda: VendaDaInscricao | null;
+  // As aulas a repor da PESSOA agora (o saldo derivado, AGE-09) — a confirmação de tirar uma reposição
+  // diz com quantas ela fica.
+  aRepor: number;
 };
 
 export type { VendaDaInscricao };
@@ -159,7 +188,7 @@ export async function perdasAoCancelar(eventoId: string): Promise<PerdasAoCancel
 
 // O evento aberto na folha (`?evento={id}`), com os inscritos na ordem da folha — `null` se ele
 // não existe (link velho, removido em outro celular).
-export async function obterEvento(id: string): Promise<EventoCarregado | null> {
+export async function obterEvento(id: string, hoje: string): Promise<EventoCarregado | null> {
   const [evento] = await db
     .select({
       id: eventos.id,
@@ -203,9 +232,11 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     perdasAoCancelar(id),
     evento.tipo === "turma" ? fechadosEntre(evento.data, evento.data) : Promise.resolve([]),
   ]);
+  const saldos = await saldosDeReposicao(linhas.map((linha) => linha.clienteId));
   const inscritos = linhas.map(({ vendaNumero, vendaCanceladaEm, ...linha }) => ({
     ...linha,
     venda: vendaDaInscricao(vendaNumero, vendaCanceladaEm),
+    aRepor: saldos[linha.clienteId] ?? 0,
   }));
 
   return {
@@ -220,6 +251,9 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     cancelado: evento.canceladoEm !== null,
     turmaId: evento.turmaId,
     diaFechadoMotivo: fechadosDoDia[0]?.motivo ?? null,
+    marcarPresenca:
+      evento.tipo !== "fechado" &&
+      precisaMarcarPresenca({ data: evento.data, cancelada: evento.canceladoEm !== null, inscritos }, hoje),
     precoCentavos: evento.precoCentavos,
     publico: evento.publico,
     inscricoes: ordenarInscritos(inscritos),
@@ -325,6 +359,8 @@ export type VindaDaPessoa = {
   // Turma: o nome da turma; avulsa: o título.
   titulo: string;
   presenca: Presenca | null;
+  // A falta deu direito a repor — a tag "repõe" ao lado de "faltou".
+  direitoARepor: boolean;
 };
 
 const TETO_DE_VINDAS = 8;
@@ -341,6 +377,7 @@ export async function ultimasVindas(clienteId: string, hoje: string): Promise<Vi
       titulo: eventos.titulo,
       nomeDaTurma: turmas.nome,
       presenca: inscricoes.presenca,
+      direitoARepor: inscricoes.direitoARepor,
     })
     .from(inscricoes)
     .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
@@ -354,12 +391,94 @@ export async function ultimasVindas(clienteId: string, hoje: string): Promise<Vi
     data: linha.data,
     titulo: linha.nomeDaTurma ?? linha.titulo ?? "",
     presenca: linha.presenca,
+    direitoARepor: linha.direitoARepor,
   }));
+}
+
+// ── O crédito de reposição (AGE-09, Pattern 3) ────────────────────────────────────────────────────
+// As DUAS contagens, lidas das linhas de `inscricoes` em datas NÃO canceladas: as faltas com direito
+// (`presenca = 'faltou'` e `direito_a_repor`) e as reposições (`tipo = 'reposicao'`). Nenhum contador
+// gravado à parte — a conta é do módulo puro `creditosDeReposicao`. Tirar uma reposição, cancelar a data
+// dela ou desativar a turma (que apaga as datas futuras) devolve o crédito sozinho; cancelar a data da
+// falta o tira (data cancelada pelo ateliê nunca conta falta — AGE-04).
+const FALTAS_COM_DIREITO = sql<number>`count(*) filter (where ${inscricoes.presenca} = 'faltou' and ${inscricoes.direitoARepor})`;
+const REPOSICOES_USADAS = sql<number>`count(*) filter (where ${inscricoes.tipo} = 'reposicao')`;
+
+// O saldo de reposição de cada `clientes.id` da consulta de fora, como subconsulta correlacionada —
+// filtra o seletor (quem tem e quem não tem aula a repor) sem trazer a lista inteira para a memória.
+const SALDO_DE_REPOSICAO_DO_CLIENTE = sql`(
+  select count(*) filter (where i.presenca = 'faltou' and i.direito_a_repor)
+       - count(*) filter (where i.tipo = 'reposicao')
+    from inscricoes i
+    join eventos e on e.id = i.evento_id
+   where i.cliente_id = ${clientes.id}
+     and e.cancelado_em is null
+)`;
+
+// O crédito de UMA pessoa. A ação de colocar como reposição a chama DENTRO da transação, depois de
+// travar o cliente (Pitfall 7): o leitor é a transação, e o que ela lê já inclui a reposição de quem
+// segurava a trava antes (READ COMMITTED).
+export async function creditosDoCliente(leitor: LeitorDeConsulta, clienteId: string): Promise<CreditosDeReposicao> {
+  const [linha] = await (leitor as Pick<TransacaoDoBanco, "select">)
+    .select({ faltasComDireito: FALTAS_COM_DIREITO, reposicoesUsadas: REPOSICOES_USADAS })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .where(and(eq(inscricoes.clienteId, clienteId), isNull(eventos.canceladoEm)));
+  return creditosDeReposicao({
+    faltasComDireito: Number(linha?.faltasComDireito ?? 0),
+    reposicoesUsadas: Number(linha?.reposicoesUsadas ?? 0),
+  });
+}
+
+// O crédito de várias pessoas numa consulta só (a lista de Pessoas, a folha da turma, a folha da data,
+// o seletor). Quem não tem nenhuma das duas contagens não aparece no objeto (saldo 0).
+export async function creditosPorCliente(clienteIds: readonly string[]): Promise<Record<string, CreditosDeReposicao>> {
+  const unicos = [...new Set(clienteIds)];
+  if (unicos.length === 0) {
+    return {};
+  }
+  const linhas = await db
+    .select({
+      clienteId: inscricoes.clienteId,
+      faltasComDireito: FALTAS_COM_DIREITO,
+      reposicoesUsadas: REPOSICOES_USADAS,
+    })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .where(
+      and(
+        inArray(inscricoes.clienteId, unicos),
+        isNull(eventos.canceladoEm),
+        or(and(eq(inscricoes.presenca, "faltou"), eq(inscricoes.direitoARepor, true)), eq(inscricoes.tipo, "reposicao")),
+      ),
+    )
+    .groupBy(inscricoes.clienteId);
+  const resultado: Record<string, CreditosDeReposicao> = {};
+  for (const linha of linhas) {
+    resultado[linha.clienteId] = creditosDeReposicao({
+      faltasComDireito: Number(linha.faltasComDireito),
+      reposicoesUsadas: Number(linha.reposicoesUsadas),
+    });
+  }
+  return resultado;
+}
+
+// Só o saldo de quem tem aula a repor (saldo > 0) — o que as tags "{n} a repor" mostram.
+export async function saldosDeReposicao(clienteIds: readonly string[]): Promise<Record<string, number>> {
+  const creditos = await creditosPorCliente(clienteIds);
+  const saldos: Record<string, number> = {};
+  for (const [clienteId, credito] of Object.entries(creditos)) {
+    if (credito.saldo > 0) {
+      saldos[clienteId] = credito.saldo;
+    }
+  }
+  return saldos;
 }
 
 // O que o seletor de pessoa mostra (UI-D5): os grupos já cortados no teto (`gruposDoSeletor`) e, com a
 // busca vazia, se existe alguém cadastrado (o vazio "Ninguém cadastrado ainda…" é diferente do
-// "Digite para buscar."). O grupo "Tem aula a repor" entra no plano 08.
+// "Digite para buscar."). O grupo "Tem aula a repor" vem calculado AQUI, no servidor — o cliente nunca
+// decide quem tem crédito.
 export type PessoasParaData = {
   grupos: GrupoDoSeletor[];
   ninguemCadastrado: boolean;
@@ -383,12 +502,7 @@ export async function pessoasParaData({
     tipoDoEvento = evento?.tipo ?? null;
   }
 
-  if (busca === "") {
-    const [alguem] = await db.select({ id: clientes.id }).from(clientes).limit(1);
-    return { grupos: [], ninguemCadastrado: alguem === undefined };
-  }
-
-  const restricao =
+  const foraDaData =
     eventoId === undefined
       ? undefined
       : notExists(
@@ -397,9 +511,38 @@ export async function pessoasParaData({
             .from(inscricoes)
             .where(and(eq(inscricoes.eventoId, eventoId), eq(inscricoes.clienteId, clientes.id))),
         );
-  const { clientes: achados } = await listarClientes({ busca, quantos: LIMITE_DO_SELETOR + 1, restricao });
+  // Grupo 1 só numa data de turma ou oficina (05-UI-SPEC.md §"Seletor de pessoa").
+  const comReposicao = tipoDoEvento === "turma" || tipoDoEvento === "avulsa";
+
+  // "Tem aula a repor" (AGE-10): quem tem saldo > 0, fora da lista desta data, pela mesma busca do
+  // cadastro. Aparece também com a busca vazia — é a lista que o gestor procura ao abrir a data.
+  let aRepor: PessoaComSaldo[] = [];
+  if (comReposicao) {
+    const { clientes: comSaldo } = await listarClientes({
+      busca,
+      quantos: LIMITE_DO_SELETOR + 1,
+      restricao: and(foraDaData, sql`${SALDO_DE_REPOSICAO_DO_CLIENTE} > 0`),
+    });
+    const creditos = await creditosPorCliente(comSaldo.map((pessoa) => pessoa.id));
+    aRepor = comSaldo.map((cliente) => ({ cliente, saldo: creditos[cliente.id]?.saldo ?? 0 }));
+  }
+
+  if (busca === "") {
+    const [alguem] = await db.select({ id: clientes.id }).from(clientes).limit(1);
+    return {
+      grupos: gruposDoSeletor({ aRepor, demais: [], rotuloDemais: rotuloDoGrupoDoSeletor(tipoDoEvento) }),
+      ninguemCadastrado: alguem === undefined,
+    };
+  }
+
+  // O grupo do contexto não repete quem tem aula a repor (a conta do teto fica certa).
+  const { clientes: achados } = await listarClientes({
+    busca,
+    quantos: LIMITE_DO_SELETOR + 1,
+    restricao: comReposicao ? and(foraDaData, sql`${SALDO_DE_REPOSICAO_DO_CLIENTE} <= 0`) : foraDaData,
+  });
   return {
-    grupos: gruposDoSeletor({ aRepor: [], demais: achados, rotuloDemais: rotuloDoGrupoDoSeletor(tipoDoEvento) }),
+    grupos: gruposDoSeletor({ aRepor, demais: achados, rotuloDemais: rotuloDoGrupoDoSeletor(tipoDoEvento) }),
     ninguemCadastrado: false,
   };
 }
@@ -411,7 +554,8 @@ export async function perdasAoDesativar(turmaId: string, hoje: string): Promise<
   return contarPerdasAoDesativar(db, turmaId, hoje);
 }
 
-export type AlunoDaTurma = { clienteId: string; nome: string };
+// `aRepor`: as aulas a repor do aluno agora (0 sem nenhuma) — a tag "{n} a repor" da folha da turma.
+export type AlunoDaTurma = { clienteId: string; nome: string; aRepor: number };
 
 // A turma aberta na folha (`?turma={id}`, D-03).
 export type TurmaCarregada = {
@@ -473,6 +617,7 @@ export async function obterTurma(id: string, hoje: string): Promise<TurmaCarrega
       .where(and(eq(turmaAlunos.turmaId, id), isNull(turmaAlunos.saiuEm))),
     perdasAoDesativar(id, hoje),
   ]);
+  const saldos = await saldosDeReposicao(alunos.map((aluno) => aluno.clienteId));
 
   return {
     ...turma,
@@ -480,7 +625,9 @@ export async function obterTurma(id: string, hoje: string): Promise<TurmaCarrega
     fim: hhmm(turma.fim) ?? turma.fim,
     ultimaData: ultima?.data ?? null,
     datasFuturas: Number(futuras?.total ?? 0),
-    alunos: [...alunos].sort((a, b) => ORDEM_DOS_NOMES.compare(a.nome, b.nome)),
+    alunos: [...alunos]
+      .sort((a, b) => ORDEM_DOS_NOMES.compare(a.nome, b.nome))
+      .map((aluno) => ({ ...aluno, aRepor: saldos[aluno.clienteId] ?? 0 })),
     perdasAoDesativar: perdas,
   };
 }

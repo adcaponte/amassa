@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { tirarDaLista } from "@/lib/agenda/acoes";
+import type { TipoInscricao } from "@/lib/agenda/tipos";
 import {
   ariaTirarDaLista,
+  COMPLEMENTO_TOAST_REPOSICAO_VOLTOU,
   CORPO_TIRAR_INSCRICAO_DA_LISTA,
+  corpoTirarReposicao,
   FRASE_FALHA_AO_TIRAR_DA_LISTA,
   ROTULO_MANTER_NA_LISTA,
   ROTULO_TIRANDO_DA_LISTA,
@@ -34,16 +37,30 @@ const CLASSES_BOTAO_NEUTRO = "text-corpo h-auto min-h-[44px] px-4 font-semibold 
 export type ConfirmarTirarDaListaProps = {
   inscricaoId: string;
   nome: string;
+  // O que a pessoa é nesta data — decide o que a confirmação diz que se perde.
+  tipo: TipoInscricao;
+  // As aulas a repor da pessoa agora: tirar a reposição devolve uma (o corpo diz com quantas fica).
+  aRepor: number;
 };
 
-// "tirar da lista" de uma inscrição de oficina sem venda ativa (05-UI-SPEC.md §Confirmações; UI-D13):
+// O corpo da confirmação (05-UI-SPEC.md §Confirmações "Tirar da lista"): a inscrição de oficina sai de
+// "A receber"; a reposição volta a ser crédito.
+function corpoDaConfirmacao({ nome, tipo, aRepor }: Pick<ConfirmarTirarDaListaProps, "nome" | "tipo" | "aRepor">): string {
+  if (tipo === "reposicao") {
+    return corpoTirarReposicao(nome, aRepor + 1);
+  }
+  return CORPO_TIRAR_INSCRICAO_DA_LISTA;
+}
+
+// "tirar da lista" de uma inscrição de oficina sem venda ativa ou de uma reposição (05-UI-SPEC.md
+// §Confirmações; UI-D13):
 // um link-botão de 44px em `tinta-media` sublinhado — nunca terracota, o primário da folha é "Pronto"
 // — que abre a confirmação dizendo o que se perde. Em voo, "Tirando…", os dois botões desabilitados.
 //
 // A recusa do servidor aparece DENTRO do diálogo (`role="alert"`), que continua aberto: com a tela
 // velha, a inscrição pode já ter virado venda em outro celular, e a frase da D-08 diz que a devolução
 // é no Caixa. Ao fechar depois de uma recusa, a folha pede ao servidor a lista de agora.
-export function ConfirmarTirarDaLista({ inscricaoId, nome }: ConfirmarTirarDaListaProps) {
+export function ConfirmarTirarDaLista({ inscricaoId, nome, tipo, aRepor }: ConfirmarTirarDaListaProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [aberto, setAberto] = useState(false);
@@ -64,7 +81,10 @@ export function ConfirmarTirarDaLista({ inscricaoId, nome }: ConfirmarTirarDaLis
         setErro(resposta.erro);
         return;
       }
-      toast.success(toastSaiuDaLista(resposta.dados.nome));
+      toast.success(
+        toastSaiuDaLista(resposta.dados.nome) +
+          (resposta.dados.tipo === "reposicao" ? COMPLEMENTO_TOAST_REPOSICAO_VOLTOU : ""),
+      );
       setAberto(false);
     } catch {
       setErro(FRASE_FALHA_AO_TIRAR_DA_LISTA);
@@ -104,7 +124,9 @@ export function ConfirmarTirarDaLista({ inscricaoId, nome }: ConfirmarTirarDaLis
         <AlertDialogContent data-testid="confirmar-tirar-da-lista" className="max-h-[85svh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="[overflow-wrap:anywhere]">{tituloConfirmarTirarDaLista(nome)}</AlertDialogTitle>
-            <AlertDialogDescription>{CORPO_TIRAR_INSCRICAO_DA_LISTA}</AlertDialogDescription>
+            <AlertDialogDescription data-testid="confirmar-tirar-da-lista-corpo" className="[overflow-wrap:anywhere]">
+              {corpoDaConfirmacao({ nome, tipo, aRepor })}
+            </AlertDialogDescription>
           </AlertDialogHeader>
 
           {erro ? (

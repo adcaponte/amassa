@@ -41,6 +41,7 @@ import {
   SEMANAS_PADRAO,
   subTituloDaTurma,
   TITULO_DATAS_DA_TURMA,
+  tagARepor,
   tituloAlunos,
   toastDatasNovas,
   TOAST_TURMA_SALVA,
@@ -523,9 +524,17 @@ function ConteudoDaTurma({ turma, hoje, aoMudarEnvio, aoVoltar }: ConteudoDaTurm
                 <li
                   key={aluno.clienteId}
                   data-testid="turma-aluno"
-                  className="border-borda text-corpo text-tinta border-b py-2 font-semibold [overflow-wrap:anywhere] last:border-b-0"
+                  className="border-borda text-corpo text-tinta flex flex-wrap items-center gap-x-2 gap-y-1 border-b py-2 font-semibold [overflow-wrap:anywhere] last:border-b-0"
                 >
-                  {aluno.nome}
+                  <span className="min-w-0">{aluno.nome}</span>
+                  {aluno.aRepor > 0 ? (
+                    <span
+                      data-testid="turma-aluno-a-repor"
+                      className="text-apoio bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold whitespace-nowrap"
+                    >
+                      {tagARepor(aluno.aRepor)}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>

@@ -15,6 +15,7 @@ import {
   ROTULO_MAIS_PESSOA,
   TITULO_PESSOAS,
   ariaAbrirFicha,
+  tagARepor,
 } from "@/lib/agenda/textos";
 import type { ClienteDaLista } from "@/lib/clientes/consultas";
 import { QUANTOS_POR_VEZ, subLinhaDaPessoa, type TurmaDaSubLinha } from "@/lib/clientes/lista";
@@ -53,6 +54,8 @@ export type ListaPessoasProps = {
   ficha: FichaDoServidor;
   // As turmas ativas de cada pessoa da lista, para a sub-linha (quem não tem turma não aparece).
   turmasPorPessoa: Record<string, TurmaDaSubLinha[]>;
+  // As aulas a repor de cada pessoa da lista (só quem tem — saldo > 0): a tag âmbar "{n} a repor".
+  aReporPorPessoa: Record<string, number>;
   // A turma de `?turma=` ("ver turma" na ficha), como o servidor a leu.
   turmaAberta: TurmaDoServidor;
   // O "hoje" de Brasília, decidido no servidor (a folha da turma o usa).
@@ -76,6 +79,7 @@ export function ListaPessoas({
   quantos,
   ficha,
   turmasPorPessoa,
+  aReporPorPessoa,
   turmaAberta,
   hoje,
 }: ListaPessoasProps) {
@@ -312,7 +316,17 @@ export function ListaPessoas({
               data-cliente-id={pessoa.id}
               className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-3"
             >
-              <span className="text-corpo text-tinta min-w-0 font-semibold break-words">{pessoa.nome}</span>
+              <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-corpo text-tinta min-w-0 font-semibold break-words">{pessoa.nome}</span>
+                {(aReporPorPessoa[pessoa.id] ?? 0) > 0 ? (
+                  <span
+                    data-testid="pessoa-a-repor"
+                    className="text-apoio bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold whitespace-nowrap"
+                  >
+                    {tagARepor(aReporPorPessoa[pessoa.id] ?? 0)}
+                  </span>
+                ) : null}
+              </span>
               <Button
                 type="button"
                 variant="outline"

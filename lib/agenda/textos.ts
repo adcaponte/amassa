@@ -621,3 +621,56 @@ export function fraseJaNaoEstaNaTurma(nome: string): string {
 export const FRASE_FALHA_AO_ENTRAR_NA_TURMA =
   "Não deu para colocar na turma. Verifique a internet e tente de novo.";
 export const FRASE_FALHA_AO_SAIR_DA_TURMA = "Não deu para tirar da turma. Verifique a internet e tente de novo.";
+
+// A reposição (AGE-09, AGE-10 — 05-UI-SPEC.md §"Seletor de pessoa", §Toasts, §Confirmações, §"Ficha da
+// pessoa", §Copywriting "Erros"). Plural de verdade: "1 aula a repor" / "2 aulas a repor"; a tag curta
+// "{n} a repor" não tem substantivo, então serve a qualquer n.
+export const TAG_MARCAR_PRESENCA = "marcar presença";
+export const ROTULO_DIREITO_A_REPOR = "tem direito a repor esta aula";
+export const TAG_REPOE = "repõe";
+export const ROTULO_QUADRO_A_REPOR = "A REPOR";
+
+export function tagARepor(saldo: number): string {
+  return `${saldo} a repor`;
+}
+
+export function unidadeDoQuadroARepor(saldo: number): string {
+  return saldo === 1 ? "aula" : "aulas";
+}
+
+function aulasARepor(saldo: number): string {
+  return saldo === 1 ? "1 aula a repor" : `${saldo} aulas a repor`;
+}
+
+// A linha do grupo "Tem aula a repor" no seletor: "{nome} — reposição · {n} a repor".
+export function complementoDaOpcaoARepor(saldo: number): string {
+  return `— reposição · ${tagARepor(saldo)}`;
+}
+
+export function faixaReposicao(nome: string, saldo: number): string {
+  return `${nome} entra como reposição e usa 1 das ${saldo} aulas a repor.`;
+}
+
+export const TOAST_ENTROU_COMO_REPOSICAO = "Entrou como reposição — uma aula a repor foi usada.";
+
+export function fraseSemAulaARepor(nome: string): string {
+  return `${nome} não tem mais aula a repor — talvez tenha sido usada em outro celular. A tela foi atualizada.`;
+}
+
+// A reposição só entra em data de turma ou oficina; uma data de outro tipo (fechado) recusa.
+export const FRASE_REPOSICAO_SO_EM_AULA = "Reposição só entra numa aula de turma ou numa oficina.";
+
+export const FRASE_DIREITO_SO_COM_FALTA = "Só quem faltou numa aula de turma pode ter direito a repor.";
+export const FRASE_FALHA_AO_MARCAR_DIREITO =
+  "Não deu para marcar o direito a repor. Verifique a internet e tente de novo.";
+
+export function fraseFalhaAoMarcarDireito(nome: string): string {
+  return `Não deu para marcar o direito a repor de ${nome}. Toque de novo.`;
+}
+
+// Tirar uma reposição da lista: o crédito volta (derivado das linhas).
+export function corpoTirarReposicao(nome: string, saldoDepois: number): string {
+  return `A reposição volta a ser crédito: ${nome} fica com ${aulasARepor(saldoDepois)}.`;
+}
+
+export const COMPLEMENTO_TOAST_REPOSICAO_VOLTOU = " A aula a repor voltou para o crédito.";

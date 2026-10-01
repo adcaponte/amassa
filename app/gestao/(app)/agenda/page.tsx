@@ -14,10 +14,12 @@ import {
   type VistaDaAgenda,
 } from "@/lib/agenda/abas";
 import {
+  creditosDoCliente,
   lerMes,
   lerSemana,
   obterEvento,
   obterTurma,
+  saldosDeReposicao,
   turmasDaPessoa,
   turmasPorCliente,
   ultimasVindas,
@@ -157,7 +159,8 @@ async function PessoasCarregadas({
     lerFicha(idDaPessoa, hoje),
     lerTurma(idDaTurma, hoje),
   ]);
-  const turmasPorPessoa = await turmasPorCliente(lista.clientes.map((cliente) => cliente.id));
+  const ids = lista.clientes.map((cliente) => cliente.id);
+  const [turmasPorPessoa, aReporPorPessoa] = await Promise.all([turmasPorCliente(ids), saldosDeReposicao(ids)]);
   return (
     <ListaPessoas
       pessoas={lista.clientes}
@@ -166,6 +169,7 @@ async function PessoasCarregadas({
       quantos={quantos}
       ficha={ficha}
       turmasPorPessoa={turmasPorPessoa}
+      aReporPorPessoa={aReporPorPessoa}
       turmaAberta={turmaAberta}
       hoje={hoje}
     />
@@ -186,8 +190,16 @@ async function lerFicha(id: string | null, hoje: string): Promise<FichaDoServido
     // pessoa — escrita idempotente pela chave única (o porquê está em `garantirMensalidadesDoMes`). A
     // página já chamou `exigirUsuario()` na primeira linha (T-05-32).
     await garantirMensalidadesDoMes(db, mesDaData(hoje));
-    const [vindas, turmas] = await Promise.all([ultimasVindas(id, hoje), turmasDaPessoa(id, hoje)]);
-    return { estado: "carregada", pessoa, conteudo: { vindas, turmas, mes: mesDaData(hoje) } };
+    const [vindas, turmas, creditos] = await Promise.all([
+      ultimasVindas(id, hoje),
+      turmasDaPessoa(id, hoje),
+      creditosDoCliente(db, id),
+    ]);
+    return {
+      estado: "carregada",
+      pessoa,
+      conteudo: { vindas, turmas, mes: mesDaData(hoje), aRepor: creditos.saldo },
+    };
   } catch (erro) {
     console.error("Falha ao carregar a ficha da pessoa:", erro);
     return { estado: "erro", id, pessoa };
@@ -224,8 +236,8 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
   const idDoEvento = idDaUrl(parametros.evento);
 
   const [eventos, eventoAberto, turmaAberta] = await Promise.all([
-    lerSemana(segunda),
-    idDoEvento === null ? Promise.resolve(null) : obterEvento(idDoEvento),
+    lerSemana(segunda, hoje),
+    idDoEvento === null ? Promise.resolve(null) : obterEvento(idDoEvento, hoje),
     lerTurma(turmaDaUrl(parametros.turma), hoje),
   ]);
 

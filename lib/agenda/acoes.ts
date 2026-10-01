@@ -14,6 +14,7 @@ import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
+  creditosDoCliente,
   datasDaTurmaNoMes,
   fechadosEntre,
   lerDiaParaLancar,
@@ -26,6 +27,7 @@ import {
   esquemaCancelarData,
   esquemaColocarNaData,
   esquemaConferirDia,
+  esquemaDefinirDireitoARepor,
   esquemaDefinirPresenca,
   esquemaDesativarTurma,
   esquemaEditarTurma,
@@ -37,9 +39,11 @@ import {
   esquemaSairDaTurma,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
+  type ModoDeColocar,
 } from "./esquemas";
 import {
   contarPerdasAoCancelar,
+  eventoDaInscricao,
   garantirMensalidadesDoMes,
   inscreverAlunoDaquiParaFrente,
   inscreverAlunosNasDatas,
@@ -50,6 +54,7 @@ import {
   tirarDatasFuturasDaTurma,
   travarCliente,
   travarEvento,
+  travarEventoParaLeitura,
   travarInscricao,
   travarInscricaoComVenda,
   travarTurma,
@@ -58,9 +63,14 @@ import {
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
+import type { TipoInscricao } from "./tipos";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
 import {
   FRASE_DATA_CANCELADA,
+  FRASE_DIREITO_SO_COM_FALTA,
+  FRASE_FALHA_AO_MARCAR_DIREITO,
+  FRASE_REPOSICAO_SO_EM_AULA,
+  fraseSemAulaARepor,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
@@ -123,9 +133,11 @@ function revalidarTelasDaAgenda({ publico }: { publico: boolean }): void {
 // "Veio" / "Faltou" / desmarcar (AGE-08, o Valor central). `exigirUsuario()` é a PRIMEIRA
 // instrução (T-05-01, cobrado por `npm run verificar-acoes`). Do cliente chegam só o id da
 // inscrição e o estado DESEJADO (Pattern 2) — nunca "inverter": toque duplo e dois celulares
-// convergem, e o último a gravar vence (AGE-08 · concurrency). Sob a trava `for no key update` da
-// inscrição, o servidor recusa data cancelada (T-05-03), decide com o módulo puro e grava a
-// presença e o direito a repor NA MESMA instrução (sair de "faltou" limpa o direito).
+// convergem, e o último a gravar vence (AGE-08 · concurrency). Trava o EVENTO com `for share` ANTES
+// da inscrição (plano 08 — a mesma linha que `cancelarData` trava com `for no key update`): cancelar e
+// marcar ao mesmo tempo terminam coerentes (AGE-04, T-05-39). Sob a trava `for no key update` da
+// inscrição, o servidor recusa data cancelada (T-05-03), decide com o módulo puro e grava a presença e o
+// direito a repor NA MESMA instrução (sair de "faltou" limpa o direito).
 export async function definirPresenca(
   entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<PresencaPlanejada>> {
@@ -141,11 +153,13 @@ export async function definirPresenca(
   let gravada: PresencaPlanejada;
   try {
     gravada = await db.transaction(async (tx): Promise<PresencaPlanejada> => {
-      const inscricao = await travarInscricao(tx, dados.inscricaoId);
-      if (!inscricao) {
+      const eventoId = await eventoDaInscricao(tx, dados.inscricaoId);
+      const evento = eventoId === null ? null : await travarEventoParaLeitura(tx, eventoId);
+      const inscricao = evento === null ? null : await travarInscricao(tx, dados.inscricaoId);
+      if (!evento || !inscricao) {
         throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
       }
-      if (inscricao.eventoCancelado) {
+      if (evento.cancelado) {
         throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
       }
       const plano = planejarPresenca(inscricao, dados.presenca);
@@ -172,6 +186,65 @@ export async function definirPresenca(
   // de algo que já está no banco.
   revalidarTelasDaAgenda({ publico: false });
   return { ok: true, dados: gravada };
+}
+
+// "tem direito a repor esta aula" (AGE-09). `exigirUsuario()` primeiro (T-05-36). O cliente manda o
+// estado DESEJADO (Pattern 2): marcar duas vezes vale um crédito, desmarcar o tira. Na ordem global
+// EVENTO (`for share`, como a presença) → INSCRIÇÃO (`for no key update`):
+// - só numa data de TURMA não cancelada (falta em oficina avulsa não gera reposição — BRIEFING §4; data
+//   cancelada pelo ateliê nunca conta falta — AGE-04);
+// - só para inscrição de `aluno` ou `experimental` com `presenca = 'faltou'` (o check
+//   `inscricoes_direito_so_com_falta` recusaria o resto) — senão a frase humana.
+// O crédito NÃO é gravado em lugar nenhum: é derivado das linhas (Pattern 3).
+export async function definirDireitoARepor(entradaBruta: unknown): Promise<ResultadoDeAcao<{ direito: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaDefinirDireitoARepor.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  let gravado: { direito: boolean };
+  try {
+    gravado = await db.transaction(async (tx) => {
+      const eventoId = await eventoDaInscricao(tx, dados.inscricaoId);
+      const evento = eventoId === null ? null : await travarEventoParaLeitura(tx, eventoId);
+      const inscricao = evento === null ? null : await travarInscricao(tx, dados.inscricaoId);
+      if (!evento || !inscricao) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (evento.cancelado) {
+        throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
+      }
+      // Desmarcar o que não está marcado converge sem conferir mais nada (idempotente).
+      if (!dados.direito && !inscricao.direitoARepor) {
+        return { direito: false };
+      }
+      if (
+        evento.tipo !== "turma" ||
+        (inscricao.tipo !== "aluno" && inscricao.tipo !== "experimental") ||
+        inscricao.presenca !== "faltou"
+      ) {
+        throw new RecusaDaAgenda(FRASE_DIREITO_SO_COM_FALTA);
+      }
+      await tx.update(inscricoes).set({ direitoARepor: dados.direito }).where(eq(inscricoes.id, inscricao.id));
+      return { direito: dados.direito };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao marcar o direito a repor (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_MARCAR_DIREITO };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: gravado };
 }
 
 export type Lancado = { id: string; data: string };
@@ -501,18 +574,21 @@ export async function buscarPessoasParaData(entradaBruta: unknown): Promise<Resu
   }
 }
 
-export type Colocado = { inscricaoId: string; nome: string };
+export type Colocado = { inscricaoId: string; nome: string; modo: ModoDeColocar };
 
-// "Colocar na lista" numa aula ou oficina avulsa (AGE-10, AGE-12). `exigirUsuario()` primeiro
-// (T-05-23), Zod (só os dois ids — nenhum valor vem da tela, T-05-24). Sob a trava do EVENTO (`for no
+// "Colocar na lista" (AGE-10, AGE-12; plano 08: reposição). `exigirUsuario()` primeiro (T-05-23), Zod
+// (os dois ids e o modo — nenhum valor da oficina vem da tela, T-05-24). Sob a trava do EVENTO (`for no
 // key update`, a ordem global: EVENTO → CLIENTE → INSCRIÇÃO):
 // - data que não existe mais ou cancelada → a frase, nada gravado;
-// - data de turma → recusa com a frase genérica: o "Colocar alguém" da turma (experimental e
-//   reposição) chega no plano 08, que amplia esta ação;
-// - insere a inscrição `oficina`, `cobrar = true`, com o PREÇO DO EVENTO NESTE MOMENTO copiado para
-//   `valor_centavos` (cada inscrição paga à parte; mudar o evento depois não muda o que cada um deve).
-//   `on conflict (evento_id, cliente_id) do nothing` (T-05-26): dois gestores colocando a mesma pessoa
-//   terminam com UMA inscrição, e o segundo ouve "{nome} já está nesta lista — a tela foi atualizada.".
+// - a pessoa já está nesta data (toque duplo, outro celular) → "{nome} já está nesta lista";
+// - `oficina` (só na avulsa): a inscrição `cobrar = true` com o PREÇO DO EVENTO NESTE MOMENTO copiado
+//   para `valor_centavos` (mudar o evento depois não muda o que cada um deve);
+// - `reposicao` (data de turma ou oficina — o protótipo oferece nas duas): trava o CLIENTE (`for no key
+//   update`, nunca a exclusiva: as inscrições novas pedem `for key share` nele), recalcula o crédito SOB
+//   A TRAVA (`creditosDoCliente` — Pitfall 7: dois celulares usando o último crédito em datas diferentes
+//   se serializam aqui, e o segundo lê o saldo já gasto) e, com saldo zero, recusa; senão insere
+//   `tipo = 'reposicao'` sem cobrar (o check `inscricoes_reposicao_nao_cobra` também recusa o contrário).
+// `on conflict (evento_id, cliente_id) do nothing` (T-05-26) é a última garantia contra a inscrição dupla.
 // NUNCA recusa por lista cheia (AGE-11, briefing §2.8): nenhuma conta de vagas aqui nem no banco.
 export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeAcao<Colocado>> {
   const usuario = await exigirUsuario();
@@ -535,38 +611,59 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
       if (evento.cancelado) {
         throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
       }
-      if (evento.tipo !== "avulsa" || evento.precoCentavos === null) {
-        throw new RecusaDaAgenda(FRASE_FALHA_AO_COLOCAR);
+
+      if (dados.modo === "oficina") {
+        if (evento.tipo !== "avulsa" || evento.precoCentavos === null) {
+          throw new RecusaDaAgenda(FRASE_FALHA_AO_COLOCAR);
+        }
+      } else if (evento.tipo !== "turma" && evento.tipo !== "avulsa") {
+        throw new RecusaDaAgenda(FRASE_REPOSICAO_SO_EM_AULA);
       }
 
-      const [cliente] = await tx
-        .select({ nome: clientes.nome })
-        .from(clientes)
-        .where(eq(clientes.id, dados.clienteId));
+      // A reposição trava a pessoa (Pitfall 7); a inscrição de oficina só a lê.
+      const cliente =
+        dados.modo === "oficina"
+          ? ((
+              await tx.select({ id: clientes.id, nome: clientes.nome }).from(clientes).where(eq(clientes.id, dados.clienteId))
+            )[0] ?? null)
+          : await travarCliente(tx, dados.clienteId);
       if (!cliente) {
         throw new RecusaDaAgenda(FRASE_CLIENTE_NAO_EXISTE);
       }
 
+      const [jaNaLista] = await tx
+        .select({ id: inscricoes.id })
+        .from(inscricoes)
+        .where(and(eq(inscricoes.eventoId, evento.id), eq(inscricoes.clienteId, cliente.id)));
+      if (jaNaLista) {
+        throw new RecusaDaAgenda(fraseJaEstaNaLista(cliente.nome));
+      }
+
+      let valores: { tipo: "oficina" | "reposicao"; cobrar: boolean; valorCentavos: number | null };
+      if (dados.modo === "reposicao") {
+        const creditos = await creditosDoCliente(tx, cliente.id);
+        if (creditos.saldo <= 0) {
+          throw new RecusaDaAgenda(fraseSemAulaARepor(cliente.nome));
+        }
+        valores = { tipo: "reposicao", cobrar: false, valorCentavos: null };
+      } else {
+        valores = { tipo: "oficina", cobrar: true, valorCentavos: evento.precoCentavos };
+      }
+
       const [inserida] = await tx
         .insert(inscricoes)
-        .values({
-          eventoId: evento.id,
-          clienteId: dados.clienteId,
-          tipo: "oficina",
-          cobrar: true,
-          valorCentavos: evento.precoCentavos,
-          criadoPor: usuario.id,
-        })
+        .values({ eventoId: evento.id, clienteId: cliente.id, ...valores, criadoPor: usuario.id })
         .onConflictDoNothing({ target: [inscricoes.eventoId, inscricoes.clienteId] })
         .returning({ id: inscricoes.id });
       if (!inserida) {
         throw new RecusaDaAgenda(fraseJaEstaNaLista(cliente.nome));
       }
-      return { inscricaoId: inserida.id, nome: cliente.nome };
+      return { inscricaoId: inserida.id, nome: cliente.nome, modo: dados.modo };
     });
   } catch (erro) {
     if (erro instanceof RecusaDaAgenda) {
-      // A tela estava velha (já na lista, data cancelada): ela se atualiza junto com a frase.
+      // A tela estava velha (já na lista, data cancelada, crédito usado em outro celular): ela se
+      // atualiza junto com a frase.
       revalidarTelasDaAgenda({ publico: false });
       return { ok: false, erro: erro.frase };
     }
@@ -582,18 +679,18 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
   return { ok: true, dados: colocado };
 }
 
-export type TiradoDaLista = { nome: string };
+export type TiradoDaLista = { nome: string; tipo: TipoInscricao };
 
-// "Tirar da lista" de uma oficina (05-UI-SPEC.md §Confirmações; D-08, UI-D14). `exigirUsuario()`
-// primeiro (T-05-23). Sob a trava da INSCRIÇÃO, com a venda ligada lida na mesma instrução (T-05-25):
+// "Tirar da lista" (05-UI-SPEC.md §Confirmações; D-08, UI-D14). `exigirUsuario()` primeiro (T-05-23).
+// Sob a trava da INSCRIÇÃO, com a venda ligada lida na mesma instrução (T-05-25):
 // - não existe mais → "Isso já tinha sido removido.";
 // - data cancelada → a frase (a lista da data cancelada é só de leitura);
-// - não é inscrição de oficina → a frase genérica (reposição e experimental chegam no plano 08; o
-//   aluno sai da turma pela ficha);
+// - inscrição de aluno → a frase genérica (o aluno sai da turma pela ficha);
 // - ligada a uma venda NÃO cancelada → recusa com a frase da D-08, verbatim: a Agenda nunca devolve
 //   dinheiro nem desfaz venda — a devolução é no Caixa;
-// - sem venda, ou com a venda cancelada → apaga a inscrição (a venda cancelada continua no
-//   Financeiro, AGE-20). O `delete` só vem depois de todas as conferências.
+// - senão apaga a inscrição (a venda cancelada continua no Financeiro, AGE-20). Tirar uma REPOSIÇÃO
+//   devolve a aula a repor sozinho: o crédito é derivado das linhas (Pattern 3). O `delete` só vem
+//   depois de todas as conferências.
 export async function tirarDaLista(entradaBruta: unknown): Promise<ResultadoDeAcao<TiradoDaLista>> {
   await exigirUsuario();
 
@@ -614,14 +711,14 @@ export async function tirarDaLista(entradaBruta: unknown): Promise<ResultadoDeAc
       if (inscricao.eventoCancelado) {
         throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
       }
-      if (inscricao.tipo !== "oficina") {
+      if (inscricao.tipo === "aluno") {
         throw new RecusaDaAgenda(FRASE_FALHA_AO_TIRAR_DA_LISTA);
       }
       if (inscricao.venda !== null && !inscricao.venda.cancelada) {
         throw new RecusaDaAgenda(fraseInscricaoJaVirouVenda(inscricao.venda.numero));
       }
       await tx.delete(inscricoes).where(eq(inscricoes.id, inscricao.id));
-      return { nome: inscricao.nome };
+      return { nome: inscricao.nome, tipo: inscricao.tipo };
     });
   } catch (erro) {
     if (erro instanceof RecusaDaAgenda) {

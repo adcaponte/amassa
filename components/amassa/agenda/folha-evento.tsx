@@ -15,6 +15,7 @@ import {
   ROTULO_FECHAR,
   ROTULO_PRONTO,
   ROTULO_TURMA_FIXA,
+  TAG_MARCAR_PRESENCA,
   tituloQuemVem,
 } from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
@@ -107,6 +108,17 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar, aoAbrirTurma }: Fo
             </DialogTitle>
             <DialogDescription className="text-apoio text-tinta-fraca break-words">
               {subTitulo(evento, carregado?.precoCentavos ?? null)}
+              {evento.marcarPresenca ? (
+                <>
+                  {" "}
+                  <span
+                    data-testid="tag-marcar-presenca"
+                    className="bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold whitespace-nowrap"
+                  >
+                    {TAG_MARCAR_PRESENCA}
+                  </span>
+                </>
+              ) : null}
             </DialogDescription>
             {evento.tipo === "turma" && evento.turmaId !== null ? (
               <button
@@ -171,14 +183,15 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar, aoAbrirTurma }: Fo
                     <LinhaInscrito
                       key={inscrito.id}
                       inscrito={inscrito}
+                      tipoDoEvento={carregado.tipo}
                       somenteLeitura={carregado.cancelado}
                     />
                   ))}
                 </ul>
               )}
-              {/* "Colocar alguém" só em data não cancelada. Nesta etapa, só na aula ou oficina
-                  avulsa: em data de turma (experimental e reposição) ele chega no plano 08. */}
-              {!carregado.cancelado && carregado.tipo === "avulsa" ? (
+              {/* "Colocar alguém" só em data não cancelada (UI E7·empty): na oficina (inscrição ou
+                  reposição) e na data de turma (reposição ou experimental — plano 08). */}
+              {!carregado.cancelado && (carregado.tipo === "avulsa" || carregado.tipo === "turma") ? (
                 <ColocarAlguem key={carregado.id} evento={carregado} />
               ) : null}
               <p className="text-apoio text-tinta-fraca">

@@ -7,6 +7,10 @@
 // `lib/agenda/acoes.ts`), por isso só são alcançáveis de dentro do servidor, depois que a ação que
 // as chama já autorizou o usuário.
 //
+// (Plano 08) Marcar presença e o direito a repor travam o EVENTO com `for share` ANTES da inscrição
+// (`travarEventoParaLeitura`); a reposição trava EVENTO → CLIENTE e só então recalcula o crédito
+// (Pitfall 7). Nenhum dos dois inverte a ordem abaixo.
+//
 // Por que `for no key update`, e NUNCA a trava exclusiva de linha: `clientes`, `eventos`,
 // `usos_livres` e `mensalidades` são alvo de chave estrangeira de inserts concorrentes (uma
 // inscrição nova pede `for key share` no evento e no cliente), e a trava exclusiva conflitaria com
@@ -113,6 +117,38 @@ export async function travarEvento(tx: TransacaoDoBanco, eventoId: string): Prom
   }
   const { canceladoEm, ...resto } = linha;
   return { ...resto, cancelado: canceladoEm !== null };
+}
+
+export type EventoLidoSobTrava = { id: string; tipo: TipoEvento; cancelado: boolean };
+
+// Trava a linha do EVENTO para LEITURA (`for share`) até o fim da transação — o elo EVENTO de quem só
+// precisa que a data não mude de estado enquanto decide: marcar presença e o direito a repor (AGE-04,
+// T-05-39). `for share` convive com outro `for share` (dois celulares marcando a mesma turma não se
+// esperam) e com o `for key share` das inscrições novas, mas EXCLUI o `for no key update` de
+// `cancelarData`: cancelar e marcar ao mesmo tempo terminam coerentes — se o cancelamento vem antes, a
+// marcação lê `cancelado` e recusa; se vem depois, ele espera a marcação e a limpa. `null` se o evento
+// não existe.
+export async function travarEventoParaLeitura(tx: TransacaoDoBanco, eventoId: string): Promise<EventoLidoSobTrava | null> {
+  const [linha] = await tx
+    .select({ id: eventos.id, tipo: eventos.tipo, canceladoEm: eventos.canceladoEm })
+    .from(eventos)
+    .where(eq(eventos.id, eventoId))
+    .for("share");
+  if (!linha) {
+    return null;
+  }
+  return { id: linha.id, tipo: linha.tipo, cancelado: linha.canceladoEm !== null };
+}
+
+// O evento de uma inscrição, lido SEM trava — só para saber QUAL evento travar primeiro (a ordem
+// EVENTO → INSCRIÇÃO). `evento_id` nunca muda numa inscrição; se ela sumir entre esta leitura e a trava,
+// `travarInscricao` devolve `null`. `null` se ela não existe.
+export async function eventoDaInscricao(tx: TransacaoDoBanco, inscricaoId: string): Promise<string | null> {
+  const [linha] = await tx
+    .select({ eventoId: inscricoes.eventoId })
+    .from(inscricoes)
+    .where(eq(inscricoes.id, inscricaoId));
+  return linha?.eventoId ?? null;
 }
 
 // O que se perde ao cancelar uma data (UI-D13): as presenças já marcadas (o cancelamento as limpa —

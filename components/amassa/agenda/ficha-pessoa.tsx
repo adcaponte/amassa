@@ -9,13 +9,16 @@ import {
   ROTULO_EDITAR,
   ROTULO_FECHAR,
   ROTULO_PRONTO,
+  ROTULO_QUADRO_A_REPOR,
   ROTULO_SEM_TELEFONE,
   ROTULO_TENTAR_DE_NOVO,
   TAG_FALTOU,
+  TAG_REPOE,
   TAG_VEIO,
   TITULO_FICHA,
   TITULO_ULTIMAS_VINDAS,
   linhaDeVinda,
+  unidadeDoQuadroARepor,
 } from "@/lib/agenda/textos";
 import type { ClienteDaLista } from "@/lib/clientes/consultas";
 import { formatarDiaMes } from "@/lib/producao/calendario";
@@ -29,9 +32,10 @@ import { TurmasDaPessoa } from "./turmas-da-pessoa";
 
 const LINHAS_DO_ESQUELETO = [0, 1, 2, 3] as const;
 
-// O que a ficha mostra além do cabeçalho — chega do servidor. Os quadros "A REPOR"/"A RECEBER" entram
-// nos planos 08 e 11. `mes` é o mês de hoje ("AAAA-MM"), o da mensalidade que a confirmação de sair cita.
-export type ConteudoDaFicha = { vindas: VindaDaPessoa[]; turmas: TurmaDaPessoa[]; mes: string };
+// O que a ficha mostra além do cabeçalho — chega do servidor. `mes` é o mês de hoje ("AAAA-MM"), o da
+// mensalidade que a confirmação de sair cita. `aRepor` é o saldo de reposição (derivado das linhas —
+// AGE-09); o quadro "A RECEBER" entra no plano 11.
+export type ConteudoDaFicha = { vindas: VindaDaPessoa[]; turmas: TurmaDaPessoa[]; mes: string; aRepor: number };
 
 export type FichaPessoaProps = {
   // O que a tela já sabia no toque (a linha da lista, a pessoa recém-cadastrada, o homônimo escolhido)
@@ -130,6 +134,24 @@ export function FichaPessoa({
             </div>
           ) : (
             <>
+              {/* Os quadros (05-UI-SPEC.md §"Ficha da pessoa"): "A REPOR" {n} "aula"/"aulas". O "A RECEBER"
+                  ocupa a segunda coluna no plano 11. */}
+              <div className="grid grid-cols-2 gap-3">
+                <div
+                  data-testid="quadro-a-repor"
+                  className="bg-superficie-2 flex min-w-0 flex-col gap-1 rounded-md p-3"
+                >
+                  <span className="text-apoio text-tinta-media font-semibold tracking-[0.06em]">
+                    {ROTULO_QUADRO_A_REPOR}
+                  </span>
+                  <span className="text-tinta flex flex-wrap items-baseline gap-x-2">
+                    <span data-testid="quadro-a-repor-numero" className="text-display font-semibold tabular-nums">
+                      {conteudo.aRepor}
+                    </span>
+                    <span className="text-apoio text-tinta-media">{unidadeDoQuadroARepor(conteudo.aRepor)}</span>
+                  </span>
+                </div>
+              </div>
               {pessoa !== null ? (
                 <TurmasDaPessoa
                   pessoa={{ id: pessoa.id, nome: pessoa.nome }}
@@ -161,13 +183,23 @@ export function FichaPessoa({
                           {linhaDeVinda(formatarDiaMes(vinda.data), vinda.titulo)}
                         </span>
                         {vinda.presenca !== null ? (
-                          <span
-                            className={cn(
-                              "text-apoio shrink-0 rounded-sm px-2 font-semibold",
-                              vinda.presenca === "veio" ? "bg-sucesso-fundo text-sucesso" : "bg-erro-fundo text-erro",
-                            )}
-                          >
-                            {vinda.presenca === "veio" ? TAG_VEIO : TAG_FALTOU}
+                          <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                            <span
+                              className={cn(
+                                "text-apoio rounded-sm px-2 font-semibold",
+                                vinda.presenca === "veio" ? "bg-sucesso-fundo text-sucesso" : "bg-erro-fundo text-erro",
+                              )}
+                            >
+                              {vinda.presenca === "veio" ? TAG_VEIO : TAG_FALTOU}
+                            </span>
+                            {vinda.presenca === "faltou" && vinda.direitoARepor ? (
+                              <span
+                                data-testid="tag-repoe"
+                                className="text-apoio bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold"
+                              >
+                                {TAG_REPOE}
+                              </span>
+                            ) : null}
                           </span>
                         ) : null}
                       </li>

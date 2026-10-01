@@ -503,3 +503,63 @@ export async function vinculosNoBanco(clienteId: string, turmaId: string): Promi
     return rows;
   });
 }
+
+// ── Plano 08: a reposição ─────────────────────────────────────────────────────────────────────────
+
+// Uma falta com direito a repor, direto no banco (o caminho pela tela é provado pelo caso (a) de
+// `agenda reposicao`): é o que gera 1 aula a repor.
+export async function marcarFaltaComDireitoNoBanco(inscricaoId: string): Promise<void> {
+  await comCliente((cliente) =>
+    cliente.query("update inscricoes set presenca = 'faltou', direito_a_repor = true where id = $1", [inscricaoId]),
+  );
+}
+
+// O saldo de aulas a repor de uma pessoa, contado no banco pela regra do BRIEFING §4 (faltas com
+// direito − reposições, só em datas não canceladas) — escrito à parte da consulta do app, para o teste
+// não conferir o app com ele mesmo. Pode dar negativo: quem afirma decide.
+export async function saldoDeReposicaoNoBanco(clienteId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ saldo: string }>(
+      `select (select count(*) from inscricoes i join eventos e on e.id = i.evento_id
+                where i.cliente_id = $1 and e.cancelado_em is null
+                  and i.presenca = 'faltou' and i.direito_a_repor)
+            - (select count(*) from inscricoes i join eventos e on e.id = i.evento_id
+                where i.cliente_id = $1 and e.cancelado_em is null and i.tipo = 'reposicao') as saldo`,
+      [clienteId],
+    );
+    return Number(rows[0]?.saldo ?? 0);
+  });
+}
+
+// Cancela uma data direto no banco SEM limpar as presenças — prova que a conta do crédito ignora a
+// data cancelada por si (o `cancelarData` da tela ainda limpa, por cima).
+export async function cancelarDataNoBanco(eventoId: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    // O check `eventos_cancelado_por` exige os dois carimbos juntos.
+    const gestor = await idDoGestorDeTeste(cliente, "cancelarDataNoBanco");
+    await cliente.query("update eventos set cancelado_em = now(), cancelado_por = $2 where id = $1", [eventoId, gestor]);
+  });
+}
+
+export type InscricaoCompleta = {
+  id: string;
+  clienteId: string;
+  tipo: TipoInscricao;
+  presenca: Presenca | null;
+  direitoARepor: boolean;
+  cobrar: boolean;
+  valorCentavos: number | null;
+};
+
+// As inscrições de uma pessoa numa data — `[]` se ela não está na lista.
+export async function inscricoesDaPessoaNaData(eventoId: string, clienteId: string): Promise<InscricaoCompleta[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<InscricaoCompleta>(
+      `select id, cliente_id as "clienteId", tipo::text as tipo, presenca, direito_a_repor as "direitoARepor",
+              cobrar, valor_centavos as "valorCentavos"
+         from inscricoes where evento_id = $1 and cliente_id = $2`,
+      [eventoId, clienteId],
+    );
+    return rows;
+  });
+}

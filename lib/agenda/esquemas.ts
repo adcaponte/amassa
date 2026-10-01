@@ -21,6 +21,7 @@ import {
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_COLOCAR,
   FRASE_FALHA_AO_LANCAR,
+  FRASE_FALHA_AO_MARCAR_DIREITO,
   FRASE_FALHA_PRESENCA_GENERICA,
   FRASE_FIM_ANTES_DO_COMECO,
   FRASE_HORARIO_VAZIO,
@@ -166,14 +167,31 @@ export const esquemaBuscarPessoas = z.object({
 
 export type BuscarPessoasValidado = z.infer<typeof esquemaBuscarPessoas>;
 
-// "Colocar na lista" (AGE-10, AGE-12): só os dois ids. NENHUM valor vem da tela (T-05-24) — o preço
-// da inscrição é lido do evento sob a trava, no servidor.
+// Como a pessoa entra na data (AGE-10): inscrição paga na oficina, reposição (usa 1 aula a repor) ou
+// experimental numa data de turma (D-07, plano 08 — Tarefa 3). Sem `modo`, é a inscrição de oficina
+// (o "Colocar na lista" do plano 05).
+export const MODOS_DE_COLOCAR = ["oficina", "reposicao", "experimental"] as const;
+export type ModoDeColocar = (typeof MODOS_DE_COLOCAR)[number];
+
+// "Colocar na lista" (AGE-10, AGE-12): os dois ids e o modo. NENHUM valor da oficina vem da tela
+// (T-05-24) — o preço da inscrição é lido do evento sob a trava; o crédito de reposição é recalculado
+// sob a trava do cliente (Pitfall 7), nunca aceito do navegador.
 export const esquemaColocarNaData = z.object({
   eventoId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
   clienteId: z.uuid({ error: FRASE_FALHA_AO_COLOCAR }),
+  modo: z.enum(MODOS_DE_COLOCAR, { error: FRASE_FALHA_AO_COLOCAR }).default("oficina"),
 });
 
 export type ColocarNaDataValidado = z.infer<typeof esquemaColocarNaData>;
+
+// "tem direito a repor esta aula" (AGE-09): o id da inscrição e o estado DESEJADO (Pattern 2) — marcar
+// duas vezes vale uma; o que a falta é e em que data ela foi é lido sob a trava, no servidor.
+export const esquemaDefinirDireitoARepor = z.object({
+  inscricaoId: z.uuid({ error: FRASE_FALHA_AO_MARCAR_DIREITO }),
+  direito: z.boolean({ error: FRASE_FALHA_AO_MARCAR_DIREITO }),
+});
+
+export type DefinirDireitoARepor = z.infer<typeof esquemaDefinirDireitoARepor>;
 
 // "Tirar da lista" — só o id da inscrição; a venda ligada é lida sob a trava (D-08).
 export const esquemaTirarDaLista = z.object({
