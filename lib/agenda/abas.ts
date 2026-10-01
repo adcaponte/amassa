@@ -78,3 +78,8 @@ export function pessoaDaUrl(valor: ValorDaUrl): string | null {
 export function turmaDaUrl(valor: ValorDaUrl): string | null {
   return idDaUrl(valor);
 }
+
+// `?uso=` — a folha do uso livre aberta (plano 09, UI-D8). Só um uuid; qualquer outra coisa é `null`.
+export function usoDaUrl(valor: ValorDaUrl): string | null {
+  return idDaUrl(valor);
+}

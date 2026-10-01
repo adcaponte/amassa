@@ -9,10 +9,15 @@ import { diasEntre, ehDataCivil } from "@/lib/producao/calendario";
 import { minutosDe } from "./horario";
 import { PRESENCAS } from "./tipos";
 import { SEMANAS_MAXIMAS, SEMANAS_MINIMAS } from "./turma";
+import { HORAS_PREVISTAS_MAXIMAS, HORAS_PREVISTAS_MINIMAS, PESSOAS_MAXIMAS, PESSOAS_MINIMAS } from "./uso-livre";
 import {
   FRASE_DIA_DA_SEMANA,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
+  FRASE_ESCOLHA_QUEM_VEM,
+  FRASE_HORA_DE_CHEGADA,
+  FRASE_HORAS_PREVISTAS,
+  FRASE_PESSOAS,
   FRASE_EXPERIMENTAL_SEM_ESCOLHA,
   FRASE_EXPERIMENTAL_VALOR,
   FRASE_FALHA_AO_DESATIVAR_TURMA,
@@ -327,3 +332,45 @@ export const esquemaSairDaTurma = z.object({
 });
 
 export type SairDaTurmaValidado = z.infer<typeof esquemaSairDaTurma>;
+
+// ── O uso livre (plano 09 — AGE-13, AGE-05) ─────────────────────────────────────────────────────────
+// Do cliente chegam só quem, quando, por quanto tempo e quantas pessoas — e, nas transições, o id e as
+// horas de parede. O PREÇO da hora e o VALOR nunca vêm da tela (T-05-42): são lidos e calculados no
+// servidor, sob a trava, pelo módulo puro `uso-livre.ts`.
+
+const horaDeChegada = z
+  .string({ error: FRASE_HORA_DE_CHEGADA })
+  .refine((hora) => FORMATO_HORA_DO_CAMPO.test(hora), { error: FRASE_HORA_DE_CHEGADA });
+
+// "Reservar uso livre": a pessoa (o seletor — sem ninguém escolhido, "Escolha quem vem."), a data, a
+// hora prevista de chegada, as horas previstas (1..12) e as pessoas (1..50) — as mesmas faixas dos
+// checks `usos_livres_horas_previstas_faixa` e `usos_livres_pessoas_faixa`.
+export const esquemaReservarUsoLivre = z.object({
+  clienteId: z.uuid({ error: FRASE_ESCOLHA_QUEM_VEM }),
+  data: dataCivil,
+  chegadaPrevista: horaDeChegada,
+  horasPrevistas: inteiroDoCampo(HORAS_PREVISTAS_MINIMAS, HORAS_PREVISTAS_MAXIMAS, FRASE_HORAS_PREVISTAS),
+  pessoas: inteiroDoCampo(PESSOAS_MINIMAS, PESSOAS_MAXIMAS, FRASE_PESSOAS),
+});
+
+export type ReservarUsoLivreValidado = z.infer<typeof esquemaReservarUsoLivre>;
+
+// "Chegou": o id e a hora de chegada do campo (já preenchido com a hora da reserva, editável).
+export const esquemaMarcarChegada = z.object({
+  usoLivreId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
+  chegada: horaDeChegada,
+});
+
+export type MarcarChegadaValidado = z.infer<typeof esquemaMarcarChegada>;
+
+// "Chegou às" corrigido enquanto a pessoa está no espaço.
+export const esquemaCorrigirChegada = esquemaMarcarChegada;
+
+export type CorrigirChegadaValidado = z.infer<typeof esquemaCorrigirChegada>;
+
+// "Cancelar reserva": só o id — o estado é conferido NA PRÓPRIA instrução de `delete`.
+export const esquemaCancelarReserva = z.object({
+  usoLivreId: z.uuid({ error: FRASE_JA_REMOVIDO }),
+});
+
+export type CancelarReservaValidado = z.infer<typeof esquemaCancelarReserva>;

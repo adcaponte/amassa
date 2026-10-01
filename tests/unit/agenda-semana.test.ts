@@ -128,6 +128,26 @@ describe("agruparPorDia", () => {
     expect(grupos[6].itens.map((evento) => evento.id)).toEqual(["w"]);
     expect(grupos.flatMap((grupo) => grupo.itens).map((evento) => evento.id)).not.toContain("fora");
   });
+
+  // Plano 09: o uso livre do espaço entra na semana junto dos eventos, pela hora de chegada.
+  it("o uso livre entra no dia junto dos eventos, pela hora; o fechado continua primeiro", () => {
+    const grupos = agruparPorDia("2026-10-05", [
+      item({ id: "aula", data: "2026-10-07", tipo: "avulsa", inicio: "15:00", titulo: "Bule" }),
+      item({ id: "uso", data: "2026-10-07", tipo: "uso_livre", inicio: "09:30:00", titulo: "Ana" }),
+      item({ id: "fechado", data: "2026-10-07", tipo: "fechado", inicio: null, titulo: "feriado" }),
+      item({ id: "uso-2", data: "2026-10-08", tipo: "uso_livre", inicio: "14:00", titulo: "Bia" }),
+    ]);
+    expect(grupos[2].itens.map((evento) => evento.id)).toEqual(["fechado", "uso", "aula"]);
+    expect(grupos[3].itens.map((evento) => evento.id)).toEqual(["uso-2"]);
+  });
+
+  it("no mesmo horário e com o mesmo título, o uso livre vem depois dos eventos", () => {
+    const ordenados = ordenarNoDia([
+      item({ id: "uso", tipo: "uso_livre", inicio: "14:00", titulo: "Ana" }),
+      item({ id: "aula", tipo: "avulsa", inicio: "14:00", titulo: "Ana" }),
+    ]);
+    expect(ordenados.map((evento) => evento.id)).toEqual(["aula", "uso"]);
+  });
 });
 
 describe("gradeDoMes", () => {

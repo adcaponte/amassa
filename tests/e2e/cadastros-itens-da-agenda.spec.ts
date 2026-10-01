@@ -63,14 +63,25 @@ test.describe("cadastros itens da agenda", () => {
   });
 
   test("os três itens do sistema aparecem com o chip “do sistema”", async ({ page }) => {
-    for (const nome of NOMES_DOS_ITENS_DO_SISTEMA) {
-      const linha = linhaDoCatalogo(page, nome);
-      await expect(linha).toHaveCount(1);
-      await expect(linha.getByTestId("chip-do-sistema")).toHaveText(CHIP_DO_SISTEMA);
-    }
-    // Mensalidade e Inscrição em oficina: preço nulo — o valor vem da turma e do evento.
-    for (const nome of ["Mensalidade", "Inscrição em oficina"]) {
-      await expect(linhaDoCatalogo(page, nome)).toContainText(ROTULO_VALOR_NA_HORA);
+    // `agenda uso livre` (plano 09) renomeia o “Uso livre (hora)” sob a mesma trava, para provar que a
+    // Agenda o acha pela chave: este caso lê os nomes segurando-a.
+    const trava = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+    await trava.connect();
+    await trava.query("select pg_advisory_lock($1)", [TRAVA_DO_PRECO_DA_HORA]);
+    try {
+      await page.reload();
+      for (const nome of NOMES_DOS_ITENS_DO_SISTEMA) {
+        const linha = linhaDoCatalogo(page, nome);
+        await expect(linha).toHaveCount(1);
+        await expect(linha.getByTestId("chip-do-sistema")).toHaveText(CHIP_DO_SISTEMA);
+      }
+      // Mensalidade e Inscrição em oficina: preço nulo — o valor vem da turma e do evento.
+      for (const nome of ["Mensalidade", "Inscrição em oficina"]) {
+        await expect(linhaDoCatalogo(page, nome)).toContainText(ROTULO_VALOR_NA_HORA);
+      }
+    } finally {
+      await trava.query("select pg_advisory_unlock($1)", [TRAVA_DO_PRECO_DA_HORA]);
+      await trava.end();
     }
   });
 

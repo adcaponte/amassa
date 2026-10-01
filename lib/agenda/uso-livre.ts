@@ -89,3 +89,10 @@ export function saidaPrevista(chegadaPrevista: string, horasPrevistas: number): 
   const minutos = minutosDe(chegadaPrevista) + horasPrevistas * 60;
   return horaDe(Math.min(minutos, ULTIMO_MINUTO_DO_DIA));
 }
+
+// D-18: o uso de um dia que já passou e ainda está "no espaço" foi esquecido — a semana mostra a tag
+// "encerrar" e ele continua encerrável. Hoje não pede (a pessoa pode estar lá); reservado e encerrado
+// nunca pedem. `hoje` chega por argumento (data civil de Brasília).
+export function precisaEncerrar(uso: { data: string; estado: EstadoDoUsoLivre }, hoje: string): boolean {
+  return uso.estado === "no_espaco" && uso.data < hoje;
+}

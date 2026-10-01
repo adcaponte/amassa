@@ -710,3 +710,120 @@ export function complementoToastExperimentalCobrada(valor: string): string {
 export function corpoTirarExperimentalGratuita(nome: string): string {
   return `${nome} sai só desta data.`;
 }
+
+// ── O uso livre do espaço (plano 09 — AGE-13, AGE-05, AGE-17, D-18; 05-UI-SPEC.md §"Folha "Lançar na
+// agenda"", §"Folha do uso livre", §"Cartão de evento", §Toasts, §Erros, §Confirmações) ──────────────
+
+// Folha "Lançar na agenda" — a pílula, os campos e o primário.
+export const ROTULO_USO_LIVRE = LEGENDA_USO_LIVRE;
+export const ROTULO_RESERVAR_USO_LIVRE = "Reservar uso livre";
+export const ROTULO_RESERVANDO = "Reservando…";
+export const ROTULO_QUEM = "Quem";
+export const ROTULO_CHEGA_AS = "Chega às";
+export const ROTULO_HORAS_PREVISTAS = "Horas previstas";
+export const HORAS_PREVISTAS_PADRAO = "2";
+export const ROTULO_PESSOAS = "Pessoas";
+export const PESSOAS_PADRAO = "1";
+
+export function dicaTipoUsoLivre(precoHora: string): string {
+  return `Hora cheia a ${precoHora}. Só vocês lançam — o cliente combina pelo WhatsApp.`;
+}
+
+export const DICA_TIPO_USO_LIVRE_SEM_PRECO =
+  "O preço da hora ainda não foi cadastrado (Cadastros → Catálogo → “Uso livre (hora)”). Dá para reservar; para encerrar e cobrar, ele precisa estar lá.";
+
+// Erros de campo do uso livre.
+export const FRASE_ESCOLHA_QUEM_VEM = "Escolha quem vem.";
+export const FRASE_HORA_DE_CHEGADA = "Diga a hora de chegada.";
+export const FRASE_HORAS_PREVISTAS = "Horas previstas: de 1 a 12.";
+export const FRASE_PESSOAS = "Pessoas: de 1 a 50.";
+export const FRASE_PESSOA_NAO_EXISTE = "Essa pessoa não existe mais — talvez tenha sido removida em outro celular.";
+
+export const TOAST_USO_LIVRE_RESERVADO = "Uso livre reservado.";
+
+// O cartão da semana: "Uso livre · {nome}", "{n} pessoa(s)" (nunca "lugar"), a sub-linha com o fim e as
+// tags de estado (D-18: "encerrar" no uso de dia passado ainda no espaço).
+export function tituloDoUsoLivre(nome: string): string {
+  return `Uso livre · ${nome}`;
+}
+
+export function subLinhaDoUsoLivre(fim: string): string {
+  return `Uso livre · até ${fim}`;
+}
+
+export const TAG_RESERVADO = "reservado";
+export const TAG_NO_ESPACO = "está no espaço";
+export const TAG_ENCERRAR = "encerrar";
+export const TAG_ENCERRADO = "encerrado";
+
+// A folha do uso livre.
+export function subTituloDoUsoLivre(diaDaSemana: string, diaMes: string, chegada: string, saida: string): string {
+  return `Uso livre · ${diaDaSemana}, ${diaMes} · ${chegada} às ${saida}`;
+}
+
+export const FRASE_ERRO_CARREGAR_USO_LIVRE =
+  "Não deu para carregar este uso livre. Verifique a internet e tente de novo.";
+export const ROTULO_CHEGOU_AS = "Chegou às";
+export const ROTULO_SAIU_AS = "Saiu às";
+export const DICA_RESERVADO = "Reservado. Quando a pessoa chegar, marque — é isso que vira registro de uso.";
+export const ROTULO_CHEGOU = "Chegou";
+
+export function toastChegadaMarcada(hora: string): string {
+  return `Chegada marcada às ${hora}.`;
+}
+
+export const FRASE_FALHA_AO_MARCAR_CHEGADA = "Não deu para marcar a chegada. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_CORRIGIR_CHEGADA =
+  "Não deu para corrigir a hora de chegada. Verifique a internet e tente de novo.";
+export const FRASE_USO_AINDA_NAO_COMECOU = "Este uso livre ainda não começou — marque “Chegou” primeiro.";
+
+// Cancelar reserva (AGE-05 — a reserva não iniciada é a única que se remove).
+export const ROTULO_CANCELAR_RESERVA = "Cancelar reserva";
+export const ROTULO_MANTER_A_RESERVA = "Manter a reserva";
+
+export function tituloConfirmarCancelarReserva(nome: string, diaMes: string): string {
+  return `Cancelar a reserva de ${nome} em ${diaMes}?`;
+}
+
+export const CORPO_CONFIRMAR_CANCELAR_RESERVA = "A reserva sai da agenda. Nada foi cobrado nem baixado do estoque.";
+export const TOAST_RESERVA_CANCELADA = "Reserva cancelada.";
+export const FRASE_RESERVA_JA_COMECOU =
+  "Esta reserva já começou — a pessoa chegou. Não dá para remover; encerre o uso quando ela sair.";
+export const FRASE_USO_COM_MATERIAL_BAIXADO =
+  "Este uso livre já tem material baixado no Estoque e não pode ser removido.";
+export const FRASE_FALHA_AO_CANCELAR_RESERVA =
+  "Não deu para cancelar a reserva. Verifique a internet e tente de novo.";
+
+// A conta e o encerramento (AGE-13, UI-D7).
+export const ROTULO_CONTA_PESSOAS = "Pessoas";
+export const ROTULO_HORAS_CHEIAS = "Horas cheias";
+export const ROTULO_VALOR = "Valor";
+
+// "{h} h × {R$ hora}" (1 pessoa) / "{h} h × {n} pessoas × {R$ hora} = {R$}" — pessoas multiplica UMA vez.
+export function linhaHorasCheias(horas: number, pessoas: number, precoHora: string, total: string): string {
+  if (pessoas === 1) {
+    return `${horas} h × ${precoHora}`;
+  }
+  return `${horas} h × ${pessoas} pessoas × ${precoHora} = ${total}`;
+}
+
+export const DICA_ENCERRAR =
+  "Cobrança por hora cheia: passou da hora, conta a próxima. Ferramentas e utensílios são sempre inclusos; matéria-prima é a lista acima.";
+export const FRASE_SEM_PRECO_DA_HORA =
+  "O preço da hora ainda não foi cadastrado. Cadastre em Cadastros → Catálogo → “Uso livre (hora)” para poder encerrar e cobrar.";
+export const ROTULO_ENCERRAR_E_COBRAR = "Encerrar e cobrar";
+export const ROTULO_ENCERRANDO = "Encerrando…";
+export const FRASE_SAIDA_ANTES_DA_CHEGADA = "A saída precisa ser depois da chegada.";
+export const FRASE_HORA_DE_SAIDA = "Diga a hora de saída.";
+export const FRASE_USO_JA_ENCERRADO =
+  "Este uso livre já foi encerrado — talvez em outro celular. A tela foi atualizada.";
+export const FRASE_FALHA_AO_ENCERRAR =
+  "Não deu para encerrar. Nada foi gravado nem baixado — verifique a internet e tente de novo.";
+
+export function toastUsoEncerrado(horas: number, valor: string): string {
+  return `${horas === 1 ? "1 hora cheia" : `${horas} horas cheias`}: ${valor}.`;
+}
+
+export function linhaEncerrado(horas: number): string {
+  return `Encerrado · ${horas} h`;
+}

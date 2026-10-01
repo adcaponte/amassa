@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   horasCheias,
+  precisaEncerrar,
   proximoEstado,
   saidaPrevista,
   valorDoMaterial,
@@ -154,5 +155,20 @@ describe("pureza do módulo do uso livre", () => {
     const fonte = readFileSync(join(process.cwd(), "lib/agenda/uso-livre.ts"), "utf8");
     expect(fonte).not.toMatch(/from "(@\/db|react|next|drizzle-orm|pg)/);
     expect(fonte).not.toMatch(/new Date\(|Date\.now\(/);
+  });
+});
+
+describe("precisaEncerrar (D-18)", () => {
+  it("dia passado ainda no espaço pede “encerrar”", () => {
+    expect(precisaEncerrar({ data: "2026-09-30", estado: "no_espaco" }, "2026-10-01")).toBe(true);
+  });
+
+  it("hoje no espaço não pede — a pessoa pode estar lá", () => {
+    expect(precisaEncerrar({ data: "2026-10-01", estado: "no_espaco" }, "2026-10-01")).toBe(false);
+  });
+
+  it("reservado ou encerrado nunca pedem", () => {
+    expect(precisaEncerrar({ data: "2026-09-30", estado: "reservado" }, "2026-10-01")).toBe(false);
+    expect(precisaEncerrar({ data: "2026-09-30", estado: "encerrado" }, "2026-10-01")).toBe(false);
   });
 });

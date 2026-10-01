@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, gt, isNotNull, isNull, max, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, eventos, inscricoes, mensalidades, turmaAlunos, turmas } from "@/db/schema";
+import { clientes, eventos, inscricoes, mensalidades, turmaAlunos, turmas, usosLivres } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
@@ -25,8 +25,10 @@ import {
 import {
   esquemaBuscarPessoas,
   esquemaCancelarData,
+  esquemaCancelarReserva,
   esquemaColocarNaData,
   esquemaConferirDia,
+  esquemaCorrigirChegada,
   esquemaDefinirDireitoARepor,
   esquemaDefinirPresenca,
   esquemaDesativarTurma,
@@ -35,7 +37,9 @@ import {
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaLancarTurma,
+  esquemaMarcarChegada,
   esquemaMarcarMaisSemanas,
+  esquemaReservarUsoLivre,
   esquemaSairDaTurma,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
@@ -63,7 +67,7 @@ import {
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
-import type { TipoInscricao } from "./tipos";
+import type { EstadoUsoLivre, TipoInscricao } from "./tipos";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
 import {
   FRASE_DATA_CANCELADA,
@@ -95,6 +99,14 @@ import {
   fraseJaEstaNaLista,
   fraseJaEstaNaTurma,
   fraseJaNaoEstaNaTurma,
+  FRASE_FALHA_AO_CANCELAR_RESERVA,
+  FRASE_FALHA_AO_CORRIGIR_CHEGADA,
+  FRASE_FALHA_AO_MARCAR_CHEGADA,
+  FRASE_PESSOA_NAO_EXISTE,
+  FRASE_RESERVA_JA_COMECOU,
+  FRASE_USO_AINDA_NAO_COMECOU,
+  FRASE_USO_COM_MATERIAL_BAIXADO,
+  FRASE_USO_JA_ENCERRADO,
 } from "./textos";
 
 // Mesma forma de `lib/producao/acoes.ts` — cada módulo redeclara, não há tipo compartilhado.
@@ -1157,4 +1169,199 @@ export async function sairDaTurma(entradaBruta: unknown): Promise<ResultadoDeAca
 
   revalidarTelasDaAgenda({ publico });
   return { ok: true, dados: saida };
+}
+
+// ── O uso livre do espaço (plano 09 — AGE-13, AGE-05, AGE-01) ───────────────────────────────────────
+// Toda transição é uma instrução CONDICIONADA AO ESTADO na própria escrita (`… where id = $1 and estado
+// = 'reservado'`) ou decidida sob a trava `for no key update` do uso (`travarUsoLivre`): dois gestores
+// nunca removem uma reserva que acabou de começar nem encerram duas vezes (T-05-43, T-05-44). O uso livre
+// nunca vai ao site — só a rota da Agenda é revalidada.
+
+export type UsoLivreReservado = { id: string; data: string };
+
+// "Reservar uso livre" (AGE-01, AGE-13). `exigirUsuario()` primeiro (T-05-41), Zod no servidor (quem,
+// data, "HH:MM", horas 1..12, pessoas 1..50 — nenhum preço vem da tela, T-05-42). Um `insert` em
+// `reservado`. Pessoa apagada em outro celular → a chave estrangeira recusa (23503, lido em
+// `erro.cause.code`) e a frase humana volta. NUNCA recusa por dia fechado (D-13: avisa e não bloqueia)
+// nem por haver outro lançamento no mesmo horário.
+export async function reservarUsoLivre(entradaBruta: unknown): Promise<ResultadoDoLancamento<UsoLivreReservado>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaReservarUsoLivre.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+
+  let reservado: UsoLivreReservado;
+  try {
+    const [linha] = await db
+      .insert(usosLivres)
+      .values({
+        clienteId: dados.clienteId,
+        data: dados.data,
+        chegadaPrevista: dados.chegadaPrevista,
+        horasPrevistas: dados.horasPrevistas,
+        pessoas: dados.pessoas,
+        estado: "reservado",
+        criadoPor: usuario.id,
+      })
+      .returning({ id: usosLivres.id, data: usosLivres.data });
+    reservado = linha;
+  } catch (erro) {
+    if (codigoDoErroPostgres(erro) === "23503") {
+      return { ok: false, erro: FRASE_PESSOA_NAO_EXISTE, campos: { clienteId: FRASE_PESSOA_NAO_EXISTE } };
+    }
+    console.error(
+      `Falha ao reservar o uso livre (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: reservado };
+}
+
+// O estado de agora de um uso, depois de uma escrita condicionada que não pegou nenhuma linha — para
+// dizer POR QUÊ (não existe, já começou, já foi encerrado) sem nunca gravar nada.
+async function estadoAtualDoUso(usoLivreId: string): Promise<{ estado: EstadoUsoLivre; chegada: string | null } | null> {
+  const [linha] = await db
+    .select({ estado: usosLivres.estado, chegada: usosLivres.chegada })
+    .from(usosLivres)
+    .where(eq(usosLivres.id, usoLivreId));
+  return linha ?? null;
+}
+
+// "HH:MM:SS" do `pg` → "HH:MM" (Pitfall 9).
+function horaCurta(hora: string): string {
+  return hora.slice(0, 5);
+}
+
+export type ChegadaMarcada = { chegada: string; jaEstavaMarcada: boolean };
+
+// "Chegou" (AGE-13 — é isso que vira registro de uso). `exigirUsuario()` primeiro. UMA instrução
+// condicionada: `estado = 'no_espaco'` e `chegada` só onde o estado ainda é `reservado`. Nenhuma linha
+// afetada: o uso não existe mais (cancelado em outro celular) → a frase; ou JÁ começou (toque duplo,
+// outro celular) → sucesso com a hora que já estava gravada, sem mudá-la (AGE-13 · idempotency).
+export async function marcarChegada(entradaBruta: unknown): Promise<ResultadoDeAcao<ChegadaMarcada>> {
+  await exigirUsuario();
+
+  const resultado = esquemaMarcarChegada.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  let marcada: ChegadaMarcada;
+  try {
+    const [linha] = await db
+      .update(usosLivres)
+      .set({ estado: "no_espaco", chegada: dados.chegada })
+      .where(and(eq(usosLivres.id, dados.usoLivreId), eq(usosLivres.estado, "reservado")))
+      .returning({ chegada: usosLivres.chegada });
+    if (linha?.chegada) {
+      marcada = { chegada: horaCurta(linha.chegada), jaEstavaMarcada: false };
+    } else {
+      const atual = await estadoAtualDoUso(dados.usoLivreId);
+      if (!atual || atual.chegada === null) {
+        return { ok: false, erro: FRASE_LANCAMENTO_NAO_EXISTE };
+      }
+      marcada = { chegada: horaCurta(atual.chegada), jaEstavaMarcada: true };
+    }
+  } catch (erro) {
+    console.error(
+      `Falha ao marcar a chegada (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_MARCAR_CHEGADA };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: marcada };
+}
+
+// "Chegou às" corrigido com a pessoa no espaço (editável até encerrar — 05-UI-SPEC.md §"Rótulos").
+// `exigirUsuario()` primeiro; a instrução só pega o uso `no_espaco`. Encerrado em outro celular → a
+// frase do "já encerrado"; ainda reservado → "marque “Chegou” primeiro".
+export async function corrigirChegada(entradaBruta: unknown): Promise<ResultadoDeAcao<{ chegada: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaCorrigirChegada.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+
+  try {
+    const [linha] = await db
+      .update(usosLivres)
+      .set({ chegada: dados.chegada })
+      .where(and(eq(usosLivres.id, dados.usoLivreId), eq(usosLivres.estado, "no_espaco")))
+      .returning({ chegada: usosLivres.chegada });
+    if (!linha?.chegada) {
+      const atual = await estadoAtualDoUso(dados.usoLivreId);
+      return {
+        ok: false,
+        erro:
+          atual === null
+            ? FRASE_LANCAMENTO_NAO_EXISTE
+            : atual.estado === "encerrado"
+              ? FRASE_USO_JA_ENCERRADO
+              : FRASE_USO_AINDA_NAO_COMECOU,
+      };
+    }
+    revalidarTelasDaAgenda({ publico: false });
+    return { ok: true, dados: { chegada: horaCurta(linha.chegada) } };
+  } catch (erro) {
+    console.error(
+      `Falha ao corrigir a chegada (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CORRIGIR_CHEGADA };
+  }
+}
+
+// "Cancelar reserva" (AGE-05), depois da confirmação. `exigirUsuario()` primeiro. Só a reserva NÃO
+// INICIADA sai, e o estado é conferido NA PRÓPRIA instrução de `delete` (T-05-43): se outro gestor
+// marcou "Chegou" um instante antes, nada é apagado e a frase diz que ela já começou. Nenhuma linha e
+// o uso não existe → "Isso já tinha sido removido." (idempotente). Uso com baixa no Estoque (a chave
+// estrangeira `movimentacoes_estoque.uso_livre_id`, 23503 em `erro.cause.code`) → a frase humana — a
+// última defesa (AGE-20). Uso no espaço ou encerrado nunca se apaga.
+export async function cancelarReserva(entradaBruta: unknown): Promise<ResultadoDeAcao<{ data: string }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaCancelarReserva.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_JA_REMOVIDO };
+  }
+  const { usoLivreId } = resultado.data;
+
+  let removido: { data: string } | undefined;
+  try {
+    [removido] = await db
+      .delete(usosLivres)
+      .where(and(eq(usosLivres.id, usoLivreId), eq(usosLivres.estado, "reservado")))
+      .returning({ data: usosLivres.data });
+    if (!removido) {
+      const atual = await estadoAtualDoUso(usoLivreId);
+      return { ok: false, erro: atual === null ? FRASE_JA_REMOVIDO : FRASE_RESERVA_JA_COMECOU };
+    }
+  } catch (erro) {
+    if (codigoDoErroPostgres(erro) === "23503") {
+      return { ok: false, erro: FRASE_USO_COM_MATERIAL_BAIXADO };
+    }
+    console.error(
+      `Falha ao cancelar a reserva (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_CANCELAR_RESERVA };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: removido };
 }

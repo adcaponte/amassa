@@ -62,6 +62,9 @@ export type SeletorPessoaProps = {
   // A pessoa voltou a digitar: a escolha anterior deixa de valer.
   aoDigitar?: () => void;
   desabilitado?: boolean;
+  // O nome já escolhido quando o seletor volta a aparecer (o "Quem" do uso livre depois de trocar de
+  // pílula e voltar — a folha guarda a escolha).
+  textoInicial?: string;
 };
 
 // O seletor de pessoa (UI-D5, confirmada pelo dono): um campo com busca (`role=combobox`) e a lista
@@ -75,7 +78,14 @@ export type SeletorPessoaProps = {
 // a lista sem fechar a folha. Estados: esqueleto de 3 linhas enquanto busca; erro com "Tentar de
 // novo"; os três vazios da UI-SPEC. Mensagens, esqueleto e erro ficam FORA do `listbox`, que só
 // contém grupos e opções.
-export function SeletorPessoa({ rotulo, eventoId, aoEscolher, aoDigitar, desabilitado = false }: SeletorPessoaProps) {
+export function SeletorPessoa({
+  rotulo,
+  eventoId,
+  aoEscolher,
+  aoDigitar,
+  desabilitado = false,
+  textoInicial = "",
+}: SeletorPessoaProps) {
   const idBase = useId();
   const idDoCampo = `${idBase}-campo`;
   const idDaLista = `${idBase}-lista`;
@@ -83,9 +93,9 @@ export function SeletorPessoa({ rotulo, eventoId, aoEscolher, aoDigitar, desabil
   const painel = useRef<HTMLDivElement>(null);
   // Depois de escolher, o foco que o Radix devolve ao campo (ao fechar o formulário de pessoa) não
   // reabre a lista; tocar no campo ou digitar, sim.
-  const acabouDeEscolher = useRef(false);
+  const acabouDeEscolher = useRef(textoInicial !== "");
 
-  const [texto, setTexto] = useState("");
+  const [texto, setTexto] = useState(textoInicial);
   const [expandido, setExpandido] = useState(false);
   const [estado, setEstado] = useState<Estado>({ tipo: "carregando" });
   const [ativa, setAtiva] = useState(-1);

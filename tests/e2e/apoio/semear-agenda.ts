@@ -563,3 +563,140 @@ export async function inscricoesDaPessoaNaData(eventoId: string, clienteId: stri
     return rows;
   });
 }
+
+// ── O uso livre (plano 09) ─────────────────────────────────────────────────────────────────────────
+
+export type UsoLivreParaSemear = {
+  clienteId: string;
+  data: string;
+  chegadaPrevista: string;
+  horasPrevistas?: number;
+  pessoas?: number;
+  // Sem estado: `reservado`. `no_espaco` exige a `chegada` (check `usos_livres_chegada_por_estado`).
+  estado?: "reservado" | "no_espaco";
+  chegada?: string;
+};
+
+// Um uso livre direto no banco — reservado ou já no espaço (para o caso de "ontem esquecido", D-18).
+export async function semearUsoLivre(dados: UsoLivreParaSemear): Promise<string> {
+  const estado = dados.estado ?? "reservado";
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       returning id`,
+      [
+        dados.clienteId,
+        dados.data,
+        dados.chegadaPrevista,
+        dados.horasPrevistas ?? 2,
+        dados.pessoas ?? 1,
+        estado,
+        estado === "reservado" ? null : (dados.chegada ?? dados.chegadaPrevista),
+      ],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error("semearUsoLivre: falha ao inserir.");
+    }
+    return id;
+  });
+}
+
+export type UsoLivreNoBanco = {
+  estado: "reservado" | "no_espaco" | "encerrado";
+  data: string;
+  chegada: string | null;
+  saida: string | null;
+  pessoas: number;
+  horasPrevistas: number;
+  horasCheias: number | null;
+  precoHoraCentavos: number | null;
+  valorCentavos: number | null;
+};
+
+// O uso livre como está no banco — `null` se ele não existe (reserva cancelada).
+export async function usoLivreNoBanco(id: string): Promise<UsoLivreNoBanco | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<UsoLivreNoBanco>(
+      `select estado::text as estado, to_char(data, 'YYYY-MM-DD') as data,
+              to_char(chegada, 'HH24:MI') as chegada, to_char(saida, 'HH24:MI') as saida, pessoas,
+              horas_previstas as "horasPrevistas", horas_cheias as "horasCheias",
+              preco_hora_centavos as "precoHoraCentavos", valor_centavos as "valorCentavos"
+         from usos_livres where id = $1`,
+      [id],
+    );
+    return rows[0] ?? null;
+  });
+}
+
+// Os usos livres de uma pessoa (o caso que reserva pela tela acha o seu pela pessoa).
+export async function usosLivresDaPessoa(clienteId: string): Promise<(UsoLivreNoBanco & { id: string })[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<UsoLivreNoBanco & { id: string }>(
+      `select id, estado::text as estado, to_char(data, 'YYYY-MM-DD') as data,
+              to_char(chegada, 'HH24:MI') as chegada, to_char(saida, 'HH24:MI') as saida, pessoas,
+              horas_previstas as "horasPrevistas", horas_cheias as "horasCheias",
+              preco_hora_centavos as "precoHoraCentavos", valor_centavos as "valorCentavos"
+         from usos_livres where cliente_id = $1 order by criado_em`,
+      [clienteId],
+    );
+    return rows;
+  });
+}
+
+// O preço da hora do uso livre é UM só no banco (o item "Uso livre (hora)", chave `uso_livre_hora`), e os
+// projetos desktop e celular rodam ao mesmo tempo — o mesmo `pg_advisory_lock` de
+// `cadastros-itens-da-agenda.spec.ts`. Quem escreve o preço (ou o nome) do item, ou depende do "sem
+// preço", segura a trava do começo ao fim e DEVOLVE o preço ao nulo e o nome ao original antes de soltar
+// (outros casos dependem do "sem preço").
+export const TRAVA_DO_PRECO_DA_HORA = 5_020_017;
+
+export type TravaDoItemDaHora = {
+  definirPreco: (centavos: number | null) => Promise<void>;
+  renomear: (nome: string) => Promise<void>;
+  soltar: () => Promise<void>;
+};
+
+export async function travarItemDaHora(): Promise<TravaDoItemDaHora> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  await cliente.query("select pg_advisory_lock($1)", [TRAVA_DO_PRECO_DA_HORA]);
+  const { rows } = await cliente.query<{ nome: string }>(
+    "select nome from itens_catalogo where chave_do_sistema = 'uso_livre_hora'",
+  );
+  const nomeOriginal = rows[0]?.nome ?? "Uso livre (hora)";
+  return {
+    definirPreco: async (centavos) => {
+      await cliente.query(
+        "update itens_catalogo set preco_venda_centavos = $1 where chave_do_sistema = 'uso_livre_hora'",
+        [centavos],
+      );
+    },
+    renomear: async (nome) => {
+      await cliente.query("update itens_catalogo set nome = $1 where chave_do_sistema = 'uso_livre_hora'", [nome]);
+    },
+    soltar: async () => {
+      try {
+        await cliente.query(
+          "update itens_catalogo set preco_venda_centavos = null, nome = $1 where chave_do_sistema = 'uso_livre_hora'",
+          [nomeOriginal],
+        );
+        await cliente.query("select pg_advisory_unlock($1)", [TRAVA_DO_PRECO_DA_HORA]);
+      } finally {
+        await cliente.end();
+      }
+    },
+  };
+}
+
+// Atalho para quem só precisa do preço: `definirPrecoDaHora(centavos | null)` SEM trava — use só dentro
+// de um caso que já segura `travarItemDaHora()`.
+export async function definirPrecoDaHora(centavos: number | null): Promise<void> {
+  await comCliente(async (cliente) => {
+    await cliente.query(
+      "update itens_catalogo set preco_venda_centavos = $1 where chave_do_sistema = 'uso_livre_hora'",
+      [centavos],
+    );
+  });
+}

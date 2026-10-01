@@ -49,11 +49,15 @@ export function rotuloDoDia(data: string, hoje: string): string {
   return data === hoje ? `${base} · hoje` : base;
 }
 
-// O mínimo que a ordenação precisa de um evento da semana.
+// O que ocupa um dia da agenda: um evento (turma, avulsa, fechado) ou um uso livre do espaço (plano 09
+// — tabela própria, `usos_livres`).
+export type TipoDoPonto = TipoEvento | "uso_livre";
+
+// O mínimo que a ordenação precisa de um item da semana (evento ou uso livre).
 export type ItemDoDia = {
   id: string;
   data: string;
-  tipo: TipoEvento;
+  tipo: TipoDoPonto;
   // Nulo no dia fechado ("dia todo"). Aceita "HH:MM" e "HH:MM:SS".
   inicio: string | null;
   // O que o cartão mostra (nome da turma/aula, motivo do fechado) — desempata o mesmo horário.
@@ -63,8 +67,9 @@ export type ItemDoDia = {
 // Ordem alfabética de gente: sem diferença de caixa nem de acento ("Ágata" junto de "agata").
 const ORDEM_DE_TITULO = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
 
-const POSICAO_DO_TIPO: ReadonlyMap<TipoEvento, number> = new Map(
-  TIPOS_DE_EVENTO.map((tipo, indice) => [tipo, indice]),
+// O uso livre vem depois dos três tipos de evento no desempate (o título já desempatou antes).
+const POSICAO_DO_TIPO: ReadonlyMap<TipoDoPonto, number> = new Map(
+  [...TIPOS_DE_EVENTO, "uso_livre" as const].map((tipo, indice) => [tipo, indice]),
 );
 
 function comparar(a: ItemDoDia, b: ItemDoDia): number {
@@ -157,9 +162,8 @@ export function gradeDoMes(mes: string): CelulaDoMes[] {
   return celulas[35].doMes ? celulas : celulas.slice(0, 35);
 }
 
-// O que a célula do mês sabe de um lançamento: o tipo (o uso livre entra no plano 09) e se foi
-// cancelado — cancelado não tem ponto nem conta no resumo.
-export type TipoDoPonto = TipoEvento | "uso_livre";
+// O que a célula do mês sabe de um lançamento: o tipo (evento ou uso livre) e se foi cancelado —
+// cancelado não tem ponto nem conta no resumo.
 export type LancamentoDoDia = { tipo: TipoDoPonto; cancelado?: boolean };
 
 const TETO_DE_PONTOS = 6;

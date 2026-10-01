@@ -26,10 +26,10 @@
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, turmas } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes, turmas, usosLivres } from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 
-import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
+import type { EstadoUsoLivre, Presenca, TipoEvento, TipoInscricao } from "./tipos";
 
 export type { TransacaoDoBanco };
 
@@ -528,4 +528,39 @@ export async function garantirMensalidadesDoMes(
     on conflict (turma_id, cliente_id, mes) do nothing
   `);
   return resultado.rowCount ?? 0;
+}
+
+export type UsoLivreTravado = {
+  id: string;
+  clienteId: string;
+  data: string;
+  chegadaPrevista: string;
+  horasPrevistas: number;
+  pessoas: number;
+  estado: EstadoUsoLivre;
+  // "HH:MM:SS" do `pg` (Pitfall 9) — nulo enquanto reservado.
+  chegada: string | null;
+};
+
+// Trava a linha do USO LIVRE até o fim da transação (`for no key update` — o elo USO LIVRE da ordem
+// global; nunca a exclusiva: a baixa do Estoque do plano 10 pede `for key share` nesta linha pela
+// chave estrangeira `movimentacoes_estoque.uso_livre_id`). Serializa duas decisões sobre o mesmo uso:
+// dois encerramentos, "Chegou" e "Cancelar reserva" em dois celulares (T-05-43, T-05-44). `null` se ele
+// não existe (reserva cancelada em outro celular).
+export async function travarUsoLivre(tx: TransacaoDoBanco, usoLivreId: string): Promise<UsoLivreTravado | null> {
+  const [linha] = await tx
+    .select({
+      id: usosLivres.id,
+      clienteId: usosLivres.clienteId,
+      data: usosLivres.data,
+      chegadaPrevista: usosLivres.chegadaPrevista,
+      horasPrevistas: usosLivres.horasPrevistas,
+      pessoas: usosLivres.pessoas,
+      estado: usosLivres.estado,
+      chegada: usosLivres.chegada,
+    })
+    .from(usosLivres)
+    .where(eq(usosLivres.id, usoLivreId))
+    .for("no key update");
+  return linha ?? null;
 }

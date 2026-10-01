@@ -10,6 +10,7 @@ import {
   pessoaDaUrl,
   semanaDaUrl,
   turmaDaUrl,
+  usoDaUrl,
   vistaDaUrl,
   type VistaDaAgenda,
 } from "@/lib/agenda/abas";
@@ -19,6 +20,8 @@ import {
   lerSemana,
   obterEvento,
   obterTurma,
+  obterUsoLivre,
+  precoDaHoraDoUsoLivre,
   saldosDeReposicao,
   turmasDaPessoa,
   turmasPorCliente,
@@ -60,7 +63,11 @@ import {
   ListaPessoas,
   type FichaDoServidor,
 } from "@/components/amassa/agenda/lista-pessoas";
-import { SemanaDaAgenda, type TurmaDoServidor } from "@/components/amassa/agenda/semana-da-agenda";
+import {
+  SemanaDaAgenda,
+  type TurmaDoServidor,
+  type UsoDoServidor,
+} from "@/components/amassa/agenda/semana-da-agenda";
 
 type ParametrosDaAgenda = {
   aba?: string | string[];
@@ -72,6 +79,7 @@ type ParametrosDaAgenda = {
   mes?: string | string[];
   evento?: string | string[];
   turma?: string | string[];
+  uso?: string | string[];
   lancar?: string | string[];
   dia?: string | string[];
 };
@@ -85,7 +93,8 @@ function urlDaAgenda(consulta: string): string {
 // (Brasília), e passado ao módulo puro — o cliente nunca decide o dia. A URL manda (normalizada por
 // `lib/agenda/abas.ts`, parâmetro estranho cai no padrão, nunca em erro): `?vista=semana|mes`,
 // `?semana=` (qualquer dia; vira a segunda dela), `?mes=AAAA-MM`, `?evento=` (a folha aberta),
-// `?turma=` (a folha da turma, no lugar da folha da data — D-03, UI-D25).
+// `?turma=` (a folha da turma, no lugar da folha da data — D-03, UI-D25), `?uso=` (a folha do uso
+// livre — plano 09).
 // `?lancar=1&dia=` (a folha "Lançar na agenda") é lido pelo cliente (`FolhaLancar`), que abre e
 // fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês) ou
 // "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta). "A receber", "Números" e "No site"
@@ -129,7 +138,10 @@ export default async function PaginaAgenda({
             ) : (
               <VistaDaSemana parametros={parametros} hoje={hoje} />
             )}
-            <FolhaLancar hoje={hoje} />
+            {/* O preço da hora (a dica do uso livre) espera o banco sem segurar a semana. */}
+            <Suspense fallback={null}>
+              <FolhaLancarCarregada hoje={hoje} />
+            </Suspense>
           </>
         )}
       </div>
@@ -216,6 +228,32 @@ function hrefsDaVista(semanaNaTela: string, mesNaTela: string): Record<VistaDaAg
   };
 }
 
+// A folha "Lançar na agenda" com o preço da hora do uso livre (D-17: o item "Uso livre (hora)",
+// achado pela chave). Sem o preço — ou sem conseguir lê-lo — a dica diz onde cadastrar.
+async function FolhaLancarCarregada({ hoje }: { hoje: string }) {
+  let precoDaHoraCentavos: number | null = null;
+  try {
+    precoDaHoraCentavos = await precoDaHoraDoUsoLivre();
+  } catch (erro) {
+    console.error("Falha ao ler o preço da hora do uso livre:", erro);
+  }
+  return <FolhaLancar hoje={hoje} precoDaHoraCentavos={precoDaHoraCentavos} />;
+}
+
+// O uso livre de `?uso=` (plano 09): a leitura que falha mostra o erro DENTRO da folha.
+async function lerUsoLivre(id: string | null, hoje: string): Promise<UsoDoServidor> {
+  if (id === null) {
+    return { estado: "nenhum" };
+  }
+  try {
+    const uso = await obterUsoLivre(id, hoje);
+    return uso === null ? { estado: "inexistente", id } : { estado: "carregado", uso };
+  } catch (erro) {
+    console.error("Falha ao carregar o uso livre:", erro);
+    return { estado: "erro", id };
+  }
+}
+
 // A turma de `?turma=`: a leitura que falha mostra o erro DENTRO da folha (UI E11·error), não a
 // página de erro.
 async function lerTurma(id: string | null, hoje: string): Promise<TurmaDoServidor> {
@@ -235,10 +273,11 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
   const segunda = semanaDaUrl(parametros.semana, hoje);
   const idDoEvento = idDaUrl(parametros.evento);
 
-  const [eventos, eventoAberto, turmaAberta] = await Promise.all([
+  const [eventos, eventoAberto, turmaAberta, usoAberto] = await Promise.all([
     lerSemana(segunda, hoje),
     idDoEvento === null ? Promise.resolve(null) : obterEvento(idDoEvento, hoje),
     lerTurma(turmaDaUrl(parametros.turma), hoje),
+    lerUsoLivre(usoDaUrl(parametros.uso), hoje),
   ]);
 
   const dias = agruparPorDia(segunda, eventos).map((grupo) => ({
@@ -269,6 +308,7 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
         turmaAberta={turmaAberta}
         eventoAberto={eventoAberto}
         eventoInexistente={idDoEvento !== null && eventoAberto === null}
+        usoAberto={usoAberto}
         rolarAte={parametros.semana === undefined && contemHoje ? hoje : null}
       />
     </>

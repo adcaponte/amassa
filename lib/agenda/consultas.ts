@@ -4,10 +4,10 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, max, notExists, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, max, ne, notExists, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, itensCatalogo, mensalidades, turmaAlunos, turmas } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes, itensCatalogo, mensalidades, turmaAlunos, turmas, usosLivres } from "@/db/schema";
 import type { TurmaDaSubLinha } from "@/lib/clientes/lista";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { ultimoDiaDoMes } from "@/lib/financeiro/calendario";
@@ -25,11 +25,12 @@ import { horaDe, minutosDe } from "./horario";
 import { mesDaData, valorDaAula } from "./mensalidade";
 import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
 import { creditosDeReposicao, type CreditosDeReposicao } from "./reposicao";
-import { gradeDoMes } from "./semana";
+import { gradeDoMes, type TipoDoPonto } from "./semana";
 import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor, type PessoaComSaldo } from "./seletor";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM, rotuloDoGrupoDoSeletor } from "./textos";
-import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
+import type { EstadoUsoLivre, Presenca, TipoEvento, TipoInscricao } from "./tipos";
 import { NOMES_CURTOS_DOS_DIAS, ORDEM_DOS_DIAS_NA_TELA, type FechadoDoDia } from "./turma";
+import { precisaEncerrar, saidaPrevista } from "./uso-livre";
 
 function hhmm(hora: string | null): string | null {
   return hora === null ? null : horaDe(minutosDe(hora));
@@ -68,10 +69,83 @@ function motivosDosFechados(linhas: readonly { tipo: TipoEvento; data: string; t
   return motivos;
 }
 
-// Os eventos da semana que começa em `segunda` (segunda a domingo), com a contagem de inscritos —
-// a ordem do dia é do módulo puro (`agruparPorDia`), não do banco.
-export async function lerSemana(segunda: string, hoje: string): Promise<EventoDaSemana[]> {
+// Um uso livre do espaço na semana (plano 09 — 05-UI-SPEC.md §"Cartão de evento"): a hora de chegada
+// (a real, depois de "Chegou"; antes, a prevista), "Uso livre · {nome}", "{n} pessoa(s)" e a sub-linha
+// com o fim (o previsto; encerrado, a saída real). `encerrar` é a D-18: dia passado ainda no espaço.
+export type UsoLivreDaSemana = {
+  id: string;
+  tipo: "uso_livre";
+  data: string;
+  inicio: string;
+  fim: string;
+  // O nome da pessoa — o cartão escreve "Uso livre · {nome}"; desempata o mesmo horário.
+  titulo: string;
+  pessoas: number;
+  estado: EstadoUsoLivre;
+  encerrar: boolean;
+};
+
+// O que ocupa a semana: os eventos e os usos livres, juntos na ordem do módulo puro.
+export type ItemDaSemana = EventoDaSemana | UsoLivreDaSemana;
+
+type LinhaDoUsoLivre = {
+  id: string;
+  data: string;
+  nome: string;
+  chegadaPrevista: string;
+  horasPrevistas: number;
+  pessoas: number;
+  estado: EstadoUsoLivre;
+  chegada: string | null;
+  saida: string | null;
+};
+
+const COLUNAS_DO_USO_LIVRE = {
+  id: usosLivres.id,
+  data: usosLivres.data,
+  nome: clientes.nome,
+  chegadaPrevista: usosLivres.chegadaPrevista,
+  horasPrevistas: usosLivres.horasPrevistas,
+  pessoas: usosLivres.pessoas,
+  estado: usosLivres.estado,
+  chegada: usosLivres.chegada,
+  saida: usosLivres.saida,
+};
+
+function usoLivreDaSemana(linha: LinhaDoUsoLivre, hoje: string): UsoLivreDaSemana {
+  const chegou = linha.chegada ?? linha.chegadaPrevista;
+  return {
+    id: linha.id,
+    tipo: "uso_livre",
+    data: linha.data,
+    inicio: horaDe(minutosDe(chegou)),
+    fim:
+      linha.estado === "encerrado" && linha.saida !== null
+        ? horaDe(minutosDe(linha.saida))
+        : saidaPrevista(chegou, linha.horasPrevistas),
+    titulo: linha.nome,
+    pessoas: linha.pessoas,
+    estado: linha.estado,
+    encerrar: precisaEncerrar({ data: linha.data, estado: linha.estado }, hoje),
+  };
+}
+
+// Os usos livres entre `de` e `ate` (inclusive), com o nome da pessoa — todos os estados: a reserva, o
+// uso no espaço e o encerrado ficam na agenda (só a reserva cancelada sai, e ela é apagada).
+async function usosLivresEntre(de: string, ate: string): Promise<LinhaDoUsoLivre[]> {
+  return db
+    .select(COLUNAS_DO_USO_LIVRE)
+    .from(usosLivres)
+    .innerJoin(clientes, eq(clientes.id, usosLivres.clienteId))
+    .where(and(gte(usosLivres.data, de), lte(usosLivres.data, ate)))
+    .orderBy(asc(usosLivres.data), asc(usosLivres.criadoEm), asc(usosLivres.id));
+}
+
+// Os eventos E os usos livres da semana que começa em `segunda` (segunda a domingo), com a contagem de
+// inscritos — a ordem do dia é do módulo puro (`agruparPorDia`), não do banco.
+export async function lerSemana(segunda: string, hoje: string): Promise<ItemDaSemana[]> {
   const domingo = somarDias(segunda, 6);
+  const usos = usosLivresEntre(segunda, domingo);
   const contagem = db
     .select({
       eventoId: inscricoes.eventoId,
@@ -104,7 +178,8 @@ export async function lerSemana(segunda: string, hoje: string): Promise<EventoDa
     .orderBy(asc(eventos.data), asc(eventos.criadoEm), asc(eventos.id));
 
   const motivos = motivosDosFechados(linhas);
-  return linhas.map((linha) => ({
+  const doEspaco = (await usos).map((uso) => usoLivreDaSemana(uso, hoje));
+  const dosEventos: EventoDaSemana[] = linhas.map((linha) => ({
     id: linha.id,
     tipo: linha.tipo,
     data: linha.data,
@@ -118,6 +193,7 @@ export async function lerSemana(segunda: string, hoje: string): Promise<EventoDa
     diaFechadoMotivo: linha.tipo === "turma" ? (motivos.get(linha.data) ?? null) : null,
     marcarPresenca: pedePresenca(linha, Number(linha.inscritos ?? 0), Number(linha.semMarcacao ?? 0), hoje),
   }));
+  return [...dosEventos, ...doEspaco];
 }
 
 // A regra é do módulo puro; aqui só se monta, a partir das duas contagens, a lista que ela lê.
@@ -310,8 +386,10 @@ export type ItensDoSistema = {
 
 const CHAVES_DOS_ITENS_DO_SISTEMA = ["mensalidade", "inscricao_oficina", "uso_livre_hora"] as const;
 
-export async function obterItensDoSistema(): Promise<ItensDoSistema> {
-  const linhas = await db
+// O leitor é o `db` por padrão; `encerrarUsoLivre` passa a TRANSAÇÃO, para ler o preço da hora junto da
+// trava do uso e congelá-lo (plano 09).
+export async function obterItensDoSistema(leitor: LeitorDeConsulta = db): Promise<ItensDoSistema> {
+  const linhas = await (leitor as Pick<TransacaoDoBanco, "select">)
     .select({
       chaveDoSistema: itensCatalogo.chaveDoSistema,
       id: itensCatalogo.id,
@@ -339,8 +417,9 @@ export async function obterItensDoSistema(): Promise<ItensDoSistema> {
 
 // O que a folha "Lançar na agenda" precisa saber do dia escolhido para o aviso da D-13 — e só isso:
 // o motivo do fechado (se o dia está fechado) e quantos lançamentos NÃO cancelados, fora o próprio
-// fechado, já estão nele. Nunca recusa nada: é aviso (D-13 — "avisa e não bloqueia"). Os usos
-// livres entram nesta conta no plano 09.
+// fechado, já estão nele — os eventos não cancelados E os usos livres ainda não encerrados (plano 09:
+// fechar um dia que só tem uma reserva avisa "1 lançamento"). Nunca recusa nada: é aviso (D-13 —
+// "avisa e não bloqueia").
 export type DiaParaLancar = {
   fechadoMotivo: string | null;
   lancamentos: number;
@@ -355,31 +434,59 @@ export async function lerDiaParaLancar(data: string, ate?: string): Promise<DiaP
     .where(and(eq(eventos.data, data), isNull(eventos.canceladoEm)))
     .orderBy(asc(eventos.criadoEm), asc(eventos.id));
 
+  const [usos] = await db
+    .select({ quantos: count() })
+    .from(usosLivres)
+    .where(and(eq(usosLivres.data, data), ne(usosLivres.estado, "encerrado")));
+
   const fechado = linhas.find((linha) => linha.tipo === "fechado");
   return {
     fechadoMotivo: fechado ? (fechado.titulo ?? "") : null,
-    lancamentos: linhas.filter((linha) => linha.tipo !== "fechado").length,
+    lancamentos: linhas.filter((linha) => linha.tipo !== "fechado").length + Number(usos?.quantos ?? 0),
     fechados: ate === undefined ? [] : await fechadosEntre(data, ate),
   };
 }
 
 // Um lançamento na grade do mês: o dia e o tipo — o resto (título, horário) não aparece na célula.
-export type LancamentoDoMes = { data: string; tipo: TipoEvento };
+export type LancamentoDoMes = { data: string; tipo: TipoDoPonto };
 
-// Os eventos NÃO cancelados entre a primeira e a última célula da grade do mês (as células de fora
-// do mês também têm pontos), por dia e início — cancelado não tem ponto (herdado). Os usos livres
-// entram aqui no plano 09.
+// Os eventos NÃO cancelados e os usos livres (todos os estados — plano 09) entre a primeira e a última
+// célula da grade do mês (as células de fora do mês também têm pontos), por dia e início (o do uso
+// livre é a chegada) — cancelado não tem ponto (herdado).
 export async function lerMes(mes: string): Promise<LancamentoDoMes[]> {
   const grade = gradeDoMes(mes);
   const primeiraCelula = grade[0].data;
   const ultimaCelula = grade[grade.length - 1].data;
-  return db
-    .select({ data: eventos.data, tipo: eventos.tipo })
-    .from(eventos)
-    .where(
-      and(gte(eventos.data, primeiraCelula), lte(eventos.data, ultimaCelula), isNull(eventos.canceladoEm)),
-    )
-    .orderBy(asc(eventos.data), asc(eventos.inicio), asc(eventos.id));
+  const [doCalendario, doEspaco] = await Promise.all([
+    db
+      .select({ data: eventos.data, tipo: eventos.tipo, inicio: eventos.inicio })
+      .from(eventos)
+      .where(
+        and(gte(eventos.data, primeiraCelula), lte(eventos.data, ultimaCelula), isNull(eventos.canceladoEm)),
+      )
+      .orderBy(asc(eventos.data), asc(eventos.inicio), asc(eventos.id)),
+    db
+      .select({ data: usosLivres.data, chegadaPrevista: usosLivres.chegadaPrevista, chegada: usosLivres.chegada })
+      .from(usosLivres)
+      .where(and(gte(usosLivres.data, primeiraCelula), lte(usosLivres.data, ultimaCelula)))
+      .orderBy(asc(usosLivres.data), asc(usosLivres.chegadaPrevista), asc(usosLivres.id)),
+  ]);
+  const juntos = [
+    ...doCalendario.map((linha) => ({
+      data: linha.data,
+      tipo: linha.tipo as TipoDoPonto,
+      minutos: linha.inicio === null ? -1 : minutosDe(linha.inicio),
+    })),
+    ...doEspaco.map((linha) => ({
+      data: linha.data,
+      tipo: "uso_livre" as TipoDoPonto,
+      minutos: minutosDe(linha.chegada ?? linha.chegadaPrevista),
+    })),
+  ];
+  // Por dia e início; no mesmo início, a ordem de chegada aqui (eventos antes dos usos) — sort estável.
+  return juntos
+    .sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : a.minutos - b.minutos))
+    .map(({ data, tipo }) => ({ data, tipo }));
 }
 
 // Uma linha de "Últimas vindas" da ficha da pessoa.
@@ -398,7 +505,8 @@ const TETO_DE_VINDAS = 8;
 // As últimas vindas da pessoa (05-UI-SPEC.md §"Ficha da pessoa — linhas de leitura": até 8, as mais
 // recentes primeiro): as inscrições dela em datas NÃO canceladas de hoje para trás — data futura
 // ainda não é vinda. É dado da Agenda, não do cadastro: por isso mora aqui, e não em `lib/clientes`.
-// Os usos livres ("Uso livre {h} h") entram aqui no plano 09.
+// Os usos livres ("Uso livre {h} h" — 05-UI-SPEC.md §"Ficha da pessoa") ainda NÃO entram aqui: nenhum
+// plano da fase os pôs nesta lista (lacuna registrada no 05-09-SUMMARY).
 export async function ultimasVindas(clienteId: string, hoje: string): Promise<VindaDaPessoa[]> {
   const linhas = await db
     .select({
@@ -811,4 +919,63 @@ export async function turmasPorCliente(clienteIds: readonly string[]): Promise<R
       .map((turma) => ({ nome: turma.nome, dia: NOMES_CURTOS_DOS_DIAS[turma.diaSemana] }));
   }
   return resultado;
+}
+
+// O uso livre aberto na folha (`?uso={id}`, plano 09) — `null` se ele não existe (reserva cancelada em
+// outro celular, link velho). Traz o que o cartão já sabe, as horas de parede em "HH:MM", o que foi
+// CONGELADO no encerramento (horas cheias, preço da hora, valor) e o preço da hora de AGORA, achado pela
+// chave do item "Uso livre (hora)" (D-04, D-17 — renomear o item em Cadastros não muda nada). O preço
+// de agora só serve à conta que a folha mostra antes de encerrar; quem grava é `encerrarUsoLivre`, que o
+// lê de novo sob a trava.
+export type UsoLivreCarregado = UsoLivreDaSemana & {
+  clienteId: string;
+  chegadaPrevista: string;
+  horasPrevistas: number;
+  chegada: string | null;
+  saida: string | null;
+  // A saída prevista: chegada (a real, quando houver) + horas previstas.
+  saidaPrevista: string;
+  horasCheias: number | null;
+  precoHoraCongeladoCentavos: number | null;
+  valorCentavos: number | null;
+  precoHoraAtualCentavos: number | null;
+};
+
+export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreCarregado | null> {
+  const [[linha], itens] = await Promise.all([
+    db
+      .select({
+        ...COLUNAS_DO_USO_LIVRE,
+        clienteId: usosLivres.clienteId,
+        horasCheias: usosLivres.horasCheias,
+        precoHoraCentavos: usosLivres.precoHoraCentavos,
+        valorCentavos: usosLivres.valorCentavos,
+      })
+      .from(usosLivres)
+      .innerJoin(clientes, eq(clientes.id, usosLivres.clienteId))
+      .where(eq(usosLivres.id, id)),
+    obterItensDoSistema(),
+  ]);
+  if (!linha) {
+    return null;
+  }
+  const naSemana = usoLivreDaSemana(linha, hoje);
+  return {
+    ...naSemana,
+    clienteId: linha.clienteId,
+    chegadaPrevista: hhmm(linha.chegadaPrevista) ?? naSemana.inicio,
+    horasPrevistas: linha.horasPrevistas,
+    chegada: hhmm(linha.chegada),
+    saida: hhmm(linha.saida),
+    saidaPrevista: saidaPrevista(linha.chegada ?? linha.chegadaPrevista, linha.horasPrevistas),
+    horasCheias: linha.horasCheias,
+    precoHoraCongeladoCentavos: linha.precoHoraCentavos,
+    valorCentavos: linha.valorCentavos,
+    precoHoraAtualCentavos: itens.usoLivreHora.precoVendaCentavos,
+  };
+}
+
+// O preço da hora do uso livre agora (a dica da folha "Lançar na agenda") — pela chave, nunca pelo nome.
+export async function precoDaHoraDoUsoLivre(): Promise<number | null> {
+  return (await obterItensDoSistema()).usoLivreHora.precoVendaCentavos;
 }

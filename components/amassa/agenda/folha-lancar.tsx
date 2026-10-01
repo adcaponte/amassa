@@ -6,9 +6,10 @@ import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { diaDaUrl, lancarDaUrl } from "@/lib/agenda/abas";
-import { conferirDiaParaLancar, fecharDia, lancarAvulsa, lancarTurma } from "@/lib/agenda/acoes";
+import { conferirDiaParaLancar, fecharDia, lancarAvulsa, lancarTurma, reservarUsoLivre } from "@/lib/agenda/acoes";
 import type { DiaParaLancar } from "@/lib/agenda/consultas";
-import { esquemaFecharDia, esquemaLancarAvulsa, esquemaLancarTurma } from "@/lib/agenda/esquemas";
+import { esquemaFecharDia, esquemaLancarAvulsa, esquemaLancarTurma, esquemaReservarUsoLivre } from "@/lib/agenda/esquemas";
+import type { PessoaDoSeletor } from "@/lib/agenda/seletor";
 import {
   ARIA_O_QUE_LANCAR,
   avisoDiaComLancamentos,
@@ -18,7 +19,11 @@ import {
   DICA_TIPO_AULA,
   DICA_TIPO_FECHADO,
   DICA_TIPO_TURMA,
+  DICA_TIPO_USO_LIVRE_SEM_PRECO,
+  dicaTipoUsoLivre,
   FRASE_FALHA_AO_LANCAR,
+  HORAS_PREVISTAS_PADRAO,
+  PESSOAS_PADRAO,
   PLACEHOLDER_MOTIVO,
   PLACEHOLDER_NOME_AULA,
   ROTULO_AULA_AVULSA,
@@ -35,19 +40,24 @@ import {
   ROTULO_MOTIVO,
   ROTULO_NOME,
   ROTULO_PRECO_POR_PESSOA,
+  ROTULO_RESERVANDO,
+  ROTULO_RESERVAR_USO_LIVRE,
   ROTULO_TERMINA,
   ROTULO_TURMA_FIXA,
+  ROTULO_USO_LIVRE,
   ROTULO_VAGAS,
   ROTULO_VOLTAR,
   SEMANAS_PADRAO,
   TITULO_LANCAR_NA_AGENDA,
   TOAST_LANCADO,
+  TOAST_USO_LIVRE_RESERVADO,
   toastDiaFechado,
   toastTurmaLancada,
   VAGAS_PADRAO,
   VENCIMENTO_PADRAO,
 } from "@/lib/agenda/textos";
 import { datasDaTurma, datasEmDiaFechado, diaDaSemanaDe, SEMANAS_MAXIMAS } from "@/lib/agenda/turma";
+import { formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
@@ -59,22 +69,24 @@ import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
 import { CamposTurma, type CampoControlado } from "./campos-turma";
+import { CamposUsoLivre } from "./campos-uso-livre";
 import { enderecoDaAgendaCom } from "./url-da-agenda";
 
 // Os tipos que a folha lança, na ordem herdada do protótipo (05-UI-SPEC.md: "Turma fixa" · "Aula ou
-// oficina avulsa" · "Uso livre" · "Fechado / bloqueio"); o uso livre entra entre a avulsa e o fechado
-// no plano 09 — com o formulário inteiro, nunca uma pílula sem destino.
-export type TipoDeLancamento = "turma" | "avulsa" | "fechado";
+// oficina avulsa" · "Uso livre" · "Fechado / bloqueio") — cada um com o formulário inteiro.
+export type TipoDeLancamento = "turma" | "avulsa" | "uso_livre" | "fechado";
 
 const TIPOS: readonly { valor: TipoDeLancamento; rotulo: string }[] = [
   { valor: "turma", rotulo: ROTULO_TURMA_FIXA },
   { valor: "avulsa", rotulo: ROTULO_AULA_AVULSA },
+  { valor: "uso_livre", rotulo: ROTULO_USO_LIVRE },
   { valor: "fechado", rotulo: ROTULO_FECHADO_BLOQUEIO },
 ];
 
 const ROTULO_DE_GRAVAR: Record<TipoDeLancamento, { parado: string; gravando: string }> = {
   turma: { parado: ROTULO_LANCAR_TURMA, gravando: ROTULO_LANCANDO },
   avulsa: { parado: ROTULO_LANCAR_AULA, gravando: ROTULO_LANCANDO },
+  uso_livre: { parado: ROTULO_RESERVAR_USO_LIVRE, gravando: ROTULO_RESERVANDO },
   fechado: { parado: ROTULO_FECHAR_O_DIA, gravando: ROTULO_FECHANDO },
 };
 
@@ -89,12 +101,17 @@ type Campo =
   | "diaSemana"
   | "mensalidade"
   | "semanas"
-  | "diaVencimento";
+  | "diaVencimento"
+  | "clienteId"
+  | "chegadaPrevista"
+  | "horasPrevistas"
+  | "pessoas";
 
 // A ordem em que o foco procura o primeiro erro — a ordem dos campos na tela.
 const ORDEM_DOS_CAMPOS: Record<TipoDeLancamento, readonly Campo[]> = {
   turma: ["titulo", "diaSemana", "data", "inicio", "fim", "vagas", "mensalidade", "semanas", "diaVencimento"],
   avulsa: ["titulo", "data", "inicio", "fim", "vagas", "preco"],
+  uso_livre: ["clienteId", "data", "chegadaPrevista", "horasPrevistas", "pessoas"],
   fechado: ["data", "motivo"],
 };
 
@@ -138,6 +155,9 @@ function juntarIds(...ids: (string | undefined)[]): string | undefined {
 export type FolhaLancarProps = {
   // O "hoje" de Brasília, decidido no servidor — a data da folha aberta por "+ Lançar na agenda".
   hoje: string;
+  // O preço do item "Uso livre (hora)" do Catálogo (achado pela chave — D-17), para a dica do uso
+  // livre; `null` quando ainda não foi cadastrado (dá para reservar, não para encerrar).
+  precoDaHoraCentavos: number | null;
 };
 
 // A folha "Lançar na agenda" (05-UI-SPEC.md §"Folha "Lançar na agenda" (diálogo)"), aberta por
@@ -145,7 +165,7 @@ export type FolhaLancarProps = {
 // abre com o dia. Abrir e fechar mexem só na URL (`pushState`) — a folha não precisa de nada do
 // servidor para nascer. A ÚLTIMA pílula escolhida vale enquanto a página estiver aberta (herdado):
 // este componente fica montado e guarda a escolha; o formulário nasce limpo a cada abertura.
-export function FolhaLancar({ hoje }: FolhaLancarProps) {
+export function FolhaLancar({ hoje, precoDaHoraCentavos }: FolhaLancarProps) {
   const parametros = useSearchParams();
   const [ultimoTipo, setUltimoTipo] = useState<TipoDeLancamento>("avulsa");
 
@@ -162,6 +182,7 @@ export function FolhaLancar({ hoje }: FolhaLancarProps) {
       diaSemanaInicial={diaTocado === null ? "1" : String(diaDaSemanaDe(diaTocado))}
       tipoInicial={ultimoTipo}
       aoMudarTipo={setUltimoTipo}
+      precoDaHoraCentavos={precoDaHoraCentavos}
       aoFechar={() => irParaSemNavegar(enderecoDaAgendaCom({ lancar: null, dia: null }))}
     />
   );
@@ -172,6 +193,7 @@ type FormularioLancarProps = {
   diaSemanaInicial: string;
   tipoInicial: TipoDeLancamento;
   aoMudarTipo: (tipo: TipoDeLancamento) => void;
+  precoDaHoraCentavos: number | null;
   aoFechar: () => void;
 };
 
@@ -180,6 +202,7 @@ function FormularioLancar({
   diaSemanaInicial,
   tipoInicial,
   aoMudarTipo,
+  precoDaHoraCentavos,
   aoFechar,
 }: FormularioLancarProps) {
   const router = useRouter();
@@ -199,6 +222,12 @@ function FormularioLancar({
   const [mensalidade, setMensalidade] = useState("");
   const [semanas, setSemanas] = useState(SEMANAS_PADRAO);
   const [diaVencimento, setDiaVencimento] = useState(VENCIMENTO_PADRAO);
+  // Só do uso livre (AGE-13): quem (escolhido no seletor), a hora prevista de chegada, as horas
+  // previstas e as pessoas. A data é a MESMA da aula avulsa e do fechado.
+  const [pessoa, setPessoa] = useState<PessoaDoSeletor | null>(null);
+  const [chegadaPrevista, setChegadaPrevista] = useState("");
+  const [horasPrevistas, setHorasPrevistas] = useState(HORAS_PREVISTAS_PADRAO);
+  const [pessoas, setPessoas] = useState(PESSOAS_PADRAO);
 
   const [erros, setErros] = useState<Partial<Record<Campo, string>>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
@@ -324,14 +353,18 @@ function FormularioLancar({
           }
         : tipo === "avulsa"
           ? { titulo, data, inicio, fim, vagas, preco, publico }
-          : { data, motivo };
+          : tipo === "uso_livre"
+            ? { clienteId: pessoa?.id ?? "", data, chegadaPrevista, horasPrevistas, pessoas }
+            : { data, motivo };
     // A mesma regra do servidor, antes de gravar — o servidor confere de novo (a única que vale).
     const conferido =
       tipo === "turma"
         ? esquemaLancarTurma.safeParse(entrada)
         : tipo === "avulsa"
           ? esquemaLancarAvulsa.safeParse(entrada)
-          : esquemaFecharDia.safeParse(entrada);
+          : tipo === "uso_livre"
+            ? esquemaReservarUsoLivre.safeParse(entrada)
+            : esquemaFecharDia.safeParse(entrada);
     if (!conferido.success) {
       mostrarErros(errosDoEsquema(conferido.error.issues));
       return;
@@ -346,7 +379,9 @@ function FormularioLancar({
           ? await lancarTurma(entrada)
           : tipo === "avulsa"
             ? await lancarAvulsa(entrada)
-            : await fecharDia(entrada);
+            : tipo === "uso_livre"
+              ? await reservarUsoLivre(entrada)
+              : await fecharDia(entrada);
       if (!resposta.ok) {
         // A folha continua aberta e preenchida — nada do que foi digitado se perde.
         const porCampo = errosDoEsquema(
@@ -373,7 +408,13 @@ function FormularioLancar({
         });
         semanaLancada = resposta.dados.primeira;
       } else {
-        toast.success(tipo === "avulsa" ? TOAST_LANCADO : toastDiaFechado(formatarDiaMes(resposta.dados.data)));
+        toast.success(
+          tipo === "avulsa"
+            ? TOAST_LANCADO
+            : tipo === "uso_livre"
+              ? TOAST_USO_LIVRE_RESERVADO
+              : toastDiaFechado(formatarDiaMes(resposta.dados.data)),
+        );
         semanaLancada = resposta.dados.data;
       }
       window.history.replaceState(null, "", enderecoDaAgendaCom({ lancar: null, dia: null }));
@@ -482,7 +523,12 @@ function FormularioLancar({
           // Foco inicial só a partir de 768px — no celular, o teclado não sobe sozinho tapando a
           // folha (UI-D13 da 06).
           if (window.matchMedia("(min-width: 768px)").matches) {
-            (tipo === "fechado" ? campos.current.data : campos.current.titulo)?.focus();
+            (tipo === "fechado"
+              ? campos.current.data
+              : tipo === "uso_livre"
+                ? campos.current.clienteId
+                : campos.current.titulo
+            )?.focus();
           }
         }}
         className={CLASSE_DA_FOLHA}
@@ -523,7 +569,7 @@ function FormularioLancar({
                     role="radio"
                     aria-checked={marcada}
                     tabIndex={marcada ? 0 : -1}
-                    data-testid={`lancar-tipo-${opcao.valor}`}
+                    data-testid={`lancar-tipo-${opcao.valor.replace("_", "-")}`}
                     onClick={() => escolherTipo(opcao.valor)}
                     onKeyDown={aoTeclarNaPilula}
                     className={classeDaPilula(marcada)}
@@ -546,6 +592,24 @@ function FormularioLancar({
                 semanas={controlado("semanas", semanas, setSemanas)}
                 diaVencimento={controlado("diaVencimento", diaVencimento, setDiaVencimento)}
                 publica={{ valor: publico, aoMudar: setPublico }}
+              />
+            ) : tipo === "uso_livre" ? (
+              <CamposUsoLivre
+                quem={{
+                  nomeEscolhido: pessoa?.nome ?? "",
+                  erro: erros.clienteId,
+                  registrar: registrar("clienteId"),
+                  aoEscolher: (escolhida) => {
+                    setPessoa(escolhida);
+                    limparErro("clienteId");
+                  },
+                  // Voltou a digitar: a escolha anterior deixa de valer.
+                  aoDigitar: () => setPessoa(null),
+                }}
+                data={controlado("data", data, setData)}
+                chegadaPrevista={controlado("chegadaPrevista", chegadaPrevista, setChegadaPrevista)}
+                horasPrevistas={controlado("horasPrevistas", horasPrevistas, setHorasPrevistas)}
+                pessoas={controlado("pessoas", pessoas, setPessoas)}
               />
             ) : tipo === "avulsa" ? (
               <div className="flex flex-wrap gap-4">
@@ -712,8 +776,16 @@ function FormularioLancar({
               ) : null}
             </div>
 
-            <p className="text-apoio text-tinta-fraca">
-              {tipo === "turma" ? DICA_TIPO_TURMA : tipo === "avulsa" ? DICA_TIPO_AULA : DICA_TIPO_FECHADO}
+            <p className="text-apoio text-tinta-fraca" data-testid="lancar-dica">
+              {tipo === "turma"
+                ? DICA_TIPO_TURMA
+                : tipo === "avulsa"
+                  ? DICA_TIPO_AULA
+                  : tipo === "uso_livre"
+                    ? precoDaHoraCentavos === null
+                      ? DICA_TIPO_USO_LIVRE_SEM_PRECO
+                      : dicaTipoUsoLivre(formatarReais(precoDaHoraCentavos))
+                    : DICA_TIPO_FECHADO}
             </p>
           </div>
 

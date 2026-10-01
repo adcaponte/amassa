@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   FRASE_DIA_DA_SEMANA,
+  FRASE_ESCOLHA_QUEM_VEM,
+  FRASE_HORA_DE_CHEGADA,
+  FRASE_HORAS_PREVISTAS,
+  FRASE_JA_REMOVIDO,
+  FRASE_PESSOAS,
   FRASE_EXPERIMENTAL_SEM_ESCOLHA,
   FRASE_EXPERIMENTAL_VALOR,
   FRASE_FIM_ANTES_DO_COMECO,
@@ -12,12 +17,15 @@ import {
 } from "@/lib/agenda/textos";
 import {
   esquemaCancelarData,
+  esquemaCancelarReserva,
   esquemaColocarNaData,
   esquemaConferirDia,
   esquemaDefinirDireitoARepor,
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaLancarTurma,
+  esquemaMarcarChegada,
+  esquemaReservarUsoLivre,
   esquemaTirarBloqueio,
 } from "@/lib/agenda/esquemas";
 
@@ -320,5 +328,68 @@ describe("esquemaColocarNaData e esquemaDefinirDireitoARepor", () => {
     expect(esquemaDefinirDireitoARepor.safeParse({ inscricaoId: ids.eventoId, direito: true }).success).toBe(true);
     expect(esquemaDefinirDireitoARepor.safeParse({ inscricaoId: ids.eventoId, direito: "sim" }).success).toBe(false);
     expect(esquemaDefinirDireitoARepor.safeParse({ inscricaoId: "x", direito: true }).success).toBe(false);
+  });
+});
+
+// Plano 09 — o uso livre: quem, quando, por quanto tempo, quantas pessoas. Preço e valor NUNCA vêm da tela.
+describe("esquemaReservarUsoLivre", () => {
+  const VALIDA = {
+    clienteId: "0b9d2f1e-1a2b-4c3d-8e9f-001122334455",
+    data: "2026-10-08",
+    chegadaPrevista: "14:00",
+    horasPrevistas: "2",
+    pessoas: "1",
+  };
+
+  it("aceita os padrões da folha e devolve números", () => {
+    expect(esquemaReservarUsoLivre.parse(VALIDA)).toEqual({ ...VALIDA, horasPrevistas: 2, pessoas: 1 });
+  });
+
+  it("sem ninguém escolhido: “Escolha quem vem.” no campo Quem", () => {
+    const resultado = esquemaReservarUsoLivre.safeParse({ ...VALIDA, clienteId: "" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]).toMatchObject({ path: ["clienteId"], message: FRASE_ESCOLHA_QUEM_VEM });
+  });
+
+  it("horas previstas de 1 a 12 e pessoas de 1 a 50", () => {
+    for (const horasPrevistas of ["0", "13", "1,5", ""]) {
+      const resultado = esquemaReservarUsoLivre.safeParse({ ...VALIDA, horasPrevistas });
+      expect(resultado.error?.issues[0].message).toBe(FRASE_HORAS_PREVISTAS);
+    }
+    for (const pessoas of ["0", "51", "-1", "x"]) {
+      const resultado = esquemaReservarUsoLivre.safeParse({ ...VALIDA, pessoas });
+      expect(resultado.error?.issues[0].message).toBe(FRASE_PESSOAS);
+    }
+    expect(esquemaReservarUsoLivre.parse({ ...VALIDA, horasPrevistas: "12", pessoas: "50" })).toMatchObject({
+      horasPrevistas: 12,
+      pessoas: 50,
+    });
+  });
+
+  it("hora de chegada vazia ou ilegível: “Diga a hora de chegada.”", () => {
+    for (const chegadaPrevista of ["", "25:00", "9h"]) {
+      const resultado = esquemaReservarUsoLivre.safeParse({ ...VALIDA, chegadaPrevista });
+      expect(resultado.error?.issues[0]).toMatchObject({ path: ["chegadaPrevista"], message: FRASE_HORA_DE_CHEGADA });
+    }
+  });
+
+  it("preço e valor mandados pela tela são ignorados (T-05-42)", () => {
+    const dados = esquemaReservarUsoLivre.parse({ ...VALIDA, precoHoraCentavos: 1, valorCentavos: 1 });
+    expect(dados).not.toHaveProperty("precoHoraCentavos");
+    expect(dados).not.toHaveProperty("valorCentavos");
+  });
+});
+
+describe("esquemaMarcarChegada e esquemaCancelarReserva", () => {
+  it("a chegada é “HH:MM”", () => {
+    const id = "0b9d2f1e-1a2b-4c3d-8e9f-001122334455";
+    expect(esquemaMarcarChegada.parse({ usoLivreId: id, chegada: "09:05" })).toEqual({ usoLivreId: id, chegada: "09:05" });
+    expect(esquemaMarcarChegada.safeParse({ usoLivreId: id, chegada: "" }).error?.issues[0].message).toBe(
+      FRASE_HORA_DE_CHEGADA,
+    );
+  });
+
+  it("cancelar com id que não é uuid é “Isso já tinha sido removido.”", () => {
+    expect(esquemaCancelarReserva.safeParse({ usoLivreId: "x" }).error?.issues[0].message).toBe(FRASE_JA_REMOVIDO);
   });
 });

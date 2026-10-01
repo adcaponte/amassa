@@ -6,7 +6,14 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { idDaUrl } from "@/lib/agenda/abas";
-import type { EventoCarregado, EventoDaSemana, TurmaCarregada } from "@/lib/agenda/consultas";
+import type {
+  EventoCarregado,
+  EventoDaSemana,
+  ItemDaSemana,
+  TurmaCarregada,
+  UsoLivreCarregado,
+  UsoLivreDaSemana,
+} from "@/lib/agenda/consultas";
 import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
   FRASE_LANCAMENTO_NAO_EXISTE,
@@ -22,6 +29,7 @@ import { CartaoEvento } from "./cartao-evento";
 import { FolhaEvento } from "./folha-evento";
 import { FolhaFechado } from "./folha-fechado";
 import { FolhaTurma } from "./folha-turma";
+import { FolhaUsoLivre } from "./folha-uso-livre";
 import { depoisDasGravacoes } from "./gravacoes-pendentes";
 import { enderecoDaAgendaCom } from "./url-da-agenda";
 
@@ -29,7 +37,7 @@ export type DiaDaSemanaNaTela = {
   data: string;
   rotulo: string;
   ehHoje: boolean;
-  eventos: EventoDaSemana[];
+  eventos: ItemDaSemana[];
 };
 
 // A turma de `?turma=` como o servidor a leu (D-03): nenhuma, lida, inexistente (link velho) ou com
@@ -37,6 +45,14 @@ export type DiaDaSemanaNaTela = {
 export type TurmaDoServidor =
   | { estado: "nenhuma" }
   | { estado: "carregada"; turma: TurmaCarregada }
+  | { estado: "inexistente"; id: string }
+  | { estado: "erro"; id: string };
+
+// O uso livre de `?uso=` como o servidor o leu (plano 09): nenhum, lido, inexistente (link velho,
+// reserva cancelada em outro celular) ou com erro de leitura (o erro aparece dentro da folha).
+export type UsoDoServidor =
+  | { estado: "nenhum" }
+  | { estado: "carregado"; uso: UsoLivreCarregado }
   | { estado: "inexistente"; id: string }
   | { estado: "erro"; id: string };
 
@@ -49,6 +65,7 @@ export type SemanaDaAgendaProps = {
   eventoAberto: EventoCarregado | null;
   // `?evento=` com um id que não existe (link velho, removido em outro celular): toast, sem folha.
   eventoInexistente: boolean;
+  usoAberto: UsoDoServidor;
   // Ao abrir a aba sem `?semana=`, a página rola até o cabeçalho de hoje (UI-D27); `null` não rola.
   rolarAte: string | null;
 };
@@ -68,6 +85,7 @@ export function SemanaDaAgenda({
   turmaAberta,
   eventoAberto,
   eventoInexistente,
+  usoAberto,
   rolarAte,
 }: SemanaDaAgendaProps) {
   const router = useRouter();
@@ -75,6 +93,15 @@ export function SemanaDaAgenda({
   const parametros = useSearchParams();
   const idNaUrl = idDaUrl(parametros.get("evento") ?? undefined);
   const idDaTurmaNaUrl = idDaUrl(parametros.get("turma") ?? undefined);
+  const idDoUsoNaUrl = idDaUrl(parametros.get("uso") ?? undefined);
+
+  // A folha do uso livre (`?uso=`): o id muda NA HORA do toque (cabeçalho e esqueleto antes de o
+  // servidor responder) e segue a URL depois ("voltar" do navegador fecha).
+  const [usoAbertoId, setUsoAbertoId] = useState<string | null>(idDoUsoNaUrl);
+  const [usoTocado, setUsoTocado] = useState<UsoLivreDaSemana | null>(null);
+  useEffect(() => {
+    setUsoAbertoId(idDoUsoNaUrl);
+  }, [idDoUsoNaUrl]);
 
   // O id da folha aberta e o cartão tocado (o cabeçalho enquanto a lista carrega).
   const [aberto, setAberto] = useState<string | null>(eventoAberto?.id ?? null);
@@ -96,8 +123,13 @@ export function SemanaDaAgenda({
     setAberto(idNaUrl);
   }, [idNaUrl]);
 
-  function urlCom(evento: string | null, turma: string | null = null): string {
+  function urlCom(evento: string | null, turma: string | null = null, uso: string | null = null): string {
     const novos = new URLSearchParams(parametros.toString());
+    if (uso === null) {
+      novos.delete("uso");
+    } else {
+      novos.set("uso", uso);
+    }
     if (evento === null) {
       novos.delete("evento");
     } else {
@@ -146,6 +178,34 @@ export function SemanaDaAgenda({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turmaAberta]);
 
+  // `?uso=` com um id que não existe (link velho, reserva cancelada em outro celular): o toast, uma vez,
+  // e o parâmetro sai da URL. Quem cancelou a própria reserva não recebe o aviso.
+  const usoAvisado = useRef<string | null>(null);
+  useEffect(() => {
+    if (usoAberto.estado === "inexistente" && usoAvisado.current !== usoAberto.id) {
+      usoAvisado.current = usoAberto.id;
+      toast(FRASE_LANCAMENTO_NAO_EXISTE);
+      setUsoAbertoId(null);
+      router.replace(urlCom(null), { scroll: false });
+    }
+    // `urlCom` lê os parâmetros atuais; o efeito só depende do uso lido.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usoAberto]);
+
+  function abrirUso(uso: UsoLivreDaSemana) {
+    fechamentoAdiado.current += 1;
+    setUsoTocado(uso);
+    setUsoAbertoId(uso.id);
+    setAberto(null);
+    router.push(urlCom(null, null, uso.id), { scroll: false });
+  }
+
+  function fecharUso() {
+    setUsoTocado(null);
+    setUsoAbertoId(null);
+    router.push(urlCom(null), { scroll: false });
+  }
+
   function abrirTurma(turmaId: string, nome: string) {
     fechamentoAdiado.current += 1;
     setTurmaTocada({ id: turmaId, nome });
@@ -167,7 +227,12 @@ export function SemanaDaAgenda({
     router.push(urlCom(null), { scroll: false });
   }
 
-  function abrir(evento: EventoDaSemana) {
+  function abrir(item: ItemDaSemana) {
+    if (item.tipo === "uso_livre") {
+      abrirUso(item);
+      return;
+    }
+    const evento: EventoDaSemana = item;
     fechamentoAdiado.current += 1;
     setCartaoTocado(evento);
     setAberto(evento.id);
@@ -194,6 +259,12 @@ export function SemanaDaAgenda({
   const cabecalho = carregado ?? (cartaoTocado !== null && cartaoTocado.id === aberto ? cartaoTocado : null);
 
   // A folha da turma: a da URL (lida pelo servidor) ou a tocada agora (ainda carregando).
+  // A folha do uso livre: o da URL (lido pelo servidor) ou o tocado agora (ainda carregando).
+  const usoCarregado =
+    usoAberto.estado === "carregado" && usoAberto.uso.id === usoAbertoId ? usoAberto.uso : null;
+  const erroDoUso = usoAberto.estado === "erro" && usoAberto.id === usoAbertoId;
+  const cabecalhoDoUso = usoCarregado ?? (usoTocado !== null && usoTocado.id === usoAbertoId ? usoTocado : null);
+
   const turmaCarregada =
     turmaAberta.estado === "carregada" && turmaAberta.turma.id === turmaAbertaId ? turmaAberta.turma : null;
   const erroDaTurma = turmaAberta.estado === "erro" && turmaAberta.id === turmaAbertaId;
@@ -252,7 +323,17 @@ export function SemanaDaAgenda({
         ))}
       </div>
 
-      {turmaAbertaId !== null && cabecalhoDaTurma !== null ? (
+      {usoAbertoId !== null && (cabecalhoDoUso !== null || erroDoUso) ? (
+        <FolhaUsoLivre
+          cabecalho={cabecalhoDoUso}
+          carregado={usoCarregado}
+          erroAoCarregar={erroDoUso}
+          aoComecarARemover={() => {
+            usoAvisado.current = usoAbertoId;
+          }}
+          aoFechar={fecharUso}
+        />
+      ) : turmaAbertaId !== null && cabecalhoDaTurma !== null ? (
         <FolhaTurma
           cabecalho={cabecalhoDaTurma}
           carregada={turmaCarregada}
