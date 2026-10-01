@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { subDaUrl } from "@/lib/cadastros/abas";
 import { avisoDaUrl } from "@/lib/cadastros/avisos";
@@ -18,6 +20,9 @@ import {
   textoContasGeradas,
 } from "@/lib/cadastros/textos";
 import { mesDaGeracao, mesesParaGeracao } from "@/lib/cadastros/contas-fixas";
+import { listarClientes } from "@/lib/clientes/consultas";
+import { buscaDaUrl, quantosDaUrl } from "@/lib/clientes/lista";
+import { FRASE_ERRO_CARREGAR_CLIENTES, TITULO_ERRO } from "@/lib/clientes/textos";
 import { hojeEmBrasilia, nomeDoMes } from "@/lib/financeiro/formato";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { TOAST_HORA_ATUALIZADA } from "@/lib/precificacao/textos";
@@ -29,13 +34,17 @@ import { BotaoGerarContas } from "@/components/amassa/cadastros/botao-gerar-cont
 import { FormularioTaxa } from "@/components/amassa/cadastros/formulario-taxa";
 import { ListaCatalogo } from "@/components/amassa/cadastros/lista-catalogo";
 import { ListaCategorias } from "@/components/amassa/cadastros/lista-categorias";
+import { EsqueletoDosClientes, ListaClientes } from "@/components/amassa/cadastros/lista-clientes";
 import { ListaContasFixas } from "@/components/amassa/cadastros/lista-contas-fixas";
 import { ListaParametros } from "@/components/amassa/cadastros/lista-parametros";
 import { SubAbasCadastros } from "@/components/amassa/cadastros/sub-abas-cadastros";
+import { EstadoErro } from "@/components/amassa/estado-erro";
+import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/financeiro/page.tsx`.
-// `searchParams` é `Promise` no Next.js 15. `?sub=` decide qual das CINCO sub-abas aparece (D-03,
-// 04.5-02-PLAN.md acrescentou "parametros"); o aviso pós-navegação é resolvido AQUI, no servidor,
+// `searchParams` é `Promise` no Next.js 15. `?sub=` decide qual das SEIS sub-abas aparece (D-03,
+// 04.5-02-PLAN.md acrescentou "parametros"; a Fase 5, D-01, acrescentou "clientes", que lê também
+// `?busca=`/`?quantos=`); o aviso pós-navegação é resolvido AQUI, no servidor,
 // a partir de `?aviso=`/`?quantidade=`/`?mes=` — o texto pronto desce para `AvisoCadastros`, que
 // só mostra o toast, nunca monta a frase sozinho.
 //
@@ -58,14 +67,37 @@ async function lerPerdaMedida(hoje: string): Promise<PerdaMedida | "erro"> {
   }
 }
 
+// Clientes (Fase 5, D-01): a lista carrega dentro de um `Suspense` PRÓPRIO, com o esqueleto no
+// formato dela (busca + 6 linhas), e com um `try` próprio — se a leitura falhar, só a sub-aba mostra
+// o erro, com a frase dela (backstops E22·loading e E22·error, decisões do 05-04: a UI-SPEC não
+// desenhava). O `Suspense` NÃO leva `key` da busca: digitar não troca a lista pelo esqueleto (a
+// navegação é transição, a lista velha fica até a nova chegar) e o campo de busca não perde o foco.
+async function ClientesCarregados({ busca, quantos }: { busca: string; quantos: number }) {
+  let lista: Awaited<ReturnType<typeof listarClientes>>;
+  try {
+    lista = await listarClientes({ busca, quantos });
+  } catch (erro) {
+    console.error("Falha ao carregar os clientes:", erro);
+    return <EstadoErro titulo={TITULO_ERRO} corpo={FRASE_ERRO_CARREGAR_CLIENTES} acao={<TentarDeNovo />} />;
+  }
+  return <ListaClientes clientes={lista.clientes} haMais={lista.haMais} busca={busca} quantos={quantos} />;
+}
+
 export default async function PaginaCadastros({
   searchParams,
 }: {
-  searchParams: Promise<{ sub?: string; aviso?: string; quantidade?: string; mes?: string }>;
+  searchParams: Promise<{
+    sub?: string;
+    aviso?: string;
+    quantidade?: string;
+    mes?: string;
+    busca?: string | string[];
+    quantos?: string | string[];
+  }>;
 }) {
   await exigirUsuario();
 
-  const { sub, aviso, quantidade, mes } = await searchParams;
+  const { sub, aviso, quantidade, mes, busca, quantos } = await searchParams;
   const subAtual = subDaUrl(sub);
   const avisoResolvido = avisoDaUrl({ aviso, quantidade, mes });
   // A faixa que "Gerar as contas de {mês}" oferece (resposta do dono, 2026-09-20): o mês corrente
@@ -124,7 +156,11 @@ export default async function PaginaCadastros({
         <SubAbasCadastros subAtual={subAtual} />
       </div>
 
-      {subAtual === "taxas" ? (
+      {subAtual === "clientes" ? (
+        <Suspense fallback={<EsqueletoDosClientes />}>
+          <ClientesCarregados busca={buscaDaUrl(busca)} quantos={quantosDaUrl(quantos)} />
+        </Suspense>
+      ) : subAtual === "taxas" ? (
         <FormularioTaxa pontosBaseAtuais={taxaAtual ?? 0} />
       ) : subAtual === "categorias" ? (
         <ListaCategorias categorias={categorias} />

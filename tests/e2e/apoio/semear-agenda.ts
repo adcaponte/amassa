@@ -248,3 +248,17 @@ export async function marcarPresencaNoBanco(inscricaoId: string, presenca: Prese
     cliente.query("update inscricoes set presenca = $2 where id = $1", [inscricaoId, presenca]),
   );
 }
+
+// Os cadastros de pessoa com o MESMO nome normalizado (D-16: sem acento, sem maiúscula, espaços
+// colapsados) — para provar que o aviso de homônimo não gravou nada e que o toque duplo criou um só.
+export async function clientesComNome(nome: string): Promise<{ id: string; nome: string; telefone: string | null }[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string; nome: string; telefone: string | null }>(
+      `select id, nome, telefone from clientes
+        where nome_normalizado(nome) = nome_normalizado($1)
+        order by criado_em, id`,
+      [nome],
+    );
+    return rows;
+  });
+}
