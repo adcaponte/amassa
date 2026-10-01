@@ -530,3 +530,65 @@ describe("pedidoDeSaidaManual — os vínculos (EST-11)", () => {
     expect(pedido.nota).toBe("Caiu da prateleira");
   });
 });
+
+describe("pedidoDeSaidaManual — o uso livre da Agenda (D-06)", () => {
+  it("destino uso_livre: área Espaço (de areaDoDestino), origem manual, o vínculo ao uso", () => {
+    expect(
+      pedidoDeSaidaManual({
+        itemId: "argila",
+        milesimos: 1200,
+        destino: "uso_livre",
+        usoLivreId: "uso-1",
+        nota: "[e2e] Fulana · 01/10",
+      }),
+    ).toEqual({
+      itemId: "argila",
+      origem: "manual",
+      tipo: "saida",
+      movimento: { tipo: "saida", milesimos: 1200 },
+      destino: "uso_livre",
+      area: "espaco",
+      usoLivreId: "uso-1",
+      nota: "[e2e] Fulana · 01/10",
+    });
+  });
+
+  it("o usoLivreId fora do destino uso_livre é descartado (o check `uso_livre_so_no_destino_uso_livre` recusaria)", () => {
+    const pedido = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 500,
+      destino: "aula",
+      usoLivreId: "uso-1",
+    });
+    expect(pedido).not.toHaveProperty("usoLivreId");
+    expect(pedido.area).toBe("espaco");
+  });
+
+  it("destino uso_livre SEM o vínculo é recusado aqui (o check `destino_uso_livre_com_vinculo` também recusaria)", () => {
+    expect(() =>
+      pedidoDeSaidaManual({ itemId: "argila", milesimos: 500, destino: "uso_livre" }),
+    ).toThrow(RangeError);
+    expect(() =>
+      pedidoDeSaidaManual({
+        itemId: "argila",
+        milesimos: 500,
+        destino: "uso_livre",
+        usoLivreId: null,
+      }),
+    ).toThrow(RangeError);
+  });
+
+  it("a encomenda nunca entra no destino uso_livre", () => {
+    const pedido = pedidoDeSaidaManual({
+      itemId: "argila",
+      milesimos: 500,
+      destino: "uso_livre",
+      usoLivreId: "uso-1",
+      encomendaId: "enc-1",
+      materialDaOrdem: "argila",
+    });
+    expect(pedido).not.toHaveProperty("encomendaId");
+    expect(pedido).not.toHaveProperty("materialDaOrdem");
+    expect(pedido.usoLivreId).toBe("uso-1");
+  });
+});
