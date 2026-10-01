@@ -25,7 +25,7 @@ affects:
   - "O seletor de pessoa numa data de turma ou oficina mostra “Tem aula a repor” primeiro — também com o campo vazio"
   - "“Colocar alguém” agora aparece também na data de turma (reposição ou experimental)"
   - "Fechar a folha da data (Pronto, X) troca a URL só depois das gravações de presença no ar (até 8 s)"
-  - "Quem tem aula a repor só aparece no grupo 1: numa oficina, essa pessoa entra como reposição (não paga) — ver “Para o dono olhar”"
+  - "Quem tem aula a repor aparece no grupo 1 (entra como reposição) E no grupo do contexto (caminho normal da data: oficina paga, turma experimental) — BRIEFING §4, protótipo l.309 (commit c2eb851)"
 tech-stack:
   added: []
   patterns:
@@ -78,7 +78,7 @@ metrics:
 actuals:
   tokens: 25900
   tasks: 3
-  commits: 5
+  commits: 7
 ---
 
 # Phase 5 Plan 08: presença de uma turma inteira em um toque por pessoa, a falta com direito a repor, a reposição e a aula experimental — Summary
@@ -98,9 +98,9 @@ reposição sair. Quem vem experimentar entra só naquela data, e o gestor decid
   passam das faltas com direito. Contagem negativa, fracionária ou `NaN` lança `RangeError`. Zero imports.
 - `precisaMarcarPresenca` só é verdadeiro para data **anterior** a hoje, não cancelada e com alguém sem
   marcação. Hoje, futuro, cancelada e lista vazia dão falso.
-- `gruposDoSeletor` recebe `aRepor: { cliente, saldo }[]`. Saldo 0 fica fora do grupo 1, e a pessoa
-  continua no grupo do contexto. Cada pessoa do grupo 1 leva `aRepor` (o saldo). Quem está no grupo 1 não
-  se repete no do contexto.
+- `gruposDoSeletor` recebe `aRepor: { cliente, saldo }[]`. Saldo 0 fica fora do grupo 1. Cada pessoa do
+  grupo 1 leva `aRepor` (o saldo). Quem tem aula a repor aparece **também** no grupo do contexto, sem o
+  saldo (Deviation 8).
 - 30 testes nos três arquivos. Os testes de pureza leem o arquivo.
 
 ### Tarefa 2: direito a repor e reposição (commit `b6dca82`)
@@ -122,8 +122,8 @@ reposição sair. Quem vem experimentar entra só naquela data, e o gestor decid
      A tela foi atualizada.”;
   6. senão insere `tipo = 'reposicao'` sem cobrar.
 - `pessoasParaData` monta o grupo 1 no servidor. Ele usa o mesmo `listarClientes`, com uma subconsulta
-  correlacionada do saldo (`> 0`), e tira quem está na data. O grupo do contexto usa `<= 0` e não repete
-  ninguém.
+  correlacionada do saldo (`> 0`), e tira quem está na data. O grupo do contexto é qualquer pessoa fora da
+  data (Deviation 8).
 - `tirarDaLista` aceita reposição e devolve o `tipo`.
 
 **Tela.**
@@ -179,8 +179,10 @@ reposição sair. Quem vem experimentar entra só naquela data, e o gestor decid
 | `npm run test:e2e -- --grep "agenda"` (2ª) | 169 passed, **2 failed**: `agenda entrar na turma` (d) e (f), a mesma premissa global da D-02 |
 | `npm run test:e2e -- --grep "agenda"` (3ª) | **171 passed**, 1 skipped. O pulado é `site-abertura` (k), que o próprio teste pula no celular |
 | `npm run verificar` (final) | **verde**: 109 / 2092, 103 ações, `test:migracoes` verde |
+| `npm run verificar` (correção do BRIEFING §4, Deviation 8) | **verde**: 109 / 2093, 103 ações, `test:migracoes` verde |
+| `npm run test:e2e -- --grep "agenda colocar\|agenda reposicao"` (correção do BRIEFING §4) | **72 passed** na primeira, incluindo o caso novo (f) |
 
-**Foram 7 invocações de e2e, não as 2 do orçamento.** Cada repetição veio de uma falha que precisava de
+**Foram 8 invocações de e2e, não as 2 do orçamento** (7 nas tarefas e 1 na correção do BRIEFING §4). Cada repetição veio de uma falha que precisava de
 diagnóstico:
 - duas foram a mesma `--grep` da tarefa, depois de uma correção;
 - três foram `--grep "agenda"`. Mudei como a folha da semana fecha e a ordem das travas da presença, e
@@ -272,6 +274,24 @@ Agora grava os dois carimbos com o gestor de teste. Commit `b6dca82`.
 - O e2e (b) prova “a pessoa não aparece mais no grupo” numa **outra** data (uma oficina), porque na
   própria data ela já está na lista.
 
+**8. Conformidade com o BRIEFING §4 (correção pedida pelo orquestrador, commit `c2eb851`)**
+- **Issue:** a verdade 4 e a Tarefa 1 do plano diziam “quem está nos dois aparece só no primeiro”. Com
+  isso, quem tinha aula a repor só podia entrar numa oficina como reposição, sem pagar. O BRIEFING §4
+  (“a lista oferece primeiro quem tem aula a repor … e DEPOIS QUALQUER PESSOA (… em oficina, como
+  inscrição paga)”) e o protótipo (l.309: a pessoa com crédito está no primeiro optgroup E no segundo)
+  decidem o contrário, e vencem o texto do plano.
+- **Fix:**
+  - `gruposDoSeletor` não tira ninguém do grupo do contexto, e ali a pessoa vai sem `aRepor`;
+  - `pessoasParaData` não filtra o saldo no grupo do contexto;
+  - escolhida no grupo 1, a pessoa entra como reposição, e o crédito é consumido sob a trava. Escolhida no
+    grupo do contexto, segue o caminho normal da data: oficina com inscrição paga pelo preço do evento,
+    data de turma com experimental e a escolha da D-07.
+
+  O grupo 1 continua primeiro, com o teto de 8 por grupo.
+- **Prova:** o unitário em `agenda-seletor.test.ts` e o e2e `agenda reposicao` (f): na oficina, quem tem
+  1 aula a repor aparece nos dois grupos. Escolhida em “Inscrever”, ela grava `oficina` com
+  `cobrar = true` e o preço do evento, e o saldo continua 1.
+
 Nenhuma migração e nenhum pacote novo. A `0026` não mudou: as colunas e os checks já existiam desde o
 plano 01. Também não houve mudança em `db/schema.ts` nem em `TABELAS_ESPERADAS`.
 
@@ -309,13 +329,6 @@ efêmero.
 
 ## Para o dono olhar no portão (plano 16)
 
-- **Regra de dinheiro herdada do plano, não decidida aqui:** quem tem aula a repor aparece **só** no
-  grupo “Tem aula a repor” (verdade 4 e Tarefa 1: “quem está nos dois aparece só no primeiro”). Numa
-  **oficina**, essa pessoa só pode entrar como **reposição, sem pagar**. Pelo seletor, não há como
-  inscrevê-la paga na oficina enquanto ela tiver crédito. O BRIEFING §4 diz “a lista oferece primeiro
-  quem tem aula a repor … e depois qualquer pessoa”, e o protótipo oferece reposição na oficina. Se a
-  oficina não deveria aceitar reposição, ou se a pessoa com crédito deveria poder entrar paga, é decisão
-  sua.
 - **Valor central no celular de verdade:** 8 toques medidos pelo teste. Falta o tempo com a mão, em pé,
   no ateliê.
 - **E8:** “Tem aula a repor” com muita gente a repor e o campo vazio mostra as 8 primeiras e “Há mais
@@ -349,7 +362,8 @@ Nenhuma superfície além do `threat_model`:
 - Os seis arquivos novos estão presentes: `lib/agenda/reposicao.ts`, `escolha-experimental.tsx`,
   `gravacoes-pendentes.ts`, `agenda-reposicao.test.ts`, `agenda-reposicao.spec.ts` e
   `agenda-presenca.spec.ts`.
-- Os commits `221f804`, `108a32c`, `b6dca82` e `1eded3d` estão no branch `gsd/phase-05-agenda`. Não houve
+- Os commits `221f804`, `108a32c`, `b6dca82`, `1eded3d`, `ff93ae4` (SUMMARY) e `c2eb851` (correção do
+  BRIEFING §4) estão no branch `gsd/phase-05-agenda`. Não houve
   push nem merge.
 - `STATE.md`, `ROADMAP.md` e `REQUIREMENTS.md` não foram tocados: `git diff 882788c..HEAD` nesses três
   arquivos não lista nada.
