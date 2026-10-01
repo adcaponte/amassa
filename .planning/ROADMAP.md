@@ -50,7 +50,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.4: Financeiro — parte 1** (INSERTED) - Venda, Compra, Caixa, Mês e Cadastros (completed 2026-09-26; verificada 9/9 + 17/17, migrações 0014-0016 em produção, conferida pelo dono no celular)
 - [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
-- [ ] **Phase 5: Agenda de Aulas** (▶ próxima — escolhida pelo dono em 01/10/2026; até então "em espera") - Turmas recorrentes materializam aulas com data real e presença por aluna
+- [ ] **Phase 5: Agenda** (▶ próxima — escolhida pelo dono em 01/10/2026; até então "em espera") - Turmas fixas, aulas e oficinas avulsas, uso livre e dias fechados num calendário só; presença, reposição e "a receber" que vira Venda; site com o calendário público (briefing e protótipo de 26/09, AGE-01..20). *Até 01/10/2026 esta linha dizia "Agenda de Aulas — Turmas recorrentes materializam aulas com data real e presença por aluna" (AGD-01..16).*
 - [x] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)* (completed 2026-09-29)
 - [x] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09) (completed 2026-10-01)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
@@ -719,7 +719,42 @@ sequenciais. Duas varreduras e2e completas estão autorizadas na fase — uma fe
 
 **UI hint**: yes
 
-### Phase 5: Agenda de Aulas (em espera)
+### Phase 5: Agenda
+
+> **Redesenhada em 01/10/2026.** A especificação passou a ser o `BRIEFING.md` e o `prototipo.html`
+> ("Agenda AMASSA") escritos com o dono no Cowork e **aprovados por ele em 26/09/2026**, copiados para
+> `.planning/phases/05-agenda/` em 01/10/2026 (idênticos aos de `Claude outputs/agenda/`, conferido
+> com `cmp`). O protótipo vence sobre a interface; o briefing vence sobre regra de dado. Os requisitos
+> passaram de AGD-01..16 (modelo de Goiânia: grade por turno, quatro estados de presença, cadastro
+> próprio de alunas) para **AGE-01..20**. *Até 01/10/2026 este título era "Phase 5: Agenda de Aulas
+> (em espera)"; o Goal, os critérios e os requisitos antigos estão logo abaixo, como registro.*
+>
+> **Escolhida pelo dono em 01/10/2026** como a próxima fase, antes das Queimas, depois de a Produção
+> (06.1) fechar.
+
+**Goal**: Um calendário só, onde o Theo e a Andressa lançam turmas fixas, aulas e oficinas avulsas,
+uso livre do ateliê e dias fechados; marcam quem veio, controlam reposições e o que falta receber —
+sem guardar dinheiro (toda cobrança vira Venda no Financeiro), dando baixa no Estoque do material do
+uso livre, sem controle de lotação — e o site mostra só o que for marcado como público.
+**Depends on**: Phase 04.4 e 04.5 (Venda, Caixa, Catálogo), Phase 04.6 (`/gestao`, Início, site
+público), Phase 6 (movimentações de estoque).
+**Requirements**: AGE-01, AGE-02, AGE-03, AGE-04, AGE-05, AGE-06, AGE-07, AGE-08, AGE-09, AGE-10, AGE-11, AGE-12, AGE-13, AGE-14, AGE-15, AGE-16, AGE-17, AGE-18, AGE-19, AGE-20
+**Success Criteria** (what must be TRUE):
+
+  1. Os quatro tipos (turma fixa, aula/oficina avulsa, uso livre, fechado) são lançados pela mesma folha "Lançar na agenda" e aparecem nas vistas semana (padrão no celular) e mês
+  2. Lançar uma turma fixa já marca as N semanas pedidas (padrão 8); cada data tem lista própria e pode ser cancelada sozinha, sem contar falta para ninguém
+  3. Marcar Veio/Faltou de uma turma inteira no celular é um toque por pessoa; falta com "tem direito a repor" gera um crédito que aparece primeiro ao colocar alguém numa data
+  4. Quem faz aula é o mesmo cliente do Financeiro — nenhum cadastro paralelo de pessoas
+  5. "Recebi agora" cria a Venda já paga, que aparece no Caixa do dia; "Lançar na Venda" abre o rascunho preenchido; nos dois casos o item sai de "A receber" e o "pago" passa a vir do Financeiro
+  6. Encerrar um uso livre cobra horas cheias × pessoas × preço da hora + material cobrado, e cada material vira saída no Estoque com vínculo ao uso, mesmo quando "incluso"
+  7. Lista cheia avisa e não bloqueia; nenhum aviso de lotação do espaço ou de sobreposição
+  8. O site mostra só aulas e oficinas públicas e não canceladas, com vagas restantes e "Reservar pelo WhatsApp", sem nome de ninguém
+  9. Cancelar nunca apaga: fica riscado; venda e movimentação de estoque já geradas nunca são apagadas pela Agenda
+
+**Plans**: TBD
+**UI hint**: yes
+
+#### Registro: a Fase 5 até 01/10/2026 (modelo antigo, nunca executado)
 
 > **Adiada por decisão do dono em 2026-08-22.** O módulo de Abertura do Espaço tem prazo real
 > (a inauguração) e o Estoque entra em seguida; a Agenda não tem urgência e continua sendo o
@@ -738,33 +773,20 @@ sequenciais. Duas varreduras e2e completas estão autorizadas na fase — uma fe
 > (turmas de 8) foram descartadas: a Agenda será redesenhada antes de ser planejada. O dono tinha
 > a Agenda como indispensável na abertura — reavaliar em novembro se ela sobe.
 
-**Goal**: O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
+*Goal antigo:* O protótipo da agenda + datas reais + presença — turmas recorrentes materializam
 aulas com data concreta por materialização preguiçosa, e presença é marcada por aluna.
-**Corresponde a**: M3 do `03-ROADMAP.md` (numeração de milestone preservada; a ordem de execução
-foi deslocada para depois da M4 — é a milestone mais complexa do projeto e ganha em ser
-enfrentada com o sistema já em uso real). As 11 fases do milestone (migração `0003_agenda` +
-`garantir_aulas_da_semana`/`alunas_da_aula`, `lib/agenda/semana.ts` com testes, `nome_normalizado`
-
-+ índice, CRUD de turmas, cadastro/matrícula de alunas, grade desktop, grade mobile, navegação
-
-por semana com geração preguiçosa, tela de presença, cancelamento com motivo, aba Alunos, teste
-ponta a ponta) tornam-se os planos desta fase.
-**Depends on**: Phase 2b (independente das Fases 3 e 4)
-**Requirements**: AGD-01, AGD-02, AGD-03, AGD-04, AGD-05, AGD-06, AGD-07, AGD-08, AGD-09, AGD-10, AGD-11, AGD-12, AGD-13, AGD-14, AGD-15, AGD-16
-**Success Criteria** (what must be TRUE):
-
-  1. A grade reproduz o protótipo: cores por modalidade, contagem de assentos, três níveis (aberta, completa, excedida)
-  2. Turma com mais alunas do que vagas aparece em vermelho e continua permitida
-  3. Passar uma aluna de experimental para matriculada funciona e some o aviso
-  4. Avançar para uma semana futura cria as aulas sozinho, sem duplicar ao recarregar
-  5. Marcar presença da turma inteira leva menos de 30 segundos no celular, com toque único por aluna
-  6. Uma aluna de outra turma pode ser adicionada a uma aula como reposição
-  7. Encerrar a matrícula de uma aluna a remove das aulas seguintes, mas não das passadas
-  8. Cancelar uma aula por feriado mantém o registro e o motivo
-  9. O histórico de uma aluna mostra todas as presenças e faltas dela
-
-**Plans**: TBD
-**UI hint**: yes
+*Corresponde a:* M3 do `03-ROADMAP.md` (numeração de milestone preservada). As 11 fases do milestone
+(migração `0003_agenda` + `garantir_aulas_da_semana`/`alunas_da_aula`, `lib/agenda/semana.ts` com
+testes, `nome_normalizado` + índice, CRUD de turmas, cadastro/matrícula de alunas, grade desktop,
+grade mobile, navegação por semana com geração preguiçosa, tela de presença, cancelamento com
+motivo, aba Alunos, teste ponta a ponta) seriam os planos desta fase.
+*Depends on antigo:* Phase 2b. *Requirements antigos:* AGD-01..16.
+*Critérios antigos:* (1) a grade reproduz o protótipo de Goiânia: cores por modalidade, contagem de
+assentos, três níveis (aberta, completa, excedida); (2) turma com mais alunas do que vagas em
+vermelho e permitida; (3) experimental → matriculada; (4) semana futura cria as aulas sem duplicar;
+(5) presença da turma inteira em menos de 30 segundos no celular; (6) aluna de outra turma como
+reposição; (7) encerrar matrícula tira das aulas seguintes, não das passadas; (8) cancelar por
+feriado mantém registro e motivo; (9) histórico de presenças e faltas da aluna.
 
 ### Phase 6: Estoque
 
@@ -909,7 +931,7 @@ documento de operação) tornam-se os planos desta fase.
 | Phase 2b | M1 (fases 5–7) — Design system e casca | 3ª |
 | Phase 3 | M2 — Gestor de Encomendas | 4ª |
 | Phase 4 | M4 — Contador de Queima | 5ª (antecipada — ver nota na Fase 4) |
-| Phase 5 | M3 — Agenda de Aulas | 6ª (deslocada — ver nota na Fase 5) |
+| Phase 5 | M3 — Agenda (redesenhada em 01/10/2026; era "Agenda de Aulas") | depois da 06.1 (ver nota na Fase 5) |
 | Phase 6 | M5 — Estoque | 7ª |
 | Phase 04.4 | M6 — virou Financeiro, parte 1 | próxima (revisão de 2026-09-19) |
 | Phase 04.5 | M6 — Financeiro, parte 2 (Precificação + Orçamento) | depois da 04.4 (revisão de 2026-09-19) |
@@ -933,7 +955,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
-| 5. Agenda de Aulas | 0/TBD | Not started | - |
+| 5. Agenda | 0/TBD | Discussing (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

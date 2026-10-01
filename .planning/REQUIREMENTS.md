@@ -138,7 +138,40 @@
 - [x] **FOR-12**: Os gráficos batem com a contagem manual do histórico, alternam entre 8 semanas e 6 meses, e a semana começa na segunda
 - [x] **FOR-13**: Cada queima registra quem a lançou (usuário logado), sem pedir nada a mais no fluxo
 
-### Agenda de Aulas
+### Agenda — aulas, oficinas e uso livre (Fase 5, redesenhada em 01/10/2026)
+
+> Transcrição do `BRIEFING.md` e do `prototipo.html` ("Agenda AMASSA", **aprovado pelo dono em
+> 26/09/2026**), copiados para `.planning/phases/05-agenda/` em 01/10/2026. O protótipo vence sobre a
+> interface; o briefing vence sobre regra de dado. Os números entre parênteses são seções do
+> briefing. As quatro questões da §11 ficam para a discussão da fase e estão marcadas em itálico nos
+> requisitos que tocam. Substituem os AGD-01..16, que ficam abaixo como registro.
+
+- [ ] **AGE-01**: Um calendário só com **quatro tipos de lançamento** — turma fixa, aula/oficina avulsa, uso livre e fechado (data e motivo) —, todos lançados **só pelo ateliê** pela folha "Lançar na agenda"; o cliente não reserva pela internet (§1, §2.3, §3)
+- [ ] **AGE-02**: Vista **semana** (lista por dia, padrão no celular, "+ lançar" por dia, "Hoje") e vista **mês** (pontos na cor de cada tipo; toque no dia abre a semana dele) (§3)
+- [ ] **AGE-03**: **Turma fixa** com nome, dia da semana, horário, vagas, mensalidade, dia de vencimento (1–28) e público sim/não; "Lançar" cria a turma **e já marca N semanas** (o gestor escolhe; padrão 8), que se podem estender depois (§2.6, §3). *Se há tela de turma além do "Lançar" (editar, estender, desativar) é a §11.2.*
+- [ ] **AGE-04**: Cada **data de turma é um evento próprio**: tem a própria lista de presença e pode ser cancelada sozinha; cancelar uma data **pelo ateliê não conta falta** para ninguém, e a reposição se combina marcando uma data extra ou colocando os alunos em outra (§3)
+- [ ] **AGE-05**: **Cancelar nunca apaga** — o evento fica riscado, com "cancelada", e o cancelamento pode ser desfeito; só **reserva de uso livre não iniciada** e **bloqueio (fechado)** podem ser removidos, com confirmação (§3; regra de exclusão do projeto)
+- [ ] **AGE-06**: **Pessoas = o cadastro de clientes do Financeiro**, sem cadastro paralelo; a aba Pessoas busca por nome e mostra, por pessoa, as turmas em que está, "N a repor" e "N a receber"; a ficha mostra telefone, a repor, a receber, turmas fixas e últimas vindas (§4)
+- [ ] **AGE-07**: O aluno **entra ou sai da turma pela ficha da pessoa**: ao entrar, é inscrito nas datas futuras da turma e nasce a mensalidade do mês, **proporcional** quando entra no meio (aulas que restam ÷ aulas da turma no mês × valor); ao sair, sai das datas futuras e o que já aconteceu fica (§2.7, §4)
+- [ ] **AGE-08**: **Presença por pessoa** — Veio / Faltou, um toque, e tocar de novo desmarca; data passada com alguém sem marcação mostra "marcar presença" (§2.4, §4)
+- [ ] **AGE-09**: **Reposição**: falta em turma fixa abre "tem direito a repor esta aula", decidido caso a caso, que gera **1 crédito sem validade**; falta em oficina avulsa não gera; crédito = faltas com direito − reposições usadas, por pessoa, guardando os dois lados (§2.5, §4)
+- [ ] **AGE-10**: **Colocar alguém numa data**: a lista oferece primeiro quem tem aula a repor (entra como "reposição", consome 1 crédito, não paga) e depois qualquer pessoa (em turma fixa, experimental/avulsa naquela data; em oficina, inscrição paga); oficina permite "tirar da lista" (§4)
+- [ ] **AGE-11**: **Sem controle de lotação do espaço**: nenhum limite de lugares, nenhum aviso de sobreposição; cada aula mostra **quantos inscritos** tem (n / vagas) e lista cheia **avisa e não bloqueia** (§2.8, §4)
+- [ ] **AGE-12**: **Aula/oficina avulsa** com nome, data, horário, vagas, preço por pessoa e público sim/não; material incluso; cada inscrição é paga à parte (§2.1, §3)
+- [ ] **AGE-13**: **Uso livre**: pessoa, data, hora de chegada, horas previstas e quantas pessoas; fluxo **Reservado → Chegou → Encerrado**; "Chegou" registra a hora real (proposta: a da reserva, editável) e é o que vira registro de uso; ao encerrar, horas cheias = teto((saída − chegada) ÷ 60 min) e valor = horas cheias × pessoas × preço da hora + Σ material cobrado (§2.2, §6). *O §6 escreve "horas cheias = teto(...) × pessoas" e depois multiplica por pessoas de novo; o protótipo multiplica uma vez só, e é o que vale aqui.*
+- [ ] **AGE-14**: **Material do uso livre**: lista opcional de item do estoque + quantidade + **cobrar / incluso**; ao encerrar, **cada linha vira uma saída no Estoque** com destino "uso do espaço", origem `manual`, vínculo com o uso livre e custo médio do momento — inclusive o "incluso"; "cobrar" soma preço de venda do Catálogo × quantidade à conta da pessoa (§6)
+- [ ] **AGE-15**: **A Agenda não guarda dinheiro.** A aba "A receber pela agenda" lista o que ainda não virou venda — mensalidades, inscrições em oficina e usos livres encerrados — e cada item tem **"Recebi agora"** (pergunta a forma — dinheiro, pix, cartão — e cria a Venda **já paga hoje**, que entra no Caixa na hora) e **"Lançar na Venda"** (abre o rascunho preenchido; a parcela fica em aberto em "o que vence", no dia de vencimento da turma ou na data do evento); depois de lançado o item sai de "A receber", a Agenda guarda o **vínculo com a venda** e o "pago" passa a **derivar do Financeiro**; devolução e cancelamento continuam no Financeiro, e a tela diz isso (§5)
+- [ ] **AGE-16**: **Mensalidades em lote**: sanfona "Lançar todas as mensalidades de uma vez", aberta por padrão, com cada aluno, turma, mês, valor ("proporcional" quando for) e o total; um botão cria **uma Venda por aluno**, parcela vencendo no dia da turma; a mensalidade nasce em aberto no **1º dia do mês** para cada aluno de turma fixa, sem duplicar (§5). *Rotina no dia 1 ou ao abrir a tela é a §11.1.*
+- [ ] **AGE-17**: **Itens do Catálogo** que a Agenda usa são criados pela fase e editáveis em Cadastros — mensalidade, inscrição em oficina, "Uso livre (hora)" e os materiais do estoque; **nenhum preço no código** (preço da hora e das mensalidades são cadastro) (§5). *Um item por turma ou um item "Mensalidade" com o nome da turma na linha é a §11.3.*
+- [ ] **AGE-18**: **Site — calendário público**, rota pública sem login lendo os mesmos dados no servidor: só eventos com "Mostrar no calendário público" marcado, não cancelados, de hoje em diante; vistas **Próximas** (turma fixa aparece uma vez, "toda terça, 19h às 21h") e **Calendário mensal** (ponto por evento na cor do tipo, cinza = esgotado, dia fechado marcado, toque no dia lista os eventos, navegação por mês); cartão com nome, quando, preço (por mês ou por pessoa), "material incluso", **vagas restantes** (n vagas · últimas 2 · última vaga · esgotado) e "Reservar pelo WhatsApp" (some quando esgotado); bloco fixo "Uso livre do ateliê" com preço da hora e "Consulte disponibilidade no WhatsApp"; **sem nome de ninguém**; o número do WhatsApp é cadastro (§2.9, §7). *Liga a seção de aulas do site que a Fase 04.6 deixou sem calendário (SIT-02/SIT-07).*
+- [ ] **AGE-19**: Aba **Números**, só leitura, do mês até hoje: horas de uso livre (horas-pessoa e visitas) · presença nas aulas (% e faltas) · aulas a repor em aberto · pessoas diferentes que passaram pelo espaço · horas-pessoa por dia da semana (barra); sem cruzar com custo (§8)
+- [ ] **AGE-20**: Regras em **módulo puro `lib/agenda/`**, testado, com "hoje" recebido por parâmetro — horas cheias, proporcional, créditos de reposição, geração das datas da turma, vagas restantes; dinheiro em centavos, quantidade em milésimos; cancelar ou remover na Agenda **nunca apaga** venda nem movimentação de estoque já gerada (§9). *O bloco "Agenda de hoje" do Início (`/gestao`) passar a ler as consultas da Agenda é a §11.4.*
+
+### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
+
+> *01/10/2026:* os AGD-* abaixo descrevem o modelo da AMASSA de Goiânia (grade por turno, quatro
+> estados de presença, cadastro próprio de alunas, aviso de duplicata) e **nunca foram executados**.
+> A Fase 5 os substitui pelos AGE-01..20 acima. Ficam desmarcados e sem efeito — não são pendência.
 
 - [ ] **AGD-01**: A grade semanal reproduz o protótipo: turnos nas linhas, dias nas colunas, cores por modalidade
 - [ ] **AGD-02**: O indicador de assentos tem três níveis — aberta, completa e excedida
@@ -464,13 +497,17 @@ Reconhecidos e adiados. Não estão no roadmap atual.
 - **FIN-01**: Mensalidades, planos (mensal/trimestral/anual), taxa de matrícula e taxa de massa
 - **FIN-02**: Controle de pagamento por aluna
 
+> *01/10/2026:* a Fase 5 (Agenda, AGE-15/16) passa a cobrir a mensalidade por aluno e o controle
+> de pagamento — pela Venda do Financeiro, nunca guardando dinheiro na Agenda. Planos, taxa de
+> matrícula e taxa de massa continuam fora (briefing da Agenda, §10). O texto abaixo é de antes.
+>
 > As regras estão bem documentadas e é um módulo natural e provavelmente valioso — mas foi
 > conscientemente adiado. O schema de `alunas` e `matriculas` já suporta anexá-lo depois.
 
 ### Integrações entre módulos
 
 - **INT-01**: Ligar uma encomenda a uma queima concreta do módulo de fornos
-- **INT-02**: Módulo de Experiências (oficinas pontuais, 4 a 8 pessoas, em datas específicas)
+- **INT-02**: Módulo de Experiências (oficinas pontuais, 4 a 8 pessoas, em datas específicas) — *01/10/2026: absorvido pela Fase 5 como "aula/oficina avulsa" (AGE-12), sem módulo próprio.*
 
 > A INT-01 é possível e provavelmente desejável, mas fica fora da v1 para não acoplar dois módulos
 > antes de os dois estarem em uso real.
@@ -575,22 +612,42 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FOR-11 | Phase 4 — Contador de Queima | Complete |
 | FOR-12 | Phase 4 — Contador de Queima | Complete |
 | FOR-13 | Phase 4 — Contador de Queima | Complete |
-| AGD-01 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-02 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-03 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-04 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-05 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-06 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-07 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-08 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-09 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-10 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-11 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-12 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-13 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-14 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-15 | Phase 5 — Agenda de Aulas | Pending |
-| AGD-16 | Phase 5 — Agenda de Aulas | Pending |
+| AGD-01 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-02 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-03 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-04 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-05 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-06 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-07 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-08 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-09 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-10 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-11 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-12 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-13 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-14 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-15 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGD-16 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
+| AGE-01 | Phase 5 — Agenda | Pending |
+| AGE-02 | Phase 5 — Agenda | Pending |
+| AGE-03 | Phase 5 — Agenda | Pending |
+| AGE-04 | Phase 5 — Agenda | Pending |
+| AGE-05 | Phase 5 — Agenda | Pending |
+| AGE-06 | Phase 5 — Agenda | Pending |
+| AGE-07 | Phase 5 — Agenda | Pending |
+| AGE-08 | Phase 5 — Agenda | Pending |
+| AGE-09 | Phase 5 — Agenda | Pending |
+| AGE-10 | Phase 5 — Agenda | Pending |
+| AGE-11 | Phase 5 — Agenda | Pending |
+| AGE-12 | Phase 5 — Agenda | Pending |
+| AGE-13 | Phase 5 — Agenda | Pending |
+| AGE-14 | Phase 5 — Agenda | Pending |
+| AGE-15 | Phase 5 — Agenda | Pending |
+| AGE-16 | Phase 5 — Agenda | Pending |
+| AGE-17 | Phase 5 — Agenda | Pending |
+| AGE-18 | Phase 5 — Agenda | Pending |
+| AGE-19 | Phase 5 — Agenda | Pending |
+| AGE-20 | Phase 5 — Agenda | Pending |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
@@ -729,8 +786,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 189 total (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
-- Mapped to phases: 189/189
+- v1 requirements: 193 total — em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
+- Mapped to phases: 193/193 (até 01/10/2026: 189/189)
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -742,7 +799,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 3 | M2 | ENC-01..14 | 14 |
 | Phase 04.1 | M2 (reabertura) | ENC-15 (novo), ENC-03 (reaberto), ENC-04 (retirado) | 1 |
 | Phase 4 | M4 | FOR-01..13 | 13 |
-| Phase 5 | M3 | AGD-01..16 | 16 |
+| Phase 5 | M3 → Agenda (redesenhada em 01/10/2026) | AGE-01..20 (briefing de 26/09; substituem os AGD-01..16, nunca executados) | 20 |
 | Phase 6 | M5 | EST-01..21 (13–21 acrescentados em 29/09 pelo ADENDO) | 21 |
 | Phase 7 | M7 | UI-10..11, PNL-01..07 | 9 |
 | Phase 04.4 | M6 → Financeiro, parte 1 | FNC-01..17 | 17 |
@@ -752,7 +809,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-09-29, tarde (fechamento do plano 06-11) — **EST-01..21 passaram a `[x]`/Complete**,
+*Last updated: 2026-10-01 (início da Fase 5) — **AGE-01..20 acrescentados** (transcrição do briefing da Agenda de 26/09, copiado para `.planning/phases/05-agenda/`); AGD-01..16 viraram registro, "Substituído" no rastreio; total de 189 para 193; notas datadas em FIN-01/02 e INT-02.*
+*Last updated antes: 2026-09-29, tarde (fechamento do plano 06-11) — **EST-01..21 passaram a `[x]`/Complete**,
 com a evidência no bloco logo depois de EST-21 (EST-09 só pela aprovação do dono, sem o tempo
 medido); a linha da Fase 6 na cobertura passou de "EST-01..12 · 12" para 21, e o total de 160 para
 169 — os EST-13..21 tinham sido acrescentados em 29/09 sem atualizar essas contas.*
