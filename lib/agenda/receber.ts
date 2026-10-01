@@ -327,3 +327,63 @@ export function linhasDaVenda(cobranca: CobrancaDaAgenda, itens: ItensDoSistema)
   }
   return linhas;
 }
+
+// ── O lote de mensalidades (plano 12 — AGE-16) ───────────────────────────────────────────────────────────
+
+// Uma linha do lote: o que a sanfona mostra (“{nome} · {turma} · {mês} · {R$}” + “ (proporcional)”) e o
+// vencimento da parcela em aberto que a venda dela vai ter (o dia da turma, D-02).
+export type LinhaDoLote = {
+  id: string;
+  nome: string;
+  turma: string;
+  // AAAA-MM-01.
+  mes: string;
+  vencimento: string;
+  valorCentavos: number;
+  proporcional: boolean;
+};
+
+export type LoteDeMensalidades = {
+  linhas: LinhaDoLote[];
+  // A soma EXATA das linhas, proporcionais incluídas — o total do botão.
+  totalCentavos: number;
+  quantas: number;
+};
+
+// Quem entra no lote: só as MENSALIDADES livres — a receber, ou com a venda cancelada no Caixa (D-08) —,
+// com valor; nunca a lançada, a paga nem a dispensada (D-09). Em ordem de turma e nome (sem acento nem
+// caixa), depois pelo id: a mesma pessoa em duas turmas tem duas linhas (Assumption A6 — duas vendas,
+// cada uma no dia da sua turma). Quem grava relê cada uma sob a trava; isto é o que a tela mostra.
+export function loteDeMensalidades(cobrancas: readonly CobrancaDaAgenda[]): LoteDeMensalidades {
+  const linhas: LinhaDoLote[] = [];
+  for (const cobranca of cobrancas) {
+    if (cobranca.tipo !== "mensalidade" || cobranca.valorCentavos <= 0) {
+      continue;
+    }
+    const situacao = situacaoDaCobranca(cobranca);
+    if (situacao !== "a_receber" && situacao !== "venda_cancelada") {
+      continue;
+    }
+    linhas.push({
+      id: cobranca.id,
+      nome: cobranca.nome,
+      turma: cobranca.turma,
+      mes: cobranca.mes,
+      vencimento: cobranca.vencimento,
+      valorCentavos: cobranca.valorCentavos,
+      proporcional: cobranca.proporcional,
+    });
+  }
+  linhas.sort((a, b) => {
+    const porTurma = COMPARADOR_DE_NOMES.compare(a.turma, b.turma);
+    if (porTurma !== 0) {
+      return porTurma;
+    }
+    const porNome = COMPARADOR_DE_NOMES.compare(a.nome, b.nome);
+    if (porNome !== 0) {
+      return porNome;
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+  return { linhas, totalCentavos: totalAReceber(linhas), quantas: linhas.length };
+}
