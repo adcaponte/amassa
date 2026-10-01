@@ -236,11 +236,12 @@ export const LEGENDA_USO_LIVRE = "Uso livre";
 export const DICA_DO_MES = "Toque num dia para abrir a semana dele.";
 export const FRASE_MES_VAZIO = "Nada marcado neste mês.";
 
-// As abas da Agenda (05-UI-SPEC.md §Ações; UI-D1) — "No site" e "Números" entram nos planos 15 e 14.
+// As abas da Agenda (05-UI-SPEC.md §Ações; UI-D1) — "Números" entrou no plano 14; "No site" entra no 15.
 export const ARIA_PARTES_DA_AGENDA = "Partes da Agenda";
 export const ROTULO_ABA_AGENDA = "Agenda";
 export const ROTULO_ABA_PESSOAS = "Pessoas";
 export const ROTULO_ABA_RECEBER = "A receber";
+export const ROTULO_ABA_NUMEROS = "Números";
 
 // "A receber" sem contador com 0; " · {N}" com 1 ou mais (UI E15·zero-one-many).
 export function rotuloDaAbaReceber(quantos: number): string {
@@ -1092,3 +1093,38 @@ export const SUB_LINHA_DO_FECHADO_DE_HOJE = "o dia todo";
 export function textoEMaisDeHoje(quantos: number): string {
   return `e mais ${quantos}`;
 }
+
+// A aba Números (plano 14 — AGE-19; 05-UI-SPEC.md §"Números", §"Aba Números"). Rótulos em caixa alta, como
+// "A RECEBER" (o CSS também põe `uppercase`); horas, presença e pessoas — nenhum valor em dinheiro (§8).
+const FORMATO_DE_HORAS = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+// "outubro" → "outubro, até hoje" (herdado; o nome do mês vem de `nomeDoMes`, `lib/agenda/semana.ts`).
+export function tituloDosNumeros(nomeDoMes: string): string {
+  return `${nomeDoMes}, até hoje`;
+}
+export const ROTULO_QUADRO_USO_LIVRE = "USO LIVRE";
+export const ROTULO_QUADRO_PRESENCA = "PRESENÇA NAS AULAS";
+export const ROTULO_QUADRO_AULAS_A_REPOR = "AULAS A REPOR";
+export const ROTULO_QUADRO_PESSOAS_NO_ESPACO = "PESSOAS NO ESPAÇO";
+// "{h} h" — com o ponto de milhar ("1.234 h").
+export function horasNosNumeros(horas: number): string {
+  return `${FORMATO_DE_HORAS.format(horas)} h`;
+}
+export function visitasDoUsoLivre(visitas: number): string {
+  return visitas === 1 ? "1 visita" : `${visitas} visitas`;
+}
+// "{p}%"; sem nenhuma presença marcada no mês: "—" (UI-D22 — "0%" diria que ninguém veio).
+export function porcentoDaPresenca(porcento: number | null): string {
+  return porcento === null ? "—" : `${porcento}%`;
+}
+export const FRASE_NENHUMA_PRESENCA_MARCADA = "nenhuma presença marcada";
+export function subQuadroPresenca(porcento: number | null, faltas: number): string {
+  if (porcento === null) {
+    return FRASE_NENHUMA_PRESENCA_MARCADA;
+  }
+  return faltas === 1 ? "1 falta" : `${faltas} faltas`;
+}
+export const SUB_QUADRO_AULAS_A_REPOR = "em aberto";
+export const SUB_QUADRO_PESSOAS_NO_ESPACO = "diferentes";
+export const TITULO_DIA_MAIS_USADO = "Em que dia o espaço é mais usado";
+export const DICA_HORAS_PESSOA =
+  "Horas-pessoa: cada pessoa presente conta as horas que ficou. Serve para decidir em que dia abrir turma nova ou fechar o espaço.";

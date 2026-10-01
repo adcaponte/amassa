@@ -42,7 +42,10 @@ test.describe("agenda pessoas", () => {
     await fazerLogin(page);
     await page.goto("/gestao/agenda?aba=pessoas");
 
-    await expect(page.getByTestId("aba-pessoas")).toHaveAttribute("aria-selected", "true");
+    // Pelo papel, não pelo `data-testid`: logo depois do `goto`, enquanto o React 19 segura a revelação do
+    // `Suspense`, a cópia ainda OCULTA das abas convive com a visível — o `data-testid` acha as duas (strict
+    // mode); o papel acessível só a visível. (Plano 05-14: apareceu ao entrar a aba Números.)
+    await expect(page.getByRole("tab", { name: "Pessoas" })).toHaveAttribute("aria-selected", "true");
     const vazio = page.getByTestId("pessoas-vazio");
     await expect(vazio.getByRole("heading", { name: "Ninguém cadastrado ainda." })).toBeVisible();
     await expect(

@@ -8,21 +8,24 @@ import { abaDaAgendaDaUrl, type AbaDaAgenda } from "@/lib/agenda/abas";
 import {
   ARIA_PARTES_DA_AGENDA,
   ROTULO_ABA_AGENDA,
+  ROTULO_ABA_NUMEROS,
   ROTULO_ABA_PESSOAS,
   rotuloDaAbaReceber,
 } from "@/lib/agenda/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 
-// As abas desta etapa: Agenda · Pessoas · A receber (+ " · {N}" quando há o que receber). "No site" e
-// "Números" entram nos planos 15 e 14 — quando as cinco existirem, abaixo de 768px elas quebram em 3 + 2
-// (Agenda · Pessoas · A receber | No site · Números) com o espaçador `basis-full md:hidden` entre a
-// terceira e a quarta, o mesmo mecanismo de `abas-financeiro.tsx`/`sub-abas-cadastros.tsx` (UI-D1). Com
-// três, uma fileira basta.
+// As abas desta etapa: Agenda · Pessoas · A receber (+ " · {N}" quando há o que receber) · Números (plano
+// 14, a última das que existem). "No site" entra no plano 15 — quando as cinco existirem, abaixo de 768px
+// elas quebram em 3 + 2 (Agenda · Pessoas · A receber | No site · Números) com o espaçador
+// `basis-full md:hidden` entre a terceira e a quarta, o mesmo mecanismo de
+// `abas-financeiro.tsx`/`sub-abas-cadastros.tsx` (UI-D1); a ordem final das cinco é do plano 15. Com
+// quatro, uma fileira basta (cada aba quebra o próprio rótulo, nunca a página).
 const ABAS: readonly { valor: AbaDaAgenda; rotulo: (quantosAReceber: number) => string; href: string }[] = [
   { valor: "agenda", rotulo: () => ROTULO_ABA_AGENDA, href: rotaDeGestao("/agenda") },
   { valor: "pessoas", rotulo: () => ROTULO_ABA_PESSOAS, href: rotaDeGestao("/agenda?aba=pessoas") },
   { valor: "receber", rotulo: rotuloDaAbaReceber, href: rotaDeGestao("/agenda?aba=receber") },
+  { valor: "numeros", rotulo: () => ROTULO_ABA_NUMEROS, href: rotaDeGestao("/agenda?aba=numeros") },
 ];
 
 const CLASSE_DA_ABA =

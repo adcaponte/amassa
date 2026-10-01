@@ -43,6 +43,7 @@ import {
 } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { mesDaData, valorDaAula } from "./mensalidade";
+import type { DadosDosNumeros } from "./numeros";
 import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
 import {
   dataDeVencimento,
@@ -1768,5 +1769,65 @@ export async function agendaDeHoje(hoje: string, agora: { data: string; minutos:
     linhas: ordenadas.slice(0, LINHAS_DA_AGENDA_DE_HOJE),
     restantes: Math.max(0, ordenadas.length - LINHAS_DA_AGENDA_DE_HOJE),
     agoraNoEspaco,
+  };
+}
+
+// ——— A aba Números (AGE-19; plano 14) ———
+
+// As linhas que o puro `numerosDoMes` lê, do dia 1 do mês até hoje (o recorte final, e a conta toda, são
+// dele). Uma consulta por indicador: os usos livres do período; as inscrições COM marcação em datas do
+// período, com o horário da data; e o saldo de reposição de hoje de quem tem os dois lados da conta
+// (`creditosPorCliente` — o saldo não tem mês). Só leitura; a página já chamou `exigirUsuario()`.
+export async function dadosDosNumeros(mes: string, hoje: string): Promise<DadosDosNumeros> {
+  const primeiro = `${mes}-01`;
+  const [usos, marcadas, comCredito] = await Promise.all([
+    db
+      .select({
+        data: usosLivres.data,
+        clienteId: usosLivres.clienteId,
+        estado: usosLivres.estado,
+        pessoas: usosLivres.pessoas,
+        horasCheias: usosLivres.horasCheias,
+      })
+      .from(usosLivres)
+      .where(and(gte(usosLivres.data, primeiro), lte(usosLivres.data, hoje))),
+    db
+      .select({
+        data: eventos.data,
+        clienteId: inscricoes.clienteId,
+        presenca: inscricoes.presenca,
+        inicio: eventos.inicio,
+        fim: eventos.fim,
+        canceladoEm: eventos.canceladoEm,
+      })
+      .from(inscricoes)
+      .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+      .where(
+        and(
+          gte(eventos.data, primeiro),
+          lte(eventos.data, hoje),
+          ne(eventos.tipo, "fechado"),
+          isNotNull(inscricoes.presenca),
+          isNotNull(eventos.inicio),
+          isNotNull(eventos.fim),
+        ),
+      ),
+    db
+      .selectDistinct({ clienteId: inscricoes.clienteId })
+      .from(inscricoes)
+      .where(or(and(eq(inscricoes.presenca, "faltou"), eq(inscricoes.direitoARepor, true)), eq(inscricoes.tipo, "reposicao"))),
+  ]);
+  const creditos = await creditosPorCliente(comCredito.map((linha) => linha.clienteId));
+  return {
+    usosLivres: usos,
+    inscricoes: marcadas.map((linha) => ({
+      data: linha.data,
+      clienteId: linha.clienteId,
+      presenca: linha.presenca,
+      inicio: linha.inicio ?? "00:00",
+      fim: linha.fim ?? "00:00",
+      cancelada: linha.canceladoEm !== null,
+    })),
+    saldosDeReposicao: Object.values(creditos).map((credito) => credito.saldo),
   };
 }

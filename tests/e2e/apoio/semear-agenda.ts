@@ -1296,3 +1296,19 @@ export async function lancamentosDoDia(data: string): Promise<number> {
     return Number(rows[0]?.n ?? 0);
   });
 }
+
+// Quantas inscrições marcadas "Veio" e "Faltou" há em datas NÃO canceladas entre `de` e `ate` (inclusive)
+// — a base da presença da aba Números (a porcentagem não se subtrai; os dois lados, sim).
+export async function presencasDoPeriodo(de: string, ate: string): Promise<{ veio: number; faltou: number }> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ veio: string; faltou: string }>(
+      `select count(*) filter (where i.presenca = 'veio') as veio,
+              count(*) filter (where i.presenca = 'faltou') as faltou
+         from inscricoes i
+         join eventos e on e.id = i.evento_id
+        where e.data between $1 and $2 and e.cancelado_em is null and e.tipo <> 'fechado'`,
+      [de, ate],
+    );
+    return { veio: Number(rows[0]?.veio ?? 0), faltou: Number(rows[0]?.faltou ?? 0) };
+  });
+}

@@ -19,6 +19,7 @@ import {
   aReceberPorCliente,
   cobrancasDaPessoa,
   creditosDoCliente,
+  dadosDosNumeros,
   lerAReceber,
   lerMes,
   lerSemana,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/agenda/consultas";
 import { garantirMensalidadesDoMes } from "@/lib/agenda/gravacao";
 import { mesDaData } from "@/lib/agenda/mensalidade";
+import { numerosDoMes } from "@/lib/agenda/numeros";
 import { quantasDispensadasDaUrl } from "@/lib/agenda/receber";
 import {
   agruparPorDia,
@@ -70,6 +72,7 @@ import { AvisoDaAgenda } from "@/components/amassa/agenda/aviso-da-agenda";
 import { BarraDaAgenda } from "@/components/amassa/agenda/barra-da-agenda";
 import { FolhaLancar } from "@/components/amassa/agenda/folha-lancar";
 import { EsqueletoDoMes, GradeDoMes } from "@/components/amassa/agenda/grade-do-mes";
+import { EsqueletoDosNumeros, NumerosDaAgenda } from "@/components/amassa/agenda/numeros-da-agenda";
 import {
   EsqueletoDasPessoas,
   ListaPessoas,
@@ -113,8 +116,8 @@ function urlDaAgenda(consulta: string): string {
 // `?lancar=1&dia=` (a folha "Lançar na agenda") é lido pelo cliente (`FolhaLancar`), que abre e
 // fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês),
 // "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta) ou "receber" (plano 11 — o que
-// falta receber e o "Recebi agora"). "Números" e "No site"
-// entram nos planos 14 e 15.
+// falta receber e o "Recebi agora") ou "numeros" (plano 14 — o mês até hoje, só leitura). "No site" entra
+// no plano 15.
 export default async function PaginaAgenda({
   searchParams,
 }: {
@@ -139,7 +142,13 @@ export default async function PaginaAgenda({
         </Suspense>
       </div>
       <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
-        {aba === "receber" ? (
+        {aba === "numeros" ? (
+          // Números (AGE-19) espera o banco atrás do esqueleto DELA (4 quadros + 7 barras); a leitura que
+          // falha cai no `error.tsx` da página, como Pessoas.
+          <Suspense fallback={<EsqueletoDosNumeros />}>
+            <NumerosCarregados hoje={hoje} />
+          </Suspense>
+        ) : aba === "receber" ? (
           // "A receber" (AGE-15) espera o banco atrás do esqueleto DELA (cabeçalho + sanfona + 4 linhas).
           <>
             <Suspense fallback={<EsqueletoDoAReceber />}>
@@ -204,6 +213,15 @@ async function AReceberCarregado({ hoje, quantasDispensadas }: { hoje: string; q
   await garantirMensalidadesDoMes(db, mesDaData(hoje));
   const dados = await lerAReceber({ quantasDispensadas });
   return <AReceber dados={dados} />;
+}
+
+// A aba Números (AGE-19): do dia 1 até hoje, no fuso do ateliê (`hoje` decidido acima, em Brasília). Só
+// leitura — nenhuma escrita, nem a mensalidade do mês (D-02 lista as telas que a criam; Números não conta
+// cobrança nenhuma). As contas são do puro `numerosDoMes`.
+async function NumerosCarregados({ hoje }: { hoje: string }) {
+  const mes = hoje.slice(0, 7);
+  const numeros = numerosDoMes(await dadosDosNumeros(mes, hoje), hoje);
+  return <NumerosDaAgenda numeros={numeros} mes={mes} />;
 }
 
 // A volta do “Lançar na Venda” (plano 12): `?aba=receber&aviso=lancado&documento={id}` — o número da venda
