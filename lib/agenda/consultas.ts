@@ -55,6 +55,7 @@ import {
   subLinhaDaCobranca,
   totalAReceber,
   type ItensDoSistema as ItensDoSistemaParaVenda,
+  type CobrancaDaAgenda,
   type LinhaDaVendaDaAgenda,
   type LoteDeMensalidades,
   type SituacaoDaCobranca,
@@ -92,6 +93,9 @@ export type EventoDaSemana = {
   // AGE-08: data anterior a hoje, não cancelada, com alguém sem marcação — a tag "marcar presença" do
   // cartão e do sub-título da folha (`precisaMarcarPresenca`).
   marcarPresenca: boolean;
+  // (Plano 13) Quantas inscrições cobradas desta data estão em “A receber” — a tag “{n} a receber” do
+  // cartão (0 = sem tag; data cancelada = 0, porque ela sai de “A receber”).
+  aReceber: number;
 };
 
 // O motivo do fechado de cada dia (o primeiro lançado, se houver mais de um), entre os eventos lidos.
@@ -119,6 +123,9 @@ export type UsoLivreDaSemana = {
   pessoas: number;
   estado: EstadoUsoLivre;
   encerrar: boolean;
+  // (Plano 13) A situação do pagamento do uso ENCERRADO (“a receber” / “lançado na Venda” / “pago” /
+  // “venda nº {N} cancelada”), derivada do Financeiro; nula antes de encerrar.
+  pagamento: SituacaoDePagamento | null;
 };
 
 // O que ocupa a semana: os eventos e os usos livres, juntos na ordem do módulo puro.
@@ -163,6 +170,7 @@ function usoLivreDaSemana(linha: LinhaDoUsoLivre, hoje: string): UsoLivreDaSeman
     pessoas: linha.pessoas,
     estado: linha.estado,
     encerrar: precisaEncerrar({ data: linha.data, estado: linha.estado }, hoje),
+    pagamento: null,
   };
 }
 
@@ -214,7 +222,17 @@ export async function lerSemana(segunda: string, hoje: string): Promise<ItemDaSe
     .orderBy(asc(eventos.data), asc(eventos.criadoEm), asc(eventos.id));
 
   const motivos = motivosDosFechados(linhas);
-  const doEspaco = (await usos).map((uso) => usoLivreDaSemana(uso, hoje));
+  const usosDaSemana = await usos;
+  // As tags de pagamento do cartão (plano 13): “{n} a receber” das datas de pé e a situação dos usos
+  // encerrados — as duas pela MESMA derivação de “A receber” (`situacaoDaCobranca`).
+  const [aReceberDasDatas, pagamentoDosUsos] = await Promise.all([
+    aReceberPorEvento(linhas.filter((linha) => linha.tipo !== "fechado" && linha.canceladoEm === null).map((linha) => linha.id)),
+    situacoesDosUsos(usosDaSemana.filter((uso) => uso.estado === "encerrado").map((uso) => uso.id)),
+  ]);
+  const doEspaco = usosDaSemana.map((uso) => ({
+    ...usoLivreDaSemana(uso, hoje),
+    pagamento: pagamentoDosUsos[uso.id] ?? null,
+  }));
   const dosEventos: EventoDaSemana[] = linhas.map((linha) => ({
     id: linha.id,
     tipo: linha.tipo,
@@ -228,6 +246,7 @@ export async function lerSemana(segunda: string, hoje: string): Promise<ItemDaSe
     turmaId: linha.turmaId,
     diaFechadoMotivo: linha.tipo === "turma" ? (motivos.get(linha.data) ?? null) : null,
     marcarPresenca: pedePresenca(linha, Number(linha.inscritos ?? 0), Number(linha.semMarcacao ?? 0), hoje),
+    aReceber: aReceberDasDatas[linha.id] ?? 0,
   }));
   return [...dosEventos, ...doEspaco];
 }
@@ -275,6 +294,12 @@ export type InscritoCarregado = {
   // As aulas a repor da PESSOA agora (o saldo derivado, AGE-09) — a confirmação de tirar uma reposição
   // diz com quantas ela fica.
   aRepor: number;
+  // (Plano 13) A situação do pagamento que a linha mostra (05-UI-SPEC.md §“Folha do evento”, Pessoa —
+  // tags): aluno → a da mensalidade do mês da data; oficina e experimental cobrada → a da inscrição;
+  // experimental gratuita e reposição → nula (a gratuita tem a tag própria; reposição não paga de novo).
+  // Nula também quando não há cobrança (mensalidade ainda não nascida, valor zero) ou, numa data
+  // cancelada, quando ela saiu de “A receber”.
+  pagamento: SituacaoDePagamento | null;
 };
 
 export type { VendaDaInscricao };
@@ -362,12 +387,32 @@ export async function obterEvento(id: string, hoje: string): Promise<EventoCarre
       ? sugerirValorDaAula(evento.turmaId, evento.mensalidadeCentavos, mesDaData(evento.data))
       : Promise.resolve(null),
   ]);
-  const saldos = await saldosDeReposicao(linhas.map((linha) => linha.clienteId));
-  const inscritos = linhas.map(({ vendaNumero, vendaCanceladaEm, ...linha }) => ({
-    ...linha,
-    venda: vendaDaInscricao(vendaNumero, vendaCanceladaEm),
-    aRepor: saldos[linha.clienteId] ?? 0,
-  }));
+  const [saldos, dasInscricoes, dasMensalidades] = await Promise.all([
+    saldosDeReposicao(linhas.map((linha) => linha.clienteId)),
+    situacoesDasInscricoes(id),
+    evento.tipo === "turma" && evento.turmaId !== null
+      ? situacaoDaMensalidadeDoMes(evento.turmaId, `${mesDaData(evento.data)}-01`)
+      : Promise.resolve({} as Record<string, SituacaoDePagamento>),
+  ]);
+  const cancelado = evento.canceladoEm !== null;
+  const inscritos = linhas.map(({ vendaNumero, vendaCanceladaEm, ...linha }) => {
+    const pagamento =
+      linha.tipo === "aluno"
+        ? (dasMensalidades[linha.clienteId] ?? null)
+        : linha.cobrar
+          ? (dasInscricoes[linha.id] ?? null)
+          : null;
+    return {
+      ...linha,
+      venda: vendaDaInscricao(vendaNumero, vendaCanceladaEm),
+      aRepor: saldos[linha.clienteId] ?? 0,
+      // A inscrição de uma data cancelada sai de “A receber” (`itensAReceber`): sem tag de quem deve.
+      pagamento:
+        cancelado && linha.tipo !== "aluno" && pagamento !== null && saiDeAReceberAoCancelar(pagamento.situacao)
+          ? null
+          : pagamento,
+    };
+  });
 
   return {
     id: evento.id,
@@ -384,6 +429,14 @@ export async function obterEvento(id: string, hoje: string): Promise<EventoCarre
     marcarPresenca:
       evento.tipo !== "fechado" &&
       precisaMarcarPresenca({ data: evento.data, cancelada: evento.canceladoEm !== null, inscritos }, hoje),
+    aReceber: cancelado
+      ? 0
+      : inscritos.filter(
+          (inscrito) =>
+            inscrito.tipo !== "aluno" &&
+            inscrito.pagamento !== null &&
+            (inscrito.pagamento.situacao === "a_receber" || inscrito.pagamento.situacao === "venda_cancelada"),
+        ).length,
     precoCentavos: evento.precoCentavos,
     publico: evento.publico,
     inscricoes: ordenarInscritos(inscritos),
@@ -525,48 +578,109 @@ export async function lerMes(mes: string): Promise<LancamentoDoMes[]> {
     .map(({ data, tipo }) => ({ data, tipo }));
 }
 
-// Uma linha de "Últimas vindas" da ficha da pessoa.
-export type VindaDaPessoa = {
-  inscricaoId: string;
-  data: string;
-  // Turma: o nome da turma; avulsa: o título.
-  titulo: string;
-  presenca: Presenca | null;
-  // A falta deu direito a repor — a tag "repõe" ao lado de "faltou".
-  direitoARepor: boolean;
-};
+// Uma linha de "Últimas vindas" da ficha da pessoa: uma inscrição numa data (com a presença) ou um uso
+// livre ENCERRADO (com a tag de pagamento — plano 13, a lacuna do 05-09: o protótipo, `folhaPessoa`, lista
+// os dois juntos).
+export type VindaDaPessoa =
+  | {
+      tipo: "inscricao";
+      // A chave da linha na lista.
+      id: string;
+      data: string;
+      // Turma: o nome da turma; avulsa: o título.
+      titulo: string;
+      presenca: Presenca | null;
+      // A falta deu direito a repor — a tag "repõe" ao lado de "faltou".
+      direitoARepor: boolean;
+    }
+  | {
+      tipo: "uso_livre";
+      id: string;
+      data: string;
+      // As horas cheias cobradas (“Uso livre {h} h”).
+      horas: number;
+      // A situação do pagamento do uso, derivada do Financeiro (D-08).
+      pagamento: SituacaoDePagamento | null;
+    };
 
 const TETO_DE_VINDAS = 8;
 
 // As últimas vindas da pessoa (05-UI-SPEC.md §"Ficha da pessoa — linhas de leitura": até 8, as mais
-// recentes primeiro): as inscrições dela em datas NÃO canceladas de hoje para trás — data futura
-// ainda não é vinda. É dado da Agenda, não do cadastro: por isso mora aqui, e não em `lib/clientes`.
-// Os usos livres ("Uso livre {h} h" — 05-UI-SPEC.md §"Ficha da pessoa") ainda NÃO entram aqui: nenhum
-// plano da fase os pôs nesta lista (lacuna registrada no 05-09-SUMMARY).
+// recentes primeiro): as inscrições dela em datas NÃO canceladas de hoje para trás — data futura ainda não
+// é vinda — e os usos livres ENCERRADOS dela até hoje (“Uso livre {h} h” + a tag de pagamento; o protótipo,
+// `folhaPessoa`: `e.tipo==='livre' && e.estado==='encerrado'`). Juntos, pela data e depois pela hora
+// (a do começo da aula; a da chegada do uso), mais recentes primeiro. É dado da Agenda, não do cadastro:
+// por isso mora aqui, e não em `lib/clientes`.
 export async function ultimasVindas(clienteId: string, hoje: string): Promise<VindaDaPessoa[]> {
-  const linhas = await db
-    .select({
-      inscricaoId: inscricoes.id,
-      data: eventos.data,
-      titulo: eventos.titulo,
-      nomeDaTurma: turmas.nome,
-      presenca: inscricoes.presenca,
-      direitoARepor: inscricoes.direitoARepor,
-    })
-    .from(inscricoes)
-    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
-    .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
-    .where(and(eq(inscricoes.clienteId, clienteId), isNull(eventos.canceladoEm), lte(eventos.data, hoje)))
-    .orderBy(desc(eventos.data), desc(eventos.inicio), asc(inscricoes.id))
-    .limit(TETO_DE_VINDAS);
+  const [inscritas, usos] = await Promise.all([
+    db
+      .select({
+        id: inscricoes.id,
+        data: eventos.data,
+        inicio: eventos.inicio,
+        titulo: eventos.titulo,
+        nomeDaTurma: turmas.nome,
+        presenca: inscricoes.presenca,
+        direitoARepor: inscricoes.direitoARepor,
+      })
+      .from(inscricoes)
+      .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+      .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
+      .where(and(eq(inscricoes.clienteId, clienteId), isNull(eventos.canceladoEm), lte(eventos.data, hoje)))
+      .orderBy(desc(eventos.data), desc(eventos.inicio), asc(inscricoes.id))
+      .limit(TETO_DE_VINDAS),
+    db
+      .select({
+        id: usosLivres.id,
+        data: usosLivres.data,
+        chegada: usosLivres.chegada,
+        horas: usosLivres.horasCheias,
+      })
+      .from(usosLivres)
+      .where(
+        and(eq(usosLivres.clienteId, clienteId), eq(usosLivres.estado, "encerrado"), lte(usosLivres.data, hoje)),
+      )
+      .orderBy(desc(usosLivres.data), desc(usosLivres.chegada), asc(usosLivres.id))
+      .limit(TETO_DE_VINDAS),
+  ]);
+  const pagamentos = await situacoesDosUsos(usos.map((uso) => uso.id));
 
-  return linhas.map((linha) => ({
-    inscricaoId: linha.inscricaoId,
-    data: linha.data,
-    titulo: linha.nomeDaTurma ?? linha.titulo ?? "",
-    presenca: linha.presenca,
-    direitoARepor: linha.direitoARepor,
-  }));
+  type Ordenavel = { vinda: VindaDaPessoa; hora: string };
+  const todas: Ordenavel[] = [
+    ...inscritas.map((linha) => ({
+      vinda: {
+        tipo: "inscricao" as const,
+        id: linha.id,
+        data: linha.data,
+        titulo: linha.nomeDaTurma ?? linha.titulo ?? "",
+        presenca: linha.presenca,
+        direitoARepor: linha.direitoARepor,
+      },
+      hora: hhmm(linha.inicio) ?? "",
+    })),
+    ...usos.map((linha) => ({
+      vinda: {
+        tipo: "uso_livre" as const,
+        id: linha.id,
+        data: linha.data,
+        horas: linha.horas ?? 0,
+        pagamento: pagamentos[linha.id] ?? null,
+      },
+      hora: hhmm(linha.chegada) ?? "",
+    })),
+  ];
+  todas.sort((a, b) => {
+    const porData = b.vinda.data.localeCompare(a.vinda.data);
+    if (porData !== 0) {
+      return porData;
+    }
+    const porHora = b.hora.localeCompare(a.hora);
+    if (porHora !== 0) {
+      return porHora;
+    }
+    return a.vinda.id < b.vinda.id ? -1 : a.vinda.id > b.vinda.id ? 1 : 0;
+  });
+  return todas.slice(0, TETO_DE_VINDAS).map((item) => item.vinda);
 }
 
 // ── O crédito de reposição (AGE-09, Pattern 3) ────────────────────────────────────────────────────
@@ -1019,6 +1133,7 @@ export async function obterUsoLivre(id: string, hoje: string): Promise<UsoLivreC
   ]);
   return {
     ...naSemana,
+    pagamento: cobranca === null ? null : { situacao: cobranca.situacao, numeroDaVenda: cobranca.numeroDaVenda },
     clienteId: linha.clienteId,
     chegadaPrevista: hhmm(linha.chegadaPrevista) ?? naSemana.inicio,
     horasPrevistas: linha.horasPrevistas,
@@ -1402,4 +1517,107 @@ export async function lerDispensadas({ quantas }: { quantas: number }): Promise<
     linhas: ordenarDispensadas(linhas).slice(0, quantas),
     total: Number(contaDoMes?.quantas ?? 0) + Number(contaInscritas?.quantas ?? 0),
   };
+}
+
+// ── O pagamento onde o gestor olha (plano 13 — D-02, D-08, D-09; 05-UI-SPEC.md §Color, tags de pagamento) ──
+//
+// Todas as leituras abaixo passam pela MESMA derivação de “A receber” — `lerCobrancas` (a venda ligada e as
+// parcelas em aberto) + `situacaoDaCobranca` / `itensAReceber` (módulo puro). Nada é gravado na Agenda: a
+// venda cancelada no Caixa muda a tag sozinha (D-08), e a dispensa vira a tag neutra “dispensada” (D-09).
+
+export type SituacaoDePagamento = { situacao: SituacaoDaCobranca; numeroDaVenda: number | null };
+
+function situacaoDePagamento(cobranca: CobrancaDaAgenda): SituacaoDePagamento {
+  return { situacao: situacaoDaCobranca(cobranca), numeroDaVenda: cobranca.numeroDaVenda };
+}
+
+// Numa data cancelada, a inscrição a receber (ou de venda cancelada) sai de “A receber” — a tag não a cobra.
+function saiDeAReceberAoCancelar(situacao: SituacaoDaCobranca): boolean {
+  return situacao === "a_receber" || situacao === "venda_cancelada";
+}
+
+// A situação de cada inscrição COBRADA (oficina, experimental cobrada) da data, pelo id da inscrição.
+// Valor zero não cobra nada: sem tag.
+export async function situacoesDasInscricoes(eventoId: string): Promise<Record<string, SituacaoDePagamento>> {
+  const cobrancas = await lerCobrancas(db, { tipos: ["inscricao"], eventoIds: [eventoId] });
+  const situacoes: Record<string, SituacaoDePagamento> = {};
+  for (const cobranca of cobrancas) {
+    if (cobranca.valorCentavos > 0) {
+      situacoes[cobranca.id] = situacaoDePagamento(cobranca);
+    }
+  }
+  return situacoes;
+}
+
+// A situação da mensalidade de `mes` (“AAAA-MM-01”) de cada aluno da turma, pelo id do cliente — a tag do
+// aluno na data de turma. Aluno sem a mensalidade desse mês (mês que ainda não nasceu): sem tag.
+export async function situacaoDaMensalidadeDoMes(
+  turmaId: string,
+  mes: string,
+): Promise<Record<string, SituacaoDePagamento>> {
+  const cobrancas = await lerCobrancas(db, { tipos: ["mensalidade"], turmaId, mes });
+  const situacoes: Record<string, SituacaoDePagamento> = {};
+  for (const cobranca of cobrancas) {
+    if (cobranca.valorCentavos > 0) {
+      situacoes[cobranca.clienteId] = situacaoDePagamento(cobranca);
+    }
+  }
+  return situacoes;
+}
+
+// Quantas inscrições cobradas de cada data estão em “A receber” — o “{n} a receber” do cartão. Quem chama
+// passa só as datas de pé (a cancelada não deve nada).
+export async function aReceberPorEvento(eventoIds: readonly string[]): Promise<Record<string, number>> {
+  if (eventoIds.length === 0) {
+    return {};
+  }
+  const [cobrancas, inscritas] = await Promise.all([
+    lerCobrancas(db, { tipos: ["inscricao"], soLivres: true, eventoIds }),
+    db
+      .select({ id: inscricoes.id, eventoId: inscricoes.eventoId })
+      .from(inscricoes)
+      .where(and(inArray(inscricoes.eventoId, [...eventoIds]), eq(inscricoes.cobrar, true))),
+  ]);
+  const eventoDaInscricao = new Map(inscritas.map((linha) => [linha.id, linha.eventoId]));
+  const porEvento: Record<string, number> = {};
+  for (const item of itensAReceber(cobrancas)) {
+    const eventoId = eventoDaInscricao.get(item.id);
+    if (eventoId !== undefined) {
+      porEvento[eventoId] = (porEvento[eventoId] ?? 0) + 1;
+    }
+  }
+  return porEvento;
+}
+
+// A situação do pagamento de cada uso livre ENCERRADO pedido, pelo id do uso — a tag do cartão.
+export async function situacoesDosUsos(usoIds: readonly string[]): Promise<Record<string, SituacaoDePagamento>> {
+  if (usoIds.length === 0) {
+    return {};
+  }
+  const cobrancas = await lerCobrancas(db, { tipos: ["uso_livre"], usoIds });
+  const situacoes: Record<string, SituacaoDePagamento> = {};
+  for (const cobranca of cobrancas) {
+    situacoes[cobranca.id] = situacaoDePagamento(cobranca);
+  }
+  return situacoes;
+}
+
+// O quadro “A RECEBER” da ficha: a soma do que a pessoa deve AGORA — as cobranças livres (a receber, ou
+// com a venda cancelada no Caixa), não dispensadas, com valor, e (inscrição) de data de pé. É a MESMA regra
+// da lista de “A receber” (`itensAReceber`), recortada pela pessoa. Quem chama já garantiu as mensalidades
+// do mês (D-02).
+export async function cobrancasDaPessoa(clienteId: string): Promise<number> {
+  return totalAReceber(itensAReceber(await lerCobrancas(db, { soLivres: true, clienteIds: [clienteId] })));
+}
+
+// A tag “{n} a receber” de cada pessoa da lista de Pessoas (só quem deve aparece no resultado).
+export async function aReceberPorCliente(clienteIds: readonly string[]): Promise<Record<string, number>> {
+  if (clienteIds.length === 0) {
+    return {};
+  }
+  const porCliente: Record<string, number> = {};
+  for (const item of itensAReceber(await lerCobrancas(db, { soLivres: true, clienteIds }))) {
+    porCliente[item.clienteId] = (porCliente[item.clienteId] ?? 0) + 1;
+  }
+  return porCliente;
 }

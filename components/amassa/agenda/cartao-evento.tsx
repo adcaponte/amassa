@@ -1,4 +1,4 @@
-import type { EventoDaSemana, ItemDaSemana, UsoLivreDaSemana } from "@/lib/agenda/consultas";
+import type { EventoDaSemana, ItemDaSemana, SituacaoDePagamento, UsoLivreDaSemana } from "@/lib/agenda/consultas";
 import { ocupacaoDoEspaco } from "@/lib/agenda/espaco";
 import {
   ocupacaoDoCartao,
@@ -6,8 +6,14 @@ import {
   ROTULO_DIA_TODO,
   subLinhaDoCartao,
   subLinhaDoUsoLivre,
+  TAG_A_RECEBER,
   TAG_DIA_FECHADO,
+  TAG_DISPENSADA,
   TAG_ENCERRADO,
+  TAG_LANCADO_NA_VENDA,
+  TAG_PAGO,
+  tagQuantosAReceber,
+  tagVendaCancelada,
   TAG_ENCERRAR,
   TAG_MARCAR_PRESENCA,
   TAG_NO_ESPACO,
@@ -26,9 +32,49 @@ const BORDA_DO_TIPO = {
 
 const CLASSE_DA_TAG = "rounded-sm px-2 font-semibold";
 
+// A tag da situação do pagamento (plano 13 — D-08, D-09; 05-UI-SPEC.md §Color): “a receber” `erro` sobre
+// `erro-fundo`; “pago” `sucesso`; “lançado na Venda” e “dispensada” neutras (`tinta-media` sobre
+// `superficie-2`); “venda nº {N} cancelada” `atencao`. Derivada do Financeiro, nunca gravada na Agenda.
+// O mesmo desenho na lista da data, no cartão, na folha do uso livre e nas últimas vindas da ficha.
+const PAGAMENTO_NA_TELA = {
+  a_receber: { classe: "bg-erro-fundo text-erro", testId: "tag-pagamento" },
+  lancado: { classe: "bg-superficie-2 text-tinta-media", testId: "tag-pagamento" },
+  pago: { classe: "bg-sucesso-fundo text-sucesso", testId: "tag-pagamento" },
+  venda_cancelada: { classe: "bg-atencao-fundo text-atencao", testId: "tag-venda-cancelada" },
+  dispensada: { classe: "bg-superficie-2 text-tinta-media", testId: "tag-dispensada" },
+} as const;
+
+function textoDoPagamento({ situacao, numeroDaVenda }: SituacaoDePagamento): string {
+  switch (situacao) {
+    case "a_receber":
+      return TAG_A_RECEBER;
+    case "lancado":
+      return TAG_LANCADO_NA_VENDA;
+    case "pago":
+      return TAG_PAGO;
+    case "dispensada":
+      return TAG_DISPENSADA;
+    case "venda_cancelada":
+      return numeroDaVenda === null ? TAG_A_RECEBER : tagVendaCancelada(numeroDaVenda);
+  }
+}
+
+export function TagDePagamento({ pagamento, className }: { pagamento: SituacaoDePagamento; className?: string }) {
+  const naTela = PAGAMENTO_NA_TELA[pagamento.situacao];
+  return (
+    <span
+      data-testid={naTela.testId}
+      data-situacao={pagamento.situacao}
+      className={cn(CLASSE_DA_TAG, "whitespace-nowrap", naTela.classe, className)}
+    >
+      {textoDoPagamento(pagamento)}
+    </span>
+  );
+}
+
 // A tag de estado do uso livre (05-UI-SPEC.md §Color): "encerrar" (D-18 — dia passado ainda no espaço,
 // âmbar) no lugar de "está no espaço" (verde); "reservado" e "encerrado" neutros. No cartão o encerrado
-// fica sem tag de estado — a tag de pagamento ("a receber", "pago") é do plano 11.
+// fica sem tag de estado — no lugar dela, a tag de pagamento ("a receber", "pago" — plano 13).
 export function TagDoUsoLivre({ uso, comEncerrado = false }: { uso: UsoLivreDaSemana; comEncerrado?: boolean }) {
   if (uso.encerrar) {
     return (
@@ -108,6 +154,7 @@ export function CartaoEvento({ evento, aoTocar }: CartaoEventoProps) {
           <>
             <span>{subLinhaDoUsoLivre(uso.fim)}</span>
             <TagDoUsoLivre uso={uso} />
+            {uso.estado === "encerrado" && uso.pagamento !== null ? <TagDePagamento pagamento={uso.pagamento} /> : null}
           </>
         ) : doCalendario ? (
           <>
@@ -129,6 +176,12 @@ export function CartaoEvento({ evento, aoTocar }: CartaoEventoProps) {
                 className="bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold"
               >
                 {TAG_MARCAR_PRESENCA}
+              </span>
+            ) : null}
+            {/* Plano 13: quantas inscrições desta data estão em “A receber” (só com n > 0). */}
+            {doCalendario.aReceber > 0 ? (
+              <span data-testid="tag-a-receber" className="bg-erro-fundo text-erro rounded-sm px-2 font-semibold">
+                {tagQuantosAReceber(doCalendario.aReceber)}
               </span>
             ) : null}
           </>

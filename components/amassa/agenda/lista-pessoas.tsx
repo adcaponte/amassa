@@ -16,6 +16,7 @@ import {
   TITULO_PESSOAS,
   ariaAbrirFicha,
   tagARepor,
+  tagQuantosAReceber,
 } from "@/lib/agenda/textos";
 import type { ClienteDaLista } from "@/lib/clientes/consultas";
 import { QUANTOS_POR_VEZ, subLinhaDaPessoa, type TurmaDaSubLinha } from "@/lib/clientes/lista";
@@ -56,6 +57,9 @@ export type ListaPessoasProps = {
   turmasPorPessoa: Record<string, TurmaDaSubLinha[]>;
   // As aulas a repor de cada pessoa da lista (só quem tem — saldo > 0): a tag âmbar "{n} a repor".
   aReporPorPessoa: Record<string, number>;
+  // (Plano 13) Quantas cobranças de cada pessoa estão em “A receber” (só quem deve): a tag vermelha
+  // “{n} a receber” — a mesma regra da aba, com a mensalidade do mês já garantida pela página (D-02).
+  aReceberPorPessoa: Record<string, number>;
   // A turma de `?turma=` ("ver turma" na ficha), como o servidor a leu.
   turmaAberta: TurmaDoServidor;
   // O "hoje" de Brasília, decidido no servidor (a folha da turma o usa).
@@ -80,6 +84,7 @@ export function ListaPessoas({
   ficha,
   turmasPorPessoa,
   aReporPorPessoa,
+  aReceberPorPessoa,
   turmaAberta,
   hoje,
 }: ListaPessoasProps) {
@@ -324,6 +329,14 @@ export function ListaPessoas({
                     className="text-apoio bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold whitespace-nowrap"
                   >
                     {tagARepor(aReporPorPessoa[pessoa.id] ?? 0)}
+                  </span>
+                ) : null}
+                {(aReceberPorPessoa[pessoa.id] ?? 0) > 0 ? (
+                  <span
+                    data-testid="tag-a-receber"
+                    className="text-apoio bg-erro-fundo text-erro rounded-sm px-2 font-semibold whitespace-nowrap"
+                  >
+                    {tagQuantosAReceber(aReceberPorPessoa[pessoa.id] ?? 0)}
                   </span>
                 ) : null}
               </span>

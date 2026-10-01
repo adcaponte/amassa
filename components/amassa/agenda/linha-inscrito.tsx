@@ -25,6 +25,7 @@ import { hrefDoCaixa } from "@/lib/financeiro/navegacao";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
+import { TagDePagamento } from "./cartao-evento";
 import { ConfirmarTirarDaLista } from "./confirmar-tirar-da-lista";
 import { registrarGravacao } from "./gravacoes-pendentes";
 
@@ -51,7 +52,9 @@ type Marcacao = { presenca: Presenca | null; direito: boolean };
 // caixa "tem direito a repor esta aula" (`Checkbox` 20px dentro de `label` de 44px) — grava na hora pelo
 // estado desejado, sem toast. Sair de "Faltou" tira a caixa e o direito junto (a mesma regra do servidor,
 // `planejarPresenca`). Reposição e experimental ganham "tirar da lista"; a experimental gratuita, a tag
-// "gratuita" (a cobrada ganha a situação do pagamento no plano 11).
+// "gratuita". Plano 13: ao lado das tags de tipo, a situação do pagamento (`inscrito.pagamento`, derivada
+// no servidor) — aluno, a da mensalidade do mês; oficina e experimental cobrada, a da inscrição; reposição,
+// nenhuma ("quem vem repor não paga de novo").
 export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaInscritoProps) {
   const [marcacao, aplicarOtimista] = useOptimistic<Marcacao, Marcacao>(
     { presenca: inscrito.presenca, direito: inscrito.direitoARepor },
@@ -92,6 +95,7 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     !somenteLeitura && tipoDoEvento === "turma" && inscrito.tipo !== "reposicao" && presenca === "faltou";
   const podeTirar = !somenteLeitura && inscrito.tipo !== "aluno";
   const gratuita = inscrito.tipo === "experimental" && !inscrito.cobrar;
+  const pagamento = inscrito.tipo === "reposicao" || gratuita ? null : inscrito.pagamento;
   const idDoDireito = `direito-${inscrito.id}`;
 
   return (
@@ -102,24 +106,27 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     >
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-corpo text-tinta font-semibold break-words">{inscrito.nome}</span>
-        {tag ? (
+        {tag || pagamento !== null ? (
           <span className="flex flex-wrap gap-1">
-            <span
-              data-testid={inscrito.tipo === "reposicao" ? "tag-reposicao" : "tag-experimental"}
-              className={cn(
-                "text-apoio rounded-sm px-2 font-semibold",
-                inscrito.tipo === "reposicao"
-                  ? "bg-atencao-fundo text-atencao"
-                  : "bg-superficie-2 text-tinta-media",
-              )}
-            >
-              {tag}
-            </span>
+            {tag ? (
+              <span
+                data-testid={inscrito.tipo === "reposicao" ? "tag-reposicao" : "tag-experimental"}
+                className={cn(
+                  "text-apoio rounded-sm px-2 font-semibold",
+                  inscrito.tipo === "reposicao"
+                    ? "bg-atencao-fundo text-atencao"
+                    : "bg-superficie-2 text-tinta-media",
+                )}
+              >
+                {tag}
+              </span>
+            ) : null}
             {gratuita ? (
               <span data-testid="tag-gratuita" className="text-apoio bg-superficie-2 text-tinta-media rounded-sm px-2 font-semibold">
                 {TAG_GRATUITA}
               </span>
             ) : null}
+            {pagamento !== null ? <TagDePagamento pagamento={pagamento} className="text-apoio" /> : null}
           </span>
         ) : null}
       </div>
@@ -170,8 +177,7 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
       ) : null}
       {/* A linha de baixo de quem pode sair só desta data (oficina, reposição): "tirar da lista" ou, com
           a venda ativa, a frase da UI-D14 + "ver no Caixa" — um botão que só existiria para ser recusado
-          não aparece (o servidor recusa do mesmo jeito se a tela estiver velha). As tags da situação do
-          pagamento chegam no plano 11. */}
+          não aparece (o servidor recusa do mesmo jeito se a tela estiver velha). */}
       {podeTirar ? (
         <div className="col-span-2 flex flex-col">
           {inscrito.venda !== null && !inscrito.venda.cancelada ? (

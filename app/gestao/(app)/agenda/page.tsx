@@ -16,6 +16,8 @@ import {
   type VistaDaAgenda,
 } from "@/lib/agenda/abas";
 import {
+  aReceberPorCliente,
+  cobrancasDaPessoa,
   creditosDoCliente,
   lerAReceber,
   lerMes,
@@ -235,13 +237,23 @@ async function PessoasCarregadas({
   idDaTurma: string | null;
   hoje: string;
 }) {
+  // D-02 também aqui (plano 13): a lista de Pessoas é parte de “abrir a Agenda” — a mensalidade do mês de
+  // quem já era aluno nasce ANTES de contar a tag “{n} a receber” de cada pessoa, senão a conta do mês novo
+  // sairia baixa até alguém abrir “A receber”, a ficha ou o Início. A mesma escrita idempotente da ficha
+  // (chave única + `on conflict do nothing` — o porquê está em `garantirMensalidadesDoMes`); a página já
+  // chamou `exigirUsuario()` na primeira linha.
+  await garantirMensalidadesDoMes(db, mesDaData(hoje));
   const [lista, ficha, turmaAberta] = await Promise.all([
     listarClientes({ busca, quantos }),
     lerFicha(idDaPessoa, hoje),
     lerTurma(idDaTurma, hoje),
   ]);
   const ids = lista.clientes.map((cliente) => cliente.id);
-  const [turmasPorPessoa, aReporPorPessoa] = await Promise.all([turmasPorCliente(ids), saldosDeReposicao(ids)]);
+  const [turmasPorPessoa, aReporPorPessoa, aReceberPorPessoa] = await Promise.all([
+    turmasPorCliente(ids),
+    saldosDeReposicao(ids),
+    aReceberPorCliente(ids),
+  ]);
   return (
     <ListaPessoas
       pessoas={lista.clientes}
@@ -251,6 +263,7 @@ async function PessoasCarregadas({
       ficha={ficha}
       turmasPorPessoa={turmasPorPessoa}
       aReporPorPessoa={aReporPorPessoa}
+      aReceberPorPessoa={aReceberPorPessoa}
       turmaAberta={turmaAberta}
       hoje={hoje}
     />
@@ -271,15 +284,16 @@ async function lerFicha(id: string | null, hoje: string): Promise<FichaDoServido
     // pessoa — escrita idempotente pela chave única (o porquê está em `garantirMensalidadesDoMes`). A
     // página já chamou `exigirUsuario()` na primeira linha (T-05-32).
     await garantirMensalidadesDoMes(db, mesDaData(hoje));
-    const [vindas, turmas, creditos] = await Promise.all([
+    const [vindas, turmas, creditos, aReceberCentavos] = await Promise.all([
       ultimasVindas(id, hoje),
       turmasDaPessoa(id, hoje),
       creditosDoCliente(db, id),
+      cobrancasDaPessoa(id),
     ]);
     return {
       estado: "carregada",
       pessoa,
-      conteudo: { vindas, turmas, mes: mesDaData(hoje), aRepor: creditos.saldo },
+      conteudo: { vindas, turmas, mes: mesDaData(hoje), aRepor: creditos.saldo, aReceberCentavos },
     };
   } catch (erro) {
     console.error("Falha ao carregar a ficha da pessoa:", erro);

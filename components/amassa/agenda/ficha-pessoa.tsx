@@ -9,6 +9,7 @@ import {
   ROTULO_EDITAR,
   ROTULO_FECHAR,
   ROTULO_PRONTO,
+  ROTULO_QUADRO_A_RECEBER,
   ROTULO_QUADRO_A_REPOR,
   ROTULO_SEM_TELEFONE,
   ROTULO_TENTAR_DE_NOVO,
@@ -18,9 +19,11 @@ import {
   TITULO_FICHA,
   TITULO_ULTIMAS_VINDAS,
   linhaDeVinda,
+  tituloDaVindaDeUsoLivre,
   unidadeDoQuadroARepor,
 } from "@/lib/agenda/textos";
 import type { ClienteDaLista } from "@/lib/clientes/consultas";
+import { formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,14 +31,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
+import { TagDePagamento } from "./cartao-evento";
 import { TurmasDaPessoa } from "./turmas-da-pessoa";
 
 const LINHAS_DO_ESQUELETO = [0, 1, 2, 3] as const;
 
 // O que a ficha mostra além do cabeçalho — chega do servidor. `mes` é o mês de hoje ("AAAA-MM"), o da
 // mensalidade que a confirmação de sair cita. `aRepor` é o saldo de reposição (derivado das linhas —
-// AGE-09); o quadro "A RECEBER" entra no plano 11.
-export type ConteudoDaFicha = { vindas: VindaDaPessoa[]; turmas: TurmaDaPessoa[]; mes: string; aRepor: number };
+// AGE-09); `aReceberCentavos` é o quadro "A RECEBER" (plano 13 — a mesma regra de "A receber", recortada
+// pela pessoa, com a mensalidade do mês já garantida — D-02).
+export type ConteudoDaFicha = {
+  vindas: VindaDaPessoa[];
+  turmas: TurmaDaPessoa[];
+  mes: string;
+  aRepor: number;
+  aReceberCentavos: number;
+};
 
 export type FichaPessoaProps = {
   // O que a tela já sabia no toque (a linha da lista, a pessoa recém-cadastrada, o homônimo escolhido)
@@ -134,8 +145,8 @@ export function FichaPessoa({
             </div>
           ) : (
             <>
-              {/* Os quadros (05-UI-SPEC.md §"Ficha da pessoa"): "A REPOR" {n} "aula"/"aulas". O "A RECEBER"
-                  ocupa a segunda coluna no plano 11. */}
+              {/* Os quadros (05-UI-SPEC.md §"Ficha da pessoa"): "A REPOR" {n} "aula"/"aulas" e "A RECEBER"
+                  {R$} ("R$ 0,00" quando nada) — o número Display, `tabular-nums`, quebrando dentro do quadro. */}
               <div className="grid grid-cols-2 gap-3">
                 <div
                   data-testid="quadro-a-repor"
@@ -149,6 +160,20 @@ export function FichaPessoa({
                       {conteudo.aRepor}
                     </span>
                     <span className="text-apoio text-tinta-media">{unidadeDoQuadroARepor(conteudo.aRepor)}</span>
+                  </span>
+                </div>
+                <div
+                  data-testid="quadro-a-receber"
+                  className="bg-superficie-2 flex min-w-0 flex-col gap-1 rounded-md p-3"
+                >
+                  <span className="text-apoio text-tinta-media font-semibold tracking-[0.06em]">
+                    {ROTULO_QUADRO_A_RECEBER}
+                  </span>
+                  <span
+                    data-testid="quadro-a-receber-valor"
+                    className="text-display text-tinta font-semibold tabular-nums [overflow-wrap:anywhere]"
+                  >
+                    {formatarReais(conteudo.aReceberCentavos)}
                   </span>
                 </div>
               </div>
@@ -175,14 +200,24 @@ export function FichaPessoa({
                   <ul className="divide-border flex flex-col divide-y" data-testid="ficha-vindas">
                     {conteudo.vindas.map((vinda) => (
                       <li
-                        key={vinda.inscricaoId}
+                        key={`${vinda.tipo}:${vinda.id}`}
                         data-testid="ficha-vinda"
+                        data-tipo={vinda.tipo}
                         className="flex min-h-[44px] items-center justify-between gap-3 py-2"
                       >
                         <span className="text-corpo text-tinta min-w-0 break-words">
-                          {linhaDeVinda(formatarDiaMes(vinda.data), vinda.titulo)}
+                          {linhaDeVinda(
+                            formatarDiaMes(vinda.data),
+                            vinda.tipo === "uso_livre" ? tituloDaVindaDeUsoLivre(vinda.horas) : vinda.titulo,
+                          )}
                         </span>
-                        {vinda.presenca !== null ? (
+                        {vinda.tipo === "uso_livre" ? (
+                          vinda.pagamento !== null ? (
+                            <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                              <TagDePagamento pagamento={vinda.pagamento} className="text-apoio" />
+                            </span>
+                          ) : null
+                        ) : vinda.presenca !== null ? (
                           <span className="flex shrink-0 flex-wrap justify-end gap-1">
                             <span
                               className={cn(

@@ -1053,3 +1053,20 @@ export function ariaDesfazerDispensa(descricao: string, nome: string): string {
 }
 export const ROTULO_MOSTRAR_MAIS_DISPENSADAS = "Mostrar mais 20";
 export const ARIA_LISTA_DISPENSADAS = "Cobranças dispensadas";
+
+// O pagamento onde o gestor olha (plano 13 — D-08, D-09; 05-UI-SPEC.md §Color “tags de pagamento”,
+// §“Folha do evento — linhas de leitura” (Pessoa — tags), §“Cartão de evento”, §“Ficha da pessoa”, §“Aba
+// Pessoas”). Derivado do Financeiro, nunca gravado na Agenda. Os rótulos do protótipo (`PAGO`, 212).
+export const TAG_A_RECEBER = "a receber";
+export const TAG_LANCADO_NA_VENDA = "lançado na Venda";
+export const TAG_PAGO = "pago";
+export const TAG_DISPENSADA = "dispensada";
+// “{n} a receber” — no cartão da oficina e na linha de Pessoas (só com n > 0). “a receber” não flexiona.
+export function tagQuantosAReceber(quantos: number): string {
+  return `${quantos} a receber`;
+}
+export const ROTULO_QUADRO_A_RECEBER = "A RECEBER";
+// A vinda de uso livre nas “Últimas vindas” da ficha: “{dd/mm} · Uso livre {h} h” (o protótipo).
+export function tituloDaVindaDeUsoLivre(horas: number): string {
+  return `Uso livre ${horas} h`;
+}

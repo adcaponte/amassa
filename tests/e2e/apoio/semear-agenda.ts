@@ -1092,3 +1092,76 @@ export async function dispensaNoBanco(tipo: "mensalidade" | "inscricao", id: str
     return { existe: true, dispensada: linha.dispensada, dispensadaPorNome: linha.nome, motivo: linha.motivo };
   });
 }
+
+// ── O pagamento onde o gestor olha (plano 13 — D-08) ────────────────────────────────────────────────────
+
+const CHAVE_DO_ITEM_DA_COBRANCA = {
+  mensalidade: "mensalidade",
+  inscricao: "inscricao_oficina",
+  uso_livre: "uso_livre_hora",
+} as const;
+
+// Uma VENDA ligada a qualquer cobrança da Agenda, direto no banco (documento + linha + UMA parcela, a soma
+// fechando): `paga` = a parcela com `pago_em` (o “pago”); sem ela, a parcela em aberto (o “lançado na
+// Venda”); `cancelada` = o Caixa a cancelou depois (D-08). Devolve o id e o número do documento.
+export async function ligarVendaACobranca(dados: {
+  tipo: keyof typeof TABELA_DA_COBRANCA;
+  id: string;
+  valorCentavos: number;
+  data: string;
+  paga: boolean;
+  cancelada?: boolean;
+}): Promise<{ documentoId: string; numero: number }> {
+  return comCliente(async (cliente) => {
+    const criadoPor = await idDoGestorDeTeste(cliente, "ligarVendaACobranca");
+    const categoria = await cliente.query<{ categoriaId: string }>(
+      `select categoria_venda_id as "categoriaId" from itens_catalogo where chave_do_sistema = $1`,
+      [CHAVE_DO_ITEM_DA_COBRANCA[dados.tipo]],
+    );
+    const categoriaId = categoria.rows[0]?.categoriaId;
+    if (!categoriaId) {
+      throw new Error("ligarVendaACobranca: o item do sistema não tem categoria de venda.");
+    }
+    await cliente.query("begin");
+    try {
+      const { rows } = await cliente.query<{ id: string; numero: number }>(
+        `insert into documentos (tipo, data, pessoa_nome, criado_por)
+         values ('venda'::tipo_documento, $1, '[e2e] venda da agenda', $2)
+         returning id, numero`,
+        [dados.data, criadoPor],
+      );
+      const documento = rows[0];
+      await cliente.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
+         values ($1, 0, '[e2e] cobrança da agenda', $2, 1, $3)`,
+        [documento.id, categoriaId, dados.valorCentavos],
+      );
+      await cliente.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+         values ($1, 1, $2, $3, 'dinheiro'::forma_pagamento, $4, $5)`,
+        [
+          documento.id,
+          dados.data,
+          dados.valorCentavos,
+          dados.paga ? dados.data : null,
+          dados.paga ? criadoPor : null,
+        ],
+      );
+      await cliente.query(`update ${TABELA_DA_COBRANCA[dados.tipo]} set documento_id = $1 where id = $2`, [
+        documento.id,
+        dados.id,
+      ]);
+      if (dados.cancelada) {
+        await cliente.query("update documentos set cancelado_em = now(), cancelado_por = $2 where id = $1", [
+          documento.id,
+          criadoPor,
+        ]);
+      }
+      await cliente.query("commit");
+      return { documentoId: documento.id, numero: Number(documento.numero) };
+    } catch (erro) {
+      await cliente.query("rollback");
+      throw erro;
+    }
+  });
+}

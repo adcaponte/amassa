@@ -718,6 +718,15 @@ type FiltroDeCobrancas = {
   soLivres?: boolean;
   // `for no key update` na linha da cobrança (a venda ligada é LIDA, nunca travada).
   travar?: boolean;
+  // (Plano 13 — as tags de pagamento fora de “A receber”, só leitura.) Só destas pessoas (as três tabelas).
+  clienteIds?: readonly string[];
+  // Só as inscrições destas datas (a folha e o cartão do evento).
+  eventoIds?: readonly string[];
+  // Só as mensalidades desta turma e deste mês (“AAAA-MM-01”) — a tag do aluno na data de turma.
+  turmaId?: string;
+  mes?: string;
+  // Só estes usos livres (o cartão da semana).
+  usoIds?: readonly string[];
 };
 
 function vendaLigada(linha: {
@@ -760,6 +769,9 @@ async function lerMensalidadesCobradas(leitor: LeitorDeCobrancas, filtro: Filtro
       and(
         filtro.id === undefined ? undefined : eq(mensalidades.id, filtro.id),
         filtro.ids === undefined ? undefined : inArray(mensalidades.id, [...filtro.ids]),
+        filtro.clienteIds === undefined ? undefined : inArray(mensalidades.clienteId, [...filtro.clienteIds]),
+        filtro.turmaId === undefined ? undefined : eq(mensalidades.turmaId, filtro.turmaId),
+        filtro.mes === undefined ? undefined : eq(mensalidades.mes, filtro.mes),
         filtro.soLivres
           ? and(or(isNull(mensalidades.documentoId), isNotNull(documentos.canceladoEm)), isNull(mensalidades.dispensadaEm))
           : undefined,
@@ -811,6 +823,8 @@ async function lerInscricoesCobradas(leitor: LeitorDeCobrancas, filtro: FiltroDe
         // reposição e experimental gratuita nunca cobram (checks da 0026).
         eq(inscricoes.cobrar, true),
         filtro.id === undefined ? undefined : eq(inscricoes.id, filtro.id),
+        filtro.clienteIds === undefined ? undefined : inArray(inscricoes.clienteId, [...filtro.clienteIds]),
+        filtro.eventoIds === undefined ? undefined : inArray(inscricoes.eventoId, [...filtro.eventoIds]),
         filtro.soLivres
           ? and(
               or(isNull(inscricoes.documentoId), isNotNull(documentos.canceladoEm)),
@@ -867,6 +881,8 @@ async function lerUsosLivresCobrados(leitor: LeitorDeCobrancas, filtro: FiltroDe
         // Só o uso ENCERRADO cobra (o valor nasce no encerramento — check `usos_livres_encerrado_completo`).
         eq(usosLivres.estado, "encerrado"),
         filtro.id === undefined ? undefined : eq(usosLivres.id, filtro.id),
+        filtro.clienteIds === undefined ? undefined : inArray(usosLivres.clienteId, [...filtro.clienteIds]),
+        filtro.usoIds === undefined ? undefined : inArray(usosLivres.id, [...filtro.usoIds]),
         filtro.soLivres ? or(isNull(usosLivres.documentoId), isNotNull(documentos.canceladoEm)) : undefined,
       ),
     );
@@ -943,14 +959,17 @@ async function contarParcelasEmAberto(
 }
 
 // As cobranças da Agenda, das três tabelas — `soLivres` para “A receber” (sem venda ativa, não
-// dispensadas). Sem trava: a lista é leitura; quem decide é o “Recebi agora”, sob a trava.
+// dispensadas). Sem trava: a lista é leitura; quem decide é o “Recebi agora”, sob a trava. `tipos` (plano
+// 13) diz quais tabelas ler; os outros filtros recortam cada uma (as tags de pagamento — só leitura).
 export async function lerCobrancas(
   leitor: LeitorDeCobrancas,
-  filtro: { soLivres?: boolean } = {},
+  filtro: Omit<FiltroDeCobrancas, "id" | "ids" | "travar"> & { tipos?: readonly TipoDeCobranca[] } = {},
 ): Promise<CobrancaDaAgenda[]> {
-  const doMes = await lerMensalidadesCobradas(leitor, filtro);
-  const inscritas = await lerInscricoesCobradas(leitor, filtro);
-  const usos = await lerUsosLivresCobrados(leitor, filtro);
+  const { tipos, ...doFiltro } = filtro;
+  const ler = (tipo: TipoDeCobranca) => tipos === undefined || tipos.includes(tipo);
+  const doMes = ler("mensalidade") ? await lerMensalidadesCobradas(leitor, doFiltro) : [];
+  const inscritas = ler("inscricao") ? await lerInscricoesCobradas(leitor, doFiltro) : [];
+  const usos = ler("uso_livre") ? await lerUsosLivresCobrados(leitor, doFiltro) : [];
   return contarParcelasEmAberto(leitor, [...doMes, ...inscritas, ...usos]);
 }
 

@@ -53,7 +53,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
-import { TagDoUsoLivre } from "./cartao-evento";
+import { TagDePagamento, TagDoUsoLivre } from "./cartao-evento";
 import { CLASSE_DO_CAMPO_DA_AGENDA } from "./campos-turma";
 import { ConfirmarCancelarReserva } from "./confirmar-cancelar-reserva";
 import { FolhaRecebiAgora } from "./folha-recebi-agora";
@@ -486,9 +486,20 @@ function UsoIniciado({
             ) : null}
             <LinhaDaConta rotulo={ROTULO_VALOR} valor={formatarReais(valor)} testId="uso-conta-valor" forte />
           </div>
-          <p data-testid="uso-encerrado" className="text-corpo text-tinta-media">
-            {linhaEncerrado(horas, baixados)}
-          </p>
+          {/* A linha “Encerrado · …” com a tag de pagamento (plano 13 — D-08: “a receber”, “lançado na
+              Venda”, “pago” ou “venda nº {N} cancelada”, derivada do Financeiro). A tag vem DEPOIS do texto,
+              na mesma linha que quebra (o texto do encerramento continua inteiro num elemento só). */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p data-testid="uso-encerrado" className="text-corpo text-tinta-media">
+              {linhaEncerrado(horas, baixados)}
+            </p>
+            {cobranca !== null && valor > 0 ? (
+              <TagDePagamento
+                pagamento={{ situacao: cobranca.situacao, numeroDaVenda: cobranca.numeroDaVenda }}
+                className="text-apoio"
+              />
+            ) : null}
+          </div>
           <MaterialDoUsoLivre
             usoLivreId={uso.id}
             materiais={uso.materiais}
