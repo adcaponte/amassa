@@ -12,6 +12,8 @@ describe("subDaUrl — Fase 04.5 (D-03)", () => {
     ["fixas", "fixas"],
     ["taxas", "taxas"],
     ["parametros", "parametros"],
+    // Fase 5 (D-01, 05-04-PLAN.md): Clientes é a sexta sub-aba — o mesmo cadastro das Pessoas da Agenda.
+    ["clientes", "clientes"],
   ] satisfies [string, SubCadastros][])('subDaUrl("%s") → "%s"', (valor, esperado) => {
     expect(subDaUrl(valor)).toBe(esperado);
   });
