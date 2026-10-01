@@ -7,12 +7,14 @@ import {
   descricaoDaLinha,
   itensAReceber,
   linhasDaVenda,
+  loteDeMensalidades,
   situacaoDaCobranca,
   subLinhaDaCobranca,
   totalAReceber,
   type CobrancaDaAgenda,
   type ItensDoSistema,
 } from "@/lib/agenda/receber";
+import { fraseCorridaDoLote, linhaDoLote, resumoDoLote, rotuloDoBotaoDoLote, toastDoLote } from "@/lib/agenda/textos";
 
 // AGE-15 (§5): a Agenda não guarda dinheiro. “Pago” é DERIVADO do Financeiro (a venda ligada e as
 // parcelas dela), nunca uma coluna; “A receber” é o que ainda não virou venda ativa.
@@ -313,5 +315,84 @@ describe("pureza do módulo de A receber", () => {
     const fonte = readFileSync(join(process.cwd(), "lib/agenda/receber.ts"), "utf8");
     expect(fonte).not.toMatch(/from "(@\/db|react|next|drizzle-orm|pg)/);
     expect(fonte).not.toMatch(/new Date\(|Date\.now\(/);
+  });
+});
+
+// Plano 05-12 (AGE-16): o lote — todas as mensalidades a receber de uma vez, uma venda por mensalidade.
+describe("loteDeMensalidades — quem entra no lote, em que ordem, e o total exato", () => {
+  it("só mensalidades livres: a receber e com venda cancelada (D-08); nunca lançada, paga, dispensada (D-09) nem de valor 0", () => {
+    const lote = loteDeMensalidades([
+      mensalidade({ id: "m-livre" }),
+      mensalidade({ id: "m-cancelada", documentoId: "d-1", numeroDaVenda: 7, canceladoEm: "2026-10-01T12:00:00Z" }),
+      mensalidade({ id: "m-lancada", documentoId: "d-2", numeroDaVenda: 8, parcelasEmAberto: 1 }),
+      mensalidade({ id: "m-paga", documentoId: "d-3", numeroDaVenda: 9 }),
+      mensalidade({ id: "m-dispensada", dispensadaEm: "2026-10-02T12:00:00Z" }),
+      mensalidade({ id: "m-zero", valorCentavos: 0 }),
+      inscricao({ id: "i-1" }),
+      usoLivre({ id: "u-1" }),
+    ]);
+    expect(lote.linhas.map((linha) => linha.id)).toEqual(["m-cancelada", "m-livre"].sort());
+    expect(lote.quantas).toBe(2);
+  });
+
+  it("ordena por turma e nome (sem acento nem caixa), depois pelo id; a mesma pessoa em duas turmas = duas linhas (A6)", () => {
+    const lote = loteDeMensalidades([
+      mensalidade({ id: "m-4", turma: "Torno", nome: "Caio" }),
+      mensalidade({ id: "m-2", turma: "Modelagem", nome: "caio" }),
+      mensalidade({ id: "m-1", turma: "Modelagem", nome: "Ágata" }),
+      mensalidade({ id: "m-3", turma: "Torno", nome: "Bia" }),
+      mensalidade({ id: "m-0", turma: "Torno", nome: "Bia" }),
+    ]);
+    expect(lote.linhas.map((linha) => linha.id)).toEqual(["m-1", "m-2", "m-0", "m-3", "m-4"]);
+  });
+
+  it("o total em centavos é a soma exata das linhas, proporcionais incluídas", () => {
+    const lote = loteDeMensalidades([
+      mensalidade({ id: "m-1", valorCentavos: 32000 }),
+      mensalidade({ id: "m-2", valorCentavos: 10667, proporcional: true }),
+      mensalidade({ id: "m-3", valorCentavos: 1 }),
+    ]);
+    expect(lote.totalCentavos).toBe(42668);
+    expect(lote.linhas.find((linha) => linha.id === "m-2")).toMatchObject({ proporcional: true, valorCentavos: 10667 });
+  });
+
+  it("cada linha leva o que a tela e a venda precisam: nome, turma, mês, vencimento, valor", () => {
+    const [linha] = loteDeMensalidades([mensalidade()]).linhas;
+    expect(linha).toEqual({
+      id: "m-1",
+      nome: "Marina Lopes",
+      turma: "Torno iniciante",
+      mes: "2026-10-01",
+      vencimento: "2026-10-05",
+      valorCentavos: 32000,
+      proporcional: false,
+    });
+  });
+
+  it("vazio: sem mensalidade livre, o lote não tem linha e o total é zero", () => {
+    expect(loteDeMensalidades([inscricao(), usoLivre()])).toEqual({ linhas: [], totalCentavos: 0, quantas: 0 });
+  });
+});
+
+describe("rótulos do lote — singular de verdade com uma (E16 zero-one-many)", () => {
+  it("a sanfona", () => {
+    expect(resumoDoLote(1)).toBe("Lançar todas as mensalidades de uma vez (1) — ver quem entra");
+    expect(resumoDoLote(4)).toBe("Lançar todas as mensalidades de uma vez (4) — ver quem entra");
+  });
+
+  it("o botão: “esta 1”, nunca “estas 1”", () => {
+    expect(rotuloDoBotaoDoLote(1, "R$ 320,00")).toBe("Lançar esta 1 na Venda · R$ 320,00");
+    expect(rotuloDoBotaoDoLote(4, "R$ 1.280,00")).toBe("Lançar estas 4 na Venda · R$ 1.280,00");
+  });
+
+  it("o toast e a corrida", () => {
+    expect(toastDoLote(1)).toBe("1 mensalidade lançada na Venda. A parcela está em “o que vence” do Caixa.");
+    expect(toastDoLote(4)).toBe("4 mensalidades lançadas na Venda. As parcelas estão em “o que vence” do Caixa.");
+    expect(fraseCorridaDoLote(0, 4)).toBe("0 lançadas; 4 já estavam lançadas.");
+  });
+
+  it("a linha da lista, com “ (proporcional)” no fim", () => {
+    expect(linhaDoLote("Ana", "Torno", "outubro", "R$ 106,67", true)).toBe("Ana · Torno · outubro · R$ 106,67 (proporcional)");
+    expect(linhaDoLote("Ana", "Torno", "outubro", "R$ 320,00", false)).toBe("Ana · Torno · outubro · R$ 320,00");
   });
 });
