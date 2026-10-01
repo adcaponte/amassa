@@ -767,7 +767,7 @@ publicação só e o dono migra logo depois do `implantar` (D-15). Nada executad
 - [x] 05-06-PLAN.md — Turma fixa com N semanas e a folha da turma (D-03): editar, marcar mais, desativar (onda 6)
 - [x] 05-07-PLAN.md — Entrar e sair da turma pela ficha, mensalidade proporcional, e a mensalidade que nasce ao abrir (D-02) (onda 7)
 - [x] 05-08-PLAN.md — Presença da turma inteira, direito a repor e reposição sob trava, experimental cobrada ou gratuita (D-07) (onda 8)
-- [ ] 05-09-PLAN.md — Uso livre: reservar, chegou, cancelar reserva, encerrar por hora cheia; o esquecido de ontem (D-18) (onda 9)
+- [x] 05-09-PLAN.md — Uso livre: reservar, chegou, cancelar reserva, encerrar por hora cheia; o esquecido de ontem (D-18) (onda 9)
 - [ ] 05-10-PLAN.md — Material do uso livre: baixa no Estoque com destino próprio e vínculo (D-06), cobrar só com preço (D-14) (onda 10)
 - [ ] 05-11-PLAN.md — `gravarVenda` extraído; “A receber” e “Recebi agora”; “pago” derivado e a venda cancelada que volta a “A receber” (D-08) (onda 11)
 - [ ] 05-12-PLAN.md — “Lançar na Venda” preenchido pela Agenda e o lote de mensalidades (onda 12)
@@ -979,7 +979,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
-| 5. Agenda | 8/16 | In Progress (01/10/2026) | - |
+| 5. Agenda | 9/16 | In Progress (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
