@@ -1187,8 +1187,15 @@ substituído, não apagado.
 | A13 | Entrar como aluno quem já está inscrito numa data futura (experimental) mantém a inscrição existente (`on conflict do nothing`) | Pergunta 9 | Experimental cobrada + mensalidade no mesmo mês — o gestor tira a experimental |
 | A14 | A desativação da turma apaga as datas futuras (e as inscrições delas), não as cancela | Pergunta 9 | Se cancelar, a semana fica cheia de datas riscadas da turma desativada |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
+> **Resolvidas pelo dono em 01/10/2026, no chat, por formulário** — todas na opção recomendada, menos a
+> 7, que ele respondeu à mão ("vamos publicar da melhor forma, nao tem importancia o site falhar
+> agora" = opção (a), uma publicação e o `db:migrate` logo depois). Viraram D-08..D-18 no
+> `05-CONTEXT.md`: 1 → D-08 · 2 → D-09 · 3 → D-10 · 4a → D-11 · 4b → D-12 · 5 → D-13 · 6 → D-14 ·
+> 7 → D-15 · 8 → D-16 · 9 → D-17 · 10 → D-18. **O CONTEXT vence**; o texto abaixo é o registro das
+> opções apresentadas.
+>
 > O dono está disponível nesta sessão. Cada pergunta tem opções, recomendação e se é **one-way**
 > (migração/dado) ou **reversível** (código/tela). Nenhuma reabre decisão travada.
 

@@ -120,3 +120,26 @@ receber", sem botão de gerar —, que só a opção 1 reproduz. Registrada como
 
 - Ligar Venda manual, Orçamento e Produção ao cadastro de clientes.
 - O §10 do briefing inteiro.
+
+---
+
+## Depois da pesquisa — as dez perguntas abertas de `05-RESEARCH.md` (01/10/2026, `/gsd-plan-phase 5`)
+
+Perguntadas em três formulários, cada uma com a recomendação da pesquisa como primeira opção.
+
+| Pergunta | Escolha do dono | Vira |
+|----------|-----------------|------|
+| 1. Venda da Agenda cancelada no Caixa | Volta a "A receber" sozinha (derivado); "tirar da lista" bloqueado com venda ativa (rec.) | D-08 |
+| 2. Dispensar cobrança não lançada | Sim, "Dispensar" marcado, nunca apaga, com desfazer (rec.) | D-09 |
+| 3. Preço no site | Só nos cartões de evento; uso livre segue sem preço (rec.) | D-10 |
+| 4a. Site sem evento público | Os três cartões de hoje, SIT-07 (rec.) | D-11 |
+| 4b. Vagas da turma em "Próximas" | Vagas − alunos ativos (rec.) | D-12 |
+| 5. Dia fechado × o que já está nele | Avisa, não bloqueia; etiqueta "dia fechado" (rec.) | D-13 |
+| 6. Material "cobrar" | Só com preço cadastrado; categoria do "Uso livre (hora)"; preço congelado (rec.) | D-14 |
+| 7. Publicação | Escrita à mão: "vamos publicar da melhor forma, nao tem importancia o site falhar agora." → uma publicação, `db:migrate` logo depois | D-15 |
+| 8. Homônimos no cadastro | Permitir, com aviso por nome normalizado (rec.) | D-16 |
+| 9. Itens do sistema em Cadastros | Protegidos: chave estável + gatilho; nome/preço/categoria editáveis (rec.) | D-17 |
+| 10. Uso livre esquecido "no espaço" | Só conta o de hoje; o antigo ganha "encerrar" (rec.) | D-18 |
+
+Antes das perguntas, o dono escolheu no mesmo formulário: **pesquisar antes de planejar** e **gerar o
+UI-SPEC na mesma rodada** (o portão de UI bloquearia o planejamento sem ele).

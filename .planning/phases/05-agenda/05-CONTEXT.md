@@ -1,6 +1,8 @@
 # Phase 5: Agenda - Context
 
 **Gathered:** 2026-10-01 (discussão com o dono no chat, por formulário, ~01h35–02h UTC)
+**Refined:** 2026-10-01, depois da pesquisa — D-08..D-18 são as respostas do dono no chat às dez
+perguntas abertas de `05-RESEARCH.md`, durante o `/gsd-plan-phase 5`
 **Status:** Ready for planning
 
 <domain>
@@ -15,8 +17,8 @@ Fora: tudo o que o §10 do briefing lista.
 
 A especificação é o `BRIEFING.md` e o `prototipo.html` desta pasta (aprovados pelo dono em
 26/09/2026). **O protótipo vence sobre a interface; o briefing vence sobre regra de dado.** Este
-CONTEXT fecha as quatro questões da §11 e três buracos achados na discussão; **em conflito com o
-briefing, este arquivo vence**.
+CONTEXT fecha as quatro questões da §11, três buracos achados na discussão (D-01..D-07) e as dez
+perguntas abertas da pesquisa (D-08..D-18); **em conflito com o briefing, este arquivo vence**.
 
 </domain>
 
@@ -79,7 +81,8 @@ só com aulas e oficinas, uso livre como texto) e as regras de §3 a §9. Estão
   pessoas"** soma: as pessoas de todo **uso livre com "Chegou" e ainda não encerrado** + os
   **inscritos de toda aula/oficina cujo horário cobre o momento atual**, sem contar quem já está
   marcado "Faltou". A aula conta pelo horário porque ninguém marca chegada de aluno. Continua
-  contagem, sem fração (decisão do dono de 29/09, `lib/agenda/espaco.ts`).
+  contagem, sem fração (decisão do dono de 29/09, `lib/agenda/espaco.ts`). *Refinada pela D-18:
+  conta só os usos livres de hoje.*
 
 ### Estoque (buraco achado na discussão)
 - **D-06:** O material do uso livre sai do Estoque com um **destino novo, "Uso livre do espaço"**,
@@ -98,6 +101,67 @@ só com aulas e oficinas, uso livre como texto) e as regras de §3 a §9. Estão
   arredondado ao centavo), **editável**, e vai para "A receber" como uma inscrição — "Recebi agora"
   / "Lançar na Venda", como o resto. O protótipo não cobrava nada; o briefing não dizia. Mesmo
   padrão do "cobrar / incluso" do material (AGE-14).
+
+### Decididas pelo dono depois da pesquisa (01/10/2026, no chat)
+Respostas às dez perguntas abertas de `05-RESEARCH.md` (seção "Open Questions"; a 4 tinha duas
+partes), por formulário, durante o `/gsd-plan-phase 5`. Na 7 o dono escreveu a resposta à mão; as
+outras são a opção recomendada pela pesquisa, escolhida por ele. *Atenção ao nome: a D-18 abaixo é
+desta fase; a "D-18 da 04.6" (sem preço no site) é outra e é citada sempre com "da 04.6".*
+
+- **D-08 (venda cancelada — pergunta 1):** quando o Caixa cancela a venda de uma cobrança da Agenda
+  (mensalidade, inscrição, uso livre), a cobrança **volta a "A receber" sozinha**, por derivação —
+  vínculo com venda cancelada conta como livre; **nada é gravado no cancelamento** e
+  `cancelarDocumento` não muda. Ela aparece com a etiqueta "venda nº N cancelada" e pode ser lançada
+  de novo. "Tirar da lista" / sair da data de uma cobrança ligada a venda **não cancelada** é
+  recusado com a frase "Esta inscrição já virou a venda nº N. Para devolver, cancele a venda no
+  Caixa." (o protótipo já dizia que devolução se resolve no Financeiro).
+- **D-09 (dispensar — pergunta 2):** "A receber" ganha **"Dispensar"** na linha de mensalidade e de
+  inscrição **ainda não lançada (ou com venda cancelada)**: confirmação, motivo opcional, marca quem
+  e quando (`dispensada_em`/`dispensada_por` ou equivalente), **nunca apaga**, e tem "desfazer".
+  Casos: aluno que saiu no dia 2, bolsa, experimental marcada "cobrar" por engano, venda cancelada
+  que não será refeita. — **Reversibility:** one-way — colunas novas por migração aplicada pelo dono.
+- **D-10 (preço no site — pergunta 3):** o calendário público mostra **preço nos cartões de evento**
+  (turma: "por mês"; oficina: "por pessoa" — o valor que o gestor digitou ao lançar), e o bloco "Uso
+  livre do ateliê" **continua sem preço**, com "Consulte o valor pelo WhatsApp", como a D-18 da 04.6.
+  Revoga a D-18 da 04.6 **só para os cartões de evento**: o motivo dela (não depender do banco na
+  página que precisa sobreviver ao Postgres cair) não vale para o evento, que já vem do banco com
+  queda segura. Nenhuma ligação do site com o Catálogo.
+- **D-11 (site sem evento — pergunta 4a):** sem nenhum evento público marcado, a seção de aulas do
+  site continua no **estado aprovado da 04.6 (SIT-07)** — os três cartões de texto e "o calendário
+  entra aqui em breve" —, nunca um calendário vazio. O calendário aparece com o primeiro evento
+  público.
+- **D-12 (vagas da turma no site — pergunta 4b):** em **"Próximas"**, a turma fixa mostra **vagas da
+  turma − alunos ativos** (a vaga de quem quer entrar na turma); no **calendário mensal**, cada data
+  conta a lista daquele dia (com reposições e experimentais), como no protótipo.
+- **D-13 (dia fechado — pergunta 5):** lançar algo num dia fechado, ou fechar um dia que já tem algo,
+  **avisa e não bloqueia** ("Esse dia está fechado: Natal — lançar mesmo assim?"). Datas de turma que
+  caem num dia fechado **não são canceladas sozinhas**: aparecem com a etiqueta "dia fechado" e o
+  gestor cancela com um toque. Gerar ou estender turma não pula dia fechado. Presença e crédito nunca
+  mudam sem o gestor ver. O §2.8 (sem aviso de sobreposição) continua valendo: é sobre lotação.
+- **D-14 (material cobrado — pergunta 6):** "cobrar" só aparece para material **com preço de venda
+  cadastrado**; sem preço, só "incluso", com a dica "Cadastre o preço de venda em Cadastros para poder
+  cobrar". Na venda, o material cobrado entra como **linha livre** (nunca como linha de item de
+  estoque — daria baixa duas vezes, e a linha de venda só aceita quantidade inteira), na **mesma
+  categoria do item "Uso livre (hora)"**. O preço unitário é **congelado** na linha do material no
+  encerramento. — **Reversibility:** one-way — coluna do preço congelado por migração.
+- **D-15 (publicação — pergunta 7):** **uma publicação e o `db:migrate` logo depois do `implantar`**,
+  como a D-09 da 06.1. Palavras do dono: "vamos publicar da melhor forma, nao tem importancia o site
+  falhar agora." A janela entre o deploy e a migração — em que toda venda, despesa, aprovação de
+  orçamento e baixa de estoque falham, porque o código novo grava colunas que ainda não existem
+  (Pitfall 2 da pesquisa) — é aceita, e o roteiro do portão a descreve. O roteiro confere no dia se a
+  plataforma continua fora de uso real. — **Reversibility:** one-way — é o procedimento de produção.
+- **D-16 (homônimos — pergunta 8):** nomes repetidos **são permitidos**; ao criar, se já existe o
+  mesmo nome ignorando acento e maiúscula (nome normalizado), a tela avisa "Já existe Marina Lopes
+  (62) 9…. É a mesma pessoa?" → usar a existente / criar outra; o telefone aparece na lista para
+  distinguir. Índice não único.
+- **D-17 (itens do sistema — pergunta 9):** "Mensalidade", "Inscrição em oficina" e "Uso livre
+  (hora)" são **itens do sistema**: não se desativam nem saem da Venda; nome, preço e categoria
+  continuam editáveis. A Agenda os acha por uma **chave estável** (coluna, ex.: `chave_do_sistema`),
+  nunca pelo nome; a proteção fica no banco (gatilho), como a categoria "diferença" da 04.4. —
+  **Reversibility:** one-way — coluna e gatilho por migração.
+- **D-18 (uso livre esquecido — pergunta 10):** "Agora no espaço" conta **só usos livres de hoje**
+  com "Chegou" e não encerrados (refina a D-05, que descreve o caso normal); o de dia passado aparece
+  na semana com a etiqueta "encerrar" (como "marcar presença") e continua encerrável.
 
 ### Claude's Discretion
 - O número do WhatsApp do site: o briefing diz "é cadastro"; a 04.6 decidiu (D-17) que ele mora em
