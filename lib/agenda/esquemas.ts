@@ -13,6 +13,8 @@ import {
   FRASE_DIA_DA_SEMANA,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
+  FRASE_EXPERIMENTAL_SEM_ESCOLHA,
+  FRASE_EXPERIMENTAL_VALOR,
   FRASE_FALHA_AO_DESATIVAR_TURMA,
   FRASE_FALHA_AO_ENTRAR_NA_TURMA,
   FRASE_FALHA_AO_SAIR_DA_TURMA,
@@ -176,11 +178,38 @@ export type ModoDeColocar = (typeof MODOS_DE_COLOCAR)[number];
 // "Colocar na lista" (AGE-10, AGE-12): os dois ids e o modo. NENHUM valor da oficina vem da tela
 // (T-05-24) — o preço da inscrição é lido do evento sob a trava; o crédito de reposição é recalculado
 // sob a trava do cliente (Pitfall 7), nunca aceito do navegador.
-export const esquemaColocarNaData = z.object({
-  eventoId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
-  clienteId: z.uuid({ error: FRASE_FALHA_AO_COLOCAR }),
-  modo: z.enum(MODOS_DE_COLOCAR, { error: FRASE_FALHA_AO_COLOCAR }).default("oficina"),
-});
+//
+// A experimental (D-07; UI-D6): `cobrar` é OBRIGATÓRIO — nada vem escolhido de antemão — e, cobrando, o
+// valor é o texto do campo, convertido em centavos INTEIROS pela conversão única do Financeiro (T-05-40:
+// nunca ponto flutuante, nunca sinal). Cobrar R$ 0,00 é recusado: quem não paga é "Gratuita". Nos outros
+// modos, `cobrar` e `valor` são ignorados — o servidor decide.
+export const esquemaColocarNaData = z
+  .object({
+    eventoId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
+    clienteId: z.uuid({ error: FRASE_FALHA_AO_COLOCAR }),
+    modo: z.enum(MODOS_DE_COLOCAR, { error: FRASE_FALHA_AO_COLOCAR }).default("oficina"),
+    cobrar: z.boolean({ error: FRASE_EXPERIMENTAL_SEM_ESCOLHA }).nullable().optional(),
+    valor: z.string({ error: FRASE_EXPERIMENTAL_VALOR }).nullable().optional(),
+  })
+  .transform((dados, contexto) => {
+    const base = { eventoId: dados.eventoId, clienteId: dados.clienteId, modo: dados.modo };
+    if (dados.modo !== "experimental") {
+      return { ...base, cobrar: null, valorCentavos: null };
+    }
+    if (dados.cobrar === undefined || dados.cobrar === null) {
+      contexto.addIssue({ code: "custom", path: ["cobrar"], message: FRASE_EXPERIMENTAL_SEM_ESCOLHA });
+      return z.NEVER;
+    }
+    if (!dados.cobrar) {
+      return { ...base, cobrar: false, valorCentavos: null };
+    }
+    const convertido = converterReaisParaCentavos(dados.valor ?? "");
+    if (!convertido.ok || convertido.centavos === null || convertido.centavos < 1) {
+      contexto.addIssue({ code: "custom", path: ["valor"], message: FRASE_EXPERIMENTAL_VALOR });
+      return z.NEVER;
+    }
+    return { ...base, cobrar: true, valorCentavos: convertido.centavos };
+  });
 
 export type ColocarNaDataValidado = z.infer<typeof esquemaColocarNaData>;
 

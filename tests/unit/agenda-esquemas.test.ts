@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   FRASE_DIA_DA_SEMANA,
+  FRASE_EXPERIMENTAL_SEM_ESCOLHA,
+  FRASE_EXPERIMENTAL_VALOR,
   FRASE_FIM_ANTES_DO_COMECO,
   FRASE_MENSALIDADE,
   FRASE_NOME_DA_TURMA,
@@ -10,7 +12,9 @@ import {
 } from "@/lib/agenda/textos";
 import {
   esquemaCancelarData,
+  esquemaColocarNaData,
   esquemaConferirDia,
+  esquemaDefinirDireitoARepor,
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaLancarTurma,
@@ -257,5 +261,64 @@ describe("esquemaConferirDia com intervalo (a turma)", () => {
     expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2026-10-06" }).success).toBe(true);
     expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2026-10-05" }).success).toBe(false);
     expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2028-10-06" }).success).toBe(false);
+  });
+});
+
+// Plano 08 — "Colocar na lista" com o modo (AGE-10; D-07, UI-D6) e o direito a repor (AGE-09).
+describe("esquemaColocarNaData e esquemaDefinirDireitoARepor", () => {
+  const ids = {
+    eventoId: "11111111-1111-4111-8111-111111111111",
+    clienteId: "22222222-2222-4222-8222-222222222222",
+  };
+
+  it("sem modo é a inscrição de oficina, e nada de valor vem da tela", () => {
+    const resultado = esquemaColocarNaData.safeParse({ ...ids, valor: "999" });
+    expect(resultado.success && resultado.data).toEqual({ ...ids, modo: "oficina", cobrar: null, valorCentavos: null });
+  });
+
+  it("reposição ignora cobrar e valor", () => {
+    const resultado = esquemaColocarNaData.safeParse({ ...ids, modo: "reposicao", cobrar: true, valor: "40" });
+    expect(resultado.success && resultado.data).toEqual({ ...ids, modo: "reposicao", cobrar: null, valorCentavos: null });
+  });
+
+  it("experimental sem escolha é recusada com a frase de escolher", () => {
+    const resultado = esquemaColocarNaData.safeParse({ ...ids, modo: "experimental" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]?.message).toBe(FRASE_EXPERIMENTAL_SEM_ESCOLHA);
+  });
+
+  it("experimental cobrada converte o valor em centavos inteiros", () => {
+    expect(esquemaColocarNaData.safeParse({ ...ids, modo: "experimental", cobrar: true, valor: "37,50" }).data).toEqual({
+      ...ids,
+      modo: "experimental",
+      cobrar: true,
+      valorCentavos: 3750,
+    });
+    expect(esquemaColocarNaData.safeParse({ ...ids, modo: "experimental", cobrar: true, valor: "40" }).data?.valorCentavos).toBe(
+      4000,
+    );
+  });
+
+  it("experimental cobrada sem valor, com valor ilegível, negativo ou zero é recusada", () => {
+    for (const valor of [undefined, "", "abc", "-40", "0", "0,00", "1,234"]) {
+      const resultado = esquemaColocarNaData.safeParse({ ...ids, modo: "experimental", cobrar: true, valor });
+      expect(resultado.success).toBe(false);
+      expect(resultado.error?.issues[0]?.message).toBe(FRASE_EXPERIMENTAL_VALOR);
+    }
+  });
+
+  it("experimental gratuita não leva valor, nem que a tela mande", () => {
+    expect(esquemaColocarNaData.safeParse({ ...ids, modo: "experimental", cobrar: false, valor: "40" }).data).toEqual({
+      ...ids,
+      modo: "experimental",
+      cobrar: false,
+      valorCentavos: null,
+    });
+  });
+
+  it("o direito a repor é o estado desejado: booleano e o id", () => {
+    expect(esquemaDefinirDireitoARepor.safeParse({ inscricaoId: ids.eventoId, direito: true }).success).toBe(true);
+    expect(esquemaDefinirDireitoARepor.safeParse({ inscricaoId: ids.eventoId, direito: "sim" }).success).toBe(false);
+    expect(esquemaDefinirDireitoARepor.safeParse({ inscricaoId: "x", direito: true }).success).toBe(false);
   });
 });

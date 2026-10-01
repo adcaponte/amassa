@@ -92,6 +92,8 @@ export type EventoTravado = {
   // O preço por pessoa da avulsa (nulo no fechado e na data de turma) — lido SOB A TRAVA: é o que a
   // inscrição copia ao nascer (T-05-24).
   precoCentavos: number | null;
+  // A turma da data (só no tipo `turma`): a experimental confere se a pessoa já é aluna dela (D-07).
+  turmaId: string | null;
   cancelado: boolean;
 };
 
@@ -107,6 +109,7 @@ export async function travarEvento(tx: TransacaoDoBanco, eventoId: string): Prom
       data: eventos.data,
       publico: eventos.publico,
       precoCentavos: eventos.precoCentavos,
+      turmaId: eventos.turmaId,
       canceladoEm: eventos.canceladoEm,
     })
     .from(eventos)
@@ -199,6 +202,8 @@ export type InscricaoComVenda = {
   clienteId: string;
   nome: string;
   tipo: TipoInscricao;
+  // A inscrição cobra (oficina, experimental cobrada) — o toast de "tirar da lista" e de "A receber".
+  cobrar: boolean;
   // Do evento, lidos junto: se a data foi cancelada e se ela é pública (o site muda as vagas).
   eventoCancelado: boolean;
   publico: boolean;
@@ -222,6 +227,7 @@ export async function travarInscricaoComVenda(
       clienteId: inscricoes.clienteId,
       nome: clientes.nome,
       tipo: inscricoes.tipo,
+      cobrar: inscricoes.cobrar,
       eventoCanceladoEm: eventos.canceladoEm,
       publico: eventos.publico,
       vendaNumero: documentos.numero,

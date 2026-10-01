@@ -43,6 +43,13 @@ function sufixoUnico(): string {
   return `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+// Dias futuros 700+ — longe dos que as outras specs da Agenda reservam e CONTAM (300+, 330+, 360+, 500+
+// e os dias 10 a 13 de `agenda vistas`). Um par por caso, um dia por projeto.
+function diaReservado(caso: number): string {
+  const projeto = test.info().project.name === "celular" ? 1 : 0;
+  return somarDiasAoHoje(700 + caso * 2 + projeto);
+}
+
 async function semearTurma(nome: string, datas: string[]) {
   return semearTurmaComDatas({
     nome,
@@ -147,9 +154,9 @@ test.describe("agenda reposicao", () => {
     const outra = `[e2e] Bia Sem Crédito ${suf}`;
     const { clienteId } = await semearPessoaComUmaAulaARepor(suf, nome);
     await semearCliente({ nome: outra });
-    const futura = somarDiasAoHoje(9);
+    const futura = diaReservado(0);
     const { eventoIds } = await semearTurma(`[e2e] Turma da reposição ${suf}`, [futura]);
-    const dataDaOficina = somarDiasAoHoje(11);
+    const dataDaOficina = diaReservado(1);
     const oficinaId = await semearOficina({
       titulo: `[e2e] Oficina sem crédito ${suf}`,
       data: dataDaOficina,
@@ -215,7 +222,7 @@ test.describe("agenda reposicao", () => {
     const suf = sufixoUnico();
     const nome = `[e2e] Caio Corrida ${suf}`;
     const { clienteId } = await semearPessoaComUmaAulaARepor(suf, nome);
-    const datas = [somarDiasAoHoje(15), somarDiasAoHoje(22)];
+    const datas = [diaReservado(2), diaReservado(3)];
     const { eventoIds } = await semearTurma(`[e2e] Turma da corrida ${suf}`, datas);
 
     await fazerLogin(page);

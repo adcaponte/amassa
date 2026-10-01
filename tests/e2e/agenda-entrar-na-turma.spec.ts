@@ -252,12 +252,9 @@ test.describe("agenda entrar na turma", () => {
     const turmaNome = `[e2e] Turma ${suf}`;
     const clienteId = await semearCliente({ nome });
     const { turmaId, eventoIds } = await semearTurma(turmaNome, [passada, ...futuras, comReposicao]);
-    await semearAluno({ turmaId, clienteId, entrouEm: somarDiasAoHoje(-10) });
-    const naPassada = await semearInscricao({ eventoId: eventoIds[0], clienteId, tipo: "aluno" });
-    await marcarPresencaNoBanco(naPassada, "veio");
-    await semearInscricao({ eventoId: eventoIds[1], clienteId, tipo: "aluno" });
-    await semearInscricao({ eventoId: eventoIds[2], clienteId, tipo: "aluno" });
-    await semearInscricao({ eventoId: eventoIds[3], clienteId, tipo: "reposicao" });
+    // A mensalidade do mês ANTES do vínculo: abrir a ficha de qualquer pessoa em outro caso (D-02) faz
+    // nascer a do mês de todo aluno — semeada antes, ela já existe quando o vínculo aparece, e a D-02
+    // não tem o que criar (plano 08: na ordem inversa, a semente colidia com a chave única).
     await semearMensalidade({
       turmaId,
       clienteId,
@@ -265,6 +262,12 @@ test.describe("agenda entrar na turma", () => {
       valorCentavos: MENSALIDADE,
       vencimento: dataDoMes(mes, VENCIMENTO),
     });
+    await semearAluno({ turmaId, clienteId, entrouEm: somarDiasAoHoje(-10) });
+    const naPassada = await semearInscricao({ eventoId: eventoIds[0], clienteId, tipo: "aluno" });
+    await marcarPresencaNoBanco(naPassada, "veio");
+    await semearInscricao({ eventoId: eventoIds[1], clienteId, tipo: "aluno" });
+    await semearInscricao({ eventoId: eventoIds[2], clienteId, tipo: "aluno" });
+    await semearInscricao({ eventoId: eventoIds[3], clienteId, tipo: "reposicao" });
 
     await fazerLogin(page);
     await abrirFicha(page, clienteId);
@@ -336,7 +339,9 @@ test.describe("agenda entrar na turma", () => {
       valorCentavos: 16000,
       vencimento: dataDoMes(anterior, VENCIMENTO),
     });
-    expect(await mensalidadesNoBanco(clienteId)).toHaveLength(1);
+    // Só a do mês passado foi semeada. A do mês corrente pode já ter nascido pela ficha de OUTRA pessoa
+    // aberta em outro caso (a D-02 vale para todos os alunos) — o que este caso prova é que ela é UMA só.
+    expect((await mensalidadesNoBanco(clienteId)).filter((m) => m.mes !== `${mes}-01`)).toHaveLength(1);
 
     await fazerLogin(page);
     await abrirFicha(page, clienteId);
@@ -372,8 +377,12 @@ test.describe("agenda entrar na turma", () => {
     const clienteId = await semearCliente({ nome: `[e2e] Pessoa ${suf}` });
     const { turmaId } = await semearTurma(turmaNome, [primeira]);
     await semearAluno({ turmaId, clienteId, entrouEm: dataDoMes(anterior, 20) });
-    // Ninguém abriu a ficha desta pessoa: a mensalidade do mês ainda não nasceu.
-    expect(await mensalidadesNoBanco(clienteId)).toEqual([]);
+    // Ninguém abriu a ficha DESTA pessoa — mas abrir a ficha de QUALQUER pessoa (outro caso, outro
+    // projeto, outra spec rodando junto) faz nascer a mensalidade do mês de todos os alunos (D-02). A
+    // premissa que vale sob paralelismo é: ainda não nasceu, ou nasceu com o valor ANTIGO (plano 08:
+    // "ainda não nasceu" era uma condição global do banco e falhou com `agenda reposicao` rodando junto).
+    const antes = await mensalidadesNoBanco(clienteId);
+    expect(antes.every((mensalidade) => mensalidade.valorCentavos === MENSALIDADE)).toBe(true);
 
     await fazerLogin(page);
     await page.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);

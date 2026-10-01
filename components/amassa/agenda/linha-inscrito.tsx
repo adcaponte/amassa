@@ -16,6 +16,7 @@ import {
   ROTULO_VER_NO_CAIXA,
   rotuloPresencaDe,
   TAG_EXPERIMENTAL,
+  TAG_GRATUITA,
   TAG_REPOSICAO,
 } from "@/lib/agenda/textos";
 import type { Presenca, TipoEvento } from "@/lib/agenda/tipos";
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { ConfirmarTirarDaLista } from "./confirmar-tirar-da-lista";
+import { registrarGravacao } from "./gravacoes-pendentes";
 
 export type LinhaInscritoProps = {
   inscrito: InscritoCarregado;
@@ -48,7 +50,8 @@ type Marcacao = { presenca: Presenca | null; direito: boolean };
 // Plano 08: numa data de TURMA, quem está com "Faltou" e não é reposição ganha, na linha de baixo, a
 // caixa "tem direito a repor esta aula" (`Checkbox` 20px dentro de `label` de 44px) — grava na hora pelo
 // estado desejado, sem toast. Sair de "Faltou" tira a caixa e o direito junto (a mesma regra do servidor,
-// `planejarPresenca`). Reposição (e, na Tarefa 3, experimental) ganha "tirar da lista".
+// `planejarPresenca`). Reposição e experimental ganham "tirar da lista"; a experimental gratuita, a tag
+// "gratuita" (a cobrada ganha a situação do pagamento no plano 11).
 export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaInscritoProps) {
   const [marcacao, aplicarOtimista] = useOptimistic<Marcacao, Marcacao>(
     { presenca: inscrito.presenca, direito: inscrito.direitoARepor },
@@ -65,7 +68,7 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     setErro(null);
     iniciarTransicao(async () => {
       aplicarOtimista({ presenca: planejada.presenca, direito: planejada.direitoARepor });
-      const resultado = await definirPresenca({ inscricaoId: inscrito.id, presenca: desejada });
+      const resultado = await registrarGravacao(definirPresenca({ inscricaoId: inscrito.id, presenca: desejada }));
       if (!resultado.ok) {
         setErro(fraseFalhaAoMarcarPresenca(inscrito.nome));
       }
@@ -76,7 +79,7 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     setErro(null);
     iniciarTransicaoDoDireito(async () => {
       aplicarOtimista({ presenca: "faltou", direito });
-      const resultado = await definirDireitoARepor({ inscricaoId: inscrito.id, direito });
+      const resultado = await registrarGravacao(definirDireitoARepor({ inscricaoId: inscrito.id, direito }));
       if (!resultado.ok) {
         setErro(fraseFalhaAoMarcarDireito(inscrito.nome));
       }
@@ -87,7 +90,8 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     inscrito.tipo === "reposicao" ? TAG_REPOSICAO : inscrito.tipo === "experimental" ? TAG_EXPERIMENTAL : null;
   const mostraDireito =
     !somenteLeitura && tipoDoEvento === "turma" && inscrito.tipo !== "reposicao" && presenca === "faltou";
-  const podeTirar = !somenteLeitura && (inscrito.tipo === "oficina" || inscrito.tipo === "reposicao");
+  const podeTirar = !somenteLeitura && inscrito.tipo !== "aluno";
+  const gratuita = inscrito.tipo === "experimental" && !inscrito.cobrar;
   const idDoDireito = `direito-${inscrito.id}`;
 
   return (
@@ -111,6 +115,11 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
             >
               {tag}
             </span>
+            {gratuita ? (
+              <span data-testid="tag-gratuita" className="text-apoio bg-superficie-2 text-tinta-media rounded-sm px-2 font-semibold">
+                {TAG_GRATUITA}
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -180,6 +189,7 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
               inscricaoId={inscrito.id}
               nome={inscrito.nome}
               tipo={inscrito.tipo}
+              cobrar={inscrito.cobrar}
               aRepor={inscrito.aRepor}
             />
           )}

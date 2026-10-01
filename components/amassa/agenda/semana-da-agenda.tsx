@@ -22,6 +22,7 @@ import { CartaoEvento } from "./cartao-evento";
 import { FolhaEvento } from "./folha-evento";
 import { FolhaFechado } from "./folha-fechado";
 import { FolhaTurma } from "./folha-turma";
+import { depoisDasGravacoes } from "./gravacoes-pendentes";
 import { enderecoDaAgendaCom } from "./url-da-agenda";
 
 export type DiaDaSemanaNaTela = {
@@ -146,6 +147,7 @@ export function SemanaDaAgenda({
   }, [turmaAberta]);
 
   function abrirTurma(turmaId: string, nome: string) {
+    fechamentoAdiado.current += 1;
     setTurmaTocada({ id: turmaId, nome });
     setTurmaAbertaId(turmaId);
     router.push(urlCom(idNaUrl, turmaId), { scroll: false });
@@ -166,15 +168,26 @@ export function SemanaDaAgenda({
   }
 
   function abrir(evento: EventoDaSemana) {
+    fechamentoAdiado.current += 1;
     setCartaoTocado(evento);
     setAberto(evento.id);
     router.push(urlCom(evento.id), { scroll: false });
   }
 
+  // A folha fecha na hora; a URL só troca depois das gravações de presença no ar (`depoisDasGravacoes`):
+  // a semana de baixo é lida de novo já com elas — a tag "marcar presença" some no mesmo instante. Se
+  // outro toque navegar antes (abrir outro cartão), a troca adiada não acontece mais.
+  const fechamentoAdiado = useRef(0);
   function fechar() {
     setAberto(null);
     setCartaoTocado(null);
-    router.push(urlCom(null), { scroll: false });
+    const destino = urlCom(null);
+    const meu = ++fechamentoAdiado.current;
+    depoisDasGravacoes(() => {
+      if (fechamentoAdiado.current === meu) {
+        router.push(destino, { scroll: false });
+      }
+    });
   }
 
   const carregado = eventoAberto !== null && eventoAberto.id === aberto ? eventoAberto : null;

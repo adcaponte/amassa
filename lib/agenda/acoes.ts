@@ -68,6 +68,8 @@ import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoD
 import {
   FRASE_DATA_CANCELADA,
   FRASE_DIREITO_SO_COM_FALTA,
+  FRASE_EXPERIMENTAL_SO_EM_TURMA,
+  fraseJaEAlunoDaTurma,
   FRASE_FALHA_AO_MARCAR_DIREITO,
   FRASE_REPOSICAO_SO_EM_AULA,
   fraseSemAulaARepor,
@@ -574,7 +576,8 @@ export async function buscarPessoasParaData(entradaBruta: unknown): Promise<Resu
   }
 }
 
-export type Colocado = { inscricaoId: string; nome: string; modo: ModoDeColocar };
+// `cobradoCentavos`: o valor que foi para "A receber" (oficina, experimental cobrada) — o toast cita.
+export type Colocado = { inscricaoId: string; nome: string; modo: ModoDeColocar; cobradoCentavos: number | null };
 
 // "Colocar na lista" (AGE-10, AGE-12; plano 08: reposição). `exigirUsuario()` primeiro (T-05-23), Zod
 // (os dois ids e o modo — nenhum valor da oficina vem da tela, T-05-24). Sob a trava do EVENTO (`for no
@@ -587,7 +590,10 @@ export type Colocado = { inscricaoId: string; nome: string; modo: ModoDeColocar 
 //   update`, nunca a exclusiva: as inscrições novas pedem `for key share` nele), recalcula o crédito SOB
 //   A TRAVA (`creditosDoCliente` — Pitfall 7: dois celulares usando o último crédito em datas diferentes
 //   se serializam aqui, e o segundo lê o saldo já gasto) e, com saldo zero, recusa; senão insere
-//   `tipo = 'reposicao'` sem cobrar (o check `inscricoes_reposicao_nao_cobra` também recusa o contrário).
+//   `tipo = 'reposicao'` sem cobrar (o check `inscricoes_reposicao_nao_cobra` também recusa o contrário);
+// - `experimental` (só em data de turma — D-07): recusa quem já é aluno ativo da turma; grava
+//   `tipo = 'experimental'` com o `cobrar` decidido na hora e, cobrada, o valor digitado (centavos
+//   inteiros, validado pelo Zod — T-05-40), que vai para "A receber" como uma inscrição (plano 11).
 // `on conflict (evento_id, cliente_id) do nothing` (T-05-26) é a última garantia contra a inscrição dupla.
 // NUNCA recusa por lista cheia (AGE-11, briefing §2.8): nenhuma conta de vagas aqui nem no banco.
 export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeAcao<Colocado>> {
@@ -616,13 +622,17 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
         if (evento.tipo !== "avulsa" || evento.precoCentavos === null) {
           throw new RecusaDaAgenda(FRASE_FALHA_AO_COLOCAR);
         }
+      } else if (dados.modo === "experimental") {
+        if (evento.tipo !== "turma" || evento.turmaId === null) {
+          throw new RecusaDaAgenda(FRASE_EXPERIMENTAL_SO_EM_TURMA);
+        }
       } else if (evento.tipo !== "turma" && evento.tipo !== "avulsa") {
         throw new RecusaDaAgenda(FRASE_REPOSICAO_SO_EM_AULA);
       }
 
-      // A reposição trava a pessoa (Pitfall 7); a inscrição de oficina só a lê.
+      // A reposição trava a pessoa (Pitfall 7); a inscrição de oficina e a experimental só a leem.
       const cliente =
-        dados.modo === "oficina"
+        dados.modo !== "reposicao"
           ? ((
               await tx.select({ id: clientes.id, nome: clientes.nome }).from(clientes).where(eq(clientes.id, dados.clienteId))
             )[0] ?? null)
@@ -639,13 +649,31 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
         throw new RecusaDaAgenda(fraseJaEstaNaLista(cliente.nome));
       }
 
-      let valores: { tipo: "oficina" | "reposicao"; cobrar: boolean; valorCentavos: number | null };
+      let valores: { tipo: "oficina" | "reposicao" | "experimental"; cobrar: boolean; valorCentavos: number | null };
       if (dados.modo === "reposicao") {
         const creditos = await creditosDoCliente(tx, cliente.id);
         if (creditos.saldo <= 0) {
           throw new RecusaDaAgenda(fraseSemAulaARepor(cliente.nome));
         }
         valores = { tipo: "reposicao", cobrar: false, valorCentavos: null };
+      } else if (dados.modo === "experimental") {
+        const [aluno] = await tx
+          .select({ id: turmaAlunos.id })
+          .from(turmaAlunos)
+          .where(
+            and(
+              eq(turmaAlunos.turmaId, evento.turmaId ?? ""),
+              eq(turmaAlunos.clienteId, cliente.id),
+              isNull(turmaAlunos.saiuEm),
+            ),
+          );
+        if (aluno) {
+          throw new RecusaDaAgenda(fraseJaEAlunoDaTurma(cliente.nome));
+        }
+        valores =
+          dados.cobrar === true && dados.valorCentavos !== null
+            ? { tipo: "experimental", cobrar: true, valorCentavos: dados.valorCentavos }
+            : { tipo: "experimental", cobrar: false, valorCentavos: null };
       } else {
         valores = { tipo: "oficina", cobrar: true, valorCentavos: evento.precoCentavos };
       }
@@ -658,7 +686,7 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
       if (!inserida) {
         throw new RecusaDaAgenda(fraseJaEstaNaLista(cliente.nome));
       }
-      return { inscricaoId: inserida.id, nome: cliente.nome, modo: dados.modo };
+      return { inscricaoId: inserida.id, nome: cliente.nome, modo: dados.modo, cobradoCentavos: valores.valorCentavos };
     });
   } catch (erro) {
     if (erro instanceof RecusaDaAgenda) {

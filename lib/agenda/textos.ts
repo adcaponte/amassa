@@ -674,3 +674,39 @@ export function corpoTirarReposicao(nome: string, saldoDepois: number): string {
 }
 
 export const COMPLEMENTO_TOAST_REPOSICAO_VOLTOU = " A aula a repor voltou para o crédito.";
+
+// A aula experimental (D-07; UI-D6 confirmada pelo dono — 05-UI-SPEC.md §"Seletor de pessoa" (Escolhida —
+// experimental), §"Rótulos e dicas de campo", §Toasts, §Copywriting "Erros", §Confirmações).
+export const TAG_GRATUITA = "gratuita";
+export const ARIA_ESTA_AULA_E_COBRADA = "Esta aula é cobrada?";
+export const ROTULO_COBRAR = "Cobrar";
+export const ROTULO_GRATUITA = "Gratuita";
+export const ROTULO_VALOR_DESTA_AULA = "Valor desta aula (R$)";
+
+export function faixaExperimental(nome: string): string {
+  return `${nome} entra só nesta data.`;
+}
+
+export function dicaSugestaoDaAula(mensalidade: string, aulas: number, mes: string): string {
+  return `sugestão: mensalidade de ${mensalidade} ÷ ${aulas} ${aulas === 1 ? "aula" : "aulas"} em ${mes}`;
+}
+
+export const FRASE_EXPERIMENTAL_SEM_ESCOLHA = "Diga se esta aula é cobrada ou gratuita.";
+export const FRASE_EXPERIMENTAL_VALOR = "Diga o valor — por exemplo, 40 ou 37,50.";
+export const FRASE_EXPERIMENTAL_SO_EM_TURMA = "A aula experimental só entra numa data de turma.";
+
+export function fraseJaEAlunoDaTurma(nome: string): string {
+  return `${nome} já é aluno desta turma — já está nas datas.`;
+}
+
+export const TOAST_ENTROU_EXPERIMENTAL =
+  "Entrou só nesta data (experimental). Para virar aluno fixo, é pela ficha da pessoa.";
+
+export function complementoToastExperimentalCobrada(valor: string): string {
+  return ` A aula de ${valor} foi para “A receber”.`;
+}
+
+// Tirar uma experimental gratuita: não há cobrança a perder.
+export function corpoTirarExperimentalGratuita(nome: string): string {
+  return `${nome} sai só desta data.`;
+}

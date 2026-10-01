@@ -10,6 +10,7 @@ import {
   ariaTirarDaLista,
   COMPLEMENTO_TOAST_REPOSICAO_VOLTOU,
   CORPO_TIRAR_INSCRICAO_DA_LISTA,
+  corpoTirarExperimentalGratuita,
   corpoTirarReposicao,
   FRASE_FALHA_AO_TIRAR_DA_LISTA,
   ROTULO_MANTER_NA_LISTA,
@@ -39,28 +40,39 @@ export type ConfirmarTirarDaListaProps = {
   nome: string;
   // O que a pessoa é nesta data — decide o que a confirmação diz que se perde.
   tipo: TipoInscricao;
+  // A inscrição cobra (oficina, experimental cobrada): sair dela tira a cobrança de "A receber".
+  cobrar: boolean;
   // As aulas a repor da pessoa agora: tirar a reposição devolve uma (o corpo diz com quantas fica).
   aRepor: number;
 };
 
-// O corpo da confirmação (05-UI-SPEC.md §Confirmações "Tirar da lista"): a inscrição de oficina sai de
-// "A receber"; a reposição volta a ser crédito.
-function corpoDaConfirmacao({ nome, tipo, aRepor }: Pick<ConfirmarTirarDaListaProps, "nome" | "tipo" | "aRepor">): string {
+// O corpo da confirmação (05-UI-SPEC.md §Confirmações "Tirar da lista"): a inscrição de oficina e a
+// experimental cobrada saem de "A receber"; a reposição volta a ser crédito; a experimental gratuita só
+// sai da data.
+function corpoDaConfirmacao({
+  nome,
+  tipo,
+  cobrar,
+  aRepor,
+}: Pick<ConfirmarTirarDaListaProps, "nome" | "tipo" | "cobrar" | "aRepor">): string {
   if (tipo === "reposicao") {
     return corpoTirarReposicao(nome, aRepor + 1);
+  }
+  if (tipo === "experimental" && !cobrar) {
+    return corpoTirarExperimentalGratuita(nome);
   }
   return CORPO_TIRAR_INSCRICAO_DA_LISTA;
 }
 
-// "tirar da lista" de uma inscrição de oficina sem venda ativa ou de uma reposição (05-UI-SPEC.md
-// §Confirmações; UI-D13):
+// "tirar da lista" de uma inscrição de oficina ou experimental sem venda ativa, ou de uma reposição
+// (05-UI-SPEC.md §Confirmações; UI-D13):
 // um link-botão de 44px em `tinta-media` sublinhado — nunca terracota, o primário da folha é "Pronto"
 // — que abre a confirmação dizendo o que se perde. Em voo, "Tirando…", os dois botões desabilitados.
 //
 // A recusa do servidor aparece DENTRO do diálogo (`role="alert"`), que continua aberto: com a tela
 // velha, a inscrição pode já ter virado venda em outro celular, e a frase da D-08 diz que a devolução
 // é no Caixa. Ao fechar depois de uma recusa, a folha pede ao servidor a lista de agora.
-export function ConfirmarTirarDaLista({ inscricaoId, nome, tipo, aRepor }: ConfirmarTirarDaListaProps) {
+export function ConfirmarTirarDaLista({ inscricaoId, nome, tipo, cobrar, aRepor }: ConfirmarTirarDaListaProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [aberto, setAberto] = useState(false);
@@ -125,7 +137,7 @@ export function ConfirmarTirarDaLista({ inscricaoId, nome, tipo, aRepor }: Confi
           <AlertDialogHeader>
             <AlertDialogTitle className="[overflow-wrap:anywhere]">{tituloConfirmarTirarDaLista(nome)}</AlertDialogTitle>
             <AlertDialogDescription data-testid="confirmar-tirar-da-lista-corpo" className="[overflow-wrap:anywhere]">
-              {corpoDaConfirmacao({ nome, tipo, aRepor })}
+              {corpoDaConfirmacao({ nome, tipo, cobrar, aRepor })}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

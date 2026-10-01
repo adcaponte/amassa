@@ -22,6 +22,7 @@ import {
   type VendaDaInscricao,
 } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
+import { mesDaData, valorDaAula } from "./mensalidade";
 import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
 import { creditosDeReposicao, type CreditosDeReposicao } from "./reposicao";
 import { gradeDoMes } from "./semana";
@@ -178,6 +179,19 @@ export type EventoCarregado = EventoDaSemana & {
   // O que "Cancelar esta data" perderia agora — decide se a folha pede confirmação (UI-D13). O
   // servidor confere de novo sob a trava ao cancelar.
   perdasAoCancelar: PerdasAoCancelar;
+  // Data de turma: o valor sugerido de uma aula experimental cobrada (D-07) — calculado AQUI, no
+  // servidor, pelo módulo puro. `null` fora da turma ou quando não há aula no mês para dividir.
+  sugestaoDaAula: SugestaoDaAula | null;
+};
+
+// "sugestão: mensalidade de {R$} ÷ {n} aulas em {mês}" — a mensalidade de AGORA da turma dividida pelas
+// aulas NÃO canceladas dela no mês da data, arredondada ao centavo (`valorDaAula`).
+export type SugestaoDaAula = {
+  valorCentavos: number;
+  mensalidadeCentavos: number;
+  aulas: number;
+  // "AAAA-MM" — o mês da data.
+  mes: string;
 };
 
 export type { PerdasAoCancelar };
@@ -203,6 +217,7 @@ export async function obterEvento(id: string, hoje: string): Promise<EventoCarre
       precoCentavos: eventos.precoCentavos,
       publico: eventos.publico,
       canceladoEm: eventos.canceladoEm,
+      mensalidadeCentavos: turmas.mensalidadeCentavos,
     })
     .from(eventos)
     .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
@@ -211,7 +226,7 @@ export async function obterEvento(id: string, hoje: string): Promise<EventoCarre
     return null;
   }
 
-  const [linhas, perdas, fechadosDoDia] = await Promise.all([
+  const [linhas, perdas, fechadosDoDia, sugestaoDaAula] = await Promise.all([
     db
       .select({
         id: inscricoes.id,
@@ -231,6 +246,9 @@ export async function obterEvento(id: string, hoje: string): Promise<EventoCarre
       .where(eq(inscricoes.eventoId, id)),
     perdasAoCancelar(id),
     evento.tipo === "turma" ? fechadosEntre(evento.data, evento.data) : Promise.resolve([]),
+    evento.tipo === "turma" && evento.turmaId !== null && evento.mensalidadeCentavos !== null
+      ? sugerirValorDaAula(evento.turmaId, evento.mensalidadeCentavos, mesDaData(evento.data))
+      : Promise.resolve(null),
   ]);
   const saldos = await saldosDeReposicao(linhas.map((linha) => linha.clienteId));
   const inscritos = linhas.map(({ vendaNumero, vendaCanceladaEm, ...linha }) => ({
@@ -258,7 +276,19 @@ export async function obterEvento(id: string, hoje: string): Promise<EventoCarre
     publico: evento.publico,
     inscricoes: ordenarInscritos(inscritos),
     perdasAoCancelar: perdas,
+    sugestaoDaAula,
   };
+}
+
+// Quantas aulas NÃO canceladas a turma tem no mês `mes` ("AAAA-MM") — o divisor do valor da aula (D-07).
+export async function aulasDaTurmaNoMes(turmaId: string, mes: string): Promise<number> {
+  return (await datasDaTurmaNoMes(db, turmaId, mes)).length;
+}
+
+async function sugerirValorDaAula(turmaId: string, mensalidadeCentavos: number, mes: string): Promise<SugestaoDaAula | null> {
+  const aulas = await aulasDaTurmaNoMes(turmaId, mes);
+  const valorCentavos = valorDaAula(mensalidadeCentavos, aulas);
+  return valorCentavos === null ? null : { valorCentavos, mensalidadeCentavos, aulas, mes };
 }
 
 // Os três itens do Catálogo que a Agenda usa para cobrar (D-04, D-17, AGE-17) — achados SÓ pela

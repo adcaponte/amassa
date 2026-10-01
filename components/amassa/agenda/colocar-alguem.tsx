@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,20 +9,34 @@ import type { EventoCarregado } from "@/lib/agenda/consultas";
 import type { PessoaDoSeletor } from "@/lib/agenda/seletor";
 import {
   AVISO_LISTA_CHEIA,
+  complementoToastExperimentalCobrada,
+  faixaExperimental,
   faixaInscricaoNaOficina,
   faixaReposicao,
+  FRASE_EXPERIMENTAL_SEM_ESCOLHA,
+  FRASE_EXPERIMENTAL_VALOR,
   FRASE_FALHA_AO_COLOCAR,
   ROTULO_COLOCANDO,
   ROTULO_COLOCAR_ALGUEM,
   ROTULO_COLOCAR_NA_LISTA,
   TOAST_ENTROU_COMO_REPOSICAO,
+  TOAST_ENTROU_EXPERIMENTAL,
   TOAST_INSCRITO_NA_OFICINA,
 } from "@/lib/agenda/textos";
 import { listaCheia } from "@/lib/agenda/vagas";
+import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { Button } from "@/components/ui/button";
 
+import { centavosParaCampo, EscolhaExperimental } from "./escolha-experimental";
 import { SeletorPessoa } from "./seletor-pessoa";
+
+// Recusas que dizem o que corrigir na própria escolha — a pessoa continua escolhida para tentar de novo.
+const ERROS_QUE_MANTEM_A_ESCOLHA = new Set([
+  FRASE_FALHA_AO_COLOCAR,
+  FRASE_EXPERIMENTAL_SEM_ESCOLHA,
+  FRASE_EXPERIMENTAL_VALOR,
+]);
 
 export type ColocarAlguemProps = {
   // A data (aula ou oficina avulsa, ou data de turma — não cancelada) como o servidor a leu.
@@ -30,13 +44,13 @@ export type ColocarAlguemProps = {
 };
 
 // Como a pessoa escolhida entra: quem veio do grupo "Tem aula a repor" (o servidor mandou o saldo) entra
-// como reposição, em qualquer data; os demais, na oficina, como inscrição paga. Na data de turma, quem
-// não tem aula a repor entra como experimental (plano 08, Tarefa 3).
-function modoDaEscolha(pessoa: PessoaDoSeletor, evento: EventoCarregado): "reposicao" | "oficina" | null {
+// como reposição, em qualquer data; os demais, na oficina, como inscrição paga; na data de turma, como
+// aula experimental — só nesta data, cobrada ou gratuita, decidido na hora (D-07).
+function modoDaEscolha(pessoa: PessoaDoSeletor, evento: EventoCarregado): "reposicao" | "oficina" | "experimental" {
   if (pessoa.aRepor !== undefined && pessoa.aRepor > 0) {
     return "reposicao";
   }
-  return evento.tipo === "avulsa" ? "oficina" : null;
+  return evento.tipo === "turma" ? "experimental" : "oficina";
 }
 
 // "Colocar alguém" na folha de uma aula ou oficina avulsa ou de uma data de turma (05-UI-SPEC.md §"Folha
@@ -55,33 +69,76 @@ export function ColocarAlguem({ evento }: ColocarAlguemProps) {
   const [erro, setErro] = useState<string | null>(null);
   // Trocar a chave remonta o seletor limpo — depois de colocar, o campo volta vazio.
   const [chaveDoSeletor, setChaveDoSeletor] = useState(0);
+  // A experimental: nada escolhido de início (UI-D6); o valor já vem com a sugestão do servidor.
+  const [cobrar, setCobrar] = useState<boolean | null>(null);
+  const valorSugerido = evento.sugestaoDaAula === null ? "" : centavosParaCampo(evento.sugestaoDaAula.valorCentavos);
+  const [valor, setValor] = useState(valorSugerido);
+  const [erroDoValor, setErroDoValor] = useState<string | null>(null);
+  const idDaFraseSemEscolha = useId();
 
   const cheia = evento.vagas !== null && listaCheia(evento.vagas, evento.inscricoes.length);
   const modo = escolhida === null ? null : modoDaEscolha(escolhida, evento);
+  const faltaEscolher = modo === "experimental" && cobrar === null;
+
+  function escolherPessoa(pessoa: PessoaDoSeletor | null) {
+    setEscolhida(pessoa);
+    setCobrar(null);
+    setValor(valorSugerido);
+    setErroDoValor(null);
+  }
 
   function recomecar() {
-    setEscolhida(null);
+    escolherPessoa(null);
     setChaveDoSeletor((atual) => atual + 1);
   }
 
   async function colocar() {
-    if (escolhida === null || modo === null || emVoo.current) {
+    if (escolhida === null || modo === null || faltaEscolher || emVoo.current) {
       return;
+    }
+    // A conversão no cliente é conveniência (o servidor converte de novo): o erro aparece embaixo do
+    // campo, sem ida ao servidor.
+    if (modo === "experimental" && cobrar === true) {
+      const convertido = converterReaisParaCentavos(valor);
+      if (!convertido.ok || convertido.centavos === null || convertido.centavos < 1) {
+        setErroDoValor(FRASE_EXPERIMENTAL_VALOR);
+        return;
+      }
     }
     emVoo.current = true;
     setColocando(true);
     setErro(null);
+    setErroDoValor(null);
     try {
-      const resposta = await colocarNaData({ eventoId: evento.id, clienteId: escolhida.id, modo });
+      const resposta = await colocarNaData({
+        eventoId: evento.id,
+        clienteId: escolhida.id,
+        modo,
+        ...(modo === "experimental" ? { cobrar, valor: cobrar === true ? valor : null } : {}),
+      });
       if (resposta.ok) {
-        toast.success(modo === "reposicao" ? TOAST_ENTROU_COMO_REPOSICAO : TOAST_INSCRITO_NA_OFICINA);
+        toast.success(
+          modo === "reposicao"
+            ? TOAST_ENTROU_COMO_REPOSICAO
+            : modo === "experimental"
+              ? TOAST_ENTROU_EXPERIMENTAL +
+                (resposta.dados.cobradoCentavos !== null
+                  ? complementoToastExperimentalCobrada(formatarReais(resposta.dados.cobradoCentavos))
+                  : "")
+              : TOAST_INSCRITO_NA_OFICINA,
+        );
         recomecar();
         return;
       }
+      if (resposta.erro === FRASE_EXPERIMENTAL_VALOR) {
+        setErroDoValor(resposta.erro);
+        return;
+      }
       setErro(resposta.erro);
-      // A tela estava velha (a pessoa já está na lista, a data mudou): o servidor já mandou a folha
-      // atualizada, e a escolha não vale mais. Uma falha de rede mantém a escolha para tentar de novo.
-      if (resposta.erro !== FRASE_FALHA_AO_COLOCAR) {
+      // A tela estava velha (a pessoa já está na lista, a data mudou, o crédito acabou): o servidor já
+      // mandou a folha atualizada, e a escolha não vale mais. Falha de rede ou de validação mantém a
+      // escolha para tentar de novo.
+      if (!ERROS_QUE_MANTEM_A_ESCOLHA.has(resposta.erro)) {
         recomecar();
       }
     } catch {
@@ -101,9 +158,9 @@ export function ColocarAlguem({ evento }: ColocarAlguemProps) {
         desabilitado={colocando}
         aoEscolher={(pessoa) => {
           setErro(null);
-          setEscolhida(pessoa);
+          escolherPessoa(pessoa);
         }}
-        aoDigitar={() => setEscolhida(null)}
+        aoDigitar={() => escolherPessoa(null)}
       />
 
       {cheia ? (
@@ -120,18 +177,40 @@ export function ColocarAlguem({ evento }: ColocarAlguemProps) {
       <div aria-live="polite" data-testid="faixa-colocar" className="text-corpo text-tinta [overflow-wrap:anywhere]">
         {escolhida !== null && modo === "reposicao"
           ? faixaReposicao(escolhida.nome, escolhida.aRepor ?? 0)
-          : escolhida !== null && modo === "oficina" && evento.precoCentavos !== null
-            ? faixaInscricaoNaOficina(escolhida.nome, formatarReais(evento.precoCentavos))
-            : null}
+          : escolhida !== null && modo === "experimental"
+            ? faixaExperimental(escolhida.nome)
+            : escolhida !== null && modo === "oficina" && evento.precoCentavos !== null
+              ? faixaInscricaoNaOficina(escolhida.nome, formatarReais(evento.precoCentavos))
+              : null}
       </div>
+
+      {escolhida !== null && modo === "experimental" ? (
+        <EscolhaExperimental
+          cobrar={cobrar}
+          aoEscolher={(escolha) => {
+            setCobrar(escolha);
+            setErroDoValor(null);
+          }}
+          valor={valor}
+          aoMudarValor={(novo) => {
+            setValor(novo);
+            setErroDoValor(null);
+          }}
+          sugestao={evento.sugestaoDaAula}
+          erroDoValor={erroDoValor}
+          desabilitado={colocando}
+          idDaFraseSemEscolha={idDaFraseSemEscolha}
+        />
+      ) : null}
 
       {escolhida !== null && modo !== null ? (
         <Button
           type="button"
           variant="outline"
           data-testid="colocar-na-lista"
-          disabled={colocando}
+          disabled={colocando || faltaEscolher}
           aria-busy={colocando ? "true" : undefined}
+          aria-describedby={faltaEscolher ? idDaFraseSemEscolha : undefined}
           onClick={() => void colocar()}
           className="text-corpo h-auto min-h-[44px] self-start px-4 font-semibold whitespace-normal"
         >
