@@ -712,6 +712,8 @@ type LeitorDeCobrancas = Pick<TransacaoDoBanco, "select">;
 type FiltroDeCobrancas = {
   // Só uma cobrança (o “Recebi agora”).
   id?: string;
+  // Só estas mensalidades (o lote — plano 12), travadas em ordem de id.
+  ids?: readonly string[];
   // Só as que podem estar em “A receber”: sem venda ATIVA e não dispensadas — o resto da regra é do puro.
   soLivres?: boolean;
   // `for no key update` na linha da cobrança (a venda ligada é LIDA, nunca travada).
@@ -757,11 +759,15 @@ async function lerMensalidadesCobradas(leitor: LeitorDeCobrancas, filtro: Filtro
     .where(
       and(
         filtro.id === undefined ? undefined : eq(mensalidades.id, filtro.id),
+        filtro.ids === undefined ? undefined : inArray(mensalidades.id, [...filtro.ids]),
         filtro.soLivres
           ? and(or(isNull(mensalidades.documentoId), isNotNull(documentos.canceladoEm)), isNull(mensalidades.dispensadaEm))
           : undefined,
       ),
-    );
+    )
+    // Em ordem de id: o lote trava as mensalidades nesta ordem, e dois lotes ao mesmo tempo nunca se
+    // travam em ordem inversa (plano 12).
+    .orderBy(asc(mensalidades.id));
   const linhas = filtro.travar ? await consulta.for("no key update", { of: mensalidades }) : await consulta;
   return linhas.map((linha) => ({
     tipo: "mensalidade" as const,
@@ -1067,4 +1073,19 @@ export async function vincularCobranca(
     itemDoSistemaId: item.id,
     gravar: (documentoId) => vincularVenda(tx, origem, documentoId),
   };
+}
+
+// ── O lote de mensalidades (plano 12 — AGE-16) ───────────────────────────────────────────────────────────
+
+// Trava as MENSALIDADES pedidas (`for no key update ... of mensalidades`, em ordem de id — dois lotes ao
+// mesmo tempo nunca se travam em ordem inversa) e devolve cada uma lida sob a trava, com a venda ligada e
+// as parcelas em aberto. Id que não é de mensalidade não volta (T-05-60): o lote só lê `mensalidades`.
+export async function travarMensalidades(
+  tx: TransacaoDoBanco,
+  ids: readonly string[],
+): Promise<CobrancaDaAgenda[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+  return contarParcelasEmAberto(tx, await lerMensalidadesCobradas(tx, { ids, travar: true }));
 }

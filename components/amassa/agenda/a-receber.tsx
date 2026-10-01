@@ -18,6 +18,7 @@ import { EstadoVazio } from "@/components/amassa/estado-vazio";
 
 import { FolhaRecebiAgora } from "./folha-recebi-agora";
 import { LinhaAReceber } from "./linha-a-receber";
+import { LoteDeMensalidades } from "./lote-de-mensalidades";
 
 export type AReceberProps = {
   dados: AReceberCarregado;
@@ -26,8 +27,8 @@ export type AReceberProps = {
 // A aba “A receber” (05-UI-SPEC.md §“Aba A receber”; AGE-15 — a Agenda não guarda dinheiro): o bloco com
 // o cabeçalho “A receber pela agenda” e o total à direita (Corpo 600), as linhas em ordem de vencimento
 // (a ordem vem do módulo puro, `itensAReceber`), o vazio “Ninguém devendo.” com o total “R$ 0,00”, e a
-// dica do fim. A sanfona do lote de mensalidades é do plano 12; “Dispensadas”, do 13. A folha “Recebi
-// agora” é uma só, aberta pela linha tocada.
+// dica do fim. Logo abaixo do cabeçalho, a sanfona do lote de mensalidades (plano 12 — só com mensalidade
+// livre); “Dispensadas” é do 13. A folha “Recebi agora” é uma só, aberta pela linha tocada.
 export function AReceber({ dados }: AReceberProps) {
   const [aberta, setAberta] = useState<DadosDaLinha | null>(null);
 
@@ -42,6 +43,8 @@ export function AReceber({ dados }: AReceberProps) {
           {formatarReais(dados.totalCentavos)}
         </span>
       </div>
+
+      <LoteDeMensalidades lote={dados.lote} />
 
       {dados.linhas.length === 0 ? (
         <EstadoVazio testId="a-receber-vazio" titulo={FRASE_NINGUEM_DEVENDO} corpo={CORPO_NINGUEM_DEVENDO} />

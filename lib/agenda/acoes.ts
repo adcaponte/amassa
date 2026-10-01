@@ -58,6 +58,7 @@ import {
   esquemaLancarTurma,
   esquemaMarcarChegada,
   esquemaMarcarMaisSemanas,
+  esquemaLoteDeMensalidades,
   esquemaReceberAgora,
   esquemaReservarUsoLivre,
   esquemaSairDaTurma,
@@ -87,6 +88,7 @@ import {
   travarTurma,
   travarUsoLivre,
   travarCobranca,
+  travarMensalidades,
   vincularVenda,
   vendaAtivaEmDataFutura,
   type MaterialBaixado,
@@ -148,6 +150,7 @@ import {
   SUFIXO_MATERIAL_DESATIVADO,
   FRASE_COBRANCA_DISPENSADA,
   FRASE_COBRANCA_SUMIU,
+  FRASE_FALHA_AO_LANCAR_LOTE,
   FRASE_FALHA_AO_RECEBER,
   fraseJaLancado,
 } from "./textos";
@@ -1860,4 +1863,98 @@ export async function receberAgora(entradaBruta: unknown): Promise<ResultadoDeAc
   revalidatePath(rotaDeGestao("/financeiro"));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: { documentoId: venda.id, numero: venda.numero, forma: dados.forma } };
+}
+
+// ── O lote de mensalidades (plano 12 — AGE-16, Assumption A6, D-08, D-09) ───────────────────────────────
+
+export type LoteLancado = { lancadas: number; jaLancadas: number };
+
+// “Lançar estas {N} na Venda”: UMA venda POR MENSALIDADE (aluno em duas turmas = duas vendas, cada uma
+// no dia da sua turma), cada uma com UMA parcela EM ABERTO vencendo no vencimento da mensalidade — o lote
+// nunca cria venda paga nem marca recebimento (§5: “pago” só existe quando o Caixa marca “Recebi”). O
+// \`pix\` é só o valor INICIAL da parcela em aberto, como na aprovação do orçamento: o Caixa troca a forma
+// quando o dinheiro cai. Molde de \`gerarContasDoMes\`: \`exigirUsuario()\` é a PRIMEIRA instrução
+// (T-05-57); do navegador chegam só os ids (Zod, até 500 — T-05-61); hoje, a taxa e os itens do sistema
+// são lidos FORA da transação; numa transação só, as mensalidades pedidas são travadas em ordem de id
+// (\`for no key update\` — dois lotes ao mesmo tempo nunca se travam em ordem inversa), as que já viraram
+// venda ativa ou foram dispensadas são PULADAS e CONTADAS (a corrida com outro celular, com o “Recebi
+// agora” ou com o “Lançar na Venda” — T-05-59), e para cada livre \`gravarVenda\` + o vínculo. Id que não é
+// de mensalidade não é lido (T-05-60). Qualquer recusa ou falha desfaz TUDO: nada fica pela metade.
+export async function lancarMensalidadesEmLote(entradaBruta: unknown): Promise<ResultadoDeAcao<LoteLancado>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaLoteDeMensalidades.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const ids = [...new Set(resultado.data.ids)].sort();
+  const hoje = hojeEmBrasilia(new Date());
+
+  let lote: LoteLancado;
+  try {
+    const [configuracao, itens] = await Promise.all([obterConfiguracaoFinanceira(), obterItensDoSistema()]);
+    const itensParaVenda = itensDoSistemaParaVenda(itens);
+
+    lote = await db.transaction(async (tx) => {
+      const travadas = await travarMensalidades(tx, ids);
+      let lancadas = 0;
+      let jaLancadas = 0;
+      for (const mensalidade of travadas) {
+        if (mensalidade.tipo !== "mensalidade") {
+          continue;
+        }
+        const situacao = situacaoDaCobranca(mensalidade);
+        if (situacao !== "a_receber" && situacao !== "venda_cancelada") {
+          jaLancadas += 1;
+          continue;
+        }
+        if (mensalidade.valorCentavos <= 0) {
+          continue;
+        }
+
+        // D-04: uma linha do item “Mensalidade”, com a descrição da cobrança e o valor da mensalidade.
+        const linhas = linhasDaVenda(mensalidade, itensParaVenda);
+        const totalCentavos = linhas.reduce((total, linha) => total + linha.valorCentavos, 0);
+        const parcela = {
+          vencimento: mensalidade.vencimento,
+          valorCentavos: totalCentavos,
+          forma: "pix" as const,
+          pago: false,
+        };
+        // A mesma conferência da Venda manual. Uma recusa para o lote INTEIRO, com a frase dela.
+        const conferencia = conferirParcelas({
+          totalCentavos,
+          parcelas: [parcela],
+          hoje,
+          dataSaldoInicial: configuracao.dataSaldoInicial,
+        });
+        if (!conferencia.ok) {
+          throw new RecusaDaAgenda(conferencia.erro);
+        }
+
+        const gravada = await gravarVenda(
+          tx,
+          { data: hoje, pessoaNome: mensalidade.nome, clienteId: mensalidade.clienteId, linhas, parcelas: [parcela] },
+          { registradoPor: usuario.id, taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase },
+        );
+        await vincularVenda(tx, { tipo: "mensalidade", id: mensalidade.id }, gravada.id);
+        lancadas += 1;
+      }
+      return { lancadas, jaLancadas };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao lançar o lote de mensalidades (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_LANCAR_LOTE };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  revalidatePath(rotaDeGestao("/financeiro"));
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: lote };
 }

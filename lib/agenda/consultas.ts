@@ -45,11 +45,13 @@ import {
   descricaoDaLinha,
   itensAReceber,
   linhasDaVenda,
+  loteDeMensalidades,
   situacaoDaCobranca,
   subLinhaDaCobranca,
   totalAReceber,
   type ItensDoSistema as ItensDoSistemaParaVenda,
   type LinhaDaVendaDaAgenda,
+  type LoteDeMensalidades,
   type SituacaoDaCobranca,
   type TipoDeCobranca,
 } from "./receber";
@@ -1121,6 +1123,8 @@ export type AReceberCarregado = {
   totalCentavos: number;
   // A taxa do cartão de agora (Cadastros → Taxas) — a linha “a maquininha fica com {x}%” da folha.
   taxaCartaoPontosBase: number;
+  // A sanfona do lote (plano 12 — AGE-16): as mensalidades livres, por turma e nome, e o total exato.
+  lote: LoteDeMensalidades;
 };
 
 // O que falta receber: as cobranças sem venda ativa e não dispensadas, pela regra do módulo puro (valor
@@ -1143,6 +1147,7 @@ export async function lerAReceber(): Promise<AReceberCarregado> {
     })),
     totalCentavos: totalAReceber(itens),
     taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+    lote: loteDeMensalidades(itens),
   };
 }
 

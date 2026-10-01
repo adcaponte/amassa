@@ -52,6 +52,7 @@ import {
   FRASE_SEMANAS,
   FRASE_VAGAS,
   FRASE_VENCIMENTO,
+  FRASE_FALHA_AO_LANCAR_LOTE,
   FRASE_FALHA_AO_RECEBER,
 } from "./textos";
 
@@ -466,3 +467,17 @@ export const esquemaReceberAgora = z.object(
 );
 
 export type ReceberAgoraValidado = z.infer<typeof esquemaReceberAgora>;
+
+// O lote de mensalidades (plano 12 — AGE-16, T-05-60/T-05-61): do navegador chegam SÓ os ids que a sanfona
+// mostrou — de 1 a 500 por chamada (um lote enorme não segura o banco numa transação sem fim). Valor,
+// cliente, descrição e vencimento vêm do banco, sob a trava; id que não é de mensalidade é ignorado.
+export const LIMITE_DO_LOTE = 500;
+export const esquemaLoteDeMensalidades = z.object(
+  {
+    ids: z
+      .array(z.uuid({ error: FRASE_FALHA_AO_LANCAR_LOTE }), { error: FRASE_FALHA_AO_LANCAR_LOTE })
+      .min(1, { error: FRASE_FALHA_AO_LANCAR_LOTE })
+      .max(LIMITE_DO_LOTE, { error: FRASE_FALHA_AO_LANCAR_LOTE }),
+  },
+  { error: FRASE_FALHA_AO_LANCAR_LOTE },
+);
