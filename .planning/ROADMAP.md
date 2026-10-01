@@ -763,7 +763,7 @@ publicação só e o dono migra logo depois do `implantar` (D-15). Nada executad
 - [x] 05-02-PLAN.md — Cada invariante da `0026` provada no Postgres efêmero; os três itens “do sistema” em Cadastros, com o preço da hora cadastrável (onda 2)
 - [x] 05-03-PLAN.md — Lançar aula avulsa e dia fechado (aviso da D-13), cancelar/desfazer data, tirar bloqueio; semana e mês (onda 3)
 - [x] 05-04-PLAN.md — O cadastro de clientes (D-01, D-16) em Cadastros → Clientes e na aba Pessoas, com a ficha (onda 4)
-- [ ] 05-05-PLAN.md — O seletor de pessoa; colocar alguém numa oficina, lista cheia que só avisa, tirar da lista com a regra da D-08 (onda 5)
+- [x] 05-05-PLAN.md — O seletor de pessoa; colocar alguém numa oficina, lista cheia que só avisa, tirar da lista com a regra da D-08 (onda 5)
 - [ ] 05-06-PLAN.md — Turma fixa com N semanas e a folha da turma (D-03): editar, marcar mais, desativar (onda 6)
 - [ ] 05-07-PLAN.md — Entrar e sair da turma pela ficha, mensalidade proporcional, e a mensalidade que nasce ao abrir (D-02) (onda 7)
 - [ ] 05-08-PLAN.md — Presença da turma inteira, direito a repor e reposição sob trava, experimental cobrada ou gratuita (D-07) (onda 8)
@@ -979,7 +979,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
-| 5. Agenda | 4/16 | In Progress (01/10/2026) | - |
+| 5. Agenda | 5/16 | In Progress (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
