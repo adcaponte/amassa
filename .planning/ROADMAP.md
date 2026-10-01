@@ -773,7 +773,7 @@ publicação só e o dono migra logo depois do `implantar` (D-15). Nada executad
 - [x] 05-12-PLAN.md — “Lançar na Venda” preenchido pela Agenda e o lote de mensalidades (onda 12)
 - [x] 05-13-PLAN.md — Dispensar (D-09); o pagamento nas telas da Agenda, com Pessoas garantindo a mensalidade do mês (D-02); o ciclo da venda cancelada com o Caixa real; nada da Agenda apaga venda ou movimentação (onda 13)
 - [x] 05-14-PLAN.md — O Início lê a Agenda e conta quem está no espaço (D-05, D-18); a aba Números (onda 14)
-- [ ] 05-15-PLAN.md — O calendário público do site por ISR, com preço, vagas e WhatsApp, sem nome de ninguém (D-10..D-12); a aba “No site” (onda 15)
+- [x] 05-15-PLAN.md — O calendário público do site por ISR, com preço, vagas e WhatsApp, sem nome de ninguém (D-10..D-12); a aba “No site” (onda 15)
 - [ ] 05-16-PLAN.md — Portão: `/api/health/agenda`, Roteiro 17 na ordem da D-15, a varredura completa e o site sem banco, documentos de estado e o passo do dono (onda 16, **não autônomo**)
 
 **UI hint**: yes
@@ -979,7 +979,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
-| 5. Agenda | 14/16 | In Progress (01/10/2026) | - |
+| 5. Agenda | 15/16 | In Progress (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
