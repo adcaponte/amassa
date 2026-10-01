@@ -73,3 +73,8 @@ export function buscaDaUrl(valor: ValorDaUrl): string {
 export function pessoaDaUrl(valor: ValorDaUrl): string | null {
   return idDaUrl(valor);
 }
+
+// `?turma=` — a folha da turma aberta (D-03, UI-D25). Só um uuid; qualquer outra coisa é `null`.
+export function turmaDaUrl(valor: ValorDaUrl): string | null {
+  return idDaUrl(valor);
+}
