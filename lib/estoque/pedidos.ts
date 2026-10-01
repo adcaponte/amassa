@@ -35,6 +35,8 @@ export type PedidoDeMovimentacao = {
   documentoId?: string;
   documentoLinhaId?: string;
   encomendaId?: string;
+  // Fase 5 (D-06): o uso livre da Agenda que gerou a saída — só no destino `uso_livre`.
+  usoLivreId?: string;
   materialDaOrdem?: MaterialDaOrdemNaBaixa;
   nota?: string;
   estornoDeId?: string;
@@ -104,15 +106,30 @@ export function pedidoDeEntradaDaProducao(dados: {
 // com o destino encomenda e a ordem: é o que o `check`
 // `movimentacoes_estoque_material_da_ordem_so_na_baixa` exige. Fora disso é descartado, como o
 // `encomendaId`.
+//
+// `usoLivreId` (Fase 5 — Agenda, D-06): o material do uso livre sai pela MESMA porta, no destino
+// `uso_livre` (área Espaço, por `areaDoDestino` — nunca da Agenda), com o vínculo ao uso que o
+// gerou. Como o `encomendaId`, só existe no seu destino e é descartado nos outros (o `check`
+// `movimentacoes_estoque_uso_livre_so_no_destino_uso_livre` recusaria); e, ao contrário dele, é
+// OBRIGATÓRIO no destino `uso_livre` — sem ele, `RangeError` aqui, antes do `check`
+// `movimentacoes_estoque_destino_uso_livre_com_vinculo` da 0026 (os dois comparam
+// `destino::text = 'uso_livre'`).
 export function pedidoDeSaidaManual(dados: {
   itemId: string;
   milesimos: number;
   destino: DestinoDeSaida;
   nota?: string | null;
   encomendaId?: string | null;
+  usoLivreId?: string | null;
   materialDaOrdem?: MaterialDaOrdemNaBaixa | null;
 }): PedidoDeMovimentacao {
   const encomendaId = dados.destino === "encomenda" ? (dados.encomendaId ?? null) : null;
+  const usoLivreId = dados.destino === "uso_livre" ? (dados.usoLivreId ?? null) : null;
+  if (dados.destino === "uso_livre" && !usoLivreId) {
+    throw new RangeError(
+      "pedidoDeSaidaManual: a saída para o uso livre precisa do uso que a gerou (D-06).",
+    );
+  }
   return {
     itemId: dados.itemId,
     origem: "manual",
@@ -121,6 +138,7 @@ export function pedidoDeSaidaManual(dados: {
     destino: dados.destino,
     area: areaDoDestino(dados.destino),
     ...(encomendaId ? { encomendaId } : {}),
+    ...(usoLivreId ? { usoLivreId } : {}),
     ...(dados.nota ? { nota: dados.nota } : {}),
     ...(encomendaId && dados.materialDaOrdem ? { materialDaOrdem: dados.materialDaOrdem } : {}),
   };
