@@ -4,17 +4,19 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientes, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
+import { listarClientes } from "@/lib/clientes/consultas";
 import { somarDias } from "@/lib/producao/calendario";
 
 import { contarPerdasAoCancelar, type PerdasAoCancelar } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { ordenarInscritos } from "./presenca";
 import { gradeDoMes } from "./semana";
-import { FRASE_ITENS_DA_AGENDA_SUMIRAM } from "./textos";
+import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor } from "./seletor";
+import { FRASE_ITENS_DA_AGENDA_SUMIRAM, rotuloDoGrupoDoSeletor } from "./textos";
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
 
 function hhmm(hora: string | null): string | null {
@@ -283,4 +285,51 @@ export async function ultimasVindas(clienteId: string, hoje: string): Promise<Vi
     titulo: linha.nomeDaTurma ?? linha.titulo ?? "",
     presenca: linha.presenca,
   }));
+}
+
+// O que o seletor de pessoa mostra (UI-D5): os grupos já cortados no teto (`gruposDoSeletor`) e, com a
+// busca vazia, se existe alguém cadastrado (o vazio "Ninguém cadastrado ainda…" é diferente do
+// "Digite para buscar."). O grupo "Tem aula a repor" entra no plano 08.
+export type PessoasParaData = {
+  grupos: GrupoDoSeletor[];
+  ninguemCadastrado: boolean;
+};
+
+// A busca reaproveita `listarClientes` (o mesmo cadastro, D-01: sem acento, por pedaço do nome, o
+// termo como parâmetro) e, numa data, tira quem JÁ está inscrito nela (`not exists` — AGE-10 ·
+// adjacency). Pede um a mais do que o teto, só para saber se há mais. Sem `eventoId` (o "Quem" do uso
+// livre, plano 09), ninguém é tirado e o grupo é "Pessoas". Busca vazia não lista ninguém: "Digite
+// para buscar.".
+export async function pessoasParaData({
+  eventoId,
+  busca,
+}: {
+  eventoId?: string;
+  busca: string;
+}): Promise<PessoasParaData> {
+  let tipoDoEvento: TipoEvento | null = null;
+  if (eventoId !== undefined) {
+    const [evento] = await db.select({ tipo: eventos.tipo }).from(eventos).where(eq(eventos.id, eventoId));
+    tipoDoEvento = evento?.tipo ?? null;
+  }
+
+  if (busca === "") {
+    const [alguem] = await db.select({ id: clientes.id }).from(clientes).limit(1);
+    return { grupos: [], ninguemCadastrado: alguem === undefined };
+  }
+
+  const restricao =
+    eventoId === undefined
+      ? undefined
+      : notExists(
+          db
+            .select({ um: sql`1` })
+            .from(inscricoes)
+            .where(and(eq(inscricoes.eventoId, eventoId), eq(inscricoes.clienteId, clientes.id))),
+        );
+  const { clientes: achados } = await listarClientes({ busca, quantos: LIMITE_DO_SELETOR + 1, restricao });
+  return {
+    grupos: gruposDoSeletor({ aRepor: [], demais: achados, rotuloDemais: rotuloDoGrupoDoSeletor(tipoDoEvento) }),
+    ninguemCadastrado: false,
+  };
 }

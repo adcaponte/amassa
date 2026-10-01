@@ -9,6 +9,7 @@ import { ehDataCivil } from "@/lib/producao/calendario";
 import { minutosDe } from "./horario";
 import { PRESENCAS } from "./tipos";
 import {
+  FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_LANCAR,
@@ -124,3 +125,16 @@ export type CancelarDataValidado = z.infer<typeof esquemaCancelarData>;
 export const esquemaTirarBloqueio = z.object({
   eventoId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
 });
+
+// O seletor de pessoa (UI-D5): a busca (até 160 caracteres — o tamanho de um nome, contado em pontos
+// de código) e, quando o seletor está numa data, o id dela (quem já está inscrito não aparece). Sem
+// `eventoId` (o "Quem" do uso livre, plano 09), ninguém é tirado.
+export const esquemaBuscarPessoas = z.object({
+  eventoId: z.uuid({ error: FRASE_ERRO_CARREGAR_PESSOAS }).optional(),
+  busca: z
+    .string({ error: FRASE_ERRO_CARREGAR_PESSOAS })
+    .transform((texto) => texto.normalize("NFC").trim())
+    .refine((texto) => [...texto].length <= 160, { error: FRASE_ERRO_CARREGAR_PESSOAS }),
+});
+
+export type BuscarPessoasValidado = z.infer<typeof esquemaBuscarPessoas>;

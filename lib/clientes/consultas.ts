@@ -6,7 +6,7 @@
 // A busca e o aviso de homônimo comparam `nome_normalizado()` (criada à mão na `0026`: minúsculas,
 // sem acento, espaços colapsados) dos DOIS lados — "joao" acha "João". O texto do usuário entra
 // sempre como PARÂMETRO do `sql` do Drizzle, nunca concatenado (T-05-19).
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientes } from "@/db/schema";
@@ -31,18 +31,23 @@ export type ListaDeClientes = {
 // A lista das duas telas (Cadastros → Clientes e Agenda → Pessoas): ordem alfabética pelo nome
 // normalizado, desempate pelo id (UI-D23 — homônimos ficam juntos, sempre na mesma ordem), `quantos`
 // por vez. Com busca, acha por PEDAÇO do nome, sem acento e sem diferença de maiúscula.
+// `restricao` é uma condição a mais, escrita por quem chama: o seletor de pessoa da Agenda (plano
+// 05) tira assim quem já está inscrito na data, sem este módulo conhecer as tabelas da Agenda.
 export async function listarClientes({
   busca,
   quantos,
+  restricao,
 }: {
   busca: string;
   quantos: number;
+  restricao?: SQL;
 }): Promise<ListaDeClientes> {
   const termo = busca.trim();
-  const filtro =
+  const porNome =
     termo === ""
       ? undefined
       : sql`nome_normalizado(${clientes.nome}) like '%' || nome_normalizado(${escaparPadraoDeBusca(termo)}) || '%' escape '\\'`;
+  const filtro = and(porNome, restricao);
 
   const linhas = await db
     .select({ id: clientes.id, nome: clientes.nome, telefone: clientes.telefone })

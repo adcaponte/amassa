@@ -10,8 +10,9 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import { lerDiaParaLancar, type DiaParaLancar } from "./consultas";
+import { lerDiaParaLancar, pessoasParaData, type DiaParaLancar, type PessoasParaData } from "./consultas";
 import {
+  esquemaBuscarPessoas,
   esquemaCancelarData,
   esquemaConferirDia,
   esquemaDefinirPresenca,
@@ -30,6 +31,7 @@ import {
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
 import {
   FRASE_DATA_CANCELADA,
+  FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_LANCAR,
@@ -359,4 +361,23 @@ export async function tirarBloqueio(entradaBruta: unknown): Promise<ResultadoDeA
 
   revalidarTelasDaAgenda({ publico: true });
   return { ok: true, dados: removido };
+}
+
+// A busca do seletor de pessoa (UI-D5) — ação de LEITURA, chamada pelo navegador a cada busca (espera
+// de 300 ms). `exigirUsuario()` primeiro (T-05-23: nome e telefone só para quem entrou — T-05-27),
+// Zod no servidor (a busca até 160, o id da data em uuid), e os grupos prontos: quem já está na data
+// nunca aparece (AGE-10 · adjacency). Nunca grava nada.
+export async function buscarPessoasParaData(entradaBruta: unknown): Promise<ResultadoDeAcao<PessoasParaData>> {
+  await exigirUsuario();
+
+  const resultado = esquemaBuscarPessoas.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_ERRO_CARREGAR_PESSOAS };
+  }
+  try {
+    return { ok: true, dados: await pessoasParaData(resultado.data) };
+  } catch (erro) {
+    console.error("Falha ao buscar pessoas para o seletor:", erro);
+    return { ok: false, erro: FRASE_ERRO_CARREGAR_PESSOAS };
+  }
 }

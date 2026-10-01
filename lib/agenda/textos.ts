@@ -274,3 +274,98 @@ export function linhaDeVinda(diaMes: string, titulo: string): string {
 }
 // O título da ficha quando a leitura falhou sem que a tela soubesse quem é (link direto).
 export const TITULO_FICHA = "Ficha da pessoa";
+
+// Vagas (AGE-11): os quatro rótulos do protótipo (linha 277), usados pelo calendário do site (plano
+// 15). Zero ou negativo é "esgotado" — e mesmo assim dá para colocar alguém (lista cheia só avisa).
+export const ROTULO_ESGOTADO = "esgotado";
+export const ROTULO_ULTIMA_VAGA = "última vaga";
+
+export function rotuloUltimasVagas(restantes: number): string {
+  return `últimas ${restantes} vagas`;
+}
+
+export function rotuloNVagas(restantes: number): string {
+  return `${restantes} vagas`;
+}
+
+// O seletor de pessoa (05-UI-SPEC.md §"Seletor de pessoa" — UI-D5, confirmada pelo dono). O mesmo
+// seletor serve ao "Colocar alguém" da folha do evento e ao "Quem" do uso livre (plano 09).
+export const ROTULO_COLOCAR_ALGUEM = "Colocar alguém";
+export const PLACEHOLDER_BUSCAR_PELO_NOME = "Buscar pelo nome";
+export const ROTULO_GRUPO_A_REPOR = "Tem aula a repor";
+export const ROTULO_GRUPO_INSCREVER = "Inscrever";
+export const ROTULO_GRUPO_EXPERIMENTAL = "Aula experimental / avulsa";
+export const ROTULO_GRUPO_PESSOAS = "Pessoas";
+
+// O grupo do contexto: na oficina, "Inscrever"; em data de turma, "Aula experimental / avulsa"; sem
+// data (o "Quem" do uso livre), "Pessoas".
+export function rotuloDoGrupoDoSeletor(tipoDoEvento: "turma" | "avulsa" | "fechado" | null): string {
+  if (tipoDoEvento === "avulsa") {
+    return ROTULO_GRUPO_INSCREVER;
+  }
+  if (tipoDoEvento === "turma") {
+    return ROTULO_GRUPO_EXPERIMENTAL;
+  }
+  return ROTULO_GRUPO_PESSOAS;
+}
+
+export const FRASE_DIGITE_PARA_BUSCAR = "Digite para buscar.";
+export const FRASE_NINGUEM_CADASTRADO_NO_SELETOR = "Ninguém cadastrado ainda. Digite o nome para cadastrar.";
+export const FRASE_NINGUEM_COM_ESSE_NOME = "Ninguém com esse nome.";
+// Backstop E8·overflow (decisão do plano 05): a última linha de um grupo que passou do teto.
+export const FRASE_HA_MAIS_PESSOAS = "Há mais pessoas com esse nome — continue digitando.";
+export const FRASE_ERRO_CARREGAR_PESSOAS =
+  "Não deu para carregar a lista de pessoas. Verifique a internet e tente de novo.";
+
+export function rotuloCadastrarTexto(texto: string): string {
+  return `Cadastrar “${texto}”`;
+}
+
+// Colocar alguém numa oficina (AGE-10, AGE-12): a faixa de confirmação, o botão e o aviso de lista
+// cheia (UI-D16 — âmbar, nunca vermelho: avisa e não bloqueia).
+export function faixaInscricaoNaOficina(nome: string, valor: string): string {
+  return `${nome} entra como inscrição de ${valor} — vai para “A receber”.`;
+}
+
+export const ROTULO_COLOCAR_NA_LISTA = "Colocar na lista";
+export const ROTULO_COLOCANDO = "Colocando…";
+export const AVISO_LISTA_CHEIA = "A lista já está cheia — dá para colocar mesmo assim, é só um aviso.";
+export const TOAST_INSCRITO_NA_OFICINA = "Inscrito. A inscrição foi para “A receber”.";
+export const FRASE_FALHA_AO_COLOCAR = "Não deu para colocar na lista. Verifique a internet e tente de novo.";
+
+export function fraseJaEstaNaLista(nome: string): string {
+  return `${nome} já está nesta lista — a tela foi atualizada.`;
+}
+
+// Tirar da lista (05-UI-SPEC.md §Confirmações "Tirar da lista", §Toasts; D-08, UI-D14).
+export const ROTULO_TIRAR_DA_LISTA_LINK = "tirar da lista";
+export const ROTULO_TIRAR_DA_LISTA = "Tirar da lista";
+export const ROTULO_TIRANDO_DA_LISTA = "Tirando…";
+export const ROTULO_MANTER_NA_LISTA = "Manter na lista";
+export const CORPO_TIRAR_INSCRICAO_DA_LISTA = "A inscrição sai desta data e de “A receber”.";
+export const FRASE_FALHA_AO_TIRAR_DA_LISTA =
+  "Não deu para tirar da lista. Verifique a internet e tente de novo.";
+
+export function ariaTirarDaLista(nome: string): string {
+  return `Tirar ${nome} da lista`;
+}
+
+export function tituloConfirmarTirarDaLista(nome: string): string {
+  return `Tirar ${nome} da lista?`;
+}
+
+export function toastSaiuDaLista(nome: string): string {
+  return `${nome} saiu da lista.`;
+}
+
+// D-08 verbatim: a Agenda nunca devolve dinheiro — a venda ativa só se desfaz no Caixa.
+export function fraseInscricaoJaVirouVenda(numero: number): string {
+  return `Esta inscrição já virou a venda nº ${numero}. Para devolver, cancele a venda no Caixa.`;
+}
+
+// UI-D14: no lugar do "tirar da lista", quando a inscrição já é uma venda não cancelada.
+export function fraseJaVirouVenda(numero: number): string {
+  return `Já virou a venda nº ${numero} — para devolver, cancele a venda no Caixa.`;
+}
+
+export const ROTULO_VER_NO_CAIXA = "ver no Caixa";
