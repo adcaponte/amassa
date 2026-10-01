@@ -12,6 +12,7 @@ import {
   mesDaUrl,
   pessoaDaUrl,
   semanaDaUrl,
+  turmaDaUrl,
   vistaDaUrl,
 } from "@/lib/agenda/abas";
 
@@ -141,6 +142,16 @@ describe("pessoaDaUrl", () => {
     expect(pessoaDaUrl(undefined)).toBeNull();
     expect(pessoaDaUrl("1 or 1=1")).toBeNull();
     expect(pessoaDaUrl(["0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e"])).toBeNull();
+  });
+});
+
+describe("turmaDaUrl", () => {
+  it("só uuid; o resto é null", () => {
+    expect(turmaDaUrl("0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e")).toBe("0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e");
+    expect(turmaDaUrl(undefined)).toBeNull();
+    expect(turmaDaUrl("")).toBeNull();
+    expect(turmaDaUrl("1 or 1=1")).toBeNull();
+    expect(turmaDaUrl(["0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e"])).toBeNull();
   });
 });
 
