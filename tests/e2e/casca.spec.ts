@@ -64,15 +64,6 @@ function localizarItensDoMenu(page: Page) {
   return page.getByTestId("casca-menu-usuario-itens");
 }
 
-type TelaDeModulo = {
-  href: string;
-  tituloPagina: string;
-  tituloVazio: string;
-  corpo: string;
-  rotuloBotao: string;
-  notaBotao: string;
-};
-
 // `/gestao/encomendas` saiu desta lista na Fase 3 (03-01-PLAN.md, Tarefa 2), e `/gestao/queimas` sai agora,
 // na varredura completa de fim de fase da Fase 4 (04-07-PLAN.md, Tarefa 1): em ambos os casos o
 // botão deixou de ser inerte (agora é um fluxo real, com persistência via Postgres) e a nota
@@ -87,16 +78,12 @@ type TelaDeModulo = {
 // Achado pela varredura completa sem `--grep` (04-07): este teste
 // nunca tinha rodado depois que `/gestao/queimas` deixou de ser um placeholder, porque nenhum plano da
 // Fase 4 tocava `tests/e2e/casca.spec.ts` nem invocava o e2e sem `--grep` até este ponto.
-const TELAS_DE_MODULO: readonly TelaDeModulo[] = [
-  {
-    href: "/gestao/agenda",
-    tituloPagina: "Agenda",
-    tituloVazio: "Nenhuma turma na grade ainda.",
-    corpo: "Cadastre a primeira turma e as aulas da semana aparecem aqui, com data e presença por aluna.",
-    rotuloBotao: "Nova turma",
-    notaBotao: "Chega na Fase 5.",
-  },
-];
+//
+// `/gestao/agenda` saiu na Fase 5 (plano 05-01, o traçador): a tela passou a ler a semana de verdade
+// — coberta por `tests/e2e/agenda-tracador.spec.ts`. Era a ÚLTIMA tela de módulo inerte: a lista
+// `TELAS_DE_MODULO` e o teste que a percorria saíram juntos, porque um laço sobre lista vazia passa
+// sem provar nada. O 320px desta suíte (`ROTAS_A_320PX`) e `acessibilidade.spec.ts` continuam
+// cobrindo `/gestao/agenda`.
 
 const ROTAS_A_320PX = [
   "/gestao",
@@ -306,26 +293,6 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
         const caixa = await links.nth(indice).boundingBox();
         expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
       }
-    }
-  });
-
-  test("cada tela de módulo tem cabeçalho, estado vazio com frase de contexto e botão inerte com nota (UI-07)", async ({
-    page,
-  }) => {
-    await fazerLogin(page);
-
-    for (const tela of TELAS_DE_MODULO) {
-      await page.goto(tela.href);
-
-      await expect(page.getByRole("heading", { name: tela.tituloPagina, level: 1 })).toBeVisible();
-      await expect(page.getByRole("heading", { name: tela.tituloVazio, level: 2 })).toBeVisible();
-      await expect(page.getByText(tela.corpo)).toBeVisible();
-
-      const botao = page.getByRole("button", { name: tela.rotuloBotao });
-      await expect(botao).toBeVisible();
-      await expect(botao).toBeDisabled();
-      await expect(botao).toHaveAttribute("aria-disabled", "true");
-      await expect(page.getByText(tela.notaBotao)).toBeVisible();
     }
   });
 

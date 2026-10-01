@@ -57,22 +57,27 @@ function linhaDoCatalogo(page: Page, nome: string) {
 test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito na Venda", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("com o banco sem nenhum item, a sub-aba Catálogo mostra o estado vazio e o botão abre o diálogo de verdade @vazio-global", async ({
+  // Fase 5 (plano 05-01, D-17): a migração 0026 semeia os três itens que a Agenda acha por código
+  // ("Mensalidade", "Inscrição em oficina", "Uso livre (hora)"), e item do sistema não se apaga
+  // (gatilho `travar_item_do_sistema`). Num banco novo o Catálogo deixou de ser vazio: o que ele
+  // mostra, antes de qualquer item cadastrado pelo dono, são EXATAMENTE esses três — e o "+ Novo
+  // item" do cabeçalho da lista abre o diálogo de verdade. O estado vazio ("Nada no catálogo
+  // ainda.") não aparece mais depois da 0026.
+  test("com o banco sem nenhum item cadastrado, a sub-aba Catálogo mostra só os três itens do sistema e o botão abre o diálogo de verdade @vazio-global", async ({
     page,
   }) => {
     await fazerLogin(page);
     await page.goto("/gestao/cadastros?sub=catalogo");
 
-    const titulo = page.getByRole("heading", { name: "Nada no catálogo ainda.", level: 2 });
-    await expect(titulo).toHaveCount(1);
-    await expect(titulo).toBeVisible();
-    await expect(page.getByText("Cadastre o primeiro item que você vende ou compra.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Nada no catálogo ainda.", level: 2 })).toHaveCount(0);
+    await expect(page.getByTestId("catalogo-item")).toHaveCount(3);
+    for (const nome of ["Mensalidade", "Inscrição em oficina", "Uso livre (hora)"]) {
+      await expect(linhaDoCatalogo(page, nome)).toHaveCount(1);
+    }
 
-    const botaoDoEstadoVazio = page.getByTestId("cadastros-vazio-catalogo").getByRole("button", {
-      name: "+ Novo item",
-    });
-    await expect(botaoDoEstadoVazio).toBeVisible();
-    await botaoDoEstadoVazio.click();
+    const botaoNovoItem = page.getByTestId("novo-item");
+    await expect(botaoNovoItem).toBeVisible();
+    await botaoNovoItem.click();
 
     // A etapa de vazio é só leitura — confere que o diálogo de verdade abriu e fecha sem salvar
     // nada.
