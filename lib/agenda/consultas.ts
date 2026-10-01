@@ -565,11 +565,12 @@ export async function pessoasParaData({
     };
   }
 
-  // O grupo do contexto não repete quem tem aula a repor (a conta do teto fica certa).
+  // O grupo do contexto é QUALQUER pessoa fora da data — inclusive quem tem aula a repor (BRIEFING §4,
+  // protótipo l.309): escolhida aqui, ela segue o caminho normal da data, paga ou experimental.
   const { clientes: achados } = await listarClientes({
     busca,
     quantos: LIMITE_DO_SELETOR + 1,
-    restricao: comReposicao ? and(foraDaData, sql`${SALDO_DE_REPOSICAO_DO_CLIENTE} <= 0`) : foraDaData,
+    restricao: foraDaData,
   });
   return {
     grupos: gruposDoSeletor({ aRepor, demais: achados, rotuloDemais: rotuloDoGrupoDoSeletor(tipoDoEvento) }),

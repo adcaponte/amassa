@@ -47,7 +47,7 @@ describe("gruposDoSeletor", () => {
     expect(gruposDoSeletor({ aRepor: [], demais: [], rotuloDemais: "Inscrever" })).toEqual([]);
   });
 
-  it("quem tem aula a repor vem primeiro, com o próprio teto, e não se repete no grupo do contexto", () => {
+  it("quem tem aula a repor vem primeiro, com o próprio teto — e TAMBÉM no grupo do contexto (BRIEFING §4)", () => {
     const aRepor = pessoas(10).map((cliente) => ({ cliente, saldo: 1 }));
     const demais = [...pessoas(3), { id: "outra", nome: "Outra", telefone: null }];
     const grupos = gruposDoSeletor({ aRepor, demais, rotuloDemais: "Aula experimental / avulsa" });
@@ -55,8 +55,17 @@ describe("gruposDoSeletor", () => {
     expect(grupos[0].rotulo).toBe("Tem aula a repor");
     expect(grupos[0].pessoas).toHaveLength(8);
     expect(grupos[0].temMais).toBe(true);
-    expect(grupos[1].pessoas.map((pessoa) => pessoa.id)).toEqual(["outra"]);
+    expect(grupos[1].pessoas.map((pessoa) => pessoa.id)).toEqual(["id-0", "id-1", "id-2", "outra"]);
     expect(grupos[1].temMais).toBe(false);
+  });
+
+  it("na oficina, quem tem aula a repor também está em “Inscrever”, sem o saldo — escolhida ali, entra paga", () => {
+    const [ana] = pessoas(1);
+    const grupos = gruposDoSeletor({ aRepor: [{ cliente: ana, saldo: 2 }], demais: [ana], rotuloDemais: "Inscrever" });
+    expect(grupos.map((grupo) => [grupo.chave, grupo.pessoas.map((pessoa) => [pessoa.id, pessoa.aRepor])])).toEqual([
+      ["a_repor", [[ana.id, 2]]],
+      ["demais", [[ana.id, undefined]]],
+    ]);
   });
 
   it("o grupo a repor carrega o saldo de cada pessoa; o do contexto não", () => {
@@ -89,7 +98,7 @@ describe("gruposDoSeletor", () => {
     });
     expect(grupos.map((grupo) => grupo.chave)).toEqual(["a_repor", "demais"]);
     expect(grupos[0].pessoas.map((pessoa) => pessoa.id)).toEqual([bia.id]);
-    expect(grupos[1].pessoas.map((pessoa) => pessoa.id)).toEqual([ana.id]);
+    expect(grupos[1].pessoas.map((pessoa) => pessoa.id)).toEqual([ana.id, bia.id]);
   });
 
   it("ninguém com saldo: o grupo a repor não aparece (AGE-10 · empty)", () => {

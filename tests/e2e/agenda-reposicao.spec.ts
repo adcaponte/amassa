@@ -9,8 +9,11 @@ import {
   tagARepor,
   toastSaiuDaLista,
   COMPLEMENTO_TOAST_REPOSICAO_VOLTOU,
+  faixaInscricaoNaOficina,
+  TOAST_INSCRITO_NA_OFICINA,
 } from "@/lib/agenda/textos";
 import { diaDaSemanaDe } from "@/lib/agenda/turma";
+import { formatarReais } from "@/lib/financeiro/formato";
 
 import {
   cancelarDataNoBanco,
@@ -176,8 +179,9 @@ test.describe("agenda reposicao", () => {
     const opcao = grupoARepor.getByTestId("seletor-opcao").filter({ hasText: nome });
     await expect(opcao).toHaveCount(1);
     await expect(opcao).toContainText(`${nome} — reposição · ${tagARepor(1)}`);
-    // Quem não tem aula a repor fica só no grupo do contexto.
+    // Quem não tem aula a repor fica só no grupo do contexto; quem tem aparece também nele (BRIEFING §4).
     await expect(grupoARepor.getByTestId("seletor-opcao").filter({ hasText: outra })).toHaveCount(0);
+    await expect(folha.getByTestId("grupo-do-contexto").getByTestId("seletor-opcao").filter({ hasText: nome })).toHaveCount(1);
     await expect(folha.getByTestId("grupo-do-contexto").getByTestId("seletor-opcao").filter({ hasText: outra })).toHaveCount(1);
 
     await opcao.click();
@@ -277,6 +281,41 @@ test.describe("agenda reposicao", () => {
     await expect(
       page.locator(`[data-testid="pessoa-linha"][data-cliente-id="${clienteId}"]`).getByTestId("pessoa-a-repor"),
     ).toHaveCount(0);
+  });
+
+  test("(f) na oficina, quem tem aula a repor também aparece em “Inscrever” — escolhida ali, entra PAGA e o crédito fica (BRIEFING §4)", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Fábio Paga ${suf}`;
+    const { clienteId } = await semearPessoaComUmaAulaARepor(suf, nome);
+    const data = diaReservado(4);
+    const precoCentavos = 12500;
+    const oficinaId = await semearOficina({
+      titulo: `[e2e] Oficina paga ${suf}`,
+      data,
+      inicio: "14:00",
+      fim: "16:00",
+      vagas: 6,
+      precoCentavos,
+    });
+
+    await fazerLogin(page);
+    const folha = await abrirFolha(page, data, oficinaId);
+    await campoDoSeletor(page).fill(suf);
+    await expect(folha.getByTestId("grupo-a-repor").getByTestId("seletor-opcao").filter({ hasText: nome })).toHaveCount(1);
+    const naInscricao = folha.getByTestId("grupo-do-contexto").getByTestId("seletor-opcao").filter({ hasText: nome });
+    await expect(naInscricao).toHaveCount(1);
+    await expect(naInscricao).not.toContainText("reposição");
+    await naInscricao.click();
+    await expect(folha.getByTestId("faixa-colocar")).toHaveText(faixaInscricaoNaOficina(nome, formatarReais(precoCentavos)));
+    await folha.getByTestId("colocar-na-lista").click();
+    await expect(page.getByText(TOAST_INSCRITO_NA_OFICINA).first()).toBeVisible();
+    await expect
+      .poll(() => inscricoesDaPessoaNaData(oficinaId, clienteId))
+      .toEqual([expect.objectContaining({ tipo: "oficina", cobrar: true, valorCentavos: precoCentavos })]);
+    // A aula a repor não foi usada.
+    expect(await saldoDeReposicaoNoBanco(clienteId)).toBe(1);
   });
 
   test("(e) falta em oficina avulsa não oferece “tem direito a repor”", async ({ page }) => {

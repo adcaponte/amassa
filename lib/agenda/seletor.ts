@@ -43,8 +43,10 @@ function cortar<P extends PessoaDoSeletor>(pessoas: readonly P[]): { pessoas: P[
 
 // Os grupos na ordem da UI-SPEC: "Tem aula a repor" PRIMEIRO (AGE-10 · ordering) e depois o grupo do
 // contexto ("Inscrever" · "Aula experimental / avulsa" · "Pessoas"). Grupo vazio não aparece (AGE-10 ·
-// empty). Saldo 0 não entra no primeiro grupo (AGE-09 · boundary) — a pessoa fica no do contexto. Quem
-// está no grupo "a repor" não se repete no do contexto.
+// empty). Saldo 0 não entra no primeiro grupo (AGE-09 · boundary). Quem tem aula a repor aparece nos DOIS
+// grupos (BRIEFING §4: "a lista oferece primeiro quem tem aula a repor … e DEPOIS QUALQUER PESSOA";
+// protótipo l.309): escolhida no primeiro, entra como reposição; no do contexto, segue o caminho normal da
+// data (oficina → inscrição paga; turma → experimental) — por isso a pessoa do contexto nunca leva `aRepor`.
 export function gruposDoSeletor<P extends PessoaDoSeletor>({
   aRepor,
   demais,
@@ -61,8 +63,7 @@ export function gruposDoSeletor<P extends PessoaDoSeletor>({
   if (comSaldo.length > 0) {
     grupos.push({ chave: "a_repor", rotulo: ROTULO_GRUPO_A_REPOR, ...cortar(comSaldo) });
   }
-  const jaNoPrimeiro = new Set(comSaldo.map((pessoa) => pessoa.id));
-  const doContexto = demais.filter((pessoa) => !jaNoPrimeiro.has(pessoa.id));
+  const doContexto = demais.map((pessoa): P => (pessoa.aRepor === undefined ? pessoa : { ...pessoa, aRepor: undefined }));
   if (doContexto.length > 0) {
     grupos.push({ chave: "demais", rotulo: rotuloDemais, ...cortar(doContexto) });
   }
