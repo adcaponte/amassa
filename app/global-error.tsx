@@ -31,10 +31,14 @@ import {
 //     recurso: melhor uma fonte do sistema do que a tela em branco do Next.js.
 export default function ErroGlobal({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  // `retry`, e não `reset` (revisão 06.1, WR-102): no Next 16.3.5 o `reset` só limpa o estado do
+  // boundary e redesenha o MESMO payload do servidor, que ainda tem o erro; o `retry` faz
+  // `router.refresh()` + `reset()` numa transição — busca de novo o que falhou no servidor
+  // (`node_modules/next/dist/client/components/error-boundary.js`, `this.retry`).
+  retry: () => void;
 }) {
   useEffect(() => {
     // Nenhuma propriedade do erro (mensagem, pilha, digest) vai para a tela — só para o
@@ -54,7 +58,7 @@ export default function ErroGlobal({
                 type="button"
                 variant="default"
                 className="min-h-[44px]"
-                onClick={() => reset()}
+                onClick={() => retry()}
               >
                 {ROTULO_TENTAR_DE_NOVO}
               </Button>

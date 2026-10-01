@@ -25,14 +25,18 @@ import {
 // `app/global-error.tsx` (ver o comentário daquele arquivo).
 //
 // Vive FORA do grupo protegido — nunca pode renderizar dado de sessão, mesma restrição já
-// documentada em `app/not-found.tsx` (T-02b-01). Só copy estática e o `reset()` que o Next.js
+// documentada em `app/not-found.tsx` (T-02b-01). Só copy estática e o `retry()` que o Next.js
 // injeta.
 export default function ErroRaiz({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  // `retry`, e não `reset` (revisão 06.1, WR-102): no Next 16.3.5 o `reset` só limpa o estado do
+  // boundary e redesenha o MESMO payload do servidor, que ainda tem o erro; o `retry` faz
+  // `router.refresh()` + `reset()` numa transição — busca de novo o que falhou no servidor
+  // (`node_modules/next/dist/client/components/error-boundary.js`, `this.retry`).
+  retry: () => void;
 }) {
   useEffect(() => {
     // Nenhuma propriedade do erro (mensagem, pilha, digest) vai para a tela — só para o
@@ -50,7 +54,7 @@ export default function ErroRaiz({
             type="button"
             variant="default"
             className="min-h-[44px]"
-            onClick={() => reset()}
+            onClick={() => retry()}
           >
             {ROTULO_TENTAR_DE_NOVO}
           </Button>
