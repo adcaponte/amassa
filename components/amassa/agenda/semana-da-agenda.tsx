@@ -66,6 +66,8 @@ export type SemanaDaAgendaProps = {
   // `?evento=` com um id que não existe (link velho, removido em outro celular): toast, sem folha.
   eventoInexistente: boolean;
   usoAberto: UsoDoServidor;
+  // O agora de Brasília no servidor (`agoraEmBrasilia`) — a sugestão do "Saiu às" (UI-D7).
+  agora: { data: string; minutos: number };
   // Ao abrir a aba sem `?semana=`, a página rola até o cabeçalho de hoje (UI-D27); `null` não rola.
   rolarAte: string | null;
 };
@@ -86,6 +88,7 @@ export function SemanaDaAgenda({
   eventoAberto,
   eventoInexistente,
   usoAberto,
+  agora,
   rolarAte,
 }: SemanaDaAgendaProps) {
   const router = useRouter();
@@ -328,6 +331,7 @@ export function SemanaDaAgenda({
           cabecalho={cabecalhoDoUso}
           carregado={usoCarregado}
           erroAoCarregar={erroDoUso}
+          agora={agora}
           aoComecarARemover={() => {
             usoAvisado.current = usoAbertoId;
           }}

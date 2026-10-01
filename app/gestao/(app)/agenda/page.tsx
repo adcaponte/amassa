@@ -50,7 +50,7 @@ import {
 } from "@/lib/agenda/textos";
 import { listarClientes, obterCliente, type ClienteDaLista } from "@/lib/clientes/consultas";
 import { quantosDaUrl } from "@/lib/clientes/lista";
-import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { agoraEmBrasilia, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { somarDias } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
@@ -309,6 +309,9 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
         eventoAberto={eventoAberto}
         eventoInexistente={idDoEvento !== null && eventoAberto === null}
         usoAberto={usoAberto}
+        // UI-D7: o "Saiu às" de um uso de hoje vem com a hora de AGORA, decidida aqui, no servidor (Brasília)
+        // — nunca o relógio do celular.
+        agora={agoraEmBrasilia(new Date())}
         rolarAte={parametros.semana === undefined && contemHoje ? hoje : null}
       />
     </>

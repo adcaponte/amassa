@@ -16,6 +16,8 @@ import {
   FRASE_ESCOLHA_A_DATA,
   FRASE_ESCOLHA_QUEM_VEM,
   FRASE_HORA_DE_CHEGADA,
+  FRASE_HORA_DE_SAIDA,
+  FRASE_SAIDA_ANTES_DA_CHEGADA,
   FRASE_HORAS_PREVISTAS,
   FRASE_PESSOAS,
   FRASE_EXPERIMENTAL_SEM_ESCOLHA,
@@ -374,3 +376,24 @@ export const esquemaCancelarReserva = z.object({
 });
 
 export type CancelarReservaValidado = z.infer<typeof esquemaCancelarReserva>;
+
+// "Encerrar e cobrar" (AGE-13): o id e as duas horas de parede do campo. A saída tem de ser depois da
+// chegada (o erro mora no campo "Saiu às"; nada atravessa a meia-noite — check
+// `usos_livres_saida_depois_da_chegada`). Horas cheias, preço da hora e valor são do servidor.
+export const esquemaEncerrarUsoLivre = z
+  .object({
+    usoLivreId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
+    chegada: horaDeChegada,
+    saida: z
+      .string({ error: FRASE_HORA_DE_SAIDA })
+      .refine((hora) => FORMATO_HORA_DO_CAMPO.test(hora), { error: FRASE_HORA_DE_SAIDA }),
+  })
+  .superRefine((dados, contexto) => {
+    // O Zod 4 roda este refinamento mesmo com um campo já recusado: só compara horas legíveis.
+    const legiveis = FORMATO_HORA_DO_CAMPO.test(dados.chegada) && FORMATO_HORA_DO_CAMPO.test(dados.saida);
+    if (legiveis && minutosDe(dados.saida) <= minutosDe(dados.chegada)) {
+      contexto.addIssue({ code: "custom", path: ["saida"], message: FRASE_SAIDA_ANTES_DA_CHEGADA });
+    }
+  });
+
+export type EncerrarUsoLivreValidado = z.infer<typeof esquemaEncerrarUsoLivre>;

@@ -8,6 +8,7 @@ import {
   precisaEncerrar,
   proximoEstado,
   saidaPrevista,
+  sugestaoDeSaida,
   valorDoMaterial,
   valorDoUsoLivre,
 } from "@/lib/agenda/uso-livre";
@@ -170,5 +171,19 @@ describe("precisaEncerrar (D-18)", () => {
   it("reservado ou encerrado nunca pedem", () => {
     expect(precisaEncerrar({ data: "2026-09-30", estado: "reservado" }, "2026-10-01")).toBe(false);
     expect(precisaEncerrar({ data: "2026-09-30", estado: "encerrado" }, "2026-10-01")).toBe(false);
+  });
+});
+
+describe("sugestaoDeSaida (UI-D7)", () => {
+  it("uso de hoje: a hora de agora", () => {
+    expect(sugestaoDeSaida({ data: "2026-10-01", saidaPrevista: "16:00" }, { data: "2026-10-01", minutos: 1065 })).toBe(
+      "17:45",
+    );
+  });
+
+  it("uso de dia passado (D-18): a saída prevista", () => {
+    expect(sugestaoDeSaida({ data: "2026-09-30", saidaPrevista: "16:00" }, { data: "2026-10-01", minutos: 600 })).toBe(
+      "16:00",
+    );
   });
 });

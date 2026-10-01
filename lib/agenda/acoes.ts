@@ -18,6 +18,7 @@ import {
   datasDaTurmaNoMes,
   fechadosEntre,
   lerDiaParaLancar,
+  obterItensDoSistema,
   pessoasParaData,
   type DiaParaLancar,
   type PessoasParaData,
@@ -33,6 +34,7 @@ import {
   esquemaDefinirPresenca,
   esquemaDesativarTurma,
   esquemaEditarTurma,
+  esquemaEncerrarUsoLivre,
   esquemaEntrarNaTurma,
   esquemaFecharDia,
   esquemaLancarAvulsa,
@@ -62,11 +64,13 @@ import {
   travarInscricao,
   travarInscricaoComVenda,
   travarTurma,
+  travarUsoLivre,
   vendaAtivaEmDataFutura,
   type PerdasAoCancelar,
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
+import { horasCheias, proximoEstado, valorDoUsoLivre } from "./uso-livre";
 import type { EstadoUsoLivre, TipoInscricao } from "./tipos";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
 import {
@@ -100,6 +104,9 @@ import {
   fraseJaEstaNaTurma,
   fraseJaNaoEstaNaTurma,
   FRASE_FALHA_AO_CANCELAR_RESERVA,
+  FRASE_FALHA_AO_ENCERRAR,
+  FRASE_SAIDA_ANTES_DA_CHEGADA,
+  FRASE_SEM_PRECO_DA_HORA,
   FRASE_FALHA_AO_CORRIGIR_CHEGADA,
   FRASE_FALHA_AO_MARCAR_CHEGADA,
   FRASE_PESSOA_NAO_EXISTE,
@@ -1364,4 +1371,92 @@ export async function cancelarReserva(entradaBruta: unknown): Promise<ResultadoD
 
   revalidarTelasDaAgenda({ publico: false });
   return { ok: true, dados: removido };
+}
+
+export type UsoEncerrado = { horasCheias: number; valorCentavos: number; precoHoraCentavos: number };
+
+// "Encerrar e cobrar" (AGE-13, AGE-17), sem material nesta etapa (o material e a baixa no Estoque são
+// o plano 10). `exigirUsuario()` primeiro (T-05-41); Zod ("HH:MM", saída depois da chegada). NUMA
+// transação, sob a trava do USO (`travarUsoLivre`, `for no key update` — T-05-44: dois gestores
+// encerrando o mesmo uso se serializam aqui e o segundo lê `encerrado`):
+// - o uso tem de estar `no_espaco` — encerrado → "Este uso livre já foi encerrado…" (a tela atualiza);
+// - o preço da hora é lido AGORA, pela CHAVE do item "Uso livre (hora)" (`obterItensDoSistema(tx)` —
+//   D-04, D-17), e sem preço nada é cobrado com valor inventado: a frase diz onde cadastrar;
+// - `horas_cheias = teto(minutos ÷ 60)` e `valor = horas cheias × pessoas × preço da hora` pelo módulo
+//   puro (pessoas multiplica UMA vez — nota do AGE-13), e o preço fica CONGELADO em
+//   `preco_hora_centavos` (mudar o Catálogo depois não muda o que já foi encerrado — T-05-42);
+// - o `update` ainda confere `estado = 'no_espaco'` na própria instrução.
+export async function encerrarUsoLivre(entradaBruta: unknown): Promise<ResultadoDoLancamento<UsoEncerrado>> {
+  await exigirUsuario();
+
+  const resultado = esquemaEncerrarUsoLivre.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+
+  let encerrado: UsoEncerrado;
+  try {
+    encerrado = await db.transaction(async (tx): Promise<UsoEncerrado> => {
+      const uso = await travarUsoLivre(tx, dados.usoLivreId);
+      if (!uso) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (proximoEstado(uso.estado, "encerrar") === null) {
+        throw new RecusaDaAgenda(uso.estado === "encerrado" ? FRASE_USO_JA_ENCERRADO : FRASE_USO_AINDA_NAO_COMECOU);
+      }
+      const precoHoraCentavos = (await obterItensDoSistema(tx)).usoLivreHora.precoVendaCentavos;
+      if (precoHoraCentavos === null) {
+        throw new RecusaDaAgenda(FRASE_SEM_PRECO_DA_HORA);
+      }
+      let horas: number;
+      try {
+        horas = horasCheias(dados.chegada, dados.saida);
+      } catch {
+        throw new RecusaDaAgenda(FRASE_SAIDA_ANTES_DA_CHEGADA);
+      }
+      const valorCentavos = valorDoUsoLivre({
+        horas,
+        pessoas: uso.pessoas,
+        precoHoraCentavos,
+        materialCobradoCentavos: 0,
+      });
+      const [gravado] = await tx
+        .update(usosLivres)
+        .set({
+          estado: "encerrado",
+          chegada: dados.chegada,
+          saida: dados.saida,
+          horasCheias: horas,
+          precoHoraCentavos,
+          valorCentavos,
+        })
+        .where(and(eq(usosLivres.id, uso.id), eq(usosLivres.estado, "no_espaco")))
+        .returning({ id: usosLivres.id });
+      if (!gravado) {
+        throw new RecusaDaAgenda(FRASE_USO_JA_ENCERRADO);
+      }
+      return { horasCheias: horas, valorCentavos, precoHoraCentavos };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      // O estado mudou em outro celular (ou faltava o preço): a tela relê o servidor.
+      revalidarTelasDaAgenda({ publico: false });
+      return erro.frase === FRASE_SAIDA_ANTES_DA_CHEGADA
+        ? { ok: false, erro: erro.frase, campos: { saida: erro.frase } }
+        : { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao encerrar o uso livre (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_ENCERRAR };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  return { ok: true, dados: encerrado };
 }

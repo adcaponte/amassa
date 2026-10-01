@@ -7,6 +7,7 @@ import {
   FRASE_HORAS_PREVISTAS,
   FRASE_JA_REMOVIDO,
   FRASE_PESSOAS,
+  FRASE_SAIDA_ANTES_DA_CHEGADA,
   FRASE_EXPERIMENTAL_SEM_ESCOLHA,
   FRASE_EXPERIMENTAL_VALOR,
   FRASE_FIM_ANTES_DO_COMECO,
@@ -21,6 +22,7 @@ import {
   esquemaColocarNaData,
   esquemaConferirDia,
   esquemaDefinirDireitoARepor,
+  esquemaEncerrarUsoLivre,
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaLancarTurma,
@@ -391,5 +393,24 @@ describe("esquemaMarcarChegada e esquemaCancelarReserva", () => {
 
   it("cancelar com id que não é uuid é “Isso já tinha sido removido.”", () => {
     expect(esquemaCancelarReserva.safeParse({ usoLivreId: "x" }).error?.issues[0].message).toBe(FRASE_JA_REMOVIDO);
+  });
+});
+
+describe("esquemaEncerrarUsoLivre", () => {
+  const id = "0b9d2f1e-1a2b-4c3d-8e9f-001122334455";
+
+  it("aceita a saída depois da chegada e não leva preço nem valor", () => {
+    expect(esquemaEncerrarUsoLivre.parse({ usoLivreId: id, chegada: "14:00", saida: "15:01", valorCentavos: 1 })).toEqual({
+      usoLivreId: id,
+      chegada: "14:00",
+      saida: "15:01",
+    });
+  });
+
+  it("saída igual ou antes da chegada: a frase no campo “Saiu às”", () => {
+    for (const saida of ["14:00", "13:59"]) {
+      const resultado = esquemaEncerrarUsoLivre.safeParse({ usoLivreId: id, chegada: "14:00", saida });
+      expect(resultado.error?.issues[0]).toMatchObject({ path: ["saida"], message: FRASE_SAIDA_ANTES_DA_CHEGADA });
+    }
   });
 });

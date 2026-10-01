@@ -96,3 +96,13 @@ export function saidaPrevista(chegadaPrevista: string, horasPrevistas: number): 
 export function precisaEncerrar(uso: { data: string; estado: EstadoDoUsoLivre }, hoje: string): boolean {
   return uso.estado === "no_espaco" && uso.data < hoje;
 }
+
+// O "Saiu às" que a folha sugere ao encerrar (UI-D7, escolha do dono): a HORA DE AGORA quando o uso é de
+// hoje; a saída prevista quando é de outro dia (o uso esquecido de ontem — D-18). `agora` vem da borda
+// (`agoraEmBrasilia` com o instante do servidor), nunca do relógio do celular.
+export function sugestaoDeSaida(
+  uso: { data: string; saidaPrevista: string },
+  agora: { data: string; minutos: number },
+): string {
+  return uso.data === agora.data ? horaDe(agora.minutos) : uso.saidaPrevista;
+}
