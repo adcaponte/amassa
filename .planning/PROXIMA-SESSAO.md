@@ -1,4 +1,9 @@
-# Próxima sessão — ATUALIZADO em 2026-09-30 (manhã, Fase 06.1 com o código completo no branch; aguardando você)
+# Próxima sessão — ATUALIZADO em 2026-10-01 (madrugada: Fase 06.1 concluída e no ar)
+
+*Até 01/10/2026 este título dizia "2026-09-30 (manhã, Fase 06.1 com o código completo no branch; aguardando você)".*
+
+> **🟢 ATUALIZAÇÃO DE 01/10/2026, MADRUGADA — A FASE 06.1 (PRODUÇÃO) ESTÁ CONCLUÍDA E NO AR.** Como sei: merge `1846563` em `origin/main` e run `36769632264` verde (30/09, 20h UTC); `db:migrate` com as `0024`/`0025` rodado pelo Theo depois de backup (saída e conferência SQL coladas no chat: 26 migrações, tabelas novas presentes, `encomenda*` ausentes); `/api/health/producao` 200 medido em 01/10 00h30 UTC; caminhada aprovada por ele no chat; Cowork sem 🔴 (`Claude outputs/producao/VERIFICACAO-COWORK-06.1.md`); verificação da fase `passed` 8/8 (`06.1-VERIFICATION.md`). Correções da aprovação (dias padrão Esmaltação 4 / Queima de esmalte 1; "Quantas" seleciona tudo; horas com as a mais) publicadas pelo Code com autorização dele — ver o run seguinte em `gh run list`. Próximo: o que a fila indicar, quando ele quiser. *O bloco 🟡 abaixo é o retrato de 30/09.*
+
 
 *Até 30/09/2026, ~11h UTC, este título dizia "madrugada, Fase 06.1 planejada".*
 

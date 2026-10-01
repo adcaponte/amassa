@@ -52,7 +52,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
 - [ ] **Phase 5: Agenda de Aulas** (em espera) - Turmas recorrentes materializam aulas com data real e presença por aluna
 - [x] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)* (completed 2026-09-29)
-- [ ] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09)
+- [x] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09) (completed 2026-10-01)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -839,6 +839,7 @@ lado das encomendas, e ligação real com Orçamento, Financeiro e Estoque.
 **Depends on:** Phase 6 (Estoque — baixa de material e entrada de peça pronta), Phase 04.5 (orçamento
 aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04.6 (`/gestao`)
 **Success Criteria** (what must be TRUE):
+
   1. Uma ordem vinda de orçamento aprovado nasce aguardando o sinal, fora do quadro e sem contar prazo, e só começa quando o dono a libera — o início vira a data da liberação
   2. "Terminei: {etapa}" em um toque leva a ordem à etapa seguinte e guarda a data real; "Desfazer a última" volta
   3. O quadro mostra cada ordem ativa na etapa atual, com o selo certo (aguardando o sinal · vai atrasar N dias · +N dias nesta etapa · no ritmo), e a fila "esperando o forno" com as fornadas estimadas
@@ -847,7 +848,8 @@ aprovado, fichas de precificação, fotos), Phase 04.4 (venda e Caixa), Phase 04
   6. Concluir pergunta só as perdidas por peça; as extras boas de peça de linha entram no Estoque como pronta entrega com o custo da ficha, e a perda técnica fica registrada separada das extras sem destino
   7. A folha da ordem e a folha geral imprimem em A4, sem preço nem custo na folha da ordem
   8. Os dados de teste de Encomendas foram apagados pela migração, aplicada pelo dono depois de backup
-**Plans:** 14/15 plans executed
+
+**Plans:** 15/15 plans complete
 
 15 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como na Fase 06). Planejado em 30/09/2026 numa sessão só: pesquisa; as nove
@@ -871,7 +873,7 @@ um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `
 - [x] 06.1-12-PLAN.md — "Transformar em peça de linha" (D-12, uma rotina só, partilhada com o `editarFicha`), `apagarFicha` contando ordens e a perda medida de 6 meses (D-08) (onda 12) *Concluído em 30/09/2026 no branch (`41ab957`..`99d86e9`): verificar verde (1982 testes); e2e 74 e 41 passed — ver `06.1-12-SUMMARY.md`.*
 - [x] 06.1-13-PLAN.md — As duas folhas A4 por CSS de impressão; a folha da ordem sem dinheiro por construção (onda 13) *Concluído em 30/09/2026 no branch (`76f036a`..`64958b9`): verificar verde (2010 testes); e2e 3 invocações (uma para reverificar falha própria), as últimas 59 e 57 passed — ver `06.1-13-SUMMARY.md`.*
 - [x] 06.1-14-PLAN.md — A troca: o Início lê a Produção (D-16), redirecionamentos por 6 meses (D-17), links do menu, o módulo antigo apagado, a `0025` gerada e provada (onda 14) *Concluído em 30/09/2026 no branch (`1e51a42`..`a990201`): `0025` escrita e provada no Postgres efêmero, não aplicada; verificar verde (1776 testes, o módulo antigo saiu); e2e 6 invocações (3 previstas), a última `producao rotas` 60 passed — ver `06.1-14-SUMMARY.md`.*
-- [ ] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**) *Em 30/09/2026: Tarefas 1 e 2 feitas no branch (`2acbd72`..`7769b3c`); a Tarefa 3, o portão do dono, está aberta.* *Depois, ainda em 30/09: revisão de código da fase (`06.1-REVIEW.md`, 0 bloqueios) e correções (`06.1-REVIEW-FIX.md`); o WR-01 ficou na Parte 0.*
+- [x] 06.1-15-PLAN.md — Portão: `/api/health/producao`, Roteiro 16 na ordem do D-09, a única varredura completa do e2e, documentos de estado e o passo do dono — backup, publicação, migração, conferência (onda 15, **não autônomo**) *Em 30/09/2026: Tarefas 1 e 2 feitas no branch (`2acbd72`..`7769b3c`); a Tarefa 3, o portão do dono, está aberta.* *Depois, ainda em 30/09: revisão de código da fase (`06.1-REVIEW.md`, 0 bloqueios) e correções (`06.1-REVIEW-FIX.md`); o WR-01 ficou na Parte 0.*
 
 **UI hint**: yes
 
@@ -933,5 +935,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
 | 5. Agenda de Aulas | 0/TBD | Not started | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
-| 06.1. Produção — redesenho das Encomendas | 14/15 | In Progress | - |
+| 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
