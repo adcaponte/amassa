@@ -4,14 +4,15 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, eq, gte, lte } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, lte } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, eventos, inscricoes, turmas } from "@/db/schema";
+import { clientes, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
 import { somarDias } from "@/lib/producao/calendario";
 
 import { horaDe, minutosDe } from "./horario";
 import { ordenarInscritos } from "./presenca";
+import { FRASE_ITENS_DA_AGENDA_SUMIRAM } from "./textos";
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
 
 function hhmm(hora: string | null): string | null {
@@ -137,4 +138,50 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     precoCentavos: evento.precoCentavos,
     inscricoes: ordenarInscritos(linhas),
   };
+}
+
+// Os três itens do Catálogo que a Agenda usa para cobrar (D-04, D-17, AGE-17) — achados SÓ pela
+// `chave_do_sistema`, nunca pelo nome, que o dono edita em Cadastros. O preço vem daqui (o da hora
+// do uso livre) ou da turma/evento: nenhum valor no código. Usada pelos planos de cobrança
+// (05-09, 05-11, 05-12).
+export type ItemDoSistema = {
+  id: string;
+  nome: string;
+  precoVendaCentavos: number | null;
+  categoriaVendaId: string | null;
+};
+
+export type ItensDoSistema = {
+  mensalidade: ItemDoSistema;
+  inscricaoOficina: ItemDoSistema;
+  usoLivreHora: ItemDoSistema;
+};
+
+const CHAVES_DOS_ITENS_DO_SISTEMA = ["mensalidade", "inscricao_oficina", "uso_livre_hora"] as const;
+
+export async function obterItensDoSistema(): Promise<ItensDoSistema> {
+  const linhas = await db
+    .select({
+      chaveDoSistema: itensCatalogo.chaveDoSistema,
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      precoVendaCentavos: itensCatalogo.precoVendaCentavos,
+      categoriaVendaId: itensCatalogo.categoriaVendaId,
+    })
+    .from(itensCatalogo)
+    .where(inArray(itensCatalogo.chaveDoSistema, [...CHAVES_DOS_ITENS_DO_SISTEMA]));
+
+  const porChave = new Map(
+    linhas.map(({ chaveDoSistema, ...item }) => [chaveDoSistema, item] as const),
+  );
+  const mensalidade = porChave.get("mensalidade");
+  const inscricaoOficina = porChave.get("inscricao_oficina");
+  const usoLivreHora = porChave.get("uso_livre_hora");
+  if (!mensalidade || !inscricaoOficina || !usoLivreHora) {
+    console.error(FRASE_ITENS_DA_AGENDA_SUMIRAM, {
+      encontrados: linhas.map((linha) => linha.chaveDoSistema),
+    });
+    throw new Error(FRASE_ITENS_DA_AGENDA_SUMIRAM);
+  }
+  return { mensalidade, inscricaoOficina, usoLivreHora };
 }

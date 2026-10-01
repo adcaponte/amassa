@@ -9,6 +9,7 @@ import type {
   ItemDoCatalogoCompleto,
 } from "@/lib/cadastros/consultas";
 import {
+  CHIP_DO_SISTEMA,
   ETIQUETA_SO_INSUMO,
   FRASE_VAZIO_CATALOGO_CORPO,
   FRASE_VAZIO_CATALOGO_TITULO,
@@ -135,6 +136,16 @@ export function ListaCatalogo({ catalogo, categoriasParaItem, insumosDisponiveis
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1">
+                      {/* Fase 5 (D-17): os três itens que a Agenda acha por código. Chip neutro
+                          — não é alerta; o diálogo explica o que não se pode fazer com eles. */}
+                      {item.chaveDoSistema !== null && (
+                        <span
+                          data-testid="chip-do-sistema"
+                          className="text-apoio bg-superficie-2 text-tinta-media rounded-full px-2 py-0.5 font-semibold"
+                        >
+                          {CHIP_DO_SISTEMA}
+                        </span>
+                      )}
                       {/* Plano 06-08 (D-20): chip neutro, sem opacidade reduzida — o item continua
                           legível e editável; desativado só some da Venda e da Compra. */}
                       {!item.ativo && (

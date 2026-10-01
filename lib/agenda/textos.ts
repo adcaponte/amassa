@@ -63,6 +63,10 @@ export const FRASE_ERRO_CARREGAR_AULA =
 export const FRASE_LANCAMENTO_NAO_EXISTE =
   "Esse lançamento não existe mais — talvez tenha sido removido em outro celular.";
 export const FRASE_DATA_CANCELADA = "Esta data foi cancelada — a tela foi atualizada.";
+// D-17: um dos três itens do sistema sumiu do Catálogo (só acontece apagando à mão no banco — o
+// gatilho `travar_item_do_sistema` recusa pela aplicação).
+export const FRASE_ITENS_DA_AGENDA_SUMIRAM =
+  "Os itens da Agenda sumiram do Catálogo. Fale com o Theo — a migração 0026 cria os três.";
 
 export function fraseFalhaAoMarcarPresenca(nome: string): string {
   return `Não deu para marcar a presença de ${nome}. Toque de novo.`;

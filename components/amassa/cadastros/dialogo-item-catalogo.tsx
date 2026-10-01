@@ -25,6 +25,7 @@ import {
   ROTULO_CATEGORIA_DA_COMPRA,
   ROTULO_CATEGORIA_DE_VENDA,
   ROTULO_DESATIVAR_ITEM,
+  LINHA_ITEM_DO_SISTEMA,
   ROTULO_NOME,
   ROTULO_NOS_ATALHOS_DA_COMPRA,
   ROTULO_NOS_MAIS_USADOS,
@@ -94,6 +95,8 @@ export function DialogoItemCatalogo({
   onFechar,
 }: DialogoItemCatalogoProps) {
   const modoEdicao = itemParaEditar !== null;
+  // D-17: os três itens que a Agenda acha por código — sem "Desativar" e sem "Aparece na Venda".
+  const itemDoSistema = (itemParaEditar?.chaveDoSistema ?? null) !== null;
 
   const [nome, setNome] = useState("");
   const [categoriaVendaId, setCategoriaVendaId] = useState<string | null>(null);
@@ -470,13 +473,21 @@ export function DialogoItemCatalogo({
             </Field>
           </div>
 
-          <label className="flex min-h-[44px] items-center gap-2">
-            <Checkbox
-              checked={aparecenaVenda}
-              onCheckedChange={(valor) => alternarAparecenaVenda(valor === true)}
-            />
-            <span className="text-corpo">{ROTULO_APARECE_NA_VENDA}</span>
-          </label>
+          {/* Fase 5 (D-17): item do sistema da Agenda não sai da Venda — no lugar da caixa, a
+              linha que explica (o servidor também ignora o pedido, e o banco recusa). */}
+          {itemDoSistema ? (
+            <p data-testid="linha-item-do-sistema" className="text-apoio text-tinta-fraca break-words">
+              {LINHA_ITEM_DO_SISTEMA}
+            </p>
+          ) : (
+            <label className="flex min-h-[44px] items-center gap-2">
+              <Checkbox
+                checked={aparecenaVenda}
+                onCheckedChange={(valor) => alternarAparecenaVenda(valor === true)}
+              />
+              <span className="text-corpo">{ROTULO_APARECE_NA_VENDA}</span>
+            </label>
+          )}
 
           <label className="flex min-h-[44px] items-center gap-2">
             <Checkbox
@@ -564,7 +575,7 @@ export function DialogoItemCatalogo({
           />
 
           <div className="flex flex-wrap justify-end gap-3">
-            {modoEdicao && itemParaEditar && (
+            {modoEdicao && itemParaEditar && !itemDoSistema && (
               <button
                 type="button"
                 data-testid={itemParaEditar.ativo ? "catalogo-desativar" : "catalogo-reativar"}
