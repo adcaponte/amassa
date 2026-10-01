@@ -3,10 +3,18 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { somarDias } from "@/lib/producao/calendario";
+
 import {
   agruparPorDia,
   diasDaSemana,
+  gradeDoMes,
+  mesVizinho,
   ordenarNoDia,
+  pontosDoDia,
+  resumoDoDia,
+  rotuloDaCelulaDoMes,
+  tituloDoMes,
   rotuloDoDia,
   segundaDaSemana,
   tituloDaSemana,
@@ -119,6 +127,120 @@ describe("agruparPorDia", () => {
     expect(grupos[2].itens.map((evento) => evento.id)).toEqual(["y", "x"]);
     expect(grupos[6].itens.map((evento) => evento.id)).toEqual(["w"]);
     expect(grupos.flatMap((grupo) => grupo.itens).map((evento) => evento.id)).not.toContain("fora");
+  });
+});
+
+describe("gradeDoMes", () => {
+  it("dezembro de 2026: segunda 30/11 a domingo 03/01 — 35 células, a 6ª linha cortada", () => {
+    const grade = gradeDoMes("2026-12");
+    expect(grade).toHaveLength(35);
+    expect(grade[0]).toEqual({ data: "2026-11-30", doMes: false });
+    expect(grade[1]).toEqual({ data: "2026-12-01", doMes: true });
+    expect(grade[34]).toEqual({ data: "2027-01-03", doMes: false });
+    expect(grade.filter((celula) => celula.doMes)).toHaveLength(31);
+  });
+
+  it("março de 2026 começa num domingo e tem 31 dias: 42 células, a 6ª linha fica", () => {
+    const grade = gradeDoMes("2026-03");
+    expect(grade).toHaveLength(42);
+    expect(grade[0]).toEqual({ data: "2026-02-23", doMes: false });
+    expect(grade[6]).toEqual({ data: "2026-03-01", doMes: true });
+    expect(grade[36]).toEqual({ data: "2026-03-31", doMes: true });
+    expect(grade[41]).toEqual({ data: "2026-04-05", doMes: false });
+  });
+
+  it("fevereiro de 2026 também começa num domingo, mas com 28 dias cabe em 35 células", () => {
+    const grade = gradeDoMes("2026-02");
+    expect(grade).toHaveLength(35);
+    expect(grade[6]).toEqual({ data: "2026-02-01", doMes: true });
+    expect(grade[33]).toEqual({ data: "2026-02-28", doMes: true });
+  });
+
+  it("sempre começa numa segunda e anda de um em um dia", () => {
+    for (const mes of ["2026-10", "2027-02", "2028-02", "2026-08"]) {
+      const grade = gradeDoMes(mes);
+      expect(segundaDaSemana(grade[0].data)).toBe(grade[0].data);
+      expect(grade.map((celula) => celula.data)).toEqual(
+        Array.from({ length: grade.length }, (_, indice) => somarDias(grade[0].data, indice)),
+      );
+      expect([35, 42]).toContain(grade.length);
+      expect(grade.every((celula) => celula.doMes === celula.data.startsWith(mes))).toBe(true);
+    }
+  });
+});
+
+describe("tituloDoMes e mesVizinho", () => {
+  it("“{mês} de {aaaa}”", () => {
+    expect(tituloDoMes("2026-12")).toBe("dezembro de 2026");
+    expect(tituloDoMes("2027-01")).toBe("janeiro de 2027");
+    expect(tituloDoMes("2026-03")).toBe("março de 2026");
+  });
+
+  it("o mês anterior e o próximo, cruzando o ano", () => {
+    expect(mesVizinho("2026-12", 1)).toBe("2027-01");
+    expect(mesVizinho("2027-01", -1)).toBe("2026-12");
+    expect(mesVizinho("2026-10", 1)).toBe("2026-11");
+  });
+});
+
+describe("resumoDoDia", () => {
+  it("nada marcado sem itens", () => {
+    expect(resumoDoDia([])).toBe("nada marcado");
+  });
+
+  it("conta por tipo, com plural de verdade, na ordem turma · oficina · uso livre", () => {
+    expect(
+      resumoDoDia([
+        { tipo: "avulsa" },
+        { tipo: "uso_livre" },
+        { tipo: "turma" },
+        { tipo: "avulsa" },
+      ]),
+    ).toBe("1 turma fixa, 2 oficinas, 1 uso livre");
+    expect(resumoDoDia([{ tipo: "turma" }, { tipo: "turma" }, { tipo: "uso_livre" }, { tipo: "uso_livre" }])).toBe(
+      "2 turmas fixas, 2 usos livres",
+    );
+    expect(resumoDoDia([{ tipo: "avulsa" }])).toBe("1 oficina");
+  });
+
+  it("o fechado vem primeiro como “dia fechado”", () => {
+    expect(resumoDoDia([{ tipo: "fechado" }])).toBe("dia fechado");
+    expect(resumoDoDia([{ tipo: "turma" }, { tipo: "fechado" }])).toBe("dia fechado, 1 turma fixa");
+  });
+
+  it("cancelados não contam", () => {
+    expect(resumoDoDia([{ tipo: "avulsa", cancelado: true }])).toBe("nada marcado");
+    expect(resumoDoDia([{ tipo: "avulsa", cancelado: true }, { tipo: "avulsa" }])).toBe("1 oficina");
+  });
+
+  it("conta TODOS os lançamentos, não só os seis pontos desenhados", () => {
+    expect(resumoDoDia(Array.from({ length: 8 }, () => ({ tipo: "avulsa" as const })))).toBe("8 oficinas");
+  });
+});
+
+describe("pontosDoDia", () => {
+  it("até seis, o fechado primeiro, cancelado sem ponto", () => {
+    expect(
+      pontosDoDia([
+        { tipo: "avulsa" },
+        { tipo: "turma", cancelado: true },
+        { tipo: "fechado" },
+        { tipo: "turma" },
+      ]),
+    ).toEqual(["fechado", "avulsa", "turma"]);
+    expect(pontosDoDia(Array.from({ length: 8 }, () => ({ tipo: "avulsa" as const })))).toHaveLength(6);
+    expect(pontosDoDia([])).toEqual([]);
+  });
+});
+
+describe("rotuloDaCelulaDoMes", () => {
+  it("“{dia da semana}, {d} de {mês}: {resumo}” e “ · hoje”", () => {
+    expect(rotuloDaCelulaDoMes("2026-12-19", "1 turma fixa, 1 oficina", "2026-10-01")).toBe(
+      "sábado, 19 de dezembro: 1 turma fixa, 1 oficina",
+    );
+    expect(rotuloDaCelulaDoMes("2026-10-01", "nada marcado", "2026-10-01")).toBe(
+      "quinta, 1 de outubro: nada marcado · hoje",
+    );
   });
 });
 

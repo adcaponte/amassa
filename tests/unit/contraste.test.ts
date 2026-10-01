@@ -349,3 +349,78 @@ describe("contraste da Produção (06.1-UI-SPEC.md)", () => {
     expect(fonte).not.toMatch(/#[0-9A-Fa-f]{6}/);
   });
 });
+
+// Fase 5 (plano 05-03): os pares A1-A17 da UI-SPEC da Agenda (05-UI-SPEC.md §"Pares de contraste"),
+// medidos no `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui (o branco
+// do quadro "Pessoas no espaço" é a única cor fora de token, como o `BRANCO` das pílulas). Pares
+// que outras fases já provam entram de novo com o uso da Agenda: o teste cobre o uso. Achado real
+// se reprovar: o token (ou o par que o componente usa) muda, nunca o limiar.
+describe("contraste da Agenda (05-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const BRANCO = "#FFFFFF";
+  const CORES_DE_TIPO_SEM_OURO = ["area-espaco", "area-loja", "area-geral"] as const;
+  const FUNDOS_DA_CELULA = ["superficie", "acento-fundo", "superficie-2"] as const;
+
+  const cor = (token: string) => (token === "BRANCO" ? BRANCO : tokenDaPlataforma(token));
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    // Margem quase nula (A1 = 4,51:1) — qualquer ajuste de paleta reprova aqui de propósito.
+    ["A1", "atencao", "atencao-fundo", TEXTO_NORMAL, "tags “marcar presença”, “reposição”, “dia fechado”; caixa “Este dia está fechado…”"],
+    ["A2", "sucesso", "sucesso-fundo", TEXTO_NORMAL, "“Veio” marcado, tags “pago”, “está no espaço”"],
+    ["A3", "erro", "erro-fundo", TEXTO_NORMAL, "“Faltou” marcado, tags “cancelada”, “a receber”"],
+    ["A4", "tinta-media", "superficie-2", TEXTO_NORMAL, "tags neutras; chip “do sistema”"],
+    ["A5", "tinta-fraca", "superficie", TEXTO_NORMAL, "sub-linha do cartão, dicas, legenda"],
+    ["A6", "tinta-fraca", "fundo", TEXTO_NORMAL, "“nada marcado” de um dia vazio"],
+    ["A7", "tinta-media", "fundo", TEXTO_NORMAL, "cabeçalho de cada dia da semana"],
+    ["A8", "acento", "fundo", TEXTO_NORMAL, "cabeçalho do dia de hoje; “+ lançar”"],
+    ["A9", "acento", "acento-fundo", TEXTO_NORMAL, "pílula de tipo marcada"],
+    ["A10", "tinta", "acento-fundo", TEXTO_NORMAL, "número da célula do mês escolhida"],
+    ["A11", "tinta-fraca", "superficie-2", TEXTO_NORMAL, "número dos dias fora do mês"],
+    ["A12", "acento", "superficie", TEXTO_NORMAL, "links de texto nas folhas"],
+    ["A13", "erro", "superficie", TEXTO_NORMAL, "“Cancelar esta data”, “Tirar o bloqueio”"],
+    ...CORES_DE_TIPO_SEM_OURO.flatMap((tipo) =>
+      FUNDOS_DA_CELULA.map(
+        (fundo) => ["A14", tipo, fundo, NAO_TEXTO, "ponto do mês e da legenda"] as const,
+      ),
+    ),
+    ...FUNDOS_DA_CELULA.map(
+      (fundo) => ["A15", "tinta-fraca", fundo, NAO_TEXTO, "contorno de 1px do ponto ouro (UI-D12)"] as const,
+    ),
+    ["A16", "BRANCO", "tinta", TEXTO_NORMAL, "número do quadro “Pessoas no espaço”"],
+    ["A16", "borda-forte", "tinta", TEXTO_NORMAL, "rótulo do quadro “Pessoas no espaço”"],
+    ["A17", "area-espaco", "superficie-2", NAO_TEXTO, "barras de “Em que dia o espaço é mais usado”"],
+  ];
+
+  it("a tabela tem A1..A17", () => {
+    expect([...new Set(PARES.map(([par]) => par))]).toEqual(
+      Array.from({ length: 17 }, (_, indice) => `A${indice + 1}`),
+    );
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = cor(tokenDaFrente);
+      const fundo = cor(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+
+  it("o ouro SOZINHO continua reprovado como objeto gráfico — por isso o contorno de tinta-fraca (UI-D12)", () => {
+    // Se um dia o token mudar e isto passar, o contorno pode sair; enquanto não, ele é obrigatório.
+    const ouro = tokenDaPlataforma("ouro");
+    expect(razaoDeContraste(ouro, tokenDaPlataforma("superficie"))).toBeLessThan(NAO_TEXTO);
+    expect(razaoDeContraste(ouro, tokenDaPlataforma("acento-fundo"))).toBeLessThan(NAO_TEXTO);
+    expect(razaoDeContraste(ouro, tokenDaPlataforma("superficie-2"))).toBeLessThan(NAO_TEXTO);
+  });
+
+  it("a grade do mês desenha o ponto ouro com o contorno de tinta-fraca e não repete hex", () => {
+    const fonte = readFileSync(join(process.cwd(), "components/amassa/agenda/grade-do-mes.tsx"), "utf-8");
+    expect(fonte).toMatch(/bg-ouro[^"]*outline-tinta-fraca/);
+    expect(fonte).not.toMatch(/#[0-9A-Fa-f]{6}/);
+  });
+});
