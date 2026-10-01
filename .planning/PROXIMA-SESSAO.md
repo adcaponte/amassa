@@ -1,10 +1,17 @@
-# Próxima sessão — ATUALIZADO em 2026-10-01 (manhã UTC: Fase 5, Agenda, planejada — 16 planos; próximo, executar)
+# Próxima sessão — ATUALIZADO em 2026-10-01 (~06h45 UTC: Fase 5, Agenda, planos 01 e 02 de 16 feitos no branch; próximo, plano 03)
+
+*Até ~06h45 UTC de 01/10/2026 este título dizia "(manhã UTC: Fase 5, Agenda, planejada — 16 planos; próximo, executar)".*
 
 *Até a manhã de 01/10/2026 este título dizia "(~02h UTC: Fase 5, Agenda, discutida; próximo, planejar)".*
 
 *Até ~02h UTC de 01/10/2026 este título dizia "(~01h30 UTC: Fase 06.1 fechada; próxima, a Agenda)".*
 
 *Até ~01h30 UTC de 01/10/2026 este título dizia "Próxima sessão — ATUALIZADO em 2026-10-01 (madrugada: Fase 06.1 concluída e no ar)".*
+
+> **🟡 ATUALIZAÇÃO DE 01/10/2026, ~06h45 UTC — FASE 5 (AGENDA) EM EXECUÇÃO: PLANOS 01 E 02 DE 16 FEITOS, NO BRANCH `gsd/phase-05-agenda`. NADA PUBLICADO, NENHUMA MIGRAÇÃO APLICADA.**
+> O Theo pediu, com 1h30 até uma pausa, para rodar os planos 01 e 02 e parar. **05-01** (25 min): a migração `0026_agenda.sql` inteira (versionada, **não aplicada**) e o traçador — a oficina de hoje na semana, a lista por `?evento=`, "Veio" em um toque que grava e sobrevive ao recarregar; 13 decisões sem o Theo no `05-01-SUMMARY.md`; o teste `@vazio-global` do Catálogo passou a esperar os três itens do sistema. **05-02** (11 min): `conferirAgenda` completa no Postgres efêmero — e ela **achou um defeito real na `0026`, corrigido** (o check `inscricoes_direito_so_com_falta` aceitava direito a repor com presença nula); os três itens "do sistema" em Cadastros, com o preço da hora cadastrável e desativação impossível.
+> **Como sei:** `git log --oneline main..gsd/phase-05-agenda` = 8 commits (3db116d..0df9a88 + o desta atualização); `main` = `origin/main` = `cfd0990`; os dois SUMMARY com "Self-Check: PASSED"; `npm run verificar` verde no fim de cada plano (1865 testes, `test:migracoes`), e2e com `--grep` 80/80 e 66/66, segundo os SUMMARY.
+> **Próximo:** `/gsd-execute-phase 5` retoma no plano 03 (o checkout está no branch `gsd/phase-05-agenda`). **Para o portão (Parte 0):** antes de aplicar a `0026`, conferir se produção já tem item de catálogo chamado "Mensalidade", "Inscrição em oficina" ou "Uso livre (hora)" (o nome não é único — a consulta está no `05-01-SUMMARY.md`).
 
 > **🟢 ATUALIZAÇÃO DE 01/10/2026, MANHÃ (UTC) — FASE 5 (AGENDA) PLANEJADA: 16 PLANOS. NADA EXECUTADO, NADA PUBLICADO.**
 > No `/gsd-plan-phase 5` (todos os agentes em Opus, pedido do Theo): pesquisa (`bba6cd7`) com as dez perguntas abertas respondidas por ele no chat → **D-08..D-18** (`bcd21bf`; a D-15, escrita à mão: uma publicação e o `db:migrate` logo depois, "nao tem importancia o site falhar agora"); validação (`ce11cd9`); **UI-SPEC aprovado** pelo verificador de UI, com as quatro escolhas de tela dele (`2c5c4e0`); mapa de padrões (`a166efb`); sonda de bordas dos AGE-01..20 (97, 96 com critério, 1 checagem) e de estados de tela (195, 146 com critério, 49 checagem), tipos escritos à mão; **16 planos** sequenciais (`05-01`..`05-16`, uma onda cada, branch `gsd/phase-05-agenda` criado pelo plano 01), verificados pelo `gsd-plan-checker` — 5 avisos na primeira passada, corrigidos, **aprovado na segunda**; portões de cobertura: AGE 20/20, decisões 18/18, lacunas 38/38. O plano 16 é o portão do Theo (Parte 0 com as decisões tomadas sem ele, Roteiro 17, caminhada).
