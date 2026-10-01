@@ -15,6 +15,16 @@ export type PessoaDoSeletor = {
   id: string;
   nome: string;
   telefone: string | null;
+  // Só no grupo "Tem aula a repor": quantas aulas a pessoa tem a repor (sempre > 0). Escolhida nesse
+  // grupo, ela entra como REPOSIÇÃO; em qualquer outro grupo o campo não existe.
+  aRepor?: number;
+};
+
+// Quem tem aula a repor, com o saldo já calculado no servidor (`creditosPorCliente`) — o cliente nunca
+// decide quem tem crédito.
+export type PessoaComSaldo<P extends PessoaDoSeletor = PessoaDoSeletor> = {
+  cliente: P;
+  saldo: number;
 };
 
 export type ChaveDoGrupo = "a_repor" | "demais";
@@ -31,23 +41,27 @@ function cortar<P extends PessoaDoSeletor>(pessoas: readonly P[]): { pessoas: P[
   return { pessoas: pessoas.slice(0, LIMITE_DO_SELETOR), temMais: pessoas.length > LIMITE_DO_SELETOR };
 }
 
-// Os grupos na ordem da UI-SPEC: "Tem aula a repor" (preenchido a partir do plano 08) e depois o
-// grupo do contexto ("Inscrever" · "Aula experimental / avulsa" · "Pessoas"). Grupo vazio não
-// aparece. Quem já está no grupo "a repor" não se repete no do contexto.
+// Os grupos na ordem da UI-SPEC: "Tem aula a repor" PRIMEIRO (AGE-10 · ordering) e depois o grupo do
+// contexto ("Inscrever" · "Aula experimental / avulsa" · "Pessoas"). Grupo vazio não aparece (AGE-10 ·
+// empty). Saldo 0 não entra no primeiro grupo (AGE-09 · boundary) — a pessoa fica no do contexto. Quem
+// está no grupo "a repor" não se repete no do contexto.
 export function gruposDoSeletor<P extends PessoaDoSeletor>({
   aRepor,
   demais,
   rotuloDemais,
 }: {
-  aRepor: readonly P[];
+  aRepor: readonly PessoaComSaldo<P>[];
   demais: readonly P[];
   rotuloDemais: string;
 }): GrupoDoSeletor<P>[] {
   const grupos: GrupoDoSeletor<P>[] = [];
-  if (aRepor.length > 0) {
-    grupos.push({ chave: "a_repor", rotulo: ROTULO_GRUPO_A_REPOR, ...cortar(aRepor) });
+  const comSaldo = aRepor
+    .filter((item) => item.saldo > 0)
+    .map((item): P => ({ ...item.cliente, aRepor: item.saldo }));
+  if (comSaldo.length > 0) {
+    grupos.push({ chave: "a_repor", rotulo: ROTULO_GRUPO_A_REPOR, ...cortar(comSaldo) });
   }
-  const jaNoPrimeiro = new Set(aRepor.map((pessoa) => pessoa.id));
+  const jaNoPrimeiro = new Set(comSaldo.map((pessoa) => pessoa.id));
   const doContexto = demais.filter((pessoa) => !jaNoPrimeiro.has(pessoa.id));
   if (doContexto.length > 0) {
     grupos.push({ chave: "demais", rotulo: rotuloDemais, ...cortar(doContexto) });

@@ -25,6 +25,24 @@ export function planejarPresenca(atual: PresencaAtual, desejada: Presenca | null
   return { presenca: desejada, direitoARepor };
 }
 
+export type DataParaMarcarPresenca = {
+  // A data civil do evento, `YYYY-MM-DD`.
+  data: string;
+  cancelada: boolean;
+  inscritos: readonly { presenca: Presenca | null }[];
+};
+
+// AGE-08: a tag "marcar presença" (cartão da semana e sub-título da folha). Pede quando a data é
+// ANTERIOR a hoje (a aula de hoje ainda pode estar acontecendo), não foi cancelada (data cancelada pelo
+// ateliê nunca conta falta — AGE-04) e alguém da lista ficou sem marcação. "Hoje" chega por argumento
+// (`hojeEmBrasilia` na página); as duas datas são `YYYY-MM-DD`, que se comparam como texto.
+export function precisaMarcarPresenca(evento: DataParaMarcarPresenca, hoje: string): boolean {
+  if (evento.cancelada || evento.data >= hoje) {
+    return false;
+  }
+  return evento.inscritos.some((inscrito) => inscrito.presenca === null);
+}
+
 export type InscritoParaOrdenar = {
   id: string;
   nome: string;
