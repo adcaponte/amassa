@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { Fragment, useRef, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -10,21 +10,22 @@ import {
   ROTULO_ABA_AGENDA,
   ROTULO_ABA_NUMEROS,
   ROTULO_ABA_PESSOAS,
+  ROTULO_ABA_SITE,
   rotuloDaAbaReceber,
 } from "@/lib/agenda/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 
-// As abas desta etapa: Agenda · Pessoas · A receber (+ " · {N}" quando há o que receber) · Números (plano
-// 14, a última das que existem). "No site" entra no plano 15 — quando as cinco existirem, abaixo de 768px
-// elas quebram em 3 + 2 (Agenda · Pessoas · A receber | No site · Números) com o espaçador
-// `basis-full md:hidden` entre a terceira e a quarta, o mesmo mecanismo de
-// `abas-financeiro.tsx`/`sub-abas-cadastros.tsx` (UI-D1); a ordem final das cinco é do plano 15. Com
-// quatro, uma fileira basta (cada aba quebra o próprio rótulo, nunca a página).
+// As cinco abas (UI-D1, completa no plano 15): Agenda · Pessoas · A receber (+ " · {N}" quando há o que
+// receber) | No site · Números. Abaixo de 768px elas quebram em 3 + 2 com o espaçador
+// `basis-full md:hidden` entre a terceira e a quarta — o mesmo mecanismo de
+// `abas-financeiro.tsx`/`sub-abas-cadastros.tsx`; a partir de 768px, uma fileira (`md:max-w-xl`).
+// Nunca rolagem lateral: cada aba quebra o próprio rótulo, nunca a página.
 const ABAS: readonly { valor: AbaDaAgenda; rotulo: (quantosAReceber: number) => string; href: string }[] = [
   { valor: "agenda", rotulo: () => ROTULO_ABA_AGENDA, href: rotaDeGestao("/agenda") },
   { valor: "pessoas", rotulo: () => ROTULO_ABA_PESSOAS, href: rotaDeGestao("/agenda?aba=pessoas") },
   { valor: "receber", rotulo: rotuloDaAbaReceber, href: rotaDeGestao("/agenda?aba=receber") },
+  { valor: "site", rotulo: () => ROTULO_ABA_SITE, href: rotaDeGestao("/agenda?aba=site") },
   { valor: "numeros", rotulo: () => ROTULO_ABA_NUMEROS, href: rotaDeGestao("/agenda?aba=numeros") },
 ];
 
@@ -81,7 +82,7 @@ export function AbasDaAgenda({ abaAtual, quantosAReceber = 0 }: AbasDaAgendaProp
     >
       {ABAS.map((aba) => {
         const selecionada = aba.valor === marcada;
-        return (
+        const link = (
           <Link
             key={aba.valor}
             ref={(elemento) => {
@@ -101,6 +102,15 @@ export function AbasDaAgenda({ abaAtual, quantosAReceber = 0 }: AbasDaAgendaProp
           >
             {aba.rotulo(quantosAReceber)}
           </Link>
+        );
+        // 3 + 2 abaixo de 768px: o espaçador força "No site" a abrir a segunda fileira.
+        return aba.valor === "site" ? (
+          <Fragment key={aba.valor}>
+            <span aria-hidden="true" data-testid="abas-espacador" className="basis-full md:hidden" />
+            {link}
+          </Fragment>
+        ) : (
+          link
         );
       })}
     </div>

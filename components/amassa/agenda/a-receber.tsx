@@ -113,11 +113,22 @@ export function EsqueletoDoAReceber() {
 // O `loading.tsx` da Agenda não recebe a URL: este pedaço lê `?aba=` no navegador e troca o esqueleto da
 // semana (`padrao`) pelo de "A receber" quando é ela que está carregando — e pelo de Números (`numeros`,
 // plano 14: 4 quadros + 7 barras), quando é ela.
-export function EsqueletoPelaAba({ padrao, numeros }: { padrao: ReactNode; numeros?: ReactNode }) {
+export function EsqueletoPelaAba({
+  padrao,
+  numeros,
+  site,
+}: {
+  padrao: ReactNode;
+  numeros?: ReactNode;
+  site?: ReactNode;
+}) {
   const parametros = useSearchParams();
   const aba = abaDaAgendaDaUrl(parametros.get("aba") ?? undefined);
   if (aba === "receber") {
     return <EsqueletoDoAReceber />;
+  }
+  if (aba === "site" && site !== undefined) {
+    return site;
   }
   return aba === "numeros" && numeros !== undefined ? numeros : padrao;
 }

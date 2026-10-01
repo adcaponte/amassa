@@ -242,6 +242,13 @@ export const ROTULO_ABA_AGENDA = "Agenda";
 export const ROTULO_ABA_PESSOAS = "Pessoas";
 export const ROTULO_ABA_RECEBER = "A receber";
 export const ROTULO_ABA_NUMEROS = "Números";
+export const ROTULO_ABA_SITE = "No site";
+
+// A aba "No site" (05-UI-SPEC.md §"Aba No site", §Estados vazios; UI-D18, D-11).
+export const DICA_NO_SITE =
+  "Assim a agenda aparece no site. Só aulas e oficinas marcadas como públicas, sem nome de ninguém e sem reserva pela internet. O uso livre é um texto com “consulte disponibilidade”. O site se atualiza sozinho poucos minutos depois de cada mudança feita aqui.";
+export const FRASE_NO_SITE_VAZIO =
+  "Nenhuma aula ou oficina pública de hoje em diante — o site mostra o texto abaixo, sem calendário. Marque “Mostrar no calendário público do site” ao lançar para ela aparecer.";
 
 // "A receber" sem contador com 0; " · {N}" com 1 ou mais (UI E15·zero-one-many).
 export function rotuloDaAbaReceber(quantos: number): string {

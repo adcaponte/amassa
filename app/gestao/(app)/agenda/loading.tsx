@@ -4,6 +4,7 @@ import { TITULO_AGENDA } from "@/lib/agenda/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EsqueletoPelaAba } from "@/components/amassa/agenda/a-receber";
 import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
+import { EsqueletoDoNoSite } from "@/components/amassa/agenda/moldura-no-site";
 import { EsqueletoDosNumeros } from "@/components/amassa/agenda/numeros-da-agenda";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -11,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 // o 05-04 — a aba marcada vem do endereço, porque este arquivo não recebe a URL) e o formato da aba
 // que está carregando: na aba Agenda (vista semana) a barra de navegação ("‹ título ›" e o alternador),
 // a fileira "+ Lançar na agenda · Hoje" (52px) e 3 grupos de dia com 2 cartões de 64px cada; em "A
-// receber" (plano 11), o cabeçalho + a sanfona + 4 linhas; em Números (plano 14), 4 quadros + 7 barras —
+// receber" (plano 11), o cabeçalho + a sanfona + 4 linhas; em Números (plano 14), 4 quadros + 7 barras;
+// em "No site" (plano 15), a moldura + 3 cartões —
 // escolhido no navegador por `?aba=`
 // (`EsqueletoPelaAba`). Trocar de semana, de mês ou de aba usa este mesmo arquivo — nunca
 // "carregando..." solto nem tela em branco (CLAUDE.md §Estados). A grade do MÊS e a lista de Pessoas
@@ -58,7 +60,11 @@ export default function CarregandoAgenda() {
       </div>
       <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
         <Suspense fallback={<EsqueletoDaSemana />}>
-          <EsqueletoPelaAba padrao={<EsqueletoDaSemana />} numeros={<EsqueletoDosNumeros />} />
+          <EsqueletoPelaAba
+            padrao={<EsqueletoDaSemana />}
+            numeros={<EsqueletoDosNumeros />}
+            site={<EsqueletoDoNoSite />}
+          />
         </Suspense>
       </div>
     </div>

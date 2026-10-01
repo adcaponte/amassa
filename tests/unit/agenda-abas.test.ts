@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  ABAS_DA_AGENDA,
   abaDaAgendaDaUrl,
   buscaDaUrl,
   diaDaUrl,
@@ -114,12 +115,16 @@ describe("abaDaAgendaDaUrl", () => {
     expect(abaDaAgendaDaUrl(undefined)).toBe("agenda");
   });
 
-  it.each(["agenda", "pessoas", "receber", "numeros"] as const)("“%s” → a mesma aba", (aba) => {
+  it.each(["agenda", "pessoas", "receber", "site", "numeros"] as const)("“%s” → a mesma aba", (aba) => {
     expect(abaDaAgendaDaUrl(aba)).toBe(aba);
   });
 
-  it.each(["site", "PESSOAS", "RECEBER", "NUMEROS", "números", "", "lixo"])("ainda não existe ou é lixo (“%s”) → agenda", (valor) => {
+  it.each(["SITE", "no site", "PESSOAS", "RECEBER", "NUMEROS", "números", "", "lixo"])("lixo (“%s”) → agenda", (valor) => {
     expect(abaDaAgendaDaUrl(valor)).toBe("agenda");
+  });
+
+  it("plano 15: a união completa, na ordem da tela — Agenda · Pessoas · A receber | No site · Números", () => {
+    expect([...ABAS_DA_AGENDA]).toEqual(["agenda", "pessoas", "receber", "site", "numeros"]);
   });
 
   it("lista repetida (?aba=a&aba=b) → agenda", () => {

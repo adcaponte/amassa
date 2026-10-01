@@ -36,6 +36,8 @@ import {
 import { garantirMensalidadesDoMes } from "@/lib/agenda/gravacao";
 import { mesDaData } from "@/lib/agenda/mensalidade";
 import { numerosDoMes } from "@/lib/agenda/numeros";
+import { agendaPublica } from "@/lib/agenda/publico/agenda";
+import { lerAgendaPublica } from "@/lib/agenda/publico/consultas";
 import { quantasDispensadasDaUrl } from "@/lib/agenda/receber";
 import {
   agruparPorDia,
@@ -72,6 +74,7 @@ import { AvisoDaAgenda } from "@/components/amassa/agenda/aviso-da-agenda";
 import { BarraDaAgenda } from "@/components/amassa/agenda/barra-da-agenda";
 import { FolhaLancar } from "@/components/amassa/agenda/folha-lancar";
 import { EsqueletoDoMes, GradeDoMes } from "@/components/amassa/agenda/grade-do-mes";
+import { EsqueletoDoNoSite, MolduraNoSite } from "@/components/amassa/agenda/moldura-no-site";
 import { EsqueletoDosNumeros, NumerosDaAgenda } from "@/components/amassa/agenda/numeros-da-agenda";
 import {
   EsqueletoDasPessoas,
@@ -116,8 +119,8 @@ function urlDaAgenda(consulta: string): string {
 // `?lancar=1&dia=` (a folha "Lançar na agenda") é lido pelo cliente (`FolhaLancar`), que abre e
 // fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês),
 // "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta) ou "receber" (plano 11 — o que
-// falta receber e o "Recebi agora") ou "numeros" (plano 14 — o mês até hoje, só leitura). "No site" entra
-// no plano 15.
+// falta receber e o "Recebi agora"), "site" (plano 15 — o que vai ao ar no site, ao vivo) ou "numeros"
+// (plano 14 — o mês até hoje, só leitura).
 export default async function PaginaAgenda({
   searchParams,
 }: {
@@ -141,6 +144,14 @@ export default async function PaginaAgenda({
           <AbasComContagem aba={aba} hoje={hoje} />
         </Suspense>
       </div>
+      {aba === "site" ? (
+        // "No site" (AGE-18, UI-D18): a moldura vai até 1080px, mais larga que o resto da Agenda.
+        <div className="flex flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
+          <Suspense fallback={<EsqueletoDoNoSite />}>
+            <NoSiteCarregado hoje={hoje} />
+          </Suspense>
+        </div>
+      ) : (
       <div className="flex max-w-3xl flex-col gap-4 px-6 pt-6 pb-6 md:px-8">
         {aba === "numeros" ? (
           // Números (AGE-19) espera o banco atrás do esqueleto DELA (4 quadros + 7 barras); a leitura que
@@ -187,6 +198,7 @@ export default async function PaginaAgenda({
           </>
         )}
       </div>
+      )}
     </>
   );
 }
@@ -194,6 +206,15 @@ export default async function PaginaAgenda({
 // As abas com o contador de "A receber". D-02: a mensalidade do mês nasce ANTES de contar (a mesma
 // escrita idempotente da ficha e da aba — o porquê está em `garantirMensalidadesDoMes`), para o número
 // da aba nunca ser menor que a lista. A conta que falha não derruba a página: as abas aparecem sem ela.
+// A aba "No site" (UI-D18): a MESMA leitura pública do site, ao vivo, SEM o try/catch dele — se ela
+// falhar, o erro sobe ao `error.tsx` da Agenda ("Não deu para carregar a agenda…" + "Tentar de novo"),
+// nunca o estado da D-11, que diria ao gestor "nenhuma aula pública" sem ser verdade (decisão do
+// backstop E19 error).
+async function NoSiteCarregado({ hoje }: { hoje: string }) {
+  const agenda = agendaPublica(await lerAgendaPublica(hoje), hoje);
+  return <MolduraNoSite agenda={agenda} />;
+}
+
 async function AbasComContagem({ aba, hoje }: { aba: AbaDaAgenda; hoje: string }) {
   let quantos = 0;
   try {

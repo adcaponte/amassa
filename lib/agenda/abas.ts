@@ -53,11 +53,11 @@ export function mesDaUrl(valor: ValorDaUrl, hoje: string): string {
   return hoje.slice(0, 7);
 }
 
-// As abas da Agenda (05-UI-SPEC.md §Rotas; UI-D1): "agenda" (a semana/o mês, padrão), "pessoas" (o
-// cadastro de clientes, D-01), "receber" (o que falta receber — plano 11, AGE-15) e "numeros" (o mês até
-// hoje, só leitura — plano 14, AGE-19). "site" entra no plano 15, com a sua tela inteira; até lá cai no
-// padrão.
-export const ABAS_DA_AGENDA = ["agenda", "pessoas", "receber", "numeros"] as const;
+// As abas da Agenda (05-UI-SPEC.md §Rotas; UI-D1), a união completa: "agenda" (a semana/o mês,
+// padrão), "pessoas" (o cadastro de clientes, D-01), "receber" (o que falta receber — plano 11,
+// AGE-15), "site" (o que vai ao ar no site, ao vivo — plano 15, AGE-18, UI-D18) e "numeros" (o mês até
+// hoje, só leitura — plano 14, AGE-19). Na ordem da tela.
+export const ABAS_DA_AGENDA = ["agenda", "pessoas", "receber", "site", "numeros"] as const;
 export type AbaDaAgenda = (typeof ABAS_DA_AGENDA)[number];
 
 export function abaDaAgendaDaUrl(valor: ValorDaUrl): AbaDaAgenda {
