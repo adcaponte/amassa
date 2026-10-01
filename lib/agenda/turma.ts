@@ -100,7 +100,7 @@ function horaCurta(hora: string): string {
 }
 
 // "19h" · "19h30" (o jeito do site).
-function horaDoSite(hora: string): string {
+export function horaDoSite(hora: string): string {
   const minutos = minutosDe(hora);
   const resto = minutos % 60;
   return `${Math.floor(minutos / 60)}h${resto === 0 ? "" : String(resto).padStart(2, "0")}`;
