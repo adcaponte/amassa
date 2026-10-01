@@ -38,14 +38,17 @@ export const ETAPAS_DO_CAMINHO: Readonly<Record<CaminhoOrdem, readonly EtapaProd
 
 // D-10 (dono, 30/09/2026): os `DIAS_PADRAO` da 04.1 com a espera SOMADA à etapa seguinte —
 // 32 dias no caminho completo (o mesmo total prometido até então) e 27 no que termina no
-// biscoito. Existem TRÊS cópias destes números: esta, o bloco (b) do D-02 em
-// `db/migrations/0024_producao.sql` e o teste que lê aquele arquivo e compara com esta.
+// biscoito. Corrigido pelo dono em 01/10/2026, na caminhada da Parte 2: esmaltação 4 e queima de
+// esmalte 1 (o par era 1 e 4; ele diz ter marcado errado na pergunta). Os totais não mudam.
+// Esta é a ÚNICA fonte dos previstos de uma ordem nova. O bloco (b) do D-02 em
+// `db/migrations/0024_producao.sql` gravou o par ANTIGO (1/4) — é histórico: aplicada em
+// 30/09/2026, converteu 0 ordens em produção, e migração aplicada não se edita.
 export const DIAS_PREVISTOS_PADRAO: Readonly<Record<EtapaProducao, number>> = {
   producao: 5,
   secagem: 15,
   queima1: 1,
-  esmaltacao: 1,
-  queima2: 4,
+  esmaltacao: 4,
+  queima2: 1,
   entrega: 6,
 };
 

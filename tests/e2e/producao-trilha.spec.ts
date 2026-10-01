@@ -160,12 +160,12 @@ test.describe("producao trilha", () => {
     await expect(menosQueima1).toHaveAccessibleName("Um dia a menos em Queima de biscoito");
     await expect(menosQueima1).toHaveAccessibleDescription("mínimo 1 dia");
 
-    // "+" na Queima de esmalte: 4 → 5.
+    // "+" na Queima de esmalte: 1 → 2.
     const mais = page.getByTestId("ordem-ajuste-mais-queima2");
     await expect(mais).toHaveAccessibleName("Um dia a mais em Queima de esmalte");
     await mais.click();
-    await expect(page.getByTestId("ordem-etapa-queima2")).toContainText("previsto 5 dias");
-    expect(etapaNoBanco(await etapasDaOrdemNoBanco(ordemId), "queima2").diasPrevistos).toBe(5);
+    await expect(page.getByTestId("ordem-etapa-queima2")).toContainText("previsto 2 dias");
+    expect(etapaNoBanco(await etapasDaOrdemNoBanco(ordemId), "queima2").diasPrevistos).toBe(2);
     await expect(previsao).toHaveText(
       `Previsão de conclusão: ${diaMes(diaEmBrasilia(33))} · 1 dia depois do prometido`,
     );

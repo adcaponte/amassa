@@ -111,8 +111,10 @@ export const execucoesBackup = pgTable(
 //   "aguardando o sinal" — com o MESMO id da encomenda (bloco à mão da `0024`).
 // - D-09: a `0024` e a `0025` vão na mesma publicação e são aplicadas numa sessão só de
 //   `db:migrate`, pelo dono, depois de backup (Roteiro 16, plano 06.1-15).
-// - D-10: os dias previstos padrão (5/15/1/1/4/6) moram em `lib/producao/etapas.ts`
-//   (`DIAS_PREVISTOS_PADRAO`); o bloco (b) da `0024` repete os números e um teste compara.
+// - D-10: os dias previstos padrão moram em `lib/producao/etapas.ts` (`DIAS_PREVISTOS_PADRAO`).
+//   O bloco (b) da `0024` gravou 5/15/1/1/4/6; em 01/10/2026 o dono trocou o par para esmaltação 4
+//   e queima de esmalte 1 (5/15/1/4/1/6) — a 0024 ficou como histórico (já aplicada, 0 ordens
+//   convertidas em produção) e um teste fixa o texto dela.
 // - Os dois vínculos que apontavam para `encomendas` (`orcamentos.encomenda_id` e
 //   `movimentacoes_estoque.encomenda_id`) MANTÊM O NOME e passam a apontar para
 //   `ordens_producao` — "encomenda_id" é o nome histórico do vínculo com a ordem de produção.

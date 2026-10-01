@@ -3151,8 +3151,11 @@ async function erroDoBanco(executar) {
   }
 }
 
-// Os previstos padrão do D-10 — quarta cópia, só para semear (a terceira é a 0024; o módulo puro
-// e `tests/unit/producao-etapas.test.ts` guardam a paridade entre as outras).
+// Os previstos que a 0024 grava no bloco (b) do D-02 — HISTÓRICOS (esmaltação 1, queima de esmalte
+// 4), não a constante `DIAS_PREVISTOS_PADRAO`: o dono trocou o par para 4/1 em 01/10/2026, depois
+// de a 0024 já estar aplicada (30/09, 0 ordens convertidas em produção), e migração aplicada não
+// se edita. A prova do D-02 confere o que a 0024 escreve, por isso compara com estes números;
+// `tests/unit/producao-etapas.test.ts` fixa o texto da 0024 nos mesmos seis pares.
 const ETAPAS_COMPLETO_DA_PROVA = [
   ["producao", 0, 5],
   ["secagem", 1, 15],
@@ -3814,7 +3817,7 @@ async function conferirDadoDoD02(cliente, semente) {
   }));
   afirmar(
     JSON.stringify(etapas) === JSON.stringify(etapasEsperadas),
-    `D-02: a ordem deveria nascer com as seis etapas 5/15/1/1/4/6, nenhuma feita — veio ${JSON.stringify(etapas)}.`,
+    `D-02: a ordem deveria nascer com as seis etapas que a 0024 grava (5/15/1/1/4/6, par antigo — histórico), nenhuma feita — veio ${JSON.stringify(etapas)}.`,
   );
 
   const { rows: pecas } = await cliente.query(

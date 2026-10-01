@@ -316,9 +316,10 @@ describe("planejarAjusteDePrevisto", () => {
       etapa: "secagem",
       diasPrevistos: 16,
     });
-    expect(planejarAjusteDePrevisto(naSecagem, "queima2", -1)).toEqual({
+    // A esmaltação nasce com 4 desde a correção do dono de 01/10/2026 (antes, a queima de esmalte).
+    expect(planejarAjusteDePrevisto(naSecagem, "esmaltacao", -1)).toEqual({
       tipo: "ok",
-      etapa: "queima2",
+      etapa: "esmaltacao",
       diasPrevistos: 3,
     });
   });

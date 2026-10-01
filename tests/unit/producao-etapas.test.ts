@@ -15,6 +15,7 @@ import {
   etapasIniciais,
   rotuloDaColuna,
   rotuloDaEtapa,
+  type EtapaProducao,
 } from "@/lib/producao/etapas";
 
 // Fase 06.1 (plano 01). As uniões de `lib/producao/etapas.ts` são REDECLARADAS à mão (o módulo é
@@ -66,13 +67,13 @@ describe("caminhos (PRD-04)", () => {
 });
 
 describe("DIAS_PREVISTOS_PADRAO (D-10)", () => {
-  it("é 5/15/1/1/4/6", () => {
+  it("é 5/15/1/4/1/6 (esmaltação 4, queima de esmalte 1 — correção do dono, 01/10/2026)", () => {
     expect(DIAS_PREVISTOS_PADRAO).toEqual({
       producao: 5,
       secagem: 15,
       queima1: 1,
-      esmaltacao: 1,
-      queima2: 4,
+      esmaltacao: 4,
+      queima2: 1,
       entrega: 6,
     });
   });
@@ -84,20 +85,29 @@ describe("DIAS_PREVISTOS_PADRAO (D-10)", () => {
     expect(soma("biscoito")).toBe(27);
   });
 
-  it("a migração 0024 (bloco (b) do D-02) repete os mesmos seis pares (etapa, posição, dias)", () => {
+  // A 0024 é HISTÓRICA: aplicada em produção em 30/09/2026 com o par antigo (esmaltação 1,
+  // queima de esmalte 4), converteu 0 ordens lá — nenhum dado carrega o par antigo — e migração
+  // aplicada não se edita. Este caso fixa o texto dela (se alguém a editar, falha) e registra que
+  // ela e a constante divergem de propósito só nesse par.
+  it("a migração 0024 (bloco (b) do D-02) guarda o par antigo — histórico, não a constante", () => {
     const sql = readFileSync(join(process.cwd(), "db/migrations/0024_producao.sql"), "utf8");
     const pares = [...sql.matchAll(/\('(\w+)',\s*(\d+),\s*(\d+)\)/g)].map((casamento) => ({
       etapa: casamento[1],
       posicao: Number(casamento[2]),
       dias: Number(casamento[3]),
     }));
-    expect(pares).toEqual(
-      ETAPAS_DO_CAMINHO.completo.map((etapa, posicao) => ({
-        etapa,
-        posicao,
-        dias: DIAS_PREVISTOS_PADRAO[etapa],
-      })),
-    );
+    expect(pares).toEqual([
+      { etapa: "producao", posicao: 0, dias: 5 },
+      { etapa: "secagem", posicao: 1, dias: 15 },
+      { etapa: "queima1", posicao: 2, dias: 1 },
+      { etapa: "esmaltacao", posicao: 3, dias: 1 },
+      { etapa: "queima2", posicao: 4, dias: 4 },
+      { etapa: "entrega", posicao: 5, dias: 6 },
+    ]);
+    const divergentes = pares
+      .filter((par) => par.dias !== DIAS_PREVISTOS_PADRAO[par.etapa as EtapaProducao])
+      .map((par) => par.etapa);
+    expect(divergentes).toEqual(["esmaltacao", "queima2"]);
   });
 });
 
@@ -107,8 +117,8 @@ describe("etapasIniciais", () => {
       { etapa: "producao", posicao: 0, diasPrevistos: 5 },
       { etapa: "secagem", posicao: 1, diasPrevistos: 15 },
       { etapa: "queima1", posicao: 2, diasPrevistos: 1 },
-      { etapa: "esmaltacao", posicao: 3, diasPrevistos: 1 },
-      { etapa: "queima2", posicao: 4, diasPrevistos: 4 },
+      { etapa: "esmaltacao", posicao: 3, diasPrevistos: 4 },
+      { etapa: "queima2", posicao: 4, diasPrevistos: 1 },
       { etapa: "entrega", posicao: 5, diasPrevistos: 6 },
     ]);
   });

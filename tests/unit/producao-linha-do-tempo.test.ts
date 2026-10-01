@@ -205,11 +205,11 @@ describe("segmentosDaOrdem", () => {
       fimExclusivo: "2026-10-18",
       dias: 8,
     });
-    // Futuras: queima1 1, esmaltação 1, queima2 4, entrega 6 — em sequência a partir de 18/10.
+    // Futuras: queima1 1, esmaltação 4, queima2 1, entrega 6 — em sequência a partir de 18/10.
     expect(segmentos.slice(3).map((s) => [s.etapa, s.tipo, s.situacao, s.inicio, s.dias])).toEqual([
       ["queima1", "listrado", "prevista", "2026-10-18", 1],
-      ["esmaltacao", "listrado", "prevista", "2026-10-19", 1],
-      ["queima2", "listrado", "prevista", "2026-10-20", 4],
+      ["esmaltacao", "listrado", "prevista", "2026-10-19", 4],
+      ["queima2", "listrado", "prevista", "2026-10-23", 1],
       ["entrega", "listrado", "prevista", "2026-10-24", 6],
     ]);
     // O fim do último listrado é a previsão de conclusão.

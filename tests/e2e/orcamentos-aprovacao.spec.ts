@@ -261,8 +261,8 @@ test.describe("orcamentos aprovacao", () => {
       ["producao", 5, null],
       ["secagem", 15, null],
       ["queima1", 1, null],
-      ["esmaltacao", 1, null],
-      ["queima2", 4, null],
+      ["esmaltacao", 4, null],
+      ["queima2", 1, null],
       ["entrega", 6, null],
     ]);
 
