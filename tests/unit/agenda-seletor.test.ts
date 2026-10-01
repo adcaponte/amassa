@@ -48,7 +48,7 @@ describe("gruposDoSeletor", () => {
   });
 
   it("quem tem aula a repor vem primeiro, com o próprio teto, e não se repete no grupo do contexto", () => {
-    const aRepor = pessoas(10);
+    const aRepor = pessoas(10).map((cliente) => ({ cliente, saldo: 1 }));
     const demais = [...pessoas(3), { id: "outra", nome: "Outra", telefone: null }];
     const grupos = gruposDoSeletor({ aRepor, demais, rotuloDemais: "Aula experimental / avulsa" });
     expect(grupos.map((grupo) => grupo.chave)).toEqual(["a_repor", "demais"]);
@@ -57,6 +57,46 @@ describe("gruposDoSeletor", () => {
     expect(grupos[0].temMais).toBe(true);
     expect(grupos[1].pessoas.map((pessoa) => pessoa.id)).toEqual(["outra"]);
     expect(grupos[1].temMais).toBe(false);
+  });
+
+  it("o grupo a repor carrega o saldo de cada pessoa; o do contexto não", () => {
+    const [ana, bia, caio] = pessoas(3);
+    const grupos = gruposDoSeletor({
+      aRepor: [
+        { cliente: ana, saldo: 2 },
+        { cliente: bia, saldo: 1 },
+      ],
+      demais: [caio],
+      rotuloDemais: "Inscrever",
+    });
+    expect(grupos[0].chave).toBe("a_repor");
+    expect(grupos[0].pessoas.map((pessoa) => [pessoa.id, pessoa.aRepor])).toEqual([
+      [ana.id, 2],
+      [bia.id, 1],
+    ]);
+    expect(grupos[1].pessoas[0].aRepor).toBeUndefined();
+  });
+
+  it("saldo 0 não entra no grupo a repor — e a pessoa continua no grupo do contexto", () => {
+    const [ana, bia] = pessoas(2);
+    const grupos = gruposDoSeletor({
+      aRepor: [
+        { cliente: ana, saldo: 0 },
+        { cliente: bia, saldo: 1 },
+      ],
+      demais: [ana, bia],
+      rotuloDemais: "Inscrever",
+    });
+    expect(grupos.map((grupo) => grupo.chave)).toEqual(["a_repor", "demais"]);
+    expect(grupos[0].pessoas.map((pessoa) => pessoa.id)).toEqual([bia.id]);
+    expect(grupos[1].pessoas.map((pessoa) => pessoa.id)).toEqual([ana.id]);
+  });
+
+  it("ninguém com saldo: o grupo a repor não aparece (AGE-10 · empty)", () => {
+    const [ana] = pessoas(1);
+    expect(gruposDoSeletor({ aRepor: [{ cliente: ana, saldo: 0 }], demais: [], rotuloDemais: "Inscrever" })).toEqual(
+      [],
+    );
   });
 });
 
