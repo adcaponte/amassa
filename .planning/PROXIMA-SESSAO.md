@@ -1,4 +1,11 @@
-# Próxima sessão — ATUALIZADO em 2026-10-01 (madrugada: Fase 06.1 concluída e no ar)
+# Próxima sessão — ATUALIZADO em 2026-10-01 (~01h30 UTC: Fase 06.1 fechada; próxima, a Agenda)
+
+*Até ~01h30 UTC de 01/10/2026 este título dizia "Próxima sessão — ATUALIZADO em 2026-10-01 (madrugada: Fase 06.1 concluída e no ar)".*
+
+> **🟢 ATUALIZAÇÃO DE 01/10/2026, ~01h30 UTC (22h30 de 30/09 em Brasília) — FASE 06.1 FECHADA; PRÓXIMA: AGENDA.**
+> Produção no ar desde 30/09 (merge `1846563`, `0024`/`0025` aplicadas pelo Theo depois de backup), caminhada aprovada por ele, verificação `passed` 8/8 com `behavior_unverified: 0` (sonda de concorrência `7a4a9a9`). **Em produção:** `4bce84f` — run `36799259189` verde; ele confirmou numa ordem nova "esmaltação ta com 4 dias". **Publicado depois:** `3a1ef2d` (sonda de concorrência + "Tentar de novo" com `retry` nas 11 telas de erro antigas) — run `36801218591` **em andamento** às 01h29 UTC; conferir com `gh run list` antes de afirmar que está no ar. **Local, não publicado:** só commits de documento (`62d8832` e o desta atualização) — `git log origin/main..main`.
+> **Próximo (escolha do Theo, 01/10):** a **Agenda** (item 6 da fila; Fase 5 do ROADMAP), antes das Queimas. Primeiro passo: copiar `Claude outputs/agenda/BRIEFING.md` e `prototipo.html` para a pasta da fase, atualizar ROADMAP e REQUIREMENTS (os AGE-* antigos descrevem outro modelo), e `/gsd-discuss-phase 5` com os quatro pontos da §11 do briefing. **Pendências para o Polimento:** a edição velha da ficha (Pending Todos do `STATE.md`).
+
 
 *Até 01/10/2026 este título dizia "2026-09-30 (manhã, Fase 06.1 com o código completo no branch; aguardando você)".*
 
