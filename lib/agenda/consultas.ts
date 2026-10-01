@@ -28,11 +28,13 @@ import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { formatarDiaMes, somarDias } from "@/lib/producao/calendario";
 
+import { pessoasAgoraNoEspaco, presencaPendenteAgora } from "./espaco";
 import {
   contarPerdasAoCancelar,
   lerCobranca,
   lerCobrancas,
   contarPerdasAoDesativar,
+  garantirMensalidadesDoMes,
   type PerdasAoCancelar,
   type ReferenciaDaCobranca,
   type PerdasAoDesativar,
@@ -62,7 +64,7 @@ import {
   type TipoDeCobranca,
 } from "./receber";
 import { creditosDeReposicao, type CreditosDeReposicao } from "./reposicao";
-import { gradeDoMes, type TipoDoPonto } from "./semana";
+import { gradeDoMes, ordenarNoDia, segundaDaSemana, type TipoDoPonto } from "./semana";
 import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor, type PessoaComSaldo } from "./seletor";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM, rotuloDoGrupoDoSeletor } from "./textos";
 import type { EstadoUsoLivre, Presenca, TipoEvento, TipoInscricao } from "./tipos";
@@ -1620,4 +1622,151 @@ export async function aReceberPorCliente(clienteIds: readonly string[]): Promise
     porCliente[item.clienteId] = (porCliente[item.clienteId] ?? 0) + 1;
   }
   return porCliente;
+}
+
+// ——— O bloco “Agenda de hoje” do Início (D-05, D-18, GES-09; plano 14) ———
+
+// Até 6 linhas no Início (UI-D19); o resto vira “e mais {N}”.
+export const LINHAS_DA_AGENDA_DE_HOJE = 6;
+
+// Uma linha do dia no Início. A folha que ela abre: `?evento=` (turma, avulsa, fechado) ou `?uso=`.
+export type LinhaDeHoje =
+  | {
+      tipo: "turma" | "avulsa";
+      id: string;
+      data: string;
+      inicio: string;
+      fim: string;
+      // A turma: o nome dela; a avulsa: o título.
+      titulo: string;
+      vagas: number;
+      inscritos: number;
+      cancelado: boolean;
+      // Já passou do início, a data não foi cancelada e alguém está sem marcação.
+      marcarPresenca: boolean;
+    }
+  | { tipo: "fechado"; id: string; data: string; inicio: null; fim: null; titulo: string }
+  | {
+      tipo: "uso_livre";
+      id: string;
+      data: string;
+      inicio: string;
+      fim: string;
+      // O nome da pessoa.
+      titulo: string;
+      pessoas: number;
+      estado: EstadoUsoLivre;
+    };
+
+export type AgendaDeHoje = {
+  // A segunda da semana de hoje — o `?semana=` dos links.
+  segunda: string;
+  // Fechado primeiro, depois por início (`ordenarNoDia`), até `LINHAS_DA_AGENDA_DE_HOJE`.
+  linhas: LinhaDeHoje[];
+  // Quantas ficaram de fora (o “e mais {N}”).
+  restantes: number;
+  // “Agora no espaço” (D-05, D-18): contagem, sem fração.
+  agoraNoEspaco: number;
+};
+
+// O que acontece hoje no ateliê, para o Início. D-02 lista o Início entre as telas que fazem nascer a
+// mensalidade do mês: a escrita idempotente vem ANTES de ler (a página já chamou `exigirUsuario()`). As
+// regras são dos puros — `pessoasAgoraNoEspaco`/`presencaPendenteAgora` (`espaco.ts`) e `ordenarNoDia`
+// (`semana.ts`); aqui só se lê e se monta.
+export async function agendaDeHoje(hoje: string, agora: { data: string; minutos: number }): Promise<AgendaDeHoje> {
+  await garantirMensalidadesDoMes(db, mesDaData(hoje));
+  const usos = usosLivresEntre(hoje, hoje);
+  const contagem = db
+    .select({
+      eventoId: inscricoes.eventoId,
+      inscritos: count().as("inscritos"),
+      semMarcacao: sql<number>`count(*) filter (where ${inscricoes.presenca} is null)`.as("sem_marcacao"),
+      faltaram: sql<number>`count(*) filter (where ${inscricoes.presenca} = 'faltou')`.as("faltaram"),
+    })
+    .from(inscricoes)
+    .groupBy(inscricoes.eventoId)
+    .as("contagem");
+  const linhasDoBanco = await db
+    .select({
+      id: eventos.id,
+      tipo: eventos.tipo,
+      data: eventos.data,
+      inicio: eventos.inicio,
+      fim: eventos.fim,
+      titulo: eventos.titulo,
+      nomeDaTurma: turmas.nome,
+      vagas: eventos.vagas,
+      inscritos: contagem.inscritos,
+      semMarcacao: contagem.semMarcacao,
+      faltaram: contagem.faltaram,
+      canceladoEm: eventos.canceladoEm,
+    })
+    .from(eventos)
+    .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
+    .leftJoin(contagem, eq(contagem.eventoId, eventos.id))
+    .where(eq(eventos.data, hoje))
+    .orderBy(asc(eventos.criadoEm), asc(eventos.id));
+  const usosDeHoje = await usos;
+
+  const dosEventos: LinhaDeHoje[] = linhasDoBanco.map((linha) => {
+    if (linha.tipo === "fechado" || linha.inicio === null || linha.fim === null) {
+      return { tipo: "fechado", id: linha.id, data: linha.data, inicio: null, fim: null, titulo: linha.titulo ?? "" };
+    }
+    const cancelado = linha.canceladoEm !== null;
+    return {
+      tipo: linha.tipo,
+      id: linha.id,
+      data: linha.data,
+      inicio: horaDe(minutosDe(linha.inicio)),
+      fim: horaDe(minutosDe(linha.fim)),
+      titulo: linha.nomeDaTurma ?? linha.titulo ?? "",
+      vagas: linha.vagas ?? 0,
+      inscritos: Number(linha.inscritos ?? 0),
+      cancelado,
+      marcarPresenca: presencaPendenteAgora(
+        { inicio: linha.inicio, cancelada: cancelado, semMarcacao: Number(linha.semMarcacao ?? 0) },
+        agora.minutos,
+      ),
+    };
+  });
+  const dosUsos: LinhaDeHoje[] = usosDeHoje.map((uso) => {
+    const naSemana = usoLivreDaSemana(uso, hoje);
+    return {
+      tipo: "uso_livre",
+      id: uso.id,
+      data: uso.data,
+      inicio: naSemana.inicio,
+      fim: naSemana.fim,
+      titulo: uso.nome,
+      pessoas: uso.pessoas,
+      estado: uso.estado,
+    };
+  });
+
+  const agoraNoEspaco = pessoasAgoraNoEspaco({
+    usosLivres: usosDeHoje,
+    aulas: linhasDoBanco.flatMap((linha) =>
+      linha.tipo === "fechado" || linha.inicio === null || linha.fim === null
+        ? []
+        : [
+            {
+              data: linha.data,
+              inicio: linha.inicio,
+              fim: linha.fim,
+              cancelada: linha.canceladoEm !== null,
+              inscritos: Number(linha.inscritos ?? 0),
+              faltaram: Number(linha.faltaram ?? 0),
+            },
+          ],
+    ),
+    agora: { data: hoje, minutos: agora.minutos },
+  });
+
+  const ordenadas = ordenarNoDia([...dosEventos, ...dosUsos]);
+  return {
+    segunda: segundaDaSemana(hoje),
+    linhas: ordenadas.slice(0, LINHAS_DA_AGENDA_DE_HOJE),
+    restantes: Math.max(0, ordenadas.length - LINHAS_DA_AGENDA_DE_HOJE),
+    agoraNoEspaco,
+  };
 }

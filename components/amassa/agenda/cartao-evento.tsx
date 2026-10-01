@@ -22,8 +22,9 @@ import {
 } from "@/lib/agenda/textos";
 import { cn } from "@/lib/utils";
 
-// A cor da borda esquerda é DECORATIVA (UI-D12): o tipo está sempre escrito na sub-linha.
-const BORDA_DO_TIPO = {
+// A cor da borda esquerda é DECORATIVA (UI-D12): o tipo está sempre escrito na sub-linha. Exportada para
+// as linhas do bloco "Agenda de hoje" do Início usarem as MESMAS cores (UI-D19: uma cor por tipo).
+export const BORDA_DO_TIPO = {
   turma: "border-l-area-espaco",
   avulsa: "border-l-ouro",
   fechado: "border-l-area-geral",

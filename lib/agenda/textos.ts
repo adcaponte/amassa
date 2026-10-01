@@ -1070,3 +1070,25 @@ export const ROTULO_QUADRO_A_RECEBER = "A RECEBER";
 export function tituloDaVindaDeUsoLivre(horas: number): string {
   return `Uso livre ${horas} h`;
 }
+
+// O bloco “Agenda de hoje” do Início (plano 14 — D-05, D-18, UI-D19; 05-UI-SPEC.md §“Bloco “Agenda de
+// hoje” do Início”). As frases de vazio e de erro do bloco continuam em `lib/inicio/textos.ts`
+// (`TEXTOS_DOS_BLOCOS.agenda`), onde já moravam. A faixa é uma CONTAGEM de pessoas — nunca fração.
+export const ROTULO_AGORA_NO_ESPACO = "Agora no espaço";
+// Turma/aula: “{n} de {vagas} inscritos”.
+export function inscritosDeHoje(inscritos: number, vagas: number): string {
+  return `${inscritos} de ${vagas} inscritos`;
+}
+// Uso livre: “{n} pessoa(s) · reservado | no espaço | encerrado”.
+export const ESTADO_DO_USO_NO_INICIO = {
+  reservado: "reservado",
+  no_espaco: "no espaço",
+  encerrado: "encerrado",
+} as const;
+export function tituloDoFechadoDeHoje(motivo: string): string {
+  return `Fechado · ${motivo}`;
+}
+export const SUB_LINHA_DO_FECHADO_DE_HOJE = "o dia todo";
+export function textoEMaisDeHoje(quantos: number): string {
+  return `e mais ${quantos}`;
+}

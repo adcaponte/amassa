@@ -257,6 +257,11 @@ test.describe("inicio", () => {
 
   test("o atalho 'todos os módulos' rola até o índice", async ({ page }) => {
     await fazerLogin(page);
+    // Os blocos chegam por streaming, cada um no seu `Suspense` (D-09). Desde o plano 05-14 o bloco da
+    // Agenda também lê o banco e pode crescer de 3 linhas de esqueleto para até 6 linhas + "e mais N":
+    // tocar a âncora ANTES de os blocos chegarem rola até o índice e, em seguida, o conteúdo que entra
+    // acima o empurra para fora da tela. O que se prova aqui é o atalho, com a página já montada.
+    await expect(page.getByTestId("inicio-bloco-esqueleto")).toHaveCount(0);
 
     await page.getByTestId("inicio-pilulas").getByRole("link", { name: /todos os módulos/ }).click();
 

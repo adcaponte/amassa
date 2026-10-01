@@ -1233,3 +1233,66 @@ export async function idsQueSumiram(antes: IdsDoDinheiro): Promise<{ documentos:
     movimentacoes: sumiram(antes.movimentacoes, agora.movimentacoes),
   };
 }
+
+// ── O Início e os Números (plano 14 — D-05, D-18, AGE-19) ─────────────────────────────────────────────
+
+// O agora do ateliê: a data civil e os minutos do dia (0..1439) em Brasília, pelo `Intl` — nunca o
+// relógio UTC (`toISOString()` erra o dia das 21h às 24h de Brasília). `hourCycle: "h23"` garante "00"
+// à meia-noite.
+export function agoraNoAtelie(): { data: string; minutos: number } {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const parte = (tipo: Intl.DateTimeFormatPartTypes): string => partes.find((p) => p.type === tipo)?.value ?? "";
+  return {
+    data: `${parte("year")}-${parte("month")}-${parte("day")}`,
+    minutos: (Number(parte("hour")) % 24) * 60 + Number(parte("minute")),
+  };
+}
+
+// Tira um dia FECHADO semeado (o mesmo efeito do "Tirar o bloqueio" da tela): o teste que fecha HOJE
+// devolve o dia aberto, para os casos de `desktop`/`celular` que lançam em hoje não verem "dia fechado".
+export async function apagarFechadoNoBanco(eventoId: string): Promise<void> {
+  await comCliente((cliente) => cliente.query("delete from eventos where id = $1 and tipo = 'fechado'", [eventoId]));
+}
+
+// Os dois casos do plano 14 que contam o banco INTEIRO — o bloco "Agenda de hoje" do Início (linhas do dia,
+// "Agora no espaço") e a aba Números (o mês até hoje) — rodam na mesma etapa `vazio-historico`, em workers
+// diferentes, e um semeia o que o outro conta (a "Faltou" de hoje do Início entra na presença do mês; a
+// data de turma dos Números entra nas linhas de hoje quando hoje é o dia 1). Cada série segura esta trava
+// do começo ao fim — o mesmo `pg_advisory_lock` de `travarItemDaHora` —, e cada uma mede a partir do que
+// encontrou ao pegar a trava.
+export const TRAVA_DO_DIA_DA_AGENDA = 5_020_014;
+
+export async function travarODiaDaAgenda(): Promise<{ soltar: () => Promise<void> }> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  await cliente.query("select pg_advisory_lock($1)", [TRAVA_DO_DIA_DA_AGENDA]);
+  return {
+    soltar: async () => {
+      try {
+        await cliente.query("select pg_advisory_unlock($1)", [TRAVA_DO_DIA_DA_AGENDA]);
+      } finally {
+        await cliente.end();
+      }
+    },
+  };
+}
+
+// Quantos lançamentos (eventos de qualquer tipo + usos livres) existem numa data — a base das contagens de
+// linhas do Início.
+export async function lancamentosDoDia(data: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ n: string }>(
+      `select (select count(*) from eventos where data = $1) + (select count(*) from usos_livres where data = $1) as n`,
+      [data],
+    );
+    return Number(rows[0]?.n ?? 0);
+  });
+}
