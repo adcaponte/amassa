@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { ultimoDiaDoMes, mesSeguinte } from "@/lib/financeiro/calendario";
+import { formatarDataCurta } from "@/lib/financeiro/formato";
+import { textoDataRetroativa } from "@/lib/financeiro/textos";
 
 import { buscarCategoriaPorNome, garantirTaxaDeTeste, semearItem, TAXA_DE_TESTE } from "./apoio/semear-financeiro";
 import { diaDoMes, mesReservado } from "./apoio/mes-reservado";
@@ -29,6 +31,23 @@ async function esperarDespesaLancada(page: Page) {
   await expect(page.getByText(/^Despesa nº \d+ lançada/)).toBeVisible({ timeout: 10000 });
 }
 
+// A data da Venda só vale quando o ESTADO do React a tem, não quando o DOM a mostra. `.fill()`
+// antes da hidratação escreve no DOM, e a hidratação devolve o campo para `useState(hoje)` sem
+// erro nenhum. `networkidle` sozinho não bastou: em 01/10/2026, no CI (run 36796957676), o caso
+// "áreas" do celular falhou três vezes seguidas, e o trace mostrou o POST da venda com
+// `"data":"2026-09-30"` (o hoje do servidor) em vez do dia do mês reservado — WINDOWS #62.
+// A frase "Lançando com data de …" só aparece quando `data !== hoje` NO ESTADO, então é ela a
+// prova. Se não aparecer, preenche de novo (já hidratado, a segunda vez pega).
+async function preencherDataDaVenda(page: Page, data: string) {
+  await page.waitForLoadState("networkidle").catch(() => {});
+  const campoData = page.getByLabel("Data");
+  const frase = page.getByText(textoDataRetroativa(formatarDataCurta(data)));
+  await expect(async () => {
+    await campoData.fill(data);
+    await expect(frase).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
+}
+
 async function irParaMes(page: Page, mes: string) {
   await page.goto(`/gestao/financeiro?aba=mes&mes=${mes}`);
 }
@@ -49,8 +68,7 @@ async function lancarVendaLivre(
   // Sem esta espera, `.fill()` no campo pode escrever o valor no DOM ANTES do handler existir; o
   // React, ao hidratar, sobrescreve de volta para o valor do próprio estado (hoje) — o documento
   // nasce com a data ERRADA sem nenhum erro reportado (mesmo achado de `encomendas-filtros.spec.ts`).
-  await page.waitForLoadState("networkidle").catch(() => {});
-  await page.getByLabel("Data").fill(data);
+  await preencherDataDaVenda(page, data);
   await page.getByRole("button", { name: "+ Valor livre" }).click();
   await page.getByLabel("O que é").fill(descricao);
   await page.getByRole("combobox", { name: "Categoria" }).click();
@@ -154,7 +172,7 @@ test.describe("financeiro mes", () => {
 
     await fazerLogin(page);
     await page.goto("/gestao/financeiro");
-    await page.getByLabel("Data").fill(diaDoMes(mes, 10));
+    await preencherDataDaVenda(page, diaDoMes(mes, 10));
     await page.getByTestId("venda-busca").fill(suf);
     await page.getByTestId("venda-atalho").filter({ hasText: nomeCafe }).click();
     await page.getByTestId("venda-atalho").filter({ hasText: nomePeca }).click();
