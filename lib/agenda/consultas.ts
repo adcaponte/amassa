@@ -18,6 +18,7 @@ import { gradeDoMes } from "./semana";
 import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor } from "./seletor";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM, rotuloDoGrupoDoSeletor } from "./textos";
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
+import type { FechadoDoDia } from "./turma";
 
 function hhmm(hora: string | null): string | null {
   return hora === null ? null : horaDe(minutosDe(hora));
@@ -35,7 +36,23 @@ export type EventoDaSemana = {
   vagas: number | null;
   inscritos: number;
   cancelado: boolean;
+  // A turma da data (só no tipo `turma`) — o "Abrir a turma" da folha (D-03).
+  turmaId: string | null;
+  // Data de turma num dia fechado (D-13): o motivo do fechado — a tag "dia fechado" do cartão e a
+  // caixa do topo da folha. `null` fora do tipo `turma` ou quando o dia está aberto.
+  diaFechadoMotivo: string | null;
 };
+
+// O motivo do fechado de cada dia (o primeiro lançado, se houver mais de um), entre os eventos lidos.
+function motivosDosFechados(linhas: readonly { tipo: TipoEvento; data: string; titulo: string | null }[]): Map<string, string> {
+  const motivos = new Map<string, string>();
+  for (const linha of linhas) {
+    if (linha.tipo === "fechado" && !motivos.has(linha.data)) {
+      motivos.set(linha.data, linha.titulo ?? "");
+    }
+  }
+  return motivos;
+}
 
 // Os eventos da semana que começa em `segunda` (segunda a domingo), com a contagem de inscritos —
 // a ordem do dia é do módulo puro (`agruparPorDia`), não do banco.
@@ -56,6 +73,7 @@ export async function lerSemana(segunda: string): Promise<EventoDaSemana[]> {
       fim: eventos.fim,
       titulo: eventos.titulo,
       nomeDaTurma: turmas.nome,
+      turmaId: eventos.turmaId,
       vagas: eventos.vagas,
       inscritos: contagem.inscritos,
       canceladoEm: eventos.canceladoEm,
@@ -64,8 +82,9 @@ export async function lerSemana(segunda: string): Promise<EventoDaSemana[]> {
     .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
     .leftJoin(contagem, eq(contagem.eventoId, eventos.id))
     .where(and(gte(eventos.data, segunda), lte(eventos.data, domingo)))
-    .orderBy(asc(eventos.data), asc(eventos.id));
+    .orderBy(asc(eventos.data), asc(eventos.criadoEm), asc(eventos.id));
 
+  const motivos = motivosDosFechados(linhas);
   return linhas.map((linha) => ({
     id: linha.id,
     tipo: linha.tipo,
@@ -76,7 +95,21 @@ export async function lerSemana(segunda: string): Promise<EventoDaSemana[]> {
     vagas: linha.vagas,
     inscritos: Number(linha.inscritos ?? 0),
     cancelado: linha.canceladoEm !== null,
+    turmaId: linha.turmaId,
+    diaFechadoMotivo: linha.tipo === "turma" ? (motivos.get(linha.data) ?? null) : null,
   }));
+}
+
+// Os dias fechados entre `de` e `ate` (inclusive), na ordem do calendário — o aviso D-13 da turma e
+// o toast de "Lançar turma". Um dia com dois fechados aparece duas vezes; o puro
+// `datasEmDiaFechado` fica com o primeiro.
+export async function fechadosEntre(de: string, ate: string): Promise<FechadoDoDia[]> {
+  const linhas = await db
+    .select({ data: eventos.data, motivo: eventos.titulo })
+    .from(eventos)
+    .where(and(eq(eventos.tipo, "fechado"), gte(eventos.data, de), lte(eventos.data, ate)))
+    .orderBy(asc(eventos.data), asc(eventos.criadoEm), asc(eventos.id));
+  return linhas.map((linha) => ({ data: linha.data, motivo: linha.motivo ?? "" }));
 }
 
 export type InscritoCarregado = {
@@ -127,6 +160,7 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
       fim: eventos.fim,
       titulo: eventos.titulo,
       nomeDaTurma: turmas.nome,
+      turmaId: eventos.turmaId,
       vagas: eventos.vagas,
       precoCentavos: eventos.precoCentavos,
       publico: eventos.publico,
@@ -139,7 +173,7 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     return null;
   }
 
-  const [linhas, perdas] = await Promise.all([
+  const [linhas, perdas, fechadosDoDia] = await Promise.all([
     db
       .select({
         id: inscricoes.id,
@@ -158,6 +192,7 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
       .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
       .where(eq(inscricoes.eventoId, id)),
     perdasAoCancelar(id),
+    evento.tipo === "turma" ? fechadosEntre(evento.data, evento.data) : Promise.resolve([]),
   ]);
   const inscritos = linhas.map(({ vendaNumero, vendaCanceladaEm, ...linha }) => ({
     ...linha,
@@ -174,6 +209,8 @@ export async function obterEvento(id: string): Promise<EventoCarregado | null> {
     vagas: evento.vagas,
     inscritos: inscritos.length,
     cancelado: evento.canceladoEm !== null,
+    turmaId: evento.turmaId,
+    diaFechadoMotivo: fechadosDoDia[0]?.motivo ?? null,
     precoCentavos: evento.precoCentavos,
     publico: evento.publico,
     inscricoes: ordenarInscritos(inscritos),
@@ -234,9 +271,11 @@ export async function obterItensDoSistema(): Promise<ItensDoSistema> {
 export type DiaParaLancar = {
   fechadoMotivo: string | null;
   lancamentos: number;
+  // Com `ate` (a turma): os dias fechados de `data` a `ate`; sem, vazio.
+  fechados: FechadoDoDia[];
 };
 
-export async function lerDiaParaLancar(data: string): Promise<DiaParaLancar> {
+export async function lerDiaParaLancar(data: string, ate?: string): Promise<DiaParaLancar> {
   const linhas = await db
     .select({ tipo: eventos.tipo, titulo: eventos.titulo })
     .from(eventos)
@@ -247,6 +286,7 @@ export async function lerDiaParaLancar(data: string): Promise<DiaParaLancar> {
   return {
     fechadoMotivo: fechado ? (fechado.titulo ?? "") : null,
     lancamentos: linhas.filter((linha) => linha.tipo !== "fechado").length,
+    fechados: ate === undefined ? [] : await fechadosEntre(data, ate),
   };
 }
 

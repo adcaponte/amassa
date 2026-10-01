@@ -4,6 +4,7 @@ import {
   ROTULO_CANCELADA,
   ROTULO_DIA_TODO,
   subLinhaDoCartao,
+  TAG_DIA_FECHADO,
 } from "@/lib/agenda/textos";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,12 @@ export function CartaoEvento({ evento, aoTocar }: CartaoEventoProps) {
         {evento.cancelado ? (
           <span className="bg-erro-fundo text-erro rounded-sm px-2 font-semibold">
             {ROTULO_CANCELADA}
+          </span>
+        ) : null}
+        {/* D-13: a data de turma num dia fechado continua marcada, com a etiqueta — o gestor decide. */}
+        {evento.diaFechadoMotivo !== null ? (
+          <span data-testid="tag-dia-fechado" className="bg-atencao-fundo text-atencao rounded-sm px-2 font-semibold">
+            {TAG_DIA_FECHADO}
           </span>
         ) : null}
       </span>

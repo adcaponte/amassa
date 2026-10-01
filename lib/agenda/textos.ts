@@ -369,3 +369,58 @@ export function fraseJaVirouVenda(numero: number): string {
 }
 
 export const ROTULO_VER_NO_CAIXA = "ver no Caixa";
+
+// Turma fixa — lançar (05-UI-SPEC.md §"Folha "Lançar na agenda"", §"Rótulos e dicas de campo",
+// §Toasts; AGE-03, D-13, UI-D10). O número de semanas e o vencimento têm padrão; o preço, nunca
+// (AGE-17: nenhum preço no código).
+export const ROTULO_LANCAR_TURMA = "Lançar turma";
+export const PLACEHOLDER_NOME_TURMA = "ex.: Torno à noite";
+export const ROTULO_DIA_DA_SEMANA = "Dia da semana";
+export const ROTULO_PRIMEIRA_AULA = "Primeira aula a partir de";
+export const ROTULO_MENSALIDADE = "Mensalidade (R$)";
+export const ROTULO_SEMANAS = "Marcar quantas semanas";
+export const SEMANAS_PADRAO = "8";
+export const ROTULO_VENCIMENTO = "Mensalidade vence dia";
+export const VENCIMENTO_PADRAO = "10";
+export const DICA_VENCIMENTO = "de 1 a 28 — todo mês tem esses dias";
+export const DICA_TIPO_TURMA =
+  "Cria a turma e já marca as próximas semanas (você escolhe quantas; dá para estender depois, na folha da turma). Os alunos entram depois, pela ficha de cada um, em Pessoas.";
+
+export const FRASE_NOME_DA_TURMA = "Dê um nome à turma.";
+export const FRASE_MENSALIDADE = "Diga a mensalidade — por exemplo, 320 ou 320,50.";
+export const FRASE_SEMANAS = "Semanas: um número de 1 a 52.";
+export const FRASE_VENCIMENTO = "O vencimento precisa ser um dia de 1 a 28.";
+// Decidido sem o dono (a UI-SPEC não fixa): o `Select` sempre tem um dia, então só chamada forjada vê.
+export const FRASE_DIA_DA_SEMANA = "Escolha o dia da semana.";
+
+// O aviso D-13 da folha, ANTES de gravar: gerar não pula nem cancela dia fechado. Concordância de
+// verdade (a UI-SPEC escreve "{k} das datas cai … Elas são marcadas" para qualquer k).
+export function avisoTurmaEmDiaFechado(diasMes: readonly string[]): string {
+  if (diasMes.length === 1) {
+    return `1 das datas cai em dia fechado (${diasMes[0]}). Ela é marcada mesmo assim, com a etiqueta “dia fechado”.`;
+  }
+  return `${diasMes.length} das datas caem em dias fechados (${diasMes.join(", ")}). Elas são marcadas mesmo assim, com a etiqueta “dia fechado”.`;
+}
+
+// Decisão do backstop E29 long-text (plano 06): o toast de lançar turma, com a concordância certa.
+export function toastTurmaLancada(aulas: number, diasMesFechados: readonly string[]): string {
+  const base = aulas === 1 ? "Turma lançada, com a próxima aula." : `Turma lançada, com as próximas ${aulas} aulas.`;
+  if (diasMesFechados.length === 0) {
+    return base;
+  }
+  if (aulas === 1) {
+    return `${base} Ela cai num dia fechado (${diasMesFechados[0]}) e está marcada com “dia fechado”.`;
+  }
+  if (diasMesFechados.length === 1) {
+    return `${base} Uma delas cai num dia fechado (${diasMesFechados[0]}) e está marcada com “dia fechado”.`;
+  }
+  return `${base} ${diasMesFechados.length} delas caem em dias fechados (${diasMesFechados.join(", ")}) e estão marcadas com “dia fechado”.`;
+}
+
+// A data de turma num dia fechado (D-13): a tag do cartão e a caixa do topo da folha da data, com o
+// "Cancelar esta data" DENTRO dela. Cancelar continua sendo um toque do gestor.
+export const TAG_DIA_FECHADO = "dia fechado";
+
+export function caixaDataDeTurmaEmDiaFechado(motivo: string): string {
+  return `Este dia está fechado: ${motivo}. Se a aula não vai acontecer, cancele esta data.`;
+}

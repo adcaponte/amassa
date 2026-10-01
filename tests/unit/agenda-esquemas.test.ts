@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FRASE_DIA_DA_SEMANA,
+  FRASE_FIM_ANTES_DO_COMECO,
+  FRASE_MENSALIDADE,
+  FRASE_NOME_DA_TURMA,
+  FRASE_SEMANAS,
+  FRASE_VENCIMENTO,
+} from "@/lib/agenda/textos";
+import {
   esquemaCancelarData,
   esquemaConferirDia,
   esquemaFecharDia,
   esquemaLancarAvulsa,
+  esquemaLancarTurma,
   esquemaTirarBloqueio,
 } from "@/lib/agenda/esquemas";
 
@@ -164,5 +173,89 @@ describe("esquemaConferirDia, esquemaCancelarData, esquemaTirarBloqueio", () => 
   it("tirar o bloqueio pede só um uuid", () => {
     expect(esquemaTirarBloqueio.safeParse({ eventoId: ID }).success).toBe(true);
     expect(esquemaTirarBloqueio.safeParse({ eventoId: "x' or 1=1 --" }).success).toBe(false);
+  });
+});
+
+// AGE-03 · boundary: semanas 1..52 (padrão 8), vencimento 1..28, mensalidade maior que zero — o que
+// está fora é recusado pelo Zod no SERVIDOR com a frase humana do campo (T-05-29: nunca 10.000 datas).
+const TURMA_VALIDA = {
+  nome: "  [teste] Torno à noite  ",
+  diaSemana: "2",
+  aPartirDe: "2026-10-06",
+  inicio: "19:00",
+  fim: "21:00",
+  vagas: "8",
+  mensalidade: "320,50",
+  semanas: "8",
+  diaVencimento: "10",
+  publica: true,
+};
+
+describe("esquemaLancarTurma", () => {
+  it("válida: nome aparado, números inteiros, mensalidade em centavos", () => {
+    const resultado = esquemaLancarTurma.safeParse(TURMA_VALIDA);
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).toEqual({
+      nome: "[teste] Torno à noite",
+      diaSemana: 2,
+      aPartirDe: "2026-10-06",
+      inicio: "19:00",
+      fim: "21:00",
+      vagas: 8,
+      mensalidadeCentavos: 32050,
+      semanas: 8,
+      diaVencimento: 10,
+      publica: true,
+    });
+  });
+
+  it.each([
+    ["1", 1],
+    ["52", 52],
+  ])("semanas %s vale", (semanas, esperado) => {
+    expect(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, semanas }).data?.semanas).toBe(esperado);
+  });
+
+  it.each(["0", "53", "", "1.5", "-1", "1e1", "oito"])("semanas “%s” → a frase do campo", (semanas) => {
+    expect(frasesPorCampo(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, semanas })).semanas).toBe(FRASE_SEMANAS);
+  });
+
+  it.each(["1", "28"])("vencimento %s vale", (diaVencimento) => {
+    expect(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, diaVencimento }).success).toBe(true);
+  });
+
+  it.each(["0", "29", "31", ""])("vencimento “%s” → a frase do campo", (diaVencimento) => {
+    expect(frasesPorCampo(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, diaVencimento })).diaVencimento).toBe(
+      FRASE_VENCIMENTO,
+    );
+  });
+
+  it.each(["", "0", "0,00", "abc"])("mensalidade “%s” → a frase do campo (nenhum preço no código, maior que zero)", (mensalidade) => {
+    expect(frasesPorCampo(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, mensalidade })).mensalidade).toBe(
+      FRASE_MENSALIDADE,
+    );
+  });
+
+  it("dia da semana fora de 0..6 e nome vazio", () => {
+    expect(frasesPorCampo(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, diaSemana: "7" })).diaSemana).toBe(
+      FRASE_DIA_DA_SEMANA,
+    );
+    expect(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, diaSemana: "0" }).data?.diaSemana).toBe(0);
+    expect(frasesPorCampo(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, nome: "   " })).nome).toBe(FRASE_NOME_DA_TURMA);
+  });
+
+  it("fim antes do começo fica no campo do fim", () => {
+    expect(frasesPorCampo(esquemaLancarTurma.safeParse({ ...TURMA_VALIDA, fim: "18:00" })).fim).toBe(
+      FRASE_FIM_ANTES_DO_COMECO,
+    );
+  });
+});
+
+describe("esquemaConferirDia com intervalo (a turma)", () => {
+  it("até um ano e um dia, para frente", () => {
+    expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2027-09-28" }).success).toBe(true);
+    expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2026-10-06" }).success).toBe(true);
+    expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2026-10-05" }).success).toBe(false);
+    expect(esquemaConferirDia.safeParse({ data: "2026-10-06", ate: "2028-10-06" }).success).toBe(false);
   });
 });

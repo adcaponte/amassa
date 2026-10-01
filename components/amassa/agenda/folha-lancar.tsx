@@ -6,16 +6,18 @@ import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { diaDaUrl, lancarDaUrl } from "@/lib/agenda/abas";
-import { conferirDiaParaLancar, fecharDia, lancarAvulsa } from "@/lib/agenda/acoes";
+import { conferirDiaParaLancar, fecharDia, lancarAvulsa, lancarTurma } from "@/lib/agenda/acoes";
 import type { DiaParaLancar } from "@/lib/agenda/consultas";
-import { esquemaFecharDia, esquemaLancarAvulsa } from "@/lib/agenda/esquemas";
+import { esquemaFecharDia, esquemaLancarAvulsa, esquemaLancarTurma } from "@/lib/agenda/esquemas";
 import {
   ARIA_O_QUE_LANCAR,
   avisoDiaComLancamentos,
   avisoDiaFechado,
+  avisoTurmaEmDiaFechado,
   DICA_MOTIVO,
   DICA_TIPO_AULA,
   DICA_TIPO_FECHADO,
+  DICA_TIPO_TURMA,
   FRASE_FALHA_AO_LANCAR,
   PLACEHOLDER_MOTIVO,
   PLACEHOLDER_NOME_AULA,
@@ -28,18 +30,24 @@ import {
   ROTULO_FECHAR_O_DIA,
   ROTULO_LANCANDO,
   ROTULO_LANCAR_AULA,
+  ROTULO_LANCAR_TURMA,
   ROTULO_MOSTRAR_NO_SITE,
   ROTULO_MOTIVO,
   ROTULO_NOME,
   ROTULO_PRECO_POR_PESSOA,
   ROTULO_TERMINA,
+  ROTULO_TURMA_FIXA,
   ROTULO_VAGAS,
   ROTULO_VOLTAR,
+  SEMANAS_PADRAO,
   TITULO_LANCAR_NA_AGENDA,
   TOAST_LANCADO,
   toastDiaFechado,
+  toastTurmaLancada,
   VAGAS_PADRAO,
+  VENCIMENTO_PADRAO,
 } from "@/lib/agenda/textos";
+import { datasDaTurma, datasEmDiaFechado, diaDaSemanaDe, SEMANAS_MAXIMAS } from "@/lib/agenda/turma";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
@@ -50,27 +58,42 @@ import { Input } from "@/components/ui/input";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
+import { CamposTurma, type CampoControlado } from "./campos-turma";
 import { enderecoDaAgendaCom } from "./url-da-agenda";
 
-// Os tipos que a folha lança NESTE plano, na ordem herdada do protótipo (turma entra antes da
-// avulsa no plano 06; uso livre entre a avulsa e o fechado no plano 09 — cada um com o formulário
-// inteiro, nunca uma pílula sem destino).
-export type TipoDeLancamento = "avulsa" | "fechado";
+// Os tipos que a folha lança, na ordem herdada do protótipo (05-UI-SPEC.md: "Turma fixa" · "Aula ou
+// oficina avulsa" · "Uso livre" · "Fechado / bloqueio"); o uso livre entra entre a avulsa e o fechado
+// no plano 09 — com o formulário inteiro, nunca uma pílula sem destino.
+export type TipoDeLancamento = "turma" | "avulsa" | "fechado";
 
 const TIPOS: readonly { valor: TipoDeLancamento; rotulo: string }[] = [
+  { valor: "turma", rotulo: ROTULO_TURMA_FIXA },
   { valor: "avulsa", rotulo: ROTULO_AULA_AVULSA },
   { valor: "fechado", rotulo: ROTULO_FECHADO_BLOQUEIO },
 ];
 
 const ROTULO_DE_GRAVAR: Record<TipoDeLancamento, { parado: string; gravando: string }> = {
+  turma: { parado: ROTULO_LANCAR_TURMA, gravando: ROTULO_LANCANDO },
   avulsa: { parado: ROTULO_LANCAR_AULA, gravando: ROTULO_LANCANDO },
   fechado: { parado: ROTULO_FECHAR_O_DIA, gravando: ROTULO_FECHANDO },
 };
 
-type Campo = "titulo" | "data" | "inicio" | "fim" | "vagas" | "preco" | "motivo";
+type Campo =
+  | "titulo"
+  | "data"
+  | "inicio"
+  | "fim"
+  | "vagas"
+  | "preco"
+  | "motivo"
+  | "diaSemana"
+  | "mensalidade"
+  | "semanas"
+  | "diaVencimento";
 
 // A ordem em que o foco procura o primeiro erro — a ordem dos campos na tela.
 const ORDEM_DOS_CAMPOS: Record<TipoDeLancamento, readonly Campo[]> = {
+  turma: ["titulo", "diaSemana", "data", "inicio", "fim", "vagas", "mensalidade", "semanas", "diaVencimento"],
   avulsa: ["titulo", "data", "inicio", "fim", "vagas", "preco"],
   fechado: ["data", "motivo"],
 };
@@ -87,6 +110,25 @@ function classeDaPilula(marcada: boolean): string {
 }
 
 const CLASSE_DO_CAMPO = "text-corpo md:text-corpo min-h-[44px]";
+
+// O esquema da turma fala a língua do banco (`nome`, `aPartirDe`); a folha guarda esses dois nos
+// MESMOS estados da aula avulsa (`titulo`, `data`) — é o que mantém o digitado ao trocar de pílula.
+const CAMPO_DA_FOLHA: Record<string, Campo> = { nome: "titulo", aPartirDe: "data" };
+
+// As datas que a turma vai marcar com o que está digitado agora — vazio enquanto falta algo.
+function datasPrevistas(diaSemana: string, aPartirDe: string, semanas: string): string[] {
+  const quantas = Number(semanas.trim());
+  if (
+    !esquemaFecharDia.shape.data.safeParse(aPartirDe).success ||
+    !/^\d{1,2}$/.test(semanas.trim()) ||
+    quantas < 1 ||
+    quantas > SEMANAS_MAXIMAS ||
+    !/^[0-6]$/.test(diaSemana)
+  ) {
+    return [];
+  }
+  return datasDaTurma({ diaDaSemana: Number(diaSemana), aPartirDe, semanas: quantas });
+}
 
 function juntarIds(...ids: (string | undefined)[]): string | undefined {
   const juntos = ids.filter(Boolean).join(" ");
@@ -110,11 +152,14 @@ export function FolhaLancar({ hoje }: FolhaLancarProps) {
   if (!lancarDaUrl(parametros.get("lancar") ?? undefined)) {
     return null;
   }
-  const dia = diaDaUrl(parametros.get("dia") ?? undefined) ?? hoje;
+  const diaTocado = diaDaUrl(parametros.get("dia") ?? undefined);
+  const dia = diaTocado ?? hoje;
 
   return (
     <FormularioLancar
       dataInicial={dia}
+      // O dia da semana da turma: o da data tocada no "+ lançar", ou segunda (1).
+      diaSemanaInicial={diaTocado === null ? "1" : String(diaDaSemanaDe(diaTocado))}
       tipoInicial={ultimoTipo}
       aoMudarTipo={setUltimoTipo}
       aoFechar={() => irParaSemNavegar(enderecoDaAgendaCom({ lancar: null, dia: null }))}
@@ -124,12 +169,19 @@ export function FolhaLancar({ hoje }: FolhaLancarProps) {
 
 type FormularioLancarProps = {
   dataInicial: string;
+  diaSemanaInicial: string;
   tipoInicial: TipoDeLancamento;
   aoMudarTipo: (tipo: TipoDeLancamento) => void;
   aoFechar: () => void;
 };
 
-function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: FormularioLancarProps) {
+function FormularioLancar({
+  dataInicial,
+  diaSemanaInicial,
+  tipoInicial,
+  aoMudarTipo,
+  aoFechar,
+}: FormularioLancarProps) {
   const router = useRouter();
 
   const [tipo, setTipo] = useState<TipoDeLancamento>(tipoInicial);
@@ -142,6 +194,11 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
   const [preco, setPreco] = useState("");
   const [publico, setPublico] = useState(true);
   const [motivo, setMotivo] = useState("");
+  // Só da turma.
+  const [diaSemana, setDiaSemana] = useState(diaSemanaInicial);
+  const [mensalidade, setMensalidade] = useState("");
+  const [semanas, setSemanas] = useState(SEMANAS_PADRAO);
+  const [diaVencimento, setDiaVencimento] = useState(VENCIMENTO_PADRAO);
 
   const [erros, setErros] = useState<Partial<Record<Campo, string>>>({});
   const [erroGeral, setErroGeral] = useState<string | null>(null);
@@ -154,16 +211,21 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
   const campos = useRef<Partial<Record<Campo, HTMLElement | null>>>({});
   const pilulas = useRef<Partial<Record<TipoDeLancamento, HTMLButtonElement | null>>>({});
 
+  // Na turma, as datas que vão ser marcadas — o aviso D-13 olha todas, não só a primeira.
+  const datasDaTurmaPrevistas = tipo === "turma" ? datasPrevistas(diaSemana, data, semanas) : [];
+  const ate =
+    datasDaTurmaPrevistas.length > 0 ? datasDaTurmaPrevistas[datasDaTurmaPrevistas.length - 1] : undefined;
+
   // O aviso da D-13: a cada data escolhida, o servidor diz se o dia está fechado e quantos
-  // lançamentos ele já tem. Só a resposta da data ATUAL vale (trocar rápido não mostra o aviso de
-  // outra data). Nunca bloqueia: é só leitura.
+  // lançamentos ele já tem (e, na turma, os dias fechados até a última data). Só a resposta do
+  // intervalo ATUAL vale (trocar rápido não mostra o aviso de outro). Nunca bloqueia: é só leitura.
   useEffect(() => {
     let valida = true;
     setDia(null);
     if (!esquemaFecharDia.shape.data.safeParse(data).success) {
       return;
     }
-    conferirDiaParaLancar({ data })
+    conferirDiaParaLancar(ate === undefined ? { data } : { data, ate })
       .then((resposta) => {
         if (valida && resposta.ok) {
           setDia(resposta.dados);
@@ -175,7 +237,7 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
     return () => {
       valida = false;
     };
-  }, [data]);
+  }, [data, ate]);
 
   function registrar(campo: Campo) {
     return (elemento: HTMLElement | null) => {
@@ -231,7 +293,8 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
   function errosDoEsquema(problemas: readonly { path: PropertyKey[]; message: string }[]) {
     const novos: Partial<Record<Campo, string>> = {};
     for (const problema of problemas) {
-      const campo = String(problema.path[0] ?? "") as Campo;
+      const chave = String(problema.path[0] ?? "");
+      const campo = (CAMPO_DA_FOLHA[chave] ?? chave) as Campo;
       if (ORDEM_DOS_CAMPOS[tipo].includes(campo) && novos[campo] === undefined) {
         novos[campo] = problema.message;
       }
@@ -246,12 +309,29 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
     setErroGeral(null);
 
     const entrada =
-      tipo === "avulsa"
-        ? { titulo, data, inicio, fim, vagas, preco, publico }
-        : { data, motivo };
+      tipo === "turma"
+        ? {
+            nome: titulo,
+            diaSemana,
+            aPartirDe: data,
+            inicio,
+            fim,
+            vagas,
+            mensalidade,
+            semanas,
+            diaVencimento,
+            publica: publico,
+          }
+        : tipo === "avulsa"
+          ? { titulo, data, inicio, fim, vagas, preco, publico }
+          : { data, motivo };
     // A mesma regra do servidor, antes de gravar — o servidor confere de novo (a única que vale).
     const conferido =
-      tipo === "avulsa" ? esquemaLancarAvulsa.safeParse(entrada) : esquemaFecharDia.safeParse(entrada);
+      tipo === "turma"
+        ? esquemaLancarTurma.safeParse(entrada)
+        : tipo === "avulsa"
+          ? esquemaLancarAvulsa.safeParse(entrada)
+          : esquemaFecharDia.safeParse(entrada);
     if (!conferido.success) {
       mostrarErros(errosDoEsquema(conferido.error.issues));
       return;
@@ -261,7 +341,12 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
     emVoo.current = true;
     setEnviando(true);
     try {
-      const resposta = tipo === "avulsa" ? await lancarAvulsa(entrada) : await fecharDia(entrada);
+      const resposta =
+        tipo === "turma"
+          ? await lancarTurma(entrada)
+          : tipo === "avulsa"
+            ? await lancarAvulsa(entrada)
+            : await fecharDia(entrada);
       if (!resposta.ok) {
         // A folha continua aberta e preenchida — nada do que foi digitado se perde.
         const porCampo = errosDoEsquema(
@@ -279,15 +364,47 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
       // Sucesso: o toast diz o que foi gravado, a folha sai do histórico (voltar não a reabre) e
       // a agenda vai para a semana da data lançada. `emVoo` fica preso: nenhum segundo toque
       // cria outro lançamento.
-      toast.success(tipo === "avulsa" ? TOAST_LANCADO : toastDiaFechado(formatarDiaMes(resposta.dados.data)));
+      let semanaLancada: string;
+      if ("turmaId" in resposta.dados) {
+        const fechados = resposta.dados.emDiaFechado.map((fechado) => formatarDiaMes(fechado.data));
+        // O toast longo (datas em dia fechado) fica mais tempo na tela (backstop E29·long-text).
+        toast.success(toastTurmaLancada(resposta.dados.datas, fechados), {
+          duration: fechados.length > 0 ? 8000 : undefined,
+        });
+        semanaLancada = resposta.dados.primeira;
+      } else {
+        toast.success(tipo === "avulsa" ? TOAST_LANCADO : toastDiaFechado(formatarDiaMes(resposta.dados.data)));
+        semanaLancada = resposta.dados.data;
+      }
       window.history.replaceState(null, "", enderecoDaAgendaCom({ lancar: null, dia: null }));
-      router.push(rotaDeGestao(`/agenda?semana=${resposta.dados.data}`), { scroll: false });
+      router.push(rotaDeGestao(`/agenda?semana=${semanaLancada}`), { scroll: false });
     } catch (falha) {
       console.error("Falha ao lançar na agenda:", falha);
       setErroGeral(FRASE_FALHA_AO_LANCAR);
       emVoo.current = false;
       setEnviando(false);
     }
+  }
+
+  // O que `CamposTurma` recebe de cada campo: o valor e o erro DAQUI (o estado é da folha).
+  function controlado(
+    campo: Campo,
+    valor: string,
+    mudar: (valor: string) => void,
+    tambemLimpar: readonly Campo[] = [],
+  ): CampoControlado {
+    return {
+      valor,
+      erro: erros[campo],
+      registrar: registrar(campo),
+      aoMudar: (novo) => {
+        mudar(novo);
+        limparErro(campo);
+        for (const outro of tambemLimpar) {
+          limparErro(outro);
+        }
+      },
+    };
   }
 
   function idDoErro(campo: Campo): string | undefined {
@@ -312,7 +429,12 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
   }
 
   const avisos: string[] = [];
-  if (dia?.fechadoMotivo != null) {
+  if (tipo === "turma") {
+    const emFechado = dia === null ? [] : datasEmDiaFechado(datasDaTurmaPrevistas, dia.fechados);
+    if (emFechado.length > 0) {
+      avisos.push(avisoTurmaEmDiaFechado(emFechado.map((fechado) => formatarDiaMes(fechado.data))));
+    }
+  } else if (dia?.fechadoMotivo != null) {
     avisos.push(avisoDiaFechado(dia.fechadoMotivo));
   }
   if (tipo === "fechado" && dia !== null && dia.lancamentos > 0) {
@@ -360,7 +482,7 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
           // Foco inicial só a partir de 768px — no celular, o teclado não sobe sozinho tapando a
           // folha (UI-D13 da 06).
           if (window.matchMedia("(min-width: 768px)").matches) {
-            (tipo === "avulsa" ? campos.current.titulo : campos.current.data)?.focus();
+            (tipo === "fechado" ? campos.current.data : campos.current.titulo)?.focus();
           }
         }}
         className={CLASSE_DA_FOLHA}
@@ -412,7 +534,20 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
               })}
             </div>
 
-            {tipo === "avulsa" ? (
+            {tipo === "turma" ? (
+              <CamposTurma
+                nome={controlado("titulo", titulo, setTitulo)}
+                diaSemana={controlado("diaSemana", diaSemana, setDiaSemana)}
+                aPartirDe={controlado("data", data, setData)}
+                inicio={controlado("inicio", inicio, setInicio, ["fim"])}
+                fim={controlado("fim", fim, setFim, ["inicio"])}
+                vagas={controlado("vagas", vagas, setVagas)}
+                mensalidade={controlado("mensalidade", mensalidade, setMensalidade)}
+                semanas={controlado("semanas", semanas, setSemanas)}
+                diaVencimento={controlado("diaVencimento", diaVencimento, setDiaVencimento)}
+                publica={{ valor: publico, aoMudar: setPublico }}
+              />
+            ) : tipo === "avulsa" ? (
               <div className="flex flex-wrap gap-4">
                 <div className="flex w-full min-w-0 flex-col gap-2">
                   <label htmlFor="lancar-nome" className="text-apoio text-tinta font-semibold">
@@ -577,7 +712,9 @@ function FormularioLancar({ dataInicial, tipoInicial, aoMudarTipo, aoFechar }: F
               ) : null}
             </div>
 
-            <p className="text-apoio text-tinta-fraca">{tipo === "avulsa" ? DICA_TIPO_AULA : DICA_TIPO_FECHADO}</p>
+            <p className="text-apoio text-tinta-fraca">
+              {tipo === "turma" ? DICA_TIPO_TURMA : tipo === "avulsa" ? DICA_TIPO_AULA : DICA_TIPO_FECHADO}
+            </p>
           </div>
 
           {/* Rodapé preso por FLEX, fora da área rolável (G-03-1): o erro de gravação no topo. */}

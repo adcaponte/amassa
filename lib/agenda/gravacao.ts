@@ -207,3 +207,46 @@ export async function travarInscricaoComVenda(
     venda: vendaNumero === null ? null : { numero: vendaNumero, cancelada: vendaCanceladaEm !== null },
   };
 }
+
+// O que uma data de turma copia da turma ao nascer: horário, vagas e `publico` (o nome NÃO — as
+// datas leem o nome da turma ao vivo, por isso `titulo` fica nulo).
+export type TurmaParaMarcar = {
+  id: string;
+  inicio: string;
+  fim: string;
+  vagas: number;
+  publica: boolean;
+};
+
+// Grava as datas de uma turma (AGE-03). A garantia contra data repetida é a chave
+// `eventos_turma_data_uk` + `on conflict (turma_id, data) do nothing` (T-05-30) — NUNCA uma leitura
+// prévia de "já existe?": dois toques, duas abas ou dois gestores estendendo ao mesmo tempo terminam
+// com cada data uma vez, e a que já existia simplesmente não volta no `returning`. Devolve só as
+// datas CRIADAS agora, em ordem de calendário. Nunca pula dia fechado (D-13).
+export async function marcarDatasDaTurma(
+  tx: TransacaoDoBanco,
+  turma: TurmaParaMarcar,
+  datas: readonly string[],
+  criadoPor: string,
+): Promise<{ id: string; data: string }[]> {
+  if (datas.length === 0) {
+    return [];
+  }
+  const criadas = await tx
+    .insert(eventos)
+    .values(
+      datas.map((data) => ({
+        tipo: "turma" as const,
+        data,
+        inicio: turma.inicio,
+        fim: turma.fim,
+        turmaId: turma.id,
+        vagas: turma.vagas,
+        publico: turma.publica,
+        criadoPor,
+      })),
+    )
+    .onConflictDoNothing({ target: [eventos.turmaId, eventos.data] })
+    .returning({ id: eventos.id, data: eventos.data });
+  return criadas.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+}

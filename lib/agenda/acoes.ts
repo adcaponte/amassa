@@ -5,13 +5,19 @@ import { revalidatePath } from "next/cache";
 import { and, eq, isNotNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, eventos, inscricoes } from "@/db/schema";
+import { clientes, eventos, inscricoes, turmas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import { lerDiaParaLancar, pessoasParaData, type DiaParaLancar, type PessoasParaData } from "./consultas";
+import {
+  fechadosEntre,
+  lerDiaParaLancar,
+  pessoasParaData,
+  type DiaParaLancar,
+  type PessoasParaData,
+} from "./consultas";
 import {
   esquemaBuscarPessoas,
   esquemaCancelarData,
@@ -20,11 +26,13 @@ import {
   esquemaDefinirPresenca,
   esquemaFecharDia,
   esquemaLancarAvulsa,
+  esquemaLancarTurma,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
 } from "./esquemas";
 import {
   contarPerdasAoCancelar,
+  marcarDatasDaTurma,
   RecusaDaAgenda,
   temPerdas,
   travarEvento,
@@ -33,6 +41,7 @@ import {
   type PerdasAoCancelar,
 } from "./gravacao";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
+import { datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
 import {
   FRASE_DATA_CANCELADA,
   FRASE_ERRO_CARREGAR_PESSOAS,
@@ -188,6 +197,82 @@ export async function lancarAvulsa(entradaBruta: unknown): Promise<ResultadoDoLa
   return { ok: true, dados: lancado };
 }
 
+export type TurmaLancada = {
+  turmaId: string;
+  // Quantas datas foram marcadas e a primeira delas (a semana para onde a tela vai).
+  datas: number;
+  primeira: string;
+  // As datas marcadas que caem num dia fechado (D-13), para o toast — marcadas mesmo assim.
+  emDiaFechado: FechadoDoDia[];
+};
+
+// "Lançar turma" (AGE-03, D-03). `exigirUsuario()` primeiro (T-05-28), Zod no servidor (T-05-29:
+// semanas 1..52, vencimento 1..28, vagas 1..999). NUMA transação: a turma e as N datas
+// (`datasDaTurma` — a primeira ocorrência do dia da semana a partir de "Primeira aula a partir de",
+// uma por semana), com horário, vagas e `publico` copiados da turma e `on conflict (turma_id, data)
+// do nothing`. NÃO pula nem cancela dia fechado (D-13): lê os fechados do intervalo e devolve as
+// datas que caem neles, para o toast avisar. Sem aluno nenhum: os alunos entram pela ficha (plano
+// 07) e nenhuma mensalidade nasce aqui.
+export async function lancarTurma(entradaBruta: unknown): Promise<ResultadoDoLancamento<TurmaLancada>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaLancarTurma.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+  const datas = datasDaTurma({ diaDaSemana: dados.diaSemana, aPartirDe: dados.aPartirDe, semanas: dados.semanas });
+
+  let lancada: Omit<TurmaLancada, "emDiaFechado">;
+  try {
+    lancada = await db.transaction(async (tx) => {
+      const [turma] = await tx
+        .insert(turmas)
+        .values({
+          nome: dados.nome,
+          diaSemana: dados.diaSemana,
+          inicio: dados.inicio,
+          fim: dados.fim,
+          vagas: dados.vagas,
+          mensalidadeCentavos: dados.mensalidadeCentavos,
+          diaVencimento: dados.diaVencimento,
+          publica: dados.publica,
+          criadoPor: usuario.id,
+        })
+        .returning({ id: turmas.id });
+      const criadas = await marcarDatasDaTurma(
+        tx,
+        { id: turma.id, inicio: dados.inicio, fim: dados.fim, vagas: dados.vagas, publica: dados.publica },
+        datas,
+        usuario.id,
+      );
+      return { turmaId: turma.id, datas: criadas.length, primeira: datas[0] };
+    });
+  } catch (erro) {
+    console.error(
+      `Falha ao lançar a turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
+  }
+
+  revalidarTelasDaAgenda({ publico: dados.publica });
+
+  // Fora da transação e do `try` dela: a turma já está gravada — uma falha ao ler os fechados só
+  // tira o aviso do toast (a tag "dia fechado" aparece no cartão de qualquer jeito).
+  let emDiaFechado: FechadoDoDia[] = [];
+  try {
+    emDiaFechado = datasEmDiaFechado(datas, await fechadosEntre(datas[0], datas[datas.length - 1]));
+  } catch (erro) {
+    console.error("Falha ao ler os dias fechados depois de lançar a turma:", erro);
+  }
+  return { ok: true, dados: { ...lancada, emDiaFechado } };
+}
+
 // "Fechar o dia" — um evento `fechado` com o motivo no título, nunca público (o site mostra só
 // "fechado", sem o motivo — T-05-17). Fechar NÃO toca em nada do que já está no dia: nenhuma data
 // é cancelada, nenhuma presença ou crédito muda (D-13 — as datas de turma ganham a etiqueta "dia
@@ -242,7 +327,7 @@ export async function conferirDiaParaLancar(
     return { ok: false, erro: FRASE_ESCOLHA_A_DATA };
   }
   try {
-    return { ok: true, dados: await lerDiaParaLancar(resultado.data.data) };
+    return { ok: true, dados: await lerDiaParaLancar(resultado.data.data, resultado.data.ate) };
   } catch (erro) {
     console.error("Falha ao conferir o dia para lançar:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_LANCAR };

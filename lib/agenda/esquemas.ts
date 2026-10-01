@@ -4,11 +4,13 @@
 import { z } from "zod";
 
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
-import { ehDataCivil } from "@/lib/producao/calendario";
+import { diasEntre, ehDataCivil } from "@/lib/producao/calendario";
 
 import { minutosDe } from "./horario";
 import { PRESENCAS } from "./tipos";
+import { SEMANAS_MAXIMAS, SEMANAS_MINIMAS } from "./turma";
 import {
+  FRASE_DIA_DA_SEMANA,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
@@ -19,12 +21,16 @@ import {
   FRASE_HORARIO_VAZIO,
   FRASE_JA_REMOVIDO,
   FRASE_LANCAMENTO_NAO_EXISTE,
+  FRASE_MENSALIDADE,
   FRASE_MOTIVO_LONGO,
   FRASE_MOTIVO_VAZIO,
   FRASE_NOME_DA_AULA,
+  FRASE_NOME_DA_TURMA,
   FRASE_NOME_LONGO,
   FRASE_PRECO_POR_PESSOA,
+  FRASE_SEMANAS,
   FRASE_VAGAS,
+  FRASE_VENCIMENTO,
 } from "./textos";
 
 // "Veio" / "Faltou" / desmarcar: o id da inscrição e o estado DESEJADO (Pattern 2) — nunca
@@ -109,8 +115,22 @@ export const esquemaFecharDia = z.object({
 
 export type FecharDiaValidado = z.infer<typeof esquemaFecharDia>;
 
-// A leitura do aviso D-13 quando a data da folha muda.
-export const esquemaConferirDia = z.object({ data: dataCivil });
+// A leitura do aviso D-13 quando a data da folha muda. Com `ate` (a turma: da primeira à última data
+// que vão ser marcadas), devolve também os fechados do intervalo — que nunca passa de um ano e um
+// dia (52 semanas), para a leitura não virar varredura do banco.
+export const esquemaConferirDia = z
+  .object({ data: dataCivil, ate: dataCivil.optional() })
+  .refine(
+    ({ data, ate }) => {
+      // Campo já recusado: o erro dele basta (o Zod 4 pode rodar este refinamento mesmo assim).
+      if (ate === undefined || !ehDataCivil(data) || !ehDataCivil(ate)) {
+        return true;
+      }
+      const dias = diasEntre(data, ate);
+      return dias >= 0 && dias <= 366;
+    },
+    { error: FRASE_ESCOLHA_A_DATA },
+  );
 
 // "Cancelar esta data" / "Desfazer cancelamento" — o estado DESEJADO (Pattern 2), nunca "inverter".
 // `confirmado` diz que a pessoa já viu, na confirmação, o que se perde: sem ele, o servidor
@@ -156,3 +176,60 @@ export const esquemaTirarDaLista = z.object({
 });
 
 export type TirarDaListaValidado = z.infer<typeof esquemaTirarDaLista>;
+
+// Um número inteiro de um campo de texto (ou já número), dentro da faixa — a frase humana do campo
+// quando não é. Nunca aceita fração, sinal ou expoente ("1e2").
+function inteiroDoCampo(minimo: number, maximo: number, frase: string) {
+  return z.union([z.string(), z.number()], { error: frase }).transform((valor, contexto) => {
+    const texto = String(valor).trim();
+    if (!/^\d{1,3}$/.test(texto) || Number(texto) < minimo || Number(texto) > maximo) {
+      contexto.addIssue({ code: "custom", message: frase });
+      return z.NEVER;
+    }
+    return Number(texto);
+  });
+}
+
+// Mensalidade: centavos INTEIROS pela conversão única do Financeiro, maior que zero (check
+// `turmas_mensalidade_faixa`, 1..1.000.000.000). Vazio é erro: nenhum preço no código (AGE-17).
+const mensalidadeDoCampo = z.string({ error: FRASE_MENSALIDADE }).transform((texto, contexto) => {
+  const convertido = converterReaisParaCentavos(texto);
+  if (!convertido.ok || convertido.centavos === null || convertido.centavos < 1 || convertido.centavos > 1_000_000_000) {
+    contexto.addIssue({ code: "custom", message: FRASE_MENSALIDADE });
+    return z.NEVER;
+  }
+  return convertido.centavos;
+});
+
+// Os campos da turma que valem para lançar e para editar.
+const camposDaTurma = {
+  nome: textoCurto(FRASE_NOME_DA_TURMA, FRASE_NOME_LONGO),
+  inicio: horaDoCampo,
+  fim: horaDoCampo,
+  vagas: vagasDoCampo,
+  mensalidade: mensalidadeDoCampo,
+  diaVencimento: inteiroDoCampo(1, 28, FRASE_VENCIMENTO),
+  publica: z.boolean({ error: FRASE_FALHA_AO_LANCAR }),
+};
+
+function fimDepoisDoComeco(dados: { inicio: string; fim: string }, contexto: z.RefinementCtx): void {
+  // O Zod 4 roda este refinamento mesmo com um campo já recusado: só compara horas legíveis.
+  const legiveis = FORMATO_HORA_DO_CAMPO.test(dados.inicio) && FORMATO_HORA_DO_CAMPO.test(dados.fim);
+  if (legiveis && minutosDe(dados.fim) <= minutosDe(dados.inicio)) {
+    contexto.addIssue({ code: "custom", path: ["fim"], message: FRASE_FIM_ANTES_DO_COMECO });
+  }
+}
+
+// "Lançar turma" (AGE-03): a turma e as N semanas (1..52 — T-05-29: nunca 10.000 datas) a partir de
+// "Primeira aula a partir de" (UI-D10). Dia da semana 0 = domingo … 6 = sábado.
+export const esquemaLancarTurma = z
+  .object({
+    ...camposDaTurma,
+    diaSemana: inteiroDoCampo(0, 6, FRASE_DIA_DA_SEMANA),
+    aPartirDe: dataCivil,
+    semanas: inteiroDoCampo(SEMANAS_MINIMAS, SEMANAS_MAXIMAS, FRASE_SEMANAS),
+  })
+  .superRefine(fimDepoisDoComeco)
+  .transform(({ mensalidade, ...resto }) => ({ ...resto, mensalidadeCentavos: mensalidade }));
+
+export type LancarTurmaValidado = z.infer<typeof esquemaLancarTurma>;

@@ -1,10 +1,11 @@
 "use client";
 
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 
 import type { EventoCarregado, EventoDaSemana } from "@/lib/agenda/consultas";
 import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
+  caixaDataDeTurmaEmDiaFechado,
   DICA_FIM_OFICINA,
   DICA_FIM_TURMA,
   FRASE_NINGUEM_INSCRITO,
@@ -69,6 +70,10 @@ export type FolhaEventoProps = {
 // pessoa — nenhuma confirmação, campo ou teclado no caminho (Valor central).
 export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps) {
   const evento = carregado ?? cabecalho;
+  // D-13: data de turma (não cancelada) num dia fechado — o "Cancelar esta data" sobe para a caixa
+  // do topo, visível sem rolar, e o rodapé fica só com "Pronto" (o botão existe uma vez só).
+  const cancelarNaCaixa =
+    carregado !== null && carregado.tipo === "turma" && !carregado.cancelado && carregado.diaFechadoMotivo !== null;
 
   return (
     <Dialog
@@ -122,6 +127,19 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
             </div>
           ) : (
             <>
+              {cancelarNaCaixa ? (
+                <div
+                  data-testid="caixa-dia-fechado"
+                  role="status"
+                  className="bg-atencao-fundo text-atencao flex flex-col gap-3 rounded-md p-4"
+                >
+                  <p className="text-apoio flex items-start gap-2 font-semibold [overflow-wrap:anywhere]">
+                    <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    {caixaDataDeTurmaEmDiaFechado(carregado.diaFechadoMotivo ?? "")}
+                  </p>
+                  <CancelarEstaData key={carregado.id} evento={carregado} />
+                </div>
+              ) : null}
               {/* "{n} de {vagas}": n conta TODAS as inscrições da data (alunos, reposições,
                   experimentais, oficina — AGE-11); passar das vagas só avisa (UI-D16). */}
               <h3
@@ -161,7 +179,11 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
             (só depois de a folha saber o que se perderia), "Pronto" à direita. `flex-wrap`: a 320px
             os dois quebram em duas linhas, cada um com 44px, nunca rolagem lateral. */}
         <div className="border-border bg-popover flex flex-wrap items-start justify-between gap-2 border-t px-6 py-4">
-          {carregado !== null ? <CancelarEstaData key={carregado.id} evento={carregado} /> : <span />}
+          {carregado !== null && !cancelarNaCaixa ? (
+            <CancelarEstaData key={carregado.id} evento={carregado} />
+          ) : (
+            <span />
+          )}
           <Button
             type="button"
             variant="default"

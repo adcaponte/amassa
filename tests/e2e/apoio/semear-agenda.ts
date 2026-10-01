@@ -361,3 +361,64 @@ export async function cancelarDocumentoNoBanco(documentoId: string): Promise<voi
     ]);
   });
 }
+
+// Um aluno ATIVO da turma (`turma_alunos` sem `saiu_em`) — o retrato de quem entrou pela ficha
+// (plano 07), sem passar pela tela. NÃO o inscreve em data nenhuma: quem inscreve nas datas é a
+// ação que está sendo provada (ex.: "Marcar mais semanas", Pitfall 5).
+export async function semearAluno(dados: { turmaId: string; clienteId: string; entrouEm: string }): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      "insert into turma_alunos (turma_id, cliente_id, entrou_em) values ($1, $2, $3) returning id",
+      [dados.turmaId, dados.clienteId, dados.entrouEm],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error("semearAluno: falha ao inserir o aluno.");
+    }
+    return id;
+  });
+}
+
+export type DataDaTurmaNoBanco = { id: string; data: string; inicio: string; fim: string; vagas: number; publico: boolean };
+
+// As datas de uma turma como estão no banco, em ordem de calendário — para provar quantas foram
+// marcadas, que nenhuma se repetiu e o que a edição mudou.
+export async function datasDaTurmaNoBanco(turmaId: string): Promise<DataDaTurmaNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<DataDaTurmaNoBanco>(
+      `select id, to_char(data, 'YYYY-MM-DD') as data, to_char(inicio, 'HH24:MI') as inicio,
+              to_char(fim, 'HH24:MI') as fim, vagas, publico
+         from eventos where turma_id = $1 order by data, id`,
+      [turmaId],
+    );
+    return rows;
+  });
+}
+
+export type TurmaNoBanco = {
+  id: string;
+  nome: string;
+  diaSemana: number;
+  inicio: string;
+  fim: string;
+  vagas: number;
+  mensalidadeCentavos: number;
+  diaVencimento: number;
+  publica: boolean;
+  ativa: boolean;
+  desativadaEm: Date | null;
+};
+
+// As turmas com um nome exato (o sufixo único do teste).
+export async function turmasComNome(nome: string): Promise<TurmaNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<TurmaNoBanco>(
+      `select id, nome, dia_semana as "diaSemana", to_char(inicio, 'HH24:MI') as inicio,
+              to_char(fim, 'HH24:MI') as fim, vagas, mensalidade_centavos as "mensalidadeCentavos",
+              dia_vencimento as "diaVencimento", publica, ativa, desativada_em as "desativadaEm"
+         from turmas where nome = $1 order by criado_em, id`,
+      [nome],
+    );
+    return rows;
+  });
+}
