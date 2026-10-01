@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 
-import type { VindaDaPessoa } from "@/lib/agenda/consultas";
+import type { TurmaDaPessoa, VindaDaPessoa } from "@/lib/agenda/consultas";
 import {
   FRASE_AINDA_NAO_VEIO,
   FRASE_ERRO_CARREGAR_FICHA,
@@ -25,11 +25,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
+import { TurmasDaPessoa } from "./turmas-da-pessoa";
+
 const LINHAS_DO_ESQUELETO = [0, 1, 2, 3] as const;
 
-// O que a ficha mostra além do cabeçalho — chega do servidor. Os quadros "A REPOR"/"A RECEBER" e as
-// "Turmas fixas" entram nos planos 07, 08 e 11.
-export type ConteudoDaFicha = { vindas: VindaDaPessoa[] };
+// O que a ficha mostra além do cabeçalho — chega do servidor. Os quadros "A REPOR"/"A RECEBER" entram
+// nos planos 08 e 11. `mes` é o mês de hoje ("AAAA-MM"), o da mensalidade que a confirmação de sair cita.
+export type ConteudoDaFicha = { vindas: VindaDaPessoa[]; turmas: TurmaDaPessoa[]; mes: string };
 
 export type FichaPessoaProps = {
   // O que a tela já sabia no toque (a linha da lista, a pessoa recém-cadastrada, o homônimo escolhido)
@@ -43,13 +45,24 @@ export type FichaPessoaProps = {
   aoFechar: () => void;
   aoEditar: (pessoa: ClienteDaLista) => void;
   aoTentarDeNovo: () => void;
+  // "ver turma": abre a folha da turma no lugar da ficha.
+  aoAbrirTurma: (turmaId: string, nome: string) => void;
 };
 
 // A ficha da pessoa (`?pessoa={id}`, 05-UI-SPEC.md §"Ficha da pessoa"): diálogo de tela toda no
 // celular, `max-w-lg` a partir de `md`. Cabeçalho: o nome (Título, quebra livre) + "Editar" (abre o
 // formulário de pessoa no lugar — UI-D24) + fechar 44×44; sub-título o telefone ou "sem telefone".
-// "Últimas vindas" (até 8, mais recentes primeiro) e "Pronto" no rodapé.
-export function FichaPessoa({ pessoa, conteudo, falhou, aoFechar, aoEditar, aoTentarDeNovo }: FichaPessoaProps) {
+// "Turmas fixas" (entrar e sair — plano 07), "Últimas vindas" (até 8, mais recentes primeiro) e "Pronto"
+// no rodapé.
+export function FichaPessoa({
+  pessoa,
+  conteudo,
+  falhou,
+  aoFechar,
+  aoEditar,
+  aoTentarDeNovo,
+  aoAbrirTurma,
+}: FichaPessoaProps) {
   return (
     <Dialog
       open
@@ -116,43 +129,53 @@ export function FichaPessoa({ pessoa, conteudo, falhou, aoFechar, aoEditar, aoTe
               ))}
             </div>
           ) : (
-            <section className="flex flex-col gap-2" aria-labelledby="ficha-ultimas-vindas">
-              <h3
-                id="ficha-ultimas-vindas"
-                className="text-apoio text-tinta-media font-semibold tracking-[0.06em] uppercase"
-              >
-                {TITULO_ULTIMAS_VINDAS}
-              </h3>
-              {conteudo.vindas.length === 0 ? (
-                <p className="text-corpo text-tinta-fraca" data-testid="ficha-sem-vindas">
-                  {FRASE_AINDA_NAO_VEIO}
-                </p>
-              ) : (
-                <ul className="divide-border flex flex-col divide-y" data-testid="ficha-vindas">
-                  {conteudo.vindas.map((vinda) => (
-                    <li
-                      key={vinda.inscricaoId}
-                      data-testid="ficha-vinda"
-                      className="flex min-h-[44px] items-center justify-between gap-3 py-2"
-                    >
-                      <span className="text-corpo text-tinta min-w-0 break-words">
-                        {linhaDeVinda(formatarDiaMes(vinda.data), vinda.titulo)}
-                      </span>
-                      {vinda.presenca !== null ? (
-                        <span
-                          className={cn(
-                            "text-apoio shrink-0 rounded-sm px-2 font-semibold",
-                            vinda.presenca === "veio" ? "bg-sucesso-fundo text-sucesso" : "bg-erro-fundo text-erro",
-                          )}
-                        >
-                          {vinda.presenca === "veio" ? TAG_VEIO : TAG_FALTOU}
+            <>
+              {pessoa !== null ? (
+                <TurmasDaPessoa
+                  pessoa={{ id: pessoa.id, nome: pessoa.nome }}
+                  turmas={conteudo.turmas}
+                  mes={conteudo.mes}
+                  aoAbrirTurma={aoAbrirTurma}
+                />
+              ) : null}
+              <section className="flex flex-col gap-2" aria-labelledby="ficha-ultimas-vindas">
+                <h3
+                  id="ficha-ultimas-vindas"
+                  className="text-apoio text-tinta-media font-semibold tracking-[0.06em] uppercase"
+                >
+                  {TITULO_ULTIMAS_VINDAS}
+                </h3>
+                {conteudo.vindas.length === 0 ? (
+                  <p className="text-corpo text-tinta-fraca" data-testid="ficha-sem-vindas">
+                    {FRASE_AINDA_NAO_VEIO}
+                  </p>
+                ) : (
+                  <ul className="divide-border flex flex-col divide-y" data-testid="ficha-vindas">
+                    {conteudo.vindas.map((vinda) => (
+                      <li
+                        key={vinda.inscricaoId}
+                        data-testid="ficha-vinda"
+                        className="flex min-h-[44px] items-center justify-between gap-3 py-2"
+                      >
+                        <span className="text-corpo text-tinta min-w-0 break-words">
+                          {linhaDeVinda(formatarDiaMes(vinda.data), vinda.titulo)}
                         </span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+                        {vinda.presenca !== null ? (
+                          <span
+                            className={cn(
+                              "text-apoio shrink-0 rounded-sm px-2 font-semibold",
+                              vinda.presenca === "veio" ? "bg-sucesso-fundo text-sucesso" : "bg-erro-fundo text-erro",
+                            )}
+                          >
+                            {vinda.presenca === "veio" ? TAG_VEIO : TAG_FALTOU}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
           )}
         </div>
 

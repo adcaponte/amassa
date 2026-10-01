@@ -422,3 +422,84 @@ export async function turmasComNome(nome: string): Promise<TurmaNoBanco[]> {
     return rows;
   });
 }
+
+export type MensalidadeParaSemear = {
+  turmaId: string;
+  clienteId: string;
+  // "AAAA-MM-01" — o mês da mensalidade.
+  mes: string;
+  valorCentavos: number;
+  vencimento: string;
+};
+
+// Uma mensalidade já nascida (sem venda) — o retrato de um mês anterior, sem passar pela tela.
+export async function semearMensalidade(dados: MensalidadeParaSemear): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into mensalidades (turma_id, cliente_id, mes, valor_centavos, vencimento)
+       values ($1, $2, $3, $4, $5)
+       returning id`,
+      [dados.turmaId, dados.clienteId, dados.mes, dados.valorCentavos, dados.vencimento],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error("semearMensalidade: falha ao inserir a mensalidade.");
+    }
+    return id;
+  });
+}
+
+export type MensalidadeNoBanco = {
+  id: string;
+  turmaId: string;
+  mes: string;
+  valorCentavos: number;
+  aulasRestantes: number | null;
+  aulasNoMes: number | null;
+  vencimento: string;
+};
+
+// As mensalidades de uma pessoa, em ordem de mês — para provar quantas nasceram, com que valor e
+// vencimento, e que nenhuma se repetiu.
+export async function mensalidadesNoBanco(clienteId: string): Promise<MensalidadeNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<MensalidadeNoBanco>(
+      `select id, turma_id as "turmaId", to_char(mes, 'YYYY-MM-DD') as mes, valor_centavos as "valorCentavos",
+              aulas_restantes as "aulasRestantes", aulas_no_mes as "aulasNoMes",
+              to_char(vencimento, 'YYYY-MM-DD') as vencimento
+         from mensalidades where cliente_id = $1 order by mes, turma_id, id`,
+      [clienteId],
+    );
+    return rows;
+  });
+}
+
+export type InscricaoNaTurma = { id: string; data: string; tipo: TipoInscricao; presenca: Presenca | null };
+
+// As inscrições de uma pessoa nas datas de uma turma, em ordem de data.
+export async function inscricoesDaPessoaNaTurma(clienteId: string, turmaId: string): Promise<InscricaoNaTurma[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<InscricaoNaTurma>(
+      `select i.id, to_char(e.data, 'YYYY-MM-DD') as data, i.tipo::text as tipo, i.presenca::text as presenca
+         from inscricoes i join eventos e on e.id = i.evento_id
+        where i.cliente_id = $1 and e.turma_id = $2
+        order by e.data, i.id`,
+      [clienteId, turmaId],
+    );
+    return rows;
+  });
+}
+
+export type VinculoNoBanco = { id: string; entrouEm: string; saiuEm: string | null };
+
+// Os vínculos (`turma_alunos`) de uma pessoa com uma turma — sair grava `saiu_em`, nunca apaga.
+export async function vinculosNoBanco(clienteId: string, turmaId: string): Promise<VinculoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<VinculoNoBanco>(
+      `select id, to_char(entrou_em, 'YYYY-MM-DD') as "entrouEm", to_char(saiu_em, 'YYYY-MM-DD') as "saiuEm"
+         from turma_alunos where cliente_id = $1 and turma_id = $2 order by criado_em, id`,
+      [clienteId, turmaId],
+    );
+    return rows;
+  });
+}

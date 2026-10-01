@@ -259,7 +259,7 @@ export const DICA_PESSOAS =
   "É o cadastro de clientes da AMASSA — o mesmo de Cadastros → Clientes. As vendas que a Agenda cria ficam ligadas à pessoa.";
 
 // A ficha da pessoa (05-UI-SPEC.md §"Ficha da pessoa", §"Ficha da pessoa — linhas de leitura"). Os
-// quadros "A REPOR"/"A RECEBER" e as "Turmas fixas" entram nos planos 07, 08 e 11.
+// quadros "A REPOR"/"A RECEBER" entram nos planos 08 e 11; as "Turmas fixas", no fim deste arquivo (07).
 export const ROTULO_SEM_TELEFONE = "sem telefone";
 export const ROTULO_EDITAR = "Editar";
 export const TITULO_ULTIMAS_VINDAS = "Últimas vindas";
@@ -536,3 +536,88 @@ export const FRASE_TURMA_JA_DESATIVADA = "Esta turma já foi desativada — a te
 export function fraseDesativarComVendaAtiva(diaMes: string, numero: number): string {
   return `A data de ${diaMes} tem uma inscrição que já virou a venda nº ${numero}. Cancele a venda no Caixa antes de desativar a turma.`;
 }
+
+// Turmas fixas na ficha da pessoa — entrar e sair da turma (AGE-07; 05-UI-SPEC.md §"Ficha da pessoa —
+// linhas de leitura", §Confirmações "Sair da turma", §Toasts). As frases que a UI-SPEC não fixa são
+// decisões do plano 07 (o terceiro toast de entrada, o de "a mensalidade já existia", o corpo de sair
+// com 0 ou 1 aula e sem mensalidade do mês em "A receber").
+export const TITULO_TURMAS_FIXAS = "Turmas fixas";
+export const FRASE_NENHUMA_TURMA_FIXA = "Nenhuma turma fixa lançada ainda.";
+export const ROTULO_VER_TURMA = "ver turma";
+export const ROTULO_ENTRANDO_NA_TURMA = "Entrando…";
+
+// "{nome} · {dia da semana} {hh:mm} · {R$}/mês, vence dia {d}".
+export function rotuloDaTurmaNaFicha({
+  nome,
+  dia,
+  inicio,
+  mensalidade,
+  diaVencimento,
+}: {
+  nome: string;
+  dia: string;
+  inicio: string;
+  mensalidade: string;
+  diaVencimento: number;
+}): string {
+  return `${nome} · ${dia} ${inicio} · ${mensalidade}/mês, vence dia ${diaVencimento}`;
+}
+
+export function ariaVerTurma(nome: string): string {
+  return `Ver a turma ${nome}`;
+}
+
+export function toastEntrouProporcional(mes: string, restantes: number, noMes: number, valor: string): string {
+  return `Entrou na turma. Mensalidade de ${mes} proporcional: ${restantes} de ${noMes} aulas = ${valor}.`;
+}
+
+export const TOAST_ENTROU_MENSALIDADE_CHEIA =
+  "Entrou na turma: já está nas próximas aulas e a mensalidade do mês foi criada.";
+
+export function toastEntrouSemAulaNoMes(mes: string, proximoMes: string): string {
+  return `Entrou na turma: já está nas próximas aulas. Não sobra aula da turma em ${mes} — a mensalidade começa em ${proximoMes}.`;
+}
+
+// Voltou à turma no mesmo mês em que saiu: a mensalidade do mês já nasceu (a chave única não deixa
+// nascer a segunda) e continua como estava.
+export function toastEntrouMensalidadeJaExistia(mes: string): string {
+  return `Entrou na turma: já está nas próximas aulas. A mensalidade de ${mes} já existia e continua como estava.`;
+}
+
+export const TOAST_SAIU_DA_TURMA = "Saiu da turma: sai das aulas futuras. O que já aconteceu fica.";
+
+export function tituloConfirmarSairDaTurma(nome: string, turma: string): string {
+  return `Tirar ${nome} de ${turma}?`;
+}
+
+// "Sai das {n} aulas daqui para frente. O que já aconteceu fica, e a mensalidade de {mês} continua em
+// “A receber” — dispense lá se não for cobrar." — plural de verdade, e a parte da mensalidade só
+// quando ela existe e ainda está em "A receber".
+export function corpoConfirmarSairDaTurma(aulas: number, mes: string, mensalidadeAReceber: boolean): string {
+  const aulasQueSaem =
+    aulas === 0
+      ? "Não está em nenhuma aula daqui para frente."
+      : aulas === 1
+        ? "Sai da aula daqui para frente."
+        : `Sai das ${aulas} aulas daqui para frente.`;
+  const resto = mensalidadeAReceber
+    ? ` O que já aconteceu fica, e a mensalidade de ${mes} continua em “A receber” — dispense lá se não for cobrar.`
+    : " O que já aconteceu fica.";
+  return `${aulasQueSaem}${resto}`;
+}
+
+export const ROTULO_MANTER_NA_TURMA = "Manter na turma";
+export const ROTULO_TIRAR_DA_TURMA = "Tirar da turma";
+export const ROTULO_TIRANDO_DA_TURMA = "Tirando…";
+
+export function fraseJaEstaNaTurma(nome: string): string {
+  return `${nome} já está nesta turma — a tela foi atualizada.`;
+}
+
+export function fraseJaNaoEstaNaTurma(nome: string): string {
+  return `${nome} já não está nesta turma — a tela foi atualizada.`;
+}
+
+export const FRASE_FALHA_AO_ENTRAR_NA_TURMA =
+  "Não deu para colocar na turma. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_SAIR_DA_TURMA = "Não deu para tirar da turma. Verifique a internet e tente de novo.";

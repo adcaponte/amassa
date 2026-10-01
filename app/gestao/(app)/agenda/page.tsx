@@ -12,7 +12,16 @@ import {
   vistaDaUrl,
   type VistaDaAgenda,
 } from "@/lib/agenda/abas";
-import { lerMes, lerSemana, obterEvento, obterTurma, ultimasVindas } from "@/lib/agenda/consultas";
+import {
+  lerMes,
+  lerSemana,
+  obterEvento,
+  obterTurma,
+  turmasDaPessoa,
+  turmasPorCliente,
+  ultimasVindas,
+} from "@/lib/agenda/consultas";
+import { mesDaData } from "@/lib/agenda/mensalidade";
 import {
   agruparPorDia,
   gradeDoMes,
@@ -105,6 +114,7 @@ export default async function PaginaAgenda({
               busca={buscaDaUrl(parametros.busca)}
               quantos={quantosDaUrl(parametros.quantos)}
               idDaPessoa={pessoaDaUrl(parametros.pessoa)}
+              idDaTurma={turmaDaUrl(parametros.turma)}
               hoje={hoje}
             />
           </Suspense>
@@ -125,21 +135,38 @@ export default async function PaginaAgenda({
 
 // A aba Pessoas (AGE-06): o cadastro de clientes (D-01), lido por `lib/clientes` — o mesmo de
 // Cadastros → Clientes. A lista que falha cai no `error.tsx` da página (UI E12·error); a FICHA que
-// falha mostra o erro dentro da folha (UI E13·error), por isso tem `try` próprio.
+// falha mostra o erro dentro da folha (UI E13·error), por isso tem `try` próprio. `?turma=` ("ver turma"
+// na ficha) abre a folha da turma no lugar da ficha (plano 07).
 async function PessoasCarregadas({
   busca,
   quantos,
   idDaPessoa,
+  idDaTurma,
   hoje,
 }: {
   busca: string;
   quantos: number;
   idDaPessoa: string | null;
+  idDaTurma: string | null;
   hoje: string;
 }) {
-  const [lista, ficha] = await Promise.all([listarClientes({ busca, quantos }), lerFicha(idDaPessoa, hoje)]);
+  const [lista, ficha, turmaAberta] = await Promise.all([
+    listarClientes({ busca, quantos }),
+    lerFicha(idDaPessoa, hoje),
+    lerTurma(idDaTurma, hoje),
+  ]);
+  const turmasPorPessoa = await turmasPorCliente(lista.clientes.map((cliente) => cliente.id));
   return (
-    <ListaPessoas pessoas={lista.clientes} haMais={lista.haMais} busca={busca} quantos={quantos} ficha={ficha} />
+    <ListaPessoas
+      pessoas={lista.clientes}
+      haMais={lista.haMais}
+      busca={busca}
+      quantos={quantos}
+      ficha={ficha}
+      turmasPorPessoa={turmasPorPessoa}
+      turmaAberta={turmaAberta}
+      hoje={hoje}
+    />
   );
 }
 
@@ -153,8 +180,8 @@ async function lerFicha(id: string | null, hoje: string): Promise<FichaDoServido
     if (pessoa === null) {
       return { estado: "inexistente", id };
     }
-    const vindas = await ultimasVindas(id, hoje);
-    return { estado: "carregada", pessoa, conteudo: { vindas } };
+    const [vindas, turmas] = await Promise.all([ultimasVindas(id, hoje), turmasDaPessoa(id, hoje)]);
+    return { estado: "carregada", pessoa, conteudo: { vindas, turmas, mes: mesDaData(hoje) } };
   } catch (erro) {
     console.error("Falha ao carregar a ficha da pessoa:", erro);
     return { estado: "erro", id, pessoa };

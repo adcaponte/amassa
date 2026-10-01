@@ -95,6 +95,22 @@ describe("subLinhaDaPessoa", () => {
     ).toBe("(00) 0000-0000 · Torno à noite (ter) · Modelagem (sáb)");
     expect(subLinhaDaPessoa({ telefone: null, turmas: [{ nome: "Torno", dia: "qua" }] })).toBe("Torno (qua)");
   });
+
+  // 05-07-PLAN.md: as turmas chegam de `turmasPorCliente` já na ordem da tela (segunda → domingo) e
+  // com o dia abreviado — a sub-linha mantém a ordem e nunca corta o nome (a linha quebra).
+  it("as turmas da Agenda, na ordem recebida, com o nome inteiro", () => {
+    const nomeLongo = "Turma ".repeat(20).trim();
+    expect(
+      subLinhaDaPessoa({
+        telefone: null,
+        turmas: [
+          { nome: "Modelagem", dia: "seg" },
+          { nome: nomeLongo, dia: "qui" },
+          { nome: "Torno", dia: "dom" },
+        ],
+      }),
+    ).toBe(`Modelagem (seg) · ${nomeLongo} (qui) · Torno (dom)`);
+  });
 });
 
 describe("lib/clientes/lista.ts é puro", () => {

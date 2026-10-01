@@ -259,6 +259,7 @@ export type TurmaTravada = {
   fim: string;
   vagas: number;
   mensalidadeCentavos: number;
+  diaVencimento: number;
   publica: boolean;
   ativa: boolean;
 };
@@ -277,6 +278,7 @@ export async function travarTurma(tx: TransacaoDoBanco, turmaId: string): Promis
       fim: turmas.fim,
       vagas: turmas.vagas,
       mensalidadeCentavos: turmas.mensalidadeCentavos,
+      diaVencimento: turmas.diaVencimento,
       publica: turmas.publica,
       ativa: turmas.ativa,
     })
@@ -380,4 +382,63 @@ export async function tirarDatasFuturasDaTurma(
   await tx.delete(inscricoes).where(inArray(inscricoes.eventoId, ids));
   await tx.delete(eventos).where(and(inArray(eventos.id, ids), eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
   return ids.length;
+}
+
+export type ClienteTravado = { id: string; nome: string };
+
+// Trava a linha do CLIENTE até o fim da transação — o elo CLIENTE da ordem global de travas. `for no
+// key update`, NUNCA a exclusiva: toda inscrição, mensalidade ou vínculo novo daquela pessoa pede
+// `for key share` nesta linha (a chave estrangeira), e a exclusiva conflitaria com eles. Serializa
+// duas decisões sobre a mesma pessoa (entrar e sair em dois celulares). `null` se ela não existe.
+export async function travarCliente(tx: TransacaoDoBanco, clienteId: string): Promise<ClienteTravado | null> {
+  const [linha] = await tx
+    .select({ id: clientes.id, nome: clientes.nome })
+    .from(clientes)
+    .where(eq(clientes.id, clienteId))
+    .for("no key update");
+  return linha ?? null;
+}
+
+// Inscreve UMA pessoa como `aluno` em todas as datas da turma de HOJE em diante (`data >= hoje`, a
+// aula de hoje conta — protótipo 331) e NÃO canceladas — "entrar na turma" (AGE-07). Roda sob a trava
+// da TURMA, a mesma de "Marcar mais semanas": as datas que outro gestor criar depois de soltar a
+// trava também recebem esta pessoa (`inscreverAlunosNasDatas` lê `turma_alunos`, que já a tem).
+// `on conflict (evento_id, cliente_id) do nothing`: quem já está numa dessas datas (uma
+// experimental — Assumption A13) fica como está. O aluno nunca paga pela data (`cobrar` falso).
+export async function inscreverAlunoDaquiParaFrente(
+  tx: TransacaoDoBanco,
+  dados: { turmaId: string; clienteId: string; hoje: string; criadoPor: string },
+): Promise<number> {
+  const resultado = await tx.execute(sql`
+    insert into inscricoes (evento_id, cliente_id, tipo, criado_por)
+    select e.id, ${dados.clienteId}::uuid, 'aluno'::tipo_inscricao, ${dados.criadoPor}::uuid
+      from eventos e
+     where e.turma_id = ${dados.turmaId}::uuid
+       and e.data >= ${dados.hoje}::date
+       and e.cancelado_em is null
+    on conflict (evento_id, cliente_id) do nothing
+  `);
+  return resultado.rowCount ?? 0;
+}
+
+// "Sair da turma" (AGE-07): tira a pessoa só das datas DEPOIS de hoje (`data > hoje`) e só das
+// inscrições `tipo = 'aluno'` ainda sem presença. Fica tudo o que já existia de outra natureza: o
+// passado e a aula de hoje, as reposições e experimentais marcadas (como no protótipo), e uma falta
+// avisada antes (presença já marcada numa data futura — com o direito a repor, ela é crédito). A
+// mensalidade já nascida não muda. Devolve quantas inscrições saíram.
+export async function tirarAlunoDasDatasFuturas(
+  tx: TransacaoDoBanco,
+  dados: { turmaId: string; clienteId: string; hoje: string },
+): Promise<number> {
+  const resultado = await tx.execute(sql`
+    delete from inscricoes i
+     using eventos e
+     where e.id = i.evento_id
+       and e.turma_id = ${dados.turmaId}::uuid
+       and e.data > ${dados.hoje}::date
+       and i.cliente_id = ${dados.clienteId}::uuid
+       and i.tipo = 'aluno'
+       and i.presenca is null
+  `);
+  return resultado.rowCount ?? 0;
 }

@@ -43,7 +43,7 @@ export function escaparPadraoDeBusca(texto: string): string {
 export type TurmaDaSubLinha = { nome: string; dia: string };
 
 // "{telefone} · {turma} ({dia abreviado}) · …" ou, sem turma, "… · sem turma fixa" (05-UI-SPEC.md
-// §"Aba Pessoas", item 3). As turmas entram no plano 07; até lá a lista passa `turmas: []`.
+// §"Aba Pessoas", item 3). As turmas vêm de `turmasPorCliente` (Agenda, plano 07), já em ordem.
 export function subLinhaDaPessoa(pessoa: {
   telefone: string | null;
   turmas: readonly TurmaDaSubLinha[];

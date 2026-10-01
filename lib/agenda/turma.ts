@@ -13,6 +13,10 @@ import { minutosDe } from "./horario";
 // Indexado pelo dia da semana da turma (0 = domingo).
 export const NOMES_DOS_DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"] as const;
 
+// O dia abreviado da sub-linha da lista de Pessoas: "{turma} ({dia abreviado})" (05-UI-SPEC.md §"Aba
+// Pessoas", item 3). Indexado como `NOMES_DOS_DIAS`.
+export const NOMES_CURTOS_DOS_DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"] as const;
+
 // A ordem em que o gestor escolhe o dia (herdada do protótipo): segunda → domingo.
 export const ORDEM_DOS_DIAS_NA_TELA = [1, 2, 3, 4, 5, 6, 0] as const;
 

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, gt, isNotNull, isNull, max, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, eventos, inscricoes, turmas } from "@/db/schema";
+import { clientes, eventos, inscricoes, mensalidades, turmaAlunos, turmas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
@@ -14,6 +14,7 @@ import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
+  datasDaTurmaNoMes,
   fechadosEntre,
   lerDiaParaLancar,
   pessoasParaData,
@@ -28,20 +29,25 @@ import {
   esquemaDefinirPresenca,
   esquemaDesativarTurma,
   esquemaEditarTurma,
+  esquemaEntrarNaTurma,
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaLancarTurma,
   esquemaMarcarMaisSemanas,
+  esquemaSairDaTurma,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
 } from "./esquemas";
 import {
   contarPerdasAoCancelar,
+  inscreverAlunoDaquiParaFrente,
   inscreverAlunosNasDatas,
   marcarDatasDaTurma,
   RecusaDaAgenda,
   temPerdas,
+  tirarAlunoDasDatasFuturas,
   tirarDatasFuturasDaTurma,
+  travarCliente,
   travarEvento,
   travarInscricao,
   travarInscricaoComVenda,
@@ -49,6 +55,7 @@ import {
   vendaAtivaEmDataFutura,
   type PerdasAoCancelar,
 } from "./gravacao";
+import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
 import {
@@ -58,8 +65,10 @@ import {
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_COLOCAR,
   FRASE_FALHA_AO_DESATIVAR_TURMA,
+  FRASE_FALHA_AO_ENTRAR_NA_TURMA,
   FRASE_FALHA_AO_LANCAR,
   FRASE_FALHA_AO_MARCAR_SEMANAS,
+  FRASE_FALHA_AO_SAIR_DA_TURMA,
   FRASE_FALHA_AO_SALVAR_TURMA,
   FRASE_FALHA_AO_TIRAR_BLOQUEIO,
   FRASE_FALHA_AO_TIRAR_DA_LISTA,
@@ -71,6 +80,8 @@ import {
   fraseDesativarComVendaAtiva,
   fraseInscricaoJaVirouVenda,
   fraseJaEstaNaLista,
+  fraseJaEstaNaTurma,
+  fraseJaNaoEstaNaTurma,
 } from "./textos";
 
 // Mesma forma de `lib/producao/acoes.ts` — cada módulo redeclara, não há tipo compartilhado.
@@ -829,4 +840,193 @@ export async function desativarTurma(entradaBruta: unknown): Promise<ResultadoDe
   // As datas futuras saem do site.
   revalidarTelasDaAgenda({ publico });
   return { ok: true, dados: desativada };
+}
+
+// O que "entrar na turma" decidiu sobre a mensalidade do mês da entrada (o toast diz qual):
+// - `proporcional`: entrou no meio — {restantes} de {noMes} aulas, o valor já arredondado;
+// - `cheia`: entrou antes da primeira aula do mês (ou no dia dela);
+// - `nenhuma`: não sobra aula da turma no mês — a mensalidade começa no mês seguinte (D-02);
+// - `ja-existia`: a mensalidade deste mês já tinha nascido (voltou no mesmo mês em que saiu) — a chave
+//   única não deixa nascer a segunda, e a que existia continua como estava.
+export type EntradaNaTurma = {
+  nome: string;
+  // "AAAA-MM" — o mês da entrada.
+  mes: string;
+  mensalidade:
+    | { caso: "proporcional"; valorCentavos: number; restantes: number; noMes: number }
+    | { caso: "cheia"; valorCentavos: number }
+    | { caso: "nenhuma" }
+    | { caso: "ja-existia" };
+};
+
+// Entrar na turma pela ficha (AGE-07). `exigirUsuario()` primeiro (T-05-32), Zod com só os dois ids
+// (T-05-33). NUMA transação, na ordem global de travas TURMA → CLIENTE:
+// - trava a TURMA (a mesma de "Marcar mais semanas" — Pitfall 5: entrar e estender ao mesmo tempo
+//   terminam com a pessoa em todas as datas novas) e recusa turma inexistente ou desativada;
+// - trava o CLIENTE (`for no key update`);
+// - grava o vínculo com `entrou_em = hoje`; o índice parcial `turma_alunos_ativo_uk` não deixa nascer o
+//   segundo vínculo ativo (dois toques, duas abas) — nada inserido → "{nome} já está nesta turma";
+// - inscreve a pessoa como `aluno` nas datas de hoje em diante, não canceladas;
+// - lê as datas NÃO canceladas da turma no mês e decide a mensalidade pelo módulo puro
+//   (`valorProporcional` — inteiros, meio para cima); se houver, grava com
+//   `on conflict (turma_id, cliente_id, mes) do nothing`, com o vencimento no dia da turma.
+// O valor, as datas e o vencimento são todos lidos aqui, sob a trava — nada vem da tela.
+export async function entrarNaTurma(entradaBruta: unknown): Promise<ResultadoDeAcao<EntradaNaTurma>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaEntrarNaTurma.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+  const mes = mesDaData(hoje);
+
+  let publico = false;
+  let entrada: EntradaNaTurma;
+  try {
+    entrada = await db.transaction(async (tx): Promise<EntradaNaTurma> => {
+      const turma = await travarTurma(tx, dados.turmaId);
+      if (!turma) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (!turma.ativa) {
+        throw new RecusaDaAgenda(FRASE_TURMA_JA_DESATIVADA);
+      }
+      publico = turma.publica;
+      const cliente = await travarCliente(tx, dados.clienteId);
+      if (!cliente) {
+        throw new RecusaDaAgenda(FRASE_CLIENTE_NAO_EXISTE);
+      }
+
+      const [vinculo] = await tx
+        .insert(turmaAlunos)
+        .values({ turmaId: turma.id, clienteId: cliente.id, entrouEm: hoje })
+        .onConflictDoNothing()
+        .returning({ id: turmaAlunos.id });
+      if (!vinculo) {
+        throw new RecusaDaAgenda(fraseJaEstaNaTurma(cliente.nome));
+      }
+
+      await inscreverAlunoDaquiParaFrente(tx, {
+        turmaId: turma.id,
+        clienteId: cliente.id,
+        hoje,
+        criadoPor: usuario.id,
+      });
+
+      const valor = valorProporcional({
+        valorCentavos: turma.mensalidadeCentavos,
+        datasDoMes: await datasDaTurmaNoMes(tx, turma.id, mes),
+        entrouEm: hoje,
+      });
+      if (valor.tipo === "nenhuma") {
+        return { nome: cliente.nome, mes, mensalidade: { caso: "nenhuma" } };
+      }
+      const [criada] = await tx
+        .insert(mensalidades)
+        .values({
+          turmaId: turma.id,
+          clienteId: cliente.id,
+          mes: `${mes}-01`,
+          valorCentavos: valor.valorCentavos,
+          aulasRestantes: valor.tipo === "proporcional" ? valor.restantes : null,
+          aulasNoMes: valor.tipo === "proporcional" ? valor.noMes : null,
+          vencimento: vencimentoDaMensalidade(turma.diaVencimento, mes),
+        })
+        .onConflictDoNothing({ target: [mensalidades.turmaId, mensalidades.clienteId, mensalidades.mes] })
+        .returning({ id: mensalidades.id });
+      if (!criada) {
+        return { nome: cliente.nome, mes, mensalidade: { caso: "ja-existia" } };
+      }
+      return {
+        nome: cliente.nome,
+        mes,
+        mensalidade:
+          valor.tipo === "proporcional"
+            ? {
+                caso: "proporcional",
+                valorCentavos: valor.valorCentavos,
+                restantes: valor.restantes,
+                noMes: valor.noMes,
+              }
+            : { caso: "cheia", valorCentavos: valor.valorCentavos },
+      };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      // A tela estava velha (já na turma, turma desativada): ela se atualiza junto com a frase.
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao entrar na turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_ENTRAR_NA_TURMA };
+  }
+
+  // As vagas da turma no site mudam (D-12, plano 15).
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: entrada };
+}
+
+export type SaidaDaTurma = { nome: string; aulasTiradas: number };
+
+// Sair da turma pela ficha (AGE-07), depois da confirmação. `exigirUsuario()` primeiro. Sob as travas
+// TURMA → CLIENTE: grava `saiu_em = hoje` no vínculo ativo (NUNCA apaga o vínculo — `revoke delete`)
+// e tira a pessoa só das inscrições `aluno` sem presença nas datas depois de hoje
+// (`tirarAlunoDasDatasFuturas`). O passado, a aula de hoje, as reposições marcadas e a mensalidade já
+// nascida ficam. Vínculo ativo inexistente → "{nome} já não está nesta turma". Turma desativada não
+// recusa: sair dela não tira nada que não devesse.
+export async function sairDaTurma(entradaBruta: unknown): Promise<ResultadoDeAcao<SaidaDaTurma>> {
+  await exigirUsuario();
+
+  const resultado = esquemaSairDaTurma.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let publico = false;
+  let saida: SaidaDaTurma;
+  try {
+    saida = await db.transaction(async (tx): Promise<SaidaDaTurma> => {
+      const turma = await travarTurma(tx, dados.turmaId);
+      if (!turma) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      publico = turma.publica;
+      const cliente = await travarCliente(tx, dados.clienteId);
+      if (!cliente) {
+        throw new RecusaDaAgenda(FRASE_CLIENTE_NAO_EXISTE);
+      }
+      const saiu = await tx
+        .update(turmaAlunos)
+        .set({ saiuEm: hoje })
+        .where(
+          and(eq(turmaAlunos.turmaId, turma.id), eq(turmaAlunos.clienteId, cliente.id), isNull(turmaAlunos.saiuEm)),
+        )
+        .returning({ id: turmaAlunos.id });
+      if (saiu.length === 0) {
+        throw new RecusaDaAgenda(fraseJaNaoEstaNaTurma(cliente.nome));
+      }
+      const aulasTiradas = await tirarAlunoDasDatasFuturas(tx, { turmaId: turma.id, clienteId: cliente.id, hoje });
+      return { nome: cliente.nome, aulasTiradas };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao sair da turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_SAIR_DA_TURMA };
+  }
+
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: saida };
 }

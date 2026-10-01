@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
-import { pessoaDaUrl } from "@/lib/agenda/abas";
+import { pessoaDaUrl, turmaDaUrl } from "@/lib/agenda/abas";
 import {
   DICA_PESSOAS,
   FRASE_LANCAMENTO_NAO_EXISTE,
@@ -17,7 +17,7 @@ import {
   ariaAbrirFicha,
 } from "@/lib/agenda/textos";
 import type { ClienteDaLista } from "@/lib/clientes/consultas";
-import { QUANTOS_POR_VEZ, subLinhaDaPessoa } from "@/lib/clientes/lista";
+import { QUANTOS_POR_VEZ, subLinhaDaPessoa, type TurmaDaSubLinha } from "@/lib/clientes/lista";
 import {
   ARIA_BUSCAR_PESSOA,
   FRASE_NINGUEM_COM_ESSE_NOME,
@@ -35,6 +35,8 @@ import { FormularioCliente, type ClienteSalvo } from "@/components/amassa/client
 import { useBuscaNaUrl } from "@/components/amassa/clientes/usar-busca-na-url";
 
 import { FichaPessoa, type ConteudoDaFicha } from "./ficha-pessoa";
+import { FolhaTurma } from "./folha-turma";
+import type { TurmaDoServidor } from "./semana-da-agenda";
 
 // A ficha de `?pessoa=`, como o servidor a leu.
 export type FichaDoServidor =
@@ -49,6 +51,12 @@ export type ListaPessoasProps = {
   busca: string;
   quantos: number;
   ficha: FichaDoServidor;
+  // As turmas ativas de cada pessoa da lista, para a sub-linha (quem não tem turma não aparece).
+  turmasPorPessoa: Record<string, TurmaDaSubLinha[]>;
+  // A turma de `?turma=` ("ver turma" na ficha), como o servidor a leu.
+  turmaAberta: TurmaDoServidor;
+  // O "hoje" de Brasília, decidido no servidor (a folha da turma o usa).
+  hoje: string;
 };
 
 type Formulario = { tipo: "novo"; nomeInicial?: string } | { tipo: "editar"; pessoa: ClienteDaLista };
@@ -59,12 +67,23 @@ type Formulario = { tipo: "novo"; nomeInicial?: string } | { tipo: "editar"; pes
 // abre o formulário de pessoa; salvar abre a ficha dela. "Abrir" abre a ficha por `?pessoa={id}`
 // (UI-D8: o voltar do Android a fecha) NA HORA, com o cabeçalho que a linha já conhece, e a pede ao
 // servidor — o resto chega quando ele responde. Um diálogo por vez: "Editar" na ficha troca a ficha
-// pelo formulário, e "Voltar" devolve à ficha.
-export function ListaPessoas({ pessoas, haMais, busca, quantos, ficha }: ListaPessoasProps) {
+// pelo formulário, e "Voltar" devolve à ficha; "ver turma" troca a ficha pela folha da turma
+// (`?turma=`, no lugar — UI-SPEC §"Folha da turma"), e fechar a folha devolve à ficha.
+export function ListaPessoas({
+  pessoas,
+  haMais,
+  busca,
+  quantos,
+  ficha,
+  turmasPorPessoa,
+  turmaAberta,
+  hoje,
+}: ListaPessoasProps) {
   const router = useRouter();
   const caminho = usePathname();
   const parametros = useSearchParams();
   const idNaUrl = pessoaDaUrl(parametros.get("pessoa") ?? undefined);
+  const idDaTurmaNaUrl = turmaDaUrl(parametros.get("turma") ?? undefined);
 
   const [aberta, setAberta] = useState<string | null>(idNaUrl);
   const [tocada, setTocada] = useState<ClienteDaLista | null>(null);
@@ -74,6 +93,14 @@ export function ListaPessoas({ pessoas, haMais, busca, quantos, ficha }: ListaPe
   useEffect(() => {
     setAberta(idNaUrl);
   }, [idNaUrl]);
+
+  // A folha da turma aberta pela ficha ("ver turma"): muda NA HORA do toque, com o nome tocado no
+  // cabeçalho enquanto o servidor lê o resto, e segue a URL depois.
+  const [turmaAbertaId, setTurmaAbertaId] = useState<string | null>(idDaTurmaNaUrl);
+  const [turmaTocada, setTurmaTocada] = useState<{ id: string; nome: string } | null>(null);
+  useEffect(() => {
+    setTurmaAbertaId(idDaTurmaNaUrl);
+  }, [idDaTurmaNaUrl]);
 
   function urlCom(mudancas: Record<string, string | null>): string {
     const novos = new URLSearchParams(parametros.toString());
@@ -114,8 +141,45 @@ export function ListaPessoas({ pessoas, haMais, busca, quantos, ficha }: ListaPe
   function fechar() {
     setAberta(null);
     setTocada(null);
-    router.push(urlCom({ pessoa: null }), { scroll: false });
+    router.push(urlCom({ pessoa: null, turma: null }), { scroll: false });
   }
+
+  function abrirTurma(turmaId: string, nome: string) {
+    setTurmaTocada({ id: turmaId, nome });
+    setTurmaAbertaId(turmaId);
+    router.push(urlCom({ turma: turmaId }), { scroll: false });
+  }
+
+  // Fechar a folha da turma (o "Voltar" ou o fechar) devolve à ficha de onde ela veio.
+  function voltarAFicha() {
+    setTurmaTocada(null);
+    setTurmaAbertaId(null);
+    router.push(urlCom({ turma: null }), { scroll: false });
+  }
+
+  // `?turma=` com um id que não existe (link velho): o toast, uma vez, e o parâmetro sai da URL.
+  const turmaAvisada = useRef<string | null>(null);
+  useEffect(() => {
+    if (turmaAberta.estado === "inexistente" && turmaAvisada.current !== turmaAberta.id) {
+      turmaAvisada.current = turmaAberta.id;
+      toast(FRASE_LANCAMENTO_NAO_EXISTE);
+      router.replace(urlCom({ turma: null }), { scroll: false });
+    }
+    // `urlCom` lê os parâmetros atuais; o efeito só depende da turma lida.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turmaAberta]);
+
+  const turmaCarregada =
+    turmaAberta.estado === "carregada" && turmaAberta.turma.id === turmaAbertaId ? turmaAberta.turma : null;
+  const erroDaTurma = turmaAberta.estado === "erro" && turmaAberta.id === turmaAbertaId;
+  const cabecalhoDaTurma =
+    turmaCarregada !== null
+      ? { id: turmaCarregada.id, nome: turmaCarregada.nome }
+      : turmaTocada !== null && turmaTocada.id === turmaAbertaId
+        ? turmaTocada
+        : erroDaTurma && turmaAbertaId !== null
+          ? { id: turmaAbertaId, nome: "" }
+          : null;
 
   function aoSalvar(salvo: ClienteSalvo) {
     setFormulario(null);
@@ -154,6 +218,15 @@ export function ListaPessoas({ pessoas, haMais, busca, quantos, ficha }: ListaPe
           abrir(homonimo);
         }}
       />
+    ) : turmaAbertaId !== null && cabecalhoDaTurma !== null ? (
+      <FolhaTurma
+        cabecalho={cabecalhoDaTurma}
+        carregada={turmaCarregada}
+        erroAoCarregar={erroDaTurma}
+        hoje={hoje}
+        aoVoltarAData={null}
+        aoFechar={voltarAFicha}
+      />
     ) : fichaVisivel ? (
       <FichaPessoa
         pessoa={cabecalho}
@@ -162,6 +235,7 @@ export function ListaPessoas({ pessoas, haMais, busca, quantos, ficha }: ListaPe
         aoFechar={fechar}
         aoEditar={(pessoa) => setFormulario({ tipo: "editar", pessoa })}
         aoTentarDeNovo={() => router.refresh()}
+        aoAbrirTurma={abrirTurma}
       />
     ) : null;
 
@@ -249,7 +323,7 @@ export function ListaPessoas({ pessoas, haMais, busca, quantos, ficha }: ListaPe
                 {ROTULO_ABRIR}
               </Button>
               <span className="text-apoio text-tinta-fraca min-w-0 break-words" data-testid="pessoa-sub-linha">
-                {subLinhaDaPessoa({ telefone: pessoa.telefone, turmas: [] })}
+                {subLinhaDaPessoa({ telefone: pessoa.telefone, turmas: turmasPorPessoa[pessoa.id] ?? [] })}
               </span>
             </li>
           ))}

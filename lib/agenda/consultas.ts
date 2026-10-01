@@ -4,11 +4,13 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, max, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, max, notExists, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, itensCatalogo, turmaAlunos, turmas } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes, itensCatalogo, mensalidades, turmaAlunos, turmas } from "@/db/schema";
+import type { TurmaDaSubLinha } from "@/lib/clientes/lista";
 import { listarClientes } from "@/lib/clientes/consultas";
+import { ultimoDiaDoMes } from "@/lib/financeiro/calendario";
 import { somarDias } from "@/lib/producao/calendario";
 
 import {
@@ -16,6 +18,7 @@ import {
   contarPerdasAoDesativar,
   type PerdasAoCancelar,
   type PerdasAoDesativar,
+  type TransacaoDoBanco,
   type VendaDaInscricao,
 } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
@@ -24,7 +27,7 @@ import { gradeDoMes } from "./semana";
 import { gruposDoSeletor, LIMITE_DO_SELETOR, type GrupoDoSeletor } from "./seletor";
 import { FRASE_ITENS_DA_AGENDA_SUMIRAM, rotuloDoGrupoDoSeletor } from "./textos";
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
-import type { FechadoDoDia } from "./turma";
+import { NOMES_CURTOS_DOS_DIAS, ORDEM_DOS_DIAS_NA_TELA, type FechadoDoDia } from "./turma";
 
 function hhmm(hora: string | null): string | null {
   return hora === null ? null : horaDe(minutosDe(hora));
@@ -480,4 +483,154 @@ export async function obterTurma(id: string, hoje: string): Promise<TurmaCarrega
     alunos: [...alunos].sort((a, b) => ORDEM_DOS_NOMES.compare(a.nome, b.nome)),
     perdasAoDesativar: perdas,
   };
+}
+
+type LeitorDeConsulta = Pick<typeof db, "select"> | Pick<TransacaoDoBanco, "select">;
+
+// As datas NÃO canceladas da turma no mês `mes` ("AAAA-MM"), em ordem — o que o proporcional da
+// entrada divide (AGE-07, Assumption A7). Chamada pela ação "entrar na turma" DENTRO da transação,
+// sob a trava da turma (o leitor é a transação); o plano 08 a usa para o valor da aula (D-07).
+export async function datasDaTurmaNoMes(leitor: LeitorDeConsulta, turmaId: string, mes: string): Promise<string[]> {
+  const linhas = await (leitor as Pick<TransacaoDoBanco, "select">)
+    .select({ data: eventos.data })
+    .from(eventos)
+    .where(
+      and(
+        eq(eventos.turmaId, turmaId),
+        isNull(eventos.canceladoEm),
+        gte(eventos.data, `${mes}-01`),
+        lte(eventos.data, `${mes}-${String(ultimoDiaDoMes(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)))).padStart(2, "0")}`),
+      ),
+    )
+    .orderBy(asc(eventos.data));
+  return linhas.map((linha) => linha.data);
+}
+
+// Uma turma ATIVA na ficha da pessoa ("Turmas fixas" — 05-UI-SPEC.md §"Ficha da pessoa — linhas de
+// leitura"), com o que a caixa e a confirmação de sair precisam saber desta pessoa.
+export type TurmaDaPessoa = {
+  id: string;
+  nome: string;
+  diaSemana: number;
+  inicio: string;
+  mensalidadeCentavos: number;
+  diaVencimento: number;
+  // A pessoa é aluna ativa desta turma (`turma_alunos` sem `saiu_em`): a caixa vem marcada.
+  marcada: boolean;
+  // As aulas de que ela sai se sair hoje: inscrições `aluno` sem presença em datas NÃO canceladas
+  // depois de hoje.
+  aulasFuturas: number;
+  // A mensalidade do mês corrente desta turma existe e continua em "A receber" (sem dispensa e sem
+  // venda ativa) — a confirmação de sair só fala dela nesse caso.
+  mensalidadeDoMesAReceber: boolean;
+};
+
+function ordemDoDiaNaTela(dia: number): number {
+  return (ORDEM_DOS_DIAS_NA_TELA as readonly number[]).indexOf(dia);
+}
+
+// Segunda → domingo, depois o horário, depois o nome.
+function compararTurmas(
+  a: { diaSemana: number; inicio: string; nome: string },
+  b: { diaSemana: number; inicio: string; nome: string },
+): number {
+  return (
+    ordemDoDiaNaTela(a.diaSemana) - ordemDoDiaNaTela(b.diaSemana) ||
+    (a.inicio < b.inicio ? -1 : a.inicio > b.inicio ? 1 : 0) ||
+    ORDEM_DOS_NOMES.compare(a.nome, b.nome)
+  );
+}
+
+// Todas as turmas ATIVAS do sistema (turma desativada não aparece — UI E13·partial), com a caixa de
+// cada uma marcada quando a pessoa é aluna dela.
+export async function turmasDaPessoa(clienteId: string, hoje: string): Promise<TurmaDaPessoa[]> {
+  const mes = `${hoje.slice(0, 7)}-01`;
+  const [ativas, vinculos, futuras, aReceber] = await Promise.all([
+    db
+      .select({
+        id: turmas.id,
+        nome: turmas.nome,
+        diaSemana: turmas.diaSemana,
+        inicio: turmas.inicio,
+        mensalidadeCentavos: turmas.mensalidadeCentavos,
+        diaVencimento: turmas.diaVencimento,
+      })
+      .from(turmas)
+      .where(eq(turmas.ativa, true)),
+    db
+      .select({ turmaId: turmaAlunos.turmaId })
+      .from(turmaAlunos)
+      .where(and(eq(turmaAlunos.clienteId, clienteId), isNull(turmaAlunos.saiuEm))),
+    db
+      .select({ turmaId: eventos.turmaId, total: count() })
+      .from(inscricoes)
+      .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+      .where(
+        and(
+          eq(inscricoes.clienteId, clienteId),
+          eq(inscricoes.tipo, "aluno"),
+          isNull(inscricoes.presenca),
+          gt(eventos.data, hoje),
+          isNull(eventos.canceladoEm),
+        ),
+      )
+      .groupBy(eventos.turmaId),
+    db
+      .select({ turmaId: mensalidades.turmaId })
+      .from(mensalidades)
+      .leftJoin(documentos, eq(documentos.id, mensalidades.documentoId))
+      .where(
+        and(
+          eq(mensalidades.clienteId, clienteId),
+          eq(mensalidades.mes, mes),
+          isNull(mensalidades.dispensadaEm),
+          or(isNull(mensalidades.documentoId), isNotNull(documentos.canceladoEm)),
+        ),
+      ),
+  ]);
+
+  const marcadas = new Set(vinculos.map((linha) => linha.turmaId));
+  const aulasPorTurma = new Map(futuras.map((linha) => [linha.turmaId, Number(linha.total)] as const));
+  const comMensalidade = new Set(aReceber.map((linha) => linha.turmaId));
+
+  return ativas
+    .map((turma) => ({
+      ...turma,
+      inicio: hhmm(turma.inicio) ?? turma.inicio,
+      marcada: marcadas.has(turma.id),
+      aulasFuturas: aulasPorTurma.get(turma.id) ?? 0,
+      mensalidadeDoMesAReceber: comMensalidade.has(turma.id),
+    }))
+    .sort(compararTurmas);
+}
+
+// As turmas ATIVAS de cada pessoa da lista, para a sub-linha "{turma} ({dia abreviado})" (05-UI-SPEC.md
+// §"Aba Pessoas"; `subLinhaDaPessoa`). Uma consulta só para a página inteira; quem não tem turma não
+// aparece no objeto.
+export async function turmasPorCliente(clienteIds: readonly string[]): Promise<Record<string, TurmaDaSubLinha[]>> {
+  if (clienteIds.length === 0) {
+    return {};
+  }
+  const linhas = await db
+    .select({
+      clienteId: turmaAlunos.clienteId,
+      nome: turmas.nome,
+      diaSemana: turmas.diaSemana,
+      inicio: turmas.inicio,
+    })
+    .from(turmaAlunos)
+    .innerJoin(turmas, eq(turmas.id, turmaAlunos.turmaId))
+    .where(and(inArray(turmaAlunos.clienteId, [...clienteIds]), isNull(turmaAlunos.saiuEm), eq(turmas.ativa, true)));
+
+  const porCliente: Record<string, { nome: string; diaSemana: number; inicio: string }[]> = {};
+  for (const linha of linhas) {
+    (porCliente[linha.clienteId] ??= []).push(linha);
+  }
+  const resultado: Record<string, TurmaDaSubLinha[]> = {};
+  for (const [clienteId, turmasDoCliente] of Object.entries(porCliente)) {
+    resultado[clienteId] = [...turmasDoCliente]
+      .sort(compararTurmas)
+      .map((turma) => ({ nome: turma.nome, dia: NOMES_CURTOS_DOS_DIAS[turma.diaSemana] }));
+  }
+  return resultado;
 }

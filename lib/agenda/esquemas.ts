@@ -14,6 +14,8 @@ import {
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_DESATIVAR_TURMA,
+  FRASE_FALHA_AO_ENTRAR_NA_TURMA,
+  FRASE_FALHA_AO_SAIR_DA_TURMA,
   FRASE_FALHA_AO_MARCAR_SEMANAS,
   FRASE_FALHA_AO_SALVAR_TURMA,
   FRASE_FALHA_AO_CANCELAR,
@@ -262,3 +264,19 @@ export type MarcarMaisSemanasValidado = z.infer<typeof esquemaMarcarMaisSemanas>
 export const esquemaDesativarTurma = z.object({
   turmaId: z.uuid({ error: FRASE_FALHA_AO_DESATIVAR_TURMA }),
 });
+
+// Entrar e sair da turma pela ficha (AGE-07): só os dois ids (T-05-33) — o valor, as datas e o
+// vencimento são lidos sob a trava da turma e calculados no servidor pelo módulo puro.
+export const esquemaEntrarNaTurma = z.object({
+  turmaId: z.uuid({ error: FRASE_FALHA_AO_ENTRAR_NA_TURMA }),
+  clienteId: z.uuid({ error: FRASE_FALHA_AO_ENTRAR_NA_TURMA }),
+});
+
+export type EntrarNaTurmaValidado = z.infer<typeof esquemaEntrarNaTurma>;
+
+export const esquemaSairDaTurma = z.object({
+  turmaId: z.uuid({ error: FRASE_FALHA_AO_SAIR_DA_TURMA }),
+  clienteId: z.uuid({ error: FRASE_FALHA_AO_SAIR_DA_TURMA }),
+});
+
+export type SairDaTurmaValidado = z.infer<typeof esquemaSairDaTurma>;
