@@ -54,6 +54,8 @@ import {
   FRASE_VENCIMENTO,
   FRASE_FALHA_AO_LANCAR_LOTE,
   FRASE_FALHA_AO_RECEBER,
+  FRASE_FALHA_AO_DISPENSAR,
+  FRASE_MOTIVO_DISPENSA_LONGO,
 } from "./textos";
 
 // "Veio" / "Faltou" / desmarcar: o id da inscrição e o estado DESEJADO (Pattern 2) — nunca
@@ -481,3 +483,26 @@ export const esquemaLoteDeMensalidades = z.object(
   },
   { error: FRASE_FALHA_AO_LANCAR_LOTE },
 );
+
+// Dispensar uma cobrança (plano 13 — D-09, T-05-62..65): do navegador chegam o tipo e o id da cobrança, o
+// estado DESEJADO (`dispensada` — dois toques convergem; desfazer é `false`) e o motivo opcional. O
+// motivo é aparado; vazio vira ausente; até 200 caracteres (o check `*_motivo_so_com_dispensa` da 0026
+// conta em pontos de código, e o `.max` do Zod em unidades UTF-16 — o Zod nunca deixa passar mais). O
+// uso livre não se dispensa (o enum não o aceita). Entrada forjada recebe a frase de falha.
+export const LIMITE_DO_MOTIVO_DA_DISPENSA = 200;
+export const esquemaDefinirDispensa = z.object(
+  {
+    tipo: z.enum(["mensalidade", "inscricao"], { error: FRASE_FALHA_AO_DISPENSAR }),
+    id: z.uuid({ error: FRASE_FALHA_AO_DISPENSAR }),
+    dispensada: z.boolean({ error: FRASE_FALHA_AO_DISPENSAR }),
+    motivo: z
+      .string({ error: FRASE_FALHA_AO_DISPENSAR })
+      .trim()
+      .max(LIMITE_DO_MOTIVO_DA_DISPENSA, { error: FRASE_MOTIVO_DISPENSA_LONGO })
+      .optional()
+      .transform((motivo) => (motivo === undefined || motivo === "" ? null : motivo)),
+  },
+  { error: FRASE_FALHA_AO_DISPENSAR },
+);
+
+export type DefinirDispensaValidado = z.infer<typeof esquemaDefinirDispensa>;

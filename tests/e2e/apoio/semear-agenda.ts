@@ -1055,3 +1055,40 @@ export async function dispensarMensalidadeNoBanco(mensalidadeId: string): Promis
     ]);
   });
 }
+
+// ── Dispensar (plano 13 — D-09) ─────────────────────────────────────────────────────────────────────────
+
+// O nome do gestor de teste — o “{quem}” de “dispensada por {quem} em {dd/mm}”.
+export async function nomeDoGestorDeTeste(): Promise<string> {
+  return comCliente(async (cliente) => {
+    const id = await idDoGestorDeTeste(cliente, "nomeDoGestorDeTeste");
+    const { rows } = await cliente.query<{ nome: string }>("select nome from usuarios where id = $1", [id]);
+    return rows[0]?.nome ?? "";
+  });
+}
+
+export type DispensaNoBanco = {
+  // A linha da cobrança continua lá (D-09: dispensar nunca apaga).
+  existe: boolean;
+  dispensada: boolean;
+  dispensadaPorNome: string | null;
+  motivo: string | null;
+};
+
+// O carimbo da dispensa de uma mensalidade ou inscrição, como está no banco.
+export async function dispensaNoBanco(tipo: "mensalidade" | "inscricao", id: string): Promise<DispensaNoBanco> {
+  const tabela = tipo === "mensalidade" ? "mensalidades" : "inscricoes";
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ dispensada: boolean; nome: string | null; motivo: string | null }>(
+      `select c.dispensada_em is not null as dispensada, u.nome, c.motivo_dispensa as motivo
+         from ${tabela} c left join usuarios u on u.id = c.dispensada_por
+        where c.id = $1`,
+      [id],
+    );
+    const linha = rows[0];
+    if (!linha) {
+      return { existe: false, dispensada: false, dispensadaPorNome: null, motivo: null };
+    }
+    return { existe: true, dispensada: linha.dispensada, dispensadaPorNome: linha.nome, motivo: linha.motivo };
+  });
+}

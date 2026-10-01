@@ -3,10 +3,16 @@
 import Link from "next/link";
 
 import type { LinhaAReceber as DadosDaLinha } from "@/lib/agenda/consultas";
-import { ROTULO_LANCAR_NA_VENDA, ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
+import {
+  ROTULO_LANCAR_NA_VENDA,
+  ROTULO_RECEBI_AGORA,
+  tagVendaCancelada,
+} from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { hrefDaVendaComOrigem } from "@/lib/financeiro/navegacao";
 import { Button } from "@/components/ui/button";
+
+import { ConfirmarDispensar } from "./confirmar-dispensar";
 
 export type LinhaAReceberProps = {
   linha: DadosDaLinha;
@@ -18,8 +24,9 @@ export type LinhaAReceberProps = {
 // tags (Apoio) na coluna inteira, quebrando sem empurrar o valor; e a fileira de ações (`flex-wrap`, gap
 // 8px) com “Recebi agora” e “Lançar na Venda” (`outline`, 44px — UI-D3: o terracota da tela é só o lote).
 // “Lançar na Venda” (plano 12) abre a Venda do Financeiro preenchida — só leva `{ tipo, id }` na URL; o
-// servidor resolve o resto. “Dispensar a cobrança” entra no 13. A 320px os botões da direita descem um
-// embaixo do outro (largura total), nunca rolam de lado.
+// servidor resolve o resto. “Dispensar a cobrança” (plano 13 — D-09) fica à ESQUERDA da fileira, só na
+// mensalidade e na inscrição livres (`podeDispensar`). A 320px os botões da direita descem um embaixo do
+// outro (largura total), nunca rolam de lado.
 export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
   return (
     <li
@@ -29,10 +36,16 @@ export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
       data-situacao={linha.situacao}
       className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 py-2"
     >
-      <span data-testid="a-receber-nome" className="text-corpo text-tinta min-w-0 font-semibold [overflow-wrap:anywhere]">
+      <span
+        data-testid="a-receber-nome"
+        className="text-corpo text-tinta min-w-0 font-semibold [overflow-wrap:anywhere]"
+      >
         {linha.nome}
       </span>
-      <span data-testid="a-receber-valor" className="text-corpo text-tinta font-semibold whitespace-nowrap tabular-nums">
+      <span
+        data-testid="a-receber-valor"
+        className="text-corpo text-tinta font-semibold whitespace-nowrap tabular-nums"
+      >
         {formatarReais(linha.valorCentavos)}
       </span>
       <div className="text-apoio text-tinta-media col-span-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -48,25 +61,38 @@ export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
           </span>
         ) : null}
       </div>
-      <div className="col-span-2 flex flex-wrap justify-end gap-2 pt-1">
-        <Button
-          type="button"
-          variant="outline"
-          data-testid="recebi-agora"
-          onClick={() => aoReceberAgora(linha)}
-          className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
-        >
-          {ROTULO_RECEBI_AGORA}
-        </Button>
-        <Button
-          asChild
-          variant="outline"
-          className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
-        >
-          <Link data-testid="lancar-na-venda" href={hrefDaVendaComOrigem({ tipo: linha.tipo, id: linha.id })}>
-            {ROTULO_LANCAR_NA_VENDA}
-          </Link>
-        </Button>
+      <div className="col-span-2 flex flex-wrap items-center gap-2 pt-1">
+        {linha.podeDispensar && linha.tipo !== "uso_livre" ? (
+          <ConfirmarDispensar
+            tipo={linha.tipo}
+            id={linha.id}
+            nome={linha.nome}
+            descricao={linha.descricao}
+          />
+        ) : null}
+        <div className="ml-auto flex flex-wrap justify-end gap-2 max-[359px]:w-full">
+          <Button
+            type="button"
+            variant="outline"
+            data-testid="recebi-agora"
+            onClick={() => aoReceberAgora(linha)}
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+          >
+            {ROTULO_RECEBI_AGORA}
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+          >
+            <Link
+              data-testid="lancar-na-venda"
+              href={hrefDaVendaComOrigem({ tipo: linha.tipo, id: linha.id })}
+            >
+              {ROTULO_LANCAR_NA_VENDA}
+            </Link>
+          </Button>
+        </div>
       </div>
     </li>
   );

@@ -16,6 +16,7 @@ import { formatarReais } from "@/lib/financeiro/formato";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 
+import { Dispensadas } from "./dispensadas";
 import { FolhaRecebiAgora } from "./folha-recebi-agora";
 import { LinhaAReceber } from "./linha-a-receber";
 import { LoteDeMensalidades } from "./lote-de-mensalidades";
@@ -28,7 +29,8 @@ export type AReceberProps = {
 // o cabeçalho “A receber pela agenda” e o total à direita (Corpo 600), as linhas em ordem de vencimento
 // (a ordem vem do módulo puro, `itensAReceber`), o vazio “Ninguém devendo.” com o total “R$ 0,00”, e a
 // dica do fim. Logo abaixo do cabeçalho, a sanfona do lote de mensalidades (plano 12 — só com mensalidade
-// livre); “Dispensadas” é do 13. A folha “Recebi agora” é uma só, aberta pela linha tocada.
+// livre); no fim, a sanfona “Dispensadas ({N})” (plano 13 — D-09, UI-D15), antes da dica. A folha
+// “Recebi agora” é uma só, aberta pela linha tocada.
 export function AReceber({ dados }: AReceberProps) {
   const [aberta, setAberta] = useState<DadosDaLinha | null>(null);
 
@@ -55,6 +57,8 @@ export function AReceber({ dados }: AReceberProps) {
           ))}
         </ul>
       )}
+
+      <Dispensadas dados={dados.dispensadas} quantas={dados.quantasDispensadas} />
 
       <p className="text-apoio text-tinta-fraca">{DICA_FIM_A_RECEBER}</p>
 

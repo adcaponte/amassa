@@ -7,14 +7,26 @@ import {
   descricaoDaLinha,
   itensAReceber,
   linhasDaVenda,
+  DISPENSADAS_POR_VEZ,
   loteDeMensalidades,
+  ordenarDispensadas,
+  podeDispensar,
+  quantasDispensadasDaUrl,
   situacaoDaCobranca,
   subLinhaDaCobranca,
   totalAReceber,
   type CobrancaDaAgenda,
   type ItensDoSistema,
 } from "@/lib/agenda/receber";
-import { fraseCorridaDoLote, linhaDoLote, resumoDoLote, rotuloDoBotaoDoLote, toastDoLote } from "@/lib/agenda/textos";
+import {
+  fraseCorridaDoLote,
+  linhaDoLote,
+  resumoDoLote,
+  rotuloDoBotaoDoLote,
+  subLinhaDispensada,
+  tituloConfirmarDispensar,
+  toastDoLote,
+} from "@/lib/agenda/textos";
 
 // AGE-15 (§5): a Agenda não guarda dinheiro. “Pago” é DERIVADO do Financeiro (a venda ligada e as
 // parcelas dela), nunca uma coluna; “A receber” é o que ainda não virou venda ativa.
@@ -394,5 +406,84 @@ describe("rótulos do lote — singular de verdade com uma (E16 zero-one-many)",
   it("a linha da lista, com “ (proporcional)” no fim", () => {
     expect(linhaDoLote("Ana", "Torno", "outubro", "R$ 106,67", true)).toBe("Ana · Torno · outubro · R$ 106,67 (proporcional)");
     expect(linhaDoLote("Ana", "Torno", "outubro", "R$ 320,00", false)).toBe("Ana · Torno · outubro · R$ 320,00");
+  });
+});
+
+describe("podeDispensar — só mensalidade e inscrição livres (D-09)", () => {
+  it("mensalidade e inscrição a receber podem ser dispensadas", () => {
+    expect(podeDispensar({ tipo: "mensalidade", situacao: "a_receber" })).toBe(true);
+    expect(podeDispensar({ tipo: "inscricao", situacao: "a_receber" })).toBe(true);
+  });
+
+  it("com a venda cancelada no Caixa também (D-08: volta a ser livre)", () => {
+    expect(podeDispensar({ tipo: "mensalidade", situacao: "venda_cancelada" })).toBe(true);
+    expect(podeDispensar({ tipo: "inscricao", situacao: "venda_cancelada" })).toBe(true);
+  });
+
+  it("o uso livre nunca, nem a receber", () => {
+    expect(podeDispensar({ tipo: "uso_livre", situacao: "a_receber" })).toBe(false);
+    expect(podeDispensar({ tipo: "uso_livre", situacao: "venda_cancelada" })).toBe(false);
+  });
+
+  it("o que virou venda ativa (lançado ou pago) ou já foi dispensado, não", () => {
+    for (const situacao of ["lancado", "pago", "dispensada"] as const) {
+      expect(podeDispensar({ tipo: "mensalidade", situacao })).toBe(false);
+      expect(podeDispensar({ tipo: "inscricao", situacao })).toBe(false);
+    }
+  });
+
+  it("a mensalidade dispensada sai de “A receber”, do total e do lote", () => {
+    const dispensada = mensalidade({ id: "m-d", dispensadaEm: "2026-10-02T12:00:00.000Z" });
+    const livre = mensalidade({ id: "m-l" });
+    const itens = itensAReceber([dispensada, livre]);
+    expect(itens.map((item) => item.id)).toEqual(["m-l"]);
+    expect(totalAReceber(itens)).toBe(32000);
+    expect(loteDeMensalidades([dispensada, livre]).linhas.map((linha) => linha.id)).toEqual(["m-l"]);
+  });
+});
+
+describe("ordenarDispensadas — as mais recentes primeiro (UI-D15)", () => {
+  it("ordena pelo instante da dispensa, do mais novo ao mais velho", () => {
+    const lista = [
+      { id: "a", dispensadaEm: "2026-10-01T10:00:00.000Z" },
+      { id: "b", dispensadaEm: "2026-10-03T10:00:00.000Z" },
+      { id: "c", dispensadaEm: "2026-10-02T10:00:00.000Z" },
+    ];
+    expect(ordenarDispensadas(lista).map((item) => item.id)).toEqual(["b", "c", "a"]);
+  });
+
+  it("no mesmo instante, desempata pelo id; não muda a lista recebida", () => {
+    const lista = [
+      { id: "z", dispensadaEm: "2026-10-01T10:00:00.000Z" },
+      { id: "k", dispensadaEm: "2026-10-01T10:00:00.000Z" },
+    ];
+    expect(ordenarDispensadas(lista).map((item) => item.id)).toEqual(["k", "z"]);
+    expect(lista.map((item) => item.id)).toEqual(["z", "k"]);
+  });
+});
+
+describe("quantasDispensadasDaUrl — 20 por vez", () => {
+  it("sem parâmetro, ou estranho, mostra 20", () => {
+    for (const valor of [undefined, null, "", "abc", "15", "25", "-20", "20.0", ["40"]] as const) {
+      expect(quantasDispensadasDaUrl(valor)).toBe(DISPENSADAS_POR_VEZ);
+    }
+  });
+
+  it("múltiplos de 20 valem, com teto de 500", () => {
+    expect(quantasDispensadasDaUrl("40")).toBe(40);
+    expect(quantasDispensadasDaUrl("500")).toBe(500);
+    expect(quantasDispensadasDaUrl("9000")).toBe(500);
+  });
+});
+
+describe("frases da dispensa (UI-SPEC §Confirmações, “Dispensadas — linha”)", () => {
+  it("o título diz o que é dispensado", () => {
+    expect(tituloConfirmarDispensar("mensalidade", "Marina")).toBe("Dispensar a mensalidade de Marina?");
+    expect(tituloConfirmarDispensar("inscricao", "Caio")).toBe("Dispensar a inscrição de Caio?");
+  });
+
+  it("a sub-linha termina na data sem motivo, e leva o motivo quando há", () => {
+    expect(subLinhaDispensada("Theo", "02/10", null)).toBe("dispensada por Theo em 02/10");
+    expect(subLinhaDispensada("Theo", "02/10", "bolsa")).toBe("dispensada por Theo em 02/10 · bolsa");
   });
 });

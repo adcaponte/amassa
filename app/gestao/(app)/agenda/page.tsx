@@ -32,6 +32,7 @@ import {
 } from "@/lib/agenda/consultas";
 import { garantirMensalidadesDoMes } from "@/lib/agenda/gravacao";
 import { mesDaData } from "@/lib/agenda/mensalidade";
+import { quantasDispensadasDaUrl } from "@/lib/agenda/receber";
 import {
   agruparPorDia,
   gradeDoMes,
@@ -93,6 +94,7 @@ type ParametrosDaAgenda = {
   dia?: string | string[];
   aviso?: string | string[];
   documento?: string | string[];
+  dispensadas?: string | string[];
 };
 
 function urlDaAgenda(consulta: string): string {
@@ -139,7 +141,7 @@ export default async function PaginaAgenda({
           // "A receber" (AGE-15) espera o banco atrás do esqueleto DELA (cabeçalho + sanfona + 4 linhas).
           <>
             <Suspense fallback={<EsqueletoDoAReceber />}>
-              <AReceberCarregado hoje={hoje} />
+              <AReceberCarregado hoje={hoje} quantasDispensadas={quantasDispensadasDaUrl(parametros.dispensadas)} />
             </Suspense>
             {/* A volta da Venda aberta pela Agenda (plano 12, UI-D26): o toast uma vez. */}
             {parametros.aviso === "lancado" && idDaUrl(parametros.documento) !== null ? (
@@ -194,10 +196,11 @@ async function AbasComContagem({ aba, hoje }: { aba: AbaDaAgenda; hoje: string }
 
 // A aba "A receber" (AGE-15): D-02 — a mensalidade do mês de quem já era aluno nasce ANTES de ler, pela
 // mesma escrita idempotente da ficha (a página já chamou `exigirUsuario()` na primeira linha). A leitura
-// que falha cai no `error.tsx` da página, como a lista de Pessoas.
-async function AReceberCarregado({ hoje }: { hoje: string }) {
+// que falha cai no `error.tsx` da página, como a lista de Pessoas. `?dispensadas=` (plano 13): quantas a
+// sanfona “Dispensadas” mostra — 20 por vez.
+async function AReceberCarregado({ hoje, quantasDispensadas }: { hoje: string; quantasDispensadas: number }) {
   await garantirMensalidadesDoMes(db, mesDaData(hoje));
-  const dados = await lerAReceber();
+  const dados = await lerAReceber({ quantasDispensadas });
   return <AReceber dados={dados} />;
 }
 

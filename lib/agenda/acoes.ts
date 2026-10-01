@@ -48,6 +48,7 @@ import {
   esquemaCorrigirChegada,
   esquemaDefinirCobrancaDoMaterial,
   esquemaDefinirDireitoARepor,
+  esquemaDefinirDispensa,
   esquemaDefinirPresenca,
   esquemaDesativarTurma,
   esquemaEditarTurma,
@@ -73,6 +74,7 @@ import {
   contarPerdasAoCancelar,
   eventoDaInscricao,
   garantirMensalidadesDoMes,
+  gravarDispensa,
   inscreverAlunoDaquiParaFrente,
   inscreverAlunosNasDatas,
   marcarDatasDaTurma,
@@ -97,7 +99,7 @@ import {
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
-import { linhasDaVenda, situacaoDaCobranca } from "./receber";
+import { linhasDaVenda, podeDispensar, situacaoDaCobranca } from "./receber";
 import { horasCheias, proximoEstado, valorDoUsoLivre } from "./uso-livre";
 import type { EstadoUsoLivre, TipoInscricao } from "./tipos";
 import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
@@ -152,6 +154,7 @@ import {
   FRASE_COBRANCA_SUMIU,
   FRASE_FALHA_AO_LANCAR_LOTE,
   FRASE_FALHA_AO_RECEBER,
+  FRASE_FALHA_AO_DISPENSAR,
   fraseJaLancado,
 } from "./textos";
 
@@ -1957,4 +1960,79 @@ export async function lancarMensalidadesEmLote(entradaBruta: unknown): Promise<R
   revalidatePath(rotaDeGestao("/financeiro"));
   revalidatePath(rotaDeGestao("/"));
   return { ok: true, dados: lote };
+}
+
+// ── Dispensar uma cobrança (plano 13 — D-09, UI-D15, T-05-62..65) ──────────────────────────────────────
+
+export type DispensaDefinida = { dispensada: boolean };
+
+// “Dispensar a cobrança” e o “Desfazer” (da sanfona “Dispensadas” e do toast): o ESTADO DESEJADO
+// (`dispensada: true | false` — dois toques e dois celulares convergem; já no estado pedido = sucesso sem
+// gravar). `exigirUsuario()` é a PRIMEIRA instrução (T-05-62). Sob a MESMA trava do “Recebi agora”, do
+// “Lançar na Venda” e do lote (`travarCobranca`, `for no key update` na cobrança — T-05-63): dispensar e
+// lançar ao mesmo tempo nunca terminam com uma cobrança dispensada E vendida. Só mensalidade e inscrição
+// LIVRES (a receber, ou com a venda cancelada no Caixa — D-08) se dispensam; com venda ATIVA, a recusa
+// diz o número da venda. Grava `dispensada_em`, `dispensada_por` (quem — T-05-64) e o motivo (Zod até
+// 200 — T-05-65), ou os limpa ao desfazer. NUNCA apaga a linha (D-09): só `gravarDispensa`, um `update`.
+export async function definirDispensa(entradaBruta: unknown): Promise<ResultadoDoLancamento<DispensaDefinida>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaDefinirDispensa.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+  const referencia = { tipo: dados.tipo, id: dados.id };
+
+  try {
+    await db.transaction(async (tx) => {
+      const cobranca = await travarCobranca(tx, referencia);
+      if (!cobranca) {
+        throw new RecusaDaAgenda(FRASE_COBRANCA_SUMIU);
+      }
+      const situacao = situacaoDaCobranca(cobranca);
+
+      if (!dados.dispensada) {
+        // Desfazer: só a dispensada volta; o resto já está no estado pedido.
+        if (situacao === "dispensada") {
+          await gravarDispensa(tx, referencia, null);
+        }
+        return;
+      }
+
+      if (situacao === "dispensada") {
+        return;
+      }
+      if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
+        throw new RecusaDaAgenda(fraseJaLancado(cobranca.numeroDaVenda));
+      }
+      if (cobranca.tipo === "inscricao" && cobranca.dataCancelada) {
+        throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
+      }
+      if (cobranca.valorCentavos <= 0 || !podeDispensar({ tipo: cobranca.tipo, situacao })) {
+        throw new RecusaDaAgenda(FRASE_COBRANCA_SUMIU);
+      }
+      await gravarDispensa(tx, referencia, { em: new Date(), por: usuario.id, motivo: dados.motivo });
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao ${dados.dispensada ? "dispensar" : "desfazer a dispensa de"} uma cobrança (SQLSTATE: ${
+        codigoDoErroPostgres(erro) ?? "desconhecido"
+      }):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_DISPENSAR };
+  }
+
+  revalidarTelasDaAgenda({ publico: false });
+  revalidatePath(rotaDeGestao("/"));
+  return { ok: true, dados: { dispensada: dados.dispensada } };
 }

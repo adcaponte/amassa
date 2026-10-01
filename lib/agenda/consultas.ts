@@ -18,13 +18,15 @@ import {
   turmas,
   usosLivres,
   usosLivresMaterial,
+  usuarios,
 } from "@/db/schema";
 import type { Unidade } from "@/lib/cadastros/catalogo";
 import type { TurmaDaSubLinha } from "@/lib/clientes/lista";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { ultimoDiaDoMes } from "@/lib/financeiro/calendario";
 import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
-import { somarDias } from "@/lib/producao/calendario";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { formatarDiaMes, somarDias } from "@/lib/producao/calendario";
 
 import {
   contarPerdasAoCancelar,
@@ -46,6 +48,9 @@ import {
   itensAReceber,
   linhasDaVenda,
   loteDeMensalidades,
+  DISPENSADAS_POR_VEZ,
+  ordenarDispensadas,
+  podeDispensar,
   situacaoDaCobranca,
   subLinhaDaCobranca,
   totalAReceber,
@@ -1116,6 +1121,10 @@ export type LinhaAReceber = {
   situacao: "a_receber" | "venda_cancelada";
   // O número da venda cancelada (a tag “venda nº {N} cancelada”, D-08); nulo sem venda.
   numeroDaVenda: number | null;
+  // A descrição D-04 (o `aria-label` de “Dispensar a cobrança”) e se a linha tem esse link (D-09: só
+  // mensalidade e inscrição livres — `podeDispensar`, módulo puro).
+  descricao: string;
+  podeDispensar: boolean;
 };
 
 export type AReceberCarregado = {
@@ -1125,14 +1134,20 @@ export type AReceberCarregado = {
   taxaCartaoPontosBase: number;
   // A sanfona do lote (plano 12 — AGE-16): as mensalidades livres, por turma e nome, e o total exato.
   lote: LoteDeMensalidades;
+  // “Dispensadas ({N})” no fim (plano 13 — D-09, UI-D15): 20 por vez.
+  dispensadas: DispensadasCarregadas;
+  quantasDispensadas: number;
 };
 
 // O que falta receber: as cobranças sem venda ativa e não dispensadas, pela regra do módulo puro (valor
 // > 0, data não cancelada, ordem por vencimento). Quem chama já garantiu as mensalidades do mês (D-02).
-export async function lerAReceber(): Promise<AReceberCarregado> {
-  const [cobrancas, configuracao] = await Promise.all([
+export async function lerAReceber({
+  quantasDispensadas = DISPENSADAS_POR_VEZ,
+}: { quantasDispensadas?: number } = {}): Promise<AReceberCarregado> {
+  const [cobrancas, configuracao, dispensadas] = await Promise.all([
     lerCobrancas(db, { soLivres: true }),
     obterConfiguracaoFinanceira(),
+    lerDispensadas({ quantas: quantasDispensadas }),
   ]);
   const itens = itensAReceber(cobrancas);
   return {
@@ -1144,10 +1159,14 @@ export async function lerAReceber(): Promise<AReceberCarregado> {
       subLinha: subLinhaDaCobranca(item),
       situacao: item.situacao,
       numeroDaVenda: item.situacao === "venda_cancelada" ? item.numeroDaVenda : null,
+      descricao: descricaoDaLinha(item),
+      podeDispensar: podeDispensar(item),
     })),
     totalCentavos: totalAReceber(itens),
     taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
     lote: loteDeMensalidades(itens),
+    dispensadas,
+    quantasDispensadas,
   };
 }
 
@@ -1243,5 +1262,144 @@ export async function cobrancaParaVenda(origem: ReferenciaDaCobranca): Promise<C
     // `linhasDaVenda` começa SEMPRE pela linha do item do sistema (a linha de origem).
     linhas: linhasDaVenda(cobranca, paraVenda),
     itemDoSistemaId: itemDoSistema.id,
+  };
+}
+
+// ── “Dispensadas” (plano 13 — D-09, UI-D15; 05-UI-SPEC.md §“Aba A receber”, item 4) ─────────────────────
+
+// Uma linha de “Dispensadas”: “{nome} · {descrição}” + “dispensada por {quem} em {dd/mm}” + “ · {motivo}”,
+// e a referência que o “Desfazer” manda (`{ tipo, id }` + o estado desejado).
+export type DispensadaCarregada = {
+  tipo: "mensalidade" | "inscricao";
+  id: string;
+  nome: string;
+  // A descrição D-04 da cobrança (“Mensalidade · {turma} · {mês}”, “{oficina} · {dd/mm}”…).
+  descricao: string;
+  // O nome de quem dispensou (o usuário de `dispensada_por`).
+  quem: string;
+  // ISO — a ordem; e o dia em Brasília, já como “dd/mm”.
+  dispensadaEm: string;
+  diaMes: string;
+  motivo: string | null;
+};
+
+export type DispensadasCarregadas = {
+  linhas: DispensadaCarregada[];
+  // O N de “Dispensadas ({N})” — todas, não só as que a página carregou.
+  total: number;
+};
+
+// As cobranças dispensadas que ainda podem voltar para “A receber” — sem venda ATIVA (a dispensa nunca
+// convive com uma; o filtro é defesa) e, na inscrição, com a data de pé —, as mais recentes primeiro, até
+// `quantas` (20 por vez). Duas leituras limitadas (mensalidades e inscrições) e a mistura pelo módulo puro.
+export async function lerDispensadas({ quantas }: { quantas: number }): Promise<DispensadasCarregadas> {
+  const semVendaAtivaDaMensalidade = and(
+    isNotNull(mensalidades.dispensadaEm),
+    or(isNull(mensalidades.documentoId), isNotNull(documentos.canceladoEm)),
+  );
+  const semVendaAtivaDaInscricao = and(
+    eq(inscricoes.cobrar, true),
+    isNotNull(inscricoes.dispensadaEm),
+    isNull(eventos.canceladoEm),
+    or(isNull(inscricoes.documentoId), isNotNull(documentos.canceladoEm)),
+  );
+
+  const [doMes, inscritas, [contaDoMes], [contaInscritas]] = await Promise.all([
+    db
+      .select({
+        id: mensalidades.id,
+        nome: clientes.nome,
+        turma: turmas.nome,
+        mes: mensalidades.mes,
+        quem: usuarios.nome,
+        dispensadaEm: mensalidades.dispensadaEm,
+        motivo: mensalidades.motivoDispensa,
+      })
+      .from(mensalidades)
+      .innerJoin(clientes, eq(clientes.id, mensalidades.clienteId))
+      .innerJoin(turmas, eq(turmas.id, mensalidades.turmaId))
+      .innerJoin(usuarios, eq(usuarios.id, mensalidades.dispensadaPor))
+      .leftJoin(documentos, eq(documentos.id, mensalidades.documentoId))
+      .where(semVendaAtivaDaMensalidade)
+      .orderBy(desc(mensalidades.dispensadaEm), asc(mensalidades.id))
+      .limit(quantas),
+    db
+      .select({
+        id: inscricoes.id,
+        nome: clientes.nome,
+        tipo: inscricoes.tipo,
+        tituloDoEvento: eventos.titulo,
+        nomeDaTurma: turmas.nome,
+        data: eventos.data,
+        quem: usuarios.nome,
+        dispensadaEm: inscricoes.dispensadaEm,
+        motivo: inscricoes.motivoDispensa,
+      })
+      .from(inscricoes)
+      .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+      .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
+      .innerJoin(usuarios, eq(usuarios.id, inscricoes.dispensadaPor))
+      .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
+      .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+      .where(semVendaAtivaDaInscricao)
+      .orderBy(desc(inscricoes.dispensadaEm), asc(inscricoes.id))
+      .limit(quantas),
+    db
+      .select({ quantas: count() })
+      .from(mensalidades)
+      .leftJoin(documentos, eq(documentos.id, mensalidades.documentoId))
+      .where(semVendaAtivaDaMensalidade),
+    db
+      .select({ quantas: count() })
+      .from(inscricoes)
+      .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+      .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+      .where(semVendaAtivaDaInscricao),
+  ]);
+
+  const linhas: DispensadaCarregada[] = [];
+  for (const linha of doMes) {
+    if (linha.dispensadaEm === null) {
+      continue;
+    }
+    linhas.push({
+      tipo: "mensalidade",
+      id: linha.id,
+      nome: linha.nome,
+      descricao: descricaoDaLinha({ tipo: "mensalidade", turma: linha.turma, mes: linha.mes }),
+      quem: linha.quem,
+      dispensadaEm: linha.dispensadaEm.toISOString(),
+      diaMes: formatarDiaMes(hojeEmBrasilia(linha.dispensadaEm)),
+      motivo: linha.motivo,
+    });
+  }
+  for (const linha of inscritas) {
+    if (linha.dispensadaEm === null) {
+      continue;
+    }
+    const experimental = linha.tipo === "experimental";
+    linhas.push({
+      tipo: "inscricao",
+      id: linha.id,
+      nome: linha.nome,
+      descricao: descricaoDaLinha({
+        tipo: "inscricao",
+        experimental,
+        // O mesmo título de `lerInscricoesCobradas`: a experimental leva o nome da turma.
+        titulo: experimental
+          ? (linha.nomeDaTurma ?? linha.tituloDoEvento ?? "")
+          : (linha.tituloDoEvento ?? linha.nomeDaTurma ?? ""),
+        data: linha.data,
+      }),
+      quem: linha.quem,
+      dispensadaEm: linha.dispensadaEm.toISOString(),
+      diaMes: formatarDiaMes(hojeEmBrasilia(linha.dispensadaEm)),
+      motivo: linha.motivo,
+    });
+  }
+
+  return {
+    linhas: ordenarDispensadas(linhas).slice(0, quantas),
+    total: Number(contaDoMes?.quantas ?? 0) + Number(contaInscritas?.quantas ?? 0),
   };
 }

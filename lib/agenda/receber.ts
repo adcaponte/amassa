@@ -387,3 +387,46 @@ export function loteDeMensalidades(cobrancas: readonly CobrancaDaAgenda[]): Lote
   });
   return { linhas, totalCentavos: totalAReceber(linhas), quantas: linhas.length };
 }
+
+// ── Dispensar uma cobrança (plano 13 — D-09, UI-D15) ─────────────────────────────────────────────────────
+
+// Quem pode ser dispensado: só MENSALIDADE e INSCRIÇÃO, e só enquanto estão livres — a receber, ou com a
+// venda cancelada no Caixa (D-08). O uso livre nunca (D-09: o caso é aluno que saiu, bolsa, experimental
+// cobrada por engano); o que já virou venda ATIVA se desfaz no Caixa, nunca aqui.
+export function podeDispensar(cobranca: { tipo: TipoDeCobranca; situacao: SituacaoDaCobranca }): boolean {
+  if (cobranca.tipo === "uso_livre") {
+    return false;
+  }
+  return cobranca.situacao === "a_receber" || cobranca.situacao === "venda_cancelada";
+}
+
+// “Dispensadas”: 20 por vez + “Mostrar mais 20” (05-UI-SPEC.md §“Aba A receber”, item 4).
+export const DISPENSADAS_POR_VEZ = 20;
+// O máximo que uma página carrega de uma vez — `?dispensadas=` só aceita múltiplos de 20 até aqui.
+export const TETO_DE_DISPENSADAS = 500;
+
+// `?dispensadas=` — quantas a sanfona mostra; parâmetro estranho cai nas 20 primeiras, nunca em erro.
+export function quantasDispensadasDaUrl(valor: string | readonly string[] | null | undefined): number {
+  if (typeof valor !== "string" || !/^\d{1,5}$/.test(valor)) {
+    return DISPENSADAS_POR_VEZ;
+  }
+  const numero = Number(valor);
+  if (numero > TETO_DE_DISPENSADAS) {
+    return TETO_DE_DISPENSADAS;
+  }
+  if (numero < DISPENSADAS_POR_VEZ || numero % DISPENSADAS_POR_VEZ !== 0) {
+    return DISPENSADAS_POR_VEZ;
+  }
+  return numero;
+}
+
+// As mais recentes primeiro (pelo instante da dispensa, ISO), desempate pelo id. Devolve lista nova.
+export function ordenarDispensadas<T extends { id: string; dispensadaEm: string }>(lista: readonly T[]): T[] {
+  return [...lista].sort((a, b) => {
+    const porInstante = Date.parse(b.dispensadaEm) - Date.parse(a.dispensadaEm);
+    if (porInstante !== 0) {
+      return porInstante;
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}

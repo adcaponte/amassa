@@ -1089,3 +1089,27 @@ export async function travarMensalidades(
   }
   return contarParcelasEmAberto(tx, await lerMensalidadesCobradas(tx, { ids, travar: true }));
 }
+
+// ── Dispensar uma cobrança (plano 13 — D-09) ─────────────────────────────────────────────────────────────
+
+// Grava (ou limpa, ao desfazer) o carimbo da dispensa — `dispensada_em`, `dispensada_por` e o motivo — na
+// linha da cobrança, SOB A TRAVA que quem chama já tomou com `travarCobranca` (a mesma do “Recebi agora”,
+// do “Lançar na Venda” e do lote: dispensar e lançar ao mesmo tempo nunca terminam dispensada E vendida).
+// NUNCA apaga a linha (D-09; `mensalidades` nem tem permissão de `delete`): só um `update`.
+export async function gravarDispensa(
+  tx: TransacaoDoBanco,
+  cobranca: { tipo: "mensalidade" | "inscricao"; id: string },
+  dispensa: { em: Date; por: string; motivo: string | null } | null,
+): Promise<void> {
+  const valores = {
+    dispensadaEm: dispensa?.em ?? null,
+    dispensadaPor: dispensa?.por ?? null,
+    motivoDispensa: dispensa?.motivo ?? null,
+    atualizadoEm: new Date(),
+  };
+  if (cobranca.tipo === "mensalidade") {
+    await tx.update(mensalidades).set(valores).where(eq(mensalidades.id, cobranca.id));
+  } else {
+    await tx.update(inscricoes).set(valores).where(eq(inscricoes.id, cobranca.id));
+  }
+}

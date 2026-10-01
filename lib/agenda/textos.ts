@@ -1012,3 +1012,44 @@ export function fraseCorridaDoLote(lancadas: number, jaLancadas: number): string
 }
 export const FRASE_FALHA_AO_LANCAR_LOTE =
   "Não deu para lançar as mensalidades. Nenhuma venda foi criada — verifique a internet e tente de novo.";
+
+// Dispensar uma cobrança (plano 13 — D-09, UI-D15; 05-UI-SPEC.md §Confirmações “Dispensar”, §“Rótulos e
+// dicas de campo” (Dispensar — motivo), §Toasts “Dispensar”/“Desfazer dispensa”, §“Lote e A receber —
+// linhas de leitura” (Dispensadas — linha), §Estados vazios). Dispensar nunca apaga: marca quem e quando.
+export const ROTULO_DISPENSAR_A_COBRANCA = "Dispensar a cobrança";
+export function ariaDispensar(descricao: string, nome: string): string {
+  return `Dispensar a cobrança de ${descricao} de ${nome}`;
+}
+export function tituloConfirmarDispensar(tipo: "mensalidade" | "inscricao", nome: string): string {
+  return `Dispensar ${tipo === "mensalidade" ? "a mensalidade" : "a inscrição"} de ${nome}?`;
+}
+export const CORPO_CONFIRMAR_DISPENSAR =
+  "Ela sai de “A receber” e não vira venda. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
+export const ROTULO_MOTIVO_DISPENSA = "Motivo (opcional)";
+export const PLACEHOLDER_MOTIVO_DISPENSA = "ex.: bolsa, saiu da turma no começo do mês";
+// Decisão do backstop E17 long-text (a UI-SPEC fixa o limite, não a frase).
+export const FRASE_MOTIVO_DISPENSA_LONGO = "O motivo pode ter até 200 caracteres.";
+export const ROTULO_DISPENSANDO = "Dispensando…";
+export const TOAST_DISPENSADA = "Dispensada. Ela não vai virar venda.";
+export const TOAST_DISPENSA_DESFEITA = "Voltou para “A receber”.";
+// A frase genérica de erro (§Erros, última linha), DENTRO da confirmação, que continua aberta.
+export const FRASE_FALHA_AO_DISPENSAR = "Não deu para dispensar. Verifique a internet e tente de novo.";
+// Decisão E29: o “Desfazer” do toast que falha diz onde desfazer de novo.
+export const FRASE_FALHA_AO_DESFAZER_DISPENSA_DO_TOAST =
+  "Não deu para desfazer. A cobrança continua dispensada — use “Desfazer” em “Dispensadas”.";
+export const FRASE_FALHA_AO_DESFAZER_DISPENSA = "Não deu para desfazer. Verifique a internet e tente de novo.";
+export function tituloDispensadas(quantas: number): string {
+  return `Dispensadas (${quantas})`;
+}
+export function linhaDispensada(nome: string, descricao: string): string {
+  return `${nome} · ${descricao}`;
+}
+// “dispensada por {quem} em {dd/mm}” + “ · {motivo}” — sem motivo, termina na data.
+export function subLinhaDispensada(quem: string, diaMes: string, motivo: string | null): string {
+  return `dispensada por ${quem} em ${diaMes}${motivo ? ` · ${motivo}` : ""}`;
+}
+export function ariaDesfazerDispensa(descricao: string, nome: string): string {
+  return `Desfazer a dispensa de ${descricao} de ${nome}`;
+}
+export const ROTULO_MOSTRAR_MAIS_DISPENSADAS = "Mostrar mais 20";
+export const ARIA_LISTA_DISPENSADAS = "Cobranças dispensadas";
