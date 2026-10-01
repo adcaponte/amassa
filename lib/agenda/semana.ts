@@ -124,6 +124,11 @@ const NOMES_DOS_MESES = [
   "dezembro",
 ] as const;
 
+// "2026-12" → "dezembro" (a dica da folha da turma: "a mensalidade nova vale a partir de novembro").
+export function nomeDoMes(mes: string): string {
+  return NOMES_DOS_MESES[Number(mes.slice(5, 7)) - 1];
+}
+
 // "2026-12" → "dezembro de 2026".
 export function tituloDoMes(mes: string): string {
   return `${NOMES_DOS_MESES[Number(mes.slice(5, 7)) - 1]} de ${mes.slice(0, 4)}`;

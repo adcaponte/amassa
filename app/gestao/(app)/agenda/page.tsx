@@ -8,10 +8,11 @@ import {
   mesDaUrl,
   pessoaDaUrl,
   semanaDaUrl,
+  turmaDaUrl,
   vistaDaUrl,
   type VistaDaAgenda,
 } from "@/lib/agenda/abas";
-import { lerMes, lerSemana, obterEvento, ultimasVindas } from "@/lib/agenda/consultas";
+import { lerMes, lerSemana, obterEvento, obterTurma, ultimasVindas } from "@/lib/agenda/consultas";
 import {
   agruparPorDia,
   gradeDoMes,
@@ -46,7 +47,7 @@ import {
   ListaPessoas,
   type FichaDoServidor,
 } from "@/components/amassa/agenda/lista-pessoas";
-import { SemanaDaAgenda } from "@/components/amassa/agenda/semana-da-agenda";
+import { SemanaDaAgenda, type TurmaDoServidor } from "@/components/amassa/agenda/semana-da-agenda";
 
 type ParametrosDaAgenda = {
   aba?: string | string[];
@@ -57,6 +58,7 @@ type ParametrosDaAgenda = {
   semana?: string | string[];
   mes?: string | string[];
   evento?: string | string[];
+  turma?: string | string[];
   lancar?: string | string[];
   dia?: string | string[];
 };
@@ -69,7 +71,8 @@ function urlDaAgenda(consulta: string): string {
 // do CLAUDE.md, verificada por `npm run verificar-acoes`. "Hoje" é decidido AQUI, no servidor
 // (Brasília), e passado ao módulo puro — o cliente nunca decide o dia. A URL manda (normalizada por
 // `lib/agenda/abas.ts`, parâmetro estranho cai no padrão, nunca em erro): `?vista=semana|mes`,
-// `?semana=` (qualquer dia; vira a segunda dela), `?mes=AAAA-MM`, `?evento=` (a folha aberta).
+// `?semana=` (qualquer dia; vira a segunda dela), `?mes=AAAA-MM`, `?evento=` (a folha aberta),
+// `?turma=` (a folha da turma, no lugar da folha da data — D-03, UI-D25).
 // `?lancar=1&dia=` (a folha "Lançar na agenda") é lido pelo cliente (`FolhaLancar`), que abre e
 // fecha por `pushState`. `?aba=` escolhe a aba (05-04): "agenda" (padrão — a semana ou o mês) ou
 // "pessoas" (`?busca=`, `?quantos=`, `?pessoa=` — a ficha aberta). "A receber", "Números" e "No site"
@@ -168,13 +171,29 @@ function hrefsDaVista(semanaNaTela: string, mesNaTela: string): Record<VistaDaAg
   };
 }
 
+// A turma de `?turma=`: a leitura que falha mostra o erro DENTRO da folha (UI E11·error), não a
+// página de erro.
+async function lerTurma(id: string | null, hoje: string): Promise<TurmaDoServidor> {
+  if (id === null) {
+    return { estado: "nenhuma" };
+  }
+  try {
+    const turma = await obterTurma(id, hoje);
+    return turma === null ? { estado: "inexistente", id } : { estado: "carregada", turma };
+  } catch (erro) {
+    console.error("Falha ao carregar a turma:", erro);
+    return { estado: "erro", id };
+  }
+}
+
 async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAgenda; hoje: string }) {
   const segunda = semanaDaUrl(parametros.semana, hoje);
   const idDoEvento = idDaUrl(parametros.evento);
 
-  const [eventos, eventoAberto] = await Promise.all([
+  const [eventos, eventoAberto, turmaAberta] = await Promise.all([
     lerSemana(segunda),
     idDoEvento === null ? Promise.resolve(null) : obterEvento(idDoEvento),
+    lerTurma(turmaDaUrl(parametros.turma), hoje),
   ]);
 
   const dias = agruparPorDia(segunda, eventos).map((grupo) => ({
@@ -201,6 +220,8 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
       />
       <SemanaDaAgenda
         dias={dias}
+        hoje={hoje}
+        turmaAberta={turmaAberta}
         eventoAberto={eventoAberto}
         eventoInexistente={idDoEvento !== null && eventoAberto === null}
         rolarAte={parametros.semana === undefined && contemHoje ? hoje : null}

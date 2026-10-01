@@ -13,6 +13,9 @@ import {
   FRASE_DIA_DA_SEMANA,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
+  FRASE_FALHA_AO_DESATIVAR_TURMA,
+  FRASE_FALHA_AO_MARCAR_SEMANAS,
+  FRASE_FALHA_AO_SALVAR_TURMA,
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_COLOCAR,
   FRASE_FALHA_AO_LANCAR,
@@ -233,3 +236,29 @@ export const esquemaLancarTurma = z
   .transform(({ mensalidade, ...resto }) => ({ ...resto, mensalidadeCentavos: mensalidade }));
 
 export type LancarTurmaValidado = z.infer<typeof esquemaLancarTurma>;
+
+// "Salvar turma" (D-03): o que se edita — o dia da semana NÃO (mudar o dia é desativar e lançar
+// outra). O id da turma vem da URL; o resto é lido sob a trava, no servidor.
+export const esquemaEditarTurma = z
+  .object({
+    turmaId: z.uuid({ error: FRASE_FALHA_AO_SALVAR_TURMA }),
+    ...camposDaTurma,
+    publica: z.boolean({ error: FRASE_FALHA_AO_SALVAR_TURMA }),
+  })
+  .superRefine(fimDepoisDoComeco)
+  .transform(({ mensalidade, ...resto }) => ({ ...resto, mensalidadeCentavos: mensalidade }));
+
+export type EditarTurmaValidado = z.infer<typeof esquemaEditarTurma>;
+
+// "Marcar mais N semanas" (D-03): 1..52, como no lançamento (T-05-29).
+export const esquemaMarcarMaisSemanas = z.object({
+  turmaId: z.uuid({ error: FRASE_FALHA_AO_MARCAR_SEMANAS }),
+  semanas: inteiroDoCampo(SEMANAS_MINIMAS, SEMANAS_MAXIMAS, FRASE_SEMANAS),
+});
+
+export type MarcarMaisSemanasValidado = z.infer<typeof esquemaMarcarMaisSemanas>;
+
+// "Desativar turma" (D-03): só o id — o que sai é decidido sob a trava, no servidor.
+export const esquemaDesativarTurma = z.object({
+  turmaId: z.uuid({ error: FRASE_FALHA_AO_DESATIVAR_TURMA }),
+});

@@ -9,6 +9,7 @@ import {
   DICA_FIM_OFICINA,
   DICA_FIM_TURMA,
   FRASE_NINGUEM_INSCRITO,
+  ROTULO_ABRIR_A_TURMA,
   ROTULO_AULA_AVULSA,
   ROTULO_CANCELADA,
   ROTULO_FECHAR,
@@ -62,13 +63,15 @@ export type FolhaEventoProps = {
   // A lista, quando o servidor já respondeu; `null` enquanto carrega.
   carregado: EventoCarregado | null;
   aoFechar: () => void;
+  // "Abrir a turma" (D-03): a folha da turma abre NO LUGAR desta, com "Voltar à data" (UI-D25).
+  aoAbrirTurma: (turmaId: string, nome: string) => void;
 };
 
 // A folha do evento (turma ou avulsa), aberta por `?evento={id}` (UI-D8): diálogo de tela toda no
 // celular, centrado `max-w-lg` a partir de `md` (o mesmo contêiner das folhas do Estoque), fechar
 // 44×44 e rodapé preso por flex com "Pronto". Da folha aberta à presença marcada é UM toque por
 // pessoa — nenhuma confirmação, campo ou teclado no caminho (Valor central).
-export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps) {
+export function FolhaEvento({ cabecalho, carregado, aoFechar, aoAbrirTurma }: FolhaEventoProps) {
   const evento = carregado ?? cabecalho;
   // D-13: data de turma (não cancelada) num dia fechado — o "Cancelar esta data" sobe para a caixa
   // do topo, visível sem rolar, e o rodapé fica só com "Pronto" (o botão existe uma vez só).
@@ -105,6 +108,16 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar }: FolhaEventoProps
             <DialogDescription className="text-apoio text-tinta-fraca break-words">
               {subTitulo(evento, carregado?.precoCentavos ?? null)}
             </DialogDescription>
+            {evento.tipo === "turma" && evento.turmaId !== null ? (
+              <button
+                type="button"
+                data-testid="abrir-turma"
+                onClick={() => aoAbrirTurma(evento.turmaId ?? "", evento.titulo)}
+                className="text-apoio text-tinta-media inline-flex min-h-[44px] items-center self-start rounded-md font-semibold underline underline-offset-4 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none"
+              >
+                {ROTULO_ABRIR_A_TURMA}
+              </button>
+            ) : null}
           </div>
           <button
             type="button"

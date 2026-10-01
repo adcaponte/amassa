@@ -1,16 +1,35 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
   avisoTurmaEmDiaFechado,
   caixaDataDeTurmaEmDiaFechado,
+  corpoConfirmarDesativarTurma,
+  FRASE_NENHUM_ALUNO,
   FRASE_SEMANAS,
   FRASE_VENCIMENTO,
+  fraseDesativarComVendaAtiva,
+  linhaDatasMarcadas,
+  TOAST_TURMA_DESATIVADA,
+  TOAST_TURMA_SALVA,
+  toastDatasNovas,
   toastTurmaLancada,
 } from "@/lib/agenda/textos";
 import { diaDaSemanaDe, NOMES_DOS_DIAS } from "@/lib/agenda/turma";
 import { formatarDiaMes, somarDias } from "@/lib/producao/calendario";
 
-import { datasDaTurmaNoBanco, eventoNoBanco, semearFechado, turmasComNome } from "./apoio/semear-agenda";
+import {
+  datasDaTurmaNoBanco,
+  eventoNoBanco,
+  inscricoesDoEvento,
+  ligarVendaAInscricao,
+  semearAluno,
+  semearCliente,
+  semearFechado,
+  semearInscricao,
+  semearTurmaComDatas,
+  turmasComNome,
+} from "./apoio/semear-agenda";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // Plano 05-06 (AGE-03, D-03, D-13): lançar uma turma fixa marca N semanas de uma vez; a data de turma
@@ -54,6 +73,20 @@ function cartaoComTitulo(page: Page, data: string, titulo: string) {
 async function escolherDiaDaSemana(page: Page, dia: number) {
   await folhaLancar(page).getByTestId("lancar-dia-semana").click();
   await page.getByRole("option", { name: capitalizar(NOMES_DOS_DIAS[dia]), exact: true }).click();
+}
+
+// Uma turma ATIVA semeada com as datas dadas (todas no mesmo dia da semana, o da primeira).
+async function semearTurma(nome: string, datas: string[]) {
+  return semearTurmaComDatas({
+    nome,
+    diaSemana: diaDaSemanaDe(datas[0]),
+    inicio: "19:00",
+    fim: "21:00",
+    vagas: 8,
+    mensalidadeCentavos: 30000,
+    diaVencimento: 10,
+    datas,
+  });
 }
 
 type Turma = { nome: string; inicio: string; fim: string; mensalidade: string; semanas: string };
@@ -212,5 +245,192 @@ test.describe("agenda turma", () => {
     await expect(f.getByTestId("lancar-semanas")).toBeFocused();
     await expect(f).toBeVisible();
     expect(await turmasComNome(nome)).toHaveLength(0);
+  });
+
+  test("(d) “Abrir a turma” abre a folha da turma no lugar da data, “Voltar à data” volta; mudar o horário muda as datas FUTURAS e não a de hoje", async ({
+    page,
+  }) => {
+    const hoje = hojeNoAtelie();
+    const datas = [hoje, somarDias(hoje, 7), somarDias(hoje, 14)];
+    const nome = `[e2e] Turma editada ${sufixoUnico()}`;
+    const { turmaId, eventoIds } = await semearTurma(nome, datas);
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${hoje}&evento=${eventoIds[0]}`);
+    const folhaDaData = page.getByTestId("folha-evento");
+    await expect(folhaDaData).toBeVisible();
+    await folhaDaData.getByTestId("abrir-turma").click();
+
+    const folha = page.getByTestId("folha-turma");
+    await expect(folha).toBeVisible();
+    await expect(page.getByTestId("folha-evento")).toHaveCount(0);
+    await expect(page).toHaveURL(new RegExp(`[?&]turma=${turmaId}`));
+    await expect(folha.getByTestId("folha-turma-subtitulo")).toContainText("0 alunos de 8 vagas");
+    await expect(folha.getByTestId("turma-alunos-titulo")).toHaveText("Alunos (0)");
+    await expect(folha.getByTestId("turma-sem-alunos")).toHaveText(FRASE_NENHUM_ALUNO);
+    await expect(folha.getByTestId("turma-datas-marcadas")).toHaveText(
+      linhaDatasMarcadas(diaDaSemanaPorExtenso(datas[2]), formatarDiaMes(datas[2]), 2),
+    );
+    await expect(folha.getByTestId("salvar-turma")).toBeDisabled();
+
+    // "Voltar à data" volta à folha da data de onde veio.
+    await folha.getByTestId("voltar-a-data").click();
+    await expect(page.getByTestId("folha-evento")).toBeVisible();
+    await expect(page.getByTestId("folha-turma")).toHaveCount(0);
+    await expect(page).not.toHaveURL(/[?&]turma=/);
+
+    await page.getByTestId("folha-evento").getByTestId("abrir-turma").click();
+    await expect(folha.getByTestId("turma-inicio")).toHaveValue("19:00");
+    await folha.getByTestId("turma-inicio").fill("18:00");
+    await folha.getByTestId("turma-fim").fill("20:30");
+    await expect(folha.getByTestId("salvar-turma")).toBeEnabled();
+    await folha.getByTestId("salvar-turma").click();
+    await expect(page.getByText(TOAST_TURMA_SALVA).first()).toBeVisible();
+
+    // Hoje fica como foi (Assumption A9); as futuras mudam.
+    await expect.poll(async () => (await datasDaTurmaNoBanco(turmaId)).map((d) => `${d.data} ${d.inicio}-${d.fim}`)).toEqual([
+      `${datas[0]} 19:00-21:00`,
+      `${datas[1]} 18:00-20:30`,
+      `${datas[2]} 18:00-20:30`,
+    ]);
+    const [turma] = await turmasComNome(nome);
+    expect(turma).toMatchObject({ inicio: "18:00", fim: "20:30", ativa: true });
+  });
+
+  test("(e) “Marcar mais 2 semanas” começa depois da última data e põe o aluno nas datas novas; duas abas ao mesmo tempo não repetem data", async ({
+    page,
+  }) => {
+    const primeira = inicioDaJanela(3);
+    const nome = `[e2e] Turma estendida ${sufixoUnico()}`;
+    const { turmaId, eventoIds } = await semearTurma(nome, [primeira, somarDias(primeira, 7)]);
+    const clienteId = await semearCliente({ nome: `[e2e] Aluna ${sufixoUnico()}` });
+    await semearAluno({ turmaId, clienteId, entrouEm: hojeNoAtelie() });
+
+    await fazerLogin(page);
+    // Aberta direto pela URL (não veio de uma data): sem "Voltar à data" (UI-D25).
+    await page.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);
+    const folha = page.getByTestId("folha-turma");
+    await expect(folha).toBeVisible();
+    await expect(folha.getByTestId("voltar-a-data")).toHaveCount(0);
+    await expect(folha.getByTestId("folha-turma-subtitulo")).toContainText("1 aluno de 8 vagas");
+    await expect(folha.getByTestId("turma-alunos-titulo")).toHaveText("Alunos (1)");
+    await expect(folha.getByTestId("turma-marcar-mais-semanas")).toHaveValue("8");
+
+    await folha.getByTestId("turma-marcar-mais-semanas").fill("2");
+    await folha.getByTestId("marcar-mais-semanas").click();
+    const ultima = somarDias(primeira, 21);
+    await expect(page.getByText(toastDatasNovas(2, formatarDiaMes(ultima))).first()).toBeVisible();
+
+    const depois = await datasDaTurmaNoBanco(turmaId);
+    expect(depois.map((d) => d.data)).toEqual([0, 7, 14, 21].map((dias) => somarDias(primeira, dias)));
+    // O aluno entrou SÓ nas datas novas (as semeadas não tinham ninguém), como aluno, sem cobrar.
+    for (const nova of depois.slice(2)) {
+      const inscricoes = await inscricoesDoEvento(nova.id);
+      expect(inscricoes).toEqual([expect.objectContaining({ clienteId, tipo: "aluno", cobrar: false })]);
+    }
+    expect(await inscricoesDoEvento(eventoIds[0])).toEqual([]);
+    await expect(folha.getByTestId("turma-datas-marcadas")).toHaveText(
+      linhaDatasMarcadas(diaDaSemanaPorExtenso(ultima), formatarDiaMes(ultima), 4),
+    );
+
+    // Duas abas tocam ao mesmo tempo: cada uma marca 1 semana, e nenhuma data se repete.
+    const outra = await page.context().newPage();
+    await outra.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);
+    const folhaDaOutra = outra.getByTestId("folha-turma");
+    await expect(folhaDaOutra).toBeVisible();
+    await folha.getByTestId("turma-marcar-mais-semanas").fill("1");
+    await folhaDaOutra.getByTestId("turma-marcar-mais-semanas").fill("1");
+    await Promise.all([
+      folha.getByTestId("marcar-mais-semanas").click(),
+      folhaDaOutra.getByTestId("marcar-mais-semanas").click(),
+    ]);
+    await expect.poll(async () => (await datasDaTurmaNoBanco(turmaId)).length).toBe(6);
+    const finais = (await datasDaTurmaNoBanco(turmaId)).map((d) => d.data);
+    expect(new Set(finais).size).toBe(6);
+    expect(finais).toEqual([0, 7, 14, 21, 28, 35].map((dias) => somarDias(primeira, dias)));
+    await outra.close();
+  });
+
+  test("(f) “Desativar turma” diz o que sai, tira as datas futuras e as inscrições delas, e mantém a data passada e a turma", async ({
+    page,
+  }) => {
+    const hoje = hojeNoAtelie();
+    const datas = [somarDias(hoje, -7), somarDias(hoje, 7), somarDias(hoje, 14)];
+    const nome = `[e2e] Turma desativada ${sufixoUnico()}`;
+    const { turmaId, eventoIds } = await semearTurma(nome, datas);
+    const clienteId = await semearCliente({ nome: `[e2e] Repõe ${sufixoUnico()}` });
+    const reposicaoId = await semearInscricao({ eventoId: eventoIds[1], clienteId, tipo: "reposicao" });
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${datas[0]}&evento=${eventoIds[0]}`);
+    await page.getByTestId("folha-evento").getByTestId("abrir-turma").click();
+    const folha = page.getByTestId("folha-turma");
+    await expect(folha.getByTestId("turma-nome")).toHaveValue(nome);
+
+    await folha.getByTestId("desativar-turma").click();
+    const confirmacao = page.getByTestId("confirmar-desativar-turma");
+    await expect(confirmacao).toContainText(`Desativar ${nome}?`);
+    await expect(confirmacao).toContainText(corpoConfirmarDesativarTurma(2, 1));
+    // "Manter turma" não muda nada.
+    await page.getByTestId("confirmar-desativar-turma-nao").click();
+    await expect(confirmacao).toHaveCount(0);
+    expect((await turmasComNome(nome))[0].ativa).toBe(true);
+
+    await folha.getByTestId("desativar-turma").click();
+    await page.getByTestId("confirmar-desativar-turma-sim").click();
+    await expect(page.getByText(TOAST_TURMA_DESATIVADA).first()).toBeVisible();
+
+    await expect.poll(async () => (await turmasComNome(nome))[0].ativa).toBe(false);
+    expect((await turmasComNome(nome))[0].desativadaEm).not.toBeNull();
+    expect(await eventoNoBanco(eventoIds[0])).not.toBeNull();
+    expect(await eventoNoBanco(eventoIds[1])).toBeNull();
+    expect(await eventoNoBanco(eventoIds[2])).toBeNull();
+    expect((await datasDaTurmaNoBanco(turmaId)).map((d) => d.data)).toEqual([datas[0]]);
+    expect(await inscricoesDoEvento(eventoIds[1])).toEqual([]);
+    expect(reposicaoId).toBeTruthy();
+
+    // A folha continua aberta, só de leitura: "desativada em", sem editar, marcar ou desativar.
+    await expect(folha.getByTestId("folha-turma-subtitulo")).toContainText("desativada em");
+    await expect(folha.getByTestId("salvar-turma")).toHaveCount(0);
+    await expect(folha.getByTestId("desativar-turma")).toHaveCount(0);
+    await expect(folha.getByTestId("marcar-mais-semanas")).toHaveCount(0);
+    await expect(folha.getByTestId("turma-datas-marcadas")).toHaveText("Nenhuma data marcada daqui para frente.");
+  });
+
+  test("(g) desativar recusa quando uma data futura tem inscrição que já virou venda — a frase fica no diálogo e nada muda", async ({
+    page,
+  }) => {
+    const primeira = inicioDaJanela(4);
+    const segunda = somarDias(primeira, 7);
+    const nome = `[e2e] Turma com venda ${sufixoUnico()}`;
+    const { turmaId, eventoIds } = await semearTurma(nome, [primeira, segunda]);
+    const clienteId = await semearCliente({ nome: `[e2e] Experimental ${sufixoUnico()}` });
+    const inscricaoId = await semearInscricao({
+      eventoId: eventoIds[1],
+      clienteId,
+      tipo: "experimental",
+      cobrar: true,
+      valorCentavos: 4000,
+    });
+    const { numero } = await ligarVendaAInscricao({
+      inscricaoId,
+      valorCentavos: 4000,
+      descricao: `[e2e] Aula experimental ${sufixoUnico()}`,
+      data: hojeNoAtelie(),
+    });
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);
+    const folha = page.getByTestId("folha-turma");
+    await folha.getByTestId("desativar-turma").click();
+    await page.getByTestId("confirmar-desativar-turma-sim").click();
+
+    await expect(page.getByTestId("confirmar-desativar-turma-erro")).toHaveText(
+      fraseDesativarComVendaAtiva(formatarDiaMes(segunda), numero),
+    );
+    await expect(page.getByTestId("confirmar-desativar-turma")).toBeVisible();
+    expect((await turmasComNome(nome))[0].ativa).toBe(true);
+    expect((await datasDaTurmaNoBanco(turmaId)).map((d) => d.data)).toEqual([primeira, segunda]);
+    expect(await inscricoesDoEvento(eventoIds[1])).toHaveLength(1);
   });
 });

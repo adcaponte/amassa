@@ -424,3 +424,115 @@ export const TAG_DIA_FECHADO = "dia fechado";
 export function caixaDataDeTurmaEmDiaFechado(motivo: string): string {
   return `Este dia está fechado: ${motivo}. Se a aula não vai acontecer, cancele esta data.`;
 }
+
+// A folha da turma (05-UI-SPEC.md §"Folha da turma (D-03 — o protótipo não tem)", §Confirmações
+// "Desativar turma", §Toasts; UI-D25). Decisões dos backstops E11 e E28 (plano 06): o plural do
+// sub-título ("1 aluno"), o título "Alunos ({n})" e o erro de uma confirmação DENTRO do diálogo.
+export const ROTULO_ABRIR_A_TURMA = "Abrir a turma";
+export const ROTULO_VOLTAR_A_DATA = "Voltar à data";
+export const ROTULO_SALVAR_TURMA = "Salvar turma";
+export const ROTULO_SALVANDO = "Salvando…";
+
+export function subTituloDaTurma({
+  quando,
+  alunos,
+  vagas,
+  publica,
+  desativadaEm,
+}: {
+  // "toda terça, 19:00 às 21:00" (`rotuloDaTurmaNaGestao`).
+  quando: string;
+  alunos: number;
+  vagas: number;
+  publica: boolean;
+  // "dd/mm" da desativação, ou `null` com a turma ativa.
+  desativadaEm: string | null;
+}): string {
+  const partes = [`Turma fixa · ${quando}`, alunos === 1 ? `1 aluno de ${vagas} vagas` : `${alunos} alunos de ${vagas} vagas`];
+  if (publica && desativadaEm === null) {
+    partes.push("no site");
+  }
+  if (desativadaEm !== null) {
+    partes.push(`desativada em ${desativadaEm}`);
+  }
+  return partes.join(" · ");
+}
+
+export function linhaDiaDaSemanaDaTurma(dia: string): string {
+  return `Dia da semana: ${dia}`;
+}
+
+export const DICA_DIA_DA_SEMANA_FIXO = "Para mudar o dia, desative esta turma e lance outra.";
+
+export function dicaAoEditarTurma(proximoMes: string, mesAtual: string): string {
+  return `Horário, vagas e público valem para as datas a partir de amanhã. A mensalidade nova vale a partir de ${proximoMes} — a de ${mesAtual} já nasceu e não muda.`;
+}
+
+export const TITULO_DATAS_DA_TURMA = "Datas";
+
+export function linhaDatasMarcadas(diaDaSemana: string, diaMes: string, futuras: number): string {
+  const contagem = futuras === 1 ? "1 data daqui para frente" : `${futuras} datas daqui para frente`;
+  return `Marcada até ${diaDaSemana}, ${diaMes} · ${contagem}`;
+}
+
+export const FRASE_NENHUMA_DATA_FUTURA = "Nenhuma data marcada daqui para frente.";
+export const ROTULO_MARCAR_MAIS = "Marcar mais";
+export const ROTULO_SEMANAS_DO_MARCAR_MAIS = "semanas";
+export const ROTULO_MARCAR_MAIS_SEMANAS = "Marcar mais semanas";
+export const ROTULO_MARCANDO = "Marcando…";
+export const DICA_MARCAR_MAIS = "Os alunos da turma entram nas datas novas.";
+
+export function tituloAlunos(alunos: number): string {
+  return `Alunos (${alunos})`;
+}
+
+export const FRASE_NENHUM_ALUNO = "Nenhum aluno ainda. Os alunos entram pela ficha de cada pessoa, em Pessoas.";
+
+export const ROTULO_DESATIVAR_TURMA = "Desativar turma";
+export const ROTULO_DESATIVANDO = "Desativando…";
+export const ROTULO_MANTER_TURMA = "Manter turma";
+
+export function tituloConfirmarDesativarTurma(nome: string): string {
+  return `Desativar ${nome}?`;
+}
+
+// "As {n} datas daqui para frente saem da agenda e do site, junto com as inscrições delas ({r}
+// reposições marcadas voltam a ser crédito). …" — sem reposição, sem o parêntese; plural de verdade.
+export function corpoConfirmarDesativarTurma(datas: number, reposicoes: number): string {
+  const parentese =
+    reposicoes === 0
+      ? ""
+      : reposicoes === 1
+        ? " (1 reposição marcada volta a ser crédito)"
+        : ` (${reposicoes} reposições marcadas voltam a ser crédito)`;
+  const datasQueSaem =
+    datas === 0
+      ? "Nenhuma data daqui para frente está marcada."
+      : datas === 1
+        ? `A data daqui para frente sai da agenda e do site, junto com as inscrições dela${parentese}.`
+        : `As ${datas} datas daqui para frente saem da agenda e do site, junto com as inscrições delas${parentese}.`;
+  return `${datasQueSaem} O que já aconteceu fica, e as mensalidades já nascidas continuam em “A receber”. Não dá para reativar.`;
+}
+
+export const TOAST_TURMA_SALVA = "Turma salva.";
+
+export function toastDatasNovas(datas: number, ateDiaMes: string): string {
+  return datas === 1
+    ? `1 data nova marcada, até ${ateDiaMes}.`
+    : `${datas} datas novas marcadas, até ${ateDiaMes}.`;
+}
+
+export const TOAST_TURMA_DESATIVADA = "Turma desativada. As datas que já aconteceram continuam na agenda.";
+
+export const FRASE_ERRO_CARREGAR_TURMA =
+  "Não deu para carregar esta turma. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_SALVAR_TURMA = "Não deu para salvar a turma. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_MARCAR_SEMANAS =
+  "Não deu para marcar mais semanas. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_DESATIVAR_TURMA =
+  "Não deu para desativar a turma. Verifique a internet e tente de novo.";
+export const FRASE_TURMA_JA_DESATIVADA = "Esta turma já foi desativada — a tela foi atualizada.";
+
+export function fraseDesativarComVendaAtiva(diaMes: string, numero: number): string {
+  return `A data de ${diaMes} tem uma inscrição que já virou a venda nº ${numero}. Cancele a venda no Caixa antes de desativar a turma.`;
+}

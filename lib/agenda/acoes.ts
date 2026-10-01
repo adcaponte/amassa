@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 
-import { and, eq, isNotNull, or } from "drizzle-orm";
+import { and, eq, gt, isNotNull, isNull, max, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientes, eventos, inscricoes, turmas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { FRASE_CLIENTE_NAO_EXISTE } from "@/lib/clientes/textos";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
@@ -24,37 +26,49 @@ import {
   esquemaColocarNaData,
   esquemaConferirDia,
   esquemaDefinirPresenca,
+  esquemaDesativarTurma,
+  esquemaEditarTurma,
   esquemaFecharDia,
   esquemaLancarAvulsa,
   esquemaLancarTurma,
+  esquemaMarcarMaisSemanas,
   esquemaTirarBloqueio,
   esquemaTirarDaLista,
 } from "./esquemas";
 import {
   contarPerdasAoCancelar,
+  inscreverAlunosNasDatas,
   marcarDatasDaTurma,
   RecusaDaAgenda,
   temPerdas,
+  tirarDatasFuturasDaTurma,
   travarEvento,
   travarInscricao,
   travarInscricaoComVenda,
+  travarTurma,
+  vendaAtivaEmDataFutura,
   type PerdasAoCancelar,
 } from "./gravacao";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
-import { datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
+import { aPartirDeParaEstender, datasDaTurma, datasEmDiaFechado, type FechadoDoDia } from "./turma";
 import {
   FRASE_DATA_CANCELADA,
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_ESCOLHA_A_DATA,
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_COLOCAR,
+  FRASE_FALHA_AO_DESATIVAR_TURMA,
   FRASE_FALHA_AO_LANCAR,
+  FRASE_FALHA_AO_MARCAR_SEMANAS,
+  FRASE_FALHA_AO_SALVAR_TURMA,
   FRASE_FALHA_AO_TIRAR_BLOQUEIO,
   FRASE_FALHA_AO_TIRAR_DA_LISTA,
   FRASE_FECHADO_NAO_SE_CANCELA,
   FRASE_JA_REMOVIDO,
   FRASE_FALHA_PRESENCA_GENERICA,
   FRASE_LANCAMENTO_NAO_EXISTE,
+  FRASE_TURMA_JA_DESATIVADA,
+  fraseDesativarComVendaAtiva,
   fraseInscricaoJaVirouVenda,
   fraseJaEstaNaLista,
 } from "./textos";
@@ -610,4 +624,209 @@ export async function tirarDaLista(entradaBruta: unknown): Promise<ResultadoDeAc
 
   revalidarTelasDaAgenda({ publico });
   return { ok: true, dados: tirado };
+}
+
+export type TurmaSalva = { mensalidadeMudou: boolean; datasAtualizadas: number };
+
+// "Salvar turma" (D-03). `exigirUsuario()` primeiro (T-05-28), Zod no servidor. Sob a trava da
+// TURMA: recusa a desativada; grava a turma e, nas datas com `data > hoje` e NÃO canceladas, o
+// horário, as vagas e o público (hoje e o passado ficam como foram — Assumption A9). O nome não é
+// copiado: as datas leem o nome da turma ao vivo. A mensalidade nova vale a partir do próximo mês,
+// porque cada mensalidade copia o valor da turma ao nascer — a guarda do Pitfall 6 (garantir a do
+// mês ANTES de gravar o valor novo) entra no plano 07, com a função que cria mensalidades.
+export async function editarTurma(entradaBruta: unknown): Promise<ResultadoDoLancamento<TurmaSalva>> {
+  await exigirUsuario();
+
+  const resultado = esquemaEditarTurma.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let publico = dados.publica;
+  let salva: TurmaSalva;
+  try {
+    salva = await db.transaction(async (tx): Promise<TurmaSalva> => {
+      const turma = await travarTurma(tx, dados.turmaId);
+      if (!turma) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (!turma.ativa) {
+        throw new RecusaDaAgenda(FRASE_TURMA_JA_DESATIVADA);
+      }
+      // Sai do site quem deixou de ser pública: revalida se ela era OU passou a ser.
+      publico = turma.publica || dados.publica;
+      await tx
+        .update(turmas)
+        .set({
+          nome: dados.nome,
+          inicio: dados.inicio,
+          fim: dados.fim,
+          vagas: dados.vagas,
+          mensalidadeCentavos: dados.mensalidadeCentavos,
+          diaVencimento: dados.diaVencimento,
+          publica: dados.publica,
+        })
+        .where(eq(turmas.id, turma.id));
+      const atualizadas = await tx
+        .update(eventos)
+        .set({ inicio: dados.inicio, fim: dados.fim, vagas: dados.vagas, publico: dados.publica })
+        .where(and(eq(eventos.turmaId, turma.id), gt(eventos.data, hoje), isNull(eventos.canceladoEm)))
+        .returning({ id: eventos.id });
+      return {
+        mensalidadeMudou: turma.mensalidadeCentavos !== dados.mensalidadeCentavos,
+        datasAtualizadas: atualizadas.length,
+      };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao salvar a turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR_TURMA };
+  }
+
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: salva };
+}
+
+export type SemanasMarcadas = { datas: number; ate: string | null; alunosInscritos: number };
+
+// "Marcar mais N semanas" (D-03, AGE-03 · adjacency/idempotency/concurrency). `exigirUsuario()`
+// primeiro, Zod (1..52). Sob a trava da TURMA (a mesma de "entrar na turma", plano 07): começa em
+// `aPartirDeParaEstender(última data, hoje)` — o dia seguinte à última data marcada, ou hoje se ela
+// já passou; a última nunca é marcada de novo —, grava com `on conflict (turma_id, data) do nothing`
+// e, NA MESMA transação, inscreve os alunos ativos nas datas criadas (Pitfall 5). Dois gestores ao
+// mesmo tempo: o segundo espera a trava, lê a última data nova e continua depois dela — nenhuma data
+// se repete.
+export async function marcarMaisSemanas(entradaBruta: unknown): Promise<ResultadoDoLancamento<SemanasMarcadas>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaMarcarMaisSemanas.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return {
+      ok: false,
+      erro: primeiraMensagemDeErro(resultado),
+      campos: errosPorCampo(resultado.error.issues),
+    };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let publico = false;
+  let marcadas: SemanasMarcadas;
+  try {
+    marcadas = await db.transaction(async (tx): Promise<SemanasMarcadas> => {
+      const turma = await travarTurma(tx, dados.turmaId);
+      if (!turma) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (!turma.ativa) {
+        throw new RecusaDaAgenda(FRASE_TURMA_JA_DESATIVADA);
+      }
+      publico = turma.publica;
+      const [ultima] = await tx
+        .select({ data: max(eventos.data) })
+        .from(eventos)
+        .where(eq(eventos.turmaId, turma.id));
+      const datas = datasDaTurma({
+        diaDaSemana: turma.diaSemana,
+        aPartirDe: aPartirDeParaEstender(ultima?.data ?? null, hoje),
+        semanas: dados.semanas,
+      });
+      const criadas = await marcarDatasDaTurma(tx, turma, datas, usuario.id);
+      const alunosInscritos = await inscreverAlunosNasDatas(
+        tx,
+        turma.id,
+        criadas.map((criada) => criada.id),
+        usuario.id,
+      );
+      return {
+        datas: criadas.length,
+        ate: criadas.length > 0 ? criadas[criadas.length - 1].data : null,
+        alunosInscritos,
+      };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      revalidarTelasDaAgenda({ publico: false });
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao marcar mais semanas (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_MARCAR_SEMANAS };
+  }
+
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: marcadas };
+}
+
+export type TurmaDesativada = { datasTiradas: number };
+
+// "Desativar turma" (D-03) — NUNCA apaga a turma (`revoke delete` em `turmas`), o que já aconteceu
+// nem as mensalidades nascidas (T-05-31). `exigirUsuario()` primeiro. Sob a trava da TURMA:
+// - não existe / já desativada → a frase;
+// - alguma inscrição de data futura ligada a venda NÃO cancelada → recusa com a data e o número da
+//   venda (D-08: a venda só se desfaz no Caixa);
+// - tira as datas com `data > hoje` e as inscrições delas (Assumption A14 — não as cancela, para a
+//   semana não encher de datas riscadas; as reposições voltam a ser crédito por derivação) e grava
+//   `ativa = false`, `desativada_em`, `desativada_por`. Hoje e o passado ficam.
+export async function desativarTurma(entradaBruta: unknown): Promise<ResultadoDeAcao<TurmaDesativada>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaDesativarTurma.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const hoje = hojeEmBrasilia(new Date());
+
+  let publico = false;
+  let desativada: TurmaDesativada;
+  try {
+    desativada = await db.transaction(async (tx): Promise<TurmaDesativada> => {
+      const turma = await travarTurma(tx, resultado.data.turmaId);
+      if (!turma) {
+        throw new RecusaDaAgenda(FRASE_LANCAMENTO_NAO_EXISTE);
+      }
+      if (!turma.ativa) {
+        throw new RecusaDaAgenda(FRASE_TURMA_JA_DESATIVADA);
+      }
+      publico = turma.publica;
+      const venda = await vendaAtivaEmDataFutura(tx, turma.id, hoje);
+      if (venda !== null) {
+        throw new RecusaDaAgenda(fraseDesativarComVendaAtiva(formatarDiaMes(venda.data), venda.numero));
+      }
+      const datasTiradas = await tirarDatasFuturasDaTurma(tx, turma.id, hoje);
+      await tx
+        .update(turmas)
+        .set({ ativa: false, desativadaEm: new Date(), desativadaPor: usuario.id })
+        .where(eq(turmas.id, turma.id));
+      return { datasTiradas };
+    });
+  } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      // A frase fica no diálogo; a folha se atualiza ao fechá-lo (molde de "Tirar da lista").
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao desativar a turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_DESATIVAR_TURMA };
+  }
+
+  // As datas futuras saem do site.
+  revalidarTelasDaAgenda({ publico });
+  return { ok: true, dados: desativada };
 }

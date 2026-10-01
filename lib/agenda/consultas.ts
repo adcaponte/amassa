@@ -4,14 +4,20 @@
 //
 // O `pg` devolve as colunas `time` com segundos ("19:00:00", Pitfall 9): tudo sai daqui já em
 // "HH:MM", pelo módulo puro `horario.ts`.
-import { and, asc, count, desc, eq, gte, inArray, isNull, lte, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNull, lte, max, notExists, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes, itensCatalogo, turmas } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes, itensCatalogo, turmaAlunos, turmas } from "@/db/schema";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { somarDias } from "@/lib/producao/calendario";
 
-import { contarPerdasAoCancelar, type PerdasAoCancelar, type VendaDaInscricao } from "./gravacao";
+import {
+  contarPerdasAoCancelar,
+  contarPerdasAoDesativar,
+  type PerdasAoCancelar,
+  type PerdasAoDesativar,
+  type VendaDaInscricao,
+} from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { ordenarInscritos } from "./presenca";
 import { gradeDoMes } from "./semana";
@@ -392,5 +398,86 @@ export async function pessoasParaData({
   return {
     grupos: gruposDoSeletor({ aRepor: [], demais: achados, rotuloDemais: rotuloDoGrupoDoSeletor(tipoDoEvento) }),
     ninguemCadastrado: false,
+  };
+}
+
+export type { PerdasAoDesativar };
+
+// O que a confirmação de "Desativar turma" mostra antes (a regra de exclusão do projeto).
+export async function perdasAoDesativar(turmaId: string, hoje: string): Promise<PerdasAoDesativar> {
+  return contarPerdasAoDesativar(db, turmaId, hoje);
+}
+
+export type AlunoDaTurma = { clienteId: string; nome: string };
+
+// A turma aberta na folha (`?turma={id}`, D-03).
+export type TurmaCarregada = {
+  id: string;
+  nome: string;
+  diaSemana: number;
+  inicio: string;
+  fim: string;
+  vagas: number;
+  mensalidadeCentavos: number;
+  diaVencimento: number;
+  publica: boolean;
+  ativa: boolean;
+  // "dd/mm" lido como data civil de Brasília — só na turma desativada.
+  desativadaEm: string | null;
+  // A última data marcada (passada ou futura) e quantas datas NÃO canceladas vêm depois de hoje.
+  ultimaData: string | null;
+  datasFuturas: number;
+  // Os alunos ativos (`turma_alunos` sem `saiu_em`), em ordem de nome.
+  alunos: AlunoDaTurma[];
+  perdasAoDesativar: PerdasAoDesativar;
+};
+
+const ORDEM_DOS_NOMES = new Intl.Collator("pt-BR", { sensitivity: "base" });
+
+// A turma da folha, com o que ela mostra — `null` se não existe (link velho). "Daqui para frente" é
+// `data > hoje`, a mesma régua de editar e desativar (Assumption A9).
+export async function obterTurma(id: string, hoje: string): Promise<TurmaCarregada | null> {
+  const [turma] = await db
+    .select({
+      id: turmas.id,
+      nome: turmas.nome,
+      diaSemana: turmas.diaSemana,
+      inicio: turmas.inicio,
+      fim: turmas.fim,
+      vagas: turmas.vagas,
+      mensalidadeCentavos: turmas.mensalidadeCentavos,
+      diaVencimento: turmas.diaVencimento,
+      publica: turmas.publica,
+      ativa: turmas.ativa,
+      desativadaEm: sql<string | null>`to_char(${turmas.desativadaEm} at time zone 'America/Sao_Paulo', 'DD/MM')`,
+    })
+    .from(turmas)
+    .where(eq(turmas.id, id));
+  if (!turma) {
+    return null;
+  }
+
+  const [[ultima], [futuras], alunos, perdas] = await Promise.all([
+    db.select({ data: max(eventos.data) }).from(eventos).where(eq(eventos.turmaId, id)),
+    db
+      .select({ total: count() })
+      .from(eventos)
+      .where(and(eq(eventos.turmaId, id), gt(eventos.data, hoje), isNull(eventos.canceladoEm))),
+    db
+      .select({ clienteId: turmaAlunos.clienteId, nome: clientes.nome })
+      .from(turmaAlunos)
+      .innerJoin(clientes, eq(clientes.id, turmaAlunos.clienteId))
+      .where(and(eq(turmaAlunos.turmaId, id), isNull(turmaAlunos.saiuEm))),
+    perdasAoDesativar(id, hoje),
+  ]);
+
+  return {
+    ...turma,
+    inicio: hhmm(turma.inicio) ?? turma.inicio,
+    fim: hhmm(turma.fim) ?? turma.fim,
+    ultimaData: ultima?.data ?? null,
+    datasFuturas: Number(futuras?.total ?? 0),
+    alunos: [...alunos].sort((a, b) => ORDEM_DOS_NOMES.compare(a.nome, b.nome)),
+    perdasAoDesativar: perdas,
   };
 }

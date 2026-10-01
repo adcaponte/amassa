@@ -19,10 +19,10 @@
 // Cada ação pula os elos que não usa. A Agenda nunca trava um documento EXISTENTE (só cria o seu,
 // que ninguém mais vê), então não fecha ciclo com `cancelarDocumento` do Financeiro
 // (DOCUMENTO → ORDEM → ITENS).
-import { and, count, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
-import { clientes, documentos, eventos, inscricoes } from "@/db/schema";
+import { clientes, documentos, eventos, inscricoes, turmas } from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 
 import type { Presenca, TipoEvento, TipoInscricao } from "./tipos";
@@ -249,4 +249,135 @@ export async function marcarDatasDaTurma(
     .onConflictDoNothing({ target: [eventos.turmaId, eventos.data] })
     .returning({ id: eventos.id, data: eventos.data });
   return criadas.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+}
+
+export type TurmaTravada = {
+  id: string;
+  nome: string;
+  diaSemana: number;
+  inicio: string;
+  fim: string;
+  vagas: number;
+  mensalidadeCentavos: number;
+  publica: boolean;
+  ativa: boolean;
+};
+
+// Trava a linha da TURMA até o fim da transação (`for no key update` — o primeiro elo da ordem
+// global de travas). Editar, "Marcar mais semanas", desativar e (plano 07) entrar na turma travam a
+// MESMA linha primeiro: estender e entrar ao mesmo tempo nunca deixam o aluno fora de uma data nova,
+// e estender e desativar nunca se cruzam. `null` se ela não existe.
+export async function travarTurma(tx: TransacaoDoBanco, turmaId: string): Promise<TurmaTravada | null> {
+  const [linha] = await tx
+    .select({
+      id: turmas.id,
+      nome: turmas.nome,
+      diaSemana: turmas.diaSemana,
+      inicio: turmas.inicio,
+      fim: turmas.fim,
+      vagas: turmas.vagas,
+      mensalidadeCentavos: turmas.mensalidadeCentavos,
+      publica: turmas.publica,
+      ativa: turmas.ativa,
+    })
+    .from(turmas)
+    .where(eq(turmas.id, turmaId))
+    .for("no key update");
+  return linha ?? null;
+}
+
+// Inscreve todo aluno ATIVO da turma (`turma_alunos` sem `saiu_em`) como `aluno` nas datas dadas
+// (Pitfall 5: "Marcar mais semanas" nunca cria datas vazias), na MESMA transação de quem as criou.
+// `on conflict (evento_id, cliente_id) do nothing`: quem já está na data (uma experimental, por
+// exemplo — Assumption A13) fica como está. O aluno paga pela mensalidade, nunca pela data
+// (`cobrar` falso). Usado aqui e por "entrar na turma" (plano 07). Devolve quantas inscrições nasceram.
+export async function inscreverAlunosNasDatas(
+  tx: TransacaoDoBanco,
+  turmaId: string,
+  eventoIds: readonly string[],
+  criadoPor: string,
+): Promise<number> {
+  if (eventoIds.length === 0) {
+    return 0;
+  }
+  const ids = sql.join(
+    eventoIds.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+  const resultado = await tx.execute(sql`
+    insert into inscricoes (evento_id, cliente_id, tipo, criado_por)
+    select e.id, ta.cliente_id, 'aluno'::tipo_inscricao, ${criadoPor}::uuid
+      from turma_alunos ta
+      join eventos e on e.turma_id = ta.turma_id
+     where ta.turma_id = ${turmaId}::uuid
+       and ta.saiu_em is null
+       and e.id in (${ids})
+    on conflict (evento_id, cliente_id) do nothing
+  `);
+  return resultado.rowCount ?? 0;
+}
+
+// A primeira inscrição de uma data FUTURA da turma (`data > hoje`) ligada a uma venda NÃO cancelada
+// — a desativação recusa por ela (D-08: a Agenda nunca some com uma venda ativa). Lê o documento,
+// nunca o trava (a ordem global de travas, no topo). `null` quando não há nenhuma.
+export async function vendaAtivaEmDataFutura(
+  tx: TransacaoDoBanco,
+  turmaId: string,
+  hoje: string,
+): Promise<{ data: string; numero: number } | null> {
+  const [linha] = await tx
+    .select({ data: eventos.data, numero: documentos.numero })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .innerJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+    .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje), isNull(documentos.canceladoEm)))
+    .orderBy(asc(eventos.data), asc(documentos.numero))
+    .limit(1);
+  return linha ? { data: linha.data, numero: Number(linha.numero) } : null;
+}
+
+// O que "Desativar turma" tira (a confirmação diz antes — CLAUDE.md §Exclusão): as datas com
+// `data > hoje` (Assumption A14: saem, não são canceladas) e, entre as inscrições delas, as
+// reposições — que voltam a ser crédito, porque o crédito é derivado das linhas.
+export type PerdasAoDesativar = { datas: number; reposicoes: number };
+
+export async function contarPerdasAoDesativar(
+  leitor: LeitorDoBanco,
+  turmaId: string,
+  hoje: string,
+): Promise<PerdasAoDesativar> {
+  const seletor = leitor as Pick<TransacaoDoBanco, "select">;
+  const [datas] = await seletor
+    .select({ total: count() })
+    .from(eventos)
+    .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
+  const [reposicoes] = await seletor
+    .select({ total: count() })
+    .from(inscricoes)
+    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+    .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje), eq(inscricoes.tipo, "reposicao")));
+  return { datas: Number(datas?.total ?? 0), reposicoes: Number(reposicoes?.total ?? 0) };
+}
+
+// Tira da agenda as datas FUTURAS da turma (`data > hoje`) e as inscrições delas. Trava as datas
+// primeiro (`for update` — vão ser apagadas; a ordem TURMA → EVENTO → INSCRIÇÃO): quem estava
+// colocando alguém numa delas termina antes, e a inscrição dele sai junto; quem chega depois acha a
+// data apagada. Hoje e o passado ficam como estão. Devolve quantas datas saíram.
+export async function tirarDatasFuturasDaTurma(
+  tx: TransacaoDoBanco,
+  turmaId: string,
+  hoje: string,
+): Promise<number> {
+  const futuras = await tx
+    .select({ id: eventos.id })
+    .from(eventos)
+    .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)))
+    .for("update");
+  if (futuras.length === 0) {
+    return 0;
+  }
+  const ids = futuras.map((linha) => linha.id);
+  await tx.delete(inscricoes).where(inArray(inscricoes.eventoId, ids));
+  await tx.delete(eventos).where(and(inArray(eventos.id, ids), eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
+  return ids.length;
 }
