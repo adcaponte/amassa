@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { definirDispensa } from "@/lib/agenda/acoes";
@@ -11,6 +12,7 @@ import {
   ARIA_LISTA_DISPENSADAS,
   ariaDesfazerDispensa,
   FRASE_FALHA_AO_DESFAZER_DISPENSA,
+  FRASE_FALHA_AO_DISPENSAR,
   linhaDispensada,
   ROTULO_DESFAZENDO,
   ROTULO_DESFAZER,
@@ -79,6 +81,7 @@ export function Dispensadas({ dados, quantas }: DispensadasProps) {
 // Uma linha de “Dispensadas”. “Desfazer” manda `dispensada: false` (estado desejado); em voo,
 // “Desfazendo…” com `disabled`, e o `useRef` barra o segundo toque. A falha aparece embaixo da linha.
 function LinhaDispensada({ linha }: { linha: DispensadaCarregada }) {
+  const router = useRouter();
   const emVoo = useRef(false);
   const [desfazendo, setDesfazendo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -97,7 +100,14 @@ function LinhaDispensada({ linha }: { linha: DispensadaCarregada }) {
         dispensada: false,
       });
       if (!resposta.ok) {
-        setErro(FRASE_FALHA_AO_DESFAZER_DISPENSA);
+        // IN-07 da revisão B: a recusa (lançada em outro celular, por exemplo) diz o porquê e relê a tela;
+        // só a falha técnica fica com a frase genérica do desfazer.
+        if (resposta.erro === FRASE_FALHA_AO_DISPENSAR) {
+          setErro(FRASE_FALHA_AO_DESFAZER_DISPENSA);
+        } else {
+          setErro(resposta.erro);
+          router.refresh();
+        }
         return;
       }
       toast.success(TOAST_DISPENSA_DESFEITA);
