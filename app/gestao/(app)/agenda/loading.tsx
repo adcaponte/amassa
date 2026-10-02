@@ -4,6 +4,7 @@ import { TITULO_AGENDA } from "@/lib/agenda/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EsqueletoPelaAba } from "@/components/amassa/agenda/a-receber";
 import { AbasDaAgenda } from "@/components/amassa/agenda/abas-da-agenda";
+import { EsqueletoDasPessoas } from "@/components/amassa/agenda/lista-pessoas";
 import { EsqueletoDoNoSite } from "@/components/amassa/agenda/moldura-no-site";
 import { EsqueletoDosNumeros } from "@/components/amassa/agenda/numeros-da-agenda";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,6 +65,7 @@ export default function CarregandoAgenda() {
             padrao={<EsqueletoDaSemana />}
             numeros={<EsqueletoDosNumeros />}
             site={<EsqueletoDoNoSite />}
+            pessoas={<EsqueletoDasPessoas />}
           />
         </Suspense>
       </div>

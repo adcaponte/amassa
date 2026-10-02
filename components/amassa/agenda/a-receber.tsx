@@ -117,10 +117,13 @@ export function EsqueletoPelaAba({
   padrao,
   numeros,
   site,
+  pessoas,
 }: {
   padrao: ReactNode;
   numeros?: ReactNode;
   site?: ReactNode;
+  // IN-06 da revisão B: a aba Pessoas carregando não desenha a semana.
+  pessoas?: ReactNode;
 }) {
   const parametros = useSearchParams();
   const aba = abaDaAgendaDaUrl(parametros.get("aba") ?? undefined);
@@ -129,6 +132,9 @@ export function EsqueletoPelaAba({
   }
   if (aba === "site" && site !== undefined) {
     return site;
+  }
+  if (aba === "pessoas" && pessoas !== undefined) {
+    return pessoas;
   }
   return aba === "numeros" && numeros !== undefined ? numeros : padrao;
 }
