@@ -19,12 +19,15 @@ import {
   type ItensDoSistema,
 } from "@/lib/agenda/receber";
 import {
+  corpoConfirmarLote,
   fraseCorridaDoLote,
   linhaDoLote,
   resumoDoLote,
+  rotuloConfirmarLote,
   rotuloDoBotaoDoLote,
   subLinhaDispensada,
   tituloConfirmarDispensar,
+  tituloConfirmarLote,
   toastDoLote,
 } from "@/lib/agenda/textos";
 
@@ -395,6 +398,27 @@ describe("rótulos do lote — singular de verdade com uma (E16 zero-one-many)",
   it("o botão: “esta 1”, nunca “estas 1”", () => {
     expect(rotuloDoBotaoDoLote(1, "R$ 320,00")).toBe("Lançar esta 1 na Venda · R$ 320,00");
     expect(rotuloDoBotaoDoLote(4, "R$ 1.280,00")).toBe("Lançar estas 4 na Venda · R$ 1.280,00");
+  });
+
+  // A confirmação final do lote — decisão do dono no chat, 02/10/2026 (VERIFICACAO-COWORK-05 §2 item 3).
+  it("a confirmação: título e botão no singular de verdade com uma", () => {
+    expect(tituloConfirmarLote(1)).toBe("Lançar 1 venda?");
+    expect(tituloConfirmarLote(4)).toBe("Lançar 4 vendas?");
+    expect(rotuloConfirmarLote(1)).toBe("Lançar 1 venda");
+    expect(rotuloConfirmarLote(20)).toBe("Lançar 20 vendas");
+  });
+
+  it("a confirmação: o corpo diz quantas, o total e que desfazer é cancelar uma a uma no Caixa", () => {
+    const plural = corpoConfirmarLote(4, "R$ 900,00");
+    expect(plural).toContain("4 vendas");
+    expect(plural).toContain("R$ 900,00");
+    expect(plural).toContain("cancelar uma a uma no Caixa");
+
+    const singular = corpoConfirmarLote(1, "R$ 320,00");
+    expect(singular).toContain("1 venda,");
+    expect(singular).not.toContain("vendas");
+    expect(singular).toContain("R$ 320,00");
+    expect(singular).toContain("no Caixa");
   });
 
   it("o toast e a corrida", () => {

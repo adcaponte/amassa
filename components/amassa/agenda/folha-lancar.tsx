@@ -229,7 +229,9 @@ function FormularioLancar({
   const [fim, setFim] = useState("");
   const [vagas, setVagas] = useState(VAGAS_PADRAO);
   const [preco, setPreco] = useState("");
-  const [publico, setPublico] = useState(true);
+  // Desmarcada por padrão — decisão do dono no chat, 02/10/2026 (VERIFICACAO-COWORK-05 §2 item 1):
+  // lançamento sem escolha explícita não vai para o site.
+  const [publico, setPublico] = useState(false);
   const [motivo, setMotivo] = useState("");
   // Só da turma.
   const [diaSemana, setDiaSemana] = useState(diaSemanaInicial);

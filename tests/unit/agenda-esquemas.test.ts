@@ -414,3 +414,20 @@ describe("esquemaEncerrarUsoLivre", () => {
     }
   });
 });
+
+// Decisão do dono no chat, 02/10/2026 (VERIFICACAO-COWORK-05 §2 item 1): a caixa pública vem desmarcada na
+// tela — e o servidor nunca decide pela pessoa. Sem a chave, o lançamento é recusado (sem `.default`): ele
+// nunca fica público (nem privado) por omissão.
+describe("o lançamento nunca fica público por omissão", () => {
+  it("esquemaLancarAvulsa sem `publico` falha", () => {
+    const semPublico: Partial<typeof AVULSA_VALIDA> = { ...AVULSA_VALIDA };
+    delete semPublico.publico;
+    expect(esquemaLancarAvulsa.safeParse(semPublico).success).toBe(false);
+  });
+
+  it("esquemaLancarTurma sem `publica` falha", () => {
+    const semPublica: Partial<typeof TURMA_VALIDA> = { ...TURMA_VALIDA };
+    delete semPublica.publica;
+    expect(esquemaLancarTurma.safeParse(semPublica).success).toBe(false);
+  });
+});

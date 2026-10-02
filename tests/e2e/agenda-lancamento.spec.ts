@@ -81,14 +81,15 @@ test.describe("agenda lancamento", () => {
     await fazerLogin(page);
     await abrirFolhaNoDia(page, amanha);
 
-    // Padrões da UI-SPEC: avulsa marcada, horário e preço vazios, vagas 8, público marcado.
+    // Padrões da UI-SPEC: avulsa marcada, horário e preço vazios, vagas 8, público DESmarcado (decisão do
+    // dono de 02/10/2026). A caixa não é tocada: a prova de ponta a ponta de que “sem escolha, não é público”.
     const f = folha(page);
     await expect(f.getByRole("radiogroup", { name: "O que lançar" })).toBeVisible();
     await expect(f.getByTestId("lancar-tipo-avulsa")).toHaveAttribute("aria-checked", "true");
     await expect(f.getByTestId("lancar-inicio")).toHaveValue("");
     await expect(f.getByTestId("lancar-preco")).toHaveValue("");
     await expect(f.getByTestId("lancar-vagas")).toHaveValue("8");
-    await expect(f.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "true");
+    await expect(f.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "false");
     await expect(f.getByTestId("lancar-gravar")).toHaveText("Lançar aula");
 
     await preencherAula(page, { titulo, inicio: "14:00", fim: "16:30", vagas: "6", preco: "37,50" });
@@ -115,7 +116,7 @@ test.describe("agenda lancamento", () => {
       titulo,
       vagas: 6,
       precoCentavos: 3750,
-      publico: true,
+      publico: false,
       canceladoEm: null,
     });
   });

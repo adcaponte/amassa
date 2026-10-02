@@ -59,6 +59,9 @@ test.describe("agenda no site", () => {
     await folha.getByTestId("lancar-fim").fill("11:30");
     await folha.getByTestId("lancar-vagas").fill("5");
     await folha.getByTestId("lancar-preco").fill("80");
+    // A caixa pública vem DESmarcada (decisão do dono de 02/10/2026): a oficina só vai para o site marcada.
+    await folha.getByTestId("lancar-publico").click();
+    await expect(folha.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "true");
     await folha.getByTestId("lancar-gravar").click();
     await expect(folha).toHaveCount(0);
 

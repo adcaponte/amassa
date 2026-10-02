@@ -2,7 +2,14 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { descricaoDaLinha } from "@/lib/agenda/receber";
 import { nomeDoMes } from "@/lib/agenda/semana";
-import { fraseCorridaDoLote, linhaDoLote, resumoDoLote, rotuloDoBotaoDoLote, toastDoLote } from "@/lib/agenda/textos";
+import {
+  fraseCorridaDoLote,
+  linhaDoLote,
+  resumoDoLote,
+  rotuloDoBotaoDoLote,
+  tituloConfirmarLote,
+  toastDoLote,
+} from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
 
 import {
@@ -145,7 +152,12 @@ test.describe.serial("agenda mensalidades lote @vazio-historico", () => {
     ]);
     await expect(lote.getByTestId("lote-lancar")).toHaveText(rotuloDoBotaoDoLote(4, formatarReais(90000)));
 
+    // A confirmação final (decisão do dono de 02/10/2026): quantas e o total, e só o confirmar lança.
     await lote.getByTestId("lote-lancar").click();
+    const confirmacao = page.getByTestId("confirmar-lote");
+    await expect(confirmacao.getByRole("heading")).toHaveText(tituloConfirmarLote(4));
+    await expect(confirmacao).toContainText(formatarReais(90000));
+    await confirmacao.getByTestId("confirmar-lote-sim").click();
     await expect(page.getByText(toastDoLote(4))).toBeVisible();
     // Nada mais livre: a sanfona some (E16·empty) e a aba fica sem primário.
     await expect(page.getByTestId("lote-mensalidades")).toHaveCount(0);
@@ -216,10 +228,12 @@ test.describe.serial("agenda mensalidades lote @vazio-historico", () => {
       await expect(outra.getByTestId("lote-linha")).toHaveCount(2);
 
       await page.getByTestId("lote-lancar").click();
+      await page.getByTestId("confirmar-lote-sim").click();
       await expect(page.getByText(toastDoLote(2))).toBeVisible();
 
       // A outra aba ainda mostra o lote velho: o servidor relê sob a trava, pula e conta.
       await outra.getByTestId("lote-lancar").click();
+      await outra.getByTestId("confirmar-lote-sim").click();
       await expect(outra.getByText(fraseCorridaDoLote(0, 2))).toBeVisible();
       await expect(outra.getByTestId("lote-mensalidades")).toHaveCount(0);
     } finally {
@@ -231,7 +245,9 @@ test.describe.serial("agenda mensalidades lote @vazio-historico", () => {
     }
   });
 
-  test("(c) uma mensalidade só: o singular na sanfona, no botão e no toast", async ({ page }) => {
+  test("(c) uma mensalidade só: o singular na sanfona, no botão, na confirmação e no toast; “Voltar” não cria venda", async ({
+    page,
+  }) => {
     const suf = sufixoUnico();
     const { mes, dia } = mesDeHoje();
     const turmaId = await semearTurma(`[e2e] Lote D ${suf}`, 32000, 8);
@@ -243,7 +259,17 @@ test.describe.serial("agenda mensalidades lote @vazio-historico", () => {
     const lote = page.getByTestId("lote-mensalidades");
     await expect(lote.getByTestId("lote-resumo")).toHaveText(resumoDoLote(1));
     await expect(lote.getByTestId("lote-lancar")).toHaveText("Lançar esta 1 na Venda · " + formatarReais(32000));
+    // “Voltar” na confirmação (decisão do dono de 02/10/2026) fecha sem criar venda nenhuma.
     await lote.getByTestId("lote-lancar").click();
+    const confirmacao = page.getByTestId("confirmar-lote");
+    await expect(confirmacao.getByRole("heading")).toHaveText("Lançar 1 venda?");
+    await confirmacao.getByTestId("confirmar-lote-nao").click();
+    await expect(confirmacao).toHaveCount(0);
+    expect(await vendasDoCliente(clienteId)).toHaveLength(0);
+    await expect(page.getByTestId("lote-mensalidades")).toBeVisible();
+
+    await lote.getByTestId("lote-lancar").click();
+    await page.getByTestId("confirmar-lote-sim").click();
     await expect(page.getByText(toastDoLote(1))).toBeVisible();
 
     const venda = await vendaDaCobranca("mensalidade", mensalidadeId);

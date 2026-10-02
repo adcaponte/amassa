@@ -1076,6 +1076,20 @@ export function fraseCorridaDoLote(lancadas: number, jaLancadas: number): string
 }
 export const FRASE_FALHA_AO_LANCAR_LOTE =
   "Não deu para lançar as mensalidades. Nenhuma venda foi criada — verifique a internet e tente de novo.";
+// A confirmação final do lote (decisão do dono no chat, 02/10/2026 — VERIFICACAO-COWORK-05 §2 item 3):
+// um toque cria N vendas que só se desfazem uma a uma no Caixa, então o botão do lote abre esta pergunta
+// e só o confirmar dela lança. Singular de verdade com UMA, como as vizinhas.
+export function tituloConfirmarLote(quantas: number): string {
+  return quantas === 1 ? "Lançar 1 venda?" : `Lançar ${quantas} vendas?`;
+}
+export function rotuloConfirmarLote(quantas: number): string {
+  return quantas === 1 ? "Lançar 1 venda" : `Lançar ${quantas} vendas`;
+}
+export function corpoConfirmarLote(quantas: number, total: string): string {
+  return quantas === 1
+    ? `Vai ser criada 1 venda, de ${total}, com a parcela em aberto vencendo no dia da turma. Para desfazer depois, é cancelar essa venda no Caixa.`
+    : `Vão ser criadas ${quantas} vendas, uma por mensalidade, somando ${total}. Cada uma tem a parcela em aberto vencendo no dia da turma. Para desfazer depois, é cancelar uma a uma no Caixa.`;
+}
 
 // Dispensar uma cobrança (plano 13 — D-09, UI-D15; 05-UI-SPEC.md §Confirmações “Dispensar”, §“Rótulos e
 // dicas de campo” (Dispensar — motivo), §Toasts “Dispensar”/“Desfazer dispensa”, §“Lote e A receber —

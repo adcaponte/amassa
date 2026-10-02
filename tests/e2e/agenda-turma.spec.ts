@@ -134,6 +134,11 @@ test.describe("agenda turma", () => {
     await expect(f.getByTestId("lancar-semanas")).toHaveValue("8");
     await expect(f.getByTestId("lancar-vencimento")).toHaveValue("10");
     await expect(f.getByTestId("lancar-mensalidade")).toHaveValue("");
+    // A caixa pública vem DESmarcada (decisão do dono de 02/10/2026); aqui ela é marcada de propósito, e
+    // as conferências `publica: true` / `publico: true` abaixo provam que a escolha explícita chega à
+    // turma e às datas.
+    await expect(f.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "false");
+    await f.getByTestId("lancar-publico").click();
     await expect(f.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "true");
     await expect(f.getByTestId("lancar-gravar")).toHaveText("Lançar turma");
 

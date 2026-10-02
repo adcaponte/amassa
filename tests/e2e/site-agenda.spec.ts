@@ -49,8 +49,11 @@ async function lancarOficina(page: Page, data: string, titulo: string, publica: 
   await f.getByTestId("lancar-fim").fill("17:00");
   await f.getByTestId("lancar-vagas").fill("2");
   await f.getByTestId("lancar-preco").fill("120");
-  if (!publica) {
+  // A caixa pública vem DESmarcada (decisão do dono de 02/10/2026): só a oficina pública é marcada.
+  if (publica) {
     await f.getByTestId("lancar-publico").click();
+    await expect(f.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "true");
+  } else {
     await expect(f.getByTestId("lancar-publico")).toHaveAttribute("aria-checked", "false");
   }
   await f.getByTestId("lancar-gravar").click();
