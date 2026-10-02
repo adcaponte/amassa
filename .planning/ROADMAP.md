@@ -972,7 +972,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06.2-03-PLAN.md — Achar o fornecedor: busca sem acento, filtro por área, desativados, ficha com contatos que se copiam e abrem (onda 3)
+- [x] 06.2-03-PLAN.md — Achar o fornecedor: busca sem acento, filtro por área, desativados, ficha com contatos que se copiam e abrem (onda 3)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
