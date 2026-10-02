@@ -24,8 +24,9 @@ export type LinhaAReceberProps = {
 // tags (Apoio) na coluna inteira, quebrando sem empurrar o valor; e a fileira de ações (`flex-wrap`, gap
 // 8px) com “Recebi agora” e “Lançar na Venda” (`outline`, 44px — UI-D3: o terracota da tela é só o lote).
 // “Lançar na Venda” (plano 12) abre a Venda do Financeiro preenchida — só leva `{ tipo, id }` na URL; o
-// servidor resolve o resto. “Dispensar a cobrança” (plano 13 — D-09) fica à ESQUERDA da fileira, só na
-// mensalidade e na inscrição livres (`podeDispensar`). A 320px os botões da direita descem um embaixo do
+// servidor resolve o resto. “Dispensar a cobrança” (plano 13 — D-09) fica à ESQUERDA da fileira, só onde
+// `podeDispensar` deixa: mensalidade e inscrição livres e — decisão do dono no chat, 02/10/2026 — o uso
+// livre com a venda cancelada. A regra mora em `podeDispensar`, não aqui. A 320px os botões da direita descem um embaixo do
 // outro (largura total), nunca rolam de lado.
 export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
   return (
@@ -62,7 +63,7 @@ export function LinhaAReceber({ linha, aoReceberAgora }: LinhaAReceberProps) {
         ) : null}
       </div>
       <div className="col-span-2 flex flex-wrap items-center gap-2 pt-1">
-        {linha.podeDispensar && linha.tipo !== "uso_livre" ? (
+        {linha.podeDispensar ? (
           <ConfirmarDispensar
             tipo={linha.tipo}
             id={linha.id}

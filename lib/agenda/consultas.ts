@@ -1388,7 +1388,8 @@ export async function cobrancaParaVenda(origem: ReferenciaDaCobranca): Promise<C
 // Uma linha de “Dispensadas”: “{nome} · {descrição}” + “dispensada por {quem} em {dd/mm}” + “ · {motivo}”,
 // e a referência que o “Desfazer” manda (`{ tipo, id }` + o estado desejado).
 export type DispensadaCarregada = {
-  tipo: "mensalidade" | "inscricao";
+  // O uso livre entra desde a decisão do dono no chat, 02/10/2026 (0027): só com a venda cancelada.
+  tipo: "mensalidade" | "inscricao" | "uso_livre";
   id: string;
   nome: string;
   // A descrição D-04 da cobrança (“Mensalidade · {turma} · {mês}”, “{oficina} · {dd/mm}”…).
@@ -1409,7 +1410,8 @@ export type DispensadasCarregadas = {
 
 // As cobranças dispensadas que ainda podem voltar para “A receber” — sem venda ATIVA (a dispensa nunca
 // convive com uma; o filtro é defesa) e, na inscrição, com a data de pé —, as mais recentes primeiro, até
-// `quantas` (20 por vez). Duas leituras limitadas (mensalidades e inscrições) e a mistura pelo módulo puro.
+// `quantas` (20 por vez). Três leituras limitadas (mensalidades, inscrições e — desde a decisão do dono no
+// chat, 02/10/2026, migração 0027 — usos livres) e a mistura pelo módulo puro.
 export async function lerDispensadas({ quantas }: { quantas: number }): Promise<DispensadasCarregadas> {
   const semVendaAtivaDaMensalidade = and(
     isNotNull(mensalidades.dispensadaEm),
@@ -1421,8 +1423,14 @@ export async function lerDispensadas({ quantas }: { quantas: number }): Promise<
     isNull(eventos.canceladoEm),
     or(isNull(inscricoes.documentoId), isNotNull(documentos.canceladoEm)),
   );
+  // O uso livre dispensado tem sempre venda (check `usos_livres_dispensa_so_com_venda`), e ela está
+  // cancelada (`podeDispensar`, sob a trava); o `or` é a mesma defesa das outras duas.
+  const semVendaAtivaDoUsoLivre = and(
+    isNotNull(usosLivres.dispensadaEm),
+    or(isNull(usosLivres.documentoId), isNotNull(documentos.canceladoEm)),
+  );
 
-  const [doMes, inscritas, [contaDoMes], [contaInscritas]] = await Promise.all([
+  const [doMes, inscritas, usos, [contaDoMes], [contaInscritas], [contaUsos]] = await Promise.all([
     db
       .select({
         id: mensalidades.id,
@@ -1463,6 +1471,24 @@ export async function lerDispensadas({ quantas }: { quantas: number }): Promise<
       .orderBy(desc(inscricoes.dispensadaEm), asc(inscricoes.id))
       .limit(quantas),
     db
+      .select({
+        id: usosLivres.id,
+        nome: clientes.nome,
+        horas: usosLivres.horasCheias,
+        pessoas: usosLivres.pessoas,
+        data: usosLivres.data,
+        quem: usuarios.nome,
+        dispensadaEm: usosLivres.dispensadaEm,
+        motivo: usosLivres.motivoDispensa,
+      })
+      .from(usosLivres)
+      .innerJoin(clientes, eq(clientes.id, usosLivres.clienteId))
+      .innerJoin(usuarios, eq(usuarios.id, usosLivres.dispensadaPor))
+      .leftJoin(documentos, eq(documentos.id, usosLivres.documentoId))
+      .where(semVendaAtivaDoUsoLivre)
+      .orderBy(desc(usosLivres.dispensadaEm), asc(usosLivres.id))
+      .limit(quantas),
+    db
       .select({ quantas: count() })
       .from(mensalidades)
       .leftJoin(documentos, eq(documentos.id, mensalidades.documentoId))
@@ -1473,6 +1499,11 @@ export async function lerDispensadas({ quantas }: { quantas: number }): Promise<
       .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
       .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
       .where(semVendaAtivaDaInscricao),
+    db
+      .select({ quantas: count() })
+      .from(usosLivres)
+      .leftJoin(documentos, eq(documentos.id, usosLivres.documentoId))
+      .where(semVendaAtivaDoUsoLivre),
   ]);
 
   const linhas: DispensadaCarregada[] = [];
@@ -1515,10 +1546,27 @@ export async function lerDispensadas({ quantas }: { quantas: number }): Promise<
       motivo: linha.motivo,
     });
   }
+  for (const linha of usos) {
+    if (linha.dispensadaEm === null) {
+      continue;
+    }
+    linhas.push({
+      tipo: "uso_livre",
+      id: linha.id,
+      nome: linha.nome,
+      // Não-nulas no encerrado (check `usos_livres_encerrado_completo`); a dispensa exige encerrado.
+      descricao: descricaoDaLinha({ tipo: "uso_livre", horas: linha.horas ?? 0, pessoas: linha.pessoas, data: linha.data }),
+      quem: linha.quem,
+      dispensadaEm: linha.dispensadaEm.toISOString(),
+      diaMes: formatarDiaMes(hojeEmBrasilia(linha.dispensadaEm)),
+      motivo: linha.motivo,
+    });
+  }
 
   return {
     linhas: ordenarDispensadas(linhas).slice(0, quantas),
-    total: Number(contaDoMes?.quantas ?? 0) + Number(contaInscritas?.quantas ?? 0),
+    total:
+      Number(contaDoMes?.quantas ?? 0) + Number(contaInscritas?.quantas ?? 0) + Number(contaUsos?.quantas ?? 0),
   };
 }
 

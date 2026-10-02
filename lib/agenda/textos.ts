@@ -1102,11 +1102,19 @@ export const ROTULO_DISPENSAR_A_COBRANCA = "Dispensar a cobrança";
 export function ariaDispensar(descricao: string, nome: string): string {
   return `Dispensar a cobrança de ${descricao} de ${nome}`;
 }
-export function tituloConfirmarDispensar(tipo: "mensalidade" | "inscricao", nome: string): string {
-  return `Dispensar ${tipo === "mensalidade" ? "a mensalidade" : "a inscrição"} de ${nome}?`;
+export function tituloConfirmarDispensar(tipo: "mensalidade" | "inscricao" | "uso_livre", nome: string): string {
+  const oQue = tipo === "mensalidade" ? "a mensalidade" : tipo === "inscricao" ? "a inscrição" : "o uso livre";
+  return `Dispensar ${oQue} de ${nome}?`;
 }
 export const CORPO_CONFIRMAR_DISPENSAR =
   "Ela sai de “A receber” e não vira venda. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
+// O uso livre só se dispensa com a venda cancelada (decisão do dono no chat, 02/10/2026) — o corpo diz que
+// a venda cancelada continua no Caixa, intocada.
+export const CORPO_CONFIRMAR_DISPENSAR_USO_LIVRE =
+  "A cobrança sai de “A receber”. A venda cancelada continua no Caixa, como está. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
+export function corpoConfirmarDispensar(tipo: "mensalidade" | "inscricao" | "uso_livre"): string {
+  return tipo === "uso_livre" ? CORPO_CONFIRMAR_DISPENSAR_USO_LIVRE : CORPO_CONFIRMAR_DISPENSAR;
+}
 export const ROTULO_MOTIVO_DISPENSA = "Motivo (opcional)";
 export const PLACEHOLDER_MOTIVO_DISPENSA = "ex.: bolsa, saiu da turma no começo do mês";
 // Decisão do backstop E17 long-text (a UI-SPEC fixa o limite, não a frase).

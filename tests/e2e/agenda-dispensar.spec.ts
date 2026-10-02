@@ -5,6 +5,7 @@ import {
   FRASE_MOTIVO_DISPENSA_LONGO,
   linhaDispensada,
   subLinhaDispensada,
+  tagVendaCancelada,
   TOAST_DISPENSA_DESFEITA,
   TOAST_DISPENSADA,
   tituloConfirmarDispensar,
@@ -14,6 +15,7 @@ import { formatarDiaMes } from "@/lib/producao/calendario";
 
 import {
   dispensaNoBanco,
+  ligarVendaACobranca,
   ligarVendaCanceladaAMensalidade,
   nomeDoGestorDeTeste,
   semearCliente,
@@ -27,7 +29,8 @@ import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // Plano 05-13, Tarefa 1 (D-09, UI-D15): “Dispensar a cobrança” tira a mensalidade ou a inscrição de “A
 // receber” sem virar venda — com motivo opcional, quem e quando —, NUNCA apaga a linha, e se desfaz pela
-// sanfona “Dispensadas” ou pelo “Desfazer” do toast. O uso livre não se dispensa. A dispensada não entra
+// sanfona “Dispensadas” ou pelo “Desfazer” do toast. O uso livre SEM venda não tem Dispensar; com a venda
+// cancelada no Caixa, tem (decisão do dono no chat, 02/10/2026 — caso f; 0027). A dispensada não entra
 // no lote nem no total. Nenhum caso afirma estado global: cada um acha a PRÓPRIA linha pelo `data-id`; o
 // total é conferido contra a soma das linhas da mesma tela. Nomes `[e2e]` com sufixo único, dias 1300+.
 
@@ -263,7 +266,7 @@ test.describe("agenda dispensar", () => {
     });
   });
 
-  test("(d) só mensalidade e inscrição se dispensam: o uso livre encerrado não tem “Dispensar a cobrança”; a inscrição e a mensalidade de venda cancelada têm", async ({
+  test("(d) o uso livre SEM venda não tem Dispensar (“Recebi agora” ou “Lançar na Venda”); a inscrição e a mensalidade de venda cancelada têm", async ({
     page,
   }) => {
     const suf = sufixoUnico();
@@ -355,5 +358,77 @@ test.describe("agenda dispensar", () => {
     const valores = await page.getByTestId("a-receber-valor").allInnerTexts();
     const soma = valores.reduce((total, texto) => total + centavosDoTexto(texto), 0);
     await expect(page.getByTestId("a-receber-total")).toHaveText(formatarReais(soma));
+  });
+
+  test("(f) uso livre com a venda cancelada no Caixa: Dispensar → motivo → sai de “A receber”, entra em “Dispensadas”; Desfazer devolve com a etiqueta da venda cancelada (decisão do dono, 02/10/2026)", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Ceramista ${suf}`;
+    const data = diaDoCaso(6);
+    const clienteId = await semearCliente({ nome });
+    const { usoLivreId, valorCentavos } = await semearUsoLivreEncerrado({
+      clienteId,
+      data,
+      horas: 2,
+      pessoas: 1,
+      precoHoraCentavos: 3500,
+    });
+    const { numero } = await ligarVendaACobranca({
+      tipo: "uso_livre",
+      id: usoLivreId,
+      valorCentavos,
+      data: hojeNoAtelie(),
+      paga: false,
+      cancelada: true,
+    });
+    const gestor = await nomeDoGestorDeTeste();
+
+    await fazerLogin(page);
+    await abrirAReceber(page);
+    const linha = linhaAReceber(page, "uso_livre", usoLivreId);
+    await expect(linha.getByTestId("tag-venda-cancelada")).toHaveText(tagVendaCancelada(numero));
+    await expect(linha.getByTestId("dispensar")).toBeVisible();
+
+    await linha.getByTestId("dispensar").click();
+    const confirmacao = page.getByTestId("confirmar-dispensar");
+    await expect(
+      confirmacao.getByRole("heading", { name: tituloConfirmarDispensar("uso_livre", nome) }),
+    ).toBeVisible();
+    await confirmacao.getByTestId("motivo-dispensa").fill("[e2e] venda cancelada, não volta");
+    await confirmacao.getByTestId("confirmar-dispensar-sim").click();
+    await expect(confirmacao).toBeHidden();
+    await expect(page.getByText(TOAST_DISPENSADA)).toBeVisible();
+    await expect(linhaAReceber(page, "uso_livre", usoLivreId)).toHaveCount(0);
+
+    await abrirDispensadas(page);
+    const dispensada = linhaDispensadaNaTela(page, usoLivreId);
+    const descricao = descricaoDaLinha({ tipo: "uso_livre", horas: 2, pessoas: 1, data });
+    await expect(dispensada.getByTestId("dispensada-titulo")).toHaveText(linhaDispensada(nome, descricao));
+    await expect(dispensada.getByTestId("dispensada-sub")).toHaveText(
+      subLinhaDispensada(gestor, formatarDiaMes(hojeNoAtelie()), "[e2e] venda cancelada, não volta"),
+    );
+
+    // Nada apagado: a linha do uso livre continua, com quem e o motivo.
+    expect(await dispensaNoBanco("uso_livre", usoLivreId)).toEqual({
+      existe: true,
+      dispensada: true,
+      dispensadaPorNome: gestor,
+      motivo: "[e2e] venda cancelada, não volta",
+    });
+
+    // “Desfazer” devolve a linha a “A receber”, com a etiqueta da venda cancelada.
+    await dispensada.getByTestId("desfazer-dispensa").click();
+    await expect(page.getByText(TOAST_DISPENSA_DESFEITA).first()).toBeVisible();
+    const devolvida = linhaAReceber(page, "uso_livre", usoLivreId);
+    await expect(devolvida).toBeVisible();
+    await expect(devolvida.getByTestId("tag-venda-cancelada")).toHaveText(tagVendaCancelada(numero));
+    await expect(linhaDispensadaNaTela(page, usoLivreId)).toHaveCount(0);
+    expect(await dispensaNoBanco("uso_livre", usoLivreId)).toEqual({
+      existe: true,
+      dispensada: false,
+      dispensadaPorNome: null,
+      motivo: null,
+    });
   });
 });

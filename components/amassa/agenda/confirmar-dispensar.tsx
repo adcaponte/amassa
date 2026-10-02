@@ -8,7 +8,6 @@ import { definirDispensa } from "@/lib/agenda/acoes";
 import { esquemaDefinirDispensa } from "@/lib/agenda/esquemas";
 import {
   ariaDispensar,
-  CORPO_CONFIRMAR_DISPENSAR,
   FRASE_FALHA_AO_DESFAZER_DISPENSA_DO_TOAST,
   FRASE_FALHA_AO_DISPENSAR,
   PLACEHOLDER_MOTIVO_DISPENSA,
@@ -19,6 +18,7 @@ import {
   ROTULO_VOLTAR,
   TOAST_DISPENSA_DESFEITA,
   TOAST_DISPENSADA,
+  corpoConfirmarDispensar,
   tituloConfirmarDispensar,
 } from "@/lib/agenda/textos";
 import {
@@ -39,7 +39,8 @@ const CLASSES_BOTAO =
   "text-corpo h-auto min-h-[44px] px-4 font-semibold whitespace-normal";
 
 export type ConfirmarDispensarProps = {
-  tipo: "mensalidade" | "inscricao";
+  // O uso livre entra só com a venda cancelada (decisão do dono no chat, 02/10/2026; `podeDispensar`).
+  tipo: "mensalidade" | "inscricao" | "uso_livre";
   id: string;
   nome: string;
   // A descrição D-04 da cobrança — o `aria-label` do link (várias linhas têm o mesmo texto visível).
@@ -50,7 +51,7 @@ export type ConfirmarDispensarProps = {
 // (estado desejado — dois toques convergem) e só age no PRIMEIRO toque; o sonner fecha o toast ao tocar.
 // Se falhar, a frase diz onde desfazer de novo: a sanfona “Dispensadas”.
 export function avisarDispensada(cobranca: {
-  tipo: "mensalidade" | "inscricao";
+  tipo: "mensalidade" | "inscricao" | "uso_livre";
   id: string;
 }): void {
   let desfeito = false;
@@ -183,7 +184,7 @@ export function ConfirmarDispensar({
               {tituloConfirmarDispensar(tipo, nome)}
             </AlertDialogTitle>
             <AlertDialogDescription className="[overflow-wrap:anywhere]">
-              {CORPO_CONFIRMAR_DISPENSAR}
+              {corpoConfirmarDispensar(tipo)}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

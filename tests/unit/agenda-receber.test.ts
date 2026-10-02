@@ -19,6 +19,8 @@ import {
   type ItensDoSistema,
 } from "@/lib/agenda/receber";
 import {
+  CORPO_CONFIRMAR_DISPENSAR,
+  corpoConfirmarDispensar,
   corpoConfirmarLote,
   fraseCorridaDoLote,
   linhaDoLote,
@@ -513,6 +515,16 @@ describe("frases da dispensa (UI-SPEC §Confirmações, “Dispensadas — linha
   it("o título diz o que é dispensado", () => {
     expect(tituloConfirmarDispensar("mensalidade", "Marina")).toBe("Dispensar a mensalidade de Marina?");
     expect(tituloConfirmarDispensar("inscricao", "Caio")).toBe("Dispensar a inscrição de Caio?");
+    expect(tituloConfirmarDispensar("uso_livre", "Bia")).toBe("Dispensar o uso livre de Bia?");
+  });
+
+  it("o corpo do uso livre diz que a venda cancelada continua no Caixa (decisão do dono, 02/10/2026)", () => {
+    expect(corpoConfirmarDispensar("mensalidade")).toBe(CORPO_CONFIRMAR_DISPENSAR);
+    expect(corpoConfirmarDispensar("inscricao")).toBe(CORPO_CONFIRMAR_DISPENSAR);
+    const doUso = corpoConfirmarDispensar("uso_livre");
+    expect(doUso).toContain("sai de “A receber”");
+    expect(doUso).toContain("venda cancelada continua no Caixa");
+    expect(doUso).toContain("Dispensadas");
   });
 
   it("a sub-linha termina na data sem motivo, e leva o motivo quando há", () => {

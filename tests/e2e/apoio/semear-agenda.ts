@@ -1076,8 +1076,12 @@ export type DispensaNoBanco = {
 };
 
 // O carimbo da dispensa de uma mensalidade ou inscrição, como está no banco.
-export async function dispensaNoBanco(tipo: "mensalidade" | "inscricao", id: string): Promise<DispensaNoBanco> {
-  const tabela = tipo === "mensalidade" ? "mensalidades" : "inscricoes";
+// O uso livre entra desde a decisão do dono no chat, 02/10/2026 (0027 — só com a venda cancelada).
+export async function dispensaNoBanco(
+  tipo: "mensalidade" | "inscricao" | "uso_livre",
+  id: string,
+): Promise<DispensaNoBanco> {
+  const tabela = tipo === "mensalidade" ? "mensalidades" : tipo === "inscricao" ? "inscricoes" : "usos_livres";
   return comCliente(async (cliente) => {
     const { rows } = await cliente.query<{ dispensada: boolean; nome: string | null; motivo: string | null }>(
       `select c.dispensada_em is not null as dispensada, u.nome, c.motivo_dispensa as motivo
