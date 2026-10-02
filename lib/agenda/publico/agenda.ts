@@ -171,8 +171,11 @@ function precoPorMes(centavos: number): string {
   return `${formatarReais(centavos)} por mês`;
 }
 
+// IN-04 da revisão B: o preço "0" é a oficina gratuita (`esquemas.ts` aceita) — nunca "R$ 0,00 por pessoa".
+export const PRECO_GRATUITO = "Gratuita";
+
 function precoPorPessoa(centavos: number): string {
-  return `${formatarReais(centavos)} por pessoa`;
+  return centavos === 0 ? PRECO_GRATUITO : `${formatarReais(centavos)} por pessoa`;
 }
 
 function cartao(

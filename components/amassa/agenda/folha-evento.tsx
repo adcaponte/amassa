@@ -21,6 +21,7 @@ import {
   TAG_MARCAR_PRESENCA,
   tituloQuemVem,
 } from "@/lib/agenda/textos";
+import { PRECO_GRATUITO } from "@/lib/agenda/publico/agenda";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,8 @@ function subTitulo(evento: EventoDaSemana, precoCentavos: number | null): string
     partes.push(ROTULO_CANCELADA);
   }
   if (evento.tipo === "avulsa" && precoCentavos !== null) {
-    partes.push(`${formatarReais(precoCentavos)} por pessoa`);
+    // IN-04 da revisão B: preço zero é a oficina gratuita.
+    partes.push(precoCentavos === 0 ? PRECO_GRATUITO : `${formatarReais(precoCentavos)} por pessoa`);
   }
   return partes.join(" · ");
 }

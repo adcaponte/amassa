@@ -114,6 +114,11 @@ describe("agendaPublica — Próximas e as vagas (D-12)", () => {
     expect(cartao.vagasTexto).toBe("8 vagas");
   });
 
+  it("oficina de preço zero: “Gratuita”, nunca “R$ 0,00 por pessoa” (IN-04 da revisão B)", () => {
+    const [cartao] = pronta({ eventos: [oficina("2026-12-03", { precoCentavos: 0 })] }).proximas;
+    expect(cartao.precoTexto).toBe("Gratuita");
+  });
+
   it("ordem por data e hora; até 10 e o resto em `restantes`", () => {
     const eventos = Array.from({ length: 12 }, (_, indice) =>
       oficina(`2026-12-${String(20 - indice).padStart(2, "0")}`, { titulo: `Oficina ${indice}` }),
