@@ -24,7 +24,7 @@ import {
 //     comportamental. Registrado assim no SUMMARY do plano que criou este arquivo, não
 //     escondido.
 // (3) Este arquivo SUBSTITUI o layout raiz inteiro, então tem que renderizar o próprio
-//     `<html>`/`<body>`. As classes `.variable` do `next/font/google` (que definem
+//     `<html>`/`<body>`. As classes `.variable` do `next/font/local` (que definem
 //     --fonte-inter/--fonte-archivo) moram no `<html>` de `app/layout.tsx`, que este arquivo
 //     substitui — elas ficam indefinidas aqui, `--font-sans` cai no fallback `ui-sans-serif` de
 //     `app/globals.css:76`. Degradação de fonte conhecida e aceita para uma tela de último

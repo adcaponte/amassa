@@ -1,35 +1,167 @@
 import type { Metadata } from "next";
-import { Archivo_Narrow, Fraunces, Inter } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
-// D-10: Archivo Narrow (títulos) e Inter (corpo) via next/font/google — baixadas no
-// `next build` (que roda no GitHub Actions, com internet) e servidas pelo próprio domínio.
-// Nenhum arquivo de fonte é versionado, nenhuma requisição a CDN em produção.
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+// D-10: Archivo Narrow (títulos) e Inter (corpo); D-14/D-19 (Fase 04.6): Fraunces é a fonte de
+// título SÓ do site público — a plataforma continua em Archivo Narrow, de propósito ("cara de
+// convite" vs. "cara de ferramenta"). As três servidas pelo próprio domínio, nenhuma requisição
+// a CDN em produção.
+//
+// Por que `next/font/local` e arquivos versionados em `app/_fontes/` (janela 60, WINDOWS.md):
+// até 02/10/2026 isto era `next/font/google`, que BAIXA as fontes do Google durante o
+// `next build`. O job "Publicar imagens no GHCR" falhou por rede pelo menos duas vezes
+// (runs 36443052672 e 36802909361, "Can't resolve '@vercel/turbopack-next/internal/font/
+// google/font'") e passou no run seguinte sem mudança nenhuma. Agora o build não toca a rede
+// para fonte. Os `.woff2` são os MESMOS bytes que o Google servia (conferido com `cmp` contra
+// `.next/static/media` de um build antigo) — proveniência, versões e licença em
+// `app/_fontes/README.md`.
+//
+// Equivalência com o que o `next/font/google` gerava, para a aparência não mudar:
+// - Uma `@font-face` por peso apontando para o mesmo arquivo variável, como o Google declarava.
+// - Subset `latin` com preload e `latin-ext` sem preload, cada um com o `unicode-range` exato do
+//   CSS do Google. O Google também declarava cirílico, grego e vietnamita (sem preload); ficaram
+//   de fora — fora do alfabeto latino, o texto cai no "* Fallback".
+// - O `next/font` exige literal em cada argumento: por isso as faixas se repetem, não há
+//   constante compartilhada.
+//
+// 🔴 O NOME DA CONSTANTE É O NOME DA FAMÍLIA. No Turbopack, o valor de `--fonte-*` e o nome do
+// "* Fallback" saem do nome da variável JS — um `font-family` em `declarations` muda só o
+// `@font-face`, não a variável (medido: com `const archivoNarrow` e `declarations` "Archivo
+// Narrow", a pilha computada saiu `archivoNarrow, "archivoNarrow Fallback"`, nome que nenhuma
+// `@font-face` declarava — o título renderizaria na fonte de reserva). Por isso `Inter` e
+// `Fraunces` são constantes com inicial maiúscula: dão exatamente o nome que o Google dava.
+// "Archivo Narrow" tem espaço, que identificador não aceita: a família passa a se chamar
+// `ArchivoNarrow` (mesmo arquivo, mesmo desenho; só o rótulo interno muda — o e2e de
+// design-system confere esse nome). Renomear uma destas constantes troca o nome da família.
+//
+// Cada família tem DUAS chamadas porque `declarations` vale para todas as faces de uma chamada
+// e o `unicode-range` é por subset. A chamada `latin` dá a variável que `globals.css` lê
+// (`--fonte-*`) e o "* Fallback" de métricas ajustadas; a `latin-ext` só acrescenta faces à
+// MESMA família (por isso o `font-family` explícito em `declarations`, igual ao nome da
+// constante `latin`), e a variável dela (`--fonte-*-ext`) não é lida por ninguém — existe para
+// a constante ter uso explícito no `<html>`.
+
+const Inter = localFont({
+  src: [
+    { path: "./_fontes/Inter-latin.woff2", weight: "400", style: "normal" },
+    { path: "./_fontes/Inter-latin.woff2", weight: "500", style: "normal" },
+  ],
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
   variable: "--fonte-inter",
   display: "swap",
 });
 
-const archivoNarrow = Archivo_Narrow({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+const InterLatinExt = localFont({
+  src: [
+    { path: "./_fontes/Inter-latin-ext.woff2", weight: "400", style: "normal" },
+    { path: "./_fontes/Inter-latin-ext.woff2", weight: "500", style: "normal" },
+  ],
+  declarations: [
+    { prop: "font-family", value: "Inter" },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
+  ],
+  variable: "--fonte-inter-ext",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+});
+
+const ArchivoNarrow = localFont({
+  src: [
+    { path: "./_fontes/ArchivoNarrow-latin.woff2", weight: "600", style: "normal" },
+    { path: "./_fontes/ArchivoNarrow-latin.woff2", weight: "700", style: "normal" },
+  ],
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
   variable: "--fonte-archivo",
   display: "swap",
 });
 
-// D-14/D-19 (Fase 04.6, site público): Fraunces é a fonte de título SÓ do site — a plataforma
-// continua em Archivo Narrow, de propósito (D-19: "cara de convite" vs. "cara de ferramenta").
-// Mesmo padrão das outras duas: baixada no `next build`, servida pelo próprio domínio, nenhum
-// arquivo de fonte versionado, nenhuma requisição a CDN em produção.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+const ArchivoNarrowLatinExt = localFont({
+  src: [
+    { path: "./_fontes/ArchivoNarrow-latin-ext.woff2", weight: "600", style: "normal" },
+    { path: "./_fontes/ArchivoNarrow-latin-ext.woff2", weight: "700", style: "normal" },
+  ],
+  declarations: [
+    { prop: "font-family", value: "ArchivoNarrow" },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
+  ],
+  variable: "--fonte-archivo-ext",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+});
+
+// Fraunces é serifada: o "Fraunces Fallback" do Google era métrica sobre Times New Roman, não
+// Arial — daí o `adjustFontFallback` explícito.
+const Fraunces = localFont({
+  src: [
+    { path: "./_fontes/Fraunces-latin.woff2", weight: "400", style: "normal" },
+    { path: "./_fontes/Fraunces-latin.woff2", weight: "600", style: "normal" },
+    { path: "./_fontes/Fraunces-latin.woff2", weight: "700", style: "normal" },
+  ],
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
   variable: "--fonte-fraunces",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
+
+const FrauncesLatinExt = localFont({
+  src: [
+    { path: "./_fontes/Fraunces-latin-ext.woff2", weight: "400", style: "normal" },
+    { path: "./_fontes/Fraunces-latin-ext.woff2", weight: "600", style: "normal" },
+    { path: "./_fontes/Fraunces-latin-ext.woff2", weight: "700", style: "normal" },
+  ],
+  declarations: [
+    { prop: "font-family", value: "Fraunces" },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
+  ],
+  variable: "--fonte-fraunces-ext",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+});
+
+const classesDeFonte = [
+  Inter,
+  InterLatinExt,
+  ArchivoNarrow,
+  ArchivoNarrowLatinExt,
+  Fraunces,
+  FrauncesLatinExt,
+]
+  .map((fonte) => fonte.variable)
+  .join(" ");
 
 // Fase 04.6 (D-03): a partir desta fase "/" é o site público institucional — este metadata
 // deixou de descrever a plataforma interna e passa a ser o que qualquer visitante da internet
@@ -47,7 +179,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // As classes .variable do next/font/google entram no <html>, não no <body> — o bloco
+    // As classes .variable do next/font entram no <html>, não no <body> — o bloco
     // @theme de app/globals.css lê --fonte-inter/--fonte-archivo no escopo de :root, e uma
     // variável declarada só no <body> não existe um nível acima. Com a variável no <body>,
     // --font-sans/--font-titulo resolviam vazio (getComputedStyle(documentElement) não via a
@@ -60,11 +192,7 @@ export default function RootLayout({
     // Com este atributo, o roteador do Next 16 desliga a rolagem suave durante a troca de rota
     // (`disableSmoothScrollDuringRouteTransition`) — sem ele, toda navegação da plataforma a
     // partir de uma lista rolada animava até o topo. As âncoras do site continuam suaves.
-    <html
-      lang="pt-BR"
-      data-scroll-behavior="smooth"
-      className={`${inter.variable} ${archivoNarrow.variable} ${fraunces.variable}`}
-    >
+    <html lang="pt-BR" data-scroll-behavior="smooth" className={classesDeFonte}>
       <body className="font-sans antialiased">{children}</body>
     </html>
   );
