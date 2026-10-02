@@ -120,9 +120,11 @@ export const CONTEUDO_SITE = {
     quemSomos: "Quem somos: Theo e Andressa. [texto curto sobre vocês entra aqui]",
   },
 
-  // D-17: o número de WhatsApp mora aqui, num lugar só — só dígitos, com 55 e DDD. É o
-  // placeholder do protótipo; o dono manda o número real e vira a troca de uma linha.
-  zap: "5562900000000",
+  // D-17: o número de WhatsApp mora aqui, num lugar só — só dígitos, com 55 e DDD. É o número
+  // real do ateliê, dado pelo dono na Parte 0 da Fase 5 (02/10/2026). Até então era o placeholder
+  // do protótipo, 5562900000000. Todo link do site (o botão geral e cada "Reservar pelo WhatsApp")
+  // sai daqui; os testes leem esta constante, nunca um número escrito à mão.
+  zap: "5562994817661",
 } as const;
 
 export type ConteudoDoSite = typeof CONTEUDO_SITE;

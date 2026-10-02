@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { CONTEUDO_SITE } from "@/conteudo/site";
 import { todoODia } from "@/lib/agenda/turma";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 
@@ -121,6 +122,8 @@ test.describe("site agenda", () => {
     await expect(cartao).toContainText("últimas 2 vagas");
     const href = await cartao.getByTestId("site-reservar").getAttribute("href");
     expect(href).toMatch(/^https:\/\/wa\.me\//);
+    // O número é o do site (`CONTEUDO_SITE.zap`, o real desde 02/10/2026), não um qualquer.
+    expect(new URL(href ?? "").pathname).toBe(`/${CONTEUDO_SITE.zap}`);
     expect(new URL(href ?? "").searchParams.get("text")).toBe(
       `Oi! Quero reservar: ${publica} (${formatarDiaMes(dia)}).`,
     );

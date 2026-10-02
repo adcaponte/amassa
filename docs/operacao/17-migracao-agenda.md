@@ -114,7 +114,7 @@ Antes de qualquer comando: abra `.planning/phases/05-agenda/05-VERIFICACAO-HUMAN
 responda. Ela junta tudo o que foi decidido sem você no planejamento e nos 15 planos da execução, cada
 item com "como desfazer" — primeiro as que mexem em dinheiro, depois as escolhas de interface que você
 mais provavelmente queira rever, e a conferência do **número do WhatsApp do site**
-(`CONTEUDO_SITE.zap`, hoje `5562900000000`, cara de número inventado): o botão "Reservar pelo WhatsApp"
+(`CONTEUDO_SITE.zap` — era o placeholder `5562900000000`; em 02/10/2026 você deu o real, `5562994817661`, já no branch): o botão "Reservar pelo WhatsApp"
 vai ao ar com este roteiro.
 
 **Se trocar alguma decisão: pare aqui.** Peça o ajuste no branch `gsd/phase-05-agenda`, espere

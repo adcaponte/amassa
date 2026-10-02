@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { CONTEUDO_SITE } from "@/conteudo/site";
+
 // O traçador do site público (SIT-01/SIT-02/SIT-05): a raiz abre sem login, com a faixa "em
 // construção", a abertura e as duas barras fixas na mesma ordem — e a âncora para junto ABAIXO
 // da barra fixa, nunca atrás dela. Rodam nos dois projetos (desktop e celular) do
@@ -185,6 +187,8 @@ test.describe("site abertura", () => {
     expect(hrefWhatsapp).not.toBeNull();
     expect(hrefWhatsapp!.startsWith("https://wa.me/")).toBe(true);
     const url = new URL(hrefWhatsapp!);
+    // O número é o do site (`CONTEUDO_SITE.zap`, o real desde 02/10/2026).
+    expect(url.pathname).toBe(`/${CONTEUDO_SITE.zap}`);
     expect(url.searchParams.get("text")?.length ?? 0).toBeGreaterThan(0);
   });
 
