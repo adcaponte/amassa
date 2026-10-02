@@ -68,7 +68,7 @@ Confira que a linha foi gravada, **e que o tamanho é plausível** (não um arqu
 
 ```bash
 docker compose exec postgres psql -U amassa_owner -d amassa -c "select quando, sucesso, destino_externo_ok from execucoes_backup order by quando desc limit 1;"
-ls -la /opt/amassa/dados/backups/ | tail -5
+ls -la /opt/amassa/backups/ | tail -5
 ```
 
 **O que você deve ver:** uma linha com `sucesso = t` e o horário de agora; e, na segunda saída, o
