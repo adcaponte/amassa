@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
 
 import type { EventoCarregado, EventoDaSemana } from "@/lib/agenda/consultas";
@@ -10,10 +11,12 @@ import {
   DICA_FIM_TURMA,
   FRASE_NINGUEM_INSCRITO,
   ROTULO_ABRIR_A_TURMA,
+  FRASE_ERRO_CARREGAR_AULA,
   ROTULO_AULA_AVULSA,
   ROTULO_CANCELADA,
   ROTULO_FECHAR,
   ROTULO_PRONTO,
+  ROTULO_TENTAR_DE_NOVO,
   ROTULO_TURMA_FIXA,
   TAG_MARCAR_PRESENCA,
   tituloQuemVem,
@@ -63,6 +66,8 @@ export type FolhaEventoProps = {
   cabecalho: EventoDaSemana;
   // A lista, quando o servidor já respondeu; `null` enquanto carrega.
   carregado: EventoCarregado | null;
+  // A leitura falhou (WR-04 da revisão B): no lugar do esqueleto, a frase e "Tentar de novo".
+  erroAoCarregar?: boolean;
   aoFechar: () => void;
   // "Abrir a turma" (D-03): a folha da turma abre NO LUGAR desta, com "Voltar à data" (UI-D25).
   aoAbrirTurma: (turmaId: string, nome: string) => void;
@@ -72,7 +77,8 @@ export type FolhaEventoProps = {
 // celular, centrado `max-w-lg` a partir de `md` (o mesmo contêiner das folhas do Estoque), fechar
 // 44×44 e rodapé preso por flex com "Pronto". Da folha aberta à presença marcada é UM toque por
 // pessoa — nenhuma confirmação, campo ou teclado no caminho (Valor central).
-export function FolhaEvento({ cabecalho, carregado, aoFechar, aoAbrirTurma }: FolhaEventoProps) {
+export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFechar, aoAbrirTurma }: FolhaEventoProps) {
+  const router = useRouter();
   const evento = carregado ?? cabecalho;
   // D-13: data de turma (não cancelada) num dia fechado — o "Cancelar esta data" sobe para a caixa
   // do topo, visível sem rolar, e o rodapé fica só com "Pronto" (o botão existe uma vez só).
@@ -143,7 +149,21 @@ export function FolhaEvento({ cabecalho, carregado, aoFechar, aoAbrirTurma }: Fo
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
-          {carregado === null ? (
+          {carregado === null && erroAoCarregar ? (
+            <div className="flex flex-col items-start gap-3" data-testid="folha-evento-erro">
+              <p role="alert" className="text-corpo text-erro">
+                {FRASE_ERRO_CARREGAR_AULA}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.refresh()}
+                className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
+              >
+                {ROTULO_TENTAR_DE_NOVO}
+              </Button>
+            </div>
+          ) : carregado === null ? (
             <div aria-busy="true" className="flex flex-col gap-3" data-testid="folha-evento-carregando">
               <Skeleton className="h-4 w-40" />
               {LINHAS_DO_ESQUELETO.map((linha) => (

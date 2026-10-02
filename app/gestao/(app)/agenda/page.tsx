@@ -378,6 +378,23 @@ async function lerUsoLivre(id: string | null, hoje: string): Promise<UsoDoServid
 
 // A turma de `?turma=`: a leitura que falha mostra o erro DENTRO da folha (UI E11·error), não a
 // página de erro.
+// O evento de `?evento=` (WR-04 da revisão B): a leitura que falha mostra "Não deu para carregar esta
+// aula" DENTRO da folha (UI-SPEC, tabela de erros), não troca a semana inteira pelo error.tsx.
+async function lerEvento(
+  id: string | null,
+  hoje: string,
+): Promise<{ evento: Awaited<ReturnType<typeof obterEvento>>; erro: boolean }> {
+  if (id === null) {
+    return { evento: null, erro: false };
+  }
+  try {
+    return { evento: await obterEvento(id, hoje), erro: false };
+  } catch (erro) {
+    console.error("Falha ao carregar o evento:", erro);
+    return { evento: null, erro: true };
+  }
+}
+
 async function lerTurma(id: string | null, hoje: string): Promise<TurmaDoServidor> {
   if (id === null) {
     return { estado: "nenhuma" };
@@ -395,9 +412,9 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
   const segunda = semanaDaUrl(parametros.semana, hoje);
   const idDoEvento = idDaUrl(parametros.evento);
 
-  const [eventos, eventoAberto, turmaAberta, usoAberto] = await Promise.all([
+  const [eventos, { evento: eventoAberto, erro: erroDoEvento }, turmaAberta, usoAberto] = await Promise.all([
     lerSemana(segunda, hoje),
-    idDoEvento === null ? Promise.resolve(null) : obterEvento(idDoEvento, hoje),
+    lerEvento(idDoEvento, hoje),
     lerTurma(turmaDaUrl(parametros.turma), hoje),
     lerUsoLivre(usoDaUrl(parametros.uso), hoje),
   ]);
@@ -439,7 +456,8 @@ async function VistaDaSemana({ parametros, hoje }: { parametros: ParametrosDaAge
           hoje={hoje}
           turmaAberta={turmaAberta}
           eventoAberto={eventoAberto}
-          eventoInexistente={idDoEvento !== null && eventoAberto === null}
+          eventoInexistente={idDoEvento !== null && eventoAberto === null && !erroDoEvento}
+          erroAoCarregarEvento={erroDoEvento}
           usoAberto={usoAberto}
           // UI-D7: o "Saiu às" de um uso de hoje vem com a hora de AGORA, decidida aqui, no servidor (Brasília)
           // — nunca o relógio do celular.

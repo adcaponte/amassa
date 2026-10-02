@@ -16,10 +16,12 @@ import type {
 } from "@/lib/agenda/consultas";
 import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
+  FRASE_ERRO_CARREGAR_AULA,
   FRASE_LANCAMENTO_NAO_EXISTE,
   FRASE_NADA_MARCADO,
   ROTULO_LANCAR_NO_DIA,
   rotuloLancarNoDia,
+  ROTULO_TENTAR_DE_NOVO,
 } from "@/lib/agenda/textos";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { cn } from "@/lib/utils";
@@ -65,6 +67,8 @@ export type SemanaDaAgendaProps = {
   eventoAberto: EventoCarregado | null;
   // `?evento=` com um id que não existe (link velho, removido em outro celular): toast, sem folha.
   eventoInexistente: boolean;
+  // A leitura de `?evento=` falhou (WR-04 da revisão B): a folha mostra o erro e "Tentar de novo".
+  erroAoCarregarEvento: boolean;
   usoAberto: UsoDoServidor;
   // O agora de Brasília no servidor (`agoraEmBrasilia`) — a sugestão do "Saiu às" (UI-D7).
   agora: { data: string; minutos: number };
@@ -87,6 +91,7 @@ export function SemanaDaAgenda({
   turmaAberta,
   eventoAberto,
   eventoInexistente,
+  erroAoCarregarEvento,
   usoAberto,
   agora,
   rolarAte,
@@ -107,7 +112,7 @@ export function SemanaDaAgenda({
   }, [idDoUsoNaUrl]);
 
   // O id da folha aberta e o cartão tocado (o cabeçalho enquanto a lista carrega).
-  const [aberto, setAberto] = useState<string | null>(eventoAberto?.id ?? null);
+  const [aberto, setAberto] = useState<string | null>(eventoAberto?.id ?? (erroAoCarregarEvento ? idNaUrl : null));
   const [cartaoTocado, setCartaoTocado] = useState<EventoDaSemana | null>(null);
 
   // A folha da turma (`?turma=`) abre NO LUGAR da folha da data (UI-D25): o nome tocado em "Abrir a
@@ -168,6 +173,24 @@ export function SemanaDaAgenda({
     // `urlCom` lê os parâmetros atuais; o efeito só depende do aviso e do id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventoInexistente, idNaUrl]);
+
+  // A leitura de `?evento=` falhou e não há cabeçalho para a folha (o link aponta outra semana): o erro
+  // vira um toast com "Tentar de novo", uma vez — a semana continua na tela (WR-04 da revisão B).
+  const erroAvisado = useRef<string | null>(null);
+  const semCabecalhoParaOErro =
+    erroAoCarregarEvento &&
+    idNaUrl !== null &&
+    cartaoTocado?.id !== idNaUrl &&
+    !dias.some((dia) => dia.eventos.some((item) => item.id === idNaUrl));
+  useEffect(() => {
+    if (semCabecalhoParaOErro && idNaUrl !== null && erroAvisado.current !== idNaUrl) {
+      erroAvisado.current = idNaUrl;
+      toast.error(FRASE_ERRO_CARREGAR_AULA, {
+        action: { label: ROTULO_TENTAR_DE_NOVO, onClick: () => router.refresh() },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semCabecalhoParaOErro, idNaUrl]);
 
   // `?turma=` com um id que não existe (link velho): o toast, uma vez, e o parâmetro sai da URL.
   const turmaAvisada = useRef<string | null>(null);
@@ -259,7 +282,16 @@ export function SemanaDaAgenda({
   }
 
   const carregado = eventoAberto !== null && eventoAberto.id === aberto ? eventoAberto : null;
-  const cabecalho = carregado ?? (cartaoTocado !== null && cartaoTocado.id === aberto ? cartaoTocado : null);
+  // Com a leitura do evento falhando e nenhum cartão tocado (aberto por link), o cabeçalho vem do cartão
+  // desta semana, se ele estiver nela (WR-04 da revisão B).
+  const doCartaoDaSemana =
+    erroAoCarregarEvento && aberto !== null
+      ? (dias
+          .flatMap((dia) => dia.eventos)
+          .find((item): item is EventoDaSemana => item.tipo !== "uso_livre" && item.id === aberto) ?? null)
+      : null;
+  const cabecalho =
+    carregado ?? (cartaoTocado !== null && cartaoTocado.id === aberto ? cartaoTocado : null) ?? doCartaoDaSemana;
 
   // A folha da turma: a da URL (lida pelo servidor) ou a tocada agora (ainda carregando).
   // A folha do uso livre: o da URL (lido pelo servidor) ou o tocado agora (ainda carregando).
@@ -357,7 +389,13 @@ export function SemanaDaAgenda({
             aoFechar={fechar}
           />
         ) : (
-          <FolhaEvento cabecalho={cabecalho} carregado={carregado} aoFechar={fechar} aoAbrirTurma={abrirTurma} />
+          <FolhaEvento
+            cabecalho={cabecalho}
+            carregado={carregado}
+            erroAoCarregar={erroAoCarregarEvento && carregado === null}
+            aoFechar={fechar}
+            aoAbrirTurma={abrirTurma}
+          />
         )
       ) : null}
     </div>
