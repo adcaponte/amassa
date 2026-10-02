@@ -22,6 +22,7 @@ import { agoraEmBrasilia, formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 
 import {
+  clientesComNome,
   semearCliente,
   semearFechado,
   semearUsoLivre,
@@ -465,5 +466,44 @@ test.describe("agenda uso livre", () => {
     } finally {
       await trava.soltar();
     }
+  });
+  test("(j) CR-01 da revisão B: cadastrar uma pessoa nova DE DENTRO do seletor não envia a folha “Lançar na agenda” — a reserva não sai para a pessoa escolhida antes", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const dia = diaReservado(6);
+    const escolhidaAntes = await semearCliente({ nome: `[e2e] Uso Antes ${suf}` });
+    const nomeDaNova = `[e2e] Uso Nova ${suf}`;
+
+    await fazerLogin(page);
+    await abrirLancarNoDia(page, dia);
+    await escolherUsoLivreE(page, escolhidaAntes, suf);
+    const f = folhaLancar(page);
+    await f.getByTestId("lancar-chegada").fill("09:00");
+
+    // Era outra pessoa: toca no campo SEM digitar (a escolhida continua escolhida), abre o cadastro pelo
+    // próprio seletor e corrige o nome DENTRO do cadastro — o caminho em que o envio vazava para a folha.
+    await f.getByRole("combobox", { name: "Quem" }).click();
+    await f.getByTestId("seletor-cadastrar").click();
+    const cadastro = page.getByTestId("formulario-cliente");
+    await expect(cadastro).toBeVisible();
+    await cadastro.getByTestId("cliente-nome").fill(nomeDaNova);
+    await cadastro.getByTestId("cliente-salvar").click();
+    await expect(cadastro).toHaveCount(0);
+
+    // A folha continua aberta, com a pessoa NOVA escolhida, e nada foi reservado para ninguém.
+    await expect(f).toBeVisible();
+    await expect(f.getByRole("combobox", { name: "Quem" })).toHaveValue(nomeDaNova);
+    await expect(page.getByText(TOAST_USO_LIVRE_RESERVADO)).toHaveCount(0);
+    expect(await usosLivresDaPessoa(escolhidaAntes)).toEqual([]);
+    const [nova] = await clientesComNome(nomeDaNova);
+    expect(nova).toBeTruthy();
+    expect(await usosLivresDaPessoa(nova.id)).toEqual([]);
+
+    // Só o toque em “Reservar uso livre” grava — e para a pessoa nova.
+    await f.getByTestId("lancar-gravar").click();
+    await expect(page.getByText(TOAST_USO_LIVRE_RESERVADO).first()).toBeVisible();
+    await expect.poll(async () => (await usosLivresDaPessoa(nova.id)).map((uso) => uso.data)).toEqual([dia]);
+    expect(await usosLivresDaPessoa(escolhidaAntes)).toEqual([]);
   });
 });

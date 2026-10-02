@@ -391,6 +391,10 @@ function ConteudoDaTurma({ turma, hoje, aoMudarEnvio, aoVoltar }: ConteudoDaTurm
       noValidate
       onSubmit={(evento) => {
         evento.preventDefault();
+        // Um formulário de dentro (diálogo pelo portal) não é este — CR-01 da revisão B.
+        if (evento.target !== evento.currentTarget) {
+          return;
+        }
         void salvar();
       }}
       className="flex min-h-0 flex-1 flex-col"

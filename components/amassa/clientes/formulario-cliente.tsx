@@ -183,6 +183,10 @@ export function FormularioCliente({
           noValidate
           onSubmit={(evento) => {
             evento.preventDefault();
+            // CR-01 (revisão B): o diálogo vai para o <body> pelo portal, mas o `submit` do React sobe pela
+            // árvore do REACT — sem parar aqui, "Salvar pessoa" também enviava o formulário de quem abriu
+            // este (a folha "Lançar na agenda"), e a reserva saía para a pessoa escolhida antes.
+            evento.stopPropagation();
             void gravar(confirmarPeloPrimario);
           }}
           className="flex min-h-0 flex-1 flex-col"

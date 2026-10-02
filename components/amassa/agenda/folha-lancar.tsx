@@ -551,6 +551,11 @@ function FormularioLancar({
           noValidate
           onSubmit={(evento) => {
             evento.preventDefault();
+            // CR-01 (revisão B): um formulário de dentro (o cadastro de pessoa, num diálogo pelo portal)
+            // não é este — o `submit` dele sobe pela árvore do React até aqui e nunca pode gravar.
+            if (evento.target !== evento.currentTarget) {
+              return;
+            }
             void gravar();
           }}
           className="flex min-h-0 flex-1 flex-col"
