@@ -10,7 +10,9 @@ updated: 2026-10-02  # Parte 0 respondida pelo dono em 02/10/2026
 
 **Gerado por:** execução do plano `05-16-PLAN.md`, Tarefa 1, em 02/10/2026 — com você fora.
 
-**Status (02/10/2026): aguardando você** — *Parte 0 respondida em 02/10/2026 (ver o quadro no topo da Parte 0); falta o Roteiro 17 e a Parte 2.* Nada da Fase 5 está no ar. O código inteiro mora no branch
+**Status (02/10/2026, ~14h30 UTC): falta só a Parte 2, no seu celular.** A Parte 0 foi respondida e o Roteiro 17 feito: código no ar desde o run `36959745229` (implantar 03:46 UTC), `0026` aplicada por você (~10h30 UTC), `/api/health/agenda` 200; as correções da revisão de código no ar pelo run `37013475323` (13:59 UTC). O Cowork caminhou 22 passos em produção sem nenhum 🔴 (`Claude outputs/agenda/VERIFICACAO-COWORK-05.md`) — ficam com você o C.1 com cronômetro, o lado positivo do critério 8 (uma oficina pública real no site) e as D.1–D.53.
+
+*Até ~14h30 UTC de 02/10/2026 este parágrafo dizia o que vem a seguir — verdade quando foi escrito (~01h15 UTC), hoje registro:* **Status (02/10/2026): aguardando você** — *Parte 0 respondida em 02/10/2026 (ver o quadro no topo da Parte 0); falta o Roteiro 17 e a Parte 2.* Nada da Fase 5 está no ar. O código inteiro mora no branch
 local `gsd/phase-05-agenda`, **não publicado**; a migração `0026_agenda.sql` (só acrescenta: oito
 tabelas, três colunas vazias, um valor de enum, a semente de três itens do Catálogo) está escrita e
 provada no Postgres de teste, mas **não aplicada** em lugar nenhum; nenhum requisito AGE foi marcado

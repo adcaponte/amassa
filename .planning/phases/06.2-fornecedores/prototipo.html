@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fornecedores AMASSA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>[hidden]{display:none!important}img{max-width:100%}</style><style>
+/* Layout: casca dos Cadastros da plataforma (abas em pílula) → lista à esquerda, ficha à direita no computador; no celular a ficha abre como folha. Tema único, o da plataforma. */
+:root{
+  color-scheme:light;
+  --fundo:#F6F3F0;--sup:#FFFFFF;--sup2:#EFEAE5;--borda:#E8E2DC;--borda-f:#D8CFC7;
+  --tinta:#1D2221;--tinta-m:#5A4C44;--tinta-f:#6E5F56;
+  --acento:#894025;--acento-h:#5B2916;--acento-fundo:#F3EDE9;
+  --ok:#15803D;--ok-f:#DCFCE7;--at:#B45309;--at-f:#FEF3C7;--erro:#B91C1C;--erro-f:#FEE2E2;
+  --pdf:#B91C1C;--img:#2E7D8C;--planilha:#15803D;--outro:#6E5F56;
+  --r-sm:6px;--r:10px;--r-lg:14px;
+}
+*{box-sizing:border-box}button{color:var(--tinta)}[hidden]{display:none!important}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo Narrow",Inter,sans-serif;margin:0;text-wrap:balance}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px;padding-block:14px 40px}
+.num{font-variant-numeric:tabular-nums}
+header.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+header.top h1{font-size:26px}
+header.top .sub{font-size:13px;color:var(--tinta-f)}
+.aviso{font-size:13px;color:var(--tinta-m);background:var(--acento-fundo);border:1px solid var(--borda);border-radius:var(--r);padding:8px 12px;margin-bottom:12px}
+.aviso button{font:inherit;font-size:13px;color:var(--acento);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+/* casca dos Cadastros */
+.subabas{display:flex;gap:4px;flex-wrap:wrap;background:var(--sup2);border-radius:var(--r);padding:4px;margin-bottom:14px}
+.subabas span{flex:1 1 auto;text-align:center;font:500 14px Inter,sans-serif;padding:8px 10px;border-radius:8px;color:var(--tinta-f);min-height:40px;display:flex;align-items:center;justify-content:center}
+.subabas span[aria-current]{background:var(--sup);color:var(--tinta);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+
+.duas{display:grid;gap:16px}.duas>*{min-width:0}
+@media(min-width:900px){.duas{grid-template-columns:minmax(300px,.9fr) 1.4fr;align-items:start}}
+.bloco{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:12px}
+.bloco h2{font-size:19px}
+.bloco h3{font-size:13px;color:var(--tinta-f);letter-spacing:.05em;text-transform:uppercase;font-family:Inter,sans-serif;font-weight:600}
+.dica{font-size:13px;color:var(--tinta-f);margin:0}
+.cab{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+
+input,select,textarea{font:16px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:9px 10px;min-height:44px;width:100%}
+textarea{min-height:88px;resize:vertical;line-height:1.4}
+.campos{display:flex;gap:10px;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:3px;flex:1 1 180px;font-size:12.5px;color:var(--tinta-m);font-weight:500}
+.campo.larga{flex-basis:100%}
+.pilulas{display:flex;gap:6px;flex-wrap:wrap}
+.pil{font:500 13.5px Inter,sans-serif;min-height:38px;padding:6px 13px;border-radius:999px;border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta-m);cursor:pointer}
+.pil[aria-pressed=true]{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn{font:600 15px Inter,sans-serif;min-height:46px;padding:10px 16px;border-radius:var(--r);border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta);cursor:pointer}
+.btn.pri{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.pri:hover{background:var(--acento-h)}
+.btn.mini{min-height:38px;padding:6px 12px;font-size:13.5px}
+.btn.perigo{color:var(--erro);border-color:var(--erro)}
+.vermini{font:500 13px Inter,sans-serif;color:var(--erro);background:none;border:0;cursor:pointer;padding:6px;min-height:36px}
+.link{font:500 13.5px Inter,sans-serif;color:var(--acento);background:none;border:0;cursor:pointer;padding:6px 0;text-decoration:underline}
+
+/* lista de fornecedores */
+.busca{position:relative}
+.lista{display:flex;flex-direction:column;gap:8px}
+.forn{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;text-align:left;border:1px solid var(--borda);background:var(--sup);border-radius:var(--r);padding:10px 12px;cursor:pointer;font:inherit;color:var(--tinta);min-height:64px}
+.forn[aria-current]{border-color:var(--acento);background:var(--acento-fundo)}
+.forn b{font-size:15px;font-weight:600;line-height:1.25}
+.forn .vende{font-size:13px;color:var(--tinta-f);grid-column:1}
+.forn .n{font-size:12.5px;color:var(--tinta-f);grid-row:1/3;text-align:right;white-space:nowrap}
+.forn.off{opacity:.6}
+.tag{display:inline-block;font:500 12px Inter,sans-serif;background:var(--sup2);border-radius:999px;padding:2px 8px;margin:2px 4px 0 0;color:var(--tinta-m)}
+
+/* ficha */
+.ficha-cab{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.ficha-cab h2{font-size:22px}
+.contatos{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.ct{border:1px solid var(--borda);border-radius:var(--r);padding:8px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ct small{font-size:11.5px;color:var(--tinta-f);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.ct span{font-size:15px;word-break:break-word}
+.ct .acoes{display:flex;gap:8px;margin-top:4px}
+.ct .acoes button{font:500 12.5px Inter,sans-serif;color:var(--acento);background:var(--acento-fundo);border:0;border-radius:999px;padding:4px 10px;min-height:30px;cursor:pointer}
+.obs{white-space:pre-wrap;font-size:15px;line-height:1.5;background:var(--sup2);border-radius:var(--r);padding:10px 12px;margin:0}
+.obs:empty::before{content:"Nenhuma observação ainda.";color:var(--tinta-f)}
+
+/* anexos */
+.anexos{display:flex;flex-direction:column;gap:6px}
+.anexo{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;border:1px solid var(--borda);border-radius:var(--r);padding:8px 10px;background:var(--sup)}
+.anexo .ico{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;font:700 11px Inter,sans-serif;color:#fff;background:var(--c,var(--outro));letter-spacing:.04em;overflow:hidden}
+.anexo .ico img{width:100%;height:100%;object-fit:cover}
+.anexo .meta{min-width:0;display:flex;flex-direction:column;gap:1px}
+.anexo .meta b{font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.anexo .meta span{font-size:12.5px;color:var(--tinta-f)}
+.anexo .meta .nota{color:var(--tinta-m);font-size:13px;white-space:normal}
+.anexo .acoes{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.anexo.tabela{border-color:var(--ouro,#CA8A04);border-left-width:4px}
+.selo{display:inline-block;font:600 11.5px Inter,sans-serif;border-radius:999px;padding:2px 8px;background:var(--at-f);color:var(--at)}
+.selo.ok{background:var(--ok-f);color:var(--ok)}
+.selo.off{background:var(--erro-f);color:var(--erro)}
+.vazio{border:1px dashed var(--borda-f);border-radius:var(--r);padding:16px;text-align:center;color:var(--tinta-f);font-size:14px}
+
+/* zona de envio */
+.zona{border:2px dashed var(--borda-f);border-radius:var(--r);padding:14px;text-align:center;color:var(--tinta-m);font-size:14px;background:var(--fundo)}
+.zona.sobre{border-color:var(--acento);background:var(--acento-fundo)}
+.zona input[type=file]{display:none}
+.previa{max-width:100%;max-height:220px;border-radius:var(--r);border:1px solid var(--borda);display:block;margin:0 auto}
+
+/* folhas (diálogos) */
+dialog{border:0;border-radius:var(--r-lg) var(--r-lg) 0 0;padding:0;width:100%;max-width:100%;margin:auto 0 0;max-height:92vh;background:var(--sup);color:var(--tinta);box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+dialog::backdrop{background:rgba(29,34,33,.45)}
+@media(min-width:720px){dialog{border-radius:var(--r-lg);max-width:640px;margin:auto}}
+dialog .corpo{padding:16px;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:calc(92vh - 70px)}
+dialog .cab{position:sticky;top:0;background:var(--sup);padding:14px 16px 10px;border-bottom:1px solid var(--borda)}
+dialog .cab h2{font-size:19px}
+dialog .pe{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px}
+.fechar{font:600 20px Inter,sans-serif;background:none;border:0;cursor:pointer;color:var(--tinta-f);min-width:44px;min-height:44px}
+
+#toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tinta);color:#fff;font:500 14px Inter,sans-serif;padding:10px 16px;border-radius:999px;z-index:60;max-width:92vw;text-align:center}
+.vis{font-size:13px;color:var(--tinta-f)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head><body>
+<div class="wrap">
+  <header class="top"><h1>Cadastros · Fornecedores</h1><span class="sub">protótipo · aba nova dentro dos Cadastros · dados de exemplo</span></header>
+  <div class="aviso">Um lugar só para quem vende para o ateliê: contato, condições e os arquivos que hoje andam pelo WhatsApp (tabela de preços, catálogo, nota). O vínculo com o dinheiro é um só: a despesa do Financeiro ganha um campo opcional "Fornecedor", e a ficha mostra o que já foi comprado dele. <button type="button" data-a="zerar">Voltar aos dados de exemplo</button></div>
+
+  <div class="subabas" aria-label="Sub-abas dos Cadastros"><span>Catálogo</span><span>Categorias</span><span>Contas fixas</span><span>Taxas</span><span>Parâmetros</span><span aria-current="page">Fornecedores</span></div>
+
+  <div class="duas">
+    <section class="bloco" id="lado-lista">
+      <div class="cab"><h2>Quem vende para a gente</h2><button type="button" class="btn mini pri" data-a="novo">+ Fornecedor</button></div>
+      <div class="busca"><input id="busca" type="search" placeholder="Buscar por nome ou material (argila, esmalte, embalagem…)" aria-label="Buscar fornecedor"></div>
+      <div class="pilulas" id="filtro-area"></div>
+      <div class="lista" id="lista"></div>
+      <p class="dica" id="rodape-lista"></p>
+    </section>
+
+    <section class="bloco" id="lado-ficha"></section>
+  </div>
+</div>
+
+<dialog id="d-forn"><form method="dialog" id="f-forn">
+  <div class="cab" style="display:flex;justify-content:space-between;align-items:center"><h2 id="d-forn-t">Novo fornecedor</h2><button type="button" class="fechar" data-fecha="d-forn" aria-label="Fechar">×</button></div>
+  <div class="corpo">
+    <div class="campos">
+      <label class="campo larga">Nome<input name="nome" required maxlength="120" placeholder="ex.: Cerâmica Técnica Goiânia"></label>
+      <label class="campo larga">O que vende <span style="font-weight:400">(separe por vírgula; é o que a busca encontra)</span><input name="vende" placeholder="argila, esmalte, feldspato"></label>
+      <label class="campo">Área que mais usa<select name="area"><option value="pecas">Peças</option><option value="cafeteria">Cafeteria</option><option value="loja">Loja</option><option value="espaco">Espaço</option><option value="geral">Geral</option></select></label>
+      <label class="campo">Cidade / entrega<input name="cidade" placeholder="Goiânia · entrega em 5 dias"></label>
+      <label class="campo">WhatsApp / telefone<input name="whats" inputmode="tel" placeholder="(62) 9 0000-0000"></label>
+      <label class="campo">Pessoa de contato<input name="pessoa" placeholder="Nome de quem atende"></label>
+      <label class="campo">E-mail<input name="email" inputmode="email" placeholder="vendas@…"></label>
+      <label class="campo">Site / loja online<input name="site" inputmode="url" placeholder="https://…"></label>
+      <label class="campo larga">Pagamento e prazo<input name="pagamento" placeholder="Pix à vista · boleto 28 dias · pedido mínimo R$ 300"></label>
+      <label class="campo larga">Observações<textarea name="obs" placeholder="O que vale lembrar: qualidade, atraso, quem indicou, lote ruim…"></textarea></label>
+    </div>
+    <div class="pe"><button type="button" class="btn" data-fecha="d-forn">Voltar</button><button class="btn pri" type="submit">Salvar fornecedor</button></div>
+  </div>
+</form></dialog>
+
+<dialog id="d-anexo"><form method="dialog" id="f-anexo">
+  <div class="cab" style="display:flex;justify-content:space-between;align-items:center"><h2>Novo anexo</h2><button type="button" class="fechar" data-fecha="d-anexo" aria-label="Fechar">×</button></div>
+  <div class="corpo">
+    <label class="zona" id="zona" for="arquivo"><input id="arquivo" type="file" accept=".pdf,image/*,.xlsx,.xls,.csv"><span id="zona-txt"><b>Escolher arquivo</b><br>PDF ou planilha até 20 MB · foto até 10 MB<br><span class="vis">no computador dá para arrastar aqui; no celular abre a galeria ou os arquivos</span></span></label>
+    <img id="previa" class="previa" alt="" hidden>
+    <div class="campos">
+      <label class="campo larga">Nome do anexo<input name="nome" required maxlength="120" placeholder="ex.: Tabela de preços set/2026"></label>
+      <label class="campo">Tipo<select name="tipo"><option value="tabela">Tabela de preços</option><option value="catalogo">Catálogo</option><option value="nota">Nota / orçamento</option><option value="outro">Outro</option></select></label>
+      <label class="campo">Vale a partir de <span style="font-weight:400">(só para tabela)</span><input name="data" type="date"></label>
+      <label class="campo larga">Nota curta<input name="nota" maxlength="160" placeholder="ex.: preços com frete até Pirenópolis incluso"></label>
+    </div>
+    <p class="dica">O arquivo fica guardado na plataforma e entra no backup diário, como as fotos de orçamento. Quem subiu e quando fica gravado.</p>
+    <div class="pe"><button type="button" class="btn" data-fecha="d-anexo">Voltar</button><button class="btn pri" type="submit" id="b-anexo" disabled>Guardar anexo</button></div>
+  </div>
+</form></dialog>
+
+<dialog id="d-conf"><div class="cab" style="display:flex;justify-content:space-between;align-items:center"><h2 id="d-conf-t">Confirmar</h2><button type="button" class="fechar" data-fecha="d-conf" aria-label="Fechar">×</button></div>
+  <div class="corpo"><p id="d-conf-p" style="margin:0;font-size:15px"></p><div class="pe"><button type="button" class="btn" data-fecha="d-conf">Voltar</button><button type="button" class="btn perigo" id="d-conf-ok">Confirmar</button></div></div></dialog>
+
+<dialog id="d-ver"><div class="cab" style="display:flex;justify-content:space-between;align-items:center"><h2 id="d-ver-t">Anexo</h2><button type="button" class="fechar" data-fecha="d-ver" aria-label="Fechar">×</button></div>
+  <div class="corpo" id="d-ver-c"></div></dialog>
+
+<div id="toast" role="status" hidden></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const AREAS={pecas:'Peças',cafeteria:'Cafeteria',loja:'Loja',espaco:'Espaço',geral:'Geral'};
+const TIPOS={tabela:'Tabela de preços',catalogo:'Catálogo',nota:'Nota / orçamento',outro:'Outro'};
+const fmtData=d=>d?new Date(d+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}):'';
+const hoje=()=>new Date().toISOString().slice(0,10);
+const fmtTam=b=>b>=1048576?(b/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(b/1024))+' KB';
+
+function semente(){
+  const uid=()=>Math.random().toString(36).slice(2,9);
+  return {sel:null,filtro:'',area:'',mostrarOff:false,forn:[
+    {id:uid(),nome:'Cerâmica Técnica Goiânia',vende:'argila, esmalte, feldspato, caulim',area:'pecas',cidade:'Goiânia · entrega em 5 dias',whats:'(62) 9 0000-0001',pessoa:'Marcos',email:'vendas@exemplo.com',site:'https://exemplo.com',pagamento:'Pix à vista 5% off · boleto 28 dias · mínimo R$ 300',obs:'Argila branca veio com pedra no lote de agosto; pedir sempre o lote mais novo. Frete próprio até Pirenópolis às quartas.',ativo:true,criado:'2026-09-02',compras:[{desc:'Compra de material · argila branca 50 kg + esmalte',em:'2026-09-18',tipo:'Compra de material',itens:'Argila 50 kg · Esmalte transparente 5 kg',valor:'412,00'},{desc:'Compra de material · feldspato',em:'2026-08-20',tipo:'Compra de material',itens:'Feldspato 25 kg',valor:'180,00'}],anexos:[
+      {id:uid(),nome:'Tabela de preços set/2026',tipo:'tabela',ext:'pdf',tam:412000,data:'2026-09-01',nota:'com frete incluso',por:'Andressa',em:'2026-09-03'},
+      {id:uid(),nome:'Tabela de preços mai/2026',tipo:'tabela',ext:'pdf',tam:398000,data:'2026-05-01',nota:'',por:'Theo',em:'2026-05-06'},
+      {id:uid(),nome:'Catálogo de esmaltes',tipo:'catalogo',ext:'pdf',tam:6300000,data:'',nota:'página 12: os que usamos',por:'Andressa',em:'2026-09-03'},
+      {id:uid(),nome:'Foto do saco de argila (lote)',tipo:'outro',ext:'jpg',tam:1200000,data:'',nota:'etiqueta do lote ruim, para reclamar',por:'Theo',em:'2026-08-21'}]},
+    {id:uid(),nome:'Casa do Esmalte',vende:'esmalte, óxido, engobe',area:'pecas',cidade:'São Paulo · Correios, 8 a 12 dias',whats:'(11) 9 0000-0002',pessoa:'',email:'',site:'https://exemplo.com/loja',pagamento:'Cartão no site · frete por peso',obs:'Bom para cores que a Cerâmica Técnica não tem. Pedido pequeno sai caro pelo frete: juntar com a Andressa.',ativo:true,criado:'2026-09-10',anexos:[
+      {id:uid(),nome:'Tabela de preços 2026',tipo:'tabela',ext:'xlsx',tam:88000,data:'2026-01-10',nota:'',por:'Theo',em:'2026-09-10'}]},
+    {id:uid(),nome:'Torrefação Serra',vende:'café em grão, filtro',area:'cafeteria',cidade:'Pirenópolis · entrega na porta',whats:'(62) 9 0000-0003',pessoa:'Dona Lúcia',email:'',site:'',pagamento:'Pix na entrega',obs:'Grão do mês muda; pedir amostra antes de fechar 5 kg.',ativo:true,criado:'2026-09-20',anexos:[]},
+    {id:uid(),nome:'Embalagens Cerrado',vende:'caixa, papel de seda, fita',area:'loja',cidade:'Anápolis · retirar',whats:'(62) 9 0000-0004',pessoa:'',email:'',site:'',pagamento:'Boleto 15 dias',obs:'',ativo:true,criado:'2026-09-25',anexos:[
+      {id:uid(),nome:'Orçamento caixas 20×20',tipo:'nota',ext:'pdf',tam:150000,data:'',nota:'validade 30 dias',por:'Andressa',em:'2026-09-25'}]},
+    {id:uid(),nome:'Argilas do Vale (não usar)',vende:'argila',area:'pecas',cidade:'',whats:'',pessoa:'',email:'',site:'',pagamento:'',obs:'Dois lotes ruins seguidos. Desativado em 09/2026.',ativo:false,criado:'2026-07-01',anexos:[]}
+  ]};
+}
+let S;try{S=JSON.parse(localStorage.getItem('amassa-forn2')||'null')}catch(e){}
+if(!S||!S.forn)S=semente();
+if(!S.sel&&S.forn[0])S.sel=S.forn[0].id;
+const salvar=()=>{try{localStorage.setItem('amassa-forn2',JSON.stringify(S))}catch(e){}};
+const fornSel=()=>S.forn.find(f=>f.id===S.sel);
+const corTipo=ext=>ext==='pdf'?'var(--pdf)':/^(jpg|jpeg|png|webp|heic)$/.test(ext)?'var(--img)':/^(xlsx|xls|csv)$/.test(ext)?'var(--planilha)':'var(--outro)';
+const ehImg=ext=>/^(jpg|jpeg|png|webp|heic)$/.test(ext);
+function tabelaVigente(f){return f.anexos.filter(a=>a.tipo==='tabela').sort((a,b)=>(b.data||b.em).localeCompare(a.data||a.em))[0]}
+
+function desenhar(){desenharLista();desenharFicha();salvar()}
+function desenharLista(){
+  const q=S.filtro.trim().toLowerCase();
+  const todos=S.forn.filter(f=>S.mostrarOff||f.ativo);
+  const lista=todos.filter(f=>(!S.area||f.area===S.area)&&(!q||(f.nome+' '+f.vende+' '+f.cidade).toLowerCase().includes(q)));
+  $('#filtro-area').innerHTML=[['','Tudo'],...Object.entries(AREAS).filter(([k])=>S.forn.some(f=>f.area===k))].map(([k,v])=>`<button type="button" class="pil" data-a="area" data-v="${k}" aria-pressed="${S.area===k}">${v}</button>`).join('');
+  $('#lista').innerHTML=lista.length?lista.sort((a,b)=>a.nome.localeCompare(b.nome)).map(f=>`<button type="button" class="forn ${f.ativo?'':'off'}" data-a="abrir" data-v="${f.id}" ${S.sel===f.id?'aria-current="true"':''}><b>${esc(f.nome)}${f.ativo?'':' <span class="selo off">desativado</span>'}</b><span class="n num">${f.anexos.length} anexo${f.anexos.length===1?'':'s'}</span><span class="vende">${esc(f.vende)}${f.cidade?' · '+esc(f.cidade):''}</span></button>`).join('')
+    :`<div class="vazio">Nenhum fornecedor com "${esc(S.filtro)}". <br><button type="button" class="link" data-a="novo">Cadastrar um agora</button></div>`;
+  const off=S.forn.filter(f=>!f.ativo).length;
+  $('#rodape-lista').innerHTML=`${lista.length} de ${todos.length}${off?` · <button type="button" class="link" data-a="toggle-off">${S.mostrarOff?'esconder':'mostrar'} ${off} desativado${off===1?'':'s'}</button>`:''}`;
+}
+function desenharFicha(){
+  const f=fornSel();const el=$('#lado-ficha');
+  if(!f){el.innerHTML=`<div class="vazio">Toque num fornecedor para ver a ficha, ou cadastre o primeiro.</div>`;return}
+  const tv=tabelaVigente(f);
+  const ct=[['WhatsApp',f.whats,'whats'],['Contato',f.pessoa],['E-mail',f.email,'copiar'],['Site',f.site,'site'],['Pagamento e prazo',f.pagamento],['Cidade / entrega',f.cidade]].filter(c=>c[1]);
+  el.innerHTML=`
+  <div class="ficha-cab"><div><h2>${esc(f.nome)} ${f.ativo?'':'<span class="selo off">desativado</span>'}</h2><p class="dica">${esc(f.vende).split(',').map(v=>`<span class="tag">${esc(v.trim())}</span>`).join('')} <span class="tag" style="background:var(--acento-fundo);color:var(--acento)">${AREAS[f.area]}</span></p></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn mini" data-a="editar">Editar</button><button type="button" class="btn mini" data-a="${f.ativo?'desativar':'reativar'}">${f.ativo?'Desativar':'Reativar'}</button></div></div>
+  ${tv?`<p class="dica" style="color:var(--tinta-m)">Última tabela de preços: <b>${esc(tv.nome)}</b>${tv.data?' · vale desde '+fmtData(tv.data):''} · <button type="button" class="link" data-a="ver" data-v="${tv.id}">abrir</button>${diasDesde(tv.data||tv.em)>120?' <span class="selo">tem mais de 4 meses — pedir a nova?</span>':' <span class="selo ok">recente</span>'}</p>`:`<p class="dica">Sem tabela de preços ainda. <button type="button" class="link" data-a="anexo">Subir a primeira</button></p>`}
+  ${ct.length?`<div class="contatos">${ct.map(([r,v,t])=>`<div class="ct"><small>${r}</small><span>${esc(v)}</span>${t?`<div class="acoes">${t==='whats'?`<button type="button" data-a="copiar" data-v="${esc(v)}">copiar</button><button type="button" data-a="zap" data-v="${esc(v)}">abrir WhatsApp</button>`:t==='site'?`<button type="button" data-a="link" data-v="${esc(v)}">abrir</button>`:`<button type="button" data-a="copiar" data-v="${esc(v)}">copiar</button>`}</div>`:''}</div>`).join('')}</div>`:''}
+  <div><h3>Observações</h3><p class="obs">${esc(f.obs)}</p></div>
+  <div><div class="cab"><h3>Anexos <span class="num" style="letter-spacing:0;text-transform:none;font-weight:500">· ${f.anexos.length}</span></h3><button type="button" class="btn mini pri" data-a="anexo">+ Anexo</button></div>
+    <div class="anexos" style="margin-top:8px">${f.anexos.length?f.anexos.slice().sort((a,b)=>b.em.localeCompare(a.em)).map(a=>`<div class="anexo ${a.tipo==='tabela'&&tv&&tv.id===a.id?'tabela':''}"><div class="ico" style="--c:${corTipo(a.ext)}">${a.img?`<img src="${a.img}" alt="">`:a.ext.toUpperCase()}</div><div class="meta"><b>${esc(a.nome)}</b><span>${TIPOS[a.tipo]}${a.data?' · vale desde '+fmtData(a.data):''} · ${a.ext.toUpperCase()} · ${fmtTam(a.tam)} · ${esc(a.por)}, ${fmtData(a.em)}</span>${a.nota?`<span class="nota">${esc(a.nota)}</span>`:''}</div><div class="acoes"><button type="button" class="btn mini" data-a="ver" data-v="${a.id}">Abrir</button><button type="button" class="vermini" data-a="remover" data-v="${a.id}">tirar</button></div></div>`).join(''):`<div class="vazio">Nenhum arquivo deste fornecedor. É aqui que a tabela de preços e o catálogo param de se perder no WhatsApp.</div>`}</div></div>
+  <div><div class="cab"><h3>Compras dele</h3><span class="dica">vem do Financeiro · despesa com "Fornecedor" preenchido</span></div>
+    ${(f.compras||[]).length?`<div class="anexos" style="margin-top:8px">${f.compras.map(c=>`<div class="anexo" style="grid-template-columns:1fr auto"><div class="meta"><b>${esc(c.desc)}</b><span>${fmtData(c.em)} · ${c.tipo}${c.itens?' · '+esc(c.itens):''}</span></div><b class="num" style="font-size:15px">R$ ${c.valor}</b></div>`).join('')}</div><p class="dica" style="margin-top:6px">Total em 2026: <b class="num">R$ ${f.compras.reduce((t,c)=>t+Number(c.valor.replace('.','').replace(',','.')),0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</b> · ${f.compras.length} despesa${f.compras.length===1?'':'s'}</p>`:`<div class="vazio" style="margin-top:8px">Nenhuma despesa apontando para este fornecedor ainda. Ao lançar uma despesa no Financeiro, o campo opcional "Fornecedor" liga as duas coisas.</div>`}</div>
+  <p class="dica">Cadastrado em ${fmtData(f.criado)}. Fornecedor não se apaga: desativar tira da lista e dos seletores, e o histórico fica.</p>`;
+}
+function diasDesde(d){return Math.round((Date.now()-new Date(d+'T12:00'))/86400000)}
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3400)}
+function abrir(id){const d=document.getElementById(id);if(!d.open)d.showModal()}
+function fechar(id){document.getElementById(id).close()}
+function confirmar(titulo,texto,cb){$('#d-conf-t').textContent=titulo;$('#d-conf-p').textContent=texto;$('#d-conf-ok').onclick=()=>{fechar('d-conf');cb()};abrir('d-conf')}
+
+let editando=null, arquivoAtual=null;
+document.addEventListener('click',e=>{
+  const fb=e.target.closest('[data-fecha]');if(fb){fechar(fb.dataset.fecha);return}
+  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,v=b.dataset.v;const f=fornSel();
+  if(a==='abrir'){S.sel=v;desenhar();if(innerWidth<900)$('#lado-ficha').scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(a==='area'){S.area=v;desenhar()}
+  else if(a==='toggle-off'){S.mostrarOff=!S.mostrarOff;desenhar()}
+  else if(a==='novo'){editando=null;$('#d-forn-t').textContent='Novo fornecedor';$('#f-forn').reset();abrir('d-forn')}
+  else if(a==='editar'){editando=f.id;$('#d-forn-t').textContent='Editar fornecedor';const fo=$('#f-forn');['nome','vende','area','cidade','whats','pessoa','email','site','pagamento','obs'].forEach(k=>fo.elements[k].value=f[k]||'');abrir('d-forn')}
+  else if(a==='desativar'){confirmar(`Desativar ${f.nome}?`,'Ele some da lista e dos seletores. Os anexos e as observações ficam guardados; dá para reativar depois.',()=>{f.ativo=false;desenhar();toast('Fornecedor desativado.')})}
+  else if(a==='reativar'){f.ativo=true;desenhar();toast('Fornecedor reativado.')}
+  else if(a==='anexo'){$('#f-anexo').reset();arquivoAtual=null;$('#previa').hidden=true;$('#zona-txt').innerHTML='<b>Escolher arquivo</b><br>PDF ou planilha até 20 MB · foto até 10 MB<br><span class="vis">no computador dá para arrastar aqui; no celular abre a galeria ou os arquivos</span>';$('#b-anexo').disabled=true;abrir('d-anexo')}
+  else if(a==='ver'){const an=f.anexos.find(x=>x.id===v);$('#d-ver-t').textContent=an.nome;$('#d-ver-c').innerHTML=(an.img?`<img class="previa" style="max-height:60vh" src="${an.img}" alt="${esc(an.nome)}">`:`<div class="vazio">Na plataforma, <b>${an.ext.toUpperCase()}</b> abre em outra aba do navegador (ou baixa, no celular). Aqui no protótipo só o nome: <b>${esc(an.nome)}</b> · ${fmtTam(an.tam)}.</div>`)+`<p class="dica">${TIPOS[an.tipo]}${an.data?' · vale desde '+fmtData(an.data):''} · subido por ${esc(an.por)} em ${fmtData(an.em)}${an.nota?' · '+esc(an.nota):''}</p>`;abrir('d-ver')}
+  else if(a==='remover'){const an=f.anexos.find(x=>x.id===v);confirmar(`Tirar "${an.nome}"?`,'O arquivo sai da ficha e do servidor. Se for a tabela de preços vigente, a anterior passa a valer.',()=>{f.anexos=f.anexos.filter(x=>x.id!==v);desenhar();toast('Anexo removido.')})}
+  else if(a==='copiar'){navigator.clipboard?.writeText(v).then(()=>toast('Copiado: '+v)).catch(()=>toast(v))}
+  else if(a==='zap'){toast('Na plataforma abre wa.me/'+v.replace(/\D/g,'')+' numa aba nova.')}
+  else if(a==='link'){window.open(v,'_blank','noopener')||toast('Abre '+v+' numa aba nova.')}
+  else if(a==='zerar'){S=semente();S.sel=S.forn[0].id;desenhar();toast('Dados de exemplo de volta.')}
+});
+$('#busca').addEventListener('input',e=>{S.filtro=e.target.value;desenharLista()});
+$('#f-forn').addEventListener('submit',e=>{e.preventDefault();const fo=e.target;const d={};['nome','vende','area','cidade','whats','pessoa','email','site','pagamento','obs'].forEach(k=>d[k]=fo.elements[k].value.trim());
+  if(editando){Object.assign(fornSel(),d);toast('Fornecedor atualizado.')}else{const n={id:Math.random().toString(36).slice(2,9),...d,ativo:true,criado:hoje(),anexos:[]};S.forn.push(n);S.sel=n.id;toast('Fornecedor cadastrado. Agora suba a tabela de preços dele.')}
+  fechar('d-forn');desenhar()});
+// arquivo: só os metadados ficam no protótipo; imagem pequena vira prévia
+const zona=$('#zona');
+['dragenter','dragover'].forEach(ev=>zona.addEventListener(ev,e=>{e.preventDefault();zona.classList.add('sobre')}));
+['dragleave','drop'].forEach(ev=>zona.addEventListener(ev,e=>{e.preventDefault();zona.classList.remove('sobre')}));
+zona.addEventListener('drop',e=>{const fl=e.dataTransfer.files[0];if(fl)receber(fl)});
+$('#arquivo').addEventListener('change',e=>{const fl=e.target.files[0];if(fl)receber(fl)});
+function receber(fl){
+  const ext=(fl.name.split('.').pop()||'').toLowerCase();
+  const lim=ehImg(ext)?10:20;if(fl.size>lim*1048576){$('#zona-txt').innerHTML=`<b style="color:var(--erro)">${esc(fl.name)} tem ${fmtTam(fl.size)}.</b><br>O limite é ${lim} MB para ${ehImg(ext)?'foto':'PDF e planilha'}.`;arquivoAtual=null;$('#b-anexo').disabled=true;return}
+  if(!/^(pdf|jpg|jpeg|png|webp|heic|xlsx|xls|csv)$/.test(ext)){$('#zona-txt').innerHTML=`<b style="color:var(--erro)">.${esc(ext)} não entra.</b><br>Aceita PDF, foto (JPG, PNG, HEIC), planilha (XLSX, CSV).`;arquivoAtual=null;$('#b-anexo').disabled=true;return}
+  arquivoAtual={ext,tam:fl.size,img:null};
+  $('#zona-txt').innerHTML=`<b>${esc(fl.name)}</b> · ${fmtTam(fl.size)} <span class="vis">· trocar</span>`;
+  const fo=$('#f-anexo');if(!fo.elements.nome.value)fo.elements.nome.value=fl.name.replace(/\.[^.]+$/,'');
+  if(ext==='pdf'){fo.elements.tipo.value='tabela';if(!fo.elements.data.value)fo.elements.data.value=hoje()}
+  else if(ehImg(ext)){fo.elements.tipo.value='outro';const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');const k=Math.min(1,480/Math.max(im.width,im.height));c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);arquivoAtual.img=c.toDataURL('image/jpeg',.7);$('#previa').src=arquivoAtual.img;$('#previa').hidden=false};im.src=r.result};r.readAsDataURL(fl)}
+  else fo.elements.tipo.value='tabela';
+  $('#b-anexo').disabled=false;
+}
+$('#f-anexo').addEventListener('submit',e=>{e.preventDefault();if(!arquivoAtual)return;const fo=e.target;const f=fornSel();
+  f.anexos.push({id:Math.random().toString(36).slice(2,9),nome:fo.elements.nome.value.trim(),tipo:fo.elements.tipo.value,ext:arquivoAtual.ext,tam:arquivoAtual.tam,img:arquivoAtual.img,data:fo.elements.tipo.value==='tabela'?fo.elements.data.value:'',nota:fo.elements.nota.value.trim(),por:'você',em:hoje()});
+  fechar('d-anexo');desenhar();toast('Anexo guardado em '+f.nome+'.')});
+desenhar();
+</script>
+
+</body></html>

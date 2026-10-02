@@ -53,6 +53,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [ ] **Phase 5: Agenda** (▶ próxima — escolhida pelo dono em 01/10/2026; até então "em espera") - Turmas fixas, aulas e oficinas avulsas, uso livre e dias fechados num calendário só; presença, reposição e "a receber" que vira Venda; site com o calendário público (briefing e protótipo de 26/09, AGE-01..20). *Até 01/10/2026 esta linha dizia "Agenda de Aulas — Turmas recorrentes materializam aulas com data real e presença por aluna" (AGD-01..16).*
 - [x] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)* (completed 2026-09-29)
 - [x] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09) (completed 2026-10-01)
+- [ ] **Phase 06.2: Fornecedores** (INSERTED) - Aba dos Cadastros com contatos, condições e anexos de quem vende para o ateliê; o único vínculo é o fornecedor opcional na Despesa (item 7 da fila; briefing e protótipo de 01/10, FRN-01..14)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -923,6 +924,34 @@ um tem três. 🔴 O código vive no branch `gsd/phase-06.1-producao`, fora de `
 
 **UI hint**: yes
 
+### Phase 06.2: Fornecedores — aba dos Cadastros com contatos, condições e anexos (INSERTED)
+
+> **Criada em 02/10/2026** (item 7 da fila do Cowork). A especificação é o `BRIEFING.md` e o
+> `prototipo.html` ("Fornecedores AMASSA", **aprovado pelo dono em 01/10/2026**), copiados para
+> `.planning/phases/06.2-fornecedores/` (idênticos aos de `Claude outputs/fornecedores/`, conferido
+> com `cmp`). O protótipo vence sobre a interface; o briefing vence sobre regra de dado. **O dono
+> puxou este item para antes das Queimas em 01/10/2026** — tem uso agora, nas compras da abertura.
+> Módulo pequeno e isolado: o único vínculo é o campo opcional "Fornecedor" na Despesa.
+
+**Goal**: Um lugar único, em Cadastros → Fornecedores, para quem vende para o ateliê: como falar com
+ele, em que condições, e os arquivos dele (tabela de preços, catálogo, nota) — guardados atrás da
+sessão, cobertos pelo backup, com o selo de tabela velha; e a ficha mostrando as despesas do
+Financeiro lançadas com aquele fornecedor. É consulta: nada aqui vira número em lugar nenhum.
+**Depends on:** Phase 5 (ordem da fila: Agenda → Fornecedores → Queimas); toca só o Financeiro (`documentos`)
+**Requirements**: FRN-01, FRN-02, FRN-03, FRN-04, FRN-05, FRN-06, FRN-07, FRN-08, FRN-09, FRN-10, FRN-11, FRN-12, FRN-13, FRN-14
+**Success Criteria** (what must be TRUE):
+  1. Cadastrar, editar, buscar (por nome, "vende" ou cidade, sem acento) e filtrar fornecedores por área; desativar e reativar com confirmação, e nenhum fornecedor se apaga (`revoke delete`)
+  2. Subir PDF, foto e planilha como anexo, com tipo conferido pela assinatura e os limites de 20 MB / 10 MB recusados com mensagem humana; foto reduzida e sem EXIF
+  3. Abrir um anexo só com sessão (401 sem login), e tirar um anexo apaga a linha e o arquivo depois de confirmar pelo nome
+  4. A ficha mostra a tabela de preços vigente com o selo "tem mais de 4 meses — pedir a nova?" depois de 120 dias
+  5. Uma despesa lançada com fornecedor aparece em "Compras dele", com o total do período e sem tabela nova no Financeiro
+  6. Os anexos moram em `/opt/amassa/dados/anexos-fornecedores/`, cobertos pelo backup diário, conferido pelo roteiro de operação da fase
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (discussão primeiro: os três pontos da §8 do briefing)
+
 ### Phase 7: Polimento e Entrega
 
 **Goal**: Transformar algo que funciona em algo que se pode confiar — painel inicial de
@@ -964,7 +993,7 @@ documento de operação) tornam-se os planos desta fase.
 ## Progress
 
 **Execution Order:**
-Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → Queimas → 7
+Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → **06.2 (Fornecedores)** → Queimas → 7 *(até 02/10/2026 esta linha dizia "→ Produção → 5 → Queimas → 7"; o dono puxou Fornecedores para antes das Queimas em 01/10)*
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -982,4 +1011,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 5. Agenda | 15/16 | In Progress (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
+| 06.2. Fornecedores | 0/TBD | Not started (criada em 02/10/2026) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

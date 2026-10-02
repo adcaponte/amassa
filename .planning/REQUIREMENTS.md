@@ -167,6 +167,29 @@
 - [ ] **AGE-19**: Aba **Números**, só leitura, do mês até hoje: horas de uso livre (horas-pessoa e visitas) · presença nas aulas (% e faltas) · aulas a repor em aberto · pessoas diferentes que passaram pelo espaço · horas-pessoa por dia da semana (barra); sem cruzar com custo (§8)
 - [ ] **AGE-20**: Regras em **módulo puro `lib/agenda/`**, testado, com "hoje" recebido por parâmetro — horas cheias, proporcional, créditos de reposição, geração das datas da turma, vagas restantes; dinheiro em centavos, quantidade em milésimos; cancelar ou remover na Agenda **nunca apaga** venda nem movimentação de estoque já gerada (§9). *O bloco "Agenda de hoje" do Início (`/gestao`) passar a ler as consultas da Agenda é a §11.4.*
 
+### Fornecedores — aba dos Cadastros (Fase 06.2, criada em 02/10/2026)
+
+> Transcrição do `BRIEFING.md` e do `prototipo.html` ("Fornecedores AMASSA", **aprovado pelo dono em
+> 01/10/2026**), copiados para `.planning/phases/06.2-fornecedores/` em 02/10/2026. O protótipo vence
+> sobre a interface; o briefing vence sobre regra de dado. Os números entre parênteses são seções do
+> briefing; os três pontos da §8 ficam para a discussão da fase e estão em itálico nos requisitos que
+> tocam. Prefixo **FRN** porque **FOR** já é do Contador de Queima (fornos).
+
+- [ ] **FRN-01**: Sub-aba **"Fornecedores"** nos Cadastros, ao lado de Catálogo · Categorias · Contas fixas · Taxas · Parâmetros; no computador lista à esquerda e ficha à direita, no celular a lista e a ficha abaixo ou em folha; alvos de 44 px, sem rolagem lateral a 320 px (§5)
+- [ ] **FRN-02**: Cadastrar e editar fornecedor: `nome` obrigatório (1–120, **único entre ativos** sem distinção de caixa), `vende` (texto livre), `area` (o enum do Financeiro, só para filtro), cidade de entrega, WhatsApp, pessoa de contato, e-mail, site, prazo de pagamento (opcionais, texto curto) e observações (até 4000) (§2)
+- [ ] **FRN-03**: **Fornecedor não se apaga** (`revoke delete`): desativar, com confirmação, tira da lista e dos seletores e mantém anexos e despesas ligadas; reativar volta tudo (§2)
+- [ ] **FRN-04**: Busca por nome, `vende` e cidade de entrega, **sem acento e sem caixa**; filtro por área; ordem alfabética; desativados escondidos por padrão com o link "mostrar N desativados" (§2)
+- [ ] **FRN-05**: Contato: WhatsApp como texto com **copiar** e **abrir WhatsApp** (`wa.me/<dígitos>`, nova aba); site abre em nova aba; e-mail com copiar; nenhum obrigatório (§2)
+- [ ] **FRN-06**: Anexos com nome (1–120), tipo (tabela · catálogo · nota · outro), "vale desde" (só para tabela, opcional) e nota (até 160); formatos **só** PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV), com o tipo **conferido pela assinatura do arquivo**, não só pela extensão (§3)
+- [ ] **FRN-07**: Limites **20 MB para PDF e planilha, 10 MB para foto**, recusados com mensagem humana; foto reduzida (lado maior 2000 px) e sem EXIF como nos orçamentos; PDF e planilha guardados como vieram; o upload não segura 20 MB inteiros na memória por requisição — *Server Action com 24mb ou Route Handler em stream: discussão (§8.1)* (§3)
+- [ ] **FRN-08**: Arquivos em `/opt/amassa/dados/anexos-fornecedores/<uuid>.<ext>`, irmã das fotos de orçamento, no mesmo volume e **coberta pelo mesmo backup diário**; o nome dado pela pessoa fica no banco; o roteiro da fase cria a pasta e confere o backup (§3, §6)
+- [ ] **FRN-09**: Servir em `/api/fornecedores/anexos/<uuid>` **só com sessão** (401 JSON sem login), `Content-Disposition: inline` com o nome original; PDF e imagem abrem, planilha baixa; nunca uma URL pública (§3)
+- [ ] **FRN-10**: Tirar anexo apaga a linha **e** o arquivo do disco (o único "apagar" do módulo), depois de uma confirmação que diz o nome (§3)
+- [ ] **FRN-11**: "Última tabela de preços": a mais recente por "vale desde" (ou data de envio, se vazio) entre os anexos do tipo tabela, com o selo **"tem mais de 4 meses — pedir a nova?"** passados 120 dias, "recente" antes disso, e "Sem tabela de preços ainda. Subir a primeira" sem nenhuma; ao escolher o arquivo, o nome vem do arquivo e PDF cai como tabela com "vale desde" hoje; quem subiu e quando aparecem na linha (§3)
+- [ ] **FRN-12**: `documentos` ganha `fornecedor_id` **anulável**; a Despesa (todos os modos, inclusive Compra de material) ganha o campo **opcional** "Fornecedor", com busca, só ativos, "nenhum" por padrão; nada retroativo — *despesa já lançada receber fornecedor depois: discussão (§8.2)* (§4)
+- [ ] **FRN-13**: **"Compras dele"** na ficha: despesas não canceladas com aquele fornecedor, mais recentes primeiro (descrição, data, tipo, itens quando compra de material, valor) e a linha "Total em <ano>: R$ X · N despesas" — *ano corrente ou 12 meses: discussão (§8.3)*; lê do Financeiro, **nenhuma tabela nova, nenhum número novo**; Estoque, Catálogo, Cotações e Produção não apontam para fornecedor (§4, §7)
+- [ ] **FRN-14**: No padrão da casa: regras ("tabela vigente", "mais de 4 meses") em **módulo puro `lib/fornecedores/`**, testado, com "hoje" por parâmetro; toda Server Action com `exigirUsuario()` e Zod; **uma migração** (duas tabelas + a coluna em `documentos`) com `TABELAS_ESPERADAS` atualizada; e2e de cadastrar, buscar por material, subir PDF e foto, tamanho e tipo recusados, abrir com e sem sessão, tirar anexo, desativar/reativar e despesa em "Compras dele"; roteiro de operação curto (§6)
+
 ### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
 
 > *01/10/2026:* os AGD-* abaixo descrevem o modelo da AMASSA de Goiânia (grade por turno, quatro
@@ -648,6 +671,20 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | AGE-18 | Phase 5 — Agenda | Pending |
 | AGE-19 | Phase 5 — Agenda | Pending |
 | AGE-20 | Phase 5 — Agenda | Pending |
+| FRN-01 | Phase 06.2 — Fornecedores | Pending |
+| FRN-02 | Phase 06.2 — Fornecedores | Pending |
+| FRN-03 | Phase 06.2 — Fornecedores | Pending |
+| FRN-04 | Phase 06.2 — Fornecedores | Pending |
+| FRN-05 | Phase 06.2 — Fornecedores | Pending |
+| FRN-06 | Phase 06.2 — Fornecedores | Pending |
+| FRN-07 | Phase 06.2 — Fornecedores | Pending |
+| FRN-08 | Phase 06.2 — Fornecedores | Pending |
+| FRN-09 | Phase 06.2 — Fornecedores | Pending |
+| FRN-10 | Phase 06.2 — Fornecedores | Pending |
+| FRN-11 | Phase 06.2 — Fornecedores | Pending |
+| FRN-12 | Phase 06.2 — Fornecedores | Pending |
+| FRN-13 | Phase 06.2 — Fornecedores | Pending |
+| FRN-14 | Phase 06.2 — Fornecedores | Pending |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
@@ -786,8 +823,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 193 total — em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
-- Mapped to phases: 193/193 (até 01/10/2026: 189/189)
+- v1 requirements: 207 total — em 02/10/2026 entraram os FRN-01..14 da Fase 06.2: 193 + 14. *Até 02/10/2026 esta linha dizia 193:* em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
+- Mapped to phases: 207/207 (até 02/10/2026: 193/193; até 01/10/2026: 189/189)
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -806,10 +843,12 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 04.5 | M6 → Financeiro, parte 2 | ORC-01..18 (reescritos, promovidos da v2) | 18 |
 | Phase 04.6 | M6 → separação dos dois públicos | GES-01..14, SIT-01..10 | 24 |
 | Phase 06.1 | Produção (redesenho das Encomendas) | PRD-01..20 (briefing de 20/09) | 20 |
+| Phase 06.2 | Fornecedores (item 7 da fila) | FRN-01..14 (briefing de 01/10) | 14 |
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-10-01 (início da Fase 5) — **AGE-01..20 acrescentados** (transcrição do briefing da Agenda de 26/09, copiado para `.planning/phases/05-agenda/`); AGD-01..16 viraram registro, "Substituído" no rastreio; total de 189 para 193; notas datadas em FIN-01/02 e INT-02.*
+*Last updated: 2026-10-02 (criação da Fase 06.2) — **FRN-01..14 acrescentados** (transcrição do briefing de Fornecedores de 01/10, copiado para `.planning/phases/06.2-fornecedores/`); total de 193 para 207.*
+*Antes: 2026-10-01 (início da Fase 5) — **AGE-01..20 acrescentados** (transcrição do briefing da Agenda de 26/09, copiado para `.planning/phases/05-agenda/`); AGD-01..16 viraram registro, "Substituído" no rastreio; total de 189 para 193; notas datadas em FIN-01/02 e INT-02.*
 *Last updated antes: 2026-09-29, tarde (fechamento do plano 06-11) — **EST-01..21 passaram a `[x]`/Complete**,
 com a evidência no bloco logo depois de EST-21 (EST-09 só pela aprovação do dono, sem o tempo
 medido); a linha da Fase 6 na cobertura passou de "EST-01..12 · 12" para 21, e o total de 160 para
