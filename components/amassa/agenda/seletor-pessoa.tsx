@@ -191,9 +191,16 @@ export function SeletorPessoa({
       );
       return;
     }
-    if (evento.key === "Enter" && expandido && ativa >= 0 && ativa < opcoes.length) {
+    // Enter com a lista aberta é da LISTA, nunca do formulário em volta (IN-01 da revisão B: sem opção
+    // destacada, ele enviava a folha "Lançar na agenda" sem ninguém escolhido). Escolhe a destacada, ou a
+    // única que há; senão não faz nada. Com a lista fechada (pessoa já escolhida), envia como sempre.
+    if (evento.key === "Enter" && expandido) {
       evento.preventDefault();
-      ativar(opcoes[ativa]);
+      if (ativa >= 0 && ativa < opcoes.length) {
+        ativar(opcoes[ativa]);
+      } else if (opcoes.length === 1) {
+        ativar(opcoes[0]);
+      }
     }
   }
 
