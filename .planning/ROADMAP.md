@@ -968,7 +968,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06.2-02-PLAN.md — Traçador: cadastrar um fornecedor e vê-lo na lista com a ficha aberta, chegando pela sétima pílula (UI-D1) (onda 2)
+- [x] 06.2-02-PLAN.md — Traçador: cadastrar um fornecedor e vê-lo na lista com a ficha aberta, chegando pela sétima pílula (UI-D1) (onda 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
