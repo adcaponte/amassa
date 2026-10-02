@@ -368,6 +368,11 @@ export const ROTULO_MANTER_NA_LISTA = "Manter na lista";
 export const CORPO_TIRAR_INSCRICAO_DA_LISTA = "A inscrição sai desta data e de “A receber”.";
 export const FRASE_FALHA_AO_TIRAR_DA_LISTA =
   "Não deu para tirar da lista. Verifique a internet e tente de novo.";
+// IN-02 da revisão A: recusas de REGRA, não de rede — dizem o que fazer, nunca "verifique a internet".
+export const FRASE_ALUNO_SAI_PELA_FICHA =
+  "Aluno da turma não sai pela lista da data: abra a ficha da pessoa, em Pessoas, e use “Sair da turma”.";
+export const FRASE_OFICINA_SO_EM_AULA_AVULSA =
+  "Só uma aula avulsa com preço recebe inscrição de oficina. A tela foi atualizada.";
 
 export function ariaTirarDaLista(nome: string): string {
   return `Tirar ${nome} da lista`;

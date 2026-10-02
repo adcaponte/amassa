@@ -128,6 +128,8 @@ import {
   FRASE_FALHA_AO_SALVAR_TURMA,
   FRASE_FALHA_AO_TIRAR_BLOQUEIO,
   FRASE_FALHA_AO_TIRAR_DA_LISTA,
+  FRASE_ALUNO_SAI_PELA_FICHA,
+  FRASE_OFICINA_SO_EM_AULA_AVULSA,
   FRASE_FECHADO_NAO_SE_CANCELA,
   FRASE_JA_REMOVIDO,
   FRASE_FALHA_PRESENCA_GENERICA,
@@ -702,7 +704,7 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
 
       if (dados.modo === "oficina") {
         if (evento.tipo !== "avulsa" || evento.precoCentavos === null) {
-          throw new RecusaDaAgenda(FRASE_FALHA_AO_COLOCAR);
+          throw new RecusaDaAgenda(FRASE_OFICINA_SO_EM_AULA_AVULSA);
         }
       } else if (dados.modo === "experimental") {
         if (evento.tipo !== "turma" || evento.turmaId === null) {
@@ -795,7 +797,7 @@ export type TiradoDaLista = { nome: string; tipo: TipoInscricao };
 // Sob a trava da INSCRIÇÃO, com a venda ligada RELIDA depois da trava (T-05-25; CR-01 da revisão):
 // - não existe mais → "Isso já tinha sido removido.";
 // - data cancelada → a frase (a lista da data cancelada é só de leitura);
-// - inscrição de aluno → a frase genérica (o aluno sai da turma pela ficha);
+// - inscrição de aluno → a frase que diz onde ele sai (pela ficha, "Sair da turma" — IN-02 da revisão A);
 // - ligada a uma venda NÃO cancelada → recusa com a frase da D-08, verbatim: a Agenda nunca devolve
 //   dinheiro nem desfaz venda — a devolução é no Caixa;
 // - senão apaga a inscrição (a venda cancelada continua no Financeiro, AGE-20). Tirar uma REPOSIÇÃO
@@ -822,7 +824,7 @@ export async function tirarDaLista(entradaBruta: unknown): Promise<ResultadoDeAc
         throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
       }
       if (inscricao.tipo === "aluno") {
-        throw new RecusaDaAgenda(FRASE_FALHA_AO_TIRAR_DA_LISTA);
+        throw new RecusaDaAgenda(FRASE_ALUNO_SAI_PELA_FICHA);
       }
       if (inscricao.venda !== null && !inscricao.venda.cancelada) {
         throw new RecusaDaAgenda(fraseInscricaoJaVirouVenda(inscricao.venda.numero));
