@@ -497,13 +497,16 @@ export function DialogoItemCatalogo({
             <span className="text-corpo">{ROTULO_NOS_MAIS_USADOS}</span>
           </label>
 
-          <label className="flex min-h-[44px] items-center gap-2">
-            <Checkbox
-              checked={controlaEstoque}
-              onCheckedChange={(valor) => alternarControlaEstoque(valor === true)}
-            />
-            <span className="text-corpo">{ROTULO_TEM_ESTOQUE_PROPRIO}</span>
-          </label>
+          {/* IN-03 da revisão A: item do sistema da Agenda não ganha estoque próprio (o servidor ignora). */}
+          {itemDoSistema ? null : (
+            <label className="flex min-h-[44px] items-center gap-2">
+              <Checkbox
+                checked={controlaEstoque}
+                onCheckedChange={(valor) => alternarControlaEstoque(valor === true)}
+              />
+              <span className="text-corpo">{ROTULO_TEM_ESTOQUE_PROPRIO}</span>
+            </label>
+          )}
 
           {controlaEstoque && (
             <div className="flex flex-col gap-4 border-l-2 border-border pl-4">

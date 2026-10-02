@@ -613,6 +613,13 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
       // `travar_item_do_sistema` é a última camada (o P0001 dele vira FRASE_ITEM_DO_SISTEMA).
       const aparecenaVenda =
         itemAtual.chaveDoSistema !== null ? itemAtual.aparecenaVenda : dados.aparecenaVenda;
+      // IN-03 da revisão A: nem o estoque próprio. Marcado num item do sistema, cada venda da Agenda (uma
+      // linha de quantidade 1) escreveria uma saída no Estoque por `pedidosDaVenda`. Mesma regra: grava o
+      // que já está no banco.
+      const doSistema = itemAtual.chaveDoSistema !== null;
+      const controlaEstoque = doSistema ? itemAtual.controlaEstoque : dados.controlaEstoque;
+      const unidade = doSistema ? itemAtual.unidade : dados.unidade;
+      const categoriaCompraId = doSistema ? itemAtual.categoriaCompraId : dados.categoriaCompraId;
 
       await tx
         .update(itensCatalogo)
@@ -622,10 +629,10 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
           precoVendaCentavos: dados.precoVendaCentavos,
           aparecenaVenda,
           atalhoVenda: dados.atalhoVenda,
-          controlaEstoque: dados.controlaEstoque,
+          controlaEstoque,
           atalhoCompra: dados.atalhoCompra,
-          unidade: dados.unidade,
-          categoriaCompraId: dados.categoriaCompraId,
+          unidade,
+          categoriaCompraId,
         })
         .where(eq(itensCatalogo.id, dados.id));
 
