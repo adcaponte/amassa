@@ -827,7 +827,7 @@ export async function tirarDaLista(entradaBruta: unknown): Promise<ResultadoDeAc
 export type TurmaSalva = { mensalidadeMudou: boolean; datasAtualizadas: number };
 
 // "Salvar turma" (D-03). `exigirUsuario()` primeiro (T-05-28), Zod no servidor. Sob a trava da
-// TURMA: recusa a desativada; grava a turma e, nas datas com `data > hoje` e NÃO canceladas, o
+// TURMA: recusa a desativada; grava a turma e, nas datas com `data > hoje` (inclusive as canceladas — WR-02), o
 // horário, as vagas e o público (hoje e o passado ficam como foram — Assumption A9). O nome não é
 // copiado: as datas leem o nome da turma ao vivo. A mensalidade nova vale a partir do próximo mês,
 // porque cada mensalidade copia o valor da turma ao nascer — e a guarda do Pitfall 6 (plano 07):
@@ -873,14 +873,19 @@ export async function editarTurma(entradaBruta: unknown): Promise<ResultadoDoLan
           publica: dados.publica,
         })
         .where(eq(turmas.id, turma.id));
+      // WR-02 (revisão da Fase 5): as datas futuras CANCELADAS também acompanham a turma. Antes elas
+      // ficavam com o horário, as vagas e o `publico` de quando foram canceladas, e "Desfazer
+      // cancelamento" trazia de volta o velho — uma turma que virou privada reaparecia no site. A trava
+      // de cada data (a mesma de `cancelarData`) serializa os dois. A contagem do toast segue sendo a
+      // das datas de pé.
       const atualizadas = await tx
         .update(eventos)
         .set({ inicio: dados.inicio, fim: dados.fim, vagas: dados.vagas, publico: dados.publica })
-        .where(and(eq(eventos.turmaId, turma.id), gt(eventos.data, hoje), isNull(eventos.canceladoEm)))
-        .returning({ id: eventos.id });
+        .where(and(eq(eventos.turmaId, turma.id), gt(eventos.data, hoje)))
+        .returning({ id: eventos.id, canceladoEm: eventos.canceladoEm });
       return {
         mensalidadeMudou: turma.mensalidadeCentavos !== dados.mensalidadeCentavos,
-        datasAtualizadas: atualizadas.length,
+        datasAtualizadas: atualizadas.filter((data) => data.canceladoEm === null).length,
       };
     });
   } catch (erro) {

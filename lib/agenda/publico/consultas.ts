@@ -9,7 +9,7 @@
 //    DATAS dos dias fechados. Nunca a tabela de pessoas, nunca contato, presença, uso livre, nem o
 //    título de um dia fechado (que é o motivo dele). A defesa é não selecionar (T-05-69).
 // 3. Nenhum parâmetro vem do visitante: só o "hoje" calculado no servidor (T-05-72).
-import { and, count, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { eventos, inscricoes, turmaAlunos, turmas } from "@/db/schema";
@@ -52,9 +52,15 @@ export async function lerAgendaPublica(hoje: string): Promise<DadosDaAgendaPubli
       })
       .from(eventos)
       .leftJoin(contagem, eq(contagem.eventoId, eventos.id))
+      .leftJoin(turmas, eq(turmas.id, eventos.turmaId))
       .where(
         and(
           eq(eventos.publico, true),
+          // WR-02 (revisão da Fase 5): a data de turma só vai ao site se a TURMA é pública AGORA. O
+          // `publico` da data é copiado da turma, mas hoje (A9 — a edição só muda `data > hoje`) e uma
+          // data cancelada que volta podem guardar o valor de antes: tornar a turma privada a tira do
+          // site na hora, em toda data.
+          or(eq(eventos.tipo, "avulsa"), eq(turmas.publica, true)),
           isNull(eventos.canceladoEm),
           inArray(eventos.tipo, ["turma", "avulsa"]),
           gte(eventos.data, hoje),

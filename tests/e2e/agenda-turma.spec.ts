@@ -19,6 +19,7 @@ import { diaDaSemanaDe, NOMES_DOS_DIAS } from "@/lib/agenda/turma";
 import { formatarDiaMes, somarDias } from "@/lib/producao/calendario";
 
 import {
+  cancelarDataNoBanco,
   datasDaTurmaNoBanco,
   eventoNoBanco,
   inscricoesDoEvento,
@@ -432,5 +433,41 @@ test.describe("agenda turma", () => {
     expect((await turmasComNome(nome))[0].ativa).toBe(true);
     expect((await datasDaTurmaNoBanco(turmaId)).map((d) => d.data)).toEqual([primeira, segunda]);
     expect(await inscricoesDoEvento(eventoIds[1])).toHaveLength(1);
+  });
+
+  test("(h) WR-02: editar a turma também muda a data futura CANCELADA — desfazer o cancelamento não traz de volta o horário velho nem o “no site” de antes", async ({
+    page,
+  }) => {
+    const primeira = inicioDaJanela(5);
+    const segunda = somarDias(primeira, 7);
+    const nome = `[e2e] Turma com data cancelada ${sufixoUnico()}`;
+    const { turmaId, eventoIds } = await semearTurmaComDatas({
+      nome,
+      diaSemana: diaDaSemanaDe(primeira),
+      inicio: "19:00",
+      fim: "21:00",
+      vagas: 8,
+      mensalidadeCentavos: 30000,
+      diaVencimento: 10,
+      datas: [primeira, segunda],
+      publica: true,
+    });
+    await cancelarDataNoBanco(eventoIds[0]);
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);
+    const folha = page.getByTestId("folha-turma");
+    await expect(folha.getByTestId("turma-inicio")).toHaveValue("19:00");
+    await folha.getByTestId("turma-inicio").fill("18:00");
+    await folha.getByTestId("turma-fim").fill("20:30");
+    await folha.getByTestId("turma-publica").click();
+    await folha.getByTestId("salvar-turma").click();
+    await expect(page.getByText(TOAST_TURMA_SALVA).first()).toBeVisible();
+
+    // As DUAS datas futuras seguem a turma — a cancelada também, para o “Desfazer” não ressuscitar o velho.
+    await expect
+      .poll(async () => (await datasDaTurmaNoBanco(turmaId)).map((d) => `${d.data} ${d.inicio}-${d.fim} ${d.publico}`))
+      .toEqual([`${primeira} 18:00-20:30 false`, `${segunda} 18:00-20:30 false`]);
+    expect((await eventoNoBanco(eventoIds[0]))?.canceladoEm).not.toBeNull();
   });
 });
