@@ -6,6 +6,7 @@ import {
   caixaDataDeTurmaEmDiaFechado,
   corpoConfirmarDesativarTurma,
   FRASE_NENHUM_ALUNO,
+  FRASE_PERDAS_DA_TURMA_MUDARAM,
   FRASE_SEMANAS,
   FRASE_VENCIMENTO,
   fraseDesativarComVendaAtiva,
@@ -24,6 +25,8 @@ import {
   eventoNoBanco,
   inscricoesDoEvento,
   ligarVendaAInscricao,
+  marcarFaltaComDireitoNoBanco,
+  marcarPresencaNoBanco,
   semearAluno,
   semearCliente,
   semearFechado,
@@ -371,7 +374,7 @@ test.describe("agenda turma", () => {
     await folha.getByTestId("desativar-turma").click();
     const confirmacao = page.getByTestId("confirmar-desativar-turma");
     await expect(confirmacao).toContainText(`Desativar ${nome}?`);
-    await expect(confirmacao).toContainText(corpoConfirmarDesativarTurma(2, 1));
+    await expect(confirmacao).toContainText(corpoConfirmarDesativarTurma({ datas: 2, reposicoes: 1, cobrancas: 0, presencas: 0, creditos: 0 }));
     // "Manter turma" não muda nada.
     await page.getByTestId("confirmar-desativar-turma-nao").click();
     await expect(confirmacao).toHaveCount(0);
@@ -469,5 +472,44 @@ test.describe("agenda turma", () => {
       .poll(async () => (await datasDaTurmaNoBanco(turmaId)).map((d) => `${d.data} ${d.inicio}-${d.fim} ${d.publico}`))
       .toEqual([`${primeira} 18:00-20:30 false`, `${segunda} 18:00-20:30 false`]);
     expect((await eventoNoBanco(eventoIds[0]))?.canceladoEm).not.toBeNull();
+  });
+  test("(i) WR-04: a confirmação de “Desativar turma” diz a cobrança, a presença e o crédito que somem; se algo cresce com o diálogo aberto, nada é apagado e os números novos aparecem", async ({
+    page,
+  }) => {
+    const primeira = inicioDaJanela(6);
+    const nome = `[e2e] Turma com perdas ${sufixoUnico()}`;
+    const { turmaId, eventoIds } = await semearTurma(nome, [primeira]);
+    const experimental = await semearCliente({ nome: `[e2e] Experimental ${sufixoUnico()}` });
+    const aluna = await semearCliente({ nome: `[e2e] Aluna ${sufixoUnico()}` });
+    const outra = await semearCliente({ nome: `[e2e] Outra ${sufixoUnico()}` });
+    await semearInscricao({ eventoId: eventoIds[0], clienteId: experimental, tipo: "experimental", cobrar: true, valorCentavos: 4000 });
+    const faltou = await semearInscricao({ eventoId: eventoIds[0], clienteId: aluna, tipo: "aluno" });
+    await marcarFaltaComDireitoNoBanco(faltou);
+    const daOutra = await semearInscricao({ eventoId: eventoIds[0], clienteId: outra, tipo: "aluno" });
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${primeira}&turma=${turmaId}`);
+    const folha = page.getByTestId("folha-turma");
+    await folha.getByTestId("desativar-turma").click();
+    const confirmacao = page.getByTestId("confirmar-desativar-turma");
+    await expect(confirmacao).toContainText(
+      corpoConfirmarDesativarTurma({ datas: 1, reposicoes: 0, cobrancas: 1, presencas: 1, creditos: 1 }),
+    );
+
+    // Outro celular marca presença na data com o diálogo aberto: o servidor reconta e NÃO apaga.
+    await marcarPresencaNoBanco(daOutra, "veio");
+    await page.getByTestId("confirmar-desativar-turma-sim").click();
+    await expect(page.getByTestId("confirmar-desativar-turma-mudou")).toHaveText(FRASE_PERDAS_DA_TURMA_MUDARAM);
+    await expect(confirmacao).toContainText(
+      corpoConfirmarDesativarTurma({ datas: 1, reposicoes: 0, cobrancas: 1, presencas: 2, creditos: 1 }),
+    );
+    expect((await turmasComNome(nome))[0].ativa).toBe(true);
+    expect(await inscricoesDoEvento(eventoIds[0])).toHaveLength(3);
+
+    // Confirmado com os números de agora, desativa.
+    await page.getByTestId("confirmar-desativar-turma-sim").click();
+    await expect(page.getByText(TOAST_TURMA_DESATIVADA).first()).toBeVisible();
+    await expect.poll(async () => (await turmasComNome(nome))[0].ativa).toBe(false);
+    expect(await eventoNoBanco(eventoIds[0])).toBeNull();
   });
 });

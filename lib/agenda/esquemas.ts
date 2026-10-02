@@ -324,9 +324,23 @@ export const esquemaMarcarMaisSemanas = z.object({
 
 export type MarcarMaisSemanasValidado = z.infer<typeof esquemaMarcarMaisSemanas>;
 
-// "Desativar turma" (D-03): só o id — o que sai é decidido sob a trava, no servidor.
+// Uma contagem que a pessoa VIU na confirmação (WR-03/WR-04 da revisão): o servidor reconta sob a trava e,
+// se o que sai agora passar disso, devolve os números novos em vez de gravar.
+const contagemVista = z.number({ error: FRASE_FALHA_AO_DESATIVAR_TURMA }).int().min(0).max(1_000_000);
+
+// "Desativar turma" (D-03): o id e o que a confirmação MOSTROU (WR-04) — o que sai é decidido sob a
+// trava, no servidor; nunca mais do que foi mostrado.
 export const esquemaDesativarTurma = z.object({
   turmaId: z.uuid({ error: FRASE_FALHA_AO_DESATIVAR_TURMA }),
+  confirmado: z
+    .object({
+      datas: contagemVista,
+      reposicoes: contagemVista,
+      cobrancas: contagemVista,
+      presencas: contagemVista,
+      creditos: contagemVista,
+    })
+    .optional(),
 });
 
 // Entrar e sair da turma pela ficha (AGE-07): só os dois ids (T-05-33) — o valor, as datas e o

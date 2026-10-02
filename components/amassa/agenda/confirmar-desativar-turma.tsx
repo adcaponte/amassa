@@ -9,6 +9,7 @@ import type { PerdasAoDesativar } from "@/lib/agenda/consultas";
 import {
   corpoConfirmarDesativarTurma,
   FRASE_FALHA_AO_DESATIVAR_TURMA,
+  FRASE_PERDAS_DA_TURMA_MUDARAM,
   ROTULO_DESATIVANDO,
   ROTULO_DESATIVAR_TURMA,
   ROTULO_MANTER_TURMA,
@@ -46,12 +47,19 @@ export type ConfirmarDesativarTurmaProps = {
 // Decisão do backstop E28·error (plano 06): o erro do servidor (a venda ativa, a rede) aparece DENTRO
 // do diálogo, que continua aberto, e nada muda na turma. Ao fechar depois de um erro, a folha pede
 // ao servidor a turma de agora.
+//
+// WR-04 (revisão): o diálogo manda ao servidor os números que MOSTROU (`confirmado`). Se, sob a trava, o
+// que sai agora passou disso (alguém marcou presença ou colocou alguém noutro celular), nada é gravado: o
+// diálogo troca os números pelos de agora, avisa e pede o toque de novo.
 export function ConfirmarDesativarTurma({ turmaId, nome, perdas, aoDesativar }: ConfirmarDesativarTurmaProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [aberto, setAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Os números que o diálogo mostra — os da folha ao abrir, os do servidor depois de um "confirmar".
+  const [vistas, setVistas] = useState<PerdasAoDesativar>(perdas);
+  const [mudou, setMudou] = useState(false);
 
   async function confirmar(evento: { preventDefault: () => void }) {
     evento.preventDefault();
@@ -62,9 +70,14 @@ export function ConfirmarDesativarTurma({ turmaId, nome, perdas, aoDesativar }: 
     setEnviando(true);
     setErro(null);
     try {
-      const resposta = await desativarTurma({ turmaId });
+      const resposta = await desativarTurma({ turmaId, confirmado: vistas });
       if (!resposta.ok) {
         setErro(resposta.erro);
+        return;
+      }
+      if (resposta.dados.situacao === "confirmar") {
+        setVistas(resposta.dados.perdas);
+        setMudou(true);
         return;
       }
       toast.success(TOAST_TURMA_DESATIVADA);
@@ -86,6 +99,8 @@ export function ConfirmarDesativarTurma({ turmaId, nome, perdas, aoDesativar }: 
         data-testid="desativar-turma"
         onClick={() => {
           setErro(null);
+          setMudou(false);
+          setVistas(perdas);
           setAberto(true);
         }}
         className={`${CLASSES_BOTAO_DE_ERRO} mt-2 self-start`}
@@ -97,7 +112,7 @@ export function ConfirmarDesativarTurma({ turmaId, nome, perdas, aoDesativar }: 
         open={aberto}
         onOpenChange={(novoValor) => {
           if (!novoValor && !enviando) {
-            if (erro !== null) {
+            if (erro !== null || mudou) {
               router.refresh();
             }
             setErro(null);
@@ -109,9 +124,15 @@ export function ConfirmarDesativarTurma({ turmaId, nome, perdas, aoDesativar }: 
           <AlertDialogHeader>
             <AlertDialogTitle className="[overflow-wrap:anywhere]">{tituloConfirmarDesativarTurma(nome)}</AlertDialogTitle>
             <AlertDialogDescription className="[overflow-wrap:anywhere]">
-              {corpoConfirmarDesativarTurma(perdas.datas, perdas.reposicoes)}
+              {corpoConfirmarDesativarTurma(vistas)}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {mudou ? (
+            <p data-testid="confirmar-desativar-turma-mudou" role="status" className="text-apoio text-tinta">
+              {FRASE_PERDAS_DA_TURMA_MUDARAM}
+            </p>
+          ) : null}
 
           {erro ? (
             <p data-testid="confirmar-desativar-turma-erro" role="alert" className="text-apoio text-erro">

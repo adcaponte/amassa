@@ -81,7 +81,10 @@ import {
   RecusaDaAgenda,
   temPerdas,
   tirarAlunoDasDatasFuturas,
-  tirarDatasFuturasDaTurma,
+  travarDatasFuturasDaTurma,
+  apagarDatasDaTurma,
+  contarPerdasAoDesativar,
+  perdasCobertas,
   travarCliente,
   travarEvento,
   travarEventoParaLeitura,
@@ -95,6 +98,7 @@ import {
   vendaAtivaEmDataFutura,
   type MaterialBaixado,
   type PerdasAoCancelar,
+  type PerdasAoDesativar,
   type TransacaoDoBanco,
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
@@ -977,7 +981,10 @@ export async function marcarMaisSemanas(entradaBruta: unknown): Promise<Resultad
   return { ok: true, dados: marcadas };
 }
 
-export type TurmaDesativada = { datasTiradas: number };
+export type TurmaDesativada =
+  | { situacao: "desativada"; datasTiradas: number }
+  // WR-04: nada gravado — o que sai agora passou do que a confirmação mostrou; a tela mostra estes números.
+  | { situacao: "confirmar"; perdas: PerdasAoDesativar };
 
 // "Desativar turma" (D-03) — NUNCA apaga a turma (`revoke delete` em `turmas`), o que já aconteceu
 // nem as mensalidades nascidas (T-05-31). `exigirUsuario()` primeiro. Sob a trava da TURMA:
@@ -987,6 +994,9 @@ export type TurmaDesativada = { datasTiradas: number };
 // - tira as datas com `data > hoje` e as inscrições delas (Assumption A14 — não as cancela, para a
 //   semana não encher de datas riscadas; as reposições voltam a ser crédito por derivação) e grava
 //   `ativa = false`, `desativada_em`, `desativada_por`. Hoje e o passado ficam.
+// - WR-04 (revisão): com as datas e as inscrições delas TRAVADAS (`travarDatasFuturasDaTurma`, que também
+//   reconfere a venda ativa — WR-01), reconta o que sai; se passou do que a confirmação mostrou
+//   (`confirmado`), não grava e devolve os números de agora (molde de `cancelarData`).
 export async function desativarTurma(entradaBruta: unknown): Promise<ResultadoDeAcao<TurmaDesativada>> {
   const usuario = await exigirUsuario();
 
@@ -1012,12 +1022,17 @@ export async function desativarTurma(entradaBruta: unknown): Promise<ResultadoDe
       if (venda !== null) {
         throw new RecusaDaAgenda(fraseDesativarComVendaAtiva(formatarDiaMes(venda.data), venda.numero));
       }
-      const datasTiradas = await tirarDatasFuturasDaTurma(tx, turma.id, hoje);
+      const travadas = await travarDatasFuturasDaTurma(tx, turma.id, hoje);
+      const perdas = await contarPerdasAoDesativar(tx, turma.id, hoje);
+      if (!perdasCobertas(perdas, resultado.data.confirmado ?? null)) {
+        return { situacao: "confirmar", perdas };
+      }
+      const datasTiradas = await apagarDatasDaTurma(tx, turma.id, hoje, travadas);
       await tx
         .update(turmas)
         .set({ ativa: false, desativadaEm: new Date(), desativadaPor: usuario.id })
         .where(eq(turmas.id, turma.id));
-      return { datasTiradas };
+      return { situacao: "desativada", datasTiradas };
     });
   } catch (erro) {
     if (erro instanceof RecusaDaAgenda) {
@@ -1032,7 +1047,9 @@ export async function desativarTurma(entradaBruta: unknown): Promise<ResultadoDe
   }
 
   // As datas futuras saem do site.
-  revalidarTelasDaAgenda({ publico });
+  if (desativada.situacao === "desativada") {
+    revalidarTelasDaAgenda({ publico });
+  }
   return { ok: true, dados: desativada };
 }
 

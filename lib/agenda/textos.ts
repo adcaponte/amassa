@@ -511,7 +511,16 @@ export function tituloConfirmarDesativarTurma(nome: string): string {
 
 // "As {n} datas daqui para frente saem da agenda e do site, junto com as inscrições delas ({r}
 // reposições marcadas voltam a ser crédito). …" — sem reposição, sem o parêntese; plural de verdade.
-export function corpoConfirmarDesativarTurma(datas: number, reposicoes: number): string {
+// WR-04 (revisão da Fase 5): e diz o resto que some com as inscrições — cobranças ainda sem venda,
+// presenças marcadas e faltas com direito a repor (crédito da pessoa). Sem nada disso, a frase é a de antes.
+export function corpoConfirmarDesativarTurma(perdas: {
+  datas: number;
+  reposicoes: number;
+  cobrancas: number;
+  presencas: number;
+  creditos: number;
+}): string {
+  const { datas, reposicoes } = perdas;
   const parentese =
     reposicoes === 0
       ? ""
@@ -524,8 +533,36 @@ export function corpoConfirmarDesativarTurma(datas: number, reposicoes: number):
       : datas === 1
         ? `A data daqui para frente sai da agenda e do site, junto com as inscrições dela${parentese}.`
         : `As ${datas} datas daqui para frente saem da agenda e do site, junto com as inscrições delas${parentese}.`;
-  return `${datasQueSaem} O que já aconteceu fica, e as mensalidades já nascidas continuam em “A receber”. Não dá para reativar.`;
+  const junto: string[] = [];
+  if (perdas.cobrancas > 0) {
+    junto.push(
+      perdas.cobrancas === 1
+        ? "1 cobrança dessas datas ainda sem venda some junto"
+        : `${perdas.cobrancas} cobranças dessas datas ainda sem venda somem junto`,
+    );
+  }
+  if (perdas.presencas > 0) {
+    junto.push(
+      perdas.presencas === 1 ? "1 presença já marcada se perde" : `${perdas.presencas} presenças já marcadas se perdem`,
+    );
+  }
+  if (perdas.creditos > 0) {
+    junto.push(
+      perdas.creditos === 1
+        ? "1 falta com direito a repor deixa de valer como crédito"
+        : `${perdas.creditos} faltas com direito a repor deixam de valer como crédito`,
+    );
+  }
+  const alemDisso =
+    junto.length === 0
+      ? ""
+      : ` ${junto.length === 1 ? junto[0] : `${junto.slice(0, -1).join(", ")} e ${junto[junto.length - 1]}`}.`;
+  return `${datasQueSaem}${alemDisso} O que já aconteceu fica, e as mensalidades já nascidas continuam em “A receber”. Não dá para reativar.`;
 }
+
+// WR-04: o servidor recontou sob a trava e algo cresceu desde que a confirmação abriu.
+export const FRASE_PERDAS_DA_TURMA_MUDARAM =
+  "Algo mudou nessas datas enquanto a tela estava aberta. Confira o que sai e confirme de novo.";
 
 export const TOAST_TURMA_SALVA = "Turma salva.";
 

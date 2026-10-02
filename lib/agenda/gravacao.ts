@@ -420,7 +420,18 @@ export async function vendaAtivaEmDataFutura(
 // O que "Desativar turma" tira (a confirmação diz antes — CLAUDE.md §Exclusão): as datas com
 // `data > hoje` (Assumption A14: saem, não são canceladas) e, entre as inscrições delas, as
 // reposições — que voltam a ser crédito, porque o crédito é derivado das linhas.
-export type PerdasAoDesativar = { datas: number; reposicoes: number };
+//
+// WR-04 (revisão da Fase 5): a confirmação também diz o resto que some com essas inscrições —
+// `cobrancas`: as que cobram e ainda não viraram venda ativa (em "A receber", dispensadas ou com a venda
+// cancelada no Caixa); `presencas`: presença já marcada; `creditos`: falta com direito a repor, que é
+// crédito da pessoa (sair baixa o saldo dela).
+export type PerdasAoDesativar = {
+  datas: number;
+  reposicoes: number;
+  cobrancas: number;
+  presencas: number;
+  creditos: number;
+};
 
 export async function contarPerdasAoDesativar(
   leitor: LeitorDoBanco,
@@ -432,18 +443,49 @@ export async function contarPerdasAoDesativar(
     .select({ total: count() })
     .from(eventos)
     .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
-  const [reposicoes] = await seletor
-    .select({ total: count() })
+  const [inscritas] = await seletor
+    .select({
+      reposicoes: sql<number>`count(*) filter (where ${inscricoes.tipo} = 'reposicao')`.mapWith(Number),
+      cobrancas: sql<number>`count(*) filter (
+        where ${inscricoes.cobrar} and (${inscricoes.documentoId} is null or ${documentos.canceladoEm} is not null)
+      )`.mapWith(Number),
+      presencas: sql<number>`count(*) filter (where ${inscricoes.presenca} is not null)`.mapWith(Number),
+      creditos: sql<number>`count(*) filter (
+        where ${inscricoes.presenca} = 'faltou' and ${inscricoes.direitoARepor}
+      )`.mapWith(Number),
+    })
     .from(inscricoes)
     .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
-    .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje), eq(inscricoes.tipo, "reposicao")));
-  return { datas: Number(datas?.total ?? 0), reposicoes: Number(reposicoes?.total ?? 0) };
+    .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+    .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
+  return {
+    datas: Number(datas?.total ?? 0),
+    reposicoes: Number(inscritas?.reposicoes ?? 0),
+    cobrancas: Number(inscritas?.cobrancas ?? 0),
+    presencas: Number(inscritas?.presencas ?? 0),
+    creditos: Number(inscritas?.creditos ?? 0),
+  };
 }
 
-// Tira da agenda as datas FUTURAS da turma (`data > hoje`) e as inscrições delas. Trava as datas
-// primeiro (`for update` — vão ser apagadas; a ordem TURMA → EVENTO → INSCRIÇÃO): quem estava
-// colocando alguém numa delas termina antes, e a inscrição dele sai junto; quem chega depois acha a
-// data apagada. Hoje e o passado ficam como estão. Devolve quantas datas saíram.
+// A confirmação vista pela pessoa ainda cobre o que sai AGORA? Nada pode ter crescido.
+export function perdasCobertas(agora: PerdasAoDesativar, confirmadas: PerdasAoDesativar | null): boolean {
+  if (confirmadas === null) {
+    return false;
+  }
+  return (
+    agora.datas <= confirmadas.datas &&
+    agora.reposicoes <= confirmadas.reposicoes &&
+    agora.cobrancas <= confirmadas.cobrancas &&
+    agora.presencas <= confirmadas.presencas &&
+    agora.creditos <= confirmadas.creditos
+  );
+}
+
+// Trava as datas FUTURAS da turma (`data > hoje`) e as inscrições delas, que vão ser apagadas. As datas
+// primeiro (`for update` — a ordem TURMA → EVENTO → INSCRIÇÃO): quem estava colocando alguém numa delas
+// termina antes, e a inscrição dele sai junto; quem chega depois espera o fim da transação e acha a data
+// apagada. Hoje e o passado ficam como estão. Devolve os ids das datas travadas — depois desta trava,
+// `contarPerdasAoDesativar` conta exatamente o que `apagarDatasDaTurma` vai apagar.
 //
 // WR-01 (revisão da Fase 5): "Recebi agora" e "Lançar na Venda" numa experimental cobrada destas datas
 // travam só a INSCRIÇÃO — nunca a turma nem o evento —, então a conferência de venda ativa feita sob a
@@ -452,18 +494,18 @@ export async function contarPerdasAoDesativar(
 // TRAVADAS (`for update`, em ordem de id) e a venda ativa é conferida DE NOVO numa instrução nova, depois
 // dessa trava — quem estava lançando já confirmou e aparece; quem chega depois espera o fim desta
 // transação e não acha mais a inscrição. Venda ativa achada → `RecusaDaAgenda`, nada apagado.
-export async function tirarDatasFuturasDaTurma(
+export async function travarDatasFuturasDaTurma(
   tx: TransacaoDoBanco,
   turmaId: string,
   hoje: string,
-): Promise<number> {
+): Promise<string[]> {
   const futuras = await tx
     .select({ id: eventos.id })
     .from(eventos)
     .where(and(eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)))
     .for("update");
   if (futuras.length === 0) {
-    return 0;
+    return [];
   }
   const ids = futuras.map((linha) => linha.id);
   await tx
@@ -476,9 +518,33 @@ export async function tirarDatasFuturasDaTurma(
   if (venda !== null) {
     throw new RecusaDaAgenda(fraseDesativarComVendaAtiva(formatarDiaMes(venda.data), venda.numero));
   }
-  await tx.delete(inscricoes).where(inArray(inscricoes.eventoId, ids));
-  await tx.delete(eventos).where(and(inArray(eventos.id, ids), eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
+  return ids;
+}
+
+// Apaga as datas travadas por `travarDatasFuturasDaTurma` e as inscrições delas. Devolve quantas saíram.
+export async function apagarDatasDaTurma(
+  tx: TransacaoDoBanco,
+  turmaId: string,
+  hoje: string,
+  ids: readonly string[],
+): Promise<number> {
+  if (ids.length === 0) {
+    return 0;
+  }
+  await tx.delete(inscricoes).where(inArray(inscricoes.eventoId, [...ids]));
+  await tx
+    .delete(eventos)
+    .where(and(inArray(eventos.id, [...ids]), eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
   return ids.length;
+}
+
+// As duas juntas (trava, reconfere a venda ativa e apaga).
+export async function tirarDatasFuturasDaTurma(
+  tx: TransacaoDoBanco,
+  turmaId: string,
+  hoje: string,
+): Promise<number> {
+  return apagarDatasDaTurma(tx, turmaId, hoje, await travarDatasFuturasDaTurma(tx, turmaId, hoje));
 }
 
 export type ClienteTravado = { id: string; nome: string };
