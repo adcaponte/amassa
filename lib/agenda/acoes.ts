@@ -1363,6 +1363,11 @@ export async function marcarChegada(entradaBruta: unknown): Promise<ResultadoDeA
       if (!atual || atual.chegada === null) {
         return { ok: false, erro: FRASE_LANCAMENTO_NAO_EXISTE };
       }
+      // IN-04 da revisão A: encerrado em outro celular não é "chegada marcada" — a frase diz o que houve.
+      if (atual.estado === "encerrado") {
+        revalidarTelasDaAgenda({ publico: false });
+        return { ok: false, erro: FRASE_USO_JA_ENCERRADO };
+      }
       marcada = { chegada: horaCurta(atual.chegada), jaEstavaMarcada: true };
     }
   } catch (erro) {
