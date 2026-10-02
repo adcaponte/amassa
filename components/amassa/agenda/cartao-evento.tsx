@@ -155,7 +155,12 @@ export function CartaoEvento({ evento, aoTocar }: CartaoEventoProps) {
           <>
             <span>{subLinhaDoUsoLivre(uso.fim)}</span>
             <TagDoUsoLivre uso={uso} />
-            {uso.estado === "encerrado" && uso.pagamento !== null ? <TagDePagamento pagamento={uso.pagamento} /> : null}
+            {/* `whitespace-normal`: no cartão a sub-linha tem 163px a 320px, e "venda nº {N} cancelada" presa numa
+                linha passa disso a partir de N com 4 dígitos (184px com 1234; 236px com o maior número — e aí a
+                página rola de lado). Aqui a tag quebra nos espaços, dentro do cartão. */}
+            {uso.estado === "encerrado" && uso.pagamento !== null ? (
+              <TagDePagamento pagamento={uso.pagamento} className="whitespace-normal" />
+            ) : null}
           </>
         ) : doCalendario ? (
           <>

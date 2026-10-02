@@ -1104,6 +1104,9 @@ const CHAVE_DO_ITEM_DA_COBRANCA = {
 // Uma VENDA ligada a qualquer cobrança da Agenda, direto no banco (documento + linha + UMA parcela, a soma
 // fechando): `paga` = a parcela com `pago_em` (o “pago”); sem ela, a parcela em aberto (o “lançado na
 // Venda”); `cancelada` = o Caixa a cancelou depois (D-08). Devolve o id e o número do documento.
+// `numero` (opcional) força o número do documento (`overriding system value` — a sequência da identidade
+// não anda): é como o caso de 320px da Agenda mostra "venda nº {10 dígitos} cancelada" sem esperar o banco
+// chegar lá. Quem passa escolhe um número que não colide (`documentos_numero_uk`).
 export async function ligarVendaACobranca(dados: {
   tipo: keyof typeof TABELA_DA_COBRANCA;
   id: string;
@@ -1111,6 +1114,7 @@ export async function ligarVendaACobranca(dados: {
   data: string;
   paga: boolean;
   cancelada?: boolean;
+  numero?: number;
 }): Promise<{ documentoId: string; numero: number }> {
   return comCliente(async (cliente) => {
     const criadoPor = await idDoGestorDeTeste(cliente, "ligarVendaACobranca");
@@ -1124,12 +1128,21 @@ export async function ligarVendaACobranca(dados: {
     }
     await cliente.query("begin");
     try {
-      const { rows } = await cliente.query<{ id: string; numero: number }>(
-        `insert into documentos (tipo, data, pessoa_nome, criado_por)
-         values ('venda'::tipo_documento, $1, '[e2e] venda da agenda', $2)
-         returning id, numero`,
-        [dados.data, criadoPor],
-      );
+      const { rows } =
+        dados.numero === undefined
+          ? await cliente.query<{ id: string; numero: number }>(
+              `insert into documentos (tipo, data, pessoa_nome, criado_por)
+               values ('venda'::tipo_documento, $1, '[e2e] venda da agenda', $2)
+               returning id, numero`,
+              [dados.data, criadoPor],
+            )
+          : await cliente.query<{ id: string; numero: number }>(
+              `insert into documentos (numero, tipo, data, pessoa_nome, criado_por)
+               overriding system value
+               values ($3, 'venda'::tipo_documento, $1, '[e2e] venda da agenda', $2)
+               returning id, numero`,
+              [dados.data, criadoPor, dados.numero],
+            );
       const documento = rows[0];
       await cliente.query(
         `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)

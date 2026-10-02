@@ -42,10 +42,18 @@ export type BarraDaAgendaProps = {
 };
 
 // A barra da aba Agenda (05-UI-SPEC.md §"Aba Agenda — Semana", itens 1 e 2, e §"Mês", item 1):
-// "‹" · título (`whitespace-nowrap`, `tabular-nums`) · "›" e o alternador NEUTRO "Semana · Mês"
-// (`tablist`, setas e Home/End — UI-D2; nunca verde nem terracota), tudo em `flex-wrap`: a 320px o
-// alternador desce para a linha de baixo e nenhum botão sai da tela. Embaixo, "+ Lançar na agenda"
-// — o ÚNICO botão terracota da aba — e "Hoje".
+// "‹" · título (`tabular-nums`) · "›" e o alternador NEUTRO "Semana · Mês" (`tablist`, setas e
+// Home/End — UI-D2; nunca verde nem terracota), tudo em `flex-wrap`: a 320px o alternador desce para
+// a linha de baixo e nenhum botão sai da tela. Embaixo, "+ Lançar na agenda" — o ÚNICO botão
+// terracota da aba — e "Hoje".
+//
+// O título NÃO é `whitespace-nowrap` (backstop E2 do UI-SPEC: "o título pode quebrar em duas linhas,
+// nunca o botão"). A semana que cruza o ano, "28/12/2026 a 03/01/2027" em Título 20px, mede ~182px no
+// Chromium do Windows e ~196px no do Linux; entre os dois botões de 44px e os dois gaps de 8px, isso
+// passa dos 272px da coluna a 320px (320 − 2 × 24px). Preso numa linha, o `nav` estourava a coluna e
+// empurrava o "›" para fora da tela — rolagem lateral (CI de 02/10/2026, run 36956290624). Livre, o
+// título quebra nos espaços ("28/12/2026 a" / "03/01/2027" — a regra de quebra do Unicode não parte
+// "dd/mm/aaaa") e o `nav` encolhe até caber; quando cabe, continua numa linha só.
 export function BarraDaAgenda({
   vista,
   titulo,
@@ -98,13 +106,13 @@ export function BarraDaAgenda({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" data-testid="agenda-barra">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <nav aria-label="Navegar na agenda" className="flex items-center gap-2">
           <Link href={hrefAnterior} aria-label={rotuloAnterior} data-testid="agenda-anterior" className={CLASSE_DA_SETA}>
             <ChevronLeft aria-hidden="true" />
           </Link>
-          <h2 className="text-titulo text-tinta font-semibold whitespace-nowrap tabular-nums" data-testid="agenda-titulo">
+          <h2 className="text-titulo text-tinta text-center font-semibold tabular-nums" data-testid="agenda-titulo">
             {titulo}
           </h2>
           <Link href={hrefProximo} aria-label={rotuloProximo} data-testid="agenda-proxima" className={CLASSE_DA_SETA}>
