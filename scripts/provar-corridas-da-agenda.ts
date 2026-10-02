@@ -429,7 +429,8 @@ async function faxina(conexao: Client): Promise<void> {
     await conexao.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
     await conexao.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
     await conexao.query("delete from clientes where id = any($1::uuid[])", [semente.clienteIds]);
-    await conexao.query("delete from usuarios where id = $1", [semente.usuarioId]);
+    // A usuária de prova FICA (e-mail único por execução): nenhum caminho de código apaga linha de
+    // `usuarios` (AUTH-09, cobrado por tests/unit/auth-borda.test.ts) — o banco de teste é efêmero.
     await conexao.query("commit");
   } catch (erro) {
     await conexao.query("rollback").catch(() => {});
