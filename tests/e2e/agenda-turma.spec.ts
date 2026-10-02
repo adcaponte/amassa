@@ -527,11 +527,17 @@ test.describe("agenda turma", () => {
     await escolherDiaDaSemana(page, diaDaSemanaDe(primeira));
     await preencherTurma(page, { nome, inicio: "19:00", fim: "21:00", mensalidade: "300", semanas: "2" });
 
-    // A primeira tentativa CHEGA ao servidor (que grava), mas a resposta não volta ao celular.
+    // A primeira tentativa de LANÇAR (a ação cujo corpo leva o nome da turma — a folha também chama
+    // `conferirDiaParaLancar`) CHEGA ao servidor, que grava, mas a resposta não volta ao celular.
     let perdidas = 0;
     await page.route("**/*", async (route) => {
       const pedido = route.request();
-      if (perdidas === 0 && pedido.method() === "POST" && pedido.headers()["next-action"] !== undefined) {
+      if (
+        perdidas === 0 &&
+        pedido.method() === "POST" &&
+        pedido.headers()["next-action"] !== undefined &&
+        (pedido.postData() ?? "").includes(nome)
+      ) {
         perdidas += 1;
         await route.fetch();
         await route.abort("failed");
