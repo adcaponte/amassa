@@ -91,6 +91,11 @@ export const execucoesBackup = pgTable(
     // (RESEARCH.md, Pitfall 5).
     fotosBytes: bigint("fotos_bytes", { mode: "number" }),
     fotosDestinoExternoOk: boolean("fotos_destino_externo_ok"),
+    // Fase 06.2 (migração 0028, D-05): o mesmo par para a pasta dos anexos dos fornecedores. Nulo
+    // significa "linha anterior à fase, nenhuma tentativa registrada" — exatamente como `fotos_*`
+    // acima; toda execução NOVA do `backup.sh` escreve `true` ou `false`.
+    anexosBytes: bigint("anexos_bytes", { mode: "number" }),
+    anexosDestinoExternoOk: boolean("anexos_destino_externo_ok"),
   },
   (tabela) => [
     // A única consulta que esta tabela recebe: a última execução, por `quando` decrescente.
@@ -791,6 +796,12 @@ export const documentos = pgTable(
     // com o nome congelado. Nulo por padrão; só as vendas criadas pela Agenda o gravam. A Venda
     // manual, o Orçamento e a Produção continuam com texto livre (ideia adiada do CONTEXT).
     clienteId: uuid("cliente_id").references((): AnyPgColumn => clientes.id),
+    // Fase 06.2 — Fornecedores (D-04, "acrescentar ao lado", migração 0028): o vínculo com o
+    // cadastro de fornecedores, AO LADO de `pessoa_nome` — que continua sendo gravado, com o nome
+    // do fornecedor congelado no lançamento. Nulo por padrão, sem `on delete` (fornecedor não se
+    // apaga); só a Despesa grava o vínculo (plano 10), e só quando a pessoa escolhe um fornecedor
+    // da lista. Nada retroativo (BRIEFING §4): toda linha anterior à 0028 nasce com nulo.
+    fornecedorId: uuid("fornecedor_id").references((): AnyPgColumn => fornecedores.id),
     titulo: text("titulo"),
     contaFixaId: uuid("conta_fixa_id").references(() => contasFixas.id),
     mesReferencia: date("mes_referencia", { mode: "string" }),
@@ -833,9 +844,21 @@ export const documentos = pgTable(
       "documentos_cliente_exige_pessoa_nome",
       sql`${tabela.clienteId} is null or ${tabela.pessoaNome} is not null`,
     ),
+    // D-04 (Fase 06.2): o vínculo com o fornecedor anda com o nome congelado — o extrato, o Caixa
+    // e o PDF continuam lendo `pessoa_nome` — e só existe em despesa (fornecedor não vende).
+    check(
+      "documentos_fornecedor_exige_pessoa_nome",
+      sql`${tabela.fornecedorId} is null or ${tabela.pessoaNome} is not null`,
+    ),
+    check(
+      "documentos_fornecedor_so_em_despesa",
+      sql`${tabela.fornecedorId} is null or ${tabela.tipo} = 'despesa'`,
+    ),
     index("documentos_data_idx").on(tabela.data),
     index("documentos_tipo_data_idx").on(tabela.tipo, tabela.data),
     index("documentos_cliente_idx").on(tabela.clienteId),
+    // "Compras dele" (FRN-13) lê as despesas por fornecedor.
+    index("documentos_fornecedor_idx").on(tabela.fornecedorId),
   ],
 );
 
@@ -2103,5 +2126,163 @@ export const usosLivresMaterial = pgTable(
     ),
     unique("usos_livres_material_movimentacao_uk").on(tabela.movimentacaoId),
     index("usos_livres_material_uso_idx").on(tabela.usoLivreId),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.2 — Fornecedores (migração 0028_fornecedores). Cadastros → Fornecedores: quem vende para
+// o ateliê, como falar com ele, em que condições, e os arquivos dele. Consulta — nada aqui vira
+// número. O único vínculo com o resto do sistema é `documentos.fornecedor_id` (D-04, acima).
+
+// O tipo do anexo (BRIEFING §3). "Tabela de preços" é o único que tem "vale desde".
+export const tipoAnexoFornecedor = pgEnum("tipo_anexo_fornecedor", [
+  "tabela",
+  "catalogo",
+  "nota",
+  "outro",
+]);
+
+// O fornecedor. Só o nome é obrigatório; a área é o enum do Financeiro (`areaFinanceira`), que só
+// serve para o filtro da lista. Fornecedor NÃO se apaga (`revoke delete` na 0028, FRN-03):
+// anexos e despesas apontam para ele; desativar (`ativo = false`) é o único jeito de tirar da
+// lista e dos seletores. `criado_por`/`atualizado_por` são obrigatórios e sem `on delete` —
+// usuário também não se apaga, desativa.
+//
+// Os tetos dos textos são os MESMOS de `esquemaFornecedor` (`lib/fornecedores/esquemas.ts`): o
+// Zod dá a frase embaixo do campo; o check é a barreira se o Zod for contornado. Mudar um teto é
+// mudar os dois, no mesmo commit.
+export const fornecedores = pgTable(
+  "fornecedores",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    nome: text("nome").notNull(),
+    vende: text("vende"),
+    area: areaFinanceira("area").notNull(),
+    cidadeEntrega: text("cidade_entrega"),
+    whatsapp: text("whatsapp"),
+    pessoaContato: text("pessoa_contato"),
+    email: text("email"),
+    site: text("site"),
+    pagamentoPrazo: text("pagamento_prazo"),
+    observacoes: text("observacoes"),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoPor: uuid("atualizado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("fornecedores_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
+    check(
+      "fornecedores_vende_comprimento",
+      sql`${tabela.vende} is null or length(trim(${tabela.vende})) between 1 and 160`,
+    ),
+    check(
+      "fornecedores_cidade_entrega_comprimento",
+      sql`${tabela.cidadeEntrega} is null or length(trim(${tabela.cidadeEntrega})) between 1 and 160`,
+    ),
+    check(
+      "fornecedores_whatsapp_comprimento",
+      sql`${tabela.whatsapp} is null or length(trim(${tabela.whatsapp})) between 1 and 40`,
+    ),
+    check(
+      "fornecedores_pessoa_contato_comprimento",
+      sql`${tabela.pessoaContato} is null or length(trim(${tabela.pessoaContato})) between 1 and 160`,
+    ),
+    check(
+      "fornecedores_email_comprimento",
+      sql`${tabela.email} is null or length(trim(${tabela.email})) between 1 and 160`,
+    ),
+    check(
+      "fornecedores_site_comprimento",
+      sql`${tabela.site} is null or length(trim(${tabela.site})) between 1 and 300`,
+    ),
+    check(
+      "fornecedores_pagamento_prazo_comprimento",
+      sql`${tabela.pagamentoPrazo} is null or length(trim(${tabela.pagamentoPrazo})) between 1 and 160`,
+    ),
+    check(
+      "fornecedores_observacoes_comprimento",
+      sql`${tabela.observacoes} is null or length(${tabela.observacoes}) between 1 and 4000`,
+    ),
+    // D-06: nome único ENTRE ATIVOS, sem distinção de caixa — a letra do BRIEFING §2, no molde de
+    // `categorias_nome_normalizado_idx` (expressão) + `turma_alunos_ativo_uk` (parcial). Acento
+    // CONTA: "Cerâmica" e "Ceramica" convivem. A pesquisa recomendava `nome_normalizado()` (sem
+    // acento, espaços colapsados), mais estrito que a regra de dado do briefing — fica como
+    // alternativa do dono. Reativar um desativado cujo nome um ativo já usa dá 23505 (Pitfall 11).
+    uniqueIndex("fornecedores_nome_ativo_uk")
+      .on(sql`lower(trim(${tabela.nome}))`)
+      .where(sql`${tabela.ativo}`),
+  ],
+);
+
+// Um arquivo do fornecedor (tabela de preços, catálogo, nota). Só se insere e se tira — sem
+// `atualizado_em`; tirar o anexo é o ÚNICO "apagar" do módulo (FRN-10), por isso esta tabela FICA
+// com o `delete` do `amassa_app`. `arquivo_caminho` guarda SÓ o nome gerado pelo servidor
+// (`<uuid>.<ext>`), nunca caminho absoluto — o diretório vem do ambiente
+// (`CAMINHO_ANEXOS_FORNECEDORES`), como `orcamento_fotos.arquivo`; o check de formato fecha a porta
+// de travessia de caminho (`../`) antes de qualquer código de leitura existir.
+export const fornecedorAnexos = pgTable(
+  "fornecedor_anexos",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    fornecedorId: uuid("fornecedor_id")
+      .notNull()
+      .references(() => fornecedores.id),
+    nome: text("nome").notNull(),
+    tipo: tipoAnexoFornecedor("tipo").notNull(),
+    // Dia civil (só para tabela de preços): nulo = vale pela data de envio.
+    valeDesde: date("vale_desde", { mode: "string" }),
+    nota: text("nota"),
+    arquivoCaminho: text("arquivo_caminho").notNull(),
+    arquivoTipo: text("arquivo_tipo").notNull(),
+    arquivoBytes: integer("arquivo_bytes").notNull(),
+    extensao: text("extensao").notNull(),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check(
+      "fornecedor_anexos_nome_comprimento",
+      sql`length(trim(${tabela.nome})) between 1 and 120`,
+    ),
+    check(
+      "fornecedor_anexos_nota_comprimento",
+      sql`${tabela.nota} is null or length(trim(${tabela.nota})) between 1 and 160`,
+    ),
+    check(
+      "fornecedor_anexos_vale_desde_so_tabela",
+      sql`${tabela.valeDesde} is null or ${tabela.tipo} = 'tabela'`,
+    ),
+    check(
+      "fornecedor_anexos_extensao_valida",
+      sql`${tabela.extensao} in ('pdf','jpg','xlsx','xls','csv')`,
+    ),
+    check(
+      "fornecedor_anexos_arquivo_formato",
+      sql`${tabela.arquivoCaminho} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(pdf|jpg|xlsx|xls|csv)$'`,
+    ),
+    // O sufixo do arquivo é a extensão gravada — as duas colunas nunca contam histórias diferentes.
+    check(
+      "fornecedor_anexos_arquivo_coerente",
+      sql`right(${tabela.arquivoCaminho}, length(${tabela.extensao}) + 1) = '.' || ${tabela.extensao}`,
+    ),
+    // 20 MiB (20 971 520 bytes, o maior limite do BRIEFING §3) cabe com folga.
+    check(
+      "fornecedor_anexos_bytes_no_intervalo",
+      sql`${tabela.arquivoBytes} between 1 and 21000000`,
+    ),
+    unique("fornecedor_anexos_arquivo_uk").on(tabela.arquivoCaminho),
+    index("fornecedor_anexos_fornecedor_idx").on(tabela.fornecedorId),
   ],
 );

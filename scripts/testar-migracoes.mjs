@@ -96,6 +96,12 @@ const TABELAS_ESPERADAS = [
   "mensalidades",
   "usos_livres",
   "usos_livres_material",
+  // Fase 06.2 — Fornecedores (migração 0028_fornecedores). Permanentes; não entram em
+  // TABELAS_DA_REMOCAO_ABERTURA. As invariantes (unicidade entre ativos sem caixa, `revoke delete`
+  // de `fornecedores` e não de `fornecedor_anexos`, gatilho, checks, o vínculo da despesa e as
+  // colunas novas de `execucoes_backup`) são provadas em `conferirFornecedores` (plano 06.2-01).
+  "fornecedores",
+  "fornecedor_anexos",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
