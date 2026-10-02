@@ -183,10 +183,16 @@ export default async function PaginaFinanceiro({
   // com dado inventado); a cobrança que já virou venda mostra o número e o caminho do Caixa.
   const origemDaVenda = abaVenda ? origemDaUrl(origem) : null;
   const pediuOrigem = abaVenda && origem !== undefined && origem !== "";
+  // WR-07 (revisão B): a promessa nasce aqui e só é esperada depois das listas — com o `catch` preso já
+  // na criação, uma falha dela nunca fica solta (rejeição sem dono) e vira "não achada": a tela mostra
+  // `OrigemIndisponivel`, nunca um carrinho montado com dado desconhecido.
   const cobrancaDaOrigem: Promise<CobrancaParaVenda | null> = !pediuOrigem
     ? Promise.resolve(null)
     : origemDaVenda
-      ? cobrancaParaVenda(origemDaVenda)
+      ? cobrancaParaVenda(origemDaVenda).catch((erro: unknown): CobrancaParaVenda => {
+          console.error("Falha ao ler a cobrança da Agenda para a Venda:", erro);
+          return { situacao: "nao_achada" };
+        })
       : Promise.resolve({ situacao: "nao_achada" });
 
   // Uma leitura por lista, nunca uma consulta a mais que a aba atual precisa (mesma disciplina de
