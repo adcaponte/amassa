@@ -237,7 +237,17 @@ async function conferirTabelaExecucoesBackup(cliente) {
      where table_schema = 'public' and table_name = 'execucoes_backup'`,
   );
   const nomes = new Set(colunas.rows.map((linha) => linha.column_name));
-  const esperadas = ["id", "quando", "sucesso", "bytes", "destino_externo_ok", "mensagem"];
+  const esperadas = [
+    "id",
+    "quando",
+    "sucesso",
+    "bytes",
+    "destino_externo_ok",
+    "mensagem",
+    // Fase 06.2 (0028, D-05): o par dos anexos dos fornecedores, no molde de `fotos_*` (0017).
+    "anexos_bytes",
+    "anexos_destino_externo_ok",
+  ];
   for (const coluna of esperadas) {
     afirmar(nomes.has(coluna), `execucoes_backup não tem a coluna esperada "${coluna}".`);
   }
@@ -268,14 +278,27 @@ async function conferirTabelaExecucoesBackup(cliente) {
   );
 
   const inserida = await cliente.query(
-    "insert into execucoes_backup (sucesso) values (true) returning id, destino_externo_ok",
+    `insert into execucoes_backup (sucesso) values (true)
+     returning id, destino_externo_ok, anexos_bytes, anexos_destino_externo_ok`,
   );
-  const { id, destino_externo_ok: destinoExternoOk } = inserida.rows[0];
+  const {
+    id,
+    destino_externo_ok: destinoExternoOk,
+    anexos_bytes: anexosBytes,
+    anexos_destino_externo_ok: anexosDestinoExternoOk,
+  } = inserida.rows[0];
   try {
     afirmar(
       destinoExternoOk === false,
       "destino_externo_ok deveria sair falso por padrão ao inserir só sucesso (o padrão " +
         `pessimista é deliberado) — veio ${destinoExternoOk}.`,
+    );
+    // D-05: nulo = "nenhuma tentativa registrada" — é o que mantém legíveis as linhas escritas
+    // antes da 0028. Um padrão `false` aqui faria toda linha antiga parecer falha da cópia externa.
+    afirmar(
+      anexosBytes === null && anexosDestinoExternoOk === null,
+      "anexos_bytes e anexos_destino_externo_ok deveriam sair NULOS ao inserir só sucesso (nulo = " +
+        `sem tentativa registrada, D-05) — vieram ${anexosBytes} e ${anexosDestinoExternoOk}.`,
     );
   } finally {
     // Registro operacional de teste, não histórico de autoria — apagar aqui é aceitável.
@@ -5727,6 +5750,383 @@ async function conferirAgenda(conexao) {
   );
 }
 
+// ---------------------------------------------------------------------------------------------
+// Fase 06.2 — Fornecedores (plano 06.2-01, Tarefa 2): as bordas da 0028 no Postgres efêmero. Toda
+// linha de prova leva "[mig]" no nome e é criada e apagada pela conexão de DONO (o `revoke delete`
+// vale só para `amassa_app`); nenhum dado real, nenhum nome do protótipo.
+
+async function apagarDadosDeProvaDosFornecedores(conexao, usuarioId) {
+  try {
+    await conexao.query("begin");
+    // Ordem das FKs: anexo → fornecedor → usuária. Nenhum documento de prova é comitado (todos
+    // vivem entre begin/rollback), então nada em `documentos` aponta para estes fornecedores.
+    await conexao.query(
+      `delete from fornecedor_anexos
+        where fornecedor_id in (select id from fornecedores where nome ilike '%[mig]%' or criado_por = $1)`,
+      [usuarioId],
+    );
+    await conexao.query("delete from fornecedores where nome ilike '%[mig]%' or criado_por = $1", [
+      usuarioId,
+    ]);
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado — mesma razão da faxina do Estoque e da Agenda.
+    console.error(`Fornecedores: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+async function conferirFornecedores(conexao, url = process.env.DATABASE_URL_TESTE) {
+  console.log("  conferirFornecedores...");
+
+  async function umaLinha(sql, parametros = []) {
+    const { rows } = await conexao.query(sql, parametros);
+    return rows[0];
+  }
+  // Roda e desfaz: o código do erro (ou `null`) e o nome da restrição.
+  async function tentar(sql, parametros = []) {
+    await conexao.query("begin");
+    try {
+      return await erroDoBanco(() => conexao.query(sql, parametros));
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+  async function comoAmassaApp(sql, parametros = []) {
+    await conexao.query("begin");
+    try {
+      await conexao.query("set local role amassa_app");
+      return await erroDoBanco(() => conexao.query(sql, parametros));
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+  function esperar(resultado, codigoEsperado, restricoes, descricao) {
+    afirmar(
+      resultado.codigo === codigoEsperado &&
+        (restricoes === null || restricoes.includes(resultado.restricao)),
+      `Fornecedores: ${descricao} deveria dar ${codigoEsperado ?? "certo"}` +
+        (restricoes ? ` (${restricoes.join(" ou ")})` : "") +
+        `, veio ${resultado.codigo} (${resultado.restricao}).`,
+    );
+  }
+
+  // ——— Nada retroativo (BRIEFING §4, D-04): antes de qualquer prova desta função, nenhum documento
+  // do banco de teste tem fornecedor — a coluna nasceu nula em toda linha que já existia.
+  const { rows: retroativos } = await conexao.query(
+    `select count(*)::int as todos,
+            count(*) filter (where fornecedor_id is not null)::int as com_fornecedor
+       from documentos`,
+  );
+  afirmar(
+    retroativos[0].com_fornecedor === 0,
+    `Fornecedores: nenhum documento anterior deveria ter fornecedor_id (nada retroativo), mas ` +
+      `${retroativos[0].com_fornecedor} de ${retroativos[0].todos} têm.`,
+  );
+
+  const { rows: usuarioInserido } = await conexao.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste dos Fornecedores [mig]', 'usuaria-fornecedores@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+
+  async function inserirFornecedor(nome, extras = {}) {
+    const colunas = ["nome", "area", "criado_por", "atualizado_por", ...Object.keys(extras)];
+    const valores = [nome, "pecas", usuarioId, usuarioId, ...Object.values(extras)];
+    const marcadores = valores.map((_, indice) => `$${indice + 1}`).join(", ");
+    return (
+      await umaLinha(
+        `insert into fornecedores (${colunas.join(", ")}) values (${marcadores}) returning id`,
+        valores,
+      )
+    ).id;
+  }
+
+  try {
+    // ——— 1. Unicidade entre ativos, sem distinção de caixa (D-06) ————————————————————————————
+    const argilaSul = await inserirFornecedor("[mig] Argila Sul");
+    const repetidoDeOutraCaixa =
+      "insert into fornecedores (nome, area, criado_por, atualizado_por) values (' [mig] argila sul ', 'pecas', $1, $1)";
+    esperar(
+      await tentar(repetidoDeOutraCaixa, [usuarioId]),
+      "23505",
+      ["fornecedores_nome_ativo_uk"],
+      "um segundo ativo “ [mig] argila sul ” ao lado de “[mig] Argila Sul”",
+    );
+    // Com o primeiro desativado, o segundo grava — a unicidade é só entre ATIVOS.
+    await conexao.query("update fornecedores set ativo = false where id = $1", [argilaSul]);
+    const argilaSulDeNovo = await inserirFornecedor(" [mig] argila sul ");
+    // Reativar o primeiro agora bate no índice (Pitfall 11).
+    esperar(
+      await tentar("update fornecedores set ativo = true where id = $1", [argilaSul]),
+      "23505",
+      ["fornecedores_nome_ativo_uk"],
+      "reativar “[mig] Argila Sul” com “ [mig] argila sul ” ativo",
+    );
+    // Acento CONTA (D-06 pela letra do briefing): “Cerâmica” e “Ceramica” convivem.
+    await inserirFornecedor("[mig] Cerâmica");
+    esperar(
+      await tentar(
+        "insert into fornecedores (nome, area, criado_por, atualizado_por) values ('[mig] Ceramica', 'pecas', $1, $1)",
+        [usuarioId],
+      ),
+      null,
+      null,
+      "“[mig] Ceramica” ativo ao lado de “[mig] Cerâmica” (acento conta)",
+    );
+
+    // ——— 2. Concorrência: dois gestores cadastrando o mesmo nome ao mesmo tempo ——————————————
+    // Duas conexões de verdade: a segunda espera a trava do índice único e, quando a primeira
+    // comita, recebe 23505 — só um grava.
+    {
+      const conexaoA = new Client({ connectionString: url });
+      const conexaoB = new Client({ connectionString: url });
+      await Promise.all([conexaoA.connect(), conexaoB.connect()]);
+      try {
+        const pidB = (await conexaoB.query("select pg_backend_pid() as pid")).rows[0].pid;
+        const inserirConcorrente =
+          "insert into fornecedores (nome, area, criado_por, atualizado_por) values ($1, 'pecas', $2, $2)";
+        await conexaoA.query("begin");
+        await conexaoA.query(inserirConcorrente, ["[mig] Barro Concorrente", usuarioId]);
+        await conexaoB.query("begin");
+        const segunda = semRejeicaoSolta(
+          conexaoB.query(inserirConcorrente, ["[MIG] barro concorrente", usuarioId]),
+        );
+        await esperarBloqueada(conexao, pidB, "Fornecedores (concorrência do nome)");
+        await conexaoA.query("commit");
+        const resultado = await segunda;
+        afirmar(
+          !resultado.ok &&
+            resultado.erro.code === "23505" &&
+            resultado.erro.constraint === "fornecedores_nome_ativo_uk",
+          "Fornecedores: o segundo cadastro simultâneo do mesmo nome deveria dar 23505 " +
+            `(fornecedores_nome_ativo_uk), veio ${resultado.ok ? "sucesso" : `${resultado.erro.code} (${resultado.erro.constraint})`}.`,
+        );
+        await conexaoB.query("rollback");
+        const { rows } = await conexao.query(
+          "select count(*)::int as quantos from fornecedores where lower(trim(nome)) = '[mig] barro concorrente'",
+        );
+        afirmar(
+          rows[0].quantos === 1,
+          `Fornecedores: só um dos dois cadastros simultâneos deveria gravar, gravaram ${rows[0].quantos}.`,
+        );
+      } finally {
+        await conexaoA.query("rollback").catch(() => {});
+        await conexaoB.query("rollback").catch(() => {});
+        await Promise.all([conexaoA.end(), conexaoB.end()]);
+      }
+    }
+
+    // ——— 3. Privilégio: fornecedor não se apaga; anexo se tira (FRN-03, FRN-10) —————————————
+    const { rows: privilegios } = await conexao.query(
+      `select has_table_privilege('amassa_app', 'fornecedores', 'DELETE') as apaga_fornecedor,
+              has_table_privilege('amassa_app', 'fornecedores', 'SELECT')
+                and has_table_privilege('amassa_app', 'fornecedores', 'INSERT')
+                and has_table_privilege('amassa_app', 'fornecedores', 'UPDATE') as usa_fornecedor,
+              has_table_privilege('amassa_app', 'fornecedor_anexos', 'DELETE') as apaga_anexo`,
+    );
+    afirmar(
+      privilegios[0].apaga_fornecedor === false,
+      "Fornecedores: o papel amassa_app NÃO deveria ter delete sobre fornecedores (revoke da 0028, FRN-03).",
+    );
+    afirmar(
+      privilegios[0].usa_fornecedor === true,
+      "Fornecedores: o papel amassa_app deveria ter select/insert/update sobre fornecedores.",
+    );
+    afirmar(
+      privilegios[0].apaga_anexo === true,
+      "Fornecedores: o papel amassa_app deveria MANTER o delete sobre fornecedor_anexos — tirar anexo é o único “apagar” do módulo (FRN-10).",
+    );
+    esperar(
+      await comoAmassaApp("delete from fornecedores where id = $1", [argilaSulDeNovo]),
+      "42501",
+      null,
+      "um delete em fornecedores como amassa_app",
+    );
+
+    // ——— 4. Gatilho: um update muda atualizado_em ——————————————————————————————————————————
+    const tocado = await inserirFornecedor("[mig] Fornecedor do Gatilho", {
+      atualizado_em: CARIMBO_ANTIGO,
+    });
+    await conexao.query("update fornecedores set vende = 'argila' where id = $1", [tocado]);
+    const { atualizado_em: depoisDoUpdate } = await umaLinha(
+      "select atualizado_em from fornecedores where id = $1",
+      [tocado],
+    );
+    afirmar(
+      new Date(depoisDoUpdate).getTime() > new Date(CARIMBO_ANTIGO).getTime(),
+      `Fornecedores: o gatilho tocar_atualizado_em_fornecedores deveria trocar atualizado_em no update, ficou ${depoisDoUpdate}.`,
+    );
+
+    // ——— 5. Checks de fornecedores (23514) e as bordas aceitas ——————————————————————————————
+    const inserirComCampo = (coluna) =>
+      `insert into fornecedores (nome, area, criado_por, atualizado_por, ${coluna}) values ($1, 'pecas', $2, $2, $3)`;
+    const aceitos = [
+      ["um nome com 120 caracteres", "insert into fornecedores (nome, area, criado_por, atualizado_por) values ($1, 'pecas', $2, $2)", ["[mig]" + "x".repeat(115), usuarioId]],
+      // Encoding: 120 caracteres acentuados são 240 bytes — o teto conta caracteres.
+      ["um nome com 120 caracteres acentuados", "insert into fornecedores (nome, area, criado_por, atualizado_por) values ($1, 'pecas', $2, $2)", ["[mig]" + "é".repeat(115), usuarioId]],
+      ["whatsapp com 40", inserirComCampo("whatsapp"), ["[mig] W40", usuarioId, "9".repeat(40)]],
+      ["site com 300", inserirComCampo("site"), ["[mig] S300", usuarioId, "s".repeat(300)]],
+      ["vende com 160", inserirComCampo("vende"), ["[mig] V160", usuarioId, "v".repeat(160)]],
+      ["observações com 4000", inserirComCampo("observacoes"), ["[mig] O4000", usuarioId, "o".repeat(4000)]],
+    ];
+    for (const [descricao, sql, parametros] of aceitos) {
+      esperar(await tentar(sql, parametros), null, null, descricao);
+    }
+    const recusasDoFornecedor = [
+      ["um nome com 121 caracteres", "insert into fornecedores (nome, area, criado_por, atualizado_por) values ($1, 'pecas', $2, $2)", ["[mig]" + "x".repeat(116), usuarioId], "fornecedores_nome_comprimento"],
+      ["um nome só com espaços", "insert into fornecedores (nome, area, criado_por, atualizado_por) values ($1, 'pecas', $2, $2)", ["   ", usuarioId], "fornecedores_nome_comprimento"],
+      ["whatsapp com 41", inserirComCampo("whatsapp"), ["[mig] W41", usuarioId, "9".repeat(41)], "fornecedores_whatsapp_comprimento"],
+      ["site com 301", inserirComCampo("site"), ["[mig] S301", usuarioId, "s".repeat(301)], "fornecedores_site_comprimento"],
+      ["vende com 161", inserirComCampo("vende"), ["[mig] V161", usuarioId, "v".repeat(161)], "fornecedores_vende_comprimento"],
+      ["cidade/entrega com 161", inserirComCampo("cidade_entrega"), ["[mig] C161", usuarioId, "c".repeat(161)], "fornecedores_cidade_entrega_comprimento"],
+      ["pessoa de contato com 161", inserirComCampo("pessoa_contato"), ["[mig] P161", usuarioId, "p".repeat(161)], "fornecedores_pessoa_contato_comprimento"],
+      ["e-mail com 161", inserirComCampo("email"), ["[mig] E161", usuarioId, "e".repeat(161)], "fornecedores_email_comprimento"],
+      ["pagamento e prazo com 161", inserirComCampo("pagamento_prazo"), ["[mig] PP161", usuarioId, "p".repeat(161)], "fornecedores_pagamento_prazo_comprimento"],
+      ["observações com 4001", inserirComCampo("observacoes"), ["[mig] O4001", usuarioId, "o".repeat(4001)], "fornecedores_observacoes_comprimento"],
+      // Opcional vazio é `null`, nunca "" — o Zod troca; o banco recusa se o Zod for contornado.
+      ["vende como texto vazio", inserirComCampo("vende"), ["[mig] Vazio", usuarioId, ""], "fornecedores_vende_comprimento"],
+      ["whatsapp só com espaços", inserirComCampo("whatsapp"), ["[mig] Espacos", usuarioId, "   "], "fornecedores_whatsapp_comprimento"],
+    ];
+    for (const [descricao, sql, parametros, restricao] of recusasDoFornecedor) {
+      esperar(await tentar(sql, parametros), "23514", [restricao], descricao);
+    }
+
+    // ——— 6. fornecedor_anexos: checks (23514) e a FK (23503) ————————————————————————————————
+    const inserirAnexo = `insert into fornecedor_anexos
+        (fornecedor_id, nome, tipo, vale_desde, arquivo_caminho, arquivo_tipo, arquivo_bytes, extensao, criado_por)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`;
+    const uuidDoArquivo = "0b3d6c1e-8a4f-4c2b-9d7e-1f2a3b4c5d6e";
+    const anexo = (campos = {}) => {
+      const base = {
+        fornecedor_id: argilaSulDeNovo,
+        nome: "[mig] Tabela de preços",
+        tipo: "tabela",
+        vale_desde: null,
+        arquivo_caminho: `${uuidDoArquivo}.pdf`,
+        arquivo_tipo: "application/pdf",
+        arquivo_bytes: 1000,
+        extensao: "pdf",
+        criado_por: usuarioId,
+        ...campos,
+      };
+      return [
+        base.fornecedor_id,
+        base.nome,
+        base.tipo,
+        base.vale_desde,
+        base.arquivo_caminho,
+        base.arquivo_tipo,
+        base.arquivo_bytes,
+        base.extensao,
+        base.criado_por,
+      ];
+    };
+    const anexosAceitos = [
+      ["uma tabela de preços em PDF com vale_desde", anexo({ vale_desde: "2026-09-01" })],
+      ["um PDF de 20 MiB (o maior limite do briefing)", anexo({ arquivo_bytes: 20971520 })],
+      ["uma planilha .xlsx", anexo({ arquivo_caminho: `${uuidDoArquivo}.xlsx`, extensao: "xlsx" })],
+      ["uma foto .jpg do tipo outro", anexo({ tipo: "outro", arquivo_caminho: `${uuidDoArquivo}.jpg`, extensao: "jpg" })],
+    ];
+    for (const [descricao, parametros] of anexosAceitos) {
+      esperar(await tentar(inserirAnexo, parametros), null, null, descricao);
+    }
+    const recusasDoAnexo = [
+      ["vale_desde num catálogo", anexo({ tipo: "catalogo", vale_desde: "2026-09-01" }), ["fornecedor_anexos_vale_desde_so_tabela"]],
+      ["extensão .exe", anexo({ arquivo_caminho: `${uuidDoArquivo}.exe`, extensao: "exe" }), ["fornecedor_anexos_extensao_valida", "fornecedor_anexos_arquivo_formato"]],
+      ["caminho com travessia (../x.pdf)", anexo({ arquivo_caminho: "../x.pdf" }), ["fornecedor_anexos_arquivo_formato"]],
+      ["caminho absoluto", anexo({ arquivo_caminho: `/dados/anexos-fornecedores/${uuidDoArquivo}.pdf` }), ["fornecedor_anexos_arquivo_formato"]],
+      ["arquivo .pdf gravado com extensão csv", anexo({ extensao: "csv" }), ["fornecedor_anexos_arquivo_coerente"]],
+      ["arquivo de 0 byte", anexo({ arquivo_bytes: 0 }), ["fornecedor_anexos_bytes_no_intervalo"]],
+      ["arquivo acima de 21 000 000 bytes", anexo({ arquivo_bytes: 21000001 }), ["fornecedor_anexos_bytes_no_intervalo"]],
+      ["nome do anexo só com espaços", anexo({ nome: "   " }), ["fornecedor_anexos_nome_comprimento"]],
+    ];
+    for (const [descricao, parametros, restricoes] of recusasDoAnexo) {
+      esperar(await tentar(inserirAnexo, parametros), "23514", restricoes, `um anexo com ${descricao}`);
+    }
+    esperar(
+      await tentar(inserirAnexo, anexo({ fornecedor_id: "00000000-0000-4000-8000-000000000000" })),
+      "23503",
+      ["fornecedor_anexos_fornecedor_id_fornecedores_id_fk"],
+      "um anexo de fornecedor inexistente",
+    );
+    // Tirar anexo como amassa_app funciona (o delete que a tabela de anexos mantém).
+    const { id: anexoDeVerdade } = await umaLinha(`${inserirAnexo} returning id`, anexo());
+    esperar(
+      await comoAmassaApp("delete from fornecedor_anexos where id = $1", [anexoDeVerdade]),
+      null,
+      null,
+      "tirar um anexo como amassa_app",
+    );
+
+    // ——— 7. documentos: o vínculo da despesa (D-04) ————————————————————————————————————————
+    // Cada `insert` vive entre begin/rollback: `documentos` tem a soma das linhas adiada (0015), que
+    // nunca chega a ser conferida porque nada é comitado.
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por, pessoa_nome, fornecedor_id) values ('despesa', current_date, $1, '[mig] Argila Sul', $2)",
+        [usuarioId, argilaSulDeNovo],
+      ),
+      null,
+      null,
+      "uma despesa com fornecedor_id e o nome congelado",
+    );
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por, fornecedor_id) values ('despesa', current_date, $1, $2)",
+        [usuarioId, argilaSulDeNovo],
+      ),
+      "23514",
+      ["documentos_fornecedor_exige_pessoa_nome"],
+      "uma despesa com fornecedor_id e sem pessoa_nome",
+    );
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por, pessoa_nome, fornecedor_id) values ('venda', current_date, $1, '[mig] Argila Sul', $2)",
+        [usuarioId, argilaSulDeNovo],
+      ),
+      "23514",
+      ["documentos_fornecedor_so_em_despesa"],
+      "uma venda com fornecedor_id",
+    );
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por, pessoa_nome, fornecedor_id) values ('despesa', current_date, $1, '[mig] Ninguém', $2)",
+        [usuarioId, "00000000-0000-4000-8000-000000000000"],
+      ),
+      "23503",
+      ["documentos_fornecedor_id_fornecedores_id_fk"],
+      "uma despesa com fornecedor inexistente",
+    );
+    // A despesa de hoje, sem fornecedor_id, continua entrando como antes.
+    esperar(
+      await tentar(
+        "insert into documentos (tipo, data, criado_por, pessoa_nome) values ('despesa', current_date, $1, '[mig] Texto livre')",
+        [usuarioId],
+      ),
+      null,
+      null,
+      "uma despesa sem fornecedor_id (as colunas de hoje)",
+    );
+  } finally {
+    await apagarDadosDeProvaDosFornecedores(conexao, usuarioId);
+  }
+
+  const { rows: sobras } = await conexao.query(
+    `select (select count(*) from fornecedores where nome ilike '%[mig]%')::int as fornecedores,
+            (select count(*) from fornecedor_anexos where nome ilike '%[mig]%')::int as anexos,
+            (select count(*) from documentos where fornecedor_id is not null)::int as documentos`,
+  );
+  afirmar(
+    sobras[0].fornecedores === 0 && sobras[0].anexos === 0 && sobras[0].documentos === 0,
+    `Fornecedores: a faxina deveria apagar todo o dado de prova, sobrou ${JSON.stringify(sobras[0])}.`,
+  );
+}
+
 // As corridas da Agenda achadas na revisão de código da Fase 5 (05-REVIEW-A.md: CR-01, WR-01, WR-03),
 // provadas com o CÓDIGO DA APLICAÇÃO (`lib/agenda/gravacao.ts`, `gravarVenda`) e duas transações que se
 // sobrepõem de fato — a primeira trava e para numa barreira, a segunda espera a trava. Roda num processo
@@ -5759,6 +6159,7 @@ async function conferirBanco() {
     await conferirEstoque(cliente);
     await conferirProducao(cliente);
     await conferirAgenda(cliente);
+    await conferirFornecedores(cliente);
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
     provarCorridasDaAgenda();
