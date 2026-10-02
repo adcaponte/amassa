@@ -285,7 +285,8 @@
    migração `0022` pelo Roteiro 14 e colou as quatro conferências de fora (tabela, semente de 1
    linha, gatilho, `delete` revogado); `gh run list` em 29/09 mostra o run `36443052672` verde
    (2ª tentativa, commit `72b8881` — a 1ª caiu na busca de fonte do Google, transitório, janela 60
-   do `WINDOWS.md` segue aberta); e `curl` de fora em 29/09 devolve `/gestao` → 307 com
+   do `WINDOWS.md` seguia aberta — *corrigida no código em 02/10/2026 pelo quick `261002-j98`,
+   commit `5057c7e`, ainda não publicada*); e `curl` de fora em 29/09 devolve `/gestao` → 307 com
    `callbackUrl` no domínio público (GES-04 fechada). Detalhe: `04.6-08-SUMMARY.md`.
    **A última varredura e2e (`798 passed · 13 failed · 37 skipped · 74 did not run`) não
    exercitou tudo: os ~74 que não rodaram são a cadeia `parametros-*`**, estrutural e anterior à
