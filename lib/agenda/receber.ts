@@ -390,12 +390,15 @@ export function loteDeMensalidades(cobrancas: readonly CobrancaDaAgenda[]): Lote
 
 // ── Dispensar uma cobrança (plano 13 — D-09, UI-D15) ─────────────────────────────────────────────────────
 
-// Quem pode ser dispensado: só MENSALIDADE e INSCRIÇÃO, e só enquanto estão livres — a receber, ou com a
-// venda cancelada no Caixa (D-08). O uso livre nunca (D-09: o caso é aluno que saiu, bolsa, experimental
-// cobrada por engano); o que já virou venda ATIVA se desfaz no Caixa, nunca aqui.
+// Quem pode ser dispensado: MENSALIDADE e INSCRIÇÃO enquanto estão livres — a receber, ou com a venda
+// cancelada no Caixa (D-08; D-09: o caso é aluno que saiu, bolsa, experimental cobrada por engano). O USO
+// LIVRE só com a venda cancelada — decisão do dono no chat, 02/10/2026 (VERIFICACAO-COWORK-05 §2 item 2),
+// que refina a D-09: sem ela, todo uso livre cuja venda fosse cancelada ficaria para sempre em “A receber”;
+// o uso livre ainda sem venda continua com “Recebi agora” ou “Lançar na Venda”, nunca dispensa. O que já
+// virou venda ATIVA se desfaz no Caixa, nunca aqui.
 export function podeDispensar(cobranca: { tipo: TipoDeCobranca; situacao: SituacaoDaCobranca }): boolean {
   if (cobranca.tipo === "uso_livre") {
-    return false;
+    return cobranca.situacao === "venda_cancelada";
   }
   return cobranca.situacao === "a_receber" || cobranca.situacao === "venda_cancelada";
 }

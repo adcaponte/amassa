@@ -20,6 +20,7 @@ import {
   esquemaCancelarData,
   esquemaCancelarReserva,
   esquemaColocarNaData,
+  esquemaDefinirDispensa,
   esquemaConferirDia,
   esquemaDefinirDireitoARepor,
   esquemaEncerrarUsoLivre,
@@ -429,5 +430,19 @@ describe("o lançamento nunca fica público por omissão", () => {
     const semPublica: Partial<typeof TURMA_VALIDA> = { ...TURMA_VALIDA };
     delete semPublica.publica;
     expect(esquemaLancarTurma.safeParse(semPublica).success).toBe(false);
+  });
+});
+
+describe("esquemaDefinirDispensa — o uso livre entra (decisão do dono no chat, 02/10/2026)", () => {
+  const ID = "00000000-0000-4000-8000-000000000001";
+
+  it("aceita mensalidade, inscrição e uso livre (quem confere a venda cancelada é a ação, sob a trava)", () => {
+    for (const tipo of ["mensalidade", "inscricao", "uso_livre"] as const) {
+      expect(esquemaDefinirDispensa.safeParse({ tipo, id: ID, dispensada: true }).success).toBe(true);
+    }
+  });
+
+  it("recusa qualquer outro tipo", () => {
+    expect(esquemaDefinirDispensa.safeParse({ tipo: "venda", id: ID, dispensada: true }).success).toBe(false);
   });
 });

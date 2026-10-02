@@ -433,7 +433,7 @@ describe("rótulos do lote — singular de verdade com uma (E16 zero-one-many)",
   });
 });
 
-describe("podeDispensar — só mensalidade e inscrição livres (D-09)", () => {
+describe("podeDispensar — mensalidade e inscrição livres (D-09); o uso livre só com a venda cancelada (decisão do dono, 02/10/2026)", () => {
   it("mensalidade e inscrição a receber podem ser dispensadas", () => {
     expect(podeDispensar({ tipo: "mensalidade", situacao: "a_receber" })).toBe(true);
     expect(podeDispensar({ tipo: "inscricao", situacao: "a_receber" })).toBe(true);
@@ -444,9 +444,18 @@ describe("podeDispensar — só mensalidade e inscrição livres (D-09)", () => 
     expect(podeDispensar({ tipo: "inscricao", situacao: "venda_cancelada" })).toBe(true);
   });
 
-  it("o uso livre nunca, nem a receber", () => {
+  it("o uso livre sem venda (a receber), não: “Recebi agora” ou “Lançar na Venda”", () => {
     expect(podeDispensar({ tipo: "uso_livre", situacao: "a_receber" })).toBe(false);
-    expect(podeDispensar({ tipo: "uso_livre", situacao: "venda_cancelada" })).toBe(false);
+  });
+
+  it("o uso livre com a venda cancelada no Caixa, sim (decisão do dono no chat, 02/10/2026)", () => {
+    expect(podeDispensar({ tipo: "uso_livre", situacao: "venda_cancelada" })).toBe(true);
+  });
+
+  it("o uso livre lançado, pago ou já dispensado, não", () => {
+    for (const situacao of ["lancado", "pago", "dispensada"] as const) {
+      expect(podeDispensar({ tipo: "uso_livre", situacao })).toBe(false);
+    }
   });
 
   it("o que virou venda ativa (lançado ou pago) ou já foi dispensado, não", () => {

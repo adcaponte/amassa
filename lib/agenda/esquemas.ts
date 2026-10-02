@@ -510,11 +510,12 @@ export const esquemaLoteDeMensalidades = z.object(
 // estado DESEJADO (`dispensada` — dois toques convergem; desfazer é `false`) e o motivo opcional. O
 // motivo é aparado; vazio vira ausente; até 200 caracteres (o check `*_motivo_so_com_dispensa` da 0026
 // conta em pontos de código, e o `.max` do Zod em unidades UTF-16 — o Zod nunca deixa passar mais). O
-// uso livre não se dispensa (o enum não o aceita). Entrada forjada recebe a frase de falha.
+// uso livre entra no enum desde a decisão do dono no chat, 02/10/2026 (0027): só se dispensa com a venda
+// cancelada, e quem confere é a ação, sob a trava (`podeDispensar`). Entrada forjada recebe a frase de falha.
 export const LIMITE_DO_MOTIVO_DA_DISPENSA = 200;
 export const esquemaDefinirDispensa = z.object(
   {
-    tipo: z.enum(["mensalidade", "inscricao"], { error: FRASE_FALHA_AO_DISPENSAR }),
+    tipo: z.enum(["mensalidade", "inscricao", "uso_livre"], { error: FRASE_FALHA_AO_DISPENSAR }),
     id: z.uuid({ error: FRASE_FALHA_AO_DISPENSAR }),
     dispensada: z.boolean({ error: FRASE_FALHA_AO_DISPENSAR }),
     motivo: z

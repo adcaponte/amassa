@@ -159,6 +159,7 @@ import {
   SUFIXO_MATERIAL_DESATIVADO,
   FRASE_COBRANCA_DISPENSADA,
   FRASE_COBRANCA_SUMIU,
+  FRASE_USO_LIVRE_SEM_VENDA_CANCELADA,
   FRASE_FALHA_AO_LANCAR_LOTE,
   FRASE_FALHA_AO_RECEBER,
   FRASE_FALHA_AO_DISPENSAR,
@@ -2021,9 +2022,11 @@ export type DispensaDefinida = { dispensada: boolean };
 // (`dispensada: true | false` — dois toques e dois celulares convergem; já no estado pedido = sucesso sem
 // gravar). `exigirUsuario()` é a PRIMEIRA instrução (T-05-62). Sob a MESMA trava do “Recebi agora”, do
 // “Lançar na Venda” e do lote (`travarCobranca`, `for no key update` na cobrança — T-05-63): dispensar e
-// lançar ao mesmo tempo nunca terminam com uma cobrança dispensada E vendida. Só mensalidade e inscrição
-// LIVRES (a receber, ou com a venda cancelada no Caixa — D-08) se dispensam; com venda ATIVA, a recusa
-// diz o número da venda. Grava `dispensada_em`, `dispensada_por` (quem — T-05-64) e o motivo (Zod até
+// lançar ao mesmo tempo nunca terminam com uma cobrança dispensada E vendida. Mensalidade e inscrição
+// LIVRES (a receber, ou com a venda cancelada no Caixa — D-08) se dispensam; o USO LIVRE só com a venda
+// cancelada (decisão do dono no chat, 02/10/2026; 0027) — sem venda, a recusa diz o que fazer no lugar;
+// com venda ATIVA, a recusa diz o número da venda. O “Desfazer” do uso livre limpa as três colunas e ele
+// volta a “A receber” com a etiqueta da venda cancelada. Grava `dispensada_em`, `dispensada_por` (quem — T-05-64) e o motivo (Zod até
 // 200 — T-05-65), ou os limpa ao desfazer. NUNCA apaga a linha (D-09): só `gravarDispensa`, um `update`.
 export async function definirDispensa(entradaBruta: unknown): Promise<ResultadoDoLancamento<DispensaDefinida>> {
   const usuario = await exigirUsuario();
@@ -2065,6 +2068,11 @@ export async function definirDispensa(entradaBruta: unknown): Promise<ResultadoD
       }
       if (cobranca.tipo === "inscricao" && cobranca.dataCancelada) {
         throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);
+      }
+      // O uso livre sem venda não se dispensa: “Recebi agora” ou “Lançar na Venda” (decisão do dono no
+      // chat, 02/10/2026). Só com a venda cancelada no Caixa — lida AQUI, sob a trava.
+      if (cobranca.tipo === "uso_livre" && situacao === "a_receber") {
+        throw new RecusaDaAgenda(FRASE_USO_LIVRE_SEM_VENDA_CANCELADA);
       }
       if (cobranca.valorCentavos <= 0 || !podeDispensar({ tipo: cobranca.tipo, situacao })) {
         throw new RecusaDaAgenda(FRASE_COBRANCA_SUMIU);

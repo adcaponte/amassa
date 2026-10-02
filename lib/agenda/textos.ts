@@ -1026,6 +1026,10 @@ export const FRASE_FALHA_AO_RECEBER =
 // dispensada em outro celular entre abrir a lista e tocar a forma.
 export const FRASE_COBRANCA_SUMIU = "Este item não está mais em “A receber” — a tela foi atualizada.";
 export const FRASE_COBRANCA_DISPENSADA = "Esta cobrança foi dispensada — a tela foi atualizada.";
+// Decisão do dono no chat, 02/10/2026 (VERIFICACAO-COWORK-05 §2 item 2): o uso livre só se dispensa com a
+// venda cancelada. A recusa ao uso livre ainda sem venda diz o que fazer no lugar.
+export const FRASE_USO_LIVRE_SEM_VENDA_CANCELADA =
+  "O uso livre só se dispensa depois que a venda dele for cancelada no Caixa. Sem venda, use “Recebi agora” ou “Lançar na Venda”.";
 
 // “Lançar na Venda” (plano 12 — AGE-15, UI-D3, UI-D26; 05-UI-SPEC.md §“Venda aberta pela Agenda”,
 // §Copywriting “Venda da Agenda”, §Erros “Venda da Agenda — origem inválida”, §Toasts “Lançar na Venda

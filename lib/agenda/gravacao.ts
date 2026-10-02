@@ -996,6 +996,8 @@ async function lerUsosLivresCobrados(leitor: LeitorDeCobrancas, filtro: FiltroDe
       documentoId: usosLivres.documentoId,
       numeroDaVenda: documentos.numero,
       vendaCanceladaEm: documentos.canceladoEm,
+      // A dispensa do uso livre (0027 — decisão do dono no chat, 02/10/2026: só com a venda cancelada).
+      dispensadaEm: usosLivres.dispensadaEm,
     })
     .from(usosLivres)
     .innerJoin(clientes, eq(clientes.id, usosLivres.clienteId))
@@ -1007,7 +1009,12 @@ async function lerUsosLivresCobrados(leitor: LeitorDeCobrancas, filtro: FiltroDe
         filtro.id === undefined ? undefined : eq(usosLivres.id, filtro.id),
         filtro.clienteIds === undefined ? undefined : inArray(usosLivres.clienteId, [...filtro.clienteIds]),
         filtro.usoIds === undefined ? undefined : inArray(usosLivres.id, [...filtro.usoIds]),
-        filtro.soLivres ? or(isNull(usosLivres.documentoId), isNotNull(documentos.canceladoEm)) : undefined,
+        filtro.soLivres
+          ? and(
+              or(isNull(usosLivres.documentoId), isNotNull(documentos.canceladoEm)),
+              isNull(usosLivres.dispensadaEm),
+            )
+          : undefined,
       ),
     );
   const linhas = filtro.travar
@@ -1051,7 +1058,7 @@ async function lerUsosLivresCobrados(leitor: LeitorDeCobrancas, filtro: FiltroDe
     precoHoraCentavos: linha.precoHoraCentavos ?? 0,
     data: linha.data,
     materiais: materiaisPorUso.get(linha.id) ?? [],
-    ...vendaLigada({ ...linha, dispensadaEm: null }),
+    ...vendaLigada(linha),
   }));
 }
 
@@ -1248,7 +1255,7 @@ export async function travarMensalidades(
 // NUNCA apaga a linha (D-09; `mensalidades` nem tem permissão de `delete`): só um `update`.
 export async function gravarDispensa(
   tx: TransacaoDoBanco,
-  cobranca: { tipo: "mensalidade" | "inscricao"; id: string },
+  cobranca: { tipo: "mensalidade" | "inscricao" | "uso_livre"; id: string },
   dispensa: { em: Date; por: string; motivo: string | null } | null,
 ): Promise<void> {
   const valores = {
@@ -1259,7 +1266,11 @@ export async function gravarDispensa(
   };
   if (cobranca.tipo === "mensalidade") {
     await tx.update(mensalidades).set(valores).where(eq(mensalidades.id, cobranca.id));
-  } else {
+  } else if (cobranca.tipo === "inscricao") {
     await tx.update(inscricoes).set(valores).where(eq(inscricoes.id, cobranca.id));
+  } else {
+    // O uso livre só chega aqui com a venda cancelada (`podeDispensar`, sob a trava; check
+    // `usos_livres_dispensa_so_com_venda` da 0027) — decisão do dono no chat, 02/10/2026.
+    await tx.update(usosLivres).set(valores).where(eq(usosLivres.id, cobranca.id));
   }
 }
