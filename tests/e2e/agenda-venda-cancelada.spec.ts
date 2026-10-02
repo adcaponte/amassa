@@ -219,7 +219,17 @@ test.describe("agenda venda cancelada", () => {
       tipo: "oficina",
       valorCentavos: 11000,
     });
-    const vendaAtiva = await ligarVendaACobranca({ tipo: "inscricao", id: vendida, valorCentavos: 11000, data, paga: true });
+    // A venda paga é de HOJE, nunca do dia (futuro) da oficina: uma parcela PAGA com data futura entra no
+    // saldo global do Caixa e fica fora do extrato do mês corrente — e quebra, na varredura completa, a
+    // igualdade "saldo em caixa = saldo da primeira linha do mês" que `financeiro caixa` e `financeiro
+    // tracador` conferem (achado no plano 05-16).
+    const vendaAtiva = await ligarVendaACobranca({
+      tipo: "inscricao",
+      id: vendida,
+      valorCentavos: 11000,
+      data: hojeNoAtelie(),
+      paga: true,
+    });
     const vendaCancelada = await ligarVendaACobranca({
       tipo: "inscricao",
       id: deVendaCancelada,

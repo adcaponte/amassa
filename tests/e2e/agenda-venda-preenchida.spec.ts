@@ -25,7 +25,7 @@ import {
   vendaDaCobranca,
   vendasDoCliente,
 } from "./apoio/semear-agenda";
-import { semearItem, somarDiasAoHoje } from "./apoio/semear-financeiro";
+import { hojeNoAtelie, semearItem, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // Plano 05-12 (AGE-15, mecanismo B da pesquisa, UI-D26, Pitfall 10): “Lançar na Venda” abre a Venda do
 // Financeiro JÁ PREENCHIDA pela cobrança — faixa “Da Agenda”, pessoa travada, a linha de origem sem o
@@ -198,7 +198,16 @@ test.describe("agenda venda preenchida", () => {
       precoCentavos: 9000,
     });
     const inscricaoId = await semearInscricao({ eventoId, clienteId, tipo: "oficina", valorCentavos: 9000 });
-    const { numero } = await ligarVendaAInscricao({ inscricaoId, valorCentavos: 9000, descricao: "[e2e] já lançada", data });
+    // A venda já lançada é de HOJE, nunca do dia (futuro) da oficina: uma parcela PAGA com data futura
+    // entra no saldo global do Caixa e fica fora do extrato do mês corrente — e quebra, na varredura
+    // completa, a igualdade "saldo em caixa = saldo da primeira linha do mês" que `financeiro caixa` e
+    // `financeiro tracador` conferem (achado no plano 05-16).
+    const { numero } = await ligarVendaAInscricao({
+      inscricaoId,
+      valorCentavos: 9000,
+      descricao: "[e2e] já lançada",
+      data: hojeNoAtelie(),
+    });
 
     await fazerLogin(page);
     await page.goto(hrefDaVendaComOrigem({ tipo: "inscricao", id: inscricaoId }));
