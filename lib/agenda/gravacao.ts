@@ -245,29 +245,36 @@ export type InscricaoComVenda = {
 // topo). Um cancelamento no Caixa que confirme depois desta leitura não muda a decisão de quem já
 // leu — e a recusa da D-08 é a direção segura (nunca apaga uma inscrição que é venda ativa). `null`
 // se a inscrição não existe (tirada em outro celular).
+//
+// CR-01: TRAVA e RELÊ (`travarEReler`). Se um "Recebi agora" ou "Lançar na Venda" ligou esta inscrição a
+// uma venda enquanto esperávamos a trava, a instrução que esperou devolveria a venda NULA (o LEFT JOIN
+// em `documentos` vem do retrato antigo) e "Tirar da lista" apagaria uma venda ativa. A releitura vê a
+// venda confirmada.
 export async function travarInscricaoComVenda(
   tx: TransacaoDoBanco,
   inscricaoId: string,
 ): Promise<InscricaoComVenda | null> {
-  const [linha] = await tx
-    .select({
-      id: inscricoes.id,
-      eventoId: inscricoes.eventoId,
-      clienteId: inscricoes.clienteId,
-      nome: clientes.nome,
-      tipo: inscricoes.tipo,
-      cobrar: inscricoes.cobrar,
-      eventoCanceladoEm: eventos.canceladoEm,
-      publico: eventos.publico,
-      vendaNumero: documentos.numero,
-      vendaCanceladaEm: documentos.canceladoEm,
-    })
-    .from(inscricoes)
-    .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
-    .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
-    .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
-    .where(eq(inscricoes.id, inscricaoId))
-    .for("no key update", { of: inscricoes });
+  const [linha] = await travarEReler(
+    tx
+      .select({
+        id: inscricoes.id,
+        eventoId: inscricoes.eventoId,
+        clienteId: inscricoes.clienteId,
+        nome: clientes.nome,
+        tipo: inscricoes.tipo,
+        cobrar: inscricoes.cobrar,
+        eventoCanceladoEm: eventos.canceladoEm,
+        publico: eventos.publico,
+        vendaNumero: documentos.numero,
+        vendaCanceladaEm: documentos.canceladoEm,
+      })
+      .from(inscricoes)
+      .innerJoin(eventos, eq(eventos.id, inscricoes.eventoId))
+      .innerJoin(clientes, eq(clientes.id, inscricoes.clienteId))
+      .leftJoin(documentos, eq(documentos.id, inscricoes.documentoId))
+      .where(eq(inscricoes.id, inscricaoId))
+      .for("no key update", { of: inscricoes }),
+  );
   if (!linha) {
     return null;
   }
@@ -729,6 +736,20 @@ type FiltroDeCobrancas = {
   usoIds?: readonly string[];
 };
 
+// CR-01 (revisão da Fase 5): TRAVA numa instrução e RELÊ noutra. Sob READ COMMITTED, quem esperou a
+// trava de uma linha que outra transação ATUALIZOU relê só a linha travada (EvalPlanQual) — as tabelas
+// do LEFT JOIN que não estão travadas (`documentos`) voltam do retrato ANTIGO, e o lado anulável vem
+// NULO. Na corrida de dois "Recebi agora" (ou "Recebi agora" × "Lançar na Venda" × lote) o segundo via o
+// `documento_id` novo com `numero` nulo e passava pela guarda: duas vendas ativas para uma cobrança. A
+// segunda instrução tira um retrato NOVO com a trava já garantida — `documento_id` não muda mais (a linha
+// é desta transação até o fim) e o número e o `cancelado_em` da venda vêm do que está confirmado AGORA.
+// Repetir a trava na releitura não espera nada: ela já é desta transação. (Uma `QueryPromise` do Drizzle
+// executa de novo a cada `await`.)
+async function travarEReler<T>(consultaTravada: PromiseLike<T>): Promise<T> {
+  await consultaTravada;
+  return await consultaTravada;
+}
+
 function vendaLigada(linha: {
   documentoId: string | null;
   numeroDaVenda: number | null;
@@ -780,7 +801,9 @@ async function lerMensalidadesCobradas(leitor: LeitorDeCobrancas, filtro: Filtro
     // Em ordem de id: o lote trava as mensalidades nesta ordem, e dois lotes ao mesmo tempo nunca se
     // travam em ordem inversa (plano 12).
     .orderBy(asc(mensalidades.id));
-  const linhas = filtro.travar ? await consulta.for("no key update", { of: mensalidades }) : await consulta;
+  const linhas = filtro.travar
+    ? await travarEReler(consulta.for("no key update", { of: mensalidades }))
+    : await consulta;
   return linhas.map((linha) => ({
     tipo: "mensalidade" as const,
     id: linha.id,
@@ -834,7 +857,9 @@ async function lerInscricoesCobradas(leitor: LeitorDeCobrancas, filtro: FiltroDe
           : undefined,
       ),
     );
-  const linhas = filtro.travar ? await consulta.for("no key update", { of: inscricoes }) : await consulta;
+  const linhas = filtro.travar
+    ? await travarEReler(consulta.for("no key update", { of: inscricoes }))
+    : await consulta;
   return linhas.map((linha) => {
     const experimental = linha.tipo === "experimental";
     // A experimental é numa data de turma (o título é o nome da turma, lido ao vivo — a data de turma
@@ -886,7 +911,9 @@ async function lerUsosLivresCobrados(leitor: LeitorDeCobrancas, filtro: FiltroDe
         filtro.soLivres ? or(isNull(usosLivres.documentoId), isNotNull(documentos.canceladoEm)) : undefined,
       ),
     );
-  const linhas = filtro.travar ? await consulta.for("no key update", { of: usosLivres }) : await consulta;
+  const linhas = filtro.travar
+    ? await travarEReler(consulta.for("no key update", { of: usosLivres }))
+    : await consulta;
   if (linhas.length === 0) {
     return [];
   }
@@ -976,8 +1003,9 @@ export async function lerCobrancas(
 // Trava a linha da COBRANÇA (`for no key update` — o elo MENSALIDADE / INSCRIÇÃO / USO LIVRE da ordem
 // global) e devolve tudo o que a venda precisa, lido sob a trava: dois “Recebi agora” na mesma cobrança
 // (toque duplo, dois celulares) se enfileiram aqui, e o segundo lê o `documento_id` que o primeiro gravou
-// (READ COMMITTED). A venda ligada — `numero` e `cancelado_em` — é LIDA, nunca travada: a Agenda não
-// trava documento existente, então não fecha ciclo com `cancelarDocumento` (DOCUMENTO → ORDEM → ITENS).
+// E a venda por trás dele: o número e o `cancelado_em` vêm da RELEITURA feita depois da trava
+// (`travarEReler`, CR-01), nunca da instrução que esperou. A venda ligada é LIDA, nunca travada: a Agenda
+// não trava documento existente, então não fecha ciclo com `cancelarDocumento` (DOCUMENTO → ORDEM → ITENS).
 // `null` se a cobrança não existe (ou não cobra).
 export async function travarCobranca(
   tx: TransacaoDoBanco,
@@ -1065,8 +1093,12 @@ export async function vincularCobranca(
     throw new RecusaDaAgenda(FRASE_ORIGEM_NAO_ACHADA);
   }
   const situacao = situacaoDaCobranca(cobranca);
-  if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
-    throw new RecusaDaAgenda(fraseOrigemJaLancada(cobranca.numeroDaVenda));
+  // A guarda decide pela situação (derivada do `documento_id` da linha TRAVADA), nunca pela presença do
+  // número — CR-01: venda ativa recusa sempre; o número só escolhe a frase.
+  if (situacao === "lancado" || situacao === "pago") {
+    throw new RecusaDaAgenda(
+      cobranca.numeroDaVenda !== null ? fraseOrigemJaLancada(cobranca.numeroDaVenda) : FRASE_ORIGEM_NAO_ACHADA,
+    );
   }
   if (
     situacao === "dispensada" ||

@@ -771,7 +771,7 @@ export async function colocarNaData(entradaBruta: unknown): Promise<ResultadoDeA
 export type TiradoDaLista = { nome: string; tipo: TipoInscricao };
 
 // "Tirar da lista" (05-UI-SPEC.md §Confirmações; D-08, UI-D14). `exigirUsuario()` primeiro (T-05-23).
-// Sob a trava da INSCRIÇÃO, com a venda ligada lida na mesma instrução (T-05-25):
+// Sob a trava da INSCRIÇÃO, com a venda ligada RELIDA depois da trava (T-05-25; CR-01 da revisão):
 // - não existe mais → "Isso já tinha sido removido.";
 // - data cancelada → a frase (a lista da data cancelada é só de leitura);
 // - inscrição de aluno → a frase genérica (o aluno sai da turma pela ficha);
@@ -1810,8 +1810,11 @@ export async function receberAgora(entradaBruta: unknown): Promise<ResultadoDeAc
         throw new RecusaDaAgenda(FRASE_COBRANCA_SUMIU);
       }
       const situacao = situacaoDaCobranca(cobranca);
-      if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
-        throw new RecusaDaAgenda(fraseJaLancado(cobranca.numeroDaVenda));
+      // CR-01: venda ativa recusa SEMPRE (a situação vem da linha travada); o número só escolhe a frase.
+      if (situacao === "lancado" || situacao === "pago") {
+        throw new RecusaDaAgenda(
+          cobranca.numeroDaVenda !== null ? fraseJaLancado(cobranca.numeroDaVenda) : FRASE_COBRANCA_SUMIU,
+        );
       }
       if (situacao === "dispensada") {
         throw new RecusaDaAgenda(FRASE_COBRANCA_DISPENSADA);
@@ -2007,8 +2010,10 @@ export async function definirDispensa(entradaBruta: unknown): Promise<ResultadoD
       if (situacao === "dispensada") {
         return;
       }
-      if ((situacao === "lancado" || situacao === "pago") && cobranca.numeroDaVenda !== null) {
-        throw new RecusaDaAgenda(fraseJaLancado(cobranca.numeroDaVenda));
+      if (situacao === "lancado" || situacao === "pago") {
+        throw new RecusaDaAgenda(
+          cobranca.numeroDaVenda !== null ? fraseJaLancado(cobranca.numeroDaVenda) : FRASE_COBRANCA_SUMIU,
+        );
       }
       if (cobranca.tipo === "inscricao" && cobranca.dataCancelada) {
         throw new RecusaDaAgenda(FRASE_DATA_CANCELADA);

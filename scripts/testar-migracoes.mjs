@@ -5671,6 +5671,18 @@ async function conferirAgenda(conexao) {
   );
 }
 
+// As corridas da Agenda achadas na revisão de código da Fase 5 (05-REVIEW-A.md: CR-01, WR-01, WR-03),
+// provadas com o CÓDIGO DA APLICAÇÃO (`lib/agenda/gravacao.ts`, `gravarVenda`) e duas transações que se
+// sobrepõem de fato — a primeira trava e para numa barreira, a segunda espera a trava. Roda num processo
+// filho com `tsx` (o código é TypeScript com o alias `@/`), contra o MESMO banco de teste; sai diferente
+// de 0 se qualquer afirmação falhar, e `execSync` lança.
+function provarCorridasDaAgenda() {
+  console.log("  provarCorridasDaAgenda...");
+  rodarNpm("npx", ["tsx", "scripts/provar-corridas-da-agenda.ts"], {
+    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
+  });
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -5693,6 +5705,7 @@ async function conferirBanco() {
     await conferirAgenda(cliente);
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
+    provarCorridasDaAgenda();
   } finally {
     await cliente.end();
   }
