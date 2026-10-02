@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { agoraEmBrasilia, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { dataLongaEmPortugues, saudacaoDe } from "@/lib/inicio/saudacao";
 import { BlocoAgendaDeHoje } from "@/components/amassa/inicio/bloco-agenda-de-hoje";
 import { BlocoAnotacoes } from "@/components/amassa/inicio/bloco-anotacoes";
@@ -26,7 +26,11 @@ import { PilulasDeAtalho } from "@/components/amassa/inicio/pilulas-de-atalho";
 // `/gestao/queimas` (FOR-06) continua existindo, intacto, na tela do próprio módulo.
 export default async function Inicio() {
   const usuario = await exigirUsuario();
-  const hoje = hojeEmBrasilia(new Date());
+  // O dia e o agora do ateliê saem do MESMO instante — perto da meia-noite, duas leituras do relógio
+  // poderiam cair em dias diferentes.
+  const instante = new Date();
+  const hoje = hojeEmBrasilia(instante);
+  const agora = agoraEmBrasilia(instante);
   const sujeito = saudacaoDe(usuario);
   const dataDeHoje = dataLongaEmPortugues(hoje);
 
@@ -57,7 +61,7 @@ export default async function Inicio() {
           quatro, o último deles (Anotações) no plano 07. */}
       <div data-testid="inicio-blocos" className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Suspense fallback={<BlocoEsqueleto titulo="Agenda de hoje" linhas={3} />}>
-          <BlocoAgendaDeHoje />
+          <BlocoAgendaDeHoje hoje={hoje} agora={agora} />
         </Suspense>
 
         <Suspense fallback={<BlocoEsqueleto titulo="O que vence" linhas={3} />}>

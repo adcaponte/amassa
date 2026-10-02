@@ -52,6 +52,7 @@ import {
   FRASE_CONTA_FIXA_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_SALVAR,
   FRASE_ITEM_COM_MOVIMENTACAO,
+  FRASE_ITEM_DO_SISTEMA,
   FRASE_ITEM_NAO_EXISTE_MAIS,
   FRASE_MES_DE_GERACAO_INVALIDO,
   FRASE_NOME_REPETIDO,
@@ -111,7 +112,32 @@ function ehErroDaTravaDeUnidade(erro: unknown): boolean {
   });
 }
 
+// O P0001 do gatilho `travar_item_do_sistema` (0026, D-17): desativar, tirar da venda, trocar a
+// chave ou apagar um dos três itens da Agenda. Mesma técnica de `ehErroDaTravaDeUnidade` — a raiz e
+// a `cause` (o drizzle embrulha), o nome da função no `where` ou o começo da frase do `raise` —,
+// para cada gatilho virar a SUA frase, nunca a de outro.
+function ehErroDoItemDoSistema(erro: unknown): boolean {
+  if (codigoDoErroPostgres(erro) !== "P0001") {
+    return false;
+  }
+  const candidatos: unknown[] = [erro];
+  if (typeof erro === "object" && erro !== null && "cause" in erro) {
+    candidatos.push(erro.cause);
+  }
+  return candidatos.some((candidato) => {
+    if (typeof candidato !== "object" || candidato === null) {
+      return false;
+    }
+    const { where, message } = candidato as { where?: unknown; message?: unknown };
+    return (
+      (typeof where === "string" && where.includes("travar_item_do_sistema")) ||
+      (typeof message === "string" && message.includes("Este item é usado pela Agenda"))
+    );
+  });
+}
+
 class CategoriaNaoEncontrada extends Error {}
+class ItemDoSistemaNaoSeDesativa extends Error {}
 class CategoriaComUsoNaoPodeMudar extends Error {}
 class ItemNaoEncontrado extends Error {}
 class CategoriaDeVendaInvalida extends Error {}
@@ -503,6 +529,8 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
           categoriaCompraId: itensCatalogo.categoriaCompraId,
           controlaEstoque: itensCatalogo.controlaEstoque,
           unidade: itensCatalogo.unidade,
+          aparecenaVenda: itensCatalogo.aparecenaVenda,
+          chaveDoSistema: itensCatalogo.chaveDoSistema,
         })
         .from(itensCatalogo)
         .where(eq(itensCatalogo.id, dados.id))
@@ -580,13 +608,19 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
         }
       }
 
+      // D-17: item do sistema da Agenda não sai da Venda. A tela não oferece a caixa, e o servidor
+      // não confia na tela — grava o que já está no banco, decidido sob a trava acima. O gatilho
+      // `travar_item_do_sistema` é a última camada (o P0001 dele vira FRASE_ITEM_DO_SISTEMA).
+      const aparecenaVenda =
+        itemAtual.chaveDoSistema !== null ? itemAtual.aparecenaVenda : dados.aparecenaVenda;
+
       await tx
         .update(itensCatalogo)
         .set({
           nome: dados.nome,
           categoriaVendaId: dados.categoriaVendaId,
           precoVendaCentavos: dados.precoVendaCentavos,
-          aparecenaVenda: dados.aparecenaVenda,
+          aparecenaVenda,
           atalhoVenda: dados.atalhoVenda,
           controlaEstoque: dados.controlaEstoque,
           atalhoCompra: dados.atalhoCompra,
@@ -614,6 +648,9 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
   } catch (erro) {
     if (erro instanceof ItemComMovimentacao || ehErroDaTravaDeUnidade(erro)) {
       return { ok: false, erro: FRASE_ITEM_COM_MOVIMENTACAO };
+    }
+    if (ehErroDoItemDoSistema(erro)) {
+      return { ok: false, erro: FRASE_ITEM_DO_SISTEMA };
     }
     if (erro instanceof ItemNaoEncontrado) {
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
@@ -655,13 +692,19 @@ export async function definirItemAtivo(
   try {
     const nome = await db.transaction(async (tx) => {
       const [itemAtual] = await tx
-        .select({ nome: itensCatalogo.nome })
+        .select({ nome: itensCatalogo.nome, chaveDoSistema: itensCatalogo.chaveDoSistema })
         .from(itensCatalogo)
         .where(eq(itensCatalogo.id, id))
         .for("update");
 
       if (!itemAtual) {
         throw new ItemNaoEncontrado();
+      }
+
+      // D-17: os três itens da Agenda não se desativam — recusado aqui, sob a trava, antes do
+      // gatilho `travar_item_do_sistema` (a última camada, mesma frase no `catch`).
+      if (!ativo && itemAtual.chaveDoSistema !== null) {
+        throw new ItemDoSistemaNaoSeDesativa();
       }
 
       if (!ativo) {
@@ -688,6 +731,9 @@ export async function definirItemAtivo(
     revalidatePath(rotaDeGestao("/"));
     return { ok: true, dados: { id, ativo, nome } };
   } catch (erro) {
+    if (erro instanceof ItemDoSistemaNaoSeDesativa || ehErroDoItemDoSistema(erro)) {
+      return { ok: false, erro: FRASE_ITEM_DO_SISTEMA };
+    }
     if (erro instanceof ItemNaoEncontrado) {
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
     }

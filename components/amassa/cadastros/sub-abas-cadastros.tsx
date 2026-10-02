@@ -5,6 +5,7 @@ import type { SubCadastros } from "@/lib/cadastros/abas";
 import {
   ROTULO_SUB_CATALOGO,
   ROTULO_SUB_CATEGORIAS,
+  ROTULO_SUB_CLIENTES,
   ROTULO_SUB_FIXAS,
   ROTULO_SUB_PARAMETROS,
   ROTULO_SUB_TAXAS,
@@ -35,18 +36,24 @@ import { cn } from "@/lib/utils";
 //
 // A correção é a MESMA que a barra do Financeiro já usava para o problema das sete abas
 // (`abas-financeiro.tsx`): `flex-wrap` mais um espaçador `basis-full` que força a quebra num
-// ponto ESCOLHIDO, nunca onde o navegador decidir. Duas em cima, três embaixo.
+// ponto ESCOLHIDO, nunca onde o navegador decidir. Naquele dia: duas em cima, três embaixo.
 //
 // A ordem é a de origem (Catálogo · Categorias | Contas fixas · Taxas · Parâmetros), e não a
 // sugerida na conversa (Catálogo + Contas fixas em cima), porque reordenar navegação mexe na
 // memória muscular de quem já usa — e a ordem atual agrupa o que se vende em cima e os números
 // que o dinheiro usa embaixo.
 //
-// O espaçador é `md:hidden`: a partir de `md` o contêiner tem `max-w-md` e as cinco pílulas
-// cabem numa fileira só, como sempre couberam. Forçar duas fileiras no desktop seria regressão.
+// Fase 5 (D-01, UI-D20, 01/10/2026): "Clientes" entra como TERCEIRA pílula da primeira fileira —
+// agrupa com o que se cadastra para vender. Hoje são SEIS pílulas: três em cima (Catálogo ·
+// Categorias · Clientes), três embaixo (Contas fixas · Taxas · Parâmetros).
+//
+// O espaçador é `md:hidden`: a partir de `md` as seis cabem numa fileira só. O contêiner passou de
+// `md:max-w-md` para `md:max-w-xl` (UI-D20) — seis pílulas em `max-w-md` ficariam espremidas.
+// Forçar duas fileiras no desktop seria regressão.
 const PRIMEIRA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
   { valor: "catalogo", rotulo: ROTULO_SUB_CATALOGO },
   { valor: "categorias", rotulo: ROTULO_SUB_CATEGORIAS },
+  { valor: "clientes", rotulo: ROTULO_SUB_CLIENTES },
 ];
 
 const SEGUNDA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
@@ -60,7 +67,7 @@ export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
     <div
       role="tablist"
       aria-label="Sub-navegação de Cadastros"
-      className="mx-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-md"
+      className="mx-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-xl"
     >
       {PRIMEIRA_FILEIRA.map((sub) => (
         <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
@@ -68,7 +75,7 @@ export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
 
       {/* Espaçador que FORÇA a quebra: com `flex-wrap`, um item de largura total empurra tudo o
           que vem depois para a fileira seguinte. `aria-hidden` porque não é uma aba e não deve
-          existir para leitor de tela. `md:hidden` porque no desktop as cinco cabem numa fileira.
+          existir para leitor de tela. `md:hidden` porque no desktop as seis cabem numa fileira.
           Mesmo mecanismo de `abas-financeiro.tsx`. */}
       <span aria-hidden="true" className="basis-full md:hidden" />
 

@@ -387,7 +387,7 @@ describe("agregarParaOndeFoi — qual área pagou cada grama (D-12, D-31, Pitfal
   }
   const opcoes = { destinos: DESTINOS_DE_SAIDA };
 
-  it("seis barras sempre: os cinco destinos e Vendido · pelo Financeiro", () => {
+  it("sete barras sempre: os seis destinos (o uso livre da Agenda incluído, D-06) e Vendido · pelo Financeiro", () => {
     const resultado = agregarParaOndeFoi([], opcoes);
     expect(resultado.barras.map((barra) => barra.chave)).toEqual([
       "aula",
@@ -395,6 +395,7 @@ describe("agregarParaOndeFoi — qual área pagou cada grama (D-12, D-31, Pitfal
       "cafeteria",
       "atelie",
       "perda",
+      "uso_livre",
       "venda",
     ]);
     expect(resultado.barras.find((barra) => barra.chave === "venda")?.nome).toBe(
@@ -502,6 +503,7 @@ describe("agregarParaOndeFoi — qual área pagou cada grama (D-12, D-31, Pitfal
       "cafeteria",
       "aula",
       "atelie",
+      "uso_livre",
     ]);
   });
 

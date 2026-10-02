@@ -4,10 +4,12 @@ import { Decoracao } from "@/components/site/decoracao";
 import { Secao } from "@/components/site/secao";
 import { CONTEUDO_SITE } from "@/conteudo/site";
 
-// `#agenda` — o estado ENQUANTO a Agenda (o módulo) não existir, e é este o estado que vai ao
-// ar em dezembro (D-16, versão 11 do protótipo): três cartões de texto (turmas fixas, oficinas
-// de uma tarde, uso livre), dois botões de WhatsApp e a frase de aviso, verbatim, em
-// `CONTEUDO_SITE.agAviso`.
+// `#agenda` SEM calendário — desde a Fase 5, plano 15, este componente é a QUEDA da seção viva
+// (`components/site/agenda-publica.tsx`): aparece quando não há nenhuma aula ou oficina pública de
+// hoje em diante (D-11) e quando a leitura do banco falha (Postgres fora, ou o `next build` sem
+// banco). Três cartões de texto (turmas fixas, oficinas de uma tarde, uso livre), dois botões de
+// WhatsApp e a frase de aviso, verbatim, em `CONTEUDO_SITE.agAviso` (D-16 da 04.6, versão 11 do
+// protótipo).
 //
 // O que este componente NÃO faz, e por quê: nenhuma grade de datas, nenhuma navegação entre
 // períodos, nenhuma legenda por tipo de evento, nenhum cartão de evento com data marcada e
@@ -17,16 +19,8 @@ import { CONTEUDO_SITE } from "@/conteudo/site";
 // não existe para quem está decidindo se viaja até Pirenópolis — dano ao público, não detalhe
 // de interface.
 //
-// O que muda quando o módulo Agenda entrar: os três cartões saem, um componente novo de
-// leitura ao vivo entra no lugar — Server Component lendo as consultas públicas daquele módulo
-// com cache curto e revalidação por tempo (a metade de SIT-02 que este plano defere, ver
-// <verification> do PLAN.md) —, e os dois botões de WhatsApp ficam exatamente como estão. O
-// desenho de destino está no BRIEFING-site.md §3 ("Agenda pública (a parte viva)"); quem
-// replanejar essa seção lê aquele parágrafo antes de desenhar de novo.
-//
+// Com evento público, quem desenha a seção é `AgendaPublica` (o calendário com preço e vagas).
 // Este componente não lê nada do módulo Agenda, nem do banco. É conteúdo.
-// tests/unit/site-isolamento.test.ts prova isso com uma asserção própria, além do grafo de
-// import geral que já parte de app/page.tsx.
 export function AulasEOficinas() {
   return (
     <Secao

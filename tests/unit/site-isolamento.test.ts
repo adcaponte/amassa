@@ -23,6 +23,14 @@ const ESPECIFICADORES_PROIBIDOS = [
   "@/lib/auth/",
 ] as const;
 
+// Fase 5, plano 15 (AGE-18, SIT-02): a cerca foi REESCRITA, não afrouxada. O site passou a mostrar o
+// calendário vivo, e para isso o grafo de `app/page.tsx` alcança o banco — mas SÓ através de um arquivo
+// nomeado, a leitura pública da Agenda. Só esse arquivo pode importar `@/db` e `drizzle-orm` (sem que o
+// percorredor entre neles); `next-auth`, `next/headers`, `@/lib/auth/` e `pg` direto continuam
+// proibidos inclusive nele. Um teste abaixo afirma que esta lista tem EXATAMENTE este arquivo.
+const EXCECOES_DE_BANCO = ["lib/agenda/publico/consultas.ts"] as const;
+const LIBERADOS_NA_EXCECAO = ["@/db", "drizzle-orm"] as const;
+
 function especificadorEhProibido(especificador: string): string | null {
   for (const proibido of ESPECIFICADORES_PROIBIDOS) {
     if (proibido.endsWith("/")) {
@@ -111,8 +119,13 @@ function percorrerGrafoDeImports(arquivoEntrada: string): Violacao[] {
     const proximaCadeia = [...cadeia, caminhoRelativo(caminhoAbsoluto)];
     const diretorio = dirname(caminhoAbsoluto);
 
+    const ehExcecao = (EXCECOES_DE_BANCO as readonly string[]).includes(caminhoRelativo(caminhoAbsoluto));
+
     for (const especificador of extrairEspecificadores(conteudo)) {
       const proibidoPor = especificadorEhProibido(especificador);
+      if (proibidoPor && ehExcecao && (LIBERADOS_NA_EXCECAO as readonly string[]).includes(proibidoPor)) {
+        continue; // a exceção nomeada: lê o banco, e o percorredor não entra no banco.
+      }
       if (proibidoPor) {
         violacoes.push({
           especificador,
@@ -177,6 +190,18 @@ describe("isolamento do site público (D-03, D-15, T-04.6-11, T-04.6-13)", () =>
     expect(violacoes, violacoes.map(mensagemDaViolacao).join("\n")).toEqual([]);
   });
 
+  it("a exceção do banco é UM arquivo só, nomeado: lib/agenda/publico/consultas.ts", () => {
+    expect([...EXCECOES_DE_BANCO]).toEqual(["lib/agenda/publico/consultas.ts"]);
+    expect([...LIBERADOS_NA_EXCECAO]).toEqual(["@/db", "drizzle-orm"]);
+    expect(ESPECIFICADORES_PROIBIDOS).toContain("@/db");
+  });
+
+  it("a exceção nomeada não tem diretiva de Server Action, nem next/headers, nem sessão", () => {
+    const conteudo = readFileSync(join(RAIZ, "lib/agenda/publico/consultas.ts"), "utf-8");
+    expect(conteudo).not.toMatch(/["']use server["']/);
+    expect(conteudo).not.toMatch(/from\s+["'](next\/headers|next-auth|@\/lib\/auth\/)/);
+  });
+
   it("falha simulada: o percorredor nomeia a CADEIA INTEIRA, não só o arquivo final", () => {
     const violacoes = percorrerGrafoDeImports("tests/fixtures/site-isolamento/entrada-proibida.ts");
     expect(violacoes.length).toBeGreaterThan(0);
@@ -225,17 +250,21 @@ describe("isolamento do site público (D-03, D-15, T-04.6-11, T-04.6-13)", () =>
     }
   });
 
-  // D-16 (Fase 04.6, plano 04): a seção de aulas é conteúdo estático até a fase Agenda existir
-  // de verdade — nenhum arquivo de components/site/ pode importar lib/agenda, nem hoje nem por
-  // engano num plano futuro que mexa nesta pasta sem reler esta decisão.
-  it("nenhum arquivo de components/site/ importa lib/agenda", () => {
+  // D-16 (Fase 04.6) reescrita na Fase 5, plano 15: até a Agenda existir, nenhum arquivo de
+  // components/site/ importava lib/agenda. Agora o site lê a agenda pública — mas SÓ pela pasta
+  // `lib/agenda/publico/` (o módulo puro do que o visitante vê e a leitura única); o resto da Agenda
+  // (ações, consultas da gestão, textos) continua fora do alcance direto do site.
+  it("components/site/ só importa de @/lib/agenda/publico/", () => {
     const arquivos = listarArquivosTs(join(RAIZ, "components/site"));
     for (const arquivo of arquivos) {
-      const conteudo = readFileSync(arquivo, "utf-8");
-      expect(
-        conteudo,
-        `${caminhoRelativo(arquivo)} não deveria importar lib/agenda (D-16)`,
-      ).not.toMatch(/from\s+["']@\/lib\/agenda/);
+      for (const especificador of extrairEspecificadores(readFileSync(arquivo, "utf-8"))) {
+        if (especificador.startsWith("@/lib/agenda")) {
+          expect(
+            especificador,
+            `${caminhoRelativo(arquivo)} só pode importar de @/lib/agenda/publico/`,
+          ).toMatch(/^@\/lib\/agenda\/publico\//);
+        }
+      }
     }
   });
 

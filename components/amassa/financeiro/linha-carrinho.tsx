@@ -45,6 +45,9 @@ export type LinhaCarrinhoProps = {
   aoMudarQuantidade: (chave: string, delta: 1 | -1) => void;
   aoMudarValorUnitario: (chave: string, valor: string) => void;
   aoTirar: (chave: string) => void;
+  // A linha de origem da Venda aberta pela Agenda (Fase 05, plano 12 — UI-D26): sem o “tirar” e sem
+  // descer abaixo de 1. Quantidade e valor continuam editáveis.
+  fixa?: boolean;
 };
 
 // Uma linha do carrinho da Venda — ponto de cor da área, nome, subtotal, e (só para item do
@@ -65,6 +68,7 @@ export function LinhaCarrinho({
   aoMudarQuantidade,
   aoMudarValorUnitario,
   aoTirar,
+  fixa = false,
 }: LinhaCarrinhoProps) {
   const diferencaDoDescontoCentavos =
     linha.subtotalAntesDoDescontoCentavos - linha.subtotalCentavos;
@@ -99,8 +103,9 @@ export function LinhaCarrinho({
               <button
                 type="button"
                 aria-label={ROTULO_MENOS_UM}
+                disabled={fixa && linha.quantidade <= 1}
                 onClick={() => aoMudarQuantidade(linha.chave, -1)}
-                className="border-border flex h-11 w-11 items-center justify-center rounded-md border text-lg"
+                className="border-border flex h-11 w-11 items-center justify-center rounded-md border text-lg disabled:opacity-50"
               >
                 −
               </button>
@@ -160,13 +165,15 @@ export function LinhaCarrinho({
           </span>
         )}
 
-        <button
-          type="button"
-          onClick={() => aoTirar(linha.chave)}
-          className="text-apoio text-muted-foreground hover:text-foreground ml-auto min-h-[44px] px-2"
-        >
-          {ROTULO_TIRAR}
-        </button>
+        {fixa ? null : (
+          <button
+            type="button"
+            onClick={() => aoTirar(linha.chave)}
+            className="text-apoio text-muted-foreground hover:text-foreground ml-auto min-h-[44px] px-2"
+          >
+            {ROTULO_TIRAR}
+          </button>
+        )}
       </div>
     </li>
   );

@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 
 import { ROTULO_AREA } from "@/lib/financeiro/textos";
-import { DESTINOS_DE_SAIDA, type DestinoDeSaida } from "@/lib/estoque/destinos";
+import { DESTINOS_DA_FOLHA_DO_ESTOQUE, type DestinoDeSaida } from "@/lib/estoque/destinos";
 import { cn } from "@/lib/utils";
 
 export type GradeDestinosProps = {
@@ -15,7 +15,7 @@ export type GradeDestinosProps = {
   invalida: boolean;
 };
 
-// "Para onde foi?" — os CINCO destinos da saída manual, SEMPRE na ordem de `DESTINOS_DE_SAIDA`
+// "Para onde foi?" — os CINCO destinos da saída manual, SEMPRE na ordem de `DESTINOS_DA_FOLHA_DO_ESTOQUE`
 // (EST-11 · ordering: uma constante, nunca reordenada na tela), cada um com a área que paga escrita
 // embaixo (D-14). "Venda na loja" não existe (D-15): venda só nasce no Financeiro.
 //
@@ -25,7 +25,7 @@ export type GradeDestinosProps = {
 // teclado movem a escolha, como no segmentado.
 export function GradeDestinos({ destino, aoMudar, rotuloId, dicaId, invalida }: GradeDestinosProps) {
   const botoes = useRef<(HTMLButtonElement | null)[]>([]);
-  const indiceMarcado = DESTINOS_DE_SAIDA.findIndex((opcao) => opcao.valor === destino);
+  const indiceMarcado = DESTINOS_DA_FOLHA_DO_ESTOQUE.findIndex((opcao) => opcao.valor === destino);
 
   function aoTeclar(evento: KeyboardEvent<HTMLButtonElement>, indice: number) {
     const passo =
@@ -38,9 +38,9 @@ export function GradeDestinos({ destino, aoMudar, rotuloId, dicaId, invalida }: 
       return;
     }
     evento.preventDefault();
-    const total = DESTINOS_DE_SAIDA.length;
+    const total = DESTINOS_DA_FOLHA_DO_ESTOQUE.length;
     const proximo = (indice + passo + total) % total;
-    aoMudar(DESTINOS_DE_SAIDA[proximo].valor);
+    aoMudar(DESTINOS_DA_FOLHA_DO_ESTOQUE[proximo].valor);
     botoes.current[proximo]?.focus();
   }
 
@@ -54,7 +54,7 @@ export function GradeDestinos({ destino, aoMudar, rotuloId, dicaId, invalida }: 
       data-testid="folha-destinos"
       className="grid grid-cols-2 gap-2"
     >
-      {DESTINOS_DE_SAIDA.map((opcao, indice) => {
+      {DESTINOS_DA_FOLHA_DO_ESTOQUE.map((opcao, indice) => {
         const marcado = destino === opcao.valor;
         // Tabulação itinerante: o marcado recebe o Tab; sem nenhum marcado, o primeiro.
         const tabulavel = indiceMarcado === -1 ? indice === 0 : marcado;

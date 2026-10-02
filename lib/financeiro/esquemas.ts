@@ -5,6 +5,7 @@
 // mesma disciplina de `lib/encomendas`/`lib/queimas`).
 import { z } from "zod";
 
+import { origemDaUrl, type OrigemDaVenda } from "./abas";
 import type { Desconto } from "./desconto";
 import {
   converterPercentualParaPontosBase,
@@ -138,7 +139,16 @@ export const esquemaVendaEntrada = z.object({
     .min(1, "Adicione pelo menos uma parcela.")
     .max(12, "No máximo 12 parcelas."),
   desconto: esquemaDescontoEntrada.optional(),
+  // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15): o texto de `?origem=`
+  // ("{mensalidade|inscricao|uso_livre}:{uuid}"), validado por `origemDaUrl` no `transform` abaixo.
+  // Só diz QUAL cobrança: pessoa, cliente e a descrição da linha de origem são decididos no servidor,
+  // sob a trava da cobrança (`lancarVenda` → `vincularCobranca`). Ausente = a Venda manual de sempre.
+  origem: z.string().optional(),
 });
+
+// Frase da origem que não passa em `origemDaUrl` (texto adulterado — a tela nunca manda isso).
+export const FRASE_ORIGEM_INVALIDA =
+  "Esse item da Agenda não é válido — volte à Agenda e toque em “Lançar na Venda” de novo.";
 
 // `valorCentavos` é o SUBTOTAL da linha (quantidade × unitário, antes de qualquer desconto) nos
 // dois membros — é o campo que `lancarVenda` soma para conferir o total e que
@@ -271,10 +281,19 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     }
   }
 
+  let origem: OrigemDaVenda | null = null;
+  if (dados.origem !== undefined) {
+    origem = origemDaUrl(dados.origem);
+    if (!origem) {
+      ctx.addIssue({ code: "custom", message: FRASE_ORIGEM_INVALIDA, path: ["origem"] });
+    }
+  }
+
   if (
     linhas.some((linha) => linha === null) ||
     parcelas.some((parcela) => parcela === null) ||
-    (dados.desconto && !desconto)
+    (dados.desconto && !desconto) ||
+    (dados.origem !== undefined && !origem)
   ) {
     return z.NEVER;
   }
@@ -285,6 +304,7 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     linhas: linhas as LinhaDeVendaConvertida[],
     parcelas: parcelas as ParcelaDeVendaConvertida[],
     desconto,
+    origem,
   };
 });
 

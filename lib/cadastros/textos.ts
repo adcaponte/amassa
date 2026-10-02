@@ -17,6 +17,9 @@ export const ROTULO_SUB_FIXAS = "Contas fixas";
 export const ROTULO_SUB_TAXAS = "Taxas";
 // Quinta sub-aba (D-03, 04.5-02-PLAN.md) — texto exato do dono (04.5-UI-SPEC.md §Copywriting).
 export const ROTULO_SUB_PARAMETROS = "Parâmetros";
+// Sexta sub-aba (Fase 5, D-01, UI-D20) — o cadastro de pessoas, o mesmo das Pessoas da Agenda. As
+// frases da sub-aba moram em `lib/clientes/textos.ts`, o módulo transversal do cadastro.
+export const ROTULO_SUB_CLIENTES = "Clientes";
 
 export const ROTULO_GRUPO: Record<GrupoDeCategoria, string> = {
   receita: "Receitas",
@@ -143,6 +146,15 @@ export const FRASE_ITEM_COM_MOVIMENTACAO =
   "Este item já tem movimentação no Estoque — a unidade e o “Tem estoque próprio” não mudam mais. Se ele saiu de uso, desative.";
 export const ROTULO_CHIP_DESATIVADO = "Desativado";
 export const ROTULO_DESATIVAR_ITEM = "Desativar item";
+
+// Os três itens do sistema da Agenda (Fase 5, D-17; 05-UI-SPEC.md §Cadastros → Catálogo, §Erros).
+// A frase do erro é a MESMA do `raise` do gatilho `travar_item_do_sistema` (0026) — a tela mostra
+// esta constante, nunca o texto cru do banco.
+export const CHIP_DO_SISTEMA = "do sistema";
+export const LINHA_ITEM_DO_SISTEMA =
+  "Usado pela Agenda — não se desativa nem sai da Venda. Nome, preço e categoria podem mudar.";
+export const FRASE_ITEM_DO_SISTEMA =
+  "Este item é usado pela Agenda e não se desativa. Nome, preço e categoria podem mudar.";
 export const ROTULO_REATIVAR_ITEM = "Reativar item";
 export const ROTULO_REATIVANDO = "Reativando…";
 

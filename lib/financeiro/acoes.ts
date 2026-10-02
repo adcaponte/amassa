@@ -10,17 +10,22 @@ import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 import {
-  areasDasCategorias,
   carregarItensParaEfeito,
   gravarMovimentacoes,
   originaisSemEstorno,
 } from "@/lib/estoque/gravacao";
-import { pedidosDaCompra, pedidosDaVenda, pedidosDoEstorno } from "@/lib/estoque/pedidos";
+import { pedidosDaCompra, pedidosDoEstorno } from "@/lib/estoque/pedidos";
 import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
+// O ÚNICO ajudante da Agenda que o Financeiro importa (Fase 05, plano 12), como `cancelarDocumento` já
+// importa `lib/producao/gravacao.ts`: a regra da cobrança fica em `lib/agenda/`, a venda em `gravarVenda`.
+import { RecusaDaAgenda, vincularCobranca } from "@/lib/agenda/gravacao";
+import { FRASE_LINHA_DA_AGENDA_FALTANDO } from "@/lib/agenda/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
+import { textoDaOrigem } from "./abas";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
+import { gravarVenda, type PedidoDeVenda } from "./gravacao";
 import { TETO_CENTAVOS } from "./dinheiro";
 import {
   dataDentroDoIntervaloPermitido,
@@ -66,7 +71,7 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
 // confere de novo no fim da transação — pega defeito do próprio servidor, não só do cliente.
 export async function lancarVenda(
   entradaBruta: unknown,
-): Promise<ResultadoDeAcao<{ id: string; numero: number }>> {
+): Promise<ResultadoDeAcao<{ id: string; numero: number; origem: string | null }>> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaVenda.safeParse(entradaBruta);
@@ -189,117 +194,91 @@ export async function lancarVenda(
   }
 
   try {
-    const { id, numero } = await db.transaction(async (tx) => {
-      const [documento] = await tx
-        .insert(documentos)
-        .values({
-          tipo: "venda",
-          data: dados.data,
-          pessoaNome: dados.pessoa,
-          criadoPor: usuario.id,
-        })
-        .returning({ id: documentos.id, numero: documentos.numero });
-
-      const linhasGravadas = await tx.insert(documentoLinhas).values(
-        dados.linhas.map((linha, indice) => {
-          // O valor gravado é o FINAL (já com a parte do desconto desta linha, se houver) — nunca
-          // o subtotal bruto (D-09: "não é linha separada", o desconto mora dentro das linhas).
-          const valorCentavos = valoresFinaisCentavos[indice];
-          if (linha.tipo === "item") {
-            // Não-nulo: já conferido no laço de validação acima.
-            const item = itemPorId.get(linha.itemId)!;
-            return {
-              documentoId: documento.id,
-              ordem: indice,
-              itemId: item.id,
-              descricao: item.nome,
-              categoriaId: item.categoriaVendaId!,
-              quantidade: linha.quantidade,
-              valorCentavos,
-            };
-          }
+    // O pedido montado aqui leva só o que já foi validado acima: a descrição e a categoria da
+    // linha de item vêm do catálogo (`itemPorId`), e o valor é o FINAL, já descontado. A escrita
+    // (documento → linhas → baixa de estoque → parcelas com a taxa congelada) é a de
+    // `gravarVenda` (`lib/financeiro/gravacao.ts`), o mesmo escritor que a Agenda usa.
+    const pedido: PedidoDeVenda = {
+      data: dados.data,
+      pessoaNome: dados.pessoa,
+      linhas: dados.linhas.map((linha, indice) => {
+        const valorCentavos = valoresFinaisCentavos[indice];
+        if (linha.tipo === "item") {
+          // Não-nulo: já conferido no laço de validação acima.
+          const item = itemPorId.get(linha.itemId)!;
           return {
-            documentoId: documento.id,
-            ordem: indice,
-            descricao: linha.descricao,
-            categoriaId: linha.categoriaId,
+            tipo: "item" as const,
+            itemId: item.id,
+            descricao: item.nome,
+            categoriaId: item.categoriaVendaId!,
+            quantidade: linha.quantidade,
             valorCentavos,
           };
-        }),
-      ).returning({ id: documentoLinhas.id, ordem: documentoLinhas.ordem });
-
-      // A baixa de estoque (Fase 06, D-03), DENTRO desta transação: a venda e o livro comitam
-      // juntos ou não comitam — nunca uma venda sem a baixa, nem uma baixa sem a venda. Uma falha
-      // aqui cai no `catch` abaixo e o gestor lê `FRASE_FALHA_AO_SALVAR` (o erro vai só para o log).
-      //
-      // D-33: a partir daqui ESTA TRANSAÇÃO DEPENDE DA MIGRAÇÃO `0023` (tabela
-      // `movimentacoes_estoque`). Publicar este código antes de aplicar a `0023` quebra toda venda.
-      //
-      // O cálculo é `efeitoNoEstoque`, por linha, dentro de `pedidosDaVenda` — a ação não calcula
-      // efeito nenhum. As linhas vêm do `returning`: o `id` de cada uma vira `documento_linha_id`,
-      // e é a inserção delas que segura `FOR KEY SHARE` nos itens (por isso a trava de
-      // `gravarMovimentacoes` é `no key update`). Nenhuma checagem de saldo (D-06): negativo não
-      // bloqueia, não atrasa e não pede confirmação — o Estoque é consequência da venda.
-      const idDaLinhaPorOrdem = new Map(linhasGravadas.map((linha) => [linha.ordem, linha.id]));
-      const linhasDeItem = dados.linhas.flatMap((linha, indice) => {
-        if (linha.tipo !== "item") {
-          return [];
         }
-        // Não-nulos: o item foi conferido no laço de validação; a linha acabou de ser inserida.
-        const item = itemPorId.get(linha.itemId)!;
-        return [
-          {
-            documentoLinhaId: idDaLinhaPorOrdem.get(indice)!,
-            itemId: item.id,
-            quantidade: linha.quantidade,
-            categoriaId: item.categoriaVendaId!,
-          },
-        ];
-      });
-      if (linhasDeItem.length > 0) {
-        const itensParaEfeito = await carregarItensParaEfeito(
-          tx,
-          linhasDeItem.map((linha) => linha.itemId),
-        );
-        const areaPorCategoria = await areasDasCategorias(
-          tx,
-          linhasDeItem.map((linha) => linha.categoriaId),
-        );
-        const pedidos = pedidosDaVenda(linhasDeItem, itensParaEfeito, areaPorCategoria).map(
-          (pedido) => ({ ...pedido, documentoId: documento.id }),
-        );
-        await gravarMovimentacoes(tx, pedidos, { registradoPor: usuario.id });
+        return {
+          tipo: "livre" as const,
+          descricao: linha.descricao,
+          categoriaId: linha.categoriaId,
+          valorCentavos,
+        };
+      }),
+      parcelas: dados.parcelas.map((parcela) => ({
+        vencimento: parcela.vencimento,
+        valorCentavos: parcela.valorCentavos,
+        forma: parcela.forma,
+        pago: parcela.pago,
+      })),
+    };
+
+    const origem = dados.origem;
+    const { id, numero } = await db.transaction(async (tx) => {
+      if (!origem) {
+        return gravarVenda(tx, pedido, {
+          registradoPor: usuario.id,
+          taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+        });
       }
 
-      await tx.insert(parcelas).values(
-        dados.parcelas.map((parcela, indice) => {
-          // Parcela paga no cartão de VENDA congela a taxa da configuração no momento do
-          // pagamento (BRIEFING §5) — mudar a taxa em Cadastros depois não reescreve o passado.
-          // Só `taxaPontosBase` é gravado aqui, nunca os centavos: o valor líquido de verdade
-          // (`taxaEmCentavos`/`liquidoDaParcela`, lib/financeiro/taxa.ts) é calculado sempre que
-          // a parcela é LIDA (extrato, Mês) — se ele fosse gravado aqui, mudar a taxa depois
-          // reescreveria silenciosamente o passado.
-          const pagaNoCartao = parcela.pago && parcela.forma === "cartao";
-          return {
-            documentoId: documento.id,
-            numero: indice + 1,
-            vencimento: parcela.vencimento,
-            valorCentavos: parcela.valorCentavos,
-            forma: parcela.forma,
-            pagoEm: parcela.pago ? parcela.vencimento : null,
-            pagoPor: parcela.pago ? usuario.id : null,
-            taxaPontosBase: pagaNoCartao ? configuracao.taxaCartaoPontosBase : null,
-          };
-        }),
+      // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, D-01, D-04, Pitfall 8). A ordem de
+      // travas é COBRANÇA → documento novo → ITENS: `vincularCobranca` trava a cobrança
+      // (`for no key update`) e confere, sob a trava, que ela ainda está livre ANTES de `gravarVenda`
+      // — senão lança `RecusaDaAgenda` com a frase da tela e nada é gravado. O servidor SOBRESCREVE a
+      // pessoa, o cliente e a descrição da linha de origem (a PRIMEIRA linha com o item do sistema
+      // daquela cobrança) pelo que a cobrança diz: o que o navegador mandou nesses campos não vale.
+      const vinculo = await vincularCobranca(tx, origem);
+      const indiceDaOrigem = pedido.linhas.findIndex(
+        (linha) => linha.tipo === "item" && linha.itemId === vinculo.itemDoSistemaId,
       );
-
-      return { id: documento.id, numero: documento.numero };
+      if (indiceDaOrigem < 0) {
+        throw new RecusaDaAgenda(FRASE_LINHA_DA_AGENDA_FALTANDO);
+      }
+      const pedidoDaOrigem: PedidoDeVenda = {
+        ...pedido,
+        pessoaNome: vinculo.clienteNome,
+        clienteId: vinculo.clienteId,
+        linhas: pedido.linhas.map((linha, indice) =>
+          indice === indiceDaOrigem ? { ...linha, descricao: vinculo.descricao } : linha,
+        ),
+      };
+      const gravada = await gravarVenda(tx, pedidoDaOrigem, {
+        registradoPor: usuario.id,
+        taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+      });
+      // O vínculo cobrança → venda na MESMA transação (uma cobrança nunca vira duas vendas ativas).
+      await vinculo.gravar(gravada.id);
+      return gravada;
     });
 
     revalidatePath(rotaDeGestao("/estoque"));
     revalidatePath(rotaDeGestao("/"));
-    return { ok: true, dados: { id, numero } };
+    if (origem) {
+      revalidatePath(rotaDeGestao("/agenda"));
+    }
+    return { ok: true, dados: { id, numero, origem: origem ? textoDaOrigem(origem) : null } };
   } catch (erro) {
+    if (erro instanceof RecusaDaAgenda) {
+      return { ok: false, erro: erro.frase };
+    }
     if (ehViolacaoDeChaveEstrangeira(erro)) {
       return {
         ok: false,

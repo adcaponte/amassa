@@ -303,7 +303,7 @@ test.describe("estoque abas", () => {
     ).toHaveCount(0);
   });
 
-  test("(e) o Para onde foi tem sempre seis barras, com Vendido · pelo Financeiro, e a perda do teste pesa na barra dela", async ({
+  test("(e) o Para onde foi tem sempre sete barras (seis destinos — o uso livre da Agenda com zero até haver uso — e o Vendido), com Vendido · pelo Financeiro, e a perda do teste pesa na barra dela", async ({
     page,
   }) => {
     const nome = `[e2e] Argila da perda ${sufixoUnico()}`;
@@ -319,9 +319,9 @@ test.describe("estoque abas", () => {
     await expect(page.getByTestId("destino-periodo-30")).toHaveAttribute("aria-current", "true");
 
     const barras = page.getByTestId("destino-barra");
-    await expect(barras).toHaveCount(6);
+    await expect(barras).toHaveCount(7);
     await expect(barras.filter({ hasText: "Vendido · pelo Financeiro" })).toHaveCount(1);
-    for (let indice = 0; indice < 6; indice++) {
+    for (let indice = 0; indice < 7; indice++) {
       const grafico = barras.nth(indice).getByRole("img");
       await expect(grafico).toHaveCount(1);
       await expect(grafico).toHaveAttribute("aria-label", /: R\$\s[\d.,]+, \d+% do período$/);
@@ -346,7 +346,7 @@ test.describe("estoque abas", () => {
     await page.getByTestId("destino-periodo-90").click();
     await expect(page).toHaveURL(/periodo=90/);
     await expect(page.getByTestId("destino-periodo-90")).toHaveAttribute("aria-current", "true");
-    await expect(page.getByTestId("destino-barra")).toHaveCount(6);
+    await expect(page.getByTestId("destino-barra")).toHaveCount(7);
   });
 
   test("(f) com 51 entradas a mais, a pílula Entradas mostra 50 linhas e Mostrar mais 50 leva a no máximo 100", async ({
@@ -445,7 +445,7 @@ test.describe("estoque abas", () => {
     expect(await semRolagemHorizontal()).toBe(true);
 
     await page.goto("/gestao/estoque?aba=destino");
-    await expect(page.getByTestId("destino-barra")).toHaveCount(6);
+    await expect(page.getByTestId("destino-barra")).toHaveCount(7);
     expect(await semRolagemHorizontal()).toBe(true);
   });
 

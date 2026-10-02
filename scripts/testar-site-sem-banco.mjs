@@ -9,9 +9,13 @@
 // rodar sozinho ou lado a lado com os outros sem disputar porta.
 //
 // NÃO é encadeado em `npm run verificar`: aquele alvo já paga o custo de Docker uma vez com
-// `test:migracoes`, e somar uma build inteira do Next a cada plano da fase encareceria tudo
-// sem necessidade. Este alvo roda aqui (Tarefa 3 do plano 04.6-03) e de novo no plano 08,
-// quando a fase inteira for revalidada de ponta a ponta.
+// `test:migracoes`, e somar uma build inteira do Next a cada plano encareceria tudo sem
+// necessidade. Roda à mão quando a raiz muda e no portão de cada fase que mexe no site.
+//
+// Fase 5, plano 15: a seção `#agenda` passou a ler a agenda pública (ISR). A etapa 5 agora também
+// afirma que, com o Postgres parado, a seção mostra o estado da 04.6 — a frase de aviso
+// `CONTEUDO_SITE.agAviso` (o banco efêmero não tem evento público; e, se a leitura falhar, o
+// try/catch de `AgendaPublica` cai no mesmo estado).
 
 import { execFileSync, execSync, spawn } from "node:child_process";
 import { setTimeout as esperar } from "node:timers/promises";
@@ -24,6 +28,7 @@ const BANCO = "amassa_teste";
 const BANCO_DE_PRODUCAO = "amassa";
 const PORTA_APP = 3100;
 const TITULO_DO_SITE = "AMASSA CERRADO";
+const FRASE_SEM_AGENDA = "O calendário com as datas e vagas entra aqui em breve.";
 
 function afirmar(condicao, mensagem) {
   if (!condicao) {
@@ -191,6 +196,11 @@ async function main() {
     afirmar(
       corpoSemBanco.includes(TITULO_DO_SITE),
       `Etapa 5: o corpo da resposta não contém o título do site com o Postgres parado.`,
+    );
+    afirmar(
+      corpoSemBanco.includes(FRASE_SEM_AGENDA),
+      "Etapa 5: com o Postgres parado, a seção de aulas deveria mostrar o estado da 04.6 " +
+        `("${FRASE_SEM_AGENDA}") — a queda de AgendaPublica não aconteceu.`,
     );
     afirmar(
       corpoSemBanco === corpoComBanco,

@@ -241,6 +241,8 @@ export async function gravarMovimentacoes(
         documentoId: pedido.documentoId ?? null,
         documentoLinhaId: pedido.documentoLinhaId ?? null,
         encomendaId: pedido.encomendaId ?? null,
+        // D-06: o vínculo ao uso livre (só no destino `uso_livre`, posto por `pedidoDeSaidaManual`).
+        usoLivreId: pedido.usoLivreId ?? null,
         materialDaOrdem: pedido.materialDaOrdem ?? null,
         nota: pedido.nota ?? null,
         estornoDeId: pedido.estornoDeId ?? null,

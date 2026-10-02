@@ -21,6 +21,30 @@ export function hojeEmBrasilia(agora: Date): string {
   }).format(agora);
 }
 
+// O "agora" do ateliê: a data civil e os minutos do dia (0..1439) em Brasília, no mesmo molde de
+// `hojeEmBrasilia` — o instante chega por argumento (a página ou a ação passa `new Date()`; o teste,
+// um instante fixo). `hourCycle: "h23"` garante "00" à meia-noite (com `hour12: false` sozinho alguns
+// motores escrevem "24").
+export function agoraEmBrasilia(agora: Date): { data: string; minutos: number } {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(agora);
+  const parte = (tipo: Intl.DateTimeFormatPartTypes): string =>
+    partes.find((p) => p.type === tipo)?.value ?? "";
+  const horas = Number(parte("hour")) % 24;
+  const minutos = Number(parte("minute"));
+  return {
+    data: `${parte("year")}-${parte("month")}-${parte("day")}`,
+    minutos: horas * 60 + minutos,
+  };
+}
+
 function partesDeData(dataIso: string): { ano: number; mes: number; dia: number } {
   const [ano, mes, dia] = dataIso.split("-").map(Number);
   return { ano, mes, dia };

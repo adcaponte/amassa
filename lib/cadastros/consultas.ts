@@ -149,6 +149,10 @@ export type ItemDoCatalogoCompleto = {
   ativo: boolean;
   movimentacoes: number;
   saldoMilesimos: number;
+  // Fase 5 (D-17): a chave dos três itens que a Agenda acha por código ("mensalidade",
+  // "inscricao_oficina", "uso_livre_hora"), ou `null` para todo item cadastrado pelo dono. A tela
+  // usa para o chip "do sistema" e para não oferecer "Desativar" nem "Aparece na Venda".
+  chaveDoSistema: string | null;
 };
 
 // TODOS os itens do catálogo, com a categoria de venda/compra (nome, área, ativa — mesmo com a
@@ -167,6 +171,7 @@ export async function listarCatalogoCompleto(): Promise<ItemDoCatalogoCompleto[]
         id: itensCatalogo.id,
         nome: itensCatalogo.nome,
         ativo: itensCatalogo.ativo,
+        chaveDoSistema: itensCatalogo.chaveDoSistema,
         precoVendaCentavos: itensCatalogo.precoVendaCentavos,
         aparecenaVenda: itensCatalogo.aparecenaVenda,
         atalhoVenda: itensCatalogo.atalhoVenda,
@@ -269,6 +274,7 @@ export async function listarCatalogoCompleto(): Promise<ItemDoCatalogoCompleto[]
       ativo: item.ativo,
       movimentacoes: livroPorItem.get(item.id)?.movimentacoes ?? 0,
       saldoMilesimos: livroPorItem.get(item.id)?.saldoMilesimos ?? 0,
+      chaveDoSistema: item.chaveDoSistema,
     };
   });
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 
+import { cobrancaParaVenda, type CobrancaParaVenda } from "@/lib/agenda/consultas";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { abaDaUrl, formaDaUrl, mesDaUrl } from "@/lib/financeiro/abas";
+import { abaDaUrl, formaDaUrl, mesDaUrl, origemDaUrl, textoDaOrigem } from "@/lib/financeiro/abas";
 import { avisoDaUrl } from "@/lib/financeiro/avisos";
 import {
   listarCatalogoDaCompra,
@@ -60,6 +61,7 @@ import { TOAST_PECA_SALVA } from "@/lib/precificacao/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
+import { OrigemIndisponivel } from "@/components/amassa/financeiro/faixa-da-agenda";
 import { ListasCaixa } from "@/components/amassa/financeiro/listas-caixa";
 import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelMes } from "@/components/amassa/financeiro/painel-mes";
@@ -107,6 +109,7 @@ export default async function PaginaFinanceiro({
     peca?: string;
     exclusivas?: string;
     orcamento?: string;
+    origem?: string | string[];
   }>;
 }) {
   await exigirUsuario();
@@ -123,6 +126,7 @@ export default async function PaginaFinanceiro({
     peca,
     exclusivas,
     orcamento,
+    origem,
   } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
@@ -172,6 +176,18 @@ export default async function PaginaFinanceiro({
   const formaDoExtrato = formaDaUrl(forma);
 
   const avisoResolvido = avisoDaUrl({ aviso, documento, parcela });
+
+  // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa, UI-D26): com
+  // `?origem=` na aba Venda, a cobrança é resolvida AQUI, no servidor — cliente, linhas, vencimento e
+  // descrição vêm do banco, nunca da URL. Origem mal formada conta como não achada (nunca um carrinho
+  // com dado inventado); a cobrança que já virou venda mostra o número e o caminho do Caixa.
+  const origemDaVenda = abaVenda ? origemDaUrl(origem) : null;
+  const pediuOrigem = abaVenda && origem !== undefined && origem !== "";
+  const cobrancaDaOrigem: Promise<CobrancaParaVenda | null> = !pediuOrigem
+    ? Promise.resolve(null)
+    : origemDaVenda
+      ? cobrancaParaVenda(origemDaVenda)
+      : Promise.resolve({ situacao: "nao_achada" });
 
   // Uma leitura por lista, nunca uma consulta a mais que a aba atual precisa (mesma disciplina de
   // `app/(app)/abertura/page.tsx`). O valor livre aceita categoria de Receitas OU Fora do
@@ -247,6 +263,7 @@ export default async function PaginaFinanceiro({
     // `listarCategoriasDeVenda`).
     contextoDeFicha ? listarFichasParaCopiar() : Promise.resolve([]),
   ]);
+  const vendaDaAgenda = await cobrancaDaOrigem;
 
   // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
   // desfazer não oferece desfazer de novo — o `key_link` do plano). A diferença (D-01) só entra
@@ -480,8 +497,13 @@ export default async function PaginaFinanceiro({
             </p>
           ) : null}
         </>
+      ) : vendaDaAgenda && vendaDaAgenda.situacao !== "livre" ? (
+        <OrigemIndisponivel numeroDaVenda={vendaDaAgenda.situacao === "ja_lancada" ? vendaDaAgenda.numero : null} />
       ) : (
         <PainelVenda
+          // A `key` separa a Venda manual da Venda da Agenda (e uma origem da outra): o painel monta de novo
+          // e começa do carrinho certo, nunca do estado da tela anterior.
+          key={vendaDaAgenda && origemDaVenda ? textoDaOrigem(origemDaVenda) : "manual"}
           hoje={hoje}
           categorias={categoriasParaValorLivre}
           catalogo={catalogo}
@@ -491,6 +513,20 @@ export default async function PaginaFinanceiro({
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
           }}
+          origem={
+            vendaDaAgenda && origemDaVenda
+              ? {
+                  origem: textoDaOrigem(origemDaVenda),
+                  descricao: vendaDaAgenda.descricao,
+                  nome: vendaDaAgenda.clienteNome,
+                  vencimento: vendaDaAgenda.vencimento,
+                  itemDoSistemaId: vendaDaAgenda.itemDoSistemaId,
+                }
+              : null
+          }
+          rascunhoInicial={
+            vendaDaAgenda ? { pessoa: vendaDaAgenda.clienteNome, linhas: vendaDaAgenda.linhas } : null
+          }
         />
       )}
     </>
