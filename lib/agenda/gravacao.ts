@@ -45,6 +45,7 @@ import { formatarDiaMes } from "@/lib/producao/calendario";
 
 import {
   FRASE_ORIGEM_NAO_ACHADA,
+  fraseDesativarComVendaAtiva,
   fraseMaterialDesativadoNoUso,
   fraseMaterialPerdeuPreco,
   fraseOrigemJaLancada,
@@ -443,6 +444,14 @@ export async function contarPerdasAoDesativar(
 // primeiro (`for update` — vão ser apagadas; a ordem TURMA → EVENTO → INSCRIÇÃO): quem estava
 // colocando alguém numa delas termina antes, e a inscrição dele sai junto; quem chega depois acha a
 // data apagada. Hoje e o passado ficam como estão. Devolve quantas datas saíram.
+//
+// WR-01 (revisão da Fase 5): "Recebi agora" e "Lançar na Venda" numa experimental cobrada destas datas
+// travam só a INSCRIÇÃO — nunca a turma nem o evento —, então a conferência de venda ativa feita sob a
+// trava da turma não basta: a venda pode nascer entre ela e o `delete`, que esperaria a trava da
+// inscrição e a apagaria mesmo assim (D-08 quebrada, venda órfã). Por isso as inscrições também são
+// TRAVADAS (`for update`, em ordem de id) e a venda ativa é conferida DE NOVO numa instrução nova, depois
+// dessa trava — quem estava lançando já confirmou e aparece; quem chega depois espera o fim desta
+// transação e não acha mais a inscrição. Venda ativa achada → `RecusaDaAgenda`, nada apagado.
 export async function tirarDatasFuturasDaTurma(
   tx: TransacaoDoBanco,
   turmaId: string,
@@ -457,6 +466,16 @@ export async function tirarDatasFuturasDaTurma(
     return 0;
   }
   const ids = futuras.map((linha) => linha.id);
+  await tx
+    .select({ id: inscricoes.id })
+    .from(inscricoes)
+    .where(inArray(inscricoes.eventoId, ids))
+    .orderBy(asc(inscricoes.id))
+    .for("update");
+  const venda = await vendaAtivaEmDataFutura(tx, turmaId, hoje);
+  if (venda !== null) {
+    throw new RecusaDaAgenda(fraseDesativarComVendaAtiva(formatarDiaMes(venda.data), venda.numero));
+  }
   await tx.delete(inscricoes).where(inArray(inscricoes.eventoId, ids));
   await tx.delete(eventos).where(and(inArray(eventos.id, ids), eq(eventos.turmaId, turmaId), gt(eventos.data, hoje)));
   return ids.length;

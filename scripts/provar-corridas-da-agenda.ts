@@ -18,8 +18,11 @@ import { Client } from "pg";
 import { db, pool } from "@/db";
 import {
   RecusaDaAgenda,
+  tirarDatasFuturasDaTurma,
   travarCobranca,
   travarInscricaoComVenda,
+  travarTurma,
+  vendaAtivaEmDataFutura,
   vincularCobranca,
   type ReferenciaDaCobranca,
   type TransacaoDoBanco,
@@ -303,6 +306,55 @@ async function provarTirarDaListaVeAVenda(conexao: Client, observador: Client): 
   );
 }
 
+// WR-01 — "Desativar turma" sobreposto a um lançamento de uma experimental cobrada numa data FUTURA da
+// turma: a desativação conferiu "nenhuma venda ativa" sob a trava da TURMA, mas o lançamento só trava a
+// INSCRIÇÃO. Ela tem de recusar (D-08) — nunca apagar a inscrição que acabou de virar venda.
+async function provarDesativarNaoApagaVendaNova(conexao: Client, observador: Client): Promise<void> {
+  console.log("    WR-01: “Desativar turma” × lançamento sobreposto numa data futura...");
+  const hoje = hojeEmBrasilia();
+  const clienteId = await semearCliente(conexao, "[prova] Corrida da desativação");
+  const { turmaId, eventoIds } = await semearTurma(conexao, "[prova] Turma da desativação", [somarDias(hoje, 14)]);
+  const inscricao = await conexao.query<{ id: string }>(
+    `insert into inscricoes (evento_id, cliente_id, tipo, cobrar, valor_centavos)
+     values ($1, $2, 'experimental', true, 6000) returning id`,
+    [eventoIds[0], clienteId],
+  );
+  const origem: ReferenciaDaCobranca = { tipo: "inscricao", id: inscricao.rows[0].id };
+  const categoriaId = await categoriaDoItem(conexao, "inscricao_oficina");
+
+  const primeira = await primeiraTravaEPara(origem, categoriaId, 6000);
+  // A metade de banco de `desativarTurma` (lib/agenda/acoes.ts), na mesma ordem.
+  const desativacao = semRejeicaoSolta(
+    db.transaction(async (tx) => {
+      const turma = await travarTurma(tx, turmaId);
+      afirmar(turma, "WR-01: a turma de prova sumiu.");
+      const antes = await vendaAtivaEmDataFutura(tx, turmaId, hoje);
+      afirmar(antes === null, "WR-01: antes do lançamento confirmar, não há venda ativa — a prova montou errado.");
+      return tirarDatasFuturasDaTurma(tx, turmaId, hoje);
+    }),
+  );
+  await esperarAlguemNaTrava(observador, "WR-01 (desativar)");
+  primeira.soltar();
+  const [resultadoDaPrimeira, resultadoDaDesativacao] = await Promise.all([primeira.desfecho, desativacao]);
+  afirmar(resultadoDaPrimeira.ok, "WR-01: o lançamento da experimental deveria gravar.");
+  afirmar(
+    !resultadoDaDesativacao.ok && resultadoDaDesativacao.erro instanceof RecusaDaAgenda,
+    "WR-01: a desativação sobreposta deveria ser RECUSADA (a inscrição virou venda) — ela apagou as datas.",
+  );
+  afirmar(
+    resultadoDaDesativacao.erro.frase.includes(`nº ${resultadoDaPrimeira.valor.numero}`),
+    `WR-01: a recusa deveria citar a venda nº ${resultadoDaPrimeira.valor.numero}, disse “${resultadoDaDesativacao.erro.frase}”.`,
+  );
+  const ficou = await conexao.query<{ documento_id: string | null }>(
+    "select documento_id from inscricoes where id = $1",
+    [origem.id],
+  );
+  afirmar(
+    ficou.rows[0]?.documento_id === resultadoDaPrimeira.valor.id,
+    "WR-01: a inscrição ligada à venda ativa deveria continuar na agenda.",
+  );
+}
+
 async function faxina(conexao: Client): Promise<void> {
   try {
     await conexao.query("begin");
@@ -358,6 +410,7 @@ async function main(): Promise<void> {
     await provarDuasVendasNaMesmaMensalidade(conexao, observador);
     await provarRelancamentoVistoPeloRecebiAgora(conexao, observador);
     await provarTirarDaListaVeAVenda(conexao, observador);
+    await provarDesativarNaoApagaVendaNova(conexao, observador);
     console.log("  Corridas da Agenda: todas as afirmações passaram.");
     codigo = 0;
   } catch (erro) {
