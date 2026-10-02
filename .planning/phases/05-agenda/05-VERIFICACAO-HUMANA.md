@@ -3,14 +3,14 @@ phase: 05-agenda
 plan: 16
 status: awaiting-owner
 started: 2026-10-02
-updated: 2026-10-02
+updated: 2026-10-02  # Parte 0 respondida pelo dono em 02/10/2026
 ---
 
 # Verificação Humana — Fase 5: Agenda
 
 **Gerado por:** execução do plano `05-16-PLAN.md`, Tarefa 1, em 02/10/2026 — com você fora.
 
-**Status (02/10/2026): aguardando você.** Nada da Fase 5 está no ar. O código inteiro mora no branch
+**Status (02/10/2026): aguardando você** — *Parte 0 respondida em 02/10/2026 (ver o quadro no topo da Parte 0); falta o Roteiro 17 e a Parte 2.* Nada da Fase 5 está no ar. O código inteiro mora no branch
 local `gsd/phase-05-agenda`, **não publicado**; a migração `0026_agenda.sql` (só acrescenta: oito
 tabelas, três colunas vazias, um valor de enum, a semente de três itens do Catálogo) está escrita e
 provada no Postgres de teste, mas **não aplicada** em lugar nenhum; nenhum requisito AGE foi marcado
@@ -49,6 +49,10 @@ documento também. Use nomes inventados com "[teste]" na frente.
 
 ## Parte 0 — Antes do servidor: as decisões tomadas sem você
 
+> **Respostas do dono à Parte 0 — 02/10/2026, no chat, por formulário (registradas aqui pelo executor do 05-16):**
+> §0.1: o número real do WhatsApp é **`5562994817661`** — trocado no branch em `6dc5417`. §0.2 (a–u): **fica tudo**. §0.3, §0.5 (as seis UI-D e as outras) e §0.6: **fica tudo**, nenhuma troca de interface. §0.7 (as decisões de cada plano, "para você saber") não foi perguntada no formulário.
+> Única mudança no código por causa da Parte 0: o número (`6dc5417`); `npm run verificar` saiu 0 depois dela, antes de qualquer passo do Roteiro 17.
+
 **Nenhuma delas guarda dinheiro fora da Venda, apaga venda ou movimentação, ou bloqueia lista cheia**
 — essas eram proibições escritas nos planos, e nenhum executor as quebrou. Mesmo assim, várias mudam
 quanto se cobra, de quem e quando; estão primeiro. Onde diz **"Fica"**, marque; onde quiser trocar,
@@ -66,8 +70,8 @@ número que não é seu não chega a ninguém.
 
 - **Como trocar:** me diga o número (só dígitos, com 55 e DDD, ex.: `5562912345678`); é uma linha em
   `conteudo/site.ts`, sem migração, e os testes do site leem a constante.
-- [ ] **CONTEUDO_SITE.zap — o número real é:**
-  - **Resultado:**
+- [x] **CONTEUDO_SITE.zap — o número real é:**
+  - **Resultado:** `5562994817661` — dono, 02/10/2026, no chat (formulário). Trocado no branch em `6dc5417` (a constante, o comentário, e os testes do site passaram a conferir o link `wa.me` contra ela); `npm run verificar` verde e `npm run test:e2e -- --grep "site"` 108 passed.
 
 ### 0.2 As decisões que mudam quanto se cobra, de quem e quando
 
@@ -80,7 +84,7 @@ número que não é seu não chega a ninguém.
   entrar (cheia se há aula, proporcional se faltam aulas, nenhuma se não sobra aula). **Como desfazer:**
   trocar `a.entrou_em <` por `a.entrou_em <=` em `garantirMensalidadesDoMes` (`lib/agenda/gravacao.ts`)
   — e o e2e `agenda entrar na turma` (b) passa a falhar num dia 1.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(b) Quem tem aula a repor também aparece em "qualquer pessoa" — e numa oficina pode entrar
   pagando** (plano 05-08, desvio 8, pedido pelo orquestrador). O plano dizia "quem está nos dois grupos
   aparece só no primeiro" — e aí quem tinha crédito só podia entrar numa oficina **como reposição, sem
@@ -89,30 +93,30 @@ número que não é seu não chega a ninguém.
   como reposição e gasta o crédito; escolhida no grupo de baixo, entra paga pelo preço do evento, e o
   crédito fica. **Como desfazer:** tirar quem tem saldo do grupo do contexto em `gruposDoSeletor`
   (`lib/agenda/seletor.ts`) e em `pessoasParaData` (`lib/agenda/consultas.ts`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(c) Lançar de novo uma cobrança cuja venda foi cancelada re-aponta o vínculo para a venda nova**
   (05-11, decisão 5). A cancelada continua no Caixa, riscada, mas a mensalidade (ou inscrição, ou uso)
   passa a apontar só a nova — não há histórico de vínculos. A D-08 diz que a cobrança "pode ser lançada
   de novo" e não pede histórico. **Como desfazer:** exige uma tabela de vínculos — migração nova,
   decisão sua; barato antes do Passo 5, caro depois.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(d) Na Venda que vem da Agenda, o valor (e a quantidade) da linha continuam editáveis** (05-12,
   decisão 1; UI-D26 da UI-SPEC). Pessoa, cliente e descrição o servidor sobrescreve sob a trava; o
   valor inicial vem do banco e o navegador nunca o manda — mas você pode mudá-lo na tela, como um
   desconto. **Como desfazer (se a regra for "valor fixo"):** desabilitar o campo "cada" da linha de
   origem (`fixa` em `components/amassa/financeiro/linha-carrinho.tsx`) e fazer `lancarVenda` recusar
   quando o valor difere do da cobrança.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(e) Entrar numa turma sem nenhuma aula restante no mês não cria mensalidade daquele mês** — ela
   começa no mês seguinte (planejamento, as bordas do AGE-07; contra a Assumption A7 da pesquisa).
   **Como desfazer:** em `lib/agenda/mensalidade.ts`, fazer o "nenhuma" virar "cheia".
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(f) Quem estava na turma no dia 1 e saiu depois fica com a mensalidade do mês** (planejamento; a
   leitura de "aluno ativo na abertura" do AGE-16). Ela nasce no dia 1 e não some quando a pessoa sai —
   dispense em "A receber" se não for cobrar. A confirmação de "Tirar da turma" avisa isso. **Como
   desfazer:** em `sairDaTurma` (`lib/agenda/acoes.ts`), dispensar sozinha a mensalidade do mês ainda
   sem venda.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(g) Abrir a Agenda faz nascer as mensalidades do mês de todos os alunos** (05-07 e 05-11, decisão
   1). Abrir a ficha de qualquer pessoa, "A receber", o Início — e, desde o 05-11, **qualquer carga de
   `/gestao/agenda`**, por causa do contador "A receber · {N}" da aba — cria as mensalidades do mês de
@@ -120,67 +124,67 @@ número que não é seu não chega a ninguém.
   um efeito colateral; sem isso o contador mostraria menos do que a lista. **Como desfazer:** tirar a
   chamada de `AbasComContagem` em `app/gestao/(app)/agenda/page.tsx` (o contador volta a ficar menor
   até alguém abrir "A receber").
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(h) O lote faz uma venda por mensalidade** (planejamento, A6), e uma mensalidade dispensada no meio
   do lote (corrida) conta em "já estavam lançadas" (05-12, decisão 5). **Como desfazer:**
   `lancarMensalidadesEmLote` (`lib/agenda/acoes.ts`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(i) Oficina de preço R$ 0 é aceita e nunca entra em "A receber"** (planejamento, item 4). **Como
   desfazer:** recusar `preco < 1` em `esquemaLancarAvulsa` (`lib/agenda/esquemas.ts`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(j) A aula experimental que falta pode ganhar "direito a repor"** (planejamento, item 3; o check
   `inscricoes_direito_so_com_falta` da `0026` aceita `aluno` e `experimental`). **Como desfazer:** trocar
   `in ('aluno','experimental')` por `= 'aluno'` na `0026`, em `db/schema.ts` e no snapshot — **só antes do
   Passo 5**.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(k) Experimental "Cobrar" com R$ 0,00 é recusada** ("Diga o valor — por exemplo, 40 ou 37,50."). Quem
   não paga é "Gratuita"; uma cobrança de zero iria para "A receber" sem nada a receber (05-08, decisão
   2). **Como desfazer:** `convertido.centavos < 1` em `esquemaColocarNaData` e em `colocar-alguem.tsx`.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(l) Mensalidade proporcional que arredondaria a 0 centavo não nasce** (só com mensalidade de 1 ou 2
   centavos; 05-07, decisão 2). **Como desfazer:** `valorProporcional` em `lib/agenda/mensalidade.ts`.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(m) No uso livre, a linha de material nasce em "Incluso"** — nem a UI-SPEC nem o BRIEFING davam
   padrão; cobrar por descuido é pior que esquecer de cobrar, e cobrar custa um toque (05-10, decisão 1).
   **Como desfazer:** `useState(false)` de `cobrar` em `LinhaDeAcrescentar`
   (`components/amassa/agenda/material-do-uso-livre.tsx`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(n) A saída prevista do uso livre conta da chegada REAL** quando já houve "Chegou" (chegou 15:20 com
   2 h previstas → 17:20), nunca passa de 23:59 (05-09, decisão 2). Muda a hora cheia sugerida e, com
   ela, o valor. **Como desfazer:** `saidaPrevista(linha.chegadaPrevista, …)` em `usoLivreDaSemana` e
   `obterUsoLivre` (`lib/agenda/consultas.ts`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(o) Desativar uma turma APAGA as datas futuras dela e as inscrições dessas datas** (planejamento,
   A14), e recusa se alguma dessas datas já virou venda ativa. As datas de hoje para trás ficam. O
   executor travou as datas antes de apagar (05-06, desvio 1), para um "Colocar na lista" ao mesmo tempo
   não deixar inscrição órfã. **Como desfazer:** marcar as datas futuras como canceladas em vez de apagar
   (`tirarDatasFuturasDaTurma`, `lib/agenda/gravacao.ts`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(p) Editar horário, vagas ou "no site" de uma turma vale de amanhã em diante** (planejamento, A9);
   as datas de hoje para trás guardam o que eram. **Como desfazer:** `editarTurma` (`lib/agenda/acoes.ts`).
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(q) Sair da turma não apaga a inscrição futura que já tem presença marcada** (05-07, desvio 2): uma
   falta avisada antes ("faltou" numa data futura) carrega o direito a repor, e a proibição do plano diz
   que sair nunca apaga falta nem reposição. **Como desfazer:** tirar o `i.presenca is null` do `delete`
   em `tirarAlunoDasDatasFuturas`.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(r) A reposição também vale numa data de oficina** (planejamento, item 16, como o protótipo). **Como
   desfazer:** recusar reposição fora de data de turma em `colocarNaData`.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(s) Saldo de reposição "excedido" aparece como 0, sem aviso** — acontece quando o direito é
   desmarcado depois de a reposição ser usada, ou quando uma data cancelada com reposição é
   descancelada (05-08, decisão 3). O campo `excedido` já vem do módulo puro, se quiser um aviso.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(t) As etiquetas de pagamento** (05-13, decisões 3, 4 e 5): o "{n} a receber" do cartão conta também
   a inscrição de venda cancelada (D-08) e a experimental cobrada; a mensalidade não entra (é do aluno,
   não da data); na data de turma, o aluno mostra a etiqueta da mensalidade **do mês da data**; numa data
   cancelada, "a receber"/"venda cancelada" somem (a inscrição saiu de "A receber"), "pago" e "lançado na
   Venda" ficam. **Como desfazer:** `aReceberPorEvento`, `obterEvento` e `saiDeAReceberAoCancelar`.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **(u) "Dispensadas" não lista a inscrição de data cancelada** — desfazer a dispensa não a traria de
   volta a "A receber" (05-13, decisão 2). **Como desfazer:** tirar `isNull(eventos.canceladoEm)` em
   `lerDispensadas`.
-  - [ ] **Fica** — **Resultado:**
+  - [x] **Fica** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 
 ### 0.3 O modelo de dados — custoso de trocar depois do Passo 5
 
@@ -213,8 +217,8 @@ apagando a `0026` e o snapshot e gerando de novo; **depois, só com migração n
   nunca mais está vazio (os três itens do sistema), então a tela "Nada no catálogo ainda." deixa de ser
   alcançável.
 
-- [ ] **0.3 inteira — Fica** (ou diga qual troca)
-  - **Resultado:**
+- [x] **0.3 inteira — Fica** (ou diga qual troca)
+  - **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 
 ### 0.4 O que só produção sabe — conferido no Roteiro, não aqui
 
@@ -237,36 +241,36 @@ foram decididas sem você:
   aula", "Reservar uso livre", "Fechar o dia". Por quê: "Lançar" com a pílula errada marcada é o engano
   mais provável. **Como desfazer:** um rótulo só em `folha-lancar.tsx` (os rótulos estão em
   `lib/agenda/textos.ts`).
-  - [ ] **UI-D9** — **Resultado:**
+  - [x] **UI-D9** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **UI-D10 — Campo "Primeira aula a partir de" na turma fixa** (padrão hoje). Por quê: uma turma lançada
   em outubro para começar em dezembro marcaria oito semanas vazias de outubro e novembro. **Como
   desfazer:** tirar o campo de `components/amassa/agenda/campos-turma.tsx` (sempre a partir de hoje).
-  - [ ] **UI-D10** — **Resultado:**
+  - [x] **UI-D10** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **UI-D13 — Confirmação para cancelar reserva, tirar bloqueio, tirar da lista, tirar material, sair da
   turma e desativar turma — e para cancelar uma data SÓ quando apaga presença ou tira inscrição de "A
   receber"**; senão a data cancela direto, com "Desfazer" no toast. Por quê: a regra do projeto (toda
   remoção pede confirmação e diz o que se perde) sem quebrar o "cancela com um toque" da D-13. **Como
   desfazer:** os `confirmar-*.tsx` de `components/amassa/agenda/`.
-  - [ ] **UI-D13** — **Resultado:**
+  - [x] **UI-D13** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **UI-D14 — Com venda ativa, "tirar da lista" nem aparece;** no lugar, a frase da D-08 com "ver no
   Caixa". Por quê: um botão que só existe para ser recusado é um toque perdido (o servidor continua
   recusando, se dois celulares disputarem). **Como desfazer:** `linha-inscrito.tsx`.
-  - [ ] **UI-D14** — **Resultado:**
+  - [x] **UI-D14** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **UI-D17 — No site, o alternador "Próximas · Calendário"** com o visual do site da 04.6 (cartão com
   borda de tipo, grade, legenda; calendário e lista lado a lado a partir de 880px). **Como desfazer:**
   `components/site/agenda-publica.tsx` (só a grade, como o protótipo do site).
-  - [ ] **UI-D17** — **Resultado:**
+  - [x] **UI-D17** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 - **UI-D19 — No Início, a Agenda de hoje mostra até 6 linhas**, cada uma abre a folha do evento (do
   Início à presença em 2 toques), com as cores de tipo da Agenda e "{n} de {vagas} inscritos". **Como
   desfazer:** `LINHAS_DA_AGENDA_DE_HOJE` em `lib/agenda/consultas.ts` e
   `components/amassa/inicio/bloco-agenda-de-hoje.tsx`.
-  - [ ] **UI-D19** — **Resultado:**
+  - [x] **UI-D19** — **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 
 As outras escolhas (UI-D1..UI-D3, UI-D8, UI-D11, UI-D12, UI-D15, UI-D16, UI-D18, UI-D20..UI-D26) estão na
 tabela do UI-SPEC, com a alternativa descartada ao lado.
 
-- [ ] **Quero trocar alguma das outras UI-D:**
-  - **Resultado:**
+- [x] **Quero trocar alguma das outras UI-D:**
+  - **Resultado:** nenhuma troca — dono, 02/10/2026, no chat (formulário)
 
 ### 0.6 O site público — o que vai ao ar
 
@@ -283,8 +287,8 @@ tabela do UI-SPEC, com a alternativa descartada ao lado.
 - **Sem JavaScript, o alternador aparece mas não troca** — o HTML já traz "Próximas" inteira (05-15,
   decisão 6). *Desfazer:* esconder o `tablist` até a hidratação.
 
-- [ ] **0.6 inteira — Fica**
-  - **Resultado:**
+- [x] **0.6 inteira — Fica**
+  - **Resultado:** Fica — dono, 02/10/2026, no chat (formulário)
 
 ### 0.7 As decisões de cada plano da execução — para você saber
 
