@@ -9,6 +9,8 @@ import { z } from "zod";
 
 import {
   FRASE_AREA_INVALIDA,
+  FRASE_FALHA_AO_SALVAR,
+  FRASE_FICHA_NAO_EXISTE,
   FRASE_NOME_LONGO,
   FRASE_NOME_VAZIO,
   FRASE_OBSERVACOES_LONGAS,
@@ -85,3 +87,20 @@ export type FornecedorValidado = z.infer<typeof esquemaFornecedor>;
 
 // As chaves do formulário — o plano 02 usa para pôr o erro embaixo do campo certo.
 export type CampoDoFornecedor = keyof z.input<typeof esquemaFornecedor>;
+
+// ——— Manter o cadastro (plano 06.2-04): editar, desativar e reativar. ———
+
+// O id que a tela manda (o da ficha aberta). Um id que não é uuid só chega por envio forjado ou
+// link velho — a frase é a mesma da ficha de id ruim.
+const campoId = z.uuid({ error: FRASE_FICHA_NAO_EXISTE });
+
+// Editar = os MESMOS campos e tetos do cadastrar, mais o id. Nada de `ativo` aqui: editar um
+// desativado grava e ele continua desativado (reativar é outro botão — UI E6).
+export const esquemaEditarFornecedor = esquemaFornecedor.extend({ id: campoId });
+
+// O ESTADO DESEJADO, nunca "inverter": desativar duas vezes (duas abas) grava `false` duas vezes e
+// responde `ok` nas duas — idempotente (FRN-03).
+export const esquemaAtivoDoFornecedor = z.object({
+  id: campoId,
+  ativo: z.boolean({ error: FRASE_FALHA_AO_SALVAR }),
+});

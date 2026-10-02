@@ -117,3 +117,14 @@ export async function contarFornecedoresComNome(nome: string): Promise<number> {
     return Number(rows[0]?.total ?? 0);
   });
 }
+
+// O `ativo` de um fornecedor no banco (plano 06.2-04) — `null` se a linha NÃO existe. Desativar nunca
+// apaga (FRN-03): depois de desativar, o teste espera `false`, nunca `null`.
+export async function ativoNoBanco(id: string): Promise<boolean | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ ativo: boolean }>("select ativo from fornecedores where id = $1", [
+      id,
+    ]);
+    return rows[0]?.ativo ?? null;
+  });
+}

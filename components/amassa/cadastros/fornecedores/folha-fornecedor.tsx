@@ -153,7 +153,7 @@ const CLASSE_DO_CAMPO = "text-corpo md:text-corpo min-h-[44px]";
 const CLASSE_DO_ROTULO = "text-apoio text-tinta font-semibold";
 
 export type FolhaFornecedorProps = {
-  // "novo" = "Novo fornecedor"; "editar" = "Editar fornecedor" (o plano 04 passa `inicial` e `acao`).
+  // "novo" = "Novo fornecedor"; "editar" = "Editar fornecedor" (`AcoesDaFicha`, plano 04, passa `inicial` e `acao` = `editarFornecedor`).
   modo: "novo" | "editar";
   inicial?: ValoresDoFornecedor;
   // "Cadastrar um agora" (plano 03) abre a folha com o Nome = o texto da busca.

@@ -35,7 +35,7 @@ export function fraseTextoLongo(rotulo: string, teto: number): string {
 export const TITULO_LISTA = "Quem vende para a gente";
 export const ROTULO_NOVO_FORNECEDOR = "Novo fornecedor";
 
-// Folha "Novo fornecedor" / "Editar fornecedor" (o modo editar é do plano 04).
+// Folha "Novo fornecedor" / "Editar fornecedor" (o modo editar abre pela ficha — plano 04).
 export const TITULO_FOLHA_NOVO = "Novo fornecedor";
 export const TITULO_FOLHA_EDITAR = "Editar fornecedor";
 export const DICA_FOLHA = "Só o nome é obrigatório.";
@@ -161,3 +161,41 @@ export function toastNaoDeuParaCopiar(valor: string): string {
 
 // Observações (o título da seção é o ROTULO_OBSERVACOES, em caixa alta pelo CSS).
 export const FRASE_SEM_OBSERVACAO = "Nenhuma observação ainda.";
+
+// ——— Manter o cadastro (plano 06.2-04). Verbatim da 06.2-UI-SPEC.md §Copywriting. ———
+
+// Os botões do cabeçalho da ficha: verbo curto visível; o nome vai no `aria-label` (UI-D27).
+export const ROTULO_EDITAR = "Editar";
+export const ROTULO_DESATIVAR = "Desativar";
+export const ROTULO_REATIVAR = "Reativar";
+export const ROTULO_REATIVANDO = "Reativando…";
+export function ariaEditar(nome: string): string {
+  return `Editar ${nome}`;
+}
+export function ariaDesativar(nome: string): string {
+  return `Desativar ${nome}`;
+}
+export function ariaReativar(nome: string): string {
+  return `Reativar ${nome}`;
+}
+
+// A confirmação de desativar (06.2-UI-SPEC.md §Confirmações → Desativar).
+export function tituloDesativarFornecedor(nome: string): string {
+  return `Desativar ${nome}?`;
+}
+export const CORPO_DESATIVAR_FORNECEDOR =
+  "Ele some da lista e do campo “Fornecedor” da Despesa. Os anexos, as observações e as despesas ligadas a ele ficam guardados; dá para reativar depois.";
+export const ROTULO_DESATIVAR_FORNECEDOR = "Desativar fornecedor";
+export const ROTULO_DESATIVANDO = "Desativando…";
+
+// Toasts.
+export const TOAST_FORNECEDOR_ATUALIZADO = "Fornecedor atualizado.";
+export const TOAST_FORNECEDOR_DESATIVADO = "Fornecedor desativado.";
+export const TOAST_FORNECEDOR_REATIVADO = "Fornecedor reativado.";
+
+// Erros (06.2-UI-SPEC.md §Erros). Reativar com nome repetido (Pitfall 11): embaixo dos botões da
+// ficha, `role="alert"`.
+export const FRASE_REATIVAR_NOME_REPETIDO =
+  "Já existe um fornecedor ativo com esse nome. Renomeie um dos dois antes de reativar.";
+export const FRASE_FALHA_AO_DESATIVAR = "Não deu para desativar. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_REATIVAR = "Não deu para reativar. Verifique a internet e tente de novo.";
