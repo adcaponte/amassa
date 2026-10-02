@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lembretes AMASSA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>[hidden]{display:none!important}img{max-width:100%}</style><style>
+/* Layout: o bloco do Início da plataforma (folha de anotações + lista de lembretes lado a lado no computador, empilhados no celular) e a telinha "todos os lembretes". Tema único, o da plataforma. */
+:root{
+  color-scheme:light;
+  --fundo:#F6F3F0;--sup:#FFFFFF;--sup2:#EFEAE5;--borda:#E8E2DC;--borda-f:#D8CFC7;
+  --tinta:#1D2221;--tinta-m:#5A4C44;--tinta-f:#6E5F56;
+  --acento:#894025;--acento-h:#5B2916;--acento-fundo:#F3EDE9;
+  --ok:#15803D;--ok-f:#DCFCE7;--at:#B45309;--at-f:#FEF3C7;--erro:#B91C1C;--erro-f:#FEE2E2;
+  --theo:#2E7D8C;--andressa:#C2451B;
+  --r-sm:6px;--r:10px;--r-lg:14px;
+}
+*{box-sizing:border-box}button{color:var(--tinta)}[hidden]{display:none!important}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo Narrow",Inter,sans-serif;margin:0;text-wrap:balance}
+.wrap{max-width:1000px;margin:0 auto;padding-inline:16px;padding-block:14px 40px}
+header.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+header.top h1{font-size:26px}
+header.top .sub{font-size:13px;color:var(--tinta-f)}
+.aviso{font-size:13px;color:var(--tinta-m);background:var(--acento-fundo);border:1px solid var(--borda);border-radius:var(--r);padding:8px 12px;margin-bottom:14px}
+.aviso button{font:inherit;font-size:13px;color:var(--acento);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+.dica{font-size:13px;color:var(--tinta-f);margin:0}
+
+/* o Início, por fora */
+.inicio-cab{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.inicio-cab h2{font-size:22px}
+.outros{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:14px}
+.outro{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:12px 14px;color:var(--tinta-f);font-size:13.5px;min-height:70px}
+.outro b{display:block;color:var(--tinta);font-family:"Archivo Narrow",Inter,sans-serif;font-size:17px;margin-bottom:2px}
+
+/* o bloco */
+.bloco{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;display:grid;gap:14px}
+@media(min-width:820px){.bloco{grid-template-columns:1fr 1.1fr}.bloco>.cab{grid-column:1/-1}}
+.bloco>*{min-width:0}
+.cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cab h2{font-size:19px}
+.cab a,.link{font:500 13.5px Inter,sans-serif;color:var(--acento);background:none;border:0;cursor:pointer;padding:0;text-decoration:underline}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.col h3{font-size:13px;color:var(--tinta-f);letter-spacing:.05em;text-transform:uppercase;font-family:Inter,sans-serif;font-weight:600;display:flex;justify-content:space-between;align-items:baseline}
+.col h3 span{font-weight:500;letter-spacing:0;text-transform:none}
+textarea.folha{font:15px/1.5 Inter,sans-serif;color:var(--tinta);background:var(--sup2);border:1px solid transparent;border-radius:var(--r);padding:10px 12px;min-height:160px;width:100%;resize:vertical}
+textarea.folha:focus{background:var(--sup);border-color:var(--borda-f)}
+
+/* linha de criar */
+.novo{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.novo input[type=text]{flex:1 1 200px;font:15px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:999px;padding:9px 14px;min-height:44px;min-width:0}
+.novo .mais{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.novo .mais[hidden]{display:none}
+.pil{font:500 13px Inter,sans-serif;min-height:36px;padding:5px 12px;border-radius:999px;border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta-m);cursor:pointer}
+.pil[aria-pressed=true]{background:var(--acento);border-color:var(--acento);color:#fff}
+.pil.data{padding:0 8px;display:flex;align-items:center;gap:6px}
+.pil.data input{font:13px Inter,sans-serif;border:0;background:none;color:var(--tinta);min-height:0;padding:4px 0;width:120px}
+.btn{font:600 14px Inter,sans-serif;min-height:44px;padding:8px 16px;border-radius:999px;border:1px solid var(--acento);background:var(--acento);color:#fff;cursor:pointer}
+.btn.sec{background:var(--sup);color:var(--tinta);border-color:var(--borda-f);border-radius:var(--r)}
+.btn.mini{min-height:36px;padding:5px 12px;font-size:13px}
+
+/* lista */
+.lista{display:flex;flex-direction:column;gap:4px}
+.item{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:start;padding:8px 6px;border-radius:var(--r);border:1px solid transparent}
+.item:hover{background:var(--fundo)}
+.item input[type=checkbox]{width:24px;height:24px;margin:2px 0 0;accent-color:var(--ok);cursor:pointer}
+.item .txt{font-size:15px;line-height:1.35;word-break:break-word}
+.item .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;font-size:12.5px;color:var(--tinta-f);align-items:center}
+.item.feito .txt{text-decoration:line-through;color:var(--tinta-f)}
+.item.vencido{border-color:var(--erro-f);background:#FFF7F7}
+.item.vencido .quando{color:var(--erro);font-weight:600}
+.item.hoje .quando{color:var(--at);font-weight:600}
+.quem{display:inline-block;font:600 11px Inter,sans-serif;border-radius:999px;padding:1px 7px;color:#fff;background:var(--c)}
+.item .acoes{display:flex;gap:2px}
+.item .acoes button{font:500 12.5px Inter,sans-serif;color:var(--tinta-f);background:none;border:0;cursor:pointer;padding:6px;min-height:34px;border-radius:6px}
+.item .acoes button:hover{background:var(--sup2);color:var(--tinta)}
+.vazio{border:1px dashed var(--borda-f);border-radius:var(--r);padding:14px;text-align:center;color:var(--tinta-f);font-size:14px}
+details.feitos summary{cursor:pointer;font:500 13.5px Inter,sans-serif;color:var(--tinta-f);padding:6px 0}
+.rodape{font-size:12.5px;color:var(--tinta-f)}
+
+/* edição */
+.edit{display:flex;flex-direction:column;gap:6px;grid-column:2/4}
+.edit input[type=text]{font:15px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:8px 10px;min-height:42px;width:100%}
+.edit .linha{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* folhas */
+dialog{border:0;border-radius:var(--r-lg) var(--r-lg) 0 0;padding:0;width:100%;max-width:100%;margin:auto 0 0;max-height:92vh;background:var(--sup);color:var(--tinta);box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+dialog::backdrop{background:rgba(29,34,33,.45)}
+@media(min-width:720px){dialog{border-radius:var(--r-lg);max-width:640px;margin:auto}}
+dialog .corpo{padding:14px 16px 18px;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:calc(92vh - 70px)}
+dialog .dcab{position:sticky;top:0;background:var(--sup);padding:14px 16px 10px;border-bottom:1px solid var(--borda);display:flex;justify-content:space-between;align-items:center}
+dialog .dcab h2{font-size:19px}
+.fechar{font:600 20px Inter,sans-serif;background:none;border:0;cursor:pointer;color:var(--tinta-f);min-width:44px;min-height:44px}
+.filtros{display:flex;gap:6px;flex-wrap:wrap}
+#toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tinta);color:#fff;font:500 14px Inter,sans-serif;padding:10px 16px;border-radius:999px;z-index:60;max-width:92vw;text-align:center;display:flex;gap:12px;align-items:center}
+#toast button{font:600 14px Inter,sans-serif;color:#FFBD59;background:none;border:0;cursor:pointer;padding:0}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head><body>
+<div class="wrap">
+  <header class="top"><h1>Início · Anotações e lembretes</h1><span class="sub">protótipo · o bloco cresce no mesmo lugar · dados de exemplo</span></header>
+  <div class="aviso">A folha livre continua como está. Ao lado dela entra a lista: um lembrete nasce numa linha, pode ter data e dono, e some quando alguém marca feito. Os dois são da casa: o que um escreve, o outro vê. <button type="button" data-a="zerar">Voltar aos dados de exemplo</button></div>
+
+  <div class="inicio-cab"><h2>Olá, Theo.</h2><span class="dica" id="hoje-txt"></span></div>
+  <div class="outros">
+    <div class="outro"><b>Agenda de hoje</b>Agora no espaço · 1 pessoa<br>19:00 Turma de sexta · 2 de 3</div>
+    <div class="outro"><b>O que vence</b>Aluguel · outubro · R$ 1.200,00 · 01/10</div>
+    <div class="outro"><b>Produção</b>Canecas da Pousada · Secagem · no ritmo</div>
+    <div class="outro"><b>Estoque acabando</b>Argila branca · 3 kg · mínimo 5 kg</div>
+  </div>
+
+  <section class="bloco" id="bloco">
+    <div class="cab"><h2>Anotações e lembretes</h2><button type="button" class="link" data-a="todos">ver todos os lembretes</button></div>
+
+    <div class="col">
+      <h3>Folha da casa <span id="salvo">salva sozinha</span></h3>
+      <textarea class="folha" id="folha" aria-label="Anotações da casa"></textarea>
+      <p class="dica">Uma folha só: recado, ideia, telefone anotado às pressas. Não tem data nem "feito".</p>
+    </div>
+
+    <div class="col">
+      <h3>Para fazer <span id="contagem"></span></h3>
+      <form class="novo" id="f-novo" autocomplete="off">
+        <input type="text" id="novo-txt" placeholder="+ lembrete · ex.: pedir argila na Cerâmica Técnica" maxlength="200" aria-label="Novo lembrete">
+        <button class="btn mini" type="submit">Guardar</button>
+        <div class="mais" id="mais" hidden>
+          <span class="pil data"><span>para</span><input type="date" id="novo-data" aria-label="Para quando"></span>
+          <button type="button" class="pil" data-quem="" aria-pressed="true">geral</button>
+          <button type="button" class="pil" data-quem="theo">Theo</button>
+          <button type="button" class="pil" data-quem="andressa">Andressa</button>
+        </div>
+      </form>
+      <div class="lista" id="lista"></div>
+      <p class="dica" id="mais-n"></p>
+      <details class="feitos" id="feitos"><summary id="feitos-sum">Feitos</summary><div class="lista" id="lista-feitos"></div></details>
+    </div>
+  </section>
+</div>
+
+<dialog id="d-todos"><div class="dcab"><h2>Todos os lembretes</h2><button type="button" class="fechar" data-fecha="d-todos" aria-label="Fechar">×</button></div>
+  <div class="corpo">
+    <div class="filtros" id="filtros">
+      <button type="button" class="pil" data-f="abertos" aria-pressed="true">Abertos</button>
+      <button type="button" class="pil" data-f="feitos">Feitos</button>
+      <span style="width:8px"></span>
+      <button type="button" class="pil" data-q="" aria-pressed="true">Todos</button>
+      <button type="button" class="pil" data-q="geral">Geral</button>
+      <button type="button" class="pil" data-q="theo">Theo</button>
+      <button type="button" class="pil" data-q="andressa">Andressa</button>
+    </div>
+    <div class="lista" id="lista-todos"></div>
+    <p class="dica">Lembrete feito fica guardado com quem marcou e quando. "Excluir" apaga de vez (com alguns segundos para desfazer) — é o único lugar da plataforma onde apagar é normal, porque lembrete não é registro.</p>
+  </div></dialog>
+
+<div id="toast" role="status" hidden></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const EU='theo';
+const NOMES={theo:'Theo',andressa:'Andressa'};
+const COR={theo:'var(--theo)',andressa:'var(--andressa)'};
+const hoje=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const addDias=(n)=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+const fmt=d=>d?new Date(d+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+const fmtLongo=d=>new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const uid=()=>Math.random().toString(36).slice(2,9);
+$('#hoje-txt').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+
+function semente(){return {folha:'Mesa 2 balança. Chamar o marceneiro na quarta.\nEsmalte azul-cobalto: receita nova deu certo, 1180°.\nTel. do gás: (62) 3331-0000',
+  itens:[
+   {id:uid(),texto:'Pedir 50 kg de argila branca na Cerâmica Técnica',quando:addDias(-2),quem:'theo',feito:null,criado:Date.now()-5*864e5,por:'theo'},
+   {id:uid(),texto:'Modelar o protótipo da cumbuca para a Pousada Fênix',quando:hoje(),quem:'andressa',feito:null,criado:Date.now()-3*864e5,por:'theo'},
+   {id:uid(),texto:'Responder a Dona Lúcia sobre a oficina de novembro',quando:hoje(),quem:'',feito:null,criado:Date.now()-2*864e5,por:'andressa'},
+   {id:uid(),texto:'Pagar o Aluguel até dia 1 (boleto no e-mail)',quando:addDias(3),quem:'theo',feito:null,criado:Date.now()-1*864e5,por:'theo'},
+   {id:uid(),texto:'Comprar fita crepe e papel de seda',quando:'',quem:'',feito:null,criado:Date.now()-4*864e5,por:'andressa'},
+   {id:uid(),texto:'Fotografar as canecas azuis para o Instagram',quando:'',quem:'andressa',feito:null,criado:Date.now()-6*864e5,por:'andressa'},
+   {id:uid(),texto:'Trocar a resistência do forno pequeno',quando:addDias(10),quem:'theo',feito:null,criado:Date.now()-7*864e5,por:'theo'},
+   {id:uid(),texto:'Mandar a tabela nova de preços para o site',quando:addDias(-6),quem:'theo',feito:Date.now()-2*864e5,feitoPor:'theo',criado:Date.now()-9*864e5,por:'andressa'},
+   {id:uid(),texto:'Ligar para o contador sobre a nota da argila',quando:'',quem:'',feito:Date.now()-5*864e5,feitoPor:'andressa',criado:Date.now()-8*864e5,por:'theo'}
+  ]}}
+let S;try{S=JSON.parse(localStorage.getItem('amassa-lembretes1')||'null')}catch(e){}
+if(!S||!S.itens)S=semente();
+const salvar=()=>{try{localStorage.setItem('amassa-lembretes1',JSON.stringify(S))}catch(e){}};
+const LIMITE=6;
+let novoQuem='', editando=null, filtroF='abertos', filtroQ='';
+
+function ordem(a,b){const ka=a.quando||'9999',kb=b.quando||'9999';return ka===kb?a.criado-b.criado:ka.localeCompare(kb)}
+function classe(i){if(i.feito)return 'feito';if(!i.quando)return '';return i.quando<hoje()?'vencido':i.quando===hoje()?'hoje':''}
+function quandoTxt(i){if(!i.quando)return '';const d=i.quando;if(d===hoje())return 'hoje';const dif=Math.round((new Date(d+'T12:00')-new Date(hoje()+'T12:00'))/864e5);if(dif<0)return `venceu ${fmt(d)} · ${-dif===1?'ontem':-dif+' dias'}`;if(dif===1)return 'amanhã';return fmt(d)}
+function linha(i,completa){
+  if(editando===i.id)return `<div class="item"><input type="checkbox" disabled><div class="edit"><input type="text" id="e-txt" value="${esc(i.texto)}" maxlength="200"><div class="linha"><span class="pil data"><span>para</span><input type="date" id="e-data" value="${i.quando}"></span>${['','theo','andressa'].map(q=>`<button type="button" class="pil" data-equem="${q}" aria-pressed="${(i.quem||'')===q}">${q?NOMES[q]:'geral'}</button>`).join('')}<button type="button" class="btn mini" data-a="salvar-edicao" data-v="${i.id}">Salvar</button><button type="button" class="link" data-a="cancelar-edicao">cancelar</button></div></div></div>`;
+  const q=quandoTxt(i);
+  return `<div class="item ${classe(i)}"><input type="checkbox" ${i.feito?'checked':''} data-a="feito" data-v="${i.id}" aria-label="${i.feito?'Desfazer':'Marcar feito'}: ${esc(i.texto)}"><div><div class="txt">${esc(i.texto)}</div><div class="meta">${q?`<span class="quando">${q}</span>`:''}${i.quem?`<span class="quem" style="--c:${COR[i.quem]}">${NOMES[i.quem]}</span>`:''}${i.feito?`<span>feito por ${NOMES[i.feitoPor]} · ${fmtLongo(i.feito)}</span>`:completa?`<span>por ${NOMES[i.por]} · ${fmtLongo(i.criado)}</span>`:''}</div></div><div class="acoes">${i.feito?'':`<button type="button" data-a="editar" data-v="${i.id}" aria-label="Editar">editar</button>`}<button type="button" data-a="tirar" data-v="${i.id}" aria-label="Excluir: ${esc(i.texto)}">excluir</button></div></div>`}
+function desenhar(){
+  $('#folha').value=S.folha;
+  const abertos=S.itens.filter(i=>!i.feito).sort(ordem);
+  const feitos=S.itens.filter(i=>i.feito).sort((a,b)=>b.feito-a.feito);
+  const venc=abertos.filter(i=>i.quando&&i.quando<hoje()).length;
+  $('#contagem').textContent=abertos.length?`${abertos.length} aberto${abertos.length===1?'':'s'}${venc?` · ${venc} vencido${venc===1?'':'s'}`:''}`:'nada pendente';
+  $('#lista').innerHTML=abertos.length?abertos.slice(0,LIMITE).map(i=>linha(i,false)).join(''):`<div class="vazio">Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.</div>`;
+  $('#mais-n').innerHTML=abertos.length>LIMITE?`<button type="button" class="link" data-a="todos">e mais ${abertos.length-LIMITE} — ver todos</button>`:'';
+  $('#feitos-sum').textContent=`Feitos (${feitos.length})`;
+  $('#feitos').hidden=!feitos.length;
+  $('#lista-feitos').innerHTML=feitos.slice(0,5).map(i=>linha(i,false)).join('')+(feitos.length>5?`<p class="dica">e mais ${feitos.length-5} em "ver todos"</p>`:'');
+  // folha "todos"
+  let lista=(filtroF==='abertos'?abertos:feitos).filter(i=>filtroQ===''?true:filtroQ==='geral'?!i.quem:i.quem===filtroQ);
+  $('#lista-todos').innerHTML=lista.length?lista.map(i=>linha(i,true)).join(''):`<div class="vazio">Nenhum lembrete aqui.</div>`;
+  salvar()}
+function toast(t,desfazer){const e=$('#toast');e.innerHTML=esc(t)+(desfazer?' <button type="button" id="undo">Desfazer</button>':'');e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,desfazer?6000:3000);if(desfazer)$('#undo').onclick=()=>{desfazer();e.hidden=true}}
+
+$('#folha').addEventListener('input',e=>{S.folha=e.target.value;$('#salvo').textContent='salvando…';clearTimeout(window.tf);window.tf=setTimeout(()=>{salvar();$('#salvo').textContent='Theo salvou às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})},700)});
+$('#novo-txt').addEventListener('focus',()=>$('#mais').hidden=false);
+$('#f-novo').addEventListener('submit',e=>{e.preventDefault();const t=$('#novo-txt').value.trim();if(!t){$('#novo-txt').focus();return}
+  S.itens.push({id:uid(),texto:t,quando:$('#novo-data').value||'',quem:novoQuem,feito:null,criado:Date.now(),por:EU});
+  $('#novo-txt').value='';$('#novo-data').value='';novoQuem='';[...document.querySelectorAll('#mais [data-quem]')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.quem===''));$('#mais').hidden=true;
+  desenhar();toast('Lembrete guardado.')});
+document.addEventListener('click',e=>{
+  const fb=e.target.closest('[data-fecha]');if(fb){document.getElementById(fb.dataset.fecha).close();return}
+  const pq=e.target.closest('#mais [data-quem]');if(pq){novoQuem=pq.dataset.quem;[...document.querySelectorAll('#mais [data-quem]')].forEach(b=>b.setAttribute('aria-pressed',b===pq));return}
+  const eq=e.target.closest('[data-equem]');if(eq){[...eq.parentElement.querySelectorAll('[data-equem]')].forEach(b=>b.setAttribute('aria-pressed',b===eq));return}
+  const ff=e.target.closest('#filtros [data-f]');if(ff){filtroF=ff.dataset.f;[...document.querySelectorAll('#filtros [data-f]')].forEach(b=>b.setAttribute('aria-pressed',b===ff));desenhar();return}
+  const fq=e.target.closest('#filtros [data-q]');if(fq){filtroQ=fq.dataset.q;[...document.querySelectorAll('#filtros [data-q]')].forEach(b=>b.setAttribute('aria-pressed',b===fq));desenhar();return}
+  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,v=b.dataset.v;const it=S.itens.find(x=>x.id===v);
+  if(a==='feito'){if(it.feito){it.feito=null;it.feitoPor=null;desenhar();toast('Lembrete reaberto.')}else{it.feito=Date.now();it.feitoPor=EU;desenhar();toast('Feito: '+it.texto.slice(0,40)+(it.texto.length>40?'…':''),()=>{it.feito=null;it.feitoPor=null;desenhar()})}}
+  else if(a==='editar'){editando=v;desenhar();setTimeout(()=>$('#e-txt')?.focus(),0)}
+  else if(a==='cancelar-edicao'){editando=null;desenhar()}
+  else if(a==='salvar-edicao'){const t=$('#e-txt').value.trim();if(!t)return;it.texto=t;it.quando=$('#e-data').value||'';it.quem=[...document.querySelectorAll('[data-equem]')].find(x=>x.getAttribute('aria-pressed')==='true')?.dataset.equem||'';editando=null;desenhar();toast('Lembrete atualizado.')}
+  else if(a==='tirar'){const copia={...it};S.itens=S.itens.filter(x=>x.id!==v);desenhar();toast('Lembrete excluído.',()=>{S.itens.push(copia);desenhar()})}
+  else if(a==='todos'){desenhar();const d=$('#d-todos');if(!d.open)d.showModal()}
+  else if(a==='zerar'){S=semente();editando=null;desenhar();toast('Dados de exemplo de volta.')}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='e-txt'){e.preventDefault();document.querySelector('[data-a=salvar-edicao]').click()}});
+desenhar();
+</script>
+
+</body></html>

@@ -190,6 +190,22 @@
 - [ ] **FRN-13**: **"Compras dele"** na ficha: despesas não canceladas com aquele fornecedor, mais recentes primeiro (descrição, data, tipo, itens quando compra de material, valor) e a linha "Total em <ano>: R$ X · N despesas" — *ano corrente ou 12 meses: discussão (§8.3)*; lê do Financeiro, **nenhuma tabela nova, nenhum número novo**; Estoque, Catálogo, Cotações e Produção não apontam para fornecedor (§4, §7)
 - [ ] **FRN-14**: No padrão da casa: regras ("tabela vigente", "mais de 4 meses") em **módulo puro `lib/fornecedores/`**, testado, com "hoje" por parâmetro; toda Server Action com `exigirUsuario()` e Zod; **uma migração** (duas tabelas + a coluna em `documentos`) com `TABELAS_ESPERADAS` atualizada; e2e de cadastrar, buscar por material, subir PDF e foto, tamanho e tipo recusados, abrir com e sem sessão, tirar anexo, desativar/reativar e despesa em "Compras dele"; roteiro de operação curto (§6)
 
+### Lembretes — "Para fazer" no Início (Fase 06.3, criada em 02/10/2026)
+
+> Transcrição do `BRIEFING.md` e do `prototipo.html` ("Lembretes AMASSA", **aprovado pelo dono em
+> 02/10/2026**), copiados para `.planning/phases/06.3-lembretes/`. O protótipo vence sobre a interface;
+> o briefing vence sobre regra de dado. Os três pontos da §6 ficam para a discussão (em itálico).
+
+- [ ] **LMB-01**: O bloco "Anotações" do Início vira **"Anotações e lembretes"**: a folha da casa (`anotacoes_da_casa`) **não muda** de um lado, a lista "Para fazer" do outro, empilhadas no celular; o "X salvou às hh:mm" da folha em horário de Brasília (§1, §3)
+- [ ] **LMB-02**: Tabela `lembretes` (texto 1–200, `para_quando` date anulável, `quem` usuário anulável = "geral", `feito_em`/`feito_por`, `criado_em/por`, `atualizado_em`), da casa: todos veem e mexem em todos; "quem" é etiqueta, não permissão (§2)
+- [ ] **LMB-03**: Criar em uma linha ("+ lembrete · ex.: pedir argila…", Enter ou "Guardar"), com "para [data]" e "geral / Theo / Andressa" ao focar (padrão: sem data, geral); texto vazio não cria (§3)
+- [ ] **LMB-04**: Ordem dos abertos: `para_quando` crescente (vencidos primeiro), depois sem data, empate por `criado_em`; rótulos "venceu dd/mm · N dias" (vermelho), "hoje" (âmbar), "amanhã", dd/mm — no dia civil de Brasília (§3)
+- [ ] **LMB-05**: No Início, no máximo **6** abertos, com "e mais N — ver todos"; cabeçalho "Para fazer · N abertos · M vencidos" ou "nada pendente"; estado vazio com uma frase (§3)
+- [ ] **LMB-06**: Feito grava `feito_em`/`feito_por` (nunca apaga), risca e vai para "Feitos (N)" dobrado no fim do bloco, com toast "Feito: …" e **Desfazer** por ~6 s; desmarcar reabre — *quantos feitos ficam no Início: discussão (§6.2)* (§2, §3)
+- [ ] **LMB-07**: Editar na própria linha (texto, data, quem), Enter salva, "cancelar" (§3)
+- [ ] **LMB-08**: 🔴 **Excluir apaga a linha de verdade** — decisão do dono (02/10/2026), única exceção à regra "nada se apaga": tabela **sem `revoke delete`**; Desfazer no toast por ~6 s; o e2e prova que a linha sumiu do banco — *recriar ou adiar a exclusão: discussão (§6.3)* (§2, §3)
+- [ ] **LMB-09**: "Ver todos" com filtros **Abertos / Feitos** e **Todos / Geral / Theo / Andressa**, autoria ("por X · dd/mm hh:mm", "feito por Y · …") e "Mostrar mais 50" — *folha ou rota `/gestao/lembretes`: discussão (§6.1)*; no padrão da casa: `lib/lembretes/` com ordenação e rótulos em módulo puro testado (virada de dia em Brasília), Server Actions com `exigirUsuario()` e Zod, uma migração com `TABELAS_ESPERADAS`, alvos de 44 px, 320 px sem rolagem lateral (§3, §4)
+
 ### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
 
 > *01/10/2026:* os AGD-* abaixo descrevem o modelo da AMASSA de Goiânia (grade por turno, quatro
@@ -685,6 +701,15 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FRN-12 | Phase 06.2 — Fornecedores | Pending |
 | FRN-13 | Phase 06.2 — Fornecedores | Pending |
 | FRN-14 | Phase 06.2 — Fornecedores | Pending |
+| LMB-01 | Phase 06.3 — Lembretes | Pending |
+| LMB-02 | Phase 06.3 — Lembretes | Pending |
+| LMB-03 | Phase 06.3 — Lembretes | Pending |
+| LMB-04 | Phase 06.3 — Lembretes | Pending |
+| LMB-05 | Phase 06.3 — Lembretes | Pending |
+| LMB-06 | Phase 06.3 — Lembretes | Pending |
+| LMB-07 | Phase 06.3 — Lembretes | Pending |
+| LMB-08 | Phase 06.3 — Lembretes | Pending |
+| LMB-09 | Phase 06.3 — Lembretes | Pending |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
@@ -823,8 +848,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 207 total — em 02/10/2026 entraram os FRN-01..14 da Fase 06.2: 193 + 14. *Até 02/10/2026 esta linha dizia 193:* em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
-- Mapped to phases: 207/207 (até 02/10/2026: 193/193; até 01/10/2026: 189/189)
+- v1 requirements: 216 total — em 02/10/2026 (noite) entraram os LMB-01..09 da Fase 06.3: 207 + 9. *Até a noite de 02/10/2026 esta linha dizia 207:* em 02/10/2026 entraram os FRN-01..14 da Fase 06.2: 193 + 14. *Até 02/10/2026 esta linha dizia 193:* em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
+- Mapped to phases: 216/216 (até a noite de 02/10/2026: 207/207; antes: 193/193; até 01/10/2026: 189/189)
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -844,6 +869,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 04.6 | M6 → separação dos dois públicos | GES-01..14, SIT-01..10 | 24 |
 | Phase 06.1 | Produção (redesenho das Encomendas) | PRD-01..20 (briefing de 20/09) | 20 |
 | Phase 06.2 | Fornecedores (item 7 da fila) | FRN-01..14 (briefing de 01/10) | 14 |
+| Phase 06.3 | Lembretes (item 7b da fila) | LMB-01..09 (briefing de 02/10) | 9 |
 
 ---
 *Requirements defined: 2026-08-05*

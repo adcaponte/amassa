@@ -54,6 +54,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)* (completed 2026-09-29)
 - [x] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09) (completed 2026-10-01)
 - [ ] **Phase 06.2: Fornecedores** (INSERTED) - Aba dos Cadastros com contatos, condições e anexos de quem vende para o ateliê; o único vínculo é o fornecedor opcional na Despesa (item 7 da fila; briefing e protótipo de 01/10, FRN-01..14)
+- [ ] **Phase 06.3: Lembretes** (INSERTED) - A lista "Para fazer" ao lado da folha da casa no Início (item 7b da fila; briefing e protótipo de 02/10, LMB-01..09)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -940,17 +941,46 @@ Financeiro lançadas com aquele fornecedor. É consulta: nada aqui vira número 
 **Depends on:** Phase 5 (ordem da fila: Agenda → Fornecedores → Queimas); toca só o Financeiro (`documentos`)
 **Requirements**: FRN-01, FRN-02, FRN-03, FRN-04, FRN-05, FRN-06, FRN-07, FRN-08, FRN-09, FRN-10, FRN-11, FRN-12, FRN-13, FRN-14
 **Success Criteria** (what must be TRUE):
+
   1. Cadastrar, editar, buscar (por nome, "vende" ou cidade, sem acento) e filtrar fornecedores por área; desativar e reativar com confirmação, e nenhum fornecedor se apaga (`revoke delete`)
   2. Subir PDF, foto e planilha como anexo, com tipo conferido pela assinatura e os limites de 20 MB / 10 MB recusados com mensagem humana; foto reduzida e sem EXIF
   3. Abrir um anexo só com sessão (401 sem login), e tirar um anexo apaga a linha e o arquivo depois de confirmar pelo nome
   4. A ficha mostra a tabela de preços vigente com o selo "tem mais de 4 meses — pedir a nova?" depois de 120 dias
   5. Uma despesa lançada com fornecedor aparece em "Compras dele", com o total do período e sem tabela nova no Financeiro
   6. Os anexos moram em `/opt/amassa/dados/anexos-fornecedores/`, cobertos pelo backup diário, conferido pelo roteiro de operação da fase
+
 **Plans:** 0 plans
 
 Plans:
 
 - [ ] TBD (discussão primeiro: os três pontos da §8 do briefing)
+
+### Phase 06.3: Lembretes (INSERTED)
+
+> **Criada em 02/10/2026** (item 7b da fila do Cowork). A especificação é o `BRIEFING.md` e o
+> `prototipo.html` ("Lembretes AMASSA", **aprovado pelo dono em 02/10/2026**), copiados para
+> `.planning/phases/06.3-lembretes/` (idênticos aos de `Claude outputs/lembretes/`, `cmp`). O dono
+> pediu para rodar logo depois dos Fornecedores, antes das Queimas. Módulo pequeno e isolado.
+
+**Goal**: O bloco "Anotações" do Início vira "Anotações e lembretes": a folha da casa continua igual,
+e ao lado nasce a lista "Para fazer" — lembretes com texto, "para quando" e "quem" opcionais, que se
+marcam feitos (com desfazer) e, por decisão do dono, se apagam de verdade.
+**Depends on:** Phase 06.2 (ordem da fila); toca só o Início
+**Requirements**: LMB-01, LMB-02, LMB-03, LMB-04, LMB-05, LMB-06, LMB-07, LMB-08, LMB-09
+**Success Criteria** (what must be TRUE):
+  1. Criar um lembrete numa linha no Início, com data e "quem" opcionais; texto vazio não cria
+  2. Os abertos aparecem vencidos primeiro, com os rótulos "venceu dd/mm · N dias" / "hoje" / "amanhã" / dd/mm no dia de Brasília; no máximo 6 no Início, com "e mais N — ver todos"
+  3. Marcar feito risca e move para "Feitos", com Desfazer; desmarcar reabre
+  4. Editar na linha; excluir apaga a linha do banco (provado no e2e), com Desfazer por alguns segundos
+  5. "Ver todos" com os filtros Abertos/Feitos e Todos/Geral/Theo/Andressa, autoria e "Mostrar mais 50"
+  6. A folha da casa não muda; alvos de 44 px e nenhuma rolagem lateral a 320 px
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD
+
+**UI hint**: yes
 
 ### Phase 7: Polimento e Entrega
 
@@ -993,7 +1023,7 @@ documento de operação) tornam-se os planos desta fase.
 ## Progress
 
 **Execution Order:**
-Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → **06.2 (Fornecedores)** → Queimas → 7 *(até 02/10/2026 esta linha dizia "→ Produção → 5 → Queimas → 7"; o dono puxou Fornecedores para antes das Queimas em 01/10)*
+Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → **06.2 (Fornecedores)** → **06.3 (Lembretes)** → Queimas → 7 *(até 02/10/2026 esta linha dizia "→ Produção → 5 → Queimas → 7"; o dono puxou Fornecedores para antes das Queimas em 01/10)*
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -1012,4 +1042,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 06.2. Fornecedores | 0/TBD | Not started (criada em 02/10/2026) | - |
+| 06.3. Lembretes | 0/TBD | Not started (criada em 02/10/2026) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
