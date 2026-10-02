@@ -54,6 +54,11 @@ só com aulas e oficinas, uso livre como texto) e as regras de §3 a §9. Estão
   existe?". O dono perguntou se é o do protótipo: o protótipo **não simula a virada do mês** (as
   mensalidades vêm dos dados de exemplo; só a entrada na turma cria uma, linha 331), mas mostra o
   resultado — mensalidades já em "A receber", sem botão de gerar —, que só esta opção reproduz.
+  **Complemento de 02/10/2026 (decisão do dono, no chat, ao corrigir o WR-03 da revisão de código):
+  "sem aula, sem mensalidade"** — a mensalidade do mês só nasce se a turma tiver **pelo menos uma
+  data não cancelada naquele mês**, a mesma regra de "entrar na turma" (que não cria nenhuma quando
+  não sobra aula). `entrou_em < dia 1` e a idempotência continuam. Prova:
+  `scripts/provar-corridas-da-agenda.ts`, cenário WR-03, rodado por `npm run test:migracoes`.
   Ao entrar na turma no meio do mês continua valendo o proporcional (AGE-07), e a chave única evita
   que o "ao abrir" crie uma segunda mensalidade para esse aluno.
 

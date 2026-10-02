@@ -328,7 +328,9 @@ test.describe("agenda pagamento", () => {
       vagas: 6,
       mensalidadeCentavos: 28000,
       diaVencimento: 15,
-      datas: [],
+      // Uma aula no mês corrente: sem aula no mês, a D-02 não cobra (WR-03 da revisão, decisão do dono de
+      // 02/10/2026).
+      datas: [hojeNoAtelie()],
     });
     // Entrou no mês passado: a mensalidade deste mês nasce ao abrir a Agenda (D-02), e ainda não nasceu.
     await semearAluno({ turmaId, clienteId, entrouEm: somarDiasAoHoje(-40) });

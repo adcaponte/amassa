@@ -330,7 +330,9 @@ test.describe("agenda entrar na turma", () => {
     const suf = sufixoUnico();
     const nome = `[e2e] Pessoa ${suf}`;
     const clienteId = await semearCliente({ nome });
-    const { turmaId } = await semearTurma(`[e2e] Turma ${suf}`, [somarDiasAoHoje(5)]);
+    // A data de HOJE garante uma aula no mês corrente em qualquer dia do mês: sem aula no mês, a D-02 não
+    // cobra (WR-03 da revisão, decisão do dono de 02/10/2026).
+    const { turmaId } = await semearTurma(`[e2e] Turma ${suf}`, [somarDiasAoHoje(5), hojeNoAtelie()]);
     await semearAluno({ turmaId, clienteId, entrouEm: dataDoMes(anterior, 15) });
     await semearMensalidade({
       turmaId,
@@ -375,7 +377,8 @@ test.describe("agenda entrar na turma", () => {
     const suf = sufixoUnico();
     const turmaNome = `[e2e] Turma ${suf}`;
     const clienteId = await semearCliente({ nome: `[e2e] Pessoa ${suf}` });
-    const { turmaId } = await semearTurma(turmaNome, [primeira]);
+    // Hoje também: a mensalidade do mês só nasce com aula no mês (WR-03; a de +4 dias pode cair no mês seguinte).
+    const { turmaId } = await semearTurma(turmaNome, [primeira, hojeNoAtelie()]);
     await semearAluno({ turmaId, clienteId, entrouEm: dataDoMes(anterior, 20) });
     // Ninguém abriu a ficha DESTA pessoa — mas abrir a ficha de QUALQUER pessoa (outro caso, outro
     // projeto, outra spec rodando junto) faz nascer a mensalidade do mês de todos os alunos (D-02). A

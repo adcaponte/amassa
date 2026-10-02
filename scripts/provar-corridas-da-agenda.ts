@@ -17,6 +17,7 @@ import { Client } from "pg";
 
 import { db, pool } from "@/db";
 import {
+  garantirMensalidadesDoMes,
   RecusaDaAgenda,
   tirarDatasFuturasDaTurma,
   travarCobranca,
@@ -355,6 +356,55 @@ async function provarDesativarNaoApagaVendaNova(conexao: Client, observador: Cli
   );
 }
 
+// WR-03 — "sem aula, sem mensalidade" (decisão do dono, 02/10/2026): a D-02 (`garantirMensalidadesDoMes`)
+// só faz nascer a mensalidade de um mês com PELO MENOS UMA data não cancelada da turma; `entrou_em < dia 1`
+// e a idempotência continuam valendo. Um mês longe (2099) para não cruzar com nenhum outro dado.
+async function provarSemAulaSemMensalidade(conexao: Client): Promise<void> {
+  console.log("    WR-03: sem aula no mês, sem mensalidade (D-02)...");
+  const antiga = await semearCliente(conexao, "[prova] Aluna de antes do mês");
+  const doDiaPrimeiro = await semearCliente(conexao, "[prova] Aluna do dia 1");
+  const { turmaId } = await semearTurma(conexao, "[prova] Turma sem aula no mês", []);
+  await conexao.query(
+    `insert into turma_alunos (turma_id, cliente_id, entrou_em) values ($1, $2, '2099-04-10'), ($1, $3, '2099-05-01')`,
+    [turmaId, antiga, doDiaPrimeiro],
+  );
+  async function doMes(clienteId: string): Promise<{ valor: number; vencimento: string }[]> {
+    const { rows } = await conexao.query<{ valor: number; vencimento: string }>(
+      `select valor_centavos as valor, vencimento::text as vencimento from mensalidades
+        where turma_id = $1 and cliente_id = $2 and mes = '2099-05-01'`,
+      [turmaId, clienteId],
+    );
+    return rows;
+  }
+  async function novaData(data: string, cancelada: boolean): Promise<void> {
+    await conexao.query(
+      `insert into eventos (tipo, data, inicio, fim, turma_id, vagas, publico, cancelado_em, cancelado_por)
+       values ('turma', $1, '19:00', '21:00', $2, 8, false, ${cancelada ? "now(), $3::uuid" : "null, null"})`,
+      cancelada ? [data, turmaId, semente.usuarioId] : [data, turmaId],
+    );
+  }
+
+  // Nenhuma data no mês.
+  afirmar((await garantirMensalidadesDoMes(db, "2099-05", turmaId)) === 0, "WR-03: mês sem data nenhuma não pode cobrar.");
+  // Só uma data CANCELADA no mês, e uma data no mês SEGUINTE (o dia 1 de junho é de junho).
+  await novaData("2099-05-13", true);
+  await novaData("2099-06-01", false);
+  afirmar(
+    (await garantirMensalidadesDoMes(db, "2099-05", turmaId)) === 0 && (await doMes(antiga)).length === 0,
+    "WR-03: data cancelada no mês (ou data só no mês seguinte) não pode fazer nascer mensalidade.",
+  );
+  // Uma data de pé no mês: nasce UMA, só para quem entrou antes do dia 1, com o valor e o vencimento da turma.
+  await novaData("2099-05-20", false);
+  afirmar((await garantirMensalidadesDoMes(db, "2099-05", turmaId)) === 1, "WR-03: com aula no mês, a mensalidade nasce.");
+  afirmar((await garantirMensalidadesDoMes(db, "2099-05", turmaId)) === 0, "WR-03: rodar de novo não pode criar outra.");
+  const nascida = await doMes(antiga);
+  afirmar(
+    nascida.length === 1 && nascida[0].valor === 25000 && nascida[0].vencimento === "2099-05-10",
+    `WR-03: a mensalidade de maio deveria ser UMA, de R$ 250,00, vencendo em 10/05 — veio ${JSON.stringify(nascida)}.`,
+  );
+  afirmar((await doMes(doDiaPrimeiro)).length === 0, "WR-03: quem entrou NO dia 1 continua fora da D-02 (a entrada decide).");
+}
+
 async function faxina(conexao: Client): Promise<void> {
   try {
     await conexao.query("begin");
@@ -411,6 +461,7 @@ async function main(): Promise<void> {
     await provarRelancamentoVistoPeloRecebiAgora(conexao, observador);
     await provarTirarDaListaVeAVenda(conexao, observador);
     await provarDesativarNaoApagaVendaNova(conexao, observador);
+    await provarSemAulaSemMensalidade(conexao);
     console.log("  Corridas da Agenda: todas as afirmações passaram.");
     codigo = 0;
   } catch (erro) {

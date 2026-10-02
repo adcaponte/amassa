@@ -51,7 +51,10 @@ async function semearTurma(nome: string, mensalidadeCentavos: number, diaVencime
     vagas: 8,
     mensalidadeCentavos,
     diaVencimento,
-    datas: [],
+    // Uma aula no mês corrente: sem aula no mês, a D-02 não faz nascer a mensalidade (WR-03 da revisão,
+    // decisão do dono de 02/10/2026). Nunca HOJE: `inicio-agenda-de-hoje` (também @vazio-historico) conta
+    // os lançamentos do dia.
+    datas: [`${hojeNoAtelie().slice(0, 7)}-${hojeNoAtelie().endsWith("-01") ? "02" : "01"}`],
   });
   return turmaId;
 }

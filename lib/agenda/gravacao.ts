@@ -561,6 +561,12 @@ type ExecutorDoBanco = Pick<typeof db, "execute"> | Pick<TransacaoDoBanco, "exec
 // inclusive NO dia 1 — não é tocado: a ação "entrar na turma" já decidiu a mensalidade do mês da
 // entrada (cheia, proporcional ou nenhuma, quando não sobra aula) na mesma transação.
 //
+// "Sem aula, sem mensalidade" (decisão do dono, 02/10/2026, ao corrigir o WR-03 da revisão): só nasce a
+// mensalidade de um mês em que a turma tem PELO MENOS UMA data NÃO cancelada — a mesma regra de "entrar
+// na turma", que não cria nenhuma quando não sobra aula no mês (`valorProporcional` → "nenhuma"). Turma
+// lançada "a partir de" um mês futuro, ou cujas semanas marcadas acabaram, não cobra o mês vazio. Uma
+// mensalidade que já nasceu nunca é apagada por isso (cancelar as datas depois não a desfaz).
+//
 // `turmaId` restringe a uma turma: `editarTurma` a chama DENTRO da sua transação e ANTES de gravar o
 // valor novo (Pitfall 6) — a mensalidade do mês corrente nasce com o valor antigo e não muda.
 export async function garantirMensalidadesDoMes(
@@ -579,6 +585,14 @@ export async function garantirMensalidadesDoMes(
      where t.ativa
        and a.entrou_em < ${primeiroDia}::date
        and (a.saiu_em is null or a.saiu_em >= ${primeiroDia}::date)
+       and exists (
+             select 1
+               from eventos e
+              where e.turma_id = t.id
+                and e.cancelado_em is null
+                and e.data >= ${primeiroDia}::date
+                and e.data < (${primeiroDia}::date + interval '1 month')::date
+           )
        ${turmaId === undefined ? sql`` : sql`and t.id = ${turmaId}::uuid`}
     on conflict (turma_id, cliente_id, mes) do nothing
   `);
