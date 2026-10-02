@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { tirarBloqueio } from "@/lib/agenda/acoes";
@@ -45,6 +46,7 @@ export type ConfirmarTirarBloqueioProps = {
 // DENTRO do diálogo (`role="alert"`), que continua aberto — tirado em outro celular é
 // "Isso já tinha sido removido.", nunca erro técnico.
 export function ConfirmarTirarBloqueio({ eventoId, data, aoComecar, aoTirar }: ConfirmarTirarBloqueioProps) {
+  const router = useRouter();
   const emVoo = useRef(false);
   const [aberto, setAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -96,6 +98,11 @@ export function ConfirmarTirarBloqueio({ eventoId, data, aoComecar, aoTirar }: C
         open={aberto}
         onOpenChange={(novoValor) => {
           if (!novoValor && !enviando) {
+            // IN-08 da revisão B: fechar depois de uma recusa ("Isso já tinha sido removido.") relê a folha —
+            // o bloqueio que não existe mais não fica na tela (molde de "Cancelar reserva").
+            if (erro !== null) {
+              router.refresh();
+            }
             setErro(null);
             setAberto(false);
           }
