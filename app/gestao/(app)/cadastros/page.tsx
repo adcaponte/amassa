@@ -20,10 +20,18 @@ import {
   textoContasGeradas,
 } from "@/lib/cadastros/textos";
 import { mesDaGeracao, mesesParaGeracao } from "@/lib/cadastros/contas-fixas";
+import { idDaUrl } from "@/lib/agenda/abas";
 import { listarClientes } from "@/lib/clientes/consultas";
 import { buscaDaUrl, quantosDaUrl } from "@/lib/clientes/lista";
 import { FRASE_ERRO_CARREGAR_CLIENTES, TITULO_ERRO } from "@/lib/clientes/textos";
 import { hojeEmBrasilia, nomeDoMes } from "@/lib/financeiro/formato";
+import { listarFornecedores, obterFornecedor } from "@/lib/fornecedores/consultas";
+import {
+  FRASE_ERRO_CARREGAR_FICHA,
+  FRASE_ERRO_CARREGAR_LISTA,
+  FRASE_FICHA_NAO_EXISTE,
+  TITULO_ERRO as TITULO_ERRO_FORNECEDORES,
+} from "@/lib/fornecedores/textos";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { TOAST_HORA_ATUALIZADA } from "@/lib/precificacao/textos";
 import { subtrairMeses } from "@/lib/producao/calendario";
@@ -38,13 +46,22 @@ import { EsqueletoDosClientes, ListaClientes } from "@/components/amassa/cadastr
 import { ListaContasFixas } from "@/components/amassa/cadastros/lista-contas-fixas";
 import { ListaParametros } from "@/components/amassa/cadastros/lista-parametros";
 import { SubAbasCadastros } from "@/components/amassa/cadastros/sub-abas-cadastros";
+import {
+  EsqueletoDaFicha,
+  EsqueletoDosFornecedores,
+} from "@/components/amassa/cadastros/fornecedores/esqueleto-fornecedores";
+import {
+  FichaFornecedor,
+  FichaSemFornecedor,
+} from "@/components/amassa/cadastros/fornecedores/ficha-fornecedor";
+import { ListaFornecedores } from "@/components/amassa/cadastros/fornecedores/lista-fornecedores";
 import { EstadoErro } from "@/components/amassa/estado-erro";
 import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de `app/(app)/financeiro/page.tsx`.
-// `searchParams` é `Promise` no Next.js 15. `?sub=` decide qual das SEIS sub-abas aparece (D-03,
+// `searchParams` é `Promise` no Next.js 15. `?sub=` decide qual das SETE sub-abas aparece (D-03,
 // 04.5-02-PLAN.md acrescentou "parametros"; a Fase 5, D-01, acrescentou "clientes", que lê também
-// `?busca=`/`?quantos=`); o aviso pós-navegação é resolvido AQUI, no servidor,
+// `?busca=`/`?quantos=`; a Fase 06.2 acrescentou "fornecedores", que lê `?fornecedor=`); o aviso pós-navegação é resolvido AQUI, no servidor,
 // a partir de `?aviso=`/`?quantidade=`/`?mes=` — o texto pronto desce para `AvisoCadastros`, que
 // só mostra o toast, nunca monta a frase sozinho.
 //
@@ -83,6 +100,68 @@ async function ClientesCarregados({ busca, quantos }: { busca: string; quantos: 
   return <ListaClientes clientes={lista.clientes} haMais={lista.haMais} busca={busca} quantos={quantos} />;
 }
 
+// Fornecedores (Fase 06.2, plano 02 — o traçador): a lista carrega dentro de um `Suspense` PRÓPRIO,
+// com o esqueleto no formato da sub-aba e um `try` próprio — se a leitura falhar, só a sub-aba mostra
+// o erro (UI E2·error), e as pílulas continuam clicáveis.
+//
+// Qual ficha abre (06.2-UI-SPEC.md, "Onde o protótipo não vale mais" e §Erros):
+//   - sem `?fornecedor=` → o primeiro ATIVO na ordem da lista (alfabética pt-BR, `listarFornecedores`);
+//   - `?fornecedor=` com um uuid → aquele (ativo ou desativado); fora do cadastro → a frase de id ruim;
+//   - `?fornecedor=` que não é uuid (`idDaUrl`, o mesmo validador da Agenda) → a frase de id ruim,
+//     sem consulta nenhuma com o texto da URL (T-06.2-08).
+// A ficha carrega num `Suspense` com `key` = id: trocar de fornecedor vira esqueleto SÓ na ficha, e
+// a lista (componente de cliente) não remonta.
+async function FornecedoresCarregados({ pedido }: { pedido: string | string[] | undefined }) {
+  let lista: Awaited<ReturnType<typeof listarFornecedores>>;
+  try {
+    lista = await listarFornecedores();
+  } catch (erro) {
+    console.error("Falha ao carregar os fornecedores:", erro);
+    return (
+      <EstadoErro titulo={TITULO_ERRO_FORNECEDORES} corpo={FRASE_ERRO_CARREGAR_LISTA} acao={<TentarDeNovo />} />
+    );
+  }
+
+  const semPedido = pedido === undefined || pedido === "";
+  const idPedido = semPedido ? null : idDaUrl(pedido);
+  const abertoId = semPedido ? (lista.find((fornecedor) => fornecedor.ativo)?.id ?? null) : idPedido;
+
+  if (lista.length === 0) {
+    return (
+      <div className="mx-6 mt-6 pb-12 md:mx-8">
+        <ListaFornecedores fornecedores={lista} abertoId={null} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-6 mt-6 grid items-start gap-4 pb-12 md:mx-8 lg:grid-cols-[minmax(300px,0.9fr)_1.4fr]">
+      <ListaFornecedores fornecedores={lista} abertoId={abertoId} />
+      {abertoId !== null ? (
+        <Suspense key={abertoId} fallback={<EsqueletoDaFicha />}>
+          <FichaCarregada id={abertoId} />
+        </Suspense>
+      ) : !semPedido ? (
+        <FichaSemFornecedor frase={FRASE_FICHA_NAO_EXISTE} />
+      ) : null}
+    </div>
+  );
+}
+
+async function FichaCarregada({ id }: { id: string }) {
+  let fornecedor: Awaited<ReturnType<typeof obterFornecedor>>;
+  try {
+    fornecedor = await obterFornecedor(id);
+  } catch (erro) {
+    console.error("Falha ao carregar a ficha do fornecedor:", erro);
+    return <FichaSemFornecedor frase={FRASE_ERRO_CARREGAR_FICHA} acao={<TentarDeNovo />} />;
+  }
+  if (fornecedor === null) {
+    return <FichaSemFornecedor frase={FRASE_FICHA_NAO_EXISTE} />;
+  }
+  return <FichaFornecedor fornecedor={fornecedor} />;
+}
+
 export default async function PaginaCadastros({
   searchParams,
 }: {
@@ -93,11 +172,12 @@ export default async function PaginaCadastros({
     mes?: string;
     busca?: string | string[];
     quantos?: string | string[];
+    fornecedor?: string | string[];
   }>;
 }) {
   await exigirUsuario();
 
-  const { sub, aviso, quantidade, mes, busca, quantos } = await searchParams;
+  const { sub, aviso, quantidade, mes, busca, quantos, fornecedor } = await searchParams;
   const subAtual = subDaUrl(sub);
   const avisoResolvido = avisoDaUrl({ aviso, quantidade, mes });
   // A faixa que "Gerar as contas de {mês}" oferece (resposta do dono, 2026-09-20): o mês corrente
@@ -156,7 +236,11 @@ export default async function PaginaCadastros({
         <SubAbasCadastros subAtual={subAtual} />
       </div>
 
-      {subAtual === "clientes" ? (
+      {subAtual === "fornecedores" ? (
+        <Suspense fallback={<EsqueletoDosFornecedores />}>
+          <FornecedoresCarregados pedido={fornecedor} />
+        </Suspense>
+      ) : subAtual === "clientes" ? (
         <Suspense fallback={<EsqueletoDosClientes />}>
           <ClientesCarregados busca={buscaDaUrl(busca)} quantos={quantosDaUrl(quantos)} />
         </Suspense>
