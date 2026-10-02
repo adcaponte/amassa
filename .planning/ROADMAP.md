@@ -955,6 +955,8 @@ Plans:
 
 - [ ] TBD (discussão primeiro: os três pontos da §8 do briefing)
 
+**UI hint**: yes
+
 ### Phase 06.3: Lembretes (INSERTED)
 
 > **Criada em 02/10/2026** (item 7b da fila do Cowork). A especificação é o `BRIEFING.md` e o
