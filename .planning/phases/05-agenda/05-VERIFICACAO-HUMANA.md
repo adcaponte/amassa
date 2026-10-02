@@ -529,6 +529,9 @@ com 4 semanas; uma oficina "[teste] Oficina da caminhada"; um uso livre; um dia 
 **de hoje a 14 dias**, e **privado**: 🔴 a caixa **"Mostrar no calendário público do site" vem MARCADA**
 na folha de turma e de aula — **desmarque-a** em cada lançamento de teste, senão a turma e a oficina de
 teste aparecem no site para qualquer visitante. Só a conferência D.0 liga o site, de propósito.
+*Nota de 02/10/2026 — decisão do dono no chat, 02/10/2026, depois de `Claude outputs/agenda/VERIFICACAO-COWORK-05.md` §2 item 1: em produção a caixa continua MARCADA até a publicação do quick
+`261002-sdt`; depois dela, vem **desmarcada** — aí não precisa desmarcar, e quem liga o site é a
+conferência D.0, marcando de propósito.*
 
 ### A. As conferências do Roteiro, no dia a dia
 
@@ -825,6 +828,8 @@ precisa que cada uma tenha Resultado antes do "aprovado".
 - [ ] **D.33 (backstop 05-12 · E16·zero-one-many):** uma só mensalidade a receber — conferir "Lançar
   todas as mensalidades de uma vez (1)", "Lançar esta 1 na Venda · R$" e "1 mensalidade lançada na
   Venda".
+  *Nota de 02/10/2026 — decisão do dono no chat, 02/10/2026, depois de `Claude outputs/agenda/VERIFICACAO-COWORK-05.md` §2 item 3: depois da publicação do quick `261002-sdt`, o toque em
+  "Lançar esta 1 na Venda" abre **"Lançar 1 venda?"** antes de lançar; "Voltar" fecha sem criar venda.*
   - **Resultado:**
 - [ ] **D.34 (backstop 05-12 · E16·long-text):** pessoa de 160 caracteres numa turma de 120, a 320px —
   conferir que o item do lote quebra dentro da borda tracejada.

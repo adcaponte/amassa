@@ -125,6 +125,8 @@ desta fase; a "D-18 da 04.6" (sem preço no site) é outra e é citada sempre co
   e quando (`dispensada_em`/`dispensada_por` ou equivalente), **nunca apaga**, e tem "desfazer".
   Casos: aluno que saiu no dia 2, bolsa, experimental marcada "cobrar" por engano, venda cancelada
   que não será refeita. — **Reversibility:** one-way — colunas novas por migração aplicada pelo dono.
+  *Nota de 02/10/2026 — decisão do dono no chat: o uso livre encerrado também se dispensa, só quando a
+  venda dele estiver cancelada (VERIFICACAO-COWORK-05 §2 item 2); colunas na 0027, quick 261002-sdt.*
 - **D-10 (preço no site — pergunta 3):** o calendário público mostra **preço nos cartões de evento**
   (turma: "por mês"; oficina: "por pessoa" — o valor que o gestor digitou ao lançar), e o bloco "Uso
   livre do ateliê" **continua sem preço**, com "Consulte o valor pelo WhatsApp", como a D-18 da 04.6.
@@ -167,6 +169,29 @@ desta fase; a "D-18 da 04.6" (sem preço no site) é outra e é citada sempre co
 - **D-18 (uso livre esquecido — pergunta 10):** "Agora no espaço" conta **só usos livres de hoje**
   com "Chegou" e não encerrados (refina a D-05, que descreve o caso normal); o de dia passado aparece
   na semana com a etiqueta "encerrar" (como "marcar presença") e continua encerrável.
+
+### Ajustes do dono depois da verificação do Cowork (02/10/2026, no chat)
+
+Fonte: decisão do dono no chat, 02/10/2026, depois de `Claude outputs/agenda/VERIFICACAO-COWORK-05.md` §2. Implementados no quick `261002-sdt` (commits locais em `main`, não publicados
+quando esta nota foi escrita — `git log origin/main..main`). O texto das decisões acima fica como era.
+
+1. **Caixa pública desmarcada por padrão.** Palavras dele: "Inverter a marcação do calendario
+   publico. de padrão vem desmarcado." A folha "Lançar na agenda" (turma fixa e aula/oficina avulsa)
+   abre com "Mostrar no calendário público do site" **desmarcada**; lançar sem tocar nela não publica
+   nada. O servidor continua exigindo o booleano (sem `.default` no Zod) e o default `true` de
+   `turmas.publica` no banco não foi mexido — nenhum escritor depende dele (o único `insert` de
+   turmas grava o valor da ação). Commit `eac0203`.
+2. **Dispensar o uso livre com a venda cancelada** (refina a D-09). Palavras dele: "seguir sugestão do
+   cowork". O uso livre encerrado cuja venda foi cancelada no Caixa ganha "Dispensar a cobrança", com a
+   mesma mecânica das outras (quem, quando, motivo opcional, "Desfazer", nada apagado); o uso livre sem
+   venda continua sem o botão. Precisou da migração `0027_dispensa-do-uso-livre` (três colunas e três
+   checks em `usos_livres`), **versionada e não aplicada** — o dono escolheu `migracao-0027` no
+   checkpoint, no chat, em 02/10/2026; publica pelo Roteiro 18
+   (`docs/operacao/18-migracao-dispensa-do-uso-livre.md`). Commits `c008b1d` (migração),
+   `5e91ab3` (regra e servidor) e `534afd2` (tela e e2e).
+3. **Confirmação do lote de mensalidades.** Tocar "Lançar estas N na Venda" abre "Lançar N vendas?"
+   (singular "Lançar 1 venda?") com quantas e o total; só o botão de confirmar dela cria as vendas.
+   Commit `eac0203`.
 
 ### Claude's Discretion
 - O número do WhatsApp do site: o briefing diz "é cadastro"; a 04.6 decidiu (D-17) que ele mora em

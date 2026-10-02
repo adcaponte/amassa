@@ -399,8 +399,8 @@ de novo com o uso da Agenda — o teste cobre o uso.
 | Ficha | **"Editar"** (`outline`, UI-D24) · **"Pronto"** (primário, herdado) · caixa de cada turma (entrar/sair, herdado) · link **"ver turma"** em cada turma marcada |
 | Pessoa nova | **"Salvar pessoa"** (o protótipo dizia "Salvar") · **"Voltar"** (`outline`); enquanto grava "Salvando…" |
 | Homônimo (D-16) | **"Usar {nome} que já existe"** (`outline`) · **"Criar outra pessoa"** (`outline`) |
-| A receber — linha | **"Recebi agora"** (`outline`) · **"Lançar na Venda"** (`outline` — UI-D3; o protótipo pintava de terracota) · **"Dispensar a cobrança"** (link-botão 44px, `tinta-media`, só mensalidade e inscrição — D-09) |
-| A receber — lote | sanfona **"Lançar todas as mensalidades de uma vez ({N}) — ver quem entra"** (herdada, aberta por padrão) · **"Lançar estas {N} na Venda · {R$}"** (primário, herdado); enquanto grava "Lançando…" |
+| A receber — linha | **"Recebi agora"** (`outline`) · **"Lançar na Venda"** (`outline` — UI-D3; o protótipo pintava de terracota) · **"Dispensar a cobrança"** (link-botão 44px, `tinta-media`, só mensalidade e inscrição — D-09) · *Nota de 02/10/2026 — decisão do dono no chat, 02/10/2026, depois de `Claude outputs/agenda/VERIFICACAO-COWORK-05.md` §2 item 2: o uso livre encerrado com a venda cancelada também mostra "Dispensar a cobrança" (título "Dispensar o uso livre de {nome}?"; o corpo diz que a venda cancelada continua no Caixa); o uso livre sem venda continua sem o botão. Migração 0027, quick 261002-sdt.* |
+| A receber — lote | sanfona **"Lançar todas as mensalidades de uma vez ({N}) — ver quem entra"** (herdada, aberta por padrão) · **"Lançar estas {N} na Venda · {R$}"** (primário, herdado); enquanto grava "Lançando…" · *Nota de 02/10/2026 — decisão do dono no chat, 02/10/2026, depois de `Claude outputs/agenda/VERIFICACAO-COWORK-05.md` §2 item 3: o toque abre a confirmação **"Lançar {N} vendas?"** ("Lançar 1 venda?"), com quantas vendas, o total e que desfazer é cancelar uma a uma no Caixa; botões **"Lançar {N} vendas"** e **"Voltar"**; a falha fica dentro do diálogo. Quick 261002-sdt.* |
 | Recebi agora — forma | **"Dinheiro"** · **"Pix"** · **"Cartão"** (três botões `outline` de 52px, cada um grava na hora — UI-D4); enquanto grava, o tocado vira "Registrando…" e os três ficam `disabled` · **"Voltar"** (`outline`) |
 | Dispensadas | sanfona **"Dispensadas ({N})"** (fechada) · **"Desfazer"** (`outline`) em cada linha, `aria-label="Desfazer a dispensa de {descrição} de {nome}"` |
 | No site | sem ação própria; os botões do site aparecem como no site |
@@ -423,7 +423,7 @@ de novo com o uso da Agenda — o teste cobre o uso.
 | Aula — nome | "Nome" | placeholder **"ex.: Oficina de pintura em biscoito"** |
 | Aula — data | "Data" (herdado) | padrão: o dia tocado ou hoje |
 | Aula — preço | "Preço por pessoa (R$)" (herdado) | **vazio** (o protótipo pré-enchia "120") |
-| Turma/Aula — público | caixa **"Mostrar no calendário público do site"** (herdada) | marcada por padrão (herdado) |
+| Turma/Aula — público | caixa **"Mostrar no calendário público do site"** (herdada) | marcada por padrão (herdado) · *Nota de 02/10/2026 — decisão do dono no chat, 02/10/2026, depois de `Claude outputs/agenda/VERIFICACAO-COWORK-05.md` §2 item 1: **desmarcada por padrão** em turma fixa e aula/oficina avulsa; lançar sem tocar nela não publica nada. Quick 261002-sdt.* |
 | Uso livre — quem | "Quem" (herdado) | o seletor de pessoa (UI-D5) |
 | Uso livre — data/hora | "Data" · "Chega às" (o protótipo dizia "Começa") | `type="time"`, `step="300"` |
 | Uso livre — horas | "Horas previstas" (o protótipo dizia "Horas") | padrão **2** (herdado), 1 a 12 |
@@ -1473,7 +1473,7 @@ repositório.
 | loading | E15 — A receber | ✅ covered | Esqueleto: cabeçalho + sanfona + 4 linhas; "Registrando…" na forma tocada (Carregando) |
 | error | E15 — corrida e falha | ✅ covered | "Este item já foi lançado (venda nº {N})…"; "Não deu para registrar. Nenhuma venda foi criada…" (Copywriting → Erros) |
 | populated | E15 — linhas | ✅ covered | Ordem de vencimento/data; nome, valor, sub-linha com tags e a fileira de ações (Layout → Aba A receber, item 3) |
-| partial | E15 — uso livre, proporcional, venda cancelada | ✅ covered | Uso livre sem "Dispensar a cobrança" (D-09); "(proporcional)"; tag "venda nº {N} cancelada" (D-08) |
+| partial | E15 — uso livre, proporcional, venda cancelada | ✅ covered | Uso livre sem "Dispensar a cobrança" (D-09); "(proporcional)"; tag "venda nº {N} cancelada" (D-08) · *Nota de 02/10/2026 — decisão do dono no chat: o uso livre COM a venda cancelada passa a ter "Dispensar a cobrança"; sem venda, continua sem (quick 261002-sdt, 0027).* |
 | overflow | E15 — ações a 320px | ✅ covered | Os dois botões da direita descem um embaixo do outro a 320px, nunca rolam de lado (Layout → Aba A receber, item 3) |
 | zero-one-many | E15 — contador da aba | ✅ covered | "A receber" sem contador com 0; " · {N}" com 1 ou mais (Copywriting → Ações, abas) |
 | long-text | E15 — sub-linha longa a 320px | 🧪 backstop | Lançar uma turma de nome com 120 caracteres e abrir A receber a 320px: conferir que "Mensalidade · {turma} (proporcional) · {mês} · vence dia {d}" e a tag quebram sem empurrar o valor da coluna da direita |
