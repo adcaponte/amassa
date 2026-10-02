@@ -98,8 +98,8 @@
   --radius-lg: 14px;
   --radius-xl: 18px;   /* Card e Dialog do shadcn usam rounded-xl */
 
-  /* fontes (D-10) — as variáveis --fonte-inter/--fonte-archivo são escritas no <body> por
-     `app/layout.tsx` via `next/font/google`. */
+  /* fontes (D-10) — as variáveis --fonte-inter/--fonte-archivo são escritas no <html> por
+     `app/layout.tsx` via `next/font/local` (arquivos em `app/_fontes/`). */
   --font-sans:   var(--fonte-inter), ui-sans-serif, system-ui, sans-serif;
   --font-titulo: var(--fonte-archivo), ui-sans-serif, system-ui, sans-serif;
 
@@ -246,7 +246,7 @@
 
   /* Fraunces vira utilitário de título do site (`font-titulo-site`), do mesmo jeito que a
      plataforma expõe `--font-titulo` acima. A variável CSS (`--fonte-fraunces`) é escrita no
-     `<html>` por `app/layout.tsx`, via `next/font/google`. */
+     `<html>` por `app/layout.tsx`, via `next/font/local`. */
   --font-titulo-site: var(--fonte-fraunces), Georgia, serif;
 }
 

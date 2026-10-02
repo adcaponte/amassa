@@ -8,9 +8,10 @@
 // diferentes, um serve CSS/WOFF2 para o navegador, o outro embute o glifo dentro do PDF. Não há
 // caminho que reaproveite a fonte da interface para o PDF.
 //
-// 🔴 EXCEÇÃO DELIBERADA à convenção de `app/layout.tsx` ("nenhum arquivo de fonte é versionado,
-// nenhuma requisição a CDN em produção"): os `.ttf` em `assets/fontes/` são a única forma de
-// dar ao `@react-pdf/renderer` os bytes que ele exige. Ver `assets/fontes/README.md` para a
+// 🔴 Os `.ttf` em `assets/fontes/` são a única forma de dar ao `@react-pdf/renderer` os bytes que
+// ele exige. Quando entraram (26/09/2026) eram exceção à convenção de então de `app/layout.tsx`,
+// "nenhum arquivo de fonte é versionado"; desde 02/10/2026 a interface também versiona as suas
+// (`.woff2` em `app/_fontes/`, janela 60) e essa convenção deixou de existir. Ver `assets/fontes/README.md` para a
 // proveniência e a licença (SIL Open Font License 1.1 — permite redistribuição, inclusive em
 // repositório público e uso comercial).
 import path from "node:path";

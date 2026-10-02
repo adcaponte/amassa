@@ -1,9 +1,15 @@
 # Fontes do PDF do orçamento
 
-**Por que existe este diretório**, apesar de `app/layout.tsx` documentar "nenhum arquivo de
-fonte é versionado, nenhuma requisição a CDN em produção": essa convenção descreve como a
-**interface** (navegador) recebe fonte — via `next/font/google`, que baixa e cacheia o CSS/WOFF2
-em tempo de build. O gerador de PDF (`@react-pdf/renderer`, `lib/orcamentos/pdf/fontes.ts`) é um
+> **Atualização de 02/10/2026 (janela 60):** a interface deixou o `next/font/google` e passou a
+> versionar as próprias fontes — `.woff2` em `app/_fontes/` (README lá), via `next/font/local`.
+> A convenção "nenhum arquivo de fonte é versionado" citada abaixo **não existe mais**; o texto
+> abaixo fica como registro de por que este diretório nasceu como exceção. O motivo de os `.ttf`
+> do PDF serem arquivos separados dos `.woff2` da interface continua valendo: são dois mecanismos.
+
+**Por que existe este diretório**, apesar de `app/layout.tsx` documentar (até 02/10/2026)
+"nenhum arquivo de fonte é versionado, nenhuma requisição a CDN em produção": essa convenção
+descrevia como a **interface** (navegador) recebia fonte — via `next/font/google`, que baixava e
+cacheava o CSS/WOFF2 em tempo de build. O gerador de PDF (`@react-pdf/renderer`, `lib/orcamentos/pdf/fontes.ts`) é um
 mecanismo **completamente diferente**: ele embute os BYTES de um arquivo `.ttf` real dentro do
 PDF, e não existe integração com `next/font`. Sem um arquivo de fonte físico, os acentos do
 português (`ç ã é õ â`) saem incorretos ou ausentes no PDF (as 14 fontes padrão do formato PDF só
@@ -15,7 +21,8 @@ dono em 2026-09-26 (D-32 do `04.5-CONTEXT.md`), não um esquecimento.
 ## De onde vieram os arquivos, e qual versão
 
 Todos os três arquivos são as MESMAS famílias que a plataforma já usa na interface
-(`app/layout.tsx`, via `next/font/google`: Inter para corpo, Archivo Narrow para título) — o
+(`app/layout.tsx` — via `next/font/google` quando isto foi escrito, `next/font/local` desde
+02/10/2026: Inter para corpo, Archivo Narrow para título) — o
 documento do cliente fica visualmente igual ao resto do sistema.
 
 | Arquivo | Fonte | Versão | Baixado de |

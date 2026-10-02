@@ -8,7 +8,7 @@ import { test, expect, type Page } from "@playwright/test";
 //
 // Nomes de família de fonte: medidos de verdade no navegador durante o portão de retorno do
 // tracer da Tarefa 2 (02b-01) — com `variable: "--fonte-archivo"` (a CSS custom property que
-// D-10 pede, consumida pelo bloco @theme), o next/font/google gera o nome LEGÍVEL da família
+// D-10 pede, consumida pelo bloco @theme), o next/font/google gerava o nome LEGÍVEL da família
 // ("Archivo Narrow", "Inter") mais o par "* Fallback" com métricas ajustadas — nunca o nome
 // com hash (`__Archivo_Narrow_<hash>`) que só aparece no padrão de uso via `.className`
 // direto, que este projeto não usa. Qualquer teste futuro de nome de fonte deve usar o nome
@@ -98,10 +98,30 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
     // lugar da pilha; a família real precisa vir PRIMEIRO (antes do "* Fallback" e de
     // qualquer fonte de sistema). Uma âncora solta passaria mesmo se só a "Archivo Narrow
     // Fallback" sobrevivesse em primeiro lugar — a âncora não deixa.
-    expect(familiaSaudacao).toMatch(/^"?Archivo Narrow"?,/);
-    expect(familiaCartao).toMatch(/^"?Archivo Narrow"?,/);
-    expect(familiaTituloModulo).toMatch(/^"?Archivo Narrow"?,/);
+    //
+    // `ArchivoNarrow`, sem espaço, desde 02/10/2026 (janela 60): com `next/font/local` no
+    // Turbopack o nome da família é o nome da constante JS em `app/layout.tsx`, e identificador
+    // não tem espaço. Mesmo arquivo `.woff2` de antes — só o rótulo mudou.
+    expect(familiaSaudacao).toMatch(/^"?ArchivoNarrow"?,/);
+    expect(familiaCartao).toMatch(/^"?ArchivoNarrow"?,/);
+    expect(familiaTituloModulo).toMatch(/^"?ArchivoNarrow"?,/);
     expect(familiaCorpo).toMatch(/^"?Inter"?,/);
+
+    // O nome na pilha só vale se existir uma `@font-face` com ESSE nome que o navegador de fato
+    // carregou. Na troca para `next/font/local` a pilha chegou a sair `archivoNarrow, ...`
+    // enquanto as `@font-face` se chamavam "Archivo Narrow" — nome nenhum casava, o título
+    // renderizaria na fonte de reserva, e uma prova só de nome não pegaria se o nome esperado
+    // fosse o errado. Aqui a primeira família da pilha precisa estar entre as faces carregadas.
+    const facesCarregadas = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return [...document.fonts]
+        .filter((face) => face.status === "loaded")
+        .map((face) => face.family.replace(/["']/g, "").toLowerCase());
+    });
+    for (const pilha of [familiaTituloModulo, familiaCorpo]) {
+      const primeira = pilha.split(",")[0].replace(/["']/g, "").trim().toLowerCase();
+      expect(facesCarregadas, `face carregada para "${primeira}"`).toContain(primeira);
+    }
   });
 
   test("os campos de login têm fonte de pelo menos 16px e altura mínima de 44px (UI-09)", async ({
