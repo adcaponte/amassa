@@ -5496,6 +5496,39 @@ async function conferirAgenda(conexao) {
         [clienteB],
         ["usos_livres_pessoas_faixa"],
       ],
+      // A dispensa do uso livre (0027 — decisão do dono no chat, 02/10/2026: só com a venda cancelada; a
+      // venda cancelada é conferida pela ação sob trava, o check garante encerrado com venda). O check
+      // roda antes da chave estrangeira: `gen_random_uuid()` basta como documento para isolar a recusa.
+      [
+        "uso livre dispensado sem dispensada_por",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada, saida, horas_cheias, preco_hora_centavos, valor_centavos, documento_id, dispensada_em) values ($1, current_date, '14:00', 2, 1, 'encerrado', '14:00', '16:00', 2, 100, 200, gen_random_uuid(), now())",
+        [clienteB],
+        ["usos_livres_dispensada_por"],
+      ],
+      [
+        "uso livre com motivo sem dispensa",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, motivo_dispensa) values ($1, current_date, '14:00', 2, 1, 'motivo')",
+        [clienteB],
+        ["usos_livres_motivo_so_com_dispensa"],
+      ],
+      [
+        "uso livre dispensado com motivo de 201 caracteres",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada, saida, horas_cheias, preco_hora_centavos, valor_centavos, documento_id, dispensada_em, dispensada_por, motivo_dispensa) values ($1, current_date, '14:00', 2, 1, 'encerrado', '14:00', '16:00', 2, 100, 200, gen_random_uuid(), now(), $2, repeat('a', 201))",
+        [clienteB, usuarioId],
+        ["usos_livres_motivo_so_com_dispensa"],
+      ],
+      [
+        "uso livre reservado dispensado",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, dispensada_em, dispensada_por) values ($1, current_date, '14:00', 2, 1, now(), $2)",
+        [clienteB, usuarioId],
+        ["usos_livres_dispensa_so_com_venda"],
+      ],
+      [
+        "uso livre encerrado dispensado sem venda",
+        "insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada, saida, horas_cheias, preco_hora_centavos, valor_centavos, dispensada_em, dispensada_por) values ($1, current_date, '14:00', 2, 1, 'encerrado', '14:00', '16:00', 2, 100, 200, now(), $2)",
+        [clienteB, usuarioId],
+        ["usos_livres_dispensa_so_com_venda"],
+      ],
       // material do uso livre
       [
         "material com quantidade 0",
@@ -5526,6 +5559,23 @@ async function conferirAgenda(conexao) {
     for (const [descricao, sql, parametros, restricoes] of recusas) {
       esperar(await tentar(sql, parametros), "23514", restricoes, descricao);
     }
+
+    // A dispensa completa do uso livre encerrado com venda entra (0027). Entre begin/rollback, numa
+    // instrução só: o documento nasce no CTE e a soma dele (0015, adiada) nunca chega a ser conferida.
+    esperar(
+      await tentar(
+        `with venda as (
+           insert into documentos (tipo, data, criado_por, cancelado_em, cancelado_por)
+           values ('venda', current_date, $2, now(), $2) returning id
+         )
+         insert into usos_livres (cliente_id, data, chegada_prevista, horas_previstas, pessoas, estado, chegada, saida, horas_cheias, preco_hora_centavos, valor_centavos, documento_id, dispensada_em, dispensada_por, motivo_dispensa)
+         select $1, current_date, '14:00', 2, 1, 'encerrado', '14:00', '16:00', 2, 100, 200, venda.id, now(), $2, 'venda cancelada no Caixa' from venda`,
+        [clienteB, usuarioId],
+      ),
+      null,
+      null,
+      "um uso livre encerrado, com venda (cancelada) e dispensa completa",
+    );
 
     // ——— 5. D-01: a Venda de hoje, sem cliente_id, continua entrando ————————————————————————
     // Entre begin/rollback: a soma do documento (0015) é adiada e nunca chega a ser conferida.

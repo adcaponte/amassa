@@ -2006,6 +2006,12 @@ export const usosLivres = pgTable(
     valorCentavos: integer("valor_centavos"),
     documentoId: uuid("documento_id").references(() => documentos.id),
     criadoPor: uuid("criado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    // Dispensa do uso livre só com a venda cancelada — decisão do dono no chat, 02/10/2026
+    // (VERIFICACAO-COWORK-05 §2 item 2; refina a D-09; migração 0027). Mesma mecânica de
+    // `mensalidades`: quem, quando e o motivo opcional; nada se apaga, o “Desfazer” limpa as três.
+    dispensadaEm: timestamp("dispensada_em", { withTimezone: true }),
+    dispensadaPor: uuid("dispensada_por").references(() => usuarios.id),
+    motivoDispensa: text("motivo_dispensa"),
     criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
     atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -2035,6 +2041,20 @@ export const usosLivres = pgTable(
     check(
       "usos_livres_venda_so_encerrado",
       sql`${tabela.documentoId} is null or ${tabela.estado} = 'encerrado'`,
+    ),
+    // Dispensa do uso livre só com a venda cancelada — decisão do dono, 02/10/2026; a venda cancelada é
+    // conferida pela ação sob trava, o check garante que há venda (e que o uso está encerrado).
+    check(
+      "usos_livres_dispensada_por",
+      sql`${tabela.dispensadaEm} is null or ${tabela.dispensadaPor} is not null`,
+    ),
+    check(
+      "usos_livres_motivo_so_com_dispensa",
+      sql`${tabela.motivoDispensa} is null or (${tabela.dispensadaEm} is not null and length(trim(${tabela.motivoDispensa})) between 1 and 200)`,
+    ),
+    check(
+      "usos_livres_dispensa_so_com_venda",
+      sql`${tabela.dispensadaEm} is null or (${tabela.estado} = 'encerrado' and ${tabela.documentoId} is not null)`,
     ),
     index("usos_livres_data_idx").on(tabela.data),
     index("usos_livres_documento_idx").on(tabela.documentoId),
