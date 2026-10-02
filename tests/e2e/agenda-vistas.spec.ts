@@ -58,6 +58,36 @@ async function irParaOMesDe(page: Page, data: string) {
 //    estouro mesmo quando a sobra de 24px do `px-6` o esconde da medida 1 — e essa sobra depende da fonte do
 //    sistema: "28/12/2026 a 03/01/2027" mede ~182px no Chromium do Windows e ~196px no do Linux do CI, e
 //    com o título preso numa linha o `nav` ia a 310px num caso e a 328px no outro.
+// A mesma régua para a folha do evento aberta (WR-05 da revisão B): nada passa da largura do diálogo e o
+// corpo rolável da folha não rola de lado.
+async function estourosDaFolhaA320(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    await document.fonts.ready;
+    const problemas: string[] = [];
+    const folha = document.querySelector('[data-testid="folha-evento"]');
+    if (folha === null) {
+      return ["a folha do evento não está na tela"];
+    }
+    const borda = folha.getBoundingClientRect();
+    for (const elemento of folha.querySelectorAll("*")) {
+      const caixa = elemento.getBoundingClientRect();
+      if (caixa.width === 0 && caixa.height === 0) {
+        continue;
+      }
+      if (elemento.scrollWidth > elemento.clientWidth + 0.5 && ["auto", "scroll"].includes(getComputedStyle(elemento).overflowX)) {
+        problemas.push(`<${elemento.tagName.toLowerCase()}> rola de lado: scrollWidth ${elemento.scrollWidth} > clientWidth ${elemento.clientWidth}`);
+      }
+      if (caixa.left < borda.left - 0.5 || caixa.right > borda.right + 0.5) {
+        const texto = (elemento.textContent ?? "").trim().slice(0, 40);
+        problemas.push(
+          `<${elemento.tagName.toLowerCase()}> "${texto}" vai de ${caixa.left.toFixed(1)} a ${caixa.right.toFixed(1)}px; a folha, de ${borda.left.toFixed(1)} a ${borda.right.toFixed(1)}px`,
+        );
+      }
+    }
+    return problemas;
+  });
+}
+
 async function estourosA320(page: Page, conteudo: "agenda-semana" | "agenda-mes"): Promise<string[]> {
   return page.evaluate(async (testIdDoConteudo) => {
     await document.fonts.ready;
@@ -275,6 +305,35 @@ test.describe("agenda vistas", () => {
       numero: numeroDaVenda,
     });
 
+    // Sexta (WR-05 da revisão B): uma oficina com quem tem a inscrição ligada a uma venda CANCELADA de número
+    // de 10 dígitos — na folha, a tag "venda nº {N} cancelada" fica ao lado do Veio/Faltou.
+    const oficinaDaFolha = await semearOficina({
+      titulo: textoComEspacos(120, `folha ${sufixo}`),
+      data: dia(4),
+      inicio: "09:00",
+      fim: "12:00",
+      vagas: 999,
+      precoCentavos: 999_999,
+    });
+    const daFolha = await semearCliente({ nome: textoComEspacos(160, `na folha ${sufixo}`) });
+    const inscricaoDaFolha = await semearInscricao({
+      eventoId: oficinaDaFolha,
+      clienteId: daFolha,
+      tipo: "oficina",
+      valorCentavos: 999_999,
+    });
+    // Outra faixa de 10 dígitos que cabe no `integer` (até 2.147.483.647) e não cruza a de cima.
+    const numeroNaFolha = 1_850_000_000 + Math.floor(Math.random() * 140_000_000);
+    await ligarVendaACobranca({
+      tipo: "inscricao",
+      id: inscricaoDaFolha,
+      valorCentavos: 999_999,
+      data: dia(4),
+      paga: false,
+      cancelada: true,
+      numero: numeroNaFolha,
+    });
+
     await page.setViewportSize({ width: 320, height: 720 });
     await fazerLogin(page);
     await page.goto(`/gestao/agenda?semana=${segunda}`);
@@ -292,6 +351,15 @@ test.describe("agenda vistas", () => {
       page.locator(`[data-testid="agenda-cartao"][data-uso-id="${encerrado.usoLivreId}"]`).getByTestId("tag-venda-cancelada"),
     ).toHaveText(`venda nº ${numeroDaVenda} cancelada`);
     await expect.poll(() => estourosA320(page, "agenda-semana")).toEqual([]);
+
+    // A folha aberta, com a tag mais longa ao lado do Veio/Faltou.
+    await page.goto(`/gestao/agenda?semana=${segunda}&evento=${oficinaDaFolha}`);
+    const linhaDaFolha = page
+      .getByTestId("folha-evento")
+      .locator(`[data-testid="inscrito"][data-inscricao-id="${inscricaoDaFolha}"]`);
+    await expect(linhaDaFolha.getByTestId("tag-venda-cancelada")).toHaveText(`venda nº ${numeroNaFolha} cancelada`);
+    await expect(linhaDaFolha.getByTestId("presenca-veio")).toBeVisible();
+    await expect.poll(() => estourosDaFolhaA320(page)).toEqual([]);
 
     await page.goto(`/gestao/agenda?vista=mes&mes=${segunda.slice(0, 7)}`);
     await expect(page.getByTestId(`mes-dia-${dia(0)}`)).toHaveAttribute("aria-label", /dia fechado/);

@@ -66,7 +66,9 @@ export function TagDePagamento({ pagamento, className }: { pagamento: SituacaoDe
     <span
       data-testid={naTela.testId}
       data-situacao={pagamento.situacao}
-      className={cn(CLASSE_DA_TAG, "whitespace-nowrap", naTela.classe, className)}
+      // Sem `whitespace-nowrap` (WR-05 da revisão B): "venda nº {10 dígitos} cancelada" não cabe ao lado do
+      // Veio/Faltou a 320px e empurrava a folha para o lado. A tag quebra entre as palavras onde faltar lugar.
+      className={cn(CLASSE_DA_TAG, naTela.classe, className)}
     >
       {textoDoPagamento(pagamento)}
     </span>
