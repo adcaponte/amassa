@@ -8,7 +8,9 @@ import {
   dicaSugestaoDaAula,
   faixaExperimental,
   FRASE_EXPERIMENTAL_SEM_ESCOLHA,
+  FRASE_DATA_CANCELADA,
   FRASE_EXPERIMENTAL_VALOR,
+  fraseFalhaAoMarcarPresenca,
   ROTULO_GRUPO_EXPERIMENTAL,
   TOAST_ENTROU_EXPERIMENTAL,
 } from "@/lib/agenda/textos";
@@ -74,6 +76,25 @@ async function abrirFolha(page: Page, data: string, eventoId: string) {
 
 function campoDoSeletor(page: Page) {
   return page.getByTestId("folha-evento").getByRole("combobox", { name: "Colocar alguém" });
+}
+
+// Segura as chamadas de Server Action (POST com o cabeçalho `Next-Action`) até `soltar`, e então as
+// derruba como queda de rede — o resto da navegação passa.
+async function segurarEDerrubarAcoes(page: Page): Promise<{ soltar: () => void }> {
+  let soltar: () => void = () => {};
+  const solto = new Promise<void>((resolver) => {
+    soltar = resolver;
+  });
+  await page.route("**/*", async (route) => {
+    const pedido = route.request();
+    if (pedido.method() === "POST" && pedido.headers()["next-action"] !== undefined) {
+      await solto;
+      await route.abort("failed");
+      return;
+    }
+    await route.continue();
+  });
+  return { soltar };
 }
 
 async function nomesDaLista(page: Page): Promise<string[]> {
@@ -320,5 +341,74 @@ test.describe("agenda presenca", () => {
     await expect.poll(() => inscricaoNoBanco(inscricaoId)).toEqual({ presenca: null, direitoARepor: false });
     expect(await saldoDeReposicaoNoBanco(clienteId)).toBe(0);
     await outra.close();
+  });
+  test("(f) WR-01 da revisão B: a rede cai ao marcar “Veio” — a frase fica embaixo da linha, o segmento volta e a Agenda continua na tela", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const ontem = somarDiasAoHoje(-1);
+    const nome = `[e2e] Sem Rede ${suf}`;
+    const clienteId = await semearCliente({ nome });
+    const { eventoIds } = await semearTurma(`[e2e] Turma sem rede ${suf}`, [ontem]);
+    const inscricaoId = await semearInscricao({ eventoId: eventoIds[0], clienteId, tipo: "aluno" });
+
+    await fazerLogin(page);
+    const folha = await abrirFolha(page, ontem, eventoIds[0]);
+    const { soltar } = await segurarEDerrubarAcoes(page);
+    soltar();
+    const linha = folha.locator(`[data-testid="inscrito"][data-inscricao-id="${inscricaoId}"]`);
+    await linha.getByTestId("presenca-veio").click();
+
+    await expect(linha.getByRole("alert")).toHaveText(fraseFalhaAoMarcarPresenca(nome));
+    await expect(linha.getByTestId("presenca-veio")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("folha-evento")).toBeVisible();
+    await expect(page.getByText("Não deu para carregar a agenda")).toHaveCount(0);
+    await page.unroute("**/*");
+    expect(await inscricaoNoBanco(inscricaoId)).toEqual({ presenca: null, direitoARepor: false });
+  });
+
+  test("(g) WR-02 da revisão B: a data foi cancelada em outro celular — tocar “Veio” mostra o porquê (não “Toque de novo”) e a folha se atualiza", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const ontem = somarDiasAoHoje(-1);
+    const nome = `[e2e] Data Cancelada ${suf}`;
+    const clienteId = await semearCliente({ nome });
+    const { eventoIds } = await semearTurma(`[e2e] Turma cancelada lá ${suf}`, [ontem]);
+    const inscricaoId = await semearInscricao({ eventoId: eventoIds[0], clienteId, tipo: "aluno" });
+
+    await fazerLogin(page);
+    const folha = await abrirFolha(page, ontem, eventoIds[0]);
+    await cancelarDataNoBanco(eventoIds[0]);
+    const linha = folha.locator(`[data-testid="inscrito"][data-inscricao-id="${inscricaoId}"]`);
+    await linha.getByTestId("presenca-veio").click();
+
+    await expect(linha.getByRole("alert")).toHaveText(FRASE_DATA_CANCELADA);
+    // Relida, a folha mostra a data cancelada: a lista fica só de leitura.
+    await expect(folha.getByTestId("presenca-veio")).toHaveCount(0);
+    expect(await inscricaoNoBanco(inscricaoId)).toEqual({ presenca: null, direitoARepor: false });
+  });
+
+  test("(h) CR-02 da revisão B: “Veio” e “Pronto” sem esperar, e a gravação falha DEPOIS de a folha fechar — um toast diz de quem era a presença", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const ontem = somarDiasAoHoje(-1);
+    const nome = `[e2e] Depois do Pronto ${suf}`;
+    const clienteId = await semearCliente({ nome });
+    const { eventoIds } = await semearTurma(`[e2e] Turma do pronto ${suf}`, [ontem]);
+    const inscricaoId = await semearInscricao({ eventoId: eventoIds[0], clienteId, tipo: "aluno" });
+
+    await fazerLogin(page);
+    const folha = await abrirFolha(page, ontem, eventoIds[0]);
+    const { soltar } = await segurarEDerrubarAcoes(page);
+    await folha.locator(`[data-testid="inscrito"][data-inscricao-id="${inscricaoId}"]`).getByTestId("presenca-veio").click();
+    await folha.getByTestId("folha-evento-pronto").click();
+    await expect(page.getByTestId("folha-evento")).toHaveCount(0);
+
+    soltar();
+    await expect(page.getByText(fraseFalhaAoMarcarPresenca(nome)).first()).toBeVisible();
+    await page.unroute("**/*");
+    expect(await inscricaoNoBanco(inscricaoId)).toEqual({ presenca: null, direitoARepor: false });
   });
 });

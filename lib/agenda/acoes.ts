@@ -238,6 +238,9 @@ export async function definirPresenca(
     });
   } catch (erro) {
     if (erro instanceof RecusaDaAgenda) {
+      // WR-02 (revisão B): a tela estava velha (data cancelada, inscrição tirada em outro celular) — ela
+      // se atualiza junto com a frase, como em `definirDireitoARepor`.
+      revalidarTelasDaAgenda({ publico: false });
       return { ok: false, erro: erro.frase };
     }
     // T-05-07: o texto do banco nunca chega à tela. O SQLSTATE fica só no log — lido de

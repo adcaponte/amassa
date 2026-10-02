@@ -76,6 +76,12 @@ export function fraseFalhaAoMarcarPresenca(nome: string): string {
 export const FRASE_FALHA_PRESENCA_GENERICA =
   "Não deu para marcar a presença. Verifique a internet e tente de novo.";
 
+// A recusa do servidor (data cancelada em outro celular, inscrição tirada) que chega com a folha já
+// fechada — o toast precisa dizer DE QUEM era a marcação (CR-02/WR-02 da revisão B).
+export function fraseRecusaNaLinha(nome: string, motivo: string): string {
+  return `${nome}: ${motivo}`;
+}
+
 // Folha "Lançar na agenda" (05-UI-SPEC.md §"Folha "Lançar na agenda"", §Copywriting → Ações,
 // Rótulos, Erros, Toasts). Os tipos chegam aos poucos: avulsa e fechado aqui (plano 03), turma no
 // plano 06 e uso livre no plano 09 — cada um com o formulário inteiro, nunca uma pílula sem destino.

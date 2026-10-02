@@ -1,14 +1,19 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { definirDireitoARepor, definirPresenca } from "@/lib/agenda/acoes";
 import type { InscritoCarregado } from "@/lib/agenda/consultas";
 import {
+  FRASE_FALHA_AO_MARCAR_DIREITO,
+  FRASE_FALHA_PRESENCA_GENERICA,
   fraseFalhaAoMarcarDireito,
   fraseFalhaAoMarcarPresenca,
+  fraseRecusaNaLinha,
   fraseJaVirouVenda,
   ROTULO_DIREITO_A_REPOR,
   ROTULO_FALTOU,
@@ -64,6 +69,37 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
   const [gravando, iniciarTransicao] = useTransition();
   const [gravandoDireito, iniciarTransicaoDoDireito] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  const router = useRouter();
+
+  // CR-02 (revisão B): no Valor central o gestor toca Veio/Faltou de todos e já toca "Pronto" — a folha
+  // fecha NA HORA e esta linha sai da tela com gravações no ar. Uma falha depois disso não tem onde
+  // aparecer embaixo da linha: vira um toast (o `Toaster` mora fora da folha), para a presença que a
+  // tela mostrou e o servidor não gravou nunca passar em silêncio.
+  const montada = useRef(true);
+  useEffect(() => {
+    montada.current = true;
+    return () => {
+      montada.current = false;
+    };
+  }, []);
+
+  // A falha de uma gravação desta linha. `generica` é a frase do servidor para a falha técnica (e a
+  // rejeição da promessa — rede caída — chega aqui como ela): vira a frase da UI-SPEC E6 com o nome
+  // ("… Toque de novo."). Qualquer outra é uma RECUSA decidida sob a trava (data cancelada em outro
+  // celular, inscrição tirada) — WR-02: a frase do servidor diz o porquê, e a tela é relida, senão
+  // "Toque de novo" seria recusado para sempre.
+  function mostrarFalha(erroDoServidor: string, generica: string, fraseDaLinha: string) {
+    const recusa = erroDoServidor !== generica;
+    const frase = recusa ? erroDoServidor : fraseDaLinha;
+    if (recusa) {
+      router.refresh();
+    }
+    if (montada.current) {
+      setErro(frase);
+    } else {
+      toast.error(recusa ? fraseRecusaNaLinha(inscrito.nome, frase) : frase, { duration: 10000 });
+    }
+  }
 
   function marcar(alvo: Presenca) {
     const desejada = presenca === alvo ? null : alvo;
@@ -71,9 +107,16 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     setErro(null);
     iniciarTransicao(async () => {
       aplicarOtimista({ presenca: planejada.presenca, direito: planejada.direitoARepor });
-      const resultado = await registrarGravacao(definirPresenca({ inscricaoId: inscrito.id, presenca: desejada }));
+      // WR-01 (revisão B): a promessa rejeitada (rede caída no meio) nunca sobe da transição — subiria
+      // para o error.tsx e trocaria a Agenda inteira por "Não deu para carregar a agenda".
+      let resultado: Awaited<ReturnType<typeof definirPresenca>>;
+      try {
+        resultado = await registrarGravacao(definirPresenca({ inscricaoId: inscrito.id, presenca: desejada }));
+      } catch {
+        resultado = { ok: false, erro: FRASE_FALHA_PRESENCA_GENERICA };
+      }
       if (!resultado.ok) {
-        setErro(fraseFalhaAoMarcarPresenca(inscrito.nome));
+        mostrarFalha(resultado.erro, FRASE_FALHA_PRESENCA_GENERICA, fraseFalhaAoMarcarPresenca(inscrito.nome));
       }
     });
   }
@@ -82,9 +125,14 @@ export function LinhaInscrito({ inscrito, tipoDoEvento, somenteLeitura }: LinhaI
     setErro(null);
     iniciarTransicaoDoDireito(async () => {
       aplicarOtimista({ presenca: "faltou", direito });
-      const resultado = await registrarGravacao(definirDireitoARepor({ inscricaoId: inscrito.id, direito }));
+      let resultado: Awaited<ReturnType<typeof definirDireitoARepor>>;
+      try {
+        resultado = await registrarGravacao(definirDireitoARepor({ inscricaoId: inscrito.id, direito }));
+      } catch {
+        resultado = { ok: false, erro: FRASE_FALHA_AO_MARCAR_DIREITO };
+      }
       if (!resultado.ok) {
-        setErro(fraseFalhaAoMarcarDireito(inscrito.nome));
+        mostrarFalha(resultado.erro, FRASE_FALHA_AO_MARCAR_DIREITO, fraseFalhaAoMarcarDireito(inscrito.nome));
       }
     });
   }
