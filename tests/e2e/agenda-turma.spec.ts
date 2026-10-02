@@ -7,6 +7,7 @@ import {
   corpoConfirmarDesativarTurma,
   FRASE_NENHUM_ALUNO,
   FRASE_PERDAS_DA_TURMA_MUDARAM,
+  FRASE_SEM_RESPOSTA_AO_LANCAR,
   FRASE_SEMANAS,
   FRASE_VENCIMENTO,
   fraseDesativarComVendaAtiva,
@@ -511,5 +512,43 @@ test.describe("agenda turma", () => {
     await expect(page.getByText(TOAST_TURMA_DESATIVADA).first()).toBeVisible();
     await expect.poll(async () => (await turmasComNome(nome))[0].ativa).toBe(false);
     expect(await eventoNoBanco(eventoIds[0])).toBeNull();
+  });
+  test("(j) WR-06 da revisão B: o servidor grava mas a resposta se perde; tocar “Lançar turma” de novo não cria a segunda turma", async ({
+    page,
+  }) => {
+    const primeira = inicioDaJanela(7);
+    const nome = `[e2e] Turma da resposta perdida ${sufixoUnico()}`;
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?lancar=1&dia=${primeira}`);
+    const f = folhaLancar(page);
+    await expect(f).toBeVisible();
+    await f.getByTestId("lancar-tipo-turma").click();
+    await escolherDiaDaSemana(page, diaDaSemanaDe(primeira));
+    await preencherTurma(page, { nome, inicio: "19:00", fim: "21:00", mensalidade: "300", semanas: "2" });
+
+    // A primeira tentativa CHEGA ao servidor (que grava), mas a resposta não volta ao celular.
+    let perdidas = 0;
+    await page.route("**/*", async (route) => {
+      const pedido = route.request();
+      if (perdidas === 0 && pedido.method() === "POST" && pedido.headers()["next-action"] !== undefined) {
+        perdidas += 1;
+        await route.fetch();
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+    await f.getByTestId("lancar-gravar").click();
+    await expect(f.getByTestId("lancar-erro-geral")).toHaveText(FRASE_SEM_RESPOSTA_AO_LANCAR);
+    await expect.poll(async () => (await turmasComNome(nome)).length).toBe(1);
+
+    // O gestor toca de novo: o servidor devolve o que já gravou.
+    await f.getByTestId("lancar-gravar").click();
+    await expect(page.getByText(toastTurmaLancada(2, [])).first()).toBeVisible();
+    await page.unroute("**/*");
+    const turmas = await turmasComNome(nome);
+    expect(turmas).toHaveLength(1);
+    expect(await datasDaTurmaNoBanco(turmas[0].id)).toHaveLength(2);
   });
 });

@@ -103,6 +103,7 @@ import {
 } from "./gravacao";
 import { mesDaData, valorProporcional, vencimentoDaMensalidade } from "./mensalidade";
 import { planejarPresenca, type PresencaPlanejada } from "./presenca";
+import { chaveDoEnvio, umaVezPorEnvio } from "./envios";
 import { linhasDaVenda, podeDispensar, situacaoDaCobranca } from "./receber";
 import { horasCheias, proximoEstado, valorDoUsoLivre } from "./uso-livre";
 import type { EstadoUsoLivre, TipoInscricao } from "./tipos";
@@ -336,34 +337,36 @@ export async function lancarAvulsa(entradaBruta: unknown): Promise<ResultadoDoLa
     };
   }
   const dados = resultado.data;
+  // WR-06 (revisão B): a resposta perdida no celular não vira um segundo lançamento — `lib/agenda/envios.ts`.
+  return umaVezPorEnvio(chaveDoEnvio(usuario.id, "lancarAvulsa", entradaBruta, dados), async () => {
+    let lancado: Lancado;
+    try {
+      const [linha] = await db
+        .insert(eventos)
+        .values({
+          tipo: "avulsa",
+          data: dados.data,
+          inicio: dados.inicio,
+          fim: dados.fim,
+          titulo: dados.titulo,
+          vagas: dados.vagas,
+          precoCentavos: dados.precoCentavos,
+          publico: dados.publico,
+          criadoPor: usuario.id,
+        })
+        .returning({ id: eventos.id, data: eventos.data });
+      lancado = linha;
+    } catch (erro) {
+      console.error(
+        `Falha ao lançar a aula (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+        erro,
+      );
+      return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
+    }
 
-  let lancado: Lancado;
-  try {
-    const [linha] = await db
-      .insert(eventos)
-      .values({
-        tipo: "avulsa",
-        data: dados.data,
-        inicio: dados.inicio,
-        fim: dados.fim,
-        titulo: dados.titulo,
-        vagas: dados.vagas,
-        precoCentavos: dados.precoCentavos,
-        publico: dados.publico,
-        criadoPor: usuario.id,
-      })
-      .returning({ id: eventos.id, data: eventos.data });
-    lancado = linha;
-  } catch (erro) {
-    console.error(
-      `Falha ao lançar a aula (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
-      erro,
-    );
-    return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
-  }
-
-  revalidarTelasDaAgenda({ publico: dados.publico });
-  return { ok: true, dados: lancado };
+    revalidarTelasDaAgenda({ publico: dados.publico });
+    return { ok: true, dados: lancado };
+  });
 }
 
 export type TurmaLancada = {
@@ -394,52 +397,55 @@ export async function lancarTurma(entradaBruta: unknown): Promise<ResultadoDoLan
     };
   }
   const dados = resultado.data;
-  const datas = datasDaTurma({ diaDaSemana: dados.diaSemana, aPartirDe: dados.aPartirDe, semanas: dados.semanas });
+  // WR-06 (revisão B): a resposta perdida no celular não vira um segundo lançamento — `lib/agenda/envios.ts`.
+  return umaVezPorEnvio(chaveDoEnvio(usuario.id, "lancarTurma", entradaBruta, dados), async () => {
+    const datas = datasDaTurma({ diaDaSemana: dados.diaSemana, aPartirDe: dados.aPartirDe, semanas: dados.semanas });
 
-  let lancada: Omit<TurmaLancada, "emDiaFechado">;
-  try {
-    lancada = await db.transaction(async (tx) => {
-      const [turma] = await tx
-        .insert(turmas)
-        .values({
-          nome: dados.nome,
-          diaSemana: dados.diaSemana,
-          inicio: dados.inicio,
-          fim: dados.fim,
-          vagas: dados.vagas,
-          mensalidadeCentavos: dados.mensalidadeCentavos,
-          diaVencimento: dados.diaVencimento,
-          publica: dados.publica,
-          criadoPor: usuario.id,
-        })
-        .returning({ id: turmas.id });
-      const criadas = await marcarDatasDaTurma(
-        tx,
-        { id: turma.id, inicio: dados.inicio, fim: dados.fim, vagas: dados.vagas, publica: dados.publica },
-        datas,
-        usuario.id,
+    let lancada: Omit<TurmaLancada, "emDiaFechado">;
+    try {
+      lancada = await db.transaction(async (tx) => {
+        const [turma] = await tx
+          .insert(turmas)
+          .values({
+            nome: dados.nome,
+            diaSemana: dados.diaSemana,
+            inicio: dados.inicio,
+            fim: dados.fim,
+            vagas: dados.vagas,
+            mensalidadeCentavos: dados.mensalidadeCentavos,
+            diaVencimento: dados.diaVencimento,
+            publica: dados.publica,
+            criadoPor: usuario.id,
+          })
+          .returning({ id: turmas.id });
+        const criadas = await marcarDatasDaTurma(
+          tx,
+          { id: turma.id, inicio: dados.inicio, fim: dados.fim, vagas: dados.vagas, publica: dados.publica },
+          datas,
+          usuario.id,
+        );
+        return { turmaId: turma.id, datas: criadas.length, primeira: datas[0] };
+      });
+    } catch (erro) {
+      console.error(
+        `Falha ao lançar a turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+        erro,
       );
-      return { turmaId: turma.id, datas: criadas.length, primeira: datas[0] };
-    });
-  } catch (erro) {
-    console.error(
-      `Falha ao lançar a turma (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
-      erro,
-    );
-    return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
-  }
+      return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
+    }
 
-  revalidarTelasDaAgenda({ publico: dados.publica });
+    revalidarTelasDaAgenda({ publico: dados.publica });
 
-  // Fora da transação e do `try` dela: a turma já está gravada — uma falha ao ler os fechados só
-  // tira o aviso do toast (a tag "dia fechado" aparece no cartão de qualquer jeito).
-  let emDiaFechado: FechadoDoDia[] = [];
-  try {
-    emDiaFechado = datasEmDiaFechado(datas, await fechadosEntre(datas[0], datas[datas.length - 1]));
-  } catch (erro) {
-    console.error("Falha ao ler os dias fechados depois de lançar a turma:", erro);
-  }
-  return { ok: true, dados: { ...lancada, emDiaFechado } };
+    // Fora da transação e do `try` dela: a turma já está gravada — uma falha ao ler os fechados só
+    // tira o aviso do toast (a tag "dia fechado" aparece no cartão de qualquer jeito).
+    let emDiaFechado: FechadoDoDia[] = [];
+    try {
+      emDiaFechado = datasEmDiaFechado(datas, await fechadosEntre(datas[0], datas[datas.length - 1]));
+    } catch (erro) {
+      console.error("Falha ao ler os dias fechados depois de lançar a turma:", erro);
+    }
+    return { ok: true, dados: { ...lancada, emDiaFechado } };
+  });
 }
 
 // "Fechar o dia" — um evento `fechado` com o motivo no título, nunca público (o site mostra só
@@ -458,30 +464,32 @@ export async function fecharDia(entradaBruta: unknown): Promise<ResultadoDoLanca
     };
   }
   const dados = resultado.data;
+  // WR-06 (revisão B): a resposta perdida no celular não vira um segundo lançamento — `lib/agenda/envios.ts`.
+  return umaVezPorEnvio(chaveDoEnvio(usuario.id, "fecharDia", entradaBruta, dados), async () => {
+    let lancado: Lancado;
+    try {
+      const [linha] = await db
+        .insert(eventos)
+        .values({
+          tipo: "fechado",
+          data: dados.data,
+          titulo: dados.motivo,
+          publico: false,
+          criadoPor: usuario.id,
+        })
+        .returning({ id: eventos.id, data: eventos.data });
+      lancado = linha;
+    } catch (erro) {
+      console.error(
+        `Falha ao fechar o dia (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+        erro,
+      );
+      return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
+    }
 
-  let lancado: Lancado;
-  try {
-    const [linha] = await db
-      .insert(eventos)
-      .values({
-        tipo: "fechado",
-        data: dados.data,
-        titulo: dados.motivo,
-        publico: false,
-        criadoPor: usuario.id,
-      })
-      .returning({ id: eventos.id, data: eventos.data });
-    lancado = linha;
-  } catch (erro) {
-    console.error(
-      `Falha ao fechar o dia (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
-      erro,
-    );
-    return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
-  }
-
-  revalidarTelasDaAgenda({ publico: true });
-  return { ok: true, dados: lancado };
+    revalidarTelasDaAgenda({ publico: true });
+    return { ok: true, dados: lancado };
+  });
 }
 
 // A leitura do aviso D-13 da folha "Lançar na agenda", quando a data muda: só o motivo do fechado
@@ -1276,35 +1284,37 @@ export async function reservarUsoLivre(entradaBruta: unknown): Promise<Resultado
     };
   }
   const dados = resultado.data;
-
-  let reservado: UsoLivreReservado;
-  try {
-    const [linha] = await db
-      .insert(usosLivres)
-      .values({
-        clienteId: dados.clienteId,
-        data: dados.data,
-        chegadaPrevista: dados.chegadaPrevista,
-        horasPrevistas: dados.horasPrevistas,
-        pessoas: dados.pessoas,
-        estado: "reservado",
-        criadoPor: usuario.id,
-      })
-      .returning({ id: usosLivres.id, data: usosLivres.data });
-    reservado = linha;
-  } catch (erro) {
-    if (codigoDoErroPostgres(erro) === "23503") {
-      return { ok: false, erro: FRASE_PESSOA_NAO_EXISTE, campos: { clienteId: FRASE_PESSOA_NAO_EXISTE } };
+  // WR-06 (revisão B): a resposta perdida no celular não vira um segundo lançamento — `lib/agenda/envios.ts`.
+  return umaVezPorEnvio(chaveDoEnvio(usuario.id, "reservarUsoLivre", entradaBruta, dados), async () => {
+    let reservado: UsoLivreReservado;
+    try {
+      const [linha] = await db
+        .insert(usosLivres)
+        .values({
+          clienteId: dados.clienteId,
+          data: dados.data,
+          chegadaPrevista: dados.chegadaPrevista,
+          horasPrevistas: dados.horasPrevistas,
+          pessoas: dados.pessoas,
+          estado: "reservado",
+          criadoPor: usuario.id,
+        })
+        .returning({ id: usosLivres.id, data: usosLivres.data });
+      reservado = linha;
+    } catch (erro) {
+      if (codigoDoErroPostgres(erro) === "23503") {
+        return { ok: false, erro: FRASE_PESSOA_NAO_EXISTE, campos: { clienteId: FRASE_PESSOA_NAO_EXISTE } };
+      }
+      console.error(
+        `Falha ao reservar o uso livre (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+        erro,
+      );
+      return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
     }
-    console.error(
-      `Falha ao reservar o uso livre (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
-      erro,
-    );
-    return { ok: false, erro: FRASE_FALHA_AO_LANCAR };
-  }
 
-  revalidarTelasDaAgenda({ publico: false });
-  return { ok: true, dados: reservado };
+    revalidarTelasDaAgenda({ publico: false });
+    return { ok: true, dados: reservado };
+  });
 }
 
 // O estado de agora de um uso, depois de uma escrita condicionada que não pegou nenhuma linha — para

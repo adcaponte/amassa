@@ -132,6 +132,10 @@ export const FRASE_MOTIVO_VAZIO = "Diga o motivo do fechamento.";
 export const FRASE_MOTIVO_LONGO = "O motivo pode ter até 120 caracteres.";
 export const FRASE_FALHA_AO_LANCAR =
   "Não deu para lançar. Nada foi gravado — verifique a internet e tente de novo.";
+// WR-06 (revisão B): a resposta não chegou — a tela não sabe se gravou, então não diz "nada foi gravado".
+// Tocar de novo é seguro: o mesmo envio não lança duas vezes (`lib/agenda/envios.ts`).
+export const FRASE_SEM_RESPOSTA_AO_LANCAR =
+  "A resposta não chegou. Verifique a internet e toque de novo — se já tinha sido gravado, não sai repetido.";
 
 // D-13: dia fechado avisa e NÃO bloqueia — o botão de gravar não muda, o servidor não recusa.
 export function avisoDiaFechado(motivo: string): string {

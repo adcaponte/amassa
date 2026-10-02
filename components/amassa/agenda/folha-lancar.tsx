@@ -21,7 +21,7 @@ import {
   DICA_TIPO_TURMA,
   DICA_TIPO_USO_LIVRE_SEM_PRECO,
   dicaTipoUsoLivre,
-  FRASE_FALHA_AO_LANCAR,
+  FRASE_SEM_RESPOSTA_AO_LANCAR,
   HORAS_PREVISTAS_PADRAO,
   PESSOAS_PADRAO,
   PLACEHOLDER_MOTIVO,
@@ -165,6 +165,20 @@ export type FolhaLancarProps = {
 // abre com o dia. Abrir e fechar mexem só na URL (`pushState`) — a folha não precisa de nada do
 // servidor para nascer. A ÚLTIMA pílula escolhida vale enquanto a página estiver aberta (herdado):
 // este componente fica montado e guarda a escolha; o formulário nasce limpo a cada abertura.
+
+// Uma chave aleatória (uuid v4) para o envio — `crypto.randomUUID` onde houver (HTTPS e localhost), e o
+// mesmo formato montado à mão nos navegadores que ainda não o têm.
+function novaChaveDeEnvio(): string {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function FolhaLancar({ hoje, precoDaHoraCentavos }: FolhaLancarProps) {
   const parametros = useSearchParams();
   const [ultimoTipo, setUltimoTipo] = useState<TipoDeLancamento>("avulsa");
@@ -237,6 +251,10 @@ function FormularioLancar({
   // Guarda síncrona contra o toque duplo (AGE-01 · idempotency): o `disabled` só vale depois do
   // próximo desenho; a referência vale já no segundo clique do mesmo gesto.
   const emVoo = useRef(false);
+  // WR-06 (revisão B): a chave deste envio — a mesma em toda tentativa até dar certo. Se a resposta se
+  // perder no caminho e o gestor tocar de novo, o servidor devolve o que já gravou em vez de lançar outra
+  // vez (`lib/agenda/envios.ts`). Nasce no primeiro toque e é trocada depois do sucesso.
+  const chaveDeEnvio = useRef<string | null>(null);
   const campos = useRef<Partial<Record<Campo, HTMLElement | null>>>({});
   const pilulas = useRef<Partial<Record<TipoDeLancamento, HTMLButtonElement | null>>>({});
 
@@ -373,15 +391,17 @@ function FormularioLancar({
 
     emVoo.current = true;
     setEnviando(true);
+    chaveDeEnvio.current ??= novaChaveDeEnvio();
+    const envio = { ...entrada, chaveDeEnvio: chaveDeEnvio.current };
     try {
       const resposta =
         tipo === "turma"
-          ? await lancarTurma(entrada)
+          ? await lancarTurma(envio)
           : tipo === "avulsa"
-            ? await lancarAvulsa(entrada)
+            ? await lancarAvulsa(envio)
             : tipo === "uso_livre"
-              ? await reservarUsoLivre(entrada)
-              : await fecharDia(entrada);
+              ? await reservarUsoLivre(envio)
+              : await fecharDia(envio);
       if (!resposta.ok) {
         // A folha continua aberta e preenchida — nada do que foi digitado se perde.
         const porCampo = errosDoEsquema(
@@ -396,6 +416,7 @@ function FormularioLancar({
         setEnviando(false);
         return;
       }
+      chaveDeEnvio.current = null;
       // Sucesso: o toast diz o que foi gravado, a folha sai do histórico (voltar não a reabre) e
       // a agenda vai para a semana da data lançada. `emVoo` fica preso: nenhum segundo toque
       // cria outro lançamento.
@@ -421,7 +442,7 @@ function FormularioLancar({
       router.push(rotaDeGestao(`/agenda?semana=${semanaLancada}`), { scroll: false });
     } catch (falha) {
       console.error("Falha ao lançar na agenda:", falha);
-      setErroGeral(FRASE_FALHA_AO_LANCAR);
+      setErroGeral(FRASE_SEM_RESPOSTA_AO_LANCAR);
       emVoo.current = false;
       setEnviando(false);
     }
