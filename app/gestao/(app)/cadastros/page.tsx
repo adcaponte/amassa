@@ -30,6 +30,7 @@ import {
   FRASE_ERRO_CARREGAR_FICHA,
   FRASE_ERRO_CARREGAR_LISTA,
   FRASE_FICHA_NAO_EXISTE,
+  FRASE_TOQUE_NUM_FORNECEDOR,
   TITULO_ERRO as TITULO_ERRO_FORNECEDORES,
 } from "@/lib/fornecedores/textos";
 import { parametrosVigentes } from "@/lib/precificacao/consultas";
@@ -108,7 +109,9 @@ async function ClientesCarregados({ busca, quantos }: { busca: string; quantos: 
 //   - sem `?fornecedor=` → o primeiro ATIVO na ordem da lista (alfabética pt-BR, `listarFornecedores`);
 //   - `?fornecedor=` com um uuid → aquele (ativo ou desativado); fora do cadastro → a frase de id ruim;
 //   - `?fornecedor=` que não é uuid (`idDaUrl`, o mesmo validador da Agenda) → a frase de id ruim,
-//     sem consulta nenhuma com o texto da URL (T-06.2-08).
+//     sem consulta nenhuma com o texto da URL (T-06.2-08);
+//   - sem `?fornecedor=` e nenhum ativo (só desativados) → "Toque num fornecedor para ver a ficha."
+//     (plano 03; a lista mostra "Nenhum fornecedor ativo." e o link dos desativados).
 // A ficha carrega num `Suspense` com `key` = id: trocar de fornecedor vira esqueleto SÓ na ficha, e
 // a lista (componente de cliente) não remonta.
 async function FornecedoresCarregados({ pedido }: { pedido: string | string[] | undefined }) {
@@ -143,7 +146,9 @@ async function FornecedoresCarregados({ pedido }: { pedido: string | string[] | 
         </Suspense>
       ) : !semPedido ? (
         <FichaSemFornecedor frase={FRASE_FICHA_NAO_EXISTE} />
-      ) : null}
+      ) : (
+        <FichaSemFornecedor frase={FRASE_TOQUE_NUM_FORNECEDOR} tracejado />
+      )}
     </div>
   );
 }

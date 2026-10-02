@@ -82,3 +82,82 @@ export const FRASE_FICHA_NAO_EXISTE = "Esse fornecedor não está no cadastro. E
 export function rodapeDaFicha(data: string): string {
   return `Cadastrado em ${data}. Fornecedor não se apaga: desativar tira da lista e dos seletores, e o histórico fica.`;
 }
+
+// ——— A lista inteira e a ficha de leitura (plano 06.2-03). Verbatim da 06.2-UI-SPEC.md §Copywriting. ———
+
+// Busca e pílulas de área (Bloco Lista, itens 2 e 3).
+export const ROTULO_BUSCA = "Buscar fornecedor";
+export const PLACEHOLDER_BUSCA = "Buscar por nome ou material (argila, esmalte, embalagem…)";
+export const ROTULO_FILTRAR_POR_AREA = "Filtrar por área";
+export const ROTULO_TUDO = "Tudo";
+
+// À direita do nome, na linha da lista: plural de verdade, nunca com parêntese.
+export function rotuloDosAnexos(quantos: number): string {
+  if (quantos === 0) {
+    return "sem anexo";
+  }
+  return quantos === 1 ? "1 anexo" : `${quantos} anexos`;
+}
+
+// O link do rodapé — só aparece com N > 0 (quem chama decide); plural de verdade.
+export function rotuloDosDesativados(quantos: number, mostrando: boolean): string {
+  const verbo = mostrando ? "esconder" : "mostrar";
+  return quantos === 1 ? `${verbo} 1 desativado` : `${verbo} ${quantos} desativados`;
+}
+
+// Rodapé da lista: os que a busca/filtro mostram, de quantos (os ativos — ou todos, com os desativados
+// à mostra).
+export function textoDoRodape(mostrados: number, total: number): string {
+  return `${mostrados} de ${total}`;
+}
+
+// Estados vazios da lista.
+export const FRASE_NENHUM_ATIVO = "Nenhum fornecedor ativo.";
+export function fraseSemResultado(busca: string): string {
+  return `Nenhum fornecedor com “${busca}”.`;
+}
+// `rotuloDaArea` é o rótulo como a pílula o mostra ("Cafeteria", "Espaço"…).
+export function fraseSemResultadoDaArea(rotuloDaArea: string): string {
+  return `Nenhum fornecedor de ${rotuloDaArea}.`;
+}
+export const ROTULO_CADASTRAR_UM_AGORA = "Cadastrar um agora";
+export const FRASE_TOQUE_NUM_FORNECEDOR = "Toque num fornecedor para ver a ficha.";
+
+// Ficha — navegação no celular (só abaixo de 1024 px).
+export const ROTULO_VOLTAR_A_LISTA = "Voltar à lista";
+
+// Cartões de contato, nesta ordem (06.2-UI-SPEC.md, "Linhas de leitura"). A caixa alta é do CSS.
+export const ROTULO_CARTAO_WHATSAPP = "WhatsApp";
+export const ROTULO_CARTAO_CONTATO = "Contato";
+export const ROTULO_CARTAO_EMAIL = "E-mail";
+export const ROTULO_CARTAO_SITE = "Site";
+export const ROTULO_CARTAO_PAGAMENTO = "Pagamento e prazo";
+export const ROTULO_CARTAO_CIDADE = "Cidade / entrega";
+
+// Ações dos contatos: o verbo visível é curto; o nome do fornecedor vai no `aria-label`.
+export const ROTULO_COPIAR = "copiar";
+export const ROTULO_ABRIR_WHATSAPP = "abrir WhatsApp";
+export const ROTULO_ABRIR = "abrir";
+export function ariaCopiarWhatsapp(nome: string): string {
+  return `Copiar o WhatsApp de ${nome}`;
+}
+export function ariaAbrirWhatsapp(nome: string): string {
+  return `Abrir o WhatsApp de ${nome} numa aba nova`;
+}
+export function ariaCopiarEmail(nome: string): string {
+  return `Copiar o e-mail de ${nome}`;
+}
+export function ariaAbrirSite(nome: string): string {
+  return `Abrir o site de ${nome} numa aba nova`;
+}
+
+// Toasts do "copiar".
+export function toastCopiado(valor: string): string {
+  return `Copiado: ${valor}`;
+}
+export function toastNaoDeuParaCopiar(valor: string): string {
+  return `Não deu para copiar. Está aqui: ${valor}`;
+}
+
+// Observações (o título da seção é o ROTULO_OBSERVACOES, em caixa alta pelo CSS).
+export const FRASE_SEM_OBSERVACAO = "Nenhuma observação ainda.";
