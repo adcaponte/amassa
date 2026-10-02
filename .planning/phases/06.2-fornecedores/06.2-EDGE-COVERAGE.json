@@ -1,0 +1,348 @@
+{
+  "items": [
+    {
+      "requirement_id": "FRN-02",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Nome com 1 e com 120 caracteres (depois do trim) é aceito; só espaços e 121 caracteres são recusados pelo Zod do servidor com frase humana; observações com 4000 aceitas e 4001 recusadas.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "FRN-02",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Só o nome é obrigatório: os outros campos vazios ou só com espaços gravam null, nunca string vazia; nome vazio é recusado com a frase do Copywriting.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "FRN-02",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A unicidade entre ativos compara lower(trim(nome)) (D-06): \"Argila Sul\" e \" argila sul \" colidem (23505 lido em erro.cause.code → frase de nome repetido); \"Cerâmica\" e \"Ceramica\" não colidem; o limite de 120 conta caracteres, não bytes.",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "FRN-02",
+      "category": "precision",
+      "status": "dismissed",
+      "verification": null,
+      "resolution": null,
+      "reason": "N/A — não há número calculado neste requisito; os limites são contagens inteiras de caracteres, cobertas em boundary.",
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "FRN-02",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Toque duplo em \"Salvar fornecedor\" não cria dois: o botão fica desabilitado enquanto a ação grava, e um segundo cadastro com o mesmo nome entre ativos bate no índice único e volta com a frase de nome repetido.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "FRN-02",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois gestores cadastrando o mesmo nome ao mesmo tempo: o índice único parcial (where ativo) garante que só um grava — provado no test:migracoes (23505); edição simultânea: a última gravação vence, como no resto dos Cadastros.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-03",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Desativar um já desativado ou reativar um ativo não dá erro nem muda nada além de atualizado_em/por; a tela só oferece o botão do estado oposto.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "FRN-03",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Reativar um fornecedor cujo nome agora pertence a outro ativo bate no índice único e volta com a frase própria (Pitfall 11) sem reativar; delete como amassa_app dá 42501 sempre (test:migracoes).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-04",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Busca \"argila\" acha \"Argíla Sul\" pelo nome e quem tem argila em vende ou na cidade; um fornecedor que casa em mais de um campo aparece uma vez só.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "FRN-04",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Busca vazia ou só com espaços mostra todos os ativos; busca sem resultado mostra a frase com o texto e \"Cadastrar um agora\"; sem ativos e com desativados mostra \"Nenhum fornecedor ativo.\" com o link \"mostrar N desativados\".",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "FRN-04",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A mesma normalização (NFD sem marcas combinantes, minúsculas, espaços colapsados) vale para o termo e para nome, vende e cidade: \"ÇÃO\" casa \"cao\"; teste unitário em lib/fornecedores/busca.ts.",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "FRN-04",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Ordem alfabética por nome com localeCompare pt-BR (sensibilidade base), desempate por id; desativados mostrados seguem a mesma ordem, com o selo.",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "FRN-05",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Sem WhatsApp, site ou e-mail o cartão daquele contato não aparece; com nenhum, a grade de contatos some; nenhum é obrigatório.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "FRN-05",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "wa.me usa só os dígitos: 10–11 dígitos ganham o 55 na frente; 12–13 começando por 55 ficam como estão; fora disso só \"copiar\", sem link; site só vira link com esquema http(s) — javascript: e outros ficam como texto (Pitfall 10).",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "FRN-06",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Arquivo de 0 byte é recusado com frase; nome do anexo vazio é recusado (1–120); nota vazia grava null; vale desde vazio é permitido, e preenchido fora do tipo tabela é recusado (Zod e check do banco).",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "FRN-06",
+      "category": "encoding",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O tipo vem da assinatura (file-type), não da extensão: um .pdf que é HTML é recusado; um PNG com nome .jpg é aceito como foto e vira JPEG; XLS só como cfb com nome .xls; CSV pela regra A-04; o nome original com acento, aspas ou CR/LF fica no banco e sai no Content-Disposition pelo RFC 5987 sem quebrar o cabeçalho.",
+      "reason": null,
+      "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+    },
+    {
+      "requirement_id": "FRN-06",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Dois envios ao mesmo tempo para o mesmo fornecedor gravam dois anexos independentes, cada um com seu uuid; nenhum sobrescreve o outro.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-07",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Foto de exatamente 10 × 1 048 576 bytes passa e 1 byte a mais é recusada; PDF/planilha de exatamente 20 × 1 048 576 bytes passa e 1 byte a mais é recusado — as mesmas constantes no cliente e no servidor; no servidor a contagem é dos bytes do stream, com 413 e frase JSON.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "FRN-07",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A foto fica com o lado maior ≤ 2000 px mantendo a proporção (fit inside, sem ampliar foto menor), sem EXIF e com fundo branco onde havia transparência.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "FRN-07",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "backstop",
+      "resolution": "Envio interrompido no meio (rede cai, limite estoura, erro do sharp) não deixa linha no banco nem arquivo na pasta: o temporário é apagado no finally, a linha só é inserida depois de o arquivo final existir, e se o insert falhar o arquivo final é apagado.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-08",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "backstop",
+      "resolution": "backup.sh rodado duas vezes no mesmo dia e restaurar.sh repetido deixam a pasta dos anexos igual (sem duplicar nem corromper), como já acontece com as fotos — provado pelas etapas novas do test:backup.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "FRN-08",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Um anexo gravado durante o backup entra no próximo; o backup nunca lê arquivo pela metade porque o PUT grava num temporário dentro da própria pasta e só renomeia para <uuid>.<ext> no fim (rename no mesmo sistema de arquivos, Pitfall 5).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-09",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "GET e PUT sem sessão → 401 JSON antes de qualquer consulta, mesmo para id que não existe (não revela existência); usuário desativado no banco recebe 401 na requisição seguinte (exigirUsuario confere ativo).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-10",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Tirar o mesmo anexo duas vezes (duplo toque, duas abas): a segunda responde com frase própria de já tirado, sem erro 500; arquivo já ausente do disco (ENOENT) não impede apagar a linha.",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "FRN-10",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Tirar enquanto outra aba abre o anexo: o GET depois da remoção dá 404 com frase JSON; a linha sai antes do arquivo, então nunca há linha servida apontando para arquivo inexistente como 500.",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-11",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Com hoje por parâmetro: tabela com 120 dias → \"recente\"; com 121 dias → selo \"tem mais de 4 meses — pedir a nova?\"; teste unitário nas duas bordas.",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "FRN-11",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Duas tabelas com o mesmo vale desde: vence a de criado_em mais recente; tabela sem vale desde compara pela data de envio (criado_em no fuso do ateliê) com as que têm data.",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "FRN-11",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Sem anexo do tipo tabela: \"Sem tabela de preços ainda. Subir a primeira\"; catálogo, nota e outro nunca viram a vigente.",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "FRN-11",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "A vigente é o máximo por (vale_desde ?? data de criado_em, criado_em, id) — estável; a lista de anexos é mais recente primeiro por criado_em, desempate por id; vale desde no futuro conta como vigente e recente (D-09).",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "FRN-11",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Idade em dias civis (date) no fuso America/Sao_Paulo, sem horas: um envio às 23h50 de Brasília conta o dia de Brasília; nunca toISOString() como hoje.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    },
+    {
+      "requirement_id": "FRN-12",
+      "category": "idempotency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Lançar segue a regra atual do Financeiro (botão desabilitado durante o lançamento); escolher, desligar digitando e escolher de novo resulta em um só fornecedor_id e pessoa_nome igual ao nome do cadastro (D-04).",
+      "reason": null,
+      "probe": "What happens if this runs twice on the same input?"
+    },
+    {
+      "requirement_id": "FRN-12",
+      "category": "concurrency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Fornecedor desativado entre abrir o painel e lançar: o servidor recusa ligar a um desativado com frase que diz o que fazer, sem lançar; rascunho com fornecedorId que não está mais ativo é descartado ao ler e o nome fica como texto livre (Pitfall 15).",
+      "reason": null,
+      "probe": "If interrupted or run in parallel, what is guaranteed?"
+    },
+    {
+      "requirement_id": "FRN-13",
+      "category": "boundary",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "O total do ano conta despesas datadas de 01/01 a 31/12 do ano de hoje (fuso do ateliê) e nenhuma de 31/12 do ano anterior nem de 01/01 do seguinte; ano vem de hoje por parâmetro (teste em 31/12 × 01/01).",
+      "reason": null,
+      "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+    },
+    {
+      "requirement_id": "FRN-13",
+      "category": "adjacency",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Despesa cancelada some da lista e do total; o valor de cada linha e da soma é o valor do documento que o Financeiro já mostra (nenhum número novo).",
+      "reason": null,
+      "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+    },
+    {
+      "requirement_id": "FRN-13",
+      "category": "empty",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Fornecedor sem despesa: a frase vazia de Compras dele; com despesas só de anos anteriores: a lista das antigas e \"Nenhuma despesa em {ano} ainda.\"",
+      "reason": null,
+      "probe": "What is the result for empty, single-element, or null input?"
+    },
+    {
+      "requirement_id": "FRN-13",
+      "category": "ordering",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Mais recentes primeiro pela data da despesa, desempate por criado_em e id (estável).",
+      "reason": null,
+      "probe": "When elements compare equal, is output order specified and stable?"
+    },
+    {
+      "requirement_id": "FRN-13",
+      "category": "precision",
+      "status": "resolved",
+      "verification": "explicit",
+      "resolution": "Soma em centavos inteiros, formatada em R$ só na tela; nenhum float no caminho do dinheiro.",
+      "reason": null,
+      "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+    }
+  ],
+  "coverage": {
+    "applicable": 37,
+    "resolved": 36,
+    "dismissed": 1,
+    "unresolved": 0,
+    "byVerification": {
+      "explicit": 34,
+      "backstop": 2
+    }
+  },
+  "note": "Gerado no passo 7.95 do /gsd-plan-phase (02/10/2026, noite, sem o Theo). O classificador do motor só lê inglês: as formas (shapes) foram escritas à mão por requisito; FRN-01 e FRN-14 com shapes [] (layout e padrão da casa — a cobertura de estado de tela está no UI-SPEC, seção UI Considerations)."
+}
