@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
-current_phase_name: Agenda
+current_phase: 06.2
+current_phase_name: Fornecedores
 status: executing
-stopped_at: "02/10/2026 ~20h40 UTC: quick 261002-sdt feito (decisoes do Cowork na Agenda, migracao 0027 versionada e NAO aplicada); 6 commits locais nao publicados (3785f3c..60d16b3). Proximo: Roteiro 18 pelo dono (backup, push, db:migrate), a caminhada da Agenda, e a confirmacao do 06.2-CONTEXT."
+stopped_at: "03/10/2026 madrugada (UTC): Fase 06.2 Fornecedores planejada (13 planos, commit 719f17c) e em execucao no branch gsd/phase-06.2-fornecedores, sem o dono, sob a autorizacao de 02/10 a noite. Nada publicado; 0028 nao aplicada. Antes: 02/10/2026 ~20h40 UTC: quick 261002-sdt feito (0027 versionada e NAO aplicada); Roteiro 18 pelo dono."
 last_updated: "2026-10-02T14:45:00.000Z"
 progress:
   total_phases: 13
