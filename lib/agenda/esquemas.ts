@@ -160,10 +160,22 @@ export const esquemaConferirDia = z
 // "Cancelar esta data" / "Desfazer cancelamento" — o estado DESEJADO (Pattern 2), nunca "inverter".
 // `confirmado` diz que a pessoa já viu, na confirmação, o que se perde: sem ele, o servidor
 // confere sob a trava se algo se perderia e, se sim, devolve as perdas em vez de gravar.
+// Uma contagem que a pessoa VIU numa confirmação (WR-03/WR-04 da revisão): o servidor reconta sob a trava
+// e, se o que se perde agora passar disso, devolve os números novos em vez de gravar.
+function contagemVista(frase: string) {
+  return z.number({ error: frase }).int({ error: frase }).min(0, { error: frase }).max(1_000_000, { error: frase });
+}
+
+// `confirmado`: as perdas que a confirmação MOSTROU (WR-03 da revisão B) — nunca um "sim" cego.
 export const esquemaCancelarData = z.object({
   eventoId: z.uuid({ error: FRASE_LANCAMENTO_NAO_EXISTE }),
   cancelada: z.boolean({ error: FRASE_FALHA_AO_CANCELAR }),
-  confirmado: z.boolean().optional(),
+  confirmado: z
+    .object({
+      presencas: contagemVista(FRASE_FALHA_AO_CANCELAR),
+      inscricoesAReceber: contagemVista(FRASE_FALHA_AO_CANCELAR),
+    })
+    .optional(),
 });
 
 export type CancelarDataValidado = z.infer<typeof esquemaCancelarData>;
@@ -324,21 +336,17 @@ export const esquemaMarcarMaisSemanas = z.object({
 
 export type MarcarMaisSemanasValidado = z.infer<typeof esquemaMarcarMaisSemanas>;
 
-// Uma contagem que a pessoa VIU na confirmação (WR-03/WR-04 da revisão): o servidor reconta sob a trava e,
-// se o que sai agora passar disso, devolve os números novos em vez de gravar.
-const contagemVista = z.number({ error: FRASE_FALHA_AO_DESATIVAR_TURMA }).int().min(0).max(1_000_000);
-
 // "Desativar turma" (D-03): o id e o que a confirmação MOSTROU (WR-04) — o que sai é decidido sob a
 // trava, no servidor; nunca mais do que foi mostrado.
 export const esquemaDesativarTurma = z.object({
   turmaId: z.uuid({ error: FRASE_FALHA_AO_DESATIVAR_TURMA }),
   confirmado: z
     .object({
-      datas: contagemVista,
-      reposicoes: contagemVista,
-      cobrancas: contagemVista,
-      presencas: contagemVista,
-      creditos: contagemVista,
+      datas: contagemVista(FRASE_FALHA_AO_DESATIVAR_TURMA),
+      reposicoes: contagemVista(FRASE_FALHA_AO_DESATIVAR_TURMA),
+      cobrancas: contagemVista(FRASE_FALHA_AO_DESATIVAR_TURMA),
+      presencas: contagemVista(FRASE_FALHA_AO_DESATIVAR_TURMA),
+      creditos: contagemVista(FRASE_FALHA_AO_DESATIVAR_TURMA),
     })
     .optional(),
 });

@@ -566,6 +566,10 @@ export function corpoConfirmarDesativarTurma(perdas: {
   return `${datasQueSaem}${alemDisso} O que já aconteceu fica, e as mensalidades já nascidas continuam em “A receber”. Não dá para reativar.`;
 }
 
+// WR-03 (revisão B): idem, na confirmação de "Cancelar esta data".
+export const FRASE_PERDAS_DA_DATA_MUDARAM =
+  "Algo mudou nesta data enquanto a tela estava aberta. Confira o que se perde e confirme de novo.";
+
 // WR-04: o servidor recontou sob a trava e algo cresceu desde que a confirmação abriu.
 export const FRASE_PERDAS_DA_TURMA_MUDARAM =
   "Algo mudou nessas datas enquanto a tela estava aberta. Confira o que sai e confirme de novo.";

@@ -4,6 +4,7 @@ import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
   corpoConfirmarCancelarOficina,
   FRASE_JA_REMOVIDO,
+  FRASE_PERDAS_DA_DATA_MUDARAM,
   TOAST_CANCELADA_OFICINA,
   TOAST_CANCELADA_TURMA,
   TOAST_DATA_VOLTOU,
@@ -237,5 +238,38 @@ test.describe("agenda cancelamento", () => {
     await expect(outra.getByTestId("confirmar-tirar-bloqueio-erro")).toHaveText(FRASE_JA_REMOVIDO);
     await expect(outra.getByTestId("confirmar-tirar-bloqueio")).toBeVisible();
     await outra.close();
+  });
+  test("WR-03 da revisão B: outro celular marca presença com a confirmação aberta — o “sim” não apaga mais do que ela disse; os números novos aparecem e só o segundo “sim” cancela", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const data = diaReservado(4);
+    const eventoId = await semearOficinaNoDia(data, `[e2e] Oficina que muda ${suf}`);
+    const primeira = await semearCliente({ nome: `[e2e] Primeira ${suf}` });
+    const segunda = await semearCliente({ nome: `[e2e] Segunda ${suf}` });
+    const daPrimeira = await semearInscricao({ eventoId, clienteId: primeira, tipo: "oficina", valorCentavos: 9000 });
+    await marcarPresencaNoBanco(daPrimeira, "veio");
+
+    await fazerLogin(page);
+    await abrirFolhaDoEvento(page, data, eventoId);
+    const folha = page.getByTestId("folha-evento");
+    await folha.getByTestId("cancelar-data").click();
+    const confirmacao = page.getByTestId("confirmar-cancelar-data");
+    await expect(confirmacao).toContainText(corpoConfirmarCancelarOficina(1, 1));
+
+    // Com o diálogo aberto, chega outra pessoa e é marcada em outro celular.
+    const daSegunda = await semearInscricao({ eventoId, clienteId: segunda, tipo: "oficina", valorCentavos: 9000 });
+    await marcarPresencaNoBanco(daSegunda, "veio");
+
+    await page.getByTestId("confirmar-cancelar-data-sim").click();
+    await expect(page.getByTestId("confirmar-cancelar-data-mudou")).toHaveText(FRASE_PERDAS_DA_DATA_MUDARAM);
+    await expect(confirmacao).toContainText(corpoConfirmarCancelarOficina(2, 2));
+    expect((await eventoNoBanco(eventoId))?.canceladoEm).toBeNull();
+    expect((await inscricaoNoBanco(daSegunda))?.presenca).toBe("veio");
+
+    await page.getByTestId("confirmar-cancelar-data-sim").click();
+    await expect(page.getByText(TOAST_CANCELADA_OFICINA).first()).toBeVisible();
+    await expect.poll(async () => (await eventoNoBanco(eventoId))?.canceladoEm ?? null).not.toBeNull();
+    expect((await inscricaoNoBanco(daSegunda))?.presenca).toBeNull();
   });
 });

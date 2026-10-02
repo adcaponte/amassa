@@ -12,6 +12,7 @@ import {
   FRASE_FALHA_AO_CANCELAR,
   FRASE_FALHA_AO_DESFAZER,
   FRASE_FALHA_AO_DESFAZER_CANCELAMENTO,
+  FRASE_PERDAS_DA_DATA_MUDARAM,
   ROTULO_CANCELANDO,
   ROTULO_CANCELAR_DATA,
   ROTULO_DESFAZENDO,
@@ -67,6 +68,8 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
   // A confirmação aberta, com as perdas FOTOGRAFADAS no momento em que ela abriu.
   const [perdasEmConfirmacao, setPerdasEmConfirmacao] = useState<PerdasAoCancelar | null>(null);
   const [erroNaConfirmacao, setErroNaConfirmacao] = useState<string | null>(null);
+  // WR-03 (revisão B): o servidor recontou e achou mais a perder do que a confirmação mostrava.
+  const [mudou, setMudou] = useState(false);
 
   const ehTurma = evento.tipo === "turma";
   const diaMes = formatarDiaMes(evento.data);
@@ -98,8 +101,9 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
     });
   }
 
-  // `confirmado`: a pessoa já viu, na confirmação, o que se perde.
-  async function cancelar(confirmado: boolean) {
+  // `confirmado`: o que a confirmação MOSTROU (WR-03 da revisão B) — o servidor reconta sob a trava e, se
+  // se perde mais do que isso, devolve os números de agora em vez de gravar. `null`: ninguém viu nada.
+  async function cancelar(confirmado: PerdasAoCancelar | null) {
     if (emVoo.current) {
       return;
     }
@@ -108,9 +112,13 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
     setErro(null);
     setErroNaConfirmacao(null);
     try {
-      const resposta = await cancelarData({ eventoId: evento.id, cancelada: true, confirmado });
+      const resposta = await cancelarData({
+        eventoId: evento.id,
+        cancelada: true,
+        ...(confirmado === null ? {} : { confirmado }),
+      });
       if (!resposta.ok) {
-        if (confirmado) {
+        if (confirmado !== null) {
           setErroNaConfirmacao(resposta.erro);
         } else {
           setErro(resposta.erro);
@@ -118,13 +126,14 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
         return;
       }
       if (resposta.dados.situacao === "confirmar") {
+        setMudou(confirmado !== null);
         setPerdasEmConfirmacao(resposta.dados.perdas);
         return;
       }
       setPerdasEmConfirmacao(null);
       avisarCancelada();
     } catch {
-      if (confirmado) {
+      if (confirmado !== null) {
         setErroNaConfirmacao(FRASE_FALHA_AO_CANCELAR);
       } else {
         setErro(FRASE_FALHA_AO_CANCELAR);
@@ -138,10 +147,11 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
   function aoTocarEmCancelar() {
     if (temPerdas(evento.perdasAoCancelar)) {
       setErroNaConfirmacao(null);
+      setMudou(false);
       setPerdasEmConfirmacao(evento.perdasAoCancelar);
       return;
     }
-    void cancelar(false);
+    void cancelar(null);
   }
 
   async function desfazerCancelamento() {
@@ -212,6 +222,7 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
           if (!aberto && !enviando) {
             setPerdasEmConfirmacao(null);
             setErroNaConfirmacao(null);
+            setMudou(false);
           }
         }}
       >
@@ -222,6 +233,12 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
             </AlertDialogTitle>
             <AlertDialogDescription className="[overflow-wrap:anywhere]">{corpo}</AlertDialogDescription>
           </AlertDialogHeader>
+
+          {mudou ? (
+            <p data-testid="confirmar-cancelar-data-mudou" role="status" className="text-apoio text-tinta">
+              {FRASE_PERDAS_DA_DATA_MUDARAM}
+            </p>
+          ) : null}
 
           {erroNaConfirmacao ? (
             <p data-testid="confirmar-cancelar-data-erro" role="alert" className="text-apoio text-erro">
@@ -244,7 +261,7 @@ export function CancelarEstaData({ evento }: CancelarEstaDataProps) {
               aria-busy={enviando ? "true" : undefined}
               onClick={(evento) => {
                 evento.preventDefault();
-                void cancelar(true);
+                void cancelar(perdasEmConfirmacao);
               }}
               className={cn(CLASSES_BOTAO_DE_ERRO)}
             >

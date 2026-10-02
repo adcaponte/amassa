@@ -552,11 +552,17 @@ export async function cancelarData(entradaBruta: unknown): Promise<ResultadoDeAc
         return { situacao: "gravado", cancelada: false, presencasLimpas: 0 };
       }
 
-      if (dados.confirmado !== true) {
-        const perdas = await contarPerdasAoCancelar(tx, evento.id);
-        if (temPerdas(perdas)) {
-          return { situacao: "confirmar", perdas };
-        }
+      // WR-03 (revisão B): conta SEMPRE, sob a trava do evento. A confirmação manda o que MOSTROU; se
+      // agora se perde mais do que isso (outro celular marcou presença com o diálogo aberto), nada é
+      // gravado e a tela recebe os números de agora — nunca um "sim" que apaga mais do que disse.
+      const perdas = await contarPerdasAoCancelar(tx, evento.id);
+      const vistas = dados.confirmado;
+      const cobertas =
+        vistas !== undefined &&
+        perdas.presencas <= vistas.presencas &&
+        perdas.inscricoesAReceber <= vistas.inscricoesAReceber;
+      if (temPerdas(perdas) && !cobertas) {
+        return { situacao: "confirmar", perdas };
       }
       await tx
         .update(eventos)
