@@ -964,7 +964,7 @@ portão (plano 13); a migração é a `0028`, escrita e provada no Postgres efê
 Plans:
 **Wave 1**
 
-- [ ] 06.2-01-PLAN.md — O contrato de dados: a `0028` inteira (D-04 ao lado de `pessoa_nome`, D-05 em `execucoes_backup`, D-06 no índice) e o esquema Zod do fornecedor, com as bordas no `test:migracoes` e no Vitest — sem traçador, pelo teto de 15 arquivos (onda 1)
+- [x] 06.2-01-PLAN.md — O contrato de dados: a `0028` inteira (D-04 ao lado de `pessoa_nome`, D-05 em `execucoes_backup`, D-06 no índice) e o esquema Zod do fornecedor, com as bordas no `test:migracoes` e no Vitest — sem traçador, pelo teto de 15 arquivos (onda 1)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
