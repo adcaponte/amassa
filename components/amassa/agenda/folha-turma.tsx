@@ -483,6 +483,16 @@ function ConteudoDaTurma({ turma, hoje, aoMudarEnvio, aoVoltar }: ConteudoDaTurm
                     setSemanas(evento.target.value);
                     setErroSemanas(null);
                   }}
+                  // IN-02 da revisão B: o campo está dentro do formulário da turma — Enter aqui é "Marcar
+                  // mais", nunca "Salvar turma" com o que mais estiver editado.
+                  onKeyDown={(evento) => {
+                    if (evento.key === "Enter") {
+                      evento.preventDefault();
+                      if (!ocupado) {
+                        void marcarMais();
+                      }
+                    }
+                  }}
                   className={`${CLASSE_DO_CAMPO_DA_AGENDA} w-20 tabular-nums`}
                 />
                 <span className="text-corpo text-tinta">{ROTULO_SEMANAS_DO_MARCAR_MAIS}</span>
