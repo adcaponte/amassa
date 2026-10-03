@@ -988,7 +988,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 06.2-07-PLAN.md — A foto (2000 px, sem EXIF, HEIC recusado — D-07) no PUT e na folha, e a planilha; recusas de tamanho e tipo antes da rede (onda 7)
+- [x] 06.2-07-PLAN.md — A foto (2000 px, sem EXIF, HEIC recusado — D-07) no PUT e na folha, e a planilha; recusas de tamanho e tipo antes da rede (onda 7)
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
