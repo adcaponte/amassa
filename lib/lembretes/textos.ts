@@ -31,3 +31,22 @@ export const ROTULO_GUARDANDO = "Guardando…";
 
 // Toasts (06.3-UI-SPEC.md §Toasts).
 export const TOAST_LEMBRETE_GUARDADO = "Lembrete guardado.";
+
+// Linhas de leitura (06.3-UI-SPEC.md §Copywriting → "Linhas de leitura" e "Contagem ao lado de
+// Para fazer"). Plural de verdade, nunca "(s)". Usadas por `lib/lembretes/lista.ts` (plano 06.3-02).
+export const ROTULO_HOJE = "hoje";
+export const ROTULO_AMANHA = "amanhã";
+export const FRASE_NADA_PENDENTE = "nada pendente";
+
+// "venceu {dd/mm} · ontem" para 1 dia; "venceu {dd/mm} · {N} dias" para N ≥ 2.
+export function textoVenceu(diaMes: string, dias: number): string {
+  return dias === 1 ? `venceu ${diaMes} · ontem` : `venceu ${diaMes} · ${dias} dias`;
+}
+
+export function textoAbertos(n: number): string {
+  return n === 1 ? "1 aberto" : `${n} abertos`;
+}
+
+export function textoVencidos(m: number): string {
+  return m === 1 ? "1 vencido" : `${m} vencidos`;
+}
