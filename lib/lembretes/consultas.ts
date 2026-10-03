@@ -6,11 +6,13 @@
 // Os nomes vêm de `usuarios` por `leftJoin` SEM filtrar `ativo` (molde `listarTarefasDaAbertura`):
 // quem foi desativado continua nomeado nos lembretes antigos. Nada aqui usa a data corrente do
 // Postgres (ele roda em UTC) — "hoje" é sempre parâmetro, vindo da página.
-import { asc, eq, isNull, sql } from "drizzle-orm";
+import { asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { lembretes, usuarios } from "@/db/schema";
+
+import { LIMITE_DE_FEITOS_NO_INICIO } from "./lista";
 
 // Um lembrete como a tela o mostra. Instantes em texto ISO (atravessam a fronteira servidor →
 // cliente sem virar `Date` de um lado e texto do outro); `paraQuando` é o dia civil `AAAA-MM-DD`.
@@ -30,6 +32,12 @@ export type LembreteDaTela = {
 // feitos recentes, a lista de pessoas) sem mudar a assinatura de `ListaDoInicio`.
 export type LembretesDoInicio = {
   abertos: LembreteDaTela[];
+  // Os `LIMITE_DE_FEITOS_NO_INICIO` (5, D-02) feitos mais recentes, `feito_em desc, id desc` — a
+  // sanfona "Feitos" do Início. Sem prazo de sumir: o feito antigo só sai daqui quando outros mais
+  // novos o empurram.
+  feitosRecentes: LembreteDaTela[];
+  // Quantos feitos existem ao todo: o "Feitos (N)" e o "e mais N em “ver todos”".
+  totalDeFeitos: number;
 };
 
 // O Início carrega TODOS os abertos até este teto (não só os 6 visíveis): a contagem do cabeçalho
@@ -44,10 +52,10 @@ function instanteEmTexto(instante: Date | null): string | null {
   return instante === null ? null : instante.toISOString();
 }
 
-// Os abertos (`feito_em is null`) na ordem do BRIEFING §3: prazo crescente (vencidos primeiro), os
-// sem data por último, empate por `criado_em` e, por fim, `id` (desempate estável).
-export async function lerLembretesDoInicio(): Promise<LembretesDoInicio> {
-  const linhas = await db
+// A mesma seleção para toda leitura que devolve `LembreteDaTela`: os três nomes pelos mesmos
+// `alias`, sem filtrar `ativo`.
+function selecionarLembretes() {
+  return db
     .select({
       id: lembretes.id,
       texto: lembretes.texto,
@@ -62,24 +70,61 @@ export async function lerLembretesDoInicio(): Promise<LembretesDoInicio> {
     .from(lembretes)
     .leftJoin(pessoaDoLembrete, eq(lembretes.quem, pessoaDoLembrete.id))
     .leftJoin(autoriaDoLembrete, eq(lembretes.criadoPor, autoriaDoLembrete.id))
-    .leftJoin(autoriaDoFeito, eq(lembretes.feitoPor, autoriaDoFeito.id))
-    .where(isNull(lembretes.feitoEm))
-    .orderBy(sql`${lembretes.paraQuando} asc nulls last`, asc(lembretes.criadoEm), asc(lembretes.id))
-    .limit(TETO_DE_ABERTOS_NO_INICIO);
+    .leftJoin(autoriaDoFeito, eq(lembretes.feitoPor, autoriaDoFeito.id));
+}
+
+type LinhaSelecionada = Awaited<ReturnType<typeof selecionarLembretes>>[number];
+
+function paraATela(linha: LinhaSelecionada): LembreteDaTela {
+  return {
+    id: linha.id,
+    texto: linha.texto,
+    paraQuando: linha.paraQuando,
+    quem: linha.quem,
+    quemNome: linha.quemNome,
+    criadoEm: linha.criadoEm.toISOString(),
+    criadoPorNome: linha.criadoPorNome,
+    feitoEm: instanteEmTexto(linha.feitoEm),
+    feitoPorNome: linha.feitoPorNome,
+  };
+}
+
+// Os abertos (`feito_em is null`) na ordem do BRIEFING §3: prazo crescente (vencidos primeiro), os
+// sem data por último, empate por `criado_em` e, por fim, `id` (desempate estável). E, no mesmo
+// passo, os feitos mais recentes e quantos feitos há (plano 06.3-04).
+export async function lerLembretesDoInicio(): Promise<LembretesDoInicio> {
+  const [abertos, feitosRecentes, [totais]] = await Promise.all([
+    selecionarLembretes()
+      .where(isNull(lembretes.feitoEm))
+      .orderBy(
+        sql`${lembretes.paraQuando} asc nulls last`,
+        asc(lembretes.criadoEm),
+        asc(lembretes.id),
+      )
+      .limit(TETO_DE_ABERTOS_NO_INICIO),
+    selecionarLembretes()
+      .where(isNotNull(lembretes.feitoEm))
+      .orderBy(desc(lembretes.feitoEm), desc(lembretes.id))
+      .limit(LIMITE_DE_FEITOS_NO_INICIO),
+    db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(lembretes)
+      .where(isNotNull(lembretes.feitoEm)),
+  ]);
 
   return {
-    abertos: linhas.map((linha) => ({
-      id: linha.id,
-      texto: linha.texto,
-      paraQuando: linha.paraQuando,
-      quem: linha.quem,
-      quemNome: linha.quemNome,
-      criadoEm: linha.criadoEm.toISOString(),
-      criadoPorNome: linha.criadoPorNome,
-      feitoEm: instanteEmTexto(linha.feitoEm),
-      feitoPorNome: linha.feitoPorNome,
-    })),
+    abertos: abertos.map(paraATela),
+    feitosRecentes: feitosRecentes.map(paraATela),
+    totalDeFeitos: totais?.total ?? 0,
   };
+}
+
+// Um lembrete como a tela o mostra, pelo id — ou `null` se ele não existe (outra pessoa o
+// excluiu). As ações de `./acoes` devolvem a linha ATUAL por aqui: quem marcou e quando são do
+// banco, nunca do aparelho.
+export async function obterLembreteDaTela(id: string): Promise<LembreteDaTela | null> {
+  const [linha] = await selecionarLembretes().where(eq(lembretes.id, id)).limit(1);
+  return linha ? paraATela(linha) : null;
 }
 
 // Uma pessoa da casa como as pílulas e os chips a usam.

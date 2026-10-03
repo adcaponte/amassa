@@ -76,3 +76,87 @@ export const ROTULO_PARA_QUANDO = "Para quando (opcional)";
 // O grupo das pílulas de pessoa e a pílula "sem dono" (nunca "ninguém" nem "todos").
 export const ROTULO_DE_QUEM = "De quem é o lembrete";
 export const ROTULO_GERAL = "geral";
+
+// As ações da linha (06.3-UI-SPEC.md §Ações, §Toasts e §Erros; plano 06.3-04). Toda frase aqui é
+// texto puro: o `toast` nunca recebe HTML nem JSX (T-06.3-19).
+
+// A caixa de feito: sem texto visível, o nome acessível diz o que o toque faz (verbatim do protótipo).
+export function rotuloMarcarFeito(texto: string): string {
+  return `Marcar feito: ${texto}`;
+}
+
+export function rotuloDesfazerFeito(texto: string): string {
+  return `Desfazer: ${texto}`;
+}
+
+// "editar"/"excluir" (verbatim, minúsculos) e os nomes acessíveis — várias linhas teriam o mesmo
+// nome sem o texto.
+export const ROTULO_EDITAR = "editar";
+export const ROTULO_EXCLUIR = "excluir";
+
+export function rotuloEditar(texto: string): string {
+  return `Editar: ${texto}`;
+}
+
+export function rotuloExcluir(texto: string): string {
+  return `Excluir: ${texto}`;
+}
+
+// A edição na linha.
+export const ROTULO_SALVAR = "Salvar";
+export const ROTULO_SALVANDO = "Salvando…";
+export const ROTULO_CANCELAR = "cancelar";
+export const ROTULO_TEXTO_DO_LEMBRETE = "Texto do lembrete";
+
+// Toasts.
+export const ROTULO_DESFAZER = "Desfazer";
+export const TOAST_REABERTO = "Lembrete reaberto.";
+export const TOAST_ATUALIZADO = "Lembrete atualizado.";
+
+// "Feito: {trecho}" — o trecho vem de `trecho()` (`lib/lembretes/lista.ts`).
+export function textoFeito(trechoDoTexto: string): string {
+  return `Feito: ${trechoDoTexto}`;
+}
+
+// "Lembrete excluído: {trecho}" — o trecho diz o que se perde (UI-D10).
+export function textoExcluido(trechoDoTexto: string): string {
+  return `Lembrete excluído: ${trechoDoTexto}`;
+}
+
+// Erros das ações (06.3-UI-SPEC.md §Erros).
+export const FRASE_LEMBRETE_NAO_EXISTE =
+  "Esse lembrete não existe mais — alguém excluiu. A lista foi atualizada.";
+export const FRASE_FALHA_AO_MARCAR =
+  "Não deu para marcar como feito. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_REABRIR =
+  "Não deu para reabrir o lembrete. Verifique a internet e tente de novo.";
+export const FRASE_FALHA_AO_DESFAZER =
+  "Não deu para desfazer. O lembrete está em “Feitos” — desmarque lá.";
+export const FRASE_FALHA_AO_SALVAR_EDICAO =
+  "Não deu para salvar a mudança. Verifique a internet e tente de novo.";
+export const FRASE_EDICAO_VAZIA =
+  "O lembrete não pode ficar vazio. Escreva o texto — ou use “excluir”.";
+// A frase da ação no servidor; a tela mostra a de `textoFalhaAoExcluir`, com o trecho.
+export const FRASE_FALHA_AO_EXCLUIR =
+  "Não deu para excluir o lembrete. Verifique a internet e tente de novo.";
+
+export function textoFalhaAoExcluir(trechoDoTexto: string): string {
+  return `Não deu para excluir “${trechoDoTexto}”. Ele voltou para a lista — tente de novo.`;
+}
+
+// A sanfona "Feitos" do Início (D-02) e as linhas de autoria (UI-D11: "dd/mm hh:mm").
+export function textoFeitos(n: number): string {
+  return `Feitos (${n})`;
+}
+
+export function textoEMaisNosFeitos(n: number): string {
+  return `e mais ${n} em “ver todos”`;
+}
+
+export function textoFeitoPor(nome: string, instante: string): string {
+  return `feito por ${nome} · ${instante}`;
+}
+
+export function textoPor(nome: string, instante: string): string {
+  return `por ${nome} · ${instante}`;
+}

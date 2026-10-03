@@ -166,3 +166,9 @@ export async function desativarPessoaDeTeste(id: string): Promise<void> {
     cliente.query("update usuarios set ativo = false where id = $1", [id]),
   );
 }
+
+// Simula OUTRA pessoa excluindo o lembrete (plano 06.3-04): apaga a linha direto no banco de teste,
+// por baixo da tela que ainda a mostra. Só dentro da trava.
+export async function apagarLembreteDireto(id: string): Promise<void> {
+  await comCliente((cliente) => cliente.query("delete from lembretes where id = $1", [id]));
+}

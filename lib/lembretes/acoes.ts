@@ -13,7 +13,7 @@
 // Este arquivo só exporta funções async e tipos (uma exportação vira endpoint): frases em
 // `./textos`, esquemas em `./esquemas`, leituras em `./consultas`.
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { lembretes, usuarios } from "@/db/schema";
@@ -21,25 +21,44 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import type { LembreteDaTela } from "./consultas";
-import { esquemaCriarLembrete, type CampoDoLembrete } from "./esquemas";
+import { obterLembreteDaTela, type LembreteDaTela } from "./consultas";
+import {
+  esquemaCriarLembrete,
+  esquemaMarcarFeito,
+  type CampoDoLembrete,
+} from "./esquemas";
 import {
   FRASE_ESCREVA_O_LEMBRETE,
   FRASE_FALHA_AO_GUARDAR,
+  FRASE_FALHA_AO_MARCAR,
+  FRASE_LEMBRETE_NAO_EXISTE,
   FRASE_PESSOA_INVALIDA,
 } from "./textos";
 
 // O envelope das ações: a frase e, quando ela é de um campo, qual — a tela a mostra embaixo dele.
+// `naoExiste`: o lembrete sumiu do banco (outra pessoa o excluiu) — a tela tira a linha e avisa.
 export type ResultadoDoLembrete<T> =
   | { ok: true; dados: T }
-  | { ok: false; erro: string; campo?: CampoDoLembrete };
+  | { ok: false; erro: string; campo?: CampoDoLembrete; naoExiste?: true };
+
+// NÃO exportada.
+const LEMBRETE_NAO_EXISTE = {
+  ok: false,
+  erro: FRASE_LEMBRETE_NAO_EXISTE,
+  naoExiste: true,
+} as const;
 
 const CAMPOS_DO_LEMBRETE: readonly CampoDoLembrete[] = ["texto", "paraQuando", "quem"];
 
 type ProblemaDeValidacao = { path: PropertyKey[]; message: string };
 
-// NÃO exportada (uma exportação deste arquivo vira endpoint).
-function recusaDeValidacao(problemas: readonly ProblemaDeValidacao[]): {
+// NÃO exportada (uma exportação deste arquivo vira endpoint). Um problema fora dos campos da tela
+// (o `id` adulterado, por exemplo) recebe a frase genérica de quem chamou — nunca a mensagem crua
+// do Zod.
+function recusaDeValidacao(
+  problemas: readonly ProblemaDeValidacao[],
+  fraseGenerica: string = FRASE_FALHA_AO_GUARDAR,
+): {
   ok: false;
   erro: string;
   campo?: CampoDoLembrete;
@@ -49,7 +68,10 @@ function recusaDeValidacao(problemas: readonly ProblemaDeValidacao[]): {
   const campo = (CAMPOS_DO_LEMBRETE as readonly PropertyKey[]).includes(caminho as PropertyKey)
     ? (caminho as CampoDoLembrete)
     : undefined;
-  return { ok: false, erro: primeiro?.message ?? FRASE_FALHA_AO_GUARDAR, ...(campo ? { campo } : {}) };
+  if (!campo) {
+    return { ok: false, erro: fraseGenerica };
+  }
+  return { ok: false, erro: primeiro?.message ?? fraseGenerica, campo };
 }
 
 // A pessoa ATIVA com esse id (o nome vai para a linha devolvida), ou `null`. NÃO exportada.
@@ -133,5 +155,47 @@ export async function criarLembrete(entrada: unknown): Promise<ResultadoDoLembre
     }
     console.error("Falha ao guardar o lembrete:", codigo, erro);
     return { ok: false, erro: FRASE_FALHA_AO_GUARDAR };
+  }
+}
+
+// Marcar feito ou reabrir (LMB-06). `feito` é o estado DESEJADO, nunca "inverter": dois toques, ou
+// duas pessoas, convergem. `feito: true` só grava se o lembrete ainda está aberto (`feito_em is
+// null`) — vale o PRIMEIRO; quem chega depois recebe a linha como está (o feito do outro), sem erro.
+// O momento é o `now()` do Postgres e o autor é a sessão (T-06.3-16): o esquema só aceita
+// `{ id, feito }`. Devolve a linha atual; o lembrete que sumiu do banco vira `naoExiste`.
+export async function marcarFeito(
+  entrada: unknown,
+): Promise<ResultadoDoLembrete<LembreteDaTela>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaMarcarFeito.safeParse(entrada);
+  if (!resultado.success) {
+    return recusaDeValidacao(resultado.error.issues, FRASE_FALHA_AO_MARCAR);
+  }
+  const { id, feito } = resultado.data;
+
+  try {
+    if (feito) {
+      await db
+        .update(lembretes)
+        .set({ feitoEm: sql`now()`, feitoPor: usuario.id })
+        .where(and(eq(lembretes.id, id), isNull(lembretes.feitoEm)));
+    } else {
+      await db
+        .update(lembretes)
+        .set({ feitoEm: null, feitoPor: null })
+        .where(eq(lembretes.id, id));
+    }
+
+    const linha = await obterLembreteDaTela(id);
+    if (!linha) {
+      return LEMBRETE_NAO_EXISTE;
+    }
+    revalidarTelasDosLembretes();
+    return { ok: true, dados: linha };
+  } catch (erro) {
+    const codigo = codigoDoErroPostgres(erro);
+    console.error("Falha ao marcar o lembrete:", codigo, erro);
+    return { ok: false, erro: FRASE_FALHA_AO_MARCAR };
   }
 }
