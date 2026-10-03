@@ -996,7 +996,7 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 06.2-09-PLAN.md — Os anexos no backup diário, vigiados por `/api/health/backup` (D-05, A-02) (onda 9)
+- [x] 06.2-09-PLAN.md — Os anexos no backup diário, vigiados por `/api/health/backup` (D-05, A-02) (onda 9)
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
