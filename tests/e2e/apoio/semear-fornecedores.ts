@@ -350,3 +350,23 @@ export async function cancelarNoBanco(documentoId: string): Promise<void> {
     }
   });
 }
+
+// ——— O campo "Fornecedor" em todos os modos da Despesa (plano 06.2-12, Pitfall 15). ———
+
+// Desativa um fornecedor direto no banco, no meio de um fluxo da tela (entre escolher e lançar, ou entre
+// gravar o rascunho e recarregar) — o mesmo `ativo = false` que "Desativar" grava pela ficha.
+export async function desativarFornecedorNoBanco(id: string): Promise<void> {
+  await definirAtivoNoBanco(id, false);
+}
+
+// Quantos documentos têm uma linha com esta descrição — prova que um lançamento NÃO aconteceu (0) ou
+// aconteceu uma vez só (1). A descrição carrega o sufixo único do teste.
+export async function contarDocumentosComLinha(descricao: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ quantos: string }>(
+      "select count(distinct documento_id) as quantos from documento_linhas where descricao = $1",
+      [descricao],
+    );
+    return Number(rows[0]?.quantos ?? 0);
+  });
+}

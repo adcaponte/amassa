@@ -1,12 +1,19 @@
 // Módulo puro de Fornecedores — o campo "Fornecedor" da Despesa do Financeiro (Fase 06.2, plano 10;
-// FRN-12, D-04). Só um import, de `./busca` (a MESMA `normalizar` da lista de Cadastros); nenhuma linha
-// alcança React, Next, drizzle-orm, pg ou `@/db` (teste de pureza em
+// FRN-12, D-04; completado no plano 12). Dois imports: `./busca` (a MESMA `normalizar` da lista de
+// Cadastros) e as frases do campo em `@/lib/financeiro/textos` (só strings; o único import dele é de
+// TIPO). Nenhuma linha alcança React, Next, drizzle-orm, pg ou `@/db` (teste de pureza em
 // `tests/unit/fornecedores-campo.test.ts`). O combobox (`components/amassa/financeiro/campo-fornecedor.tsx`)
 // só chama.
 //
 // A lista é a dos fornecedores ATIVOS, carregada uma vez com a página do Financeiro
 // (`listarFornecedoresParaSeletor`): a filtragem é local, sem espera ao digitar (06.2-UI-SPEC.md,
 // "Despesa do Financeiro — o campo Fornecedor").
+import {
+  FRASE_CAMPO_CADASTRO_VAZIO,
+  FRASE_CAMPO_HA_MAIS,
+  fraseCampoSemResultado,
+} from "@/lib/financeiro/textos";
+
 import { normalizar } from "./busca";
 
 // O que o campo precisa de cada fornecedor ativo — o mesmo formato de `FornecedorParaSeletor`
@@ -20,7 +27,7 @@ export type FornecedorDoCampo = {
 };
 
 // No máximo 8 sugestões (06.2-UI-SPEC.md); havendo mais, `haMais` (a linha "Há mais fornecedores —
-// continue digitando." é do plano 12).
+// continue digitando." vem de `mensagemDoPainel`).
 export const MAXIMO_DE_SUGESTOES = 8;
 
 export type SugestoesDoCampo<T extends FornecedorDoCampo> = {
@@ -61,16 +68,87 @@ export function sugestoesDoCampo<T extends FornecedorDoCampo>(
   };
 }
 
-// Os três estados do vínculo deste plano (o plano 12 acrescenta os outros):
-//   - "vazio": nada escrito (nenhum fornecedor é o padrão);
-//   - "ligado": escolhido da lista — a despesa grava `fornecedor_id` e o nome do cadastro;
-//   - "texto-livre": escrito sem escolher — grava só `pessoa_nome`, como sempre. Mesmo que o texto
-//     seja igual ao nome de um fornecedor ativo: NADA se liga sozinho (UI-D4).
-export type SituacaoDoVinculo = "vazio" | "ligado" | "texto-livre";
-
-export function situacaoDoVinculo(campo: { texto: string; fornecedorId: string | null }): SituacaoDoVinculo {
-  if (campo.fornecedorId !== null) {
-    return "ligado";
+// O fornecedor ativo cujo nome é IGUAL ao texto escrito, comparando por `normalizar` (sem acento, caixa
+// nem espaços sobrando) — só quando há exatamente UM: dois ativos com o mesmo nome normalizado não dão
+// aviso nenhum (não há como dizer qual). Um item com `ativo: false` não conta (a lista do campo já é só
+// de ativos; a regra fica explícita aqui). Texto vazio → nenhum. Serve ao aviso da linha de vínculo e ao
+// destaque da opção com a lista aberta — NUNCA liga sozinho (UI-D4).
+export function fornecedorComNomeIgual<T extends { nome: string; ativo?: boolean }>(
+  fornecedores: readonly T[],
+  texto: string,
+): T | null {
+  const termo = normalizar(texto);
+  if (termo === "") {
+    return null;
   }
-  return campo.texto.trim() === "" ? "vazio" : "texto-livre";
+  const iguais = fornecedores.filter(
+    (fornecedor) => fornecedor.ativo !== false && normalizar(fornecedor.nome) === termo,
+  );
+  return iguais.length === 1 ? iguais[0] : null;
+}
+
+// Os seis estados da linha de vínculo embaixo do campo (06.2-UI-SPEC.md, "Despesa do Financeiro — o
+// campo Fornecedor"; plano 12):
+//   - "erro": a lista de fornecedores não carregou (`null`) — o campo é texto livre e a frase de erro
+//     fica embaixo dele, com ou sem texto;
+//   - "ligado": escolhido da lista — a despesa grava `fornecedor_id` e o nome do cadastro;
+//   - "vazio": nada escrito (nenhum fornecedor é o padrão);
+//   - "cadastro-vazio": texto escrito, nenhum fornecedor ativo — nenhuma linha (a frase é do painel);
+//   - "texto-igual-ao-cadastro": o texto é o nome de UM ativo, sem ter escolhido — o aviso em `atencao`;
+//     `nome` é o nome do cadastro;
+//   - "texto-livre": escrito sem escolher — grava só `pessoa_nome`, como sempre.
+// NADA se liga sozinho (UI-D4): só a escolha na lista dá "ligado".
+export type SituacaoDoVinculo =
+  | { estado: "vazio" }
+  | { estado: "ligado" }
+  | { estado: "texto-livre" }
+  | { estado: "texto-igual-ao-cadastro"; nome: string }
+  | { estado: "cadastro-vazio" }
+  | { estado: "erro" };
+
+export function situacaoDoVinculo(campo: {
+  texto: string;
+  fornecedorId: string | null;
+  fornecedores: readonly { nome: string; ativo?: boolean }[] | null;
+}): SituacaoDoVinculo {
+  if (campo.fornecedores === null) {
+    return { estado: "erro" };
+  }
+  if (campo.fornecedorId !== null) {
+    return { estado: "ligado" };
+  }
+  if (campo.texto.trim() === "") {
+    return { estado: "vazio" };
+  }
+  if (!campo.fornecedores.some((fornecedor) => fornecedor.ativo !== false)) {
+    return { estado: "cadastro-vazio" };
+  }
+  const igual = fornecedorComNomeIgual(campo.fornecedores, campo.texto);
+  if (igual !== null) {
+    return { estado: "texto-igual-ao-cadastro", nome: igual.nome };
+  }
+  return { estado: "texto-livre" };
+}
+
+// A frase do painel de sugestões (fora do `listbox`, molde `situacao()` de `seletor-pessoa.tsx`), ou
+// `null` quando não há o que dizer:
+//   - nenhum fornecedor ativo → a frase do cadastro vazio (com ou sem texto);
+//   - texto sem nenhuma sugestão → a frase do sem resultado, com o texto como foi escrito (sem as pontas);
+//   - mais de 8 → a linha não selecionável "Há mais fornecedores — continue digitando.";
+//   - lista que não carregou (`null`) → nada: não há painel (a frase de erro fica embaixo do campo).
+export function mensagemDoPainel(entrada: {
+  fornecedores: readonly { nome: string; ativo?: boolean }[] | null;
+  texto: string;
+  sugestoes: { opcoes: readonly unknown[]; haMais: boolean };
+}): string | null {
+  if (entrada.fornecedores === null) {
+    return null;
+  }
+  if (!entrada.fornecedores.some((fornecedor) => fornecedor.ativo !== false)) {
+    return FRASE_CAMPO_CADASTRO_VAZIO;
+  }
+  if (entrada.sugestoes.opcoes.length === 0) {
+    return fraseCampoSemResultado(entrada.texto.trim());
+  }
+  return entrada.sugestoes.haMais ? FRASE_CAMPO_HA_MAIS : null;
 }

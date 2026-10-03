@@ -3,10 +3,18 @@
 import { useId, useState, type KeyboardEvent } from "react";
 import { Link2, Search } from "lucide-react";
 
-import { situacaoDoVinculo, sugestoesDoCampo, type FornecedorDoCampo } from "@/lib/fornecedores/campo";
 import {
+  fornecedorComNomeIgual,
+  mensagemDoPainel,
+  situacaoDoVinculo,
+  sugestoesDoCampo,
+  type FornecedorDoCampo,
+} from "@/lib/fornecedores/campo";
+import {
+  FRASE_CAMPO_FORNECEDORES_NAO_CARREGARAM,
   FRASE_VINCULO_LIGADO,
   FRASE_VINCULO_SO_O_NOME,
+  fraseTextoIgualAoCadastro,
   PLACEHOLDER_CAMPO_FORNECEDOR,
 } from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
@@ -17,11 +25,12 @@ import { Input } from "@/components/ui/input";
 export type ValorDoCampoFornecedor = { texto: string; fornecedorId: string | null };
 
 export type CampoFornecedorProps = {
-  // "Fornecedor (opcional)" — `ROTULO_FORNECEDOR_OPCIONAL`, sem mudança (o e2e
-  // `financeiro-despesa.spec.ts` faz `getByLabel` nele).
+  // Compra: "Fornecedor (opcional)" — `ROTULO_FORNECEDOR_OPCIONAL`, sem mudança (o e2e
+  // `financeiro-despesa.spec.ts` faz `getByLabel` nele). Outra despesa: "Fornecedor ou para quem
+  // (opcional)" — `ROTULO_FORNECEDOR_OU_PARA_QUEM_OPCIONAL` (UI-D2, plano 12).
   rotulo: string;
   // Os fornecedores ATIVOS, carregados com a página do Financeiro. `null`: a leitura falhou — o campo
-  // funciona como texto livre (a frase de erro é do plano 12).
+  // funciona como texto livre, sem painel, com a frase de erro embaixo (plano 12).
   fornecedores: readonly FornecedorDoCampo[] | null;
   valor: ValorDoCampoFornecedor;
   aoMudar: (valor: ValorDoCampoFornecedor) => void;
@@ -41,6 +50,11 @@ export type CampoFornecedorProps = {
 // Teclado: ↓/↑ abrem a lista e percorrem (circular); Enter com a lista aberta escolhe a destacada ou a
 // única que há, senão não faz nada (nunca lança); Esc fecha só a lista; Tab fecha e segue. Foco no
 // campo abre; tocar numa opção não tira o foco do campo.
+//
+// Plano 12: quando o texto escrito é IGUAL ao nome de um ativo (sem acento, caixa ou espaços extras) e a
+// pessoa não escolheu, a linha de vínculo avisa em `atencao` e, com a lista aberta, a opção dele vem
+// destacada — Enter liga. O aviso não liga nada (UI-D4). As mensagens do painel (cadastro vazio, sem
+// resultado, "Há mais…") ficam FORA do `listbox` (molde `situacao()` de `seletor-pessoa.tsx`).
 export function CampoFornecedor({
   rotulo,
   fornecedores,
@@ -56,10 +70,22 @@ export function CampoFornecedor({
   const [expandido, setExpandido] = useState(false);
   const [ativa, setAtiva] = useState(-1);
 
-  const opcoes = fornecedores !== null ? sugestoesDoCampo(fornecedores, valor.texto).opcoes : [];
-  const listaVisivel = expandido && opcoes.length > 0;
-  const situacao = situacaoDoVinculo(valor);
-  const haAtivos = fornecedores !== null && fornecedores.length > 0;
+  const sugestoes =
+    fornecedores !== null ? sugestoesDoCampo(fornecedores, valor.texto) : { opcoes: [], haMais: false };
+  const opcoes = sugestoes.opcoes;
+  const mensagem = mensagemDoPainel({ fornecedores, texto: valor.texto, sugestoes });
+  // O painel aparece com o campo em uso e algo a mostrar (opções ou uma mensagem). Lista que não
+  // carregou: nunca há painel — o campo é só texto livre.
+  const painelVisivel = expandido && fornecedores !== null && (opcoes.length > 0 || mensagem !== null);
+  const listaVisivel = painelVisivel && opcoes.length > 0;
+  const situacao = situacaoDoVinculo({ texto: valor.texto, fornecedorId: valor.fornecedorId, fornecedores });
+
+  // O texto igual ao nome de um ativo (sem escolha): a opção dele começa destacada enquanto a pessoa não
+  // mover a seleção com as setas ou o ponteiro — então Enter liga. Nunca liga sozinho.
+  const igual =
+    fornecedores !== null && valor.fornecedorId === null ? fornecedorComNomeIgual(fornecedores, valor.texto) : null;
+  const indiceDoIgual = igual !== null ? opcoes.findIndex((fornecedor) => fornecedor.id === igual.id) : -1;
+  const destacada = ativa >= 0 && ativa < opcoes.length ? ativa : indiceDoIgual;
 
   function idDaOpcao(indice: number): string {
     return `${idBase}-opcao-${indice}`;
@@ -93,8 +119,12 @@ export function CampoFornecedor({
         return;
       }
       const passo = evento.key === "ArrowDown" ? 1 : -1;
-      setAtiva((atual) =>
-        atual === -1 ? (passo === 1 ? 0 : opcoes.length - 1) : (atual + passo + opcoes.length) % opcoes.length,
+      setAtiva(
+        destacada === -1
+          ? passo === 1
+            ? 0
+            : opcoes.length - 1
+          : (destacada + passo + opcoes.length) % opcoes.length,
       );
       return;
     }
@@ -102,8 +132,8 @@ export function CampoFornecedor({
     // Nunca lança a despesa (o painel não é um `<form>`, e o Enter não chega a nenhum botão).
     if (evento.key === "Enter" && listaVisivel) {
       evento.preventDefault();
-      if (ativa >= 0 && ativa < opcoes.length) {
-        escolher(opcoes[ativa]);
+      if (destacada >= 0) {
+        escolher(opcoes[destacada]);
       } else if (opcoes.length === 1) {
         escolher(opcoes[0]);
       }
@@ -128,10 +158,10 @@ export function CampoFornecedor({
           id={idDoCampo}
           type="text"
           role="combobox"
-          aria-expanded={listaVisivel}
+          aria-expanded={painelVisivel}
           aria-controls={idDaLista}
           aria-autocomplete="list"
-          aria-activedescendant={listaVisivel && ativa >= 0 ? idDaOpcao(ativa) : undefined}
+          aria-activedescendant={listaVisivel && destacada >= 0 ? idDaOpcao(destacada) : undefined}
           aria-describedby={idDoVinculo}
           autoComplete="off"
           placeholder={PLACEHOLDER_CAMPO_FORNECEDOR}
@@ -154,7 +184,7 @@ export function CampoFornecedor({
         <div
           className={cn(
             "border-borda bg-superficie absolute top-full z-20 mt-1 max-h-[320px] w-full overflow-y-auto rounded-md border p-1 shadow-md",
-            listaVisivel ? "block" : "hidden",
+            painelVisivel ? "block" : "hidden",
           )}
           data-testid="despesa-fornecedor-painel"
         >
@@ -169,7 +199,7 @@ export function CampoFornecedor({
                       key={fornecedor.id}
                       id={idDaOpcao(indice)}
                       role="option"
-                      aria-selected={ativa === indice}
+                      aria-selected={destacada === indice}
                       tabIndex={-1}
                       onMouseDown={(evento) => evento.preventDefault()}
                       onClick={() => escolher(fornecedor)}
@@ -178,7 +208,7 @@ export function CampoFornecedor({
                       data-fornecedor-id={fornecedor.id}
                       className={cn(
                         "flex min-h-[44px] cursor-pointer flex-col justify-center rounded-md px-3 py-2",
-                        ativa === indice ? "bg-superficie-2" : "hover:bg-superficie-2",
+                        destacada === indice ? "bg-superficie-2" : "hover:bg-superficie-2",
                       )}
                     >
                       <span className="text-corpo text-tinta font-semibold [overflow-wrap:anywhere]">
@@ -192,27 +222,46 @@ export function CampoFornecedor({
                 })
               : null}
           </div>
+          {/* Fora do `listbox`: cadastro vazio, sem resultado ou "Há mais…" (linha não selecionável —
+              as setas só percorrem as opções). */}
+          {painelVisivel && mensagem !== null ? (
+            <p className="text-apoio text-tinta-fraca px-3 py-2" data-testid="despesa-fornecedor-mensagem">
+              {mensagem}
+            </p>
+          ) : null}
         </div>
       </div>
 
       {/* A linha de vínculo: existe sempre (o `aria-describedby` e o `aria-live` apontam para ela), vazia
-          quando não há o que dizer. */}
+          quando não há o que dizer (campo vazio; texto com o cadastro vazio). `atencao` sobre `superficie`
+          no texto igual ao cadastro; `erro` quando a lista não carregou (o campo segue como texto livre). */}
       <p
         id={idDoVinculo}
         aria-live="polite"
         data-testid="despesa-fornecedor-vinculo"
+        data-estado={situacao.estado}
         className={cn(
           "text-apoio flex items-start gap-1",
-          situacao === "ligado" ? "text-tinta-media" : "text-tinta-fraca",
+          situacao.estado === "ligado"
+            ? "text-tinta-media"
+            : situacao.estado === "texto-igual-ao-cadastro"
+              ? "text-atencao"
+              : situacao.estado === "erro"
+                ? "text-erro"
+                : "text-tinta-fraca",
         )}
       >
-        {situacao === "ligado" ? (
+        {situacao.estado === "ligado" ? (
           <>
             <Link2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <span>{FRASE_VINCULO_LIGADO}</span>
           </>
-        ) : situacao === "texto-livre" && haAtivos ? (
+        ) : situacao.estado === "texto-livre" ? (
           <span>{FRASE_VINCULO_SO_O_NOME}</span>
+        ) : situacao.estado === "texto-igual-ao-cadastro" ? (
+          <span>{fraseTextoIgualAoCadastro(valor.texto.trim())}</span>
+        ) : situacao.estado === "erro" ? (
+          <span>{FRASE_CAMPO_FORNECEDORES_NAO_CARREGARAM}</span>
         ) : null}
       </p>
     </div>
