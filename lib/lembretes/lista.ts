@@ -7,7 +7,9 @@
 // `hoje` nasce na página (`hojeEmBrasilia(instante)`, `lib/financeiro/formato.ts`) e desce por prop.
 // A aritmética de dias é a civil de `lib/producao/calendario.ts` — inteiros, sem `Date` na conta.
 
+import { QUANTOS_POR_VEZ, quantosDaUrl } from "@/lib/clientes/lista";
 import { diasEntre, formatarDiaMes } from "@/lib/producao/calendario";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
   FRASE_NADA_PENDENTE,
@@ -20,6 +22,12 @@ import {
 
 // Quantos abertos o Início mostra antes do "e mais N — ver todos" (BRIEFING, 06.3-UI-SPEC.md).
 export const LIMITE_DE_ABERTOS_NO_INICIO = 6;
+// Quantos feitos a sanfona "Feitos" do Início mostra antes do "e mais N em “ver todos”" (D-02).
+export const LIMITE_DE_FEITOS_NO_INICIO = 5;
+// Quanto tempo o toast de "Feito"/"Lembrete excluído" oferece o "Desfazer" (06.3-UI-SPEC.md §Toasts).
+export const DURACAO_DO_DESFAZER_MS = 6000;
+// O trecho do texto que o toast mostra, em pontos de código (06.3-UI-SPEC.md §Toasts).
+export const TAMANHO_DO_TRECHO = 40;
 
 // Tipo estrutural: serve à `LembreteDaTela` do servidor e ao estado local do cliente sem importar
 // `consultas.ts` (que alcança o banco).
@@ -123,4 +131,103 @@ export function resumoDoInicio<T extends AbertoParaOrdenar>(
     totalDeVencidos,
     contagem,
   };
+}
+
+// "dd/mm hh:mm" em Brasília (UI-D11: "por Ana · 02/10 14:20"), no molde de `textoDaAutoria`
+// (`lib/anotacoes/folha.ts`): o instante chega por argumento, e `hourCycle: "h23"` garante "00" à
+// meia-noite (com `hour12: false` sozinho alguns motores escrevem "24").
+const FORMATO_DO_INSTANTE = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+export function instanteCurto(iso: string): string {
+  const partes = FORMATO_DO_INSTANTE.formatToParts(new Date(iso));
+  const parte = (tipo: Intl.DateTimeFormatPartTypes): string =>
+    partes.find((p) => p.type === tipo)?.value ?? "00";
+  return `${parte("day")}/${parte("month")} ${parte("hour")}:${parte("minute")}`;
+}
+
+// O primeiro nome que aparece no chip e nas pílulas (UI-D3). Nulo ou só espaços → `null`.
+export function primeiroNome(nome: string | null): string | null {
+  if (nome === null) {
+    return null;
+  }
+  const aparado = nome.trim();
+  if (aparado === "") {
+    return null;
+  }
+  return aparado.split(/\s+/)[0] ?? null;
+}
+
+// A cor do chip é pela POSIÇÃO da pessoa entre as ativas ordenadas por `usuarios.criado_em`
+// (UI-D2), nunca pelo nome — nome de pessoa não entra no código. 3ª pessoa em diante e pessoa
+// desativada (índice −1) ficam neutras. A cor é decorativa: o nome está escrito no chip. As classes
+// ficam como LITERAIS inteiros para o Tailwind enxergá-las ao varrer `lib/`.
+export function corDaPessoa(indice: number): string {
+  if (indice === 0) return "bg-esmaltacao";
+  if (indice === 1) return "bg-queima1";
+  return "bg-tinta-fraca";
+}
+
+// O trecho do toast: corta em pontos de código (um emoji conta como um), "…" só se cortou.
+export function trecho(texto: string, tamanho: number = TAMANHO_DO_TRECHO): string {
+  const pontos = [...texto];
+  if (pontos.length <= tamanho) {
+    return texto;
+  }
+  return `${pontos.slice(0, tamanho).join("")}…`;
+}
+
+type ValorDaUrl = string | readonly string[] | null | undefined;
+
+export type FiltrosDosLembretes = {
+  situacao: "abertos" | "feitos";
+  // "todos", "geral" (sem pessoa) ou o uuid de uma pessoa.
+  quem: string;
+  quantos: number;
+};
+
+const FILTROS_PADRAO: FiltrosDosLembretes = {
+  situacao: "abertos",
+  quem: "todos",
+  quantos: QUANTOS_POR_VEZ,
+};
+
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// `/gestao/lembretes?situacao=&quem=&quantos=` (06.3-UI-SPEC.md §Rotas, T-06.3-09): só uniões
+// fechadas, uuid por expressão e `quantos` pela MESMA regra de Clientes (múltiplo de 50 até 500,
+// `quantosDaUrl` reaproveitado, não copiado). Lista repetida ou valor fora da união → o padrão,
+// nunca erro nem consulta aberta.
+export function filtrosDaUrl(parametros: {
+  situacao?: ValorDaUrl;
+  quem?: ValorDaUrl;
+  quantos?: ValorDaUrl;
+}): FiltrosDosLembretes {
+  const { situacao, quem, quantos } = parametros;
+  return {
+    situacao: situacao === "abertos" || situacao === "feitos" ? situacao : FILTROS_PADRAO.situacao,
+    quem:
+      typeof quem === "string" && (quem === "todos" || quem === "geral" || FORMATO_UUID.test(quem))
+        ? quem
+        : FILTROS_PADRAO.quem,
+    quantos: quantosDaUrl(quantos),
+  };
+}
+
+// O endereço de "ver todos" com os filtros — só os valores diferentes do padrão, na ordem
+// `situacao`, `quem`, `quantos`.
+export function hrefDosLembretes(filtros: FiltrosDosLembretes): string {
+  const busca = new URLSearchParams();
+  if (filtros.situacao !== FILTROS_PADRAO.situacao) busca.set("situacao", filtros.situacao);
+  if (filtros.quem !== FILTROS_PADRAO.quem) busca.set("quem", filtros.quem);
+  if (filtros.quantos !== FILTROS_PADRAO.quantos) busca.set("quantos", String(filtros.quantos));
+  const consulta = busca.toString();
+  const caminho = rotaDeGestao("/lembretes");
+  return consulta === "" ? caminho : `${caminho}?${consulta}`;
 }
