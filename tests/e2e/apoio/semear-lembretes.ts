@@ -10,7 +10,9 @@
 // (`./semear-financeiro`), nunca do dia UTC do relógio.
 import { Client } from "pg";
 
-export { idDoUsuarioDoTeste } from "./semear-fornecedores";
+import { idDoUsuarioDoTeste } from "./semear-fornecedores";
+
+export { idDoUsuarioDoTeste };
 
 async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise<T> {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
@@ -34,7 +36,8 @@ export type LembreteNoBanco = {
   feito_por: string | null;
 };
 
-const COLUNAS = "id, texto, para_quando::text as para_quando, quem, criado_por, feito_em, feito_por";
+const COLUNAS =
+  "id, texto, para_quando::text as para_quando, quem, criado_por, feito_em, feito_por";
 
 export async function lerLembrete(id: string): Promise<LembreteNoBanco | null> {
   return comCliente(async (cliente) => {
@@ -47,12 +50,93 @@ export async function lerLembrete(id: string): Promise<LembreteNoBanco | null> {
 }
 
 // Pelo texto (os testes usam texto único, com sufixo do projeto e do instante).
-export async function lerLembretePorTexto(texto: string): Promise<LembreteNoBanco | null> {
+export async function lerLembretePorTexto(
+  texto: string,
+): Promise<LembreteNoBanco | null> {
   return comCliente(async (cliente) => {
     const { rows } = await cliente.query<LembreteNoBanco>(
       `select ${COLUNAS} from lembretes where texto = $1 order by criado_em desc limit 1`,
       [texto],
     );
     return rows[0] ?? null;
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// A trava dos Lembretes (plano 06.3-03, Pitfall 5 da pesquisa). "6 + e mais N", "N abertos · M
+// vencidos" e o estado vazio são contagens GLOBAIS da tabela `lembretes` — não existe uma linha
+// "própria de cada teste" para isolar. Os projetos `desktop` e `celular` rodam em paralelo contra o
+// MESMO banco; sem exclusão mútua, um projeto semeando 7 lembretes no meio da contagem do outro
+// produziria um "8 abertos" FALSO — não é instabilidade, é a disputa por estado global que o
+// CLAUDE.md manda resolver com ordem explícita, nunca `--grep`.
+//
+// Regra: TODO spec `lembretes-*` que escreve na tabela usa ESTA MESMA trava, em `beforeAll`/
+// `afterAll` de um `describe` com `mode: "serial"`, e só chama `limparLembretes()` dentro dela.
+// Molde: `./travar-anotacoes.ts`. Chave nova, conferida contra as em uso (`819_224`, `726623`,
+// `480_260_811`, `5_020_014`, `5_020_017`) com
+// `grep -rn "pg_advisory_lock\|CHAVE_\|TRAVA_" tests/e2e/apoio`.
+export const CHAVE_LOCK_LEMBRETES = 6_030_003;
+
+let clienteDoLock: Client | null = null;
+
+export async function travarLembretesParaTeste(): Promise<void> {
+  clienteDoLock = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await clienteDoLock.connect();
+  await clienteDoLock.query("select pg_advisory_lock($1)", [CHAVE_LOCK_LEMBRETES]);
+}
+
+export async function destravarLembretesDeTeste(): Promise<void> {
+  if (!clienteDoLock) return;
+  await clienteDoLock.query("select pg_advisory_unlock($1)", [CHAVE_LOCK_LEMBRETES]);
+  await clienteDoLock.end();
+  clienteDoLock = null;
+}
+
+// Esvazia a tabela. SÓ dentro da trava. Seguro porque a tabela é desta fase (nenhum outro módulo
+// lê ou escreve nela) e o banco do e2e é efêmero — nunca o banco real.
+export async function limparLembretes(): Promise<void> {
+  await comCliente((cliente) => cliente.query("delete from lembretes"));
+}
+
+export type LembreteParaSemear = {
+  texto: string;
+  // Dia civil `AAAA-MM-DD` — de `hojeNoAtelie()`/`somarDiasAoHoje(n)`, nunca do dia UTC do relógio.
+  paraQuando?: string | null;
+  quem?: string | null;
+  // Instante ISO; sem ele, o `now()` do banco.
+  criadoEm?: string;
+  // Instante ISO; com ele, `feito_por` = o usuário do e2e (o check `lembretes_feito_coerente`).
+  feitoEm?: string | null;
+};
+
+// Insere um lembrete com `criado_por` = o usuário do e2e. Devolve o id.
+export async function semearLembrete(dados: LembreteParaSemear): Promise<string> {
+  const usuarioId = await idDoUsuarioDoTeste();
+  return comCliente(async (cliente) => {
+    const feitoEm = dados.feitoEm ?? null;
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into lembretes (texto, para_quando, quem, criado_em, criado_por, feito_em, feito_por)
+       values ($1, $2::date, $3, coalesce($4::timestamptz, now()), $5, $6::timestamptz, $7)
+       returning id`,
+      [
+        dados.texto,
+        dados.paraQuando ?? null,
+        dados.quem ?? null,
+        dados.criadoEm ?? null,
+        usuarioId,
+        feitoEm,
+        feitoEm === null ? null : usuarioId,
+      ],
+    );
+    return rows[0].id;
+  });
+}
+
+export async function contarLembretes(): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ total: string }>(
+      "select count(*)::text as total from lembretes",
+    );
+    return Number(rows[0]?.total ?? "0");
   });
 }

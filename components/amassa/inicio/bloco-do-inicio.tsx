@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export type BlocoDoInicioProps = {
   titulo: string;
@@ -11,6 +12,9 @@ export type BlocoDoInicioProps = {
   acaoRotulo?: string;
   acaoHref?: string;
   dataTestId?: string;
+  // Classes a mais no `Card` (Fase 06.3: o bloco "Anotações e lembretes" passa `md:col-span-2` para
+  // ocupar as duas colunas da grade). Os outros quatro blocos não passam nada.
+  className?: string;
   children: ReactNode;
 };
 
@@ -23,10 +27,11 @@ export function BlocoDoInicio({
   acaoRotulo,
   acaoHref,
   dataTestId,
+  className,
   children,
 }: BlocoDoInicioProps) {
   return (
-    <Card data-testid={dataTestId}>
+    <Card data-testid={dataTestId} className={cn(className)}>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-titulo text-foreground">{titulo}</CardTitle>
         {acaoRotulo && acaoHref && (

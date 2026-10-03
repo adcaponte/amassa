@@ -50,3 +50,18 @@ export function textoAbertos(n: number): string {
 export function textoVencidos(m: number): string {
   return m === 1 ? "1 vencido" : `${m} vencidos`;
 }
+
+// Os caminhos do Início para "ver todos" (06.3-UI-SPEC.md §Ações; D-01: "ver todos" é a rota
+// `/gestao/lembretes`, não uma folha sobre o Início).
+export const ROTULO_VER_TODOS_OS_LEMBRETES = "ver todos os lembretes";
+
+// "e mais {N} — ver todos" — abaixo da lista, só com mais de 6 abertos.
+export function textoEMaisN(n: number): string {
+  return `e mais ${n} — ver todos`;
+}
+
+// Nenhum aberto, no Início (06.3-UI-SPEC.md §Estados vazios — copy aprovada, verbatim). Nota para
+// a Parte 0 da verificação humana: o lembrete não notifica ninguém (BRIEFING §5, fora); "avisa" é
+// ficar vermelho. Trocar por "fica vermelho quando vencer" é esta linha.
+export const FRASE_NADA_PARA_FAZER =
+  "Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.";
