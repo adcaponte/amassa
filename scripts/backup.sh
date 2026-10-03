@@ -90,6 +90,12 @@ registrar_execucao() {
   REGISTRADO=1
 }
 
+# Verdadeiro quando a pasta EXISTE mas o usuário que roda o backup não pode lê-la (-r) ou
+# atravessá-la (-x). Pasta ausente devolve falso — ausência continua sendo estado normal.
+pasta_ilegivel() {
+  [ -d "$1" ] && { [ ! -r "$1" ] || [ ! -x "$1" ]; }
+}
+
 ao_sair() {
   codigo=$?
   if [ "$REGISTRADO" -eq 0 ]; then
@@ -191,14 +197,32 @@ fi
 # `du -sb` (a flag `-b` não é garantida no BusyBox do Alpine, a mesma imagem do contêiner em que
 # scripts/testar-backup.mjs roda este script). Sem destino externo configurado, marca como NÃO
 # confirmado, exatamente como o dump já faz no Passo 6 — nunca sucesso silencioso. ---
-FOTOS_BYTES="$(find "$BACKUP_FOTOS_DIR" -type f -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+#
+# Pasta que EXISTE mas que este usuário não consegue ler nem atravessar é FALHA, nunca "pasta
+# vazia" (quick 261003-bkp). Em 03/10/2026 o backup de produção roda pelo crontab de `theo`, e a
+# pasta estava `chown 100:101` + `chmod 750`: o `find ... 2>/dev/null` abaixo não via nada, e este
+# script gravava fotos_bytes 0 e destino true com 4 fotos lá dentro — sem cópia externa desde
+# 27/09. Agora: bytes nulo (não houve como contar), destino false (é o que faz /api/health/backup
+# responder 503), mensagem dizendo o que fazer, e saída diferente de zero — o mesmo caminho do
+# "envio falhou", logo abaixo.
+FOTOS_ILEGIVEL=false
+if pasta_ilegivel "$BACKUP_FOTOS_DIR"; then
+  FOTOS_ILEGIVEL=true
+  FOTOS_BYTES=""
+  MENSAGEM_ERRO="${MENSAGEM_ERRO:+$MENSAGEM_ERRO }A pasta das fotos ($BACKUP_FOTOS_DIR) existe mas o backup não consegue lê-la (permissão) — nenhuma foto foi copiada. Rode 'sudo chmod 755' nela; veja o Roteiro 12 (docs/operacao/12-fotos-volume-e-backup.md)."
+  CODIGO_SAIDA=1
+else
+  FOTOS_BYTES="$(find "$BACKUP_FOTOS_DIR" -type f -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+fi
 FOTOS_HA_ARQUIVOS=false
-if [ -d "$BACKUP_FOTOS_DIR" ] && [ -n "$(find "$BACKUP_FOTOS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
+if [ "$FOTOS_ILEGIVEL" = "false" ] && [ -d "$BACKUP_FOTOS_DIR" ] && [ -n "$(find "$BACKUP_FOTOS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
   FOTOS_HA_ARQUIVOS=true
 fi
 
 FOTOS_DESTINO_OK=false
-if [ -n "$RCLONE_REMOTE_FOTOS" ]; then
+if [ "$FOTOS_ILEGIVEL" = "true" ]; then
+  : # destino fica false — a mensagem e o código de saída já foram marcados acima.
+elif [ -n "$RCLONE_REMOTE_FOTOS" ]; then
   if [ "$FOTOS_HA_ARQUIVOS" = "true" ]; then
     if ERRO_FOTOS=$($BACKUP_ENVIO_CMD "$BACKUP_FOTOS_DIR" "$RCLONE_REMOTE_FOTOS" 2>&1); then
       FOTOS_DESTINO_OK=true
@@ -222,14 +246,28 @@ fi
 # tamanho oscilar sem motivo. A CÓPIA continua sendo da pasta inteira: um temporário pendurado
 # viaja junto, inofensivo (o nome nunca casa com um anexo válido). Sem destino externo
 # configurado, marca como NÃO confirmado — nunca sucesso silencioso. ---
-ANEXOS_BYTES="$(find "$BACKUP_ANEXOS_DIR" -type f ! -name '.envio-*' -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+#
+# Pasta que existe mas é ilegível para este usuário: falha, nunca "vazia" — o mesmo tratamento das
+# fotos no Passo 6b (quick 261003-bkp; em 03/10/2026 um PDF de 17 761 518 bytes ficou sem cópia
+# externa assim, com o script gravando anexos_bytes 0 e destino true).
+ANEXOS_ILEGIVEL=false
+if pasta_ilegivel "$BACKUP_ANEXOS_DIR"; then
+  ANEXOS_ILEGIVEL=true
+  ANEXOS_BYTES=""
+  MENSAGEM_ERRO="${MENSAGEM_ERRO:+$MENSAGEM_ERRO }A pasta dos anexos dos fornecedores ($BACKUP_ANEXOS_DIR) existe mas o backup não consegue lê-la (permissão) — nenhum anexo foi copiado. Rode 'sudo chmod 755' nela; veja o Roteiro 19 (docs/operacao/19-migracao-fornecedores.md)."
+  CODIGO_SAIDA=1
+else
+  ANEXOS_BYTES="$(find "$BACKUP_ANEXOS_DIR" -type f ! -name '.envio-*' -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+fi
 ANEXOS_HA_ARQUIVOS=false
-if [ -d "$BACKUP_ANEXOS_DIR" ] && [ -n "$(find "$BACKUP_ANEXOS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
+if [ "$ANEXOS_ILEGIVEL" = "false" ] && [ -d "$BACKUP_ANEXOS_DIR" ] && [ -n "$(find "$BACKUP_ANEXOS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
   ANEXOS_HA_ARQUIVOS=true
 fi
 
 ANEXOS_DESTINO_OK=false
-if [ -n "$RCLONE_REMOTE_ANEXOS" ]; then
+if [ "$ANEXOS_ILEGIVEL" = "true" ]; then
+  : # destino fica false — a mensagem e o código de saída já foram marcados acima.
+elif [ -n "$RCLONE_REMOTE_ANEXOS" ]; then
   if [ "$ANEXOS_HA_ARQUIVOS" = "true" ]; then
     if ERRO_ANEXOS=$($BACKUP_ENVIO_CMD "$BACKUP_ANEXOS_DIR" "$RCLONE_REMOTE_ANEXOS" 2>&1); then
       ANEXOS_DESTINO_OK=true

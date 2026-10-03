@@ -137,9 +137,13 @@ function descobrirContainerEmCI() {
 
 // --- Comandos dentro do contêiner. ---
 
-function dockerExecComCodigo(argsAposContainer, { env = {} } = {}) {
+// `usuario`, quando vem, roda o comando como esse usuário do contêiner (`docker exec -u`). Sem
+// ele, o padrão do `docker exec` é root — e root ignora permissão de pasta, que é exatamente o que
+// as Etapas 10 e 11 precisam que NÃO seja ignorado.
+function dockerExecComCodigo(argsAposContainer, { env = {}, usuario } = {}) {
   const envArgs = Object.entries(env).flatMap(([chave, valor]) => ["-e", `${chave}=${valor}`]);
-  const args = ["exec", ...envArgs, nomeContainer, ...argsAposContainer];
+  const usuarioArgs = usuario ? ["-u", usuario] : [];
+  const args = ["exec", ...usuarioArgs, ...envArgs, nomeContainer, ...argsAposContainer];
   try {
     const saida = execFileSync("docker", args, { stdio: ["ignore", "pipe", "pipe"] }).toString();
     return { codigo: 0, saida };
@@ -227,7 +231,7 @@ async function ultimasExecucoesRegistradas(cliente, quantidade) {
 
 // --- Etapa 1: banco migrado, com as duas linhas conhecidas que provam a volta. ---
 async function etapa1_prepararBancoELinhasConhecidas(cliente) {
-  console.log("Etapa 1/13: migrando o banco de teste e inserindo linhas conhecidas...");
+  console.log("Etapa 1/15: migrando o banco de teste e inserindo linhas conhecidas...");
   rodarNpm("npm", ["run", "db:migrate"], {
     env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
   });
@@ -340,7 +344,7 @@ function copiarScriptsParaOContainer() {
 
 // --- Etapa 2: backup do dia. ---
 async function etapa2_backupDoDia(cliente) {
-  console.log("Etapa 2/13: backup do dia (sem destino externo configurado)...");
+  console.log("Etapa 2/15: backup do dia (sem destino externo configurado)...");
   const { codigo, saida } = rodarBackup([]);
   afirmar(codigo === 0, `Etapa 2: scripts/backup.sh saiu com código ${codigo}, esperava 0.\n${saida}`);
 
@@ -394,7 +398,7 @@ async function etapa2_backupDoDia(cliente) {
 
 // --- Etapa 3: backup sob demanda (--agora) não sobrescreve o dump do dia. ---
 function etapa3_backupSobDemanda(arquivoDiario) {
-  console.log("Etapa 3/13: backup sob demanda (--agora)...");
+  console.log("Etapa 3/15: backup sob demanda (--agora)...");
   const { codigo, saida } = rodarBackup(["--agora"]);
   afirmar(codigo === 0, `Etapa 3: scripts/backup.sh --agora saiu com código ${codigo}, esperava 0.\n${saida}`);
 
@@ -413,7 +417,7 @@ function etapa3_backupSobDemanda(arquivoDiario) {
 
 // --- Etapa 4: rotação de 14 dias e retenção mensal (o par em sentidos opostos). ---
 function etapa4_rotacaoERetencaoMensal() {
-  console.log("Etapa 4/13: rotação de 14 dias e retenção mensal...");
+  console.log("Etapa 4/15: rotação de 14 dias e retenção mensal...");
   const antigoDiario = `${BACKUP_DIR_CONTAINER}/amassa-2000-01-01.sql.gz`;
   const antigoMensal = `${BACKUP_DIR_MENSAL_CONTAINER}/amassa-2000-01-01.sql.gz`;
 
@@ -459,7 +463,7 @@ function etapa4_rotacaoERetencaoMensal() {
 
 // --- Etapa 5: envio externo confirmado — o outro lado do par da etapa 2. ---
 async function etapa5_envioExternoConfirmado(cliente) {
-  console.log("Etapa 5/13: envio externo confirmado (rclone trocado por cp)...");
+  console.log("Etapa 5/15: envio externo confirmado (rclone trocado por cp)...");
   dockerExecComCodigo(["mkdir", "-p", DESTINO_EXTERNO_CONTAINER]);
   const { codigo, saida } = rodarBackup([], {
     BACKUP_ENVIO_CMD: "cp",
@@ -487,7 +491,7 @@ async function etapa5_envioExternoConfirmado(cliente) {
 // verdadeiro. RCLONE_REMOTE (do dump) fica vazio de propósito, para isolar o que esta etapa
 // prova: o comportamento do passo de FOTOS, não do dump. ---
 async function etapa6_fotosEnviadasComSucesso(cliente) {
-  console.log("Etapa 6/13: fotos enviadas com sucesso (envio fake, sem rclone real)...");
+  console.log("Etapa 6/15: fotos enviadas com sucesso (envio fake, sem rclone real)...");
   instalarEnvioDeFotosFake();
   criarDuasFotosFalsas();
   dockerExecComCodigo(["sh", "-c", `rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
@@ -524,7 +528,7 @@ async function etapa6_fotosEnviadasComSucesso(cliente) {
 // --- Etapa 7: envio de fotos falhando — grava false, sai diferente de zero, e a mensagem
 // registrada menciona as fotos (nunca sucesso silencioso, o mesmo princípio do dump). ---
 async function etapa7_fotosFalhamAoEnviar(cliente) {
-  console.log("Etapa 7/13: envio de fotos falhando registra false e sai diferente de zero...");
+  console.log("Etapa 7/15: envio de fotos falhando registra false e sai diferente de zero...");
   dockerExecComCodigo(["sh", "-c", `rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
 
   const { codigo, saida } = rodarBackup([], {
@@ -556,7 +560,7 @@ async function etapa7_fotosFalhamAoEnviar(cliente) {
 // da soma) e anexos_destino_externo_ok = true. Roda DUAS vezes no mesmo dia: a pasta local e a
 // cópia no remoto falso ficam iguais depois da segunda (idempotência — nada duplica, nada some). ---
 async function etapa8_anexosEnviadosComSucesso(cliente) {
-  console.log("Etapa 8/13: anexos enviados com sucesso, pelo destino derivado, duas vezes no mesmo dia...");
+  console.log("Etapa 8/15: anexos enviados com sucesso, pelo destino derivado, duas vezes no mesmo dia...");
   criarAnexosFalsos();
   dockerExecComCodigo(["sh", "-c", `rm -rf "${REMOTO_FALSO_CONTAINER}" && rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
   const pastaAntes = fotografiaDaPasta(ANEXOS_DIR_CONTAINER);
@@ -628,7 +632,7 @@ async function etapa8_anexosEnviadosComSucesso(cliente) {
 // grava anexos false, a mensagem cita os anexos (e não as fotos), e o script sai diferente de
 // zero — nunca sucesso silencioso. ---
 async function etapa9_anexosFalhamAoEnviar(cliente) {
-  console.log("Etapa 9/13: envio dos anexos falhando (só ele) registra false e sai diferente de zero...");
+  console.log("Etapa 9/15: envio dos anexos falhando (só ele) registra false e sai diferente de zero...");
   dockerExecComCodigo(["sh", "-c", `rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
 
   const { codigo, saida } = rodarBackup([], {
@@ -666,9 +670,144 @@ async function etapa9_anexosFalhamAoEnviar(cliente) {
   );
 }
 
-// --- Etapa 10: apaga as linhas conhecidas antes de restaurar. ---
-async function etapa10_apagarLinhasConhecidas(cliente) {
-  console.log("Etapa 10/13: apagando as linhas conhecidas antes de restaurar...");
+// --- Etapas 10 e 11 (quick 261003-bkp): pasta que EXISTE mas o backup não consegue ler. Em
+// produção, em 03/10/2026, o backup roda pelo crontab do usuário `theo`, e as duas pastas estavam
+// `chown 100:101` + `chmod 750`: `theo` não entrava nelas, o `find ... 2>/dev/null` não via nada,
+// e o script gravava "pasta vazia = sucesso" (fotos_bytes 0 / true, anexos_bytes 0 / true) com 4
+// fotos e um PDF de 17 MB lá dentro, sem cópia externa desde 27/09.
+//
+// Para reproduzir isso de verdade o backup NÃO pode rodar como root — root ignora a permissão de
+// pasta e leria tudo. Ele roda como `postgres` (o usuário sem privilégio que a imagem
+// postgres:17-alpine já traz; o psql e o pg_dump continuam entrando pelo socket local, que a
+// imagem deixa em `trust`). A pasta é criada por root com 750, o mesmo modo de produção: dono e
+// grupo leem, o resto do mundo não. Como `postgres` não pode escrever em /tmp/amassa-backups
+// (criada por root nas etapas anteriores), estas etapas usam uma pasta de backup própria, e fixam
+// o dia do mês em 15 para nunca cair na cópia mensal (que iria para a pasta de root).
+const PASTA_ILEGIVEL_FOTOS = "/tmp/amassa-fotos-ilegiveis";
+const PASTA_ILEGIVEL_ANEXOS = "/tmp/amassa-anexos-ilegiveis";
+const BACKUP_DIR_NAO_ROOT = "/tmp/amassa-backups-nao-root";
+const USUARIO_SEM_PRIVILEGIO = "postgres";
+// Destino falso só destas etapas: o das etapas 6 a 9 foi criado por root e `postgres` não
+// escreveria nele — a cópia das fotos falharia por um motivo que não é o que se quer provar.
+const DESTINO_FOTOS_NAO_ROOT = "/tmp/amassa-fotos-destino-nao-root";
+
+function criarPastaIlegivelComUmArquivo(pasta) {
+  const { codigo, saida } = dockerExecComCodigo([
+    "sh",
+    "-c",
+    `rm -rf "${pasta}" && mkdir -p "${pasta}" && ` +
+      `dd if=/dev/zero of="${pasta}/arquivo-que-existe.bin" bs=1234 count=1 2>/dev/null && ` +
+      `chmod 644 "${pasta}/arquivo-que-existe.bin" && chown -R root:root "${pasta}" && chmod 750 "${pasta}"`,
+  ]);
+  afirmar(codigo === 0, `Preparação: não consegui criar a pasta ilegível ${pasta}.\n${saida}`);
+  // Prova de que o ambiente nega a leitura de fato — se `postgres` conseguir listar a pasta, a
+  // etapa estaria testando nada, e passar seria mentira.
+  const sonda = dockerExecComCodigo(["sh", "-c", `id -u && ls "${pasta}"`], { usuario: USUARIO_SEM_PRIVILEGIO });
+  afirmar(
+    sonda.codigo !== 0 && !sonda.saida.startsWith("0\n"),
+    `Preparação: o usuário ${USUARIO_SEM_PRIVILEGIO} conseguiu ler ${pasta} (ou é root) — a etapa não ` +
+      `exercitaria a falta de permissão.\n${sonda.saida}`,
+  );
+}
+
+function rodarBackupSemPrivilegio(envExtra) {
+  return dockerExecComCodigo(["sh", `${SCRIPTS_DIR_CONTAINER}/backup.sh`], {
+    usuario: USUARIO_SEM_PRIVILEGIO,
+    env: envBackupBase({
+      BACKUP_DIR: BACKUP_DIR_NAO_ROOT,
+      BACKUP_DIR_MENSAL: `${BACKUP_DIR_NAO_ROOT}/mensais`,
+      BACKUP_DIA_DO_MES: "15",
+      BACKUP_ENVIO_CMD: ENVIO_FOTOS_FAKE_SCRIPT_CONTAINER,
+      ENVIO_FOTOS_DEVE_FALHAR: "0",
+      ...envExtra,
+    }),
+  });
+}
+
+// --- Etapa 10: pasta das FOTOS existe com um arquivo, mas o backup não consegue lê-la. Tem de
+// sair diferente de zero, gravar fotos_destino_externo_ok = false (o que faz /api/health/backup
+// devolver 503), fotos_bytes nulo (não houve como contar — 0 seria mentira), e uma mensagem que
+// diga que é permissão. O dump em si continua íntegro e registrado (sucesso = true, bytes > 0). ---
+async function etapa10_fotosIlegiveis(cliente) {
+  console.log("Etapa 10/15: pasta das fotos existe mas é ilegível para o backup — falha, nunca 'vazia'...");
+  criarPastaIlegivelComUmArquivo(PASTA_ILEGIVEL_FOTOS);
+
+  const { codigo, saida } = rodarBackupSemPrivilegio({
+    BACKUP_FOTOS_DIR: PASTA_ILEGIVEL_FOTOS,
+    RCLONE_REMOTE_FOTOS: `${DESTINO_FOTOS_NAO_ROOT}/`,
+  });
+  afirmar(
+    codigo !== 0,
+    "Etapa 10: scripts/backup.sh deveria sair diferente de zero quando a pasta das fotos existe " +
+      `mas não pode ser lida — saiu ${codigo}.\n${saida}`,
+  );
+
+  const ultima = await ultimaExecucaoRegistrada(cliente);
+  afirmar(
+    ultima.fotos_destino_externo_ok === false,
+    "Etapa 10: fotos_destino_externo_ok deveria ser false com a pasta ilegível (é o que vira 503 em " +
+      `/api/health/backup) — veio ${ultima.fotos_destino_externo_ok}, fotos_bytes ${ultima.fotos_bytes}.`,
+  );
+  afirmar(
+    ultima.fotos_bytes === null,
+    `Etapa 10: fotos_bytes deveria ser nulo (não houve como contar), veio ${ultima.fotos_bytes}.`,
+  );
+  afirmar(
+    Boolean(ultima.mensagem) && /foto/i.test(ultima.mensagem) && /permiss/i.test(ultima.mensagem),
+    `Etapa 10: a mensagem deveria dizer que a pasta das fotos não pôde ser lida por permissão — veio "${ultima.mensagem}".`,
+  );
+  afirmar(
+    ultima.sucesso === true && Number(ultima.bytes) > 0,
+    "Etapa 10: o dump em si deveria continuar registrado como gerado (sucesso true, bytes > 0) — " +
+      `veio sucesso ${ultima.sucesso}, bytes ${ultima.bytes}.`,
+  );
+}
+
+// --- Etapa 11: o gêmeo para os ANEXOS. A pasta das fotos, desta vez legível (a das etapas 6 a 9),
+// continua true; só os anexos caem, e a mensagem cita os anexos e não as fotos. ---
+async function etapa11_anexosIlegiveis(cliente) {
+  console.log("Etapa 11/15: pasta dos anexos existe mas é ilegível para o backup — falha, nunca 'vazia'...");
+  criarPastaIlegivelComUmArquivo(PASTA_ILEGIVEL_ANEXOS);
+
+  const { codigo, saida } = rodarBackupSemPrivilegio({
+    BACKUP_FOTOS_DIR: FOTOS_DIR_CONTAINER,
+    RCLONE_REMOTE_FOTOS: `${DESTINO_FOTOS_NAO_ROOT}/`,
+    BACKUP_ANEXOS_DIR: PASTA_ILEGIVEL_ANEXOS,
+    RCLONE_REMOTE_ANEXOS: `${DESTINO_FOTOS_NAO_ROOT}-anexos`,
+  });
+  afirmar(
+    codigo !== 0,
+    "Etapa 11: scripts/backup.sh deveria sair diferente de zero quando a pasta dos anexos existe " +
+      `mas não pode ser lida — saiu ${codigo}.\n${saida}`,
+  );
+
+  const ultima = await ultimaExecucaoRegistrada(cliente);
+  afirmar(
+    ultima.anexos_destino_externo_ok === false,
+    "Etapa 11: anexos_destino_externo_ok deveria ser false com a pasta ilegível — veio " +
+      `${ultima.anexos_destino_externo_ok}, anexos_bytes ${ultima.anexos_bytes}.`,
+  );
+  afirmar(
+    ultima.anexos_bytes === null,
+    `Etapa 11: anexos_bytes deveria ser nulo (não houve como contar), veio ${ultima.anexos_bytes}.`,
+  );
+  afirmar(
+    ultima.fotos_destino_externo_ok === true && Number(ultima.fotos_bytes) === 3000,
+    "Etapa 11: as fotos (pasta legível) deveriam continuar true com 3000 bytes — veio " +
+      `${ultima.fotos_destino_externo_ok}, ${ultima.fotos_bytes}.`,
+  );
+  afirmar(
+    Boolean(ultima.mensagem) &&
+      /anexos/i.test(ultima.mensagem) &&
+      /permiss/i.test(ultima.mensagem) &&
+      !/foto/i.test(ultima.mensagem),
+    `Etapa 11: a mensagem deveria citar a permissão da pasta dos anexos (e não as fotos) — veio "${ultima.mensagem}".`,
+  );
+}
+
+// --- Etapa 12: apaga as linhas conhecidas antes de restaurar. ---
+async function etapa12_apagarLinhasConhecidas(cliente) {
+  console.log("Etapa 12/15: apagando as linhas conhecidas antes de restaurar...");
   await cliente.query("delete from usuarios where email = $1", [EMAIL_CONHECIDO]);
   await cliente.query("delete from verificacao_infraestrutura where nota = $1", [NOTA_CONHECIDA]);
 
@@ -681,13 +820,13 @@ async function etapa10_apagarLinhasConhecidas(cliente) {
   );
   afirmar(
     Number(usuariosRows[0].count) === 0 && Number(infraRows[0].count) === 0,
-    "Etapa 10: as linhas conhecidas deveriam ter sumido depois do delete.",
+    "Etapa 12: as linhas conhecidas deveriam ter sumido depois do delete.",
   );
 }
 
-// --- Etapa 11: restauração recusada sem confirmação — nada escrito. ---
-async function etapa11_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRestaurar) {
-  console.log("Etapa 11/13: restauração sem --confirmar deve recusar e não escrever nada...");
+// --- Etapa 13: restauração recusada sem confirmação — nada escrito. ---
+async function etapa13_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRestaurar) {
+  console.log("Etapa 13/15: restauração sem --confirmar deve recusar e não escrever nada...");
   const { codigo, saida } = rodarRestaurar([
     "--arquivo",
     `${BACKUP_DIR_CONTAINER}/${arquivoParaRestaurar}`,
@@ -696,7 +835,7 @@ async function etapa11_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRes
   ]);
   afirmar(
     codigo !== 0,
-    "Etapa 11: scripts/restaurar.sh sem --confirmar deveria sair diferente de zero.\n" + saida,
+    "Etapa 13: scripts/restaurar.sh sem --confirmar deveria sair diferente de zero.\n" + saida,
   );
 
   const { rows: usuariosRows } = await cliente.query("select count(*) from usuarios where email = $1", [
@@ -704,13 +843,13 @@ async function etapa11_restauracaoRecusadaSemConfirmacao(cliente, arquivoParaRes
   ]);
   afirmar(
     Number(usuariosRows[0].count) === 0,
-    "Etapa 11: a restauração sem --confirmar escreveu no banco — isso nunca pode acontecer.",
+    "Etapa 13: a restauração sem --confirmar escreveu no banco — isso nunca pode acontecer.",
   );
 }
 
-// --- Etapa 12: restauração aceita com confirmação — os dados voltam, campo a campo. ---
-async function etapa12_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestaurar) {
-  console.log("Etapa 12/13: restauração com --confirmar deve devolver os dados...");
+// --- Etapa 14: restauração aceita com confirmação — os dados voltam, campo a campo. ---
+async function etapa14_restauracaoAceitaComConfirmacao(cliente, arquivoParaRestaurar) {
+  console.log("Etapa 14/15: restauração com --confirmar deve devolver os dados...");
   const { codigo, saida } = rodarRestaurar([
     "--arquivo",
     `${BACKUP_DIR_CONTAINER}/${arquivoParaRestaurar}`,
@@ -718,10 +857,10 @@ async function etapa12_restauracaoAceitaComConfirmacao(cliente, arquivoParaResta
     BANCO,
     "--confirmar",
   ]);
-  afirmar(codigo === 0, `Etapa 12: scripts/restaurar.sh --confirmar saiu com código ${codigo}, esperava 0.\n${saida}`);
+  afirmar(codigo === 0, `Etapa 14: scripts/restaurar.sh --confirmar saiu com código ${codigo}, esperava 0.\n${saida}`);
   afirmar(
     saida.includes("usuarios") && /linha\(s\)/.test(saida),
-    "Etapa 12: a saída da restauração deveria listar tabela e contagem de linhas.",
+    "Etapa 14: a saída da restauração deveria listar tabela e contagem de linhas.",
   );
 
   const { rows: usuariosRows } = await cliente.query(
@@ -730,7 +869,7 @@ async function etapa12_restauracaoAceitaComConfirmacao(cliente, arquivoParaResta
   );
   afirmar(
     usuariosRows.length === 1 && usuariosRows[0].nome === NOME_CONHECIDO,
-    "Etapa 12: a linha conhecida de usuarios não voltou com o mesmo conteúdo depois da restauração.",
+    "Etapa 14: a linha conhecida de usuarios não voltou com o mesmo conteúdo depois da restauração.",
   );
 
   const { rows: infraRows } = await cliente.query(
@@ -739,27 +878,27 @@ async function etapa12_restauracaoAceitaComConfirmacao(cliente, arquivoParaResta
   );
   afirmar(
     infraRows.length === 1,
-    "Etapa 12: a linha conhecida de verificacao_infraestrutura não voltou depois da restauração.",
+    "Etapa 14: a linha conhecida de verificacao_infraestrutura não voltou depois da restauração.",
   );
   // Fase 06.2 (D-05): sem RCLONE_REMOTE_ANEXOS, restaurar.sh avisa e segue — o banco voltou, e
   // restaurá-lo não exige os anexos.
   afirmar(
     saida.includes("RCLONE_REMOTE_ANEXOS não configurado"),
-    "Etapa 12: sem destino dos anexos, a restauração deveria avisar que pulou os anexos e seguir.\n" +
+    "Etapa 14: sem destino dos anexos, a restauração deveria avisar que pulou os anexos e seguir.\n" +
       saida,
   );
 }
 
-// --- Etapa 13 (Fase 06.2, D-05/A-02): restaurar.sh traz os anexos de volta. A pasta local é
+// --- Etapa 15 (Fase 06.2, D-05/A-02): restaurar.sh traz os anexos de volta. A pasta local é
 // apagada (a perda que a restauração existe para cobrir) e restaurar.sh, com RCLONE_REMOTE_ANEXOS,
 // chama o envio no sentido REMOTO → PASTA; os arquivos voltam iguais aos que a Etapa 8 enviou. Roda
 // DUAS vezes: a pasta fica igual depois da segunda (idempotência — nada duplica, nada corrompe). ---
-async function etapa13_restaurarTrazOsAnexos(arquivoParaRestaurar) {
-  console.log("Etapa 13/13: restaurar.sh traz os anexos de volta, duas vezes...");
+async function etapa15_restaurarTrazOsAnexos(arquivoParaRestaurar) {
+  console.log("Etapa 15/15: restaurar.sh traz os anexos de volta, duas vezes...");
   const esperado = fotografiaDaPasta(ANEXOS_DESTINO_EXTERNO_CONTAINER);
   afirmar(
     esperado.split("\n").length === 3,
-    `Etapa 13: o remoto falso deveria ter os 3 arquivos enviados na Etapa 8, tem:\n${esperado}`,
+    `Etapa 15: o remoto falso deveria ter os 3 arquivos enviados na Etapa 8, tem:\n${esperado}`,
   );
   dockerExecComCodigo(["sh", "-c", `rm -rf "${ANEXOS_DIR_CONTAINER}" && rm -f "${ENVIO_FOTOS_LOG_CONTAINER}"`]);
 
@@ -778,33 +917,33 @@ async function etapa13_restaurarTrazOsAnexos(arquivoParaRestaurar) {
   const primeira = rodarRestaurar(argumentos, env);
   afirmar(
     primeira.codigo === 0,
-    `Etapa 13: scripts/restaurar.sh com os anexos saiu com código ${primeira.codigo}, esperava 0.\n${primeira.saida}`,
+    `Etapa 15: scripts/restaurar.sh com os anexos saiu com código ${primeira.codigo}, esperava 0.\n${primeira.saida}`,
   );
   afirmar(
     /Anexos restaurados: 3 arquivo\(s\)/.test(primeira.saida),
-    `Etapa 13: a saída deveria contar os 3 arquivos dos anexos restaurados.\n${primeira.saida}`,
+    `Etapa 15: a saída deveria contar os 3 arquivos dos anexos restaurados.\n${primeira.saida}`,
   );
 
   const { saida: log } = dockerExecComCodigo(["sh", "-c", `cat "${ENVIO_FOTOS_LOG_CONTAINER}" 2>/dev/null`]);
   afirmar(
     log.split("\n").map((linha) => linha.trim()).includes(`${ANEXOS_DESTINO_EXTERNO_CONTAINER} ${ANEXOS_DIR_CONTAINER}`),
-    "Etapa 13: restaurar.sh deveria chamar o envio com o REMOTO como origem e a pasta dos anexos " +
+    "Etapa 15: restaurar.sh deveria chamar o envio com o REMOTO como origem e a pasta dos anexos " +
       `como destino. Log: "${log}".`,
   );
   const depoisDaPrimeira = fotografiaDaPasta(ANEXOS_DIR_CONTAINER);
   afirmar(
     depoisDaPrimeira === esperado,
-    `Etapa 13: a pasta restaurada difere do que foi enviado.\nEsperado:\n${esperado}\nVeio:\n${depoisDaPrimeira}`,
+    `Etapa 15: a pasta restaurada difere do que foi enviado.\nEsperado:\n${esperado}\nVeio:\n${depoisDaPrimeira}`,
   );
 
   const segunda = rodarRestaurar(argumentos, env);
   afirmar(
     segunda.codigo === 0,
-    `Etapa 13: a SEGUNDA restauração saiu com código ${segunda.codigo}, esperava 0.\n${segunda.saida}`,
+    `Etapa 15: a SEGUNDA restauração saiu com código ${segunda.codigo}, esperava 0.\n${segunda.saida}`,
   );
   afirmar(
     fotografiaDaPasta(ANEXOS_DIR_CONTAINER) === esperado,
-    "Etapa 13: repetir a restauração mudou a pasta dos anexos — ela deveria ficar igual.",
+    "Etapa 15: repetir a restauração mudou a pasta dos anexos — ela deveria ficar igual.",
   );
 }
 
@@ -823,22 +962,24 @@ async function conferirTudo() {
     await etapa7_fotosFalhamAoEnviar(cliente);
     await etapa8_anexosEnviadosComSucesso(cliente);
     await etapa9_anexosFalhamAoEnviar(cliente);
+    await etapa10_fotosIlegiveis(cliente);
+    await etapa11_anexosIlegiveis(cliente);
 
-    // O dump usado na volta é o mesmo arquivo diário — nenhuma das etapas 3 a 9 apaga as linhas
-    // conhecidas, só a Etapa 10 apaga, então o dump mais recente do dia ainda contém os dados.
-    await etapa10_apagarLinhasConhecidas(cliente);
-    await etapa11_restauracaoRecusadaSemConfirmacao(cliente, arquivoDiario);
-    await etapa12_restauracaoAceitaComConfirmacao(cliente, arquivoDiario);
-    // A Etapa 13 restaura o MESMO dump outra vez (o banco volta igual) — o que ela prova são os
+    // O dump usado na volta é o mesmo arquivo diário — nenhuma das etapas 3 a 11 apaga as linhas
+    // conhecidas, só a Etapa 12 apaga, então o dump mais recente do dia ainda contém os dados.
+    await etapa12_apagarLinhasConhecidas(cliente);
+    await etapa13_restauracaoRecusadaSemConfirmacao(cliente, arquivoDiario);
+    await etapa14_restauracaoAceitaComConfirmacao(cliente, arquivoDiario);
+    // A Etapa 15 restaura o MESMO dump outra vez (o banco volta igual) — o que ela prova são os
     // arquivos dos anexos, que só restaurar.sh traz.
-    await etapa13_restaurarTrazOsAnexos(arquivoDiario);
+    await etapa15_restaurarTrazOsAnexos(arquivoDiario);
   } finally {
-    // As Etapas 12 e 13 devolvem de propósito as duas linhas conhecidas (é a prova de que a
+    // As Etapas 14 e 15 devolvem de propósito as duas linhas conhecidas (é a prova de que a
     // restauração funcionou) — sem esta limpeza elas ficariam no banco `postgres_teste`
     // compartilhado que entrega.yml reaproveita logo em seguida para a suíte Playwright (mesmo
     // contêiner de serviço em CI: test:migracoes -> test:backup -> e2e). scripts/testar-migracoes.mjs
     // já evita essa armadilha de isolamento apagando tudo que insere; este script fazia o mesmo
-    // até a Etapa 11 (ver etapa10_apagarLinhasConhecidas), só a restauração ficava de fora (WR-04
+    // até a Etapa 13 (ver etapa12_apagarLinhasConhecidas), só a restauração ficava de fora (WR-04
     // da revisão de 02a-08, quando ela era a Etapa 10). `delete` aqui é seguro mesmo se as linhas
     // nunca chegaram a existir (0 linhas afetadas) ou se uma etapa anterior lançou antes.
     await cliente.query("delete from usuarios where email = $1", [EMAIL_CONHECIDO]).catch(() => {});
