@@ -63,7 +63,12 @@ jobs:
     #
     # 25 é folga, não conforto: se um dia encostar de novo, o problema é a suíte, não o número —
     # dividir o job por projeto antes de subir este valor outra vez.
-    timeout-minutes: 25
+    #
+    # 03/10/2026: ENCOSTOU. Com as Fases 06.2 e 06.3 a suíte passou a 1459 testes; os runs
+    # 37127538506 e 37130697961 foram cancelados pelo tempo no teste ~1325 (22,5 min só de Playwright,
+    # medido no log). Subido para 40 para publicar as duas fases; a divisão do job por projeto
+    # (desktop / celular) continua sendo a correção de verdade — tarefa aberta no STATE.
+    timeout-minutes: 40
     services:
       postgres_teste:
         image: postgres:17-alpine
