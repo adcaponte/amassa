@@ -6,7 +6,7 @@ import { count, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from "@/db/schema";
+import { categorias, documentoLinhas, documentos, fornecedores, itensCatalogo, parcelas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 import {
@@ -46,6 +46,7 @@ import {
   FRASE_DESFAZER_EM_ABERTO,
   FRASE_DESFAZER_LANCAMENTO_CANCELADO,
   FRASE_FALHA_AO_SALVAR,
+  FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA,
   FRASE_LANCAMENTO_CANCELADO_SEM_PAGAMENTO,
   FRASE_LANCAMENTO_JA_CANCELADO,
   FRASE_LANCAMENTO_NAO_EXISTE_MAIS,
@@ -290,6 +291,11 @@ export async function lancarVenda(
   }
 }
 
+// A recusa de dentro da transação da Despesa (Fase 06.2, plano 10): o fornecedor escolhido não existe
+// ou foi desativado. Lançada ANTES de qualquer `insert` — a transação desfaz, e o `catch` traduz em
+// `FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA` (molde de `DocumentoNaoEncontrado`, abaixo).
+class FornecedorIndisponivel extends Error {}
+
 // A Despesa (04.4-07-PLAN.md): compra de material · outra despesa. A terceira pílula original,
 // "pagar conta que já existe" (um link para `?aba=caixa`, nunca chegava aqui), foi REMOVIDA em
 // 26/09/2026 por decisão do dono — pareceu inútil e grande no uso real no celular; quem quer
@@ -440,12 +446,34 @@ export async function lancarDespesa(
 
   try {
     const { id, numero } = await db.transaction(async (tx) => {
+      // O fornecedor escolhido na lista (Fase 06.2, plano 10 — D-04), conferido AQUI, dentro da
+      // transação e antes de gravar qualquer linha. A trava `for share` conflita com o
+      // `for no key update` de `definirFornecedorAtivo`: desativar e lançar ao mesmo tempo serializam
+      // — nunca nasce uma despesa ligada a um fornecedor desativado — e não fecham impasse (cada
+      // caminho trava uma linha só de `fornecedores`). Inexistente ou desativado → recusa, nada é
+      // lançado. Ativo → a despesa grava o id e CONGELA o nome do CADASTRO em `pessoa_nome`
+      // (T-06.2-39: o texto que veio do cliente é ignorado); renomear o fornecedor depois não muda
+      // esta despesa. Sem fornecedor, tudo como sempre: `pessoa_nome` é o texto livre.
+      let pessoaNome = dados.pessoa;
+      if (dados.fornecedorId !== null) {
+        const [fornecedor] = await tx
+          .select({ nome: fornecedores.nome, ativo: fornecedores.ativo })
+          .from(fornecedores)
+          .where(eq(fornecedores.id, dados.fornecedorId))
+          .for("share");
+        if (!fornecedor || !fornecedor.ativo) {
+          throw new FornecedorIndisponivel();
+        }
+        pessoaNome = fornecedor.nome;
+      }
+
       const [documento] = await tx
         .insert(documentos)
         .values({
           tipo: "despesa",
           data: dados.data,
-          pessoaNome: dados.pessoa,
+          pessoaNome,
+          fornecedorId: dados.fornecedorId,
           criadoPor: usuario.id,
         })
         .returning({ id: documentos.id, numero: documentos.numero });
@@ -513,6 +541,9 @@ export async function lancarDespesa(
     }
     return { ok: true, dados: { id, numero } };
   } catch (erro) {
+    if (erro instanceof FornecedorIndisponivel) {
+      return { ok: false, erro: FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA };
+    }
     if (ehViolacaoDeChaveEstrangeira(erro)) {
       return {
         ok: false,

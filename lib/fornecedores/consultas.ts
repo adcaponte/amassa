@@ -76,6 +76,33 @@ export async function listarFornecedores(): Promise<FornecedorDaLista[]> {
     .sort(compararFornecedores);
 }
 
+// ——— O campo "Fornecedor" da Despesa do Financeiro (plano 06.2-10, D-04). Chamada pela página do
+// Financeiro (Server Component que já chamou `exigirUsuario()`), só na aba Despesa. ———
+
+// O que o combobox precisa de cada fornecedor ATIVO — o mesmo formato de `FornecedorDoCampo`
+// (`lib/fornecedores/campo.ts`, o módulo puro que filtra).
+export type FornecedorParaSeletor = {
+  id: string;
+  nome: string;
+  vende: string | null;
+  cidadeEntrega: string | null;
+};
+
+// Os fornecedores ativos, na ordem da tela (a mesma de `listarFornecedores`). Os desativados não entram:
+// a despesa nova só liga a quem está ativo (o servidor confere de novo em `lancarDespesa`).
+export async function listarFornecedoresParaSeletor(): Promise<FornecedorParaSeletor[]> {
+  const linhas = await db
+    .select({
+      id: fornecedores.id,
+      nome: fornecedores.nome,
+      vende: fornecedores.vende,
+      cidadeEntrega: fornecedores.cidadeEntrega,
+    })
+    .from(fornecedores)
+    .where(eq(fornecedores.ativo, true));
+  return linhas.sort(compararFornecedores);
+}
+
 // A ficha inteira de um fornecedor — `null` se o id não está no cadastro (link velho ou digitado).
 // O id chega já validado como uuid (`idDaUrl`); o texto da URL nunca entra numa consulta.
 export async function obterFornecedor(id: string): Promise<FichaDoFornecedor | null> {

@@ -228,3 +228,50 @@ export async function definirAtivoNoBanco(id: string, ativo: boolean): Promise<v
     }
   });
 }
+
+// ——— A despesa ligada ao fornecedor (plano 06.2-10, D-04). ———
+
+export type DocumentoNoBanco = {
+  tipo: "venda" | "despesa";
+  fornecedorId: string | null;
+  pessoaNome: string | null;
+};
+
+// O que o banco tem de um documento do Financeiro — o vínculo com o fornecedor e o nome gravado. `null`
+// se o id não existe.
+export async function documentoNoBanco(id: string): Promise<DocumentoNoBanco | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<DocumentoNoBanco>(
+      `select tipo, fornecedor_id as "fornecedorId", pessoa_nome as "pessoaNome"
+         from documentos where id = $1`,
+      [id],
+    );
+    return rows[0] ?? null;
+  });
+}
+
+// O id do ÚNICO documento que tem uma linha com esta descrição — a compra lançada pela tela, achada pelo
+// nome do material semeado (único por teste). A URL com `?documento=` não serve: o aviso do Financeiro a
+// limpa no mesmo instante em que mostra o toast.
+export async function idDoDocumentoComLinha(descricao: string): Promise<string> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      "select distinct documento_id as id from documento_linhas where descricao = $1",
+      [descricao],
+    );
+    if (rows.length !== 1) {
+      throw new Error(`idDoDocumentoComLinha: esperava 1 documento com a linha "${descricao}", achou ${rows.length}.`);
+    }
+    return rows[0].id;
+  });
+}
+
+// Renomeia um fornecedor direto no banco — para provar que a despesa já lançada guarda o nome antigo.
+export async function renomearFornecedorNoBanco(id: string, nome: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query("update fornecedores set nome = $2 where id = $1", [id, nome]);
+    if (rowCount !== 1) {
+      throw new Error(`renomearFornecedorNoBanco: nenhum fornecedor com o id "${id}".`);
+    }
+  });
+}

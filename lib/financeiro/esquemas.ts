@@ -322,10 +322,14 @@ export const esquemaLinhaDeCompra = z.object({
   valorTotalTexto: z.string(),
 });
 
+// `fornecedorId` (Fase 06.2, plano 10 — D-04): o fornecedor ESCOLHIDO na lista do campo "Fornecedor",
+// opcional nos dois modos. É só o id: se ele está ativo e qual nome a despesa grava, quem decide é
+// `lancarDespesa`, dentro da transação (com fornecedor, o texto de `pessoa` é ignorado).
 export const esquemaDespesaCompraEntrada = z.object({
   modo: z.literal("compra"),
   data: esquemaDataCivil,
   pessoa: z.string().optional(),
+  fornecedorId: esquemaId.optional(),
   linhas: z
     .array(esquemaLinhaDeCompra)
     .min(1, "Toque em pelo menos um material que chegou.")
@@ -340,6 +344,7 @@ export const esquemaDespesaOutraEntrada = z.object({
   modo: z.literal("outra"),
   data: esquemaDataCivil,
   pessoa: z.string().optional(),
+  fornecedorId: esquemaId.optional(),
   descricao: z
     .string()
     .transform((valor) => normalizarTexto(valor))
@@ -372,6 +377,7 @@ export type EntradaDeDespesaConvertida =
       modo: "compra";
       data: string;
       pessoa: string | null;
+      fornecedorId: string | null;
       linhas: LinhaDeCompraConvertida[];
       parcelas: ParcelaDeVendaConvertida[];
     }
@@ -379,6 +385,7 @@ export type EntradaDeDespesaConvertida =
       modo: "outra";
       data: string;
       pessoa: string | null;
+      fornecedorId: string | null;
       descricao: string;
       categoriaId: string;
       valorCentavos: number;
@@ -389,6 +396,7 @@ export type EntradaDeDespesaConvertida =
 // quantidade AQUI, nunca uma segunda conversão em componente ou Server Action.
 export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
   const pessoa = normalizarOpcional(dados.pessoa);
+  const fornecedorId = dados.fornecedorId ?? null;
 
   const parcelas: (ParcelaDeVendaConvertida | null)[] = dados.parcelas.map((parcela, indice) => {
     const resultado = converterReaisParaCentavos(parcela.valorTexto);
@@ -459,6 +467,7 @@ export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
       modo: "compra" as const,
       data: dados.data,
       pessoa,
+      fornecedorId,
       linhas: linhas as LinhaDeCompraConvertida[],
       parcelas: parcelas as ParcelaDeVendaConvertida[],
     };
@@ -486,6 +495,7 @@ export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
     modo: "outra" as const,
     data: dados.data,
     pessoa,
+    fornecedorId,
     descricao: dados.descricao,
     categoriaId: dados.categoriaId,
     valorCentavos,

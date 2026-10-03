@@ -54,7 +54,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
 import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
+import { CampoFornecedor } from "./campo-fornecedor";
 import { EfeitoEstoque } from "./efeito-estoque";
 import { GradeCatalogo } from "./grade-catalogo";
 import { LinhaCompra } from "./linha-compra";
@@ -92,6 +94,9 @@ export type PainelDespesaProps = {
   // Plano 06-08 (D-21): o saldo de cada material antes da compra, para "fica com …"; `null` quando
   // a consulta do Estoque falhou (o efeito volta ao formato de antes). Sem aviso: compra só soma.
   saldos?: ReadonlyMap<string, number> | null;
+  // Fase 06.2, plano 10 (D-04): os fornecedores ATIVOS para o campo "Fornecedor" da compra; `null`
+  // quando a leitura falhou (o campo funciona como texto livre — nunca bloqueia o lançamento).
+  fornecedores?: FornecedorParaSeletor[] | null;
 };
 
 // O painel de Despesa completo (04.4-07-PLAN.md): as duas pílulas (compra · outra), compra de
@@ -111,11 +116,16 @@ export function PainelDespesa({
   itensParaEfeito,
   configuracao,
   saldos = null,
+  fornecedores = null,
 }: PainelDespesaProps) {
   const [modo, setModo] = useState<ModoDespesa>("compra");
 
   const [dataCompra, setDataCompra] = useState(hoje);
   const [pessoaCompra, setPessoaCompra] = useState("");
+  // O fornecedor ESCOLHIDO na lista do campo "Fornecedor" (D-04) — `null` = texto livre ou campo vazio.
+  // Não vai para o rascunho neste plano (o rascunho com o vínculo é do plano 12): ao recarregar, o nome
+  // volta como texto livre.
+  const [fornecedorCompra, setFornecedorCompra] = useState<string | null>(null);
   const [linhasCompra, setLinhasCompra] = useState<LinhaDeCompraLocal[]>([]);
   const [buscaCompra, setBuscaCompra] = useState("");
   const [dialogoListaCompraAberto, setDialogoListaCompraAberto] = useState(false);
@@ -456,6 +466,7 @@ export function PainelDespesa({
     setLinhasCompra([]);
     setDataCompra(hoje);
     setPessoaCompra("");
+    setFornecedorCompra(null);
     setBuscaCompra("");
     setDescricaoOutra("");
     setCategoriaOutraId(categoriasParaDespesa[0]?.id ?? "");
@@ -490,6 +501,8 @@ export function PainelDespesa({
             modo: "compra",
             data: dataCompra,
             pessoa: pessoaCompra.trim() === "" ? undefined : pessoaCompra,
+            // Só quando ligado: o servidor confere o fornecedor e grava o nome do CADASTRO.
+            fornecedorId: fornecedorCompra ?? undefined,
             linhas: linhasCompra.map((linha) => ({
               itemId: linha.itemId,
               quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
@@ -680,16 +693,28 @@ export function PainelDespesa({
                 className="text-corpo min-h-[44px]"
               />
             </label>
-            <label className="text-apoio text-muted-foreground flex flex-col gap-1">
-              {modo === "compra" ? ROTULO_FORNECEDOR_OPCIONAL : ROTULO_PARA_QUEM_OPCIONAL}
-              <Input
-                value={modo === "compra" ? pessoaCompra : pessoaOutra}
-                onChange={(evento) =>
-                  modo === "compra" ? setPessoaCompra(evento.target.value) : setPessoaOutra(evento.target.value)
-                }
-                className="text-corpo min-h-[44px]"
+            {modo === "compra" ? (
+              // O campo "Fornecedor" (Fase 06.2, plano 10 — D-04): o mesmo rótulo de sempre; escolher
+              // um fornecedor da lista liga a despesa a ele, escrever o nome continua gravando só o nome.
+              <CampoFornecedor
+                rotulo={ROTULO_FORNECEDOR_OPCIONAL}
+                fornecedores={fornecedores}
+                valor={{ texto: pessoaCompra, fornecedorId: fornecedorCompra }}
+                aoMudar={(novo) => {
+                  setPessoaCompra(novo.texto);
+                  setFornecedorCompra(novo.fornecedorId);
+                }}
               />
-            </label>
+            ) : (
+              <label className="text-apoio text-muted-foreground flex flex-col gap-1">
+                {ROTULO_PARA_QUEM_OPCIONAL}
+                <Input
+                  value={pessoaOutra}
+                  onChange={(evento) => setPessoaOutra(evento.target.value)}
+                  className="text-corpo min-h-[44px]"
+                />
+              </label>
+            )}
           </div>
 
           {dataAtual !== hoje && (

@@ -24,6 +24,7 @@ import { filtrarExtrato, montarExtrato, resumoDoCaixa } from "@/lib/financeiro/e
 import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { resumoDoMes } from "@/lib/financeiro/mes";
 import { listarSaldos } from "@/lib/estoque/consultas";
+import { listarFornecedoresParaSeletor, type FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
 import {
   textoCancelado,
   textoDespesaLancada,
@@ -90,6 +91,18 @@ async function carregarSaldosParaOEfeito(): Promise<Map<string, number> | null> 
     return new Map(saldos.map((saldo) => [saldo.id, saldo.saldoMilesimos]));
   } catch (erro) {
     console.error("Não deu para carregar os saldos do Estoque no Financeiro:", erro);
+    return null;
+  }
+}
+
+// Os fornecedores ativos do campo "Fornecedor" da Despesa (Fase 06.2, plano 10 — D-04). Uma falha aqui
+// nunca derruba a aba: `null`, e o campo funciona como texto livre (a frase de erro do campo é do
+// plano 12) — o lançamento nunca depende desta lista.
+async function carregarFornecedoresParaDespesa(): Promise<FornecedorParaSeletor[] | null> {
+  try {
+    return await listarFornecedoresParaSeletor();
+  } catch (erro) {
+    console.error("Não deu para carregar os fornecedores na Despesa do Financeiro:", erro);
     return null;
   }
 }
@@ -223,6 +236,7 @@ export default async function PaginaFinanceiro({
     fichaParaEditar,
     fichas,
     fichasParaCopiar,
+    fornecedoresParaDespesa,
   ] = await Promise.all([
     abaVenda ? listarCategoriasParaEscolha(["receita", "fora"]) : Promise.resolve([]),
     abaVenda ? listarCatalogoDaVenda() : Promise.resolve([]),
@@ -268,6 +282,9 @@ export default async function PaginaFinanceiro({
     // diálogo pode abrir (é uma lista pequena, id+nome+campos copiáveis, mesmo padrão de
     // `listarCategoriasDeVenda`).
     contextoDeFicha ? listarFichasParaCopiar() : Promise.resolve([]),
+    // Fase 06.2, plano 10 (D-04): os fornecedores ativos para o campo "Fornecedor" da Despesa — só
+    // nesta aba, num `try` próprio (falha → `null`, e o campo funciona como texto livre).
+    abaDespesa ? carregarFornecedoresParaDespesa() : Promise.resolve(null),
   ]);
   const vendaDaAgenda = await cobrancaDaOrigem;
 
@@ -430,6 +447,7 @@ export default async function PaginaFinanceiro({
           catalogoDaCompra={catalogoDaCompra}
           itensParaEfeito={itensParaEfeito}
           saldos={saldosParaEfeito}
+          fornecedores={fornecedoresParaDespesa}
           configuracao={{
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,

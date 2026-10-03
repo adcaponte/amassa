@@ -303,6 +303,18 @@ export const TITULO_PAGAMENTO_DESPESA = "Pagamento";
 export const ROTULO_BUSCAR_MATERIAL_DO_ESTOQUE = "Buscar material do estoque";
 export const ROTULO_FORNECEDOR_OPCIONAL = "Fornecedor (opcional)";
 export const ROTULO_PARA_QUEM_OPCIONAL = "Para quem (opcional)";
+
+// O campo "Fornecedor" da Despesa (Fase 06.2, plano 10 — D-04; 06.2-UI-SPEC.md §Copywriting e "Despesa
+// do Financeiro — o campo Fornecedor"). O rótulo continua `ROTULO_FORNECEDOR_OPCIONAL`, sem mudança.
+export const PLACEHOLDER_CAMPO_FORNECEDOR = "Escolha da lista ou escreva o nome";
+// No `role="alert"` acima de "Lançar despesa": o fornecedor escolhido foi desativado (ou não existe
+// mais) entre abrir o painel e lançar — nada é lançado (Pitfall 15).
+export const FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA =
+  "Esse fornecedor foi desativado — escolha outro ou deixe em branco.";
+// A linha de vínculo embaixo do campo: escolhido da lista (ligado) e escrito sem escolher (texto livre,
+// com ao menos um fornecedor ativo no cadastro). Campo vazio: nenhuma linha.
+export const FRASE_VINCULO_LIGADO = "Fornecedor do cadastro — esta despesa vai aparecer em “Compras dele”.";
+export const FRASE_VINCULO_SO_O_NOME = "Só o nome escrito — não liga a nenhum fornecedor do cadastro.";
 export const ROTULO_DESCRICAO = "Descrição";
 export const PLACEHOLDER_DESCRICAO_DESPESA = "ex.: jogo de estecas";
 export const DICA_FORA_DO_RESULTADO =
