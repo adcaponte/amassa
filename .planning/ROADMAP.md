@@ -1035,18 +1035,18 @@ marcam feitos (com desfazer) e, por decisão do dono, se apagam de verdade.
   4. Editar na linha; excluir apaga a linha do banco (provado no e2e), com Desfazer por alguns segundos
   5. "Ver todos" com os filtros Abertos/Feitos e Todos/Geral/Theo/Andressa, autoria e "Mostrar mais 50"
   6. A folha da casa não muda; alvos de 44 px e nenhuma rolagem lateral a 320 px
-**Plans:** 0/6 plans executed
+**Plans:** 5/6 plans executed — 03/10/2026: os planos 01–05 e as Tarefas 1–2 do 06 no branch `gsd/phase-06.3-lembretes`, não publicado; o 06 espera o dono *(até 03/10/2026 dizia “0/6 plans executed”)*
 
 Planejada em 03/10/2026 (madrugada, sem o dono, sob a autorização de 02/10) no branch `gsd/phase-06.3-lembretes`, criado a partir do `gsd/phase-06.2-fornecedores`: pesquisa, UI-SPEC (aprovada pelo ui-checker na 2ª leitura completa), mapa de padrões e 6 planos aprovados pelo plan-checker na 2ª rodada.
 
 Plans:
 
-- [ ] 06.3-01-PLAN.md — Traçador: criar um lembrete numa linha no Início e vê-lo em “Para fazer”; migração `0029` (sem `revoke delete`, exceção deliberada) provada em `test:migracoes` (onda 1)
-- [ ] 06.3-02-PLAN.md — `/api/health/lembretes` e o módulo puro `lib/lembretes/lista.ts` (ordem, rótulos de prazo em Brasília, resumo, URL) + o caso D-04 (onda 2)
-- [ ] 06.3-03-PLAN.md — O bloco do Início inteiro: 6 + “e mais N”, contagem, estado vazio, a linha de criar com data e pessoa (onda 3)
-- [ ] 06.3-04-PLAN.md — Ações da linha: feito com Desfazer e “Feitos (N)” (D-02), editar na linha, excluir de verdade quando o toast expira (D-03) (onda 4)
-- [ ] 06.3-05-PLAN.md — “Ver todos” em `/gestao/lembretes` (D-01): filtros, autoria, “Mostrar mais 50”; Lembretes na navegação (onda 5)
-- [ ] 06.3-06-PLAN.md — Portão: varredura e2e completa, Roteiro 20, caminhada do dono com a Parte 0, documentos de estado (onda 6, **não autônomo**)
+- [x] 06.3-01-PLAN.md — Traçador: criar um lembrete numa linha no Início e vê-lo em “Para fazer”; migração `0029` (sem `revoke delete`, exceção deliberada) provada em `test:migracoes` (onda 1) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`691d969`..`2bd3e48`), não publicado — ver `06.3-01-SUMMARY.md`
+- [x] 06.3-02-PLAN.md — `/api/health/lembretes` e o módulo puro `lib/lembretes/lista.ts` (ordem, rótulos de prazo em Brasília, resumo, URL) + o caso D-04 (onda 2) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`525f839`..`9b79f7b`), não publicado — ver `06.3-02-SUMMARY.md`
+- [x] 06.3-03-PLAN.md — O bloco do Início inteiro: 6 + “e mais N”, contagem, estado vazio, a linha de criar com data e pessoa (onda 3) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`b10f8a8`..`2246c44`), não publicado — ver `06.3-03-SUMMARY.md`
+- [x] 06.3-04-PLAN.md — Ações da linha: feito com Desfazer e “Feitos (N)” (D-02), editar na linha, excluir de verdade quando o toast expira (D-03) (onda 4) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`097e6fc`..`bb8fd65`), não publicado — ver `06.3-04-SUMMARY.md`
+- [x] 06.3-05-PLAN.md — “Ver todos” em `/gestao/lembretes` (D-01): filtros, autoria, “Mostrar mais 50”; Lembretes na navegação (onda 5) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`c7d8888`..`4241b0e`), não publicado — ver `06.3-05-SUMMARY.md`
+- [ ] 06.3-06-PLAN.md — Portão: varredura e2e completa, Roteiro 20, caminhada do dono com a Parte 0, documentos de estado (onda 6, **não autônomo**) — 03/10/2026: Tarefas 1 e 2 feitas pelo executor no branch (a varredura completa, o Roteiro 20 `docs/operacao/20-migracao-lembretes.md` e a caminhada `06.3-VERIFICACAO-HUMANA.md` — ver `06.3-06-SUMMARY.md`, parcial); a Tarefa 3 é do dono (Parte 0, Roteiro 20 de carona no 19, caminhada). Aberto até o “aprovado”
 
 **UI hint**: yes
 
@@ -1111,5 +1111,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 06.2. Fornecedores | 12/13 | Aguardando o dono (portão) — 03/10/2026: os planos 01–12 e as Tarefas 1–2 do 13 no branch `gsd/phase-06.2-fornecedores`, não publicado (`curl /api/health/fornecedores` = 404 e `git ls-tree origin/main` sem a `0028`, medidos às 02h17 UTC); até 03/10/2026 dizia “Planned (02/10/2026, noite — 13 planos depois da revisão do verificador; até então “Not started”)” | - |
-| 06.3. Lembretes | 0/TBD | Not started (criada em 02/10/2026) | - |
+| 06.3. Lembretes | 5/6 | Aguardando o dono (portão) — 03/10/2026: os planos 01–05 e as Tarefas 1–2 do 06 no branch `gsd/phase-06.3-lembretes` (que contém a 06.2), não publicado (`curl /api/health/lembretes` = 404 e `git log origin/main..main` sem nenhum commit da fase, medidos às 05h12 UTC); até 03/10/2026 dizia “0/TBD · Not started (criada em 02/10/2026)” | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
