@@ -70,7 +70,9 @@ export function sugestoesDoCampo<T extends FornecedorDoCampo>(
 
 // O fornecedor ativo cujo nome é IGUAL ao texto escrito, comparando por `normalizar` (sem acento, caixa
 // nem espaços sobrando) — só quando há exatamente UM: dois ativos com o mesmo nome normalizado não dão
-// aviso nenhum (não há como dizer qual). Um item com `ativo: false` não conta (a lista do campo já é só
+// aviso nenhum (não há como dizer qual). Desde 03/10/2026 (D-06 trocada) o índice único do banco usa
+// `nome_normalizado()` e quase impede esse caso; o ramo fica, porque `normalizar` e o `unaccent` do
+// Postgres podem divergir num caractere raro. Um item com `ativo: false` não conta (a lista do campo já é só
 // de ativos; a regra fica explícita aqui). Texto vazio → nenhum. Serve ao aviso da linha de vínculo e ao
 // destaque da opção com a lista aberta — NUNCA liga sozinho (UI-D4).
 export function fornecedorComNomeIgual<T extends { nome: string; ativo?: boolean }>(
