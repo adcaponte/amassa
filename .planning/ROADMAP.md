@@ -1054,6 +1054,7 @@ simulacro de restauração de desastre cronometrado e documentado, manual de uso
 documento de operação) tornam-se os planos desta fase.
 **Depends on**: Phases 1-6 e o Financeiro (04.4 e a parte 2)
 **Requirements**: UI-10, UI-11, PNL-01, PNL-02, PNL-03, PNL-04, PNL-05, PNL-06, PNL-07
+**Anotado por fases anteriores:** dar ou trocar o fornecedor de uma despesa já lançada (D-02 da Fase 06.2, 02/10/2026 — hoje não existe edição de despesa, e o campo “Fornecedor” vale só no lançamento).
 **Success Criteria** (what must be TRUE):
 
   1. O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique, mostrando encomendas por etapa, aulas de hoje, fornos em atenção ou crítico e alertas de estoque baixo

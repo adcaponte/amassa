@@ -61,6 +61,80 @@ describe("situacaoDoVinculo", () => {
   });
 });
 
+// ——— Tarefa 2: as bordas das sugestões que o gestor encontra (acento, caixa, oito e nove, vazio). ———
+
+function muitos(quantos: number): FornecedorDoCampo[] {
+  // Ids e nomes fora de ordem de propósito: a ordem da saída é a alfabética, não a de entrada.
+  return Array.from({ length: quantos }, (_, indice) => {
+    const numero = quantos - indice;
+    return fornecedor({
+      id: `id-${numero}`,
+      nome: `Olaria ${String(numero).padStart(2, "0")}`,
+      vende: "argila",
+    });
+  });
+}
+
+describe("sugestoesDoCampo — bordas", () => {
+  const lista = [
+    fornecedor({ id: "1", nome: "Depósito Sem Nome Útil", vende: "argila branca, esmalte" }),
+    fornecedor({ id: "2", nome: "Embalagens Inventadas", vende: "caixa" }),
+    fornecedor({ id: "3", nome: "Argileira Fictícia", vende: null }),
+  ];
+
+  it("“argila” acha por vende quem não tem argila no nome", () => {
+    const { opcoes } = sugestoesDoCampo(lista, "argila");
+    expect(nomes(opcoes)).toContain("Depósito Sem Nome Útil");
+    expect(nomes(opcoes)).not.toContain("Embalagens Inventadas");
+  });
+
+  it("“ARGILA” e “argíla” acham o mesmo que “argila” (via normalizar)", () => {
+    const esperado = nomes(sugestoesDoCampo(lista, "argila").opcoes);
+    expect(esperado).toEqual(["Depósito Sem Nome Útil"]);
+    expect(nomes(sugestoesDoCampo(lista, "ARGILA").opcoes)).toEqual(esperado);
+    expect(nomes(sugestoesDoCampo(lista, "argíla").opcoes)).toEqual(esperado);
+    expect(nomes(sugestoesDoCampo(lista, "  Argíla  ").opcoes)).toEqual(esperado);
+  });
+
+  it("o acento no cadastro também não atrapalha: “deposito util” não casa (pedaços separados), “deposito” casa", () => {
+    expect(nomes(sugestoesDoCampo(lista, "deposito").opcoes)).toEqual(["Depósito Sem Nome Útil"]);
+    expect(sugestoesDoCampo(lista, "deposito util").opcoes).toEqual([]);
+  });
+
+  it("8 exatos → os 8, haMais falso", () => {
+    const { opcoes, haMais } = sugestoesDoCampo(muitos(8), "argila");
+    expect(opcoes).toHaveLength(8);
+    expect(haMais).toBe(false);
+  });
+
+  it("9 → os 8 primeiros por ordem alfabética, haMais verdadeiro", () => {
+    const { opcoes, haMais } = sugestoesDoCampo(muitos(9), "argila");
+    expect(nomes(opcoes)).toEqual([
+      "Olaria 01",
+      "Olaria 02",
+      "Olaria 03",
+      "Olaria 04",
+      "Olaria 05",
+      "Olaria 06",
+      "Olaria 07",
+      "Olaria 08",
+    ]);
+    expect(haMais).toBe(true);
+  });
+
+  it("texto vazio (ou só espaços) → os primeiros 8 por ordem alfabética", () => {
+    const dez = muitos(10);
+    const vazio = sugestoesDoCampo(dez, "");
+    expect(nomes(vazio.opcoes)).toEqual(nomes(muitos(8).slice().reverse()));
+    expect(vazio.haMais).toBe(true);
+    expect(nomes(sugestoesDoCampo(dez, "   ").opcoes)).toEqual(nomes(vazio.opcoes));
+  });
+
+  it("nenhum que case → lista vazia, haMais falso", () => {
+    expect(sugestoesDoCampo(lista, "porcelana")).toEqual({ opcoes: [], haMais: false });
+  });
+});
+
 describe("pureza", () => {
   it("lib/fornecedores/campo.ts não importa React, Next, o banco nem o driver", () => {
     const fonte = readFileSync(join(process.cwd(), "lib/fornecedores/campo.ts"), "utf8");
