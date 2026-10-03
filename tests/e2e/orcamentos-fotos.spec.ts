@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import { randomBytes } from "node:crypto";
+
 import sharp from "sharp";
 
 // A grade de fotos do editor do orçamento (04.5-10-PLAN.md): upload, a rota autenticada, tipo
@@ -38,6 +40,16 @@ async function criarOrcamento(page: Page): Promise<string> {
 async function abrirEditorDoOrcamento(page: Page, orcamentoId: string): Promise<void> {
   await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.waitForTimeout(500);
+}
+
+// Uma foto "de celular" entre 10 e 15 MB: ruído aleatório em qualidade 100 quase não comprime
+// (~1,4 byte por pixel medido, 3400×2600 dá ~12,4 MB). Gerada na hora, nunca versionada.
+async function construirJpegDe12MB(): Promise<Buffer> {
+  const largura = 3400;
+  const altura = 2600;
+  return sharp(randomBytes(largura * altura * 3), { raw: { width: largura, height: altura, channels: 3 } })
+    .jpeg({ quality: 100 })
+    .toBuffer();
 }
 
 async function construirJpegPequeno(cor: { r: number; g: number; b: number }): Promise<Buffer> {
@@ -224,5 +236,34 @@ test.describe("orcamentos fotos", () => {
     // O limite deixou de estar atingido — o botão de upload volta a existir.
     await expect(page.getByLabel("adicionar foto de referência")).toBeVisible();
     await expect(page.getByTestId("fotos-contagem")).toHaveText("2 de 3");
+  });
+
+  // Quick 261003-fot: o middleware do Next clona o corpo de toda requisição sob `/gestao` e, sem
+  // `experimental.proxyClientMaxBodySize`, entrega à Server Action só os primeiros 10 MB — sem
+  // erro, só um aviso no log. Uma foto de 10 a 15 MB (aceita pelo D-26) chegava cortada e era
+  // recusada com "Não deu para enviar essa foto". Orçamento próprio: não disputa as 3 vagas do
+  // orçamento dos testes acima.
+  test("(h) uma foto de ~12 MB (acima dos 10 MB do middleware, abaixo dos 15 MB do D-26) chega inteira e vira foto", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const jpeg = await construirJpegDe12MB();
+    expect(jpeg.length).toBeGreaterThan(10.5 * 1024 * 1024);
+    expect(jpeg.length).toBeLessThan(15_000_000);
+
+    await fazerLogin(page);
+    const idDoOrcamento = await criarOrcamento(page);
+    expect(idDoOrcamento).not.toBe("");
+    await page.waitForTimeout(500); // folga de hidratação, como no (a)
+
+    await page.getByLabel("adicionar foto de referência").setInputFiles({
+      name: "foto-do-celular.jpg",
+      mimeType: "image/jpeg",
+      buffer: jpeg,
+    });
+
+    await expect(page.getByText("Foto de referência anexada.")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText("Não deu para enviar essa foto")).toHaveCount(0);
+    await expect(page.getByTestId("fotos-contagem")).toHaveText("1 de 3");
   });
 });

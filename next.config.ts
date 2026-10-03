@@ -5,6 +5,10 @@ import {
   REDIRECIONAMENTOS_DA_PRODUCAO,
 } from "./lib/rotas/redirecionamentos-antigos";
 
+// Teto do corpo de uma requisição — o mesmo número nos DOIS limites do Next que um envio de foto
+// atravessa (quick 261003-fot). Um só valor: se um ficar abaixo do outro, o menor vence em silêncio.
+const LIMITE_DO_CORPO = "20mb";
+
 const nextConfig: NextConfig = {
   // Saída mínima (sem devDependencies) usada pela imagem de produção do serviço `app`.
   output: "standalone",
@@ -15,8 +19,16 @@ const nextConfig: NextConfig = {
       // legível para quem está no ateliê. 20 MB cobre os 15 MB do arquivo com folga para o
       // envelope do `multipart/form-data` do envio (limite medido em `lib/orcamentos/fotos.ts`,
       // `TAMANHO_MAXIMO_BYTES`).
-      bodySizeLimit: "20mb",
+      bodySizeLimit: LIMITE_DO_CORPO,
     },
+    // O middleware (`middleware.ts`) roda em toda requisição sob `/gestao` — inclusive no POST
+    // da Server Action que recebe a foto — e, para isso, o Next CLONA o corpo. Sem esta linha, o
+    // clone para em 10 MB (`DEFAULT_BODY_CLONE_SIZE_LIMIT` em `next/dist/server/body-streams.js`)
+    // e a Server Action recebe SÓ os primeiros 10 MB, sem erro — só um aviso no log. Uma foto de
+    // 10 a 15 MB (D-26) chegava cortada e era recusada como "Não deu para enviar essa foto".
+    // Medido em 03/10/2026: 12 MB enviados, 10.485.760 bytes recebidos. Prova de ponta a ponta:
+    // `tests/e2e/orcamentos-fotos.spec.ts`, caso (h).
+    proxyClientMaxBodySize: LIMITE_DO_CORPO,
   },
   // Fase 04.6 (D-01/D-21): os 13 endereços antigos da plataforma, de quando ela respondia na
   // raiz. A lista mora em `lib/rotas/redirecionamentos-antigos.ts` — um módulo puro — para
