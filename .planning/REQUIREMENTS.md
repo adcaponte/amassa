@@ -182,20 +182,30 @@
 > briefing; os três pontos da §8 ficam para a discussão da fase e estão em itálico nos requisitos que
 > tocam. Prefixo **FRN** porque **FOR** já é do Contador de Queima (fornos).
 
-- [ ] **FRN-01**: Sub-aba **"Fornecedores"** nos Cadastros, ao lado de Catálogo · Categorias · Contas fixas · Taxas · Parâmetros; no computador lista à esquerda e ficha à direita, no celular a lista e a ficha abaixo ou em folha; alvos de 44 px, sem rolagem lateral a 320 px (§5)
-- [ ] **FRN-02**: Cadastrar e editar fornecedor: `nome` obrigatório (1–120, **único entre ativos** sem distinção de caixa), `vende` (texto livre), `area` (o enum do Financeiro, só para filtro), cidade de entrega, WhatsApp, pessoa de contato, e-mail, site, prazo de pagamento (opcionais, texto curto) e observações (até 4000) (§2)
-- [ ] **FRN-03**: **Fornecedor não se apaga** (`revoke delete`): desativar, com confirmação, tira da lista e dos seletores e mantém anexos e despesas ligadas; reativar volta tudo (§2)
-- [ ] **FRN-04**: Busca por nome, `vende` e cidade de entrega, **sem acento e sem caixa**; filtro por área; ordem alfabética; desativados escondidos por padrão com o link "mostrar N desativados" (§2)
-- [ ] **FRN-05**: Contato: WhatsApp como texto com **copiar** e **abrir WhatsApp** (`wa.me/<dígitos>`, nova aba); site abre em nova aba; e-mail com copiar; nenhum obrigatório (§2)
-- [ ] **FRN-06**: Anexos com nome (1–120), tipo (tabela · catálogo · nota · outro), "vale desde" (só para tabela, opcional) e nota (até 160); formatos **só** PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV), com o tipo **conferido pela assinatura do arquivo**, não só pela extensão (§3)
-- [ ] **FRN-07**: Limites **20 MB para PDF e planilha, 10 MB para foto**, recusados com mensagem humana; foto reduzida (lado maior 2000 px) e sem EXIF como nos orçamentos; PDF e planilha guardados como vieram; o upload não segura 20 MB inteiros na memória por requisição — *Server Action com 24mb ou Route Handler em stream: discussão (§8.1)* (§3)
-- [ ] **FRN-08**: Arquivos em `/opt/amassa/dados/anexos-fornecedores/<uuid>.<ext>`, irmã das fotos de orçamento, no mesmo volume e **coberta pelo mesmo backup diário**; o nome dado pela pessoa fica no banco; o roteiro da fase cria a pasta e confere o backup (§3, §6)
-- [ ] **FRN-09**: Servir em `/api/fornecedores/anexos/<uuid>` **só com sessão** (401 JSON sem login), `Content-Disposition: inline` com o nome original; PDF e imagem abrem, planilha baixa; nunca uma URL pública (§3)
-- [ ] **FRN-10**: Tirar anexo apaga a linha **e** o arquivo do disco (o único "apagar" do módulo), depois de uma confirmação que diz o nome (§3)
-- [ ] **FRN-11**: "Última tabela de preços": a mais recente por "vale desde" (ou data de envio, se vazio) entre os anexos do tipo tabela, com o selo **"tem mais de 4 meses — pedir a nova?"** passados 120 dias, "recente" antes disso, e "Sem tabela de preços ainda. Subir a primeira" sem nenhuma; ao escolher o arquivo, o nome vem do arquivo e PDF cai como tabela com "vale desde" hoje; quem subiu e quando aparecem na linha (§3)
-- [ ] **FRN-12**: `documentos` ganha `fornecedor_id` **anulável**; a Despesa (todos os modos, inclusive Compra de material) ganha o campo **opcional** "Fornecedor", com busca, só ativos, "nenhum" por padrão; nada retroativo — *despesa já lançada receber fornecedor depois: discussão (§8.2)* (§4)
-- [ ] **FRN-13**: **"Compras dele"** na ficha: despesas não canceladas com aquele fornecedor, mais recentes primeiro (descrição, data, tipo, itens quando compra de material, valor) e a linha "Total em <ano>: R$ X · N despesas" — *ano corrente ou 12 meses: discussão (§8.3)*; lê do Financeiro, **nenhuma tabela nova, nenhum número novo**; Estoque, Catálogo, Cotações e Produção não apontam para fornecedor (§4, §7)
-- [ ] **FRN-14**: No padrão da casa: regras ("tabela vigente", "mais de 4 meses") em **módulo puro `lib/fornecedores/`**, testado, com "hoje" por parâmetro; toda Server Action com `exigirUsuario()` e Zod; **uma migração** (duas tabelas + a coluna em `documentos`) com `TABELAS_ESPERADAS` atualizada; e2e de cadastrar, buscar por material, subir PDF e foto, tamanho e tipo recusados, abrir com e sem sessão, tirar anexo, desativar/reativar e despesa em "Compras dele"; roteiro de operação curto (§6)
+- [x] **FRN-01**: Sub-aba **"Fornecedores"** nos Cadastros, ao lado de Catálogo · Categorias · Contas fixas · Taxas · Parâmetros; no computador lista à esquerda e ficha à direita, no celular a lista e a ficha abaixo ou em folha; alvos de 44 px, sem rolagem lateral a 320 px (§5)
+- [x] **FRN-02**: Cadastrar e editar fornecedor: `nome` obrigatório (1–120, **único entre ativos** sem distinção de caixa), `vende` (texto livre), `area` (o enum do Financeiro, só para filtro), cidade de entrega, WhatsApp, pessoa de contato, e-mail, site, prazo de pagamento (opcionais, texto curto) e observações (até 4000) (§2)
+- [x] **FRN-03**: **Fornecedor não se apaga** (`revoke delete`): desativar, com confirmação, tira da lista e dos seletores e mantém anexos e despesas ligadas; reativar volta tudo (§2)
+- [x] **FRN-04**: Busca por nome, `vende` e cidade de entrega, **sem acento e sem caixa**; filtro por área; ordem alfabética; desativados escondidos por padrão com o link "mostrar N desativados" (§2)
+- [x] **FRN-05**: Contato: WhatsApp como texto com **copiar** e **abrir WhatsApp** (`wa.me/<dígitos>`, nova aba); site abre em nova aba; e-mail com copiar; nenhum obrigatório (§2)
+- [x] **FRN-06**: Anexos com nome (1–120), tipo (tabela · catálogo · nota · outro), "vale desde" (só para tabela, opcional) e nota (até 160); formatos **só** PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV), com o tipo **conferido pela assinatura do arquivo**, não só pela extensão (§3)
+- [x] **FRN-07**: Limites **20 MB para PDF e planilha, 10 MB para foto**, recusados com mensagem humana; foto reduzida (lado maior 2000 px) e sem EXIF como nos orçamentos; PDF e planilha guardados como vieram; o upload não segura 20 MB inteiros na memória por requisição — *Server Action com 24mb ou Route Handler em stream: discussão (§8.1)* (§3)
+- [x] **FRN-08**: Arquivos em `/opt/amassa/dados/anexos-fornecedores/<uuid>.<ext>`, irmã das fotos de orçamento, no mesmo volume e **coberta pelo mesmo backup diário**; o nome dado pela pessoa fica no banco; o roteiro da fase cria a pasta e confere o backup (§3, §6)
+- [x] **FRN-09**: Servir em `/api/fornecedores/anexos/<uuid>` **só com sessão** (401 JSON sem login), `Content-Disposition: inline` com o nome original; PDF e imagem abrem, planilha baixa; nunca uma URL pública (§3)
+- [x] **FRN-10**: Tirar anexo apaga a linha **e** o arquivo do disco (o único "apagar" do módulo), depois de uma confirmação que diz o nome (§3)
+- [x] **FRN-11**: "Última tabela de preços": a mais recente por "vale desde" (ou data de envio, se vazio) entre os anexos do tipo tabela, com o selo **"tem mais de 4 meses — pedir a nova?"** passados 120 dias, "recente" antes disso, e "Sem tabela de preços ainda. Subir a primeira" sem nenhuma; ao escolher o arquivo, o nome vem do arquivo e PDF cai como tabela com "vale desde" hoje; quem subiu e quando aparecem na linha (§3)
+- [x] **FRN-12**: `documentos` ganha `fornecedor_id` **anulável**; a Despesa (todos os modos, inclusive Compra de material) ganha o campo **opcional** "Fornecedor", com busca, só ativos, "nenhum" por padrão; nada retroativo — *despesa já lançada receber fornecedor depois: discussão (§8.2)* (§4)
+- [x] **FRN-13**: **"Compras dele"** na ficha: despesas não canceladas com aquele fornecedor, mais recentes primeiro (descrição, data, tipo, itens quando compra de material, valor) e a linha "Total em <ano>: R$ X · N despesas" — *ano corrente ou 12 meses: discussão (§8.3)*; lê do Financeiro, **nenhuma tabela nova, nenhum número novo**; Estoque, Catálogo, Cotações e Produção não apontam para fornecedor (§4, §7)
+- [x] **FRN-14**: No padrão da casa: regras ("tabela vigente", "mais de 4 meses") em **módulo puro `lib/fornecedores/`**, testado, com "hoje" por parâmetro; toda Server Action com `exigirUsuario()` e Zod; **uma migração** (duas tabelas + a coluna em `documentos`) com `TABELAS_ESPERADAS` atualizada; e2e de cadastrar, buscar por material, subir PDF e foto, tamanho e tipo recusados, abrir com e sem sessão, tirar anexo, desativar/reativar e despesa em "Compras dele"; roteiro de operação curto (§6)
+
+> *Marcados em 03/10/2026, depois do portão 06.2-13.* Evidência: a aprovação do dono no chat de 03/10/2026
+> (~17h UTC: "fiz a verificação dos fornecedores"), **sem anotação por item**; o Roteiro 19 feito por ele no mesmo
+> dia, com a saída do terminal conferida pela sessão principal — merge `6a20ee6` + `dafa82e` + `213cb15`
+> publicados (run `37133630212`, 4 jobs verdes), `db:migrate` até `migracoes_aplicadas = 30` com `documentos`
+> e `parcelas` iguais, `/api/health/fornecedores` 200, `DELETE` falso em `fornecedores` e verdadeiro em
+> `fornecedor_anexos`, um PDF real de 17 761 518 bytes pelo domínio, e o backup com 17 761 518 bytes de anexos e
+> `rclone lsl` no remoto (depois das pastas em `755`; FRN-08); e a verificação da fase (`06.2-VERIFICATION.md`).
+> Detalhe em `06.2-13-SUMMARY.md`. **FRN-02, nota de 03/10/2026:** a unicidade passou a ignorar também o acento
+> (D-06 trocada pelo dono, `555f0c7`; índice sobre `nome_normalizado(nome)`) — o texto acima é o do briefing.
 
 ### Lembretes — "Para fazer" no Início (Fase 06.3, criada em 02/10/2026)
 
@@ -694,20 +704,20 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | AGE-18 | Phase 5 — Agenda | Complete |
 | AGE-19 | Phase 5 — Agenda | Complete |
 | AGE-20 | Phase 5 — Agenda | Complete |
-| FRN-01 | Phase 06.2 — Fornecedores | Pending |
-| FRN-02 | Phase 06.2 — Fornecedores | Pending |
-| FRN-03 | Phase 06.2 — Fornecedores | Pending |
-| FRN-04 | Phase 06.2 — Fornecedores | Pending |
-| FRN-05 | Phase 06.2 — Fornecedores | Pending |
-| FRN-06 | Phase 06.2 — Fornecedores | Pending |
-| FRN-07 | Phase 06.2 — Fornecedores | Pending |
-| FRN-08 | Phase 06.2 — Fornecedores | Pending |
-| FRN-09 | Phase 06.2 — Fornecedores | Pending |
-| FRN-10 | Phase 06.2 — Fornecedores | Pending |
-| FRN-11 | Phase 06.2 — Fornecedores | Pending |
-| FRN-12 | Phase 06.2 — Fornecedores | Pending |
-| FRN-13 | Phase 06.2 — Fornecedores | Pending |
-| FRN-14 | Phase 06.2 — Fornecedores | Pending |
+| FRN-01 | Phase 06.2 — Fornecedores | Complete |
+| FRN-02 | Phase 06.2 — Fornecedores | Complete |
+| FRN-03 | Phase 06.2 — Fornecedores | Complete |
+| FRN-04 | Phase 06.2 — Fornecedores | Complete |
+| FRN-05 | Phase 06.2 — Fornecedores | Complete |
+| FRN-06 | Phase 06.2 — Fornecedores | Complete |
+| FRN-07 | Phase 06.2 — Fornecedores | Complete |
+| FRN-08 | Phase 06.2 — Fornecedores | Complete |
+| FRN-09 | Phase 06.2 — Fornecedores | Complete |
+| FRN-10 | Phase 06.2 — Fornecedores | Complete |
+| FRN-11 | Phase 06.2 — Fornecedores | Complete |
+| FRN-12 | Phase 06.2 — Fornecedores | Complete |
+| FRN-13 | Phase 06.2 — Fornecedores | Complete |
+| FRN-14 | Phase 06.2 — Fornecedores | Complete |
 | LMB-01 | Phase 06.3 — Lembretes | Pending |
 | LMB-02 | Phase 06.3 — Lembretes | Pending |
 | LMB-03 | Phase 06.3 — Lembretes | Pending |
@@ -880,7 +890,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-10-02 (criação da Fase 06.2) — **FRN-01..14 acrescentados** (transcrição do briefing de Fornecedores de 01/10, copiado para `.planning/phases/06.2-fornecedores/`); total de 193 para 207.*
+*Last updated: 2026-10-03 (fechamento do plano 06.2-13) — **FRN-01..14 passaram a `[x]`/Complete**, com a evidência no bloco logo depois de FRN-14 (aprovação do dono sem anotação por item; Roteiro 19 no ar).*
+*Antes: 2026-10-02 (criação da Fase 06.2) — **FRN-01..14 acrescentados** (transcrição do briefing de Fornecedores de 01/10, copiado para `.planning/phases/06.2-fornecedores/`); total de 193 para 207.*
 *Antes: 2026-10-01 (início da Fase 5) — **AGE-01..20 acrescentados** (transcrição do briefing da Agenda de 26/09, copiado para `.planning/phases/05-agenda/`); AGD-01..16 viraram registro, "Substituído" no rastreio; total de 189 para 193; notas datadas em FIN-01/02 e INT-02.*
 *Last updated antes: 2026-09-29, tarde (fechamento do plano 06-11) — **EST-01..21 passaram a `[x]`/Complete**,
 com a evidência no bloco logo depois de EST-21 (EST-09 só pela aprovação do dono, sem o tempo
