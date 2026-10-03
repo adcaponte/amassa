@@ -964,55 +964,55 @@ portão (plano 13); a migração é a `0028`, escrita e provada no Postgres efê
 Plans:
 **Wave 1**
 
-- [x] 06.2-01-PLAN.md — O contrato de dados: a `0028` inteira (D-04 ao lado de `pessoa_nome`, D-05 em `execucoes_backup`, D-06 no índice) e o esquema Zod do fornecedor, com as bordas no `test:migracoes` e no Vitest — sem traçador, pelo teto de 15 arquivos (onda 1)
+- [x] 06.2-01-PLAN.md — O contrato de dados: a `0028` inteira (D-04 ao lado de `pessoa_nome`, D-05 em `execucoes_backup`, D-06 no índice) e o esquema Zod do fornecedor, com as bordas no `test:migracoes` e no Vitest — sem traçador, pelo teto de 15 arquivos (onda 1) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`39af588`..`6f1421e`), não publicado — ver `06.2-01-SUMMARY.md`
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [x] 06.2-02-PLAN.md — Traçador: cadastrar um fornecedor e vê-lo na lista com a ficha aberta, chegando pela sétima pílula (UI-D1) (onda 2)
+- [x] 06.2-02-PLAN.md — Traçador: cadastrar um fornecedor e vê-lo na lista com a ficha aberta, chegando pela sétima pílula (UI-D1) (onda 2) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`393e61c`..`3bad4b4`), não publicado — ver `06.2-02-SUMMARY.md`
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [x] 06.2-03-PLAN.md — Achar o fornecedor: busca sem acento, filtro por área, desativados, ficha com contatos que se copiam e abrem (onda 3)
+- [x] 06.2-03-PLAN.md — Achar o fornecedor: busca sem acento, filtro por área, desativados, ficha com contatos que se copiam e abrem (onda 3) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`7c0b33d`..`d81a547`), não publicado — ver `06.2-03-SUMMARY.md`
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [x] 06.2-04-PLAN.md — Manter: editar, desativar com confirmação, reativar sem atropelar nome ativo; os pares de contraste da fase (onda 4)
+- [x] 06.2-04-PLAN.md — Manter: editar, desativar com confirmação, reativar sem atropelar nome ativo; os pares de contraste da fase (onda 4) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`dc9f6ac`..`d02a115`), não publicado — ver `06.2-04-SUMMARY.md`
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [x] 06.2-05-PLAN.md — O caminho do byte pela rota: PUT em stream fora do middleware (D-01, D-08), tipo pela assinatura, GET em stream atrás da sessão (onda 5)
+- [x] 06.2-05-PLAN.md — O caminho do byte pela rota: PUT em stream fora do middleware (D-01, D-08), tipo pela assinatura, GET em stream atrás da sessão (onda 5) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`2479e6f`..`bf98c16`), não publicado — ver `06.2-05-SUMMARY.md`
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [x] 06.2-06-PLAN.md — Anexos pela folha e a pasta no contêiner (D-A02): subir um PDF pela ficha e abri-lo; caminho e cabeçalhos provados no unitário (onda 6)
+- [x] 06.2-06-PLAN.md — Anexos pela folha e a pasta no contêiner (D-A02): subir um PDF pela ficha e abri-lo; caminho e cabeçalhos provados no unitário (onda 6) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`b2256e6`..`db7b552`), não publicado — ver `06.2-06-SUMMARY.md`
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [x] 06.2-07-PLAN.md — A foto (2000 px, sem EXIF, HEIC recusado — D-07) no PUT e na folha, e a planilha; recusas de tamanho e tipo antes da rede (onda 7)
+- [x] 06.2-07-PLAN.md — A foto (2000 px, sem EXIF, HEIC recusado — D-07) no PUT e na folha, e a planilha; recusas de tamanho e tipo antes da rede (onda 7) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`ef46220`..`06ebcdc`), não publicado — ver `06.2-07-SUMMARY.md`
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [x] 06.2-08-PLAN.md — A tabela de preços vigente com o selo de 120 dias (D-09) e tirar um anexo (onda 8)
+- [x] 06.2-08-PLAN.md — A tabela de preços vigente com o selo de 120 dias (D-09) e tirar um anexo (onda 8) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`e0da9f5`..`5e4f4e7`), não publicado — ver `06.2-08-SUMMARY.md`
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [x] 06.2-09-PLAN.md — Os anexos no backup diário, vigiados por `/api/health/backup` (D-05, A-02) (onda 9)
+- [x] 06.2-09-PLAN.md — Os anexos no backup diário, vigiados por `/api/health/backup` (D-05, A-02) (onda 9) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`625b566`..`d7c4ae8`), não publicado — ver `06.2-09-SUMMARY.md`
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [x] 06.2-10-PLAN.md — A despesa ligada ao fornecedor (D-04): o campo “Fornecedor” no modo Compra e `lancarDespesa` congelando o nome; a D-02 anotada na Fase 7 (onda 10)
+- [x] 06.2-10-PLAN.md — A despesa ligada ao fornecedor (D-04): o campo “Fornecedor” no modo Compra e `lancarDespesa` congelando o nome; a D-02 anotada na Fase 7 (onda 10) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`1b04cd9`..`0653afc`), não publicado — ver `06.2-10-SUMMARY.md`
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
-- [x] 06.2-11-PLAN.md — “Compras dele” na ficha, com o total do ano (D-03) (onda 11)
+- [x] 06.2-11-PLAN.md — “Compras dele” na ficha, com o total do ano (D-03) (onda 11) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`f42cfba`..`7063cea`), não publicado — ver `06.2-11-SUMMARY.md`
 
 **Wave 12** *(blocked on Wave 11 completion)*
 
-- [x] 06.2-12-PLAN.md — O campo “Fornecedor” por inteiro: “Outra despesa”, o aviso sem ligar sozinho, rascunho e desativado (onda 12)
+- [x] 06.2-12-PLAN.md — O campo “Fornecedor” por inteiro: “Outra despesa”, o aviso sem ligar sozinho, rascunho e desativado (onda 12) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`08d084f`..`d6271f5`), não publicado — ver `06.2-12-SUMMARY.md`
 
 **Wave 13** *(blocked on Wave 12 completion)*
 
-- [ ] 06.2-13-PLAN.md — Portão: `/api/health/fornecedores`, a única varredura completa, Roteiro 19, caminhada, documentos de estado e o dono (onda 13, **não autônomo**)
+- [ ] 06.2-13-PLAN.md — Portão: `/api/health/fornecedores`, a única varredura completa, Roteiro 19, caminhada, documentos de estado e o dono (onda 13, **não autônomo**) — 03/10/2026: Tarefas 1 e 2 feitas pelo executor no branch (a rota `8c3cafb`, a varredura completa, o Roteiro 19 e a caminhada — ver `06.2-13-SUMMARY.md`); a Tarefa 3 é do dono (Parte 0, Roteiro 19, caminhada). Aberto até o “aprovado”
 
 **UI hint**: yes
 
@@ -1103,6 +1103,6 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 5. Agenda | 15/16 | In Progress (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
-| 06.2. Fornecedores | 0/13 | Planned (02/10/2026, noite — 13 planos depois da revisão do verificador; até então “Not started”) | - |
+| 06.2. Fornecedores | 12/13 | Aguardando o dono (portão) — 03/10/2026: os planos 01–12 e as Tarefas 1–2 do 13 no branch `gsd/phase-06.2-fornecedores`, não publicado (`curl /api/health/fornecedores` = 404 e `git ls-tree origin/main` sem a `0028`, medidos às 02h17 UTC); até 03/10/2026 dizia “Planned (02/10/2026, noite — 13 planos depois da revisão do verificador; até então “Not started”)” | - |
 | 06.3. Lembretes | 0/TBD | Not started (criada em 02/10/2026) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
