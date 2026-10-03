@@ -984,7 +984,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 06.2-06-PLAN.md — Anexos pela folha e a pasta no contêiner (D-A02): subir um PDF pela ficha e abri-lo; caminho e cabeçalhos provados no unitário (onda 6)
+- [x] 06.2-06-PLAN.md — Anexos pela folha e a pasta no contêiner (D-A02): subir um PDF pela ficha e abri-lo; caminho e cabeçalhos provados no unitário (onda 6)
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
