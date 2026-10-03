@@ -199,3 +199,109 @@ describe("pureza", () => {
     expect(fonte).not.toMatch(/from\s+"(@\/db|react|next|drizzle-orm|pg)[/"]/);
   });
 });
+
+// ——— Plano 12, Tarefa 2: a matriz do campo — os seis estados, as bordas do aviso e as frases do painel. ———
+
+describe("situacaoDoVinculo — os seis estados, um caso cada", () => {
+  const ativos = [fornecedor({ id: "a", nome: "Argila Sul" }), fornecedor({ id: "b", nome: "Barro Inventado" })];
+
+  it.each([
+    ["vazio", { texto: "", fornecedorId: null, fornecedores: ativos }, { estado: "vazio" }],
+    ["ligado", { texto: "Argila Sul", fornecedorId: "a", fornecedores: ativos }, { estado: "ligado" }],
+    ["texto-livre", { texto: "Conserto do forno", fornecedorId: null, fornecedores: ativos }, { estado: "texto-livre" }],
+    [
+      "texto-igual-ao-cadastro",
+      { texto: " argila   SUL ", fornecedorId: null, fornecedores: ativos },
+      { estado: "texto-igual-ao-cadastro", nome: "Argila Sul" },
+    ],
+    ["cadastro-vazio", { texto: "Argila Sul", fornecedorId: null, fornecedores: [] }, { estado: "cadastro-vazio" }],
+    ["erro", { texto: "Argila Sul", fornecedorId: null, fornecedores: null }, { estado: "erro" }],
+  ] as const)("%s", (_nome, campo, esperado) => {
+    expect(situacaoDoVinculo(campo)).toEqual(esperado);
+  });
+});
+
+describe("situacaoDoVinculo — bordas do aviso (UI-D4: o aviso nunca liga)", () => {
+  it("dois ativos com o mesmo nome normalizado → texto-livre, sem aviso (não há como dizer qual)", () => {
+    const fornecedores = [fornecedor({ id: "1", nome: "Argila Sul" }), fornecedor({ id: "2", nome: "ARGÍLA  sul" })];
+    expect(situacaoDoVinculo({ texto: "argila sul", fornecedorId: null, fornecedores })).toEqual({
+      estado: "texto-livre",
+    });
+    expect(fornecedorComNomeIgual(fornecedores, "argila sul")).toBeNull();
+  });
+
+  it("um desativado com o nome igual não conta", () => {
+    const soDesativadoIgual = [
+      { ...fornecedor({ id: "1", nome: "Argila Sul" }), ativo: false },
+      { ...fornecedor({ id: "2", nome: "Outro Ativo" }), ativo: true },
+    ];
+    expect(situacaoDoVinculo({ texto: "Argila Sul", fornecedorId: null, fornecedores: soDesativadoIgual })).toEqual({
+      estado: "texto-livre",
+    });
+
+    // Um desativado e um ativo com o mesmo nome: só o ativo conta — é exatamente UM, então avisa.
+    const umDeCada = [
+      { ...fornecedor({ id: "1", nome: "Argila Sul" }), ativo: false },
+      { ...fornecedor({ id: "2", nome: "Argila Sul" }), ativo: true },
+    ];
+    expect(fornecedorComNomeIgual(umDeCada, "argila sul")?.id).toBe("2");
+    expect(situacaoDoVinculo({ texto: "argila sul", fornecedorId: null, fornecedores: umDeCada })).toEqual({
+      estado: "texto-igual-ao-cadastro",
+      nome: "Argila Sul",
+    });
+
+    // Só desativados: o campo se comporta como cadastro vazio.
+    const soDesativados = [{ ...fornecedor({ id: "1", nome: "Argila Sul" }), ativo: false }];
+    expect(situacaoDoVinculo({ texto: "Argila Sul", fornecedorId: null, fornecedores: soDesativados })).toEqual({
+      estado: "cadastro-vazio",
+    });
+  });
+
+  it("parte do nome não é “igual”: só o nome inteiro (normalizado) dispara o aviso", () => {
+    const fornecedores = [fornecedor({ id: "1", nome: "Argila Sul" })];
+    expect(situacaoDoVinculo({ texto: "Argila", fornecedorId: null, fornecedores })).toEqual({ estado: "texto-livre" });
+    expect(situacaoDoVinculo({ texto: "Argila Sul Ltda", fornecedorId: null, fornecedores })).toEqual({
+      estado: "texto-livre",
+    });
+  });
+
+  it("escolhido continua ligado mesmo com o texto igual a outro nome — só a escolha manda", () => {
+    const fornecedores = [fornecedor({ id: "1", nome: "Argila Sul" }), fornecedor({ id: "2", nome: "Barro" })];
+    expect(situacaoDoVinculo({ texto: "Barro", fornecedorId: "1", fornecedores })).toEqual({ estado: "ligado" });
+  });
+
+  it("só espaços com o cadastro vazio = vazio (nada escrito), não cadastro-vazio", () => {
+    expect(situacaoDoVinculo({ texto: "   ", fornecedorId: null, fornecedores: [] })).toEqual({ estado: "vazio" });
+  });
+});
+
+describe("mensagemDoPainel — a frase exata de cada caso", () => {
+  const um = [fornecedor({ id: "1", nome: "Barro Inventado" })];
+
+  it("cadastro vazio — com ou sem texto, a mesma frase", () => {
+    const frase = "Nenhum fornecedor cadastrado. Escreva o nome — ou cadastre em Cadastros → Fornecedores.";
+    expect(mensagemDoPainel({ fornecedores: [], texto: "", sugestoes: sugestoesDoCampo([], "") })).toBe(frase);
+    expect(mensagemDoPainel({ fornecedores: [], texto: "Alguém", sugestoes: sugestoesDoCampo([], "Alguém") })).toBe(
+      frase,
+    );
+  });
+
+  it("sem resultado — o texto entre aspas curvas, sem os espaços das pontas", () => {
+    expect(
+      mensagemDoPainel({ fornecedores: um, texto: "  porcelana  ", sugestoes: sugestoesDoCampo(um, "  porcelana  ") }),
+    ).toBe("Nenhum fornecedor do cadastro com “porcelana”. Fica só o nome escrito.");
+  });
+
+  it("há mais — 9 casam; 8 exatos não dão frase nenhuma", () => {
+    const nove = muitos(9);
+    expect(mensagemDoPainel({ fornecedores: nove, texto: "", sugestoes: sugestoesDoCampo(nove, "") })).toBe(
+      "Há mais fornecedores — continue digitando.",
+    );
+    const oito = muitos(8);
+    expect(mensagemDoPainel({ fornecedores: oito, texto: "", sugestoes: sugestoesDoCampo(oito, "") })).toBeNull();
+  });
+
+  it("lista que não carregou — nada no painel (a frase de erro é da linha embaixo do campo)", () => {
+    expect(mensagemDoPainel({ fornecedores: null, texto: "", sugestoes: { opcoes: [], haMais: false } })).toBeNull();
+  });
+});

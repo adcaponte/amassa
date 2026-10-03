@@ -160,3 +160,62 @@ describe("rascunho da Despesa — o fornecedor escolhido (plano 06.2-12)", () =>
     expect(lido.outra.fornecedorId).toBeNull();
   });
 });
+
+// ——— Plano 06.2-12, Tarefa 2: a matriz do rascunho com o fornecedor. ———
+
+describe("rascunho da Despesa — matriz do fornecedorId", () => {
+  it("fornecedorId sobrevive a serializar e ler, nos dois modos", () => {
+    const original = despesaCom("F1", "F2");
+    const lido = lerRascunhoDespesa(serializarRascunhoDespesa(original), ["item-1"], ["F1", "F2"]);
+    expect(lido).toEqual(original);
+    expect(lido.compra.fornecedorId).toBe("F1");
+    expect(lido.outra.fornecedorId).toBe("F2");
+  });
+
+  it("órfão descartado só no modo dele — o outro modo, ativo, continua ligado; os nomes ficam", () => {
+    const lido = lerRascunhoDespesa(serializarRascunhoDespesa(despesaCom("F1", "F2")), ["item-1"], ["F1"]);
+    expect(lido.compra.fornecedorId).toBe("F1");
+    expect(lido.outra.fornecedorId).toBeNull();
+    expect(lido.outra.pessoa).toBe("Conserto Fictício");
+    // O resto do rascunho não muda por causa do descarte.
+    expect(lido.outra.descricao).toBe("Conserto do forno");
+    expect(lido.compra.linhas).toHaveLength(1);
+  });
+
+  it("idsDeFornecedoresAtivos vazio (nenhum ativo, ou a lista não carregou) descarta todos", () => {
+    const lido = lerRascunhoDespesa(serializarRascunhoDespesa(despesaCom("F1", "F2")), ["item-1"], []);
+    expect(lido.compra.fornecedorId).toBeNull();
+    expect(lido.outra.fornecedorId).toBeNull();
+    expect(lido.compra.pessoa).toBe("Olaria Inventada");
+    expect(lido.outra.pessoa).toBe("Conserto Fictício");
+  });
+
+  it("fornecedorId de tipo errado (número, objeto) vira nulo, sem quebrar o resto", () => {
+    const texto = JSON.stringify({
+      versao: 1,
+      modo: "outra",
+      compra: { data: "", pessoa: "Alguém", fornecedorId: 42, linhas: [] },
+      outra: { data: "", pessoa: "Outro", fornecedorId: { id: "F1" }, descricao: "x", categoriaId: "", valorTexto: "" },
+    });
+    const lido = lerRascunhoDespesa(texto, [], ["F1"]);
+    expect(lido.compra.fornecedorId).toBeNull();
+    expect(lido.outra.fornecedorId).toBeNull();
+    expect(lido.outra.descricao).toBe("x");
+  });
+
+  it("JSON quebrado → rascunho vazio, como hoje (fornecedorId nulo nos dois modos)", () => {
+    const lido = lerRascunhoDespesa("{ isto não é json", ["item-1"], ["F1"]);
+    expect(lido).toEqual({
+      modo: "compra",
+      compra: { data: "", pessoa: "", fornecedorId: null, linhas: [] },
+      outra: { data: "", pessoa: "", fornecedorId: null, descricao: "", categoriaId: "", valorTexto: "" },
+    });
+  });
+
+  it("JSON de outra versão → rascunho vazio, mesmo com fornecedorId ativo", () => {
+    const texto = JSON.stringify({ ...despesaCom("F1", "F1"), versao: 2 });
+    const lido = lerRascunhoDespesa(texto, ["item-1"], ["F1"]);
+    expect(lido.compra.fornecedorId).toBeNull();
+    expect(lido.compra.pessoa).toBe("");
+  });
+});
