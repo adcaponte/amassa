@@ -2,6 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import {
+  contarLembretes,
+  criarPessoaDeTeste,
+  desativarPessoaDeTeste,
   destravarLembretesDeTeste,
   idDoUsuarioDoTeste,
   lerLembretePorTexto,
@@ -9,6 +12,15 @@ import {
   semearLembrete,
   travarLembretesParaTeste,
 } from "./apoio/semear-lembretes";
+
+// As frases da tela, verbatim da 06.3-UI-SPEC.md (§Erros, §Estados vazios) — escritas aqui, não
+// importadas de `lib/`, para o teste reprovar se a copy mudar sem querer.
+const FRASE_ESCREVA_ANTES_DE_GUARDAR = "Escreva o lembrete antes de guardar.";
+const FRASE_PESSOA_INVALIDA = "Essa pessoa não está mais na lista. Escolha outra ou deixe “geral”.";
+const FRASE_NADA_PARA_FAZER =
+  "Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.";
+// O primeiro nome da conta do e2e ("Gestora de Teste", `preparar-usuario.ts`).
+const PRIMEIRO_NOME_DO_GESTOR_DE_TESTE = "Gestora";
 
 // Lembretes no Início — o traçador da Fase 06.3 (06.3-01-PLAN.md, Tarefa 1; LMB-01, LMB-03): do campo
 // "+ lembrete" da coluna "Para fazer" à Server Action `criarLembrete`, à tabela `lembretes` e de volta
@@ -20,7 +32,7 @@ import {
 // Contagem é condição GLOBAL da tabela `lembretes`: todo caso deste `describe` roda sob a trava
 // consultiva `travarLembretesParaTeste` (a MESMA de todo spec `lembretes-*` que escreve), em
 // `mode: "serial"`, e o caso que conta começa por `limparLembretes()` — só dentro da trava. O
-// estado vazio da semente fica FORA, num `@vazio-global` (cadeia `vazio-*` do
+// estado vazio da semente fica FORA, num teste de vazio global (cadeia `vazio-*` do
 // `playwright.config.ts`, nunca `--grep`). Textos inventados, prefixo `[e2e]` (CLAUDE.md); "hoje" e
 // os dias vizinhos de `hojeNoAtelie()`/`somarDiasAoHoje(n)`, nunca do dia UTC do relógio.
 
@@ -199,5 +211,201 @@ test.describe("lembretes inicio", () => {
     await expect(
       bloco.getByRole("link", { name: "ver todos os lembretes" }),
     ).toHaveAttribute("href", "/gestao/lembretes");
+  });
+
+  // Caso (a) da Tarefa 2 (LMB-03): data e pessoa num toque cada; depois de guardar, tudo volta ao
+  // padrão e a fileira de opções some (UI-D17).
+  test("guardar com a data de hoje e a pessoa de teste grava para_quando e quem, mostra hoje e o chip, e volta ao padrão com a fileira escondida", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const texto = `[e2e] com data e pessoa ${test.info().project.name}`;
+    const hoje = hojeNoAtelie();
+    const idDoUsuario = await idDoUsuarioDoTeste();
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const coluna = page.getByTestId("lembretes-coluna");
+    const campo = coluna.getByTestId("lembretes-novo-texto");
+    const data = coluna.getByTestId("lembretes-novo-data");
+    const geral = coluna.locator('[data-testid="lembretes-pessoa"][data-pessoa="geral"]');
+    const pessoa = coluna.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${idDoUsuario}"]`);
+
+    // Fechada até o campo receber foco; o padrão é sem data e "geral".
+    await expect(data).toBeHidden();
+    await campo.click();
+    await expect(data).toBeVisible();
+    await expect(data).toHaveValue("");
+    await expect(geral).toHaveAttribute("aria-pressed", "true");
+    await expect(pessoa).toHaveAttribute("aria-pressed", "false");
+    await expect(pessoa).toHaveText(PRIMEIRO_NOME_DO_GESTOR_DE_TESTE);
+
+    await campo.fill(texto);
+    await data.fill(hoje);
+    await pessoa.click();
+    await expect(pessoa).toHaveAttribute("aria-pressed", "true");
+    await expect(geral).toHaveAttribute("aria-pressed", "false");
+    // Limpar a data volta a "sem data" — e escolher de novo.
+    await data.fill("");
+    await expect(data).toHaveValue("");
+    await data.fill(hoje);
+    await coluna.getByTestId("lembretes-novo-guardar").click();
+
+    const linha = coluna.getByTestId("lembrete-linha").filter({ hasText: texto });
+    await expect(linha).toHaveCount(1);
+    await expect(linha).toHaveAttribute("data-situacao", "hoje");
+    await expect(linha.getByTestId("lembrete-prazo")).toHaveText("hoje");
+    await expect(linha.getByTestId("lembrete-chip")).toHaveText(PRIMEIRO_NOME_DO_GESTOR_DE_TESTE);
+
+    await expect(campo).toHaveValue("");
+    await expect(campo).toBeFocused();
+    await expect(data).toBeHidden();
+    await expect(data).toHaveValue("");
+    await expect(geral).toHaveAttribute("aria-pressed", "true");
+    await expect(coluna.getByTestId("lembretes-contagem")).toHaveText("1 aberto");
+
+    await expect
+      .poll(async () => {
+        const gravado = await lerLembretePorTexto(texto);
+        return gravado && { para_quando: gravado.para_quando, quem: gravado.quem };
+      })
+      .toEqual({ para_quando: hoje, quem: idDoUsuario });
+  });
+
+  // Caso (b) (UI-D9): o vazio não vai ao servidor e diz o que fazer.
+  test("guardar com o campo vazio ou só com espaços mostra a frase, devolve o foco e não cria nada; digitar faz a frase sumir", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const coluna = page.getByTestId("lembretes-coluna");
+    const campo = coluna.getByTestId("lembretes-novo-texto");
+    const erro = coluna.getByTestId("lembretes-novo-erro");
+
+    await coluna.getByTestId("lembretes-novo-guardar").click();
+    await expect(erro).toHaveText(FRASE_ESCREVA_ANTES_DE_GUARDAR);
+    await expect(erro).toHaveAttribute("role", "alert");
+    await expect(campo).toBeFocused();
+
+    await campo.fill("   ");
+    await campo.press("Enter");
+    await expect(erro).toHaveText(FRASE_ESCREVA_ANTES_DE_GUARDAR);
+    await expect(campo).toBeFocused();
+    expect(await contarLembretes()).toBe(0);
+    await expect(coluna.getByTestId("lembretes-contagem")).toHaveText("nada pendente");
+
+    await campo.press("a");
+    await expect(erro).toHaveCount(0);
+  });
+
+  // Caso (c) (T-06.3-11): a pessoa foi desativada entre abrir a página e guardar. A recusa é do
+  // servidor; nada do que foi escolhido se perde.
+  test("com a pessoa escolhida desativada antes de guardar, a frase do servidor aparece e o texto, a data e a pílula ficam", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const pessoaId = await criarPessoaDeTeste(`[e2e] Pessoa ${projeto}`);
+    const texto = `[e2e] pessoa que saiu ${projeto}`;
+    const depoisDeAmanha = somarDiasAoHoje(2);
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const coluna = page.getByTestId("lembretes-coluna");
+    const campo = coluna.getByTestId("lembretes-novo-texto");
+    const data = coluna.getByTestId("lembretes-novo-data");
+    const pilula = coluna.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`);
+
+    await campo.click();
+    await campo.fill(texto);
+    await data.fill(depoisDeAmanha);
+    await pilula.click();
+    await expect(pilula).toHaveAttribute("aria-pressed", "true");
+
+    await desativarPessoaDeTeste(pessoaId);
+    await coluna.getByTestId("lembretes-novo-guardar").click();
+
+    await expect(coluna.getByTestId("lembretes-novo-erro")).toHaveText(FRASE_PESSOA_INVALIDA);
+    await expect(campo).toHaveValue(texto);
+    await expect(data).toHaveValue(depoisDeAmanha);
+    await expect(pilula).toHaveAttribute("aria-pressed", "true");
+    expect(await contarLembretes()).toBe(0);
+  });
+
+  // Caso (d): o campo corta no teto do Zod (200).
+  test("colar 210 caracteres no campo deixa 200", async ({ page }) => {
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const campo = page.getByTestId("lembretes-coluna").getByTestId("lembretes-novo-texto");
+
+    await campo.focus();
+    await page.keyboard.insertText("[e2e]".padEnd(210, "x"));
+    expect((await campo.inputValue()).length).toBe(200);
+  });
+
+  // Caso (e): 320 px com um texto de 200 sem espaço e a fileira de opções aberta.
+  test("a 320px, com um lembrete de 200 caracteres sem espaço e a fileira aberta, nada rola na horizontal e todo alvo da linha de criar mede 44px", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const longo = "[e2e]".padEnd(200, "x");
+    await semearLembrete({ texto: longo });
+
+    await page.setViewportSize({ width: 320, height: 900 });
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const coluna = page.getByTestId("lembretes-coluna");
+    await expect(coluna.getByTestId("lembrete-linha").filter({ hasText: longo })).toBeVisible();
+    // Os outros blocos chegam por streaming: medir só com a página inteira na tela.
+    await expect(page.getByTestId("inicio-bloco-esqueleto")).toHaveCount(0);
+
+    const campo = coluna.getByTestId("lembretes-novo-texto");
+    await campo.click();
+    const data = coluna.getByTestId("lembretes-novo-data");
+    await expect(data).toBeVisible();
+
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(scrollWidth, `/gestao rola horizontalmente a 320px (${scrollWidth} > ${clientWidth})`).toBeLessThanOrEqual(
+      clientWidth,
+    );
+
+    const alvos = [
+      campo,
+      coluna.getByTestId("lembretes-novo-guardar"),
+      // A pílula de data é o `<label>` em volta do campo de data.
+      data.locator(".."),
+    ];
+    const pilulas = coluna.getByTestId("lembretes-pessoa");
+    const quantas = await pilulas.count();
+    expect(quantas).toBeGreaterThanOrEqual(2);
+    for (let indice = 0; indice < quantas; indice += 1) {
+      alvos.push(pilulas.nth(indice));
+    }
+    for (const alvo of alvos) {
+      const caixa = await alvo.boundingBox();
+      expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+  });
+});
+
+// O estado vazio da semente (UI E3·empty): condição GLOBAL da tabela — nenhum lembrete existe. Fora
+// da trava e com a tag de vazio global no título: entra na cadeia `vazio-*` do
+// `playwright.config.ts`, que roda antes de `desktop`/`celular` (os únicos que escrevem em
+// `lembretes`) — nunca por `--grep`.
+test.describe("lembretes inicio — estado da semente", () => {
+  test("com o banco recém-semeado, a coluna mostra a frase do vazio e nada pendente @vazio-global", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const coluna = page.getByTestId("lembretes-coluna");
+
+    await expect(coluna.getByTestId("lembretes-vazio")).toHaveText(FRASE_NADA_PARA_FAZER);
+    await expect(coluna.getByTestId("lembretes-contagem")).toHaveText("nada pendente");
+    await expect(coluna.getByTestId("lembretes-mais")).toHaveCount(0);
+    await expect(coluna.getByTestId("lembrete-linha")).toHaveCount(0);
   });
 });

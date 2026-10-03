@@ -140,3 +140,27 @@ export async function contarLembretes(): Promise<number> {
     return Number(rows[0]?.total ?? "0");
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Pessoas de teste (plano 06.3-03): as pílulas de "De quem é o lembrete" vêm de `usuarios` ativos,
+// então o caso "a pessoa foi desativada entre abrir a página e guardar" precisa de uma pessoa que
+// possa ser desativada sem derrubar a sessão do e2e. Criada direto em `usuarios`, com nome `[e2e]`,
+// e-mail único num domínio que não existe (`.invalid`, RFC 2606) e um `senha_hash` que NÃO é hash
+// de senha nenhuma — ninguém entra com essa conta. Usuário nunca se apaga (AUTH-09): desativar é só
+// `ativo = false`, no molde de `./alternar-ativo.ts`.
+export async function criarPessoaDeTeste(nome: string): Promise<string> {
+  const email = `e2e-pessoa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@teste.invalid`;
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into usuarios (nome, email, senha_hash, ativo)
+       values ($1, $2, '[e2e] não é hash de senha — ninguém entra com esta conta', true)
+       returning id`,
+      [nome, email],
+    );
+    return rows[0].id;
+  });
+}
+
+export async function desativarPessoaDeTeste(id: string): Promise<void> {
+  await comCliente((cliente) => cliente.query("update usuarios set ativo = false where id = $1", [id]));
+}

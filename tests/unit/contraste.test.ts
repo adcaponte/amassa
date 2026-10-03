@@ -514,3 +514,53 @@ describe("contraste dos Fornecedores (06.2-UI-SPEC.md)", () => {
     expect(razao, `F15: ouro sobre superficie deu ${razao.toFixed(2)}:1`).toBeLessThan(NAO_TEXTO);
   });
 });
+
+// Fase 06.3 (Lembretes), plano 03: os pares C1-C13 da UI-SPEC (06.3-UI-SPEC.md §Color → "Pares de
+// contraste"), medidos no `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui (o
+// branco do texto dos chips de pessoa e do visto da caixa é a única cor fora de token, como o `BRANCO`
+// dos outros blocos). O C11 (`acento` sobre `acento-fundo`, a pílula marcada) NÃO se repete: já é o
+// P5 do bloco do Estoque, acima — a UI-SPEC manda reusar, não duplicar. Os pares sobre `erro-fundo`
+// (C3-C5) medem o pior caso, o fundo cheio; a linha vencida usa `erro-fundo/50`, mais claro. Achado
+// real se reprovar: o token (ou o par que o componente usa) muda, nunca o limiar.
+describe("contraste dos Lembretes (06.3-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const BRANCO = "#FFFFFF";
+
+  const cor = (token: string) => (token === "BRANCO" ? BRANCO : tokenDaPlataforma(token));
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    ["C1", "BRANCO", "esmaltacao", TEXTO_NORMAL, "chip da 1ª pessoa"],
+    ["C2", "BRANCO", "queima1", TEXTO_NORMAL, "chip da 2ª pessoa"],
+    ["C3", "erro", "erro-fundo", TEXTO_NORMAL, "“venceu …” na linha vencida (pior caso)"],
+    ["C4", "tinta-fraca", "erro-fundo", TEXTO_NORMAL, "meta e “editar”/“excluir” na linha vencida (pior caso)"],
+    ["C5", "tinta", "erro-fundo", TEXTO_NORMAL, "texto do lembrete vencido (pior caso)"],
+    ["C6", "atencao", "superficie", TEXTO_NORMAL, "“hoje”"],
+    ["C7", "tinta-fraca", "superficie", TEXTO_NORMAL, "meta, feito riscado, ações, contagem, dicas, vazio"],
+    ["C8", "tinta-fraca", "fundo", TEXTO_NORMAL, "meta e ações com a linha em hover"],
+    ["C9", "BRANCO", "sucesso", TEXTO_NORMAL, "visto branco na caixa marcada"],
+    // Contorno de controle (WCAG 1.4.11): 3:1 — por isso a borda da caixa desmarcada é `tinta-fraca`,
+    // não `borda`/`borda-forte` (UI-D4).
+    ["C10", "tinta-fraca", "superficie", NAO_TEXTO, "borda da caixa de feito desmarcada"],
+    ["C12", "BRANCO", "tinta-fraca", TEXTO_NORMAL, "chip da 3ª pessoa em diante / pessoa desativada"],
+    ["C13", "erro", "superficie", TEXTO_NORMAL, "erros de campo e de coluna"],
+  ];
+
+  it("a tabela tem C1..C13 sem o C11 (o C11 é o P5 do Estoque, reusado)", () => {
+    expect(PARES.map(([par]) => par)).toEqual(
+      Array.from({ length: 13 }, (_, indice) => `C${indice + 1}`).filter((par) => par !== "C11"),
+    );
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = cor(tokenDaFrente);
+      const fundo = cor(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+});
