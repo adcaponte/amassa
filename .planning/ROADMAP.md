@@ -976,7 +976,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 06.2-04-PLAN.md — Manter: editar, desativar com confirmação, reativar sem atropelar nome ativo; os pares de contraste da fase (onda 4)
+- [x] 06.2-04-PLAN.md — Manter: editar, desativar com confirmação, reativar sem atropelar nome ativo; os pares de contraste da fase (onda 4)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
