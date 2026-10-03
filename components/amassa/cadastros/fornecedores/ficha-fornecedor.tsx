@@ -1,10 +1,17 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
-import { ROTULO_AREA } from "@/lib/financeiro/textos";
-import { formatarDataCurta, formatarInstanteCurto, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { ROTULO_AREA, ROTULO_PILULA_COMPRA, ROTULO_PILULA_OUTRA } from "@/lib/financeiro/textos";
+import { formatarDataCurta, formatarInstanteCurto, formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { textoDoTamanho } from "@/lib/fornecedores/arquivo";
 import { itensDeVende } from "@/lib/fornecedores/busca";
-import { anexosDoFornecedor, type AnexoDaFicha, type FichaDoFornecedor } from "@/lib/fornecedores/consultas";
+import { montarComprasDele, type CompraDele } from "@/lib/fornecedores/compras";
+import {
+  anexosDoFornecedor,
+  comprasDoFornecedor,
+  type AnexoDaFicha,
+  type ComprasLidas,
+  type FichaDoFornecedor,
+} from "@/lib/fornecedores/consultas";
 import type { AreaDoFornecedor } from "@/lib/fornecedores/esquemas";
 import { efeitoDeTirar, seloDaTabela, tabelaVigente } from "@/lib/fornecedores/tabela-vigente";
 import {
@@ -12,6 +19,7 @@ import {
   FRASE_SEM_OBSERVACAO,
   ROTULO_OBSERVACOES,
   ROTULO_TIPO_DE_ANEXO,
+  metaDaCompra,
   restoDaMetaDoAnexo,
   rodapeDaFicha,
   trechoEnviadaEm,
@@ -23,6 +31,7 @@ import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 
 import { AcoesDaFicha, type FornecedorDaFicha } from "./acoes-da-ficha";
 import { AnexosFornecedor, type AnexoNaFicha } from "./anexos-fornecedor";
+import { ComprasComErro, ComprasDele, EsqueletoDasCompras, type CompraNaFicha } from "./compras-dele";
 import { ContatosFornecedor } from "./contatos-fornecedor";
 import { SeloDesativado } from "./lista-fornecedores";
 import { NavegacaoDaFicha } from "./navegacao-da-ficha";
@@ -104,13 +113,47 @@ function paraATabelaVigente(vigente: AnexoDaFicha | null, hoje: string): TabelaV
   };
 }
 
+// Uma compra como a linha de "Compras dele" a mostra: tudo formatado AQUI, no servidor — o valor em R$
+// (centavos inteiros até este ponto) e a data curta do dia civil (sem fuso). O rótulo do tipo é o da
+// pílula do Financeiro ("Compra de material" / "Outra despesa").
+function paraALinhaDaCompra(compra: CompraDele): CompraNaFicha {
+  const rotuloDoTipo = compra.tipo === "compra" ? ROTULO_PILULA_COMPRA : ROTULO_PILULA_OUTRA;
+  return {
+    id: compra.id,
+    titulo: compra.titulo,
+    valor: formatarReais(compra.valorCentavos),
+    meta: metaDaCompra(formatarDataCurta(compra.data), rotuloDoTipo, compra.itens),
+  };
+}
+
+// "Compras dele" (plano 11; FRN-13, D-03): lida no seu PRÓPRIO `Suspense` e com o seu PRÓPRIO `try` —
+// uma falha aqui mostra o erro só na seção, e a ficha (contatos, anexos) continua certa. A lista e o
+// total do ano saem do módulo puro, com o "hoje" de Brasília que a ficha já calculou.
+async function ComprasDoFornecedorCarregadas({ fornecedorId, hoje }: { fornecedorId: string; hoje: string }) {
+  let lidas: ComprasLidas;
+  try {
+    lidas = await comprasDoFornecedor(fornecedorId);
+  } catch (erro) {
+    console.error("Falha ao carregar as compras do fornecedor:", erro);
+    return <ComprasComErro />;
+  }
+  const { compras, totalDoAno } = montarComprasDele({ ...lidas, hoje });
+  return (
+    <ComprasDele
+      compras={compras.map(paraALinhaDaCompra)}
+      total={{ ano: totalDoAno.ano, valor: formatarReais(totalDoAno.centavos), quantidade: totalDoAno.quantidade }}
+    />
+  );
+}
+
 // A ficha de leitura de um fornecedor (06.2-UI-SPEC.md §"Página — Cadastros → Fornecedores", Bloco
 // Ficha). Server Component: só desenha o que a página leu. Plano 03: "Voltar à lista" (só abaixo de
 // 1024 px), cabeçalho (nome + selo; etiquetas de "vende" e a de área com o ponto), contatos,
 // observações e o rodapé do plano 02. Plano 04: "Editar" e "Desativar"/"Reativar" (`AcoesDaFicha`, à
 // direita do cabeçalho). Plano 06: a seção de anexos (`AnexosFornecedor`), depois das Observações —
 // os anexos são lidos AQUI, junto com a ficha; se a leitura falhar, a coluna mostra o erro de
-// carregamento da ficha com "Tentar de novo" (a lista continua). As compras são do 11.
+// carregamento da ficha com "Tentar de novo" (a lista continua). Plano 11: "Compras dele", depois dos
+// anexos e antes do rodapé, num `Suspense` próprio (`ComprasDoFornecedorCarregadas`).
 //
 // `aria-labelledby` = o `h2` do nome (`tabIndex={-1}`: o foco vai a ele ao trocar de ficha —
 // `NavegacaoDaFicha`). O selo fica FORA do `h2`: o nome acessível do título é só o nome.
@@ -122,7 +165,8 @@ export async function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoForne
     console.error("Falha ao carregar os anexos do fornecedor:", erro);
     return <FichaSemFornecedor frase={FRASE_ERRO_CARREGAR_FICHA} acao={<TentarDeNovo />} />;
   }
-  // O "hoje" da folha "Novo anexo" (o "Vale a partir de" do PDF) e do selo da tabela vigente: o dia
+  // O "hoje" da folha "Novo anexo" (o "Vale a partir de" do PDF), do selo da tabela vigente e do ano de
+  // "Compras dele" (D-03): o dia
   // civil de Brasília calculado no servidor, nunca o dia UTC (nem o do navegador).
   const hoje = hojeEmBrasilia(new Date());
   const vigente = tabelaVigente(anexos);
@@ -211,6 +255,10 @@ export async function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoForne
         hoje={hoje}
         anexos={anexos.map((anexo) => paraALinha(anexo, anexos, vigente?.id ?? null))}
       />
+
+      <Suspense fallback={<EsqueletoDasCompras />}>
+        <ComprasDoFornecedorCarregadas fornecedorId={fornecedor.id} hoje={hoje} />
+      </Suspense>
 
       <p className="text-apoio text-tinta-fraca tabular-nums" data-testid="fornecedor-rodape-ficha">
         {rodapeDaFicha(cadastradoEm)}

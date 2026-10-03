@@ -408,3 +408,43 @@ export const TOAST_ANEXO_REMOVIDO = "Anexo removido.";
 export const FRASE_FALHA_AO_TIRAR = "Não deu para tirar o anexo. Verifique a internet e tente de novo.";
 // Tirar o que outra aba (ou um toque duplo) já tirou: não é erro — a ficha atualiza e a frase vira toast.
 export const FRASE_ANEXO_JA_TIRADO = "Esse anexo já tinha sido tirado. A ficha foi atualizada.";
+
+// ——— "Compras dele" na ficha (plano 06.2-11; FRN-13, D-03, UI-D12, UI-D13). Verbatim da
+// 06.2-UI-SPEC.md §Copywriting (Ações "Compras dele — mais", Linhas de leitura "Compras dele —
+// cabeçalho/linha/total", Estados vazios "Compras dele vazia", Erros "Carregar “Compras dele”"). ———
+
+// O cabeçalho vai em caixa alta pelo CSS; a dica, ao lado (ou abaixo, quando não cabe).
+export const TITULO_COMPRAS_DELE = "Compras dele";
+export const DICA_COMPRAS_DELE = "vem do Financeiro · despesas lançadas com este fornecedor";
+
+// A 2ª linha de cada compra: "{dd/mm/aa} · {Compra de material | Outra despesa}" + " · {item}" por
+// material. A data já chega formatada; o rótulo é o da pílula do Financeiro.
+export function metaDaCompra(data: string, rotuloDoTipo: string, itens: readonly string[]): string {
+  return [data, rotuloDoTipo, ...itens].join(" · ");
+}
+
+// O total do ano, em três partes (o valor vai em 600 no meio): "Total em {ano}: " + "{R$ X}" +
+// " · 1 despesa" / " · {N} despesas" — N e R$ X contam só o ano corrente (UI-D13).
+export function prefixoDoTotalDoAno(ano: string): string {
+  return `Total em ${ano}: `;
+}
+export function sufixoDoTotalDoAno(quantidade: number): string {
+  return quantidade === 1 ? " · 1 despesa" : ` · ${quantidade} despesas`;
+}
+// O ano corrente sem nenhuma (mas com anteriores).
+export function fraseNenhumaDespesaNoAno(ano: string): string {
+  return `Nenhuma despesa em ${ano} ainda.`;
+}
+
+// UI-D12: com mais de 10, o botão `outline` que mostra o resto.
+export function rotuloMostrarAsOutras(quantas: number): string {
+  return `Mostrar as outras ${quantas}`;
+}
+
+// Vazio (reescrito por causa da D-04: escrever o nome à mão não liga).
+export const FRASE_SEM_COMPRAS =
+  "Nenhuma despesa ligada a este fornecedor ainda. Ao lançar uma despesa no Financeiro, escolha o nome dele na lista do campo “Fornecedor” — aí ela aparece aqui. Despesas lançadas antes não entram.";
+
+// Erro de carregar, só na seção (com "Tentar de novo").
+export const FRASE_ERRO_CARREGAR_COMPRAS =
+  "Não deu para carregar as compras deste fornecedor. O resto da ficha está certo.";

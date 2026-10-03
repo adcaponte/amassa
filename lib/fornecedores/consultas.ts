@@ -6,12 +6,13 @@
 //
 // A lista traz TODOS (ativos e desativados): o filtro "mostrar desativados" e a busca são do cliente
 // (plano 03), e a ficha de um desativado continua abrindo pelo `?fornecedor=`.
-import { count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fornecedorAnexos, fornecedores, usuarios } from "@/db/schema";
+import { documentoLinhas, documentos, fornecedorAnexos, fornecedores, itensCatalogo, usuarios } from "@/db/schema";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
+import type { DocumentoDaCompra, LinhaDaCompra } from "./compras";
 import type { AreaDoFornecedor, TipoDeAnexo } from "./esquemas";
 
 export type FornecedorDaLista = {
@@ -216,4 +217,65 @@ export async function anexosDoFornecedor(fornecedorId: string): Promise<AnexoDaF
     criadoEm: linha.criadoEm.toISOString(),
     enviadoEm: hojeEmBrasilia(linha.criadoEm),
   }));
+}
+
+// ——— "Compras dele" (plano 06.2-11; FRN-13, D-03). Chamada pela ficha (Server Component da página de
+// Cadastros, que já chamou `exigirUsuario()`). SÓ LÊ o Financeiro — nenhuma escrita, nenhuma coluna
+// nova: o que a ficha soma é o valor que o Financeiro já mostra (`totalDasLinhas`, no módulo puro). ———
+
+export type ComprasLidas = {
+  documentos: DocumentoDaCompra[];
+  linhas: LinhaDaCompra[];
+};
+
+// Duas consultas: (a) as despesas NÃO canceladas ligadas a este fornecedor (`tipo = 'despesa'` e o
+// `fornecedor_id` — a 0028 já recusa vínculo fora de despesa; o filtro repete por clareza); (b) as
+// linhas delas, na ordem gravada, com a unidade do item (`left join`: linha sem item fica com `null`).
+// A ordem da tela e o total do ano são do puro (`montarComprasDele`, lib/fornecedores/compras.ts).
+export async function comprasDoFornecedor(fornecedorId: string): Promise<ComprasLidas> {
+  const lidos = await db
+    .select({
+      id: documentos.id,
+      data: documentos.data,
+      titulo: documentos.titulo,
+      criadoEm: documentos.criadoEm,
+    })
+    .from(documentos)
+    .where(
+      and(
+        eq(documentos.fornecedorId, fornecedorId),
+        eq(documentos.tipo, "despesa"),
+        isNull(documentos.canceladoEm),
+      ),
+    )
+    .orderBy(desc(documentos.data), desc(documentos.criadoEm), desc(documentos.id));
+
+  if (lidos.length === 0) {
+    return { documentos: [], linhas: [] };
+  }
+
+  const linhas = await db
+    .select({
+      documentoId: documentoLinhas.documentoId,
+      nome: documentoLinhas.descricao,
+      quantidade: documentoLinhas.quantidade,
+      quantidadeEstoque: documentoLinhas.quantidadeEstoque,
+      unidade: itensCatalogo.unidade,
+      itemId: documentoLinhas.itemId,
+      valorCentavos: documentoLinhas.valorCentavos,
+    })
+    .from(documentoLinhas)
+    .leftJoin(itensCatalogo, eq(itensCatalogo.id, documentoLinhas.itemId))
+    .where(
+      inArray(
+        documentoLinhas.documentoId,
+        lidos.map((documento) => documento.id),
+      ),
+    )
+    .orderBy(asc(documentoLinhas.ordem), asc(documentoLinhas.criadoEm), asc(documentoLinhas.id));
+
+  return {
+    documentos: lidos.map((documento) => ({ ...documento, criadoEm: documento.criadoEm.toISOString() })),
+    linhas,
+  };
 }

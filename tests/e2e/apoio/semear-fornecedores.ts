@@ -275,3 +275,78 @@ export async function renomearFornecedorNoBanco(id: string, nome: string): Promi
     }
   });
 }
+
+// ——— "Compras dele" (plano 06.2-11, FRN-13). ———
+
+export type DespesaDoFornecedorParaSemear = {
+  fornecedorId: string;
+  // O nome congelado em `pessoa_nome` — o do cadastro, como `lancarDespesa` grava.
+  nome: string;
+  // Dia civil "YYYY-MM-DD" — calculado por `hojeNoAtelie`/`somarDiasAoHoje` (Brasília), nunca o dia UTC.
+  data: string;
+  valorCentavos: number;
+  // O texto da única linha ("Outra despesa": sem item) — quem chama embute "[e2e] … {sufixo}".
+  descricao: string;
+};
+
+// Uma despesa ligada a um fornecedor, direto no banco de teste — o molde de `semear-documento-antigo.ts`:
+// uma transação, documento → linha → parcela paga, com a soma das parcelas igual à das linhas (a
+// restrição adiada `conferir_soma_do_documento()` confere no `commit`). Serve para datar a despesa no
+// passado (31/12 do ano anterior, 01/01) e para ter muitas sem passar 12 vezes pela tela. Devolve o id.
+export async function semearDespesaDoFornecedor(dados: DespesaDoFornecedorParaSemear): Promise<string> {
+  const usuarioId = await idDoUsuarioDoTeste();
+  return comCliente(async (cliente) => {
+    const categoria = await cliente.query<{ id: string }>(
+      "select id from categorias where nome = 'Argila, esmalte e insumos' limit 1",
+    );
+    const categoriaId = categoria.rows[0]?.id;
+    if (!categoriaId) {
+      throw new Error("semearDespesaDoFornecedor: a categoria “Argila, esmalte e insumos” (0016) não existe.");
+    }
+
+    await cliente.query("begin");
+    try {
+      const { rows } = await cliente.query<{ id: string }>(
+        `insert into documentos (tipo, data, pessoa_nome, fornecedor_id, criado_por)
+         values ('despesa'::tipo_documento, $1, $2, $3, $4)
+         returning id`,
+        [dados.data, dados.nome, dados.fornecedorId, usuarioId],
+      );
+      const documentoId = rows[0].id;
+
+      await cliente.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, quantidade, valor_centavos)
+         values ($1, 0, $2, $3, 1, $4)`,
+        [documentoId, dados.descricao, categoriaId, dados.valorCentavos],
+      );
+
+      await cliente.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma, pago_em, pago_por)
+         values ($1, 1, $2, $3, 'pix'::forma_pagamento, $2, $4)`,
+        [documentoId, dados.data, dados.valorCentavos, usuarioId],
+      );
+
+      await cliente.query("commit");
+      return documentoId;
+    } catch (erro) {
+      await cliente.query("rollback");
+      throw erro;
+    }
+  });
+}
+
+// Cancela um documento como o Caixa grava (`cancelarDocumento`): `cancelado_em` e `cancelado_por`
+// juntos (o check `documentos_cancelado_em_e_por_juntos`), nada apagado. Só para despesa sem
+// movimentação de estoque (as semeadas acima) — o estorno do Estoque é da ação, não daqui.
+export async function cancelarNoBanco(documentoId: string): Promise<void> {
+  const usuarioId = await idDoUsuarioDoTeste();
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      "update documentos set cancelado_em = now(), cancelado_por = $2 where id = $1 and cancelado_em is null",
+      [documentoId, usuarioId],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`cancelarNoBanco: nenhum documento não cancelado com o id "${documentoId}".`);
+    }
+  });
+}
