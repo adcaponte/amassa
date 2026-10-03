@@ -6131,6 +6131,262 @@ async function conferirFornecedores(conexao, url = process.env.DATABASE_URL_TEST
   );
 }
 
+// ---------------------------------------------------------------------------------------------
+// Fase 06.3 — Lembretes (plano 06.3-01, Tarefa 2): as bordas da 0029 no Postgres efêmero. Toda
+// linha de prova leva "[mig]" no texto e é criada pela conexão de DONO; uma usuária de prova é
+// criada e apagada aqui. Nenhum dado real, nenhum texto do protótipo.
+
+async function apagarDadosDeProvaDosLembretes(conexao, usuarioId) {
+  try {
+    await conexao.query("begin");
+    await conexao.query(
+      `delete from lembretes
+        where texto ilike '%[mig]%' or criado_por = $1 or quem = $1 or feito_por = $1`,
+      [usuarioId],
+    );
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado — mesma razão da faxina do Estoque, da Agenda e dos Fornecedores.
+    console.error(`Lembretes: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+async function conferirLembretes(conexao) {
+  console.log("  conferirLembretes...");
+
+  async function umaLinha(sql, parametros = []) {
+    const { rows } = await conexao.query(sql, parametros);
+    return rows[0];
+  }
+  // Roda e desfaz: o código do erro (ou `null`) e o nome da restrição.
+  async function tentar(sql, parametros = []) {
+    await conexao.query("begin");
+    try {
+      return await erroDoBanco(() => conexao.query(sql, parametros));
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+  function esperar(resultado, codigoEsperado, restricoes, descricao) {
+    afirmar(
+      resultado.codigo === codigoEsperado &&
+        (restricoes === null || restricoes.includes(resultado.restricao)),
+      `Lembretes: ${descricao} deveria dar ${codigoEsperado ?? "certo"}` +
+        (restricoes ? ` (${restricoes.join(" ou ")})` : "") +
+        `, veio ${resultado.codigo} (${resultado.restricao}).`,
+    );
+  }
+
+  // ——— 1. Colunas e tipos (BRIEFING §2) ———————————————————————————————————————————————————————
+  const COLUNAS_ESPERADAS = {
+    id: ["uuid", "NO"],
+    texto: ["text", "NO"],
+    para_quando: ["date", "YES"],
+    quem: ["uuid", "YES"],
+    feito_em: ["timestamp with time zone", "YES"],
+    feito_por: ["uuid", "YES"],
+    criado_em: ["timestamp with time zone", "NO"],
+    criado_por: ["uuid", "NO"],
+    atualizado_em: ["timestamp with time zone", "NO"],
+  };
+  const { rows: colunas } = await conexao.query(
+    `select column_name, data_type, is_nullable from information_schema.columns
+      where table_schema = 'public' and table_name = 'lembretes'`,
+  );
+  const colunasNoBanco = Object.fromEntries(
+    colunas.map((coluna) => [coluna.column_name, [coluna.data_type, coluna.is_nullable]]),
+  );
+  afirmar(
+    JSON.stringify(Object.keys(colunasNoBanco).sort()) ===
+      JSON.stringify(Object.keys(COLUNAS_ESPERADAS).sort()),
+    `Lembretes: as colunas deveriam ser ${Object.keys(COLUNAS_ESPERADAS).sort().join(", ")}, ` +
+      `vieram ${Object.keys(colunasNoBanco).sort().join(", ")}.`,
+  );
+  for (const [nome, [tipo, anulavel]] of Object.entries(COLUNAS_ESPERADAS)) {
+    afirmar(
+      colunasNoBanco[nome][0] === tipo && colunasNoBanco[nome][1] === anulavel,
+      `Lembretes: a coluna ${nome} deveria ser ${tipo} ${anulavel === "YES" ? "anulável" : "not null"}, ` +
+        `veio ${colunasNoBanco[nome][0]} (is_nullable ${colunasNoBanco[nome][1]}).`,
+    );
+  }
+
+  // ——— 2. Índice (BRIEFING §4) ————————————————————————————————————————————————————————————————
+  const indice = await umaLinha(
+    "select indexdef from pg_indexes where schemaname = 'public' and indexname = 'lembretes_feito_em_para_quando_idx'",
+  );
+  afirmar(
+    indice !== undefined && indice.indexdef.includes("(feito_em, para_quando)"),
+    `Lembretes: o índice lembretes_feito_em_para_quando_idx em (feito_em, para_quando) deveria existir, ` +
+      `veio ${indice ? indice.indexdef : "nada"}.`,
+  );
+
+  const { rows: usuarioInserido } = await conexao.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste dos Lembretes [mig]', 'usuaria-lembretes@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+  const NINGUEM = "00000000-0000-4000-8000-000000000000";
+
+  async function inserirLembrete(texto, extras = {}) {
+    const colunasDoInsert = ["texto", "criado_por", ...Object.keys(extras)];
+    const valores = [texto, usuarioId, ...Object.values(extras)];
+    const marcadores = valores.map((_, indiceDoValor) => `$${indiceDoValor + 1}`).join(", ");
+    return (
+      await umaLinha(
+        `insert into lembretes (${colunasDoInsert.join(", ")}) values (${marcadores}) returning id`,
+        valores,
+      )
+    ).id;
+  }
+
+  try {
+    // ——— 3. 🔴 Privilégio: o delete PERMITIDO ————————————————————————————————————————————————
+    // EXCEÇÃO DELIBERADA (LMB-08, decisão do dono em 02/10/2026): `lembretes` é a única tabela de
+    // registro em que apagar é normal. Esta conferência afirma o CONTRÁRIO das outras de propósito.
+    // Se ela falhar porque alguém acrescentou uma retirada do privilégio de apagar na 0029 ou numa
+    // migração nova, o erro é a retirada — não corrija esta conferência.
+    const { rows: privilegios } = await conexao.query(
+      `select has_table_privilege('amassa_app', 'lembretes', 'DELETE') as apaga,
+              has_table_privilege('amassa_app', 'lembretes', 'SELECT')
+                and has_table_privilege('amassa_app', 'lembretes', 'INSERT')
+                and has_table_privilege('amassa_app', 'lembretes', 'UPDATE') as usa`,
+    );
+    afirmar(
+      privilegios[0].apaga === true,
+      "Lembretes: o papel amassa_app DEVE poder apagar lembretes (LMB-08, decisão do dono em 02/10/2026) — " +
+        "alguém acrescentou uma retirada do privilégio de apagar? O erro é a retirada, não esta conferência.",
+    );
+    afirmar(
+      privilegios[0].usa === true,
+      "Lembretes: o papel amassa_app deveria ter select/insert/update sobre lembretes.",
+    );
+    // Um delete REAL, comitado, como amassa_app — não só o privilégio no catálogo.
+    const paraApagar = await inserirLembrete("[mig] lembrete para apagar");
+    let resultadoDoDelete;
+    let apagadas = 0;
+    await conexao.query("begin");
+    try {
+      await conexao.query("set local role amassa_app");
+      resultadoDoDelete = await erroDoBanco(async () => {
+        const { rowCount } = await conexao.query("delete from lembretes where id = $1", [paraApagar]);
+        apagadas = rowCount;
+      });
+      await conexao.query(resultadoDoDelete.codigo === null ? "commit" : "rollback");
+    } catch (erro) {
+      await conexao.query("rollback").catch(() => {});
+      throw erro;
+    }
+    esperar(resultadoDoDelete, null, null, "um delete em lembretes como amassa_app (LMB-08)");
+    const { rows: restantes } = await conexao.query(
+      "select count(*)::int as quantos from lembretes where id = $1",
+      [paraApagar],
+    );
+    afirmar(
+      apagadas === 1 && restantes[0].quantos === 0,
+      `Lembretes: o delete como amassa_app deveria apagar a linha de verdade — apagou ${apagadas}, ` +
+        `sobraram ${restantes[0].quantos}.`,
+    );
+
+    // ——— 4. Checks (23514) e as bordas aceitas ———————————————————————————————————————————————
+    const inserirTexto = "insert into lembretes (texto, criado_por) values ($1, $2)";
+    esperar(
+      await tentar(inserirTexto, ["   ", usuarioId]),
+      "23514",
+      ["lembretes_texto_comprimento"],
+      "um lembrete só com espaços",
+    );
+    esperar(
+      await tentar(inserirTexto, ["[mig]" + "x".repeat(196), usuarioId]),
+      "23514",
+      ["lembretes_texto_comprimento"],
+      "um lembrete com 201 caracteres",
+    );
+    // 200 pontos de código com um emoji fora do BMP (dois códigos UTF-16, um ponto de código): grava —
+    // o teto conta caracteres, como o Zod (`[...texto].length`).
+    esperar(
+      await tentar(inserirTexto, ["[mig]" + "x".repeat(194) + "🏺", usuarioId]),
+      null,
+      null,
+      "um lembrete com 200 caracteres terminando num emoji fora do BMP",
+    );
+    esperar(
+      await tentar(
+        "insert into lembretes (texto, criado_por, feito_em) values ('[mig] feito sem quem', $1, now())",
+        [usuarioId],
+      ),
+      "23514",
+      ["lembretes_feito_coerente"],
+      "feito_em sem feito_por",
+    );
+    esperar(
+      await tentar(
+        "insert into lembretes (texto, criado_por, feito_por) values ('[mig] quem sem feito', $1, $1)",
+        [usuarioId],
+      ),
+      "23514",
+      ["lembretes_feito_coerente"],
+      "feito_por sem feito_em",
+    );
+    esperar(
+      await tentar(
+        "insert into lembretes (texto, criado_por, feito_em, feito_por) values ('[mig] feito inteiro', $1, now(), $1)",
+        [usuarioId],
+      ),
+      null,
+      null,
+      "feito_em e feito_por juntos",
+    );
+
+    // ——— 5. Chaves estrangeiras (23503) ——————————————————————————————————————————————————————
+    esperar(
+      await tentar(
+        "insert into lembretes (texto, criado_por, quem) values ('[mig] para ninguém', $1, $2)",
+        [usuarioId, NINGUEM],
+      ),
+      "23503",
+      ["lembretes_quem_usuarios_id_fk"],
+      "um lembrete com quem inexistente",
+    );
+    esperar(
+      await tentar(inserirTexto, ["[mig] criado por ninguém", NINGUEM]),
+      "23503",
+      ["lembretes_criado_por_usuarios_id_fk"],
+      "um lembrete com criado_por inexistente",
+    );
+
+    // ——— 6. Gatilho: um update de texto muda atualizado_em ————————————————————————————————————
+    const tocado = await inserirLembrete("[mig] lembrete do gatilho", {
+      atualizado_em: CARIMBO_ANTIGO,
+    });
+    await conexao.query("update lembretes set texto = '[mig] lembrete do gatilho, editado' where id = $1", [
+      tocado,
+    ]);
+    const { atualizado_em: depoisDoUpdate } = await umaLinha(
+      "select atualizado_em from lembretes where id = $1",
+      [tocado],
+    );
+    afirmar(
+      new Date(depoisDoUpdate).getTime() > new Date(CARIMBO_ANTIGO).getTime(),
+      `Lembretes: o gatilho tocar_atualizado_em_lembretes deveria trocar atualizado_em no update, ficou ${depoisDoUpdate}.`,
+    );
+  } finally {
+    await apagarDadosDeProvaDosLembretes(conexao, usuarioId);
+  }
+
+  const { rows: sobras } = await conexao.query(
+    "select count(*)::int as quantos from lembretes where texto ilike '%[mig]%'",
+  );
+  afirmar(
+    sobras[0].quantos === 0,
+    `Lembretes: a faxina deveria apagar todo o dado de prova, sobraram ${sobras[0].quantos}.`,
+  );
+}
+
 // As corridas da Agenda achadas na revisão de código da Fase 5 (05-REVIEW-A.md: CR-01, WR-01, WR-03),
 // provadas com o CÓDIGO DA APLICAÇÃO (`lib/agenda/gravacao.ts`, `gravarVenda`) e duas transações que se
 // sobrepõem de fato — a primeira trava e para numa barreira, a segunda espera a trava. Roda num processo
@@ -6164,6 +6420,7 @@ async function conferirBanco() {
     await conferirProducao(cliente);
     await conferirAgenda(cliente);
     await conferirFornecedores(cliente);
+    await conferirLembretes(cliente);
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
     provarCorridasDaAgenda();
