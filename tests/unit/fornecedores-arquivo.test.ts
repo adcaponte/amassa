@@ -1,4 +1,5 @@
 import { fileTypeFromBuffer } from "file-type";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,6 +22,7 @@ import {
 
 import {
   csvSintetico,
+  heicSintetico,
   htmlDisfarcado,
   pdfSintetico,
   xlsCfbSintetico,
@@ -361,5 +363,80 @@ describe("preenchimentoPeloArquivo — foto e planilha (plano 07)", () => {
       tipo: "tabela",
       valeDesde: "",
     });
+  });
+});
+
+// ——— Plano 06.2-07, Tarefa 2: a família foto na classificação e as fronteiras exatas de tamanho
+// (06.2-EDGE-COVERAGE.json — cada aresta numa `describe` com o nome dela). ———
+
+describe("FRN-06 · encoding — a família foto vem da assinatura, não da extensão", () => {
+  it("um PNG com nome .jpg → foto (vira JPEG)", async () => {
+    const png = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+    expect(await fileTypeFromBuffer(png)).toEqual({ ext: "png", mime: "image/png" });
+    expect(await classificarDeVerdade(png, "jpg")).toEqual({
+      ok: true,
+      tipo: { familia: "foto", extensao: "jpg", mime: "image/jpeg" },
+    });
+  });
+
+  it("um WebP com nome .pdf → foto (a assinatura manda)", async () => {
+    const webp = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .webp()
+      .toBuffer();
+    expect((await classificarDeVerdade(webp, "pdf")).ok).toBe(true);
+    expect(await classificarDeVerdade(webp, "pdf")).toMatchObject({ tipo: { familia: "foto" } });
+  });
+
+  it("heicSintetico com nome .heic → foto (a recusa dele é do sharp, não da classificação)", async () => {
+    expect(await fileTypeFromBuffer(heicSintetico())).toEqual({ ext: "heic", mime: "image/heic" });
+    expect(await classificarDeVerdade(heicSintetico(), "heic")).toEqual({
+      ok: true,
+      tipo: { familia: "foto", extensao: "jpg", mime: "image/jpeg" },
+    });
+  });
+});
+
+describe("FRN-07 · boundary — as fronteiras exatas, com as constantes do servidor", () => {
+  it("foto: 10 485 760 → null; 10 485 761 → a frase de foto", () => {
+    expect(10 * 1048576).toBe(LIMITE_FOTO_BYTES);
+    for (const nome of ["f.jpg", "f.jpeg", "f.png", "f.webp", "f.heic", "F.JPG"]) {
+      expect(recusaNoCliente({ nome, bytes: 10485760 })).toBeNull();
+      expect(recusaNoCliente({ nome, bytes: 10 * 1048576 + 1 })).toBe(fraseTamanhoDeFoto(nome, "10,0 MB"));
+    }
+  });
+
+  it("documento: 20 971 520 → null; 20 971 521 → a frase de documento", () => {
+    expect(20 * 1048576).toBe(LIMITE_DOCUMENTO_BYTES);
+    expect(recusaNoCliente({ nome: "t.pdf", bytes: 20971520 })).toBeNull();
+    expect(recusaNoCliente({ nome: "t.pdf", bytes: 20971521 })).toBe(fraseTamanhoDeDocumento("t.pdf", "20,0 MB"));
+  });
+
+  it("planilha (XLSX, XLS e CSV) conta como documento: 20 MiB", () => {
+    for (const nome of ["p.xlsx", "p.xls", "p.csv"]) {
+      expect(recusaNoCliente({ nome, bytes: 20 * 1048576 })).toBeNull();
+      expect(recusaNoCliente({ nome, bytes: 20 * 1048576 + 1 })).toBe(fraseTamanhoDeDocumento(nome, "20,0 MB"));
+    }
+    // Uma planilha de 15 MiB passa, embora uma foto do mesmo tamanho não.
+    expect(recusaNoCliente({ nome: "p.csv", bytes: 15 * 1048576 })).toBeNull();
+    expect(recusaNoCliente({ nome: "f.jpg", bytes: 15 * 1048576 })).not.toBeNull();
+  });
+
+  it("1 byte é o mínimo; 0 byte é vazio, em qualquer família", () => {
+    for (const nome of ["a.pdf", "a.jpg", "a.csv"]) {
+      expect(recusaNoCliente({ nome, bytes: 1 })).toBeNull();
+      expect(recusaNoCliente({ nome, bytes: 0 })).toBe(FRASE_ARQUIVO_VAZIO);
+    }
+  });
+
+  it("textoDoTamanho na fronteira: 10 MiB + 1 = “10,0 MB”; 1 MiB − 1 = “1024 KB”", () => {
+    expect(textoDoTamanho(10 * 1048576 + 1)).toBe("10,0 MB");
+    expect(textoDoTamanho(1048575)).toBe("1024 KB");
+    expect(textoDoTamanho(1048576)).toBe("1,0 MB");
   });
 });
