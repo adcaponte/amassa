@@ -90,6 +90,20 @@ async function apagarSemFalhar(caminho: string): Promise<void> {
   }
 }
 
+// Quanto do começo do arquivo vai para a detecção do tipo pela assinatura (passo 7).
+const BYTES_PARA_DETECTAR = 4 * 1024 * 1024;
+
+async function lerInicio(caminho: string, limite: number): Promise<Uint8Array> {
+  const arquivo = await fs.open(caminho, "r");
+  try {
+    const inicio = new Uint8Array(limite);
+    const { bytesRead } = await arquivo.read(inicio, 0, limite, 0);
+    return inicio.subarray(0, bytesRead);
+  } finally {
+    await arquivo.close();
+  }
+}
+
 async function lerAmostra(caminho: string): Promise<Uint8Array> {
   const arquivo = await fs.open(caminho, "r");
   try {
@@ -206,7 +220,13 @@ export async function PUT(request: NextRequest) {
 
     // 7. O tipo pela ASSINATURA, lendo do disco (um XLSX pode ter o `[Content_Types].xml` depois de
     // outras entradas do zip — o `file-type` lê o quanto precisar).
-    const detectado = await tipoDeArquivo.fileTypeFromFile(temporario);
+    // `fileTypeFromBuffer`, NUNCA `fileTypeFromFile`: a versão de arquivo do `file-type` carrega o pacote
+    // `strtok3` em tempo de execução, e o rastreio do `output: "standalone"` não o leva para a imagem —
+    // na imagem de produção TODO envio caía em 500 ("Cannot find package strtok3"), enquanto o e2e local,
+    // com o `node_modules` inteiro, passava (03/10/2026, run 37127538506; reproduzido contra a imagem). A
+    // versão de buffer é a mesma que as fotos de orçamento já provam na imagem. Os primeiros 4 MiB bastam:
+    // num XLSX o `[Content_Types].xml` vem no começo do zip; o resto do arquivo nunca vai para a memória.
+    const detectado = await tipoDeArquivo.fileTypeFromBuffer(await lerInicio(temporario, BYTES_PARA_DETECTAR));
     const amostra = await lerAmostra(temporario);
     const classe = classificarArquivo({ detectado, extensaoDoNome: meta.extensao, amostra });
     if (!classe.ok) {
