@@ -1,11 +1,25 @@
+import { fileTypeFromBuffer } from "file-type";
 import { describe, expect, it } from "vitest";
 
 import {
   classificarArquivo,
+  familiaPelaExtensao,
+  LIMITE_DOCUMENTO_BYTES,
+  LIMITE_FOTO_BYTES,
   nomeDoAnexoPeloArquivo,
+  pareceTexto,
   preenchimentoPeloArquivo,
   textoDoTamanho,
 } from "@/lib/fornecedores/arquivo";
+
+import {
+  csvSintetico,
+  htmlDisfarcado,
+  pdfSintetico,
+  xlsCfbSintetico,
+  xlsxSintetico,
+  zipQualquer,
+} from "../e2e/apoio/arquivos-sinteticos";
 
 // As regras do arquivo de um anexo de fornecedor (06.2-05-PLAN.md): a classificação pela assinatura
 // (função pura sobre o que o `file-type` achou), o texto do tamanho e o nome sugerido pela folha.
@@ -124,5 +138,152 @@ describe("preenchimentoPeloArquivo — a folha ao escolher o arquivo (UI-SPEC)",
         tipoTocadoPelaPessoa: true,
       }),
     ).toEqual({ nome: "Catálogo de verão", tipo: null, valeDesde: "" });
+  });
+});
+
+// ——— Tarefa 2: a matriz "assinatura, não extensão", borda por borda, com o `file-type` DE VERDADE
+// chamado aqui no teste (o módulo puro nunca o importa) sobre os MESMOS buffers sintéticos do e2e. ———
+
+// O que a rota faz: o `file-type` olha o conteúdo, a amostra são os primeiros 8 KB.
+async function classificarDeVerdade(conteudo: Buffer, extensaoDoNome: string) {
+  const detectado = await fileTypeFromBuffer(conteudo);
+  return classificarArquivo({ detectado, extensaoDoNome, amostra: conteudo.subarray(0, 8192) });
+}
+
+const SVG = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', "utf8");
+
+describe("documento: o PDF entra pela assinatura %PDF", () => {
+  it("pdfSintetico → documento pdf, qualquer que seja a extensão do nome", async () => {
+    for (const extensao of ["pdf", "", "txt"]) {
+      expect(await classificarDeVerdade(pdfSintetico(4096), extensao)).toEqual({
+        ok: true,
+        tipo: { familia: "documento", extensao: "pdf", mime: "application/pdf" },
+      });
+    }
+  });
+});
+
+describe("planilha XLSX: zip só entra se o [Content_Types].xml disser planilha", () => {
+  it("xlsxSintetico → planilha xlsx", async () => {
+    expect(await classificarDeVerdade(xlsxSintetico(), "xlsx")).toEqual({
+      ok: true,
+      tipo: {
+        familia: "planilha",
+        extensao: "xlsx",
+        mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    });
+  });
+
+  it("zipQualquer com nome .xlsx → recusa (o file-type diz zip)", async () => {
+    expect(await fileTypeFromBuffer(zipQualquer())).toEqual({ ext: "zip", mime: "application/zip" });
+    expect(await classificarDeVerdade(zipQualquer(), "xlsx")).toEqual({ ok: false, motivo: "tipo" });
+  });
+
+  it("xlsm (planilha com macro) → recusa, mesmo sendo planilha", () => {
+    expect(
+      classificarArquivo({
+        detectado: { ext: "xlsm", mime: "application/vnd.ms-excel.sheet.macroenabled.12" },
+        extensaoDoNome: "xlsm",
+        amostra: new Uint8Array(),
+      }),
+    ).toEqual({ ok: false, motivo: "tipo" });
+  });
+});
+
+describe("planilha XLS: o OLE (cfb) só entra com nome .xls", () => {
+  it("xlsCfbSintetico com .xls → planilha xls", async () => {
+    expect(await classificarDeVerdade(xlsCfbSintetico(), "xls")).toEqual({
+      ok: true,
+      tipo: { familia: "planilha", extensao: "xls", mime: "application/vnd.ms-excel" },
+    });
+  });
+
+  it("xlsCfbSintetico com .doc → recusa; com .XLS em caixa alta → planilha", async () => {
+    expect(await classificarDeVerdade(xlsCfbSintetico(), "doc")).toEqual({ ok: false, motivo: "tipo" });
+    expect((await classificarDeVerdade(xlsCfbSintetico(), "XLS")).ok).toBe(true);
+  });
+});
+
+describe("planilha CSV (A-04): sem assinatura, só com nome .csv e conteúdo de texto", () => {
+  it("csvSintetico com .csv → planilha csv text/csv", async () => {
+    expect(await classificarDeVerdade(csvSintetico(), "csv")).toEqual({
+      ok: true,
+      tipo: { familia: "planilha", extensao: "csv", mime: "text/csv" },
+    });
+  });
+
+  it("csvSintetico com .txt → recusa (texto sem assinatura só entra como .csv)", async () => {
+    expect(await classificarDeVerdade(csvSintetico(), "txt")).toEqual({ ok: false, motivo: "tipo" });
+  });
+
+  it("CSV com BOM UTF-8 → planilha", async () => {
+    const comBom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), csvSintetico()]);
+    expect((await classificarDeVerdade(comBom, "csv")).ok).toBe(true);
+  });
+});
+
+describe("disfarces (Pitfall 7, T-06.2-18): HTML e SVG nunca entram", () => {
+  it("htmlDisfarcado com nome .pdf → recusa", async () => {
+    expect(await classificarDeVerdade(htmlDisfarcado(), "pdf")).toEqual({ ok: false, motivo: "tipo" });
+  });
+
+  it("htmlDisfarcado com nome .csv → recusa (começa com <)", async () => {
+    expect(await classificarDeVerdade(htmlDisfarcado(), "csv")).toEqual({ ok: false, motivo: "tipo" });
+  });
+
+  it("<svg> com nome .svg, .csv e .jpg → recusa", async () => {
+    for (const extensao of ["svg", "csv", "jpg"]) {
+      expect(await classificarDeVerdade(SVG, extensao)).toEqual({ ok: false, motivo: "tipo" });
+    }
+  });
+
+  it("HTML com espaços e BOM antes do < → recusa", async () => {
+    const disfarce = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("  \n\t"), htmlDisfarcado()]);
+    expect(await classificarDeVerdade(disfarce, "csv")).toEqual({ ok: false, motivo: "tipo" });
+  });
+});
+
+describe("pareceTexto — o NUL separa binário de texto", () => {
+  it("texto UTF-8 com acento → é texto", () => {
+    expect(pareceTexto(csvSintetico())).toBe(true);
+  });
+
+  it("um byte nulo na amostra → não é texto (e o CSV é recusado)", async () => {
+    const comNulo = Buffer.concat([csvSintetico(), Buffer.from([0x00]), csvSintetico()]);
+    expect(pareceTexto(comNulo)).toBe(false);
+    expect(await classificarDeVerdade(comNulo, "csv")).toEqual({ ok: false, motivo: "tipo" });
+  });
+
+  it("bytes de controle demais → não é texto; tab, CR e LF não contam", () => {
+    const controles = Buffer.alloc(100, 0x41);
+    controles.fill(0x01, 0, 2);
+    expect(pareceTexto(controles)).toBe(false);
+    expect(pareceTexto(Buffer.from("a\tb\r\nc\n"))).toBe(true);
+  });
+
+  it("amostra vazia → não é texto", () => {
+    expect(pareceTexto(new Uint8Array())).toBe(false);
+  });
+});
+
+describe("limites e família pela extensão", () => {
+  it("20 MB e 10 MB na conta do protótipo (MiB)", () => {
+    expect(LIMITE_DOCUMENTO_BYTES).toBe(20_971_520);
+    expect(LIMITE_FOTO_BYTES).toBe(10_485_760);
+  });
+
+  it.each([
+    ["JPEG", "foto"],
+    ["pdf", "documento"],
+    ["XLS", "planilha"],
+    ["csv", "planilha"],
+    ["heic", "foto"],
+    ["xlsm", null],
+    ["svg", null],
+    ["zip", null],
+    ["", null],
+  ] as const)("familiaPelaExtensao(%s) → %s", (extensao, familia) => {
+    expect(familiaPelaExtensao(extensao)).toBe(familia);
   });
 });
