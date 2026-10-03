@@ -4,7 +4,10 @@ import {
   CHAVE_RASCUNHO_DESPESA,
   CHAVE_RASCUNHO_VENDA,
   lerRascunho,
+  lerRascunhoDespesa,
   serializarRascunho,
+  serializarRascunhoDespesa,
+  type RascunhoDeDespesa,
   type RascunhoDeVenda,
 } from "@/lib/financeiro/rascunho";
 
@@ -109,5 +112,51 @@ describe("serializarRascunho / lerRascunho", () => {
     expect(lido.linhas).toEqual([
       { tipo: "livre", descricao: "Ok", categoriaId: "cat-1", valorTexto: "10" },
     ]);
+  });
+});
+
+// ——— Fase 06.2, plano 12 (Pitfall 15): o rascunho da Despesa lembra o fornecedor ESCOLHIDO nos dois
+// modos, e nunca prende um fornecedor que não está mais entre os ativos. Ids inventados. ———
+
+function despesaCom(compraFornecedorId: string | null, outraFornecedorId: string | null): RascunhoDeDespesa {
+  return {
+    modo: "outra",
+    compra: {
+      data: "2026-10-03",
+      pessoa: "Olaria Inventada",
+      fornecedorId: compraFornecedorId,
+      linhas: [{ itemId: "item-1", quantidadeEstoqueTexto: "10", valorTotalTexto: "85" }],
+    },
+    outra: {
+      data: "2026-10-02",
+      pessoa: "Conserto Fictício",
+      fornecedorId: outraFornecedorId,
+      descricao: "Conserto do forno",
+      categoriaId: "cat-1",
+      valorTexto: "120",
+    },
+  };
+}
+
+describe("rascunho da Despesa — o fornecedor escolhido (plano 06.2-12)", () => {
+  it("fornecedorId que não está mais entre os ativos é descartado; o nome fica como texto livre", () => {
+    const texto = serializarRascunhoDespesa(despesaCom("X", "X"));
+    const lido = lerRascunhoDespesa(texto, ["item-1"], ["Y"]);
+    expect(lido.compra.fornecedorId).toBeNull();
+    expect(lido.compra.pessoa).toBe("Olaria Inventada");
+    expect(lido.outra.fornecedorId).toBeNull();
+    expect(lido.outra.pessoa).toBe("Conserto Fictício");
+  });
+
+  it("rascunho antigo, sem o campo fornecedorId, continua legível — fornecedorId nulo", () => {
+    const antigo = JSON.stringify({
+      versao: 1,
+      modo: "compra",
+      compra: { data: "2026-10-01", pessoa: "Alguém", linhas: [] },
+      outra: { data: "", pessoa: "", descricao: "", categoriaId: "", valorTexto: "" },
+    });
+    const lido = lerRascunhoDespesa(antigo, [], ["Y"]);
+    expect(lido.compra).toEqual({ data: "2026-10-01", pessoa: "Alguém", fornecedorId: null, linhas: [] });
+    expect(lido.outra.fornecedorId).toBeNull();
   });
 });

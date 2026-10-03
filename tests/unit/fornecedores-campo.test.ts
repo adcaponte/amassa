@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  fornecedorComNomeIgual,
   MAXIMO_DE_SUGESTOES,
+  mensagemDoPainel,
   situacaoDoVinculo,
   sugestoesDoCampo,
   type FornecedorDoCampo,
@@ -12,7 +14,7 @@ import {
 
 // O campo "Fornecedor" da Despesa (06.2-10-PLAN.md, Tarefa 1; FRN-12, D-04). Nomes inventados — nenhum
 // dado real, nenhum nome do protótipo. A Tarefa 2 acrescenta a matriz de bordas das sugestões; as
-// matrizes de `situacaoDoVinculo` com os seis estados são do plano 12.
+// matrizes de `situacaoDoVinculo` com os seis estados são do plano 12 (06.2-12-PLAN.md).
 
 function fornecedor(parcial: Partial<FornecedorDoCampo> & { id: string; nome: string }): FornecedorDoCampo {
   return { vende: null, cidadeEntrega: null, ...parcial };
@@ -46,18 +48,74 @@ describe("sugestoesDoCampo", () => {
   });
 });
 
+// Plano 12: `situacaoDoVinculo` passou a receber a lista de ativos e a devolver `{ estado, … }` — os três
+// casos do plano 10 continuam aqui com o mesmo sentido, no formato novo.
+const UM_ATIVO = [fornecedor({ id: "x", nome: "Outro Fornecedor Qualquer" })];
+
 describe("situacaoDoVinculo", () => {
   it("campo vazio (ou só espaços) e sem escolha = vazio", () => {
-    expect(situacaoDoVinculo({ texto: "", fornecedorId: null })).toBe("vazio");
-    expect(situacaoDoVinculo({ texto: "   ", fornecedorId: null })).toBe("vazio");
+    expect(situacaoDoVinculo({ texto: "", fornecedorId: null, fornecedores: UM_ATIVO })).toEqual({ estado: "vazio" });
+    expect(situacaoDoVinculo({ texto: "   ", fornecedorId: null, fornecedores: UM_ATIVO })).toEqual({
+      estado: "vazio",
+    });
   });
 
   it("escolhido da lista = ligado", () => {
-    expect(situacaoDoVinculo({ texto: "Barro Inventado", fornecedorId: "abc" })).toBe("ligado");
+    expect(situacaoDoVinculo({ texto: "Barro Inventado", fornecedorId: "abc", fornecedores: UM_ATIVO })).toEqual({
+      estado: "ligado",
+    });
   });
 
-  it("texto sem escolha = texto livre — mesmo igual ao nome de um fornecedor (nada liga sozinho, UI-D4)", () => {
-    expect(situacaoDoVinculo({ texto: "Barro Inventado", fornecedorId: null })).toBe("texto-livre");
+  it("texto sem escolha = texto livre — nunca ligado (nada liga sozinho, UI-D4)", () => {
+    expect(situacaoDoVinculo({ texto: "Barro Inventado", fornecedorId: null, fornecedores: UM_ATIVO })).toEqual({
+      estado: "texto-livre",
+    });
+  });
+
+  // Plano 12, Tarefa 1 (o <behavior> do plano).
+  it("texto igual (sem acento, caixa ou espaços extras) ao nome de UM ativo, sem escolher = texto-igual-ao-cadastro", () => {
+    expect(
+      situacaoDoVinculo({
+        texto: "  ARGILA sul ",
+        fornecedorId: null,
+        fornecedores: [{ nome: "Argila Sul" }],
+      }),
+    ).toEqual({ estado: "texto-igual-ao-cadastro", nome: "Argila Sul" });
+  });
+
+  it("cadastro sem nenhum ativo e texto escrito = cadastro-vazio; lista que não carregou = erro", () => {
+    expect(situacaoDoVinculo({ texto: "Alguém", fornecedorId: null, fornecedores: [] })).toEqual({
+      estado: "cadastro-vazio",
+    });
+    expect(situacaoDoVinculo({ texto: "Alguém", fornecedorId: null, fornecedores: null })).toEqual({ estado: "erro" });
+    expect(situacaoDoVinculo({ texto: "", fornecedorId: null, fornecedores: null })).toEqual({ estado: "erro" });
+  });
+});
+
+describe("fornecedorComNomeIgual", () => {
+  it("devolve o único ativo com o nome igual ao texto normalizado; nenhum → null", () => {
+    const lista = [fornecedor({ id: "1", nome: "Argila Sul" }), fornecedor({ id: "2", nome: "Argila Sul Norte" })];
+    expect(fornecedorComNomeIgual(lista, "argíla SUL")?.id).toBe("1");
+    expect(fornecedorComNomeIgual(lista, "argila")).toBeNull();
+    expect(fornecedorComNomeIgual(lista, "")).toBeNull();
+  });
+});
+
+describe("mensagemDoPainel", () => {
+  it("cadastro vazio, sem resultado e há mais — a frase exata; com opções e sem mais, nada", () => {
+    const lista = [fornecedor({ id: "1", nome: "Barro Inventado" })];
+    expect(mensagemDoPainel({ fornecedores: [], texto: "", sugestoes: sugestoesDoCampo([], "") })).toBe(
+      "Nenhum fornecedor cadastrado. Escreva o nome — ou cadastre em Cadastros → Fornecedores.",
+    );
+    expect(mensagemDoPainel({ fornecedores: lista, texto: "zzz", sugestoes: sugestoesDoCampo(lista, "zzz") })).toBe(
+      "Nenhum fornecedor do cadastro com “zzz”. Fica só o nome escrito.",
+    );
+    const nove = muitos(9);
+    expect(mensagemDoPainel({ fornecedores: nove, texto: "olaria", sugestoes: sugestoesDoCampo(nove, "olaria") })).toBe(
+      "Há mais fornecedores — continue digitando.",
+    );
+    expect(mensagemDoPainel({ fornecedores: lista, texto: "barro", sugestoes: sugestoesDoCampo(lista, "barro") })).toBeNull();
+    expect(mensagemDoPainel({ fornecedores: null, texto: "x", sugestoes: { opcoes: [], haMais: false } })).toBeNull();
   });
 });
 
