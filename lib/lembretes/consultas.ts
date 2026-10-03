@@ -6,13 +6,13 @@
 // Os nomes vêm de `usuarios` por `leftJoin` SEM filtrar `ativo` (molde `listarTarefasDaAbertura`):
 // quem foi desativado continua nomeado nos lembretes antigos. Nada aqui usa a data corrente do
 // Postgres (ele roda em UTC) — "hoje" é sempre parâmetro, vindo da página.
-import { asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { lembretes, usuarios } from "@/db/schema";
 
-import { LIMITE_DE_FEITOS_NO_INICIO } from "./lista";
+import { LIMITE_DE_FEITOS_NO_INICIO, type FiltrosDosLembretes } from "./lista";
 
 // Um lembrete como a tela o mostra. Instantes em texto ISO (atravessam a fronteira servidor →
 // cliente sem virar `Date` de um lado e texto do outro); `paraQuando` é o dia civil `AAAA-MM-DD`.
@@ -116,6 +116,44 @@ export async function lerLembretesDoInicio(): Promise<LembretesDoInicio> {
     abertos: abertos.map(paraATela),
     feitosRecentes: feitosRecentes.map(paraATela),
     totalDeFeitos: totais?.total ?? 0,
+  };
+}
+
+// "Ver todos" (`/gestao/lembretes`, plano 06.3-05, LMB-09): os filtros JÁ validados por
+// `filtrosDaUrl` (puro, `./lista`) viram SQL — `situacao` decide `feito_em is null`/`is not null` e
+// a ordem (abertos: a do briefing, igual à do Início; feitos: `feito_em desc, id desc`, igual à da
+// sanfona); `quem` "todos" não filtra, "geral" é `quem is null` e um uuid vai por `eq` (parâmetro do
+// Drizzle — nenhum texto da URL concatenado no SQL, T-06.3-22). `limit(quantos + 1)` no molde de
+// Clientes (`lib/clientes/consultas.ts`): a linha a mais só diz que `haMais` e sai da lista. O teto de
+// `quantos` (500) vem de `filtrosDaUrl` (T-06.3-24).
+export type LembretesDaPagina = {
+  linhas: LembreteDaTela[];
+  haMais: boolean;
+};
+
+export async function listarLembretes(filtros: FiltrosDosLembretes): Promise<LembretesDaPagina> {
+  const condicoes: SQL[] = [
+    filtros.situacao === "feitos" ? isNotNull(lembretes.feitoEm) : isNull(lembretes.feitoEm),
+  ];
+  if (filtros.quem === "geral") {
+    condicoes.push(isNull(lembretes.quem));
+  } else if (filtros.quem !== "todos") {
+    condicoes.push(eq(lembretes.quem, filtros.quem));
+  }
+
+  const ordem =
+    filtros.situacao === "feitos"
+      ? [desc(lembretes.feitoEm), desc(lembretes.id)]
+      : [sql`${lembretes.paraQuando} asc nulls last`, asc(lembretes.criadoEm), asc(lembretes.id)];
+
+  const linhas = await selecionarLembretes()
+    .where(and(...condicoes))
+    .orderBy(...ordem)
+    .limit(filtros.quantos + 1);
+
+  return {
+    linhas: linhas.slice(0, filtros.quantos).map(paraATela),
+    haMais: linhas.length > filtros.quantos,
   };
 }
 

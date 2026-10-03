@@ -172,3 +172,34 @@ export async function desativarPessoaDeTeste(id: string): Promise<void> {
 export async function apagarLembreteDireto(id: string): Promise<void> {
   await comCliente((cliente) => cliente.query("delete from lembretes where id = $1", [id]));
 }
+
+// Vários lembretes de uma vez, numa conexão só (plano 06.3-05: os 51 abertos do "Mostrar mais 50").
+// Mesma regra de `semearLembrete`: `criado_por` (e `feito_por`, quando feito) = o usuário do e2e.
+// Devolve os ids na ordem da lista. Só dentro da trava.
+export async function semearVariosLembretes(
+  lista: readonly LembreteParaSemear[],
+): Promise<string[]> {
+  const usuarioId = await idDoUsuarioDoTeste();
+  return comCliente(async (cliente) => {
+    const ids: string[] = [];
+    for (const dados of lista) {
+      const feitoEm = dados.feitoEm ?? null;
+      const { rows } = await cliente.query<{ id: string }>(
+        `insert into lembretes (texto, para_quando, quem, criado_em, criado_por, feito_em, feito_por)
+         values ($1, $2::date, $3, coalesce($4::timestamptz, now()), $5, $6::timestamptz, $7)
+         returning id`,
+        [
+          dados.texto,
+          dados.paraQuando ?? null,
+          dados.quem ?? null,
+          dados.criadoEm ?? null,
+          usuarioId,
+          feitoEm,
+          feitoEm === null ? null : usuarioId,
+        ],
+      );
+      ids.push(rows[0].id);
+    }
+    return ids;
+  });
+}

@@ -160,3 +160,23 @@ export function textoFeitoPor(nome: string, instante: string): string {
 export function textoPor(nome: string, instante: string): string {
   return `por ${nome} · ${instante}`;
 }
+
+// "Ver todos" — a rota `/gestao/lembretes` (06.3-UI-SPEC.md §"`/gestao/lembretes` — ver todos",
+// §Rótulos, §Estados vazios, §Erros; plano 06.3-05, LMB-09). O "Todos" do filtro é "sem filtro" —
+// outra coisa que o "geral" (sem dono) das pílulas de criar.
+export const TITULO_DA_PAGINA = "Lembretes";
+export const ROTULO_SITUACAO = "Situação";
+export const ROTULO_ABERTOS = "Abertos";
+export const ROTULO_FEITOS = "Feitos";
+export const ROTULO_DE_QUEM_FILTRO = "De quem";
+export const ROTULO_TODOS = "Todos";
+export const ROTULO_GERAL_FILTRO = "Geral";
+export const FRASE_NENHUM_LEMBRETE_AQUI = "Nenhum lembrete aqui.";
+// A MESMA frase do `ROTULO_MOSTRAR_MAIS` de Clientes (`lib/clientes/textos.ts`) — repetida aqui,
+// não importada: este módulo não tem import (e a frase de Clientes pode mudar sozinha).
+export const ROTULO_MOSTRAR_MAIS = "Mostrar mais 50";
+export const DICA_DE_VER_TODOS =
+  "Lembrete feito fica guardado com quem marcou e quando. “Excluir” apaga de vez (com alguns segundos para desfazer) — é o único lugar da plataforma onde apagar é normal, porque lembrete não é registro.";
+export const ROTULO_TENTAR_DE_NOVO = "Tentar de novo";
+// O nome do esqueleto para o leitor de tela (`loading.tsx`).
+export const ROTULO_CARREGANDO_A_PAGINA = "Carregando: Lembretes";
