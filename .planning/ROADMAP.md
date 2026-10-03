@@ -980,7 +980,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 06.2-05-PLAN.md — O caminho do byte pela rota: PUT em stream fora do middleware (D-01, D-08), tipo pela assinatura, GET em stream atrás da sessão (onda 5)
+- [x] 06.2-05-PLAN.md — O caminho do byte pela rota: PUT em stream fora do middleware (D-01, D-08), tipo pela assinatura, GET em stream atrás da sessão (onda 5)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
