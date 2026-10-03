@@ -28,6 +28,7 @@ export type ChaveDeIcone =
   | "agenda"
   | "queimas"
   | "estoque"
+  | "lembretes"
   | "cadastros";
 
 export type ItemDeNavegacao = {
@@ -51,8 +52,10 @@ export const ITENS_NAVEGACAO_CELULAR: readonly ItemDeNavegacao[] = [
   { href: "/gestao/agenda", rotulo: "Agenda", icone: "agenda" },
 ];
 
-// Barra lateral do desktop — EXATAMENTE 7 itens (D-11): Início mais TODOS os módulos, na ordem
-// do protótipo. Cadastros entra na lateral pela primeira vez nesta fase.
+// Barra lateral do desktop — EXATAMENTE 8 itens (D-11): Início mais TODOS os módulos, na ordem
+// do protótipo. Cadastros entrou na lateral pela primeira vez na Fase 04.6. Fase 06.3 (D-01/UI-D1):
+// Lembretes entra entre Estoque e Cadastros — e, por derivação desta lista, nas pílulas de atalho e
+// no índice "Tudo da plataforma" do Início. NUNCA na barra de baixo (a regra permanente da D-11).
 export const ITENS_NAVEGACAO_LATERAL: readonly ItemDeNavegacao[] = [
   { href: "/gestao", rotulo: "Início", icone: "inicio" },
   { href: "/gestao/financeiro", rotulo: "Financeiro", icone: "financeiro" },
@@ -60,6 +63,7 @@ export const ITENS_NAVEGACAO_LATERAL: readonly ItemDeNavegacao[] = [
   { href: "/gestao/agenda", rotulo: "Agenda", icone: "agenda" },
   { href: "/gestao/queimas", rotulo: "Queimas", icone: "queimas" },
   { href: "/gestao/estoque", rotulo: "Estoque", icone: "estoque" },
+  { href: "/gestao/lembretes", rotulo: "Lembretes", icone: "lembretes" },
   { href: "/gestao/cadastros", rotulo: "Cadastros", icone: "cadastros" },
 ];
 

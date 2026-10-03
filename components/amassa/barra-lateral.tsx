@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Flame,
   Home,
+  ListTodo,
   Package,
   SlidersHorizontal,
   Wallet,
@@ -40,6 +41,7 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   agenda: CalendarDays,
   queimas: Flame,
   estoque: Archive,
+  lembretes: ListTodo,
   cadastros: SlidersHorizontal,
 };
 
@@ -47,8 +49,9 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
 // consciente que simplifica a §5 da fonte, que sugeria recolhível). `collapsible="none"`
 // desliga o comportamento padrão de colapso/cookie do componente Sidebar do shadcn; a
 // largura vem da própria variável --sidebar-width que o SidebarProvider expõe. Itera
-// ITENS_NAVEGACAO_LATERAL (7 itens, D-11 da Fase 04.6: Início mais TODOS os módulos, Cadastros
-// incluído pela primeira vez) — diverge de ITENS_NAVEGACAO_CELULAR (4 itens) de propósito.
+// ITENS_NAVEGACAO_LATERAL (8 itens desde a Fase 06.3, que pôs Lembretes; D-11 da Fase 04.6: Início
+// mais TODOS os módulos, Cadastros incluído na 04.6) — diverge de ITENS_NAVEGACAO_CELULAR (4 itens)
+// de propósito.
 export type BarraLateralProps = {
   nome: string;
   className?: string;

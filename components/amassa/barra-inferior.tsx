@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Flame,
   Home,
+  ListTodo,
   Package,
   SlidersHorizontal,
   Wallet,
@@ -16,9 +17,9 @@ import {
 import { cn } from "@/lib/utils";
 import { ehItemAtivo, ITENS_NAVEGACAO_CELULAR, type ChaveDeIcone } from "@/lib/navegacao/itens";
 
-// O mapa cobre as SETE chaves de ChaveDeIcone (inclusive "cadastros") mesmo esta barra só
+// O mapa cobre as OITO chaves de ChaveDeIcone (inclusive "cadastros" e "lembretes") mesmo esta barra só
 // renderizando as quatro de ITENS_NAVEGACAO_CELULAR — é o mesmo mapa que BarraLateral usa, e
-// `Record<ChaveDeIcone, LucideIcon>` exige as sete para o TypeScript aceitar sem `as`: esquecer
+// `Record<ChaveDeIcone, LucideIcon>` exige as oito para o TypeScript aceitar sem `as`: esquecer
 // uma chave nova aqui quebra a build em vez de renderizar item sem ícone.
 const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   inicio: Home,
@@ -27,6 +28,7 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
   agenda: CalendarDays,
   queimas: Flame,
   estoque: Archive,
+  lembretes: ListTodo,
   cadastros: SlidersHorizontal,
 };
 

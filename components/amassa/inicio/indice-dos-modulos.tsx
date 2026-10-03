@@ -3,6 +3,7 @@ import {
   Archive,
   CalendarDays,
   Flame,
+  ListTodo,
   Package,
   Plus,
   SlidersHorizontal,
@@ -23,6 +24,7 @@ const ICONES: Record<ChaveDeModulo, LucideIcon> = {
   agenda: CalendarDays,
   queimas: Flame,
   estoque: Archive,
+  lembretes: ListTodo,
   cadastros: SlidersHorizontal,
 };
 
@@ -35,6 +37,8 @@ const FRASE_DE_APOIO: Record<ChaveDeModulo, string> = {
   agenda: "Aulas, reservas e uso do espaço",
   queimas: "Fornadas e manutenção do forno",
   estoque: "Materiais, insumos e peças prontas",
+  // Fase 06.3 (06.3-UI-SPEC.md §Navegação) — o protótipo de 2026 não tinha Lembretes.
+  lembretes: "O que falta fazer, com data e dono",
   cadastros: "Catálogo, pessoas, categorias, contas fixas, parâmetros",
 };
 
