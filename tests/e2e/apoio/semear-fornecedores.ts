@@ -128,3 +128,64 @@ export async function ativoNoBanco(id: string): Promise<boolean | null> {
     return rows[0]?.ativo ?? null;
   });
 }
+
+export type AnexoNoBanco = {
+  id: string;
+  nome: string;
+  tipo: "tabela" | "catalogo" | "nota" | "outro";
+  valeDesde: string | null;
+  nota: string | null;
+  arquivoCaminho: string;
+  arquivoTipo: string;
+  arquivoBytes: number;
+  extensao: string;
+  criadoPor: string;
+};
+
+// Os anexos de um fornecedor como o banco os tem (plano 06.2-05), do mais antigo ao mais novo. A data
+// sai como texto (`to_char`), nunca convertida pelo fuso do processo do teste.
+export async function anexosNoBanco(fornecedorId: string): Promise<AnexoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<AnexoNoBanco>(
+      `select id, nome, tipo, to_char(vale_desde, 'YYYY-MM-DD') as "valeDesde", nota,
+              arquivo_caminho as "arquivoCaminho", arquivo_tipo as "arquivoTipo",
+              arquivo_bytes as "arquivoBytes", extensao, criado_por as "criadoPor"
+         from fornecedor_anexos where fornecedor_id = $1
+        order by criado_em, id`,
+      [fornecedorId],
+    );
+    return rows;
+  });
+}
+
+// Quantos anexos um fornecedor tem — o "nada gravado" das recusas olha só o fornecedor do teste.
+export async function contarAnexos(fornecedorId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ total: string }>(
+      "select count(*) as total from fornecedor_anexos where fornecedor_id = $1",
+      [fornecedorId],
+    );
+    return Number(rows[0]?.total ?? 0);
+  });
+}
+
+// Uma LINHA de anexo cujo arquivo não existe no disco (UI E4·error: restauração parcial do backup). Só
+// o banco é semeado — nenhum arquivo é escrito em disco por aqui (no CI o app roda num contêiner). O
+// nome do arquivo é um uuid novo, que nunca foi gravado.
+export async function semearAnexoSemArquivo(fornecedorId: string, nome: string): Promise<string> {
+  const usuarioId = await idDoUsuarioDoTeste();
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into fornecedor_anexos
+         (fornecedor_id, nome, tipo, arquivo_caminho, arquivo_tipo, arquivo_bytes, extensao, criado_por)
+       values ($1, $2, 'catalogo', gen_random_uuid()::text || '.pdf', 'application/pdf', 1024, 'pdf', $3)
+       returning id`,
+      [fornecedorId, nome, usuarioId],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error(`semearAnexoSemArquivo: falha ao inserir "${nome}".`);
+    }
+    return id;
+  });
+}

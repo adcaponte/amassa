@@ -7,13 +7,22 @@
 // pontos de código, como o `length()` do Postgres (não em bytes nem em unidades UTF-16).
 import { z } from "zod";
 
+import { ehDataCivil } from "@/lib/producao/calendario";
+
 import {
   FRASE_AREA_INVALIDA,
   FRASE_FALHA_AO_SALVAR,
   FRASE_FICHA_NAO_EXISTE,
+  FRASE_NOME_DO_ANEXO_LONGO,
+  FRASE_NOME_DO_ANEXO_VAZIO,
   FRASE_NOME_LONGO,
   FRASE_NOME_VAZIO,
+  FRASE_NOTA_LONGA,
   FRASE_OBSERVACOES_LONGAS,
+  FRASE_TIPO_DE_ANEXO_INVALIDO,
+  FRASE_TIPO_PELA_ASSINATURA,
+  FRASE_VALE_DESDE_INVALIDA,
+  FRASE_VALE_DESDE_SO_TABELA,
   ROTULO_CIDADE_ENTREGA,
   ROTULO_EMAIL,
   ROTULO_PAGAMENTO_PRAZO,
@@ -104,3 +113,51 @@ export const esquemaAtivoDoFornecedor = z.object({
   id: campoId,
   ativo: z.boolean({ error: FRASE_FALHA_AO_SALVAR }),
 });
+
+// ——— O envio de um anexo (plano 06.2-05): os metadados chegam na QUERY do `PUT` (Pitfall 6 —
+// `URLSearchParams` codifica UTF-8; cabeçalho exige ByteString), o arquivo cru no corpo. ———
+
+// Os quatro tipos do enum `tipo_anexo_fornecedor` da 0028, na ordem do Select da folha.
+export const TIPOS_DE_ANEXO = ["tabela", "catalogo", "nota", "outro"] as const;
+
+export type TipoDeAnexo = (typeof TIPOS_DE_ANEXO)[number];
+
+// Os tetos dos checks `fornecedor_anexos_nome_comprimento` e `fornecedor_anexos_nota_comprimento`.
+export const TETO_DO_NOME_DO_ANEXO = 120;
+export const TETO_DA_NOTA_DO_ANEXO = 160;
+
+// A extensão do nome original, sem o ponto: só desempata o OLE (`.xls`) e libera o CSV na
+// classificação — quem decide o tipo é a assinatura. Minúsculas; vazia quando o arquivo não tem.
+const FORMATO_DA_EXTENSAO = /^[a-z0-9]{0,10}$/;
+
+export const esquemaEnvioDeAnexo = z
+  .object({
+    fornecedorId: z.uuid({ error: FRASE_FICHA_NAO_EXISTE }),
+    nome: z
+      .string({ error: FRASE_NOME_DO_ANEXO_VAZIO })
+      .transform(aparar)
+      .refine((nome) => nome.length > 0, { error: FRASE_NOME_DO_ANEXO_VAZIO })
+      .refine((nome) => caracteres(nome) <= TETO_DO_NOME_DO_ANEXO, { error: FRASE_NOME_DO_ANEXO_LONGO }),
+    tipo: z.enum(TIPOS_DE_ANEXO, { error: FRASE_TIPO_DE_ANEXO_INVALIDO }),
+    // Vazio ou ausente → nulo (vale pela data de envio); preenchido → uma data civil que existe.
+    valeDesde: z
+      .string({ error: FRASE_VALE_DESDE_INVALIDA })
+      .nullish()
+      .transform((data) => (data ?? "").trim())
+      .refine((data) => data === "" || ehDataCivil(data), { error: FRASE_VALE_DESDE_INVALIDA })
+      .transform((data) => (data === "" ? null : data)),
+    nota: textoOpcional(TETO_DA_NOTA_DO_ANEXO, FRASE_NOTA_LONGA),
+    extensao: z
+      .string({ error: FRASE_TIPO_PELA_ASSINATURA })
+      .nullish()
+      .transform((extensao) => (extensao ?? "").trim().toLowerCase())
+      .refine((extensao) => FORMATO_DA_EXTENSAO.test(extensao), { error: FRASE_TIPO_PELA_ASSINATURA }),
+  })
+  // A mesma regra do check `fornecedor_anexos_vale_desde_so_tabela`: a data só existe em tabela.
+  .superRefine((dados, contexto) => {
+    if (dados.valeDesde !== null && dados.tipo !== "tabela") {
+      contexto.addIssue({ code: "custom", path: ["valeDesde"], message: FRASE_VALE_DESDE_SO_TABELA });
+    }
+  });
+
+export type EnvioDeAnexoValidado = z.infer<typeof esquemaEnvioDeAnexo>;

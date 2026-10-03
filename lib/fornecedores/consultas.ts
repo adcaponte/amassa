@@ -98,3 +98,46 @@ export async function obterFornecedor(id: string): Promise<FichaDoFornecedor | n
     .where(eq(fornecedores.id, id));
   return linha ?? null;
 }
+
+// ——— O caminho do byte (plano 06.2-05). Chamadas SÓ pelos Route Handlers dos anexos, que já chamaram
+// `exigirUsuario()` (a mesma disciplina do resto deste arquivo). A lista dos anexos da ficha é do plano 06. ———
+
+export type AnexoParaLeitura = {
+  nome: string;
+  arquivoCaminho: string;
+  arquivoTipo: string;
+  arquivoBytes: number;
+  extensao: string;
+};
+
+// O que a rota de leitura precisa para servir um anexo — `null` se o id não está na tabela. O id chega
+// já validado como uuid pela rota; o caminho no disco sai daqui (o nome que o SERVIDOR gravou), nunca
+// da requisição.
+export async function obterAnexoParaLeitura(id: string): Promise<AnexoParaLeitura | null> {
+  const [linha] = await db
+    .select({
+      nome: fornecedorAnexos.nome,
+      arquivoCaminho: fornecedorAnexos.arquivoCaminho,
+      arquivoTipo: fornecedorAnexos.arquivoTipo,
+      arquivoBytes: fornecedorAnexos.arquivoBytes,
+      extensao: fornecedorAnexos.extensao,
+    })
+    .from(fornecedorAnexos)
+    .where(eq(fornecedorAnexos.id, id));
+  return linha ?? null;
+}
+
+export type SituacaoParaEnvio = "ativo" | "desativado" | "inexistente";
+
+// A conferência barata ANTES de o PUT gravar um byte no disco: fornecedor que não existe → 404,
+// desativado → 409. A transação do PUT confere de novo, com trava (`for share`), na hora de inserir.
+export async function situacaoParaEnvio(fornecedorId: string): Promise<SituacaoParaEnvio> {
+  const [linha] = await db
+    .select({ ativo: fornecedores.ativo })
+    .from(fornecedores)
+    .where(eq(fornecedores.id, fornecedorId));
+  if (!linha) {
+    return "inexistente";
+  }
+  return linha.ativo ? "ativo" : "desativado";
+}

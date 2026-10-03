@@ -199,3 +199,76 @@ export const FRASE_REATIVAR_NOME_REPETIDO =
   "Já existe um fornecedor ativo com esse nome. Renomeie um dos dois antes de reativar.";
 export const FRASE_FALHA_AO_DESATIVAR = "Não deu para desativar. Verifique a internet e tente de novo.";
 export const FRASE_FALHA_AO_REATIVAR = "Não deu para reativar. Verifique a internet e tente de novo.";
+
+// ——— O caminho do byte: envio e leitura de anexos (plano 06.2-05). Verbatim da 06.2-UI-SPEC.md §Erros,
+// onde ela tem a frase; as que ela não tem estão marcadas e entram no "Decidido sem o Theo" do SUMMARY.
+// Os rótulos e ações da folha "Novo anexo" são do plano 06. ———
+
+// Tamanho (cliente, sem rede; e 413 do servidor). `nome` é o nome do arquivo como a pessoa o vê;
+// `tamanho` já formatado por `textoDoTamanho` ("23,4 MB").
+export function fraseTamanhoDeDocumento(nome: string, tamanho: string): string {
+  return `${nome} tem ${tamanho}. O limite é 20 MB para PDF e planilha.`;
+}
+export function fraseTamanhoDeFoto(nome: string, tamanho: string): string {
+  return `${nome} tem ${tamanho}. O limite é 10 MB para foto.`;
+}
+
+// Tipo recusado pela extensão (cliente) — `extensao` sem o ponto.
+export function fraseTipoPelaExtensao(extensao: string): string {
+  return `.${extensao} não entra. Aceita PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV).`;
+}
+
+// Tipo recusado pela assinatura (415 do servidor).
+export const FRASE_TIPO_PELA_ASSINATURA =
+  "Esse arquivo não entra: o conteúdo dele não é PDF, foto nem planilha, mesmo que o nome diga que é. Aceita PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV).";
+
+// HEIC que o servidor não abre (D-07) — quem a usa é o ramo da foto (plano 07).
+export const FRASE_HEIC_NAO_ABRE =
+  "Essa foto está em HEIC e não deu para abrir aqui. No iPhone, envie pela galeria (ela converte para JPG) ou ative “Mais compatível” em Ajustes → Câmera → Formatos.";
+
+// Sessão expirada no envio (401 do PUT).
+export const FRASE_SESSAO_TERMINOU =
+  "Sua sessão terminou. Entre de novo e envie o arquivo outra vez — nada foi guardado.";
+
+// Fornecedor desativado no meio do envio (409 do PUT).
+export const FRASE_FORNECEDOR_DESATIVADO_NO_ENVIO =
+  "Este fornecedor foi desativado enquanto você enviava. Reative-o para subir anexos — nada foi guardado.";
+
+// Envio falhou (rede, 500, `TypeError` do `fetch`).
+export const FRASE_FALHA_AO_ENVIAR =
+  "Não deu para enviar. Confira o tamanho do arquivo e a conexão e tente de novo.";
+
+// Arquivo de 0 byte (400 do PUT) — a frase do plano 06.2-05.
+export const FRASE_ARQUIVO_VAZIO = "Esse arquivo está vazio. Escolha outro.";
+
+// `Origin` de outro endereço (403 do PUT, Pitfall 8). A UI-SPEC não tem frase: só um envio de fora da
+// plataforma chega aqui.
+export const FRASE_ORIGEM_RECUSADA =
+  "Esse envio não veio da plataforma e foi recusado. Abra a ficha do fornecedor e envie por lá.";
+
+// GET sem sessão: o MESMO corpo que o middleware devolve para toda rota `/gestao/api/` (UI-SPEC: "não
+// muda nesta fase").
+export const FRASE_NAO_AUTORIZADO = "Não autorizado.";
+
+// GET de id malformado ou de anexo que não existe (404). A UI-SPEC não tem frase; molde
+// `FRASE_FOTO_NAO_ENCONTRADA` dos orçamentos.
+export const FRASE_ANEXO_NAO_ENCONTRADO = "Esse anexo não existe.";
+
+// Abrir anexo cujo arquivo sumiu do disco (404 da rota).
+export const FRASE_ARQUIVO_SUMIU =
+  "Não deu para achar este arquivo no servidor. Avise quem cuida do backup.";
+
+// GET que falha por outro motivo do disco (500). A UI-SPEC não tem frase; molde
+// `FRASE_NAO_DEU_PARA_LER_FOTO`.
+export const FRASE_NAO_DEU_PARA_LER_ANEXO = "Não deu para abrir este arquivo. Tente de novo.";
+
+// Os metadados do envio (Zod da query do PUT).
+export const FRASE_NOME_DO_ANEXO_VAZIO = "Dê um nome ao anexo.";
+// Só um envio forjado passa do `maxLength` 120 do campo.
+export const FRASE_NOME_DO_ANEXO_LONGO = "O nome do anexo pode ter até 120 caracteres.";
+export const FRASE_NOTA_LONGA = "A nota pode ter até 160 caracteres.";
+// O Tipo é um Select: só um envio forjado chega aqui.
+export const FRASE_TIPO_DE_ANEXO_INVALIDO = "Escolha o tipo na lista.";
+export const FRASE_VALE_DESDE_INVALIDA = "Escolha uma data válida em “Vale a partir de”.";
+// O campo só aparece com Tipo = Tabela de preços; só um envio forjado chega aqui.
+export const FRASE_VALE_DESDE_SO_TABELA = "“Vale a partir de” só vale para tabela de preços.";
