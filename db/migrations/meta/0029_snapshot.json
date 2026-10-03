@@ -2478,7 +2478,7 @@
           "name": "fornecedores_nome_ativo_uk",
           "columns": [
             {
-              "expression": "lower(trim(\"nome\"))",
+              "expression": "nome_normalizado(\"nome\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"

@@ -15,8 +15,12 @@
 --     anuláveis — nulo = linha anterior à fase, nenhuma tentativa registrada, como `fotos_*` da 0017).
 --     `documentos` e `execucoes_backup` são tabelas quentes: depois do deploy e antes desta migração,
 --     todo `insert` nelas falha (Pitfall 12) — por isso publicar e migrar numa sessão só.
---   * D-06: nome único entre ativos SEM distinção de caixa — índice único parcial sobre
---     `lower(trim(nome))` `where ativo` (a letra do BRIEFING §2; acento conta).
+--   * D-06: nome único entre ativos SEM distinção de caixa NEM de acento — índice único parcial
+--     sobre `nome_normalizado(nome)` `where ativo` ("Argila Goias" e "Argila Goiás" não convivem
+--     ativos). `nome_normalizado()` é a função imutável da 0026 (minúsculas, sem acento, apara e
+--     colapsa espaços), que já existe quando esta roda. Troca do dono no chat, 03/10/2026, editada
+--     aqui antes de a 0028 ser aplicada em qualquer base fora dos testes; até então a regra era
+--     `lower(trim(nome))`, pela letra do BRIEFING §2, com acento contando.
 --
 -- Gerada com `npm run db:generate -- --name fornecedores` e completada à mão (cabeçalho, gatilho e
 -- revoke no fim). Desfazer: outra migração que remova as colunas e as tabelas — também
@@ -82,7 +86,7 @@ ALTER TABLE "fornecedor_anexos" ADD CONSTRAINT "fornecedor_anexos_criado_por_usu
 ALTER TABLE "fornecedores" ADD CONSTRAINT "fornecedores_criado_por_usuarios_id_fk" FOREIGN KEY ("criado_por") REFERENCES "public"."usuarios"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fornecedores" ADD CONSTRAINT "fornecedores_atualizado_por_usuarios_id_fk" FOREIGN KEY ("atualizado_por") REFERENCES "public"."usuarios"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "fornecedor_anexos_fornecedor_idx" ON "fornecedor_anexos" USING btree ("fornecedor_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "fornecedores_nome_ativo_uk" ON "fornecedores" USING btree (lower(trim("nome"))) WHERE "fornecedores"."ativo";--> statement-breakpoint
+CREATE UNIQUE INDEX "fornecedores_nome_ativo_uk" ON "fornecedores" USING btree (nome_normalizado("nome")) WHERE "fornecedores"."ativo";--> statement-breakpoint
 ALTER TABLE "documentos" ADD CONSTRAINT "documentos_fornecedor_id_fornecedores_id_fk" FOREIGN KEY ("fornecedor_id") REFERENCES "public"."fornecedores"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "documentos_fornecedor_idx" ON "documentos" USING btree ("fornecedor_id");--> statement-breakpoint
 ALTER TABLE "documentos" ADD CONSTRAINT "documentos_fornecedor_exige_pessoa_nome" CHECK ("documentos"."fornecedor_id" is null or "documentos"."pessoa_nome" is not null);--> statement-breakpoint

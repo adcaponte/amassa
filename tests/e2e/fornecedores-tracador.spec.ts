@@ -82,10 +82,11 @@ test.describe("fornecedores tracador", () => {
     expect(noBanco?.atualizadoPor).toBe(usuarioId);
   });
 
-  test("(b) toque duplo em Salvar cria um só; o mesmo nome em outra caixa e com espaços volta com a frase embaixo do Nome", async ({
+  test("(b) toque duplo em Salvar cria um só; o mesmo nome em outra caixa, sem acento e com espaços volta com a frase embaixo do Nome", async ({
     page,
   }) => {
-    const nome = `[e2e] Fornecedor ${sufixoUnico()}`;
+    const suf = sufixoUnico();
+    const nome = `[e2e] Fornecedor Goiás ${suf}`;
 
     await fazerLogin(page);
     await page.goto("/gestao/cadastros?sub=fornecedores");
@@ -98,8 +99,9 @@ test.describe("fornecedores tracador", () => {
     await expect(page).toHaveURL(FORMATO_DO_ID);
     expect(await contarFornecedoresComNome(nome)).toBe(1);
 
-    // De novo, com o mesmo nome em CAIXA ALTA e com espaços: o índice único entre ativos recusa.
-    const repetido = `  ${nome.toUpperCase()}  `;
+    // De novo, com o mesmo nome em CAIXA ALTA, sem o acento e com espaços: o índice único entre
+    // ativos (`nome_normalizado`, D-06 — troca do dono, 03/10/2026) recusa.
+    const repetido = `  [E2E] FORNECEDOR GOIAS ${suf.toUpperCase()}  `;
     const segunda = await abrirFolhaNova(page);
     const campoNome = segunda.getByLabel("Nome", { exact: true });
     await campoNome.fill(repetido);

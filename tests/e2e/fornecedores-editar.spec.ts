@@ -160,8 +160,9 @@ test.describe("fornecedores editar e desativar", () => {
     const suf = sufixoUnico();
     const nomeDoDesativado = `[e2e] Nome ${suf}`;
     const idDoDesativado = await semearFornecedor({ nome: nomeDoDesativado, ativo: false });
-    // O mesmo nome em outra caixa e com espaço no fim — `lower(trim(nome))` os iguala (D-06).
-    await semearFornecedor({ nome: `[E2E] nome ${suf.toUpperCase()} ` });
+    // O mesmo nome em outra caixa, com acento e com espaço no fim — `nome_normalizado(nome)` os
+    // iguala (D-06, troca do dono no chat, 03/10/2026: acento não conta).
+    await semearFornecedor({ nome: `[E2E] nóme ${suf.toUpperCase()} ` });
 
     await fazerLogin(page);
     const ficha = await abrirFicha(page, idDoDesativado, nomeDoDesativado);

@@ -5851,7 +5851,7 @@ async function conferirFornecedores(conexao, url = process.env.DATABASE_URL_TEST
   }
 
   try {
-    // ——— 1. Unicidade entre ativos, sem distinção de caixa (D-06) ————————————————————————————
+    // ——— 1. Unicidade entre ativos, sem distinção de caixa nem de acento (D-06) ——————————————
     const argilaSul = await inserirFornecedor("[mig] Argila Sul");
     const repetidoDeOutraCaixa =
       "insert into fornecedores (nome, area, criado_por, atualizado_por) values (' [mig] argila sul ', 'pecas', $1, $1)";
@@ -5871,16 +5871,24 @@ async function conferirFornecedores(conexao, url = process.env.DATABASE_URL_TEST
       ["fornecedores_nome_ativo_uk"],
       "reativar “[mig] Argila Sul” com “ [mig] argila sul ” ativo",
     );
-    // Acento CONTA (D-06 pela letra do briefing): “Cerâmica” e “Ceramica” convivem.
-    await inserirFornecedor("[mig] Cerâmica");
+    // Acento NÃO conta (D-06, troca do dono no chat, 03/10/2026 — `nome_normalizado()`):
+    // “Argila Goias” e “Argila Goiás” não convivem ativos, nem com espaço dobrado no meio.
+    const argilaGoias = await inserirFornecedor("[mig] Argila Goias");
+    const goiasComAcento =
+      "insert into fornecedores (nome, area, criado_por, atualizado_por) values ('[mig] ARGILA  Goiás', 'pecas', $1, $1)";
     esperar(
-      await tentar(
-        "insert into fornecedores (nome, area, criado_por, atualizado_por) values ('[mig] Ceramica', 'pecas', $1, $1)",
-        [usuarioId],
-      ),
+      await tentar(goiasComAcento, [usuarioId]),
+      "23505",
+      ["fornecedores_nome_ativo_uk"],
+      "“[mig] ARGILA  Goiás” ativo ao lado de “[mig] Argila Goias” (acento não conta)",
+    );
+    // Com um dos dois desativado, o outro grava — de novo, a unicidade é só entre ATIVOS.
+    await conexao.query("update fornecedores set ativo = false where id = $1", [argilaGoias]);
+    esperar(
+      await tentar(goiasComAcento, [usuarioId]),
       null,
       null,
-      "“[mig] Ceramica” ativo ao lado de “[mig] Cerâmica” (acento conta)",
+      "“[mig] ARGILA  Goiás” ativo com “[mig] Argila Goias” desativado",
     );
 
     // ——— 2. Concorrência: dois gestores cadastrando o mesmo nome ao mesmo tempo ——————————————
@@ -5912,7 +5920,7 @@ async function conferirFornecedores(conexao, url = process.env.DATABASE_URL_TEST
         );
         await conexaoB.query("rollback");
         const { rows } = await conexao.query(
-          "select count(*)::int as quantos from fornecedores where lower(trim(nome)) = '[mig] barro concorrente'",
+          "select count(*)::int as quantos from fornecedores where nome_normalizado(nome) = nome_normalizado('[MIG] Barro Concorrente')",
         );
         afirmar(
           rows[0].quantos === 1,

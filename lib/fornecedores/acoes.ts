@@ -79,7 +79,7 @@ function recusaDeValidacao(problemas: readonly ProblemaDeValidacao[]): {
 }
 
 // SQLSTATE 23505 = unique_violation — o índice único parcial `fornecedores_nome_ativo_uk`
-// (`lower(trim(nome))` entre os ATIVOS) é quem decide, não a tela: dois toques, duas abas ou dois
+// (`nome_normalizado(nome)` — sem caixa, acento nem espaço sobrando — entre os ATIVOS) é quem decide, não a tela: dois toques, duas abas ou dois
 // gestores ao mesmo tempo terminam com UM fornecedor e a frase para o outro. Lido por
 // `codigoDoErroPostgres` — o Drizzle embrulha o SQLSTATE em `erro.cause.code`.
 function ehNomeRepetido(erro: unknown): boolean {
@@ -175,7 +175,7 @@ export async function editarFornecedor(entrada: unknown): Promise<ResultadoDoFor
 // vezes e as duas respondem `ok` (idempotente — FRN-03). Desativar não apaga nada: os anexos, as
 // observações e as despesas ligadas ficam.
 //
-// Reativar um fornecedor cujo nome hoje é de outro ATIVO (comparado por `lower(trim(nome))`, D-06)
+// Reativar um fornecedor cujo nome hoje é de outro ATIVO (comparado por `nome_normalizado(nome)`, D-06)
 // bate no índice único parcial (23505) e volta com a frase própria, sem reativar (Pitfall 11) — quem
 // decide é o banco, não a tela.
 export async function definirFornecedorAtivo(

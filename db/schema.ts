@@ -2211,13 +2211,14 @@ export const fornecedores = pgTable(
       "fornecedores_observacoes_comprimento",
       sql`${tabela.observacoes} is null or length(${tabela.observacoes}) between 1 and 4000`,
     ),
-    // D-06: nome único ENTRE ATIVOS, sem distinção de caixa — a letra do BRIEFING §2, no molde de
-    // `categorias_nome_normalizado_idx` (expressão) + `turma_alunos_ativo_uk` (parcial). Acento
-    // CONTA: "Cerâmica" e "Ceramica" convivem. A pesquisa recomendava `nome_normalizado()` (sem
-    // acento, espaços colapsados), mais estrito que a regra de dado do briefing — fica como
-    // alternativa do dono. Reativar um desativado cujo nome um ativo já usa dá 23505 (Pitfall 11).
+    // D-06: nome único ENTRE ATIVOS, sem distinção de caixa NEM de acento — `nome_normalizado()`
+    // (a função imutável da 0026: minúsculas, sem acento, apara e colapsa espaços), no molde de
+    // `clientes_nome_normalizado_idx` (expressão) + `turma_alunos_ativo_uk` (parcial). "Argila Goias"
+    // e "Argila Goiás" não convivem ativos. Troca do dono no chat, 03/10/2026 — antes era
+    // `lower(trim(nome))`, a letra do BRIEFING §2, com acento contando. Reativar um desativado cujo
+    // nome um ativo já usa dá 23505 (Pitfall 11).
     uniqueIndex("fornecedores_nome_ativo_uk")
-      .on(sql`lower(trim(${tabela.nome}))`)
+      .on(sql`nome_normalizado(${tabela.nome})`)
       .where(sql`${tabela.ativo}`),
   ],
 );

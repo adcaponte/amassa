@@ -106,12 +106,12 @@ export async function fornecedorNoBanco(id: string): Promise<FornecedorNoBanco |
   });
 }
 
-// Quantos fornecedores (ativos ou não) têm este nome, sem caixa e sem espaço em volta — a mesma
-// expressão do índice único `fornecedores_nome_ativo_uk`.
+// Quantos fornecedores (ativos ou não) têm este nome, sem caixa, acento nem espaço sobrando — a
+// mesma expressão do índice único `fornecedores_nome_ativo_uk` (`nome_normalizado`, D-06).
 export async function contarFornecedoresComNome(nome: string): Promise<number> {
   return comCliente(async (cliente) => {
     const { rows } = await cliente.query<{ total: string }>(
-      "select count(*) as total from fornecedores where lower(trim(nome)) = lower(trim($1))",
+      "select count(*) as total from fornecedores where nome_normalizado(nome) = nome_normalizado($1)",
       [nome],
     );
     return Number(rows[0]?.total ?? 0);
