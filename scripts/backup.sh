@@ -54,6 +54,17 @@ if [ -z "$RCLONE_REMOTE_FOTOS" ] && [ -n "$RCLONE_REMOTE" ]; then
   RCLONE_REMOTE_FOTOS="${RCLONE_REMOTE%/}/fotos"
 fi
 
+# --- Anexos dos fornecedores (Fase 06.2, D-05/A-02): o gêmeo exato das fotos, logo acima. Mesmo
+# diretório do bind mount (docker/compose.yml, /opt/amassa/dados/anexos-fornecedores), alcançado
+# direto pelo HOST. RCLONE_REMOTE_ANEXOS, quando vazio e RCLONE_REMOTE existir, deriva a pasta
+# irmã "${RCLONE_REMOTE%/}/anexos-fornecedores" na mesma conta do destino do dump — "%/" remove
+# uma barra final antes de concatenar, como nas fotos. ---
+BACKUP_ANEXOS_DIR="${BACKUP_ANEXOS_DIR:-$AMASSA_DIR/dados/anexos-fornecedores}"
+RCLONE_REMOTE_ANEXOS="${RCLONE_REMOTE_ANEXOS:-}"
+if [ -z "$RCLONE_REMOTE_ANEXOS" ] && [ -n "$RCLONE_REMOTE" ]; then
+  RCLONE_REMOTE_ANEXOS="${RCLONE_REMOTE%/}/anexos-fornecedores"
+fi
+
 # --- Estado da armadilha de saída (passo 8). REGISTRADO fica 1 assim que uma linha é
 # gravada em execucoes_backup; se o script morrer antes disso, por qualquer caminho, a
 # armadilha grava a falha. Um backup que falha sem registrar é indistinguível, para
@@ -67,11 +78,15 @@ CODIGO_SAIDA=0
 # instrução SQL. Uma mensagem de erro do sistema pode conter aspas; interpolar isso numa string
 # SQL é como este tipo de script quebra em silêncio (T-02a-34). O SQL entra pela entrada
 # padrão do psql, não por "-c" — "-c" não substitui variáveis :'nome'.
+#
+# Oito argumentos, nesta ordem: sucesso, bytes, externo, mensagem, fotosbytes, fotosexterno,
+# anexosbytes, anexosexterno (os dois últimos da Fase 06.2, D-05 — colunas da migração 0028).
 registrar_execucao() {
-  printf '%s\n' "insert into execucoes_backup (sucesso, bytes, destino_externo_ok, mensagem, fotos_bytes, fotos_destino_externo_ok) values (:'sucesso'::boolean, nullif(:'bytes', '')::bigint, :'externo'::boolean, nullif(:'mensagem', ''), nullif(:'fotosbytes', '')::bigint, :'fotosexterno'::boolean);" |
+  printf '%s\n' "insert into execucoes_backup (sucesso, bytes, destino_externo_ok, mensagem, fotos_bytes, fotos_destino_externo_ok, anexos_bytes, anexos_destino_externo_ok) values (:'sucesso'::boolean, nullif(:'bytes', '')::bigint, :'externo'::boolean, nullif(:'mensagem', ''), nullif(:'fotosbytes', '')::bigint, :'fotosexterno'::boolean, nullif(:'anexosbytes', '')::bigint, :'anexosexterno'::boolean);" |
     $PG_CLIENT_CMD -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 \
       -v sucesso="$1" -v bytes="$2" -v externo="$3" -v mensagem="$4" \
-      -v fotosbytes="$5" -v fotosexterno="$6" >/dev/null
+      -v fotosbytes="$5" -v fotosexterno="$6" \
+      -v anexosbytes="$7" -v anexosexterno="$8" >/dev/null
   REGISTRADO=1
 }
 
@@ -81,8 +96,9 @@ ao_sair() {
     [ -n "$MENSAGEM_ERRO" ] || MENSAGEM_ERRO="Falha inesperada (código de saída $codigo)."
     # As fotos seguem o mesmo padrão pessimista do dump: bytes fica nulo (não houve tentativa de
     # contar), destino_externo_ok fica false — nunca nulo, porque esta É uma execução nova
-    # (a coluna só é nula em linhas escritas ANTES desta fase).
-    registrar_execucao "false" "" "false" "$MENSAGEM_ERRO" "" "false" || true
+    # (a coluna só é nula em linhas escritas ANTES desta fase). Os anexos (Fase 06.2, D-05)
+    # seguem o mesmo padrão: bytes nulo, destino false.
+    registrar_execucao "false" "" "false" "$MENSAGEM_ERRO" "" "false" "" "false" || true
   fi
   exit "$codigo"
 }
@@ -197,9 +213,40 @@ if [ -n "$RCLONE_REMOTE_FOTOS" ]; then
   fi
 fi
 
+# --- Passo 6c: cópia dos anexos dos fornecedores, na MESMA execução do dump e das fotos (Fase
+# 06.2, D-05/A-02) — o gêmeo do Passo 6b. Diretório inexistente ou vazio NÃO é falha (nenhum
+# fornecedor com anexo ainda é estado normal). ANEXOS_BYTES usa a mesma forma POSIX das fotos
+# (`find ... -exec stat -c%s` para `awk`, nunca `du -b`), com UMA diferença: ignora os temporários
+# `.envio-*` que o PUT do upload grava dentro da própria pasta enquanto o arquivo chega
+# (06.2-RESEARCH.md, Pitfall 5) — um upload em curso não é dado do ateliê, e somá-lo faria o
+# tamanho oscilar sem motivo. A CÓPIA continua sendo da pasta inteira: um temporário pendurado
+# viaja junto, inofensivo (o nome nunca casa com um anexo válido). Sem destino externo
+# configurado, marca como NÃO confirmado — nunca sucesso silencioso. ---
+ANEXOS_BYTES="$(find "$BACKUP_ANEXOS_DIR" -type f ! -name '.envio-*' -exec stat -c%s {} \; 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+ANEXOS_HA_ARQUIVOS=false
+if [ -d "$BACKUP_ANEXOS_DIR" ] && [ -n "$(find "$BACKUP_ANEXOS_DIR" -type f 2>/dev/null | head -n 1)" ]; then
+  ANEXOS_HA_ARQUIVOS=true
+fi
+
+ANEXOS_DESTINO_OK=false
+if [ -n "$RCLONE_REMOTE_ANEXOS" ]; then
+  if [ "$ANEXOS_HA_ARQUIVOS" = "true" ]; then
+    if ERRO_ANEXOS=$($BACKUP_ENVIO_CMD "$BACKUP_ANEXOS_DIR" "$RCLONE_REMOTE_ANEXOS" 2>&1); then
+      ANEXOS_DESTINO_OK=true
+    else
+      MENSAGEM_ERRO="${MENSAGEM_ERRO:+$MENSAGEM_ERRO }Envio dos anexos dos fornecedores ao destino externo falhou: $ERRO_ANEXOS"
+      CODIGO_SAIDA=1
+    fi
+  else
+    # Nada para enviar (diretório ausente ou vazio) e destino configurado: confirmado por
+    # vacuidade, não por sucesso de um envio que nunca aconteceu.
+    ANEXOS_DESTINO_OK=true
+  fi
+fi
+
 # --- Passo 7: grava a linha de sucesso. A gravação acontece aqui e, para qualquer caminho de
 # falha anterior, pela armadilha de saída (ao_sair) — em toda saída, inclusive na de erro. ---
-registrar_execucao "true" "$BYTES" "$DESTINO_OK" "$MENSAGEM_ERRO" "$FOTOS_BYTES" "$FOTOS_DESTINO_OK"
+registrar_execucao "true" "$BYTES" "$DESTINO_OK" "$MENSAGEM_ERRO" "$FOTOS_BYTES" "$FOTOS_DESTINO_OK" "$ANEXOS_BYTES" "$ANEXOS_DESTINO_OK"
 
 # --- Passo 9: sai zero no sucesso, diferente de zero em qualquer falha — inclusive envio
 # externo que falhou, mesmo com o dump em disco intacto e registrado. ---

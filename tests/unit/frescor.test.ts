@@ -25,6 +25,7 @@ describe("decidirFrescorDoBackup", () => {
         destinoExternoOk: true,
         mensagem: null,
         fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: null,
       },
       AGORA,
     );
@@ -41,6 +42,7 @@ describe("decidirFrescorDoBackup", () => {
         destinoExternoOk: true,
         mensagem: null,
         fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: null,
       },
       AGORA,
     );
@@ -57,6 +59,7 @@ describe("decidirFrescorDoBackup", () => {
         destinoExternoOk: true,
         mensagem: null,
         fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: null,
       },
       AGORA,
     );
@@ -75,6 +78,7 @@ describe("decidirFrescorDoBackup", () => {
         destinoExternoOk: false,
         mensagem: "disco cheio durante o pg_dump",
         fotosDestinoExternoOk: false,
+        anexosDestinoExternoOk: null,
       },
       AGORA,
     );
@@ -93,6 +97,7 @@ describe("decidirFrescorDoBackup", () => {
         destinoExternoOk: false,
         mensagem: null,
         fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: null,
       },
       AGORA,
     );
@@ -110,6 +115,7 @@ describe("decidirFrescorDoBackup", () => {
         destinoExternoOk: true,
         mensagem: null,
         fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: null,
       },
       AGORA,
     );
@@ -138,6 +144,7 @@ describe("decidirFrescorDoBackup", () => {
           destinoExternoOk: true,
           mensagem: null,
           fotosDestinoExternoOk: false,
+          anexosDestinoExternoOk: null,
         },
         AGORA,
       );
@@ -155,6 +162,7 @@ describe("decidirFrescorDoBackup", () => {
           destinoExternoOk: true,
           mensagem: null,
           fotosDestinoExternoOk: true,
+          anexosDestinoExternoOk: null,
         },
         AGORA,
       );
@@ -171,6 +179,7 @@ describe("decidirFrescorDoBackup", () => {
           destinoExternoOk: true,
           mensagem: null,
           fotosDestinoExternoOk: null,
+          anexosDestinoExternoOk: null,
         },
         AGORA,
       );
@@ -187,6 +196,7 @@ describe("decidirFrescorDoBackup", () => {
           destinoExternoOk: true,
           mensagem: null,
           fotosDestinoExternoOk: null,
+          anexosDestinoExternoOk: null,
         },
         AGORA,
       );
@@ -204,6 +214,7 @@ describe("decidirFrescorDoBackup", () => {
           destinoExternoOk: false,
           mensagem: "disco cheio durante o pg_dump",
           fotosDestinoExternoOk: false,
+          anexosDestinoExternoOk: null,
         },
         AGORA,
       );
@@ -220,12 +231,76 @@ describe("decidirFrescorDoBackup", () => {
           destinoExternoOk: false,
           mensagem: null,
           fotosDestinoExternoOk: false,
+          anexosDestinoExternoOk: null,
         },
         AGORA,
       );
 
       expect(decisao.motivo).toMatch(/armazenamento externo/i);
       expect(decisao.motivo).not.toMatch(/fotos/i);
+    });
+  });
+
+  // --- Fase 06.2 (D-05): os anexos dos fornecedores entram na mesma linha de execução, no molde
+  // exato das fotos. Os casos acima continuam com `anexosDestinoExternoOk: null` (a forma de uma
+  // linha anterior à 0028), o que deixa a decisão de cada um exatamente como era. ---
+  describe("anexosDestinoExternoOk", () => {
+    it("dump ok, fotos ok, anexos com cópia externa NÃO confirmada (false): erro, 503, com a frase dos anexos", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: true,
+          anexosDestinoExternoOk: false,
+        },
+        AGORA,
+      );
+
+      expect(decisao.status).toBe("erro");
+      expect(decisao.http).toBe(503);
+      expect(decisao.motivo).toBe(
+        "A cópia externa dos anexos dos fornecedores falhou na última execução.",
+      );
+      expect(decisao.ultimoBackupEm).toBe(horasAtras(1).toISOString());
+    });
+
+    it("dump ok, fotos ok, anexos nulos (linha escrita antes da 0028): ok, 200 — nulo nunca é falha", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: true,
+          anexosDestinoExternoOk: null,
+        },
+        AGORA,
+      );
+
+      expect(decisao.status).toBe("ok");
+      expect(decisao.http).toBe(200);
+    });
+
+    it("fotos falsas E anexos falsos: a frase é a das FOTOS — o ramo das fotos vem antes", () => {
+      const decisao = decidirFrescorDoBackup(
+        {
+          quando: horasAtras(1),
+          sucesso: true,
+          destinoExternoOk: true,
+          mensagem: null,
+          fotosDestinoExternoOk: false,
+          anexosDestinoExternoOk: false,
+        },
+        AGORA,
+      );
+
+      expect(decisao.http).toBe(503);
+      expect(decisao.motivo).toBe(
+        "A cópia externa das fotos dos orçamentos falhou na última execução.",
+      );
+      expect(decisao.motivo).not.toMatch(/anexos/i);
     });
   });
 });

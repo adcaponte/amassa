@@ -147,6 +147,55 @@ test.describe("/api/health/backup", () => {
     });
   });
 
+  // Fase 06.2 (D-05): os anexos dos fornecedores entram na mesma linha de execução do backup,
+  // no molde exato do describe das fotos acima — sem tocar em nenhum caso existente.
+  test.describe("anexos", () => {
+    test("com o dump e as fotos ok, mas a cópia externa dos anexos falhou, a rota responde 503 citando os anexos, sem nenhum campo de bytes no corpo", async ({
+      request,
+    }) => {
+      const id = await registrarBackup({
+        quando: new Date(Date.now() - 1 * UMA_HORA_EM_MS),
+        sucesso: true,
+        destinoExternoOk: true,
+        fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: false,
+      });
+      try {
+        const resposta = await request.get("/api/health/backup");
+
+        expect(resposta.status()).toBe(503);
+        const corpo = await resposta.json();
+        expect(corpo.status).toBe("erro");
+        expect(corpo.motivo).toMatch(/anexos/i);
+        expect(JSON.stringify(corpo)).not.toMatch(/byte/i);
+      } finally {
+        await removerBackup(id);
+      }
+    });
+
+    test("com backup recente, dump e fotos confirmados e anexos NULOS (linha anterior à 0028), a rota responde 200 ok", async ({
+      request,
+    }) => {
+      const id = await registrarBackup({
+        quando: new Date(Date.now() - 1 * UMA_HORA_EM_MS),
+        sucesso: true,
+        destinoExternoOk: true,
+        fotosDestinoExternoOk: true,
+        anexosDestinoExternoOk: null,
+      });
+      try {
+        const resposta = await request.get("/api/health/backup");
+
+        expect(resposta.status()).toBe(200);
+        const corpo = await resposta.json();
+        expect(corpo.status).toBe("ok");
+        expect(JSON.stringify(corpo)).not.toMatch(/byte/i);
+      } finally {
+        await removerBackup(id);
+      }
+    });
+  });
+
   test("a rota responde sem nenhum cookie de sessão, pedida por um contexto novo, sem login", async ({
     browser,
   }) => {
