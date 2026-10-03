@@ -7,6 +7,7 @@ import {
   ROTULO_SUB_CATEGORIAS,
   ROTULO_SUB_CLIENTES,
   ROTULO_SUB_FIXAS,
+  ROTULO_SUB_FORNECEDORES,
   ROTULO_SUB_PARAMETROS,
   ROTULO_SUB_TAXAS,
 } from "@/lib/cadastros/textos";
@@ -47,9 +48,23 @@ import { cn } from "@/lib/utils";
 // agrupa com o que se cadastra para vender. Hoje são SEIS pílulas: três em cima (Catálogo ·
 // Categorias · Clientes), três embaixo (Contas fixas · Taxas · Parâmetros).
 //
-// O espaçador é `md:hidden`: a partir de `md` as seis cabem numa fileira só. O contêiner passou de
+// O espaçador era `md:hidden`: a partir de `md` as seis cabiam numa fileira só. O contêiner passou de
 // `md:max-w-md` para `md:max-w-xl` (UI-D20) — seis pílulas em `max-w-md` ficariam espremidas.
-// Forçar duas fileiras no desktop seria regressão.
+//
+// Fase 06.2 (UI-D1, 06.2-UI-SPEC.md §"Sub-abas — a sétima pílula", medido no Chromium com a Inter
+// de `app/_fontes/`): "Fornecedores" entra como SÉTIMA pílula, por ÚLTIMO e SOZINHA numa terceira
+// fileira — 3 + 3 + 1. A conta: "Fornecedores" mede 106 px de texto; a 320 px o contêiner tem 264 px
+// úteis e uma fileira de três dá (264 − 8) / 3 − 8 = 77 px de texto por pílula — não cabe (quebraria
+// no meio da palavra); sozinha, 256 px. Nenhuma das seis pílulas existentes muda de lugar (memória
+// muscular). Os DOIS espaçadores passam a `lg:hidden`: entre 768 e 1023 px (com a lateral de 256 px)
+// sobram 448 px e as seis já quebravam ali — o 3 + 3 + 1 é correção, não regressão. A partir de
+// 1024 px as sete ficam numa fileira só, cada pílula do tamanho do texto (`lg:flex-auto`, o
+// `flex: 1 1 auto` do protótipo), num contêiner `lg:max-w-2xl`: 548 px de texto + 56 de padding + 24
+// de gaps + 8 do contêiner = 636 de 672 px, sem quebra dentro de pílula.
+//
+// 🔴 Achado fora do escopo (avisar o dono, revisão da Fase 7): pela mesma medição, "Categorias"
+// (83 px) JÁ quebra dentro da pílula a 320 px (77 px úteis), sem esta fase. Corrigir mexeria nas três
+// fileiras; não é feito aqui.
 const PRIMEIRA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
   { valor: "catalogo", rotulo: ROTULO_SUB_CATALOGO },
   { valor: "categorias", rotulo: ROTULO_SUB_CATEGORIAS },
@@ -62,12 +77,16 @@ const SEGUNDA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
   { valor: "parametros", rotulo: ROTULO_SUB_PARAMETROS },
 ];
 
+const TERCEIRA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
+  { valor: "fornecedores", rotulo: ROTULO_SUB_FORNECEDORES },
+];
+
 export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
   return (
     <div
       role="tablist"
       aria-label="Sub-navegação de Cadastros"
-      className="mx-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-xl"
+      className="mx-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-xl lg:max-w-2xl"
     >
       {PRIMEIRA_FILEIRA.map((sub) => (
         <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
@@ -75,11 +94,18 @@ export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
 
       {/* Espaçador que FORÇA a quebra: com `flex-wrap`, um item de largura total empurra tudo o
           que vem depois para a fileira seguinte. `aria-hidden` porque não é uma aba e não deve
-          existir para leitor de tela. `md:hidden` porque no desktop as seis cabem numa fileira.
-          Mesmo mecanismo de `abas-financeiro.tsx`. */}
-      <span aria-hidden="true" className="basis-full md:hidden" />
+          existir para leitor de tela. `lg:hidden` porque a partir de 1024 px as sete cabem numa
+          fileira (Fase 06.2, UI-D1). Mesmo mecanismo de `abas-financeiro.tsx`. */}
+      <span aria-hidden="true" className="basis-full lg:hidden" />
 
       {SEGUNDA_FILEIRA.map((sub) => (
+        <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
+      ))}
+
+      {/* O segundo espaçador: "Fornecedores" sozinha na terceira fileira abaixo de 1024 px. */}
+      <span aria-hidden="true" className="basis-full lg:hidden" />
+
+      {TERCEIRA_FILEIRA.map((sub) => (
         <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
       ))}
     </div>
@@ -100,7 +126,7 @@ function Pilula({
       aria-selected={selecionada}
       data-testid={`cadastros-sub-${sub.valor}`}
       className={cn(
-        "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
+        "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center lg:flex-auto justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
         selecionada
           ? "bg-background text-foreground font-semibold shadow-sm"
           : "text-muted-foreground hover:text-foreground",

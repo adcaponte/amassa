@@ -91,6 +91,11 @@ describe("ITENS_NAVEGACAO_CELULAR (D-11/GES-12)", () => {
     expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/gestao/cadastros")).toBe(false);
   });
 
+  it("não tem Lembretes — a Fase 06.3 o pôs na lateral e no índice, nunca na barra de baixo (D-11, UI-D1)", () => {
+    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/gestao/lembretes")).toBe(false);
+    expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.icone === "lembretes")).toBe(false);
+  });
+
   it("nenhum item leva a /gestao/orcamentos — Orçamentos é item do menu do usuário, não da navegação principal (UI-04/D-12)", () => {
     expect(ITENS_NAVEGACAO_CELULAR.some((item) => item.href === "/gestao/orcamentos")).toBe(
       false,
@@ -100,8 +105,8 @@ describe("ITENS_NAVEGACAO_CELULAR (D-11/GES-12)", () => {
 
 describe("ITENS_NAVEGACAO_LATERAL (D-11)", () => {
   // Caso (b) do plano.
-  it("tem exatamente 7 itens, nesta ordem — Início mais todos os módulos, Cadastros incluído pela primeira vez", () => {
-    expect(ITENS_NAVEGACAO_LATERAL).toHaveLength(7);
+  it("tem exatamente 8 itens, nesta ordem — Início mais todos os módulos, Cadastros (04.6) e Lembretes (06.3, entre Estoque e Cadastros)", () => {
+    expect(ITENS_NAVEGACAO_LATERAL).toHaveLength(8);
     expect(ITENS_NAVEGACAO_LATERAL.map((item) => item.rotulo)).toEqual([
       "Início",
       "Financeiro",
@@ -109,6 +114,7 @@ describe("ITENS_NAVEGACAO_LATERAL (D-11)", () => {
       "Agenda",
       "Queimas",
       "Estoque",
+      "Lembretes",
       "Cadastros",
     ]);
   });
@@ -197,9 +203,19 @@ describe("ChaveDeIcone — os dois mapas ICONES cobrem toda a união (D-11)", ()
     .map((parte) => parte.trim().replace(/^"|"$/g, ""))
     .filter(Boolean);
 
-  it("a união ChaveDeIcone tem exatamente as sete chaves esperadas", () => {
+  it("a união ChaveDeIcone tem exatamente as oito chaves esperadas", () => {
+    expect(chavesDaUniao).toHaveLength(8);
     expect(chavesDaUniao.sort()).toEqual(
-      ["agenda", "cadastros", "encomendas", "estoque", "financeiro", "inicio", "queimas"].sort(),
+      [
+        "agenda",
+        "cadastros",
+        "encomendas",
+        "estoque",
+        "financeiro",
+        "inicio",
+        "lembretes",
+        "queimas",
+      ].sort(),
     );
   });
 

@@ -64,7 +64,10 @@ COPY --from=construtor --chown=nextjs:nodejs /app/assets ./assets
 # volume nenhum no `docker run` do job e2e); (2) em produção o `docker/compose.yml` cobre este
 # caminho com um bind mount, e a posse passa a ser a do diretório do HOST — daí o
 # `chown 100:101` do roteiro do servidor (docs/operacao/12-fotos-volume-e-backup.md).
-RUN mkdir -p /dados/fotos-orcamentos && chown -R nextjs:nodejs /dados
+# Fase 06.2 (D-A02): o mesmo vale para os anexos de fornecedor — criados ANTES do `chown -R`, que já
+# os cobre; o par no host (pasta + `chown 100:101`) é passo do Roteiro 19
+# (docs/operacao/19-migracao-fornecedores.md), antes do deploy que monta o volume.
+RUN mkdir -p /dados/fotos-orcamentos /dados/anexos-fornecedores && chown -R nextjs:nodejs /dados
 
 # 🔴 A linha abaixo é o que faz a de cima valer. Criar o diretório NÃO basta: sem
 # `CAMINHO_FOTOS`, `diretorioDeFotos()` (lib/orcamentos/caminho-fotos.ts) cai no padrão
@@ -83,6 +86,11 @@ RUN mkdir -p /dados/fotos-orcamentos && chown -R nextjs:nodejs /dados
 # mount troca a posse pela do host). A imagem passa a ser correta sozinha, sem depender de quem
 # a executa.
 ENV CAMINHO_FOTOS=/dados/fotos-orcamentos
+# Fase 06.2 (D-A02): a mesma lição, para os anexos de fornecedor — sem esta linha,
+# `diretorioDeAnexos()` (lib/fornecedores/caminho-anexos.ts) cai em `/app/.dados/anexos-fornecedores`,
+# de root, e TODO envio do e2e do CI (`docker run` puro, sem volume) dá 500, como as fotos no
+# pipeline do `bb39df4` acima.
+ENV CAMINHO_ANEXOS_FORNECEDORES=/dados/anexos-fornecedores
 
 USER nextjs
 EXPOSE 3000

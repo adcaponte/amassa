@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { agoraEmBrasilia, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { dataLongaEmPortugues, saudacaoDe } from "@/lib/inicio/saudacao";
+import { TITULO_DO_BLOCO } from "@/lib/lembretes/textos";
 import { BlocoAgendaDeHoje } from "@/components/amassa/inicio/bloco-agenda-de-hoje";
 import { BlocoAnotacoes } from "@/components/amassa/inicio/bloco-anotacoes";
 import { BlocoEsqueleto } from "@/components/amassa/inicio/bloco-esqueleto";
@@ -58,7 +59,13 @@ export default async function Inicio() {
 
           Traçador (04.6-06, Tarefa 1): a Agenda provou o mecanismo de esqueleto/erro/retentativa
           com um bloco só, antes de existirem cinco; as demais tarefas encaixaram os outros
-          quatro, o último deles (Anotações) no plano 07. */}
+          quatro, o último deles (Anotações) no plano 07.
+
+          Fase 06.3: o 5º bloco virou "Anotações e lembretes" e ocupa as DUAS colunas da grade a
+          partir de 768px (a célula ao lado dele estava vazia). O esqueleto dele
+          tem o mesmo `col-span` e 6 linhas, para a página não pular quando o bloco chega
+          (Pitfall 9 da pesquisa). Ele recebe o MESMO `hoje` da saudação: vencido/hoje/amanhã dos
+          lembretes saem deste instante, nunca do relógio do navegador. */}
       <div data-testid="inicio-blocos" className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Suspense fallback={<BlocoEsqueleto titulo="Agenda de hoje" linhas={3} />}>
           <BlocoAgendaDeHoje hoje={hoje} agora={agora} />
@@ -76,8 +83,16 @@ export default async function Inicio() {
           <BlocoEstoque />
         </Suspense>
 
-        <Suspense fallback={<BlocoEsqueleto titulo="Anotações" linhas={4} />}>
-          <BlocoAnotacoes />
+        <Suspense
+          fallback={
+            <BlocoEsqueleto
+              titulo={TITULO_DO_BLOCO}
+              linhas={6}
+              className="md:col-span-2"
+            />
+          }
+        >
+          <BlocoAnotacoes hoje={hoje} />
         </Suspense>
       </div>
 

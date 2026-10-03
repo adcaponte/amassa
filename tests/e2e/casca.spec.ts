@@ -92,6 +92,9 @@ const ROTAS_A_320PX = [
   "/gestao/queimas",
   "/gestao/estoque",
   "/gestao/cadastros",
+  // Fase 06.3 (plano 05): "ver todos" dos Lembretes — as pílulas de filtro quebram linha, nunca
+  // rolam para o lado.
+  "/gestao/lembretes",
   "/gestao/financeiro?aba=orcamentos",
   "/gestao/login",
 ];
@@ -109,7 +112,7 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
 
   // Casos (a)/(b) do plano 05: a contagem e a ordem exatas das duas listas, na navegação de
   // verdade — não só na constante.
-  test("a navegação principal visível tem os itens de ITENS_NAVEGACAO_CELULAR (4, celular: Início · Financeiro · Produção · Agenda) ou ITENS_NAVEGACAO_LATERAL (7, desktop, terminando em Cadastros), na ordem (GES-12, D-11)", async ({
+  test("a navegação principal visível tem os itens de ITENS_NAVEGACAO_CELULAR (4, celular: Início · Financeiro · Produção · Agenda) ou ITENS_NAVEGACAO_LATERAL (8, desktop, terminando em Cadastros), na ordem (GES-12, D-11)", async ({
     page,
   }, testInfo) => {
     await fazerLogin(page);

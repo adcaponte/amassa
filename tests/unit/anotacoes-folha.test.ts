@@ -47,6 +47,15 @@ describe("textoDaAutoria", () => {
     ).toBe("Andressa salvou às 14h20");
   });
 
+  it("um instante que já é outro dia em UTC mostra a hora de Brasília", () => {
+    // D-04 da 06.3: 2026-10-03T02:30Z já é dia 3 em UTC e ainda 02/10 às 23h30 em
+    // America/Sao_Paulo — prova de que a folha mostra a hora de Brasília; nenhuma linha de
+    // `lib/anotacoes/` mudou.
+    expect(
+      textoDaAutoria({ nome: "Andressa", atualizadoEm: "2026-10-03T02:30:00.000Z" }),
+    ).toBe("Andressa salvou às 23h30");
+  });
+
   it("nome nulo devolve null — a linha de autoria não aparece", () => {
     expect(textoDaAutoria({ nome: null, atualizadoEm: "2026-12-18T17:20:00.000Z" })).toBeNull();
   });

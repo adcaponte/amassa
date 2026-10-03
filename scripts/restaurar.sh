@@ -32,6 +32,14 @@ if [ -z "$RCLONE_REMOTE_FOTOS" ] && [ -n "${RCLONE_REMOTE:-}" ]; then
   RCLONE_REMOTE_FOTOS="${RCLONE_REMOTE%/}/fotos"
 fi
 
+# Anexos dos fornecedores (Fase 06.2, D-05/A-02): as MESMAS variáveis de scripts/backup.sh, com a
+# mesma derivação ("${RCLONE_REMOTE%/}/anexos-fornecedores"). Independentes do banco e das fotos.
+BACKUP_ANEXOS_DIR="${BACKUP_ANEXOS_DIR:-$AMASSA_DIR/dados/anexos-fornecedores}"
+RCLONE_REMOTE_ANEXOS="${RCLONE_REMOTE_ANEXOS:-}"
+if [ -z "$RCLONE_REMOTE_ANEXOS" ] && [ -n "${RCLONE_REMOTE:-}" ]; then
+  RCLONE_REMOTE_ANEXOS="${RCLONE_REMOTE%/}/anexos-fornecedores"
+fi
+
 mostrar_uso() {
   echo "Uso: $0 --arquivo CAMINHO_DO_DUMP --banco NOME_DO_BANCO [--confirmar]" >&2
   echo "Sem --confirmar, apenas mostra o que seria perdido e não altera nada." >&2
@@ -156,6 +164,29 @@ else
   echo "RCLONE_REMOTE_FOTOS não configurado — pulando a restauração das fotos. É possível"
   echo "restaurar o banco sem as fotos: as REFERÊNCIAS (orcamento_fotos) voltaram do dump, só os"
   echo "ARQUIVOS ficam ausentes até alguém configurar o destino externo e rodar este script de novo."
+fi
+
+# --- Anexos dos fornecedores (Fase 06.2, D-05/A-02): o gêmeo do bloco das fotos, independente
+# dele. O dump acima já trouxe as LINHAS de `fornecedor_anexos`; este passo traz os ARQUIVOS. Sem
+# o destino, ou se a cópia falhar, avisa e segue — restaurar o banco não exige os anexos, e a ficha
+# do fornecedor aguenta um anexo cujo arquivo falta (o GET responde que o arquivo não está lá). ---
+echo
+if [ -n "$RCLONE_REMOTE_ANEXOS" ]; then
+  echo "Restaurando os anexos dos fornecedores de '$RCLONE_REMOTE_ANEXOS' para '$BACKUP_ANEXOS_DIR'..."
+  mkdir -p "$BACKUP_ANEXOS_DIR"
+  if ERRO_ANEXOS=$($BACKUP_ENVIO_CMD "$RCLONE_REMOTE_ANEXOS" "$BACKUP_ANEXOS_DIR" 2>&1); then
+    QUANTIDADE_ANEXOS="$(find "$BACKUP_ANEXOS_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    echo "Anexos restaurados: $QUANTIDADE_ANEXOS arquivo(s) em '$BACKUP_ANEXOS_DIR'."
+  else
+    echo "AVISO: não foi possível trazer os anexos dos fornecedores de volta de '$RCLONE_REMOTE_ANEXOS': $ERRO_ANEXOS" >&2
+    echo "O banco foi restaurado normalmente — as REFERÊNCIAS de anexo (fornecedor_anexos) voltaram," >&2
+    echo "mas os ARQUIVOS podem estar faltando até este passo funcionar. Confira manualmente antes" >&2
+    echo "de considerar a restauração completa." >&2
+  fi
+else
+  echo "RCLONE_REMOTE_ANEXOS não configurado — pulando a restauração dos anexos dos fornecedores."
+  echo "É possível restaurar o banco sem eles: as REFERÊNCIAS (fornecedor_anexos) voltaram do dump,"
+  echo "só os ARQUIVOS ficam ausentes até alguém configurar o destino externo e rodar este script de novo."
 fi
 
 echo

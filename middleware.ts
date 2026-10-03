@@ -75,5 +75,16 @@ export const config = {
   // raiz; agora que ela vive só sob `/gestao`, é este prefixo — nomeado, não mais implícito — que
   // é a cerca real. `tests/unit/arvore-de-rotas.test.ts` é o portão que grita se uma rota
   // autenticada nascer fora dele sem ninguém notar.
-  matcher: ["/gestao/:path*"],
+  //
+  // Fase 06.2 (D-08, pesquisa Achado 1): UMA exceção, e só ela — o caminho EXATO do PUT de upload
+  // dos anexos de fornecedor, `/gestao/api/fornecedores/anexos`. O Next 16.3.5 clona o corpo de toda
+  // requisição que o middleware intercepta e o TRUNCA em 10 MB (`proxyClientMaxBodySize`,
+  // `next/dist/server/body-streams.js`), sem erro nenhum para o cliente: um PDF de 15 MB chegaria ao
+  // handler com 10 MB e seria gravado corrompido. Fora do matcher, o corpo chega cru e em stream.
+  // O `$` dentro da lookahead é o que mantém a exceção estreita: `/gestao/api/fornecedores/anexos/<id>`
+  // (o GET que serve o arquivo), `…/anexos/` e `…/anexosX` continuam casando — só o caminho exato sai.
+  // O handler do PUT começa por `exigirUsuario()` e devolve o 401 JSON sozinho, sem o middleware.
+  // `tests/unit/middleware-matcher.test.ts` lê ESTE literal e afirma a tabela de caminhos.
+  // Continua literal estático: o Next lê o matcher em tempo de build.
+  matcher: ["/gestao", "/gestao/((?!api/fornecedores/anexos$).*)"],
 };

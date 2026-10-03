@@ -20,6 +20,9 @@ export const ROTULO_SUB_PARAMETROS = "Parâmetros";
 // Sexta sub-aba (Fase 5, D-01, UI-D20) — o cadastro de pessoas, o mesmo das Pessoas da Agenda. As
 // frases da sub-aba moram em `lib/clientes/textos.ts`, o módulo transversal do cadastro.
 export const ROTULO_SUB_CLIENTES = "Clientes";
+// Sétima sub-aba (Fase 06.2, UI-D1) — quem vende para o ateliê. As frases da sub-aba moram em
+// `lib/fornecedores/textos.ts`, o módulo do cadastro.
+export const ROTULO_SUB_FORNECEDORES = "Fornecedores";
 
 export const ROTULO_GRUPO: Record<GrupoDeCategoria, string> = {
   receita: "Receitas",

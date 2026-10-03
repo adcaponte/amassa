@@ -80,6 +80,10 @@ const ROTAS_DA_FASE = [
   "/gestao/cadastros?sub=fixas",
   "/gestao/cadastros?sub=taxas",
   "/gestao/cadastros?sub=parametros",
+  // Fase 06.3 (plano 05): "ver todos" dos Lembretes, com a situação padrão e com "Feitos" (as linhas
+  // riscadas e o "feito por …" em `tinta-fraca`). Mesmas `REGRAS_AUDITADAS`, nenhuma afrouxada.
+  "/gestao/lembretes",
+  "/gestao/lembretes?situacao=feitos",
 ] as const;
 
 // Regras às quais esta fase se compromete — restringir com withRules é escolha deliberada

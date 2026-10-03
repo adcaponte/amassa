@@ -949,11 +949,72 @@ Financeiro lançadas com aquele fornecedor. É consulta: nada aqui vira número 
   5. Uma despesa lançada com fornecedor aparece em "Compras dele", com o total do período e sem tabela nova no Financeiro
   6. Os anexos moram em `/opt/amassa/dados/anexos-fornecedores/`, cobertos pelo backup diário, conferido pelo roteiro de operação da fase
 
-**Plans:** 0 plans
+**Plans:** 13 plans
+
+13 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o projeto
+não usa worktrees), cada um com no máximo UMA invocação de e2e (a varredura completa só no 13) e começando por um
+traçador ponta a ponta — menos o 01, o contrato de dados (a `0028` e o esquema Zod), que virou plano próprio na
+revisão do verificador de planos (02/10/2026, noite) porque o traçador mais fino do cadastro tocava 21 arquivos e o
+teto é 15 por plano; o traçador da tela é o 02. Planejado na noite de 02/10/2026, sem o dono, sob a autorização dele
+(“pode rodar o que conseguir também. amanhã fazemos todas verificações e migrações.”), pelas decisões D-01..D-09 do
+CONTEXT e pelo UI-SPEC aprovado. 🔴 O código vive no branch `gsd/phase-06.2-fornecedores`, fora de `main`, até o
+portão (plano 13); a migração é a `0028`, escrita e provada no Postgres efêmero, aplicada só pelo dono no Roteiro 19
+(depois da `0027`).
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (discussão primeiro: os três pontos da §8 do briefing)
+- [x] 06.2-01-PLAN.md — O contrato de dados: a `0028` inteira (D-04 ao lado de `pessoa_nome`, D-05 em `execucoes_backup`, D-06 no índice) e o esquema Zod do fornecedor, com as bordas no `test:migracoes` e no Vitest — sem traçador, pelo teto de 15 arquivos (onda 1) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`39af588`..`6f1421e`), não publicado — ver `06.2-01-SUMMARY.md`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 06.2-02-PLAN.md — Traçador: cadastrar um fornecedor e vê-lo na lista com a ficha aberta, chegando pela sétima pílula (UI-D1) (onda 2) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`393e61c`..`3bad4b4`), não publicado — ver `06.2-02-SUMMARY.md`
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 06.2-03-PLAN.md — Achar o fornecedor: busca sem acento, filtro por área, desativados, ficha com contatos que se copiam e abrem (onda 3) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`7c0b33d`..`d81a547`), não publicado — ver `06.2-03-SUMMARY.md`
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 06.2-04-PLAN.md — Manter: editar, desativar com confirmação, reativar sem atropelar nome ativo; os pares de contraste da fase (onda 4) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`dc9f6ac`..`d02a115`), não publicado — ver `06.2-04-SUMMARY.md`
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 06.2-05-PLAN.md — O caminho do byte pela rota: PUT em stream fora do middleware (D-01, D-08), tipo pela assinatura, GET em stream atrás da sessão (onda 5) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`2479e6f`..`bf98c16`), não publicado — ver `06.2-05-SUMMARY.md`
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 06.2-06-PLAN.md — Anexos pela folha e a pasta no contêiner (D-A02): subir um PDF pela ficha e abri-lo; caminho e cabeçalhos provados no unitário (onda 6) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`b2256e6`..`db7b552`), não publicado — ver `06.2-06-SUMMARY.md`
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 06.2-07-PLAN.md — A foto (2000 px, sem EXIF, HEIC recusado — D-07) no PUT e na folha, e a planilha; recusas de tamanho e tipo antes da rede (onda 7) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`ef46220`..`06ebcdc`), não publicado — ver `06.2-07-SUMMARY.md`
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [x] 06.2-08-PLAN.md — A tabela de preços vigente com o selo de 120 dias (D-09) e tirar um anexo (onda 8) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`e0da9f5`..`5e4f4e7`), não publicado — ver `06.2-08-SUMMARY.md`
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 06.2-09-PLAN.md — Os anexos no backup diário, vigiados por `/api/health/backup` (D-05, A-02) (onda 9) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`625b566`..`d7c4ae8`), não publicado — ver `06.2-09-SUMMARY.md`
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [x] 06.2-10-PLAN.md — A despesa ligada ao fornecedor (D-04): o campo “Fornecedor” no modo Compra e `lancarDespesa` congelando o nome; a D-02 anotada na Fase 7 (onda 10) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`1b04cd9`..`0653afc`), não publicado — ver `06.2-10-SUMMARY.md`
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [x] 06.2-11-PLAN.md — “Compras dele” na ficha, com o total do ano (D-03) (onda 11) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`f42cfba`..`7063cea`), não publicado — ver `06.2-11-SUMMARY.md`
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [x] 06.2-12-PLAN.md — O campo “Fornecedor” por inteiro: “Outra despesa”, o aviso sem ligar sozinho, rascunho e desativado (onda 12) — Concluído em 03/10/2026 no branch `gsd/phase-06.2-fornecedores` (`08d084f`..`d6271f5`), não publicado — ver `06.2-12-SUMMARY.md`
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [ ] 06.2-13-PLAN.md — Portão: `/api/health/fornecedores`, a única varredura completa, Roteiro 19, caminhada, documentos de estado e o dono (onda 13, **não autônomo**) — 03/10/2026: Tarefas 1 e 2 feitas pelo executor no branch (a rota `8c3cafb`, a varredura completa, o Roteiro 19 e a caminhada — ver `06.2-13-SUMMARY.md`); a Tarefa 3 é do dono (Parte 0, Roteiro 19, caminhada). Aberto até o “aprovado”
+
+**UI hint**: yes
 
 ### Phase 06.3: Lembretes (INSERTED)
 
@@ -974,11 +1035,18 @@ marcam feitos (com desfazer) e, por decisão do dono, se apagam de verdade.
   4. Editar na linha; excluir apaga a linha do banco (provado no e2e), com Desfazer por alguns segundos
   5. "Ver todos" com os filtros Abertos/Feitos e Todos/Geral/Theo/Andressa, autoria e "Mostrar mais 50"
   6. A folha da casa não muda; alvos de 44 px e nenhuma rolagem lateral a 320 px
-**Plans:** 0 plans
+**Plans:** 5/6 plans executed — 03/10/2026: os planos 01–05 e as Tarefas 1–2 do 06 no branch `gsd/phase-06.3-lembretes`, não publicado; o 06 espera o dono *(até 03/10/2026 dizia “0/6 plans executed”)*
+
+Planejada em 03/10/2026 (madrugada, sem o dono, sob a autorização de 02/10) no branch `gsd/phase-06.3-lembretes`, criado a partir do `gsd/phase-06.2-fornecedores`: pesquisa, UI-SPEC (aprovada pelo ui-checker na 2ª leitura completa), mapa de padrões e 6 planos aprovados pelo plan-checker na 2ª rodada.
 
 Plans:
 
-- [ ] TBD
+- [x] 06.3-01-PLAN.md — Traçador: criar um lembrete numa linha no Início e vê-lo em “Para fazer”; migração `0029` (sem `revoke delete`, exceção deliberada) provada em `test:migracoes` (onda 1) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`691d969`..`2bd3e48`), não publicado — ver `06.3-01-SUMMARY.md`
+- [x] 06.3-02-PLAN.md — `/api/health/lembretes` e o módulo puro `lib/lembretes/lista.ts` (ordem, rótulos de prazo em Brasília, resumo, URL) + o caso D-04 (onda 2) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`525f839`..`9b79f7b`), não publicado — ver `06.3-02-SUMMARY.md`
+- [x] 06.3-03-PLAN.md — O bloco do Início inteiro: 6 + “e mais N”, contagem, estado vazio, a linha de criar com data e pessoa (onda 3) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`b10f8a8`..`2246c44`), não publicado — ver `06.3-03-SUMMARY.md`
+- [x] 06.3-04-PLAN.md — Ações da linha: feito com Desfazer e “Feitos (N)” (D-02), editar na linha, excluir de verdade quando o toast expira (D-03) (onda 4) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`097e6fc`..`bb8fd65`), não publicado — ver `06.3-04-SUMMARY.md`
+- [x] 06.3-05-PLAN.md — “Ver todos” em `/gestao/lembretes` (D-01): filtros, autoria, “Mostrar mais 50”; Lembretes na navegação (onda 5) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`c7d8888`..`4241b0e`), não publicado — ver `06.3-05-SUMMARY.md`
+- [ ] 06.3-06-PLAN.md — Portão: varredura e2e completa, Roteiro 20, caminhada do dono com a Parte 0, documentos de estado (onda 6, **não autônomo**) — 03/10/2026: Tarefas 1 e 2 feitas pelo executor no branch (a varredura completa, o Roteiro 20 `docs/operacao/20-migracao-lembretes.md` e a caminhada `06.3-VERIFICACAO-HUMANA.md` — ver `06.3-06-SUMMARY.md`, parcial); a Tarefa 3 é do dono (Parte 0, Roteiro 20 de carona no 19, caminhada). Aberto até o “aprovado”
 
 **UI hint**: yes
 
@@ -993,6 +1061,7 @@ simulacro de restauração de desastre cronometrado e documentado, manual de uso
 documento de operação) tornam-se os planos desta fase.
 **Depends on**: Phases 1-6 e o Financeiro (04.4 e a parte 2)
 **Requirements**: UI-10, UI-11, PNL-01, PNL-02, PNL-03, PNL-04, PNL-05, PNL-06, PNL-07
+**Anotado por fases anteriores:** dar ou trocar o fornecedor de uma despesa já lançada (D-02 da Fase 06.2, 02/10/2026 — hoje não existe edição de despesa, e o campo “Fornecedor” vale só no lançamento).
 **Success Criteria** (what must be TRUE):
 
   1. O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique, mostrando encomendas por etapa, aulas de hoje, fornos em atenção ou crítico e alertas de estoque baixo
@@ -1041,6 +1110,6 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 5. Agenda | 15/16 | In Progress (01/10/2026) | - |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
-| 06.2. Fornecedores | 0/TBD | Not started (criada em 02/10/2026) | - |
-| 06.3. Lembretes | 0/TBD | Not started (criada em 02/10/2026) | - |
+| 06.2. Fornecedores | 12/13 | Aguardando o dono (portão) — 03/10/2026: os planos 01–12 e as Tarefas 1–2 do 13 no branch `gsd/phase-06.2-fornecedores`, não publicado (`curl /api/health/fornecedores` = 404 e `git ls-tree origin/main` sem a `0028`, medidos às 02h17 UTC); até 03/10/2026 dizia “Planned (02/10/2026, noite — 13 planos depois da revisão do verificador; até então “Not started”)” | - |
+| 06.3. Lembretes | 5/6 | Aguardando o dono (portão) — 03/10/2026: os planos 01–05 e as Tarefas 1–2 do 06 no branch `gsd/phase-06.3-lembretes` (que contém a 06.2), não publicado (`curl /api/health/lembretes` = 404 e `git log origin/main..main` sem nenhum commit da fase, medidos às 05h12 UTC); até 03/10/2026 dizia “0/TBD · Not started (criada em 02/10/2026)” | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

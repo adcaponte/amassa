@@ -24,13 +24,16 @@ export type RegistroBackup = {
   // `undefined`/omitido grava nulo (linha "sem tentativa registrada", o mesmo que uma linha
   // anterior à fase), nunca confundido com `false` (tentativa que falhou de verdade).
   fotosDestinoExternoOk?: boolean | null;
+  // Fase 06.2 (D-05, migração 0028): o mesmo contrato para os anexos dos fornecedores — omitido
+  // grava nulo (linha anterior à 0028), nunca `false`.
+  anexosDestinoExternoOk?: boolean | null;
 };
 
 export async function registrarBackup(registro: RegistroBackup): Promise<string> {
   return comCliente(async (cliente) => {
     const resultado = await cliente.query(
-      `insert into execucoes_backup (quando, sucesso, destino_externo_ok, mensagem, fotos_destino_externo_ok)
-       values ($1, $2, $3, $4, $5)
+      `insert into execucoes_backup (quando, sucesso, destino_externo_ok, mensagem, fotos_destino_externo_ok, anexos_destino_externo_ok)
+       values ($1, $2, $3, $4, $5, $6)
        returning id`,
       [
         registro.quando,
@@ -38,6 +41,7 @@ export async function registrarBackup(registro: RegistroBackup): Promise<string>
         registro.destinoExternoOk,
         registro.mensagem ?? null,
         registro.fotosDestinoExternoOk ?? null,
+        registro.anexosDestinoExternoOk ?? null,
       ],
     );
     return resultado.rows[0].id as string;

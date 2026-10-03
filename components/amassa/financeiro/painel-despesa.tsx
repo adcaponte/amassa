@@ -29,7 +29,7 @@ import {
   ROTULO_LANCAR_DESPESA,
   ROTULO_LIMPAR,
   ROTULO_LISTA_COMPLETA_E_ATALHOS,
-  ROTULO_PARA_QUEM_OPCIONAL,
+  ROTULO_FORNECEDOR_OU_PARA_QUEM_OPCIONAL,
   ROTULO_PILULA_COMPRA,
   ROTULO_PILULA_OUTRA,
   ROTULO_VALOR,
@@ -54,7 +54,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
 import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
+import { CampoFornecedor } from "./campo-fornecedor";
 import { EfeitoEstoque } from "./efeito-estoque";
 import { GradeCatalogo } from "./grade-catalogo";
 import { LinhaCompra } from "./linha-compra";
@@ -92,6 +94,9 @@ export type PainelDespesaProps = {
   // Plano 06-08 (D-21): o saldo de cada material antes da compra, para "fica com …"; `null` quando
   // a consulta do Estoque falhou (o efeito volta ao formato de antes). Sem aviso: compra só soma.
   saldos?: ReadonlyMap<string, number> | null;
+  // Fase 06.2, planos 10 e 12 (D-04): os fornecedores ATIVOS para o campo "Fornecedor" dos dois modos;
+  // `null` quando a leitura falhou (o campo funciona como texto livre — nunca bloqueia o lançamento).
+  fornecedores?: FornecedorParaSeletor[] | null;
 };
 
 // O painel de Despesa completo (04.4-07-PLAN.md): as duas pílulas (compra · outra), compra de
@@ -111,17 +116,24 @@ export function PainelDespesa({
   itensParaEfeito,
   configuracao,
   saldos = null,
+  fornecedores = null,
 }: PainelDespesaProps) {
   const [modo, setModo] = useState<ModoDespesa>("compra");
 
   const [dataCompra, setDataCompra] = useState(hoje);
   const [pessoaCompra, setPessoaCompra] = useState("");
+  // O fornecedor ESCOLHIDO na lista do campo "Fornecedor" (D-04) — `null` = texto livre ou campo vazio.
+  // Vai para o rascunho (plano 12); ao ler, um id que não está mais entre os ativos é descartado e o
+  // nome volta como texto livre (Pitfall 15).
+  const [fornecedorCompra, setFornecedorCompra] = useState<string | null>(null);
   const [linhasCompra, setLinhasCompra] = useState<LinhaDeCompraLocal[]>([]);
   const [buscaCompra, setBuscaCompra] = useState("");
   const [dialogoListaCompraAberto, setDialogoListaCompraAberto] = useState(false);
 
   const [dataOutra, setDataOutra] = useState(hoje);
   const [pessoaOutra, setPessoaOutra] = useState("");
+  // O mesmo vínculo no modo "Outra despesa" (plano 12, FRN-12 "em todos os modos"): cada modo guarda o seu.
+  const [fornecedorOutra, setFornecedorOutra] = useState<string | null>(null);
   const [descricaoOutra, setDescricaoOutra] = useState("");
   const [categoriaOutraId, setCategoriaOutraId] = useState(categoriasParaDespesa[0]?.id ?? "");
   const [valorOutraTexto, setValorOutraTexto] = useState("");
@@ -151,6 +163,9 @@ export function PainelDespesa({
     const lido = lerRascunhoDespesa(
       texto,
       catalogoDaCompra.map((item) => item.id),
+      // Os ids dos fornecedores ATIVOS desta mesma página; lista que não carregou → nenhum vínculo
+      // sobrevive (o nome fica como texto livre).
+      (fornecedores ?? []).map((fornecedor) => fornecedor.id),
     );
 
     setModo(lido.modo);
@@ -159,6 +174,9 @@ export function PainelDespesa({
     }
     if (lido.compra.pessoa) {
       setPessoaCompra(lido.compra.pessoa);
+    }
+    if (lido.compra.fornecedorId !== null) {
+      setFornecedorCompra(lido.compra.fornecedorId);
     }
     if (lido.compra.linhas.length > 0) {
       const reconstruidas: LinhaDeCompraLocal[] = lido.compra.linhas.flatMap((linha): LinhaDeCompraLocal[] => {
@@ -186,6 +204,9 @@ export function PainelDespesa({
     if (lido.outra.pessoa) {
       setPessoaOutra(lido.outra.pessoa);
     }
+    if (lido.outra.fornecedorId !== null) {
+      setFornecedorOutra(lido.outra.fornecedorId);
+    }
     if (lido.outra.descricao) {
       setDescricaoOutra(lido.outra.descricao);
     }
@@ -211,6 +232,7 @@ export function PainelDespesa({
       compra: {
         data: dataCompra,
         pessoa: pessoaCompra,
+        fornecedorId: fornecedorCompra,
         linhas: linhasCompra.map((linha) => ({
           itemId: linha.itemId,
           quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
@@ -220,6 +242,7 @@ export function PainelDespesa({
       outra: {
         data: dataOutra,
         pessoa: pessoaOutra,
+        fornecedorId: fornecedorOutra,
         descricao: descricaoOutra,
         categoriaId: categoriaOutraId,
         valorTexto: valorOutraTexto,
@@ -230,9 +253,11 @@ export function PainelDespesa({
     modo,
     dataCompra,
     pessoaCompra,
+    fornecedorCompra,
     linhasCompra,
     dataOutra,
     pessoaOutra,
+    fornecedorOutra,
     descricaoOutra,
     categoriaOutraId,
     valorOutraTexto,
@@ -456,12 +481,14 @@ export function PainelDespesa({
     setLinhasCompra([]);
     setDataCompra(hoje);
     setPessoaCompra("");
+    setFornecedorCompra(null);
     setBuscaCompra("");
     setDescricaoOutra("");
     setCategoriaOutraId(categoriasParaDespesa[0]?.id ?? "");
     setValorOutraTexto("");
     setDataOutra(hoje);
     setPessoaOutra("");
+    setFornecedorOutra(null);
     setErro(null);
     setPlano("avista");
     setFormaPagamento("dinheiro");
@@ -490,6 +517,8 @@ export function PainelDespesa({
             modo: "compra",
             data: dataCompra,
             pessoa: pessoaCompra.trim() === "" ? undefined : pessoaCompra,
+            // Só quando ligado: o servidor confere o fornecedor e grava o nome do CADASTRO.
+            fornecedorId: fornecedorCompra ?? undefined,
             linhas: linhasCompra.map((linha) => ({
               itemId: linha.itemId,
               quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
@@ -501,6 +530,8 @@ export function PainelDespesa({
             modo: "outra",
             data: dataOutra,
             pessoa: pessoaOutra.trim() === "" ? undefined : pessoaOutra,
+            // Só quando ligado (plano 12): o mesmo caminho da compra — o servidor confere e congela o nome.
+            fornecedorId: fornecedorOutra ?? undefined,
             descricao: descricaoOutra,
             categoriaId: categoriaOutraId,
             valorTexto: valorOutraTexto,
@@ -680,16 +711,34 @@ export function PainelDespesa({
                 className="text-corpo min-h-[44px]"
               />
             </label>
-            <label className="text-apoio text-muted-foreground flex flex-col gap-1">
-              {modo === "compra" ? ROTULO_FORNECEDOR_OPCIONAL : ROTULO_PARA_QUEM_OPCIONAL}
-              <Input
-                value={modo === "compra" ? pessoaCompra : pessoaOutra}
-                onChange={(evento) =>
-                  modo === "compra" ? setPessoaCompra(evento.target.value) : setPessoaOutra(evento.target.value)
-                }
-                className="text-corpo min-h-[44px]"
+            {modo === "compra" ? (
+              // O campo "Fornecedor" (Fase 06.2, plano 10 — D-04): o mesmo rótulo de sempre; escolher
+              // um fornecedor da lista liga a despesa a ele, escrever o nome continua gravando só o nome.
+              // `key` por modo: trocar de pílula começa o campo do outro modo com a lista fechada.
+              <CampoFornecedor
+                key="compra"
+                rotulo={ROTULO_FORNECEDOR_OPCIONAL}
+                fornecedores={fornecedores}
+                valor={{ texto: pessoaCompra, fornecedorId: fornecedorCompra }}
+                aoMudar={(novo) => {
+                  setPessoaCompra(novo.texto);
+                  setFornecedorCompra(novo.fornecedorId);
+                }}
               />
-            </label>
+            ) : (
+              // O MESMO campo no modo "Outra despesa" (plano 12; D-04 "em todos os modos"; UI-D2): o rótulo
+              // diz as duas coisas, porque outra despesa muitas vezes paga quem não é fornecedor.
+              <CampoFornecedor
+                key="outra"
+                rotulo={ROTULO_FORNECEDOR_OU_PARA_QUEM_OPCIONAL}
+                fornecedores={fornecedores}
+                valor={{ texto: pessoaOutra, fornecedorId: fornecedorOutra }}
+                aoMudar={(novo) => {
+                  setPessoaOutra(novo.texto);
+                  setFornecedorOutra(novo.fornecedorId);
+                }}
+              />
+            )}
           </div>
 
           {dataAtual !== hoje && (

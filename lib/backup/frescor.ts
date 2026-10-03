@@ -18,6 +18,10 @@ export type ExecucaoBackup = {
   // tentativa registrada, nunca uma falha. Toda execução NOVA de `scripts/backup.sh` grava
   // `true` ou `false`, nunca nulo.
   fotosDestinoExternoOk: boolean | null;
+  // Fase 06.2 (D-05, migração 0028): o mesmo par para a pasta dos anexos dos fornecedores.
+  // `null` significa "linha escrita ANTES da 0028" — nenhuma tentativa registrada, nunca uma
+  // falha. Toda execução NOVA de `scripts/backup.sh` grava `true` ou `false`, nunca nulo.
+  anexosDestinoExternoOk: boolean | null;
 };
 
 export type DecisaoFrescor =
@@ -92,9 +96,12 @@ export function decidirFrescorDoBackup(
     };
   }
 
-  // Fase 04.5 (D-28/ORC-16). Ordem deliberada: relógio no futuro, depois execução sem sucesso,
-  // depois destino externo do DUMP (acima), depois destino externo das FOTOS (aqui), depois
-  // idade — as fotos só importam depois que o dump em si já provou estar bem. `false` é sempre
+  // Fase 04.5 (D-28/ORC-16), estendida pela Fase 06.2 (D-05). Ordem deliberada: relógio no
+  // futuro, depois execução sem sucesso, depois destino externo do DUMP (acima), depois destino
+  // externo das FOTOS (aqui), depois destino externo dos ANEXOS (logo abaixo), depois idade — as
+  // pastas só importam depois que o dump em si já provou estar bem; as fotos vêm antes dos anexos
+  // só por terem chegado antes (as duas falhas pedem o mesmo gesto: olhar o destino externo, e
+  // corrigir uma faz a outra aparecer no próximo alarme, se ainda existir). `false` é sempre
   // uma execução nova que tentou e falhou; `null` é uma linha escrita antes desta fase (nenhuma
   // tentativa), e cai direto para a checagem de idade abaixo, como se a coluna não existisse.
   if (ultimaExecucao.fotosDestinoExternoOk === false) {
@@ -102,6 +109,18 @@ export function decidirFrescorDoBackup(
       status: "erro",
       http: 503,
       motivo: "A cópia externa das fotos dos orçamentos falhou na última execução.",
+      ultimoBackupEm,
+      idadeEmHoras,
+    };
+  }
+
+  // Fase 06.2 (D-05): o gêmeo do ramo das fotos, com a mesma regra para `null` (linha anterior à
+  // 0028 cai direto para a idade, como se a coluna não existisse).
+  if (ultimaExecucao.anexosDestinoExternoOk === false) {
+    return {
+      status: "erro",
+      http: 503,
+      motivo: "A cópia externa dos anexos dos fornecedores falhou na última execução.",
       ultimoBackupEm,
       idadeEmHoras,
     };

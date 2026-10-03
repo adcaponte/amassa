@@ -113,16 +113,27 @@ export type LinhaDeCompraDoRascunho = {
   valorTotalTexto: string;
 };
 
+// `fornecedorId` (Fase 06.2, plano 12 — Pitfall 15): o fornecedor ESCOLHIDO na lista do campo
+// "Fornecedor", nos DOIS modos, ao lado de `pessoa` (o texto); `null` = texto livre ou campo vazio. Um
+// rascunho gravado antes do plano 12, sem o campo, é lido com `null` — por isso `VERSAO_RASCUNHO` não
+// muda.
 export type RascunhoDeDespesa = {
   modo: "compra" | "outra";
-  compra: { data: string; pessoa: string; linhas: LinhaDeCompraDoRascunho[] };
-  outra: { data: string; pessoa: string; descricao: string; categoriaId: string; valorTexto: string };
+  compra: { data: string; pessoa: string; fornecedorId: string | null; linhas: LinhaDeCompraDoRascunho[] };
+  outra: {
+    data: string;
+    pessoa: string;
+    fornecedorId: string | null;
+    descricao: string;
+    categoriaId: string;
+    valorTexto: string;
+  };
 };
 
 const RASCUNHO_DESPESA_VAZIO: RascunhoDeDespesa = {
   modo: "compra",
-  compra: { data: "", pessoa: "", linhas: [] },
-  outra: { data: "", pessoa: "", descricao: "", categoriaId: "", valorTexto: "" },
+  compra: { data: "", pessoa: "", fornecedorId: null, linhas: [] },
+  outra: { data: "", pessoa: "", fornecedorId: null, descricao: "", categoriaId: "", valorTexto: "" },
 };
 
 function linhaDeCompraValida(valor: unknown): valor is LinhaDeCompraDoRascunho {
@@ -141,9 +152,16 @@ export function serializarRascunhoDespesa(rascunho: RascunhoDeDespesa): string {
 // `idsDeItensExistentes` é o catálogo de COMPRA carregado na hora da leitura — uma linha de
 // material que não existe mais (ou deixou de controlar estoque) é descartada, nunca mantida com
 // um id órfão (mesma disciplina de `lerRascunho`).
+//
+// `idsDeFornecedoresAtivos` (plano 06.2-12, Pitfall 15) são os fornecedores ATIVOS carregados na mesma
+// página: um `fornecedorId` fora deles (desativado desde então, ou forjado no armazenamento) é
+// descartado e o nome fica como TEXTO LIVRE — nunca se religa nada sozinho. Lista vazia (nenhum ativo,
+// ou a lista não carregou) descarta todo vínculo. O servidor continua sendo a barreira
+// (`lancarDespesa` recusa inexistente ou desativado).
 export function lerRascunhoDespesa(
   texto: string,
   idsDeItensExistentes: readonly string[],
+  idsDeFornecedoresAtivos: readonly string[],
 ): RascunhoDeDespesa {
   let dados: unknown;
   try {
@@ -165,16 +183,22 @@ export function lerRascunhoDespesa(
 
   const outraBruto = ehRegistro(dados.outra) ? dados.outra : {};
 
+  const fornecedoresAtivos = new Set(idsDeFornecedoresAtivos);
+  const fornecedorValido = (valor: unknown): string | null =>
+    typeof valor === "string" && fornecedoresAtivos.has(valor) ? valor : null;
+
   return {
     modo: dados.modo === "outra" ? "outra" : "compra",
     compra: {
       data: typeof compraBruto.data === "string" ? compraBruto.data : "",
       pessoa: typeof compraBruto.pessoa === "string" ? compraBruto.pessoa : "",
+      fornecedorId: fornecedorValido(compraBruto.fornecedorId),
       linhas,
     },
     outra: {
       data: typeof outraBruto.data === "string" ? outraBruto.data : "",
       pessoa: typeof outraBruto.pessoa === "string" ? outraBruto.pessoa : "",
+      fornecedorId: fornecedorValido(outraBruto.fornecedorId),
       descricao: typeof outraBruto.descricao === "string" ? outraBruto.descricao : "",
       categoriaId: typeof outraBruto.categoriaId === "string" ? outraBruto.categoriaId : "",
       valorTexto: typeof outraBruto.valorTexto === "string" ? outraBruto.valorTexto : "",

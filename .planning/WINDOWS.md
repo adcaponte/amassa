@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 28
+open_count: 29
 waived_count: 1
 fixed_count: 34
-total_count: 63
-last_updated: 2026-10-02T15:00:00.000Z
+total_count: 64
+last_updated: 2026-10-03T05:45:00.000Z
 ---
 
 # Broken Windows Ledger
@@ -78,6 +78,7 @@ last_updated: 2026-10-02T15:00:00.000Z
 | 61 | 04.6 | todo | conteudo/site.ts |  | Textos do site publico ainda com colchetes [...] e a faixa 'em construcao' no ar; o dono declarou em 29/09/2026 (VERIFICACAO-HUMANA item 14) que vai entregar um pacote unico de alteracoes de texto — pendencia declarada dele, nao defeito; fecha quando o lote entrar | open |  | 2026-09-28T23:41:02.301Z |  |
 | 62 | 06.1 | deviation | tests/e2e/financeiro-mes.spec.ts | 114 | 'areas (criterio 1): venda de tres areas paga no Pix' (celular) falhou na varredura completa do plano 06.1-15 (8 workers) E na execucao serial seguinte (--workers=1, 968 testes): o Mes de 2021-10 mostrou R$ 0,00 nas quatro areas. Passou isolado (so a cadeia vazio-*). Nenhum arquivo do Financeiro da venda ou do Mes mudou na fase. Hipotese nao provada: o teste preenche Data/busca antes da hidratacao do PainelVenda (useState(hoje)) quando o banco esta cheio, e a venda sai com a data de hoje; esperarVendaLancada so confere a URL ?aba=venda. Proximo passo: waitForLoadState networkidle + toHaveValue da Data antes de Lancar venda, como o helper de despesa do mesmo arquivo ja faz. \|\| EXPLICADA E CORRIGIDA em 01/10/2026: no run 36796957676 (commit 3c14158) o caso falhou nas 3 tentativas do celular; o trace do retry #1 (artefato playwright-falhas) mostra o POST da venda com "data":"2026-09-30" (o hoje do servidor) em vez de 2021-10-10 -- a hipotese da hidratacao estava certa. Nao e fuso (diaDoMes e texto puro; o hoje enviado e o dia certo de Brasilia) nem colisao de mes reservado (2021-10 e so de mes-areas/celular). Corrigido no teste (fix(e2e) 6109d5f): preencherDataDaVenda() so segue quando a frase 'Lancando com data de ...' aparece, ou seja, quando o ESTADO do React tem a data; vale para o caso e para lancarVendaLivre. Prova: 98/98 no --grep de 01/10 00:59:48Z-01:02:01Z. | fixed |  | 2026-09-30T11:44:34.384Z | 2026-10-01T01:10:00.000Z |
 | 63 | 06.1 | deviation | tests/e2e/abertura-painel.spec.ts | 113 | 01/10/2026 (run 36796957676, commit 3c14158, e2e reprovou, nada implantado): 'item a vista + 6 parcelas no mes corrente' (desktop e celular, 3 tentativas cada) -- deterministico das 21h a meia-noite de Brasilia no ultimo dia do mes. O teste usava new Date().toISOString().slice(0,10) (dia UTC) e a aplicacao calcula 'este mes' em America/Sao_Paulo; o item nascia no mes seguinte. Corrigido no teste (fix(e2e) 1649e91) com hojeNoAtelie()/somarDiasAoHoje() de tests/e2e/apoio/semear-financeiro.ts, tambem em abertura-painel :178/:418 e abertura-edicao :129. Prova: npm run test:e2e -- --grep 'abertura painel\|financeiro mes\|abertura edicao\|abertura edição' passou 98/98 de 00:59:48Z a 01:02:01Z de 01/10 (21:59 de 30/09 em Brasilia, dentro da janela ruim). | fixed |  | 2026-10-01T01:10:00.000Z | 2026-10-01T01:10:00.000Z |
+| 64 | 06.3 | deviation | tests/e2e/cotacoes-categorias.spec.ts | 291 | 03/10/2026, plano 06.3-06: o goto da fronteira de erro da Abertura (?categoriaDialogo=nao-e-um-uuid) as vezes nao recebe o evento load em 30s; a pagina de erro aparece certa (snapshot). Falhou na varredura completa (desktop e celular) e na reexecucao com --grep (desktop). Ligado ao item Lembretes da lateral (06.3-05): isolado com --no-deps --repeat-each=4, 4/8 e 3/8 falham com o item; 8/8 passam sem ele; 1/8 falha com prefetch=false so nele. Log do servidor igual nos tres casos. Mecanismo nao identificado; nao corrigido; teste nao afrouxado. Ver 06.3-06-SUMMARY.md | open |  | 2026-10-03T05:45:00.000Z |  |
 
 ````json
 [
@@ -836,6 +837,18 @@ last_updated: 2026-10-02T15:00:00.000Z
     "reason": "",
     "recorded_at": "2026-10-01T01:10:00.000Z",
     "resolved_at": "2026-10-01T01:10:00.000Z"
+  },
+  {
+    "id": 64,
+    "kind": "deviation",
+    "phase": "06.3",
+    "file": "tests/e2e/cotacoes-categorias.spec.ts",
+    "line": 291,
+    "description": "03/10/2026, plano 06.3-06: o goto da fronteira de erro da Abertura (?categoriaDialogo=nao-e-um-uuid) as vezes nao recebe o evento load em 30s; a pagina de erro aparece certa (snapshot). Falhou na varredura completa (desktop e celular) e na reexecucao com --grep (desktop). Ligado ao item Lembretes da lateral (06.3-05): isolado com --no-deps --repeat-each=4, 4/8 e 3/8 falham com o item; 8/8 passam sem ele; 1/8 falha com prefetch=false so nele. Log do servidor igual nos tres casos. Mecanismo nao identificado; nao corrigido; teste nao afrouxado. Ver 06.3-06-SUMMARY.md",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-03T05:45:00.000Z",
+    "resolved_at": ""
   }
 ]
 ````
