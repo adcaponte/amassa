@@ -19,7 +19,7 @@ const FRASE_ESCREVA_ANTES_DE_GUARDAR = "Escreva o lembrete antes de guardar.";
 const FRASE_PESSOA_INVALIDA =
   "Essa pessoa não está mais na lista. Escolha outra ou deixe “geral”.";
 const FRASE_NADA_PARA_FAZER =
-  "Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.";
+  "Nada para fazer. Escreva um lembrete na linha acima — com data ele fica vermelho quando vencer.";
 // O primeiro nome da conta do e2e ("Gestora de Teste", `preparar-usuario.ts`).
 const PRIMEIRO_NOME_DO_GESTOR_DE_TESTE = "Gestora";
 

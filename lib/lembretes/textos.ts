@@ -60,11 +60,12 @@ export function textoEMaisN(n: number): string {
   return `e mais ${n} — ver todos`;
 }
 
-// Nenhum aberto, no Início (06.3-UI-SPEC.md §Estados vazios — copy aprovada, verbatim). Nota para
-// a Parte 0 da verificação humana: o lembrete não notifica ninguém (BRIEFING §5, fora); "avisa" é
-// ficar vermelho. Trocar por "fica vermelho quando vencer" é esta linha.
+// Nenhum aberto, no Início (06.3-UI-SPEC.md §Estados vazios). O lembrete não notifica ninguém
+// (BRIEFING §5, fora): vencer é ficar vermelho, e a frase diz isso. Troca do dono no chat,
+// 03/10/2026, na Parte 0 da verificação humana — a copy aprovada do protótipo dizia "com data ele
+// avisa quando vencer".
 export const FRASE_NADA_PARA_FAZER =
-  "Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.";
+  "Nada para fazer. Escreva um lembrete na linha acima — com data ele fica vermelho quando vencer.";
 
 // A linha de criar completa (06.3-UI-SPEC.md §Rótulos e §Erros; plano 06.3-03).
 // Guardar com o campo vazio ou só com espaços — a frase do cliente (UI-D9: nada em silêncio). O
