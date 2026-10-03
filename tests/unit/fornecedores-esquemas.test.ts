@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { areaFinanceira } from "@/db/schema";
-import { AREAS_DO_FORNECEDOR, esquemaFornecedor } from "@/lib/fornecedores/esquemas";
+import {
+  AREAS_DO_FORNECEDOR,
+  esquemaAtivoDoFornecedor,
+  esquemaEditarFornecedor,
+  esquemaFornecedor,
+} from "@/lib/fornecedores/esquemas";
 
 // 06.2-01-PLAN.md (FRN-02): o cadastro de fornecedores valida no SERVIDOR com os MESMOS tetos dos
 // checks `fornecedores_*_comprimento` da 0028 — nome aparado de 1 a 120 caracteres; whatsapp 40,
@@ -165,5 +170,91 @@ describe("AREAS_DO_FORNECEDOR", () => {
 
   it("segue a ordem do protótipo", () => {
     expect(AREAS_DO_FORNECEDOR).toEqual(["pecas", "cafeteria", "loja", "espaco", "geral"]);
+  });
+});
+
+// 06.2-04-PLAN.md (FRN-02, FRN-03): manter o cadastro. Editar = os mesmos campos e tetos do cadastrar
+// + o id; o estado do fornecedor é o ESTADO DESEJADO (id + ativo), nunca "inverter".
+const ID_VALIDO = "3f1c2a4b-8d6e-4f7a-9b1c-2d3e4f5a6b7c";
+
+describe("esquemaAtivoDoFornecedor — o estado desejado", () => {
+  it.each([[true], [false]])("{ id: <uuid>, ativo: %s } → aceito como veio", (ativo) => {
+    const resultado = esquemaAtivoDoFornecedor.safeParse({ id: ID_VALIDO, ativo });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).toEqual({ id: ID_VALIDO, ativo });
+  });
+
+  it.each([["não é uuid", "abc"], ["vazio", ""], ["número", 42], ["ausente", undefined]])(
+    "id %s → recusado com a frase da ficha de id ruim",
+    (_descricao, id) => {
+      const resultado = esquemaAtivoDoFornecedor.safeParse({ id, ativo: false });
+      expect(resultado.success).toBe(false);
+      expect(resultado.error?.issues[0]?.path).toEqual(["id"]);
+      expect(primeiraMensagem(resultado)).toBe("Esse fornecedor não está no cadastro. Escolha outro na lista.");
+    },
+  );
+
+  it.each([["ausente", undefined], ["nulo", null], ["texto", "false"], ["número", 0]])(
+    "ativo %s → recusado (nunca “inverter” por falta de valor)",
+    (_descricao, ativo) => {
+      const resultado = esquemaAtivoDoFornecedor.safeParse({ id: ID_VALIDO, ativo });
+      expect(resultado.success).toBe(false);
+      expect(resultado.error?.issues[0]?.path).toEqual(["ativo"]);
+    },
+  );
+});
+
+describe("esquemaEditarFornecedor — os tetos do cadastrar, mais o id", () => {
+  it("apara o nome, deixa os opcionais nulos e devolve o id", () => {
+    const resultado = esquemaEditarFornecedor.safeParse({ id: ID_VALIDO, nome: "  Loja X  ", area: "loja" });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).toEqual({
+      id: ID_VALIDO,
+      nome: "Loja X",
+      area: "loja",
+      vende: null,
+      cidadeEntrega: null,
+      whatsapp: null,
+      pessoaContato: null,
+      email: null,
+      site: null,
+      pagamentoPrazo: null,
+      observacoes: null,
+    });
+  });
+
+  it("não aceita `ativo`: editar nunca reativa (o campo extra é descartado)", () => {
+    const resultado = esquemaEditarFornecedor.safeParse({ id: ID_VALIDO, nome: "Loja", area: "pecas", ativo: true });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).not.toHaveProperty("ativo");
+  });
+
+  it.each([
+    ["120 caracteres no nome", { nome: "x".repeat(120) }],
+    ["4000 caracteres nas observações", { nome: "Loja", observacoes: "o".repeat(4000) }],
+  ])("%s → aceito", (_descricao, campos) => {
+    expect(esquemaEditarFornecedor.safeParse({ id: ID_VALIDO, area: "pecas", ...campos }).success).toBe(true);
+  });
+
+  it.each([
+    ["121 caracteres no nome", { nome: "x".repeat(121) }, "nome", "O nome pode ter até 120 caracteres."],
+    [
+      "4001 caracteres nas observações",
+      { nome: "Loja", observacoes: "o".repeat(4001) },
+      "observacoes",
+      "As observações podem ter até 4.000 caracteres.",
+    ],
+    ["nome só com espaços", { nome: "   " }, "nome", "Diga o nome do fornecedor."],
+  ])("%s → recusado com a frase do cadastrar", (_descricao, campos, campo, frase) => {
+    const resultado = esquemaEditarFornecedor.safeParse({ id: ID_VALIDO, area: "pecas", ...campos });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]?.path).toEqual([campo]);
+    expect(primeiraMensagem(resultado)).toBe(frase);
+  });
+
+  it.each([["não é uuid", "abc"], ["ausente", undefined]])("id %s → recusado", (_descricao, id) => {
+    const resultado = esquemaEditarFornecedor.safeParse({ id, nome: "Loja", area: "pecas" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues.map((problema) => problema.path)).toContainEqual(["id"]);
   });
 });

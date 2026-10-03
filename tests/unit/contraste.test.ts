@@ -460,3 +460,57 @@ describe("contraste da Agenda (05-UI-SPEC.md)", () => {
     expect(fonte).not.toMatch(/#[0-9A-Fa-f]{6}/);
   });
 });
+
+// Fase 06.2 (Fornecedores), plano 04: os pares F1-F15 da UI-SPEC (06.2-UI-SPEC.md §Color → "Pares de
+// contraste"), medidos no `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui (o
+// branco do texto dos tiles de tipo de anexo é a única cor fora de token, como o `BRANCO` das pílulas).
+// Pares que outras fases já provam entram de novo com o uso dos Fornecedores: o teste cobre o uso.
+// Achado real se reprovar: o token (ou o par que o componente usa) muda, nunca o limiar.
+describe("contraste dos Fornecedores (06.2-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const BRANCO = "#FFFFFF";
+
+  const cor = (token: string) => (token === "BRANCO" ? BRANCO : tokenDaPlataforma(token));
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    ["F1", "BRANCO", "queima1", TEXTO_NORMAL, "tile “PDF”"],
+    ["F2", "BRANCO", "esmaltacao", TEXTO_NORMAL, "tile “JPG”"],
+    ["F3", "BRANCO", "entrega", TEXTO_NORMAL, "tile “XLSX”/“XLS”/“CSV”"],
+    // Margem quase nula — qualquer ajuste de paleta reprova aqui de propósito (F4 = 4,51:1, o Q1 da 06.1).
+    ["F4", "atencao", "atencao-fundo", TEXTO_NORMAL, "selo “tem mais de 4 meses — pedir a nova?”"],
+    // Margem curta (F5 = 4,57:1).
+    ["F5", "sucesso", "sucesso-fundo", TEXTO_NORMAL, "selo “recente”"],
+    ["F6", "tinta-fraca", "superficie-2", TEXTO_NORMAL, "selo “desativado”, selo “vigente”"],
+    ["F7", "tinta-media", "superficie-2", TEXTO_NORMAL, "etiquetas de “vende” e de área"],
+    ["F8", "acento", "acento-fundo", TEXTO_NORMAL, "ações de contato; pílula de área marcada"],
+    ["F9", "tinta", "acento-fundo", TEXTO_NORMAL, "nome do fornecedor na linha aberta da lista"],
+    ["F10", "erro", "superficie", TEXTO_NORMAL, "“tirar”, “Tirar anexo”, erros"],
+    ["F11", "erro", "fundo", TEXTO_NORMAL, "frase de recusa dentro da zona de envio"],
+    ["F12", "tinta-fraca", "superficie", TEXTO_NORMAL, "linhas de meta, dicas, rodapé da lista, “vende · cidade”"],
+    ["F13", "tinta-media", "fundo", TEXTO_NORMAL, "texto da zona de envio em repouso"],
+    ["F14", "atencao", "superficie", TEXTO_NORMAL, "linha ““{texto}” está no cadastro…” do combobox"],
+  ];
+
+  it("a tabela tem F1..F14 (F15 é a afirmação ao contrário, abaixo)", () => {
+    expect(PARES.map(([par]) => par)).toEqual(Array.from({ length: 14 }, (_, indice) => `F${indice + 1}`));
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = cor(tokenDaFrente);
+      const fundo = cor(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+
+  it("F15 — --color-ouro sobre --color-superficie fica ABAIXO de 3: a borda dourada da tabela vigente é decorativa e o selo “vigente” é obrigatório (UI-D19)", () => {
+    // Se um dia o token mudar e isto passar de 3, o selo pode sair; enquanto não, ele é obrigatório.
+    const razao = razaoDeContraste(tokenDaPlataforma("ouro"), tokenDaPlataforma("superficie"));
+    expect(razao, `F15: ouro sobre superficie deu ${razao.toFixed(2)}:1`).toBeLessThan(NAO_TEXTO);
+  });
+});
