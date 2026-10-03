@@ -55,6 +55,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09) (completed 2026-10-01)
 - [x] **Phase 06.2: Fornecedores** (INSERTED) - Aba dos Cadastros com contatos, condições e anexos de quem vende para o ateliê; o único vínculo é o fornecedor opcional na Despesa (item 7 da fila; briefing e protótipo de 01/10, FRN-01..14) — *03/10/2026: no ar e fechada — Roteiro 19 feito pelo dono (merge `6a20ee6`, run `37133630212`, `0028` aplicada, `/api/health/fornecedores` 200); portão 06.2-13 aprovado por ele no chat; 13/13 planos; revisão de código em `06.2-REVIEW.md` (0 bloqueios, 2 avisos e 10 informativos, correções à espera da decisão do dono); verificação `passed` 6/6 critérios e 14/14 FRN (`06.2-VERIFICATION.md`).* (completed 2026-10-03)
 - [x] **Phase 06.3: Lembretes** (INSERTED) - A lista "Para fazer" ao lado da folha da casa no Início (item 7b da fila; briefing e protótipo de 02/10, LMB-01..09) — *03/10/2026: no ar e fechada — Roteiro 20 feito pelo dono de carona no 19 (merge `6a20ee6`, run `37133630212`, `0029` aplicada, `/api/health/lembretes` 200); portão 06.3-06 aprovado por ele no chat; 6/6 planos; revisão de código em `06.3-REVIEW.md` (0 bloqueios, 3 avisos e 9 informativos, correções à espera da decisão do dono); verificação `passed` 6/6 critérios e 9/9 LMB (`06.3-VERIFICATION.md`); WINDOWS #64 continua aberto.* (completed 2026-10-03)
+- [ ] **Phase 06.4: Queimas — contagem** (INSERTED) - O que queimou: contagem opcional por tamanho depois do registro em dois toques, cobrança da queima externa e os números do forno (item 8 da fila; briefing e protótipo de 20/09, QMC-01..11)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -1036,12 +1037,14 @@ marcam feitos (com desfazer) e, por decisão do dono, se apagam de verdade.
 **Depends on:** Phase 06.2 (ordem da fila); toca só o Início
 **Requirements**: LMB-01, LMB-02, LMB-03, LMB-04, LMB-05, LMB-06, LMB-07, LMB-08, LMB-09
 **Success Criteria** (what must be TRUE):
+
   1. Criar um lembrete numa linha no Início, com data e "quem" opcionais; texto vazio não cria
   2. Os abertos aparecem vencidos primeiro, com os rótulos "venceu dd/mm · N dias" / "hoje" / "amanhã" / dd/mm no dia de Brasília; no máximo 6 no Início, com "e mais N — ver todos"
   3. Marcar feito risca e move para "Feitos", com Desfazer; desmarcar reabre
   4. Editar na linha; excluir apaga a linha do banco (provado no e2e), com Desfazer por alguns segundos
   5. "Ver todos" com os filtros Abertos/Feitos e Todos/Geral/Theo/Andressa, autoria e "Mostrar mais 50"
   6. A folha da casa não muda; alvos de 44 px e nenhuma rolagem lateral a 320 px
+
 **Plans:** 6/6 plans complete *(até 03/10/2026 ~18h UTC dizia “5/6 plans executed — 03/10/2026: os planos 01–05 e as Tarefas 1–2 do 06 no branch `gsd/phase-06.3-lembretes`, não publicado; o 06 espera o dono”; antes, “0/6 plans executed”)*
 
 Planejada em 03/10/2026 (madrugada, sem o dono, sob a autorização de 02/10) no branch `gsd/phase-06.3-lembretes`, criado a partir do `gsd/phase-06.2-fornecedores`: pesquisa, UI-SPEC (aprovada pelo ui-checker na 2ª leitura completa), mapa de padrões e 6 planos aprovados pelo plan-checker na 2ª rodada.
@@ -1054,6 +1057,35 @@ Plans:
 - [x] 06.3-04-PLAN.md — Ações da linha: feito com Desfazer e “Feitos (N)” (D-02), editar na linha, excluir de verdade quando o toast expira (D-03) (onda 4) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`097e6fc`..`bb8fd65`), publicado em 03/10/2026 (merge `6a20ee6`, run `37133630212`; até então não publicado) — ver `06.3-04-SUMMARY.md`
 - [x] 06.3-05-PLAN.md — “Ver todos” em `/gestao/lembretes` (D-01): filtros, autoria, “Mostrar mais 50”; Lembretes na navegação (onda 5) — Concluído em 03/10/2026 no branch `gsd/phase-06.3-lembretes` (`c7d8888`..`4241b0e`), publicado em 03/10/2026 (merge `6a20ee6`, run `37133630212`; até então não publicado) — ver `06.3-05-SUMMARY.md`
 - [x] 06.3-06-PLAN.md — Portão: varredura e2e completa, Roteiro 20, caminhada do dono com a Parte 0, documentos de estado (onda 6, **não autônomo**) *Concluído em 03/10/2026: Tarefas 1 e 2 pelo executor no branch (a varredura completa, o Roteiro 20 e a caminhada); Parte 0 respondida pelo dono (copy do vazio trocada, `82b6102`; exclusão sem diálogo fica; §0.8 = (a) — `b188a67`); Roteiro 20 feito por ele pelo caminho A, de carona no 19 (merge `6a20ee6`, run `37133630212` verde, `0029` no mesmo `db:migrate`, `/api/health/lembretes` 200, `apaga_lembrete = t`); a caminhada aprovada por ele no chat (~18h UTC: "fiz a verificação dos lembretes. Tudo OK."), sem anotação por item — ver `06.3-06-SUMMARY.md`. WINDOWS #64 continua aberto. Até 03/10/2026 ~18h UTC esta linha terminava em "Aberto até o “aprovado”".*
+
+**UI hint**: yes
+
+### Phase 06.4: Queimas — contagem (INSERTED)
+
+> **Criada em 03/10/2026** (item 8 da fila do Cowork). A especificação é o `BRIEFING.md` e o
+> `prototipo.html` ("Queimas AMASSA", **aprovado pelo dono em 20/09/2026**), copiados para
+> `.planning/phases/06.4-queimas-contagem/` (idênticos aos de `Claude outputs/queimas/`, `cmp`). O protótipo
+> vence sobre a interface; o briefing vence sobre regra de dado. **Acréscimo** ao Contador de Queima da
+> Fase 4: fornos, contador de manutenção, registro em dois toques, manutenções e relatórios continuam
+> como estão. Ordem decidida pelo dono em 01/10/2026: Agenda → Fornecedores → (Lembretes) → Queimas.
+
+**Goal**: Depois de registrar a queima em dois toques, contar — se quiser — as peças da fornada por
+tamanho (Internas P·M·G e Externas P·M·G, mais "o forno saiu cheio"); cobrar a queima externa pela
+contagem, criando a Venda no Financeiro; e ver os números: queimas por tipo, peças por fornada cheia com
+o mix por tamanho e o fator do biscoito medido, e o que o forno queimou.
+**Depends on:** Phase 4 (Contador de Queima), Phase 04.4 (Venda, Catálogo), Phase 06.1 (ordens da Produção para o atalho)
+**Requirements**: QMC-01, QMC-02, QMC-03, QMC-04, QMC-05, QMC-06, QMC-07, QMC-08, QMC-09, QMC-10, QMC-11
+**Success Criteria** (what must be TRUE):
+  1. Registrar uma queima continua em dois toques; a contagem abre em seguida, opcional, e "Pular" não perde nada — a queima entra em "Sem contagem", com "Contar agora", e a contagem se corrige depois pelo Histórico
+  2. Seis contadores (Internas P·M·G, Externas P·M·G) e "o forno saiu cheio" (marcado por padrão), com "Repetir a última" do mesmo tipo e os chips das ordens da Produção que só somam, sem escrever na Produção
+  3. Fornada com externas aparece em "Queimas externas a cobrar" com o valor dos itens "Queima externa P/M/G" do Catálogo; "Lançar na Venda" e "Recebi agora" criam a Venda — nada é "pago" sem estar no Caixa
+  4. Os números mostram queimas por tipo (desde a manutenção e no mês), peças por fornada cheia com o mix por tamanho e o fator do biscoito medido, e internas × externas abertas em P·M·G — com aviso de poucas fornadas cheias
+  5. Apagar uma queima leva a contagem junto e a confirmação diz isso; a régua P·M·G é editável
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (discussão primeiro: os pontos da §7 do briefing)
 
 **UI hint**: yes
 
@@ -1070,6 +1102,7 @@ documento de operação) tornam-se os planos desta fase.
 **Requirements**: UI-10, UI-11, PNL-01, PNL-02, PNL-03, PNL-04, PNL-05, PNL-06, PNL-07
 **Anotado por fases anteriores:** dar ou trocar o fornecedor de uma despesa já lançada (D-02 da Fase 06.2, 02/10/2026 — hoje não existe edição de despesa, e o campo “Fornecedor” vale só no lançamento).
 **Anotado em 03/10/2026 — decisão do dono no chat ("Sim. Anote certinho aonde estão essas linhas para ficar fresco para o polimento. assim como esse teste da Abertura."):** os avisos das revisões de código das Fases 06.2 e 06.3 (nenhum bloqueio; o dono preferiu o Polimento a corrigir no dia da publicação). Linhas medidas em `main` = `3f40105`; o detalhe, o cenário e a correção sugerida de cada um estão nos REVIEW citados.
+
   - **Fornecedores WR-01** — falha do banco durante o envio vira "Sua sessão terminou" e o arquivo escolhido se perde: o `catch` em volta de `exigirUsuario()` pega qualquer erro. `app/gestao/api/fornecedores/anexos/route.ts:128-133`, `app/gestao/api/fornecedores/anexos/[id]/route.ts:53-57`, lado do cliente `components/amassa/cadastros/fornecedores/folha-anexo.tsx:278-283`. Correção: 401 só para o redirect de sessão; o resto, 500 com a frase de falha. (`06.2-REVIEW.md` WR-01)
   - **Fornecedores WR-02** — "Baixar" de planilha cujo arquivo sumiu (ou sem sessão) troca a aba do app por JSON cru. `components/amassa/cadastros/fornecedores/anexos-fornecedor.tsx:241-244`, `components/amassa/cadastros/fornecedores/tabela-vigente.tsx:93-102`, `app/gestao/api/fornecedores/anexos/[id]/route.ts:60-85`. (`06.2-REVIEW.md` WR-02)
   - **Fornecedores IN-06** — foto sem teto de pixels (uma PNG de 10 MB pode declarar 16k×16k e esgotar a memória do contêiner; só gestor logado). `lib/fornecedores/foto.ts:36`: `sharp(bytes, { limitInputPixels: 100_000_000 })`. (`06.2-REVIEW.md` IN-06)
@@ -1079,6 +1112,7 @@ documento de operação) tornam-se os planos desta fase.
   - **WINDOWS #64** — o e2e `tests/e2e/cotacoes-categorias.spec.ts:291` (página de erro da Abertura com id malformado) às vezes não dá o `load` em 30 s: 3–4 de 8 falham com o item "Lembretes" na barra lateral, 0 de 8 sem ele, 1 de 8 sem o pré-carregamento do link. Mecanismo não achado; produto e teste intocados. Detalhe em `.planning/WINDOWS.md` #64 e na §0.8 de `06.3-VERIFICACAO-HUMANA.md`. Caminho: `/gsd-debug`.
   - Os INFO das duas revisões (10 + 9) ficam nos próprios `06.2-REVIEW.md` e `06.3-REVIEW.md`, para triagem no Polimento.
   - Também abertos (no `STATE.md`, Pending Todos): `client_id` próprio do rclone antes do uso real (o compartilhado do Google Drive será desligado em 2026); dividir o job de e2e do CI por projeto (o tempo foi a 40 min em `213cb15`); o `path.join` dinâmico em `lib/fornecedores/caminho-anexos.ts:47` que faz a imagem standalone carregar o projeto inteiro.
+
 **Success Criteria** (what must be TRUE):
 
   1. O painel inicial responde "o que preciso fazer hoje?" sem nenhum clique, mostrando encomendas por etapa, aulas de hoje, fornos em atenção ou crítico e alertas de estoque baixo
@@ -1109,7 +1143,7 @@ documento de operação) tornam-se os planos desta fase.
 ## Progress
 
 **Execution Order:**
-Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → **06.2 (Fornecedores)** → **06.3 (Lembretes)** → Queimas → 7 *(até 02/10/2026 esta linha dizia "→ Produção → 5 → Queimas → 7"; o dono puxou Fornecedores para antes das Queimas em 01/10)*
+Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04.1 → 04.2 → 04.3 → 04.4 → **04.5 (Financeiro 2)** → `/gestao` + site → 6 → Produção → 5 → **06.2 (Fornecedores)** → **06.3 (Lembretes)** → **06.4 (Queimas)** → 7 *(até 02/10/2026 esta linha dizia "→ Produção → 5 → Queimas → 7"; o dono puxou Fornecedores para antes das Queimas em 01/10)*
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -1129,4 +1163,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 06.2. Fornecedores | 13/13 | Complete | 2026-10-03 |
 | 06.3. Lembretes | 6/6 | Complete | 2026-10-03 |
+| 06.4. Queimas — contagem | 0/TBD | Not started (criada em 03/10/2026) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |

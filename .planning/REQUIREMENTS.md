@@ -231,6 +231,24 @@
 > (`06.3-VERIFICATION.md`). Detalhe em `06.3-06-SUMMARY.md`. Fica aberto, fora dos requisitos: WINDOWS #64 (e2e
 > `cotacoes-categorias:291` instável com o item "Lembretes" na lateral; o run `37133630212` passou com ele).
 
+### Queimas — a contagem "o que queimou" (Fase 06.4, criada em 03/10/2026)
+
+> Transcrição do `BRIEFING.md` e do `prototipo.html` ("Queimas AMASSA", **aprovado pelo dono em 20/09/2026**),
+> copiados para `.planning/phases/06.4-queimas-contagem/`. O protótipo vence sobre a interface; o briefing
+> vence sobre regra de dado. Os pontos da §7 ficam para a discussão (em itálico). Acréscimo à Fase 4 (FOR-*).
+
+- [ ] **QMC-01**: 🔴 O registro em dois toques **não fica mais lento** (Queimar → tipo → gravado); a contagem abre em seguida como passo **opcional**, com "Pular" (§1)
+- [ ] **QMC-02**: Queima sem contagem é estado válido e permanente; entra na lista **"Sem contagem"** com "Contar agora"; a contagem se corrige depois pelo Histórico (§1, §6)
+- [ ] **QMC-03**: **Seis contadores** — Internas P·M·G e Externas P·M·G, inteiros ≥ 0 — e **"o forno saiu cheio"**, marcado por padrão; a Queima não guarda de quem é a peça interna (§2, §6) — *ouro usa os mesmos contadores? discussão (§7.2)*
+- [ ] **QMC-04**: Régua **P até 10 cm · M de 10 a 25 cm · G maior que 25 cm**, uma só para internas e externas, **editável**, guardada junto dos parâmetros (§2) — *onde fica editável: discussão (§7.4)*
+- [ ] **QMC-05**: **"Repetir a última"** copia a contagem da última fornada contada do mesmo tipo (§3)
+- [ ] **QMC-06**: Chips das **ordens da Produção esperando esta queima** ("+16 · Canecas para a loja"): um toque soma as peças pendentes no contador **interno** do tamanho deduzido das medidas da ficha pela régua; **só leitura — não escreve nada na Produção** (§3)
+- [ ] **QMC-07**: Fornada com externas entra em **"Queimas externas a cobrar"** com o valor dos itens **"Queima externa P / M / G" do Catálogo** (nenhum preço no código) (§4)
+- [ ] **QMC-08**: **"Lançar na Venda"** abre a Venda preenchida com as linhas e quantidades; **"Recebi agora"** pergunta a forma e cria a Venda já paga no Caixa; a queima guarda se as externas foram cobradas e o vínculo com a venda; nada de "pago" fora do Caixa (§4, ajuste de 26/09)
+- [ ] **QMC-09**: Números: **queimas por tipo** (biscoito · esmalte · ouro) desde a última manutenção e no mês; o cartão do forno fica com "Contagem: N queimas até a manutenção." (§5)
+- [ ] **QMC-10**: **Peças por fornada cheia** — média no biscoito e no esmalte com o **mix por tamanho** e o **fator do biscoito medido**, com aviso de poucas fornadas cheias; levar o número aos Parâmetros continua **manual**; e **o que o forno queimou**, internas × externas em P·M·G, só visão (§5) — *por forno: discussão (§7.1)*
+- [ ] **QMC-11**: Apagar uma queima leva a contagem junto e a confirmação diz isso; regras (régua, médias, fator, valor da cobrança) em **módulo puro `lib/queimas/`** testado; Server Actions com `exigirUsuario()` e Zod; migração com `TABELAS_ESPERADAS` (§6)
+
 ### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
 
 > *01/10/2026:* os AGD-* abaixo descrevem o modelo da AMASSA de Goiânia (grade por turno, quatro
@@ -735,6 +753,17 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | LMB-07 | Phase 06.3 — Lembretes | Complete |
 | LMB-08 | Phase 06.3 — Lembretes | Complete |
 | LMB-09 | Phase 06.3 — Lembretes | Complete |
+| QMC-01 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-02 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-03 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-04 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-05 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-06 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-07 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-08 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-09 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-10 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-11 | Phase 06.4 — Queimas contagem | Pending |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
@@ -873,8 +902,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 **Coverage:**
 
-- v1 requirements: 216 total — em 02/10/2026 (noite) entraram os LMB-01..09 da Fase 06.3: 207 + 9. *Até a noite de 02/10/2026 esta linha dizia 207:* em 02/10/2026 entraram os FRN-01..14 da Fase 06.2: 193 + 14. *Até 02/10/2026 esta linha dizia 193:* em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
-- Mapped to phases: 216/216 (até a noite de 02/10/2026: 207/207; antes: 193/193; até 01/10/2026: 189/189)
+- v1 requirements: 227 total — em 03/10/2026 entraram os QMC-01..11 da Fase 06.4: 216 + 11. *Até 03/10/2026 esta linha dizia 216:* — em 02/10/2026 (noite) entraram os LMB-01..09 da Fase 06.3: 207 + 9. *Até a noite de 02/10/2026 esta linha dizia 207:* em 02/10/2026 entraram os FRN-01..14 da Fase 06.2: 193 + 14. *Até 02/10/2026 esta linha dizia 193:* em 01/10/2026 saíram da conta os AGD-01..16 (substituídos, nunca executados) e entraram os AGE-01..20 da Fase 5: 189 − 16 + 20. *Até 01/10/2026 esta linha dizia 189:* (PRD-01..20 acrescentados em 29/09/2026 para a Fase 06.1; ENC-15 acrescentado na Fase 04.1; FNC-01..17 acrescentados em 2026-09-19 para a Fase 04.4; ORC-01..18 promovidos da v2 e reescritos em 2026-09-26 para a Fase 04.5; GES-01..14 e SIT-01..10 acrescentados em 2026-09-28 para a Fase 04.6; EST-13..21 acrescentados em 2026-09-29 para a Fase 06 — até 29/09 esta linha dizia 160, sem eles)
+- Mapped to phases: 227/227 (até 03/10/2026: 216/216; até a noite de 02/10/2026: 207/207; antes: 193/193; até 01/10/2026: 189/189)
 - Unmapped: 0
 
 **Distribuição por fase:**
@@ -895,6 +924,7 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | Phase 06.1 | Produção (redesenho das Encomendas) | PRD-01..20 (briefing de 20/09) | 20 |
 | Phase 06.2 | Fornecedores (item 7 da fila) | FRN-01..14 (briefing de 01/10) | 14 |
 | Phase 06.3 | Lembretes (item 7b da fila) | LMB-01..09 (briefing de 02/10) | 9 |
+| Phase 06.4 | Queimas — contagem (item 8 da fila) | QMC-01..11 (briefing de 20/09) | 11 |
 
 ---
 *Requirements defined: 2026-08-05*

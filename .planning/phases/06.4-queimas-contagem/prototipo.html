@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Queimas AMASSA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --fundo:#F6F3F0;--sup:#FFFFFF;--sup2:#EFEAE5;--borda:#E8E2DC;--borda-f:#D8CFC7;
+  --tinta:#1D2221;--tinta-m:#5A4C44;--tinta-f:#6E5F56;
+  --acento:#894025;--acento-h:#5B2916;--acento-fundo:#F3EDE9;--destaque:#FFBD59;
+  --ok:#15803D;--ok-f:#DCFCE7;--at:#B45309;--at-f:#FEF3C7;--erro:#B91C1C;--erro-f:#FEE2E2;
+  --cafeteria:#8B6F47;--producao:#8B6F47;--queima1:#C2451B;--queima2:#7A3527;--ouro:#CA8A04;--espaco:#2E7D8C;--pecas:#C2451B;--loja:#5B7553;--geral:#6E5F56;
+  --r-sm:6px;--r:10px;--r-lg:14px;
+}
+*{box-sizing:border-box}button{color:var(--tinta)}[hidden]{display:none!important}
+body{margin:0;background:var(--fundo);color:var(--tinta);font:16px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:"Archivo Narrow",Inter,sans-serif;margin:0;text-wrap:balance}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:16px 120px}
+.num{font-variant-numeric:tabular-nums}
+header.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+header.top h1{font-size:26px}
+header.top .sub{font-size:13px;color:var(--tinta-f)}
+.aviso{font-size:13px;color:var(--tinta-m);background:var(--acento-fundo);border:1px solid var(--borda);border-radius:var(--r);padding:8px 12px;margin-bottom:14px}
+.aviso button{font:inherit;font-size:13px;color:var(--acento);background:none;border:0;text-decoration:underline;cursor:pointer;padding:0}
+
+/* abas */
+nav.abas{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--sup);border-top:1px solid var(--borda-f);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.abas button{flex:1 1 0;max-width:160px;min-height:58px;border:0;background:none;font:600 13px Inter,sans-serif;color:var(--tinta-f);cursor:pointer;border-top:3px solid transparent}
+nav.abas button[aria-current="page"]{color:var(--acento);border-top-color:var(--acento)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+/* blocos */
+.duas{display:grid;gap:16px}.duas>*{min-width:0}
+@media(min-width:880px){.duas{grid-template-columns:1.15fr 1fr;align-items:start}}
+.bloco{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:12px}
+.bloco h2{font-size:19px}
+.bloco h3{font-size:15px;color:var(--tinta-m);letter-spacing:.04em;text-transform:uppercase}
+.dica{font-size:13px;color:var(--tinta-f);margin:0}
+.campos{display:flex;gap:10px;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:3px;flex:1 1 140px;font-size:12.5px;color:var(--tinta-m);font-weight:500}
+input,select{font:16px Inter,sans-serif;color:var(--tinta);background:var(--sup);border:1px solid var(--borda-f);border-radius:var(--r-sm);padding:9px 10px;min-height:44px;width:100%}
+input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--acento)}
+.pilulas{display:flex;gap:6px;flex-wrap:wrap}
+.pil{font:500 13.5px Inter,sans-serif;min-height:38px;padding:6px 13px;border-radius:999px;border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta-m);cursor:pointer}
+.pil[aria-pressed=true]{background:var(--acento);border-color:var(--acento);color:#fff}
+.pil.ex{border-style:dashed;font-size:12.5px;min-height:34px}
+.btn{font:600 15px Inter,sans-serif;min-height:46px;padding:10px 16px;border-radius:var(--r);border:1px solid var(--borda-f);background:var(--sup);color:var(--tinta);cursor:pointer}
+.btn.pri{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.pri:hover{background:var(--acento-h)}
+.btn.pri:disabled{background:var(--borda-f);border-color:var(--borda-f);color:var(--tinta-f);cursor:not-allowed}
+.btn.mini{min-height:38px;padding:6px 12px;font-size:13.5px}
+.btn.perigo{color:var(--erro);border-color:var(--erro)}
+
+/* catálogo em grade */
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px}
+.item{color:var(--tinta);text-align:left;border:1px solid var(--borda);border-left:4px solid var(--c,var(--borda-f));background:var(--sup);border-radius:var(--r);padding:9px 10px;min-height:64px;cursor:pointer;font:inherit;display:flex;flex-direction:column;justify-content:space-between;gap:2px}
+.item:active{background:var(--acento-fundo)}
+.item b{font-size:14px;font-weight:600;line-height:1.25}
+.item span{font-size:13px;color:var(--tinta-f)}
+
+.li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;border-bottom:1px solid var(--borda)}
+.li:last-child{border-bottom:0}
+.li .pega{display:flex;align-items:center;gap:8px;text-align:left;font:inherit;font-size:15px;font-weight:500;background:none;border:0;min-height:48px;cursor:pointer;color:var(--tinta);padding:0}
+.li .pr{font-size:13.5px;color:var(--tinta-f)}
+.li .estrela{width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--borda-f)}
+.li .estrela[aria-pressed=true]{color:var(--at)}
+.vermini{font:inherit;font-size:12.5px;color:var(--acento);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;min-height:28px}
+.apos{font-size:12.5px;color:var(--tinta-f);text-align:right}
+/* linhas do carrinho */
+.linhas{display:flex;flex-direction:column}
+.ln{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 0;border-bottom:1px solid var(--borda)}
+.ln .nome{font-weight:600;font-size:15px;display:flex;align-items:center;gap:7px}
+.ponto{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.ln .sub{font-weight:600;text-align:right}
+.ln .ctrl{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.passo{display:flex;align-items:center;border:1px solid var(--borda-f);border-radius:var(--r-sm);overflow:hidden}
+.passo button{width:44px;height:44px;border:0;background:var(--sup2);font-size:20px;cursor:pointer;color:var(--tinta)}
+.passo output{min-width:40px;text-align:center;font-weight:600}
+.ctrl input{width:104px}
+.ctrl .x{margin-left:auto;border:0;background:none;color:var(--tinta-f);font-size:13px;text-decoration:underline;cursor:pointer;min-height:44px}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-family:"Archivo Narrow",sans-serif;font-size:26px;font-weight:700}
+.vazio{color:var(--tinta-f);font-size:14px;padding:14px 0;text-align:center}
+.parc{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;font-size:13px;color:var(--tinta-m)}
+.parc label{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.falta{font-size:13.5px;color:var(--erro);background:var(--erro-f);border-radius:var(--r-sm);padding:6px 10px}
+details.est{font-size:13.5px;color:var(--tinta-m);border:1px dashed var(--borda-f);border-radius:var(--r);padding:8px 12px}
+details.est summary{cursor:pointer;font-weight:600}
+details.est ul{margin:6px 0 0;padding-left:18px}
+
+/* caixa */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-lg);padding:12px 14px}
+.tile small{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-f);font-weight:600}
+.tile strong{font-family:"Archivo Narrow",sans-serif;font-size:26px}
+.tile.saldo{background:var(--tinta);border-color:var(--tinta);color:#fff}
+.tile.saldo small{color:#D8CFC7}
+.conta{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--borda);align-items:center}
+.conta:last-child,.ln:last-child{border-bottom:0}
+.conta .t{font-weight:600;font-size:15px}
+.conta .d{font-size:13px;color:var(--tinta-f);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.conta .v{font-weight:600;text-align:right}
+.conta .acoes{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.conta.foco{background:var(--at-f);margin-inline:-14px;padding-inline:14px}
+.conta.canc .t,.conta.canc .v{text-decoration:line-through;color:var(--tinta-f)}
+.tag{font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--sup2);color:var(--tinta-m)}
+.tag.venc{background:var(--erro-f);color:var(--erro)}
+.tag.ok{background:var(--ok-f);color:var(--ok)}
+.pos{color:var(--ok)}.neg{color:var(--erro)}
+
+/* mês */
+.mes-nav{display:flex;align-items:center;gap:10px}
+.mes-nav h2{min-width:150px;text-align:center}
+.tabela{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--tinta-f);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--borda-f)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 8px;border-bottom:1px solid var(--borda);text-align:right;white-space:nowrap}
+td:first-child{font-weight:600}
+@media(max-width:480px){table{font-size:13px}th,td{padding-inline:4px}th{font-size:11px;letter-spacing:0}}
+tfoot td{font-weight:700;border-bottom:0}
+.regua{display:flex;flex-direction:column;gap:8px}
+.regua .rot{display:flex;justify-content:space-between;font-size:13px;color:var(--tinta-m)}
+.barra{display:flex;height:22px;border-radius:var(--r-sm);overflow:hidden;background:var(--sup2)}
+.barra i{display:block;height:100%}
+.veredito{font-size:15px;font-weight:600;padding:10px 12px;border-radius:var(--r)}
+.veredito.bom{background:var(--ok-f);color:var(--ok)}
+.veredito.ruim{background:var(--erro-f);color:var(--erro)}
+.lista-simples{display:flex;flex-direction:column}
+.lista-simples div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--borda);font-size:14.5px}
+.lista-simples div:last-child{border-bottom:0}
+
+/* folha e toast */
+#veu{position:fixed;inset:0;background:rgba(29,34,33,.45);z-index:30;display:flex;align-items:flex-end;justify-content:center}
+#folha{background:var(--sup);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+@media(min-width:700px){#veu{align-items:center}#folha{border-radius:18px}}
+#folha h2{font-size:21px}
+.rodape{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom,0px));background:var(--tinta);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;z-index:40;max-width:calc(100% - 32px)}
+@media(prefers-reduced-motion:no-preference){#toast{transition:opacity .2s}}
+.cab{display:flex;justify-content:space-between;align-items:baseline}
+.ctd{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--borda);font-size:15px}
+.ctd:last-child{border-bottom:0}
+.ctd .passo button{width:52px;height:48px}
+.pil:disabled{opacity:.45}
+.tile strong{display:inline}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top"><h1>Queimas</h1><span class="sub">protótipo · "hoje" é 18/12/2026 · dados inventados</span></header>
+  <div class="aviso">Só a parte nova: a contagem "o que queimou". O contador do forno e a manutenção continuam como já estão no ar. <button type="button" data-a="zerar">Voltar aos dados de exemplo</button></div>
+  <main id="tela"></main>
+</div>
+<div id="veu" hidden><div id="folha" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status" hidden></div>
+<script>
+const HOJE='2026-12-18';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dBR=i=>{const[y,m,d]=i.split('-');return d+'/'+m};
+const brl=n=>(+n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const n1=n=>(+n||0).toLocaleString('pt-BR',{maximumFractionDigits:1});
+const TIPOS={biscoito:['Biscoito','queima1'],esmalte:['Esmalte','queima2'],ouro:['Ouro / terceira queima','ouro']};
+const CATS=[['ip','P','pecas','int'],['im','M','pecas','int'],['ig','G','pecas','int'],['xp','P','loja','ext'],['xm','M','loja','ext'],['xg','G','loja','ext']];
+const GRUPOS={int:['Internas','encomenda, produção da casa, aula, uso livre, pintura — queima já inclusa','pecas'],ext:['Externas','peça feita fora do espaço — cobrada por tamanho','loja']};
+const TAM={P:'até 10 cm',M:'10 a 25 cm',G:'maior que 25 cm'};
+const PRECO={xp:8,xm:15,xg:25};
+const FILA=[{id:12,nome:'Copos em biscoito para pintar',cat:'ip',tipo:'biscoito',q:12},{id:13,nome:'Boleira de casamento',cat:'ig',tipo:'esmalte',q:3},{id:11,nome:'Canecas para a loja',cat:'im',tipo:'esmalte',q:16}];
+function semente(){return{aba:'forno',limite:100,queimas:[
+  {id:1,d:'2026-11-30',t:'biscoito',c:{ip:8,im:4,ig:0,xp:4,xm:1,xg:0},cheio:true,cob:true},{id:2,d:'2026-12-03',t:'esmalte',c:{ip:5,im:4,ig:0,xp:2,xm:0,xg:0},cheio:true,cob:true},
+  {id:3,d:'2026-12-09',t:'biscoito',c:{ip:12,im:9,ig:2,xp:3,xm:2,xg:1},cheio:true,cob:false},{id:4,d:'2026-12-13',t:'esmalte',c:null},{id:5,d:'2026-12-16',t:'biscoito',c:{ip:0,im:16,ig:2,xp:0,xm:0,xg:0},cheio:false,cob:true}],seq:5}}
+let S;try{S=JSON.parse(localStorage.getItem('amassa-queimas3')||'null')}catch(e){}
+if(!S||!S.queimas)S=semente();
+const salvar=()=>{try{localStorage.setItem('amassa-queimas3',JSON.stringify(S))}catch(e){}};
+const total=c=>c?Object.values(c).reduce((s,v)=>s+v,0):0;
+const externas=c=>c?c.xp+c.xm+c.xg:0;
+const valorExt=c=>c?c.xp*PRECO.xp+c.xm*PRECO.xm+c.xg*PRECO.xg:0;
+const chips=c=>Object.entries(GRUPOS).map(([g,[n,,cor]])=>{const l=CATS.filter(x=>x[3]===g&&c[x[0]]);return l.length?`<span class="tag" style="background:color-mix(in srgb,var(--${cor}) 18%,#fff)">${n.toLowerCase()}: ${l.map(x=>c[x[0]]+' '+x[1]).join(' · ')}</span>`:''}).join(' ');
+
+function telaForno(){const n=S.queimas.length,pend=S.queimas.filter(q=>q.c&&externas(q.c)&&!q.cob),sem=S.queimas.filter(q=>!q.c);
+  return `<section class="bloco"><div class="cab"><h2>Forno</h2><span class="num">${n} / ${S.limite}</span></div><div class="barra"><i style="width:${n/S.limite*100}%;background:var(--queima1)"></i></div><p class="dica">Contagem: ${S.limite-n} queimas até a manutenção.</p><button type="button" class="btn pri" style="min-height:56px;font-size:17px" data-a="queimar">Queimar</button></section>
+  ${pend.length?`<section class="bloco" style="margin-top:14px"><h2>Queimas externas a cobrar</h2>${pend.map(q=>`<div class="conta"><span class="t">${TIPOS[q.t][0]} de ${dBR(q.d)}</span><span class="v num">${brl(valorExt(q.c))}</span><span class="d">${q.c.xp?q.c.xp+' P · ':''}${q.c.xm?q.c.xm+' M · ':''}${q.c.xg?q.c.xg+' G':''}</span><span></span><div class="acoes"><button type="button" class="btn mini" data-a="cobrado" data-v="${q.id}">Recebi agora</button><button type="button" class="btn mini pri" data-a="cobrar" data-v="${q.id}">Lançar na Venda</button></div></div>`).join('')}<p class="dica">"Lançar na Venda" abre o Financeiro com as linhas Queima externa P / M / G já preenchidas. Se as peças são de pessoas diferentes, você divide lá.</p></section>`:''}
+  ${sem.length?`<section class="bloco" style="margin-top:14px"><h2>Sem contagem</h2>${sem.map(q=>`<div class="conta"><span class="t">${TIPOS[q.t][0]} de ${dBR(q.d)}</span><span class="v"></span><span class="d">ficou só o registro da queima</span><button type="button" class="btn mini" data-a="contar" data-v="${q.id}">Contar agora</button></div>`).join('')}</section>`:''}`}
+function telaHist(){return `<section class="bloco"><h2>Histórico</h2>${[...S.queimas].reverse().map(q=>`<div class="conta"><span class="t"><i class="ponto" style="--c:var(--${TIPOS[q.t][1]});display:inline-block;margin-right:7px"></i>${TIPOS[q.t][0]} · ${dBR(q.d)}</span><span class="v num">${q.c?total(q.c)+' peças':'—'}</span><span class="d" style="grid-column:1/-1">${q.c?chips(q.c)+(q.cheio===false?' <span class="tag">não saiu cheio</span>':''):'sem contagem'}</span><span></span><div class="acoes"><button type="button" class="btn mini" data-a="contar" data-v="${q.id}">${q.c?'Corrigir contagem':'Contar agora'}</button></div></div>`).join('')}</section>`}
+function telaNumeros(){const com=S.queimas.filter(q=>q.c),cheias=com.filter(q=>q.cheio!==false),med=(t,f)=>{const l=cheias.filter(q=>q.t===t);return l.length?l.reduce((s,q)=>s+f(q.c),0)/l.length:0},mb=med('biscoito',total),me=med('esmalte',total),som={};CATS.forEach(([k])=>som[k]=com.reduce((s,q)=>s+q.c[k],0));const tot=Object.values(som).reduce((s,v)=>s+v,0)||1;
+  const mes=HOJE.slice(0,7),porTipo=Object.entries(TIPOS).map(([k,t])=>[t,S.queimas.filter(q=>q.t===k).length,S.queimas.filter(q=>q.t===k&&q.d.startsWith(mes)).length]);
+  const mix=t=>['p','m','g'].map(z=>n1(med(t,c=>c['i'+z]+c['x'+z]))+' '+z.toUpperCase()).join(' · ');
+  return `<section class="bloco" style="margin-bottom:16px"><h2>Quantas queimas de cada tipo</h2><div class="tiles">${porTipo.map(([t,tot,m])=>`<div class="tile" style="border-left:6px solid var(--${t[1]})"><small>${t[0]}</small><strong class="num">${tot}</strong> <span class="dica">ao todo · ${m} neste mês</span></div>`).join('')}<div class="tile saldo"><small>Todas</small><strong class="num">${S.queimas.length}</strong> <span class="dica" style="color:#D8CFC7">${S.queimas.filter(q=>q.d.startsWith(mes)).length} neste mês</span></div></div><p class="dica">Desde a última manutenção do forno. O contador de manutenção soma todos os tipos.</p></section>
+  <div class="duas"><section class="bloco"><h2>Quantas peças cabem, de verdade</h2><div class="lista-simples"><div><span>Fornada cheia de biscoito</span><span class="num"><b>${n1(mb)}</b> peças</span></div><div><span class="dica">em média: ${mix('biscoito')}</span><span></span></div><div><span>Fornada cheia de esmalte</span><span class="num"><b>${n1(me)}</b> peças</span></div><div><span class="dica">em média: ${mix('esmalte')}</span><span></span></div><div><span>No biscoito cabem</span><span class="num"><b>${me?n1(mb/me):'—'}×</b> o esmalte</span></div></div><p class="dica">Só entram as fornadas marcadas como "saiu cheio". A precificação estima quantas peças cabem pelas medidas, com um "fator do biscoito" (hoje 1,8×, estimado). Com o tempo, a contagem por tamanho mostra quanto espaço uma G ocupa perto de uma P — serve para conferir a estimativa <b>e</b> o preço da queima externa. ${cheias.length<8?`<b>Ainda é pouco: ${cheias.length} fornadas cheias contadas.</b>`:''}</p></section>
+  <section class="bloco"><h2>O que o forno queimou</h2>${Object.entries(GRUPOS).map(([g,[n,,cor]])=>{const l=CATS.filter(x=>x[3]===g),v=l.reduce((s,x)=>s+som[x[0]],0);return `<div class="lista-simples"><div><span><i class="ponto" style="--c:var(--${cor});display:inline-block;margin-right:7px"></i><b>${n}</b></span><span class="num">${v} · ${n1(v/tot*100)}%</span></div><div><span class="dica">${l.map(x=>som[x[0]]+' '+x[1]).join(' · ')}</span><span></span></div></div>`}).join('')}<div class="barra" style="margin-top:10px">${Object.entries(GRUPOS).map(([g,[n,,cor]])=>`<i style="width:${CATS.filter(x=>x[3]===g).reduce((s,x)=>s+som[x[0]],0)/tot*100}%;background:var(--${cor})" title="${n}"></i>`).join('')}</div><p class="dica">De quem é cada peça interna (encomenda, casa, aula) a Produção e a Agenda já sabem; aqui o que importa é o tamanho, que é o que ocupa o forno.</p></section></div>`}
+function desenhar(){$('#tela').innerHTML=`<div class="pilulas" style="margin-bottom:12px">${[['forno','Forno'],['hist','Histórico'],['num','Números']].map(([k,t])=>`<button type="button" class="pil" aria-pressed="${S.aba===k}" data-a="aba" data-v="${k}">${t}</button>`).join('')}</div>`+(S.aba==='forno'?telaForno():S.aba==='hist'?telaHist():telaNumeros());salvar()}
+function abrirFolha(h){$('#folha').innerHTML=h;$('#veu').hidden=false}
+const fechar=()=>$('#veu').hidden=true;
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3000)}
+let C={},Q=null,CHEIO=true;
+function folhaContar(q){Q=q;CHEIO=q.cheio!==false;C={...(q.c||{ip:0,im:0,ig:0,xp:0,xm:0,xg:0})};const fila=FILA.filter(f=>f.tipo===q.t),ult=[...S.queimas].reverse().find(x=>x.c&&x.id!==q.id&&x.t===q.t);
+  abrirFolha(`<h2>O que queimou?</h2><p class="dica">${TIPOS[q.t][0]} de ${dBR(q.d)} · <b>opcional</b> — a queima já está registrada. Contar, não medir: P ${TAM.P} · M ${TAM.M} · G ${TAM.G}, no olho.</p>
+  ${fila.length?`<div><p class="dica" style="margin-bottom:4px">Esperando esta queima na Produção — toque para somar:</p><div class="pilulas">${fila.map(f=>`<button type="button" class="pil ex" data-a="fila" data-v="${f.id}">+${f.q} · ${esc(f.nome)}</button>`).join('')}</div></div>`:''}
+  <div id="cont"></div><div id="resumo"></div>
+  <div class="rodape" style="justify-content:space-between"><button type="button" class="btn mini" data-a="repetir" ${ult?'':'disabled'}>Repetir a última</button><span style="display:flex;gap:8px"><button type="button" class="btn" data-a="fechar">Pular</button><button type="button" class="btn pri" data-a="salvar-cont">Salvar</button></span></div>`);desCont()}
+function desCont(){$('#cont').innerHTML=Object.entries(GRUPOS).map(([g,[n,sub,cor]])=>`<div style="margin-top:12px"><p style="margin:0;font-weight:600"><i class="ponto" style="--c:var(--${cor});display:inline-block;margin-right:7px"></i>${n}</p><p class="dica" style="margin:0 0 4px">${sub}</p>${CATS.filter(x=>x[3]===g).map(([k,t])=>`<div class="ctd"><span><b>${t}</b> <span class="dica">${TAM[t]}</span></span><div class="passo"><button type="button" data-a="menos" data-v="${k}" aria-label="menos ${n} ${t}">−</button><output>${C[k]}</output><button type="button" data-a="mais" data-v="${k}" aria-label="mais ${n} ${t}">+</button></div></div>`).join('')}</div>`).join('')+`<label style="display:flex;align-items:center;gap:10px;min-height:44px;margin-top:10px"><input type="checkbox" id="cheio" ${CHEIO?'checked':''} style="width:22px;height:22px;accent-color:var(--acento)"> O forno saiu cheio <span class="dica">(só as cheias entram na média)</span></label>`;
+  $('#resumo').innerHTML=`<div class="total" style="font-size:20px"><span>${total(C)} peças</span><span class="num">${externas(C)?'externas: '+brl(valorExt(C)):''}</span></div>`}
+document.addEventListener('change',e=>{if(e.target.id==='cheio')CHEIO=e.target.checked});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b){if(e.target.id==='veu')fechar();return}const a=b.dataset.a,v=b.dataset.v;
+  switch(a){
+   case'aba':S.aba=v;break;
+   case'queimar':return abrirFolha(`<h2>Registrar queima</h2><p class="dica">Dois toques, como hoje: o tipo e pronto.</p><div class="pilulas">${Object.entries(TIPOS).map(([k,t])=>`<button type="button" class="btn" style="flex:1 1 120px;min-height:64px;border-left:6px solid var(--${t[1]})" data-a="registrar" data-v="${k}">${t[0]}</button>`).join('')}</div><div class="rodape"><button type="button" class="btn" data-a="fechar">Cancelar</button></div>`);
+   case'registrar':{const q={id:++S.seq,d:HOJE,t:v,c:null};S.queimas.push(q);salvar();desenhar();toast('Queima registrada.');return folhaContar(q)}
+   case'contar':return folhaContar(S.queimas.find(q=>q.id===+v));
+   case'mais':C[v]++;return desCont();case'menos':C[v]=Math.max(0,C[v]-1);return desCont();
+   case'fila':{const f=FILA.find(x=>x.id===+v);C[f.cat]+=f.q;b.disabled=true;return desCont()}
+   case'repetir':{const u=[...S.queimas].reverse().find(x=>x.c&&x.id!==Q.id&&x.t===Q.t);C={...u.c};CHEIO=u.cheio!==false;return desCont()}
+   case'salvar-cont':if(!total(C)){fechar();return}Q.c={...C};Q.cheio=CHEIO;if(!externas(C))Q.cob=true;else if(Q.cob===undefined)Q.cob=false;fechar();toast('Contagem salva: '+total(C)+' peças.'+(externas(C)?' Externas a cobrar: '+brl(valorExt(C))+'.':''));break;
+   case'cobrar':{const q=S.queimas.find(x=>x.id===+v);q.cob=true;toast('Na plataforma: abre a Venda com '+[q.c.xp&&q.c.xp+'× Queima externa P',q.c.xm&&q.c.xm+'× M',q.c.xg&&q.c.xg+'× G'].filter(Boolean).join(', ')+'.');break}
+   case'cobrado':S.queimas.find(x=>x.id===+v).cob=true;toast('Na plataforma: cria a Venda já paga — entra no Caixa na hora.');break;
+   case'fechar':return fechar();case'zerar':S=semente();break;default:return}
+  desenhar()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')fechar()});
+desenhar();
+</script>
+
+</body>
+</html>
