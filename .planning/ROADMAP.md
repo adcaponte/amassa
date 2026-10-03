@@ -1035,11 +1035,18 @@ marcam feitos (com desfazer) e, por decisão do dono, se apagam de verdade.
   4. Editar na linha; excluir apaga a linha do banco (provado no e2e), com Desfazer por alguns segundos
   5. "Ver todos" com os filtros Abertos/Feitos e Todos/Geral/Theo/Andressa, autoria e "Mostrar mais 50"
   6. A folha da casa não muda; alvos de 44 px e nenhuma rolagem lateral a 320 px
-**Plans:** 0 plans
+**Plans:** 0/6 plans executed
+
+Planejada em 03/10/2026 (madrugada, sem o dono, sob a autorização de 02/10) no branch `gsd/phase-06.3-lembretes`, criado a partir do `gsd/phase-06.2-fornecedores`: pesquisa, UI-SPEC (aprovada pelo ui-checker na 2ª leitura completa), mapa de padrões e 6 planos aprovados pelo plan-checker na 2ª rodada.
 
 Plans:
 
-- [ ] TBD
+- [ ] 06.3-01-PLAN.md — Traçador: criar um lembrete numa linha no Início e vê-lo em “Para fazer”; migração `0029` (sem `revoke delete`, exceção deliberada) provada em `test:migracoes` (onda 1)
+- [ ] 06.3-02-PLAN.md — `/api/health/lembretes` e o módulo puro `lib/lembretes/lista.ts` (ordem, rótulos de prazo em Brasília, resumo, URL) + o caso D-04 (onda 2)
+- [ ] 06.3-03-PLAN.md — O bloco do Início inteiro: 6 + “e mais N”, contagem, estado vazio, a linha de criar com data e pessoa (onda 3)
+- [ ] 06.3-04-PLAN.md — Ações da linha: feito com Desfazer e “Feitos (N)” (D-02), editar na linha, excluir de verdade quando o toast expira (D-03) (onda 4)
+- [ ] 06.3-05-PLAN.md — “Ver todos” em `/gestao/lembretes` (D-01): filtros, autoria, “Mostrar mais 50”; Lembretes na navegação (onda 5)
+- [ ] 06.3-06-PLAN.md — Portão: varredura e2e completa, Roteiro 20, caminhada do dono com a Parte 0, documentos de estado (onda 6, **não autônomo**)
 
 **UI hint**: yes
 
