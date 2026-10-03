@@ -86,8 +86,22 @@ no próximo passo.
 
 ```bash
 sudo chown 100:101 /opt/amassa/dados/fotos-orcamentos
-sudo chmod 750 /opt/amassa/dados/fotos-orcamentos
+sudo chmod 755 /opt/amassa/dados/fotos-orcamentos
 ```
+
+🔴 **`755`, não `750` — corrigido em 03/10/2026.** Até essa data este passo mandava `chmod 750`, e foi
+assim que a pasta ficou em produção desde 27/09. Com `750`, só o dono (uid 100) e o grupo (gid 101)
+entram na pasta — e o backup **não** roda como nenhum dos dois: roda pelo crontab do usuário `theo`.
+O `backup.sh` daquela época procurava os arquivos com o erro de permissão silenciado, não via nada, e
+gravava "pasta vazia = sucesso": `fotos_bytes = 0` e `fotos_destino_externo_ok = t`, com **4 fotos
+(488 929 bytes)** lá dentro. Nenhuma foto chegou ao destino externo de 27/09 a 03/10. Medido pelo dono
+no terminal do servidor em 03/10/2026; a correção foi `sudo chmod 755` na pasta (os arquivos já eram
+`644`), e o backup seguinte gravou **`488929` / `t`** e o `rclone lsl amassa-backup:amassa/fotos/`
+listou as 4 fotos no destino. O `755` deixa a pasta **legível** (não gravável) pelos usuários do host —
+é o que o backup precisa; quem escreve continua sendo só o uid 100. Desde o quick `261003-bkp`, o
+`backup.sh` não esconde mais esse erro: pasta que existe e não pode ser lida grava
+`fotos_destino_externo_ok = f`, a mensagem diz "permissão", e `/api/health/backup` responde `503`
+(Passo 8, item 4).
 
 🔴 **O `sudo` do segundo comando não é enfeite.** Depois do `chown`, você deixa de ser dono do
 diretório — e só o dono (ou root) pode mudar a permissão. Sem `sudo`, o segundo comando falha com
@@ -108,7 +122,8 @@ o conhece — por isso o número, não o nome.
 ls -ld /opt/amassa/dados/fotos-orcamentos
 ```
 
-**O que você deve ver:** `drwxr-x---`, com o dono e o grupo sendo o uid `100` e o gid `101`.
+**O que você deve ver:** `drwxr-xr-x`, com o dono e o grupo sendo o uid `100` e o gid `101`.
+(Até 03/10/2026 este roteiro esperava `drwxr-x---`, o `750` — ver a nota do `chmod` acima.)
 
 ⚠️ **Eles podem aparecer com NOME, e isso está certo.** Se o host já tiver usuário e grupo
 cadastrados com esses números, o `ls` mostra o nome em vez do número — no VPS deste projeto sai
@@ -120,7 +135,7 @@ sem tradução:
 stat -c '%u %g %a' /opt/amassa/dados/fotos-orcamentos
 ```
 
-**O que você deve ver:** `100 101 750`.
+**O que você deve ver:** `100 101 755`. (Até 03/10/2026: `100 101 750` — ver a nota do `chmod` acima.)
 
 ---
 
@@ -211,7 +226,7 @@ rota passa a responder `"status":"erro"` citando as fotos — é isso que o Pass
 
 ## Passo 8 — O que fazer se der errado
 
-Três erros prováveis, cada um com a causa e a correção:
+Quatro erros prováveis, cada um com a causa e a correção:
 
 1. **`Permission denied` na conferência do Passo 6.** Causa: o `chown 100:101` do Passo 4 não
    foi aplicado, foi aplicado no caminho errado, ou o contêiner subiu (Passo 5) **antes** do
@@ -230,6 +245,15 @@ Três erros prováveis, cada um com a causa e a correção:
    (`select mensagem from execucoes_backup order by quando desc limit 1;`) — ela descreve o erro
    exato do `rclone`. As causas mais comuns são as mesmas do item 2 acima (autorização expirada)
    ou o disco do destino externo cheio.
+4. **`/api/health/backup` responde `503` citando as fotos, e a mensagem diz que a pasta "existe mas o
+   backup não consegue lê-la (permissão)".** Causa: a pasta está com `750` (a versão deste roteiro
+   anterior a 03/10/2026) ou outra permissão que tira a leitura de `theo`, o usuário que roda o
+   backup pelo crontab. Correção: `sudo chmod 755 /opt/amassa/dados/fotos-orcamentos`, depois
+   `./scripts/backup.sh --agora` e a última linha de `execucoes_backup` deve mostrar `fotos_bytes`
+   maior que zero e `fotos_destino_externo_ok = t`. Antes do quick `261003-bkp` este caso era
+   **silencioso** — o script gravava `0` / `t` e a rota respondia `200` (foi o que aconteceu de 27/09 a
+   03/10/2026). Se a rota responde `200` mas `ls -la` mostra fotos na pasta e `fotos_bytes = 0`, o
+   `backup.sh` do host é anterior à correção: re-extraia da `ferramentas` (Roteiro 19, Passo 6).
 
 ---
 

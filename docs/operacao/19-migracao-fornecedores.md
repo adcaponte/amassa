@@ -156,7 +156,7 @@ tamanho), não siga.** Daqui até o fim do Passo 8, ninguém lança nada na plat
 ```bash
 mkdir -p /opt/amassa/dados/anexos-fornecedores
 sudo chown 100:101 /opt/amassa/dados/anexos-fornecedores
-sudo chmod 750 /opt/amassa/dados/anexos-fornecedores
+sudo chmod 755 /opt/amassa/dados/anexos-fornecedores
 ls -ld /opt/amassa/dados/anexos-fornecedores
 stat -c '%u %g %a' /opt/amassa/dados/anexos-fornecedores
 ```
@@ -173,9 +173,21 @@ criou, e o Passo 7 confere.)
 🔴 **O `sudo` do `chmod` não é enfeite** (a lição do Roteiro 12, 27/09/2026): depois do `chown` você deixa de
 ser dono da pasta, e só o dono ou o root mudam a permissão.
 
-**O que você deve ver:** nenhuma saída nos três primeiros; no `ls -ld`, `drwxr-x---` com dono e grupo
+🔴 **`755`, não `750` — corrigido em 03/10/2026.** Este passo mandava `chmod 750` quando o roteiro foi escrito
+e rodado. Com `750`, só o uid 100 e o gid 101 entram na pasta, e o backup roda pelo crontab de **`theo`**: o
+`backup.sh` daquela época não via os arquivos (o erro de permissão era silenciado) e gravava
+`anexos_bytes = 0` e `anexos_destino_externo_ok = t` com um PDF de **17 761 518 bytes** na pasta — a cópia
+externa não aconteceu, e `/api/health/backup` seguia `200`. Medido pelo dono no servidor em 03/10/2026; a
+correção foi `sudo chmod 755` na pasta (o arquivo já era `644`), e o backup seguinte gravou **`17761518` /
+`t`** e o `rclone lsl` listou o arquivo no destino. O `755` deixa a pasta legível (não gravável) pelos
+usuários do host, que é o que o backup precisa; só o uid 100 escreve. Desde o quick `261003-bkp`, pasta que
+existe e não pode ser lida grava `anexos_destino_externo_ok = f` com uma mensagem que diz "permissão", e a
+rota responde `503` (Passo 9.1). A mesma correção valeu para a pasta das fotos (Roteiro 12, Passo 4).
+
+**O que você deve ver:** nenhuma saída nos três primeiros; no `ls -ld`, `drwxr-xr-x` com dono e grupo
 `dhcpcd messagebus` (é como o Debian deste VPS chama o uid 100 e o gid 101 — parece errado e está certo);
-no `stat`, **`100 101 750`**.
+no `stat`, **`100 101 755`**. (Até 03/10/2026 este passo esperava `drwxr-x---` e `100 101 750` — ver a nota
+acima.)
 
 ---
 
@@ -279,6 +291,11 @@ na primeira linha dos dois; e um número maior que zero para cada um no `grep -c
 `grep` com `0`:** a `ferramentas` local é velha — refaça o `docker compose pull ferramentas` do Passo 5 e
 extraia de novo.
 
+**Re-extraindo depois de 03/10/2026 (a correção da pasta ilegível, quick `261003-bkp`):** o `backup.sh` passou
+a ter **15 911 bytes** (medido no commit da correção; `restaurar.sh` não mudou, 9 339). Para confirmar que é
+a versão corrigida: `grep -c pasta_ilegivel /opt/amassa/scripts/backup.sh` dá um número maior que zero. Os
+13 605 bytes acima são da versão que este passo extraiu em 03/10/2026 e continuam certos como registro.
+
 ---
 
 ## Passo 7 — Conferência de escrita na pasta, pelo contêiner `app`
@@ -368,7 +385,11 @@ curl -s https://amassacerrado.com.br/api/health/backup
 **O que você deve ver:** nenhuma saída e `0`; uma linha com `sucesso = t`, o horário de agora,
 **`anexos_bytes = 0`** e **`anexos_destino_externo_ok = t`** (a pasta está vazia; pasta vazia não tem o que
 copiar e conta como sucesso); e `/api/health/backup` **`200`**, com `"status":"ok"`. `anexos_bytes` vazio
-(não `0`): o `backup.sh` é o velho — volte ao Passo 6.
+(não `0`) **com `anexos_destino_externo_ok = t` ou vazio**: o `backup.sh` é o velho — volte ao Passo 6.
+`anexos_bytes` vazio **com `anexos_destino_externo_ok = f`**, `echo` diferente de `0` e `503`: a pasta existe
+mas `theo` não consegue lê-la (a mensagem da linha diz "permissão") — `sudo chmod 755` nela (Passo 3) e
+rode o backup de novo. (Esse segundo caso só existe desde o quick `261003-bkp`, 03/10/2026; antes ele era
+silencioso, `0` / `t`.)
 
 **9.2 — Depois que a caminhada (Parte 2) subir o primeiro anexo:**
 
@@ -390,6 +411,10 @@ fotos na conta do dump — `amassa-backup:amassa/fotos/` no Roteiro 12, aqui `..
 (derivada de `RCLONE_REMOTE`; se você tiver posto `RCLONE_REMOTE_ANEXOS` no `.env`, é ela).
 **`rclone lsl` vazio com o arquivo na pasta:** a cópia falhou — `/api/health/backup` deve estar `503` com a
 frase "A cópia externa dos anexos dos fornecedores falhou na última execução."; copie a saída e chame.
+**`rclone lsl` vazio, arquivo na pasta e rota `200`:** foi exatamente o que aconteceu em 03/10/2026 com a pasta
+em `750` e o `backup.sh` antigo, que tratava pasta ilegível como vazia. Confira `stat -c '%a'
+/opt/amassa/dados/anexos-fornecedores` (tem de dar `755`) e se o `backup.sh` do host é o da correção
+(`grep -c pasta_ilegivel /opt/amassa/scripts/backup.sh` maior que zero; se der `0`, refaça o Passo 6).
 
 ---
 
