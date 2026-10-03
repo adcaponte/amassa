@@ -1004,7 +1004,7 @@ Plans:
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
-- [ ] 06.2-11-PLAN.md — “Compras dele” na ficha, com o total do ano (D-03) (onda 11)
+- [x] 06.2-11-PLAN.md — “Compras dele” na ficha, com o total do ano (D-03) (onda 11)
 
 **Wave 12** *(blocked on Wave 11 completion)*
 
