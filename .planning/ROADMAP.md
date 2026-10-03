@@ -1008,7 +1008,7 @@ Plans:
 
 **Wave 12** *(blocked on Wave 11 completion)*
 
-- [ ] 06.2-12-PLAN.md — O campo “Fornecedor” por inteiro: “Outra despesa”, o aviso sem ligar sozinho, rascunho e desativado (onda 12)
+- [x] 06.2-12-PLAN.md — O campo “Fornecedor” por inteiro: “Outra despesa”, o aviso sem ligar sozinho, rascunho e desativado (onda 12)
 
 **Wave 13** *(blocked on Wave 12 completion)*
 
