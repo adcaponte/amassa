@@ -50,7 +50,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 04.4: Financeiro — parte 1** (INSERTED) - Venda, Compra, Caixa, Mês e Cadastros (completed 2026-09-26; verificada 9/9 + 17/17, migrações 0014-0016 em produção, conferida pelo dono no celular)
 - [x] **Phase 04.5: Financeiro — parte 2: Precificação e Orçamento** (INSERTED) - Precificação pelas medidas da peça, parâmetros com histórico, orçamento que congela ao ser enviado, PDF para o cliente e aprovação que cria a venda e a encomenda
 - [x] **Phase 04.6: Plataforma em `/gestao`, Início novo, navegação e site público** (INSERTED) - A plataforma desce para `/gestao` e a raiz vira o site institucional estático; Início de verdade e navegação final (completed 2026-09-29)
-- [ ] **Phase 5: Agenda** (▶ próxima — escolhida pelo dono em 01/10/2026; até então "em espera") - Turmas fixas, aulas e oficinas avulsas, uso livre e dias fechados num calendário só; presença, reposição e "a receber" que vira Venda; site com o calendário público (briefing e protótipo de 26/09, AGE-01..20). *Até 01/10/2026 esta linha dizia "Agenda de Aulas — Turmas recorrentes materializam aulas com data real e presença por aluna" (AGD-01..16).*
+- [x] **Phase 5: Agenda** (escolhida pelo dono em 01/10/2026; até então "em espera"; *até 03/10/2026 dizia "▶ próxima"*) - Turmas fixas, aulas e oficinas avulsas, uso livre e dias fechados num calendário só; presença, reposição e "a receber" que vira Venda; site com o calendário público (briefing e protótipo de 26/09, AGE-01..20). *Até 01/10/2026 esta linha dizia "Agenda de Aulas — Turmas recorrentes materializam aulas com data real e presença por aluna" (AGD-01..16).* — *03/10/2026: no ar e fechada — `0026` aplicada pelo dono e código publicado em 02/10 (Roteiro 17, run `36959745229`; `/api/health/agenda` 200); portão 05-16 aprovado pelo dono no chat em 03/10; verificação da fase `passed` (`05-VERIFICATION.md`); 16/16 planos. A `0027` (quick `261002-sdt`) ainda não publicada — Roteiro 19.* (completed 2026-10-03)
 - [x] **Phase 6: Estoque** - Os itens do catálogo, por área do Financeiro, com saldo sempre derivado das movimentações — *29/09/2026, tarde: no ar — migração `0023` aplicada pelo dono (Roteiro 15) e o código publicado no merge `2345850` (pipeline `36587755269` verde; `/api/health/estoque` 200); portão 06-11 aprovado pelo dono; 11/11 planos. Falta a verificação da fase e o `phase.complete`. (De manhã esta linha dizia "código completo no branch, não publicado; aguardando o portão do dono"; até 29/09, "Materiais por categoria", do plano de 18/09 que o adendo de 20/09 substituiu.)* (completed 2026-09-29)
 - [x] **Phase 06.1: Produção — redesenho das Encomendas** (INSERTED) - O que está em produção e em que etapa está: etapas marcadas como feitas, quadro por etapa, fila do forno, baixa de material e perdas (item 5 da fila; briefing e protótipo de 20/09) (completed 2026-10-01)
 - [ ] **Phase 06.2: Fornecedores** (INSERTED) - Aba dos Cadastros com contatos, condições e anexos de quem vende para o ateliê; o único vínculo é o fornecedor opcional na Despesa (item 7 da fila; briefing e protótipo de 01/10, FRN-01..14)
@@ -753,13 +753,19 @@ público), Phase 6 (movimentações de estoque).
   8. O site mostra só aulas e oficinas públicas e não canceladas, com vagas restantes e "Reservar pelo WhatsApp", sem nome de ninguém
   9. Cancelar nunca apaga: fica riscado; venda e movimentação de estoque já geradas nunca são apagadas pela Agenda
 
+  *Os 9 dados como entregues em 03/10/2026: a verificação goal-backward da fase (`05-VERIFICATION.md`, `passed`,
+  9/9 e AGE-01..20 — leitura de código, `npm run lint`, `tsc --noEmit`, `verificar-acoes` 122 ações e `npm test`
+  2825 testes verdes), a caminhada do Cowork em produção (`Claude outputs/agenda/VERIFICACAO-COWORK-05.md`, 22
+  passos, nenhum 🔴) e a aprovação do dono no chat, sem anotação por item nem o tempo do C.1.*
+
 **Plans**: 16 plans
 
 16 planos, uma onda por plano, sequenciais (os scripts de teste sobem Postgres com nome e porta fixos e o
 projeto não usa worktrees — como nas Fases 06 e 06.1). Planejados em 01/10/2026, depois da pesquisa, das
 respostas do dono às dez perguntas dela (D-08..D-18), do UI-SPEC e do mapa de padrões. 🔴 O código vive no
 branch `gsd/phase-05-agenda`, fora de `main`, até o portão (plano 16); código e migração `0026` saem numa
-publicação só e o dono migra logo depois do `implantar` (D-15). Nada executado, nada publicado.
+publicação só e o dono migra logo depois do `implantar` (D-15). *Até 02/10/2026: nada executado, nada
+publicado. Em 02/10 o dono publicou e migrou (Roteiro 17); em 03/10 aprovou a caminhada — fase fechada.*
 
 - [x] 05-01-PLAN.md — O banco inteiro da fase na `0026` (D-01 ao lado de `pessoa_nome`, enum em texto da D-06, D-09, D-14, D-17), o branch e `TABELAS_ESPERADAS`; depois o traçador: uma oficina na semana, a lista de quem vem, “Veio” em um toque (onda 1)
 - [x] 05-02-PLAN.md — Cada invariante da `0026` provada no Postgres efêmero; os três itens “do sistema” em Cadastros, com o preço da hora cadastrável (onda 2)
@@ -776,7 +782,7 @@ publicação só e o dono migra logo depois do `implantar` (D-15). Nada executad
 - [x] 05-13-PLAN.md — Dispensar (D-09); o pagamento nas telas da Agenda, com Pessoas garantindo a mensalidade do mês (D-02); o ciclo da venda cancelada com o Caixa real; nada da Agenda apaga venda ou movimentação (onda 13)
 - [x] 05-14-PLAN.md — O Início lê a Agenda e conta quem está no espaço (D-05, D-18); a aba Números (onda 14)
 - [x] 05-15-PLAN.md — O calendário público do site por ISR, com preço, vagas e WhatsApp, sem nome de ninguém (D-10..D-12); a aba “No site” (onda 15)
-- [ ] 05-16-PLAN.md — Portão: `/api/health/agenda`, Roteiro 17 na ordem da D-15, a varredura completa e o site sem banco, documentos de estado e o passo do dono (onda 16, **não autônomo**)
+- [x] 05-16-PLAN.md — Portão: `/api/health/agenda`, Roteiro 17 na ordem da D-15, a varredura completa e o site sem banco, documentos de estado e o passo do dono (onda 16, **não autônomo**) *Concluído em 03/10/2026: Tarefas 1 e 2 no branch em 02/10 (`f82261f`…); Parte 0 respondida pelo dono (`29ab8de`); Roteiro 17 feito por ele em 02/10 (run `36959745229`, `0026` aplicada ~10h30 UTC, `/api/health/agenda` 200); a caminhada aprovada por ele no chat em 03/10/2026 ("finalizei a verificação humana da agenda"), sem anotação por item nem o tempo do C.1; e a caminhada independente do Cowork em produção (`Claude outputs/agenda/VERIFICACAO-COWORK-05.md`, 22 passos, nenhum 🔴) — ver `05-16-SUMMARY.md`.*
 
 **UI hint**: yes
 
@@ -1107,7 +1113,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 04.4. Financeiro — parte 1 | 13/13 | Complete    | 2026-09-26 |
 | 04.5. Financeiro — parte 2 | 14/14 | Complete | 2026-09-27 |
 | 04.6. `/gestao`, Início e site público | 8/8 | Complete    | 2026-09-29 |
-| 5. Agenda | 15/16 | In Progress (01/10/2026) | - |
+| 5. Agenda | 16/16 | Complete | 2026-10-03 |
 | 6. Estoque | 11/11 | Complete    | 2026-09-29 |
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 06.2. Fornecedores | 12/13 | Aguardando o dono (portão) — 03/10/2026: os planos 01–12 e as Tarefas 1–2 do 13 no branch `gsd/phase-06.2-fornecedores`, não publicado (`curl /api/health/fornecedores` = 404 e `git ls-tree origin/main` sem a `0028`, medidos às 02h17 UTC); até 03/10/2026 dizia “Planned (02/10/2026, noite — 13 planos depois da revisão do verificador; até então “Not started”)” | - |

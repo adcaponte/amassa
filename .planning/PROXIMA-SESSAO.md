@@ -2,6 +2,18 @@
 
 *Até ~05h30 UTC de 03/10/2026 este título dizia "ATUALIZADO em 2026-10-03 (~02h50 UTC: Fase 06.2, Fornecedores, código completo no branch `gsd/phase-06.2-fornecedores`, não publicado; aguardando o Theo — Parte 0, Roteiro 19 com o 18 junto, caminhada)" — continua certo para a 06.2; a 06.3 entrou depois (bloco abaixo).*
 
+> **🟢 ATUALIZAÇÃO DE 03/10/2026, ~13h UTC — FASE 5 (AGENDA) FECHADA.**
+> O Theo escreveu no chat em 03/10 (~10–11h de Brasília): *"1 - finalizei a verificação humana da agenda."* — o portão
+> 05-16 aprovado. **Sem anotação por item nem o tempo do C.1** (não registrados porque ele não deu). Feito nesta
+> sessão: `05-16-SUMMARY.md`; AGE-01..20 `[x]` e `Complete` no REQUIREMENTS; 05-16 `[x]`, a Fase 5 `[x]` e 16/16
+> `Complete` no ROADMAP; a verificação da fase `05-VERIFICATION.md` — **`passed`**, 9/9 critérios e 20/20
+> requisitos. **Como sei:** `gsd-verifier` rodou `lint`, `tsc --noEmit`, `verificar-acoes` (122 ações) e `npm test`
+> (2825 testes) verdes e leu o código; `gh run view` confirmou os runs `37013475323` e `37061857675` (`success`);
+> `git ls-remote origin main` = `eac0203` (03/10/2026). `npm run verificar`/`test:migracoes`/e2e não rodaram nesta
+> sessão (outro processo usava o Postgres efêmero). **Fica de fora da fase:** a `0027` (quick `261002-sdt`) no
+> `main` local, não no ar — sai com o Roteiro 19 (o 18 de carona). *Os "Próximo (Theo): a caminhada da Agenda" dos
+> blocos de 02/10 abaixo estão feitos desde 03/10.*
+
 > **🟢 ATUALIZAÇÃO DE 03/10/2026 (tarde) — AS ⭐ DAS DUAS PARTES 0 RESPONDIDAS PELO THEO NO CHAT; AS DUAS TROCAS FEITAS NO BRANCH (quick `261003-d06`), NÃO PUBLICADAS.**
 > **D-06 trocada:** nome de fornecedor único entre os ativos sem caixa **nem acento** (`nome_normalizado(nome)`; a `0028` editada no lugar, antes de ser aplicada) — `555f0c7`. **Copy dos Lembretes trocada:** "com data ele fica vermelho quando vencer" — `82b6102`. **Ficam:** a exclusão de lembrete sem diálogo ("Pode seguir excluindo o lembrete"), as demais ⭐ das duas §0.1, e o §0.8 da 06.3 = (a) publicar e investigar a WINDOWS #64 depois.
 > **Como sei:** `npm run verificar` verde (com `test:migracoes`); `npx drizzle-kit generate` → "No schema changes"; e2e de fornecedores e `lembretes inicio` verdes — comandos e números no `261003-d06-SUMMARY.md`. **Continua dependendo do Theo:** as §0.2–0.7 das duas Partes 0 ("Fica tudo" ou a troca), o Roteiro 19 com o 20 de carona (agora com a `0028` nova — o branch é o mesmo) e as duas caminhadas.

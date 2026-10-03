@@ -146,26 +146,33 @@
 > briefing. As quatro questões da §11 ficam para a discussão da fase e estão marcadas em itálico nos
 > requisitos que tocam. Substituem os AGD-01..16, que ficam abaixo como registro.
 
-- [ ] **AGE-01**: Um calendário só com **quatro tipos de lançamento** — turma fixa, aula/oficina avulsa, uso livre e fechado (data e motivo) —, todos lançados **só pelo ateliê** pela folha "Lançar na agenda"; o cliente não reserva pela internet (§1, §2.3, §3)
-- [ ] **AGE-02**: Vista **semana** (lista por dia, padrão no celular, "+ lançar" por dia, "Hoje") e vista **mês** (pontos na cor de cada tipo; toque no dia abre a semana dele) (§3)
-- [ ] **AGE-03**: **Turma fixa** com nome, dia da semana, horário, vagas, mensalidade, dia de vencimento (1–28) e público sim/não; "Lançar" cria a turma **e já marca N semanas** (o gestor escolhe; padrão 8), que se podem estender depois (§2.6, §3). *Se há tela de turma além do "Lançar" (editar, estender, desativar) é a §11.2.*
-- [ ] **AGE-04**: Cada **data de turma é um evento próprio**: tem a própria lista de presença e pode ser cancelada sozinha; cancelar uma data **pelo ateliê não conta falta** para ninguém, e a reposição se combina marcando uma data extra ou colocando os alunos em outra (§3)
-- [ ] **AGE-05**: **Cancelar nunca apaga** — o evento fica riscado, com "cancelada", e o cancelamento pode ser desfeito; só **reserva de uso livre não iniciada** e **bloqueio (fechado)** podem ser removidos, com confirmação (§3; regra de exclusão do projeto)
-- [ ] **AGE-06**: **Pessoas = o cadastro de clientes do Financeiro**, sem cadastro paralelo; a aba Pessoas busca por nome e mostra, por pessoa, as turmas em que está, "N a repor" e "N a receber"; a ficha mostra telefone, a repor, a receber, turmas fixas e últimas vindas (§4)
-- [ ] **AGE-07**: O aluno **entra ou sai da turma pela ficha da pessoa**: ao entrar, é inscrito nas datas futuras da turma e nasce a mensalidade do mês, **proporcional** quando entra no meio (aulas que restam ÷ aulas da turma no mês × valor); ao sair, sai das datas futuras e o que já aconteceu fica (§2.7, §4)
-- [ ] **AGE-08**: **Presença por pessoa** — Veio / Faltou, um toque, e tocar de novo desmarca; data passada com alguém sem marcação mostra "marcar presença" (§2.4, §4)
-- [ ] **AGE-09**: **Reposição**: falta em turma fixa abre "tem direito a repor esta aula", decidido caso a caso, que gera **1 crédito sem validade**; falta em oficina avulsa não gera; crédito = faltas com direito − reposições usadas, por pessoa, guardando os dois lados (§2.5, §4)
-- [ ] **AGE-10**: **Colocar alguém numa data**: a lista oferece primeiro quem tem aula a repor (entra como "reposição", consome 1 crédito, não paga) e depois qualquer pessoa (em turma fixa, experimental/avulsa naquela data; em oficina, inscrição paga); oficina permite "tirar da lista" (§4)
-- [ ] **AGE-11**: **Sem controle de lotação do espaço**: nenhum limite de lugares, nenhum aviso de sobreposição; cada aula mostra **quantos inscritos** tem (n / vagas) e lista cheia **avisa e não bloqueia** (§2.8, §4)
-- [ ] **AGE-12**: **Aula/oficina avulsa** com nome, data, horário, vagas, preço por pessoa e público sim/não; material incluso; cada inscrição é paga à parte (§2.1, §3)
-- [ ] **AGE-13**: **Uso livre**: pessoa, data, hora de chegada, horas previstas e quantas pessoas; fluxo **Reservado → Chegou → Encerrado**; "Chegou" registra a hora real (proposta: a da reserva, editável) e é o que vira registro de uso; ao encerrar, horas cheias = teto((saída − chegada) ÷ 60 min) e valor = horas cheias × pessoas × preço da hora + Σ material cobrado (§2.2, §6). *O §6 escreve "horas cheias = teto(...) × pessoas" e depois multiplica por pessoas de novo; o protótipo multiplica uma vez só, e é o que vale aqui.*
-- [ ] **AGE-14**: **Material do uso livre**: lista opcional de item do estoque + quantidade + **cobrar / incluso**; ao encerrar, **cada linha vira uma saída no Estoque** com destino "uso do espaço", origem `manual`, vínculo com o uso livre e custo médio do momento — inclusive o "incluso"; "cobrar" soma preço de venda do Catálogo × quantidade à conta da pessoa (§6)
-- [ ] **AGE-15**: **A Agenda não guarda dinheiro.** A aba "A receber pela agenda" lista o que ainda não virou venda — mensalidades, inscrições em oficina e usos livres encerrados — e cada item tem **"Recebi agora"** (pergunta a forma — dinheiro, pix, cartão — e cria a Venda **já paga hoje**, que entra no Caixa na hora) e **"Lançar na Venda"** (abre o rascunho preenchido; a parcela fica em aberto em "o que vence", no dia de vencimento da turma ou na data do evento); depois de lançado o item sai de "A receber", a Agenda guarda o **vínculo com a venda** e o "pago" passa a **derivar do Financeiro**; devolução e cancelamento continuam no Financeiro, e a tela diz isso (§5)
-- [ ] **AGE-16**: **Mensalidades em lote**: sanfona "Lançar todas as mensalidades de uma vez", aberta por padrão, com cada aluno, turma, mês, valor ("proporcional" quando for) e o total; um botão cria **uma Venda por aluno**, parcela vencendo no dia da turma; a mensalidade nasce em aberto no **1º dia do mês** para cada aluno de turma fixa, sem duplicar (§5). *Rotina no dia 1 ou ao abrir a tela é a §11.1.*
-- [ ] **AGE-17**: **Itens do Catálogo** que a Agenda usa são criados pela fase e editáveis em Cadastros — mensalidade, inscrição em oficina, "Uso livre (hora)" e os materiais do estoque; **nenhum preço no código** (preço da hora e das mensalidades são cadastro) (§5). *Um item por turma ou um item "Mensalidade" com o nome da turma na linha é a §11.3.*
-- [ ] **AGE-18**: **Site — calendário público**, rota pública sem login lendo os mesmos dados no servidor: só eventos com "Mostrar no calendário público" marcado, não cancelados, de hoje em diante; vistas **Próximas** (turma fixa aparece uma vez, "toda terça, 19h às 21h") e **Calendário mensal** (ponto por evento na cor do tipo, cinza = esgotado, dia fechado marcado, toque no dia lista os eventos, navegação por mês); cartão com nome, quando, preço (por mês ou por pessoa), "material incluso", **vagas restantes** (n vagas · últimas 2 · última vaga · esgotado) e "Reservar pelo WhatsApp" (some quando esgotado); bloco fixo "Uso livre do ateliê" com preço da hora e "Consulte disponibilidade no WhatsApp"; **sem nome de ninguém**; o número do WhatsApp é cadastro (§2.9, §7). *Liga a seção de aulas do site que a Fase 04.6 deixou sem calendário (SIT-02/SIT-07).*
-- [ ] **AGE-19**: Aba **Números**, só leitura, do mês até hoje: horas de uso livre (horas-pessoa e visitas) · presença nas aulas (% e faltas) · aulas a repor em aberto · pessoas diferentes que passaram pelo espaço · horas-pessoa por dia da semana (barra); sem cruzar com custo (§8)
-- [ ] **AGE-20**: Regras em **módulo puro `lib/agenda/`**, testado, com "hoje" recebido por parâmetro — horas cheias, proporcional, créditos de reposição, geração das datas da turma, vagas restantes; dinheiro em centavos, quantidade em milésimos; cancelar ou remover na Agenda **nunca apaga** venda nem movimentação de estoque já gerada (§9). *O bloco "Agenda de hoje" do Início (`/gestao`) passar a ler as consultas da Agenda é a §11.4.*
+- [x] **AGE-01**: Um calendário só com **quatro tipos de lançamento** — turma fixa, aula/oficina avulsa, uso livre e fechado (data e motivo) —, todos lançados **só pelo ateliê** pela folha "Lançar na agenda"; o cliente não reserva pela internet (§1, §2.3, §3)
+- [x] **AGE-02**: Vista **semana** (lista por dia, padrão no celular, "+ lançar" por dia, "Hoje") e vista **mês** (pontos na cor de cada tipo; toque no dia abre a semana dele) (§3)
+- [x] **AGE-03**: **Turma fixa** com nome, dia da semana, horário, vagas, mensalidade, dia de vencimento (1–28) e público sim/não; "Lançar" cria a turma **e já marca N semanas** (o gestor escolhe; padrão 8), que se podem estender depois (§2.6, §3). *Se há tela de turma além do "Lançar" (editar, estender, desativar) é a §11.2.*
+- [x] **AGE-04**: Cada **data de turma é um evento próprio**: tem a própria lista de presença e pode ser cancelada sozinha; cancelar uma data **pelo ateliê não conta falta** para ninguém, e a reposição se combina marcando uma data extra ou colocando os alunos em outra (§3)
+- [x] **AGE-05**: **Cancelar nunca apaga** — o evento fica riscado, com "cancelada", e o cancelamento pode ser desfeito; só **reserva de uso livre não iniciada** e **bloqueio (fechado)** podem ser removidos, com confirmação (§3; regra de exclusão do projeto)
+- [x] **AGE-06**: **Pessoas = o cadastro de clientes do Financeiro**, sem cadastro paralelo; a aba Pessoas busca por nome e mostra, por pessoa, as turmas em que está, "N a repor" e "N a receber"; a ficha mostra telefone, a repor, a receber, turmas fixas e últimas vindas (§4)
+- [x] **AGE-07**: O aluno **entra ou sai da turma pela ficha da pessoa**: ao entrar, é inscrito nas datas futuras da turma e nasce a mensalidade do mês, **proporcional** quando entra no meio (aulas que restam ÷ aulas da turma no mês × valor); ao sair, sai das datas futuras e o que já aconteceu fica (§2.7, §4)
+- [x] **AGE-08**: **Presença por pessoa** — Veio / Faltou, um toque, e tocar de novo desmarca; data passada com alguém sem marcação mostra "marcar presença" (§2.4, §4)
+- [x] **AGE-09**: **Reposição**: falta em turma fixa abre "tem direito a repor esta aula", decidido caso a caso, que gera **1 crédito sem validade**; falta em oficina avulsa não gera; crédito = faltas com direito − reposições usadas, por pessoa, guardando os dois lados (§2.5, §4)
+- [x] **AGE-10**: **Colocar alguém numa data**: a lista oferece primeiro quem tem aula a repor (entra como "reposição", consome 1 crédito, não paga) e depois qualquer pessoa (em turma fixa, experimental/avulsa naquela data; em oficina, inscrição paga); oficina permite "tirar da lista" (§4)
+- [x] **AGE-11**: **Sem controle de lotação do espaço**: nenhum limite de lugares, nenhum aviso de sobreposição; cada aula mostra **quantos inscritos** tem (n / vagas) e lista cheia **avisa e não bloqueia** (§2.8, §4)
+- [x] **AGE-12**: **Aula/oficina avulsa** com nome, data, horário, vagas, preço por pessoa e público sim/não; material incluso; cada inscrição é paga à parte (§2.1, §3)
+- [x] **AGE-13**: **Uso livre**: pessoa, data, hora de chegada, horas previstas e quantas pessoas; fluxo **Reservado → Chegou → Encerrado**; "Chegou" registra a hora real (proposta: a da reserva, editável) e é o que vira registro de uso; ao encerrar, horas cheias = teto((saída − chegada) ÷ 60 min) e valor = horas cheias × pessoas × preço da hora + Σ material cobrado (§2.2, §6). *O §6 escreve "horas cheias = teto(...) × pessoas" e depois multiplica por pessoas de novo; o protótipo multiplica uma vez só, e é o que vale aqui.*
+- [x] **AGE-14**: **Material do uso livre**: lista opcional de item do estoque + quantidade + **cobrar / incluso**; ao encerrar, **cada linha vira uma saída no Estoque** com destino "uso do espaço", origem `manual`, vínculo com o uso livre e custo médio do momento — inclusive o "incluso"; "cobrar" soma preço de venda do Catálogo × quantidade à conta da pessoa (§6)
+- [x] **AGE-15**: **A Agenda não guarda dinheiro.** A aba "A receber pela agenda" lista o que ainda não virou venda — mensalidades, inscrições em oficina e usos livres encerrados — e cada item tem **"Recebi agora"** (pergunta a forma — dinheiro, pix, cartão — e cria a Venda **já paga hoje**, que entra no Caixa na hora) e **"Lançar na Venda"** (abre o rascunho preenchido; a parcela fica em aberto em "o que vence", no dia de vencimento da turma ou na data do evento); depois de lançado o item sai de "A receber", a Agenda guarda o **vínculo com a venda** e o "pago" passa a **derivar do Financeiro**; devolução e cancelamento continuam no Financeiro, e a tela diz isso (§5)
+- [x] **AGE-16**: **Mensalidades em lote**: sanfona "Lançar todas as mensalidades de uma vez", aberta por padrão, com cada aluno, turma, mês, valor ("proporcional" quando for) e o total; um botão cria **uma Venda por aluno**, parcela vencendo no dia da turma; a mensalidade nasce em aberto no **1º dia do mês** para cada aluno de turma fixa, sem duplicar (§5). *Rotina no dia 1 ou ao abrir a tela é a §11.1.*
+- [x] **AGE-17**: **Itens do Catálogo** que a Agenda usa são criados pela fase e editáveis em Cadastros — mensalidade, inscrição em oficina, "Uso livre (hora)" e os materiais do estoque; **nenhum preço no código** (preço da hora e das mensalidades são cadastro) (§5). *Um item por turma ou um item "Mensalidade" com o nome da turma na linha é a §11.3.*
+- [x] **AGE-18**: **Site — calendário público**, rota pública sem login lendo os mesmos dados no servidor: só eventos com "Mostrar no calendário público" marcado, não cancelados, de hoje em diante; vistas **Próximas** (turma fixa aparece uma vez, "toda terça, 19h às 21h") e **Calendário mensal** (ponto por evento na cor do tipo, cinza = esgotado, dia fechado marcado, toque no dia lista os eventos, navegação por mês); cartão com nome, quando, preço (por mês ou por pessoa), "material incluso", **vagas restantes** (n vagas · últimas 2 · última vaga · esgotado) e "Reservar pelo WhatsApp" (some quando esgotado); bloco fixo "Uso livre do ateliê" com preço da hora e "Consulte disponibilidade no WhatsApp"; **sem nome de ninguém**; o número do WhatsApp é cadastro (§2.9, §7). *Liga a seção de aulas do site que a Fase 04.6 deixou sem calendário (SIT-02/SIT-07).*
+- [x] **AGE-19**: Aba **Números**, só leitura, do mês até hoje: horas de uso livre (horas-pessoa e visitas) · presença nas aulas (% e faltas) · aulas a repor em aberto · pessoas diferentes que passaram pelo espaço · horas-pessoa por dia da semana (barra); sem cruzar com custo (§8)
+- [x] **AGE-20**: Regras em **módulo puro `lib/agenda/`**, testado, com "hoje" recebido por parâmetro — horas cheias, proporcional, créditos de reposição, geração das datas da turma, vagas restantes; dinheiro em centavos, quantidade em milésimos; cancelar ou remover na Agenda **nunca apaga** venda nem movimentação de estoque já gerada (§9). *O bloco "Agenda de hoje" do Início (`/gestao`) passar a ler as consultas da Agenda é a §11.4.*
+
+> *Marcados em 03/10/2026, depois do portão 05-16.* Evidência: a aprovação do dono no chat de 03/10/2026
+> (~10–11h de Brasília: "finalizei a verificação humana da agenda"), **sem anotação por item nem o tempo do
+> C.1**; o Roteiro 17 feito por ele em 02/10/2026 (run `36959745229`, `0026` aplicada ~10h30 UTC,
+> `/api/health/agenda` 200); a caminhada do Cowork em produção (`Claude outputs/agenda/VERIFICACAO-COWORK-05.md`,
+> 22 passos, nenhum 🔴, fora do git); e a verificação da fase (`05-VERIFICATION.md`). Detalhe em `05-16-SUMMARY.md`.
+> A `0027` (dispensa do uso livre, quick `261002-sdt`) é acréscimo posterior e só vai ao ar com o Roteiro 19.
 
 ### Fornecedores — aba dos Cadastros (Fase 06.2, criada em 02/10/2026)
 
@@ -667,26 +674,26 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | AGD-14 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
 | AGD-15 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
 | AGD-16 | Phase 5 — Agenda de Aulas | Substituído em 01/10/2026 pelos AGE-* |
-| AGE-01 | Phase 5 — Agenda | Pending |
-| AGE-02 | Phase 5 — Agenda | Pending |
-| AGE-03 | Phase 5 — Agenda | Pending |
-| AGE-04 | Phase 5 — Agenda | Pending |
-| AGE-05 | Phase 5 — Agenda | Pending |
-| AGE-06 | Phase 5 — Agenda | Pending |
-| AGE-07 | Phase 5 — Agenda | Pending |
-| AGE-08 | Phase 5 — Agenda | Pending |
-| AGE-09 | Phase 5 — Agenda | Pending |
-| AGE-10 | Phase 5 — Agenda | Pending |
-| AGE-11 | Phase 5 — Agenda | Pending |
-| AGE-12 | Phase 5 — Agenda | Pending |
-| AGE-13 | Phase 5 — Agenda | Pending |
-| AGE-14 | Phase 5 — Agenda | Pending |
-| AGE-15 | Phase 5 — Agenda | Pending |
-| AGE-16 | Phase 5 — Agenda | Pending |
-| AGE-17 | Phase 5 — Agenda | Pending |
-| AGE-18 | Phase 5 — Agenda | Pending |
-| AGE-19 | Phase 5 — Agenda | Pending |
-| AGE-20 | Phase 5 — Agenda | Pending |
+| AGE-01 | Phase 5 — Agenda | Complete |
+| AGE-02 | Phase 5 — Agenda | Complete |
+| AGE-03 | Phase 5 — Agenda | Complete |
+| AGE-04 | Phase 5 — Agenda | Complete |
+| AGE-05 | Phase 5 — Agenda | Complete |
+| AGE-06 | Phase 5 — Agenda | Complete |
+| AGE-07 | Phase 5 — Agenda | Complete |
+| AGE-08 | Phase 5 — Agenda | Complete |
+| AGE-09 | Phase 5 — Agenda | Complete |
+| AGE-10 | Phase 5 — Agenda | Complete |
+| AGE-11 | Phase 5 — Agenda | Complete |
+| AGE-12 | Phase 5 — Agenda | Complete |
+| AGE-13 | Phase 5 — Agenda | Complete |
+| AGE-14 | Phase 5 — Agenda | Complete |
+| AGE-15 | Phase 5 — Agenda | Complete |
+| AGE-16 | Phase 5 — Agenda | Complete |
+| AGE-17 | Phase 5 — Agenda | Complete |
+| AGE-18 | Phase 5 — Agenda | Complete |
+| AGE-19 | Phase 5 — Agenda | Complete |
+| AGE-20 | Phase 5 — Agenda | Complete |
 | FRN-01 | Phase 06.2 — Fornecedores | Pending |
 | FRN-02 | Phase 06.2 — Fornecedores | Pending |
 | FRN-03 | Phase 06.2 — Fornecedores | Pending |
