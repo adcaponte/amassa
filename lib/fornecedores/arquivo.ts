@@ -7,6 +7,13 @@
 // de limite que o servidor usa — e um `sharp` ou um `file-type` puxado para o pacote do navegador o
 // quebraria. Quem chama o `file-type` é a rota (`app/gestao/api/fornecedores/anexos/route.ts`), que
 // passa o resultado para `classificarArquivo`; o `sharp` mora em `lib/fornecedores/foto.ts` (plano 07).
+// As frases vêm de `./textos`, que também não importa nada.
+import {
+  FRASE_ARQUIVO_VAZIO,
+  fraseTamanhoDeDocumento,
+  fraseTamanhoDeFoto,
+  fraseTipoPelaExtensao,
+} from "./textos";
 
 // "20 MB" e "10 MB" na mesma conta do protótipo (`lim*1048576`, suposição A7 da pesquisa): MiB. Uma
 // constante única evita que cliente e servidor discordem na fronteira.
@@ -167,6 +174,38 @@ export function textoDoTamanho(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
   }
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+// O teto de bytes de cada família — o MESMO número que o PUT confere (o servidor é a barreira; esta
+// conta é a conveniência do cliente, que poupa a rede).
+export function limiteDaFamilia(familia: FamiliaDoArquivo): number {
+  return familia === "foto" ? LIMITE_FOTO_BYTES : LIMITE_DOCUMENTO_BYTES;
+}
+
+// A recusa ANTES da rede (06.2-UI-SPEC.md, zona "Recusado (cliente)"; plano 07): a frase que a folha
+// mostra dentro da zona, ou `null` quando o arquivo pode ir ao servidor. Nesta ordem:
+//   1. a extensão do nome está fora da lista → ".{ext} não entra. …";
+//   2. arquivo de 0 byte → "Esse arquivo está vazio. Escolha outro." (a mesma frase do 400 do PUT);
+//   3. acima do teto da família → "{nome} tem {tamanho}. O limite é 10 MB para foto." / "… 20 MB para
+//      PDF e planilha." — a fronteira é inclusiva: EXATAMENTE o limite passa.
+// Um nome SEM extensão não é recusado pelo tipo aqui (não há ".{ext}" para a frase dizer): vai ao
+// servidor, que decide pela assinatura; o tamanho dele é conferido contra o teto maior (o de 20 MiB, o
+// mesmo do `Content-Length` do PUT).
+export function recusaNoCliente({ nome, bytes }: { nome: string; bytes: number }): string | null {
+  const extensao = extensaoDoNome(nome);
+  const familia = familiaPelaExtensao(extensao);
+  if (extensao !== "" && familia === null) {
+    return fraseTipoPelaExtensao(extensao);
+  }
+  if (bytes === 0) {
+    return FRASE_ARQUIVO_VAZIO;
+  }
+  const limite = familia === null ? LIMITE_DOCUMENTO_BYTES : limiteDaFamilia(familia);
+  if (bytes > limite) {
+    const tamanho = textoDoTamanho(bytes);
+    return familia === "foto" ? fraseTamanhoDeFoto(nome, tamanho) : fraseTamanhoDeDocumento(nome, tamanho);
+  }
+  return null;
 }
 
 const TETO_DO_NOME_DO_ANEXO = 120;

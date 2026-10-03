@@ -9,8 +9,15 @@ import {
   nomeDoAnexoPeloArquivo,
   pareceTexto,
   preenchimentoPeloArquivo,
+  recusaNoCliente,
   textoDoTamanho,
 } from "@/lib/fornecedores/arquivo";
+import {
+  FRASE_ARQUIVO_VAZIO,
+  fraseTamanhoDeDocumento,
+  fraseTamanhoDeFoto,
+  fraseTipoPelaExtensao,
+} from "@/lib/fornecedores/textos";
 
 import {
   csvSintetico,
@@ -285,5 +292,74 @@ describe("limites e família pela extensão", () => {
     ["", null],
   ] as const)("familiaPelaExtensao(%s) → %s", (extensao, familia) => {
     expect(familiaPelaExtensao(extensao)).toBe(familia);
+  });
+});
+
+// ——— Plano 06.2-07, Tarefa 1: a recusa ANTES da rede e o preenchimento da foto e da planilha. ———
+
+describe("recusaNoCliente — a folha barra antes da rede, com as constantes do servidor", () => {
+  it("foto de exatamente 10 MiB passa; 1 byte a mais → a frase de foto com o tamanho", () => {
+    expect(recusaNoCliente({ nome: "foto.jpg", bytes: 10 * 1048576 })).toBeNull();
+    expect(recusaNoCliente({ nome: "foto.jpg", bytes: 10 * 1048576 + 1 })).toBe(
+      fraseTamanhoDeFoto("foto.jpg", "10,0 MB"),
+    );
+    expect(recusaNoCliente({ nome: "foto.jpg", bytes: 10 * 1048576 + 1 })).toBe(
+      "foto.jpg tem 10,0 MB. O limite é 10 MB para foto.",
+    );
+  });
+
+  it("PDF acima de 20 MiB → a frase de documento", () => {
+    expect(recusaNoCliente({ nome: "t.pdf", bytes: 20 * 1048576 + 1 })).toBe(
+      fraseTamanhoDeDocumento("t.pdf", "20,0 MB"),
+    );
+  });
+
+  it("extensão fora da lista → “.docx não entra. …”", () => {
+    expect(recusaNoCliente({ nome: "x.docx", bytes: 10 })).toBe(fraseTipoPelaExtensao("docx"));
+    expect(recusaNoCliente({ nome: "x.docx", bytes: 10 })).toBe(
+      ".docx não entra. Aceita PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV).",
+    );
+  });
+
+  it("arquivo de 0 byte → a frase de vazio", () => {
+    expect(recusaNoCliente({ nome: "x.pdf", bytes: 0 })).toBe(FRASE_ARQUIVO_VAZIO);
+    expect(FRASE_ARQUIVO_VAZIO).toBe("Esse arquivo está vazio. Escolha outro.");
+  });
+
+  it("nome sem extensão não é recusado pelo tipo (o servidor decide pela assinatura); o teto é o de 20 MiB", () => {
+    expect(recusaNoCliente({ nome: "LEIAME", bytes: 1024 })).toBeNull();
+    expect(recusaNoCliente({ nome: "LEIAME", bytes: 15 * 1048576 })).toBeNull();
+    expect(recusaNoCliente({ nome: "LEIAME", bytes: 20 * 1048576 + 1 })).toBe(
+      fraseTamanhoDeDocumento("LEIAME", "20,0 MB"),
+    );
+  });
+});
+
+describe("preenchimentoPeloArquivo — foto e planilha (plano 07)", () => {
+  const base = { hoje: "2026-10-03", valeDesdeAtual: "", tipoTocadoPelaPessoa: false };
+
+  it("foto com o Nome já digitado: o Nome fica e o tipo vira outro", () => {
+    expect(
+      preenchimentoPeloArquivo({ ...base, nomeDoArquivo: "vitrine.heic", nomeAtual: "Catálogo de inverno" }),
+    ).toEqual({ nome: "Catálogo de inverno", tipo: "outro", valeDesde: "" });
+  });
+
+  it("foto com o tipo trocado pela pessoa: o tipo não muda", () => {
+    expect(
+      preenchimentoPeloArquivo({
+        ...base,
+        nomeDoArquivo: "vitrine.png",
+        nomeAtual: "",
+        tipoTocadoPelaPessoa: true,
+      }).tipo,
+    ).toBeNull();
+  });
+
+  it("planilha: tabela e a data vazia (não é hoje, como o PDF)", () => {
+    expect(preenchimentoPeloArquivo({ ...base, nomeDoArquivo: "precos.csv", nomeAtual: "" })).toEqual({
+      nome: "precos",
+      tipo: "tabela",
+      valeDesde: "",
+    });
   });
 });

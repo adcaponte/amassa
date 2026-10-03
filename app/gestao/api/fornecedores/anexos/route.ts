@@ -14,6 +14,9 @@
 //   4. Limite de 20 MiB pelo `Content-Length` declarado, ANTES de ler o corpo; e de novo pela contagem
 //      dos bytes que chegam, cortando no limite (T-06.2-19) — o corpo nunca fica inteiro na memória.
 //   5. O tipo vem da ASSINATURA (`file-type` sobre o temporário gravado), nunca do nome (T-06.2-18).
+//      Foto (plano 07, D-07/D-A03): teto de 10 MiB e SEMPRE regravada por `tratarFotoDeAnexo` — 2000 px,
+//      fundo branco, JPEG sem metadado nenhum; a que o `sharp` não abre (HEIC) é recusada, nunca
+//      guardada como veio. PDF e planilha são guardados como vieram.
 //   6. O arquivo final (`<uuid>.<ext>`, nome sorteado pelo servidor) só existe ANTES da linha dentro
 //      da transação, e é apagado se a linha não se gravar; o temporário (`.envio-<uuid>`, na MESMA
 //      pasta — Pitfall 5) sai sempre, no `finally` (FRN-07, FRN-08).
@@ -32,7 +35,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/db";
 import { fornecedorAnexos, fornecedores } from "@/db/schema";
 import { exigirUsuario, type UsuarioAutorizado } from "@/lib/auth/exigir-usuario";
-import { classificarArquivo, LIMITE_DOCUMENTO_BYTES, textoDoTamanho } from "@/lib/fornecedores/arquivo";
+import {
+  classificarArquivo,
+  LIMITE_DOCUMENTO_BYTES,
+  LIMITE_FOTO_BYTES,
+  textoDoTamanho,
+} from "@/lib/fornecedores/arquivo";
 import { mesmaOrigem } from "@/lib/fornecedores/cabecalhos";
 import {
   caminhoDoAnexo,
@@ -42,15 +50,18 @@ import {
 } from "@/lib/fornecedores/caminho-anexos";
 import { situacaoParaEnvio } from "@/lib/fornecedores/consultas";
 import { esquemaEnvioDeAnexo } from "@/lib/fornecedores/esquemas";
+import { FotoQueNaoAbre, tratarFotoDeAnexo } from "@/lib/fornecedores/foto";
 import {
   FRASE_ARQUIVO_VAZIO,
   FRASE_FALHA_AO_ENVIAR,
   FRASE_FICHA_NAO_EXISTE,
   FRASE_FORNECEDOR_DESATIVADO_NO_ENVIO,
+  FRASE_HEIC_NAO_ABRE,
   FRASE_ORIGEM_RECUSADA,
   FRASE_SESSAO_TERMINOU,
   FRASE_TIPO_PELA_ASSINATURA,
   fraseTamanhoDeDocumento,
+  fraseTamanhoDeFoto,
 } from "@/lib/fornecedores/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
@@ -202,16 +213,34 @@ export async function PUT(request: NextRequest) {
       return recusar(415, FRASE_TIPO_PELA_ASSINATURA);
     }
 
-    // 8. Foto: o ramo dela (`tratarFotoDeAnexo` — reduzir a 2000 px, tirar o EXIF, HEIC; teto de 10 MiB)
-    // é do plano 07, que SUBSTITUI este passo. Até lá, uma foto é recusada sem gravar nada — em momento
-    // nenhum uma foto é guardada como veio.
-    if (classe.tipo.familia === "foto") {
-      return recusar(415, FRASE_TIPO_PELA_ASSINATURA);
-    }
+    // 8. Foto (plano 07; D-07, D-A03): teto PRÓPRIO de 10 MiB (o do passo 4 é o de 20 MiB, do
+    // documento); abaixo dele, o temporário é lido em buffer (no máximo 10 MiB) e regravado por
+    // `tratarFotoDeAnexo` — 2000 px, fundo branco, JPEG sem nenhum metadado. A que o `sharp` não abre é
+    // recusada: com a frase do HEIC se a assinatura era HEIC (D-07), com a do tipo nos outros casos. Em
+    // momento nenhum uma foto é guardada como veio (ela manteria o EXIF/GPS).
     const tipo = classe.tipo;
+    let fotoTratada: { buffer: Buffer; bytes: number } | null = null;
+    if (tipo.familia === "foto") {
+      if (bytes > LIMITE_FOTO_BYTES) {
+        return recusar(
+          413,
+          fraseTamanhoDeFoto(nomeParaFrase(meta.nome, meta.extensao), textoDoTamanho(bytes)),
+        );
+      }
+      try {
+        fotoTratada = await tratarFotoDeAnexo(await fs.readFile(temporario));
+      } catch (erro) {
+        if (erro instanceof FotoQueNaoAbre) {
+          console.error("O sharp não abriu a foto de um anexo de fornecedor:", erro.cause);
+          return recusar(415, detectado?.ext === "heic" ? FRASE_HEIC_NAO_ABRE : FRASE_TIPO_PELA_ASSINATURA);
+        }
+        throw erro;
+      }
+    }
 
     // 9. Transação: trava o fornecedor (`for share` — um "desativar" concorrente espera) e confere que
-    // continua ativo; cria o arquivo final (rename na mesma pasta — atômico, sem `EXDEV`); só ENTÃO
+    // continua ativo; cria o arquivo final (PDF e planilha: rename do temporário na mesma pasta —
+    // atômico, sem `EXDEV`; foto: o JPEG tratado escrito com `wx`, que nunca sobrescreve); só ENTÃO
     // insere a linha. Qualquer falha depois de o final existir o apaga.
     const arquivoFinal = nomeDeArquivoNovo(tipo.extensao);
     const caminhoFinal = caminhoDoAnexo(arquivoFinal);
@@ -231,7 +260,11 @@ export async function PUT(request: NextRequest) {
           throw new FornecedorDesativado();
         }
 
-        await fs.rename(temporario, caminhoFinal);
+        if (fotoTratada !== null) {
+          await fs.writeFile(caminhoFinal, fotoTratada.buffer, { flag: "wx" });
+        } else {
+          await fs.rename(temporario, caminhoFinal);
+        }
         finalCriado = true;
 
         const [linha] = await tx
@@ -244,7 +277,8 @@ export async function PUT(request: NextRequest) {
             nota: meta.nota,
             arquivoCaminho: arquivoFinal,
             arquivoTipo: tipo.mime,
-            arquivoBytes: bytes,
+            // Foto: os bytes do JPEG tratado — é ele que o GET serve com este `Content-Length`.
+            arquivoBytes: fotoTratada !== null ? fotoTratada.bytes : bytes,
             extensao: tipo.extensao,
             criadoPor: usuario.id,
           })
@@ -272,7 +306,8 @@ export async function PUT(request: NextRequest) {
     console.error("Falha ao conferir um anexo de fornecedor:", erro);
     return recusar(500, FRASE_FALHA_AO_ENVIAR);
   } finally {
-    // O temporário nunca fica para trás (depois do rename ele já não existe; `force` não reclama).
+    // O temporário nunca fica para trás (depois do rename ele já não existe; `force` não reclama; no
+    // ramo da foto ele continua lá até aqui).
     await apagarSemFalhar(temporario);
   }
 }

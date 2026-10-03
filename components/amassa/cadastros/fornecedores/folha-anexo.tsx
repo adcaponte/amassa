@@ -1,9 +1,15 @@
 "use client";
 
-import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { X } from "lucide-react";
 
-import { extensaoDoNome, preenchimentoPeloArquivo, textoDoTamanho } from "@/lib/fornecedores/arquivo";
+import {
+  extensaoDoNome,
+  familiaPelaExtensao,
+  preenchimentoPeloArquivo,
+  recusaNoCliente,
+  textoDoTamanho,
+} from "@/lib/fornecedores/arquivo";
 import {
   TETO_DA_NOTA_DO_ANEXO,
   TETO_DO_NOME_DO_ANEXO,
@@ -93,8 +99,14 @@ export type FolhaAnexoProps = {
 //
 // O arquivo vai como o corpo CRU de um `fetch` `PUT` para a rota do plano 05 (nunca multipart), com os
 // metadados na query (Pitfall 6). A folha não decide nada que o servidor não confira: tipo, tamanho,
-// sessão e origem são do PUT, e a folha mostra a frase que o corpo JSON traz. As recusas ANTES da rede
-// (tamanho e extensão, com as mesmas constantes) e a prévia da foto são do plano 07.
+// sessão e origem são do PUT, e a folha mostra a frase que o corpo JSON traz.
+//
+// Antes da rede (plano 07): `recusaNoCliente` — com as MESMAS constantes de limite que o PUT usa, de
+// `lib/fornecedores/arquivo.ts` — barra a extensão fora da lista, o arquivo vazio e o grande demais; a
+// frase fica dentro da zona, "Guardar anexo" desabilita e nenhuma requisição sai. A foto aceita ganha a
+// prévia (`URL.createObjectURL`, até 220 px), revogada ao trocar de arquivo e ao fechar a folha (um
+// celular não segura a memória de cada foto escolhida); o formato que o navegador não desenha (HEIC no
+// Chrome) esconde a prévia pelo `onError`, sem mensagem — quem fala do HEIC é o servidor (D-07).
 //
 // Enquanto envia (UI-D10, UI-D11): barra indeterminada sem porcentagem (o `fetch` não informa
 // progresso de envio), os dois botões desabilitados, o fechar some, e Esc e toque fora não fecham. Em
@@ -113,10 +125,37 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
   const [enviando, setEnviando] = useState(false);
   const [recusa, setRecusa] = useState<Recusa | null>(null);
   const [erros, setErros] = useState<Partial<Record<CampoDoAnexo, string>>>({});
+  const [previa, setPrevia] = useState<string | null>(null);
+  const [previaFalhou, setPreviaFalhou] = useState(false);
   // Guarda síncrona: um toque duplo envia UMA vez.
   const enviandoAgora = useRef(false);
   const campoDoArquivo = useRef<HTMLInputElement | null>(null);
   const campos = useRef<Partial<Record<CampoDoAnexo, HTMLElement | null>>>({});
+  // A URL da prévia em uso — a única que existe a cada momento; revogada ao trocar e ao desmontar.
+  const urlDaPrevia = useRef<string | null>(null);
+
+  // A recusa ANTES da rede: derivada do arquivo escolhido, nunca guardada à parte.
+  const recusaDoCliente = arquivo === null ? null : recusaNoCliente({ nome: arquivo.name, bytes: arquivo.size });
+
+  // Fechar a folha a desmonta (quem usa monta para abrir): a URL da prévia sai junto.
+  useEffect(() => {
+    const prevista = urlDaPrevia;
+    return () => {
+      if (prevista.current !== null) {
+        URL.revokeObjectURL(prevista.current);
+        prevista.current = null;
+      }
+    };
+  }, []);
+
+  function trocarPrevia(foto: File | null) {
+    if (urlDaPrevia.current !== null) {
+      URL.revokeObjectURL(urlDaPrevia.current);
+    }
+    urlDaPrevia.current = foto === null ? null : URL.createObjectURL(foto);
+    setPrevia(urlDaPrevia.current);
+    setPreviaFalhou(false);
+  }
 
   function fechar() {
     if (!enviandoAgora.current) {
@@ -127,6 +166,13 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
   function receber(escolhido: File) {
     setArquivo(escolhido);
     setRecusa(null);
+    const recusado = recusaNoCliente({ nome: escolhido.name, bytes: escolhido.size }) !== null;
+    const ehFoto = familiaPelaExtensao(extensaoDoNome(escolhido.name)) === "foto";
+    trocarPrevia(!recusado && ehFoto ? escolhido : null);
+    // Um arquivo recusado na hora não preenche nada: o Nome dele ficaria para o próximo arquivo.
+    if (recusado) {
+      return;
+    }
     const preenchido = preenchimentoPeloArquivo({
       nomeDoArquivo: escolhido.name,
       hoje,
@@ -189,7 +235,7 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
   }
 
   async function guardar() {
-    if (enviandoAgora.current || arquivo === null) {
+    if (enviandoAgora.current || arquivo === null || recusaDoCliente !== null) {
       return;
     }
     enviandoAgora.current = true;
@@ -222,6 +268,7 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
     if (status === 401) {
       // A sessão acabou: nada foi guardado, e o arquivo sai — o caminho é entrar de novo.
       setArquivo(null);
+      trocarPrevia(null);
       setRecusa({ frase: FRASE_SESSAO_TERMINOU, sessao: true });
       return;
     }
@@ -263,6 +310,28 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
           </div>
           <p className="text-tinta-fraca">{FRASE_NAO_FECHE_A_FOLHA}</p>
         </div>
+      );
+    }
+    if (arquivo !== null && recusaDoCliente !== null) {
+      // "Recusado (cliente)": a frase em `--color-erro`, o nome do arquivo em 600 quando a frase começa
+      // por ele (as de tamanho); "Trocar arquivo" à mão.
+      const comecaPeloNome = recusaDoCliente.startsWith(arquivo.name);
+      return (
+        <>
+          <p role="alert" data-testid="anexo-recusa" className="text-erro [overflow-wrap:anywhere]">
+            {comecaPeloNome ? (
+              <>
+                <span className="font-semibold">{arquivo.name}</span>
+                {recusaDoCliente.slice(arquivo.name.length)}
+              </>
+            ) : (
+              recusaDoCliente
+            )}
+          </p>
+          <label htmlFor="anexo-arquivo" className={CLASSE_DO_ESCOLHER}>
+            {ROTULO_TROCAR_ARQUIVO}
+          </label>
+        </>
       );
     }
     if (arquivo !== null) {
@@ -381,6 +450,20 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
               />
               {conteudoDaZona()}
             </div>
+
+            {/* A prévia (só foto aceita; UI-SPEC item 2). `<img>` puro, de propósito: a URL é um `blob:`
+                local, que o `next/image` não otimiza. O que o navegador não desenha (HEIC no Chrome)
+                some pelo `onError`, sem mensagem. */}
+            {arquivo !== null && previa !== null && !previaFalhou ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previa}
+                alt={`Prévia de ${arquivo.name}`}
+                data-testid="anexo-previa"
+                onError={() => setPreviaFalhou(true)}
+                className="border-border max-h-[220px] max-w-full self-center rounded-lg border object-contain"
+              />
+            ) : null}
 
             <div className="flex min-w-0 flex-col gap-2">
               <label htmlFor="anexo-nome" className={CLASSE_DO_ROTULO}>
@@ -523,7 +606,7 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
               <Button
                 type="submit"
                 data-testid="anexo-guardar"
-                disabled={enviando || arquivo === null}
+                disabled={enviando || arquivo === null || recusaDoCliente !== null}
                 aria-busy={enviando ? "true" : undefined}
                 className="text-corpo h-auto min-h-[52px] flex-1 px-6 font-semibold whitespace-normal"
               >

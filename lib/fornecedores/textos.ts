@@ -222,7 +222,8 @@ export function fraseTipoPelaExtensao(extensao: string): string {
 export const FRASE_TIPO_PELA_ASSINATURA =
   "Esse arquivo não entra: o conteúdo dele não é PDF, foto nem planilha, mesmo que o nome diga que é. Aceita PDF, foto (JPG, PNG, WebP, HEIC) e planilha (XLSX, XLS, CSV).";
 
-// HEIC que o servidor não abre (D-07) — quem a usa é o ramo da foto (plano 07).
+// HEIC que o servidor não abre (D-07) — o 415 do ramo da foto do PUT (plano 07), quando o `sharp`
+// recusa um arquivo que a assinatura diz HEIC.
 export const FRASE_HEIC_NAO_ABRE =
   "Essa foto está em HEIC e não deu para abrir aqui. No iPhone, envie pela galeria (ela converte para JPG) ou ative “Mais compatível” em Ajustes → Câmera → Formatos.";
 
@@ -238,7 +239,8 @@ export const FRASE_FORNECEDOR_DESATIVADO_NO_ENVIO =
 export const FRASE_FALHA_AO_ENVIAR =
   "Não deu para enviar. Confira o tamanho do arquivo e a conexão e tente de novo.";
 
-// Arquivo de 0 byte (400 do PUT) — a frase do plano 06.2-05.
+// Arquivo de 0 byte (400 do PUT; e, desde o plano 07, a recusa da folha antes da rede) — a frase do
+// plano 06.2-05, que a UI-SPEC não fixava.
 export const FRASE_ARQUIVO_VAZIO = "Esse arquivo está vazio. Escolha outro.";
 
 // `Origin` de outro endereço (403 do PUT, Pitfall 8). A UI-SPEC não tem frase: só um envio de fora da

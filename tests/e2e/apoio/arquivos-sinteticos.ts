@@ -7,6 +7,8 @@
 // (06.2-RESEARCH.md, Achado 4) contra o `file-type` 22.1.1.
 import { crc32 } from "node:zlib";
 
+import sharp from "sharp";
+
 const CABECALHO_PDF = Buffer.from("%PDF-1.4\n", "latin1");
 const RODAPE_PDF = Buffer.from("\n%%EOF\n", "latin1");
 
@@ -125,4 +127,47 @@ export function htmlDisfarcado(): Buffer {
     "<!doctype html><html><body><script>alert('[e2e]')</script></body></html>\n",
     "utf8",
   );
+}
+
+// ——— A família foto (plano 06.2-07). ———
+
+// Um HEIC que o `file-type` reconhece (`ext: "heic"`, pela caixa `ftyp` com a marca `heic`) e que o
+// `sharp` pré-compilado NÃO abre (sem a caixa `meta`, e sem decodificador HEVC nenhum — Achado 3): o
+// caso da foto de iPhone que o servidor recusa com a frase do HEIC (D-07). Sondado nesta sessão:
+// `fileTypeFromBuffer` → `{ ext: "heic", mime: "image/heic" }`; `sharp(...).toBuffer()` → "heif: …
+// No meta box found".
+export function heicSintetico(): Buffer {
+  const ftyp = Buffer.alloc(24);
+  ftyp.writeUInt32BE(24, 0); // tamanho da caixa
+  ftyp.write("ftyp", 4, "latin1");
+  ftyp.write("heic", 8, "latin1"); // marca principal
+  ftyp.writeUInt32BE(0, 12); // versão
+  ftyp.write("mif1", 16, "latin1"); // marcas compatíveis
+  ftyp.write("heic", 20, "latin1");
+  return Buffer.concat([ftyp, Buffer.alloc(4096, 0)]);
+}
+
+// Um "JPEG" de EXATAMENTE `bytes` bytes: o cabeçalho `FF D8 FF E0` + o segmento JFIF + enchimento. O
+// `file-type` diz `jpg` (a foto passa da classificação); não é uma imagem que o `sharp` abra — serve
+// para o teto de 10 MiB do servidor, que recusa ANTES de chamar o `sharp`.
+export function jpegComEnchimento(bytes: number): Buffer {
+  const cabecalho = Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+    Buffer.from("JFIF\0", "latin1"),
+    Buffer.from([0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]),
+  ]);
+  if (bytes < cabecalho.length) {
+    throw new Error(`jpegComEnchimento: ${bytes} bytes não cabem o cabeçalho de um JPEG.`);
+  }
+  return Buffer.concat([cabecalho, Buffer.alloc(bytes - cabecalho.length, 0)]);
+}
+
+// Um PNG `largura`×`altura` TODO transparente, gerado pelo `sharp` (já dependência do projeto). Como
+// JPEG sem `flatten`, ele viraria preto (Achado 5); o anexo tem de sair branco.
+export async function pngTransparente(largura: number, altura: number): Promise<Buffer> {
+  return sharp({
+    create: { width: largura, height: altura, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .png()
+    .toBuffer();
 }
