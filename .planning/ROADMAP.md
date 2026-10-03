@@ -1081,11 +1081,17 @@ o mix por tamanho e o fator do biscoito medido, e o que o forno queimou.
   3. Fornada com externas aparece em "Queimas externas a cobrar" com o valor dos itens "Queima externa P/M/G" do Catálogo; "Lançar na Venda" e "Recebi agora" criam a Venda — nada é "pago" sem estar no Caixa
   4. Os números mostram queimas por tipo (desde a manutenção e no mês), peças por fornada cheia com o mix por tamanho e o fator do biscoito medido, e internas × externas abertas em P·M·G — com aviso de poucas fornadas cheias
   5. Apagar uma queima leva a contagem junto e a confirmação diz isso; a régua P·M·G é editável
-**Plans:** 0 plans
+**Plans:** 7 plans em **RASCUNHO** (03/10/2026, ~19h UTC): o planejamento foi pausado a pedido do dono na 1ª rodada do verificador de planos, que apontou **1 bloqueio e 6 avisos** ainda não revisados — retomar pela revisão + nova rodada do verificador antes de executar. Nada executado. *Até 03/10/2026 esta linha dizia "0 plans".*
 
 Plans:
 
-- [ ] TBD (discussão primeiro: os pontos da §7 do briefing)
+- [ ] 06.4-01-PLAN.md — Tarefa 0 do dono (uma venda por queima × várias) + traçador: dois toques → folha “O que queimou?” → `queima_contagens`; a `0030` inteira (itens do sistema com adoção, régua) provada no `test:migracoes`; `/api/health/queimas`
+- [ ] 06.4-02-PLAN.md — “Sem contagem” no índice, a folha completa (régua, ouro, aviso × folha), o Histórico com corrigir/apagar e a exclusão que diz que a contagem vai junto
+- [ ] 06.4-03-PLAN.md — chips da Produção (só leitura, D-06), “Repetir a última” (D-01) e a régua editável em Parâmetros (D-03)
+- [ ] 06.4-04-PLAN.md — “Queimas externas a cobrar” + “Recebi agora”, prova de corrida, externas travadas, Catálogo “Usado pelas Queimas” e preço que falta
+- [ ] 06.4-05-PLAN.md — “Lançar na Venda” (origem `queima` no Financeiro, pessoa livre), sem mudar a Venda da Agenda
+- [ ] 06.4-06-PLAN.md — números por forno, a linha “Contagem: …” do cartão e o medidor sem rótulos sobrepostos (D-04)
+- [ ] 06.4-07-PLAN.md — portão: varredura e2e completa, Roteiro 21, caminhada do dono, documentos de estado
 
 **UI hint**: yes
 
@@ -1163,5 +1169,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 06.2. Fornecedores | 13/13 | Complete | 2026-10-03 |
 | 06.3. Lembretes | 6/6 | Complete | 2026-10-03 |
-| 06.4. Queimas — contagem | 0/TBD | Not started (criada em 03/10/2026) | - |
+| 06.4. Queimas — contagem | 0/7 | Planejamento pausado em 03/10/2026 (7 planos em rascunho; verificador: 1 bloqueio, 6 avisos) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
