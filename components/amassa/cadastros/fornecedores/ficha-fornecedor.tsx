@@ -1,14 +1,25 @@
 import type { ReactNode } from "react";
 
 import { ROTULO_AREA } from "@/lib/financeiro/textos";
-import { formatarDataCurta, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { formatarDataCurta, formatarInstanteCurto, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { textoDoTamanho } from "@/lib/fornecedores/arquivo";
 import { itensDeVende } from "@/lib/fornecedores/busca";
-import type { FichaDoFornecedor } from "@/lib/fornecedores/consultas";
+import { anexosDoFornecedor, type AnexoDaFicha, type FichaDoFornecedor } from "@/lib/fornecedores/consultas";
 import type { AreaDoFornecedor } from "@/lib/fornecedores/esquemas";
-import { FRASE_SEM_OBSERVACAO, ROTULO_OBSERVACOES, rodapeDaFicha } from "@/lib/fornecedores/textos";
+import {
+  FRASE_ERRO_CARREGAR_FICHA,
+  FRASE_SEM_OBSERVACAO,
+  ROTULO_OBSERVACOES,
+  ROTULO_TIPO_DE_ANEXO,
+  metaDoAnexo,
+  rodapeDaFicha,
+} from "@/lib/fornecedores/textos";
 import { cn } from "@/lib/utils";
 
+import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
+
 import { AcoesDaFicha, type FornecedorDaFicha } from "./acoes-da-ficha";
+import { AnexosFornecedor, type AnexoNaFicha } from "./anexos-fornecedor";
 import { ContatosFornecedor } from "./contatos-fornecedor";
 import { SeloDesativado } from "./lista-fornecedores";
 import { NavegacaoDaFicha } from "./navegacao-da-ficha";
@@ -46,15 +57,47 @@ function paraAsAcoes(fornecedor: FichaDoFornecedor): FornecedorDaFicha {
   };
 }
 
+// Um anexo como a linha da ficha o mostra: a 2ª linha montada AQUI, no servidor — "vale desde" é dia
+// civil (`formatarDataCurta`, sem fuso); "enviado em" é instante, no fuso de Brasília
+// (`formatarInstanteCurto`), nunca o do processo.
+function paraALinha(anexo: AnexoDaFicha): AnexoNaFicha {
+  return {
+    id: anexo.id,
+    nome: anexo.nome,
+    extensao: anexo.extensao,
+    nota: anexo.nota,
+    meta: metaDoAnexo({
+      tipo: ROTULO_TIPO_DE_ANEXO[anexo.tipo],
+      valeDesde: anexo.valeDesde === null ? null : formatarDataCurta(anexo.valeDesde),
+      extensao: anexo.extensao,
+      tamanho: textoDoTamanho(anexo.arquivoBytes),
+      quem: anexo.criadoPorNome,
+      enviadoEm: formatarInstanteCurto(anexo.criadoEm.toISOString()),
+    }),
+  };
+}
+
 // A ficha de leitura de um fornecedor (06.2-UI-SPEC.md §"Página — Cadastros → Fornecedores", Bloco
 // Ficha). Server Component: só desenha o que a página leu. Plano 03: "Voltar à lista" (só abaixo de
 // 1024 px), cabeçalho (nome + selo; etiquetas de "vende" e a de área com o ponto), contatos,
 // observações e o rodapé do plano 02. Plano 04: "Editar" e "Desativar"/"Reativar" (`AcoesDaFicha`, à
-// direita do cabeçalho). A tabela vigente e os anexos são do 06, as compras do 11.
+// direita do cabeçalho). Plano 06: a seção de anexos (`AnexosFornecedor`), depois das Observações —
+// os anexos são lidos AQUI, junto com a ficha; se a leitura falhar, a coluna mostra o erro de
+// carregamento da ficha com "Tentar de novo" (a lista continua). As compras são do 11.
 //
 // `aria-labelledby` = o `h2` do nome (`tabIndex={-1}`: o foco vai a ele ao trocar de ficha —
 // `NavegacaoDaFicha`). O selo fica FORA do `h2`: o nome acessível do título é só o nome.
-export function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoFornecedor }) {
+export async function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoFornecedor }) {
+  let anexos: AnexoDaFicha[];
+  try {
+    anexos = await anexosDoFornecedor(fornecedor.id);
+  } catch (erro) {
+    console.error("Falha ao carregar os anexos do fornecedor:", erro);
+    return <FichaSemFornecedor frase={FRASE_ERRO_CARREGAR_FICHA} acao={<TentarDeNovo />} />;
+  }
+  // O "hoje" da folha "Novo anexo" (o "Vale a partir de" do PDF): o dia civil de Brasília calculado
+  // no servidor, nunca o dia UTC do navegador.
+  const hoje = hojeEmBrasilia(new Date());
   // "Cadastrado em" é o dia CIVIL de Brasília do instante gravado — nunca o dia UTC.
   const cadastradoEm = formatarDataCurta(hojeEmBrasilia(fornecedor.criadoEm));
   const etiquetas = itensDeVende(fornecedor.vende);
@@ -124,6 +167,14 @@ export function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoFornecedor 
           </p>
         )}
       </section>
+
+      <AnexosFornecedor
+        fornecedorId={fornecedor.id}
+        fornecedorNome={fornecedor.nome}
+        ativo={fornecedor.ativo}
+        hoje={hoje}
+        anexos={anexos.map(paraALinha)}
+      />
 
       <p className="text-apoio text-tinta-fraca tabular-nums" data-testid="fornecedor-rodape-ficha">
         {rodapeDaFicha(cadastradoEm)}

@@ -272,3 +272,87 @@ export const FRASE_TIPO_DE_ANEXO_INVALIDO = "Escolha o tipo na lista.";
 export const FRASE_VALE_DESDE_INVALIDA = "Escolha uma data válida em “Vale a partir de”.";
 // O campo só aparece com Tipo = Tabela de preços; só um envio forjado chega aqui.
 export const FRASE_VALE_DESDE_SO_TABELA = "“Vale a partir de” só vale para tabela de preços.";
+
+// ——— A folha "Novo anexo" e a seção de anexos da ficha (plano 06.2-06). Verbatim da 06.2-UI-SPEC.md
+// §Copywriting (Ações, "Folha Novo anexo", Linhas de leitura, Toasts, Estados vazios). ———
+
+// Seção de anexos da ficha. O título vai em caixa alta pelo CSS; a contagem, " · {n}", ao lado.
+export const TITULO_ANEXOS = "Anexos";
+export const ROTULO_NOVO_ANEXO = "Novo anexo";
+export const FRASE_SEM_ANEXOS =
+  "Nenhum arquivo deste fornecedor. É aqui que a tabela de preços e o catálogo param de se perder no WhatsApp.";
+// No lugar do "Novo anexo", com o fornecedor desativado (UI-D24).
+export const FRASE_DESATIVADO_SEM_ENVIO = "Fornecedor desativado. Reative para subir anexos.";
+
+// Os quatro tipos do enum `tipo_anexo_fornecedor`, como o Select e a linha do anexo os mostram.
+export const ROTULO_TIPO_DE_ANEXO = {
+  tabela: "Tabela de preços",
+  catalogo: "Catálogo",
+  nota: "Nota / orçamento",
+  outro: "Outro",
+} as const;
+
+// Ações da linha do anexo: PDF e foto abrem numa aba nova; planilha baixa (UI-D9). O verbo é curto; o
+// nome do anexo vai no `aria-label`.
+export const ROTULO_ABRIR_ANEXO = "Abrir";
+export const ROTULO_BAIXAR_ANEXO = "Baixar";
+export function ariaAbrirAnexo(nome: string): string {
+  return `Abrir ${nome}`;
+}
+export function ariaBaixarAnexo(nome: string): string {
+  return `Baixar ${nome}`;
+}
+
+// A 2ª linha do anexo (Apoio, `tinta-fraca`): "{Tipo}" + (" · vale desde {dd/mm/aa}") + " · {EXT} ·
+// {tamanho} · {quem}, {dd/mm/aa}". As datas e o tamanho chegam já formatados.
+export function metaDoAnexo({
+  tipo,
+  valeDesde,
+  extensao,
+  tamanho,
+  quem,
+  enviadoEm,
+}: {
+  tipo: string;
+  valeDesde: string | null;
+  extensao: string;
+  tamanho: string;
+  quem: string;
+  enviadoEm: string;
+}): string {
+  const vale = valeDesde === null ? "" : ` · vale desde ${valeDesde}`;
+  return `${tipo}${vale} · ${extensao.toUpperCase()} · ${tamanho} · ${quem}, ${enviadoEm}`;
+}
+
+// A folha "Novo anexo".
+export const TITULO_FOLHA_ANEXO = "Novo anexo";
+export const ROTULO_ESCOLHER_ARQUIVO = "Escolher arquivo";
+export const ROTULO_TROCAR_ARQUIVO = "Trocar arquivo";
+export const DICA_ZONA_LIMITES = "PDF ou planilha até 20 MB · foto até 10 MB";
+export const DICA_ZONA_ARRASTAR =
+  "No computador dá para arrastar o arquivo aqui; no celular abre a galeria ou os arquivos.";
+export const ROTULO_NOME_DO_ANEXO = "Nome do anexo";
+export const PLACEHOLDER_NOME_DO_ANEXO = "ex.: Tabela de preços set/2026";
+export const ROTULO_TIPO_DO_ANEXO = "Tipo";
+export const ROTULO_VALE_A_PARTIR_DE = "Vale a partir de";
+export const ROTULO_NOTA_CURTA = "Nota curta";
+export const PLACEHOLDER_NOTA_CURTA = "ex.: preços com frete até Pirenópolis incluso";
+export const DICA_BACKUP_DO_ANEXO =
+  "O arquivo fica guardado na plataforma e entra no backup diário, como as fotos de orçamento. Quem subiu e quando fica gravado.";
+export const ROTULO_GUARDAR_ANEXO = "Guardar anexo";
+export const ROTULO_ENVIANDO = "Enviando…";
+
+// O estado "Enviando" da zona (UI-D10: sem porcentagem — o `fetch` não dá progresso de envio).
+export function fraseEnviando(nomeDoArquivo: string, tamanho: string): string {
+  return `Enviando ${nomeDoArquivo} · ${tamanho}…`;
+}
+export const FRASE_NAO_FECHE_A_FOLHA = "Pode levar um minuto no celular. Não feche esta folha.";
+export const ARIA_ENVIANDO_O_ARQUIVO = "Enviando o arquivo";
+
+// Sessão expirada no envio (401): o link ao lado da `FRASE_SESSAO_TERMINOU`, para o login na mesma aba.
+export const ROTULO_ENTRAR_DE_NOVO = "Entrar de novo";
+
+// Toast.
+export function toastAnexoGuardado(nomeDoFornecedor: string): string {
+  return `Anexo guardado em ${nomeDoFornecedor}.`;
+}

@@ -6,12 +6,12 @@
 //
 // A lista traz TODOS (ativos e desativados): o filtro "mostrar desativados" e a busca são do cliente
 // (plano 03), e a ficha de um desativado continua abrindo pelo `?fornecedor=`.
-import { count, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fornecedorAnexos, fornecedores } from "@/db/schema";
+import { fornecedorAnexos, fornecedores, usuarios } from "@/db/schema";
 
-import type { AreaDoFornecedor } from "./esquemas";
+import type { AreaDoFornecedor, TipoDeAnexo } from "./esquemas";
 
 export type FornecedorDaLista = {
   id: string;
@@ -100,7 +100,7 @@ export async function obterFornecedor(id: string): Promise<FichaDoFornecedor | n
 }
 
 // ——— O caminho do byte (plano 06.2-05). Chamadas SÓ pelos Route Handlers dos anexos, que já chamaram
-// `exigirUsuario()` (a mesma disciplina do resto deste arquivo). A lista dos anexos da ficha é do plano 06. ———
+// `exigirUsuario()` (a mesma disciplina do resto deste arquivo). A lista dos anexos da ficha (`anexosDoFornecedor`) está no fim do arquivo (plano 06). ———
 
 export type AnexoParaLeitura = {
   nome: string;
@@ -140,4 +140,44 @@ export async function situacaoParaEnvio(fornecedorId: string): Promise<SituacaoP
     return "inexistente";
   }
   return linha.ativo ? "ativo" : "desativado";
+}
+
+// ——— Os anexos da ficha (plano 06.2-06). Chamada pela ficha (Server Component da página de Cadastros,
+// que já chamou `exigirUsuario()`). ———
+
+export type AnexoDaFicha = {
+  id: string;
+  nome: string;
+  tipo: TipoDeAnexo;
+  // Dia civil "YYYY-MM-DD" (só tabela de preços) — nulo = vale pela data de envio.
+  valeDesde: string | null;
+  nota: string | null;
+  arquivoBytes: number;
+  extensao: string;
+  // Quem subiu (o nome do usuário) e quando (instante; a tela formata no fuso de Brasília).
+  criadoPorNome: string;
+  criadoEm: Date;
+};
+
+// Os anexos de um fornecedor, do mais recente para o mais antigo (`criado_em` desc; desempate pelo id,
+// para dois envios no mesmo instante sempre na mesma ordem), com o nome de quem subiu (`criado_por` é
+// NOT NULL e referencia `usuarios` — o `join` interno não perde linha). Fornecedor sem anexo → lista
+// vazia. O caminho no disco NÃO sai daqui: a tela só precisa do id para montar o link da rota.
+export async function anexosDoFornecedor(fornecedorId: string): Promise<AnexoDaFicha[]> {
+  return db
+    .select({
+      id: fornecedorAnexos.id,
+      nome: fornecedorAnexos.nome,
+      tipo: fornecedorAnexos.tipo,
+      valeDesde: fornecedorAnexos.valeDesde,
+      nota: fornecedorAnexos.nota,
+      arquivoBytes: fornecedorAnexos.arquivoBytes,
+      extensao: fornecedorAnexos.extensao,
+      criadoPorNome: usuarios.nome,
+      criadoEm: fornecedorAnexos.criadoEm,
+    })
+    .from(fornecedorAnexos)
+    .innerJoin(usuarios, eq(usuarios.id, fornecedorAnexos.criadoPor))
+    .where(eq(fornecedorAnexos.fornecedorId, fornecedorId))
+    .orderBy(desc(fornecedorAnexos.criadoEm), desc(fornecedorAnexos.id));
 }
