@@ -1,12 +1,24 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import {
+  DURACAO_DO_DESFAZER_MS,
   LIMITE_DE_ABERTOS_NO_INICIO,
+  LIMITE_DE_FEITOS_NO_INICIO,
+  TAMANHO_DO_TRECHO,
   compararAbertos,
+  corDaPessoa,
+  filtrosDaUrl,
+  hrefDosLembretes,
+  instanteCurto,
+  primeiroNome,
   resumoDoInicio,
   rotuloDoPrazo,
   situacaoDoPrazo,
+  trecho,
 } from "@/lib/lembretes/lista";
 
 // O módulo puro dos Lembretes (plano 06.3-02). `hoje` chega sempre por argumento — nenhum caso
@@ -170,5 +182,144 @@ describe("resumoDoInicio", () => {
     expect(resumo.contagem).toBe("7 abertos · 2 vencidos");
     // Ordena uma CÓPIA: a lista de quem chamou (o estado do cliente) não muda.
     expect(entrada).toEqual(copia);
+  });
+});
+
+describe("constantes", () => {
+  it("5 feitos no Início (D-02), 6 s de desfazer, trecho de 40", () => {
+    expect(LIMITE_DE_FEITOS_NO_INICIO).toBe(5);
+    expect(DURACAO_DO_DESFAZER_MS).toBe(6000);
+    expect(TAMANHO_DO_TRECHO).toBe(40);
+  });
+});
+
+describe("instanteCurto (UI-D11)", () => {
+  it("“dd/mm hh:mm” em America/Sao_Paulo", () => {
+    expect(instanteCurto("2026-10-02T17:20:00.000Z")).toBe("02/10 14:20");
+  });
+
+  it("02h30 UTC do dia 3 ainda é 02/10 às 23:30 em Brasília", () => {
+    expect(instanteCurto("2026-10-03T02:30:00.000Z")).toBe("02/10 23:30");
+  });
+
+  it("meia-noite em Brasília é 00:00, nunca 24:00", () => {
+    expect(instanteCurto("2026-10-03T03:00:00.000Z")).toBe("03/10 00:00");
+  });
+});
+
+describe("primeiroNome (UI-D3)", () => {
+  it("apara e devolve o primeiro pedaço", () => {
+    expect(primeiroNome("  Gestora de Teste ")).toBe("Gestora");
+    expect(primeiroNome("Ana")).toBe("Ana");
+  });
+
+  it("nulo ou vazio → null", () => {
+    expect(primeiroNome(null)).toBeNull();
+    expect(primeiroNome("   ")).toBeNull();
+  });
+});
+
+describe("corDaPessoa (UI-D2)", () => {
+  it("pela posição: 1ª esmaltacao, 2ª queima1, 3ª em diante e desativada tinta-fraca", () => {
+    expect(corDaPessoa(0)).toBe("bg-esmaltacao");
+    expect(corDaPessoa(1)).toBe("bg-queima1");
+    expect(corDaPessoa(2)).toBe("bg-tinta-fraca");
+    expect(corDaPessoa(5)).toBe("bg-tinta-fraca");
+    expect(corDaPessoa(-1)).toBe("bg-tinta-fraca");
+  });
+});
+
+describe("trecho", () => {
+  it("40 pontos de código voltam iguais, sem “…”", () => {
+    const quarenta = "a".repeat(40);
+    expect(trecho(quarenta)).toBe(quarenta);
+  });
+
+  it("41 viram os 40 primeiros + “…”", () => {
+    expect(trecho(`${"b".repeat(40)}c`)).toBe(`${"b".repeat(40)}…`);
+  });
+
+  it("um emoji fora do BMP conta como um ponto de código", () => {
+    const quarenta = "🌱".repeat(40);
+    expect(trecho(quarenta)).toBe(quarenta);
+    expect(trecho(`${quarenta}🌱`)).toBe(`${quarenta}…`);
+  });
+
+  it("aceita outro tamanho", () => {
+    expect(trecho("abcdef", 3)).toBe("abc…");
+  });
+});
+
+describe("filtrosDaUrl", () => {
+  const PADRAO = { situacao: "abertos", quem: "todos", quantos: 50 };
+  const UUID = "3f2b6c1e-8a4d-4e2f-9b1a-7c5d0e9f1a2b";
+
+  it("nada na URL → o padrão", () => {
+    expect(filtrosDaUrl({})).toEqual(PADRAO);
+  });
+
+  it("valores válidos passam", () => {
+    expect(filtrosDaUrl({ situacao: "feitos", quem: "geral", quantos: "100" })).toEqual({
+      situacao: "feitos",
+      quem: "geral",
+      quantos: 100,
+    });
+    expect(filtrosDaUrl({ quem: UUID }).quem).toBe(UUID);
+  });
+
+  it("valor inválido vira o padrão, nunca erro", () => {
+    expect(filtrosDaUrl({ situacao: "lixo" })).toEqual(PADRAO);
+    expect(filtrosDaUrl({ quem: "abc" })).toEqual(PADRAO);
+    expect(filtrosDaUrl({ quem: ["geral", "todos"] })).toEqual(PADRAO);
+    expect(filtrosDaUrl({ situacao: ["feitos", "feitos"] })).toEqual(PADRAO);
+    expect(filtrosDaUrl({ quantos: "75" })).toEqual(PADRAO);
+  });
+
+  it("quantos acima do teto vira 500, como em Clientes", () => {
+    expect(filtrosDaUrl({ quantos: "9999" }).quantos).toBe(500);
+  });
+});
+
+describe("hrefDosLembretes", () => {
+  const UUID = "3f2b6c1e-8a4d-4e2f-9b1a-7c5d0e9f1a2b";
+
+  it("o padrão não entra na URL", () => {
+    expect(hrefDosLembretes({ situacao: "abertos", quem: "todos", quantos: 50 })).toBe(
+      "/gestao/lembretes",
+    );
+  });
+
+  it("só o que difere do padrão", () => {
+    expect(hrefDosLembretes({ situacao: "feitos", quem: "todos", quantos: 50 })).toBe(
+      "/gestao/lembretes?situacao=feitos",
+    );
+  });
+
+  it("os três parâmetros, na ordem situacao, quem, quantos", () => {
+    expect(hrefDosLembretes({ situacao: "feitos", quem: UUID, quantos: 100 })).toBe(
+      `/gestao/lembretes?situacao=feitos&quem=${UUID}&quantos=100`,
+    );
+  });
+});
+
+describe("pureza", () => {
+  it("lib/lembretes/lista.ts só importa módulos puros", () => {
+    const fonte = readFileSync(join(process.cwd(), "lib/lembretes/lista.ts"), "utf8");
+    expect(fonte).not.toMatch(/from "(@\/db|react|next|drizzle-orm|pg)/);
+    const imports = [...fonte.matchAll(/from "([^"]+)";$/gm)].map((casamento) => casamento[1]);
+    expect(imports.length).toBeGreaterThan(0);
+    for (const origem of imports) {
+      expect([
+        "@/lib/producao/calendario",
+        "@/lib/clientes/lista",
+        "@/lib/rotas/gestao",
+        "./textos",
+      ]).toContain(origem);
+    }
+  });
+
+  it("nenhuma linha de lib/lembretes/lista.ts lê o relógio", () => {
+    const fonte = readFileSync(join(process.cwd(), "lib/lembretes/lista.ts"), "utf8");
+    expect(fonte).not.toMatch(/new Date\(\)|Date\.now\(/);
   });
 });
