@@ -269,8 +269,15 @@ test.describe("fornecedores campo", () => {
     await irParaDespesa(page);
 
     const campo = campoCompra(page);
-    await campo.focus();
-    await expect(mensagemDoPainel(page)).toHaveText(FRASE_CADASTRO_VAZIO);
+    // O foco logo depois do `goto` pode chegar antes de o React hidratar o painel: o `onFocus` ainda
+    // não está ligado e o painel nunca abre (medido na reexecução do plano 06.2-13, 03/10/2026:
+    // `vazio-desktop`, o campo na tela sem o painel). Tirar e devolver o foco até a frase aparecer —
+    // já hidratado, o segundo foco pega. A frase exigida é a mesma; só a espera mudou.
+    await expect(async () => {
+      await campo.blur();
+      await campo.focus();
+      await expect(mensagemDoPainel(page)).toHaveText(FRASE_CADASTRO_VAZIO, { timeout: 1000 });
+    }).toPass({ timeout: 15000 });
     await expect(opcoesDoCampo(page)).toHaveCount(0);
     // Escrever não muda a frase; a linha de vínculo fica vazia (não há cadastro com que comparar).
     await campo.fill("[e2e] Alguém sem cadastro");
