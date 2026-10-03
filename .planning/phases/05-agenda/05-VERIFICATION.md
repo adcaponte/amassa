@@ -184,3 +184,8 @@ principal.
 
 _Verificado: 2026-10-03T13:01:00Z_
 _Verificador: Claude (gsd-verifier)_
+
+
+---
+
+*Acréscimo do orquestrador, 03/10/2026: o `npm run verificar` que o verificador não pôde rodar (o Postgres efêmero estava em uso) rodou no `main` unido (Agenda + quick 261002-sdt + 06.2 + 06.3): **exit 0** — `verificar-acoes` 122 ações, 0 violações; 131 arquivos, 2825 testes; `test:migracoes` "Todas as afirmações passaram." (0027 incluída).*
