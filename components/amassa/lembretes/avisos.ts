@@ -1,7 +1,7 @@
 "use client";
 
 // A orquestração dos toques que terminam num toast (Fase 06.3, plano 04): marcar feito (com
-// "Desfazer"), reabrir em "Feitos" e — desde a Tarefa 3 — excluir com a exclusão adiada. Cada
+// "Desfazer"), reabrir em "Feitos" e excluir com a exclusão adiada (D-03). Cada
 // função mexe no estado da lista por callbacks (a lista é de quem chama), chama a ação, reverte e
 // avisa na falha. A `ListaDoInicio` e a lista de "ver todos" (plano 05) usam as MESMAS funções —
 // por isso aqui, e não um gancho novo dentro de um componente.
@@ -11,7 +11,7 @@
 // sessão — a linha otimista não tem nenhum dos dois até o servidor responder.
 import { toast } from "sonner";
 
-import { marcarFeito } from "@/lib/lembretes/acoes";
+import { excluirLembrete, marcarFeito } from "@/lib/lembretes/acoes";
 import type { LembreteDaTela } from "@/lib/lembretes/consultas";
 import { DURACAO_DO_DESFAZER_MS, trecho } from "@/lib/lembretes/lista";
 import {
@@ -21,8 +21,12 @@ import {
   FRASE_LEMBRETE_NAO_EXISTE,
   ROTULO_DESFAZER,
   TOAST_REABERTO,
+  textoExcluido,
+  textoFalhaAoExcluir,
   textoFeito,
 } from "@/lib/lembretes/textos";
+
+import { esconderLembrete, mostrarLembrete } from "./exclusoes-pendentes";
 
 // O que a lista oferece para os toques mexerem nela.
 export type MexerNaLista = {
@@ -130,4 +134,58 @@ export async function reabrirComAviso(
     lista.colocar(lembrete, true);
     toast.error(FRASE_FALHA_AO_REABRIR);
   }
+}
+
+// 🔴 "excluir" (LMB-08, D-03): apaga DE VERDADE, mas só quando o toast acaba. O toque esconde a
+// linha na hora (armazém de módulo, `exclusoes-pendentes.ts`) e NADA vai ao servidor durante os 6 s.
+// - O toast expira (`onAutoClose`) ou é fechado/arrastado (`onDismiss` — UI-D13: dispensar o aviso
+//   não é desfazer): UMA chamada efetiva a exclusão. Falha → a linha volta e o toast diz qual.
+// - "Desfazer": a linha volta e nada vai ao servidor. O clique na ação do sonner 2.0.8 chama só o
+//   `onClick` e fecha o toast — NÃO chama `onDismiss` nem `onAutoClose` (lido em
+//   `node_modules/sonner/dist/index.mjs`); a bandeira `resolvido` garante isso de qualquer forma.
+// - Fechar ou recarregar a página antes de expirar NÃO apaga (D-03, falha segura, aceita pelo
+//   dono): de propósito, nenhum ouvinte de saída da página foi acrescentado.
+// - O sonner pausa o relógio com o mouse sobre o aviso, um toque nele ou a aba escondida — a
+//   exclusão espera junto.
+export function excluirComAviso(lembrete: LembreteDaTela): void {
+  const { id } = lembrete;
+  const trechoDoTexto = trecho(lembrete.texto);
+  esconderLembrete(id);
+  let resolvido = false;
+
+  const efetivar = () => {
+    if (resolvido) {
+      return;
+    }
+    resolvido = true;
+    void (async () => {
+      try {
+        const resposta = await excluirLembrete({ id });
+        if (!resposta.ok) {
+          mostrarLembrete(id);
+          toast.error(textoFalhaAoExcluir(trechoDoTexto));
+        }
+        // Sucesso: o id fica escondido (o servidor não o devolve mais; uuid não se repete).
+      } catch {
+        mostrarLembrete(id);
+        toast.error(textoFalhaAoExcluir(trechoDoTexto));
+      }
+    })();
+  };
+
+  toast(textoExcluido(trechoDoTexto), {
+    duration: DURACAO_DO_DESFAZER_MS,
+    action: {
+      label: ROTULO_DESFAZER,
+      onClick: () => {
+        if (resolvido) {
+          return;
+        }
+        resolvido = true;
+        mostrarLembrete(id);
+      },
+    },
+    onAutoClose: efetivar,
+    onDismiss: efetivar,
+  });
 }

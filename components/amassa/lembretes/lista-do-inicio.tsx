@@ -23,7 +23,13 @@ import {
   textoFeitos,
 } from "@/lib/lembretes/textos";
 
-import { marcarFeitoComAviso, reabrirComAviso, type MexerNaLista } from "./avisos";
+import {
+  excluirComAviso,
+  marcarFeitoComAviso,
+  reabrirComAviso,
+  type MexerNaLista,
+} from "./avisos";
+import { useLembretesOcultos } from "./exclusoes-pendentes";
 import { LinhaDeCriar } from "./linha-de-criar";
 import { LinhaLembrete } from "./linha-lembrete";
 
@@ -41,9 +47,7 @@ export type ListaDoInicioProps = {
 
 // Para onde o foco vai depois de um toque que tira a linha do lugar: um controle de outra linha
 // (pelo `data-id`) ou o campo de criar. Nunca o `<body>`.
-type FocoPendente =
-  | { alvo: "caixa" | "editar"; id: string }
-  | { alvo: "campo" };
+type FocoPendente = { alvo: "caixa" | "editar"; id: string } | { alvo: "campo" };
 
 // A linha que sai: o foco vai para a caixa da linha seguinte, ou da anterior se era a última, ou
 // para o campo de criar se a lista esvaziou.
@@ -58,8 +62,8 @@ function focoDepoisDeSair(ids: readonly string[], id: string): FocoPendente {
 // contagem muda com os toques), a linha de criar completa (`LinhaDeCriar`, com data e pessoa), no
 // máximo 6 abertos na ordem do briefing, "e mais N — ver todos" e a frase do vazio — tudo de
 // `resumoDoInicio` (puro, `lib/lembretes/lista.ts`) sobre o estado local. Plano 04: a caixa de
-// feito (com "Desfazer"), a sanfona "Feitos (N)" com os 5 mais recentes (D-02) e a edição na
-// própria linha.
+// feito (com "Desfazer"), a sanfona "Feitos (N)" com os 5 mais recentes (D-02), a edição na
+// própria linha e "excluir" — escondido na hora, apagado só quando o toast expira (D-03).
 //
 // O resultado de um toque NUNCA espera o redesenho do servidor: a re-renderização depois de uma
 // Server Action às vezes não chega à tela (debug da Abertura, ~54% medido). A lista mora num estado
@@ -137,9 +141,16 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
     },
   };
 
-  const { visiveis, restantes, contagem } = resumoDoInicio(abertos, hoje);
-  const feitosVisiveis = feitos.slice(0, LIMITE_DE_FEITOS_NO_INICIO);
-  const totalDeFeitos = feitos.length + feitosForaDaLista;
+  // A tela é o estado local MENOS as exclusões pendentes (D-03): a linha excluída some na hora e
+  // continua escondida mesmo se uma revalidação de outra ação a devolver nas props durante os 6 s
+  // (Pitfall 2 da pesquisa). Contagens e "e mais N" saem do que sobra.
+  const ocultos = useLembretesOcultos();
+  const abertosNaTela = abertos.filter((lembrete) => !ocultos.has(lembrete.id));
+  const feitosNaTela = feitos.filter((lembrete) => !ocultos.has(lembrete.id));
+
+  const { visiveis, restantes, contagem } = resumoDoInicio(abertosNaTela, hoje);
+  const feitosVisiveis = feitosNaTela.slice(0, LIMITE_DE_FEITOS_NO_INICIO);
+  const totalDeFeitos = feitosNaTela.length + feitosForaDaLista;
   const feitosAlemDosVisiveis = totalDeFeitos - feitosVisiveis.length;
   const idsVisiveis = visiveis.map((lembrete) => lembrete.id);
   const idsDosFeitos = feitosVisiveis.map((lembrete) => lembrete.id);
@@ -152,6 +163,16 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
   function reabrir(lembrete: LembreteDaTela) {
     focoPendente.current = focoDepoisDeSair(idsDosFeitos, lembrete.id);
     void reabrirComAviso(lembrete, lista);
+  }
+
+  // "excluir": some na hora, o toast oferece "Desfazer" e só o fim dele apaga (`excluirComAviso`).
+  // O foco vai como no feito.
+  function excluir(lembrete: LembreteDaTela, ids: readonly string[]) {
+    focoPendente.current = focoDepoisDeSair(ids, lembrete.id);
+    if (emEdicao === lembrete.id) {
+      setEmEdicao(null);
+    }
+    excluirComAviso(lembrete);
   }
 
   // Salvar ou cancelar a edição: o foco volta ao "editar" da mesma linha.
@@ -207,6 +228,7 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
               aoCancelarEdicao={() => fecharEdicao(lembrete.id)}
               aoSalvarEdicao={aoSalvarEdicao}
               aoSumir={aoSumir}
+              aoExcluir={() => excluir(lembrete, idsVisiveis)}
             />
           ))}
         </ul>
@@ -246,6 +268,7 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
                   pessoas={pessoas}
                   feito
                   aoAlternarFeito={() => reabrir(lembrete)}
+                  aoExcluir={() => excluir(lembrete, idsDosFeitos)}
                 />
               ))}
             </ul>

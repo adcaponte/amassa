@@ -93,8 +93,14 @@ test.describe("lembretes acoes", () => {
     const projeto = test.info().project.name;
     const textoA = `[e2e] marcar feito A ${projeto}`;
     const textoB = `[e2e] marcar feito B ${projeto}`;
-    const idA = await semearLembrete({ texto: textoA, criadoEm: "2026-01-01T12:00:00.000Z" });
-    const idB = await semearLembrete({ texto: textoB, criadoEm: "2026-01-01T12:01:00.000Z" });
+    const idA = await semearLembrete({
+      texto: textoA,
+      criadoEm: "2026-01-01T12:00:00.000Z",
+    });
+    const idB = await semearLembrete({
+      texto: textoB,
+      criadoEm: "2026-01-01T12:01:00.000Z",
+    });
     const idDoUsuario = await idDoUsuarioDoTeste();
 
     await fazerLogin(page);
@@ -113,7 +119,9 @@ test.describe("lembretes acoes", () => {
     await expect(coluna(page).getByTestId("lembretes-contagem")).toHaveText("1 aberto");
     const feitos = coluna(page).getByTestId("lembretes-feitos");
     await expect(feitos.locator("summary")).toHaveText("Feitos (1)");
-    expect(await feitos.evaluate((elemento) => (elemento as HTMLDetailsElement).open)).toBe(false);
+    expect(
+      await feitos.evaluate((elemento) => (elemento as HTMLDetailsElement).open),
+    ).toBe(false);
     // O foco vai para a caixa da linha seguinte — nunca o `<body>`.
     await expect(linhaAberta(page, idB).getByTestId("lembrete-caixa")).toBeFocused();
 
@@ -123,7 +131,9 @@ test.describe("lembretes acoes", () => {
     await expect
       .poll(async () => {
         const gravado = await lerLembrete(idA);
-        return gravado && { feito: gravado.feito_em !== null, feito_por: gravado.feito_por };
+        return (
+          gravado && { feito: gravado.feito_em !== null, feito_por: gravado.feito_por }
+        );
       })
       .toEqual({ feito: true, feito_por: idDoUsuario });
 
@@ -220,7 +230,9 @@ test.describe("lembretes acoes", () => {
   // (d) UI E5·empty — sem feito nenhum, nem o `<summary>`.
   test("sem nenhum feito, a sanfona Feitos não existe", async ({ page }) => {
     await limparLembretes();
-    const id = await semearLembrete({ texto: `[e2e] só aberto ${test.info().project.name}` });
+    const id = await semearLembrete({
+      texto: `[e2e] só aberto ${test.info().project.name}`,
+    });
 
     await fazerLogin(page);
     await page.goto("/gestao");
@@ -234,7 +246,9 @@ test.describe("lembretes acoes", () => {
     page,
   }) => {
     await limparLembretes();
-    const id = await semearLembrete({ texto: `[e2e] apagado por outro ${test.info().project.name}` });
+    const id = await semearLembrete({
+      texto: `[e2e] apagado por outro ${test.info().project.name}`,
+    });
 
     await fazerLogin(page);
     await page.goto("/gestao");
@@ -244,7 +258,9 @@ test.describe("lembretes acoes", () => {
     await linhaAberta(page, id).getByTestId("lembrete-caixa").click();
 
     await expect(aviso(page, FRASE_LEMBRETE_NAO_EXISTE)).toBeVisible();
-    await expect(coluna(page).locator(`[data-testid="lembrete-linha"][data-id="${id}"]`)).toHaveCount(0);
+    await expect(
+      coluna(page).locator(`[data-testid="lembrete-linha"][data-id="${id}"]`),
+    ).toHaveCount(0);
     await expect(coluna(page).getByTestId("lembretes-feitos")).toHaveCount(0);
     expect(await lerLembrete(id)).toBeNull();
   });
@@ -283,7 +299,9 @@ test.describe("lembretes acoes", () => {
     await expect(linha.getByTestId("lembrete-edicao-texto")).toHaveCount(0);
     await expect(linha.getByTestId("lembrete-texto")).toHaveText(novo);
     await expect(linha.getByTestId("lembrete-prazo")).toHaveText("hoje");
-    await expect(linha.getByTestId("lembrete-chip")).toHaveText(PRIMEIRO_NOME_DO_GESTOR_DE_TESTE);
+    await expect(linha.getByTestId("lembrete-chip")).toHaveText(
+      PRIMEIRO_NOME_DO_GESTOR_DE_TESTE,
+    );
     await expect(aviso(page, TOAST_ATUALIZADO)).toBeVisible();
     await expect(linha.getByTestId("lembrete-editar")).toBeFocused();
 
@@ -291,7 +309,11 @@ test.describe("lembretes acoes", () => {
       .poll(async () => {
         const gravado = await lerLembrete(id);
         return (
-          gravado && { texto: gravado.texto, para_quando: gravado.para_quando, quem: gravado.quem }
+          gravado && {
+            texto: gravado.texto,
+            para_quando: gravado.para_quando,
+            quem: gravado.quem,
+          }
         );
       })
       .toEqual({ texto: novo, para_quando: hoje, quem: idDoUsuario });
@@ -365,18 +387,25 @@ test.describe("lembretes acoes", () => {
     await page.goto("/gestao");
     const linha = linhaAberta(page, id);
     await linha.getByTestId("lembrete-editar").click();
-    const pilula = linha.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`);
+    const pilula = linha.locator(
+      `[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`,
+    );
     await pilula.click();
     await expect(pilula).toHaveAttribute("aria-pressed", "true");
 
     await desativarPessoaDeTeste(pessoaId);
     await linha.getByTestId("lembrete-edicao-salvar").click();
 
-    await expect(linha.getByTestId("lembrete-edicao-erro")).toHaveText(FRASE_PESSOA_INVALIDA);
+    await expect(linha.getByTestId("lembrete-edicao-erro")).toHaveText(
+      FRASE_PESSOA_INVALIDA,
+    );
     await expect(linha.getByTestId("lembrete-edicao-texto")).toHaveValue(texto);
     await expect(pilula).toHaveAttribute("aria-pressed", "true");
     const gravado = await lerLembrete(id);
-    expect(gravado && { texto: gravado.texto, quem: gravado.quem }).toEqual({ texto, quem: null });
+    expect(gravado && { texto: gravado.texto, quem: gravado.quem }).toEqual({
+      texto,
+      quem: null,
+    });
   });
 
   // (j) UI E4·partial — pessoa desativada: chip neutro com o nome; na edição, a pílula a mais
@@ -400,7 +429,9 @@ test.describe("lembretes acoes", () => {
     await expect(chip).toHaveClass(/bg-tinta-fraca/);
 
     await linha.getByTestId("lembrete-editar").click();
-    const pilula = linha.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`);
+    const pilula = linha.locator(
+      `[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`,
+    );
     await expect(pilula).toHaveAttribute("aria-pressed", "true");
     await linha.getByTestId("lembrete-edicao-texto").fill(novo);
     await linha.getByTestId("lembrete-edicao-salvar").click();
@@ -436,5 +467,151 @@ test.describe("lembretes acoes", () => {
     await expect(aviso(page, FRASE_LEMBRETE_NAO_EXISTE)).toBeVisible();
     await expect(linhaAberta(page, id)).toHaveCount(0);
     expect(await lerLembrete(id)).toBeNull();
+  });
+
+  // (l) 🔴 LMB-08 / D-03 — excluir apaga DE VERDADE, mas só quando o toast de 6 s expira.
+  test("excluir um aberto tira a linha na hora, mantém o lembrete no banco logo depois e o apaga quando o toast expira", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await limparLembretes();
+    const texto = `[e2e] excluir ${test.info().project.name}`;
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const excluir = linhaAberta(page, id).getByTestId("lembrete-excluir");
+    await expect(excluir).toHaveAttribute("aria-label", `Excluir: ${texto}`);
+    await excluir.click();
+
+    // Na hora: some da tela — e ainda está no banco (nada foi ao servidor).
+    await expect(linhaAberta(page, id)).toHaveCount(0);
+    expect(await lerLembrete(id)).not.toBeNull();
+    await expect(coluna(page).getByTestId("lembretes-contagem")).toHaveText(
+      "nada pendente",
+    );
+    await expect(aviso(page, `Lembrete excluído: ${texto}`)).toBeVisible();
+    // O foco não cai no `<body>`: a lista esvaziou, ele vai para o campo de criar.
+    await expect(coluna(page).getByTestId("lembretes-novo-texto")).toBeFocused();
+
+    // O sonner pausa o relógio com o mouse sobre o aviso (Pitfall 1): tira o mouse de cima e prova
+    // pelo banco, sem espera fixa.
+    await page.mouse.move(0, 0);
+    await expect.poll(() => lerLembrete(id), { timeout: 15_000 }).toBeNull();
+    await expect(linhaAberta(page, id)).toHaveCount(0);
+  });
+
+  // (m) D-03 — "Desfazer" devolve a linha e nada vai ao servidor.
+  test("excluir e tocar Desfazer devolve a linha, e passados os 6 s o lembrete continua no banco", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await limparLembretes();
+    const texto = `[e2e] excluir e desfazer ${test.info().project.name}`;
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    await linhaAberta(page, id).getByTestId("lembrete-excluir").click();
+    await expect(linhaAberta(page, id)).toHaveCount(0);
+
+    await aviso(page, `Lembrete excluído: ${texto}`)
+      .getByRole("button", { name: "Desfazer" })
+      .click();
+    await expect(linhaAberta(page, id)).toHaveCount(1);
+    await page.mouse.move(0, 0);
+
+    // ESPERA FIXA DE PROPÓSITO: provar que NADA dispara depois dos 6 s do toast exige deixar o tempo
+    // passar — não há evento para esperar. 7 s = os 6 s do "Desfazer" com folga.
+    await page.waitForTimeout(7_000);
+    expect(await lerLembrete(id)).not.toBeNull();
+    await expect(linhaAberta(page, id)).toBeVisible();
+  });
+
+  // (n) D-03, falha segura — recarregar a página antes de o toast expirar não apaga.
+  test("excluir e recarregar a página na hora mantém o lembrete no banco e na tela", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await limparLembretes();
+    const texto = `[e2e] excluir e recarregar ${test.info().project.name}`;
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    await linhaAberta(page, id).getByTestId("lembrete-excluir").click();
+    await expect(linhaAberta(page, id)).toHaveCount(0);
+    await page.reload();
+
+    // ESPERA FIXA DE PROPÓSITO: provar que a exclusão interrompida NÃO acontece depois dos 6 s exige
+    // deixar o tempo passar. 7 s = os 6 s do toast com folga.
+    await page.waitForTimeout(7_000);
+    expect(await lerLembrete(id)).not.toBeNull();
+    await expect(linhaAberta(page, id)).toBeVisible();
+  });
+
+  // (o) "excluir" também nos feitos, pela sanfona.
+  test("excluir um feito pela sanfona Feitos o apaga do banco quando o toast expira", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await limparLembretes();
+    const texto = `[e2e] excluir feito ${test.info().project.name}`;
+    const id = await semearLembrete({ texto, feitoEm: "2026-09-30T15:20:00.000Z" });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    await coluna(page).getByTestId("lembretes-feitos").locator("summary").click();
+    const linha = linhaFeita(page, id);
+    // No feito, só "excluir" (o protótipo esconde "editar").
+    await expect(linha.getByTestId("lembrete-editar")).toHaveCount(0);
+    await linha.getByTestId("lembrete-excluir").click();
+
+    await expect(coluna(page).getByTestId("lembretes-feitos")).toHaveCount(0);
+    expect(await lerLembrete(id)).not.toBeNull();
+    await expect(aviso(page, `Lembrete excluído: ${texto}`)).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect.poll(() => lerLembrete(id), { timeout: 15_000 }).toBeNull();
+  });
+
+  // (p) UI E4·overflow — a 320 px as ações descem para baixo da meta (UI-D5), com 44 px cada.
+  test("a 320px, editar e excluir ficam embaixo da meta com 44px de altura e nada rola na horizontal", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const id = await semearLembrete({
+      texto: `[e2e] ações a 320 ${test.info().project.name}`,
+      paraQuando: hojeNoAtelie(),
+    });
+
+    await page.setViewportSize({ width: 320, height: 900 });
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+    await expect(linha).toBeVisible();
+    // Os outros blocos chegam por streaming: medir só com a página inteira na tela.
+    await expect(page.getByTestId("inicio-bloco-esqueleto")).toHaveCount(0);
+
+    const [scrollWidth, clientWidth] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
+    ]);
+    expect(
+      scrollWidth,
+      `/gestao rola horizontalmente a 320px (${scrollWidth} > ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
+
+    const meta = await linha.getByTestId("lembrete-meta").boundingBox();
+    expect(meta).not.toBeNull();
+    for (const testId of ["lembrete-editar", "lembrete-excluir"]) {
+      const caixa = await linha.getByTestId(testId).boundingBox();
+      expect(caixa?.height ?? 0, `${testId} mede menos de 44px`).toBeGreaterThanOrEqual(
+        44,
+      );
+      expect(
+        caixa?.y ?? 0,
+        `${testId} não desceu para baixo da meta`,
+      ).toBeGreaterThanOrEqual((meta?.y ?? 0) + (meta?.height ?? 0) - 1);
+    }
   });
 });

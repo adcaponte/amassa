@@ -25,11 +25,13 @@ import { obterLembreteDaTela, type LembreteDaTela } from "./consultas";
 import {
   esquemaCriarLembrete,
   esquemaEditarLembrete,
+  esquemaExcluirLembrete,
   esquemaMarcarFeito,
   type CampoDoLembrete,
 } from "./esquemas";
 import {
   FRASE_ESCREVA_O_LEMBRETE,
+  FRASE_FALHA_AO_EXCLUIR,
   FRASE_FALHA_AO_GUARDAR,
   FRASE_FALHA_AO_MARCAR,
   FRASE_FALHA_AO_SALVAR_EDICAO,
@@ -261,5 +263,35 @@ export async function editarLembrete(
     }
     console.error("Falha ao salvar a edição do lembrete:", codigo, erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR_EDICAO };
+  }
+}
+
+// 🔴 Excluir DE VERDADE (LMB-08). É a única ação de "apagar" registro da plataforma — decisão do
+// dono: lembrete não é registro (a tabela `lembretes` é a única sem `revoke delete`). Quem chama é
+// o FIM do toast de 6 s (`components/amassa/lembretes/avisos.ts`, D-03), nunca o toque em
+// "excluir": até lá nada vem ao servidor, e "Desfazer" ou fechar a página deixam tudo como estava.
+// Um id que já não existe (duas abas, dois toques) é sucesso — `jaExcluido` —, nunca erro.
+export async function excluirLembrete(
+  entrada: unknown,
+): Promise<ResultadoDoLembrete<{ id: string; jaExcluido: boolean }>> {
+  await exigirUsuario();
+
+  const resultado = esquemaExcluirLembrete.safeParse(entrada);
+  if (!resultado.success) {
+    return { ok: false, erro: FRASE_FALHA_AO_EXCLUIR };
+  }
+  const { id } = resultado.data;
+
+  try {
+    const apagados = await db
+      .delete(lembretes)
+      .where(eq(lembretes.id, id))
+      .returning({ id: lembretes.id });
+    revalidarTelasDosLembretes();
+    return { ok: true, dados: { id, jaExcluido: apagados.length === 0 } };
+  } catch (erro) {
+    const codigo = codigoDoErroPostgres(erro);
+    console.error("Falha ao excluir o lembrete:", codigo, erro);
+    return { ok: false, erro: FRASE_FALHA_AO_EXCLUIR };
   }
 }

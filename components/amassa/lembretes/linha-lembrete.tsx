@@ -20,12 +20,14 @@ import {
   FRASE_LEMBRETE_NAO_EXISTE,
   ROTULO_CANCELAR,
   ROTULO_EDITAR,
+  ROTULO_EXCLUIR,
   ROTULO_SALVANDO,
   ROTULO_SALVAR,
   ROTULO_TEXTO_DO_LEMBRETE,
   TOAST_ATUALIZADO,
   rotuloDesfazerFeito,
   rotuloEditar,
+  rotuloExcluir,
   rotuloMarcarFeito,
   textoFeitoPor,
   textoPor,
@@ -65,8 +67,10 @@ export type LinhaLembreteProps = {
   aoSalvarEdicao?: (linha: LembreteDaTela) => void;
   // O lembrete não existe mais no banco (outra pessoa o excluiu): a lista tira a linha.
   aoSumir?: (id: string) => void;
+  // "excluir" — em todo lembrete, aberto ou feito. Quem decide o que acontece é a lista (a exclusão
+  // adiada até o toast expirar, D-03); a linha só avisa o toque.
+  aoExcluir?: () => void;
 };
-
 
 // Uma linha de lembrete (06.3-UI-SPEC.md §"A linha do lembrete"). Grade de três colunas no
 // contêiner ≥ 340 px (caixa · texto e meta · ações), duas abaixo disso — aí as ações descem para
@@ -87,6 +91,7 @@ export function LinhaLembrete({
   aoCancelarEdicao,
   aoSalvarEdicao,
   aoSumir,
+  aoExcluir,
 }: LinhaLembreteProps) {
   const feito = feitoDaLista ?? lembrete.feitoEm !== null;
   const situacao = situacaoDoPrazo(lembrete.paraQuando, hoje);
@@ -141,9 +146,7 @@ export function LinhaLembrete({
         type="button"
         aria-pressed={feito}
         aria-label={
-          feito
-            ? rotuloDesfazerFeito(lembrete.texto)
-            : rotuloMarcarFeito(lembrete.texto)
+          feito ? rotuloDesfazerFeito(lembrete.texto) : rotuloMarcarFeito(lembrete.texto)
         }
         disabled={editando}
         onClick={aoAlternarFeito}
@@ -229,17 +232,30 @@ export function LinhaLembrete({
 
           {/* As ações: 3ª coluna num contêiner ≥ 340 px; abaixo disso, na 2ª coluna sob a meta, com
               `-ml-2` para o texto do botão alinhar com o do lembrete (UI-D5). */}
-          {podeEditar && (
+          {(podeEditar || aoExcluir !== undefined) && (
             <div className="col-start-2 -ml-2 flex flex-wrap @min-[340px]:col-start-3 @min-[340px]:row-start-1 @min-[340px]:ml-0">
-              <button
-                type="button"
-                aria-label={rotuloEditar(lembrete.texto)}
-                onClick={aoAbrirEdicao}
-                data-testid="lembrete-editar"
-                className={CLASSE_DA_ACAO}
-              >
-                {ROTULO_EDITAR}
-              </button>
+              {podeEditar && (
+                <button
+                  type="button"
+                  aria-label={rotuloEditar(lembrete.texto)}
+                  onClick={aoAbrirEdicao}
+                  data-testid="lembrete-editar"
+                  className={CLASSE_DA_ACAO}
+                >
+                  {ROTULO_EDITAR}
+                </button>
+              )}
+              {aoExcluir !== undefined && (
+                <button
+                  type="button"
+                  aria-label={rotuloExcluir(lembrete.texto)}
+                  onClick={aoExcluir}
+                  data-testid="lembrete-excluir"
+                  className={CLASSE_DA_ACAO}
+                >
+                  {ROTULO_EXCLUIR}
+                </button>
+              )}
             </div>
           )}
         </>
@@ -376,12 +392,7 @@ function EdicaoNaLinha({
       )}
       <div className="flex flex-wrap items-center gap-2">
         <PilulaDeData valor={paraQuando} aoMudar={setParaQuando} />
-        <PilulasDePessoa
-          pessoas={pessoas}
-          valor={quem}
-          aoMudar={setQuem}
-          extra={extra}
-        />
+        <PilulasDePessoa pessoas={pessoas} valor={quem} aoMudar={setQuem} extra={extra} />
         <Button
           type="submit"
           variant="outline"
