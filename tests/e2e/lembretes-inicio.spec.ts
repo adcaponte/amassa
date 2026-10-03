@@ -16,7 +16,8 @@ import {
 // As frases da tela, verbatim da 06.3-UI-SPEC.md (§Erros, §Estados vazios) — escritas aqui, não
 // importadas de `lib/`, para o teste reprovar se a copy mudar sem querer.
 const FRASE_ESCREVA_ANTES_DE_GUARDAR = "Escreva o lembrete antes de guardar.";
-const FRASE_PESSOA_INVALIDA = "Essa pessoa não está mais na lista. Escolha outra ou deixe “geral”.";
+const FRASE_PESSOA_INVALIDA =
+  "Essa pessoa não está mais na lista. Escolha outra ou deixe “geral”.";
 const FRASE_NADA_PARA_FAZER =
   "Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.";
 // O primeiro nome da conta do e2e ("Gestora de Teste", `preparar-usuario.ts`).
@@ -229,7 +230,9 @@ test.describe("lembretes inicio", () => {
     const campo = coluna.getByTestId("lembretes-novo-texto");
     const data = coluna.getByTestId("lembretes-novo-data");
     const geral = coluna.locator('[data-testid="lembretes-pessoa"][data-pessoa="geral"]');
-    const pessoa = coluna.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${idDoUsuario}"]`);
+    const pessoa = coluna.locator(
+      `[data-testid="lembretes-pessoa"][data-pessoa="${idDoUsuario}"]`,
+    );
 
     // Fechada até o campo receber foco; o padrão é sem data e "geral".
     await expect(data).toBeHidden();
@@ -255,7 +258,9 @@ test.describe("lembretes inicio", () => {
     await expect(linha).toHaveCount(1);
     await expect(linha).toHaveAttribute("data-situacao", "hoje");
     await expect(linha.getByTestId("lembrete-prazo")).toHaveText("hoje");
-    await expect(linha.getByTestId("lembrete-chip")).toHaveText(PRIMEIRO_NOME_DO_GESTOR_DE_TESTE);
+    await expect(linha.getByTestId("lembrete-chip")).toHaveText(
+      PRIMEIRO_NOME_DO_GESTOR_DE_TESTE,
+    );
 
     await expect(campo).toHaveValue("");
     await expect(campo).toBeFocused();
@@ -315,7 +320,9 @@ test.describe("lembretes inicio", () => {
     const coluna = page.getByTestId("lembretes-coluna");
     const campo = coluna.getByTestId("lembretes-novo-texto");
     const data = coluna.getByTestId("lembretes-novo-data");
-    const pilula = coluna.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`);
+    const pilula = coluna.locator(
+      `[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`,
+    );
 
     await campo.click();
     await campo.fill(texto);
@@ -326,7 +333,9 @@ test.describe("lembretes inicio", () => {
     await desativarPessoaDeTeste(pessoaId);
     await coluna.getByTestId("lembretes-novo-guardar").click();
 
-    await expect(coluna.getByTestId("lembretes-novo-erro")).toHaveText(FRASE_PESSOA_INVALIDA);
+    await expect(coluna.getByTestId("lembretes-novo-erro")).toHaveText(
+      FRASE_PESSOA_INVALIDA,
+    );
     await expect(campo).toHaveValue(texto);
     await expect(data).toHaveValue(depoisDeAmanha);
     await expect(pilula).toHaveAttribute("aria-pressed", "true");
@@ -337,7 +346,9 @@ test.describe("lembretes inicio", () => {
   test("colar 210 caracteres no campo deixa 200", async ({ page }) => {
     await fazerLogin(page);
     await page.goto("/gestao");
-    const campo = page.getByTestId("lembretes-coluna").getByTestId("lembretes-novo-texto");
+    const campo = page
+      .getByTestId("lembretes-coluna")
+      .getByTestId("lembretes-novo-texto");
 
     await campo.focus();
     await page.keyboard.insertText("[e2e]".padEnd(210, "x"));
@@ -356,7 +367,9 @@ test.describe("lembretes inicio", () => {
     await fazerLogin(page);
     await page.goto("/gestao");
     const coluna = page.getByTestId("lembretes-coluna");
-    await expect(coluna.getByTestId("lembrete-linha").filter({ hasText: longo })).toBeVisible();
+    await expect(
+      coluna.getByTestId("lembrete-linha").filter({ hasText: longo }),
+    ).toBeVisible();
     // Os outros blocos chegam por streaming: medir só com a página inteira na tela.
     await expect(page.getByTestId("inicio-bloco-esqueleto")).toHaveCount(0);
 
@@ -369,9 +382,10 @@ test.describe("lembretes inicio", () => {
       document.documentElement.scrollWidth,
       document.documentElement.clientWidth,
     ]);
-    expect(scrollWidth, `/gestao rola horizontalmente a 320px (${scrollWidth} > ${clientWidth})`).toBeLessThanOrEqual(
-      clientWidth,
-    );
+    expect(
+      scrollWidth,
+      `/gestao rola horizontalmente a 320px (${scrollWidth} > ${clientWidth})`,
+    ).toBeLessThanOrEqual(clientWidth);
 
     const alvos = [
       campo,

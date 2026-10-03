@@ -1,6 +1,6 @@
 import { lerFolhaDaCasa } from "@/lib/anotacoes/consultas";
 import { FRASE_ERRO_DO_BLOCO } from "@/lib/anotacoes/textos";
-import { lerLembretesDoInicio } from "@/lib/lembretes/consultas";
+import { lerLembretesDoInicio, listarPessoasDaCasa } from "@/lib/lembretes/consultas";
 import {
   FRASE_ERRO_DA_COLUNA,
   ROTULO_VER_TODOS_OS_LEMBRETES,
@@ -36,9 +36,11 @@ import { TentarDeNovo } from "./tentar-de-novo";
 // `data-testid="inicio-bloco-anotacoes"` preservado: `tests/e2e/inicio.spec.ts` afirma a ordem dos
 // cinco blocos por ele.
 export async function BlocoAnotacoes({ hoje }: { hoje: string }) {
+  // As pessoas da casa (pílulas e cor dos chips) andam JUNTO com os lembretes: a falha delas cai no
+  // erro da coluna "Para fazer", nunca na folha.
   const [folha, lembretes] = await Promise.allSettled([
     lerFolhaDaCasa(),
-    lerLembretesDoInicio(),
+    Promise.all([lerLembretesDoInicio(), listarPessoasDaCasa()]),
   ]);
 
   if (folha.status === "rejected") {
@@ -81,7 +83,11 @@ export async function BlocoAnotacoes({ hoje }: { hoje: string }) {
           className="@container flex min-w-0 flex-col gap-2"
         >
           {lembretes.status === "fulfilled" ? (
-            <ListaDoInicio inicio={lembretes.value} hoje={hoje} />
+            <ListaDoInicio
+              inicio={lembretes.value[0]}
+              hoje={hoje}
+              pessoas={lembretes.value[1]}
+            />
           ) : (
             <>
               <h3 className="text-apoio text-muted-foreground font-semibold tracking-[0.05em] uppercase">

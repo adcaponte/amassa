@@ -65,3 +65,14 @@ export function textoEMaisN(n: number): string {
 // ficar vermelho. Trocar por "fica vermelho quando vencer" é esta linha.
 export const FRASE_NADA_PARA_FAZER =
   "Nada para fazer. Escreva um lembrete na linha acima — com data ele avisa quando vencer.";
+
+// A linha de criar completa (06.3-UI-SPEC.md §Rótulos e §Erros; plano 06.3-03).
+// Guardar com o campo vazio ou só com espaços — a frase do cliente (UI-D9: nada em silêncio). O
+// "Escreva o lembrete." de cima é o do Zod, para o envio que contornou a tela.
+export const FRASE_ESCREVA_ANTES_DE_GUARDAR = "Escreva o lembrete antes de guardar.";
+// A pílula de data: o texto visível e o nome acessível do `<input type="date">`.
+export const ROTULO_PARA = "para";
+export const ROTULO_PARA_QUANDO = "Para quando (opcional)";
+// O grupo das pílulas de pessoa e a pílula "sem dono" (nunca "ninguém" nem "todos").
+export const ROTULO_DE_QUEM = "De quem é o lembrete";
+export const ROTULO_GERAL = "geral";

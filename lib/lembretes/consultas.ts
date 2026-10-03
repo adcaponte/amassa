@@ -81,3 +81,21 @@ export async function lerLembretesDoInicio(): Promise<LembretesDoInicio> {
     })),
   };
 }
+
+// Uma pessoa da casa como as pílulas e os chips a usam.
+export type PessoaDaCasa = { id: string; nome: string };
+
+// As pessoas que as pílulas de "De quem é o lembrete" oferecem — SEMPRE de `usuarios` com
+// `ativo = true`, nunca nomes no código (cópia do molde `listarGestoresAtivos` de
+// `lib/abertura/consultas.ts`, não import: a Abertura é módulo temporário). A ordem é a de
+// CADASTRO (`criado_em`, desempate por `id`), não a alfabética: a posição de cada pessoa nesta
+// lista decide a cor do chip (UI-D2, `corDaPessoa`), e as pílulas seguem a mesma ordem.
+// Quem foi desativado sai daqui, mas continua nomeado nos lembretes antigos (o `leftJoin` de
+// `lerLembretesDoInicio` não filtra `ativo`) — com o chip neutro.
+export async function listarPessoasDaCasa(): Promise<PessoaDaCasa[]> {
+  return db
+    .select({ id: usuarios.id, nome: usuarios.nome })
+    .from(usuarios)
+    .where(eq(usuarios.ativo, true))
+    .orderBy(asc(usuarios.criadoEm), asc(usuarios.id));
+}

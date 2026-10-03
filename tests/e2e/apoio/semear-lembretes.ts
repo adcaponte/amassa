@@ -162,5 +162,7 @@ export async function criarPessoaDeTeste(nome: string): Promise<string> {
 }
 
 export async function desativarPessoaDeTeste(id: string): Promise<void> {
-  await comCliente((cliente) => cliente.query("update usuarios set ativo = false where id = $1", [id]));
+  await comCliente((cliente) =>
+    cliente.query("update usuarios set ativo = false where id = $1", [id]),
+  );
 }
