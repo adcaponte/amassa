@@ -992,7 +992,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 06.2-08-PLAN.md — A tabela de preços vigente com o selo de 120 dias (D-09) e tirar um anexo (onda 8)
+- [x] 06.2-08-PLAN.md — A tabela de preços vigente com o selo de 120 dias (D-09) e tirar um anexo (onda 8)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
