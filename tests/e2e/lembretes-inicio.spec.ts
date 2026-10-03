@@ -346,11 +346,20 @@ test.describe("lembretes inicio", () => {
   test("colar 210 caracteres no campo deixa 200", async ({ page }) => {
     await fazerLogin(page);
     await page.goto("/gestao");
-    const campo = page
-      .getByTestId("lembretes-coluna")
-      .getByTestId("lembretes-novo-texto");
+    const coluna = page.getByTestId("lembretes-coluna");
+    const campo = coluna.getByTestId("lembretes-novo-texto");
 
-    await campo.focus();
+    // Colar só depois da hidratação. Na varredura completa do 06.3-06 (8 workers), colar logo depois
+    // do `goto` deu 0 caracteres nos dois projetos: o texto entrou no HTML do servidor e o React,
+    // ao hidratar o campo controlado (`value={texto}`, vazio), o apagou. A fileira de opções só
+    // aparece pelo `onFocus` do React (UI-D17) — vê-la é a prova de que o campo já é do React.
+    // Molde: o `toPass` do `fornecedores-campo` (f), 06.2-13. A asserção é a mesma.
+    await expect(async () => {
+      await campo.blur();
+      await campo.focus();
+      await expect(coluna.getByTestId("lembretes-novo-data")).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15000 });
+
     await page.keyboard.insertText("[e2e]".padEnd(210, "x"));
     expect((await campo.inputValue()).length).toBe(200);
   });
