@@ -31,6 +31,11 @@ services:
       # diretório em si e a posse (`chown 100:101`) são passo de roteiro
       # (docs/operacao/12-fotos-volume-e-backup.md), nunca deste arquivo nem do pipeline.
       - /opt/amassa/dados/fotos-orcamentos:/dados/fotos-orcamentos
+      # Anexos de fornecedor (Fase 06.2, D-A02): bind mount pelo mesmo motivo das fotos — o
+      # `scripts/backup.sh` do host vai copiar este diretório direto (plano 06.2-09). A pasta do host e o
+      # `chown 100:101` são passo do Roteiro 19 (docs/operacao/19-migracao-fornecedores.md), ANTES
+      # do deploy que monta este volume — sem eles o Docker cria a pasta como root e todo envio falha.
+      - /opt/amassa/dados/anexos-fornecedores:/dados/anexos-fornecedores
     environment:
       # Papel amassa_app (sem posse de tabela, sem privilégio de definição de estrutura) —
       # nunca o dono do banco. Ver a migração custom que cria o papel e os grants
@@ -55,6 +60,10 @@ services:
       # `implantar`, o `.env` não — uma variável que dependesse de edição à mão no servidor
       # envelheceria em silêncio.
       CAMINHO_FOTOS: ${CAMINHO_FOTOS:-/dados/fotos-orcamentos}
+      # Onde os anexos de fornecedor moram dentro do contêiner (Fase 06.2, D-A02) — lido por
+      # `lib/fornecedores/caminho-anexos.ts`. Padrão aqui, e não só no `.env`, pelo mesmo motivo de
+      # CAMINHO_FOTOS: o `.env` não é ressincronizado pelo `implantar`.
+      CAMINHO_ANEXOS_FORNECEDORES: ${CAMINHO_ANEXOS_FORNECEDORES:-/dados/anexos-fornecedores}
       # Fuso de Brasília. Existe só aqui — nunca no serviço postgres (ver 02-MODELO-DE-DADOS.md §0).
       TZ: ${TZ}
     healthcheck:
