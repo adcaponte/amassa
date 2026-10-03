@@ -50,6 +50,30 @@ checkpoint humano do 06.2-13 (Tarefa 3).
 
 Nenhum FRN foi marcado em `REQUIREMENTS.md`: só a caminhada do dono marca.
 
+### Ao voltar — a sequência do dono (escrita pelo orquestrador às ~03h UTC de 03/10/2026)
+
+1. **Parte 0** de `.planning/phases/06.2-fornecedores/06.2-VERIFICACAO-HUMANA.md`: responder os ⭐ (D-04,
+   D-06, D-07, UI-D1, UI-D2, UI-D10). Trocar qualquer um = ajuste no branch + `npm run verificar` antes do
+   Passo 4 do roteiro.
+2. **Roteiro 19** (`docs/operacao/19-migracao-fornecedores.md`), em ordem — ele já inclui o Roteiro 18:
+   Passos 1–3 no servidor (guarda e contagem, `backup.sh --agora`, criar `/opt/amassa/dados/anexos-fornecedores`
+   com `chown 100:101` ANTES do deploy); Passo 4 no computador (`git checkout main` → `git merge --no-ff
+   gsd/phase-06.2-fornecedores` → `git push` → `gh run list` até os quatro jobs verdes); Passo 5 logo em
+   seguida (`docker compose pull ferramentas` → `docker compose run --rm ferramentas npm run db:migrate` — aplica
+   a `0027` e a `0028` numa transação); Passos 6–9 (re-extrair `backup.sh`/`restaurar.sh`, conferências,
+   `/api/health/fornecedores` 503→200, `/api/health/backup` 200, `rclone lsl`); Passo 10 é o caminho de volta.
+   Entre o `implantar` verde e o `db:migrate`, vendas/despesas param e as duas rotas de saúde ficam 503.
+3. **Parte 2** da caminhada (PDF de ~15 MB pelo domínio, foto do celular, 401 em aba anônima, os 11 backstops).
+4. Responder "aprovado" (com as respostas da Parte 0) → `/gsd-execute-phase 06.2` retoma: continuação da
+   Tarefa 3 do 06.2-13, revisão de código da fase, verificação e o fechamento (salvar cópia do STATE antes do
+   `phase.complete`, que o estraga — memória "gsd-tools estragam o STATE").
+
+**Como o orquestrador adaptou o GSD nesta noite (registro):** STATE e ROADMAP editados à mão (nenhum verbo de
+estado do `gsd-tools`); o "build gate" pós-onda do execute-phase trocado por `npm run verificar` + o e2e de cada
+plano (o CLAUDE.md proíbe `npm run build` avulso); a pausa interativa depois de cada traçador seguida sem parar
+(`human_verify_mode: end-of-phase`); a revisão de código (`execute:post`) e a verificação da fase ficam para
+depois do "aprovado".
+
 ## Noite de 29 para 30/09/2026 — o planejamento da Fase 06.1 e as decisões tomadas sem o dono
 
 **O que o dono decidiu no chat, antes de dormir** (formulários durante o `/gsd-plan-phase 06.1`):
