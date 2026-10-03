@@ -10,6 +10,7 @@ import { z } from "zod";
 import { ehDataCivil } from "@/lib/producao/calendario";
 
 import {
+  FRASE_ANEXO_NAO_ENCONTRADO,
   FRASE_AREA_INVALIDA,
   FRASE_FALHA_AO_SALVAR,
   FRASE_FICHA_NAO_EXISTE,
@@ -161,3 +162,10 @@ export const esquemaEnvioDeAnexo = z
   });
 
 export type EnvioDeAnexoValidado = z.infer<typeof esquemaEnvioDeAnexo>;
+
+// ——— Tirar um anexo (plano 06.2-08): só o id vem da tela. O arquivo a apagar sai do banco (o
+// `returning` do `delete`), nunca da requisição (T-06.2-31). Um id que não é uuid só chega por envio
+// forjado. ———
+export const esquemaRemoverAnexo = z.object({
+  id: z.uuid({ error: FRASE_ANEXO_NAO_ENCONTRADO }),
+});

@@ -8,25 +8,30 @@
 //
 // Fornecedor não se apaga (FRN-03): não existe ação de apagar, e o banco também nega
 // (`revoke delete on fornecedores from amassa_app`, provado no `test:migracoes`).
+import { promises as fs } from "node:fs";
+
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fornecedores } from "@/db/schema";
+import { fornecedorAnexos, fornecedores } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
+import { caminhoDoAnexo } from "./caminho-anexos";
 import {
   esquemaAtivoDoFornecedor,
   esquemaEditarFornecedor,
   esquemaFornecedor,
+  esquemaRemoverAnexo,
   type CampoDoFornecedor,
 } from "./esquemas";
 import {
   FRASE_FALHA_AO_DESATIVAR,
   FRASE_FALHA_AO_REATIVAR,
   FRASE_FALHA_AO_SALVAR,
+  FRASE_FALHA_AO_TIRAR,
   FRASE_FICHA_NAO_EXISTE,
   FRASE_NOME_REPETIDO,
   FRASE_REATIVAR_NOME_REPETIDO,
@@ -219,4 +224,59 @@ export async function definirFornecedorAtivo(
     );
     return { ok: false, erro: ativo ? FRASE_FALHA_AO_REATIVAR : FRASE_FALHA_AO_DESATIVAR };
   }
+}
+
+// ——— Tirar um anexo (plano 06.2-08; FRN-10) — o único "apagar" do módulo, e a tela só o chama depois
+// da confirmação que diz o nome do anexo e o que se perde. ———
+
+export type ResultadoDeTirarAnexo =
+  | { ok: true; dados: { id: string; jaTirado: boolean } }
+  | { ok: false; erro: string };
+
+// Tira o anexo `id`: a LINHA sai primeiro, numa instrução só (`delete … returning arquivo_caminho`), e o
+// ARQUIVO depois, fora de qualquer transação, pelo nome que o BANCO devolveu e que passa por
+// `caminhoDoAnexo` (a regex do nome — nada da requisição vira caminho, T-06.2-31). É o molde de
+// `removerFotoDeOrcamento`: se o processo morrer entre os dois, sobra um arquivo órfão (inofensivo, e o
+// backup o copia), nunca uma linha que o GET serviria apontando para um arquivo que não existe.
+//
+// `ENOENT` (o arquivo já não estava no disco) é ignorado; outro erro de disco vai só para o log — a
+// linha já saiu e a ficha está certa (T-06.2-33, aceito). Tirar o que já foi tirado (toque duplo, duas
+// abas) não apaga nada e responde `jaTirado` — a tela atualiza a ficha e mostra a frase própria, nunca
+// um erro 500. Desativado ou não, o fornecedor deixa tirar (UI-D24: tirar é limpar).
+export async function removerAnexo(entrada: unknown): Promise<ResultadoDeTirarAnexo> {
+  await exigirUsuario();
+
+  const resultado = esquemaRemoverAnexo.safeParse(entrada);
+  if (!resultado.success) {
+    return { ok: false, erro: resultado.error.issues[0]?.message ?? FRASE_FALHA_AO_TIRAR };
+  }
+  const { id } = resultado.data;
+
+  let arquivo: string | null;
+  try {
+    const [apagada] = await db
+      .delete(fornecedorAnexos)
+      .where(eq(fornecedorAnexos.id, id))
+      .returning({ arquivoCaminho: fornecedorAnexos.arquivoCaminho });
+    arquivo = apagada?.arquivoCaminho ?? null;
+  } catch (erro) {
+    console.error("Falha ao tirar o anexo do fornecedor:", codigoDoErroPostgres(erro), erro);
+    return { ok: false, erro: FRASE_FALHA_AO_TIRAR };
+  }
+
+  revalidatePath(rotaDeGestao("/cadastros"));
+
+  if (arquivo === null) {
+    return { ok: true, dados: { id, jaTirado: true } };
+  }
+
+  try {
+    await fs.unlink(caminhoDoAnexo(arquivo));
+  } catch (erroDeDisco) {
+    if ((erroDeDisco as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error("Falha ao apagar do disco o arquivo do anexo tirado (a linha já saiu):", erroDeDisco);
+    }
+  }
+
+  return { ok: true, dados: { id, jaTirado: false } };
 }

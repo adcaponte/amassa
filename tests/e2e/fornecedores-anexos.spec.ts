@@ -108,7 +108,8 @@ test.describe("fornecedores anexos", () => {
     await expect(secao.getByTestId("fornecedor-anexos-contagem")).toHaveText("· 1");
     await expect(linha.getByTestId("anexo-tile")).toHaveText("PDF");
     await expect(linha).toContainText("tabela-de-precos");
-    await expect(linha).toContainText(`Tabela de preços · vale desde ${formatarDataCurta(hoje)} · PDF · 50 KB · `);
+    // A única tabela é a vigente: o selo "vigente" entra depois do tipo (plano 08, UI-D19).
+    await expect(linha).toContainText(`Tabela de preços · vigente · vale desde ${formatarDataCurta(hoje)} · PDF · 50 KB · `);
 
     const [noBanco] = await anexosNoBanco(id);
     expect(noBanco).toMatchObject({ nome: "tabela-de-precos", tipo: "tabela", valeDesde: hoje, extensao: "pdf" });

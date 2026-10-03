@@ -189,3 +189,42 @@ export async function semearAnexoSemArquivo(fornecedorId: string, nome: string):
     return id;
   });
 }
+
+// ——— A tabela vigente e o tirar anexo (plano 06.2-08). ———
+
+// Envelhece (ou adianta) o "vale desde" de um anexo de tabela — o anexo sobe pela folha ou pelo PUT, e
+// só a DATA é trocada aqui. `data` é um dia civil "YYYY-MM-DD" calculado por `somarDiasAoHoje` (o dia de
+// Brasília), nunca pelo dia UTC. Só serve para `tipo = 'tabela'` (o check da 0028 recusa nos outros).
+export async function definirValeDesdeNoBanco(anexoId: string, data: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query("update fornecedor_anexos set vale_desde = $2::date where id = $1", [
+      anexoId,
+      data,
+    ]);
+    if (rowCount !== 1) {
+      throw new Error(`definirValeDesdeNoBanco: nenhum anexo com o id "${anexoId}".`);
+    }
+  });
+}
+
+// Se a LINHA do anexo ainda existe no banco — depois de tirar, o teste espera `false`.
+export async function anexoExisteNoBanco(id: string): Promise<boolean> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ existe: boolean }>(
+      "select exists (select 1 from fornecedor_anexos where id = $1) as existe",
+      [id],
+    );
+    return rows[0]?.existe ?? false;
+  });
+}
+
+// Desativa (ou reativa) um fornecedor direto no banco — para o caso "desativado COM anexo" (UI-D24): o
+// PUT recusa fornecedor desativado, então o anexo sobe antes, com ele ativo, e só depois ele é desativado.
+export async function definirAtivoNoBanco(id: string, ativo: boolean): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query("update fornecedores set ativo = $2 where id = $1", [id, ativo]);
+    if (rowCount !== 1) {
+      throw new Error(`definirAtivoNoBanco: nenhum fornecedor com o id "${id}".`);
+    }
+  });
+}

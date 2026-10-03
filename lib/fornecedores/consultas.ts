@@ -10,6 +10,7 @@ import { count, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { fornecedorAnexos, fornecedores, usuarios } from "@/db/schema";
+import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 
 import type { AreaDoFornecedor, TipoDeAnexo } from "./esquemas";
 
@@ -154,9 +155,12 @@ export type AnexoDaFicha = {
   nota: string | null;
   arquivoBytes: number;
   extensao: string;
-  // Quem subiu (o nome do usuário) e quando (instante; a tela formata no fuso de Brasília).
+  // Quem subiu (o nome do usuário) e quando: o instante em ISO 8601 (a tela formata no fuso de
+  // Brasília) e o dia civil de Brasília desse instante (plano 08: a data de envio que a tabela vigente
+  // usa quando não há "vale desde" — nunca o dia UTC).
   criadoPorNome: string;
-  criadoEm: Date;
+  criadoEm: string;
+  enviadoEm: string;
 };
 
 // Os anexos de um fornecedor, do mais recente para o mais antigo (`criado_em` desc; desempate pelo id,
@@ -164,7 +168,7 @@ export type AnexoDaFicha = {
 // NOT NULL e referencia `usuarios` — o `join` interno não perde linha). Fornecedor sem anexo → lista
 // vazia. O caminho no disco NÃO sai daqui: a tela só precisa do id para montar o link da rota.
 export async function anexosDoFornecedor(fornecedorId: string): Promise<AnexoDaFicha[]> {
-  return db
+  const linhas = await db
     .select({
       id: fornecedorAnexos.id,
       nome: fornecedorAnexos.nome,
@@ -180,4 +184,9 @@ export async function anexosDoFornecedor(fornecedorId: string): Promise<AnexoDaF
     .innerJoin(usuarios, eq(usuarios.id, fornecedorAnexos.criadoPor))
     .where(eq(fornecedorAnexos.fornecedorId, fornecedorId))
     .orderBy(desc(fornecedorAnexos.criadoEm), desc(fornecedorAnexos.id));
+  return linhas.map((linha) => ({
+    ...linha,
+    criadoEm: linha.criadoEm.toISOString(),
+    enviadoEm: hojeEmBrasilia(linha.criadoEm),
+  }));
 }

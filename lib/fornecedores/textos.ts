@@ -305,25 +305,20 @@ export function ariaBaixarAnexo(nome: string): string {
   return `Baixar ${nome}`;
 }
 
-// A 2ª linha do anexo (Apoio, `tinta-fraca`): "{Tipo}" + (" · vale desde {dd/mm/aa}") + " · {EXT} ·
-// {tamanho} · {quem}, {dd/mm/aa}". As datas e o tamanho chegam já formatados.
-export function metaDoAnexo({
-  tipo,
-  valeDesde,
-  extensao,
-  tamanho,
-  quem,
-  enviadoEm,
-}: {
-  tipo: string;
+// A 2ª linha do anexo (Apoio, `tinta-fraca`): "{Tipo}" + (vigente: " · " selo "vigente", plano 08) +
+// (" · vale desde {dd/mm/aa}") + " · {EXT} · {tamanho} · {quem}, {dd/mm/aa}". As datas e o tamanho
+// chegam já formatados. `restoDaMetaDoAnexo` é tudo DEPOIS do tipo (e do selo "vigente", que a linha
+// desenha como elemento à parte).
+export type DadosDaMetaDoAnexo = {
   valeDesde: string | null;
   extensao: string;
   tamanho: string;
   quem: string;
   enviadoEm: string;
-}): string {
+};
+export function restoDaMetaDoAnexo({ valeDesde, extensao, tamanho, quem, enviadoEm }: DadosDaMetaDoAnexo): string {
   const vale = valeDesde === null ? "" : ` · vale desde ${valeDesde}`;
-  return `${tipo}${vale} · ${extensao.toUpperCase()} · ${tamanho} · ${quem}, ${enviadoEm}`;
+  return `${vale} · ${extensao.toUpperCase()} · ${tamanho} · ${quem}, ${enviadoEm}`;
 }
 
 // A folha "Novo anexo".
@@ -358,3 +353,58 @@ export const ROTULO_ENTRAR_DE_NOVO = "Entrar de novo";
 export function toastAnexoGuardado(nomeDoFornecedor: string): string {
   return `Anexo guardado em ${nomeDoFornecedor}.`;
 }
+
+// ——— A tabela de preços vigente e o tirar anexo (plano 06.2-08). Verbatim da 06.2-UI-SPEC.md
+// §Copywriting (Ações, Linhas de leitura "Tabela vigente"/"Sem tabela"/"Linha do anexo", Toasts, Erros,
+// Confirmações → Tirar anexo). A frase do "já tirado" não está na UI-SPEC (Decidido sem o Theo). ———
+
+// A linha "Última tabela de preços" (Apoio, `tinta-media`): o prefixo, o nome em 600 e, depois dele, a
+// data — o "vale desde" quando existe, senão a data de envio (o selo conta dela nesse caso). Datas já
+// formatadas (`dd/mm/aa`).
+export const PREFIXO_TABELA_VIGENTE = "Última tabela de preços: ";
+export function trechoValeDesde(data: string): string {
+  return ` · vale desde ${data}`;
+}
+export function trechoEnviadaEm(data: string): string {
+  return ` · enviada em ${data}`;
+}
+export const ROTULO_ABRIR_TABELA = "abrir";
+// O `aria-label` do "abrir" é o mesmo da linha do anexo: "Abrir {nome da tabela}" (`ariaAbrirAnexo`).
+
+// Os selos (Apoio 600, `rounded-full`, `py-1 px-2`).
+export const SELO_TABELA_RECENTE = "recente";
+export const SELO_TABELA_VELHA = "tem mais de 4 meses — pedir a nova?";
+export const SELO_VIGENTE = "vigente";
+
+// Sem tabela.
+export const FRASE_SEM_TABELA = "Sem tabela de preços ainda.";
+export const ROTULO_SUBIR_A_PRIMEIRA = "Subir a primeira";
+
+// O "tirar" da linha do anexo: o verbo curto visível; o nome do anexo no `aria-label`.
+export const ROTULO_TIRAR = "tirar";
+export function ariaTirarAnexo(nome: string): string {
+  return `Tirar ${nome}`;
+}
+
+// A confirmação de tirar (`AlertDialog`) — a única remoção do módulo.
+export function tituloTirarAnexo(nome: string): string {
+  return `Tirar “${nome}”?`;
+}
+// `extensao` sem o ponto (vai em caixa alta); `tamanho` já formatado por `textoDoTamanho`.
+export function corpoTirarAnexo(extensao: string, tamanho: string): string {
+  return `O arquivo (${extensao.toUpperCase()}, ${tamanho}) sai da ficha e do servidor — não dá para desfazer.`;
+}
+export function complementoTirarVigente(nomeDaAnterior: string): string {
+  return ` É a tabela de preços vigente: “${nomeDaAnterior}” passa a valer.`;
+}
+export const COMPLEMENTO_TIRAR_UNICA = " É a única tabela de preços deste fornecedor: a ficha fica sem tabela.";
+export const ROTULO_TIRAR_ANEXO = "Tirar anexo";
+export const ROTULO_TIRANDO = "Tirando…";
+
+// Toast.
+export const TOAST_ANEXO_REMOVIDO = "Anexo removido.";
+
+// Erros (dentro da confirmação).
+export const FRASE_FALHA_AO_TIRAR = "Não deu para tirar o anexo. Verifique a internet e tente de novo.";
+// Tirar o que outra aba (ou um toque duplo) já tirou: não é erro — a ficha atualiza e a frase vira toast.
+export const FRASE_ANEXO_JA_TIRADO = "Esse anexo já tinha sido tirado. A ficha foi atualizada.";

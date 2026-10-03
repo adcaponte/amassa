@@ -92,6 +92,9 @@ export type FolhaAnexoProps = {
   hoje: string;
   aoFechar: () => void;
   aoGuardar: () => void;
+  // O tipo com que a folha abre (plano 08: "Subir a primeira" abre com Tabela de preços). Conta como
+  // escolhido pela pessoa: o arquivo escolhido depois não o troca (uma foto da tabela continua tabela).
+  tipoInicial?: TipoDeAnexo;
 };
 
 // A folha "Novo anexo" (06.2-UI-SPEC.md §"Folha Novo anexo"; FRN-06, D-01): a mesma casca da
@@ -114,12 +117,12 @@ export type FolhaAnexoProps = {
 // e o caminho é entrar de novo.
 //
 // Quem usa monta o componente para abrir e o desmonta para fechar: cada abertura nasce limpa.
-export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAnexoProps) {
+export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicial }: FolhaAnexoProps) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const [nome, setNome] = useState("");
-  const [tipo, setTipo] = useState<TipoDeAnexo>("tabela");
-  const [tipoTocado, setTipoTocado] = useState(false);
+  const [tipo, setTipo] = useState<TipoDeAnexo>(tipoInicial ?? "tabela");
+  const [tipoTocado, setTipoTocado] = useState(tipoInicial !== undefined);
   const [valeDesde, setValeDesde] = useState("");
   const [nota, setNota] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -184,7 +187,14 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar }: FolhaAne
     if (preenchido.tipo !== null) {
       setTipo(preenchido.tipo);
     }
-    setValeDesde(preenchido.valeDesde);
+    // Aberta já como tabela ("Subir a primeira"), o tipo conta como escolhido e o preenchimento não o
+    // toca — mas um PDF ainda leva "Vale a partir de" = hoje (só se vazia), como no caminho comum.
+    const pdfNaTabelaInicial =
+      tipoInicial === "tabela" &&
+      tipo === "tabela" &&
+      familiaPelaExtensao(extensaoDoNome(escolhido.name)) === "documento" &&
+      preenchido.valeDesde === "";
+    setValeDesde(pdfNaTabelaInicial ? hoje : preenchido.valeDesde);
     setErros((anteriores) => ({ ...anteriores, nome: undefined }));
   }
 

@@ -6,13 +6,16 @@ import { textoDoTamanho } from "@/lib/fornecedores/arquivo";
 import { itensDeVende } from "@/lib/fornecedores/busca";
 import { anexosDoFornecedor, type AnexoDaFicha, type FichaDoFornecedor } from "@/lib/fornecedores/consultas";
 import type { AreaDoFornecedor } from "@/lib/fornecedores/esquemas";
+import { efeitoDeTirar, seloDaTabela, tabelaVigente } from "@/lib/fornecedores/tabela-vigente";
 import {
   FRASE_ERRO_CARREGAR_FICHA,
   FRASE_SEM_OBSERVACAO,
   ROTULO_OBSERVACOES,
   ROTULO_TIPO_DE_ANEXO,
-  metaDoAnexo,
+  restoDaMetaDoAnexo,
   rodapeDaFicha,
+  trechoEnviadaEm,
+  trechoValeDesde,
 } from "@/lib/fornecedores/textos";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +26,7 @@ import { AnexosFornecedor, type AnexoNaFicha } from "./anexos-fornecedor";
 import { ContatosFornecedor } from "./contatos-fornecedor";
 import { SeloDesativado } from "./lista-fornecedores";
 import { NavegacaoDaFicha } from "./navegacao-da-ficha";
+import { TabelaVigente, type TabelaVigenteDaFicha } from "./tabela-vigente";
 
 // O ponto de cor da etiqueta de área (`--color-area-*`, tokens existentes; decorativo — o nome da
 // área está escrito ao lado). Classes inteiras, para o Tailwind achar cada uma.
@@ -59,21 +63,44 @@ function paraAsAcoes(fornecedor: FichaDoFornecedor): FornecedorDaFicha {
 
 // Um anexo como a linha da ficha o mostra: a 2ª linha montada AQUI, no servidor — "vale desde" é dia
 // civil (`formatarDataCurta`, sem fuso); "enviado em" é instante, no fuso de Brasília
-// (`formatarInstanteCurto`), nunca o do processo.
-function paraALinha(anexo: AnexoDaFicha): AnexoNaFicha {
+// (`formatarInstanteCurto`), nunca o do processo. `vigenteId` marca a tabela vigente (plano 08), e
+// `efeito` diz o que a confirmação de tirar precisa contar.
+function paraALinha(anexo: AnexoDaFicha, anexos: readonly AnexoDaFicha[], vigenteId: string | null): AnexoNaFicha {
+  const tamanho = textoDoTamanho(anexo.arquivoBytes);
   return {
     id: anexo.id,
     nome: anexo.nome,
     extensao: anexo.extensao,
     nota: anexo.nota,
-    meta: metaDoAnexo({
-      tipo: ROTULO_TIPO_DE_ANEXO[anexo.tipo],
+    tipoRotulo: ROTULO_TIPO_DE_ANEXO[anexo.tipo],
+    restoDaMeta: restoDaMetaDoAnexo({
       valeDesde: anexo.valeDesde === null ? null : formatarDataCurta(anexo.valeDesde),
       extensao: anexo.extensao,
-      tamanho: textoDoTamanho(anexo.arquivoBytes),
+      tamanho,
       quem: anexo.criadoPorNome,
-      enviadoEm: formatarInstanteCurto(anexo.criadoEm.toISOString()),
+      enviadoEm: formatarInstanteCurto(anexo.criadoEm),
     }),
+    tamanho,
+    vigente: anexo.id === vigenteId,
+    efeito: efeitoDeTirar(anexos, anexo.id),
+  };
+}
+
+// A linha "Última tabela de preços" (plano 08; FRN-11): a vigente pelos módulos puros, com o "hoje" de
+// Brasília. Sem "vale desde", a data mostrada é a do envio — a mesma de que o selo conta.
+function paraATabelaVigente(vigente: AnexoDaFicha | null, hoje: string): TabelaVigenteDaFicha | null {
+  if (vigente === null) {
+    return null;
+  }
+  return {
+    id: vigente.id,
+    nome: vigente.nome,
+    extensao: vigente.extensao,
+    trechoDaData:
+      vigente.valeDesde !== null
+        ? trechoValeDesde(formatarDataCurta(vigente.valeDesde))
+        : trechoEnviadaEm(formatarDataCurta(vigente.enviadoEm)),
+    selo: seloDaTabela(vigente, hoje),
   };
 }
 
@@ -95,9 +122,10 @@ export async function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoForne
     console.error("Falha ao carregar os anexos do fornecedor:", erro);
     return <FichaSemFornecedor frase={FRASE_ERRO_CARREGAR_FICHA} acao={<TentarDeNovo />} />;
   }
-  // O "hoje" da folha "Novo anexo" (o "Vale a partir de" do PDF): o dia civil de Brasília calculado
-  // no servidor, nunca o dia UTC do navegador.
+  // O "hoje" da folha "Novo anexo" (o "Vale a partir de" do PDF) e do selo da tabela vigente: o dia
+  // civil de Brasília calculado no servidor, nunca o dia UTC (nem o do navegador).
   const hoje = hojeEmBrasilia(new Date());
+  const vigente = tabelaVigente(anexos);
   // "Cadastrado em" é o dia CIVIL de Brasília do instante gravado — nunca o dia UTC.
   const cadastradoEm = formatarDataCurta(hojeEmBrasilia(fornecedor.criadoEm));
   const etiquetas = itensDeVende(fornecedor.vende);
@@ -145,6 +173,14 @@ export async function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoForne
         <AcoesDaFicha fornecedor={paraAsAcoes(fornecedor)} />
       </div>
 
+      <TabelaVigente
+        fornecedorId={fornecedor.id}
+        fornecedorNome={fornecedor.nome}
+        ativo={fornecedor.ativo}
+        hoje={hoje}
+        vigente={paraATabelaVigente(vigente, hoje)}
+      />
+
       <ContatosFornecedor fornecedor={fornecedor} />
 
       <section aria-labelledby="ficha-fornecedor-observacoes" className="flex flex-col gap-2">
@@ -173,7 +209,7 @@ export async function FichaFornecedor({ fornecedor }: { fornecedor: FichaDoForne
         fornecedorNome={fornecedor.nome}
         ativo={fornecedor.ativo}
         hoje={hoje}
-        anexos={anexos.map(paraALinha)}
+        anexos={anexos.map((anexo) => paraALinha(anexo, anexos, vigente?.id ?? null))}
       />
 
       <p className="text-apoio text-tinta-fraca tabular-nums" data-testid="fornecedor-rodape-ficha">
