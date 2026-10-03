@@ -1000,7 +1000,7 @@ Plans:
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 06.2-10-PLAN.md — A despesa ligada ao fornecedor (D-04): o campo “Fornecedor” no modo Compra e `lancarDespesa` congelando o nome; a D-02 anotada na Fase 7 (onda 10)
+- [x] 06.2-10-PLAN.md — A despesa ligada ao fornecedor (D-04): o campo “Fornecedor” no modo Compra e `lancarDespesa` congelando o nome; a D-02 anotada na Fase 7 (onda 10)
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
