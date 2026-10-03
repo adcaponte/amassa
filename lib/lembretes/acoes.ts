@@ -24,6 +24,7 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { obterLembreteDaTela, type LembreteDaTela } from "./consultas";
 import {
   esquemaCriarLembrete,
+  esquemaEditarLembrete,
   esquemaMarcarFeito,
   type CampoDoLembrete,
 } from "./esquemas";
@@ -31,6 +32,7 @@ import {
   FRASE_ESCREVA_O_LEMBRETE,
   FRASE_FALHA_AO_GUARDAR,
   FRASE_FALHA_AO_MARCAR,
+  FRASE_FALHA_AO_SALVAR_EDICAO,
   FRASE_LEMBRETE_NAO_EXISTE,
   FRASE_PESSOA_INVALIDA,
 } from "./textos";
@@ -197,5 +199,67 @@ export async function marcarFeito(
     const codigo = codigoDoErroPostgres(erro);
     console.error("Falha ao marcar o lembrete:", codigo, erro);
     return { ok: false, erro: FRASE_FALHA_AO_MARCAR };
+  }
+}
+
+// Editar texto, data e pessoa (LMB-07). A edição não grava autoria — por isso `exigirUsuario()`
+// sem variável (molde `lib/abertura/acoes.ts`). "Quem": a pessoa que JÁ estava gravada é aceita
+// mesmo desativada (a chave estrangeira basta — 06.3-UI-SPEC.md, suposição 7); só uma pessoa NOVA
+// precisa estar ativa. Devolve a linha atual; o lembrete que sumiu do banco vira `naoExiste`.
+export async function editarLembrete(
+  entrada: unknown,
+): Promise<ResultadoDoLembrete<LembreteDaTela>> {
+  await exigirUsuario();
+
+  const resultado = esquemaEditarLembrete.safeParse(entrada);
+  if (!resultado.success) {
+    return recusaDeValidacao(resultado.error.issues, FRASE_FALHA_AO_SALVAR_EDICAO);
+  }
+  const dados = resultado.data;
+
+  try {
+    const [gravado] = await db
+      .select({ quem: lembretes.quem })
+      .from(lembretes)
+      .where(eq(lembretes.id, dados.id))
+      .limit(1);
+    if (!gravado) {
+      return LEMBRETE_NAO_EXISTE;
+    }
+
+    if (dados.quem !== null && dados.quem !== gravado.quem) {
+      const pessoa = await pessoaAtiva(dados.quem);
+      if (!pessoa) {
+        return { ok: false, erro: FRASE_PESSOA_INVALIDA, campo: "quem" };
+      }
+    }
+
+    const atualizados = await db
+      .update(lembretes)
+      .set({ texto: dados.texto, paraQuando: dados.paraQuando, quem: dados.quem })
+      .where(eq(lembretes.id, dados.id))
+      .returning({ id: lembretes.id });
+    if (atualizados.length === 0) {
+      return LEMBRETE_NAO_EXISTE;
+    }
+
+    const linha = await obterLembreteDaTela(dados.id);
+    if (!linha) {
+      return LEMBRETE_NAO_EXISTE;
+    }
+    revalidarTelasDosLembretes();
+    return { ok: true, dados: linha };
+  } catch (erro) {
+    const codigo = codigoDoErroPostgres(erro);
+    // 23503: a pessoa deixou de existir entre a conferência e o update.
+    if (codigo === "23503") {
+      return { ok: false, erro: FRASE_PESSOA_INVALIDA, campo: "quem" };
+    }
+    // 23514: o check `lembretes_texto_comprimento` — só um envio que contornou o Zod chega aqui.
+    if (codigo === "23514") {
+      return { ok: false, erro: FRASE_ESCREVA_O_LEMBRETE, campo: "texto" };
+    }
+    console.error("Falha ao salvar a edição do lembrete:", codigo, erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR_EDICAO };
   }
 }

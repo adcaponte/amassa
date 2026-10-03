@@ -1,7 +1,10 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import {
   apagarLembreteDireto,
+  criarPessoaDeTeste,
+  desativarPessoaDeTeste,
   destravarLembretesDeTeste,
   idDoUsuarioDoTeste,
   lerLembrete,
@@ -15,6 +18,11 @@ import {
 const FRASE_LEMBRETE_NAO_EXISTE =
   "Esse lembrete não existe mais — alguém excluiu. A lista foi atualizada.";
 const TOAST_REABERTO = "Lembrete reaberto.";
+const TOAST_ATUALIZADO = "Lembrete atualizado.";
+const FRASE_EDICAO_VAZIA =
+  "O lembrete não pode ficar vazio. Escreva o texto — ou use “excluir”.";
+const FRASE_PESSOA_INVALIDA =
+  "Essa pessoa não está mais na lista. Escolha outra ou deixe “geral”.";
 // O primeiro nome da conta do e2e ("Gestora de Teste", `preparar-usuario.ts`).
 const PRIMEIRO_NOME_DO_GESTOR_DE_TESTE = "Gestora";
 
@@ -238,6 +246,195 @@ test.describe("lembretes acoes", () => {
     await expect(aviso(page, FRASE_LEMBRETE_NAO_EXISTE)).toBeVisible();
     await expect(coluna(page).locator(`[data-testid="lembrete-linha"][data-id="${id}"]`)).toHaveCount(0);
     await expect(coluna(page).getByTestId("lembretes-feitos")).toHaveCount(0);
+    expect(await lerLembrete(id)).toBeNull();
+  });
+
+  // (f) LMB-07 — editar texto, data e pessoa na própria linha; Enter salva.
+  test("editar texto, data de hoje e pessoa e apertar Enter atualiza a linha, avisa Lembrete atualizado., devolve o foco ao editar e grava os três no banco", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const texto = `[e2e] editar ${projeto}`;
+    const novo = `[e2e] editado ${projeto}`;
+    const hoje = hojeNoAtelie();
+    const idDoUsuario = await idDoUsuarioDoTeste();
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+    const editar = linha.getByTestId("lembrete-editar");
+    await expect(editar).toHaveAttribute("aria-label", `Editar: ${texto}`);
+    await editar.click();
+
+    const campo = linha.getByTestId("lembrete-edicao-texto");
+    await expect(campo).toBeFocused();
+    await expect(campo).toHaveValue(texto);
+    await expect(linha.getByTestId("lembrete-caixa")).toBeDisabled();
+
+    await campo.fill(novo);
+    await linha.locator('input[type="date"]').fill(hoje);
+    await linha
+      .locator(`[data-testid="lembretes-pessoa"][data-pessoa="${idDoUsuario}"]`)
+      .click();
+    await campo.press("Enter");
+
+    await expect(linha.getByTestId("lembrete-edicao-texto")).toHaveCount(0);
+    await expect(linha.getByTestId("lembrete-texto")).toHaveText(novo);
+    await expect(linha.getByTestId("lembrete-prazo")).toHaveText("hoje");
+    await expect(linha.getByTestId("lembrete-chip")).toHaveText(PRIMEIRO_NOME_DO_GESTOR_DE_TESTE);
+    await expect(aviso(page, TOAST_ATUALIZADO)).toBeVisible();
+    await expect(linha.getByTestId("lembrete-editar")).toBeFocused();
+
+    await expect
+      .poll(async () => {
+        const gravado = await lerLembrete(id);
+        return (
+          gravado && { texto: gravado.texto, para_quando: gravado.para_quando, quem: gravado.quem }
+        );
+      })
+      .toEqual({ texto: novo, para_quando: hoje, quem: idDoUsuario });
+  });
+
+  // (g) UI-D12 — "cancelar" e Esc não gravam.
+  test("editar e tocar cancelar, ou apertar Esc, não muda nada na tela nem no banco", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const texto = `[e2e] não editar ${test.info().project.name}`;
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+
+    await linha.getByTestId("lembrete-editar").click();
+    await linha.getByTestId("lembrete-edicao-texto").fill("[e2e] mudança que não vale");
+    await linha.getByTestId("lembrete-edicao-cancelar").click();
+    await expect(linha.getByTestId("lembrete-edicao-texto")).toHaveCount(0);
+    await expect(linha.getByTestId("lembrete-texto")).toHaveText(texto);
+    await expect(linha.getByTestId("lembrete-editar")).toBeFocused();
+
+    await linha.getByTestId("lembrete-editar").click();
+    const campo = linha.getByTestId("lembrete-edicao-texto");
+    await campo.fill("[e2e] outra mudança que não vale");
+    await campo.press("Escape");
+    await expect(linha.getByTestId("lembrete-edicao-texto")).toHaveCount(0);
+    await expect(linha.getByTestId("lembrete-texto")).toHaveText(texto);
+    await expect(linha.getByTestId("lembrete-editar")).toBeFocused();
+
+    expect((await lerLembrete(id))?.texto).toBe(texto);
+  });
+
+  // (h) UI E4·error — salvar a edição vazia.
+  test("apagar todo o texto e salvar mostra a frase da edição vazia, mantém a edição aberta e não grava", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const texto = `[e2e] não esvaziar ${test.info().project.name}`;
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+    await linha.getByTestId("lembrete-editar").click();
+    const campo = linha.getByTestId("lembrete-edicao-texto");
+    await campo.fill("");
+    await linha.getByTestId("lembrete-edicao-salvar").click();
+
+    const erro = linha.getByTestId("lembrete-edicao-erro");
+    await expect(erro).toHaveText(FRASE_EDICAO_VAZIA);
+    await expect(erro).toHaveAttribute("role", "alert");
+    await expect(campo).toBeVisible();
+    await expect(campo).toHaveValue("");
+    expect((await lerLembrete(id))?.texto).toBe(texto);
+  });
+
+  // (i) UI E4·error — a pessoa NOVA foi desativada antes de salvar: a recusa é do servidor.
+  test("escolher uma pessoa nova, desativá-la e salvar mostra a frase da pessoa, mantém a edição preenchida e não grava", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const pessoaId = await criarPessoaDeTeste(`[e2e] Pessoa nova ${projeto}`);
+    const texto = `[e2e] pessoa nova ${projeto}`;
+    const id = await semearLembrete({ texto });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+    await linha.getByTestId("lembrete-editar").click();
+    const pilula = linha.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`);
+    await pilula.click();
+    await expect(pilula).toHaveAttribute("aria-pressed", "true");
+
+    await desativarPessoaDeTeste(pessoaId);
+    await linha.getByTestId("lembrete-edicao-salvar").click();
+
+    await expect(linha.getByTestId("lembrete-edicao-erro")).toHaveText(FRASE_PESSOA_INVALIDA);
+    await expect(linha.getByTestId("lembrete-edicao-texto")).toHaveValue(texto);
+    await expect(pilula).toHaveAttribute("aria-pressed", "true");
+    const gravado = await lerLembrete(id);
+    expect(gravado && { texto: gravado.texto, quem: gravado.quem }).toEqual({ texto, quem: null });
+  });
+
+  // (j) UI E4·partial — pessoa desativada: chip neutro com o nome; na edição, a pílula a mais
+  // marcada; salvar só o texto mantém o `quem` (a pessoa que JÁ estava gravada é aceita).
+  test("um lembrete de pessoa desativada mostra o chip neutro com o nome dela; ao editar, a pílula dela vem marcada e salvar só o texto mantém o quem", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const pessoaId = await criarPessoaDeTeste(`[e2e]Desativada ${projeto}`);
+    const texto = `[e2e] de quem saiu ${projeto}`;
+    const novo = `[e2e] de quem saiu, editado ${projeto}`;
+    const id = await semearLembrete({ texto, quem: pessoaId });
+    await desativarPessoaDeTeste(pessoaId);
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+    const chip = linha.getByTestId("lembrete-chip");
+    await expect(chip).toHaveText("[e2e]Desativada");
+    await expect(chip).toHaveClass(/bg-tinta-fraca/);
+
+    await linha.getByTestId("lembrete-editar").click();
+    const pilula = linha.locator(`[data-testid="lembretes-pessoa"][data-pessoa="${pessoaId}"]`);
+    await expect(pilula).toHaveAttribute("aria-pressed", "true");
+    await linha.getByTestId("lembrete-edicao-texto").fill(novo);
+    await linha.getByTestId("lembrete-edicao-salvar").click();
+
+    await expect(linha.getByTestId("lembrete-texto")).toHaveText(novo);
+    await expect(aviso(page, TOAST_ATUALIZADO)).toBeVisible();
+    await expect
+      .poll(async () => {
+        const gravado = await lerLembrete(id);
+        return gravado && { texto: gravado.texto, quem: gravado.quem };
+      })
+      .toEqual({ texto: novo, quem: pessoaId });
+  });
+
+  // (k) UI E4·error — salvar a edição de um lembrete que outra pessoa já excluiu.
+  test("salvar a edição de um lembrete que outra pessoa apagou avisa que ele não existe mais e tira a linha", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const id = await semearLembrete({
+      texto: `[e2e] editar o apagado ${test.info().project.name}`,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    const linha = linhaAberta(page, id);
+    await linha.getByTestId("lembrete-editar").click();
+    await linha.getByTestId("lembrete-edicao-texto").fill("[e2e] tarde demais");
+
+    await apagarLembreteDireto(id);
+    await linha.getByTestId("lembrete-edicao-salvar").click();
+
+    await expect(aviso(page, FRASE_LEMBRETE_NAO_EXISTE)).toBeVisible();
+    await expect(linhaAberta(page, id)).toHaveCount(0);
     expect(await lerLembrete(id)).toBeNull();
   });
 });

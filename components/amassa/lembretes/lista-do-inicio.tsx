@@ -42,7 +42,7 @@ export type ListaDoInicioProps = {
 // Para onde o foco vai depois de um toque que tira a linha do lugar: um controle de outra linha
 // (pelo `data-id`) ou o campo de criar. Nunca o `<body>`.
 type FocoPendente =
-  | { alvo: "caixa"; id: string }
+  | { alvo: "caixa" | "editar"; id: string }
   | { alvo: "campo" };
 
 // A linha que sai: o foco vai para a caixa da linha seguinte, ou da anterior se era a última, ou
@@ -58,7 +58,8 @@ function focoDepoisDeSair(ids: readonly string[], id: string): FocoPendente {
 // contagem muda com os toques), a linha de criar completa (`LinhaDeCriar`, com data e pessoa), no
 // máximo 6 abertos na ordem do briefing, "e mais N — ver todos" e a frase do vazio — tudo de
 // `resumoDoInicio` (puro, `lib/lembretes/lista.ts`) sobre o estado local. Plano 04: a caixa de
-// feito (com "Desfazer"), a sanfona "Feitos (N)" com os 5 mais recentes (D-02).
+// feito (com "Desfazer"), a sanfona "Feitos (N)" com os 5 mais recentes (D-02) e a edição na
+// própria linha.
 //
 // O resultado de um toque NUNCA espera o redesenho do servidor: a re-renderização depois de uma
 // Server Action às vezes não chega à tela (debug da Abertura, ~54% medido). A lista mora num estado
@@ -80,6 +81,10 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
     setFeitos(inicio.feitosRecentes);
     setFeitosForaDaLista(inicio.totalDeFeitos - inicio.feitosRecentes.length);
   }
+
+  // A linha em edição — só uma por vez (UI-D12): abrir outra troca o id, e a edição anterior some
+  // sem perguntar (nada foi gravado; o texto original está na linha).
+  const [emEdicao, setEmEdicao] = useState<string | null>(null);
 
   // O foco é aplicado DEPOIS da renderização que tirou a linha (quando o alvo já está no lugar).
   const raizRef = useRef<HTMLDivElement>(null);
@@ -149,6 +154,27 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
     void reabrirComAviso(lembrete, lista);
   }
 
+  // Salvar ou cancelar a edição: o foco volta ao "editar" da mesma linha.
+  function fecharEdicao(id: string) {
+    focoPendente.current = { alvo: "editar", id };
+    setEmEdicao(null);
+  }
+
+  // A edição salva: a linha do servidor troca a antiga (a ordem se refaz por `resumoDoInicio`).
+  function aoSalvarEdicao(linha: LembreteDaTela) {
+    setAbertos((atuais) =>
+      atuais.map((lembrete) => (lembrete.id === linha.id ? linha : lembrete)),
+    );
+    fecharEdicao(linha.id);
+  }
+
+  // O lembrete sumiu do banco no meio da edição.
+  function aoSumir(id: string) {
+    focoPendente.current = focoDepoisDeSair(idsVisiveis, id);
+    setEmEdicao(null);
+    lista.remover(id);
+  }
+
   return (
     <div ref={raizRef} className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -176,6 +202,11 @@ export function ListaDoInicio({ inicio, hoje, pessoas }: ListaDoInicioProps) {
               pessoas={pessoas}
               feito={false}
               aoAlternarFeito={() => marcar(lembrete)}
+              emEdicao={emEdicao === lembrete.id}
+              aoAbrirEdicao={() => setEmEdicao(lembrete.id)}
+              aoCancelarEdicao={() => fecharEdicao(lembrete.id)}
+              aoSalvarEdicao={aoSalvarEdicao}
+              aoSumir={aoSumir}
             />
           ))}
         </ul>
