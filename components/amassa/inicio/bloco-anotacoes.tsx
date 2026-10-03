@@ -1,45 +1,78 @@
 import { lerFolhaDaCasa } from "@/lib/anotacoes/consultas";
 import { FRASE_ERRO_DO_BLOCO } from "@/lib/anotacoes/textos";
+import { lerLembretesDoInicio } from "@/lib/lembretes/consultas";
+import {
+  FRASE_ERRO_DA_COLUNA,
+  TITULO_DA_FOLHA,
+  TITULO_DO_BLOCO,
+  TITULO_PARA_FAZER,
+} from "@/lib/lembretes/textos";
 import { EstadoErro } from "@/components/amassa/estado-erro";
+import { ListaDoInicio } from "@/components/amassa/lembretes/lista-do-inicio";
 import { BlocoDoInicio } from "./bloco-do-inicio";
 import { EditorDeAnotacoes } from "./editor-de-anotacoes";
 import { TentarDeNovo } from "./tentar-de-novo";
 
-// O quinto bloco do Início (D-08/GES-07): as Anotações da casa. Server Component `async` com
-// `try`/`catch` PRÓPRIO, no MESMO molde dos outros quatro blocos (D-09) — um bloco que falha não
-// derruba a página. Sem `acaoRotulo`/`acaoHref`: ao contrário de Financeiro/Produção/Estoque, a
-// folha não tem uma tela própria para "abrir" — o bloco inteiro É a tela.
+// O quinto bloco do Início (D-08/GES-07), "Anotações e lembretes" desde a Fase 06.3: um bloco
+// DUPLO — a folha da casa (`anotacoes_da_casa`, Fase 04.6, intocada) numa coluna e a lista "Para
+// fazer" (`lembretes`) na outra; empilhadas abaixo de 1024 px, lado a lado a partir dele.
+//
+// Server Component `async` no molde dos outros quatro blocos (D-09: um bloco que falha não derruba a
+// página) — e, aqui dentro, um `try` POR COLUNA: as duas leituras vão por `Promise.allSettled` e
+// cada `rejected` mostra o erro SÓ na sua coluna. É a janela entre o deploy e o `db:migrate` da
+// 0029: com o código publicado e a tabela `lembretes` ainda inexistente, a leitura dos lembretes
+// falha e a folha da casa ao lado continua funcionando.
+//
+// `data-testid="inicio-bloco-anotacoes"` preservado: `tests/e2e/inicio.spec.ts` afirma a ordem dos
+// cinco blocos por ele.
 export async function BlocoAnotacoes() {
-  let falhou = false;
-  let textoInicial = "";
-  let salvoPorNomeInicial: string | null = null;
-  let atualizadoEmInicial = "";
+  const [folha, lembretes] = await Promise.allSettled([lerFolhaDaCasa(), lerLembretesDoInicio()]);
 
-  try {
-    const folha = await lerFolhaDaCasa();
-    textoInicial = folha.texto;
-    salvoPorNomeInicial = folha.salvoPorNome;
-    atualizadoEmInicial = folha.atualizadoEm;
-  } catch (erro) {
-    console.error("Falha ao carregar as anotações da casa no Início:", erro);
-    falhou = true;
+  if (folha.status === "rejected") {
+    console.error("Falha ao carregar as anotações da casa no Início:", folha.reason);
+  }
+  if (lembretes.status === "rejected") {
+    console.error("Falha ao carregar os lembretes no Início:", lembretes.reason);
   }
 
   return (
-    <BlocoDoInicio titulo="Anotações" dataTestId="inicio-bloco-anotacoes">
-      {falhou ? (
-        <EstadoErro
-          titulo="Algo não funcionou."
-          corpo={FRASE_ERRO_DO_BLOCO}
-          acao={<TentarDeNovo />}
-        />
-      ) : (
-        <EditorDeAnotacoes
-          textoInicial={textoInicial}
-          salvoPorNomeInicial={salvoPorNomeInicial}
-          atualizadoEmInicial={atualizadoEmInicial}
-        />
-      )}
+    <BlocoDoInicio titulo={TITULO_DO_BLOCO} dataTestId="inicio-bloco-anotacoes">
+      <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h3 className="text-apoio text-muted-foreground font-semibold tracking-[0.05em] uppercase">
+            {TITULO_DA_FOLHA}
+          </h3>
+          {folha.status === "fulfilled" ? (
+            <EditorDeAnotacoes
+              textoInicial={folha.value.texto}
+              salvoPorNomeInicial={folha.value.salvoPorNome}
+              atualizadoEmInicial={folha.value.atualizadoEm}
+            />
+          ) : (
+            <EstadoErro
+              titulo="Algo não funcionou."
+              corpo={FRASE_ERRO_DO_BLOCO}
+              acao={<TentarDeNovo />}
+            />
+          )}
+        </div>
+
+        <div data-testid="lembretes-coluna" className="@container flex min-w-0 flex-col gap-2">
+          <h3 className="text-apoio text-muted-foreground font-semibold tracking-[0.05em] uppercase">
+            {TITULO_PARA_FAZER}
+          </h3>
+          {lembretes.status === "fulfilled" ? (
+            <ListaDoInicio inicio={lembretes.value} />
+          ) : (
+            <EstadoErro
+              titulo="Algo não funcionou."
+              corpo={FRASE_ERRO_DA_COLUNA}
+              acao={<TentarDeNovo />}
+              dataTestId="lembretes-erro"
+            />
+          )}
+        </div>
+      </div>
     </BlocoDoInicio>
   );
 }

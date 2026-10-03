@@ -102,6 +102,10 @@ const TABELAS_ESPERADAS = [
   // colunas novas de `execucoes_backup`) são provadas em `conferirFornecedores` (plano 06.2-01).
   "fornecedores",
   "fornecedor_anexos",
+  // Fase 06.3 — Lembretes (migração 0029_lembretes). Permanente; não entra em
+  // TABELAS_DA_REMOCAO_ABERTURA. 🔴 EXCEÇÃO DELIBERADA: `amassa_app` MANTÉM o delete nesta tabela
+  // (LMB-08, decisão do dono em 02/10/2026) — `conferirLembretes` prova.
+  "lembretes",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção

@@ -2286,3 +2286,46 @@ export const fornecedorAnexos = pgTable(
     index("fornecedor_anexos_fornecedor_idx").on(tabela.fornecedorId),
   ],
 );
+
+// Fase 06.3 — Lembretes (BRIEFING §2). A lista "Para fazer" ao lado da folha da casa, no Início.
+// Da casa: todo usuário vê e mexe em todos; `quem` é só uma ETIQUETA (nulo = "geral"), nunca um
+// filtro de permissão. Feito não apaga: grava `feito_em`/`feito_por` (os dois juntos — check
+// `lembretes_feito_coerente`); desfazer limpa os dois. `criado_por`/`quem`/`feito_por` sem `on
+// delete` — usuário não se apaga, desativa.
+//
+// 🔴 EXCEÇÃO DELIBERADA (LMB-08, decisão do dono em 02/10/2026): esta tabela MANTÉM o `delete` do
+// `amassa_app` — lembrete não é registro de dinheiro, estoque nem cadastro, e "Excluir" apaga a
+// linha de verdade. A 0029 NÃO tem `revoke delete`; `conferirLembretes` (`test:migracoes`) afirma
+// que apagar funciona. Não "corrija" acrescentando uma retirada do privilégio.
+//
+// O teto do texto é o MESMO de `esquemaCriarLembrete` (`lib/lembretes/esquemas.ts`): o Zod dá a
+// frase; o check é a barreira se o Zod for contornado. Mudar um é mudar os dois, no mesmo commit.
+export const lembretes = pgTable(
+  "lembretes",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    texto: text("texto").notNull(),
+    // Dia civil; nulo = sem data.
+    paraQuando: date("para_quando", { mode: "string" }),
+    // Nulo = "geral".
+    quem: uuid("quem").references(() => usuarios.id),
+    feitoEm: timestamp("feito_em", { withTimezone: true }),
+    feitoPor: uuid("feito_por").references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("lembretes_texto_comprimento", sql`length(trim(${tabela.texto})) between 1 and 200`),
+    check(
+      "lembretes_feito_coerente",
+      sql`(${tabela.feitoEm} is null) = (${tabela.feitoPor} is null)`,
+    ),
+    // BRIEFING §4: a lista lê "abertos" (`feito_em is null`) na ordem de `para_quando`.
+    index("lembretes_feito_em_para_quando_idx").on(tabela.feitoEm, tabela.paraQuando),
+  ],
+);
