@@ -213,15 +213,23 @@
 > 02/10/2026**), copiados para `.planning/phases/06.3-lembretes/`. O protótipo vence sobre a interface;
 > o briefing vence sobre regra de dado. Os três pontos da §6 ficam para a discussão (em itálico).
 
-- [ ] **LMB-01**: O bloco "Anotações" do Início vira **"Anotações e lembretes"**: a folha da casa (`anotacoes_da_casa`) **não muda** de um lado, a lista "Para fazer" do outro, empilhadas no celular; o "X salvou às hh:mm" da folha em horário de Brasília (§1, §3)
-- [ ] **LMB-02**: Tabela `lembretes` (texto 1–200, `para_quando` date anulável, `quem` usuário anulável = "geral", `feito_em`/`feito_por`, `criado_em/por`, `atualizado_em`), da casa: todos veem e mexem em todos; "quem" é etiqueta, não permissão (§2)
-- [ ] **LMB-03**: Criar em uma linha ("+ lembrete · ex.: pedir argila…", Enter ou "Guardar"), com "para [data]" e "geral / Theo / Andressa" ao focar (padrão: sem data, geral); texto vazio não cria (§3)
-- [ ] **LMB-04**: Ordem dos abertos: `para_quando` crescente (vencidos primeiro), depois sem data, empate por `criado_em`; rótulos "venceu dd/mm · N dias" (vermelho), "hoje" (âmbar), "amanhã", dd/mm — no dia civil de Brasília (§3)
-- [ ] **LMB-05**: No Início, no máximo **6** abertos, com "e mais N — ver todos"; cabeçalho "Para fazer · N abertos · M vencidos" ou "nada pendente"; estado vazio com uma frase (§3)
-- [ ] **LMB-06**: Feito grava `feito_em`/`feito_por` (nunca apaga), risca e vai para "Feitos (N)" dobrado no fim do bloco, com toast "Feito: …" e **Desfazer** por ~6 s; desmarcar reabre — *quantos feitos ficam no Início: discussão (§6.2)* (§2, §3)
-- [ ] **LMB-07**: Editar na própria linha (texto, data, quem), Enter salva, "cancelar" (§3)
-- [ ] **LMB-08**: 🔴 **Excluir apaga a linha de verdade** — decisão do dono (02/10/2026), única exceção à regra "nada se apaga": tabela **sem `revoke delete`**; Desfazer no toast por ~6 s; o e2e prova que a linha sumiu do banco — *recriar ou adiar a exclusão: discussão (§6.3)* (§2, §3)
-- [ ] **LMB-09**: "Ver todos" com filtros **Abertos / Feitos** e **Todos / Geral / Theo / Andressa**, autoria ("por X · dd/mm hh:mm", "feito por Y · …") e "Mostrar mais 50" — *folha ou rota `/gestao/lembretes`: discussão (§6.1)*; no padrão da casa: `lib/lembretes/` com ordenação e rótulos em módulo puro testado (virada de dia em Brasília), Server Actions com `exigirUsuario()` e Zod, uma migração com `TABELAS_ESPERADAS`, alvos de 44 px, 320 px sem rolagem lateral (§3, §4)
+- [x] **LMB-01**: O bloco "Anotações" do Início vira **"Anotações e lembretes"**: a folha da casa (`anotacoes_da_casa`) **não muda** de um lado, a lista "Para fazer" do outro, empilhadas no celular; o "X salvou às hh:mm" da folha em horário de Brasília (§1, §3)
+- [x] **LMB-02**: Tabela `lembretes` (texto 1–200, `para_quando` date anulável, `quem` usuário anulável = "geral", `feito_em`/`feito_por`, `criado_em/por`, `atualizado_em`), da casa: todos veem e mexem em todos; "quem" é etiqueta, não permissão (§2)
+- [x] **LMB-03**: Criar em uma linha ("+ lembrete · ex.: pedir argila…", Enter ou "Guardar"), com "para [data]" e "geral / Theo / Andressa" ao focar (padrão: sem data, geral); texto vazio não cria (§3)
+- [x] **LMB-04**: Ordem dos abertos: `para_quando` crescente (vencidos primeiro), depois sem data, empate por `criado_em`; rótulos "venceu dd/mm · N dias" (vermelho), "hoje" (âmbar), "amanhã", dd/mm — no dia civil de Brasília (§3)
+- [x] **LMB-05**: No Início, no máximo **6** abertos, com "e mais N — ver todos"; cabeçalho "Para fazer · N abertos · M vencidos" ou "nada pendente"; estado vazio com uma frase (§3)
+- [x] **LMB-06**: Feito grava `feito_em`/`feito_por` (nunca apaga), risca e vai para "Feitos (N)" dobrado no fim do bloco, com toast "Feito: …" e **Desfazer** por ~6 s; desmarcar reabre — *quantos feitos ficam no Início: discussão (§6.2)* (§2, §3)
+- [x] **LMB-07**: Editar na própria linha (texto, data, quem), Enter salva, "cancelar" (§3)
+- [x] **LMB-08**: 🔴 **Excluir apaga a linha de verdade** — decisão do dono (02/10/2026), única exceção à regra "nada se apaga": tabela **sem `revoke delete`**; Desfazer no toast por ~6 s; o e2e prova que a linha sumiu do banco — *recriar ou adiar a exclusão: discussão (§6.3)* (§2, §3)
+- [x] **LMB-09**: "Ver todos" com filtros **Abertos / Feitos** e **Todos / Geral / Theo / Andressa**, autoria ("por X · dd/mm hh:mm", "feito por Y · …") e "Mostrar mais 50" — *folha ou rota `/gestao/lembretes`: discussão (§6.1)*; no padrão da casa: `lib/lembretes/` com ordenação e rótulos em módulo puro testado (virada de dia em Brasília), Server Actions com `exigirUsuario()` e Zod, uma migração com `TABELAS_ESPERADAS`, alvos de 44 px, 320 px sem rolagem lateral (§3, §4)
+
+> *Marcados em 03/10/2026, depois do portão 06.3-06.* Evidência: a aprovação do dono no chat de 03/10/2026
+> (~18h UTC: "fiz a verificação dos lembretes. Tudo OK."), **sem anotação por item**; o Roteiro 20 feito por ele pelo
+> caminho A, de carona no 19, com a saída do terminal conferida pela sessão principal — merge `6a20ee6` publicado (run
+> `37133630212`, 4 jobs verdes), a `0029` aplicada no mesmo `db:migrate` (`migracoes_aplicadas = 30`),
+> `/api/health/lembretes` 200 e `apaga_lembrete = t` (LMB-08, a exceção decidida); e a verificação da fase
+> (`06.3-VERIFICATION.md`). Detalhe em `06.3-06-SUMMARY.md`. Fica aberto, fora dos requisitos: WINDOWS #64 (e2e
+> `cotacoes-categorias:291` instável com o item "Lembretes" na lateral; o run `37133630212` passou com ele).
 
 ### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
 
@@ -718,15 +726,15 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | FRN-12 | Phase 06.2 — Fornecedores | Complete |
 | FRN-13 | Phase 06.2 — Fornecedores | Complete |
 | FRN-14 | Phase 06.2 — Fornecedores | Complete |
-| LMB-01 | Phase 06.3 — Lembretes | Pending |
-| LMB-02 | Phase 06.3 — Lembretes | Pending |
-| LMB-03 | Phase 06.3 — Lembretes | Pending |
-| LMB-04 | Phase 06.3 — Lembretes | Pending |
-| LMB-05 | Phase 06.3 — Lembretes | Pending |
-| LMB-06 | Phase 06.3 — Lembretes | Pending |
-| LMB-07 | Phase 06.3 — Lembretes | Pending |
-| LMB-08 | Phase 06.3 — Lembretes | Pending |
-| LMB-09 | Phase 06.3 — Lembretes | Pending |
+| LMB-01 | Phase 06.3 — Lembretes | Complete |
+| LMB-02 | Phase 06.3 — Lembretes | Complete |
+| LMB-03 | Phase 06.3 — Lembretes | Complete |
+| LMB-04 | Phase 06.3 — Lembretes | Complete |
+| LMB-05 | Phase 06.3 — Lembretes | Complete |
+| LMB-06 | Phase 06.3 — Lembretes | Complete |
+| LMB-07 | Phase 06.3 — Lembretes | Complete |
+| LMB-08 | Phase 06.3 — Lembretes | Complete |
+| LMB-09 | Phase 06.3 — Lembretes | Complete |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
@@ -890,7 +898,8 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 
 ---
 *Requirements defined: 2026-08-05*
-*Last updated: 2026-10-03 (fechamento do plano 06.2-13) — **FRN-01..14 passaram a `[x]`/Complete**, com a evidência no bloco logo depois de FRN-14 (aprovação do dono sem anotação por item; Roteiro 19 no ar).*
+*Last updated: 2026-10-03 (fechamento do plano 06.3-06) — **LMB-01..09 passaram a `[x]`/Complete**, com a evidência no bloco logo depois de LMB-09.*
+*Antes: 2026-10-03 (fechamento do plano 06.2-13) — **FRN-01..14 passaram a `[x]`/Complete**, com a evidência no bloco logo depois de FRN-14 (aprovação do dono sem anotação por item; Roteiro 19 no ar).*
 *Antes: 2026-10-02 (criação da Fase 06.2) — **FRN-01..14 acrescentados** (transcrição do briefing de Fornecedores de 01/10, copiado para `.planning/phases/06.2-fornecedores/`); total de 193 para 207.*
 *Antes: 2026-10-01 (início da Fase 5) — **AGE-01..20 acrescentados** (transcrição do briefing da Agenda de 26/09, copiado para `.planning/phases/05-agenda/`); AGD-01..16 viraram registro, "Substituído" no rastreio; total de 189 para 193; notas datadas em FIN-01/02 e INT-02.*
 *Last updated antes: 2026-09-29, tarde (fechamento do plano 06-11) — **EST-01..21 passaram a `[x]`/Complete**,
