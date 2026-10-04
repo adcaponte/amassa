@@ -15,6 +15,9 @@ import {
   fraseAbaixoDoLancado,
   fraseDaReguaNaFolha,
   fraseDoRodape,
+  fraseExternasLancadas,
+  tagDaVendaDaQueima,
+  tagSituacaoDaQueima,
   nomeDasVendas,
   rotuloDoTipo,
   subtituloDaFolha,
@@ -217,5 +220,71 @@ describe("o Histórico com a contagem", () => {
     expect(ROTULO_CORRIGIR_CONTAGEM).toBe("Corrigir contagem");
     expect(FRASE_SEM_CONTAGEM_HISTORICO).toBe("sem contagem");
     expect(TAG_NAO_SAIU_CHEIO).toBe("não saiu cheio");
+  });
+});
+
+// Plano 06.4-04, Tarefa 2 — as várias vendas (D-07): o piso na folha, as tags do Histórico e a exclusão.
+describe("fraseExternasLancadas (UI-D7 revisto em 04/10)", () => {
+  it("uma frase por venda ativa, com o resumo dela", () => {
+    expect(
+      fraseExternasLancadas([
+        { numero: 12, quantidades: { p: 2, m: 0, g: 0 } },
+        { numero: 15, quantidades: { p: 0, m: 1, g: 0 } },
+      ]),
+    ).toBe(
+      "Já lançado: venda nº 12 (2 P) · venda nº 15 (1 M). As externas não descem abaixo disso — para baixar, cancele a venda no Caixa.",
+    );
+    expect(fraseExternasLancadas([{ numero: 7, quantidades: { p: 1, m: 0, g: 2 } }])).toBe(
+      "Já lançado: venda nº 7 (1 P · 2 G). As externas não descem abaixo disso — para baixar, cancele a venda no Caixa.",
+    );
+  });
+});
+
+describe("corpoExcluirQueima com as vendas que ficam no Caixa (UI-D25)", () => {
+  const herdada =
+    "Ela some do histórico do Forno «F» e o contador é recalculado. A contagem desta fornada (3 peças) vai junto.";
+
+  it("uma venda ativa", () => {
+    expect(corpoExcluirQueima("F", 3, [12])).toBe(
+      `${herdada} A venda nº 12 continua no Caixa — se for o caso, cancele por lá.`,
+    );
+  });
+
+  it("várias vendas ativas", () => {
+    expect(corpoExcluirQueima("F", 3, [12, 15])).toBe(
+      `${herdada} As vendas nº 12 e 15 continuam no Caixa — se for o caso, cancele por lá.`,
+    );
+  });
+
+  it("sem vendas: só a parte da contagem", () => {
+    expect(corpoExcluirQueima("F", 3, [])).toBe(herdada);
+    expect(corpoExcluirQueima("F", 3)).toBe(herdada);
+  });
+});
+
+describe("tags do Histórico (UI E9 · U39)", () => {
+  it("tagSituacaoDaQueima: o valor do que falta, ou falta preço, ou nada", () => {
+    expect(tagSituacaoDaQueima({ p: 1, m: 0, g: 0 }, 1100)?.replace(/\s/g, " ")).toBe("a cobrar · R$ 11,00");
+    expect(tagSituacaoDaQueima({ p: 0, m: 0, g: 1 }, null)).toBe("a cobrar · falta preço");
+    expect(tagSituacaoDaQueima({ p: 0, m: 0, g: 0 }, 0)).toBeNull();
+  });
+
+  it("tagDaVendaDaQueima: número, resumo e a situação da venda", () => {
+    const quantidades = { p: 2, m: 0, g: 0 };
+    expect(
+      tagDaVendaDaQueima({ documentoId: "d", numero: 12, cancelada: false, paga: false, quantidades }),
+    ).toBe("venda nº 12 · 2 P · em aberto");
+    expect(
+      tagDaVendaDaQueima({ documentoId: "d", numero: 12, cancelada: false, paga: true, quantidades }),
+    ).toBe("venda nº 12 · 2 P · paga");
+    expect(
+      tagDaVendaDaQueima({
+        documentoId: "d",
+        numero: 12,
+        cancelada: true,
+        paga: true,
+        quantidades: { p: 1, m: 0, g: 1 },
+      }),
+    ).toBe("venda nº 12 · 1 P · 1 G · cancelada");
   });
 });
