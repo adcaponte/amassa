@@ -27,6 +27,14 @@ import {
   faltaOPrecoDe,
   fraseSemPrecoDaQueima,
   ROTULO_ABRIR_O_CATALOGO,
+  DICA_FIM_A_COBRAR,
+  FRASE_LINHA_DA_QUEIMA_FALTANDO,
+  FRASE_ORIGEM_QUEIMA_NAO_ACHADA,
+  LINHA2_FAIXA_DAS_QUEIMAS,
+  fraseAcimaDoQueFaltaNaVenda,
+  fraseOrigemQueimaTudoLancado,
+  toastLancadoNaVendaPago,
+  tituloDaFaixaDasQueimas,
   type TipoDeQueima,
 } from "../../lib/queimas/textos";
 
@@ -326,5 +334,42 @@ describe("o preço que falta (UI-D5)", () => {
       /^Os preços da queima externa P, M e G ainda não foram cadastrados\. /,
     );
     expect(ROTULO_ABRIR_O_CATALOGO).toBe("abrir o Catálogo");
+  });
+});
+
+// Fase 06.4, plano 05 — “Lançar na Venda” (QMC-08; D-07), verbatim da 06.4-UI-SPEC.md §Copywriting.
+describe("Lançar na Venda — as frases da Venda aberta pelas Queimas (06.4-05)", () => {
+  it("nada mais a cobrar: uma venda e várias", () => {
+    expect(fraseOrigemQueimaTudoLancado([7])).toBe("As externas desta queima já foram todas lançadas — venda nº 7.");
+    expect(fraseOrigemQueimaTudoLancado([7, 9])).toBe(
+      "As externas desta queima já foram todas lançadas — vendas nº 7 e 9.",
+    );
+  });
+
+  it("acima do que falta (servidor, ao lançar)", () => {
+    expect(fraseAcimaDoQueFaltaNaVenda("1 M")).toBe(
+      "Desta queima só faltam 1 M para cobrar — diminua as linhas de queima externa e lance de novo.",
+    );
+  });
+
+  it("a volta com a venda paga na própria Venda (UI-D24)", () => {
+    expect(toastLancadoNaVendaPago(7)).toBe("Lançado na venda nº 7. Já está no Caixa de hoje.");
+  });
+
+  it("a dica do fim de “a cobrar” é a do protótipo, letra por letra (D-07)", () => {
+    expect(DICA_FIM_A_COBRAR).toBe(
+      "“Lançar na Venda” abre o Financeiro com as linhas Queima externa P / M / G já preenchidas. Se as peças são de pessoas diferentes, você divide lá.",
+    );
+  });
+
+  it("a faixa, a não achada e a linha que falta", () => {
+    expect(tituloDaFaixaDasQueimas("biscoito", "18/12", "Forno grande")).toBe(
+      "Das Queimas · Biscoito de 18/12 · Forno grande",
+    );
+    expect(LINHA2_FAIXA_DAS_QUEIMAS).toBe("O que você tirar desta venda continua em “a cobrar”.");
+    expect(FRASE_ORIGEM_QUEIMA_NAO_ACHADA).toBe(
+      "Não achei esta queima. Volte às Queimas e toque em “Lançar na Venda” de novo.",
+    );
+    expect(FRASE_LINHA_DA_QUEIMA_FALTANDO).toBe("Pelo menos uma linha de queima externa precisa continuar na venda.");
   });
 });
