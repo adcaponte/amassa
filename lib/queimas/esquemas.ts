@@ -3,6 +3,9 @@
 // própria. Validação no cliente é conveniência; esta é a que vale (CLAUDE.md §Validação).
 import { z } from "zod";
 
+import { TETO_DO_CONTADOR, totalDaContagem } from "./contagem";
+import { FRASE_CONTAGEM_VAZIA, FRASE_TETO_DO_CONTADOR } from "./textos";
+
 // Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 (`String.length`) —
 // é assim que o `length()` do Postgres conta (`fornos_nome_comprimento`), e os dois divergem
 // para qualquer texto fora do plano básico (emoji, acentos compostos). Mesma disciplina de
@@ -109,3 +112,32 @@ export const esquemaManutencao = z.object({
 });
 
 export type EntradaDeManutencao = z.infer<typeof esquemaManutencao>;
+
+// Fase 06.4 — a contagem opcional de uma queima (QMC-01/QMC-03; BRIEFING §2). Seis contadores
+// inteiros 0..10000 e "o forno saiu cheio". Os tetos são os checks `queima_contagens_*` da 0030 —
+// duas cópias deliberadas (o Zod dá a frase; o check é a barreira se o Zod for contornado): mudar
+// um é mudar os dois, no mesmo commit. Total 0 é recusado (o check `queima_contagens_alguma_peca`):
+// "sem contagem" é a ausência da linha — a tela nunca manda isso (fecha como "Pular").
+//
+// O esquema NÃO aceita vínculo com venda nem quantidade de venda: esses só nascem nas ações de
+// cobrança (planos 04 e 05), sob a trava da queima. `contado_por` vem da sessão, nunca daqui.
+const contador = z
+  .number({ error: FRASE_TETO_DO_CONTADOR })
+  .int({ error: FRASE_TETO_DO_CONTADOR })
+  .min(0, { error: FRASE_TETO_DO_CONTADOR })
+  .max(TETO_DO_CONTADOR, { error: FRASE_TETO_DO_CONTADOR });
+
+export const esquemaContagem = z
+  .object({
+    queimaId: esquemaId,
+    internasP: contador,
+    internasM: contador,
+    internasG: contador,
+    externasP: contador,
+    externasM: contador,
+    externasG: contador,
+    saiuCheio: z.boolean({ error: "Não deu para validar os dados enviados." }),
+  })
+  .refine((dados) => totalDaContagem(dados) > 0, { error: FRASE_CONTAGEM_VAZIA });
+
+export type EntradaDeContagem = z.infer<typeof esquemaContagem>;

@@ -106,6 +106,11 @@ const TABELAS_ESPERADAS = [
   // TABELAS_DA_REMOCAO_ABERTURA. 🔴 EXCEÇÃO DELIBERADA: `amassa_app` MANTÉM o delete nesta tabela
   // (LMB-08, decisão do dono em 02/10/2026) — `conferirLembretes` prova.
   "lembretes",
+  // Fase 06.4 — Queimas: contagem (migração 0030_queimas-contagem). Permanentes; não entram em
+  // TABELAS_DA_REMOCAO_ABERTURA. queima_contagens: uma linha por queima; sem linha = sem
+  // contagem. queima_vendas: uma linha por venda das externas (D-07).
+  "queima_contagens",
+  "queima_vendas",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { NivelDeForno } from "../../lib/queimas/contador";
-import { fraseDoRodape, rotuloDoTipo, textoDoNivel, type TipoDeQueima } from "../../lib/queimas/textos";
+import {
+  fraseAbaixoDoLancado,
+  fraseDoRodape,
+  nomeDasVendas,
+  rotuloDoTipo,
+  textoDoNivel,
+  type TipoDeQueima,
+} from "../../lib/queimas/textos";
 
 describe("textoDoNivel", () => {
   it('"ok" devolve null — nenhum selo aparece nesse nível', () => {
@@ -74,5 +81,28 @@ describe("fraseDoRodape", () => {
     expect(
       fraseDoRodape({ data: "1 jan 2026", responsavel: "Zé", total: 9 }).endsWith("· 9 no total"),
     ).toBe(true);
+  });
+});
+
+// Fase 06.4 — D-07 (várias vendas por queima): os nomes das vendas e a frase do piso.
+describe("nomeDasVendas", () => {
+  it("uma, duas e três vendas", () => {
+    expect(nomeDasVendas([12])).toBe("venda nº 12");
+    expect(nomeDasVendas([12, 15])).toBe("vendas nº 12 e 15");
+    expect(nomeDasVendas([12, 15, 19])).toBe("vendas nº 12, 15 e 19");
+  });
+});
+
+describe("fraseAbaixoDoLancado", () => {
+  it("plural, singular e várias vendas", () => {
+    expect(fraseAbaixoDoLancado("P", 2, [12])).toBe(
+      "Já foram lançadas 2 externas P; para baixar daí, cancele a venda nº 12 no Caixa.",
+    );
+    expect(fraseAbaixoDoLancado("G", 1, [12])).toBe(
+      "Já foi lançada 1 externa G; para baixar daí, cancele a venda nº 12 no Caixa.",
+    );
+    expect(fraseAbaixoDoLancado("P", 3, [12, 15])).toBe(
+      "Já foram lançadas 3 externas P, nas vendas nº 12 e 15; para baixar daí, cancele uma delas no Caixa.",
+    );
   });
 });

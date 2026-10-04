@@ -6,16 +6,23 @@ import { and, count, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { fornos, manutencoes, queimas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
+import { codigoDoErroPostgres, ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 
 import {
   esquemaAtualizacaoDeForno,
+  esquemaContagem,
   esquemaForno,
   esquemaId,
   esquemaManutencao,
   esquemaQueima,
 } from "./esquemas";
-import { FRASE_FALHA_AO_REGISTRAR_QUEIMA } from "./textos";
+import { totalDaContagem } from "./contagem";
+import { gravarContagem, RecusaDasQueimas } from "./gravacao";
+import {
+  FRASE_FALHA_AO_REGISTRAR_QUEIMA,
+  FRASE_FALHA_AO_SALVAR_CONTAGEM,
+  FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
+} from "./textos";
 
 // Mesma forma de `lib/encomendas/acoes.ts` (D-15) — cada módulo redeclara hoje, não há local
 // compartilhado.
@@ -320,4 +327,44 @@ export async function reativarForno(
   revalidatePath("/gestao/queimas");
   revalidatePath("/gestao/queimas/[id]", "page");
   return { ok: true, dados: { id: linha.id } };
+}
+
+// Fase 06.4 — a contagem opcional (QMC-01/QMC-03/QMC-11). A folha "O que queimou?" abre DEPOIS da
+// resposta de `registrarQueima` (que não muda) e chama esta ação ao tocar "Salvar". `exigirUsuario()`
+// é a PRIMEIRA instrução (T-06.4-01); `contado_por` vem da sessão, nunca do navegador; o Zod
+// (`esquemaContagem`) recusa número fora de 0..10000 e total 0; a gravação é `gravarContagem`
+// (`lib/queimas/gravacao.ts`, sem a diretiva de Server Action), sob a trava da linha da QUEIMA, com o
+// piso da D-07 (externas nunca abaixo do já lançado em vendas ativas). A queima desfeita entre a folha
+// abrir e o "Salvar" (o "Desfazer" do aviso — Pitfall 1) vira frase humana, nunca erro cru.
+export async function salvarContagem(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ total: number; criada: boolean }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaContagem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { queimaId, ...contagem } = resultado.data;
+
+  try {
+    const { criada } = await db.transaction((tx) =>
+      gravarContagem(tx, queimaId, contagem, usuario.id),
+    );
+
+    revalidatePath("/gestao/queimas");
+    revalidatePath("/gestao/queimas/[id]", "page");
+    return { ok: true, dados: { total: totalDaContagem(contagem), criada } };
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      return { ok: false, erro: erro.frase };
+    }
+    // A queima sumiu depois da trava? Não pode (a trava a segura) — mas uma FK violada por qualquer
+    // caminho é a mesma situação para quem está na folha.
+    if (ehViolacaoDeChaveEstrangeira(erro)) {
+      return { ok: false, erro: FRASE_QUEIMA_DESFEITA_NADA_CONTADO };
+    }
+    console.error("Falha ao salvar a contagem da queima:", codigoDoErroPostgres(erro), erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR_CONTAGEM };
+  }
 }

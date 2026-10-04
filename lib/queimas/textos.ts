@@ -5,6 +5,7 @@
 // chega já pronta de quem chama — mesma disciplina de `gantt.ts`/`textos.ts` de Encomendas, que
 // duplicam a aritmética de calendário em vez de importar `formato.ts`).
 import type { tipoQueima } from "@/db/schema";
+import type { Tamanho } from "@/lib/queimas/contagem";
 import type { NivelDeForno } from "@/lib/queimas/contador";
 
 export type TipoDeQueima = (typeof tipoQueima.enumValues)[number];
@@ -229,4 +230,89 @@ export function fraseDoRodape({
     : `Última manutenção em ${data}`;
 
   return `${base} · ${totalTexto}`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4 — a folha "O que queimou?" (QMC-01/QMC-03), verbatim da UI-SPEC §Copywriting. O
+// "Salvar" da folha reaproveita `ROTULO_SALVAR`, acima.
+export const TITULO_FOLHA_CONTAGEM = "O que queimou?";
+export const FRASE_FOLHA_OPCIONAL = "opcional — a queima já está registrada.";
+export const ROTULO_INTERNAS = "Internas";
+export const DICA_INTERNAS = "encomenda, produção da casa, aula, uso livre, pintura — queima já inclusa";
+export const ROTULO_EXTERNAS = "Externas";
+export const DICA_EXTERNAS = "peça feita fora do espaço — cobrada por tamanho";
+export const ROTULO_SAIU_CHEIO = "O forno saiu cheio";
+export const DICA_SAIU_CHEIO = "(só as cheias entram na média)";
+export const ROTULO_PULAR = "Pular";
+export const ROTULO_SALVANDO = "Salvando…";
+export const FRASE_QUEIMA_DESFEITA_NADA_CONTADO = "Essa queima foi desfeita — nada foi contado.";
+export const FRASE_FALHA_AO_SALVAR_CONTAGEM =
+  "Não deu para salvar a contagem. Verifique a internet e tente de novo.";
+export const FRASE_TETO_DO_CONTADOR = "Confira o número: cada contador vai até 10.000.";
+export const FRASE_CONTAGEM_VAZIA = "Nenhuma peça contada — nada foi salvo.";
+
+// "Biscoito de 18/12 · opcional — a queima já está registrada." — o nome do forno (com mais de um
+// forno) e a régua entram no plano 02. `diaMes` chega pronto ("18/12", `lib/queimas/contagem.ts`).
+export function subtituloDaFolha(tipo: TipoDeQueima, diaMes: string): string {
+  return `${rotuloDoTipo(tipo)} de ${diaMes} · ${FRASE_FOLHA_OPCIONAL}`;
+}
+
+// Plural de verdade, nunca "(s)".
+function pecas(total: number): string {
+  return total === 1 ? "1 peça" : `${total} peças`;
+}
+
+export function resumoDaContagem(total: number): string {
+  return total === 0 ? "nenhuma peça" : pecas(total);
+}
+
+export function toastContagemSalva(total: number): string {
+  return `Contagem salva: ${pecas(total)}.`;
+}
+
+export type GrupoDoContador = "internas" | "externas";
+
+// "Uma interna P a mais" / "Uma externa G a menos".
+export function ariaPassoDoContador(
+  grupo: GrupoDoContador,
+  tamanho: Tamanho,
+  sentido: "mais" | "menos",
+): string {
+  const nome = grupo === "internas" ? "interna" : "externa";
+  return `Uma ${nome} ${tamanho} a ${sentido}`;
+}
+
+// "Internas P, quantidade".
+export function ariaCampoDoContador(grupo: GrupoDoContador, tamanho: Tamanho): string {
+  const nome = grupo === "internas" ? ROTULO_INTERNAS : ROTULO_EXTERNAS;
+  return `${nome} ${tamanho}, quantidade`;
+}
+
+// D-07 — "venda nº 12" / "vendas nº 12 e 15" / "vendas nº 12, 15 e 19".
+export function nomeDasVendas(numeros: readonly number[]): string {
+  if (numeros.length === 0) {
+    return "venda";
+  }
+  if (numeros.length === 1) {
+    return `venda nº ${numeros[0]}`;
+  }
+  const iniciais = numeros.slice(0, -1).join(", ");
+  return `vendas nº ${iniciais} e ${numeros[numeros.length - 1]}`;
+}
+
+// D-07 — o piso: baixar as externas de um tamanho abaixo do já lançado em vendas ATIVAS é recusado.
+// `numerosDasVendas` são os das vendas ativas que têm aquele tamanho.
+export function fraseAbaixoDoLancado(
+  tamanho: Tamanho,
+  lancado: number,
+  numerosDasVendas: readonly number[],
+): string {
+  const inicio =
+    lancado === 1
+      ? `Já foi lançada 1 externa ${tamanho}`
+      : `Já foram lançadas ${lancado} externas ${tamanho}`;
+  if (numerosDasVendas.length <= 1) {
+    return `${inicio}; para baixar daí, cancele a ${nomeDasVendas(numerosDasVendas)} no Caixa.`;
+  }
+  return `${inicio}, nas ${nomeDasVendas(numerosDasVendas)}; para baixar daí, cancele uma delas no Caixa.`;
 }

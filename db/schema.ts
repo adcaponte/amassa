@@ -677,7 +677,9 @@ export const itensCatalogo = pgTable(
     unique("itens_catalogo_chave_do_sistema_uk").on(tabela.chaveDoSistema),
     check(
       "itens_catalogo_chave_do_sistema_valida",
-      sql`${tabela.chaveDoSistema} is null or ${tabela.chaveDoSistema} in ('mensalidade','inscricao_oficina','uso_livre_hora')`,
+      // Fase 06.4 (0030, D-05): as três chaves das Queimas entram depois das três da Agenda — a
+      // lista só cresce, nada que valia passa a ser recusado.
+      sql`${tabela.chaveDoSistema} is null or ${tabela.chaveDoSistema} in ('mensalidade','inscricao_oficina','uso_livre_hora','queima_externa_p','queima_externa_m','queima_externa_g')`,
     ),
     check("itens_catalogo_nome_comprimento", sql`length(trim(${tabela.nome})) between 1 and 120`),
     check(
@@ -1052,6 +1054,8 @@ export const parametrosPrecificacao = pgTable(
   },
   (tabela) => [
     unique("parametros_precificacao_chave_vigencia_uk").on(tabela.chave, tabela.vigenteDesde),
+    // Fase 06.4 (0030, D-03): + as duas chaves da régua P · M · G das Queimas, depois das 18 da
+    // 0019 — a lista só cresce.
     check(
       "parametros_precificacao_chave_valida",
       sql`${tabela.chave} in (
@@ -1059,7 +1063,8 @@ export const parametrosPrecificacao = pgTable(
         'forno_kwh_biscoito','forno_kwh_esmalte','forno_largura_util','forno_profundidade_util',
         'forno_altura_util','forno_folga_entre_pecas','forno_prateleira_e_pilar',
         'forno_fator_biscoito','forno_desgaste_por_fornada','perda_unica','preco_lucro',
-        'preco_folga_negociacao','preco_imposto_sobre_venda','preco_comissao_galeria'
+        'preco_folga_negociacao','preco_imposto_sobre_venda','preco_comissao_galeria',
+        'queima_regua_p_ate','queima_regua_m_ate'
       )`,
     ),
     check(
@@ -2328,5 +2333,89 @@ export const lembretes = pgTable(
     ),
     // BRIEFING §4: a lista lê "abertos" (`feito_em is null`) na ordem de `para_quando`.
     index("lembretes_feito_em_para_quando_idx").on(tabela.feitoEm, tabela.paraQuando),
+  ],
+);
+
+// Fase 06.4 — Queimas: contagem (BRIEFING §2 e §6; migração 0030_queimas-contagem). O "o que
+// queimou" opcional de cada queima: seis contadores inteiros ≥ 0 (Internas P · M · G, Externas
+// P · M · G) e "o forno saiu cheio" (marcado por padrão). UMA linha por queima — a PK é a própria
+// queima —, e a AUSÊNCIA da linha é o estado "sem contagem", válido e permanente ("Pular" não perde
+// nada). A Queima NÃO guarda de quem é a peça: nenhuma coluna de cliente, ordem, encomenda ou aula
+// (a Produção e a Agenda já sabem; aqui o que importa é o tamanho). E nada de "pago" fora do Caixa:
+// nenhuma coluna de pagamento nem de venda nesta tabela — a situação das externas é DERIVADA das
+// vendas ligadas em `queima_vendas`, abaixo.
+//
+// Os tetos (0..10000 por contador) e o "alguma peça" são os MESMOS de `esquemaContagem`
+// (`lib/queimas/esquemas.ts`): o Zod dá a frase; o check é a barreira se o Zod for contornado.
+// Mudar um é mudar os dois, no mesmo commit. Apagar a queima leva a contagem (cascade).
+export const queimaContagens = pgTable(
+  "queima_contagens",
+  {
+    queimaId: uuid("queima_id")
+      .primaryKey()
+      .references(() => queimas.id, { onDelete: "cascade" }),
+    internasP: integer("internas_p").notNull().default(0),
+    internasM: integer("internas_m").notNull().default(0),
+    internasG: integer("internas_g").notNull().default(0),
+    externasP: integer("externas_p").notNull().default(0),
+    externasM: integer("externas_m").notNull().default(0),
+    externasG: integer("externas_g").notNull().default(0),
+    saiuCheio: boolean("saiu_cheio").notNull().default(true),
+    contadoPor: uuid("contado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("queima_contagens_internas_p_faixa", sql`${tabela.internasP} between 0 and 10000`),
+    check("queima_contagens_internas_m_faixa", sql`${tabela.internasM} between 0 and 10000`),
+    check("queima_contagens_internas_g_faixa", sql`${tabela.internasG} between 0 and 10000`),
+    check("queima_contagens_externas_p_faixa", sql`${tabela.externasP} between 0 and 10000`),
+    check("queima_contagens_externas_m_faixa", sql`${tabela.externasM} between 0 and 10000`),
+    check("queima_contagens_externas_g_faixa", sql`${tabela.externasG} between 0 and 10000`),
+    // "Sem contagem" é a ausência da linha — uma linha com tudo zero não faz sentido.
+    check(
+      "queima_contagens_alguma_peca",
+      sql`${tabela.internasP} + ${tabela.internasM} + ${tabela.internasG} + ${tabela.externasP} + ${tabela.externasM} + ${tabela.externasG} > 0`,
+    ),
+  ],
+);
+
+// Fase 06.4 — as vendas das externas de uma queima (D-07, decisão do dono em 04/10/2026: várias
+// vendas por queima, uma por pessoa). Uma queima tem VÁRIAS vendas, cada uma com a SUA quantidade
+// por tamanho (as peças de uma pessoa juntas, nunca uma venda por peça como regra); a PK no
+// `documento_id` faz cada venda pertencer a UMA queima só. Sem `on delete` para `documentos`
+// (molde `mensalidades.documento_id`): venda não se apaga, cancela. `queima_id` aponta a CONTAGEM,
+// com cascade — não há vínculo sem contagem, e apagar a queima leva contagem e vínculos, enquanto
+// as vendas continuam no Caixa.
+//
+// O que está lançado é DERIVADO, nada de situação guardada: só as vendas não canceladas somam —
+// venda cancelada no Caixa devolve a quantidade dela a "a cobrar" (o princípio da D-08 da Agenda).
+// O piso "Σ das vendas ativas ≤ externas da contagem, por tamanho" NÃO é check (é entre tabelas):
+// mora em `lib/queimas/gravacao.ts`, sob a trava da linha da QUEIMA. Sem `atualizado_em`: o
+// vínculo só nasce (insert), nunca é editado; some só pelo cascade.
+export const queimaVendas = pgTable(
+  "queima_vendas",
+  {
+    documentoId: uuid("documento_id")
+      .primaryKey()
+      .references(() => documentos.id),
+    queimaId: uuid("queima_id")
+      .notNull()
+      .references(() => queimaContagens.queimaId, { onDelete: "cascade" }),
+    quantidadeP: integer("quantidade_p").notNull().default(0),
+    quantidadeM: integer("quantidade_m").notNull().default(0),
+    quantidadeG: integer("quantidade_g").notNull().default(0),
+    lancadoPor: uuid("lancado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    check("queima_vendas_p_faixa", sql`${tabela.quantidadeP} between 0 and 10000`),
+    check("queima_vendas_m_faixa", sql`${tabela.quantidadeM} between 0 and 10000`),
+    check("queima_vendas_g_faixa", sql`${tabela.quantidadeG} between 0 and 10000`),
+    check(
+      "queima_vendas_alguma_peca",
+      sql`${tabela.quantidadeP} + ${tabela.quantidadeM} + ${tabela.quantidadeG} > 0`,
+    ),
+    index("queima_vendas_queima_idx").on(tabela.queimaId),
   ],
 );
