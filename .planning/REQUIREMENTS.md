@@ -237,17 +237,17 @@
 > copiados para `.planning/phases/06.4-queimas-contagem/`. O protótipo vence sobre a interface; o briefing
 > vence sobre regra de dado. Os pontos da §7 ficam para a discussão (em itálico). Acréscimo à Fase 4 (FOR-*).
 
-- [ ] **QMC-01**: 🔴 O registro em dois toques **não fica mais lento** (Queimar → tipo → gravado); a contagem abre em seguida como passo **opcional**, com "Pular" (§1)
-- [ ] **QMC-02**: Queima sem contagem é estado válido e permanente; entra na lista **"Sem contagem"** com "Contar agora"; a contagem se corrige depois pelo Histórico (§1, §6)
-- [ ] **QMC-03**: **Seis contadores** — Internas P·M·G e Externas P·M·G, inteiros ≥ 0 — e **"o forno saiu cheio"**, marcado por padrão; a Queima não guarda de quem é a peça interna (§2, §6) — *ouro usa os mesmos contadores? discussão (§7.2)*
-- [ ] **QMC-04**: Régua **P até 10 cm · M de 10 a 25 cm · G maior que 25 cm**, uma só para internas e externas, **editável**, guardada junto dos parâmetros (§2) — *onde fica editável: discussão (§7.4)*
-- [ ] **QMC-05**: **"Repetir a última"** copia a contagem da última fornada contada do mesmo tipo (§3)
-- [ ] **QMC-06**: Chips das **ordens da Produção esperando esta queima** ("+16 · Canecas para a loja"): um toque soma as peças pendentes no contador **interno** do tamanho deduzido das medidas da ficha pela régua; **só leitura — não escreve nada na Produção** (§3)
-- [ ] **QMC-07**: Fornada com externas entra em **"Queimas externas a cobrar"** com o valor dos itens **"Queima externa P / M / G" do Catálogo** (nenhum preço no código) (§4)
-- [ ] **QMC-08**: **"Lançar na Venda"** abre a Venda preenchida com as linhas e quantidades; **"Recebi agora"** pergunta a forma e cria a Venda já paga no Caixa; a queima guarda se as externas foram cobradas e o vínculo com a venda; nada de "pago" fora do Caixa (§4, ajuste de 26/09)
-- [ ] **QMC-09**: Números: **queimas por tipo** (biscoito · esmalte · ouro) desde a última manutenção e no mês; o cartão do forno fica com "Contagem: N queimas até a manutenção." (§5)
-- [ ] **QMC-10**: **Peças por fornada cheia** — média no biscoito e no esmalte com o **mix por tamanho** e o **fator do biscoito medido**, com aviso de poucas fornadas cheias; levar o número aos Parâmetros continua **manual**; e **o que o forno queimou**, internas × externas em P·M·G, só visão (§5) — *por forno: discussão (§7.1)*
-- [ ] **QMC-11**: Apagar uma queima leva a contagem junto e a confirmação diz isso; regras (régua, médias, fator, valor da cobrança) em **módulo puro `lib/queimas/`** testado; Server Actions com `exigirUsuario()` e Zod; migração com `TABELAS_ESPERADAS` (§6)
+- [x] **QMC-01**: 🔴 O registro em dois toques **não fica mais lento** (Queimar → tipo → gravado); a contagem abre em seguida como passo **opcional**, com "Pular" (§1)
+- [x] **QMC-02**: Queima sem contagem é estado válido e permanente; entra na lista **"Sem contagem"** com "Contar agora"; a contagem se corrige depois pelo Histórico (§1, §6)
+- [x] **QMC-03**: **Seis contadores** — Internas P·M·G e Externas P·M·G, inteiros ≥ 0 — e **"o forno saiu cheio"**, marcado por padrão; a Queima não guarda de quem é a peça interna (§2, §6) — *ouro usa os mesmos contadores? discussão (§7.2)*
+- [x] **QMC-04**: Régua **P até 10 cm · M de 10 a 25 cm · G maior que 25 cm**, uma só para internas e externas, **editável**, guardada junto dos parâmetros (§2) — *onde fica editável: discussão (§7.4)*
+- [x] **QMC-05**: **"Repetir a última"** copia a contagem da última fornada contada do mesmo tipo (§3)
+- [x] **QMC-06**: Chips das **ordens da Produção esperando esta queima** ("+16 · Canecas para a loja"): um toque soma as peças pendentes no contador **interno** do tamanho deduzido das medidas da ficha pela régua; **só leitura — não escreve nada na Produção** (§3)
+- [x] **QMC-07**: Fornada com externas entra em **"Queimas externas a cobrar"** com o valor dos itens **"Queima externa P / M / G" do Catálogo** (nenhum preço no código) (§4)
+- [x] **QMC-08**: **"Lançar na Venda"** abre a Venda preenchida com as linhas e quantidades; **"Recebi agora"** pergunta a forma e cria a Venda já paga no Caixa; a queima guarda se as externas foram cobradas e o vínculo com a venda; nada de "pago" fora do Caixa (§4, ajuste de 26/09)
+- [x] **QMC-09**: Números: **queimas por tipo** (biscoito · esmalte · ouro) desde a última manutenção e no mês; o cartão do forno fica com "Contagem: N queimas até a manutenção." (§5)
+- [x] **QMC-10**: **Peças por fornada cheia** — média no biscoito e no esmalte com o **mix por tamanho** e o **fator do biscoito medido**, com aviso de poucas fornadas cheias; levar o número aos Parâmetros continua **manual**; e **o que o forno queimou**, internas × externas em P·M·G, só visão (§5) — *por forno: discussão (§7.1)*
+- [x] **QMC-11**: Apagar uma queima leva a contagem junto e a confirmação diz isso; regras (régua, médias, fator, valor da cobrança) em **módulo puro `lib/queimas/`** testado; Server Actions com `exigirUsuario()` e Zod; migração com `TABELAS_ESPERADAS` (§6)
 
 ### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
 
@@ -753,17 +753,17 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | LMB-07 | Phase 06.3 — Lembretes | Complete |
 | LMB-08 | Phase 06.3 — Lembretes | Complete |
 | LMB-09 | Phase 06.3 — Lembretes | Complete |
-| QMC-01 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-02 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-03 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-04 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-05 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-06 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-07 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-08 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-09 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-10 | Phase 06.4 — Queimas contagem | Pending |
-| QMC-11 | Phase 06.4 — Queimas contagem | Pending |
+| QMC-01 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-02 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-03 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-04 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-05 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-06 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-07 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-08 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-09 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-10 | Phase 06.4 — Queimas contagem | Complete |
+| QMC-11 | Phase 06.4 — Queimas contagem | Complete |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
