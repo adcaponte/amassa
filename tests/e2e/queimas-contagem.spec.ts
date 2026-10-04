@@ -1,8 +1,9 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import { idDoUsuarioDoTeste } from "./apoio/semear-fornecedores";
 import {
+  apagarQueimaNoBanco,
   contarContagens,
   lerContagem,
   pularContagem,
@@ -195,5 +196,206 @@ test.describe("sem contagem", () => {
 
     expect(await contarContagens(id)).toBe(0);
     await expect(linha).toBeVisible();
+  });
+});
+
+// Registra uma queima pelo cartão (dois toques) e devolve o id da folha que abriu.
+async function registrarEAbrirFolha(
+  page: Page,
+  cartao: Locator,
+  tipo: "biscoito" | "esmalte" | "ouro" = "biscoito",
+): Promise<string> {
+  await cartao.scrollIntoViewIfNeeded();
+  await cartao.getByRole("button", { name: "Queimar" }).click();
+  await cartao.getByTestId(`tipo-queima-${tipo}`).click();
+  const folha = page.getByTestId("folha-contagem");
+  await expect(folha).toBeVisible({ timeout: 5000 });
+  return (await folha.getAttribute("data-queima-id")) ?? "";
+}
+
+test.describe("contagem — aviso e folha", () => {
+  test("salvar dentro dos 7 s atualiza o mesmo aviso, e Desfazer leva a contagem junto", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await folha.getByTestId("contagem-salvar").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+
+    // UM aviso só — o do registro, atualizado no lugar —, nunca um segundo empilhado.
+    const avisosDaQueima = page
+      .locator("[data-sonner-toast]")
+      .filter({ hasText: /Queima registrada\.|Contagem salva/ });
+    await expect(avisosDaQueima).toHaveCount(1);
+    await expect(avisosDaQueima).toContainText("Contagem salva: 1 peça.");
+    const desfazer = avisosDaQueima.locator("button", { hasText: "Desfazer" });
+    await expect(desfazer).toBeVisible();
+
+    await desfazer.click();
+    await expect(page.getByText("Queima desfeita — a contagem foi junto.")).toBeVisible({
+      timeout: 5000,
+    });
+    await expect.poll(() => ultimaQueimaDoForno(nome), { timeout: 10000 }).toBeNull();
+    expect(await lerContagem(id)).toBeNull();
+  });
+
+  test("Esc não fecha com mudança e fecha sem", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+
+    // Nada mexido: Esc fecha.
+    await page.keyboard.press("Escape");
+    await expect(folha).toBeHidden({ timeout: 5000 });
+
+    // Pela lista "Sem contagem": um "+" e Esc não fecha — o segundo "+" ainda acha a folha.
+    const linha = linhaSemContagem(page, id);
+    await expect(linha).toBeVisible({ timeout: 10000 });
+    await linha.getByTestId("contar-agora").click();
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await page.keyboard.press("Escape");
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await expect(folha.getByTestId("contador-internas-p")).toHaveValue("2");
+    await expect(folha).toBeVisible();
+
+    // "Pular" fecha sempre, sem gravar.
+    await pularContagem(page);
+    expect(await contarContagens(id)).toBe(0);
+  });
+
+  test("ouro não tem saiu cheio e grava cheio", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEAbrirFolha(page, cartaoDoForno(page, nome), "ouro");
+    const folha = page.getByTestId("folha-contagem");
+
+    await expect(folha.getByTestId("contador-externas-g")).toBeVisible();
+    await expect(folha.getByTestId("contagem-saiu-cheio")).toHaveCount(0);
+    await folha.getByTestId("contador-internas-m-mais").click();
+    await folha.getByTestId("contagem-salvar").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+
+    await expect.poll(async () => (await lerContagem(id))?.saiu_cheio, { timeout: 10000 }).toBe(true);
+    expect((await lerContagem(id))?.internas_m).toBe(1);
+  });
+
+  test("a régua vigente aparece na folha", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+
+    // A régua da semente da 0030 (este teste não muda a régua).
+    await expect(folha.getByTestId("contagem-regua")).toContainText(
+      "P até 10 cm · M de 10 a 25 cm · G maior que 25 cm",
+    );
+    await expect(folha.getByText("maior que 25 cm", { exact: true })).toHaveCount(2);
+    await expect(folha.getByText("até 10 cm", { exact: true })).toHaveCount(2);
+    await pularContagem(page);
+  });
+
+  test("320 px: sem rolagem de lado, e Pular e Salvar juntos com 44 px", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+
+    const larguras = await page.evaluate(() => ({
+      rolagem: document.documentElement.scrollWidth,
+      tela: document.documentElement.clientWidth,
+    }));
+    expect(larguras.rolagem).toBeLessThanOrEqual(larguras.tela);
+
+    const pular = await folha.getByTestId("contagem-pular").boundingBox();
+    const salvar = await folha.getByTestId("contagem-salvar").boundingBox();
+    expect(pular?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(salvar?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(Math.abs((pular?.y ?? 0) - (salvar?.y ?? -100))).toBeLessThan(1);
+    await pularContagem(page);
+  });
+
+  test("queima apagada com a folha aberta: Salvar diz que foi desfeita e fecha", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+
+    await apagarQueimaNoBanco(id);
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await folha.getByTestId("contagem-salvar").click();
+
+    await expect(page.getByText("Essa queima foi desfeita — nada foi contado.")).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(folha).toBeHidden();
+    expect(await contarContagens(id)).toBe(0);
+  });
+
+  test("sem rede os números ficam na folha", async ({ page, context }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+    // O refresh do registro já chegou antes de cortar a rede.
+    await expect(cartaoDoForno(page, nome).getByTestId("medidor-contador")).toContainText("1 / 50", {
+      timeout: 10000,
+    });
+
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await context.setOffline(true);
+    try {
+      await folha.getByTestId("contagem-salvar").click();
+      await expect(folha.getByTestId("contagem-erro")).toHaveText(
+        "Não deu para salvar a contagem. Verifique a internet e tente de novo.",
+        { timeout: 10000 },
+      );
+      await expect(folha.getByTestId("contagem-erro")).toHaveAttribute("role", "alert");
+      await expect(folha.getByTestId("contador-internas-p")).toHaveValue("1");
+    } finally {
+      await context.setOffline(false);
+    }
+    await pularContagem(page);
+    expect(await contarContagens(id)).toBe(0);
+  });
+
+  test("o teto corta em 10.000", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+    const folha = page.getByTestId("folha-contagem");
+    const campo = folha.getByTestId("contador-internas-p");
+
+    // Digitado, não passa de 5 dígitos.
+    await campo.click();
+    await campo.pressSequentially("999999");
+    await expect(campo).toHaveValue("99999");
+
+    // 10001 vira 10000 ao sair; o "+" fica desabilitado no teto, o "−" em 0.
+    await campo.fill("10001");
+    await campo.blur();
+    await expect(campo).toHaveValue("10000");
+    await expect(folha.getByTestId("contador-internas-p-mais")).toBeDisabled();
+    await expect(folha.getByTestId("contador-internas-m-menos")).toBeDisabled();
+
+    // Vazio vira 0 ao sair.
+    await campo.fill("");
+    await campo.blur();
+    await expect(campo).toHaveValue("0");
+    await pularContagem(page);
   });
 });

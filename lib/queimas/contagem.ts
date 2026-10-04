@@ -213,3 +213,27 @@ export function janelaSemContagem<T extends { id: string; ocorridaEm: string; di
     .slice(0, TETO_DA_LISTA_SEM_CONTAGEM);
   return { visiveis, maisAntigas: Math.max(0, totalSemContagem - visiveis.length) };
 }
+
+// ---------------------------------------------------------------------------------------------
+// A régua P · M · G (QMC-04, D-03) — lida de `parametros_precificacao` (`queima_regua_p_ate`,
+// `queima_regua_m_ate`) na escala do catálogo de parâmetros: cm × 1000 (10 cm = 10000). Nenhum
+// número da régua é escrito no código: a folha mostra a régua VIGENTE.
+export type Regua = { pAte: number; mAte: number };
+
+// 10000 → "10"; 12500 → "12,5"; 12345 → "12,345" — até três casas, vírgula, sem zero à direita.
+export function cmDaRegua(valor: number): string {
+  const inteiro = Math.trunc(valor / 1000);
+  const resto = Math.abs(valor % 1000);
+  if (resto === 0) {
+    return String(inteiro);
+  }
+  return `${inteiro},${String(resto).padStart(3, "0").replace(/0+$/, "")}`;
+}
+
+// Os seis números e a caixa iguais — a folha só fecha por Esc ou toque fora quando nada foi mexido
+// desde a abertura (UI-D18).
+export function mesmaContagem(a: Contagem, b: Contagem): boolean {
+  return (
+    CHAVES_DOS_CONTADORES.every((chave) => a[chave] === b[chave]) && a.saiuCheio === b.saiuCheio
+  );
+}

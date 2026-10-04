@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { NivelDeForno } from "../../lib/queimas/contador";
 import {
+  faixasDaRegua,
   fraseAbaixoDoLancado,
+  fraseDaReguaNaFolha,
   fraseDoRodape,
   nomeDasVendas,
   rotuloDoTipo,
+  subtituloDaFolha,
   textoDoNivel,
   type TipoDeQueima,
 } from "../../lib/queimas/textos";
@@ -103,6 +106,38 @@ describe("fraseAbaixoDoLancado", () => {
     );
     expect(fraseAbaixoDoLancado("P", 3, [12, 15])).toBe(
       "Já foram lançadas 3 externas P, nas vendas nº 12 e 15; para baixar daí, cancele uma delas no Caixa.",
+    );
+  });
+});
+
+// Plano 06.4-02, Tarefa 2 — a régua vigente e o forno na folha.
+describe("a régua na folha", () => {
+  const REGUA = { pAte: 10000, mAte: 25000 };
+
+  it("fraseDaReguaNaFolha usa os números da régua, verbatim do protótipo", () => {
+    expect(fraseDaReguaNaFolha(REGUA)).toBe(
+      "Contar, não medir: P até 10 cm · M de 10 a 25 cm · G maior que 25 cm, no olho.",
+    );
+    expect(fraseDaReguaNaFolha({ pAte: 12500, mAte: 30000 })).toBe(
+      "Contar, não medir: P até 12,5 cm · M de 12,5 a 30 cm · G maior que 30 cm, no olho.",
+    );
+  });
+
+  it("faixasDaRegua dá a faixa de cada tamanho", () => {
+    expect(faixasDaRegua(REGUA)).toEqual({ P: "até 10 cm", M: "10 a 25 cm", G: "maior que 25 cm" });
+  });
+});
+
+describe("subtituloDaFolha", () => {
+  it("com o forno (mais de um forno na casa)", () => {
+    expect(subtituloDaFolha("biscoito", "18/12", "Forno grande")).toBe(
+      "Biscoito de 18/12 · Forno grande · opcional — a queima já está registrada.",
+    );
+  });
+
+  it("sem o forno (um forno só)", () => {
+    expect(subtituloDaFolha("esmalte", "03/01", null)).toBe(
+      "Esmalte de 03/01 · opcional — a queima já está registrada.",
     );
   });
 });

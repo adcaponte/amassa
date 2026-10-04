@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { excluirQueima, registrarQueima } from "@/lib/queimas/acoes";
+import type { DadosDaFolha } from "@/lib/queimas/consultas";
 import {
   FRASE_FALHA_AO_DESFAZER,
   ROTULO_DESFAZER,
   ROTULO_QUEIMAR,
   TOAST_QUEIMA_DESFEITA,
+  TOAST_QUEIMA_DESFEITA_COM_CONTAGEM,
   TOAST_QUEIMA_REGISTRADA,
   rotuloDoTipo,
+  toastContagemSalva,
   type TipoDeQueima,
 } from "@/lib/queimas/textos";
 import { Button } from "@/components/ui/button";
@@ -24,7 +27,18 @@ const TIPOS_EM_ORDEM: readonly TipoDeQueima[] = ["biscoito", "esmalte", "ouro"];
 
 export type RegistrarQueimaProps = {
   fornoId: string;
+  nomeDoForno: string;
+  // `null` = os dados da folha não carregaram: o registro segue como na Fase 4 (só o aviso com
+  // "Desfazer"), a folha não abre e a queima cai em "Sem contagem" (UI-D19).
+  dadosDaFolha: DadosDaFolha | null;
 };
+
+// O aviso do registro, por registro: o `id` do sonner (para ATUALIZAR o aviso no lugar), se ele ainda
+// está na tela ("vivo" = não fechou — os callbacks `onAutoClose`/`onDismiss` do sonner o marcam; nenhum
+// relógio próprio) e se a contagem foi salva (o "Desfazer" escolhe a frase por isso).
+type AvisoDoRegistro = { id: string | number; queimaId: string; vivo: boolean; contada: boolean };
+
+const DURACAO_DO_DESFAZER = 7000;
 
 // D-04, o fluxo mais usado do sistema inteiro: dois toques — "Queimar" no cartão, depois o
 // tipo — sem formulário, sem campo, sem confirmação (proibição deste plano). Divergência
@@ -41,11 +55,17 @@ export type RegistrarQueimaProps = {
 // `setSeletorAberto(false)` e o `router.refresh()` logo depois do registro não a desmontam
 // (Pitfall 2). O "Desfazer" do aviso continua tocável com a folha aberta e, ao dar certo, fecha a
 // folha sem gravar nada (UI-D12).
-export function RegistrarQueima({ fornoId }: RegistrarQueimaProps) {
+//
+// Plano 02 (UI-D12 item 4): "Salvar" com o aviso do registro ainda vivo ATUALIZA esse aviso no lugar
+// (mesmo `id`) para "Contagem salva: …", com o MESMO "Desfazer" e 7 s contados do salvar — nunca um
+// segundo aviso empilhado escondendo o primeiro (o WR-01 da 06.3). Aviso já fechado → aviso novo, de
+// 5 s, sem ação. O "Desfazer" depois disso apaga a queima e o cascade leva a contagem.
+export function RegistrarQueima({ fornoId, nomeDoForno, dadosDaFolha }: RegistrarQueimaProps) {
   const router = useRouter();
   const [seletorAberto, setSeletorAberto] = useState(false);
   const [pendente, setPendente] = useState(false);
   const [folha, setFolha] = useState<QueimaParaContar | null>(null);
+  const avisoDoRegistro = useRef<AvisoDoRegistro | null>(null);
 
   async function registrar(tipo: TipoDeQueima) {
     setPendente(true);
@@ -68,23 +88,34 @@ export function RegistrarQueima({ fornoId }: RegistrarQueimaProps) {
 
     // Os 7 segundos são a única exceção aos 5s do resto do sistema — ali o aviso não é
     // informativo, é uma janela de ação (04-DESIGN-SYSTEM.md §7).
-    toast.success(TOAST_QUEIMA_REGISTRADA, {
-      duration: 7000,
+    const aviso: AvisoDoRegistro = { id: 0, queimaId: id, vivo: true, contada: false };
+    const morreu = () => {
+      aviso.vivo = false;
+    };
+    aviso.id = toast.success(TOAST_QUEIMA_REGISTRADA, {
+      duration: DURACAO_DO_DESFAZER,
       action: {
         label: ROTULO_DESFAZER,
         onClick: () => {
-          void desfazer(id);
+          void desfazer(id, aviso);
         },
       },
+      onAutoClose: morreu,
+      onDismiss: morreu,
     });
+    avisoDoRegistro.current = aviso;
 
-    // Depois da resposta e do aviso, antes do refresh: a folha abre com o que a ação já devolveu.
-    setFolha({ id, tipo, ocorridaEm });
+    // Depois da resposta e do aviso, antes do refresh: a folha abre com o que a ação já devolveu —
+    // só se os dados dela carregaram (UI-D19).
+    if (dadosDaFolha !== null) {
+      setFolha({ id, tipo, ocorridaEm });
+    }
 
     router.refresh();
   }
 
-  async function desfazer(idDaQueima: string) {
+  async function desfazer(idDaQueima: string, aviso: AvisoDoRegistro) {
+    aviso.vivo = false;
     const resposta = await excluirQueima(idDaQueima);
 
     if (!resposta.ok) {
@@ -94,15 +125,44 @@ export function RegistrarQueima({ fornoId }: RegistrarQueimaProps) {
       return;
     }
 
-    // A queima sumiu: a folha (se aberta) fecha sem gravar nada.
+    // A queima sumiu: a folha (se aberta) fecha sem gravar nada; com a contagem salva, o cascade da
+    // 0030 a levou junto — o aviso diz.
     setFolha(null);
-    toast.success(TOAST_QUEIMA_DESFEITA);
+    toast.success(aviso.contada ? TOAST_QUEIMA_DESFEITA_COM_CONTAGEM : TOAST_QUEIMA_DESFEITA);
     router.refresh();
   }
 
-  const folhaDaContagem = (
-    <FolhaContagem queima={folha} aoFechar={() => setFolha(null)} />
-  );
+  // A contagem foi salva pela folha aberta logo depois do registro.
+  function contagemSalva({ total }: { total: number; criada: boolean }) {
+    const aviso = avisoDoRegistro.current;
+    if (aviso === null || !aviso.vivo || aviso.queimaId !== folha?.id) {
+      toast.success(toastContagemSalva(total));
+      return;
+    }
+    aviso.contada = true;
+    const idDaQueima = aviso.queimaId;
+    toast.success(toastContagemSalva(total), {
+      id: aviso.id,
+      duration: DURACAO_DO_DESFAZER,
+      action: {
+        label: ROTULO_DESFAZER,
+        onClick: () => {
+          void desfazer(idDaQueima, aviso);
+        },
+      },
+    });
+  }
+
+  const folhaDaContagem =
+    dadosDaFolha === null ? null : (
+      <FolhaContagem
+        queima={folha}
+        aoFechar={() => setFolha(null)}
+        dados={dadosDaFolha}
+        nomeDoForno={nomeDoForno}
+        aoSalvar={contagemSalva}
+      />
+    );
 
   if (!seletorAberto) {
     return (

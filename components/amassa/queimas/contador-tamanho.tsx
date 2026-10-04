@@ -13,7 +13,7 @@ import {
 export type ContadorTamanhoProps = {
   grupo: GrupoDoContador;
   tamanho: Tamanho;
-  // "até 10 cm" — a régua entra no plano 02; sem faixa, só o tamanho.
+  // A faixa da régua VIGENTE ("até {p} cm"), montada pela folha (`faixasDaRegua`); sem faixa, só o tamanho.
   faixa?: string;
   valor: number;
   aoMudar: (valor: number) => void;

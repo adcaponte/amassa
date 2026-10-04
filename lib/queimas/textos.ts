@@ -4,8 +4,13 @@
 // nenhuma função de `lib/queimas/formato.ts` (a formatação de data usada em `fraseDoRodape`
 // chega já pronta de quem chama — mesma disciplina de `gantt.ts`/`textos.ts` de Encomendas, que
 // duplicam a aritmética de calendário em vez de importar `formato.ts`).
+//
+// Exceção deliberada (Fase 06.4, plano 02): as funções de `lib/queimas/contagem.ts` entram como
+// VALOR — aquele módulo é puro e não importa nada (nem tipo), então trazê-lo não traz React, banco
+// nem relógio; e a régua em cm (`cmDaRegua`) e o resumo "P · M · G" (`resumoPmg`) têm de ser a MESMA
+// conta na folha, nas frases e nos chips, nunca duas cópias.
 import type { tipoQueima } from "@/db/schema";
-import type { Tamanho } from "@/lib/queimas/contagem";
+import { cmDaRegua, type Regua, type Tamanho } from "@/lib/queimas/contagem";
 import type { NivelDeForno } from "@/lib/queimas/contador";
 
 export type TipoDeQueima = (typeof tipoQueima.enumValues)[number];
@@ -251,11 +256,39 @@ export const FRASE_FALHA_AO_SALVAR_CONTAGEM =
 export const FRASE_TETO_DO_CONTADOR = "Confira o número: cada contador vai até 10.000.";
 export const FRASE_CONTAGEM_VAZIA = "Nenhuma peça contada — nada foi salvo.";
 
-// "Biscoito de 18/12 · opcional — a queima já está registrada." — o nome do forno (com mais de um
-// forno) e a régua entram no plano 02. `diaMes` chega pronto ("18/12", `lib/queimas/contagem.ts`).
-export function subtituloDaFolha(tipo: TipoDeQueima, diaMes: string): string {
-  return `${rotuloDoTipo(tipo)} de ${diaMes} · ${FRASE_FOLHA_OPCIONAL}`;
+// "Biscoito de 18/12 · opcional — a queima já está registrada." e, com mais de um forno na casa
+// (UI-D15), "Biscoito de 18/12 · Forno grande · opcional — …". `diaMes` chega pronto ("18/12",
+// `lib/queimas/contagem.ts`).
+export function subtituloDaFolha(
+  tipo: TipoDeQueima,
+  diaMes: string,
+  nomeDoForno: string | null,
+): string {
+  const forno = nomeDoForno === null ? "" : ` · ${nomeDoForno}`;
+  return `${rotuloDoTipo(tipo)} de ${diaMes}${forno} · ${FRASE_FOLHA_OPCIONAL}`;
 }
+
+// A régua vigente na folha (verbatim do protótipo, com os números de `parametros_precificacao`):
+// "Contar, não medir: P até 10 cm · M de 10 a 25 cm · G maior que 25 cm, no olho."
+export function fraseDaReguaNaFolha(regua: Regua): string {
+  const p = cmDaRegua(regua.pAte);
+  const m = cmDaRegua(regua.mAte);
+  return `Contar, não medir: P até ${p} cm · M de ${p} a ${m} cm · G maior que ${m} cm, no olho.`;
+}
+
+// A faixa de cada tamanho, embaixo do P/M/G de cada contador.
+export function faixasDaRegua(regua: Regua): Record<Tamanho, string> {
+  const p = cmDaRegua(regua.pAte);
+  const m = cmDaRegua(regua.mAte);
+  return { P: `até ${p} cm`, M: `${p} a ${m} cm`, G: `maior que ${m} cm` };
+}
+
+// O botão da esquerda ao corrigir uma contagem existente (UI-D23) — "Pular" diria que nada foi
+// contado.
+export const ROTULO_FECHAR_SEM_SALVAR = "Fechar sem salvar";
+
+// "Desfazer" do aviso DEPOIS de salvar a contagem: o cascade leva a contagem junto (UI-D12 item 4).
+export const TOAST_QUEIMA_DESFEITA_COM_CONTAGEM = "Queima desfeita — a contagem foi junto.";
 
 // Plural de verdade, nunca "(s)".
 function pecas(total: number): string {

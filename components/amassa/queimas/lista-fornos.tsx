@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { FornoMedido } from "@/lib/queimas/consultas";
+import type { DadosDaFolha, FornoMedido } from "@/lib/queimas/consultas";
 import { filtrarPorAtivo, type FiltroDeForno } from "@/lib/queimas/filtros";
 import {
   FRASE_FILTRO_VAZIO_CORPO,
@@ -16,6 +16,8 @@ import { FiltroFornos } from "./filtro-fornos";
 
 export type ListaFornosProps = {
   fornos: FornoMedido[];
+  // Descidos até `RegistrarQueima` (Fase 06.4): `null` = a folha não abre (UI-D19).
+  dadosDaFolha: DadosDaFolha | null;
 };
 
 // Grade no desktop, cartões empilhados em largura total no celular (`04-DESIGN-SYSTEM.md` §6,
@@ -28,7 +30,7 @@ export type ListaFornosProps = {
 // página; recarregar perde o filtro (mesmo comportamento de D-12 de Encomendas). O BANNER de
 // `app/(app)/queimas/page.tsx` é calculado sobre a lista COMPLETA, fora deste componente — trocar
 // o filtro aqui nunca esconde um forno em atenção do aviso do topo.
-export function ListaFornos({ fornos }: ListaFornosProps) {
+export function ListaFornos({ fornos, dadosDaFolha }: ListaFornosProps) {
   const [filtro, setFiltro] = useState<FiltroDeForno>("ativos");
 
   const fornosFiltrados = filtrarPorAtivo(fornos, filtro);
@@ -55,7 +57,7 @@ export function ListaFornos({ fornos }: ListaFornosProps) {
         >
           {fornosFiltrados.map((forno) => (
             <div key={forno.id} className={umUnicoForno ? "md:col-span-2" : undefined}>
-              <CartaoForno forno={forno} />
+              <CartaoForno forno={forno} dadosDaFolha={dadosDaFolha} />
             </div>
           ))}
         </div>

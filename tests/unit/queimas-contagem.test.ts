@@ -12,6 +12,7 @@ import {
   TETO_DO_CONTADOR,
   abaixoDoLancado,
   cabeNoQueFalta,
+  cmDaRegua,
   contagemVazia,
   diaMes,
   externasDaContagem,
@@ -19,6 +20,7 @@ import {
   janelaSemContagem,
   lancadoAtivo,
   limitarContador,
+  mesmaContagem,
   somarDiasCivis,
   totalDaContagem,
   totalDasExternas,
@@ -238,5 +240,33 @@ describe("janelaSemContagem", () => {
     ];
     janelaSemContagem({ candidatas, totalSemContagem: 2, hoje: HOJE });
     expect(candidatas.map((q) => q.id)).toEqual(["a", "b"]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plano 02, Tarefa 2 — a régua em cm e o "nada mexido" da folha (UI-D18).
+
+describe("cmDaRegua", () => {
+  it("inteiro sem vírgula; fração com até três casas, sem zero à direita", () => {
+    expect(cmDaRegua(10000)).toBe("10");
+    expect(cmDaRegua(25000)).toBe("25");
+    expect(cmDaRegua(12500)).toBe("12,5");
+    expect(cmDaRegua(12345)).toBe("12,345");
+    expect(cmDaRegua(12050)).toBe("12,05");
+    expect(cmDaRegua(500)).toBe("0,5");
+  });
+});
+
+describe("mesmaContagem", () => {
+  it("iguais nos seis números e na caixa", () => {
+    expect(mesmaContagem(CONTAGEM_VAZIA, { ...CONTAGEM_VAZIA })).toBe(true);
+    expect(mesmaContagem(CONTAGEM, { ...CONTAGEM })).toBe(true);
+  });
+
+  it("qualquer contador diferente, ou a caixa, já é mudança", () => {
+    for (const chave of CHAVES_DOS_CONTADORES) {
+      expect(mesmaContagem(CONTAGEM_VAZIA, { ...CONTAGEM_VAZIA, [chave]: 1 })).toBe(false);
+    }
+    expect(mesmaContagem(CONTAGEM_VAZIA, { ...CONTAGEM_VAZIA, saiuCheio: false })).toBe(false);
   });
 });

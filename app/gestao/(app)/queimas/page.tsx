@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { medirForno } from "@/lib/queimas/contador";
-import { listarFornosDoIndice } from "@/lib/queimas/consultas";
+import { carregarDadosDaFolha, listarFornosDoIndice } from "@/lib/queimas/consultas";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
 import { hojeEmBrasilia } from "@/lib/queimas/formato";
 import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_FORNO } from "@/lib/queimas/textos";
@@ -25,9 +25,21 @@ import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 export default async function PaginaQueimas() {
   await exigirUsuario();
 
-  const fornosDoIndice = await listarFornosDoIndice();
-  // O dia civil de Brasília desta carga — a janela de "Sem contagem" é contada a partir dele.
+  // O dia civil de Brasília desta carga — a janela de "Sem contagem" e a régua vigente da folha são
+  // contadas a partir dele.
   const hoje = hojeEmBrasilia(new Date());
+
+  // Os dados da folha "O que queimou?" (Fase 06.4) vêm UMA vez por carga, junto com os fornos, por
+  // `Promise.allSettled`: se falharem, o registro em dois toques segue como na Fase 4 — a folha não
+  // abre e a queima cai em "Sem contagem" (UI-D19). Nunca derrubam a página.
+  const [fornosDoIndice, [dados]] = await Promise.all([
+    listarFornosDoIndice(),
+    Promise.allSettled([carregarDadosDaFolha(hoje)]),
+  ]);
+  if (dados.status === "rejected") {
+    console.error("Falha ao carregar os dados da folha de contagem no índice:", dados.reason);
+  }
+  const dadosDaFolha = dados.status === "fulfilled" ? dados.value : null;
 
   // O banner (FOR-06) é calculado sobre a MESMA lista que alimenta os cartões — nunca uma
   // segunda consulta ao banco. `medirForno` é a mesma função pura que `cartao-forno.tsx` chama
@@ -79,7 +91,7 @@ export default async function PaginaQueimas() {
           hrefBotao="/gestao/queimas?novo"
         />
       ) : (
-        <ListaFornos fornos={fornosDoIndice} />
+        <ListaFornos fornos={fornosDoIndice} dadosDaFolha={dadosDaFolha} />
       )}
 
       {/* As listas do índice (Fase 06.4, plano 02): "Sem contagem" (e, no plano 04, "Queimas
@@ -87,7 +99,7 @@ export default async function PaginaQueimas() {
           por elas nem caem com elas. Fora do ramo do vazio: sem forno não há queima, e a lista
           devolve `null` sozinha. */}
       <Suspense fallback={<EsqueletoDasListas />}>
-        <ListasDoIndice hoje={hoje} />
+        <ListasDoIndice hoje={hoje} dadosDaFolha={dadosDaFolha} />
       </Suspense>
     </>
   );

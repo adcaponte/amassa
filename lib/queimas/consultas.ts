@@ -1,11 +1,19 @@
-import { and, asc, count, desc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fornos, manutencoes, queimaContagens, queimas, usuarios } from "@/db/schema";
+import {
+  fornos,
+  manutencoes,
+  parametrosPrecificacao,
+  queimaContagens,
+  queimas,
+  usuarios,
+} from "@/db/schema";
 import {
   JANELA_SEM_CONTAGEM_DIAS,
   janelaSemContagem,
   somarDiasCivis,
+  type Regua,
 } from "@/lib/queimas/contagem";
 import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
@@ -357,4 +365,56 @@ export async function listarSemContagem(hoje: string): Promise<SemContagemDoIndi
     maisAntigas,
     maisDeUmForno: Number(fornosDaCasa?.quantidade ?? 0) > 1,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 02 — os dados da folha "O que queimou?", carregados UMA vez por carga da página
+// (índice e detalhe) e descidos por props até quem abre a folha: nada é buscado no servidor no
+// caminho do registro em dois toques (QMC-01). Os planos 03 e 04 acrescentam campos a este MESMO
+// objeto (últimas contagens, chips, itens com preço) sem mudar a assinatura dos componentes. Quem
+// chama usa `Promise.allSettled`: se esta leitura falhar, o registro segue como na Fase 4 e a folha
+// não abre (UI-D19).
+export type DadosDaFolha = {
+  hoje: string;
+  regua: Regua;
+  maisDeUmForno: boolean;
+};
+
+const CHAVE_REGUA_P = "queima_regua_p_ate";
+const CHAVE_REGUA_M = "queima_regua_m_ate";
+
+// A régua vigente em `hoje`: por chave, a linha de maior `vigente_desde <= hoje` (molde
+// `parametrosVigentes`, `lib/precificacao/consultas.ts` — `distinct on (chave)`). Faltando uma das
+// duas chaves, lança: a folha não pode inventar uma régua.
+export async function lerReguaVigente(hoje: string): Promise<Regua> {
+  const linhas = await db
+    .selectDistinctOn([parametrosPrecificacao.chave], {
+      chave: parametrosPrecificacao.chave,
+      valorInteiro: parametrosPrecificacao.valorInteiro,
+    })
+    .from(parametrosPrecificacao)
+    .where(
+      and(
+        inArray(parametrosPrecificacao.chave, [CHAVE_REGUA_P, CHAVE_REGUA_M]),
+        lte(parametrosPrecificacao.vigenteDesde, hoje),
+      ),
+    )
+    .orderBy(parametrosPrecificacao.chave, desc(parametrosPrecificacao.vigenteDesde));
+
+  const pAte = linhas.find((linha) => linha.chave === CHAVE_REGUA_P)?.valorInteiro;
+  const mAte = linhas.find((linha) => linha.chave === CHAVE_REGUA_M)?.valorInteiro;
+  if (pAte === undefined || mAte === undefined) {
+    throw new Error(
+      `lerReguaVigente: falta a régua vigente em ${hoje} (${CHAVE_REGUA_P}/${CHAVE_REGUA_M} em parametros_precificacao).`,
+    );
+  }
+  return { pAte, mAte };
+}
+
+export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> {
+  const [regua, [fornosDaCasa]] = await Promise.all([
+    lerReguaVigente(hoje),
+    db.select({ quantidade: count() }).from(fornos),
+  ]);
+  return { hoje, regua, maisDeUmForno: Number(fornosDaCasa?.quantidade ?? 0) > 1 };
 }

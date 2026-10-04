@@ -1,4 +1,4 @@
-import { listarSemContagem } from "@/lib/queimas/consultas";
+import { listarSemContagem, type DadosDaFolha } from "@/lib/queimas/consultas";
 import { FRASE_ERRO_DAS_LISTAS } from "@/lib/queimas/textos";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
@@ -11,7 +11,13 @@ import { ListaSemContagem } from "./lista-sem-contagem";
 // componente dentro de um `Suspense` próprio (o esqueleto é `EsqueletoDasListas`, abaixo) e a leitura
 // tem um `try` próprio, com UM bloco de erro para as duas listas (a frase já fala das duas). Molde de
 // `try` por bloco com `console.error`: `components/amassa/inicio/bloco-anotacoes.tsx`.
-export async function ListasDoIndice({ hoje }: { hoje: string }) {
+export async function ListasDoIndice({
+  hoje,
+  dadosDaFolha,
+}: {
+  hoje: string;
+  dadosDaFolha: DadosDaFolha | null;
+}) {
   let semContagem;
   try {
     semContagem = await listarSemContagem(hoje);
@@ -43,6 +49,7 @@ export async function ListasDoIndice({ hoje }: { hoje: string }) {
           linhas={semContagem.linhas}
           maisAntigas={semContagem.maisAntigas}
           maisDeUmForno={semContagem.maisDeUmForno}
+          dadosDaFolha={dadosDaFolha}
         />
       </div>
     </div>

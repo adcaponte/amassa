@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { QueimaSemContagem } from "@/lib/queimas/consultas";
+import type { DadosDaFolha, QueimaSemContagem } from "@/lib/queimas/consultas";
 import { diaMes } from "@/lib/queimas/contagem";
 import {
   ROTULO_CONTAR_AGORA,
@@ -20,14 +20,21 @@ export type ListaSemContagemProps = {
   linhas: QueimaSemContagem[];
   maisAntigas: number;
   maisDeUmForno: boolean;
+  // `null` = os dados da folha não carregaram: o "Contar agora" não aparece (UI-D19).
+  dadosDaFolha: DadosDaFolha | null;
 };
 
 // A seção "Sem contagem" do índice (06.4-UI-SPEC.md §"Linha “Sem contagem”"; QMC-02): as queimas que
 // ficaram só com o registro ("Pular" ou registradas antes da fase), na janela de `janelaSemContagem`.
 // "Contar agora" abre a MESMA folha do registro para aquela queima; ao salvar, a folha recarrega a
 // página e a linha some. Bloco no molde `AReceber` da Agenda; linha no molde `LinhaAReceber`.
-export function ListaSemContagem({ linhas, maisAntigas, maisDeUmForno }: ListaSemContagemProps) {
-  const [folha, setFolha] = useState<QueimaParaContar | null>(null);
+export function ListaSemContagem({
+  linhas,
+  maisAntigas,
+  maisDeUmForno,
+  dadosDaFolha,
+}: ListaSemContagemProps) {
+  const [folha, setFolha] = useState<(QueimaParaContar & { fornoNome: string }) | null>(null);
 
   return (
     <section
@@ -59,18 +66,25 @@ export function ListaSemContagem({ linhas, maisAntigas, maisDeUmForno }: ListaSe
                   </span>
                   <span className="text-apoio text-tinta-fraca">{SUB_SEM_CONTAGEM}</span>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-testid="contar-agora"
-                  aria-label={ariaContarAgora(titulo)}
-                  onClick={() =>
-                    setFolha({ id: queima.id, tipo: queima.tipo, ocorridaEm: queima.ocorridaEm })
-                  }
-                  className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
-                >
-                  {ROTULO_CONTAR_AGORA}
-                </Button>
+                {dadosDaFolha === null ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-testid="contar-agora"
+                    aria-label={ariaContarAgora(titulo)}
+                    onClick={() =>
+                      setFolha({
+                        id: queima.id,
+                        tipo: queima.tipo,
+                        ocorridaEm: queima.ocorridaEm,
+                        fornoNome: queima.fornoNome,
+                      })
+                    }
+                    className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
+                  >
+                    {ROTULO_CONTAR_AGORA}
+                  </Button>
+                )}
               </li>
             );
           })}
@@ -81,7 +95,14 @@ export function ListaSemContagem({ linhas, maisAntigas, maisDeUmForno }: ListaSe
           {fraseMaisSemContagem(maisAntigas)}
         </p>
       ) : null}
-      <FolhaContagem queima={folha} aoFechar={() => setFolha(null)} />
+      {dadosDaFolha === null ? null : (
+        <FolhaContagem
+          queima={folha}
+          aoFechar={() => setFolha(null)}
+          dados={dadosDaFolha}
+          nomeDoForno={folha?.fornoNome ?? ""}
+        />
+      )}
     </section>
   );
 }

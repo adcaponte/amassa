@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { salvarContagem } from "@/lib/queimas/acoes";
+import type { DadosDaFolha } from "@/lib/queimas/consultas";
 import {
   CONTAGEM_VAZIA,
   diaMes,
+  mesmaContagem,
   totalDaContagem,
   type ChaveDoContador,
   type Contagem,
@@ -27,6 +29,8 @@ import {
   ROTULO_SALVANDO,
   ROTULO_SALVAR,
   TITULO_FOLHA_CONTAGEM,
+  faixasDaRegua,
+  fraseDaReguaNaFolha,
   resumoDaContagem,
   subtituloDaFolha,
   toastContagemSalva,
@@ -60,6 +64,13 @@ export type FolhaContagemProps = {
   // `null` = folha fechada.
   queima: QueimaParaContar | null;
   aoFechar: () => void;
+  // Pré-carregados pela página (régua vigente, se a casa tem mais de um forno). Quem abre a folha
+  // não a abre sem eles (UI-D19).
+  dados: DadosDaFolha;
+  nomeDoForno: string;
+  // Só `RegistrarQueima` passa: com ele a folha NÃO dá aviso — quem chamou atualiza o próprio aviso
+  // do registro no lugar (UI-D12 item 4). Sem ele, a folha dá o aviso dela, de 5 s.
+  aoSalvar?: (resultado: { total: number; criada: boolean }) => void;
 };
 
 const TAMANHOS: readonly Tamanho[] = ["P", "M", "G"];
@@ -75,35 +86,42 @@ function dentroDoAviso(alvo: EventTarget | null): boolean {
 }
 
 // A folha "O que queimou?" (06.4-UI-SPEC.md §"A folha"; QMC-01/QMC-03): tela toda no celular,
-// diálogo `max-w-lg` a partir de 768 px (`CLASSE_DA_FOLHA`). Seis contadores e "O forno saiu cheio"
-// (marcado por padrão); "Pular" fecha sem gravar; "Salvar" grava por `salvarContagem`. Mora em
-// `RegistrarQueima` e é renderizada nos dois ramos dele — sobrevive ao `router.refresh()` que vem
-// logo depois do registro (Pitfall 2). A régua nas faixas, o forno no subtítulo, Esc/toque fora com
-// mudanças, o aviso atualizado no lugar e o ouro sem "saiu cheio" são do plano 02; as externas já
-// lançadas e o piso na tela, do plano 04.
-export function FolhaContagem({ queima, aoFechar }: FolhaContagemProps) {
+// diálogo `max-w-lg` a partir de 768 px (`CLASSE_DA_FOLHA`), com o pé a 104 px da janela no
+// computador (o `max-h` do `DialogContent`, 104 px acima e abaixo) para o aviso caber embaixo (UI-D12). Seis contadores
+// com a faixa da régua VIGENTE e "O forno saiu cheio" (marcado por padrão; não existe em ouro — D-02,
+// UI-D8 — e a contagem de ouro grava `saiu_cheio = true`); "Pular" fecha sem gravar; "Salvar" grava
+// por `salvarContagem`. Os três pontos de entrada usam este componente: depois do registro
+// (`RegistrarQueima`, que a renderiza nos dois ramos — sobrevive ao `router.refresh()`, Pitfall 2),
+// "Contar agora" da lista "Sem contagem" e o Histórico. Esc e toque fora fecham SÓ se nada foi
+// mexido (UI-D18); tocar o aviso nunca fecha. As externas já lançadas e o piso na tela são do plano 04.
+export function FolhaContagem({ queima, ...resto }: FolhaContagemProps) {
   if (queima === null) {
     return null;
   }
   // `key` pela queima: uma folha nova para outra queima começa zerada; o refresh não muda o id.
-  return <FolhaAberta key={queima.id} queima={queima} aoFechar={aoFechar} />;
+  return <FolhaAberta key={queima.id} queima={queima} {...resto} />;
 }
 
 function FolhaAberta({
   queima,
   aoFechar,
-}: {
-  queima: QueimaParaContar;
-  aoFechar: () => void;
-}) {
+  dados,
+  nomeDoForno,
+  aoSalvar,
+}: Omit<FolhaContagemProps, "queima"> & { queima: QueimaParaContar }) {
   const router = useRouter();
   const emVoo = useRef(false);
   const conteudo = useRef<HTMLDivElement>(null);
-  const [contagem, setContagem] = useState<Contagem>(CONTAGEM_VAZIA);
+  const [inicial] = useState<Contagem>(CONTAGEM_VAZIA);
+  const [contagem, setContagem] = useState<Contagem>(inicial);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const total = totalDaContagem(contagem);
+  const ouro = queima.tipo === "ouro";
+  const faixas = faixasDaRegua(dados.regua);
+  // Esc e toque fora só fecham sem mudanças (UI-D18) — e nunca no meio da gravação.
+  const podeFecharSemPerguntar = !salvando && mesmaContagem(contagem, inicial);
 
   function mudar(chave: ChaveDoContador, valor: number) {
     setErro(null);
@@ -123,7 +141,9 @@ function FolhaAberta({
     setErro(null);
     setSalvando(true);
     try {
-      const resposta = await salvarContagem({ queimaId: queima.id, ...contagem });
+      // Ouro não tem a caixa (D-02: não entra nas médias de capacidade) e grava o padrão, cheio.
+      const enviada = ouro ? { ...contagem, saiuCheio: true } : contagem;
+      const resposta = await salvarContagem({ queimaId: queima.id, ...enviada });
       if (!resposta.ok) {
         if (resposta.erro === FRASE_QUEIMA_DESFEITA_NADA_CONTADO) {
           toast.error(resposta.erro);
@@ -134,7 +154,11 @@ function FolhaAberta({
         }
         return;
       }
-      toast.success(toastContagemSalva(resposta.dados.total));
+      if (aoSalvar) {
+        aoSalvar(resposta.dados);
+      } else {
+        toast.success(toastContagemSalva(resposta.dados.total));
+      }
       aoFechar();
       router.refresh();
     } catch {
@@ -145,11 +169,11 @@ function FolhaAberta({
     }
   }
 
-  function ignorarToqueNoAviso(evento: {
+  function tratarToqueFora(evento: {
     target: EventTarget | null;
     preventDefault: () => void;
   }) {
-    if (dentroDoAviso(evento.target)) {
+    if (dentroDoAviso(evento.target) || !podeFecharSemPerguntar) {
       evento.preventDefault();
     }
   }
@@ -183,6 +207,7 @@ function FolhaAberta({
               key={tamanho}
               grupo={nome}
               tamanho={tamanho}
+              faixa={faixas[tamanho]}
               valor={contagem[chave]}
               aoMudar={(valor) => mudar(chave, valor)}
               desabilitado={salvando}
@@ -214,36 +239,50 @@ function FolhaAberta({
           evento.preventDefault();
           conteudo.current?.focus();
         }}
-        onInteractOutside={ignorarToqueNoAviso}
-        onPointerDownOutside={ignorarToqueNoAviso}
-        className={CLASSE_DA_FOLHA}
+        onEscapeKeyDown={(evento) => {
+          if (!podeFecharSemPerguntar) {
+            evento.preventDefault();
+          }
+        }}
+        onInteractOutside={tratarToqueFora}
+        onPointerDownOutside={tratarToqueFora}
+        className={cn(CLASSE_DA_FOLHA, "md:max-h-[calc(100svh-208px)]")}
       >
         <DialogHeader className="border-border flex flex-col gap-1 border-b px-6 py-4 text-left">
           <DialogTitle data-testid="contagem-titulo" className="text-titulo text-tinta">
             {TITULO_FOLHA_CONTAGEM}
           </DialogTitle>
           <DialogDescription className="text-apoio text-tinta-media">
-            {subtituloDaFolha(queima.tipo, diaMes(diaCivilEmBrasilia(queima.ocorridaEm)))}
+            {subtituloDaFolha(
+              queima.tipo,
+              diaMes(diaCivilEmBrasilia(queima.ocorridaEm)),
+              dados.maisDeUmForno ? nomeDoForno : null,
+            )}
           </DialogDescription>
+          <p data-testid="contagem-regua" className="text-apoio text-tinta-fraca">
+            {fraseDaReguaNaFolha(dados.regua)}
+          </p>
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
           {grupo("internas")}
           {grupo("externas")}
-          <label className="flex min-h-[44px] items-center gap-2">
-            <Checkbox
-              data-testid="contagem-saiu-cheio"
-              checked={contagem.saiuCheio}
-              disabled={salvando}
-              onCheckedChange={(marcado) => {
-                setErro(null);
-                setContagem((atual) => ({ ...atual, saiuCheio: marcado === true }));
-              }}
-              className="border-tinta-fraca data-[state=checked]:bg-tinta data-[state=checked]:border-tinta size-6 border-2"
-            />
-            <span className="text-corpo text-tinta">{ROTULO_SAIU_CHEIO}</span>
-            <span className="text-apoio text-tinta-fraca">{DICA_SAIU_CHEIO}</span>
-          </label>
+          {ouro ? null : (
+            <label className="flex min-h-[44px] items-center gap-2">
+              <Checkbox
+                data-testid="contagem-saiu-cheio"
+                checked={contagem.saiuCheio}
+                disabled={salvando}
+                onCheckedChange={(marcado) => {
+                  setErro(null);
+                  setContagem((atual) => ({ ...atual, saiuCheio: marcado === true }));
+                }}
+                className="border-tinta-fraca data-[state=checked]:bg-tinta data-[state=checked]:border-tinta size-6 border-2"
+              />
+              <span className="text-corpo text-tinta">{ROTULO_SAIU_CHEIO}</span>
+              <span className="text-apoio text-tinta-fraca">{DICA_SAIU_CHEIO}</span>
+            </label>
+          )}
         </div>
 
         <div className="border-border bg-popover flex flex-wrap items-center gap-2 border-t px-6 py-4">
