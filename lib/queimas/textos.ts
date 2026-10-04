@@ -16,7 +16,10 @@
 import type { tipoQueima } from "@/db/schema";
 import { formatarReais } from "@/lib/financeiro/formato";
 import {
+  POUCAS_FORNADAS_CHEIAS,
   cmDaRegua,
+  formatarAteUmaCasa,
+  formatarUmaCasa,
   resumoPmg,
   totalDasQuantidades,
   type Quantidades,
@@ -721,3 +724,112 @@ export function ariaLancarNaVenda(titulo: string): string {
 // UI-SPEC item 4). *Até 04/10/2026, na versão (A), a frase final era outra.*
 export const DICA_FIM_A_COBRAR =
   "“Lançar na Venda” abre o Financeiro com as linhas Queima externa P / M / G já preenchidas. Se as peças são de pessoas diferentes, você divide lá.";
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06 — os Números do forno (QMC-09, QMC-10; 06.4-UI-SPEC.md §Copywriting, Blocos 1-3). As contas
+// vêm prontas de `lib/queimas/contagem.ts` (`queimasPorTipo`, `capacidadeMedida`, `oQueOFornoQueimou`);
+// aqui só a frase. Médias e percentuais com uma casa, vírgula (`formatarUmaCasa`).
+
+export const TITULO_NUMEROS = "Números";
+
+// Bloco 1 — quadros.
+export const TITULO_POR_TIPO = "Quantas queimas de cada tipo";
+export const ROTULO_QUADRO_TODAS = "Todas";
+
+export function subNesteMes(quantidade: number): string {
+  if (quantidade === 0) {
+    return "nenhuma neste mês";
+  }
+  return `${quantidade} neste mês`;
+}
+
+// `nomeDoMes` chega pronto, em minúsculas (`nomeDoMes` de `lib/agenda/semana.ts`, chamado pelo
+// componente): “… “Neste mês” conta outubro inteiro, …”.
+export function dicaPorTipo(nomeDoMes: string): string {
+  return `Desde a última manutenção do forno — a soma é o contador. “Neste mês” conta ${nomeDoMes} inteiro, com ou sem manutenção no meio.`;
+}
+
+// Bloco 2 — capacidade (só biscoito e esmalte, só “saiu cheio”).
+export const TITULO_CAPACIDADE = "Quantas peças cabem, de verdade";
+
+export function rotuloFornadaCheia(tipo: "biscoito" | "esmalte"): string {
+  return `Fornada cheia de ${tipo}`;
+}
+
+export function mediaDePecas(media: number): string {
+  return `${formatarUmaCasa(media)} peças`;
+}
+
+// O mix médio por tamanho, os três sempre presentes (um tamanho que nunca apareceu é “0 G”), uma casa
+// sem o “,0” de inteiro: “em média: 12 P · 7,5 M · 1,5 G”.
+export function mixMedio(mix: Record<Tamanho, number>): string {
+  return `em média: ${formatarAteUmaCasa(mix.P)} P · ${formatarAteUmaCasa(mix.M)} M · ${formatarAteUmaCasa(mix.G)} G`;
+}
+
+export const ROTULO_FATOR = "No biscoito cabem";
+
+// O fator chega SEM arredondar (média ÷ média) e só aqui ganha a casa: “1,6× o esmalte”.
+export function fraseFator(fator: number): string {
+  return `${formatarUmaCasa(fator)}× o esmalte`;
+}
+
+export const VALOR_SEM_NUMERO = "—";
+export const FRASE_SEM_CHEIA = "nenhuma fornada cheia contada ainda";
+export const FRASE_FATOR_SEM_DOIS_LADOS = "precisa de ao menos uma fornada cheia de biscoito e uma de esmalte";
+
+// A dica do bloco 2 (verbatim do protótipo, com o fator VIGENTE de `forno_fator_biscoito` e o selo
+// dele, e a última frase acrescentada — §5: levar o número aos Parâmetros é à mão). O fator vem em
+// milésimos (1800 = 1,8×, a escala de `parametros_precificacao`); `cmDaRegua` é a mesma conta de
+// escala 1000 (até três casas, sem zero à direita). Sem fator vigente cadastrado, o parêntese sai.
+export function dicaCapacidade(fatorVigente: { milesimos: number; medido: boolean } | null): string {
+  const hoje =
+    fatorVigente === null
+      ? ""
+      : ` (hoje ${cmDaRegua(fatorVigente.milesimos)}×, ${fatorVigente.medido ? "medido" : "estimado"})`;
+  return `Só entram as fornadas marcadas como “saiu cheio”. A precificação estima quantas peças cabem pelas medidas, com um “fator do biscoito”${hoje}. Com o tempo, a contagem por tamanho mostra quanto espaço uma G ocupa perto de uma P — serve para conferir a estimativa e o preço da queima externa. Levar o número para lá é à mão.`;
+}
+
+export const ROTULO_ABRIR_PARAMETROS = "abrir Parâmetros";
+
+// O aviso de poucas (UI-D9): menos de `POUCAS_FORNADAS_CHEIAS` (8) cheias, somando biscoito e esmalte;
+// com 8 ou mais, `null` (o aviso some).
+export function frasePoucasCheias(cheias: number): string | null {
+  if (cheias >= POUCAS_FORNADAS_CHEIAS) {
+    return null;
+  }
+  if (cheias === 0) {
+    return "Ainda não há fornada cheia contada.";
+  }
+  if (cheias === 1) {
+    return "Ainda é pouco: 1 fornada cheia contada.";
+  }
+  return `Ainda é pouco: ${cheias} fornadas cheias contadas.`;
+}
+
+// Bloco 3 — o que o forno queimou (todas as contagens, desde a primeira).
+export const TITULO_O_QUE_QUEIMOU = "O que o forno queimou";
+
+export function subOQueQueimou(fornadas: number): string {
+  return fornadas === 1
+    ? "desde a primeira contagem · 1 fornada contada"
+    : `desde a primeira contagem · ${fornadas} fornadas contadas`;
+}
+
+// “212 · 78,5%” — o percentual de cada grupo arredondado SOZINHO (a soma pode não fechar em 100,0).
+export function valorDoGrupo(total: number, pct: number | null): string {
+  return pct === null ? String(total) : `${total} · ${formatarUmaCasa(pct)}%`;
+}
+
+// “150 P · 54 M · 8 G” — os três sempre.
+export function subDoGrupo(p: number, m: number, g: number): string {
+  return `${p} P · ${m} M · ${g} G`;
+}
+
+export const DICA_O_QUE_QUEIMOU =
+  "De quem é cada peça interna (encomenda, casa, aula) a Produção e a Agenda já sabem; aqui o que importa é o tamanho, que é o que ocupa o forno.";
+
+// Vazio (blocos 2 e 3, nenhuma contagem no forno) e erro (a leitura dos números falhou).
+export const VAZIO_NUMEROS_TITULO = "Nenhuma fornada contada ainda.";
+export const VAZIO_NUMEROS_CORPO = "Conte pela folha que abre depois de “Queimar”, ou por “Contar agora” no Histórico.";
+export const FRASE_ERRO_NUMEROS =
+  "Não deu para carregar os números deste forno. Verifique a internet e tente de novo.";

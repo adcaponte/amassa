@@ -24,19 +24,26 @@ import { esperandoOForno } from "@/lib/producao/forno";
 import { etapaAtual } from "@/lib/producao/leitura";
 import {
   JANELA_SEM_CONTAGEM_DIAS,
+  capacidadeMedida,
   chaveDoTamanho,
   chipsDaProducao,
   diaMes,
   faltaCobrar,
   janelaSemContagem,
   lancadoAtivo,
+  oQueOFornoQueimou,
   precosDosItens,
+  queimasPorTipo,
   somarDiasCivis,
   totalDasQuantidades,
   valorDasExternas,
+  type CapacidadeMedida,
   type ChipDaOrdem,
   type Contagem,
   type ContagemAnterior,
+  type ContagemDoForno,
+  type OQueOFornoQueimou,
+  type QueimasPorTipo,
   type ModoSemContagem,
   type OrdemEsperando,
   type Quantidades,
@@ -919,4 +926,88 @@ export async function lerAvisoDaVolta(documentoId: string): Promise<{ numero: nu
     return null;
   }
   return { numero: documento.numero, pago: documento.parcelasEmAberto === 0 };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06 — os Números do forno (QMC-09, QMC-10). SÓ LEITURA, POR FORNO (D-01): as queimas, a última
+// manutenção e as contagens do forno da página — nunca somadas entre fornos —, mais o
+// `forno_fator_biscoito` vigente dos Parâmetros (um só na casa; lido, nunca gravado — T-06.4-35). As
+// contas são das três funções puras de `lib/queimas/contagem.ts`.
+export type NumerosDoForno = {
+  porTipo: QueimasPorTipo;
+  capacidade: CapacidadeMedida;
+  queimou: OQueOFornoQueimou;
+  // O fator vigente em `hoje` (milésimos: 1800 = 1,8×) com o selo; `null` se não houver linha vigente.
+  fatorVigente: { milesimos: number; medido: boolean } | null;
+};
+
+const CHAVE_FATOR_BISCOITO = "forno_fator_biscoito";
+
+export async function numerosDoForno(fornoId: string, hoje: string): Promise<NumerosDoForno> {
+  const [linhasDeQueima, [ultimaManutencao], linhasDeContagem, [fator]] = await Promise.all([
+    db
+      .select({ tipo: queimas.tipo, ocorridaEm: queimas.ocorridaEm })
+      .from(queimas)
+      .where(eq(queimas.fornoId, fornoId)),
+    db
+      .select({ ocorridaEm: manutencoes.ocorridaEm })
+      .from(manutencoes)
+      .where(eq(manutencoes.fornoId, fornoId))
+      .orderBy(desc(manutencoes.ocorridaEm), desc(manutencoes.id))
+      .limit(1),
+    db
+      .select({
+        tipo: queimas.tipo,
+        internasP: queimaContagens.internasP,
+        internasM: queimaContagens.internasM,
+        internasG: queimaContagens.internasG,
+        externasP: queimaContagens.externasP,
+        externasM: queimaContagens.externasM,
+        externasG: queimaContagens.externasG,
+        saiuCheio: queimaContagens.saiuCheio,
+      })
+      .from(queimaContagens)
+      .innerJoin(queimas, eq(queimas.id, queimaContagens.queimaId))
+      .where(eq(queimas.fornoId, fornoId)),
+    // A linha vigente do fator: a de maior `vigente_desde <= hoje` (molde de `lerReguaVigente`).
+    db
+      .select({ valorInteiro: parametrosPrecificacao.valorInteiro, medido: parametrosPrecificacao.medido })
+      .from(parametrosPrecificacao)
+      .where(
+        and(
+          eq(parametrosPrecificacao.chave, CHAVE_FATOR_BISCOITO),
+          lte(parametrosPrecificacao.vigenteDesde, hoje),
+        ),
+      )
+      .orderBy(desc(parametrosPrecificacao.vigenteDesde))
+      .limit(1),
+  ]);
+
+  const ocorrencias = linhasDeQueima.map((linha) => {
+    const ocorridaEm = linha.ocorridaEm.toISOString();
+    return { tipo: linha.tipo, ocorridaEm, diaCivil: diaCivilEmBrasilia(ocorridaEm) };
+  });
+  const contagens: ContagemDoForno[] = linhasDeContagem.map((linha) => ({
+    tipo: linha.tipo,
+    contagem: {
+      internasP: linha.internasP,
+      internasM: linha.internasM,
+      internasG: linha.internasG,
+      externasP: linha.externasP,
+      externasM: linha.externasM,
+      externasG: linha.externasG,
+      saiuCheio: linha.saiuCheio,
+    },
+  }));
+
+  return {
+    porTipo: queimasPorTipo({
+      ocorrencias,
+      ultimaManutencaoEm: ultimaManutencao ? ultimaManutencao.ocorridaEm.toISOString() : null,
+      hoje,
+    }),
+    capacidade: capacidadeMedida(contagens),
+    queimou: oQueOFornoQueimou(contagens),
+    fatorVigente: fator ? { milesimos: fator.valorInteiro, medido: fator.medido } : null,
+  };
 }

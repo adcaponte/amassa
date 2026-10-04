@@ -187,6 +187,18 @@ export async function semearForno(nome: string): Promise<void> {
   }
 }
 
+// Plano 06 — o id de um forno pelo nome único (os Números e o medidor abrem o detalhe e procuram o
+// cartão `cartao-forno-{id}` / `contagem-forno-{id}`). Falha alto se não achar exatamente um.
+export async function idDoForno(nome: string): Promise<string> {
+  const { rows } = await comCliente((cliente) =>
+    cliente.query<{ id: string }>("select id from fornos where nome = $1", [nome]),
+  );
+  if (rows.length !== 1) {
+    throw new Error(`idDoForno: esperava 1 forno "${nome}", achou ${rows.length}.`);
+  }
+  return rows[0].id;
+}
+
 // Apaga uma queima pelo banco (o cascade leva a contagem) — simula o "Desfazer" vindo de outro
 // aparelho com a folha aberta (sonda QMC-03·concurrency).
 export async function apagarQueimaNoBanco(queimaId: string): Promise<void> {

@@ -554,3 +554,167 @@ export function precosDosItens(
     G: itens.G.precoVendaCentavos,
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06 — os Números do forno (QMC-09, QMC-10; D-01, D-02; UI-D9). Tudo POR FORNO: quem chama
+// passa só os dados do forno da página (`numerosDoForno`, `lib/queimas/consultas.ts`). Funções puras
+// sobre dados já carregados — "hoje" chega por argumento e o `diaCivil` de cada queima chega já
+// convertido para Brasília (`diaCivilEmBrasilia`), no molde de `lib/queimas/relatorios.ts`.
+
+export type TipoNosNumeros = "biscoito" | "esmalte" | "ouro";
+export type ChaveDoQuadro = TipoNosNumeros | "todas";
+export type ContaPorTipo = Record<ChaveDoQuadro, number>;
+
+// Os quadros saem sempre nesta ordem, em qualquer largura (sonda QMC-09·ordering).
+export const ORDEM_DOS_QUADROS: readonly ChaveDoQuadro[] = ["biscoito", "esmalte", "ouro", "todas"];
+
+export type OcorrenciaNosNumeros = {
+  tipo: TipoNosNumeros;
+  // ISO do `timestamptz` — o mesmo formato de `ultimaManutencaoEm` (comparação de string segura).
+  ocorridaEm: string;
+  // `YYYY-MM-DD` de Brasília (`diaCivilEmBrasilia`).
+  diaCivil: string;
+};
+
+export type QueimasPorTipo = { desdeManutencao: ContaPorTipo; noMes: ContaPorTipo };
+
+function contaZerada(): ContaPorTipo {
+  return { biscoito: 0, esmalte: 0, ouro: 0, todas: 0 };
+}
+
+// Quadro de cada tipo: as queimas DESDE a última manutenção — o MESMO corte de `medirForno`
+// (`lib/queimas/contador.ts`): `ocorridaEm > ultimaManutencaoEm`, estrito (a queima no instante
+// exato da manutenção fica fora); sem manutenção, todas. Por isso `todas` é igual ao contador do
+// medidor — copiado e não importado porque este módulo não importa nada; o Vitest compara os dois.
+// "Neste mês" é o mês civil de `hoje` em Brasília (`AAAA-MM` do `diaCivil` igual ao de `hoje`),
+// todas as queimas do mês, sem corte de manutenção.
+export function queimasPorTipo({
+  ocorrencias,
+  ultimaManutencaoEm,
+  hoje,
+}: {
+  ocorrencias: readonly OcorrenciaNosNumeros[];
+  ultimaManutencaoEm: string | null;
+  hoje: string;
+}): QueimasPorTipo {
+  const desdeManutencao = contaZerada();
+  const noMes = contaZerada();
+  const mesDeHoje = hoje.slice(0, 7);
+  for (const ocorrencia of ocorrencias) {
+    if (ultimaManutencaoEm === null || ocorrencia.ocorridaEm > ultimaManutencaoEm) {
+      desdeManutencao[ocorrencia.tipo] += 1;
+      desdeManutencao.todas += 1;
+    }
+    if (ocorrencia.diaCivil.slice(0, 7) === mesDeHoje) {
+      noMes[ocorrencia.tipo] += 1;
+      noMes.todas += 1;
+    }
+  }
+  return { desdeManutencao, noMes };
+}
+
+// Uma contagem do forno com o tipo da queima dela.
+export type ContagemDoForno = { tipo: TipoNosNumeros; contagem: Contagem };
+
+export type MixPorTamanho = Record<Tamanho, number>;
+
+export type CapacidadeDoTipo = {
+  cheias: number;
+  // Média do total das contagens cheias do tipo, SEM arredondar (a tela arredonda ao mostrar).
+  mediaPecas: number | null;
+  // Média de P (internas P + externas P), de M e de G, sem arredondar.
+  mix: MixPorTamanho | null;
+};
+
+export type CapacidadeMedida = {
+  biscoito: CapacidadeDoTipo;
+  esmalte: CapacidadeDoTipo;
+  // Média do biscoito ÷ média do esmalte, calculado com as médias SEM arredondar; nulo sem ao menos
+  // uma cheia de cada (UI-D9).
+  fator: number | null;
+  // Fornadas cheias contadas, biscoito + esmalte — o aviso de "poucas" (UI-D9).
+  cheiasTotal: number;
+};
+
+// Abaixo disto, o bloco 2 avisa "Ainda é pouco" (o protótipo aprovado: `cheias.length < 8`).
+export const POUCAS_FORNADAS_CHEIAS = 8;
+
+function capacidadeDoTipo(cheias: readonly Contagem[]): CapacidadeDoTipo {
+  if (cheias.length === 0) {
+    return { cheias: 0, mediaPecas: null, mix: null };
+  }
+  let total = 0;
+  let p = 0;
+  let m = 0;
+  let g = 0;
+  for (const contagem of cheias) {
+    total += totalDaContagem(contagem);
+    p += contagem.internasP + contagem.externasP;
+    m += contagem.internasM + contagem.externasM;
+    g += contagem.internasG + contagem.externasG;
+  }
+  const n = cheias.length;
+  return { cheias: n, mediaPecas: total / n, mix: { P: p / n, M: m / n, G: g / n } };
+}
+
+// "Quantas peças cabem, de verdade" (QMC-10, D-02): só BISCOITO e ESMALTE, só as fornadas marcadas
+// "saiu cheio". Ouro nunca entra nas médias (entra nos quadros e em "o que queimou").
+export function capacidadeMedida(contagens: readonly ContagemDoForno[]): CapacidadeMedida {
+  const cheiasDe = (tipo: TipoNosNumeros) =>
+    contagens.filter((item) => item.tipo === tipo && item.contagem.saiuCheio).map((item) => item.contagem);
+  const biscoito = capacidadeDoTipo(cheiasDe("biscoito"));
+  const esmalte = capacidadeDoTipo(cheiasDe("esmalte"));
+  const fator =
+    biscoito.mediaPecas !== null && esmalte.mediaPecas !== null && esmalte.mediaPecas > 0
+      ? biscoito.mediaPecas / esmalte.mediaPecas
+      : null;
+  return { biscoito, esmalte, fator, cheiasTotal: biscoito.cheias + esmalte.cheias };
+}
+
+export type GrupoQueimado = {
+  total: number;
+  P: number;
+  M: number;
+  G: number;
+  // Percentual do grupo no total, SEM arredondar; nulo com nada contado. Cada um é arredondado
+  // sozinho na tela — a soma pode dar 99,9 ou 100,1, nunca forçada.
+  pct: number | null;
+};
+
+export type OQueOFornoQueimou = { fornadas: number; internas: GrupoQueimado; externas: GrupoQueimado };
+
+// "O que o forno queimou" (QMC-10, UI-D9): TODAS as contagens do forno — cheias ou não, os três
+// tipos — desde a primeira. Só visão: não divide custo nem calcula equivalência P/M/G (briefing §5).
+export function oQueOFornoQueimou(contagens: readonly ContagemDoForno[]): OQueOFornoQueimou {
+  const internas = { P: 0, M: 0, G: 0 };
+  const externas = { P: 0, M: 0, G: 0 };
+  for (const { contagem } of contagens) {
+    internas.P += contagem.internasP;
+    internas.M += contagem.internasM;
+    internas.G += contagem.internasG;
+    externas.P += contagem.externasP;
+    externas.M += contagem.externasM;
+    externas.G += contagem.externasG;
+  }
+  const totalInternas = internas.P + internas.M + internas.G;
+  const totalExternas = externas.P + externas.M + externas.G;
+  const soma = totalInternas + totalExternas;
+  return {
+    fornadas: contagens.length,
+    internas: { total: totalInternas, ...internas, pct: soma > 0 ? (totalInternas / soma) * 100 : null },
+    externas: { total: totalExternas, ...externas, pct: soma > 0 ? (totalExternas / soma) * 100 : null },
+  };
+}
+
+// Uma casa, meio para cima, vírgula pt-BR: 7,45 → "7,5"; 18 → "18,0"; 1/3 × 100 → "33,3". O
+// `Number.EPSILON` é o mesmo de `arredondarUmaCasa` (`lib/producao/forno.ts`): corrige o 7,45 que o
+// ponto flutuante guarda como 7,4499…
+export function formatarUmaCasa(valor: number): string {
+  return (Math.round((valor + Number.EPSILON) * 10) / 10).toFixed(1).replace(".", ",");
+}
+
+// A mesma conta, sem o ",0" de um número inteiro — o mix médio ("12 P · 7,5 M · 1,5 G").
+export function formatarAteUmaCasa(valor: number): string {
+  const texto = formatarUmaCasa(valor);
+  return texto.endsWith(",0") ? texto.slice(0, -2) : texto;
+}

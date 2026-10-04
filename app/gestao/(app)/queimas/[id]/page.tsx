@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
@@ -15,6 +16,10 @@ import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { HistoricoManutencoes } from "@/components/amassa/queimas/historico-manutencoes";
 import { HistoricoQueimas } from "@/components/amassa/queimas/historico-queimas";
 import { Medidor } from "@/components/amassa/queimas/medidor";
+import {
+  EsqueletoDosNumerosDoForno,
+  NumerosDoForno,
+} from "@/components/amassa/queimas/numeros-do-forno";
 import { RegistrarManutencao } from "@/components/amassa/queimas/registrar-manutencao";
 import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 
@@ -121,6 +126,13 @@ export default async function PaginaDetalheDoForno({
             dadosDaFolha={dadosDaFolha}
           />
         </section>
+
+        {/* Fase 06.4, plano 06 — os Números deste forno (QMC-09, QMC-10; D-01), no fim. `Suspense` e
+            `try` próprios: a leitura dos números nunca atrasa nem derruba o medidor, a manutenção e o
+            Histórico acima (T-06.4-36). */}
+        <Suspense fallback={<EsqueletoDosNumerosDoForno />}>
+          <NumerosDoForno fornoId={forno.id} hoje={hoje} />
+        </Suspense>
       </div>
     </>
   );

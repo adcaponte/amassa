@@ -42,6 +42,15 @@ import {
   type ContagemAnterior,
   type OrdemEsperando,
   type VendaLigada,
+  ORDEM_DOS_QUADROS,
+  POUCAS_FORNADAS_CHEIAS,
+  capacidadeMedida,
+  formatarAteUmaCasa,
+  formatarUmaCasa,
+  oQueOFornoQueimou,
+  queimasPorTipo,
+  type ContagemDoForno,
+  type OcorrenciaNosNumeros,
 } from "@/lib/queimas/contagem";
 import {
   ROTULO_CHIPS,
@@ -71,7 +80,22 @@ import {
   linhaDaFalta,
   linhaJaLancado,
   topoRecebiQueima,
+  FRASE_FATOR_SEM_DOIS_LADOS,
+  FRASE_SEM_CHEIA,
+  dicaCapacidade,
+  dicaPorTipo,
+  fraseFator,
+  frasePoucasCheias,
+  mediaDePecas,
+  mixMedio,
+  subDoGrupo,
+  subNesteMes,
+  subOQueQueimou,
+  valorDoGrupo,
 } from "@/lib/queimas/textos";
+import { medirForno } from "@/lib/queimas/contador";
+import { diaCivilEmBrasilia } from "@/lib/queimas/formato";
+import { nomeDoMes } from "@/lib/agenda/semana";
 import { esquemaReceberQueima } from "@/lib/queimas/esquemas";
 
 const CONTAGEM: Contagem = {
@@ -942,5 +966,250 @@ describe("nenhum preço de queima no código (proibição do plano 04)", () => {
       const fonte = readFileSync(join(process.cwd(), arquivo), "utf8");
       expect(fonte, arquivo).not.toMatch(/preco\w*\s*[:=]\s*\d{3,}/i);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plano 06 — os Números do forno (QMC-09, QMC-10; UI-D9).
+
+function ocorrencia(tipo: OcorrenciaNosNumeros["tipo"], ocorridaEm: string): OcorrenciaNosNumeros {
+  return { tipo, ocorridaEm, diaCivil: diaCivilEmBrasilia(ocorridaEm) };
+}
+
+function contagemDe(tipo: ContagemDoForno["tipo"], parcial: Partial<Contagem>): ContagemDoForno {
+  return { tipo, contagem: { ...CONTAGEM_VAZIA, ...parcial } };
+}
+
+describe("queimasPorTipo (QMC-09)", () => {
+  const HOJE = "2026-10-15";
+
+  it("sem manutenção, conta todas por tipo, e “todas” é o contador de medirForno", () => {
+    const ocorrencias = [
+      ocorrencia("biscoito", "2026-10-02T13:00:00.000Z"),
+      ocorrencia("biscoito", "2026-10-05T13:00:00.000Z"),
+      ocorrencia("biscoito", "2026-09-20T13:00:00.000Z"),
+      ocorrencia("esmalte", "2026-10-06T13:00:00.000Z"),
+      ocorrencia("ouro", "2026-10-07T13:00:00.000Z"),
+    ];
+    const numeros = queimasPorTipo({ ocorrencias, ultimaManutencaoEm: null, hoje: HOJE });
+    expect(numeros.desdeManutencao).toEqual({ biscoito: 3, esmalte: 1, ouro: 1, todas: 5 });
+    expect(numeros.noMes).toEqual({ biscoito: 2, esmalte: 1, ouro: 1, todas: 4 });
+    const medida = medirForno({
+      limite: 100,
+      ocorrenciasDeQueima: ocorrencias.map((item) => item.ocorridaEm),
+      ultimaManutencaoEm: null,
+    });
+    expect(numeros.desdeManutencao.todas).toBe(medida.contador);
+  });
+
+  it("[boundary] a queima no MESMO instante da manutenção fica fora (corte estrito, como medirForno)", () => {
+    const manutencao = "2026-10-03T12:00:00.000Z";
+    const ocorrencias = [
+      ocorrencia("biscoito", "2026-10-01T12:00:00.000Z"),
+      ocorrencia("esmalte", manutencao),
+      ocorrencia("biscoito", "2026-10-03T12:00:00.001Z"),
+      ocorrencia("ouro", "2026-10-04T12:00:00.000Z"),
+    ];
+    const numeros = queimasPorTipo({ ocorrencias, ultimaManutencaoEm: manutencao, hoje: HOJE });
+    expect(numeros.desdeManutencao).toEqual({ biscoito: 1, esmalte: 0, ouro: 1, todas: 2 });
+    // "neste mês" não tem corte de manutenção.
+    expect(numeros.noMes).toEqual({ biscoito: 2, esmalte: 1, ouro: 1, todas: 4 });
+  });
+
+  it("[precision] biscoito + esmalte + ouro desde a manutenção = o contador de medirForno, com e sem manutenção", () => {
+    const ocorrencias = [
+      ocorrencia("biscoito", "2026-08-01T12:00:00.000Z"),
+      ocorrencia("esmalte", "2026-08-10T12:00:00.000Z"),
+      ocorrencia("ouro", "2026-09-01T12:00:00.000Z"),
+      ocorrencia("biscoito", "2026-09-15T12:00:00.000Z"),
+      ocorrencia("esmalte", "2026-10-01T12:00:00.000Z"),
+      ocorrencia("biscoito", "2026-10-10T12:00:00.000Z"),
+    ];
+    for (const ultimaManutencaoEm of [null, "2026-08-20T00:00:00.000Z", "2026-10-01T12:00:00.000Z"]) {
+      const { desdeManutencao } = queimasPorTipo({ ocorrencias, ultimaManutencaoEm, hoje: HOJE });
+      const { contador } = medirForno({
+        limite: 100,
+        ocorrenciasDeQueima: ocorrencias.map((item) => item.ocorridaEm),
+        ultimaManutencaoEm,
+      });
+      expect(desdeManutencao.biscoito + desdeManutencao.esmalte + desdeManutencao.ouro).toBe(contador);
+      expect(desdeManutencao.todas).toBe(contador);
+      expect(Number.isInteger(desdeManutencao.todas)).toBe(true);
+    }
+  });
+
+  it("[adjacency] 23h59 do último dia do mês em Brasília (02h59 UTC do dia 1) conta no mês de Brasília; 00h00 do dia 1 conta no novo", () => {
+    const ultimoMinutoDeSetembro = ocorrencia("biscoito", "2026-10-01T02:59:00.000Z");
+    const primeiroMinutoDeOutubro = ocorrencia("esmalte", "2026-10-01T03:00:00.000Z");
+    expect(ultimoMinutoDeSetembro.diaCivil).toBe("2026-09-30");
+    expect(primeiroMinutoDeOutubro.diaCivil).toBe("2026-10-01");
+    const outubro = queimasPorTipo({
+      ocorrencias: [ultimoMinutoDeSetembro, primeiroMinutoDeOutubro],
+      ultimaManutencaoEm: null,
+      hoje: "2026-10-01",
+    });
+    expect(outubro.noMes).toEqual({ biscoito: 0, esmalte: 1, ouro: 0, todas: 1 });
+    const setembro = queimasPorTipo({
+      ocorrencias: [ultimoMinutoDeSetembro, primeiroMinutoDeOutubro],
+      ultimaManutencaoEm: null,
+      hoje: "2026-09-30",
+    });
+    expect(setembro.noMes).toEqual({ biscoito: 1, esmalte: 0, ouro: 0, todas: 1 });
+  });
+
+  it("[encoding] o mês é o AAAA-MM do dia civil — o mesmo mês de outro ano não conta", () => {
+    const numeros = queimasPorTipo({
+      ocorrencias: [ocorrencia("ouro", "2025-10-15T12:00:00.000Z"), ocorrencia("ouro", "2026-10-15T12:00:00.000Z")],
+      ultimaManutencaoEm: null,
+      hoje: HOJE,
+    });
+    expect(numeros.noMes.ouro).toBe(1);
+    expect(numeros.desdeManutencao.ouro).toBe(2);
+  });
+
+  it("[empty] forno sem queima → os quatro quadros em 0", () => {
+    const numeros = queimasPorTipo({ ocorrencias: [], ultimaManutencaoEm: null, hoje: HOJE });
+    expect(numeros.desdeManutencao).toEqual({ biscoito: 0, esmalte: 0, ouro: 0, todas: 0 });
+    expect(numeros.noMes).toEqual({ biscoito: 0, esmalte: 0, ouro: 0, todas: 0 });
+    expect(subNesteMes(numeros.noMes.todas)).toBe("nenhuma neste mês");
+  });
+
+  it("[ordering] os quadros saem em Biscoito · Esmalte · Ouro · Todas", () => {
+    expect(ORDEM_DOS_QUADROS).toEqual(["biscoito", "esmalte", "ouro", "todas"]);
+  });
+});
+
+describe("capacidadeMedida (QMC-10, D-02)", () => {
+  const contagens: ContagemDoForno[] = [
+    // biscoito cheia, total 20: P 10 (6 internas + 4 externas), M 8, G 2
+    contagemDe("biscoito", { internasP: 6, externasP: 4, internasM: 8, internasG: 1, externasG: 1 }),
+    // biscoito cheia, total 30: P 16, M 10 (7 + 3), G 4
+    contagemDe("biscoito", { internasP: 16, internasM: 7, externasM: 3, internasG: 4 }),
+    contagemDe("esmalte", { internasP: 10, internasM: 5 }),
+    contagemDe("biscoito", { internasP: 50, saiuCheio: false }),
+    contagemDe("ouro", { internasP: 40 }),
+  ];
+
+  it("média e mix só das cheias de biscoito e esmalte; fator = média ÷ média, sem arredondar", () => {
+    const capacidade = capacidadeMedida(contagens);
+    expect(capacidade.biscoito).toEqual({ cheias: 2, mediaPecas: 25, mix: { P: 13, M: 9, G: 3 } });
+    expect(capacidade.esmalte).toEqual({ cheias: 1, mediaPecas: 15, mix: { P: 10, M: 5, G: 0 } });
+    expect(capacidade.fator).toBeCloseTo(25 / 15, 10);
+    expect(capacidade.cheiasTotal).toBe(3);
+    expect(mediaDePecas(capacidade.biscoito.mediaPecas!)).toBe("25,0 peças");
+    expect(mixMedio(capacidade.biscoito.mix!)).toBe("em média: 13 P · 9 M · 3 G");
+    expect(fraseFator(capacidade.fator!)).toBe("1,7× o esmalte");
+  });
+
+  it("[precision] o fator vem das médias SEM arredondar (29,25 ÷ 18,25 = 1,602… → “1,6×”)", () => {
+    const capacidade = capacidadeMedida([
+      contagemDe("biscoito", { internasP: 29 }),
+      contagemDe("biscoito", { internasP: 29 }),
+      contagemDe("biscoito", { internasP: 29 }),
+      contagemDe("biscoito", { internasP: 30 }),
+      contagemDe("esmalte", { internasP: 18 }),
+      contagemDe("esmalte", { internasP: 18 }),
+      contagemDe("esmalte", { internasP: 18 }),
+      contagemDe("esmalte", { internasP: 19 }),
+    ]);
+    expect(capacidade.fator).toBeCloseTo(29.25 / 18.25, 10);
+    expect(fraseFator(capacidade.fator!)).toBe("1,6× o esmalte");
+    expect(mediaDePecas(capacidade.biscoito.mediaPecas!)).toBe("29,3 peças");
+    expect(mixMedio({ P: 12, M: 7.5, G: 1.5 })).toBe("em média: 12 P · 7,5 M · 1,5 G");
+  });
+
+  it("[adjacency] só biscoito cheio → esmalte sem média e fator nulo; não cheias e ouro ficam fora", () => {
+    const capacidade = capacidadeMedida([
+      contagemDe("biscoito", { internasP: 20 }),
+      contagemDe("esmalte", { internasP: 15, saiuCheio: false }),
+      contagemDe("ouro", { internasP: 40 }),
+    ]);
+    expect(capacidade.biscoito.mediaPecas).toBe(20);
+    expect(capacidade.esmalte).toEqual({ cheias: 0, mediaPecas: null, mix: null });
+    expect(capacidade.fator).toBeNull();
+    expect(capacidade.cheiasTotal).toBe(1);
+    expect(FRASE_SEM_CHEIA).toBe("nenhuma fornada cheia contada ainda");
+    expect(FRASE_FATOR_SEM_DOIS_LADOS).toBe("precisa de ao menos uma fornada cheia de biscoito e uma de esmalte");
+  });
+
+  it("[empty] nenhuma contagem → sem médias, sem fator, 0 cheias", () => {
+    const capacidade = capacidadeMedida([]);
+    expect(capacidade.biscoito.mediaPecas).toBeNull();
+    expect(capacidade.esmalte.mediaPecas).toBeNull();
+    expect(capacidade.fator).toBeNull();
+    expect(capacidade.cheiasTotal).toBe(0);
+  });
+
+  it("[boundary] 7 cheias (biscoito + esmalte) → aviso; 8 → sem aviso; 0 → “Ainda não há…”", () => {
+    const cheias = (n: number) =>
+      Array.from({ length: n }, (_, indice) => contagemDe(indice % 2 === 0 ? "biscoito" : "esmalte", { internasP: 10 }));
+    expect(POUCAS_FORNADAS_CHEIAS).toBe(8);
+    expect(frasePoucasCheias(capacidadeMedida(cheias(7)).cheiasTotal)).toBe("Ainda é pouco: 7 fornadas cheias contadas.");
+    expect(frasePoucasCheias(capacidadeMedida(cheias(8)).cheiasTotal)).toBeNull();
+    expect(frasePoucasCheias(capacidadeMedida([]).cheiasTotal)).toBe("Ainda não há fornada cheia contada.");
+    expect(frasePoucasCheias(1)).toBe("Ainda é pouco: 1 fornada cheia contada.");
+    expect(frasePoucasCheias(9)).toBeNull();
+  });
+});
+
+describe("oQueOFornoQueimou (QMC-10)", () => {
+  it("soma TODAS as contagens (cheias ou não, os três tipos), por grupo e tamanho", () => {
+    const queimou = oQueOFornoQueimou([
+      contagemDe("biscoito", { internasP: 6, internasM: 2, externasG: 1 }),
+      contagemDe("esmalte", { internasP: 1, externasP: 3, saiuCheio: false }),
+      contagemDe("ouro", { internasG: 1, externasM: 2 }),
+    ]);
+    expect(queimou.fornadas).toBe(3);
+    expect(queimou.internas).toMatchObject({ total: 10, P: 7, M: 2, G: 1 });
+    expect(queimou.externas).toMatchObject({ total: 6, P: 3, M: 2, G: 1 });
+    expect(valorDoGrupo(queimou.internas.total, queimou.internas.pct)).toBe("10 · 62,5%");
+    expect(valorDoGrupo(queimou.externas.total, queimou.externas.pct)).toBe("6 · 37,5%");
+    expect(subDoGrupo(queimou.internas.P, queimou.internas.M, queimou.internas.G)).toBe("7 P · 2 M · 1 G");
+    expect(subOQueQueimou(queimou.fornadas)).toBe("desde a primeira contagem · 3 fornadas contadas");
+    expect(subOQueQueimou(1)).toBe("desde a primeira contagem · 1 fornada contada");
+  });
+
+  it("[precision] 1/3 e 2/3 → “33,3%” e “66,7%”, cada um arredondado sozinho", () => {
+    const queimou = oQueOFornoQueimou([contagemDe("biscoito", { internasP: 1, externasP: 2 })]);
+    expect(valorDoGrupo(queimou.internas.total, queimou.internas.pct)).toBe("1 · 33,3%");
+    expect(valorDoGrupo(queimou.externas.total, queimou.externas.pct)).toBe("2 · 66,7%");
+  });
+
+  it("[empty] 0 fornadas → totais 0 e percentuais nulos", () => {
+    const queimou = oQueOFornoQueimou([]);
+    expect(queimou.fornadas).toBe(0);
+    expect(queimou.internas).toEqual({ total: 0, P: 0, M: 0, G: 0, pct: null });
+    expect(queimou.externas).toEqual({ total: 0, P: 0, M: 0, G: 0, pct: null });
+  });
+});
+
+describe("formatação e frases dos Números", () => {
+  it("formatarUmaCasa: uma casa, meio para cima, vírgula", () => {
+    expect(formatarUmaCasa(7.45)).toBe("7,5");
+    expect(formatarUmaCasa(18)).toBe("18,0");
+    expect(formatarUmaCasa(100 / 3)).toBe("33,3");
+    expect(formatarUmaCasa(200 / 3)).toBe("66,7");
+    expect(formatarUmaCasa(1.25)).toBe("1,3");
+    expect(formatarAteUmaCasa(12)).toBe("12");
+    expect(formatarAteUmaCasa(7.5)).toBe("7,5");
+    expect(formatarAteUmaCasa(0.04)).toBe("0");
+  });
+
+  it("“neste mês” nas três formas e a dica com o mês pelo nome, em minúsculas", () => {
+    expect(subNesteMes(0)).toBe("nenhuma neste mês");
+    expect(subNesteMes(1)).toBe("1 neste mês");
+    expect(subNesteMes(5)).toBe("5 neste mês");
+    expect(nomeDoMes("2026-10")).toBe("outubro");
+    expect(dicaPorTipo(nomeDoMes("2026-10"))).toBe(
+      "Desde a última manutenção do forno — a soma é o contador. “Neste mês” conta outubro inteiro, com ou sem manutenção no meio.",
+    );
+  });
+
+  it("a dica do bloco 2 mostra o fator vigente com o selo e diz que levar o número é à mão", () => {
+    expect(dicaCapacidade({ milesimos: 1800, medido: false })).toContain("(hoje 1,8×, estimado)");
+    expect(dicaCapacidade({ milesimos: 1650, medido: true })).toContain("(hoje 1,65×, medido)");
+    expect(dicaCapacidade({ milesimos: 1800, medido: false })).toMatch(/Levar o número para lá é à mão\.$/);
+    expect(dicaCapacidade(null)).not.toContain("hoje");
+    expect(dicaCapacidade(null)).toContain("com um “fator do biscoito”. Com o tempo");
   });
 });
