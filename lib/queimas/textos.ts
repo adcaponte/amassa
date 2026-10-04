@@ -833,3 +833,23 @@ export const VAZIO_NUMEROS_TITULO = "Nenhuma fornada contada ainda.";
 export const VAZIO_NUMEROS_CORPO = "Conte pela folha que abre depois de “Queimar”, ou por “Contar agora” no Histórico.";
 export const FRASE_ERRO_NUMEROS =
   "Não deu para carregar os números deste forno. Verifique a internet e tente de novo.";
+
+// A linha do cartão e do detalhe (QMC-09, UI-D1), entre o medidor e o rodapé: N = limite − contador (o
+// que FALTA); no limite e acima, as formas próprias — nunca “−3 queimas”. Sem cor de nível: o selo do
+// cartão já fala.
+export function fraseDaContagemAteManutencao(contador: number, limite: number): string {
+  if (contador === limite) {
+    return "Contagem: chegou ao limite da manutenção.";
+  }
+  if (contador > limite) {
+    const alem = contador - limite;
+    return alem === 1
+      ? "Contagem: 1 queima além do limite da manutenção."
+      : `Contagem: ${alem} queimas além do limite da manutenção.`;
+  }
+  const faltam = limite - contador;
+  return faltam === 1 ? "Contagem: 1 queima até a manutenção." : `Contagem: ${faltam} queimas até a manutenção.`;
+}
+
+// O link do detalhe, sob a linha “Contagem: …”, que salta para a seção Números (UI-D3).
+export const ROTULO_VER_OS_NUMEROS = "ver os números";

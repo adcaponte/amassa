@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { medirForno } from "@/lib/queimas/contador";
 import type { DadosDaFolha, FornoMedido } from "@/lib/queimas/consultas";
 import { formatarInstanteCurto } from "@/lib/queimas/formato";
-import { fraseDoRodape, textoDoNivel } from "@/lib/queimas/textos";
+import { fraseDaContagemAteManutencao, fraseDoRodape, textoDoNivel } from "@/lib/queimas/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { Medidor } from "./medidor";
@@ -87,6 +87,12 @@ export function CartaoForno({ forno, dadosDaFolha }: CartaoFornoProps) {
 
       <CardContent className="flex flex-col gap-4">
         <Medidor contador={medida.contador} limite={medida.limite} atencao={medida.atencao} nivel={medida.nivel} />
+
+        {/* Fase 06.4 (QMC-09, UI-D1): quantas queimas faltam para a manutenção — também em forno
+            desativado. O medidor, os rótulos e o rodapé continuam (FOR-05, FOR-08). */}
+        <p data-testid={`contagem-forno-${forno.id}`} className="text-apoio text-tinta-media break-words">
+          {fraseDaContagemAteManutencao(medida.contador, medida.limite)}
+        </p>
 
         {/* Rodapé — quebra em duas linhas no celular em vez de estourar o cartão; nome do
             responsável (texto livre) quebra por palavra, nunca trunca. */}

@@ -14,11 +14,14 @@ export default function CarregandoDetalheDoForno() {
       </div>
 
       <div className="flex flex-col gap-8 px-6 py-6 md:px-8">
-        {/* bloco do medidor: contador + trilho + rótulos + rodapé */}
+        {/* bloco do medidor: contador + trilho + as duas fileiras de rótulos (D-04) + a linha
+            "Contagem: …" (Fase 06.4) + rodapé */}
         <div className="flex flex-col gap-3">
           <Skeleton className="ml-auto h-4 w-16" />
           <Skeleton className="h-3 w-full rounded-full" />
           <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-4 w-2/3" />
         </div>
 

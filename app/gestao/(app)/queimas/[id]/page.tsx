@@ -8,6 +8,8 @@ import { formatarInstanteCurto, hojeEmBrasilia } from "@/lib/queimas/formato";
 import {
   ROTULO_HISTORICO_MANUTENCOES,
   ROTULO_HISTORICO_QUEIMAS,
+  ROTULO_VER_OS_NUMEROS,
+  fraseDaContagemAteManutencao,
   fraseDoRodape,
 } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
@@ -95,6 +97,20 @@ export default async function PaginaDetalheDoForno({
             atencao={medida.atencao}
             nivel={medida.nivel}
           />
+          {/* Fase 06.4 (QMC-09, UI-D1/UI-D3): a mesma linha do cartão e, logo abaixo, o salto para os
+              Números deste forno, no fim da página. */}
+          <div className="flex flex-col items-start">
+            <p data-testid="contagem-forno" className="text-apoio text-tinta-media break-words">
+              {fraseDaContagemAteManutencao(medida.contador, medida.limite)}
+            </p>
+            <a
+              href="#numeros-do-forno"
+              data-testid="ver-os-numeros"
+              className="text-apoio text-acento focus-visible:ring-ring inline-flex min-h-[44px] items-center rounded-md font-semibold underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+            >
+              {ROTULO_VER_OS_NUMEROS}
+            </a>
+          </div>
           <p className="text-apoio text-muted-foreground break-words" data-testid="rodape-forno">
             {rodape}
           </p>

@@ -564,3 +564,50 @@ describe("contraste dos Lembretes (06.3-UI-SPEC.md)", () => {
     },
   );
 });
+
+// Fase 06.4 (Queimas: contagem), plano 06: os pares Q1-Q14 da UI-SPEC (06.4-UI-SPEC.md §Color → "Pares de
+// contraste"), medidos no `app/globals.css` real por `tokenDaPlataforma` — nenhum hex repetido aqui (o
+// branco do visto da caixa marcada é a única cor fora de token, como o `BRANCO` dos outros blocos). Os
+// marcados "reusar" na UI-SPEC NÃO se repetem — já estão nos blocos de origem, acima:
+//   Q3  (`atencao` sobre `atencao-fundo`, aviso de preço e tags canceladas) = A1 da Agenda;
+//   Q6  (`tinta-fraca` sobre `superficie`, dicas e rótulos claros dos quadros) = C7 dos Lembretes;
+//   Q7  (`tinta-fraca` sobre `superficie`, BORDA da caixa "O forno saiu cheio", 3,0) = C10 dos Lembretes;
+//   Q10 (`tinta` sobre `acento-fundo`, faixa "Das Queimas") = A10 da Agenda;
+//   Q11 (`borda-forte` sobre `tinta`, rótulo e sub do quadro escuro "Todas") = A16 da Agenda;
+//   Q14 (`erro` sobre `superficie`, erros na folha e nas listas) = C13 dos Lembretes.
+// Q8, Q12 e Q13 são objeto gráfico (WCAG 1.4.11): 3,0. Achado real se reprovar: o token (ou o par que o
+// componente usa) muda, nunca o limiar.
+describe("contraste das Queimas — contagem (06.4-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+  const NAO_TEXTO = 3.0;
+  const BRANCO = "#FFFFFF";
+
+  const cor = (token: string) => (token === "BRANCO" ? BRANCO : tokenDaPlataforma(token));
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    ["Q1", "tinta-media", "superficie-2", TEXTO_NORMAL, "chips de contagem e tags neutras do Histórico; externas já lançadas"],
+    ["Q2", "tinta-fraca", "superficie-2", TEXTO_NORMAL, "chip da Produção já somado"],
+    ["Q4", "sucesso", "sucesso-fundo", TEXTO_NORMAL, "tag “venda nº N · 2 P · paga”"],
+    ["Q5", "tinta-media", "superficie", TEXTO_NORMAL, "linha “Contagem: N queimas até a manutenção.”; sub-linhas das listas"],
+    ["Q8", "BRANCO", "tinta", NAO_TEXTO, "visto branco da caixa marcada"],
+    ["Q9", "acento", "superficie", TEXTO_NORMAL, "links de texto novos (“ver os números”, “abrir Parâmetros”)"],
+    ["Q12", "area-pecas", "superficie-2", NAO_TEXTO, "segmento “Internas” da barra de “O que o forno queimou”"],
+    ["Q13", "area-loja", "superficie-2", NAO_TEXTO, "segmento “Externas” da barra"],
+  ];
+
+  it("a tabela tem Q1, Q2, Q4, Q5, Q8, Q9, Q12 e Q13 (Q3, Q6, Q7, Q10, Q11 e Q14 são pares reusados)", () => {
+    expect(PARES.map(([par]) => par)).toEqual(["Q1", "Q2", "Q4", "Q5", "Q8", "Q9", "Q12", "Q13"]);
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = cor(tokenDaFrente);
+      const fundo = cor(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+});

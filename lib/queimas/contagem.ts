@@ -718,3 +718,13 @@ export function formatarAteUmaCasa(valor: number): string {
   const texto = formatarUmaCasa(valor);
   return texto.endsWith(",0") ? texto.slice(0, -2) : texto;
 }
+
+// O medidor (D-04, UI-D2): na 2ª fileira de rótulos, “atenção N” fica ancorado na MARCA do limiar, sem
+// centralizar — começa nela quando a marca está na metade esquerda do trilho (fração < 0,5) e termina
+// nela a partir da metade (≥ 0,5). O texto cresce sempre para o lado que tem ao menos metade do trilho, e
+// nunca passa da borda.
+export type LadoDoRotuloDeAtencao = "comeca-na-marca" | "termina-na-marca";
+
+export function ladoDoRotuloDeAtencao(fracao: number): LadoDoRotuloDeAtencao {
+  return fracao < 0.5 ? "comeca-na-marca" : "termina-na-marca";
+}
