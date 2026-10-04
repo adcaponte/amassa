@@ -3,6 +3,9 @@
 // vendas por queima, uma por pessoa, cada uma com a sua quantidade por tamanho). Roda o CÓDIGO da
 // aplicação — `travarContagem`, `gravarContagem`, `apagarContagemNaTransacao`, `cobrarQueimaNaTransacao`
 // (o corpo do "Recebi agora") e `obterItensDasQueimas`, que ela chama sob a trava —, não uma cópia do SQL.
+// Desde o plano 05, também a metade das Queimas do "Lançar na Venda" (`vincularQueimaNaVenda` →
+// `conferir` → `gravarVenda` → `gravar`, a mesma sequência de `lancarVenda`): os casos (9) e (10) provam que
+// "Recebi agora" e "Lançar na Venda" sobrepostos nunca passam das externas em nenhum tamanho.
 //
 // Chamado por `scripts/testar-migracoes.mjs` (`npm run test:migracoes`, parte do `npm run verificar` e do
 // CI) depois das migrações, com `DATABASE_URL` apontando para o banco de TESTE. Nunca rode contra o banco
@@ -23,6 +26,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 
 import { db, pool } from "@/db";
+import { gravarVenda, type LinhaDoPedidoDeVenda } from "@/lib/financeiro/gravacao";
 import type { Contagem, Quantidades } from "@/lib/queimas/contagem";
 import { obterItensDasQueimas } from "@/lib/queimas/consultas";
 import {
@@ -31,6 +35,7 @@ import {
   gravarContagem,
   RecusaDasQueimas,
   travarContagem,
+  vincularQueimaNaVenda,
   type TransacaoDoBanco,
 } from "@/lib/queimas/gravacao";
 
@@ -133,6 +138,53 @@ function cobrar(tx: TransacaoDoBanco, queimaId: string, quantidades: Quantidades
     taxaCartaoPontosBase: 0,
     dataSaldoInicial: null,
   });
+}
+
+// A metade das Queimas do "Lançar na Venda" (`lancarVenda` em lib/financeiro/acoes.ts, sem a sessão e sem a
+// validação do formulário): trava e confere a queima (`vincularQueimaNaVenda`), monta as linhas da venda com
+// os itens do Catálogo (as quantidades pedidas, ao preço de prova), tira delas as quantidades do vínculo
+// (`conferir` — recusa acima do que falta), grava a venda com o MESMO escritor e grava o vínculo — na mesma
+// transação. A venda nasce como a da tela: à vista EM ABERTO, hoje, sem pessoa.
+async function lancar(
+  tx: TransacaoDoBanco,
+  queimaId: string,
+  quantidades: Quantidades,
+): Promise<{ documentoId: string; numero: number }> {
+  const vinculo = await vincularQueimaNaVenda(tx, queimaId);
+  const itens = await obterItensDasQueimas(tx);
+  const linhas: LinhaDoPedidoDeVenda[] = [];
+  for (const [tamanho, chave] of [
+    ["P", "p"],
+    ["M", "m"],
+    ["G", "g"],
+  ] as const) {
+    if (quantidades[chave] <= 0) {
+      continue;
+    }
+    linhas.push({
+      tipo: "item",
+      itemId: itens[tamanho].id,
+      descricao: itens[tamanho].nome,
+      categoriaId: itens[tamanho].categoriaVendaId,
+      quantidade: quantidades[chave],
+      valorCentavos: quantidades[chave] * PRECOS_DE_PROVA[tamanho],
+    });
+  }
+  const doVinculo = vinculo.conferir(linhas);
+  const hoje = hojeEmBrasilia();
+  const total = linhas.reduce((soma, linha) => soma + linha.valorCentavos, 0);
+  const venda = await gravarVenda(
+    tx,
+    {
+      data: hoje,
+      pessoaNome: null,
+      linhas,
+      parcelas: [{ vencimento: hoje, valorCentavos: total, forma: "pix", pago: false }],
+    },
+    { registradoPor: semente.usuarioId, taxaCartaoPontosBase: 0 },
+  );
+  await vinculo.gravar(venda.id, doVinculo, semente.usuarioId);
+  return { documentoId: venda.id, numero: venda.numero };
 }
 
 function guardarVenda(desfecho: Desfecho<{ documentoId: string; numero: number }>): void {
@@ -376,6 +428,69 @@ async function provarCanceladaLiberaEIdempotencia(conexao: Client): Promise<void
   );
 }
 
+// (9) "Recebi agora" × "Lançar na Venda" pedindo a MESMA peça, nos dois sentidos: 3 P contadas, os dois
+// pedem 2 P. Quem chega depois espera a trava da queima, relê o que falta (1 P) e recusa; Σ ativa de P = 2,
+// um vínculo. (9a) o "Recebi" trava primeiro; (9b) o "Lançar" trava primeiro.
+async function provarRecebiXLancarMesmaPeca(conexao: Client, observador: Client): Promise<void> {
+  console.log("    (9a) “Recebi agora” × “Lançar na Venda” na mesma peça (Recebi primeiro, 2 P e 2 P de 3 P)...");
+  let queimaId = await semearQueima(conexao, so(3));
+  let primeira = await primeiraTravaEPara(queimaId, (tx) => cobrar(tx, queimaId, so(2)));
+  const lancarDepois = semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2))));
+  await esperarAlguemNaTrava(observador, "(9a)");
+  primeira.soltar();
+  let [a, b] = await Promise.all([primeira.desfecho, lancarDepois]);
+  guardarVenda(a);
+  guardarVenda(b);
+  afirmar(a.ok, `(9a): o “Recebi agora” deveria gravar — ${String(!a.ok && a.erro)}`);
+  afirmar(
+    !b.ok && b.erro instanceof RecusaDasQueimas,
+    "(9a): o “Lançar na Venda” sobreposto deveria ser RECUSADO — ele passou e a soma lançada passou das externas.",
+  );
+  afirmar(
+    frase(b) === "Desta queima só faltam 1 P para cobrar — diminua as linhas de queima externa e lance de novo.",
+    `(9a): a recusa deveria dizer o que falta (1 P), disse “${frase(b)}”.`,
+  );
+  let lista = await vinculos(conexao, queimaId);
+  afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(9a): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
+
+  console.log("    (9b) “Lançar na Venda” × “Recebi agora” na mesma peça (Lançar primeiro)...");
+  queimaId = await semearQueima(conexao, so(3));
+  primeira = await primeiraTravaEPara(queimaId, (tx) => lancar(tx, queimaId, so(2)));
+  const recebiDepois = semRejeicaoSolta(db.transaction((tx) => cobrar(tx, queimaId, so(2))));
+  await esperarAlguemNaTrava(observador, "(9b)");
+  primeira.soltar();
+  [a, b] = await Promise.all([primeira.desfecho, recebiDepois]);
+  guardarVenda(a);
+  guardarVenda(b);
+  afirmar(a.ok, `(9b): o “Lançar na Venda” deveria gravar — ${String(!a.ok && a.erro)}`);
+  afirmar(
+    !b.ok && b.erro instanceof RecusaDasQueimas && frase(b).includes("só faltam 1 P"),
+    `(9b): o “Recebi agora” sobreposto deveria ser recusado com o que falta (1 P), veio “${frase(b) || "passou"}”.`,
+  );
+  lista = await vinculos(conexao, queimaId);
+  afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(9b): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
+}
+
+// (10) "Recebi agora" 1 P × "Lançar na Venda" 2 P de 3 P, sobrepostos: as partes cabem juntas — os dois
+// passam, dois vínculos, e a Σ ativa de P é exatamente 3 (= externas).
+async function provarRecebiXLancarPartesQueCabem(conexao: Client, observador: Client): Promise<void> {
+  console.log("    (10) “Recebi agora” 1 P × “Lançar na Venda” 2 P de 3 P (cabem juntas)...");
+  const queimaId = await semearQueima(conexao, so(3));
+  const primeira = await primeiraTravaEPara(queimaId, (tx) => cobrar(tx, queimaId, so(1)));
+  const segunda = semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2))));
+  await esperarAlguemNaTrava(observador, "(10)");
+  primeira.soltar();
+  const [a, b] = await Promise.all([primeira.desfecho, segunda]);
+  guardarVenda(a);
+  guardarVenda(b);
+  afirmar(a.ok && b.ok, `(10): os dois deveriam passar — ${String(!a.ok ? a.erro : !b.ok ? b.erro : "")}`);
+  const lista = await vinculos(conexao, queimaId);
+  afirmar(
+    lista.length === 2 && somaAtiva(lista).p === 3,
+    `(10): deveriam ser dois vínculos somando 3 P (= externas), veio ${JSON.stringify(lista)}.`,
+  );
+}
+
 async function porPrecosDeProva(conexao: Client): Promise<void> {
   const { rows } = await conexao.query<{ chave: string; nome: string; preco: number | null }>(
     `select chave_do_sistema as chave, nome, preco_venda_centavos as preco
@@ -452,7 +567,7 @@ async function main(): Promise<void> {
     semente.fornoId = forno.rows[0].id;
     await porPrecosDeProva(conexao);
 
-    console.log("  Corridas das Queimas (06.4-04, D-07), com transações sobrepostas de verdade:");
+    console.log("  Corridas das Queimas (06.4-04 e 06.4-05, D-07), com transações sobrepostas de verdade:");
     await provarMesmaPeca(conexao, observador);
     await provarPartesQueCabem(conexao, observador);
     await provarPisoSobCorrida(conexao, observador);
@@ -460,6 +575,8 @@ async function main(): Promise<void> {
     await provarExcluirQueimaSobCorrida(conexao, observador, outra);
     await provarDuasGravacoes(conexao, observador);
     await provarCanceladaLiberaEIdempotencia(conexao);
+    await provarRecebiXLancarMesmaPeca(conexao, observador);
+    await provarRecebiXLancarPartesQueCabem(conexao, observador);
     console.log("  Corridas das Queimas: todas as afirmações passaram.");
     codigo = 0;
   } catch (erro) {

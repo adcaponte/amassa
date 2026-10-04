@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import type { ItensDasQueimas, QueimaACobrar } from "@/lib/queimas/consultas";
 import { diaMes } from "@/lib/queimas/contagem";
-import { TITULO_A_COBRAR, tituloDaQueima } from "@/lib/queimas/textos";
+import { DICA_FIM_A_COBRAR, TITULO_A_COBRAR, tituloDaQueima } from "@/lib/queimas/textos";
 
 import { FolhaRecebiQueima } from "./folha-recebi-queima";
 import { LinhaACobrar } from "./linha-a-cobrar";
@@ -53,6 +53,11 @@ export function ListaACobrar({
           />
         ))}
       </ul>
+      {/* A dica do fim (D-07): “Lançar na Venda” abre o Financeiro com o que falta, e é lá que se divide
+          entre pessoas — uma venda por pessoa. */}
+      <p data-testid="a-cobrar-dica" className="text-apoio text-tinta-fraca">
+        {DICA_FIM_A_COBRAR}
+      </p>
       {cobrando !== null ? (
         <FolhaRecebiQueima
           key={cobrando.queimaId}

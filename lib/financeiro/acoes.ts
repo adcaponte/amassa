@@ -248,7 +248,9 @@ export async function lancarVenda(
       // travas é a das Queimas: QUEIMA → (leitura dos vínculos) → documento novo → ITENS → vínculo novo.
       // `vincularQueimaNaVenda` trava a queima e confere, sob a trava, que ainda falta algo; as quantidades
       // do vínculo são as das linhas desta venda com um dos três itens das Queimas, somadas por tamanho, e
-      // não podem passar do que falta AGORA — senão `RecusaDasQueimas` com a frase da tela, nada gravado.
+      // não podem passar do que falta AGORA — senão `RecusaDasQueimas` com a frase da tela, nada gravado:
+      // nenhuma linha de queima → `FRASE_LINHA_DA_QUEIMA_FALTANDO` (o painel recusa antes, no cliente; esta é
+      // a defesa contra um pedido forjado); algum tamanho acima do que falta → `fraseAcimaDoQueFaltaNaVenda`.
       // A pessoa NÃO é sobrescrita: a queima externa não tem cliente; vale o que o dono escreveu.
       if (!ehOrigemDaAgenda(origem)) {
         const vinculoDaQueima = await vincularQueimaNaVenda(tx, origem.id);

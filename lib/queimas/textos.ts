@@ -716,3 +716,8 @@ export function toastLancadoNaVendaPago(numero: number): string {
 export function ariaLancarNaVenda(titulo: string): string {
   return `Lançar na Venda: ${titulo}`;
 }
+
+// A dica do fim de “a cobrar” (Apoio, `tinta-fraca`) — a do protótipo, letra por letra (D-07, 04/10/2026;
+// UI-SPEC item 4). *Até 04/10/2026, na versão (A), a frase final era outra.*
+export const DICA_FIM_A_COBRAR =
+  "“Lançar na Venda” abre o Financeiro com as linhas Queima externa P / M / G já preenchidas. Se as peças são de pessoas diferentes, você divide lá.";
