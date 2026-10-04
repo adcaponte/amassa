@@ -2,10 +2,16 @@
 // nenhuma leitura do relógio, nenhum React, nenhum cliente de banco. Mesmo molde de
 // `lib/encomendas/cronograma.ts`/`lib/queimas/contador.ts`.
 //
-// `CATALOGO_DE_PARAMETROS` é a lista FECHADA das 18 chaves de `parametros_precificacao` — o
-// `check` de `parametros_precificacao.chave` em `db/schema.ts`/`db/migrations/0017` e a semente
-// de `db/migrations/0019` espelham esta lista literalmente. Três lugares, uma verdade: divergir
-// quebra `npm run test:migracoes`. A taxa do cartão NÃO é uma destas chaves (D-16) — ela é lida
+// `CATALOGO_DE_PARAMETROS` é a lista FECHADA das 20 chaves de `parametros_precificacao` — o
+// `check` de `parametros_precificacao.chave` em `db/schema.ts` (0017, refeito na 0030) e as sementes
+// (0019 para as 18 da precificação, 0030 para as duas da régua) espelham esta lista literalmente.
+// Três lugares, uma verdade: divergir quebra `npm run test:migracoes`.
+//
+// As duas últimas (`queima_regua_p_ate`/`queima_regua_m_ate`, grupo "Queimas") são a régua P · M · G
+// das Queimas (Fase 06.4, D-03, migração 0030), no mesmo histórico e na mesma tela dos outros
+// parâmetros — mas marcadas `foraDoCalculo`: não entram em `calcularPeca` nem em `quantasCabem`, NÃO
+// são exigidas por `parametrosVigentes` (o `faltando` sai de `chavesQueFaltam`, só das 18) e NÃO
+// contam como "parâmetro deste cálculo". Assim nenhum módulo de fora das Queimas depende da 0030. A taxa do cartão NÃO é uma destas chaves (D-16) — ela é lida
 // de `configuracao_financeira.taxa_cartao_pontos_base` (Fase 04.4) e entra em `calcularPeca`
 // (`lib/precificacao/calculo.ts`) por argumento.
 //
@@ -15,7 +21,7 @@
 // `configuracao_financeira.taxa_cartao_pontos_base`); medida física (cm/kWh/×) guarda em
 // milésimos (escala 1000) — nunca ponto flutuante numa coluna que entra em cálculo.
 
-export type GrupoDeParametro = "Material" | "Trabalho" | "Forno" | "Perda" | "No preço";
+export type GrupoDeParametro = "Material" | "Trabalho" | "Forno" | "Perda" | "No preço" | "Queimas";
 
 export type ChaveDeParametro =
   | "material_argila"
@@ -35,7 +41,13 @@ export type ChaveDeParametro =
   | "preco_lucro"
   | "preco_folga_negociacao"
   | "preco_imposto_sobre_venda"
-  | "preco_comissao_galeria";
+  | "preco_comissao_galeria"
+  | "queima_regua_p_ate"
+  | "queima_regua_m_ate";
+
+// As chaves que NÃO são da precificação (a régua das Queimas) e as do cálculo — as 18 de sempre.
+export type ChaveForaDoCalculo = "queima_regua_p_ate" | "queima_regua_m_ate";
+export type ChaveDoCalculo = Exclude<ChaveDeParametro, ChaveForaDoCalculo>;
 
 export type DefinicaoDeParametro = {
   chave: ChaveDeParametro;
@@ -44,6 +56,9 @@ export type DefinicaoDeParametro = {
   unidade: string;
   // Multiplicador entre o valor na unidade exibida e o inteiro guardado — ver nota acima.
   escala: number;
+  // Só a régua das Queimas: fora do cálculo, fora do `faltando` de `parametrosVigentes` — ver nota
+  // acima.
+  foraDoCalculo?: true;
 };
 
 export const CATALOGO_DE_PARAMETROS: readonly DefinicaoDeParametro[] = [
@@ -155,7 +170,42 @@ export const CATALOGO_DE_PARAMETROS: readonly DefinicaoDeParametro[] = [
     unidade: "%",
     escala: 100,
   },
+  // A régua P · M · G das Queimas (D-03) — no fim: é o único grupo que não é da precificação.
+  {
+    chave: "queima_regua_p_ate",
+    grupo: "Queimas",
+    rotulo: "P (pequena) vai até",
+    unidade: "cm",
+    escala: 1000,
+    foraDoCalculo: true,
+  },
+  {
+    chave: "queima_regua_m_ate",
+    grupo: "Queimas",
+    rotulo: "M (média) vai até — acima disso é G",
+    unidade: "cm",
+    escala: 1000,
+    foraDoCalculo: true,
+  },
 ];
+
+// Estimado/medido não se aplica a uma régua: os parâmetros do grupo "Queimas" aparecem sem o selo.
+export function semSeloDoParametro(chave: ChaveDeParametro): boolean {
+  return definicaoDe(chave).grupo === "Queimas";
+}
+
+// As chaves DO CÁLCULO (as 18, sem a marca `foraDoCalculo`) que não estão em `presentes`, na ordem do
+// catálogo. É o `faltando` de `parametrosVigentes`: a régua ausente (antes da 0030) nunca falta.
+export function chavesQueFaltam(presentes: ReadonlySet<string>): ChaveDoCalculo[] {
+  const faltando: ChaveDoCalculo[] = [];
+  for (const definicao of CATALOGO_DE_PARAMETROS) {
+    if (definicao.foraDoCalculo === true || presentes.has(definicao.chave)) {
+      continue;
+    }
+    faltando.push(definicao.chave as ChaveDoCalculo);
+  }
+  return faltando;
+}
 
 function definicaoDe(chave: ChaveDeParametro): DefinicaoDeParametro {
   const definicao = CATALOGO_DE_PARAMETROS.find((item) => item.chave === chave);

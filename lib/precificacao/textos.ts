@@ -228,3 +228,10 @@ export function fraseFichaNaProducaoDaCasa(nomes: readonly string[]): string {
       : `${citadas[0]}, ${citadas[1]} e mais ${nomes.length - 2}`;
   return `A ficha está em ${nomes.length} ordens da produção da casa ainda abertas (${lista}). Conclua ou cancele essas ordens na Produção antes de torná-la exclusiva. Nada foi gravado.`;
 }
+
+// Fase 06.4, plano 03 — a régua P · M · G das Queimas em Parâmetros (D-03, UI-D11). As recusas do
+// servidor (`definirParametro`) e a frase do grupo "Queimas" antes da 0030.
+export const FRASE_REGUA_P_MENOR_QUE_M = "O limite do P precisa ser menor que o do M.";
+export const FRASE_REGUA_MAIOR_QUE_ZERO = "A medida precisa ser maior que zero.";
+export const FRASE_REGUA_AUSENTE =
+  "A régua P · M · G ainda não está no banco. Ela chega com a atualização das Queimas — até lá, as queimas registram sem a folha de contagem.";

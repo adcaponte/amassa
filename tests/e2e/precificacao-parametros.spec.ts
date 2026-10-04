@@ -111,14 +111,17 @@ test.describe("precificacao parametros @parametro-global", () => {
     await restaurarSelo(ehCelular ? "preco_lucro" : "perda_unica");
   });
 
-  test("a sub-aba Parâmetros abre, mostra os cinco grupos e ao menos 18 campos", async ({ page }) => {
+  test("a sub-aba Parâmetros abre, mostra os seis grupos e um campo por chave do catálogo", async ({
+    page,
+  }) => {
     await fazerLogin(page);
 
     await page.goto("/gestao/cadastros?sub=parametros");
     await expect(page).toHaveURL(/\/gestao\/cadastros\?sub=parametros$/);
     await expect(page.getByTestId("cadastros-sub-parametros")).toHaveAttribute("aria-selected", "true");
 
-    for (const grupo of ["Material", "Trabalho", "Forno", "Perda", "No preço"]) {
+    // Fase 06.4 (D-03): o sexto grupo, "Queimas", com a régua P · M · G (fora do cálculo).
+    for (const grupo of ["Material", "Trabalho", "Forno", "Perda", "No preço", "Queimas"]) {
       await expect(page.getByRole("heading", { name: grupo, level: 3 })).toBeVisible();
     }
 

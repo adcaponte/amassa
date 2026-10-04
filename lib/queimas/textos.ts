@@ -497,3 +497,10 @@ export function fraseTodasSemContagem(total: number): string {
     ? "A única queima sem contagem."
     : `Todas as ${total} sem contagem, a mais recente primeiro.`;
 }
+
+// A dica do grupo "Queimas" em Cadastros → Parâmetros (UI-D11): a régua de hoje por extenso.
+export function dicaDaReguaNosParametros(regua: Regua): string {
+  const p = cmDaRegua(regua.pAte);
+  const m = cmDaRegua(regua.mAte);
+  return `Régua de hoje: P até ${p} cm · M de ${p} a ${m} cm · G maior que ${m} cm. Vale para internas e externas; a contagem é no olho, pela maior medida da peça. Mudar a régua não muda as contagens já feitas.`;
+}

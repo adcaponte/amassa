@@ -29,13 +29,16 @@ import {
   promoverFichaParaLinha,
 } from "./gravacao";
 import { calcularHora } from "./hora";
-import type { ChaveDeParametro } from "./parametros";
+import type { ChaveDeParametro, ChaveForaDoCalculo } from "./parametros";
 import {
   FRASE_CATEGORIA_DE_VENDA_INVALIDA,
   FRASE_FALHA_AO_SALVAR,
   FRASE_FICHA_NAO_EXISTE_MAIS,
   FRASE_INFORME_AS_HORAS,
   FRASE_PARAMETRO_NAO_EXISTE_MAIS,
+  FRASE_REGUA_AUSENTE,
+  FRASE_REGUA_MAIOR_QUE_ZERO,
+  FRASE_REGUA_P_MENOR_QUE_M,
   fraseFichaEmUsoCompleta,
   fraseFichaNaProducaoDaCasa,
 } from "./textos";
@@ -74,8 +77,45 @@ async function gravarValorDeParametro({
     });
 }
 
+// A régua P · M · G das Queimas (Fase 06.4, D-03): as duas chaves dependem uma da outra.
+const OUTRA_CHAVE_DA_REGUA: Record<ChaveForaDoCalculo, ChaveForaDoCalculo> = {
+  queima_regua_p_ate: "queima_regua_m_ate",
+  queima_regua_m_ate: "queima_regua_p_ate",
+};
+
+function ehChaveDaRegua(chave: ChaveDeParametro): chave is ChaveForaDoCalculo {
+  return chave === "queima_regua_p_ate" || chave === "queima_regua_m_ate";
+}
+
+// A regra cruzada da régua, no servidor (T-06.4-17): a medida > 0 e P < M, contra o valor VIGENTE
+// hoje da outra chave. `null` = pode gravar; senão, a frase da recusa. Sem trava própria: duas
+// pessoas mudando P e M no mesmo segundo é risco aceito (T-06.4-18) — a próxima edição recusa.
+async function recusaDaRegua(
+  chave: ChaveForaDoCalculo,
+  valorInteiro: number,
+  hoje: string,
+): Promise<string | null> {
+  if (valorInteiro <= 0) {
+    return FRASE_REGUA_MAIOR_QUE_ZERO;
+  }
+  const outra = OUTRA_CHAVE_DA_REGUA[chave];
+  const [vigente] = await db
+    .select({ valorInteiro: parametrosPrecificacao.valorInteiro })
+    .from(parametrosPrecificacao)
+    .where(and(eq(parametrosPrecificacao.chave, outra), lte(parametrosPrecificacao.vigenteDesde, hoje)))
+    .orderBy(desc(parametrosPrecificacao.vigenteDesde))
+    .limit(1);
+  if (!vigente) {
+    return FRASE_REGUA_AUSENTE;
+  }
+  const pAte = chave === "queima_regua_p_ate" ? valorInteiro : vigente.valorInteiro;
+  const mAte = chave === "queima_regua_m_ate" ? valorInteiro : vigente.valorInteiro;
+  return pAte >= mAte ? FRASE_REGUA_P_MENOR_QUE_M : null;
+}
+
 // Mudar o valor de um parâmetro (D-15). `exigirUsuario()` é a PRIMEIRA instrução do corpo
-// (verificado por `npm run verificar-acoes`, decidido por árvore sintática).
+// (verificado por `npm run verificar-acoes`, decidido por árvore sintática). Nenhuma gravação de
+// parâmetro toca `queima_contagens`: mudar a régua nunca muda contagem já feita.
 export async function definirParametro(
   entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<{ chave: ChaveDeParametro }>> {
@@ -86,13 +126,20 @@ export async function definirParametro(
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
   const { chave, valorInteiro } = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
 
   try {
+    if (ehChaveDaRegua(chave)) {
+      const recusa = await recusaDaRegua(chave, valorInteiro, hoje);
+      if (recusa !== null) {
+        return { ok: false, erro: recusa };
+      }
+    }
     await gravarValorDeParametro({
       chave,
       valorInteiro,
       criadoPor: usuario.id,
-      hoje: hojeEmBrasilia(new Date()),
+      hoje,
     });
     return { ok: true, dados: { chave } };
   } catch (erro) {

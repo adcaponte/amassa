@@ -22,7 +22,14 @@ import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
 import type { ParametrosDoCalculo } from "./calculo";
 import type { CamposCopiaveisDaFicha } from "./ficha";
 import type { MedidasUteisDoForno } from "./forno";
-import { CATALOGO_DE_PARAMETROS, type ChaveDeParametro, type LinhaDeParametro } from "./parametros";
+import {
+  CATALOGO_DE_PARAMETROS,
+  chavesQueFaltam,
+  type ChaveDeParametro,
+  type ChaveDoCalculo,
+  type ChaveForaDoCalculo,
+  type LinhaDeParametro,
+} from "./parametros";
 
 export type ParametroVigente = LinhaDeParametro & { chave: ChaveDeParametro };
 
@@ -30,8 +37,15 @@ export type ParametrosVigentesResultado =
   | {
       ok: true;
       // Os 18, um por chave — o que a TELA precisa (valor, selo, "desde") além do que
-      // `calcularPeca` usa.
-      porChave: Record<ChaveDeParametro, ParametroVigente>;
+      // `calcularPeca` usa. EXATAMENTE as 18 do cálculo: a régua das Queimas fica fora (abaixo).
+      porChave: Record<ChaveDoCalculo, ParametroVigente>;
+      // A régua P · M · G das Queimas (Fase 06.4, D-03), marcada `foraDoCalculo` no catálogo: as
+      // linhas que existirem — `Partial`, porque antes da 0030 elas não existem no banco. Por que à
+      // parte: Orçamentos, Produção, Estoque, Cadastros e o Financeiro chamam esta função sem nunca
+      // ler a régua, e não podem falhar entre a publicação e o `db:migrate`; e, dentro de `porChave`,
+      // ela entraria na contagem de "parâmetros deste cálculo ainda estimados" de
+      // `lib/orcamentos/acoes.ts` e `editor-orcamento.tsx` (`Object.values(porChave)`).
+      foraDoCalculo: Partial<Record<ChaveForaDoCalculo, ParametroVigente>>;
       // O mesmo agregado que `calcularPeca` espera — montado aqui, nunca por quem chama.
       calculo: ParametrosDoCalculo;
       // As medidas do forno, no formato que `quantasCabem` (lib/precificacao/forno.ts) espera —
@@ -42,7 +56,7 @@ export type ParametrosVigentesResultado =
     }
   // Uma chave sem NENHUMA linha vigente na data pedida — a tela precisa saber a diferença entre
   // "vale zero" e "não existe" (nunca finge zero).
-  | { ok: false; faltando: ChaveDeParametro[] };
+  | { ok: false; faltando: ChaveDoCalculo[] };
 
 function valorInteiroDe(
   porChave: Map<ChaveDeParametro, ParametroVigente>,
@@ -77,9 +91,8 @@ export async function parametrosVigentes(hoje: string): Promise<ParametrosVigent
     ]),
   );
 
-  const faltando = CATALOGO_DE_PARAMETROS.map((definicao) => definicao.chave).filter(
-    (chave) => !porChave.has(chave),
-  );
+  // Só as 18 do cálculo podem faltar — a régua ausente (antes da 0030) nunca derruba esta leitura.
+  const faltando = chavesQueFaltam(new Set(porChave.keys()));
   if (faltando.length > 0) {
     return { ok: false, faltando };
   }
@@ -122,9 +135,27 @@ export async function parametrosVigentes(hoje: string): Promise<ParametrosVigent
     fatorBiscoitoMilesimos: valor("forno_fator_biscoito"),
   };
 
+  // `porChave` montado SÓ com as 18 do cálculo (a régua nunca entra); `foraDoCalculo` com as linhas
+  // da régua que existirem. Linhas de chave desconhecida (nenhuma, pelo check do banco) ficam fora.
+  const doCalculo: Partial<Record<ChaveDoCalculo, ParametroVigente>> = {};
+  const foraDoCalculo: Partial<Record<ChaveForaDoCalculo, ParametroVigente>> = {};
+  for (const definicao of CATALOGO_DE_PARAMETROS) {
+    const linha = porChave.get(definicao.chave);
+    if (linha === undefined) {
+      continue;
+    }
+    if (definicao.foraDoCalculo === true) {
+      foraDoCalculo[definicao.chave as ChaveForaDoCalculo] = linha;
+    } else {
+      doCalculo[definicao.chave as ChaveDoCalculo] = linha;
+    }
+  }
+
   return {
     ok: true,
-    porChave: Object.fromEntries(porChave) as Record<ChaveDeParametro, ParametroVigente>,
+    // Completo: `faltando` vazio garante uma linha para cada uma das 18.
+    porChave: doCalculo as Record<ChaveDoCalculo, ParametroVigente>,
+    foraDoCalculo,
     calculo,
     forno,
     taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,

@@ -6,8 +6,16 @@ import Link from "next/link";
 
 import { formatarDataCurta, formatarPercentual } from "@/lib/financeiro/formato";
 import { parametrosDoPrecoFazemSentido } from "@/lib/precificacao/calculo";
-import type { ParametrosVigentesResultado } from "@/lib/precificacao/consultas";
-import { CATALOGO_DE_PARAMETROS, type GrupoDeParametro } from "@/lib/precificacao/parametros";
+import type { ParametroVigente, ParametrosVigentesResultado } from "@/lib/precificacao/consultas";
+import {
+  CATALOGO_DE_PARAMETROS,
+  semSeloDoParametro,
+  type ChaveDoCalculo,
+  type ChaveForaDoCalculo,
+  type DefinicaoDeParametro,
+  type GrupoDeParametro,
+} from "@/lib/precificacao/parametros";
+import { dicaDaReguaNosParametros } from "@/lib/queimas/textos";
 import type { PerdaMedida } from "@/lib/producao/perda";
 import {
   FRASE_PERDA_MEDIDA_ERRO,
@@ -24,6 +32,7 @@ import {
   FRASE_DIVISOR_INVALIDO,
   FRASE_ERRO_CORPO,
   FRASE_ERRO_TITULO,
+  FRASE_REGUA_AUSENTE,
   LINHAS_COMO_O_PRECO_E_MONTADO,
   ROTULO_CALCULAR_HORA,
   ROTULO_TENTAR_DE_NOVO,
@@ -44,8 +53,9 @@ export type ListaParametrosProps = {
   perdaMedida: PerdaMedida | "erro";
 };
 
-// A ordem dos cinco grupos vem do PRÓPRIO catálogo (nunca reescrita à mão aqui) — mesma ordem do
-// protótipo: Material · Trabalho · Forno · Perda · No preço.
+// A ordem dos grupos vem do PRÓPRIO catálogo (nunca reescrita à mão aqui) — mesma ordem do
+// protótipo: Material · Trabalho · Forno · Perda · No preço; e, no fim, "Queimas" (a régua P · M · G
+// das Queimas, Fase 06.4 — o único grupo que não é da precificação).
 const GRUPOS_EM_ORDEM: readonly GrupoDeParametro[] = [
   ...new Set(CATALOGO_DE_PARAMETROS.map((definicao) => definicao.grupo)),
 ];
@@ -73,7 +83,16 @@ export function ListaParametros({ resultado, perdaMedida }: ListaParametrosProps
     );
   }
 
-  const { porChave, calculo, taxaCartaoPontosBase } = resultado;
+  const { porChave, foraDoCalculo, calculo, taxaCartaoPontosBase } = resultado;
+  // A linha vigente de cada definição: as 18 do cálculo em `porChave` (sempre presentes, com `ok`);
+  // a régua em `foraDoCalculo` (ausente antes da 0030).
+  const linhaDe = (definicao: DefinicaoDeParametro): ParametroVigente | undefined =>
+    definicao.foraDoCalculo === true
+      ? foraDoCalculo[definicao.chave as ChaveForaDoCalculo]
+      : porChave[definicao.chave as ChaveDoCalculo];
+  const reguaP = foraDoCalculo.queima_regua_p_ate;
+  const reguaM = foraDoCalculo.queima_regua_m_ate;
+  const reguaCompleta = reguaP !== undefined && reguaM !== undefined;
   // D-11: lucro + folga + imposto + taxa + comissão passando do limite — a mesma conta de
   // `calcularPeca`, exposta para avisar ANTES de existir qualquer ficha (`lib/precificacao/calculo.ts`).
   const parametrosFazemSentido = parametrosDoPrecoFazemSentido(calculo, taxaCartaoPontosBase);
@@ -94,21 +113,40 @@ export function ListaParametros({ resultado, perdaMedida }: ListaParametrosProps
             {grupo}
           </h3>
 
-          {CATALOGO_DE_PARAMETROS.filter((definicao) => definicao.grupo === grupo).map(
-            (definicao) => {
-              const linha = porChave[definicao.chave];
-              return (
-                <CampoParametro
-                  key={definicao.chave}
-                  chave={definicao.chave}
-                  rotulo={definicao.rotulo}
-                  unidade={definicao.unidade}
-                  valorInteiro={linha.valorInteiro}
-                  medido={linha.medido}
-                  desdeFormatado={formatarDataCurta(linha.vigenteDesde)}
-                />
-              );
-            },
+          {grupo === "Queimas" && !reguaCompleta ? (
+            // Antes da 0030 a régua não está no banco: nenhum campo dela (editar bateria no check de
+            // chaves) e, no lugar, a frase que diz por quê. Os outros grupos aparecem inteiros.
+            <p data-testid="parametros-regua-ausente" className="text-apoio text-tinta-fraca">
+              {FRASE_REGUA_AUSENTE}
+            </p>
+          ) : (
+            CATALOGO_DE_PARAMETROS.filter((definicao) => definicao.grupo === grupo).map(
+              (definicao) => {
+                const linha = linhaDe(definicao);
+                if (linha === undefined) {
+                  return null;
+                }
+                return (
+                  <CampoParametro
+                    key={definicao.chave}
+                    chave={definicao.chave}
+                    rotulo={definicao.rotulo}
+                    unidade={definicao.unidade}
+                    valorInteiro={linha.valorInteiro}
+                    medido={linha.medido}
+                    desdeFormatado={formatarDataCurta(linha.vigenteDesde)}
+                    semSelo={semSeloDoParametro(definicao.chave)}
+                  />
+                );
+              },
+            )
+          )}
+
+          {grupo === "Queimas" && reguaCompleta && (
+            // A régua de hoje por extenso (UI-D11). Mudar a régua não muda contagem já feita.
+            <p data-testid="parametros-regua-dica" className="text-apoio text-tinta-fraca mt-3">
+              {dicaDaReguaNosParametros({ pAte: reguaP.valorInteiro, mAte: reguaM.valorInteiro })}
+            </p>
           )}
 
           {grupo === "Trabalho" && (
