@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { NivelDeForno } from "../../lib/queimas/contador";
 import {
+  FRASE_SEM_CONTAGEM_HISTORICO,
+  ROTULO_APAGAR_CONTAGEM,
+  ROTULO_CORRIGIR_CONTAGEM,
+  TAG_NAO_SAIU_CHEIO,
+  TITULO_APAGAR_CONTAGEM,
+  TOAST_CONTAGEM_APAGADA,
+  chipDaContagem,
+  corpoApagarContagem,
+  corpoExcluirQueima,
   faixasDaRegua,
+  fraseApagarComVendas,
   fraseAbaixoDoLancado,
   fraseDaReguaNaFolha,
   fraseDoRodape,
@@ -9,6 +19,7 @@ import {
   rotuloDoTipo,
   subtituloDaFolha,
   textoDoNivel,
+  toastContagemCorrigida,
   type TipoDeQueima,
 } from "../../lib/queimas/textos";
 
@@ -139,5 +150,72 @@ describe("subtituloDaFolha", () => {
     expect(subtituloDaFolha("esmalte", "03/01", null)).toBe(
       "Esmalte de 03/01 · opcional — a queima já está registrada.",
     );
+  });
+});
+
+// Plano 06.4-02, Tarefa 3 — o Histórico com a contagem, o apagar e a exclusão (sondas QMC-11).
+describe("corpoExcluirQueima", () => {
+  it("sem contagem: exatamente a frase herdada da Fase 4", () => {
+    expect(corpoExcluirQueima("Forno grande")).toBe(
+      "Ela some do histórico do Forno «Forno grande» e o contador é recalculado.",
+    );
+    expect(corpoExcluirQueima("Forno grande", null)).toBe(
+      "Ela some do histórico do Forno «Forno grande» e o contador é recalculado.",
+    );
+  });
+
+  it("com contagem: diz que ela vai junto, com plural de verdade", () => {
+    expect(corpoExcluirQueima("Forno grande", 1)).toBe(
+      "Ela some do histórico do Forno «Forno grande» e o contador é recalculado. A contagem desta fornada (1 peça) vai junto.",
+    );
+    expect(corpoExcluirQueima("Forno grande", 29)).toBe(
+      "Ela some do histórico do Forno «Forno grande» e o contador é recalculado. A contagem desta fornada (29 peças) vai junto.",
+    );
+  });
+});
+
+describe("apagar a contagem", () => {
+  it("título e rótulo", () => {
+    expect(TITULO_APAGAR_CONTAGEM).toBe("Apagar a contagem desta queima?");
+    expect(ROTULO_APAGAR_CONTAGEM).toBe("Apagar a contagem");
+    expect(TOAST_CONTAGEM_APAGADA).toBe("Contagem apagada. A queima voltou para “Sem contagem”.");
+  });
+
+  it("corpoApagarContagem no plural e no singular", () => {
+    expect(corpoApagarContagem(29, "Biscoito de 18/12")).toBe(
+      "As 29 peças contadas de Biscoito de 18/12 somem e a queima volta para “Sem contagem”. A queima continua registrada no forno.",
+    );
+    expect(corpoApagarContagem(1, "Esmalte de 03/01")).toBe(
+      "A peça contada de Esmalte de 03/01 some e a queima volta para “Sem contagem”. A queima continua registrada no forno.",
+    );
+  });
+
+  it("fraseApagarComVendas (D-07): uma venda e várias", () => {
+    expect(fraseApagarComVendas([12])).toBe(
+      "As externas desta queima já foram lançadas na venda nº 12. Para apagar a contagem, cancele a venda no Caixa.",
+    );
+    expect(fraseApagarComVendas([12, 15])).toBe(
+      "As externas desta queima já foram lançadas nas vendas nº 12 e 15. Para apagar a contagem, cancele as vendas no Caixa.",
+    );
+  });
+});
+
+describe("o Histórico com a contagem", () => {
+  it("chipDaContagem: só os tamanhos com quantidade; grupo zerado não aparece", () => {
+    expect(chipDaContagem("internas", { p: 12, m: 9, g: 2 })).toBe("internas: 12 P · 9 M · 2 G");
+    expect(chipDaContagem("internas", { p: 12, m: 9, g: 0 })).toBe("internas: 12 P · 9 M");
+    expect(chipDaContagem("externas", { p: 0, m: 0, g: 1 })).toBe("externas: 1 G");
+    expect(chipDaContagem("externas", { p: 0, m: 0, g: 0 })).toBeNull();
+  });
+
+  it("toastContagemCorrigida com plural de verdade", () => {
+    expect(toastContagemCorrigida(29)).toBe("Contagem corrigida: 29 peças.");
+    expect(toastContagemCorrigida(1)).toBe("Contagem corrigida: 1 peça.");
+  });
+
+  it("rótulos verbatim", () => {
+    expect(ROTULO_CORRIGIR_CONTAGEM).toBe("Corrigir contagem");
+    expect(FRASE_SEM_CONTAGEM_HISTORICO).toBe("sem contagem");
+    expect(TAG_NAO_SAIU_CHEIO).toBe("não saiu cheio");
   });
 });

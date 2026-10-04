@@ -21,6 +21,7 @@ import {
   lancadoAtivo,
   limitarContador,
   mesmaContagem,
+  resumoPmg,
   somarDiasCivis,
   totalDaContagem,
   totalDasExternas,
@@ -268,5 +269,17 @@ describe("mesmaContagem", () => {
       expect(mesmaContagem(CONTAGEM_VAZIA, { ...CONTAGEM_VAZIA, [chave]: 1 })).toBe(false);
     }
     expect(mesmaContagem(CONTAGEM_VAZIA, { ...CONTAGEM_VAZIA, saiuCheio: false })).toBe(false);
+  });
+});
+
+describe("resumoPmg", () => {
+  it("só os tamanhos com quantidade, separados por ponto médio", () => {
+    expect(resumoPmg(3, 0, 1)).toBe("3 P · 1 G");
+    expect(resumoPmg(12, 9, 2)).toBe("12 P · 9 M · 2 G");
+    expect(resumoPmg(0, 4, 0)).toBe("4 M");
+  });
+
+  it("tudo zero → vazio", () => {
+    expect(resumoPmg(0, 0, 0)).toBe("");
   });
 });
