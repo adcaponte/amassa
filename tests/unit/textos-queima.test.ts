@@ -35,6 +35,8 @@ import {
   fraseOrigemQueimaTudoLancado,
   toastLancadoNaVendaPago,
   tituloDaFaixaDasQueimas,
+  ROTULO_VER_OS_NUMEROS,
+  fraseDaContagemAteManutencao,
   type TipoDeQueima,
 } from "../../lib/queimas/textos";
 
@@ -371,5 +373,29 @@ describe("Lançar na Venda — as frases da Venda aberta pelas Queimas (06.4-05)
       "Não achei esta queima. Volte às Queimas e toque em “Lançar na Venda” de novo.",
     );
     expect(FRASE_LINHA_DA_QUEIMA_FALTANDO).toBe("Pelo menos uma linha de queima externa precisa continuar na venda.");
+  });
+});
+
+// Plano 06 — a linha do cartão e do detalhe (QMC-09, UI-D1): N = o que FALTA até o limite; no limite e
+// acima, as formas próprias — nunca “−3 queimas”. Sondas U02 (zero-one-many) e QMC-09·boundary.
+describe("fraseDaContagemAteManutencao", () => {
+  it("as formas abaixo, no e acima do limite", () => {
+    expect(fraseDaContagemAteManutencao(0, 100)).toBe("Contagem: 100 queimas até a manutenção.");
+    expect(fraseDaContagemAteManutencao(92, 100)).toBe("Contagem: 8 queimas até a manutenção.");
+    expect(fraseDaContagemAteManutencao(99, 100)).toBe("Contagem: 1 queima até a manutenção.");
+    expect(fraseDaContagemAteManutencao(100, 100)).toBe("Contagem: chegou ao limite da manutenção.");
+    expect(fraseDaContagemAteManutencao(101, 100)).toBe("Contagem: 1 queima além do limite da manutenção.");
+    expect(fraseDaContagemAteManutencao(103, 100)).toBe("Contagem: 3 queimas além do limite da manutenção.");
+  });
+
+  it("[boundary] as formas viram em limite − 1 / limite / limite + 1 também com o limite mínimo (10)", () => {
+    expect(fraseDaContagemAteManutencao(9, 10)).toBe("Contagem: 1 queima até a manutenção.");
+    expect(fraseDaContagemAteManutencao(10, 10)).toBe("Contagem: chegou ao limite da manutenção.");
+    expect(fraseDaContagemAteManutencao(11, 10)).toBe("Contagem: 1 queima além do limite da manutenção.");
+    expect(fraseDaContagemAteManutencao(12, 10)).toBe("Contagem: 2 queimas além do limite da manutenção.");
+  });
+
+  it("o link do detalhe", () => {
+    expect(ROTULO_VER_OS_NUMEROS).toBe("ver os números");
   });
 });

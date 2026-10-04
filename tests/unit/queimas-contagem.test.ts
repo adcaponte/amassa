@@ -47,6 +47,7 @@ import {
   capacidadeMedida,
   formatarAteUmaCasa,
   formatarUmaCasa,
+  ladoDoRotuloDeAtencao,
   oQueOFornoQueimou,
   queimasPorTipo,
   type ContagemDoForno,
@@ -1211,5 +1212,23 @@ describe("formatação e frases dos Números", () => {
     expect(dicaCapacidade({ milesimos: 1800, medido: false })).toMatch(/Levar o número para lá é à mão\.$/);
     expect(dicaCapacidade(null)).not.toContain("hoje");
     expect(dicaCapacidade(null)).toContain("com um “fator do biscoito”. Com o tempo");
+  });
+});
+
+// Plano 06 — o medidor (D-04, UI-D2): “atenção N” ancorado na marca, começando nela na metade esquerda
+// do trilho e terminando nela a partir da metade.
+describe("ladoDoRotuloDeAtencao", () => {
+  it("< 0,5 começa na marca; ≥ 0,5 termina na marca", () => {
+    expect(ladoDoRotuloDeAtencao(0.1)).toBe("comeca-na-marca");
+    expect(ladoDoRotuloDeAtencao(0.49)).toBe("comeca-na-marca");
+    expect(ladoDoRotuloDeAtencao(0.5)).toBe("termina-na-marca");
+    expect(ladoDoRotuloDeAtencao(0.9)).toBe("termina-na-marca");
+    expect(ladoDoRotuloDeAtencao(0.99)).toBe("termina-na-marca");
+  });
+
+  it("os limites reais: limite 10 (atenção 1) começa; 100 (atenção 90) e 1000 (atenção 990) terminam", () => {
+    expect(ladoDoRotuloDeAtencao(1 / 10)).toBe("comeca-na-marca");
+    expect(ladoDoRotuloDeAtencao(90 / 100)).toBe("termina-na-marca");
+    expect(ladoDoRotuloDeAtencao(990 / 1000)).toBe("termina-na-marca");
   });
 });
