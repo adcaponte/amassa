@@ -33,7 +33,12 @@ async function cadastrarForno(page: Page, nome: string, limite: number): Promise
 
 type Caixa = { x: number; y: number; width: number; height: number };
 
+// `boundingBox()` não espera nada: mede o que houver no instante. O detalhe do forno tem
+// `loading.tsx`, e o conteúdo chega por streaming num `<div hidden>` antes de o React trocá-lo pelo
+// esqueleto — `toHaveText` já casa nesse intervalo (não exige visibilidade), e medir ali dá `null`.
+// Esperar a visibilidade primeiro mede o que a pessoa vê; não afrouxa nada.
 async function caixa(alvo: Locator): Promise<Caixa> {
+  await expect(alvo).toBeVisible();
   const medida = await alvo.boundingBox();
   if (medida === null) {
     throw new Error("Sem caixa: o elemento não está visível.");
