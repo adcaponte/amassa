@@ -12,6 +12,7 @@ import {
   TETO_DO_CONTADOR,
   abaixoDoLancado,
   cabeNoQueFalta,
+  chipsDaProducao,
   cmDaRegua,
   contagemVazia,
   diaMes,
@@ -22,14 +23,24 @@ import {
   limitarContador,
   mesmaContagem,
   resumoPmg,
+  somarChip,
   somarDiasCivis,
+  tamanhoPelaRegua,
   totalDaContagem,
   totalDasExternas,
   totalDasInternas,
   totalDasQuantidades,
+  type ChipDaOrdem,
   type Contagem,
+  type OrdemEsperando,
   type VendaLigada,
 } from "@/lib/queimas/contagem";
+import {
+  ROTULO_CHIPS,
+  SUFIXO_SOMADO,
+  ariaDoChip,
+  textoDoChip,
+} from "@/lib/queimas/textos";
 
 const CONTAGEM: Contagem = {
   internasP: 3,
@@ -281,5 +292,221 @@ describe("resumoPmg", () => {
 
   it("tudo zero → vazio", () => {
     expect(resumoPmg(0, 0, 0)).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plano 03 — a régua decide o tamanho; os chips da Produção (QMC-04, QMC-06, D-06).
+
+const REGUA_10_25 = { pAte: 10000, mAte: 25000 };
+
+describe("tamanhoPelaRegua (sonda QMC-04·boundary e ·precision)", () => {
+  it("régua 10/25: 100 mm = 10 cm é P; 101 é M; 250 é M; 251 é G", () => {
+    expect(tamanhoPelaRegua(100, REGUA_10_25)).toBe("P");
+    expect(tamanhoPelaRegua(101, REGUA_10_25)).toBe("M");
+    expect(tamanhoPelaRegua(250, REGUA_10_25)).toBe("M");
+    expect(tamanhoPelaRegua(251, REGUA_10_25)).toBe("G");
+  });
+
+  it("maior medida 0, negativa ou que não é número → sem medida (null)", () => {
+    expect(tamanhoPelaRegua(0, REGUA_10_25)).toBeNull();
+    expect(tamanhoPelaRegua(-1, REGUA_10_25)).toBeNull();
+    expect(tamanhoPelaRegua(Number.NaN, REGUA_10_25)).toBeNull();
+  });
+
+  it("ficha em mm × 100 = régua em cm × 1000, em inteiros: régua de 12,5 cm põe 125 mm em P e 126 em M", () => {
+    expect(100 * 100).toBe(10000);
+    const regua = { pAte: 12500, mAte: 25000 };
+    expect(tamanhoPelaRegua(125, regua)).toBe("P");
+    expect(tamanhoPelaRegua(126, regua)).toBe("M");
+    expect(cmDaRegua(12500)).toBe("12,5");
+  });
+});
+
+function ordem(parcial: Partial<OrdemEsperando> & Pick<OrdemEsperando, "pecas">): OrdemEsperando {
+  return { ordemId: "a", nome: "x", etapa: "queima1", passaram: 0, ...parcial };
+}
+
+describe("chipsDaProducao (sonda QMC-06)", () => {
+  it("o caso do e2e: 10 de ficha P e 6 de ficha M, 4 já passaram → 12 pendentes, 8 P + 4 M", () => {
+    const chips = chipsDaProducao(
+      [
+        ordem({
+          passaram: 4,
+          pecas: [
+            { feitas: 10, maiorMm: 80 },
+            { feitas: 6, maiorMm: 200 },
+          ],
+        }),
+      ],
+      REGUA_10_25,
+    );
+    expect(chips).toEqual<ChipDaOrdem[]>([
+      {
+        ordemId: "a",
+        nome: "x",
+        etapa: "queima1",
+        pendentes: 12,
+        porTamanho: { P: 8, M: 4, G: 0 },
+        semMedida: 0,
+      },
+    ]);
+  });
+
+  it("passaram igual às feitas → sem chip; passaram maior que as feitas → sem chip, nunca negativo", () => {
+    const pecas = [
+      { feitas: 10, maiorMm: 80 },
+      { feitas: 6, maiorMm: 200 },
+    ];
+    expect(chipsDaProducao([ordem({ passaram: 16, pecas })], REGUA_10_25)).toEqual([]);
+    expect(chipsDaProducao([ordem({ passaram: 99, pecas })], REGUA_10_25)).toEqual([]);
+  });
+
+  it("passaram negativo conta como 0", () => {
+    const [chip] = chipsDaProducao(
+      [ordem({ passaram: -3, pecas: [{ feitas: 5, maiorMm: 80 }] })],
+      REGUA_10_25,
+    );
+    expect(chip?.pendentes).toBe(5);
+    expect(chip?.porTamanho.P).toBe(5);
+  });
+
+  it("lista vazia → []; ordem sem peça ou com feitas 0 → sem chip", () => {
+    expect(chipsDaProducao([], REGUA_10_25)).toEqual([]);
+    expect(chipsDaProducao([ordem({ pecas: [] })], REGUA_10_25)).toEqual([]);
+    expect(chipsDaProducao([ordem({ pecas: [{ feitas: 0, maiorMm: 80 }] })], REGUA_10_25)).toEqual(
+      [],
+    );
+  });
+
+  it("três restos iguais: o desempate é P, M, G, sem medida — e a soma fecha nas pendentes", () => {
+    // 4 peças de cada (P, M, G, sem medida) = 16 feitas; 6 passaram → 10 pendentes; 2,5 em cada
+    // balde: pisos 2 + 2 + 2 + 2 = 8, faltam 2, restos iguais → P e M ganham.
+    const [chip] = chipsDaProducao(
+      [
+        ordem({
+          passaram: 6,
+          pecas: [
+            { feitas: 4, maiorMm: 50 },
+            { feitas: 4, maiorMm: 200 },
+            { feitas: 4, maiorMm: 300 },
+            { feitas: 4, maiorMm: 0 },
+          ],
+        }),
+      ],
+      REGUA_10_25,
+    );
+    expect(chip?.pendentes).toBe(10);
+    expect(chip?.porTamanho).toEqual({ P: 3, M: 3, G: 2 });
+    expect(chip?.semMedida).toBe(2);
+  });
+
+  it("três restos iguais entre M, G e sem medida: M e G antes de sem medida", () => {
+    // 3 de cada (M, G, sem medida) = 9; 1 passou → 8 pendentes; 8/3 em cada: pisos 2 + 2 + 2,
+    // faltam 2 → M e G.
+    const [chip] = chipsDaProducao(
+      [
+        ordem({
+          passaram: 1,
+          pecas: [
+            { feitas: 3, maiorMm: 0 },
+            { feitas: 3, maiorMm: 300 },
+            { feitas: 3, maiorMm: 200 },
+          ],
+        }),
+      ],
+      REGUA_10_25,
+    );
+    expect(chip?.porTamanho).toEqual({ P: 0, M: 3, G: 3 });
+    expect(chip?.semMedida).toBe(2);
+  });
+
+  it("a soma dos tamanhos e das sem medida é sempre exatamente as pendentes", () => {
+    for (let passaram = 0; passaram <= 23; passaram += 1) {
+      const chips = chipsDaProducao(
+        [
+          ordem({
+            passaram,
+            pecas: [
+              { feitas: 7, maiorMm: 90 },
+              { feitas: 5, maiorMm: 150 },
+              { feitas: 3, maiorMm: 400 },
+              { feitas: 8, maiorMm: 0 },
+            ],
+          }),
+        ],
+        REGUA_10_25,
+      );
+      for (const chip of chips) {
+        const soma = chip.porTamanho.P + chip.porTamanho.M + chip.porTamanho.G + chip.semMedida;
+        expect(soma).toBe(chip.pendentes);
+        expect(chip.pendentes).toBe(23 - passaram);
+      }
+    }
+  });
+
+  it("a peça no limite exato do P (100 mm) entra em P no chip — a fronteira de tamanhoPelaRegua", () => {
+    const [chip] = chipsDaProducao([ordem({ pecas: [{ feitas: 3, maiorMm: 100 }] })], REGUA_10_25);
+    expect(chip?.porTamanho).toEqual({ P: 3, M: 0, G: 0 });
+  });
+
+  it("preserva a ordem de entrada (a do quadro) e a etapa de cada ordem", () => {
+    const chips = chipsDaProducao(
+      [
+        ordem({ ordemId: "c", nome: "terceira", etapa: "queima2", pecas: [{ feitas: 1, maiorMm: 80 }] }),
+        ordem({ ordemId: "a", nome: "primeira", pecas: [{ feitas: 2, maiorMm: 80 }] }),
+        ordem({ ordemId: "b", nome: "segunda", pecas: [{ feitas: 3, maiorMm: 80 }] }),
+      ],
+      REGUA_10_25,
+    );
+    expect(chips.map((chip) => [chip.ordemId, chip.etapa])).toEqual([
+      ["c", "queima2"],
+      ["a", "queima1"],
+      ["b", "queima1"],
+    ]);
+  });
+});
+
+describe("somarChip", () => {
+  const chip: ChipDaOrdem = {
+    ordemId: "a",
+    nome: "x",
+    etapa: "queima1",
+    pendentes: 10,
+    porTamanho: { P: 5, M: 2, G: 0 },
+    semMedida: 3,
+  };
+
+  it("sem tamanho para o resto, soma só os medidos nas internas", () => {
+    expect(somarChip(CONTAGEM_VAZIA, chip, null)).toEqual({
+      ...CONTAGEM_VAZIA,
+      internasP: 5,
+      internasM: 2,
+      internasG: 0,
+    });
+  });
+
+  it("com G escolhido, as sem medida entram em internas G; externas e caixa intocadas", () => {
+    expect(somarChip(CONTAGEM, chip, "G")).toEqual({
+      ...CONTAGEM,
+      internasP: CONTAGEM.internasP + 5,
+      internasM: CONTAGEM.internasM + 2,
+      internasG: CONTAGEM.internasG + 3,
+    });
+  });
+
+  it("nunca passa do teto do contador", () => {
+    const quaseNoTeto = { ...CONTAGEM_VAZIA, internasP: TETO_DO_CONTADOR - 1 };
+    expect(somarChip(quaseNoTeto, chip, null).internasP).toBe(TETO_DO_CONTADOR);
+  });
+});
+
+describe("textos dos chips (verbatim da UI-SPEC)", () => {
+  it("rótulo, texto, sufixo e aria-label com plural de verdade", () => {
+    expect(ROTULO_CHIPS).toBe("Esperando esta queima na Produção — toque para somar:");
+    expect(textoDoChip(16, "[e2e] canecas")).toBe("+16 · [e2e] canecas");
+    expect(SUFIXO_SOMADO).toBe(" · somado");
+    expect(ariaDoChip(12, "[e2e] canecas")).toBe("Somar 12 peças de [e2e] canecas às internas");
+    expect(ariaDoChip(1, "[e2e] canecas")).toBe("Somar 1 peça de [e2e] canecas às internas");
   });
 });

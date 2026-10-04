@@ -253,3 +253,131 @@ export function resumoPmg(p: number, m: number, g: number): string {
   }
   return partes.join(" · ");
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 03 — a régua decide o tamanho (QMC-04, D-03). É a ÚNICA fronteira P/M/G do
+// sistema: os chips da Produção (abaixo) e qualquer leitura futura passam por aqui. A régua vem em
+// cm × 1000 (a escala do catálogo de parâmetros) e a ficha em mm: `mm × 100` é a mesma escala
+// (100 mm = 10 cm = 10000), em inteiros, sem ponto flutuante. Maior medida 0 (ficha sem medida) ou
+// que não é número → `null` ("sem medida", D-06).
+export function tamanhoPelaRegua(maiorMm: number, regua: Regua): Tamanho | null {
+  if (!Number.isFinite(maiorMm) || maiorMm <= 0) {
+    return null;
+  }
+  const milesimosDeCm = maiorMm * 100;
+  if (milesimosDeCm <= regua.pAte) {
+    return "P";
+  }
+  if (milesimosDeCm <= regua.mAte) {
+    return "M";
+  }
+  return "G";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Os chips da Produção (QMC-06, D-06) — SÓ LEITURA: as ordens ATIVAS da Produção cuja etapa atual é
+// a queima desta folha (`queima1` = biscoito, `queima2` = esmalte; ouro não tem etapa na Produção),
+// na ordem do quadro. Cada ordem vira um chip com as peças PENDENTES da etapa atual — a fórmula de
+// `fornadasEstimadas` (`lib/producao/forno.ts`): pendentes = feitas − passaram (o `passaram` cortado
+// entre 0 e as feitas), repartidas entre as peças na proporção das feitas de cada uma e então POR
+// TAMANHO, pela maior medida da ficha e pela régua. A repartição fecha no inteiro pelo MAIOR RESTO,
+// com desempate P, M, G, sem medida.
+
+export type EtapaDeQueima = "queima1" | "queima2";
+
+// Uma ordem esperando a queima, como as Queimas a enxergam — o que a consulta lê da Produção.
+// `feitas` = quantidade + a mais; `maiorMm` = a maior das três medidas da ficha da peça (0 = sem
+// ficha ou sem medida).
+export type OrdemEsperando = {
+  ordemId: string;
+  nome: string;
+  etapa: EtapaDeQueima;
+  passaram: number;
+  pecas: readonly { feitas: number; maiorMm: number }[];
+};
+
+export type ChipDaOrdem = {
+  ordemId: string;
+  nome: string;
+  etapa: EtapaDeQueima;
+  pendentes: number;
+  porTamanho: Record<Tamanho, number>;
+  // Peças sem medida na ficha: a folha pergunta o tamanho delas antes de somar (D-06).
+  semMedida: number;
+};
+
+// Os quatro baldes na ordem do desempate: 0 = P, 1 = M, 2 = G, 3 = sem medida.
+function baldeDe(tamanho: Tamanho | null): number {
+  return tamanho === null ? 3 : tamanho === "P" ? 0 : tamanho === "M" ? 1 : 2;
+}
+
+// Inteiros que somam EXATAMENTE `pendentes`: cada peça entra com `feitas × pendentes ÷ feitasTotal`
+// (= feitas − passaram × feitas ÷ feitasTotal), guardado como numerador inteiro para a conta ser
+// exata; o piso de cada balde e, para o que falta, o maior resto (empate: a ordem de `BALDES`).
+export function chipsDaProducao(
+  ordens: readonly OrdemEsperando[],
+  regua: Regua,
+): ChipDaOrdem[] {
+  const chips: ChipDaOrdem[] = [];
+  for (const ordem of ordens) {
+    const feitasPorPeca = ordem.pecas.map((peca) =>
+      Number.isFinite(peca.feitas) ? Math.max(0, Math.trunc(peca.feitas)) : 0,
+    );
+    const feitasTotal = feitasPorPeca.reduce((total, feitas) => total + feitas, 0);
+    if (feitasTotal <= 0) {
+      continue;
+    }
+    const passaramLido = Number.isFinite(ordem.passaram) ? Math.trunc(ordem.passaram) : 0;
+    const passaram = Math.min(feitasTotal, Math.max(0, passaramLido));
+    const pendentes = feitasTotal - passaram;
+    if (pendentes <= 0) {
+      continue;
+    }
+
+    const numeradores = [0, 0, 0, 0];
+    ordem.pecas.forEach((peca, indice) => {
+      numeradores[baldeDe(tamanhoPelaRegua(peca.maiorMm, regua))] +=
+        feitasPorPeca[indice] * pendentes;
+    });
+    const inteiros = numeradores.map((numerador) => Math.floor(numerador / feitasTotal));
+    let faltam = pendentes - inteiros.reduce((total, valor) => total + valor, 0);
+    const porResto = [0, 1, 2, 3].sort(
+      (a, b) => (numeradores[b] % feitasTotal) - (numeradores[a] % feitasTotal) || a - b,
+    );
+    for (const balde of porResto) {
+      if (faltam <= 0) {
+        break;
+      }
+      inteiros[balde] += 1;
+      faltam -= 1;
+    }
+
+    chips.push({
+      ordemId: ordem.ordemId,
+      nome: ordem.nome,
+      etapa: ordem.etapa,
+      pendentes,
+      porTamanho: { P: inteiros[0], M: inteiros[1], G: inteiros[2] },
+      semMedida: inteiros[3],
+    });
+  }
+  return chips;
+}
+
+// Um toque no chip: as pendentes medidas entram nas INTERNAS do tamanho delas; as sem medida, no
+// tamanho escolhido na pergunta (`tamanhoDoResto`) — com `null`, ficam de fora (a folha só chama
+// assim quando não há peça sem medida). Nunca passa do teto do contador.
+export function somarChip(
+  contagem: Contagem,
+  chip: ChipDaOrdem,
+  tamanhoDoResto: Tamanho | null,
+): Contagem {
+  const soma = (tamanho: Tamanho) =>
+    chip.porTamanho[tamanho] + (tamanhoDoResto === tamanho ? chip.semMedida : 0);
+  return {
+    ...contagem,
+    internasP: limitarContador(contagem.internasP + soma("P")),
+    internasM: limitarContador(contagem.internasM + soma("M")),
+    internasG: limitarContador(contagem.internasG + soma("G")),
+  };
+}

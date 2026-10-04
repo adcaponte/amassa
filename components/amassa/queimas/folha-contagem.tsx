@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { salvarContagem } from "@/lib/queimas/acoes";
@@ -10,8 +11,10 @@ import {
   CONTAGEM_VAZIA,
   diaMes,
   mesmaContagem,
+  somarChip,
   totalDaContagem,
   type ChaveDoContador,
+  type ChipDaOrdem,
   type Contagem,
   type Tamanho,
 } from "@/lib/queimas/contagem";
@@ -28,12 +31,16 @@ import {
   ROTULO_PULAR,
   ROTULO_SAIU_CHEIO,
   ROTULO_SALVANDO,
+  ROTULO_CHIPS,
   ROTULO_SALVAR,
+  SUFIXO_SOMADO,
   TITULO_FOLHA_CONTAGEM,
+  ariaDoChip,
   faixasDaRegua,
   fraseDaReguaNaFolha,
   resumoDaContagem,
   subtituloDaFolha,
+  textoDoChip,
   tituloDaQueima,
   toastContagemCorrigida,
   toastContagemSalva,
@@ -87,6 +94,18 @@ function chaveDoContador(grupo: GrupoDoContador, tamanho: Tamanho): ChaveDoConta
   return `${grupo}${tamanho}` as ChaveDoContador;
 }
 
+// Cópia de `classeDaPilula` de `components/amassa/agenda/folha-lancar.tsx` (que a copiou da barra de
+// saldos do Estoque) — o molde da casa é a cópia por tela, não exportar da Agenda. Aqui só a forma
+// "não marcada" é usada: os chips da Produção somam `border-dashed` (06.4-UI-SPEC.md §Color).
+function classeDaPilula(marcada: boolean): string {
+  return cn(
+    "text-apoio focus-visible:ring-ring inline-flex min-h-[44px] items-center gap-1 rounded-full border px-4 py-2 transition-colors focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
+    marcada
+      ? "border-acento bg-acento-fundo text-acento font-semibold"
+      : "border-borda bg-superficie text-tinta hover:bg-superficie-2 font-normal",
+  );
+}
+
 // O alvo de um toque "fora" da folha está dentro do aviso (sonner)? Então não é "fora": tocar o aviso
 // (o "Desfazer" do registro) nunca fecha a folha (UI-D12).
 function dentroDoAviso(alvo: EventTarget | null): boolean {
@@ -131,8 +150,20 @@ function FolhaAberta({
   const [confirmandoApagar, setConfirmandoApagar] = useState(false);
   const corrigindo = existente !== null;
 
+  // Os chips somados nesta abertura da folha (fechar e reabrir zera; desfazer é pelos "−").
+  const [somados, setSomados] = useState<ReadonlySet<string>>(() => new Set());
+
   const total = totalDaContagem(contagem);
   const ouro = queima.tipo === "ouro";
+  // Chips (QMC-06, D-06): biscoito ↔ ordens na etapa `queima1`, esmalte ↔ `queima2`; ouro nunca. A
+  // leitura da Produção que falhou (`chips: null`) só esconde a área (UI-D28).
+  const chips: readonly ChipDaOrdem[] =
+    dados.chips === null || ouro
+      ? []
+      : queima.tipo === "biscoito"
+        ? dados.chips.queima1
+        : dados.chips.queima2;
+  const chipsVisiveis = chips.filter((chip) => chip.semMedida === 0);
   const faixas = faixasDaRegua(dados.regua);
   // Esc e toque fora só fecham sem mudanças (UI-D18) — e nunca no meio da gravação.
   const podeFecharSemPerguntar = !salvando && mesmaContagem(contagem, inicial);
@@ -140,6 +171,17 @@ function FolhaAberta({
   function mudar(chave: ChaveDoContador, valor: number) {
     setErro(null);
     setContagem((atual) => ({ ...atual, [chave]: valor }));
+  }
+
+  // Um toque num chip soma as pendentes nas INTERNAS do tamanho delas. Só leitura da Produção: nada
+  // é gravado lá — "Salvar" grava só a contagem desta queima.
+  function somar(chip: ChipDaOrdem) {
+    if (somados.has(chip.ordemId)) {
+      return;
+    }
+    setErro(null);
+    setContagem((atual) => somarChip(atual, chip, null));
+    setSomados((atual) => new Set(atual).add(chip.ordemId));
   }
 
   async function salvar() {
@@ -288,6 +330,43 @@ function FolhaAberta({
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          {chipsVisiveis.length > 0 ? (
+            <div className="flex flex-col gap-2" data-testid="contagem-chips">
+              <p className="text-apoio text-tinta-media">{ROTULO_CHIPS}</p>
+              <div className="flex flex-wrap gap-2">
+                {chipsVisiveis.map((chip) => {
+                  const somado = somados.has(chip.ordemId);
+                  return (
+                    <button
+                      key={chip.ordemId}
+                      type="button"
+                      data-testid="chip-ordem"
+                      data-ordem-id={chip.ordemId}
+                      data-somado={somado ? "true" : "false"}
+                      disabled={somado || salvando}
+                      // Somado: sem `aria-label`, o leitor lê o texto visível com " · somado"
+                      // (nunca só a cor).
+                      aria-label={somado ? undefined : ariaDoChip(chip.pendentes, chip.nome)}
+                      onClick={() => somar(chip)}
+                      className={cn(
+                        classeDaPilula(false),
+                        "text-left whitespace-normal [overflow-wrap:anywhere]",
+                        somado
+                          ? "bg-superficie-2 text-tinta-fraca border-solid"
+                          : "border-dashed",
+                      )}
+                    >
+                      {somado ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}
+                      <span>
+                        {textoDoChip(chip.pendentes, chip.nome)}
+                        {somado ? SUFIXO_SOMADO : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {grupo("internas")}
           {grupo("externas")}
           {ouro ? null : (

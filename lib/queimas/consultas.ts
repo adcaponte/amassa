@@ -1,19 +1,28 @@
-import { and, asc, count, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
+  fichasPrecificacao,
   fornos,
   manutencoes,
+  ordemPecas,
   parametrosPrecificacao,
   queimaContagens,
   queimas,
   usuarios,
 } from "@/db/schema";
+import { listarOrdensEmAndamento } from "@/lib/producao/consultas";
+import { esperandoOForno } from "@/lib/producao/forno";
+import { etapaAtual } from "@/lib/producao/leitura";
 import {
   JANELA_SEM_CONTAGEM_DIAS,
+  chipsDaProducao,
   janelaSemContagem,
   somarDiasCivis,
+  type ChipDaOrdem,
   type Contagem,
+  type OrdemEsperando,
   type Regua,
 } from "@/lib/queimas/contagem";
 import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
@@ -403,6 +412,10 @@ export type DadosDaFolha = {
   hoje: string;
   regua: Regua;
   maisDeUmForno: boolean;
+  // Plano 03 (QMC-06, D-06): os chips das ordens da Produção esperando cada queima — `queima1` na
+  // folha de biscoito, `queima2` na de esmalte (ouro não tem). `null` = a leitura da Produção falhou:
+  // a área dos chips não aparece e a folha funciona igual (UI-D28).
+  chips: { queima1: ChipDaOrdem[]; queima2: ChipDaOrdem[] } | null;
 };
 
 const CHAVE_REGUA_P = "queima_regua_p_ate";
@@ -436,10 +449,93 @@ export async function lerReguaVigente(hoje: string): Promise<Regua> {
   return { pAte, mAte };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 03 — as ordens da Produção esperando a queima (QMC-06, D-06). SÓ LEITURA: lê
+// `ordens_producao`/`ordem_etapas` (por `listarOrdensEmAndamento`, a mesma leitura do quadro),
+// `ordem_pecas` e `fichas_precificacao`; nenhum escritor da Produção é importado, e nenhuma ação das
+// Queimas recebe id de ordem. A fila é a do quadro (`esperandoOForno`: ativas, etapa atual numa
+// queima, na ordem dos cartões); o `passaram` é o da etapa atual.
+//
+// As peças, numa consulta só para todas as ordens da fila: `feitas = quantidade + a_mais` e a maior
+// das três medidas da ficha da peça (`ordem_pecas.ficha_id`) ou, sem ela, da ficha de LINHA do item
+// (`fichas_precificacao.item_catalogo_id = ordem_pecas.item_catalogo_id`, única por item — o mesmo
+// par ficha/item da conclusão em `lib/producao/consultas.ts`). Sem nenhuma das duas → 0 ("sem
+// medida"); uma ficha com as medidas em 0 também.
+export async function ordensEsperandoAQueima(): Promise<OrdemEsperando[]> {
+  const fila = esperandoOForno(await listarOrdensEmAndamento());
+  const comEtapa = fila.flatMap((ordem) => {
+    const atual = etapaAtual(ordem);
+    if (atual === null || (atual.etapa !== "queima1" && atual.etapa !== "queima2")) {
+      return [];
+    }
+    const etapa = atual.etapa;
+    const passaram = ordem.etapas.find((linha) => linha.etapa === etapa)?.passaram ?? 0;
+    return [{ ordemId: ordem.id, nome: ordem.nome, etapa, passaram }];
+  });
+  if (comEtapa.length === 0) {
+    return [];
+  }
+
+  const fichaDaPeca = alias(fichasPrecificacao, "ficha_da_peca");
+  const fichaDaLinha = alias(fichasPrecificacao, "ficha_da_linha");
+  const pecas = await db
+    .select({
+      ordemId: ordemPecas.ordemId,
+      quantidade: ordemPecas.quantidade,
+      aMais: ordemPecas.aMais,
+      maiorMm: sql<number>`coalesce(
+        greatest(${fichaDaPeca.larguraMm}, ${fichaDaPeca.profundidadeMm}, ${fichaDaPeca.alturaMm}),
+        greatest(${fichaDaLinha.larguraMm}, ${fichaDaLinha.profundidadeMm}, ${fichaDaLinha.alturaMm}),
+        0
+      )`.mapWith(Number),
+    })
+    .from(ordemPecas)
+    .leftJoin(fichaDaPeca, eq(fichaDaPeca.id, ordemPecas.fichaId))
+    .leftJoin(
+      fichaDaLinha,
+      and(isNull(ordemPecas.fichaId), eq(fichaDaLinha.itemCatalogoId, ordemPecas.itemCatalogoId)),
+    )
+    .where(
+      inArray(
+        ordemPecas.ordemId,
+        comEtapa.map((ordem) => ordem.ordemId),
+      ),
+    )
+    .orderBy(asc(ordemPecas.ordemId), asc(ordemPecas.posicao));
+
+  const pecasPorOrdem = new Map<string, { feitas: number; maiorMm: number }[]>();
+  for (const peca of pecas) {
+    const lista = pecasPorOrdem.get(peca.ordemId) ?? [];
+    lista.push({ feitas: peca.quantidade + peca.aMais, maiorMm: peca.maiorMm });
+    pecasPorOrdem.set(peca.ordemId, lista);
+  }
+
+  return comEtapa.map((ordem) => ({ ...ordem, pecas: pecasPorOrdem.get(ordem.ordemId) ?? [] }));
+}
+
 export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> {
-  const [regua, [fornosDaCasa]] = await Promise.all([
+  const [regua, [fornosDaCasa], ordens] = await Promise.all([
     lerReguaVigente(hoje),
     db.select({ quantidade: count() }).from(fornos),
+    // Se a leitura da Produção falhar: `null` com `console.error` no servidor — os chips somem, a
+    // folha e o registro nunca caem por isso (UI-D28, T-06.4-19). A régua, ao contrário, derruba os
+    // dados da folha inteiros (UI-D19): sem ela não há folha.
+    ordensEsperandoAQueima().catch((erro: unknown) => {
+      console.error("Falha ao ler as ordens da Produção para os chips da folha de contagem:", erro);
+      return null;
+    }),
   ]);
-  return { hoje, regua, maisDeUmForno: Number(fornosDaCasa?.quantidade ?? 0) > 1 };
+  const todos = ordens === null ? null : chipsDaProducao(ordens, regua);
+  return {
+    hoje,
+    regua,
+    maisDeUmForno: Number(fornosDaCasa?.quantidade ?? 0) > 1,
+    chips:
+      todos === null
+        ? null
+        : {
+            queima1: todos.filter((chip) => chip.etapa === "queima1"),
+            queima2: todos.filter((chip) => chip.etapa === "queima2"),
+          },
+  };
 }

@@ -441,3 +441,19 @@ export function fraseApagarComVendas(numeros: readonly number[]): string {
   const onde = numeros.length > 1 ? "nas" : "na";
   return `As externas desta queima já foram lançadas ${onde} ${nomeDasVendas(numeros)}. Para apagar a contagem, ${cancele}.`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 03 — os chips da Produção na folha (QMC-06, D-06), verbatim da UI-SPEC.
+export const ROTULO_CHIPS = "Esperando esta queima na Produção — toque para somar:";
+
+// "+16 · {nome da ordem}" (verbatim do protótipo); somado, a folha acrescenta `SUFIXO_SOMADO`.
+export function textoDoChip(pendentes: number, nome: string): string {
+  return `+${pendentes} · ${nome}`;
+}
+
+export const SUFIXO_SOMADO = " · somado";
+
+// "Somar 12 peças de {nome} às internas" — 1: "Somar 1 peça de …".
+export function ariaDoChip(pendentes: number, nome: string): string {
+  return `Somar ${pecas(pendentes)} de ${nome} às internas`;
+}
