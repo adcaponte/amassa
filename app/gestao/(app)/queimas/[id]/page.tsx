@@ -9,9 +9,11 @@ import {
   ROTULO_HISTORICO_MANUTENCOES,
   ROTULO_HISTORICO_QUEIMAS,
   ROTULO_VER_OS_NUMEROS,
+  ROTULO_VOLTAR_AS_QUEIMAS,
   fraseDaContagemAteManutencao,
   fraseDoRodape,
 } from "@/lib/queimas/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { AcoesForno } from "@/components/amassa/queimas/acoes-forno";
 import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
@@ -76,7 +78,12 @@ export default async function PaginaDetalheDoForno({
 
   return (
     <>
-      <CabecalhoPagina titulo={forno.nome}>
+      {/* Achado do dono na caminhada da 06.4 (04/10/2026): sem isto, voltar ao índice pedia Início →
+          Queimas. Mesmo molde de `producao/[id]`. */}
+      <CabecalhoPagina
+        titulo={forno.nome}
+        voltar={{ href: rotaDeGestao("/queimas"), rotulo: ROTULO_VOLTAR_AS_QUEIMAS }}
+      >
         <AcoesForno id={forno.id} nome={forno.nome} ativo={forno.ativo} />
       </CabecalhoPagina>
 

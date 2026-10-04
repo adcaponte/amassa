@@ -144,5 +144,12 @@ test.describe("medidor sem sobreposição", () => {
     await link.click();
     await expect(page).toHaveURL(/#numeros-do-forno$/);
     await expect(page.getByTestId("numeros-do-forno")).toBeInViewport();
+
+    // O voltar do cabeçalho leva ao índice das Queimas (achado do dono na caminhada, 04/10/2026).
+    const voltar = page.getByRole("link", { name: "Voltar às Queimas" });
+    expect((await caixa(voltar)).height).toBeGreaterThanOrEqual(44);
+    await voltar.click();
+    await expect(page).toHaveURL(/\/gestao\/queimas$/);
+    await expect(page.getByTestId(`cartao-forno-${id}`)).toBeVisible();
   });
 });
