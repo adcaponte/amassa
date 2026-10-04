@@ -22,6 +22,7 @@ import {
   lancadoAtivo,
   limitarContador,
   mesmaContagem,
+  modoSemContagemDaUrl,
   resumoPmg,
   somarChip,
   somarDiasCivis,
@@ -30,15 +31,26 @@ import {
   totalDasExternas,
   totalDasInternas,
   totalDasQuantidades,
+  ultimaContagemDoMesmoTipo,
   type ChipDaOrdem,
   type Contagem,
+  type ContagemAnterior,
   type OrdemEsperando,
   type VendaLigada,
 } from "@/lib/queimas/contagem";
 import {
   ROTULO_CHIPS,
+  ROTULO_NAO_SOMAR_AGORA,
+  ROTULO_REPETIR_A_ULTIMA,
+  ROTULO_VER_SO_AS_RECENTES,
+  ROTULO_VER_TODAS_SEM_CONTAGEM,
   SUFIXO_SOMADO,
   ariaDoChip,
+  ariaDoTamanhoDaPergunta,
+  dicaDoRepetir,
+  dicaSemAnterior,
+  fraseTodasSemContagem,
+  perguntaDoTamanho,
   textoDoChip,
 } from "@/lib/queimas/textos";
 
@@ -508,5 +520,153 @@ describe("textos dos chips (verbatim da UI-SPEC)", () => {
     expect(SUFIXO_SOMADO).toBe(" · somado");
     expect(ariaDoChip(12, "[e2e] canecas")).toBe("Somar 12 peças de [e2e] canecas às internas");
     expect(ariaDoChip(1, "[e2e] canecas")).toBe("Somar 1 peça de [e2e] canecas às internas");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plano 03, Tarefa 2 — “Repetir a última” (D-01, QMC-05), a pergunta de tamanho (D-06) e o “Ver
+// todas” de “Sem contagem” (QMC-02).
+
+function anterior(
+  queimaId: string,
+  fornoId: string,
+  tipo: ContagemAnterior["tipo"],
+  ocorridaEm: string,
+): ContagemAnterior {
+  return {
+    queimaId,
+    fornoId,
+    tipo,
+    ocorridaEm,
+    diaCivil: ocorridaEm.slice(0, 10),
+    contagem: { ...CONTAGEM_VAZIA, internasP: queimaId.length },
+  };
+}
+
+describe("ultimaContagemDoMesmoTipo (sonda QMC-05)", () => {
+  const alvo = { fornoId: "f1", tipo: "biscoito" as const, queimaIdAtual: "q3" };
+
+  it("escolhe, do mesmo forno e tipo, a de ocorridaEm mais recente", () => {
+    const a = anterior("q1", "f1", "biscoito", "2026-12-01T10:00:00.000Z");
+    const b = anterior("q2", "f1", "biscoito", "2026-12-09T10:00:00.000Z");
+    expect(ultimaContagemDoMesmoTipo([a, b], alvo)).toBe(b);
+    expect(ultimaContagemDoMesmoTipo([b, a], alvo)).toBe(b);
+  });
+
+  it("empate de ocorridaEm → a de queimaId maior", () => {
+    const x = anterior("q1", "f1", "biscoito", "2026-12-09T10:00:00.000Z");
+    const y = anterior("q2", "f1", "biscoito", "2026-12-09T10:00:00.000Z");
+    expect(ultimaContagemDoMesmoTipo([x, y], alvo)).toBe(y);
+    expect(ultimaContagemDoMesmoTipo([y, x], alvo)).toBe(y);
+  });
+
+  it("outro forno ou outro tipo, mesmo mais recentes, nunca são escolhidos", () => {
+    const certa = anterior("q1", "f1", "biscoito", "2026-12-01T10:00:00.000Z");
+    const outroForno = anterior("q8", "f2", "biscoito", "2026-12-15T10:00:00.000Z");
+    const outroTipo = anterior("q9", "f1", "esmalte", "2026-12-16T10:00:00.000Z");
+    expect(ultimaContagemDoMesmoTipo([outroForno, outroTipo, certa], alvo)).toBe(certa);
+  });
+
+  it("exclui a própria queima da folha: corrigindo a mais recente, vale a anterior a ela", () => {
+    const a = anterior("q1", "f1", "biscoito", "2026-12-01T10:00:00.000Z");
+    const propria = anterior("q3", "f1", "biscoito", "2026-12-09T10:00:00.000Z");
+    expect(ultimaContagemDoMesmoTipo([propria, a], alvo)).toBe(a);
+  });
+
+  it("nenhuma candidata, ou só a própria → null", () => {
+    expect(ultimaContagemDoMesmoTipo([], alvo)).toBeNull();
+    expect(
+      ultimaContagemDoMesmoTipo([anterior("q3", "f1", "biscoito", "2026-12-09T10:00:00.000Z")], alvo),
+    ).toBeNull();
+  });
+});
+
+describe("janelaSemContagem — modo todas (QMC-02, Pular não perde nada)", () => {
+  const HOJE = "2026-12-18";
+
+  it("devolve todas, inclusive hoje − 30 e dois anos antes, na mesma ordem, com maisAntigas = 0", () => {
+    const recente = candidata("r", "2026-12-18T15:00:00.000Z", "2026-12-18");
+    const trintaDias = candidata("t", "2026-11-18T15:00:00.000Z", "2026-11-18");
+    const doisAnos = candidata("d", "2024-12-18T15:00:00.000Z", "2024-12-18");
+    const empateA = candidata("a", "2026-12-10T15:00:00.000Z", "2026-12-10");
+    const empateB = candidata("b", "2026-12-10T15:00:00.000Z", "2026-12-10");
+    const { visiveis, maisAntigas } = janelaSemContagem({
+      candidatas: [doisAnos, empateA, trintaDias, recente, empateB],
+      totalSemContagem: 5,
+      hoje: HOJE,
+      modo: "todas",
+    });
+    expect(visiveis.map((q) => q.id)).toEqual(["r", "b", "a", "t", "d"]);
+    expect(maisAntigas).toBe(0);
+  });
+
+  it("sem corte em 20: 25 candidatas → 25 visíveis", () => {
+    const vinteECinco = Array.from({ length: 25 }, (_, i) =>
+      candidata(`id-${String(i).padStart(2, "0")}`, `2026-0${1 + (i % 9)}-1${i % 10}T10:00:00.000Z`, "2026-01-10"),
+    );
+    const { visiveis, maisAntigas } = janelaSemContagem({
+      candidatas: vinteECinco,
+      totalSemContagem: 25,
+      hoje: HOJE,
+      modo: "todas",
+    });
+    expect(visiveis).toHaveLength(25);
+    expect(maisAntigas).toBe(0);
+  });
+
+  it("sem modo, ou recentes, continua a janela do plano 02", () => {
+    const fora = candidata("b", "2026-11-18T15:00:00.000Z", "2026-11-18");
+    for (const modo of [undefined, "recentes" as const]) {
+      const { visiveis, maisAntigas } = janelaSemContagem({
+        candidatas: [fora],
+        totalSemContagem: 1,
+        hoje: HOJE,
+        modo,
+      });
+      expect(visiveis).toEqual([]);
+      expect(maisAntigas).toBe(1);
+    }
+  });
+});
+
+describe("modoSemContagemDaUrl (T-06.4-44)", () => {
+  it("só a string exata “todas” vale todas", () => {
+    expect(modoSemContagemDaUrl("todas")).toBe("todas");
+  });
+
+  it("qualquer outro valor é a visão padrão", () => {
+    for (const valor of [undefined, "", "TODAS", "x", ["todas", "x"]]) {
+      expect(modoSemContagemDaUrl(valor)).toBe("recentes");
+    }
+  });
+});
+
+describe("textos da pergunta, do Repetir e do Ver todas (verbatim da UI-SPEC)", () => {
+  it("pergunta de tamanho com plural e singular", () => {
+    expect(perguntaDoTamanho("[e2e] x", 3)).toBe(
+      "“[e2e] x”: 3 peças sem medida na ficha. Em que tamanho elas entram?",
+    );
+    expect(perguntaDoTamanho("[e2e] x", 1)).toBe(
+      "“[e2e] x”: 1 peça sem medida na ficha. Em que tamanho ela entra?",
+    );
+    expect(ariaDoTamanhoDaPergunta(3, "G")).toBe("Somar 3 como G");
+    expect(ROTULO_NAO_SOMAR_AGORA).toBe("Não somar agora");
+  });
+
+  it("dica do Repetir com e sem anterior", () => {
+    expect(ROTULO_REPETIR_A_ULTIMA).toBe("Repetir a última");
+    expect(dicaDoRepetir("biscoito", "09/12", 29)).toBe("copia Biscoito de 09/12: 29 peças");
+    expect(dicaDoRepetir("ouro", "09/12", 1)).toBe("copia Ouro de 09/12: 1 peça");
+    expect(dicaSemAnterior("esmalte")).toBe(
+      "Ainda não há outra fornada de esmalte contada neste forno.",
+    );
+    expect(dicaSemAnterior("ouro")).toBe("Ainda não há outra fornada de ouro contada neste forno.");
+  });
+
+  it("Ver todas / Ver só as recentes e a frase da visão de todas", () => {
+    expect(ROTULO_VER_TODAS_SEM_CONTAGEM).toBe("Ver todas");
+    expect(ROTULO_VER_SO_AS_RECENTES).toBe("Ver só as recentes");
+    expect(fraseTodasSemContagem(1)).toBe("A única queima sem contagem.");
+    expect(fraseTodasSemContagem(7)).toBe("Todas as 7 sem contagem, a mais recente primeiro.");
   });
 });
