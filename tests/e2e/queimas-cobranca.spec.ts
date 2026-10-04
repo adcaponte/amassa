@@ -19,6 +19,12 @@ import {
 // Os preços dos três itens "Queima externa P/M/G" são estado GLOBAL: todo teste que depende deles roda
 // sob `travarPrecosDasQueimas` (trava consultiva; `desktop` e `celular` se revezam) e os devolve a nulo
 // no fim. Preços de teste inventados.
+//
+// O tempo de cada teste inclui a ESPERA pela trava dos preços: com os dois projetos se revezando nela,
+// um teste pode esperar o teste inteiro do outro projeto antes do primeiro passo. Os 30 s padrão não
+// cabem nisso (a primeira invocação de e2e do plano 04 estourou neles esperando a trava) — o prazo é do
+// arquivo, nenhuma afirmação muda.
+test.describe.configure({ timeout: 180_000 });
 
 async function fazerLogin(page: Page) {
   await page.goto("/gestao/login");
@@ -189,8 +195,18 @@ test.describe("cobrança da queima — recebi agora", () => {
       await expect(folha.getByTestId("recebi-quantidade-m")).toHaveValue("2");
       const campo = folha.getByRole("combobox", { name: "Pessoa (opcional)" });
 
-      // Nome digitado e NÃO escolhido: a forma não grava — a venda não sai sem pessoa por engano.
+      // A lista aberta FLUTUA por cima das formas: abrir e fechar nunca move os botões de pagamento (o
+      // toque numa forma tira o foco do campo e fecha a lista antes do clique — se a forma andasse, o
+      // toque cairia noutro lugar).
+      const pixAntes = await folha.getByTestId("forma-pix").boundingBox();
       await campo.fill("[e2e] ninguém com este nome");
+      await expect(campo).toHaveAttribute("aria-expanded", "true");
+      expect((await folha.getByTestId("forma-pix").boundingBox())?.y).toBe(pixAntes?.y);
+
+      // Nome digitado e NÃO escolhido: a forma não grava — a venda não sai sem pessoa por engano.
+      await campo.press("Escape");
+      await expect(campo).toHaveAttribute("aria-expanded", "false");
+      await expect(folha).toBeVisible();
       await folha.getByTestId("forma-pix").click();
       await expect(folha.getByTestId("recebi-agora-erro")).toHaveText(
         "Escolha a pessoa na lista, ou apague o nome para lançar sem pessoa.",

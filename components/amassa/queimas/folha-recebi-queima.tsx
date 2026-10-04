@@ -68,6 +68,15 @@ export type FolhaRecebiQueimaProps = {
 
 const TAMANHOS: readonly Tamanho[] = ["P", "M", "G"];
 
+// O painel do `SeletorPessoa` (o `data-testid="seletor-painel"` dele) posto FORA do fluxo, logo abaixo
+// do campo, por cima do que vem depois — abrir e fechar a lista nunca move as formas de pagamento.
+// (Sem `cn`: classes fixas, e o `tailwind-merge` não precisa decidir nada entre elas.)
+const CLASSE_DA_LISTA_QUE_FLUTUA =
+  "relative [&_[data-testid=seletor-painel]]:absolute [&_[data-testid=seletor-painel]]:inset-x-0 " +
+  "[&_[data-testid=seletor-painel]]:top-full [&_[data-testid=seletor-painel]]:z-20 " +
+  "[&_[data-testid=seletor-painel]]:mt-1 [&_[data-testid=seletor-painel]]:max-h-72 " +
+  "[&_[data-testid=seletor-painel]]:overflow-y-auto [&_[data-testid=seletor-painel]]:shadow-md";
+
 // Recusas que o servidor decidiu sob a trava e que já atualizaram a tela (a ação revalidou as
 // Queimas): a folha fecha e a frase vai num aviso — molde `telaJaFoiAtualizada` da Agenda.
 function telaJaFoiAtualizada(frase: string): boolean {
@@ -233,18 +242,24 @@ export function FolhaRecebiQueima({
           </div>
 
           <div ref={caixaDaPessoa} className="flex flex-col gap-1" data-testid="recebi-pessoa">
-            <SeletorPessoa
-              rotulo={ROTULO_PESSOA_OPCIONAL}
-              aoEscolher={(escolhida) => {
-                setErro(null);
-                setPessoa(escolhida);
-              }}
-              aoDigitar={() => {
-                setErro(null);
-                setPessoa(null);
-              }}
-              desabilitado={registrando !== null}
-            />
+            {/* A lista do seletor FLUTUA por cima das formas (fora do fluxo): aberta no fluxo, ela
+                empurrava as formas para baixo, e o toque numa forma — que primeiro tira o foco do campo
+                e fecha a lista — caía noutro lugar depois que as formas subiam (podia até cair noutra
+                forma). Achado no e2e de 04/10/2026; o componente da Agenda não muda. */}
+            <div className={CLASSE_DA_LISTA_QUE_FLUTUA}>
+              <SeletorPessoa
+                rotulo={ROTULO_PESSOA_OPCIONAL}
+                aoEscolher={(escolhida) => {
+                  setErro(null);
+                  setPessoa(escolhida);
+                }}
+                aoDigitar={() => {
+                  setErro(null);
+                  setPessoa(null);
+                }}
+                desabilitado={registrando !== null}
+              />
+            </div>
             <p id={idDaDicaDaPessoa} className="text-apoio text-tinta-fraca">
               {DICA_PESSOA_RECEBI_QUEIMA}
             </p>
