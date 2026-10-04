@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   CHAVES_DOS_CONTADORES,
+  JANELA_SEM_CONTAGEM_DIAS,
+  TETO_DA_LISTA_SEM_CONTAGEM,
   CONTAGEM_VAZIA,
   QUANTIDADES_ZERADAS,
   TETO_DO_CONTADOR,
@@ -14,8 +16,10 @@ import {
   diaMes,
   externasDaContagem,
   faltaCobrar,
+  janelaSemContagem,
   lancadoAtivo,
   limitarContador,
+  somarDiasCivis,
   totalDaContagem,
   totalDasExternas,
   totalDasInternas,
@@ -126,5 +130,113 @@ describe("pureza de lib/queimas/contagem.ts", () => {
     const fonte = readFileSync(join(process.cwd(), "lib/queimas/contagem.ts"), "utf8");
     const linhasDeImport = fonte.split(/\r?\n/).filter((linha) => /^\s*import\b/.test(linha));
     expect(linhasDeImport).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plano 02 — a janela de "Sem contagem" no índice (UI-D4; sondas QMC-02 adjacency/empty/ordering).
+
+describe("somarDiasCivis", () => {
+  it("anda dentro do mês", () => {
+    expect(somarDiasCivis("2026-12-18", -29)).toBe("2026-11-19");
+  });
+
+  it("atravessa o mês e o ano, para trás e para a frente", () => {
+    expect(somarDiasCivis("2026-03-01", -1)).toBe("2026-02-28");
+    expect(somarDiasCivis("2028-03-01", -1)).toBe("2028-02-29");
+    expect(somarDiasCivis("2027-01-05", -10)).toBe("2026-12-26");
+    expect(somarDiasCivis("2026-12-31", 1)).toBe("2027-01-01");
+    expect(somarDiasCivis("2026-10-04", 0)).toBe("2026-10-04");
+  });
+});
+
+type Candidata = { id: string; ocorridaEm: string; diaCivil: string };
+
+function candidata(id: string, ocorridaEm: string, diaCivil: string): Candidata {
+  return { id, ocorridaEm, diaCivil };
+}
+
+describe("janelaSemContagem", () => {
+  const HOJE = "2026-12-18";
+
+  it("as constantes são 30 dias e 20 linhas", () => {
+    expect(JANELA_SEM_CONTAGEM_DIAS).toBe(30);
+    expect(TETO_DA_LISTA_SEM_CONTAGEM).toBe(20);
+  });
+
+  it("hoje − 29 entra e hoje − 30 fica fora", () => {
+    const dentro = candidata("a", "2026-11-19T15:00:00.000Z", "2026-11-19");
+    const fora = candidata("b", "2026-11-18T15:00:00.000Z", "2026-11-18");
+    const { visiveis, maisAntigas } = janelaSemContagem({
+      candidatas: [dentro, fora],
+      totalSemContagem: 2,
+      hoje: HOJE,
+    });
+    expect(visiveis.map((q) => q.id)).toEqual(["a"]);
+    expect(maisAntigas).toBe(1);
+  });
+
+  it("02h59 UTC de hoje − 29 (23h59 de hoje − 30 em Brasília) fica FORA — decide o dia civil", () => {
+    const quaseMeiaNoite = candidata("c", "2026-11-19T02:59:00.000Z", "2026-11-18");
+    const { visiveis, maisAntigas } = janelaSemContagem({
+      candidatas: [quaseMeiaNoite],
+      totalSemContagem: 1,
+      hoje: HOJE,
+    });
+    expect(visiveis).toEqual([]);
+    expect(maisAntigas).toBe(1);
+  });
+
+  it("20 cabem; a 21ª vira “e mais 1”", () => {
+    const vinte = Array.from({ length: 20 }, (_, i) =>
+      candidata(`id-${String(i).padStart(2, "0")}`, `2026-12-18T1${i % 10}:${String(i).padStart(2, "0")}:00.000Z`, HOJE),
+    );
+    const cabem = janelaSemContagem({ candidatas: vinte, totalSemContagem: 20, hoje: HOJE });
+    expect(cabem.visiveis).toHaveLength(20);
+    expect(cabem.maisAntigas).toBe(0);
+
+    const vinteEUma = [...vinte, candidata("id-20", "2026-12-01T10:00:00.000Z", "2026-12-01")];
+    const passa = janelaSemContagem({ candidatas: vinteEUma, totalSemContagem: 21, hoje: HOJE });
+    expect(passa.visiveis).toHaveLength(20);
+    expect(passa.visiveis.map((q) => q.id)).not.toContain("id-20");
+    expect(passa.maisAntigas).toBe(1);
+  });
+
+  it("a mais recente primeiro; no empate de instante, `id` decrescente — estável", () => {
+    const mesmoInstante = "2026-12-17T12:00:00.000Z";
+    const candidatas = [
+      candidata("a1", mesmoInstante, "2026-12-17"),
+      candidata("b2", "2026-12-18T09:00:00.000Z", HOJE),
+      candidata("c3", mesmoInstante, "2026-12-17"),
+      candidata("a0", "2026-12-10T09:00:00.000Z", "2026-12-10"),
+    ];
+    const primeira = janelaSemContagem({ candidatas, totalSemContagem: 4, hoje: HOJE });
+    expect(primeira.visiveis.map((q) => q.id)).toEqual(["b2", "c3", "a1", "a0"]);
+    const segunda = janelaSemContagem({
+      candidatas: [...candidatas].reverse(),
+      totalSemContagem: 4,
+      hoje: HOJE,
+    });
+    expect(segunda.visiveis.map((q) => q.id)).toEqual(["b2", "c3", "a1", "a0"]);
+  });
+
+  it("nenhuma candidata → nada visível e `maisAntigas` = o total (todas fora da janela)", () => {
+    expect(janelaSemContagem({ candidatas: [], totalSemContagem: 0, hoje: HOJE })).toEqual({
+      visiveis: [],
+      maisAntigas: 0,
+    });
+    expect(janelaSemContagem({ candidatas: [], totalSemContagem: 3, hoje: HOJE })).toEqual({
+      visiveis: [],
+      maisAntigas: 3,
+    });
+  });
+
+  it("não muda a lista recebida", () => {
+    const candidatas = [
+      candidata("a", "2026-12-01T09:00:00.000Z", "2026-12-01"),
+      candidata("b", "2026-12-18T09:00:00.000Z", HOJE),
+    ];
+    janelaSemContagem({ candidatas, totalSemContagem: 2, hoje: HOJE });
+    expect(candidatas.map((q) => q.id)).toEqual(["a", "b"]);
   });
 });

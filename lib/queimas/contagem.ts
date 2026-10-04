@@ -166,3 +166,50 @@ export function abaixoDoLancado(externasNovas: Quantidades, lancado: Quantidades
 export function chaveDoTamanho(tamanho: Tamanho): keyof Quantidades {
   return tamanho === "P" ? "p" : tamanho === "M" ? "m" : "g";
 }
+
+// ---------------------------------------------------------------------------------------------
+// "Sem contagem" no índice (QMC-02, UI-D4 — plano 02). O estado "sem contagem" é PERMANENTE no dado
+// (sem linha em `queima_contagens`); esta janela é só da visão PADRÃO da lista do índice, nunca do
+// dado: as queimas dos últimos 30 dias civis de Brasília — hoje e os 29 dias anteriores —, no
+// máximo 20, a mais recente primeiro. O que fica de fora (além das 20 ou mais antigas) vira a conta
+// "e mais N"; o caminho para TODA queima sem contagem é o "Ver todas" (plano 03).
+//
+// Desempate: duas queimas no MESMO instante ordenam por `id` decrescente — a mesma regra do
+// Histórico (`buscarForno`), para a ordem ficar estável entre uma carga e outra.
+
+export const JANELA_SEM_CONTAGEM_DIAS = 30;
+export const TETO_DA_LISTA_SEM_CONTAGEM = 20;
+
+// Soma `dias` (pode ser negativo) a um dia civil `YYYY-MM-DD` — aritmética de calendário em UTC
+// pura (`Date.UTC` normaliza o dia que transborda o mês ou o ano); nunca lê o relógio.
+export function somarDiasCivis(diaCivil: string, dias: number): string {
+  const [ano, mes, dia] = diaCivil.split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia + dias)).toISOString().slice(0, 10);
+}
+
+// `diaCivil` chega já convertido para Brasília por quem chama (`diaCivilEmBrasilia`) — é ele, e
+// não o instante, que decide se a queima está na janela: 23h59 de hoje − 30 em Brasília (02h59 de
+// hoje − 29 em UTC) fica FORA. `totalSemContagem` é a conta de TODAS as queimas sem contagem, dentro
+// e fora da janela.
+export function janelaSemContagem<T extends { id: string; ocorridaEm: string; diaCivil: string }>({
+  candidatas,
+  totalSemContagem,
+  hoje,
+}: {
+  candidatas: readonly T[];
+  totalSemContagem: number;
+  hoje: string;
+}): { visiveis: T[]; maisAntigas: number } {
+  const inicio = somarDiasCivis(hoje, -(JANELA_SEM_CONTAGEM_DIAS - 1));
+  const visiveis = candidatas
+    .filter((queima) => queima.diaCivil >= inicio)
+    .sort((a, b) => {
+      const porInstante = Date.parse(b.ocorridaEm) - Date.parse(a.ocorridaEm);
+      if (porInstante !== 0) {
+        return porInstante;
+      }
+      return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+    })
+    .slice(0, TETO_DA_LISTA_SEM_CONTAGEM);
+  return { visiveis, maisAntigas: Math.max(0, totalSemContagem - visiveis.length) };
+}

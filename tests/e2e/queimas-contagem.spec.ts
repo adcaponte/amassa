@@ -1,10 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import { idDoUsuarioDoTeste } from "./apoio/semear-fornecedores";
 import {
   contarContagens,
   lerContagem,
   pularContagem,
+  semearForno,
+  semearQueimaSemContagem,
   ultimaQueimaDoForno,
 } from "./apoio/semear-queimas";
 
@@ -122,5 +125,75 @@ test.describe("contagem — folha", () => {
     const ultima = await ultimaQueimaDoForno(nome);
     expect(ultima?.id).toBe(id);
     await expect(cartao.getByTestId("medidor-contador")).toContainText("1 / 50", { timeout: 10000 });
+  });
+});
+
+// "dd/mm" de hoje em Brasília — o dia civil das queimas registradas agora (`hojeNoAtelie`, nunca
+// `toISOString()`, que erra o dia das 21h à meia-noite de Brasília).
+function diaMesDeHoje(): string {
+  const [, mes, dia] = hojeNoAtelie().split("-");
+  return `${dia}/${mes}`;
+}
+
+// A lista "Sem contagem" é GLOBAL (todos os fornos): cada teste acha a SUA linha por `data-queima-id`
+// e nunca afirma a contagem da lista inteira (a janela e o "e mais N" são do Vitest).
+function linhaSemContagem(page: Page, id: string) {
+  return page.getByTestId("queimas-sem-contagem").locator(`[data-queima-id="${id}"]`);
+}
+
+test.describe("sem contagem", () => {
+  test("pular manda a queima para Sem contagem, e Contar agora conta e tira ela da lista", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    // Um segundo forno garante "mais de um forno na casa" (UI-D15) sem depender da ordem dos testes:
+    // o nome do forno aparece no título da linha.
+    await semearForno(nomeUnico());
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+
+    const cartao = cartaoDoForno(page, nome);
+    await cartao.scrollIntoViewIfNeeded();
+    await cartao.getByRole("button", { name: "Queimar" }).click();
+    await cartao.getByTestId("tipo-queima-biscoito").click();
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    const id = (await folha.getAttribute("data-queima-id")) ?? "";
+    await pularContagem(page);
+
+    const linha = linhaSemContagem(page, id);
+    await expect(linha).toBeVisible({ timeout: 10000 });
+    await expect(linha).toContainText(`Biscoito de ${diaMesDeHoje()} · ${nome}`);
+    await expect(linha).toContainText("ficou só o registro da queima");
+
+    await linha.getByTestId("contar-agora").click();
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha).toHaveAttribute("data-queima-id", id);
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await folha.getByTestId("contagem-salvar").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+
+    await expect(linha).toHaveCount(0, { timeout: 10000 });
+    await expect.poll(async () => (await lerContagem(id))?.internas_p, { timeout: 10000 }).toBe(1);
+    expect(await contarContagens(id)).toBe(1);
+  });
+
+  test("contar agora e pular de novo não grava nada", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await semearQueimaSemContagem(nome, process.env.E2E_EMAIL_TESTE ?? "");
+    await page.reload();
+
+    const linha = linhaSemContagem(page, id);
+    await expect(linha).toBeVisible({ timeout: 10000 });
+    await linha.getByTestId("contar-agora").click();
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha).toHaveAttribute("data-queima-id", id);
+    await pularContagem(page);
+
+    expect(await contarContagens(id)).toBe(0);
+    await expect(linha).toBeVisible();
   });
 });

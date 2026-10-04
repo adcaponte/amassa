@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { medirForno } from "@/lib/queimas/contador";
 import { listarFornosDoIndice } from "@/lib/queimas/consultas";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
+import { hojeEmBrasilia } from "@/lib/queimas/formato";
 import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_FORNO } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
@@ -11,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { BannerAtencao } from "@/components/amassa/queimas/banner-atencao";
 import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { ListaFornos } from "@/components/amassa/queimas/lista-fornos";
+import {
+  EsqueletoDasListas,
+  ListasDoIndice,
+} from "@/components/amassa/queimas/listas-do-indice";
 import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de app/(app)/encomendas/page.tsx.
@@ -20,6 +26,8 @@ export default async function PaginaQueimas() {
   await exigirUsuario();
 
   const fornosDoIndice = await listarFornosDoIndice();
+  // O dia civil de Brasília desta carga — a janela de "Sem contagem" é contada a partir dele.
+  const hoje = hojeEmBrasilia(new Date());
 
   // O banner (FOR-06) é calculado sobre a MESMA lista que alimenta os cartões — nunca uma
   // segunda consulta ao banco. `medirForno` é a mesma função pura que `cartao-forno.tsx` chama
@@ -73,6 +81,14 @@ export default async function PaginaQueimas() {
       ) : (
         <ListaFornos fornos={fornosDoIndice} />
       )}
+
+      {/* As listas do índice (Fase 06.4, plano 02): "Sem contagem" (e, no plano 04, "Queimas
+          externas a cobrar") num `Suspense` próprio — os cartões e o "Queimar" acima nunca esperam
+          por elas nem caem com elas. Fora do ramo do vazio: sem forno não há queima, e a lista
+          devolve `null` sozinha. */}
+      <Suspense fallback={<EsqueletoDasListas />}>
+        <ListasDoIndice hoje={hoje} />
+      </Suspense>
     </>
   );
 }

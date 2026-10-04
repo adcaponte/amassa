@@ -1,10 +1,15 @@
-import { asc, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { fornos, manutencoes, queimas, usuarios } from "@/db/schema";
+import { fornos, manutencoes, queimaContagens, queimas, usuarios } from "@/db/schema";
+import {
+  JANELA_SEM_CONTAGEM_DIAS,
+  janelaSemContagem,
+  somarDiasCivis,
+} from "@/lib/queimas/contagem";
 import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
-import { hojeEmBrasilia } from "@/lib/queimas/formato";
+import { diaCivilEmBrasilia, hojeEmBrasilia } from "@/lib/queimas/formato";
 import { janelaDeSeisMeses, type TipoDeQueimaRelatorio } from "@/lib/queimas/relatorios";
 
 // Leitura do índice de `/queimas`. Sem `"use server"` — não é uma Server Action, é uma consulta
@@ -276,4 +281,80 @@ export async function carregarQueimasParaRelatorio(): Promise<QueimaParaRelatori
     fornoId: linha.fornoId,
     fornoNome: linha.fornoNome,
   }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 02 — a lista "Sem contagem" do índice (QMC-02, UI-D4). "Sem contagem" = a queima
+// não tem linha em `queima_contagens` (`left join … is null`) — estado válido e permanente. De TODOS
+// os fornos, ativos e desativados, independente do filtro dos cartões.
+//
+// Uma leitura (três consultas em `Promise.all`): as candidatas — sem contagem, com `ocorrida_em` nos
+// últimos 32 dias (pré-filtro LARGO em instante, a meia-noite de Brasília de hoje − 32; o corte
+// exato é do módulo puro, pelo dia civil), com o nome do forno, `ocorrida_em desc, id desc`; a conta
+// de TODAS as sem contagem (para o "e mais N"); e se a casa tem mais de um forno (UI-D15: o nome do
+// forno só aparece então). "hoje" chega por argumento — nunca a data corrente do Postgres, que roda
+// em UTC e erraria o dia das 21h à meia-noite de Brasília.
+export type QueimaSemContagem = {
+  id: string;
+  tipo: (typeof queimas.$inferSelect)["tipo"];
+  ocorridaEm: string;
+  diaCivil: string;
+  fornoId: string;
+  fornoNome: string;
+};
+
+export type SemContagemDoIndice = {
+  linhas: QueimaSemContagem[];
+  maisAntigas: number;
+  maisDeUmForno: boolean;
+};
+
+export async function listarSemContagem(hoje: string): Promise<SemContagemDoIndice> {
+  const inicioDoPreFiltro = new Date(
+    `${somarDiasCivis(hoje, -(JANELA_SEM_CONTAGEM_DIAS + 2))}T00:00:00-03:00`,
+  );
+
+  const [candidatas, [total], [fornosDaCasa]] = await Promise.all([
+    db
+      .select({
+        id: queimas.id,
+        tipo: queimas.tipo,
+        ocorridaEm: queimas.ocorridaEm,
+        fornoId: queimas.fornoId,
+        fornoNome: fornos.nome,
+      })
+      .from(queimas)
+      .innerJoin(fornos, eq(fornos.id, queimas.fornoId))
+      .leftJoin(queimaContagens, eq(queimaContagens.queimaId, queimas.id))
+      .where(and(isNull(queimaContagens.queimaId), gte(queimas.ocorridaEm, inicioDoPreFiltro)))
+      .orderBy(desc(queimas.ocorridaEm), desc(queimas.id)),
+    db
+      .select({ quantidade: count() })
+      .from(queimas)
+      .leftJoin(queimaContagens, eq(queimaContagens.queimaId, queimas.id))
+      .where(isNull(queimaContagens.queimaId)),
+    db.select({ quantidade: count() }).from(fornos),
+  ]);
+
+  const { visiveis, maisAntigas } = janelaSemContagem({
+    candidatas: candidatas.map((linha) => {
+      const ocorridaEm = linha.ocorridaEm.toISOString();
+      return {
+        id: linha.id,
+        tipo: linha.tipo,
+        ocorridaEm,
+        diaCivil: diaCivilEmBrasilia(ocorridaEm),
+        fornoId: linha.fornoId,
+        fornoNome: linha.fornoNome,
+      };
+    }),
+    totalSemContagem: Number(total?.quantidade ?? 0),
+    hoje,
+  });
+
+  return {
+    linhas: visiveis,
+    maisAntigas,
+    maisDeUmForno: Number(fornosDaCasa?.quantidade ?? 0) > 1,
+  };
 }

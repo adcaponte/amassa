@@ -316,3 +316,38 @@ export function fraseAbaixoDoLancado(
   }
   return `${inicio}, nas ${nomeDasVendas(numerosDasVendas)}; para baixar daí, cancele uma delas no Caixa.`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 02 — a lista "Sem contagem" do índice (QMC-02, UI-D4), verbatim da UI-SPEC.
+export const TITULO_SEM_CONTAGEM = "Sem contagem";
+export const SUB_SEM_CONTAGEM = "ficou só o registro da queima";
+export const ROTULO_CONTAR_AGORA = "Contar agora";
+
+// "Biscoito de 18/12" ou, com mais de um forno na casa (UI-D15), "Biscoito de 18/12 · Forno grande".
+export function tituloDaQueima(
+  tipo: TipoDeQueima,
+  diaMes: string,
+  nomeDoForno: string | null,
+): string {
+  const base = `${rotuloDoTipo(tipo)} de ${diaMes}`;
+  return nomeDoForno === null ? base : `${base} · ${nomeDoForno}`;
+}
+
+// Várias linhas com o mesmo rótulo visível: o `aria-label` nomeia a queima.
+export function ariaContarAgora(titulo: string): string {
+  return `${ROTULO_CONTAR_AGORA}: ${titulo}`;
+}
+
+// O fim da lista quando há mais (além das 20 ou de antes da janela). A frase termina aqui e NÃO
+// manda a pessoa ao detalhe do forno: o Histórico só mostra as 25 últimas de cada forno, e a queima
+// pulada há mais tempo ficaria sem caminho. O caminho é o link "Ver todas" (plano 03).
+export function fraseMaisSemContagem(quantidade: number): string {
+  return quantidade === 1
+    ? "e mais 1 sem contagem, mais antiga."
+    : `e mais ${quantidade} sem contagem, mais antigas.`;
+}
+
+// As duas listas do índice ("a cobrar", plano 04, e "Sem contagem") carregam e falham juntas, num
+// bloco só — os cartões e o "Queimar" continuam funcionando.
+export const FRASE_ERRO_DAS_LISTAS =
+  "Não deu para carregar as queimas a cobrar e as sem contagem. Verifique a internet e tente de novo.";

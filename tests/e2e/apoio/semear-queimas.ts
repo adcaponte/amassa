@@ -140,3 +140,55 @@ export async function pularContagem(page: Page): Promise<void> {
   await folha.getByTestId("contagem-pular").click();
   await expect(folha).toBeHidden({ timeout: 10000 });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 02 — "Sem contagem" e a folha completa.
+
+export type TipoQueima = "biscoito" | "esmalte" | "ouro";
+
+// Insere UMA queima do tipo pedido (biscoito por padrão — os planos 03 e 06 passam o tipo que
+// precisam), SEM contagem, no forno de nome `nomeDoForno`, com autoria do usuário de teste, em
+// `ocorridaEm` (ISO) ou agora. Devolve o id. Falha alto se não inserir.
+export async function semearQueimaSemContagem(
+  nomeDoForno: string,
+  emailDoUsuario: string,
+  ocorridaEm?: string,
+  tipo: TipoQueima = "biscoito",
+): Promise<string> {
+  const { rows } = await comCliente((cliente) =>
+    cliente.query<{ id: string }>(
+      `insert into queimas (forno_id, tipo, ocorrida_em, registrado_por)
+       select forno.id, $4::tipo_queima, coalesce($3::timestamptz, now()), usuario.id
+         from fornos forno
+         cross join usuarios usuario
+        where forno.nome = $1
+          and lower(usuario.email) = lower($2)
+       returning id`,
+      [nomeDoForno, emailDoUsuario, ocorridaEm ?? null, tipo],
+    ),
+  );
+  if (rows.length !== 1) {
+    throw new Error(
+      `semearQueimaSemContagem: esperava inserir 1 queima no forno "${nomeDoForno}", ` +
+        `mas inseriu ${rows.length}. Forno ou usuário de teste não encontrado?`,
+    );
+  }
+  return rows[0].id;
+}
+
+// Cadastra um forno direto no banco (limite 50). Serve para garantir que a casa tem MAIS DE UM forno
+// (UI-D15: só então o nome do forno aparece nas linhas e na folha) sem depender da ordem dos testes.
+export async function semearForno(nome: string): Promise<void> {
+  const resultado = await comCliente((cliente) =>
+    cliente.query("insert into fornos (nome, limite) values ($1, 50)", [nome]),
+  );
+  if (resultado.rowCount !== 1) {
+    throw new Error(`semearForno: não inseriu o forno "${nome}".`);
+  }
+}
+
+// Apaga uma queima pelo banco (o cascade leva a contagem) — simula o "Desfazer" vindo de outro
+// aparelho com a folha aberta (sonda QMC-03·concurrency).
+export async function apagarQueimaNoBanco(queimaId: string): Promise<void> {
+  await comCliente((cliente) => cliente.query("delete from queimas where id = $1", [queimaId]));
+}
