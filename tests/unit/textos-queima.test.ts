@@ -23,6 +23,10 @@ import {
   subtituloDaFolha,
   textoDoNivel,
   toastContagemCorrigida,
+  toastContagemSalva,
+  faltaOPrecoDe,
+  fraseSemPrecoDaQueima,
+  ROTULO_ABRIR_O_CATALOGO,
   type TipoDeQueima,
 } from "../../lib/queimas/textos";
 
@@ -286,5 +290,41 @@ describe("tags do Histórico (UI E9 · U39)", () => {
         quantidades: { p: 1, m: 0, g: 1 },
       }),
     ).toBe("venda nº 12 · 1 P · 1 G · cancelada");
+  });
+});
+
+// Plano 06.4-04, Tarefa 3 — o preço que falta e o aviso "Contagem salva" com as externas.
+describe("toastContagemSalva com as externas (UI-SPEC §Toasts)", () => {
+  it("sem externas: a frase do plano 01, intacta", () => {
+    expect(toastContagemSalva(5)).toBe("Contagem salva: 5 peças.");
+    expect(toastContagemSalva(1)).toBe("Contagem salva: 1 peça.");
+  });
+
+  it("com o valor das externas (verbatim do protótipo)", () => {
+    expect(toastContagemSalva(5, { valorCentavos: 2200 }).replace(/\s/g, " ")).toBe(
+      "Contagem salva: 5 peças. Externas a cobrar: R$ 22,00.",
+    );
+  });
+
+  it("com o preço faltando", () => {
+    expect(toastContagemSalva(1, { valorCentavos: null })).toBe(
+      "Contagem salva: 1 peça. Externas a cobrar — falta o preço no Catálogo.",
+    );
+  });
+});
+
+describe("o preço que falta (UI-D5)", () => {
+  it("faltaOPrecoDe", () => {
+    expect(faltaOPrecoDe(["G"])).toBe("falta o preço de G");
+    expect(faltaOPrecoDe(["M", "G"])).toBe("falta o preço de M e G");
+    expect(faltaOPrecoDe(["P", "M", "G"])).toBe("falta o preço de P, M e G");
+  });
+
+  it("fraseSemPrecoDaQueima com os três tamanhos e o link", () => {
+    const nomes = { P: "Queima externa P", M: "Queima externa M", G: "Queima externa G" };
+    expect(fraseSemPrecoDaQueima(["P", "M", "G"], nomes)).toMatch(
+      /^Os preços da queima externa P, M e G ainda não foram cadastrados\. /,
+    );
+    expect(ROTULO_ABRIR_O_CATALOGO).toBe("abrir o Catálogo");
   });
 });
