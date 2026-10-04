@@ -1085,7 +1085,7 @@ o mix por tamanho e o fator do biscoito medido, e o que o forno queimou.
 
 Plans:
 
-- [ ] 06.4-01-PLAN.md — traçador: dois toques → folha “O que queimou?” → `queima_contagens`; a `0030` inteira (contagem, `queima_vendas` da D-07, itens do sistema com adoção, régua) provada no `test:migracoes`; piso das externas no servidor; `/api/health/queimas` *(até 04/10/2026 começava pela "Tarefa 0 do dono (uma venda por queima × várias)" — respondida pela D-07)*
+- [x] 06.4-01-PLAN.md — traçador: dois toques → folha “O que queimou?” → `queima_contagens`; a `0030` inteira (contagem, `queima_vendas` da D-07, itens do sistema com adoção, régua) provada no `test:migracoes`; piso das externas no servidor; `/api/health/queimas` *(até 04/10/2026 começava pela "Tarefa 0 do dono (uma venda por queima × várias)" — respondida pela D-07)* — **Concluído em 04/10/2026 no branch (`f082223`..`9611c3e`) — ver `06.4-01-SUMMARY.md`** (`npm run verificar` exit 0; e2e do plano 101 passed, 0 failed; a `0030` não aplicada fora do Postgres efêmero)
 - [ ] 06.4-02-PLAN.md — “Sem contagem” no índice, a folha completa (régua, ouro, aviso × folha), o Histórico com corrigir/apagar (apagar recusado com venda ativa) e a exclusão que diz que a contagem vai junto
 - [ ] 06.4-03-PLAN.md — chips da Produção (só leitura, D-06), “Repetir a última” (D-01) e a régua editável em Parâmetros (D-03)
 - [ ] 06.4-04-PLAN.md — “Queimas externas a cobrar” por tamanho + “Recebi agora” com o passo de quantidade, prova de corrida por tamanho, piso das externas na folha, uma tag por venda, Catálogo “Usado pelas Queimas” e preço que falta *(até 04/10/2026: "externas travadas")*
