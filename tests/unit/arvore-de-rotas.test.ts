@@ -47,6 +47,12 @@ const ARQUIVOS_DE_ROTA_PUBLICOS = [
   // enxerga a migração 0029) e o monitor externo. O corpo é só `{ status }`: nunca contagem de
   // lembretes, texto, nome ou nome de banco (T-06.3-08, `tests/e2e/lembretes-saude.spec.ts`).
   "app/api/health/lembretes/route.ts",
+  // Decidida no plano 06.4-01 (Fase 06.4): pública de propósito, no molde de
+  // `/api/health/lembretes` — é a conferência de fora do Roteiro 21 (prova que o app publicado
+  // enxerga a migração 0030: as duas tabelas e a semente) e o monitor externo. O corpo é só
+  // `{ status }` (e um `motivo` fixo no erro): nunca contagem de peças, venda, valor ou nome de
+  // banco (T-06.4-08).
+  "app/api/health/queimas/route.ts",
   "app/api/auth/[...nextauth]/route.ts",
 ];
 

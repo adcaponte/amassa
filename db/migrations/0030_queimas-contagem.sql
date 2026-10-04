@@ -83,3 +83,155 @@ drop trigger if exists tocar_atualizado_em_queima_contagens on queima_contagens;
 create trigger tocar_atualizado_em_queima_contagens
   before update on queima_contagens
   for each row execute function tocar_atualizado_em();
+--> statement-breakpoint
+
+-- >>> semente das Queimas (marcador lido por conferirQueimas, em scripts/testar-migracoes.mjs)
+-- (à mão) D-05: os três itens do sistema "Queima externa P/M/G", achados por CHAVE (nunca pelo
+-- nome editável), no molde da semente da 0026. Sem preço (D-05/AGE-17 — o dono cadastra em
+-- Cadastros → Catálogo), na venda, sem estoque, ativos. ANTES de criar, ADOTA o item que o dono já
+-- tenha cadastrado com o mesmo nome: só item ATIVO, SEM chave e SEM controle de estoque (vender um
+-- item com estoque daria baixa no livro — pesquisa A8), comparado por `nome_normalizado()` (0026),
+-- o mais antigo por `criado_em, id`. Idempotente: reaplicar não duplica nada (a adoção só roda se a
+-- chave ainda não existe; a criação não faz nada se a chave já existe).
+--
+-- (a) Garantir a categoria "Queima externa" (semente 0016) — se o dono a renomeou ou apagou, ela é
+-- recriada; senão a subconsulta da criação devolveria nada e o item não nasceria.
+insert into categorias (nome, grupo, area)
+select 'Queima externa', 'receita', 'pecas'
+where not exists (
+  select 1 from categorias where lower(trim(nome)) = lower(trim('Queima externa'))
+);
+--> statement-breakpoint
+-- (b) P: adotar, depois criar.
+update itens_catalogo i
+   set chave_do_sistema = 'queima_externa_p',
+       aparece_na_venda = true,
+       categoria_venda_id = coalesce(
+         i.categoria_venda_id,
+         (select c.id from categorias c where lower(trim(c.nome)) = lower(trim('Queima externa')))
+       )
+ where i.id = (
+         select candidato.id
+           from itens_catalogo candidato
+          where candidato.chave_do_sistema is null
+            and candidato.ativo
+            and not candidato.controla_estoque
+            and nome_normalizado(candidato.nome) = nome_normalizado('Queima externa P')
+          order by candidato.criado_em, candidato.id
+          limit 1
+       )
+   and not exists (select 1 from itens_catalogo where chave_do_sistema = 'queima_externa_p');
+--> statement-breakpoint
+insert into itens_catalogo (nome, categoria_venda_id, preco_venda_centavos, aparece_na_venda, controla_estoque, ativo, chave_do_sistema)
+select 'Queima externa P', c.id, null, true, false, true, 'queima_externa_p'
+  from categorias c
+ where lower(trim(c.nome)) = lower(trim('Queima externa'))
+on conflict (chave_do_sistema) do nothing;
+--> statement-breakpoint
+-- (c) M: adotar, depois criar.
+update itens_catalogo i
+   set chave_do_sistema = 'queima_externa_m',
+       aparece_na_venda = true,
+       categoria_venda_id = coalesce(
+         i.categoria_venda_id,
+         (select c.id from categorias c where lower(trim(c.nome)) = lower(trim('Queima externa')))
+       )
+ where i.id = (
+         select candidato.id
+           from itens_catalogo candidato
+          where candidato.chave_do_sistema is null
+            and candidato.ativo
+            and not candidato.controla_estoque
+            and nome_normalizado(candidato.nome) = nome_normalizado('Queima externa M')
+          order by candidato.criado_em, candidato.id
+          limit 1
+       )
+   and not exists (select 1 from itens_catalogo where chave_do_sistema = 'queima_externa_m');
+--> statement-breakpoint
+insert into itens_catalogo (nome, categoria_venda_id, preco_venda_centavos, aparece_na_venda, controla_estoque, ativo, chave_do_sistema)
+select 'Queima externa M', c.id, null, true, false, true, 'queima_externa_m'
+  from categorias c
+ where lower(trim(c.nome)) = lower(trim('Queima externa'))
+on conflict (chave_do_sistema) do nothing;
+--> statement-breakpoint
+-- (d) G: adotar, depois criar.
+update itens_catalogo i
+   set chave_do_sistema = 'queima_externa_g',
+       aparece_na_venda = true,
+       categoria_venda_id = coalesce(
+         i.categoria_venda_id,
+         (select c.id from categorias c where lower(trim(c.nome)) = lower(trim('Queima externa')))
+       )
+ where i.id = (
+         select candidato.id
+           from itens_catalogo candidato
+          where candidato.chave_do_sistema is null
+            and candidato.ativo
+            and not candidato.controla_estoque
+            and nome_normalizado(candidato.nome) = nome_normalizado('Queima externa G')
+          order by candidato.criado_em, candidato.id
+          limit 1
+       )
+   and not exists (select 1 from itens_catalogo where chave_do_sistema = 'queima_externa_g');
+--> statement-breakpoint
+insert into itens_catalogo (nome, categoria_venda_id, preco_venda_centavos, aparece_na_venda, controla_estoque, ativo, chave_do_sistema)
+select 'Queima externa G', c.id, null, true, false, true, 'queima_externa_g'
+  from categorias c
+ where lower(trim(c.nome)) = lower(trim('Queima externa'))
+on conflict (chave_do_sistema) do nothing;
+--> statement-breakpoint
+-- <<< semente das Queimas
+
+-- (à mão) O gatilho `travar_item_do_sistema` (0026) com a frase escolhida pela CHAVE: os itens das
+-- Queimas dizem "usado pelas Queimas"; os três da Agenda continuam com a frase LITERAL da 0026, sem
+-- mudar uma letra. O mesmo corpo, o mesmo `errcode` P0001; a função é trocada no lugar (o gatilho
+-- da 0026 continua apontando para ela — não é recriado). A frase da tela vem de
+-- `lib/cadastros/textos.ts` (plano 04); a detecção em `lib/cadastros/acoes.ts` olha o `where` com o
+-- nome da função, então as duas frases chegam ao mesmo tratamento.
+create or replace function travar_item_do_sistema()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_mensagem text;
+begin
+  if old.chave_do_sistema is null then
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
+    return new;
+  end if;
+
+  if tg_op = 'DELETE'
+     or new.ativo = false
+     or new.aparece_na_venda = false
+     or new.chave_do_sistema is distinct from old.chave_do_sistema then
+    if old.chave_do_sistema like 'queima_externa_%' then
+      v_mensagem := 'Este item é usado pelas Queimas e não se desativa. Nome, preço e categoria podem mudar.';
+    else
+      v_mensagem := 'Este item é usado pela Agenda e não se desativa. Nome, preço e categoria podem mudar.';
+    end if;
+    raise exception using
+      errcode = 'P0001',
+      message = v_mensagem;
+  end if;
+
+  return new;
+end;
+$$;
+--> statement-breakpoint
+
+-- >>> régua das Queimas (marcador lido por conferirQueimas, em scripts/testar-migracoes.mjs)
+-- (à mão) D-03: a régua P · M · G, em `parametros_precificacao` (com histórico, como os outros
+-- parâmetros), na escala cm × 1000 do catálogo de parâmetros: P até 10 cm (10000), M até 25 cm
+-- (25000), G maior que isso (briefing §2). `vigente_desde` é a data FIXA do dia em que o dono
+-- definiu a régua (20/09/2026), nunca o relógio do Postgres (lição da 0021: `current_date` em UTC
+-- datava a semente de amanhã entre 21h e meia-noite de Brasília). Idempotente pela chave
+-- (chave, vigente_desde).
+insert into parametros_precificacao (chave, valor_inteiro, medido, vigente_desde)
+values
+  ('queima_regua_p_ate', 10000, false, '2026-09-20'),
+  ('queima_regua_m_ate', 25000, false, '2026-09-20')
+on conflict (chave, vigente_desde) do nothing;
+--> statement-breakpoint
+-- <<< régua das Queimas
