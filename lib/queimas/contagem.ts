@@ -439,3 +439,118 @@ export function somarChip(
     internasG: limitarContador(contagem.internasG + soma("G")),
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04 — a cobrança das externas (QMC-07, QMC-08; D-07, decisão do dono de 04/10/2026).
+// O que está lançado é DERIVADO das vendas ligadas: só as ATIVAS (não canceladas) somam; uma venda
+// cancelada no Caixa devolve a quantidade dela a "a cobrar" sem nada ser gravado (o princípio da D-08
+// da Agenda). Nenhuma coluna guarda "pago" ou "a cobrar" — a situação sai daqui, das vendas.
+
+// O preço de cada tamanho, em centavos, lido do Catálogo (os itens "Queima externa P/M/G", achados
+// pela chave). `null` = não cadastrado. Nenhum preço é escrito no código.
+export type PrecosDasExternas = Record<Tamanho, number | null>;
+
+// O valor de um conjunto de quantidades (o que FALTA, na linha "a cobrar" e no Histórico; o que foi
+// ESCOLHIDO, no passo de quantidade do "Recebi agora"; as externas CONTADAS, na folha). Preço nulo
+// ou ≤ 0 num tamanho COM quantidade → o tamanho entra em `tamanhosSemPreco` e o valor é `null` (uma
+// venda de R$ 0,00 não nasce, como na Agenda). Tamanho sem quantidade nunca bloqueia, com ou sem
+// preço. Inteiros: Σ quantidade × preço, sem ponto flutuante.
+export function valorDasExternas(
+  quantidades: Quantidades,
+  precos: PrecosDasExternas,
+): { valorCentavos: number | null; tamanhosSemPreco: Tamanho[] } {
+  let valorCentavos = 0;
+  const tamanhosSemPreco: Tamanho[] = [];
+  for (const { tamanho, chave } of TAMANHOS_EM_ORDEM) {
+    const quantidade = quantidades[chave];
+    if (quantidade <= 0) {
+      continue;
+    }
+    const preco = precos[tamanho];
+    if (preco === null || !Number.isFinite(preco) || preco <= 0) {
+      tamanhosSemPreco.push(tamanho);
+      continue;
+    }
+    valorCentavos += quantidade * preco;
+  }
+  return {
+    valorCentavos: tamanhosSemPreco.length > 0 ? null : valorCentavos,
+    tamanhosSemPreco,
+  };
+}
+
+// A situação das externas de uma queima, DERIVADA das vendas ligadas:
+// - `sem_externas`: nenhuma externa contada;
+// - `a_cobrar`: falta algo e nenhuma venda ativa ligada;
+// - `parcial`: falta algo e há venda ativa (o resto continua em "a cobrar");
+// - `lancado`: não falta nada e alguma venda ativa tem parcela em aberto;
+// - `pago`: não falta nada e as vendas ativas estão pagas.
+export type SituacaoDasExternas = "sem_externas" | "a_cobrar" | "parcial" | "lancado" | "pago";
+
+export function situacaoDasExternas({
+  externas,
+  vendas,
+}: {
+  externas: Quantidades;
+  vendas: readonly VendaLigada[];
+}): SituacaoDasExternas {
+  if (totalDasQuantidades(externas) === 0) {
+    return "sem_externas";
+  }
+  const ativas = vendas.filter((venda) => !venda.cancelada);
+  const falta = faltaCobrar(externas, lancadoAtivo(vendas));
+  if (totalDasQuantidades(falta) > 0) {
+    return ativas.length > 0 ? "parcial" : "a_cobrar";
+  }
+  return ativas.some((venda) => !venda.paga) ? "lancado" : "pago";
+}
+
+// A situação de UMA venda ligada, como as tags do Histórico a mostram.
+export type SituacaoDaVenda = "em_aberto" | "paga" | "cancelada";
+
+export function situacaoDaVenda(venda: VendaLigada): SituacaoDaVenda {
+  if (venda.cancelada) {
+    return "cancelada";
+  }
+  return venda.paga ? "paga" : "em_aberto";
+}
+
+// As quantidades de um vínculo tiradas das LINHAS de uma venda (o "Lançar na Venda", plano 05): soma,
+// por tamanho, a quantidade das linhas de item cujo `itemId` é um dos três itens das Queimas. Linha
+// livre, ou de outro item, não conta.
+export type LinhaParaQuantidades = {
+  tipo: "item" | "livre";
+  itemId?: string | null;
+  quantidade?: number | null;
+};
+
+export function quantidadesDasLinhas(
+  linhas: readonly LinhaParaQuantidades[],
+  idsPorTamanho: Record<Tamanho, string>,
+): Quantidades {
+  const soma = { ...QUANTIDADES_ZERADAS };
+  for (const linha of linhas) {
+    if (linha.tipo !== "item" || linha.itemId === undefined || linha.itemId === null) {
+      continue;
+    }
+    const quantidade = linha.quantidade ?? 0;
+    for (const { tamanho, chave } of TAMANHOS_EM_ORDEM) {
+      if (idsPorTamanho[tamanho] === linha.itemId) {
+        soma[chave] += quantidade;
+      }
+    }
+  }
+  return soma;
+}
+
+// O preço de cada tamanho, como `valorDasExternas` o recebe, a partir dos três itens do Catálogo
+// (`ItensDasQueimas`, lidos pela chave em `lib/queimas/consultas.ts`).
+export function precosDosItens(
+  itens: Record<Tamanho, { precoVendaCentavos: number | null }>,
+): PrecosDasExternas {
+  return {
+    P: itens.P.precoVendaCentavos,
+    M: itens.M.precoVendaCentavos,
+    G: itens.G.precoVendaCentavos,
+  };
+}

@@ -28,22 +28,44 @@
 // regras puras de `lib/queimas/contagem.ts`. Subir as externas é sempre livre.
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 
-import { documentos, parcelas, queimaContagens, queimaVendas, queimas } from "@/db/schema";
+import {
+  clientes,
+  documentos,
+  parcelas,
+  queimaContagens,
+  queimaVendas,
+  queimas,
+} from "@/db/schema";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
+import { gravarVenda, type LinhaDoPedidoDeVenda } from "@/lib/financeiro/gravacao";
+import { conferirParcelas } from "@/lib/financeiro/parcelas";
+import type { FormaDePagamento } from "@/lib/financeiro/textos";
 
+import { obterItensDasQueimas } from "./consultas";
 import {
   abaixoDoLancado,
+  cabeNoQueFalta,
   chaveDoTamanho,
   externasDaContagem,
+  faltaCobrar,
   lancadoAtivo,
+  resumoPmg,
   totalDasQuantidades,
+  precosDosItens,
+  valorDasExternas,
   type Contagem,
+  type Quantidades,
   type VendaLigada,
 } from "./contagem";
 import {
   fraseAbaixoDoLancado,
   fraseApagarComVendas,
+  fraseSemPrecoDaQueima,
+  fraseSoFaltam,
+  fraseTudoJaLancado,
+  FRASE_PESSOA_SUMIU,
   FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
+  FRASE_SAIU_DE_A_COBRAR,
   type TipoDeQueima,
 } from "./textos";
 
@@ -247,4 +269,141 @@ export async function apagarContagemNaTransacao(
   }
   await tx.delete(queimaContagens).where(eq(queimaContagens.queimaId, queimaId));
   return { apagou: true };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04 — o "Recebi agora" das externas (QMC-08; D-07). O corpo da Server Action
+// `receberQueimaAgora` DENTRO da transação, separado para a prova de corrida
+// (`scripts/provar-corridas-das-queimas.ts`) chamar o MESMO código sem sessão.
+//
+// Sob a trava da QUEIMA (`travarContagem`, CR-01: contagem e vendas relidas depois da trava), decide
+// pelo que FALTA naquele instante — nunca pelo que a tela mostrou: queima/contagem sumida ou sem
+// externas → `FRASE_SAIU_DE_A_COBRAR`; nada falta → `fraseTudoJaLancado` (as vendas ativas); algum
+// tamanho pedido acima do que falta → `fraseSoFaltam` (o que falta agora). Os preços e as linhas são
+// do BANCO, lidos depois da trava (mudar o preço depois não muda esta venda — ela congela o valor ao
+// nascer); preço faltando (nulo ou ≤ 0) num tamanho PEDIDO → a frase do preço. A pessoa (opcional —
+// decisão do dono de 04/10/2026, UI-D13 revista) é um cadastro de `clientes`: o NOME vem do banco e
+// fica congelado em `pessoa_nome`, com o vínculo `cliente_id` — o mesmo par que a Agenda grava.
+//
+// A venda nasce JÁ PAGA, hoje (uma parcela paga na forma tocada), pelo escritor único do Financeiro
+// (`gravarVenda`), e o vínculo com as quantidades entra em `queima_vendas` na MESMA transação.
+export type PedidoDeCobrancaDaQueima = {
+  queimaId: string;
+  forma: FormaDePagamento;
+  quantidades: Quantidades;
+  // `null` = venda sem pessoa.
+  clienteId: string | null;
+  hoje: string;
+  registradoPor: string;
+  taxaCartaoPontosBase: number;
+  dataSaldoInicial: string | null;
+};
+
+export async function cobrarQueimaNaTransacao(
+  tx: TransacaoDoBanco,
+  pedido: PedidoDeCobrancaDaQueima,
+): Promise<{ documentoId: string; numero: number }> {
+  const travada = await travarContagem(tx, pedido.queimaId);
+  if (travada === null || travada.contagem === null) {
+    throw new RecusaDasQueimas(FRASE_SAIU_DE_A_COBRAR);
+  }
+  const externas = externasDaContagem(travada.contagem);
+  if (totalDasQuantidades(externas) === 0) {
+    throw new RecusaDasQueimas(FRASE_SAIU_DE_A_COBRAR);
+  }
+  const falta = faltaCobrar(externas, lancadoAtivo(travada.vendas));
+  if (totalDasQuantidades(falta) === 0) {
+    throw new RecusaDasQueimas(
+      fraseTudoJaLancado(
+        travada.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero),
+      ),
+    );
+  }
+  if (!cabeNoQueFalta(pedido.quantidades, falta)) {
+    throw new RecusaDasQueimas(fraseSoFaltam(resumoPmg(falta.p, falta.m, falta.g)));
+  }
+
+  // Depois da trava: os itens e os preços de AGORA (nenhum preço no código, nenhum do navegador).
+  const itens = await obterItensDasQueimas(tx);
+  const { valorCentavos: totalCentavos, tamanhosSemPreco } = valorDasExternas(
+    pedido.quantidades,
+    precosDosItens(itens),
+  );
+  if (totalCentavos === null) {
+    throw new RecusaDasQueimas(
+      fraseSemPrecoDaQueima(tamanhosSemPreco, {
+        P: itens.P.nome,
+        M: itens.M.nome,
+        G: itens.G.nome,
+      }),
+    );
+  }
+
+  const linhas: LinhaDoPedidoDeVenda[] = [];
+  for (const tamanho of ["P", "M", "G"] as const) {
+    const quantidade = pedido.quantidades[chaveDoTamanho(tamanho)];
+    if (quantidade <= 0) {
+      continue;
+    }
+    const item = itens[tamanho];
+    linhas.push({
+      tipo: "item",
+      itemId: item.id,
+      descricao: item.nome,
+      categoriaId: item.categoriaVendaId,
+      quantidade,
+      // `valorDasExternas` já recusou preço nulo ou ≤ 0 num tamanho pedido.
+      valorCentavos: quantidade * (item.precoVendaCentavos ?? 0),
+    });
+  }
+
+  const parcela = {
+    vencimento: pedido.hoje,
+    valorCentavos: totalCentavos,
+    forma: pedido.forma,
+    pago: true,
+  };
+  // A mesma conferência da Venda manual (soma, teto, data do saldo inicial) — com a frase dela.
+  const conferencia = conferirParcelas({
+    totalCentavos,
+    parcelas: [parcela],
+    hoje: pedido.hoje,
+    dataSaldoInicial: pedido.dataSaldoInicial,
+  });
+  if (!conferencia.ok) {
+    throw new RecusaDasQueimas(conferencia.erro);
+  }
+
+  let pessoaNome: string | null = null;
+  if (pedido.clienteId !== null) {
+    const [pessoa] = await tx
+      .select({ nome: clientes.nome })
+      .from(clientes)
+      .where(eq(clientes.id, pedido.clienteId));
+    if (!pessoa) {
+      throw new RecusaDasQueimas(FRASE_PESSOA_SUMIU);
+    }
+    pessoaNome = pessoa.nome;
+  }
+
+  const venda = await gravarVenda(
+    tx,
+    {
+      data: pedido.hoje,
+      pessoaNome,
+      clienteId: pedido.clienteId,
+      linhas,
+      parcelas: [parcela],
+    },
+    { registradoPor: pedido.registradoPor, taxaCartaoPontosBase: pedido.taxaCartaoPontosBase },
+  );
+  await tx.insert(queimaVendas).values({
+    documentoId: venda.id,
+    queimaId: pedido.queimaId,
+    quantidadeP: pedido.quantidades.p,
+    quantidadeM: pedido.quantidades.m,
+    quantidadeG: pedido.quantidades.g,
+    lancadoPor: pedido.registradoPor,
+  });
+  return { documentoId: venda.id, numero: venda.numero };
 }

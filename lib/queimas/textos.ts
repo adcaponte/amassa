@@ -504,3 +504,89 @@ export function dicaDaReguaNosParametros(regua: Regua): string {
   const m = cmDaRegua(regua.mAte);
   return `Régua de hoje: P até ${p} cm · M de ${p} a ${m} cm · G maior que ${m} cm. Vale para internas e externas; a contagem é no olho, pela maior medida da peça. Mudar a régua não muda as contagens já feitas.`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04 — "Queimas externas a cobrar" e o "Recebi agora" (QMC-07, QMC-08; D-07),
+// verbatim da UI-SPEC §Copywriting. Os rótulos herdados da Agenda ("Recebi agora", "Dinheiro · Pix ·
+// Cartão", "Registrando…", "Voltar", o aviso "Venda nº N lançada e paga em …", a frase de rede e a tag
+// "venda nº N cancelada") são IMPORTADOS de `lib/agenda/textos.ts` por quem usa — uma frase, um lugar.
+export const TITULO_A_COBRAR = "Queimas externas a cobrar";
+export const FRASE_FALTA_PRECO = "falta preço";
+
+// "falta: 1 P · 2 M" — `resumo` = `resumoPmg` do que falta.
+export function linhaDaFalta(resumo: string): string {
+  return `falta: ${resumo}`;
+}
+
+// Uma linha de apoio por venda ATIVA ligada: "já lançado: venda nº 12 (2 P)".
+export function linhaJaLancado(numero: number, resumo: string): string {
+  return `já lançado: venda nº ${numero} (${resumo})`;
+}
+
+// O passo de quantidade do "Recebi agora" (D-07): começa com tudo o que falta.
+export const ROTULO_PASSO_DE_QUANTIDADE = "Quantas peças entram nesta venda?";
+export const DICA_PASSO_DE_QUANTIDADE =
+  "Começa com o que falta. O que você tirar continua em “a cobrar”.";
+
+// A faixa de cada tamanho no passo: "faltam 2" / "falta 1".
+export function faltamNoTamanho(quantidade: number): string {
+  return quantidade === 1 ? "falta 1" : `faltam ${quantidade}`;
+}
+
+export const FRASE_NENHUMA_PECA_PARA_COBRAR = "Escolha ao menos uma peça para cobrar.";
+
+// Recusas decididas SOB A TRAVA que já atualizaram a tela (a folha fecha com o aviso).
+// `numeros` = os das vendas ATIVAS que levaram tudo.
+export function fraseTudoJaLancado(numeros: readonly number[]): string {
+  return `As externas desta queima já foram todas lançadas — ${nomeDasVendas(numeros)}. A tela foi atualizada.`;
+}
+
+// `resumo` = `resumoPmg` do que falta AGORA: "Desta queima só faltam 1 P — outra venda levou o resto. …".
+export function fraseSoFaltam(resumo: string): string {
+  return `Desta queima só faltam ${resumo} — outra venda levou o resto. A tela foi atualizada.`;
+}
+
+export const FRASE_SAIU_DE_A_COBRAR =
+  "Esta queima não está mais em “a cobrar” — a tela foi atualizada.";
+
+// "P", "M e G", "P, M e G".
+function listaComE(partes: readonly string[]): string {
+  if (partes.length <= 1) {
+    return partes.join("");
+  }
+  return `${partes.slice(0, -1).join(", ")} e ${partes[partes.length - 1]}`;
+}
+
+// O preço que falta (AGE-17, UI-D5) — com o nome ATUAL de cada item, lido pela chave.
+export function fraseSemPrecoDaQueima(
+  tamanhos: readonly Tamanho[],
+  nomes: Record<Tamanho, string>,
+): string {
+  const caminho = listaComE(tamanhos.map((tamanho) => `“${nomes[tamanho]}”`));
+  if (tamanhos.length === 1) {
+    return `O preço da queima externa ${tamanhos[0]} ainda não foi cadastrado. Cadastre em Cadastros → Catálogo → ${caminho} para poder cobrar.`;
+  }
+  return `Os preços da queima externa ${listaComE(tamanhos)} ainda não foram cadastrados. Cadastre em Cadastros → Catálogo → ${caminho} para poder cobrar.`;
+}
+
+// O topo do "Recebi agora", com as quantidades ESCOLHIDAS no passo e o valor delas:
+// "Queima externa · Biscoito de 18/12 · 1 P · 1 G · R$ 48,00". `titulo` = `tituloDaQueima`.
+export function topoRecebiQueima(titulo: string, resumo: string, valor: string): string {
+  return ["Queima externa", titulo, resumo, valor].filter((parte) => parte !== "").join(" · ");
+}
+
+// Várias linhas com o mesmo rótulo visível: o `aria-label` nomeia a queima.
+export function ariaRecebiAgora(titulo: string): string {
+  return `Recebi agora: ${titulo}`;
+}
+
+// A pessoa OPCIONAL do "Recebi agora" (decisão do dono, 04/10/2026 — UI-D13 revista): o seletor de
+// pessoas da casa, entre o passo de quantidade e as formas. Vazio = venda sem pessoa.
+export const DICA_PESSOA_RECEBI_QUEIMA =
+  "Para saber depois quem levou estas peças. Sem ninguém escolhido, a venda fica sem pessoa.";
+// Nome digitado e não escolhido na lista: a venda NÃO sai sem pessoa por engano.
+export const FRASE_ESCOLHA_A_PESSOA_NA_LISTA =
+  "Escolha a pessoa na lista, ou apague o nome para lançar sem pessoa.";
+// A pessoa escolhida saiu do cadastro entre abrir a folha e tocar a forma (servidor).
+export const FRASE_PESSOA_SUMIU =
+  "Essa pessoa não está mais no cadastro. Escolha de novo, ou apague o nome para lançar sem pessoa.";

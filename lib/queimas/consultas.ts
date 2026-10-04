@@ -3,29 +3,40 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
+  documentos,
   fichasPrecificacao,
   fornos,
+  itensCatalogo,
   manutencoes,
   ordemPecas,
   parametrosPrecificacao,
+  parcelas,
   queimaContagens,
+  queimaVendas,
   queimas,
   usuarios,
 } from "@/db/schema";
+import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
 import { listarOrdensEmAndamento } from "@/lib/producao/consultas";
 import { esperandoOForno } from "@/lib/producao/forno";
 import { etapaAtual } from "@/lib/producao/leitura";
 import {
   JANELA_SEM_CONTAGEM_DIAS,
   chipsDaProducao,
+  faltaCobrar,
   janelaSemContagem,
+  lancadoAtivo,
   somarDiasCivis,
+  totalDasQuantidades,
   type ChipDaOrdem,
   type Contagem,
   type ContagemAnterior,
   type ModoSemContagem,
   type OrdemEsperando,
+  type Quantidades,
   type Regua,
+  type Tamanho,
+  type VendaLigada,
 } from "@/lib/queimas/contagem";
 import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
@@ -434,6 +445,10 @@ export type DadosDaFolha = {
   // Plano 03 (QMC-05, D-01): as DUAS contagens mais recentes de cada forno + tipo — "Repetir a
   // última" escolhe no cliente (`ultimaContagemDoMesmoTipo`), excluindo a queima da folha.
   ultimasContagens: ContagemAnterior[];
+  // Plano 04 (D-05): os três itens "Queima externa P/M/G" com o preço ATUAL — o valor no cabeçalho de
+  // Externas da folha, as tags do Histórico e a linha "a cobrar", numa leitura por carga. `null` = a
+  // leitura falhou (`console.error` no servidor): a folha só não mostra o valor (UI-D19).
+  itens: ItensDasQueimas | null;
 };
 
 const CHAVE_REGUA_P = "queima_regua_p_ate";
@@ -582,7 +597,7 @@ export async function lerUltimasContagens(): Promise<ContagemAnterior[]> {
 }
 
 export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> {
-  const [regua, [fornosDaCasa], ultimasContagens, ordens] = await Promise.all([
+  const [regua, [fornosDaCasa], ultimasContagens, ordens, itens] = await Promise.all([
     lerReguaVigente(hoje),
     db.select({ quantidade: count() }).from(fornos),
     lerUltimasContagens(),
@@ -591,6 +606,11 @@ export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> 
     // dados da folha inteiros (UI-D19): sem ela não há folha.
     ordensEsperandoAQueima().catch((erro: unknown) => {
       console.error("Falha ao ler as ordens da Produção para os chips da folha de contagem:", erro);
+      return null;
+    }),
+    // Plano 04: os preços também não derrubam a folha — sem eles, só o valor some.
+    obterItensDasQueimas().catch((erro: unknown) => {
+      console.error("Falha ao ler os itens das Queimas para a folha de contagem:", erro);
       return null;
     }),
   ]);
@@ -607,5 +627,173 @@ export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> 
             queima2: todos.filter((chip) => chip.etapa === "queima2"),
           },
     ultimasContagens,
+    itens,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04 — a cobrança das externas (QMC-07, QMC-08; D-05, D-07).
+
+// Os três itens do Catálogo que as Queimas usam para cobrar (D-05) — achados SÓ pela
+// `chave_do_sistema`, nunca pelo nome, que o dono edita em Cadastros. O preço vem daqui: nenhum preço
+// de queima no código. Molde `obterItensDoSistema` da Agenda. O leitor é o `db` por padrão;
+// `cobrarQueimaNaTransacao` passa a TRANSAÇÃO, para ler os preços depois da trava da queima.
+export type ItemDaQueima = {
+  id: string;
+  nome: string;
+  precoVendaCentavos: number | null;
+  categoriaVendaId: string;
+};
+
+export type ItensDasQueimas = Record<Tamanho, ItemDaQueima>;
+
+type LeitorDeConsulta = Pick<typeof db, "select"> | Pick<TransacaoDoBanco, "select">;
+
+const CHAVE_DO_ITEM: Record<Tamanho, string> = {
+  P: "queima_externa_p",
+  M: "queima_externa_m",
+  G: "queima_externa_g",
+};
+
+export const FRASE_ITENS_DAS_QUEIMAS_SUMIRAM =
+  "Os itens “Queima externa P/M/G” do Catálogo não foram encontrados — a migração 0030 foi aplicada?";
+
+export async function obterItensDasQueimas(
+  leitor: LeitorDeConsulta = db,
+): Promise<ItensDasQueimas> {
+  const linhas = await (leitor as Pick<TransacaoDoBanco, "select">)
+    .select({
+      chaveDoSistema: itensCatalogo.chaveDoSistema,
+      id: itensCatalogo.id,
+      nome: itensCatalogo.nome,
+      precoVendaCentavos: itensCatalogo.precoVendaCentavos,
+      categoriaVendaId: itensCatalogo.categoriaVendaId,
+    })
+    .from(itensCatalogo)
+    .where(inArray(itensCatalogo.chaveDoSistema, Object.values(CHAVE_DO_ITEM)));
+
+  const porChave = new Map(linhas.map((linha) => [linha.chaveDoSistema, linha] as const));
+  const itens: Partial<ItensDasQueimas> = {};
+  for (const tamanho of ["P", "M", "G"] as const) {
+    const linha = porChave.get(CHAVE_DO_ITEM[tamanho]);
+    // Item do sistema aparece na Venda, e o banco exige categoria de venda para isso
+    // (`itens_catalogo_aparece_exige_categoria_venda`) — sem ela, o item não serve para cobrar.
+    if (!linha || linha.categoriaVendaId === null) {
+      console.error(FRASE_ITENS_DAS_QUEIMAS_SUMIRAM, {
+        encontrados: linhas.map((encontrada) => encontrada.chaveDoSistema),
+      });
+      throw new Error(FRASE_ITENS_DAS_QUEIMAS_SUMIRAM);
+    }
+    itens[tamanho] = {
+      id: linha.id,
+      nome: linha.nome,
+      precoVendaCentavos: linha.precoVendaCentavos,
+      categoriaVendaId: linha.categoriaVendaId,
+    };
+  }
+  return itens as ItensDasQueimas;
+}
+
+// As vendas ligadas de cada queima pedida — ativas e canceladas, em ordem de número —, com a
+// situação de cada uma (cancelada; paga = nenhuma parcela em aberto) e as quantidades do vínculo. Só
+// LEITURA (a tela); quem decide sob a trava relê por `travarContagem`.
+export async function lerVendasLigadas(
+  queimaIds: readonly string[],
+): Promise<Map<string, VendaLigada[]>> {
+  const porQueima = new Map<string, VendaLigada[]>();
+  if (queimaIds.length === 0) {
+    return porQueima;
+  }
+  const ligadas = await db
+    .select({
+      queimaId: queimaVendas.queimaId,
+      documentoId: queimaVendas.documentoId,
+      numero: documentos.numero,
+      canceladoEm: documentos.canceladoEm,
+      quantidadeP: queimaVendas.quantidadeP,
+      quantidadeM: queimaVendas.quantidadeM,
+      quantidadeG: queimaVendas.quantidadeG,
+      emAberto: sql<number>`(
+        select count(*) from ${parcelas}
+         where ${parcelas.documentoId} = ${queimaVendas.documentoId}
+           and ${parcelas.pagoEm} is null
+      )`.mapWith(Number),
+    })
+    .from(queimaVendas)
+    .innerJoin(documentos, eq(documentos.id, queimaVendas.documentoId))
+    .where(inArray(queimaVendas.queimaId, [...queimaIds]))
+    .orderBy(asc(documentos.numero));
+
+  for (const linha of ligadas) {
+    const lista = porQueima.get(linha.queimaId) ?? [];
+    lista.push({
+      documentoId: linha.documentoId,
+      numero: linha.numero,
+      cancelada: linha.canceladoEm !== null,
+      paga: linha.emAberto === 0,
+      quantidades: { p: linha.quantidadeP, m: linha.quantidadeM, g: linha.quantidadeG },
+    });
+    porQueima.set(linha.queimaId, lista);
+  }
+  return porQueima;
+}
+
+// Uma linha de "Queimas externas a cobrar" (QMC-07, UI-D26; D-07).
+export type QueimaACobrar = {
+  queimaId: string;
+  tipo: (typeof queimas.$inferSelect)["tipo"];
+  ocorridaEm: string;
+  diaCivil: string;
+  fornoNome: string;
+  externas: Quantidades;
+  vendas: VendaLigada[];
+  falta: Quantidades;
+};
+
+// Toda contagem em que ALGUM tamanho ainda tem falta (falta = externas − Σ das vendas ATIVAS ligadas,
+// por tamanho), de todos os fornos, ativos e desativados, a mais ANTIGA primeiro (é dinheiro
+// esperando; empate pelo id da queima), sem teto. Duas leituras: as contagens com externas e o forno;
+// depois, pelos ids delas, as vendas ligadas. O corte (só quem tem falta) é de `faltaCobrar`.
+export async function listarACobrar(): Promise<QueimaACobrar[]> {
+  const comExternas = await db
+    .select({
+      queimaId: queimas.id,
+      tipo: queimas.tipo,
+      ocorridaEm: queimas.ocorridaEm,
+      fornoNome: fornos.nome,
+      externasP: queimaContagens.externasP,
+      externasM: queimaContagens.externasM,
+      externasG: queimaContagens.externasG,
+    })
+    .from(queimaContagens)
+    .innerJoin(queimas, eq(queimas.id, queimaContagens.queimaId))
+    .innerJoin(fornos, eq(fornos.id, queimas.fornoId))
+    .where(
+      sql`${queimaContagens.externasP} + ${queimaContagens.externasM} + ${queimaContagens.externasG} > 0`,
+    )
+    .orderBy(asc(queimas.ocorridaEm), asc(queimas.id));
+
+  const vendasPorQueima = await lerVendasLigadas(comExternas.map((linha) => linha.queimaId));
+
+  const linhas: QueimaACobrar[] = [];
+  for (const linha of comExternas) {
+    const externas = { p: linha.externasP, m: linha.externasM, g: linha.externasG };
+    const vendas = vendasPorQueima.get(linha.queimaId) ?? [];
+    const falta = faltaCobrar(externas, lancadoAtivo(vendas));
+    if (totalDasQuantidades(falta) === 0) {
+      continue;
+    }
+    const ocorridaEm = linha.ocorridaEm.toISOString();
+    linhas.push({
+      queimaId: linha.queimaId,
+      tipo: linha.tipo,
+      ocorridaEm,
+      diaCivil: diaCivilEmBrasilia(ocorridaEm),
+      fornoNome: linha.fornoNome,
+      externas,
+      vendas,
+      falta,
+    });
+  }
+  return linhas;
 }

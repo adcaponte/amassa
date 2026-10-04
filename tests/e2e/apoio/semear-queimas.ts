@@ -237,3 +237,146 @@ export async function semearContagem(
     throw new Error(`semearContagem: não gravou a contagem da queima ${queimaId}.`);
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04 — a cobrança das externas.
+//
+// Os preços dos três itens "Queima externa P/M/G" são estado GLOBAL (um item por chave, no banco
+// inteiro), e os projetos `desktop` e `celular` rodam ao mesmo tempo — o mesmo molde de
+// `travarItemDaHora` (semear-agenda.ts): quem escreve o preço (ou o nome) de um deles, ou depende do
+// "sem preço", segura a trava consultiva do começo ao fim e DEVOLVE os preços a nulo e os nomes ao
+// original antes de soltar (os itens nascem sem preço na 0030, e outros casos dependem disso). Preços de
+// teste inventados, nunca os do protótipo.
+export const TRAVA_DOS_PRECOS_DAS_QUEIMAS = 5_064_004;
+
+const CHAVES_DAS_QUEIMAS = { P: "queima_externa_p", M: "queima_externa_m", G: "queima_externa_g" } as const;
+
+export type PrecosDasQueimas = Record<"P" | "M" | "G", number | null>;
+
+export type TravaDosPrecosDasQueimas = {
+  definirPrecos: (precos: Partial<PrecosDasQueimas>) => Promise<void>;
+  renomear: (tamanho: "P" | "M" | "G", nome: string) => Promise<void>;
+  nomes: Record<"P" | "M" | "G", string>;
+  soltar: () => Promise<void>;
+};
+
+export async function travarPrecosDasQueimas(precos: PrecosDasQueimas): Promise<TravaDosPrecosDasQueimas> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  await cliente.query("select pg_advisory_lock($1)", [TRAVA_DOS_PRECOS_DAS_QUEIMAS]);
+  const { rows } = await cliente.query<{ chave: string; nome: string }>(
+    "select chave_do_sistema as chave, nome from itens_catalogo where chave_do_sistema like 'queima_externa_%'",
+  );
+  const nomeDe = (tamanho: "P" | "M" | "G") =>
+    rows.find((linha) => linha.chave === CHAVES_DAS_QUEIMAS[tamanho])?.nome ?? `Queima externa ${tamanho}`;
+  const nomes = { P: nomeDe("P"), M: nomeDe("M"), G: nomeDe("G") };
+
+  async function definirPrecos(novos: Partial<PrecosDasQueimas>): Promise<void> {
+    for (const tamanho of ["P", "M", "G"] as const) {
+      if (novos[tamanho] === undefined) {
+        continue;
+      }
+      await cliente.query("update itens_catalogo set preco_venda_centavos = $1 where chave_do_sistema = $2", [
+        novos[tamanho],
+        CHAVES_DAS_QUEIMAS[tamanho],
+      ]);
+    }
+  }
+
+  try {
+    await definirPrecos(precos);
+  } catch (erro) {
+    await cliente.query("select pg_advisory_unlock($1)", [TRAVA_DOS_PRECOS_DAS_QUEIMAS]);
+    await cliente.end();
+    throw erro;
+  }
+
+  return {
+    definirPrecos,
+    nomes,
+    renomear: async (tamanho, nome) => {
+      await cliente.query("update itens_catalogo set nome = $1 where chave_do_sistema = $2", [
+        nome,
+        CHAVES_DAS_QUEIMAS[tamanho],
+      ]);
+    },
+    soltar: async () => {
+      try {
+        for (const tamanho of ["P", "M", "G"] as const) {
+          await cliente.query(
+            "update itens_catalogo set preco_venda_centavos = null, nome = $1 where chave_do_sistema = $2",
+            [nomes[tamanho], CHAVES_DAS_QUEIMAS[tamanho]],
+          );
+        }
+        await cliente.query("select pg_advisory_unlock($1)", [TRAVA_DOS_PRECOS_DAS_QUEIMAS]);
+      } finally {
+        await cliente.end();
+      }
+    },
+  };
+}
+
+// Uma venda ligada a uma queima, como o banco a guarda: o vínculo (`queima_vendas`, com as três
+// quantidades e quem lançou) e a venda (`documentos`: número, pessoa, cancelamento; as linhas; as
+// parcelas). Em ordem de `criado_em` do vínculo.
+export type VendaDaQueimaNoBanco = {
+  documentoId: string;
+  numero: number;
+  quantidadeP: number;
+  quantidadeM: number;
+  quantidadeG: number;
+  lancadoPor: string | null;
+  data: string;
+  pessoaNome: string | null;
+  clienteId: string | null;
+  cancelado: boolean;
+  linhas: { itemId: string | null; descricao: string; quantidade: number; valorCentavos: number }[];
+  parcelas: { vencimento: string; valorCentavos: number; forma: string; pagoEm: string | null }[];
+};
+
+export async function lerVendasDaQueima(queimaId: string): Promise<VendaDaQueimaNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<Omit<VendaDaQueimaNoBanco, "linhas" | "parcelas" | "numero"> & { numero: string }>(
+      `select v.documento_id as "documentoId", d.numero, v.quantidade_p as "quantidadeP",
+              v.quantidade_m as "quantidadeM", v.quantidade_g as "quantidadeG", v.lancado_por as "lancadoPor",
+              to_char(d.data, 'YYYY-MM-DD') as data, d.pessoa_nome as "pessoaNome", d.cliente_id as "clienteId",
+              d.cancelado_em is not null as cancelado
+         from queima_vendas v join documentos d on d.id = v.documento_id
+        where v.queima_id = $1
+        order by v.criado_em, d.numero`,
+      [queimaId],
+    );
+    const vendas: VendaDaQueimaNoBanco[] = [];
+    for (const linha of rows) {
+      const linhas = await cliente.query<VendaDaQueimaNoBanco["linhas"][number]>(
+        `select item_id as "itemId", descricao, quantidade, valor_centavos as "valorCentavos"
+           from documento_linhas where documento_id = $1 order by ordem`,
+        [linha.documentoId],
+      );
+      const parcelasDaVenda = await cliente.query<VendaDaQueimaNoBanco["parcelas"][number]>(
+        `select to_char(vencimento, 'YYYY-MM-DD') as vencimento, valor_centavos as "valorCentavos",
+                forma::text as forma, to_char(pago_em, 'YYYY-MM-DD') as "pagoEm"
+           from parcelas where documento_id = $1 order by numero`,
+        [linha.documentoId],
+      );
+      vendas.push({
+        ...linha,
+        numero: Number(linha.numero),
+        linhas: linhas.rows.map((item) => ({ ...item, quantidade: Number(item.quantidade) })),
+        parcelas: parcelasDaVenda.rows,
+      });
+    }
+    return vendas;
+  });
+}
+
+// Quantas destas vendas ainda existem em `documentos` (apagar a queima nunca leva venda nenhuma).
+export async function contarDocumentos(documentoIds: readonly string[]): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ total: string }>(
+      "select count(*) as total from documentos where id = any($1::uuid[])",
+      [documentoIds],
+    );
+    return Number(rows[0]?.total ?? 0);
+  });
+}

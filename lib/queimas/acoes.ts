@@ -5,8 +5,12 @@ import { and, count, desc, eq, gt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { fornos, manutencoes, queimas } from "@/db/schema";
+import type { FormaDeReceber } from "@/lib/agenda/esquemas";
+import { FRASE_FALHA_AO_RECEBER } from "@/lib/agenda/textos";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres, ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
+import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
   esquemaApagarContagem,
@@ -16,9 +20,16 @@ import {
   esquemaId,
   esquemaManutencao,
   esquemaQueima,
+  esquemaReceberQueima,
 } from "./esquemas";
 import { totalDaContagem } from "./contagem";
-import { apagarContagemNaTransacao, gravarContagem, RecusaDasQueimas } from "./gravacao";
+import { hojeEmBrasilia } from "./formato";
+import {
+  apagarContagemNaTransacao,
+  cobrarQueimaNaTransacao,
+  gravarContagem,
+  RecusaDasQueimas,
+} from "./gravacao";
 import {
   FRASE_FALHA_AO_APAGAR_CONTAGEM,
   FRASE_FALHA_AO_REGISTRAR_QUEIMA,
@@ -404,4 +415,63 @@ export async function apagarContagem(
     console.error("Falha ao apagar a contagem da queima:", codigoDoErroPostgres(erro), erro);
     return { ok: false, erro: FRASE_FALHA_AO_APAGAR_CONTAGEM };
   }
+}
+
+// Fase 06.4, plano 04 — "Recebi agora" das externas (QMC-08; D-07). `exigirUsuario()` é a PRIMEIRA
+// instrução (T-06.4-21); do navegador chegam só a queima, a forma, as quantidades pedidas por tamanho e,
+// OPCIONAL, o id da pessoa (UI-D13 revista pelo dono em 04/10/2026) — Zod (T-06.4-22). Fora da
+// transação, a taxa do cartão e a data do saldo inicial (o molde da Agenda); dentro, sob a trava da
+// queima, `cobrarQueimaNaTransacao` relê o que falta, os preços e o nome da pessoa e cria a venda JÁ PAGA
+// de hoje e o vínculo. Uma recusa decidida sob a trava volta com a frase; qualquer outra falha, a frase
+// de rede da Agenda ("Nenhuma venda foi criada"), com o SQLSTATE só no log do servidor.
+export type RecebidoDaQueima = { documentoId: string; numero: number; forma: FormaDeReceber };
+
+export async function receberQueimaAgora(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<RecebidoDaQueima>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaReceberQueima.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let venda: { documentoId: string; numero: number };
+  try {
+    const configuracao = await obterConfiguracaoFinanceira();
+    venda = await db.transaction((tx) =>
+      cobrarQueimaNaTransacao(tx, {
+        queimaId: dados.queimaId,
+        forma: dados.forma,
+        quantidades: dados.quantidades,
+        clienteId: dados.clienteId,
+        hoje,
+        registradoPor: usuario.id,
+        taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+        dataSaldoInicial: configuracao.dataSaldoInicial,
+      }),
+    );
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      revalidatePath("/gestao/queimas");
+      revalidatePath("/gestao/queimas/[id]", "page");
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao registrar o “Recebi agora” da queima (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_RECEBER };
+  }
+
+  revalidatePath("/gestao/queimas");
+  revalidatePath("/gestao/queimas/[id]", "page");
+  revalidatePath(rotaDeGestao("/financeiro"));
+  revalidatePath(rotaDeGestao("/"));
+  return {
+    ok: true,
+    dados: { documentoId: venda.documentoId, numero: venda.numero, forma: dados.forma },
+  };
 }

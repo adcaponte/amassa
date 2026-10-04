@@ -32,6 +32,11 @@ import {
   totalDasInternas,
   totalDasQuantidades,
   ultimaContagemDoMesmoTipo,
+  precosDosItens,
+  quantidadesDasLinhas,
+  situacaoDaVenda,
+  situacaoDasExternas,
+  valorDasExternas,
   type ChipDaOrdem,
   type Contagem,
   type ContagemAnterior,
@@ -52,7 +57,22 @@ import {
   fraseTodasSemContagem,
   perguntaDoTamanho,
   textoDoChip,
+  DICA_PASSO_DE_QUANTIDADE,
+  FRASE_FALTA_PRECO,
+  FRASE_NENHUMA_PECA_PARA_COBRAR,
+  FRASE_SAIU_DE_A_COBRAR,
+  ROTULO_PASSO_DE_QUANTIDADE,
+  TITULO_A_COBRAR,
+  ariaRecebiAgora,
+  faltamNoTamanho,
+  fraseSemPrecoDaQueima,
+  fraseSoFaltam,
+  fraseTudoJaLancado,
+  linhaDaFalta,
+  linhaJaLancado,
+  topoRecebiQueima,
 } from "@/lib/queimas/textos";
+import { esquemaReceberQueima } from "@/lib/queimas/esquemas";
 
 const CONTAGEM: Contagem = {
   internasP: 3,
@@ -668,5 +688,259 @@ describe("textos da pergunta, do Repetir e do Ver todas (verbatim da UI-SPEC)", 
     expect(ROTULO_VER_SO_AS_RECENTES).toBe("Ver só as recentes");
     expect(fraseTodasSemContagem(1)).toBe("A única queima sem contagem.");
     expect(fraseTodasSemContagem(7)).toBe("Todas as 7 sem contagem, a mais recente primeiro.");
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Plano 04 — a cobrança das externas (QMC-07, QMC-08; D-07).
+describe("valorDasExternas (QMC-07 · boundary, precision)", () => {
+  it("Σ quantidade × preço; tamanho sem quantidade não bloqueia, com ou sem preço", () => {
+    expect(valorDasExternas({ p: 2, m: 0, g: 1 }, { P: 1100, M: null, G: 3700 })).toEqual({
+      valorCentavos: 5900,
+      tamanhosSemPreco: [],
+    });
+  });
+
+  it("preço nulo OU zero num tamanho com quantidade → sem valor, com o tamanho", () => {
+    expect(valorDasExternas({ p: 2, m: 0, g: 1 }, { P: 1100, M: null, G: null })).toEqual({
+      valorCentavos: null,
+      tamanhosSemPreco: ["G"],
+    });
+    expect(valorDasExternas({ p: 2, m: 0, g: 1 }, { P: 1100, M: null, G: 0 })).toEqual({
+      valorCentavos: null,
+      tamanhosSemPreco: ["G"],
+    });
+    expect(valorDasExternas({ p: 1, m: 1, g: 1 }, { P: null, M: -5, G: 100 })).toEqual({
+      valorCentavos: null,
+      tamanhosSemPreco: ["P", "M"],
+    });
+  });
+
+  it("10000 de cada a 1.000.000 de centavos → inteiro exato", () => {
+    const { valorCentavos } = valorDasExternas(
+      { p: 10000, m: 10000, g: 10000 },
+      { P: 1_000_000, M: 1_000_000, G: 1_000_000 },
+    );
+    expect(valorCentavos).toBe(30_000_000_000);
+    expect(Number.isSafeInteger(valorCentavos)).toBe(true);
+  });
+
+  it("nada a cobrar → R$ 0 e nenhum tamanho sem preço", () => {
+    expect(valorDasExternas(QUANTIDADES_ZERADAS, { P: null, M: null, G: null })).toEqual({
+      valorCentavos: 0,
+      tamanhosSemPreco: [],
+    });
+  });
+
+  it("precosDosItens lê o preço de cada item", () => {
+    expect(
+      precosDosItens({
+        P: { precoVendaCentavos: 1100 },
+        M: { precoVendaCentavos: null },
+        G: { precoVendaCentavos: 3700 },
+      }),
+    ).toEqual({ P: 1100, M: null, G: 3700 });
+  });
+});
+
+describe("situacaoDasExternas e situacaoDaVenda (QMC-08 · adjacency; D-07)", () => {
+  const externas = { p: 2, m: 0, g: 1 };
+
+  function vendaPaga(numero: number, quantidades: { p: number; m: number; g: number }): VendaLigada {
+    return { ...venda(numero, false, quantidades), paga: true };
+  }
+
+  it("sem externas", () => {
+    expect(situacaoDasExternas({ externas: { p: 0, m: 0, g: 0 }, vendas: [] })).toBe("sem_externas");
+  });
+
+  it("a cobrar sem venda; parcial com venda ativa e resto", () => {
+    expect(situacaoDasExternas({ externas, vendas: [] })).toBe("a_cobrar");
+    expect(situacaoDasExternas({ externas, vendas: [venda(12, false, { p: 1, m: 0, g: 1 })] })).toBe(
+      "parcial",
+    );
+  });
+
+  it("lançado quando cobre tudo e uma ativa está em aberto; pago quando as ativas estão pagas", () => {
+    expect(
+      situacaoDasExternas({
+        externas,
+        vendas: [vendaPaga(12, { p: 1, m: 0, g: 1 }), venda(15, false, { p: 1, m: 0, g: 0 })],
+      }),
+    ).toBe("lancado");
+    expect(
+      situacaoDasExternas({
+        externas,
+        vendas: [vendaPaga(12, { p: 1, m: 0, g: 1 }), vendaPaga(15, { p: 1, m: 0, g: 0 })],
+      }),
+    ).toBe("pago");
+  });
+
+  it("a venda que cobria tudo cancelada → a quantidade volta a “a cobrar”", () => {
+    expect(
+      situacaoDasExternas({ externas, vendas: [{ ...vendaPaga(12, externas), cancelada: true }] }),
+    ).toBe("a_cobrar");
+    // Cancelada + uma ativa pela metade: a ativa ainda conta, a cancelada não.
+    expect(
+      situacaoDasExternas({
+        externas,
+        vendas: [venda(12, true, externas), vendaPaga(15, { p: 1, m: 0, g: 0 })],
+      }),
+    ).toBe("parcial");
+  });
+
+  it("situacaoDaVenda", () => {
+    expect(situacaoDaVenda(venda(12, true, externas))).toBe("cancelada");
+    expect(situacaoDaVenda({ ...venda(12, true, externas), paga: true })).toBe("cancelada");
+    expect(situacaoDaVenda(vendaPaga(12, externas))).toBe("paga");
+    expect(situacaoDaVenda(venda(12, false, externas))).toBe("em_aberto");
+  });
+});
+
+describe("quantidadesDasLinhas (o plano 05 usa)", () => {
+  it("soma por chave as linhas de item das Queimas; o resto não conta", () => {
+    const ids = { P: "item-p", M: "item-m", G: "item-g" };
+    expect(
+      quantidadesDasLinhas(
+        [
+          { tipo: "item", itemId: "item-p", quantidade: 1 },
+          { tipo: "item", itemId: "item-p", quantidade: 2 },
+          { tipo: "item", itemId: "outro", quantidade: 5 },
+          { tipo: "livre", quantidade: 1 },
+        ],
+        ids,
+      ),
+    ).toEqual({ p: 3, m: 0, g: 0 });
+    expect(
+      quantidadesDasLinhas(
+        [
+          { tipo: "item", itemId: "item-g", quantidade: 4 },
+          { tipo: "item", itemId: "item-m", quantidade: 1 },
+          { tipo: "item", itemId: null, quantidade: 9 },
+        ],
+        ids,
+      ),
+    ).toEqual({ p: 0, m: 1, g: 4 });
+  });
+});
+
+describe("esquemaReceberQueima (T-06.4-22)", () => {
+  const base = {
+    queimaId: "4f2a0a9e-2c7d-4f5e-9a3b-1c2d3e4f5a6b",
+    forma: "pix",
+    quantidades: { p: 1, m: 0, g: 1 },
+  };
+
+  it("aceita a entrada da tela; sem pessoa vira null", () => {
+    const resultado = esquemaReceberQueima.safeParse(base);
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).toEqual({ ...base, clienteId: null });
+  });
+
+  it("aceita a pessoa opcional (id de cadastro)", () => {
+    const clienteId = "0b6d2c1a-3e4f-4a5b-8c9d-0e1f2a3b4c5d";
+    const resultado = esquemaReceberQueima.safeParse({ ...base, clienteId });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.clienteId).toBe(clienteId);
+    expect(esquemaReceberQueima.safeParse({ ...base, clienteId: "ninguém" }).success).toBe(false);
+  });
+
+  it("quantidades todas 0 → “Escolha ao menos uma peça para cobrar.”", () => {
+    const resultado = esquemaReceberQueima.safeParse({ ...base, quantidades: { p: 0, m: 0, g: 0 } });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]?.message).toBe("Escolha ao menos uma peça para cobrar.");
+  });
+
+  it("10001, fração ou negativo → recusado", () => {
+    for (const quantidades of [
+      { p: 10001, m: 0, g: 0 },
+      { p: 1.5, m: 0, g: 0 },
+      { p: -1, m: 2, g: 0 },
+    ]) {
+      expect(esquemaReceberQueima.safeParse({ ...base, quantidades }).success).toBe(false);
+    }
+    expect(
+      esquemaReceberQueima.safeParse({ ...base, quantidades: { p: 10000, m: 0, g: 0 } }).success,
+    ).toBe(true);
+  });
+
+  it("forma fora de FORMAS_DE_RECEBER → recusado", () => {
+    expect(esquemaReceberQueima.safeParse({ ...base, forma: "boleto" }).success).toBe(false);
+  });
+
+  it("um campo extra (valorCentavos) não aparece no resultado", () => {
+    const resultado = esquemaReceberQueima.safeParse({ ...base, valorCentavos: 1 });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).not.toHaveProperty("valorCentavos");
+  });
+});
+
+describe("textos de “a cobrar” e do “Recebi agora” (verbatim da UI-SPEC)", () => {
+  it("título, falta, já lançado, passo de quantidade", () => {
+    expect(TITULO_A_COBRAR).toBe("Queimas externas a cobrar");
+    expect(FRASE_FALTA_PRECO).toBe("falta preço");
+    expect(linhaDaFalta("1 P · 2 M")).toBe("falta: 1 P · 2 M");
+    expect(linhaJaLancado(12, "2 P")).toBe("já lançado: venda nº 12 (2 P)");
+    expect(ROTULO_PASSO_DE_QUANTIDADE).toBe("Quantas peças entram nesta venda?");
+    expect(DICA_PASSO_DE_QUANTIDADE).toBe(
+      "Começa com o que falta. O que você tirar continua em “a cobrar”.",
+    );
+    expect(faltamNoTamanho(2)).toBe("faltam 2");
+    expect(faltamNoTamanho(1)).toBe("falta 1");
+    expect(FRASE_NENHUMA_PECA_PARA_COBRAR).toBe("Escolha ao menos uma peça para cobrar.");
+  });
+
+  it("recusas sob a trava", () => {
+    expect(fraseTudoJaLancado([12])).toBe(
+      "As externas desta queima já foram todas lançadas — venda nº 12. A tela foi atualizada.",
+    );
+    expect(fraseTudoJaLancado([12, 15])).toBe(
+      "As externas desta queima já foram todas lançadas — vendas nº 12 e 15. A tela foi atualizada.",
+    );
+    expect(fraseSoFaltam("1 P")).toBe(
+      "Desta queima só faltam 1 P — outra venda levou o resto. A tela foi atualizada.",
+    );
+    expect(FRASE_SAIU_DE_A_COBRAR).toBe(
+      "Esta queima não está mais em “a cobrar” — a tela foi atualizada.",
+    );
+  });
+
+  it("preço que falta: um, dois e três tamanhos, com os nomes atuais", () => {
+    const nomes = { P: "Queima externa P", M: "Queima externa M", G: "[e2e] Queima G" };
+    expect(fraseSemPrecoDaQueima(["G"], nomes)).toBe(
+      "O preço da queima externa G ainda não foi cadastrado. Cadastre em Cadastros → Catálogo → “[e2e] Queima G” para poder cobrar.",
+    );
+    expect(fraseSemPrecoDaQueima(["M", "G"], nomes)).toBe(
+      "Os preços da queima externa M e G ainda não foram cadastrados. Cadastre em Cadastros → Catálogo → “Queima externa M” e “[e2e] Queima G” para poder cobrar.",
+    );
+    expect(fraseSemPrecoDaQueima(["P", "M", "G"], nomes)).toBe(
+      "Os preços da queima externa P, M e G ainda não foram cadastrados. Cadastre em Cadastros → Catálogo → “Queima externa P”, “Queima externa M” e “[e2e] Queima G” para poder cobrar.",
+    );
+  });
+
+  it("topo e aria", () => {
+    expect(topoRecebiQueima("Biscoito de 18/12", "1 P · 1 G", "R$ 48,00")).toBe(
+      "Queima externa · Biscoito de 18/12 · 1 P · 1 G · R$ 48,00",
+    );
+    expect(topoRecebiQueima("Biscoito de 18/12", "", "R$ 0,00")).toBe(
+      "Queima externa · Biscoito de 18/12 · R$ 0,00",
+    );
+    expect(ariaRecebiAgora("Biscoito de 18/12")).toBe("Recebi agora: Biscoito de 18/12");
+  });
+});
+
+describe("nenhum preço de queima no código (proibição do plano 04)", () => {
+  it("lib/queimas e components/amassa/queimas não têm constante de preço", () => {
+    for (const arquivo of [
+      "lib/queimas/contagem.ts",
+      "lib/queimas/gravacao.ts",
+      "lib/queimas/consultas.ts",
+      "components/amassa/queimas/linha-a-cobrar.tsx",
+      "components/amassa/queimas/lista-a-cobrar.tsx",
+      "components/amassa/queimas/folha-recebi-queima.tsx",
+    ]) {
+      const fonte = readFileSync(join(process.cwd(), arquivo), "utf8");
+      expect(fonte, arquivo).not.toMatch(/preco\w*\s*[:=]\s*\d{3,}/i);
+    }
   });
 });

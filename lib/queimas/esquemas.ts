@@ -3,8 +3,15 @@
 // própria. Validação no cliente é conveniência; esta é a que vale (CLAUDE.md §Validação).
 import { z } from "zod";
 
-import { TETO_DO_CONTADOR, totalDaContagem } from "./contagem";
-import { FRASE_CONTAGEM_VAZIA, FRASE_TETO_DO_CONTADOR } from "./textos";
+import { FORMAS_DE_RECEBER } from "@/lib/agenda/esquemas";
+import { FRASE_FALHA_AO_RECEBER } from "@/lib/agenda/textos";
+
+import { TETO_DO_CONTADOR, totalDaContagem, totalDasQuantidades } from "./contagem";
+import {
+  FRASE_CONTAGEM_VAZIA,
+  FRASE_NENHUMA_PECA_PARA_COBRAR,
+  FRASE_TETO_DO_CONTADOR,
+} from "./textos";
 
 // Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 (`String.length`) —
 // é assim que o `length()` do Postgres conta (`fornos_nome_comprimento`), e os dois divergem
@@ -147,3 +154,33 @@ export type EntradaDeContagem = z.infer<typeof esquemaContagem>;
 export const esquemaApagarContagem = z.object({ queimaId: esquemaId });
 
 export type EntradaDeApagarContagem = z.infer<typeof esquemaApagarContagem>;
+
+// Fase 06.4, plano 04 — "Recebi agora" das externas (QMC-08; D-07). Do navegador chegam SÓ a queima,
+// a forma, as quantidades pedidas por tamanho (o passo de quantidade) e, OPCIONAL, a pessoa (decisão do
+// dono de 04/10/2026 — UI-D13 revista: o id de um cadastro de `clientes`; o NOME gravado na venda é lido
+// do banco, nunca daqui). O que falta, os preços e as linhas são relidos no banco sob a trava da queima
+// (`cobrarQueimaNaTransacao`) — nenhum valor, linha ou preço vem do navegador (T-06.4-22).
+const quantidadeDaCobranca = z
+  .number({ error: FRASE_FALHA_AO_RECEBER })
+  .int({ error: FRASE_FALHA_AO_RECEBER })
+  .min(0, { error: FRASE_FALHA_AO_RECEBER })
+  .max(TETO_DO_CONTADOR, { error: FRASE_FALHA_AO_RECEBER });
+
+export const esquemaReceberQueima = z.object(
+  {
+    queimaId: esquemaId,
+    forma: z.enum(FORMAS_DE_RECEBER, { error: FRASE_FALHA_AO_RECEBER }),
+    quantidades: z
+      .object(
+        { p: quantidadeDaCobranca, m: quantidadeDaCobranca, g: quantidadeDaCobranca },
+        { error: FRASE_FALHA_AO_RECEBER },
+      )
+      .refine((quantidades) => totalDasQuantidades(quantidades) > 0, {
+        error: FRASE_NENHUMA_PECA_PARA_COBRAR,
+      }),
+    clienteId: z.uuid({ error: FRASE_FALHA_AO_RECEBER }).nullable().default(null),
+  },
+  { error: FRASE_FALHA_AO_RECEBER },
+);
+
+export type EntradaDeReceberQueima = z.infer<typeof esquemaReceberQueima>;
