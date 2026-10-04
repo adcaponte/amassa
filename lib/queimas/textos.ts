@@ -457,3 +457,43 @@ export const SUFIXO_SOMADO = " · somado";
 export function ariaDoChip(pendentes: number, nome: string): string {
   return `Somar ${pecas(pendentes)} de ${nome} às internas`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 03 — a pergunta de tamanho do chip com peça sem medida (D-06, UI-D17).
+// "“{ordem}”: 3 peças sem medida na ficha. Em que tamanho elas entram?" (1: "1 peça … ela entra?").
+export function perguntaDoTamanho(nomeDaOrdem: string, semMedida: number): string {
+  const final = semMedida === 1 ? "Em que tamanho ela entra?" : "Em que tamanho elas entram?";
+  return `“${nomeDaOrdem}”: ${pecas(semMedida)} sem medida na ficha. ${final}`;
+}
+
+// "Somar 3 como G".
+export function ariaDoTamanhoDaPergunta(semMedida: number, tamanho: Tamanho): string {
+  return `Somar ${semMedida} como ${tamanho}`;
+}
+
+export const ROTULO_NAO_SOMAR_AGORA = "Não somar agora";
+
+// "Repetir a última" (QMC-05, UI-D10) e a dica embaixo dele.
+export const ROTULO_REPETIR_A_ULTIMA = "Repetir a última";
+
+// "copia Biscoito de 09/12: 29 peças".
+export function dicaDoRepetir(tipo: TipoDeQueima, diaMes: string, total: number): string {
+  return `copia ${rotuloDoTipo(tipo)} de ${diaMes}: ${pecas(total)}`;
+}
+
+// "Ainda não há outra fornada de esmalte contada neste forno." — o botão fica desabilitado.
+export function dicaSemAnterior(tipo: TipoDeQueima): string {
+  return `Ainda não há outra fornada de ${rotuloDoTipo(tipo).toLowerCase()} contada neste forno.`;
+}
+
+// O "Ver todas" de "Sem contagem" (QMC-02, o item travado "Pular não perde nada"; UI-D4 revisto em
+// 03/10/2026) e a volta à visão padrão.
+export const ROTULO_VER_TODAS_SEM_CONTAGEM = "Ver todas";
+export const ROTULO_VER_SO_AS_RECENTES = "Ver só as recentes";
+
+// A linha de cima da visão de todas.
+export function fraseTodasSemContagem(total: number): string {
+  return total === 1
+    ? "A única queima sem contagem."
+    : `Todas as ${total} sem contagem, a mais recente primeiro.`;
+}

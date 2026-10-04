@@ -117,6 +117,7 @@ export default async function PaginaDetalheDoForno({
           <HistoricoQueimas
             queimas={forno.queimasRecentes}
             nomeDoForno={forno.nome}
+            fornoId={forno.id}
             dadosDaFolha={dadosDaFolha}
           />
         </section>

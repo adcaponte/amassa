@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-import { hojeNoAtelie } from "./apoio/semear-financeiro";
+import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import { idDoUsuarioDoTeste } from "./apoio/semear-fornecedores";
 import {
   apagarQueimaNoBanco,
@@ -196,6 +196,60 @@ test.describe("sem contagem", () => {
 
     expect(await contarContagens(id)).toBe(0);
     await expect(linha).toBeVisible();
+  });
+});
+
+// Plano 03 — o "Ver todas" (QMC-02, o item travado "Pular não perde nada"): uma queima pulada há 40
+// dias, fora da janela de 30, só é alcançável por ele. A lista é GLOBAL nas duas visões: o teste acha
+// a SUA linha por `data-queima-id` e nunca afirma a contagem total.
+test.describe("sem contagem — todas", () => {
+  test("Ver todas alcança a queima de 40 dias atrás, Contar agora tira ela da lista e a visão continua", async ({
+    page,
+  }) => {
+    const email = process.env.E2E_EMAIL_TESTE ?? "";
+    const nome = nomeUnico();
+    await semearForno(nome);
+    // O instante a partir do dia civil de Brasília (`hojeNoAtelie`), nunca do dia UTC: meio-dia em
+    // Brasília de hoje − 40.
+    const id = await semearQueimaSemContagem(
+      nome,
+      email,
+      `${somarDiasAoHoje(-40)}T15:00:00.000Z`,
+      "biscoito",
+    );
+    // Uma segunda sem contagem do mesmo forno, de hoje: a seção continua na tela depois de a de 40
+    // dias ser contada, qualquer que seja o estado global da lista.
+    await semearQueimaSemContagem(nome, email, undefined, "esmalte");
+
+    await fazerLogin(page);
+    await page.goto("/gestao/queimas");
+    const secao = page.getByTestId("queimas-sem-contagem");
+    await expect(secao).toBeVisible({ timeout: 10000 });
+    await expect(linhaSemContagem(page, id)).toHaveCount(0);
+    await expect(secao.getByTestId("sem-contagem-mais")).toBeVisible();
+
+    await secao.getByTestId("sem-contagem-ver-todas").click();
+    await expect(page).toHaveURL(/[?&]sem-contagem=todas/, { timeout: 10000 });
+    const linha = linhaSemContagem(page, id);
+    await expect(linha).toBeVisible({ timeout: 10000 });
+    await expect(secao.getByTestId("sem-contagem-ver-recentes")).toBeVisible();
+    await expect(secao.getByTestId("sem-contagem-mais")).toHaveCount(0);
+
+    await linha.getByTestId("contar-agora").click();
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha).toHaveAttribute("data-queima-id", id);
+    await folha.getByTestId("contador-internas-p-mais").click();
+    await folha.getByTestId("contagem-salvar").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+
+    await expect(linha).toHaveCount(0, { timeout: 10000 });
+    await expect(page).toHaveURL(/[?&]sem-contagem=todas/);
+    await expect.poll(async () => (await lerContagem(id))?.internas_p, { timeout: 10000 }).toBe(1);
+
+    await secao.getByTestId("sem-contagem-ver-recentes").click();
+    await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
+    await expect(secao.getByTestId("sem-contagem-ver-recentes")).toHaveCount(0);
   });
 });
 

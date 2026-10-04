@@ -160,6 +160,7 @@ export function RegistrarQueima({ fornoId, nomeDoForno, dadosDaFolha }: Registra
         aoFechar={() => setFolha(null)}
         dados={dadosDaFolha}
         nomeDoForno={nomeDoForno}
+        fornoId={fornoId}
         aoSalvar={contagemSalva}
       />
     );

@@ -8,7 +8,12 @@ import {
   semearOrdem,
   type PecaParaSemear,
 } from "./apoio/semear-producao";
-import { lerContagem, semearForno } from "./apoio/semear-queimas";
+import {
+  lerContagem,
+  semearContagem,
+  semearForno,
+  semearQueimaSemContagem,
+} from "./apoio/semear-queimas";
 
 // Os atalhos da folha "O que queimou?" (06.4-03-PLAN.md): os chips das ordens da Produção que
 // esperam a queima (D-06, SÓ LEITURA) e "Repetir a última" do mesmo forno e tipo (D-01). Sem etiqueta
@@ -185,5 +190,167 @@ test.describe("chips da produção", () => {
     } finally {
       await cancelarOrdemNoBanco(ordemId, somarDiasAoHoje(-3));
     }
+  });
+
+  test("peça sem medida pergunta o tamanho antes de somar", async ({ page }) => {
+    const ficha = await semearFichaComMaiorLado(80, "P");
+    const nomeDaOrdem = `[e2e] ordem sem medida ${sufixo()}`;
+    const ordemId = await semearOrdemEmBiscoito(
+      nomeDaOrdem,
+      [
+        { descricao: `[e2e] peça P de ${nomeDaOrdem}`, quantidade: 5, fichaId: ficha },
+        // Sem ficha e sem item: "sem medida" (D-06).
+        {
+          descricao: `[e2e] peça sem ficha de ${nomeDaOrdem}`,
+          quantidade: 3,
+          fichaId: null,
+          itemCatalogoId: null,
+        },
+      ],
+      0,
+    );
+    try {
+      await fazerLogin(page);
+      const forno = await abrirComFornoNovo(page);
+      await registrarEAbrirFolha(page, forno, "biscoito");
+      const folha = page.getByTestId("folha-contagem");
+      const chip = chipDaOrdem(page, ordemId);
+      await expect(chip).toHaveText(`+8 · ${nomeDaOrdem}`);
+
+      // O toque NÃO soma nada: abre a pergunta, com o foco no "P".
+      await chip.click();
+      const pergunta = folha.getByTestId("pergunta-tamanho");
+      await expect(pergunta).toBeVisible();
+      await expect(pergunta).toHaveAttribute("role", "group");
+      await expect(pergunta).toHaveAttribute(
+        "aria-label",
+        `“${nomeDaOrdem}”: 3 peças sem medida na ficha. Em que tamanho elas entram?`,
+      );
+      await expect(folha.getByTestId("pergunta-tamanho-p")).toBeFocused();
+      await expect(folha.getByTestId("pergunta-tamanho-g")).toHaveAttribute(
+        "aria-label",
+        "Somar 3 como G",
+      );
+      await expect(folha.getByTestId("contador-internas-p")).toHaveValue("0");
+      await expect(folha.getByTestId("contador-internas-g")).toHaveValue("0");
+
+      // "Não somar agora": fecha sem somar nada; o chip volta a tocável, com o foco.
+      await folha.getByTestId("pergunta-tamanho-nao-somar").click();
+      await expect(pergunta).toBeHidden();
+      await expect(folha.getByTestId("contador-internas-p")).toHaveValue("0");
+      await expect(chip).toHaveAttribute("data-somado", "false");
+      await expect(chip).toBeFocused();
+
+      // De novo, agora "G": a parte medida (5 P) e as 3 sem medida em G, de uma vez.
+      await chip.click();
+      await folha.getByTestId("pergunta-tamanho-g").click();
+      await expect(pergunta).toBeHidden();
+      await expect(folha.getByTestId("contador-internas-p")).toHaveValue("5");
+      await expect(folha.getByTestId("contador-internas-m")).toHaveValue("0");
+      await expect(folha.getByTestId("contador-internas-g")).toHaveValue("3");
+      await expect(chip).toHaveAttribute("data-somado", "true");
+      await expect(chip).toBeDisabled();
+      await expect(chip).toContainText(" · somado");
+    } finally {
+      await cancelarOrdemNoBanco(ordemId, somarDiasAoHoje(-3));
+    }
+  });
+});
+
+// "dd/mm" do instante em Brasília — o dia civil que a dica mostra (nunca o dia UTC).
+function diaMesEmBrasilia(instante: string): string {
+  const [, mes, dia] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(new Date(instante))
+    .split("-");
+  return `${dia}/${mes}`;
+}
+
+function horasAtras(horas: number): string {
+  return new Date(Date.now() - horas * 60 * 60 * 1000).toISOString();
+}
+
+test.describe("repetir a última", () => {
+  test("copia a última contada do mesmo forno e tipo, nunca a própria; sem anterior fica desabilitado", async ({
+    page,
+  }) => {
+    const email = process.env.E2E_EMAIL_TESTE ?? "";
+    const forno = `[e2e] repetir ${sufixo()}`;
+    await semearForno(forno);
+    // A (biscoito, mais antiga), B (biscoito, mais recente) e C (esmalte, mais recente que as duas —
+    // outro tipo, nunca escolhida para biscoito).
+    const instanteA = horasAtras(72);
+    const instanteB = horasAtras(24);
+    const queimaA = await semearQueimaSemContagem(forno, email, instanteA, "biscoito");
+    const queimaB = await semearQueimaSemContagem(forno, email, instanteB, "biscoito");
+    const queimaC = await semearQueimaSemContagem(forno, email, horasAtras(2), "esmalte");
+    await semearContagem(queimaA, { internasP: 3, internasM: 2, externasG: 1, saiuCheio: true });
+    await semearContagem(queimaB, {
+      internasP: 10,
+      internasM: 5,
+      internasG: 2,
+      externasP: 1,
+      saiuCheio: false,
+    });
+    await semearContagem(queimaC, { internasP: 40 });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/queimas");
+    await expect(cartaoDoForno(page, forno)).toBeVisible({ timeout: 10000 });
+    await registrarEAbrirFolha(page, forno, "biscoito");
+    const folha = page.getByTestId("folha-contagem");
+    const repetir = folha.getByTestId("contagem-repetir");
+    const dica = folha.getByTestId("contagem-repetir-dica");
+
+    await expect(repetir).toHaveText("Repetir a última");
+    await expect(repetir).toBeEnabled();
+    await expect(dica).toHaveText(`copia Biscoito de ${diaMesEmBrasilia(instanteB)}: 18 peças`);
+
+    // Duas vezes: sobrescreve, nunca soma.
+    await repetir.click();
+    await repetir.click();
+    await expect(folha.getByTestId("contador-internas-p")).toHaveValue("10");
+    await expect(folha.getByTestId("contador-internas-m")).toHaveValue("5");
+    await expect(folha.getByTestId("contador-internas-g")).toHaveValue("2");
+    await expect(folha.getByTestId("contador-externas-p")).toHaveValue("1");
+    await expect(folha.getByTestId("contador-externas-g")).toHaveValue("0");
+    await expect(folha.getByTestId("contagem-saiu-cheio")).toHaveAttribute(
+      "data-state",
+      "unchecked",
+    );
+    await folha.getByTestId("contagem-pular").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+
+    // Corrigindo B pelo Histórico, "Repetir" aponta a ANTERIOR a ela (A) — nunca a própria.
+    await cartaoDoForno(page, forno).getByRole("link", { name: forno }).click();
+    await expect(page).toHaveURL(/\/gestao\/queimas\/[0-9a-f-]{36}$/, { timeout: 10000 });
+    await page.getByTestId(`corrigir-contagem-${queimaB}`).click();
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha.getByTestId("contador-internas-p")).toHaveValue("10");
+    await expect(dica).toHaveText(`copia Biscoito de ${diaMesEmBrasilia(instanteA)}: 6 peças`);
+    await repetir.click();
+    await expect(folha.getByTestId("contador-internas-p")).toHaveValue("3");
+    await expect(folha.getByTestId("contador-internas-m")).toHaveValue("2");
+    await expect(folha.getByTestId("contador-internas-g")).toHaveValue("0");
+    await expect(folha.getByTestId("contador-externas-p")).toHaveValue("0");
+    await expect(folha.getByTestId("contador-externas-g")).toHaveValue("1");
+    await expect(folha.getByTestId("contagem-saiu-cheio")).toHaveAttribute("data-state", "checked");
+    await folha.getByTestId("contagem-fechar-sem-salvar").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+
+    // Ouro neste forno: nenhuma anterior → desabilitado, com a dica do porquê ligada por aria.
+    await page.goto("/gestao/queimas");
+    await registrarEAbrirFolha(page, forno, "ouro");
+    await expect(repetir).toBeDisabled();
+    await expect(dica).toHaveText("Ainda não há outra fornada de ouro contada neste forno.");
+    const idDaDica = await dica.getAttribute("id");
+    expect(idDaDica).toBeTruthy();
+    await expect(repetir).toHaveAttribute("aria-describedby", idDaDica ?? "");
+    await folha.getByTestId("contagem-pular").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
   mesmaContagem,
   somarChip,
   totalDaContagem,
+  ultimaContagemDoMesmoTipo,
   type ChaveDoContador,
   type ChipDaOrdem,
   type Contagem,
@@ -32,12 +33,18 @@ import {
   ROTULO_SAIU_CHEIO,
   ROTULO_SALVANDO,
   ROTULO_CHIPS,
+  ROTULO_NAO_SOMAR_AGORA,
+  ROTULO_REPETIR_A_ULTIMA,
   ROTULO_SALVAR,
   SUFIXO_SOMADO,
   TITULO_FOLHA_CONTAGEM,
   ariaDoChip,
+  ariaDoTamanhoDaPergunta,
+  dicaDoRepetir,
+  dicaSemAnterior,
   faixasDaRegua,
   fraseDaReguaNaFolha,
+  perguntaDoTamanho,
   resumoDaContagem,
   subtituloDaFolha,
   textoDoChip,
@@ -79,6 +86,8 @@ export type FolhaContagemProps = {
   // não a abre sem eles (UI-D19).
   dados: DadosDaFolha;
   nomeDoForno: string;
+  // O forno da queima — "Repetir a última" copia a última fornada contada do MESMO forno (D-01).
+  fornoId: string;
   // Só `RegistrarQueima` passa: com ele a folha NÃO dá aviso — quem chamou atualiza o próprio aviso
   // do registro no lugar (UI-D12 item 4). Sem ele, a folha dá o aviso dela, de 5 s.
   aoSalvar?: (resultado: { total: number; criada: boolean }) => void;
@@ -134,6 +143,7 @@ function FolhaAberta({
   aoFechar,
   dados,
   nomeDoForno,
+  fornoId,
   aoSalvar,
   inicial: gravada = null,
 }: Omit<FolhaContagemProps, "queima"> & { queima: QueimaParaContar }) {
@@ -152,6 +162,13 @@ function FolhaAberta({
 
   // Os chips somados nesta abertura da folha (fechar e reabrir zera; desfazer é pelos "−").
   const [somados, setSomados] = useState<ReadonlySet<string>>(() => new Set());
+  // O chip com peça sem medida cuja pergunta de tamanho está aberta (uma por vez — D-06).
+  const [perguntando, setPerguntando] = useState<ChipDaOrdem | null>(null);
+  const botoesDosChips = useRef(new Map<string, HTMLButtonElement>());
+  const primeiroTamanho = useRef<HTMLButtonElement>(null);
+  // O chip que deve receber o foco quando a pergunta fechar.
+  const chipParaFocar = useRef<string | null>(null);
+  const idDaDicaDoRepetir = useId();
 
   const total = totalDaContagem(contagem);
   const ouro = queima.tipo === "ouro";
@@ -163,7 +180,24 @@ function FolhaAberta({
       : queima.tipo === "biscoito"
         ? dados.chips.queima1
         : dados.chips.queima2;
-  const chipsVisiveis = chips.filter((chip) => chip.semMedida === 0);
+  // "Repetir a última" (QMC-05, D-01): a última contada do MESMO forno e tipo, sem a própria queima.
+  const anterior = ultimaContagemDoMesmoTipo(dados.ultimasContagens, {
+    fornoId,
+    tipo: queima.tipo,
+    queimaIdAtual: queima.id,
+  });
+
+  // Foco (06.4-UI-SPEC.md §Teclado): a pergunta abre com o foco no "P"; fechada, ele volta ao chip.
+  useEffect(() => {
+    if (perguntando !== null) {
+      primeiroTamanho.current?.focus();
+      return;
+    }
+    if (chipParaFocar.current !== null) {
+      botoesDosChips.current.get(chipParaFocar.current)?.focus();
+      chipParaFocar.current = null;
+    }
+  }, [perguntando]);
   const faixas = faixasDaRegua(dados.regua);
   // Esc e toque fora só fecham sem mudanças (UI-D18) — e nunca no meio da gravação.
   const podeFecharSemPerguntar = !salvando && mesmaContagem(contagem, inicial);
@@ -175,13 +209,48 @@ function FolhaAberta({
 
   // Um toque num chip soma as pendentes nas INTERNAS do tamanho delas. Só leitura da Produção: nada
   // é gravado lá — "Salvar" grava só a contagem desta queima.
-  function somar(chip: ChipDaOrdem) {
-    if (somados.has(chip.ordemId)) {
+  // Com peça sem medida, o toque NÃO soma nada: abre a pergunta de tamanho (D-06, UI-D17) — tudo de
+  // uma vez, na resposta, ou nada.
+  function tocarChip(chip: ChipDaOrdem) {
+    if (somados.has(chip.ordemId) || salvando) {
+      return;
+    }
+    if (chip.semMedida > 0) {
+      setPerguntando(chip);
+      return;
+    }
+    somar(chip, null);
+  }
+
+  function somar(chip: ChipDaOrdem, tamanhoDoResto: Tamanho | null) {
+    setErro(null);
+    setContagem((atual) => somarChip(atual, chip, tamanhoDoResto));
+    setSomados((atual) => new Set(atual).add(chip.ordemId));
+  }
+
+  // A resposta da pergunta: um tamanho soma a parte medida E as sem medida nele; `null` ("Não somar
+  // agora") fecha sem somar nada e o chip volta a tocável.
+  function responderPergunta(tamanho: Tamanho | null) {
+    if (perguntando === null) {
+      return;
+    }
+    if (tamanho !== null) {
+      somar(perguntando, tamanho);
+    }
+    chipParaFocar.current = perguntando.ordemId;
+    setPerguntando(null);
+  }
+
+  // Copia os seis números e o "saiu cheio" da anterior — SOBRESCREVE (tocar duas vezes dá o mesmo).
+  // Os chips voltam a tocáveis: o que eles tinham somado foi sobrescrito.
+  function repetirAUltima() {
+    if (anterior === null || salvando) {
       return;
     }
     setErro(null);
-    setContagem((atual) => somarChip(atual, chip, null));
-    setSomados((atual) => new Set(atual).add(chip.ordemId));
+    setContagem({ ...anterior.contagem });
+    setSomados(new Set());
+    setPerguntando(null);
   }
 
   async function salvar() {
@@ -330,11 +399,11 @@ function FolhaAberta({
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
-          {chipsVisiveis.length > 0 ? (
+          {chips.length > 0 ? (
             <div className="flex flex-col gap-2" data-testid="contagem-chips">
               <p className="text-apoio text-tinta-media">{ROTULO_CHIPS}</p>
               <div className="flex flex-wrap gap-2">
-                {chipsVisiveis.map((chip) => {
+                {chips.map((chip) => {
                   const somado = somados.has(chip.ordemId);
                   return (
                     <button
@@ -343,16 +412,27 @@ function FolhaAberta({
                       data-testid="chip-ordem"
                       data-ordem-id={chip.ordemId}
                       data-somado={somado ? "true" : "false"}
-                      disabled={somado || salvando}
+                      ref={(botao) => {
+                        if (botao === null) {
+                          botoesDosChips.current.delete(chip.ordemId);
+                        } else {
+                          botoesDosChips.current.set(chip.ordemId, botao);
+                        }
+                      }}
+                      // Somado = desabilitado por `aria-disabled` (o toque não faz nada): o botão
+                      // continua focável, para o foco voltar a ele quando a pergunta fecha.
+                      disabled={salvando}
+                      aria-disabled={somado ? true : undefined}
+                      aria-expanded={chip.semMedida > 0 ? perguntando?.ordemId === chip.ordemId : undefined}
                       // Somado: sem `aria-label`, o leitor lê o texto visível com " · somado"
                       // (nunca só a cor).
                       aria-label={somado ? undefined : ariaDoChip(chip.pendentes, chip.nome)}
-                      onClick={() => somar(chip)}
+                      onClick={() => tocarChip(chip)}
                       className={cn(
                         classeDaPilula(false),
                         "text-left whitespace-normal [overflow-wrap:anywhere]",
                         somado
-                          ? "bg-superficie-2 text-tinta-fraca border-solid"
+                          ? "bg-superficie-2 text-tinta-fraca cursor-default border-solid"
                           : "border-dashed",
                       )}
                     >
@@ -365,8 +445,70 @@ function FolhaAberta({
                   );
                 })}
               </div>
+              {perguntando !== null ? (
+                <div
+                  role="group"
+                  aria-label={perguntaDoTamanho(perguntando.nome, perguntando.semMedida)}
+                  data-testid="pergunta-tamanho"
+                  className="border-borda flex flex-col gap-2 rounded-md border p-3"
+                >
+                  <p className="text-apoio text-tinta [overflow-wrap:anywhere]">
+                    {perguntaDoTamanho(perguntando.nome, perguntando.semMedida)}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {TAMANHOS.map((tamanho) => (
+                      <Button
+                        key={tamanho}
+                        ref={tamanho === "P" ? primeiroTamanho : undefined}
+                        type="button"
+                        variant="outline"
+                        data-testid={`pergunta-tamanho-${tamanho.toLowerCase()}`}
+                        aria-label={ariaDoTamanhoDaPergunta(perguntando.semMedida, tamanho)}
+                        onClick={() => responderPergunta(tamanho)}
+                        className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
+                      >
+                        {tamanho}
+                      </Button>
+                    ))}
+                    <button
+                      type="button"
+                      data-testid="pergunta-tamanho-nao-somar"
+                      onClick={() => responderPergunta(null)}
+                      className="text-apoio text-acento focus-visible:ring-ring inline-flex min-h-[44px] items-center px-2 font-semibold underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      {ROTULO_NAO_SOMAR_AGORA}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
+          <div className="flex flex-col items-start gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="contagem-repetir"
+              disabled={anterior === null || salvando}
+              aria-describedby={idDaDicaDoRepetir}
+              onClick={repetirAUltima}
+              className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
+            >
+              {ROTULO_REPETIR_A_ULTIMA}
+            </Button>
+            <p
+              id={idDaDicaDoRepetir}
+              data-testid="contagem-repetir-dica"
+              className="text-apoio text-tinta-fraca"
+            >
+              {anterior === null
+                ? dicaSemAnterior(queima.tipo)
+                : dicaDoRepetir(
+                    anterior.tipo,
+                    diaMes(anterior.diaCivil),
+                    totalDaContagem(anterior.contagem),
+                  )}
+            </p>
+          </div>
           {grupo("internas")}
           {grupo("externas")}
           {ouro ? null : (

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { medirForno } from "@/lib/queimas/contador";
+import { modoSemContagemDaUrl } from "@/lib/queimas/contagem";
 import { carregarDadosDaFolha, listarFornosDoIndice } from "@/lib/queimas/consultas";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
 import { hojeEmBrasilia } from "@/lib/queimas/formato";
@@ -22,8 +23,19 @@ import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de app/(app)/encomendas/page.tsx.
 // D-02: não existe tela de cadastro de fornos — o botão "Novo forno" abre `?novo` (masculino,
 // "forno") na própria rota, mesma convenção de `?nova` em Encomendas.
-export default async function PaginaQueimas() {
+//
+// `searchParams` é `Promise` no Next.js 15+ (molde de Cadastros). `?sem-contagem=todas` (plano 03,
+// QMC-02) troca a lista "Sem contagem" para a visão de TODAS — lido UMA vez aqui, pelo
+// puro de `lib/queimas/contagem.ts` (só a string exata "todas" vale), e descido por prop.
+export default async function PaginaQueimas({
+  searchParams,
+}: {
+  searchParams: Promise<{ "sem-contagem"?: string | string[] }>;
+}) {
   await exigirUsuario();
+
+  const parametros = await searchParams;
+  const semContagem = modoSemContagemDaUrl(parametros["sem-contagem"]);
 
   // O dia civil de Brasília desta carga — a janela de "Sem contagem" e a régua vigente da folha são
   // contadas a partir dele.
@@ -99,7 +111,7 @@ export default async function PaginaQueimas() {
           por elas nem caem com elas. Fora do ramo do vazio: sem forno não há queima, e a lista
           devolve `null` sozinha. */}
       <Suspense fallback={<EsqueletoDasListas />}>
-        <ListasDoIndice hoje={hoje} dadosDaFolha={dadosDaFolha} />
+        <ListasDoIndice hoje={hoje} dadosDaFolha={dadosDaFolha} semContagem={semContagem} />
       </Suspense>
     </>
   );

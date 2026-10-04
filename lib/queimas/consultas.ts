@@ -22,6 +22,8 @@ import {
   somarDiasCivis,
   type ChipDaOrdem,
   type Contagem,
+  type ContagemAnterior,
+  type ModoSemContagem,
   type OrdemEsperando,
   type Regua,
 } from "@/lib/queimas/contagem";
@@ -351,10 +353,18 @@ export type SemContagemDoIndice = {
   maisDeUmForno: boolean;
 };
 
-export async function listarSemContagem(hoje: string): Promise<SemContagemDoIndice> {
+//
+// Plano 03 — `modo`: `"recentes"` (padrão) é exatamente a leitura acima; `"todas"` (o "Ver todas",
+// QMC-02) tira o pré-filtro de dias: TODAS as queimas sem contagem, de todos os fornos, ativos e
+// desativados — e o puro tira a janela e o teto. Só leitura do que a sessão já vê pelo Histórico.
+export async function listarSemContagem(
+  hoje: string,
+  modo: ModoSemContagem = "recentes",
+): Promise<SemContagemDoIndice> {
   const inicioDoPreFiltro = new Date(
     `${somarDiasCivis(hoje, -(JANELA_SEM_CONTAGEM_DIAS + 2))}T00:00:00-03:00`,
   );
+  const semContagem = isNull(queimaContagens.queimaId);
 
   const [candidatas, [total], [fornosDaCasa]] = await Promise.all([
     db
@@ -368,7 +378,11 @@ export async function listarSemContagem(hoje: string): Promise<SemContagemDoIndi
       .from(queimas)
       .innerJoin(fornos, eq(fornos.id, queimas.fornoId))
       .leftJoin(queimaContagens, eq(queimaContagens.queimaId, queimas.id))
-      .where(and(isNull(queimaContagens.queimaId), gte(queimas.ocorridaEm, inicioDoPreFiltro)))
+      .where(
+        modo === "todas"
+          ? semContagem
+          : and(semContagem, gte(queimas.ocorridaEm, inicioDoPreFiltro)),
+      )
       .orderBy(desc(queimas.ocorridaEm), desc(queimas.id)),
     db
       .select({ quantidade: count() })
@@ -392,6 +406,7 @@ export async function listarSemContagem(hoje: string): Promise<SemContagemDoIndi
     }),
     totalSemContagem: Number(total?.quantidade ?? 0),
     hoje,
+    modo,
   });
 
   return {
@@ -416,6 +431,9 @@ export type DadosDaFolha = {
   // folha de biscoito, `queima2` na de esmalte (ouro não tem). `null` = a leitura da Produção falhou:
   // a área dos chips não aparece e a folha funciona igual (UI-D28).
   chips: { queima1: ChipDaOrdem[]; queima2: ChipDaOrdem[] } | null;
+  // Plano 03 (QMC-05, D-01): as DUAS contagens mais recentes de cada forno + tipo — "Repetir a
+  // última" escolhe no cliente (`ultimaContagemDoMesmoTipo`), excluindo a queima da folha.
+  ultimasContagens: ContagemAnterior[];
 };
 
 const CHAVE_REGUA_P = "queima_regua_p_ate";
@@ -513,10 +531,61 @@ export async function ordensEsperandoAQueima(): Promise<OrdemEsperando[]> {
   return comEtapa.map((ordem) => ({ ...ordem, pecas: pecasPorOrdem.get(ordem.ordemId) ?? [] }));
 }
 
+// As DUAS contagens mais recentes por (forno, tipo), pela `ocorrida_em` da queima (empate: `id`) — a
+// segunda existe para "Repetir a última" excluir a própria queima ao corrigir a mais recente, sem
+// voltar ao servidor. `row_number()` por partição, numa consulta só.
+export async function lerUltimasContagens(): Promise<ContagemAnterior[]> {
+  const ranqueadas = db
+    .select({
+      queimaId: queimas.id,
+      fornoId: queimas.fornoId,
+      tipo: queimas.tipo,
+      ocorridaEm: queimas.ocorridaEm,
+      internasP: queimaContagens.internasP,
+      internasM: queimaContagens.internasM,
+      internasG: queimaContagens.internasG,
+      externasP: queimaContagens.externasP,
+      externasM: queimaContagens.externasM,
+      externasG: queimaContagens.externasG,
+      saiuCheio: queimaContagens.saiuCheio,
+      posicao: sql<number>`row_number() over (
+        partition by ${queimas.fornoId}, ${queimas.tipo}
+        order by ${queimas.ocorridaEm} desc, ${queimas.id} desc
+      )`.as("posicao"),
+    })
+    .from(queimas)
+    .innerJoin(queimaContagens, eq(queimaContagens.queimaId, queimas.id))
+    .as("ranqueadas");
+
+  const linhas = await db.select().from(ranqueadas).where(lte(ranqueadas.posicao, 2));
+
+  return linhas.map((linha) => {
+    // O instante vem como `Date` pelo mapeamento da coluna; `new Date(…)` aceita os dois formatos.
+    const ocorridaEm = new Date(linha.ocorridaEm).toISOString();
+    return {
+      queimaId: linha.queimaId,
+      fornoId: linha.fornoId,
+      tipo: linha.tipo,
+      ocorridaEm,
+      diaCivil: diaCivilEmBrasilia(ocorridaEm),
+      contagem: {
+        internasP: linha.internasP,
+        internasM: linha.internasM,
+        internasG: linha.internasG,
+        externasP: linha.externasP,
+        externasM: linha.externasM,
+        externasG: linha.externasG,
+        saiuCheio: linha.saiuCheio,
+      },
+    };
+  });
+}
+
 export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> {
-  const [regua, [fornosDaCasa], ordens] = await Promise.all([
+  const [regua, [fornosDaCasa], ultimasContagens, ordens] = await Promise.all([
     lerReguaVigente(hoje),
     db.select({ quantidade: count() }).from(fornos),
+    lerUltimasContagens(),
     // Se a leitura da Produção falhar: `null` com `console.error` no servidor — os chips somem, a
     // folha e o registro nunca caem por isso (UI-D28, T-06.4-19). A régua, ao contrário, derruba os
     // dados da folha inteiros (UI-D19): sem ela não há folha.
@@ -537,5 +606,6 @@ export async function carregarDadosDaFolha(hoje: string): Promise<DadosDaFolha> 
             queima1: todos.filter((chip) => chip.etapa === "queima1"),
             queima2: todos.filter((chip) => chip.etapa === "queima2"),
           },
+    ultimasContagens,
   };
 }

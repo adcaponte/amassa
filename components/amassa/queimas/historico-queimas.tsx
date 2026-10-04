@@ -26,6 +26,8 @@ import { FolhaContagem, type QueimaParaContar } from "./folha-contagem";
 export type HistoricoQueimasProps = {
   queimas: QueimaDoHistorico[];
   nomeDoForno: string;
+  // O forno destas queimas — "Repetir a última" da folha copia do MESMO forno (D-01, plano 03).
+  fornoId: string;
   // Os dados da folha "O que queimou?", carregados uma vez pela página. `null` = não carregaram: os
   // botões de contar e corrigir não aparecem (UI-D19); a lixeira continua.
   dadosDaFolha: DadosDaFolha | null;
@@ -70,7 +72,12 @@ type FolhaDoHistorico = QueimaParaContar & { inicial: Contagem | null };
 // ouro) quando houver, e na última "Corrigir contagem" (abre a folha com os valores gravados e "Fechar
 // sem salvar") ou "Contar agora", com a lixeira herdada à direita. Forno desativado: contar e corrigir
 // continuam (é dado do passado). Nenhum `<li>` aninhado — os testes da Fase 4 contam as linhas por `li`.
-export function HistoricoQueimas({ queimas, nomeDoForno, dadosDaFolha }: HistoricoQueimasProps) {
+export function HistoricoQueimas({
+  queimas,
+  nomeDoForno,
+  fornoId,
+  dadosDaFolha,
+}: HistoricoQueimasProps) {
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
   const [folha, setFolha] = useState<FolhaDoHistorico | null>(null);
 
@@ -214,6 +221,7 @@ export function HistoricoQueimas({ queimas, nomeDoForno, dadosDaFolha }: Histori
           aoFechar={() => setFolha(null)}
           dados={dadosDaFolha}
           nomeDoForno={nomeDoForno}
+          fornoId={fornoId}
           inicial={folha?.inicial ?? null}
         />
       )}

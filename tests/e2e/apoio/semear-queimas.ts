@@ -192,3 +192,48 @@ export async function semearForno(nome: string): Promise<void> {
 export async function apagarQueimaNoBanco(queimaId: string): Promise<void> {
   await comCliente((cliente) => cliente.query("delete from queimas where id = $1", [queimaId]));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 03 — uma contagem gravada direto no banco, para "Repetir a última" ter de onde
+// copiar e para a régua provar que mudar não mexe em contagem já feita. Os seis números (0 quando
+// omitidos) e "saiu cheio" (marcado por padrão); quem contou = o usuário de teste. Falha alto se não
+// inserir.
+export type ContagemParaSemear = {
+  internasP?: number;
+  internasM?: number;
+  internasG?: number;
+  externasP?: number;
+  externasM?: number;
+  externasG?: number;
+  saiuCheio?: boolean;
+};
+
+export async function semearContagem(
+  queimaId: string,
+  contagem: ContagemParaSemear,
+): Promise<void> {
+  const resultado = await comCliente((cliente) =>
+    cliente.query(
+      `insert into queima_contagens
+         (queima_id, internas_p, internas_m, internas_g, externas_p, externas_m, externas_g,
+          saiu_cheio, contado_por)
+       select $1, $2, $3, $4, $5, $6, $7, $8, usuario.id
+         from usuarios usuario
+        where lower(usuario.email) = lower($9)`,
+      [
+        queimaId,
+        contagem.internasP ?? 0,
+        contagem.internasM ?? 0,
+        contagem.internasG ?? 0,
+        contagem.externasP ?? 0,
+        contagem.externasM ?? 0,
+        contagem.externasG ?? 0,
+        contagem.saiuCheio ?? true,
+        process.env.E2E_EMAIL_TESTE ?? "",
+      ],
+    ),
+  );
+  if (resultado.rowCount !== 1) {
+    throw new Error(`semearContagem: não gravou a contagem da queima ${queimaId}.`);
+  }
+}

@@ -1,4 +1,5 @@
 import { listarSemContagem, type DadosDaFolha } from "@/lib/queimas/consultas";
+import type { ModoSemContagem } from "@/lib/queimas/contagem";
 import { FRASE_ERRO_DAS_LISTAS } from "@/lib/queimas/textos";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
@@ -11,16 +12,22 @@ import { ListaSemContagem } from "./lista-sem-contagem";
 // componente dentro de um `Suspense` próprio (o esqueleto é `EsqueletoDasListas`, abaixo) e a leitura
 // tem um `try` próprio, com UM bloco de erro para as duas listas (a frase já fala das duas). Molde de
 // `try` por bloco com `console.error`: `components/amassa/inicio/bloco-anotacoes.tsx`.
+//
+// Plano 03: `semContagem` é a visão da lista "Sem contagem" (`recentes` | `todas`), lida da URL UMA
+// vez pela página e passada adiante sem mudar (o plano 04, ao pôr "a cobrar" neste mesmo `try`, só
+// a repassa).
 export async function ListasDoIndice({
   hoje,
   dadosDaFolha,
+  semContagem: modo,
 }: {
   hoje: string;
   dadosDaFolha: DadosDaFolha | null;
+  semContagem: ModoSemContagem;
 }) {
   let semContagem;
   try {
-    semContagem = await listarSemContagem(hoje);
+    semContagem = await listarSemContagem(hoje, modo);
   } catch (erro) {
     console.error("Falha ao carregar as listas do índice de Queimas:", erro);
     return (
@@ -50,6 +57,7 @@ export async function ListasDoIndice({
           maisAntigas={semContagem.maisAntigas}
           maisDeUmForno={semContagem.maisDeUmForno}
           dadosDaFolha={dadosDaFolha}
+          semContagem={modo}
         />
       </div>
     </div>

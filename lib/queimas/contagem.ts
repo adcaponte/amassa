@@ -191,25 +191,42 @@ export function somarDiasCivis(diaCivil: string, dias: number): string {
 // não o instante, que decide se a queima está na janela: 23h59 de hoje − 30 em Brasília (02h59 de
 // hoje − 29 em UTC) fica FORA. `totalSemContagem` é a conta de TODAS as queimas sem contagem, dentro
 // e fora da janela.
+//
+// Plano 03 (QMC-02, o item travado "Pular não perde nada"): o modo `"todas"` — o "Ver todas" da
+// lista — devolve TODAS as candidatas, sem janela de dias e sem teto (como "a cobrar", UI-D26), na
+// mesma ordem, com `maisAntigas = 0`. Sem `modo`, ou `"recentes"`, é a visão padrão acima.
+export type ModoSemContagem = "recentes" | "todas";
+
+// O modo vem da URL (`?sem-contagem=todas`): só a string EXATA "todas" vale "todas"; qualquer outra
+// coisa — ausente, vazia, outra caixa, repetida — é a visão padrão (T-06.4-44).
+export function modoSemContagemDaUrl(valor: string | string[] | undefined): ModoSemContagem {
+  return valor === "todas" ? "todas" : "recentes";
+}
+
 export function janelaSemContagem<T extends { id: string; ocorridaEm: string; diaCivil: string }>({
   candidatas,
   totalSemContagem,
   hoje,
+  modo = "recentes",
 }: {
   candidatas: readonly T[];
   totalSemContagem: number;
   hoje: string;
+  modo?: ModoSemContagem;
 }): { visiveis: T[]; maisAntigas: number } {
+  const ordenadas = [...candidatas].sort((a, b) => {
+    const porInstante = Date.parse(b.ocorridaEm) - Date.parse(a.ocorridaEm);
+    if (porInstante !== 0) {
+      return porInstante;
+    }
+    return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+  });
+  if (modo === "todas") {
+    return { visiveis: ordenadas, maisAntigas: 0 };
+  }
   const inicio = somarDiasCivis(hoje, -(JANELA_SEM_CONTAGEM_DIAS - 1));
-  const visiveis = candidatas
+  const visiveis = ordenadas
     .filter((queima) => queima.diaCivil >= inicio)
-    .sort((a, b) => {
-      const porInstante = Date.parse(b.ocorridaEm) - Date.parse(a.ocorridaEm);
-      if (porInstante !== 0) {
-        return porInstante;
-      }
-      return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
-    })
     .slice(0, TETO_DA_LISTA_SEM_CONTAGEM);
   return { visiveis, maisAntigas: Math.max(0, totalSemContagem - visiveis.length) };
 }
@@ -362,6 +379,47 @@ export function chipsDaProducao(
     });
   }
   return chips;
+}
+
+// ---------------------------------------------------------------------------------------------
+// "Repetir a última" (QMC-05, D-01, UI-D10): a última fornada CONTADA do MESMO forno e do MESMO tipo,
+// pela `ocorridaEm` mais recente (empate: `queimaId` maior), EXCLUINDO a queima aberta na folha —
+// corrigindo a mais recente pelo Histórico, vale a anterior a ela. A página pré-carrega as DUAS mais
+// recentes por forno + tipo (`lerUltimasContagens`), o bastante para a exclusão da própria funcionar
+// sem ida ao servidor. Sem nenhuma → `null` (o botão fica desabilitado com a dica do porquê).
+export type ContagemAnterior = {
+  queimaId: string;
+  fornoId: string;
+  tipo: "biscoito" | "esmalte" | "ouro";
+  // ISO do instante; `diaCivil` já em Brasília (para a dica "copia Biscoito de 09/12").
+  ocorridaEm: string;
+  diaCivil: string;
+  contagem: Contagem;
+};
+
+export function ultimaContagemDoMesmoTipo(
+  candidatas: readonly ContagemAnterior[],
+  alvo: { fornoId: string; tipo: ContagemAnterior["tipo"]; queimaIdAtual: string },
+): ContagemAnterior | null {
+  let escolhida: ContagemAnterior | null = null;
+  for (const candidata of candidatas) {
+    if (
+      candidata.fornoId !== alvo.fornoId ||
+      candidata.tipo !== alvo.tipo ||
+      candidata.queimaId === alvo.queimaIdAtual
+    ) {
+      continue;
+    }
+    if (escolhida === null) {
+      escolhida = candidata;
+      continue;
+    }
+    const porInstante = Date.parse(candidata.ocorridaEm) - Date.parse(escolhida.ocorridaEm);
+    if (porInstante > 0 || (porInstante === 0 && candidata.queimaId > escolhida.queimaId)) {
+      escolhida = candidata;
+    }
+  }
+  return escolhida;
 }
 
 // Um toque no chip: as pendentes medidas entram nas INTERNAS do tamanho delas; as sem medida, no
