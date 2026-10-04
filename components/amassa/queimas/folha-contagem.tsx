@@ -58,6 +58,7 @@ import {
   fraseAbaixoDoLancado,
   fraseDaReguaNaFolha,
   fraseExternasLancadas,
+  faltaOPrecoDe,
   perguntaDoTamanho,
   resumoDaContagem,
   subtituloDaFolha,
@@ -104,7 +105,10 @@ export type FolhaContagemProps = {
   fornoId: string;
   // Só `RegistrarQueima` passa: com ele a folha NÃO dá aviso — quem chamou atualiza o próprio aviso
   // do registro no lugar (UI-D12 item 4). Sem ele, a folha dá o aviso dela, de 5 s.
-  aoSalvar?: (resultado: { total: number; criada: boolean }) => void;
+  // Plano 04: `aviso` é o texto pronto do aviso ("Contagem salva: {N} peças. Externas a cobrar: R$ X." —
+  // a folha é quem tem os preços), usado nos dois caminhos: o aviso da folha e a troca no lugar do aviso
+  // do registro.
+  aoSalvar?: (resultado: { total: number; criada: boolean; aviso: string }) => void;
   // A contagem gravada, ao CORRIGIR pelo Histórico (UI-D23): os contadores abrem com ela, o botão da
   // esquerda vira "Fechar sem salvar" e "Salvar" com tudo zero pergunta antes de apagar (UI-D6).
   // Ausente ou `null` = contagem nova.
@@ -351,14 +355,22 @@ function FolhaAberta({
         }
         return;
       }
+      // O aviso (UI-SPEC §Toasts): uma contagem NOVA com externas diz o valor delas (nada foi lançado
+      // ainda, então é o das externas contadas) ou que falta o preço; sem os itens (a leitura falhou —
+      // UI-D19), a frase sem externas. "Corrigir" continua "Contagem corrigida: {N} peças.".
+      const externasSalvas = externasDaContagem(enviada);
+      const aviso = !resposta.dados.criada
+        ? toastContagemCorrigida(resposta.dados.total)
+        : dados.itens === null || totalDasQuantidades(externasSalvas) === 0
+          ? toastContagemSalva(resposta.dados.total)
+          : toastContagemSalva(resposta.dados.total, {
+              valorCentavos: valorDasExternas(externasSalvas, precosDosItens(dados.itens))
+                .valorCentavos,
+            });
       if (aoSalvar) {
-        aoSalvar(resposta.dados);
+        aoSalvar({ ...resposta.dados, aviso });
       } else {
-        toast.success(
-          resposta.dados.criada
-            ? toastContagemSalva(resposta.dados.total)
-            : toastContagemCorrigida(resposta.dados.total),
-        );
+        toast.success(aviso);
       }
       aoFechar();
       router.refresh();
@@ -397,13 +409,23 @@ function FolhaAberta({
           <span className="text-corpo text-tinta font-semibold">
             {interno ? ROTULO_INTERNAS : ROTULO_EXTERNAS}
           </span>
-          {!interno && valorDasContadas !== null && valorDasContadas.valorCentavos !== null ? (
-            <span
-              data-testid="contagem-valor-externas"
-              className="text-corpo text-tinta ml-auto font-semibold whitespace-nowrap tabular-nums"
-            >
-              {formatarReais(valorDasContadas.valorCentavos)}
-            </span>
+          {!interno && valorDasContadas !== null ? (
+            valorDasContadas.valorCentavos === null ? (
+              // Preço faltando no Catálogo (UI-D5): diz qual — salvar continua livre.
+              <span
+                data-testid="contagem-valor-externas"
+                className="text-apoio text-tinta-fraca ml-auto text-right"
+              >
+                {faltaOPrecoDe(valorDasContadas.tamanhosSemPreco)}
+              </span>
+            ) : (
+              <span
+                data-testid="contagem-valor-externas"
+                className="text-corpo text-tinta ml-auto font-semibold whitespace-nowrap tabular-nums"
+              >
+                {formatarReais(valorDasContadas.valorCentavos)}
+              </span>
+            )
           ) : null}
         </div>
         <p className="text-apoio text-tinta-fraca">

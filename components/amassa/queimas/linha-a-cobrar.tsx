@@ -1,15 +1,22 @@
 "use client";
 
+import { useId } from "react";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
+
 import { ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { ItensDasQueimas, QueimaACobrar } from "@/lib/queimas/consultas";
 import { precosDosItens, resumoPmg, valorDasExternas } from "@/lib/queimas/contagem";
 import {
   FRASE_FALTA_PRECO,
+  ROTULO_ABRIR_O_CATALOGO,
   ariaRecebiAgora,
+  fraseSemPrecoDaQueima,
   linhaDaFalta,
   linhaJaLancado,
 } from "@/lib/queimas/textos";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { Button } from "@/components/ui/button";
 
 export type LinhaACobrarProps = {
@@ -27,8 +34,14 @@ export type LinhaACobrarProps = {
 // venda nº 12 (2 P)"); e as ações na última. "Recebi agora" (`outline`, 44 px; a 320 px desce em largura
 // total) abre a folha com o passo de quantidade. A linha some sozinha quando nada mais falta: quem decide
 // é `listarACobrar`, pelas vendas ATIVAS.
+//
+// Sem preço (AGE-17, UI-D5): se algum tamanho que AINDA FALTA não tem preço no Catálogo (nulo ou zero —
+// uma venda de R$ 0,00 não nasce), o valor vira "falta preço", aparece o aviso com o nome ATUAL de cada
+// item e o caminho até o Catálogo, e "Recebi agora" fica desabilitado com `aria-describedby` no aviso.
+// Tamanho sem preço que já não falta não bloqueia. Contar continua livre.
 export function LinhaACobrar({ linha, titulo, itens, aoReceberAgora }: LinhaACobrarProps) {
-  const { valorCentavos } = valorDasExternas(linha.falta, precosDosItens(itens));
+  const idDoAviso = useId();
+  const { valorCentavos, tamanhosSemPreco } = valorDasExternas(linha.falta, precosDosItens(itens));
   const ativas = linha.vendas.filter((venda) => !venda.cancelada);
   const canceladas = linha.vendas.filter((venda) => venda.cancelada);
   const situacao = ativas.length > 0 ? "parcial" : "a_cobrar";
@@ -96,12 +109,38 @@ export function LinhaACobrar({ linha, titulo, itens, aoReceberAgora }: LinhaACob
           ))}
         </div>
       ) : null}
+      {semPreco ? (
+        <div
+          id={idDoAviso}
+          role="status"
+          data-testid="a-cobrar-sem-preco"
+          className="bg-atencao-fundo text-atencao text-apoio col-span-2 flex items-start gap-2 rounded-md p-4 font-semibold"
+        >
+          <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <p className="[overflow-wrap:anywhere]">
+              {fraseSemPrecoDaQueima(tamanhosSemPreco, {
+                P: itens.P.nome,
+                M: itens.M.nome,
+                G: itens.G.nome,
+              })}
+            </p>
+            <Link
+              href={rotaDeGestao("/cadastros?sub=catalogo")}
+              className="text-apoio text-acento focus-visible:ring-ring inline-flex min-h-[44px] items-center font-semibold underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+            >
+              {ROTULO_ABRIR_O_CATALOGO}
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <div className="col-span-2 flex flex-wrap justify-end gap-2 pt-1">
         <Button
           type="button"
           variant="outline"
           data-testid="recebi-agora"
           aria-label={ariaRecebiAgora(titulo)}
+          aria-describedby={semPreco ? idDoAviso : undefined}
           disabled={semPreco}
           onClick={() => aoReceberAgora(linha)}
           className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"

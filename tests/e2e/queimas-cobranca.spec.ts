@@ -369,3 +369,100 @@ test.describe("cobrança da queima — vendas e piso", () => {
     }
   });
 });
+
+// O aviso do registro, atualizado no lugar pelo "Salvar" da folha (UI-D12 item 4) — o que tem o texto.
+function avisoComTexto(page: Page, texto: string): Locator {
+  return page.locator("[data-sonner-toast]").filter({ hasText: texto });
+}
+
+test.describe("itens das queimas no catálogo", () => {
+  test("os três itens “Queima externa P/M/G” têm o chip “do sistema”, a linha das Queimas e nenhum “Desativar”", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      // A trava só serializa com quem renomeia ou põe preço nos itens — os nomes lidos são os de agora.
+      trava = await travarPrecosDasQueimas({ P: null, M: null, G: null });
+      await page.goto("/gestao/cadastros?sub=catalogo");
+      for (const tamanho of ["P", "M", "G"] as const) {
+        const linha = page
+          .getByTestId("catalogo-item")
+          .filter({ has: page.getByText(trava.nomes[tamanho], { exact: true }) });
+        await expect(linha).toHaveCount(1);
+        await expect(linha.getByTestId("chip-do-sistema")).toHaveText("do sistema");
+      }
+      await page
+        .getByTestId("catalogo-item")
+        .filter({ has: page.getByText(trava.nomes.M, { exact: true }) })
+        .getByRole("button", { name: "Editar" })
+        .click();
+      const dialogo = page.getByRole("dialog");
+      await expect(dialogo).toBeVisible();
+      await expect(dialogo.getByTestId("linha-item-do-sistema")).toHaveText(
+        "Usado pelas Queimas — não se desativa nem sai da Venda. Nome, preço e categoria podem mudar.",
+      );
+      await expect(dialogo.getByTestId("catalogo-desativar")).toHaveCount(0);
+      await expect(dialogo.getByRole("button", { name: "Desativar item" })).toHaveCount(0);
+    } finally {
+      await trava?.soltar();
+    }
+  });
+});
+
+test.describe("cobrança da queima — sem preço", () => {
+  test("G sem preço: a linha diz “falta preço”, avisa onde cadastrar e não deixa cobrar; a folha e o aviso dizem o mesmo; nada vai ao Caixa", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      trava = await travarPrecosDasQueimas({ P: 1100, M: 2300, G: null });
+      const nome = `[e2e] sem preço ${sufixo()}`;
+      await cadastrarForno(page, nome);
+
+      // Contagem NOVA com 1 externa G, com o aviso do registro ainda vivo: o mesmo aviso, com o
+      // "Desfazer", diz que falta o preço.
+      const queimaId = await registrarEContar(page, nome, { g: 1 });
+      const aviso = avisoComTexto(page, "Contagem salva: 1 peça.");
+      await expect(aviso).toContainText(
+        "Contagem salva: 1 peça. Externas a cobrar — falta o preço no Catálogo.",
+      );
+      await expect(aviso.locator("button", { hasText: "Desfazer" })).toBeVisible();
+
+      const linha = linhaACobrar(page, queimaId);
+      await expect(linha.getByTestId("a-cobrar-valor")).toHaveText("falta preço", { timeout: 10000 });
+      const semPreco = linha.getByTestId("a-cobrar-sem-preco");
+      await expect(semPreco).toContainText("O preço da queima externa G ainda não foi cadastrado.");
+      await expect(semPreco).toContainText(`“${trava.nomes.G}”`);
+      await expect(semPreco.getByRole("link", { name: "abrir o Catálogo" })).toHaveAttribute(
+        "href",
+        "/gestao/cadastros?sub=catalogo",
+      );
+      const recebi = linha.getByTestId("recebi-agora");
+      await expect(recebi).toBeDisabled();
+      const idDoAviso = await semPreco.getAttribute("id");
+      await expect(recebi).toHaveAttribute("aria-describedby", idDoAviso ?? "");
+
+      // A folha ("Corrigir contagem") diz qual preço falta no cabeçalho de Externas.
+      await abrirDetalhe(page, nome);
+      await page.getByTestId(`corrigir-contagem-${queimaId}`).click();
+      const folha = page.getByTestId("folha-contagem");
+      await expect(folha).toBeVisible({ timeout: 5000 });
+      await expect(folha.getByTestId("contagem-valor-externas")).toHaveText("falta o preço de G");
+      await folha.getByTestId("contagem-fechar-sem-salvar").click();
+      await expect(folha).toBeHidden();
+      await expect(page.getByTestId(`historico-situacao-${queimaId}`)).toContainText("a cobrar · falta preço");
+      expect(await lerVendasDaQueima(queimaId)).toEqual([]);
+
+      // Outra contagem nova, com 2 externas P (P = 11,00): o aviso traz o valor.
+      await page.goto("/gestao/queimas");
+      await registrarEContar(page, nome, { p: 2 });
+      await expect(avisoComTexto(page, "Contagem salva: 2 peças.")).toContainText(
+        /Contagem salva: 2 peças\. Externas a cobrar: R\$\s22,00\./,
+      );
+    } finally {
+      await trava?.soltar();
+    }
+  });
+});

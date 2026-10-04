@@ -14,7 +14,6 @@ import {
   TOAST_QUEIMA_DESFEITA_COM_CONTAGEM,
   TOAST_QUEIMA_REGISTRADA,
   rotuloDoTipo,
-  toastContagemSalva,
   type TipoDeQueima,
 } from "@/lib/queimas/textos";
 import { Button } from "@/components/ui/button";
@@ -132,16 +131,18 @@ export function RegistrarQueima({ fornoId, nomeDoForno, dadosDaFolha }: Registra
     router.refresh();
   }
 
-  // A contagem foi salva pela folha aberta logo depois do registro.
-  function contagemSalva({ total }: { total: number; criada: boolean }) {
+  // A contagem foi salva pela folha aberta logo depois do registro. Plano 04: o texto vem PRONTO da
+  // folha (`texto`) — com o valor das externas ou "falta o preço no Catálogo" (UI-SPEC §Toasts) — e é o
+  // mesmo nos dois caminhos: o aviso novo e a troca no lugar do aviso do registro.
+  function contagemSalva({ aviso: texto }: { total: number; criada: boolean; aviso: string }) {
     const aviso = avisoDoRegistro.current;
     if (aviso === null || !aviso.vivo || aviso.queimaId !== folha?.id) {
-      toast.success(toastContagemSalva(total));
+      toast.success(texto);
       return;
     }
     aviso.contada = true;
     const idDaQueima = aviso.queimaId;
-    toast.success(toastContagemSalva(total), {
+    toast.success(texto, {
       id: aviso.id,
       duration: DURACAO_DO_DESFAZER,
       action: {

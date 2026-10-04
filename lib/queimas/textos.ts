@@ -333,8 +333,20 @@ export function resumoDaContagem(total: number): string {
   return total === 0 ? "nenhuma peça" : pecas(total);
 }
 
-export function toastContagemSalva(total: number): string {
-  return `Contagem salva: ${pecas(total)}.`;
+// Plano 04 (UI-SPEC §Toasts, as três frases): sem o segundo argumento, a frase do plano 01, intacta;
+// com o valor das externas contadas, "… Externas a cobrar: R$ 22,00." (verbatim do protótipo); com o
+// preço faltando (`valorCentavos: null`), "… Externas a cobrar — falta o preço no Catálogo.".
+export function toastContagemSalva(
+  total: number,
+  externas?: { valorCentavos: number | null },
+): string {
+  const base = `Contagem salva: ${pecas(total)}.`;
+  if (externas === undefined) {
+    return base;
+  }
+  return externas.valorCentavos === null
+    ? `${base} Externas a cobrar — falta o preço no Catálogo.`
+    : `${base} Externas a cobrar: ${formatarReais(externas.valorCentavos)}.`;
 }
 
 export type GrupoDoContador = "internas" | "externas";
@@ -646,3 +658,14 @@ export function tagDaVendaDaQueima(venda: VendaLigada): string {
   const situacao = venda.cancelada ? "cancelada" : venda.paga ? "paga" : "em aberto";
   return `venda nº ${venda.numero} · ${resumo} · ${situacao}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04, Tarefa 3 — o preço que falta (D-05, UI-D5; AGE-17 da Agenda).
+
+// No cabeçalho de Externas da folha, no lugar do valor: "falta o preço de G" / "… de M e G".
+export function faltaOPrecoDe(tamanhos: readonly Tamanho[]): string {
+  return `falta o preço de ${listaComE(tamanhos)}`;
+}
+
+// O link do aviso de preço → Cadastros → Catálogo.
+export const ROTULO_ABRIR_O_CATALOGO = "abrir o Catálogo";
