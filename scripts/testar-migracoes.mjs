@@ -7037,6 +7037,17 @@ function provarCorridasDaAgenda() {
   });
 }
 
+// As corridas da cobrança das externas das Queimas (Fase 06.4, plano 04 — D-07): Recebi × Recebi por
+// tamanho, Recebi × corrigir/apagar a contagem, Recebi × excluir a queima, contagem × contagem, a venda
+// cancelada devolvendo a quantidade e a idempotência — o CÓDIGO da aplicação (`lib/queimas/gravacao.ts`)
+// com duas transações sobrepostas de fato, no molde de `provarCorridasDaAgenda`.
+function provarCorridasDasQueimas() {
+  console.log("  provarCorridasDasQueimas...");
+  rodarNpm("npx", ["tsx", "scripts/provar-corridas-das-queimas.ts"], {
+    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
+  });
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -7063,6 +7074,7 @@ async function conferirBanco() {
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
     provarCorridasDaAgenda();
+    provarCorridasDasQueimas();
   } finally {
     await cliente.end();
   }

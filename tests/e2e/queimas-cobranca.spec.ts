@@ -1,9 +1,11 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-import { semearCliente } from "./apoio/semear-agenda";
+import { cancelarDocumentoNoBanco, semearCliente } from "./apoio/semear-agenda";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import { idDoUsuarioDoTeste } from "./apoio/semear-fornecedores";
 import {
+  contarDocumentos,
+  lerContagem,
   lerVendasDaQueima,
   travarPrecosDasQueimas,
   type TravaDosPrecosDasQueimas,
@@ -217,6 +219,151 @@ test.describe("cobrança da queima — recebi agora", () => {
       expect(vendas[0].parcelas).toEqual([
         { vencimento: hojeNoAtelie(), valorCentavos: 4600, forma: "pix", pagoEm: hojeNoAtelie() },
       ]);
+    } finally {
+      await trava?.soltar();
+    }
+  });
+});
+
+async function abrirDetalhe(page: Page, nomeDoForno: string): Promise<void> {
+  await page.goto("/gestao/queimas");
+  const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nomeDoForno });
+  await cartao.getByRole("link", { name: nomeDoForno }).click();
+  await expect(page).toHaveURL(/\/gestao\/queimas\/[0-9a-f-]{36}$/, { timeout: 10000 });
+  await expect(page.getByRole("heading", { name: nomeDoForno, level: 1 })).toBeVisible();
+}
+
+// "Recebi agora" pela linha, tirando `menos` peças P do que a folha abre, na forma pedida.
+async function receberP(page: Page, queimaId: string, menos: number, forma: "pix" | "dinheiro"): Promise<void> {
+  const folha = await abrirRecebi(page, queimaId);
+  for (let vez = 0; vez < menos; vez += 1) {
+    await folha.getByTestId("recebi-quantidade-p-menos").click();
+  }
+  await folha.getByTestId(`forma-${forma}`).click();
+  await expect(folha).toBeHidden({ timeout: 10000 });
+}
+
+test.describe("cobrança da queima — vendas e piso", () => {
+  test("(a) o piso das externas na folha e as tags do Histórico; (b) a venda cancelada devolve a quantidade", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      trava = await travarPrecosDasQueimas({ P: 1100, M: 2300, G: 3700 });
+      const nome = `[e2e] piso ${sufixo()}`;
+      await cadastrarForno(page, nome);
+      const queimaId = await registrarEContar(page, nome, { p: 3 });
+      await expect(linhaACobrar(page, queimaId)).toBeVisible({ timeout: 10000 });
+
+      // (a) 2 P em pix: falta 1 P.
+      await receberP(page, queimaId, 1, "pix");
+      await expect(linhaACobrar(page, queimaId).getByTestId("a-cobrar-falta")).toHaveText("falta: 1 P", {
+        timeout: 10000,
+      });
+      const [venda] = await lerVendasDaQueima(queimaId);
+      expect(venda).toMatchObject({ quantidadeP: 2, cancelado: false });
+
+      await abrirDetalhe(page, nome);
+      const situacao = page.getByTestId(`historico-situacao-${queimaId}`);
+      await expect(situacao).toContainText(/a cobrar · R\$\s11,00/);
+      await expect(page.getByTestId(`historico-venda-${venda.documentoId}`)).toHaveText(
+        `venda nº ${venda.numero} · 2 P · paga`,
+      );
+
+      await page.getByTestId(`corrigir-contagem-${queimaId}`).click();
+      let folha = page.getByTestId("folha-contagem");
+      await expect(folha).toBeVisible({ timeout: 5000 });
+      await expect(folha.getByTestId("externas-lancadas")).toContainText(`venda nº ${venda.numero} (2 P)`);
+      await expect(folha.getByTestId("contagem-valor-externas")).toHaveText(/R\$\s33,00/);
+      const externasP = folha.getByTestId("contador-externas-p");
+      await expect(externasP).toHaveValue("3");
+      await folha.getByTestId("contador-externas-p-menos").click();
+      await expect(externasP).toHaveValue("2");
+      await expect(folha.getByTestId("contador-externas-p-menos")).toBeDisabled();
+      await externasP.fill("1");
+      await externasP.blur();
+      await expect(externasP).toHaveValue("2");
+      await expect(folha.getByTestId("contagem-erro")).toHaveText(
+        `Já foram lançadas 2 externas P; para baixar daí, cancele a venda nº ${venda.numero} no Caixa.`,
+      );
+      await folha.getByTestId("contador-externas-p-mais").click();
+      await expect(externasP).toHaveValue("3");
+      await folha.getByTestId("contador-internas-p-mais").click();
+      await folha.getByTestId("contagem-salvar").click();
+      await expect(folha).toBeHidden({ timeout: 10000 });
+      await expect(page.getByText("Contagem corrigida: 4 peças.")).toBeVisible({ timeout: 5000 });
+      await expect.poll(async () => (await lerContagem(queimaId))?.internas_p, { timeout: 10000 }).toBe(1);
+      expect((await lerContagem(queimaId))?.externas_p).toBe(3);
+
+      // (b) a venda cancelada no Caixa devolve as 2 P: no Histórico, a tag “cancelada” e nenhum piso.
+      await cancelarDocumentoNoBanco(venda.documentoId);
+      await page.reload();
+      await expect(page.getByTestId(`historico-venda-${venda.documentoId}`)).toHaveText(
+        `venda nº ${venda.numero} · 2 P · cancelada`,
+      );
+      await expect(page.getByTestId(`historico-situacao-${queimaId}`)).toContainText(/a cobrar · R\$\s33,00/);
+      await page.getByTestId(`corrigir-contagem-${queimaId}`).click();
+      folha = page.getByTestId("folha-contagem");
+      await expect(folha).toBeVisible({ timeout: 5000 });
+      await expect(folha.getByTestId("externas-lancadas")).toHaveCount(0);
+      await expect(folha.getByTestId("contador-externas-p-menos")).toBeEnabled();
+      await folha.getByTestId("contagem-fechar-sem-salvar").click();
+      await expect(folha).toBeHidden();
+
+      // No índice: a falta voltou a 3 P, com a tag da venda cancelada; o "Recebi agora" abre com as 3.
+      await page.goto("/gestao/queimas");
+      const linha = linhaACobrar(page, queimaId);
+      await expect(linha.getByTestId("a-cobrar-falta")).toHaveText("falta: 3 P", { timeout: 10000 });
+      await expect(linha).toHaveAttribute("data-situacao", "a_cobrar");
+      const tag = linha.locator('[data-testid="a-cobrar-venda"][data-cancelada="true"]');
+      await expect(tag).toHaveText(`venda nº ${venda.numero} cancelada`);
+      await expect(linha.locator('[data-testid="a-cobrar-venda"][data-cancelada="false"]')).toHaveCount(0);
+      const recebi = await abrirRecebi(page, queimaId);
+      await expect(recebi.getByTestId("recebi-quantidade-p")).toHaveValue("3");
+      await recebi.getByTestId("recebi-agora-voltar").click();
+      await expect(recebi).toBeHidden();
+      expect(await lerVendasDaQueima(queimaId)).toHaveLength(1);
+    } finally {
+      await trava?.soltar();
+    }
+  });
+
+  test("(c) duas vendas de 1 P; excluir a queima diz que as duas continuam no Caixa e não leva nenhuma", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      trava = await travarPrecosDasQueimas({ P: 1100, M: 2300, G: 3700 });
+      const nome = `[e2e] excluir com vendas ${sufixo()}`;
+      await cadastrarForno(page, nome);
+      const queimaId = await registrarEContar(page, nome, { p: 2 });
+      await expect(linhaACobrar(page, queimaId)).toBeVisible({ timeout: 10000 });
+
+      await receberP(page, queimaId, 1, "pix");
+      await expect(linhaACobrar(page, queimaId).getByTestId("a-cobrar-falta")).toHaveText("falta: 1 P", {
+        timeout: 10000,
+      });
+      await receberP(page, queimaId, 0, "dinheiro");
+      await expect(linhaACobrar(page, queimaId)).toHaveCount(0, { timeout: 10000 });
+      const vendas = await lerVendasDaQueima(queimaId);
+      expect(vendas.map((venda) => venda.quantidadeP)).toEqual([1, 1]);
+
+      await abrirDetalhe(page, nome);
+      await page.getByTestId(`excluir-queima-${queimaId}`).click();
+      const dialogo = page.getByRole("alertdialog");
+      await expect(dialogo).toContainText(
+        `As vendas nº ${vendas[0].numero} e ${vendas[1].numero} continuam no Caixa — se for o caso, cancele por lá.`,
+      );
+      await expect(dialogo).toContainText("A contagem desta fornada (2 peças) vai junto.");
+      await dialogo.getByRole("button", { name: "Excluir" }).click();
+      await expect(dialogo).toBeHidden({ timeout: 10000 });
+      await expect(page.getByTestId(`linha-queima-${queimaId}`)).toHaveCount(0, { timeout: 10000 });
+
+      expect(await lerContagem(queimaId)).toBeNull();
+      expect(await lerVendasDaQueima(queimaId)).toEqual([]);
+      expect(await contarDocumentos(vendas.map((venda) => venda.documentoId))).toBe(2);
     } finally {
       await trava?.soltar();
     }

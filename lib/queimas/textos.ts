@@ -9,13 +9,20 @@
 // VALOR — aquele módulo é puro e não importa nada (nem tipo), então trazê-lo não traz React, banco
 // nem relógio; e a régua em cm (`cmDaRegua`) e o resumo "P · M · G" (`resumoPmg`) têm de ser a MESMA
 // conta na folha, nas frases e nos chips, nunca duas cópias.
+//
+// Segunda exceção (plano 04): `formatarReais` de `lib/financeiro/formato.ts` — também puro e sem
+// import nenhum; o valor das externas nas frases ("a cobrar · R$ 11,00", "Externas a cobrar: R$ 22,00")
+// tem de sair com a MESMA formatação do Caixa.
 import type { tipoQueima } from "@/db/schema";
+import { formatarReais } from "@/lib/financeiro/formato";
 import {
   cmDaRegua,
   resumoPmg,
+  totalDasQuantidades,
   type Quantidades,
   type Regua,
   type Tamanho,
+  type VendaLigada,
 } from "@/lib/queimas/contagem";
 import type { NivelDeForno } from "@/lib/queimas/contador";
 
@@ -117,14 +124,28 @@ export function textoDoNivel(nivel: NivelDeForno): string | null {
 export const TITULO_EXCLUIR_QUEIMA = "Excluir esta queima?";
 
 // Fase 06.4 (QMC-11, plano 02): com contagem, a confirmação diz que ela vai junto (o cascade da 0030).
-// Sem o segundo argumento — ou com `null`, a queima sem contagem — a frase herdada, SEM mudança. A
-// frase das vendas que ficam no Caixa (D-07) é do plano 04, num terceiro argumento.
-export function corpoExcluirQueima(nomeDoForno: string, pecasContadas?: number | null): string {
+// Sem o segundo argumento — ou com `null`, a queima sem contagem — a frase herdada, SEM mudança.
+// Plano 04 (D-07, UI-D25): o terceiro argumento, os números das vendas ATIVAS ligadas — elas continuam
+// no Caixa (`queima_vendas.documento_id` sem cascade); as canceladas não valem mais dinheiro e não
+// entram na frase.
+export function corpoExcluirQueima(
+  nomeDoForno: string,
+  pecasContadas?: number | null,
+  numerosDasVendasAtivas: readonly number[] = [],
+): string {
   const herdada = `Ela some do histórico do Forno «${nomeDoForno}» e o contador é recalculado.`;
-  if (pecasContadas === undefined || pecasContadas === null) {
-    return herdada;
+  const contagem =
+    pecasContadas === undefined || pecasContadas === null
+      ? herdada
+      : `${herdada} A contagem desta fornada (${pecas(pecasContadas)}) vai junto.`;
+  if (numerosDasVendasAtivas.length === 0) {
+    return contagem;
   }
-  return `${herdada} A contagem desta fornada (${pecas(pecasContadas)}) vai junto.`;
+  const vendas =
+    numerosDasVendasAtivas.length === 1
+      ? `A ${nomeDasVendas(numerosDasVendasAtivas)} continua no Caixa`
+      : `As ${nomeDasVendas(numerosDasVendasAtivas)} continuam no Caixa`;
+  return `${contagem} ${vendas} — se for o caso, cancele por lá.`;
 }
 
 export const FRASE_FALHA_AO_EXCLUIR = "Não deu para excluir. Verifique a internet e tente de novo.";
@@ -590,3 +611,38 @@ export const FRASE_ESCOLHA_A_PESSOA_NA_LISTA =
 // A pessoa escolhida saiu do cadastro entre abrir a folha e tocar a forma (servidor).
 export const FRASE_PESSOA_SUMIU =
   "Essa pessoa não está mais no cadastro. Escolha de novo, ou apague o nome para lançar sem pessoa.";
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 04, Tarefa 2 — as várias vendas (D-07): o piso na folha e as tags do Histórico.
+
+// A caixa "Já lançado" acima das Externas ao corrigir (UI-D7 revisto em 04/10/2026): uma parte por
+// venda ATIVA ligada, com o resumo dela.
+export function fraseExternasLancadas(
+  vendasAtivas: readonly { numero: number; quantidades: Quantidades }[],
+): string {
+  const partes = vendasAtivas
+    .map(
+      ({ numero, quantidades }) =>
+        `venda nº ${numero} (${resumoPmg(quantidades.p, quantidades.m, quantidades.g)})`,
+    )
+    .join(" · ");
+  return `Já lançado: ${partes}. As externas não descem abaixo disso — para baixar, cancele a venda no Caixa.`;
+}
+
+// Enquanto faltar algo: "a cobrar · R$ 11,00" (o valor do que FALTA) ou "a cobrar · falta preço";
+// nada falta → `null` (a tag não aparece).
+export function tagSituacaoDaQueima(falta: Quantidades, valorCentavos: number | null): string | null {
+  if (totalDasQuantidades(falta) === 0) {
+    return null;
+  }
+  return valorCentavos === null
+    ? `a cobrar · ${FRASE_FALTA_PRECO}`
+    : `a cobrar · ${formatarReais(valorCentavos)}`;
+}
+
+// Uma tag por venda ligada: "venda nº 12 · 2 P · em aberto" / "· paga" / "· cancelada".
+export function tagDaVendaDaQueima(venda: VendaLigada): string {
+  const resumo = resumoPmg(venda.quantidades.p, venda.quantidades.m, venda.quantidades.g);
+  const situacao = venda.cancelada ? "cancelada" : venda.paga ? "paga" : "em aberto";
+  return `venda nº ${venda.numero} · ${resumo} · ${situacao}`;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ROTULO_RECEBI_AGORA } from "@/lib/agenda/textos";
+import { ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { ItensDasQueimas, QueimaACobrar } from "@/lib/queimas/consultas";
 import { precosDosItens, resumoPmg, valorDasExternas } from "@/lib/queimas/contagem";
@@ -30,6 +30,7 @@ export type LinhaACobrarProps = {
 export function LinhaACobrar({ linha, titulo, itens, aoReceberAgora }: LinhaACobrarProps) {
   const { valorCentavos } = valorDasExternas(linha.falta, precosDosItens(itens));
   const ativas = linha.vendas.filter((venda) => !venda.cancelada);
+  const canceladas = linha.vendas.filter((venda) => venda.cancelada);
   const situacao = ativas.length > 0 ? "parcial" : "a_cobrar";
   const semPreco = valorCentavos === null;
 
@@ -78,6 +79,23 @@ export function LinhaACobrar({ linha, titulo, itens, aoReceberAgora }: LinhaACob
           )}
         </span>
       ))}
+      {canceladas.length > 0 ? (
+        // Venda cancelada no Caixa: a quantidade dela voltou para "a cobrar" (D-07, o princípio da D-08
+        // da Agenda) — a tag diz por quê (molde `tag-venda-cancelada` da Agenda).
+        <div className="col-span-2 flex flex-wrap gap-2">
+          {canceladas.map((venda) => (
+            <span
+              key={venda.documentoId}
+              data-testid="a-cobrar-venda"
+              data-documento-id={venda.documentoId}
+              data-cancelada="true"
+              className="bg-atencao-fundo text-atencao text-apoio rounded-sm px-2 font-semibold whitespace-nowrap"
+            >
+              {tagVendaCancelada(venda.numero)}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="col-span-2 flex flex-wrap justify-end gap-2 pt-1">
         <Button
           type="button"

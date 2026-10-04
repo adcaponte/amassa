@@ -128,6 +128,9 @@ export type QueimaDoHistorico = {
   registradoPorNome: string | null;
   // Fase 06.4 (UI-D20): a contagem da queima, ou `null` (sem contagem — estado válido e permanente).
   contagem: Contagem | null;
+  // Plano 04 (D-07): as vendas ligadas à queima (ativas e canceladas) — as tags do Histórico, o piso da
+  // folha em "Corrigir contagem" e a frase da exclusão.
+  vendas: VendaLigada[];
 };
 
 export type ManutencaoDoHistorico = typeof manutencoes.$inferSelect;
@@ -188,6 +191,7 @@ export async function buscarForno(id: string): Promise<FornoComHistorico | null>
   ]);
 
   const ultimaManutencao = linhasDeManutencao[0] ?? null;
+  const vendasPorQueima = await lerVendasLigadas(linhasDeQueimaRecente.map((linha) => linha.id));
 
   return {
     id: linhaDeForno.id,
@@ -203,6 +207,7 @@ export async function buscarForno(id: string): Promise<FornoComHistorico | null>
       tipo: linha.tipo,
       ocorridaEm: linha.ocorridaEm.toISOString(),
       registradoPorNome: linha.registradoPorNome,
+      vendas: vendasPorQueima.get(linha.id) ?? [],
       contagem:
         linha.contagemDe === null
           ? null

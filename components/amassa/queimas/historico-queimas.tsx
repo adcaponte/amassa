@@ -4,7 +4,17 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import type { DadosDaFolha, QueimaDoHistorico } from "@/lib/queimas/consultas";
-import { totalDaContagem, type Contagem } from "@/lib/queimas/contagem";
+import {
+  externasDaContagem,
+  faltaCobrar,
+  lancadoAtivo,
+  precosDosItens,
+  situacaoDaVenda,
+  totalDaContagem,
+  valorDasExternas,
+  type Contagem,
+  type SituacaoDaVenda,
+} from "@/lib/queimas/contagem";
 import { formatarInstanteCurto } from "@/lib/queimas/formato";
 import {
   FRASE_SEM_CONTAGEM_HISTORICO,
@@ -16,9 +26,20 @@ import {
   chipDaContagem,
   resumoDaContagem,
   rotuloDoTipo,
+  tagDaVendaDaQueima,
+  tagSituacaoDaQueima,
   type GrupoDoContador,
 } from "@/lib/queimas/textos";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+
+// A cor da tag de cada venda ligada (UI-SPEC §Histórico — D-07): em aberto neutra, paga `sucesso`,
+// cancelada `atencao` (a quantidade dela voltou para "a cobrar").
+const CLASSE_DA_TAG_DA_VENDA: Record<SituacaoDaVenda, string> = {
+  em_aberto: "bg-superficie-2 text-tinta-media",
+  paga: "bg-sucesso-fundo text-sucesso",
+  cancelada: "bg-atencao-fundo text-atencao font-semibold",
+};
 
 import { ConfirmarExcluirQueima } from "./confirmar-excluir-queima";
 import { FolhaContagem, type QueimaParaContar } from "./folha-contagem";
@@ -104,6 +125,20 @@ export function HistoricoQueimas({
                   return texto === null ? [] : [{ grupo, texto }];
                 });
           const naoSaiuCheio = contagem !== null && !contagem.saiuCheio && queima.tipo !== "ouro";
+          // Plano 04 (D-07): enquanto faltar algo, "a cobrar · R$ X" com o valor do que FALTA (preço
+          // ATUAL do Catálogo) — sem os itens (a leitura falhou), a tag não aparece; as tags das
+          // vendas ligadas continuam.
+          const falta =
+            contagem === null
+              ? null
+              : faltaCobrar(externasDaContagem(contagem), lancadoAtivo(queima.vendas));
+          const tagACobrar =
+            falta === null || dadosDaFolha?.itens == null
+              ? null
+              : tagSituacaoDaQueima(
+                  falta,
+                  valorDasExternas(falta, precosDosItens(dadosDaFolha.itens)).valorCentavos,
+                );
           const quando = formatarInstanteCurto(queima.ocorridaEm);
 
           return (
@@ -154,11 +189,37 @@ export function HistoricoQueimas({
                 )}
               </div>
 
-              {naoSaiuCheio ? (
+              {naoSaiuCheio || tagACobrar !== null || queima.vendas.length > 0 ? (
                 <div className="col-span-2 flex flex-wrap gap-2">
-                  <span className="bg-superficie-2 text-tinta-media text-apoio rounded-sm px-2">
-                    {TAG_NAO_SAIU_CHEIO}
-                  </span>
+                  {naoSaiuCheio ? (
+                    <span className="bg-superficie-2 text-tinta-media text-apoio rounded-sm px-2">
+                      {TAG_NAO_SAIU_CHEIO}
+                    </span>
+                  ) : null}
+                  {tagACobrar !== null || queima.vendas.length > 0 ? (
+                    <div
+                      data-testid={`historico-situacao-${queima.id}`}
+                      className="flex flex-wrap gap-2"
+                    >
+                      {tagACobrar !== null ? (
+                        <span className="bg-superficie-2 text-tinta-media text-apoio rounded-sm px-2">
+                          {tagACobrar}
+                        </span>
+                      ) : null}
+                      {queima.vendas.map((venda) => (
+                        <span
+                          key={venda.documentoId}
+                          data-testid={`historico-venda-${venda.documentoId}`}
+                          className={cn(
+                            "text-apoio rounded-sm px-2",
+                            CLASSE_DA_TAG_DA_VENDA[situacaoDaVenda(venda)],
+                          )}
+                        >
+                          {tagDaVendaDaQueima(venda)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -207,6 +268,9 @@ export function HistoricoQueimas({
         pecasContadas={
           queimaParaExcluir?.contagem ? totalDaContagem(queimaParaExcluir.contagem) : null
         }
+        numerosDasVendasAtivas={(queimaParaExcluir?.vendas ?? [])
+          .filter((venda) => !venda.cancelada)
+          .map((venda) => venda.numero)}
         aberto={idParaExcluir !== null}
         aoMudarAberto={(aberto) => {
           if (!aberto) {
@@ -223,6 +287,9 @@ export function HistoricoQueimas({
           nomeDoForno={nomeDoForno}
           fornoId={fornoId}
           inicial={folha?.inicial ?? null}
+          // Lidas da carga ATUAL (não guardadas na abertura): depois do `router.refresh()` de uma
+          // recusa do piso, o piso novo vem do banco.
+          vendas={queimas.find((queima) => queima.id === folha?.id)?.vendas ?? []}
         />
       )}
     </>

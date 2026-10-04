@@ -1,23 +1,35 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { toast } from "sonner";
 
+import { ROTULO_VER_NO_CAIXA } from "@/lib/agenda/textos";
+import { formatarReais } from "@/lib/financeiro/formato";
+import { hrefDoCaixa } from "@/lib/financeiro/navegacao";
 import { salvarContagem } from "@/lib/queimas/acoes";
 import type { DadosDaFolha } from "@/lib/queimas/consultas";
 import {
   CONTAGEM_VAZIA,
+  chaveDoTamanho,
   diaMes,
+  externasDaContagem,
+  lancadoAtivo,
   mesmaContagem,
+  precosDosItens,
   somarChip,
   totalDaContagem,
+  totalDasExternas,
+  totalDasQuantidades,
   ultimaContagemDoMesmoTipo,
+  valorDasExternas,
   type ChaveDoContador,
   type ChipDaOrdem,
   type Contagem,
   type Tamanho,
+  type VendaLigada,
 } from "@/lib/queimas/contagem";
 import { diaCivilEmBrasilia } from "@/lib/queimas/formato";
 import {
@@ -43,7 +55,9 @@ import {
   dicaDoRepetir,
   dicaSemAnterior,
   faixasDaRegua,
+  fraseAbaixoDoLancado,
   fraseDaReguaNaFolha,
+  fraseExternasLancadas,
   perguntaDoTamanho,
   resumoDaContagem,
   subtituloDaFolha,
@@ -95,7 +109,16 @@ export type FolhaContagemProps = {
   // esquerda vira "Fechar sem salvar" e "Salvar" com tudo zero pergunta antes de apagar (UI-D6).
   // Ausente ou `null` = contagem nova.
   inicial?: Contagem | null;
+  // Plano 04 (D-07; UI-D7 revisto em 04/10/2026): as vendas ligadas à queima — só o Histórico passa, em
+  // "Corrigir contagem". O já lançado em vendas ATIVAS é o PISO das externas de cada tamanho.
+  vendas?: readonly VendaLigada[];
 };
+
+// A recusa do piso vinda do servidor (`gravarContagem`, sob a trava): a frase de `fraseAbaixoDoLancado`.
+// A folha a reconhece pelo começo — mantém os números e relê a página, para o piso novo vir do banco.
+function ehRecusaDoPiso(frase: string): boolean {
+  return frase.startsWith("Já foi lançada") || frase.startsWith("Já foram lançadas");
+}
 
 const TAMANHOS: readonly Tamanho[] = ["P", "M", "G"];
 
@@ -129,7 +152,14 @@ function dentroDoAviso(alvo: EventTarget | null): boolean {
 // por `salvarContagem`. Os três pontos de entrada usam este componente: depois do registro
 // (`RegistrarQueima`, que a renderiza nos dois ramos — sobrevive ao `router.refresh()`, Pitfall 2),
 // "Contar agora" da lista "Sem contagem" e o Histórico. Esc e toque fora fecham SÓ se nada foi
-// mexido (UI-D18); tocar o aviso nunca fecha. As externas já lançadas e o piso na tela são do plano 04.
+// mexido (UI-D18); tocar o aviso nunca fecha.
+//
+// Plano 04 (D-07; UI-D7 revisto em 04/10/2026): ao corrigir uma queima com peças lançadas em venda
+// ATIVA, a caixa "Já lançado: venda nº … (…)" com "ver no Caixa" fica acima das Externas, e cada
+// tamanho das externas tem PISO = o já lançado ativo (o "−" para nele; um número digitado abaixo volta
+// ao piso ao sair do campo, com a frase do porquê). Subir é livre; internas e "saiu cheio" também. O
+// servidor recusa abaixo do piso de novo, sob a trava. À direita de "Externas", o valor das externas
+// contadas pelo preço ATUAL do Catálogo.
 export function FolhaContagem({ queima, ...resto }: FolhaContagemProps) {
   if (queima === null) {
     return null;
@@ -146,6 +176,7 @@ function FolhaAberta({
   fornoId,
   aoSalvar,
   inicial: gravada = null,
+  vendas = [],
 }: Omit<FolhaContagemProps, "queima"> & { queima: QueimaParaContar }) {
   const router = useRouter();
   const emVoo = useRef(false);
@@ -172,6 +203,17 @@ function FolhaAberta({
 
   const total = totalDaContagem(contagem);
   const ouro = queima.tipo === "ouro";
+  // O piso das externas (D-07): o já lançado em vendas ATIVAS, por tamanho — vem do banco a cada carga
+  // (a venda cancelada no Caixa baixa o piso sozinha).
+  const vendasAtivas = vendas.filter((venda) => !venda.cancelada);
+  const piso = lancadoAtivo(vendas);
+  const comLancado = totalDasQuantidades(piso) > 0;
+  // O valor das externas CONTADAS, à direita de "Externas" (a folha fala da contagem; "a cobrar" e o
+  // Histórico falam do que falta). Sem os itens (a leitura falhou), nada.
+  const valorDasContadas =
+    dados.itens === null || totalDasExternas(contagem) === 0
+      ? null
+      : valorDasExternas(externasDaContagem(contagem), precosDosItens(dados.itens));
   // Chips (QMC-06, D-06): biscoito ↔ ordens na etapa `queima1`, esmalte ↔ `queima2`; ouro nunca. A
   // leitura da Produção que falhou (`chips: null`) só esconde a área (UI-D28).
   const chips: readonly ChipDaOrdem[] =
@@ -205,6 +247,16 @@ function FolhaAberta({
   function mudar(chave: ChaveDoContador, valor: number) {
     setErro(null);
     setContagem((atual) => ({ ...atual, [chave]: valor }));
+  }
+
+  // A frase do piso de um tamanho, com as vendas ATIVAS que têm aquele tamanho — a mesma do servidor.
+  function fraseDoPiso(tamanho: Tamanho): string {
+    const chave = chaveDoTamanho(tamanho);
+    return fraseAbaixoDoLancado(
+      tamanho,
+      piso[chave],
+      vendasAtivas.filter((venda) => venda.quantidades[chave] > 0).map((venda) => venda.numero),
+    );
   }
 
   // Um toque num chip soma as pendentes nas INTERNAS do tamanho delas. Só leitura da Produção: nada
@@ -242,13 +294,24 @@ function FolhaAberta({
   }
 
   // Copia os seis números e o "saiu cheio" da anterior — SOBRESCREVE (tocar duas vezes dá o mesmo).
-  // Os chips voltam a tocáveis: o que eles tinham somado foi sobrescrito.
+  // Os chips voltam a tocáveis: o que eles tinham somado foi sobrescrito. Com peça lançada em venda
+  // ativa (D-07, UI-D10), copia só as internas e o "saiu cheio": as externas ficam como estão.
   function repetirAUltima() {
     if (anterior === null || salvando) {
       return;
     }
     setErro(null);
-    setContagem({ ...anterior.contagem });
+    setContagem((atual) =>
+      comLancado
+        ? {
+            ...atual,
+            internasP: anterior.contagem.internasP,
+            internasM: anterior.contagem.internasM,
+            internasG: anterior.contagem.internasG,
+            saiuCheio: anterior.contagem.saiuCheio,
+          }
+        : { ...anterior.contagem },
+    );
     setSomados(new Set());
     setPerguntando(null);
   }
@@ -279,8 +342,12 @@ function FolhaAberta({
           toast.error(resposta.erro);
           aoFechar();
         } else {
-          // Inclusive o piso da D-07: a frase fica na folha e os números FICAM.
+          // Inclusive o piso da D-07: a frase fica na folha e os números FICAM; com o piso, a página é
+          // relida para o piso novo (outra venda pode ter acabado de nascer) vir do banco.
           setErro(resposta.erro);
+          if (ehRecusaDoPiso(resposta.erro)) {
+            router.refresh();
+          }
         }
         return;
       }
@@ -330,12 +397,39 @@ function FolhaAberta({
           <span className="text-corpo text-tinta font-semibold">
             {interno ? ROTULO_INTERNAS : ROTULO_EXTERNAS}
           </span>
+          {!interno && valorDasContadas !== null && valorDasContadas.valorCentavos !== null ? (
+            <span
+              data-testid="contagem-valor-externas"
+              className="text-corpo text-tinta ml-auto font-semibold whitespace-nowrap tabular-nums"
+            >
+              {formatarReais(valorDasContadas.valorCentavos)}
+            </span>
+          ) : null}
         </div>
         <p className="text-apoio text-tinta-fraca">
           {interno ? DICA_INTERNAS : DICA_EXTERNAS}
         </p>
+        {!interno && comLancado ? (
+          <div
+            data-testid="externas-lancadas"
+            className="bg-superficie-2 text-tinta-media text-apoio flex items-start gap-2 rounded-md p-4"
+          >
+            <Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <div className="flex min-w-0 flex-col items-start gap-1">
+              <p className="[overflow-wrap:anywhere]">{fraseExternasLancadas(vendasAtivas)}</p>
+              <Link
+                href={hrefDoCaixa()}
+                className="text-acento focus-visible:ring-ring inline-flex min-h-[44px] items-center font-semibold underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+              >
+                {ROTULO_VER_NO_CAIXA}
+              </Link>
+            </div>
+          </div>
+        ) : null}
         {TAMANHOS.map((tamanho) => {
           const chave = chaveDoContador(nome, tamanho);
+          // O piso só vale para as externas: internas e "saiu cheio" continuam livres.
+          const minimo = interno ? 0 : piso[chaveDoTamanho(tamanho)];
           return (
             <ContadorTamanho
               key={tamanho}
@@ -345,6 +439,10 @@ function FolhaAberta({
               valor={contagem[chave]}
               aoMudar={(valor) => mudar(chave, valor)}
               desabilitado={salvando}
+              minimo={minimo}
+              aoFicarAbaixoDoMinimo={
+                minimo > 0 ? () => setErro(fraseDoPiso(tamanho)) : undefined
+              }
             />
           );
         })}
