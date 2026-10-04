@@ -24,6 +24,14 @@ import {
   type InsumoDisponivel,
 } from "../../lib/cadastros/catalogo";
 import { esquemaAtivacaoDeItem } from "../../lib/cadastros/esquemas";
+import {
+  FRASE_ITEM_DAS_QUEIMAS,
+  FRASE_ITEM_DO_SISTEMA,
+  LINHA_ITEM_DAS_QUEIMAS,
+  LINHA_ITEM_DO_SISTEMA,
+  fraseDoItemDoSistema,
+  linhaDoItemDoSistema,
+} from "../../lib/cadastros/textos";
 
 const CATEGORIA_VENDA_ID = "11111111-1111-1111-1111-111111111111";
 const CATEGORIA_COMPRA_ID = "22222222-2222-2222-2222-222222222222";
@@ -398,5 +406,35 @@ describe("esquemaAtivacaoDeItem", () => {
 
   it("recusa ativo que não é booleano", () => {
     expect(esquemaAtivacaoDeItem.safeParse({ id: UUID_VALIDO, ativo: "sim" }).success).toBe(false);
+  });
+});
+
+// Fase 06.4, plano 04 (D-05; assumption delta "promote"): a linha do diálogo e a frase de recusa dos
+// itens do sistema são escolhidas PELA CHAVE — as da Agenda continuam literais.
+describe("linhaDoItemDoSistema / fraseDoItemDoSistema", () => {
+  it("chave das Queimas → as frases das Queimas", () => {
+    for (const chave of ["queima_externa_p", "queima_externa_m", "queima_externa_g"]) {
+      expect(linhaDoItemDoSistema(chave)).toBe(
+        "Usado pelas Queimas — não se desativa nem sai da Venda. Nome, preço e categoria podem mudar.",
+      );
+      expect(fraseDoItemDoSistema(chave)).toBe(
+        "Este item é usado pelas Queimas e não se desativa. Nome, preço e categoria podem mudar.",
+      );
+    }
+    expect(LINHA_ITEM_DAS_QUEIMAS).toBe(linhaDoItemDoSistema("queima_externa_m"));
+    expect(FRASE_ITEM_DAS_QUEIMAS).toBe(fraseDoItemDoSistema("queima_externa_m"));
+  });
+
+  it("chave da Agenda (ou nula) → exatamente as constantes da Agenda, intocadas", () => {
+    for (const chave of ["uso_livre_hora", "mensalidade", "inscricao_oficina", null]) {
+      expect(linhaDoItemDoSistema(chave)).toBe(LINHA_ITEM_DO_SISTEMA);
+      expect(fraseDoItemDoSistema(chave)).toBe(FRASE_ITEM_DO_SISTEMA);
+    }
+    expect(LINHA_ITEM_DO_SISTEMA).toBe(
+      "Usado pela Agenda — não se desativa nem sai da Venda. Nome, preço e categoria podem mudar.",
+    );
+    expect(FRASE_ITEM_DO_SISTEMA).toBe(
+      "Este item é usado pela Agenda e não se desativa. Nome, preço e categoria podem mudar.",
+    );
   });
 });

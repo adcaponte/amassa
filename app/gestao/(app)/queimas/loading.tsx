@@ -24,12 +24,16 @@ export default function CarregandoQueimas() {
               <Skeleton className="h-5 w-20" />
             </div>
 
-            {/* bloco do medidor: contador + trilho + rótulos */}
+            {/* bloco do medidor: contador + trilho + as duas fileiras de rótulos (D-04) */}
             <div className="flex flex-col gap-1">
               <Skeleton className="ml-auto h-4 w-16" />
               <Skeleton className="h-3 w-full rounded-full" />
               <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full" />
             </div>
+
+            {/* a linha "Contagem: …" (Fase 06.4, QMC-09) */}
+            <Skeleton className="h-4 w-2/3" />
 
             {/* bloco do rodapé: duas linhas */}
             <div className="flex flex-col gap-1">

@@ -1,3 +1,4 @@
+import { ladoDoRotuloDeAtencao } from "@/lib/queimas/contagem";
 import type { MedidaDoForno } from "@/lib/queimas/contador";
 import { ROTULO_MEDIDOR_ATENCAO, ROTULO_MEDIDOR_LIMITE } from "@/lib/queimas/textos";
 
@@ -83,22 +84,37 @@ export function Medidor({ contador, limite, atencao, nivel }: MedidorProps) {
         />
       </div>
 
-      {/* Rótulos: "0" à esquerda, "atenção N" na mesma fração da marca do limiar, "limite N" à
-          direita — literal de `04-DESIGN-SYSTEM.md` §8, nunca omitido. */}
-      <div className="text-micro text-tinta-fraca relative mt-1 h-4 tracking-wide">
-        <span className="absolute left-0" data-testid="medidor-rotulo-zero">
-          0
-        </span>
-        <span
-          className="absolute -translate-x-1/2 whitespace-nowrap"
-          style={{ left: `${fracaoDoLimiar * 100}%` }}
-          data-testid="medidor-rotulo-atencao"
-        >
-          {ROTULO_MEDIDOR_ATENCAO} {atencao}
-        </span>
-        <span className="absolute right-0" data-testid="medidor-rotulo-limite">
-          {ROTULO_MEDIDOR_LIMITE} {limite}
-        </span>
+      {/* Rótulos "0", "atenção N" e "limite N" — literal de `04-DESIGN-SYSTEM.md` §8, nunca
+          omitido (FOR-05). D-04 (Fase 06.4, UI-D2): até aqui os três ficavam numa fileira só, com
+          "atenção N" CENTRADO na marca, e colidiam de dois jeitos — com o limite padrão 100, "atenção
+          90" (centrado em 90 %) caía em cima de "limite 100", ancorado à direita; com o limite 10,
+          "atenção 1" (centrado em 10 %) caía em cima do "0". Num trilho de celular não existe posição
+          numa fileira só onde os três caibam. Agora são DUAS fileiras: na 1ª, "0" e "limite N" nas
+          pontas; na 2ª, "atenção N" sozinho, ANCORADO na marca sem centralizar — começa nela na
+          metade esquerda do trilho e termina nela a partir da metade (`ladoDoRotuloDeAtencao`), então
+          o texto cresce para o lado que tem ao menos metade do trilho e nunca passa da borda. */}
+      <div className="mt-1 flex flex-col gap-1">
+        <div className="text-micro text-tinta-fraca relative h-4 tracking-wide">
+          <span className="absolute left-0" data-testid="medidor-rotulo-zero">
+            0
+          </span>
+          <span className="absolute right-0 whitespace-nowrap" data-testid="medidor-rotulo-limite">
+            {ROTULO_MEDIDOR_LIMITE} {limite}
+          </span>
+        </div>
+        <div className="text-micro text-tinta-fraca relative h-4 tracking-wide">
+          <span
+            className="absolute whitespace-nowrap"
+            style={
+              ladoDoRotuloDeAtencao(fracaoDoLimiar) === "comeca-na-marca"
+                ? { left: `${fracaoDoLimiar * 100}%` }
+                : { right: `${(1 - fracaoDoLimiar) * 100}%` }
+            }
+            data-testid="medidor-rotulo-atencao"
+          >
+            {ROTULO_MEDIDOR_ATENCAO} {atencao}
+          </span>
+        </div>
       </div>
     </div>
   );

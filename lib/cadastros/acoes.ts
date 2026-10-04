@@ -52,7 +52,7 @@ import {
   FRASE_CONTA_FIXA_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_SALVAR,
   FRASE_ITEM_COM_MOVIMENTACAO,
-  FRASE_ITEM_DO_SISTEMA,
+  fraseDoItemDoSistema,
   FRASE_ITEM_NAO_EXISTE_MAIS,
   FRASE_MES_DE_GERACAO_INVALIDO,
   FRASE_NOME_REPETIDO,
@@ -131,7 +131,9 @@ function ehErroDoItemDoSistema(erro: unknown): boolean {
     const { where, message } = candidato as { where?: unknown; message?: unknown };
     return (
       (typeof where === "string" && where.includes("travar_item_do_sistema")) ||
-      (typeof message === "string" && message.includes("Este item é usado pela Agenda"))
+      (typeof message === "string" &&
+        (message.includes("Este item é usado pela Agenda") ||
+          message.includes("Este item é usado pelas Queimas")))
     );
   });
 }
@@ -520,6 +522,9 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
   const dados = resultado.data;
+  // A chave do item lido na transação — a frase da recusa do item do sistema é escolhida por ela
+  // (Agenda × Queimas, Fase 06.4 D-05), também no `catch`.
+  let chaveDoItem: string | null = null;
 
   try {
     await db.transaction(async (tx) => {
@@ -539,6 +544,7 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
       if (!itemAtual) {
         throw new ItemNaoEncontrado();
       }
+      chaveDoItem = itemAtual.chaveDoSistema;
 
       const idsDeCategorias = [dados.categoriaVendaId, dados.categoriaCompraId].filter(
         (id): id is string => id !== null,
@@ -657,7 +663,7 @@ export async function editarItem(entradaBruta: unknown): Promise<ResultadoDeAcao
       return { ok: false, erro: FRASE_ITEM_COM_MOVIMENTACAO };
     }
     if (ehErroDoItemDoSistema(erro)) {
-      return { ok: false, erro: FRASE_ITEM_DO_SISTEMA };
+      return { ok: false, erro: fraseDoItemDoSistema(chaveDoItem) };
     }
     if (erro instanceof ItemNaoEncontrado) {
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };
@@ -695,6 +701,8 @@ export async function definirItemAtivo(
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
   const { id, ativo } = resultado.data;
+  // A chave do item lido na transação — escolhe a frase da recusa (Agenda × Queimas) no `catch`.
+  let chaveDoItem: string | null = null;
 
   try {
     const nome = await db.transaction(async (tx) => {
@@ -707,8 +715,9 @@ export async function definirItemAtivo(
       if (!itemAtual) {
         throw new ItemNaoEncontrado();
       }
+      chaveDoItem = itemAtual.chaveDoSistema;
 
-      // D-17: os três itens da Agenda não se desativam — recusado aqui, sob a trava, antes do
+      // D-17: os itens do sistema (Agenda e, desde a Fase 06.4, Queimas) não se desativam — recusado aqui, sob a trava, antes do
       // gatilho `travar_item_do_sistema` (a última camada, mesma frase no `catch`).
       if (!ativo && itemAtual.chaveDoSistema !== null) {
         throw new ItemDoSistemaNaoSeDesativa();
@@ -739,7 +748,7 @@ export async function definirItemAtivo(
     return { ok: true, dados: { id, ativo, nome } };
   } catch (erro) {
     if (erro instanceof ItemDoSistemaNaoSeDesativa || ehErroDoItemDoSistema(erro)) {
-      return { ok: false, erro: FRASE_ITEM_DO_SISTEMA };
+      return { ok: false, erro: fraseDoItemDoSistema(chaveDoItem) };
     }
     if (erro instanceof ItemNaoEncontrado) {
       return { ok: false, erro: FRASE_ITEM_NAO_EXISTE_MAIS };

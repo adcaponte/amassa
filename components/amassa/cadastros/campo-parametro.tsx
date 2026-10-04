@@ -17,6 +17,9 @@ export type CampoParametroProps = {
   // Já formatada por quem chama (`formatarDataCurta`, lib/financeiro/formato.ts) — este
   // componente nunca formata data sozinho (mesma disciplina de `lib/precificacao/textos.ts`).
   desdeFormatado: string;
+  // A régua das Queimas (Fase 06.4, UI-D11): estimado/medido não se aplica — sem o botão do selo. O
+  // resto do campo, o "desde" e o comportamento de falha ficam iguais.
+  semSelo?: boolean;
 };
 
 // Até 3 casas (a maior precisão entre as três unidades — dinheiro e percentual usam no máximo 2),
@@ -44,6 +47,7 @@ export function CampoParametro({
   valorInteiro,
   medido,
   desdeFormatado,
+  semSelo = false,
 }: CampoParametroProps) {
   const [valorTexto, setValorTexto] = useState(() => formatarValor(valorNaUnidade(chave, valorInteiro)));
   const [enviando, setEnviando] = useState(false);
@@ -122,21 +126,23 @@ export function CampoParametro({
         {rotuloDesde(desdeFormatado)}
       </span>
 
-      <button
-        type="button"
-        aria-pressed={medido}
-        data-testid={`parametro-selo-${chave}`}
-        disabled={alternandoSelo}
-        onClick={() => void alternarSelo()}
-        className={cn(
-          "text-apoio flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border px-3 font-medium disabled:opacity-60",
-          medido
-            ? "border-sucesso bg-sucesso-fundo text-sucesso"
-            : "border-borda-forte bg-superficie text-tinta-media",
-        )}
-      >
-        {medido ? ROTULO_SELO_MEDIDO : ROTULO_SELO_ESTIMADO}
-      </button>
+      {semSelo ? null : (
+        <button
+          type="button"
+          aria-pressed={medido}
+          data-testid={`parametro-selo-${chave}`}
+          disabled={alternandoSelo}
+          onClick={() => void alternarSelo()}
+          className={cn(
+            "text-apoio flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border px-3 font-medium disabled:opacity-60",
+            medido
+              ? "border-sucesso bg-sucesso-fundo text-sucesso"
+              : "border-borda-forte bg-superficie text-tinta-media",
+          )}
+        >
+          {medido ? ROTULO_SELO_MEDIDO : ROTULO_SELO_ESTIMADO}
+        </button>
+      )}
     </div>
   );
 }

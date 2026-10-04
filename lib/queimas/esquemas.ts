@@ -3,6 +3,16 @@
 // própria. Validação no cliente é conveniência; esta é a que vale (CLAUDE.md §Validação).
 import { z } from "zod";
 
+import { FORMAS_DE_RECEBER } from "@/lib/agenda/esquemas";
+import { FRASE_FALHA_AO_RECEBER } from "@/lib/agenda/textos";
+
+import { TETO_DO_CONTADOR, totalDaContagem, totalDasQuantidades } from "./contagem";
+import {
+  FRASE_CONTAGEM_VAZIA,
+  FRASE_NENHUMA_PECA_PARA_COBRAR,
+  FRASE_TETO_DO_CONTADOR,
+} from "./textos";
+
 // Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 (`String.length`) —
 // é assim que o `length()` do Postgres conta (`fornos_nome_comprimento`), e os dois divergem
 // para qualquer texto fora do plano básico (emoji, acentos compostos). Mesma disciplina de
@@ -109,3 +119,68 @@ export const esquemaManutencao = z.object({
 });
 
 export type EntradaDeManutencao = z.infer<typeof esquemaManutencao>;
+
+// Fase 06.4 — a contagem opcional de uma queima (QMC-01/QMC-03; BRIEFING §2). Seis contadores
+// inteiros 0..10000 e "o forno saiu cheio". Os tetos são os checks `queima_contagens_*` da 0030 —
+// duas cópias deliberadas (o Zod dá a frase; o check é a barreira se o Zod for contornado): mudar
+// um é mudar os dois, no mesmo commit. Total 0 é recusado (o check `queima_contagens_alguma_peca`):
+// "sem contagem" é a ausência da linha — a tela nunca manda isso (fecha como "Pular").
+//
+// O esquema NÃO aceita vínculo com venda nem quantidade de venda: esses só nascem nas ações de
+// cobrança (planos 04 e 05), sob a trava da queima. `contado_por` vem da sessão, nunca daqui.
+const contador = z
+  .number({ error: FRASE_TETO_DO_CONTADOR })
+  .int({ error: FRASE_TETO_DO_CONTADOR })
+  .min(0, { error: FRASE_TETO_DO_CONTADOR })
+  .max(TETO_DO_CONTADOR, { error: FRASE_TETO_DO_CONTADOR });
+
+export const esquemaContagem = z
+  .object({
+    queimaId: esquemaId,
+    internasP: contador,
+    internasM: contador,
+    internasG: contador,
+    externasP: contador,
+    externasM: contador,
+    externasG: contador,
+    saiuCheio: z.boolean({ error: "Não deu para validar os dados enviados." }),
+  })
+  .refine((dados) => totalDaContagem(dados) > 0, { error: FRASE_CONTAGEM_VAZIA });
+
+export type EntradaDeContagem = z.infer<typeof esquemaContagem>;
+
+// Fase 06.4, plano 02 — apagar a contagem de uma queima ("Salvar" com tudo zero numa contagem
+// existente, depois de confirmar — UI-D6).
+export const esquemaApagarContagem = z.object({ queimaId: esquemaId });
+
+export type EntradaDeApagarContagem = z.infer<typeof esquemaApagarContagem>;
+
+// Fase 06.4, plano 04 — "Recebi agora" das externas (QMC-08; D-07). Do navegador chegam SÓ a queima,
+// a forma, as quantidades pedidas por tamanho (o passo de quantidade) e, OPCIONAL, a pessoa (decisão do
+// dono de 04/10/2026 — UI-D13 revista: o id de um cadastro de `clientes`; o NOME gravado na venda é lido
+// do banco, nunca daqui). O que falta, os preços e as linhas são relidos no banco sob a trava da queima
+// (`cobrarQueimaNaTransacao`) — nenhum valor, linha ou preço vem do navegador (T-06.4-22).
+const quantidadeDaCobranca = z
+  .number({ error: FRASE_FALHA_AO_RECEBER })
+  .int({ error: FRASE_FALHA_AO_RECEBER })
+  .min(0, { error: FRASE_FALHA_AO_RECEBER })
+  .max(TETO_DO_CONTADOR, { error: FRASE_FALHA_AO_RECEBER });
+
+export const esquemaReceberQueima = z.object(
+  {
+    queimaId: esquemaId,
+    forma: z.enum(FORMAS_DE_RECEBER, { error: FRASE_FALHA_AO_RECEBER }),
+    quantidades: z
+      .object(
+        { p: quantidadeDaCobranca, m: quantidadeDaCobranca, g: quantidadeDaCobranca },
+        { error: FRASE_FALHA_AO_RECEBER },
+      )
+      .refine((quantidades) => totalDasQuantidades(quantidades) > 0, {
+        error: FRASE_NENHUMA_PECA_PARA_COBRAR,
+      }),
+    clienteId: z.uuid({ error: FRASE_FALHA_AO_RECEBER }).nullable().default(null),
+  },
+  { error: FRASE_FALHA_AO_RECEBER },
+);
+
+export type EntradaDeReceberQueima = z.infer<typeof esquemaReceberQueima>;

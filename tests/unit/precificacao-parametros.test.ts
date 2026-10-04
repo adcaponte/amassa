@@ -2,18 +2,60 @@ import { describe, expect, it } from "vitest";
 
 import {
   CATALOGO_DE_PARAMETROS,
+  chavesQueFaltam,
   inteiroDaUnidade,
+  semSeloDoParametro,
   valorNaUnidade,
   vigenteEm,
   type LinhaDeParametro,
 } from "@/lib/precificacao/parametros";
+import {
+  FRASE_REGUA_AUSENTE,
+  FRASE_REGUA_MAIOR_QUE_ZERO,
+  FRASE_REGUA_P_MENOR_QUE_M,
+} from "@/lib/precificacao/textos";
+import { esquemaValorDeParametro } from "@/lib/precificacao/esquemas";
+import { dicaDaReguaNosParametros } from "@/lib/queimas/textos";
 
 // 04.5-01-PLAN.md, Tarefa 2 — o catálogo fechado de parâmetros, a conversão de unidade exibida
 // ↔ inteiro guardado, e a leitura do "vigente na data".
 
 describe("CATALOGO_DE_PARAMETROS", () => {
-  it("tem exatamente 18 entradas", () => {
-    expect(CATALOGO_DE_PARAMETROS).toHaveLength(18);
+  // Fase 06.4 (D-03): as 18 do cálculo + as duas da régua P · M · G das Queimas.
+  it("tem exatamente 20 entradas", () => {
+    expect(CATALOGO_DE_PARAMETROS).toHaveLength(20);
+  });
+
+  it("os grupos, na ordem do catálogo, terminam em Queimas", () => {
+    expect([...new Set(CATALOGO_DE_PARAMETROS.map((item) => item.grupo))]).toEqual([
+      "Material",
+      "Trabalho",
+      "Forno",
+      "Perda",
+      "No preço",
+      "Queimas",
+    ]);
+  });
+
+  it("as duas da régua são em cm, escala 1000, e as ÚNICAS marcadas foraDoCalculo", () => {
+    const fora = CATALOGO_DE_PARAMETROS.filter((item) => item.foraDoCalculo === true);
+    expect(fora.map((item) => item.chave)).toEqual(["queima_regua_p_ate", "queima_regua_m_ate"]);
+    for (const item of fora) {
+      expect(item.grupo).toBe("Queimas");
+      expect(item.unidade).toBe("cm");
+      expect(item.escala).toBe(1000);
+    }
+    expect(fora.map((item) => item.rotulo)).toEqual([
+      "P (pequena) vai até",
+      "M (média) vai até — acima disso é G",
+    ]);
+  });
+
+  it("semSeloDoParametro: só a régua não tem o selo estimado/medido", () => {
+    expect(semSeloDoParametro("queima_regua_p_ate")).toBe(true);
+    expect(semSeloDoParametro("queima_regua_m_ate")).toBe(true);
+    expect(semSeloDoParametro("forno_fator_biscoito")).toBe(false);
+    expect(semSeloDoParametro("material_argila")).toBe(false);
   });
 
   it("a taxa do cartão NÃO é uma chave de parâmetro (D-16)", () => {
@@ -23,7 +65,7 @@ describe("CATALOGO_DE_PARAMETROS", () => {
 
   it("cada entrada declara grupo, rótulo, unidade e escala", () => {
     for (const item of CATALOGO_DE_PARAMETROS) {
-      expect(["Material", "Trabalho", "Forno", "Perda", "No preço"]).toContain(item.grupo);
+      expect(["Material", "Trabalho", "Forno", "Perda", "No preço", "Queimas"]).toContain(item.grupo);
       expect(item.rotulo.length).toBeGreaterThan(0);
       expect(item.unidade.length).toBeGreaterThan(0);
       expect(item.escala).toBeGreaterThan(0);
@@ -83,5 +125,83 @@ describe("vigenteEm", () => {
 
   it("histórico vazio devolve null", () => {
     expect(vigenteEm([], "2026-09-26")).toBeNull();
+  });
+});
+
+// Fase 06.4, plano 03 — a régua fora do cálculo: `parametrosVigentes` decide o `faltando` por esta
+// função pura, que só olha as 18 chaves do cálculo. É a prova, sem banco, de que Orçamentos,
+// Produção, Estoque, Cadastros e o Financeiro continuam em `ok` antes da 0030 (régua ausente).
+describe("chavesQueFaltam", () => {
+  const DO_CALCULO = CATALOGO_DE_PARAMETROS.filter((item) => item.foraDoCalculo !== true).map(
+    (item) => item.chave,
+  );
+
+  it("as 18 do cálculo são as 18 de sempre", () => {
+    expect(DO_CALCULO).toHaveLength(18);
+    expect(DO_CALCULO.some((chave) => chave.startsWith("queima_"))).toBe(false);
+  });
+
+  it("com as 18 do cálculo e sem a régua, nada falta", () => {
+    expect(chavesQueFaltam(new Set(DO_CALCULO))).toEqual([]);
+  });
+
+  it("sem a argila, falta só a argila", () => {
+    expect(
+      chavesQueFaltam(new Set(DO_CALCULO.filter((chave) => chave !== "material_argila"))),
+    ).toEqual(["material_argila"]);
+  });
+
+  it("com as 20, nada falta", () => {
+    expect(chavesQueFaltam(new Set(CATALOGO_DE_PARAMETROS.map((item) => item.chave)))).toEqual([]);
+  });
+
+  it("vazio → as 18, na ordem do catálogo, sem nenhuma da régua", () => {
+    expect(chavesQueFaltam(new Set())).toEqual(DO_CALCULO);
+  });
+});
+
+describe("a régua em Parâmetros — frases (06.4-UI-SPEC.md)", () => {
+  it("a dica com a régua de hoje por extenso", () => {
+    expect(dicaDaReguaNosParametros({ pAte: 10000, mAte: 25000 })).toBe(
+      "Régua de hoje: P até 10 cm · M de 10 a 25 cm · G maior que 25 cm. Vale para internas e externas; a contagem é no olho, pela maior medida da peça. Mudar a régua não muda as contagens já feitas.",
+    );
+    expect(dicaDaReguaNosParametros({ pAte: 12500, mAte: 30000 })).toContain(
+      "P até 12,5 cm · M de 12,5 a 30 cm · G maior que 30 cm.",
+    );
+  });
+
+  it("as recusas e a régua ausente", () => {
+    expect(FRASE_REGUA_P_MENOR_QUE_M).toBe("O limite do P precisa ser menor que o do M.");
+    expect(FRASE_REGUA_MAIOR_QUE_ZERO).toBe("A medida precisa ser maior que zero.");
+    expect(FRASE_REGUA_AUSENTE).toBe(
+      "A régua P · M · G ainda não está no banco. Ela chega com a atualização das Queimas — até lá, as queimas registram sem a folha de contagem.",
+    );
+  });
+});
+
+// O zero da régua chega a `definirParametro` (que o recusa com a frase da régua); o zero das outras
+// medidas continua recusado no esquema, como sempre.
+describe("esquemaValorDeParametro — zero na régua", () => {
+  it("régua: “0” passa o esquema como 0 (a recusa é de definirParametro)", () => {
+    const resultado = esquemaValorDeParametro.safeParse({
+      chave: "queima_regua_p_ate",
+      valorTexto: "0",
+    });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.valorInteiro).toBe(0);
+  });
+
+  it("régua: 12,5 cm → 12500", () => {
+    const resultado = esquemaValorDeParametro.safeParse({
+      chave: "queima_regua_m_ate",
+      valorTexto: "12,5",
+    });
+    expect(resultado.data?.valorInteiro).toBe(12500);
+  });
+
+  it("as outras medidas continuam recusando zero no esquema", () => {
+    expect(
+      esquemaValorDeParametro.safeParse({ chave: "forno_largura_util", valorTexto: "0" }).success,
+    ).toBe(false);
   });
 });

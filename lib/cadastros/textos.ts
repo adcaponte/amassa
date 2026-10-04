@@ -150,14 +150,34 @@ export const FRASE_ITEM_COM_MOVIMENTACAO =
 export const ROTULO_CHIP_DESATIVADO = "Desativado";
 export const ROTULO_DESATIVAR_ITEM = "Desativar item";
 
-// Os três itens do sistema da Agenda (Fase 5, D-17; 05-UI-SPEC.md §Cadastros → Catálogo, §Erros).
-// A frase do erro é a MESMA do `raise` do gatilho `travar_item_do_sistema` (0026) — a tela mostra
-// esta constante, nunca o texto cru do banco.
+// Os itens do sistema da Agenda (Fase 5, D-17; 05-UI-SPEC.md §Cadastros → Catálogo, §Erros) e das
+// Queimas (Fase 06.4, D-05: "Queima externa P/M/G"). A frase do erro é a MESMA do `raise` do gatilho
+// `travar_item_do_sistema` (0026; reescrito na 0030 com a frase por chave) — a tela mostra estas
+// constantes, nunca o texto cru do banco. As da Agenda continuam LITERAIS; quem escolhe entre os dois
+// módulos é a CHAVE do item (`linhaDoItemDoSistema`, `fraseDoItemDoSistema`), nunca o nome.
 export const CHIP_DO_SISTEMA = "do sistema";
 export const LINHA_ITEM_DO_SISTEMA =
   "Usado pela Agenda — não se desativa nem sai da Venda. Nome, preço e categoria podem mudar.";
 export const FRASE_ITEM_DO_SISTEMA =
   "Este item é usado pela Agenda e não se desativa. Nome, preço e categoria podem mudar.";
+export const LINHA_ITEM_DAS_QUEIMAS =
+  "Usado pelas Queimas — não se desativa nem sai da Venda. Nome, preço e categoria podem mudar.";
+export const FRASE_ITEM_DAS_QUEIMAS =
+  "Este item é usado pelas Queimas e não se desativa. Nome, preço e categoria podem mudar.";
+
+function ehItemDasQueimas(chave: string | null): boolean {
+  return chave !== null && chave.startsWith("queima_externa_");
+}
+
+// A linha sob o chip "do sistema" no diálogo do item, pela chave. Chave nula → a da Agenda (como antes).
+export function linhaDoItemDoSistema(chave: string | null): string {
+  return ehItemDasQueimas(chave) ? LINHA_ITEM_DAS_QUEIMAS : LINHA_ITEM_DO_SISTEMA;
+}
+
+// A frase da recusa de desativar/tirar da Venda, pela chave do item lido na transação.
+export function fraseDoItemDoSistema(chave: string | null): string {
+  return ehItemDasQueimas(chave) ? FRASE_ITEM_DAS_QUEIMAS : FRASE_ITEM_DO_SISTEMA;
+}
 export const ROTULO_REATIVAR_ITEM = "Reativar item";
 export const ROTULO_REATIVANDO = "Reativando…";
 

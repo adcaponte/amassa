@@ -44,16 +44,42 @@ export function formaDaUrl(valor: string | null | undefined): FormaDoFiltroDoExt
   return "todas";
 }
 
-// A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa, UI-D26): o
-// “Lançar na Venda” abre `?aba=venda&origem={tipo}:{uuid}`. A união é REDECLARADA aqui (nenhum
-// import da Agenda: este módulo continua sem import nenhum); os três tipos são os de
-// `lib/agenda/receber.ts::TIPOS_DE_COBRANCA`. A origem só diz QUAL cobrança — a página resolve tudo
-// o mais no servidor (`cobrancaParaVenda`), e `lancarVenda` sobrescreve pessoa, cliente e descrição.
-export type TipoDaOrigemDaVenda = "mensalidade" | "inscricao" | "uso_livre";
+// A Venda aberta por OUTRO módulo — a Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa,
+// UI-D26) e, desde a Fase 06.4 (plano 05 — QMC-08, D-07), as Queimas: o “Lançar na Venda” abre
+// `?aba=venda&origem={tipo}:{uuid}`. A união é REDECLARADA aqui (nenhum import da Agenda nem das
+// Queimas: este módulo continua sem import nenhum); os três primeiros tipos são os de
+// `lib/agenda/receber.ts::TIPOS_DE_COBRANCA`, e `queima` é uma queima com externas a cobrar. A origem
+// só diz QUAL cobrança — a página resolve tudo o mais no servidor (`cobrancaParaVenda` na Agenda,
+// `queimaParaVenda` nas Queimas), e `lancarVenda` relê a origem sob a trava do módulo dono dela.
+export type TipoDaOrigemDaVenda = "mensalidade" | "inscricao" | "uso_livre" | "queima";
 export type OrigemDaVenda = { tipo: TipoDaOrigemDaVenda; id: string };
+// As origens da Agenda — o caminho de antes da Fase 06.4, intocado (`vincularCobranca`, pessoa travada).
+export type TipoDaOrigemDaAgenda = Exclude<TipoDaOrigemDaVenda, "queima">;
+export type OrigemDaAgenda = { tipo: TipoDaOrigemDaAgenda; id: string };
+
+// O módulo dono da origem — a ÚNICA decisão que a página, `lancarVenda`, o `PainelVenda` e a faixa
+// tomam sobre ela: “agenda” (pessoa travada, `vincularCobranca`, volta à Agenda) ou “queimas” (pessoa
+// livre, `vincularQueimaNaVenda`, volta às Queimas).
+export function moduloDaOrigem(tipo: TipoDaOrigemDaVenda): "agenda" | "queimas" {
+  return tipo === "queima" ? "queimas" : "agenda";
+}
+
+// O mesmo despacho, como guarda de tipo: quem chama o código da Agenda recebe a origem já estreitada.
+export function ehOrigemDaAgenda(origem: OrigemDaVenda): origem is OrigemDaAgenda {
+  return moduloDaOrigem(origem.tipo) === "agenda";
+}
+
+// O módulo de um `?origem=` que NÃO passou em `origemDaUrl` (uuid mal formado): só o prefixo exato
+// `queima:` aponta para as Queimas — a tela de “não achei” leva de volta ao módulo certo. Todo o resto
+// (inclusive tipo desconhecido, como `encomenda:`) continua sendo da Agenda, como antes da Fase 06.4.
+export function moduloDoTextoDaOrigem(
+  valor: string | readonly string[] | null | undefined,
+): "agenda" | "queimas" {
+  return typeof valor === "string" && valor.startsWith("queima:") ? "queimas" : "agenda";
+}
 
 const FORMATO_DA_ORIGEM =
-  /^(mensalidade|inscricao|uso_livre):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+  /^(mensalidade|inscricao|uso_livre|queima):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 // Normaliza `?origem=` para a união fechada — tipo desconhecido, uuid inválido, vazio, ausente ou
 // a lista (o parâmetro repetido) viram `null`. O tipo é exato (minúsculo); o uuid volta minúsculo.
@@ -66,7 +92,7 @@ export function origemDaUrl(valor: string | readonly string[] | null | undefined
     return null;
   }
   const tipo = casamento[1];
-  if (tipo !== "mensalidade" && tipo !== "inscricao" && tipo !== "uso_livre") {
+  if (tipo !== "mensalidade" && tipo !== "inscricao" && tipo !== "uso_livre" && tipo !== "queima") {
     return null;
   }
   return { tipo, id: casamento[2].toLowerCase() };

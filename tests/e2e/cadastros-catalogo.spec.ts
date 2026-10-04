@@ -59,19 +59,27 @@ test.describe("cadastros catalogo — criar, editar, ficha técnica e o efeito n
 
   // Fase 5 (plano 05-01, D-17): a migração 0026 semeia os três itens que a Agenda acha por código
   // ("Mensalidade", "Inscrição em oficina", "Uso livre (hora)"), e item do sistema não se apaga
-  // (gatilho `travar_item_do_sistema`). Num banco novo o Catálogo deixou de ser vazio: o que ele
-  // mostra, antes de qualquer item cadastrado pelo dono, são EXATAMENTE esses três — e o "+ Novo
-  // item" do cabeçalho da lista abre o diálogo de verdade. O estado vazio ("Nada no catálogo
-  // ainda.") não aparece mais depois da 0026.
-  test("com o banco sem nenhum item cadastrado, a sub-aba Catálogo mostra só os três itens do sistema e o botão abre o diálogo de verdade @vazio-global", async ({
+  // (gatilho `travar_item_do_sistema`). Fase 06.4 (plano 06.4-01, D-05): a 0030 semeia mais três,
+  // os que as Queimas acham por código ("Queima externa P", "Queima externa M", "Queima externa G").
+  // Num banco novo o Catálogo não é vazio: o que ele mostra, antes de qualquer item cadastrado pelo
+  // dono, são EXATAMENTE esses seis — e o "+ Novo item" do cabeçalho da lista abre o diálogo de
+  // verdade. O estado vazio ("Nada no catálogo ainda.") não aparece mais depois da 0026.
+  test("com o banco sem nenhum item cadastrado, a sub-aba Catálogo mostra só os seis itens do sistema e o botão abre o diálogo de verdade @vazio-global", async ({
     page,
   }) => {
     await fazerLogin(page);
     await page.goto("/gestao/cadastros?sub=catalogo");
 
     await expect(page.getByRole("heading", { name: "Nada no catálogo ainda.", level: 2 })).toHaveCount(0);
-    await expect(page.getByTestId("catalogo-item")).toHaveCount(3);
-    for (const nome of ["Mensalidade", "Inscrição em oficina", "Uso livre (hora)"]) {
+    await expect(page.getByTestId("catalogo-item")).toHaveCount(6);
+    for (const nome of [
+      "Mensalidade",
+      "Inscrição em oficina",
+      "Uso livre (hora)",
+      "Queima externa P",
+      "Queima externa M",
+      "Queima externa G",
+    ]) {
       await expect(linhaDoCatalogo(page, nome)).toHaveCount(1);
     }
 

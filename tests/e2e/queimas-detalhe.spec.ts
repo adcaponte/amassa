@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { pularContagem } from "./apoio/semear-queimas";
+
 // Página de detalhe do forno (`/gestao/queimas/[id]`, FOR-09/FOR-10) — 04-03-PLAN.md, Tarefa 3. Sem
 // etiqueta de vazio: cada teste cadastra o próprio forno, roda em `desktop`/`celular` depois da
 // cadeia `vazio-*` (playwright.config.ts).
@@ -44,6 +46,8 @@ async function registrarQueimaEVoltarAoDetalhe(page: Page, id: string, nome: str
   const cartao = page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
   await cartao.getByRole("button", { name: "Queimar" }).click();
   await cartao.getByTestId("tipo-queima-biscoito").click();
+  // Fase 06.4: a folha "O que queimou?" abre depois do registro — "Pular" fecha sem gravar.
+  await pularContagem(page);
   await expect(page.getByText("Queima registrada.")).toBeVisible({ timeout: 5000 });
   await expect(cartao.getByTestId("medidor-contador")).toContainText(/^\d+ \/ 50$/, {
     timeout: 10000,

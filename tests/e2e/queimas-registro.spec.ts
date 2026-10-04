@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { pularContagem } from "./apoio/semear-queimas";
+
 // Registro de queima em dois toques (D-04, FOR-01) e o "Desfazer" de 7 segundos (FOR-02) —
 // 04-01-PLAN.md, Tarefa 3. Sem etiqueta de vazio: cria dado, roda em `desktop`/`celular` depois
 // da cadeia `vazio-*` (playwright.config.ts).
@@ -64,6 +66,13 @@ test.describe("registro de queima em dois toques", () => {
     const decorrido = Date.now() - inicio;
     expect(decorrido).toBeLessThan(5000);
 
+    // Fase 06.4 (QMC-01): a folha "O que queimou?" abre DEPOIS da resposta, com o id da queima que
+    // este toque registrou — e "Pular" fecha sem gravar nada.
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha).toHaveAttribute("data-queima-id", /^[0-9a-f-]{36}$/);
+    await pularContagem(page);
+
     // O contador do cartão avança para 1 depois da resposta confirmada do servidor
     // (`router.refresh()`), nunca antes (fluxo não otimista, de propósito). Timeout alargado
     // (10s, acima do padrão de 5s do Playwright): o servidor Next único é compartilhado por
@@ -93,10 +102,18 @@ test.describe("registro de queima em dois toques", () => {
     await cartao.getByTestId("tipo-queima-esmalte").click();
 
     await expect(page.getByText("Queima registrada.")).toBeVisible({ timeout: 5000 });
+    // Fase 06.4 (UI-D12): a folha "O que queimou?" fica aberta enquanto o refresh chega...
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
     await expect(cartao.getByTestId("medidor-contador")).toContainText("1 / 50", { timeout: 10000 });
+    await expect(folha).toBeVisible();
 
-    await page.getByRole("button", { name: "Desfazer" }).click();
+    // ...e o "Desfazer" do aviso continua tocável COM a folha aberta. O modal esconde o resto da
+    // página da árvore de acessibilidade (`aria-hidden`), então o botão é achado pelo aviso, não
+    // pelo papel; o toque é de verdade (a regra `pointer-events: auto` de `app/globals.css`).
+    await page.locator("[data-sonner-toast] button", { hasText: "Desfazer" }).click();
     await expect(page.getByText("Queima desfeita.")).toBeVisible({ timeout: 5000 });
+    await expect(folha).toBeHidden({ timeout: 5000 });
 
     await expect(cartao.getByTestId("medidor-contador")).toContainText("0 / 50", { timeout: 10000 });
 

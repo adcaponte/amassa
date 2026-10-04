@@ -1,12 +1,15 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { buscarForno } from "@/lib/queimas/consultas";
+import { buscarForno, carregarDadosDaFolha } from "@/lib/queimas/consultas";
 import { medirForno } from "@/lib/queimas/contador";
-import { formatarInstanteCurto } from "@/lib/queimas/formato";
+import { formatarInstanteCurto, hojeEmBrasilia } from "@/lib/queimas/formato";
 import {
   ROTULO_HISTORICO_MANUTENCOES,
   ROTULO_HISTORICO_QUEIMAS,
+  ROTULO_VER_OS_NUMEROS,
+  fraseDaContagemAteManutencao,
   fraseDoRodape,
 } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
@@ -15,6 +18,10 @@ import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { HistoricoManutencoes } from "@/components/amassa/queimas/historico-manutencoes";
 import { HistoricoQueimas } from "@/components/amassa/queimas/historico-queimas";
 import { Medidor } from "@/components/amassa/queimas/medidor";
+import {
+  EsqueletoDosNumerosDoForno,
+  NumerosDoForno,
+} from "@/components/amassa/queimas/numeros-do-forno";
 import { RegistrarManutencao } from "@/components/amassa/queimas/registrar-manutencao";
 import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 
@@ -31,7 +38,18 @@ export default async function PaginaDetalheDoForno({
   await exigirUsuario();
   const { id } = await params;
 
-  const forno = await buscarForno(id);
+  // Fase 06.4: os dados da folha "O que queimou?" (régua vigente, se há mais de um forno), UMA vez por
+  // carga, por `Promise.allSettled` — como no índice: se falharem, o Histórico continua e só os botões
+  // de contar e corrigir somem (UI-D19).
+  const hoje = hojeEmBrasilia(new Date());
+  const [forno, [dados]] = await Promise.all([
+    buscarForno(id),
+    Promise.allSettled([carregarDadosDaFolha(hoje)]),
+  ]);
+  if (dados.status === "rejected") {
+    console.error("Falha ao carregar os dados da folha de contagem no detalhe do forno:", dados.reason);
+  }
+  const dadosDaFolha = dados.status === "fulfilled" ? dados.value : null;
   if (!forno) {
     // Um `id` malformado e um `id` que nunca existiu respondem igual — sobe para
     // `app/(app)/not-found.tsx`, o 404 do grupo protegido (mesmo contrato de
@@ -79,6 +97,20 @@ export default async function PaginaDetalheDoForno({
             atencao={medida.atencao}
             nivel={medida.nivel}
           />
+          {/* Fase 06.4 (QMC-09, UI-D1/UI-D3): a mesma linha do cartão e, logo abaixo, o salto para os
+              Números deste forno, no fim da página. */}
+          <div className="flex flex-col items-start">
+            <p data-testid="contagem-forno" className="text-apoio text-tinta-media break-words">
+              {fraseDaContagemAteManutencao(medida.contador, medida.limite)}
+            </p>
+            <a
+              href="#numeros-do-forno"
+              data-testid="ver-os-numeros"
+              className="text-apoio text-acento focus-visible:ring-ring inline-flex min-h-[44px] items-center rounded-md font-semibold underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+            >
+              {ROTULO_VER_OS_NUMEROS}
+            </a>
+          </div>
           <p className="text-apoio text-muted-foreground break-words" data-testid="rodape-forno">
             {rodape}
           </p>
@@ -103,8 +135,20 @@ export default async function PaginaDetalheDoForno({
 
         <section aria-label={ROTULO_HISTORICO_QUEIMAS}>
           <h2 className="text-titulo text-foreground mb-3">{ROTULO_HISTORICO_QUEIMAS}</h2>
-          <HistoricoQueimas queimas={forno.queimasRecentes} nomeDoForno={forno.nome} />
+          <HistoricoQueimas
+            queimas={forno.queimasRecentes}
+            nomeDoForno={forno.nome}
+            fornoId={forno.id}
+            dadosDaFolha={dadosDaFolha}
+          />
         </section>
+
+        {/* Fase 06.4, plano 06 — os Números deste forno (QMC-09, QMC-10; D-01), no fim. `Suspense` e
+            `try` próprios: a leitura dos números nunca atrasa nem derruba o medidor, a manutenção e o
+            Histórico acima (T-06.4-36). */}
+        <Suspense fallback={<EsqueletoDosNumerosDoForno />}>
+          <NumerosDoForno fornoId={forno.id} hoje={hoje} />
+        </Suspense>
       </div>
     </>
   );

@@ -300,6 +300,9 @@
    especificidade maior, por isso a condição de largura é obrigatória aqui). */
 :root {
   --altura-acao-fixa: 68px;
+  /* Rodapé da folha "O que queimou?" (Fase 06.4, UI-D12): px-6 py-4 + botão de 44 px = 76 px numa
+     fileira. Usado logo abaixo, no deslocamento do aviso com a folha aberta. */
+  --altura-rodape-contagem: 76px;
 }
 
 @media (width < 48rem) {
@@ -307,6 +310,24 @@
     --deslocamento-aviso: calc(
       var(--altura-barra-inferior) + var(--altura-acao-fixa) + env(safe-area-inset-bottom) + 16px
     );
+  }
+}
+
+/* UI-D12 (06.4): o Dialog modal põe `pointer-events: none` no body e o toaster herda; com a folha
+   de contagem aberta, o aviso com "Desfazer" (FOR-02) tem de continuar tocável. Escopada à folha
+   (`data-folha-contagem` no `DialogContent` de `components/amassa/queimas/folha-contagem.tsx`). */
+:root:has([data-folha-contagem]) [data-sonner-toast] {
+  pointer-events: auto;
+}
+
+/* UI-D12 item 2 (06.4): abaixo de 768 px a folha de contagem cobre a tela toda (e a barra inferior),
+   então o aviso com "Desfazer" sobe a altura do RODAPÉ da folha — nunca cobre "Pular"/"Salvar"
+   (os botões ficam sempre na fileira de baixo do rodapé, nos 60 px do pé). A partir de 768 px a
+   folha termina 104 px acima do pé da janela (`md:max-h-[calc(100svh-208px)]`) e o aviso cabe
+   embaixo dela, com o respiro padrão. */
+@media (width < 48rem) {
+  :root:has([data-folha-contagem]) {
+    --deslocamento-aviso: calc(var(--altura-rodape-contagem) + env(safe-area-inset-bottom) + 16px);
   }
 }
 

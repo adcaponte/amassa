@@ -20,9 +20,12 @@ import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
 // importa `lib/producao/gravacao.ts`: a regra da cobrança fica em `lib/agenda/`, a venda em `gravarVenda`.
 import { RecusaDaAgenda, vincularCobranca } from "@/lib/agenda/gravacao";
 import { FRASE_LINHA_DA_AGENDA_FALTANDO } from "@/lib/agenda/textos";
+// A metade das Queimas do “Lançar na Venda” (Fase 06.4, plano 05), no mesmo molde: a regra do que falta
+// cobrar fica em `lib/queimas/`, a venda em `gravarVenda`.
+import { RecusaDasQueimas, vincularQueimaNaVenda } from "@/lib/queimas/gravacao";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
-import { textoDaOrigem } from "./abas";
+import { ehOrigemDaAgenda, moduloDaOrigem, textoDaOrigem } from "./abas";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
 import { gravarVenda, type PedidoDeVenda } from "./gravacao";
@@ -240,6 +243,26 @@ export async function lancarVenda(
         });
       }
 
+      // A Venda aberta pelas Queimas (Fase 06.4, plano 05 — QMC-08, D-07). O despacho é pelo MÓDULO da
+      // origem (`moduloDaOrigem`); a Agenda, abaixo, segue exatamente o caminho de antes. A ordem de
+      // travas é a das Queimas: QUEIMA → (leitura dos vínculos) → documento novo → ITENS → vínculo novo.
+      // `vincularQueimaNaVenda` trava a queima e confere, sob a trava, que ainda falta algo; as quantidades
+      // do vínculo são as das linhas desta venda com um dos três itens das Queimas, somadas por tamanho, e
+      // não podem passar do que falta AGORA — senão `RecusaDasQueimas` com a frase da tela, nada gravado:
+      // nenhuma linha de queima → `FRASE_LINHA_DA_QUEIMA_FALTANDO` (o painel recusa antes, no cliente; esta é
+      // a defesa contra um pedido forjado); algum tamanho acima do que falta → `fraseAcimaDoQueFaltaNaVenda`.
+      // A pessoa NÃO é sobrescrita: a queima externa não tem cliente; vale o que o dono escreveu.
+      if (!ehOrigemDaAgenda(origem)) {
+        const vinculoDaQueima = await vincularQueimaNaVenda(tx, origem.id);
+        const quantidades = vinculoDaQueima.conferir(pedido.linhas);
+        const gravadaDaQueima = await gravarVenda(tx, pedido, {
+          registradoPor: usuario.id,
+          taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+        });
+        await vinculoDaQueima.gravar(gravadaDaQueima.id, quantidades, usuario.id);
+        return gravadaDaQueima;
+      }
+
       // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, D-01, D-04, Pitfall 8). A ordem de
       // travas é COBRANÇA → documento novo → ITENS: `vincularCobranca` trava a cobrança
       // (`for no key update`) e confere, sob a trava, que ela ainda está livre ANTES de `gravarVenda`
@@ -272,12 +295,16 @@ export async function lancarVenda(
 
     revalidatePath(rotaDeGestao("/estoque"));
     revalidatePath(rotaDeGestao("/"));
-    if (origem) {
+    if (origem && moduloDaOrigem(origem.tipo) === "agenda") {
       revalidatePath(rotaDeGestao("/agenda"));
+    }
+    if (origem && moduloDaOrigem(origem.tipo) === "queimas") {
+      revalidatePath(rotaDeGestao("/queimas"));
+      revalidatePath(rotaDeGestao("/queimas/[id]"), "page");
     }
     return { ok: true, dados: { id, numero, origem: origem ? textoDaOrigem(origem) : null } };
   } catch (erro) {
-    if (erro instanceof RecusaDaAgenda) {
+    if (erro instanceof RecusaDaAgenda || erro instanceof RecusaDasQueimas) {
       return { ok: false, erro: erro.frase };
     }
     if (ehViolacaoDeChaveEstrangeira(erro)) {

@@ -3,9 +3,9 @@ import { AlertTriangle } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { medirForno } from "@/lib/queimas/contador";
-import type { FornoMedido } from "@/lib/queimas/consultas";
+import type { DadosDaFolha, FornoMedido } from "@/lib/queimas/consultas";
 import { formatarInstanteCurto } from "@/lib/queimas/formato";
-import { fraseDoRodape, textoDoNivel } from "@/lib/queimas/textos";
+import { fraseDaContagemAteManutencao, fraseDoRodape, textoDoNivel } from "@/lib/queimas/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { Medidor } from "./medidor";
@@ -13,6 +13,8 @@ import { RegistrarQueima } from "./registrar-queima";
 
 export type CartaoFornoProps = {
   forno: FornoMedido;
+  // Os dados da folha "O que queimou?", carregados uma vez pela página (`null` = não carregaram).
+  dadosDaFolha: DadosDaFolha | null;
 };
 
 // Cartão do índice (E2, D-03): nome (Link para a página do forno, quebra por palavra, nunca
@@ -21,7 +23,7 @@ export type CartaoFornoProps = {
 // Component: quem decide contador/total/nível é o módulo puro `lib/queimas/contador.ts`, nunca
 // este componente nem a consulta (CLAUDE.md §Regras de negócio) — `medirForno()` recebe o dado
 // bruto de `FornoMedido` e devolve a medida; `Medidor` só desenha o que recebe (T-04-08).
-export function CartaoForno({ forno }: CartaoFornoProps) {
+export function CartaoForno({ forno, dadosDaFolha }: CartaoFornoProps) {
   const medida = medirForno({
     limite: forno.limite,
     ocorrenciasDeQueima: forno.ocorrenciasDeQueima,
@@ -86,6 +88,12 @@ export function CartaoForno({ forno }: CartaoFornoProps) {
       <CardContent className="flex flex-col gap-4">
         <Medidor contador={medida.contador} limite={medida.limite} atencao={medida.atencao} nivel={medida.nivel} />
 
+        {/* Fase 06.4 (QMC-09, UI-D1): quantas queimas faltam para a manutenção — também em forno
+            desativado. O medidor, os rótulos e o rodapé continuam (FOR-05, FOR-08). */}
+        <p data-testid={`contagem-forno-${forno.id}`} className="text-apoio text-tinta-media break-words">
+          {fraseDaContagemAteManutencao(medida.contador, medida.limite)}
+        </p>
+
         {/* Rodapé — quebra em duas linhas no celular em vez de estourar o cartão; nome do
             responsável (texto livre) quebra por palavra, nunca trunca. */}
         <p className="text-apoio text-muted-foreground break-words" data-testid={`rodape-forno-${forno.id}`}>
@@ -94,7 +102,13 @@ export function CartaoForno({ forno }: CartaoFornoProps) {
 
         {/* D-05: um forno desativado não recebe queima — o cartão fica sem o botão. Nada mais
             ocupa o lugar dele; a ação volta a existir quando o forno é reativado. */}
-        {forno.ativo && <RegistrarQueima fornoId={forno.id} />}
+        {forno.ativo && (
+          <RegistrarQueima
+            fornoId={forno.id}
+            nomeDoForno={forno.nome}
+            dadosDaFolha={dadosDaFolha}
+          />
+        )}
       </CardContent>
     </Card>
   );

@@ -1,25 +1,79 @@
+import { Suspense } from "react";
 import Link from "next/link";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { medirForno } from "@/lib/queimas/contador";
-import { listarFornosDoIndice } from "@/lib/queimas/consultas";
+import { modoSemContagemDaUrl } from "@/lib/queimas/contagem";
+import { carregarDadosDaFolha, lerAvisoDaVolta, listarFornosDoIndice } from "@/lib/queimas/consultas";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
+import { hojeEmBrasilia } from "@/lib/queimas/formato";
 import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_FORNO } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { Button } from "@/components/ui/button";
+import { AvisoDasQueimas } from "@/components/amassa/queimas/aviso-das-queimas";
 import { BannerAtencao } from "@/components/amassa/queimas/banner-atencao";
 import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { ListaFornos } from "@/components/amassa/queimas/lista-fornos";
+import {
+  EsqueletoDasListas,
+  ListasDoIndice,
+} from "@/components/amassa/queimas/listas-do-indice";
 import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
+
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de app/(app)/encomendas/page.tsx.
 // D-02: não existe tela de cadastro de fornos — o botão "Novo forno" abre `?novo` (masculino,
 // "forno") na própria rota, mesma convenção de `?nova` em Encomendas.
-export default async function PaginaQueimas() {
+//
+// `searchParams` é `Promise` no Next.js 15+ (molde de Cadastros). `?sem-contagem=todas` (plano 03,
+// QMC-02) troca a lista "Sem contagem" para a visão de TODAS — lido UMA vez aqui, pelo
+// puro de `lib/queimas/contagem.ts` (só a string exata "todas" vale), e descido por prop.
+export default async function PaginaQueimas({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    "sem-contagem"?: string | string[];
+    aviso?: string | string[];
+    documento?: string | string[];
+  }>;
+}) {
   await exigirUsuario();
 
-  const fornosDoIndice = await listarFornosDoIndice();
+  const parametros = await searchParams;
+  const semContagem = modoSemContagemDaUrl(parametros["sem-contagem"]);
+  // A volta do “Lançar na Venda” (Fase 06.4, plano 05): `?aviso=lancado&documento={uuid}`. O documento é
+  // validado como uuid e lido AQUI (o número e se saiu paga); falha ou id que não existe → nenhum aviso,
+  // e a página segue.
+  const documentoDaVolta =
+    parametros.aviso === "lancado" &&
+    typeof parametros.documento === "string" &&
+    FORMATO_UUID.test(parametros.documento)
+      ? parametros.documento
+      : null;
+
+  // O dia civil de Brasília desta carga — a janela de "Sem contagem" e a régua vigente da folha são
+  // contadas a partir dele.
+  const hoje = hojeEmBrasilia(new Date());
+
+  // Os dados da folha "O que queimou?" (Fase 06.4) vêm UMA vez por carga, junto com os fornos, por
+  // `Promise.allSettled`: se falharem, o registro em dois toques segue como na Fase 4 — a folha não
+  // abre e a queima cai em "Sem contagem" (UI-D19). Nunca derrubam a página.
+  const [fornosDoIndice, [dados], avisoDaVolta] = await Promise.all([
+    listarFornosDoIndice(),
+    Promise.allSettled([carregarDadosDaFolha(hoje)]),
+    documentoDaVolta === null
+      ? Promise.resolve(null)
+      : lerAvisoDaVolta(documentoDaVolta).catch((erro: unknown) => {
+          console.error("Falha ao ler a venda da volta do “Lançar na Venda”:", erro);
+          return null;
+        }),
+  ]);
+  if (dados.status === "rejected") {
+    console.error("Falha ao carregar os dados da folha de contagem no índice:", dados.reason);
+  }
+  const dadosDaFolha = dados.status === "fulfilled" ? dados.value : null;
 
   // O banner (FOR-06) é calculado sobre a MESMA lista que alimenta os cartões — nunca uma
   // segunda consulta ao banco. `medirForno` é a mesma função pura que `cartao-forno.tsx` chama
@@ -54,6 +108,8 @@ export default async function PaginaQueimas() {
           módulo. "Fornos" fica ativo aqui e em `/queimas/[id]`. */}
       <SeletorQueimas />
 
+      <AvisoDasQueimas aviso={avisoDaVolta} />
+
       {/* Montado sempre — mesmo com o índice vazio, `?novo` precisa abrir o formulário a partir
           do `EstadoVazio` (o primeiríssimo forno do ateliê), achado do 03-06 replicado aqui. */}
       <FormularioForno />
@@ -71,8 +127,16 @@ export default async function PaginaQueimas() {
           hrefBotao="/gestao/queimas?novo"
         />
       ) : (
-        <ListaFornos fornos={fornosDoIndice} />
+        <ListaFornos fornos={fornosDoIndice} dadosDaFolha={dadosDaFolha} />
       )}
+
+      {/* As listas do índice (Fase 06.4, plano 02): "Sem contagem" (e, no plano 04, "Queimas
+          externas a cobrar") num `Suspense` próprio — os cartões e o "Queimar" acima nunca esperam
+          por elas nem caem com elas. Fora do ramo do vazio: sem forno não há queima, e a lista
+          devolve `null` sozinha. */}
+      <Suspense fallback={<EsqueletoDasListas />}>
+        <ListasDoIndice hoje={hoje} dadosDaFolha={dadosDaFolha} semContagem={semContagem} />
+      </Suspense>
     </>
   );
 }

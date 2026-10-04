@@ -25,7 +25,7 @@ import {
   ROTULO_CATEGORIA_DA_COMPRA,
   ROTULO_CATEGORIA_DE_VENDA,
   ROTULO_DESATIVAR_ITEM,
-  LINHA_ITEM_DO_SISTEMA,
+  linhaDoItemDoSistema,
   ROTULO_NOME,
   ROTULO_NOS_ATALHOS_DA_COMPRA,
   ROTULO_NOS_MAIS_USADOS,
@@ -473,11 +473,12 @@ export function DialogoItemCatalogo({
             </Field>
           </div>
 
-          {/* Fase 5 (D-17): item do sistema da Agenda não sai da Venda — no lugar da caixa, a
-              linha que explica (o servidor também ignora o pedido, e o banco recusa). */}
+          {/* Fase 5 (D-17) e Fase 06.4 (D-05): item do sistema não sai da Venda — no lugar da caixa, a
+              linha que explica, escolhida pela CHAVE (Agenda × Queimas; o servidor também ignora o
+              pedido, e o banco recusa). */}
           {itemDoSistema ? (
             <p data-testid="linha-item-do-sistema" className="text-apoio text-tinta-fraca break-words">
-              {LINHA_ITEM_DO_SISTEMA}
+              {linhaDoItemDoSistema(itemParaEditar?.chaveDoSistema ?? null)}
             </p>
           ) : (
             <label className="flex min-h-[44px] items-center gap-2">

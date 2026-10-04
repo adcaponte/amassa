@@ -5,17 +5,37 @@ import { and, count, desc, eq, gt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { fornos, manutencoes, queimas } from "@/db/schema";
+import type { FormaDeReceber } from "@/lib/agenda/esquemas";
+import { FRASE_FALHA_AO_RECEBER } from "@/lib/agenda/textos";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
+import { codigoDoErroPostgres, ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
+import { obterConfiguracaoFinanceira } from "@/lib/financeiro/consultas";
+import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
+  esquemaApagarContagem,
   esquemaAtualizacaoDeForno,
+  esquemaContagem,
   esquemaForno,
   esquemaId,
   esquemaManutencao,
   esquemaQueima,
+  esquemaReceberQueima,
 } from "./esquemas";
-import { FRASE_FALHA_AO_REGISTRAR_QUEIMA } from "./textos";
+import { totalDaContagem } from "./contagem";
+import { hojeEmBrasilia } from "./formato";
+import {
+  apagarContagemNaTransacao,
+  cobrarQueimaNaTransacao,
+  gravarContagem,
+  RecusaDasQueimas,
+} from "./gravacao";
+import {
+  FRASE_FALHA_AO_APAGAR_CONTAGEM,
+  FRASE_FALHA_AO_REGISTRAR_QUEIMA,
+  FRASE_FALHA_AO_SALVAR_CONTAGEM,
+  FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
+} from "./textos";
 
 // Mesma forma de `lib/encomendas/acoes.ts` (D-15) — cada módulo redeclara hoje, não há local
 // compartilhado.
@@ -320,4 +340,138 @@ export async function reativarForno(
   revalidatePath("/gestao/queimas");
   revalidatePath("/gestao/queimas/[id]", "page");
   return { ok: true, dados: { id: linha.id } };
+}
+
+// Fase 06.4 — a contagem opcional (QMC-01/QMC-03/QMC-11). A folha "O que queimou?" abre DEPOIS da
+// resposta de `registrarQueima` (que não muda) e chama esta ação ao tocar "Salvar". `exigirUsuario()`
+// é a PRIMEIRA instrução (T-06.4-01); `contado_por` vem da sessão, nunca do navegador; o Zod
+// (`esquemaContagem`) recusa número fora de 0..10000 e total 0; a gravação é `gravarContagem`
+// (`lib/queimas/gravacao.ts`, sem a diretiva de Server Action), sob a trava da linha da QUEIMA, com o
+// piso da D-07 (externas nunca abaixo do já lançado em vendas ativas). A queima desfeita entre a folha
+// abrir e o "Salvar" (o "Desfazer" do aviso — Pitfall 1) vira frase humana, nunca erro cru.
+export async function salvarContagem(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ total: number; criada: boolean }>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaContagem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { queimaId, ...contagem } = resultado.data;
+
+  try {
+    const { criada } = await db.transaction((tx) =>
+      gravarContagem(tx, queimaId, contagem, usuario.id),
+    );
+
+    revalidatePath("/gestao/queimas");
+    revalidatePath("/gestao/queimas/[id]", "page");
+    return { ok: true, dados: { total: totalDaContagem(contagem), criada } };
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      return { ok: false, erro: erro.frase };
+    }
+    // A queima sumiu depois da trava? Não pode (a trava a segura) — mas uma FK violada por qualquer
+    // caminho é a mesma situação para quem está na folha.
+    if (ehViolacaoDeChaveEstrangeira(erro)) {
+      return { ok: false, erro: FRASE_QUEIMA_DESFEITA_NADA_CONTADO };
+    }
+    console.error("Falha ao salvar a contagem da queima:", codigoDoErroPostgres(erro), erro);
+    return { ok: false, erro: FRASE_FALHA_AO_SALVAR_CONTAGEM };
+  }
+}
+
+// Fase 06.4, plano 02 (UI-D6, QMC-11) — "Salvar" com tudo zero numa contagem EXISTENTE, depois da
+// confirmação: apaga a linha de `queima_contagens` e a queima volta para "Sem contagem". A queima
+// continua. `exigirUsuario()` é a PRIMEIRA instrução (T-06.4-10); o Zod valida o id; a decisão é relida
+// sob a trava da queima (`apagarContagemNaTransacao`, T-06.4-11) — com peça lançada em venda ativa, a
+// recusa da D-07 (T-06.4-46). Idempotente: sem contagem a apagar devolve `ok` (o estado pedido já vale).
+export async function apagarContagem(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ apagou: boolean }>> {
+  const usuario = await exigirUsuario();
+  void usuario;
+
+  const resultado = esquemaApagarContagem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { queimaId } = resultado.data;
+
+  try {
+    const { apagou } = await db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId));
+
+    revalidatePath("/gestao/queimas");
+    revalidatePath("/gestao/queimas/[id]", "page");
+    return { ok: true, dados: { apagou } };
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      return { ok: false, erro: erro.frase };
+    }
+    if (ehViolacaoDeChaveEstrangeira(erro)) {
+      return { ok: false, erro: FRASE_QUEIMA_DESFEITA_NADA_CONTADO };
+    }
+    console.error("Falha ao apagar a contagem da queima:", codigoDoErroPostgres(erro), erro);
+    return { ok: false, erro: FRASE_FALHA_AO_APAGAR_CONTAGEM };
+  }
+}
+
+// Fase 06.4, plano 04 — "Recebi agora" das externas (QMC-08; D-07). `exigirUsuario()` é a PRIMEIRA
+// instrução (T-06.4-21); do navegador chegam só a queima, a forma, as quantidades pedidas por tamanho e,
+// OPCIONAL, o id da pessoa (UI-D13 revista pelo dono em 04/10/2026) — Zod (T-06.4-22). Fora da
+// transação, a taxa do cartão e a data do saldo inicial (o molde da Agenda); dentro, sob a trava da
+// queima, `cobrarQueimaNaTransacao` relê o que falta, os preços e o nome da pessoa e cria a venda JÁ PAGA
+// de hoje e o vínculo. Uma recusa decidida sob a trava volta com a frase; qualquer outra falha, a frase
+// de rede da Agenda ("Nenhuma venda foi criada"), com o SQLSTATE só no log do servidor.
+export type RecebidoDaQueima = { documentoId: string; numero: number; forma: FormaDeReceber };
+
+export async function receberQueimaAgora(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<RecebidoDaQueima>> {
+  const usuario = await exigirUsuario();
+
+  const resultado = esquemaReceberQueima.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const dados = resultado.data;
+  const hoje = hojeEmBrasilia(new Date());
+
+  let venda: { documentoId: string; numero: number };
+  try {
+    const configuracao = await obterConfiguracaoFinanceira();
+    venda = await db.transaction((tx) =>
+      cobrarQueimaNaTransacao(tx, {
+        queimaId: dados.queimaId,
+        forma: dados.forma,
+        quantidades: dados.quantidades,
+        clienteId: dados.clienteId,
+        hoje,
+        registradoPor: usuario.id,
+        taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+        dataSaldoInicial: configuracao.dataSaldoInicial,
+      }),
+    );
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      revalidatePath("/gestao/queimas");
+      revalidatePath("/gestao/queimas/[id]", "page");
+      return { ok: false, erro: erro.frase };
+    }
+    console.error(
+      `Falha ao registrar o “Recebi agora” da queima (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,
+      erro,
+    );
+    return { ok: false, erro: FRASE_FALHA_AO_RECEBER };
+  }
+
+  revalidatePath("/gestao/queimas");
+  revalidatePath("/gestao/queimas/[id]", "page");
+  revalidatePath(rotaDeGestao("/financeiro"));
+  revalidatePath(rotaDeGestao("/"));
+  return {
+    ok: true,
+    dados: { documentoId: venda.documentoId, numero: venda.numero, forma: dados.forma },
+  };
 }

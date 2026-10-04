@@ -106,6 +106,11 @@ const TABELAS_ESPERADAS = [
   // TABELAS_DA_REMOCAO_ABERTURA. 🔴 EXCEÇÃO DELIBERADA: `amassa_app` MANTÉM o delete nesta tabela
   // (LMB-08, decisão do dono em 02/10/2026) — `conferirLembretes` prova.
   "lembretes",
+  // Fase 06.4 — Queimas: contagem (migração 0030_queimas-contagem). Permanentes; não entram em
+  // TABELAS_DA_REMOCAO_ABERTURA. queima_contagens: uma linha por queima; sem linha = sem
+  // contagem. queima_vendas: uma linha por venda das externas (D-07).
+  "queima_contagens",
+  "queima_vendas",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -1732,8 +1737,9 @@ async function conferirNumeracaoConcorrenteDeOrcamento() {
 async function conferirSementeDeParametros(cliente) {
   console.log("  conferirSementeDeParametros...");
 
+  // As 18 da 0019; as duas da régua são da 0030 e são conferidas por `conferirQueimas`.
   const { rows: parametrosSemeados } = await cliente.query(
-    "select chave, medido from parametros_precificacao",
+    "select chave, medido from parametros_precificacao where chave not in ('queima_regua_p_ate', 'queima_regua_m_ate')",
   );
   afirmar(
     parametrosSemeados.length === 18,
@@ -1784,7 +1790,7 @@ async function conferirSementeDeParametros(cliente) {
   }
 
   const { rows: aposReaplicar } = await cliente.query(
-    "select count(*)::int as total from parametros_precificacao",
+    "select count(*)::int as total from parametros_precificacao where chave not in ('queima_regua_p_ate', 'queima_regua_m_ate')",
   );
   afirmar(
     aposReaplicar[0].total === 18,
@@ -4966,6 +4972,8 @@ async function conferirAgenda(conexao) {
          from itens_catalogo i
          join categorias c on c.id = i.categoria_venda_id
         where i.chave_do_sistema is not null
+          -- a 0030 acrescentou os itens das Queimas; esta conferência é da Agenda
+          and i.chave_do_sistema in ('mensalidade', 'inscricao_oficina', 'uso_livre_hora')
         order by i.chave_do_sistema`,
     );
     return rows;
@@ -6395,6 +6403,628 @@ async function conferirLembretes(conexao) {
   );
 }
 
+// Fase 06.4 — Queimas: contagem (migração 0030). `conferirQueimas` prova, no banco comum, as duas
+// tabelas novas, a semente e o gatilho por chave, no molde de `conferirLembretes`: a conexão de DONO
+// semeia e limpa; cada recusa confere o SQLSTATE E o nome da restrição. Os casos que só testam rodam
+// entre `begin`/`rollback`; o dado de prova que precisa existir é comitado e sai no fim por
+// `apagarDadosDeProvaDasQueimas` (que nunca relança).
+//
+//   1. colunas EXATAS de `queima_contagens` e `queima_vendas` (nenhuma coluna de dono da peça, de
+//      pagamento, de situação nem de venda na contagem — as proibições do plano 06.4-01);
+//   2. índice `queima_vendas_queima_idx` e o `confdeltype` das chaves estrangeiras;
+//   3. contagem: `saiu_cheio` padrão verdadeiro, checks de faixa e de "alguma peça" (23514), PK
+//      (23505), `on conflict (queima_id) do update` deixa uma linha e o gatilho troca `atualizado_em`;
+//   4. vínculos (D-07): checks, uma venda é de UMA queima (23505), não há vínculo sem contagem
+//      (23503), várias vendas por queima;
+//   5. cascade: apagar a queima leva contagem e vínculos e deixa a venda em `documentos`;
+//   6. D-05: os três itens por chave, idempotência da semente, adoção (só de item ativo, sem chave e
+//      sem estoque, o mais antigo);
+//   7. o gatilho `travar_item_do_sistema` com a frase por chave (a da Agenda intacta);
+//   8. D-03: a régua semeada e idempotente.
+const CHAVES_DAS_QUEIMAS = ["queima_externa_g", "queima_externa_m", "queima_externa_p"];
+const FRASE_DO_ITEM_DAS_QUEIMAS =
+  "Este item é usado pelas Queimas e não se desativa. Nome, preço e categoria podem mudar.";
+const FRASE_INTEIRA_DO_ITEM_DA_AGENDA =
+  "Este item é usado pela Agenda e não se desativa. Nome, preço e categoria podem mudar.";
+
+// O trecho da 0030 entre `-- >>> {marcador}` e `-- <<< {marcador}`, partido no marcador de instrução
+// do Drizzle — só os pedaços com SQL de verdade (molde `trechoDaSementeDaAgenda`).
+function trechoDaMigracaoDasQueimas(marcador) {
+  const sql = readFileSync(path.join("db", "migrations", "0030_queimas-contagem.sql"), "utf8");
+  const inicio = sql.indexOf(`-- >>> ${marcador}`);
+  const fim = sql.indexOf(`-- <<< ${marcador}`);
+  afirmar(inicio >= 0 && fim > inicio, `Queimas: os marcadores "${marcador}" sumiram da 0030.`);
+  return sql
+    .slice(inicio, fim)
+    .split("--> statement-breakpoint")
+    .map((pedaco) =>
+      pedaco
+        .split(/\r?\n/)
+        .filter((linha) => !linha.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter((pedaco) => pedaco.length > 0);
+}
+
+async function apagarDadosDeProvaDasQueimas(conexao, { fornoIds, documentoIds, usuarioId }) {
+  try {
+    await conexao.query("begin");
+    // Ordem das FKs: vínculo → (queima e contagem, por cascade do forno) → forno → venda → usuária.
+    await conexao.query("delete from queima_vendas where documento_id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("delete from fornos where id = any($1::uuid[])", [fornoIds]);
+    await conexao.query("alter table documento_linhas disable trigger conferir_soma_apos_linha");
+    await conexao.query("alter table parcelas disable trigger conferir_soma_apos_parcela");
+    await conexao.query("delete from parcelas where documento_id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("delete from documento_linhas where documento_id = any($1::uuid[])", [
+      documentoIds,
+    ]);
+    await conexao.query("delete from documentos where id = any($1::uuid[])", [documentoIds]);
+    await conexao.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
+    await conexao.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
+    if (usuarioId) {
+      await conexao.query("delete from usuarios where id = $1", [usuarioId]);
+    }
+    await conexao.query("commit");
+  } catch (erro) {
+    await conexao.query("rollback").catch(() => {});
+    // Nunca relançado — mesma razão da faxina do Estoque, da Agenda e dos Lembretes.
+    console.error(`Queimas: a faxina não apagou o dado de prova — ${erro.message}`);
+  }
+}
+
+async function conferirQueimas(conexao) {
+  console.log("  conferirQueimas...");
+
+  async function umaLinha(sql, parametros = []) {
+    const { rows } = await conexao.query(sql, parametros);
+    return rows[0];
+  }
+  // Roda e desfaz: o código do erro (ou `null`) e o nome da restrição.
+  async function tentar(sql, parametros = []) {
+    await conexao.query("begin");
+    try {
+      return await erroDoBanco(() => conexao.query(sql, parametros));
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+  // Roda e desfaz: o código e a MENSAGEM do erro (a frase do gatilho).
+  async function tentarComMensagem(sql, parametros = []) {
+    await conexao.query("begin");
+    try {
+      await conexao.query(sql, parametros);
+      return { codigo: null, mensagem: null };
+    } catch (erro) {
+      return { codigo: erro.code ?? null, mensagem: erro.message ?? null };
+    } finally {
+      await conexao.query("rollback");
+    }
+  }
+  function esperar(resultado, codigoEsperado, restricoes, descricao) {
+    afirmar(
+      resultado.codigo === codigoEsperado &&
+        (restricoes === null || restricoes.includes(resultado.restricao)),
+      `Queimas: ${descricao} deveria dar ${codigoEsperado ?? "certo"}` +
+        (restricoes ? ` (${restricoes.join(" ou ")})` : "") +
+        `, veio ${resultado.codigo} (${resultado.restricao}).`,
+    );
+  }
+  async function conferirColunas(tabela, esperadas) {
+    const { rows: colunas } = await conexao.query(
+      `select column_name, data_type, is_nullable from information_schema.columns
+        where table_schema = 'public' and table_name = $1`,
+      [tabela],
+    );
+    const noBanco = Object.fromEntries(
+      colunas.map((coluna) => [coluna.column_name, [coluna.data_type, coluna.is_nullable]]),
+    );
+    afirmar(
+      JSON.stringify(Object.keys(noBanco).sort()) === JSON.stringify(Object.keys(esperadas).sort()),
+      `Queimas: as colunas de ${tabela} deveriam ser EXATAMENTE ${Object.keys(esperadas).sort().join(", ")} ` +
+        `(nenhuma de dono da peça, de pagamento ou de situação), vieram ${Object.keys(noBanco).sort().join(", ")}.`,
+    );
+    for (const [nome, [tipo, anulavel]] of Object.entries(esperadas)) {
+      afirmar(
+        noBanco[nome][0] === tipo && noBanco[nome][1] === anulavel,
+        `Queimas: ${tabela}.${nome} deveria ser ${tipo} ${anulavel === "YES" ? "anulável" : "not null"}, ` +
+          `veio ${noBanco[nome][0]} (is_nullable ${noBanco[nome][1]}).`,
+      );
+    }
+  }
+
+  // ——— 1. Colunas exatas ————————————————————————————————————————————————————————————————————————
+  await conferirColunas("queima_contagens", {
+    queima_id: ["uuid", "NO"],
+    internas_p: ["integer", "NO"],
+    internas_m: ["integer", "NO"],
+    internas_g: ["integer", "NO"],
+    externas_p: ["integer", "NO"],
+    externas_m: ["integer", "NO"],
+    externas_g: ["integer", "NO"],
+    saiu_cheio: ["boolean", "NO"],
+    contado_por: ["uuid", "YES"],
+    criado_em: ["timestamp with time zone", "NO"],
+    atualizado_em: ["timestamp with time zone", "NO"],
+  });
+  await conferirColunas("queima_vendas", {
+    documento_id: ["uuid", "NO"],
+    queima_id: ["uuid", "NO"],
+    quantidade_p: ["integer", "NO"],
+    quantidade_m: ["integer", "NO"],
+    quantidade_g: ["integer", "NO"],
+    lancado_por: ["uuid", "YES"],
+    criado_em: ["timestamp with time zone", "NO"],
+  });
+
+  // ——— 2. Índice e o que cada chave estrangeira faz ao apagar ———————————————————————————————————
+  const indice = await umaLinha(
+    "select indexdef from pg_indexes where schemaname = 'public' and indexname = 'queima_vendas_queima_idx'",
+  );
+  afirmar(
+    indice !== undefined && indice.indexdef.includes("(queima_id)"),
+    `Queimas: o índice queima_vendas_queima_idx em (queima_id) deveria existir, veio ${indice ? indice.indexdef : "nada"}.`,
+  );
+  const { rows: chavesEstrangeiras } = await conexao.query(
+    `select rel.relname as tabela, att.attname as coluna, con.confdeltype::text as ao_apagar
+       from pg_constraint con
+       join pg_class rel on rel.oid = con.conrelid
+       join pg_attribute att on att.attrelid = con.conrelid and att.attnum = any(con.conkey)
+      where con.contype = 'f' and rel.relname in ('queima_contagens', 'queima_vendas')`,
+  );
+  const aoApagar = Object.fromEntries(
+    chavesEstrangeiras.map((linha) => [`${linha.tabela}.${linha.coluna}`, linha.ao_apagar]),
+  );
+  for (const [coluna, esperado, descricao] of [
+    ["queima_contagens.queima_id", "c", "cascade (apagar a queima leva a contagem)"],
+    ["queima_vendas.queima_id", "c", "cascade (apagar a contagem leva os vínculos)"],
+    ["queima_vendas.documento_id", "a", "no action (venda não se apaga, cancela)"],
+    ["queima_contagens.contado_por", "n", "set null"],
+    ["queima_vendas.lancado_por", "n", "set null"],
+  ]) {
+    afirmar(
+      aoApagar[coluna] === esperado,
+      `Queimas: a chave estrangeira de ${coluna} deveria ser ${descricao} (confdeltype '${esperado}'), veio '${aoApagar[coluna]}'.`,
+    );
+  }
+
+  // ——— 6. D-05: os três itens do sistema ————————————————————————————————————————————————————————
+  async function lerItensDasQueimas() {
+    const { rows } = await conexao.query(
+      `select i.id, i.chave_do_sistema, i.nome, i.preco_venda_centavos, i.aparece_na_venda,
+              i.controla_estoque, i.ativo, c.nome as categoria
+         from itens_catalogo i
+         left join categorias c on c.id = i.categoria_venda_id
+        where i.chave_do_sistema = any($1::text[])
+        order by i.chave_do_sistema`,
+      [CHAVES_DAS_QUEIMAS],
+    );
+    return rows;
+  }
+  async function contarItensComOsNomes() {
+    const linha = await umaLinha(
+      `select count(*)::int as quantos from itens_catalogo
+        where nome_normalizado(nome) in (nome_normalizado('Queima externa P'),
+                                         nome_normalizado('Queima externa M'),
+                                         nome_normalizado('Queima externa G'))`,
+    );
+    return linha.quantos;
+  }
+  function conferirSementeDasQueimas(itens, momento) {
+    afirmar(
+      itens.length === 3,
+      `Queimas (${momento}): deveria haver 3 itens do sistema das Queimas, vieram ${itens.length}.`,
+    );
+    for (const [indiceDoItem, [chave, nome]] of [
+      ["queima_externa_g", "Queima externa G"],
+      ["queima_externa_m", "Queima externa M"],
+      ["queima_externa_p", "Queima externa P"],
+    ].entries()) {
+      const item = itens[indiceDoItem];
+      afirmar(
+        item.chave_do_sistema === chave &&
+          item.nome === nome &&
+          item.categoria === "Queima externa" &&
+          item.preco_venda_centavos === null &&
+          item.aparece_na_venda === true &&
+          item.controla_estoque === false &&
+          item.ativo === true,
+        `Queimas (${momento}): o item "${chave}" deveria se chamar "${nome}", na categoria "Queima externa", ` +
+          `sem preço, na venda, sem estoque, ativo — veio ${JSON.stringify(item)}.`,
+      );
+    }
+  }
+  const sementeDasQueimas = trechoDaMigracaoDasQueimas("semente das Queimas");
+  afirmar(
+    sementeDasQueimas.length === 7,
+    `Queimas: o trecho da semente deveria ter 7 instruções (1 categoria + 3 × adotar e criar), tem ${sementeDasQueimas.length}.`,
+  );
+  conferirSementeDasQueimas(await lerItensDasQueimas(), "depois da 0030");
+  const nomesAntes = await contarItensComOsNomes();
+  await conexao.query("begin");
+  try {
+    for (const pedaco of sementeDasQueimas) {
+      await conexao.query(pedaco);
+    }
+    conferirSementeDasQueimas(await lerItensDasQueimas(), "semente reexecutada");
+    const nomesDepois = await contarItensComOsNomes();
+    afirmar(
+      nomesDepois === nomesAntes,
+      `Queimas: reexecutar a semente não deveria criar item — ${nomesAntes} itens com esses nomes antes, ${nomesDepois} depois.`,
+    );
+  } finally {
+    await conexao.query("rollback");
+  }
+
+  // ——— 8. D-03: a régua ——————————————————————————————————————————————————————————————————————
+  async function lerRegua() {
+    const { rows } = await conexao.query(
+      `select chave, valor_inteiro, medido, vigente_desde::text as vigente_desde
+         from parametros_precificacao
+        where chave in ('queima_regua_p_ate', 'queima_regua_m_ate')
+        order by chave`,
+    );
+    return rows;
+  }
+  function conferirRegua(linhas, momento) {
+    afirmar(
+      JSON.stringify(linhas) ===
+        JSON.stringify([
+          { chave: "queima_regua_m_ate", valor_inteiro: 25000, medido: false, vigente_desde: "2026-09-20" },
+          { chave: "queima_regua_p_ate", valor_inteiro: 10000, medido: false, vigente_desde: "2026-09-20" },
+        ]),
+      `Queimas (${momento}): a régua deveria ser P até 10000 e M até 25000, estimadas, desde 2026-09-20 — veio ${JSON.stringify(linhas)}.`,
+    );
+  }
+  conferirRegua(await lerRegua(), "depois da 0030");
+  const blocoDaRegua = trechoDaMigracaoDasQueimas("régua das Queimas");
+  afirmar(
+    blocoDaRegua.length === 1,
+    `Queimas: o trecho da régua deveria ter 1 instrução, tem ${blocoDaRegua.length}.`,
+  );
+  await conexao.query("begin");
+  try {
+    for (const pedaco of blocoDaRegua) {
+      await conexao.query(pedaco);
+    }
+    conferirRegua(await lerRegua(), "régua reexecutada");
+  } finally {
+    await conexao.query("rollback");
+  }
+
+  // ——— 7. O gatilho com a frase por chave ——————————————————————————————————————————————————————
+  const desativarDasQueimas = await tentarComMensagem(
+    "update itens_catalogo set ativo = false where chave_do_sistema = 'queima_externa_g'",
+  );
+  afirmar(
+    desativarDasQueimas.codigo === "P0001" && desativarDasQueimas.mensagem === FRASE_DO_ITEM_DAS_QUEIMAS,
+    `Queimas: desativar "queima_externa_g" deveria dar P0001 com "${FRASE_DO_ITEM_DAS_QUEIMAS}", veio ` +
+      `${desativarDasQueimas.codigo} (${desativarDasQueimas.mensagem}).`,
+  );
+  const desativarDaAgenda = await tentarComMensagem(
+    "update itens_catalogo set ativo = false where chave_do_sistema = 'uso_livre_hora'",
+  );
+  afirmar(
+    desativarDaAgenda.codigo === "P0001" && desativarDaAgenda.mensagem === FRASE_INTEIRA_DO_ITEM_DA_AGENDA,
+    `Queimas: desativar "uso_livre_hora" deveria continuar dando P0001 com a frase da 0026, ` +
+      `"${FRASE_INTEIRA_DO_ITEM_DA_AGENDA}", veio ${desativarDaAgenda.codigo} (${desativarDaAgenda.mensagem}).`,
+  );
+
+  // ——— 6b. D-05: a adoção ———————————————————————————————————————————————————————————————————————
+  // Com o gatilho desligado PELA CONEXÃO DO DONO (molde `conferirCorrecaoDoFusoDaSemente`): o item
+  // `queima_externa_p` perde a chave e vira "[mig] original"; nascem três homônimos — um SEM estoque e
+  // antigo (deve ser adotado), um SEM estoque e mais novo (não), e um COM estoque e o mais antigo de
+  // todos (nunca: vender daria baixa no livro). Reaplicar a semente adota o primeiro e não cria nada.
+  const original = await umaLinha(
+    "select id, nome from itens_catalogo where chave_do_sistema = 'queima_externa_p'",
+  );
+  const categoriaDaQueima = await umaLinha(
+    "select id from categorias where lower(trim(nome)) = lower(trim('Queima externa'))",
+  );
+  const categoriaDeCompra = await umaLinha(
+    "select id from categorias where grupo = 'custo' order by nome limit 1",
+  );
+  const homonimos = [];
+  try {
+    await conexao.query("alter table itens_catalogo disable trigger travar_item_do_sistema");
+    try {
+      await conexao.query(
+        "update itens_catalogo set chave_do_sistema = null, nome = '[mig] original' where id = $1",
+        [original.id],
+      );
+    } finally {
+      await conexao.query("alter table itens_catalogo enable trigger travar_item_do_sistema");
+    }
+    const adotavel = await umaLinha(
+      `insert into itens_catalogo (nome, aparece_na_venda, categoria_venda_id, controla_estoque, ativo, criado_em)
+       values ('queima EXTERNA  p', true, $1, false, true, '2020-01-01T00:00:00Z') returning id`,
+      [categoriaDaQueima.id],
+    );
+    homonimos.push(adotavel.id);
+    const maisNovo = await umaLinha(
+      `insert into itens_catalogo (nome, aparece_na_venda, categoria_venda_id, controla_estoque, ativo, criado_em)
+       values ('Queima Externa P', true, $1, false, true, '2021-01-01T00:00:00Z') returning id`,
+      [categoriaDaQueima.id],
+    );
+    homonimos.push(maisNovo.id);
+    const comEstoque = await umaLinha(
+      `insert into itens_catalogo (nome, aparece_na_venda, categoria_venda_id, controla_estoque, unidade,
+                                   categoria_compra_id, ativo, criado_em)
+       values ('Queima externa P', true, $1, true, 'un', $2, true, '2019-01-01T00:00:00Z') returning id`,
+      [categoriaDaQueima.id, categoriaDeCompra.id],
+    );
+    homonimos.push(comEstoque.id);
+
+    const totalAntes = (await umaLinha("select count(*)::int as quantos from itens_catalogo")).quantos;
+    for (const pedaco of sementeDasQueimas) {
+      await conexao.query(pedaco);
+    }
+    const totalDepois = (await umaLinha("select count(*)::int as quantos from itens_catalogo")).quantos;
+    afirmar(
+      totalDepois === totalAntes,
+      `Queimas: a adoção não deveria criar item — ${totalAntes} itens antes, ${totalDepois} depois.`,
+    );
+    const { rows: depoisDaAdocao } = await conexao.query(
+      `select id, chave_do_sistema, aparece_na_venda, categoria_venda_id from itens_catalogo
+        where id = any($1::uuid[])`,
+      [[...homonimos, original.id]],
+    );
+    const porId = Object.fromEntries(depoisDaAdocao.map((item) => [item.id, item]));
+    afirmar(
+      porId[adotavel.id].chave_do_sistema === "queima_externa_p" &&
+        porId[adotavel.id].aparece_na_venda === true &&
+        porId[adotavel.id].categoria_venda_id !== null,
+      `Queimas: o item ativo, sem chave e sem estoque mais antigo ("queima EXTERNA  p") deveria ter sido ` +
+        `adotado como queima_externa_p, na venda e com categoria — veio ${JSON.stringify(porId[adotavel.id])}.`,
+    );
+    afirmar(
+      porId[maisNovo.id].chave_do_sistema === null,
+      "Queimas: o homônimo sem estoque MAIS NOVO não deveria ter sido adotado (o mais antigo ganha).",
+    );
+    afirmar(
+      porId[comEstoque.id].chave_do_sistema === null,
+      "Queimas: o homônimo COM controle de estoque nunca deveria ser adotado (vender daria baixa no livro).",
+    );
+    afirmar(
+      porId[original.id].chave_do_sistema === null,
+      "Queimas: a preparação da adoção falhou — o item original não deveria ter recuperado a chave.",
+    );
+  } finally {
+    // Devolve a chave ao item original, restaura o nome e apaga os homônimos — com o gatilho
+    // desligado (item com chave não se apaga nem troca de chave). Nunca relança.
+    try {
+      await conexao.query("alter table itens_catalogo disable trigger travar_item_do_sistema");
+      await conexao.query(
+        "update itens_catalogo set chave_do_sistema = null where id = any($1::uuid[])",
+        [homonimos],
+      );
+      await conexao.query(
+        "update itens_catalogo set chave_do_sistema = 'queima_externa_p', nome = $2 where id = $1",
+        [original.id, original.nome],
+      );
+      await conexao.query("delete from itens_catalogo where id = any($1::uuid[])", [homonimos]);
+    } catch (erro) {
+      console.error(`Queimas: a faxina da adoção falhou — ${erro.message}`);
+    } finally {
+      await conexao.query("alter table itens_catalogo enable trigger travar_item_do_sistema");
+    }
+  }
+  conferirSementeDasQueimas(await lerItensDasQueimas(), "depois da faxina da adoção");
+
+  // ——— 3 a 5. Contagem, vínculos e cascade, com dado de prova ———————————————————————————————————
+  const { rows: usuarioInserido } = await conexao.query(
+    `insert into usuarios (nome, email, senha_hash)
+     values ('Usuária de Teste das Queimas [mig]', 'usuaria-queimas@exemplo.test', 'hash-fake-de-teste')
+     returning id`,
+  );
+  const usuarioId = usuarioInserido[0].id;
+  const fornoIds = [];
+  const documentoIds = [];
+
+  async function novaQueima(fornoId) {
+    return (
+      await umaLinha("insert into queimas (forno_id, tipo) values ($1, 'biscoito') returning id", [fornoId])
+    ).id;
+  }
+  // Uma venda de prova completa (documento + linha + parcela numa transação só — a restrição adiada
+  // `conferir_soma_do_documento()` da 0015 confere no commit).
+  async function novaVenda() {
+    await conexao.query("begin");
+    try {
+      const documento = await umaLinha(
+        "insert into documentos (tipo, data, criado_por) values ('venda', current_date, $1) returning id",
+        [usuarioId],
+      );
+      await conexao.query(
+        `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+         values ($1, 1, 'Queima externa de prova [mig]', $2, 1000)`,
+        [documento.id, categoriaDaQueima.id],
+      );
+      await conexao.query(
+        `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
+         values ($1, 1, current_date, 1000, 'pix')`,
+        [documento.id],
+      );
+      await conexao.query("commit");
+      documentoIds.push(documento.id);
+      return documento.id;
+    } catch (erro) {
+      await conexao.query("rollback").catch(() => {});
+      throw erro;
+    }
+  }
+
+  try {
+    const forno = await umaLinha("insert into fornos (nome) values ('[mig] Forno das Queimas') returning id");
+    fornoIds.push(forno.id);
+    const queimaContada = await novaQueima(forno.id);
+    const outraContada = await novaQueima(forno.id);
+    const semContagem = await novaQueima(forno.id);
+
+    // Contagem com só `queima_id` e `internas_p` → `saiu_cheio` nasce verdadeiro (marcado por padrão).
+    await conexao.query(
+      "insert into queima_contagens (queima_id, internas_p, atualizado_em) values ($1, 1, $2)",
+      [queimaContada, CARIMBO_ANTIGO],
+    );
+    const nascida = await umaLinha(
+      "select saiu_cheio, internas_p from queima_contagens where queima_id = $1",
+      [queimaContada],
+    );
+    afirmar(
+      nascida.saiu_cheio === true && nascida.internas_p === 1,
+      `Queimas: uma contagem sem saiu_cheio deveria nascer com saiu_cheio = true, veio ${JSON.stringify(nascida)}.`,
+    );
+
+    // Checks da contagem (QMC-03): faixa 0..10000 e "alguma peça". No caso do −1 outra coluna sobe
+    // junto: com só `internas_p = 1`, a soma daria 0 e o "alguma peça" recusaria primeiro.
+    esperar(
+      await tentar("update queima_contagens set externas_g = -1, internas_m = 5 where queima_id = $1", [queimaContada]),
+      "23514",
+      ["queima_contagens_externas_g_faixa"],
+      "externas_g = −1",
+    );
+    esperar(
+      await tentar("update queima_contagens set externas_g = 10001 where queima_id = $1", [queimaContada]),
+      "23514",
+      ["queima_contagens_externas_g_faixa"],
+      "externas_g = 10001",
+    );
+    esperar(
+      await tentar("update queima_contagens set internas_m = 10000 where queima_id = $1", [queimaContada]),
+      null,
+      null,
+      "internas_m = 10000",
+    );
+    esperar(
+      await tentar("insert into queima_contagens (queima_id) values ($1)", [outraContada]),
+      "23514",
+      ["queima_contagens_alguma_peca"],
+      "uma contagem com os seis contadores em 0",
+    );
+    // PK: uma contagem por queima.
+    esperar(
+      await tentar("insert into queima_contagens (queima_id, internas_g) values ($1, 2)", [queimaContada]),
+      "23505",
+      ["queima_contagens_pkey"],
+      "uma segunda contagem para a mesma queima",
+    );
+    // Regravar os mesmos números: uma linha só, mesmos valores, e o gatilho troca `atualizado_em`.
+    await conexao.query(
+      `insert into queima_contagens (queima_id, internas_p, saiu_cheio) values ($1, 1, true)
+       on conflict (queima_id) do update set internas_p = excluded.internas_p, saiu_cheio = excluded.saiu_cheio`,
+      [queimaContada],
+    );
+    const regravada = await umaLinha(
+      `select (select count(*)::int from queima_contagens where queima_id = $1) as linhas,
+              internas_p, saiu_cheio, atualizado_em
+         from queima_contagens where queima_id = $1`,
+      [queimaContada],
+    );
+    afirmar(
+      regravada.linhas === 1 && regravada.internas_p === 1 && regravada.saiu_cheio === true,
+      `Queimas: regravar a mesma contagem deveria deixar uma linha com os mesmos valores, veio ${JSON.stringify(regravada)}.`,
+    );
+    afirmar(
+      new Date(regravada.atualizado_em).getTime() > new Date(CARIMBO_ANTIGO).getTime(),
+      `Queimas: o gatilho tocar_atualizado_em_queima_contagens deveria trocar atualizado_em, ficou ${regravada.atualizado_em}.`,
+    );
+
+    // Vínculos (D-07). As externas da contagem não importam ao banco: o piso é da aplicação.
+    await conexao.query(
+      "update queima_contagens set externas_p = 3, externas_g = 1 where queima_id = $1",
+      [queimaContada],
+    );
+    await conexao.query("insert into queima_contagens (queima_id, externas_m) values ($1, 2)", [outraContada]);
+    const vendaUm = await novaVenda();
+    const vendaDois = await novaVenda();
+    await conexao.query(
+      "insert into queima_vendas (documento_id, queima_id, quantidade_p, lancado_por) values ($1, $2, 1, $3)",
+      [vendaUm, queimaContada, usuarioId],
+    );
+    esperar(
+      await tentar("insert into queima_vendas (documento_id, queima_id, quantidade_p, quantidade_g) values ($1, $2, 2, -1)", [
+        vendaDois,
+        queimaContada,
+      ]),
+      "23514",
+      ["queima_vendas_g_faixa"],
+      "um vínculo com quantidade_g = −1",
+    );
+    esperar(
+      await tentar("insert into queima_vendas (documento_id, queima_id, quantidade_g) values ($1, $2, 10001)", [
+        vendaDois,
+        queimaContada,
+      ]),
+      "23514",
+      ["queima_vendas_g_faixa"],
+      "um vínculo com quantidade_g = 10001",
+    );
+    esperar(
+      await tentar("insert into queima_vendas (documento_id, queima_id) values ($1, $2)", [
+        vendaDois,
+        queimaContada,
+      ]),
+      "23514",
+      ["queima_vendas_alguma_peca"],
+      "um vínculo com as três quantidades em 0",
+    );
+    esperar(
+      await tentar("insert into queima_vendas (documento_id, queima_id, quantidade_m) values ($1, $2, 1)", [
+        vendaUm,
+        outraContada,
+      ]),
+      "23505",
+      ["queima_vendas_pkey"],
+      "um segundo vínculo da MESMA venda (uma venda é de uma queima só)",
+    );
+    esperar(
+      await tentar("insert into queima_vendas (documento_id, queima_id, quantidade_p) values ($1, $2, 1)", [
+        vendaDois,
+        semContagem,
+      ]),
+      "23503",
+      ["queima_vendas_queima_id_queima_contagens_queima_id_fk"],
+      "um vínculo para uma queima sem contagem",
+    );
+    await conexao.query(
+      "insert into queima_vendas (documento_id, queima_id, quantidade_p, quantidade_g) values ($1, $2, 1, 1)",
+      [vendaDois, queimaContada],
+    );
+    const vinculos = await umaLinha(
+      "select count(*)::int as quantos from queima_vendas where queima_id = $1",
+      [queimaContada],
+    );
+    afirmar(
+      vinculos.quantos === 2,
+      `Queimas: uma queima deveria aceitar várias vendas (D-07), vieram ${vinculos.quantos} vínculos.`,
+    );
+
+    // Cascade: apagar a queima leva a contagem e os vínculos; as vendas ficam no Caixa.
+    await conexao.query("delete from queimas where id = $1", [queimaContada]);
+    const depoisDeApagar = await umaLinha(
+      `select (select count(*)::int from queima_contagens where queima_id = $1) as contagens,
+              (select count(*)::int from queima_vendas where documento_id = any($2::uuid[])) as vinculos,
+              (select count(*)::int from documentos where id = any($2::uuid[])) as vendas`,
+      [queimaContada, [vendaUm, vendaDois]],
+    );
+    afirmar(
+      depoisDeApagar.contagens === 0 && depoisDeApagar.vinculos === 0 && depoisDeApagar.vendas === 2,
+      `Queimas: apagar a queima deveria levar a contagem e os vínculos e deixar as duas vendas em documentos — ` +
+        `veio ${JSON.stringify(depoisDeApagar)}.`,
+    );
+  } finally {
+    await apagarDadosDeProvaDasQueimas(conexao, { fornoIds, documentoIds, usuarioId });
+  }
+
+  const sobras = await umaLinha(
+    "select count(*)::int as quantos from fornos where nome like '[mig] Forno das Queimas%'",
+  );
+  afirmar(
+    sobras.quantos === 0,
+    `Queimas: a faxina deveria apagar todo o dado de prova, sobraram ${sobras.quantos} fornos.`,
+  );
+}
+
 // As corridas da Agenda achadas na revisão de código da Fase 5 (05-REVIEW-A.md: CR-01, WR-01, WR-03),
 // provadas com o CÓDIGO DA APLICAÇÃO (`lib/agenda/gravacao.ts`, `gravarVenda`) e duas transações que se
 // sobrepõem de fato — a primeira trava e para numa barreira, a segunda espera a trava. Roda num processo
@@ -6403,6 +7033,17 @@ async function conferirLembretes(conexao) {
 function provarCorridasDaAgenda() {
   console.log("  provarCorridasDaAgenda...");
   rodarNpm("npx", ["tsx", "scripts/provar-corridas-da-agenda.ts"], {
+    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
+  });
+}
+
+// As corridas da cobrança das externas das Queimas (Fase 06.4, plano 04 — D-07): Recebi × Recebi por
+// tamanho, Recebi × corrigir/apagar a contagem, Recebi × excluir a queima, contagem × contagem, a venda
+// cancelada devolvendo a quantidade e a idempotência — o CÓDIGO da aplicação (`lib/queimas/gravacao.ts`)
+// com duas transações sobrepostas de fato, no molde de `provarCorridasDaAgenda`.
+function provarCorridasDasQueimas() {
+  console.log("  provarCorridasDasQueimas...");
+  rodarNpm("npx", ["tsx", "scripts/provar-corridas-das-queimas.ts"], {
     env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
   });
 }
@@ -6429,9 +7070,11 @@ async function conferirBanco() {
     await conferirAgenda(cliente);
     await conferirFornecedores(cliente);
     await conferirLembretes(cliente);
+    await conferirQueimas(cliente);
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
     provarCorridasDaAgenda();
+    provarCorridasDasQueimas();
   } finally {
     await cliente.end();
   }

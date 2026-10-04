@@ -17,6 +17,7 @@ import {
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
 import { conferirParcelas, dividirEmDuasFormas, gerarPlano, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
 import { CHAVE_RASCUNHO_VENDA, lerRascunho, serializarRascunho, type LinhaDoRascunho } from "@/lib/financeiro/rascunho";
+import { FRASE_LINHA_DA_QUEIMA_FALTANDO } from "@/lib/queimas/textos";
 import {
   FRASE_VAZIO_VENDA,
   PLACEHOLDER_PESSOA_VENDA,
@@ -40,7 +41,7 @@ import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
 import { CampoDesconto, type ModoDeDesconto } from "./campo-desconto";
 import { DialogoValorLivre, type LinhaDeValorLivre } from "./dialogo-valor-livre";
 import { EfeitoEstoque } from "./efeito-estoque";
-import { FaixaDaAgenda } from "./faixa-da-agenda";
+import { FaixaDaAgenda, FaixaDasQueimas } from "./faixa-da-agenda";
 import { GradeCatalogo, type FiltroDeArea } from "./grade-catalogo";
 import { LinhaCarrinho, type LinhaDoCarrinho } from "./linha-carrinho";
 import { ListaCompleta } from "./lista-completa";
@@ -58,8 +59,10 @@ type LinhaLocal =
       quantidade: number;
       valorUnitarioTexto: string;
       precoDeTabelaCentavos: number | null;
-      // A linha de origem da Venda aberta pela Agenda (UI-D26): sem o “tirar”, nunca abaixo de 1.
-      daAgenda?: boolean;
+      // Uma linha da origem (Fase 06.4, plano 05 — antes `daAgenda`). Na Agenda, a PRIMEIRA linha do item
+      // do sistema da cobrança — sem o “tirar”, nunca abaixo de 1 (UI-D26). Nas Queimas, toda linha de um
+      // dos três itens “Queima externa P/M/G” — removível, com a quantidade editável (D-07, UI-D30).
+      daOrigem?: boolean;
     }
   | {
       chave: string;
@@ -82,20 +85,27 @@ function centavosParaTexto(centavos: number): string {
   return (centavos / 100).toFixed(2).replace(".", ",");
 }
 
-// A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, UI-D26). Tudo resolvido no SERVIDOR pela
-// página (`cobrancaParaVenda`): o texto da origem (devolvido a `lancarVenda`, que relê a cobrança sob
-// a trava e sobrescreve pessoa, cliente e descrição), a faixa, e o “Vence em” do à vista em aberto.
-export type OrigemDaAgendaNoPainel = {
+// A Venda aberta por outro módulo — a Agenda (Fase 05, plano 12 — AGE-15, UI-D26) ou as Queimas (Fase
+// 06.4, plano 05 — QMC-08, D-07). Tudo resolvido no SERVIDOR pela página (`cobrancaParaVenda` ×
+// `queimaParaVenda`): o texto da origem (devolvido a `lancarVenda`, que relê a origem sob a trava do
+// módulo dono dela), a faixa, e o “Vence em” do à vista em aberto. `modulo` é a ÚNICA decisão do painel
+// sobre a origem — nenhum outro `if` sobre o tipo de cobrança entra aqui.
+export type OrigemNoPainel = {
+  modulo: "agenda" | "queimas";
   origem: string;
+  // Agenda: a descrição da cobrança (a faixa “Da Agenda · {descrição} · {nome}”). Queimas: o título da
+  // faixa, pronto (“Das Queimas · {Tipo} de {dd/mm} · {forno}”).
   descricao: string;
-  nome: string;
-  // O vencimento da mensalidade; a data do evento ou do uso.
+  // Agenda: o cliente da cobrança (a pessoa travada). Queimas: `null` (a queima externa não tem cliente).
+  nome: string | null;
+  // Agenda: o vencimento da mensalidade; a data do evento ou do uso. Queimas: hoje.
   vencimento: string;
-  // A linha de origem é a primeira com este item (o item do sistema da cobrança).
-  itemDoSistemaId: string;
+  // Agenda: `[itemDoSistemaId]` — a linha de origem é a primeira com este item. Queimas: os três itens.
+  itensDaOrigem: string[];
 };
 
-// O carrinho com que a Venda da Agenda começa: a pessoa (travada) e as linhas da cobrança.
+// O carrinho com que a Venda da origem começa: a pessoa (travada na Agenda; vazia e livre nas Queimas) e
+// as linhas da origem.
 export type RascunhoInicialDaVenda = {
   pessoa: string;
   linhas: readonly LinhaDaVendaDaAgenda[];
@@ -106,18 +116,20 @@ export type RascunhoInicialDaVenda = {
 // todas); o material cobrado do uso livre entra como linha livre, removível como qualquer outra.
 function linhasDoRascunhoInicial(
   rascunho: RascunhoInicialDaVenda,
-  itemDoSistemaId: string,
+  origem: OrigemNoPainel,
   catalogo: readonly ItemDoCatalogoParaVenda[],
   categorias: readonly CategoriaParaEscolha[],
 ): LinhaLocal[] {
   const areaDoItem = new Map<string, string>(catalogo.map((item) => [item.id, item.area]));
   const areaDaCategoria = new Map<string, string>(categorias.map((categoria) => [categoria.id, categoria.area]));
+  const itensDaOrigem = new Set(origem.itensDaOrigem);
   let origemMarcada = false;
   return rascunho.linhas.map((linha, indice): LinhaLocal => {
-    const chave = `agenda-${indice}`;
+    const chave = `${origem.modulo}-${indice}`;
     if (linha.tipo === "item") {
-      const daAgenda = !origemMarcada && linha.itemId === itemDoSistemaId;
-      origemMarcada ||= daAgenda;
+      // Agenda: só a PRIMEIRA linha do item do sistema. Queimas: toda linha dos três itens.
+      const daOrigem = itensDaOrigem.has(linha.itemId) && (origem.modulo === "queimas" || !origemMarcada);
+      origemMarcada ||= daOrigem;
       return {
         chave,
         tipo: "item",
@@ -127,7 +139,7 @@ function linhasDoRascunhoInicial(
         quantidade: linha.quantidade,
         valorUnitarioTexto: centavosParaTexto(Math.round(linha.valorCentavos / linha.quantidade)),
         precoDeTabelaCentavos: null,
-        daAgenda,
+        daOrigem,
       };
     }
     return {
@@ -150,8 +162,9 @@ export type PainelVendaProps = {
   // Plano 06-08 (D-21): o saldo de cada material antes da venda (`listarSaldos`); `null` quando a
   // consulta do Estoque falhou — o painel fica como era, sem "fica com" e sem aviso.
   saldos?: ReadonlyMap<string, number> | null;
-  // Fase 05, plano 12: a Venda aberta pela Agenda. Sem os dois, o painel é a Venda manual de sempre.
-  origem?: OrigemDaAgendaNoPainel | null;
+  // Fase 05, plano 12 (Agenda) e Fase 06.4, plano 05 (Queimas): a Venda aberta por outro módulo. Sem os
+  // dois, o painel é a Venda manual de sempre.
+  origem?: OrigemNoPainel | null;
   rascunhoInicial?: RascunhoInicialDaVenda | null;
 };
 
@@ -171,13 +184,15 @@ export function PainelVenda({
   origem = null,
   rascunhoInicial = null,
 }: PainelVendaProps) {
-  // A Venda da Agenda começa DIRETO do carrinho da origem (calculado já na renderização do servidor —
-  // nada de piscar o carrinho em montagem antes, Pitfall 10), com a pessoa travada e o à vista EM ABERTO
-  // vencendo no dia da cobrança (UI-D26).
-  const daAgenda = origem !== null && rascunhoInicial !== null;
+  // A Venda da origem começa DIRETO do carrinho da origem (calculado já na renderização do servidor —
+  // nada de piscar o carrinho em montagem antes, Pitfall 10), com o à vista EM ABERTO vencendo no dia da
+  // cobrança (UI-D26). Agenda: a pessoa travada. Queimas: a pessoa vazia e livre (UI-D13).
+  const comOrigem = origem !== null && rascunhoInicial !== null;
+  const daAgenda = comOrigem && origem.modulo === "agenda";
+  const dasQueimas = comOrigem && origem.modulo === "queimas";
   const linhasDaOrigem = (): LinhaLocal[] =>
     origem !== null && rascunhoInicial !== null
-      ? linhasDoRascunhoInicial(rascunhoInicial, origem.itemDoSistemaId, catalogo, categorias)
+      ? linhasDoRascunhoInicial(rascunhoInicial, origem, catalogo, categorias)
       : [];
   const [dialogoValorLivreAberto, setDialogoValorLivreAberto] = useState(false);
   const [dialogoListaAberto, setDialogoListaAberto] = useState(false);
@@ -195,7 +210,7 @@ export function PainelVenda({
   // comum continua um toque só) e sobrevive à regeneração do plano quando o carrinho, a data ou o
   // plano mudam — é por isso que ela mora em estado PRÓPRIO, fora de `parcelasPagamento` (que é
   // recriado do zero a cada regeneração).
-  const [pagoAVista, setPagoAVista] = useState(!daAgenda);
+  const [pagoAVista, setPagoAVista] = useState(!comOrigem);
   // O "Vence em" digitado à mão para o à vista em aberto — `null` até o dono editar o campo (a
   // parcela então vence na data do documento, o padrão de `gerarPlano`). Sobrevive à regeneração
   // do plano pela MESMA razão de `pagoAVista`: mudar o carrinho não deve apagar uma data já
@@ -208,17 +223,17 @@ export function PainelVenda({
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
-  // Havia uma venda em montagem no rascunho comum quando a Venda da Agenda abriu (a 2ª linha da faixa).
+  // Havia uma venda em montagem no rascunho comum quando a Venda da origem abriu (a linha da faixa).
   const [haviaVendaEmMontagem, setHaviaVendaEmMontagem] = useState(false);
 
   // Lê o rascunho UMA vez, ao montar — com os ids do catálogo JÁ carregado, para descartar linha
   // de item que sumiu (lerRascunho). Nunca sobrescreve um rascunho vazio por cima de nada.
   //
-  // Com a origem da Agenda (Pitfall 10): o rascunho comum é LIDO só para saber se havia uma venda em
-  // montagem — nunca aplicado, nunca regravado (`rascunhoCarregado` fica falso, e o efeito de gravar
-  // abaixo não roda). A venda em montagem fica intacta e volta quando a Venda abrir sem origem.
+  // Com uma origem (Pitfall 10 — Agenda e Queimas): o rascunho comum é LIDO só para saber se havia uma
+  // venda em montagem — nunca aplicado, nunca regravado (`rascunhoCarregado` fica falso, e o efeito de
+  // gravar abaixo não roda). A venda em montagem fica intacta e volta quando a Venda abrir sem origem.
   useEffect(() => {
-    if (daAgenda) {
+    if (comOrigem) {
       const guardado = window.sessionStorage.getItem(CHAVE_RASCUNHO_VENDA) ?? "";
       setHaviaVendaEmMontagem(lerRascunho(guardado, catalogo.map((item) => item.id)).linhas.length > 0);
       return;
@@ -343,10 +358,15 @@ export function PainelVenda({
   });
 
   const todasValidas = linhasBase.every((linha) => linha.valido);
-  // A linha de origem da Venda da Agenda (sem o “tirar”, nunca abaixo de 1).
-  const chavesDaAgenda = new Set(
-    linhas.flatMap((linha) => (linha.tipo === "item" && linha.daAgenda ? [linha.chave] : [])),
+  // A linha de origem da Venda da Agenda (sem o “tirar”, nunca abaixo de 1). Nas Queimas nenhuma linha é
+  // fixa: tirar pode, desde que reste uma linha de queima externa (conferido ao lançar).
+  const chavesFixas = new Set(
+    daAgenda ? linhas.flatMap((linha) => (linha.tipo === "item" && linha.daOrigem ? [linha.chave] : [])) : [],
   );
+  // Nas Queimas, uma linha de queima é qualquer linha de um dos três itens — inclusive uma posta de novo
+  // pelo catálogo depois de tirada.
+  const itensDaOrigem = new Set(origem?.itensDaOrigem ?? []);
+  const restaLinhaDaQueima = linhas.some((linha) => linha.tipo === "item" && itensDaOrigem.has(linha.itemId));
 
   // Desconto (D-09/D-10, Tarefa 3) — a MESMA `repartirDesconto` do servidor, chamada aqui só
   // para MOSTRAR (o servidor refaz a conta do zero, nunca aceita o resultado do cliente).
@@ -602,7 +622,7 @@ export function PainelVenda({
         const novaQuantidade = linha.quantidade + delta;
         if (novaQuantidade < 1) {
           // A linha que veio da Agenda não sai da venda (UI-D26); o servidor recusa do mesmo jeito.
-          return linha.daAgenda ? [linha] : [];
+          return daAgenda && linha.daOrigem ? [linha] : [];
         }
         return [{ ...linha, quantidade: novaQuantidade }];
       }),
@@ -617,12 +637,14 @@ export function PainelVenda({
 
   function tirarLinha(chave: string) {
     setLinhas((atual) =>
-      atual.filter((linha) => linha.chave !== chave || (linha.tipo === "item" && linha.daAgenda === true)),
+      atual.filter(
+        (linha) => linha.chave !== chave || (daAgenda && linha.tipo === "item" && linha.daOrigem === true),
+      ),
     );
   }
 
   function limpar() {
-    // Na Venda da Agenda, “Limpar” volta ao carrinho da origem (a linha de origem não sai) e NÃO toca no
+    // Na Venda da origem, “Limpar” volta ao carrinho da origem (a linha de origem não sai) e NÃO toca no
     // rascunho comum — a venda em montagem continua guardada (Pitfall 10).
     setLinhas(linhasDaOrigem());
     setData(hoje);
@@ -635,17 +657,23 @@ export function PainelVenda({
     setPlano("avista");
     setFormaPagamento("pix");
     setDuasFormas(false);
-    setPagoAVista(!daAgenda);
+    setPagoAVista(!comOrigem);
     setVencimentoAvistaAberto(origem?.vencimento ?? null);
     setParcelasPagamento([]);
     setErroDoPlano(null);
-    if (!daAgenda) {
+    if (!comOrigem) {
       window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
     }
   }
 
   async function aoLancar() {
     setErro(null);
+    // Nas Queimas, a venda precisa levar ao menos uma linha de queima externa (o servidor confere de novo,
+    // e também que nenhum tamanho passa do que falta agora — essa conta fica só lá).
+    if (dasQueimas && !restaLinhaDaQueima) {
+      setErro(FRASE_LINHA_DA_QUEIMA_FALTANDO);
+      return;
+    }
     setEnviando(true);
 
     const resposta = await lancarVenda({
@@ -676,8 +704,9 @@ export function PainelVenda({
         pago: parcela.pago,
       })),
       ...(descontoTexto.trim() !== "" ? { desconto: { modo: descontoModo, texto: descontoTexto } } : {}),
-      // Só QUAL cobrança: o servidor sobrescreve pessoa, cliente e a descrição da linha de origem.
-      ...(origem !== null && daAgenda ? { origem: origem.origem } : {}),
+      // Só QUAL origem: na Agenda o servidor sobrescreve pessoa, cliente e a descrição da linha de origem;
+      // nas Queimas ele relê o que falta sob a trava e tira as quantidades do vínculo destas linhas.
+      ...(origem !== null && comOrigem ? { origem: origem.origem } : {}),
     });
 
     setEnviando(false);
@@ -691,6 +720,13 @@ export function PainelVenda({
       // A volta à Agenda (UI-D26): “A receber” mostra o toast uma vez. O rascunho comum NÃO é apagado —
       // a venda que estava em montagem continua guardada (Pitfall 10).
       window.location.assign(rotaDeGestao(`/agenda?aba=receber&aviso=lancado&documento=${resposta.dados.id}`));
+      return;
+    }
+
+    if (dasQueimas) {
+      // A volta às Queimas: o índice mostra o aviso uma vez (lido no servidor: o número e se saiu paga) e o
+      // que ainda falta continua em “a cobrar”. O rascunho comum NÃO é apagado (Pitfall 10).
+      window.location.assign(rotaDeGestao(`/queimas?aviso=lancado&documento=${resposta.dados.id}`));
       return;
     }
 
@@ -790,7 +826,7 @@ export function PainelVenda({
               <LinhaCarrinho
                 key={linha.chave}
                 linha={linha}
-                fixa={chavesDaAgenda.has(linha.chave)}
+                fixa={chavesFixas.has(linha.chave)}
                 aoMudarQuantidade={mudarQuantidade}
                 aoMudarValorUnitario={mudarValorUnitario}
                 aoTirar={tirarLinha}
@@ -896,13 +932,21 @@ export function PainelVenda({
     </div>
   );
 
-  if (origem === null || !daAgenda) {
+  if (origem === null || !comOrigem) {
     return painel;
   }
   return (
     <div className="flex flex-col">
       <div className="px-6 pt-6 md:px-8">
-        <FaixaDaAgenda descricao={origem.descricao} nome={origem.nome} haviaVendaEmMontagem={haviaVendaEmMontagem} />
+        {dasQueimas ? (
+          <FaixaDasQueimas titulo={origem.descricao} haviaVendaEmMontagem={haviaVendaEmMontagem} />
+        ) : (
+          <FaixaDaAgenda
+            descricao={origem.descricao}
+            nome={origem.nome ?? ""}
+            haviaVendaEmMontagem={haviaVendaEmMontagem}
+          />
+        )}
       </div>
       {painel}
     </div>
