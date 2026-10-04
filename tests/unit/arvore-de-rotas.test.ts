@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 // manutenção de rotina.
 const ARQUIVOS_DE_ROTA_PUBLICOS = [
   "app/page.tsx",
+  "app/privacidade/page.tsx",
   "app/robots.ts",
   // Decidida no plano 04 (Fase 04.6): rota pública nova, exigida por SIT-08 (o critério do
   // dono é aparecer no Google para "amassa cerrado pirenópolis"). Não serve nada além do XML

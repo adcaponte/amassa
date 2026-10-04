@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { CONTEUDO_SITE } from "@/conteudo/site";
 import { BotaoWhatsapp } from "@/components/site/botao-whatsapp";
 
@@ -24,6 +26,12 @@ export function Rodape() {
         · <BotaoWhatsapp mensagem="site" rotulo="WhatsApp" className="text-site-tinta-fraca underline" />
       </p>
       <p className="mt-1 opacity-70">{CONTEUDO_SITE.rodape.quemSomos}</p>
+      {/* 04/10/2026: a política que o Google exige para publicar o app de backup (`app/privacidade`). */}
+      <p className="mt-1">
+        <Link href="/privacidade" className="text-site-tinta-fraca underline">
+          Privacidade
+        </Link>
+      </p>
     </footer>
   );
 }
