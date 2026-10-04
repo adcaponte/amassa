@@ -2,7 +2,15 @@ import Link from "next/link";
 
 import { cobrancaParaVenda, type CobrancaParaVenda } from "@/lib/agenda/consultas";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { abaDaUrl, formaDaUrl, mesDaUrl, origemDaUrl, textoDaOrigem } from "@/lib/financeiro/abas";
+import {
+  abaDaUrl,
+  ehOrigemDaAgenda,
+  formaDaUrl,
+  mesDaUrl,
+  moduloDoTextoDaOrigem,
+  origemDaUrl,
+  textoDaOrigem,
+} from "@/lib/financeiro/abas";
 import { avisoDaUrl } from "@/lib/financeiro/avisos";
 import {
   listarCatalogoDaCompra,
@@ -72,7 +80,9 @@ import { EditorOrcamento } from "@/components/amassa/orcamentos/editor-orcamento
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
+import { queimaParaVenda, type VendaDaQueima } from "@/lib/queimas/consultas";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
+import type { OrigemNoPainel, RascunhoInicialDaVenda } from "@/components/amassa/financeiro/painel-venda";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -190,23 +200,45 @@ export default async function PaginaFinanceiro({
 
   const avisoResolvido = avisoDaUrl({ aviso, documento, parcela });
 
-  // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa, UI-D26): com
-  // `?origem=` na aba Venda, a cobrança é resolvida AQUI, no servidor — cliente, linhas, vencimento e
-  // descrição vêm do banco, nunca da URL. Origem mal formada conta como não achada (nunca um carrinho
-  // com dado inventado); a cobrança que já virou venda mostra o número e o caminho do Caixa.
+  // A Venda aberta por outro módulo — a Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa,
+  // UI-D26) e as Queimas (Fase 06.4, plano 05 — QMC-08, D-07): com `?origem=` na aba Venda, a origem é
+  // resolvida AQUI, no servidor — pessoa, linhas, vencimento e descrição vêm do banco, nunca da URL. O
+  // despacho é pelo MÓDULO da origem: Agenda → `cobrancaParaVenda` (como antes); Queimas →
+  // `queimaParaVenda`. Origem mal formada conta como não achada (nunca um carrinho com dado inventado);
+  // a origem que já virou venda mostra o número e o caminho do Caixa.
   const origemDaVenda = abaVenda ? origemDaUrl(origem) : null;
   const pediuOrigem = abaVenda && origem !== undefined && origem !== "";
+  const moduloPedido = origemDaVenda
+    ? ehOrigemDaAgenda(origemDaVenda)
+      ? "agenda"
+      : "queimas"
+    : moduloDoTextoDaOrigem(origem);
   // WR-07 (revisão B): a promessa nasce aqui e só é esperada depois das listas — com o `catch` preso já
   // na criação, uma falha dela nunca fica solta (rejeição sem dono) e vira "não achada": a tela mostra
   // `OrigemIndisponivel`, nunca um carrinho montado com dado desconhecido.
-  const cobrancaDaOrigem: Promise<CobrancaParaVenda | null> = !pediuOrigem
+  const vendaDaOrigemPromessa: Promise<
+    { modulo: "agenda"; venda: CobrancaParaVenda } | { modulo: "queimas"; venda: VendaDaQueima } | null
+  > = !pediuOrigem
     ? Promise.resolve(null)
-    : origemDaVenda
-      ? cobrancaParaVenda(origemDaVenda).catch((erro: unknown): CobrancaParaVenda => {
-          console.error("Falha ao ler a cobrança da Agenda para a Venda:", erro);
-          return { situacao: "nao_achada" };
-        })
-      : Promise.resolve({ situacao: "nao_achada" });
+    : !origemDaVenda
+      ? Promise.resolve(
+          moduloPedido === "queimas"
+            ? { modulo: "queimas" as const, venda: { situacao: "nao_achada" as const } }
+            : { modulo: "agenda" as const, venda: { situacao: "nao_achada" as const } },
+        )
+      : ehOrigemDaAgenda(origemDaVenda)
+        ? cobrancaParaVenda(origemDaVenda)
+            .catch((erro: unknown): CobrancaParaVenda => {
+              console.error("Falha ao ler a cobrança da Agenda para a Venda:", erro);
+              return { situacao: "nao_achada" };
+            })
+            .then((venda) => ({ modulo: "agenda" as const, venda }))
+        : queimaParaVenda(origemDaVenda.id, hoje)
+            .catch((erro: unknown): VendaDaQueima => {
+              console.error("Falha ao ler a queima para a Venda:", erro);
+              return { situacao: "nao_achada" };
+            })
+            .then((venda) => ({ modulo: "queimas" as const, venda }));
 
   // Uma leitura por lista, nunca uma consulta a mais que a aba atual precisa (mesma disciplina de
   // `app/(app)/abertura/page.tsx`). O valor livre aceita categoria de Receitas OU Fora do
@@ -286,7 +318,53 @@ export default async function PaginaFinanceiro({
     // nesta aba, num `try` próprio (falha → `null`, e o campo funciona como texto livre).
     abaDespesa ? carregarFornecedoresParaDespesa() : Promise.resolve(null),
   ]);
-  const vendaDaAgenda = await cobrancaDaOrigem;
+  const vendaDaOrigem = await vendaDaOrigemPromessa;
+  // UM objeto para o painel, montado pelo módulo da origem — o `PainelVenda` só olha `modulo`.
+  const origemNoPainel: OrigemNoPainel | null =
+    vendaDaOrigem && origemDaVenda && vendaDaOrigem.venda.situacao === "livre"
+      ? vendaDaOrigem.modulo === "agenda" && vendaDaOrigem.venda.situacao === "livre"
+        ? {
+            modulo: "agenda",
+            origem: textoDaOrigem(origemDaVenda),
+            descricao: vendaDaOrigem.venda.descricao,
+            nome: vendaDaOrigem.venda.clienteNome,
+            vencimento: vendaDaOrigem.venda.vencimento,
+            itensDaOrigem: [vendaDaOrigem.venda.itemDoSistemaId],
+          }
+        : vendaDaOrigem.modulo === "queimas" && vendaDaOrigem.venda.situacao === "livre"
+          ? {
+              modulo: "queimas",
+              origem: textoDaOrigem(origemDaVenda),
+              descricao: vendaDaOrigem.venda.tituloDaFaixa,
+              nome: null,
+              vencimento: vendaDaOrigem.venda.vencimento,
+              itensDaOrigem: vendaDaOrigem.venda.itensDaOrigem,
+            }
+          : null
+      : null;
+  const rascunhoDaOrigem: RascunhoInicialDaVenda | null =
+    vendaDaOrigem && vendaDaOrigem.venda.situacao === "livre"
+      ? vendaDaOrigem.modulo === "agenda" && vendaDaOrigem.venda.situacao === "livre"
+        ? { pessoa: vendaDaOrigem.venda.clienteNome, linhas: vendaDaOrigem.venda.linhas }
+        : vendaDaOrigem.modulo === "queimas" && vendaDaOrigem.venda.situacao === "livre"
+          ? { pessoa: "", linhas: vendaDaOrigem.venda.linhas }
+          : null
+      : null;
+  // A origem que não abre carrinho: já lançada / não achada (os dois módulos) ou sem preço (Queimas).
+  const origemIndisponivel =
+    vendaDaOrigem === null || vendaDaOrigem.venda.situacao === "livre"
+      ? null
+      : vendaDaOrigem.modulo === "agenda"
+        ? {
+            modulo: "agenda" as const,
+            numerosDasVendas: vendaDaOrigem.venda.situacao === "ja_lancada" ? [vendaDaOrigem.venda.numero] : null,
+            frasePreco: null,
+          }
+        : {
+            modulo: "queimas" as const,
+            numerosDasVendas: vendaDaOrigem.venda.situacao === "tudo_lancado" ? vendaDaOrigem.venda.numeros : null,
+            frasePreco: vendaDaOrigem.venda.situacao === "sem_preco" ? vendaDaOrigem.venda.frase : null,
+          };
 
   // "pago" só aparece se a parcela AINDA está paga com previsto guardado (recarregar depois de
   // desfazer não oferece desfazer de novo — o `key_link` do plano). A diferença (D-01) só entra
@@ -521,13 +599,17 @@ export default async function PaginaFinanceiro({
             </p>
           ) : null}
         </>
-      ) : vendaDaAgenda && vendaDaAgenda.situacao !== "livre" ? (
-        <OrigemIndisponivel numeroDaVenda={vendaDaAgenda.situacao === "ja_lancada" ? vendaDaAgenda.numero : null} />
+      ) : origemIndisponivel ? (
+        <OrigemIndisponivel
+          modulo={origemIndisponivel.modulo}
+          numerosDasVendas={origemIndisponivel.numerosDasVendas}
+          frasePreco={origemIndisponivel.frasePreco}
+        />
       ) : (
         <PainelVenda
-          // A `key` separa a Venda manual da Venda da Agenda (e uma origem da outra): o painel monta de novo
-          // e começa do carrinho certo, nunca do estado da tela anterior.
-          key={vendaDaAgenda && origemDaVenda ? textoDaOrigem(origemDaVenda) : "manual"}
+          // A `key` separa a Venda manual da Venda de uma origem (e uma origem da outra): o painel monta de
+          // novo e começa do carrinho certo, nunca do estado da tela anterior.
+          key={origemNoPainel ? origemNoPainel.origem : "manual"}
           hoje={hoje}
           categorias={categoriasParaValorLivre}
           catalogo={catalogo}
@@ -537,20 +619,8 @@ export default async function PaginaFinanceiro({
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
           }}
-          origem={
-            vendaDaAgenda && origemDaVenda
-              ? {
-                  origem: textoDaOrigem(origemDaVenda),
-                  descricao: vendaDaAgenda.descricao,
-                  nome: vendaDaAgenda.clienteNome,
-                  vencimento: vendaDaAgenda.vencimento,
-                  itemDoSistemaId: vendaDaAgenda.itemDoSistemaId,
-                }
-              : null
-          }
-          rascunhoInicial={
-            vendaDaAgenda ? { pessoa: vendaDaAgenda.clienteNome, linhas: vendaDaAgenda.linhas } : null
-          }
+          origem={origemNoPainel}
+          rascunhoInicial={origemNoPainel ? rascunhoDaOrigem : null}
         />
       )}
     </>

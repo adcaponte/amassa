@@ -4,13 +4,15 @@ import { useId } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 
-import { ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
+import { ROTULO_LANCAR_NA_VENDA, ROTULO_RECEBI_AGORA, tagVendaCancelada } from "@/lib/agenda/textos";
+import { hrefDaVendaComOrigem } from "@/lib/financeiro/navegacao";
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { ItensDasQueimas, QueimaACobrar } from "@/lib/queimas/consultas";
 import { precosDosItens, resumoPmg, valorDasExternas } from "@/lib/queimas/contagem";
 import {
   FRASE_FALTA_PRECO,
   ROTULO_ABRIR_O_CATALOGO,
+  ariaLancarNaVenda,
   ariaRecebiAgora,
   fraseSemPrecoDaQueima,
   linhaDaFalta,
@@ -32,12 +34,13 @@ export type LinhaACobrarProps = {
 // (Σ falta × preço ATUAL do Catálogo — `valorDasExternas`, nenhum preço no código) na 1ª fileira; a falta
 // por tamanho ("falta: 1 P · 2 M") na 2ª; depois uma linha de apoio por venda ATIVA ligada ("já lançado:
 // venda nº 12 (2 P)"); e as ações na última. "Recebi agora" (`outline`, 44 px; a 320 px desce em largura
-// total) abre a folha com o passo de quantidade. A linha some sozinha quando nada mais falta: quem decide
+// total) abre a folha com o passo de quantidade; “Lançar na Venda” (plano 05), ao lado e igual, abre a Venda
+// do Financeiro com o que falta (as quantidades da Venda são o passo — UI-D30). A linha some sozinha quando nada mais falta: quem decide
 // é `listarACobrar`, pelas vendas ATIVAS.
 //
 // Sem preço (AGE-17, UI-D5): se algum tamanho que AINDA FALTA não tem preço no Catálogo (nulo ou zero —
 // uma venda de R$ 0,00 não nasce), o valor vira "falta preço", aparece o aviso com o nome ATUAL de cada
-// item e o caminho até o Catálogo, e "Recebi agora" fica desabilitado com `aria-describedby` no aviso.
+// item e o caminho até o Catálogo, e os dois botões ficam desabilitados com `aria-describedby` no aviso.
 // Tamanho sem preço que já não falta não bloqueia. Contar continua livre.
 export function LinhaACobrar({ linha, titulo, itens, aoReceberAgora }: LinhaACobrarProps) {
   const idDoAviso = useId();
@@ -147,6 +150,36 @@ export function LinhaACobrar({ linha, titulo, itens, aoReceberAgora }: LinhaACob
         >
           {ROTULO_RECEBI_AGORA}
         </Button>
+        {semPreco ? (
+          // Sem preço (UI-D5): um botão desabilitado, NUNCA um link — a Venda não abre com linha sem valor.
+          <Button
+            type="button"
+            variant="outline"
+            data-testid="lancar-na-venda"
+            aria-label={ariaLancarNaVenda(titulo)}
+            aria-describedby={idDoAviso}
+            disabled
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+          >
+            {ROTULO_LANCAR_NA_VENDA}
+          </Button>
+        ) : (
+          // “Lançar na Venda” (QMC-08, D-07): a Venda do Financeiro abre com o que FALTA, pessoa livre; o
+          // navegador só diz QUAL queima — o resto é resolvido no servidor (mecanismo B da Agenda).
+          <Button
+            asChild
+            variant="outline"
+            className="text-corpo h-auto min-h-[44px] px-4 font-semibold max-[359px]:w-full"
+          >
+            <Link
+              data-testid="lancar-na-venda"
+              aria-label={ariaLancarNaVenda(titulo)}
+              href={hrefDaVendaComOrigem({ tipo: "queima", id: linha.queimaId })}
+            >
+              {ROTULO_LANCAR_NA_VENDA}
+            </Link>
+          </Button>
+        )}
       </div>
     </li>
   );

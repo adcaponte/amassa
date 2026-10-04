@@ -669,3 +669,50 @@ export function faltaOPrecoDe(tamanhos: readonly Tamanho[]): string {
 
 // O link do aviso de preço → Cadastros → Catálogo.
 export const ROTULO_ABRIR_O_CATALOGO = "abrir o Catálogo";
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 05 — “Lançar na Venda” (QMC-08; D-07, decisão do dono de 04/10/2026: várias vendas
+// por queima, uma por pessoa), verbatim da UI-SPEC §Copywriting. O rótulo do botão (“Lançar na Venda”),
+// o aviso da volta com parcela em aberto (`toastLancadoNaVenda`), a linha da venda em montagem e o “ver
+// no Caixa” são IMPORTADOS de `lib/agenda/textos.ts` por quem usa — uma frase, um lugar.
+
+// A faixa no topo da Venda aberta pelas Queimas: “Das Queimas · Biscoito de 18/12 · Forno grande” — o
+// forno SEMPRE (a Venda não sabe quantos fornos a casa tem, e a faixa precisa dizer de qual queima é).
+export function tituloDaFaixaDasQueimas(tipo: TipoDeQueima, diaMes: string, nomeDoForno: string): string {
+  return `Das Queimas · ${rotuloDoTipo(tipo)} de ${diaMes} · ${nomeDoForno}`;
+}
+
+// A 2ª linha da faixa (D-07): as quantidades da própria Venda são o passo de “quantas de cada tamanho”.
+export const LINHA2_FAIXA_DAS_QUEIMAS = "O que você tirar desta venda continua em “a cobrar”.";
+
+export const ROTULO_VOLTAR_AS_QUEIMAS = "Voltar às Queimas";
+
+// A origem não achada: a queima apagada, sem contagem, sem externas, ou um id que não existe.
+export const FRASE_ORIGEM_QUEIMA_NAO_ACHADA =
+  "Não achei esta queima. Volte às Queimas e toque em “Lançar na Venda” de novo.";
+
+// Nada mais a cobrar (no lugar do carrinho, e a recusa do servidor ao lançar): `numeros` = os das vendas
+// ATIVAS que levaram tudo — “… — venda nº 7.” / “… — vendas nº 12 e 15.”.
+export function fraseOrigemQueimaTudoLancado(numeros: readonly number[]): string {
+  return `As externas desta queima já foram todas lançadas — ${nomeDasVendas(numeros)}.`;
+}
+
+// Subir a quantidade de uma linha de queima acima do que falta (recusado pelo servidor ao lançar; nada
+// é gravado). `resumo` = `resumoPmg` do que falta agora: “Desta queima só faltam 1 M para cobrar — …”.
+export function fraseAcimaDoQueFaltaNaVenda(resumo: string): string {
+  return `Desta queima só faltam ${resumo} para cobrar — diminua as linhas de queima externa e lance de novo.`;
+}
+
+// Tiraram todas as linhas de queima externa da venda (cliente e servidor).
+export const FRASE_LINHA_DA_QUEIMA_FALTANDO = "Pelo menos uma linha de queima externa precisa continuar na venda.";
+
+// A volta do “Lançar na Venda” quando a venda saiu PAGA na própria Venda (UI-D24) — a frase da Agenda
+// (“A parcela está em “o que vence””) mentiria nesse caso.
+export function toastLancadoNaVendaPago(numero: number): string {
+  return `Lançado na venda nº ${numero}. Já está no Caixa de hoje.`;
+}
+
+// Várias linhas com o mesmo rótulo visível: o `aria-label` nomeia a queima.
+export function ariaLancarNaVenda(titulo: string): string {
+  return `Lançar na Venda: ${titulo}`;
+}

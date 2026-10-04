@@ -52,17 +52,23 @@ import {
   resumoPmg,
   totalDasQuantidades,
   precosDosItens,
+  quantidadesDasLinhas,
   valorDasExternas,
   type Contagem,
+  type LinhaParaQuantidades,
   type Quantidades,
   type VendaLigada,
 } from "./contagem";
 import {
   fraseAbaixoDoLancado,
+  fraseAcimaDoQueFaltaNaVenda,
   fraseApagarComVendas,
+  fraseOrigemQueimaTudoLancado,
   fraseSemPrecoDaQueima,
   fraseSoFaltam,
   fraseTudoJaLancado,
+  FRASE_LINHA_DA_QUEIMA_FALTANDO,
+  FRASE_ORIGEM_QUEIMA_NAO_ACHADA,
   FRASE_PESSOA_SUMIU,
   FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
   FRASE_SAIU_DE_A_COBRAR,
@@ -406,4 +412,80 @@ export async function cobrarQueimaNaTransacao(
     lancadoPor: pedido.registradoPor,
   });
   return { documentoId: venda.id, numero: venda.numero };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 05 — a metade das Queimas do “Lançar na Venda” (QMC-08; D-07, decisão do dono de
+// 04/10/2026: várias vendas por queima, uma por pessoa). Chamada por `lancarVenda`
+// (`lib/financeiro/acoes.ts`) DENTRO da transação e ANTES de `gravarVenda` — a ordem de travas das
+// Queimas: QUEIMA → (leitura dos vínculos) → (documento novo) → ITENS → (vínculo novo). Molde
+// `vincularCobranca` da Agenda, com três diferenças: a pessoa NÃO é sobrescrita (a queima externa não
+// tem cliente — quem escreve é o dono, no campo livre da Venda); a origem não vira UMA venda, ela cede
+// o que FALTA, por tamanho; e as quantidades do vínculo são as das LINHAS da venda que vai ser gravada.
+//
+// Sob a trava da queima (`travarContagem`, a MESMA do “Recebi agora”), com as MESMAS regras puras
+// (`faltaCobrar`, `cabeNoQueFalta`, `quantidadesDasLinhas`): somados, os dois caminhos nunca passam das
+// externas em nenhum tamanho. Recusas (nada gravado): queima/contagem sumida ou sem externas →
+// `FRASE_ORIGEM_QUEIMA_NAO_ACHADA`; nada falta → `fraseOrigemQueimaTudoLancado` (as vendas ativas);
+// nenhuma linha dos três itens → `FRASE_LINHA_DA_QUEIMA_FALTANDO`; algum tamanho acima do que falta →
+// `fraseAcimaDoQueFaltaNaVenda` (o que falta agora).
+export type VinculoDaQueimaNaVenda = {
+  // O id de cada um dos três itens “Queima externa P/M/G”, lidos pela chave depois da trava.
+  itensPorTamanho: Record<"P" | "M" | "G", string>;
+  itensDaQueima: string[];
+  // As quantidades do vínculo, tiradas das linhas da venda (somadas por tamanho) e conferidas contra o
+  // que falta AGORA — ou a recusa com a frase da tela.
+  conferir: (linhas: readonly LinhaParaQuantidades[]) => Quantidades;
+  // O vínculo venda → queima com as quantidades, na MESMA transação, DEPOIS de `gravarVenda`.
+  gravar: (documentoId: string, quantidades: Quantidades, lancadoPor: string) => Promise<void>;
+};
+
+export async function vincularQueimaNaVenda(
+  tx: TransacaoDoBanco,
+  queimaId: string,
+): Promise<VinculoDaQueimaNaVenda> {
+  const travada = await travarContagem(tx, queimaId);
+  if (travada === null || travada.contagem === null) {
+    throw new RecusaDasQueimas(FRASE_ORIGEM_QUEIMA_NAO_ACHADA);
+  }
+  const externas = externasDaContagem(travada.contagem);
+  if (totalDasQuantidades(externas) === 0) {
+    throw new RecusaDasQueimas(FRASE_ORIGEM_QUEIMA_NAO_ACHADA);
+  }
+  const falta = faltaCobrar(externas, lancadoAtivo(travada.vendas));
+  if (totalDasQuantidades(falta) === 0) {
+    throw new RecusaDasQueimas(
+      fraseOrigemQueimaTudoLancado(
+        travada.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero),
+      ),
+    );
+  }
+
+  const itens = await obterItensDasQueimas(tx);
+  const itensPorTamanho = { P: itens.P.id, M: itens.M.id, G: itens.G.id };
+
+  return {
+    itensPorTamanho,
+    itensDaQueima: [itens.P.id, itens.M.id, itens.G.id],
+    conferir: (linhas) => {
+      const quantidades = quantidadesDasLinhas(linhas, itensPorTamanho);
+      if (totalDasQuantidades(quantidades) === 0) {
+        throw new RecusaDasQueimas(FRASE_LINHA_DA_QUEIMA_FALTANDO);
+      }
+      if (!cabeNoQueFalta(quantidades, falta)) {
+        throw new RecusaDasQueimas(fraseAcimaDoQueFaltaNaVenda(resumoPmg(falta.p, falta.m, falta.g)));
+      }
+      return quantidades;
+    },
+    gravar: async (documentoId, quantidades, lancadoPor) => {
+      await tx.insert(queimaVendas).values({
+        documentoId,
+        queimaId,
+        quantidadeP: quantidades.p,
+        quantidadeM: quantidades.m,
+        quantidadeG: quantidades.g,
+        lancadoPor,
+      });
+    },
+  };
 }

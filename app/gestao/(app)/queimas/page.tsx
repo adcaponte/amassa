@@ -4,13 +4,14 @@ import Link from "next/link";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { medirForno } from "@/lib/queimas/contador";
 import { modoSemContagemDaUrl } from "@/lib/queimas/contagem";
-import { carregarDadosDaFolha, listarFornosDoIndice } from "@/lib/queimas/consultas";
+import { carregarDadosDaFolha, lerAvisoDaVolta, listarFornosDoIndice } from "@/lib/queimas/consultas";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
 import { hojeEmBrasilia } from "@/lib/queimas/formato";
 import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_FORNO } from "@/lib/queimas/textos";
 import { CabecalhoPagina } from "@/components/amassa/cabecalho-pagina";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { Button } from "@/components/ui/button";
+import { AvisoDasQueimas } from "@/components/amassa/queimas/aviso-das-queimas";
 import { BannerAtencao } from "@/components/amassa/queimas/banner-atencao";
 import { FormularioForno } from "@/components/amassa/queimas/formulario-forno";
 import { ListaFornos } from "@/components/amassa/queimas/lista-fornos";
@@ -19,6 +20,8 @@ import {
   ListasDoIndice,
 } from "@/components/amassa/queimas/listas-do-indice";
 import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
+
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // `exigirUsuario()` como PRIMEIRA instrução — mesmo padrão de app/(app)/encomendas/page.tsx.
 // D-02: não existe tela de cadastro de fornos — o botão "Novo forno" abre `?novo` (masculino,
@@ -30,12 +33,25 @@ import { SeletorQueimas } from "@/components/amassa/queimas/seletor-queimas";
 export default async function PaginaQueimas({
   searchParams,
 }: {
-  searchParams: Promise<{ "sem-contagem"?: string | string[] }>;
+  searchParams: Promise<{
+    "sem-contagem"?: string | string[];
+    aviso?: string | string[];
+    documento?: string | string[];
+  }>;
 }) {
   await exigirUsuario();
 
   const parametros = await searchParams;
   const semContagem = modoSemContagemDaUrl(parametros["sem-contagem"]);
+  // A volta do “Lançar na Venda” (Fase 06.4, plano 05): `?aviso=lancado&documento={uuid}`. O documento é
+  // validado como uuid e lido AQUI (o número e se saiu paga); falha ou id que não existe → nenhum aviso,
+  // e a página segue.
+  const documentoDaVolta =
+    parametros.aviso === "lancado" &&
+    typeof parametros.documento === "string" &&
+    FORMATO_UUID.test(parametros.documento)
+      ? parametros.documento
+      : null;
 
   // O dia civil de Brasília desta carga — a janela de "Sem contagem" e a régua vigente da folha são
   // contadas a partir dele.
@@ -44,9 +60,15 @@ export default async function PaginaQueimas({
   // Os dados da folha "O que queimou?" (Fase 06.4) vêm UMA vez por carga, junto com os fornos, por
   // `Promise.allSettled`: se falharem, o registro em dois toques segue como na Fase 4 — a folha não
   // abre e a queima cai em "Sem contagem" (UI-D19). Nunca derrubam a página.
-  const [fornosDoIndice, [dados]] = await Promise.all([
+  const [fornosDoIndice, [dados], avisoDaVolta] = await Promise.all([
     listarFornosDoIndice(),
     Promise.allSettled([carregarDadosDaFolha(hoje)]),
+    documentoDaVolta === null
+      ? Promise.resolve(null)
+      : lerAvisoDaVolta(documentoDaVolta).catch((erro: unknown) => {
+          console.error("Falha ao ler a venda da volta do “Lançar na Venda”:", erro);
+          return null;
+        }),
   ]);
   if (dados.status === "rejected") {
     console.error("Falha ao carregar os dados da folha de contagem no índice:", dados.reason);
@@ -85,6 +107,8 @@ export default async function PaginaQueimas({
       {/* Seletor de topo (D-01, plano 04-06) — logo abaixo do cabeçalho, nas três telas do
           módulo. "Fornos" fica ativo aqui e em `/queimas/[id]`. */}
       <SeletorQueimas />
+
+      <AvisoDasQueimas aviso={avisoDaVolta} />
 
       {/* Montado sempre — mesmo com o índice vazio, `?novo` precisa abrir o formulário a partir
           do `EstadoVazio` (o primeiríssimo forno do ateliê), achado do 03-06 replicado aqui. */}

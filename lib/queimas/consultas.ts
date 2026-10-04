@@ -16,18 +16,24 @@ import {
   queimas,
   usuarios,
 } from "@/db/schema";
+import type { LinhaDaVendaDaAgenda } from "@/lib/agenda/receber";
 import type { TransacaoDoBanco } from "@/lib/estoque/gravacao";
+import { obterDocumentoParaAviso } from "@/lib/financeiro/consultas";
 import { listarOrdensEmAndamento } from "@/lib/producao/consultas";
 import { esperandoOForno } from "@/lib/producao/forno";
 import { etapaAtual } from "@/lib/producao/leitura";
 import {
   JANELA_SEM_CONTAGEM_DIAS,
+  chaveDoTamanho,
   chipsDaProducao,
+  diaMes,
   faltaCobrar,
   janelaSemContagem,
   lancadoAtivo,
+  precosDosItens,
   somarDiasCivis,
   totalDasQuantidades,
+  valorDasExternas,
   type ChipDaOrdem,
   type Contagem,
   type ContagemAnterior,
@@ -42,6 +48,7 @@ import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
 import { ordenarParaBanner } from "@/lib/queimas/filtros";
 import { diaCivilEmBrasilia, hojeEmBrasilia } from "@/lib/queimas/formato";
 import { janelaDeSeisMeses, type TipoDeQueimaRelatorio } from "@/lib/queimas/relatorios";
+import { fraseSemPrecoDaQueima, tituloDaFaixaDasQueimas, tituloDaQueima } from "@/lib/queimas/textos";
 
 // Leitura do índice de `/queimas`. Sem `"use server"` — não é uma Server Action, é uma consulta
 // chamada direto do Server Component da página; `lib/queimas/acoes.ts` fica só com escrita.
@@ -801,4 +808,115 @@ export async function listarACobrar(): Promise<QueimaACobrar[]> {
     });
   }
   return linhas;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 05 — “Lançar na Venda” (QMC-08; D-07, decisão do dono de 04/10/2026: várias vendas
+// por queima, uma por pessoa). O mecanismo B da Agenda, estendido: o navegador diz só QUAL queima
+// (`?aba=venda&origem=queima:{uuid}`); a página do Financeiro resolve AQUI, no servidor, o que a Venda
+// abre — uma linha por tamanho com o que FALTA, ao preço ATUAL do Catálogo. Ao lançar, `lancarVenda`
+// relê tudo sob a trava da queima (`vincularQueimaNaVenda`).
+export type VendaDaQueima =
+  | {
+      situacao: "livre";
+      // “Biscoito de 18/12 · Forno grande”.
+      descricao: string;
+      // “Das Queimas · Biscoito de 18/12 · Forno grande” (a faixa).
+      tituloDaFaixa: string;
+      // O “Vence em” do à vista em aberto: hoje (a queima externa não tem data de cobrança própria).
+      vencimento: string;
+      // Uma linha por tamanho com falta, na ordem P, M, G (o formato das linhas da Venda da Agenda).
+      linhas: LinhaDaVendaDaAgenda[];
+      // Os ids dos três itens “Queima externa P/M/G”: toda linha deles na venda é uma linha da queima.
+      itensDaOrigem: string[];
+    }
+  | { situacao: "tudo_lancado"; numeros: number[] }
+  | { situacao: "nao_achada" }
+  | { situacao: "sem_preco"; frase: string };
+
+export async function queimaParaVenda(queimaId: string, hoje: string): Promise<VendaDaQueima> {
+  const [linha] = await db
+    .select({
+      tipo: queimas.tipo,
+      ocorridaEm: queimas.ocorridaEm,
+      fornoNome: fornos.nome,
+      contagemDe: queimaContagens.queimaId,
+      externasP: queimaContagens.externasP,
+      externasM: queimaContagens.externasM,
+      externasG: queimaContagens.externasG,
+    })
+    .from(queimas)
+    .innerJoin(fornos, eq(fornos.id, queimas.fornoId))
+    .leftJoin(queimaContagens, eq(queimaContagens.queimaId, queimas.id))
+    .where(eq(queimas.id, queimaId))
+    .limit(1);
+  if (!linha || linha.contagemDe === null) {
+    return { situacao: "nao_achada" };
+  }
+  const externas: Quantidades = {
+    p: linha.externasP ?? 0,
+    m: linha.externasM ?? 0,
+    g: linha.externasG ?? 0,
+  };
+  if (totalDasQuantidades(externas) === 0) {
+    return { situacao: "nao_achada" };
+  }
+
+  const [vendasPorQueima, itens] = await Promise.all([lerVendasLigadas([queimaId]), obterItensDasQueimas()]);
+  const vendas = vendasPorQueima.get(queimaId) ?? [];
+  const falta = faltaCobrar(externas, lancadoAtivo(vendas));
+  if (totalDasQuantidades(falta) === 0) {
+    return {
+      situacao: "tudo_lancado",
+      numeros: vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero),
+    };
+  }
+
+  // Sem preço num tamanho que AINDA falta (UI-D5): a Venda não abre com uma linha sem valor.
+  const { tamanhosSemPreco } = valorDasExternas(falta, precosDosItens(itens));
+  if (tamanhosSemPreco.length > 0) {
+    return {
+      situacao: "sem_preco",
+      frase: fraseSemPrecoDaQueima(tamanhosSemPreco, { P: itens.P.nome, M: itens.M.nome, G: itens.G.nome }),
+    };
+  }
+
+  const linhas: LinhaDaVendaDaAgenda[] = [];
+  for (const tamanho of ["P", "M", "G"] as const) {
+    const quantidade = falta[chaveDoTamanho(tamanho)];
+    if (quantidade <= 0) {
+      continue;
+    }
+    const item = itens[tamanho];
+    linhas.push({
+      tipo: "item",
+      itemId: item.id,
+      descricao: item.nome,
+      categoriaId: item.categoriaVendaId,
+      quantidade,
+      // `valorDasExternas` já recusou preço nulo ou ≤ 0 num tamanho que falta.
+      valorCentavos: quantidade * (item.precoVendaCentavos ?? 0),
+    });
+  }
+
+  const dia = diaMes(diaCivilEmBrasilia(linha.ocorridaEm.toISOString()));
+  return {
+    situacao: "livre",
+    descricao: tituloDaQueima(linha.tipo, dia, linha.fornoNome),
+    tituloDaFaixa: tituloDaFaixaDasQueimas(linha.tipo, dia, linha.fornoNome),
+    vencimento: hoje,
+    linhas,
+    itensDaOrigem: [itens.P.id, itens.M.id, itens.G.id],
+  };
+}
+
+// A volta do “Lançar na Venda” (`/gestao/queimas?aviso=lancado&documento={id}`): o número da venda e se
+// ela saiu paga (nenhuma parcela em aberto — UI-D24), lidos no servidor. Documento que não existe → `null`
+// (nenhum aviso).
+export async function lerAvisoDaVolta(documentoId: string): Promise<{ numero: number; pago: boolean } | null> {
+  const documento = await obterDocumentoParaAviso(documentoId);
+  if (documento === null) {
+    return null;
+  }
+  return { numero: documento.numero, pago: documento.parcelasEmAberto === 0 };
 }
