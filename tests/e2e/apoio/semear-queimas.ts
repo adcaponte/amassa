@@ -19,6 +19,7 @@
 // fronteira em si (89/90/91, 99/100/101) já é provada de forma determinística e sem servidor
 // nenhum por `tests/unit/contador.test.ts` contra `lib/queimas/contador.ts` — não é trabalho do
 // e2e reprovar isso a dez toques por viewport.
+import { expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise<T> {
@@ -35,6 +36,11 @@ async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise
 // autoria do usuário de teste — nunca `registrado_por` nulo, que no schema significa "o usuário
 // foi removido" (`on delete set null`), não "ninguém registrou".
 //
+// Fase 06.4: cada queima de enchimento ganha uma CONTAGEM DE FUNDO (`internas_p = 1`), na mesma
+// instrução — o enchimento é dado de fundo, não uma queima que alguém deixou de contar, e a lista
+// "Sem contagem" do índice (plano 02, janela de 20) nunca pode ser inundada pelas dezenas de queimas
+// de fundo dos specs da Fase 4.
+//
 // Falha ALTO se não inserir exatamente `quantidade` linhas. Um enchimento silenciosamente vazio
 // deixaria o forno no nível errado e o teste falharia depois, longe da causa, parecendo
 // instabilidade — que é justamente o que este auxiliar existe para não produzir.
@@ -45,13 +51,18 @@ export async function semearQueimas(
 ): Promise<void> {
   const resultado = await comCliente((cliente) =>
     cliente.query(
-      `insert into queimas (forno_id, tipo, ocorrida_em, registrado_por)
-       select forno.id, 'biscoito'::tipo_queima, now(), usuario.id
-         from fornos forno
-         cross join usuarios usuario
-         cross join generate_series(1, $2) as enchimento
-        where forno.nome = $1
-          and lower(usuario.email) = lower($3)`,
+      `with novas as (
+         insert into queimas (forno_id, tipo, ocorrida_em, registrado_por)
+         select forno.id, 'biscoito'::tipo_queima, now(), usuario.id
+           from fornos forno
+           cross join usuarios usuario
+           cross join generate_series(1, $2) as enchimento
+          where forno.nome = $1
+            and lower(usuario.email) = lower($3)
+         returning id
+       )
+       insert into queima_contagens (queima_id, internas_p)
+       select id, 1 from novas`,
       [nomeDoForno, quantidade, emailDoUsuario],
     ),
   );
@@ -62,4 +73,70 @@ export async function semearQueimas(
         `mas inseriu ${resultado.rowCount}. Forno ou usuário de teste não encontrado?`,
     );
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4 — a folha "O que queimou?" abre depois de todo registro pela interface.
+
+export type ContagemLida = {
+  internas_p: number;
+  internas_m: number;
+  internas_g: number;
+  externas_p: number;
+  externas_m: number;
+  externas_g: number;
+  saiu_cheio: boolean;
+  contado_por: string | null;
+};
+
+// A contagem gravada de uma queima, ou `null` (sem contagem).
+export async function lerContagem(queimaId: string): Promise<ContagemLida | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<ContagemLida>(
+      `select internas_p, internas_m, internas_g, externas_p, externas_m, externas_g,
+              saiu_cheio, contado_por
+         from queima_contagens
+        where queima_id = $1`,
+      [queimaId],
+    );
+    return rows[0] ?? null;
+  });
+}
+
+// Quantas linhas de contagem a queima tem (a PK garante no máximo 1 — o teste confere).
+export async function contarContagens(queimaId: string): Promise<number> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ total: string }>(
+      "select count(*) as total from queima_contagens where queima_id = $1",
+      [queimaId],
+    );
+    return Number(rows[0]?.total ?? 0);
+  });
+}
+
+// A queima mais recente do forno de nome `nomeDoForno`, por `ocorrida_em, id`.
+export async function ultimaQueimaDoForno(
+  nomeDoForno: string,
+): Promise<{ id: string; tipo: string } | null> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string; tipo: string }>(
+      `select queima.id, queima.tipo::text as tipo
+         from queimas queima
+         join fornos forno on forno.id = queima.forno_id
+        where forno.nome = $1
+        order by queima.ocorrida_em desc, queima.id desc
+        limit 1`,
+      [nomeDoForno],
+    );
+    return rows[0] ?? null;
+  });
+}
+
+// Fecha a folha "O que queimou?" com "Pular" (nada gravado). Os specs da Fase 4 chamam isto logo
+// depois do toque no tipo: a folha é modal e, aberta, esconderia o cartão (e o "Queimar" seguinte).
+export async function pularContagem(page: Page): Promise<void> {
+  const folha = page.getByTestId("folha-contagem");
+  await expect(folha).toBeVisible({ timeout: 10000 });
+  await folha.getByTestId("contagem-pular").click();
+  await expect(folha).toBeHidden({ timeout: 10000 });
 }

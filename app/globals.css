@@ -310,6 +310,13 @@
   }
 }
 
+/* UI-D12 (06.4): o Dialog modal põe `pointer-events: none` no body e o toaster herda; com a folha
+   de contagem aberta, o aviso com "Desfazer" (FOR-02) tem de continuar tocável. Escopada à folha
+   (`data-folha-contagem` no `DialogContent` de `components/amassa/queimas/folha-contagem.tsx`). */
+:root:has([data-folha-contagem]) [data-sonner-toast] {
+  pointer-events: auto;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

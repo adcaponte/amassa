@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { pularContagem } from "./apoio/semear-queimas";
+
 // O banner agregado de `/gestao/queimas` (FOR-06) e o filtro Ativos/Desativados/Todos (a metade
 // final de FOR-11) — 04-05-PLAN.md, Tarefa 3. Uma única invocação de
 // `npm run test:e2e --grep "banner de fornos"` para todo o arquivo — o describe de topo entra no
@@ -66,6 +68,8 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     await cartao.scrollIntoViewIfNeeded();
     await cartao.getByRole("button", { name: "Queimar" }).click({ force: true });
     await cartao.getByTestId("tipo-queima-biscoito").click({ force: true });
+    // Fase 06.4: a folha "O que queimou?" abre depois do registro — "Pular" fecha sem gravar.
+    await pularContagem(cartao.page());
     await expect(cartao.getByRole("button", { name: "Queimar" })).toBeVisible({ timeout: 10000 });
   }
 

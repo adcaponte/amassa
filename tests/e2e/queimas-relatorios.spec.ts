@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { pularContagem } from "./apoio/semear-queimas";
+
 // Relatórios `/gestao/queimas/relatorios` (D-01, D-07, D-08, FOR-12) — 04-06-PLAN.md, Tarefa 3. Sem
 // etiqueta de vazio: cria dado, roda em `desktop`/`celular` depois da cadeia `vazio-*`
 // (playwright.config.ts). As estatísticas do topo são um total GLOBAL do ateliê — sob execução
@@ -59,6 +61,9 @@ async function registrarUmaQueima(
   const cartao = cartaoDoForno(page, nomeDoForno);
   await cartao.getByRole("button", { name: "Queimar" }).click();
   await cartao.getByTestId(`tipo-queima-${tipo}`).click();
+  // Fase 06.4: a folha "O que queimou?" abre depois do registro e é modal — sem "Pular" ela
+  // bloquearia o "Queimar" seguinte.
+  await pularContagem(page);
   await expect(cartao.getByTestId("medidor-contador")).toContainText(`${totalEsperadoDepois} / 50`, {
     timeout: 10000,
   });

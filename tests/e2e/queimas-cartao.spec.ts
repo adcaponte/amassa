@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-import { semearQueimas } from "./apoio/semear-queimas";
+import { pularContagem, semearQueimas } from "./apoio/semear-queimas";
 
 // FOR-04 na tela: as três fronteiras do medidor/selo (ok sem selo, atenção em "Manutenção
 // próxima", crítico em "Manutenção vencida" com o ícone) e o rodapé sem manutenção registrada —
@@ -66,6 +66,8 @@ async function registrarQueima(cartao: Locator): Promise<void> {
   await cartao.scrollIntoViewIfNeeded();
   await cartao.getByRole("button", { name: "Queimar" }).click();
   await cartao.getByTestId("tipo-queima-biscoito").click();
+  // Fase 06.4: a folha "O que queimou?" abre depois do registro — "Pular" fecha sem gravar.
+  await pularContagem(cartao.page());
 }
 
 test("cartão do forno: nível ok sem selo, 'Manutenção próxima' no limiar, 'Manutenção vencida' no limite, e o rodapé sem manutenção", async ({
