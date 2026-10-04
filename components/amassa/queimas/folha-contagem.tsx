@@ -23,6 +23,7 @@ import {
   FRASE_FALHA_AO_SALVAR_CONTAGEM,
   FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
   ROTULO_EXTERNAS,
+  ROTULO_FECHAR_SEM_SALVAR,
   ROTULO_INTERNAS,
   ROTULO_PULAR,
   ROTULO_SAIU_CHEIO,
@@ -33,6 +34,8 @@ import {
   fraseDaReguaNaFolha,
   resumoDaContagem,
   subtituloDaFolha,
+  tituloDaQueima,
+  toastContagemCorrigida,
   toastContagemSalva,
   type GrupoDoContador,
   type TipoDeQueima,
@@ -49,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
 
+import { ConfirmarApagarContagem } from "./confirmar-apagar-contagem";
 import { ContadorTamanho } from "./contador-tamanho";
 
 // O que a folha precisa saber da queima — exatamente o que `registrarQueima` já devolve (e o tipo que
@@ -71,6 +75,10 @@ export type FolhaContagemProps = {
   // Só `RegistrarQueima` passa: com ele a folha NÃO dá aviso — quem chamou atualiza o próprio aviso
   // do registro no lugar (UI-D12 item 4). Sem ele, a folha dá o aviso dela, de 5 s.
   aoSalvar?: (resultado: { total: number; criada: boolean }) => void;
+  // A contagem gravada, ao CORRIGIR pelo Histórico (UI-D23): os contadores abrem com ela, o botão da
+  // esquerda vira "Fechar sem salvar" e "Salvar" com tudo zero pergunta antes de apagar (UI-D6).
+  // Ausente ou `null` = contagem nova.
+  inicial?: Contagem | null;
 };
 
 const TAMANHOS: readonly Tamanho[] = ["P", "M", "G"];
@@ -108,14 +116,20 @@ function FolhaAberta({
   dados,
   nomeDoForno,
   aoSalvar,
+  inicial: gravada = null,
 }: Omit<FolhaContagemProps, "queima"> & { queima: QueimaParaContar }) {
   const router = useRouter();
   const emVoo = useRef(false);
   const conteudo = useRef<HTMLDivElement>(null);
-  const [inicial] = useState<Contagem>(CONTAGEM_VAZIA);
+  // O estado de abertura: a contagem gravada (corrigir) ou tudo zero (nova). Fixado na montagem — o
+  // refresh que vem depois de salvar não o troca por baixo da folha.
+  const [existente] = useState<Contagem | null>(gravada);
+  const [inicial] = useState<Contagem>(existente ?? CONTAGEM_VAZIA);
   const [contagem, setContagem] = useState<Contagem>(inicial);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [confirmandoApagar, setConfirmandoApagar] = useState(false);
+  const corrigindo = existente !== null;
 
   const total = totalDaContagem(contagem);
   const ouro = queima.tipo === "ouro";
@@ -132,9 +146,14 @@ function FolhaAberta({
     if (emVoo.current) {
       return;
     }
-    // Contagem nova com tudo zero fecha como "Pular": nada gravado, nenhum aviso.
     if (total === 0) {
-      aoFechar();
+      // Contagem EXISTENTE com tudo zero: pergunta e, confirmado, apaga (UI-D6) — nunca um botão que
+      // não faz nada. Contagem nova com tudo zero fecha como "Pular": nada gravado, nenhum aviso.
+      if (corrigindo) {
+        setConfirmandoApagar(true);
+      } else {
+        aoFechar();
+      }
       return;
     }
     emVoo.current = true;
@@ -157,7 +176,11 @@ function FolhaAberta({
       if (aoSalvar) {
         aoSalvar(resposta.dados);
       } else {
-        toast.success(toastContagemSalva(resposta.dados.total));
+        toast.success(
+          resposta.dados.criada
+            ? toastContagemSalva(resposta.dados.total)
+            : toastContagemCorrigida(resposta.dados.total),
+        );
       }
       aoFechar();
       router.refresh();
@@ -306,12 +329,14 @@ function FolhaAberta({
             <Button
               type="button"
               variant="outline"
-              data-testid="contagem-pular"
+              // Ao corrigir, "Pular" diria que nada foi contado: "Fechar sem salvar" (UI-D23) — a
+              // contagem gravada continua como estava. Os dois sempre fecham sem gravar.
+              data-testid={corrigindo ? "contagem-fechar-sem-salvar" : "contagem-pular"}
               disabled={salvando}
               onClick={aoFechar}
               className="text-corpo h-auto min-h-[44px] px-4 font-semibold"
             >
-              {ROTULO_PULAR}
+              {corrigindo ? ROTULO_FECHAR_SEM_SALVAR : ROTULO_PULAR}
             </Button>
             <Button
               type="button"
@@ -326,6 +351,20 @@ function FolhaAberta({
           </div>
         </div>
       </DialogContent>
+      {existente !== null ? (
+        <ConfirmarApagarContagem
+          queimaId={queima.id}
+          pecasContadas={totalDaContagem(existente)}
+          tituloDaQueima={tituloDaQueima(
+            queima.tipo,
+            diaMes(diaCivilEmBrasilia(queima.ocorridaEm)),
+            null,
+          )}
+          aberto={confirmandoApagar}
+          aoMudarAberto={setConfirmandoApagar}
+          aoApagar={aoFechar}
+        />
+      ) : null}
     </Dialog>
   );
 }

@@ -141,3 +141,9 @@ export const esquemaContagem = z
   .refine((dados) => totalDaContagem(dados) > 0, { error: FRASE_CONTAGEM_VAZIA });
 
 export type EntradaDeContagem = z.infer<typeof esquemaContagem>;
+
+// Fase 06.4, plano 02 — apagar a contagem de uma queima ("Salvar" com tudo zero numa contagem
+// existente, depois de confirmar — UI-D6).
+export const esquemaApagarContagem = z.object({ queimaId: esquemaId });
+
+export type EntradaDeApagarContagem = z.infer<typeof esquemaApagarContagem>;

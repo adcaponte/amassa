@@ -237,3 +237,19 @@ export function mesmaContagem(a: Contagem, b: Contagem): boolean {
     CHAVES_DOS_CONTADORES.every((chave) => a[chave] === b[chave]) && a.saiuCheio === b.saiuCheio
   );
 }
+
+// "3 P · 1 G" — só os tamanhos com quantidade, na ordem P, M, G; tudo zero → "". Usado nos chips do
+// Histórico ("internas: 12 P · 9 M") e, nos planos seguintes, nas linhas "a cobrar" e nas vendas.
+export function resumoPmg(p: number, m: number, g: number): string {
+  const partes: string[] = [];
+  if (p > 0) {
+    partes.push(`${p} P`);
+  }
+  if (m > 0) {
+    partes.push(`${m} M`);
+  }
+  if (g > 0) {
+    partes.push(`${g} G`);
+  }
+  return partes.join(" · ");
+}

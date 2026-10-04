@@ -36,10 +36,16 @@ import {
   chaveDoTamanho,
   externasDaContagem,
   lancadoAtivo,
+  totalDasQuantidades,
   type Contagem,
   type VendaLigada,
 } from "./contagem";
-import { fraseAbaixoDoLancado, FRASE_QUEIMA_DESFEITA_NADA_CONTADO, type TipoDeQueima } from "./textos";
+import {
+  fraseAbaixoDoLancado,
+  fraseApagarComVendas,
+  FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
+  type TipoDeQueima,
+} from "./textos";
 
 export type { TransacaoDoBanco };
 
@@ -216,4 +222,29 @@ export async function gravarContagem(
     .onConflictDoUpdate({ target: queimaContagens.queimaId, set: numeros });
 
   return { criada: travada.contagem === null };
+}
+
+// Apaga a contagem de uma queima (plano 02, UI-D6), sob a trava da queima. Recusa (nada apagado):
+// queima que sumiu → `FRASE_QUEIMA_DESFEITA_NADA_CONTADO`; peça lançada em venda ATIVA (D-07) →
+// `fraseApagarComVendas` com os números das vendas ativas — o cascade levaria os vínculos e as vendas
+// ficariam no Caixa sem dizer de onde vieram. Sem contagem a apagar → nada a fazer (o estado pedido já
+// vale; `apagou = false`). Vendas só CANCELADAS não impedem: o cascade leva os vínculos cancelados junto
+// e as vendas continuam no Caixa, canceladas (decidido sem o dono, revisão do checker, 04/10/2026).
+export async function apagarContagemNaTransacao(
+  tx: TransacaoDoBanco,
+  queimaId: string,
+): Promise<{ apagou: boolean }> {
+  const travada = await travarContagem(tx, queimaId);
+  if (travada === null) {
+    throw new RecusaDasQueimas(FRASE_QUEIMA_DESFEITA_NADA_CONTADO);
+  }
+  if (travada.contagem === null) {
+    return { apagou: false };
+  }
+  if (totalDasQuantidades(lancadoAtivo(travada.vendas)) > 0) {
+    const numeros = travada.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero);
+    throw new RecusaDasQueimas(fraseApagarComVendas(numeros));
+  }
+  await tx.delete(queimaContagens).where(eq(queimaContagens.queimaId, queimaId));
+  return { apagou: true };
 }

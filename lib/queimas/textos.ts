@@ -10,7 +10,13 @@
 // nem relógio; e a régua em cm (`cmDaRegua`) e o resumo "P · M · G" (`resumoPmg`) têm de ser a MESMA
 // conta na folha, nas frases e nos chips, nunca duas cópias.
 import type { tipoQueima } from "@/db/schema";
-import { cmDaRegua, type Regua, type Tamanho } from "@/lib/queimas/contagem";
+import {
+  cmDaRegua,
+  resumoPmg,
+  type Quantidades,
+  type Regua,
+  type Tamanho,
+} from "@/lib/queimas/contagem";
 import type { NivelDeForno } from "@/lib/queimas/contador";
 
 export type TipoDeQueima = (typeof tipoQueima.enumValues)[number];
@@ -110,8 +116,15 @@ export function textoDoNivel(nivel: NivelDeForno): string | null {
 // caracteres, então o corpo nunca cresce indefinidamente).
 export const TITULO_EXCLUIR_QUEIMA = "Excluir esta queima?";
 
-export function corpoExcluirQueima(nomeDoForno: string): string {
-  return `Ela some do histórico do Forno «${nomeDoForno}» e o contador é recalculado.`;
+// Fase 06.4 (QMC-11, plano 02): com contagem, a confirmação diz que ela vai junto (o cascade da 0030).
+// Sem o segundo argumento — ou com `null`, a queima sem contagem — a frase herdada, SEM mudança. A
+// frase das vendas que ficam no Caixa (D-07) é do plano 04, num terceiro argumento.
+export function corpoExcluirQueima(nomeDoForno: string, pecasContadas?: number | null): string {
+  const herdada = `Ela some do histórico do Forno «${nomeDoForno}» e o contador é recalculado.`;
+  if (pecasContadas === undefined || pecasContadas === null) {
+    return herdada;
+  }
+  return `${herdada} A contagem desta fornada (${pecas(pecasContadas)}) vai junto.`;
 }
 
 export const FRASE_FALHA_AO_EXCLUIR = "Não deu para excluir. Verifique a internet e tente de novo.";
@@ -384,3 +397,47 @@ export function fraseMaisSemContagem(quantidade: number): string {
 // bloco só — os cartões e o "Queimar" continuam funcionando.
 export const FRASE_ERRO_DAS_LISTAS =
   "Não deu para carregar as queimas a cobrar e as sem contagem. Verifique a internet e tente de novo.";
+
+// ---------------------------------------------------------------------------------------------
+// Fase 06.4, plano 02 — o Histórico com a contagem (UI-D20), corrigir (UI-D23) e apagar (UI-D6).
+export const ROTULO_CORRIGIR_CONTAGEM = "Corrigir contagem";
+export const FRASE_SEM_CONTAGEM_HISTORICO = "sem contagem";
+// Neutra; nunca em ouro (ouro não tem a caixa — D-02).
+export const TAG_NAO_SAIU_CHEIO = "não saiu cheio";
+
+// "internas: 12 P · 9 M · 2 G" / "externas: 1 G" — só os tamanhos com quantidade; grupo zerado → `null`
+// (o chip não aparece).
+export function chipDaContagem(grupo: GrupoDoContador, pmg: Quantidades): string | null {
+  const resumo = resumoPmg(pmg.p, pmg.m, pmg.g);
+  return resumo === "" ? null : `${grupo}: ${resumo}`;
+}
+
+export function toastContagemCorrigida(total: number): string {
+  return `Contagem corrigida: ${pecas(total)}.`;
+}
+
+export const TOAST_CONTAGEM_APAGADA = "Contagem apagada. A queima voltou para “Sem contagem”.";
+
+// "Salvar" com tudo zero numa contagem EXISTENTE pergunta antes de apagar (UI-D6).
+export const TITULO_APAGAR_CONTAGEM = "Apagar a contagem desta queima?";
+export const ROTULO_APAGAR_CONTAGEM = "Apagar a contagem";
+export const ROTULO_APAGANDO = "Apagando…";
+export const FRASE_FALHA_AO_APAGAR_CONTAGEM =
+  "Não deu para apagar a contagem. Verifique a internet e tente de novo.";
+
+// `tituloDaQueima` = "Biscoito de 18/12". Singular de verdade: "A peça contada de … some …".
+export function corpoApagarContagem(total: number, tituloDaQueima: string): string {
+  const inicio =
+    total === 1
+      ? `A peça contada de ${tituloDaQueima} some`
+      : `As ${total} peças contadas de ${tituloDaQueima} somem`;
+  return `${inicio} e a queima volta para “Sem contagem”. A queima continua registrada no forno.`;
+}
+
+// D-07 — apagar a contagem com peça lançada em venda ATIVA é recusado (o cascade levaria os vínculos
+// e as vendas ficariam no Caixa sem dizer de onde vieram). `numeros` = os das vendas ativas.
+export function fraseApagarComVendas(numeros: readonly number[]): string {
+  const cancele = numeros.length > 1 ? "cancele as vendas no Caixa" : "cancele a venda no Caixa";
+  const onde = numeros.length > 1 ? "nas" : "na";
+  return `As externas desta queima já foram lançadas ${onde} ${nomeDasVendas(numeros)}. Para apagar a contagem, ${cancele}.`;
+}

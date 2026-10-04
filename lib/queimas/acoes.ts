@@ -9,6 +9,7 @@ import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres, ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
 
 import {
+  esquemaApagarContagem,
   esquemaAtualizacaoDeForno,
   esquemaContagem,
   esquemaForno,
@@ -17,8 +18,9 @@ import {
   esquemaQueima,
 } from "./esquemas";
 import { totalDaContagem } from "./contagem";
-import { gravarContagem, RecusaDasQueimas } from "./gravacao";
+import { apagarContagemNaTransacao, gravarContagem, RecusaDasQueimas } from "./gravacao";
 import {
+  FRASE_FALHA_AO_APAGAR_CONTAGEM,
   FRASE_FALHA_AO_REGISTRAR_QUEIMA,
   FRASE_FALHA_AO_SALVAR_CONTAGEM,
   FRASE_QUEIMA_DESFEITA_NADA_CONTADO,
@@ -366,5 +368,40 @@ export async function salvarContagem(
     }
     console.error("Falha ao salvar a contagem da queima:", codigoDoErroPostgres(erro), erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR_CONTAGEM };
+  }
+}
+
+// Fase 06.4, plano 02 (UI-D6, QMC-11) — "Salvar" com tudo zero numa contagem EXISTENTE, depois da
+// confirmação: apaga a linha de `queima_contagens` e a queima volta para "Sem contagem". A queima
+// continua. `exigirUsuario()` é a PRIMEIRA instrução (T-06.4-10); o Zod valida o id; a decisão é relida
+// sob a trava da queima (`apagarContagemNaTransacao`, T-06.4-11) — com peça lançada em venda ativa, a
+// recusa da D-07 (T-06.4-46). Idempotente: sem contagem a apagar devolve `ok` (o estado pedido já vale).
+export async function apagarContagem(
+  entradaBruta: unknown,
+): Promise<ResultadoDeAcao<{ apagou: boolean }>> {
+  const usuario = await exigirUsuario();
+  void usuario;
+
+  const resultado = esquemaApagarContagem.safeParse(entradaBruta);
+  if (!resultado.success) {
+    return { ok: false, erro: primeiraMensagemDeErro(resultado) };
+  }
+  const { queimaId } = resultado.data;
+
+  try {
+    const { apagou } = await db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId));
+
+    revalidatePath("/gestao/queimas");
+    revalidatePath("/gestao/queimas/[id]", "page");
+    return { ok: true, dados: { apagou } };
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      return { ok: false, erro: erro.frase };
+    }
+    if (ehViolacaoDeChaveEstrangeira(erro)) {
+      return { ok: false, erro: FRASE_QUEIMA_DESFEITA_NADA_CONTADO };
+    }
+    console.error("Falha ao apagar a contagem da queima:", codigoDoErroPostgres(erro), erro);
+    return { ok: false, erro: FRASE_FALHA_AO_APAGAR_CONTAGEM };
   }
 }

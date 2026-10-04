@@ -20,6 +20,9 @@ import { TITULO_EXCLUIR_QUEIMA, corpoExcluirQueima } from "@/lib/queimas/textos"
 export type ConfirmarExcluirQueimaProps = {
   id: string;
   nomeDoForno: string;
+  // Fase 06.4 (QMC-11): as peças da contagem da queima, ou `null` sem contagem — com contagem, a frase
+  // diz que ela vai junto (o cascade da 0030); sem, a frase herdada, sem mudança.
+  pecasContadas: number | null;
   aberto: boolean;
   aoMudarAberto: (aberto: boolean) => void;
 };
@@ -34,6 +37,7 @@ export type ConfirmarExcluirQueimaProps = {
 export function ConfirmarExcluirQueima({
   id,
   nomeDoForno,
+  pecasContadas,
   aberto,
   aoMudarAberto,
 }: ConfirmarExcluirQueimaProps) {
@@ -76,7 +80,7 @@ export function ConfirmarExcluirQueima({
         <AlertDialogHeader>
           <AlertDialogTitle>{TITULO_EXCLUIR_QUEIMA}</AlertDialogTitle>
           <AlertDialogDescription className="[overflow-wrap:anywhere]">
-            {corpoExcluirQueima(nomeDoForno)}
+            {corpoExcluirQueima(nomeDoForno, pecasContadas)}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

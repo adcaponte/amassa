@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { buscarForno } from "@/lib/queimas/consultas";
+import { buscarForno, carregarDadosDaFolha } from "@/lib/queimas/consultas";
 import { medirForno } from "@/lib/queimas/contador";
-import { formatarInstanteCurto } from "@/lib/queimas/formato";
+import { formatarInstanteCurto, hojeEmBrasilia } from "@/lib/queimas/formato";
 import {
   ROTULO_HISTORICO_MANUTENCOES,
   ROTULO_HISTORICO_QUEIMAS,
@@ -31,7 +31,18 @@ export default async function PaginaDetalheDoForno({
   await exigirUsuario();
   const { id } = await params;
 
-  const forno = await buscarForno(id);
+  // Fase 06.4: os dados da folha "O que queimou?" (régua vigente, se há mais de um forno), UMA vez por
+  // carga, por `Promise.allSettled` — como no índice: se falharem, o Histórico continua e só os botões
+  // de contar e corrigir somem (UI-D19).
+  const hoje = hojeEmBrasilia(new Date());
+  const [forno, [dados]] = await Promise.all([
+    buscarForno(id),
+    Promise.allSettled([carregarDadosDaFolha(hoje)]),
+  ]);
+  if (dados.status === "rejected") {
+    console.error("Falha ao carregar os dados da folha de contagem no detalhe do forno:", dados.reason);
+  }
+  const dadosDaFolha = dados.status === "fulfilled" ? dados.value : null;
   if (!forno) {
     // Um `id` malformado e um `id` que nunca existiu respondem igual — sobe para
     // `app/(app)/not-found.tsx`, o 404 do grupo protegido (mesmo contrato de
@@ -103,7 +114,11 @@ export default async function PaginaDetalheDoForno({
 
         <section aria-label={ROTULO_HISTORICO_QUEIMAS}>
           <h2 className="text-titulo text-foreground mb-3">{ROTULO_HISTORICO_QUEIMAS}</h2>
-          <HistoricoQueimas queimas={forno.queimasRecentes} nomeDoForno={forno.nome} />
+          <HistoricoQueimas
+            queimas={forno.queimasRecentes}
+            nomeDoForno={forno.nome}
+            dadosDaFolha={dadosDaFolha}
+          />
         </section>
       </div>
     </>

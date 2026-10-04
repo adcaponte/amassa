@@ -399,3 +399,124 @@ test.describe("contagem — aviso e folha", () => {
     await pularContagem(page);
   });
 });
+
+// Registra uma queima de biscoito pelo cartão, preenche internas P e externas G na folha e salva.
+// Devolve o id da queima.
+async function registrarEContar(
+  page: Page,
+  nome: string,
+  internasP: number,
+  externasG: number,
+): Promise<string> {
+  const id = await registrarEAbrirFolha(page, cartaoDoForno(page, nome));
+  const folha = page.getByTestId("folha-contagem");
+  await folha.getByTestId("contador-internas-p").fill(String(internasP));
+  await folha.getByTestId("contador-externas-g").fill(String(externasG));
+  await folha.getByTestId("contagem-salvar").click();
+  await expect(folha).toBeHidden({ timeout: 10000 });
+  await expect
+    .poll(async () => (await lerContagem(id))?.internas_p, { timeout: 10000 })
+    .toBe(internasP);
+  return id;
+}
+
+async function abrirDetalhe(page: Page, nome: string): Promise<void> {
+  const cartao = cartaoDoForno(page, nome);
+  await cartao.getByRole("link", { name: nome }).click();
+  await expect(page).toHaveURL(/\/gestao\/queimas\/[0-9a-f-]{36}$/, { timeout: 10000 });
+  await expect(page.getByRole("heading", { name: nome, level: 1 })).toBeVisible();
+}
+
+test.describe("histórico com contagem", () => {
+  test("a contagem aparece no Histórico e se corrige", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEContar(page, nome, 2, 1);
+    await abrirDetalhe(page, nome);
+
+    await expect(page.getByTestId(`historico-total-${id}`)).toHaveText("3 peças");
+    const chips = page.getByTestId(`historico-contagem-${id}`);
+    await expect(chips).toContainText("internas: 2 P");
+    await expect(chips).toContainText("externas: 1 G");
+
+    await page.getByTestId(`corrigir-contagem-${id}`).click();
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha.getByTestId("contador-internas-p")).toHaveValue("2");
+    await expect(folha.getByTestId("contador-externas-g")).toHaveValue("1");
+    await expect(folha.getByTestId("contagem-fechar-sem-salvar")).toHaveText("Fechar sem salvar");
+    await expect(folha.getByTestId("contagem-pular")).toHaveCount(0);
+
+    await folha.getByTestId("contador-internas-p").fill("4");
+    await folha.getByTestId("contagem-salvar").click();
+    await expect(folha).toBeHidden({ timeout: 10000 });
+    await expect(page.getByText("Contagem corrigida: 5 peças.")).toBeVisible({ timeout: 5000 });
+
+    await expect.poll(async () => (await lerContagem(id))?.internas_p, { timeout: 10000 }).toBe(4);
+    expect((await lerContagem(id))?.externas_g).toBe(1);
+    expect(await contarContagens(id)).toBe(1);
+    await expect(page.getByTestId(`historico-total-${id}`)).toHaveText("5 peças", {
+      timeout: 10000,
+    });
+  });
+
+  test("zerar uma contagem existente pede confirmação e apaga", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEContar(page, nome, 4, 1);
+    await abrirDetalhe(page, nome);
+
+    await page.getByTestId(`corrigir-contagem-${id}`).click();
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await folha.getByTestId("contador-internas-p").fill("0");
+    await folha.getByTestId("contador-externas-g").fill("0");
+    await folha.getByTestId("contagem-salvar").click();
+
+    const confirmacao = page.getByTestId("confirmar-apagar-contagem");
+    await expect(confirmacao).toBeVisible({ timeout: 5000 });
+    await expect(
+      confirmacao.getByRole("heading", { name: "Apagar a contagem desta queima?" }),
+    ).toBeVisible();
+    await expect(confirmacao).toContainText("As 5 peças contadas de Biscoito de");
+    await expect(confirmacao).toContainText("A queima continua registrada no forno.");
+    await confirmacao.getByRole("button", { name: "Apagar a contagem" }).click();
+
+    await expect(
+      page.getByText("Contagem apagada. A queima voltou para “Sem contagem”."),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(confirmacao).toBeHidden();
+    await expect(folha).toBeHidden();
+    await expect.poll(() => lerContagem(id), { timeout: 10000 }).toBeNull();
+
+    await expect(page.getByTestId(`historico-contagem-${id}`)).toHaveText("sem contagem", {
+      timeout: 10000,
+    });
+    await expect(page.getByTestId(`historico-total-${id}`)).toHaveText("—");
+    await expect(page.getByTestId(`contar-agora-${id}`)).toBeVisible();
+    expect(await ultimaQueimaDoForno(nome)).toEqual({ id, tipo: "biscoito" });
+  });
+
+  test("excluir uma queima com contagem diz que ela vai junto", async ({ page }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await registrarEContar(page, nome, 2, 0);
+    await abrirDetalhe(page, nome);
+
+    await page.getByTestId(`excluir-queima-${id}`).click();
+    const dialogo = page.getByRole("alertdialog");
+    await expect(dialogo).toBeVisible();
+    await expect(dialogo.getByRole("heading", { name: "Excluir esta queima?" })).toBeVisible();
+    await expect(dialogo).toContainText(
+      `Ela some do histórico do Forno «${nome}» e o contador é recalculado. A contagem desta fornada (2 peças) vai junto.`,
+    );
+    await dialogo.getByRole("button", { name: "Excluir", exact: true }).click();
+
+    await expect(page.getByTestId(`linha-queima-${id}`)).toHaveCount(0, { timeout: 10000 });
+    expect(await lerContagem(id)).toBeNull();
+    expect(await ultimaQueimaDoForno(nome)).toBeNull();
+  });
+});

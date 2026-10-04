@@ -13,6 +13,7 @@ import {
   JANELA_SEM_CONTAGEM_DIAS,
   janelaSemContagem,
   somarDiasCivis,
+  type Contagem,
   type Regua,
 } from "@/lib/queimas/contagem";
 import { medirForno, type NivelDeForno } from "@/lib/queimas/contador";
@@ -103,6 +104,8 @@ export type QueimaDoHistorico = {
   tipo: (typeof queimas.$inferSelect)["tipo"];
   ocorridaEm: string;
   registradoPorNome: string | null;
+  // Fase 06.4 (UI-D20): a contagem da queima, ou `null` (sem contagem — estado válido e permanente).
+  contagem: Contagem | null;
 };
 
 export type ManutencaoDoHistorico = typeof manutencoes.$inferSelect;
@@ -136,9 +139,19 @@ export async function buscarForno(id: string): Promise<FornoComHistorico | null>
         tipo: queimas.tipo,
         ocorridaEm: queimas.ocorridaEm,
         registradoPorNome: usuarios.nome,
+        // Fase 06.4: a contagem de cada uma das 25, pelo mesmo `left join` (sem linha = sem contagem).
+        contagemDe: queimaContagens.queimaId,
+        internasP: queimaContagens.internasP,
+        internasM: queimaContagens.internasM,
+        internasG: queimaContagens.internasG,
+        externasP: queimaContagens.externasP,
+        externasM: queimaContagens.externasM,
+        externasG: queimaContagens.externasG,
+        saiuCheio: queimaContagens.saiuCheio,
       })
       .from(queimas)
       .leftJoin(usuarios, eq(queimas.registradoPor, usuarios.id))
+      .leftJoin(queimaContagens, eq(queimaContagens.queimaId, queimas.id))
       .where(eq(queimas.fornoId, id))
       // `ocorridaEm` decrescente, `id` como segundo critério — duas queimas no mesmo instante
       // (edge probe FOR-09) nunca se fundem e a ordem fica estável entre recargas. O `.limit(25)`
@@ -168,6 +181,18 @@ export async function buscarForno(id: string): Promise<FornoComHistorico | null>
       tipo: linha.tipo,
       ocorridaEm: linha.ocorridaEm.toISOString(),
       registradoPorNome: linha.registradoPorNome,
+      contagem:
+        linha.contagemDe === null
+          ? null
+          : {
+              internasP: linha.internasP ?? 0,
+              internasM: linha.internasM ?? 0,
+              internasG: linha.internasG ?? 0,
+              externasP: linha.externasP ?? 0,
+              externasM: linha.externasM ?? 0,
+              externasG: linha.externasG ?? 0,
+              saiuCheio: linha.saiuCheio ?? true,
+            },
     })),
     manutencoes: linhasDeManutencao,
   };
