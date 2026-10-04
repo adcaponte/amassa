@@ -55,8 +55,12 @@ function converterValorDeParametro(chave: ChaveDeParametro, valorTexto: string):
   }
 
   // kWh, cm, × — medida física guardada em milésimos (escala 1000, mesma de
-  // `lib/precificacao/parametros.ts`).
-  const resultado = converterQuantidade(valorTexto);
+  // `lib/precificacao/parametros.ts`). A régua das Queimas (`foraDoCalculo`, Fase 06.4) deixa o zero
+  // passar daqui: quem o recusa é `definirParametro`, com a frase dela ("A medida precisa ser maior
+  // que zero."), nunca a genérica de quantidade. As outras medidas continuam como sempre.
+  const resultado = converterQuantidade(valorTexto, {
+    aceitaZero: definicao.foraDoCalculo === true,
+  });
   if (!resultado.ok) {
     return resultado;
   }

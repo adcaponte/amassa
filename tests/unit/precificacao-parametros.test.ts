@@ -14,6 +14,7 @@ import {
   FRASE_REGUA_MAIOR_QUE_ZERO,
   FRASE_REGUA_P_MENOR_QUE_M,
 } from "@/lib/precificacao/textos";
+import { esquemaValorDeParametro } from "@/lib/precificacao/esquemas";
 import { dicaDaReguaNosParametros } from "@/lib/queimas/textos";
 
 // 04.5-01-PLAN.md, Tarefa 2 — o catálogo fechado de parâmetros, a conversão de unidade exibida
@@ -175,5 +176,32 @@ describe("a régua em Parâmetros — frases (06.4-UI-SPEC.md)", () => {
     expect(FRASE_REGUA_AUSENTE).toBe(
       "A régua P · M · G ainda não está no banco. Ela chega com a atualização das Queimas — até lá, as queimas registram sem a folha de contagem.",
     );
+  });
+});
+
+// O zero da régua chega a `definirParametro` (que o recusa com a frase da régua); o zero das outras
+// medidas continua recusado no esquema, como sempre.
+describe("esquemaValorDeParametro — zero na régua", () => {
+  it("régua: “0” passa o esquema como 0 (a recusa é de definirParametro)", () => {
+    const resultado = esquemaValorDeParametro.safeParse({
+      chave: "queima_regua_p_ate",
+      valorTexto: "0",
+    });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.valorInteiro).toBe(0);
+  });
+
+  it("régua: 12,5 cm → 12500", () => {
+    const resultado = esquemaValorDeParametro.safeParse({
+      chave: "queima_regua_m_ate",
+      valorTexto: "12,5",
+    });
+    expect(resultado.data?.valorInteiro).toBe(12500);
+  });
+
+  it("as outras medidas continuam recusando zero no esquema", () => {
+    expect(
+      esquemaValorDeParametro.safeParse({ chave: "forno_largura_util", valorTexto: "0" }).success,
+    ).toBe(false);
   });
 });
