@@ -1081,15 +1081,15 @@ o mix por tamanho e o fator do biscoito medido, e o que o forno queimou.
   3. Fornada com externas aparece em "Queimas externas a cobrar" com o valor dos itens "Queima externa P/M/G" do Catálogo; "Lançar na Venda" e "Recebi agora" criam a Venda — nada é "pago" sem estar no Caixa
   4. Os números mostram queimas por tipo (desde a manutenção e no mês), peças por fornada cheia com o mix por tamanho e o fator do biscoito medido, e internas × externas abertas em P·M·G — com aviso de poucas fornadas cheias
   5. Apagar uma queima leva a contagem junto e a confirmação diz isso; a régua P·M·G é editável
-**Plans:** 7 plans em **RASCUNHO** (03/10/2026, ~19h UTC): o planejamento foi pausado a pedido do dono na 1ª rodada do verificador de planos, que apontou **1 bloqueio e 6 avisos** ainda não revisados — retomar pela revisão + nova rodada do verificador antes de executar. Nada executado. *Até 03/10/2026 esta linha dizia "0 plans".*
+**Plans:** 7 planos, **planejada e verificada em 04/10/2026** — verificador de planos aprovado na **rodada 3** (rodada de base: 1 bloqueio + 5 avisos + a D-07 a fazer; rodada 1: 0 bloqueios, 6 avisos; rodada 2: 0 bloqueios, 1 aviso; rodada 3: `## VERIFICATION PASSED`, 0 bloqueios, 0 avisos, os 7 planos e o CONTEXT lidos inteiros). Planos refeitos para a **D-07 (B)** do dono, 04/10/2026: várias vendas por queima, uma por pessoa, tabela `queima_vendas` (`046c008`, `02773d4`, `e09d999`). Nada executado. *Até 04/10/2026 esta linha dizia: "7 plans em RASCUNHO (03/10/2026, ~19h UTC): o planejamento foi pausado a pedido do dono na 1ª rodada do verificador de planos, que apontou 1 bloqueio e 6 avisos ainda não revisados — retomar pela revisão + nova rodada do verificador antes de executar. Nada executado."* *Até 03/10/2026 esta linha dizia "0 plans".*
 
 Plans:
 
-- [ ] 06.4-01-PLAN.md — Tarefa 0 do dono (uma venda por queima × várias) + traçador: dois toques → folha “O que queimou?” → `queima_contagens`; a `0030` inteira (itens do sistema com adoção, régua) provada no `test:migracoes`; `/api/health/queimas`
-- [ ] 06.4-02-PLAN.md — “Sem contagem” no índice, a folha completa (régua, ouro, aviso × folha), o Histórico com corrigir/apagar e a exclusão que diz que a contagem vai junto
+- [ ] 06.4-01-PLAN.md — traçador: dois toques → folha “O que queimou?” → `queima_contagens`; a `0030` inteira (contagem, `queima_vendas` da D-07, itens do sistema com adoção, régua) provada no `test:migracoes`; piso das externas no servidor; `/api/health/queimas` *(até 04/10/2026 começava pela "Tarefa 0 do dono (uma venda por queima × várias)" — respondida pela D-07)*
+- [ ] 06.4-02-PLAN.md — “Sem contagem” no índice, a folha completa (régua, ouro, aviso × folha), o Histórico com corrigir/apagar (apagar recusado com venda ativa) e a exclusão que diz que a contagem vai junto
 - [ ] 06.4-03-PLAN.md — chips da Produção (só leitura, D-06), “Repetir a última” (D-01) e a régua editável em Parâmetros (D-03)
-- [ ] 06.4-04-PLAN.md — “Queimas externas a cobrar” + “Recebi agora”, prova de corrida, externas travadas, Catálogo “Usado pelas Queimas” e preço que falta
-- [ ] 06.4-05-PLAN.md — “Lançar na Venda” (origem `queima` no Financeiro, pessoa livre), sem mudar a Venda da Agenda
+- [ ] 06.4-04-PLAN.md — “Queimas externas a cobrar” por tamanho + “Recebi agora” com o passo de quantidade, prova de corrida por tamanho, piso das externas na folha, uma tag por venda, Catálogo “Usado pelas Queimas” e preço que falta *(até 04/10/2026: "externas travadas")*
+- [ ] 06.4-05-PLAN.md — “Lançar na Venda” com o que falta (origem `queima` no Financeiro, pessoa livre, uma venda por pessoa), sem mudar a Venda da Agenda
 - [ ] 06.4-06-PLAN.md — números por forno, a linha “Contagem: …” do cartão e o medidor sem rótulos sobrepostos (D-04)
 - [ ] 06.4-07-PLAN.md — portão: varredura e2e completa, Roteiro 21, caminhada do dono, documentos de estado
 
@@ -1169,5 +1169,5 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 06.1. Produção — redesenho das Encomendas | 15/15 | Complete    | 2026-10-01 |
 | 06.2. Fornecedores | 13/13 | Complete | 2026-10-03 |
 | 06.3. Lembretes | 6/6 | Complete | 2026-10-03 |
-| 06.4. Queimas — contagem | 0/7 | Planejamento pausado em 03/10/2026 (7 planos em rascunho; verificador: 1 bloqueio, 6 avisos) | - |
+| 06.4. Queimas — contagem | 0/7 | Planejada, 7 planos, verificador aprovado na rodada 3 (04/10/2026; D-07 (B) do dono incorporada). *Até 04/10/2026: "Planejamento pausado em 03/10/2026 (7 planos em rascunho; verificador: 1 bloqueio, 6 avisos)"* | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
