@@ -1664,11 +1664,11 @@ Recent decisions affecting current work:
   e o `rclone lsl` listou os arquivos. No repositório: `backup.sh` passa a gravar destino `false`, bytes nulo,
   mensagem "permissão" e sair diferente de zero quando a pasta existe e não é legível (`9f5c73c`, provado
   pelas Etapas 10 e 11 do `test:backup`, rodadas como usuário sem privilégio, RED→GREEN); Roteiros 12 e 19
-  com `755` e nota datada (`1b9da54`). **Falta:** ~~publicar~~ (feito, `fffb842`), e **depois do deploy o dono re-extrai
+  com `755` e nota datada (`1b9da54`). **✅ Re-extração FEITA pelo dono em 05/10/2026, 01:04 UTC** — saída colada por ele: `backup.sh` 15 911 bytes, `restaurar.sh` 9 339, `#!/bin/sh` nos dois, `grep -c pasta_ilegivel` = 3 (o `backup.sh --agora` das ~00h50 rodou ainda com o script antigo; o novo roda no cron seguinte). *Até 05/10/2026 dizia:* **Falta:** ~~publicar~~ (feito, `fffb842`), e **depois do deploy o dono re-extrai
   `backup.sh` e `restaurar.sh` da `ferramentas`** — os do host são cópias (Roteiro 19, Passo 6; conferir
   15 911 bytes e `grep -c pasta_ilegivel /opt/amassa/scripts/backup.sh` > 0). Até lá o host roda o script
   antigo, que só funciona porque as pastas já estão `755`.
-- **🔴 `client_id` próprio do Google Drive no `rclone`, antes do uso real** (aberto, 03/10/2026). O `rclone`
+- ✅ **`client_id` próprio do Google Drive no `rclone` — FEITO pelo dono em 05/10/2026 (~00h50 UTC).** App OAuth `amassa-backup` no Google Cloud da conta da amassacerrado (a mesma dona da pasta de backup), publicado "Em produção" (o Google exigiu página inicial + política de privacidade: `/privacidade` criada em `7ae156f`, run `37226512538`), cliente "App para computador"; o remoto `amassa-backup` do `theo` editado com o ID novo e reautorizado. *Como sei:* saídas coladas por ele — `rclone lsd amassa-backup:amassa` lista `anexos-fornecedores` e `fotos`; `./scripts/backup.sh --agora` com `echo $?` = 0; `/api/health/backup` 200. Sobra para ele: apagar o projeto de teste criado antes no Console PESSOAL e revogar a permissão dele na conta pessoal. *Até 05/10/2026 este item dizia:* **🔴 `client_id` próprio do Google Drive no `rclone`, antes do uso real** (aberto, 03/10/2026). O `rclone`
   avisa que o `client_id` compartilhado do Drive "is being retired and will stop working during 2026".
   Quando parar, **todas as cópias externas param** (dump, fotos, anexos) e `/api/health/backup` vira `503`.
   O dono cria o próprio `client_id` (https://rclone.org/drive/#making-your-own-client-id) e reautoriza o
