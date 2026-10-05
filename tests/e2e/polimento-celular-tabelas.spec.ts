@@ -1,6 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+import { semearMaterial } from "./apoio/semear-estoque";
 import { buscarCategoriaPorNome } from "./apoio/semear-financeiro";
 import { diaDoMes, mesReservado } from "./apoio/mes-reservado";
 
@@ -190,5 +192,59 @@ test.describe("polimento celular — mês", () => {
     await expect(deixouDaLojaNaTabela).toHaveText("-R$ 45,00");
     await expect(deixouDaLojaNaTabela).toHaveClass(/text-erro/);
     await expect(page.getByTestId("mes-area-cafeteria")).toContainText("R$ 0,00");
+  });
+});
+
+test.describe("polimento celular — estoque", () => {
+  test("saldos: cartões até a tabela caber de verdade no contêiner, nunca rolagem lateral", async ({ page }) => {
+    const suf = `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const argila = await semearMaterial({
+      nome: `[e2e] polimento argila de alta temperatura para torno ${suf}`,
+      unidade: "kg",
+      categoriaCompra: "Argila, esmalte e insumos",
+      minimoMilesimos: 1000,
+    });
+    const cafe = await semearMaterial({
+      nome: `[e2e] polimento café em grão ${suf}`,
+      unidade: "kg",
+      categoriaCompra: "Insumos da cafeteria",
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    await expect(page.getByTestId("estoque-busca")).toBeVisible();
+    // Só os dois deste teste na lista — a lista é global e outros testes semeiam em paralelo.
+    await page.getByTestId("estoque-busca").fill(suf);
+
+    const involucro = page.getByTestId("tabela-responsiva");
+    const cartao = (itemId: string) => page.locator(`article[data-testid="estoque-cartao"][data-item-id="${itemId}"]`);
+    const linha = (itemId: string) => page.locator(`tr[data-testid="estoque-cartao"][data-item-id="${itemId}"]`);
+
+    for (const largura of LARGURAS_SEM_ROLAGEM) {
+      await page.setViewportSize({ width: largura, height: 900 });
+      // O cartão OU a linha da tabela — o que estiver visível na largura (as duas formas estão no HTML).
+      await expect(
+        page.locator(`[data-testid="estoque-cartao"][data-item-id="${argila}"]`).filter({ visible: true }),
+      ).toBeVisible();
+      await semRolagemNoElemento(involucro, `Estoque a ${largura}px (invólucro)`);
+      await semRolagemLateral(page, `Estoque a ${largura}px`);
+    }
+
+    // 1024 px: com a lateral de 240 px o contêiner tem menos de 768 — cartões, não a tabela (que pede
+    // 760 e, pela viewport de 980 px, aparecia sem caber).
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(cartao(argila)).toBeVisible();
+    await expect(cartao(cafe)).toBeVisible();
+    await expect(page.getByTestId("estoque-tabela")).toBeHidden();
+    const caixaDoInvolucro = await medirCaixa(involucro, "invólucro do Estoque a 1024px");
+    expect(caixaDoInvolucro.width).toBeLessThan(768);
+
+    // 1280 px: a tabela cabe de verdade e aparece; os cartões somem.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.getByTestId("estoque-tabela")).toBeVisible();
+    await expect(linha(argila)).toBeVisible();
+    await expect(linha(cafe)).toBeVisible();
+    await expect(cartao(argila)).toBeHidden();
+    await semRolagemNoElemento(page.getByTestId("estoque-tabela"), "tabela do Estoque a 1280px");
   });
 });

@@ -39,7 +39,8 @@ export type TabelaSaldosProps = {
 const CABECALHO =
   "text-apoio text-tinta-fraca px-4 py-3 font-semibold tracking-[0.06em] uppercase";
 
-// A tabela da aba Saldos a partir de 980px (UI-SPEC §Aba Saldos → Tabela; abaixo disso, cartões).
+// A tabela da aba Saldos (UI-SPEC §Aba Saldos → Tabela). Quem decide se ela aparece é a
+// `TabelaResponsiva` da `AbaSaldos`, pela largura do contêiner (`@3xl`, Fase 06.5); abaixo, cartões.
 // Material · Área · Saldo · Mínimo · Custo médio · Valor · ações. Números à direita com
 // `tabular-nums`; linha em alerta SEM fundo colorido — a cor fica no número e no chip. O painel tem
 // `overflow-x-auto`: se a largura não couber, rola a TABELA, nunca a página (overflow E1).
@@ -51,7 +52,7 @@ export function TabelaSaldos({ saldos, aoDarBaixa, aoVerHistorico }: TabelaSaldo
   return (
     <div
       data-testid="estoque-tabela"
-      className="bg-superficie border-borda hidden overflow-x-auto rounded-lg border min-[980px]:block"
+      className="bg-superficie border-borda overflow-x-auto rounded-lg border"
     >
       <table className="text-corpo w-full min-w-[760px] border-collapse">
         <thead>

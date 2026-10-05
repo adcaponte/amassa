@@ -29,6 +29,7 @@ import {
 } from "@/lib/estoque/textos";
 import { Button } from "@/components/ui/button";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { TabelaResponsiva } from "@/components/amassa/tabela-responsiva";
 
 import { BarraFerramentasSaldos } from "./barra-ferramentas-saldos";
 import { CartaoSaldo } from "./cartao-saldo";
@@ -57,8 +58,8 @@ function sincronizarAcabandoNaUrl(ligado: boolean): void {
 
 type TipoDeVazio = "filtro" | "acabando" | "desativados";
 
-// A aba Saldos (UI-SPEC §Aba Saldos): barra de ferramentas, cartões abaixo de 980px e tabela a
-// partir de 980px, o filtro de situação no fim e a nota de rodapé. O banner saiu daqui no plano
+// A aba Saldos (UI-SPEC §Aba Saldos): barra de ferramentas, cartões ou tabela pela largura do
+// contêiner (`TabelaResponsiva`, `@3xl`, Fase 06.5), o filtro de situação no fim e a nota de rodapé. O banner saiu daqui no plano
 // 06-07: mora acima das abas (`BannerDoEstoque`), derivado da mesma lista pelo provedor. Toda
 // classificação vem de `lib/estoque/saldo.ts` (`ordenarSaldos`, `filtrarSaldos`, `resumoDoBanner`
 // via banner, `contadorDaLista`) — nenhum componente compara saldo com mínimo por conta própria.
@@ -183,16 +184,23 @@ export function AbaSaldos({ saldos, acabandoInicial }: AbaSaldosProps) {
             />
           )
         ) : (
-          <>
-            <ul className="flex flex-col gap-2 min-[980px]:hidden" aria-label="Saldos do estoque">
-              {visiveis.map((saldo) => (
-                <li key={saldo.id}>
-                  <CartaoSaldo saldo={saldo} aoDarBaixa={darBaixa} aoVerHistorico={verHistorico} />
-                </li>
-              ))}
-            </ul>
-            <TabelaSaldos saldos={visiveis} aoDarBaixa={darBaixa} aoVerHistorico={verHistorico} />
-          </>
+          // Fase 06.5 (D-08, UI-D2): cartões ou tabela pela largura do CONTÊINER (`@3xl` = 768 px), não
+          // mais pela viewport de 980 px — com a lateral de 240 px, a 980 px sobravam 676 px para uma
+          // tabela de 760. A 1280 px o contêiner tem 976 px e a tabela aparece.
+          <TabelaResponsiva
+            limiar="3xl"
+            rotulo="Saldos do estoque"
+            lista={
+              <ul className="flex flex-col gap-2">
+                {visiveis.map((saldo) => (
+                  <li key={saldo.id}>
+                    <CartaoSaldo saldo={saldo} aoDarBaixa={darBaixa} aoVerHistorico={verHistorico} />
+                  </li>
+                ))}
+              </ul>
+            }
+            tabela={<TabelaSaldos saldos={visiveis} aoDarBaixa={darBaixa} aoVerHistorico={verHistorico} />}
+          />
         )}
 
         <FiltroSituacao filtro={situacao} aoMudarFiltro={setSituacao} />
