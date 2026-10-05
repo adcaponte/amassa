@@ -56,6 +56,7 @@ estrutura e a ordem já decididas — não uma estrutura nova derivada do zero.
 - [x] **Phase 06.2: Fornecedores** (INSERTED) - Aba dos Cadastros com contatos, condições e anexos de quem vende para o ateliê; o único vínculo é o fornecedor opcional na Despesa (item 7 da fila; briefing e protótipo de 01/10, FRN-01..14) — *03/10/2026: no ar e fechada — Roteiro 19 feito pelo dono (merge `6a20ee6`, run `37133630212`, `0028` aplicada, `/api/health/fornecedores` 200); portão 06.2-13 aprovado por ele no chat; 13/13 planos; revisão de código em `06.2-REVIEW.md` (0 bloqueios, 2 avisos e 10 informativos, correções à espera da decisão do dono); verificação `passed` 6/6 critérios e 14/14 FRN (`06.2-VERIFICATION.md`).* (completed 2026-10-03)
 - [x] **Phase 06.3: Lembretes** (INSERTED) - A lista "Para fazer" ao lado da folha da casa no Início (item 7b da fila; briefing e protótipo de 02/10, LMB-01..09) — *03/10/2026: no ar e fechada — Roteiro 20 feito pelo dono de carona no 19 (merge `6a20ee6`, run `37133630212`, `0029` aplicada, `/api/health/lembretes` 200); portão 06.3-06 aprovado por ele no chat; 6/6 planos; revisão de código em `06.3-REVIEW.md` (0 bloqueios, 3 avisos e 9 informativos, correções à espera da decisão do dono); verificação `passed` 6/6 critérios e 9/9 LMB (`06.3-VERIFICATION.md`); WINDOWS #64 continua aberto.* (completed 2026-10-03)
 - [x] **Phase 06.4: Queimas — contagem** (INSERTED) - O que queimou: contagem opcional por tamanho depois do registro em dois toques, cobrança da queima externa e os números do forno (item 8 da fila; briefing e protótipo de 20/09, QMC-01..11) — *04/10/2026: no ar e fechada — Roteiro 21 feito pelo dono (merge `d5f3b02`; run `37209767592` vermelho por um defeito de TESTE, consertado em `99be41d`; run `37216322851` verde; `0030` aplicada; `/api/health/queimas` 200); caminhada 20/20 "Ok" e "Aprovado!" no chat; achado dele fora do roteiro (faltava voltar no detalhe do forno) consertado em `6af1364`; revisão de código em `06.4-REVIEW.md` (0 bloqueios, 3 avisos e 9 informativos, à espera da decisão do dono); verificação `passed` 5/5 critérios e 11/11 QMC (`06.4-VERIFICATION.md`).* (completed 2026-10-04)
+- [ ] **Phase 06.5: Polimento** (INSERTED) - Os achados da caminhada do Cowork (05/10) e as propostas da análise estrutural que o dono escolheu: celular por sistema, regras da Produção/Estoque/Caixa, corrigir lançamento, busca por palavras, segurança, CI, banco (migração 0031) e site (POL-01..14)
 - [ ] **Phase 7: Polimento e Entrega** - Painel inicial de verdade, restauração de backup testada, manual e documento de operação
 
 ## Phase Details
@@ -1095,6 +1096,27 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 06.5: Polimento (INSERTED)
+
+**Goal**: O que a caminhada do Cowork (05/10/2026) e a análise estrutural acharam, nas escolhas do dono: nenhuma tela de uso diário quebra no celular, as regras que confundiam ficam claras, e a estrutura (segurança, CI, banco, site) fica pronta para a abertura em dezembro.
+**Depends on**: Phase 06.4
+**Requirements**: POL-01, POL-02, POL-03, POL-04, POL-05, POL-06, POL-07, POL-08, POL-09, POL-10, POL-11, POL-12, POL-13, POL-14
+**Fontes**: `Claude outputs/polimento/ACHADOS-COWORK.md`, `Claude outputs/polimento/ANALISE-ESTRUTURAL.md`, `.planning/phases/06.5-polimento/06.5-CONTEXT.md` (decisões do dono, 05/10/2026).
+**Fora desta fase**: a limpeza geral dos dados (item 10 da fila, depois desta fase); JSON-LD, Perfil da Empresa no Google e CNPJ no rodapé (o dono marcou "depois"); auditoria genérica e fornos só pós-manutenção (o dono marcou "não").
+
+**Success Criteria** (what must be TRUE):
+
+  1. A 320 e a 375 px, nenhuma tela da plataforma rola de lado e nenhum nome fica cortado em poucas letras nas listas do Caixa, do Mês, das Contas fixas, da Agenda › Receber, das Queimas › Relatórios e do Estoque
+  2. As regras decididas pelo dono valem no servidor: só cerâmica vira ordem, etapa só termina com todas as peças, custo vazio vale zero, presença antecipada avisa
+  3. Uma venda ou despesa errada pode ser corrigida sem refazer à mão, e o histórico e o estoque continuam certos
+  4. A busca acha por palavras soltas e sem acento na Venda, na Compra e nas pessoas
+  5. A migração 0031 é aplicada à mão depois de backup, e uma conta fixa cancelada pode ser gerada de novo
+  6. O pipeline publica a mesma imagem que testou, em menos tempo que os ~32 min de hoje, e o site responde com os cabeçalhos de segurança
+  7. O site não tem telefone falso nem horário de funcionamento antes da abertura, e não deixa placeholder ir ao ar a partir de 01/12/2026
+
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 7: Polimento e Entrega
 
 **Goal**: Transformar algo que funciona em algo que se pode confiar — painel inicial de
@@ -1170,6 +1192,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 06.2. Fornecedores | 13/13 | Complete | 2026-10-03 |
 | 06.3. Lembretes | 6/6 | Complete | 2026-10-03 |
 | 06.4. Queimas — contagem | 7/7 | Complete | 2026-10-04 |
+| 06.5. Polimento | 0/TBD | Not started | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
 
 *Até 04/10/2026 (~13h30 UTC) a linha da 06.4 nesta tabela dizia: "| 06.4. Queimas — contagem | 0/7 | Planejada, 7 planos, verificador aprovado na rodada 3 (04/10/2026; D-07 (B) do dono incorporada). Até 04/10/2026: "Planejamento pausado em 03/10/2026 (7 planos em rascunho; verificador: 1 bloqueio, 6 avisos)" | - |" — os planos 01 a 06 marcaram as próprias linhas da seção da fase, mas não esta tabela.*
