@@ -275,26 +275,55 @@ export function ListaCompleta({ filtros, hoje, pessoas, linhas, haMais }: ListaC
     <div ref={raizRef} data-testid="lembretes-pagina" className="flex flex-col gap-4">
       <LinhaDeCriar pessoas={pessoas} aoCriar={aoCriar} />
 
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
-        <div role="group" aria-label={ROTULO_SITUACAO} className="flex flex-wrap gap-2">
-          {pilulasDeSituacao.map(({ valor, rotulo }) =>
-            pilula(
-              { situacao: valor, quem: quemMarcado },
-              valor,
-              rotulo,
-              situacaoMarcada === valor,
-            ),
-          )}
+      {/* Os filtros (06.5-05, D-10, achado do Cowork: as duas fileiras de pílulas se misturavam no
+          celular): dois grupos empilhados, cada um com o título VISÍVEL ligado por `aria-labelledby`
+          (o nome acessível do grupo é o próprio título); lado a lado a partir de 768px. */}
+      <div className="flex flex-col gap-4 md:flex-row md:gap-8">
+        <div className="flex min-w-0 flex-col gap-2">
+          <p
+            id="lembretes-filtro-situacao-titulo"
+            className="text-apoio text-tinta-fraca font-semibold tracking-[0.06em] uppercase"
+          >
+            {ROTULO_SITUACAO}
+          </p>
+          <div
+            role="group"
+            aria-labelledby="lembretes-filtro-situacao-titulo"
+            data-testid="lembretes-filtro-situacao"
+            className="flex flex-wrap gap-2"
+          >
+            {pilulasDeSituacao.map(({ valor, rotulo }) =>
+              pilula(
+                { situacao: valor, quem: quemMarcado },
+                valor,
+                rotulo,
+                situacaoMarcada === valor,
+              ),
+            )}
+          </div>
         </div>
-        <div role="group" aria-label={ROTULO_DE_QUEM_FILTRO} className="flex flex-wrap gap-2">
-          {pilulasDeQuem.map(({ valor, rotulo }) =>
-            pilula(
-              { situacao: situacaoMarcada, quem: valor },
-              valor,
-              rotulo,
-              quemMarcado === valor,
-            ),
-          )}
+        <div className="flex min-w-0 flex-col gap-2">
+          <p
+            id="lembretes-filtro-de-quem-titulo"
+            className="text-apoio text-tinta-fraca font-semibold tracking-[0.06em] uppercase"
+          >
+            {ROTULO_DE_QUEM_FILTRO}
+          </p>
+          <div
+            role="group"
+            aria-labelledby="lembretes-filtro-de-quem-titulo"
+            data-testid="lembretes-filtro-de-quem"
+            className="flex flex-wrap gap-2"
+          >
+            {pilulasDeQuem.map(({ valor, rotulo }) =>
+              pilula(
+                { situacao: situacaoMarcada, quem: valor },
+                valor,
+                rotulo,
+                quemMarcado === valor,
+              ),
+            )}
+          </div>
         </div>
       </div>
 

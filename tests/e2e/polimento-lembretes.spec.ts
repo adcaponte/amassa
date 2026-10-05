@@ -190,3 +190,51 @@ test.describe("polimento lembretes — criar", () => {
     expect(opcoesLargas.y).toBeGreaterThanOrEqual(campoLargo.y + campoLargo.height);
   });
 });
+
+test.describe("polimento lembretes — filtros", () => {
+  test("em Ver todos a 375px, “Situação” e “De quem” são dois grupos empilhados com o título visível como nome; lado a lado a 1280px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await fazerLogin(page);
+    await page.goto("/gestao/lembretes");
+
+    const situacao = page.getByTestId("lembretes-filtro-situacao");
+    const deQuem = page.getByTestId("lembretes-filtro-de-quem");
+    const tituloSituacao = page.locator("#lembretes-filtro-situacao-titulo");
+    const tituloDeQuem = page.locator("#lembretes-filtro-de-quem-titulo");
+
+    // Os títulos verbatim (`ROTULO_SITUACAO`, `ROTULO_DE_QUEM_FILTRO`); a caixa alta é só do CSS.
+    await expect(tituloSituacao).toBeVisible();
+    await expect(tituloSituacao).toHaveText("Situação");
+    await expect(tituloDeQuem).toBeVisible();
+    await expect(tituloDeQuem).toHaveText("De quem");
+
+    // O nome acessível de cada grupo é o título (aria-labelledby), não um aria-label escondido.
+    await expect(
+      page.getByRole("group", { name: "Situação", exact: true }),
+    ).toHaveAttribute("data-testid", "lembretes-filtro-situacao");
+    await expect(
+      page.getByRole("group", { name: "De quem", exact: true }),
+    ).toHaveAttribute("data-testid", "lembretes-filtro-de-quem");
+    await expect(situacao).not.toHaveAttribute("aria-label", /.*/);
+
+    // Empilhados: o título de "De quem" começa abaixo do fim do grupo "Situação".
+    const caixaSituacao = await medirCaixa(situacao, "grupo Situação");
+    const caixaTituloDeQuem = await medirCaixa(tituloDeQuem, "título De quem");
+    expect(
+      caixaTituloDeQuem.y,
+      "“De quem” não está abaixo de “Situação”",
+    ).toBeGreaterThanOrEqual(caixaSituacao.y + caixaSituacao.height);
+    expect((await medirCaixa(deQuem, "grupo De quem")).y).toBeGreaterThan(
+      caixaTituloDeQuem.y,
+    );
+
+    // A partir de 768px: lado a lado (`md:flex-row`).
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const situacaoLarga = await medirCaixa(situacao, "grupo Situação a 1280");
+    const deQuemLargo = await medirCaixa(deQuem, "grupo De quem a 1280");
+    expect(deQuemLargo.x).toBeGreaterThanOrEqual(situacaoLarga.x + situacaoLarga.width);
+    expect(deQuemLargo.y).toBeLessThan(situacaoLarga.y + situacaoLarga.height);
+  });
+});
