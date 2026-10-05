@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { medirCaixa } from "./apoio/medir-caixa";
+import { apagarContaFixaPeloNome, criarContaFixaInativa } from "./apoio/semear-conta-fixa";
 import { buscarCategoriaPorNome, hojeNoAtelie } from "./apoio/semear-financeiro";
 
 // Fase 06.5 (Polimento), plano 02 — D-08, POL-01. As listas que o Cowork achou cortadas no celular
@@ -175,6 +176,68 @@ test.describe("polimento celular — extrato", () => {
       expect(caixaDoVer.height).toBeGreaterThanOrEqual(44);
 
       await semRolagemLateral(page, `Caixa a ${largura}px`);
+    });
+  }
+});
+
+// Um nome de exatamente 60 caracteres, único por execução — nunca terminando em espaço (o banco
+// guardaria o espaço e o `toHaveText` o normalizaria, escondendo a diferença).
+function nomeDe60Caracteres(suf: string): string {
+  const nome = `[e2e] ${suf} Aluguel da sala dos fundos com depósito e condomínio`.slice(0, 60);
+  return nome.endsWith(" ") ? `${nome.slice(0, 59)}s` : nome;
+}
+
+test.describe("polimento celular — contas fixas", () => {
+  for (const largura of LARGURAS_DO_CELULAR) {
+    test(`a ${largura}px, o nome de 60 caracteres aparece inteiro, com o valor e o botão embaixo`, async ({
+      page,
+    }) => {
+      const nome = nomeDe60Caracteres(sufixoUnico());
+      expect(nome).toHaveLength(60);
+
+      // INATIVA de propósito (e apagada no fim): uma conta ativa a mais mudaria o que o "Gerar as
+      // contas" de `cadastros-contas-fixas.spec.ts` cria — e a inativa ainda prova a linha riscada.
+      await criarContaFixaInativa({
+        nome,
+        categoria: "Aluguel",
+        valorCentavos: 150000,
+        diaVencimento: 5,
+      });
+      try {
+        await fazerLogin(page);
+        await page.setViewportSize({ width: largura, height: 900 });
+        await page.goto("/gestao/cadastros?sub=fixas");
+
+        const lista = page.getByRole("list", { name: "Contas fixas" });
+        const linha = page
+          .getByTestId("conta-fixa-linha")
+          .filter({ has: page.getByText(nome, { exact: true }) });
+
+        await expect(linha.getByTestId("linha-registro")).toHaveAttribute("data-variante", "conta-fixa");
+
+        // O nome INTEIRO, riscado (desativada) — nunca cortado.
+        const titulo = linha.getByTestId("linha-registro-titulo");
+        await expect(titulo).toHaveText(nome);
+        await expect(titulo).toHaveClass(/line-through/);
+        await tituloOcupaAFileiraInteira(lista, titulo, `contas fixas a ${largura}px`);
+
+        // O campo de valor e o botão ficam ABAIXO do título, campo à esquerda e botão à direita.
+        const caixaDoTitulo = await medirCaixa(titulo, "nome da conta fixa");
+        const fimDoTitulo = caixaDoTitulo.y + caixaDoTitulo.height;
+        const caixaDoValor = await medirCaixa(linha.getByTestId("conta-fixa-valor"), "campo de valor");
+        const caixaDoBotao = await medirCaixa(
+          linha.getByRole("button", { name: "Reativar" }),
+          "botão Reativar",
+        );
+        expect(caixaDoValor.y).toBeGreaterThanOrEqual(fimDoTitulo - 0.5);
+        expect(caixaDoBotao.y).toBeGreaterThanOrEqual(fimDoTitulo - 0.5);
+        expect(caixaDoBotao.x).toBeGreaterThan(caixaDoValor.x + caixaDoValor.width);
+        expect(caixaDoBotao.height).toBeGreaterThanOrEqual(44);
+
+        await semRolagemLateral(page, `Contas fixas a ${largura}px`);
+      } finally {
+        await apagarContaFixaPeloNome(nome);
+      }
     });
   }
 });

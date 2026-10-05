@@ -13,11 +13,12 @@ import {
   ROTULO_NOVA_CONTA_FIXA,
   ROTULO_REATIVAR_CONTA_FIXA,
   rotuloVencimentoDaContaFixa,
+  TITULO_CONTAS_FIXAS,
 } from "@/lib/cadastros/textos";
-import { cn } from "@/lib/utils";
 import { DialogoContaFixa } from "@/components/amassa/cadastros/dialogo-conta-fixa";
 import { ValorContaFixa } from "@/components/amassa/cadastros/valor-conta-fixa";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { LinhaDeRegistro } from "@/components/amassa/linha-de-registro";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ListaContasFixasProps = {
@@ -107,49 +108,42 @@ export function ListaContasFixas({
     <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
       <p className="text-apoio text-muted-foreground max-w-prose">{DICA_CONTAS_FIXAS}</p>
 
-      <ul className="flex flex-col gap-1">
+      {/* `@container`: a régua da `LinhaDeRegistro` é a largura desta lista, não a da tela (UI-D1). */}
+      <ul aria-label={TITULO_CONTAS_FIXAS} className="@container flex flex-col gap-1">
         {contasFixas.map((conta) => (
-          <li
+          // Achado de acessibilidade (WCAG 1.4.3, UI-09): `opacity-70` sobre a linha inteira
+          // diluía `--color-tinta-fraca` (5.4:1 aprovado AA a opacidade cheia) para 2.99:1 no
+          // metadado — a compositação alfa de um token JÁ no limite da AA passa a reprovar
+          // mesmo sem trocar cor nenhuma. O nome riscado (`riscada`) e o rótulo do botão
+          // ("Reativar") já comunicam "desativada" sem depender de opacidade — removida aqui,
+          // nunca substituída por um valor de opacidade mais alto (a diluição continua
+          // reprovando até ~92%, visualmente indistinguível de "ativa").
+          <LinhaDeRegistro
             key={conta.id}
-            data-testid="conta-fixa-linha"
-            // Achado de acessibilidade (WCAG 1.4.3, UI-09): `opacity-70` sobre a linha inteira
-            // diluía `--color-tinta-fraca` (5.4:1 aprovado AA a opacidade cheia) para 2.99:1 no
-            // metadado — a compositação alfa de um token JÁ no limite da AA passa a reprovar
-            // mesmo sem trocar cor nenhuma. O nome riscado (`line-through` abaixo) e o rótulo do
-            // botão ("Reativar") já comunicam "desativada" sem depender de opacidade — removida
-            // aqui, nunca substituída por um valor de opacidade mais alto (a diluição continua
-            // reprovando até ~92%, visualmente indistinguível de "ativa").
-            className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
-          >
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span
-                className={cn(
-                  "text-corpo text-foreground break-words",
-                  !conta.ativa && "line-through",
-                )}
-              >
-                {conta.nome}
-              </span>
-              <span className="text-apoio text-muted-foreground break-words">
-                {rotuloVencimentoDaContaFixa(conta.diaVencimento, conta.categoriaNome)}
-              </span>
-            </div>
+            variante="conta-fixa"
+            dataTestId="conta-fixa-linha"
+            riscada={!conta.ativa}
+            titulo={conta.nome}
+            meta={rotuloVencimentoDaContaFixa(conta.diaVencimento, conta.categoriaNome)}
+            acoes={
+              <>
+                <ValorContaFixa
+                  id={conta.id}
+                  nome={conta.nome}
+                  valorCentavos={conta.valorEsperadoCentavos}
+                />
 
-            <ValorContaFixa
-              id={conta.id}
-              nome={conta.nome}
-              valorCentavos={conta.valorEsperadoCentavos}
-            />
-
-            <button
-              type="button"
-              disabled={alternandoId === conta.id}
-              onClick={() => void alternarAtiva(conta)}
-              className="text-corpo hover:bg-muted flex min-h-[44px] items-center rounded-md px-3 font-medium disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {conta.ativa ? ROTULO_DESATIVAR_CONTA_FIXA : ROTULO_REATIVAR_CONTA_FIXA}
-            </button>
-          </li>
+                <button
+                  type="button"
+                  disabled={alternandoId === conta.id}
+                  onClick={() => void alternarAtiva(conta)}
+                  className="text-corpo hover:bg-muted flex min-h-[44px] items-center rounded-md px-4 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {conta.ativa ? ROTULO_DESATIVAR_CONTA_FIXA : ROTULO_REATIVAR_CONTA_FIXA}
+                </button>
+              </>
+            }
+          />
         ))}
       </ul>
 
