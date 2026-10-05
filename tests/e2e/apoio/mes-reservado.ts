@@ -31,6 +31,9 @@ const MESES_RESERVADOS: readonly RegistroDeMesReservado[] = [
   // 04.4-13-PLAN.md — Tarefa 2 (o total somado do extrato também no filtro "Todas", resposta ao
   // item 13 da conferência do dono, 26/09/2026).
   { chave: "extrato-total-todas", desktop: "2025-01", celular: "2025-04" },
+  // 06.5-03-PLAN.md — Tarefa 1 (o Mês no celular pela `TabelaResponsiva`: uma área com venda, uma
+  // com só custo — "Deixou" negativo — e duas sem movimento).
+  { chave: "polimento-mes", desktop: "2025-07", celular: "2025-10" },
 ];
 
 // Guarda de unicidade: nenhum mês pode aparecer duas vezes em TODO o array (nem entre chaves

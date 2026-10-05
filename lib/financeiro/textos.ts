@@ -512,6 +512,13 @@ export const ROTULO_COLUNA_VENDEU = "Vendeu";
 export const ROTULO_COLUNA_CUSTOU = "Custou";
 export const ROTULO_COLUNA_DEIXOU = "Deixou";
 export const ROTULO_JUNTAS = "Juntas";
+
+// A segunda fileira de cada área na forma lista do Mês (Fase 06.5, `TabelaResponsiva`): o "Deixou"
+// fica à direita da primeira fileira, onde o olho pousa; as duas parcelas da conta vêm embaixo.
+// Os dois valores chegam prontos de `formatarReais` (este módulo nunca importa formato.ts).
+export function textoVendeuCustou(vendeuFormatado: string, custouFormatado: string): string {
+  return `vendeu ${vendeuFormatado} · custou ${custouFormatado}`;
+}
 export const DICA_CUSTOU_DA_AREA =
   '"Custou" é só o que é daquela área: insumo do café, argila e esmalte, mercadoria da loja. Compra de material conta no mês em que foi comprada.';
 
