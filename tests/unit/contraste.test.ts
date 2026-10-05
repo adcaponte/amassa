@@ -611,3 +611,59 @@ describe("contraste das Queimas — contagem (06.4-UI-SPEC.md)", () => {
     },
   );
 });
+
+// Fase 06.5 (Polimento), plano 02: os pares P1-P10 da UI-SPEC (06.5-UI-SPEC.md §Color → "Pares de
+// contraste"). A UI-SPEC diz que nenhum é novo de verdade; conferidos um a um neste arquivo, oito já
+// estão nos blocos de origem e não entram na tabela `PARES` (só na conferência numérica do fim):
+//   P1 (`tinta-fraca` sobre `superficie-2`, pílula inativa dos Cadastros) = Q2 das Queimas;
+//   P3 (`atencao` sobre `atencao-fundo`, os três avisos novos)           = A1 da Agenda;
+//   P4 (`tinta` sobre `acento-fundo`, faixa "Corrigindo a venda nº {N}")  = A10 da Agenda;
+//   P5 (`tinta-fraca` sobre `superficie`, meta da `LinhaDeRegistro`)      = C7 dos Lembretes;
+//   P6 (`tinta-media` sobre `superficie`, 2ª linha da forma "lista")      = Q5 das Queimas;
+//   P7 (`erro` sobre `superficie`, "Deixou" negativo e erros)             = C13 dos Lembretes;
+//   P8 (`acento` sobre `superficie`, links de texto novos)                = Q9 das Queimas;
+//   P9 (`site-tinta` sobre `site-papel`, "Pular para o conteúdo")         = S7 título do calendário do site.
+// Faltavam dois: P2 (nenhum bloco media `tinta` sobre `fundo`) e P10 (o S8 mede `site-barro` sobre
+// `site-papel` só a 3:1, como objeto gráfico — o link "Ver no Instagram" é TEXTO e pede 4,5).
+// Achado real se reprovar: o token muda, nunca o limiar.
+describe("contraste do Polimento (06.5-UI-SPEC.md)", () => {
+  const TEXTO_NORMAL = 4.5;
+
+  const PARES: readonly (readonly [string, string, string, number, string])[] = [
+    ["P2", "tinta", "fundo", TEXTO_NORMAL, "pílula ativa dos Cadastros (`text-foreground` sobre `bg-background`)"],
+    ["P10", "site-barro", "site-papel", TEXTO_NORMAL, "link “Ver no Instagram” no site"],
+  ];
+
+  it("a tabela tem P2 e P10 (P1, P3-P9 são pares reusados de outros blocos)", () => {
+    expect(PARES.map(([par]) => par)).toEqual(["P2", "P10"]);
+  });
+
+  it.each(PARES)(
+    "%s — --color-%s sobre --color-%s passa o mínimo de %s (%s)",
+    (par, tokenDaFrente, tokenDoFundo, minimo) => {
+      const frente = tokenDaPlataforma(tokenDaFrente);
+      const fundo = tokenDaPlataforma(tokenDoFundo);
+      const razao = razaoDeContraste(frente, fundo);
+      expect(razao, `${par}: ${frente} sobre ${fundo} deu ${razao.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        minimo,
+      );
+    },
+  );
+
+  // Os oito reusados continuam medidos aqui pelo NÚMERO, não só pela referência no comentário: se um
+  // bloco de origem sumir, este teste ainda segura o contrato do Polimento.
+  it.each([
+    ["P1", "tinta-fraca", "superficie-2"],
+    ["P3", "atencao", "atencao-fundo"],
+    ["P4", "tinta", "acento-fundo"],
+    ["P5", "tinta-fraca", "superficie"],
+    ["P6", "tinta-media", "superficie"],
+    ["P7", "erro", "superficie"],
+    ["P8", "acento", "superficie"],
+    ["P9", "site-tinta", "site-papel"],
+  ])("%s (reusado) — --color-%s sobre --color-%s continua >= 4,5", (_par, frente, fundo) => {
+    expect(razaoDeContraste(tokenDaPlataforma(frente), tokenDaPlataforma(fundo))).toBeGreaterThanOrEqual(
+      TEXTO_NORMAL,
+    );
+  });
+});

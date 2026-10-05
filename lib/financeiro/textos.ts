@@ -357,6 +357,13 @@ export const DICA_LISTA_COMPLETA_COMPRA =
 // O Caixa que age (04.4-08-PLAN.md): as listas "A pagar"/"A receber", o cartão de conta, o
 // detalhe do documento e o cancelamento que risca sem apagar (FNC-07, FNC-10).
 export const ROTULO_VER = "Ver";
+
+// O "ver" de cada linha do extrato (Fase 06.5, `LinhaDeRegistro`): o texto visível continua "ver";
+// o nome acessível nomeia a linha — dez "ver" iguais numa lista não dizem a quem pertencem.
+export function rotuloVerLinhaDoExtrato(titulo: string): string {
+  return `${ROTULO_VER} ${titulo}`;
+}
+
 export const ROTULO_VOLTAR = "Voltar";
 export const ROTULO_FECHAR = "Fechar";
 export const ROTULO_TAG_VENCIDA = "vencida";
