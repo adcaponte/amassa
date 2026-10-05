@@ -9,7 +9,6 @@ import type { PessoaDoSeletor } from "@/lib/agenda/seletor";
 import {
   ARIA_FORMAS_DE_RECEBER,
   DICA_RECEBI_AGORA,
-  FRASE_FALHA_AO_RECEBER,
   ROTULO_FORMA_DE_RECEBER,
   ROTULO_REGISTRANDO,
   ROTULO_VER_NO_CAIXA,
@@ -38,6 +37,7 @@ import {
   FRASE_ESCOLHA_A_PESSOA_NA_LISTA,
   FRASE_FALTA_PRECO,
   FRASE_NENHUMA_PECA_PARA_COBRAR,
+  FRASE_RECEBER_SEM_RESPOSTA,
   FRASE_SAIU_DE_A_COBRAR,
   ROTULO_PASSO_DE_QUANTIDADE,
   faltamNoTamanho,
@@ -99,7 +99,8 @@ function telaJaFoiAtualizada(frase: string): boolean {
 //    (`SeletorPessoa`, o mesmo da Agenda), para saber depois quem levou o quê numa queima com várias
 //    vendas. Vazio = venda sem pessoa; "pular" é não mexer nele — a forma continua um toque. Um nome
 //    DIGITADO e não escolhido na lista segura a venda com a frase (a venda nunca sai sem pessoa por engano).
-// Vai ao servidor `{ queimaId, forma, quantidades, clienteId }` — o resto é relido sob a trava.
+// Vai ao servidor `{ queimaId, forma, quantidades, clienteId, vendasVistas }` — o resto é relido sob a
+// trava.
 export function FolhaRecebiQueima({
   queima,
   titulo,
@@ -116,6 +117,12 @@ export function FolhaRecebiQueima({
   const [pessoa, setPessoa] = useState<PessoaDoSeletor | null>(null);
   const [registrando, setRegistrando] = useState<FormaDeReceber | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // 06.4-WR-02 (quick 261005-2yu, 05/10/2026): as vendas ATIVAS que a folha mostrou ao ABRIR, CONGELADAS
+  // — nunca relidas enquanto ela estiver aberta. É por isso que um novo toque depois de uma resposta
+  // perdida é sempre recusado: o servidor vê a venda que o toque anterior gravou e que não está aqui.
+  const [vendasVistas] = useState<number[]>(() =>
+    queima.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero),
+  );
 
   const total = totalDasQuantidades(quantidades);
   const { valorCentavos } = valorDasExternas(quantidades, precosDosItens(itens));
@@ -147,9 +154,10 @@ export function FolhaRecebiQueima({
         forma,
         quantidades,
         clienteId: pessoa?.id ?? null,
+        vendasVistas,
       });
       if (!resposta.ok) {
-        if (telaJaFoiAtualizada(resposta.erro)) {
+        if (resposta.telaMudou || telaJaFoiAtualizada(resposta.erro)) {
           toast.error(resposta.erro);
           aoFechar();
           router.refresh();
@@ -165,8 +173,12 @@ export function FolhaRecebiQueima({
       aoFechar();
       router.refresh();
     } catch {
-      // Nada chegou ao servidor (ou a resposta se perdeu): a folha continua aberta, com a frase.
-      setErro(FRASE_FALHA_AO_RECEBER);
+      // A conexão falhou — e não dá para saber se o servidor gravou (a resposta pode ter se perdido
+      // DEPOIS da venda). Nunca "Nenhuma venda foi criada" aqui (06.4-WR-02): a frase diz o que fazer, a
+      // folha continua aberta e a página é relida. Tocar de novo é seguro — as vendas vistas estão
+      // congeladas, e o servidor recusa se a venda já tiver entrado.
+      setErro(FRASE_RECEBER_SEM_RESPOSTA);
+      router.refresh();
     } finally {
       emVoo.current = false;
       setRegistrando(null);

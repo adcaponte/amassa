@@ -54,12 +54,19 @@ export function ConfirmarExcluirQueima({
     setEnviando(true);
     setErro(null);
 
-    const resposta = await excluirQueima(id);
+    // 06.4-WR-03 (quick 261005-2yu, 05/10/2026): manda as vendas ativas que este diálogo MOSTRA agora; o
+    // servidor confere sob a trava e recusa se a queima tiver ganhado venda depois de a página carregar.
+    const resposta = await excluirQueima({ id, vendasVistas: [...numerosDasVendasAtivas] });
 
     setEnviando(false);
 
     if (!resposta.ok) {
       setErro(resposta.erro);
+      if (resposta.telaMudou) {
+        // O diálogo continua aberto com a frase; a página é relida e a descrição passa a citar a venda.
+        // Confirmar de novo manda a lista nova.
+        router.refresh();
+      }
       return;
     }
 

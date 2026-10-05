@@ -16,17 +16,19 @@ import {
   esquemaApagarContagem,
   esquemaAtualizacaoDeForno,
   esquemaContagem,
+  esquemaExcluirQueima,
   esquemaForno,
   esquemaId,
   esquemaManutencao,
   esquemaQueima,
   esquemaReceberQueima,
 } from "./esquemas";
-import { totalDaContagem } from "./contagem";
+import { totalDaContagem, type Contagem } from "./contagem";
 import { hojeEmBrasilia } from "./formato";
 import {
   apagarContagemNaTransacao,
   cobrarQueimaNaTransacao,
+  excluirQueimaNaTransacao,
   gravarContagem,
   RecusaDasQueimas,
 } from "./gravacao";
@@ -39,7 +41,27 @@ import {
 
 // Mesma forma de `lib/encomendas/acoes.ts` (D-15) — cada módulo redeclara hoje, não há local
 // compartilhado.
-export type ResultadoDeAcao<T> = { ok: true; dados: T } | { ok: false; erro: string };
+//
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01/02/03: a recusa da TELA VELHA traz `telaMudou` (a tela
+// relê) e, na contagem, a `contagemAtual` gravada agora (a folha passa a esperar por ela).
+export type ResultadoDeAcao<T> =
+  | { ok: true; dados: T }
+  | { ok: false; erro: string; telaMudou?: true; contagemAtual?: Contagem | null };
+
+// A recusa decidida sob a trava, com o detalhe da tela velha quando houver.
+function recusaDasQueimas(erro: RecusaDasQueimas): {
+  ok: false;
+  erro: string;
+  telaMudou?: true;
+  contagemAtual?: Contagem | null;
+} {
+  if (!erro.detalhe) {
+    return { ok: false, erro: erro.frase };
+  }
+  return erro.detalhe.contagemAtual === undefined
+    ? { ok: false, erro: erro.frase, telaMudou: true }
+    : { ok: false, erro: erro.frase, telaMudou: true, contagemAtual: erro.detalhe.contagemAtual };
+}
 
 function primeiraMensagemDeErro(resultado: { error: { issues: { message: string }[] } }): string {
   return resultado.error.issues[0]?.message ?? "Não deu para validar os dados enviados.";
@@ -126,23 +148,33 @@ export async function registrarQueima(
 // (`02-MODELO-DE-DADOS.md` §3, "O que muda em relação ao protótipo"). Idempotente por
 // construção: a segunda chamada sobre um `id` já apagado encontra zero linhas e devolve o erro
 // humano, nunca lança.
+//
+// Quick 261005-2yu (05/10/2026), 06.4-WR-03: a exclusão passa pela TRAVA da queima
+// (`excluirQueimaNaTransacao`) e confere as vendas ativas de agora contra as que a confirmação mostrou
+// (`vendasVistas`; o "Desfazer" manda `[]`). Venda nova → recusa com a frase e `telaMudou`; a tela é
+// relida e o diálogo passa a citar a venda.
 export async function excluirQueima(
-  idBruto: unknown,
+  entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<{ id: string }>> {
   await exigirUsuario();
 
-  const resultado = esquemaId.safeParse(idBruto);
+  const resultado = esquemaExcluirQueima.safeParse(entradaBruta);
   if (!resultado.success) {
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
+  const { id, vendasVistas } = resultado.data;
 
-  const [linha] = await db
-    .delete(queimas)
-    .where(eq(queimas.id, resultado.data))
-    .returning({ id: queimas.id });
-
-  if (!linha) {
-    return { ok: false, erro: "Essa queima não existe mais." };
+  let linha: { id: string };
+  try {
+    linha = await db.transaction((tx) => excluirQueimaNaTransacao(tx, id, vendasVistas));
+  } catch (erro) {
+    if (erro instanceof RecusaDasQueimas) {
+      revalidatePath("/gestao/queimas");
+      revalidatePath("/gestao/queimas/[id]", "page");
+      return recusaDasQueimas(erro);
+    }
+    console.error("Falha ao excluir a queima:", codigoDoErroPostgres(erro), erro);
+    return { ok: false, erro: "Não deu para excluir a queima. Verifique a internet e tente de novo." };
   }
 
   // `/queimas/[id]` também revalida (04-PATTERNS.md, "revalidatePath after every write") — a
@@ -358,11 +390,11 @@ export async function salvarContagem(
   if (!resultado.success) {
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
-  const { queimaId, ...contagem } = resultado.data;
+  const { queimaId, esperada, ...contagem } = resultado.data;
 
   try {
     const { criada } = await db.transaction((tx) =>
-      gravarContagem(tx, queimaId, contagem, usuario.id),
+      gravarContagem(tx, queimaId, contagem, esperada, usuario.id),
     );
 
     revalidatePath("/gestao/queimas");
@@ -370,7 +402,11 @@ export async function salvarContagem(
     return { ok: true, dados: { total: totalDaContagem(contagem), criada } };
   } catch (erro) {
     if (erro instanceof RecusaDasQueimas) {
-      return { ok: false, erro: erro.frase };
+      if (erro.detalhe?.telaMudou) {
+        revalidatePath("/gestao/queimas");
+        revalidatePath("/gestao/queimas/[id]", "page");
+      }
+      return recusaDasQueimas(erro);
     }
     // A queima sumiu depois da trava? Não pode (a trava a segura) — mas uma FK violada por qualquer
     // caminho é a mesma situação para quem está na folha.
@@ -397,17 +433,23 @@ export async function apagarContagem(
   if (!resultado.success) {
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
-  const { queimaId } = resultado.data;
+  const { queimaId, esperada } = resultado.data;
 
   try {
-    const { apagou } = await db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId));
+    const { apagou } = await db.transaction((tx) =>
+      apagarContagemNaTransacao(tx, queimaId, esperada),
+    );
 
     revalidatePath("/gestao/queimas");
     revalidatePath("/gestao/queimas/[id]", "page");
     return { ok: true, dados: { apagou } };
   } catch (erro) {
     if (erro instanceof RecusaDasQueimas) {
-      return { ok: false, erro: erro.frase };
+      if (erro.detalhe?.telaMudou) {
+        revalidatePath("/gestao/queimas");
+        revalidatePath("/gestao/queimas/[id]", "page");
+      }
+      return recusaDasQueimas(erro);
     }
     if (ehViolacaoDeChaveEstrangeira(erro)) {
       return { ok: false, erro: FRASE_QUEIMA_DESFEITA_NADA_CONTADO };
@@ -447,6 +489,7 @@ export async function receberQueimaAgora(
         forma: dados.forma,
         quantidades: dados.quantidades,
         clienteId: dados.clienteId,
+        vendasVistas: dados.vendasVistas,
         hoje,
         registradoPor: usuario.id,
         taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
@@ -457,7 +500,7 @@ export async function receberQueimaAgora(
     if (erro instanceof RecusaDasQueimas) {
       revalidatePath("/gestao/queimas");
       revalidatePath("/gestao/queimas/[id]", "page");
-      return { ok: false, erro: erro.frase };
+      return recusaDasQueimas(erro);
     }
     console.error(
       `Falha ao registrar o “Recebi agora” da queima (SQLSTATE: ${codigoDoErroPostgres(erro) ?? "desconhecido"}):`,

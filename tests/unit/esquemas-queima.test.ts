@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import { esquemaContagem, esquemaForno, esquemaManutencao } from "@/lib/queimas/esquemas";
+import {
+  esquemaApagarContagem,
+  esquemaContagem,
+  esquemaExcluirQueima,
+  esquemaForno,
+  esquemaManutencao,
+  esquemaReceberQueima,
+} from "@/lib/queimas/esquemas";
 
 // `esquemaManutencao` (FOR-07, Tarefa 1 do plano 04-04) — `responsavel`/`observacoes` são os
 // únicos dois campos aceitos do cliente, os dois opcionais; `queimasAcumuladas` DELIBERADAMENTE
@@ -143,7 +150,7 @@ describe("esquemaContagem", () => {
   const TETO = "Confira o número: cada contador vai até 10.000.";
 
   function entrada(extra: Record<string, unknown> = {}): Record<string, unknown> {
-    return { queimaId: randomUUID(), ...ZERADA, internasP: 1, saiuCheio: true, ...extra };
+    return { queimaId: randomUUID(), ...ZERADA, internasP: 1, saiuCheio: true, esperada: null, ...extra };
   }
 
   function mensagem(valor: unknown): string | undefined {
@@ -157,7 +164,7 @@ describe("esquemaContagem", () => {
 
   it("recusa os seis contadores em 0, com qualquer “saiu cheio”", () => {
     for (const saiuCheio of [true, false]) {
-      expect(mensagem({ queimaId: randomUUID(), ...ZERADA, saiuCheio })).toBe(
+      expect(mensagem({ queimaId: randomUUID(), ...ZERADA, saiuCheio, esperada: null })).toBe(
         "Nenhuma peça contada — nada foi salvo.",
       );
     }
@@ -199,5 +206,61 @@ describe("esquemaContagem", () => {
       expect(resultado.data).not.toHaveProperty("documentoId");
       expect(resultado.data).not.toHaveProperty("quantidades");
     }
+  });
+});
+
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01/02/03: o retrato que a tela viu é OBRIGATÓRIO — ausente
+// nunca pula a conferência; uma aba velha depois do deploy recebe a frase de tela desatualizada.
+describe("o retrato da tela (06.4-WR-01/02/03)", () => {
+  const TELA_DESATUALIZADA = "Esta tela está desatualizada — recarregue a página e tente de novo.";
+  const CONTAGEM = {
+    internasP: 31,
+    internasM: 0,
+    internasG: 0,
+    externasP: 0,
+    externasM: 0,
+    externasG: 0,
+    saiuCheio: true,
+  };
+
+  function primeiraMensagem(resultado: { success: boolean; error?: { issues: { message: string }[] } }) {
+    return resultado.success ? undefined : resultado.error?.issues[0]?.message;
+  }
+
+  it("esquemaContagem sem a chave `esperada` falha com a frase de tela desatualizada", () => {
+    const resultado = esquemaContagem.safeParse({ queimaId: randomUUID(), ...CONTAGEM });
+    expect(resultado.success).toBe(false);
+    expect(primeiraMensagem(resultado)).toBe(TELA_DESATUALIZADA);
+  });
+
+  it("esquemaContagem com `esperada: null` ou uma contagem passa, e devolve a esperada", () => {
+    expect(esquemaContagem.safeParse({ queimaId: randomUUID(), ...CONTAGEM, esperada: null }).success).toBe(true);
+    const resultado = esquemaContagem.safeParse({ queimaId: randomUUID(), ...CONTAGEM, esperada: CONTAGEM });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.esperada).toEqual(CONTAGEM);
+  });
+
+  it("esquemaApagarContagem exige a esperada (uma contagem)", () => {
+    expect(esquemaApagarContagem.safeParse({ queimaId: randomUUID() }).success).toBe(false);
+    expect(esquemaApagarContagem.safeParse({ queimaId: randomUUID(), esperada: CONTAGEM }).success).toBe(true);
+  });
+
+  it("esquemaReceberQueima sem `vendasVistas` falha com a frase de tela desatualizada", () => {
+    const resultado = esquemaReceberQueima.safeParse({
+      queimaId: randomUUID(),
+      forma: "pix",
+      quantidades: { p: 1, m: 0, g: 0 },
+    });
+    expect(resultado.success).toBe(false);
+    expect(primeiraMensagem(resultado)).toBe(TELA_DESATUALIZADA);
+  });
+
+  it("esquemaExcluirQueima: { id, vendasVistas: [] } passa; número ≤ 0 ou fracionário falha", () => {
+    expect(esquemaExcluirQueima.safeParse({ id: randomUUID(), vendasVistas: [] }).success).toBe(true);
+    expect(esquemaExcluirQueima.safeParse({ id: randomUUID(), vendasVistas: [12, 13] }).success).toBe(true);
+    expect(esquemaExcluirQueima.safeParse({ id: randomUUID(), vendasVistas: [0] }).success).toBe(false);
+    expect(esquemaExcluirQueima.safeParse({ id: randomUUID(), vendasVistas: [-3] }).success).toBe(false);
+    expect(esquemaExcluirQueima.safeParse({ id: randomUUID(), vendasVistas: [1.5] }).success).toBe(false);
+    expect(primeiraMensagem(esquemaExcluirQueima.safeParse({ id: randomUUID() }))).toBe(TELA_DESATUALIZADA);
   });
 });

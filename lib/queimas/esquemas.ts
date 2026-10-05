@@ -10,6 +10,7 @@ import { TETO_DO_CONTADOR, totalDaContagem, totalDasQuantidades } from "./contag
 import {
   FRASE_CONTAGEM_VAZIA,
   FRASE_NENHUMA_PECA_PARA_COBRAR,
+  FRASE_TELA_DESATUALIZADA,
   FRASE_TETO_DO_CONTADOR,
 } from "./textos";
 
@@ -134,16 +135,36 @@ const contador = z
   .min(0, { error: FRASE_TETO_DO_CONTADOR })
   .max(TETO_DO_CONTADOR, { error: FRASE_TETO_DO_CONTADOR });
 
-export const esquemaContagem = z
-  .object({
+// Os seis contadores e o "saiu cheio" — a contagem que se grava, e a que a folha VIU ao abrir.
+const NUMEROS_DA_CONTAGEM = {
+  internasP: contador,
+  internasM: contador,
+  internasG: contador,
+  externasP: contador,
+  externasM: contador,
+  externasG: contador,
+  saiuCheio: z.boolean({ error: "Não deu para validar os dados enviados." }),
+};
+const esquemaNumerosDaContagem = z.object(NUMEROS_DA_CONTAGEM);
+// A contagem que a tela VIU: ausente ou fora de forma → a frase de tela desatualizada.
+const contagemVista = z.object(NUMEROS_DA_CONTAGEM, { error: FRASE_TELA_DESATUALIZADA });
+
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01/02/03 — o retrato da tela. O navegador manda o que a tela
+// MOSTROU (a contagem com que a folha abriu; os números das vendas ativas que a folha ou a confirmação
+// mostraram) e o servidor confere sob a trava da queima. OBRIGATÓRIO: ausente nunca pula a conferência —
+// uma aba velha depois do deploy recebe a frase de tela desatualizada. Forjar só causa recusa ou equivale
+// a ter visto o estado atual (T-2yu-04); o teto de 500 só fecha o tamanho.
+const vendasVistas = z
+  .array(z.number({ error: FRASE_TELA_DESATUALIZADA }).int({ error: FRASE_TELA_DESATUALIZADA }).positive({ error: FRASE_TELA_DESATUALIZADA }), {
+    error: FRASE_TELA_DESATUALIZADA,
+  })
+  .max(500, { error: FRASE_TELA_DESATUALIZADA });
+
+export const esquemaContagem = esquemaNumerosDaContagem
+  .extend({
     queimaId: esquemaId,
-    internasP: contador,
-    internasM: contador,
-    internasG: contador,
-    externasP: contador,
-    externasM: contador,
-    externasG: contador,
-    saiuCheio: z.boolean({ error: "Não deu para validar os dados enviados." }),
+    // `null` = a folha abriu sem contagem.
+    esperada: contagemVista.nullable(),
   })
   .refine((dados) => totalDaContagem(dados) > 0, { error: FRASE_CONTAGEM_VAZIA });
 
@@ -151,7 +172,11 @@ export type EntradaDeContagem = z.infer<typeof esquemaContagem>;
 
 // Fase 06.4, plano 02 — apagar a contagem de uma queima ("Salvar" com tudo zero numa contagem
 // existente, depois de confirmar — UI-D6).
-export const esquemaApagarContagem = z.object({ queimaId: esquemaId });
+export const esquemaApagarContagem = z.object({
+  queimaId: esquemaId,
+  // Só se apaga uma contagem que existe: a que a folha abriu.
+  esperada: contagemVista,
+});
 
 export type EntradaDeApagarContagem = z.infer<typeof esquemaApagarContagem>;
 
@@ -179,8 +204,16 @@ export const esquemaReceberQueima = z.object(
         error: FRASE_NENHUMA_PECA_PARA_COBRAR,
       }),
     clienteId: z.uuid({ error: FRASE_FALHA_AO_RECEBER }).nullable().default(null),
+    // As vendas ativas que a folha mostrou ao ABRIR (06.4-WR-02).
+    vendasVistas,
   },
   { error: FRASE_FALHA_AO_RECEBER },
 );
+
+// 06.4-WR-03: excluir a queima (o "Desfazer" do registro e a exclusão confirmada do Histórico) com os
+// números das vendas ativas que a confirmação mostrou (o "Desfazer" manda a lista vazia).
+export const esquemaExcluirQueima = z.object({ id: esquemaId, vendasVistas });
+
+export type EntradaDeExcluirQueima = z.infer<typeof esquemaExcluirQueima>;
 
 export type EntradaDeReceberQueima = z.infer<typeof esquemaReceberQueima>;

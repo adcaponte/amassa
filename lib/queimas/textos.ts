@@ -21,7 +21,9 @@ import {
   formatarAteUmaCasa,
   formatarUmaCasa,
   resumoPmg,
+  totalDaContagem,
   totalDasQuantidades,
+  type Contagem,
   type Quantidades,
   type Regua,
   type Tamanho,
@@ -570,6 +572,47 @@ export function faltamNoTamanho(quantidade: number): string {
 }
 
 export const FRASE_NENHUMA_PECA_PARA_COBRAR = "Escolha ao menos uma peça para cobrar.";
+
+// Quick 261005-2yu (05/10/2026) — as recusas da TELA VELHA (06.4-WR-01/02/03): o navegador manda o que
+// a tela mostrou; sob a trava da queima, o servidor recusa quando isso mudou, e a tela é relida.
+
+// 06.4-WR-01: a contagem gravada mudou desde que a folha abriu. Os números digitados FICAM na folha;
+// salvar de novo grava de propósito por cima.
+export function fraseContagemMudou(atual: Contagem | null): string {
+  if (atual === null) {
+    return "Alguém apagou esta contagem enquanto a folha estava aberta. Os seus números continuam aqui: confira e toque em Salvar de novo para ficar com eles.";
+  }
+  return `Alguém salvou esta contagem enquanto a folha estava aberta — agora estão gravadas ${pecas(totalDaContagem(atual))}. Os seus números continuam aqui: confira e toque em Salvar de novo para ficar com eles.`;
+}
+
+// 06.4-WR-02: a queima ganhou venda desde que a folha do "Recebi agora" abriu — talvez o próprio toque
+// anterior, cuja resposta se perdeu. `novas` = os números das vendas ativas que a folha não mostrava.
+export function fraseVendasMudaram(novas: readonly number[]): string {
+  if (novas.length === 0) {
+    return "As vendas desta queima mudaram desde que a folha abriu — se foi o seu toque anterior, ele já valeu. A tela foi atualizada: confira o que falta antes de cobrar de novo.";
+  }
+  const ganhou = novas.length === 1 ? `ganhou a ${nomeDasVendas(novas)}` : `ganhou as ${nomeDasVendas(novas)}`;
+  return `Esta queima ${ganhou} desde que a folha abriu — se foi o seu toque anterior, ele já valeu. A tela foi atualizada: confira o que falta antes de cobrar de novo.`;
+}
+
+// 06.4-WR-02: a resposta do "Recebi agora" se perdeu (rede). Não dá para afirmar "nenhuma venda foi
+// criada" — o servidor pode ter gravado. Tocar de novo é seguro: as vendas que a folha viu ao abrir ficam
+// congeladas, e o servidor recusa se uma venda nova já tiver entrado.
+export const FRASE_RECEBER_SEM_RESPOSTA =
+  "Não deu para confirmar se a venda foi registrada — a conexão falhou. Pode tocar de novo: se ela já tiver entrado, a folha avisa e não cria outra.";
+
+// 06.4-WR-03: a exclusão confirmada não mostrava todas as vendas ativas da queima. `ativas` = os números
+// das vendas ativas de AGORA.
+export function fraseExclusaoComVendasNovas(ativas: readonly number[]): string {
+  if (ativas.length === 0) {
+    return "As vendas desta queima mudaram desde que a tela abriu. A tela foi atualizada — leia o aviso de novo e confirme se ainda quiser excluir.";
+  }
+  const tem = ativas.length === 1 ? `tem a ${nomeDasVendas(ativas)}, que a tela não mostrava` : `tem as ${nomeDasVendas(ativas)}, que a tela não mostrava`;
+  return `Esta queima ${tem}. A tela foi atualizada — leia o aviso de novo e confirme se ainda quiser excluir.`;
+}
+
+// A aba aberta antes da atualização da plataforma manda o pedido sem o retrato da tela.
+export const FRASE_TELA_DESATUALIZADA = "Esta tela está desatualizada — recarregue a página e tente de novo.";
 
 // Recusas decididas SOB A TRAVA que já atualizaram a tela (a folha fecha com o aviso).
 // `numeros` = os das vendas ATIVAS que levaram tudo.

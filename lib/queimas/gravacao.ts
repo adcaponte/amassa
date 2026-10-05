@@ -19,6 +19,15 @@
 // (plano 05) passam TODOS por `travarContagem`. Nenhum escritor de `queima_contagens` ou de
 // `queima_vendas` pode pular essa trava: o piso da D-07 só existe por causa dela.
 //
+// Quick 261005-2yu (05/10/2026): a EXCLUSÃO da queima também passa por `travarContagem`
+// (`excluirQueimaNaTransacao`) — confere as vendas ativas sob a trava, e o `delete` sobe a trava da
+// própria linha (`for update`, por baixo) na MESMA transação; a ordem continua QUEIMA primeiro.
+//
+// E a CONCORRÊNCIA OTIMISTA (06.4-WR-01/02/03): o navegador manda o que a tela mostrou — a contagem com
+// que a folha abriu (`esperada`), as vendas ativas que a folha ou a confirmação mostraram
+// (`vendasVistas`) — e as funções abaixo recusam, sob a trava, quando isso mudou: `RecusaDasQueimas`
+// com a frase humana e `telaMudou`, e a tela é relida. Nada é gravado numa recusa.
+//
 // CR-01: a trava é tomada numa instrução e a leitura é REFEITA noutra (`travarEReler`); as vendas
 // ligadas são lidas DEPOIS da trava, noutra instrução — sob READ COMMITTED, a instrução que esperou a
 // trava traria as tabelas não travadas do retrato antigo.
@@ -46,14 +55,17 @@ import {
   abaixoDoLancado,
   cabeNoQueFalta,
   chaveDoTamanho,
+  contagemMudou,
   externasDaContagem,
   faltaCobrar,
   lancadoAtivo,
+  numerosDasVendasAtivas,
   resumoPmg,
   totalDasQuantidades,
   precosDosItens,
   quantidadesDasLinhas,
   valorDasExternas,
+  vendasAtivasMudaram,
   type Contagem,
   type LinhaParaQuantidades,
   type Quantidades,
@@ -65,8 +77,11 @@ import {
   fraseApagarComVendas,
   fraseOrigemQueimaTudoLancado,
   fraseSemPrecoDaQueima,
+  fraseContagemMudou,
+  fraseExclusaoComVendasNovas,
   fraseSoFaltam,
   fraseTudoJaLancado,
+  fraseVendasMudaram,
   FRASE_LINHA_DA_QUEIMA_FALTANDO,
   FRASE_ORIGEM_QUEIMA_NAO_ACHADA,
   FRASE_PESSOA_SUMIU,
@@ -79,8 +94,16 @@ export type { TransacaoDoBanco };
 
 // Uma recusa decidida SOB A TRAVA, com a frase que a tela mostra. Lançada de dentro da transação —
 // nada foi gravado — e traduzida pela ação em `{ ok: false, erro: frase }` (molde `RecusaDaAgenda`).
+//
+// `detalhe.telaMudou` (quick 261005-2yu): a recusa é de TELA VELHA — a tela relê. `contagemAtual` = a
+// contagem gravada agora (ou `null`), para a folha passar a esperar por ela.
+export type DetalheDaRecusa = { telaMudou: true; contagemAtual?: Contagem | null };
+
 export class RecusaDasQueimas extends Error {
-  constructor(readonly frase: string) {
+  constructor(
+    readonly frase: string,
+    readonly detalhe?: DetalheDaRecusa,
+  ) {
     super(frase);
     this.name = "RecusaDasQueimas";
   }
@@ -211,15 +234,27 @@ export async function travarContagem(
 // queima que sumiu → `FRASE_QUEIMA_DESFEITA_NADA_CONTADO`; externas abaixo do já lançado em vendas
 // ativas (D-07) → a frase do piso, com o lançado naquele tamanho e as vendas ativas que o têm.
 // `criada` = a trava não achou contagem (a tela diz "salva" × "corrigida").
+//
+// 06.4-WR-01 (quick 261005-2yu): `esperada` é a contagem com que a folha abriu (`null` = abriu sem).
+// Se a gravada AGORA é outra — alguém salvou ou apagou no meio —, recusa com `fraseContagemMudou` e
+// `telaMudou`, ANTES do piso: salvar por cima apagaria o dele em silêncio. A folha passa a esperar a
+// contagem atual; salvar de novo grava de propósito.
 export async function gravarContagem(
   tx: TransacaoDoBanco,
   queimaId: string,
   contagem: Contagem,
+  esperada: Contagem | null,
   contadoPor: string,
 ): Promise<{ criada: boolean }> {
   const travada = await travarContagem(tx, queimaId);
   if (travada === null) {
     throw new RecusaDasQueimas(FRASE_QUEIMA_DESFEITA_NADA_CONTADO);
+  }
+  if (contagemMudou(travada.contagem, esperada)) {
+    throw new RecusaDasQueimas(fraseContagemMudou(travada.contagem), {
+      telaMudou: true,
+      contagemAtual: travada.contagem,
+    });
   }
 
   const lancado = lancadoAtivo(travada.vendas);
@@ -258,9 +293,14 @@ export async function gravarContagem(
 // ficariam no Caixa sem dizer de onde vieram. Sem contagem a apagar → nada a fazer (o estado pedido já
 // vale; `apagou = false`). Vendas só CANCELADAS não impedem: o cascade leva os vínculos cancelados junto
 // e as vendas continuam no Caixa, canceladas (decidido sem o dono, revisão do checker, 04/10/2026).
+//
+// 06.4-WR-01 (quick 261005-2yu): `esperada` é a contagem que a folha mostrou. Sem contagem a apagar
+// continua idempotente (primeiro); se a gravada é OUTRA, a recusa da tela velha (`telaMudou`); só
+// depois a recusa das vendas.
 export async function apagarContagemNaTransacao(
   tx: TransacaoDoBanco,
   queimaId: string,
+  esperada: Contagem,
 ): Promise<{ apagou: boolean }> {
   const travada = await travarContagem(tx, queimaId);
   if (travada === null) {
@@ -268,6 +308,12 @@ export async function apagarContagemNaTransacao(
   }
   if (travada.contagem === null) {
     return { apagou: false };
+  }
+  if (contagemMudou(travada.contagem, esperada)) {
+    throw new RecusaDasQueimas(fraseContagemMudou(travada.contagem), {
+      telaMudou: true,
+      contagemAtual: travada.contagem,
+    });
   }
   if (totalDasQuantidades(lancadoAtivo(travada.vendas)) > 0) {
     const numeros = travada.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero);
@@ -299,6 +345,8 @@ export type PedidoDeCobrancaDaQueima = {
   quantidades: Quantidades;
   // `null` = venda sem pessoa.
   clienteId: string | null;
+  // As vendas ATIVAS que a folha mostrou ao abrir — congeladas (06.4-WR-02, quick 261005-2yu).
+  vendasVistas: readonly number[];
   hoje: string;
   registradoPor: string;
   taxaCartaoPontosBase: number;
@@ -324,6 +372,15 @@ export async function cobrarQueimaNaTransacao(
         travada.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero),
       ),
     );
+  }
+  // 06.4-WR-02 (quick 261005-2yu): DEPOIS de "nada falta" (que já fecha a folha com a frase de sempre) e
+  // ANTES de conferir o que cabe — a queima ganhou (ou perdeu) venda ativa desde que a folha abriu? Um
+  // novo toque depois de uma resposta perdida vê a venda que já entrou e é recusado: nunca uma segunda
+  // venda paga das mesmas peças. A folha congela as vistas ao abrir; a tela é relida.
+  if (vendasAtivasMudaram(travada.vendas, pedido.vendasVistas)) {
+    const vistas = new Set(pedido.vendasVistas);
+    const novas = numerosDasVendasAtivas(travada.vendas).filter((numero) => !vistas.has(numero));
+    throw new RecusaDasQueimas(fraseVendasMudaram(novas), { telaMudou: true });
   }
   if (!cabeNoQueFalta(pedido.quantidades, falta)) {
     throw new RecusaDasQueimas(fraseSoFaltam(resumoPmg(falta.p, falta.m, falta.g)));
@@ -412,6 +469,31 @@ export async function cobrarQueimaNaTransacao(
     lancadoPor: pedido.registradoPor,
   });
   return { documentoId: venda.id, numero: venda.numero };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Quick 261005-2yu (05/10/2026), 06.4-WR-03 — excluir a queima SOB A TRAVA. O "Desfazer" do registro e a
+// exclusão confirmada do Histórico mandam os números das vendas ativas que a confirmação mostrou
+// (`vendasVistas`; o "Desfazer" manda `[]`). Se as ativas de AGORA são outras — uma venda entrou depois
+// de a página carregar —, recusa com `fraseExclusaoComVendasNovas` e `telaMudou`: o cascade levaria o
+// vínculo e a venda ficaria no Caixa sem dizer de onde veio. Senão, o `delete` na MESMA transação (o
+// cascade leva contagem e vínculos; as vendas continuam no Caixa).
+export async function excluirQueimaNaTransacao(
+  tx: TransacaoDoBanco,
+  queimaId: string,
+  vendasVistas: readonly number[],
+): Promise<{ id: string }> {
+  const travada = await travarContagem(tx, queimaId);
+  if (travada === null) {
+    throw new RecusaDasQueimas("Essa queima não existe mais.");
+  }
+  if (vendasAtivasMudaram(travada.vendas, vendasVistas)) {
+    throw new RecusaDasQueimas(fraseExclusaoComVendasNovas(numerosDasVendasAtivas(travada.vendas)), {
+      telaMudou: true,
+    });
+  }
+  await tx.delete(queimas).where(eq(queimas.id, queimaId));
+  return { id: queimaId };
 }
 
 // ---------------------------------------------------------------------------------------------

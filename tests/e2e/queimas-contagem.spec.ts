@@ -7,6 +7,7 @@ import {
   contarContagens,
   lerContagem,
   pularContagem,
+  semearContagem,
   semearForno,
   semearQueimaSemContagem,
   ultimaQueimaDoForno,
@@ -480,6 +481,46 @@ async function abrirDetalhe(page: Page, nome: string): Promise<void> {
   await expect(page).toHaveURL(/\/gestao\/queimas\/[0-9a-f-]{36}$/, { timeout: 10000 });
   await expect(page.getByRole("heading", { name: nome, level: 1 })).toBeVisible();
 }
+
+// 06.4-WR-01 (quick 261005-2yu, 05/10/2026): salvar quando a contagem gravada mudou desde que a folha
+// abriu é recusado sob a trava da queima — a frase diz o que está gravado agora, os números digitados
+// FICAM, o banco fica como estava; salvar de novo grava de propósito. Pela folha do Histórico (no
+// detalhe do forno), que continua montada depois do refresh da recusa.
+test.describe("contagem — tela velha", () => {
+  test("WR-01: outra pessoa salvou a contagem com a folha aberta — Salvar recusa com a frase, o 12 fica, e Salvar de novo grava", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    const nome = nomeUnico();
+    await cadastrarForno(page, nome);
+    const id = await semearQueimaSemContagem(nome, process.env.E2E_EMAIL_TESTE ?? "");
+    await abrirDetalhe(page, nome);
+
+    await page.getByTestId(`contar-agora-${id}`).click();
+    const folha = page.getByTestId("folha-contagem");
+    await expect(folha).toBeVisible({ timeout: 5000 });
+    await expect(folha).toHaveAttribute("data-queima-id", id);
+
+    // "Outra pessoa" conta 31 internas P enquanto esta folha está aberta.
+    await semearContagem(id, { internasP: 31 });
+    await folha.getByTestId("contador-internas-p").fill("12");
+    await folha.getByTestId("contagem-salvar").click();
+
+    await expect(folha.getByTestId("contagem-erro")).toHaveText(
+      "Alguém salvou esta contagem enquanto a folha estava aberta — agora estão gravadas 31 peças. Os seus números continuam aqui: confira e toque em Salvar de novo para ficar com eles.",
+      { timeout: 10000 },
+    );
+    await expect(folha).toBeVisible();
+    await expect(folha.getByTestId("contador-internas-p")).toHaveValue("12");
+    expect((await lerContagem(id))?.internas_p).toBe(31);
+
+    await folha.getByTestId("contagem-salvar").click();
+    await expect(page.getByText("Contagem corrigida: 12 peças.")).toBeVisible({ timeout: 10000 });
+    await expect(folha).toBeHidden();
+    await expect.poll(async () => (await lerContagem(id))?.internas_p, { timeout: 10000 }).toBe(12);
+    expect(await contarContagens(id)).toBe(1);
+  });
+});
 
 test.describe("histórico com contagem", () => {
   test("a contagem aparece no Histórico e se corrige", async ({ page }) => {

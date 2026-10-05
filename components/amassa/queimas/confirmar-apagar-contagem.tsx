@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { apagarContagem } from "@/lib/queimas/acoes";
+import type { Contagem } from "@/lib/queimas/contagem";
 import {
   FRASE_FALHA_AO_APAGAR_CONTAGEM,
   ROTULO_APAGANDO,
@@ -26,6 +27,9 @@ import {
 
 export type ConfirmarApagarContagemProps = {
   queimaId: string;
+  // A contagem que a folha mostra — o servidor só apaga se a gravada for ESTA (06.4-WR-01, quick
+  // 261005-2yu).
+  esperada: Contagem;
   // As peças da contagem GRAVADA — é o que se perde.
   pecasContadas: number;
   // "Biscoito de 18/12".
@@ -34,6 +38,9 @@ export type ConfirmarApagarContagemProps = {
   aoMudarAberto: (aberto: boolean) => void;
   // Depois de apagar: quem abriu fecha a folha.
   aoApagar: () => void;
+  // A gravada mudou desde que a folha abriu: o diálogo fecha e a folha mostra a frase e passa a esperar
+  // a contagem atual.
+  aoTelaMudar: (frase: string, contagemAtual: Contagem | null) => void;
 };
 
 // "Salvar" com tudo zero numa contagem EXISTENTE (UI-D6, U08): antes de apagar, pergunta e diz o que se
@@ -43,11 +50,13 @@ export type ConfirmarApagarContagemProps = {
 // em venda ativa. Confirmado, a queima volta para "Sem contagem"; a queima em si continua.
 export function ConfirmarApagarContagem({
   queimaId,
+  esperada,
   pecasContadas,
   tituloDaQueima,
   aberto,
   aoMudarAberto,
   aoApagar,
+  aoTelaMudar,
 }: ConfirmarApagarContagemProps) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
@@ -59,8 +68,14 @@ export function ConfirmarApagarContagem({
     setErro(null);
 
     try {
-      const resposta = await apagarContagem({ queimaId });
+      const resposta = await apagarContagem({ queimaId, esperada });
       if (!resposta.ok) {
+        if (resposta.telaMudou) {
+          aoMudarAberto(false);
+          aoTelaMudar(resposta.erro, resposta.contagemAtual ?? null);
+          router.refresh();
+          return;
+        }
         setErro(resposta.erro);
         return;
       }

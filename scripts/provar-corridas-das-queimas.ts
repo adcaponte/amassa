@@ -21,6 +21,17 @@
 // A idempotência (sonda QMC-08·idempotency) é uma SEGUNDA chamada direta e sequencial de
 // `cobrarQueimaNaTransacao`: a Server Action exige sessão (`exigirUsuario`) e não roda fora de uma
 // requisição — o corpo dela, sim.
+//
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01/02/03 — a CONCORRÊNCIA OTIMISTA: cada pedido manda o retrato
+// que a tela dele VIU ao abrir (a contagem `esperada`; as `vendasVistas`), e o servidor recusa sob a
+// trava quando isso mudou. Nos casos sobrepostos abaixo, o pedido que espera a trava abriu ANTES de a
+// outra transação confirmar — então viu `null`/`[]`. Mudaram de sentido: (1) e (9b) — o segundo
+// "Recebi agora" continua recusado, mas pela tela velha (cita a venda nova) em vez de "só faltam"; (2) — o
+// segundo "Recebi agora" agora é RECUSADO (antes passava) e só passa de novo com a tela relida; (6) — a
+// segunda gravação da contagem agora é RECUSADA (antes sobrescrevia em silêncio, que era o defeito do
+// WR-01). Casos novos: (6b) corrigir/apagar com retrato velho, (11) excluir a queima sob corrida e (12) o
+// "Recebi agora" repetido depois de uma resposta perdida. A invariante da D-07 (Σ ativa ≤ externas, por
+// tamanho) continua afirmada em todos.
 import { randomUUID } from "node:crypto";
 
 import { Client } from "pg";
@@ -32,6 +43,7 @@ import { obterItensDasQueimas } from "@/lib/queimas/consultas";
 import {
   apagarContagemNaTransacao,
   cobrarQueimaNaTransacao,
+  excluirQueimaNaTransacao,
   gravarContagem,
   RecusaDasQueimas,
   travarContagem,
@@ -126,13 +138,16 @@ function so(p: number, m = 0, g = 0): Quantidades {
   return { p, m, g };
 }
 
-// O corpo do "Recebi agora" (`receberQueimaAgora` sem a sessão), na forma pix, sem pessoa.
-function cobrar(tx: TransacaoDoBanco, queimaId: string, quantidades: Quantidades) {
+// O corpo do "Recebi agora" (`receberQueimaAgora` sem a sessão), na forma pix, sem pessoa. `vistas` = as
+// vendas ativas que a folha mostrou ao abrir (quick 261005-2yu) — `[]` quando ela abriu antes de qualquer
+// venda.
+function cobrar(tx: TransacaoDoBanco, queimaId: string, quantidades: Quantidades, vistas: readonly number[] = []) {
   return cobrarQueimaNaTransacao(tx, {
     queimaId,
     forma: "pix",
     quantidades,
     clienteId: null,
+    vendasVistas: vistas,
     hoje: hojeEmBrasilia(),
     registradoPor: semente.usuarioId,
     taxaCartaoPontosBase: 0,
@@ -241,8 +256,27 @@ function frase(desfecho: Desfecho<unknown>): string {
   return !desfecho.ok && desfecho.erro instanceof RecusaDasQueimas ? desfecho.erro.frase : "";
 }
 
+// A recusa é de TELA VELHA (quick 261005-2yu)?
+function telaMudou(desfecho: Desfecho<unknown>): boolean {
+  return !desfecho.ok && desfecho.erro instanceof RecusaDasQueimas && desfecho.erro.detalhe?.telaMudou === true;
+}
+
+// A contagem que `semearQueima` grava (só externas; o resto no padrão do banco).
+function contagemSemeada(externas: Quantidades): Contagem {
+  return {
+    internasP: 0,
+    internasM: 0,
+    internasG: 0,
+    externasP: externas.p,
+    externasM: externas.m,
+    externasG: externas.g,
+    saiuCheio: true,
+  };
+}
+
 // (1) Recebi × Recebi pedindo a MESMA peça: 3 P contadas, as duas pedem 2 P. A segunda espera a trava,
-// relê o que falta (1 P) e recusa; a soma ativa de P fica em 2.
+// relê e recusa; a soma ativa de P fica em 2. Desde o quick 261005-2yu a recusa é a da TELA VELHA (a
+// segunda folha abriu sem venda nenhuma e agora há a venda nº N) — antes era "só faltam 1 P".
 async function provarMesmaPeca(conexao: Client, observador: Client): Promise<void> {
   console.log("    (1) “Recebi agora” × “Recebi agora” na mesma peça (2 P e 2 P de 3 P)...");
   const queimaId = await semearQueima(conexao, so(3));
@@ -258,13 +292,19 @@ async function provarMesmaPeca(conexao: Client, observador: Client): Promise<voi
     !b.ok && b.erro instanceof RecusaDasQueimas,
     "(1): a segunda cobrança sobreposta deveria ser RECUSADA — ela passou e a soma lançada passou das externas.",
   );
-  afirmar(frase(b).includes("só faltam 1 P"), `(1): a recusa deveria dizer o que falta (1 P), disse “${frase(b)}”.`);
+  afirmar(
+    telaMudou(b) && frase(b).includes(`venda nº ${a.valor.numero}`),
+    `(1): a recusa deveria ser de tela velha citando a venda nº ${a.valor.numero}, disse “${frase(b)}”.`,
+  );
   const lista = await vinculos(conexao, queimaId);
   afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(1): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
 }
 
-// (2) Recebi × Recebi pedindo partes que CABEM juntas: 1 P e 2 P de 3 P. A trava serializa, mas a regra é
-// por tamanho: as duas passam e a soma é exatamente 3, em dois vínculos.
+// (2) Recebi × Recebi pedindo partes que CABEM juntas: 1 P e 2 P de 3 P. Até o quick 261005-2yu as duas
+// passavam. Agora a segunda — cuja folha abriu antes da primeira venda — é RECUSADA pela tela velha: o
+// servidor não distingue "outra pessoa cobrou outra parte" de "o meu toque anterior já valeu" (WR-02), e
+// decidir pelo que a pessoa VIU é o lado seguro. Com a tela relida (vistas = [nº da primeira]), os 2 P
+// passam: a regra continua por tamanho, e a soma fecha exatamente em 3, em dois vínculos.
 async function provarPartesQueCabem(conexao: Client, observador: Client): Promise<void> {
   console.log("    (2) “Recebi agora” × “Recebi agora” com partes que cabem (1 P e 2 P de 3 P)...");
   const queimaId = await semearQueima(conexao, so(3));
@@ -275,8 +315,14 @@ async function provarPartesQueCabem(conexao: Client, observador: Client): Promis
   const [a, b] = await Promise.all([primeira.desfecho, segunda]);
   guardarVenda(a);
   guardarVenda(b);
-  afirmar(a.ok && b.ok, `(2): as duas cobranças deveriam passar — ${String(!a.ok ? a.erro : !b.ok ? b.erro : "")}`);
-  const lista = await vinculos(conexao, queimaId);
+  afirmar(a.ok, `(2): a primeira cobrança deveria passar — ${String(!a.ok && a.erro)}`);
+  afirmar(telaMudou(b), `(2): a segunda (folha aberta antes da primeira venda) deveria ser recusada pela tela velha, veio “${frase(b) || "passou"}”.`);
+  let lista = await vinculos(conexao, queimaId);
+  afirmar(lista.length === 1 && somaAtiva(lista).p === 1, `(2): depois da recusa, um vínculo com 1 P, veio ${JSON.stringify(lista)}.`);
+  const relida = await semRejeicaoSolta(db.transaction((tx) => cobrar(tx, queimaId, so(2), [a.valor.numero])));
+  guardarVenda(relida);
+  afirmar(relida.ok, `(2): com a tela relida, os 2 P deveriam passar — ${String(!relida.ok && relida.erro)}`);
+  lista = await vinculos(conexao, queimaId);
   afirmar(
     lista.length === 2 && somaAtiva(lista).p === 3,
     `(2): deveriam ser dois vínculos somando 3 P, veio ${JSON.stringify(lista)}.`,
@@ -298,7 +344,11 @@ async function provarPisoSobCorrida(conexao: Client, observador: Client): Promis
     externasG: 0,
     saiuCheio: true,
   };
-  const gravacao = semRejeicaoSolta(db.transaction((tx) => gravarContagem(tx, queimaId, baixar, semente.usuarioId)));
+  // A folha abriu com a contagem semeada — e a cobrança não mexe na contagem: a conferência da tela passa e
+  // quem recusa é o piso, como antes.
+  const gravacao = semRejeicaoSolta(
+    db.transaction((tx) => gravarContagem(tx, queimaId, baixar, contagemSemeada(so(3)), semente.usuarioId)),
+  );
   await esperarAlguemNaTrava(observador, "(3)");
   primeira.soltar();
   const [a, b] = await Promise.all([primeira.desfecho, gravacao]);
@@ -320,7 +370,9 @@ async function provarApagarSobCorrida(conexao: Client, observador: Client): Prom
   console.log("    (4) “Recebi agora” × apagar a contagem...");
   const queimaId = await semearQueima(conexao, so(3));
   const primeira = await primeiraTravaEPara(queimaId, (tx) => cobrar(tx, queimaId, so(1)));
-  const apagar = semRejeicaoSolta(db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId)));
+  const apagar = semRejeicaoSolta(
+    db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId, contagemSemeada(so(3)))),
+  );
   await esperarAlguemNaTrava(observador, "(4)");
   primeira.soltar();
   const [a, b] = await Promise.all([primeira.desfecho, apagar]);
@@ -364,10 +416,13 @@ async function provarExcluirQueimaSobCorrida(conexao: Client, observador: Client
   afirmar(venda.rows[0]?.total === "1", "(5): a venda deveria CONTINUAR em documentos — excluir a queima nunca leva venda.");
 }
 
-// (6) Duas gravações de contagem sobrepostas na mesma queima (sem contagem ainda): a trava da queima
-// serializa — uma linha só, com os números da última a confirmar, nunca 23505 para o usuário.
+// (6) Duas gravações de contagem sobrepostas na mesma queima (sem contagem ainda), as duas de folhas que
+// abriram sem contagem (`esperada: null`): a trava da queima serializa, a primeira cria e a SEGUNDA É
+// RECUSADA (`fraseContagemMudou`, `telaMudou`) — fica uma linha só, com os números da primeira; nunca 23505
+// para o usuário. Até o quick 261005-2yu a segunda passava e sobrescrevia a primeira em silêncio: era
+// exatamente o defeito do 06.4-WR-01.
 async function provarDuasGravacoes(conexao: Client, observador: Client): Promise<void> {
-  console.log("    (6) gravar a contagem × gravar a contagem...");
+  console.log("    (6) gravar a contagem × gravar a contagem (as duas folhas abriram sem contagem)...");
   const queimaId = await semearQueima(conexao, null);
   const contagem = (internasP: number): Contagem => ({
     internasP,
@@ -378,17 +433,71 @@ async function provarDuasGravacoes(conexao: Client, observador: Client): Promise
     externasG: 0,
     saiuCheio: true,
   });
-  const primeira = await primeiraTravaEPara(queimaId, (tx) => gravarContagem(tx, queimaId, contagem(4), semente.usuarioId));
-  const segunda = semRejeicaoSolta(db.transaction((tx) => gravarContagem(tx, queimaId, contagem(9), semente.usuarioId)));
+  const primeira = await primeiraTravaEPara(queimaId, (tx) =>
+    gravarContagem(tx, queimaId, contagem(4), null, semente.usuarioId),
+  );
+  const segunda = semRejeicaoSolta(
+    db.transaction((tx) => gravarContagem(tx, queimaId, contagem(9), null, semente.usuarioId)),
+  );
   await esperarAlguemNaTrava(observador, "(6)");
   primeira.soltar();
   const [a, b] = await Promise.all([primeira.desfecho, segunda]);
-  afirmar(a.ok && b.ok, `(6): as duas gravações deveriam passar — ${String(!a.ok ? a.erro : !b.ok ? b.erro : "")}`);
-  afirmar(a.valor.criada && !b.valor.criada, "(6): a primeira cria, a segunda corrige a mesma linha.");
+  afirmar(a.ok && a.valor.criada, `(6): a primeira gravação deveria criar a contagem — ${String(!a.ok && a.erro)}`);
+  afirmar(
+    telaMudou(b) && frase(b).includes("agora estão gravadas 4 peças"),
+    `(6): a segunda (folha aberta sem contagem) deveria ser RECUSADA pela tela velha, veio “${frase(b) || "passou"}”.`,
+  );
+  afirmar(
+    !b.ok && b.erro instanceof RecusaDasQueimas && b.erro.detalhe?.contagemAtual?.internasP === 4,
+    "(6): a recusa deveria trazer a contagem gravada agora (4 P), para a folha passar a esperar por ela.",
+  );
   const { rows } = await conexao.query<{ p: number }>("select internas_p as p from queima_contagens where queima_id = $1", [
     queimaId,
   ]);
-  afirmar(rows.length === 1 && rows[0].p === 9, `(6): uma linha só, com os números da segunda (9), veio ${JSON.stringify(rows)}.`);
+  afirmar(rows.length === 1 && rows[0].p === 4, `(6): uma linha só, com os números da primeira (4), veio ${JSON.stringify(rows)}.`);
+}
+
+// (6b) Corrigir e apagar com retrato velho, em sequência (quick 261005-2yu, 06.4-WR-01): grava A
+// (esperada null); grava B esperando A → passa; grava C esperando A → recusado (a gravada é B), a linha
+// fica B. Apagar esperando A → recusado; apagar esperando B → passa.
+async function provarRetratoVelhoDaContagem(conexao: Client): Promise<void> {
+  console.log("    (6b) corrigir e apagar a contagem com o retrato velho da folha...");
+  const queimaId = await semearQueima(conexao, null);
+  const contagem = (internasP: number): Contagem => ({
+    internasP,
+    internasM: 0,
+    internasG: 0,
+    externasP: 0,
+    externasM: 0,
+    externasG: 0,
+    saiuCheio: true,
+  });
+  const A = contagem(5);
+  const B = contagem(7);
+  const C = contagem(11);
+  const lerP = async () =>
+    (await conexao.query<{ p: number }>("select internas_p as p from queima_contagens where queima_id = $1", [queimaId])).rows;
+
+  const gravouA = await semRejeicaoSolta(db.transaction((tx) => gravarContagem(tx, queimaId, A, null, semente.usuarioId)));
+  afirmar(gravouA.ok && gravouA.valor.criada, `(6b): A deveria ser criada — ${String(!gravouA.ok && gravouA.erro)}`);
+  const gravouB = await semRejeicaoSolta(db.transaction((tx) => gravarContagem(tx, queimaId, B, A, semente.usuarioId)));
+  afirmar(gravouB.ok && !gravouB.valor.criada, `(6b): B (esperando A) deveria corrigir — ${String(!gravouB.ok && gravouB.erro)}`);
+  const gravouC = await semRejeicaoSolta(db.transaction((tx) => gravarContagem(tx, queimaId, C, A, semente.usuarioId)));
+  afirmar(
+    telaMudou(gravouC) && frase(gravouC).includes("agora estão gravadas 7 peças"),
+    `(6b): C (esperando A, gravada B) deveria ser recusada pela tela velha, veio “${frase(gravouC) || "passou"}”.`,
+  );
+  let linhas = await lerP();
+  afirmar(linhas.length === 1 && linhas[0].p === 7, `(6b): a linha deveria continuar B (7), veio ${JSON.stringify(linhas)}.`);
+
+  const apagouComA = await semRejeicaoSolta(db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId, A)));
+  afirmar(telaMudou(apagouComA), `(6b): apagar esperando A (gravada B) deveria ser recusado, veio “${frase(apagouComA) || "passou"}”.`);
+  linhas = await lerP();
+  afirmar(linhas.length === 1, "(6b): a recusa do apagar não podia apagar nada.");
+  const apagouComB = await semRejeicaoSolta(db.transaction((tx) => apagarContagemNaTransacao(tx, queimaId, B)));
+  afirmar(apagouComB.ok && apagouComB.valor.apagou, `(6b): apagar esperando B deveria passar — ${String(!apagouComB.ok && apagouComB.erro)}`);
+  linhas = await lerP();
+  afirmar(linhas.length === 0, `(6b): depois de apagar, nenhuma linha — veio ${JSON.stringify(linhas)}.`);
 }
 
 // (7) Venda cancelada libera a quantidade (D-07): a venda que levava as 3 P é cancelada pela conexão do
@@ -429,8 +538,10 @@ async function provarCanceladaLiberaEIdempotencia(conexao: Client): Promise<void
 }
 
 // (9) "Recebi agora" × "Lançar na Venda" pedindo a MESMA peça, nos dois sentidos: 3 P contadas, os dois
-// pedem 2 P. Quem chega depois espera a trava da queima, relê o que falta (1 P) e recusa; Σ ativa de P = 2,
-// um vínculo. (9a) o "Recebi" trava primeiro; (9b) o "Lançar" trava primeiro.
+// pedem 2 P. Quem chega depois espera a trava da queima, relê e recusa; Σ ativa de P = 2, um vínculo.
+// (9a) o "Recebi" trava primeiro (o "Lançar" recusa com o que falta); (9b) o "Lançar" trava primeiro —
+// desde o quick 261005-2yu, o "Recebi" de uma folha aberta antes da venda nova recusa pela TELA VELHA
+// (cita a venda), não mais por "só faltam 1 P". O "Lançar na Venda" não manda retrato (fora dos avisos).
 async function provarRecebiXLancarMesmaPeca(conexao: Client, observador: Client): Promise<void> {
   console.log("    (9a) “Recebi agora” × “Lançar na Venda” na mesma peça (Recebi primeiro, 2 P e 2 P de 3 P)...");
   let queimaId = await semearQueima(conexao, so(3));
@@ -464,8 +575,8 @@ async function provarRecebiXLancarMesmaPeca(conexao: Client, observador: Client)
   guardarVenda(b);
   afirmar(a.ok, `(9b): o “Lançar na Venda” deveria gravar — ${String(!a.ok && a.erro)}`);
   afirmar(
-    !b.ok && b.erro instanceof RecusaDasQueimas && frase(b).includes("só faltam 1 P"),
-    `(9b): o “Recebi agora” sobreposto deveria ser recusado com o que falta (1 P), veio “${frase(b) || "passou"}”.`,
+    telaMudou(b) && a.ok && frase(b).includes(`venda nº ${a.valor.numero}`),
+    `(9b): o “Recebi agora” sobreposto deveria ser recusado pela tela velha citando a venda nova, veio “${frase(b) || "passou"}”.`,
   );
   lista = await vinculos(conexao, queimaId);
   afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(9b): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
@@ -489,6 +600,67 @@ async function provarRecebiXLancarPartesQueCabem(conexao: Client, observador: Cl
     lista.length === 2 && somaAtiva(lista).p === 3,
     `(10): deveriam ser dois vínculos somando 3 P (= externas), veio ${JSON.stringify(lista)}.`,
   );
+}
+
+// (11) "Recebi agora" (trava e para) × EXCLUIR A QUEIMA pela ação (`excluirQueimaNaTransacao`, quick
+// 261005-2yu, 06.4-WR-03), de uma tela que não mostrava venda nenhuma (`[]`): a exclusão espera a trava,
+// vê a venda nova e é RECUSADA citando o número — a queima e o vínculo continuam. Excluir com a venda vista
+// (`[nº]`) passa: o vínculo some (cascade) e a venda CONTINUA em `documentos`.
+async function provarExcluirQueimaComVendaNova(conexao: Client, observador: Client): Promise<void> {
+  console.log("    (11) “Recebi agora” × excluir a queima por uma tela que não via a venda...");
+  const queimaId = await semearQueima(conexao, so(3));
+  const primeira = await primeiraTravaEPara(queimaId, (tx) => cobrar(tx, queimaId, so(2)));
+  const exclusao = semRejeicaoSolta(db.transaction((tx) => excluirQueimaNaTransacao(tx, queimaId, [])));
+  await esperarAlguemNaTrava(observador, "(11)");
+  primeira.soltar();
+  const [a, b] = await Promise.all([primeira.desfecho, exclusao]);
+  guardarVenda(a);
+  afirmar(a.ok, `(11): a cobrança deveria gravar — ${String(!a.ok && a.erro)}`);
+  afirmar(
+    telaMudou(b) && frase(b).includes(`venda nº ${a.valor.numero}`),
+    `(11): a exclusão deveria ser recusada citando a venda nº ${a.valor.numero}, veio “${frase(b) || "passou"}”.`,
+  );
+  const queima = await conexao.query<{ total: string }>("select count(*)::text as total from queimas where id = $1", [queimaId]);
+  afirmar(queima.rows[0]?.total === "1", "(11): a queima deveria continuar depois da recusa.");
+  afirmar((await vinculos(conexao, queimaId)).length === 1, "(11): o vínculo deveria continuar depois da recusa.");
+
+  const comVista = await semRejeicaoSolta(
+    db.transaction((tx) => excluirQueimaNaTransacao(tx, queimaId, [a.valor.numero])),
+  );
+  afirmar(comVista.ok, `(11): excluir com a venda vista deveria passar — ${String(!comVista.ok && comVista.erro)}`);
+  const ligados = await conexao.query<{ total: string }>("select count(*)::text as total from queima_vendas where queima_id = $1", [
+    queimaId,
+  ]);
+  const venda = await conexao.query<{ total: string }>("select count(*)::text as total from documentos where id = $1", [
+    a.valor.documentoId,
+  ]);
+  afirmar(ligados.rows[0]?.total === "0", "(11): o vínculo deveria sumir com a queima (cascade).");
+  afirmar(venda.rows[0]?.total === "1", "(11): a venda deveria CONTINUAR em documentos.");
+}
+
+// (12) "Recebi agora" REPETIDO depois de uma resposta perdida (quick 261005-2yu, 06.4-WR-02): 5 P. A folha
+// abriu sem venda (`[]`) e as vistas ficam congeladas. O primeiro toque grava a venda nº N (a resposta se
+// perde); o segundo toque, da MESMA folha (`[]`), é RECUSADO citando o nº N — nunca uma segunda venda
+// paga das mesmas peças; Σ ativa P = 2. Uma folha relida (`[N]`) cobra 2 P de novo de propósito: Σ = 4.
+async function provarRecebiRepetido(conexao: Client): Promise<void> {
+  console.log("    (12) “Recebi agora” repetido da mesma folha depois de uma resposta perdida...");
+  const queimaId = await semearQueima(conexao, so(5));
+  const primeiro = await semRejeicaoSolta(db.transaction((tx) => cobrar(tx, queimaId, so(2), [])));
+  guardarVenda(primeiro);
+  afirmar(primeiro.ok, `(12): o primeiro toque deveria gravar — ${String(!primeiro.ok && primeiro.erro)}`);
+  const repetido = await semRejeicaoSolta(db.transaction((tx) => cobrar(tx, queimaId, so(2), [])));
+  guardarVenda(repetido);
+  afirmar(
+    telaMudou(repetido) && frase(repetido).includes(`venda nº ${primeiro.valor.numero}`),
+    `(12): o toque repetido deveria ser recusado citando a venda nº ${primeiro.valor.numero}, veio “${frase(repetido) || "passou"}”.`,
+  );
+  let lista = await vinculos(conexao, queimaId);
+  afirmar(somaAtiva(lista).p === 2 && lista.length === 1, `(12): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
+  const relida = await semRejeicaoSolta(db.transaction((tx) => cobrar(tx, queimaId, so(2), [primeiro.valor.numero])));
+  guardarVenda(relida);
+  afirmar(relida.ok, `(12): com a folha relida, cobrar 2 P de novo deveria passar — ${String(!relida.ok && relida.erro)}`);
+  lista = await vinculos(conexao, queimaId);
+  afirmar(somaAtiva(lista).p === 4 && lista.length === 2, `(12): Σ ativa de P deveria ser 4 em dois vínculos, veio ${JSON.stringify(lista)}.`);
 }
 
 async function porPrecosDeProva(conexao: Client): Promise<void> {
@@ -567,16 +739,34 @@ async function main(): Promise<void> {
     semente.fornoId = forno.rows[0].id;
     await porPrecosDeProva(conexao);
 
-    console.log("  Corridas das Queimas (06.4-04 e 06.4-05, D-07), com transações sobrepostas de verdade:");
-    await provarMesmaPeca(conexao, observador);
-    await provarPartesQueCabem(conexao, observador);
-    await provarPisoSobCorrida(conexao, observador);
-    await provarApagarSobCorrida(conexao, observador);
-    await provarExcluirQueimaSobCorrida(conexao, observador, outra);
-    await provarDuasGravacoes(conexao, observador);
-    await provarCanceladaLiberaEIdempotencia(conexao);
-    await provarRecebiXLancarMesmaPeca(conexao, observador);
-    await provarRecebiXLancarPartesQueCabem(conexao, observador);
+    console.log("  Corridas das Queimas (06.4-04 e 06.4-05, D-07; quick 261005-2yu), com transações sobrepostas de verdade:");
+    // Cada caso semeia a sua queima: uma falha não contamina o seguinte. Roda TODOS e junta as falhas
+    // (quick 261005-2yu) — parar no primeiro escondia quantos casos uma regressão derruba.
+    const casos: [string, () => Promise<void>][] = [
+      ["(1)", () => provarMesmaPeca(conexao, observador)],
+      ["(2)", () => provarPartesQueCabem(conexao, observador)],
+      ["(3)", () => provarPisoSobCorrida(conexao, observador)],
+      ["(4)", () => provarApagarSobCorrida(conexao, observador)],
+      ["(5)", () => provarExcluirQueimaSobCorrida(conexao, observador, outra)],
+      ["(6)", () => provarDuasGravacoes(conexao, observador)],
+      ["(6b)", () => provarRetratoVelhoDaContagem(conexao)],
+      ["(7)/(8)", () => provarCanceladaLiberaEIdempotencia(conexao)],
+      ["(9)", () => provarRecebiXLancarMesmaPeca(conexao, observador)],
+      ["(10)", () => provarRecebiXLancarPartesQueCabem(conexao, observador)],
+      ["(11)", () => provarExcluirQueimaComVendaNova(conexao, observador)],
+      ["(12)", () => provarRecebiRepetido(conexao)],
+    ];
+    const falhas: string[] = [];
+    for (const [nome, caso] of casos) {
+      try {
+        await caso();
+      } catch (erro) {
+        falhas.push(`${nome} ${erro instanceof Error ? erro.message : String(erro)}`);
+      }
+    }
+    if (falhas.length > 0) {
+      throw new Error(`${falhas.length} caso(s) falharam:\n      ${falhas.join("\n      ")}`);
+    }
     console.log("  Corridas das Queimas: todas as afirmações passaram.");
     codigo = 0;
   } catch (erro) {

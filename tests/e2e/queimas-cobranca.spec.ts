@@ -1,4 +1,6 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page, type Route } from "@playwright/test";
+
+import { FRASE_RECEBER_SEM_RESPOSTA } from "@/lib/queimas/textos";
 
 import { cancelarDocumentoNoBanco, semearCliente } from "./apoio/semear-agenda";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
@@ -380,6 +382,126 @@ test.describe("cobrança da queima — vendas e piso", () => {
       expect(await lerContagem(queimaId)).toBeNull();
       expect(await lerVendasDaQueima(queimaId)).toEqual([]);
       expect(await contarDocumentos(vendas.map((venda) => venda.documentoId))).toBe(2);
+    } finally {
+      await trava?.soltar();
+    }
+  });
+});
+
+// Quick 261005-2yu (05/10/2026): a tela velha nas cobranças — o servidor recusa sob a trava da queima
+// quando as vendas ativas mudaram desde o que a tela mostrou.
+test.describe("cobrança da queima — tela velha", () => {
+  // 06.4-WR-02: o servidor grava a venda e a RESPOSTA se perde. A folha não afirma mais "nenhuma venda foi
+  // criada"; tocar de novo, da mesma folha, é recusado citando a venda — nunca uma segunda venda paga.
+  test("WR-02: a resposta do Recebi agora se perde — a folha diz o que fazer, e o segundo toque é recusado citando a venda, sem criar outra", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      trava = await travarPrecosDasQueimas({ P: 1100, M: 2300, G: 3700 });
+      const nome = `[e2e] resposta perdida ${sufixo()}`;
+      await cadastrarForno(page, nome);
+      const queimaId = await registrarEContar(page, nome, { p: 5 });
+      await expect(linhaACobrar(page, queimaId)).toBeVisible({ timeout: 10000 });
+
+      const folha = await abrirRecebi(page, queimaId);
+      for (let vez = 0; vez < 3; vez += 1) {
+        await folha.getByTestId("recebi-quantidade-p-menos").click();
+      }
+      await expect(folha.getByTestId("recebi-quantidade-p")).toHaveValue("2");
+
+      // Só a PRIMEIRA chamada de Server Action: o servidor recebe e grava (`route.fetch`), e a resposta
+      // nunca chega ao navegador (`abort`).
+      let perdida = false;
+      const perderAResposta = async (route: Route) => {
+        const pedido = route.request();
+        if (!perdida && pedido.method() === "POST" && pedido.headers()["next-action"] !== undefined) {
+          perdida = true;
+          await route.fetch();
+          await route.abort("failed");
+          return;
+        }
+        await route.fallback();
+      };
+      await page.route("**/*", perderAResposta);
+      await folha.getByTestId("forma-pix").click();
+
+      await expect(folha.getByTestId("recebi-agora-erro")).toHaveText(FRASE_RECEBER_SEM_RESPOSTA, {
+        timeout: 10000,
+      });
+      await expect(folha).toBeVisible();
+      expect(perdida).toBe(true);
+      await expect.poll(async () => (await lerVendasDaQueima(queimaId)).length, { timeout: 10000 }).toBe(1);
+      const [gravada] = await lerVendasDaQueima(queimaId);
+
+      await page.unroute("**/*", perderAResposta);
+      await folha.getByTestId("forma-pix").click();
+      await expect(
+        page.getByText(`Esta queima ganhou a venda nº ${gravada.numero} desde que a folha abriu`),
+      ).toBeVisible({ timeout: 10000 });
+      await expect(folha).toBeHidden({ timeout: 10000 });
+      const vendas = await lerVendasDaQueima(queimaId);
+      expect(vendas).toHaveLength(1);
+      expect(vendas[0].quantidadeP).toBe(2);
+    } finally {
+      await trava?.soltar();
+    }
+  });
+
+  // 06.4-WR-03: a página do forno carregou ANTES de uma venda nova (outra aba); a exclusão confirmada é
+  // recusada sob a trava citando a venda, a queima continua, o diálogo passa a citá-la; confirmar de novo
+  // exclui, e a venda continua no Caixa.
+  test("WR-03: excluir uma queima que ganhou venda depois de a página carregar é recusado citando a venda; confirmar de novo exclui e a venda fica", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      trava = await travarPrecosDasQueimas({ P: 1100, M: 2300, G: 3700 });
+      const nome = `[e2e] excluir tela velha ${sufixo()}`;
+      await cadastrarForno(page, nome);
+      const queimaId = await registrarEContar(page, nome, { p: 2 });
+      await expect(linhaACobrar(page, queimaId)).toBeVisible({ timeout: 10000 });
+
+      // Aba A: o detalhe do forno, carregado sem venda nenhuma.
+      await abrirDetalhe(page, nome);
+      await expect(page.getByTestId(`linha-queima-${queimaId}`)).toBeVisible();
+
+      // Outra aba do mesmo navegador: "Recebi agora" de 1 P.
+      const outra = await page.context().newPage();
+      try {
+        await outra.goto("/gestao/queimas");
+        await expect(linhaACobrar(outra, queimaId)).toBeVisible({ timeout: 10000 });
+        await receberP(outra, queimaId, 1, "pix");
+      } finally {
+        await outra.close();
+      }
+      const [venda] = await lerVendasDaQueima(queimaId);
+      expect(venda.quantidadeP).toBe(1);
+
+      // Aba A, sem recarregar: a lixeira e "Excluir".
+      await page.getByTestId(`excluir-queima-${queimaId}`).click();
+      const dialogo = page.getByRole("alertdialog");
+      await expect(dialogo).toBeVisible();
+      await expect(dialogo).not.toContainText("continua no Caixa");
+      await dialogo.getByRole("button", { name: "Excluir", exact: true }).click();
+
+      await expect(dialogo.getByRole("alert")).toHaveText(
+        `Esta queima tem a venda nº ${venda.numero}, que a tela não mostrava. A tela foi atualizada — leia o aviso de novo e confirme se ainda quiser excluir.`,
+        { timeout: 10000 },
+      );
+      await expect(dialogo).toBeVisible();
+      expect(await lerContagem(queimaId)).not.toBeNull();
+      expect(await lerVendasDaQueima(queimaId)).toHaveLength(1);
+
+      // Depois do refresh, o diálogo cita a venda; confirmar de novo exclui, e a venda continua.
+      await expect(dialogo).toContainText(`A venda nº ${venda.numero} continua no Caixa`, { timeout: 10000 });
+      await dialogo.getByRole("button", { name: "Excluir", exact: true }).click();
+      await expect(dialogo).toBeHidden({ timeout: 10000 });
+      await expect(page.getByTestId(`linha-queima-${queimaId}`)).toHaveCount(0, { timeout: 10000 });
+      expect(await lerContagem(queimaId)).toBeNull();
+      expect(await contarDocumentos([venda.documentoId])).toBe(1);
     } finally {
       await trava?.soltar();
     }

@@ -38,6 +38,9 @@ import {
   ROTULO_VER_OS_NUMEROS,
   fraseDaContagemAteManutencao,
   type TipoDeQueima,
+  fraseContagemMudou,
+  fraseExclusaoComVendasNovas,
+  fraseVendasMudaram,
 } from "../../lib/queimas/textos";
 
 describe("textoDoNivel", () => {
@@ -397,5 +400,49 @@ describe("fraseDaContagemAteManutencao", () => {
 
   it("o link do detalhe", () => {
     expect(ROTULO_VER_OS_NUMEROS).toBe("ver os números");
+  });
+});
+
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01/02/03: as frases da tela velha.
+describe("frases da tela desatualizada (06.4-WR-01/02/03)", () => {
+  it("fraseVendasMudaram cita a venda nova, diz que o toque anterior pode ter valido e que a tela foi atualizada", () => {
+    const frase = fraseVendasMudaram([12]);
+    expect(frase).toContain("venda nº 12");
+    expect(frase).toMatch(/toque anterior.*já valeu/);
+    expect(frase).toContain("A tela foi atualizada");
+  });
+
+  it("fraseExclusaoComVendasNovas cita a venda e pede para ler e confirmar de novo", () => {
+    const frase = fraseExclusaoComVendasNovas([12]);
+    expect(frase).toContain("venda nº 12");
+    expect(frase).toMatch(/leia o aviso de novo/);
+    expect(frase).toMatch(/confirme/);
+  });
+
+  it("com lista vazia, as duas dizem que as vendas mudaram sem citar número", () => {
+    for (const frase of [fraseVendasMudaram([]), fraseExclusaoComVendasNovas([])]) {
+      expect(frase).not.toMatch(/nº/);
+      expect(frase).toMatch(/vendas desta queima mudaram/);
+    }
+  });
+
+  it("fraseContagemMudou diz quantas peças estão gravadas e que os números digitados continuam", () => {
+    const frase = fraseContagemMudou({
+      internasP: 31,
+      internasM: 0,
+      internasG: 0,
+      externasP: 0,
+      externasM: 0,
+      externasG: 0,
+      saiuCheio: true,
+    });
+    expect(frase).toContain("31 peças");
+    expect(frase).toMatch(/números continuam aqui/);
+  });
+
+  it("fraseContagemMudou(null) diz que a contagem foi apagada enquanto a folha estava aberta", () => {
+    const frase = fraseContagemMudou(null);
+    expect(frase).toMatch(/apagou|apagada/);
+    expect(frase).toMatch(/enquanto a folha estava aberta/);
   });
 });

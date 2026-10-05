@@ -52,6 +52,8 @@ import {
   queimasPorTipo,
   type ContagemDoForno,
   type OcorrenciaNosNumeros,
+  contagemMudou,
+  vendasAtivasMudaram,
 } from "@/lib/queimas/contagem";
 import {
   ROTULO_CHIPS,
@@ -854,6 +856,7 @@ describe("esquemaReceberQueima (T-06.4-22)", () => {
     queimaId: "4f2a0a9e-2c7d-4f5e-9a3b-1c2d3e4f5a6b",
     forma: "pix",
     quantidades: { p: 1, m: 0, g: 1 },
+    vendasVistas: [] as number[],
   };
 
   it("aceita a entrada da tela; sem pessoa vira null", () => {
@@ -1230,5 +1233,67 @@ describe("ladoDoRotuloDeAtencao", () => {
     expect(ladoDoRotuloDeAtencao(1 / 10)).toBe("comeca-na-marca");
     expect(ladoDoRotuloDeAtencao(90 / 100)).toBe("termina-na-marca");
     expect(ladoDoRotuloDeAtencao(990 / 1000)).toBe("termina-na-marca");
+  });
+});
+
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01/02/03: a concorrência otimista das Queimas — o navegador
+// manda o que a tela mostrou, e o servidor recusa sob a trava quando isso mudou.
+describe("contagemMudou (06.4-WR-01)", () => {
+  const C: Contagem = {
+    internasP: 3,
+    internasM: 2,
+    internasG: 1,
+    externasP: 5,
+    externasM: 0,
+    externasG: 1,
+    saiuCheio: true,
+  };
+
+  it("nada e nada: não mudou", () => {
+    expect(contagemMudou(null, null)).toBe(false);
+  });
+
+  it("apareceu ou sumiu uma contagem: mudou", () => {
+    expect(contagemMudou(C, null)).toBe(true);
+    expect(contagemMudou(null, C)).toBe(true);
+  });
+
+  it("a mesma contagem (cópia): não mudou", () => {
+    expect(contagemMudou(C, { ...C })).toBe(false);
+  });
+
+  it("um contador ou o “saiu cheio” diferente: mudou", () => {
+    expect(contagemMudou(C, { ...C, externasM: C.externasM + 1 })).toBe(true);
+    expect(contagemMudou(C, { ...C, saiuCheio: !C.saiuCheio })).toBe(true);
+  });
+});
+
+describe("vendasAtivasMudaram (06.4-WR-02/03)", () => {
+  function venda(numero: number, cancelada = false): VendaLigada {
+    return {
+      documentoId: `doc-${numero}`,
+      numero,
+      cancelada,
+      paga: true,
+      quantidades: { p: 1, m: 0, g: 0 },
+    };
+  }
+
+  it("as ativas são as vistas (a cancelada não conta): não mudou", () => {
+    expect(vendasAtivasMudaram([venda(12), venda(9, true)], [12])).toBe(false);
+  });
+
+  it("uma ativa a mais, ou nenhuma vista: mudou", () => {
+    expect(vendasAtivasMudaram([venda(12), venda(13)], [12])).toBe(true);
+    expect(vendasAtivasMudaram([venda(12)], [])).toBe(true);
+  });
+
+  it("a vista foi cancelada: mudou", () => {
+    expect(vendasAtivasMudaram([venda(12, true)], [12])).toBe(true);
+  });
+
+  it("a ordem não importa; vazio e vazio não mudou", () => {
+    expect(vendasAtivasMudaram([venda(13), venda(12)], [12, 13])).toBe(false);
+    expect(vendasAtivasMudaram([], [])).toBe(false);
   });
 });

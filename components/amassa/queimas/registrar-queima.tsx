@@ -115,9 +115,17 @@ export function RegistrarQueima({ fornoId, nomeDoForno, dadosDaFolha }: Registra
 
   async function desfazer(idDaQueima: string, aviso: AvisoDoRegistro) {
     aviso.vivo = false;
-    const resposta = await excluirQueima(idDaQueima);
+    // O "Desfazer" vem segundos depois do registro: a queima não tinha venda nenhuma quando o aviso
+    // apareceu (06.4-WR-03, quick 261005-2yu — a lista vazia é o que esta tela viu).
+    const resposta = await excluirQueima({ id: idDaQueima, vendasVistas: [] });
 
     if (!resposta.ok) {
+      if (resposta.telaMudou) {
+        // Uma venda entrou nessa queima nesse meio-tempo: a frase cita a venda e a tela é relida.
+        toast.error(resposta.erro);
+        router.refresh();
+        return;
+      }
       // A queima permanece registrada — o que a tela mostra é sempre o estado real, nunca um
       // contador otimista órfão.
       toast.error(FRASE_FALHA_AO_DESFAZER);

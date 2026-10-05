@@ -255,6 +255,46 @@ export function mesmaContagem(a: Contagem, b: Contagem): boolean {
   );
 }
 
+// Quick 261005-2yu (05/10/2026), 06.4-WR-01: a contagem GRAVADA mudou desde que a folha abriu? A folha
+// manda a contagem com que abriu (`esperada`, ou `null` se abriu sem contagem) e o servidor compara,
+// sob a trava da queima, com a gravada AGORA — os seis contadores e o "saiu cheio". Diferente → a
+// gravação é recusada (alguém salvou ou apagou no meio; salvar por cima seria apagar o dele em silêncio).
+export function contagemMudou(atual: Contagem | null, esperada: Contagem | null): boolean {
+  if (atual === null || esperada === null) {
+    return atual !== esperada;
+  }
+  return !mesmaContagem(atual, esperada);
+}
+
+// Os números das vendas ATIVAS (não canceladas), em ordem.
+export function numerosDasVendasAtivas(vendas: readonly VendaLigada[]): number[] {
+  return vendas
+    .filter((venda) => !venda.cancelada)
+    .map((venda) => venda.numero)
+    .sort((a, b) => a - b);
+}
+
+// 06.4-WR-02/03: as vendas ATIVAS de agora são as que a tela mostrou (`vistas`)? Conjuntos, sem
+// depender da ordem; a cancelada não conta. Diferente → "Recebi agora" e excluir a queima são recusados
+// sob a trava: um novo toque depois de uma resposta perdida vê a venda que já entrou; a exclusão nunca
+// leva o vínculo de uma venda que a confirmação não mostrou.
+export function vendasAtivasMudaram(
+  vendas: readonly VendaLigada[],
+  vistas: readonly number[],
+): boolean {
+  const ativas = new Set(numerosDasVendasAtivas(vendas));
+  const vistasSemRepetir = new Set(vistas);
+  if (ativas.size !== vistasSemRepetir.size) {
+    return true;
+  }
+  for (const numero of ativas) {
+    if (!vistasSemRepetir.has(numero)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // "3 P · 1 G" — só os tamanhos com quantidade, na ordem P, M, G; tudo zero → "". Usado nos chips do
 // Histórico ("internas: 12 P · 9 M") e, nos planos seguintes, nas linhas "a cobrar" e nas vendas.
 export function resumoPmg(p: number, m: number, g: number): string {

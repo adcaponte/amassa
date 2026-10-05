@@ -193,7 +193,12 @@ function FolhaAberta({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmandoApagar, setConfirmandoApagar] = useState(false);
-  const corrigindo = existente !== null;
+  // 06.4-WR-01 (quick 261005-2yu, 05/10/2026): a contagem que esta folha ESPERA estar gravada — a da
+  // abertura. Vai junto em "Salvar" e em "Apagar"; o servidor recusa sob a trava se a gravada for outra
+  // (alguém salvou ou apagou no meio). Na recusa, ela passa a ser a gravada AGORA: os números digitados
+  // FICAM e salvar de novo grava de propósito por cima.
+  const [esperada, setEsperada] = useState<Contagem | null>(existente);
+  const corrigindo = esperada !== null;
 
   // Os chips somados nesta abertura da folha (fechar e reabrir zera; desfazer é pelos "−").
   const [somados, setSomados] = useState<ReadonlySet<string>>(() => new Set());
@@ -340,9 +345,15 @@ function FolhaAberta({
     try {
       // Ouro não tem a caixa (D-02: não entra nas médias de capacidade) e grava o padrão, cheio.
       const enviada = ouro ? { ...contagem, saiuCheio: true } : contagem;
-      const resposta = await salvarContagem({ queimaId: queima.id, ...enviada });
+      const resposta = await salvarContagem({ queimaId: queima.id, ...enviada, esperada });
       if (!resposta.ok) {
-        if (resposta.erro === FRASE_QUEIMA_DESFEITA_NADA_CONTADO) {
+        if (resposta.telaMudou) {
+          // A contagem gravada mudou desde que a folha abriu: a frase diz o que está gravado agora, os
+          // números digitados ficam, e a página é relida.
+          setErro(resposta.erro);
+          setEsperada(resposta.contagemAtual ?? null);
+          router.refresh();
+        } else if (resposta.erro === FRASE_QUEIMA_DESFEITA_NADA_CONTADO) {
           toast.error(resposta.erro);
           aoFechar();
         } else {
@@ -692,10 +703,11 @@ function FolhaAberta({
           </div>
         </div>
       </DialogContent>
-      {existente !== null ? (
+      {esperada !== null ? (
         <ConfirmarApagarContagem
           queimaId={queima.id}
-          pecasContadas={totalDaContagem(existente)}
+          esperada={esperada}
+          pecasContadas={totalDaContagem(esperada)}
           tituloDaQueima={tituloDaQueima(
             queima.tipo,
             diaMes(diaCivilEmBrasilia(queima.ocorridaEm)),
@@ -704,6 +716,10 @@ function FolhaAberta({
           aberto={confirmandoApagar}
           aoMudarAberto={setConfirmandoApagar}
           aoApagar={aoFechar}
+          aoTelaMudar={(frase, atual) => {
+            setErro(frase);
+            setEsperada(atual);
+          }}
         />
       ) : null}
     </Dialog>
