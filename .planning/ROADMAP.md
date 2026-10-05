@@ -1114,7 +1114,41 @@ Plans:
   6. O pipeline publica a mesma imagem que testou, em menos tempo que os ~32 min de hoje, e o site responde com os cabeçalhos de segurança
   7. O site não tem telefone falso nem horário de funcionamento antes da abertura, e não deixa placeholder ir ao ar a partir de 01/12/2026
 
-**Plans**: TBD
+**Plans:** 30 plans — planejada em 05/10/2026, nada executado. Um plano por onda, em sequência: todos dividem a mesma árvore, o mesmo `.next` e os contêineres de teste de nome e porta fixos (`scripts/testar-migracoes.mjs`, `scripts/testar-e2e.mjs`). Os planos 28 (D-01) e 29 (D-16) param numa pergunta ao dono; o 30 é o portão (Roteiro 22, 0031, caminhada).
+
+Plans:
+
+- [ ] 06.5-01-PLAN.md — `medirCaixa` e a regra de lint contra `boundingBox()` direto (D-23, parte 1)
+- [ ] 06.5-02-PLAN.md — celular: `LinhaDeRegistro` no extrato do Caixa e nas Contas fixas; o botão do lote (D-08)
+- [ ] 06.5-03-PLAN.md — celular: `TabelaResponsiva` no Mês e no Estoque; o gráfico das Queimas abrindo na semana atual (D-08)
+- [ ] 06.5-04-PLAN.md — abas dos Cadastros numa fileira com rolagem, na ordem do dono (D-09)
+- [ ] 06.5-05-PLAN.md — Lembretes: aviso com “Desfazer” no topo por 10 s, opções junto do campo, filtros com título (D-10, D-07)
+- [ ] 06.5-06-PLAN.md — Produção: “Terminei” só com todas as peças, no botão e no servidor, e “Passaram todas as {N}” (D-02)
+- [ ] 06.5-07-PLAN.md — Produção: aviso de prazo na folha, aviso de A4 no celular, “levou N dias” (D-11)
+- [ ] 06.5-08-PLAN.md — Agenda: aba “Receber” e presença antecipada que avisa e deixa (D-12, D-05)
+- [ ] 06.5-09-PLAN.md — busca por palavras e sem acento (`casaComBusca`): Venda, Compra e pessoas (D-17)
+- [ ] 06.5-10-PLAN.md — Estoque: custo vazio = R$ 0 com “sem custo”, contagem cega, seletor por categoria (D-04, D-06, D-13)
+- [ ] 06.5-11-PLAN.md — banco: migração 0031 (conta fixa cancelada libera o mês, índices, tabela do vínculo da correção), `bigint`, `/api/health/polimento`, Roteiro 22 (D-25, D-26)
+- [ ] 06.5-12-PLAN.md — Caixa: janela de 30 dias, aviso das contas fixas com atalho, histórico pago pela janela (D-03, D-27)
+- [ ] 06.5-13-PLAN.md — textos: “Outubro de 2026”, placeholder do fornecedor, “Qtd.”/“Cada” no documento do orçamento (D-14)
+- [ ] 06.5-14-PLAN.md — “Novo orçamento” só cria o registro quando algo é preenchido (D-15)
+- [ ] 06.5-15-PLAN.md — regras de dinheiro dos painéis para `lib/financeiro/` (D-21, P4)
+- [ ] 06.5-16-PLAN.md — “Corrigir”: o servidor — núcleo transacional, recusas e prova de corrida (D-18, UI-D9)
+- [ ] 06.5-17-PLAN.md — “Corrigir”: a venda na tela, o vínculo no detalhe e as origens que não se corrigem por aqui (D-18)
+- [ ] 06.5-18-PLAN.md — “Corrigir”: a despesa (com fornecedor e material) e as recusas na tela (D-18)
+- [ ] 06.5-19-PLAN.md — cabeçalhos de segurança, as duas rotas do orçamento, sessão e mensalidade uma vez por requisição, CLAUDE.md com o Next 16 (D-19, D-20, D-21)
+- [ ] 06.5-20-PLAN.md — site: telefone do `zap`, “Abrimos em dezembro”, textos, slots do dono e a guarda de 01/12 (D-28, D-30, D-31, D-32)
+- [ ] 06.5-21-PLAN.md — site: `<main>` e “pular para o conteúdo”, canonical/`og:url`/sitemap/OG 1200×630, faixa do Instagram (D-29, D-32)
+- [ ] 06.5-22-PLAN.md — CI: e2e em dois jobs, imagem única com cache e tag do commit, trace do Turbopack (D-22)
+- [ ] 06.5-23-PLAN.md — `medirCaixa` nos 42 specs antigos e a regra sem exceção (D-23, parte 2)
+- [ ] 06.5-24-PLAN.md — `Folha` comum e as folhas do Estoque (D-24, P8)
+- [ ] 06.5-25-PLAN.md — “Recebi agora” comum (parte visual) e a `Folha` na Produção, no “Recebi agora” e na contagem das Queimas (D-24, P8/P9)
+- [ ] 06.5-26-PLAN.md — `Folha` na Agenda, em Fornecedores e Clientes; `85vh` → `85svh` (D-24, P8)
+- [ ] 06.5-27-PLAN.md — dividir por assunto `lib/agenda/acoes.ts`, `lib/agenda/consultas.ts` e `lib/orcamentos/acoes.ts` (D-24, P10)
+- [ ] 06.5-28-PLAN.md — Produção: só peça de cerâmica vira ordem — pergunta ao dono e o critério escolhido (D-01)
+- [ ] 06.5-29-PLAN.md — a conta do preço de galeria/consignado mostrada ao dono antes de qualquer mudança (D-16)
+- [ ] 06.5-30-PLAN.md — portão: varredura e2e completa, Roteiro 22 completo, caminhada do dono (Parte 0, 0031, critérios), documentos de estado
+
 **UI hint**: yes
 
 ### Phase 7: Polimento e Entrega
@@ -1192,7 +1226,7 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 06.2. Fornecedores | 13/13 | Complete | 2026-10-03 |
 | 06.3. Lembretes | 6/6 | Complete | 2026-10-03 |
 | 06.4. Queimas — contagem | 7/7 | Complete | 2026-10-04 |
-| 06.5. Polimento | 0/TBD | Not started | - |
+| 06.5. Polimento | 0/30 | Planned (05/10/2026) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
 
 *Até 04/10/2026 (~13h30 UTC) a linha da 06.4 nesta tabela dizia: "| 06.4. Queimas — contagem | 0/7 | Planejada, 7 planos, verificador aprovado na rodada 3 (04/10/2026; D-07 (B) do dono incorporada). Até 04/10/2026: "Planejamento pausado em 03/10/2026 (7 planos em rascunho; verificador: 1 bloqueio, 6 avisos)" | - |" — os planos 01 a 06 marcaram as próprias linhas da seção da fase, mas não esta tabela.*
