@@ -3,6 +3,7 @@ import { Client } from "pg";
 
 import { medirCaixa } from "./apoio/medir-caixa";
 import { semearMaterial } from "./apoio/semear-estoque";
+import { semearForno, semearQueimaSemContagem } from "./apoio/semear-queimas";
 import { buscarCategoriaPorNome } from "./apoio/semear-financeiro";
 import { diaDoMes, mesReservado } from "./apoio/mes-reservado";
 
@@ -246,5 +247,82 @@ test.describe("polimento celular — estoque", () => {
     await expect(linha(cafe)).toBeVisible();
     await expect(cartao(argila)).toBeHidden();
     await semRolagemNoElemento(page.getByTestId("estoque-tabela"), "tabela do Estoque a 1280px");
+  });
+});
+
+// O contêiner do gráfico por tipo está rolado até o fim (a semana/o mês atual na borda direita).
+async function esperarRoladoAteOFim(rolagem: Locator, onde: string) {
+  await expect
+    .poll(
+      () =>
+        rolagem.evaluate((el) => ({
+          noFim: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1,
+          rola: el.scrollWidth > el.clientWidth,
+        })),
+      { message: `${onde}: o gráfico por tipo não abriu rolado até o fim` },
+    )
+    .toEqual({ noFim: true, rola: true });
+}
+
+test.describe("polimento celular — gráfico", () => {
+  test("Relatórios das Queimas: abre na semana atual, legenda inteira, gráfico por forno sem rolagem", async ({
+    page,
+  }) => {
+    const email = process.env.E2E_EMAIL_TESTE ?? "";
+    const forno = `[e2e] Forno gráfico ${test.info().project.name} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    await semearForno(forno);
+    // Queimas espalhadas por várias semanas, dos três tipos — mais semanas do que cabem a 375 px.
+    const agora = Date.now();
+    const DIA = 24 * 60 * 60 * 1000;
+    await semearQueimaSemContagem(forno, email, new Date(agora).toISOString(), "biscoito");
+    await semearQueimaSemContagem(forno, email, new Date(agora - 14 * DIA).toISOString(), "esmalte");
+    await semearQueimaSemContagem(forno, email, new Date(agora - 35 * DIA).toISOString(), "ouro");
+
+    await fazerLogin(page);
+    await page.setViewportSize({ width: 375, height: 900 });
+    await page.goto("/gestao/queimas/relatorios");
+
+    const rolagem = page.getByTestId("grafico-tipo-rolagem");
+    await expect(rolagem).toHaveAttribute("tabindex", "0");
+    await expect(rolagem).toHaveAccessibleName("Queimas por tipo, role para os lados");
+    await esperarRoladoAteOFim(rolagem, "ao abrir");
+
+    // A legenda: os três rótulos inteiros, dentro do cartão.
+    const legenda = page.getByTestId("grafico-legenda");
+    await expect(legenda.getByRole("listitem")).toHaveText(["Biscoito", "Esmalte", "Ouro"]);
+    const caixaDaLegenda = await medirCaixa(legenda, "legenda do gráfico por tipo");
+    const caixaDoCartao = await medirCaixa(page.getByTestId("grafico-tipo-cartao"), "cartão do gráfico por tipo");
+    expect(caixaDaLegenda.x).toBeGreaterThanOrEqual(caixaDoCartao.x - 0.5);
+    expect(caixaDaLegenda.y).toBeGreaterThanOrEqual(caixaDoCartao.y - 0.5);
+    expect(caixaDaLegenda.x + caixaDaLegenda.width).toBeLessThanOrEqual(caixaDoCartao.x + caixaDoCartao.width + 0.5);
+    expect(caixaDaLegenda.y + caixaDaLegenda.height).toBeLessThanOrEqual(
+      caixaDoCartao.y + caixaDoCartao.height + 0.5,
+    );
+    for (const item of await legenda.getByRole("listitem").all()) {
+      const [scrollWidth, clientWidth] = await item.evaluate((el) => [el.scrollWidth, el.clientWidth]);
+      expect(scrollWidth, "um rótulo da legenda está cortado").toBeLessThanOrEqual(clientWidth);
+    }
+
+    // A cada troca Semana/Mês, volta a abrir no fim — e a página continua respondendo.
+    await page.getByTestId("alternador-granularidade-mes").click();
+    await expect(page.getByTestId("alternador-granularidade-mes")).toHaveAttribute("aria-checked", "true");
+    await esperarRoladoAteOFim(rolagem, "depois de trocar para Mês");
+    await rolagem.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await page.getByTestId("alternador-granularidade-semana").click();
+    await expect(page.getByTestId("alternador-granularidade-semana")).toHaveAttribute("aria-checked", "true");
+    await esperarRoladoAteOFim(rolagem, "depois de voltar para Semana");
+
+    // O gráfico por forno ocupa o cartão e não rola, nem a 320 px.
+    await page.setViewportSize({ width: 320, height: 900 });
+    const forno320 = page.getByTestId("grafico-forno-rolagem");
+    await expect(forno320).toBeVisible();
+    await expect
+      .poll(() => forno320.evaluate((el) => el.scrollWidth <= el.clientWidth), {
+        message: "o gráfico por forno rola de lado a 320px",
+      })
+      .toBe(true);
+    await semRolagemLateral(page, "Relatórios a 320px");
   });
 });

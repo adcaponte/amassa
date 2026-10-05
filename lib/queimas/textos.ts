@@ -242,6 +242,9 @@ export const ROTULO_FORNOS = "Fornos";
 export const ROTULO_RELATORIOS = "Relatórios";
 export const ROTULO_SEMANA = "Semana";
 export const ROTULO_MES = "Mês";
+// O nome acessível do contêiner que rola do gráfico por tipo (Fase 06.5, `tabIndex={0}`): quem usa
+// teclado rola pelas setas.
+export const ROTULO_ROLAGEM_GRAFICO_TIPO = "Queimas por tipo, role para os lados";
 export const ROTULO_ESTATISTICA_TOTAL = "Total";
 export const ROTULO_ESTATISTICA_30_DIAS = "Últimos 30 dias";
 export const FRASE_RELATORIOS_VAZIO_TITULO = "Nenhuma queima registrada ainda.";
