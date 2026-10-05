@@ -124,6 +124,23 @@ export function textoExcluido(trechoDoTexto: string): string {
   return `Lembrete excluído: ${trechoDoTexto}`;
 }
 
+// Quick 261005-2yu (05/10/2026), 06.3-WR-01: várias exclusões seguidas viram UM aviso, cujo "Desfazer"
+// devolve todas. Só é usado com N ≥ 2 (com 1, o `textoExcluido` com o trecho).
+export function textoExcluidos(n: number): string {
+  return `${n} lembretes excluídos.`;
+}
+
+// 06.3-WR-03: outra pessoa marcou antes — o aviso diz quem, e não oferece "Desfazer" (desfazer seria
+// apagar o feito DELA).
+export function textoJaEstavaFeito(trechoDoTexto: string, nome: string | null): string {
+  return nome ? `Já estava feito por ${nome}: ${trechoDoTexto}` : `Já estava feito: ${trechoDoTexto}`;
+}
+
+// 06.3-WR-03: a linha voltou aberta (outra pessoa reabriu entre o toque e a resposta) — o aviso não diz
+// "Feito".
+export const FRASE_REABERTO_POR_OUTRA_PESSOA =
+  "Outra pessoa reabriu este lembrete agora há pouco — ele continua em “Para fazer”.";
+
 // Erros das ações (06.3-UI-SPEC.md §Erros).
 export const FRASE_LEMBRETE_NAO_EXISTE =
   "Esse lembrete não existe mais — alguém excluiu. A lista foi atualizada.";
@@ -179,5 +196,11 @@ export const ROTULO_MOSTRAR_MAIS = "Mostrar mais 50";
 export const DICA_DE_VER_TODOS =
   "Lembrete feito fica guardado com quem marcou e quando. “Excluir” apaga de vez (com alguns segundos para desfazer) — é o único lugar da plataforma onde apagar é normal, porque lembrete não é registro.";
 export const ROTULO_TENTAR_DE_NOVO = "Tentar de novo";
+
+// 06.3-WR-02 (quick 261005-2yu; decisão do dono de 05/10/2026: só o aviso, sem paginação nova): no teto
+// de "Mostrar mais", a lista diz que não está mostrando tudo.
+export function fraseNoTetoDaLista(teto: number): string {
+  return `Mostrando os ${teto} primeiros — há mais lembretes que esta lista não mostra. Use o filtro “${ROTULO_DE_QUEM_FILTRO}” para ver menos de cada vez.`;
+}
 // O nome do esqueleto para o leitor de tela (`loading.tsx`).
 export const ROTULO_CARREGANDO_A_PAGINA = "Carregando: Lembretes";

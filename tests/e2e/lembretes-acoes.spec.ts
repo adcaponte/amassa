@@ -4,11 +4,13 @@ import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import {
   apagarLembreteDireto,
   criarPessoaDeTeste,
+  criarUsuarioDeTeste,
   desativarPessoaDeTeste,
   destravarLembretesDeTeste,
   idDoUsuarioDoTeste,
   lerLembrete,
   limparLembretes,
+  marcarFeitoNoBanco,
   semearLembrete,
   travarLembretesParaTeste,
 } from "./apoio/semear-lembretes";
@@ -62,6 +64,11 @@ function linhaFeita(page: Page, id: string): Locator {
 // Um toast do `sonner` pelo texto (o `<Toaster>` mora no layout de `/gestao`).
 function aviso(page: Page, texto: string): Locator {
   return page.locator("[data-sonner-toast]").filter({ hasText: texto });
+}
+
+// O aviso que está na tela — não o que sai animando depois de ser trocado (`data-removed="true"`).
+function avisoNaTela(page: Page, texto: string): Locator {
+  return page.locator('[data-sonner-toast][data-removed="false"]').filter({ hasText: texto });
 }
 
 // Os ids das linhas de uma lista, na ordem da tela.
@@ -613,5 +620,110 @@ test.describe("lembretes acoes", () => {
         `${testId} não desceu para baixo da meta`,
       ).toBeGreaterThanOrEqual((meta?.y ?? 0) + (meta?.height ?? 0) - 1);
     }
+  });
+
+  // Quick 261005-2yu (05/10/2026): os avisos da revisão da 06.3.
+
+  // (q) 06.3-WR-03 — outra pessoa marcou antes: o aviso diz quem e NÃO oferece "Desfazer" (desfazer
+  // apagaria o feito dela). No código anterior, o aviso era "Feito: …" com "Desfazer".
+  test("(q) WR-03: marcar um lembrete que outra pessoa acabou de marcar diz “Já estava feito por …”, sem Desfazer, e o feito continua dela", async ({
+    page,
+  }) => {
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const texto = `[e2e] já feito ${projeto}`;
+    const id = await semearLembrete({ texto });
+    const nomeDoOutro = `[e2e] Outra ${projeto}`;
+    const outro = await criarUsuarioDeTeste(nomeDoOutro);
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    await expect(linhaAberta(page, id)).toHaveCount(1);
+
+    await marcarFeitoNoBanco(id, outro);
+    await linhaAberta(page, id).getByTestId("lembrete-caixa").click();
+
+    const avisoJaFeito = avisoNaTela(page, `Já estava feito por ${nomeDoOutro}: ${texto}`);
+    await expect(avisoJaFeito).toBeVisible();
+    await expect(avisoJaFeito.getByRole("button", { name: "Desfazer" })).toHaveCount(0);
+    await expect(aviso(page, `Feito: ${texto}`)).toHaveCount(0);
+    expect((await lerLembrete(id))?.feito_por).toBe(outro);
+  });
+
+  // (r) 06.3-WR-01 — um aviso dos Lembretes por cima não esconde o "Desfazer" da exclusão: ela volta
+  // para a FRENTE. No código anterior, o "Feito" ficava na frente e o "Lembrete excluído" atrás, com o
+  // conteúdo em opacidade 0 (sonner recolhido) — o "Desfazer" invisível, e a exclusão seguia.
+  test("(r) WR-01: excluir A e marcar B como feito deixa o Desfazer de A na frente; ele devolve A, e B continua feito", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const textoA = `[e2e] excluir A ${projeto}`;
+    const textoB = `[e2e] feito B ${projeto}`;
+    const idA = await semearLembrete({ texto: textoA, criadoEm: "2026-01-01T12:00:00.000Z" });
+    const idB = await semearLembrete({ texto: textoB, criadoEm: "2026-01-01T12:01:00.000Z" });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+    await linhaAberta(page, idA).getByTestId("lembrete-excluir").click();
+    await expect(linhaAberta(page, idA)).toHaveCount(0);
+    await linhaAberta(page, idB).getByTestId("lembrete-caixa").click();
+    // Sem o mouse sobre os avisos: com ele, o sonner abre a pilha e tudo fica visível.
+    await page.mouse.move(0, 0);
+
+    await expect(avisoNaTela(page, `Feito: ${textoB}`)).toHaveCount(1);
+    const avisoDeA = avisoNaTela(page, `Lembrete excluído: ${textoA}`);
+    await expect(avisoDeA).toHaveAttribute("data-front", "true");
+    const desfazer = avisoDeA.getByRole("button", { name: "Desfazer" });
+    await expect(desfazer).toHaveCSS("opacity", "1");
+    await desfazer.click();
+    await expect(linhaAberta(page, idA)).toHaveCount(1);
+    await page.mouse.move(0, 0);
+
+    // ESPERA FIXA DE PROPÓSITO (molde do (m)): provar que nada dispara depois dos 6 s.
+    await page.waitForTimeout(7_000);
+    expect(await lerLembrete(idA)).not.toBeNull();
+    expect((await lerLembrete(idB))?.feito_em).not.toBeNull();
+  });
+
+  // (s) 06.3-WR-01 — várias exclusões seguidas viram UM aviso cujo "Desfazer" devolve todas; deixado
+  // expirar, apaga todas.
+  test("(s) WR-01: excluir dois em seguida mostra um aviso só, “2 lembretes excluídos.”; Desfazer devolve os dois, e expirar apaga os dois", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await limparLembretes();
+    const projeto = test.info().project.name;
+    const textoA = `[e2e] lote A ${projeto}`;
+    const textoB = `[e2e] lote B ${projeto}`;
+    const idA = await semearLembrete({ texto: textoA, criadoEm: "2026-01-01T12:00:00.000Z" });
+    const idB = await semearLembrete({ texto: textoB, criadoEm: "2026-01-01T12:01:00.000Z" });
+
+    await fazerLogin(page);
+    await page.goto("/gestao");
+
+    // 1ª rodada: os dois de uma vez, e "Desfazer".
+    await linhaAberta(page, idA).getByTestId("lembrete-excluir").click();
+    await linhaAberta(page, idB).getByTestId("lembrete-excluir").click();
+    await page.mouse.move(0, 0);
+    const avisoDoLote = avisoNaTela(page, "2 lembretes excluídos.");
+    await expect(avisoDoLote).toHaveCount(1);
+    await expect(avisoNaTela(page, "Lembrete excluído:")).toHaveCount(0);
+    await avisoDoLote.getByRole("button", { name: "Desfazer" }).click();
+    await expect(linhaAberta(page, idA)).toHaveCount(1);
+    await expect(linhaAberta(page, idB)).toHaveCount(1);
+    expect(await lerLembrete(idA)).not.toBeNull();
+    expect(await lerLembrete(idB)).not.toBeNull();
+
+    // 2ª rodada: os dois de novo, e deixa expirar — os dois saem do banco.
+    await linhaAberta(page, idA).getByTestId("lembrete-excluir").click();
+    await linhaAberta(page, idB).getByTestId("lembrete-excluir").click();
+    await page.mouse.move(0, 0);
+    await expect(avisoNaTela(page, "2 lembretes excluídos.")).toHaveCount(1);
+    await expect.poll(() => lerLembrete(idA), { timeout: 15_000 }).toBeNull();
+    await expect.poll(() => lerLembrete(idB), { timeout: 15_000 }).toBeNull();
+    await expect(linhaAberta(page, idA)).toHaveCount(0);
+    await expect(linhaAberta(page, idB)).toHaveCount(0);
   });
 });

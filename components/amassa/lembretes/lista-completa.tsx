@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { QUANTOS_POR_VEZ, TETO_DE_QUANTOS } from "@/lib/clientes/lista";
 import type { LembreteDaTela, PessoaDaCasa } from "@/lib/lembretes/consultas";
 import {
+  chegouAoTeto,
   compararAbertos,
   hrefDosLembretes,
   primeiroNome,
@@ -22,6 +23,7 @@ import {
   ROTULO_MOSTRAR_MAIS,
   ROTULO_SITUACAO,
   ROTULO_TODOS,
+  fraseNoTetoDaLista,
 } from "@/lib/lembretes/textos";
 import { cn } from "@/lib/utils";
 
@@ -327,7 +329,9 @@ export function ListaCompleta({ filtros, hoje, pessoas, linhas, haMais }: ListaC
         )}
       </div>
 
-      {/* No teto de 500 (`filtrosDaUrl`) o botão some: "mais 50" voltaria à mesma página. */}
+      {/* No teto de 500 (`filtrosDaUrl`) o botão some: "mais 50" voltaria à mesma página. E a lista
+          DIZ que não está mostrando tudo (06.3-WR-02, quick 261005-2yu — decisão do dono de 05/10/2026: só
+          o aviso, sem paginação por cursor). */}
       {haMais && filtros.quantos < TETO_DE_QUANTOS ? (
         <Button asChild variant="outline" className="min-h-[44px] self-center px-4 font-semibold">
           <Link
@@ -338,6 +342,11 @@ export function ListaCompleta({ filtros, hoje, pessoas, linhas, haMais }: ListaC
             {ROTULO_MOSTRAR_MAIS}
           </Link>
         </Button>
+      ) : null}
+      {chegouAoTeto({ haMais, quantos: filtros.quantos }) ? (
+        <p data-testid="lembretes-no-teto" className="text-apoio text-tinta-fraca">
+          {fraseNoTetoDaLista(TETO_DE_QUANTOS)}
+        </p>
       ) : null}
 
       <p className="text-apoio text-tinta-fraca font-normal">{DICA_DE_VER_TODOS}</p>

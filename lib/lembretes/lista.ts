@@ -7,7 +7,7 @@
 // `hoje` nasce na página (`hojeEmBrasilia(instante)`, `lib/financeiro/formato.ts`) e desce por prop.
 // A aritmética de dias é a civil de `lib/producao/calendario.ts` — inteiros, sem `Date` na conta.
 
-import { QUANTOS_POR_VEZ, quantosDaUrl } from "@/lib/clientes/lista";
+import { QUANTOS_POR_VEZ, TETO_DE_QUANTOS, quantosDaUrl } from "@/lib/clientes/lista";
 import { diasEntre, formatarDiaMes } from "@/lib/producao/calendario";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
@@ -28,6 +28,32 @@ export const LIMITE_DE_FEITOS_NO_INICIO = 5;
 export const DURACAO_DO_DESFAZER_MS = 6000;
 // O trecho do texto que o toast mostra, em pontos de código (06.3-UI-SPEC.md §Toasts).
 export const TAMANHO_DO_TRECHO = 40;
+
+// 06.3-WR-03 (quick 261005-2yu, 05/10/2026): qual aviso o toque na caixa merece. O "Desfazer" do "Feito"
+// só existe quando FOI ESTA chamada que gravou o feito (`gravadoAgora`, pelo `returning` do update):
+// se outra pessoa marcou antes, desfazer apagaria o feito DELA — o aviso só diz "já estava feito por …".
+// E se a linha voltou aberta (reaberta entre o toque e a resposta), o aviso não pode dizer "Feito".
+export type AvisoDaMarcacao = "feito" | "ja_feito" | "voltou_aberto";
+
+export function avisoDaMarcacao({
+  feitoEm,
+  gravadoAgora,
+}: {
+  feitoEm: string | null;
+  gravadoAgora: boolean;
+}): AvisoDaMarcacao {
+  if (feitoEm === null) {
+    return "voltou_aberto";
+  }
+  return gravadoAgora ? "feito" : "ja_feito";
+}
+
+// 06.3-WR-02 (quick 261005-2yu; o dono decidiu só a correção mínima, sem paginação por cursor): a lista
+// de "ver todos" chegou ao teto de `quantos` (500) e ainda há mais — a tela diz isso, em vez de o botão
+// sumir em silêncio.
+export function chegouAoTeto({ haMais, quantos }: { haMais: boolean; quantos: number }): boolean {
+  return haMais && quantos >= TETO_DE_QUANTOS;
+}
 
 // Tipo estrutural: serve à `LembreteDaTela` do servidor e ao estado local do cliente sem importar
 // `consultas.ts` (que alcança o banco).

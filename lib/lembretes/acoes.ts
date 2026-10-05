@@ -13,7 +13,7 @@
 // Este arquivo só exporta funções async e tipos (uma exportação vira endpoint): frases em
 // `./textos`, esquemas em `./esquemas`, leituras em `./consultas`.
 import { revalidatePath } from "next/cache";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { lembretes, usuarios } from "@/db/schema";
@@ -167,9 +167,17 @@ export async function criarLembrete(entrada: unknown): Promise<ResultadoDoLembre
 // null`) — vale o PRIMEIRO; quem chega depois recebe a linha como está (o feito do outro), sem erro.
 // O momento é o `now()` do Postgres e o autor é a sessão (T-06.3-16): o esquema só aceita
 // `{ id, feito }`. Devolve a linha atual; o lembrete que sumiu do banco vira `naoExiste`.
+//
+// 06.3-WR-03 (quick 261005-2yu, 05/10/2026): devolve também `gravadoAgora` — se FOI ESTA chamada que
+// mudou a linha (o `returning` do update conta 1). A tela só oferece o "Desfazer" do "Feito" quando o
+// feito é desta chamada: se outra pessoa marcou antes, desfazer apagaria o feito DELA. Reabrir só mexe
+// numa linha feita (`feito_em is not null`) — reabrir um aberto já não fazia nada, e agora também não
+// conta como gravado.
+export type MarcacaoDoLembrete = { lembrete: LembreteDaTela; gravadoAgora: boolean };
+
 export async function marcarFeito(
   entrada: unknown,
-): Promise<ResultadoDoLembrete<LembreteDaTela>> {
+): Promise<ResultadoDoLembrete<MarcacaoDoLembrete>> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaMarcarFeito.safeParse(entrada);
@@ -179,24 +187,24 @@ export async function marcarFeito(
   const { id, feito } = resultado.data;
 
   try {
-    if (feito) {
-      await db
-        .update(lembretes)
-        .set({ feitoEm: sql`now()`, feitoPor: usuario.id })
-        .where(and(eq(lembretes.id, id), isNull(lembretes.feitoEm)));
-    } else {
-      await db
-        .update(lembretes)
-        .set({ feitoEm: null, feitoPor: null })
-        .where(eq(lembretes.id, id));
-    }
+    const gravados = feito
+      ? await db
+          .update(lembretes)
+          .set({ feitoEm: sql`now()`, feitoPor: usuario.id })
+          .where(and(eq(lembretes.id, id), isNull(lembretes.feitoEm)))
+          .returning({ id: lembretes.id })
+      : await db
+          .update(lembretes)
+          .set({ feitoEm: null, feitoPor: null })
+          .where(and(eq(lembretes.id, id), isNotNull(lembretes.feitoEm)))
+          .returning({ id: lembretes.id });
 
     const linha = await obterLembreteDaTela(id);
     if (!linha) {
       return LEMBRETE_NAO_EXISTE;
     }
     revalidarTelasDosLembretes();
-    return { ok: true, dados: linha };
+    return { ok: true, dados: { lembrete: linha, gravadoAgora: gravados.length === 1 } };
   } catch (erro) {
     const codigo = codigoDoErroPostgres(erro);
     console.error("Falha ao marcar o lembrete:", codigo, erro);

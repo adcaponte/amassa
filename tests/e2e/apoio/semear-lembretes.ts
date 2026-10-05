@@ -203,3 +203,38 @@ export async function semearVariosLembretes(
     return ids;
   });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Quick 261005-2yu (06.3-WR-03): OUTRA pessoa marca o lembrete por baixo da tela.
+//
+// O "outro usuário" nasce INATIVO de propósito: as pílulas de "De quem" vêm de `usuarios` ATIVOS
+// (`listarPessoasDaCasa`), e um usuário ativo a mais mudaria as pílulas de qualquer spec `lembretes-*`
+// rodando ao mesmo tempo. A autoria do feito (`feitoPorNome`) lê o nome sem olhar `ativo`. Mesmo molde
+// de `criarPessoaDeTeste` (e-mail num domínio que não existe, `senha_hash` que não é hash de senha
+// nenhuma); a faxina é não precisar de faxina — usuário nunca se apaga (AUTH-09), e este já nasce fora
+// de toda lista.
+export async function criarUsuarioDeTeste(nome: string): Promise<string> {
+  const email = `e2e-outro-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@exemplo.test`;
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into usuarios (nome, email, senha_hash, ativo)
+       values ($1, $2, '[e2e] não é hash de senha — ninguém entra com esta conta', false)
+       returning id`,
+      [nome, email],
+    );
+    return rows[0].id;
+  });
+}
+
+// Marca feito NO BANCO, como se `usuarioId` tivesse tocado a caixa noutro aparelho. Só dentro da trava.
+export async function marcarFeitoNoBanco(id: string, usuarioId: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const { rowCount } = await cliente.query(
+      "update lembretes set feito_em = now(), feito_por = $2 where id = $1 and feito_em is null",
+      [id, usuarioId],
+    );
+    if (rowCount !== 1) {
+      throw new Error(`marcarFeitoNoBanco: o lembrete "${id}" não estava aberto.`);
+    }
+  });
+}

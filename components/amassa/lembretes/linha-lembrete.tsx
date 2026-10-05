@@ -34,6 +34,7 @@ import {
 } from "@/lib/lembretes/textos";
 import { cn } from "@/lib/utils";
 
+import { manterExclusaoNaFrente } from "./avisos";
 import { PilulaDeData, PilulasDePessoa } from "./opcoes-do-lembrete";
 
 // As ações de texto da linha ("editar", "excluir"): neutras — nunca vermelhas (06.3-UI-SPEC.md
@@ -340,9 +341,12 @@ function EdicaoNaLinha({
       });
       if (resposta.ok) {
         toast.success(TOAST_ATUALIZADO);
+        // A exclusão pendente volta para a frente da pilha (06.3-WR-01, quick 261005-2yu).
+        manterExclusaoNaFrente();
         aoSalvar(resposta.dados);
       } else if (resposta.naoExiste) {
         toast.error(FRASE_LEMBRETE_NAO_EXISTE);
+        manterExclusaoNaFrente();
         aoSumir();
       } else {
         setErro(resposta.erro);

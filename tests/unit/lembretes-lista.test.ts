@@ -9,6 +9,8 @@ import {
   LIMITE_DE_ABERTOS_NO_INICIO,
   LIMITE_DE_FEITOS_NO_INICIO,
   TAMANHO_DO_TRECHO,
+  avisoDaMarcacao,
+  chegouAoTeto,
   compararAbertos,
   corDaPessoa,
   filtrosDaUrl,
@@ -20,6 +22,7 @@ import {
   situacaoDoPrazo,
   trecho,
 } from "@/lib/lembretes/lista";
+import { fraseNoTetoDaLista, textoExcluidos, textoJaEstavaFeito } from "@/lib/lembretes/textos";
 
 // O módulo puro dos Lembretes (plano 06.3-02). `hoje` chega sempre por argumento — nenhum caso
 // abaixo depende do relógio da máquina que roda o teste.
@@ -321,5 +324,48 @@ describe("pureza", () => {
   it("nenhuma linha de lib/lembretes/lista.ts lê o relógio", () => {
     const fonte = readFileSync(join(process.cwd(), "lib/lembretes/lista.ts"), "utf8");
     expect(fonte).not.toMatch(/new Date\(\)|Date\.now\(/);
+  });
+});
+
+// Quick 261005-2yu (05/10/2026): os avisos das revisões da 06.3.
+describe("avisoDaMarcacao (06.3-WR-03)", () => {
+  it("o feito gravado POR ESTA chamada → “feito”, com Desfazer", () => {
+    expect(avisoDaMarcacao({ feitoEm: "2026-10-05T12:00:00Z", gravadoAgora: true })).toBe("feito");
+  });
+
+  it("feito, mas por outra chamada → “ja_feito”, sem Desfazer", () => {
+    expect(avisoDaMarcacao({ feitoEm: "2026-10-05T12:00:00Z", gravadoAgora: false })).toBe("ja_feito");
+  });
+
+  it("a linha voltou aberta → “voltou_aberto”, não importa gravadoAgora", () => {
+    expect(avisoDaMarcacao({ feitoEm: null, gravadoAgora: true })).toBe("voltou_aberto");
+    expect(avisoDaMarcacao({ feitoEm: null, gravadoAgora: false })).toBe("voltou_aberto");
+  });
+});
+
+describe("chegouAoTeto (06.3-WR-02)", () => {
+  it("só com haMais E no teto de 500", () => {
+    expect(chegouAoTeto({ haMais: true, quantos: 500 })).toBe(true);
+    expect(chegouAoTeto({ haMais: true, quantos: 450 })).toBe(false);
+    expect(chegouAoTeto({ haMais: false, quantos: 500 })).toBe(false);
+  });
+});
+
+describe("textos novos dos Lembretes (quick 261005-2yu)", () => {
+  it("textoJaEstavaFeito diz quem, quando há nome", () => {
+    expect(textoJaEstavaFeito("pedir argila", "Andressa")).toBe("Já estava feito por Andressa: pedir argila");
+    expect(textoJaEstavaFeito("pedir argila", null)).toBe("Já estava feito: pedir argila");
+  });
+
+  it("textoExcluidos conta as exclusões agrupadas", () => {
+    expect(textoExcluidos(2)).toBe("2 lembretes excluídos.");
+    expect(textoExcluidos(5)).toBe("5 lembretes excluídos.");
+  });
+
+  it("fraseNoTetoDaLista cita o teto, diz que há mais e indica o filtro “De quem”", () => {
+    const frase = fraseNoTetoDaLista(500);
+    expect(frase).toContain("500");
+    expect(frase).toMatch(/há mais lembretes que esta lista não mostra/);
+    expect(frase).toContain("“De quem”");
   });
 });

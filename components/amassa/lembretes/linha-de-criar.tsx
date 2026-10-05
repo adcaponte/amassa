@@ -19,6 +19,7 @@ import {
 } from "@/lib/lembretes/textos";
 import { cn } from "@/lib/utils";
 
+import { manterExclusaoNaFrente } from "./avisos";
 import { PilulaDeData, PilulasDePessoa } from "./opcoes-do-lembrete";
 
 export type LinhaDeCriarProps = {
@@ -80,6 +81,8 @@ export function LinhaDeCriar({ pessoas, aoCriar }: LinhaDeCriarProps) {
         setParaQuando("");
         setQuem(null);
         toast.success(TOAST_LEMBRETE_GUARDADO);
+        // A exclusão pendente volta para a frente da pilha (06.3-WR-01, quick 261005-2yu).
+        manterExclusaoNaFrente();
       } else {
         setErro(resposta.erro);
       }
