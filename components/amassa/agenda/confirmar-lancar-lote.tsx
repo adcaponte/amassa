@@ -89,7 +89,9 @@ export function ConfirmarLancarLote({ ids, quantas, total }: ConfirmarLancarLote
           setErro(null);
           setAberto(true);
         }}
-        className="text-corpo h-auto min-h-[44px] px-4 font-semibold whitespace-normal max-[359px]:w-full"
+        // D-08 causa nº 4 (06.5): `shrink` anula o `shrink-0` da base do `Button`; abaixo de `sm` o botão
+        // ocupa a largura toda e o texto quebra DENTRO dele — nunca vaza do cartão (achado 2 do Cowork).
+        className="text-corpo h-auto min-h-[44px] w-full sm:w-auto shrink px-4 font-semibold whitespace-normal"
       >
         {rotuloDoBotaoDoLote(quantas, total)}
       </Button>

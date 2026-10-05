@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { medirCaixa } from "./apoio/medir-caixa";
+import { semearCliente, semearMensalidade, semearTurmaComDatas } from "./apoio/semear-agenda";
 import { apagarContaFixaPeloNome, criarContaFixaInativa } from "./apoio/semear-conta-fixa";
 import { buscarCategoriaPorNome, hojeNoAtelie } from "./apoio/semear-financeiro";
 
@@ -238,6 +239,51 @@ test.describe("polimento celular — contas fixas", () => {
       } finally {
         await apagarContaFixaPeloNome(nome);
       }
+    });
+  }
+});
+
+test.describe("polimento celular — lote", () => {
+  for (const largura of [320, 375, 414] as const) {
+    test(`a ${largura}px, o botão do lote fica inteiro dentro do cartão`, async ({ page }) => {
+      const suf = sufixoUnico();
+      // Uma mensalidade livre basta para a sanfona do lote existir. Nenhuma aula semeada (`datas: []`):
+      // o caso não depende de "hoje" nem mexe na agenda do dia de ninguém. O teste só MEDE — nunca
+      // toca no botão, então não lança nada sobre as mensalidades dos outros casos.
+      const { turmaId } = await semearTurmaComDatas({
+        nome: `[e2e] Turma do botão do lote ${suf}`,
+        diaSemana: 4,
+        inicio: "19:00",
+        fim: "21:00",
+        vagas: 6,
+        mensalidadeCentavos: 22000,
+        diaVencimento: 10,
+        datas: [],
+      });
+      const mes = `${hojeNoAtelie().slice(0, 7)}-01`;
+      const mensalidadeId = await semearMensalidade({
+        turmaId,
+        clienteId: await semearCliente({ nome: `[e2e] Aluna do lote ${suf}` }),
+        mes,
+        valorCentavos: 22000,
+        vencimento: `${mes.slice(0, 7)}-10`,
+      });
+
+      await fazerLogin(page);
+      await page.setViewportSize({ width: largura, height: 900 });
+      await page.goto("/gestao/agenda?aba=receber");
+      await expect(page.locator(`[data-testid="lote-linha"][data-id="${mensalidadeId}"]`)).toHaveCount(1);
+
+      const cartao = await medirCaixa(page.getByTestId("lote-mensalidades"), "cartão do lote");
+      const botao = await medirCaixa(page.getByTestId("lote-lancar"), "botão do lote");
+      expect(botao.x, `a ${largura}px o botão começa antes do cartão`).toBeGreaterThanOrEqual(cartao.x - 0.5);
+      expect(
+        botao.x + botao.width,
+        `a ${largura}px o botão termina depois do cartão (${botao.x + botao.width} > ${cartao.x + cartao.width})`,
+      ).toBeLessThanOrEqual(cartao.x + cartao.width + 0.5);
+      expect(botao.height).toBeGreaterThanOrEqual(44);
+
+      await semRolagemLateral(page, `A receber a ${largura}px`);
     });
   }
 });
