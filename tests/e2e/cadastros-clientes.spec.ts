@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { clientesComNome, semearCliente } from "./apoio/semear-agenda";
 
 // Cadastros → Clientes (05-04-PLAN.md, Tarefa 1; D-01, D-16, AGE-06): o cadastro de pessoas do
@@ -197,7 +198,7 @@ test.describe("cadastros clientes", () => {
     expect(await clientesComNome(nome)).toHaveLength(1);
   });
 
-  test("(f) a 320px, as pílulas de Cadastros não rolam de lado e “Clientes” cabe inteira na primeira fileira", async ({
+  test("(f) a 320px, as pílulas de Cadastros não fazem a página rolar de lado e “Clientes” cabe inteira na fileira única", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -211,13 +212,16 @@ test.describe("cadastros clientes", () => {
     ]);
     expect(scrollWidth, `rola de lado a 320px (${scrollWidth} > ${clientWidth})`).toBeLessThanOrEqual(clientWidth);
 
-    // Primeira fileira: Catálogo · Categorias · Clientes; segunda: Contas fixas · Taxas · Parâmetros.
-    const caixaCatalogo = await page.getByTestId("cadastros-sub-catalogo").boundingBox();
-    const caixaClientes = await page.getByTestId("cadastros-sub-clientes").boundingBox();
-    const caixaFixas = await page.getByTestId("cadastros-sub-fixas").boundingBox();
-    expect(caixaCatalogo && caixaClientes && caixaFixas).toBeTruthy();
-    expect(Math.abs((caixaClientes?.y ?? 0) - (caixaCatalogo?.y ?? 0))).toBeLessThan(2);
-    expect(caixaFixas?.y ?? 0).toBeGreaterThan((caixaClientes?.y ?? 0) + 10);
+    // Fase 06.5 (D-09, 06.5-04-PLAN.md): uma fileira só, com rolagem lateral — Catálogo · Clientes ·
+    // Fornecedores · Contas fixas · … na mesma altura, e "Clientes" inteira dentro do trilho.
+    const caixaTrilho = await medirCaixa(page.getByTestId("cadastros-abas-trilho"));
+    const caixaCatalogo = await medirCaixa(page.getByTestId("cadastros-sub-catalogo"));
+    const caixaClientes = await medirCaixa(page.getByTestId("cadastros-sub-clientes"));
+    const caixaFixas = await medirCaixa(page.getByTestId("cadastros-sub-fixas"));
+    expect(Math.abs(caixaClientes.y - caixaCatalogo.y)).toBeLessThan(2);
+    expect(Math.abs(caixaFixas.y - caixaClientes.y)).toBeLessThan(2);
+    expect(caixaClientes.x).toBeGreaterThanOrEqual(caixaTrilho.x - 0.5);
+    expect(caixaClientes.x + caixaClientes.width).toBeLessThanOrEqual(caixaTrilho.x + caixaTrilho.width + 0.5);
 
     // "Clientes" numa linha só, dentro da pílula.
     const linhasDoRotulo = await page.getByTestId("cadastros-sub-clientes").evaluate((elemento) => {

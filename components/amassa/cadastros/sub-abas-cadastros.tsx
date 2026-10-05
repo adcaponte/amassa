@@ -1,7 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { useLayoutEffect, useRef } from "react";
 
 import { rotaDeGestao } from "@/lib/rotas/gestao";
-import type { SubCadastros } from "@/lib/cadastros/abas";
+import {
+  deslocamentoParaCentralizar,
+  ORDEM_DAS_SUBS_CADASTROS,
+  type SubCadastros,
+} from "@/lib/cadastros/abas";
 import {
   ROTULO_SUB_CATALOGO,
   ROTULO_SUB_CATEGORIAS,
@@ -13,126 +20,91 @@ import {
 } from "@/lib/cadastros/textos";
 import { cn } from "@/lib/utils";
 
-// A segunda fileira de pílulas, dentro de `/cadastros` (`role="tablist"`), mesmo padrão visual e
-// estrutural de `AbasFinanceiro`/`abas-abertura.tsx` — navegação por QUERY STRING na MESMA rota
-// (`?sub=`). Server Component simples: não precisa reagir a nada além do que a própria página já
-// recebe em `searchParams`. A régua de 44px é PISO, não teto — o rótulo quebra em duas linhas a
-// 320px em vez de truncar ou estourar a largura.
+// A fileira de pílulas dentro de `/cadastros` (`role="tablist"`) — navegação por QUERY STRING na
+// MESMA rota (`?sub=`).
 //
-// `min-w-0` + `break-words` em cada pílula: achado real do e2e "cadastros base" (não suposição)
-// — sem eles, um `<Link>` `flex-1` mantém `min-width: auto` (o piso padrão do flexbox), que para
-// uma palavra ÚNICA sem espaço ("Categorias") é a largura do texto inteiro sem quebra. Com
-// QUATRO pílulas nesta fileira (uma a mais que a barra do Financeiro), esse piso somado
-// estourava 320px por 3px — pequeno demais para notar visualmente, grande o bastante para o
-// teste automatizado de UI-06 pegar. `min-w-0` deixa a pílula encolher abaixo do conteúdo;
-// `break-words` (overflow-wrap) é o que permite ATÉ uma palavra única quebrar em duas linhas
-// quando encolhida, em vez de vazar. Parâmetros (D-03, 04.5-02-PLAN.md) é a QUINTA pílula desta
-// fileira, por ÚLTIMO — agrupa com Taxas, o outro parâmetro que a precificação lê (D-16) — e o
-// mesmo mecanismo (`min-w-0`/`break-words`) absorve o crescimento sem nenhuma mudança estrutural.
-// 🔴 O comentário acima concluía que `min-w-0`/`break-words` "absorve o crescimento sem nenhuma
-// mudança estrutural" quando Parâmetros virou a quinta pílula. **Estava errado**, e o dono viu
-// num Android em 2026-09-27: a 360px as cinco pílulas ficam com ~57px cada, "Catálogo" e
-// "Categorias" encostam sem espaço visível entre elas, "Contas fixas" quebra dentro da própria
-// pílula e "Parâmetros" vaza a borda arredondada do contêiner.
+// Fase 06.5 (D-09, POL-02, achado 25 do Cowork): as sete pílulas viram UMA fileira com rolagem
+// lateral. Até aqui eram três fileiras (3 + 3 + 1) forçadas por espaçadores de largura total, a
+// solução da barra do Financeiro (`abas-financeiro.tsx`, 04.5-UI-SPEC); no celular elas tomavam ~40 %
+// da tela. O dono decidiu desfazer essa decisão SÓ nos Cadastros — o Financeiro e a Agenda continuam
+// como estão.
 //
-// A correção é a MESMA que a barra do Financeiro já usava para o problema das sete abas
-// (`abas-financeiro.tsx`): `flex-wrap` mais um espaçador `basis-full` que força a quebra num
-// ponto ESCOLHIDO, nunca onde o navegador decidir. Naquele dia: duas em cima, três embaixo.
-//
-// A ordem é a de origem (Catálogo · Categorias | Contas fixas · Taxas · Parâmetros), e não a
-// sugerida na conversa (Catálogo + Contas fixas em cima), porque reordenar navegação mexe na
-// memória muscular de quem já usa — e a ordem atual agrupa o que se vende em cima e os números
-// que o dinheiro usa embaixo.
-//
-// Fase 5 (D-01, UI-D20, 01/10/2026): "Clientes" entra como TERCEIRA pílula da primeira fileira —
-// agrupa com o que se cadastra para vender. Hoje são SEIS pílulas: três em cima (Catálogo ·
-// Categorias · Clientes), três embaixo (Contas fixas · Taxas · Parâmetros).
-//
-// O espaçador era `md:hidden`: a partir de `md` as seis cabiam numa fileira só. O contêiner passou de
-// `md:max-w-md` para `md:max-w-xl` (UI-D20) — seis pílulas em `max-w-md` ficariam espremidas.
-//
-// Fase 06.2 (UI-D1, 06.2-UI-SPEC.md §"Sub-abas — a sétima pílula", medido no Chromium com a Inter
-// de `app/_fontes/`): "Fornecedores" entra como SÉTIMA pílula, por ÚLTIMO e SOZINHA numa terceira
-// fileira — 3 + 3 + 1. A conta: "Fornecedores" mede 106 px de texto; a 320 px o contêiner tem 264 px
-// úteis e uma fileira de três dá (264 − 8) / 3 − 8 = 77 px de texto por pílula — não cabe (quebraria
-// no meio da palavra); sozinha, 256 px. Nenhuma das seis pílulas existentes muda de lugar (memória
-// muscular). Os DOIS espaçadores passam a `lg:hidden`: entre 768 e 1023 px (com a lateral de 256 px)
-// sobram 448 px e as seis já quebravam ali — o 3 + 3 + 1 é correção, não regressão. A partir de
-// 1024 px as sete ficam numa fileira só, cada pílula do tamanho do texto (`lg:flex-auto`, o
-// `flex: 1 1 auto` do protótipo), num contêiner `lg:max-w-2xl`: 548 px de texto + 56 de padding + 24
-// de gaps + 8 do contêiner = 636 de 672 px, sem quebra dentro de pílula.
-//
-// 🔴 Achado fora do escopo (avisar o dono, revisão da Fase 7): pela mesma medição, "Categorias"
-// (83 px) JÁ quebra dentro da pílula a 320 px (77 px úteis), sem esta fase. Corrigir mexeria nas três
-// fileiras; não é feito aqui.
-const PRIMEIRA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
-  { valor: "catalogo", rotulo: ROTULO_SUB_CATALOGO },
-  { valor: "categorias", rotulo: ROTULO_SUB_CATEGORIAS },
-  { valor: "clientes", rotulo: ROTULO_SUB_CLIENTES },
-];
-
-const SEGUNDA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
-  { valor: "fixas", rotulo: ROTULO_SUB_FIXAS },
-  { valor: "taxas", rotulo: ROTULO_SUB_TAXAS },
-  { valor: "parametros", rotulo: ROTULO_SUB_PARAMETROS },
-];
-
-const TERCEIRA_FILEIRA: readonly { valor: SubCadastros; rotulo: string }[] = [
-  { valor: "fornecedores", rotulo: ROTULO_SUB_FORNECEDORES },
-];
+// - A ordem mora em `ORDEM_DAS_SUBS_CADASTROS` (`lib/cadastros/abas.ts`, puro e testado); aqui só se
+//   percorre a lista.
+// - O trilho usa a largura da área de conteúdo e rola o que faltar, sem barra visível e sem arrastar
+//   a página (`overscroll-x-contain`). A partir da largura em que as sete cabem, simplesmente não
+//   rola — sem breakpoint escrito.
+// - A pílula nunca quebra nem encolhe (`shrink-0 whitespace-nowrap`): a que não cabe aparece CORTADA
+//   na borda, o primeiro sinal de que a fileira continua.
+// - O anel de foco é `ring-inset`: um anel de fora seria cortado pelo `overflow` do trilho.
+// - `"use client"` só pela centralização da aba ativa: ao montar (e a cada troca de aba), o trilho rola
+//   SÓ no eixo horizontal, instantâneo, até a pílula `aria-selected` ficar no meio. Nunca
+//   `scrollIntoView` (rolaria a página na vertical) nem rolagem suave.
+const ROTULO_DA_SUB: Record<SubCadastros, string> = {
+  catalogo: ROTULO_SUB_CATALOGO,
+  clientes: ROTULO_SUB_CLIENTES,
+  fornecedores: ROTULO_SUB_FORNECEDORES,
+  fixas: ROTULO_SUB_FIXAS,
+  categorias: ROTULO_SUB_CATEGORIAS,
+  parametros: ROTULO_SUB_PARAMETROS,
+  taxas: ROTULO_SUB_TAXAS,
+};
 
 export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
+  const trilhoRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const trilho = trilhoRef.current;
+    if (!trilho) return;
+    const pilula = trilho.querySelector<HTMLElement>(`[data-testid="cadastros-sub-${subAtual}"]`);
+    if (!pilula) return;
+    // O trilho é `relative`, então ele é o `offsetParent` da pílula e o `offsetLeft` não depende de
+    // quanto o trilho já está rolado.
+    trilho.scrollLeft = deslocamentoParaCentralizar({
+      larguraDoTrilho: trilho.clientWidth,
+      inicioDaPilula: pilula.offsetLeft,
+      larguraDaPilula: pilula.offsetWidth,
+    });
+  }, [subAtual]);
+
   return (
     <div
+      ref={trilhoRef}
       role="tablist"
       aria-label="Sub-navegação de Cadastros"
-      className="mx-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-xl lg:max-w-2xl"
+      data-testid="cadastros-abas-trilho"
+      className="relative mx-6 flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain rounded-md bg-muted p-1 [scrollbar-width:none] md:mx-8 [&::-webkit-scrollbar]:hidden"
     >
-      {PRIMEIRA_FILEIRA.map((sub) => (
-        <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
-      ))}
-
-      {/* Espaçador que FORÇA a quebra: com `flex-wrap`, um item de largura total empurra tudo o
-          que vem depois para a fileira seguinte. `aria-hidden` porque não é uma aba e não deve
-          existir para leitor de tela. `lg:hidden` porque a partir de 1024 px as sete cabem numa
-          fileira (Fase 06.2, UI-D1). Mesmo mecanismo de `abas-financeiro.tsx`. */}
-      <span aria-hidden="true" className="basis-full lg:hidden" />
-
-      {SEGUNDA_FILEIRA.map((sub) => (
-        <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
-      ))}
-
-      {/* O segundo espaçador: "Fornecedores" sozinha na terceira fileira abaixo de 1024 px. */}
-      <span aria-hidden="true" className="basis-full lg:hidden" />
-
-      {TERCEIRA_FILEIRA.map((sub) => (
-        <Pilula key={sub.valor} sub={sub} selecionada={sub.valor === subAtual} />
+      {ORDEM_DAS_SUBS_CADASTROS.map((valor) => (
+        <Pilula key={valor} valor={valor} rotulo={ROTULO_DA_SUB[valor]} selecionada={valor === subAtual} />
       ))}
     </div>
   );
 }
 
 function Pilula({
-  sub,
+  valor,
+  rotulo,
   selecionada,
 }: {
-  sub: { valor: SubCadastros; rotulo: string };
+  valor: SubCadastros;
+  rotulo: string;
   selecionada: boolean;
 }) {
   return (
     <Link
-      href={rotaDeGestao(`/cadastros?sub=${sub.valor}`)}
+      href={rotaDeGestao(`/cadastros?sub=${valor}`)}
       role="tab"
       aria-selected={selecionada}
-      data-testid={`cadastros-sub-${sub.valor}`}
+      data-testid={`cadastros-sub-${valor}`}
       className={cn(
-        "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center lg:flex-auto justify-center rounded-sm p-1 text-center font-medium break-words transition-colors",
+        "text-corpo flex min-h-[44px] shrink-0 items-center rounded-sm px-4 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none",
         selecionada
           ? "bg-background text-foreground font-semibold shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
+          : "font-normal text-muted-foreground hover:text-foreground",
       )}
     >
-      {sub.rotulo}
+      {rotulo}
     </Link>
   );
 }

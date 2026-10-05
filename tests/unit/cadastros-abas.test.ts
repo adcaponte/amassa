@@ -3,7 +3,12 @@ import { join } from "node:path";
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { subDaUrl, type SubCadastros } from "@/lib/cadastros/abas";
+import {
+  deslocamentoParaCentralizar,
+  ORDEM_DAS_SUBS_CADASTROS,
+  subDaUrl,
+  type SubCadastros,
+} from "@/lib/cadastros/abas";
 
 // 04.5-02-PLAN.md, Tarefa 3 (D-03) — `SubCadastros` ganha "parametros"; `subDaUrl` continua
 // caindo em "catalogo" para valor desconhecido (o fallback não muda).
@@ -70,32 +75,73 @@ describe("subDaUrl — as sete sub-abas (Fase 06.2, UI-D1)", () => {
   });
 });
 
-// Lê `components/amassa/cadastros/sub-abas-cadastros.tsx` como TEXTO (sem importar o .tsx) e extrai
-// os `valor: "…"` das constantes `*_FILEIRA`: cada pílula desenhada aponta para uma sub-aba que a URL
-// aceita, nenhuma se repete, e são as sete.
-describe("as pílulas de Cadastros × subDaUrl (Fase 06.2, UI-D1)", () => {
+// Fase 06.5 (D-09, POL-02, 06.5-04-PLAN.md): as sete pílulas viram UMA fileira com rolagem lateral, na
+// ordem do dono. A ordem mora em `ORDEM_DAS_SUBS_CADASTROS`; o componente só a percorre.
+describe("ORDEM_DAS_SUBS_CADASTROS — a fileira única (Fase 06.5, D-09)", () => {
+  it("é a ordem do dono: Catálogo · Clientes · Fornecedores · Contas fixas · Categorias · Parâmetros · Taxas", () => {
+    expect(ORDEM_DAS_SUBS_CADASTROS).toEqual([
+      "catalogo",
+      "clientes",
+      "fornecedores",
+      "fixas",
+      "categorias",
+      "parametros",
+      "taxas",
+    ]);
+  });
+
+  it("tem as sete sub-abas, sem repetição", () => {
+    expect(ORDEM_DAS_SUBS_CADASTROS).toHaveLength(7);
+    expect(new Set(ORDEM_DAS_SUBS_CADASTROS).size).toBe(7);
+    expect([...ORDEM_DAS_SUBS_CADASTROS].sort()).toEqual([...AS_SETE_SUB_ABAS].sort());
+  });
+
+  it.each(ORDEM_DAS_SUBS_CADASTROS)('a pílula "%s" leva a uma sub-aba que a URL aceita', (valor) => {
+    expect(subDaUrl(valor)).toBe(valor);
+  });
+});
+
+// Lê `components/amassa/cadastros/sub-abas-cadastros.tsx` como TEXTO (sem importar o .tsx): o
+// componente percorre a lista ordenada e não tem mais os espaçadores das três fileiras.
+describe("as pílulas de Cadastros seguem a lista ordenada (Fase 06.5, D-09)", () => {
   const caminho = join(process.cwd(), "components/amassa/cadastros/sub-abas-cadastros.tsx");
   const fonte = readFileSync(caminho, "utf-8");
 
-  const fileiras = [...fonte.matchAll(/const\s+\w+_FILEIRA\b[^=]*=\s*\[([\s\S]*?)\];/g)].map(
-    (casamento) => casamento[1],
-  );
-  const valores = fileiras.flatMap((corpo) =>
-    [...corpo.matchAll(/valor:\s*"([^"]*)"/g)].map((casamento) => casamento[1]),
-  );
-
-  it("o componente tem três fileiras (3 + 3 + 1)", () => {
-    expect(fileiras.map((corpo) => [...corpo.matchAll(/valor:\s*"/g)].length)).toEqual([3, 3, 1]);
+  it("o componente percorre ORDEM_DAS_SUBS_CADASTROS", () => {
+    expect(fonte).toMatch(/ORDEM_DAS_SUBS_CADASTROS\.map\(/);
   });
 
-  it("as pílulas são sete, sem repetição, e “Fornecedores” é a última", () => {
-    expect(valores).toHaveLength(7);
-    expect(new Set(valores).size).toBe(7);
-    expect(valores.at(-1)).toBe("fornecedores");
-    expect([...valores].sort()).toEqual([...AS_SETE_SUB_ABAS].sort());
+  it("não sobra nenhuma constante *_FILEIRA nem espaçador basis-full", () => {
+    expect(fonte).not.toMatch(/const\s+\w+_FILEIRA\b/);
+    expect(fonte).not.toMatch(/basis-full/);
+  });
+});
+
+describe("deslocamentoParaCentralizar — a aba ativa no meio do trilho (Fase 06.5, D-09)", () => {
+  it("pílula no começo → 0 (nunca negativo)", () => {
+    expect(
+      deslocamentoParaCentralizar({ larguraDoTrilho: 327, inicioDaPilula: 4, larguraDaPilula: 96 }),
+    ).toBe(0);
   });
 
-  it.each(valores)('a pílula "%s" leva a uma sub-aba que a URL aceita', (valor) => {
-    expect(subDaUrl(valor)).toBe(valor);
+  it("pílula no meio → o centro da pílula cai no centro do trilho", () => {
+    // 400 − (300 − 100) / 2 = 300; o centro da pílula (450) menos 300 = 150, o meio do trilho.
+    expect(
+      deslocamentoParaCentralizar({ larguraDoTrilho: 300, inicioDaPilula: 400, larguraDaPilula: 100 }),
+    ).toBe(300);
+  });
+
+  it("pílula no fim → passa do máximo rolável; o navegador corta no teto ao atribuir scrollLeft", () => {
+    // Trilho de 327 px com 804 px de conteúdo: o máximo rolável é 477. "Taxas" começa em 740 e
+    // mede 60 → 740 − (327 − 60) / 2 = 606,5, acima de 477 — quem limita é o navegador.
+    expect(
+      deslocamentoParaCentralizar({ larguraDoTrilho: 327, inicioDaPilula: 740, larguraDaPilula: 60 }),
+    ).toBe(606.5);
+  });
+
+  it("pílula mais larga que o trilho → alinha pelo começo dela menos a sobra (nunca negativo)", () => {
+    expect(
+      deslocamentoParaCentralizar({ larguraDoTrilho: 100, inicioDaPilula: 10, larguraDaPilula: 200 }),
+    ).toBe(60);
   });
 });
