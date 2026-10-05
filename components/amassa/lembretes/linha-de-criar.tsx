@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { criarLembrete } from "@/lib/lembretes/acoes";
 import type { LembreteDaTela, PessoaDaCasa } from "@/lib/lembretes/consultas";
 import { LIMITE_DO_TEXTO } from "@/lib/lembretes/esquemas";
+import { POSICAO_DOS_AVISOS_DOS_LEMBRETES } from "@/lib/lembretes/lista";
 import {
   FRASE_ESCREVA_ANTES_DE_GUARDAR,
   FRASE_FALHA_AO_GUARDAR,
@@ -80,7 +81,7 @@ export function LinhaDeCriar({ pessoas, aoCriar }: LinhaDeCriarProps) {
         setTexto("");
         setParaQuando("");
         setQuem(null);
-        toast.success(TOAST_LEMBRETE_GUARDADO);
+        toast.success(TOAST_LEMBRETE_GUARDADO, { position: POSICAO_DOS_AVISOS_DOS_LEMBRETES });
         // A exclusão pendente volta para a frente da pilha (06.3-WR-01, quick 261005-2yu).
         manterExclusaoNaFrente();
       } else {

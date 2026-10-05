@@ -8,6 +8,7 @@ import {
   DURACAO_DO_DESFAZER_MS,
   LIMITE_DE_ABERTOS_NO_INICIO,
   LIMITE_DE_FEITOS_NO_INICIO,
+  POSICAO_DOS_AVISOS_DOS_LEMBRETES,
   TAMANHO_DO_TRECHO,
   avisoDaMarcacao,
   chegouAoTeto,
@@ -189,9 +190,10 @@ describe("resumoDoInicio", () => {
 });
 
 describe("constantes", () => {
-  it("5 feitos no Início (D-02), 6 s de desfazer, trecho de 40", () => {
+  it("5 feitos no Início (D-02), 10 s de desfazer no topo (06.5, UI-D6), trecho de 40", () => {
     expect(LIMITE_DE_FEITOS_NO_INICIO).toBe(5);
-    expect(DURACAO_DO_DESFAZER_MS).toBe(6000);
+    expect(DURACAO_DO_DESFAZER_MS).toBe(10000);
+    expect(POSICAO_DOS_AVISOS_DOS_LEMBRETES).toBe("top-center");
     expect(TAMANHO_DO_TRECHO).toBe(40);
   });
 });

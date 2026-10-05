@@ -277,6 +277,11 @@
 :root {
   --altura-barra-inferior: 56px;
   --deslocamento-aviso: calc(var(--altura-barra-inferior) + env(safe-area-inset-bottom) + 16px);
+  /* Deslocamento do aviso no TOPO (06.5-05, D-10, UI-D6): só os avisos do módulo Lembretes saem lá
+     (`POSICAO_DOS_AVISOS_DOS_LEMBRETES`). Abaixo de 768px o aviso começa abaixo do `cabecalho-movel`
+     (`sticky h-14` = 56px) mais 8px de respiro — nunca em cima dele. As duas portas do `Toaster`
+     (`offset.top` e `mobileOffset.top`) leem esta mesma variável, como a `--deslocamento-aviso`. */
+  --deslocamento-aviso-topo: 64px;
 }
 
 @media (min-width: 48rem) {
@@ -284,6 +289,8 @@
     /* Acima de `md` a barra inferior não existe (`md:hidden`) — o aviso volta ao respiro padrão
        do sonner no desktop, sem deslocamento nenhum. */
     --deslocamento-aviso: 24px;
+    /* Acima de `md` o cabeçalho do celular não existe (`md:hidden`): o respiro padrão do sonner. */
+    --deslocamento-aviso-topo: 24px;
   }
 }
 
