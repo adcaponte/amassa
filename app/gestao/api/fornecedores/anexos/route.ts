@@ -8,6 +8,9 @@
 // é verificável em revisão, na ordem em que aparece abaixo:
 //   1. `exigirUsuario()` ANTES de ler um byte do corpo ou do banco (T-06.2-16) — sem sessão, 401 JSON
 //      (nunca o redirect que `exigirUsuario()` lança: o `fetch` o seguiria até a página de login).
+//      SÓ a falta de sessão (`ehFaltaDeSessao`) vira 401; qualquer outra falha ao conferir (banco fora,
+//      `auth()` lançando) é 500 com `FRASE_ENVIO_SEM_CONFERIR` — e a folha guarda o arquivo escolhido
+//      (06.2-WR-01, quick 261005-2yu, 05/10/2026).
 //   2. `Origin` de outro endereço → 403 (Pitfall 8, T-06.2-20): Route Handler não confere a origem
 //      sozinho, como a Server Action.
 //   3. Metadados validados com Zod no servidor (`esquemaEnvioDeAnexo`).
@@ -34,7 +37,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
 import { fornecedorAnexos, fornecedores } from "@/db/schema";
-import { exigirUsuario, type UsuarioAutorizado } from "@/lib/auth/exigir-usuario";
+import { ehFaltaDeSessao, exigirUsuario, type UsuarioAutorizado } from "@/lib/auth/exigir-usuario";
 import {
   classificarArquivo,
   LIMITE_DOCUMENTO_BYTES,
@@ -53,6 +56,7 @@ import { esquemaEnvioDeAnexo } from "@/lib/fornecedores/esquemas";
 import { FotoQueNaoAbre, tratarFotoDeAnexo } from "@/lib/fornecedores/foto";
 import {
   FRASE_ARQUIVO_VAZIO,
+  FRASE_ENVIO_SEM_CONFERIR,
   FRASE_FALHA_AO_ENVIAR,
   FRASE_FICHA_NAO_EXISTE,
   FRASE_FORNECEDOR_DESATIVADO_NO_ENVIO,
@@ -124,12 +128,17 @@ function nomeParaFrase(nome: string, extensao: string): string {
 export async function PUT(request: NextRequest) {
   // 1. Sessão ANTES de qualquer outra coisa. `exigirUsuario()` confere `ativo` no banco a cada chamada
   // (usuário desativado recebe 401 na requisição seguinte) e chama `redirect()` sem sessão — capturado
-  // aqui para virar 401 JSON.
+  // aqui para virar 401 JSON. Qualquer OUTRO erro é falha do servidor, não decisão de autorização:
+  // 500, e o detalhe só no log (06.2-WR-01).
   let usuario: UsuarioAutorizado;
   try {
     usuario = await exigirUsuario();
-  } catch {
-    return recusar(401, FRASE_SESSAO_TERMINOU);
+  } catch (erro) {
+    if (ehFaltaDeSessao(erro)) {
+      return recusar(401, FRASE_SESSAO_TERMINOU);
+    }
+    console.error("Falha ao conferir a sessão no envio de um anexo de fornecedor:", erro);
+    return recusar(500, FRASE_ENVIO_SEM_CONFERIR);
   }
 
   // 2. CSRF (Pitfall 8).
@@ -169,7 +178,13 @@ export async function PUT(request: NextRequest) {
   }
 
   // 5. O fornecedor existe e está ATIVO? Conferência barata, antes de gravar no disco.
-  const situacao = await situacaoParaEnvio(meta.fornecedorId);
+  let situacao: Awaited<ReturnType<typeof situacaoParaEnvio>>;
+  try {
+    situacao = await situacaoParaEnvio(meta.fornecedorId);
+  } catch (erro) {
+    console.error("Falha ao conferir o fornecedor no envio de um anexo:", erro);
+    return recusar(500, FRASE_ENVIO_SEM_CONFERIR);
+  }
   if (situacao === "inexistente") {
     return recusar(404, FRASE_FICHA_NAO_EXISTE);
   }

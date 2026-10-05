@@ -82,3 +82,44 @@ export function mesmaOrigem({
   }
   return hostDaOrigem.toLowerCase() === esperado.toLowerCase();
 }
+
+// 06.2-WR-02 (quick 261005-2yu, 05/10/2026): o anexo que não abre (sumiu do disco, não existe,
+// falhou ao ler) numa NAVEGAÇÃO volta à ficha do fornecedor com um aviso de erro — nunca o JSON
+// cru na aba. O aviso é uma união fechada que `lib/cadastros/avisos.ts` conhece.
+export type AvisoDeAnexo = "anexo-sumiu" | "anexo-nao-encontrado" | "anexo-nao-abriu";
+
+const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CAMINHO_DE_CADASTROS = "/gestao/cadastros";
+
+// O fornecedor do `Referer`, se ele é a ficha de Cadastros e o valor é um uuid; senão, nada.
+function fornecedorDoReferer(referer: string | null | undefined): string | null {
+  if (!referer) return null;
+  let url: URL;
+  try {
+    url = new URL(referer);
+  } catch {
+    return null;
+  }
+  if (url.pathname !== CAMINHO_DE_CADASTROS) return null;
+  const valor = url.searchParams.get("fornecedor");
+  return valor !== null && REGEX_UUID.test(valor) ? valor : null;
+}
+
+// O destino do redirecionamento: SEMPRE um caminho RELATIVO que começa por
+// `/gestao/cadastros?sub=fornecedores` (atrás do Caddy, uma URL montada de `request.url` pode sair
+// `0.0.0.0:3000`). O texto da requisição nunca entra — só um uuid validado (o da linha do anexo, ou o
+// da ficha de onde a pessoa veio) e um aviso da união fechada: sem redirecionamento aberto (T-2yu-02).
+export function destinoDoAvisoDeAnexo({
+  aviso,
+  fornecedorId,
+  referer,
+}: {
+  aviso: AvisoDeAnexo;
+  fornecedorId: string | null | undefined;
+  referer: string | null | undefined;
+}): string {
+  const daLinha = fornecedorId && REGEX_UUID.test(fornecedorId) ? fornecedorId : null;
+  const fornecedor = daLinha ?? fornecedorDoReferer(referer);
+  const parteDoFornecedor = fornecedor ? `&fornecedor=${fornecedor}` : "";
+  return `${CAMINHO_DE_CADASTROS}?sub=fornecedores${parteDoFornecedor}&aviso=${aviso}`;
+}

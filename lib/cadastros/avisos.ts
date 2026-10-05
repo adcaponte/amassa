@@ -9,7 +9,12 @@ export type TipoDeAvisoDeCadastros =
   | "conta-fixa-reativada"
   | "contas-geradas"
   // "Usar esta hora" (04.5-02-PLAN.md, ORC-04) — a hora calculada acabou de virar parâmetro.
-  | "hora-atualizada";
+  | "hora-atualizada"
+  // 06.2-WR-02 (quick 261005-2yu, 05/10/2026): o anexo de fornecedor que não abriu numa navegação
+  // volta à ficha com um destes (`lib/fornecedores/cabecalhos.ts` destinoDoAvisoDeAnexo).
+  | "anexo-sumiu"
+  | "anexo-nao-encontrado"
+  | "anexo-nao-abriu";
 
 export type AvisoDeCadastros =
   | { tipo: "categoria-desativada" }
@@ -17,7 +22,10 @@ export type AvisoDeCadastros =
   | { tipo: "conta-fixa-desativada" }
   | { tipo: "conta-fixa-reativada" }
   | { tipo: "contas-geradas"; quantidade: number; mes: string }
-  | { tipo: "hora-atualizada" };
+  | { tipo: "hora-atualizada" }
+  | { tipo: "anexo-sumiu" }
+  | { tipo: "anexo-nao-encontrado" }
+  | { tipo: "anexo-nao-abriu" };
 
 const TIPOS_SEM_PARAMETRO: readonly Exclude<TipoDeAvisoDeCadastros, "contas-geradas">[] = [
   "categoria-desativada",
@@ -25,6 +33,9 @@ const TIPOS_SEM_PARAMETRO: readonly Exclude<TipoDeAvisoDeCadastros, "contas-gera
   "conta-fixa-desativada",
   "conta-fixa-reativada",
   "hora-atualizada",
+  "anexo-sumiu",
+  "anexo-nao-encontrado",
+  "anexo-nao-abriu",
 ];
 
 const REGEX_MES = /^\d{4}-\d{2}$/;

@@ -282,6 +282,13 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicia
       setRecusa({ frase: FRASE_SESSAO_TERMINOU, sessao: true });
       return;
     }
+    // Só a sessão vencida descarta o arquivo — 06.2-WR-01, 05/10/2026. Em toda outra falha ele e a
+    // prévia FICAM: tocar "Guardar anexo" de novo basta. Num 5xx, a frase do servidor (sempre fixa, de
+    // `lib/fornecedores/textos.ts` — T-06.2-24) quando ele a mandou; senão, a genérica.
+    if (status >= 500 && corpo !== null && !corpo.ok && typeof corpo.erro === "string" && corpo.erro !== "") {
+      setRecusa({ frase: corpo.erro, sessao: false });
+      return;
+    }
     if (status === 0 || status >= 500 || corpo === null || corpo.ok) {
       setRecusa({ frase: FRASE_FALHA_AO_ENVIAR, sessao: false });
       return;

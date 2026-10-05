@@ -8,22 +8,28 @@ export type AvisoCadastrosProps = {
   // ou `?aviso=categoria-reativada` — este componente nunca lê a URL nem monta o texto sozinho,
   // mesmo molde de `AvisoFinanceiro` (components/amassa/financeiro/aviso-financeiro.tsx).
   texto: string | null;
+  // "erro" para o anexo de fornecedor que não abriu (06.2-WR-02, quick 261005-2yu); o resto é sucesso.
+  tom?: "sucesso" | "erro";
 };
 
 // Mostra o toast UMA VEZ e limpa a query com `history.replaceState` — recarregar a página não
 // repete o aviso.
-export function AvisoCadastros({ texto }: AvisoCadastrosProps) {
+export function AvisoCadastros({ texto, tom = "sucesso" }: AvisoCadastrosProps) {
   useEffect(() => {
     if (!texto) {
       return;
     }
 
-    toast.success(texto);
+    if (tom === "erro") {
+      toast.error(texto);
+    } else {
+      toast.success(texto);
+    }
 
     const url = new URL(window.location.href);
     url.searchParams.delete("aviso");
     window.history.replaceState(null, "", url.toString());
-  }, [texto]);
+  }, [texto, tom]);
 
   return null;
 }

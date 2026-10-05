@@ -84,6 +84,16 @@ const FRASE_DESATIVADO =
   "Este fornecedor foi desativado enquanto você enviava. Reative-o para subir anexos — nada foi guardado.";
 const FRASE_ARQUIVO_SUMIU = "Não deu para achar este arquivo no servidor. Avise quem cuida do backup.";
 const MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const FRASE_ANEXO_NAO_ENCONTRADO = "Esse anexo não existe.";
+
+function enderecoDaFicha(id: string): string {
+  return `/gestao/cadastros?sub=fornecedores&fornecedor=${id}`;
+}
+
+// O aviso (sonner) com o texto — o que está na tela, não um que sai animando.
+function avisoNaTela(page: Page, texto: string) {
+  return page.locator('[data-sonner-toast][data-removed="false"]').filter({ hasText: texto });
+}
 
 test.describe("fornecedores rota de anexos", () => {
   test("(a) traçador: um PDF de 50 KB sobe pelo PUT cru e volta inteiro pelo GET, com os cabeçalhos certos", async ({
@@ -422,5 +432,74 @@ test.describe("fornecedores rota de anexos", () => {
     expect(leitura.status()).toBe(404);
     expect(leitura.headers()["content-type"]).toContain("application/json");
     expect(((await leitura.json()) as { erro: string }).erro).toBe(FRASE_ARQUIVO_SUMIU);
+  });
+
+  // 06.2-WR-02 (quick 261005-2yu, 05/10/2026): a NAVEGAÇÃO a um anexo com erro nunca troca a aba pelo
+  // JSON cru — volta à ficha do fornecedor com um aviso de erro em português. O (c) e o (l) continuam
+  // provando que `request`/`fetch` recebem o JSON de sempre.
+  test("(m) WR-02: “Baixar” uma planilha cujo arquivo sumiu volta à ficha com o aviso, nunca o JSON", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeDoFornecedor = `[e2e] Planilha sumida ${suf}`;
+    const fornecedorId = await semearFornecedor({ nome: nomeDoFornecedor });
+    const nomeDoAnexo = `[e2e] Preços sumidos ${suf}`;
+    await semearAnexoSemArquivo(fornecedorId, nomeDoAnexo, "xlsx");
+    await fazerLogin(page);
+
+    await page.goto(enderecoDaFicha(fornecedorId));
+    const ficha = page.getByTestId("fornecedor-ficha");
+    await expect(ficha.getByRole("heading", { level: 2, name: nomeDoFornecedor })).toBeVisible();
+    await ficha.getByTestId("anexo-baixar").click();
+
+    await expect(avisoNaTela(page, FRASE_ARQUIVO_SUMIU)).toBeVisible();
+    await expect(page).toHaveURL(/\/gestao\/cadastros\?/);
+    expect(new URL(page.url()).searchParams.get("fornecedor")).toBe(fornecedorId);
+    // No celular, logo depois do redirecionamento, a ficha aparece duas vezes por um instante (a troca
+    // do streaming) — o que importa é a ficha DESTE fornecedor na tela, então `.first()`.
+    await expect(
+      page.locator(`[data-testid="fornecedor-ficha"][data-fornecedor-id="${fornecedorId}"]`).first(),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: nomeDoFornecedor }).first()).toBeVisible();
+    await expect(page.getByText('{"erro"')).toHaveCount(0);
+  });
+
+  test("(n) WR-02: navegar a um anexo que não existe, vindo da ficha, volta a ela com “Esse anexo não existe.”", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeDoFornecedor = `[e2e] Anexo inexistente ${suf}`;
+    const fornecedorId = await semearFornecedor({ nome: nomeDoFornecedor });
+    await fazerLogin(page);
+
+    const referer = new URL(enderecoDaFicha(fornecedorId), page.url()).toString();
+    await page.goto(enderecoDoAnexo(crypto.randomUUID()), { referer });
+
+    await expect(avisoNaTela(page, FRASE_ANEXO_NAO_ENCONTRADO)).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe("/gestao/cadastros");
+    expect(new URL(page.url()).searchParams.get("fornecedor")).toBe(fornecedorId);
+    await expect(
+      page.locator(`[data-testid="fornecedor-ficha"][data-fornecedor-id="${fornecedorId}"]`).first(),
+    ).toBeVisible();
+    await expect(page.getByText('{"erro"')).toHaveCount(0);
+  });
+
+  test("(o) WR-02: navegar a um anexo sem sessão vai para o login, nunca o JSON", async ({ page, browser }) => {
+    const suf = sufixoUnico();
+    const fornecedorId = await semearFornecedor({ nome: `[e2e] Navegar sem sessão ${suf}` });
+    const anexoId = await semearAnexoSemArquivo(fornecedorId, `[e2e] Qualquer ${suf}`);
+    await fazerLogin(page);
+    const base = page.url();
+
+    const contextoSemSessao = await browser.newContext();
+    try {
+      const semSessao = await contextoSemSessao.newPage();
+      await semSessao.goto(new URL(enderecoDoAnexo(anexoId), base).toString());
+      await expect(semSessao).toHaveURL(/\/gestao\/login/);
+      await expect(semSessao.getByLabel("E-mail")).toBeVisible();
+      await expect(semSessao.getByText('{"erro"')).toHaveCount(0);
+    } finally {
+      await contextoSemSessao.close();
+    }
   });
 });

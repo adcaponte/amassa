@@ -7,7 +7,7 @@ import { NextResponse, type NextMiddleware } from "next/server";
 import { configuracaoBase } from "./lib/auth/auth.config";
 import { podeRenovarSessao, semRenovacaoDaSessao } from "./lib/auth/renovacao-sessao";
 import { ehRotaPublica } from "./lib/auth/rotas-publicas";
-import { ehRotaDeApi } from "./lib/rotas/gestao";
+import { ehNavegacao, ehRotaDeApi } from "./lib/rotas/gestao";
 
 // O `auth` do Auth.js já É um `NextMiddleware` (decide liberar ou redirecionar para
 // /login). O `as` abaixo só declara o tipo que o próprio pacote usa para essa forma de
@@ -22,6 +22,17 @@ const autenticar = NextAuth(configuracaoBase).auth as NextMiddleware;
 // "segue" um redirect para HTML de forma útil, e o redirect chegaria como 200 (a página de
 // login), escondendo exatamente o caso que precisa ficar visível como falha. Só o FORMATO da
 // resposta muda aqui — a decisão de autorização continua inteiramente do Auth.js.
+//
+// 06.2-WR-02 (quick 261005-2yu, 05/10/2026): a exceção da exceção — a NAVEGAÇÃO da aba a uma rota de
+// API (tocar "Baixar"/"Abrir" num anexo de fornecedor com a sessão vencida) não pode terminar no JSON
+// cru. Em navegação (`ehNavegacao`: `Sec-Fetch-Mode: navigate`, ou `Accept` com HTML sem ele), a
+// resposta é 303 para `/gestao/login?sessao=encerrada`. A `<img>`, o `fetch()` e o `request` dos
+// testes continuam recebendo o 401 JSON de sempre. O destino é FIXO; a URL é montada sobre
+// `requisicao.nextUrl` só porque o adaptador do Next exige URL absoluta num `Location` de middleware — e
+// ele mesmo a devolve RELATIVA quando o host é o da requisição (`getRelativeURL` em
+// `next/dist/server/web/adapter.js`), então o `0.0.0.0:3000` de trás do Caddy nunca chega ao navegador.
+const DESTINO_SEM_SESSAO = "/gestao/login?sessao=encerrada";
+
 function ehRotaDeApiNaoPublica(caminho: string): boolean {
   return ehRotaDeApi(caminho) && !ehRotaPublica(caminho);
 }
@@ -45,7 +56,9 @@ const middleware: NextMiddleware = async (requisicao, evento) => {
   let resposta = await autenticar(requisicao, evento);
 
   if (resposta && ehRedirecionamento(resposta) && ehRotaDeApiNaoPublica(requisicao.nextUrl.pathname)) {
-    resposta = NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
+    resposta = ehNavegacao(requisicao.headers)
+      ? NextResponse.redirect(new URL(DESTINO_SEM_SESSAO, requisicao.nextUrl), 303)
+      : NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
   }
 
   if (resposta && !podeRenovarSessao(requisicao.method, requisicao.headers)) {

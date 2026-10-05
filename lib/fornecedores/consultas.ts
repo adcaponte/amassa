@@ -132,6 +132,8 @@ export async function obterFornecedor(id: string): Promise<FichaDoFornecedor | n
 // `exigirUsuario()` (a mesma disciplina do resto deste arquivo). A lista dos anexos da ficha (`anexosDoFornecedor`) está no fim do arquivo (plano 06). ———
 
 export type AnexoParaLeitura = {
+  // O fornecedor dono do anexo — para a navegação que falha voltar à ficha dele (06.2-WR-02).
+  fornecedorId: string;
   nome: string;
   arquivoCaminho: string;
   arquivoTipo: string;
@@ -145,6 +147,7 @@ export type AnexoParaLeitura = {
 export async function obterAnexoParaLeitura(id: string): Promise<AnexoParaLeitura | null> {
   const [linha] = await db
     .select({
+      fornecedorId: fornecedorAnexos.fornecedorId,
       nome: fornecedorAnexos.nome,
       arquivoCaminho: fornecedorAnexos.arquivoCaminho,
       arquivoTipo: fornecedorAnexos.arquivoTipo,

@@ -95,6 +95,14 @@ describe("avisoDaUrl (Cadastros)", () => {
     expect(avisoDaUrl({ aviso: "contas-geradas" })).toBeNull();
   });
 
+  // 06.2-WR-02 (quick 261005-2yu): o anexo que não abriu volta à ficha com um destes avisos.
+  it("aceita os três avisos de anexo de fornecedor", () => {
+    expect(avisoDaUrl({ aviso: "anexo-sumiu" })).toEqual({ tipo: "anexo-sumiu" });
+    expect(avisoDaUrl({ aviso: "anexo-nao-encontrado" })).toEqual({ tipo: "anexo-nao-encontrado" });
+    expect(avisoDaUrl({ aviso: "anexo-nao-abriu" })).toEqual({ tipo: "anexo-nao-abriu" });
+    expect(avisoDaUrl({ aviso: "anexo-qualquer" })).toBeNull();
+  });
+
   it("devolve nulo para o resto — ausente, vazio ou desconhecido", () => {
     expect(avisoDaUrl({})).toBeNull();
     expect(avisoDaUrl({ aviso: null })).toBeNull();

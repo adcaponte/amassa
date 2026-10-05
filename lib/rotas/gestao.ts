@@ -36,3 +36,17 @@ export function ehRotaDeGestao(caminho: string): boolean {
 export function ehRotaDeApi(caminho: string): boolean {
   return caminho.startsWith("/api/") || caminho.startsWith(`${PREFIXO_GESTAO}/api/`);
 }
+
+// 06.2-WR-02 (quick 261005-2yu, 05/10/2026): a requisição é a NAVEGAÇÃO da aba (um link, a barra
+// de endereço) — e não um `fetch`, uma `<img>` ou um teste por `request`? Com `Sec-Fetch-Mode`
+// (todo navegador atual manda), só `navigate` é navegação. Sem ele (navegador antigo), cai para o
+// `Accept` com `text/html`, que só a navegação manda. Quem navega recebe um redirecionamento para
+// uma página com aviso em português; o resto continua recebendo o JSON. Cabeçalhos forjados só
+// trocam um formato de erro pelo outro — nunca abrem nada.
+export function ehNavegacao(cabecalhos: { get(nome: string): string | null }): boolean {
+  const modo = cabecalhos.get("sec-fetch-mode");
+  if (modo !== null && modo !== "") {
+    return modo === "navigate";
+  }
+  return (cabecalhos.get("accept") ?? "").includes("text/html");
+}

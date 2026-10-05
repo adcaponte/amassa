@@ -339,6 +339,11 @@ export const DICA_BACKUP_DO_ANEXO =
 export const ROTULO_GUARDAR_ANEXO = "Guardar anexo";
 export const ROTULO_ENVIANDO = "Enviando…";
 
+// O servidor não conseguiu conferir quem está enviando (banco fora, `auth()` lançando) — 500 do PUT.
+// Não é "sessão terminou": a sessão pode estar ótima, e o arquivo continua escolhido na folha
+// (06.2-WR-01, quick 261005-2yu, 05/10/2026).
+export const FRASE_ENVIO_SEM_CONFERIR = `Não deu para conferir o envio agora — o servidor não respondeu. O arquivo continua escolhido: toque em “${ROTULO_GUARDAR_ANEXO}” de novo em instantes.`;
+
 // O estado "Enviando" da zona (UI-D10: sem porcentagem — o `fetch` não dá progresso de envio).
 export function fraseEnviando(nomeDoArquivo: string, tamanho: string): string {
   return `Enviando ${nomeDoArquivo} · ${tamanho}…`;

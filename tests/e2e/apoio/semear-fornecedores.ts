@@ -171,16 +171,23 @@ export async function contarAnexos(fornecedorId: string): Promise<number> {
 
 // Uma LINHA de anexo cujo arquivo não existe no disco (UI E4·error: restauração parcial do backup). Só
 // o banco é semeado — nenhum arquivo é escrito em disco por aqui (no CI o app roda num contêiner). O
-// nome do arquivo é um uuid novo, que nunca foi gravado.
-export async function semearAnexoSemArquivo(fornecedorId: string, nome: string): Promise<string> {
+// nome do arquivo é um uuid novo, que nunca foi gravado. `extensao` "xlsx" (quick 261005-2yu) semeia uma
+// planilha — a linha mostra "Baixar", que navega na MESMA aba (06.2-WR-02).
+export async function semearAnexoSemArquivo(
+  fornecedorId: string,
+  nome: string,
+  extensao: "pdf" | "xlsx" = "pdf",
+): Promise<string> {
   const usuarioId = await idDoUsuarioDoTeste();
+  const mime =
+    extensao === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf";
   return comCliente(async (cliente) => {
     const { rows } = await cliente.query<{ id: string }>(
       `insert into fornecedor_anexos
          (fornecedor_id, nome, tipo, arquivo_caminho, arquivo_tipo, arquivo_bytes, extensao, criado_por)
-       values ($1, $2, 'catalogo', gen_random_uuid()::text || '.pdf', 'application/pdf', 1024, 'pdf', $3)
+       values ($1, $2, 'catalogo', gen_random_uuid()::text || '.' || $4, $5, 1024, $4, $3)
        returning id`,
-      [fornecedorId, nome, usuarioId],
+      [fornecedorId, nome, usuarioId, extensao, mime],
     );
     const id = rows[0]?.id;
     if (!id) {

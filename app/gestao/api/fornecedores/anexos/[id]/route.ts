@@ -6,12 +6,21 @@
 //
 // Três disciplinas de segurança, na ordem em que aparecem abaixo:
 //   1. `exigirUsuario()` ANTES de qualquer consulta ao banco (T-06.2-16, T-06.2-21) — sem sessão, a
-//      rota nem confirma se o identificador existe: o 401 é igual para id existente e inexistente.
+//      rota nem confirma se o identificador existe: a recusa é igual para id existente e inexistente.
+//      Só a falta de sessão (`ehFaltaDeSessao`) é "sem sessão"; outra falha ao conferir (banco fora) é
+//      um 500 (06.2-WR-01, quick 261005-2yu).
 //   2. O caminho do arquivo em disco NUNCA é montado a partir de texto da requisição (T-06.2-17) — o
 //      identificador da URL só acha a LINHA no banco; `caminhoDoAnexo()` decide o caminho real a partir
 //      do NOME que o próprio servidor gravou, e recusa qualquer formato fora de `<uuid>.<ext>`.
 //   3. Nenhuma mensagem de erro cita caminho, nome de diretório ou erro do sistema operacional
 //      (T-06.2-24) — as frases são fixas, em português.
+//
+// Dois formatos de erro (06.2-WR-02, quick 261005-2yu, 05/10/2026): os links "Baixar"/"Abrir" da ficha
+// NAVEGAM até aqui, e uma navegação nunca pode terminar no JSON cru na aba. Em NAVEGAÇÃO
+// (`ehNavegacao`), todo erro vira 303 com `Location` RELATIVO — de volta à ficha do fornecedor com um
+// aviso de erro (`destinoDoAvisoDeAnexo`), ou ao login sem sessão. Fora de navegação (`fetch`, `<img>`,
+// `request` dos testes), exatamente o JSON e o status de antes. Nunca `NextResponse.redirect` com URL
+// montada de `request.url` (atrás do Caddy ela pode sair `0.0.0.0:3000`).
 //
 // E duas diferenças do molde da foto: o arquivo sai em STREAM (um PDF de 20 MB não passa inteiro pela
 // memória — nunca o arquivo inteiro num buffer), e os cabeçalhos protegem contra arquivo disfarçado (T-06.2-18): o
@@ -22,16 +31,22 @@ import { Readable } from "node:stream";
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { exigirUsuario } from "@/lib/auth/exigir-usuario";
-import { disposicao, ehAbertoNaAba } from "@/lib/fornecedores/cabecalhos";
+import { ehFaltaDeSessao, exigirUsuario } from "@/lib/auth/exigir-usuario";
+import {
+  destinoDoAvisoDeAnexo,
+  disposicao,
+  ehAbertoNaAba,
+  type AvisoDeAnexo,
+} from "@/lib/fornecedores/cabecalhos";
 import { caminhoDoAnexo } from "@/lib/fornecedores/caminho-anexos";
-import { obterAnexoParaLeitura } from "@/lib/fornecedores/consultas";
+import { obterAnexoParaLeitura, type AnexoParaLeitura } from "@/lib/fornecedores/consultas";
 import {
   FRASE_ANEXO_NAO_ENCONTRADO,
   FRASE_ARQUIVO_SUMIU,
   FRASE_NAO_AUTORIZADO,
   FRASE_NAO_DEU_PARA_LER_ANEXO,
 } from "@/lib/fornecedores/textos";
+import { ehNavegacao } from "@/lib/rotas/gestao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,30 +55,68 @@ export const dynamic = "force-dynamic";
 // `fornecedor_anexos`, sem extensão (nunca a regra de `caminhoDoAnexo()`, que valida o nome do ARQUIVO).
 const IDENTIFICADOR_VALIDO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const DESTINO_SEM_SESSAO = "/gestao/login?sessao=encerrada";
+
 function ehArquivoAusente(erro: unknown): boolean {
   return typeof erro === "object" && erro !== null && "code" in erro && erro.code === "ENOENT";
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+// 303 com `Location` relativo e fixo (T-2yu-02): o destino nunca carrega texto da requisição além de um
+// uuid validado.
+function redirecionar(destino: string): NextResponse {
+  return new NextResponse(null, {
+    status: 303,
+    headers: { Location: destino, "Cache-Control": "private, no-store" },
+  });
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // Ler cabeçalho não é ler o banco: `exigirUsuario()` continua antes de qualquer consulta.
+  const navegacao = ehNavegacao(request.headers);
+  const referer = request.headers.get("referer");
+
+  // Um erro desta rota: em navegação, de volta à ficha com o aviso; fora dela, o JSON de sempre.
+  function erroDoAnexo(
+    aviso: AvisoDeAnexo,
+    fornecedorId: string | null,
+    status: number,
+    frase: string,
+  ): NextResponse {
+    if (navegacao) {
+      return redirecionar(destinoDoAvisoDeAnexo({ aviso, fornecedorId, referer }));
+    }
+    return NextResponse.json({ erro: frase }, { status });
+  }
+
   // 1. Sessão exigida ANTES de qualquer consulta. `exigirUsuario()` chama `redirect()` sem sessão —
-  // capturado aqui para virar 401 JSON com o MESMO corpo que o middleware devolve.
+  // capturado aqui para virar 401 JSON com o MESMO corpo que o middleware devolve (ou, em navegação, o
+  // login). Outra falha ao conferir é do servidor, não "não autorizado" (06.2-WR-01).
   try {
     await exigirUsuario();
-  } catch {
-    return NextResponse.json({ erro: FRASE_NAO_AUTORIZADO }, { status: 401 });
+  } catch (erro) {
+    if (ehFaltaDeSessao(erro)) {
+      return navegacao
+        ? redirecionar(DESTINO_SEM_SESSAO)
+        : NextResponse.json({ erro: FRASE_NAO_AUTORIZADO }, { status: 401 });
+    }
+    console.error("Falha ao conferir a sessão na leitura de um anexo de fornecedor:", erro);
+    return erroDoAnexo("anexo-nao-abriu", null, 500, FRASE_NAO_DEU_PARA_LER_ANEXO);
   }
 
   const { id } = await params;
   if (!IDENTIFICADOR_VALIDO.test(id)) {
-    return NextResponse.json({ erro: FRASE_ANEXO_NAO_ENCONTRADO }, { status: 404 });
+    return erroDoAnexo("anexo-nao-encontrado", null, 404, FRASE_ANEXO_NAO_ENCONTRADO);
   }
 
-  const anexo = await obterAnexoParaLeitura(id);
+  let anexo: AnexoParaLeitura | null;
+  try {
+    anexo = await obterAnexoParaLeitura(id);
+  } catch (erro) {
+    console.error("Falha ao ler a linha de um anexo de fornecedor:", erro);
+    return erroDoAnexo("anexo-nao-abriu", null, 500, FRASE_NAO_DEU_PARA_LER_ANEXO);
+  }
   if (!anexo) {
-    return NextResponse.json({ erro: FRASE_ANEXO_NAO_ENCONTRADO }, { status: 404 });
+    return erroDoAnexo("anexo-nao-encontrado", null, 404, FRASE_ANEXO_NAO_ENCONTRADO);
   }
 
   let caminho: string;
@@ -77,11 +130,11 @@ export async function GET(
     tamanho = (await fs.stat(caminho)).size;
   } catch (erro) {
     if (ehArquivoAusente(erro)) {
-      return NextResponse.json({ erro: FRASE_ARQUIVO_SUMIU }, { status: 404 });
+      return erroDoAnexo("anexo-sumiu", anexo.fornecedorId, 404, FRASE_ARQUIVO_SUMIU);
     }
     // 3. Nunca o caminho, nunca a mensagem do sistema operacional, nunca o `stack`.
     console.error("Falha ao abrir arquivo de anexo de fornecedor:", erro);
-    return NextResponse.json({ erro: FRASE_NAO_DEU_PARA_LER_ANEXO }, { status: 500 });
+    return erroDoAnexo("anexo-nao-abriu", anexo.fornecedorId, 500, FRASE_NAO_DEU_PARA_LER_ANEXO);
   }
 
   const corpo = Readable.toWeb(createReadStream(caminho)) as unknown as ReadableStream<Uint8Array>;

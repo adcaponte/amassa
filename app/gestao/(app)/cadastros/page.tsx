@@ -27,9 +27,12 @@ import { FRASE_ERRO_CARREGAR_CLIENTES, TITULO_ERRO } from "@/lib/clientes/textos
 import { hojeEmBrasilia, nomeDoMes } from "@/lib/financeiro/formato";
 import { listarFornecedores, obterFornecedor } from "@/lib/fornecedores/consultas";
 import {
+  FRASE_ANEXO_NAO_ENCONTRADO,
+  FRASE_ARQUIVO_SUMIU,
   FRASE_ERRO_CARREGAR_FICHA,
   FRASE_ERRO_CARREGAR_LISTA,
   FRASE_FICHA_NAO_EXISTE,
+  FRASE_NAO_DEU_PARA_LER_ANEXO,
   FRASE_TOQUE_NUM_FORNECEDOR,
   TITULO_ERRO as TITULO_ERRO_FORNECEDORES,
 } from "@/lib/fornecedores/textos";
@@ -206,7 +209,21 @@ export default async function PaginaCadastros({
               ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes))
               : avisoResolvido?.tipo === "hora-atualizada"
                 ? TOAST_HORA_ATUALIZADA
-                : null;
+                : avisoResolvido?.tipo === "anexo-sumiu"
+                  ? FRASE_ARQUIVO_SUMIU
+                  : avisoResolvido?.tipo === "anexo-nao-encontrado"
+                    ? FRASE_ANEXO_NAO_ENCONTRADO
+                    : avisoResolvido?.tipo === "anexo-nao-abriu"
+                      ? FRASE_NAO_DEU_PARA_LER_ANEXO
+                      : null;
+  // 06.2-WR-02 (quick 261005-2yu, 05/10/2026): o anexo que não abriu numa navegação volta à ficha com
+  // um destes três avisos — erro, não sucesso.
+  const tomDoAviso =
+    avisoResolvido?.tipo === "anexo-sumiu" ||
+    avisoResolvido?.tipo === "anexo-nao-encontrado" ||
+    avisoResolvido?.tipo === "anexo-nao-abriu"
+      ? "erro"
+      : "sucesso";
 
   const [
     taxaAtual,
@@ -235,7 +252,7 @@ export default async function PaginaCadastros({
 
   return (
     <>
-      <AvisoCadastros texto={textoDoAviso} />
+      <AvisoCadastros texto={textoDoAviso} tom={tomDoAviso} />
 
       <div className="pt-6">
         <SubAbasCadastros subAtual={subAtual} />

@@ -4,6 +4,8 @@ import { formatarDataCurta } from "@/lib/financeiro/formato";
 
 import { htmlDisfarcado, pdfSintetico, xlsxSintetico } from "./apoio/arquivos-sinteticos";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
+import { FRASE_ENVIO_SEM_CONFERIR } from "@/lib/fornecedores/textos";
+
 import { anexosNoBanco, contarAnexos, semearFornecedor } from "./apoio/semear-fornecedores";
 
 // Os anexos pela FICHA (06.2-06-PLAN.md, Tarefa 1 — o traçador; FRN-06, FRN-09; UI-D6, UI-D8, UI-D9,
@@ -222,5 +224,51 @@ test.describe("fornecedores anexos", () => {
     await expect(baixar).toBeVisible();
     await expect(baixar).not.toHaveAttribute("target", /.+/);
     await expect(linha.getByRole("link", { name: /^Abrir / })).toHaveCount(0);
+  });
+
+  // 06.2-WR-01 (quick 261005-2yu, 05/10/2026): um 500 do servidor (banco fora ao conferir a sessão) não é
+  // "sessão terminou" — a folha mostra a frase do servidor e o arquivo continua escolhido; guardar de novo
+  // grava.
+  test("(p) WR-01: 500 no envio mostra a frase do servidor e mantém o arquivo; guardar de novo grava", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeDoFornecedor = `[e2e] Envio sem conferir ${suf}`;
+    const id = await semearFornecedor({ nome: nomeDoFornecedor });
+
+    await fazerLogin(page);
+    const ficha = await abrirFicha(page, id, nomeDoFornecedor);
+    await ficha.getByTestId("fornecedor-anexos").getByRole("button", { name: "Novo anexo" }).click();
+
+    const ehOEnvio = (url: URL) => url.pathname === "/gestao/api/fornecedores/anexos";
+    await page.route(ehOEnvio, async (route) => {
+      if (route.request().method() !== "PUT") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false, erro: FRASE_ENVIO_SEM_CONFERIR }),
+      });
+    });
+
+    const folha = page.getByTestId("folha-anexo");
+    await folha
+      .getByLabel("Escolher arquivo")
+      .setInputFiles({ name: "catalogo-sem-conferir.pdf", mimeType: "application/pdf", buffer: pdfSintetico(4096) });
+    const guardar = folha.getByRole("button", { name: "Guardar anexo" });
+    await guardar.click();
+
+    await expect(folha.getByTestId("anexo-erro")).toHaveText(FRASE_ENVIO_SEM_CONFERIR);
+    await expect(folha.getByTestId("anexo-escolhido")).toContainText("catalogo-sem-conferir.pdf");
+    await expect(guardar).toBeEnabled();
+    expect(await contarAnexos(id)).toBe(0);
+
+    await page.unroute(ehOEnvio);
+    await guardar.click();
+    await expect(page.getByText(`Anexo guardado em ${nomeDoFornecedor}.`).first()).toBeVisible();
+    await expect(folha).toBeHidden();
+    expect(await contarAnexos(id)).toBe(1);
   });
 });

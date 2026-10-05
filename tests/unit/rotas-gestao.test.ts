@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ehRotaDeApi, ehRotaDeGestao, rotaDeGestao } from "../../lib/rotas/gestao";
+import { ehNavegacao, ehRotaDeApi, ehRotaDeGestao, rotaDeGestao } from "../../lib/rotas/gestao";
 
 describe("rotaDeGestao", () => {
   it("prefixa a raiz sem duplicar barra", () => {
@@ -47,5 +47,26 @@ describe("ehRotaDeApi", () => {
 
   it("não confunde página da plataforma com rota de API", () => {
     expect(ehRotaDeApi("/gestao/financeiro")).toBe(false);
+  });
+});
+
+// 06.2-WR-02 (quick 261005-2yu): a navegação da aba (link, barra de endereço) nunca recebe JSON cru.
+describe("ehNavegacao", () => {
+  it("Sec-Fetch-Mode navigate é navegação", () => {
+    expect(ehNavegacao(new Headers({ "sec-fetch-mode": "navigate" }))).toBe(true);
+  });
+
+  it("Sec-Fetch-Mode de fetch não é navegação, mesmo aceitando HTML", () => {
+    expect(ehNavegacao(new Headers({ "sec-fetch-mode": "cors", accept: "text/html" }))).toBe(false);
+    expect(ehNavegacao(new Headers({ "sec-fetch-mode": "no-cors", accept: "text/html" }))).toBe(false);
+  });
+
+  it("sem Sec-Fetch-Mode, Accept com text/html é navegação", () => {
+    expect(ehNavegacao(new Headers({ accept: "text/html,application/xhtml+xml" }))).toBe(true);
+  });
+
+  it("sem Sec-Fetch-Mode, Accept genérico ou nada não é navegação", () => {
+    expect(ehNavegacao(new Headers({ accept: "*/*" }))).toBe(false);
+    expect(ehNavegacao(new Headers())).toBe(false);
   });
 });

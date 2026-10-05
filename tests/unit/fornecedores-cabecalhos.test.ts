@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { disposicao, ehAbertoNaAba, mesmaOrigem } from "../../lib/fornecedores/cabecalhos";
+import {
+  destinoDoAvisoDeAnexo,
+  disposicao,
+  ehAbertoNaAba,
+  mesmaOrigem,
+} from "../../lib/fornecedores/cabecalhos";
+import { rotaDeGestao } from "../../lib/rotas/gestao";
 
 // Os cabeçalhos que vão para o navegador quando um anexo sai (06.2-06-PLAN.md, Tarefa 2; T-06.2-22,
 // injeção de cabeçalho; Pitfall 6, nome fora do ASCII; Pitfall 8, CSRF no PUT). Cada aresta numa
@@ -185,5 +191,76 @@ describe("cabecalhos dos anexos", () => {
     it("com Origin e sem host nenhum para comparar → recusa", () => {
       expect(mesmaOrigem({ origin: "https://amassacerrado.com.br", host: null, forwardedHost: null })).toBe(false);
     });
+  });
+});
+
+// 06.2-WR-02 (quick 261005-2yu, 05/10/2026): a navegação a um anexo com erro volta à ficha com um
+// aviso — num caminho RELATIVO e fixo; o texto da requisição nunca entra (sem redirecionamento aberto).
+describe("destinoDoAvisoDeAnexo", () => {
+  const U1 = "3f6a7b8c-1111-4c2a-9f3e-000000000001";
+  const U2 = "3f6a7b8c-2222-4c2a-9f3e-000000000002";
+  const PREFIXO = "/gestao/cadastros?sub=fornecedores";
+
+  it("o prefixo é a rota de Cadastros da plataforma", () => {
+    expect(PREFIXO.startsWith(`${rotaDeGestao("/cadastros")}?`)).toBe(true);
+  });
+
+  it("usa o fornecedor da linha do anexo", () => {
+    expect(destinoDoAvisoDeAnexo({ aviso: "anexo-sumiu", fornecedorId: U1, referer: null })).toBe(
+      `${PREFIXO}&fornecedor=${U1}&aviso=anexo-sumiu`,
+    );
+  });
+
+  it("a linha vence o referer", () => {
+    expect(
+      destinoDoAvisoDeAnexo({
+        aviso: "anexo-nao-abriu",
+        fornecedorId: U1,
+        referer: `https://amassacerrado.com.br/gestao/cadastros?sub=fornecedores&fornecedor=${U2}`,
+      }),
+    ).toBe(`${PREFIXO}&fornecedor=${U1}&aviso=anexo-nao-abriu`);
+  });
+
+  it("sem linha, usa o fornecedor do referer da ficha", () => {
+    expect(
+      destinoDoAvisoDeAnexo({
+        aviso: "anexo-nao-encontrado",
+        fornecedorId: null,
+        referer: `https://amassacerrado.com.br/gestao/cadastros?sub=fornecedores&fornecedor=${U2}`,
+      }),
+    ).toBe(`${PREFIXO}&fornecedor=${U2}&aviso=anexo-nao-encontrado`);
+  });
+
+  it("referer inválido, de outro caminho ou com fornecedor que não é uuid → sem fornecedor", () => {
+    const sem = `${PREFIXO}&aviso=anexo-nao-encontrado`;
+    for (const referer of [
+      null,
+      "",
+      "isto não é url",
+      "https://amassacerrado.com.br/gestao/cadastros?sub=fornecedores&fornecedor=abc",
+      `https://amassacerrado.com.br/gestao/financeiro?fornecedor=${U2}`,
+      `https://amassacerrado.com.br/gestao/cadastros?fornecedor=${U2}%26aviso%3Dx`,
+    ]) {
+      expect(
+        destinoDoAvisoDeAnexo({ aviso: "anexo-nao-encontrado", fornecedorId: null, referer }),
+      ).toBe(sem);
+    }
+  });
+
+  it("fornecedorId que não é uuid é ignorado", () => {
+    expect(
+      destinoDoAvisoDeAnexo({ aviso: "anexo-sumiu", fornecedorId: "../../x", referer: null }),
+    ).toBe(`${PREFIXO}&aviso=anexo-sumiu`);
+  });
+
+  it("nunca é URL absoluta nem outro host", () => {
+    const destino = destinoDoAvisoDeAnexo({
+      aviso: "anexo-sumiu",
+      fornecedorId: null,
+      referer: `https://malicioso.example/gestao/cadastros?fornecedor=${U2}`,
+    });
+    expect(destino.startsWith(PREFIXO)).toBe(true);
+    expect(destino).not.toContain("//");
+    expect(destino).not.toContain("malicioso");
   });
 });

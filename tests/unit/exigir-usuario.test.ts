@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { avaliarAutorizacao } from "../../lib/auth/exigir-usuario";
+import { redirect } from "next/navigation";
+
+import { avaliarAutorizacao, ehFaltaDeSessao } from "../../lib/auth/exigir-usuario";
 
 // Prova a regra de autorização — a ÚNICA porta do sistema (`02-MODELO-DE-DADOS.md` §0) —
 // sem banco e sem sessão, com uma linha de usuário fabricada no mesmo formato que
@@ -52,5 +54,29 @@ describe("avaliarAutorizacao", () => {
       expect(resultado.usuario).not.toHaveProperty("senhaHash");
       expect(Object.keys(resultado.usuario)).not.toContain("senhaHash");
     }
+  });
+});
+
+// 06.2-WR-01 (quick 261005-2yu, 05/10/2026): só a falta de sessão — o `redirect()` que
+// `exigirUsuario()` lança — é "sessão terminou"; banco fora ou `auth()` lançando é falha do servidor.
+describe("ehFaltaDeSessao", () => {
+  it("o erro do redirect real de next/navigation é falta de sessão", () => {
+    let capturado: unknown;
+    try {
+      redirect("/gestao/login?sessao=encerrada");
+    } catch (erro) {
+      capturado = erro;
+    }
+    expect(capturado).toBeDefined();
+    expect(ehFaltaDeSessao(capturado)).toBe(true);
+  });
+
+  it("qualquer outro erro não é falta de sessão", () => {
+    expect(ehFaltaDeSessao(new Error("connect ECONNREFUSED"))).toBe(false);
+    expect(ehFaltaDeSessao({ digest: "NEXT_NOT_FOUND" })).toBe(false);
+    expect(ehFaltaDeSessao({ digest: 42 })).toBe(false);
+    expect(ehFaltaDeSessao("NEXT_REDIRECT;replace;/x;307;")).toBe(false);
+    expect(ehFaltaDeSessao(null)).toBe(false);
+    expect(ehFaltaDeSessao(undefined)).toBe(false);
   });
 });

@@ -87,3 +87,18 @@ export async function exigirUsuario(): Promise<UsuarioAutorizado> {
 
   return resultado.usuario;
 }
+
+// 06.2-WR-01 (quick 261005-2yu, 05/10/2026): quem envolve `exigirUsuario()` num `try` (os Route
+// Handlers dos anexos, que respondem JSON em vez de deixar o redirect seguir) precisa separar a
+// FALTA DE SESSÃO de uma FALHA DO SERVIDOR. Só a primeira é "Sua sessão terminou": é o erro que o
+// `redirect()` acima lança — um objeto com `digest` no formato
+// `NEXT_REDIRECT;{replace|push};{url};{status};` (Next 16, `client/components/redirect-error.js`;
+// não importamos o caminho interno `next/dist/...` de propósito). Qualquer outro erro — o banco fora,
+// `auth()` lançando — é falha do servidor e nunca pode se passar por decisão de autorização.
+export function ehFaltaDeSessao(erro: unknown): boolean {
+  if (typeof erro !== "object" || erro === null || !("digest" in erro)) {
+    return false;
+  }
+  const digest = (erro as { digest: unknown }).digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT;");
+}
