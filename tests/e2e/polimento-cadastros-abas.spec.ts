@@ -126,6 +126,38 @@ test.describe("polimento cadastros — abas", () => {
     });
   }
 
+  // O segundo sinal de que a fileira continua (UI-SPEC §"Sinal de que rola"): o degradê só existe do
+  // lado que tem conteúdo escondido, e acompanha a rolagem.
+  test("a 375 px, os degradês mostram de que lado a fileira continua e acompanham a rolagem", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/gestao/cadastros?sub=catalogo");
+
+    const trilho = page.getByTestId("cadastros-abas-trilho");
+    const esquerda = page.getByTestId("cadastros-abas-degrade-esquerda");
+    const direita = page.getByTestId("cadastros-abas-degrade-direita");
+    await expect(trilho).toBeVisible();
+
+    // No começo: só o da direita (o estado vem do ResizeObserver, depois da hidratação).
+    await expect(direita).toHaveCount(1);
+    await expect(direita).toHaveAttribute("aria-hidden", "true");
+    await expect(esquerda).toHaveCount(0);
+
+    // Rolado até o fim, instantâneo: só o da esquerda.
+    await trilho.evaluate((elemento) => {
+      elemento.scrollLeft = elemento.scrollWidth;
+    });
+    await expect(esquerda).toHaveCount(1);
+    await expect(esquerda).toHaveAttribute("aria-hidden", "true");
+    await expect(direita).toHaveCount(0);
+
+    // A rolagem do trilho não arrastou a página.
+    await paginaSemRolagemLateral(page, "/gestao/cadastros a 375 px, trilho rolado até o fim");
+    expect(await page.evaluate(() => window.scrollX)).toBe(0);
+  });
+
   test("a 1280 px as sete cabem sem rolar", async ({ page }) => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 1280, height: 800 });
@@ -138,6 +170,10 @@ test.describe("polimento cadastros — abas", () => {
       medidas.scrollWidth,
       `a 1280 px o trilho rola (scrollWidth ${medidas.scrollWidth} > clientWidth ${medidas.clientWidth})`,
     ).toBeLessThanOrEqual(medidas.clientWidth);
+
+    // Nada escondido, nenhum degradê.
+    await expect(page.getByTestId("cadastros-abas-degrade-esquerda")).toHaveCount(0);
+    await expect(page.getByTestId("cadastros-abas-degrade-direita")).toHaveCount(0);
 
     const caixaTrilho = await medirCaixa(trilho, "trilho");
     for (const testid of ORDEM_D09) {

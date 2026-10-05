@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import {
@@ -37,7 +37,12 @@ import { cn } from "@/lib/utils";
 // - A pílula nunca quebra nem encolhe (`shrink-0 whitespace-nowrap`): a que não cabe aparece CORTADA
 //   na borda, o primeiro sinal de que a fileira continua.
 // - O anel de foco é `ring-inset`: um anel de fora seria cortado pelo `overflow` do trilho.
-// - `"use client"` só pela centralização da aba ativa: ao montar (e a cada troca de aba), o trilho rola
+// - Segundo sinal de que rola (UI-SPEC §"Sinal de que rola"), além da pílula cortada: um degradê
+//   `w-6` `aria-hidden` de `from-muted` a transparente em cada lado que tem conteúdo escondido. O
+//   estado vem do próprio trilho (`scrollLeft`/`scrollWidth`/`clientWidth`, 1 px de tolerância), lido
+//   no `scroll`, num `ResizeObserver` e depois da centralização. Aparece e some sem transição — nada a
+//   desligar com `prefers-reduced-motion`.
+// - `"use client"` só pela centralização da aba ativa e pelos degradês: ao montar (e a cada troca de aba), o trilho rola
 //   SÓ no eixo horizontal, instantâneo, até a pílula `aria-selected` ficar no meio. Nunca
 //   `scrollIntoView` (rolaria a página na vertical) nem rolagem suave.
 const ROTULO_DA_SUB: Record<SubCadastros, string> = {
@@ -50,8 +55,26 @@ const ROTULO_DA_SUB: Record<SubCadastros, string> = {
   taxas: ROTULO_SUB_TAXAS,
 };
 
+// Há conteúdo escondido de cada lado? 1 px de tolerância para o arredondamento do navegador.
+function ladosEscondidos(trilho: HTMLElement): { esquerda: boolean; direita: boolean } {
+  return {
+    esquerda: trilho.scrollLeft > 1,
+    direita: trilho.scrollLeft + trilho.clientWidth < trilho.scrollWidth - 1,
+  };
+}
+
 export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
   const trilhoRef = useRef<HTMLDivElement>(null);
+  const [escondidoAEsquerda, setEscondidoAEsquerda] = useState(false);
+  const [escondidoADireita, setEscondidoADireita] = useState(false);
+
+  const atualizarDegrades = useCallback(() => {
+    const trilho = trilhoRef.current;
+    if (!trilho) return;
+    const lados = ladosEscondidos(trilho);
+    setEscondidoAEsquerda(lados.esquerda);
+    setEscondidoADireita(lados.direita);
+  }, []);
 
   useLayoutEffect(() => {
     const trilho = trilhoRef.current;
@@ -65,19 +88,49 @@ export function SubAbasCadastros({ subAtual }: { subAtual: SubCadastros }) {
       inicioDaPilula: pilula.offsetLeft,
       larguraDaPilula: pilula.offsetWidth,
     });
-  }, [subAtual]);
+    atualizarDegrades();
+  }, [subAtual, atualizarDegrades]);
+
+  // O trilho muda de largura (girar o celular, abrir a lateral): o `ResizeObserver` refaz a conta. Ele
+  // também entrega uma primeira leitura logo ao observar. `disconnect()` na saída — nada vaza entre
+  // navegações (T-06.5-08).
+  useEffect(() => {
+    const trilho = trilhoRef.current;
+    if (!trilho) return;
+    const observador = new ResizeObserver(() => atualizarDegrades());
+    observador.observe(trilho);
+    return () => observador.disconnect();
+  }, [atualizarDegrades]);
 
   return (
-    <div
-      ref={trilhoRef}
-      role="tablist"
-      aria-label="Sub-navegação de Cadastros"
-      data-testid="cadastros-abas-trilho"
-      className="relative mx-6 flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain rounded-md bg-muted p-1 [scrollbar-width:none] md:mx-8 [&::-webkit-scrollbar]:hidden"
-    >
-      {ORDEM_DAS_SUBS_CADASTROS.map((valor) => (
-        <Pilula key={valor} valor={valor} rotulo={ROTULO_DA_SUB[valor]} selecionada={valor === subAtual} />
-      ))}
+    <div className="relative mx-6 md:mx-8">
+      <div
+        ref={trilhoRef}
+        role="tablist"
+        aria-label="Sub-navegação de Cadastros"
+        data-testid="cadastros-abas-trilho"
+        onScroll={atualizarDegrades}
+        className="relative flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain rounded-md bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {ORDEM_DAS_SUBS_CADASTROS.map((valor) => (
+          <Pilula key={valor} valor={valor} rotulo={ROTULO_DA_SUB[valor]} selecionada={valor === subAtual} />
+        ))}
+      </div>
+
+      {escondidoAEsquerda ? (
+        <span
+          aria-hidden="true"
+          data-testid="cadastros-abas-degrade-esquerda"
+          className="pointer-events-none absolute inset-y-1 left-0 w-6 bg-linear-to-r from-muted to-transparent"
+        />
+      ) : null}
+      {escondidoADireita ? (
+        <span
+          aria-hidden="true"
+          data-testid="cadastros-abas-degrade-direita"
+          className="pointer-events-none absolute inset-y-1 right-0 w-6 bg-linear-to-l from-muted to-transparent"
+        />
+      ) : null}
     </div>
   );
 }
