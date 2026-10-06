@@ -111,6 +111,10 @@ const TABELAS_ESPERADAS = [
   // contagem. queima_vendas: uma linha por venda das externas (D-07).
   "queima_contagens",
   "queima_vendas",
+  // Fase 06.5 — Polimento (migração 0031_polimento). Permanente; não entra em
+  // TABELAS_DA_REMOCAO_ABERTURA. O vínculo do “Corrigir” (original → corrigido), à parte de
+  // `documentos`; só cresce (`revoke update, delete`) — `conferirPolimento` prova.
+  "correcoes_de_documento",
 ];
 
 // A MESMA lista de tabelas acima, numa constante própria para a verificação da remoção
@@ -7025,6 +7029,378 @@ async function conferirQueimas(conexao) {
   );
 }
 
+// Fase 06.5 — Polimento (migração 0031_polimento). A cláusula de conflito EXATA que o Drizzle gera para
+// o `onConflictDoNothing({ target, where })` de `gerarContasDoMes` (lida com `toSQL()` no plano 06.5-11):
+// a mesma frase prova, no banco comum, o índice parcial e, em banco próprio, a janela antes da 0031.
+const CONFLITO_DA_GERACAO_DE_CONTAS =
+  'on conflict ("conta_fixa_id","mes_referencia") where "documentos"."cancelado_em" is null do nothing';
+
+// `conferirPolimento` prova, no banco comum, o que a 0031 cria (D-18, D-26, UI-D9): o índice único
+// PARCIAL das contas fixas no lugar da única antiga (cancelada libera o mês; duas ativas → 23505), os
+// três índices de leitura e `correcoes_de_documento` (colunas, únicas, check, chaves estrangeiras e os
+// privilégios de `amassa_app`: `select`/`insert`, sem `update`/`delete`). Todo dado de prova vive numa
+// transação só, desfeita no fim — os gatilhos de soma do documento (`deferrable initially deferred`)
+// nunca chegam a disparar, e nada sobra no banco que os outros passos compartilham.
+async function conferirPolimento(conexao) {
+  console.log("  conferirPolimento...");
+
+  async function umaLinha(sql, parametros = []) {
+    const { rows } = await conexao.query(sql, parametros);
+    return rows[0];
+  }
+  // Dentro da transação aberta: roda num savepoint, devolve o código e a restrição, e volta ao
+  // savepoint — a transação de fora continua utilizável.
+  async function tentarNoSavepoint(sql, parametros = []) {
+    await conexao.query("savepoint tentativa_polimento");
+    const resultado = await erroDoBanco(() => conexao.query(sql, parametros));
+    await conexao.query("rollback to savepoint tentativa_polimento");
+    return resultado;
+  }
+  function esperar(resultado, codigoEsperado, restricao, descricao) {
+    afirmar(
+      resultado.codigo === codigoEsperado && (restricao === null || resultado.restricao === restricao),
+      `Polimento: ${descricao} deveria dar ${codigoEsperado ?? "certo"}` +
+        (restricao ? ` (${restricao})` : "") +
+        `, veio ${resultado.codigo} (${resultado.restricao}).`,
+    );
+  }
+
+  // ——— (a) O índice parcial existe com o predicado; a única antiga, não ————————————————————————————
+  const parcial = await umaLinha(
+    "select indexdef from pg_indexes where schemaname = 'public' and indexname = 'documentos_conta_fixa_mes_ativo_uk'",
+  );
+  afirmar(
+    parcial !== undefined &&
+      parcial.indexdef.startsWith("CREATE UNIQUE INDEX") &&
+      parcial.indexdef.includes("(conta_fixa_id, mes_referencia)") &&
+      parcial.indexdef.includes("WHERE (cancelado_em IS NULL)"),
+    "Polimento: o índice único parcial documentos_conta_fixa_mes_ativo_uk (conta_fixa_id, mes_referencia) " +
+      `where cancelado_em is null deveria existir, veio ${parcial ? parcial.indexdef : "nada"}.`,
+  );
+  const antiga = await umaLinha(
+    `select (select count(*) from pg_constraint where conname = 'documentos_conta_fixa_mes_uk')::int as restricoes,
+            (select count(*) from pg_indexes where schemaname = 'public'
+                and indexname = 'documentos_conta_fixa_mes_uk')::int as indices`,
+  );
+  afirmar(
+    antiga.restricoes === 0 && antiga.indices === 0,
+    `Polimento: a única antiga documentos_conta_fixa_mes_uk deveria ter saído, veio ${JSON.stringify(antiga)}.`,
+  );
+
+  // ——— (c) Os três índices de leitura ———————————————————————————————————————————————————————————
+  for (const [indice, tabela, coluna] of [
+    ["movimentacoes_estoque_encomenda_idx", "movimentacoes_estoque", "encomenda_id"],
+    ["mensalidades_cliente_idx", "mensalidades", "cliente_id"],
+    ["usos_livres_cliente_idx", "usos_livres", "cliente_id"],
+  ]) {
+    const linha = await umaLinha(
+      "select tablename, indexdef from pg_indexes where schemaname = 'public' and indexname = $1",
+      [indice],
+    );
+    afirmar(
+      linha !== undefined && linha.tablename === tabela && linha.indexdef.endsWith(`USING btree (${coluna})`),
+      `Polimento: o índice ${indice} em ${tabela} (${coluna}) deveria existir, veio ${linha ? linha.indexdef : "nada"}.`,
+    );
+  }
+
+  // ——— (d) A tabela do vínculo da correção: colunas, chaves estrangeiras e privilégios ————————————
+  const { rows: colunas } = await conexao.query(
+    `select column_name, data_type, is_nullable from information_schema.columns
+      where table_schema = 'public' and table_name = 'correcoes_de_documento' order by column_name`,
+  );
+  const colunasEsperadas = {
+    corrigido_id: ["uuid", "NO"],
+    criado_em: ["timestamp with time zone", "NO"],
+    criado_por: ["uuid", "NO"],
+    id: ["uuid", "NO"],
+    original_id: ["uuid", "NO"],
+  };
+  afirmar(
+    JSON.stringify(Object.fromEntries(colunas.map((c) => [c.column_name, [c.data_type, c.is_nullable]]))) ===
+      JSON.stringify(colunasEsperadas),
+    `Polimento: as colunas de correcoes_de_documento deveriam ser ${JSON.stringify(colunasEsperadas)}, ` +
+      `vieram ${JSON.stringify(colunas)}.`,
+  );
+  const { rows: chaves } = await conexao.query(
+    `select a.attname as coluna, con.confrelid::regclass::text as destino, con.confdeltype as ao_apagar
+       from pg_constraint con
+       join pg_attribute a on a.attrelid = con.conrelid and a.attnum = con.conkey[1]
+      where con.contype = 'f' and con.conrelid = 'public.correcoes_de_documento'::regclass
+      order by 1`,
+  );
+  afirmar(
+    JSON.stringify(chaves) ===
+      JSON.stringify([
+        { coluna: "corrigido_id", destino: "documentos", ao_apagar: "a" },
+        { coluna: "criado_por", destino: "usuarios", ao_apagar: "a" },
+        { coluna: "original_id", destino: "documentos", ao_apagar: "a" },
+      ]),
+    "Polimento: as chaves de correcoes_de_documento deveriam ir a documentos (original e corrigido) e a " +
+      `usuarios, todas sem on delete — vieram ${JSON.stringify(chaves)}.`,
+  );
+  const privilegios = await umaLinha(
+    `select has_table_privilege('amassa_app', 'correcoes_de_documento', 'select') as pode_select,
+            has_table_privilege('amassa_app', 'correcoes_de_documento', 'insert') as pode_insert,
+            has_table_privilege('amassa_app', 'correcoes_de_documento', 'update') as pode_update,
+            has_table_privilege('amassa_app', 'correcoes_de_documento', 'delete') as pode_delete`,
+  );
+  afirmar(
+    privilegios.pode_select && privilegios.pode_insert && !privilegios.pode_update && !privilegios.pode_delete,
+    "Polimento: amassa_app deveria ter select e insert em correcoes_de_documento, e NÃO update nem delete " +
+      `(o vínculo só cresce) — veio ${JSON.stringify(privilegios)}.`,
+  );
+
+  // ——— (b) e (d) com dado: tudo numa transação desfeita no fim ——————————————————————————————————
+  await conexao.query("begin");
+  try {
+    const usuarioId = (
+      await umaLinha(
+        `insert into usuarios (nome, email, senha_hash)
+         values ('Usuária de Teste do Polimento [mig]', 'usuaria-polimento@exemplo.test', 'hash-fake-de-teste')
+         returning id`,
+      )
+    ).id;
+    const categoriaId = (await umaLinha("select id from categorias where nome = 'Aluguel'")).id;
+    const contaFixaId = (
+      await umaLinha(
+        `insert into contas_fixas (nome, categoria_id, valor_esperado_centavos, dia_vencimento)
+         values ('[mig] Conta fixa do Polimento', $1, 15000, 5) returning id`,
+        [categoriaId],
+      )
+    ).id;
+    async function documentoDaConta({ cancelado }) {
+      return (
+        await umaLinha(
+          `insert into documentos (tipo, data, criado_por, conta_fixa_id, mes_referencia, cancelado_em, cancelado_por)
+           values ('despesa', '2026-02-05', $1, $2, '2026-02-01',
+                   case when $3::boolean then now() end, case when $3::boolean then $1::uuid end)
+           returning id`,
+          [usuarioId, contaFixaId, cancelado],
+        )
+      ).id;
+    }
+
+    // (b) Cancelada libera o mês: um documento CANCELADO e outro ATIVO convivem no mesmo conta/mês.
+    const cancelado = await documentoDaConta({ cancelado: true });
+    const ativo = await documentoDaConta({ cancelado: false });
+    // Um segundo cancelado também entra (o índice só olha os ativos).
+    await documentoDaConta({ cancelado: true });
+    // Um segundo ATIVO no mesmo conta/mês cai em 23505 pelo índice parcial.
+    esperar(
+      await tentarNoSavepoint(
+        `insert into documentos (tipo, data, criado_por, conta_fixa_id, mes_referencia)
+         values ('despesa', '2026-02-05', $1, $2, '2026-02-01')`,
+        [usuarioId, contaFixaId],
+      ),
+      "23505",
+      "documentos_conta_fixa_mes_ativo_uk",
+      "um segundo documento ATIVO no mesmo conta fixa/mês",
+    );
+    // E a frase de `gerarContasDoMes` infere o índice parcial: com um ativo, não insere nem falha.
+    const { rows: ignoradas } = await conexao.query(
+      `insert into documentos (tipo, data, criado_por, conta_fixa_id, mes_referencia)
+       values ('despesa', '2026-02-05', $1, $2, '2026-02-01') ${CONFLITO_DA_GERACAO_DE_CONTAS} returning id`,
+      [usuarioId, contaFixaId],
+    );
+    afirmar(
+      ignoradas.length === 0,
+      `Polimento: com um documento ativo no mês, a geração deveria ignorar a inserção, criou ${ignoradas.length}.`,
+    );
+
+    // (d) O check e as duas únicas do vínculo; e `amassa_app` insere e lê, mas não altera nem apaga.
+    esperar(
+      await tentarNoSavepoint(
+        "insert into correcoes_de_documento (original_id, corrigido_id, criado_por) values ($1, $1, $2)",
+        [cancelado, usuarioId],
+      ),
+      "23514",
+      "correcoes_de_documento_original_diferente_do_corrigido",
+      "um vínculo com original = corrigido",
+    );
+    const outroCorrigido = await documentoDaConta({ cancelado: true });
+    await conexao.query("set local role amassa_app");
+    esperar(
+      await tentarNoSavepoint(
+        "insert into correcoes_de_documento (original_id, corrigido_id, criado_por) values ($1, $2, $3)",
+        [cancelado, ativo, usuarioId],
+      ),
+      null,
+      null,
+      "amassa_app inserindo um vínculo de correção",
+    );
+    await conexao.query(
+      "insert into correcoes_de_documento (original_id, corrigido_id, criado_por) values ($1, $2, $3)",
+      [cancelado, ativo, usuarioId],
+    );
+    const lido = await umaLinha(
+      "select count(*)::int as quantos from correcoes_de_documento where original_id = $1",
+      [cancelado],
+    );
+    afirmar(lido.quantos === 1, `Polimento: amassa_app deveria ler o vínculo que gravou, leu ${lido.quantos}.`);
+    esperar(
+      await tentarNoSavepoint("update correcoes_de_documento set criado_em = now() where original_id = $1", [
+        cancelado,
+      ]),
+      "42501",
+      null,
+      "amassa_app alterando um vínculo de correção",
+    );
+    esperar(
+      await tentarNoSavepoint("delete from correcoes_de_documento where original_id = $1", [cancelado]),
+      "42501",
+      null,
+      "amassa_app apagando um vínculo de correção",
+    );
+    await conexao.query("reset role");
+    esperar(
+      await tentarNoSavepoint(
+        "insert into correcoes_de_documento (original_id, corrigido_id, criado_por) values ($1, $2, $3)",
+        [cancelado, outroCorrigido, usuarioId],
+      ),
+      "23505",
+      "correcoes_de_documento_original_uk",
+      "a MESMA original corrigida duas vezes",
+    );
+    esperar(
+      await tentarNoSavepoint(
+        "insert into correcoes_de_documento (original_id, corrigido_id, criado_por) values ($1, $2, $3)",
+        [outroCorrigido, ativo, usuarioId],
+      ),
+      "23505",
+      "correcoes_de_documento_corrigido_uk",
+      "o MESMO corrigido corrigindo duas originais",
+    );
+  } finally {
+    // Desfeita sempre: o usuário, a conta, os documentos e o vínculo de prova somem juntos.
+    await conexao.query("rollback");
+  }
+
+  const sobras = await umaLinha(
+    "select count(*)::int as quantos from contas_fixas where nome = '[mig] Conta fixa do Polimento'",
+  );
+  afirmar(sobras.quantos === 0, `Polimento: o dado de prova deveria ter sido desfeito, sobraram ${sobras.quantos}.`);
+}
+
+// `provarJanelaDoPolimentoEmBancoProprio` prova a janela entre o `implantar` e o `db:migrate` do dono
+// (T-06.5-26): num banco próprio parado na 0030 — o esquema da produção até o Roteiro 22 —, a geração
+// de contas com o predicado novo NÃO falha (o Postgres infere a única antiga) e é idempotente; um mês
+// cancelado continua sem ser gerado de novo (é o comportamento de hoje). Aplicada a 0031 sozinha
+// sobre esse dado, ela entra sem erro e a MESMA frase passa a gerar o documento ativo do mês cancelado
+// — uma vez só. Cada geração é como a de `gerarContasDoMes`: documento + linha + parcela, numa
+// transação commitada (os gatilhos de soma conferem). O banco inteiro é apagado no fim.
+async function provarJanelaDoPolimentoEmBancoProprio() {
+  const banco = await criarBancoProprio("polimento");
+  try {
+    console.log(`Provando a janela da 0031 (geração de contas antes e depois), em banco proprio ("${banco.nome}")...`);
+    const cliente = new Client({ connectionString: banco.url });
+    await cliente.connect();
+    try {
+      await aplicarMigracoesAte(cliente, 30);
+      const usuarioId = (
+        await cliente.query(
+          `insert into usuarios (nome, email, senha_hash)
+           values ('Usuária da Janela do Polimento [mig]', 'usuaria-janela@exemplo.test', 'hash-fake-de-teste')
+           returning id`,
+        )
+      ).rows[0].id;
+      const categoriaId = (await cliente.query("select id from categorias where nome = 'Aluguel'")).rows[0].id;
+      const contaFixaId = (
+        await cliente.query(
+          `insert into contas_fixas (nome, categoria_id, valor_esperado_centavos, dia_vencimento)
+           values ('[mig] Conta da janela', $1, 15000, 5) returning id`,
+          [categoriaId],
+        )
+      ).rows[0].id;
+
+      // Uma geração do mês de março, como `gerarContasDoMes`: o id criado, ou `null` se ignorada.
+      async function gerarMarco(momento) {
+        await cliente.query("begin");
+        try {
+          const { rows } = await cliente.query(
+            `insert into documentos (tipo, data, titulo, criado_por, conta_fixa_id, mes_referencia)
+             values ('despesa', '2026-03-05', 'Conta da janela — março', $1, $2, '2026-03-01')
+             ${CONFLITO_DA_GERACAO_DE_CONTAS} returning id`,
+            [usuarioId, contaFixaId],
+          );
+          const id = rows[0]?.id ?? null;
+          if (id) {
+            await cliente.query(
+              `insert into documento_linhas (documento_id, ordem, descricao, categoria_id, valor_centavos)
+               values ($1, 0, 'Conta da janela', $2, 15000)`,
+              [id, categoriaId],
+            );
+            await cliente.query(
+              `insert into parcelas (documento_id, numero, vencimento, valor_centavos, forma)
+               values ($1, 1, '2026-03-05', 15000, 'pix')`,
+              [id],
+            );
+          }
+          await cliente.query("commit");
+          return id;
+        } catch (erro) {
+          await cliente.query("rollback").catch(() => {});
+          throw new Error(`Polimento (janela, ${momento}): a geração de contas falhou — ${erro.message} (${erro.code})`);
+        }
+      }
+      async function documentosDeMarco() {
+        return (
+          await cliente.query(
+            `select count(*)::int as todos, count(*) filter (where cancelado_em is null)::int as ativos
+               from documentos where conta_fixa_id = $1 and mes_referencia = '2026-03-01'`,
+            [contaFixaId],
+          )
+        ).rows[0];
+      }
+
+      // Antes da 0031: gera, é idempotente, e o mês cancelado não volta (a única antiga segura).
+      const primeiro = await gerarMarco("antes da 0031");
+      afirmar(primeiro !== null, "Polimento (janela): antes da 0031, a primeira geração deveria criar o documento.");
+      afirmar(
+        (await gerarMarco("antes da 0031, de novo")) === null,
+        "Polimento (janela): antes da 0031, gerar o mesmo mês de novo deveria ser ignorado (idempotente).",
+      );
+      await cliente.query(
+        "update documentos set cancelado_em = now(), cancelado_por = $1 where id = $2",
+        [usuarioId, primeiro],
+      );
+      afirmar(
+        (await gerarMarco("antes da 0031, com o mês cancelado")) === null,
+        "Polimento (janela): antes da 0031, um mês cancelado deveria continuar sem ser gerado (sem falhar).",
+      );
+      const antes = await documentosDeMarco();
+      afirmar(
+        antes.todos === 1 && antes.ativos === 0,
+        `Polimento (janela): antes da 0031 deveria haver 1 documento, cancelado — veio ${JSON.stringify(antes)}.`,
+      );
+
+      // A 0031 sozinha, sobre o dado da produção.
+      await aplicarMigracoesAte(cliente, 31, 31);
+
+      // Depois: o mesmo pedido gera o documento ativo do mês cancelado — uma vez só.
+      const regenerado = await gerarMarco("depois da 0031");
+      afirmar(
+        regenerado !== null && regenerado !== primeiro,
+        "Polimento (janela): depois da 0031, o mês cancelado deveria ser gerado de novo (documento novo).",
+      );
+      afirmar(
+        (await gerarMarco("depois da 0031, de novo")) === null,
+        "Polimento (janela): depois da 0031, gerar o mesmo mês de novo deveria ser ignorado (idempotente).",
+      );
+      const depois = await documentosDeMarco();
+      afirmar(
+        depois.todos === 2 && depois.ativos === 1,
+        `Polimento (janela): depois da 0031 deveria haver 2 documentos, 1 ativo — veio ${JSON.stringify(depois)}.`,
+      );
+      console.log("  provarJanelaDoPolimentoEmBancoProprio: antes e depois da 0031, ok.");
+    } finally {
+      await cliente.end();
+    }
+  } finally {
+    // O banco inteiro — usuário, conta, documentos — some com ele.
+    await banco.apagar();
+  }
+}
+
 // As corridas da Agenda achadas na revisão de código da Fase 5 (05-REVIEW-A.md: CR-01, WR-01, WR-03),
 // provadas com o CÓDIGO DA APLICAÇÃO (`lib/agenda/gravacao.ts`, `gravarVenda`) e duas transações que se
 // sobrepõem de fato — a primeira trava e para numa barreira, a segunda espera a trava. Roda num processo
@@ -7071,6 +7447,7 @@ async function conferirBanco() {
     await conferirFornecedores(cliente);
     await conferirLembretes(cliente);
     await conferirQueimas(cliente);
+    await conferirPolimento(cliente);
     await conferirConcorrenciaDoEstoque();
     await conferirConcorrenciaDaProducao();
     provarCorridasDaAgenda();
@@ -7090,6 +7467,10 @@ async function conferirBanco() {
   // Idem — a virada roda o script de importação de verdade, num banco só dela (ver o
   // comentário de `provarViradaEmBancoProprio`, abaixo).
   await provarViradaEmBancoProprio();
+
+  // Idem — a janela da 0031 precisa de um banco parado na 0030 (ver o comentário de
+  // `provarJanelaDoPolimentoEmBancoProprio`).
+  await provarJanelaDoPolimentoEmBancoProprio();
 }
 
 async function main() {

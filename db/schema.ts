@@ -818,7 +818,13 @@ export const documentos = pgTable(
   },
   (tabela) => [
     unique("documentos_numero_uk").on(tabela.numero),
-    unique("documentos_conta_fixa_mes_uk").on(tabela.contaFixaId, tabela.mesReferencia),
+    // Fase 06.5 (D-26, migração 0031): o par (conta fixa, mês) é único só ENTRE OS ATIVOS — uma
+    // conta fixa cancelada libera o mês para ser gerada de novo; duas ativas no mesmo mês continuam
+    // recusadas (23505). Substitui a única `documentos_conta_fixa_mes_uk` (0014). O
+    // `onConflictDoNothing` de `gerarContasDoMes` leva o MESMO predicado.
+    uniqueIndex("documentos_conta_fixa_mes_ativo_uk")
+      .on(tabela.contaFixaId, tabela.mesReferencia)
+      .where(sql`${tabela.canceladoEm} is null`),
     unique("documentos_chave_de_importacao_uk").on(tabela.chaveDeImportacao),
     check(
       "documentos_pessoa_nome_comprimento",
@@ -1703,6 +1709,8 @@ export const movimentacoesEstoque = pgTable(
     index("movimentacoes_estoque_documento_idx").on(tabela.documentoId),
     index("movimentacoes_estoque_criado_em_idx").on(tabela.criadoEm),
     index("movimentacoes_estoque_uso_livre_idx").on(tabela.usoLivreId),
+    // Fase 06.5 (D-26, migração 0031): o consumo e a peça pronta de uma ordem, lidos por ordem.
+    index("movimentacoes_estoque_encomenda_idx").on(tabela.encomendaId),
   ],
 );
 
@@ -2006,6 +2014,9 @@ export const mensalidades = pgTable(
     ),
     unique("mensalidades_turma_cliente_mes_uk").on(tabela.turmaId, tabela.clienteId, tabela.mes),
     index("mensalidades_documento_idx").on(tabela.documentoId),
+    // Fase 06.5 (D-26, migração 0031): a única acima começa por `turma_id` e não serve a quem lê
+    // as mensalidades de uma pessoa.
+    index("mensalidades_cliente_idx").on(tabela.clienteId),
   ],
 );
 
@@ -2086,6 +2097,8 @@ export const usosLivres = pgTable(
     ),
     index("usos_livres_data_idx").on(tabela.data),
     index("usos_livres_documento_idx").on(tabela.documentoId),
+    // Fase 06.5 (D-26, migração 0031): os usos livres de uma pessoa.
+    index("usos_livres_cliente_idx").on(tabela.clienteId),
   ],
 );
 
@@ -2417,5 +2430,40 @@ export const queimaVendas = pgTable(
       sql`${tabela.quantidadeP} + ${tabela.quantidadeM} + ${tabela.quantidadeG} > 0`,
     ),
     index("queima_vendas_queima_idx").on(tabela.queimaId),
+  ],
+);
+
+// Fase 06.5 — Polimento (D-18 / UI-D9, migração 0031): o vínculo entre um lançamento e a correção
+// dele (“Corrigir” = cancelar o original e lançar o corrigido). Uma linha por correção: um original
+// é corrigido UMA vez, um corrigido corrige UM original (as duas únicas), e nunca a si mesmo (o
+// check). O vínculo mora NUMA TABELA À PARTE, e não numa coluna de `documentos`, de propósito: o
+// Drizzle põe toda coluna do esquema em todo `insert`, e uma coluna nova em `documentos` faria TODA
+// venda, despesa, “Recebi agora” e geração de contas falhar entre o `implantar` e o `db:migrate` do
+// dono. À parte, a janela fica confinada ao “Corrigir”. Só cresce: a 0031 revoga `update` e `delete`
+// de `amassa_app` (provado por `conferirPolimento`, no `test:migracoes`). Sem `atualizado_em`.
+export const correcoesDeDocumento = pgTable(
+  "correcoes_de_documento",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    originalId: uuid("original_id")
+      .notNull()
+      .references(() => documentos.id),
+    corrigidoId: uuid("corrigido_id")
+      .notNull()
+      .references(() => documentos.id),
+    criadoPor: uuid("criado_por")
+      .notNull()
+      .references(() => usuarios.id),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (tabela) => [
+    unique("correcoes_de_documento_original_uk").on(tabela.originalId),
+    unique("correcoes_de_documento_corrigido_uk").on(tabela.corrigidoId),
+    check(
+      "correcoes_de_documento_original_diferente_do_corrigido",
+      sql`${tabela.originalId} <> ${tabela.corrigidoId}`,
+    ),
   ],
 );
