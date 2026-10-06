@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 
 // A metade de baixo do editor do orçamento (04.5-07-PLAN.md): "Custos do projeto e frete",
@@ -232,23 +233,28 @@ test.describe("orcamentos total", () => {
     // nunca o `x` dos valores em si, que são alinhados à DIREITA e por isso variam de posição
     // conforme o tamanho do próprio texto (Display 28px do total é mais largo por caractere que
     // o texto corpo do subtotal de peças, o que corrompe a comparação por `x` do valor).
-    const boxTotalEstreito = await page.getByRole("heading", { name: "Total e pagamento" }).boundingBox();
-    const boxPecasEstreito = await page.getByRole("heading", { name: "Peças", exact: true }).boundingBox();
-    expect(boxTotalEstreito).not.toBeNull();
-    expect(boxPecasEstreito).not.toBeNull();
+    const boxTotalEstreito = await medirCaixa(
+      page.getByRole("heading", { name: "Total e pagamento" }),
+      "título Total e pagamento",
+    );
+    const boxPecasEstreito = await medirCaixa(
+      page.getByRole("heading", { name: "Peças", exact: true }),
+      "título Peças",
+    );
     // Empilhados: os dois títulos começam na MESMA coluna (mesma coluna única).
-    expect(Math.abs((boxTotalEstreito?.x ?? 0) - (boxPecasEstreito?.x ?? 0))).toBeLessThan(5);
+    expect(Math.abs(boxTotalEstreito.x - boxPecasEstreito.x)).toBeLessThan(5);
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
     await expect(page.getByTestId("orcamento-total")).toBeVisible();
 
-    const boxTotalLargo = await page.getByRole("heading", { name: "Total e pagamento" }).boundingBox();
-    const boxPecasLargo = await page.getByRole("heading", { name: "Peças", exact: true }).boundingBox();
-    expect(boxTotalLargo).not.toBeNull();
-    expect(boxPecasLargo).not.toBeNull();
+    const boxTotalLargo = await medirCaixa(
+      page.getByRole("heading", { name: "Total e pagamento" }),
+      "título Total e pagamento",
+    );
+    const boxPecasLargo = await medirCaixa(page.getByRole("heading", { name: "Peças", exact: true }), "título Peças");
     // Lado a lado: o título de "Total e pagamento" começa bem à direita do título de "Peças"
     // (colunas `1.15fr 1fr`).
-    expect((boxTotalLargo?.x ?? 0) - (boxPecasLargo?.x ?? 0)).toBeGreaterThan(200);
+    expect(boxTotalLargo.x - boxPecasLargo.x).toBeGreaterThan(200);
   });
 });

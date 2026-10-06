@@ -3,6 +3,7 @@ import { test, expect, type Locator, type Page, type Route } from "@playwright/t
 import { FRASE_RECEBER_SEM_RESPOSTA } from "@/lib/queimas/textos";
 
 import { cancelarDocumentoNoBanco, semearCliente } from "./apoio/semear-agenda";
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import { idDoUsuarioDoTeste } from "./apoio/semear-fornecedores";
 import {
@@ -200,10 +201,10 @@ test.describe("cobrança da queima — recebi agora", () => {
       // A lista aberta FLUTUA por cima das formas: abrir e fechar nunca move os botões de pagamento (o
       // toque numa forma tira o foco do campo e fecha a lista antes do clique — se a forma andasse, o
       // toque cairia noutro lugar).
-      const pixAntes = await folha.getByTestId("forma-pix").boundingBox();
+      const pixAntes = await medirCaixa(folha.getByTestId("forma-pix"), "forma Pix antes de abrir a lista");
       await campo.fill("[e2e] ninguém com este nome");
       await expect(campo).toHaveAttribute("aria-expanded", "true");
-      expect((await folha.getByTestId("forma-pix").boundingBox())?.y).toBe(pixAntes?.y);
+      expect((await medirCaixa(folha.getByTestId("forma-pix"), "forma Pix com a lista aberta")).y).toBe(pixAntes.y);
 
       // Nome digitado e NÃO escolhido: a forma não grava — a venda não sai sem pessoa por engano.
       await campo.press("Escape");

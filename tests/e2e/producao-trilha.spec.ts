@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import {
   diaEmBrasilia,
   diaMes,
@@ -301,21 +302,20 @@ test.describe("producao trilha", () => {
     await expect(fileira).toHaveCSS("position", "static");
     await expect(page.locator("[data-acao-fixa]")).toHaveCount(0);
     // Logo depois da trilha: a fileira começa abaixo do fim da última etapa.
-    const caixaDaTrilha = await page.getByTestId("ordem-trilha").boundingBox();
-    const caixaDaFileira = await fileira.boundingBox();
-    const caixaDoTerminei = await terminei.boundingBox();
-    const caixaDoDesfazer = await desfazer.boundingBox();
-    expect(caixaDaTrilha && caixaDaFileira && caixaDoTerminei && caixaDoDesfazer).toBeTruthy();
-    expect(caixaDaFileira!.y).toBeGreaterThanOrEqual(caixaDaTrilha!.y + caixaDaTrilha!.height);
-    expect(caixaDoTerminei!.height).toBeGreaterThanOrEqual(52);
-    expect(caixaDoDesfazer!.height).toBeGreaterThanOrEqual(44);
+    const caixaDaTrilha = await medirCaixa(page.getByTestId("ordem-trilha"), "trilha");
+    const caixaDaFileira = await medirCaixa(fileira, "fileira de ações");
+    const caixaDoTerminei = await medirCaixa(terminei, "Terminei");
+    const caixaDoDesfazer = await medirCaixa(desfazer, "Desfazer");
+    expect(caixaDaFileira.y).toBeGreaterThanOrEqual(caixaDaTrilha.y + caixaDaTrilha.height);
+    expect(caixaDoTerminei.height).toBeGreaterThanOrEqual(52);
+    expect(caixaDoDesfazer.height).toBeGreaterThanOrEqual(44);
 
     if (test.info().project.name.includes("celular")) {
       // `innerText`: o rótulo da outra largura existe no DOM, escondido (`md:hidden` / `hidden md:inline`).
       await expect(desfazer).toHaveText("Desfazer", { useInnerText: true });
       // Os dois na mesma linha, e o "Terminei" ocupa o resto da largura.
-      expect(Math.abs(caixaDoTerminei!.y - caixaDoDesfazer!.y)).toBeLessThan(2);
-      expect(caixaDoTerminei!.width).toBeGreaterThan(caixaDoDesfazer!.width);
+      expect(Math.abs(caixaDoTerminei.y - caixaDoDesfazer.y)).toBeLessThan(2);
+      expect(caixaDoTerminei.width).toBeGreaterThan(caixaDoDesfazer.width);
     } else {
       await expect(desfazer).toHaveText("Desfazer a última", { useInnerText: true });
     }

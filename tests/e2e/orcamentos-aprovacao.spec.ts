@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
 import { formatarDataCurta } from "@/lib/financeiro/formato";
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import {
@@ -429,19 +430,17 @@ test.describe("orcamentos aprovacao", () => {
     await expect(botaoCriar).toBeVisible();
 
     for (const botao of [botaoVoltar, botaoCriar]) {
-      const caixa = await botao.boundingBox();
-      expect(caixa).not.toBeNull();
-      expect(caixa!.height).toBeGreaterThanOrEqual(44);
-      expect(caixa!.y).toBeLessThan(700);
+      const caixa = await medirCaixa(botao);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
+      expect(caixa.y).toBeLessThan(700);
     }
 
-    const caixaDoCheckbox = await page
-      .getByTestId("aprovar-ordem")
-      .locator("xpath=..")
-      .boundingBox();
-    expect(caixaDoCheckbox).not.toBeNull();
-    expect(caixaDoCheckbox!.height).toBeGreaterThanOrEqual(44);
-    expect(caixaDoCheckbox!.width).toBeGreaterThanOrEqual(44);
+    const caixaDoCheckbox = await medirCaixa(
+      page.getByTestId("aprovar-ordem").locator("xpath=.."),
+      "rótulo da caixa de abrir ordem",
+    );
+    expect(caixaDoCheckbox.height).toBeGreaterThanOrEqual(44);
+    expect(caixaDoCheckbox.width).toBeGreaterThanOrEqual(44);
   });
 
   // 04.5-14-PLAN.md — o achado 14 da verificação humana: "na produção ela fica cancelada e vai

@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { somarDiasAoHoje } from "./apoio/semear-financeiro";
 import {
   cancelarOrdemNoBanco,
@@ -143,8 +144,8 @@ test.describe("chips da produção", () => {
         tela: document.documentElement.clientWidth,
       }));
       expect(larguras.rolagem).toBeLessThanOrEqual(larguras.tela);
-      const caixa = await chip.boundingBox();
-      expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(chip, "chip do atalho");
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
 
       await chip.click();
       await expect(folha.getByTestId("contador-internas-p")).toHaveValue("8");

@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela, esperarHidratacao } from "./apoio/novo-orcamento";
 
 // O editor do orçamento (04.5-06-PLAN.md): cabeçalho, "Para quem e para quando", "Peças" com as
@@ -292,8 +293,8 @@ test.describe("orcamentos editor", () => {
     for (let indice = 0; indice < contagem; indice += 1) {
       const alvo = alvosDeToque.nth(indice);
       if (await alvo.isVisible()) {
-        const caixa = await alvo.boundingBox();
-        expect(caixa?.height ?? 0, `alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(alvo, `alvo de toque ${indice}`);
+        expect(caixa.height,`alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });

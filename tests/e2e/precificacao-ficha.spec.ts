@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // A ficha de precificação de uma peça (04.5-04-PLAN.md): D-18 (peça de linha compartilha um
 // preço só com o item do Catálogo), D-19 (peça exclusiva não aparece no Catálogo), D-12 (peça que
 // não cabe avisa sem número). Nomes inventados e únicos por execução ("[e2e] ... {sufixo}") —
@@ -210,11 +212,11 @@ test.describe("precificacao ficha", () => {
       .evaluate((elemento) => parseFloat(getComputedStyle(elemento).fontSize));
     expect(tamanhoDaFonteDoNome).toBeGreaterThanOrEqual(16);
 
-    const caixaDoSalvar = await page.getByRole("button", { name: "Salvar" }).boundingBox();
-    expect(caixaDoSalvar?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const caixaDoSalvar = await medirCaixa(page.getByRole("button", { name: "Salvar" }), "Salvar");
+    expect(caixaDoSalvar.height).toBeGreaterThanOrEqual(44);
 
-    const caixaDaExclusiva = await page.getByTestId("ficha-campo-exclusiva").boundingBox();
-    expect(caixaDaExclusiva?.width ?? 0).toBeGreaterThanOrEqual(44);
-    expect(caixaDaExclusiva?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const caixaDaExclusiva = await medirCaixa(page.getByTestId("ficha-campo-exclusiva"), "Exclusiva");
+    expect(caixaDaExclusiva.width).toBeGreaterThanOrEqual(44);
+    expect(caixaDaExclusiva.height).toBeGreaterThanOrEqual(44);
   });
 });

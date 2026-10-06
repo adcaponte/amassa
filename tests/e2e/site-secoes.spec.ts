@@ -4,6 +4,7 @@ import { CONTEUDO_SITE } from "@/conteudo/site";
 import { placeholdersNoAr } from "@/lib/site/placeholder";
 import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 
 // A varredura da página INTEIRA do site público, nos dois viewports (SIT-01, SIT-04, SIT-07,
@@ -53,21 +54,22 @@ test.describe("site secoes", () => {
 
     await barra.getByTestId("site-botao-agenda").click();
     await expect(page).toHaveURL(/#agenda$/);
-    const caixaAgenda = await page.getByTestId("site-agenda").locator("h2").boundingBox();
-    expect(caixaAgenda).not.toBeNull();
-    expect(caixaAgenda!.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
+    const caixaAgenda = await medirCaixa(page.getByTestId("site-agenda").locator("h2"), "título da Agenda");
+    expect(caixaAgenda.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
     const rolagemNaAgenda = await page.evaluate(() => window.scrollY);
 
     await barra.getByTestId("site-botao-encomendas").click();
     await expect(page).toHaveURL(/#encomendas$/);
-    const caixaEncomendas = await page.getByTestId("site-encomendas").locator("h2").boundingBox();
-    expect(caixaEncomendas).not.toBeNull();
-    expect(caixaEncomendas!.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
+    const caixaEncomendas = await medirCaixa(
+      page.getByTestId("site-encomendas").locator("h2"),
+      "título de Encomendas",
+    );
+    expect(caixaEncomendas.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
     const rolagemNoEncomendas = await page.evaluate(() => window.scrollY);
 
     // As duas âncoras não param na MESMA seção: por design (scroll-margin-top compartilhado,
     // components/site/secao.tsx), qualquer alvo pousa na MESMA posição RELATIVA à barra fixa —
-    // por isso não é o boundingBox() da viewport que prova seções diferentes, é a posição de
+    // por isso não é a caixa medida na viewport que prova seções diferentes, é a posição de
     // rolagem ABSOLUTA do documento, que necessariamente difere entre duas seções distintas.
     expect(rolagemNaAgenda).not.toBeCloseTo(rolagemNoEncomendas, 0);
   });
@@ -205,9 +207,8 @@ test.describe("site secoes", () => {
       for (let indice = 0; indice < total; indice++) {
         const alvo = alvos.nth(indice);
         if (!(await alvo.isVisible())) continue; // barra inferior some no desktop, e vice-versa.
-        const caixa = await alvo.boundingBox();
-        expect(caixa, "alvo de toque visível sem boundingBox mensurável").not.toBeNull();
-        expect(caixa!.height, `${await alvo.textContent()} mede menos de 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(alvo, "alvo de toque visível");
+        expect(caixa.height,`${await alvo.textContent()} mede menos de 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });

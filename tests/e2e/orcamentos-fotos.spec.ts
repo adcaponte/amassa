@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 
 import sharp from "sharp";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 
 // A grade de fotos do editor do orçamento (04.5-10-PLAN.md): upload, a rota autenticada, tipo
@@ -205,8 +206,8 @@ test.describe("orcamentos fotos", () => {
     for (let indice = 0; indice < contagem; indice += 1) {
       const alvo = alvosDeToque.nth(indice);
       if (await alvo.isVisible()) {
-        const caixa = await alvo.boundingBox();
-        expect(caixa?.height ?? 0, `alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(alvo, `alvo de toque ${indice}`);
+        expect(caixa.height,`alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });

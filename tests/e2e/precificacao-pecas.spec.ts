@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 
 // A aba Peças do Financeiro (04.5-05-PLAN.md): a lista do que já foi precificado, as exclusivas
@@ -218,11 +219,14 @@ test.describe("precificacao pecas", () => {
       `a lista de peças rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
-    const caixaDoNovaPeca = await page.getByTestId("nova-peca").first().boundingBox();
-    expect(caixaDoNovaPeca?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const caixaDoNovaPeca = await medirCaixa(page.getByTestId("nova-peca").first(), "Nova peça");
+    expect(caixaDoNovaPeca.height).toBeGreaterThanOrEqual(44);
 
-    const caixaDoAbrir = await linhaDaPeca(page, nomeDaPecaA).getByRole("link", { name: "Abrir" }).boundingBox();
-    expect(caixaDoAbrir?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const caixaDoAbrir = await medirCaixa(
+      linhaDaPeca(page, nomeDaPecaA).getByRole("link", { name: "Abrir" }),
+      "Abrir da peça A",
+    );
+    expect(caixaDoAbrir.height).toBeGreaterThanOrEqual(44);
   });
 
   test("(g) um nome de peça de 120 caracteres quebra em mais de uma linha sem estourar a largura a 320px", async ({
@@ -252,9 +256,9 @@ test.describe("precificacao pecas", () => {
     ]);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
 
-    const caixaDoNome = await nomeNaLista.boundingBox();
+    const caixaDoNome = await medirCaixa(nomeNaLista, "nome longo na lista");
     // Uma linha de `text-corpo` (16px/1.5) mede uns 24px — mais de uma linha passa bem de 30px.
-    expect(caixaDoNome?.height ?? 0).toBeGreaterThan(30);
+    expect(caixaDoNome.height).toBeGreaterThan(30);
   });
 
   // 04.5-06-PLAN.md — o item carregado do plano 05: com a peça já acrescentada a um orçamento,

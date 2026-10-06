@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import {
   contarLembretes,
@@ -409,8 +410,8 @@ test.describe("lembretes inicio", () => {
       alvos.push(pilulas.nth(indice));
     }
     for (const alvo of alvos) {
-      const caixa = await alvo.boundingBox();
-      expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(alvo);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
     }
   });
 });
