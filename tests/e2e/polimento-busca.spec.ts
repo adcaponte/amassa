@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { semearItem } from "./apoio/semear-financeiro";
+import { semearCliente, semearOficina } from "./apoio/semear-agenda";
+import { semearItem, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // Fase 06.5, plano 09 (D-17, POL-09; achado "Já anotado" do Cowork: "cowork Caneca" → "Nada
 // encontrado"). A busca por palavras soltas, em qualquer ordem e sem acento. Cada teste semeia só o
@@ -108,5 +109,77 @@ test.describe("polimento busca — venda", () => {
     await expect(vazia).toHaveAttribute("data-termo", termo);
     await expect(vazia).toContainText(`Nada encontrado para “${termo}”.`);
     await expect(vazia).toContainText(DICA);
+  });
+});
+
+test.describe("polimento busca — compra e pessoas", () => {
+  test("“Todo material de estoque” da Despesa acha por duas palavras fora de ordem", async ({ page }) => {
+    const suf = sufixoUnico();
+    const material = `[e2e busca] Esmalte azul cobalto ${suf}`;
+    await semearItem({
+      nome: material,
+      apareceNaVenda: false,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "kg",
+      categoriaCompra: "Argila, esmalte e insumos",
+      atalhoCompra: false,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/financeiro?aba=despesa");
+    await page.getByTestId("despesa-modo-compra").click();
+    await page.getByRole("button", { name: "Lista completa e atalhos" }).click();
+    const folha = page.getByRole("dialog", { name: "Todo material de estoque" });
+    await expect(folha).toBeVisible();
+    const busca = folha.getByLabel("Buscar", { exact: true });
+
+    // "cobalto esmalte" — a ordem trocada, e sem as palavras do meio.
+    await busca.fill(`cobalto esmalte ${suf}`);
+    await expect(folha.getByRole("button", { name: `Atalho: ${material}` })).toBeVisible();
+
+    const termo = `pincel inexistente ${suf}`;
+    await busca.fill(termo);
+    const vazia = folha.getByTestId("busca-vazia");
+    await expect(vazia).toHaveAttribute("data-termo", termo);
+    await expect(vazia).toContainText(`Nada encontrado para “${termo}”.`);
+    await expect(vazia).toContainText(DICA);
+  });
+
+  test("o seletor de pessoa da Agenda acha “Bruna e2e Teixeira” por “teixeira bruna”, e o vazio mantém o “Cadastrar”", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    // Dias 600+ — longe dos reservados por outras specs da Agenda (300+, 330+, 360+, 500+, 700+).
+    const data = somarDiasAoHoje(600 + (test.info().project.name === "celular" ? 1 : 0));
+    const eventoId = await semearOficina({
+      titulo: `[e2e busca] Oficina ${suf}`,
+      data,
+      inicio: "14:00",
+      fim: "16:00",
+      vagas: 4,
+      precoCentavos: 10000,
+    });
+    const bruna = `Bruna e2e Teixeira ${suf}`;
+    await semearCliente({ nome: bruna });
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/agenda?semana=${data}&evento=${eventoId}`);
+    const folha = page.getByTestId("folha-evento");
+    await expect(folha.getByTestId("quem-vem")).toBeVisible();
+    const campo = folha.getByRole("combobox", { name: "Colocar alguém" });
+
+    // O servidor (`listarClientes`) acha por palavra, em qualquer ordem e sem acento.
+    await campo.fill(`téixeira bruna ${suf}`);
+    await expect(folha.getByTestId("seletor-opcao").filter({ hasText: bruna })).toHaveCount(1);
+
+    // Ninguém: o termo entre aspas, a regra da busca, e o "Cadastrar “…”" continua lá.
+    const termo = `zzz inexistente ${suf}`;
+    await campo.fill(termo);
+    const vazia = folha.getByTestId("busca-vazia");
+    await expect(vazia).toHaveAttribute("data-termo", termo);
+    await expect(vazia).toContainText(`Nada encontrado para “${termo}”.`);
+    await expect(vazia).toContainText(DICA);
+    await expect(folha.getByTestId("seletor-cadastrar")).toHaveText(`Cadastrar “${termo}”`);
   });
 });

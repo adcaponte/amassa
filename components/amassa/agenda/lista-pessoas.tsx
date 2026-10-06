@@ -22,7 +22,6 @@ import type { ClienteDaLista } from "@/lib/clientes/consultas";
 import { QUANTOS_POR_VEZ, subLinhaDaPessoa, type TurmaDaSubLinha } from "@/lib/clientes/lista";
 import {
   ARIA_BUSCAR_PESSOA,
-  FRASE_NINGUEM_COM_ESSE_NOME,
   PLACEHOLDER_BUSCA,
   ROTULO_MOSTRAR_MAIS,
   TOAST_CADASTRO_SALVO,
@@ -32,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BuscaVazia } from "@/components/amassa/busca-vazia";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
 import { FormularioCliente, type ClienteSalvo } from "@/components/amassa/clientes/formulario-cliente";
 import { useBuscaNaUrl } from "@/components/amassa/clientes/usar-busca-na-url";
@@ -302,7 +302,7 @@ export function ListaPessoas({
 
       {pessoas.length === 0 ? (
         <div className="flex flex-col items-start gap-3 py-2" data-testid="pessoas-sem-resultado">
-          <p className="text-corpo text-tinta-fraca">{FRASE_NINGUEM_COM_ESSE_NOME}</p>
+          <BuscaVazia termo={busca} />
           <Button
             type="button"
             variant="outline"

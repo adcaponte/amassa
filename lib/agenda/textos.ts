@@ -335,7 +335,6 @@ export function rotuloDoGrupoDoSeletor(tipoDoEvento: "turma" | "avulsa" | "fecha
 
 export const FRASE_DIGITE_PARA_BUSCAR = "Digite para buscar.";
 export const FRASE_NINGUEM_CADASTRADO_NO_SELETOR = "Ninguém cadastrado ainda. Digite o nome para cadastrar.";
-export const FRASE_NINGUEM_COM_ESSE_NOME = "Ninguém com esse nome.";
 // Backstop E8·overflow (decisão do plano 05): a última linha de um grupo que passou do teto.
 export const FRASE_HA_MAIS_PESSOAS = "Há mais pessoas com esse nome — continue digitando.";
 export const FRASE_ERRO_CARREGAR_PESSOAS =

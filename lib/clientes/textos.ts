@@ -55,7 +55,6 @@ export const TOAST_CADASTRO_SALVO = "Cadastro salvo.";
 // A busca — igual nas duas telas (05-UI-SPEC.md §Rótulos, "Pessoas — busca").
 export const ARIA_BUSCAR_PESSOA = "Buscar pessoa";
 export const PLACEHOLDER_BUSCA = "Buscar pelo nome";
-export const FRASE_NINGUEM_COM_ESSE_NOME = "Ninguém com esse nome.";
 
 export function rotuloCadastrarBusca(busca: string): string {
   return `Cadastrar “${busca}”`;

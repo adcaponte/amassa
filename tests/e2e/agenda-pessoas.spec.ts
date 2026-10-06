@@ -99,7 +99,7 @@ test.describe("agenda pessoas", () => {
     // Sem resultado: a frase e "Cadastrar “…”", que abre o formulário com o nome escrito.
     const semNinguem = `zz nada ${suf}`;
     await page.getByTestId("busca-pessoa").fill(semNinguem);
-    await expect(page.getByTestId("pessoas-sem-resultado")).toContainText("Ninguém com esse nome.");
+    await expect(page.getByTestId("pessoas-sem-resultado")).toContainText(`Nada encontrado para “${semNinguem}”.`);
     await page.getByRole("button", { name: `Cadastrar “${semNinguem}”` }).click();
     const formulario = page.getByTestId("formulario-cliente");
     await expect(formulario.getByLabel("Nome")).toHaveValue(semNinguem);

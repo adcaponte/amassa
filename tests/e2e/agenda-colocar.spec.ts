@@ -5,7 +5,6 @@ import {
   CORPO_TIRAR_INSCRICAO_DA_LISTA,
   faixaInscricaoNaOficina,
   FRASE_DIGITE_PARA_BUSCAR,
-  FRASE_NINGUEM_COM_ESSE_NOME,
   FRASE_NINGUEM_INSCRITO,
   fraseInscricaoJaVirouVenda,
   fraseJaEstaNaLista,
@@ -16,6 +15,7 @@ import {
   tituloQuemVem,
   toastSaiuDaLista,
 } from "@/lib/agenda/textos";
+import { fraseNadaEncontradoPara } from "@/lib/busca/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
 
 import {
@@ -123,10 +123,10 @@ test.describe("agenda colocar", () => {
     await expect(folha.getByTestId("inscrito").filter({ hasText: joao })).toHaveCount(1);
     await expect(campoDoSeletor(page)).toHaveValue("");
 
-    // 2) Quem chegou pela primeira vez: "Ninguém com esse nome." + "Cadastrar “…”", o formulário de
-    //    pessoa com o nome escrito, e salvo, a pessoa fica escolhida.
+    // 2) Quem chegou pela primeira vez: "Nada encontrado para “…”." (06.5-09, D-17) + "Cadastrar
+    //    “…”", o formulário de pessoa com o nome escrito, e salvo, a pessoa fica escolhida.
     await campoDoSeletor(page).fill(nova);
-    await expect(folha.getByTestId("seletor-mensagem")).toHaveText(FRASE_NINGUEM_COM_ESSE_NOME);
+    await expect(folha.getByTestId("busca-vazia")).toContainText(fraseNadaEncontradoPara(nova));
     const cadastrar = folha.getByTestId("seletor-cadastrar");
     await expect(cadastrar).toHaveText(rotuloCadastrarTexto(nova));
     await cadastrar.click();
