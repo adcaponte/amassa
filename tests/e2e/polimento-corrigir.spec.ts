@@ -463,3 +463,306 @@ test.describe("polimento corrigir — despesa", () => {
     await expect(detalhe.getByTestId("documento-corrige")).toHaveText(`Corrige a despesa nº ${original.numero}`);
   });
 });
+
+// Os documentos que têm uma linha com esta descrição (o título semeado, único por teste), na ordem do número.
+async function documentosComLinha(descricao: string): Promise<DocumentoNoBanco[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<DocumentoNoBanco>(
+      `select distinct d.id, d.numero, d.cancelado_em is not null as cancelado
+         from documento_linhas l
+         join documentos d on d.id = l.documento_id
+        where l.descricao = $1
+        order by d.numero`,
+      [descricao],
+    );
+    return rows;
+  });
+}
+
+async function corrigeAlguma(novaId: string): Promise<boolean> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query("select 1 from correcoes_de_documento where corrigido_id = $1", [novaId]);
+    return rows.length > 0;
+  });
+}
+
+// A “outra pessoa” das recusas: um segundo `page` na MESMA sessão (outro celular do mesmo gestor) que cancela a
+// original pelo detalhe do Caixa entre abrir e lançar a correção — nunca uma espera fixa.
+async function cancelarEmOutraPagina(page: Page, documentoId: string, tipo: "venda" | "despesa") {
+  const outra = await page.context().newPage();
+  try {
+    await outra.goto(`/gestao/financeiro?aba=caixa&documentoId=${documentoId}`);
+    const detalhe = outra.getByTestId("documento-detalhe");
+    await expect(detalhe).toBeVisible();
+    await detalhe.getByRole("button", { name: `Cancelar esta ${tipo}` }).click();
+    await outra.getByRole("alertdialog").getByRole("button", { name: `Cancelar ${tipo}`, exact: true }).click();
+    await expect(outra.getByText(/^Lançamento nº \d+ cancelado\./)).toBeVisible({ timeout: 10000 });
+  } finally {
+    await outra.close();
+  }
+}
+
+// … ou que recebe/paga a parcela em aberto da original pelo Caixa (“Recebi”/“Paguei” → “Confirmar”).
+async function baixarEmOutraPagina(page: Page, titulo: string, toast: RegExp) {
+  const outra = await page.context().newPage();
+  try {
+    await outra.goto("/gestao/financeiro?aba=caixa");
+    const cartao = outra.getByTestId("conta-cartao").filter({ hasText: titulo });
+    await cartao.getByRole("button", { name: /^(Paguei|Recebi)$/ }).click();
+    await outra.getByRole("button", { name: "Confirmar", exact: true }).click();
+    await expect(outra.getByText(toast)).toBeVisible({ timeout: 10000 });
+  } finally {
+    await outra.close();
+  }
+}
+
+// As recusas do lançamento da correção, na tela (Fase 06.5, plano 18 — 06.5-UI-SPEC.md §Erros “Lançar a
+// correção”, E12 error): o motivo vem da ação (plano 16), a frase vai para `correcao-erro` (`role="alert"`, com
+// o foco), os campos ficam, e o caminho depende do motivo. O `ja_corrigida` não tem caso de tela: ele só
+// acontece com dois lançamentos SOBREPOSTOS da mesma correção, e está provado contra o Postgres pela prova de
+// corrida do plano 16 (`scripts/provar-corridas-da-correcao.ts`, caso (b)); a tela só mostra a frase que a
+// ação devolve, pelo mesmo caminho do `mudou`.
+test.describe("polimento corrigir — recusas", () => {
+  test("(a) venda — a original foi cancelada em outro celular: “cancelada”, e “Lançar como venda nova” lança uma venda comum", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Tigela da Dalva Inventada ${suf}`;
+    const original = await semearContaAPagar({
+      titulo,
+      pessoa: "Dalva Inventada",
+      categoria: "Bebidas e comidas",
+      valorCentavos: 3300,
+      vencimento: hojeNoAtelie(),
+      tipo: "venda",
+    });
+
+    await fazerLogin(page);
+    await abrirCorrecao(page, original.documentoId);
+    await cancelarEmOutraPagina(page, original.documentoId, "venda");
+
+    await page.getByTestId("lancar-correcao").click();
+    const erro = page.getByTestId("correcao-erro");
+    await expect(erro).toHaveAttribute("data-motivo", "cancelada");
+    await expect(erro).toHaveAttribute("role", "alert");
+    await expect(erro).toHaveText(
+      `Nada foi lançado: a venda nº ${original.numero} já tinha sido cancelada (talvez em outro celular). Os dados continuam aqui — se esta venda ainda vale, toque em “Lançar como venda nova”.`,
+    );
+    await expect(erro).toBeFocused();
+    // Os campos ficam; nenhum “Voltar ao Caixa” aqui — o caminho é o botão.
+    await expect(page.getByTestId("venda-linha").filter({ hasText: titulo })).toBeVisible();
+    await expect(page.getByTestId("correcao-erro-voltar")).toHaveCount(0);
+    const comoNova = page.getByTestId("lancar-como-nova");
+    await expect(comoNova).toHaveText("Lançar como venda nova");
+    expect((await medirCaixa(comoNova)).height).toBeGreaterThanOrEqual(44);
+    // O foco vai para ele logo depois da frase.
+    await page.keyboard.press("Tab");
+    await expect(comoNova).toBeFocused();
+
+    await comoNova.click();
+    // Sai do modo correção sem perder o que foi digitado: `?corrige=` sai da URL, a faixa troca a 2ª linha e
+    // o “Lançar” volta ao herdado.
+    await expect(page).not.toHaveURL(/corrige=/);
+    await expect(page.getByTestId("faixa-correcao-linha2")).toHaveText(
+      `A nº ${original.numero} já foi cancelada — esta não está mais ligada a ela.`,
+    );
+    await expect(page.getByTestId("correcao-erro")).toHaveCount(0);
+    await expect(page.getByTestId("lancar-correcao")).toHaveCount(0);
+    await expect(page.getByTestId("venda-linha").filter({ hasText: titulo })).toBeVisible();
+    const lancar = page.getByRole("button", { name: "Lançar venda" });
+    await expect(lancar).toBeEnabled();
+    await lancar.click();
+    // O toast comum — não cita a nº da original, que ninguém desta tela cancelou.
+    await expect(page.getByText(/^Venda nº \d+ lançada/)).toBeVisible({ timeout: 10000 });
+
+    // A original continua cancelada (uma vez só), a nova é comum: ativa e sem vínculo.
+    const documentos = await documentosComLinha(titulo);
+    expect(documentos).toHaveLength(2);
+    expect(documentos[0]).toMatchObject({ id: original.documentoId, cancelado: true });
+    expect(documentos[1].cancelado).toBe(false);
+    expect(await corrigidaPor(original.documentoId)).toBeNull();
+    expect(await corrigeAlguma(documentos[1].id)).toBe(false);
+  });
+
+  test("(b) venda — uma parcela foi recebida em outro celular: “mudou”, “Voltar ao Caixa” e nada gravado", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Jarra da Iolanda Inventada ${suf}`;
+    const original = await semearContaAPagar({
+      titulo,
+      pessoa: "Iolanda Inventada",
+      categoria: "Bebidas e comidas",
+      valorCentavos: 5100,
+      vencimento: hojeNoAtelie(),
+      tipo: "venda",
+    });
+
+    await fazerLogin(page);
+    await abrirCorrecao(page, original.documentoId);
+    await baixarEmOutraPagina(page, titulo, /^Recebido: R\$\s51,00/);
+
+    await page.getByTestId("lancar-correcao").click();
+    const erro = page.getByTestId("correcao-erro");
+    await expect(erro).toHaveAttribute("data-motivo", "mudou");
+    await expect(erro).toHaveText(
+      `Nada foi lançado: a venda nº ${original.numero} mudou depois que você abriu a correção. Volte ao Caixa e toque em “Corrigir esta venda” de novo, para partir do que vale agora.`,
+    );
+    await expect(erro).toBeFocused();
+    const voltar = page.getByTestId("correcao-erro-voltar");
+    await expect(voltar).toHaveText("Voltar ao Caixa");
+    await expect(voltar).toHaveAttribute("href", "/gestao/financeiro?aba=caixa");
+    await expect(page.getByTestId("lancar-como-nova")).toHaveCount(0);
+    await expect(page.getByTestId("venda-linha").filter({ hasText: titulo })).toBeVisible();
+
+    // Nada gravado: uma venda só com esta linha, ativa, sem vínculo.
+    const documentos = await documentosComLinha(titulo);
+    expect(documentos).toHaveLength(1);
+    expect(documentos[0]).toMatchObject({ id: original.documentoId, cancelado: false });
+    expect(await corrigidaPor(original.documentoId)).toBeNull();
+  });
+
+  test("(c) despesa — a original foi cancelada em outro celular: “cancelada”, e “Lançar como despesa nova” lança uma despesa comum", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Conserto do torno inventado ${suf}`;
+    const original = await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 4500,
+      vencimento: hojeNoAtelie(),
+      tipo: "despesa",
+    });
+
+    await fazerLogin(page);
+    await abrirCorrecao(page, original.documentoId, "despesa");
+    // A despesa de uma linha sem item abre em “Outra despesa”, com a descrição e o valor.
+    await expect(page.getByTestId("despesa-modo-outra")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#despesa-outra-descricao")).toHaveValue(titulo);
+    await expect(page.locator("#despesa-outra-valor")).toHaveValue("45,00");
+    await cancelarEmOutraPagina(page, original.documentoId, "despesa");
+
+    await page.getByTestId("lancar-correcao").click();
+    const erro = page.getByTestId("correcao-erro");
+    await expect(erro).toHaveAttribute("data-motivo", "cancelada");
+    await expect(erro).toHaveText(
+      `Nada foi lançado: a despesa nº ${original.numero} já tinha sido cancelada (talvez em outro celular). Os dados continuam aqui — se esta despesa ainda vale, toque em “Lançar como despesa nova”.`,
+    );
+    await expect(erro).toBeFocused();
+    const comoNova = page.getByTestId("lancar-como-nova");
+    await expect(comoNova).toHaveText("Lançar como despesa nova");
+    expect((await medirCaixa(comoNova)).height).toBeGreaterThanOrEqual(44);
+
+    await comoNova.click();
+    await expect(page).not.toHaveURL(/corrige=/);
+    await expect(page.getByTestId("faixa-correcao-linha2")).toHaveText(
+      `A nº ${original.numero} já foi cancelada — esta não está mais ligada a ela.`,
+    );
+    await expect(page.locator("#despesa-outra-descricao")).toHaveValue(titulo);
+    const lancar = page.getByRole("button", { name: "Lançar despesa" });
+    await expect(lancar).toBeEnabled();
+    await lancar.click();
+    await expect(page.getByText(/^Despesa nº \d+ lançada/)).toBeVisible({ timeout: 10000 });
+
+    const documentos = await documentosComLinha(titulo);
+    expect(documentos).toHaveLength(2);
+    expect(documentos[0]).toMatchObject({ id: original.documentoId, cancelado: true });
+    expect(documentos[1].cancelado).toBe(false);
+    expect(await corrigidaPor(original.documentoId)).toBeNull();
+    expect(await corrigeAlguma(documentos[1].id)).toBe(false);
+  });
+
+  test("(d) despesa — a parcela foi paga em outro celular: “mudou”, a frase de despesa, “Voltar ao Caixa” e nada gravado", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Frete do forno inventado ${suf}`;
+    const original = await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 6200,
+      vencimento: hojeNoAtelie(),
+      tipo: "despesa",
+    });
+
+    await fazerLogin(page);
+    await abrirCorrecao(page, original.documentoId, "despesa");
+    await baixarEmOutraPagina(page, titulo, /^Pago: R\$\s62,00/);
+
+    await page.getByTestId("lancar-correcao").click();
+    const erro = page.getByTestId("correcao-erro");
+    await expect(erro).toHaveAttribute("data-motivo", "mudou");
+    await expect(erro).toHaveText(
+      `Nada foi lançado: a despesa nº ${original.numero} mudou depois que você abriu a correção. Volte ao Caixa e toque em “Corrigir esta despesa” de novo, para partir do que vale agora.`,
+    );
+    await expect(erro).toBeFocused();
+    await expect(page.getByTestId("correcao-erro-voltar")).toHaveText("Voltar ao Caixa");
+    await expect(page.getByTestId("lancar-como-nova")).toHaveCount(0);
+    await expect(page.locator("#despesa-outra-descricao")).toHaveValue(titulo);
+
+    const documentos = await documentosComLinha(titulo);
+    expect(documentos).toHaveLength(1);
+    expect(documentos[0]).toMatchObject({ id: original.documentoId, cancelado: false });
+    expect(await corrigidaPor(original.documentoId)).toBeNull();
+  });
+
+  test("(e) despesa — a internet caiu no lançamento: “rede”, os campos ficam, e lançar de novo corrige", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Lenha do forno inventada ${suf}`;
+    const original = await semearContaAPagar({
+      titulo,
+      categoria: "Aluguel",
+      valorCentavos: 7300,
+      vencimento: hojeNoAtelie(),
+      tipo: "despesa",
+    });
+
+    await fazerLogin(page);
+    await abrirCorrecao(page, original.documentoId, "despesa");
+
+    // A Server Action é um POST para a própria página, com o cabeçalho `next-action` (molde do plano 06.5-14):
+    // a primeira não chega ao servidor; as seguintes passam.
+    let derrubadas = 0;
+    await page.route("**/gestao/financeiro**", async (rota) => {
+      const requisicao = rota.request();
+      if (derrubadas === 0 && requisicao.method() === "POST" && requisicao.headers()["next-action"]) {
+        derrubadas += 1;
+        await rota.abort("internetdisconnected");
+        return;
+      }
+      await rota.continue();
+    });
+
+    try {
+      await page.getByTestId("lancar-correcao").click();
+      const erro = page.getByTestId("correcao-erro");
+      await expect(erro).toHaveAttribute("data-motivo", "rede");
+      await expect(erro).toHaveText(
+        `Não deu para lançar. A despesa nº ${original.numero} continua valendo e nada novo foi gravado — verifique a internet e tente de novo.`,
+      );
+      await expect(erro).toBeFocused();
+      await expect(page.getByTestId("lancar-como-nova")).toHaveCount(0);
+      await expect(page.locator("#despesa-outra-descricao")).toHaveValue(titulo);
+      expect(derrubadas).toBe(1);
+      const documentos = await documentosComLinha(titulo);
+      expect(documentos).toHaveLength(1);
+      expect(documentos[0].cancelado).toBe(false);
+
+      // A internet volta: lançar de novo corrige.
+      const lancar = page.getByTestId("lancar-correcao");
+      await expect(lancar).toBeEnabled();
+      await lancar.click();
+      await expect(
+        page.getByText(
+          new RegExp(`^Despesa nº ${original.numero} cancelada e nº \\d+ lançada no lugar · R\\$\\s73,00$`),
+        ),
+      ).toBeVisible({ timeout: 10000 });
+      expect(await corrigidaPor(original.documentoId)).not.toBeNull();
+    } finally {
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+    }
+  });
+});

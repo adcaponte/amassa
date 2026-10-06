@@ -45,6 +45,8 @@ import {
   TITULO_O_QUE_CHEGOU,
   TITULO_PAGAMENTO_DESPESA,
   TITULO_QUE_DESPESA_E,
+  FRASE_FALHA_AO_SALVAR,
+  fraseCorrecaoSemRede,
   rotuloLancarCorrecao,
   textoDataRetroativa,
   type FormaDePagamento,
@@ -66,11 +68,12 @@ import type { FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
 import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
 import { CampoFornecedor } from "./campo-fornecedor";
 import { EfeitoEstoque } from "./efeito-estoque";
+import { ErroDaCorrecao } from "./erro-da-correcao";
 import { FaixaDaCorrecao } from "./faixa-da-correcao";
 import { GradeCatalogo } from "./grade-catalogo";
 import { LinhaCompra } from "./linha-compra";
 import { ListaCompleta } from "./lista-completa";
-import type { CorrecaoNoPainel } from "./painel-venda";
+import type { CorrecaoNoPainel, RecusaNaTela } from "./painel-venda";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
@@ -295,6 +298,11 @@ export function PainelDespesa({
   const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
 
   const [erro, setErro] = useState<string | null>(null);
+  // A recusa da correção e o “Lançar como despesa nova” (plano 18) — o mesmo molde da Venda.
+  const [recusa, setRecusa] = useState<RecusaNaTela | null>(null);
+  const [desligada, setDesligada] = useState(false);
+  const vinculada = comCorrecao && !desligada;
+  const botaoLancarRef = useRef<HTMLButtonElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
 
@@ -649,6 +657,7 @@ export function PainelDespesa({
     setPessoaOutra(inicio.modo === "outra" ? inicio.pessoa : "");
     setFornecedorOutra(inicio.modo === "outra" ? inicio.fornecedorId : null);
     setErro(null);
+    setRecusa(null);
     setPlano(inicio.plano);
     setFormaPagamento(inicio.forma);
     setDuasFormas(inicio.duasFormas);
@@ -662,8 +671,19 @@ export function PainelDespesa({
     }
   }
 
+  // “Lançar como despesa nova” (plano 18, só na recusa `cancelada`) — o mesmo molde da Venda: sai do modo
+  // correção sem perder o que foi digitado (`history.replaceState`, sem recarregar nem remontar o painel), a
+  // faixa troca a 2ª linha, o “Lançar” volta ao herdado, e o próximo lançamento é comum (T-06.5-52).
+  function lancarComoNova() {
+    setDesligada(true);
+    setRecusa(null);
+    window.history.replaceState(null, "", rotaDeGestao("/financeiro?aba=despesa"));
+    botaoLancarRef.current?.focus();
+  }
+
   async function aoLancar() {
     setErro(null);
+    setRecusa(null);
     setEnviando(true);
 
     const parcelasParaEnviar = parcelasPagamento.map((parcela) => ({
@@ -674,49 +694,68 @@ export function PainelDespesa({
     }));
 
     // A correção (plano 18): só o id e a versão que a página leu — o servidor trava a original, reconfere e
-    // a cancela na mesma transação em que lança esta (plano 16).
+    // a cancela na mesma transação em que lança esta (plano 16). Desligada, nada de `correcao`.
     const vinculo =
-      correcao !== null && comCorrecao
+      correcao !== null && vinculada
         ? { correcao: { documentoId: correcao.documentoId, versao: correcao.versao } }
         : {};
 
-    const resposta =
-      modo === "compra"
-        ? await lancarDespesa({
-            modo: "compra",
-            data: dataCompra,
-            pessoa: pessoaCompra.trim() === "" ? undefined : pessoaCompra,
-            // Só quando ligado: o servidor confere o fornecedor e grava o nome do CADASTRO.
-            fornecedorId: fornecedorCompra ?? undefined,
-            linhas: linhasCompra.map((linha) => ({
-              itemId: linha.itemId,
-              quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
-              valorTotalTexto: linha.valorTotalTexto,
-            })),
-            parcelas: parcelasParaEnviar,
-            ...vinculo,
-          })
-        : await lancarDespesa({
-            modo: "outra",
-            data: dataOutra,
-            pessoa: pessoaOutra.trim() === "" ? undefined : pessoaOutra,
-            // Só quando ligado (plano 12): o mesmo caminho da compra — o servidor confere e congela o nome.
-            fornecedorId: fornecedorOutra ?? undefined,
-            descricao: descricaoOutra,
-            categoriaId: categoriaOutraId,
-            valorTexto: valorOutraTexto,
-            parcelas: parcelasParaEnviar,
-            ...vinculo,
-          });
+    const tentativa = Date.now();
+    let resposta: Awaited<ReturnType<typeof lancarDespesa>>;
+    try {
+      resposta =
+        modo === "compra"
+          ? await lancarDespesa({
+              modo: "compra",
+              data: dataCompra,
+              pessoa: pessoaCompra.trim() === "" ? undefined : pessoaCompra,
+              // Só quando ligado: o servidor confere o fornecedor e grava o nome do CADASTRO.
+              fornecedorId: fornecedorCompra ?? undefined,
+              linhas: linhasCompra.map((linha) => ({
+                itemId: linha.itemId,
+                quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
+                valorTotalTexto: linha.valorTotalTexto,
+              })),
+              parcelas: parcelasParaEnviar,
+              ...vinculo,
+            })
+          : await lancarDespesa({
+              modo: "outra",
+              data: dataOutra,
+              pessoa: pessoaOutra.trim() === "" ? undefined : pessoaOutra,
+              // Só quando ligado (plano 12): o mesmo caminho da compra — o servidor confere e congela o nome.
+              fornecedorId: fornecedorOutra ?? undefined,
+              descricao: descricaoOutra,
+              categoriaId: categoriaOutraId,
+              valorTexto: valorOutraTexto,
+              parcelas: parcelasParaEnviar,
+              ...vinculo,
+            });
+    } catch {
+      // A chamada nem chegou (internet, servidor fora): nada foi gravado. Na correção, a frase diz que a
+      // original continua valendo (`data-motivo="rede"`); fora dela, a frase de sempre.
+      setEnviando(false);
+      if (correcao !== null && vinculada) {
+        setRecusa({ motivo: "rede", frase: fraseCorrecaoSemRede("despesa", correcao.numero), tentativa });
+      } else {
+        setErro(FRASE_FALHA_AO_SALVAR);
+      }
+      return;
+    }
 
     setEnviando(false);
 
     if (!resposta.ok) {
-      setErro(resposta.erro);
+      // A recusa da correção leva o motivo (plano 16): a tela decide a frase e o caminho só por ele.
+      if (vinculada && resposta.motivoDaCorrecao) {
+        setRecusa({ motivo: resposta.motivoDaCorrecao, frase: resposta.erro, tentativa });
+      } else {
+        setErro(resposta.erro);
+      }
       return;
     }
 
-    if (comCorrecao) {
+    if (vinculada) {
       // A volta à Despesa comum (sem a faixa, sem `?corrige=`): a página monta o toast “Despesa nº {37}
       // cancelada e nº {39} lançada no lugar · {R$}” lendo o vínculo no banco. `replace`: o “voltar” não
       // reabre a correção de uma original que acabou de ser cancelada. O rascunho comum não foi tocado.
@@ -726,7 +765,10 @@ export function PainelDespesa({
       return;
     }
 
-    window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
+    // A despesa que saiu de uma correção desligada nunca leu o rascunho comum — ele continua guardado.
+    if (!comCorrecao) {
+      window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
+    }
     window.location.assign(rotaDeGestao(`/financeiro?aba=despesa&aviso=lancado&documento=${resposta.dados.id}`));
   }
 
@@ -759,6 +801,7 @@ export function PainelDespesa({
             numeroOriginal={correcao.numero}
             comEstoque={correcao.comEstoque}
             deFora={correcao.deFora}
+            desligada={desligada}
           />
         </div>
       ) : null}
@@ -1003,6 +1046,16 @@ export function PainelDespesa({
             </p>
           )}
 
+          {recusa && (
+            <ErroDaCorrecao
+              key={recusa.tentativa}
+              tipo="despesa"
+              motivo={recusa.motivo}
+              frase={recusa.frase}
+              aoLancarComoNova={lancarComoNova}
+            />
+          )}
+
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="min-h-[44px]" onClick={limpar}>
               {ROTULO_LIMPAR}
@@ -1013,9 +1066,10 @@ export function PainelDespesa({
               disabled={!podeLancar}
               className="min-h-[44px] flex-1"
               onClick={() => void aoLancar()}
-              data-testid={comCorrecao ? "lancar-correcao" : undefined}
+              ref={botaoLancarRef}
+              data-testid={vinculada ? "lancar-correcao" : undefined}
             >
-              {comCorrecao && correcao !== null ? rotuloLancarCorrecao(correcao.numero) : ROTULO_LANCAR_DESPESA}
+              {vinculada && correcao !== null ? rotuloLancarCorrecao(correcao.numero) : ROTULO_LANCAR_DESPESA}
             </Button>
           </div>
         </section>

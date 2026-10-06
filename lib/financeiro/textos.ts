@@ -618,6 +618,17 @@ export function linha2DaFaixaDaCorrecao(
   return `A nº ${numeroOriginal} continua valendo até você lançar esta. Ao lançar, ela é cancelada (fica riscada no extrato${estoque}) e esta entra no lugar, com outro número.`;
 }
 
+// A 2ª linha da faixa depois de “Lançar como venda/despesa nova” (Fase 06.5, plano 18 — §Erros “a original
+// já foi cancelada”): o vínculo saiu, e a faixa diz isso no lugar da explicação do lançamento.
+export function linha2DaFaixaDesligada(numeroOriginal: number): string {
+  return `A nº ${numeroOriginal} já foi cancelada — esta não está mais ligada a ela.`;
+}
+
+// O botão `outline` que só aparece na recusa `cancelada`: tira o vínculo e deixa o “Lançar” herdado.
+export function rotuloLancarComoNova(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Lançar como venda nova" : "Lançar como despesa nova";
+}
+
 export const FRASE_FAIXA_DA_CORRECAO_SAIR = "Se sair sem lançar, nada muda.";
 export const ROTULO_VOLTAR_AO_CAIXA = "Voltar ao Caixa";
 

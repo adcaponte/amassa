@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { DICA_PESSOA_TRAVADA, ROTULO_PESSOA_DA_AGENDA } from "@/lib/agenda/textos";
 import type { LinhaDaVendaDaAgenda } from "@/lib/agenda/receber";
-import { lancarVenda } from "@/lib/financeiro/acoes";
+import { lancarVenda, type MotivoDaCorrecaoNaTela } from "@/lib/financeiro/acoes";
 import type { PagamentoDaCorrecao } from "@/lib/financeiro/correcao";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaVenda } from "@/lib/financeiro/consultas";
 import { repartirDesconto, type Desconto } from "@/lib/financeiro/desconto";
@@ -30,6 +30,7 @@ import {
 import { CHAVE_RASCUNHO_VENDA, lerRascunho, serializarRascunho, type LinhaDoRascunho } from "@/lib/financeiro/rascunho";
 import { FRASE_LINHA_DA_QUEIMA_FALTANDO } from "@/lib/queimas/textos";
 import {
+  FRASE_FALHA_AO_SALVAR,
   FRASE_VAZIO_VENDA,
   PLACEHOLDER_PESSOA_VENDA,
   ROTULO_AREA,
@@ -42,6 +43,7 @@ import {
   TITULO_ESTA_VENDA,
   TITULO_O_QUE_FOI_VENDIDO,
   textoDataRetroativa,
+  fraseCorrecaoSemRede,
   rotuloLancarCorrecao,
   textoAvisoVendaNegativa,
   textoDicaDeAreas,
@@ -53,6 +55,7 @@ import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
 import { CampoDesconto, type ModoDeDesconto } from "./campo-desconto";
 import { DialogoValorLivre, type LinhaDeValorLivre } from "./dialogo-valor-livre";
 import { EfeitoEstoque } from "./efeito-estoque";
+import { ErroDaCorrecao } from "./erro-da-correcao";
 import { FaixaDaAgenda, FaixaDasQueimas } from "./faixa-da-agenda";
 import { FaixaDaCorrecao } from "./faixa-da-correcao";
 import { GradeCatalogo, type FiltroDeArea } from "./grade-catalogo";
@@ -131,6 +134,11 @@ export type CorrecaoNoPainel = {
   comEstoque: boolean;
   deFora: readonly string[];
 };
+
+// A recusa do lançamento da correção (plano 18), como o painel a guarda: o motivo e a frase prontos (da ação,
+// ou a de rede quando a chamada nem chegou) e a tentativa — a `key` de `ErroDaCorrecao`, para a mesma recusa
+// duas vezes levar o foco de novo à frase.
+export type RecusaNaTela = { motivo: MotivoDaCorrecaoNaTela; frase: string; tentativa: number };
 
 // As linhas da original viram linhas do carrinho com o PREÇO DA LINHA ANTIGA (UI-D11): o valor da linha
 // ÷ quantidade, arredondado — a mesma regra da Venda da Agenda acima. Com desconto repartido nas linhas, o
@@ -315,6 +323,13 @@ export function PainelVenda({
   const marcaDaAbertura = useRef<{ plano: PlanoDePagamento; totalCentavos: number; data: string } | null>(null);
   const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // A recusa da correção (plano 18), com o motivo que decide o caminho. `desligada`: depois de “Lançar como
+  // venda nova”, o painel continua com o que foi digitado, mas o próximo “Lançar” é uma venda comum —
+  // `vinculada` é o que decide o rótulo, o envio de `correcao` e a volta.
+  const [recusa, setRecusa] = useState<RecusaNaTela | null>(null);
+  const [desligada, setDesligada] = useState(false);
+  const vinculada = comCorrecao && !desligada;
+  const botaoLancarRef = useRef<HTMLButtonElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
   // Havia uma venda em montagem no rascunho comum quando a Venda da origem abriu (a linha da faixa).
@@ -760,6 +775,7 @@ export function PainelVenda({
     setDescontoModo("reais");
     setDescontoTexto("");
     setErro(null);
+    setRecusa(null);
     setPlano(planoInicial);
     setFormaPagamento(formaInicial);
     setDuasFormas(pagamentoDaOriginal?.duasFormas ?? false);
@@ -773,8 +789,21 @@ export function PainelVenda({
     }
   }
 
+  // “Lançar como venda nova” (plano 18, só na recusa `cancelada`): sai do modo correção sem perder o que foi
+  // digitado — o `?corrige=` sai da URL sem recarregar (`history.replaceState`, que o Next.js acompanha sem
+  // buscar a página de novo; um `router.replace` remontaria o painel pela `key` e levaria os campos), a faixa
+  // troca a 2ª linha e o “Lançar” volta ao herdado. O servidor recebe um lançamento comum e o confere como
+  // qualquer outro (T-06.5-52).
+  function lancarComoNova() {
+    setDesligada(true);
+    setRecusa(null);
+    window.history.replaceState(null, "", rotaDeGestao("/financeiro?aba=venda"));
+    botaoLancarRef.current?.focus();
+  }
+
   async function aoLancar() {
     setErro(null);
+    setRecusa(null);
     // Nas Queimas, a venda precisa levar ao menos uma linha de queima externa (o servidor confere de novo,
     // e também que nenhum tamanho passa do que falta agora — essa conta fica só lá).
     if (dasQueimas && !restaLinhaDaQueima) {
@@ -783,48 +812,68 @@ export function PainelVenda({
     }
     setEnviando(true);
 
-    const resposta = await lancarVenda({
-      data,
-      pessoa: pessoa.trim() === "" ? undefined : pessoa,
-      linhas: linhas.map((linha) =>
-        linha.tipo === "item"
-          ? {
-              tipo: "item" as const,
-              itemId: linha.itemId,
-              quantidade: linha.quantidade,
-              valorUnitarioTexto: linha.valorUnitarioTexto,
-            }
-          : {
-              tipo: "livre" as const,
-              descricao: linha.descricao,
-              categoriaId: linha.categoriaId,
-              valorTexto: centavosParaCampo(linha.valorCentavos),
-            },
-      ),
-      // O plano de pagamento inteiro (à vista, sinal, Nx ou "+ outra forma") — cada parcela já
-      // com a própria forma (D-07), gerado por `gerarPlano`/`dividirEmDuasFormas` e editável à
-      // mão pelo bloco de pagamento.
-      parcelas: parcelasPagamento.map((parcela) => ({
-        vencimento: parcela.vencimento,
-        valorTexto: parcela.valorTexto,
-        forma: parcela.forma,
-        pago: parcela.pago,
-      })),
-      ...(descontoTexto.trim() !== "" ? { desconto: { modo: descontoModo, texto: descontoTexto } } : {}),
-      // Só QUAL origem: na Agenda o servidor sobrescreve pessoa, cliente e a descrição da linha de origem;
-      // nas Queimas ele relê o que falta sob a trava e tira as quantidades do vínculo destas linhas.
-      ...(origem !== null && comOrigem ? { origem: origem.origem } : {}),
-      // A correção (plano 17): só o id e a versão que a página leu — o servidor trava a original, reconfere
-      // e a cancela na mesma transação em que lança esta (plano 16).
-      ...(correcao !== null && comCorrecao
-        ? { correcao: { documentoId: correcao.documentoId, versao: correcao.versao } }
-        : {}),
-    });
+    const tentativa = Date.now();
+    let resposta: Awaited<ReturnType<typeof lancarVenda>>;
+    try {
+      resposta = await lancarVenda({
+        data,
+        pessoa: pessoa.trim() === "" ? undefined : pessoa,
+        linhas: linhas.map((linha) =>
+          linha.tipo === "item"
+            ? {
+                tipo: "item" as const,
+                itemId: linha.itemId,
+                quantidade: linha.quantidade,
+                valorUnitarioTexto: linha.valorUnitarioTexto,
+              }
+            : {
+                tipo: "livre" as const,
+                descricao: linha.descricao,
+                categoriaId: linha.categoriaId,
+                valorTexto: centavosParaCampo(linha.valorCentavos),
+              },
+        ),
+        // O plano de pagamento inteiro (à vista, sinal, Nx ou "+ outra forma") — cada parcela já
+        // com a própria forma (D-07), gerado por `gerarPlano`/`dividirEmDuasFormas` e editável à
+        // mão pelo bloco de pagamento.
+        parcelas: parcelasPagamento.map((parcela) => ({
+          vencimento: parcela.vencimento,
+          valorTexto: parcela.valorTexto,
+          forma: parcela.forma,
+          pago: parcela.pago,
+        })),
+        ...(descontoTexto.trim() !== "" ? { desconto: { modo: descontoModo, texto: descontoTexto } } : {}),
+        // Só QUAL origem: na Agenda o servidor sobrescreve pessoa, cliente e a descrição da linha de origem;
+        // nas Queimas ele relê o que falta sob a trava e tira as quantidades do vínculo destas linhas.
+        ...(origem !== null && comOrigem ? { origem: origem.origem } : {}),
+        // A correção (plano 17): só o id e a versão que a página leu — o servidor trava a original, reconfere
+        // e a cancela na mesma transação em que lança esta (plano 16). Depois de “Lançar como venda nova”
+        // (plano 18), nada de `correcao`: é uma venda comum.
+        ...(correcao !== null && vinculada
+          ? { correcao: { documentoId: correcao.documentoId, versao: correcao.versao } }
+          : {}),
+      });
+    } catch {
+      // A chamada nem chegou (internet, servidor fora): nada foi gravado. Na correção, a frase diz que a
+      // original continua valendo (plano 18, `data-motivo="rede"`); fora dela, a frase de sempre.
+      setEnviando(false);
+      if (correcao !== null && vinculada) {
+        setRecusa({ motivo: "rede", frase: fraseCorrecaoSemRede("venda", correcao.numero), tentativa });
+      } else {
+        setErro(FRASE_FALHA_AO_SALVAR);
+      }
+      return;
+    }
 
     setEnviando(false);
 
     if (!resposta.ok) {
-      setErro(resposta.erro);
+      // A recusa da correção leva o motivo (plano 16): a tela decide a frase e o caminho só por ele.
+      if (vinculada && resposta.motivoDaCorrecao) {
+        setRecusa({ motivo: resposta.motivoDaCorrecao, frase: resposta.erro, tentativa });
+      } else {
+        setErro(resposta.erro);
+      }
       return;
     }
 
@@ -835,7 +884,7 @@ export function PainelVenda({
       return;
     }
 
-    if (comCorrecao) {
+    if (vinculada) {
       // A volta à Venda comum (sem a faixa, sem `?corrige=`): a página monta o toast “Venda nº {33}
       // cancelada e nº {38} lançada no lugar · {R$}” lendo o vínculo no banco. `replace`: o “voltar” do
       // navegador não reabre a correção de uma original que acabou de ser cancelada. O rascunho comum
@@ -851,7 +900,11 @@ export function PainelVenda({
       return;
     }
 
-    window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
+    // A venda que saiu de uma correção desligada (plano 18) nunca leu o rascunho comum — a venda em
+    // montagem continua guardada.
+    if (!comCorrecao) {
+      window.sessionStorage.removeItem(CHAVE_RASCUNHO_VENDA);
+    }
     // Navegação completa de propósito (nunca `router.push`/`router.refresh`) — a página resolve
     // o aviso no servidor a partir de `?aviso=lancado&documento=<id>`.
     window.location.assign(rotaDeGestao(`/financeiro?aba=venda&aviso=lancado&documento=${resposta.dados.id}`));
@@ -1009,6 +1062,16 @@ export function PainelVenda({
           </p>
         )}
 
+        {recusa && (
+          <ErroDaCorrecao
+            key={recusa.tentativa}
+            tipo="venda"
+            motivo={recusa.motivo}
+            frase={recusa.frase}
+            aoLancarComoNova={lancarComoNova}
+          />
+        )}
+
         {/* FORA do `<details>` do efeito, que nasce fechado (Pitfall 16): o aviso de negativo tem
             de ser visto sem abrir nada, logo acima dos botões — e nunca desabilita "Lançar venda". */}
         {materiaisNegativos.length > 0 && (
@@ -1031,9 +1094,10 @@ export function PainelVenda({
             disabled={!podeLancar}
             className="min-h-[44px] flex-1"
             onClick={() => void aoLancar()}
-            data-testid={comCorrecao ? "lancar-correcao" : undefined}
+            ref={botaoLancarRef}
+            data-testid={vinculada ? "lancar-correcao" : undefined}
           >
-            {comCorrecao && correcao !== null ? rotuloLancarCorrecao(correcao.numero) : ROTULO_LANCAR_VENDA}
+            {vinculada && correcao !== null ? rotuloLancarCorrecao(correcao.numero) : ROTULO_LANCAR_VENDA}
           </Button>
         </div>
       </section>
@@ -1064,6 +1128,7 @@ export function PainelVenda({
             numeroOriginal={correcao.numero}
             comEstoque={correcao.comEstoque}
             deFora={correcao.deFora}
+            desligada={desligada}
           />
         </div>
         {painel}

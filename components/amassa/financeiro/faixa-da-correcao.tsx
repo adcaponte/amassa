@@ -7,6 +7,7 @@ import {
   ROTULO_VOLTAR_AO_CAIXA,
   fraseItensDeForaDaCorrecao,
   linha2DaFaixaDaCorrecao,
+  linha2DaFaixaDesligada,
   tituloDaFaixaDaCorrecao,
   type TipoDeDocumentoParaTexto,
 } from "@/lib/financeiro/textos";
@@ -22,6 +23,8 @@ export type FaixaDaCorrecaoProps = {
   comEstoque: boolean;
   // Os nomes dos itens que não estão mais ativos no Catálogo e ficaram de fora.
   deFora: readonly string[];
+  // Depois de “Lançar como venda/despesa nova” (plano 18): o vínculo saiu, e a 2ª linha diz isso.
+  desligada?: boolean;
 };
 
 // A faixa no topo da Venda/Despesa aberta por “Corrigir” (06.5-UI-SPEC.md §“Corrigir” um lançamento,
@@ -29,7 +32,14 @@ export type FaixaDaCorrecaoProps = {
 // 13,89:1), `role="status"`, ANTES do carrinho na ordem de leitura. Ela é quem explica — a original
 // continua valendo até o lançamento, e sair sem lançar não muda nada; quem confirma é o “Lançar e
 // cancelar a nº {N}” do painel. “Voltar ao Caixa” não grava nada.
-export function FaixaDaCorrecao({ tipo, originalId, numeroOriginal, comEstoque, deFora }: FaixaDaCorrecaoProps) {
+export function FaixaDaCorrecao({
+  tipo,
+  originalId,
+  numeroOriginal,
+  comEstoque,
+  deFora,
+  desligada = false,
+}: FaixaDaCorrecaoProps) {
   return (
     <div
       role="status"
@@ -40,8 +50,14 @@ export function FaixaDaCorrecao({ tipo, originalId, numeroOriginal, comEstoque, 
       <p data-testid="faixa-correcao-titulo" className="font-semibold [overflow-wrap:anywhere]">
         {tituloDaFaixaDaCorrecao(tipo, numeroOriginal)}
       </p>
-      <p data-testid="faixa-correcao-linha2" className="[overflow-wrap:anywhere]">
-        {linha2DaFaixaDaCorrecao(tipo, numeroOriginal, comEstoque)}
+      <p
+        data-testid="faixa-correcao-linha2"
+        data-desligada={desligada ? "true" : undefined}
+        className="[overflow-wrap:anywhere]"
+      >
+        {desligada
+          ? linha2DaFaixaDesligada(numeroOriginal)
+          : linha2DaFaixaDaCorrecao(tipo, numeroOriginal, comEstoque)}
       </p>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p className="min-w-0 [overflow-wrap:anywhere]">{FRASE_FAIXA_DA_CORRECAO_SAIR}</p>
