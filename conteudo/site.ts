@@ -192,3 +192,13 @@ export const SLOTS_DE_IMAGEM = {
 } as const;
 
 export type SlotDeImagem = keyof typeof SLOTS_DE_IMAGEM;
+
+// Fase 06.5, plano 21 (D-32, UI-D18, 06/10/2026): as fotos da faixa do Instagram, entre
+// "Encomendas" e "Onde fica". Slot do dono: lista VAZIA = a faixa não existe no site (nenhum
+// retângulo, nenhum "em breve" — a regra D-20 das imagens). Só fotos ESTÁTICAS que o dono mandar,
+// copiadas para `public/site/` (`arquivo` é o nome dentro dessa pasta) — nenhuma chamada à API do
+// Instagram, nenhum embed, nada que rastreie quem visita. `alt` é obrigatório: foto sem `alt` não
+// entra. No máximo 6 aparecem, na ordem desta lista (`fotosDaFaixa`, lib/site/instagram.ts).
+export type FotoDoInstagram = { readonly arquivo: string; readonly alt: string };
+
+export const FOTOS_DO_INSTAGRAM: readonly FotoDoInstagram[] = [];

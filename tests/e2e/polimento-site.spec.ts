@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { FOTOS_DO_INSTAGRAM } from "@/conteudo/site";
+
 import { medirCaixa } from "./apoio/medir-caixa";
 
 // Fase 06.5, plano 21 (D-29, POL-14): o site público para a abertura. O link "Pular para o conteúdo"
@@ -49,6 +51,45 @@ test.describe("polimento site — pular", () => {
       await expect(pular).not.toBeFocused();
     });
   }
+});
+
+// D-32 / UI-D18: a faixa do Instagram só existe com fotos do dono. No estado do repositório
+// (`FOTOS_DO_INSTAGRAM` vazio), ela não deixa rastro nenhum entre "Encomendas" e "Onde fica".
+test.describe("polimento site — instagram", () => {
+  test("com FOTOS_DO_INSTAGRAM vazio, a faixa não existe e nada fala de Instagram entre Encomendas e Onde fica", async ({
+    page,
+  }) => {
+    test.skip(FOTOS_DO_INSTAGRAM.length > 0, "Só vale enquanto o dono não mandou as fotos.");
+
+    await page.goto("/");
+    await expect(page.getByTestId("site-encomendas")).toBeVisible();
+    await expect(page.getByTestId("site-onde")).toBeVisible();
+
+    await expect(page.getByTestId("site-instagram")).toHaveCount(0);
+    await expect(page.getByTestId("site-instagram-foto")).toHaveCount(0);
+    await expect(page.locator("#instagram")).toHaveCount(0);
+
+    // Os irmãos entre as duas seções, no DOM: o texto de cada um (a faixa da fachada, se um dia
+    // existir, não fala de Instagram). Hoje a lista é vazia — fachada e Instagram são slots vazios.
+    const entreAsSecoes = await page.evaluate(() => {
+      const encomendas = document.querySelector('[data-testid="site-encomendas"]');
+      const textos: string[] = [];
+      for (let irmao = encomendas?.nextElementSibling; irmao; irmao = irmao.nextElementSibling) {
+        if (irmao.getAttribute("data-testid") === "site-onde") break;
+        textos.push(irmao.textContent ?? "");
+      }
+      return textos;
+    });
+    for (const texto of entreAsSecoes) expect(texto).not.toMatch(/instagram/i);
+
+    // A seção seguinte às Encomendas, descontada a fachada (slot vazio), é o "Onde fica".
+    const proximaDepoisDasEncomendas = await page.evaluate(() => {
+      let irmao = document.querySelector('[data-testid="site-encomendas"]')?.nextElementSibling;
+      while (irmao && irmao.getAttribute("data-testid") === "site-faixa-fachada") irmao = irmao.nextElementSibling;
+      return irmao?.getAttribute("data-testid") ?? null;
+    });
+    expect(proximaDepoisDasEncomendas).toBe("site-onde");
+  });
 });
 
 // D-29: o que o Google e o WhatsApp leem. Os endereços absolutos saem do `metadataBase` das duas

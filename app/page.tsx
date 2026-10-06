@@ -6,6 +6,7 @@ import { BarraInferiorFixa } from "@/components/site/barra-inferior-fixa";
 import { BarraSuperior } from "@/components/site/barra-superior";
 import { Encomendas } from "@/components/site/encomendas";
 import { FaixaDaFachada } from "@/components/site/faixa-da-fachada";
+import { FaixaDoInstagram } from "@/components/site/faixa-do-instagram";
 import { FaixaEmConstrucao } from "@/components/site/faixa-em-construcao";
 import { OEspaco } from "@/components/site/o-espaco";
 import { OndeFica } from "@/components/site/onde-fica";
@@ -83,6 +84,8 @@ export default function PaginaDoSite() {
         <AgendaPublica hoje={hojeEmBrasilia(new Date())} />
         <Encomendas />
         <FaixaDaFachada />
+        {/* D-32/UI-D18: só existe com fotos do dono em FOTOS_DO_INSTAGRAM — vazio não renderiza. */}
+        <FaixaDoInstagram />
         <OndeFica />
       </main>
       <Rodape />

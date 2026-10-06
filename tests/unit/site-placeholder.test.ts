@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CONTEUDO_SITE, MENSAGENS_DO_WHATSAPP, SLOTS_DE_IMAGEM } from "@/conteudo/site";
+import { CONTEUDO_SITE, FOTOS_DO_INSTAGRAM, MENSAGENS_DO_WHATSAPP, SLOTS_DE_IMAGEM } from "@/conteudo/site";
 import { DATA_DA_GUARDA, placeholdersNoAr } from "@/lib/site/placeholder";
 
 // D-28 (Fase 06.5): a guarda anti-placeholder do site. Os casos com data INJETADA provam os dois
@@ -76,6 +76,8 @@ describe("conteudo/site.ts — a guarda de 01/12/2026 com o relógio de verdade 
     coletarStrings(CONTEUDO_SITE, strings);
     coletarStrings(MENSAGENS_DO_WHATSAPP, strings);
     coletarStrings(SLOTS_DE_IMAGEM, strings);
+    // 06.5-21: o `alt` das fotos do Instagram também vai ao ar (no HTML), quando o dono mandar as fotos.
+    coletarStrings(FOTOS_DO_INSTAGRAM, strings);
     expect(strings.length).toBeGreaterThan(0);
 
     const hoje = hojeEmBrasilia();
