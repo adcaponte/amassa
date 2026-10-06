@@ -1,6 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 
 // "Atualizar preços" (04.5-09-PLAN.md, D-23): compara peça a peça o mínimo CONGELADO com o de
@@ -325,15 +326,13 @@ test.describe("orcamentos revisao @parametro-global", () => {
     await expect(botaoCancelar).toBeVisible();
 
     for (const botao of [botaoAtualizar, botaoCancelar]) {
-      const caixa = await botao.boundingBox();
-      expect(caixa).not.toBeNull();
-      expect(caixa!.height).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(botao);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
     }
 
     for (const entrada of await page.getByTestId("atualizar-preco-novo").all()) {
-      const caixa = await entrada.boundingBox();
-      expect(caixa).not.toBeNull();
-      expect(caixa!.height).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(entrada, "campo do preço novo");
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
     }
   });
 });

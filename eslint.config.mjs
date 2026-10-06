@@ -9,15 +9,6 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
-// Specs e2e que ainda medem caixa do jeito antigo, com `boundingBox()` direto (D-23, Fase 06.5). O
-// plano 06.5-23 os migra para `medirCaixa` e APAGA esta lista. Nenhum arquivo novo entra nela: teste
-// novo mede só por `tests/e2e/apoio/medir-caixa.ts`.
-const ESPECS_COM_BOUNDINGBOX_ANTIGO = [
-  "tests/e2e/orcamentos-ciclo.spec.ts",
-  "tests/e2e/orcamentos-revisao.spec.ts",
-  "tests/e2e/precificacao-parametros.spec.ts",
-];
-
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
@@ -36,8 +27,11 @@ const eslintConfig = [
   {
     // `boundingBox()` não espera nada: mede o conteúdo ainda oculto do streaming do `loading.tsx` e
     // devolve `null` (run 37209767592). `medirCaixa` espera a visibilidade antes de medir (D-23).
+    // Vale para TODO arquivo de `tests/e2e/` desde o plano 06.5-23, que migrou os 42 specs antigos e
+    // apagou a lista de exceções; a única exceção é o próprio auxiliar, que é quem chama
+    // `boundingBox()` depois de esperar. Nenhuma exceção nova: meça por `medirCaixa`.
     files: ["tests/e2e/**/*.ts"],
-    ignores: ["tests/e2e/apoio/medir-caixa.ts", ...ESPECS_COM_BOUNDINGBOX_ANTIGO],
+    ignores: ["tests/e2e/apoio/medir-caixa.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
