@@ -9,6 +9,7 @@ import { FaixaDaFachada } from "@/components/site/faixa-da-fachada";
 import { FaixaEmConstrucao } from "@/components/site/faixa-em-construcao";
 import { OEspaco } from "@/components/site/o-espaco";
 import { OndeFica } from "@/components/site/onde-fica";
+import { PularParaOConteudo } from "@/components/site/pular-para-o-conteudo";
 import { Rodape } from "@/components/site/rodape";
 import { SLOTS_DE_IMAGEM } from "@/conteudo/site";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -61,14 +62,20 @@ export const metadata: Metadata = {
 export default function PaginaDoSite() {
   return (
     <div className="min-h-screen bg-site-fundo pt-[var(--altura-barra-site)] pb-[84px] text-site-tinta md:pb-0">
+      {/* D-29 (Fase 06.5): o "Pular para o conteúdo" é o primeiro elemento focável da página, e o
+          `<main>` envolve só o conteúdo — da abertura até "Onde fica". A faixa "em construção", as
+          duas barras fixas e o rodapé ficam fora: são a moldura que o link existe para pular. */}
+      <PularParaOConteudo />
       <FaixaEmConstrucao />
       <BarraSuperior />
-      <Abertura />
-      <OEspaco />
-      <AgendaPublica hoje={hojeEmBrasilia(new Date())} />
-      <Encomendas />
-      <FaixaDaFachada />
-      <OndeFica />
+      <main id="conteudo" tabIndex={-1} className="scroll-mt-[var(--altura-barra-site)] outline-none">
+        <Abertura />
+        <OEspaco />
+        <AgendaPublica hoje={hojeEmBrasilia(new Date())} />
+        <Encomendas />
+        <FaixaDaFachada />
+        <OndeFica />
+      </main>
       <Rodape />
       <BarraInferiorFixa />
     </div>

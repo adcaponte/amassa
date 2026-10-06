@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CONTEUDO_SITE } from "@/conteudo/site";
+import { PularParaOConteudo } from "@/components/site/pular-para-o-conteudo";
 import { Rodape } from "@/components/site/rodape";
 import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 
@@ -28,7 +29,9 @@ export default function PaginaDePrivacidade() {
 
   return (
     <div className="min-h-screen bg-site-fundo text-site-tinta">
-      <main className="mx-auto max-w-[68ch] px-4 py-14 md:py-20">
+      {/* D-29 (Fase 06.5): o mesmo "Pular para o conteúdo" da raiz, primeiro elemento focável. */}
+      <PularParaOConteudo />
+      <main id="conteudo" tabIndex={-1} className="mx-auto max-w-[68ch] px-4 py-14 outline-none md:py-20">
         <Link href="/" className="text-sm text-site-tinta-fraca underline">
           ← AMASSA CERRADO
         </Link>
