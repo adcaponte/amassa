@@ -246,7 +246,9 @@ export default async function PaginaFinanceiro({
   // preenchida com a original, que continua valendo até o lançamento. A página só LÊ — nenhuma ação ao
   // abrir. O id é validado como uuid ANTES de qualquer consulta (T-06.5-47); lixo conta como “não achei”.
   // Com `?corrige=` e `?origem=` juntos, vale a correção (a origem nem é lida).
-  const pediuCorrecao = abaVenda && corrige !== undefined && corrige !== "";
+  // A Despesa (plano 18) trata `?corrige=` do mesmo jeito, com as frases de despesa.
+  const tipoDaCorrecao = abaVenda ? ("venda" as const) : abaDespesa ? ("despesa" as const) : null;
+  const pediuCorrecao = tipoDaCorrecao !== null && corrige !== undefined && corrige !== "";
   const correcaoId =
     pediuCorrecao && typeof corrige === "string" && REGEX_UUID_DOCUMENTO.test(corrige) ? corrige : null;
   // Mesma disciplina da origem (WR-07): a promessa nasce aqui com o `catch` preso, e uma falha vira “não
@@ -389,34 +391,44 @@ export default async function PaginaFinanceiro({
 
   // A correção, decidida AQUI (servidor): não achada (ou de outro tipo), cancelada (inclusive já
   // corrigida) ou de uma origem que não se corrige por aqui (UI-D10) → a frase no lugar do carrinho; senão
-  // a Venda preenchida pelo `rascunhoDaCorrecao` (puro), com a versão de `obterDocumentoParaCorrecao`.
+  // a Venda/Despesa preenchida pelo `rascunhoDaCorrecao` (puro), com a versão de `obterDocumentoParaCorrecao`.
   const documentoParaCorrecao = await documentoParaCorrecaoPromessa;
   let fraseCorrecaoIndisponivel: string | null = null;
   let correcaoNoPainel: CorrecaoNoPainel | null = null;
-  let rascunhoDaCorrecaoNaVenda: RascunhoDaCorrecao | null = null;
-  if (pediuCorrecao) {
-    if (!documentoParaCorrecao || documentoParaCorrecao.tipo !== "venda") {
-      fraseCorrecaoIndisponivel = fraseCorrecaoNaoAchada("venda");
+  let rascunhoDaCorrecaoNoPainel: RascunhoDaCorrecao | null = null;
+  // Na Despesa, o fornecedor da original: ligado (o id) quando ainda está entre os ativos desta página; senão
+  // `null`, e o nome entra como texto livre (o campo diz que não liga a ninguém) — `lancarDespesa` reconfere o
+  // fornecedor sob trava de qualquer jeito (T-06.5-53).
+  let fornecedorDaCorrecao: string | null = null;
+  if (pediuCorrecao && tipoDaCorrecao !== null) {
+    if (!documentoParaCorrecao || documentoParaCorrecao.tipo !== tipoDaCorrecao) {
+      fraseCorrecaoIndisponivel = fraseCorrecaoNaoAchada(tipoDaCorrecao);
     } else if (documentoParaCorrecao.cancelado) {
-      fraseCorrecaoIndisponivel = fraseCorrecaoDeCancelada("venda", documentoParaCorrecao.numero);
+      fraseCorrecaoIndisponivel = fraseCorrecaoDeCancelada(tipoDaCorrecao, documentoParaCorrecao.numero);
     } else if (documentoParaCorrecao.origem !== null) {
       fraseCorrecaoIndisponivel = fraseSemCorrecaoPorOrigem(
-        "venda",
+        tipoDaCorrecao,
         documentoParaCorrecao.origem,
         documentoParaCorrecao.numeroDoOrcamento,
       );
     } else {
-      rascunhoDaCorrecaoNaVenda = rascunhoDaCorrecao(
+      // “Ativo” = está na lista que a tela oferece: a da Venda ou a da Compra (material ativo com estoque).
+      rascunhoDaCorrecaoNoPainel = rascunhoDaCorrecao(
         documentoParaCorrecao,
-        new Set(catalogo.map((item) => item.id)),
+        new Set((tipoDaCorrecao === "venda" ? catalogo : catalogoDaCompra).map((item) => item.id)),
       );
       correcaoNoPainel = {
         documentoId: documentoParaCorrecao.id,
         numero: documentoParaCorrecao.numero,
         versao: documentoParaCorrecao.versao,
         comEstoque: documentoParaCorrecao.comEstoque,
-        deFora: rascunhoDaCorrecaoNaVenda.deFora,
+        deFora: rascunhoDaCorrecaoNoPainel.deFora,
       };
+      const fornecedorId = documentoParaCorrecao.fornecedorId;
+      fornecedorDaCorrecao =
+        fornecedorId !== null && (fornecedoresParaDespesa ?? []).some((fornecedor) => fornecedor.id === fornecedorId)
+          ? fornecedorId
+          : null;
     }
   }
   // UM objeto para o painel, montado pelo módulo da origem — o `PainelVenda` só olha `modulo`.
@@ -660,8 +672,16 @@ export default async function PaginaFinanceiro({
           hrefMesAnterior={hrefMesAnteriorDaTela}
           hrefMesSeguinte={hrefMesSeguinteDaTela}
         />
+      ) : abaDespesa && fraseCorrecaoIndisponivel ? (
+        <CorrecaoIndisponivel frase={fraseCorrecaoIndisponivel} />
       ) : abaDespesa ? (
         <PainelDespesa
+          // A `key` separa a Despesa comum da Despesa da correção: o painel monta de novo e começa do lugar
+          // certo, nunca do estado da tela anterior.
+          key={correcaoNoPainel ? `corrige-${correcaoNoPainel.documentoId}` : "comum"}
+          correcao={correcaoNoPainel}
+          rascunhoInicial={correcaoNoPainel ? rascunhoDaCorrecaoNoPainel : null}
+          fornecedorIdInicial={fornecedorDaCorrecao}
           hoje={hoje}
           categoriasParaDespesa={categoriasParaDespesa}
           catalogoDaCompra={catalogoDaCompra}
@@ -773,7 +793,7 @@ export default async function PaginaFinanceiro({
           }}
           origem={correcaoNoPainel ? null : origemNoPainel}
           rascunhoInicial={
-            correcaoNoPainel ? rascunhoDaCorrecaoNaVenda : origemNoPainel ? rascunhoDaOrigem : null
+            correcaoNoPainel ? rascunhoDaCorrecaoNoPainel : origemNoPainel ? rascunhoDaOrigem : null
           }
           correcao={correcaoNoPainel}
         />

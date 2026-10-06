@@ -6,6 +6,7 @@ import { ligarVendaAInscricao, semearCliente, semearInscricao, semearOficina } f
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
 import { saldoNoBanco, semearMaterial } from "./apoio/semear-estoque";
 import { hojeNoAtelie, semearItem, somarDiasAoHoje } from "./apoio/semear-financeiro";
+import { idDoDocumentoComLinha, semearFornecedor } from "./apoio/semear-fornecedores";
 
 // O “Corrigir” uma venda (Fase 06.5, plano 17 — D-18 com a UI-D9 do dono, 05/10/2026; UI-D10, UI-D11,
 // POL-08). A original CONTINUA VALENDO enquanto a corrigida é preenchida; ela só é cancelada na mesma
@@ -90,16 +91,30 @@ async function venderPelaTela(page: Page, busca: string, nome: string, vezes: nu
 }
 
 // Abre o detalhe do documento direto pelo Caixa (`?documentoId=`, o mesmo caminho de “Ver venda no
-// Financeiro”) e toca em “Corrigir esta venda”.
-async function abrirCorrecao(page: Page, documentoId: string) {
+// Financeiro”) e toca em “Corrigir esta venda” (ou “… despesa”).
+async function abrirCorrecao(page: Page, documentoId: string, tipo: "venda" | "despesa" = "venda") {
   await page.goto(`/gestao/financeiro?aba=caixa&documentoId=${documentoId}`);
   const detalhe = page.getByTestId("documento-detalhe");
   await expect(detalhe).toBeVisible();
   const corrigir = detalhe.getByTestId("documento-corrigir");
-  await expect(corrigir).toHaveText("Corrigir esta venda");
+  await expect(corrigir).toHaveText(`Corrigir esta ${tipo}`);
   await corrigir.click();
-  await expect(page).toHaveURL(new RegExp(`aba=venda&corrige=${documentoId}`));
+  await expect(page).toHaveURL(new RegExp(`aba=${tipo}&corrige=${documentoId}`));
   await expect(page.getByTestId("faixa-correcao")).toBeVisible();
+}
+
+// Os documentos (despesas) ligados a um fornecedor, na ordem do número.
+async function despesasDoFornecedor(fornecedorId: string): Promise<(DocumentoNoBanco & { pessoaNome: string | null })[]> {
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<DocumentoNoBanco & { pessoaNome: string | null }>(
+      `select id, numero, cancelado_em is not null as cancelado, pessoa_nome as "pessoaNome"
+         from documentos
+        where fornecedor_id = $1
+        order by numero`,
+      [fornecedorId],
+    );
+    return rows;
+  });
 }
 
 test.describe("polimento corrigir — venda", () => {
@@ -347,5 +362,104 @@ test.describe("polimento corrigir — detalhe", () => {
       await expect(indisponivel.getByTestId("correcao-voltar-ao-caixa")).toHaveAttribute("href", "/gestao/financeiro?aba=caixa");
       await expect(page.getByTestId("faixa-correcao")).toHaveCount(0);
     }
+  });
+});
+
+// O “Corrigir” uma DESPESA (Fase 06.5, plano 18 — D-18/UI-D9, POL-08 “inclusive o fornecedor”): a Despesa
+// abre com as linhas de material (a quantidade de estoque e o valor da linha antiga), o fornecedor do
+// cadastro ainda ligado, a data e o pagamento. Lançar cancela a original — as entradas de material dela
+// saem do estoque — e lança a nova, ligada ao mesmo fornecedor.
+test.describe("polimento corrigir — despesa", () => {
+  test("(a) uma compra de 5 corrigida para 3: o fornecedor ligado, a original riscada e o estoque com +3, não +8", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nomeDoFornecedor = `[e2e] Olaria da Correção Inventada ${suf}`;
+    const nomeDoMaterial = `[e2e] Esmalte da correção ${suf}`;
+    const fornecedorId = await semearFornecedor({ nome: nomeDoFornecedor, vende: "esmalte" });
+    const material = await semearItem({
+      nome: nomeDoMaterial,
+      apareceNaVenda: false,
+      atalhoVenda: false,
+      controlaEstoque: true,
+      unidade: "un",
+      categoriaCompra: "Argila, esmalte e insumos",
+      atalhoCompra: true,
+    });
+
+    // A original, lançada pela tela: 5 un por R$ 100,00, paga em dinheiro, ligada ao fornecedor.
+    await fazerLogin(page);
+    await page.goto("/gestao/financeiro?aba=despesa");
+    await page.getByTestId("despesa-modo-compra").click();
+    await page.getByTestId("compra-busca").fill(suf);
+    await page.getByTestId("compra-atalho").filter({ hasText: nomeDoMaterial }).click();
+    await expect(page.getByTestId("compra-linha")).toHaveCount(1);
+    await page.getByLabel("Fornecedor (opcional)").fill(nomeDoFornecedor);
+    await page.getByTestId("despesa-fornecedor-opcao").filter({ hasText: nomeDoFornecedor }).click();
+    await expect(page.getByTestId("despesa-fornecedor-vinculo")).toHaveAttribute("data-estado", "ligado");
+    await page.getByTestId("compra-quantos").fill("5");
+    await page.getByTestId("compra-custou").fill("100");
+    const lancarDespesa = page.getByRole("button", { name: "Lançar despesa" });
+    await expect(lancarDespesa).toBeEnabled();
+    await lancarDespesa.click();
+    await expect(page.getByText(/^Despesa nº \d+ lançada · R\$\s100,00$/)).toBeVisible({ timeout: 10000 });
+    const originalId = await idDoDocumentoComLinha(nomeDoMaterial);
+    const original = await documentoNoBanco(originalId);
+    expect(await saldoNoBanco(material)).toBe(5000);
+
+    // “Corrigir esta despesa” → a Despesa preenchida, com a faixa na variante despesa (com o estoque).
+    await abrirCorrecao(page, originalId, "despesa");
+    const faixa = page.getByTestId("faixa-correcao");
+    await expect(faixa).toHaveAttribute("data-original-id", originalId);
+    await expect(faixa.getByTestId("faixa-correcao-titulo")).toHaveText(`Corrigindo a despesa nº ${original.numero}`);
+    await expect(faixa.getByTestId("faixa-correcao-linha2")).toHaveText(
+      `A nº ${original.numero} continua valendo até você lançar esta. Ao lançar, ela é cancelada (fica riscada no extrato, e as entradas de material dela saem do estoque) e esta entra no lugar, com outro número.`,
+    );
+    await expect(page.getByTestId("despesa-modo-compra")).toHaveAttribute("aria-pressed", "true");
+    // O fornecedor escolhido, ainda ligado ao cadastro; a linha com a quantidade e o valor da original.
+    await expect(page.getByLabel("Fornecedor (opcional)")).toHaveValue(nomeDoFornecedor);
+    await expect(page.getByTestId("despesa-fornecedor-vinculo")).toHaveAttribute("data-estado", "ligado");
+    const linha = page.getByTestId("compra-linha").filter({ hasText: nomeDoMaterial });
+    await expect(linha).toHaveCount(1);
+    await expect(linha.getByTestId("compra-quantos")).toHaveValue("5");
+    await expect(linha.getByTestId("compra-custou")).toHaveValue("100,00");
+    await expect(page.getByTestId("despesa-total")).toHaveText(/^R\$\s100,00$/);
+
+    // 3 em vez de 5 — o total não muda, o pagamento continua como estava (pago).
+    await linha.getByTestId("compra-quantos").fill("3");
+    await expect(page.getByTestId("pagamento-ja-pago").getByRole("checkbox")).toBeChecked();
+    const lancar = page.getByTestId("lancar-correcao");
+    await expect(lancar).toHaveText(`Lançar e cancelar a nº ${original.numero}`);
+    await expect(lancar).toBeEnabled();
+    await lancar.click();
+
+    const toast = page.getByText(
+      new RegExp(`^Despesa nº ${original.numero} cancelada e nº (\\d+) lançada no lugar · R\\$\\s100,00$`),
+    );
+    await expect(toast).toBeVisible({ timeout: 10000 });
+    const numeroNova = Number(/nº (\d+) lançada/.exec((await toast.textContent()) ?? "")?.[1]);
+    await expect(page).not.toHaveURL(/corrige=/);
+    await expect(page.getByTestId("faixa-correcao")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lançar despesa" })).toBeVisible();
+
+    // O banco: a original cancelada, a nova ativa ligada ao MESMO fornecedor, o vínculo, e o estoque com +3
+    // (as +5 da original saíram, as +3 da nova entraram).
+    const despesas = await despesasDoFornecedor(fornecedorId);
+    expect(despesas).toHaveLength(2);
+    expect(despesas[0]).toMatchObject({ id: originalId, cancelado: true });
+    expect(despesas[1]).toMatchObject({ numero: numeroNova, cancelado: false, pessoaNome: nomeDoFornecedor });
+    expect(await corrigidaPor(originalId)).toBe(despesas[1].id);
+    expect(await saldoNoBanco(material)).toBe(3000);
+
+    // No Caixa: a original riscada, a nova ativa; o detalhe da nova mostra o fornecedor e o vínculo.
+    await page.goto("/gestao/financeiro?aba=caixa");
+    const linhasDoExtrato = page.getByTestId("extrato-linha").filter({ hasText: nomeDoMaterial });
+    await expect(linhasDoExtrato).toHaveCount(2);
+    await expect(linhasDoExtrato.filter({ hasText: "cancelada" })).toHaveCount(1);
+    await page.goto(`/gestao/financeiro?aba=caixa&documentoId=${despesas[1].id}`);
+    const detalhe = page.getByTestId("documento-detalhe");
+    await expect(detalhe).toBeVisible();
+    await expect(detalhe).toContainText(nomeDoFornecedor);
+    await expect(detalhe.getByTestId("documento-corrige")).toHaveText(`Corrige a despesa nº ${original.numero}`);
   });
 });
