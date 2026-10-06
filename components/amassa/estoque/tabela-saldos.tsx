@@ -25,9 +25,9 @@ import { Button } from "@/components/ui/button";
 import {
   COR_DO_SALDO,
   ChipDoSaldo,
+  CustoMedio,
   PontoDaArea,
   formatarMilesimos,
-  textoDoCustoMedio,
 } from "./cartao-saldo";
 
 export type TabelaSaldosProps = {
@@ -130,8 +130,11 @@ export function TabelaSaldos({ saldos, aoDarBaixa, aoVerHistorico }: TabelaSaldo
                     ? SEM_MINIMO_NA_TABELA
                     : `${formatarMilesimos(saldo.estoqueMinimoMilesimos)} ${unidade}`}
                 </td>
-                <td className="text-tinta px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                  {textoDoCustoMedio(saldo)}
+                <td
+                  data-testid="estoque-cartao-custo"
+                  className="text-tinta px-4 py-3 text-right whitespace-nowrap tabular-nums"
+                >
+                  <CustoMedio saldo={saldo} />
                 </td>
                 <td className="text-tinta px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums">
                   {formatarReais(saldo.valorCentavos)}

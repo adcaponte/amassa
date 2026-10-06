@@ -296,9 +296,10 @@ export function FolhaMovimentacao({
       if (!custo.ok) {
         return { campo: "custo", mensagem: custo.erro };
       }
-      // Peça pronta de graça derrubaria o custo médio das outras (EST-21) — o servidor recusa
-      // igual; aqui só se avisa antes.
-      if (custo.centavos === null || (ehPecaPronta && custo.centavos === 0)) {
+      // Vazio vale R$ 0 na entrada comum (D-04, 06.5) — o servidor decide igual. Peça pronta de
+      // graça derrubaria o custo médio das outras (EST-21): o servidor recusa o vazio e o zero
+      // dela; aqui só se avisa antes.
+      if (ehPecaPronta && (custo.centavos === null || custo.centavos === 0)) {
         return { campo: "custo", mensagem: FRASE_CUSTO_OBRIGATORIO };
       }
       return null;

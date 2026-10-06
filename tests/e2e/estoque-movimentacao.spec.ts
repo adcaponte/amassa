@@ -266,7 +266,7 @@ test.describe("estoque movimentacao", () => {
     expect(vinculos[1]).toMatchObject({ encomendaId: null, nota: "Turma de terça [e2e]" });
   });
 
-  test("(g) peça pronta com ficha: custo preenchido que segue a quantidade até ser editado; sem ficha, obrigatório", async ({
+  test("(g) peça pronta com ficha: custo preenchido que segue a quantidade até ser editado; sem ficha, vazio vale R$ 0", async ({
     page,
   }) => {
     const sufixo = sufixoUnico();
@@ -316,17 +316,34 @@ test.describe("estoque movimentacao", () => {
     expect(vinculosDaPeca[0].motivo).toBe("peca_pronta");
     expect((await movimentacoesDoItem(pecaId))[0].valorInformadoCentavos).toBe(5000);
 
-    // Sem ficha: custo vazio e obrigatório, com a frase embaixo do campo.
+    // A peça pronta com o custo APAGADO continua recusada (EST-21 não muda com a 06.5), com a
+    // frase embaixo do campo.
+    await cartaoDoItem(page, pecaId).getByTestId("estoque-dar-baixa").click();
+    await folha.getByTestId("folha-tipo-entrada").click();
+    await folha.getByTestId("folha-quantidade").fill("1");
+    await expect(custo).not.toHaveValue("");
+    await custo.fill("");
+    await folha.getByTestId("folha-registrar").click();
+    const erro = folha.getByTestId("folha-erro");
+    await expect(erro).toHaveText("Diga quanto custou ao todo — é daí que sai o custo médio.");
+    await expect(erro).toHaveAttribute("role", "alert");
+    await expect(custo).toBeFocused();
+    expect(await movimentacoesDoItem(pecaId)).toHaveLength(1);
+    await folha.getByTestId("folha-fechar").click();
+    await expect(folha).toBeHidden();
+
+    // Sem ficha: até 05/10/2026 o custo vazio era recusado com a mesma frase; desde a 06.5 (D-04)
+    // ele vale R$ 0 — doação, sobra — e a entrada grava.
     await cartaoDoItem(page, comumId).getByTestId("estoque-dar-baixa").click();
     await folha.getByTestId("folha-tipo-entrada").click();
     await folha.getByTestId("folha-quantidade").fill("2");
     await expect(folha.getByTestId("folha-custo")).toHaveValue("");
     await folha.getByTestId("folha-registrar").click();
-    const erro = folha.getByTestId("folha-erro");
-    await expect(erro).toHaveText("Diga quanto custou ao todo — é daí que sai o custo médio.");
-    await expect(erro).toHaveAttribute("role", "alert");
-    await expect(folha.getByTestId("folha-custo")).toBeFocused();
-    expect(await movimentacoesDoItem(comumId)).toHaveLength(0);
+    await expect(page.getByText(`Entrada de 2 kg em ${nomeComum}.`)).toBeVisible();
+    await expect(folha).toBeHidden();
+    const linhasDaComum = await movimentacoesDoItem(comumId);
+    expect(linhasDaComum).toHaveLength(1);
+    expect(linhasDaComum[0].valorInformadoCentavos).toBe(0);
   });
 
   test("(h) saída maior que o saldo avisa na prévia, não bloqueia e grava", async ({ page }) => {

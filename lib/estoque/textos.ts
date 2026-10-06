@@ -23,6 +23,8 @@ export const FRASE_FALHA_AO_REGISTRAR =
 export const FRASE_QUANTIDADE_ZERO = "A quantidade precisa ser maior que zero.";
 export const FRASE_QUANTIDADE_INVALIDA = "Digite a quantidade — por exemplo, 2 ou 0,5.";
 export const FRASE_DESTINO_OBRIGATORIO = "Escolha para onde o material foi.";
+// Desde a 06.5 (D-04) só a PEÇA PRONTA recusa o custo vazio ou zero (EST-21): a entrada comum
+// aceita o vazio como R$ 0 (doação, sobra).
 export const FRASE_CUSTO_OBRIGATORIO = "Diga quanto custou ao todo — é daí que sai o custo médio.";
 
 // §Erros — "Material desativado por outra pessoa enquanto a folha estava aberta".
@@ -49,7 +51,8 @@ export function dicaDaQuantidade(unidade: string): string {
   return `em ${unidade}`;
 }
 export const ROTULO_CUSTO = "Quanto custou ao todo";
-export const DICA_CUSTO = "o valor da nota, em reais — é daí que sai o custo médio";
+// D-04 (06.5). Até 05/10/2026: "o valor da nota, em reais — é daí que sai o custo médio".
+export const DICA_CUSTO = "o valor da nota, em reais — vazio conta como R$ 0 (doação, sobra)";
 export const ROTULO_DESTINO = "Para onde foi?";
 export const DICA_DESTINO = "obrigatório — é o que diz qual área pagou";
 
@@ -107,8 +110,26 @@ export function textoMetaMinimo(minimo: string, unidade: string): string {
 }
 // Custo médio sem nenhuma entrada com preço (D-26) — nunca "R$ 0,00/kg", nunca vazio.
 export const SEM_CUSTO_CONHECIDO = "—";
+// Custo médio ZERO (D-04, 06.5): doação, sobra — entrada com o custo vazio ou com 0 digitado.
+export const SEM_CUSTO = "sem custo";
 export function textoCustoMedio(reais: string, unidade: string): string {
   return `${reais}/${unidade}`;
+}
+// O custo médio como a tela mostra (UI-SPEC 06.5): "sem custo" é o custo zero; "—" é o custo
+// desconhecido (nenhuma entrada); nunca "R$ 0,00/kg". O dinheiro é formatado por quem chama
+// (`formatarReais`), como em `contadorDaLista`: este módulo continua sem nenhum import.
+export function rotuloDoCustoMedio(
+  custoCentavos: number | null,
+  unidade: string,
+  formatarDinheiro: (centavos: number) => string,
+): string {
+  if (custoCentavos === null) {
+    return SEM_CUSTO_CONHECIDO;
+  }
+  if (custoCentavos === 0) {
+    return SEM_CUSTO;
+  }
+  return textoCustoMedio(formatarDinheiro(custoCentavos), unidade);
 }
 
 // §Aba Saldos → tabela (≥ 980px): cabeçalhos das colunas.
