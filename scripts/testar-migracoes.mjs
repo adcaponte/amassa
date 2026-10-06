@@ -7391,6 +7391,25 @@ async function provarJanelaDoPolimentoEmBancoProprio() {
         depois.todos === 2 && depois.ativos === 1,
         `Polimento (janela): depois da 0031 deveria haver 2 documentos, 1 ativo — veio ${JSON.stringify(depois)}.`,
       );
+
+      // O caminho de volta do Roteiro 22: o código ANTERIOR à 06.5 (sem o predicado) sobre o banco
+      // COM a 0031 não acha índice para inferir — 42P10. Reverter a publicação depois da migração
+      // deixa o “Gerar as contas” quebrado (e só ele); o roteiro diz isso. Roda e desfaz.
+      await cliente.query("begin");
+      const semPredicado = await erroDoBanco(() =>
+        cliente.query(
+          `insert into documentos (tipo, data, criado_por, conta_fixa_id, mes_referencia)
+           values ('despesa', '2026-04-05', $1, $2, '2026-04-01')
+           on conflict ("conta_fixa_id","mes_referencia") do nothing`,
+          [usuarioId, contaFixaId],
+        ),
+      );
+      await cliente.query("rollback");
+      afirmar(
+        semPredicado.codigo === "42P10",
+        "Polimento (janela): depois da 0031, a geração SEM o predicado (o código antigo) deveria cair em " +
+          `42P10 — o Roteiro 22 conta com isso no caminho de volta —, veio ${semPredicado.codigo}.`,
+      );
       console.log("  provarJanelaDoPolimentoEmBancoProprio: antes e depois da 0031, ok.");
     } finally {
       await cliente.end();
