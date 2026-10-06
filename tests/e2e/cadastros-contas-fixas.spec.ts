@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { mesDaGeracao, mesesParaGeracao, tituloDaContaFixa } from "@/lib/cadastros/contas-fixas";
 import { nomeDoMes } from "@/lib/financeiro/formato";
 
+import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 
 // Contas fixas com CRUD completo (04.4-10-PLAN.md, D-13): criar, ajustar o valor esperado na
@@ -165,6 +166,7 @@ test.describe("cadastros contas fixas", () => {
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloInternetGerado)).toHaveCount(0);
 
@@ -176,6 +178,7 @@ test.describe("cadastros contas fixas", () => {
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloInternetGerado)).toHaveCount(0);
 
@@ -202,6 +205,8 @@ test.describe("cadastros contas fixas", () => {
     await expect(
       page.getByText("Desfeito. A conta voltou a R$ 1.500,00 em aberto."),
     ).toBeVisible({ timeout: 10000 });
+    // O "Desfazer" recarrega a página; a conta do mês seguinte pode estar depois da janela (06.5-12).
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toContainText("R$ 1.500,00");
 
     // Reativa a Internet.
@@ -281,6 +286,7 @@ test.describe("cadastros contas fixas", () => {
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloDesativadaTerceiroMes)).toHaveCount(0);
 
@@ -296,6 +302,7 @@ test.describe("cadastros contas fixas", () => {
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloContabilidadeQuartoMes)).toHaveCount(1);
 
@@ -309,6 +316,7 @@ test.describe("cadastros contas fixas", () => {
     ).toBeVisible({ timeout: 10000 });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
 
     // A PRIMEIRA opção é o mês CORRENTE — a suposição que a excluía caiu (resposta do dono,

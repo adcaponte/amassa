@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
 import {
   garantirTaxaDeTeste,
@@ -26,8 +27,12 @@ function sufixoUnico(): string {
   return `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+// Desde a janela de 30 dias (06.5-12, D-03), as parcelas distantes (a 2ª e a 3ª de uma venda 3x)
+// ficam atrás de "Ver as {N} que vencem depois de…" — abrir as duas listas mantém o que cada teste
+// afirma sobre a conta. Sem conta depois, não faz nada.
 async function irParaCaixa(page: Page) {
   await page.goto("/gestao/financeiro?aba=caixa");
+  await abrirContasDepoisDaJanela(page);
 }
 
 function cartaoDaConta(page: Page, titulo: string) {
@@ -557,6 +562,8 @@ test.describe("financeiro caixa pagamento", () => {
     await expect(
       page.getByText("Desfeito. A conta voltou a R$ 800,00 em aberto."),
     ).toBeVisible({ timeout: 10000 });
+    // O "Desfazer" recarrega a página: a 2 de 3 pode ter voltado para depois da janela.
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, nomeEsmalte).filter({ hasText: "2 de 3" })).toContainText(
       "R$ 800,00",
     );

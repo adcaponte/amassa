@@ -3,6 +3,7 @@ import { Client } from "pg";
 
 import { mesesParaGeracao, tituloDaContaFixa } from "@/lib/cadastros/contas-fixas";
 
+import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import { semearFicha } from "./apoio/semear-producao";
 
@@ -100,6 +101,8 @@ test.describe("polimento banco — conta fixa", () => {
     // 1ª geração: a conta aparece em "A pagar".
     await gerarContasDoMes(page, mes);
     await page.goto("/gestao/financeiro?aba=caixa");
+    // O mês gerado fica no fim da faixa, depois da janela de 30 dias do Caixa (06.5-12).
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, titulo)).toHaveCount(1);
 
     // Cancela a despesa gerada pelo detalhe do Caixa.
@@ -117,12 +120,16 @@ test.describe("polimento banco — conta fixa", () => {
       timeout: 10000,
     });
     await page.goto("/gestao/financeiro?aba=caixa");
+    // O mês gerado fica no fim da faixa, depois da janela de 30 dias do Caixa (06.5-12).
+    await abrirContasDepoisDaJanela(page);
     await expect(page.getByTestId("caixa-a-pagar")).toBeVisible();
     await expect(cartaoDaConta(page, titulo)).toHaveCount(0);
 
     // 2ª geração do MESMO mês: a cancelada não segura o mês (D-26) — a conta volta, uma vez só.
     await gerarContasDoMes(page, mes);
     await page.goto("/gestao/financeiro?aba=caixa");
+    // O mês gerado fica no fim da faixa, depois da janela de 30 dias do Caixa (06.5-12).
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, titulo)).toHaveCount(1);
 
     // Faxina: desativa a conta, para ela não entrar nas gerações de outros testes.

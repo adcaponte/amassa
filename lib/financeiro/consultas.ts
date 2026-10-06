@@ -167,20 +167,6 @@ export async function somarMovimentosAntesDe(desde: string): Promise<GrupoDePaga
   return grupos.map((grupo) => ({ ...grupo, quantidade: Number(grupo.quantidade) }));
 }
 
-export type ParcelaEmAberto = { tipo: "venda" | "despesa"; valorCentavos: number };
-
-// Parcelas ABERTAS (sem `pago_em`) de documento NÃO cancelado — alimenta os tiles "A receber"/
-// "A pagar" (`resumoDoCaixa`, `lib/financeiro/extrato.ts`).
-export async function listarParcelasEmAberto(): Promise<ParcelaEmAberto[]> {
-  const linhas = await db
-    .select({ tipo: documentos.tipo, valorCentavos: parcelas.valorCentavos })
-    .from(parcelas)
-    .innerJoin(documentos, eq(parcelas.documentoId, documentos.id))
-    .where(and(isNull(parcelas.pagoEm), isNull(documentos.canceladoEm)));
-
-  return linhas;
-}
-
 export type DocumentoParaAviso = { numero: number; totalCentavos: number; parcelasEmAberto: number };
 
 // O que o aviso pós-navegação precisa mostrar ("Venda nº N lançada · R$ X"): número, total
@@ -325,7 +311,8 @@ export type ContaEmAberto = {
 };
 
 // Parcelas ABERTAS de documento NÃO cancelado, com o título calculado e a contagem de parcelas do
-// documento — alimenta `ListasCaixa` ("A pagar"/"A receber", FNC-07). TRÊS consultas (parcelas +
+// documento — alimenta `ListasCaixa` ("A pagar"/"A receber", FNC-07) e, desde o 06.5-12, os tiles
+// (só a parte da janela, `separarPelaJanela`). TRÊS consultas (parcelas +
 // documentos, documento_linhas, contagem de parcelas), nunca uma consulta por linha (mesma
 // disciplina de `listarMovimentos`). Ordenadas por vencimento e, no empate, por número do
 // documento.

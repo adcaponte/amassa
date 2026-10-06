@@ -21,7 +21,6 @@ import {
   listarDocumentosParaDetalhe,
   listarItensParaEfeito,
   listarMovimentos,
-  listarParcelasEmAberto,
   listarParcelasPagasNoMes,
   obterConfiguracaoFinanceira,
   obterDocumentoParaAviso,
@@ -31,6 +30,7 @@ import {
 import { mesAnterior, mesSeguinte, primeiroDiaDoMes } from "@/lib/financeiro/calendario";
 import { filtrarExtrato, montarExtrato, resumoDoCaixa, saldoAntesDaJanela } from "@/lib/financeiro/extrato";
 import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { janelaDoCaixa, separarPelaJanela } from "@/lib/financeiro/janela";
 import { resumoDoMes } from "@/lib/financeiro/mes";
 import { listarSaldos } from "@/lib/estoque/consultas";
 import { listarFornecedoresParaSeletor, type FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
@@ -81,6 +81,7 @@ import { EditorOrcamento } from "@/components/amassa/orcamentos/editor-orcamento
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
+import { formatarDiaMes } from "@/lib/producao/calendario";
 import { queimaParaVenda, type VendaDaQueima } from "@/lib/queimas/consultas";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import type { OrigemNoPainel, RascunhoInicialDaVenda } from "@/components/amassa/financeiro/painel-venda";
@@ -255,7 +256,6 @@ export default async function PaginaFinanceiro({
     configuracao,
     movimentos,
     gruposPagosAntes,
-    parcelasEmAberto,
     contasEmAberto,
     documentoDoAviso,
     parcelaDoAviso,
@@ -287,7 +287,6 @@ export default async function PaginaFinanceiro({
     // de cada linha continua global por construção — nada mais lê o histórico pago inteiro.
     abaCaixa ? listarMovimentos({ desde: primeiroDiaDoMes(mesAtual) }) : Promise.resolve([]),
     abaCaixa ? somarMovimentosAntesDe(primeiroDiaDoMes(mesAtual)) : Promise.resolve([]),
-    abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
     abaCaixa ? listarContasEmAberto() : Promise.resolve([]),
     avisoResolvido && (avisoResolvido.tipo === "lancado" || avisoResolvido.tipo === "cancelado")
       ? obterDocumentoParaAviso(avisoResolvido.documentoId)
@@ -444,8 +443,15 @@ export default async function PaginaFinanceiro({
     abaCaixa && configuracao
       ? montarExtrato(movimentos, configuracao.saldoInicialCentavos + saldoAntesDaJanela(gruposPagosAntes))
       : null;
+  // D-03 / UI-D7 (06.5-12): "A pagar", "A receber" e os três tiles que somam o futuro falam das
+  // vencidas e das que vencem até hoje + 30 dias — `hoje` é o do servidor (`hojeEmBrasilia`). As
+  // de depois ficam a um toque no fim de cada lista e NÃO entram nos tiles; o "Saldo em caixa" não
+  // muda. A mesma lista (`listarContasEmAberto`) alimenta as listas e os tiles.
+  const janela = janelaDoCaixa(hoje);
+  const janelaAte = formatarDiaMes(janela.ate);
+  const contasPelaJanela = separarPelaJanela(contasEmAberto, janela);
   const resumo = extrato
-    ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: parcelasEmAberto })
+    ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: contasPelaJanela.daJanela })
     : null;
 
   // D-11/D-12: `filtrarExtrato` recebe as linhas JÁ com o saldo global de `montarExtrato` — só
@@ -503,9 +509,11 @@ export default async function PaginaFinanceiro({
 
       {abaCaixa ? (
         <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
-          {resumo ? <TilesCaixa resumo={resumo} /> : null}
+          {resumo ? <TilesCaixa resumo={resumo} janelaAte={janelaAte} /> : null}
           <ListasCaixa
-            contas={contasEmAberto}
+            contas={contasPelaJanela.daJanela}
+            contasDepois={contasPelaJanela.depois}
+            janelaAte={janelaAte}
             documentos={documentosParaDetalhe}
             hoje={hoje}
             documentoParaAbrirId={documentoParaAbrirId}

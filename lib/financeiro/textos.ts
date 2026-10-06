@@ -391,6 +391,45 @@ export function textoVence(dataFormatada: string): string {
 export const FRASE_VAZIO_A_PAGAR = "Nenhuma conta em aberto.";
 export const FRASE_VAZIO_A_RECEBER = "Ninguém deve nada.";
 
+// A janela de 30 dias do Caixa (06.5-12, D-03 / UI-D7 — 06.5-UI-SPEC.md §Rótulos, §Ações, §Estados
+// vazios), verbatim. `{dd/mm}` chega já formatado de quem chama (este módulo não importa valor).
+// Sob o número dos tiles "A receber", "A pagar" e "Se tudo se cumprir" (o "Saldo em caixa" não
+// ganha nada).
+export function textoJanelaAte(diaMes: string): string {
+  return `até ${diaMes}`;
+}
+
+// Sob os títulos "A pagar" e "A receber".
+export function textoSubtituloDaJanela(diaMes: string): string {
+  return `Vencidas e as que vencem até ${diaMes}.`;
+}
+
+// O botão no fim de cada lista — plural de verdade; com zero contas depois, o botão nem aparece.
+export function rotuloVerDepois(quantidade: number, diaMes: string): string {
+  return quantidade === 1
+    ? `Ver a que vence depois de ${diaMes}`
+    : `Ver as ${quantidade} que vencem depois de ${diaMes}`;
+}
+
+// O mesmo botão, com as de depois abertas.
+export function rotuloMostrarSoAte(diaMes: string): string {
+  return `Mostrar só até ${diaMes}`;
+}
+
+// A linha Apoio que separa, na mesma lista, as contas da janela das de depois.
+export function textoDepoisDe(diaMes: string): string {
+  return `Depois de ${diaMes}`;
+}
+
+// Vazios da janela quando há contas depois dela (sem conta nenhuma, valem os dois acima).
+export function fraseVazioAPagarNaJanela(diaMes: string): string {
+  return `Nada vence até ${diaMes}.`;
+}
+
+export function fraseVazioAReceberNaJanela(diaMes: string): string {
+  return `Ninguém deve nada até ${diaMes}.`;
+}
+
 // O cabeçalho do detalhe: "Venda nº 12 · 18/12/26 · Maria" (protótipo `folhaDoc`).
 export function textoCabecalhoDocumento(
   tipo: TipoDeDocumentoParaTexto,
