@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // A aba Peças do Financeiro (04.5-05-PLAN.md): a lista do que já foi precificado, as exclusivas
 // de pedido escondidas por padrão (D-19), "começar a partir de uma peça parecida", e a exclusão
 // que pergunta antes e nomeia o que se perde (D-20). Nomes inventados e únicos por execução
@@ -277,10 +279,9 @@ test.describe("precificacao pecas", () => {
     await page.getByRole("button", { name: "Cancelar" }).click();
 
     // Cria um orçamento e acrescenta a peça a ele via "+ Peça da lista" — a MESMA porta de
-    // entrada que um dono usaria de verdade.
-    await page.goto("/gestao/financeiro?aba=orcamentos");
-    await page.getByRole("button", { name: "Novo orçamento" }).click();
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    // entrada que um dono usaria de verdade. Desde o 06.5-14 (D-15) o orçamento nasce no primeiro
+    // campo preenchido — um cliente inventado.
+    await criarOrcamentoPelaTela(page, `[e2e] Cliente da peça em uso ${suf}`);
 
     await page.getByRole("button", { name: "+ Peça da lista" }).click();
     const dialogoEscolher = page.getByTestId("orcamento-escolher-peca");
@@ -361,11 +362,8 @@ test.describe("precificacao pecas", () => {
     const nomeExclusivaEmUso = `[e2e] Exclusiva em uso ${suf}`;
 
     await fazerLogin(page);
-    await page.goto("/gestao/financeiro?aba=orcamentos");
-    await page.getByRole("button", { name: "Novo orçamento" }).click();
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-    const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
-    expect(orcamentoId).not.toBe("");
+    // Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido — um cliente inventado.
+    const orcamentoId = await criarOrcamentoPelaTela(page, `[e2e] Cliente da exclusiva ${suf}`);
 
     // "+ Peça exclusiva deste pedido": a ficha nasce exclusiva E entra no orçamento na mesma ida
     // (dialogo-ficha.tsx:204) — é assim que uma exclusiva EM USO existe de verdade.

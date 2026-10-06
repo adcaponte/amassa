@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // A metade de baixo do editor do orçamento (04.5-07-PLAN.md): "Custos do projeto e frete",
 // "Total e pagamento" e o painel "Só para você". Nomes inventados e únicos por execução
 // ("[e2e] ... {sufixo}") — nenhum dado real do ateliê, o repositório é público.
@@ -22,10 +24,9 @@ function sufixoUnico(): string {
   return `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+// Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido — um cliente inventado.
 async function criarOrcamento(page: Page): Promise<void> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await criarOrcamentoPelaTela(page, `[e2e] Cliente do total ${sufixoUnico()}`);
 }
 
 function orcamentoIdDaUrl(page: Page): string {

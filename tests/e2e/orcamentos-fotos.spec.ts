@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 
 import sharp from "sharp";
 
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // A grade de fotos do editor do orçamento (04.5-10-PLAN.md): upload, a rota autenticada, tipo
 // real, limite de 3, remoção com confirmação. Nomes inventados e únicos por execução ("[e2e]
 // ... {sufixo}") — nenhuma foto real entra no teste, nenhum dado real do ateliê; o repositório
@@ -17,15 +19,11 @@ async function fazerLogin(page: Page) {
   await expect(page).toHaveURL(/\/gestao$/);
 }
 
-// Cria um orçamento novo a partir da lista e devolve o id (mesmo molde de
-// `tests/e2e/orcamentos-editor.spec.ts::criarOrcamento`, redeclarado aqui — cada spec deste
-// projeto tem sua própria cópia dos helpers, nunca um módulo compartilhado).
+// Cria um orçamento novo a partir da lista e devolve o id. Desde o 06.5-14 (D-15) o registro nasce
+// no primeiro campo preenchido — o auxiliar compartilhado preenche um cliente inventado.
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  const url = new URL(page.url());
-  return url.searchParams.get("orcamento") ?? "";
+  const sufixo = `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  return criarOrcamentoPelaTela(page, `[e2e] Cliente das fotos ${sufixo}`);
 }
 
 // Abre o editor de um orçamento já existente e espera a hidratação assentar antes de devolver o

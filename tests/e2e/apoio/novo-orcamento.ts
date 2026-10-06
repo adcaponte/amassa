@@ -26,9 +26,11 @@ export async function esperarHidratacao(campo: Locator): Promise<void> {
 // `loading.tsx`) e a hidratação do campo Cliente.
 export async function abrirOrcamentoNovo(page: Page): Promise<void> {
   await page.goto("/gestao/financeiro?aba=orcamentos");
+  // `exact`: sem ele o nome casa por trecho, e a linha de um orçamento cujo cliente tenha “novo
+  // orçamento” no nome (o do próprio e2e do 06.5-14) também seria “o botão”.
   await page
     .getByTestId("orcamentos-lista")
-    .getByRole("link", { name: "Novo orçamento" })
+    .getByRole("link", { name: "Novo orçamento", exact: true })
     .click();
   await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=novo$/);
   await expect(page.getByTestId("orcamento-nao-salvo")).toBeVisible();

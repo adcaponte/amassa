@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { medirCaixa } from "./apoio/medir-caixa";
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 
 // Três textos que o Cowork achou (06.5-13-PLAN.md, D-14, POL-07):
 // - o mês por extenso como título é “Outubro de 2026” — o “de” minúsculo, sem CSS que transforme a
@@ -100,11 +101,8 @@ function sufixoUnico(): string {
 // Um orçamento de uma linha: a peça exclusiva a R$ 70,00, quantidade 1 (o padrão da linha). O mesmo
 // caminho de `orcamentos-pdf.spec.ts`; nomes inventados e únicos — o repositório é público.
 async function criarOrcamentoDeUmaLinha(page: Page, nome: string): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
-  expect(orcamentoId).not.toBe("");
+  // Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido — um cliente inventado.
+  const orcamentoId = await criarOrcamentoPelaTela(page, `[e2e] Cliente da ${nome}`);
 
   await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
   await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();

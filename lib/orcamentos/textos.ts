@@ -21,6 +21,10 @@ export const FRASE_FALHA_AO_CRIAR =
 // até o primeiro campo; sair sem preencher não cria nada nem diz nada.
 export const TITULO_ORCAMENTO_NOVO = "Novo orçamento";
 export const FRASE_NADA_SALVO_ATE_PREENCHER = "Nada é salvo até você preencher um campo.";
+// A primeira gravação do orçamento novo falhou (06.5-UI-SPEC.md §Erros, verbatim): o texto digitado
+// fica no campo, e sair dele de novo tenta outra vez.
+export const FRASE_FALHA_AO_CRIAR_NOVO =
+  "Não deu para criar o orçamento. O que você escreveu continua aqui — verifique a internet e tente de novo.";
 // Só o servidor mostra esta: a tela nunca chama `criarOrcamento` com os dois campos vazios.
 export const FRASE_NOVO_ORCAMENTO_SEM_CAMPO =
   "Escreva o cliente ou o título do pedido para começar o orçamento.";

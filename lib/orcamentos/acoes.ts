@@ -61,6 +61,7 @@ import {
   FRASE_CUSTO_DE_PROJETO_NAO_EXISTE_MAIS,
   FRASE_FALHA_AO_APROVAR,
   FRASE_FALHA_AO_CRIAR,
+  FRASE_FALHA_AO_CRIAR_NOVO,
   FRASE_FALHA_AO_ENVIAR_FOTO,
   FRASE_FALHA_AO_SALVAR,
   FRASE_FALTA_CLIENTE_E_PECA,
@@ -143,8 +144,9 @@ export async function criarOrcamento(
 
     return { ok: true, dados: { id, ano, sequencial } };
   } catch (erro) {
+    // Só a tela do orçamento novo chama esta ação (06.5-14): a frase diz que o texto ficou lá.
     if (ehViolacaoDeChaveEstrangeira(erro)) {
-      return { ok: false, erro: FRASE_FALHA_AO_CRIAR };
+      return { ok: false, erro: FRASE_FALHA_AO_CRIAR_NOVO };
     }
     throw erro;
   }

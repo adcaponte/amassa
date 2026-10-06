@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { criarOrcamento } from "@/lib/orcamentos/acoes";
 import {
+  FRASE_FALHA_AO_CRIAR_NOVO,
   FRASE_NADA_SALVO_ATE_PREENCHER,
   PLACEHOLDER_TITULO_DO_PEDIDO,
   ROTULO_CLIENTE,
@@ -48,16 +49,30 @@ export function OrcamentoNovo() {
     setCriando(true);
     setErro(null);
 
-    const resposta = await criarOrcamento({ clienteTexto, tituloTexto });
+    // Sem rede (ou o servidor caiu no meio), a Server Action REJEITA em vez de responder: vira a
+    // mesma frase da falha, e o que foi digitado continua no campo. A trava abre de novo — sair
+    // do campo outra vez tenta de novo.
+    let mensagemDeErro: string | null = null;
+    let idCriado: string | null = null;
+    try {
+      const resposta = await criarOrcamento({ clienteTexto, tituloTexto });
+      if (resposta.ok) {
+        idCriado = resposta.dados.id;
+      } else {
+        mensagemDeErro = resposta.erro;
+      }
+    } catch {
+      mensagemDeErro = FRASE_FALHA_AO_CRIAR_NOVO;
+    }
 
-    if (!resposta.ok) {
+    if (idCriado === null) {
       travado.current = false;
       setCriando(false);
-      setErro({ campo, mensagem: resposta.erro });
+      setErro({ campo, mensagem: mensagemDeErro ?? FRASE_FALHA_AO_CRIAR_NOVO });
       return;
     }
 
-    window.location.replace(hrefDoOrcamento(resposta.dados.id));
+    window.location.replace(hrefDoOrcamento(idCriado));
   }
 
   function alertaDo(campo: Campo) {

@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import sharp from "sharp";
 
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // O documento do cliente (04.5-11-PLAN.md): a tela "Ver como o cliente vê" e o PDF gerado no
 // servidor, os dois saindo de `lib/orcamentos/documento-cliente.ts`. Nomes inventados e únicos
 // por execução ("[e2e] ... {sufixo}") — nenhum dado real do ateliê, o repositório é público.
@@ -32,14 +34,6 @@ async function fazerLogin(page: Page) {
 
 function sufixoUnico(): string {
   return `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  const url = new URL(page.url());
-  return url.searchParams.get("orcamento") ?? "";
 }
 
 async function blurEEsperarNavegacao(page: Page, campo: ReturnType<Page["getByTestId"]>): Promise<void> {
@@ -99,14 +93,10 @@ test.describe("orcamentos pdf", () => {
   }) => {
     suf = sufixoUnico();
     await fazerLogin(page);
-    orcamentoId = await criarOrcamento(page);
+    // Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido: o cliente.
+    orcamentoId = await criarOrcamentoPelaTela(page, `[e2e] José Conceição ${suf}`);
     expect(orcamentoId).not.toBe("");
     await page.waitForTimeout(500);
-
-    const campoCliente = page.getByTestId("orcamento-campo-cliente");
-    await campoCliente.fill(`[e2e] José Conceição ${suf}`);
-    await blurEEsperarNavegacao(page, campoCliente);
-    await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 
     const campoTitulo = page.getByTestId("orcamento-campo-titulo");
     await campoTitulo.fill(`[e2e] Orçamento de teste ${suf}`);
