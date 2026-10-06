@@ -120,7 +120,7 @@ test.describe("producao concluidas", () => {
     expect(ordemNaTela.indexOf(cancelada)).toBeLessThan(ordemNaTela.indexOf(concluida));
 
     await expect(linhaConcluida).toContainText(nomeConcluida);
-    await expect(linhaConcluida.getByTestId("concluidas-dias")).toHaveText("12 dias");
+    await expect(linhaConcluida.getByTestId("concluidas-dias")).toHaveText("levou 12 dias");
     await expect(linhaConcluida.getByTestId("concluidas-sub-linha")).toHaveText(
       `da casa · 18 de 20 peças boas · concluída em ${dataCompleta(concluidaEm)}`,
     );

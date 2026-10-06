@@ -7,6 +7,7 @@ import {
   ordemNoBanco,
   ordensComONomeNoBanco,
   semearOrdem,
+  semearOrdemEncerrada,
 } from "./apoio/semear-producao";
 
 // Fase 06.5, plano 07 (D-11, achados 12, 14 e 15 do Cowork): os três avisos pequenos da Produção.
@@ -172,5 +173,50 @@ test.describe("polimento produção — avisos", () => {
       await page.emulateMedia({ media: "print" });
       await expect(aviso).toBeHidden();
     }
+  });
+
+  test("levou: as Concluídas dizem “no mesmo dia” e “levou 1 dia”, no lugar do número solto", async ({
+    page,
+  }) => {
+    const hoje = somarDiasAoHoje(0);
+    const noMesmoDia = await semearOrdemEncerrada({
+      nome: nomeUnico("Concluída no mesmo dia"),
+      tipo: "casa",
+      quantidade: 3,
+      inicio: hoje,
+      status: "concluida",
+      concluidaEm: hoje,
+      perdidas: 0,
+    });
+    const umDia = await semearOrdemEncerrada({
+      nome: nomeUnico("Concluída em um dia"),
+      tipo: "casa",
+      quantidade: 3,
+      inicio: somarDiasAoHoje(-1),
+      status: "concluida",
+      concluidaEm: hoje,
+      perdidas: 0,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/producao/concluidas");
+    await expect(page.getByTestId("concluidas-lista")).toBeVisible();
+    const linha = (id: string) =>
+      page.locator(`[data-testid="concluidas-linha"][data-ordem-id="${id}"]`);
+    // Concluídas hoje: entre as mais recentes; o "Mostrar mais 50" as traz se outras as empurrarem.
+    for (let pagina = 0; pagina < 20; pagina++) {
+      if ((await linha(noMesmoDia).count()) > 0 && (await linha(umDia).count()) > 0) {
+        break;
+      }
+      const mais = page.getByTestId("concluidas-mais");
+      if ((await mais.count()) === 0) {
+        break;
+      }
+      const antes = await page.getByTestId("concluidas-linha").count();
+      await mais.click();
+      await expect(page.getByTestId("concluidas-linha")).not.toHaveCount(antes);
+    }
+    await expect(linha(noMesmoDia).getByTestId("concluidas-dias")).toHaveText("no mesmo dia");
+    await expect(linha(umDia).getByTestId("concluidas-dias")).toHaveText("levou 1 dia");
   });
 });

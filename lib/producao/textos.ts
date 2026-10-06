@@ -641,6 +641,11 @@ export function ariaLabelAbrirOrdem(nome: string): string {
 export const CHIP_CANCELADA = "cancelada";
 export const CHIP_ENTREGA_PARCIAL = "Entrega parcial";
 export const ARIA_LISTA_CONCLUIDAS = "Ordens concluídas e canceladas";
+// Fase 06.5 (D-11): quanto a concluída levou, do início ao fim, no lugar do número solto — "levou
+// 23 dias", "levou 1 dia" e, no zero, "no mesmo dia" (nunca "0 dias").
+export function textoLevou(n: number): string {
+  return n === 0 ? "no mesmo dia" : `levou ${dias(n)}`;
+}
 // "05/03/2026" a partir de `YYYY-MM-DD` (sem `Date` — o fuso do runtime nunca desloca o dia).
 export function formatarDataCompleta(data: string): string {
   const [ano, mes, dia] = data.split("-");
