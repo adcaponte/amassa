@@ -92,8 +92,9 @@ class MaterialDesativado extends Error {
 class OrdemForaDeAndamento extends Error {}
 class CustoDaPecaProntaZerado extends Error {}
 // A contagem recusada SOB A TRAVA, com a frase de `gravarContagem`: a primeira contagem ficou
-// positiva e veio sem custo (`planejarContagem`), ou o custo foi digitado contra um saldo que já
-// mudou (`conferirSaldoDoCusto`, revisão WR-03). As duas moram no "Custou ao todo".
+// positiva com um custo que não é centavo inteiro (`planejarContagem` — desde a 06.5 o vazio vale
+// R$ 0, UI-D14), ou o custo foi digitado contra um saldo que já mudou (`conferirSaldoDoCusto`,
+// revisão WR-03). As duas moram no "Custou ao todo".
 class RecusaDaContagem extends Error {
   constructor(
     mensagem: string,

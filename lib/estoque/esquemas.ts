@@ -200,9 +200,10 @@ export type RegistrarMovimentacaoValidado = z.infer<typeof esquemaRegistrarMovim
 // MODO (primeira ou conferência) e a diferença são decididos no servidor, sob a trava (T-06-45).
 // ---------------------------------------------------------------------------------------------
 
-// "Custou ao todo" é opcional AQUI: se ele é exigido depende da diferença contra o saldo do
-// instante, e só `planejarContagem`, sob a trava, sabe ("Diga quanto custou — uma estimativa
-// serve."). Vazio vira nulo; texto inválido recebe a frase de `converterReaisParaCentavos`.
+// "Custou ao todo" da contagem. Vazio vira nulo, e `planejarContagem` (sob a trava) o lê como
+// R$ 0 quando a primeira contagem fica positiva — desde a 06.5 o vazio vale R$ 0 também aqui
+// (D-04 "no Estoque", UI-D14). Texto inválido e negativo recebem a frase de
+// `converterReaisParaCentavos` (T-06.5-21).
 const esquemaCustouDaContagem = z
   .string({ error: FRASE_CUSTO_DA_CONTAGEM })
   .nullish()

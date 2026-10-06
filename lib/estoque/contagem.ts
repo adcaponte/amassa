@@ -53,8 +53,9 @@ export type PlanoDeContagem =
 // levou o saldo a −2 antes de alguém contar 10, entram 12 e o saldo termina exatamente em 10.
 //
 // A diferença é a de `planejarAjuste` (saldo.ts) — uma regra só para "contado − saldo". O que a
-// primeira contagem acrescenta: diferença POSITIVA entra com preço ("Custou ao todo", obrigatório e
-// maior que zero — é daí que nasce o custo médio) e motivo `saldo_inicial`; diferença NEGATIVA é um
+// primeira contagem acrescenta: diferença POSITIVA entra com preço ("Custou ao todo" — é daí que
+// nasce o custo médio; desde a 06.5, VAZIO VALE R$ 0, como na entrada da folha: D-04 diz "no
+// Estoque", UI-D14) e motivo `saldo_inicial`; diferença NEGATIVA é um
 // ajuste com o mesmo motivo, sem pedir custo (sai ao custo médio, R5). A conferência nunca pede
 // custo: é um ajuste com a diferença (EST-07), e diferença zero não grava (EST-08). Zero é um
 // contado válido (D-32).
@@ -76,13 +77,17 @@ export function planejarContagem({
   const { diferencaMilesimos } = ajuste;
 
   if (modo === "primeira" && diferencaMilesimos > 0) {
-    if (custouCentavos === null || !Number.isSafeInteger(custouCentavos) || custouCentavos <= 0) {
+    // Vazio = R$ 0 (UI-D14): doação, sobra. Até 05/10/2026 o vazio e o zero eram recusados. Só um
+    // número que não é centavo inteiro e não negativo (nunca vem de `converterReaisParaCentavos`)
+    // continua recusado — defesa da regra pura.
+    const custo = custouCentavos ?? 0;
+    if (!Number.isSafeInteger(custo) || custo < 0) {
       return { tipo: "recusa", erro: FRASE_CUSTO_DA_CONTAGEM, saldoAntesMilesimos: saldoMilesimos };
     }
     return {
       tipo: "entrada",
       diferencaMilesimos,
-      custouCentavos,
+      custouCentavos: custo,
       motivo: "saldo_inicial",
       saldoAntesMilesimos: saldoMilesimos,
       saldoDepoisMilesimos: contadoMilesimos,

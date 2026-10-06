@@ -143,7 +143,7 @@ test.describe.serial("estoque primeira abertura @vazio-historico", () => {
     await expect(page.getByTestId("estoque-aba-destino")).toBeVisible();
   });
 
-  test("(2) a primeira contagem é às cegas, pede o custo e sobrevive a recarregar", async ({ page }) => {
+  test("(2) a primeira contagem é às cegas, pergunta o custo e sobrevive a recarregar", async ({ page }) => {
     await fazerLogin(page);
     await page.goto("/gestao/estoque");
     await page.getByTestId("estoque-comecar-contagem").click();
@@ -161,11 +161,10 @@ test.describe.serial("estoque primeira abertura @vazio-historico", () => {
 
     await linha.getByTestId("contagem-contado").fill("10");
     await expect(linha.getByTestId("contagem-previa")).toHaveText("o saldo passa de 0 para 10 un");
+    // O "Custou ao todo" aparece. Até 05/10/2026, confirmar com ele vazio era recusado ("Diga
+    // quanto custou — uma estimativa serve."); desde a 06.5 o vazio vale R$ 0 (UI-D14), provado em
+    // `polimento-estoque.spec.ts`. Aqui o custo é digitado: os valores do Para onde foi (5) dependem dele.
     await expect(linha.getByTestId("contagem-custou")).toBeVisible();
-    await linha.getByTestId("contagem-confirmar").click();
-    await expect(linha.getByTestId("contagem-erro")).toHaveText(
-      "Diga quanto custou — uma estimativa serve.",
-    );
     expect(await movimentacoesDoItem(itemId)).toHaveLength(0);
 
     await linha.getByTestId("contagem-custou").fill("50,00");
