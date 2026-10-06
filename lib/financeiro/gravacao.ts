@@ -16,17 +16,46 @@
 // Ordem de travas (extensão de `lib/estoque/gravacao.ts` e `lib/producao/gravacao.ts`): o documento
 // é NOVO (ninguém mais o vê) e só depois, se houver linha de item com estoque, `gravarMovimentacoes`
 // trava os ITENS. Quem chama pode ter travado ANTES uma linha própria — a Agenda trava a COBRANÇA
-// (`for no key update`) —, mas nunca um documento existente: assim não há ciclo com
-// `cancelarDocumento` (DOCUMENTO → ORDEM → ITENS).
-import { documentoLinhas, documentos, parcelas } from "@/db/schema";
+// (`for no key update`) —, e o único documento EXISTENTE que alguém trava antes é a original do
+// “Corrigir” (`lancarCorrecaoNaTransacao`, abaixo), que segue a ordem de `cancelarDocumento`
+// (DOCUMENTO → ORDEM → ITENS) antes de chegar aqui: não há ciclo.
+//
+// Desde a Fase 06.5 (plano 16) este arquivo também tem o escritor da DESPESA (`gravarDespesa`), o miolo
+// do cancelamento (`cancelarDocumentoNaTransacao`), a leitura da versão do documento e o núcleo do
+// “Corrigir” — todos sem a diretiva, pelo mesmo motivo.
+import { and, asc, eq, isNull } from "drizzle-orm";
+
+import type { db } from "@/db";
+import {
+  correcoesDeDocumento,
+  documentoLinhas,
+  documentos,
+  fornecedores,
+  inscricoes,
+  mensalidades,
+  orcamentos,
+  parcelas,
+  queimaVendas,
+  usosLivres,
+} from "@/db/schema";
 import {
   areasDasCategorias,
   carregarItensParaEfeito,
   gravarMovimentacoes,
+  originaisSemEstorno,
   type TransacaoDoBanco,
 } from "@/lib/estoque/gravacao";
-import { pedidosDaVenda } from "@/lib/estoque/pedidos";
+import { pedidosDaCompra, pedidosDaVenda, pedidosDoEstorno } from "@/lib/estoque/pedidos";
+import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
 
+import {
+  motivoSemCorrecao,
+  normalizarParaVersao,
+  versaoDoDocumento,
+  type LeituraParaVersao,
+  type MotivoDaRecusaDaCorrecao,
+  type OrigemSemCorrecao,
+} from "./correcao";
 import type { FormaDePagamento } from "./textos";
 
 export type { TransacaoDoBanco };
@@ -183,4 +212,375 @@ export async function gravarVenda(
   );
 
   return { id: documento.id, numero: documento.numero };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// A DESPESA (Fase 06.5, plano 16 — extraída, sem mudar comportamento, do corpo transacional de
+// `lancarDespesa`), no molde de `gravarVenda`: quem chama já fez `exigirUsuario()` e validou categoria,
+// itens, total e parcelas; aqui só o que precisa da transação — o fornecedor conferido sob trava, o
+// documento, as linhas, a entrada de estoque da compra e as parcelas sem taxa.
+
+// O fornecedor escolhido não existe ou foi desativado: lançada ANTES de qualquer `insert` — a transação
+// desfaz, e quem chama traduz em `FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA`.
+export class FornecedorIndisponivel extends Error {}
+
+export type LinhaDoPedidoDeDespesa = {
+  itemId: string | null;
+  descricao: string;
+  categoriaId: string;
+  quantidadeEstoque: string | null;
+  valorCentavos: number;
+};
+
+export type PedidoDeDespesa = {
+  modo: "compra" | "outra";
+  data: string;
+  // O texto livre do campo; com fornecedor, é IGNORADO e o nome do cadastro é congelado.
+  pessoaNome: string | null;
+  fornecedorId: string | null;
+  linhas: readonly LinhaDoPedidoDeDespesa[];
+  parcelas: readonly ParcelaDoPedidoDeVenda[];
+};
+
+export type ContextoDaDespesa = {
+  registradoPor: string;
+};
+
+export async function gravarDespesa(
+  tx: TransacaoDoBanco,
+  pedido: PedidoDeDespesa,
+  contexto: ContextoDaDespesa,
+): Promise<{ id: string; numero: number }> {
+  // O fornecedor escolhido na lista (Fase 06.2, plano 10 — D-04), conferido AQUI, dentro da
+  // transação e antes de gravar qualquer linha. A trava `for share` conflita com o
+  // `for no key update` de `definirFornecedorAtivo`: desativar e lançar ao mesmo tempo serializam
+  // — nunca nasce uma despesa ligada a um fornecedor desativado — e não fecham impasse (cada
+  // caminho trava uma linha só de `fornecedores`). Inexistente ou desativado → recusa, nada é
+  // lançado. Ativo → a despesa grava o id e CONGELA o nome do CADASTRO em `pessoa_nome`
+  // (T-06.2-39: o texto que veio do cliente é ignorado); renomear o fornecedor depois não muda
+  // esta despesa. Sem fornecedor, tudo como sempre: `pessoa_nome` é o texto livre.
+  let pessoaNome = pedido.pessoaNome;
+  if (pedido.fornecedorId !== null) {
+    const [fornecedor] = await tx
+      .select({ nome: fornecedores.nome, ativo: fornecedores.ativo })
+      .from(fornecedores)
+      .where(eq(fornecedores.id, pedido.fornecedorId))
+      .for("share");
+    if (!fornecedor || !fornecedor.ativo) {
+      throw new FornecedorIndisponivel();
+    }
+    pessoaNome = fornecedor.nome;
+  }
+
+  const [documento] = await tx
+    .insert(documentos)
+    .values({
+      tipo: "despesa",
+      data: pedido.data,
+      pessoaNome,
+      fornecedorId: pedido.fornecedorId,
+      criadoPor: contexto.registradoPor,
+    })
+    .returning({ id: documentos.id, numero: documentos.numero });
+
+  const linhasGravadas = await tx
+    .insert(documentoLinhas)
+    .values(
+      pedido.linhas.map((linha, indice) => ({
+        documentoId: documento.id,
+        ordem: indice,
+        itemId: linha.itemId,
+        descricao: linha.descricao,
+        categoriaId: linha.categoriaId,
+        quantidade: 1,
+        quantidadeEstoque: linha.quantidadeEstoque,
+        valorCentavos: linha.valorCentavos,
+      })),
+    )
+    .returning({ id: documentoLinhas.id, ordem: documentoLinhas.ordem });
+
+  // A entrada de estoque da compra de material (Fase 06, EST-15), DENTRO desta transação — só
+  // no modo "compra"; "outra despesa" não mexe no estoque. Uma entrada por linha, com o valor
+  // da linha como `valor_informado_centavos` (o custo unitário é valor ÷ quantidade na hora de
+  // mostrar, nunca gravado arredondado — D-19). D-33: esta transação passa a depender da
+  // `0023`. O custo do estoque é o da nota LANÇADA: um "Paguei" com outro valor depois não gera
+  // correção de custo (D-30, Pitfall 14).
+  if (pedido.modo === "compra") {
+    const idDaLinhaPorOrdem = new Map(linhasGravadas.map((linha) => [linha.ordem, linha.id]));
+    const linhasDeCompra = pedido.linhas.map((linha, indice) => ({
+      documentoLinhaId: idDaLinhaPorOrdem.get(indice)!,
+      itemId: linha.itemId,
+      quantidadeEstoque: linha.quantidadeEstoque,
+      valorCentavos: linha.valorCentavos,
+    }));
+    const itensParaEfeito = await carregarItensParaEfeito(
+      tx,
+      linhasDeCompra.flatMap((linha) => (linha.itemId ? [linha.itemId] : [])),
+    );
+    const pedidos = pedidosDaCompra(linhasDeCompra, itensParaEfeito).map((pedidoDeEstoque) => ({
+      ...pedidoDeEstoque,
+      documentoId: documento.id,
+    }));
+    await gravarMovimentacoes(tx, pedidos, { registradoPor: contexto.registradoPor });
+  }
+
+  // Despesa NUNCA tem taxa — `taxaPontosBase` sempre nulo, mesmo quando a forma é "cartao"
+  // (o preço já é o que o fornecedor cobrou; a taxa da maquininha só existe do lado de quem
+  // RECEBE, nunca de quem paga).
+  await tx.insert(parcelas).values(
+    pedido.parcelas.map((parcela, indice) => ({
+      documentoId: documento.id,
+      numero: indice + 1,
+      vencimento: parcela.vencimento,
+      valorCentavos: parcela.valorCentavos,
+      forma: parcela.forma,
+      pagoEm: parcela.pago ? parcela.vencimento : null,
+      pagoPor: parcela.pago ? contexto.registradoPor : null,
+      taxaPontosBase: null,
+    })),
+  );
+
+  return { id: documento.id, numero: documento.numero };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// O CANCELAMENTO dentro de uma transação (Fase 06.5, plano 16 — o miolo de `cancelarDocumento`, extraído
+// sem mudar o que faz, para o “Corrigir” cancelar pelo MESMO núcleo). O Caixa (04.4-08-PLAN.md):
+// cancelar risca sem apagar (FNC-10). Nenhum `delete` — o documento ganha `cancelado_em`/`cancelado_por`.
+// `select ... for update` trava a linha do documento para duas pessoas cancelando o MESMO documento ao
+// mesmo tempo nunca cancelarem duas vezes. Se quem chama já travou a linha (a correção), a trava é da
+// mesma transação e não espera.
+export class DocumentoNaoEncontrado extends Error {}
+export class DocumentoJaCancelado extends Error {}
+
+export async function cancelarDocumentoNaTransacao(
+  tx: TransacaoDoBanco,
+  documentoId: string,
+  usuarioId: string,
+): Promise<{ numero: number }> {
+  const [documento] = await tx
+    .select({ numero: documentos.numero, canceladoEm: documentos.canceladoEm })
+    .from(documentos)
+    .where(eq(documentos.id, documentoId))
+    .for("update");
+
+  if (!documento) {
+    throw new DocumentoNaoEncontrado();
+  }
+  if (documento.canceladoEm) {
+    throw new DocumentoJaCancelado();
+  }
+
+  // D-07 (Fase 06.1, plano 06): a ordem de produção ligada a esta venda pelo orçamento. Se ainda
+  // aguarda o sinal, é cancelada JUNTO, nesta transação (`cancelada_pela_venda`); se já foi
+  // liberada, nada muda nela — o aviso é derivado na leitura e o dono decide. Vem depois da
+  // trava do documento e da checagem de "já cancelado" (cancelar a venda de novo nunca mexe de
+  // novo na ordem) e ANTES do estorno, que trava os itens: DOCUMENTO → ORDEM → ITENS.
+  await cancelarOrdemDaVendaCancelada(tx, documentoId, usuarioId);
+
+  // O estorno do estoque (Fase 06, D-04): UMA movimentação espelho por original, com
+  // `estorno_de_id` apontando para ela, o mesmo documento e a mesma origem — nada é apagado.
+  // Vem DEPOIS da trava do documento (acima) e da checagem de "já cancelado": a ordem de travas
+  // documento → itens nunca inverte, e duas pessoas cancelando ao mesmo tempo produzem um
+  // conjunto de estornos só (a segunda cai em `DocumentoJaCancelado`; o índice único
+  // `movimentacoes_estoque_estorno_de_uk` segura no banco se algum caminho futuro tentar).
+  //
+  // Pitfall 4: o estorno espelha o LIVRO — recalcular pela ficha de hoje devolveria o que a
+  // venda nunca tirou. O valor é decidido em `lib/estoque/custo.ts` (D-23/D-24). Documento sem
+  // movimentação (anterior ao Estoque, "outra despesa", venda só de valor livre) passa com lista
+  // vazia e não mexe em saldo nenhum (D-05). D-33: esta transação passa a depender da `0023`.
+  const originais = await originaisSemEstorno(tx, documentoId);
+  await gravarMovimentacoes(tx, pedidosDoEstorno(originais), { registradoPor: usuarioId });
+
+  await tx
+    .update(documentos)
+    .set({ canceladoEm: new Date(), canceladoPor: usuarioId })
+    .where(eq(documentos.id, documentoId));
+
+  return { numero: documento.numero };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// A VERSÃO do documento (Fase 06.5, plano 16): UMA leitura das entradas da versão — o `cancelado_em`,
+// as linhas que NÃO são de diferença (id, quantidade, valor, quantidade de estoque) e as parcelas (id,
+// valor, forma, vencimento, pago em) —, com o `db` (a página do plano 17, para mandar a versão à tela)
+// ou com a `tx` (a correção, sob a trava). A conta é a de `lib/financeiro/correcao.ts`.
+type LeitorDaVersao = Pick<typeof db, "select"> | Pick<TransacaoDoBanco, "select">;
+
+export async function lerParaVersao(
+  leitor: LeitorDaVersao,
+  documentoId: string,
+): Promise<LeituraParaVersao | null> {
+  const consulta = leitor as Pick<TransacaoDoBanco, "select">;
+  const [documento] = await consulta
+    .select({ canceladoEm: documentos.canceladoEm })
+    .from(documentos)
+    .where(eq(documentos.id, documentoId));
+  if (!documento) {
+    return null;
+  }
+  const linhas = await consulta
+    .select({
+      id: documentoLinhas.id,
+      quantidade: documentoLinhas.quantidade,
+      valorCentavos: documentoLinhas.valorCentavos,
+      quantidadeEstoque: documentoLinhas.quantidadeEstoque,
+    })
+    .from(documentoLinhas)
+    .where(and(eq(documentoLinhas.documentoId, documentoId), isNull(documentoLinhas.parcelaDiferencaId)))
+    .orderBy(asc(documentoLinhas.id));
+  const parcelasLidas = await consulta
+    .select({
+      id: parcelas.id,
+      valorCentavos: parcelas.valorCentavos,
+      forma: parcelas.forma,
+      vencimento: parcelas.vencimento,
+      pagoEm: parcelas.pagoEm,
+    })
+    .from(parcelas)
+    .where(eq(parcelas.documentoId, documentoId))
+    .orderBy(asc(parcelas.id));
+  return { canceladoEm: documento.canceladoEm, linhas, parcelas: parcelasLidas };
+}
+
+// `null` = o documento não existe.
+export async function versaoAtualDoDocumento(
+  leitor: LeitorDaVersao,
+  documentoId: string,
+): Promise<string | null> {
+  const leitura = await lerParaVersao(leitor, documentoId);
+  return leitura === null ? null : versaoDoDocumento(normalizarParaVersao(leitura));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// O “CORRIGIR” (Fase 06.5, plano 16 — D-18 com a UI-D9 do dono, 05/10/2026, POL-08): a original continua
+// valendo enquanto a corrigida é preenchida, e só é cancelada NESTA transação, junto com o lançamento da
+// nova e o vínculo em `correcoes_de_documento`. Qualquer recusa lança `RecusaDaCorrecao` ANTES de
+// qualquer escrita — a transação desfaz, nada gravado.
+//
+// Ordem de travas: DOCUMENTO original (`for update`, primeiro) → ORDEM (no núcleo do cancelamento) →
+// ITENS (estorno) → documento NOVO → ITENS (efeito da nova). É a mesma de `cancelarDocumento`; a prova de
+// corrida (`scripts/provar-corridas-da-correcao.ts`) denuncia 40P01 se for invertida.
+export class RecusaDaCorrecao extends Error {
+  constructor(
+    readonly motivo: MotivoDaRecusaDaCorrecao,
+    readonly detalhe: {
+      // O número da original; `null` quando ela não existe (a tela diz “não achei”).
+      numeroOriginal: number | null;
+      // Em `ja_corrigida`: o número da que a corrigiu.
+      numeroNova?: number;
+      // Em `origem`: de onde ela veio, e o ano/sequencial do orçamento quando é dele.
+      origem?: OrigemSemCorrecao;
+      orcamento?: { ano: number; sequencial: number };
+    },
+  ) {
+    super(`Correção recusada: ${motivo}`);
+  }
+}
+
+export async function lancarCorrecaoNaTransacao(
+  tx: TransacaoDoBanco,
+  pedido: {
+    originalId: string;
+    versao: string;
+    tipo: "venda" | "despesa";
+    usuarioId: string;
+    gravarNova: (tx: TransacaoDoBanco) => Promise<{ id: string; numero: number }>;
+  },
+): Promise<{ numeroOriginal: number; id: string; numero: number }> {
+  // (1) A trava da ORIGINAL, antes de qualquer outra coisa. O que a decisão usa — tipo, número,
+  // cancelado, conta fixa — é lido aqui, sob ela; do cliente vêm só o id e a versão.
+  const [original] = await tx
+    .select({
+      tipo: documentos.tipo,
+      numero: documentos.numero,
+      canceladoEm: documentos.canceladoEm,
+      contaFixaId: documentos.contaFixaId,
+    })
+    .from(documentos)
+    .where(eq(documentos.id, pedido.originalId))
+    .for("update");
+  if (!original) {
+    throw new RecusaDaCorrecao("cancelada", { numeroOriginal: null });
+  }
+  if (original.tipo !== pedido.tipo) {
+    throw new RecusaDaCorrecao("mudou", { numeroOriginal: original.numero });
+  }
+
+  // (2) Cancelada: corrigida por alguém (o vínculo existe) ou cancelada à mão.
+  if (original.canceladoEm) {
+    const [vinculo] = await tx
+      .select({ numero: documentos.numero })
+      .from(correcoesDeDocumento)
+      .innerJoin(documentos, eq(documentos.id, correcoesDeDocumento.corrigidoId))
+      .where(eq(correcoesDeDocumento.originalId, pedido.originalId));
+    if (vinculo) {
+      throw new RecusaDaCorrecao("ja_corrigida", { numeroOriginal: original.numero, numeroNova: vinculo.numero });
+    }
+    throw new RecusaDaCorrecao("cancelada", { numeroOriginal: original.numero });
+  }
+
+  // (3) As origens que a Venda/Despesa não recria (UI-D10 + contas fixas). Os vínculos nascem na MESMA
+  // transação do documento e não são acrescentados depois — ler sem trava basta. Uma consulta de cada
+  // vez: a transação é UMA conexão.
+  const [orcamento] = await tx
+    .select({ ano: orcamentos.ano, sequencial: orcamentos.sequencial })
+    .from(orcamentos)
+    .where(eq(orcamentos.documentoId, pedido.originalId))
+    .limit(1);
+  const [inscricao] = await tx
+    .select({ id: inscricoes.id })
+    .from(inscricoes)
+    .where(eq(inscricoes.documentoId, pedido.originalId))
+    .limit(1);
+  const [mensalidade] = await tx
+    .select({ id: mensalidades.id })
+    .from(mensalidades)
+    .where(eq(mensalidades.documentoId, pedido.originalId))
+    .limit(1);
+  const [usoLivre] = await tx
+    .select({ id: usosLivres.id })
+    .from(usosLivres)
+    .where(eq(usosLivres.documentoId, pedido.originalId))
+    .limit(1);
+  const [queima] = await tx
+    .select({ id: queimaVendas.documentoId })
+    .from(queimaVendas)
+    .where(eq(queimaVendas.documentoId, pedido.originalId))
+    .limit(1);
+  const origem = motivoSemCorrecao({
+    temAgenda: Boolean(inscricao || mensalidade || usoLivre),
+    temQueima: Boolean(queima),
+    temOrcamento: Boolean(orcamento),
+    temContaFixa: original.contaFixaId !== null,
+  });
+  if (origem !== null) {
+    throw new RecusaDaCorrecao("origem", {
+      numeroOriginal: original.numero,
+      origem,
+      orcamento: orcamento ? { ano: orcamento.ano, sequencial: orcamento.sequencial } : undefined,
+    });
+  }
+
+  // (4) A versão relida AGORA, sob a trava, pela MESMA leitura e conta da página.
+  const versaoAgora = await versaoAtualDoDocumento(tx, pedido.originalId);
+  if (versaoAgora !== pedido.versao) {
+    throw new RecusaDaCorrecao("mudou", { numeroOriginal: original.numero });
+  }
+
+  // (5) O cancelamento pelo MESMO núcleo de `cancelarDocumento` (ordem da venda, estorno, quem/quando).
+  await cancelarDocumentoNaTransacao(tx, pedido.originalId, pedido.usuarioId);
+
+  // (6) A nova, pelo escritor de sempre (`gravarVenda`/`gravarDespesa`).
+  const nova = await pedido.gravarNova(tx);
+
+  // (7) O vínculo. `original_id` único: o banco segura uma segunda correção da mesma original mesmo
+  // que um caminho futuro esqueça a trava.
+  await tx.insert(correcoesDeDocumento).values({
+    originalId: pedido.originalId,
+    corrigidoId: nova.id,
+    criadoPor: pedido.usuarioId,
+  });
+
+  return { numeroOriginal: original.numero, id: nova.id, numero: nova.numero };
 }

@@ -6,18 +6,11 @@ import { count, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { categorias, documentoLinhas, documentos, fornecedores, itensCatalogo, parcelas } from "@/db/schema";
+import { categorias, documentoLinhas, documentos, itensCatalogo, parcelas } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { ehViolacaoDeChaveEstrangeira } from "@/lib/erro/postgres";
-import {
-  carregarItensParaEfeito,
-  gravarMovimentacoes,
-  originaisSemEstorno,
-} from "@/lib/estoque/gravacao";
-import { pedidosDaCompra, pedidosDoEstorno } from "@/lib/estoque/pedidos";
-import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
-// O ÚNICO ajudante da Agenda que o Financeiro importa (Fase 05, plano 12), como `cancelarDocumento` já
-// importa `lib/producao/gravacao.ts`: a regra da cobrança fica em `lib/agenda/`, a venda em `gravarVenda`.
+// O ÚNICO ajudante da Agenda que o Financeiro importa (Fase 05, plano 12), como o cancelamento importa
+// `lib/producao/gravacao.ts` (hoje por `cancelarDocumentoNaTransacao`): a regra da cobrança fica em `lib/agenda/`, a venda em `gravarVenda`.
 import { RecusaDaAgenda, vincularCobranca } from "@/lib/agenda/gravacao";
 import { FRASE_LINHA_DA_AGENDA_FALTANDO } from "@/lib/agenda/textos";
 // A metade das Queimas do “Lançar na Venda” (Fase 06.4, plano 05), no mesmo molde: a regra do que falta
@@ -28,7 +21,15 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { ehOrigemDaAgenda, moduloDaOrigem, textoDaOrigem } from "./abas";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
-import { gravarVenda, type PedidoDeVenda } from "./gravacao";
+import {
+  cancelarDocumentoNaTransacao,
+  DocumentoJaCancelado,
+  DocumentoNaoEncontrado,
+  FornecedorIndisponivel,
+  gravarDespesa,
+  gravarVenda,
+  type PedidoDeVenda,
+} from "./gravacao";
 import { TETO_CENTAVOS } from "./dinheiro";
 import {
   dataDentroDoIntervaloPermitido,
@@ -318,11 +319,6 @@ export async function lancarVenda(
   }
 }
 
-// A recusa de dentro da transação da Despesa (Fase 06.2, plano 10): o fornecedor escolhido não existe
-// ou foi desativado. Lançada ANTES de qualquer `insert` — a transação desfaz, e o `catch` traduz em
-// `FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA` (molde de `DocumentoNaoEncontrado`, abaixo).
-class FornecedorIndisponivel extends Error {}
-
 // A Despesa (04.4-07-PLAN.md): compra de material · outra despesa. A terceira pílula original,
 // "pagar conta que já existe" (um link para `?aba=caixa`, nunca chegava aqui), foi REMOVIDA em
 // 26/09/2026 por decisão do dono — pareceu inútil e grande no uso real no celular; quem quer
@@ -472,95 +468,23 @@ export async function lancarDespesa(
   }
 
   try {
-    const { id, numero } = await db.transaction(async (tx) => {
-      // O fornecedor escolhido na lista (Fase 06.2, plano 10 — D-04), conferido AQUI, dentro da
-      // transação e antes de gravar qualquer linha. A trava `for share` conflita com o
-      // `for no key update` de `definirFornecedorAtivo`: desativar e lançar ao mesmo tempo serializam
-      // — nunca nasce uma despesa ligada a um fornecedor desativado — e não fecham impasse (cada
-      // caminho trava uma linha só de `fornecedores`). Inexistente ou desativado → recusa, nada é
-      // lançado. Ativo → a despesa grava o id e CONGELA o nome do CADASTRO em `pessoa_nome`
-      // (T-06.2-39: o texto que veio do cliente é ignorado); renomear o fornecedor depois não muda
-      // esta despesa. Sem fornecedor, tudo como sempre: `pessoa_nome` é o texto livre.
-      let pessoaNome = dados.pessoa;
-      if (dados.fornecedorId !== null) {
-        const [fornecedor] = await tx
-          .select({ nome: fornecedores.nome, ativo: fornecedores.ativo })
-          .from(fornecedores)
-          .where(eq(fornecedores.id, dados.fornecedorId))
-          .for("share");
-        if (!fornecedor || !fornecedor.ativo) {
-          throw new FornecedorIndisponivel();
-        }
-        pessoaNome = fornecedor.nome;
-      }
-
-      const [documento] = await tx
-        .insert(documentos)
-        .values({
-          tipo: "despesa",
+    // A escrita (fornecedor sob trava → documento → linhas → entrada de estoque da compra → parcelas
+    // sem taxa) é a de `gravarDespesa` (`lib/financeiro/gravacao.ts`, Fase 06.5 plano 16 — extraída
+    // daqui sem mudar nada, para o “Corrigir” lançar a despesa nova pelo mesmo escritor).
+    const { id, numero } = await db.transaction(async (tx) =>
+      gravarDespesa(
+        tx,
+        {
+          modo: dados.modo,
           data: dados.data,
-          pessoaNome,
+          pessoaNome: dados.pessoa,
           fornecedorId: dados.fornecedorId,
-          criadoPor: usuario.id,
-        })
-        .returning({ id: documentos.id, numero: documentos.numero });
-
-      const linhasGravadas = await tx.insert(documentoLinhas).values(
-        linhasParaGravar.map((linha, indice) => ({
-          documentoId: documento.id,
-          ordem: indice,
-          itemId: linha.itemId,
-          descricao: linha.descricao,
-          categoriaId: linha.categoriaId,
-          quantidade: 1,
-          quantidadeEstoque: linha.quantidadeEstoque,
-          valorCentavos: linha.valorCentavos,
-        })),
-      ).returning({ id: documentoLinhas.id, ordem: documentoLinhas.ordem });
-
-      // A entrada de estoque da compra de material (Fase 06, EST-15), DENTRO desta transação — só
-      // no modo "compra"; "outra despesa" não mexe no estoque. Uma entrada por linha, com o valor
-      // da linha como `valor_informado_centavos` (o custo unitário é valor ÷ quantidade na hora de
-      // mostrar, nunca gravado arredondado — D-19). D-33: esta transação passa a depender da
-      // `0023`. O custo do estoque é o da nota LANÇADA: um "Paguei" com outro valor depois não gera
-      // correção de custo (D-30, Pitfall 14).
-      if (dados.modo === "compra") {
-        const idDaLinhaPorOrdem = new Map(linhasGravadas.map((linha) => [linha.ordem, linha.id]));
-        const linhasDeCompra = linhasParaGravar.map((linha, indice) => ({
-          documentoLinhaId: idDaLinhaPorOrdem.get(indice)!,
-          itemId: linha.itemId,
-          quantidadeEstoque: linha.quantidadeEstoque,
-          valorCentavos: linha.valorCentavos,
-        }));
-        const itensParaEfeito = await carregarItensParaEfeito(
-          tx,
-          linhasDeCompra.flatMap((linha) => (linha.itemId ? [linha.itemId] : [])),
-        );
-        const pedidos = pedidosDaCompra(linhasDeCompra, itensParaEfeito).map((pedido) => ({
-          ...pedido,
-          documentoId: documento.id,
-        }));
-        await gravarMovimentacoes(tx, pedidos, { registradoPor: usuario.id });
-      }
-
-      // Despesa NUNCA tem taxa — `taxaPontosBase` sempre nulo, mesmo quando a forma é "cartao"
-      // (o preço já é o que o fornecedor cobrou; a taxa da maquininha só existe do lado de quem
-      // RECEBE, nunca de quem paga).
-      await tx.insert(parcelas).values(
-        dados.parcelas.map((parcela, indice) => ({
-          documentoId: documento.id,
-          numero: indice + 1,
-          vencimento: parcela.vencimento,
-          valorCentavos: parcela.valorCentavos,
-          forma: parcela.forma,
-          pagoEm: parcela.pago ? parcela.vencimento : null,
-          pagoPor: parcela.pago ? usuario.id : null,
-          taxaPontosBase: null,
-        })),
-      );
-
-      return { id: documento.id, numero: documento.numero };
-    });
+          linhas: linhasParaGravar,
+          parcelas: dados.parcelas,
+        },
+        { registradoPor: usuario.id },
+      ),
+    );
 
     if (dados.modo === "compra") {
       revalidatePath(rotaDeGestao("/estoque"));
@@ -643,10 +567,9 @@ export async function definirAtalhoDoItem(
 // ganha `cancelado_em`/`cancelado_por`; a única exclusão física do módulo inteiro é a linha de
 // diferença, e só dentro de `desfazerPagamento`. `select ... for update` trava a linha do
 // documento (mesma disciplina de `editarCategoria`, lib/cadastros/acoes.ts) para duas pessoas
-// cancelando o MESMO documento ao mesmo tempo nunca cancelarem duas vezes.
-class DocumentoNaoEncontrado extends Error {}
-class DocumentoJaCancelado extends Error {}
-
+// cancelando o MESMO documento ao mesmo tempo nunca cancelarem duas vezes. O miolo — trava,
+// “já cancelado”, a ordem da venda, o estorno, quem/quando — mora em `cancelarDocumentoNaTransacao`
+// (`lib/financeiro/gravacao.ts`, Fase 06.5 plano 16), o MESMO que o “Corrigir” usa.
 export async function cancelarDocumento(
   entradaBruta: unknown,
 ): Promise<ResultadoDeAcao<{ documentoId: string; numero: number }>> {
@@ -659,48 +582,9 @@ export async function cancelarDocumento(
   const { documentoId } = resultado.data;
 
   try {
-    const numero = await db.transaction(async (tx) => {
-      const [documento] = await tx
-        .select({ numero: documentos.numero, canceladoEm: documentos.canceladoEm })
-        .from(documentos)
-        .where(eq(documentos.id, documentoId))
-        .for("update");
-
-      if (!documento) {
-        throw new DocumentoNaoEncontrado();
-      }
-      if (documento.canceladoEm) {
-        throw new DocumentoJaCancelado();
-      }
-
-      // D-07 (Fase 06.1, plano 06): a ordem de produção ligada a esta venda pelo orçamento. Se ainda
-      // aguarda o sinal, é cancelada JUNTO, nesta transação (`cancelada_pela_venda`); se já foi
-      // liberada, nada muda nela — o aviso é derivado na leitura e o dono decide. Vem depois da
-      // trava do documento e da checagem de "já cancelado" (cancelar a venda de novo nunca mexe de
-      // novo na ordem) e ANTES do estorno, que trava os itens: DOCUMENTO → ORDEM → ITENS.
-      await cancelarOrdemDaVendaCancelada(tx, documentoId, usuario.id);
-
-      // O estorno do estoque (Fase 06, D-04): UMA movimentação espelho por original, com
-      // `estorno_de_id` apontando para ela, o mesmo documento e a mesma origem — nada é apagado.
-      // Vem DEPOIS da trava do documento (acima) e da checagem de "já cancelado": a ordem de travas
-      // documento → itens nunca inverte, e duas pessoas cancelando ao mesmo tempo produzem um
-      // conjunto de estornos só (a segunda cai em `DocumentoJaCancelado`; o índice único
-      // `movimentacoes_estoque_estorno_de_uk` segura no banco se algum caminho futuro tentar).
-      //
-      // Pitfall 4: o estorno espelha o LIVRO — recalcular pela ficha de hoje devolveria o que a
-      // venda nunca tirou. O valor é decidido em `lib/estoque/custo.ts` (D-23/D-24). Documento sem
-      // movimentação (anterior ao Estoque, "outra despesa", venda só de valor livre) passa com lista
-      // vazia e não mexe em saldo nenhum (D-05). D-33: esta transação passa a depender da `0023`.
-      const originais = await originaisSemEstorno(tx, documentoId);
-      await gravarMovimentacoes(tx, pedidosDoEstorno(originais), { registradoPor: usuario.id });
-
-      await tx
-        .update(documentos)
-        .set({ canceladoEm: new Date(), canceladoPor: usuario.id })
-        .where(eq(documentos.id, documentoId));
-
-      return documento.numero;
-    });
+    const { numero } = await db.transaction((tx) =>
+      cancelarDocumentoNaTransacao(tx, documentoId, usuario.id),
+    );
 
     revalidatePath("/gestao/financeiro");
     revalidatePath(rotaDeGestao("/estoque"));

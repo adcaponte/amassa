@@ -7443,6 +7443,18 @@ function provarCorridasDasQueimas() {
   });
 }
 
+// O núcleo do “Corrigir” um lançamento (Fase 06.5, plano 16 — D-18 com a UI-D9 do dono): a correção
+// simples, DUAS correções sobrepostas da mesma original (só uma passa, a outra cai em `ja_corrigida`, um
+// vínculo só, nenhum 40P01), a versão velha (`mudou`), a original de orçamento (`origem`) e o
+// cancelamento pelo Caixa × correção nos dois sentidos — o CÓDIGO da aplicação
+// (`lancarCorrecaoNaTransacao`), no molde de `provarCorridasDasQueimas`.
+function provarCorridasDaCorrecao() {
+  console.log("  provarCorridasDaCorrecao...");
+  rodarNpm("npx", ["tsx", "scripts/provar-corridas-da-correcao.ts"], {
+    env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL_TESTE },
+  });
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -7471,6 +7483,7 @@ async function conferirBanco() {
     await conferirConcorrenciaDaProducao();
     provarCorridasDaAgenda();
     provarCorridasDasQueimas();
+    provarCorridasDaCorrecao();
   } finally {
     await cliente.end();
   }
