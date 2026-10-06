@@ -1114,7 +1114,7 @@ Plans:
   6. O pipeline publica a mesma imagem que testou, em menos tempo que os ~32 min de hoje, e o site responde com os cabeçalhos de segurança
   7. O site não tem telefone falso nem horário de funcionamento antes da abertura, e não deixa placeholder ir ao ar a partir de 01/12/2026
 
-**Plans:** 30 plans — planejada em 05/10/2026, nada executado. Um plano por onda, em sequência: todos dividem a mesma árvore, o mesmo `.next` e os contêineres de teste de nome e porta fixos (`scripts/testar-migracoes.mjs`, `scripts/testar-e2e.mjs`). Os planos 28 (D-01) e 29 (D-16) param numa pergunta ao dono; o 30 é o portão (Roteiro 22, 0031, caminhada).
+**Plans:** 30 plans — planejada em 05/10/2026; **executada no branch `gsd/phase-06.5-polimento` até o portão do dono em 06/10/2026** (planos 01–29 e as Tarefas 1 e 2 do 30 — como sei: um `06.5-NN-SUMMARY.md` por plano de 01 a 29, `npm run verificar` exit 0 e a varredura completa no `06.5-30-SUMMARY.md`), **não publicada e com a `0031` não aplicada** (`curl …/api/health/polimento` = 404 às 12:05 UTC de 06/10). *Até 06/10/2026 esta linha dizia "planejada em 05/10/2026, nada executado".* Um plano por onda, em sequência: todos dividem a mesma árvore, o mesmo `.next` e os contêineres de teste de nome e porta fixos (`scripts/testar-migracoes.mjs`, `scripts/testar-e2e.mjs`). Os planos 28 (D-01) e 29 (D-16) param numa pergunta ao dono; o 30 é o portão (Roteiro 22, 0031, caminhada).
 
 Plans:
 
@@ -1147,7 +1147,7 @@ Plans:
 - [x] 06.5-27-PLAN.md — dividir por assunto `lib/agenda/acoes.ts`, `lib/agenda/consultas.ts` e `lib/orcamentos/acoes.ts` (D-24, P10) — **Concluído no branch `gsd/phase-06.5-polimento` (`2a09197..796fb4f`) — ver `06.5-27-SUMMARY.md`**
 - [x] 06.5-28-PLAN.md — Produção: só peça de cerâmica vira ordem — pergunta ao dono e o critério escolhido (D-01) — **Concluído no branch `gsd/phase-06.5-polimento` (`ae70fb5..a24050c`) — ver `06.5-28-SUMMARY.md`**
 - [x] 06.5-29-PLAN.md — a conta do preço de galeria/consignado mostrada ao dono antes de qualquer mudança (D-16) — **Concluído no branch `gsd/phase-06.5-polimento` (`5a466db..965b316`) — ver `06.5-29-SUMMARY.md`**
-- [ ] 06.5-30-PLAN.md — portão: varredura e2e completa, Roteiro 22 completo, caminhada do dono (Parte 0, 0031, critérios), documentos de estado
+- [ ] 06.5-30-PLAN.md — portão: varredura e2e completa, Roteiro 22 completo, caminhada do dono (Parte 0, 0031, critérios), documentos de estado — **Tarefas 1 e 2 feitas no branch em 06/10/2026** (a varredura completa, o Roteiro 22 completo, `06.5-VERIFICACAO-HUMANA.md` e os documentos de estado — ver `06.5-30-SUMMARY.md`, parcial); **a Tarefa 3 é do dono** (Parte 0 → Roteiro 22 com a `0031` → caminhada → "aprovado"). Fica `[ ]` até o "aprovado".
 
 **UI hint**: yes
 
@@ -1226,7 +1226,9 @@ Ordem desde 2026-09-19 (não é a numérica): 1 → 2a → 2b → 3 → 4 → 04
 | 06.2. Fornecedores | 13/13 | Complete | 2026-10-03 |
 | 06.3. Lembretes | 6/6 | Complete | 2026-10-03 |
 | 06.4. Queimas — contagem | 7/7 | Complete | 2026-10-04 |
-| 06.5. Polimento | 0/30 | Planned (05/10/2026) | - |
+| 06.5. Polimento | 29/30 | Aguardando o dono (portão) | - |
 | 7. Polimento e Entrega | 0/TBD | Not started | - |
+
+*Até 06/10/2026 a linha da 06.5 nesta tabela dizia: "| 06.5. Polimento | 0/30 | Planned (05/10/2026) | - |" — os planos 01 a 29 marcaram as próprias linhas da seção da fase; esta tabela foi corrigida pelo 06.5-30.*
 
 *Até 04/10/2026 (~13h30 UTC) a linha da 06.4 nesta tabela dizia: "| 06.4. Queimas — contagem | 0/7 | Planejada, 7 planos, verificador aprovado na rodada 3 (04/10/2026; D-07 (B) do dono incorporada). Até 04/10/2026: "Planejamento pausado em 03/10/2026 (7 planos em rascunho; verificador: 1 bloqueio, 6 avisos)" | - |" — os planos 01 a 06 marcaram as próprias linhas da seção da fase, mas não esta tabela.*
