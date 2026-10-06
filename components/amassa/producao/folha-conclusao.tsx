@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import type { CategoriaDeCompraAtiva } from "@/lib/estoque/consultas";
 import type { CategoriaDeVenda } from "@/lib/precificacao/consultas";
 import { concluirOrdem } from "@/lib/producao/acoes";
@@ -52,12 +52,6 @@ const CAMPOS_DA_PECA = [
   "preco",
   "categoriaCompra",
 ] as const;
-
-// "9000" centavos → "90,00" — o preço praticado da ficha no campo "Preço de venda" (D-12), no
-// formato que `converterReaisParaCentavos` lê de volta (a mesma técnica do diálogo da ficha).
-function textoDeCentavos(centavos: number | null): string {
-  return centavos === null ? "" : (centavos / 100).toFixed(2).replace(".", ",");
-}
 
 // A conferência do passo D-12 antes de enviar (conveniência — o servidor confere de novo): a
 // categoria escolhida e o preço de venda > 0.
@@ -136,7 +130,7 @@ export function FolhaConclusao({
           destino: null,
           custoTexto: "",
           categoriaVendaId: categoriaPecasProntasId ?? "",
-          precoTexto: textoDeCentavos(peca.precoPraticadoCentavos),
+          precoTexto: centavosParaCampo(peca.precoPraticadoCentavos),
           categoriaCompraId: categoriaProducaoDaCasaId ?? "",
         },
       ]),

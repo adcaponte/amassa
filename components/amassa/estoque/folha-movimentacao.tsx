@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { registrarMovimentacao } from "@/lib/estoque/acoes";
@@ -125,12 +125,6 @@ export function milesimosParaCampo(milesimos: number): string {
     return String(inteiro);
   }
   return `${inteiro},${String(resto).padStart(3, "0").replace(/0+$/, "")}`;
-}
-
-// Centavos → "12,34" para o campo de custo (sem "R$" e sem milhar — a conversão aceita os dois,
-// mas o campo fica mais fácil de editar assim).
-function centavosParaCampo(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
 }
 
 // Texto livre curto: o mesmo corte do servidor (NFC, aparado, contado em pontos de código).

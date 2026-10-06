@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 
 import { lancarDespesa } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaCompra } from "@/lib/financeiro/consultas";
-import { converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
-import { conferirParcelas, dividirEmDuasFormas, gerarPlano, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
+import {
+  conferirParcelas,
+  dividirEmDuasFormas,
+  gerarPlano,
+  primeiroValorDaDivisao,
+  type PlanoDePagamento,
+} from "@/lib/financeiro/parcelas";
 import {
   CHAVE_RASCUNHO_DESPESA,
   lerRascunhoDespesa,
@@ -79,10 +85,6 @@ type LinhaDeCompraLocal = {
 
 function novaChave(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function centavosParaTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
 }
 
 export type PainelDespesaProps = {
@@ -307,7 +309,7 @@ export function PainelDespesa({
           indice === 0 && plano === "avista" && !pagoAVista && vencimentoAvistaAberto
             ? vencimentoAvistaAberto
             : parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -336,7 +338,7 @@ export function PainelDespesa({
     // Semeia as duas linhas com a intenção ATUAL do à vista (04.4-12-PLAN.md).
     const resultado = dividirEmDuasFormas({
       totalCentavos,
-      primeiroValorCentavos: Math.ceil(totalCentavos / 2),
+      primeiroValorCentavos: primeiroValorDaDivisao(totalCentavos),
       data: dataAtual,
       formas: [formaPagamento, outraForma],
       pagas: [pagoAVista, pagoAVista],
@@ -350,7 +352,7 @@ export function PainelDespesa({
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
         vencimento: parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -375,7 +377,7 @@ export function PainelDespesa({
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
         vencimento: !pagoAVista && vencimentoAvistaAberto ? vencimentoAvistaAberto : parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
