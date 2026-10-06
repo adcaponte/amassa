@@ -2,9 +2,18 @@ name: Entrega contínua
 
 # Fecha o caminho automático entre um `git push` na `main` e uma imagem publicada e
 # implantada. Ver amassa-plataforma/01-ARQUITETURA.md §6 — a sequência de deploy e as
-# armadilhas do build. Quatro portões encadeados por `needs`, nesta ordem:
-# qualidade -> e2e -> imagem -> implantar. Um teste quebrado interrompe a fila antes de
-# qualquer publicação.
+# armadilhas do build. Portões encadeados por `needs`, nesta fila (desde 06/10/2026, plano
+# 06.5-22, D-22 — antes eram quatro em fila: qualidade -> e2e -> imagem -> implantar):
+#
+#   qualidade ∥ construir  ->  e2e (desktop) ∥ e2e (celular) ∥ banco  ->  publicar  ->  implantar
+#
+# - `construir` monta a imagem UMA vez (com cache) e a sobe ao GHCR só com a tag do commit
+#   (`:<sha>` e `:ferramentas-<sha>`) — nenhuma dessas tags é implantada;
+# - as duas fatias do e2e baixam e testam ESSA imagem; `banco` prova migrações e backup;
+# - `publicar` não monta nada: só dá às mesmas imagens as tags `:latest` e `:ferramentas`, que são
+#   as que o servidor baixa. O pipeline publica a mesma imagem que testou.
+#
+# Um teste quebrado interrompe a fila antes de `:latest` mudar.
 on:
   push:
     branches: [main]
@@ -43,7 +52,67 @@ jobs:
       - run: npm run verificar-acoes
       - run: npm test
 
-  # Depende de `qualidade`. O Postgres de teste chega como service container do runner —
+  # Fase 06.5 (D-22, P5): a imagem é montada AQUI, uma vez, e em paralelo com `qualidade` (sem
+  # `needs`) — ganha os minutos do build enquanto o lint e os unitários rodam. Antes ela era montada
+  # duas vezes: um `docker build` sem cache dentro do e2e e outro no job de publicar, depois dos
+  # testes — a imagem publicada NÃO era o mesmo artefato que o e2e tinha testado, só o mesmo
+  # Dockerfile.
+  #
+  # As tags daqui são só as do commit (`:<sha>`, `:ferramentas-<sha>`). Publicá-las antes do lint é
+  # seguro: o servidor só baixa `:latest`/`:ferramentas` (o `.env` do VPS não muda), e essas só
+  # mudam em `publicar`, depois de e2e e banco verdes. A tag do commit serve para rastrear qual
+  # imagem cada run testou e para voltar uma versão à mão.
+  #
+  # NEXT_PUBLIC_SITE_URL entra como build-arg — é embutida no JavaScript durante o `next build`,
+  # nunca lida em tempo de execução; tratá-la como variável de runtime faria tudo funcionar em
+  # localhost e falhar em produção, porque a imagem nasce aqui e o .env vive no VPS. Nenhum
+  # segredo de runtime (conexão com o banco, chave de sessão) aparece em lugar nenhum deste job —
+  # esses vivem só no .env do servidor.
+  #
+  # Cache `gha` com um escopo por alvo: antes os dois alvos gravavam no MESMO escopo padrão, e o
+  # segundo `cache-to` sobrescrevia o primeiro. O primeiro run depois desta mudança parte de cache
+  # frio (escopos novos); do segundo em diante, só as camadas que mudaram são refeitas.
+  construir:
+    name: Construir a imagem (tag do commit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR com o token efêmero do runner
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir e subir a imagem app com a tag do commit
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: app
+          push: true
+          tags: ${{ env.IMAGEM_BASE }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+
+      - name: Construir e subir a imagem ferramentas com a tag do commit
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: ferramentas
+          push: true
+          tags: ${{ env.IMAGEM_BASE }}:ferramentas-${{ github.sha }}
+          cache-from: type=gha,scope=ferramentas
+          cache-to: type=gha,scope=ferramentas,mode=max
+
+  # Depende de `qualidade` e de `construir`. O Postgres de teste chega como service container do runner —
   # mesma imagem e versão do banco de produção (postgres:17-alpine), sem publicar porta para
   # fora do runner. O E2E roda só aqui, no GitHub Actions (D-10): o VPS não carrega peso
   # extra e o pipeline continua sendo o único portão antes da publicação.
@@ -56,7 +125,7 @@ jobs:
   # fatia vermelha não cancela a outra — o log das duas é o que diz se o defeito é de um viewport só.
   e2e:
     name: E2E (${{ matrix.fatia }}) contra a imagem real
-    needs: qualidade
+    needs: [qualidade, construir]
     strategy:
       fail-fast: false
       matrix:
@@ -134,18 +203,16 @@ jobs:
       - name: Instalar navegadores do Playwright
         run: npx playwright install --with-deps chromium
 
-      # A imagem testada aqui é a MESMA que o job `imagem` publica logo depois — mesmo
-      # Dockerfile, mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
+      # A imagem testada aqui é a MESMA que o job `publicar` promove a `:latest` logo depois — não
+      # outra montagem do mesmo Dockerfile, o MESMO artefato, pela tag do commit que `construir`
+      # acabou de subir (D-22). Mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
       # `standalone`). Testar com `next start` validaria um processo diferente do que sobe em
       # produção — "next start" nem é compatível com `output: "standalone"` (o Next avisa e
-      # ignora a saída standalone). Ver a seção "Deviations" do SUMMARY deste plano.
-      - name: Build da imagem app (mesmo Dockerfile do job imagem, sem publicar)
-        run: |
-          docker build \
-            --target app \
-            --build-arg NEXT_PUBLIC_SITE_URL="${{ vars.NEXT_PUBLIC_SITE_URL }}" \
-            -t amassa-app:e2e \
-            -f docker/Dockerfile .
+      # ignora a saída standalone). Ver a seção "Deviations" do SUMMARY do plano 01-05.
+      #
+      # Sem `docker login`: o pacote do GHCR é público (D-07), como para o VPS.
+      - name: Baixar a imagem app do commit (a que `construir` montou)
+        run: docker pull "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
 
       # --network host: o contêiner enxerga o Postgres do runner em 127.0.0.1:5432 do mesmo
       # jeito que os passos deste job enxergam, e a porta 3000 fica exposta direto para o
@@ -161,7 +228,7 @@ jobs:
             -e AUTH_SECRET="segredo-de-teste-efemero-sem-valor-real" \
             -e AUTH_TRUST_HOST="true" \
             -e PORT=3000 \
-            amassa-app:e2e
+            "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
 
       - name: Esperar /api/health responder
         run: |
@@ -270,20 +337,18 @@ jobs:
       - name: Provar backup e restauração de ponta a ponta (npm run test:backup)
         run: npm run test:backup
 
-  # Depende de `e2e` (as duas fatias) e de `banco`. Publica duas tags a partir do mesmo Dockerfile: o alvo `app` e o alvo
-  # `ferramentas`. NEXT_PUBLIC_SITE_URL entra como build-arg — é embutida no JavaScript
-  # durante o `next build`, nunca lida em tempo de execução; tratá-la como variável de
-  # runtime faria tudo funcionar em localhost e falhar em produção, porque a imagem nasce
-  # aqui e o .env vive no VPS. Nenhum segredo de runtime (conexão com o banco, chave de
-  # sessão) aparece em lugar nenhum deste job — esses vivem só no .env do servidor.
-  imagem:
-    name: Publicar imagens no GHCR
+  # Depende de `e2e` (as duas fatias) e de `banco`. NÃO monta imagem nenhuma (D-22): só dá às
+  # imagens que `construir` subiu com a tag do commit — e que as duas fatias do e2e baixaram e
+  # testaram — as tags que o servidor baixa, `:latest` e `:ferramentas`.
+  # O `imagetools` do buildx copia o manifesto no próprio registro: o conteúdo (digest) de
+  # `:latest` passa a ser exatamente o de `:<sha>`, sem nenhum build entre o teste e a publicação.
+  # Se um teste reprovou, este job não roda e `:latest` continua a imagem do último run verde.
+  publicar:
+    name: Publicar as imagens testadas no GHCR
     needs: [e2e, banco]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-
       - uses: docker/setup-buildx-action@v3
 
       - name: Login no GHCR com o token efêmero do runner
@@ -293,31 +358,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build e publicar imagem app
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          target: app
-          push: true
-          tags: ${{ env.IMAGEM_BASE }}:latest
-          build-args: |
-            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Promover a imagem app testada a :latest
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.IMAGEM_BASE }}:latest" \
+            "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
 
-      - name: Build e publicar imagem ferramentas
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          target: ferramentas
-          push: true
-          tags: ${{ env.IMAGEM_BASE }}:ferramentas
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Promover a imagem ferramentas do mesmo commit a :ferramentas
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.IMAGEM_BASE }}:ferramentas" \
+            "${{ env.IMAGEM_BASE }}:ferramentas-${{ github.sha }}"
 
-  # Depende de `imagem` e só roda quando a variável de repositório DEPLOY_ATIVO vale "true" —
+      # O que foi publicado, pelo digest — é a linha a comparar com o `docker images --digests` do
+      # servidor se um dia houver dúvida sobre qual imagem está no ar.
+      - name: Conferir os digests publicados
+        run: |
+          docker buildx imagetools inspect "${{ env.IMAGEM_BASE }}:latest"
+          docker buildx imagetools inspect "${{ env.IMAGEM_BASE }}:ferramentas"
+
+  # Depende de `publicar` e só roda quando a variável de repositório DEPLOY_ATIVO vale "true" —
   # o dono liga isso no plano 01-07, depois de preparar o servidor. Antes disso, este job
   # aparece pulado (skipped), nunca vermelho, porque o VPS ainda não existe.
   #
@@ -326,7 +386,7 @@ jobs:
   # arquivo — migração é aplicada à mão, depois de um backup, por alguém que está olhando.
   implantar:
     name: Implantar no VPS
-    needs: imagem
+    needs: publicar
     if: vars.DEPLOY_ATIVO == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -390,8 +450,8 @@ jobs:
       # O nome do serviço é obrigatório: `up -d` sem ele recria todos os contêineres
       # declarados, inclusive o postgres — e é exatamente isso que INFRA-06 proíbe.
       #
-      # `pull ferramentas` junto com `pull app`: a imagem de ferramentas é publicada pelo job
-      # `imagem` mas nunca era baixada aqui, e `docker compose run` usa o cache local sem
+      # `pull ferramentas` junto com `pull app`: a imagem de ferramentas era publicada pelo job
+      # `imagem` (desde 06.5-22, `publicar` dá a tag `:ferramentas`) mas nunca era baixada aqui, e `docker compose run` usa o cache local sem
       # consultar o registro. O servidor rodou desde a Fase 2a com a imagem de ferramentas
       # daquela época — as migrações de qualquer fase seguinte simplesmente não existiam dentro
       # dela (WINDOWS.md id 13). Pull só baixa; nenhum contêiner de ferramentas sobe aqui, e

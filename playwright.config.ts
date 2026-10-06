@@ -6,8 +6,9 @@ import { defineConfig, devices, type Project } from "@playwright/test";
 // `DATABASE_URL_TESTE` — nunca do banco real (D-09).
 //
 // No job `e2e` do workflow (plano 01-05), quem sobe o servidor não é este arquivo: o
-// workflow constrói a MESMA imagem Docker que o job `imagem` publica (alvo `app`, saída
-// `standalone`) e já a deixa respondendo em http://127.0.0.1:3000 antes de rodar
+// workflow baixa a imagem Docker que o job `construir` montou com a tag do commit — a MESMA que
+// o job `publicar` promove a `:latest` depois (plano 06.5-22, D-22; alvo `app`, saída
+// `standalone`) — e já a deixa respondendo em http://127.0.0.1:3000 antes de rodar
 // `npx playwright test` diretamente. `reuseExistingServer: true` é o que permite os dois
 // mundos convivirem no mesmo arquivo: se já existe um servidor respondendo na `url` (o
 // contêiner, em CI), o Playwright reaproveita e nunca chega a executar o `command` abaixo;
