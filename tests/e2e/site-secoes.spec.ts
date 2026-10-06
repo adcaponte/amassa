@@ -118,10 +118,39 @@ test.describe("site secoes", () => {
     }
   });
 
-  test("(e) o endereço com colchete aparece literal na seção onde", async ({ page }) => {
+  // Fase 06.5 (D-32, 06/10/2026): o caso VIROU — até aqui exigia "Rua [nome da rua]" literal (D-14
+  // da 04.6). Agora o endereço é slot do dono: vazio, o par "Endereço" não existe; preenchido,
+  // aparece sem colchete. Nenhum colchete em "Onde fica" nem no rodapé.
+  test("(e) o endereço vazio não aparece e nenhum colchete aparece em site-contato nem no rodapé", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByTestId("site-contato")).toContainText("Rua [nome da rua]");
+    const contato = page.getByTestId("site-contato");
+    await expect(contato).toBeVisible();
+    const textoDoContato = await contato.innerText();
+    if (CONTEUDO_SITE.contato.endereco.trim().length === 0) {
+      expect(textoDoContato.toLowerCase()).not.toContain("endereço");
+    } else {
+      expect(textoDoContato).toContain(CONTEUDO_SITE.contato.endereco);
+    }
+    expect(textoDoContato).not.toMatch(/[[\]]/);
+
+    const rodape = page.getByTestId("site-rodape");
+    await expect(rodape).toContainText(CONTEUDO_SITE.rodape.quemSomos);
+    expect(await rodape.innerText()).not.toMatch(/[[\]]/);
+  });
+
+  // D-30 / UI-D16 (Fase 06.5): o horário de funcionamento saiu; no lugar, "Abertura · Abrimos em
+  // dezembro.".
+  test("(l) “Onde fica” mostra Abertura · Abrimos em dezembro. e nenhum Horário", async ({ page }) => {
+    await page.goto("/");
+
+    const abertura = page.getByTestId("site-abertura-data");
+    await expect(abertura).toBeVisible();
+    await expect(abertura).toContainText("Abertura");
+    await expect(abertura).toContainText("Abrimos em dezembro.");
+
+    const textoDoContato = (await page.getByTestId("site-contato").innerText()).toLowerCase();
+    expect(textoDoContato).not.toContain("horário");
   });
 
   test("(f) @vazio-global sem evento público, nenhum valor em dinheiro aparece em nenhuma seção", async ({ page }) => {

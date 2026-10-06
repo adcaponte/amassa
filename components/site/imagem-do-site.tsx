@@ -6,7 +6,8 @@ import { SLOTS_DE_IMAGEM, type SlotDeImagem } from "@/conteudo/site";
 // legenda "foto ainda não recebida" no lugar. Colchete em TEXTO ("Rua [nome da rua]") lê como
 // obra em andamento, coerente com a faixa "em construção"; um retângulo tracejado no meio da
 // página lê como defeito — as duas coisas seguem regras diferentes, e o vazio deste componente
-// é a regra do retângulo. `fachada` e `mapa` sobem com `arquivo: null` neste plano; o plano 04
+// é a regra do retângulo. (06/10/2026, D-32 da Fase 06.5: o colchete em texto também saiu — campo
+// de texto vazio agora não renderiza, a mesma regra desta imagem.) `fachada` e `mapa` sobem com `arquivo: null` neste plano; o plano 04
 // é quem exercita este caminho de verdade.
 type ImagemDoSiteProps = {
   slot: SlotDeImagem;

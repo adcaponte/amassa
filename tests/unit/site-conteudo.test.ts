@@ -22,14 +22,19 @@ describe("conteudo/site.ts — conteúdo do site público (D-15, D-17, D-18, D-2
     expect(CONTEUDO_SITE.passo1).toEqual({ titulo: expect.any(String), corpo: expect.any(String) });
     expect(CONTEUDO_SITE.passo2).toEqual({ titulo: expect.any(String), corpo: expect.any(String) });
     expect(CONTEUDO_SITE.passo3).toEqual({ titulo: expect.any(String), corpo: expect.any(String) });
+    // Fase 06.5 (06/10/2026): `horario` saiu (D-30) e virou `abertura`; `whatsappRotulo` saiu (D-28,
+    // o telefone exibido é derivado do `zap`); `quemSomosTexto` é o slot do texto do dono (D-32).
     expect(CONTEUDO_SITE.contato).toEqual({
       endereco: expect.any(String),
-      horario: expect.any(String),
-      whatsappRotulo: expect.any(String),
+      abertura: expect.any(String),
       instagramUsuario: expect.any(String),
       instagramUrl: expect.any(String),
     });
-    expect(CONTEUDO_SITE.rodape).toEqual({ linha: expect.any(String), quemSomos: expect.any(String) });
+    expect(CONTEUDO_SITE.rodape).toEqual({
+      linha: expect.any(String),
+      quemSomos: expect.any(String),
+      quemSomosTexto: expect.any(String),
+    });
   });
 
   it("nenhum campo de texto do site contém marcação HTML (<b>, <span>, <a>)", () => {
@@ -127,11 +132,34 @@ describe("conteudo/site.ts — os cinco casos do plano 04 (D-04.6-04)", () => {
     }
   });
 
-  it("(b) endereço e 'quem somos' guardam colchete literal onde falta dado real (D-14)", () => {
-    expect(CONTEUDO_SITE.contato.endereco).toContain("[");
-    expect(CONTEUDO_SITE.contato.endereco).toContain("]");
-    expect(CONTEUDO_SITE.rodape.quemSomos).toContain("[");
-    expect(CONTEUDO_SITE.rodape.quemSomos).toContain("]");
+  // Fase 06.5 (D-32, 06/10/2026): o caso VIROU — até aqui ele exigia o colchete (D-14 da 04.6);
+  // agora exige a ausência. O dado que falta fica vazio e não renderiza.
+  it("(b) endereço e 'quem somos' não têm colchete (D-32)", () => {
+    for (const texto of [
+      CONTEUDO_SITE.contato.endereco,
+      CONTEUDO_SITE.rodape.quemSomos,
+      CONTEUDO_SITE.rodape.quemSomosTexto,
+    ]) {
+      expect(texto, `"${texto}" não deveria ter colchete`).not.toMatch(/[[\]]/);
+    }
+  });
+
+  it("(b2) endereço e texto do 'quem somos' vazios são aceitos (slot do dono, não renderiza)", () => {
+    // O tipo é `string`; vazio é um valor válido, não um defeito. Preenchido, é texto sem colchete
+    // (caso acima). Nenhum dos dois pode ser só espaço — isso não renderizaria e pareceria preenchido.
+    const slots: string[] = [CONTEUDO_SITE.contato.endereco, CONTEUDO_SITE.rodape.quemSomosTexto];
+    for (const slot of slots) {
+      expect(typeof slot).toBe("string");
+      expect(slot === "" || slot.trim().length > 0, `"${slot}" é só espaço`).toBe(true);
+    }
+    expect(CONTEUDO_SITE.rodape.quemSomos).toBe("Quem somos: Theo e Andressa.");
+  });
+
+  it("(b3) D-30/D-31: a abertura no lugar do horário, e 'artísticos' com acento", () => {
+    expect(CONTEUDO_SITE.contato.abertura).toBe("Abrimos em dezembro.");
+    expect("horario" in CONTEUDO_SITE.contato).toBe(false);
+    expect(CONTEUDO_SITE.c3Corpo).toContain("materiais artísticos");
+    expect(CONTEUDO_SITE.c3Corpo).not.toContain("artisticos");
   });
 
   it("(c) SLOTS_DE_IMAGEM.fachada e .mapa continuam sem arquivo (D-20)", () => {

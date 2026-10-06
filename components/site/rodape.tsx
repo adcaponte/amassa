@@ -8,6 +8,10 @@ import { BotaoWhatsapp } from "@/components/site/botao-whatsapp";
 // em tom menor. NENHUM link para a plataforma — nem discreto, nem em `title`, nem em comentário
 // renderizado: acesso a ela é só por endereço (decisão do dono).
 export function Rodape() {
+  // D-32 / UI-D17 (06/10/2026): a frase confirmada sempre; o texto do dono, depois dela, só quando
+  // vier — slot vazio não renderiza, nenhum colchete vai ao ar.
+  const textoDoDono = CONTEUDO_SITE.rodape.quemSomosTexto.trim();
+
   return (
     <footer
       data-testid="site-rodape"
@@ -25,7 +29,10 @@ export function Rodape() {
         </a>{" "}
         · <BotaoWhatsapp mensagem="site" rotulo="WhatsApp" className="text-site-tinta-fraca underline" />
       </p>
-      <p className="mt-1 opacity-70">{CONTEUDO_SITE.rodape.quemSomos}</p>
+      <p className="mt-1 opacity-70">
+        {CONTEUDO_SITE.rodape.quemSomos}
+        {textoDoDono.length > 0 ? ` ${textoDoDono}` : null}
+      </p>
       {/* 04/10/2026: a política que o Google exige para publicar o app de backup (`app/privacidade`). */}
       <p className="mt-1">
         <Link href="/privacidade" className="text-site-tinta-fraca underline">

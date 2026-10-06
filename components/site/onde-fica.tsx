@@ -8,18 +8,19 @@ import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 type CampoDeContatoProps = {
   rotulo: string;
   children: string;
+  testId?: string;
 };
 
 // Regra de campo vazio (deste plano, distinta de D-20 logo abaixo): um valor de conteúdo que
 // seja string vazia ou só espaço não renderiza o PAR inteiro — nem o rótulo. Um "Endereço" sem
-// endereço é pior que a ausência da linha. Hoje os quatro campos vêm preenchidos (com colchete
-// onde falta dado real, D-14); esta guarda é o que sobra são quando o cadastro editável adiado
-// permitir apagar um campo.
-function CampoDeContato({ rotulo, children }: CampoDeContatoProps) {
+// endereço é pior que a ausência da linha. Desde 06/10/2026 (D-32 da Fase 06.5) esta guarda é a
+// regra do dia a dia, não mais só uma reserva: o endereço é slot do dono e sobe vazio até ele
+// mandar o valor — antes subia com colchete (D-14 da 04.6).
+function CampoDeContato({ rotulo, children, testId }: CampoDeContatoProps) {
   if (children.trim().length === 0) return null;
 
   return (
-    <div>
+    <div data-testid={testId}>
       <b className="mb-0.5 block text-xs font-semibold tracking-[0.12em] text-site-tinta-fraca uppercase">
         {rotulo}
       </b>
@@ -28,7 +29,7 @@ function CampoDeContato({ rotulo, children }: CampoDeContatoProps) {
   );
 }
 
-// `#onde`: endereço, horário, WhatsApp e Instagram — os pares de `CONTEUDO_SITE.contato`. O
+// `#onde`: endereço, abertura, WhatsApp e Instagram — os pares de `CONTEUDO_SITE.contato`. O
 // telefone exibido é DERIVADO do `zap` (D-28, 06/10/2026): o mesmo número que o botão abre, nunca
 // um rótulo escrito à mão que possa divergir dele.
 export function OndeFica() {
@@ -55,7 +56,10 @@ export function OndeFica() {
               sem altura mínima mede a altura da linha (bem menos que 44px). */}
           <div data-testid="site-contato" className="mt-5 grid gap-3.5 text-[15.5px] text-site-tinta">
             <CampoDeContato rotulo="Endereço">{contato.endereco}</CampoDeContato>
-            <CampoDeContato rotulo="Horário">{contato.horario}</CampoDeContato>
+            {/* D-30 / UI-D16 (06/10/2026): o horário de funcionamento saiu até a inauguração. */}
+            <CampoDeContato rotulo="Abertura" testId="site-abertura-data">
+              {contato.abertura}
+            </CampoDeContato>
             {whatsappPreenchido ? (
               <div>
                 <b className="mb-0.5 block text-xs font-semibold tracking-[0.12em] text-site-tinta-fraca uppercase">
