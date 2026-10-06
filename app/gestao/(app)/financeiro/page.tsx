@@ -25,7 +25,10 @@ import {
   listarMovimentos,
   listarParcelasPagasNoMes,
   obterConfiguracaoFinanceira,
+  obterCorrecaoParaAviso,
   obterDocumentoParaAviso,
+  obterDocumentoParaCorrecao,
+  type DocumentoParaCorrecao,
   mesesComContasFixasGeradas,
   obterParcelaParaAviso,
   somarMovimentosAntesDe,
@@ -38,8 +41,13 @@ import { resumoDoMes } from "@/lib/financeiro/mes";
 import { ORCAMENTO_NOVO_NA_URL } from "@/lib/financeiro/navegacao";
 import { listarSaldos } from "@/lib/estoque/consultas";
 import { listarFornecedoresParaSeletor, type FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
+import { rascunhoDaCorrecao, type RascunhoDaCorrecao } from "@/lib/financeiro/correcao";
 import {
+  fraseCorrecaoDeCancelada,
+  fraseCorrecaoNaoAchada,
+  fraseSemCorrecaoPorOrigem,
   textoCancelado,
+  textoCorrecaoLancada,
   textoDespesaLancada,
   textoDoDesfazer,
   textoDoPagamento,
@@ -77,6 +85,7 @@ import { AvisoContasFixas } from "@/components/amassa/financeiro/aviso-contas-fi
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
 import { OrigemIndisponivel } from "@/components/amassa/financeiro/faixa-da-agenda";
+import { CorrecaoIndisponivel } from "@/components/amassa/financeiro/faixa-da-correcao";
 import { ListasCaixa } from "@/components/amassa/financeiro/listas-caixa";
 import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelMes } from "@/components/amassa/financeiro/painel-mes";
@@ -90,7 +99,11 @@ import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { queimaParaVenda, type VendaDaQueima } from "@/lib/queimas/consultas";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
-import type { OrigemNoPainel, RascunhoInicialDaVenda } from "@/components/amassa/financeiro/painel-venda";
+import type {
+  CorrecaoNoPainel,
+  OrigemNoPainel,
+  RascunhoInicialDaVenda,
+} from "@/components/amassa/financeiro/painel-venda";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -143,6 +156,7 @@ export default async function PaginaFinanceiro({
     exclusivas?: string;
     orcamento?: string;
     origem?: string | string[];
+    corrige?: string | string[];
   }>;
 }) {
   await exigirUsuario();
@@ -162,6 +176,7 @@ export default async function PaginaFinanceiro({
     exclusivas,
     orcamento,
     origem,
+    corrige,
   } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
@@ -226,8 +241,25 @@ export default async function PaginaFinanceiro({
   // despacho é pelo MÓDULO da origem: Agenda → `cobrancaParaVenda` (como antes); Queimas →
   // `queimaParaVenda`. Origem mal formada conta como não achada (nunca um carrinho com dado inventado);
   // a origem que já virou venda mostra o número e o caminho do Caixa.
-  const origemDaVenda = abaVenda ? origemDaUrl(origem) : null;
-  const pediuOrigem = abaVenda && origem !== undefined && origem !== "";
+  //
+  // O “Corrigir” (Fase 06.5, plano 17 — D-18/UI-D9): `?corrige=<uuid>` na aba Venda abre a Venda
+  // preenchida com a original, que continua valendo até o lançamento. A página só LÊ — nenhuma ação ao
+  // abrir. O id é validado como uuid ANTES de qualquer consulta (T-06.5-47); lixo conta como “não achei”.
+  // Com `?corrige=` e `?origem=` juntos, vale a correção (a origem nem é lida).
+  const pediuCorrecao = abaVenda && corrige !== undefined && corrige !== "";
+  const correcaoId =
+    pediuCorrecao && typeof corrige === "string" && REGEX_UUID_DOCUMENTO.test(corrige) ? corrige : null;
+  // Mesma disciplina da origem (WR-07): a promessa nasce aqui com o `catch` preso, e uma falha vira “não
+  // achei” — nunca um carrinho montado com dado desconhecido.
+  const documentoParaCorrecaoPromessa: Promise<DocumentoParaCorrecao | null> = correcaoId
+    ? obterDocumentoParaCorrecao(correcaoId).catch((erro: unknown) => {
+        console.error("Falha ao ler a original para a correção:", erro);
+        return null;
+      })
+    : Promise.resolve(null);
+
+  const origemDaVenda = abaVenda && !pediuCorrecao ? origemDaUrl(origem) : null;
+  const pediuOrigem = abaVenda && !pediuCorrecao && origem !== undefined && origem !== "";
   const moduloPedido = origemDaVenda
     ? ehOrigemDaAgenda(origemDaVenda)
       ? "agenda"
@@ -279,6 +311,7 @@ export default async function PaginaFinanceiro({
     existeContaFixaAtiva,
     documentoDoAviso,
     parcelaDoAviso,
+    correcaoDoAviso,
     documentosDoMes,
     parcelasPagasNoMes,
     orcamentos,
@@ -317,6 +350,10 @@ export default async function PaginaFinanceiro({
     avisoResolvido && (avisoResolvido.tipo === "pago" || avisoResolvido.tipo === "desfeito")
       ? obterParcelaParaAviso(avisoResolvido.parcelaId)
       : Promise.resolve(null),
+    // A correção lançada (06.5-17): o número da original vem do vínculo, nunca da URL.
+    avisoResolvido?.tipo === "corrigido"
+      ? obterCorrecaoParaAviso(avisoResolvido.documentoId)
+      : Promise.resolve(null),
     abaMes ? listarDocumentosDoMes(mesAtual) : Promise.resolve([]),
     abaMes ? listarParcelasPagasNoMes(mesAtual) : Promise.resolve([]),
     // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa (a lista), mesma
@@ -349,6 +386,39 @@ export default async function PaginaFinanceiro({
     abaDespesa ? carregarFornecedoresParaDespesa() : Promise.resolve(null),
   ]);
   const vendaDaOrigem = await vendaDaOrigemPromessa;
+
+  // A correção, decidida AQUI (servidor): não achada (ou de outro tipo), cancelada (inclusive já
+  // corrigida) ou de uma origem que não se corrige por aqui (UI-D10) → a frase no lugar do carrinho; senão
+  // a Venda preenchida pelo `rascunhoDaCorrecao` (puro), com a versão de `obterDocumentoParaCorrecao`.
+  const documentoParaCorrecao = await documentoParaCorrecaoPromessa;
+  let fraseCorrecaoIndisponivel: string | null = null;
+  let correcaoNoPainel: CorrecaoNoPainel | null = null;
+  let rascunhoDaCorrecaoNaVenda: RascunhoDaCorrecao | null = null;
+  if (pediuCorrecao) {
+    if (!documentoParaCorrecao || documentoParaCorrecao.tipo !== "venda") {
+      fraseCorrecaoIndisponivel = fraseCorrecaoNaoAchada("venda");
+    } else if (documentoParaCorrecao.cancelado) {
+      fraseCorrecaoIndisponivel = fraseCorrecaoDeCancelada("venda", documentoParaCorrecao.numero);
+    } else if (documentoParaCorrecao.origem !== null) {
+      fraseCorrecaoIndisponivel = fraseSemCorrecaoPorOrigem(
+        "venda",
+        documentoParaCorrecao.origem,
+        documentoParaCorrecao.numeroDoOrcamento,
+      );
+    } else {
+      rascunhoDaCorrecaoNaVenda = rascunhoDaCorrecao(
+        documentoParaCorrecao,
+        new Set(catalogo.map((item) => item.id)),
+      );
+      correcaoNoPainel = {
+        documentoId: documentoParaCorrecao.id,
+        numero: documentoParaCorrecao.numero,
+        versao: documentoParaCorrecao.versao,
+        comEstoque: documentoParaCorrecao.comEstoque,
+        deFora: rascunhoDaCorrecaoNaVenda.deFora,
+      };
+    }
+  }
   // UM objeto para o painel, montado pelo módulo da origem — o `PainelVenda` só olha `modulo`.
   const origemNoPainel: OrigemNoPainel | null =
     vendaDaOrigem && origemDaVenda && vendaDaOrigem.venda.situacao === "livre"
@@ -414,6 +484,13 @@ export default async function PaginaFinanceiro({
             documentoDoAviso.numero,
             formatarReais(documentoDoAviso.totalCentavos),
             documentoDoAviso.parcelasEmAberto,
+          )
+      : avisoResolvido?.tipo === "corrigido" && correcaoDoAviso
+        ? textoCorrecaoLancada(
+            correcaoDoAviso.tipo,
+            correcaoDoAviso.numeroOriginal,
+            correcaoDoAviso.numero,
+            formatarReais(correcaoDoAviso.totalCentavos),
           )
       : avisoResolvido?.tipo === "cancelado" && documentoDoAviso
         ? textoCancelado(documentoDoAviso.numero)
@@ -666,6 +743,8 @@ export default async function PaginaFinanceiro({
             </p>
           ) : null}
         </>
+      ) : fraseCorrecaoIndisponivel ? (
+        <CorrecaoIndisponivel frase={fraseCorrecaoIndisponivel} />
       ) : origemIndisponivel ? (
         <OrigemIndisponivel
           modulo={origemIndisponivel.modulo}
@@ -676,7 +755,13 @@ export default async function PaginaFinanceiro({
         <PainelVenda
           // A `key` separa a Venda manual da Venda de uma origem (e uma origem da outra): o painel monta de
           // novo e começa do carrinho certo, nunca do estado da tela anterior.
-          key={origemNoPainel ? origemNoPainel.origem : "manual"}
+          key={
+            correcaoNoPainel
+              ? `corrige-${correcaoNoPainel.documentoId}`
+              : origemNoPainel
+                ? origemNoPainel.origem
+                : "manual"
+          }
           hoje={hoje}
           categorias={categoriasParaValorLivre}
           catalogo={catalogo}
@@ -686,8 +771,11 @@ export default async function PaginaFinanceiro({
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
           }}
-          origem={origemNoPainel}
-          rascunhoInicial={origemNoPainel ? rascunhoDaOrigem : null}
+          origem={correcaoNoPainel ? null : origemNoPainel}
+          rascunhoInicial={
+            correcaoNoPainel ? rascunhoDaCorrecaoNaVenda : origemNoPainel ? rascunhoDaOrigem : null
+          }
+          correcao={correcaoNoPainel}
         />
       )}
     </>

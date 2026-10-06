@@ -61,3 +61,10 @@ export function hrefDaVendaComOrigem(origem: OrigemDaVenda): string {
   const parametros = new URLSearchParams({ aba: "venda", origem: textoDaOrigem(origem) });
   return `${PREFIXO_GESTAO}/financeiro?${parametros.toString()}`;
 }
+
+// O “Corrigir” de um documento (Fase 06.5, plano 17 — D-18/UI-D9): a Venda ou a Despesa preenchida com a
+// original, que continua valendo até o lançamento. Só navega — nada é gravado nem cancelado ao abrir.
+export function hrefDaCorrecao(tipo: "venda" | "despesa", documentoId: string): string {
+  const parametros = new URLSearchParams({ aba: tipo, corrige: documentoId });
+  return `${PREFIXO_GESTAO}/financeiro?${parametros.toString()}`;
+}

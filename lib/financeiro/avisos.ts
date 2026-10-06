@@ -12,6 +12,9 @@ const QUANTIDADE_MAXIMA_DE_CONTAS = 500;
 
 export type AvisoDaUrl =
   | { tipo: "lancado"; documentoId: string }
+  // A correção lançada (06.5-17, UI-D9): `documentoId` é a NOVA; o número da original vem do vínculo no
+  // banco (`obterCorrecaoParaAviso`), nunca da URL.
+  | { tipo: "corrigido"; documentoId: string }
   | { tipo: "cancelado"; documentoId: string }
   | { tipo: "pago"; parcelaId: string }
   | { tipo: "desfeito"; parcelaId: string }
@@ -64,7 +67,7 @@ export function avisoDaUrl(parametros: {
     return { tipo: "contas-geradas", quantidade, mes };
   }
 
-  if (parametros.aviso === "lancado" || parametros.aviso === "cancelado") {
+  if (parametros.aviso === "lancado" || parametros.aviso === "cancelado" || parametros.aviso === "corrigido") {
     const documentoId = parametros.documento;
     if (!documentoId || !REGEX_UUID.test(documentoId)) {
       return null;

@@ -1,27 +1,36 @@
 // Leituras do módulo Financeiro. Sem `"use server"` — não são Server Actions, são consultas
 // chamadas direto do Server Component da página; `lib/financeiro/acoes.ts` fica só com escrita
 // (mesmo molde de `lib/abertura/consultas.ts`/`lib/queimas/consultas.ts`).
-import { and, asc, count, eq, gte, inArray, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
   categorias,
   configuracaoFinanceira,
   contasFixas,
+  correcoesDeDocumento,
   documentoLinhas,
   documentos,
   fichaTecnica,
+  inscricoes,
   itensCatalogo,
+  mensalidades,
+  movimentacoesEstoque,
   orcamentos,
   parcelas,
+  queimaVendas,
+  usosLivres,
   usuarios,
 } from "@/db/schema";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 
 import { mesSeguinte, primeiroDiaDoMes } from "./calendario";
+import { motivoSemCorrecao, type LinhaDaOriginal, type OrigemSemCorrecao, type ParcelaDaOriginal } from "./correcao";
 import type { ItemParaEfeito } from "./efeito-estoque";
 import { totalDasLinhas, tituloDoDocumento } from "./documento";
 import type { GrupoDePagas, MovimentoParaExtrato } from "./extrato";
+import { versaoAtualDoDocumento } from "./gravacao";
 import type { DocumentoParaMes, LinhaDeDocumentoParaMes, ParcelaPagaParaMes } from "./mes";
 import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria, TipoDeDocumentoParaTexto } from "./textos";
 
@@ -477,7 +486,50 @@ export type DocumentoParaDetalhe = {
   // `null` quando este documento não nasceu de uma aprovação de orçamento (a imensa maioria dos
   // documentos — venda avulsa, despesa).
   origemOrcamento: OrigemDoDocumento | null;
+  // Fase 06.5, plano 17 (UI-D10): de onde veio o documento que NÃO se corrige pela Venda/Despesa
+  // (Agenda, Queimas, orçamento, conta fixa) — `null` = o “Corrigir” aparece (se não estiver cancelado).
+  origemParaCorrecao: OrigemSemCorrecao | null;
 };
+
+// As origens da Agenda (inscrição, mensalidade, uso livre) e das Queimas de uma LISTA de documentos, numa
+// consulta só (`union all`) — o detalhe do Caixa e a abertura da correção leem a mesma coisa. O orçamento
+// e a conta fixa moram no próprio documento/join de quem chama.
+async function origensDaAgendaEDasQueimas(
+  ids: readonly string[],
+): Promise<Map<string, { temAgenda: boolean; temQueima: boolean }>> {
+  const mapa = new Map<string, { temAgenda: boolean; temQueima: boolean }>();
+  if (ids.length === 0) {
+    return mapa;
+  }
+  const lista = ids as string[];
+  const deOnde = (coluna: AnyPgColumn, modulo: "agenda" | "queimas") => ({
+    documentoId: sql<string>`${coluna}`.as("documento_id"),
+    modulo: sql<"agenda" | "queimas">`${sql.raw(`'${modulo}'`)}`.as("modulo"),
+  });
+  const linhas = await db
+    .select(deOnde(inscricoes.documentoId, "agenda"))
+    .from(inscricoes)
+    .where(inArray(inscricoes.documentoId, lista))
+    .unionAll(
+      db.select(deOnde(mensalidades.documentoId, "agenda")).from(mensalidades).where(inArray(mensalidades.documentoId, lista)),
+    )
+    .unionAll(
+      db.select(deOnde(usosLivres.documentoId, "agenda")).from(usosLivres).where(inArray(usosLivres.documentoId, lista)),
+    )
+    .unionAll(
+      db.select(deOnde(queimaVendas.documentoId, "queimas")).from(queimaVendas).where(inArray(queimaVendas.documentoId, lista)),
+    );
+  for (const linha of linhas) {
+    const atual = mapa.get(linha.documentoId) ?? { temAgenda: false, temQueima: false };
+    if (linha.modulo === "agenda") {
+      atual.temAgenda = true;
+    } else {
+      atual.temQueima = true;
+    }
+    mapa.set(linha.documentoId, atual);
+  }
+  return mapa;
+}
 
 // O detalhe do documento ("Ver"): documentos + quem cancelou (join com usuarios) + o orçamento de
 // origem (join com `orcamentos`, quando existe), linhas (com a categoria e se é a linha de
@@ -491,7 +543,7 @@ export async function listarDocumentosParaDetalhe(
     return new Map();
   }
 
-  const [documentosCarregados, linhasCarregadas, parcelasCarregadas] = await Promise.all([
+  const [documentosCarregados, linhasCarregadas, parcelasCarregadas, origens] = await Promise.all([
     db
       .select({
         id: documentos.id,
@@ -501,6 +553,7 @@ export async function listarDocumentosParaDetalhe(
         pessoaNome: documentos.pessoaNome,
         titulo: documentos.titulo,
         canceladoEm: documentos.canceladoEm,
+        contaFixaId: documentos.contaFixaId,
         canceladoPorNome: usuarios.nome,
         origemOrcamentoId: orcamentos.id,
         origemOrcamentoAno: orcamentos.ano,
@@ -541,6 +594,8 @@ export async function listarDocumentosParaDetalhe(
       .from(parcelas)
       .where(inArray(parcelas.documentoId, ids as string[]))
       .orderBy(asc(parcelas.numero)),
+    // Fase 06.5, plano 17 (UI-D10): as origens que decidem entre o “Corrigir” e a frase no lugar dele.
+    origensDaAgendaEDasQueimas(ids),
   ]);
 
   const linhasPorDocumento = new Map<string, LinhaDoDocumentoParaDetalhe[]>();
@@ -605,10 +660,166 @@ export async function listarDocumentosParaDetalhe(
             ordemId: documento.origemOrdemId,
           }
         : null,
+      origemParaCorrecao: motivoSemCorrecao({
+        temAgenda: origens.get(documento.id)?.temAgenda ?? false,
+        temQueima: origens.get(documento.id)?.temQueima ?? false,
+        temOrcamento: documento.origemOrcamentoId !== null,
+        temContaFixa: documento.contaFixaId !== null,
+      }),
     });
   }
 
   return mapa;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// A abertura do “Corrigir” (Fase 06.5, plano 17 — D-18/UI-D9): a página lê a original para preencher a
+// Venda/Despesa. Só LEITURA — nada é travado nem gravado ao abrir. A VERSÃO vem de
+// `versaoAtualDoDocumento(db, id)` (plano 16): a mesma leitura e o mesmo normalizador que a transação usa
+// sob a trava; nenhum outro código calcula versão.
+export type DocumentoParaCorrecao = {
+  id: string;
+  tipo: TipoDeDocumentoParaTexto;
+  numero: number;
+  data: string;
+  pessoaNome: string | null;
+  clienteId: string | null;
+  fornecedorId: string | null;
+  cancelado: boolean;
+  // UI-D10: `null` = corrige por aqui.
+  origem: OrigemSemCorrecao | null;
+  // “ORC-2026-004” quando a origem é um orçamento.
+  numeroDoOrcamento: string | null;
+  // A original mexeu no estoque (tem movimentação no livro) — a faixa diz que o material volta.
+  comEstoque: boolean;
+  linhas: LinhaDaOriginal[];
+  parcelas: ParcelaDaOriginal[];
+  versao: string;
+};
+
+export async function obterDocumentoParaCorrecao(id: string): Promise<DocumentoParaCorrecao | null> {
+  const [documentosLidos, linhas, parcelasLidas, origens, movimentacoes, versao] = await Promise.all([
+    db
+      .select({
+        tipo: documentos.tipo,
+        numero: documentos.numero,
+        data: documentos.data,
+        pessoaNome: documentos.pessoaNome,
+        clienteId: documentos.clienteId,
+        fornecedorId: documentos.fornecedorId,
+        canceladoEm: documentos.canceladoEm,
+        contaFixaId: documentos.contaFixaId,
+        orcamentoAno: orcamentos.ano,
+        orcamentoSequencial: orcamentos.sequencial,
+      })
+      .from(documentos)
+      .leftJoin(orcamentos, eq(orcamentos.documentoId, documentos.id))
+      .where(eq(documentos.id, id))
+      .limit(1),
+    db
+      .select({
+        itemId: documentoLinhas.itemId,
+        descricao: documentoLinhas.descricao,
+        categoriaId: documentoLinhas.categoriaId,
+        quantidade: documentoLinhas.quantidade,
+        valorCentavos: documentoLinhas.valorCentavos,
+        quantidadeEstoque: documentoLinhas.quantidadeEstoque,
+        parcelaDiferencaId: documentoLinhas.parcelaDiferencaId,
+      })
+      .from(documentoLinhas)
+      .where(eq(documentoLinhas.documentoId, id))
+      .orderBy(asc(documentoLinhas.ordem)),
+    db
+      .select({
+        vencimento: parcelas.vencimento,
+        valorCentavos: parcelas.valorCentavos,
+        forma: parcelas.forma,
+        pagoEm: parcelas.pagoEm,
+      })
+      .from(parcelas)
+      .where(eq(parcelas.documentoId, id))
+      .orderBy(asc(parcelas.numero)),
+    origensDaAgendaEDasQueimas([id]),
+    db
+      .select({ total: count() })
+      .from(movimentacoesEstoque)
+      .where(eq(movimentacoesEstoque.documentoId, id)),
+    versaoAtualDoDocumento(db, id),
+  ]);
+
+  const documento = documentosLidos[0];
+  if (!documento || versao === null) {
+    return null;
+  }
+
+  return {
+    id,
+    tipo: documento.tipo,
+    numero: documento.numero,
+    data: documento.data,
+    pessoaNome: documento.pessoaNome,
+    clienteId: documento.clienteId,
+    fornecedorId: documento.fornecedorId,
+    cancelado: documento.canceladoEm !== null,
+    origem: motivoSemCorrecao({
+      temAgenda: origens.get(id)?.temAgenda ?? false,
+      temQueima: origens.get(id)?.temQueima ?? false,
+      temOrcamento: documento.orcamentoAno !== null,
+      temContaFixa: documento.contaFixaId !== null,
+    }),
+    numeroDoOrcamento:
+      documento.orcamentoAno !== null && documento.orcamentoSequencial !== null
+        ? numeroDeOrcamento(documento.orcamentoAno, documento.orcamentoSequencial)
+        : null,
+    comEstoque: Number(movimentacoes[0]?.total ?? 0) > 0,
+    linhas: linhas.map((linha) => ({
+      itemId: linha.itemId,
+      descricao: linha.descricao,
+      categoriaId: linha.categoriaId,
+      quantidade: linha.quantidade,
+      valorCentavos: linha.valorCentavos,
+      quantidadeEstoque: linha.quantidadeEstoque,
+      ehDiferenca: linha.parcelaDiferencaId !== null,
+    })),
+    parcelas: parcelasLidas.map((parcela) => ({
+      vencimento: parcela.vencimento,
+      valorCentavos: parcela.valorCentavos,
+      forma: parcela.forma as FormaDePagamento,
+      pagoEm: parcela.pagoEm,
+    })),
+    versao,
+  };
+}
+
+// O toast da correção lançada (06.5-17): a nova (`documentoId`) e o número da original que ela corrigiu,
+// lidos do banco — nunca da URL. `null` quando o documento não existe ou não é uma correção.
+export type CorrecaoParaAviso = {
+  tipo: TipoDeDocumentoParaTexto;
+  numero: number;
+  numeroOriginal: number;
+  totalCentavos: number;
+};
+
+export async function obterCorrecaoParaAviso(documentoId: string): Promise<CorrecaoParaAviso | null> {
+  const [vinculo] = await db
+    .select({ tipo: documentos.tipo, numeroOriginal: documentos.numero })
+    .from(correcoesDeDocumento)
+    .innerJoin(documentos, eq(documentos.id, correcoesDeDocumento.originalId))
+    .where(eq(correcoesDeDocumento.corrigidoId, documentoId))
+    .limit(1);
+  if (!vinculo) {
+    return null;
+  }
+  const nova = await obterDocumentoParaAviso(documentoId);
+  if (!nova) {
+    return null;
+  }
+  return {
+    tipo: vinculo.tipo,
+    numero: nova.numero,
+    numeroOriginal: vinculo.numeroOriginal,
+    totalCentavos: nova.totalCentavos,
+  };
 }
 
 // A metade INVERSA de `origemOrcamento` acima (04.5-12-PLAN.md, D-25/key_link): dado um

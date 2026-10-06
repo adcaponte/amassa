@@ -586,6 +586,61 @@ export function fraseSemCorrecaoPorOrigem(
   return `${rotulo} veio ${deOnde}. Para corrigir, cancele aqui e lance de novo por lá.`;
 }
 
+// A tela do “Corrigir” (Fase 06.5, plano 17 — UI-D9), verbatim da 06.5-UI-SPEC.md §Rótulos “faixa da
+// correção” e “item que não volta”, §Erros “Abrir a correção”. Vocabulário: “Corrigir”, “original”,
+// “cancelada” — nunca “editar” nem “estornar” na tela.
+
+// O botão no detalhe do documento, à esquerda de “Cancelar esta venda/despesa”.
+export function rotuloCorrigir(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Corrigir esta venda" : "Corrigir esta despesa";
+}
+
+// O “Lançar” herdado, com o rótulo que diz o que acontece com a original — é ele a confirmação (UI-D9).
+export function rotuloLancarCorrecao(numeroOriginal: number): string {
+  return `Lançar e cancelar a nº ${numeroOriginal}`;
+}
+
+export function tituloDaFaixaDaCorrecao(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  return `Corrigindo a ${tipo === "venda" ? "venda" : "despesa"} nº ${numeroOriginal}`;
+}
+
+// O trecho do estoque só entra quando a original mexeu no estoque.
+export function linha2DaFaixaDaCorrecao(
+  tipo: TipoDeDocumentoParaTexto,
+  numeroOriginal: number,
+  comEstoque: boolean,
+): string {
+  const estoque = !comEstoque
+    ? ""
+    : tipo === "venda"
+      ? ", e o material dela volta ao estoque"
+      : ", e as entradas de material dela saem do estoque";
+  return `A nº ${numeroOriginal} continua valendo até você lançar esta. Ao lançar, ela é cancelada (fica riscada no extrato${estoque}) e esta entra no lugar, com outro número.`;
+}
+
+export const FRASE_FAIXA_DA_CORRECAO_SAIR = "Se sair sem lançar, nada muda.";
+export const ROTULO_VOLTAR_AO_CAIXA = "Voltar ao Caixa";
+
+// A 4ª linha da faixa: o item que não está mais ativo no Catálogo ficou de fora. `nomeOuLista` chega
+// pronto (“A e B”, `listaEmPortugues`) — este módulo não importa valor.
+export function fraseItensDeForaDaCorrecao(quantidade: number, nomeOuLista: string): string {
+  return quantidade === 1
+    ? `${nomeOuLista} não está mais ativa no Catálogo e ficou de fora.`
+    : `${quantidade} itens não estão mais ativos no Catálogo e ficaram de fora: ${nomeOuLista}.`;
+}
+
+// `?corrige=` que aponta para uma original já cancelada (molde `OrigemIndisponivel`).
+export function fraseCorrecaoDeCancelada(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  return `A ${nome} nº ${numeroOriginal} já foi cancelada — não há o que corrigir. Se precisar, lance uma ${nome} nova.`;
+}
+
+// `?corrige=` que não acha a original (id inválido, inexistente ou de outro tipo).
+export function fraseCorrecaoNaoAchada(tipo: TipoDeDocumentoParaTexto): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  return `Não achei a ${nome} a corrigir. Volte ao Caixa e toque em “Corrigir esta ${nome}” de novo.`;
+}
+
 // "Paguei"/"Recebi" com a linha de diferença (D-01/D-02) e o "Desfazer" (D-03).
 export const ROTULO_QUANDO = "Quando";
 export const ROTULO_FORMA_CAMPO = "Forma";

@@ -5,10 +5,12 @@ import { useState } from "react";
 import type { DocumentoParaDetalhe } from "@/lib/financeiro/consultas";
 import { nomeDaLinha } from "@/lib/financeiro/documento";
 import { formatarDataCurta, formatarInstanteCurto, formatarReais } from "@/lib/financeiro/formato";
+import { hrefDaCorrecao } from "@/lib/financeiro/navegacao";
 import {
   DICA_CANCELAR_NAO_APAGA,
   ROTULO_FECHAR,
   rotuloCancelar,
+  rotuloCorrigir,
   textoCabecalhoDocumento,
   textoCanceladoPor,
   textoParcelaDetalhe,
@@ -174,6 +176,22 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
               )}
 
               <div className="flex flex-wrap justify-end gap-2">
+                {/* O “Corrigir” (Fase 06.5, plano 17 — D-18/UI-D9): só em documento NÃO cancelado (o já
+                    corrigido está cancelado) e SEM origem que a Venda/Despesa não recria (UI-D10). O toque só
+                    NAVEGA para a Venda/Despesa preenchida — nenhuma ação, nenhum diálogo, nenhum toast; a
+                    original continua valendo até “Lançar e cancelar a nº {N}”. Um `<a>` comum: navegação
+                    completa, como o resto do módulo depois de uma tela de servidor. */}
+                {!documento.cancelado && documento.origemParaCorrecao === null && (
+                  <Button asChild variant="outline" className="min-h-[44px] font-semibold">
+                    <a
+                      data-testid="documento-corrigir"
+                      href={hrefDaCorrecao(documento.tipo, documento.id)}
+                      onClick={aoFechar}
+                    >
+                      {rotuloCorrigir(documento.tipo)}
+                    </a>
+                  </Button>
+                )}
                 {!documento.cancelado && (
                   <Button
                     type="button"

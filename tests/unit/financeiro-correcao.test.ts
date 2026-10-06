@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   motivoSemCorrecao,
   normalizarParaVersao,
+  rascunhoDaCorrecao,
   versaoDoDocumento,
   type LeituraParaVersao,
+  type OriginalParaRascunho,
 } from "@/lib/financeiro/correcao";
 
 // 06.5-16-PLAN.md, Tarefa 1 — a versão do documento que a página manda à tela e que a transação relê
@@ -174,5 +176,163 @@ describe("motivoSemCorrecao — UI-D10 e as contas fixas", () => {
     expect(motivoSemCorrecao({ ...nenhuma, temQueima: true })).toBe("queimas");
     expect(motivoSemCorrecao({ ...nenhuma, temOrcamento: true })).toBe("orcamento");
     expect(motivoSemCorrecao({ ...nenhuma, temContaFixa: true })).toBe("conta_fixa");
+  });
+});
+
+// 06.5-17-PLAN.md, Tarefa 1 — o rascunho da correção: o que a Venda/Despesa abre preenchida (UI-D11: o
+// preço da linha antiga), o que fica de fora e o pagamento como estava.
+describe("rascunhoDaCorrecao — a Venda preenchida com a original", () => {
+  const ITEM_ATIVO = "55555555-5555-4555-8555-555555555555";
+  const ITEM_INATIVO = "66666666-6666-4666-8666-666666666666";
+  const CATEGORIA = "77777777-7777-4777-8777-777777777777";
+
+  function original(): OriginalParaRascunho {
+    return {
+      data: "2026-10-01",
+      pessoaNome: "Joana Inventada",
+      linhas: [
+        {
+          itemId: ITEM_ATIVO,
+          descricao: "Caneca",
+          categoriaId: CATEGORIA,
+          quantidade: 2,
+          valorCentavos: 7000,
+          quantidadeEstoque: null,
+          ehDiferenca: false,
+        },
+        {
+          itemId: ITEM_INATIVO,
+          descricao: "Caneca grande",
+          categoriaId: CATEGORIA,
+          quantidade: 1,
+          valorCentavos: 5000,
+          quantidadeEstoque: null,
+          ehDiferenca: false,
+        },
+        {
+          itemId: null,
+          descricao: "Aporte",
+          categoriaId: CATEGORIA,
+          quantidade: 1,
+          valorCentavos: 1234,
+          quantidadeEstoque: null,
+          ehDiferenca: false,
+        },
+        {
+          itemId: null,
+          descricao: "Diferença no recebimento",
+          categoriaId: CATEGORIA,
+          quantidade: 1,
+          valorCentavos: -500,
+          quantidadeEstoque: null,
+          ehDiferenca: true,
+        },
+      ],
+      parcelas: [{ vencimento: "2026-10-01", valorCentavos: 12734, forma: "pix", pagoEm: "2026-10-01" }],
+    };
+  }
+
+  it("linha de item ativo entra com descrição, quantidade e o valor da linha antiga", () => {
+    const rascunho = rascunhoDaCorrecao(original(), new Set([ITEM_ATIVO]));
+    expect(rascunho.linhas[0]).toEqual({
+      tipo: "item",
+      itemId: ITEM_ATIVO,
+      descricao: "Caneca",
+      categoriaId: CATEGORIA,
+      quantidade: 2,
+      valorCentavos: 7000,
+      quantidadeEstoque: null,
+    });
+    expect(rascunho.pessoa).toBe("Joana Inventada");
+    expect(rascunho.data).toBe("2026-10-01");
+  });
+
+  it("linha de item inativo sai para deFora, pelo nome da linha, sem repetir", () => {
+    const base = original();
+    const rascunho = rascunhoDaCorrecao(
+      { ...base, linhas: [...base.linhas, { ...base.linhas[1], quantidade: 3 }] },
+      new Set([ITEM_ATIVO]),
+    );
+    expect(rascunho.deFora).toEqual(["Caneca grande"]);
+    expect(rascunho.linhas.some((linha) => linha.tipo === "item" && linha.itemId === ITEM_INATIVO)).toBe(false);
+  });
+
+  it("linha livre entra com a categoria; a de diferença é ignorada", () => {
+    const rascunho = rascunhoDaCorrecao(original(), new Set([ITEM_ATIVO]));
+    expect(rascunho.linhas).toHaveLength(2);
+    expect(rascunho.linhas[1]).toEqual({
+      tipo: "livre",
+      descricao: "Aporte",
+      categoriaId: CATEGORIA,
+      valorCentavos: 1234,
+    });
+  });
+
+  it("sem pessoa → texto vazio", () => {
+    expect(rascunhoDaCorrecao({ ...original(), pessoaNome: null }, new Set()).pessoa).toBe("");
+  });
+
+  it("à vista pago: uma parcela paga, plano à vista, a forma dela", () => {
+    const { pagamento } = rascunhoDaCorrecao(original(), new Set([ITEM_ATIVO]));
+    expect(pagamento).toEqual({
+      plano: "avista",
+      forma: "pix",
+      duasFormas: false,
+      parcelas: [{ vencimento: "2026-10-01", valorCentavos: 12734, forma: "pix", pago: true }],
+    });
+  });
+
+  it("duas formas: à vista dividido, cada parcela com a sua forma e o seu pago", () => {
+    const { pagamento } = rascunhoDaCorrecao(
+      {
+        ...original(),
+        parcelas: [
+          { vencimento: "2026-10-01", valorCentavos: 6000, forma: "pix", pagoEm: "2026-10-01" },
+          { vencimento: "2026-10-01", valorCentavos: 6734, forma: "dinheiro", pagoEm: null },
+        ],
+      },
+      new Set([ITEM_ATIVO]),
+    );
+    expect(pagamento.plano).toBe("avista");
+    expect(pagamento.duasFormas).toBe(true);
+    expect(pagamento.forma).toBe("pix");
+    expect(pagamento.parcelas.map((parcela) => [parcela.forma, parcela.pago])).toEqual([
+      ["pix", true],
+      ["dinheiro", false],
+    ]);
+  });
+
+  it("a parcela paga vence no dia do pagamento; a em aberto, no vencimento", () => {
+    const { pagamento } = rascunhoDaCorrecao(
+      {
+        ...original(),
+        parcelas: [
+          { vencimento: "2026-10-01", valorCentavos: 4245, forma: "cartao", pagoEm: "2026-10-03" },
+          { vencimento: "2026-11-01", valorCentavos: 4245, forma: "cartao", pagoEm: null },
+          { vencimento: "2026-12-01", valorCentavos: 4244, forma: "cartao", pagoEm: null },
+        ],
+      },
+      new Set([ITEM_ATIVO]),
+    );
+    expect(pagamento.plano).toBe("3");
+    expect(pagamento.parcelas.map((parcela) => parcela.vencimento)).toEqual([
+      "2026-10-03",
+      "2026-11-01",
+      "2026-12-01",
+    ]);
+  });
+
+  it("sinal: duas parcelas da mesma forma com 30 dias entre elas (que não são “um mês”)", () => {
+    const { pagamento } = rascunhoDaCorrecao(
+      {
+        ...original(),
+        parcelas: [
+          { vencimento: "2026-10-01", valorCentavos: 6367, forma: "pix", pagoEm: "2026-10-01" },
+          { vencimento: "2026-10-31", valorCentavos: 6367, forma: "pix", pagoEm: null },
+        ],
+      },
+      new Set([ITEM_ATIVO]),
+    );
+    expect(pagamento.plano).toBe("sinal");
   });
 });

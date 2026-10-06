@@ -13,6 +13,11 @@
 // "2.000", inteiro como número ou texto — a forma canônica apaga essas diferenças, e só ela entra em
 // `versaoDoDocumento` (o tipo `FormaDaVersao` não se constrói fora daqui). Assim uma correção válida
 // nunca cai em `mudou` por representação.
+//
+// Desde o plano 17, também o RASCUNHO da correção (`rascunhoDaCorrecao`): os únicos imports são os
+// dois módulos puros irmãos do pagamento (`./parcelas`, `./calendario`).
+import { somarDias, somarMeses } from "./calendario";
+import { PLANOS_DE_PAGAMENTO, type FormaDePagamento, type PlanoDePagamento } from "./parcelas";
 
 // Os quatro motivos da recusa, sob a trava (E12 error da UI-SPEC). `cancelada`: a original já estava
 // cancelada e ninguém a corrigiu (ou não existe). `ja_corrigida`: cancelada E com vínculo. `mudou`: ativa,
@@ -176,6 +181,157 @@ export function versaoDoDocumento(forma: FormaDaVersao): string {
     ]),
   ]);
   return fnv1a32(cadeia);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// O RASCUNHO da correção (Fase 06.5, plano 17 — UI-D9, UI-D10, UI-D11): o que a Venda/Despesa abre
+// preenchida a partir da original. Calculado no SERVIDOR (a página), entregue pronto ao painel.
+
+// A linha da original como `obterDocumentoParaCorrecao` lê (o valor gravado é o FINAL da linha, já com
+// a parte do desconto, se houve).
+export type LinhaDaOriginal = {
+  itemId: string | null;
+  descricao: string;
+  categoriaId: string;
+  quantidade: number;
+  valorCentavos: number;
+  quantidadeEstoque: string | null;
+  // A linha de diferença de um “Recebi/Paguei” com valor diferente (D-01 da 04.4): não é do carrinho.
+  ehDiferenca: boolean;
+};
+
+export type ParcelaDaOriginal = {
+  vencimento: string;
+  valorCentavos: number;
+  forma: FormaDePagamento;
+  pagoEm: string | null;
+};
+
+export type OriginalParaRascunho = {
+  data: string;
+  pessoaNome: string | null;
+  linhas: readonly LinhaDaOriginal[];
+  // Na ordem do número da parcela.
+  parcelas: readonly ParcelaDaOriginal[];
+};
+
+export type LinhaDaCorrecao =
+  | {
+      tipo: "item";
+      itemId: string;
+      descricao: string;
+      categoriaId: string;
+      quantidade: number;
+      valorCentavos: number;
+      quantidadeEstoque: string | null;
+    }
+  | { tipo: "livre"; descricao: string; categoriaId: string; valorCentavos: number };
+
+export type ParcelaDaCorrecao = {
+  vencimento: string;
+  valorCentavos: number;
+  forma: FormaDePagamento;
+  pago: boolean;
+};
+
+export type PagamentoDaCorrecao = {
+  // O plano que o seletor “Como recebe/paga” mostra — o melhor palpite a partir das parcelas; as
+  // parcelas em si vêm como estavam, e é a elas que o painel começa (mudar o carrinho regenera).
+  plano: PlanoDePagamento;
+  forma: FormaDePagamento;
+  duasFormas: boolean;
+  parcelas: ParcelaDaCorrecao[];
+};
+
+export type RascunhoDaCorrecao = {
+  pessoa: string;
+  data: string;
+  linhas: LinhaDaCorrecao[];
+  pagamento: PagamentoDaCorrecao;
+  // O nome (da linha da original) de cada item que não está mais ativo no Catálogo — ficou de fora.
+  deFora: string[];
+};
+
+const PLANOS_EM_N: readonly PlanoDePagamento[] = PLANOS_DE_PAGAMENTO.filter(
+  (plano) => plano !== "avista" && plano !== "sinal",
+);
+
+function planoDasParcelas(parcelas: readonly ParcelaDaCorrecao[]): { plano: PlanoDePagamento; duasFormas: boolean } {
+  if (parcelas.length <= 1) {
+    return { plano: "avista", duasFormas: false };
+  }
+  if (parcelas.length === 2 && parcelas[0].forma !== parcelas[1].forma) {
+    // “+ outra forma” (D-08): o à vista dividido em duas formas.
+    return { plano: "avista", duasFormas: true };
+  }
+  if (
+    parcelas.length === 2 &&
+    parcelas[1].vencimento === somarDias(parcelas[0].vencimento, 30) &&
+    parcelas[1].vencimento !== somarMeses(parcelas[0].vencimento, 1)
+  ) {
+    return { plano: "sinal", duasFormas: false };
+  }
+  const emN = PLANOS_EM_N.find((plano) => plano === String(parcelas.length));
+  return { plano: emN ?? "avista", duasFormas: false };
+}
+
+// UI-D11: o preço é o da LINHA ANTIGA (o valor gravado, não o do Catálogo de hoje). Linhas de
+// diferença ficam de fora; linha de item que não está mais ativo (ou não aparece mais na Venda/Compra)
+// sai para `deFora`; livres entram com a categoria. O pagamento vem como estava: a parcela PAGA vence
+// no dia em que o dinheiro entrou/saiu (`pago_em`) — o escritor grava `pago_em = vencimento`, e assim o
+// extrato da nova cai no mesmo dia da original —; o valor e a forma são os que estão gravados, sem
+// desfazer diferença nenhuma (nenhum dinheiro muda em silêncio: se não fechar, o painel mostra a falta).
+export function rascunhoDaCorrecao(
+  original: OriginalParaRascunho,
+  itensAtivos: ReadonlySet<string>,
+): RascunhoDaCorrecao {
+  const linhas: LinhaDaCorrecao[] = [];
+  const deFora: string[] = [];
+  for (const linha of original.linhas) {
+    if (linha.ehDiferenca) {
+      continue;
+    }
+    if (linha.itemId === null) {
+      linhas.push({
+        tipo: "livre",
+        descricao: linha.descricao,
+        categoriaId: linha.categoriaId,
+        valorCentavos: linha.valorCentavos,
+      });
+      continue;
+    }
+    if (!itensAtivos.has(linha.itemId)) {
+      if (!deFora.includes(linha.descricao)) {
+        deFora.push(linha.descricao);
+      }
+      continue;
+    }
+    linhas.push({
+      tipo: "item",
+      itemId: linha.itemId,
+      descricao: linha.descricao,
+      categoriaId: linha.categoriaId,
+      quantidade: linha.quantidade,
+      valorCentavos: linha.valorCentavos,
+      quantidadeEstoque: linha.quantidadeEstoque,
+    });
+  }
+
+  const parcelas: ParcelaDaCorrecao[] = original.parcelas.map((parcela) => ({
+    vencimento: parcela.pagoEm ?? parcela.vencimento,
+    valorCentavos: parcela.valorCentavos,
+    forma: parcela.forma,
+    pago: parcela.pagoEm !== null,
+  }));
+  const { plano, duasFormas } = planoDasParcelas(parcelas);
+
+  return {
+    pessoa: original.pessoaNome ?? "",
+    data: original.data,
+    linhas,
+    pagamento: { plano, forma: parcelas[0]?.forma ?? "pix", duasFormas, parcelas },
+    deFora,
+  };
 }
 
 // Por que este documento NÃO se corrige pela Venda/Despesa (UI-D10): a tela preenchida não recria o
