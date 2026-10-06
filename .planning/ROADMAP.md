@@ -1131,10 +1131,10 @@ Plans:
 - [x] 06.5-11-PLAN.md — banco: migração 0031 (conta fixa cancelada libera o mês, índices, tabela do vínculo da correção), `bigint`, `/api/health/polimento`, Roteiro 22 (D-25, D-26) — **Concluído no branch `gsd/phase-06.5-polimento` (`0c6b5d3..4ef0233`) — ver `06.5-11-SUMMARY.md`**
 - [x] 06.5-12-PLAN.md — Caixa: janela de 30 dias, aviso das contas fixas com atalho, histórico pago pela janela (D-03, D-27) — **Concluído no branch `gsd/phase-06.5-polimento` (`938b0a3..29b3cd7`) — ver `06.5-12-SUMMARY.md`**
 - [x] 06.5-13-PLAN.md — textos: “Outubro de 2026”, placeholder do fornecedor, “Qtd.”/“Cada” no documento do orçamento (D-14) — **Concluído no branch `gsd/phase-06.5-polimento` (`045dc2e..7348c7c`) — ver `06.5-13-SUMMARY.md`**
-- [ ] 06.5-14-PLAN.md — “Novo orçamento” só cria o registro quando algo é preenchido (D-15)
-- [ ] 06.5-15-PLAN.md — regras de dinheiro dos painéis para `lib/financeiro/` (D-21, P4)
-- [ ] 06.5-16-PLAN.md — “Corrigir”: o servidor — núcleo transacional, recusas e prova de corrida (D-18, UI-D9)
-- [ ] 06.5-17-PLAN.md — “Corrigir”: a venda na tela, o vínculo no detalhe e as origens que não se corrigem por aqui (D-18)
+- [x] 06.5-14-PLAN.md — “Novo orçamento” só cria o registro quando algo é preenchido (D-15) — **Concluído no branch `gsd/phase-06.5-polimento` (`a4a107d..3a9e62a`) — ver `06.5-14-SUMMARY.md`**
+- [x] 06.5-15-PLAN.md — regras de dinheiro dos painéis para `lib/financeiro/` (D-21, P4) — **Concluído no branch `gsd/phase-06.5-polimento` (`84ec3fe..2c342e0`) — ver `06.5-15-SUMMARY.md`**
+- [x] 06.5-16-PLAN.md — “Corrigir”: o servidor — núcleo transacional, recusas e prova de corrida (D-18, UI-D9) — **Concluído no branch `gsd/phase-06.5-polimento` (`795192b..d12e442`) — ver `06.5-16-SUMMARY.md`**
+- [x] 06.5-17-PLAN.md — “Corrigir”: a venda na tela, o vínculo no detalhe e as origens que não se corrigem por aqui (D-18) — **Concluído no branch `gsd/phase-06.5-polimento` (`4d015c3..79505f4`) — ver `06.5-17-SUMMARY.md`**
 - [ ] 06.5-18-PLAN.md — “Corrigir”: a despesa (com fornecedor e material) e as recusas na tela (D-18)
 - [ ] 06.5-19-PLAN.md — cabeçalhos de segurança, as duas rotas do orçamento, sessão e mensalidade uma vez por requisição, CLAUDE.md com o Next 16 (D-19, D-20, D-21)
 - [ ] 06.5-20-PLAN.md — site: telefone do `zap`, “Abrimos em dezembro”, textos, slots do dono e a guarda de 01/12 (D-28, D-30, D-31, D-32)
