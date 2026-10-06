@@ -9,9 +9,11 @@ import { rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "@/lib/produca
 import {
   FRASE_FALHA_AO_MARCAR,
   ROTULO_MARCANDO,
+  motivoTermineiDesabilitado,
   rotuloTerminei,
   textoToastTerminei,
 } from "@/lib/producao/textos";
+import { podeTerminarEtapa } from "@/lib/producao/transicoes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -31,7 +33,15 @@ export type BotaoTermineiProps = {
   // quando não há o que terminar (a Entrega se conclui; a ordem saiu do andamento): sem botão, só a
   // frase da última recusa — quem desenha o mantém montado (revisão 06.1, WR-104).
   etapa: EtapaProducao | null;
+  // Σ (quantidade + a mais) das peças e o parcial da etapa atual (nulo = campo vazio). Com mais de
+  // uma peça, o "Terminei" só libera quando todas passaram pela etapa (D-02, UI-D12 — dono,
+  // 05/10/2026); a mesma `podeTerminarEtapa` decide de novo no servidor, sob a trava.
+  total: number;
+  passaram: number | null;
 };
+
+// O `id` do motivo — um "Terminei" por página (a da ordem).
+const ID_DO_MOTIVO = "terminei-motivo";
 
 // "Terminei: {Etapa}" (UI-SPEC §Ações): primário, sem confirmação, sem campo, sem teclado — o
 // segundo toque do caminho do quadro à etapa marcada (Valor central). Mora na fileira do fim do
@@ -49,7 +59,12 @@ export type BotaoTermineiProps = {
 // muda (marcada aqui, desfeita, ou mudada noutro celular e trazida por uma recarga), o botão novo
 // ignora toques por 1000 ms. O componente NÃO muda de chave quando a etapa muda: a frase de erro e
 // as travas sobrevivem.
-export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
+//
+// A regra da etapa (D-02, UI-D12): com mais de uma peça e o parcial vazio ou menor que o total, o
+// botão fica `disabled` — continua visível, 52px — e o motivo aparece embaixo, numa linha própria da
+// fileira (`w-full`: no celular a coluna do "Terminei" divide a largura com o "Desfazer" e seria
+// estreita demais para a frase), ligado ao botão por `aria-describedby`.
+export function BotaoTerminei({ ordemId, tipo, etapa, total, passaram }: BotaoTermineiProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [gravando, setGravando] = useState(false);
@@ -143,19 +158,36 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
     return frase;
   }
 
+  const regra = podeTerminarEtapa(total, passaram);
+  const rotuloEtapa = rotuloDaEtapa(etapa, tipo);
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
-      <Button
-        type="button"
-        data-testid="ordem-terminei"
-        className="text-corpo h-auto min-h-[52px] px-6 font-semibold leading-tight whitespace-normal"
-        disabled={gravando || esperando || aguardandoTela}
-        aria-busy={gravando ? "true" : undefined}
-        onClick={aoTocar}
-      >
-        {gravando ? ROTULO_MARCANDO : rotuloTerminei(rotuloDaEtapa(etapa, tipo))}
-      </Button>
-      {frase}
-    </div>
+    <>
+      <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
+        <Button
+          type="button"
+          data-testid="ordem-terminei"
+          className="text-corpo h-auto min-h-[52px] px-6 font-semibold leading-tight whitespace-normal"
+          disabled={!regra.pode || gravando || esperando || aguardandoTela}
+          aria-describedby={regra.pode ? undefined : ID_DO_MOTIVO}
+          aria-busy={gravando ? "true" : undefined}
+          onClick={aoTocar}
+        >
+          {gravando ? ROTULO_MARCANDO : rotuloTerminei(rotuloEtapa)}
+        </Button>
+        {frase}
+      </div>
+      {regra.pode ? null : (
+        <div className="w-full md:text-right">
+          <p
+            id={ID_DO_MOTIVO}
+            data-testid="terminei-motivo"
+            className="text-apoio text-tinta-fraca"
+          >
+            {motivoTermineiDesabilitado(rotuloEtapa, total, passaram)}
+          </p>
+        </div>
+      )}
+    </>
   );
 }

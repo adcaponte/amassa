@@ -46,7 +46,7 @@ import {
   type CatalogoDaNovaOrdem,
   type OrdemEncerrada,
 } from "./consultas";
-import { etapasIniciais, type EtapaProducao, type TipoOrdem } from "./etapas";
+import { etapasIniciais, rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "./etapas";
 import { baixadoMudou } from "./material";
 import {
   esquemaAjustarDiasPrevistos,
@@ -117,6 +117,7 @@ import {
   FRASE_PECAS_DA_ORDEM_MUDARAM,
   FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE,
   fraseBaixaMudouEnquantoPreenchia,
+  fraseTermineiRecusado,
   fraseItemDesativadoNaConclusao,
   fraseItemFicouSemCategoriaDeCompra,
   fraseItemNaoGuardaPecas,
@@ -168,9 +169,21 @@ export async function terminarEtapa(
         throw new RecusaDaProducao(FRASE_ORDEM_NAO_EXISTE);
       }
       const etapas = await lerEtapasDaOrdem(tx, dados.ordemId);
-      const plano = planejarTerminar({ ...ordem, etapas }, dados.etapaEsperada, hoje);
+      // D-02 (Fase 06.5): o total de feitas e o parcial da etapa atual também são lidos AQUI, sob
+      // a trava — o "Terminei" de uma tela velha (outro celular apagou ou baixou o parcial) é
+      // recusado sem gravar (T-06.5-11/12).
+      const total = await lerTotalDeFeitas(tx, dados.ordemId);
+      const plano = planejarTerminar({ ...ordem, etapas }, dados.etapaEsperada, hoje, { total });
       if (plano.tipo === "recusa") {
-        throw new RecusaDaProducao(FRASE_DA_RECUSA[plano.motivo]);
+        throw new RecusaDaProducao(
+          plano.motivo === "faltam-pecas"
+            ? fraseTermineiRecusado(
+                rotuloDaEtapa(dados.etapaEsperada, ordem.tipo),
+                plano.total,
+                plano.passaram,
+              )
+            : FRASE_DA_RECUSA[plano.motivo],
+        );
       }
       await tx
         .update(ordemEtapas)

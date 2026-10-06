@@ -19,15 +19,44 @@ export type PlanoDeTerminar =
       // O parcial ("já passaram N") é da etapa que termina — não sobrevive a ela (Pitfall 8).
       limparPassaram: true;
     }
-  | { tipo: "recusa"; motivo: "ja-marcada" | "nao-ativa" | "ultima-etapa" };
+  | { tipo: "recusa"; motivo: "ja-marcada" | "nao-ativa" | "ultima-etapa" }
+  // D-02 (Fase 06.5): nem todas as peças passaram pela etapa — `passaram` é o parcial lido sob a
+  // trava (nulo = campo vazio), para a frase dizer quantas já passaram.
+  | { tipo: "recusa"; motivo: "faltam-pecas"; total: number; passaram: number | null };
+
+export type PodeTerminar =
+  | { pode: true }
+  | { pode: false; motivo: "vazio" | "parcial"; faltam: number };
+
+// D-02 / UI-D12 (dono, 05/10/2026): "Terminei: {etapa}" só quando TODAS as peças passaram pela
+// etapa. Ordem de uma peça (o campo parcial nem aparece): pode, como sempre. Com mais de uma, o
+// campo vazio (ou zero) também não pode — ninguém disse que todas passaram — e o parcial menor que o
+// total diz quantas faltam. A MESMA função decide no botão (cliente) e na ação (servidor, sob a
+// trava da ordem).
+export function podeTerminarEtapa(total: number, passaram: number | null): PodeTerminar {
+  if (total <= 1) {
+    return { pode: true };
+  }
+  if (passaram === null || passaram <= 0) {
+    return { pode: false, motivo: "vazio", faltam: total };
+  }
+  if (passaram < total) {
+    return { pode: false, motivo: "parcial", faltam: total - passaram };
+  }
+  return { pode: true };
+}
 
 // "Terminei: {etapa}" — a ação manda a etapa que o botão MOSTRAVA (`etapaEsperada`). Se a atual,
 // lida sob a trava, já é outra, alguém marcou antes (toque duplo, outro celular): recusa sem
-// gravar (Pitfall 7). A última etapa não se "termina" — isso é concluir a ordem (plano 11).
+// gravar (Pitfall 7). A última etapa não se "termina" — isso é concluir a ordem (plano 11). Por
+// último (D-02, Fase 06.5): o parcial da etapa atual, lido sob a mesma trava, precisa ter chegado ao
+// total de feitas (`pecas.total`, que a ação lê das peças) — a tela velha de outro celular, ou o
+// botão habilitado à força, recebe a recusa sem gravar.
 export function planejarTerminar(
   ordem: OrdemParaLeitura,
   etapaEsperada: EtapaProducao,
   hoje: string,
+  pecas: { total: number },
 ): PlanoDeTerminar {
   if (ordem.status !== "ativa") {
     return { tipo: "recusa", motivo: "nao-ativa" };
@@ -39,6 +68,10 @@ export function planejarTerminar(
   }
   if (indice === etapas.length - 1) {
     return { tipo: "recusa", motivo: "ultima-etapa" };
+  }
+  const passaram = etapas[indice].passaram;
+  if (!podeTerminarEtapa(pecas.total, passaram).pode) {
+    return { tipo: "recusa", motivo: "faltam-pecas", total: pecas.total, passaram };
   }
   return {
     tipo: "ok",

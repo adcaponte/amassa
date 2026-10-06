@@ -39,6 +39,40 @@ export const FRASE_ULTIMA_ETAPA =
   "A última etapa se conclui pela conclusão da ordem, não por “Terminei”. A tela foi atualizada.";
 export const FRASE_ORDEM_NAO_EXISTE = "Esta ordem não existe mais. A tela foi atualizada.";
 
+// "Terminei" com a regra da etapa (D-02, UI-D12 — dono, 05/10/2026). Quem decide se pode é
+// `podeTerminarEtapa` (`transicoes.ts`); estas só escrevem as frases. `passaram` nulo ou zero = o
+// campo parcial está vazio. O rótulo da etapa é feminino em todas ("pela Secagem", "pela Queima de
+// biscoito").
+//
+// O motivo embaixo do "Terminei" desabilitado (Apoio, `tinta-fraca`, ligado por `aria-describedby`).
+export function motivoTermineiDesabilitado(
+  rotuloDaEtapa: string,
+  total: number,
+  passaram: number | null,
+): string {
+  if (passaram === null || passaram <= 0) {
+    return `Diga quantas das ${total} peças já passaram pela ${rotuloDaEtapa} — a etapa só termina quando todas passarem.`;
+  }
+  const faltam = total - passaram;
+  return faltam === 1
+    ? `Falta 1 das ${total} peças passar pela ${rotuloDaEtapa}.`
+    : `Faltam ${faltam} das ${total} peças passarem pela ${rotuloDaEtapa}.`;
+}
+// A recusa do servidor (tela velha, outro celular): o parcial lido sob a trava não chegou ao total.
+export function fraseTermineiRecusado(
+  rotuloDaEtapa: string,
+  total: number,
+  passaram: number | null,
+): string {
+  const jaPassaram =
+    passaram === null || passaram <= 0
+      ? "nenhuma passou ainda"
+      : passaram === 1
+        ? "já passou 1"
+        : `já passaram ${passaram}`;
+  return `A ${rotuloDaEtapa} só termina quando as ${total} peças passaram por ela — ${jaPassaram}. A tela foi atualizada.`;
+}
+
 // Plural.
 export function dias(n: number): string {
   return n === 1 ? "1 dia" : `${n} dias`;

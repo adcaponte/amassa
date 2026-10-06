@@ -9,6 +9,7 @@ import {
   planejarLiberacao,
   planejarParcial,
   planejarTerminar,
+  podeTerminarEtapa,
   totalDeFeitas,
 } from "@/lib/producao/transicoes";
 
@@ -36,9 +37,21 @@ function ordem(
   };
 }
 
+// A ordem de uma peça: o "Terminei" não depende do parcial (D-02) — os casos abaixo são das regras
+// de antes da Fase 06.5 e continuam valendo assim.
+const UMA_PECA = { total: 1 };
+
+function comParcialNaAtual(base: OrdemParaLeitura, passaram: number | null): OrdemParaLeitura {
+  const atual = base.etapas.find((etapa) => etapa.feitaEm === null)?.etapa;
+  return {
+    ...base,
+    etapas: base.etapas.map((etapa) => (etapa.etapa === atual ? { ...etapa, passaram } : etapa)),
+  };
+}
+
 describe("planejarTerminar", () => {
   it("etapa esperada = atual → ok, feita hoje, a próxima vira a atual e o parcial é limpo", () => {
-    expect(planejarTerminar(ordem(), "producao", "2026-03-04")).toEqual({
+    expect(planejarTerminar(ordem(), "producao", "2026-03-04", UMA_PECA)).toEqual({
       tipo: "ok",
       etapa: "producao",
       feitaEm: "2026-03-04",
@@ -52,13 +65,14 @@ describe("planejarTerminar", () => {
       ordem({ caminho: "biscoito", feitas: { producao: "2026-03-05", secagem: "2026-03-20" } }),
       "queima1",
       "2026-03-21",
+      UMA_PECA,
     );
     expect(plano).toMatchObject({ tipo: "ok", etapa: "queima1", proxima: "entrega" });
   });
 
   it("etapa esperada ≠ atual → recusa “já marcada” (toque duplo, outro celular)", () => {
     const jaMarcada = ordem({ feitas: { producao: "2026-03-04" } });
-    expect(planejarTerminar(jaMarcada, "producao", "2026-03-04")).toEqual({
+    expect(planejarTerminar(jaMarcada, "producao", "2026-03-04", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "ja-marcada",
     });
@@ -66,9 +80,9 @@ describe("planejarTerminar", () => {
 
   it("ordem que não está ativa → recusa", () => {
     expect(
-      planejarTerminar(ordem({ status: "aguardando_sinal", inicio: null }), "producao", "2026-03-04"),
+      planejarTerminar(ordem({ status: "aguardando_sinal", inicio: null }), "producao", "2026-03-04", UMA_PECA),
     ).toEqual({ tipo: "recusa", motivo: "nao-ativa" });
-    expect(planejarTerminar(ordem({ status: "concluida" }), "producao", "2026-03-04")).toEqual({
+    expect(planejarTerminar(ordem({ status: "concluida" }), "producao", "2026-03-04", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "nao-ativa",
     });
@@ -79,7 +93,7 @@ describe("planejarTerminar", () => {
       caminho: "biscoito",
       feitas: { producao: "2026-03-05", secagem: "2026-03-20", queima1: "2026-03-21" },
     });
-    expect(planejarTerminar(naEntrega, "entrega", "2026-03-22")).toEqual({
+    expect(planejarTerminar(naEntrega, "entrega", "2026-03-22", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "ultima-etapa",
     });
@@ -90,6 +104,7 @@ describe("planejarTerminar", () => {
       ordem({ feitas: { producao: "2026-03-05" } }),
       "secagem",
       "2026-03-05",
+      UMA_PECA,
     );
     expect(plano).toMatchObject({ tipo: "ok", etapa: "secagem", feitaEm: "2026-03-05" });
   });
@@ -100,7 +115,7 @@ describe("planejarTerminar", () => {
 
 describe("planejarTerminar nas bordas", () => {
   it("recusa ordem cancelada (além de aguardando e concluída)", () => {
-    expect(planejarTerminar(ordem({ status: "cancelada" }), "producao", "2026-03-04")).toEqual({
+    expect(planejarTerminar(ordem({ status: "cancelada" }), "producao", "2026-03-04", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "nao-ativa",
     });
@@ -114,7 +129,7 @@ describe("planejarTerminar nas bordas", () => {
         etapa.etapa === "secagem" ? { ...etapa, passaram: 3 } : etapa,
       ),
     };
-    expect(planejarTerminar(comParcial, "secagem", "2026-03-20")).toMatchObject({
+    expect(planejarTerminar(comParcial, "secagem", "2026-03-20", { total: 3 })).toMatchObject({
       tipo: "ok",
       etapa: "secagem",
       proxima: "queima1",
@@ -133,13 +148,13 @@ describe("planejarTerminar nas bordas", () => {
         const naPosicao = ordem({ caminho, feitas });
         for (const esperada of etapas) {
           if (esperada === etapas[atual]) {
-            expect(planejarTerminar(naPosicao, esperada, "2026-03-06")).toMatchObject({
+            expect(planejarTerminar(naPosicao, esperada, "2026-03-06", UMA_PECA)).toMatchObject({
               tipo: "ok",
               etapa: esperada,
               proxima: etapas[atual + 1],
             });
           } else {
-            expect(planejarTerminar(naPosicao, esperada, "2026-03-06")).toEqual({
+            expect(planejarTerminar(naPosicao, esperada, "2026-03-06", UMA_PECA)).toEqual({
               tipo: "recusa",
               motivo: "ja-marcada",
             });
@@ -154,11 +169,11 @@ describe("planejarTerminar nas bordas", () => {
       caminho: "biscoito",
       feitas: { producao: "2026-03-05", secagem: "2026-03-20" },
     });
-    expect(planejarTerminar(naQueima1, "esmaltacao", "2026-03-21")).toEqual({
+    expect(planejarTerminar(naQueima1, "esmaltacao", "2026-03-21", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "ja-marcada",
     });
-    expect(planejarTerminar(naQueima1, "queima2", "2026-03-21")).toEqual({
+    expect(planejarTerminar(naQueima1, "queima2", "2026-03-21", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "ja-marcada",
     });
@@ -174,7 +189,7 @@ describe("planejarTerminar nas bordas", () => {
         queima2: "2026-03-20",
       },
     });
-    expect(planejarTerminar(naEntrega, "entrega", "2026-03-22")).toEqual({
+    expect(planejarTerminar(naEntrega, "entrega", "2026-03-22", UMA_PECA)).toEqual({
       tipo: "recusa",
       motivo: "ultima-etapa",
     });
@@ -182,8 +197,87 @@ describe("planejarTerminar nas bordas", () => {
 
   it("virada de ano: termina em 02/01 uma etapa começada em 30/12 — a data é o hoje recebido", () => {
     expect(
-      planejarTerminar(ordem({ feitas: { producao: "2026-12-30" } }), "secagem", "2027-01-02"),
+      planejarTerminar(ordem({ feitas: { producao: "2026-12-30" } }), "secagem", "2027-01-02", UMA_PECA),
     ).toMatchObject({ tipo: "ok", feitaEm: "2027-01-02", proxima: "queima1" });
+  });
+});
+
+// Fase 06.5 (D-02, UI-D12 — dono, 05/10/2026): "Terminei" só quando todas as peças passaram pela
+// etapa. A mesma função decide no botão e no servidor.
+describe("podeTerminarEtapa", () => {
+  it("campo vazio (ou zero) com mais de uma peça → não pode, motivo “vazio”, faltam todas", () => {
+    expect(podeTerminarEtapa(6, null)).toEqual({ pode: false, motivo: "vazio", faltam: 6 });
+    expect(podeTerminarEtapa(6, 0)).toEqual({ pode: false, motivo: "vazio", faltam: 6 });
+  });
+
+  it("parcial menor que o total → não pode, motivo “parcial”, com quantas faltam", () => {
+    expect(podeTerminarEtapa(6, 4)).toEqual({ pode: false, motivo: "parcial", faltam: 2 });
+    expect(podeTerminarEtapa(6, 5)).toEqual({ pode: false, motivo: "parcial", faltam: 1 });
+  });
+
+  it("parcial igual ao total → pode", () => {
+    expect(podeTerminarEtapa(6, 6)).toEqual({ pode: true });
+    expect(podeTerminarEtapa(2, 2)).toEqual({ pode: true });
+  });
+
+  it("ordem de uma peça → pode, com ou sem parcial (o campo nem aparece)", () => {
+    expect(podeTerminarEtapa(1, null)).toEqual({ pode: true });
+    expect(podeTerminarEtapa(1, 1)).toEqual({ pode: true });
+  });
+});
+
+describe("planejarTerminar com a regra da etapa (D-02)", () => {
+  const naSecagem = ordem({ feitas: { producao: "2026-03-05" } });
+
+  it("6 peças, campo vazio → recusa “faltam-pecas” com o parcial nulo, sem gravar", () => {
+    expect(planejarTerminar(naSecagem, "secagem", "2026-03-20", { total: 6 })).toEqual({
+      tipo: "recusa",
+      motivo: "faltam-pecas",
+      total: 6,
+      passaram: null,
+    });
+  });
+
+  it("6 peças, já passaram 4 → recusa “faltam-pecas” dizendo as 4", () => {
+    expect(
+      planejarTerminar(comParcialNaAtual(naSecagem, 4), "secagem", "2026-03-20", { total: 6 }),
+    ).toEqual({ tipo: "recusa", motivo: "faltam-pecas", total: 6, passaram: 4 });
+  });
+
+  it("6 peças, já passaram 6 → ok, e o parcial é limpo", () => {
+    expect(
+      planejarTerminar(comParcialNaAtual(naSecagem, 6), "secagem", "2026-03-20", { total: 6 }),
+    ).toMatchObject({ tipo: "ok", etapa: "secagem", proxima: "queima1", limparPassaram: true });
+  });
+
+  it("o parcial que conta é o da etapa ATUAL — o de outra etapa não libera", () => {
+    const comParcialNaFeita = {
+      ...naSecagem,
+      etapas: naSecagem.etapas.map((etapa) =>
+        etapa.etapa === "producao" ? { ...etapa, passaram: 6 } : etapa,
+      ),
+    };
+    expect(planejarTerminar(comParcialNaFeita, "secagem", "2026-03-20", { total: 6 })).toMatchObject(
+      { tipo: "recusa", motivo: "faltam-pecas" },
+    );
+  });
+
+  it("as recusas de antes vêm primeiro: não ativa, já marcada, última etapa", () => {
+    expect(
+      planejarTerminar(ordem({ status: "concluida" }), "producao", "2026-03-04", { total: 6 }),
+    ).toEqual({ tipo: "recusa", motivo: "nao-ativa" });
+    expect(planejarTerminar(naSecagem, "producao", "2026-03-20", { total: 6 })).toEqual({
+      tipo: "recusa",
+      motivo: "ja-marcada",
+    });
+    const naEntrega = ordem({
+      caminho: "biscoito",
+      feitas: { producao: "2026-03-05", secagem: "2026-03-20", queima1: "2026-03-21" },
+    });
+    expect(planejarTerminar(naEntrega, "entrega", "2026-03-22", { total: 6 })).toEqual({
+      tipo: "recusa",
+      motivo: "ultima-etapa",
+    });
   });
 });
 
