@@ -134,7 +134,6 @@ export const ROTULO_TODOS_OS_ATALHOS = "Todos os atalhos";
 export const ROTULO_LISTA_COMPLETA_E_ATALHOS = "Lista completa e atalhos";
 export const FRASE_NENHUM_ATALHO =
   "Nenhum atalho aqui. Abra a lista completa e marque ★ nos itens que quer ver nesta tela.";
-export const FRASE_NADA_ENCONTRADO = "Nada encontrado.";
 export const TITULO_LISTA_COMPLETA = "Tudo o que se vende";
 export const DICA_LISTA_COMPLETA =
   "Toque no nome para pôr na venda. A ★ escolhe o que aparece como atalho na tela.";

@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { casaComBusca, palavrasDaBusca } from "@/lib/busca/casa-com-busca";
+import { FRASE_VAZIO_CATALOGO_TITULO } from "@/lib/cadastros/textos";
 import { definirAtalhoDoItem } from "@/lib/financeiro/acoes";
 import { formatarReais } from "@/lib/financeiro/formato";
 import {
   DICA_LISTA_COMPLETA,
   DICA_LISTA_COMPLETA_COMPRA,
-  FRASE_NADA_ENCONTRADO,
   FRASE_FALHA_AO_SALVAR,
   ROTULO_AREA,
   ROTULO_BUSCAR,
@@ -22,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { BuscaVazia } from "@/components/amassa/busca-vazia";
 import type { ItemCatalogoParaGrade } from "./grade-catalogo";
 
 const AREAS_DE_VENDA = (Object.keys(ROTULO_AREA) as AreaFinanceira[]).filter(
@@ -56,10 +58,9 @@ export function ListaCompleta<T extends ItemCatalogoParaGrade>({
   const [atalhosLocais, setAtalhosLocais] = useState<Record<string, boolean>>({});
   const [alternando, setAlternando] = useState<string | null>(null);
 
-  const buscaNormalizada = busca.trim().toLowerCase();
-  const itensFiltrados = catalogo.filter((item) =>
-    buscaNormalizada ? item.nome.toLowerCase().includes(buscaNormalizada) : true,
-  );
+  // Palavras soltas, em qualquer ordem, com ou sem acento (D-17); sem palavra, a lista inteira.
+  const temBusca = palavrasDaBusca(busca).length > 0;
+  const itensFiltrados = catalogo.filter((item) => casaComBusca(item.nome, busca));
 
   function atalhoDoItem(item: T): boolean {
     return modo === "venda" ? !!item.atalhoVenda : !!item.atalhoCompra;
@@ -121,7 +122,12 @@ export function ListaCompleta<T extends ItemCatalogoParaGrade>({
           <p className="text-apoio text-muted-foreground">{dica}</p>
 
           {itensFiltrados.length === 0 ? (
-            <p className="text-corpo text-muted-foreground">{FRASE_NADA_ENCONTRADO}</p>
+            temBusca ? (
+              <BuscaVazia termo={busca} />
+            ) : (
+              // Sem busca e sem item: o catálogo está vazio de verdade.
+              <p className="text-corpo text-muted-foreground">{FRASE_VAZIO_CATALOGO_TITULO}</p>
+            )
           ) : (
             <div className="flex flex-col gap-3">
               {AREAS_DE_VENDA.map((area) => {
