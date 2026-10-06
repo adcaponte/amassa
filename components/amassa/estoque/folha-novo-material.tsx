@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
 
 import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
 import { ROTULO_AREA } from "@/lib/financeiro/textos";
@@ -38,19 +37,13 @@ import {
   opcaoCategoriaDaCompra,
 } from "@/lib/estoque/textos";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { EstadoErro } from "@/components/amassa/estado-erro";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
-import { CLASSE_DA_FOLHA } from "./folha-movimentacao";
 import type { ListaDoEstoque } from "./provedor-estoque";
 
 // As unidades na ordem da UI-SPEC (un, g, kg, ml, L, m) — o valor é o do banco, o rótulo o da tela.
@@ -172,8 +165,7 @@ export function FolhaNovoMaterial({ lista, aoCadastrar, aoFechar }: FolhaNovoMat
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-novo-material"
         onOpenAutoFocus={(evento) => {
           evento.preventDefault();
@@ -182,40 +174,27 @@ export function FolhaNovoMaterial({ lista, aoCadastrar, aoFechar }: FolhaNovoMat
             campos.current.nome?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle className="text-titulo text-tinta">{TITULO_NOVO_MATERIAL}</DialogTitle>
-            <DialogDescription className="text-apoio text-tinta-fraca">
-              {SUB_NOVO_MATERIAL}
-            </DialogDescription>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            disabled={enviando}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+        <FolhaCabecalho
+          titulo={TITULO_NOVO_MATERIAL}
+          descricao={SUB_NOVO_MATERIAL}
+          descricaoVisivel
+          aoFechar={aoFechar}
+          fecharDesabilitado={enviando}
+        />
 
         {lista.estado === "carregando" ? (
-          <div
-            className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4"
-            aria-busy="true"
-          >
+          <FolhaCorpo aria-busy="true">
             <span className="sr-only">Carregando…</span>
             {[0, 1, 2, 3].map((indice) => (
               <Skeleton key={indice} className="h-16 w-full" />
             ))}
-          </div>
+          </FolhaCorpo>
         ) : lista.estado === "erro" ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          // Sem respiro nem `gap`: o `EstadoErro` traz o dele.
+          <FolhaCorpo className="gap-0 p-0">
             <EstadoErro titulo={TITULO_ERRO} corpo={FRASE_ERRO_CARREGAR_SALDOS} />
-          </div>
+          </FolhaCorpo>
         ) : (
           <form
             noValidate
@@ -225,7 +204,7 @@ export function FolhaNovoMaterial({ lista, aoCadastrar, aoFechar }: FolhaNovoMat
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-4">
+            <FolhaCorpo className="gap-5">
               <div className="flex flex-col gap-2">
                 <label htmlFor="novo-material-nome" className="text-corpo text-tinta font-semibold">
                   {ROTULO_NOME_DO_MATERIAL}
@@ -407,10 +386,11 @@ export function FolhaNovoMaterial({ lista, aoCadastrar, aoFechar }: FolhaNovoMat
                 {NOTA_NOVO_MATERIAL_DEPOIS}
               </p>
               <p className="text-apoio text-tinta-fraca">{LINHA_O_RESTO_FICA_NO_CATALOGO}</p>
-            </div>
+            </FolhaCorpo>
 
-            {/* Rodapé preso por flex, fora da área rolável. */}
-            <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
+            {/* Rodapé preso por flex, fora da área rolável. O erro geral vem como filho (não pela
+                prop `erro`): ele carrega `data-campo` e o `id`. */}
+            <FolhaRodape>
               {mensagemDe("geral")}
               {semCategoria ? (
                 <p
@@ -442,10 +422,10 @@ export function FolhaNovoMaterial({ lista, aoCadastrar, aoFechar }: FolhaNovoMat
                   {enviando ? ROTULO_CADASTRANDO : ROTULO_CADASTRAR_MATERIAL}
                 </Button>
               </div>
-            </div>
+            </FolhaRodape>
           </form>
         )}
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

@@ -3,7 +3,6 @@
 import { Suspense, use, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { definirItemAtivo } from "@/lib/cadastros/acoes";
@@ -40,16 +39,11 @@ import {
 } from "@/lib/estoque/textos";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoErro } from "@/components/amassa/estado-erro";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import {
   COR_DO_SALDO,
@@ -59,7 +53,6 @@ import {
   textoDoCustoMedio,
   textoDoMinimo,
 } from "./cartao-saldo";
-import { CLASSE_DA_FOLHA } from "./folha-movimentacao";
 import { LinhaMovimentacao } from "./linha-movimentacao";
 
 // A leitura da folha em voo. Nunca rejeita: a falha de rede vira `{ ok: false }` com a frase da
@@ -118,34 +111,26 @@ export function FolhaMaterial({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-material"
         data-item-id={itemId}
         onOpenAutoFocus={(evento) => evento.preventDefault()}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle className="text-titulo text-tinta [overflow-wrap:anywhere]">
-              {saldo ? saldo.nome : ROTULO_HISTORICO_DO_MATERIAL}
-            </DialogTitle>
-            <DialogDescription className="text-apoio text-tinta-fraca flex items-start gap-1 [overflow-wrap:anywhere]">
+        <FolhaCabecalho
+          titulo={saldo ? saldo.nome : ROTULO_HISTORICO_DO_MATERIAL}
+          classeTitulo="[overflow-wrap:anywhere]"
+          descricao={
+            <>
               {saldo ? <PontoDaArea area={saldo.area} className="mt-1.5" /> : null}
               <span className="min-w-0">{sub ?? ROTULO_HISTORICO_DO_MATERIAL}</span>
-            </DialogDescription>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            data-testid="folha-material-fechar"
-            disabled={ocupado}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+            </>
+          }
+          descricaoVisivel
+          classeDescricao="flex items-start gap-1 [overflow-wrap:anywhere]"
+          aoFechar={aoFechar}
+          fecharDesabilitado={ocupado}
+          dataTestIdFechar="folha-material-fechar"
+        />
 
         <Suspense fallback={<EsqueletoDaFolhaDoMaterial />}>
           <CorpoDaFolhaDoMaterial
@@ -157,7 +142,7 @@ export function FolhaMaterial({
             aoEditar={aoEditar}
           />
         </Suspense>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }
@@ -165,11 +150,7 @@ export function FolhaMaterial({
 // UI · loading · E7 — três linhas de esqueleto no formato da linha do livro.
 function EsqueletoDaFolhaDoMaterial() {
   return (
-    <div
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4"
-      aria-busy="true"
-      data-testid="folha-material-carregando"
-    >
+    <FolhaCorpo aria-busy="true" data-testid="folha-material-carregando">
       <span className="sr-only">Carregando o histórico do material…</span>
       <Skeleton className="h-24 w-full rounded-lg" />
       <div className="bg-superficie border-borda divide-borda flex flex-col divide-y rounded-lg border">
@@ -186,7 +167,7 @@ function EsqueletoDaFolhaDoMaterial() {
           </div>
         ))}
       </div>
-    </div>
+    </FolhaCorpo>
   );
 }
 
@@ -218,7 +199,8 @@ function CorpoDaFolhaDoMaterial({
   if (!resposta.ok) {
     // UI · error · E7 — dentro da folha, com "Tentar de novo" que chama a ação de novo.
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      // Sem respiro nem `gap`: o `EstadoErro` traz o dele.
+      <FolhaCorpo className="gap-0 p-0">
         <EstadoErro
           titulo={TITULO_ERRO}
           corpo={resposta.erro}
@@ -234,7 +216,7 @@ function CorpoDaFolhaDoMaterial({
             </Button>
           }
         />
-      </div>
+      </FolhaCorpo>
     );
   }
 
@@ -298,7 +280,7 @@ function CorpoDaFolhaDoMaterial({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+      <FolhaCorpo>
         {/* Resumo: `superficie-2`, saldo em Display 28px/700 na cor da situação (P17a/P17b). */}
         <div
           data-testid="folha-material-resumo"
@@ -402,15 +384,10 @@ function CorpoDaFolhaDoMaterial({
             )}
           </>
         )}
-      </div>
+      </FolhaCorpo>
 
       {/* Rodapé preso por flex, fora da área rolável. */}
-      <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-        {erroDoRodape ? (
-          <p role="alert" className="text-apoio text-erro">
-            {erroDoRodape}
-          </p>
-        ) : null}
+      <FolhaRodape erro={erroDoRodape}>
         <div className="flex gap-2">
           {aoEditar ? (
             <Button
@@ -448,7 +425,7 @@ function CorpoDaFolhaDoMaterial({
             </Button>
           )}
         </div>
-      </div>
+      </FolhaRodape>
     </>
   );
 }

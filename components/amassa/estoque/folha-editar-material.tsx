@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { definirItemAtivo } from "@/lib/cadastros/acoes";
@@ -32,19 +31,14 @@ import {
   opcaoCategoriaDaCompra,
 } from "@/lib/estoque/textos";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmarDesativacao } from "@/components/amassa/cadastros/confirmar-desativacao";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { formatarMilesimos } from "./cartao-saldo";
-import { CLASSE_DA_FOLHA, milesimosParaCampo } from "./folha-movimentacao";
+import { milesimosParaCampo } from "./folha-movimentacao";
 
 type ErroDoMaterial = { campo: CampoDoMaterial; mensagem: string };
 
@@ -175,8 +169,7 @@ export function FolhaEditarMaterial({ resumo, aoFechar }: FolhaEditarMaterialPro
           }
         }}
       >
-        <DialogContent
-          showCloseButton={false}
+        <Folha
           data-testid="folha-editar-material"
           onOpenAutoFocus={(evento) => {
             evento.preventDefault();
@@ -184,25 +177,15 @@ export function FolhaEditarMaterial({ resumo, aoFechar }: FolhaEditarMaterialPro
               campos.current.minimo?.focus();
             }
           }}
-          className={CLASSE_DA_FOLHA}
         >
-          <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-            <div className="flex min-w-0 flex-col gap-1">
-              <DialogTitle className="text-titulo text-tinta">{TITULO_EDITAR_MATERIAL}</DialogTitle>
-              <DialogDescription className="text-apoio text-tinta-fraca [overflow-wrap:anywhere]">
-                {resumo.nome}
-              </DialogDescription>
-            </div>
-            <button
-              type="button"
-              aria-label="Fechar"
-              disabled={ocupado}
-              onClick={aoFechar}
-              className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-            >
-              <X aria-hidden="true" />
-            </button>
-          </DialogHeader>
+          <FolhaCabecalho
+            titulo={TITULO_EDITAR_MATERIAL}
+            descricao={resumo.nome}
+            descricaoVisivel
+            classeDescricao="[overflow-wrap:anywhere]"
+            aoFechar={aoFechar}
+            fecharDesabilitado={ocupado}
+          />
 
           <form
             noValidate
@@ -212,7 +195,7 @@ export function FolhaEditarMaterial({ resumo, aoFechar }: FolhaEditarMaterialPro
             }}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-4">
+            <FolhaCorpo className="gap-5">
               {/* O que é do Cadastros: só leitura, com o caminho para mudar (D-01). */}
               <div
                 data-testid="editar-material-catalogo"
@@ -293,10 +276,11 @@ export function FolhaEditarMaterial({ resumo, aoFechar }: FolhaEditarMaterialPro
                 />
                 {mensagemDe("observacoes")}
               </div>
-            </div>
+            </FolhaCorpo>
 
-            {/* Rodapé preso por flex: "Desativar material" à esquerda · "Salvar material". */}
-            <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
+            {/* Rodapé preso por flex: "Desativar material" à esquerda · "Salvar material". O erro
+                geral vem como filho (não pela prop `erro`): ele carrega `data-campo` e o `id`. */}
+            <FolhaRodape>
               {mensagemDe("geral")}
               <div className="flex gap-2">
                 {resumo.ativo ? (
@@ -324,9 +308,9 @@ export function FolhaEditarMaterial({ resumo, aoFechar }: FolhaEditarMaterialPro
                   {salvando ? ROTULO_SALVANDO : ROTULO_SALVAR_MATERIAL}
                 </Button>
               </div>
-            </div>
+            </FolhaRodape>
           </form>
-        </DialogContent>
+        </Folha>
       </Dialog>
 
       <ConfirmarDesativacao
