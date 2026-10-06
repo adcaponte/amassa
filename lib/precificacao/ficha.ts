@@ -177,9 +177,10 @@ export type ResultadoDaFicha =
       fatias: FatiaDoCusto[];
       custoCentavos: number;
       minimoCentavos: number;
-      // `null` só no caso raro em que o divisor do canal galeria (que soma a comissão) não fecha
-      // mesmo o divisor do canal direto fechando — a tela mostra "—" no lugar do número, nunca
-      // trava o restante do resultado por causa disso (ver "Decidido sem o dono" do SUMMARY).
+      // `null` só no caso raro em que o divisor do canal galeria (1 − comissão, desde a D-16 de
+      // 06/10/2026) não fecha mesmo o divisor do canal direto fechando — a tela mostra "—" no
+      // lugar do número, nunca trava o restante do resultado por causa disso (ver "Decidido sem
+      // o dono" do SUMMARY).
       minimoGaleriaCentavos: number | null;
       zeroCentavos: number;
       farol: FarolDoPreco;

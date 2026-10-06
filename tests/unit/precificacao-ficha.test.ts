@@ -226,7 +226,7 @@ describe("resultadoDaFicha", () => {
     expect(somaDasFatias).toBe(resultado.custoCentavos);
     expect(resultado.custoCentavos).toBe(4424);
     expect(resultado.minimoCentavos).toBe(6187);
-    expect(resultado.minimoGaleriaCentavos).toBe(14044);
+    expect(resultado.minimoGaleriaCentavos).toBe(10312); // 61,87 ÷ (1 − 0,40) — D-16, 06/10/2026
     expect(resultado.zeroCentavos).toBe(4584);
     expect(resultado.fatias).toEqual([
       { chave: "material", centavos: 954 },
@@ -313,11 +313,11 @@ describe("resultadoDaFicha", () => {
   });
 
   it("minimoGaleriaCentavos vira null quando só o divisor da galeria não fecha (direto continua ok)", () => {
+    // Desde a D-16 (06/10/2026) a comissão tem divisor próprio (1 − comissão): só ela em 95 % ou
+    // mais derruba a galeria sem derrubar o direto.
     const parametrosSoGaleriaFalha: ParametrosDoCalculo = {
       ...PARAMETROS_ILUSTRATIVOS,
-      lucroPontosBase: 4500,
-      folgaNegociacaoPontosBase: 500,
-      comissaoGaleriaPontosBase: 4500,
+      comissaoGaleriaPontosBase: 9500,
     };
     const direto = calcularPeca({
       ficha: paraFichaDeCalculo(fichaBase()),
