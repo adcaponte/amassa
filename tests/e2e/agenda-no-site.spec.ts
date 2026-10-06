@@ -96,7 +96,7 @@ test.describe("agenda no site", () => {
     await page.goto("/gestao/agenda");
     await expect(page.getByTestId("agenda-carregando")).toBeHidden();
     const abas = page.locator(`[data-testid="abas-da-agenda"] >> visible=true`).first();
-    await expect(abas.getByRole("tab")).toHaveText(["Agenda", "Pessoas", /^A receber/, "No site", "Números"]);
+    await expect(abas.getByRole("tab")).toHaveText(["Agenda", "Pessoas", /^Receber/, "No site", "Números"]);
     const primeira = await topoDe(page, "aba-agenda");
     expect(await topoDe(page, "aba-pessoas")).toBe(primeira);
     expect(await topoDe(page, "aba-receber")).toBe(primeira);

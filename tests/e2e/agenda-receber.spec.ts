@@ -77,7 +77,7 @@ test.describe("agenda receber", () => {
     await abrirAReceber(page);
 
     await expect(page.getByTestId("aba-receber")).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByTestId("aba-receber")).toHaveText("A receber");
+    await expect(page.getByTestId("aba-receber")).toHaveText("Receber");
     const vazio = page.getByTestId("a-receber-vazio");
     await expect(vazio.getByRole("heading", { name: FRASE_NINGUEM_DEVENDO })).toBeVisible();
     await expect(vazio.getByText(CORPO_NINGUEM_DEVENDO)).toBeVisible();
@@ -95,7 +95,7 @@ test.describe("agenda receber", () => {
 
     await fazerLogin(page);
     await abrirAReceber(page);
-    await expect(page.getByTestId("aba-receber")).toHaveText(/^A receber · \d+$/);
+    await expect(page.getByTestId("aba-receber")).toHaveText(/^Receber · \d+$/);
     const linha = linhaAReceber(page, "inscricao", inscricaoId);
     await expect(linha.getByTestId("a-receber-nome")).toHaveText(nome);
     await expect(linha.getByTestId("a-receber-valor")).toHaveText(formatarReais(18000));
