@@ -1128,9 +1128,9 @@ Plans:
 - [x] 06.5-08-PLAN.md — Agenda: aba “Receber” e presença antecipada que avisa e deixa (D-12, D-05) — **Concluído no branch `gsd/phase-06.5-polimento` (`108136b..710a64d`) — ver `06.5-08-SUMMARY.md`**
 - [x] 06.5-09-PLAN.md — busca por palavras e sem acento (`casaComBusca`): Venda, Compra e pessoas (D-17) — **Concluído no branch `gsd/phase-06.5-polimento` (`e672f31..39f08a3`) — ver `06.5-09-SUMMARY.md`**
 - [x] 06.5-10-PLAN.md — Estoque: custo vazio = R$ 0 com “sem custo”, contagem cega, seletor por categoria (D-04, D-06, D-13) — **Concluído no branch `gsd/phase-06.5-polimento` (`d71872f..4a96ddc`) — ver `06.5-10-SUMMARY.md`**
-- [ ] 06.5-11-PLAN.md — banco: migração 0031 (conta fixa cancelada libera o mês, índices, tabela do vínculo da correção), `bigint`, `/api/health/polimento`, Roteiro 22 (D-25, D-26)
-- [ ] 06.5-12-PLAN.md — Caixa: janela de 30 dias, aviso das contas fixas com atalho, histórico pago pela janela (D-03, D-27)
-- [ ] 06.5-13-PLAN.md — textos: “Outubro de 2026”, placeholder do fornecedor, “Qtd.”/“Cada” no documento do orçamento (D-14)
+- [x] 06.5-11-PLAN.md — banco: migração 0031 (conta fixa cancelada libera o mês, índices, tabela do vínculo da correção), `bigint`, `/api/health/polimento`, Roteiro 22 (D-25, D-26) — **Concluído no branch `gsd/phase-06.5-polimento` (`0c6b5d3..4ef0233`) — ver `06.5-11-SUMMARY.md`**
+- [x] 06.5-12-PLAN.md — Caixa: janela de 30 dias, aviso das contas fixas com atalho, histórico pago pela janela (D-03, D-27) — **Concluído no branch `gsd/phase-06.5-polimento` (`938b0a3..29b3cd7`) — ver `06.5-12-SUMMARY.md`**
+- [x] 06.5-13-PLAN.md — textos: “Outubro de 2026”, placeholder do fornecedor, “Qtd.”/“Cada” no documento do orçamento (D-14) — **Concluído no branch `gsd/phase-06.5-polimento` (`045dc2e..7348c7c`) — ver `06.5-13-SUMMARY.md`**
 - [ ] 06.5-14-PLAN.md — “Novo orçamento” só cria o registro quando algo é preenchido (D-15)
 - [ ] 06.5-15-PLAN.md — regras de dinheiro dos painéis para `lib/financeiro/` (D-21, P4)
 - [ ] 06.5-16-PLAN.md — “Corrigir”: o servidor — núcleo transacional, recusas e prova de corrida (D-18, UI-D9)
