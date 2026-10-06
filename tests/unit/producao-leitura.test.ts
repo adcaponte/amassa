@@ -6,6 +6,7 @@ import {
   etapaAtual,
   leituraDaOrdem,
   levouDias,
+  previsaoDaNovaOrdem,
   seloDaOrdem,
   type LeituraDaOrdem,
   type OrdemParaLeitura,
@@ -347,5 +348,52 @@ describe("dado incoerente é RangeError (PRD-04 · ordering)", () => {
     expect(() =>
       leituraDaOrdem(ordem({ caminho: "biscoito", feitas: todas }), "2026-03-10"),
     ).toThrow(RangeError);
+  });
+});
+
+// Fase 06.5 (plano 07, D-11): o aviso da folha "Nova ordem" usa a MESMA conta do "vai atrasar".
+describe("previsaoDaNovaOrdem (D-11)", () => {
+  it("cabe: a entrega depois da previsão → diasDepoisDaEntrega null", () => {
+    // completo = 5 + 15 + 1 + 4 + 1 + 6 = 32; 10/03 + 32 = 11/04
+    expect(
+      previsaoDaNovaOrdem({ caminho: "completo", hoje: "2026-03-10", entregaPrometida: "2026-05-09" }),
+    ).toEqual({ diasDasEtapas: 32, prontaEm: "2026-04-11", diasDepoisDaEntrega: null });
+  });
+
+  it("entrega exatamente na previsão também cabe", () => {
+    expect(
+      previsaoDaNovaOrdem({ caminho: "completo", hoje: "2026-03-10", entregaPrometida: "2026-04-11" })
+        .diasDepoisDaEntrega,
+    ).toBeNull();
+  });
+
+  it("não cabe: o número de dias que a previsão passa da entrega", () => {
+    // entrega 25/03 (hoje + 15); pronta 11/04 → 17 dias depois
+    expect(
+      previsaoDaNovaOrdem({ caminho: "completo", hoje: "2026-03-10", entregaPrometida: "2026-03-25" }),
+    ).toEqual({ diasDasEtapas: 32, prontaEm: "2026-04-11", diasDepoisDaEntrega: 17 });
+  });
+
+  it("sem data → diasDepoisDaEntrega null, mas a soma e a previsão continuam", () => {
+    expect(
+      previsaoDaNovaOrdem({ caminho: "completo", hoje: "2026-03-10", entregaPrometida: null }),
+    ).toEqual({ diasDasEtapas: 32, prontaEm: "2026-04-11", diasDepoisDaEntrega: null });
+  });
+
+  it("caminho biscoito: soma menor (5 + 15 + 1 + 6 = 27)", () => {
+    expect(
+      previsaoDaNovaOrdem({ caminho: "biscoito", hoje: "2026-03-10", entregaPrometida: "2026-03-25" }),
+    ).toEqual({ diasDasEtapas: 27, prontaEm: "2026-04-06", diasDepoisDaEntrega: 12 });
+  });
+
+  it("é o mesmo número que o selo “vai atrasar” dá à ordem criada hoje", () => {
+    const hoje = "2026-12-20";
+    const entregaPrometida = "2027-01-05";
+    const previsao = previsaoDaNovaOrdem({ caminho: "completo", hoje, entregaPrometida });
+    const criada = ordem({ entregaPrometida, inicio: hoje });
+    expect(seloDaOrdem(leituraDaOrdem(criada, hoje))).toEqual({
+      tipo: "vai-atrasar",
+      dias: previsao.diasDepoisDaEntrega,
+    });
   });
 });

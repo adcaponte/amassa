@@ -516,6 +516,18 @@ export const DICA_FIM_NOVA_ORDEM =
   "Encomenda normalmente nasce sozinha, do orçamento aprovado. Aqui é para produção da casa e para o pedido combinado de boca.";
 export const TOAST_ORDEM_CRIADA = "Ordem criada.";
 
+// Fase 06.5 (D-11): o aviso âmbar logo abaixo da entrega, quando a previsão (`previsaoDaNovaOrdem`,
+// a mesma conta do "vai atrasar") passa dela. Some quando a data cabe ou é apagada; não bloqueia.
+export function textoAvisoPrazoManchete(
+  diasDasEtapas: number,
+  prontaEmDiaMes: string,
+  diasDepois: number,
+): string {
+  return `As etapas somam ${dias(diasDasEtapas)} — a ordem fica pronta em ${prontaEmDiaMes}, ${dias(diasDepois)} depois da entrega.`;
+}
+export const TEXTO_AVISO_PRAZO_CORPO =
+  "Dá para criar assim mesmo; ela já nasce atrasada. Para caber, mude a entrega ou ajuste os dias das etapas depois de criar.";
+
 // Erros da Nova ordem — embaixo do campo, `role="alert"` (UI-SPEC §Erros). As frases de "passa de N
 // letras" seguem as do Orçamento (`lib/orcamentos/textos.ts`).
 export const FRASE_NOME_DA_ORDEM_VAZIO = "Dê um nome à ordem.";

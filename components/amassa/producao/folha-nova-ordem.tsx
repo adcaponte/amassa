@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { carregarCatalogoDaNovaOrdem, criarOrdem } from "@/lib/producao/acoes";
+import { ehDataCivil, formatarDiaMes } from "@/lib/producao/calendario";
 import type { CatalogoDaNovaOrdem } from "@/lib/producao/consultas";
 import type { CaminhoOrdem, TipoOrdem } from "@/lib/producao/etapas";
 import {
@@ -13,6 +14,7 @@ import {
   validarNovaOrdem,
   type ErrosDaNovaOrdem,
 } from "@/lib/producao/esquemas";
+import { previsaoDaNovaOrdem } from "@/lib/producao/leitura";
 import {
   DICA_FIM_NOVA_ORDEM,
   DICA_PECA_CASA,
@@ -39,8 +41,10 @@ import {
   ROTULO_TIPO_ENCOMENDA,
   ROTULO_VOLTAR,
   TITULO_NOVA_ORDEM,
+  TEXTO_AVISO_PRAZO_CORPO,
   TITULO_PECAS_DA_NOVA_ORDEM,
   TOAST_ORDEM_CRIADA,
+  textoAvisoPrazoManchete,
 } from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
@@ -138,6 +142,18 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
   const [erroGeral, setErroGeral] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [enviando, setEnviando] = useState(false);
+
+  // D-11: a entrega que não cabe é avisada antes de criar, com a mesma conta do "vai atrasar" do
+  // cartão e o "hoje" do servidor. Recalcula a cada data e caminho. Data no passado ou inválida não
+  // avisa — essa vira o erro do campo ao criar, e a ordem não nasceria.
+  const previsao =
+    ehDataCivil(entregaPrometida) && entregaPrometida >= hoje
+      ? previsaoDaNovaOrdem({ caminho, hoje, entregaPrometida })
+      : null;
+  const avisoDePrazo =
+    previsao !== null && previsao.diasDepoisDaEntrega !== null
+      ? { ...previsao, diasDepoisDaEntrega: previsao.diasDepoisDaEntrega }
+      : null;
 
   // Guarda síncrona contra o toque duplo: o `disabled` só vale depois do próximo desenho; a
   // referência vale já no segundo clique do mesmo gesto.
@@ -679,6 +695,25 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
                 />
                 {mensagemDe("entregaPrometida")}
               </div>
+              {avisoDePrazo ? (
+                <div
+                  role="status"
+                  data-testid="nova-ordem-aviso-prazo"
+                  className="bg-atencao-fundo text-atencao text-apoio flex items-start gap-2 rounded-md p-4 md:col-span-2"
+                >
+                  <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                  <p className="flex flex-col gap-1">
+                    <span className="font-semibold">
+                      {textoAvisoPrazoManchete(
+                        avisoDePrazo.diasDasEtapas,
+                        formatarDiaMes(avisoDePrazo.prontaEm),
+                        avisoDePrazo.diasDepoisDaEntrega,
+                      )}
+                    </span>
+                    <span>{TEXTO_AVISO_PRAZO_CORPO}</span>
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <section aria-labelledby="nova-ordem-pecas-titulo" className="flex flex-col gap-3">
