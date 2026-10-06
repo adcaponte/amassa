@@ -49,6 +49,24 @@ async function alturaDaAba(page: Page): Promise<number> {
   return (await medirCaixa(abaReceber(page), "aba “Receber”")).height;
 }
 
+// O contrato (UI-SPEC E10) é uma linha até N = 99. O N real é GLOBAL — quem deve, somado de todos os
+// specs que cobram — e na varredura completa do 06.5-30 chegou a 105 (“Receber · 105”, duas linhas,
+// 56 px): afirmar uma linha com o N real dependia de uma condição global do banco (CLAUDE.md). Com o
+// N real dentro do contrato, ele é medido; fora, fica a anotação, e o pior caso do contrato (“44” e
+// “99”, no peso mais largo) é provado abaixo com o texto trocado na aba de verdade.
+async function conferirUmaLinhaComONReal(page: Page, rotulo: string) {
+  const texto = (await abaReceber(page).textContent()) ?? "";
+  const n = Number(/· (\d+)$/.exec(texto)?.[1] ?? "0");
+  if (n > 99) {
+    test.info().annotations.push({
+      type: "fora-do-contrato",
+      description: `${rotulo}: N real = ${n} (> 99, o teto do contrato) — a linha única é provada com o texto trocado`,
+    });
+    return;
+  }
+  expect(await alturaDaAba(page), `${rotulo} (“${texto}”)`).toBeLessThanOrEqual(ALTURA_DE_UMA_LINHA);
+}
+
 test.describe("polimento agenda — aba", () => {
   test("sem cobranças: “Receber”, sem contador, numa linha a 375 px @vazio-global", async ({
     page,
@@ -87,14 +105,14 @@ test.describe("polimento agenda — aba", () => {
     await page.goto("/gestao/agenda");
     await expect(page.getByTestId("agenda-carregando")).toBeHidden();
     await expect(abaReceber(page)).toHaveText(/^Receber · \d+$/);
-    expect(await alturaDaAba(page)).toBeLessThanOrEqual(ALTURA_DE_UMA_LINHA);
+    await conferirUmaLinhaComONReal(page, "desmarcada");
 
     // Marcada (peso 600, o rótulo mais largo).
     await page.goto("/gestao/agenda?aba=receber");
     await expect(page.getByTestId("a-receber")).toBeVisible();
     await expect(abaReceber(page)).toHaveAttribute("aria-selected", "true");
     await expect(abaReceber(page)).toHaveText(/^Receber · \d+$/);
-    expect(await alturaDaAba(page)).toBeLessThanOrEqual(ALTURA_DE_UMA_LINHA);
+    await conferirUmaLinhaComONReal(page, "marcada");
 
     // O pior caso do contador (E10): dois dígitos. O número real é global e não se controla daqui; o
     // texto da aba marcada é trocado no navegador e a caixa é medida de novo — a mesma aba, a mesma
