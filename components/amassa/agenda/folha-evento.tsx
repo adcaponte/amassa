@@ -31,13 +31,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { ColocarAlguem } from "./colocar-alguem";
 import { CancelarEstaData } from "./confirmar-cancelar-data";
@@ -126,14 +125,12 @@ export function FolhaEvento({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-evento"
         data-evento-id={evento.id}
         onOpenAutoFocus={(eventoDeFoco) => eventoDeFoco.preventDefault()}
         // Esc com a lista do seletor de pessoa aberta fecha só a lista, não a folha.
         onEscapeKeyDown={naoFecharComOSeletorAberto}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <div className="flex min-w-0 flex-col gap-1">
@@ -183,7 +180,7 @@ export function FolhaEvento({
           </button>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+        <FolhaCorpo>
           {carregado === null && erroAoCarregar ? (
             <div
               className="flex flex-col items-start gap-3"
@@ -285,12 +282,12 @@ export function FolhaEvento({
               </p>
             </>
           )}
-        </div>
+        </FolhaCorpo>
 
         {/* Rodapé preso (`justify-between`): "Cancelar esta data" / "Desfazer cancelamento" à esquerda
             (só depois de a folha saber o que se perderia), "Pronto" à direita. `flex-wrap`: a 320px
             os dois quebram em duas linhas, cada um com 44px, nunca rolagem lateral. */}
-        <div className="border-border bg-popover flex flex-wrap items-start justify-between gap-2 border-t px-6 py-4">
+        <FolhaRodape className="flex-row flex-wrap items-start justify-between gap-2">
           {carregado !== null && !cancelarNaCaixa ? (
             <CancelarEstaData key={carregado.id} evento={carregado} />
           ) : (
@@ -305,8 +302,8 @@ export function FolhaEvento({
           >
             {ROTULO_PRONTO}
           </Button>
-        </div>
-      </DialogContent>
+        </FolhaRodape>
+      </Folha>
     </Dialog>
   );
 }

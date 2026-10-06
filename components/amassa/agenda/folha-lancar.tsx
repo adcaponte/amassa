@@ -63,10 +63,10 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { CamposTurma, type CampoControlado } from "./campos-turma";
 import { CamposUsoLivre } from "./campos-uso-livre";
@@ -537,8 +537,7 @@ function FormularioLancar({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-lancar"
         aria-describedby={undefined}
         onOpenAutoFocus={(evento) => {
@@ -554,7 +553,6 @@ function FormularioLancar({
             )?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <DialogTitle className="text-titulo text-tinta break-words">{TITULO_LANCAR_NA_AGENDA}</DialogTitle>
@@ -583,7 +581,7 @@ function FormularioLancar({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          <FolhaCorpo>
             <div role="radiogroup" aria-label={ARIA_O_QUE_LANCAR} className="flex flex-wrap gap-2">
               {TIPOS.map((opcao) => {
                 const marcada = opcao.valor === tipo;
@@ -815,15 +813,10 @@ function FormularioLancar({
                       : dicaTipoUsoLivre(formatarReais(precoDaHoraCentavos))
                     : DICA_TIPO_FECHADO}
             </p>
-          </div>
+          </FolhaCorpo>
 
           {/* Rodapé preso por FLEX, fora da área rolável (G-03-1): o erro de gravação no topo. */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-            {erroGeral ? (
-              <p role="alert" data-testid="lancar-erro-geral" className="text-apoio text-erro">
-                {erroGeral}
-              </p>
-            ) : null}
+          <FolhaRodape erro={erroGeral} dataTestIdErro="lancar-erro-geral">
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -845,9 +838,9 @@ function FormularioLancar({
                 {enviando ? ROTULO_DE_GRAVAR[tipo].gravando : ROTULO_DE_GRAVAR[tipo].parado}
               </Button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

@@ -51,10 +51,10 @@ import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { CampoDeTexto, capitalizar, CLASSE_DO_CAMPO_DA_AGENDA, type CampoControlado } from "./campos-turma";
 import { ConfirmarDesativarTurma } from "./confirmar-desativar-turma";
@@ -143,12 +143,10 @@ export function FolhaTurma({ cabecalho, carregada, erroAoCarregar, hoje, aoVolta
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-turma"
         data-turma-id={cabecalho.id}
         onOpenAutoFocus={(evento) => evento.preventDefault()}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <div className="flex min-w-0 flex-col gap-1">
@@ -203,7 +201,7 @@ export function FolhaTurma({ cabecalho, carregada, erroAoCarregar, hoje, aoVolta
           />
         ) : (
           <>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+            <FolhaCorpo>
               {erroAoCarregar ? (
                 <div className="flex flex-col items-start gap-3" data-testid="folha-turma-erro">
                   <p role="alert" className="text-corpo text-erro">
@@ -226,8 +224,8 @@ export function FolhaTurma({ cabecalho, carregada, erroAoCarregar, hoje, aoVolta
                   ))}
                 </div>
               )}
-            </div>
-            <div className="border-border bg-popover flex flex-wrap gap-2 border-t px-6 py-4">
+            </FolhaCorpo>
+            <FolhaRodape className="flex-row flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -236,10 +234,10 @@ export function FolhaTurma({ cabecalho, carregada, erroAoCarregar, hoje, aoVolta
               >
                 {ROTULO_VOLTAR}
               </Button>
-            </div>
+            </FolhaRodape>
           </>
         )}
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }
@@ -399,7 +397,7 @@ function ConteudoDaTurma({ turma, hoje, aoMudarEnvio, aoVoltar }: ConteudoDaTurm
       }}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+      <FolhaCorpo>
         {ativa ? (
           <div className="flex flex-wrap gap-4">
             <CampoDeTexto chave="nome" id="turma-nome" testId="turma-nome" rotulo={ROTULO_NOME} campo={controlado("nome")} larguraTotal />
@@ -563,14 +561,9 @@ function ConteudoDaTurma({ turma, hoje, aoMudarEnvio, aoVoltar }: ConteudoDaTurm
             aoDesativar={() => router.refresh()}
           />
         ) : null}
-      </div>
+      </FolhaCorpo>
 
-      <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-        {erroGeral ? (
-          <p role="alert" data-testid="turma-erro-geral" className="text-apoio text-erro">
-            {erroGeral}
-          </p>
-        ) : null}
+      <FolhaRodape erro={erroGeral} dataTestIdErro="turma-erro-geral">
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -594,7 +587,7 @@ function ConteudoDaTurma({ turma, hoje, aoMudarEnvio, aoVoltar }: ConteudoDaTurm
             </Button>
           ) : null}
         </div>
-      </div>
+      </FolhaRodape>
     </form>
   );
 }
