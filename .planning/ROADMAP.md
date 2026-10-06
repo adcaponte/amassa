@@ -1123,11 +1123,11 @@ Plans:
 - [x] 06.5-03-PLAN.md — celular: `TabelaResponsiva` no Mês e no Estoque; o gráfico das Queimas abrindo na semana atual (D-08) — **Concluído no branch `gsd/phase-06.5-polimento` (`97e3dd2..3e11e65`) — ver `06.5-03-SUMMARY.md`**
 - [x] 06.5-04-PLAN.md — abas dos Cadastros numa fileira com rolagem, na ordem do dono (D-09) — **Concluído no branch `gsd/phase-06.5-polimento` (`fa761ca..23c59a6`) — ver `06.5-04-SUMMARY.md`**
 - [x] 06.5-05-PLAN.md — Lembretes: aviso com “Desfazer” no topo por 10 s, opções junto do campo, filtros com título (D-10, D-07) — **Concluído no branch `gsd/phase-06.5-polimento` (`2a87601..5e5b813`) — ver `06.5-05-SUMMARY.md`**
-- [ ] 06.5-06-PLAN.md — Produção: “Terminei” só com todas as peças, no botão e no servidor, e “Passaram todas as {N}” (D-02)
-- [ ] 06.5-07-PLAN.md — Produção: aviso de prazo na folha, aviso de A4 no celular, “levou N dias” (D-11)
-- [ ] 06.5-08-PLAN.md — Agenda: aba “Receber” e presença antecipada que avisa e deixa (D-12, D-05)
-- [ ] 06.5-09-PLAN.md — busca por palavras e sem acento (`casaComBusca`): Venda, Compra e pessoas (D-17)
-- [ ] 06.5-10-PLAN.md — Estoque: custo vazio = R$ 0 com “sem custo”, contagem cega, seletor por categoria (D-04, D-06, D-13)
+- [x] 06.5-06-PLAN.md — Produção: “Terminei” só com todas as peças, no botão e no servidor, e “Passaram todas as {N}” (D-02) — **Concluído no branch `gsd/phase-06.5-polimento` (`c440705..deb5d10`) — ver `06.5-06-SUMMARY.md`**
+- [x] 06.5-07-PLAN.md — Produção: aviso de prazo na folha, aviso de A4 no celular, “levou N dias” (D-11) — **Concluído no branch `gsd/phase-06.5-polimento` (`3b6bfc7..729623b`) — ver `06.5-07-SUMMARY.md`**
+- [x] 06.5-08-PLAN.md — Agenda: aba “Receber” e presença antecipada que avisa e deixa (D-12, D-05) — **Concluído no branch `gsd/phase-06.5-polimento` (`108136b..710a64d`) — ver `06.5-08-SUMMARY.md`**
+- [x] 06.5-09-PLAN.md — busca por palavras e sem acento (`casaComBusca`): Venda, Compra e pessoas (D-17) — **Concluído no branch `gsd/phase-06.5-polimento` (`e672f31..39f08a3`) — ver `06.5-09-SUMMARY.md`**
+- [x] 06.5-10-PLAN.md — Estoque: custo vazio = R$ 0 com “sem custo”, contagem cega, seletor por categoria (D-04, D-06, D-13) — **Concluído no branch `gsd/phase-06.5-polimento` (`d71872f..4a96ddc`) — ver `06.5-10-SUMMARY.md`**
 - [ ] 06.5-11-PLAN.md — banco: migração 0031 (conta fixa cancelada libera o mês, índices, tabela do vínculo da correção), `bigint`, `/api/health/polimento`, Roteiro 22 (D-25, D-26)
 - [ ] 06.5-12-PLAN.md — Caixa: janela de 30 dias, aviso das contas fixas com atalho, histórico pago pela janela (D-03, D-27)
 - [ ] 06.5-13-PLAN.md — textos: “Outubro de 2026”, placeholder do fornecedor, “Qtd.”/“Cada” no documento do orçamento (D-14)
