@@ -8,6 +8,7 @@
 // token dura 30 dias (`lib/auth/auth.config.ts`); conferir só nele faria "desativar
 // alguém" significar "daqui a um mês" (T-02a-19).
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -64,7 +65,16 @@ export function avaliarAutorizacao(registro: LinhaDeUsuario | undefined): Result
 // quebraria QUALQUER teste que importe `avaliarAutorizacao` daqui, mesmo sem nunca chamar
 // `exigirUsuario()` — esta função sempre roda dentro do Next.js de verdade, nunca do
 // Vitest, então o custo do import dinâmico é irrelevante em produção.
-export async function exigirUsuario(): Promise<UsuarioAutorizado> {
+//
+// Fase 06.5 (D-21): embrulhada em `cache` do React — UMA leitura de sessão e UMA consulta de usuário
+// por requisição. Uma página monta várias seções em paralelo (cada uma com o seu `exigirUsuario()`
+// de defesa em profundidade), e cada chamada relia a sessão e o banco. O `cache` vale só DENTRO de
+// uma renderização do servidor: nunca guarda nada entre requisições (T-06.5-59), e fora de uma
+// renderização (Route Handler, Server Action fora do render, teste) só repassa a chamada. Na recusa
+// o `cache` relança o MESMO erro do `redirect()` — o `ehFaltaDeSessao` abaixo continua valendo
+// (medido em `tests/unit/exigir-usuario.test.ts`). O nome e a assinatura não mudam: o portão
+// `scripts/verificar-acoes.mjs` procura `exigirUsuario()` na primeira linha de toda ação.
+export const exigirUsuario = cache(async (): Promise<UsuarioAutorizado> => {
   const { auth } = await import("@/lib/auth/auth");
 
   const sessao = await auth();
@@ -86,7 +96,7 @@ export async function exigirUsuario(): Promise<UsuarioAutorizado> {
   }
 
   return resultado.usuario;
-}
+});
 
 // 06.2-WR-01 (quick 261005-2yu, 05/10/2026): quem envolve `exigirUsuario()` num `try` (os Route
 // Handlers dos anexos, que respondem JSON em vez de deixar o redirect seguir) precisa separar a

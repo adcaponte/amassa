@@ -53,3 +53,22 @@ test.describe("polimento segurança — cabeçalhos", () => {
     expect(mensagensDaCsp).toEqual([]);
   });
 });
+
+// D-20 (06.5-19): as rotas da foto e do PDF do orçamento separam a FALTA DE SESSÃO (401, o corpo de
+// sempre) de uma falha ao conferir a sessão (500 com frase). Aqui o lado observável de fora: sem sessão,
+// o 401 JSON de hoje continua igual — o id é um uuid qualquer, e a rota nem confirma se ele existe. O
+// lado do 500 (o banco fora) não se provoca no e2e sem derrubar o banco de todos os testes; a decisão é
+// `ehFaltaDeSessao`, coberta em `tests/unit/exigir-usuario.test.ts`.
+test.describe("polimento segurança — orçamento sem sessão", () => {
+  const ID_QUALQUER = "00000000-0000-4000-8000-000000000000";
+
+  for (const caminho of [`/gestao/api/orcamentos/fotos/${ID_QUALQUER}`, `/gestao/api/orcamentos/${ID_QUALQUER}/pdf`]) {
+    test(`${caminho} sem sessão responde 401 com o corpo de sempre`, async ({ request }) => {
+      const resposta = await request.get(caminho, { maxRedirects: 0 });
+      expect(resposta.status()).toBe(401);
+      expect(resposta.headers()["content-type"]).toContain("application/json");
+      expect(await resposta.json()).toEqual({ erro: "Não autorizado." });
+      conferirCabecalhos(resposta, `${caminho} (401)`);
+    });
+  }
+});
