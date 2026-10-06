@@ -1145,8 +1145,8 @@ Plans:
 - [x] 06.5-25-PLAN.md — “Recebi agora” comum (parte visual) e a `Folha` na Produção, no “Recebi agora” e na contagem das Queimas (D-24, P8/P9) — **Concluído no branch `gsd/phase-06.5-polimento` (`2778480..2900e07`) — ver `06.5-25-SUMMARY.md`**
 - [x] 06.5-26-PLAN.md — `Folha` na Agenda, em Fornecedores e Clientes; `85vh` → `85svh` (D-24, P8) — **Concluído no branch `gsd/phase-06.5-polimento` (`68ad4e3..5ddf7a2`) — ver `06.5-26-SUMMARY.md`**
 - [x] 06.5-27-PLAN.md — dividir por assunto `lib/agenda/acoes.ts`, `lib/agenda/consultas.ts` e `lib/orcamentos/acoes.ts` (D-24, P10) — **Concluído no branch `gsd/phase-06.5-polimento` (`2a09197..796fb4f`) — ver `06.5-27-SUMMARY.md`**
-- [ ] 06.5-28-PLAN.md — Produção: só peça de cerâmica vira ordem — pergunta ao dono e o critério escolhido (D-01)
-- [ ] 06.5-29-PLAN.md — a conta do preço de galeria/consignado mostrada ao dono antes de qualquer mudança (D-16)
+- [x] 06.5-28-PLAN.md — Produção: só peça de cerâmica vira ordem — pergunta ao dono e o critério escolhido (D-01) — **Concluído no branch `gsd/phase-06.5-polimento` (`ae70fb5..a24050c`) — ver `06.5-28-SUMMARY.md`**
+- [x] 06.5-29-PLAN.md — a conta do preço de galeria/consignado mostrada ao dono antes de qualquer mudança (D-16) — **Concluído no branch `gsd/phase-06.5-polimento` (`5a466db..965b316`) — ver `06.5-29-SUMMARY.md`**
 - [ ] 06.5-30-PLAN.md — portão: varredura e2e completa, Roteiro 22 completo, caminhada do dono (Parte 0, 0031, critérios), documentos de estado
 
 **UI hint**: yes
