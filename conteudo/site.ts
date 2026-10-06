@@ -89,13 +89,15 @@ export const CONTEUDO_SITE = {
   agAviso: "O calendário com as datas e vagas entra aqui em breve.",
 
   // Encomendas (`#encomendas`).
-  // D-31 (06/10/2026): "Contamos a gente como funciona" é slot do dono — fica como está no ar até
-  // ele responder. Sugestão levada a ele (Parte 0 do plano 06.5-30): "Contamos como funciona e
-  // mandamos um orçamento." Só entra com o "ok" dele (ou com a frase que ele mandar).
+  // D-31: a frase das encomendas é slot do dono. 06/10/2026 (plano 06.5-30): entrou a sugestão
+  // "Contamos como funciona e mandamos um orçamento.", pela instrução dele do mesmo dia ("a questão
+  // que o 30 tiver pode ir no recomendado") — ele confirma ou troca na Parte 0 da caminhada
+  // (`06.5-VERIFICACAO-HUMANA.md`, 0.1). *Até 06/10/2026 o texto no ar era "Contamos a gente como
+  // funciona e mandamos um orçamento." e este comentário dizia que a sugestão só entrava com o "ok".*
   encomendasTitulo: "Peças feitas para você",
   encomendasLead:
     "Canecas para o seu café, um jogo de pratos para a pousada, lembranças para o casamento, " +
-    "uma peça só. Contamos a gente como funciona e mandamos um orçamento.",
+    "uma peça só. Contamos como funciona e mandamos um orçamento.",
   passo1: {
     titulo: "Conta a ideia",
     corpo: "Quantas peças, para quê, cor, tamanho. Foto de referência ajuda muito.",
