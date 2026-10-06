@@ -47,11 +47,11 @@ import {
 } from "@/lib/fornecedores/textos";
 import { ROTULO_AREA as ROTULO_DA_AREA } from "@/lib/financeiro/textos";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 // Os nove campos de texto (a Área é um Select). Tudo texto: o servidor apara e transforma vazio em
 // nulo (`esquemaFornecedor`).
@@ -306,8 +306,7 @@ export function FolhaFornecedor({ modo, inicial, nomeInicial, acao, aoFechar, ao
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-fornecedor"
         aria-describedby={undefined}
         onOpenAutoFocus={(evento) => {
@@ -317,7 +316,6 @@ export function FolhaFornecedor({ modo, inicial, nomeInicial, acao, aoFechar, ao
             campos.current.nome?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <DialogTitle className="text-titulo text-tinta min-w-0 break-words">{titulo}</DialogTitle>
@@ -344,7 +342,7 @@ export function FolhaFornecedor({ modo, inicial, nomeInicial, acao, aoFechar, ao
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          <FolhaCorpo>
             <p className="text-apoio text-tinta-fraca">{DICA_FOLHA}</p>
 
             {campoDeTexto(CAMPO_NOME)}
@@ -416,15 +414,10 @@ export function FolhaFornecedor({ modo, inicial, nomeInicial, acao, aoFechar, ao
               />
               {erroDe("observacoes")}
             </div>
-          </div>
+          </FolhaCorpo>
 
           {/* Rodapé preso por flex, fora da área rolável: o erro geral + "Voltar" · o primário. */}
-          <div className="border-border bg-popover flex flex-col gap-2 border-t px-6 py-4">
-            {erroGeral ? (
-              <p role="alert" data-testid="fornecedor-erro-geral" className="text-apoio text-erro">
-                {erroGeral}
-              </p>
-            ) : null}
+          <FolhaRodape erro={erroGeral} dataTestIdErro="fornecedor-erro-geral" className="gap-2">
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -446,9 +439,9 @@ export function FolhaFornecedor({ modo, inicial, nomeInicial, acao, aoFechar, ao
                 {gravando ? ROTULO_SALVANDO : ROTULO_SALVAR_FORNECEDOR}
               </Button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

@@ -143,7 +143,7 @@ function dentroDoAviso(alvo: EventTarget | null): boolean {
 }
 
 // A folha "O que queimou?" (06.4-UI-SPEC.md §"A folha"; QMC-01/QMC-03): tela toda no celular,
-// diálogo `max-w-lg` a partir de 768 px (`CLASSE_DA_FOLHA`), com o pé a 104 px da janela no
+// diálogo `max-w-lg` a partir de 768 px (a `Folha` comum), com o pé a 104 px da janela no
 // computador (o `max-h` do `DialogContent`, 104 px acima e abaixo) para o aviso caber embaixo (UI-D12). Seis contadores
 // com a faixa da régua VIGENTE e "O forno saiu cheio" (marcado por padrão; não existe em ouro — D-02,
 // UI-D8 — e a contagem de ouro grava `saiu_cheio = true`); "Pular" fecha sem gravar; "Salvar" grava

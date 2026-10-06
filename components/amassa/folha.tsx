@@ -22,8 +22,8 @@ import {
 
 // O contêiner das folhas: tela toda no celular (`h-[100dvh]`, desliza de baixo), modal
 // centralizado `max-w-lg` a partir de `md`. Rodapé preso por flex, nunca `position: sticky`.
-// Nasceu em `estoque/folha-movimentacao.tsx` (que o reexporta até o 06.5-26 tirar o último
-// importador antigo).
+// Nasceu em `estoque/folha-movimentacao.tsx`; desde o 06.5-26 mora só aqui — toda folha a usa
+// pela `Folha`, ninguém mais a importa.
 export const CLASSE_DA_FOLHA = cn(
   "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
   "md:top-1/2 md:right-auto md:bottom-auto md:left-1/2 md:h-auto md:max-h-[85svh] md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:data-open:zoom-in-95 md:data-closed:zoom-out-95",

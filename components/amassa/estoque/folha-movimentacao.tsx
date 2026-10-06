@@ -70,10 +70,6 @@ import { GradeDestinos } from "./grade-destinos";
 import { PreviaDoSaldo } from "./previa-do-saldo";
 import type { TipoDeMovimentacao } from "./provedor-estoque";
 
-// `CLASSE_DA_FOLHA` nasceu aqui e agora mora na `Folha` comum (D-24). Reexportada só até o
-// 06.5-26 tirar o último importador antigo — código novo importa de `@/components/amassa/folha`.
-export { CLASSE_DA_FOLHA } from "@/components/amassa/folha";
-
 type CampoDaFolha =
   | "quantidade"
   | "contado"
