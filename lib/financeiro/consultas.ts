@@ -20,7 +20,7 @@ import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import { mesSeguinte, primeiroDiaDoMes } from "./calendario";
 import type { ItemParaEfeito } from "./efeito-estoque";
 import { totalDasLinhas, tituloDoDocumento } from "./documento";
-import type { MovimentoParaExtrato } from "./extrato";
+import type { GrupoDePagas, MovimentoParaExtrato } from "./extrato";
 import type { DocumentoParaMes, LinhaDeDocumentoParaMes, ParcelaPagaParaMes } from "./mes";
 import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria, TipoDeDocumentoParaTexto } from "./textos";
 
@@ -65,10 +65,14 @@ export async function listarCategoriasParaEscolha(
     .orderBy(asc(categorias.criadoEm));
 }
 
-// Toda parcela PAGA, com número, tipo, cancelado e o título calculado a partir das linhas — TRÊS
-// consultas (parcelas+documentos, documento_linhas, contagem de parcelas), nunca uma consulta por
-// linha (T-04.2-11, mesma disciplina do resto do projeto).
-export async function listarMovimentos(): Promise<MovimentoParaExtrato[]> {
+// Toda parcela PAGA em `desde` (data civil `YYYY-MM-01`, o 1º dia do mês que o extrato mostra) ou
+// depois, com número, tipo, cancelado e o título calculado a partir das linhas — TRÊS consultas
+// (parcelas+documentos, documento_linhas, contagem de parcelas), nunca uma consulta por linha
+// (T-04.2-11, mesma disciplina do resto do projeto). D-27 (06.5-12): o que foi pago ANTES de
+// `desde` não vem linha a linha — chega somado por `somarMovimentosAntesDe`. As duas consultas de
+// apoio continuam só sobre os documentos que vieram aqui (a contagem de parcelas de cada um é de
+// TODAS as parcelas dele, pagas antes ou não — o "2/3" da linha não muda).
+export async function listarMovimentos({ desde }: { desde: string }): Promise<MovimentoParaExtrato[]> {
   const parcelasPagas = await db
     .select({
       parcelaId: parcelas.id,
@@ -85,7 +89,7 @@ export async function listarMovimentos(): Promise<MovimentoParaExtrato[]> {
     })
     .from(parcelas)
     .innerJoin(documentos, eq(parcelas.documentoId, documentos.id))
-    .where(isNotNull(parcelas.pagoEm));
+    .where(and(isNotNull(parcelas.pagoEm), gte(parcelas.pagoEm, desde)));
 
   if (parcelasPagas.length === 0) {
     return [];
@@ -139,6 +143,28 @@ export async function listarMovimentos(): Promise<MovimentoParaExtrato[]> {
       linhas: linhasPorDocumento.get(parcela.documentoId) ?? [],
     }),
   }));
+}
+
+// D-27 (06.5-12): as parcelas PAGAS antes de `desde`, de documento NÃO cancelado (cancelado nunca
+// entra no saldo — D-25/FNC-10), AGRUPADAS por tipo, valor e taxa congelada, com a contagem. O
+// líquido NÃO é calculado aqui: quem aplica a taxa é `saldoAntesDaJanela` (`extrato.ts`), com o
+// mesmo `liquidoDaParcela` de cada linha do extrato — a regra da taxa continua num lugar só, nunca
+// reescrita em SQL. Agrupar pela taxa (e não somar o valor) é o que mantém o arredondamento da taxa
+// parcela a parcela idêntico ao de antes.
+export async function somarMovimentosAntesDe(desde: string): Promise<GrupoDePagas[]> {
+  const grupos = await db
+    .select({
+      tipo: documentos.tipo,
+      valorCentavos: parcelas.valorCentavos,
+      taxaPontosBase: parcelas.taxaPontosBase,
+      quantidade: count(),
+    })
+    .from(parcelas)
+    .innerJoin(documentos, eq(parcelas.documentoId, documentos.id))
+    .where(and(isNotNull(parcelas.pagoEm), lt(parcelas.pagoEm, desde), isNull(documentos.canceladoEm)))
+    .groupBy(documentos.tipo, parcelas.valorCentavos, parcelas.taxaPontosBase);
+
+  return grupos.map((grupo) => ({ ...grupo, quantidade: Number(grupo.quantidade) }));
 }
 
 export type ParcelaEmAberto = { tipo: "venda" | "despesa"; valorCentavos: number };

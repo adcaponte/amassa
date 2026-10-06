@@ -26,9 +26,10 @@ import {
   obterConfiguracaoFinanceira,
   obterDocumentoParaAviso,
   obterParcelaParaAviso,
+  somarMovimentosAntesDe,
 } from "@/lib/financeiro/consultas";
-import { mesAnterior, mesSeguinte } from "@/lib/financeiro/calendario";
-import { filtrarExtrato, montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
+import { mesAnterior, mesSeguinte, primeiroDiaDoMes } from "@/lib/financeiro/calendario";
+import { filtrarExtrato, montarExtrato, resumoDoCaixa, saldoAntesDaJanela } from "@/lib/financeiro/extrato";
 import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { resumoDoMes } from "@/lib/financeiro/mes";
 import { listarSaldos } from "@/lib/estoque/consultas";
@@ -253,6 +254,7 @@ export default async function PaginaFinanceiro({
     saldosParaEfeito,
     configuracao,
     movimentos,
+    gruposPagosAntes,
     parcelasEmAberto,
     contasEmAberto,
     documentoDoAviso,
@@ -280,7 +282,11 @@ export default async function PaginaFinanceiro({
     // a taxa do cartão e a data do saldo inicial para o aviso do cartão e a conferência das
     // parcelas.
     abaVenda || abaDespesa || abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
-    abaCaixa ? listarMovimentos() : Promise.resolve([]),
+    // D-27 (06.5-12): linha a linha só do 1º dia do mês que o extrato mostra em diante; o que foi
+    // pago antes chega SOMADO e vira saldo de partida (`saldoAntesDaJanela`, logo abaixo). O saldo
+    // de cada linha continua global por construção — nada mais lê o histórico pago inteiro.
+    abaCaixa ? listarMovimentos({ desde: primeiroDiaDoMes(mesAtual) }) : Promise.resolve([]),
+    abaCaixa ? somarMovimentosAntesDe(primeiroDiaDoMes(mesAtual)) : Promise.resolve([]),
     abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
     abaCaixa ? listarContasEmAberto() : Promise.resolve([]),
     avisoResolvido && (avisoResolvido.tipo === "lancado" || avisoResolvido.tipo === "cancelado")
@@ -430,8 +436,14 @@ export default async function PaginaFinanceiro({
 
   // O tile "Saldo em caixa" e o extrato saem da MESMA função (`montarExtrato`) sobre a MESMA
   // lista de movimentos lida acima — é isso que torna "o tile bate com o saldo depois do
-  // movimento mais recente" verdadeiro por construção (critério 7 do ROADMAP).
-  const extrato = abaCaixa && configuracao ? montarExtrato(movimentos, configuracao.saldoInicialCentavos) : null;
+  // movimento mais recente" verdadeiro por construção (critério 7 do ROADMAP). D-27 (06.5-12): a
+  // lista começa no 1º dia do mês do extrato, e o saldo de partida é o inicial MAIS o que as pagas
+  // de antes deixaram — o mesmo saldo por linha e o mesmo saldo atual de montar o histórico inteiro
+  // (teste de equivalência em `tests/unit/financeiro-extrato.test.ts`).
+  const extrato =
+    abaCaixa && configuracao
+      ? montarExtrato(movimentos, configuracao.saldoInicialCentavos + saldoAntesDaJanela(gruposPagosAntes))
+      : null;
   const resumo = extrato
     ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: parcelasEmAberto })
     : null;
