@@ -34,7 +34,10 @@ export const NOME_DE_ARQUIVO_VALIDO =
 export function diretorioDeFotos(): string {
   const doAmbiente = process.env.CAMINHO_FOTOS;
   if (doAmbiente) return doAmbiente;
-  return path.join(process.cwd(), ".dados/fotos-orcamentos");
+  // Fase 06.5 (D-22, P6): `turbopackIgnore` — o caminho é decidido em tempo de execução, e sem o
+  // comentário o rastreador do `next build` copiava o projeto inteiro (com `.dados/`) para
+  // `.next/standalone`. Na imagem a pasta é montada no contêiner (`CAMINHO_FOTOS`).
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), ".dados/fotos-orcamentos");
 }
 
 // Porta única de travessia de caminho (T-04.5-13): recebe o NOME do arquivo (nunca um caminho),

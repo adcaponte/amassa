@@ -24,7 +24,15 @@ export const FAMILIA_TITULO = "Archivo Narrow";
 let registrada = false;
 
 function caminhoDaFonte(nomeDoArquivo: string): string {
-  return path.join(process.cwd(), "assets", "fontes", nomeDoArquivo);
+  // Fase 06.5 (D-22, P6): `turbopackIgnore` — o caminho é decidido em tempo de execução, e sem o
+  // comentário o rastreador do `next build` copiava o projeto inteiro para `.next/standalone`. As
+  // fontes chegam à imagem pelo `COPY … /app/assets ./assets` do `docker/Dockerfile`.
+  return path.join(
+    /*turbopackIgnore: true*/ process.cwd(),
+    "assets",
+    "fontes",
+    nomeDoArquivo,
+  );
 }
 
 // Idempotente: `@react-pdf/renderer` mantém um registro global de fontes por processo Node —

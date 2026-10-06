@@ -8,7 +8,13 @@ import path from "node:path";
 // arquivo em produção sem precisar de deploy nenhum: só substitui o arquivo no caminho que
 // `CAMINHO_LOGO` aponta (ou grava em `assets/logo/amassa.png`, o padrão).
 function caminhoDaLogo(): string {
-  return process.env.CAMINHO_LOGO || path.join(process.cwd(), "assets", "logo", "amassa.png");
+  // Fase 06.5 (D-22, P6): `turbopackIgnore` — o caminho é decidido em tempo de execução, e sem o
+  // comentário o rastreador do `next build` copiava o projeto inteiro para `.next/standalone`. A
+  // logo chega à imagem pelo `COPY … /app/assets ./assets` do `docker/Dockerfile`.
+  return (
+    process.env.CAMINHO_LOGO ||
+    path.join(/*turbopackIgnore: true*/ process.cwd(), "assets", "logo", "amassa.png")
+  );
 }
 
 // `null` quando o arquivo não existe (ENOENT) — o chamador (lib/orcamentos/pdf/documento.tsx)
