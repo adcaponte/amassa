@@ -16,6 +16,7 @@ import {
   rotuloPrecoMinimoDaLinha,
   tituloConfirmarTirarLinha,
 } from "@/lib/orcamentos/textos";
+import { centavosParaCampo } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { ResultadoDaFicha } from "@/lib/precificacao/ficha";
 import { FRASE_DIVISOR_INVALIDO, FRASE_NAO_CABE_NO_FORNO } from "@/lib/precificacao/textos";
@@ -72,7 +73,7 @@ export function LinhaDeOrcamento({
   resultado,
 }: LinhaDeOrcamentoProps) {
   const [quantidadeTexto, setQuantidadeTexto] = useState(String(quantidade));
-  const [precoTexto, setPrecoTexto] = useState((precoUnitarioCentavos / 100).toFixed(2).replace(".", ","));
+  const [precoTexto, setPrecoTexto] = useState(centavosParaCampo(precoUnitarioCentavos));
   const [corTexto, setCorTexto] = useState(cor ?? "");
   const [personalizacaoTexto, setPersonalizacaoTexto] = useState(personalizacao ?? "");
   const [salvando, setSalvando] = useState(false);
@@ -84,7 +85,7 @@ export function LinhaDeOrcamento({
   // — ex.: "+ Peça exclusiva" acrescentou outra linha e a página inteira recarregou).
   useEffect(() => {
     setQuantidadeTexto(String(quantidade));
-    setPrecoTexto((precoUnitarioCentavos / 100).toFixed(2).replace(".", ","));
+    setPrecoTexto(centavosParaCampo(precoUnitarioCentavos));
     setCorTexto(cor ?? "");
     setPersonalizacaoTexto(personalizacao ?? "");
   }, [id, quantidade, precoUnitarioCentavos, cor, personalizacao]);

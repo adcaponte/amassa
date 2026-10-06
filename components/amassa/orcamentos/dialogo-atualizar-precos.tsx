@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { centavosParaCampo } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { atualizarPrecos } from "@/lib/orcamentos/acoes";
 import type { SugestaoDePreco } from "@/lib/orcamentos/atualizacao";
@@ -51,10 +52,6 @@ const CLASSES_DA_ETIQUETA: Record<"sucesso" | "atencao" | "neutra", string> = {
   neutra: "bg-muted text-muted-foreground",
 };
 
-function precoParaTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
-}
-
 // O diálogo "Atualizar preços" (04.5-09-PLAN.md, Tarefa 3, D-23) — aberto via `?atualizarPrecos=1`
 // (mesma disciplina de `EscolherPeca`: abrir é troca de URL sem transição, `window.history.
 // pushState`, porque não precisa de nenhum dado novo do servidor — as sugestões já chegam
@@ -80,7 +77,7 @@ export function DialogoAtualizarPrecos({
   const aberto = searchParams.get("atualizarPrecos") === "1";
 
   const [precosTexto, setPrecosTexto] = useState<Record<string, string>>(() =>
-    Object.fromEntries(sugestoes.map((sugestao) => [sugestao.linhaId, precoParaTexto(sugestao.precoSugeridoCentavos)])),
+    Object.fromEntries(sugestoes.map((sugestao) => [sugestao.linhaId, centavosParaCampo(sugestao.precoSugeridoCentavos)])),
   );
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
