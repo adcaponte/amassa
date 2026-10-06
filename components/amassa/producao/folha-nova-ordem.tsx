@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { carregarCatalogoDaNovaOrdem, criarOrdem } from "@/lib/producao/acoes";
@@ -50,15 +50,10 @@ import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import {
   ESCOLHA_LIVRE,
@@ -68,13 +63,8 @@ import {
   type LinhaDaNovaOrdem,
 } from "./linha-peca-nova-ordem";
 
-// O contêiner: tela toda abaixo de 768px (desliza de baixo), modal `max-w-lg` e até 85svh a partir
-// de `md` — o mesmo desenho das folhas do Estoque. Rodapé preso por flex, nunca `position: sticky`.
-const CLASSE_DA_FOLHA = cn(
-  "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
-  "md:top-1/2 md:right-auto md:bottom-auto md:left-1/2 md:h-auto md:max-h-[85svh] md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:data-open:zoom-in-95 md:data-closed:zoom-out-95",
-);
-
+// O contêiner é a `Folha` comum (D-24): tela toda abaixo de 768px (desliza de baixo), modal `max-w-lg`
+// e até 85svh a partir de `md`. Rodapé preso por flex, nunca `position: sticky`.
 const CLASSE_DO_CAMPO = "text-corpo md:text-corpo min-h-[44px]";
 
 type Segmento<V extends string> = { valor: V; rotulo: string };
@@ -564,8 +554,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-nova-ordem"
         onOpenAutoFocus={(evento) => {
           evento.preventDefault();
@@ -575,22 +564,15 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
             campos.current.nome?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-center justify-between gap-4 border-b px-6 py-4">
-          <DialogTitle className="text-titulo text-tinta">{TITULO_NOVA_ORDEM}</DialogTitle>
-          <DialogDescription className="sr-only">{DICA_FIM_NOVA_ORDEM}</DialogDescription>
-          <button
-            type="button"
-            aria-label={ROTULO_FECHAR}
-            data-testid="nova-ordem-fechar"
-            disabled={enviando}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+        <FolhaCabecalho
+          titulo={TITULO_NOVA_ORDEM}
+          descricao={DICA_FIM_NOVA_ORDEM}
+          aoFechar={aoFechar}
+          rotuloFechar={ROTULO_FECHAR}
+          fecharDesabilitado={enviando}
+          dataTestIdFechar="nova-ordem-fechar"
+        />
 
         <form
           noValidate
@@ -600,7 +582,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          <FolhaCorpo>
             <div className="flex flex-col gap-2">
               <label htmlFor="nova-ordem-nome" className="text-corpo text-tinta font-semibold">
                 {ROTULO_NOME_DA_ORDEM}
@@ -732,10 +714,11 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
             </section>
 
             <p className="text-apoio text-tinta-fraca">{DICA_FIM_NOVA_ORDEM}</p>
-          </div>
+          </FolhaCorpo>
 
-          {/* Rodapé preso por FLEX, fora da área rolável: o erro de gravação e os dois botões. */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
+          {/* Rodapé preso por FLEX, fora da área rolável: o erro de gravação e os dois botões. O erro
+              segue como filho (leva `data-campo="geral"`, que a prop `erro` não produz). */}
+          <FolhaRodape>
             {erroGeral ? (
               <p
                 role="alert"
@@ -768,9 +751,9 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
                 {enviando ? ROTULO_CRIANDO : ROTULO_CRIAR_ORDEM}
               </button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

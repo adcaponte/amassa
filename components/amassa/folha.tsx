@@ -64,6 +64,8 @@ export type FolhaCabecalhoProps = {
   rotuloFechar?: string;
   fecharDesabilitado?: boolean;
   dataTestIdFechar?: string;
+  // O testid na própria descrição (a baixa da Produção marca o resumo do material).
+  dataTestIdDescricao?: string;
   // Desvios que já existiam (quebra de nome longo, ponto da área na descrição).
   classeTitulo?: string;
   classeDescricao?: string;
@@ -81,6 +83,7 @@ export function FolhaCabecalho({
   rotuloFechar = "Fechar",
   fecharDesabilitado,
   dataTestIdFechar,
+  dataTestIdDescricao,
   classeTitulo,
   classeDescricao,
   className,
@@ -89,14 +92,19 @@ export function FolhaCabecalho({
   const tituloEDescricao = descricaoVisivel ? (
     <div className="flex min-w-0 flex-col gap-1">
       <DialogTitle className={cn("text-titulo text-tinta", classeTitulo)}>{titulo}</DialogTitle>
-      <DialogDescription className={cn("text-apoio text-tinta-fraca", classeDescricao)}>
+      <DialogDescription
+        data-testid={dataTestIdDescricao}
+        className={cn("text-apoio text-tinta-fraca", classeDescricao)}
+      >
         {descricao}
       </DialogDescription>
     </div>
   ) : (
     <>
       <DialogTitle className={cn("text-titulo text-tinta", classeTitulo)}>{titulo}</DialogTitle>
-      <DialogDescription className={cn("sr-only", classeDescricao)}>{descricao}</DialogDescription>
+      <DialogDescription data-testid={dataTestIdDescricao} className={cn("sr-only", classeDescricao)}>
+        {descricao}
+      </DialogDescription>
     </>
   );
 

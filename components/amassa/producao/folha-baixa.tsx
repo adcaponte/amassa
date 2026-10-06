@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
@@ -45,16 +44,11 @@ import {
   tituloDaFolhaDeBaixa,
 } from "@/lib/producao/textos";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASSE_DA_FOLHA, milesimosParaCampo } from "@/components/amassa/estoque/folha-movimentacao";
+import { milesimosParaCampo } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 import { PreviaDoSaldo } from "@/components/amassa/estoque/previa-do-saldo";
 import { useEstoque } from "@/components/amassa/estoque/provedor-estoque";
 import { SeletorMaterial } from "@/components/amassa/estoque/seletor-material";
@@ -278,6 +272,8 @@ export function FolhaBaixa({
 
   const titulo = tituloDaFolhaDeBaixa(pedido.modo, pedido.material);
   const dica = pedido.modo === "total" ? DICA_BAIXA_TOTAL : DICA_BAIXA_PARCIAL;
+  // Com material escolhido e a situação calculada, a descrição visível é o resumo do previsto.
+  const temResumo = pedido.material !== null && situacao;
   const classeDoCampoGrande = "text-display md:text-display h-[60px] text-center tabular-nums";
 
   return (
@@ -289,8 +285,7 @@ export function FolhaBaixa({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-baixa"
         onOpenAutoFocus={(evento) => {
           // No celular nada recebe foco ao abrir — o teclado cobriria a folha (UI-D13 da 06).
@@ -299,38 +294,28 @@ export function FolhaBaixa({
             (itemId ? campoQuanto.current : botaoMaterial.current)?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle className="text-titulo text-tinta">{titulo}</DialogTitle>
-            {pedido.material !== null && situacao ? (
-              <DialogDescription
-                data-testid="folha-baixa-resumo"
-                className="text-apoio text-tinta-media"
-              >
-                {textoResumoDaFolhaDeBaixa({
+        {/* Sempre o desenho alinhado ao topo (título e descrição numa coluna); sem material, a
+            descrição é a dica só para o leitor de tela (`sr-only`, fora do fluxo da coluna). */}
+        <FolhaCabecalho
+          titulo={titulo}
+          descricao={
+            temResumo
+              ? textoResumoDaFolhaDeBaixa({
                   previsto: textoDePeso(pedido.previstoMg),
                   baixado: textoDePeso(pedido.baixadoMg),
                   faltam: situacao.tipo === "passou" ? null : textoDePeso(pedido.previstoMg - pedido.baixadoMg),
                   aMais: situacao.tipo === "passou" ? textoDePeso(situacao.diferencaMg) : null,
-                })}
-              </DialogDescription>
-            ) : (
-              <DialogDescription className="sr-only">{dica}</DialogDescription>
-            )}
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            data-testid="folha-baixa-fechar"
-            disabled={enviando}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+                })
+              : dica
+          }
+          descricaoVisivel
+          classeDescricao={temResumo ? "text-tinta-media" : "sr-only"}
+          dataTestIdDescricao={temResumo ? "folha-baixa-resumo" : undefined}
+          aoFechar={aoFechar}
+          fecharDesabilitado={enviando}
+          dataTestIdFechar="folha-baixa-fechar"
+        />
 
         <form
           noValidate
@@ -340,7 +325,7 @@ export function FolhaBaixa({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-4">
+          <FolhaCorpo className="gap-6">
             <div className="flex flex-col gap-2">
               <p id="folha-baixa-material-rotulo" className="text-corpo text-tinta font-semibold">
                 {ROTULO_QUAL_MATERIAL_DO_ESTOQUE}
@@ -431,11 +416,11 @@ export function FolhaBaixa({
             <p data-testid="folha-baixa-dica" className="text-apoio text-tinta-media">
               {dica}
             </p>
-          </div>
+          </FolhaCorpo>
 
           {/* Rodapé preso por FLEX, fora da área rolável (G-03-1): o erro de gravação, a prévia e os
-              dois botões — sempre visíveis. */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
+              dois botões — sempre visíveis. O erro segue como filho (leva `id` e `data-campo`). */}
+          <FolhaRodape>
             {mensagemDe("geral")}
             {saldo ? (
               <PreviaDoSaldo
@@ -483,9 +468,9 @@ export function FolhaBaixa({
                 {enviando ? ROTULO_DANDO_BAIXA : ROTULO_DAR_BAIXA}
               </button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }
