@@ -3,10 +3,11 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronRight, Search, X } from "lucide-react";
 
+import { casaComBusca } from "@/lib/busca/casa-com-busca";
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
 import { ROTULO_AREA, type AreaFinanceira } from "@/lib/financeiro/textos";
 import type { SaldoDoItem } from "@/lib/estoque/consultas";
-import { alertaDoItem, areasComMaterial, normalizarBusca } from "@/lib/estoque/saldo";
+import { alertaDoItem, areasComMaterial } from "@/lib/estoque/saldo";
 import {
   CORPO_SELETOR_SEM_ATIVOS,
   CORPO_SELETOR_SEM_RESULTADO,
@@ -75,8 +76,9 @@ function Chevron({ aberto }: { aberto: boolean }) {
   );
 }
 
-// O selo "⚠ {n}" da área — materiais acabando ou com saldo negativo. O texto oculto faz o leitor
-// de tela ler "3 acabando"; só aparece com n ≥ 1.
+// O selo "⚠ {n}" — materiais acabando ou com saldo negativo. Morava no nível de área; desde a 06.5
+// (UI-D15) vai no cabeçalho da categoria, o novo 1º nível. O texto oculto faz o leitor de tela ler
+// "3 acabando"; só aparece com n ≥ 1.
 function SeloAcabando({ quantos }: { quantos: number }) {
   if (quantos < 1) {
     return null;
@@ -119,27 +121,49 @@ function LinhaDeMaterial({ saldo, aoEscolher }: { saldo: SaldoDoItem; aoEscolher
   );
 }
 
-type GrupoDeCategoria = { nome: string; itens: SaldoDoItem[] };
+type GrupoDeCategoria = {
+  // `null` = material sem categoria de compra ("Sem categoria", sempre por último).
+  categoria: string | null;
+  itens: SaldoDoItem[];
+  // A área de TODOS os materiais do grupo, quando é uma só — o ponto dela vai antes do nome.
+  areaUnica: AreaFinanceira | null;
+};
 
+// A categoria da compra é o 1º nível do "Tudo" (06.5, D-13, UI-D15): um grupo por categoria,
+// juntando os materiais de todas as áreas, em ordem alfabética, com "Sem categoria" por último.
 function gruposPorCategoria(itens: readonly SaldoDoItem[]): GrupoDeCategoria[] {
-  const porNome = new Map<string, SaldoDoItem[]>();
+  const porCategoria = new Map<string | null, SaldoDoItem[]>();
   for (const item of itens) {
-    const nome = item.categoriaCompraNome ?? SEM_CATEGORIA;
-    const grupo = porNome.get(nome);
+    const categoria = item.categoriaCompraNome ?? null;
+    const grupo = porCategoria.get(categoria);
     if (grupo) {
       grupo.push(item);
     } else {
-      porNome.set(nome, [item]);
+      porCategoria.set(categoria, [item]);
     }
   }
-  return [...porNome.entries()]
-    .map(([nome, doGrupo]) => ({ nome, itens: [...doGrupo].sort(compararPorNome) }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  return [...porCategoria.entries()]
+    .map(([categoria, doGrupo]) => {
+      const areas = new Set(doGrupo.map((item) => item.area));
+      return {
+        categoria,
+        itens: [...doGrupo].sort(compararPorNome),
+        areaUnica: areas.size === 1 ? doGrupo[0].area : null,
+      };
+    })
+    .sort((a, b) => {
+      if (a.categoria === null || b.categoria === null) {
+        return a.categoria === null ? (b.categoria === null ? 0 : 1) : -1;
+      }
+      return a.categoria.localeCompare(b.categoria, "pt-BR");
+    });
 }
 
 // O seletor "Qual material?" (UI-SPEC §Seletor): busca de 44px, pílulas de área com contagem e,
-// sem busca, a sanfona área → categoria da compra → material, TUDO FECHADO no início (herdado);
-// com busca, a sanfona sai do caminho: lista plana alfabética "{N} materiais encontrados". Só
+// sem busca, a sanfona categoria da compra → material (06.5, D-13/UI-D15: 2 toques até o material;
+// a área deixou de ser o 1º nível e ficou nas pílulas, como filtro), TUDO FECHADO no início
+// (herdado); com busca, a sanfona sai do caminho: lista plana alfabética "{N} materiais
+// encontrados", por PALAVRAS e sem acento (`casaComBusca`, D-17). Só
 // materiais ATIVOS (UI-D11). Usa a lista já carregada com a página — abre sem consulta nova e sem
 // esqueleto quando ela já chegou; se a consulta falhou, o `EstadoErro` da aba Saldos com "Tentar de
 // novo", nunca uma lista vazia que pareça "nenhum material".
@@ -168,7 +192,7 @@ export function SeletorMaterial({
   const areas = useMemo(() => areasComMaterial(ativos), [ativos]);
   // Uma área lembrada que ficou sem material ativo volta a "Tudo".
   const areaValida = area !== null && areas.includes(area) ? area : null;
-  const termo = normalizarBusca(busca);
+  const temBusca = busca.trim() !== "";
 
   function alternar(chave: string) {
     setAbertos((atuais) => {
@@ -186,15 +210,18 @@ export function SeletorMaterial({
     return ativos.filter((saldo) => saldo.area === umaArea);
   }
 
-  function categorias(umaArea: AreaFinanceira, itens: readonly SaldoDoItem[]) {
+  // As sanfonas de categoria. `escopo` separa o que fica aberto no "Tudo" do que fica aberto
+  // com uma área marcada; o ponto da área só aparece no "Tudo" (com a pílula, a área já está dita).
+  function categorias(escopo: AreaFinanceira | "tudo", itens: readonly SaldoDoItem[]) {
     return (
       <ul className="flex flex-col gap-1">
         {gruposPorCategoria(itens).map((grupo, indice) => {
-          const chave = `c:${umaArea}:${grupo.nome}`;
+          const nome = grupo.categoria ?? SEM_CATEGORIA;
+          const chave = `c:${escopo}:${grupo.categoria === null ? "" : "n:"}${nome}`;
           const aberto = abertos.has(chave);
-          const idDoPainel = `${idBase}-c-${umaArea}-${indice}`;
+          const idDoPainel = `${idBase}-c-${escopo}-${indice}`;
           return (
-            <li key={grupo.nome}>
+            <li key={chave}>
               <button
                 type="button"
                 aria-expanded={aberto}
@@ -207,9 +234,13 @@ export function SeletorMaterial({
                 )}
               >
                 <Chevron aberto={aberto} />
-                <span className="text-corpo min-w-0 flex-1 [overflow-wrap:anywhere]">
-                  {grupo.nome}
-                </span>
+                {escopo === "tudo" && grupo.areaUnica !== null ? (
+                  <PontoDaArea area={grupo.areaUnica} />
+                ) : null}
+                <span className="text-corpo min-w-0 flex-1 [overflow-wrap:anywhere]">{nome}</span>
+                <SeloAcabando
+                  quantos={grupo.itens.filter((saldo) => alertaDoItem(saldo) !== "ok").length}
+                />
                 <span className="text-apoio text-tinta-fraca bg-superficie-2 shrink-0 rounded-full px-2 tabular-nums">
                   {grupo.itens.length}
                 </span>
@@ -266,9 +297,9 @@ export function SeletorMaterial({
 
     // Com busca: lista plana, alfabética, sobre TODOS os ativos (a área não filtra quem digita o
     // nome — herdado do protótipo).
-    if (termo !== "") {
+    if (temBusca) {
       const achados = ativos.filter((saldo) =>
-        normalizarBusca(`${saldo.nome} ${saldo.categoriaCompraNome ?? ""}`).includes(termo),
+        casaComBusca(`${saldo.nome} ${saldo.categoriaCompraNome ?? ""}`, busca),
       );
       if (achados.length === 0) {
         return (
@@ -301,46 +332,8 @@ export function SeletorMaterial({
       return categorias(areaValida, doAreaSelecionada(areaValida));
     }
 
-    // "Tudo": nível 1 = área (52px, Título, contador, selo "⚠ {n}").
-    return (
-      <ul className="flex flex-col gap-1">
-        {areas.map((umaArea) => {
-          const itens = doAreaSelecionada(umaArea);
-          const chave = `a:${umaArea}`;
-          const aberto = abertos.has(chave);
-          const idDoPainel = `${idBase}-a-${umaArea}`;
-          const emAlerta = itens.filter((saldo) => alertaDoItem(saldo) !== "ok").length;
-          return (
-            <li key={umaArea}>
-              <button
-                type="button"
-                aria-expanded={aberto}
-                aria-controls={idDoPainel}
-                data-testid={`seletor-area-${umaArea}`}
-                onClick={() => alternar(chave)}
-                className={cn(
-                  "focus-visible:ring-ring flex min-h-[52px] w-full items-center gap-2 rounded-md px-3 py-2 text-left focus-visible:ring-2 focus-visible:outline-none",
-                  aberto ? "bg-acento-fundo text-acento" : "hover:bg-superficie-2 text-tinta",
-                )}
-              >
-                <Chevron aberto={aberto} />
-                <PontoDaArea area={umaArea} />
-                <span className="text-titulo min-w-0 flex-1">{ROTULO_AREA[umaArea]}</span>
-                <SeloAcabando quantos={emAlerta} />
-                <span className="text-apoio text-tinta-fraca bg-superficie-2 shrink-0 rounded-full px-2 tabular-nums">
-                  {itens.length}
-                </span>
-              </button>
-              {aberto ? (
-                <div id={idDoPainel} className="border-borda-forte ml-5 border-l-2 pl-2">
-                  {categorias(umaArea, itens)}
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    );
+    // "Tudo": nível 1 = a categoria da compra (06.5, UI-D15); o nível de área (52px) saiu daqui.
+    return categorias("tudo", ativos);
   }
 
   return (

@@ -172,3 +172,69 @@ test.describe("polimento estoque — zero e contagem", () => {
     await expect(cartaoDoItem(page, novoId).getByTestId("estoque-cartao-custo")).toHaveText("sem custo");
   });
 });
+
+test.describe("polimento estoque — seletor", () => {
+  test("“Qual material?” começa pela categoria (2 toques até o material) e busca por palavras", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const argila = `[e2e] Argila vermelha seletor ${suf}`;
+    const argilaId = await semearMaterial({ nome: argila, unidade: "kg", categoriaCompra: CATEGORIA_DE_COMPRA });
+    const cafe = `[e2e] Café em grão seletor ${suf}`;
+    await semearMaterial({ nome: cafe, unidade: "kg", categoriaCompra: "Insumos da cafeteria" });
+    await abrirEstoque(page);
+
+    if ((page.viewportSize()?.width ?? 0) < 768) {
+      await page.getByTestId("estoque-acao-fixa").click();
+    } else {
+      await page.getByTestId("estoque-registrar-movimentacao").click();
+    }
+    const seletor = page.getByTestId("seletor-material");
+    await expect(seletor).toBeVisible();
+    await expect(seletor.getByTestId("seletor-pilula-tudo")).toHaveAttribute("aria-pressed", "true");
+
+    // 1º nível no "Tudo": as categorias da compra, fechadas, com o ponto da área; nada de nível de área.
+    const categoria = (nome: string) => seletor.getByTestId("seletor-categoria").filter({ hasText: nome });
+    const pecas = categoria(CATEGORIA_DE_COMPRA);
+    const cafeteria = categoria("Insumos da cafeteria");
+    await expect(pecas).toHaveCount(1);
+    await expect(cafeteria).toHaveCount(1);
+    await expect(pecas).toHaveAttribute("aria-expanded", "false");
+    await expect(cafeteria).toHaveAttribute("aria-expanded", "false");
+    await expect(pecas.locator(`[style*="--color-area-pecas"]`)).toHaveCount(1);
+    await expect(cafeteria.locator(`[style*="--color-area-cafeteria"]`)).toHaveCount(1);
+    await expect(seletor.locator(`[data-testid^="seletor-area-"]`)).toHaveCount(0);
+    await expect(seletor.getByTestId("seletor-linha")).toHaveCount(0);
+    // "Sem categoria", se existir, é o último cabeçalho.
+    const nomes = await seletor.getByTestId("seletor-categoria").allInnerTexts();
+    const semCategoria = nomes.findIndex((texto) => texto.includes("Sem categoria"));
+    expect(semCategoria === -1 || semCategoria === nomes.length - 1).toBe(true);
+
+    // Os toques, contados: categoria → material.
+    let toques = 0;
+    await pecas.click();
+    toques++;
+    await expect(pecas).toHaveAttribute("aria-expanded", "true");
+    await expect(pecas).toHaveClass(/bg-acento-fundo/);
+    await seletor.locator(`[data-testid="seletor-linha"][data-item-id="${argilaId}"]`).click();
+    toques++;
+    expect(toques).toBe(2);
+    const folha = page.getByTestId("folha-movimentacao");
+    await expect(seletor).toBeHidden();
+    await expect(folha.getByTestId("folha-escolhido")).toContainText(argila);
+
+    // A busca, por palavras fora de ordem e sem acento: "grao cafe {suf}" acha "Café em grão …".
+    await folha.getByTestId("folha-trocar-material").click();
+    await expect(seletor).toBeVisible();
+    await seletor.getByTestId("seletor-busca").fill(`grao ${suf} cafe`);
+    await expect(seletor.getByTestId("seletor-contador")).toHaveText("1 material encontrado");
+    await expect(seletor.getByTestId("seletor-linha")).toContainText(cafe);
+    await expect(seletor.getByTestId("seletor-categoria")).toHaveCount(0);
+
+    // Sem resultado: o vazio verbatim do seletor.
+    await seletor.getByTestId("seletor-busca").fill("zzz");
+    const vazio = seletor.getByTestId("seletor-sem-resultado");
+    await expect(vazio).toContainText("Nenhum material com esse nome");
+    await expect(vazio).toContainText("Confira a escrita, ou toque em Tudo.");
+  });
+});
