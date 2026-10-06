@@ -82,7 +82,10 @@ export function AvisoContasFixas({ mes, mesPorExtenso, nomeDoMes }: AvisoContasF
             data-testid={`caixa-gerar-fixas-${mes}`}
             disabled={enviando}
             aria-busy={enviando}
-            className="h-auto min-h-[44px] py-2 font-semibold whitespace-normal"
+            // `max-w-full`: o `Button` é `shrink-0`, então só o `whitespace-normal` não bastava — a
+            // 320 px a frase ficava numa linha só e o Caixa rolava de lado (328 px; varredura do 06.5-30).
+            // O mesmo molde do "Ver as {N}…" de `listas-caixa.tsx`.
+            className="h-auto min-h-[44px] max-w-full py-2 text-left font-semibold whitespace-normal"
             onClick={() => void gerar()}
           >
             {enviando ? ROTULO_GERANDO_CONTAS : rotuloGerarContas(mesPorExtenso)}

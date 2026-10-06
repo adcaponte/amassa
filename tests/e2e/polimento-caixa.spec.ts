@@ -181,6 +181,29 @@ test.describe("polimento caixa — aviso das contas fixas @vazio-historico", () 
       const aviso = page.getByTestId(`caixa-aviso-fixas-${mesCorrente}`);
       await expect(aviso).toBeVisible();
 
+      // A 320 px o aviso cabe: o botão quebra a frase dentro do aviso e o Caixa não rola de lado.
+      // Achado da varredura completa do 06.5-30 (`financeiro-caixa:310` e `polimento-celular-linhas:133`,
+      // `scrollWidth 328 > 320`): com uma conta fixa ativa e o mês sem gerar, "Gerar as contas de
+      // outubro de 2026" ficava numa linha só — o `shrink-0` do `Button` — e empurrava a página. Os
+      // `--grep` dos planos nunca tinham conta fixa ativa ao mesmo tempo, então o aviso não aparecia.
+      await page.setViewportSize({ width: 320, height: 900 });
+      const botaoA320 = page.getByTestId(`caixa-gerar-fixas-${mesCorrente}`);
+      const caixaDoAvisoA320 = await medirCaixa(aviso, "o aviso a 320 px");
+      const caixaDoBotaoA320 = await medirCaixa(botaoA320, "o botão do aviso a 320 px");
+      expect(
+        caixaDoBotaoA320.x + caixaDoBotaoA320.width,
+        `o botão (${caixaDoBotaoA320.width}px) passa da borda do aviso a 320 px`,
+      ).toBeLessThanOrEqual(caixaDoAvisoA320.x + caixaDoAvisoA320.width + 0.5);
+      expect(caixaDoBotaoA320.height).toBeGreaterThanOrEqual(44);
+      const [larguraRolavel, larguraVisivel] = await page.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.documentElement.clientWidth,
+      ]);
+      expect(
+        larguraRolavel,
+        `Caixa com o aviso a 320 px rola de lado (scrollWidth ${larguraRolavel} > clientWidth ${larguraVisivel})`,
+      ).toBeLessThanOrEqual(larguraVisivel);
+
       // A chamada da ação (POST com o cabeçalho `next-action`) não chega ao servidor.
       await page.route("**/gestao/financeiro**", async (rota) => {
         if (rota.request().method() === "POST" && rota.request().headers()["next-action"]) {
