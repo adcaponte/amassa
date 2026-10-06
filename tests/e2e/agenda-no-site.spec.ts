@@ -3,6 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { DICA_NO_SITE } from "@/lib/agenda/textos";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // Plano 05-15, Tarefa 3 (AGE-18, UI-D18, UI-D1): a aba "No site" mostra, ao vivo, o mesmo calendário
@@ -36,9 +37,8 @@ function mesesEntre(de: string, ate: string): number {
 async function topoDe(page: Page, testId: string): Promise<number> {
   // O esqueleto do loading.tsx e o fallback do Suspense também desenham as abas: só a visível conta.
   await expect(page.getByTestId("agenda-carregando")).toBeHidden();
-  const caixa = await page.locator(`[data-testid="${testId}"] >> visible=true`).first().boundingBox();
-  expect(caixa, `${testId} sem caixa`).not.toBeNull();
-  return Math.round(caixa?.y ?? 0);
+  const caixa = await medirCaixa(page.locator(`[data-testid="${testId}"] >> visible=true`).first(), testId);
+  return Math.round(caixa.y);
 }
 
 test.describe("agenda no site", () => {

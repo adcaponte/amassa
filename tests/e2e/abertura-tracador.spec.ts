@@ -2,6 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_ITEM } from "@/lib/abertura/textos";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // O traçado ponta a ponta do módulo Abertura do Espaço (04.2-01-PLAN.md, Tarefas 2 e 4): das
 // três tabelas até um item cadastrado pela tela aparecendo agrupado por categoria, com as
 // parcelas calculadas (nunca gravadas — D-05) e alcançável pelo menu do usuário. Dois itens em
@@ -227,15 +229,15 @@ test.describe("abertura tracador — traçado do módulo Abertura do Espaço", (
     await page.goto("/gestao/abertura?item=novo");
 
     for (const rotulo of ["O que é", "Valor total"]) {
-      const caixa = await page.getByLabel(rotulo).boundingBox();
-      expect(caixa?.height, `campo "${rotulo}" mede menos que 44px`).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(page.getByLabel(rotulo), `campo "${rotulo}"`);
+      expect(caixa.height, `campo "${rotulo}" mede menos que 44px`).toBeGreaterThanOrEqual(44);
     }
 
-    const caixaCategoria = await page.getByRole("combobox", { name: "Categoria" }).boundingBox();
-    expect(caixaCategoria?.height).toBeGreaterThanOrEqual(44);
+    const caixaCategoria = await medirCaixa(page.getByRole("combobox", { name: "Categoria" }), "Categoria");
+    expect(caixaCategoria.height).toBeGreaterThanOrEqual(44);
 
-    const caixaPagamento = await page.getByRole("combobox", { name: "Pagamento" }).boundingBox();
-    expect(caixaPagamento?.height).toBeGreaterThanOrEqual(44);
+    const caixaPagamento = await medirCaixa(page.getByRole("combobox", { name: "Pagamento" }), "Pagamento");
+    expect(caixaPagamento.height).toBeGreaterThanOrEqual(44);
   });
 
   test("a 320px de largura, /abertura não exige rolagem horizontal", async ({ page }) => {

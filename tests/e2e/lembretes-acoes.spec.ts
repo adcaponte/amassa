@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import {
   apagarLembreteDireto,
@@ -608,17 +609,14 @@ test.describe("lembretes acoes", () => {
       `/gestao rola horizontalmente a 320px (${scrollWidth} > ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
-    const meta = await linha.getByTestId("lembrete-meta").boundingBox();
-    expect(meta).not.toBeNull();
+    const meta = await medirCaixa(linha.getByTestId("lembrete-meta"), "meta do lembrete");
     for (const testId of ["lembrete-editar", "lembrete-excluir"]) {
-      const caixa = await linha.getByTestId(testId).boundingBox();
-      expect(caixa?.height ?? 0, `${testId} mede menos de 44px`).toBeGreaterThanOrEqual(
-        44,
-      );
+      const caixa = await medirCaixa(linha.getByTestId(testId), testId);
+      expect(caixa.height, `${testId} mede menos de 44px`).toBeGreaterThanOrEqual(44);
       expect(
-        caixa?.y ?? 0,
+        caixa.y,
         `${testId} não desceu para baixo da meta`,
-      ).toBeGreaterThanOrEqual((meta?.y ?? 0) + (meta?.height ?? 0) - 1);
+      ).toBeGreaterThanOrEqual(meta.y + meta.height - 1);
     }
   });
 

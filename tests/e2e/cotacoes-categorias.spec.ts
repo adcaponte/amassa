@@ -2,6 +2,8 @@ import { test, expect, type Page, type Request } from "@playwright/test";
 
 import { fraseConfirmarRemoverCategoria } from "@/lib/cotacoes/textos";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // Categorias do Comparador de Compras (04.3-02-PLAN.md): sub-abas com contagem, criar/renomear
 // pelo mesmo diálogo, remover com confirmação dizendo quantas cotações se perdem (D-15), e os
 // três estados obrigatórios da aba (vazia, carregando, com erro). "cotacoes categorias" no título
@@ -153,9 +155,9 @@ test.describe("cotacoes categorias — sub-abas, criar/renomear/remover categori
     // A pílula de editar tem alvo de 44px e rótulo acessível nomeando a categoria.
     const botaoEditar = page.getByTestId("cotacoes-editar-categoria");
     await expect(botaoEditar).toBeVisible();
-    const caixaEditar = await botaoEditar.boundingBox();
-    expect(caixaEditar?.height, "o botão de editar categoria mede menos que 44px").toBeGreaterThanOrEqual(44);
-    expect(caixaEditar?.width, "o botão de editar categoria mede menos que 44px").toBeGreaterThanOrEqual(44);
+    const caixaEditar = await medirCaixa(botaoEditar, "o botão de editar categoria");
+    expect(caixaEditar.height, "o botão de editar categoria mede menos que 44px").toBeGreaterThanOrEqual(44);
+    expect(caixaEditar.width, "o botão de editar categoria mede menos que 44px").toBeGreaterThanOrEqual(44);
 
     // A 320px, com três pílulas + editar + "+ Nova categoria", a página não rola na horizontal.
     await page.setViewportSize({ width: 320, height: 800 });

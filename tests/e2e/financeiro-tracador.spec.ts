@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // O traçado ponta a ponta do módulo Financeiro (04.4-01-PLAN.md, Tarefa 1): uma venda de "valor
 // livre" lançada à vista em `/gestao/financeiro` chega ao extrato e ao saldo do Caixa, sobrevivendo a
 // um recarregamento. Nomes inventados e reconhecíveis como tal ("[e2e] ..."), nenhuma afirmação
@@ -111,11 +113,11 @@ test.describe("financeiro tracador — traçado do módulo Financeiro", () => {
       `/gestao/financeiro rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
-    const caixaBotaoLancar = await page.getByRole("button", { name: "Lançar venda" }).boundingBox();
-    expect(caixaBotaoLancar?.height).toBeGreaterThanOrEqual(44);
+    const caixaBotaoLancar = await medirCaixa(page.getByRole("button", { name: "Lançar venda" }), "Lançar venda");
+    expect(caixaBotaoLancar.height).toBeGreaterThanOrEqual(44);
 
     await page.getByRole("button", { name: "+ Valor livre" }).click();
-    const caixaValor = await page.getByLabel("Valor", { exact: true }).boundingBox();
-    expect(caixaValor?.height).toBeGreaterThanOrEqual(44);
+    const caixaValor = await medirCaixa(page.getByLabel("Valor", { exact: true }), "campo Valor");
+    expect(caixaValor.height).toBeGreaterThanOrEqual(44);
   });
 });

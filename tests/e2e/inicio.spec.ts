@@ -4,6 +4,7 @@ import { dataLongaEmPortugues } from "@/lib/inicio/saudacao";
 import { TEXTOS_DOS_BLOCOS, textoAguardandoOSinal } from "@/lib/inicio/textos";
 import { rotuloDaEtapa } from "@/lib/producao/etapas";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import { diaEmBrasilia, semearOrdem } from "./apoio/semear-producao";
@@ -250,8 +251,8 @@ test.describe("inicio", () => {
     const quantidade = await alvos.count();
     expect(quantidade).toBeGreaterThan(0);
     for (let indice = 0; indice < quantidade; indice += 1) {
-      const caixa = await alvos.nth(indice).boundingBox();
-      expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(alvos.nth(indice), `alvo ${indice} das pílulas/índice`);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
     }
   });
 

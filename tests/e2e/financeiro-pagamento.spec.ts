@@ -2,6 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { formatarDataCurta } from "@/lib/financeiro/formato";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 import {
   garantirTaxaDeTeste,
   hojeNoAtelie,
@@ -416,9 +418,9 @@ test.describe("financeiro pagamento", () => {
       `Venda com 12x rola horizontalmente a 320px (scrollWidth ${scrollWidth} > clientWidth ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
-    const zonaDeToque = await zonaDeToqueDaParcela(page, 1).boundingBox();
-    expect(zonaDeToque?.width).toBeGreaterThanOrEqual(44);
-    expect(zonaDeToque?.height).toBeGreaterThanOrEqual(44);
+    const zonaDeToque = await medirCaixa(zonaDeToqueDaParcela(page, 1), "zona de toque da parcela 1");
+    expect(zonaDeToque.width).toBeGreaterThanOrEqual(44);
+    expect(zonaDeToque.height).toBeGreaterThanOrEqual(44);
   });
 
   test("a 360px, com 3x, a grade de parcelas não rola a página na horizontal", async ({ page }) => {

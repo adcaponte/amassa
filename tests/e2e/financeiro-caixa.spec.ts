@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
+import { medirCaixa } from "./apoio/medir-caixa";
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
 import {
   garantirTaxaDeTeste,
@@ -447,12 +448,9 @@ test.describe("financeiro caixa pagamento", () => {
     await expect(botaoDesfazer).toBeVisible();
 
     // A barra inferior é fixa e não anima — uma medida só basta.
-    const caixaBarra = await barra.boundingBox();
-    if (!caixaBarra) {
-      throw new Error("Geometria da barra inferior não pôde ser lida (bounding box nula).");
-    }
+    const caixaBarra = await medirCaixa(barra, "barra inferior");
 
-    // 🔴 `expect.poll`, nunca um `boundingBox()` único — e o motivo não é preciosismo.
+    // 🔴 `expect.poll`, nunca uma medida única — e o motivo não é preciosismo.
     //
     // O sonner ANIMA a entrada do toast, deslizando de baixo para cima. `toBeVisible()` volta
     // assim que o elemento está no DOM e visível, ou seja, NO MEIO do voo — e um retrato único
@@ -470,8 +468,8 @@ test.describe("financeiro caixa pagamento", () => {
     await expect
       .poll(
         async () => {
-          const caixa = await aviso.boundingBox();
-          return caixa ? caixa.y + caixa.height : Number.POSITIVE_INFINITY;
+          const caixa = await medirCaixa(aviso, "aviso");
+          return caixa.y + caixa.height;
         },
         {
           message: `o fundo do aviso nunca assentou acima do topo da barra (${caixaBarra.y})`,
@@ -481,10 +479,7 @@ test.describe("financeiro caixa pagamento", () => {
       .toBeLessThanOrEqual(caixaBarra.y);
 
     // Depois do poll a animação terminou: daqui em diante um retrato único é confiável.
-    const caixaBotao = await botaoDesfazer.boundingBox();
-    if (!caixaBotao) {
-      throw new Error("Geometria do botão 'Desfazer' não pôde ser lida (bounding box nula).");
-    }
+    const caixaBotao = await medirCaixa(botaoDesfazer, "botão 'Desfazer'");
 
     const respiroDoBotao = caixaBarra.y - (caixaBotao.y + caixaBotao.height);
     expect(

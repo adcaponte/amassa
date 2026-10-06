@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 
 // O ciclo de vida das duas listas do módulo Abertura do Espaço (04.2-03-PLAN.md): marcar como
@@ -102,9 +103,9 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     await expect(caixa).toHaveAttribute("aria-label", `Marcar como resolvido: ${nome}`);
 
     // A caixa de marcação: alvo de toque de 44px ou mais (CLAUDE.md §Acessibilidade).
-    const caixaBox = await caixa.boundingBox();
-    expect(caixaBox?.width, "caixa de marcação mede menos que 44px de largura").toBeGreaterThanOrEqual(44);
-    expect(caixaBox?.height, "caixa de marcação mede menos que 44px de altura").toBeGreaterThanOrEqual(44);
+    const caixaBox = await medirCaixa(caixa, "caixa de marcação");
+    expect(caixaBox.width, "caixa de marcação mede menos que 44px de largura").toBeGreaterThanOrEqual(44);
+    expect(caixaBox.height, "caixa de marcação mede menos que 44px de altura").toBeGreaterThanOrEqual(44);
 
     await caixa.click();
 
@@ -284,20 +285,14 @@ test.describe("abertura edicao — marcar, editar e remover no módulo Abertura 
     await expect(editar).toHaveAttribute("aria-label", `Editar ${nome}`);
     await expect(remover).toHaveAttribute("aria-label", `Remover ${nome}`);
 
-    // Espera a linha estar visivel ANTES de medir. `boundingBox()` devolve `null` quando o
-    // elemento nao esta renderizado, e `null?.height` vira `undefined` — o que reprovava com
-    // "received value must be a number", uma mensagem que nao diz nada sobre o defeito real.
-    // Isto ficou alcancavel quando gravar passou a fazer navegacao COMPLETA (ver
+    // Espera a linha estar visivel ANTES de medir (`medirCaixa`, D-23): a medida direta devolve
+    // `null` quando o elemento nao esta renderizado, e `null?.height` vira `undefined` — o que
+    // reprovava com "received value must be a number", uma mensagem que nao diz nada sobre o
+    // defeito real. Isto ficou alcancavel quando gravar passou a fazer navegacao COMPLETA (ver
     // formulario-item.tsx): a linha some por um instante durante o recarregamento, e uma
     // maquina mais lenta que a de desenvolvimento mede exatamente nesse instante.
     await expect(linha).toBeVisible();
-    const caixaDaLinha = await linha.boundingBox();
-    if (!caixaDaLinha) {
-      throw new Error(
-        "A linha do item nao tem caixa medivel: `boundingBox()` devolveu null mesmo depois de " +
-          "a linha estar visivel. Isso e defeito de renderizacao, nao de medida.",
-      );
-    }
+    const caixaDaLinha = await medirCaixa(linha, "linha do item");
     expect(caixaDaLinha.height, "linha do item mede menos que 44px").toBeGreaterThanOrEqual(44);
   });
 

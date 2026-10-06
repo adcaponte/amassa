@@ -4,6 +4,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { fraseConfirmarRemoverCotacao } from "@/lib/cotacoes/textos";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // O ciclo de vida da cotação (04.3-03-PLAN.md): editar NO LUGAR (inclusive a situação), remover
 // nomeando a empresa, e a consequência visível disso — a descartada que não desaparece, e o
 // alerta que se vê de longe. "cotacoes ciclo" no título do bloco é o recorte usado pelo
@@ -141,8 +143,8 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
 
     // Edita empresa, preço e situação — os três botões de alternância, alvo de 44px ou mais.
     const botaoFavorito = page.getByRole("button", { name: "favorito", exact: true });
-    const caixaFavorito = await botaoFavorito.boundingBox();
-    expect(caixaFavorito?.height, "o botão de situação mede menos que 44px").toBeGreaterThanOrEqual(44);
+    const caixaFavorito = await medirCaixa(botaoFavorito, "o botão de situação");
+    expect(caixaFavorito.height,"o botão de situação mede menos que 44px").toBeGreaterThanOrEqual(44);
 
     await page.getByLabel("Empresa").fill(empresaNova);
     await page.getByLabel("Preço").fill("3200");
@@ -182,8 +184,8 @@ test.describe("cotacoes ciclo — editar no lugar, remover nomeando a empresa, d
       "aria-label",
       `Remover cotação de «${empresaNova}»`,
     );
-    const caixaLinha = await linhaNova.boundingBox();
-    expect(caixaLinha?.height, "a linha/cartão da cotação mede menos que 44px").toBeGreaterThanOrEqual(44);
+    const caixaLinha = await medirCaixa(linhaNova, "a linha/cartão da cotação");
+    expect(caixaLinha.height,"a linha/cartão da cotação mede menos que 44px").toBeGreaterThanOrEqual(44);
   });
 
   test("uma segunda conta de gestor, em contexto de navegador próprio, vê a cotação e a edita — a primeira sessão vê a edição ao recarregar", async ({

@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
+import { medirCaixa } from "./apoio/medir-caixa";
 import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 import { apagarContaFixaPeloNome, criarContaFixaInativa } from "./apoio/semear-conta-fixa";
 
@@ -123,9 +124,9 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
 
     for (const item of ITENS_NAVEGACAO_CELULAR) {
       const link = barraInferior.getByRole("link", { name: item.rotulo });
-      const caixa = await link.boundingBox();
-      expect(caixa?.height, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
-      expect(caixa?.width, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(link, `item "${item.rotulo}" da barra inferior`);
+      expect(caixa.height, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
+      expect(caixa.width, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
     }
   });
 
@@ -140,9 +141,9 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
       return;
     }
 
-    const caixa = await avatar.boundingBox();
-    expect(caixa?.height).toBeGreaterThanOrEqual(44);
-    expect(caixa?.width).toBeGreaterThanOrEqual(44);
+    const caixa = await medirCaixa(avatar, "avatar do cabeçalho móvel");
+    expect(caixa.height).toBeGreaterThanOrEqual(44);
+    expect(caixa.width).toBeGreaterThanOrEqual(44);
   });
 
   test("getByRole('button', { name: 'Abrir menu do usuário' }) encontra exatamente um elemento no celular (UI-09)", async ({
@@ -173,8 +174,8 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
 
     for (const item of ITENS_NAVEGACAO_LATERAL) {
       const link = barraLateral.getByRole("link", { name: item.rotulo });
-      const caixa = await link.boundingBox();
-      expect(caixa?.height, `item "${item.rotulo}" da barra lateral`).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(link, `item "${item.rotulo}" da barra lateral`);
+      expect(caixa.height, `item "${item.rotulo}" da barra lateral`).toBeGreaterThanOrEqual(44);
     }
   });
 });
@@ -366,9 +367,9 @@ test.describe("acessibilidade — truncamento de nome longo (backstop do 02b-UI-
         elementoNome = page.locator('[data-slot="sidebar-footer"] button span[title]').first();
 
         const barraLateral = page.locator('[data-slot="sidebar"]');
-        const caixaLateral = await barraLateral.boundingBox();
+        const caixaLateral = await medirCaixa(barraLateral, "barra lateral");
         expect(
-          caixaLateral?.width,
+          caixaLateral.width,
           "o nome longo empurrou a largura da barra lateral para além dos 240px fixos",
         ).toBe(240);
       }

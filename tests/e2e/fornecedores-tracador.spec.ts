@@ -192,9 +192,8 @@ test.describe("fornecedores tracador", () => {
     const tops: number[] = [];
     for (const sub of subs) {
       const pilula = page.getByTestId(`cadastros-sub-${sub}`);
-      const caixa = await pilula.boundingBox();
-      expect(caixa, `pílula "${sub}"`).not.toBeNull();
-      tops.push(caixa?.y ?? -1);
+      const caixa = await medirCaixa(pilula, `pílula "${sub}"`);
+      tops.push(caixa.y);
       const linhas = await pilula.evaluate((elemento) => {
         const intervalo = document.createRange();
         intervalo.selectNodeContents(elemento);

@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // Prova automatizada de UI-01 (D-09) — "parece certo na minha tela" não é teste. Corre em
 // /login (rota pública, sem precisar de sessão), nos dois projetos (desktop e celular)
 // declarados em playwright.config.ts. Cobre a "armadilha de silêncio" do @theme inline: um
@@ -134,14 +136,14 @@ test.describe("design system — cor e tipografia computadas no navegador (UI-01
       const tamanhoFonte = await campo.evaluate((el) =>
         Number.parseFloat(getComputedStyle(el).fontSize),
       );
-      const caixa = await campo.boundingBox();
+      const caixa = await medirCaixa(campo, `campo "${rotulo}"`);
 
       expect(tamanhoFonte).toBeGreaterThanOrEqual(16);
-      expect(caixa?.height).toBeGreaterThanOrEqual(44);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
     }
 
     const botao = page.getByRole("button", { name: "Entrar" });
-    const caixaBotao = await botao.boundingBox();
-    expect(caixaBotao?.height).toBeGreaterThanOrEqual(44);
+    const caixaBotao = await medirCaixa(botao, "botão Entrar");
+    expect(caixaBotao.height).toBeGreaterThanOrEqual(44);
   });
 });

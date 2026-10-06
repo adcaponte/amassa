@@ -2,6 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // Cobre GES-12 (4 itens no celular / 7 no desktop, navegação final da Fase 04.6, D-11), GES-13
 // (menu do usuário com 3 itens, D-12) e GES-14 ("Produção" como rótulo, D-13) — mais o que
 // sobrou de UI-02/UI-03/UI-06/UI-07 da casca construída nos planos 02/03 da Fase 2b, que a
@@ -255,8 +257,8 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
       return;
     }
 
-    const caixa = await barraLateral.boundingBox();
-    expect(caixa?.width).toBe(240);
+    const caixa = await medirCaixa(barraLateral, "barra lateral");
+    expect(caixa.width).toBe(240);
   });
 
   // Caso (h) do plano 05 (a segunda metade — a primeira é o teste do menu acima): a 320px, com
@@ -293,8 +295,8 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
       expect(quantidade).toBe(4);
 
       for (let indice = 0; indice < quantidade; indice += 1) {
-        const caixa = await links.nth(indice).boundingBox();
-        expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(links.nth(indice), `link ${indice} da barra de baixo`);
+        expect(caixa.height).toBeGreaterThanOrEqual(44);
       }
     }
   });

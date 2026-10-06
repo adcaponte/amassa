@@ -1,5 +1,7 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // As três leituras que fazem o comparador comparar (04.3-04-PLAN.md): ordenar por preço com o
 // sem preço no fim (Tarefa 1), abrir o detalhe completo de uma cotação (Tarefa 2), e ver duas ou
 // mais lado a lado em colunas (Tarefa 3). "cotacoes comparar" no título do bloco é o recorte
@@ -122,8 +124,8 @@ test.describe("cotacoes comparar — ordenar por preço, abrir detalhe, comparar
 
     const botaoOrdenar = page.getByTestId("cotacoes-ordenar");
     await expect(botaoOrdenar).toBeVisible();
-    const caixaBotao = await botaoOrdenar.boundingBox();
-    expect(caixaBotao?.height, "o botão de ordenar mede menos que 44px").toBeGreaterThanOrEqual(44);
+    const caixaBotao = await medirCaixa(botaoOrdenar, "o botão de ordenar");
+    expect(caixaBotao.height,"o botão de ordenar mede menos que 44px").toBeGreaterThanOrEqual(44);
     await expect(botaoOrdenar).toHaveAttribute("aria-label", /Ordenado por: ordem de cadastro/i);
 
     // Marca uma cotação ANTES de trocar a ordem — a prova de que ordenar não navega nem apaga a

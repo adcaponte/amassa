@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // O traçado ponta a ponta do Comparador de Compras (04.3-01-PLAN.md, Tarefa 1): da quarta aba
 // `/gestao/abertura?aba=cotacoes` até uma categoria e uma cotação reais, criadas pela tela, com o preço
 // convertido para centavos no Postgres e voltando formatado — a prova de que o dado saiu do
@@ -49,8 +51,8 @@ test.describe("cotacoes tracador — traçado do Comparador de Compras", () => {
     await expect(abaCotacoes).toBeVisible();
     await expect(abaCotacoes).toHaveAttribute("aria-selected", "false");
 
-    const caixaDaAba = await abaCotacoes.boundingBox();
-    expect(caixaDaAba?.height, "a pílula da aba mede menos que 44px").toBeGreaterThanOrEqual(44);
+    const caixaDaAba = await medirCaixa(abaCotacoes, "a pílula da aba");
+    expect(caixaDaAba.height,"a pílula da aba mede menos que 44px").toBeGreaterThanOrEqual(44);
 
     await abaCotacoes.click();
     await expect(page).toHaveURL(/\?aba=cotacoes$/);

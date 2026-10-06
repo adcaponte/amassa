@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { semearFornecedor } from "./apoio/semear-fornecedores";
 
 // Cadastros → Fornecedores, a lista inteira e a ficha de leitura (06.2-03-PLAN.md, Tarefa 1; FRN-04,
@@ -244,15 +245,13 @@ test.describe("fornecedores lista", () => {
 
     await fazerLogin(page);
     await page.goto(enderecoDaFicha(id));
-    // `boundingBox()` não espera: lê a caixa só depois que a lista e a ficha estão na tela.
+    // Lê a caixa só depois que a lista e a ficha estão na tela (`medirCaixa` espera a visibilidade, D-23).
     await expect(page.getByTestId("lista-fornecedores")).toBeVisible();
     await expect(page.getByTestId("fornecedor-ficha")).toHaveAttribute("data-fornecedor-id", id);
-    const lista = await page.getByTestId("lista-fornecedores").boundingBox();
-    const ficha = await page.getByTestId("fornecedor-ficha").boundingBox();
-    expect(lista).not.toBeNull();
-    expect(ficha).not.toBeNull();
-    expect(ficha!.x).toBeGreaterThan(lista!.x + lista!.width - 1);
-    expect(Math.abs(ficha!.y - lista!.y)).toBeLessThan(2);
+    const lista = await medirCaixa(page.getByTestId("lista-fornecedores"), "lista de fornecedores");
+    const ficha = await medirCaixa(page.getByTestId("fornecedor-ficha"), "ficha do fornecedor");
+    expect(ficha.x).toBeGreaterThan(lista.x + lista.width - 1);
+    expect(Math.abs(ficha.y - lista.y)).toBeLessThan(2);
     // O "Voltar à lista" é só do celular.
     await expect(page.getByRole("button", { name: "Voltar à lista" })).toBeHidden();
   });

@@ -7,6 +7,7 @@ import {
   ROTULO_ALTERAR_INAUGURACAO,
 } from "@/lib/abertura/textos";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // O painel de três blocos e a visão "Por mês" do módulo Abertura do Espaço (04.2-04-PLAN.md):
@@ -338,46 +339,43 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       }
     }
 
-    // Tamanho ("sem esticar") — cada cartão visível mantém o tamanho de hoje. `boundingBox()`
-    // não espera nada sozinho — por isso cada locator passa por `toBeVisible()` (que espera de
-    // verdade a navegação/hidratação assentar) ANTES de medir, senão a medida corre o risco de
-    // pegar o DOM a meio caminho da navegação anterior e devolver `null`.
+    // Tamanho ("sem esticar") — cada cartão visível mantém o tamanho de hoje. A medida direta não
+    // espera nada sozinha — por isso cada locator passa por `toBeVisible()` (que espera de verdade
+    // a navegação/hidratação assentar) e é medido por `medirCaixa` (D-23), senão a medida corre o
+    // risco de pegar o DOM a meio caminho da navegação anterior e devolver `null`.
     if (test.info().project.name === "celular") {
       await page.goto("/gestao/abertura");
       const blocoAtencaoCelular = page.getByTestId("abertura-bloco-atencao");
       const painelCelular = page.getByTestId("abertura-painel-resumo");
       await expect(blocoAtencaoCelular).toBeVisible();
       await expect(painelCelular).toBeVisible();
-      const caixaAtencao = await blocoAtencaoCelular.boundingBox();
-      const caixaPainel = await painelCelular.boundingBox();
-      expect(caixaAtencao, "/gestao/abertura: bloco de atenção sem boundingBox").not.toBeNull();
-      expect(caixaPainel, "/gestao/abertura: painel sem boundingBox").not.toBeNull();
+      const caixaAtencao = await medirCaixa(blocoAtencaoCelular, "/gestao/abertura: bloco de atenção");
+      const caixaPainel = await medirCaixa(painelCelular, "/gestao/abertura: painel");
       // Celular: coluna inteira — mais de 0,75 da largura do painel.
-      expect(caixaAtencao!.width).toBeGreaterThan(caixaPainel!.width * 0.75);
+      expect(caixaAtencao.width).toBeGreaterThan(caixaPainel.width * 0.75);
 
       await page.goto("/gestao/abertura?aba=meses");
       const blocoComprometidoCelular = page.getByTestId("abertura-bloco-comprometido");
       const blocoMesCelular = page.getByTestId("abertura-bloco-mes");
       await expect(blocoComprometidoCelular).toBeVisible();
       await expect(blocoMesCelular).toBeVisible();
-      const caixaComprometidoCelular = await blocoComprometidoCelular.boundingBox();
-      const caixaMesCelular = await blocoMesCelular.boundingBox();
-      expect(caixaComprometidoCelular, "/gestao/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
-      expect(caixaMesCelular, "/gestao/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
+      const caixaComprometidoCelular = await medirCaixa(
+        blocoComprometidoCelular,
+        "/gestao/abertura?aba=meses: comprometido",
+      );
+      const caixaMesCelular = await medirCaixa(blocoMesCelular, "/gestao/abertura?aba=meses: mes");
       // Celular: empilhados, na ordem Comprometido → Sai neste mês.
-      expect(caixaMesCelular!.y).toBeGreaterThan(caixaComprometidoCelular!.y);
+      expect(caixaMesCelular.y).toBeGreaterThan(caixaComprometidoCelular.y);
     } else {
       await page.goto("/gestao/abertura");
       const blocoAtencaoDesktop = page.getByTestId("abertura-bloco-atencao");
       const painelDesktop = page.getByTestId("abertura-painel-resumo");
       await expect(blocoAtencaoDesktop).toBeVisible();
       await expect(painelDesktop).toBeVisible();
-      const caixaAtencaoDesktop = await blocoAtencaoDesktop.boundingBox();
-      const caixaPainelDesktop = await painelDesktop.boundingBox();
-      expect(caixaAtencaoDesktop, "/gestao/abertura: bloco de atenção sem boundingBox").not.toBeNull();
-      expect(caixaPainelDesktop, "/gestao/abertura: painel sem boundingBox").not.toBeNull();
+      const caixaAtencaoDesktop = await medirCaixa(blocoAtencaoDesktop, "/gestao/abertura: bloco de atenção");
+      const caixaPainelDesktop = await medirCaixa(painelDesktop, "/gestao/abertura: painel");
       // Desktop: uma das três colunas — largura menor que metade do painel.
-      expect(caixaAtencaoDesktop!.width).toBeLessThan(caixaPainelDesktop!.width / 2);
+      expect(caixaAtencaoDesktop.width).toBeLessThan(caixaPainelDesktop.width / 2);
 
       await page.goto("/gestao/abertura?aba=meses");
       const blocoComprometidoDesktop = page.getByTestId("abertura-bloco-comprometido");
@@ -386,19 +384,19 @@ test.describe("abertura painel — o painel de três blocos e a visão Por mês"
       await expect(blocoComprometidoDesktop).toBeVisible();
       await expect(blocoMesDesktop).toBeVisible();
       await expect(painelMeses).toBeVisible();
-      const caixaComprometidoDesktop = await blocoComprometidoDesktop.boundingBox();
-      const caixaMesDesktop = await blocoMesDesktop.boundingBox();
-      const caixaPainelMeses = await painelMeses.boundingBox();
-      expect(caixaComprometidoDesktop, "/gestao/abertura?aba=meses: comprometido sem boundingBox").not.toBeNull();
-      expect(caixaMesDesktop, "/gestao/abertura?aba=meses: mes sem boundingBox").not.toBeNull();
-      expect(caixaPainelMeses, "/gestao/abertura?aba=meses: painel sem boundingBox").not.toBeNull();
+      const caixaComprometidoDesktop = await medirCaixa(
+        blocoComprometidoDesktop,
+        "/gestao/abertura?aba=meses: comprometido",
+      );
+      const caixaMesDesktop = await medirCaixa(blocoMesDesktop, "/gestao/abertura?aba=meses: mes");
+      const caixaPainelMeses = await medirCaixa(painelMeses, "/gestao/abertura?aba=meses: painel");
       // Desktop: mesma linha (diferença de `y` menor que 2px) e cada um ocupa uma coluna.
       expect(
-        Math.abs(caixaComprometidoDesktop!.y - caixaMesDesktop!.y),
+        Math.abs(caixaComprometidoDesktop.y - caixaMesDesktop.y),
         "/gestao/abertura?aba=meses: comprometido e mes deveriam estar na mesma linha no desktop",
       ).toBeLessThan(2);
-      expect(caixaComprometidoDesktop!.width).toBeLessThan(caixaPainelMeses!.width / 2);
-      expect(caixaMesDesktop!.width).toBeLessThan(caixaPainelMeses!.width / 2);
+      expect(caixaComprometidoDesktop.width).toBeLessThan(caixaPainelMeses.width / 2);
+      expect(caixaMesDesktop.width).toBeLessThan(caixaPainelMeses.width / 2);
     }
   });
 });
