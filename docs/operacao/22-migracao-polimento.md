@@ -1,7 +1,7 @@
 # Roteiro 22 — O Polimento: a publicação e a migração `0031`
 
 **Quando rodar:** **uma vez**, para publicar a Fase 06.5 (Polimento), com o backup feito por você e olhando.
-**Nunca pelo pipeline.** Escrito em 06/10/2026 pelo plano `06.5-11`, sem ter sido rodado, no molde do Roteiro 21.
+**Nunca pelo pipeline.** Escrito em 06/10/2026 pelo plano `06.5-11` e completado pelo `06.5-30`, sem ter sido rodado.
 Se algum passo divergir do descrito, o erro pode ser do roteiro: **pare naquele passo** e não improvise.
 
 **Passo 0:** responda a Parte 0 de `.planning/phases/06.5-polimento/06.5-VERIFICACAO-HUMANA.md` (escrita pelo
@@ -29,9 +29,14 @@ roteiro seguir.
 janela, `provarJanelaDoPolimentoEmBancoProprio`, que aplica a `0031` sobre um banco parado na `0030`) e em toda
 execução do e2e. Em produção, só você a aplica. Comandos do servidor: SSH como `theo`, em `/opt/amassa`.
 
-**Estado medido:** *a preencher pelo 06.5-30* — `git log origin/main..main --oneline | wc -l`, o
-`git merge-base --is-ancestor main gsd/phase-06.5-polimento; echo $?` e o `curl` de `/api/health/polimento`
-(esperado `404` antes da publicação), com a data e a hora da medição.
+**Estado medido em 06/10/2026, 12:05 UTC, no computador, sem `git fetch` e sem tocar o servidor (plano `06.5-30`):**
+`git log origin/main..main --oneline | wc -l` → **5** (só documentação: o planejamento da 06.5, de `4484c19` a
+`0b646f7`); `git merge-base --is-ancestor main gsd/phase-06.5-polimento; echo $?` → **`0`** (merge sem conflito);
+`git log main..gsd/phase-06.5-polimento --oneline | wc -l` → **125** antes dos commits do plano 30 (o número final
+está no `06.5-30-SUMMARY.md`); `gh run list --limit 3` → `37254337900` (05/10, success, **31m37s**), `37226512538`
+(34m09s), `37222643020` (35m25s); `curl` de `/api/health/polimento` → **`404`**, `/api/health/queimas` → `200`,
+`/api/health/backup` → `200`; `curl -sI /` → `X-Powered-By: Next.js` e **nenhum** cabeçalho de segurança (o "antes").
+**Só o seu push e o servidor medem:** o pipeline novo de verdade (grafo, tempo, digest), o `200` da rota e a `0031`.
 
 ---
 
@@ -77,18 +82,30 @@ git checkout main
 git fetch
 git log origin/main..main --oneline
 git merge-base --is-ancestor main gsd/phase-06.5-polimento; echo $?
+git log main..gsd/phase-06.5-polimento --oneline | wc -l
 git merge --no-ff gsd/phase-06.5-polimento -m "Merge da Fase 06.5 (Polimento) em main — Roteiro 22"
 git push
 gh run list --limit 3
+gh run view <o número do run>
 ```
 
-**O que você deve ver:** árvore limpa; no `log`, só commits que você reconhece (um que não reconhece: **pare e
-pergunte**); **`0`** no `merge-base`; o merge sem conflito; e, repetindo `gh run list`, o run **`completed
-success`** em todos os jobs. Os nomes dos jobs e o tempo esperado **o `06.5-30` confere** e escreve aqui — o
-pipeline muda no plano `06.5-22`.
+**O que você deve ver:** árvore limpa; no `log`, os **5** commits de documentação medidos acima (ou nada, se já
+publicados — um que não reconhece: **pare e pergunte**); **`0`** no `merge-base`; no `wc -l`, o número do
+`06.5-30-SUMMARY.md`; o merge sem conflito; e, repetindo `gh run list`, o run **`completed  success`**.
+
+**O pipeline é novo (plano `06.5-22`) — sete jobs.** Começam juntos `Qualidade — lint e testes unitários` e `Construir a
+imagem (tag do commit)`; depois dos dois, `E2E (desktop) contra a imagem real` e `E2E (celular) contra a imagem real` (as
+duas fatias, em paralelo); depois da `Qualidade`, `Banco — migrações e backup de ponta a ponta`; quando os três ficam
+verdes, `Publicar as imagens testadas no GHCR` dá `:latest` e `:ferramentas` à imagem testada; por fim, `Implantar no VPS`.
+O `gh run view` mostra os sete com o tempo de cada um. **Anote o tempo total do run** (critério 6: menos que os ~32 min
+de hoje). **Estimativa, não medição:** cada fatia ~15–18 min de testes + ~3 min de preparo (limite 35); o primeiro run
+parte de **cache frio** no `construir`, então pode demorar mais que os seguintes. Só este run prova o grafo, as tags
+`:<sha>` puxadas sem login, o `publicar` e as fontes do PDF na imagem (`06.5-22-SUMMARY.md`, "O que só o primeiro push
+prova").
 
 Vermelho ou cancelado por tempo antes do `implantar`: o app no ar continua o antigo e o banco está intacto — **não
-migre**, chame. **A janela abre quando o `implantar` fica verde — vá direto ao Passo 4.**
+migre**, chame. Vermelho só em `cotacoes-categorias` é o defeito de teste aberto WINDOWS #64: não migre; chame.
+**A janela abre quando o `implantar` fica verde — vá direto ao Passo 4.**
 
 ---
 
@@ -159,7 +176,7 @@ docker compose exec postgres psql -U amassa_owner -d amassa -c "select (select c
 
 Contagem diferente, índice faltando ou a única antiga ainda lá: **pare e chame**.
 
-**Passo 6 — a caminhada:** a parte de produção de `06.5-VERIFICACAO-HUMANA.md` (o `06.5-30` a escreve).
+**Passo 6 — a caminhada:** a Parte 2 de `.planning/phases/06.5-polimento/06.5-VERIFICACAO-HUMANA.md`.
 
 ---
 
