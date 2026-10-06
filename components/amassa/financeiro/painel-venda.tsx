@@ -7,7 +7,11 @@ import type { LinhaDaVendaDaAgenda } from "@/lib/agenda/receber";
 import { lancarVenda } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaVenda } from "@/lib/financeiro/consultas";
 import { repartirDesconto, type Desconto } from "@/lib/financeiro/desconto";
-import { converterPercentualParaPontosBase, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import {
+  centavosParaCampo,
+  converterPercentualParaPontosBase,
+  converterReaisParaCentavos,
+} from "@/lib/financeiro/dinheiro";
 import { areasDaVenda, listaEmPortugues } from "@/lib/financeiro/documento";
 import {
   efeitoNoEstoque,
@@ -15,7 +19,13 @@ import {
   type ItemParaEfeito,
 } from "@/lib/financeiro/efeito-estoque";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
-import { conferirParcelas, dividirEmDuasFormas, gerarPlano, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
+import {
+  conferirParcelas,
+  dividirEmDuasFormas,
+  gerarPlano,
+  primeiroValorDaDivisao,
+  type PlanoDePagamento,
+} from "@/lib/financeiro/parcelas";
 import { CHAVE_RASCUNHO_VENDA, lerRascunho, serializarRascunho, type LinhaDoRascunho } from "@/lib/financeiro/rascunho";
 import { FRASE_LINHA_DA_QUEIMA_FALTANDO } from "@/lib/queimas/textos";
 import {
@@ -79,12 +89,6 @@ function novaChave(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// Um valor em centavos vira texto com vírgula decimal — o mesmo formato que
-// `converterReaisParaCentavos` (lib/financeiro/dinheiro.ts) sabe ler de volta no servidor.
-function centavosParaTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
-}
-
 // A Venda aberta por outro módulo — a Agenda (Fase 05, plano 12 — AGE-15, UI-D26) ou as Queimas (Fase
 // 06.4, plano 05 — QMC-08, D-07). Tudo resolvido no SERVIDOR pela página (`cobrancaParaVenda` ×
 // `queimaParaVenda`): o texto da origem (devolvido a `lancarVenda`, que relê a origem sob a trava do
@@ -137,7 +141,7 @@ function linhasDoRascunhoInicial(
         nome: linha.descricao,
         area: areaDoItem.get(linha.itemId) ?? "geral",
         quantidade: linha.quantidade,
-        valorUnitarioTexto: centavosParaTexto(Math.round(linha.valorCentavos / linha.quantidade)),
+        valorUnitarioTexto: centavosParaCampo(Math.round(linha.valorCentavos / linha.quantidade)),
         precoDeTabelaCentavos: null,
         daOrigem,
       };
@@ -310,7 +314,7 @@ export function PainelVenda({
             tipo: "livre",
             descricao: linha.descricao,
             categoriaId: linha.categoriaId,
-            valorTexto: centavosParaTexto(linha.valorCentavos),
+            valorTexto: centavosParaCampo(linha.valorCentavos),
           },
     );
     window.sessionStorage.setItem(
@@ -442,7 +446,7 @@ export function PainelVenda({
           indice === 0 && plano === "avista" && !pagoAVista && vencimentoAvistaAberto
             ? vencimentoAvistaAberto
             : parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -472,7 +476,7 @@ export function PainelVenda({
     // dividida, cada linha vira independente (a caixa de marcação da grade cuida disso).
     const resultado = dividirEmDuasFormas({
       totalCentavos,
-      primeiroValorCentavos: Math.ceil(totalCentavos / 2),
+      primeiroValorCentavos: primeiroValorDaDivisao(totalCentavos),
       data,
       formas: [formaPagamento, outraForma],
       pagas: [pagoAVista, pagoAVista],
@@ -486,7 +490,7 @@ export function PainelVenda({
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
         vencimento: parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -511,7 +515,7 @@ export function PainelVenda({
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
         vencimento: !pagoAVista && vencimentoAvistaAberto ? vencimentoAvistaAberto : parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -591,7 +595,7 @@ export function PainelVenda({
           nome: item.nome,
           area: item.area,
           quantidade: 1,
-          valorUnitarioTexto: item.precoVendaCentavos != null ? centavosParaTexto(item.precoVendaCentavos) : "",
+          valorUnitarioTexto: item.precoVendaCentavos != null ? centavosParaCampo(item.precoVendaCentavos) : "",
           precoDeTabelaCentavos: item.precoVendaCentavos,
         },
       ];
@@ -691,7 +695,7 @@ export function PainelVenda({
               tipo: "livre" as const,
               descricao: linha.descricao,
               categoriaId: linha.categoriaId,
-              valorTexto: centavosParaTexto(linha.valorCentavos),
+              valorTexto: centavosParaCampo(linha.valorCentavos),
             },
       ),
       // O plano de pagamento inteiro (à vista, sinal, Nx ou "+ outra forma") — cada parcela já
