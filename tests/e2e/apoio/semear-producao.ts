@@ -981,20 +981,24 @@ export type OrdemEncerradaParaSemear = {
 // encerrada numa segunda transação — os `check`s de `ordens_producao` exigem a data junto com o
 // status. A concluída grava as perdidas da peça (e zero para o estoque e sem destino), como a
 // conclusão faria; a cancelada fica com quem cancelou = a conta de teste. Devolve o id.
+//
+// 06/10/2026 (plano 06.5-30): a ordem nasce com NENHUMA etapa feita, e as etapas da concluída são
+// marcadas na MESMA transação que a encerra. Até então a 1ª transação já gravava todas as etapas
+// feitas com a ordem ainda `ativa` — um estado que o produto nunca cria ("Terminei" recusa a última
+// etapa, `ultima-etapa`) e que a leitura recusa por desenho (`leituraDaOrdem`: "Ordem ativa com todas
+// as etapas feitas — isso é concluir, não andar."). Entre os dois `commit`s, qualquer spec que abrisse
+// a Produção ou o Início no mesmo banco via essa ordem: na varredura completa do 06.5-30 a página da
+// Produção caiu no erro em `polimento-producao-avisos:57` (celular), e o Início registrou "Falha ao
+// carregar a produção" três vezes. O meio do caminho agora é uma ordem ativa na primeira etapa — um
+// estado de verdade.
 export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Promise<string> {
-  const concluida = dados.status === "concluida";
   const ordemId = await semearOrdem({
     nome: dados.nome,
     tipo: dados.tipo,
     caminho: "completo",
     status: dados.inicio === null ? "aguardando_sinal" : "ativa",
     inicio: dados.inicio,
-    etapasFeitas: concluida
-      ? etapasIniciais("completo").map((etapa) => ({
-          etapa: etapa.etapa,
-          feitaEm: dados.concluidaEm,
-        }))
-      : [],
+    etapasFeitas: [],
     pecas: [
       {
         descricao: `[e2e] Peça de ${dados.nome}`,
@@ -1009,6 +1013,11 @@ export async function semearOrdemEncerrada(dados: OrdemEncerradaParaSemear): Pro
     try {
       if (dados.status === "concluida") {
         const semDestino = dados.semDestino ?? 0;
+        // Todas as etapas feitas no dia da conclusão — junto com o `status`, no mesmo `commit`.
+        await cliente.query("update ordem_etapas set feita_em = $2, passaram = null where ordem_id = $1", [
+          ordemId,
+          dados.concluidaEm,
+        ]);
         await cliente.query(
           `update ordem_pecas
               set perdidas = $2, para_estoque = 0, sem_destino = $3,
