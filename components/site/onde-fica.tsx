@@ -3,6 +3,7 @@ import { Decoracao } from "@/components/site/decoracao";
 import { ImagemDoSite } from "@/components/site/imagem-do-site";
 import { Secao } from "@/components/site/secao";
 import { CONTEUDO_SITE, SLOTS_DE_IMAGEM } from "@/conteudo/site";
+import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 
 type CampoDeContatoProps = {
   rotulo: string;
@@ -27,12 +28,13 @@ function CampoDeContato({ rotulo, children }: CampoDeContatoProps) {
   );
 }
 
-// `#onde`: endereço, horário, WhatsApp e Instagram — os quatro pares de
-// `CONTEUDO_SITE.contato`. Endereço e telefone sobem com colchete (D-14) até o dono mandar o
-// valor real.
+// `#onde`: endereço, horário, WhatsApp e Instagram — os pares de `CONTEUDO_SITE.contato`. O
+// telefone exibido é DERIVADO do `zap` (D-28, 06/10/2026): o mesmo número que o botão abre, nunca
+// um rótulo escrito à mão que possa divergir dele.
 export function OndeFica() {
   const { contato } = CONTEUDO_SITE;
-  const whatsappPreenchido = contato.whatsappRotulo.trim().length > 0;
+  const telefone = rotuloTelefoneDoZap(CONTEUDO_SITE.zap);
+  const whatsappPreenchido = telefone.length > 0;
   const instagramPreenchido = contato.instagramUsuario.trim().length > 0;
 
   return (
@@ -61,7 +63,7 @@ export function OndeFica() {
                 </b>
                 <BotaoWhatsapp
                   mensagem="site"
-                  rotulo={contato.whatsappRotulo}
+                  rotulo={telefone}
                   className="inline-flex min-h-11 items-center text-site-barro underline"
                 />
               </div>

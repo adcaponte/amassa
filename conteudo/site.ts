@@ -109,7 +109,6 @@ export const CONTEUDO_SITE = {
   contato: {
     endereco: "Rua [nome da rua], nº [00] — Centro Histórico, Pirenópolis, GO",
     horario: "Quarta a domingo, 9h às 18h. Segunda e terça fechado.",
-    whatsappRotulo: "(62) 9 0000-0000",
     instagramUsuario: "@amassacerrado",
     instagramUrl: "https://instagram.com/amassacerrado",
   },

@@ -1,5 +1,8 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 
+import { CONTEUDO_SITE } from "@/conteudo/site";
+import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
+
 // A varredura da página INTEIRA do site público, nos dois viewports (SIT-01, SIT-04, SIT-07,
 // SIT-08, SIT-09, SIT-10) — a continuação de tests/e2e/site-abertura.spec.ts (plano 03, o
 // traçador), agora que #espaco, #agenda, #encomendas e #onde existem. O caso da âncora que
@@ -201,5 +204,25 @@ test.describe("site secoes", () => {
     expect(ogTitle).toContain("AMASSA CERRADO");
     expect(ogTitle).toContain("cerâmica");
     expect(ogDescription).toContain("Pirenópolis");
+  });
+
+  // D-28 / UI-D19 (Fase 06.5): o telefone exibido é derivado do `zap` — o esperado sai da constante
+  // e da mesma função, nunca escrito aqui (repositório público).
+  test("(k) o telefone do contato é o do zap, formatado — em / e em /privacidade, sem 0000-0000", async ({ page }) => {
+    const telefone = rotuloTelefoneDoZap(CONTEUDO_SITE.zap);
+    expect(telefone).toMatch(/^\(\d{2}\) 9 \d{4}-\d{4}$/);
+
+    await page.goto("/");
+    const contato = page.getByTestId("site-contato");
+    await expect(contato).toContainText(telefone);
+    const linkDoTelefone = contato.getByRole("link", { name: telefone });
+    await expect(linkDoTelefone).toHaveAttribute("href", new RegExp(`^https://wa\\.me/${CONTEUDO_SITE.zap}`));
+    expect(await page.locator("body").innerText()).not.toContain("0000-0000");
+
+    await page.goto("/privacidade");
+    const textoDaPrivacidade = await page.locator("body").innerText();
+    expect(textoDaPrivacidade).toContain(`ou pelo WhatsApp ${telefone}.`);
+    expect(textoDaPrivacidade).toMatch(/\(\d{2}\) 9 \d{4}-\d{4}/);
+    expect(textoDaPrivacidade).not.toContain("0000-0000");
   });
 });

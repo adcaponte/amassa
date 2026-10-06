@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { CONTEUDO_SITE } from "@/conteudo/site";
 import { Rodape } from "@/components/site/rodape";
+import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 
 // Política de privacidade do site público (04/10/2026). Nasceu de uma exigência do Google: para
 // publicar o app OAuth `amassa-backup` (o `client_id` próprio do `rclone`, que leva as cópias de
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
 const ATUALIZADA_EM = "4 de outubro de 2026";
 
 export default function PaginaDePrivacidade() {
+  // D-28 (06/10/2026): o telefone sai do `zap`, o mesmo do "Onde fica" — vazio se o `zap` estiver
+  // fora do formato, e então a frase termina no Instagram.
+  const telefone = rotuloTelefoneDoZap(CONTEUDO_SITE.zap);
+
   return (
     <div className="min-h-screen bg-site-fundo text-site-tinta">
       <main className="mx-auto max-w-[68ch] px-4 py-14 md:py-20">
@@ -73,8 +78,8 @@ export default function PaginaDePrivacidade() {
                 className="text-site-tinta underline"
               >
                 {CONTEUDO_SITE.contato.instagramUsuario}
-              </a>{" "}
-              ou pelo WhatsApp {CONTEUDO_SITE.contato.whatsappRotulo}.
+              </a>
+              {telefone ? ` ou pelo WhatsApp ${telefone}` : null}.
             </p>
           </section>
         </div>
