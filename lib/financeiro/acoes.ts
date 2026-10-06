@@ -16,9 +16,11 @@ import { FRASE_LINHA_DA_AGENDA_FALTANDO } from "@/lib/agenda/textos";
 // A metade das Queimas do “Lançar na Venda” (Fase 06.4, plano 05), no mesmo molde: a regra do que falta
 // cobrar fica em `lib/queimas/`, a venda em `gravarVenda`.
 import { RecusaDasQueimas, vincularQueimaNaVenda } from "@/lib/queimas/gravacao";
+import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import { ehOrigemDaAgenda, moduloDaOrigem, textoDaOrigem } from "./abas";
+import type { MotivoDaRecusaDaCorrecao } from "./correcao";
 import { obterConfiguracaoFinanceira } from "./consultas";
 import { repartirDesconto } from "./desconto";
 import {
@@ -28,7 +30,10 @@ import {
   FornecedorIndisponivel,
   gravarDespesa,
   gravarVenda,
+  lancarCorrecaoNaTransacao,
+  RecusaDaCorrecao,
   type PedidoDeVenda,
+  type TransacaoDoBanco,
 } from "./gravacao";
 import { TETO_CENTAVOS } from "./dinheiro";
 import {
@@ -54,7 +59,11 @@ import {
   FRASE_LANCAMENTO_CANCELADO_SEM_PAGAMENTO,
   FRASE_LANCAMENTO_JA_CANCELADO,
   FRASE_LANCAMENTO_NAO_EXISTE_MAIS,
+  fraseCorrecaoRecusada,
+  fraseCorrecaoSemRede,
+  fraseSemCorrecaoPorOrigem,
   type FormaDePagamento,
+  type TipoDeDocumentoParaTexto,
 } from "./textos";
 
 // Mesma forma de `lib/abertura/acoes.ts`/`lib/cotacoes/acoes.ts` — cada módulo redeclara hoje,
@@ -67,6 +76,67 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
 
 // Detector de SQLSTATE 23503 (foreign_key_violation) vive em `@/lib/erro/postgres`.
 
+// O resultado de `lancarVenda`/`lancarDespesa` (Fase 06.5, plano 16): na recusa de uma CORREÇÃO, o motivo
+// vai junto da frase — a tela do plano 17 o põe em `data-motivo` e decide o botão (“Lançar como venda
+// nova” só em `cancelada`). `rede` = falha inesperada com a correção (a transação desfez tudo).
+export type MotivoDaCorrecaoNaTela = MotivoDaRecusaDaCorrecao | "rede";
+export type ResultadoDoLancamento<T> =
+  | { ok: true; dados: T }
+  | { ok: false; erro: string; motivoDaCorrecao?: MotivoDaCorrecaoNaTela };
+
+// A frase da recusa sob a trava (`RecusaDaCorrecao`), verbatim da UI-SPEC. O número da original e o
+// da nova foram lidos pelo servidor sob a trava; o texto do banco nunca vai à tela.
+function respostaDaRecusaDaCorrecao(
+  recusa: RecusaDaCorrecao,
+  tipo: TipoDeDocumentoParaTexto,
+): { ok: false; erro: string; motivoDaCorrecao: MotivoDaCorrecaoNaTela } {
+  const { detalhe } = recusa;
+  if (recusa.motivo === "origem" && detalhe.origem) {
+    const orcamento = detalhe.orcamento
+      ? numeroDeOrcamento(detalhe.orcamento.ano, detalhe.orcamento.sequencial)
+      : null;
+    return {
+      ok: false,
+      erro: fraseSemCorrecaoPorOrigem(tipo, detalhe.origem, orcamento),
+      motivoDaCorrecao: "origem",
+    };
+  }
+  const motivo = recusa.motivo === "origem" ? "mudou" : recusa.motivo;
+  return {
+    ok: false,
+    erro: fraseCorrecaoRecusada(motivo, tipo, detalhe.numeroOriginal, detalhe.numeroNova),
+    motivoDaCorrecao: recusa.motivo,
+  };
+}
+
+// A falha inesperada com a correção: a transação desfez tudo, a original continua valendo. O número dela
+// é relido FORA da transação só para a frase; se nem isso der, a frase diz “a original”.
+async function respostaDaFalhaDaCorrecao(
+  tipo: TipoDeDocumentoParaTexto,
+  originalId: string,
+): Promise<{ ok: false; erro: string; motivoDaCorrecao: MotivoDaCorrecaoNaTela }> {
+  let numeroOriginal: number | null = null;
+  try {
+    const [original] = await db
+      .select({ numero: documentos.numero })
+      .from(documentos)
+      .where(eq(documentos.id, originalId));
+    numeroOriginal = original?.numero ?? null;
+  } catch {
+    numeroOriginal = null;
+  }
+  return { ok: false, erro: fraseCorrecaoSemRede(tipo, numeroOriginal), motivoDaCorrecao: "rede" };
+}
+
+// O que cancelar a original mexe além do que lançar mexe: o Caixa, a Produção (a ordem da venda
+// cancelada) — as mesmas revalidações de `cancelarDocumento`.
+function revalidarCancelamentoDaCorrecao(): void {
+  revalidatePath("/gestao/financeiro");
+  revalidatePath(rotaDeGestao("/estoque"));
+  revalidatePath(rotaDeGestao("/producao"));
+  revalidatePath(rotaDeGestao("/"));
+}
+
 // A venda de "valor livre" à vista do traçado (Tarefa 1). `exigirUsuario()` é a PRIMEIRA
 // instrução do corpo (verificado por `npm run verificar-acoes`, decidido por árvore sintática).
 //
@@ -76,7 +146,9 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
 // confere de novo no fim da transação — pega defeito do próprio servidor, não só do cliente.
 export async function lancarVenda(
   entradaBruta: unknown,
-): Promise<ResultadoDeAcao<{ id: string; numero: number; origem: string | null }>> {
+): Promise<
+  ResultadoDoLancamento<{ id: string; numero: number; origem: string | null; numeroCorrigido: number | null }>
+> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaVenda.safeParse(entradaBruta);
@@ -198,6 +270,9 @@ export async function lancarVenda(
     }
   }
 
+  // A original que esta venda corrige (Fase 06.5, plano 16), exclusiva com `origem` pelo esquema.
+  const correcao = dados.correcao;
+
   try {
     // O pedido montado aqui leva só o que já foi validado acima: a descrição e a categoria da
     // linha de item vêm do catálogo (`itemPorId`), e o valor é o FINAL, já descontado. A escrita
@@ -236,7 +311,28 @@ export async function lancarVenda(
     };
 
     const origem = dados.origem;
+    let numeroCorrigido: number | null = null;
     const { id, numero } = await db.transaction(async (tx) => {
+      // O “Corrigir” (Fase 06.5, plano 16 — D-18/UI-D9): a nova é ESTA venda, gravada pelo mesmo
+      // `gravarVenda`, mas só depois de `lancarCorrecaoNaTransacao` travar a original, conferir (cancelada,
+      // já corrigida, origem, versão) e cancelá-la pelo núcleo de `cancelarDocumento`; o vínculo nasce na
+      // mesma transação. Qualquer recusa → `RecusaDaCorrecao`, nada gravado.
+      if (correcao) {
+        const lancada = await lancarCorrecaoNaTransacao(tx, {
+          originalId: correcao.documentoId,
+          versao: correcao.versao,
+          tipo: "venda",
+          usuarioId: usuario.id,
+          gravarNova: (txDaNova: TransacaoDoBanco) =>
+            gravarVenda(txDaNova, pedido, {
+              registradoPor: usuario.id,
+              taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+            }),
+        });
+        numeroCorrigido = lancada.numeroOriginal;
+        return { id: lancada.id, numero: lancada.numero };
+      }
+
       if (!origem) {
         return gravarVenda(tx, pedido, {
           registradoPor: usuario.id,
@@ -303,8 +399,17 @@ export async function lancarVenda(
       revalidatePath(rotaDeGestao("/queimas"));
       revalidatePath(rotaDeGestao("/queimas/[id]"), "page");
     }
-    return { ok: true, dados: { id, numero, origem: origem ? textoDaOrigem(origem) : null } };
+    if (correcao) {
+      revalidarCancelamentoDaCorrecao();
+    }
+    return {
+      ok: true,
+      dados: { id, numero, origem: origem ? textoDaOrigem(origem) : null, numeroCorrigido },
+    };
   } catch (erro) {
+    if (erro instanceof RecusaDaCorrecao) {
+      return respostaDaRecusaDaCorrecao(erro, "venda");
+    }
     if (erro instanceof RecusaDaAgenda || erro instanceof RecusaDasQueimas) {
       return { ok: false, erro: erro.frase };
     }
@@ -315,6 +420,9 @@ export async function lancarVenda(
       };
     }
     console.error("Falha ao lançar venda:", erro);
+    if (correcao) {
+      return respostaDaFalhaDaCorrecao("venda", correcao.documentoId);
+    }
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }
@@ -330,7 +438,7 @@ export async function lancarVenda(
 // desta plano).
 export async function lancarDespesa(
   entradaBruta: unknown,
-): Promise<ResultadoDeAcao<{ id: string; numero: number }>> {
+): Promise<ResultadoDoLancamento<{ id: string; numero: number; numeroCorrigido: number | null }>> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaDespesa.safeParse(entradaBruta);
@@ -467,11 +575,14 @@ export async function lancarDespesa(
     return { ok: false, erro: conferencia.erro };
   }
 
+  // A original que esta despesa corrige (Fase 06.5, plano 16).
+  const correcao = dados.correcao;
+
   try {
     // A escrita (fornecedor sob trava → documento → linhas → entrada de estoque da compra → parcelas
     // sem taxa) é a de `gravarDespesa` (`lib/financeiro/gravacao.ts`, Fase 06.5 plano 16 — extraída
     // daqui sem mudar nada, para o “Corrigir” lançar a despesa nova pelo mesmo escritor).
-    const { id, numero } = await db.transaction(async (tx) =>
+    const gravarEstaDespesa = (tx: TransacaoDoBanco) =>
       gravarDespesa(
         tx,
         {
@@ -483,15 +594,37 @@ export async function lancarDespesa(
           parcelas: dados.parcelas,
         },
         { registradoPor: usuario.id },
-      ),
-    );
+      );
+    let numeroCorrigido: number | null = null;
+    const { id, numero } = await db.transaction(async (tx) => {
+      // O “Corrigir” (D-18/UI-D9): a mesma sequência de `lancarVenda` — trava e confere a original, cancela
+      // pelo núcleo de `cancelarDocumento`, grava ESTA despesa pelo mesmo escritor e liga as duas.
+      if (correcao) {
+        const lancada = await lancarCorrecaoNaTransacao(tx, {
+          originalId: correcao.documentoId,
+          versao: correcao.versao,
+          tipo: "despesa",
+          usuarioId: usuario.id,
+          gravarNova: gravarEstaDespesa,
+        });
+        numeroCorrigido = lancada.numeroOriginal;
+        return { id: lancada.id, numero: lancada.numero };
+      }
+      return gravarEstaDespesa(tx);
+    });
 
     if (dados.modo === "compra") {
       revalidatePath(rotaDeGestao("/estoque"));
       revalidatePath(rotaDeGestao("/"));
     }
-    return { ok: true, dados: { id, numero } };
+    if (correcao) {
+      revalidarCancelamentoDaCorrecao();
+    }
+    return { ok: true, dados: { id, numero, numeroCorrigido } };
   } catch (erro) {
+    if (erro instanceof RecusaDaCorrecao) {
+      return respostaDaRecusaDaCorrecao(erro, "despesa");
+    }
     if (erro instanceof FornecedorIndisponivel) {
       return { ok: false, erro: FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA };
     }
@@ -502,6 +635,9 @@ export async function lancarDespesa(
       };
     }
     console.error("Falha ao lançar despesa:", erro);
+    if (correcao) {
+      return respostaDaFalhaDaCorrecao("despesa", correcao.documentoId);
+    }
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };
   }
 }

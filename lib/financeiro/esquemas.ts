@@ -126,6 +126,21 @@ export const esquemaDescontoEntrada = z.object({
   texto: z.string().min(1, "Informe um valor de desconto."),
 });
 
+// O “Corrigir” (Fase 06.5, plano 16 — D-18 com a UI-D9 do dono): a Venda/Despesa aberta por
+// `?corrige=` manda SÓ o id da original e a versão que a página leu (`versaoAtualDoDocumento`, um
+// resumo hexadecimal). Número, data, estado e origem da original são lidos pelo servidor SOB A TRAVA
+// (`lancarCorrecaoNaTransacao`) — nada disso vem do cliente. Ausente = o lançamento de sempre.
+export const FRASE_CORRECAO_INVALIDA =
+  "Essa correção não é válida — volte ao Caixa e toque em “Corrigir” de novo.";
+export const FRASE_CORRECAO_COM_ORIGEM = "Essa venda não pode vir de outro módulo e corrigir ao mesmo tempo.";
+
+export const esquemaCorrecao = z.object({
+  documentoId: z.string().uuid(FRASE_CORRECAO_INVALIDA),
+  versao: z.string().regex(/^[0-9a-f]{1,16}$/, FRASE_CORRECAO_INVALIDA),
+});
+
+export type PedidoDeCorrecao = z.infer<typeof esquemaCorrecao>;
+
 // Formato de entrada CRU da venda — antes da conversão de texto para centavos.
 export const esquemaVendaEntrada = z.object({
   data: esquemaDataCivil,
@@ -144,6 +159,8 @@ export const esquemaVendaEntrada = z.object({
   // Só diz QUAL cobrança: pessoa, cliente e a descrição da linha de origem são decididos no servidor,
   // sob a trava da cobrança (`lancarVenda` → `vincularCobranca`). Ausente = a Venda manual de sempre.
   origem: z.string().optional(),
+  // A original que esta venda corrige (Fase 06.5, plano 16). Exclusiva com `origem` (abaixo).
+  correcao: esquemaCorrecao.optional(),
 });
 
 // Frase da origem que não passa em `origemDaUrl` (texto adulterado — a tela nunca manda isso).
@@ -289,11 +306,19 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     }
   }
 
+  // A venda de outro módulo (Agenda, Queimas) recria o vínculo dela; a correção liga à original. As duas
+  // juntas nunca saem da tela — um pedido assim é forjado, e é recusado antes de qualquer leitura.
+  const correcaoComOrigem = dados.correcao !== undefined && dados.origem !== undefined;
+  if (correcaoComOrigem) {
+    ctx.addIssue({ code: "custom", message: FRASE_CORRECAO_COM_ORIGEM, path: ["correcao"] });
+  }
+
   if (
     linhas.some((linha) => linha === null) ||
     parcelas.some((parcela) => parcela === null) ||
     (dados.desconto && !desconto) ||
-    (dados.origem !== undefined && !origem)
+    (dados.origem !== undefined && !origem) ||
+    correcaoComOrigem
   ) {
     return z.NEVER;
   }
@@ -305,6 +330,7 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     parcelas: parcelas as ParcelaDeVendaConvertida[],
     desconto,
     origem,
+    correcao: dados.correcao ?? null,
   };
 });
 
@@ -330,6 +356,8 @@ export const esquemaDespesaCompraEntrada = z.object({
   data: esquemaDataCivil,
   pessoa: z.string().optional(),
   fornecedorId: esquemaId.optional(),
+  // A original que esta despesa corrige (Fase 06.5, plano 16).
+  correcao: esquemaCorrecao.optional(),
   linhas: z
     .array(esquemaLinhaDeCompra)
     .min(1, "Toque em pelo menos um material que chegou.")
@@ -345,6 +373,8 @@ export const esquemaDespesaOutraEntrada = z.object({
   data: esquemaDataCivil,
   pessoa: z.string().optional(),
   fornecedorId: esquemaId.optional(),
+  // A original que esta despesa corrige (Fase 06.5, plano 16).
+  correcao: esquemaCorrecao.optional(),
   descricao: z
     .string()
     .transform((valor) => normalizarTexto(valor))
@@ -378,6 +408,7 @@ export type EntradaDeDespesaConvertida =
       data: string;
       pessoa: string | null;
       fornecedorId: string | null;
+      correcao: PedidoDeCorrecao | null;
       linhas: LinhaDeCompraConvertida[];
       parcelas: ParcelaDeVendaConvertida[];
     }
@@ -386,6 +417,7 @@ export type EntradaDeDespesaConvertida =
       data: string;
       pessoa: string | null;
       fornecedorId: string | null;
+      correcao: PedidoDeCorrecao | null;
       descricao: string;
       categoriaId: string;
       valorCentavos: number;
@@ -397,6 +429,7 @@ export type EntradaDeDespesaConvertida =
 export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
   const pessoa = normalizarOpcional(dados.pessoa);
   const fornecedorId = dados.fornecedorId ?? null;
+  const correcao = dados.correcao ?? null;
 
   const parcelas: (ParcelaDeVendaConvertida | null)[] = dados.parcelas.map((parcela, indice) => {
     const resultado = converterReaisParaCentavos(parcela.valorTexto);
@@ -468,6 +501,7 @@ export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
       data: dados.data,
       pessoa,
       fornecedorId,
+      correcao,
       linhas: linhas as LinhaDeCompraConvertida[],
       parcelas: parcelas as ParcelaDeVendaConvertida[],
     };
@@ -496,6 +530,7 @@ export const esquemaDespesa = esquemaDespesaEntrada.transform((dados, ctx) => {
     data: dados.data,
     pessoa,
     fornecedorId,
+    correcao,
     descricao: dados.descricao,
     categoriaId: dados.categoriaId,
     valorCentavos,

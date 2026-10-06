@@ -5,6 +5,8 @@
 // `gantt.ts`/`textos.ts` de Encomendas e de `lib/queimas/textos.ts`).
 import type { areaFinanceira, formaPagamento, grupoCategoria } from "@/db/schema";
 
+import type { MotivoDaRecusaDaCorrecao, OrigemSemCorrecao } from "./correcao";
+
 export type GrupoDeCategoria = (typeof grupoCategoria.enumValues)[number];
 export type AreaFinanceira = (typeof areaFinanceira.enumValues)[number];
 export type FormaDePagamento = (typeof formaPagamento.enumValues)[number];
@@ -511,6 +513,77 @@ export const FRASE_LANCAMENTO_NAO_EXISTE_MAIS =
 // "Lançamento nº 12 cancelado. Continua visível, riscado." — o aviso pós-cancelamento.
 export function textoCancelado(numero: number): string {
   return `Lançamento nº ${numero} cancelado. Continua visível, riscado.`;
+}
+
+// O “Corrigir” um lançamento (Fase 06.5, plano 16 — D-18 com a UI-D9 do dono, 05/10/2026), verbatim da
+// 06.5-UI-SPEC.md (§Toasts “Correção — lançou”, §Erros “Lançar a correção”, §Rótulos “documento que não se
+// corrige por aqui”, UI-D10). Venda e despesa são femininas: só o substantivo muda.
+
+// “Venda nº 33 cancelada e nº 38 lançada no lugar · R$ 70,00” — o toast do sucesso. O total chega já
+// formatado (`formatarReais`), como em `textoVendaLancada`: este módulo nunca formata dinheiro sozinho.
+export function textoCorrecaoLancada(
+  tipo: TipoDeDocumentoParaTexto,
+  numeroOriginal: number,
+  numeroNova: number,
+  totalFormatado: string,
+): string {
+  const rotulo = tipo === "venda" ? "Venda" : "Despesa";
+  return `${rotulo} nº ${numeroOriginal} cancelada e nº ${numeroNova} lançada no lugar · ${totalFormatado}`;
+}
+
+// As recusas sob a trava, no erro do painel (`role="alert"`). `origem` tem a frase própria
+// (`fraseSemCorrecaoPorOrigem`). `numeroOriginal` nulo = a original não existe (a frase de “não achei”).
+// Em `mudou`, a UI-SPEC sugere dizer o que mudou (“uma parcela foi recebida”): o servidor só sabe que a
+// versão é outra, então a frase não chuta o motivo.
+export function fraseCorrecaoRecusada(
+  motivo: Exclude<MotivoDaRecusaDaCorrecao, "origem">,
+  tipo: TipoDeDocumentoParaTexto,
+  numeroOriginal: number | null,
+  numeroNova?: number,
+): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  if (numeroOriginal === null) {
+    return `Não achei a ${nome} a corrigir. Volte ao Caixa e toque em “Corrigir esta ${nome}” de novo.`;
+  }
+  if (motivo === "cancelada") {
+    return `Nada foi lançado: a ${nome} nº ${numeroOriginal} já tinha sido cancelada (talvez em outro celular). Os dados continuam aqui — se esta ${nome} ainda vale, toque em “Lançar como ${nome} nova”.`;
+  }
+  if (motivo === "ja_corrigida") {
+    return numeroNova === undefined
+      ? `Nada foi lançado: a ${nome} nº ${numeroOriginal} já foi corrigida.`
+      : `Nada foi lançado: a ${nome} nº ${numeroOriginal} já foi corrigida pela nº ${numeroNova}.`;
+  }
+  return `Nada foi lançado: a ${nome} nº ${numeroOriginal} mudou depois que você abriu a correção. Volte ao Caixa e toque em “Corrigir esta ${nome}” de novo, para partir do que vale agora.`;
+}
+
+// A falha inesperada (rede, banco) com a correção: a transação desfez tudo, a original continua valendo.
+// Sem o número (nem ele deu para ler), “a original”.
+export function fraseCorrecaoSemRede(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number | null): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  const alvo = numeroOriginal === null ? `A ${nome} original` : `A ${nome} nº ${numeroOriginal}`;
+  return `Não deu para lançar. ${alvo} continua valendo e nada novo foi gravado — verifique a internet e tente de novo.`;
+}
+
+// UI-D10 e as contas fixas: no lugar do “Corrigir” (detalhe) e na recusa `origem` (lançamento).
+// `numeroDoOrcamento` chega pronto (“ORC-2026-004”, `numeroDeOrcamento` de lib/orcamentos/formato.ts).
+export function fraseSemCorrecaoPorOrigem(
+  tipo: TipoDeDocumentoParaTexto,
+  origem: OrigemSemCorrecao,
+  numeroDoOrcamento?: string | null,
+): string {
+  const rotulo = tipo === "venda" ? "Esta venda" : "Esta despesa";
+  if (origem === "conta_fixa") {
+    return `${rotulo} veio das Contas fixas. Para corrigir, cancele aqui e gere o mês de novo em Contas fixas.`;
+  }
+  const deOnde =
+    origem === "agenda"
+      ? "da Agenda"
+      : origem === "queimas"
+        ? "das Queimas"
+        : numeroDoOrcamento
+          ? `do orçamento ${numeroDoOrcamento}`
+          : "de um orçamento";
+  return `${rotulo} veio ${deOnde}. Para corrigir, cancele aqui e lance de novo por lá.`;
 }
 
 // "Paguei"/"Recebi" com a linha de diferença (D-01/D-02) e o "Desfazer" (D-03).
