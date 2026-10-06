@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronRight, Search, X } from "lucide-react";
+import { AlertTriangle, ChevronRight, Search } from "lucide-react";
 
 import { casaComBusca } from "@/lib/busca/casa-com-busca";
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
@@ -25,20 +25,14 @@ import {
   textoMateriaisEncontrados,
 } from "@/lib/estoque/textos";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoErro } from "@/components/amassa/estado-erro";
+import { Folha, FolhaCabecalho, FolhaCorpo } from "@/components/amassa/folha";
 import { TentarDeNovo } from "@/components/amassa/inicio/tentar-de-novo";
 
 import { ChipDoSaldo, PontoDaArea, formatarMilesimos } from "./cartao-saldo";
-import { CLASSE_DA_FOLHA } from "./folha-movimentacao";
 import type { ListaDoEstoque } from "./provedor-estoque";
 
 export type SeletorMaterialProps = {
@@ -345,8 +339,7 @@ export function SeletorMaterial({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="seletor-material"
         onOpenAutoFocus={(evento) => {
           evento.preventDefault();
@@ -354,23 +347,14 @@ export function SeletorMaterial({
             campoBusca.current?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle className="text-titulo text-tinta">{TITULO_SELETOR}</DialogTitle>
-            <DialogDescription className="text-apoio text-tinta-fraca">{SUB_SELETOR}</DialogDescription>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            data-testid="seletor-fechar"
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+        <FolhaCabecalho
+          titulo={TITULO_SELETOR}
+          descricao={SUB_SELETOR}
+          descricaoVisivel
+          aoFechar={aoFechar}
+          dataTestIdFechar="seletor-fechar"
+        />
 
         {/* Busca e pílulas presas no topo; só a lista rola (overflow E5). */}
         <div className="border-border flex flex-col gap-3 border-b px-6 py-4">
@@ -422,10 +406,11 @@ export function SeletorMaterial({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4" data-testid="seletor-lista">
+        {/* `block`: a lista sempre rolou como bloco, sem o `flex-col gap-4` do corpo comum. */}
+        <FolhaCorpo className="block" data-testid="seletor-lista">
           {conteudo()}
-        </div>
-      </DialogContent>
+        </FolhaCorpo>
+      </Folha>
     </Dialog>
   );
 }
