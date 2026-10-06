@@ -72,6 +72,15 @@ export function fraseTermineiRecusado(
         : `já passaram ${passaram}`;
   return `A ${rotuloDaEtapa} só termina quando as ${total} peças passaram por ela — ${jaPassaram}. A tela foi atualizada.`;
 }
+// O atalho ao lado do motivo (UI-D12): grava o parcial = total pelo mesmo caminho do campo — sem
+// toast, sem confirmação (o número aparece no campo e o "Terminei" habilita). Durante o envio,
+// `ROTULO_SALVANDO`; se falhar, `FRASE_FALHA_AO_SALVAR_PARCIAL` (verbatim do campo).
+export function rotuloPassaramTodas(total: number): string {
+  return `Passaram todas as ${total}`;
+}
+export function ariaPassaramTodas(total: number, rotuloDaEtapa: string): string {
+  return `Passaram todas as ${total} peças pela ${rotuloDaEtapa}`;
+}
 
 // Plural.
 export function dias(n: number): string {

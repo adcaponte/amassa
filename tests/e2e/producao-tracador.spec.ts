@@ -29,8 +29,13 @@ function sufixoUnico(): string {
 const FRASE_JA_MARCADA =
   "Essa etapa já tinha sido marcada — talvez em outro celular. A tela foi atualizada.";
 
-// Uma ordem da casa, ativa, começada há 3 dias, ainda na Produção.
-async function semearOrdemNaProducao(nome: string): Promise<string> {
+// Uma ordem da casa, ativa, começada há 3 dias, ainda na Produção, com 12 peças. Desde a Fase 06.5
+// (D-02, dono 05/10/2026) o "Terminei" de uma ordem de várias peças só libera com todas passadas:
+// `passaramNaAtual` semeia o parcial já cheio quando o teste não é sobre o atalho.
+async function semearOrdemNaProducao(
+  nome: string,
+  passaramNaAtual: number | null = null,
+): Promise<string> {
   return semearOrdem({
     nome,
     tipo: "casa",
@@ -39,6 +44,7 @@ async function semearOrdemNaProducao(nome: string): Promise<string> {
     inicio: diaEmBrasilia(-3),
     etapasFeitas: [],
     pecas: [{ descricao: "[e2e] Caneca de prova", quantidade: 12 }],
+    passaramNaAtual,
   });
 }
 
@@ -69,9 +75,13 @@ test.describe("producao tracador", () => {
     await expect(page.getByRole("heading", { level: 1, name: nome })).toBeVisible();
     await expect(page.getByTestId("ordem-etapa-producao")).toHaveAttribute("data-estado", "atual");
 
-    // Toque 2: "Terminei: Produção" — sem confirmação, sem campo.
+    // Toque 2: "Passaram todas as 12" (D-02/UI-D12, Fase 06.5 — com 12 peças e o parcial vazio, o
+    // "Terminei" espera). Toque 3: "Terminei: Produção" — sem confirmação, sem campo.
     const terminei = page.getByTestId("ordem-terminei");
     await expect(terminei).toHaveText("Terminei: Produção");
+    await expect(terminei).toBeDisabled();
+    await page.getByTestId("passaram-todas").click();
+    await expect(terminei).toBeEnabled();
     await terminei.click();
 
     await expect(page.getByText("Feito: Produção. Agora: Secagem.")).toBeVisible();
@@ -109,6 +119,9 @@ test.describe("producao tracador", () => {
 
     const terminei = page.getByTestId("ordem-terminei");
     await expect(terminei).toHaveText("Terminei: Produção");
+    // D-02 (Fase 06.5): todas as 12 passaram antes — o toque duplo é no "Terminei" já habilitado.
+    await page.getByTestId("passaram-todas").click();
+    await expect(terminei).toBeEnabled();
     await terminei.dblclick();
 
     await expect(page.getByText("Feito: Produção. Agora: Secagem.")).toBeVisible();
@@ -124,7 +137,9 @@ test.describe("producao tracador", () => {
     page,
     context,
   }) => {
-    const ordemId = await semearOrdemNaProducao(`[e2e] Canecas ${sufixoUnico()}`);
+    // D-02 (Fase 06.5): as 12 já passaram (parcial semeado) — as duas abas abrem com o "Terminei"
+    // habilitado, e a recusa da segunda é a de etapa já marcada.
+    const ordemId = await semearOrdemNaProducao(`[e2e] Canecas ${sufixoUnico()}`, 12);
     const hoje = diaEmBrasilia();
 
     await fazerLogin(page);

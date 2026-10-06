@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import {
   diaEmBrasilia,
   etapasDaOrdemNoBanco,
@@ -172,5 +173,83 @@ test.describe("polimento produção — terminei", () => {
     await page.reload();
     await expect(page.getByTestId("ordem-etapa-secagem")).toHaveAttribute("data-estado", "atual");
     await expect(page.getByTestId("ordem-parcial")).toHaveValue("5");
+  });
+
+  // UI-D12: "Passaram todas as {N}" grava o parcial = total pelo mesmo caminho do campo e habilita o
+  // "Terminei" — dois toques continuam bastando.
+  test("(d) “Passaram todas as 6” e “Terminei”: dois toques terminam a etapa", async ({ page }) => {
+    const ordemId = await semearNaSecagem(nomeUnico("Passaram todas"));
+
+    await fazerLogin(page);
+    await abrirOrdem(page, ordemId);
+
+    const terminei = page.getByTestId("ordem-terminei");
+    const motivo = page.getByTestId("terminei-motivo");
+    const atalho = page.getByTestId("passaram-todas");
+    await expect(terminei).toBeDisabled();
+    await expect(atalho).toHaveText("Passaram todas as 6");
+    await expect(atalho).toHaveAccessibleName("Passaram todas as 6 peças pela Secagem");
+
+    // 44 px de toque; a partir de `@sm` da fileira (desktop) à esquerda do motivo, abaixo dele
+    // embaixo (celular — a fileira do Pixel 7 mede menos de 384 px).
+    const caixaDoAtalho = await medirCaixa(atalho, "passaram-todas");
+    const caixaDoMotivo = await medirCaixa(motivo, "terminei-motivo");
+    expect(caixaDoAtalho.height).toBeGreaterThanOrEqual(44);
+    if (test.info().project.name.includes("celular")) {
+      expect(caixaDoAtalho.y).toBeGreaterThanOrEqual(caixaDoMotivo.y + caixaDoMotivo.height - 1);
+    } else {
+      expect(caixaDoAtalho.x + caixaDoAtalho.width).toBeLessThanOrEqual(caixaDoMotivo.x + 1);
+      expect(caixaDoAtalho.y).toBeLessThan(caixaDoMotivo.y + caixaDoMotivo.height);
+      expect(caixaDoMotivo.y).toBeLessThan(caixaDoAtalho.y + caixaDoAtalho.height);
+    }
+
+    // Primeiro toque: o parcial vira 6 no banco e no campo; o motivo e o atalho somem.
+    await atalho.click();
+    await expect.poll(async () => (await secagemNoBanco(ordemId)).passaram).toBe(6);
+    await expect(page.getByTestId("ordem-parcial")).toHaveValue("6");
+    await expect(terminei).toBeEnabled();
+    await expect(motivo).toHaveCount(0);
+    await expect(atalho).toHaveCount(0);
+    // Sem toast (UI-SPEC): o número no campo é o retorno.
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+
+    // Segundo toque: a etapa avança.
+    await terminei.click();
+    await expect(page.getByText("Feito: Secagem. Agora: Queima de biscoito.")).toBeVisible();
+    await expect(page.getByTestId("ordem-etapa-queima1")).toHaveAttribute("data-estado", "atual");
+    expect((await secagemNoBanco(ordemId)).feitaEm).toBe(diaEmBrasilia());
+  });
+
+  test("(e) “Passaram todas” sem internet: a frase do campo parcial, e nada gravado", async ({
+    page,
+  }) => {
+    const ordemId = await semearNaSecagem(nomeUnico("Passaram todas falha"), {
+      passaramNaAtual: 2,
+    });
+
+    await fazerLogin(page);
+    await abrirOrdem(page, ordemId);
+    await expect(page.getByTestId("terminei-motivo")).toHaveText(
+      "Faltam 4 das 6 peças passarem pela Secagem.",
+    );
+
+    // A Server Action é um POST para a própria página: derrubado, a chamada lança.
+    const derrubarPost = (rota: Route) =>
+      rota.request().method() === "POST" ? rota.abort("internetdisconnected") : rota.continue();
+    await page.route(`**/gestao/producao/${ordemId}`, derrubarPost);
+    await page.getByTestId("passaram-todas").click();
+    await expect(page.getByTestId("passaram-todas-erro")).toHaveText(
+      "Não deu para salvar quantas já passaram. Verifique a internet e tente de novo.",
+    );
+    await expect(page.getByTestId("passaram-todas-erro")).toHaveAttribute("role", "alert");
+    await expect(page.getByTestId("ordem-terminei")).toBeDisabled();
+    expect((await secagemNoBanco(ordemId)).passaram).toBe(2);
+
+    // A internet volta: o mesmo toque grava, e a frase sai.
+    await page.unroute(`**/gestao/producao/${ordemId}`, derrubarPost);
+    await page.getByTestId("passaram-todas").click();
+    await expect.poll(async () => (await secagemNoBanco(ordemId)).passaram).toBe(6);
+    await expect(page.getByTestId("ordem-terminei")).toBeEnabled();
+    await expect(page.getByTestId("passaram-todas-erro")).toHaveCount(0);
   });
 });

@@ -4,12 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { terminarEtapa } from "@/lib/producao/acoes";
+import { registrarParcial, terminarEtapa } from "@/lib/producao/acoes";
 import { rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "@/lib/producao/etapas";
 import {
   FRASE_FALHA_AO_MARCAR,
+  FRASE_FALHA_AO_SALVAR_PARCIAL,
   ROTULO_MARCANDO,
+  ROTULO_SALVANDO,
+  ariaPassaramTodas,
   motivoTermineiDesabilitado,
+  rotuloPassaramTodas,
   rotuloTerminei,
   textoToastTerminei,
 } from "@/lib/producao/textos";
@@ -73,6 +77,11 @@ export function BotaoTerminei({ ordemId, tipo, etapa, total, passaram }: BotaoTe
   const [inicioDaEspera, setInicioDaEspera] = useState(0);
   const [etapaVista, setEtapaVista] = useState(etapa);
   const [erro, setErro] = useState<string | null>(null);
+  // "Passaram todas as {N}" (UI-D12): o estado mora aqui, e não no atalho, para a frase de uma
+  // falha sobreviver à recarga que tira o atalho da tela (WR-104).
+  const atalhoEmVoo = useRef(false);
+  const [salvandoAtalho, setSalvandoAtalho] = useState(false);
+  const [erroDoAtalho, setErroDoAtalho] = useState<string | null>(null);
   // A etapa que ESTE botão acabou de marcar, enquanto a tela ainda não trouxe a seguinte. Guardar a
   // etapa (e não um "sim/não") resolve a ordem incerta entre a resposta da ação e o desenho novo: se
   // a tela nova chegou antes do `await` voltar, a etapa mostrada já é outra e nada fica travado.
@@ -140,6 +149,42 @@ export function BotaoTerminei({ ordemId, tipo, etapa, total, passaram }: BotaoTe
     }
   }
 
+  // "Passaram todas as {N}": grava o parcial = total pelo MESMO caminho do campo (`registrarParcial`,
+  // contra a etapa que a tela mostra) — sem toast, sem confirmação. No sucesso, a ação já revalida
+  // a página e a resposta traz o parcial novo: o campo mostra o total e o "Terminei" habilita pela
+  // prop (WR-106 — a recarga é daqui só na recusa ou na falha, como no `CampoParcial`).
+  async function aoTocarPassaramTodas() {
+    if (etapa === null || atalhoEmVoo.current) {
+      return;
+    }
+    atalhoEmVoo.current = true;
+    setSalvandoAtalho(true);
+    setErroDoAtalho(null);
+    try {
+      const resultado = await registrarParcial({
+        ordemId,
+        etapaEsperada: etapa,
+        passaramTexto: String(total),
+      });
+      if (!resultado.ok) {
+        setErroDoAtalho(resultado.erro);
+        router.refresh();
+      }
+    } catch {
+      setErroDoAtalho(FRASE_FALHA_AO_SALVAR_PARCIAL);
+      router.refresh();
+    } finally {
+      atalhoEmVoo.current = false;
+      setSalvandoAtalho(false);
+    }
+  }
+
+  const fraseDoAtalho = erroDoAtalho ? (
+    <p data-testid="passaram-todas-erro" role="alert" className="text-apoio text-erro w-full">
+      {erroDoAtalho}
+    </p>
+  ) : null;
+
   // A frase fica no fluxo, embaixo do botão (sem barra fixa, não há bolha a ancorar). Com o botão,
   // segue a coluna dele (à direita no desktop); sem botão, `w-full` — na fileira, que quebra linha,
   // ela ganha a própria linha depois dos botões.
@@ -155,7 +200,12 @@ export function BotaoTerminei({ ordemId, tipo, etapa, total, passaram }: BotaoTe
 
   if (etapa === null) {
     // Sem botão: só a frase da última recusa, se houver (WR-104).
-    return frase;
+    return (
+      <>
+        {frase}
+        {fraseDoAtalho}
+      </>
+    );
   }
 
   const regra = podeTerminarEtapa(total, passaram);
@@ -177,15 +227,36 @@ export function BotaoTerminei({ ordemId, tipo, etapa, total, passaram }: BotaoTe
         </Button>
         {frase}
       </div>
-      {regra.pode ? null : (
-        <div className="w-full md:text-right">
-          <p
-            id={ID_DO_MOTIVO}
-            data-testid="terminei-motivo"
-            className="text-apoio text-tinta-fraca"
-          >
-            {motivoTermineiDesabilitado(rotuloEtapa, total, passaram)}
-          </p>
+      {regra.pode ? (
+        fraseDoAtalho
+      ) : (
+        // `@container`: a régua do "à esquerda do motivo / embaixo dele" é a largura da fileira,
+        // não a da tela. Abaixo de `@sm`, o motivo e, embaixo, o atalho; a partir de `@sm`, o atalho
+        // à esquerda do motivo (`flex-row-reverse`: no DOM o motivo vem primeiro — lê-se o porquê
+        // antes da ação), alinhados à direita no desktop, como a fileira.
+        <div className="@container flex w-full flex-col gap-2">
+          <div className="flex flex-col gap-2 @sm:flex-row-reverse @sm:items-center @sm:justify-end md:justify-start">
+            <p
+              id={ID_DO_MOTIVO}
+              data-testid="terminei-motivo"
+              className="text-apoio text-tinta-fraca md:text-right"
+            >
+              {motivoTermineiDesabilitado(rotuloEtapa, total, passaram)}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="passaram-todas"
+              aria-label={ariaPassaramTodas(total, rotuloEtapa)}
+              aria-busy={salvandoAtalho ? "true" : undefined}
+              disabled={salvandoAtalho}
+              onClick={() => void aoTocarPassaramTodas()}
+              className="text-corpo h-auto min-h-[44px] shrink-0 px-4 font-semibold whitespace-normal"
+            >
+              {salvandoAtalho ? ROTULO_SALVANDO : rotuloPassaramTodas(total)}
+            </Button>
+          </div>
+          {fraseDoAtalho}
         </div>
       )}
     </>

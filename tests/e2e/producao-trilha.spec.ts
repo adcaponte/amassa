@@ -90,7 +90,11 @@ test.describe("producao trilha", () => {
     // Nenhuma etapa feita: "Desfazer" desabilitado.
     await expect(desfazer).toBeDisabled();
 
-    // O toast do "Terminei" nunca oferece "Desfazer" (UI-D16) — desfazer só pela confirmação.
+    // O toast do "Terminei" nunca oferece "Desfazer" (UI-D16) — desfazer só pela confirmação. As 12
+    // peças passam antes ("Passaram todas as 12"): desde a Fase 06.5 (D-02, dono 05/10/2026) o
+    // "Terminei" de uma ordem de várias peças só libera com todas passadas.
+    await page.getByTestId("passaram-todas").click();
+    await expect(page.getByTestId("ordem-terminei")).toBeEnabled();
     await page.getByTestId("ordem-terminei").click();
     const toast = page.locator("[data-sonner-toast]").filter({ hasText: "Feito: Produção." });
     await expect(toast).toBeVisible();
@@ -237,8 +241,15 @@ test.describe("producao trilha", () => {
     await expect(campo).toHaveValue("31");
     expect(etapaNoBanco(await etapasDaOrdemNoBanco(ordemId), "secagem").passaram).toBe(18);
 
-    // Volta ao 18 (igual ao gravado — sair do campo não grava) e "Terminei" limpa o parcial.
-    await campo.fill("18");
+    // Com 18 de 30 o "Terminei" espera (D-02, Fase 06.5 — dono 05/10/2026): todas as 30 passam
+    // pelo campo, e o "Terminei" limpa o parcial.
+    await expect(page.getByTestId("ordem-terminei")).toBeDisabled();
+    await campo.fill("30");
+    await campo.press("Enter");
+    await expect
+      .poll(async () => etapaNoBanco(await etapasDaOrdemNoBanco(ordemId), "secagem").passaram)
+      .toBe(30);
+    await expect(page.getByTestId("ordem-terminei")).toBeEnabled();
     await page.getByTestId("ordem-terminei").click();
     await expect(page.getByText("Feito: Secagem. Agora: Queima de biscoito.")).toBeVisible();
     const etapas = await etapasDaOrdemNoBanco(ordemId);
