@@ -32,23 +32,32 @@ const DESCRICAO_DO_SITE =
 // SEO básico (SIT-08): a URL base abaixo resolve o Open Graph para caminho absoluto a partir de
 // um relativo (`/site/abertura.jpg`); o critério do dono é aparecer no Google para "amassa
 // cerrado pirenópolis" — `app/robots.ts` libera a raiz para isso, `app/sitemap.ts` (Tarefa 3)
-// lista só ela. `width`/`height` são as dimensões REAIS do arquivo (conferidas com
+// lista só ela (até 06/10/2026; desde o plano 06.5-21 lista também `/privacidade`). `width`/`height` são as dimensões REAIS do arquivo (conferidas com
 // `sharp(...).metadata()`, não inventadas); o `alt` vem de `SLOTS_DE_IMAGEM.abertura.alt` — uma
 // verdade, um lugar, nunca reescrita aqui.
+//
+// Fase 06.5, plano 21 (D-29, 06/10/2026): canonical e `og:url` explícitos, e a imagem de
+// compartilhamento deixou de ser a foto de abertura inteira (666×1000, retrato — o WhatsApp e as
+// redes cortavam do jeito deles) e passou a ser `abertura-og.jpg`, um recorte 1200×630 da MESMA
+// foto, sem texto por cima, feito uma vez com o `sharp` do projeto (comando no 06.5-21-SUMMARY.md).
+// As dimensões abaixo são as do arquivo, medidas com `sharp(...).metadata()`. Quando o dono mandar
+// uma foto maior, troca-se só o arquivo.
 export const metadata: Metadata = {
   title: TITULO_DO_SITE,
   description: DESCRICAO_DO_SITE,
   metadataBase: new URL("https://amassacerrado.com.br"),
+  alternates: { canonical: "/" },
   openGraph: {
     title: TITULO_DO_SITE,
     description: DESCRICAO_DO_SITE,
+    url: "/",
     type: "website",
     locale: "pt_BR",
     images: [
       {
-        url: "/site/abertura.jpg",
-        width: 666,
-        height: 1000,
+        url: "/site/abertura-og.jpg",
+        width: 1200,
+        height: 630,
         alt: SLOTS_DE_IMAGEM.abertura.alt,
       },
     ],

@@ -137,16 +137,24 @@ describe("calendário do site — pares S1-S8 (AGE-18, UI-D17)", () => {
 });
 
 describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
-  it("devolve uma entrada só (a raiz), com lastModified, determinística entre chamadas", async () => {
+  // Fase 06.5, plano 21 (D-29, 06/10/2026): duas entradas — a raiz e `/privacidade` — com a mesma
+  // `lastModified` viva (`PUBLICADO_EM`, o instante da publicação). Até 06/10 era uma entrada só.
+  it("devolve a raiz e /privacidade, com lastModified igual, determinística entre chamadas", async () => {
     const modulo = await import("@/app/sitemap");
     const sitemap = modulo.default;
 
     const primeira = sitemap();
     const segunda = sitemap();
 
-    expect(primeira).toHaveLength(1);
-    expect(primeira[0]?.url).toMatch(/\/$/);
-    expect(primeira[0]?.lastModified).toBeDefined();
+    expect(primeira.map((entrada) => entrada.url)).toEqual([
+      "https://amassacerrado.com.br/",
+      "https://amassacerrado.com.br/privacidade",
+    ]);
+    expect(primeira[0]?.priority).toBe(1);
+    expect(primeira[1]?.priority).toBeLessThan(1);
+    expect(primeira[0]?.lastModified).toBeInstanceOf(Date);
+    expect(primeira[1]?.lastModified).toEqual(primeira[0]?.lastModified);
+    expect(primeira.some((entrada) => entrada.url.includes("gestao"))).toBe(false);
     expect(segunda).toEqual(primeira);
   });
 });

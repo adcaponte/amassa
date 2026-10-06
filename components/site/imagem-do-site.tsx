@@ -13,12 +13,19 @@ type ImagemDoSiteProps = {
   slot: SlotDeImagem;
   sizes?: string;
   className?: string;
+  // D-29 (Fase 06.5, 06/10/2026): a foto que é o maior elemento da primeira tela (a de abertura)
+  // carrega com prioridade — `<link rel="preload">` no `<head>` e sem `loading="lazy"`. No Next 16 a
+  // prop `priority` do `next/image` está DEPRECIADA em favor de `preload`, que faz exatamente o
+  // mesmo (`get-img-props.js`: `preload: preload || priority`); por isso `prioridade` vira `preload`.
+  // As outras fotos continuam no padrão (`lazy`).
+  prioridade?: boolean;
 };
 
 export function ImagemDoSite({
   slot,
   sizes = "(min-width: 768px) 45vw, 100vw",
   className,
+  prioridade = false,
 }: ImagemDoSiteProps) {
   const dados = SLOTS_DE_IMAGEM[slot];
 
@@ -26,7 +33,14 @@ export function ImagemDoSite({
 
   return (
     <div className={`relative h-full w-full ${className ?? ""}`}>
-      <Image src={`/site/${dados.arquivo}`} alt={dados.alt} fill sizes={sizes} className="object-cover" />
+      <Image
+        src={`/site/${dados.arquivo}`}
+        alt={dados.alt}
+        fill
+        sizes={sizes}
+        preload={prioridade}
+        className="object-cover"
+      />
     </div>
   );
 }

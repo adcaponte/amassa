@@ -228,8 +228,11 @@ test.describe("site secoes", () => {
   }) => {
     await page.goto("/");
 
+    // Fase 06.5, plano 21 (D-29, 06/10/2026): a imagem de compartilhamento é o recorte 1200×630 da
+    // foto de abertura (`abertura-og.jpg`); até 06/10 era a própria `abertura.jpg` em retrato. O
+    // detalhe (dimensões, canonical, og:url) está em tests/e2e/polimento-site.spec.ts.
     const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
-    expect(ogImage).toMatch(/\/site\/abertura\.jpg$/);
+    expect(ogImage).toMatch(/\/site\/abertura-og\.jpg$/);
 
     const ogTitle = await page.locator('meta[property="og:title"]').getAttribute("content");
     const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");

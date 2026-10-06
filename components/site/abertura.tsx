@@ -42,7 +42,8 @@ export function Abertura() {
         </div>
 
         <div className="aspect-[4/5] overflow-hidden rounded-3xl bg-site-areia">
-          <ImagemDoSite slot="abertura" sizes="(min-width: 768px) 45vw, 100vw" />
+          {/* D-29 (Fase 06.5): a foto de abertura é o maior elemento da primeira tela — carrega primeiro. */}
+          <ImagemDoSite slot="abertura" sizes="(min-width: 768px) 45vw, 100vw" prioridade />
         </div>
       </div>
     </header>

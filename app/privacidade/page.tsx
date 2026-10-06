@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CONTEUDO_SITE } from "@/conteudo/site";
+import { CONTEUDO_SITE, SLOTS_DE_IMAGEM } from "@/conteudo/site";
 import { PularParaOConteudo } from "@/components/site/pular-para-o-conteudo";
 import { Rodape } from "@/components/site/rodape";
 import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
@@ -14,10 +14,32 @@ import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 // site, analytics, outro destino de backup), esta página muda junto.
 export const dynamic = "force-static";
 
+const TITULO = "Privacidade — AMASSA CERRADO";
+const DESCRICAO = "Como a AMASSA CERRADO trata os dados de quem visita o site e de quem é atendido pelo ateliê.";
+
+// D-29 (Fase 06.5, 06/10/2026): canonical e `og:url` próprios desta página. O Open Graph de uma
+// página não herda o da raiz (são irmãs, não layout e filha), então o título, a descrição e a
+// imagem de compartilhamento — o mesmo recorte 1200×630 da foto de abertura — estão escritos aqui.
 export const metadata: Metadata = {
-  title: "Privacidade — AMASSA CERRADO",
-  description: "Como a AMASSA CERRADO trata os dados de quem visita o site e de quem é atendido pelo ateliê.",
+  title: TITULO,
+  description: DESCRICAO,
   metadataBase: new URL("https://amassacerrado.com.br"),
+  alternates: { canonical: "/privacidade" },
+  openGraph: {
+    title: TITULO,
+    description: DESCRICAO,
+    url: "/privacidade",
+    type: "website",
+    locale: "pt_BR",
+    images: [
+      {
+        url: "/site/abertura-og.jpg",
+        width: 1200,
+        height: 630,
+        alt: SLOTS_DE_IMAGEM.abertura.alt,
+      },
+    ],
+  },
 };
 
 const ATUALIZADA_EM = "4 de outubro de 2026";

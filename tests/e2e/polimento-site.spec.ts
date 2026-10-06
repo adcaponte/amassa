@@ -50,3 +50,71 @@ test.describe("polimento site — pular", () => {
     });
   }
 });
+
+// D-29: o que o Google e o WhatsApp leem. Os endereços absolutos saem do `metadataBase` das duas
+// páginas (o domínio de produção), também quando o teste roda em localhost.
+test.describe("polimento site — metadados", () => {
+  const BASE = "https://amassacerrado.com.br";
+
+  for (const [caminho, absoluto] of [
+    ["/", `${BASE}/`],
+    ["/privacidade", `${BASE}/privacidade`],
+  ] as const) {
+    test(`${caminho}: canonical e og:url apontam para ${absoluto}; og:image é o recorte 1200×630`, async ({
+      page,
+      request,
+    }) => {
+      await page.goto(caminho);
+
+      // Comparados depois de `new URL(...).href`: para a raiz, o Next escreve "https://amassacerrado.com.br",
+      // sem a barra final — a MESMA URL que "https://amassacerrado.com.br/" do sitemap (a forma
+      // normalizada de uma origem sempre leva a barra).
+      const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+      const ogUrl = await page.locator('meta[property="og:url"]').getAttribute("content");
+      expect(canonical).not.toBeNull();
+      expect(ogUrl).not.toBeNull();
+      expect(new URL(canonical!).href).toBe(absoluto);
+      expect(new URL(ogUrl!).href).toBe(absoluto);
+
+      const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
+      expect(ogImage).toBe(`${BASE}/site/abertura-og.jpg`);
+      await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute("content", "1200");
+      await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute("content", "630");
+
+      // O arquivo existe e é servido como imagem — pedido ao servidor de teste, pelo mesmo caminho.
+      const resposta = await request.get(new URL(ogImage!).pathname);
+      expect(resposta.status()).toBe(200);
+      expect(resposta.headers()["content-type"]).toMatch(/^image\//);
+    });
+  }
+
+  test("a foto de abertura carrega com prioridade e as flores sem preload", async ({ page }) => {
+    await page.goto("/");
+
+    // `preload` do next/image: a foto de abertura não é `lazy` e tem um `<link rel="preload">` no head.
+    const fotoDeAbertura = page.getByTestId("site-abertura").locator("img:not([aria-hidden])");
+    await expect(fotoDeAbertura).toHaveCount(1);
+    await expect(fotoDeAbertura).not.toHaveAttribute("loading", "lazy");
+    await expect(page.locator('link[rel="preload"][as="image"][imagesrcset*="abertura.jpg"]')).toHaveCount(1);
+
+    // As flores: decorativas, `lazy` e `async`, nunca no preload.
+    const flores = page.locator('img[src^="/site/decoracao/"]');
+    expect(await flores.count()).toBeGreaterThan(0);
+    for (const flor of await flores.all()) {
+      await expect(flor).toHaveAttribute("loading", "lazy");
+      await expect(flor).toHaveAttribute("decoding", "async");
+    }
+    await expect(page.locator('link[rel="preload"][href*="/site/decoracao/"]')).toHaveCount(0);
+  });
+
+  test("/sitemap.xml lista a raiz e /privacidade, com lastmod", async ({ request }) => {
+    const resposta = await request.get("/sitemap.xml");
+    expect(resposta.status()).toBe(200);
+
+    const corpo = await resposta.text();
+    expect(corpo).toContain(`<loc>${BASE}/</loc>`);
+    expect(corpo).toContain(`<loc>${BASE}/privacidade</loc>`);
+    expect(corpo.match(/<lastmod>/g)).toHaveLength(2);
+    expect(corpo).not.toContain("gestao");
+  });
+});
