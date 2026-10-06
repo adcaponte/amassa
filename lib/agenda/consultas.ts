@@ -34,7 +34,6 @@ import {
   lerCobranca,
   lerCobrancas,
   contarPerdasAoDesativar,
-  garantirMensalidadesDoMes,
   type PerdasAoCancelar,
   type ReferenciaDaCobranca,
   type PerdasAoDesativar,
@@ -43,6 +42,7 @@ import {
 } from "./gravacao";
 import { horaDe, minutosDe } from "./horario";
 import { mesDaData, valorDaAula } from "./mensalidade";
+import { garantirMensalidadesDoMesNaRequisicao } from "./mensalidades-da-requisicao";
 import type { DadosDosNumeros } from "./numeros";
 import { ordenarInscritos, precisaMarcarPresenca } from "./presenca";
 import {
@@ -1723,7 +1723,7 @@ export type AgendaDeHoje = {
 // regras são dos puros — `pessoasAgoraNoEspaco`/`presencaPendenteAgora` (`espaco.ts`) e `ordenarNoDia`
 // (`semana.ts`); aqui só se lê e se monta.
 export async function agendaDeHoje(hoje: string, agora: { data: string; minutos: number }): Promise<AgendaDeHoje> {
-  await garantirMensalidadesDoMes(db, mesDaData(hoje));
+  await garantirMensalidadesDoMesNaRequisicao(mesDaData(hoje));
   const usos = usosLivresEntre(hoje, hoje);
   const contagem = db
     .select({

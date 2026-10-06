@@ -33,7 +33,7 @@ import {
   turmasPorCliente,
   ultimasVindas,
 } from "@/lib/agenda/consultas";
-import { garantirMensalidadesDoMes } from "@/lib/agenda/gravacao";
+import { garantirMensalidadesDoMesNaRequisicao } from "@/lib/agenda/mensalidades-da-requisicao";
 import { mesDaData } from "@/lib/agenda/mensalidade";
 import { numerosDoMes } from "@/lib/agenda/numeros";
 import { agendaPublica } from "@/lib/agenda/publico/agenda";
@@ -206,6 +206,8 @@ export default async function PaginaAgenda({
 // As abas com o contador de "A receber". D-02: a mensalidade do mês nasce ANTES de contar (a mesma
 // escrita idempotente da ficha e da aba — o porquê está em `garantirMensalidadesDoMes`), para o número
 // da aba nunca ser menor que a lista. A conta que falha não derruba a página: as abas aparecem sem ela.
+// Fase 06.5 (D-21): as quatro seções desta página que garantem o mês (abas, “A receber”, Pessoas, a
+// ficha) passam por `garantirMensalidadesDoMesNaRequisicao` — a escrita roda UMA vez por requisição.
 // A aba "No site" (UI-D18): a MESMA leitura pública do site, ao vivo, SEM o try/catch dele — se ela
 // falhar, o erro sobe ao `error.tsx` da Agenda ("Não deu para carregar a agenda…" + "Tentar de novo"),
 // nunca o estado da D-11, que diria ao gestor "nenhuma aula pública" sem ser verdade (decisão do
@@ -218,7 +220,7 @@ async function NoSiteCarregado({ hoje }: { hoje: string }) {
 async function AbasComContagem({ aba, hoje }: { aba: AbaDaAgenda; hoje: string }) {
   let quantos = 0;
   try {
-    await garantirMensalidadesDoMes(db, mesDaData(hoje));
+    await garantirMensalidadesDoMesNaRequisicao(mesDaData(hoje));
     quantos = await quantosAReceber();
   } catch (erro) {
     console.error("Falha ao contar o que falta receber:", erro);
@@ -231,7 +233,7 @@ async function AbasComContagem({ aba, hoje }: { aba: AbaDaAgenda; hoje: string }
 // que falha cai no `error.tsx` da página, como a lista de Pessoas. `?dispensadas=` (plano 13): quantas a
 // sanfona “Dispensadas” mostra — 20 por vez.
 async function AReceberCarregado({ hoje, quantasDispensadas }: { hoje: string; quantasDispensadas: number }) {
-  await garantirMensalidadesDoMes(db, mesDaData(hoje));
+  await garantirMensalidadesDoMesNaRequisicao(mesDaData(hoje));
   const dados = await lerAReceber({ quantasDispensadas });
   return <AReceber dados={dados} />;
 }
@@ -281,7 +283,7 @@ async function PessoasCarregadas({
   // sairia baixa até alguém abrir “A receber”, a ficha ou o Início. A mesma escrita idempotente da ficha
   // (chave única + `on conflict do nothing` — o porquê está em `garantirMensalidadesDoMes`); a página já
   // chamou `exigirUsuario()` na primeira linha.
-  await garantirMensalidadesDoMes(db, mesDaData(hoje));
+  await garantirMensalidadesDoMesNaRequisicao(mesDaData(hoje));
   const [lista, ficha, turmaAberta] = await Promise.all([
     listarClientes({ busca, quantos }),
     lerFicha(idDaPessoa, hoje),
@@ -322,7 +324,7 @@ async function lerFicha(id: string | null, hoje: string): Promise<FichaDoServido
     // D-02: a mensalidade do mês nasce ao abrir a ficha, ANTES de ler as turmas e as cobranças da
     // pessoa — escrita idempotente pela chave única (o porquê está em `garantirMensalidadesDoMes`). A
     // página já chamou `exigirUsuario()` na primeira linha (T-05-32).
-    await garantirMensalidadesDoMes(db, mesDaData(hoje));
+    await garantirMensalidadesDoMesNaRequisicao(mesDaData(hoje));
     const [vindas, turmas, creditos, aReceberCentavos] = await Promise.all([
       ultimasVindas(id, hoje),
       turmasDaPessoa(id, hoje),

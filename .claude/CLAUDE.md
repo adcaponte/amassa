@@ -36,7 +36,7 @@ dar baixa em material não for confortável no celular, o sistema não é usado 
 - **Idioma**: **português do Brasil** em toda a interface, mensagens de erro e nomes de tabela e
   coluna. Código (variáveis, funções, tipos) em inglês, seguindo a convenção da linguagem.
 
-- **Tech stack**: Next.js 15+ (App Router, TypeScript estrito), React 19, Tailwind CSS v4,
+- **Tech stack**: Next.js 16 (App Router, TypeScript estrito), React 19, Tailwind CSS v4,
   shadcn/ui, Recharts, PostgreSQL em Docker, Drizzle ORM, Auth.js v5 (Credentials + argon2id),
   Server Actions + Zod, TanStack Query só onde há interação otimista, date-fns, react-hook-form,
   lucide-react, Vitest, Playwright. Caddy como proxy reverso com HTTPS automático.
