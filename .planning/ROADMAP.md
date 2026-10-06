@@ -1138,9 +1138,9 @@ Plans:
 - [x] 06.5-18-PLAN.md — “Corrigir”: a despesa (com fornecedor e material) e as recusas na tela (D-18) — **Concluído no branch `gsd/phase-06.5-polimento` (`2791914..b36f587`) — ver `06.5-18-SUMMARY.md`**
 - [x] 06.5-19-PLAN.md — cabeçalhos de segurança, as duas rotas do orçamento, sessão e mensalidade uma vez por requisição, CLAUDE.md com o Next 16 (D-19, D-20, D-21) — **Concluído no branch `gsd/phase-06.5-polimento` (`790d34d..a86eaf0`) — ver `06.5-19-SUMMARY.md`**
 - [x] 06.5-20-PLAN.md — site: telefone do `zap`, “Abrimos em dezembro”, textos, slots do dono e a guarda de 01/12 (D-28, D-30, D-31, D-32) — **Concluído no branch `gsd/phase-06.5-polimento` (`be8e370..df5534b`) — ver `06.5-20-SUMMARY.md`**
-- [ ] 06.5-21-PLAN.md — site: `<main>` e “pular para o conteúdo”, canonical/`og:url`/sitemap/OG 1200×630, faixa do Instagram (D-29, D-32)
-- [ ] 06.5-22-PLAN.md — CI: e2e em dois jobs, imagem única com cache e tag do commit, trace do Turbopack (D-22)
-- [ ] 06.5-23-PLAN.md — `medirCaixa` nos 42 specs antigos e a regra sem exceção (D-23, parte 2)
+- [x] 06.5-21-PLAN.md — site: `<main>` e “pular para o conteúdo”, canonical/`og:url`/sitemap/OG 1200×630, faixa do Instagram (D-29, D-32) — **Concluído no branch `gsd/phase-06.5-polimento` (`5ac05ae..9dcc6dd`) — ver `06.5-21-SUMMARY.md`**
+- [x] 06.5-22-PLAN.md — CI: e2e em dois jobs, imagem única com cache e tag do commit, trace do Turbopack (D-22) — **Concluído no branch `gsd/phase-06.5-polimento` (`8de1a51..d2df825`) — ver `06.5-22-SUMMARY.md`**
+- [x] 06.5-23-PLAN.md — `medirCaixa` nos 42 specs antigos e a regra sem exceção (D-23, parte 2) — **Concluído no branch `gsd/phase-06.5-polimento` (`5c5a23a..2de4278`) — ver `06.5-23-SUMMARY.md`**
 - [ ] 06.5-24-PLAN.md — `Folha` comum e as folhas do Estoque (D-24, P8)
 - [ ] 06.5-25-PLAN.md — “Recebi agora” comum (parte visual) e a `Folha` na Produção, no “Recebi agora” e na contagem das Queimas (D-24, P8/P9)
 - [ ] 06.5-26-PLAN.md — `Folha` na Agenda, em Fornecedores e Clientes; `85vh` → `85svh` (D-24, P8)
