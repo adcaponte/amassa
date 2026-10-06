@@ -635,6 +635,16 @@ export function fraseCorrecaoDeCancelada(tipo: TipoDeDocumentoParaTexto, numeroO
   return `A ${nome} nº ${numeroOriginal} já foi cancelada — não há o que corrigir. Se precisar, lance uma ${nome} nova.`;
 }
 
+// O vínculo no detalhe do documento (06.5-UI-SPEC.md §“Corrigir”, passo 5): na original (riscada) e na
+// nova.
+export function textoCorrigidaPor(tipo: TipoDeDocumentoParaTexto, numeroNova: number): string {
+  return `Corrigida pela ${tipo === "venda" ? "venda" : "despesa"} nº ${numeroNova}`;
+}
+
+export function textoCorrige(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  return `Corrige a ${tipo === "venda" ? "venda" : "despesa"} nº ${numeroOriginal}`;
+}
+
 // `?corrige=` que não acha a original (id inválido, inexistente ou de outro tipo).
 export function fraseCorrecaoNaoAchada(tipo: TipoDeDocumentoParaTexto): string {
   const nome = tipo === "venda" ? "venda" : "despesa";

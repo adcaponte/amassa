@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { codigoDoErroPostgres, ehViolacaoDeChaveEstrangeira } from "../../lib/erro/postgres";
+import { codigoDoErroPostgres, ehTabelaAusente, ehViolacaoDeChaveEstrangeira } from "../../lib/erro/postgres";
 
 describe("lib/erro/postgres — codigoDoErroPostgres", () => {
   it("erro cru do pg, com 'code' de tipo string no próprio objeto, devolve esse código", () => {
@@ -66,5 +66,28 @@ describe("lib/erro/postgres — ehViolacaoDeChaveEstrangeira", () => {
 
   it.each([[undefined], [null], [{}]])("false para %p", (valor) => {
     expect(ehViolacaoDeChaveEstrangeira(valor)).toBe(false);
+  });
+});
+
+// 06.5-17-PLAN.md, Tarefa 2 — a leitura tolerante de `correcoes_de_documento` na janela do Roteiro 22:
+// só a tabela ausente vira “sem vínculo”; qualquer outro erro sobe.
+describe("lib/erro/postgres — ehTabelaAusente", () => {
+  it("true para o 42P01 embrulhado pelo Drizzle (em cause.code)", () => {
+    expect(ehTabelaAusente({ cause: { code: "42P01" } })).toBe(true);
+  });
+
+  it("true para o 42P01 cru do pg", () => {
+    expect(ehTabelaAusente({ code: "42P01" })).toBe(true);
+  });
+
+  it("false para outro código (coluna ausente, conexão recusada, permissão)", () => {
+    expect(ehTabelaAusente({ cause: { code: "42703" } })).toBe(false);
+    expect(ehTabelaAusente({ cause: { code: "08006" } })).toBe(false);
+    expect(ehTabelaAusente({ cause: { code: "42501" } })).toBe(false);
+  });
+
+  it("false para um erro sem causa nem código", () => {
+    expect(ehTabelaAusente(new Error("falha qualquer"))).toBe(false);
+    expect(ehTabelaAusente(undefined)).toBe(false);
   });
 });

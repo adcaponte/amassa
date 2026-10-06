@@ -1,8 +1,8 @@
 // Leituras do módulo Financeiro. Sem `"use server"` — não são Server Actions, são consultas
 // chamadas direto do Server Component da página; `lib/financeiro/acoes.ts` fica só com escrita
 // (mesmo molde de `lib/abertura/consultas.ts`/`lib/queimas/consultas.ts`).
-import { and, asc, count, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { and, asc, count, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { alias, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
@@ -23,6 +23,7 @@ import {
   usosLivres,
   usuarios,
 } from "@/db/schema";
+import { ehTabelaAusente } from "@/lib/erro/postgres";
 import { numeroDeOrcamento } from "@/lib/orcamentos/formato";
 
 import { mesSeguinte, primeiroDiaDoMes } from "./calendario";
@@ -489,7 +490,55 @@ export type DocumentoParaDetalhe = {
   // Fase 06.5, plano 17 (UI-D10): de onde veio o documento que NÃO se corrige pela Venda/Despesa
   // (Agenda, Queimas, orçamento, conta fixa) — `null` = o “Corrigir” aparece (se não estiver cancelado).
   origemParaCorrecao: OrigemSemCorrecao | null;
+  // O vínculo da correção (06.5-17): na original, o número da que a corrigiu (“Corrigida pela venda nº
+  // {38}”); na nova, o número da original (“Corrige a venda nº {33}”). `null` = sem vínculo daquele lado.
+  corrigidaPorNumero: number | null;
+  corrigeNumero: number | null;
 };
+
+// Os vínculos de `correcoes_de_documento` em que algum dos ids é a original OU a corrigida, com o número
+// (e o tipo) dos dois lados — uma consulta só, para a lista inteira.
+//
+// LEITURA TOLERANTE, só para a janela do Roteiro 22 (06.5-11): entre o `implantar` (código novo) e o
+// `db:migrate` à mão da 0031, a tabela ainda não existe; o Caixa não pode quebrar por isso. Só a SQLSTATE
+// 42P01 (tabela ausente) vira “sem vínculo” — qualquer outro erro sobe. Depois da 0031 aplicada, esta
+// tolerância nunca dispara.
+type VinculoDeCorrecao = {
+  originalId: string;
+  corrigidoId: string;
+  tipo: TipoDeDocumentoParaTexto;
+  numeroOriginal: number;
+  numeroCorrigido: number;
+};
+
+const documentoOriginal = alias(documentos, "documento_original");
+const documentoCorrigido = alias(documentos, "documento_corrigido");
+
+async function vinculosDeCorrecao(ids: readonly string[]): Promise<VinculoDeCorrecao[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+  const lista = ids as string[];
+  try {
+    return await db
+      .select({
+        originalId: correcoesDeDocumento.originalId,
+        corrigidoId: correcoesDeDocumento.corrigidoId,
+        tipo: documentoOriginal.tipo,
+        numeroOriginal: documentoOriginal.numero,
+        numeroCorrigido: documentoCorrigido.numero,
+      })
+      .from(correcoesDeDocumento)
+      .innerJoin(documentoOriginal, eq(documentoOriginal.id, correcoesDeDocumento.originalId))
+      .innerJoin(documentoCorrigido, eq(documentoCorrigido.id, correcoesDeDocumento.corrigidoId))
+      .where(or(inArray(correcoesDeDocumento.originalId, lista), inArray(correcoesDeDocumento.corrigidoId, lista)));
+  } catch (erro) {
+    if (ehTabelaAusente(erro)) {
+      return [];
+    }
+    throw erro;
+  }
+}
 
 // As origens da Agenda (inscrição, mensalidade, uso livre) e das Queimas de uma LISTA de documentos, numa
 // consulta só (`union all`) — o detalhe do Caixa e a abertura da correção leem a mesma coisa. O orçamento
@@ -543,7 +592,7 @@ export async function listarDocumentosParaDetalhe(
     return new Map();
   }
 
-  const [documentosCarregados, linhasCarregadas, parcelasCarregadas, origens] = await Promise.all([
+  const [documentosCarregados, linhasCarregadas, parcelasCarregadas, origens, vinculos] = await Promise.all([
     db
       .select({
         id: documentos.id,
@@ -596,7 +645,12 @@ export async function listarDocumentosParaDetalhe(
       .orderBy(asc(parcelas.numero)),
     // Fase 06.5, plano 17 (UI-D10): as origens que decidem entre o “Corrigir” e a frase no lugar dele.
     origensDaAgendaEDasQueimas(ids),
+    // E os vínculos da correção, dos dois lados (leitura tolerante — ver `vinculosDeCorrecao`).
+    vinculosDeCorrecao(ids),
   ]);
+
+  const corrigidaPor = new Map(vinculos.map((vinculo) => [vinculo.originalId, vinculo.numeroCorrigido]));
+  const corrige = new Map(vinculos.map((vinculo) => [vinculo.corrigidoId, vinculo.numeroOriginal]));
 
   const linhasPorDocumento = new Map<string, LinhaDoDocumentoParaDetalhe[]>();
   for (const linha of linhasCarregadas) {
@@ -666,6 +720,8 @@ export async function listarDocumentosParaDetalhe(
         temOrcamento: documento.origemOrcamentoId !== null,
         temContaFixa: documento.contaFixaId !== null,
       }),
+      corrigidaPorNumero: corrigidaPor.get(documento.id) ?? null,
+      corrigeNumero: corrige.get(documento.id) ?? null,
     });
   }
 
@@ -801,12 +857,7 @@ export type CorrecaoParaAviso = {
 };
 
 export async function obterCorrecaoParaAviso(documentoId: string): Promise<CorrecaoParaAviso | null> {
-  const [vinculo] = await db
-    .select({ tipo: documentos.tipo, numeroOriginal: documentos.numero })
-    .from(correcoesDeDocumento)
-    .innerJoin(documentos, eq(documentos.id, correcoesDeDocumento.originalId))
-    .where(eq(correcoesDeDocumento.corrigidoId, documentoId))
-    .limit(1);
+  const vinculo = (await vinculosDeCorrecao([documentoId])).find((linha) => linha.corrigidoId === documentoId);
   if (!vinculo) {
     return null;
   }

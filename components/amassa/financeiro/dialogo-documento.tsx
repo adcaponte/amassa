@@ -9,10 +9,13 @@ import { hrefDaCorrecao } from "@/lib/financeiro/navegacao";
 import {
   DICA_CANCELAR_NAO_APAGA,
   ROTULO_FECHAR,
+  fraseSemCorrecaoPorOrigem,
   rotuloCancelar,
   rotuloCorrigir,
   textoCabecalhoDocumento,
   textoCanceladoPor,
+  textoCorrige,
+  textoCorrigidaPor,
   textoParcelaDetalhe,
   textoPagoEm,
 } from "@/lib/financeiro/textos";
@@ -139,6 +142,30 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
                 )
               ) : (
                 <p className="text-apoio text-muted-foreground">{DICA_CANCELAR_NAO_APAGA}</p>
+              )}
+
+              {/* O vínculo da correção (06.5-17, UI-SPEC §“Corrigir” passo 5), em Apoio: a original
+                  (riscada) diz quem a corrigiu; a nova diz quem ela corrige. */}
+              {documento.corrigidaPorNumero !== null && (
+                <p data-testid="documento-corrigida-por" className="text-apoio text-muted-foreground">
+                  {textoCorrigidaPor(documento.tipo, documento.corrigidaPorNumero)}
+                </p>
+              )}
+              {documento.corrigeNumero !== null && (
+                <p data-testid="documento-corrige" className="text-apoio text-muted-foreground">
+                  {textoCorrige(documento.tipo, documento.corrigeNumero)}
+                </p>
+              )}
+              {/* UI-D10: o documento que não se corrige por aqui (Agenda, Queimas, orçamento, conta fixa)
+                  diz por onde corrigir, no lugar do botão. Cancelado: nem botão nem frase. */}
+              {!documento.cancelado && documento.origemParaCorrecao !== null && (
+                <p data-testid="documento-sem-corrigir" className="text-apoio text-muted-foreground">
+                  {fraseSemCorrecaoPorOrigem(
+                    documento.tipo,
+                    documento.origemParaCorrecao,
+                    documento.origemOrcamento?.numero ?? null,
+                  )}
+                </p>
               )}
 
               {/* A aprovação de um orçamento (04.5-12-PLAN.md, D-25) — acréscimo pequeno à tela

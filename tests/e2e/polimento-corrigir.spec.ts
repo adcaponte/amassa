@@ -2,9 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { medirCaixa } from "./apoio/medir-caixa";
+import { ligarVendaAInscricao, semearCliente, semearInscricao, semearOficina } from "./apoio/semear-agenda";
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
 import { saldoNoBanco, semearMaterial } from "./apoio/semear-estoque";
-import { hojeNoAtelie, semearItem } from "./apoio/semear-financeiro";
+import { hojeNoAtelie, semearItem, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // O “Corrigir” uma venda (Fase 06.5, plano 17 — D-18 com a UI-D9 do dono, 05/10/2026; UI-D10, UI-D11,
 // POL-08). A original CONTINUA VALENDO enquanto a corrigida é preenchida; ela só é cancelada na mesma
@@ -239,5 +240,112 @@ test.describe("polimento corrigir — venda", () => {
     await expect(linhasDoExtrato).toHaveCount(2);
     await expect(linhasDoExtrato.filter({ hasText: "cancelada" })).toHaveCount(1);
     await expect(linhasDoExtrato.filter({ hasText: /R\$\s150,00/ })).not.toContainText("cancelada");
+  });
+});
+
+// O detalhe conta a história da correção e diz por onde corrigir o que não se corrige aqui (06.5-17,
+// Tarefa 2 — UI-D10; E12 partial/error da UI-SPEC).
+test.describe("polimento corrigir — detalhe", () => {
+  test("(a) depois da correção, a original diz “Corrigida pela…”, a nova “Corrige a…”, e o ?corrige= da original cancelada dá a frase de cancelada", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Prato da Aurora Inventada ${suf}`;
+    const original = await semearContaAPagar({
+      titulo,
+      pessoa: "Aurora Inventada",
+      categoria: "Bebidas e comidas",
+      valorCentavos: 7000,
+      vencimento: hojeNoAtelie(),
+      tipo: "venda",
+    });
+
+    await fazerLogin(page);
+    // Corrigir sem nada mudar no meio: a versão da página e a da transação coincidem (plano 16).
+    await abrirCorrecao(page, original.documentoId);
+    await page.getByTestId("lancar-correcao").click();
+    await expect(
+      page.getByText(new RegExp(`^Venda nº ${original.numero} cancelada e nº \\d+ lançada no lugar · R\\$\\s70,00$`)),
+    ).toBeVisible({ timeout: 10000 });
+    const novaId = await corrigidaPor(original.documentoId);
+    expect(novaId).not.toBeNull();
+    const nova = await documentoNoBanco(novaId ?? "");
+
+    // A original (cancelada): o vínculo, e nem botão nem frase de origem.
+    await page.goto(`/gestao/financeiro?aba=caixa&documentoId=${original.documentoId}`);
+    let detalhe = page.getByTestId("documento-detalhe");
+    await expect(detalhe).toBeVisible();
+    await expect(detalhe.getByTestId("documento-corrigida-por")).toHaveText(`Corrigida pela venda nº ${nova.numero}`);
+    await expect(detalhe.getByTestId("documento-corrige")).toHaveCount(0);
+    await expect(detalhe.getByTestId("documento-corrigir")).toHaveCount(0);
+    await expect(detalhe.getByTestId("documento-sem-corrigir")).toHaveCount(0);
+
+    // A nova: o vínculo do outro lado — e ela mesma se corrige, se precisar.
+    await page.goto(`/gestao/financeiro?aba=caixa&documentoId=${nova.id}`);
+    detalhe = page.getByTestId("documento-detalhe");
+    await expect(detalhe).toBeVisible();
+    await expect(detalhe.getByTestId("documento-corrige")).toHaveText(`Corrige a venda nº ${original.numero}`);
+    await expect(detalhe.getByTestId("documento-corrigida-por")).toHaveCount(0);
+    await expect(detalhe.getByTestId("documento-corrigir")).toBeVisible();
+
+    // `?corrige=` da original já cancelada: a frase, com “Voltar ao Caixa” — nenhum carrinho.
+    await page.goto(`/gestao/financeiro?aba=venda&corrige=${original.documentoId}`);
+    const indisponivel = page.getByTestId("correcao-indisponivel");
+    await expect(indisponivel).toContainText(
+      `A venda nº ${original.numero} já foi cancelada — não há o que corrigir. Se precisar, lance uma venda nova.`,
+    );
+    await expect(indisponivel.getByTestId("correcao-voltar-ao-caixa")).toHaveText("Voltar ao Caixa");
+    await expect(page.getByTestId("faixa-correcao")).toHaveCount(0);
+    await expect(page.getByTestId("lancar-correcao")).toHaveCount(0);
+  });
+
+  test("(b) uma venda da Agenda diz por onde corrigir e não tem “Corrigir”; o ?corrige= dela dá a mesma frase", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const clienteId = await semearCliente({ nome: `[e2e] Benedita Inventada ${suf}` });
+    // Longe dos dias que as outras specs da Agenda usam (300, 330, 360, 500, 600, 700…).
+    const diaDaOficina = somarDiasAoHoje(test.info().project.name === "celular" ? 778 : 777);
+    const eventoId = await semearOficina({
+      titulo: `[e2e] Oficina de esmalte ${suf}`,
+      data: diaDaOficina,
+      inicio: "14:00",
+      fim: "17:00",
+      vagas: 8,
+      precoCentavos: 9000,
+    });
+    const inscricaoId = await semearInscricao({ eventoId, clienteId, tipo: "oficina", valorCentavos: 9000 });
+    const venda = await ligarVendaAInscricao({
+      inscricaoId,
+      valorCentavos: 9000,
+      descricao: `[e2e] Inscrição da Benedita ${suf}`,
+      data: hojeNoAtelie(),
+    });
+    const frase = "Esta venda veio da Agenda. Para corrigir, cancele aqui e lance de novo por lá.";
+
+    await fazerLogin(page);
+    await page.goto(`/gestao/financeiro?aba=caixa&documentoId=${venda.documentoId}`);
+    const detalhe = page.getByTestId("documento-detalhe");
+    await expect(detalhe).toBeVisible();
+    await expect(detalhe.getByTestId("documento-sem-corrigir")).toHaveText(frase);
+    await expect(detalhe.getByTestId("documento-corrigir")).toHaveCount(0);
+    // O cancelamento continua lá: é por ele que se corrige.
+    await expect(detalhe.getByRole("button", { name: "Cancelar esta venda" })).toBeVisible();
+
+    await page.goto(`/gestao/financeiro?aba=venda&corrige=${venda.documentoId}`);
+    await expect(page.getByTestId("correcao-indisponivel")).toContainText(frase);
+    await expect(page.getByTestId("faixa-correcao")).toHaveCount(0);
+  });
+
+  test("(c) ?corrige= que não acha a venda (uuid inexistente ou lixo) dá a frase de não achado", async ({ page }) => {
+    const frase = "Não achei a venda a corrigir. Volte ao Caixa e toque em “Corrigir esta venda” de novo.";
+    await fazerLogin(page);
+    for (const valor of ["00000000-0000-4000-8000-000000000000", "nao-e-um-id"]) {
+      await page.goto(`/gestao/financeiro?aba=venda&corrige=${valor}`);
+      const indisponivel = page.getByTestId("correcao-indisponivel");
+      await expect(indisponivel).toContainText(frase);
+      await expect(indisponivel.getByTestId("correcao-voltar-ao-caixa")).toHaveAttribute("href", "/gestao/financeiro?aba=caixa");
+      await expect(page.getByTestId("faixa-correcao")).toHaveCount(0);
+    }
   });
 });
