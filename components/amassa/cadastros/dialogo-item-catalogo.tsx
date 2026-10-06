@@ -403,7 +403,7 @@ export function DialogoItemCatalogo({
 
   return (
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && onFechar()}>
-      <DialogContent aria-label={titulo} className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-lg">
+      <DialogContent aria-label={titulo} className="flex max-h-[85svh] flex-col overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-titulo">{titulo}</DialogTitle>
         </DialogHeader>

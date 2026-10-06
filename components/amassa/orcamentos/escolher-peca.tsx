@@ -85,7 +85,7 @@ export function EscolherPeca({ orcamentoId, pecas }: EscolherPecaProps) {
       <DialogContent
         data-testid="orcamento-escolher-peca"
         aria-label={TITULO_ESCOLHER_PECA}
-        className="flex max-h-[85vh] flex-col overflow-y-auto"
+        className="flex max-h-[85svh] flex-col overflow-y-auto"
       >
         <DialogHeader>
           <DialogTitle className="text-titulo">{TITULO_ESCOLHER_PECA}</DialogTitle>
