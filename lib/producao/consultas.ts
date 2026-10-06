@@ -2,7 +2,7 @@
 // Component ou ação que já autorizou). Molde "consulta principal + filhos casados por `Map`" de
 // `lib/estoque/consultas.ts`. As regras (etapa atual, dias, selo, colunas) moram no módulo puro;
 // estas funções só carregam o que ele precisa.
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -572,21 +572,23 @@ export async function fotosDaOrdem(ordemId: string): Promise<string[]> {
 // O seletor de peça da "Nova ordem" (plano 07, D-04/D-05/D-13) — só `id` e `nome`, por nome:
 // - `fichasDeLinha`: fichas de precificação NÃO exclusivas e com item do catálogo — "Peças de
 //   linha" na encomenda, "Peças precificadas" na casa;
-// - `fichasExclusivas`: "Peças exclusivas" (só na encomenda);
-// - `itensDoEstoque`: itens que já controlam estoque, ativos, contados em unidades (`un`), que não
-//   são item de nenhuma ficha de linha — "Itens do estoque" (só na casa; sem ficha: sem material
-//   previsto, D-14).
-// A lista é conveniência: a regra é conferida de novo no banco por `criarOrdem`.
+// - `fichasExclusivas`: "Peças exclusivas" (só na encomenda).
+// Fase 06.5, D-01 — opção "a-ficha", escolhida pelo dono em 06/10/2026: só PEÇA DE CERÂMICA vira
+// ordem, e peça de cerâmica é a que tem ficha de precificação. O terceiro grupo de antes ("Itens do
+// estoque": item que controla estoque em `un`, sem ficha — D-13/D-14 da 06.1) saiu: era por ele que
+// "Bolo do dia", "Pin coffee" e pincéis chegavam ao seletor (achado 3 do Cowork). Ordem já criada
+// com item continua concluindo — a regra vale para criar.
+// A lista é conveniência: a regra é conferida de novo no banco por `criarOrdem` (`conferirPecas`
+// recusa item sem ficha com `fraseSoCeramicaViraOrdem`) — o MESMO critério nos dois lugares.
 export type OpcaoDoCatalogo = { id: string; nome: string };
 
 export type CatalogoDaNovaOrdem = {
   fichasDeLinha: OpcaoDoCatalogo[];
   fichasExclusivas: OpcaoDoCatalogo[];
-  itensDoEstoque: OpcaoDoCatalogo[];
 };
 
 export async function listarCatalogoDaNovaOrdem(): Promise<CatalogoDaNovaOrdem> {
-  const [fichasDeLinha, fichasExclusivas, itensDoEstoque] = await Promise.all([
+  const [fichasDeLinha, fichasExclusivas] = await Promise.all([
     db
       .select({ id: fichasPrecificacao.id, nome: fichasPrecificacao.nome })
       .from(fichasPrecificacao)
@@ -599,27 +601,8 @@ export async function listarCatalogoDaNovaOrdem(): Promise<CatalogoDaNovaOrdem> 
       .from(fichasPrecificacao)
       .where(eq(fichasPrecificacao.exclusiva, true))
       .orderBy(asc(fichasPrecificacao.nome), asc(fichasPrecificacao.id)),
-    db
-      .select({ id: itensCatalogo.id, nome: itensCatalogo.nome })
-      .from(itensCatalogo)
-      .where(
-        and(
-          eq(itensCatalogo.controlaEstoque, true),
-          eq(itensCatalogo.ativo, true),
-          // Só o contado em unidades (revisão 06.1, WR-03 — `itemGuardaPecas`): argila em kg,
-          // esmalte em g ou café em ml são material, não peça que a casa produz.
-          eq(itensCatalogo.unidade, "un"),
-          notExists(
-            db
-              .select({ um: sql`1` })
-              .from(fichasPrecificacao)
-              .where(eq(fichasPrecificacao.itemCatalogoId, itensCatalogo.id)),
-          ),
-        ),
-      )
-      .orderBy(asc(itensCatalogo.nome), asc(itensCatalogo.id)),
   ]);
-  return { fichasDeLinha, fichasExclusivas, itensDoEstoque };
+  return { fichasDeLinha, fichasExclusivas };
 }
 
 // ---------------------------------------------------------------------------------------------

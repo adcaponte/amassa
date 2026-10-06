@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -14,16 +15,17 @@ import {
   validarNovaOrdem,
   type ErrosDaNovaOrdem,
 } from "@/lib/producao/esquemas";
+import { hrefDaAbaPecas } from "@/lib/precificacao/navegacao";
 import { previsaoDaNovaOrdem } from "@/lib/producao/leitura";
 import {
   DICA_FIM_NOVA_ORDEM,
   DICA_PECA_CASA,
   DICA_PECA_ENCOMENDA,
   FRASE_CATALOGO_CARREGANDO,
-  FRASE_CATALOGO_VAZIO_CASA,
   FRASE_ERRO_CARREGAR_CATALOGO,
   FRASE_FALHA_AO_CRIAR,
   FRASE_PECAS_TIRADAS,
+  FRASE_SEM_PECA_DE_CERAMICA,
   PLACEHOLDER_NOME_DA_ORDEM,
   ROTULO_CAMINHO_BISCOITO,
   ROTULO_CAMINHO_COMPLETO,
@@ -34,6 +36,7 @@ import {
   ROTULO_ENTREGA_PROMETIDA,
   ROTULO_FECHAR,
   ROTULO_NOME_DA_ORDEM,
+  ROTULO_ONDE_CADASTRAR_PECA,
   ROTULO_OUTRA_PECA,
   ROTULO_TENTAR_DE_NOVO,
   ROTULO_TIPO_CASA,
@@ -55,13 +58,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
-import {
-  ESCOLHA_LIVRE,
-  LinhaPecaNovaOrdem,
-  lerEscolha,
-  nomeDaEscolha,
-  type LinhaDaNovaOrdem,
-} from "./linha-peca-nova-ordem";
+import { LinhaPecaNovaOrdem, lerEscolha, type LinhaDaNovaOrdem } from "./linha-peca-nova-ordem";
 
 // O contêiner é a `Folha` comum (D-24): tela toda abaixo de 768px (desliza de baixo), modal `max-w-lg`
 // e até 85svh a partir de `md`. Rodapé preso por flex, nunca `position: sticky`.
@@ -172,8 +169,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
   const catalogoDaCasaVazio =
     tipo === "casa" &&
     catalogoPronto !== null &&
-    catalogoPronto.fichasDeLinha.length === 0 &&
-    catalogoPronto.itensDoEstoque.length === 0;
+    catalogoPronto.fichasDeLinha.length === 0;
   // Revisão 06.1, WR-107: sem o catálogo pronto as linhas de peça não existem na tela — um toque em
   // "Criar ordem" daria um erro preso a um campo que não está lá (nada visível acontecia). O botão
   // fica desligado e aponta para o texto que diz por quê (carregando, ou o erro com "Tentar de novo").
@@ -229,8 +225,8 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
 
   // Trocar Encomenda → Produção da casa tira o que só serve à encomenda (texto livre e fichas
   // exclusivas) e avisa em `role="status"`. O caminho de volta (casa → encomenda) não perde nada:
-  // o item do estoque sem ficha vira texto livre com o nome dele — na encomenda, peça sem ficha é
-  // texto livre (D-04), com a mesma nota.
+  // as peças de linha da casa servem também à encomenda. (Até a 06.5 o item do estoque sem ficha
+  // virava texto livre aqui; com a D-01 a casa já não oferece item.)
   function escolherTipo(novo: TipoOrdem) {
     if (novo === tipo) {
       return;
@@ -257,13 +253,6 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
       return;
     }
     setAviso("");
-    setPecas((atuais) =>
-      atuais.map((linha) =>
-        lerEscolha(linha.escolha).origem === "item"
-          ? { ...linha, escolha: ESCOLHA_LIVRE, descricao: nomeDaEscolha(linha, catalogoPronto) ?? "" }
-          : linha,
-      ),
-    );
   }
 
   // Setas movem a escolha num segmentado (padrão de `radiogroup`).
@@ -342,9 +331,6 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
         }
         if (lida.origem === "ficha") {
           return { origem: "ficha", fichaId: lida.id, quantidadeTexto: linha.quantidade };
-        }
-        if (lida.origem === "item") {
-          return { origem: "item", itemCatalogoId: lida.id, quantidadeTexto: linha.quantidade };
         }
         return { origem: "", quantidadeTexto: linha.quantidade };
       }),
@@ -499,14 +485,24 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
       );
     }
     if (catalogoDaCasaVazio) {
+      // Fase 06.5, D-01 ("a-ficha", dono em 06/10/2026): só peça com ficha vira ordem da casa —
+      // sem nenhuma, a frase e o link para onde a ficha se cadastra (Financeiro → Peças).
       return (
-        <p
-          id="nova-ordem-catalogo-vazio"
+        <div
           data-testid="nova-ordem-catalogo-vazio"
-          className="text-apoio text-tinta-media bg-superficie-2 rounded-md p-4"
+          className="bg-superficie-2 flex flex-col items-start gap-2 rounded-md p-4"
         >
-          {FRASE_CATALOGO_VAZIO_CASA}
-        </p>
+          <p id="nova-ordem-catalogo-vazio" className="text-apoio text-tinta-media">
+            {FRASE_SEM_PECA_DE_CERAMICA}
+          </p>
+          <Link
+            href={hrefDaAbaPecas()}
+            data-testid="nova-ordem-catalogo-vazio-link"
+            className="text-apoio text-tinta flex min-h-[44px] items-center font-medium underline underline-offset-3"
+          >
+            {ROTULO_ONDE_CADASTRAR_PECA}
+          </Link>
+        </div>
       );
     }
     const doCatalogo = catalogo.catalogo;

@@ -490,7 +490,6 @@ export const PLACEHOLDER_PECA = "Escolha a peça";
 export const GRUPO_PECAS_DE_LINHA = "Peças de linha";
 export const GRUPO_PECAS_EXCLUSIVAS = "Peças exclusivas";
 export const GRUPO_PECAS_PRECIFICADAS = "Peças precificadas";
-export const GRUPO_ITENS_DO_ESTOQUE = "Itens do estoque";
 export const OPCAO_OUTRA_PECA = "Outra peça — escrever o nome";
 export const ROTULO_NOME_DA_PECA = "Nome da peça";
 export const ROTULO_QUANTAS = "Quantas";
@@ -502,11 +501,16 @@ export const ROTULO_FECHAR = "Fechar";
 export function ariaTirarPeca(numero: number, nomeDaPeca: string | null): string {
   return nomeDaPeca ? `Tirar ${nomeDaPeca}` : `Tirar a peça ${numero}`;
 }
-// D-04 / D-14 — embaixo da peça em texto livre ou do item do estoque sem ficha; não bloqueia.
+// D-04 — embaixo da peça em texto livre da encomenda; não bloqueia. (Até a 06.5 valia também para o
+// item do estoque sem ficha da casa, D-14 da 06.1 — que deixou de ser oferecido, D-01 da 06.5.)
 export const NOTA_PECA_SEM_FICHA =
   "Sem ficha de precificação: esta peça fica sem material previsto e fora da estimativa do forno.";
-export const FRASE_CATALOGO_VAZIO_CASA =
-  "Nenhuma peça no catálogo ainda. Precifique uma peça de linha em Financeiro → Peças, ou ligue o estoque de um item contado em unidades em Cadastros → Catálogo.";
+// Fase 06.5, D-01 — opção "a-ficha", escolhida pelo dono em 06/10/2026: peça de cerâmica é a que
+// tem ficha de precificação. Sem nenhuma ficha de linha, a produção da casa mostra isto e o link
+// para onde a ficha se cadastra (UI-SPEC §Estados vazios, ajustada à opção escolhida).
+export const FRASE_SEM_PECA_DE_CERAMICA =
+  "Nenhuma peça de cerâmica precificada ainda. Cadastre a ficha em Financeiro → Peças.";
+export const ROTULO_ONDE_CADASTRAR_PECA = "abrir Financeiro → Peças";
 export const FRASE_PECAS_TIRADAS = "As peças que só servem a encomenda foram tiradas.";
 // Revisão 06.1, WR-107: enquanto o catálogo carrega, "Criar ordem" fica desligado e diz por quê.
 export const FRASE_CATALOGO_CARREGANDO = "Carregando as peças do catálogo…";
@@ -545,10 +549,12 @@ export const FRASE_CASA_PRECISA_DO_CATALOGO =
 export const FRASE_ENCOMENDA_SEM_ITEM =
   "Na encomenda, a peça vem de uma ficha de precificação ou é escrita à mão. Escolha outra.";
 export const FRASE_PECA_SAIU_DO_CATALOGO = "Essa peça não está mais no catálogo. Escolha outra.";
-// Revisão 06.1, WR-03: a produção da casa guarda peças (1 peça = 1 unidade) — item contado em kg, g,
-// ml, L ou m é material. `unidade` chega já escrita (`ROTULO_UNIDADE`).
-export function fraseItemNaoGuardaPecas(nome: string, unidade: string): string {
-  return `${nome} é contado em ${unidade} no Estoque, e a produção da casa guarda peças inteiras. Escolha um item contado em unidades.`;
+// Fase 06.5, D-01 ("a-ficha", 06/10/2026): só peça de cerâmica — a que tem ficha de precificação —
+// vira ordem. `criarOrdem` recusa um item do catálogo sem ficha (envio forçado: o seletor já não o
+// oferece) com esta frase, presa à peça (UI-SPEC §Erros). `nome` é o do BANCO, nunca o enviado.
+// (Substitui a frase do WR-03 da 06.1 — "contado em kg…" —, que só existia para o item do estoque.)
+export function fraseSoCeramicaViraOrdem(nome: string): string {
+  return `Só peça de cerâmica vira ordem de produção — “${nome}” não é. Escolha uma peça do Catálogo.`;
 }
 export function textoPecasDemais(limite: number): string {
   return `Uma ordem cabe até ${limite} peças. Crie outra ordem para o resto.`;

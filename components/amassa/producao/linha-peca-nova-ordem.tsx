@@ -6,7 +6,6 @@ import { X } from "lucide-react";
 import type { CatalogoDaNovaOrdem } from "@/lib/producao/consultas";
 import type { TipoOrdem } from "@/lib/producao/etapas";
 import {
-  GRUPO_ITENS_DO_ESTOQUE,
   GRUPO_PECAS_DE_LINHA,
   GRUPO_PECAS_EXCLUSIVAS,
   GRUPO_PECAS_PRECIFICADAS,
@@ -31,7 +30,9 @@ import {
 } from "@/components/ui/select";
 
 // Uma peça da "Nova ordem" ainda não gravada. `escolha` é o valor do seletor: "" (nada escolhido),
-// "ficha:{id}", "item:{id}" ou "livre" (a opção de escrever o nome — só na encomenda, D-04).
+// "ficha:{id}" ou "livre" (a opção de escrever o nome — só na encomenda, D-04). Fase 06.5, D-01
+// ("a-ficha", dono em 06/10/2026): só peça com ficha vira ordem — o "item:{id}" (item do estoque sem
+// ficha) deixou de existir; um valor desconhecido é lido como "nada escolhido".
 export type LinhaDaNovaOrdem = {
   chave: number;
   escolha: string;
@@ -43,7 +44,6 @@ export const ESCOLHA_LIVRE = "livre";
 
 export type EscolhaLida =
   | { origem: "ficha"; id: string }
-  | { origem: "item"; id: string }
   | { origem: "livre" }
   | { origem: "" };
 
@@ -52,7 +52,7 @@ export function lerEscolha(escolha: string): EscolhaLida {
     return { origem: "livre" };
   }
   const [origem, id] = escolha.split(":");
-  if ((origem === "ficha" || origem === "item") && id) {
+  if (origem === "ficha" && id) {
     return { origem, id };
   }
   return { origem: "" };
@@ -72,10 +72,7 @@ export function nomeDaEscolha(
   if (lida.origem === "" || catalogo === null) {
     return null;
   }
-  const lista =
-    lida.origem === "item"
-      ? catalogo.itensDoEstoque
-      : [...catalogo.fichasDeLinha, ...catalogo.fichasExclusivas];
+  const lista = [...catalogo.fichasDeLinha, ...catalogo.fichasExclusivas];
   return lista.find((opcao) => opcao.id === lida.id)?.nome ?? null;
 }
 
@@ -134,8 +131,8 @@ const CLASSE_DO_GRUPO = "text-apoio text-tinta-media font-semibold";
 
 // Uma linha do bloco "Peças" (UI-SPEC §"Folha Nova ordem", item 5): fundo `superficie-2`, o `Select`
 // agrupado por tipo (UI-D7), "Nome da peça" quando é a opção de escrever, "Quantas" e o "X" de tirar
-// (da 2ª em diante). A nota do D-04/D-14 aparece embaixo quando a peça fica sem ficha — texto livre
-// ou item do estoque sem ficha. Não bloqueia.
+// (da 2ª em diante). A nota do D-04 aparece embaixo quando a peça fica sem ficha — o texto livre da
+// encomenda. Não bloqueia.
 export function LinhaPecaNovaOrdem({
   numero,
   linha,
@@ -153,7 +150,7 @@ export function LinhaPecaNovaOrdem({
   const selecionarTudoAoFocar = useSelecionarTudoAoFocar();
   const lida = lerEscolha(linha.escolha);
   const ehLivre = lida.origem === "livre";
-  const semFicha = ehLivre || lida.origem === "item";
+  const semFicha = ehLivre;
   const ehCasa = tipo === "casa";
 
   const idSelect = `nova-ordem-peca-${numero}`;
@@ -166,9 +163,9 @@ export function LinhaPecaNovaOrdem({
   const erroNoSeletor = erroDaPeca !== null && !ehLivre ? erroDaPeca : null;
   const erroNoNome = erroDaPeca !== null && ehLivre ? erroDaPeca : null;
 
+  // D-01 (06.5, "a-ficha"): na casa, só as peças precificadas — o grupo "Itens do estoque" saiu.
   const gruposDaCasa = [
     { rotulo: GRUPO_PECAS_PRECIFICADAS, prefixo: "ficha", opcoes: catalogo.fichasDeLinha },
-    { rotulo: GRUPO_ITENS_DO_ESTOQUE, prefixo: "item", opcoes: catalogo.itensDoEstoque },
   ];
   const gruposDaEncomenda = [
     { rotulo: GRUPO_PECAS_DE_LINHA, prefixo: "ficha", opcoes: catalogo.fichasDeLinha },
