@@ -304,7 +304,9 @@ export const ROTULO_FORNECEDOR_OPCIONAL = "Fornecedor (opcional)";
 
 // O campo "Fornecedor" da Despesa (Fase 06.2, plano 10 — D-04; 06.2-UI-SPEC.md §Copywriting e "Despesa
 // do Financeiro — o campo Fornecedor"). O rótulo continua `ROTULO_FORNECEDOR_OPCIONAL`, sem mudança.
-export const PLACEHOLDER_CAMPO_FORNECEDOR = "Escolha da lista ou escreva o nome";
+// Até 06/10/2026: "Escolha da lista ou escreva o nome" — cortava no celular de 375 px (D-14, achado 19;
+// 06.5-UI-SPEC.md §Copywriting). O e2e `polimento-textos` mede que o texto novo cabe no campo.
+export const PLACEHOLDER_CAMPO_FORNECEDOR = "Escolha ou escreva o nome";
 // No `role="alert"` acima de "Lançar despesa": o fornecedor escolhido foi desativado (ou não existe
 // mais) entre abrir o painel e lançar — nada é lançado (Pitfall 15).
 export const FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA =
