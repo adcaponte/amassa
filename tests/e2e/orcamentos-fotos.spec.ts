@@ -163,14 +163,25 @@ test.describe("orcamentos fotos", () => {
       { r: 10, g: 10, b: 200 },
     ];
 
+    const grade = page.getByTestId("fotos-grade");
+
     // Já existe 1 foto (do teste (a)) — a segunda leva a "2 de 3" (contagem ainda visível, o
     // botão continua); a terceira faz o botão E a contagem desaparecerem juntos, dando lugar à
     // frase do limite — por isso a última iteração espera `fotos-limite`, não `fotos-contagem`
     // (que deixa de existir no DOM, não só de mudar de texto).
+    //
+    // Cada envio só conta quando a célula VIRA FOTO (`<img>`, sem "Enviando foto…"): a contagem,
+    // a frase do limite e o número de células contam a vaga que o envio em andamento reserva
+    // (04.5-UI-SPEC.md, ponto 2) e aparecem no mesmo instante em que a célula de espera entra,
+    // antes de o POST sair. Esperando só por eles, este teste acabava com a 2ª foto em voo e a 3ª
+    // na fila do roteador (as server actions são seriais), a página fechava e o (g) abria o
+    // editor com 1 ou 2 fotos gravadas (.planning/debug/resolved/orcamentos-fotos-g-contagem.md).
     for (const [indice, cor] of cores.entries()) {
       const jpeg = await construirJpegPequeno(cor);
       await inputDeArquivo.setInputFiles({ name: "referencia.jpg", mimeType: "image/jpeg", buffer: jpeg });
       const totalEsperado = indice + 2;
+      await expect(grade.locator("img")).toHaveCount(totalEsperado, { timeout: 15000 });
+      await expect(page.getByTestId("foto-enviando")).toHaveCount(0);
       if (totalEsperado < 3) {
         await expect(page.getByTestId("fotos-contagem")).toHaveText(`${totalEsperado} de 3`, { timeout: 15000 });
       } else {
@@ -180,7 +191,8 @@ test.describe("orcamentos fotos", () => {
 
     await expect(page.getByTestId("fotos-limite")).toHaveText("Limite de 3 fotos atingido. Tire uma para trocar.");
     await expect(page.getByLabel("adicionar foto de referência")).toHaveCount(0);
-    await expect(page.getByTestId("fotos-grade").getByTestId("foto-celula")).toHaveCount(3);
+    await expect(grade.getByTestId("foto-celula")).toHaveCount(3);
+    await expect(grade.locator("img")).toHaveCount(3);
   });
 
   test("(g) a 320px as três células cabem sem rolagem horizontal da página, e todo alvo de toque mede ao menos 44px", async ({
