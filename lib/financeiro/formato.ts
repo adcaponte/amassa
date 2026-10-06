@@ -115,6 +115,15 @@ export function nomeDoMes(chave: string): string {
   }).format(new Date(Date.UTC(ano, mes - 1, 1)));
 }
 
+// "Outubro de 2026" — o `nomeDoMes` para quando o mês é TÍTULO (o ◀ ▶ do Caixa e do Mês, os cartões
+// "Por mês" da Abertura). Só o primeiro caractere sobe: o "de" fica minúsculo, como na escrita.
+// Antes de 06/10/2026 isso era a classe CSS que punha cada palavra com inicial maiúscula e dava
+// "Outubro De 2026" (achado 21, D-14). No meio de frase, continue usando `nomeDoMes`.
+export function nomeDoMesNoTitulo(chave: string): string {
+  const nome = nomeDoMes(chave);
+  return nome.charAt(0).toLocaleUpperCase("pt-BR") + nome.slice(1);
+}
+
 // "dezembro" — só o nome do mês, sem o ano, para o meio de uma frase que já disse o ano (o aviso
 // das contas fixas do Caixa, 06.5-12: "O que vence em {novembro} não aparece…").
 export function nomeDoMesSemAno(chave: string): string {

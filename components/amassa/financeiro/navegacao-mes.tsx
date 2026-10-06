@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { nomeDoMes } from "@/lib/financeiro/formato";
+import { nomeDoMesNoTitulo } from "@/lib/financeiro/formato";
 
 export type NavegacaoMesProps = {
   mes: string;
@@ -23,8 +23,8 @@ export function NavegacaoMes({ mes, hrefMesAnterior, hrefMesSeguinte }: Navegaca
       >
         ◀
       </Link>
-      <h2 className="text-titulo text-foreground min-w-[150px] text-center capitalize">
-        {nomeDoMes(mes)}
+      <h2 className="text-titulo text-foreground min-w-[150px] text-center">
+        {nomeDoMesNoTitulo(mes)}
       </h2>
       <Link
         href={hrefMesSeguinte}

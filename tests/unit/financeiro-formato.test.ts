@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agoraEmBrasilia, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { agoraEmBrasilia, hojeEmBrasilia, nomeDoMes, nomeDoMesNoTitulo } from "@/lib/financeiro/formato";
 
 // O "agora" do ateliê: a data civil e os minutos do dia em America/Sao_Paulo, a partir de um instante
 // recebido por argumento — nunca o relógio do runtime nem o fuso do servidor (o Postgres roda em UTC).
@@ -24,5 +24,25 @@ describe("agoraEmBrasilia", () => {
   it("concorda com hojeEmBrasilia no mesmo instante", () => {
     const instante = new Date("2026-10-31T23:45:00Z");
     expect(agoraEmBrasilia(instante).data).toBe(hojeEmBrasilia(instante));
+  });
+});
+
+// O mês como título (D-14, achado 21): só a primeira letra sobe; o "de" fica minúsculo. No meio de
+// frase, `nomeDoMes` continua todo em minúsculas.
+describe("nomeDoMesNoTitulo", () => {
+  it("outubro de 2026 → Outubro de 2026", () => {
+    expect(nomeDoMesNoTitulo("2026-10")).toBe("Outubro de 2026");
+  });
+
+  it("o acento de março não muda", () => {
+    expect(nomeDoMesNoTitulo("2027-03")).toBe("Março de 2027");
+  });
+
+  it("janeiro do ano seguinte", () => {
+    expect(nomeDoMesNoTitulo("2027-01")).toBe("Janeiro de 2027");
+  });
+
+  it("o nome do meio de frase continua minúsculo", () => {
+    expect(nomeDoMes("2026-10")).toBe("outubro de 2026");
   });
 });
