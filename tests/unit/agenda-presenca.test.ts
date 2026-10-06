@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  dataAindaNaoChegou,
   ordenarInscritos,
   planejarPresenca,
   precisaMarcarPresenca,
@@ -123,6 +124,31 @@ describe("precisaMarcarPresenca", () => {
 
   it("sem inscritos não pede", () => {
     expect(precisaMarcarPresenca({ data: ONTEM, cancelada: false, inscritos: [] }, HOJE)).toBe(false);
+  });
+});
+
+describe("dataAindaNaoChegou", () => {
+  // D-05 (Fase 06.5): marcar presença numa data DEPOIS de hoje avisa e deixa. No dia e antes, nada.
+  const HOJE = "2026-10-05";
+
+  it("antes de hoje: já chegou", () => {
+    expect(dataAindaNaoChegou("2026-10-04", HOJE)).toBe(false);
+    expect(dataAindaNaoChegou("2025-12-31", HOJE)).toBe(false);
+  });
+
+  it("no dia: já chegou (a aula de hoje pode estar acontecendo)", () => {
+    expect(dataAindaNaoChegou(HOJE, HOJE)).toBe(false);
+  });
+
+  it("depois de hoje: ainda não chegou — amanhã, daqui a dois dias e na virada do ano", () => {
+    expect(dataAindaNaoChegou("2026-10-06", HOJE)).toBe(true);
+    expect(dataAindaNaoChegou("2026-10-07", HOJE)).toBe(true);
+    expect(dataAindaNaoChegou("2027-01-01", "2026-12-31")).toBe(true);
+  });
+
+  it("compara a data civil, não o texto do mês: 09 antes de 10", () => {
+    expect(dataAindaNaoChegou("2026-09-30", "2026-10-01")).toBe(false);
+    expect(dataAindaNaoChegou("2026-10-01", "2026-09-30")).toBe(true);
   });
 });
 

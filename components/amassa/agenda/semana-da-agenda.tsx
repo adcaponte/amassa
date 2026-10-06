@@ -392,6 +392,7 @@ export function SemanaDaAgenda({
           <FolhaEvento
             cabecalho={cabecalho}
             carregado={carregado}
+            hoje={hoje}
             erroAoCarregar={erroAoCarregarEvento && carregado === null}
             aoFechar={fechar}
             aoAbrirTurma={abrirTurma}

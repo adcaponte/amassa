@@ -696,6 +696,14 @@ export const FRASE_FALHA_AO_SAIR_DA_TURMA = "Não deu para tirar da turma. Verif
 // pessoa", §Copywriting "Erros"). Plural de verdade: "1 aula a repor" / "2 aulas a repor"; a tag curta
 // "{n} a repor" não tem substantivo, então serve a qualquer n.
 export const TAG_MARCAR_PRESENCA = "marcar presença";
+
+// D-05 (Fase 06.5, 06.5-UI-SPEC.md §Copywriting "Agenda — presença antes do dia"; UI-D13): acima do
+// "Veio · Faltou" de uma data DEPOIS de hoje, uma vez por data. Avisa e deixa — o segmentado continua
+// habilitado. `diaCurto` = "qui, 07/10".
+export function fraseDataAindaNaoChegou(diaCurto: string): string {
+  return `Esta data ainda não chegou (${diaCurto}). Dá para marcar a presença, mas confira se é a data certa.`;
+}
+
 export const ROTULO_DIREITO_A_REPOR = "tem direito a repor esta aula";
 export const TAG_REPOE = "repõe";
 export const ROTULO_QUADRO_A_REPOR = "A REPOR";

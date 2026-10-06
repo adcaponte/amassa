@@ -43,6 +43,13 @@ export function precisaMarcarPresenca(evento: DataParaMarcarPresenca, hoje: stri
   return evento.inscritos.some((inscrito) => inscrito.presenca === null);
 }
 
+// D-05 (Fase 06.5): marcar presença numa data DEPOIS de hoje avisa e deixa — o aviso sai daqui. No dia e
+// antes, nada. "Hoje" chega por argumento (`hojeEmBrasilia` no servidor); as duas datas são civis,
+// `YYYY-MM-DD`, que se comparam como texto (a mesma conta de `precisaMarcarPresenca`).
+export function dataAindaNaoChegou(data: string, hoje: string): boolean {
+  return data > hoje;
+}
+
 export type InscritoParaOrdenar = {
   id: string;
   nome: string;
