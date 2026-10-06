@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { cobrancaParaVenda, type CobrancaParaVenda } from "@/lib/agenda/consultas";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { textoContasGeradas } from "@/lib/cadastros/textos";
 import {
   abaDaUrl,
   ehOrigemDaAgenda,
@@ -20,17 +21,19 @@ import {
   listarDocumentosDoMes,
   listarDocumentosParaDetalhe,
   listarItensParaEfeito,
+  haContaFixaAtiva,
   listarMovimentos,
   listarParcelasPagasNoMes,
   obterConfiguracaoFinanceira,
   obterDocumentoParaAviso,
+  mesesComContasFixasGeradas,
   obterParcelaParaAviso,
   somarMovimentosAntesDe,
 } from "@/lib/financeiro/consultas";
 import { mesAnterior, mesSeguinte, primeiroDiaDoMes } from "@/lib/financeiro/calendario";
 import { filtrarExtrato, montarExtrato, resumoDoCaixa, saldoAntesDaJanela } from "@/lib/financeiro/extrato";
-import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
-import { janelaDoCaixa, separarPelaJanela } from "@/lib/financeiro/janela";
+import { formatarReais, hojeEmBrasilia, nomeDoMes, nomeDoMesSemAno } from "@/lib/financeiro/formato";
+import { janelaDoCaixa, mesesDaJanela, mesesSemContasFixas, separarPelaJanela } from "@/lib/financeiro/janela";
 import { resumoDoMes } from "@/lib/financeiro/mes";
 import { listarSaldos } from "@/lib/estoque/consultas";
 import { listarFornecedoresParaSeletor, type FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
@@ -69,6 +72,7 @@ import {
 } from "@/lib/precificacao/consultas";
 import { TOAST_PECA_SALVA } from "@/lib/precificacao/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
+import { AvisoContasFixas } from "@/components/amassa/financeiro/aviso-contas-fixas";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
 import { OrigemIndisponivel } from "@/components/amassa/financeiro/faixa-da-agenda";
@@ -130,6 +134,8 @@ export default async function PaginaFinanceiro({
     parcela?: string;
     parcelaFoco?: string;
     mes?: string;
+    quantidade?: string;
+    mesGerado?: string;
     forma?: string;
     peca?: string;
     exclusivas?: string;
@@ -147,6 +153,8 @@ export default async function PaginaFinanceiro({
     parcela,
     parcelaFoco,
     mes,
+    quantidade,
+    mesGerado,
     forma,
     peca,
     exclusivas,
@@ -200,7 +208,12 @@ export default async function PaginaFinanceiro({
   const mesAtual = mesDaUrl(mes, hoje);
   const formaDoExtrato = formaDaUrl(forma);
 
-  const avisoResolvido = avisoDaUrl({ aviso, documento, parcela });
+  const avisoResolvido = avisoDaUrl({ aviso, documento, parcela, quantidade, mesGerado });
+
+  // D-03 / UI-D7 (06.5-12): a janela do Caixa — vencidas e as que vencem até hoje + 30 dias, com o
+  // `hoje` do servidor. Os meses que ela toca são os que podem pedir o aviso das contas fixas.
+  const janela = janelaDoCaixa(hoje);
+  const mesesDaJanelaDoCaixa = mesesDaJanela(hoje, janela.ate);
 
   // A Venda aberta por outro módulo — a Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa,
   // UI-D26) e as Queimas (Fase 06.4, plano 05 — QMC-08, D-07): com `?origem=` na aba Venda, a origem é
@@ -257,6 +270,8 @@ export default async function PaginaFinanceiro({
     movimentos,
     gruposPagosAntes,
     contasEmAberto,
+    mesesJaGerados,
+    existeContaFixaAtiva,
     documentoDoAviso,
     parcelaDoAviso,
     documentosDoMes,
@@ -288,6 +303,9 @@ export default async function PaginaFinanceiro({
     abaCaixa ? listarMovimentos({ desde: primeiroDiaDoMes(mesAtual) }) : Promise.resolve([]),
     abaCaixa ? somarMovimentosAntesDe(primeiroDiaDoMes(mesAtual)) : Promise.resolve([]),
     abaCaixa ? listarContasEmAberto() : Promise.resolve([]),
+    // D-03 / UI-D8 (06.5-12): o aviso do mês da janela sem contas fixas geradas — só na aba Caixa.
+    abaCaixa ? mesesComContasFixasGeradas(mesesDaJanelaDoCaixa) : Promise.resolve([]),
+    abaCaixa ? haContaFixaAtiva() : Promise.resolve(false),
     avisoResolvido && (avisoResolvido.tipo === "lancado" || avisoResolvido.tipo === "cancelado")
       ? obterDocumentoParaAviso(avisoResolvido.documentoId)
       : Promise.resolve(null),
@@ -427,7 +445,9 @@ export default async function PaginaFinanceiro({
                                 orcamentoParaEditar.documentoNumero,
                                 orcamentoParaEditar.encomendaId !== null,
                               )
-                            : null;
+                            : avisoResolvido?.tipo === "contas-geradas"
+                              ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes))
+                              : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
   const desfazerDoAviso =
@@ -447,12 +467,18 @@ export default async function PaginaFinanceiro({
   // vencidas e das que vencem até hoje + 30 dias — `hoje` é o do servidor (`hojeEmBrasilia`). As
   // de depois ficam a um toque no fim de cada lista e NÃO entram nos tiles; o "Saldo em caixa" não
   // muda. A mesma lista (`listarContasEmAberto`) alimenta as listas e os tiles.
-  const janela = janelaDoCaixa(hoje);
   const janelaAte = formatarDiaMes(janela.ate);
   const contasPelaJanela = separarPelaJanela(contasEmAberto, janela);
   const resumo = extrato
     ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: contasPelaJanela.daJanela })
     : null;
+  const mesesParaAvisar = abaCaixa
+    ? mesesSemContasFixas({
+        meses: mesesDaJanelaDoCaixa,
+        gerados: mesesJaGerados,
+        haContaFixaAtiva: existeContaFixaAtiva,
+      })
+    : [];
 
   // D-11/D-12: `filtrarExtrato` recebe as linhas JÁ com o saldo global de `montarExtrato` — só
   // escolhe quais mostrar (mês + forma), nunca recalcula saldo.
@@ -510,6 +536,18 @@ export default async function PaginaFinanceiro({
       {abaCaixa ? (
         <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
           {resumo ? <TilesCaixa resumo={resumo} janelaAte={janelaAte} /> : null}
+          {mesesParaAvisar.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {mesesParaAvisar.map((mesSemContas) => (
+                <AvisoContasFixas
+                  key={mesSemContas}
+                  mes={mesSemContas}
+                  mesPorExtenso={nomeDoMes(mesSemContas)}
+                  nomeDoMes={nomeDoMesSemAno(mesSemContas)}
+                />
+              ))}
+            </div>
+          ) : null}
           <ListasCaixa
             contas={contasPelaJanela.daJanela}
             contasDepois={contasPelaJanela.depois}

@@ -7,6 +7,10 @@ import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import { semearFicha } from "./apoio/semear-producao";
 
+// O toast de "Gerar" que criou contas, no singular ou no plural de verdade (06.5-12): "1 conta de
+// {mês} criada no Caixa." / "{N ≥ 2} contas de {mês} criadas no Caixa." — "1 contas" não casa.
+const CONTAS_CRIADAS = /^(1 conta de .+ criada|([2-9]|\d{2,}) contas de .+ criadas) no Caixa\.$/;
+
 // O banco da Fase 06.5 (06.5-11-PLAN.md, migração 0031, D-25 e D-26):
 // - uma conta fixa cancelada libera o mês e é gerada de novo pela tela — o índice único parcial
 //   `documentos_conta_fixa_mes_ativo_uk` e o `onConflictDoNothing` com o predicado
@@ -62,9 +66,9 @@ async function gerarContasDoMes(page: Page, mes: string) {
   await irParaContasFixas(page);
   await page.getByTestId("gerar-contas-mes").selectOption(mes);
   await page.getByTestId("gerar-contas").click();
-  // "N conta(s) de {mês} criada(s) no Caixa." — nunca "já existiam": a conta deste teste é nova
+  // "{N} contas de {mês} criadas no Caixa." (ou "1 conta … criada") — nunca "já existiam": a conta deste teste é nova
   // (primeira geração) ou acabou de ser cancelada (segunda), e nos dois casos o mês é criado.
-  await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+  await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
     timeout: 10000,
   });
 }
@@ -72,16 +76,19 @@ async function gerarContasDoMes(page: Page, mes: string) {
 test.describe("polimento banco — conta fixa", () => {
   // "Gerar" é GLOBAL (toda conta fixa ativa do banco). Para não disputar mês com
   // `cadastros-contas-fixas` (que gera o 2º, o 3º e o 4º mês da faixa) nem pôr despesas no mês
-  // corrente que outros testes leem, cada projeto gera um mês PRÓPRIO, no fim da faixa: o último
-  // no desktop, o penúltimo no celular. A afirmação é sempre sobre o título da PRÓPRIA conta.
-  test("uma conta fixa cancelada no Caixa é gerada de novo para o mesmo mês", async ({
+  // corrente que outros testes leem, este teste gera um mês PRÓPRIO, o último da faixa. A afirmação
+  // é sempre sobre o título da PRÓPRIA conta.
+  //
+  // Na cadeia `@vazio-historico` (06.5-12): enquanto a conta deste teste está ATIVA, qualquer "Gerar"
+  // de outro spec a inclui — foi o que derrubou o "gerar de novo não duplica" do
+  // `cadastros-contas-fixas` (o 3º mês, gerado de novo, criou 1 em vez de "já existiam") quando os
+  // dois rodaram juntos. Rodando antes de `desktop`/`celular`, e desativando a conta no fim, este
+  // teste nunca está ativo ao mesmo tempo que o `cadastros-contas-fixas`.
+  test("uma conta fixa cancelada no Caixa é gerada de novo para o mesmo mês @vazio-historico", async ({
     page,
-  }, testInfo) => {
+  }) => {
     const faixa = mesesParaGeracao(hojeNoAtelie());
-    const mes =
-      testInfo.project.name === "desktop"
-        ? faixa[faixa.length - 1]
-        : faixa[faixa.length - 2];
+    const mes = faixa[faixa.length - 1];
     const nome = `[e2e] Conta da 0031 ${sufixoUnico()}`;
     const titulo = tituloDaContaFixa(nome, mes);
 

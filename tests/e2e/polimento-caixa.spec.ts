@@ -1,14 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
+import { Client } from "pg";
 
+import { nomeDoMes, nomeDoMesSemAno } from "@/lib/financeiro/formato";
+import { janelaDoCaixa, mesesDaJanela } from "@/lib/financeiro/janela";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 
 import { medirCaixa } from "./apoio/medir-caixa";
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
-import { somarDiasAoHoje } from "./apoio/semear-financeiro";
+import { buscarCategoriaPorNome, hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 
 // O Caixa da Fase 06.5 (06.5-12-PLAN.md, D-03 / UI-D7 / UI-D8, D-27):
 // - "A pagar"/"A receber" e os tiles "A receber", "A pagar" e "Se tudo se cumprir" falam das
 //   vencidas e das que vencem até hoje + 30; o resto fica a um toque, na mesma lista, sem navegar;
+// - o mês da janela sem contas fixas geradas avisa, com o atalho para gerar ali mesmo;
 // - nenhum teste afirma o N exato de "Ver as {N}…": outros specs criam contas ao mesmo tempo.
 
 async function fazerLogin(page: Page) {
@@ -102,5 +106,173 @@ test.describe("polimento caixa — janela", () => {
     await expect(cartaoDaConta(page, tituloLonge)).toHaveCount(0);
     await expect(separador).toHaveCount(0);
     await expect(aReceber.getByTestId("conta-cartao").filter({ hasText: tituloPerto })).toBeVisible();
+  });
+});
+
+// --- O aviso do mês da janela sem contas fixas geradas (D-03 / UI-D8) -------------------------------
+//
+// "Nenhuma conta fixa gerada no mês corrente" é condição GLOBAL do banco: este describe roda na cadeia
+// `@vazio-historico` (antes de `desktop`/`celular`, banco recém-criado) e deixa o banco como achou —
+// a conta fixa criada sai desativada e as despesas que a geração deste teste criou saem canceladas.
+
+async function comCliente<T>(operacao: (cliente: Client) => Promise<T>): Promise<T> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    return await operacao(cliente);
+  } finally {
+    await cliente.end();
+  }
+}
+
+async function criarContaFixaAtiva(nome: string): Promise<string> {
+  const categoriaId = await buscarCategoriaPorNome("Aluguel");
+  return comCliente(async (cliente) => {
+    const { rows } = await cliente.query<{ id: string }>(
+      `insert into contas_fixas (nome, categoria_id, valor_esperado_centavos, dia_vencimento, ativa)
+       values ($1, $2, 43210, 28, true) returning id`,
+      [nome, categoriaId],
+    );
+    const id = rows[0]?.id;
+    if (!id) {
+      throw new Error(`criarContaFixaAtiva: falha ao inserir "${nome}".`);
+    }
+    return id;
+  });
+}
+
+// Desativa a conta deste teste e cancela as despesas de conta fixa que a geração dele criou: as da
+// própria conta (qualquer mês) e as do mês corrente (que, nesta cadeia, não existiam antes — o aviso
+// do mês corrente na tela é a prova).
+async function devolverOBanco(contaFixaId: string, mesCorrente: string): Promise<void> {
+  await comCliente(async (cliente) => {
+    const email = process.env.E2E_EMAIL_TESTE ?? "";
+    const { rows } = await cliente.query<{ id: string }>(
+      "select id from usuarios where lower(email) = lower($1) limit 1",
+      [email],
+    );
+    const gestorId = rows[0]?.id;
+    if (!gestorId) {
+      throw new Error(`devolverOBanco: nenhum usuário com o e-mail "${email}".`);
+    }
+    await cliente.query("update contas_fixas set ativa = false where id = $1", [contaFixaId]);
+    await cliente.query(
+      `update documentos set cancelado_em = now(), cancelado_por = $3
+        where cancelado_em is null and conta_fixa_id is not null
+          and (conta_fixa_id = $1 or mes_referencia = $2::date)`,
+      [contaFixaId, `${mesCorrente}-01`, gestorId],
+    );
+  });
+}
+
+test.describe("polimento caixa — aviso das contas fixas @vazio-historico", () => {
+  // Em série, a falha primeiro: os dois dependem do aviso do mês corrente, que o segundo apaga ao gerar.
+  test.describe.configure({ mode: "serial" });
+
+  test("a geração que falha no caminho mostra o erro e o aviso continua", async ({ page }) => {
+    const hoje = hojeNoAtelie();
+    const mesCorrente = hoje.slice(0, 7);
+    const nome = `[e2e] Internet inventada ${sufixoUnico()}`;
+    const contaFixaId = await criarContaFixaAtiva(nome);
+
+    try {
+      await fazerLogin(page);
+      await page.goto("/gestao/financeiro?aba=caixa");
+      const aviso = page.getByTestId(`caixa-aviso-fixas-${mesCorrente}`);
+      await expect(aviso).toBeVisible();
+
+      // A chamada da ação (POST com o cabeçalho `next-action`) não chega ao servidor.
+      await page.route("**/gestao/financeiro**", async (rota) => {
+        if (rota.request().method() === "POST" && rota.request().headers()["next-action"]) {
+          await rota.abort("failed");
+          return;
+        }
+        await rota.continue();
+      });
+
+      const botao = page.getByTestId(`caixa-gerar-fixas-${mesCorrente}`);
+      const erro = page.getByText("Não deu para gerar as contas. Verifique a internet e tente de novo.");
+      await expect(async () => {
+        if (await botao.isEnabled()) {
+          await botao.click({ timeout: 2000 });
+        }
+        await expect(erro).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 30000 });
+
+      // Nada foi gerado: o aviso continua, com o botão de volta.
+      await expect(aviso).toBeVisible();
+      await expect(botao).toBeEnabled();
+      await expect(botao).toHaveText(`Gerar as contas de ${nomeDoMes(mesCorrente)}`);
+    } finally {
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      await devolverOBanco(contaFixaId, mesCorrente);
+    }
+  });
+
+  test("o mês sem contas fixas geradas avisa com o atalho; gerar volta ao Caixa com o toast e o aviso some", async ({
+    page,
+  }) => {
+    const hoje = hojeNoAtelie();
+    const mesCorrente = hoje.slice(0, 7);
+    const mesesDaJanelaDeHoje = mesesDaJanela(hoje, janelaDoCaixa(hoje).ate);
+    const nome = `[e2e] Aluguel da sala inventada ${sufixoUnico()}`;
+    const contaFixaId = await criarContaFixaAtiva(nome);
+
+    try {
+      await fazerLogin(page);
+      await page.goto("/gestao/financeiro?aba=caixa");
+
+      // Um aviso por mês da janela, em ordem, entre os tiles e as listas.
+      const aviso = page.getByTestId(`caixa-aviso-fixas-${mesCorrente}`);
+      await expect(aviso).toBeVisible();
+      await expect(aviso).toHaveAttribute("role", "status");
+      await expect(aviso).toContainText(`As contas fixas de ${nomeDoMes(mesCorrente)} ainda não foram geradas.`);
+      await expect(aviso).toContainText(
+        `O que vence em ${nomeDoMesSemAno(mesCorrente)} não aparece em “A pagar” nem conta em “Se tudo se cumprir”.`,
+      );
+      const avisos = page.locator('[data-testid^="caixa-aviso-fixas-"]');
+      await expect(avisos).toHaveCount(mesesDaJanelaDeHoje.length);
+      for (const [indice, mes] of mesesDaJanelaDeHoje.entries()) {
+        await expect(avisos.nth(indice)).toHaveAttribute("data-testid", `caixa-aviso-fixas-${mes}`);
+      }
+      const tiles = await medirCaixa(page.getByTestId("caixa-tile-saldo"), "tile do saldo");
+      const caixaDoAviso = await medirCaixa(aviso, "aviso do mês corrente");
+      const listas = await medirCaixa(page.getByTestId("caixa-a-pagar"), "lista A pagar");
+      expect(caixaDoAviso.y).toBeGreaterThan(tiles.y);
+      expect(caixaDoAviso.y).toBeLessThan(listas.y);
+
+      const link = aviso.getByRole("link", { name: "ver em Contas fixas" });
+      await expect(link).toHaveAttribute("href", "/gestao/cadastros?sub=fixas");
+
+      const botao = page.getByTestId(`caixa-gerar-fixas-${mesCorrente}`);
+      await expect(botao).toHaveText(`Gerar as contas de ${nomeDoMes(mesCorrente)}`);
+      expect((await medirCaixa(botao)).height).toBeGreaterThanOrEqual(44);
+
+      // Gerar — o clique pode chegar antes da hidratação; repete só enquanto nada aconteceu (o botão
+      // fica desabilitado enquanto envia, e "Gerar" é idempotente no servidor de qualquer jeito).
+      const mesPorExtenso = nomeDoMes(mesCorrente);
+      const toastDasContas = page.getByText(
+        new RegExp(
+          `^(1 conta de ${mesPorExtenso} criada|([2-9]|\\d{2,}) contas de ${mesPorExtenso} criadas) no Caixa\\.$`,
+        ),
+      );
+      await expect(async () => {
+        if ((await botao.count()) > 0 && (await botao.isEnabled())) {
+          await botao.click({ timeout: 2000 });
+        }
+        await expect(toastDasContas).toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 30000 });
+
+      // De volta ao Caixa, a URL limpa e o aviso daquele mês some (o servidor não o devolve mais);
+      // o do mês seguinte, se a janela chega nele, continua.
+      await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=caixa$/);
+      await expect(page.getByTestId("caixa-a-pagar")).toBeVisible();
+      await expect(page.getByTestId(`caixa-aviso-fixas-${mesCorrente}`)).toHaveCount(0);
+      for (const mes of mesesDaJanelaDeHoje.slice(1)) {
+        await expect(page.getByTestId(`caixa-aviso-fixas-${mes}`)).toBeVisible();
+      }
+    } finally {
+      await devolverOBanco(contaFixaId, mesCorrente);
+    }
   });
 });

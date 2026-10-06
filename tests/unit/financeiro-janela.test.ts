@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { janelaDoCaixa, mesesDaJanela, separarPelaJanela } from "@/lib/financeiro/janela";
+import { janelaDoCaixa, mesesDaJanela, mesesSemContasFixas, separarPelaJanela } from "@/lib/financeiro/janela";
 import {
   fraseVazioAPagarNaJanela,
   fraseVazioAReceberNaJanela,
@@ -101,5 +101,34 @@ describe("textos da janela (verbatim da UI-SPEC)", () => {
     expect(textoDepoisDe("05/11")).toBe("Depois de 05/11");
     expect(fraseVazioAPagarNaJanela("05/11")).toBe("Nada vence até 05/11.");
     expect(fraseVazioAReceberNaJanela("05/11")).toBe("Ninguém deve nada até 05/11.");
+  });
+});
+
+describe("mesesSemContasFixas", () => {
+  it("um mês sem geração, com conta fixa ativa: o aviso daquele mês", () => {
+    expect(mesesSemContasFixas({ meses: ["2026-10"], gerados: [], haContaFixaAtiva: true })).toEqual(["2026-10"]);
+  });
+
+  it("dois meses na virada, só o primeiro gerado: o aviso do segundo; nenhum gerado: os dois, em ordem", () => {
+    expect(
+      mesesSemContasFixas({ meses: ["2026-12", "2027-01"], gerados: ["2026-12"], haContaFixaAtiva: true }),
+    ).toEqual(["2027-01"]);
+    expect(mesesSemContasFixas({ meses: ["2026-12", "2027-01"], gerados: [], haContaFixaAtiva: true })).toEqual([
+      "2026-12",
+      "2027-01",
+    ]);
+  });
+
+  it("sem conta fixa ativa, nenhum aviso — mesmo sem nada gerado", () => {
+    expect(mesesSemContasFixas({ meses: ["2026-10", "2026-11"], gerados: [], haContaFixaAtiva: false })).toEqual([]);
+  });
+
+  it("todos gerados: nenhum aviso; gerado fora da janela não conta", () => {
+    expect(
+      mesesSemContasFixas({ meses: ["2026-10", "2026-11"], gerados: ["2026-11", "2026-10"], haContaFixaAtiva: true }),
+    ).toEqual([]);
+    expect(
+      mesesSemContasFixas({ meses: ["2026-10", "2026-11"], gerados: ["2027-03"], haContaFixaAtiva: true }),
+    ).toEqual(["2026-10", "2026-11"]);
   });
 });

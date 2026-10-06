@@ -7,6 +7,7 @@ import { db } from "@/db";
 import {
   categorias,
   configuracaoFinanceira,
+  contasFixas,
   documentoLinhas,
   documentos,
   fichaTecnica,
@@ -165,6 +166,38 @@ export async function somarMovimentosAntesDe(desde: string): Promise<GrupoDePaga
     .groupBy(documentos.tipo, parcelas.valorCentavos, parcelas.taxaPontosBase);
 
   return grupos.map((grupo) => ({ ...grupo, quantidade: Number(grupo.quantidade) }));
+}
+
+// D-03 / UI-D8 (06.5-12): dos meses pedidos (chaves `YYYY-MM`), os que já têm ao menos um documento
+// de conta fixa NÃO cancelado — o mesmo critério do índice parcial `documentos_conta_fixa_mes_ativo_uk`
+// (06.5-11): um mês cuja única despesa gerada foi cancelada volta a pedir o aviso, e "Gerar" o cria
+// de novo. Uma consulta só, `distinct`, nunca uma por mês.
+export async function mesesComContasFixasGeradas(meses: readonly string[]): Promise<string[]> {
+  if (meses.length === 0) {
+    return [];
+  }
+  const linhas = await db
+    .selectDistinct({ mesReferencia: documentos.mesReferencia })
+    .from(documentos)
+    .where(
+      and(
+        isNotNull(documentos.contaFixaId),
+        isNull(documentos.canceladoEm),
+        inArray(documentos.mesReferencia, meses.map(primeiroDiaDoMes)),
+      ),
+    );
+  return linhas.flatMap((linha) => (linha.mesReferencia ? [linha.mesReferencia.slice(0, 7)] : []));
+}
+
+// Existe ao menos uma conta fixa ATIVA? Sem nenhuma, o Caixa não avisa mês nenhum (não há o que
+// gerar) — `limit 1`, nunca a lista inteira.
+export async function haContaFixaAtiva(): Promise<boolean> {
+  const [linha] = await db
+    .select({ id: contasFixas.id })
+    .from(contasFixas)
+    .where(eq(contasFixas.ativa, true))
+    .limit(1);
+  return linha !== undefined;
 }
 
 export type DocumentoParaAviso = { numero: number; totalCentavos: number; parcelasEmAberto: number };

@@ -264,11 +264,16 @@ export function rotuloGerarContas(mesPorExtenso: string): string {
   return `Gerar as contas de ${mesPorExtenso}`;
 }
 
-// "3 conta(s) de janeiro de 2027 criada(s) no Caixa." / "As contas de janeiro de 2027 já
-// existiam." — `mesPorExtenso` já formatado por quem chama, mesma disciplina de `rotuloGerarContas`.
+// "3 contas de janeiro de 2027 criadas no Caixa." / "1 conta de janeiro de 2027 criada no Caixa." /
+// "As contas de janeiro de 2027 já existiam." — plural de verdade desde o 06.5-12 (UI-SPEC da 06.5,
+// §Toasts); o mesmo texto serve aos Cadastros e ao aviso do Caixa. `mesPorExtenso` já formatado
+// por quem chama, mesma disciplina de `rotuloGerarContas`.
 export function textoContasGeradas(quantidade: number, mesPorExtenso: string): string {
   if (quantidade === 0) {
     return `As contas de ${mesPorExtenso} já existiam.`;
   }
-  return `${quantidade} conta(s) de ${mesPorExtenso} criada(s) no Caixa.`;
+  if (quantidade === 1) {
+    return `1 conta de ${mesPorExtenso} criada no Caixa.`;
+  }
+  return `${quantidade} contas de ${mesPorExtenso} criadas no Caixa.`;
 }

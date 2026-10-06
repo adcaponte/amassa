@@ -430,6 +430,24 @@ export function fraseVazioAReceberNaJanela(diaMes: string): string {
   return `Ninguém deve nada até ${diaMes}.`;
 }
 
+// O aviso âmbar do mês da janela sem contas fixas geradas (06.5-12, D-03 / UI-D8), verbatim da
+// UI-SPEC: manchete com o mês por extenso e o ano; corpo só com o nome do mês, minúsculo no meio
+// da frase. O botão usa `rotuloGerarContas` dos Cadastros — a mesma ação, o mesmo rótulo.
+export function textoAvisoContasFixasManchete(mesPorExtenso: string): string {
+  return `As contas fixas de ${mesPorExtenso} ainda não foram geradas.`;
+}
+
+export function textoAvisoContasFixasCorpo(nomeDoMes: string): string {
+  return `O que vence em ${nomeDoMes} não aparece em “A pagar” nem conta em “Se tudo se cumprir”.`;
+}
+
+export const ROTULO_VER_EM_CONTAS_FIXAS = "ver em Contas fixas";
+export const ROTULO_GERANDO_CONTAS = "Gerando…";
+// A ação nem respondeu (rede caiu no meio): o aviso continua, e dá para tocar de novo — "Gerar" é
+// idempotente no servidor. A recusa da própria ação chega com a frase dela (`resposta.erro`).
+export const FRASE_FALHA_AO_GERAR_CONTAS =
+  "Não deu para gerar as contas. Verifique a internet e tente de novo.";
+
 // O cabeçalho do detalhe: "Venda nº 12 · 18/12/26 · Maria" (protótipo `folhaDoc`).
 export function textoCabecalhoDocumento(
   tipo: TipoDeDocumentoParaTexto,

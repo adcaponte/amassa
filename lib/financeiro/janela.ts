@@ -46,3 +46,23 @@ export function mesesDaJanela(hoje: string, ate: string): string[] {
   }
   return meses;
 }
+
+// D-03 / UI-D8 (06.5-12): os meses da janela que pedem o aviso "As contas fixas de {mês} ainda não
+// foram geradas." — os que não têm NENHUM documento de conta fixa ativo (não cancelado), em ordem.
+// Sem nenhuma conta fixa ATIVA, nenhum aviso: não há o que gerar. `gerados` são as chaves
+// `YYYY-MM` que a consulta achou (`mesesComContasFixasGeradas`).
+export function mesesSemContasFixas({
+  meses,
+  gerados,
+  haContaFixaAtiva,
+}: {
+  meses: readonly string[];
+  gerados: readonly string[];
+  haContaFixaAtiva: boolean;
+}): string[] {
+  if (!haContaFixaAtiva) {
+    return [];
+  }
+  const jaGerados = new Set(gerados);
+  return meses.filter((mes) => !jaGerados.has(mes));
+}

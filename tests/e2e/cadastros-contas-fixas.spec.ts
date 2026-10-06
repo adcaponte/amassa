@@ -6,6 +6,10 @@ import { nomeDoMes } from "@/lib/financeiro/formato";
 import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 
+// O toast de "Gerar" que criou contas, no singular ou no plural de verdade (06.5-12): "1 conta de
+// {mês} criada no Caixa." / "{N ≥ 2} contas de {mês} criadas no Caixa." — "1 contas" não casa.
+const CONTAS_CRIADAS = /^(1 conta de .+ criada|([2-9]|\d{2,}) contas de .+ criadas) no Caixa\.$/;
+
 // Contas fixas com CRUD completo (04.4-10-PLAN.md, D-13): criar, ajustar o valor esperado na
 // própria linha, desativar/reativar, e "Gerar as contas de {mês}" que nunca duplica (critério 6
 // do ROADMAP) — provado com o exemplo 1 de despesa do protótipo (aluguel). Desde o
@@ -161,7 +165,7 @@ test.describe("cadastros contas fixas", () => {
     // "Gerar as contas de {mês}" — primeira vez: cria a do Aluguel, nunca a da Internet
     // (desativada).
     await page.getByTestId("gerar-contas").click();
-    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
       timeout: 10000,
     });
 
@@ -281,7 +285,7 @@ test.describe("cadastros contas fixas", () => {
     const tituloDesativadaTerceiroMes = tituloDaContaFixa(nomeDesativada, terceiroMes);
 
     await page.getByTestId("gerar-contas").click();
-    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
       timeout: 10000,
     });
 
@@ -297,7 +301,7 @@ test.describe("cadastros contas fixas", () => {
     await irParaContasFixas(page);
     await page.getByTestId("gerar-contas-mes").selectOption(quartoMes);
     await page.getByTestId("gerar-contas").click();
-    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
       timeout: 10000,
     });
 

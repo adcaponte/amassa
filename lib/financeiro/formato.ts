@@ -115,6 +115,15 @@ export function nomeDoMes(chave: string): string {
   }).format(new Date(Date.UTC(ano, mes - 1, 1)));
 }
 
+// "dezembro" — só o nome do mês, sem o ano, para o meio de uma frase que já disse o ano (o aviso
+// das contas fixas do Caixa, 06.5-12: "O que vence em {novembro} não aparece…").
+export function nomeDoMesSemAno(chave: string): string {
+  const [ano, mes] = chave.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" }).format(
+    new Date(Date.UTC(ano, mes - 1, 1)),
+  );
+}
+
 // "2026-12" a partir de "2026-12-18" — a chave que agrupa movimentos por mês (extrato, D-11).
 export function chaveDoMes(dataIso: string): string {
   return dataIso.slice(0, 7);
