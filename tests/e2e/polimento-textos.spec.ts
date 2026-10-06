@@ -1,10 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // Três textos que o Cowork achou (06.5-13-PLAN.md, D-14, POL-07):
 // - o mês por extenso como título é “Outubro de 2026” — o “de” minúsculo, sem CSS que transforme a
 //   caixa (achado 21);
 // - o placeholder do fornecedor na Despesa é “Escolha ou escreva o nome” e cabe inteiro a 375 px
 //   (achado 19);
+// - no documento do orçamento, “Qtd.” e “Cada” ficam separados — nunca “1R$ 70,00” (achado 23).
 
 async function fazerLogin(page: Page) {
   await page.goto("/gestao/login");
@@ -87,5 +90,81 @@ test.describe("polimento textos — fornecedor", () => {
       );
       console.log(`[polimento textos — fornecedor] ${test.info().project.name} ${modo}: ${JSON.stringify(medida)}`);
     }
+  });
+});
+
+function sufixoUnico(): string {
+  return `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+// Um orçamento de uma linha: a peça exclusiva a R$ 70,00, quantidade 1 (o padrão da linha). O mesmo
+// caminho de `orcamentos-pdf.spec.ts`; nomes inventados e únicos — o repositório é público.
+async function criarOrcamentoDeUmaLinha(page: Page, nome: string): Promise<string> {
+  await page.goto("/gestao/financeiro?aba=orcamentos");
+  await page.getByRole("button", { name: "Novo orçamento" }).click();
+  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
+  expect(orcamentoId).not.toBe("");
+
+  await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+  await page.getByRole("link", { name: "+ Peça exclusiva deste pedido" }).click();
+  await expect(page.getByRole("heading", { name: "Peça nova" })).toBeVisible();
+  await page.getByTestId("ficha-campo-nome").fill(nome);
+  await page.getByTestId("ficha-campo-argila").fill("450");
+  await page.getByTestId("ficha-campo-esmalte").fill("60");
+  await page.getByTestId("ficha-campo-horas").fill("0,6");
+  await page.getByTestId("ficha-campo-largura").fill("12");
+  await page.getByTestId("ficha-campo-profundidade").fill("9");
+  await page.getByTestId("ficha-campo-altura").fill("10");
+  await page.getByTestId("ficha-campo-embalagem").fill("3");
+  await page.getByTestId("ficha-campo-preco-praticado").fill("70");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page).toHaveURL(new RegExp(`aba=orcamentos&orcamento=${orcamentoId}$`), { timeout: 10000 });
+  await expect(page.getByTestId("orcamento-linha").filter({ hasText: nome })).toBeVisible();
+  return orcamentoId;
+}
+
+test.describe("polimento textos — orçamento", () => {
+  test("a 375 px, em “Ver como o cliente vê”, a quantidade e o preço de cada ficam separados — nunca “1R$ 70,00”", async ({
+    page,
+  }) => {
+    const nome = `[e2e] Tigela da Clarice Inventada ${sufixoUnico()}`;
+    await fazerLogin(page);
+    const orcamentoId = await criarOrcamentoDeUmaLinha(page, nome);
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto(`/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}`);
+    await page.getByRole("button", { name: "Ver como o cliente vê" }).click();
+
+    const tabela = page.getByTestId("folha-tabela-peca");
+    await expect(tabela).toBeVisible();
+    await expect(page.getByTestId("documento-coluna-qtd")).toHaveText("Qtd.");
+    const linha = tabela.locator("tbody tr").filter({ hasText: nome });
+    await expect(linha).toHaveCount(1);
+    const celulaQtd = linha.locator("td").nth(1);
+    const celulaCada = linha.locator("td").nth(2);
+    await expect(celulaQtd).toHaveText("1");
+    await expect(celulaCada).toHaveText("R$ 70,00");
+
+    // As caixas das células: a da quantidade termina antes (ou exatamente onde) começa a do “Cada”.
+    const caixaQtd = await medirCaixa(celulaQtd, "célula da quantidade");
+    const caixaCada = await medirCaixa(celulaCada, "célula Cada");
+    expect(caixaQtd.x + caixaQtd.width).toBeLessThanOrEqual(caixaCada.x + 0.5);
+
+    // E os TEXTOS: do fim do “1” ao começo do “R$”, ao menos 16 px (o px-4 de cada lado dá 32).
+    const folga = await linha.evaluate((tr) => {
+      const textoDe = (celula: Element) => {
+        const intervalo = document.createRange();
+        intervalo.selectNodeContents(celula);
+        return intervalo.getBoundingClientRect();
+      };
+      const [, qtd, cada] = Array.from(tr.querySelectorAll("td"));
+      return textoDe(cada).left - textoDe(qtd).right;
+    });
+    expect(folga, "folga entre o texto da quantidade e o do preço de cada").toBeGreaterThanOrEqual(16);
+
+    // O texto como se LÊ (innerText: as células saem separadas). O textContent junta as células sem
+    // separador nenhum e teria “1R$” mesmo com as colunas afastadas — não serve de prova.
+    await expect(linha).not.toContainText("1R$", { useInnerText: true });
   });
 });

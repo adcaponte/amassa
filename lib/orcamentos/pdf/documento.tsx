@@ -72,7 +72,12 @@ const estilos = StyleSheet.create({
     paddingVertical: 4,
   },
   colunaPeca: { flex: 2 },
-  colunaNumero: { flex: 1, textAlign: "right" },
+  // As três colunas numéricas com recuo à esquerda: o número de uma nunca encosta no da outra — o
+  // mesmo efeito do `px-4` da tela (“Ver como o cliente vê”). Até 06/10/2026 a quantidade e o preço
+  // unitário podiam se ler “1R$ 70,00” (D-14, achado 23). 12 pt ≈ 16 px.
+  colunaNumero: { flex: 1, textAlign: "right", paddingLeft: 12 },
+  // “Qtd.” nunca mais estreita que 36 pt (≈ `min-w-12`, 48 px, da tela).
+  colunaQuantidade: { minWidth: 36 },
   small: { fontSize: 10, color: TINTA_MAIS_FRACA },
   totalLinha: {
     flexDirection: "row",
@@ -156,7 +161,9 @@ export function DocumentoOrcamentoPdf({
         <View>
           <View style={estilos.cabecalhoTabela}>
             <Text style={estilos.colunaPeca}>{ROTULO_COLUNA_PECA}</Text>
-            <Text style={estilos.colunaNumero}>{ROTULO_COLUNA_QUANTIDADE}</Text>
+            <Text style={[estilos.colunaNumero, estilos.colunaQuantidade]}>
+              {ROTULO_COLUNA_QUANTIDADE}
+            </Text>
             <Text style={estilos.colunaNumero}>{ROTULO_COLUNA_CADA}</Text>
             <Text style={estilos.colunaNumero}>{ROTULO_TOTAL}</Text>
           </View>
@@ -170,7 +177,9 @@ export function DocumentoOrcamentoPdf({
                   <Text style={estilos.small}>{linha.personalizacao}</Text>
                 ) : null}
               </View>
-              <Text style={estilos.colunaNumero}>{linha.quantidadeTexto}</Text>
+              <Text style={[estilos.colunaNumero, estilos.colunaQuantidade]}>
+                {linha.quantidadeTexto}
+              </Text>
               <Text style={estilos.colunaNumero}>{linha.precoUnitarioFormatado}</Text>
               <Text style={estilos.colunaNumero}>{linha.totalFormatado}</Text>
             </View>
@@ -179,7 +188,7 @@ export function DocumentoOrcamentoPdf({
           {documento.projeto.map((item, indice) => (
             <View key={`projeto-${indice}`} style={estilos.linhaTabela} wrap={false}>
               <Text style={estilos.colunaPeca}>{item.descricao}</Text>
-              <Text style={estilos.colunaNumero} />
+              <Text style={[estilos.colunaNumero, estilos.colunaQuantidade]} />
               <Text style={estilos.colunaNumero} />
               <Text style={estilos.colunaNumero}>{item.valorFormatado}</Text>
             </View>
@@ -188,7 +197,7 @@ export function DocumentoOrcamentoPdf({
           {documento.freteFormatado ? (
             <View style={estilos.linhaTabela} wrap={false}>
               <Text style={estilos.colunaPeca}>Frete</Text>
-              <Text style={estilos.colunaNumero} />
+              <Text style={[estilos.colunaNumero, estilos.colunaQuantidade]} />
               <Text style={estilos.colunaNumero} />
               <Text style={estilos.colunaNumero}>{documento.freteFormatado}</Text>
             </View>
@@ -196,7 +205,7 @@ export function DocumentoOrcamentoPdf({
 
           <View style={estilos.totalLinha} wrap={false}>
             <Text style={[estilos.colunaPeca, estilos.totalTexto]}>{ROTULO_TOTAL}</Text>
-            <Text style={estilos.colunaNumero} />
+            <Text style={[estilos.colunaNumero, estilos.colunaQuantidade]} />
             <Text style={estilos.colunaNumero} />
             <Text style={[estilos.colunaNumero, estilos.totalTexto]}>
               {documento.totalFormatado}
