@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type Project } from "@playwright/test";
 
 // Localmente, sobe a build real (nunca o modo dev): é na build que as variáveis
 // NEXT_PUBLIC_* são embutidas, e testar contra `next dev` esconderia exatamente a classe de
@@ -19,6 +19,163 @@ import { defineConfig, devices } from "@playwright/test";
 // no desktop não mede o que importa (Core Value, PROJECT.md). Ambos usam Chromium (só um
 // motor instalado); o de celular usa o preset "Pixel 7" para viewport, toque e user agent
 // de um Android real, sem precisar do motor WebKit.
+// Quatro testes afirmam uma condição GLOBAL do banco ("nenhuma encomenda existe", "nenhuma
+// concluída existe"). Com `fullyParallel: true` e mais de um worker, outro arquivo de spec cria
+// encomendas ao mesmo tempo e a premissa deixa de valer — não é instabilidade de ambiente, é uma
+// afirmação global disputada por escritas concorrentes. Eles passavam só quando rodados isolados
+// por `--grep`, o que mascarou o problema durante a Fase 3 e barrou o primeiro deploy dela.
+//
+// A correção é ordem explícita, via `dependencies`: o Playwright roda um projeto de dependência
+// até o fim antes de iniciar quem depende dele. A cadeia é
+//
+//   vazio-celular → vazio-desktop → vazio-historico → { desktop, celular }
+//
+// Os dois primeiros rodam os testes `@vazio-global` (só leitura, banco intacto) um viewport de
+// cada vez — em paralelo eles não se atrapalhariam, mas `vazio-historico` CRIA uma encomenda,
+// então precisa vir depois dos dois. Só então `desktop` e `celular` rodam todo o resto em
+// paralelo, com `grepInvert` para não repetir os quatro.
+//
+// Custo: alguns segundos de login a mais por etapa da cadeia. O que se compra é a prova de
+// ENC-13 (o estado vazio "A roda ainda não gira.") rodando na suíte completa, não só sob grep.
+//
+// (30/09/2026, plano 06.1-14: os specs de Encomendas saíram com o módulo, e com eles os quatro
+// testes citados acima. A cadeia continua pelo mesmo motivo, com os `@vazio-global` que ficaram —
+// Início, Produção, Estoque, Queimas… — e os `@vazio-historico` do Estoque e da perda medida da
+// Produção.)
+const CADEIA_DO_VAZIO: Project[] = [
+  {
+    name: "vazio-celular",
+    use: { ...devices["Pixel 7"] },
+    grep: /@vazio-global/,
+  },
+  {
+    name: "vazio-desktop",
+    use: { ...devices["Desktop Chrome"] },
+    grep: /@vazio-global/,
+    dependencies: ["vazio-celular"],
+  },
+  {
+    name: "vazio-historico",
+    use: { ...devices["Desktop Chrome"] },
+    grep: /@vazio-historico/,
+    dependencies: ["vazio-desktop"],
+  },
+];
+
+type Fatia = "desktop" | "celular";
+
+const APARELHO_DA_FATIA: Record<Fatia, string> = {
+  desktop: "Desktop Chrome",
+  celular: "Pixel 7",
+};
+
+function projetoDaFatia(fatia: Fatia): Project {
+  return {
+    name: fatia,
+    use: { ...devices[APARELHO_DA_FATIA[fatia]] },
+    grepInvert: [/@vazio-(global|historico)/, /@parametro-global/],
+    dependencies: ["vazio-historico"],
+  };
+}
+
+// A SEGUNDA cadeia, e o motivo dela (WINDOWS #53, 2026-09-27).
+//
+// Três arquivos de spec sobem PARÂMETROS GLOBAIS de precificação para provar o próprio
+// comportamento: `orcamentos-revisao` (preco_folga_negociacao/preco_imposto_sobre_venda),
+// `orcamentos-ciclo` (forno_desgaste_por_fornada/forno_tarifa_energia) e
+// `precificacao-parametros` (material_argila/material_esmalte/trabalho_hora). Eles restauram
+// no `afterAll`, mas `parametros_precificacao` é um CATÁLOGO FIXO GLOBAL — não há chave
+// própria por spec a isolar. Enquanto o parâmetro está elevado, qualquer arquivo que leia
+// custo/mínimo/selo vê um número que não é o da semente: `precificacao-ficha`,
+// `precificacao-pecas`, `orcamentos-editor`, `orcamentos-total`.
+//
+// Com `fullyParallel` e 8 workers, o `afterAll` do mutador corre contra a leitura do outro
+// arquivo NOUTRO worker. Isso não é instabilidade de ambiente — é a mesma premissa falsa que
+// o comentário acima descreve para o estado vazio, e o CLAUDE.md manda resolver do mesmo
+// jeito: ordem explícita por `dependencies`, nunca `--grep` como muleta.
+//
+// Duas escolhas que não são óbvias:
+//
+// 1. Os mutadores rodam por ÚLTIMO, não primeiro. Mutadores-primeiro só seria seguro se a
+//    restauração fosse garantida, e ela não é: o `update ... where chave = $1 and
+//    vigente_desde = hoje_brasilia()` afeta ZERO linhas em silêncio se a data não casar — a
+//    mesma classe de defeito da WINDOWS #44. Por último, um `afterAll` que falha em silêncio
+//    não entrega um banco sujo a mais ninguém.
+//
+// 2. `workers: 1` em cada um, porque os três mutadores disputam entre SI, não só com as
+//    vítimas: o mínimo depende de TODOS os parâmetros (lib/precificacao/calculo.ts), então
+//    chave dedicada protege a chave, nunca o número derivado. `fullyParallel: false` por
+//    projeto NÃO resolveria — serializa os testes dentro de um arquivo, não os arquivos entre
+//    si. É o uso que a própria documentação do Playwright dá a `testProject.workers`.
+//
+// 🔴 DOIS CUSTOS REAIS DESTA CADEIA, medidos em 2026-09-27. Leia antes de usar `--grep`.
+//
+// 1. **`--grep` que atinja um destes três arquivos passa a custar a SUÍTE INTEIRA.** O
+//    Playwright roda projeto de dependência por completo e NÃO aplica o `--grep` nele — então
+//    pedir um teste só de `precificacao-parametros` arrasta `desktop` e `celular` junto.
+//    Medido: 9,5 e 9,7 minutos, para um teste que sozinho leva 19 segundos. Isso contraria a
+//    economia de `--grep` que o CLAUDE.md impõe, e é consequência direta de "rodar depois de".
+//    **Localmente, use `--no-deps` nestes três arquivos** — com a ressalva do parágrafo abaixo.
+//    Em CI nada muda: lá a varredura roda inteira de qualquer jeito.
+//
+// 2. **Se `desktop`/`celular` falharem, estes dois nem rodam** ("did not run"). Um defeito
+//    antigo lá em cima esconde tudo aqui embaixo — foi o que aconteceu com a WINDOWS #3 na
+//    primeira tentativa de validar esta própria mudança.
+//
+// ⚠️ `--no-deps` é a saída para iterar, NUNCA para validar: ele desliga exatamente a
+// serialização que estes projetos existem para garantir, e aí `parametros-desktop` e
+// `parametros-celular` voltam a rodar ao mesmo tempo, um poluindo o outro. Comprovado: com
+// `--no-deps` o mínimo de uma peça saltou de R$ 157,35 para R$ 3.144,97 no meio do teste.
+// Para VALIDAR, rode a varredura completa, sem `--grep` e sem `--no-deps`.
+function parametrosDaFatia(fatia: Fatia, dependencias: string[]): Project {
+  return {
+    name: `parametros-${fatia}`,
+    use: { ...devices[APARELHO_DA_FATIA[fatia]] },
+    grep: /@parametro-global/,
+    dependencies: dependencias,
+    workers: 1,
+  };
+}
+
+// Fase 06.5 (D-22, P5): a FATIA do e2e do CI. O job `e2e` do workflow virou uma matriz de dois
+// jobs paralelos — `desktop` e `celular` —, cada um com o SEU Postgres efêmero e o seu contêiner,
+// e cada um roda só a sua metade passando `E2E_FATIA`. Sem a variável (uso local, `npm run
+// test:e2e`), a lista de projetos é EXATAMENTE a de antes: as duas cadeias acima, inteiras.
+//
+// Com a fatia, cada job roda:
+//
+//   vazio-celular → vazio-desktop → vazio-historico → {fatia} → parametros-{fatia}
+//
+// A cadeia do vazio roda nas DUAS fatias porque cada fatia tem o seu banco: a afirmação global
+// ("nada existe") continua isolada em cada um. E `parametros-{fatia}` depende SÓ da fatia — a
+// dependência cruzada de hoje (`parametros-desktop` depende de `desktop` E de `celular`) obrigaria a
+// rodar as duas fatias no mesmo job, que é exatamente o que a divisão desfaz. No banco de uma fatia
+// só há os leitores daquela fatia, então "mutadores por último" continua valendo dentro dela.
+//
+// Qualquer outro valor de `E2E_FATIA` é erro na CARGA, não suíte vazia: um nome errado na matriz
+// do workflow rodaria zero testes e daria verde sem testar nada.
+function lerFatia(valor: string | undefined): Fatia | undefined {
+  if (valor === undefined || valor === "") return undefined;
+  if (valor === "desktop" || valor === "celular") return valor;
+  throw new Error(
+    `E2E_FATIA="${valor}" não é uma fatia do e2e. Use "desktop" ou "celular", ou deixe sem valor ` +
+      "para rodar a suíte inteira.",
+  );
+}
+
+function projetosDaFatia(fatia: Fatia | undefined): Project[] {
+  if (fatia === undefined) {
+    return [
+      ...CADEIA_DO_VAZIO,
+      projetoDaFatia("desktop"),
+      projetoDaFatia("celular"),
+      parametrosDaFatia("desktop", ["desktop", "celular"]),
+      parametrosDaFatia("celular", ["parametros-desktop"]),
+    ];
+  }
+  return [...CADEIA_DO_VAZIO, projetoDaFatia(fatia), parametrosDaFatia(fatia, [fatia])];
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   // Cria a conta de gestor rodando o próprio scripts/criar-usuario.ts contra o banco de
@@ -39,123 +196,7 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
-  // Quatro testes afirmam uma condição GLOBAL do banco ("nenhuma encomenda existe", "nenhuma
-  // concluída existe"). Com `fullyParallel: true` e mais de um worker, outro arquivo de spec cria
-  // encomendas ao mesmo tempo e a premissa deixa de valer — não é instabilidade de ambiente, é uma
-  // afirmação global disputada por escritas concorrentes. Eles passavam só quando rodados isolados
-  // por `--grep`, o que mascarou o problema durante a Fase 3 e barrou o primeiro deploy dela.
-  //
-  // A correção é ordem explícita, via `dependencies`: o Playwright roda um projeto de dependência
-  // até o fim antes de iniciar quem depende dele. A cadeia é
-  //
-  //   vazio-celular → vazio-desktop → vazio-historico → { desktop, celular }
-  //
-  // Os dois primeiros rodam os testes `@vazio-global` (só leitura, banco intacto) um viewport de
-  // cada vez — em paralelo eles não se atrapalhariam, mas `vazio-historico` CRIA uma encomenda,
-  // então precisa vir depois dos dois. Só então `desktop` e `celular` rodam todo o resto em
-  // paralelo, com `grepInvert` para não repetir os quatro.
-  //
-  // Custo: alguns segundos de login a mais por etapa da cadeia. O que se compra é a prova de
-  // ENC-13 (o estado vazio "A roda ainda não gira.") rodando na suíte completa, não só sob grep.
-  //
-  // (30/09/2026, plano 06.1-14: os specs de Encomendas saíram com o módulo, e com eles os quatro
-  // testes citados acima. A cadeia continua pelo mesmo motivo, com os `@vazio-global` que ficaram —
-  // Início, Produção, Estoque, Queimas… — e os `@vazio-historico` do Estoque e da perda medida da
-  // Produção.)
-  projects: [
-    {
-      name: "vazio-celular",
-      use: { ...devices["Pixel 7"] },
-      grep: /@vazio-global/,
-    },
-    {
-      name: "vazio-desktop",
-      use: { ...devices["Desktop Chrome"] },
-      grep: /@vazio-global/,
-      dependencies: ["vazio-celular"],
-    },
-    {
-      name: "vazio-historico",
-      use: { ...devices["Desktop Chrome"] },
-      grep: /@vazio-historico/,
-      dependencies: ["vazio-desktop"],
-    },
-    {
-      name: "desktop",
-      use: { ...devices["Desktop Chrome"] },
-      grepInvert: [/@vazio-(global|historico)/, /@parametro-global/],
-      dependencies: ["vazio-historico"],
-    },
-    {
-      name: "celular",
-      use: { ...devices["Pixel 7"] },
-      grepInvert: [/@vazio-(global|historico)/, /@parametro-global/],
-      dependencies: ["vazio-historico"],
-    },
-    // A SEGUNDA cadeia, e o motivo dela (WINDOWS #53, 2026-09-27).
-    //
-    // Três arquivos de spec sobem PARÂMETROS GLOBAIS de precificação para provar o próprio
-    // comportamento: `orcamentos-revisao` (preco_folga_negociacao/preco_imposto_sobre_venda),
-    // `orcamentos-ciclo` (forno_desgaste_por_fornada/forno_tarifa_energia) e
-    // `precificacao-parametros` (material_argila/material_esmalte/trabalho_hora). Eles restauram
-    // no `afterAll`, mas `parametros_precificacao` é um CATÁLOGO FIXO GLOBAL — não há chave
-    // própria por spec a isolar. Enquanto o parâmetro está elevado, qualquer arquivo que leia
-    // custo/mínimo/selo vê um número que não é o da semente: `precificacao-ficha`,
-    // `precificacao-pecas`, `orcamentos-editor`, `orcamentos-total`.
-    //
-    // Com `fullyParallel` e 8 workers, o `afterAll` do mutador corre contra a leitura do outro
-    // arquivo NOUTRO worker. Isso não é instabilidade de ambiente — é a mesma premissa falsa que
-    // o comentário acima descreve para o estado vazio, e o CLAUDE.md manda resolver do mesmo
-    // jeito: ordem explícita por `dependencies`, nunca `--grep` como muleta.
-    //
-    // Duas escolhas que não são óbvias:
-    //
-    // 1. Os mutadores rodam por ÚLTIMO, não primeiro. Mutadores-primeiro só seria seguro se a
-    //    restauração fosse garantida, e ela não é: o `update ... where chave = $1 and
-    //    vigente_desde = hoje_brasilia()` afeta ZERO linhas em silêncio se a data não casar — a
-    //    mesma classe de defeito da WINDOWS #44. Por último, um `afterAll` que falha em silêncio
-    //    não entrega um banco sujo a mais ninguém.
-    //
-    // 2. `workers: 1` em cada um, porque os três mutadores disputam entre SI, não só com as
-    //    vítimas: o mínimo depende de TODOS os parâmetros (lib/precificacao/calculo.ts), então
-    //    chave dedicada protege a chave, nunca o número derivado. `fullyParallel: false` por
-    //    projeto NÃO resolveria — serializa os testes dentro de um arquivo, não os arquivos entre
-    //    si. É o uso que a própria documentação do Playwright dá a `testProject.workers`.
-    //
-    // 🔴 DOIS CUSTOS REAIS DESTA CADEIA, medidos em 2026-09-27. Leia antes de usar `--grep`.
-    //
-    // 1. **`--grep` que atinja um destes três arquivos passa a custar a SUÍTE INTEIRA.** O
-    //    Playwright roda projeto de dependência por completo e NÃO aplica o `--grep` nele — então
-    //    pedir um teste só de `precificacao-parametros` arrasta `desktop` e `celular` junto.
-    //    Medido: 9,5 e 9,7 minutos, para um teste que sozinho leva 19 segundos. Isso contraria a
-    //    economia de `--grep` que o CLAUDE.md impõe, e é consequência direta de "rodar depois de".
-    //    **Localmente, use `--no-deps` nestes três arquivos** — com a ressalva do parágrafo abaixo.
-    //    Em CI nada muda: lá a varredura roda inteira de qualquer jeito.
-    //
-    // 2. **Se `desktop`/`celular` falharem, estes dois nem rodam** ("did not run"). Um defeito
-    //    antigo lá em cima esconde tudo aqui embaixo — foi o que aconteceu com a WINDOWS #3 na
-    //    primeira tentativa de validar esta própria mudança.
-    //
-    // ⚠️ `--no-deps` é a saída para iterar, NUNCA para validar: ele desliga exatamente a
-    // serialização que estes projetos existem para garantir, e aí `parametros-desktop` e
-    // `parametros-celular` voltam a rodar ao mesmo tempo, um poluindo o outro. Comprovado: com
-    // `--no-deps` o mínimo de uma peça saltou de R$ 157,35 para R$ 3.144,97 no meio do teste.
-    // Para VALIDAR, rode a varredura completa, sem `--grep` e sem `--no-deps`.
-    {
-      name: "parametros-desktop",
-      use: { ...devices["Desktop Chrome"] },
-      grep: /@parametro-global/,
-      dependencies: ["desktop", "celular"],
-      workers: 1,
-    },
-    {
-      name: "parametros-celular",
-      use: { ...devices["Pixel 7"] },
-      grep: /@parametro-global/,
-      dependencies: ["parametros-desktop"],
-      workers: 1,
-    },
-  ],
+  projects: projetosDaFatia(lerFatia(process.env.E2E_FATIA)),
   webServer: {
     command: "npm run build && npm run start",
     // `/api/health`, NÃO a raiz. A sonda de prontidão do Playwright só considera o servidor
