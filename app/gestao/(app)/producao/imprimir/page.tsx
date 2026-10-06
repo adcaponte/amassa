@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Printer } from "lucide-react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -8,6 +8,7 @@ import { secoesDaFolhaGeral } from "@/lib/producao/folhas";
 import {
   CORPO_NADA_PARA_IMPRIMIR,
   ROTULO_VOLTAR_PRODUCAO,
+  TEXTO_AVISO_IMPRESSAO_A4,
   TITULO_NADA_PARA_IMPRIMIR,
   formatarDataCompleta,
 } from "@/lib/producao/textos";
@@ -53,6 +54,15 @@ export default async function PaginaFolhaGeral() {
           </Link>
         </Button>
         <BotaoImprimirFolha />
+        {/* D-11: a prévia no celular vem explicada. A barra inteira já sai do papel (`.barra` no
+            `@media print` do módulo); o `md:hidden` tira o aviso do desktop. */}
+        <p
+          data-testid="folha-aviso-a4"
+          className="text-apoio text-tinta-media flex w-full items-center gap-2 md:hidden print:hidden"
+        >
+          <Printer aria-hidden="true" className="size-4 shrink-0" />
+          {TEXTO_AVISO_IMPRESSAO_A4}
+        </p>
       </div>
       <FolhaGeralA4 folha={folha} hoje={formatarDataCompleta(hoje)} />
     </div>

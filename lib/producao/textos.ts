@@ -1075,6 +1075,9 @@ export const ROTULO_IMPRIMIR_FOLHA_GERAL = "Imprimir folha geral";
 export const ROTULO_VOLTAR_ORDEM = "Voltar à ordem";
 export const FRASE_ERRO_MONTAR_FOLHA =
   "Não deu para montar a folha. Verifique a internet e tente de novo.";
+// Fase 06.5 (D-11): na barra das duas folhas, só abaixo de 768 px e nunca no papel.
+export const TEXTO_AVISO_IMPRESSAO_A4 =
+  "Esta folha é para imprimir em A4 — no celular a prévia fica apertada, mas o papel sai certo.";
 
 // A marca das duas folhas.
 export const MARCA_DA_FOLHA = "AMASSA CERRADO";

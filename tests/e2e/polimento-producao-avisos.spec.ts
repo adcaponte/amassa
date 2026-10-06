@@ -2,7 +2,12 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { medirCaixa } from "./apoio/medir-caixa";
 import { somarDiasAoHoje } from "./apoio/semear-financeiro";
-import { diaMes, ordemNoBanco, ordensComONomeNoBanco } from "./apoio/semear-producao";
+import {
+  diaMes,
+  ordemNoBanco,
+  ordensComONomeNoBanco,
+  semearOrdem,
+} from "./apoio/semear-producao";
 
 // Fase 06.5, plano 07 (D-11, achados 12, 14 e 15 do Cowork): os três avisos pequenos da Produção.
 // Cada teste cria só o que é dele, com nome único, e nunca afirma estado global do banco. "Hoje" é o
@@ -10,6 +15,9 @@ import { diaMes, ordemNoBanco, ordensComONomeNoBanco } from "./apoio/semear-prod
 
 const TEXTO_AVISO_PRAZO_CORPO =
   "Dá para criar assim mesmo; ela já nasce atrasada. Para caber, mude a entrega ou ajuste os dias das etapas depois de criar.";
+
+const TEXTO_AVISO_IMPRESSAO_A4 =
+  "Esta folha é para imprimir em A4 — no celular a prévia fica apertada, mas o papel sai certo.";
 
 // Os previstos padrão (`DIAS_PREVISTOS_PADRAO`, D-10): 5 + 15 + 1 + 4 + 1 + 6 no completo e
 // 5 + 15 + 1 + 6 no que termina no biscoito.
@@ -117,5 +125,52 @@ test.describe("polimento produção — avisos", () => {
     await expect(selo).toHaveAttribute("data-selo", "vai-atrasar");
     // A mesma conta do aviso: 17 dias.
     await expect(selo).toContainText(`vai atrasar ${DIAS_DO_COMPLETO - 15} dias`);
+  });
+
+  test("A4: as duas folhas de impressão avisam só no celular, e o aviso nunca vai ao papel", async ({
+    page,
+  }) => {
+    // Uma ordem própria garante que a folha geral não é o estado vazio.
+    const ordemId = await semearOrdem({
+      nome: nomeUnico("Folha no celular"),
+      tipo: "casa",
+      caminho: "completo",
+      status: "ativa",
+      inicio: somarDiasAoHoje(0),
+      etapasFeitas: [],
+      pecas: [{ descricao: "Caneca", quantidade: 4 }],
+    });
+
+    await fazerLogin(page);
+    for (const endereco of ["/gestao/producao/imprimir", `/gestao/producao/${ordemId}/imprimir`]) {
+      await page.emulateMedia({ media: "screen" });
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto(endereco);
+      const aviso = page.getByTestId("folha-aviso-a4");
+      await expect(aviso).toBeVisible();
+      await expect(aviso).toHaveText(TEXTO_AVISO_IMPRESSAO_A4);
+      await expect(aviso.locator("svg")).toHaveAttribute("aria-hidden", "true");
+      // Numa linha própria, embaixo dos dois botões da barra.
+      const voltar = await medirCaixa(page.getByTestId("folha-voltar"), "Voltar");
+      const imprimir = await medirCaixa(page.getByTestId("folha-imprimir"), "Imprimir folha");
+      const caixaDoAviso = await medirCaixa(aviso, "aviso A4");
+      expect(caixaDoAviso.y).toBeGreaterThanOrEqual(
+        Math.max(voltar.y + voltar.height, imprimir.y + imprimir.height),
+      );
+
+      // No papel, nem no celular.
+      await page.emulateMedia({ media: "print" });
+      await expect(aviso).toBeHidden();
+
+      // No desktop, não aparece, e a barra continua uma fileira só.
+      await page.emulateMedia({ media: "screen" });
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await expect(aviso).toBeHidden();
+      const voltarNoDesktop = await medirCaixa(page.getByTestId("folha-voltar"), "Voltar");
+      const imprimirNoDesktop = await medirCaixa(page.getByTestId("folha-imprimir"), "Imprimir");
+      expect(Math.abs(voltarNoDesktop.y - imprimirNoDesktop.y)).toBeLessThanOrEqual(1);
+      await page.emulateMedia({ media: "print" });
+      await expect(aviso).toBeHidden();
+    }
   });
 });
