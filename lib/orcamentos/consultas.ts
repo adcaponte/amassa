@@ -49,7 +49,11 @@ export async function listarOrcamentos(): Promise<OrcamentoParaLista[]> {
       titulo: orcamentos.titulo,
       data: orcamentos.data,
       validadeDias: orcamentos.validadeDias,
-      totalCentavos: sql<string>`coalesce(sum(${orcamentoLinhas.quantidade} * ${orcamentoLinhas.precoUnitarioCentavos}), 0)`,
+      // D-25 (Fase 06.5): o produto em `bigint` ANTES da soma — `integer * integer` estoura
+      // (22003) linha a linha, e os checks de `orcamento_linhas` permitem 100 000 peças a
+      // R$ 10 milhões cada; um orçamento assim derrubaria a lista inteira. A soma de `bigint`
+      // volta como `numeric` (texto no driver) e é convertida abaixo, como antes.
+      totalCentavos: sql<string>`coalesce(sum(${orcamentoLinhas.quantidade}::bigint * ${orcamentoLinhas.precoUnitarioCentavos}), 0)`,
     })
     .from(orcamentos)
     .leftJoin(orcamentoLinhas, eq(orcamentoLinhas.orcamentoId, orcamentos.id))
