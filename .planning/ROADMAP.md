@@ -1135,9 +1135,9 @@ Plans:
 - [x] 06.5-15-PLAN.md — regras de dinheiro dos painéis para `lib/financeiro/` (D-21, P4) — **Concluído no branch `gsd/phase-06.5-polimento` (`84ec3fe..2c342e0`) — ver `06.5-15-SUMMARY.md`**
 - [x] 06.5-16-PLAN.md — “Corrigir”: o servidor — núcleo transacional, recusas e prova de corrida (D-18, UI-D9) — **Concluído no branch `gsd/phase-06.5-polimento` (`795192b..d12e442`) — ver `06.5-16-SUMMARY.md`**
 - [x] 06.5-17-PLAN.md — “Corrigir”: a venda na tela, o vínculo no detalhe e as origens que não se corrigem por aqui (D-18) — **Concluído no branch `gsd/phase-06.5-polimento` (`4d015c3..79505f4`) — ver `06.5-17-SUMMARY.md`**
-- [ ] 06.5-18-PLAN.md — “Corrigir”: a despesa (com fornecedor e material) e as recusas na tela (D-18)
-- [ ] 06.5-19-PLAN.md — cabeçalhos de segurança, as duas rotas do orçamento, sessão e mensalidade uma vez por requisição, CLAUDE.md com o Next 16 (D-19, D-20, D-21)
-- [ ] 06.5-20-PLAN.md — site: telefone do `zap`, “Abrimos em dezembro”, textos, slots do dono e a guarda de 01/12 (D-28, D-30, D-31, D-32)
+- [x] 06.5-18-PLAN.md — “Corrigir”: a despesa (com fornecedor e material) e as recusas na tela (D-18) — **Concluído no branch `gsd/phase-06.5-polimento` (`2791914..b36f587`) — ver `06.5-18-SUMMARY.md`**
+- [x] 06.5-19-PLAN.md — cabeçalhos de segurança, as duas rotas do orçamento, sessão e mensalidade uma vez por requisição, CLAUDE.md com o Next 16 (D-19, D-20, D-21) — **Concluído no branch `gsd/phase-06.5-polimento` (`790d34d..a86eaf0`) — ver `06.5-19-SUMMARY.md`**
+- [x] 06.5-20-PLAN.md — site: telefone do `zap`, “Abrimos em dezembro”, textos, slots do dono e a guarda de 01/12 (D-28, D-30, D-31, D-32) — **Concluído no branch `gsd/phase-06.5-polimento` (`be8e370..df5534b`) — ver `06.5-20-SUMMARY.md`**
 - [ ] 06.5-21-PLAN.md — site: `<main>` e “pular para o conteúdo”, canonical/`og:url`/sitemap/OG 1200×630, faixa do Instagram (D-29, D-32)
 - [ ] 06.5-22-PLAN.md — CI: e2e em dois jobs, imagem única com cache e tag do commit, trace do Turbopack (D-22)
 - [ ] 06.5-23-PLAN.md — `medirCaixa` nos 42 specs antigos e a regra sem exceção (D-23, parte 2)
