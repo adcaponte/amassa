@@ -103,10 +103,13 @@ export async function criarOrcamento(
 ): Promise<ResultadoDeAcao<{ id: string; ano: number; sequencial: number }>> {
   const usuario = await exigirUsuario();
 
+  // D-15 (06.5-14): o rascunho só nasce com o primeiro campo preenchido (Cliente ou Título), já
+  // gravado junto — nunca um "Sem título" vazio esquecido na lista.
   const resultado = esquemaNovoOrcamento.safeParse(entradaBruta ?? {});
   if (!resultado.success) {
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
+  const { clienteNome, titulo } = resultado.data;
 
   // O ano do sequencial é o ano de HOJE em Brasília, calculado na borda — nunca lido de dentro de
   // um módulo puro (D-14) nem de `current_date` do Postgres (que estaria em UTC).
@@ -124,6 +127,8 @@ export async function criarOrcamento(
           ano,
           sequencial: sequencialDaTransacao,
           status: "rascunho",
+          clienteNome,
+          titulo,
           data: hoje,
           validadeDias: VALIDADE_PADRAO_EM_DIAS,
           entregaPrevista,

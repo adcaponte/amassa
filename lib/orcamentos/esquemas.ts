@@ -12,6 +12,7 @@ import {
   FRASE_DESCRICAO_DO_CUSTO_MUITO_LONGA,
   FRASE_DESCRICAO_DO_CUSTO_OBRIGATORIA,
   FRASE_LEGENDA_MUITO_LONGA,
+  FRASE_NOVO_ORCAMENTO_SEM_CAMPO,
   FRASE_OBSERVACOES_MUITO_LONGAS,
   FRASE_PERSONALIZACAO_MUITO_LONGA,
   FRASE_PLANO_INVALIDO,
@@ -27,12 +28,6 @@ import {
 export const esquemaId = z
   .string()
   .uuid("Esse identificador não é válido — recarregue a página e tente de novo.");
-
-// "Novo orçamento" (D-06/D-21): o rascunho nasce vazio — sem cliente, sem título, sem peça — e
-// esta validação só confirma que a entrada é um objeto (nenhum campo obrigatório ainda). Os
-// planos seguintes (edição do rascunho) acrescentam campos aqui, sempre opcionais até "Marcar
-// como enviado" exigir cliente e ao menos uma peça (D-21).
-export const esquemaNovoOrcamento = z.object({});
 
 // Conta em PONTOS DE CÓDIGO (`[...texto].length`), não em unidades UTF-16 — é assim que o
 // `length()` do Postgres conta as restrições de `db/schema.ts` (mesma disciplina de
@@ -66,6 +61,50 @@ function dataCivilValida(valor: string): boolean {
 
 const esquemaDataCivil = z.string().refine(dataCivilValida, "Essa data não é válida.");
 
+// Cliente e título — a MESMA regra no cabeçalho do orçamento e no "Novo orçamento" (06.5-14,
+// D-15): NFC, vazio ou só espaços = nulo, no máximo 160 pontos de código cada. Devolve `null`
+// (com a frase já registrada em `ctx`) quando um dos dois passa do limite.
+function normalizarClienteETitulo(
+  clienteTexto: string,
+  tituloTexto: string,
+  ctx: z.RefinementCtx,
+): { clienteNome: string | null; titulo: string | null } | null {
+  const clienteNome = normalizarOpcional(clienteTexto);
+  if (clienteNome && contarPontosDeCodigo(clienteNome) > 160) {
+    ctx.addIssue({ code: "custom", message: FRASE_CLIENTE_MUITO_LONGO, path: ["clienteTexto"] });
+    return null;
+  }
+  const titulo = normalizarOpcional(tituloTexto);
+  if (titulo && contarPontosDeCodigo(titulo) > 160) {
+    ctx.addIssue({ code: "custom", message: FRASE_TITULO_MUITO_LONGO, path: ["tituloTexto"] });
+    return null;
+  }
+  return { clienteNome, titulo };
+}
+
+// "Novo orçamento" (D-06/D-21; D-15 da 06.5): o rascunho só nasce quando o primeiro campo é
+// preenchido — Cliente ou Título, com as mesmas regras do cabeçalho. Os dois vazios são recusados:
+// a tela só chama com um campo preenchido, e um rascunho sem nada é exatamente o "Sem título"
+// esquecido que a D-15 acabou. Entrega e validade continuam com o padrão de `criarOrcamento`.
+export const esquemaNovoOrcamento = z
+  .object({
+    clienteTexto: z.string().optional(),
+    tituloTexto: z.string().optional(),
+  })
+  .transform((dados, ctx) => {
+    const campos = normalizarClienteETitulo(dados.clienteTexto ?? "", dados.tituloTexto ?? "", ctx);
+    if (!campos) {
+      return z.NEVER;
+    }
+    if (campos.clienteNome === null && campos.titulo === null) {
+      ctx.addIssue({ code: "custom", message: FRASE_NOVO_ORCAMENTO_SEM_CAMPO, path: ["clienteTexto"] });
+      return z.NEVER;
+    }
+    return campos;
+  });
+
+export type EntradaDeNovoOrcamento = z.infer<typeof esquemaNovoOrcamento>;
+
 // "Para quem e para quando" (Tarefa 2): cliente e título ficam opcionais ENQUANTO rascunho — só
 // "Marcar como enviado" (plano futuro) vai exigi-los (D-21). Entrega prevista e validade são
 // sempre exigidas (o rascunho já nasce com as duas, `criarOrcamento`).
@@ -78,16 +117,11 @@ export const esquemaCabecalhoDoOrcamento = z
     validadeTexto: z.string(),
   })
   .transform((dados, ctx) => {
-    const clienteNome = normalizarOpcional(dados.clienteTexto);
-    if (clienteNome && contarPontosDeCodigo(clienteNome) > 160) {
-      ctx.addIssue({ code: "custom", message: FRASE_CLIENTE_MUITO_LONGO, path: ["clienteTexto"] });
+    const campos = normalizarClienteETitulo(dados.clienteTexto, dados.tituloTexto, ctx);
+    if (!campos) {
       return z.NEVER;
     }
-    const titulo = normalizarOpcional(dados.tituloTexto);
-    if (titulo && contarPontosDeCodigo(titulo) > 160) {
-      ctx.addIssue({ code: "custom", message: FRASE_TITULO_MUITO_LONGO, path: ["tituloTexto"] });
-      return z.NEVER;
-    }
+    const { clienteNome, titulo } = campos;
     const validadeNormalizada = dados.validadeTexto.trim();
     const validadeDias = Number(validadeNormalizada);
     if (

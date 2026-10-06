@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hrefDoCaixa, hrefDoOrcamento } from "../../lib/financeiro/navegacao";
+import { hrefDoCaixa, hrefDoOrcamento, hrefDoOrcamentoNovo } from "../../lib/financeiro/navegacao";
 import { PREFIXO_GESTAO } from "../../lib/rotas/gestao";
 
 // D-06: "Paguei"/"Recebi" levam ao Caixa, na parcela específica — nunca pagam dali. O molde é
@@ -57,5 +57,12 @@ describe("hrefDoOrcamento", () => {
     expect(hrefDoOrcamento("a&b=c")).toBe(
       `${PREFIXO_GESTAO}/financeiro?aba=orcamentos&orcamento=a%26b%3Dc`,
     );
+  });
+});
+
+// D-15 (06.5-14): "Novo orçamento" abre o editor vazio no mesmo `?orcamento=`, sem gravar nada.
+describe("hrefDoOrcamentoNovo", () => {
+  it("é a aba Orçamentos com orcamento=novo, sob o prefixo da plataforma", () => {
+    expect(hrefDoOrcamentoNovo()).toBe(`${PREFIXO_GESTAO}/financeiro?aba=orcamentos&orcamento=novo`);
   });
 });

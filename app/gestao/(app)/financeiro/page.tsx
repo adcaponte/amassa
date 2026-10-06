@@ -35,6 +35,7 @@ import { filtrarExtrato, montarExtrato, resumoDoCaixa, saldoAntesDaJanela } from
 import { formatarReais, hojeEmBrasilia, nomeDoMes, nomeDoMesSemAno } from "@/lib/financeiro/formato";
 import { janelaDoCaixa, mesesDaJanela, mesesSemContasFixas, separarPelaJanela } from "@/lib/financeiro/janela";
 import { resumoDoMes } from "@/lib/financeiro/mes";
+import { ORCAMENTO_NOVO_NA_URL } from "@/lib/financeiro/navegacao";
 import { listarSaldos } from "@/lib/estoque/consultas";
 import { listarFornecedoresParaSeletor, type FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
 import {
@@ -83,6 +84,7 @@ import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
 import { EditorOrcamento } from "@/components/amassa/orcamentos/editor-orcamento";
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
+import { OrcamentoNovo } from "@/components/amassa/orcamentos/orcamento-novo";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
 import { formatarDiaMes } from "@/lib/producao/calendario";
@@ -192,6 +194,9 @@ export default async function PaginaFinanceiro({
   const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const orcamentoIdParaEditor =
     abaOrcamentos && orcamento && REGEX_UUID.test(orcamento) ? orcamento : null;
+  // `?orcamento=novo` (06.5-14, D-15): o editor vazio, sem registro até o primeiro campo — nenhuma
+  // consulta do editor nem da lista.
+  const orcamentoNovo = abaOrcamentos && orcamento === ORCAMENTO_NOVO_NA_URL;
 
   // `?peca=novo` abre o diálogo em branco; `?peca=<uuid>` abre em edição; qualquer outra coisa
   // (ausente, lixo) mantém o diálogo fechado. Disponível na aba Peças OU dentro do editor de um
@@ -316,7 +321,9 @@ export default async function PaginaFinanceiro({
     abaMes ? listarParcelasPagasNoMes(mesAtual) : Promise.resolve([]),
     // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa (a lista), mesma
     // disciplina das demais listas acima.
-    abaOrcamentos && !orcamentoIdParaEditor ? listarOrcamentos() : Promise.resolve([]),
+    abaOrcamentos && !orcamentoIdParaEditor && !orcamentoNovo
+      ? listarOrcamentos()
+      : Promise.resolve([]),
     // 04.5-06-PLAN.md — o editor: o orçamento e as linhas com a ficha de cada uma.
     orcamentoIdParaEditor ? obterOrcamentoParaEdicao(orcamentoIdParaEditor) : Promise.resolve(null),
     // "Atualizar preços" (04.5-09-PLAN.md) — o histórico de revisões, para o painel "Só para
@@ -590,7 +597,9 @@ export default async function PaginaFinanceiro({
           }}
         />
       ) : abaOrcamentos ? (
-        orcamentoIdParaEditor ? (
+        orcamentoNovo ? (
+          <OrcamentoNovo />
+        ) : orcamentoIdParaEditor ? (
           // O editor de um orçamento (04.5-06-PLAN.md). Sem o orçamento (id inexistente, ou
           // apagado por outra aba entre a navegação e o carregamento): estado de erro nomeando o
           // que aconteceu, com o caminho de volta — nunca uma tela em branco.

@@ -17,6 +17,14 @@ export const FRASE_SEM_CLIENTE = "sem cliente";
 export const FRASE_FALHA_AO_CRIAR =
   "Não deu para criar o orçamento. Verifique a internet e tente de novo.";
 
+// O orçamento novo, ainda não salvo (06.5-UI-SPEC.md §Estados, D-15 — verbatim): nada é gravado
+// até o primeiro campo; sair sem preencher não cria nada nem diz nada.
+export const TITULO_ORCAMENTO_NOVO = "Novo orçamento";
+export const FRASE_NADA_SALVO_ATE_PREENCHER = "Nada é salvo até você preencher um campo.";
+// Só o servidor mostra esta: a tela nunca chama `criarOrcamento` com os dois campos vazios.
+export const FRASE_NOVO_ORCAMENTO_SEM_CAMPO =
+  "Escreva o cliente ou o título do pedido para começar o orçamento.";
+
 // O chip de situação da lista (04.5-UI-SPEC.md §Copywriting) — só "rascunho" é usado nesta fase
 // (o traçador só cria rascunhos); os demais chips (enviado/aprovado/recusado/expirado) chegam com
 // os planos que implementam o resto do ciclo de vida do orçamento.
