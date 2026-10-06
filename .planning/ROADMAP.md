@@ -1141,10 +1141,10 @@ Plans:
 - [x] 06.5-21-PLAN.md — site: `<main>` e “pular para o conteúdo”, canonical/`og:url`/sitemap/OG 1200×630, faixa do Instagram (D-29, D-32) — **Concluído no branch `gsd/phase-06.5-polimento` (`5ac05ae..9dcc6dd`) — ver `06.5-21-SUMMARY.md`**
 - [x] 06.5-22-PLAN.md — CI: e2e em dois jobs, imagem única com cache e tag do commit, trace do Turbopack (D-22) — **Concluído no branch `gsd/phase-06.5-polimento` (`8de1a51..d2df825`) — ver `06.5-22-SUMMARY.md`**
 - [x] 06.5-23-PLAN.md — `medirCaixa` nos 42 specs antigos e a regra sem exceção (D-23, parte 2) — **Concluído no branch `gsd/phase-06.5-polimento` (`5c5a23a..2de4278`) — ver `06.5-23-SUMMARY.md`**
-- [ ] 06.5-24-PLAN.md — `Folha` comum e as folhas do Estoque (D-24, P8)
-- [ ] 06.5-25-PLAN.md — “Recebi agora” comum (parte visual) e a `Folha` na Produção, no “Recebi agora” e na contagem das Queimas (D-24, P8/P9)
-- [ ] 06.5-26-PLAN.md — `Folha` na Agenda, em Fornecedores e Clientes; `85vh` → `85svh` (D-24, P8)
-- [ ] 06.5-27-PLAN.md — dividir por assunto `lib/agenda/acoes.ts`, `lib/agenda/consultas.ts` e `lib/orcamentos/acoes.ts` (D-24, P10)
+- [x] 06.5-24-PLAN.md — `Folha` comum e as folhas do Estoque (D-24, P8) — **Concluído no branch `gsd/phase-06.5-polimento` (`8e587e4..cb106ae`) — ver `06.5-24-SUMMARY.md`**
+- [x] 06.5-25-PLAN.md — “Recebi agora” comum (parte visual) e a `Folha` na Produção, no “Recebi agora” e na contagem das Queimas (D-24, P8/P9) — **Concluído no branch `gsd/phase-06.5-polimento` (`2778480..2900e07`) — ver `06.5-25-SUMMARY.md`**
+- [x] 06.5-26-PLAN.md — `Folha` na Agenda, em Fornecedores e Clientes; `85vh` → `85svh` (D-24, P8) — **Concluído no branch `gsd/phase-06.5-polimento` (`68ad4e3..5ddf7a2`) — ver `06.5-26-SUMMARY.md`**
+- [x] 06.5-27-PLAN.md — dividir por assunto `lib/agenda/acoes.ts`, `lib/agenda/consultas.ts` e `lib/orcamentos/acoes.ts` (D-24, P10) — **Concluído no branch `gsd/phase-06.5-polimento` (`2a09197..796fb4f`) — ver `06.5-27-SUMMARY.md`**
 - [ ] 06.5-28-PLAN.md — Produção: só peça de cerâmica vira ordem — pergunta ao dono e o critério escolhido (D-01)
 - [ ] 06.5-29-PLAN.md — a conta do preço de galeria/consignado mostrada ao dono antes de qualquer mudança (D-16)
 - [ ] 06.5-30-PLAN.md — portão: varredura e2e completa, Roteiro 22 completo, caminhada do dono (Parte 0, 0031, critérios), documentos de estado
