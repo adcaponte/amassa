@@ -1,6 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // O ciclo de vida do orçamento (04.5-08-PLAN.md): congelar ao enviar, a prova de que mudar um
 // parâmetro ou criar um rascunho novo depois não mexe no que já foi congelado, recusar, voltar
 // para rascunho e duplicar com número novo. Nomes inventados e únicos por execução
@@ -69,16 +71,12 @@ async function restaurarParametroDedicado(chave: string): Promise<void> {
   }
 }
 
+// Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido. Este cria pelo Título: o
+// (1) precisa do cliente vazio (“falta o cliente e ao menos uma peça”), como antes.
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  return orcamentoIdDaUrl(page);
-}
-
-function orcamentoIdDaUrl(page: Page): string {
-  const url = new URL(page.url());
-  return url.searchParams.get("orcamento") ?? "";
+  return criarOrcamentoPelaTela(page, `[e2e] Pedido do ciclo ${sufixoUnico()}`, {
+    campo: "titulo",
+  });
 }
 
 // Sai do campo e espera a navegação de verdade — nunca `waitForLoadState` isolado, porque a URL

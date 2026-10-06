@@ -1,6 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // "Atualizar preços" (04.5-09-PLAN.md, D-23): compara peça a peça o mínimo CONGELADO com o de
 // HOJE, sugere um preço que preserva a razão preço ÷ mínimo da época, e guarda a revisão anterior
 // antes de reabrir. Nomes inventados e únicos por execução ("[e2e] ... {sufixo}") — nenhum dado
@@ -74,29 +76,10 @@ async function restaurarParametroDedicado(chave: string): Promise<void> {
   }
 }
 
-async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  return orcamentoIdDaUrl(page);
-}
-
-function orcamentoIdDaUrl(page: Page): string {
-  const url = new URL(page.url());
-  return url.searchParams.get("orcamento") ?? "";
-}
-
 // Nunca `waitForLoadState` isolado — a URL final pode ser idêntica à atual (mesma armadilha já
 // documentada em outros specs desta fase).
 async function blurEEsperarNavegacao(page: Page, campo: Locator): Promise<void> {
   await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campo.blur()]);
-}
-
-async function preencherCliente(page: Page, orcamentoId: string, nome: string): Promise<void> {
-  const campo = page.getByTestId("orcamento-campo-cliente");
-  await campo.fill(nome);
-  await blurEEsperarNavegacao(page, campo);
-  await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 }
 
 // A MESMA receita de `orcamentos-ciclo.spec.ts` — só o nome e o preço mudam por chamada.
@@ -172,8 +155,7 @@ test.describe("orcamentos revisao @parametro-global", () => {
     suf = sufixoUnico();
     await fazerLogin(page);
 
-    orcamentoId = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoId, `[e2e] Cliente da revisao ${suf}`);
+    orcamentoId = await criarOrcamentoPelaTela(page, `[e2e] Cliente da revisao ${suf}`);
     nomeDaPeca = `[e2e] Revisao Caneca ${suf}`;
     await acrescentarPecaExclusiva(page, orcamentoId, nomeDaPeca, "100");
 
@@ -272,8 +254,10 @@ test.describe("orcamentos revisao @parametro-global", () => {
   }) => {
     await fazerLogin(page);
 
-    const orcamentoSemMudancaId = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoSemMudancaId, `[e2e] Cliente sem mudanca ${suf}`);
+    const orcamentoSemMudancaId = await criarOrcamentoPelaTela(
+      page,
+      `[e2e] Cliente sem mudanca ${suf}`,
+    );
     const nomeDaPecaSemMudanca = `[e2e] Revisao Prato ${suf}`;
     await acrescentarPecaExclusiva(page, orcamentoSemMudancaId, nomeDaPecaSemMudanca, "80");
 
@@ -317,8 +301,10 @@ test.describe("orcamentos revisao @parametro-global", () => {
   }) => {
     await fazerLogin(page);
 
-    const orcamentoResponsivoId = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoResponsivoId, `[e2e] Cliente responsivo ${suf}`);
+    const orcamentoResponsivoId = await criarOrcamentoPelaTela(
+      page,
+      `[e2e] Cliente responsivo ${suf}`,
+    );
     for (let indice = 1; indice <= 6; indice += 1) {
       await acrescentarPecaExclusiva(page, orcamentoResponsivoId, `[e2e] Revisao Peca ${indice} ${suf}`, "50");
     }
