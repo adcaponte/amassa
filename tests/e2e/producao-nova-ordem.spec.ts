@@ -289,24 +289,40 @@ test.describe("producao nova ordem", () => {
     await expect(page).not.toHaveURL(/nova=1/);
   });
 
-  test("(g) item do estoque sem ficha na produção da casa mostra a nota do D-14", async ({
+  // Fase 06.5, D-01 (opção "a-ficha", dono em 06/10/2026): só peça de cerâmica — a que tem ficha de
+  // precificação — vira ordem. Até a 06.5 este caso criava uma ordem da casa a partir de um item do
+  // estoque sem ficha (D-13/D-14 da 06.1); agora ele prova que esse item NÃO é oferecido, nem na
+  // casa nem na encomenda, enquanto a peça de linha ao lado continua. O que o caso afirmava sobre a
+  // ordem criada (nome, peça, quantidade) já está no (a), com ficha de linha. A recusa do servidor
+  // a um item enviado à força está em `polimento-producao-ceramica.spec.ts`.
+  test("(g) item do estoque sem ficha não é oferecido como peça — só a peça com ficha (D-01)", async ({
     page,
   }) => {
-    const nomeDoItem = nomeUnico("Pote de cerâmica");
-    const itemId = await semearItemDoEstoque({ nome: nomeDoItem });
-    const nome = nomeUnico("Potes para a loja");
+    const nomeDoItem = nomeUnico("Pote sem ficha");
+    await semearItemDoEstoque({ nome: nomeDoItem });
+    const nomeDaFicha = nomeUnico("Pote de linha");
+    await semearFichaDeLinha(nomeDaFicha);
 
     await fazerLogin(page);
     const folha = await abrirFolha(page);
-    await folha.getByTestId("nova-ordem-nome").fill(nome);
-    await escolherPeca(page, 1, nomeDoItem);
-    await expect(folha.getByTestId("nova-ordem-nota-sem-ficha-1")).toHaveText(NOTA_PECA_SEM_FICHA);
-    await folha.getByTestId("nova-ordem-quantidade-1").fill("4");
-    await folha.getByTestId("nova-ordem-criar").click();
+    await expect(folha.getByTestId("nova-ordem-tipo-casa")).toHaveAttribute("aria-checked", "true");
 
-    const ordemId = await esperarOrdemCriada(page, nome);
-    expect(await origemDasPecasNoBanco(ordemId)).toEqual([
-      { descricao: nomeDoItem, quantidade: 4, fichaId: null, itemId },
-    ]);
+    await folha.getByTestId("nova-ordem-peca-1").click();
+    const opcoesDaCasa = page.getByTestId("nova-ordem-opcoes-1");
+    await expect(opcoesDaCasa.getByRole("option", { name: nomeDaFicha, exact: true })).toBeVisible();
+    await expect(opcoesDaCasa.getByRole("option", { name: nomeDoItem, exact: true })).toHaveCount(0);
+    await expect(opcoesDaCasa.getByText("Itens do estoque", { exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(opcoesDaCasa).toHaveCount(0);
+
+    await folha.getByTestId("nova-ordem-tipo-encomenda").click();
+    await folha.getByTestId("nova-ordem-peca-1").click();
+    const opcoesDaEncomenda = page.getByTestId("nova-ordem-opcoes-1");
+    await expect(
+      opcoesDaEncomenda.getByRole("option", { name: nomeDaFicha, exact: true }),
+    ).toBeVisible();
+    await expect(
+      opcoesDaEncomenda.getByRole("option", { name: nomeDoItem, exact: true }),
+    ).toHaveCount(0);
   });
 });

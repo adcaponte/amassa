@@ -51,7 +51,8 @@ export type PecaParaSemear = {
   quantidade: number;
   aMais?: number;
   fichaId?: string | null;
-  // Plano 11: a peça da casa escolhida em "Itens do estoque", sem ficha (D-13/D-14).
+  // Plano 11: a peça da casa escolhida em "Itens do estoque", sem ficha (D-13/D-14). Desde a D-01
+  // da 06.5 (06/10/2026) esse grupo não existe mais; a ordem com item continua válida — semeada direto.
   itemCatalogoId?: string | null;
 };
 
@@ -891,8 +892,9 @@ export async function vendaNoBanco(documentoId: string): Promise<VendaNoBanco> {
 // Plano 06.1-07 — a "Nova ordem"
 // ---------------------------------------------------------------------------------------------
 
-// Um item que JÁ controla estoque, sem ficha de precificação (D-13: aparece em "Itens do estoque"
-// na produção da casa) — unidade `un`, categoria de compra "Produção da casa" (a semente da 0023).
+// Um item que JÁ controla estoque, sem ficha de precificação (D-13: aparecia em "Itens do estoque"
+// na produção da casa até a D-01 da 06.5, 06/10/2026 — hoje o seletor não o oferece e `criarOrdem`
+// o recusa) — unidade `un`, categoria de compra "Produção da casa" (a semente da 0023).
 export async function semearItemDoEstoque(dados: { nome: string }): Promise<string> {
   return semearItem({
     nome: dados.nome,
