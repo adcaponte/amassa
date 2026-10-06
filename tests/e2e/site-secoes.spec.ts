@@ -1,7 +1,10 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 
 import { CONTEUDO_SITE } from "@/conteudo/site";
+import { placeholdersNoAr } from "@/lib/site/placeholder";
 import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
+
+import { hojeNoAtelie } from "./apoio/semear-financeiro";
 
 // A varredura da página INTEIRA do site público, nos dois viewports (SIT-01, SIT-04, SIT-07,
 // SIT-08, SIT-09, SIT-10) — a continuação de tests/e2e/site-abertura.spec.ts (plano 03, o
@@ -253,5 +256,33 @@ test.describe("site secoes", () => {
     expect(textoDaPrivacidade).toContain(`ou pelo WhatsApp ${telefone}.`);
     expect(textoDaPrivacidade).toMatch(/\(\d{2}\) 9 \d{4}-\d{4}/);
     expect(textoDaPrivacidade).not.toContain("0000-0000");
+  });
+
+  // D-28 (Fase 06.5): a guarda de 01/12/2026 sobre o texto RENDERIZADO de / e /privacidade — o que a
+  // pessoa lê, mais o título e as descrições do <head>. Antes de 01/12 `placeholdersNoAr` não acusa
+  // nada (e o caso passa); a partir dela, um colchete ou um "0000-0000" no ar reprova a varredura.
+  // @vazio-global: a seção de aulas mostra eventos públicos do banco, e os testes que semeiam eventos
+  // os nomeiam "[e2e] …" — rodar com o banco intacto mede o conteúdo do site, não o que outro teste
+  // publicou ao mesmo tempo (a mesma razão dos casos (c) e (f)).
+  test("(m) @vazio-global guarda de 01/12: nenhum placeholder no texto de / nem de /privacidade", async ({ page }) => {
+    const hoje = hojeNoAtelie();
+
+    for (const caminho of ["/", "/privacidade"]) {
+      await page.goto(caminho);
+      // O rodapé é o último bloco das duas páginas: visível, a página inteira já chegou.
+      await expect(page.getByTestId("site-rodape")).toBeVisible();
+
+      const textos = await page.evaluate(() => {
+        const doHead = Array.from(
+          document.querySelectorAll(
+            'meta[name="description"], meta[property="og:title"], meta[property="og:description"]',
+          ),
+        ).map((meta) => meta.getAttribute("content") ?? "");
+        return [document.title, ...doHead, document.body.innerText];
+      });
+      expect(textos.at(-1)!.length, `${caminho} sem texto renderizado`).toBeGreaterThan(0);
+
+      expect(placeholdersNoAr(textos, hoje), `placeholder no ar em ${caminho} (${hoje})`).toEqual([]);
+    }
   });
 });
