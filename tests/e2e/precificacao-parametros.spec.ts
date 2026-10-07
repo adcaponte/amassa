@@ -4,6 +4,7 @@ import { Client } from "pg";
 import { formatarDataCurta, hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { CATALOGO_DE_PARAMETROS } from "@/lib/precificacao/parametros";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import {
   contarHistoricoDoParametro,
   inserirLinhaAntigaDoParametro,
@@ -256,24 +257,21 @@ test.describe("precificacao parametros @parametro-global", () => {
 
     for (const sub of ["catalogo", "categorias", "fixas", "taxas", "parametros"]) {
       const pilula = page.getByTestId(`cadastros-sub-${sub}`);
-      const caixa = await pilula.boundingBox();
-      expect(caixa, `pílula "${sub}"`).not.toBeNull();
-      expect(caixa!.height, `pílula "${sub}"`).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(pilula, `pílula "${sub}"`);
+      expect(caixa.height, `pílula "${sub}"`).toBeGreaterThanOrEqual(44);
     }
 
     const primeiraChave = CATALOGO_DE_PARAMETROS[0].chave;
     const primeiroCampo = page.getByTestId(`parametro-${primeiraChave}`).locator("input");
-    const caixaDoCampo = await primeiroCampo.boundingBox();
-    expect(caixaDoCampo).not.toBeNull();
-    expect(caixaDoCampo!.height).toBeGreaterThanOrEqual(44);
+    const caixaDoCampo = await medirCaixa(primeiroCampo, `campo ${primeiraChave}`);
+    expect(caixaDoCampo.height).toBeGreaterThanOrEqual(44);
 
     const fonteDoCampo = await primeiroCampo.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(fonteDoCampo).toBeGreaterThanOrEqual(16);
 
     const primeiroSelo = page.getByTestId(`parametro-selo-${primeiraChave}`);
-    const caixaDoSelo = await primeiroSelo.boundingBox();
-    expect(caixaDoSelo).not.toBeNull();
-    expect(caixaDoSelo!.height).toBeGreaterThanOrEqual(44);
-    expect(caixaDoSelo!.width).toBeGreaterThanOrEqual(44);
+    const caixaDoSelo = await medirCaixa(primeiroSelo, `selo ${primeiraChave}`);
+    expect(caixaDoSelo.height).toBeGreaterThanOrEqual(44);
+    expect(caixaDoSelo.width).toBeGreaterThanOrEqual(44);
   });
 });

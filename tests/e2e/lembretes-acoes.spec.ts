@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import {
   apagarLembreteDireto,
@@ -476,7 +477,7 @@ test.describe("lembretes acoes", () => {
     expect(await lerLembrete(id)).toBeNull();
   });
 
-  // (l) 🔴 LMB-08 / D-03 — excluir apaga DE VERDADE, mas só quando o toast de 6 s expira.
+  // (l) 🔴 LMB-08 / D-03 — excluir apaga DE VERDADE, mas só quando o toast de 10 s expira (6 s até a 06.5).
   test("excluir um aberto tira a linha na hora, mantém o lembrete no banco logo depois e o apaga quando o toast expira", async ({
     page,
   }) => {
@@ -509,7 +510,7 @@ test.describe("lembretes acoes", () => {
   });
 
   // (m) D-03 — "Desfazer" devolve a linha e nada vai ao servidor.
-  test("excluir e tocar Desfazer devolve a linha, e passados os 6 s o lembrete continua no banco", async ({
+  test("excluir e tocar Desfazer devolve a linha, e passados os 10 s o lembrete continua no banco", async ({
     page,
   }) => {
     test.setTimeout(60_000);
@@ -528,9 +529,9 @@ test.describe("lembretes acoes", () => {
     await expect(linhaAberta(page, id)).toHaveCount(1);
     await page.mouse.move(0, 0);
 
-    // ESPERA FIXA DE PROPÓSITO: provar que NADA dispara depois dos 6 s do toast exige deixar o tempo
-    // passar — não há evento para esperar. 7 s = os 6 s do "Desfazer" com folga.
-    await page.waitForTimeout(7_000);
+    // ESPERA FIXA DE PROPÓSITO: provar que NADA dispara depois dos 10 s do toast exige deixar o tempo
+    // passar — não há evento para esperar. 11 s = os 10 s do "Desfazer" (06.5, UI-D6) com folga.
+    await page.waitForTimeout(11_000);
     expect(await lerLembrete(id)).not.toBeNull();
     await expect(linhaAberta(page, id)).toBeVisible();
   });
@@ -550,9 +551,9 @@ test.describe("lembretes acoes", () => {
     await expect(linhaAberta(page, id)).toHaveCount(0);
     await page.reload();
 
-    // ESPERA FIXA DE PROPÓSITO: provar que a exclusão interrompida NÃO acontece depois dos 6 s exige
-    // deixar o tempo passar. 7 s = os 6 s do toast com folga.
-    await page.waitForTimeout(7_000);
+    // ESPERA FIXA DE PROPÓSITO: provar que a exclusão interrompida NÃO acontece depois dos 10 s exige
+    // deixar o tempo passar. 11 s = os 10 s do toast (06.5, UI-D6) com folga.
+    await page.waitForTimeout(11_000);
     expect(await lerLembrete(id)).not.toBeNull();
     await expect(linhaAberta(page, id)).toBeVisible();
   });
@@ -608,17 +609,14 @@ test.describe("lembretes acoes", () => {
       `/gestao rola horizontalmente a 320px (${scrollWidth} > ${clientWidth})`,
     ).toBeLessThanOrEqual(clientWidth);
 
-    const meta = await linha.getByTestId("lembrete-meta").boundingBox();
-    expect(meta).not.toBeNull();
+    const meta = await medirCaixa(linha.getByTestId("lembrete-meta"), "meta do lembrete");
     for (const testId of ["lembrete-editar", "lembrete-excluir"]) {
-      const caixa = await linha.getByTestId(testId).boundingBox();
-      expect(caixa?.height ?? 0, `${testId} mede menos de 44px`).toBeGreaterThanOrEqual(
-        44,
-      );
+      const caixa = await medirCaixa(linha.getByTestId(testId), testId);
+      expect(caixa.height, `${testId} mede menos de 44px`).toBeGreaterThanOrEqual(44);
       expect(
-        caixa?.y ?? 0,
+        caixa.y,
         `${testId} não desceu para baixo da meta`,
-      ).toBeGreaterThanOrEqual((meta?.y ?? 0) + (meta?.height ?? 0) - 1);
+      ).toBeGreaterThanOrEqual(meta.y + meta.height - 1);
     }
   });
 
@@ -681,8 +679,8 @@ test.describe("lembretes acoes", () => {
     await expect(linhaAberta(page, idA)).toHaveCount(1);
     await page.mouse.move(0, 0);
 
-    // ESPERA FIXA DE PROPÓSITO (molde do (m)): provar que nada dispara depois dos 6 s.
-    await page.waitForTimeout(7_000);
+    // ESPERA FIXA DE PROPÓSITO (molde do (m)): provar que nada dispara depois dos 10 s.
+    await page.waitForTimeout(11_000);
     expect(await lerLembrete(idA)).not.toBeNull();
     expect((await lerLembrete(idB))?.feito_em).not.toBeNull();
   });

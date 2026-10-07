@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { diaEmBrasilia, semearOrdemEncerrada } from "./apoio/semear-producao";
 
 // Concluídas e canceladas (plano 08, UI-D8; UI-SPEC E5): a rota própria, 50 por vez, com o que
@@ -89,8 +90,8 @@ test.describe("producao concluidas", () => {
     const texto = (await link.textContent()) ?? "";
     const quantas = Number(/^Ver concluídas e canceladas \((\d+)\)$/.exec(texto.trim())?.[1] ?? "0");
     expect(quantas).toBeGreaterThanOrEqual(2);
-    const caixa = await link.boundingBox();
-    expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const caixa = await medirCaixa(link, "Ver concluídas e canceladas");
+    expect(caixa.height).toBeGreaterThanOrEqual(44);
 
     await link.click();
     await expect(page).toHaveURL(/\/gestao\/producao\/concluidas$/);
@@ -120,7 +121,7 @@ test.describe("producao concluidas", () => {
     expect(ordemNaTela.indexOf(cancelada)).toBeLessThan(ordemNaTela.indexOf(concluida));
 
     await expect(linhaConcluida).toContainText(nomeConcluida);
-    await expect(linhaConcluida.getByTestId("concluidas-dias")).toHaveText("12 dias");
+    await expect(linhaConcluida.getByTestId("concluidas-dias")).toHaveText("levou 12 dias");
     await expect(linhaConcluida.getByTestId("concluidas-sub-linha")).toHaveText(
       `da casa · 18 de 20 peças boas · concluída em ${dataCompleta(concluidaEm)}`,
     );
@@ -138,8 +139,8 @@ test.describe("producao concluidas", () => {
 
     // "Abrir" (44px, nome acessível com o nome da ordem) leva à ordem.
     const abrir = linhaConcluida.getByRole("link", { name: `Abrir ${nomeConcluida}` });
-    const caixaAbrir = await abrir.boundingBox();
-    expect(caixaAbrir?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const caixaAbrir = await medirCaixa(abrir, `Abrir ${nomeConcluida}`);
+    expect(caixaAbrir.height).toBeGreaterThanOrEqual(44);
     await abrir.click();
     await expect(page).toHaveURL(new RegExp(`/gestao/producao/${concluida}$`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(nomeConcluida);

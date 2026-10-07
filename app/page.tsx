@@ -6,9 +6,11 @@ import { BarraInferiorFixa } from "@/components/site/barra-inferior-fixa";
 import { BarraSuperior } from "@/components/site/barra-superior";
 import { Encomendas } from "@/components/site/encomendas";
 import { FaixaDaFachada } from "@/components/site/faixa-da-fachada";
+import { FaixaDoInstagram } from "@/components/site/faixa-do-instagram";
 import { FaixaEmConstrucao } from "@/components/site/faixa-em-construcao";
 import { OEspaco } from "@/components/site/o-espaco";
 import { OndeFica } from "@/components/site/onde-fica";
+import { PularParaOConteudo } from "@/components/site/pular-para-o-conteudo";
 import { Rodape } from "@/components/site/rodape";
 import { SLOTS_DE_IMAGEM } from "@/conteudo/site";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
@@ -31,23 +33,32 @@ const DESCRICAO_DO_SITE =
 // SEO básico (SIT-08): a URL base abaixo resolve o Open Graph para caminho absoluto a partir de
 // um relativo (`/site/abertura.jpg`); o critério do dono é aparecer no Google para "amassa
 // cerrado pirenópolis" — `app/robots.ts` libera a raiz para isso, `app/sitemap.ts` (Tarefa 3)
-// lista só ela. `width`/`height` são as dimensões REAIS do arquivo (conferidas com
+// lista só ela (até 06/10/2026; desde o plano 06.5-21 lista também `/privacidade`). `width`/`height` são as dimensões REAIS do arquivo (conferidas com
 // `sharp(...).metadata()`, não inventadas); o `alt` vem de `SLOTS_DE_IMAGEM.abertura.alt` — uma
 // verdade, um lugar, nunca reescrita aqui.
+//
+// Fase 06.5, plano 21 (D-29, 06/10/2026): canonical e `og:url` explícitos, e a imagem de
+// compartilhamento deixou de ser a foto de abertura inteira (666×1000, retrato — o WhatsApp e as
+// redes cortavam do jeito deles) e passou a ser `abertura-og.jpg`, um recorte 1200×630 da MESMA
+// foto, sem texto por cima, feito uma vez com o `sharp` do projeto (comando no 06.5-21-SUMMARY.md).
+// As dimensões abaixo são as do arquivo, medidas com `sharp(...).metadata()`. Quando o dono mandar
+// uma foto maior, troca-se só o arquivo.
 export const metadata: Metadata = {
   title: TITULO_DO_SITE,
   description: DESCRICAO_DO_SITE,
   metadataBase: new URL("https://amassacerrado.com.br"),
+  alternates: { canonical: "/" },
   openGraph: {
     title: TITULO_DO_SITE,
     description: DESCRICAO_DO_SITE,
+    url: "/",
     type: "website",
     locale: "pt_BR",
     images: [
       {
-        url: "/site/abertura.jpg",
-        width: 666,
-        height: 1000,
+        url: "/site/abertura-og.jpg",
+        width: 1200,
+        height: 630,
         alt: SLOTS_DE_IMAGEM.abertura.alt,
       },
     ],
@@ -61,14 +72,22 @@ export const metadata: Metadata = {
 export default function PaginaDoSite() {
   return (
     <div className="min-h-screen bg-site-fundo pt-[var(--altura-barra-site)] pb-[84px] text-site-tinta md:pb-0">
+      {/* D-29 (Fase 06.5): o "Pular para o conteúdo" é o primeiro elemento focável da página, e o
+          `<main>` envolve só o conteúdo — da abertura até "Onde fica". A faixa "em construção", as
+          duas barras fixas e o rodapé ficam fora: são a moldura que o link existe para pular. */}
+      <PularParaOConteudo />
       <FaixaEmConstrucao />
       <BarraSuperior />
-      <Abertura />
-      <OEspaco />
-      <AgendaPublica hoje={hojeEmBrasilia(new Date())} />
-      <Encomendas />
-      <FaixaDaFachada />
-      <OndeFica />
+      <main id="conteudo" tabIndex={-1} className="scroll-mt-[var(--altura-barra-site)] outline-none">
+        <Abertura />
+        <OEspaco />
+        <AgendaPublica hoje={hojeEmBrasilia(new Date())} />
+        <Encomendas />
+        <FaixaDaFachada />
+        {/* D-32/UI-D18: só existe com fotos do dono em FOTOS_DO_INSTAGRAM — vazio não renderiza. */}
+        <FaixaDoInstagram />
+        <OndeFica />
+      </main>
       <Rodape />
       <BarraInferiorFixa />
     </div>

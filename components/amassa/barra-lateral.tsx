@@ -52,6 +52,16 @@ const ICONES: Record<ChaveDeIcone, LucideIcon> = {
 // ITENS_NAVEGACAO_LATERAL (8 itens desde a Fase 06.3, que pôs Lembretes; D-11 da Fase 04.6: Início
 // mais TODOS os módulos, Cadastros incluído na 04.6) — diverge de ITENS_NAVEGACAO_CELULAR (4 itens)
 // de propósito.
+//
+// Presa à janela (`md:sticky md:top-0 md:h-svh md:self-start`, 06/10/2026), não esticada até a
+// altura da página. Esticada, o rodapé com o menu do usuário ficava no FIM da página: no Início
+// assentado do e2e, a 1994 px numa janela de 720 — “Sair” e “Trocar senha” só rolando até o fim.
+// E o menu aberto (Radix, `position: fixed`) acompanha o gatilho: quando os blocos do Início
+// chegavam por streaming depois do toque, a página crescia, o gatilho descia e o menu ia junto
+// para fora da janela, sem como rolar até ele (.planning/debug/resolved/casca-sair-fora-da-viewport.md).
+// Presa, a lista rola dentro de `SidebarContent` (`overflow-auto`) se a janela for baixa, e o
+// rodapé fica sempre no pé da tela. As variantes recolhíveis do shadcn já fazem o mesmo
+// (`fixed inset-y-0 h-svh` em components/ui/sidebar.tsx); a `none` é que não.
 export type BarraLateralProps = {
   nome: string;
   className?: string;
@@ -63,7 +73,7 @@ export function BarraLateral({ nome, className }: BarraLateralProps) {
   return (
     <SidebarProvider
       style={{ "--sidebar-width": "240px" } as CSSProperties}
-      className={cn("hidden w-auto md:flex", className)}
+      className={cn("hidden w-auto md:sticky md:top-0 md:flex md:h-svh md:self-start", className)}
     >
       <Sidebar collapsible="none" className="border-r border-sidebar-border">
         <SidebarHeader className="px-4 py-4">

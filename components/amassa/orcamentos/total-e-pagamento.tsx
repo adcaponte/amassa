@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { definirObservacoes, definirPlanoDePagamento } from "@/lib/orcamentos/acoes";
+import { centavosParaCampo } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { PLANOS_DE_PAGAMENTO_DO_ORCAMENTO, type ParcelaDoPlano, type PlanoDePagamentoDoOrcamento } from "@/lib/orcamentos/plano";
 import {
@@ -30,10 +31,6 @@ export type TotalEPagamentoProps = {
   // só EXIBE, nunca soma/arredonda parcela nenhuma.
   parcelas: ParcelaDoPlano[];
 };
-
-function paraTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
-}
 
 // "Total e pagamento" (Client Component): o total em Display 28px, a escolha de como o cliente
 // paga, o sinal (só no plano sinal) e as parcelas resultantes — mais as observações para o
@@ -65,7 +62,7 @@ export function TotalEPagamento({
       orcamentoId,
       planoTexto: planoParaSalvar,
       sinalTexto: planoParaSalvar === "sinal" ? sinalParaSalvar : undefined,
-      freteTexto: paraTexto(freteCentavos),
+      freteTexto: centavosParaCampo(freteCentavos),
     });
 
     setSalvandoPlano(false);

@@ -24,7 +24,6 @@ import {
   FRASE_CONTADO_VAZIO,
   FRASE_CONTAGEM_DESATUALIZADA,
   FRASE_CUSTO_DA_CONTAGEM,
-  FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
   FRASE_ORDEM_FORA_DE_ANDAMENTO,
   FRASE_MINIMO_INVALIDO,
@@ -75,19 +74,21 @@ const esquemaQuantidade = z
     return resultado.milesimos;
   });
 
-// "Quanto custou ao todo" — obrigatório na entrada (é daí que sai o custo médio). Zero é aceito:
-// uma doação ou amostra entra de graça, e o custo médio a absorve.
-const esquemaCusto = z.string({ error: FRASE_CUSTO_OBRIGATORIO }).transform((texto, contexto) => {
-  const conversao = converterReaisParaCentavos(texto);
+// "Quanto custou ao todo" da entrada. Desde a 06.5 (D-04), VAZIO VALE R$ 0 — doação, sobra: o
+// material entra de graça e o custo médio a absorve (a lista diz "sem custo"). Ausente (campo que
+// não veio) conta como vazio. Texto que não é dinheiro e negativo continuam recusados, com a frase
+// de `converterReaisParaCentavos` (T-06.5-21). A peça pronta segue recusando o zero na ação
+// (`CustoDaPecaProntaZerado`, EST-21) — e o vazio dela, que agora chega aqui como zero.
+const esquemaCusto = z.unknown().transform((valor, contexto) => {
+  if (valor === null || valor === undefined) {
+    return 0;
+  }
+  const conversao = converterReaisParaCentavos(typeof valor === "string" ? valor : String(valor));
   if (!conversao.ok) {
     contexto.addIssue({ code: "custom", message: conversao.erro });
     return z.NEVER;
   }
-  if (conversao.centavos === null) {
-    contexto.addIssue({ code: "custom", message: FRASE_CUSTO_OBRIGATORIO });
-    return z.NEVER;
-  }
-  return conversao.centavos;
+  return conversao.centavos ?? 0;
 });
 
 // Só os cinco destinos da folha (D-06): `uso_livre` é gravado apenas pela Agenda, com vínculo — a
@@ -199,9 +200,10 @@ export type RegistrarMovimentacaoValidado = z.infer<typeof esquemaRegistrarMovim
 // MODO (primeira ou conferência) e a diferença são decididos no servidor, sob a trava (T-06-45).
 // ---------------------------------------------------------------------------------------------
 
-// "Custou ao todo" é opcional AQUI: se ele é exigido depende da diferença contra o saldo do
-// instante, e só `planejarContagem`, sob a trava, sabe ("Diga quanto custou — uma estimativa
-// serve."). Vazio vira nulo; texto inválido recebe a frase de `converterReaisParaCentavos`.
+// "Custou ao todo" da contagem. Vazio vira nulo, e `planejarContagem` (sob a trava) o lê como
+// R$ 0 quando a primeira contagem fica positiva — desde a 06.5 o vazio vale R$ 0 também aqui
+// (D-04 "no Estoque", UI-D14). Texto inválido e negativo recebem a frase de
+// `converterReaisParaCentavos` (T-06.5-21).
 const esquemaCustouDaContagem = z
   .string({ error: FRASE_CUSTO_DA_CONTAGEM })
   .nullish()

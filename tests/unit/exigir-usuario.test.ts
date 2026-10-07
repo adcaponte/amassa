@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { avaliarAutorizacao, ehFaltaDeSessao } from "../../lib/auth/exigir-usuario";
 
@@ -78,5 +79,32 @@ describe("ehFaltaDeSessao", () => {
     expect(ehFaltaDeSessao("NEXT_REDIRECT;replace;/x;307;")).toBe(false);
     expect(ehFaltaDeSessao(null)).toBe(false);
     expect(ehFaltaDeSessao(undefined)).toBe(false);
+  });
+
+  // 06.5-19 (D-20): as rotas da foto e do PDF do orçamento passaram a decidir por esta função. Um
+  // erro do próprio Next que TAMBÉM tem `digest`, mas não é de redirect, nunca vira 401.
+  it("um erro com digest que não é de redirect (DYNAMIC_SERVER_USAGE) não é falta de sessão", () => {
+    const erroDinamico = Object.assign(new Error("Dynamic server usage"), { digest: "DYNAMIC_SERVER_USAGE" });
+    expect(ehFaltaDeSessao(erroDinamico)).toBe(false);
+    expect(ehFaltaDeSessao({ digest: "DYNAMIC_SERVER_USAGE" })).toBe(false);
+  });
+
+  it("um Error comum (o banco fora) não é falta de sessão", () => {
+    expect(ehFaltaDeSessao(new Error("Connection terminated unexpectedly"))).toBe(false);
+    expect(ehFaltaDeSessao(new TypeError("fetch failed"))).toBe(false);
+  });
+
+  // 06.5-19 (D-21): `exigirUsuario` passou a ser embrulhada em `cache` do React. A premissa de que as
+  // rotas dependem — o `cache` relança o MESMO erro do `redirect()`, com o mesmo `digest` — medida aqui
+  // com o `cache` e o `redirect` reais (fora de uma requisição o `cache` só repassa a chamada).
+  it("embrulhada em cache do React, a recusa continua sendo falta de sessão", async () => {
+    const recusa = cache(async (): Promise<never> => redirect("/gestao/login?sessao=encerrada"));
+    let capturado: unknown;
+    try {
+      await recusa();
+    } catch (erro) {
+      capturado = erro;
+    }
+    expect(ehFaltaDeSessao(capturado)).toBe(true);
   });
 });

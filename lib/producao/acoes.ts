@@ -46,7 +46,7 @@ import {
   type CatalogoDaNovaOrdem,
   type OrdemEncerrada,
 } from "./consultas";
-import { etapasIniciais, type EtapaProducao, type TipoOrdem } from "./etapas";
+import { etapasIniciais, rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "./etapas";
 import { baixadoMudou } from "./material";
 import {
   esquemaAjustarDiasPrevistos,
@@ -117,9 +117,10 @@ import {
   FRASE_PECAS_DA_ORDEM_MUDARAM,
   FRASE_SEM_FICHA_NAO_ENTRA_NO_ESTOQUE,
   fraseBaixaMudouEnquantoPreenchia,
+  fraseTermineiRecusado,
   fraseItemDesativadoNaConclusao,
   fraseItemFicouSemCategoriaDeCompra,
-  fraseItemNaoGuardaPecas,
+  fraseSoCeramicaViraOrdem,
   fraseItemNaoGuardaPecasNaConclusao,
   fraseMaterialDesativadoNaBaixa,
   textoParcialInvalido,
@@ -168,9 +169,21 @@ export async function terminarEtapa(
         throw new RecusaDaProducao(FRASE_ORDEM_NAO_EXISTE);
       }
       const etapas = await lerEtapasDaOrdem(tx, dados.ordemId);
-      const plano = planejarTerminar({ ...ordem, etapas }, dados.etapaEsperada, hoje);
+      // D-02 (Fase 06.5): o total de feitas e o parcial da etapa atual também são lidos AQUI, sob
+      // a trava — o "Terminei" de uma tela velha (outro celular apagou ou baixou o parcial) é
+      // recusado sem gravar (T-06.5-11/12).
+      const total = await lerTotalDeFeitas(tx, dados.ordemId);
+      const plano = planejarTerminar({ ...ordem, etapas }, dados.etapaEsperada, hoje, { total });
       if (plano.tipo === "recusa") {
-        throw new RecusaDaProducao(FRASE_DA_RECUSA[plano.motivo]);
+        throw new RecusaDaProducao(
+          plano.motivo === "faltam-pecas"
+            ? fraseTermineiRecusado(
+                rotuloDaEtapa(dados.etapaEsperada, ordem.tipo),
+                plano.total,
+                plano.passaram,
+              )
+            : FRASE_DA_RECUSA[plano.motivo],
+        );
       }
       await tx
         .update(ordemEtapas)
@@ -624,10 +637,10 @@ class RecusaDaPeca extends Error {
 // "Criar ordem" (PRD-09). `exigirUsuario()` é a PRIMEIRA instrução (T-06.1-29, cobrado por `npm run
 // verificar-acoes`). O Zod valida a forma no servidor (T-06.1-28) e a entrega prometida é conferida
 // contra o HOJE de Brasília, decidido aqui (UI-D15). Depois, dentro da transação, as fichas e os
-// itens citados são lidos do BANCO e a regra D-05/D-13 é conferida de novo (T-06.1-27) — o seletor
+// itens citados são lidos do BANCO e a regra D-05/D-01 é conferida de novo (T-06.1-27) — o seletor
 // da tela é só conveniência: na casa, a ficha precisa ser de LINHA (não exclusiva, com item) e o
-// item precisa controlar estoque e estar ativo; ficha ou item que não existe mais é recusado com
-// frase. A descrição de cada peça é CONGELADA (nome da ficha, nome do item ou o texto livre); a
+// item do catálogo sem ficha é sempre recusado (D-01 da 06.5); ficha ou item que não existe mais, com
+// frase. A descrição de cada peça é CONGELADA (nome da ficha ou o texto livre); a
 // `ficha_id` continua a referência viva. A ordem nasce `ativa`, com `inicio` = hoje e as etapas do
 // caminho com os previstos do D-10; as peças na ordem recebida (`posicao`). Nenhuma escrita em
 // venda, linha de venda ou parcela (T-06.1-30): a ordem de boca não cria venda nesta fase. O
@@ -704,7 +717,7 @@ export async function criarOrdem(entradaBruta: unknown): Promise<ResultadoDeCria
   return { ok: true, dados: { id } };
 }
 
-// D-05/D-13 conferidas no BANCO, peça a peça, e a descrição congelada de cada uma (na mesma ordem
+// D-05 e D-01 (06.5) conferidas no BANCO, peça a peça, e a descrição congelada de cada uma (na mesma ordem
 // das peças). Lança `RecusaDaPeca` presa à peça — nada foi gravado ainda.
 async function conferirPecas(
   tx: TransacaoDoBanco,
@@ -744,13 +757,7 @@ async function conferirPecas(
     (itemIds.length === 0
       ? []
       : await tx
-          .select({
-            id: itensCatalogo.id,
-            nome: itensCatalogo.nome,
-            controlaEstoque: itensCatalogo.controlaEstoque,
-            ativo: itensCatalogo.ativo,
-            unidade: itensCatalogo.unidade,
-          })
+          .select({ id: itensCatalogo.id, nome: itensCatalogo.nome })
           .from(itensCatalogo)
           .where(inArray(itensCatalogo.id, itemIds))
     ).map((item) => [item.id, item]),
@@ -779,21 +786,18 @@ async function conferirPecas(
     if (!ehCasa) {
       throw new RecusaDaPeca(campo, FRASE_ENCOMENDA_SEM_ITEM);
     }
+    // Fase 06.5, D-01 — opção "a-ficha", escolhida pelo dono em 06/10/2026: só peça de cerâmica
+    // vira ordem, e peça de cerâmica é a que tem ficha de precificação (o MESMO critério de
+    // `listarCatalogoDaNovaOrdem`, que já não oferece item). Um item do catálogo chega aqui só por
+    // envio forçado — "Bolo do dia", "Pin coffee", um pincel (achado 3 do Cowork) — e é recusado
+    // SEMPRE, com o nome lido do banco; nada é gravado. Até a 06.5 a casa aceitava o item que
+    // controla estoque em `un` sem ficha (D-13/D-14 da 06.1). Ordem já criada com item continua
+    // concluindo: a regra vale para criar.
     const item = itens.get(peca.itemCatalogoId);
     if (!item) {
       throw new RecusaDaPeca(campo, FRASE_PECA_SAIU_DO_CATALOGO);
     }
-    if (!item.controlaEstoque || !item.ativo) {
-      throw new RecusaDaPeca(campo, FRASE_CASA_PRECISA_DO_CATALOGO);
-    }
-    // Revisão 06.1, WR-03: 1 peça = 1 unidade do item — material em kg, g, ml… não é peça.
-    if (!itemGuardaPecas(item.unidade)) {
-      throw new RecusaDaPeca(
-        campo,
-        fraseItemNaoGuardaPecas(item.nome, item.unidade ? ROTULO_UNIDADE[item.unidade] : ""),
-      );
-    }
-    return item.nome;
+    throw new RecusaDaPeca(campo, fraseSoCeramicaViraOrdem(item.nome));
   });
 }
 

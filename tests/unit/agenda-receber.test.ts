@@ -522,7 +522,7 @@ describe("frases da dispensa (UI-SPEC §Confirmações, “Dispensadas — linha
     expect(corpoConfirmarDispensar("mensalidade")).toBe(CORPO_CONFIRMAR_DISPENSAR);
     expect(corpoConfirmarDispensar("inscricao")).toBe(CORPO_CONFIRMAR_DISPENSAR);
     const doUso = corpoConfirmarDispensar("uso_livre");
-    expect(doUso).toContain("sai de “A receber”");
+    expect(doUso).toContain("sai de “Receber”");
     expect(doUso).toContain("venda cancelada continua no Caixa");
     expect(doUso).toContain("Dispensadas");
   });

@@ -3,6 +3,9 @@ import { randomBytes } from "node:crypto";
 
 import sharp from "sharp";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // A grade de fotos do editor do orçamento (04.5-10-PLAN.md): upload, a rota autenticada, tipo
 // real, limite de 3, remoção com confirmação. Nomes inventados e únicos por execução ("[e2e]
 // ... {sufixo}") — nenhuma foto real entra no teste, nenhum dado real do ateliê; o repositório
@@ -17,15 +20,11 @@ async function fazerLogin(page: Page) {
   await expect(page).toHaveURL(/\/gestao$/);
 }
 
-// Cria um orçamento novo a partir da lista e devolve o id (mesmo molde de
-// `tests/e2e/orcamentos-editor.spec.ts::criarOrcamento`, redeclarado aqui — cada spec deste
-// projeto tem sua própria cópia dos helpers, nunca um módulo compartilhado).
+// Cria um orçamento novo a partir da lista e devolve o id. Desde o 06.5-14 (D-15) o registro nasce
+// no primeiro campo preenchido — o auxiliar compartilhado preenche um cliente inventado.
 async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  const url = new URL(page.url());
-  return url.searchParams.get("orcamento") ?? "";
+  const sufixo = `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  return criarOrcamentoPelaTela(page, `[e2e] Cliente das fotos ${sufixo}`);
 }
 
 // Abre o editor de um orçamento já existente e espera a hidratação assentar antes de devolver o
@@ -164,14 +163,25 @@ test.describe("orcamentos fotos", () => {
       { r: 10, g: 10, b: 200 },
     ];
 
+    const grade = page.getByTestId("fotos-grade");
+
     // Já existe 1 foto (do teste (a)) — a segunda leva a "2 de 3" (contagem ainda visível, o
     // botão continua); a terceira faz o botão E a contagem desaparecerem juntos, dando lugar à
     // frase do limite — por isso a última iteração espera `fotos-limite`, não `fotos-contagem`
     // (que deixa de existir no DOM, não só de mudar de texto).
+    //
+    // Cada envio só conta quando a célula VIRA FOTO (`<img>`, sem "Enviando foto…"): a contagem,
+    // a frase do limite e o número de células contam a vaga que o envio em andamento reserva
+    // (04.5-UI-SPEC.md, ponto 2) e aparecem no mesmo instante em que a célula de espera entra,
+    // antes de o POST sair. Esperando só por eles, este teste acabava com a 2ª foto em voo e a 3ª
+    // na fila do roteador (as server actions são seriais), a página fechava e o (g) abria o
+    // editor com 1 ou 2 fotos gravadas (.planning/debug/resolved/orcamentos-fotos-g-contagem.md).
     for (const [indice, cor] of cores.entries()) {
       const jpeg = await construirJpegPequeno(cor);
       await inputDeArquivo.setInputFiles({ name: "referencia.jpg", mimeType: "image/jpeg", buffer: jpeg });
       const totalEsperado = indice + 2;
+      await expect(grade.locator("img")).toHaveCount(totalEsperado, { timeout: 15000 });
+      await expect(page.getByTestId("foto-enviando")).toHaveCount(0);
       if (totalEsperado < 3) {
         await expect(page.getByTestId("fotos-contagem")).toHaveText(`${totalEsperado} de 3`, { timeout: 15000 });
       } else {
@@ -181,7 +191,8 @@ test.describe("orcamentos fotos", () => {
 
     await expect(page.getByTestId("fotos-limite")).toHaveText("Limite de 3 fotos atingido. Tire uma para trocar.");
     await expect(page.getByLabel("adicionar foto de referência")).toHaveCount(0);
-    await expect(page.getByTestId("fotos-grade").getByTestId("foto-celula")).toHaveCount(3);
+    await expect(grade.getByTestId("foto-celula")).toHaveCount(3);
+    await expect(grade.locator("img")).toHaveCount(3);
   });
 
   test("(g) a 320px as três células cabem sem rolagem horizontal da página, e todo alvo de toque mede ao menos 44px", async ({
@@ -207,8 +218,8 @@ test.describe("orcamentos fotos", () => {
     for (let indice = 0; indice < contagem; indice += 1) {
       const alvo = alvosDeToque.nth(indice);
       if (await alvo.isVisible()) {
-        const caixa = await alvo.boundingBox();
-        expect(caixa?.height ?? 0, `alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(alvo, `alvo de toque ${indice}`);
+        expect(caixa.height,`alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });

@@ -3,9 +3,12 @@
 // commit e deploy — nenhuma tabela nova, nenhuma leitura de banco na página pública.
 //
 // Os textos são os do protótipo v11 (prototipo-site.html), palavra por palavra — nenhum foi
-// gerado, encurtado ou "melhorado" por quem implementou. Onde falta dado real (endereço,
-// telefone), o texto sobe com colchete, como o protótipo já trazia — o dono manda o valor e
-// vira uma troca de uma linha aqui.
+// gerado, encurtado ou "melhorado" por quem implementou. Onde falta dado real, o campo fica
+// VAZIO e não renderiza (06/10/2026, D-32 da Fase 06.5 — a regra D-20 da imagem, estendida a
+// texto): o dono manda o valor e vira uma troca de uma linha aqui. Até 06/10 a regra era subir
+// com colchete, como o protótipo trazia; colchete e telefone "0000-0000" não vão mais ao ar, e a
+// partir de 01/12/2026 o teste `tests/unit/site-placeholder.test.ts` derruba o `verificar` se um
+// voltar a este arquivo.
 //
 // Nove trechos que no protótipo traziam marcação (`<b>`, `<span>`) viram ESTRUTURA aqui, nunca
 // string com HTML: guardar marcação em conteúdo obrigaria `dangerouslySetInnerHTML` na única
@@ -63,7 +66,7 @@ export const CONTEUDO_SITE = {
 
   c3Titulo: "Loja",
   c3Corpo:
-    "Em nossa loja temos peças prontas de diversas formas assim como materiais artisticos e " +
+    "Em nossa loja temos peças prontas de diversas formas assim como materiais artísticos e " +
     "de papelaria.",
   // Já sem número no protótipo — nenhuma mudança de conteúdo aqui, só o lugar no arquivo.
   c3Preco: "A loja fica dentro do ateliê. Passe para ver.",
@@ -86,10 +89,15 @@ export const CONTEUDO_SITE = {
   agAviso: "O calendário com as datas e vagas entra aqui em breve.",
 
   // Encomendas (`#encomendas`).
+  // D-31: a frase das encomendas é slot do dono. 06/10/2026 (plano 06.5-30): entrou a sugestão
+  // "Contamos como funciona e mandamos um orçamento.", pela instrução dele do mesmo dia ("a questão
+  // que o 30 tiver pode ir no recomendado") — ele confirma ou troca na Parte 0 da caminhada
+  // (`06.5-VERIFICACAO-HUMANA.md`, 0.1). *Até 06/10/2026 o texto no ar era "Contamos a gente como
+  // funciona e mandamos um orçamento." e este comentário dizia que a sugestão só entrava com o "ok".*
   encomendasTitulo: "Peças feitas para você",
   encomendasLead:
     "Canecas para o seu café, um jogo de pratos para a pousada, lembranças para o casamento, " +
-    "uma peça só. Contamos a gente como funciona e mandamos um orçamento.",
+    "uma peça só. Contamos como funciona e mandamos um orçamento.",
   passo1: {
     titulo: "Conta a ideia",
     corpo: "Quantas peças, para quê, cor, tamanho. Foto de referência ajuda muito.",
@@ -103,21 +111,25 @@ export const CONTEUDO_SITE = {
     corpo: "Metade no início; o resto na retirada. Cerâmica leva tempo: conte com 4 a 8 semanas.",
   },
 
-  // Onde fica (`#onde`) — endereço e telefone sobem com colchete até o dono mandar o valor
-  // real (D-14, "sobe com colchetes").
+  // Onde fica (`#onde`). 06/10/2026 (Fase 06.5): `endereco` é slot do dono — vazio não renderiza
+  // (D-32), até ele mandar o endereço; antes subia com colchete (D-14 da 04.6). O telefone exibido
+  // não mora mais aqui: é derivado do `zap` (D-28, `rotuloTelefoneDoZap`). O horário de
+  // funcionamento saiu (D-30): até a inauguração o site diz só `abertura`, e o dono a troca pelo
+  // horário real em dezembro.
   ondeTitulo: "No centro de Pirenópolis",
   contato: {
-    endereco: "Rua [nome da rua], nº [00] — Centro Histórico, Pirenópolis, GO",
-    horario: "Quarta a domingo, 9h às 18h. Segunda e terça fechado.",
-    whatsappRotulo: "(62) 9 0000-0000",
+    endereco: "",
+    abertura: "Abrimos em dezembro.",
     instagramUsuario: "@amassacerrado",
     instagramUrl: "https://instagram.com/amassacerrado",
   },
 
-  // Rodapé.
+  // Rodapé. 06/10/2026 (D-32, UI-D17): `quemSomos` é a parte já confirmada; `quemSomosTexto` é o
+  // slot do texto do dono, que entra depois dela — vazio não renderiza.
   rodape: {
     linha: "AMASSA CERRADO · Pirenópolis, GO",
-    quemSomos: "Quem somos: Theo e Andressa. [texto curto sobre vocês entra aqui]",
+    quemSomos: "Quem somos: Theo e Andressa.",
+    quemSomosTexto: "",
   },
 
   // D-17: o número de WhatsApp mora aqui, num lugar só — só dígitos, com 55 e DDD. É o número
@@ -182,3 +194,13 @@ export const SLOTS_DE_IMAGEM = {
 } as const;
 
 export type SlotDeImagem = keyof typeof SLOTS_DE_IMAGEM;
+
+// Fase 06.5, plano 21 (D-32, UI-D18, 06/10/2026): as fotos da faixa do Instagram, entre
+// "Encomendas" e "Onde fica". Slot do dono: lista VAZIA = a faixa não existe no site (nenhum
+// retângulo, nenhum "em breve" — a regra D-20 das imagens). Só fotos ESTÁTICAS que o dono mandar,
+// copiadas para `public/site/` (`arquivo` é o nome dentro dessa pasta) — nenhuma chamada à API do
+// Instagram, nenhum embed, nada que rastreie quem visita. `alt` é obrigatório: foto sem `alt` não
+// entra. No máximo 6 aparecem, na ordem desta lista (`fotosDaFaixa`, lib/site/instagram.ts).
+export type FotoDoInstagram = { readonly arquivo: string; readonly alt: string };
+
+export const FOTOS_DO_INSTAGRAM: readonly FotoDoInstagram[] = [];

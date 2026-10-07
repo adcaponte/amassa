@@ -93,8 +93,9 @@ export function ListaParametros({ resultado, perdaMedida }: ListaParametrosProps
   const reguaP = foraDoCalculo.queima_regua_p_ate;
   const reguaM = foraDoCalculo.queima_regua_m_ate;
   const reguaCompleta = reguaP !== undefined && reguaM !== undefined;
-  // D-11: lucro + folga + imposto + taxa + comissão passando do limite — a mesma conta de
-  // `calcularPeca`, exposta para avisar ANTES de existir qualquer ficha (`lib/precificacao/calculo.ts`).
+  // D-11: lucro + folga + imposto + taxa (ou, desde a D-16, a comissão sozinha) passando do limite —
+  // a mesma conta de `calcularPeca`, exposta para avisar ANTES de existir qualquer ficha
+  // (`lib/precificacao/calculo.ts`).
   const parametrosFazemSentido = parametrosDoPrecoFazemSentido(calculo, taxaCartaoPontosBase);
 
   return (

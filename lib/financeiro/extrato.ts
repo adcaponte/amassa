@@ -70,6 +70,34 @@ export function montarExtrato(
   return { linhas, saldoAtualCentavos: saldoCorrente };
 }
 
+// D-27 (06.5-12): as parcelas pagas ANTES do 1º dia do mês que o extrato mostra chegam somadas do
+// banco — uma linha por (tipo, valor, taxa congelada), com quantas parcelas iguais há. Só de
+// documento NÃO cancelado (quem filtra é a consulta, `somarMovimentosAntesDe`).
+export type GrupoDePagas = {
+  tipo: TipoDeDocumentoParaTaxa;
+  valorCentavos: number;
+  taxaPontosBase?: number | null;
+  quantidade: number;
+};
+
+// O saldo que as parcelas pagas antes da janela deixaram: por grupo, `quantidade × líquido` com o
+// MESMO `liquidoDaParcela` de `montarExtrato` (venda soma, despesa subtrai). Somado ao saldo
+// inicial, é o saldo de partida de `montarExtrato` sobre as linhas da janela — o saldo de cada
+// linha e o saldo atual saem idênticos aos de montar o histórico inteiro, porque o extrato ordena
+// por `pagoEm` primeiro (tudo que é anterior à janela vem antes de qualquer linha dela) e a taxa
+// é arredondada por parcela (o líquido de um grupo é o de cada parcela dele, nunca o do total).
+export function saldoAntesDaJanela(grupos: readonly GrupoDePagas[]): number {
+  return grupos.reduce((saldo, grupo) => {
+    const liquidoCentavos = liquidoDaParcela({
+      tipo: grupo.tipo,
+      valorCentavos: grupo.valorCentavos,
+      taxaPontosBase: grupo.taxaPontosBase,
+    });
+    const efeito = grupo.quantidade * liquidoCentavos;
+    return grupo.tipo === "venda" ? saldo + efeito : saldo - efeito;
+  }, 0);
+}
+
 export type FormaDoFiltroDoExtrato = "todas" | FormaDeMovimento;
 
 export type FiltroDoExtrato = { mes: string; forma: FormaDoFiltroDoExtrato };

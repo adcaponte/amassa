@@ -35,7 +35,8 @@ export const TOAST_HORA_ATUALIZADA = "Hora atualizada.";
 export const TITULO_TAXA_LEITURA = "Taxa do cartão";
 export const DICA_TAXA_LEITURA = "Vale para todo cálculo. Para mudar, vá em Cadastros → Taxas.";
 
-// "Como o preço é montado" — bloco fixo, cinco linhas do protótipo, verbatim.
+// "Como o preço é montado" — bloco fixo: as cinco linhas do protótipo, verbatim, e a sexta da
+// galeria, que entrou com a decisão do dono de 06/10/2026 (D-16, "b-sobre-o-direto").
 export const TITULO_COMO_O_PRECO_E_MONTADO = "Como o preço é montado";
 export const LINHAS_COMO_O_PRECO_E_MONTADO: readonly { titulo: string; descricao: string }[] = [
   { titulo: "1 · Material", descricao: "argila + esmalte" },
@@ -43,6 +44,7 @@ export const LINHAS_COMO_O_PRECO_E_MONTADO: readonly { titulo: string; descricao
   { titulo: "3 · Queimas", descricao: "fornada ÷ peças que cabem, pelas medidas" },
   { titulo: "4 · Perda", descricao: "÷ (1 − perda)" },
   { titulo: "5 · Preço mínimo", descricao: "÷ (1 − lucro − folga − imposto − taxa)" },
+  { titulo: "6 · Galeria ou consignado", descricao: "preço mínimo ÷ (1 − comissão)" },
 ];
 export const DICA_PERCENTUAL_DIVIDE =
   "Tudo que é porcentagem do preço entra dividindo, não somando — é a fórmula do Sebrae. Assim 15% de lucro são 15% do preço, não do custo.";
@@ -52,8 +54,9 @@ export const DICA_TAXA_E_QUANTAS_CABEM =
   "A taxa do cartão é a mesma do Financeiro. Quantas cabem sai das medidas da peça e do forno: peças por prateleira × níveis, com folga no esmalte e um fator a mais no biscoito.";
 
 // O aviso do divisor que não fecha (D-11) — no lugar de qualquer preço, nunca um número grande.
+// Desde a D-16 (06/10/2026) a comissão da galeria não soma mais com os outros: tem divisor próprio.
 export const FRASE_DIVISOR_INVALIDO =
-  "Os parâmetros de preço não fazem sentido juntos (lucro + folga + imposto + taxa + comissão passam de 100%). Ajuste um deles em Parâmetros antes de calcular.";
+  "Os parâmetros de preço não fazem sentido (lucro + folga + imposto + taxa, ou a comissão da galeria, chegam perto de 100%). Ajuste em Parâmetros antes de calcular.";
 
 export const FRASE_ERRO_TITULO = "Algo não funcionou.";
 export const FRASE_ERRO_CORPO =

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, count, eq, inArray, or } from "drizzle-orm";
+import { and, count, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -937,7 +937,17 @@ export async function gerarContasDoMes(
             mesReferencia,
             criadoPor: usuario.id,
           })
-          .onConflictDoNothing({ target: [documentos.contaFixaId, documentos.mesReferencia] })
+          // D-26 (Fase 06.5, migração 0031): o predicado casa o índice único PARCIAL
+          // `documentos_conta_fixa_mes_ativo_uk (…) where cancelado_em is null` — uma conta
+          // cancelada não conta, e o mês é gerado de novo. Antes da 0031, o Postgres infere a única
+          // antiga `documentos_conta_fixa_mes_uk` pelo MESMO predicado (um índice não parcial
+          // satisfaz qualquer predicado), então a janela entre o `implantar` e o `db:migrate` não
+          // quebra este botão — provado nos dois esquemas em `provarJanelaDoPolimentoEmBancoProprio`
+          // (`scripts/testar-migracoes.mjs`).
+          .onConflictDoNothing({
+            target: [documentos.contaFixaId, documentos.mesReferencia],
+            where: sql`${documentos.canceladoEm} is null`,
+          })
           .returning({ id: documentos.id });
 
         // Sem linha devolvida: o `on conflict` ignorou a inserção — essa conta já tinha sido

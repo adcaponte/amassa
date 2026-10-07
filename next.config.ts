@@ -4,6 +4,7 @@ import {
   REDIRECIONAMENTOS_ANTIGOS,
   REDIRECIONAMENTOS_DA_PRODUCAO,
 } from "./lib/rotas/redirecionamentos-antigos";
+import { CABECALHOS_DE_SEGURANCA } from "./lib/seguranca/cabecalhos";
 
 // Teto do corpo de uma requisição — o mesmo número nos DOIS limites do Next que um envio de foto
 // atravessa (quick 261003-fot). Um só valor: se um ficar abaixo do outro, o menor vence em silêncio.
@@ -12,6 +13,9 @@ const LIMITE_DO_CORPO = "20mb";
 const nextConfig: NextConfig = {
   // Saída mínima (sem devDependencies) usada pela imagem de produção do serviço `app`.
   output: "standalone",
+  // Fase 06.5 (D-19): nenhuma resposta anuncia `X-Powered-By: Next.js` — dizer a quem sonda qual
+  // servidor está por trás não serve a ninguém do ateliê.
+  poweredByHeader: false,
   experimental: {
     serverActions: {
       // O padrão do Next.js para o corpo de uma Server Action é 1 MB — recusaria a foto de
@@ -37,6 +41,14 @@ const nextConfig: NextConfig = {
   // viraram a Produção — mesma lista explícita, no mesmo módulo, com data de remoção própria.
   async redirects() {
     return [...REDIRECIONAMENTOS_ANTIGOS, ...REDIRECIONAMENTOS_DA_PRODUCAO];
+  },
+  // Fase 06.5 (D-19): os cabeçalhos de segurança em TODA resposta — o site, a plataforma, as rotas
+  // de API e de saúde. A lista mora em `lib/seguranca/cabecalhos.ts` — um módulo puro, testado sem
+  // subir o Next (o porquê de cada valor, e de a CSP ser só report-only, está lá); este arquivo só a
+  // espalha. Pelo Next, e não pelo `docker/Caddyfile`, porque o Caddyfile não é ressincronizado pelo
+  // `implantar`: aqui os cabeçalhos chegam ao servidor junto com a imagem.
+  async headers() {
+    return [{ source: "/:path*", headers: [...CABECALHOS_DE_SEGURANCA] }];
   },
 };
 

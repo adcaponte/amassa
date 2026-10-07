@@ -2,6 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { FRASE_VAZIO_CORPO, FRASE_VAZIO_TITULO, ROTULO_NOVO_ORCAMENTO } from "@/lib/orcamentos/textos";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
+
 // O traçador do módulo Orçamentos (04.5-01-PLAN.md, Tarefa 4): schema novo, cálculo puro, aba
 // nova dentro do Financeiro, e "Novo orçamento" gravando um rascunho que aparece na lista como
 // `nº ORC-2026-001` — de ponta a ponta, num caminho só.
@@ -29,9 +32,11 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     await expect(page.getByRole("heading", { name: FRASE_VAZIO_TITULO, level: 2 })).toBeVisible();
     await expect(page.getByText(FRASE_VAZIO_CORPO)).toBeVisible();
 
+    // Desde o 06.5-14 (D-15) “Novo orçamento” é um link para o orçamento vazio, não um botão que
+    // grava.
     const botao = page
       .getByTestId("orcamentos-lista")
-      .getByRole("button", { name: ROTULO_NOVO_ORCAMENTO });
+      .getByRole("link", { name: ROTULO_NOVO_ORCAMENTO });
     await expect(botao).toBeVisible();
     // Este caso é SÓ LEITURA — nenhum clique, nenhuma gravação. A criação de verdade é o caso
     // seguinte, fora da cadeia @vazio-global.
@@ -41,23 +46,23 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     page,
   }) => {
     await fazerLogin(page);
-    await page.goto("/gestao/financeiro?aba=orcamentos");
 
-    const botao = page.getByRole("button", { name: ROTULO_NOVO_ORCAMENTO });
-    await expect(botao).toBeVisible();
-    await botao.click();
-
-    // Navegação COMPLETA para `/gestao/financeiro?aba=orcamentos&orcamento=<id>` (component
-    // `NovoOrcamentoBotao`, `window.location.assign`) — a URL final carrega o id do rascunho.
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+    // Desde o 06.5-14 (D-15) o rascunho nasce no primeiro campo preenchido (`OrcamentoNovo`), não
+    // no toque do botão: o auxiliar toca “Novo orçamento”, preenche o Cliente e espera o editor do
+    // orçamento criado (navegação COMPLETA para `…&orcamento=<id>`).
+    const cliente = `[e2e] Cliente do traçador ${test.info().project.name}-${Date.now()}`;
+    await criarOrcamentoPelaTela(page, cliente);
 
     // O número já vem pronto no primeiro carregamento — sem nenhum estado intermediário "sem
-    // número ainda" (04.5-UI-SPEC.md, seção "Numeração"). Usa o primeiro da lista (ordenada por
-    // ano/sequencial decrescente) porque outro worker (desktop/celular rodando em paralelo)
-    // também cria um orçamento ao mesmo tempo — nunca um valor absoluto fixo.
-    const numero = page.getByTestId("orcamento-numero").first();
-    await expect(numero).toBeVisible();
-    await expect(numero).toHaveText(/^nº ORC-\d{4}-\d{3}$/);
+    // número ainda" (04.5-UI-SPEC.md, seção "Numeração").
+    await expect(page.getByTestId("orcamento-numero")).toHaveText(/^nº ORC-\d{4}-\d{3}$/);
+
+    // E na lista, pela linha deste cliente — outro worker cria orçamentos ao mesmo tempo, então
+    // nunca um valor absoluto fixo nem "o primeiro da lista".
+    await page.goto("/gestao/financeiro?aba=orcamentos");
+    const linha = page.getByTestId("orcamento-linha").filter({ hasText: cliente });
+    await expect(linha).toHaveCount(1);
+    await expect(linha.getByTestId("orcamento-numero")).toHaveText(/^nº ORC-\d{4}-\d{3}$/);
   });
 
   test("a 320px, a aba não rola na horizontal e as sete pílulas do Financeiro estão em duas fileiras", async ({
@@ -66,6 +71,8 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     await fazerLogin(page);
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto("/gestao/financeiro?aba=orcamentos");
+    // O conteúdo real, não o esqueleto do `loading.tsx` (o streaming): medir antes media o vazio.
+    await expect(page.getByTestId("orcamentos-lista")).toBeVisible();
 
     const [scrollWidth, clientWidth] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
@@ -79,9 +86,12 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
     // A quebra em duas fileiras é determinística (espaçador `basis-full`, não o navegador) — a
     // pílula "Venda" (fileira 1) e a pílula "Orçamentos" (fileira 2) têm posições verticais
     // diferentes em QUALQUER largura de tela, inclusive 320px.
-    const caixaVenda = await page.getByTestId("financeiro-aba-venda").boundingBox();
-    const caixaOrcamentos = await page.getByTestId("financeiro-aba-orcamentos").boundingBox();
-    expect(caixaVenda?.y).not.toBe(caixaOrcamentos?.y);
+    const caixaVenda = await medirCaixa(page.getByTestId("financeiro-aba-venda"), "pílula Venda");
+    const caixaOrcamentos = await medirCaixa(
+      page.getByTestId("financeiro-aba-orcamentos"),
+      "pílula Orçamentos",
+    );
+    expect(caixaVenda.y).not.toBe(caixaOrcamentos.y);
   });
 
   // 🔴 Defeito real, visto pelo dono num Android em 2026-09-27 (e a captura não deixava dúvida):
@@ -103,28 +113,18 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
 
     const titulo = `Jogo de mesa para a prova de largura ${Date.now().toString(36)}`;
 
-    await page.goto("/gestao/financeiro?aba=orcamentos");
-    await page
-      .getByTestId("orcamentos-lista")
-      .getByRole("button", { name: ROTULO_NOVO_ORCAMENTO })
-      .click();
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-
-    const campoTitulo = page.getByTestId("orcamento-campo-titulo");
-    await campoTitulo.fill(titulo);
-    // `waitForNavigation` junto do `blur`, nunca `waitForLoadState` solto: a URL de destino pode
-    // ser IDÊNTICA à atual, e aí o `load` resolve contra um carregamento velho.
-    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campoTitulo.blur()]);
+    // Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido — aqui, o próprio
+    // título que o teste mede.
+    await criarOrcamentoPelaTela(page, titulo, { campo: "titulo" });
 
     await page.goto("/gestao/financeiro?aba=orcamentos");
     const cartao = page.getByTestId("orcamento-linha").filter({ hasText: titulo });
-    await expect(cartao).toBeVisible();
 
-    const caixaCartao = await cartao.boundingBox();
-    const caixaTitulo = await cartao.getByText(titulo, { exact: true }).boundingBox();
-    if (!caixaCartao || !caixaTitulo) {
-      throw new Error("Geometria do cartão ou do título não pôde ser lida (bounding box nula).");
-    }
+    const caixaCartao = await medirCaixa(cartao, "cartão do orçamento");
+    const caixaTitulo = await medirCaixa(
+      cartao.getByText(titulo, { exact: true }),
+      "título do orçamento",
+    );
 
     // 70% da largura do cartão é folgado para "ocupa a largura" e apertado o bastante para
     // reprovar a tira de ~60px que o defeito produzia (menos de 20% do cartão).
@@ -146,18 +146,22 @@ test.describe("orcamentos tracador — traçado do módulo Orçamentos", () => {
   test("todo botão visível da aba Orçamentos mede ao menos 44px de altura", async ({ page }) => {
     await fazerLogin(page);
     await page.goto("/gestao/financeiro?aba=orcamentos");
+    // O conteúdo real, não o esqueleto do `loading.tsx` (o streaming).
+    await expect(page.getByTestId("orcamentos-lista")).toBeVisible();
 
     // Escopado a <main> — a casca ao redor (avatar/menu do usuário) tem seus próprios botões,
-    // que não são o que este critério mede (mesmo padrão de tests/e2e/casca.spec.ts).
-    const botoes = page.locator("main").getByRole("button");
+    // que não são o que este critério mede (mesmo padrão de tests/e2e/casca.spec.ts). Desde o
+    // 06.5-14 (D-15) “Novo orçamento” é um link com a aparência do botão (`data-slot="button"`) —
+    // continua sendo um alvo de toque, então entra na medida.
+    const botoes = page.locator("main").locator('button, a[data-slot="button"]');
     const contagem = await botoes.count();
     expect(contagem).toBeGreaterThan(0);
 
     for (let indice = 0; indice < contagem; indice += 1) {
       const botao = botoes.nth(indice);
       if (await botao.isVisible()) {
-        const caixa = await botao.boundingBox();
-        expect(caixa?.height, `botão ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(botao, `botão ${indice}`);
+        expect(caixa.height, `botão ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });

@@ -16,7 +16,7 @@ import { createElement } from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { ehFaltaDeSessao, exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { caminhoDaFoto } from "@/lib/orcamentos/caminho-fotos";
 import { listarFotosParaPdf, obterOrcamentoParaEdicao } from "@/lib/orcamentos/consultas";
@@ -29,6 +29,7 @@ import {
   FRASE_NAO_AUTORIZADO,
   FRASE_NAO_DEU_PARA_GERAR_PDF_NO_SERVIDOR,
   FRASE_ORCAMENTO_NAO_ENCONTRADO_PARA_PDF,
+  FRASE_PDF_NAO_SAIU,
 } from "@/lib/orcamentos/textos";
 
 export const runtime = "nodejs";
@@ -45,10 +46,17 @@ export async function GET(
   // 1. Sessão exigida ANTES de qualquer consulta. `exigirUsuario()` chama `redirect()` do
   // Next.js quando não há sessão — capturado aqui de propósito para virar um 401 com corpo em
   // português, nunca um redirect (que o `fetch()` de `BaixarPdf` trataria como sucesso 200).
+  // 06.5-19 (D-20): só a FALTA DE SESSÃO é 401. Outra falha ao conferir (o banco fora, `auth()`
+  // lançando) é do servidor — 500 com frase, detalhe só no log; nunca "Não autorizado." (o mesmo
+  // molde de `app/gestao/api/fornecedores/anexos/[id]/route.ts`, quick 261005-2yu).
   try {
     await exigirUsuario();
-  } catch {
-    return NextResponse.json({ erro: FRASE_NAO_AUTORIZADO }, { status: 401 });
+  } catch (erro) {
+    if (ehFaltaDeSessao(erro)) {
+      return NextResponse.json({ erro: FRASE_NAO_AUTORIZADO }, { status: 401 });
+    }
+    console.error("Falha ao conferir a sessão no PDF do orçamento:", erro);
+    return NextResponse.json({ erro: FRASE_PDF_NAO_SAIU }, { status: 500 });
   }
 
   const { id } = await params;

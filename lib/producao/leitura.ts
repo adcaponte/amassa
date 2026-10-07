@@ -7,7 +7,13 @@
 // aqui deduz a etapa pelo calendário — isso era o cronograma calculado das Encomendas.
 
 import { diasEntre, somarDias } from "./calendario";
-import type { CaminhoOrdem, EtapaProducao, StatusOrdem, TipoOrdem } from "./etapas";
+import {
+  etapasIniciais,
+  type CaminhoOrdem,
+  type EtapaProducao,
+  type StatusOrdem,
+  type TipoOrdem,
+} from "./etapas";
 
 export type EtapaDaOrdem = {
   etapa: EtapaProducao;
@@ -178,4 +184,46 @@ export function levouDias(
     desde = etapa.feitaEm;
   }
   return levou;
+}
+
+export type PrevisaoDaNovaOrdem = {
+  // A soma dos previstos padrão do caminho (32 no completo, 27 no biscoito).
+  diasDasEtapas: number;
+  // A previsão de conclusão se a ordem começasse hoje.
+  prontaEm: string;
+  // Quantos dias a previsão passa da entrega prometida; `null` quando cabe ou não há data.
+  diasDepoisDaEntrega: number | null;
+};
+
+// A previsão de uma ordem que AINDA NÃO EXISTE (Fase 06.5, D-11): a folha "Nova ordem" avisa, antes
+// de criar, que a entrega escolhida não cabe. Monta a ordem como ela nasce — ativa, início hoje, as
+// etapas de `etapasIniciais(caminho)`, nenhuma feita — e lê com `leituraDaOrdem`: a MESMA conta que
+// dá o "vai atrasar N dias" do cartão depois de criada. A encomenda que nasce aguardando o sinal
+// recebe a mesma conta (o melhor caso: se o sinal chegasse hoje). `hoje` vem do servidor.
+export function previsaoDaNovaOrdem({
+  caminho,
+  hoje,
+  entregaPrometida,
+}: {
+  caminho: CaminhoOrdem;
+  hoje: string;
+  entregaPrometida: string | null;
+}): PrevisaoDaNovaOrdem {
+  const etapas = etapasIniciais(caminho).map((etapa) => ({
+    ...etapa,
+    feitaEm: null,
+    passaram: null,
+  }));
+  const leitura = leituraDaOrdem(
+    { tipo: "encomenda", caminho, status: "ativa", entregaPrometida, inicio: hoje, etapas },
+    hoje,
+  );
+  if (leitura.tipo !== "em-andamento") {
+    // Inalcançável: uma ordem ativa com etapas por fazer sempre está em andamento.
+    throw new RangeError("Ordem nova sem leitura em andamento.");
+  }
+  const diasDasEtapas = etapas.reduce((total, etapa) => total + etapa.diasPrevistos, 0);
+  const diasDepoisDaEntrega =
+    leitura.folgaDias !== null && leitura.folgaDias < 0 ? -leitura.folgaDias : null;
+  return { diasDasEtapas, prontaEm: leitura.previsaoDeConclusao, diasDepoisDaEntrega };
 }

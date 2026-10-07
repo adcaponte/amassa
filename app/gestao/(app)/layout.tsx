@@ -42,12 +42,24 @@ export default async function LayoutApp({ children }: { children: ReactNode }) {
           nunca um número escrito aqui — porque o modo celular do sonner começa em 600px mas a
           barra só desaparece em 768px, e é a variável, não a prop, que decide nesse intervalo.
           `containerAriaLabel`: nome acessível em português (o padrão da biblioteca é em inglês;
-          a regra de idioma do CLAUDE.md vale também para nome acessível). */}
+          a regra de idioma do CLAUDE.md vale também para nome acessível).
+
+          `top` (06.5-05, D-10, UI-D6): os avisos do módulo Lembretes saem por conta própria no
+          topo (`position` por aviso, `POSICAO_DOS_AVISOS_DOS_LEMBRETES`); as duas portas apontam
+          para a MESMA variável de topo de app/globals.css (abaixo do cabeçalho do celular). O padrão dos
+          outros módulos continua `bottom-right`. */}
       <Toaster
         position="bottom-right"
         duration={5000}
-        offset={{ bottom: "var(--deslocamento-aviso)" }}
-        mobileOffset={{ bottom: "var(--deslocamento-aviso)" }} // a porta do celular, mesma variável do offset acima (armadilha 600×768px)
+        offset={{
+          bottom: "var(--deslocamento-aviso)",
+          top: "var(--deslocamento-aviso-topo)",
+        }}
+        // a porta do celular, mesmas variáveis do offset acima (armadilha 600×768px)
+        mobileOffset={{
+          bottom: "var(--deslocamento-aviso)",
+          top: "var(--deslocamento-aviso-topo)",
+        }}
         containerAriaLabel="Avisos"
       />
     </div>

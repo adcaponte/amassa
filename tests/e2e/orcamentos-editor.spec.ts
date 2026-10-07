@@ -1,5 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+import { criarOrcamentoPelaTela, esperarHidratacao } from "./apoio/novo-orcamento";
+
 // O editor do orçamento (04.5-06-PLAN.md): cabeçalho, "Para quem e para quando", "Peças" com as
 // duas portas de entrada de peça, e o cálculo ao vivo (D-21) enquanto o orçamento é rascunho.
 // Nomes inventados e únicos por execução ("[e2e] ... {sufixo}") — nenhum dado real do ateliê, o
@@ -54,11 +57,11 @@ async function criarPecaDeLinha(page: Page, nome: string, precoReais: string): P
   await expect(page.getByText("Peça salva.")).toBeVisible();
 }
 
-// Cria um orçamento novo a partir da lista e devolve a página já no editor.
+// Cria um orçamento novo a partir da lista e devolve a página já no editor. Desde o 06.5-14 (D-15)
+// o registro nasce no primeiro campo preenchido: este cria pelo Título, para o Cliente começar
+// vazio como antes — o (a) troca o título e preenche o cliente depois.
 async function criarOrcamento(page: Page): Promise<void> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
+  await criarOrcamentoPelaTela(page, `[e2e] Pedido inicial ${sufixoUnico()}`, { campo: "titulo" });
 }
 
 function orcamentoIdDaUrl(page: Page): string {
@@ -99,23 +102,28 @@ test.describe("orcamentos editor", () => {
 
     // Cada campo grava por `atualizarCabecalhoDoOrcamento` e termina em navegação COMPLETA
     // (`window.location.assign`) para a MESMA URL — `blurEEsperarNavegacao` é o que distingue
-    // "gravou de verdade" de um falso positivo.
+    // "gravou de verdade" de um falso positivo. E cada campo espera a hidratação antes de ser
+    // preenchido: preenchido antes dela, o React assume o valor antigo e o `blur` grava o antigo.
     const campoCliente = page.getByTestId("orcamento-campo-cliente");
+    await esperarHidratacao(campoCliente);
     await campoCliente.fill(cliente);
     await blurEEsperarNavegacao(page, campoCliente);
     await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 
     const campoTitulo = page.getByTestId("orcamento-campo-titulo");
+    await esperarHidratacao(campoTitulo);
     await campoTitulo.fill(titulo);
     await blurEEsperarNavegacao(page, campoTitulo);
     await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 
     const campoEntrega = page.getByTestId("orcamento-campo-entrega");
+    await esperarHidratacao(campoEntrega);
     await campoEntrega.fill("2027-03-15");
     await blurEEsperarNavegacao(page, campoEntrega);
     await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 
     const campoValidade = page.getByTestId("orcamento-campo-validade");
+    await esperarHidratacao(campoValidade);
     await campoValidade.fill("20");
     await blurEEsperarNavegacao(page, campoValidade);
     await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
@@ -285,8 +293,8 @@ test.describe("orcamentos editor", () => {
     for (let indice = 0; indice < contagem; indice += 1) {
       const alvo = alvosDeToque.nth(indice);
       if (await alvo.isVisible()) {
-        const caixa = await alvo.boundingBox();
-        expect(caixa?.height ?? 0, `alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(alvo, `alvo de toque ${indice}`);
+        expect(caixa.height,`alvo de toque ${indice} mede menos que 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });

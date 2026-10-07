@@ -11,14 +11,17 @@ import {
 } from "@/lib/estoque/esquemas";
 import {
   FRASE_CONTADO_VAZIO,
-  FRASE_CUSTO_OBRIGATORIO,
   FRASE_DESTINO_OBRIGATORIO,
   FRASE_MINIMO_INVALIDO,
   FRASE_OBSERVACOES_LONGAS,
   FRASE_QUANTIDADE_INVALIDA,
   FRASE_QUANTIDADE_ZERO,
   FRASE_VINCULO_LONGO,
+  SEM_CUSTO,
+  SEM_CUSTO_CONHECIDO,
+  rotuloDoCustoMedio,
 } from "@/lib/estoque/textos";
+import { formatarReais } from "@/lib/financeiro/formato";
 
 // Id fictício de item (uuid v4 válido) — nenhum dado real.
 const ITEM_ID = "3f2c6a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f";
@@ -83,25 +86,47 @@ describe("esquemaRegistrarMovimentacao — a quantidade", () => {
 });
 
 describe("esquemaRegistrarMovimentacao — entrada e saída", () => {
-  it("entrada sem custo é recusada com “Diga quanto custou ao todo — é daí que sai o custo médio.”", () => {
-    const semCampo = esquemaRegistrarMovimentacao.safeParse({
-      tipo: "entrada",
-      itemId: ITEM_ID,
-      quantidadeTexto: "5",
-    });
-    expect(semCampo.success).toBe(false);
-    expect(primeiraMensagem(semCampo)).toBe(FRASE_CUSTO_OBRIGATORIO);
+  // D-04 (06.5): doação e sobra entram sem inventar preço — vazio vale R$ 0. Até 05/10/2026 o
+  // vazio era recusado com “Diga quanto custou ao todo — é daí que sai o custo médio.”.
+  it("entrada com o custo vazio, só com espaços ou sem o campo vale 0 centavos (D-04)", () => {
+    for (const custoTexto of ["", "   ", undefined, null]) {
+      const resultado = esquemaRegistrarMovimentacao.safeParse({
+        tipo: "entrada",
+        itemId: ITEM_ID,
+        quantidadeTexto: "5",
+        custoTexto,
+      });
+      expect(resultado.success).toBe(true);
+      if (resultado.success && resultado.data.tipo === "entrada") {
+        expect(resultado.data.custoTexto).toBe(0);
+      }
+    }
+  });
 
-    const vazio = esquemaRegistrarMovimentacao.safeParse({
+  it("entrada com “0” digitado também vale 0 centavos", () => {
+    const resultado = esquemaRegistrarMovimentacao.safeParse({
       tipo: "entrada",
       itemId: ITEM_ID,
       quantidadeTexto: "5",
-      custoTexto: "",
+      custoTexto: "0",
     });
-    expect(vazio.success).toBe(false);
-    expect(primeiraMensagem(vazio)).toBe(
-      "Diga quanto custou ao todo — é daí que sai o custo médio.",
-    );
+    expect(resultado.success).toBe(true);
+    if (resultado.success && resultado.data.tipo === "entrada") {
+      expect(resultado.data.custoTexto).toBe(0);
+    }
+  });
+
+  it("custo que não é dinheiro (“abc”) ou negativo (“-5”) continua recusado (T-06.5-21)", () => {
+    for (const custoTexto of ["abc", "-5", "-5,00"]) {
+      const resultado = esquemaRegistrarMovimentacao.safeParse({
+        tipo: "entrada",
+        itemId: ITEM_ID,
+        quantidadeTexto: "5",
+        custoTexto,
+      });
+      expect(resultado.success).toBe(false);
+      expect(primeiraMensagem(resultado)).toMatch(/^Não deu para entender esse valor./);
+    }
   });
 
   it("entrada com custo vira centavos inteiros", () => {
@@ -487,5 +512,21 @@ describe("campoDoMaterial — o erro volta para baixo do campo certo", () => {
     expect(campoDoMaterial([], "Escolha a unidade do estoque.")).toBe("unidade");
     expect(campoDoMaterial([], "Escolha a categoria da compra.")).toBe("categoria");
     expect(campoDoMaterial([], "Outra coisa.")).toBe("geral");
+  });
+});
+
+describe("rotuloDoCustoMedio — D-04 (06.5): zero é “sem custo”, desconhecido é “—”", () => {
+  it("null (nenhuma entrada) → “—”", () => {
+    expect(rotuloDoCustoMedio(null, "kg", formatarReais)).toBe(SEM_CUSTO_CONHECIDO);
+    expect(SEM_CUSTO_CONHECIDO).toBe("—");
+  });
+
+  it("0 → “sem custo”, nunca “R$ 0,00/kg”", () => {
+    expect(rotuloDoCustoMedio(0, "kg", formatarReais)).toBe(SEM_CUSTO);
+    expect(SEM_CUSTO).toBe("sem custo");
+  });
+
+  it("420 centavos → “R$ 4,20/kg”", () => {
+    expect(rotuloDoCustoMedio(420, "kg", formatarReais).replace(/ /g, " ")).toBe("R$ 4,20/kg");
   });
 });

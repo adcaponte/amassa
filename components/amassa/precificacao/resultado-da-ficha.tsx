@@ -57,13 +57,13 @@ export function ResultadoDaFicha({
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-corpo text-foreground">Preço mínimo, venda direta ou encomenda</span>
-          <span className="text-corpo text-foreground tabular-nums font-semibold">
+          <span data-testid="ficha-minimo-direto" className="text-corpo text-foreground tabular-nums font-semibold">
             {formatarReais(resultado.minimoCentavos)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-corpo text-foreground">Preço mínimo em galeria ou consignado</span>
-          <span className="text-apoio text-muted-foreground tabular-nums">
+          <span data-testid="ficha-minimo-galeria" className="text-apoio text-muted-foreground tabular-nums">
             {resultado.minimoGaleriaCentavos !== null ? formatarReais(resultado.minimoGaleriaCentavos) : "—"}
           </span>
         </div>

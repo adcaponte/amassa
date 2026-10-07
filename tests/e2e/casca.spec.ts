@@ -2,6 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 // Cobre GES-12 (4 itens no celular / 7 no desktop, navegação final da Fase 04.6, D-11), GES-13
 // (menu do usuário com 3 itens, D-12) e GES-14 ("Produção" como rótulo, D-13) — mais o que
 // sobrou de UI-02/UI-03/UI-06/UI-07 da casca construída nos planos 02/03 da Fase 2b, que a
@@ -255,8 +257,56 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
       return;
     }
 
-    const caixa = await barraLateral.boundingBox();
-    expect(caixa?.width).toBe(240);
+    const caixa = await medirCaixa(barraLateral, "barra lateral");
+    expect(caixa.width).toBe(240);
+  });
+
+  // Debug de 06/10/2026 (.planning/debug/resolved/casca-sair-fora-da-viewport.md): a lateral
+  // esticava até a altura da página, então o gatilho do menu do usuário ficava no FIM da página
+  // (no Início do e2e, a 1994 px numa janela de 720) e descia quando ela crescia — e o menu aberto
+  // (Radix, `position: fixed`) descia junto, para fora da janela, onde nem o Playwright alcançava
+  // o "Sair" ("element is outside of the viewport" no teste acima e em sessao.spec.ts). O
+  // crescimento aqui é um bloco alto anexado ao `main`, no papel dos blocos do Início que chegam
+  // por streaming depois do toque: determinístico, sem depender de quantos dados os outros specs
+  // deixaram no Início.
+  test("no desktop, o menu do usuário fica na janela numa página longa e não foge quando a página cresce com ele aberto (UI-03)", async ({
+    page,
+  }) => {
+    await fazerLogin(page);
+
+    if (!(await page.locator('[data-slot="sidebar"]').isVisible())) {
+      // No celular o menu vem do avatar do cabeçalho, num Sheet — não há rodapé de lateral.
+      return;
+    }
+
+    const janela = page.viewportSize()!;
+    const gatilho = page.locator('[data-slot="sidebar-footer"] button').first();
+    const crescerAPagina = (altura: number) =>
+      page.evaluate((px) => {
+        const bloco = document.createElement("div");
+        bloco.style.height = `${px}px`;
+        document.querySelector("main")!.appendChild(bloco);
+      }, altura);
+
+    // Página bem mais alta que a janela, rolagem no topo: o gatilho está na janela sem rolar.
+    await crescerAPagina(2000);
+    const alturaDaPagina = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(alturaDaPagina).toBeGreaterThan(janela.height + 1000);
+    await expect(gatilho).toBeInViewport({ ratio: 1 });
+
+    // Rolada até o fim, continua na janela.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(gatilho).toBeInViewport({ ratio: 1 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    // Com o menu aberto, a página cresce de novo: o "Sair" continua na janela e funciona.
+    await gatilho.click();
+    await expect(localizarItensDoMenu(page)).toBeVisible();
+    await crescerAPagina(1200);
+    const sair = localizarItensDoMenu(page).getByText("Sair");
+    await expect(sair).toBeInViewport({ ratio: 1 });
+    await sair.click();
+    await expect(page).toHaveURL(/\/gestao\/login$/);
   });
 
   // Caso (h) do plano 05 (a segunda metade — a primeira é o teste do menu acima): a 320px, com
@@ -293,8 +343,8 @@ test.describe("casca de navegação (GES-12, GES-13, GES-14, UI-03, UI-06, UI-07
       expect(quantidade).toBe(4);
 
       for (let indice = 0; indice < quantidade; indice += 1) {
-        const caixa = await links.nth(indice).boundingBox();
-        expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(links.nth(indice), `link ${indice} da barra de baixo`);
+        expect(caixa.height).toBeGreaterThanOrEqual(44);
       }
     }
   });

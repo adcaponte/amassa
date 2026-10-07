@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { criarLembrete } from "@/lib/lembretes/acoes";
 import type { LembreteDaTela, PessoaDaCasa } from "@/lib/lembretes/consultas";
 import { LIMITE_DO_TEXTO } from "@/lib/lembretes/esquemas";
+import { POSICAO_DOS_AVISOS_DOS_LEMBRETES } from "@/lib/lembretes/lista";
 import {
   FRASE_ESCREVA_ANTES_DE_GUARDAR,
   FRASE_FALHA_AO_GUARDAR,
@@ -29,8 +30,14 @@ export type LinhaDeCriarProps = {
 };
 
 // A linha de criar (06.3-UI-SPEC.md §"Início — o bloco duplo", item 2; LMB-03): o campo "+ lembrete",
-// "Guardar" e, abaixo, a fileira de opções — "para [data]" e as pessoas da casa. A fileira aparece ao
+// "Guardar" e a fileira de opções — "para [data]" e as pessoas da casa. A fileira aparece ao
 // focar o campo ou digitar e só some depois de guardar (UI-D17). Padrão: sem data e "geral".
+//
+// Ordem (06.5-05, D-10, achado do Cowork: as opções ficavam longe do campo, depois do botão): campo →
+// erro → opções → "Guardar", na tela e no Tab. Abaixo de 384 px de CONTÊINER (`@sm`, a régua é a
+// própria linha — o invólucro `@container` abaixo vale no Início e em "Ver todos") cada um tem fileira
+// própria e "Guardar" fica à direita, por último. A partir de `@sm`, "Guardar" sobe para o lado do
+// campo (como antes) e o erro e as opções ficam logo abaixo dele. Enter: sem mudança (D-07).
 //
 // - Vazio ou só espaços: NADA vai ao servidor; a frase "Escreva o lembrete antes de guardar." aparece
 //   embaixo, o foco volta ao campo, e a frase some ao digitar (UI-D9).
@@ -80,7 +87,7 @@ export function LinhaDeCriar({ pessoas, aoCriar }: LinhaDeCriarProps) {
         setTexto("");
         setParaQuando("");
         setQuem(null);
-        toast.success(TOAST_LEMBRETE_GUARDADO);
+        toast.success(TOAST_LEMBRETE_GUARDADO, { position: POSICAO_DOS_AVISOS_DOS_LEMBRETES });
         // A exclusão pendente volta para a frente da pilha (06.3-WR-01, quick 261005-2yu).
         manterExclusaoNaFrente();
       } else {
@@ -101,8 +108,11 @@ export function LinhaDeCriar({ pessoas, aoCriar }: LinhaDeCriarProps) {
   }
 
   return (
-    <form onSubmit={(evento) => void guardar(evento)} className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="@container min-w-0">
+      <form
+        onSubmit={(evento) => void guardar(evento)}
+        className="grid grid-cols-1 items-center gap-2 @sm:grid-cols-[minmax(0,1fr)_auto]"
+      >
         <Input
           ref={campoRef}
           value={texto}
@@ -118,36 +128,39 @@ export function LinhaDeCriar({ pessoas, aoCriar }: LinhaDeCriarProps) {
           aria-invalid={erro !== null}
           aria-describedby={erro !== null ? "lembretes-novo-erro" : undefined}
           data-testid="lembretes-novo-texto"
-          className="text-corpo md:text-corpo min-h-[44px] min-w-0 flex-[1_1_200px] rounded-full px-4"
+          className="text-corpo md:text-corpo min-h-[44px] w-full min-w-0 rounded-full px-4 @sm:col-start-1 @sm:row-start-1"
         />
+        {erro !== null && (
+          <p
+            id="lembretes-novo-erro"
+            role="alert"
+            data-testid="lembretes-novo-erro"
+            className="text-apoio text-erro font-normal @sm:col-span-2"
+          >
+            {erro}
+          </p>
+        )}
+        <div
+          data-testid="lembretes-novo-opcoes"
+          className={cn("flex w-full flex-wrap gap-2 @sm:col-span-2", !opcoesAbertas && "hidden")}
+        >
+          <PilulaDeData
+            valor={paraQuando}
+            aoMudar={setParaQuando}
+            testId="lembretes-novo-data"
+          />
+          <PilulasDePessoa pessoas={pessoas} valor={quem} aoMudar={setQuem} />
+        </div>
         <Button
           type="submit"
           disabled={enviando}
           aria-busy={enviando}
           data-testid="lembretes-novo-guardar"
-          className="min-h-[44px] rounded-full px-4 font-semibold"
+          className="min-h-[44px] justify-self-end rounded-full px-4 font-semibold @sm:col-start-2 @sm:row-start-1"
         >
           {enviando ? ROTULO_GUARDANDO : ROTULO_GUARDAR}
         </Button>
-      </div>
-      {erro !== null && (
-        <p
-          id="lembretes-novo-erro"
-          role="alert"
-          data-testid="lembretes-novo-erro"
-          className="text-apoio text-erro font-normal"
-        >
-          {erro}
-        </p>
-      )}
-      <div className={cn("flex w-full flex-wrap gap-2", !opcoesAbertas && "hidden")}>
-        <PilulaDeData
-          valor={paraQuando}
-          aoMudar={setParaQuando}
-          testId="lembretes-novo-data"
-        />
-        <PilulasDePessoa pessoas={pessoas} valor={quem} aoMudar={setQuem} />
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }

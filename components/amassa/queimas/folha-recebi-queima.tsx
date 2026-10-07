@@ -4,20 +4,16 @@ import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { FORMAS_DE_RECEBER, type FormaDeReceber } from "@/lib/agenda/esquemas";
+import type { FormaDeReceber } from "@/lib/agenda/esquemas";
 import type { PessoaDoSeletor } from "@/lib/agenda/seletor";
 import {
-  ARIA_FORMAS_DE_RECEBER,
   DICA_RECEBI_AGORA,
-  ROTULO_FORMA_DE_RECEBER,
-  ROTULO_REGISTRANDO,
   ROTULO_VER_NO_CAIXA,
   ROTULO_VOLTAR,
   TITULO_RECEBI_AGORA,
-  taxaDaMaquininha,
   toastRecebiAgora,
 } from "@/lib/agenda/textos";
-import { formatarPercentual, formatarReais } from "@/lib/financeiro/formato";
+import { formatarReais } from "@/lib/financeiro/formato";
 import { hrefDoCaixa } from "@/lib/financeiro/navegacao";
 import { ROTULO_PESSOA_OPCIONAL } from "@/lib/financeiro/textos";
 import { receberQueimaAgora } from "@/lib/queimas/acoes";
@@ -43,17 +39,11 @@ import {
   faltamNoTamanho,
   topoRecebiQueima,
 } from "@/lib/queimas/textos";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { naoFecharComOSeletorAberto, SeletorPessoa } from "@/components/amassa/agenda/seletor-pessoa";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
+import { FormasDeReceber } from "@/components/amassa/formas-de-receber";
 
 import { ContadorTamanho } from "./contador-tamanho";
 
@@ -194,15 +184,16 @@ export function FolhaRecebiQueima({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      {/* O cabeçalho continua à mão, como o da Agenda: sem o "X" do `FolhaCabecalho` e com título,
+          topo e dica empilhados — pôr o fechar mudaria a tela. */}
+      <Folha
+        tamanho="estreita"
         data-testid="folha-recebi-agora"
         data-cobranca-tipo="queima"
         data-cobranca-id={queima.queimaId}
         onOpenAutoFocus={(evento) => evento.preventDefault()}
         // Esc com a lista do seletor aberta fecha só a lista, nunca a folha.
         onEscapeKeyDown={naoFecharComOSeletorAberto}
-        className={cn(CLASSE_DA_FOLHA, "md:max-w-sm")}
       >
         <DialogHeader className="border-border flex flex-col gap-1 border-b px-6 py-4 text-left">
           <DialogTitle className="text-titulo text-tinta">{TITULO_RECEBI_AGORA}</DialogTitle>
@@ -224,7 +215,7 @@ export function FolhaRecebiQueima({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+        <FolhaCorpo>
           <div
             role="group"
             aria-label={ROTULO_PASSO_DE_QUANTIDADE}
@@ -277,28 +268,13 @@ export function FolhaRecebiQueima({
             </p>
           </div>
 
-          <div role="group" aria-label={ARIA_FORMAS_DE_RECEBER} className="flex flex-col gap-3">
-            {FORMAS_DE_RECEBER.map((forma) => (
-              <div key={forma} className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-testid={`forma-${forma}`}
-                  disabled={registrando !== null || nenhuma}
-                  aria-describedby={nenhuma ? idDaFraseNenhuma : undefined}
-                  onClick={() => void receber(forma)}
-                  className="text-corpo h-auto min-h-[52px] w-full px-4 font-semibold"
-                >
-                  {registrando === forma ? ROTULO_REGISTRANDO : ROTULO_FORMA_DE_RECEBER[forma]}
-                </Button>
-                {forma === "cartao" ? (
-                  <p data-testid="recebi-agora-taxa" className="text-apoio text-tinta-fraca text-center">
-                    {taxaDaMaquininha(formatarPercentual(taxaCartaoPontosBase))}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
+          <FormasDeReceber
+            registrando={registrando}
+            desabilitado={nenhuma}
+            aoReceber={(forma) => void receber(forma)}
+            taxaCartaoPontosBase={taxaCartaoPontosBase}
+            idDescritoPor={nenhuma ? idDaFraseNenhuma : undefined}
+          />
           {nenhuma ? (
             <p
               id={idDaFraseNenhuma}
@@ -313,9 +289,9 @@ export function FolhaRecebiQueima({
               {erro}
             </p>
           ) : null}
-        </div>
+        </FolhaCorpo>
 
-        <div className="border-border bg-popover flex flex-col border-t px-6 py-4">
+        <FolhaRodape>
           <Button
             type="button"
             variant="outline"
@@ -326,8 +302,8 @@ export function FolhaRecebiQueima({
           >
             {ROTULO_VOLTAR}
           </Button>
-        </div>
-      </DialogContent>
+        </FolhaRodape>
+      </Folha>
     </Dialog>
   );
 }

@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
+
 import {
   contarFornecedoresComNome,
   fornecedorNoBanco,
@@ -133,7 +135,9 @@ test.describe("fornecedores tracador", () => {
     await expect(folha.getByLabel("O que vende")).toHaveValue("argila");
   });
 
-  test("(d) a 320 px, “Fornecedores” fica sozinha numa terceira fileira, numa linha só, e a página não rola de lado", async ({
+  // Fase 06.5 (D-09, 06.5-04-PLAN.md): o 3 + 3 + 1 da Fase 06.2 deu lugar a UMA fileira com rolagem
+  // lateral. "Fornecedores" é a terceira pílula; aberta, ela fica inteira à vista dentro do trilho.
+  test("(d) a 320 px, “Fornecedores” fica na fileira única, inteira dentro do trilho, numa linha só, e a página não rola de lado", async ({
     page,
   }) => {
     await fazerLogin(page);
@@ -148,16 +152,23 @@ test.describe("fornecedores tracador", () => {
     ]);
     expect(scrollWidth, `rola de lado a 320px (${scrollWidth} > ${clientWidth})`).toBeLessThanOrEqual(clientWidth);
 
-    // 3 + 3 + 1: "Fornecedores" abaixo de "Contas fixas", que está abaixo de "Clientes".
-    const caixaClientes = await page.getByTestId("cadastros-sub-clientes").boundingBox();
-    const caixaFixas = await page.getByTestId("cadastros-sub-fixas").boundingBox();
-    const caixaParametros = await page.getByTestId("cadastros-sub-parametros").boundingBox();
-    const caixaFornecedores = await pilula.boundingBox();
-    expect(caixaClientes && caixaFixas && caixaParametros && caixaFornecedores).toBeTruthy();
-    expect(caixaFixas?.y ?? 0).toBeGreaterThan((caixaClientes?.y ?? 0) + 10);
-    expect(Math.abs((caixaParametros?.y ?? 0) - (caixaFixas?.y ?? 0))).toBeLessThan(2);
-    expect(caixaFornecedores?.y ?? 0).toBeGreaterThan((caixaFixas?.y ?? 0) + 10);
-    expect(caixaFornecedores?.height ?? 0).toBeGreaterThanOrEqual(44);
+    // Uma fileira só: Clientes, Fornecedores e Contas fixas na mesma altura.
+    const caixaClientes = await medirCaixa(page.getByTestId("cadastros-sub-clientes"));
+    const caixaFixas = await medirCaixa(page.getByTestId("cadastros-sub-fixas"));
+    const caixaFornecedores = await medirCaixa(pilula);
+    expect(Math.abs(caixaFornecedores.y - caixaClientes.y)).toBeLessThan(2);
+    expect(Math.abs(caixaFixas.y - caixaFornecedores.y)).toBeLessThan(2);
+    expect(caixaFornecedores.height).toBeGreaterThanOrEqual(44);
+
+    // Inteira dentro do trilho (a centralização roda na hidratação — por isso a espera).
+    const trilho = page.getByTestId("cadastros-abas-trilho");
+    await expect
+      .poll(async () => {
+        const caixaTrilho = await medirCaixa(trilho);
+        const caixa = await medirCaixa(pilula);
+        return caixa.x >= caixaTrilho.x - 0.5 && caixa.x + caixa.width <= caixaTrilho.x + caixaTrilho.width + 0.5;
+      })
+      .toBe(true);
 
     // "Fornecedores" numa linha só, dentro da pílula.
     const linhasDoRotulo = await pilula.evaluate((elemento) => {
@@ -177,13 +188,12 @@ test.describe("fornecedores tracador", () => {
     await page.goto("/gestao/cadastros?sub=fornecedores");
     await expect(page.getByTestId("cadastros-sub-fornecedores")).toBeVisible();
 
-    const subs = ["catalogo", "categorias", "clientes", "fixas", "taxas", "parametros", "fornecedores"];
+    const subs = ["catalogo", "clientes", "fornecedores", "fixas", "categorias", "parametros", "taxas"];
     const tops: number[] = [];
     for (const sub of subs) {
       const pilula = page.getByTestId(`cadastros-sub-${sub}`);
-      const caixa = await pilula.boundingBox();
-      expect(caixa, `pílula "${sub}"`).not.toBeNull();
-      tops.push(caixa?.y ?? -1);
+      const caixa = await medirCaixa(pilula, `pílula "${sub}"`);
+      tops.push(caixa.y);
       const linhas = await pilula.evaluate((elemento) => {
         const intervalo = document.createRange();
         intervalo.selectNodeContents(elemento);

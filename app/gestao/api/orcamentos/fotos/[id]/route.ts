@@ -20,10 +20,11 @@ import { promises as fs } from "node:fs";
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { ehFaltaDeSessao, exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { caminhoDaFoto } from "@/lib/orcamentos/caminho-fotos";
 import { obterFotoParaLeitura } from "@/lib/orcamentos/consultas";
 import {
+  FRASE_FOTO_NAO_ABRIU,
   FRASE_FOTO_NAO_ENCONTRADA,
   FRASE_NAO_AUTORIZADO,
   FRASE_NAO_DEU_PARA_LER_FOTO,
@@ -44,10 +45,17 @@ export async function GET(
   // 1. Sessão exigida ANTES de qualquer consulta. `exigirUsuario()` chama `redirect()` do
   // Next.js quando não há sessão — capturado aqui de propósito para virar um 401 com corpo em
   // português, nunca um redirect (que uma tag `<img>` não consegue seguir de forma útil).
+  // 06.5-19 (D-20): só a FALTA DE SESSÃO é 401. Outra falha ao conferir (o banco fora, `auth()`
+  // lançando) é do servidor — 500 com frase, detalhe só no log; nunca "Não autorizado." (o mesmo
+  // molde de `app/gestao/api/fornecedores/anexos/[id]/route.ts`, quick 261005-2yu).
   try {
     await exigirUsuario();
-  } catch {
-    return NextResponse.json({ erro: FRASE_NAO_AUTORIZADO }, { status: 401 });
+  } catch (erro) {
+    if (ehFaltaDeSessao(erro)) {
+      return NextResponse.json({ erro: FRASE_NAO_AUTORIZADO }, { status: 401 });
+    }
+    console.error("Falha ao conferir a sessão na leitura de uma foto de orçamento:", erro);
+    return NextResponse.json({ erro: FRASE_FOTO_NAO_ABRIU }, { status: 500 });
   }
 
   const { id } = await params;

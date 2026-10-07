@@ -28,6 +28,10 @@ export type AcoesDaOrdemProps = {
   // A etapa atual quando ela ainda se "termina"; `null` na última (a Entrega se CONCLUI: o botão
   // vira "Entreguei" / "Guardar no estoque" e abre a folha de conclusão — plano 11).
   etapaParaTerminar: EtapaProducao | null;
+  // Σ (quantidade + a mais) das peças e o parcial da etapa atual (nulo = campo vazio): o "Terminei"
+  // só libera quando todas as peças passaram pela etapa (D-02, Fase 06.5).
+  totalDeFeitas: number;
+  passaramNaAtual: number | null;
   // O que a folha de conclusão precisa — só quando a etapa atual é a última (`null` antes).
   conclusao: (DadosDaConclusao & { vendaNumero: number | null }) | null;
   // A última etapa feita, com a data que o desfazer apaga; `null` sem nenhuma feita.
@@ -45,6 +49,8 @@ export function AcoesDaOrdem({
   ativa,
   tipo,
   etapaParaTerminar,
+  totalDeFeitas,
+  passaramNaAtual,
   conclusao,
   ultimaFeita,
 }: AcoesDaOrdemProps) {
@@ -98,6 +104,8 @@ export function AcoesDaOrdem({
           ordemId={ordemId}
           tipo={tipo}
           etapa={ativa ? etapaParaTerminar : null}
+          total={totalDeFeitas}
+          passaram={passaramNaAtual}
         />
       </FileiraDeAcoes>
       {conclusao && aberturaDaConclusao !== null ? (

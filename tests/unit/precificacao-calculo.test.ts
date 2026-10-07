@@ -102,7 +102,7 @@ describe("calcularPeca", () => {
     expect(resultado.zeroCentavos).toBeLessThanOrEqual(resultado.minimoCentavos);
   });
 
-  it("canal galeria tem mínimo maior que canal direto (a comissão soma ao divisor)", () => {
+  it("canal galeria = mínimo direto ÷ (1 − comissão) — D-16, 06/10/2026", () => {
     const direto = calcularPeca({
       ficha: FICHA_CANECA,
       cabem: CABEM_DA_CANECA,
@@ -119,7 +119,9 @@ describe("calcularPeca", () => {
     });
     if (!direto.ok || !galeria.ok) throw new Error("esperava ok:true nos dois");
 
-    expect(galeria.minimoCentavos).toBe(14044);
+    // 61,87 ÷ (1 − 0,40) = 103,12. Antes da D-16 (comissão no mesmo divisor) era R$ 140,44.
+    expect(galeria.minimoCentavos).toBe(10312);
+    expect(galeria.minimoCentavos).toBe(Math.round((direto.minimoCentavos * 10000) / 6000));
     expect(galeria.minimoCentavos).toBeGreaterThan(direto.minimoCentavos);
   });
 
@@ -135,24 +137,25 @@ describe("calcularPeca", () => {
     expect(resultado).toEqual({ ok: false, motivo: "nao-cabe" });
   });
 
-  it("divisor inválido quando lucro+folga+imposto+taxa+comissão somam 9500 pontos-base ou mais", () => {
+  it("divisor inválido nos dois canais quando lucro+folga+imposto+taxa somam 9500 pontos-base ou mais", () => {
     const parametros: ParametrosDoCalculo = {
       ...PARAMETROS_ILUSTRATIVOS,
-      lucroPontosBase: 4000,
-      folgaNegociacaoPontosBase: 3000,
+      lucroPontosBase: 5000,
+      folgaNegociacaoPontosBase: 3150,
       impostoPontosBase: 1000,
-      comissaoGaleriaPontosBase: 1500,
+      comissaoGaleriaPontosBase: 0,
     };
-    // 4000 + 3000 + 1000 + 350(taxa) + 1500(comissão galeria) = 9850 ≥ 9500.
-    const resultado = calcularPeca({
-      ficha: FICHA_CANECA,
-      cabem: CABEM_DA_CANECA,
-      parametros,
-      taxaCartaoPontosBase: TAXA_CARTAO_PONTOS_BASE,
-      canal: "galeria",
-    });
-
-    expect(resultado).toEqual({ ok: false, motivo: "divisor-invalido" });
+    // 5000 + 3150 + 1000 + 350(taxa) = 9500 → divisor 500, não maior que o limite.
+    for (const canal of ["direto", "galeria"] as const) {
+      const resultado = calcularPeca({
+        ficha: FICHA_CANECA,
+        cabem: CABEM_DA_CANECA,
+        parametros,
+        taxaCartaoPontosBase: TAXA_CARTAO_PONTOS_BASE,
+        canal,
+      });
+      expect(resultado).toEqual({ ok: false, motivo: "divisor-invalido" });
+    }
   });
 
   it("divisor inválido (preço zero) quando imposto+taxa sozinhos somam 9500 ou mais — mesmo com lucro/folga/comissão em 0", () => {
@@ -192,6 +195,133 @@ describe("calcularPeca", () => {
 
     expect(resultado.ok).toBe(false);
     expect(Object.keys(resultado)).toEqual(["ok", "motivo"]);
+  });
+});
+
+// 06.5-29-PLAN.md — D-16. O dono respondeu "b-sobre-o-direto" em 06/10/2026: o preço mínimo em
+// galeria ou consignado é o mínimo direto ÷ (1 − comissão da galeria), e o ateliê recebe o mesmo que
+// na venda direta. A conta antiga (comissão no mesmo divisor do lucro) fica aqui só como
+// referência, para provar que o canal direto não mudou e que o da galeria mudou.
+describe("calcularPeca — galeria sobre o direto (D-16)", () => {
+  function minimoAntigo(custoCentavos: number, somaPontosBase: number): number {
+    return Math.round((custoCentavos * 10000) / (10000 - somaPontosBase));
+  }
+
+  // Uma ficha cujo custo é exatamente R$ 46,49 — o custo da caneca que o Cowork abriu (achado 24,
+  // deduzido dos dois preços na tela; ver 06.5-CONTA-DA-GALERIA.md): sem material, trabalho,
+  // queima nem perda, só a embalagem.
+  const FICHA_DE_CUSTO_4649 = {
+    argilaMiligramas: 0,
+    esmalteMiligramas: 0,
+    horasMilesimos: 0,
+    embalagemCentavos: 4649,
+  };
+  const SEM_QUEIMA_NEM_PERDA: ParametrosDoCalculo = {
+    ...PARAMETROS_ILUSTRATIVOS,
+    tarifaEnergiaCentavos: 0,
+    desgastePorFornadaCentavos: 0,
+    perdaPontosBase: 0,
+  };
+
+  function calcular(parametros: ParametrosDoCalculo, taxa: number, canal: "direto" | "galeria") {
+    return calcularPeca({
+      ficha: FICHA_DE_CUSTO_4649,
+      cabem: CABEM_DA_CANECA,
+      parametros,
+      taxaCartaoPontosBase: taxa,
+      canal,
+    });
+  }
+
+  it("a caneca do achado 24: direto R$ 101,07 e comissão 40 % → galeria R$ 168,45 (era R$ 774,83)", () => {
+    // Lucro + folga + imposto + taxa = 54 % (a divisão entre eles é inventada; só a soma importa).
+    const parametros: ParametrosDoCalculo = {
+      ...SEM_QUEIMA_NEM_PERDA,
+      lucroPontosBase: 3000,
+      folgaNegociacaoPontosBase: 2000,
+      impostoPontosBase: 0,
+      comissaoGaleriaPontosBase: 4000,
+    };
+    const direto = calcular(parametros, 400, "direto");
+    const galeria = calcular(parametros, 400, "galeria");
+    if (!direto.ok || !galeria.ok) throw new Error("esperava ok:true nos dois");
+
+    expect(direto.custoCentavos).toBe(4649);
+    expect(direto.minimoCentavos).toBe(10107);
+    expect(galeria.minimoCentavos).toBe(16845);
+    // O que o ateliê recebe na galeria: 168,45 − 40 % = 101,07, o mesmo da venda direta.
+    expect(Math.round(galeria.minimoCentavos * 0.6)).toBe(direto.minimoCentavos);
+    // A conta de antes da D-16 dava os R$ 774,83 que o Cowork viu.
+    expect(minimoAntigo(4649, 5400 + 4000)).toBe(77483);
+    // O resto do resultado da galeria é o do direto: custo, zero e as fatias não mudam.
+    expect({ ...galeria, minimoCentavos: 0 }).toEqual({ ...direto, minimoCentavos: 0 });
+  });
+
+  it("com os parâmetros de fábrica (semente 0019, taxa 0 %): direto R$ 61,99 e galeria R$ 103,32 (era R$ 132,83)", () => {
+    const direto = calcular(SEM_QUEIMA_NEM_PERDA, 0, "direto");
+    const galeria = calcular(SEM_QUEIMA_NEM_PERDA, 0, "galeria");
+    if (!direto.ok || !galeria.ok) throw new Error("esperava ok:true nos dois");
+
+    expect(direto.minimoCentavos).toBe(6199); // 46,49 ÷ 0,75
+    expect(galeria.minimoCentavos).toBe(10332); // 61,99 ÷ 0,60
+    expect(minimoAntigo(4649, 2500 + 4000)).toBe(13283);
+  });
+
+  it("o canal direto é o de antes da D-16 e não depende da comissão, em qualquer combinação", () => {
+    for (const lucro of [0, 1500, 3000, 6000])
+      for (const folga of [0, 1000, 2500])
+        for (const taxa of [0, 350, 499])
+          for (const comissao of [0, 4000, 9000, 9500, 12000]) {
+            const parametros: ParametrosDoCalculo = {
+              ...PARAMETROS_ILUSTRATIVOS,
+              lucroPontosBase: lucro,
+              folgaNegociacaoPontosBase: folga,
+              comissaoGaleriaPontosBase: comissao,
+            };
+            const direto = calcularPeca({
+              ficha: FICHA_CANECA,
+              cabem: CABEM_DA_CANECA,
+              parametros,
+              taxaCartaoPontosBase: taxa,
+              canal: "direto",
+            });
+            const diretoSemComissao = calcularPeca({
+              ficha: FICHA_CANECA,
+              cabem: CABEM_DA_CANECA,
+              parametros: { ...parametros, comissaoGaleriaPontosBase: 0 },
+              taxaCartaoPontosBase: taxa,
+              canal: "direto",
+            });
+            if (!direto.ok) throw new Error("esperava ok:true no direto");
+            expect(direto).toEqual(diretoSemComissao);
+            expect(direto.minimoCentavos).toBe(
+              minimoAntigo(direto.custoCentavos, lucro + folga + parametros.impostoPontosBase + taxa),
+            );
+          }
+  });
+
+  it("comissão de 95 % ou mais: a galeria recusa (a tela mostra “—”) e o direto continua calculando", () => {
+    for (const comissao of [9500, 10000, 12000]) {
+      const parametros = { ...SEM_QUEIMA_NEM_PERDA, comissaoGaleriaPontosBase: comissao };
+      expect(calcular(parametros, 0, "galeria")).toEqual({ ok: false, motivo: "divisor-invalido" });
+      expect(calcular(parametros, 0, "direto").ok).toBe(true);
+    }
+    // 94,99 % ainda fecha: 10000 − 9499 = 501 pontos-base, acima do limite.
+    const noLimite = calcular({ ...SEM_QUEIMA_NEM_PERDA, comissaoGaleriaPontosBase: 9499 }, 0, "galeria");
+    expect(noLimite.ok).toBe(true);
+  });
+
+  it("lucro + folga + imposto + taxa e comissão somando mais de 95 % não travam mais a galeria", () => {
+    // Com a regra antiga, 54 % + 42 % = 96 % recusava; agora cada divisor fecha sozinho.
+    const parametros: ParametrosDoCalculo = {
+      ...SEM_QUEIMA_NEM_PERDA,
+      lucroPontosBase: 3000,
+      folgaNegociacaoPontosBase: 2000,
+      comissaoGaleriaPontosBase: 4200,
+    };
+    const galeria = calcular(parametros, 400, "galeria");
+    if (!galeria.ok) throw new Error("esperava ok:true");
+    expect(galeria.minimoCentavos).toBe(Math.round((10107 * 10000) / 5800)); // 101,07 ÷ 0,58
   });
 });
 
@@ -248,18 +378,41 @@ describe("parametrosDoPrecoFazemSentido", () => {
     ).toBe(true);
   });
 
-  it("lucro + folga + imposto + taxa + comissão passando de 100% não fazem sentido", () => {
+  it("lucro + folga + imposto + taxa chegando a 95% não fazem sentido", () => {
     expect(
       parametrosDoPrecoFazemSentido(
         {
           lucroPontosBase: 4000,
           folgaNegociacaoPontosBase: 3000,
-          impostoPontosBase: 2000,
-          comissaoGaleriaPontosBase: 2000,
+          impostoPontosBase: 2150,
+          comissaoGaleriaPontosBase: 0,
         },
-        350,
+        350, // soma 9500 → divisor 500
       ),
     ).toBe(false);
+  });
+
+  it("a comissão sozinha chegando a 95% não faz sentido (a galeria recusaria) — D-16", () => {
+    expect(
+      parametrosDoPrecoFazemSentido(
+        { lucroPontosBase: 0, folgaNegociacaoPontosBase: 0, impostoPontosBase: 0, comissaoGaleriaPontosBase: 9500 },
+        0,
+      ),
+    ).toBe(false);
+  });
+
+  it("desde a D-16 a comissão não soma com o resto: 54% + 42% faz sentido", () => {
+    expect(
+      parametrosDoPrecoFazemSentido(
+        {
+          lucroPontosBase: 3000,
+          folgaNegociacaoPontosBase: 2000,
+          impostoPontosBase: 0,
+          comissaoGaleriaPontosBase: 4200,
+        },
+        400,
+      ),
+    ).toBe(true);
   });
 
   it("exatamente no limite (divisor = 500 pontos-base) também não faz sentido", () => {

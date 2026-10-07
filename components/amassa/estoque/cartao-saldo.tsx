@@ -13,9 +13,9 @@ import {
   META_SEM_MINIMO,
   ROTULO_DAR_BAIXA,
   ROTULO_HISTORICO_DO_MATERIAL,
-  SEM_CUSTO_CONHECIDO,
+  SEM_CUSTO,
+  rotuloDoCustoMedio,
   rotuloHistoricoDe,
-  textoCustoMedio,
   textoMetaMinimo,
 } from "@/lib/estoque/textos";
 import { cn } from "@/lib/utils";
@@ -29,12 +29,22 @@ export function formatarMilesimos(milesimos: number): string {
   return milesimos < 0 ? `−${absoluto}` : absoluto;
 }
 
-// O custo médio como a tela mostra: "R$ 4,20/kg", ou "—" sem nenhuma entrada com preço (D-26).
+// O custo médio como a tela mostra: "R$ 4,20/kg"; "sem custo" quando ele é zero (D-04, 06.5 —
+// doação, sobra); "—" sem nenhuma entrada com preço (D-26). O cartão, a tabela e a folha do
+// material (o histórico dele) passam todos por aqui.
 export function textoDoCustoMedio(saldo: SaldoDoItem): string {
-  const custo = custoMedioParaExibir(saldo);
-  return custo === null
-    ? SEM_CUSTO_CONHECIDO
-    : textoCustoMedio(formatarReais(custo), ROTULO_UNIDADE[saldo.unidade]);
+  return rotuloDoCustoMedio(
+    custoMedioParaExibir(saldo),
+    ROTULO_UNIDADE[saldo.unidade],
+    formatarReais,
+  );
+}
+
+// O custo médio no cartão e na tabela: o "sem custo" (D-04) vai num `span` próprio, para o e2e
+// provar que é ele — e não "R$ 0,00/kg" — que aparece.
+export function CustoMedio({ saldo }: { saldo: SaldoDoItem }) {
+  const texto = textoDoCustoMedio(saldo);
+  return texto === SEM_CUSTO ? <span data-testid="estoque-sem-custo">{texto}</span> : <>{texto}</>;
 }
 
 // A cor do número do saldo pela situação — âmbar para acabando (P2), vermelho para negativo (P3).
@@ -197,7 +207,7 @@ export function CartaoSaldo({ saldo, aoDarBaixa, aoVerHistorico }: CartaoSaldoPr
           data-testid="estoque-cartao-custo"
           className="text-apoio text-tinta-fraca ml-auto whitespace-nowrap tabular-nums"
         >
-          {textoDoCustoMedio(saldo)}
+          <CustoMedio saldo={saldo} />
         </span>
       </div>
     </article>

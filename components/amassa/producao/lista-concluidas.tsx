@@ -17,9 +17,9 @@ import {
   ROTULO_MOSTRAR_MAIS_50,
   ROTULO_TENTAR_DE_NOVO,
   ariaLabelAbrirOrdem,
-  dias,
   textoSubLinhaCancelada,
   textoSubLinhaConcluida,
+  textoLevou,
 } from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ const CLASSE_CHIP =
 function LinhaEncerrada({ ordem }: { ordem: OrdemEncerrada }) {
   const quem = ordem.tipo === "casa" ? CHIP_DA_CASA : (ordem.clienteNome ?? "");
   const concluida = ordem.status === "concluida";
-  // "{N} dias" do início ao fim — só a concluída (a cancelada leva o chip no lugar).
+  // "levou {N} dias" do início ao fim — só a concluída (a cancelada leva o chip no lugar).
   const levou =
     concluida && ordem.inicio !== null && ordem.concluidaEm !== null
       ? Math.max(0, diasEntre(ordem.inicio, ordem.concluidaEm))
@@ -53,7 +53,7 @@ function LinhaEncerrada({ ordem }: { ordem: OrdemEncerrada }) {
                 data-testid="concluidas-dias"
                 className="text-corpo text-tinta shrink-0 font-semibold tabular-nums"
               >
-                {dias(levou)}
+                {textoLevou(levou)}
               </span>
             ) : null
           ) : (

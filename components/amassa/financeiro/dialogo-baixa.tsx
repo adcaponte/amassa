@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { registrarPagamento } from "@/lib/financeiro/acoes";
 import type { ContaEmAberto } from "@/lib/financeiro/consultas";
+import { centavosParaCampo } from "@/lib/financeiro/dinheiro";
 import {
   DICA_BAIXA,
   ROTULO_CONFIRMAR,
@@ -21,12 +22,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
-
-// Mesma técnica de `painel-venda.tsx`/`painel-despesa.tsx::centavosParaTexto` — redeclarada aqui
-// (D-15 do projeto: cada componente do módulo tem a própria cópia de conversões de exibição).
-function centavosParaTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
-}
 
 export type ContaSelecionadaParaBaixa = { parcelaId: string; documentoId: string };
 
@@ -57,7 +52,7 @@ export function DialogoBaixa({ selecao, contas, hoje, aoFechar }: DialogoBaixaPr
   // (o `enviando`/`erro` também zeram, para uma tentativa falha não vazar para a próxima conta).
   useEffect(() => {
     if (conta) {
-      setValorTexto(centavosParaTexto(conta.valorCentavos));
+      setValorTexto(centavosParaCampo(conta.valorCentavos));
       setQuando(hoje);
       setForma(conta.forma);
       setEnviando(false);

@@ -46,9 +46,25 @@ export function hrefDoOrcamento(
   return `${PREFIXO_GESTAO}/financeiro?${parametros.toString()}`;
 }
 
+// O orçamento novo, ainda sem registro (06.5-14, D-15): o editor vazio mora no mesmo
+// `?orcamento=` do editor de um orçamento existente, com o valor fixo `novo` — nenhuma rota nova.
+export const ORCAMENTO_NOVO_NA_URL = "novo";
+
+export function hrefDoOrcamentoNovo(): string {
+  const parametros = new URLSearchParams({ aba: "orcamentos", orcamento: ORCAMENTO_NOVO_NA_URL });
+  return `${PREFIXO_GESTAO}/financeiro?${parametros.toString()}`;
+}
+
 // A Venda preenchida pela Agenda (Fase 05, plano 12 — AGE-15, UI-D26): o “Lançar na Venda” de “A
 // receber” e da folha do uso livre encerrado. `URLSearchParams` escapa o “:” da origem.
 export function hrefDaVendaComOrigem(origem: OrigemDaVenda): string {
   const parametros = new URLSearchParams({ aba: "venda", origem: textoDaOrigem(origem) });
+  return `${PREFIXO_GESTAO}/financeiro?${parametros.toString()}`;
+}
+
+// O “Corrigir” de um documento (Fase 06.5, plano 17 — D-18/UI-D9): a Venda ou a Despesa preenchida com a
+// original, que continua valendo até o lançamento. Só navega — nada é gravado nem cancelado ao abrir.
+export function hrefDaCorrecao(tipo: "venda" | "despesa", documentoId: string): string {
+  const parametros = new URLSearchParams({ aba: tipo, corrige: documentoId });
   return `${PREFIXO_GESTAO}/financeiro?${parametros.toString()}`;
 }

@@ -8,6 +8,7 @@ import { editarLembrete } from "@/lib/lembretes/acoes";
 import type { LembreteDaTela, PessoaDaCasa } from "@/lib/lembretes/consultas";
 import { LIMITE_DO_TEXTO } from "@/lib/lembretes/esquemas";
 import {
+  POSICAO_DOS_AVISOS_DOS_LEMBRETES,
   corDaPessoa,
   instanteCurto,
   primeiroNome,
@@ -340,12 +341,12 @@ function EdicaoNaLinha({
         quem,
       });
       if (resposta.ok) {
-        toast.success(TOAST_ATUALIZADO);
+        toast.success(TOAST_ATUALIZADO, { position: POSICAO_DOS_AVISOS_DOS_LEMBRETES });
         // A exclusão pendente volta para a frente da pilha (06.3-WR-01, quick 261005-2yu).
         manterExclusaoNaFrente();
         aoSalvar(resposta.dados);
       } else if (resposta.naoExiste) {
-        toast.error(FRASE_LEMBRETE_NAO_EXISTE);
+        toast.error(FRASE_LEMBRETE_NAO_EXISTE, { position: POSICAO_DOS_AVISOS_DOS_LEMBRETES });
         manterExclusaoNaFrente();
         aoSumir();
       } else {

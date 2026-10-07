@@ -8,6 +8,7 @@ import {
   definirPlanoDePagamento,
   removerCustoDeProjeto,
 } from "@/lib/orcamentos/acoes";
+import { centavosParaCampo } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import type { CustoDeProjetoDoOrcamento } from "@/lib/orcamentos/consultas";
 import type { PlanoDePagamentoDoOrcamento } from "@/lib/orcamentos/plano";
@@ -46,10 +47,6 @@ export type CustosDoProjetoProps = {
   sinalPercentual: number;
 };
 
-function paraTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
-}
-
 type LinhaLocal = {
   // Chave estável de `key`/estado — o id do banco quando já existe, ou uma chave local enquanto
   // a linha ainda não foi salva (`acrescentarCustoDeProjeto` não foi chamado nem uma vez).
@@ -70,7 +67,7 @@ export function CustosDoProjeto({ orcamentoId, vivo, custos, freteCentavos, plan
       chave: custo.id,
       id: custo.id,
       descricaoTexto: custo.descricao,
-      valorTexto: paraTexto(custo.valorCentavos),
+      valorTexto: centavosParaCampo(custo.valorCentavos),
     })),
   );
   const [erroPorLinha, setErroPorLinha] = useState<Record<string, string>>({});
@@ -78,7 +75,7 @@ export function CustosDoProjeto({ orcamentoId, vivo, custos, freteCentavos, plan
   const [removendo, setRemovendo] = useState(false);
   const contadorLocal = useRef(0);
 
-  const [freteTexto, setFreteTexto] = useState(paraTexto(freteCentavos));
+  const [freteTexto, setFreteTexto] = useState(centavosParaCampo(freteCentavos));
   const [salvandoFrete, setSalvandoFrete] = useState(false);
   const [erroFrete, setErroFrete] = useState<string | null>(null);
 

@@ -1,5 +1,6 @@
-// Módulo puro de Fornecedores — a BUSCA da lista (Fase 06.2, plano 03; FRN-04). Só um import, de tipo e
-// da ordem das áreas (`./esquemas`, que lê só o Zod); nenhuma linha alcança React, Next, drizzle-orm,
+// Módulo puro de Fornecedores — a BUSCA da lista (Fase 06.2, plano 03; FRN-04). Dois imports: o de tipo e
+// da ordem das áreas (`./esquemas`, que lê só o Zod) e, desde a 06.5-09, o normalizador único
+// (`lib/busca/casa-com-busca.ts`, que não importa nada); nenhuma linha alcança React, Next, drizzle-orm,
 // pg ou `@/db` (grep de aceite do plano 06.2-03). É a ÚNICA regra de normalização da busca: a lista
 // de Cadastros → Fornecedores só chama, e o campo "Fornecedor" da Despesa (plano 10) reaproveita
 // `normalizar`.
@@ -7,6 +8,8 @@
 // A lista é pequena (dezenas): vem inteira do servidor (`listarFornecedores`) e é filtrada aqui,
 // enquanto a pessoa digita (06.2-RESEARCH.md, Pattern 5). Se um dia passar de centenas, a busca vai
 // para o servidor no molde de `listarClientes` — não agora.
+import { normalizarParaBusca } from "@/lib/busca/casa-com-busca";
+
 import { AREAS_DO_FORNECEDOR, type AreaDoFornecedor } from "./esquemas";
 
 // O que a busca precisa de cada fornecedor. Quem chama pode passar mais campos (a contagem de
@@ -32,9 +35,10 @@ export type EstadoDaLista = "vazio-total" | "so-desativados" | "sem-resultado" |
 
 // A mesma regra de `nome_normalizado()` do banco, em JS: decompõe (NFD), tira as marcas combinantes
 // (acentos, cedilha, mácron), minúsculas, colapsa espaços e apara. Vale para o termo E para o texto
-// em que se procura — "ÇÃO" casa "cao".
+// em que se procura — "ÇÃO" casa "cao". Desde a 06.5-09, delega ao normalizador único do sistema
+// (`lib/busca/casa-com-busca.ts`); a busca desta lista continua por TRECHO, como era.
 export function normalizar(texto: string): string {
-  return texto.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+  return normalizarParaBusca(texto);
 }
 
 // Ordem da tela: alfabética em pt-BR sem diferença de caixa nem de acento, desempate pelo id — dois

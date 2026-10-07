@@ -3,11 +3,10 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { registrarMovimentacao } from "@/lib/estoque/acoes";
@@ -62,27 +61,14 @@ import {
   textoToastEntrada,
 } from "@/lib/estoque/textos";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 import { Input } from "@/components/ui/input";
 
 import { formatarMilesimos } from "./cartao-saldo";
 import { GradeDestinos } from "./grade-destinos";
 import { PreviaDoSaldo } from "./previa-do-saldo";
 import type { TipoDeMovimentacao } from "./provedor-estoque";
-
-// O contêiner das folhas do Estoque (movimentação e seletor): o `Dialog` do projeto (padrão de
-// `formulario-forno.tsx`) — tela toda no celular (`h-[100dvh]`, desliza de baixo), modal
-// centralizado `max-w-lg` a partir de `md`. Rodapé preso por flex, nunca `position: sticky`.
-export const CLASSE_DA_FOLHA = cn(
-  "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
-  "md:top-1/2 md:right-auto md:bottom-auto md:left-1/2 md:h-auto md:max-h-[85svh] md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:data-open:zoom-in-95 md:data-closed:zoom-out-95",
-);
 
 type CampoDaFolha =
   | "quantidade"
@@ -125,12 +111,6 @@ export function milesimosParaCampo(milesimos: number): string {
     return String(inteiro);
   }
   return `${inteiro},${String(resto).padStart(3, "0").replace(/0+$/, "")}`;
-}
-
-// Centavos → "12,34" para o campo de custo (sem "R$" e sem milhar — a conversão aceita os dois,
-// mas o campo fica mais fácil de editar assim).
-function centavosParaCampo(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
 }
 
 // Texto livre curto: o mesmo corte do servidor (NFC, aparado, contado em pontos de código).
@@ -296,9 +276,10 @@ export function FolhaMovimentacao({
       if (!custo.ok) {
         return { campo: "custo", mensagem: custo.erro };
       }
-      // Peça pronta de graça derrubaria o custo médio das outras (EST-21) — o servidor recusa
-      // igual; aqui só se avisa antes.
-      if (custo.centavos === null || (ehPecaPronta && custo.centavos === 0)) {
+      // Vazio vale R$ 0 na entrada comum (D-04, 06.5) — o servidor decide igual. Peça pronta de
+      // graça derrubaria o custo médio das outras (EST-21): o servidor recusa o vazio e o zero
+      // dela; aqui só se avisa antes.
+      if (ehPecaPronta && (custo.centavos === null || custo.centavos === 0)) {
         return { campo: "custo", mensagem: FRASE_CUSTO_OBRIGATORIO };
       }
       return null;
@@ -449,8 +430,7 @@ export function FolhaMovimentacao({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-movimentacao"
         onOpenAutoFocus={(evento) => {
           evento.preventDefault();
@@ -458,28 +438,16 @@ export function FolhaMovimentacao({
             (tipoInicial === "ajuste" ? campos.current.contado : campos.current.quantidade)?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle className="text-titulo text-tinta">
-              {ROTULO_REGISTRAR_MOVIMENTACAO}
-            </DialogTitle>
-            <DialogDescription className="text-apoio text-tinta-fraca break-words">
-              {saldo.nome}
-            </DialogDescription>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            data-testid="folha-fechar"
-            disabled={enviando}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+        <FolhaCabecalho
+          titulo={ROTULO_REGISTRAR_MOVIMENTACAO}
+          descricao={saldo.nome}
+          descricaoVisivel
+          classeDescricao="break-words"
+          aoFechar={aoFechar}
+          fecharDesabilitado={enviando}
+          dataTestIdFechar="folha-fechar"
+        />
 
         <form
           noValidate
@@ -489,7 +457,7 @@ export function FolhaMovimentacao({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-4">
+          <FolhaCorpo className="gap-6">
             {/* Caixa "escolhido": o material, o saldo de agora e a volta ao seletor. */}
             <div
               data-testid="folha-escolhido"
@@ -805,12 +773,15 @@ export function FolhaMovimentacao({
                 {mensagemDe("motivo")}
               </div>
             ) : null}
-          </div>
+          </FolhaCorpo>
 
           {/* Rodapé preso por FLEX, fora da área rolável, nunca `position: sticky` (G-03-1): o
               erro de gravação no topo, a prévia e o botão — sempre visíveis (toque 4 do EST-09). */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-            {mensagemDe("geral")}
+          <FolhaRodape
+            erro={erro?.campo === "geral" ? erro.mensagem : null}
+            idErro="folha-erro-geral"
+            dataTestIdErro="folha-erro"
+          >
             <PreviaDoSaldo
               entrada={{
                 tipo,
@@ -840,9 +811,9 @@ export function FolhaMovimentacao({
             >
               {enviando ? ROTULO_REGISTRANDO : rotuloDoBotaoDeGravar(tipo)}
             </button>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

@@ -20,9 +20,8 @@ export type ListaOrcamentosProps = {
   hoje: string;
 };
 
-// Server Component (nenhum estado, nenhum efeito) — só `NovoOrcamentoBotao` é cliente, pela
-// mesma razão de `ListaContasFixas`: precisa de estado local para "enviando" e decidir a
-// navegação a partir da resposta do servidor.
+// Server Component (nenhum estado, nenhum efeito). Desde o 06.5-14 (D-15), `NovoOrcamentoBotao`
+// também é só um link para o orçamento novo — quem grava é `OrcamentoNovo`, no primeiro campo.
 export function ListaOrcamentos({ orcamentos, hoje }: ListaOrcamentosProps) {
   if (orcamentos.length === 0) {
     return (

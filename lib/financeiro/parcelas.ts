@@ -122,6 +122,14 @@ export function gerarPlano({
   return { ok: true, parcelas };
 }
 
+// O valor inicial da PRIMEIRA forma quando o à vista é dividido em duas (D-21, P4 — 06.5-15): a
+// metade, arredondada para cima — R$ 150,01 vira 75,01 + 75,00. Morava escrita à mão em
+// `painel-venda.tsx` e `painel-despesa.tsx`; é só a semente da divisão, quem confere que as duas
+// pontas ficam maiores que zero é `dividirEmDuasFormas`.
+export function primeiroValorDaDivisao(totalCentavos: number): number {
+  return Math.ceil(totalCentavos / 2);
+}
+
 // "+ outra forma" (D-07/D-08): só no à vista, divide o recebimento/pagamento em DUAS parcelas na
 // data do documento, cada uma com a própria forma E a própria caixinha (`pagas`, padrão as duas
 // verdadeiras — a divisão herda o estado atual do à vista antes de dividir, key_links do

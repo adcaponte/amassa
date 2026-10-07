@@ -60,21 +60,29 @@ describe("planejarContagem — primeira contagem, pela diferença (D-17 refinado
     });
   });
 
-  it("diferença positiva sem custo (ou com custo zero) é recusada com a frase da contagem", () => {
-    const semCusto = planejarContagem({
-      modo: "primeira",
-      saldoMilesimos: 0,
-      contadoMilesimos: 10000,
-      custouCentavos: null,
-    });
-    const custoZero = planejarContagem({
-      modo: "primeira",
-      saldoMilesimos: 0,
-      contadoMilesimos: 10000,
-      custouCentavos: 0,
-    });
-    expect(semCusto).toEqual({ tipo: "recusa", erro: FRASE_CUSTO_DA_CONTAGEM, saldoAntesMilesimos: 0 });
-    expect(custoZero).toEqual({ tipo: "recusa", erro: FRASE_CUSTO_DA_CONTAGEM, saldoAntesMilesimos: 0 });
+  // UI-D14 (06.5): a contagem segue a regra da entrada — vazio vale R$ 0. Até 05/10/2026 o vazio
+  // e o zero eram recusados com “Diga quanto custou — uma estimativa serve.”.
+  it("diferença positiva sem custo (ou com custo zero) entra a R$ 0 (D-04, UI-D14)", () => {
+    for (const custouCentavos of [null, 0]) {
+      expect(
+        planejarContagem({ modo: "primeira", saldoMilesimos: 0, contadoMilesimos: 10000, custouCentavos }),
+      ).toEqual({
+        tipo: "entrada",
+        diferencaMilesimos: 10000,
+        custouCentavos: 0,
+        motivo: "saldo_inicial",
+        saldoAntesMilesimos: 0,
+        saldoDepoisMilesimos: 10000,
+      });
+    }
+  });
+
+  it("custo negativo ou que não é centavo inteiro continua recusado com a frase da contagem", () => {
+    for (const custouCentavos of [-100, 12.5, Number.NaN]) {
+      expect(
+        planejarContagem({ modo: "primeira", saldoMilesimos: 0, contadoMilesimos: 10000, custouCentavos }),
+      ).toEqual({ tipo: "recusa", erro: FRASE_CUSTO_DA_CONTAGEM, saldoAntesMilesimos: 0 });
+    }
     expect(FRASE_CUSTO_DA_CONTAGEM).toBe("Diga quanto custou — uma estimativa serve.");
   });
 
@@ -377,6 +385,18 @@ describe("esquemaConfirmarContagem — o que o servidor aceita", () => {
     expect(resultado.success).toBe(false);
     expect(resultado.error?.issues[0]?.message).toBe(FRASE_CONTADO_VAZIO);
     expect(FRASE_CONTADO_VAZIO).toBe("Diga quanto tem na prateleira — pode ser zero.");
+  });
+
+  it("custo vazio passa como nulo — a regra pura o lê como R$ 0 (UI-D14)", () => {
+    const resultado = esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "5", custouTexto: "  ", saldoEsperadoMilesimos: 0 });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.custouCentavos).toBeNull();
+  });
+
+  it("custo negativo é recusado", () => {
+    expect(esquemaConfirmarContagem.safeParse({ itemId, contadoTexto: "1", custouTexto: "-5", saldoEsperadoMilesimos: 0 }).success).toBe(
+      false,
+    );
   });
 
   it("custo inválido é recusado", () => {

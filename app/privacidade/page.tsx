@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CONTEUDO_SITE } from "@/conteudo/site";
+import { CONTEUDO_SITE, SLOTS_DE_IMAGEM } from "@/conteudo/site";
+import { PularParaOConteudo } from "@/components/site/pular-para-o-conteudo";
 import { Rodape } from "@/components/site/rodape";
+import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 
 // Política de privacidade do site público (04/10/2026). Nasceu de uma exigência do Google: para
 // publicar o app OAuth `amassa-backup` (o `client_id` próprio do `rclone`, que leva as cópias de
@@ -12,18 +14,46 @@ import { Rodape } from "@/components/site/rodape";
 // site, analytics, outro destino de backup), esta página muda junto.
 export const dynamic = "force-static";
 
+const TITULO = "Privacidade — AMASSA CERRADO";
+const DESCRICAO = "Como a AMASSA CERRADO trata os dados de quem visita o site e de quem é atendido pelo ateliê.";
+
+// D-29 (Fase 06.5, 06/10/2026): canonical e `og:url` próprios desta página. O Open Graph de uma
+// página não herda o da raiz (são irmãs, não layout e filha), então o título, a descrição e a
+// imagem de compartilhamento — o mesmo recorte 1200×630 da foto de abertura — estão escritos aqui.
 export const metadata: Metadata = {
-  title: "Privacidade — AMASSA CERRADO",
-  description: "Como a AMASSA CERRADO trata os dados de quem visita o site e de quem é atendido pelo ateliê.",
+  title: TITULO,
+  description: DESCRICAO,
   metadataBase: new URL("https://amassacerrado.com.br"),
+  alternates: { canonical: "/privacidade" },
+  openGraph: {
+    title: TITULO,
+    description: DESCRICAO,
+    url: "/privacidade",
+    type: "website",
+    locale: "pt_BR",
+    images: [
+      {
+        url: "/site/abertura-og.jpg",
+        width: 1200,
+        height: 630,
+        alt: SLOTS_DE_IMAGEM.abertura.alt,
+      },
+    ],
+  },
 };
 
 const ATUALIZADA_EM = "4 de outubro de 2026";
 
 export default function PaginaDePrivacidade() {
+  // D-28 (06/10/2026): o telefone sai do `zap`, o mesmo do "Onde fica" — vazio se o `zap` estiver
+  // fora do formato, e então a frase termina no Instagram.
+  const telefone = rotuloTelefoneDoZap(CONTEUDO_SITE.zap);
+
   return (
     <div className="min-h-screen bg-site-fundo text-site-tinta">
-      <main className="mx-auto max-w-[68ch] px-4 py-14 md:py-20">
+      {/* D-29 (Fase 06.5): o mesmo "Pular para o conteúdo" da raiz, primeiro elemento focável. */}
+      <PularParaOConteudo />
+      <main id="conteudo" tabIndex={-1} className="mx-auto max-w-[68ch] px-4 py-14 outline-none md:py-20">
         <Link href="/" className="text-sm text-site-tinta-fraca underline">
           ← AMASSA CERRADO
         </Link>
@@ -73,8 +103,8 @@ export default function PaginaDePrivacidade() {
                 className="text-site-tinta underline"
               >
                 {CONTEUDO_SITE.contato.instagramUsuario}
-              </a>{" "}
-              ou pelo WhatsApp {CONTEUDO_SITE.contato.whatsappRotulo}.
+              </a>
+              {telefone ? ` ou pelo WhatsApp ${telefone}` : null}.
             </p>
           </section>
         </div>

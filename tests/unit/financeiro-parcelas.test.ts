@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { formatarReais } from "@/lib/financeiro/formato";
-import { conferirParcelas, dividirEmDuasFormas, gerarPlano } from "@/lib/financeiro/parcelas";
+import {
+  conferirParcelas,
+  dividirEmDuasFormas,
+  gerarPlano,
+  primeiroValorDaDivisao,
+} from "@/lib/financeiro/parcelas";
 
 // 04.4-06-PLAN.md, Tarefa 1 — o plano de parcelas, a divisão em duas formas (D-07/D-08) e a
 // conferência da soma (servidor E cliente chamam a mesma função), sem servidor nenhum.
@@ -293,5 +298,46 @@ describe("conferirParcelas", () => {
         parcelas: [{ vencimento: "2020-01-01", valorCentavos: 15000, pago: true }],
       }),
     ).toEqual({ ok: true });
+  });
+});
+
+// 06.5-15 (D-21, P4): a semente da divisão em duas formas, que antes era `Math.ceil(totalCentavos / 2)`
+// escrito à mão na Venda e na Despesa.
+describe("primeiroValorDaDivisao", () => {
+  it.each([
+    [15000, 7500],
+    [15001, 7501],
+    [3, 2],
+    [2, 1],
+    [1, 1],
+    [0, 0],
+    [1_000_000_000, 500_000_000],
+    [999_999_999, 500_000_000],
+  ])("total %d → primeira forma com %d (metade arredondada para cima)", (total, primeiro) => {
+    expect(primeiroValorDaDivisao(total)).toBe(primeiro);
+  });
+
+  it("par: as duas formas ficam iguais; ímpar: a primeira leva o centavo a mais", () => {
+    expect(15000 - primeiroValorDaDivisao(15000)).toBe(7500);
+    expect(15001 - primeiroValorDaDivisao(15001)).toBe(7500);
+  });
+
+  it("devolve EXATAMENTE o que Math.ceil(total / 2) devolvia, de -100000 a 100000 e nos valores grandes", () => {
+    const valores: number[] = [];
+    for (let n = -100_000; n <= 100_000; n++) valores.push(n);
+    valores.push(123_456_789, 999_999_999, 1_000_000_000);
+    for (const n of valores) {
+      expect(primeiroValorDaDivisao(n)).toBe(Math.ceil(n / 2));
+    }
+  });
+
+  it("total 1: a divisão semeada é recusada por dividirEmDuasFormas (segunda ponta zero), como antes", () => {
+    const resultado = dividirEmDuasFormas({
+      totalCentavos: 1,
+      primeiroValorCentavos: primeiroValorDaDivisao(1),
+      data: "2026-12-18",
+      formas: ["pix", "dinheiro"],
+    });
+    expect(resultado.ok).toBe(false);
   });
 });

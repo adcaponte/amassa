@@ -10,6 +10,7 @@ import { and, asc, eq, ne, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { clientes } from "@/db/schema";
+import { palavrasDaBusca } from "@/lib/busca/casa-com-busca";
 
 import { escaparPadraoDeBusca } from "./lista";
 
@@ -30,7 +31,8 @@ export type ListaDeClientes = {
 
 // A lista das duas telas (Cadastros → Clientes e Agenda → Pessoas): ordem alfabética pelo nome
 // normalizado, desempate pelo id (UI-D23 — homônimos ficam juntos, sempre na mesma ordem), `quantos`
-// por vez. Com busca, acha por PEDAÇO do nome, sem acento e sem diferença de maiúscula.
+// por vez. Com busca, acha por PEDAÇOS do nome — cada palavra digitada, em qualquer ordem —, sem
+// acento e sem diferença de maiúscula.
 // `restricao` é uma condição a mais, escrita por quem chama: o seletor de pessoa da Agenda (plano
 // 05) tira assim quem já está inscrito na data, sem este módulo conhecer as tabelas da Agenda.
 export async function listarClientes({
@@ -42,12 +44,15 @@ export async function listarClientes({
   quantos: number;
   restricao?: SQL;
 }): Promise<ListaDeClientes> {
-  const termo = busca.trim();
-  const porNome =
-    termo === ""
-      ? undefined
-      : sql`nome_normalizado(${clientes.nome}) like '%' || nome_normalizado(${escaparPadraoDeBusca(termo)}) || '%' escape '\\'`;
-  const filtro = and(porNome, restricao);
+  // Uma condição `like` POR PALAVRA, todas precisam casar, em qualquer ordem (D-17): "teixeira
+  // bruna" acha "Bruna Teixeira". `palavrasDaBusca` segue a regra de `nome_normalizado()` e para em
+  // 10 palavras (T-06.5-19). Cada palavra entra como PARÂMETRO, escapada (T-06.5-18). Sem palavra
+  // nenhuma, sem filtro de nome.
+  const porPalavra = palavrasDaBusca(busca).map(
+    (palavra) =>
+      sql`nome_normalizado(${clientes.nome}) like '%' || nome_normalizado(${escaparPadraoDeBusca(palavra)}) || '%' escape '\\'`,
+  );
+  const filtro = and(...porPalavra, restricao);
 
   const linhas = await db
     .select({ id: clientes.id, nome: clientes.nome, telefone: clientes.telefone })

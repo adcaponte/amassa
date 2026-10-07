@@ -5,6 +5,8 @@ import AxeBuilder from "@axe-core/playwright";
 
 import { ITENS_NAVEGACAO_CELULAR, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
 import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
+import { medirCaixa } from "./apoio/medir-caixa";
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 import { apagarContaFixaPeloNome, criarContaFixaInativa } from "./apoio/semear-conta-fixa";
 
 // Prova de máquina de UI-09 — alvo de toque medido, contraste varrido por ferramenta, nome
@@ -74,6 +76,8 @@ const ROTAS_DA_FASE = [
   "/gestao/financeiro?aba=caixa",
   "/gestao/financeiro?aba=mes",
   "/gestao/financeiro?aba=orcamentos",
+  // 06.5-14 (D-15): o orçamento novo, ainda sem registro — abrir não grava nada, então é estática.
+  "/gestao/financeiro?aba=orcamentos&orcamento=novo",
   "/gestao/financeiro?aba=pecas",
   "/gestao/cadastros",
   "/gestao/cadastros?sub=categorias",
@@ -120,9 +124,9 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
 
     for (const item of ITENS_NAVEGACAO_CELULAR) {
       const link = barraInferior.getByRole("link", { name: item.rotulo });
-      const caixa = await link.boundingBox();
-      expect(caixa?.height, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
-      expect(caixa?.width, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(link, `item "${item.rotulo}" da barra inferior`);
+      expect(caixa.height, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
+      expect(caixa.width, `item "${item.rotulo}" da barra inferior`).toBeGreaterThanOrEqual(44);
     }
   });
 
@@ -137,9 +141,9 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
       return;
     }
 
-    const caixa = await avatar.boundingBox();
-    expect(caixa?.height).toBeGreaterThanOrEqual(44);
-    expect(caixa?.width).toBeGreaterThanOrEqual(44);
+    const caixa = await medirCaixa(avatar, "avatar do cabeçalho móvel");
+    expect(caixa.height).toBeGreaterThanOrEqual(44);
+    expect(caixa.width).toBeGreaterThanOrEqual(44);
   });
 
   test("getByRole('button', { name: 'Abrir menu do usuário' }) encontra exatamente um elemento no celular (UI-09)", async ({
@@ -170,8 +174,8 @@ test.describe("acessibilidade — alvos de toque, nome acessível (UI-09)", () =
 
     for (const item of ITENS_NAVEGACAO_LATERAL) {
       const link = barraLateral.getByRole("link", { name: item.rotulo });
-      const caixa = await link.boundingBox();
-      expect(caixa?.height, `item "${item.rotulo}" da barra lateral`).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(link, `item "${item.rotulo}" da barra lateral`);
+      expect(caixa.height, `item "${item.rotulo}" da barra lateral`).toBeGreaterThanOrEqual(44);
     }
   });
 });
@@ -363,9 +367,9 @@ test.describe("acessibilidade — truncamento de nome longo (backstop do 02b-UI-
         elementoNome = page.locator('[data-slot="sidebar-footer"] button span[title]').first();
 
         const barraLateral = page.locator('[data-slot="sidebar"]');
-        const caixaLateral = await barraLateral.boundingBox();
+        const caixaLateral = await medirCaixa(barraLateral, "barra lateral");
         expect(
-          caixaLateral?.width,
+          caixaLateral.width,
           "o nome longo empurrou a largura da barra lateral para além dos 240px fixos",
         ).toBe(240);
       }
@@ -409,10 +413,11 @@ test.describe("acessibilidade — o documento do cliente (rota nova da Fase 04.5
   }) => {
     await fazerLogin(page);
 
-    await page.goto("/gestao/financeiro?aba=orcamentos");
-    await page.getByRole("button", { name: "Novo orçamento" }).click();
-    await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-    const orcamentoId = new URL(page.url()).searchParams.get("orcamento") ?? "";
+    // Desde o 06.5-14 (D-15) o orçamento nasce no primeiro campo preenchido, não no toque do botão.
+    const orcamentoId = await criarOrcamentoPelaTela(
+      page,
+      `[e2e] Cliente a11y ${test.info().project.name}-${Date.now()}`,
+    );
     const urlDoDocumento = `/gestao/financeiro?aba=orcamentos&orcamento=${orcamentoId}&documento=1`;
 
     await page.goto(urlDoDocumento);

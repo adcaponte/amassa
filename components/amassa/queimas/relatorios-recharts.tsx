@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,7 +13,12 @@ import {
 } from "recharts";
 
 import type { BaldeDeQueimas, BarraDeForno } from "@/lib/queimas/relatorios";
-import { ROTULO_MES, ROTULO_SEMANA, rotuloDoTipo } from "@/lib/queimas/textos";
+import {
+  ROTULO_MES,
+  ROTULO_ROLAGEM_GRAFICO_TIPO,
+  ROTULO_SEMANA,
+  rotuloDoTipo,
+} from "@/lib/queimas/textos";
 
 // `recharts` — única dependência npm nova da Fase 4 (FOR-12, portão de legitimidade humano da
 // Tarefa 1 desta fase). Client Component: recebe os baldes JÁ AGREGADOS como props
@@ -32,6 +36,20 @@ import { ROTULO_MES, ROTULO_SEMANA, rotuloDoTipo } from "@/lib/queimas/textos";
 // GRÁFICO (`--color-chart-1..3`, mapeados 1:1 nos tokens de TIPO de queima). É essa separação que
 // mantém `--color-ouro`/`--color-forno-atencao` inequívocos apesar do mesmo hex
 // (`04-UI-SPEC.md` §Color, nota de conflito 2).
+//
+// Fase 06.5 (D-08, UI-D3; achado 7 do Cowork): o eixo do tempo continua da esquerda (mais antigo)
+// para a direita (hoje), mas o gráfico por tipo ABRE rolado até o fim — a semana atual na borda
+// direita —, de novo a cada troca Semana/Mês. A rolagem é instantânea, num `useLayoutEffect` (antes
+// da pintura, nunca um salto visível). A legenda saiu do Recharts, que a desenhava dentro da área
+// que rola e a cortava ("Esmal…"), para um HTML acima do contêiner: inteira dentro do cartão. O
+// gráfico por forno perdeu a largura mínima: ocupa 100 % do cartão e não rola.
+
+// A ordem fixa dos tipos e a cor de cada um — a mesma das `<Bar>` e da legenda HTML.
+const TIPOS_DO_GRAFICO = [
+  { tipo: "biscoito", cor: "var(--color-chart-1)" },
+  { tipo: "esmalte", cor: "var(--color-chart-2)" },
+  { tipo: "ouro", cor: "var(--color-chart-3)" },
+] as const;
 
 export type Granularidade = "semana" | "mes";
 
@@ -127,6 +145,16 @@ export function RelatoriosRecharts({
   barrasPorForno,
 }: RelatoriosRechartsProps) {
   const [granularidade, setGranularidade] = useState<Granularidade>("semana");
+  const rolagemDoGraficoDeTipo = useRef<HTMLDivElement>(null);
+
+  // Abre (e reabre a cada troca Semana/Mês) na semana atual: a borda direita. Só depende da
+  // granularidade — mexer no `scrollLeft` não dispara render, então não há laço (T-06.5-06).
+  useLayoutEffect(() => {
+    const conteiner = rolagemDoGraficoDeTipo.current;
+    if (conteiner) {
+      conteiner.scrollLeft = conteiner.scrollWidth;
+    }
+  }, [granularidade]);
 
   const baldes = granularidade === "semana" ? baldesPorSemana : baldesPorMes;
   const rotular = granularidade === "semana" ? rotuloDoBaldeSemanal : rotuloDoBaldeMensal;
@@ -186,9 +214,26 @@ export function RelatoriosRecharts({
 
       {/* Barras empilhadas por tipo — biscoito, esmalte, ouro, sempre nessa ordem fixa. Baldes
           sem queima aparecem como zero (nunca somem): os 8/6 são sempre plotados por inteiro. */}
-      <section aria-label="Queimas por tipo, ao longo do tempo">
+      <section
+        aria-label="Queimas por tipo, ao longo do tempo"
+        className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4"
+        data-testid="grafico-tipo-cartao"
+      >
+        {/* A legenda fora da rolagem: texto lido, sempre inteira, nunca cortada pelo contêiner. */}
+        <ul className="flex flex-wrap gap-4" data-testid="grafico-legenda">
+          {TIPOS_DO_GRAFICO.map(({ tipo, cor }) => (
+            <li key={tipo} className="text-apoio text-muted-foreground flex items-center gap-2">
+              <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: cor }} />
+              {rotuloDoTipo(tipo)}
+            </li>
+          ))}
+        </ul>
+        {/* `tabIndex={0}`: quem usa teclado rola pelas setas (UI-SPEC §Teclado e leitor de tela). */}
         <div
-          className="overflow-x-auto rounded-xl border border-border bg-card p-4"
+          ref={rolagemDoGraficoDeTipo}
+          tabIndex={0}
+          aria-label={ROTULO_ROLAGEM_GRAFICO_TIPO}
+          className="focus-visible:ring-ring overflow-x-auto rounded-md focus-visible:ring-2 focus-visible:outline-none"
           data-testid="grafico-tipo-rolagem"
         >
           <div style={{ width: Math.max(larguraDoGraficoDeTipo, 320) }}>
@@ -202,26 +247,9 @@ export function RelatoriosRecharts({
               <XAxis dataKey="rotulo" tick={{ fontSize: 12 }} tickLine={false} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12 }} width={32} />
               <Tooltip content={TooltipDeTipo} />
-              <Legend
-                formatter={(valor: string) =>
-                  valor === "biscoito" || valor === "esmalte" || valor === "ouro"
-                    ? rotuloDoTipo(valor)
-                    : valor
-                }
-              />
-              <Bar
-                dataKey="biscoito"
-                stackId="tipo"
-                name={rotuloDoTipo("biscoito")}
-                fill="var(--color-chart-1)"
-              />
-              <Bar
-                dataKey="esmalte"
-                stackId="tipo"
-                name={rotuloDoTipo("esmalte")}
-                fill="var(--color-chart-2)"
-              />
-              <Bar dataKey="ouro" stackId="tipo" name={rotuloDoTipo("ouro")} fill="var(--color-chart-3)" />
+              {TIPOS_DO_GRAFICO.map(({ tipo, cor }) => (
+                <Bar key={tipo} dataKey={tipo} stackId="tipo" name={rotuloDoTipo(tipo)} fill={cor} />
+              ))}
             </BarChart>
           </div>
         </div>
@@ -234,8 +262,8 @@ export function RelatoriosRecharts({
           className="overflow-x-auto rounded-xl border border-border bg-card p-4"
           data-testid="grafico-forno-rolagem"
         >
-          <div style={{ minWidth: 320, width: "100%" }}>
-            <ResponsiveContainer width="100%" height={alturaDoGraficoDeForno} minWidth={320}>
+          <div style={{ width: "100%" }}>
+            <ResponsiveContainer width="100%" height={alturaDoGraficoDeForno}>
               <BarChart
                 data={dadosDoGraficoDeForno}
                 layout="vertical"

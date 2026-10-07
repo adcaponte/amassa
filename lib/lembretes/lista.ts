@@ -25,7 +25,14 @@ export const LIMITE_DE_ABERTOS_NO_INICIO = 6;
 // Quantos feitos a sanfona "Feitos" do Início mostra antes do "e mais N em “ver todos”" (D-02).
 export const LIMITE_DE_FEITOS_NO_INICIO = 5;
 // Quanto tempo o toast de "Feito"/"Lembrete excluído" oferece o "Desfazer" (06.3-UI-SPEC.md §Toasts).
-export const DURACAO_DO_DESFAZER_MS = 6000;
+// 10 s desde a 06.5 (D-10, UI-D6; até 05/10/2026: 6 s — não deu ao Cowork no celular). O fim do aviso
+// continua sendo o que apaga (D-03 da 06.3).
+export const DURACAO_DO_DESFAZER_MS = 10000;
+// Onde TODO aviso do módulo Lembretes aparece (06.5, D-10, UI-D6): no topo, ao centro, abaixo do
+// cabeçalho do celular (`--deslocamento-aviso-topo`). Um toque atrasado, depois de o aviso sumir, cai
+// no topo da página — nunca nos cartões "Tudo da plataforma", que ficam abaixo do bloco dos Lembretes.
+// A posição é por aviso (sonner 2.0.8): os avisos dos outros módulos continuam embaixo à direita.
+export const POSICAO_DOS_AVISOS_DOS_LEMBRETES = "top-center" as const;
 // O trecho do texto que o toast mostra, em pontos de código (06.3-UI-SPEC.md §Toasts).
 export const TAMANHO_DO_TRECHO = 40;
 

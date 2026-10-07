@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { diaEmBrasilia, semearOrdem } from "./apoio/semear-producao";
 
 // A linha do tempo da Produção (plano 09, critério 4 do ROADMAP; PRD-07, D-06, UI-D18).
@@ -120,17 +121,15 @@ test.describe("producao linha do tempo", () => {
     expect(pxPorDia).toBe(12);
     const esperado = diasEntre(primeiroDia as string, hoje) * pxPorDia;
 
-    const caixaDaRegua = await page.getByTestId("linha-do-tempo-regua").boundingBox();
-    const caixaDeHoje = await page.getByTestId("linha-do-tempo-hoje").boundingBox();
-    expect(caixaDaRegua).not.toBeNull();
-    expect(caixaDeHoje).not.toBeNull();
-    expect(Math.abs((caixaDeHoje?.x ?? 0) - (caixaDaRegua?.x ?? 0) - esperado)).toBeLessThanOrEqual(1);
+    const caixaDaRegua = await medirCaixa(page.getByTestId("linha-do-tempo-regua"), "régua");
+    const caixaDeHoje = await medirCaixa(page.getByTestId("linha-do-tempo-hoje"), "linha de hoje");
+    expect(Math.abs(caixaDeHoje.x - caixaDaRegua.x - esperado)).toBeLessThanOrEqual(1);
 
     // O cheio da secagem termina na linha de hoje e o listrado começa nela.
-    const caixaDoCheio = await segmento(linha, "secagem", "cheio").boundingBox();
-    const caixaDoListrado = await segmento(linha, "secagem", "listrado").boundingBox();
-    expect(Math.abs((caixaDoCheio?.x ?? 0) + (caixaDoCheio?.width ?? 0) - (caixaDeHoje?.x ?? 0))).toBeLessThanOrEqual(1);
-    expect(Math.abs((caixaDoListrado?.x ?? 0) - (caixaDeHoje?.x ?? 0))).toBeLessThanOrEqual(1);
+    const caixaDoCheio = await medirCaixa(segmento(linha, "secagem", "cheio"), "secagem cheia");
+    const caixaDoListrado = await medirCaixa(segmento(linha, "secagem", "listrado"), "secagem listrada");
+    expect(Math.abs(caixaDoCheio.x + caixaDoCheio.width - caixaDeHoje.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(caixaDoListrado.x - caixaDeHoje.x)).toBeLessThanOrEqual(1);
 
     // A legenda embaixo.
     await expect(

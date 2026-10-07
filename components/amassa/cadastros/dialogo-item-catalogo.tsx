@@ -40,7 +40,7 @@ import {
   textoItemDesativado,
   textoItemReativado,
 } from "@/lib/cadastros/textos";
-import { converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -122,11 +122,7 @@ export function DialogoItemCatalogo({
     if (aberto) {
       setNome(itemParaEditar?.nome ?? "");
       setCategoriaVendaId(itemParaEditar?.categoriaVendaId ?? null);
-      setPrecoTexto(
-        itemParaEditar?.precoVendaCentavos != null
-          ? (itemParaEditar.precoVendaCentavos / 100).toFixed(2).replace(".", ",")
-          : "",
-      );
+      setPrecoTexto(centavosParaCampo(itemParaEditar?.precoVendaCentavos ?? null));
       setAparecenaVenda(itemParaEditar?.aparecenaVenda ?? false);
       setAtalhoVenda(itemParaEditar?.atalhoVenda ?? false);
       setControlaEstoque(itemParaEditar?.controlaEstoque ?? false);
@@ -407,7 +403,7 @@ export function DialogoItemCatalogo({
 
   return (
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && onFechar()}>
-      <DialogContent aria-label={titulo} className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-lg">
+      <DialogContent aria-label={titulo} className="flex max-h-[85svh] flex-col overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-titulo">{titulo}</DialogTitle>
         </DialogHeader>

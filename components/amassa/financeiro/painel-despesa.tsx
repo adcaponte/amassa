@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { lancarDespesa } from "@/lib/financeiro/acoes";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaCompra } from "@/lib/financeiro/consultas";
-import { converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import type { RascunhoDaCorrecao } from "@/lib/financeiro/correcao";
+import { centavosParaCampo, converterQuantidade, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { efeitoNoEstoque, type ItemParaEfeito } from "@/lib/financeiro/efeito-estoque";
 import { formatarDataCurta, formatarReais } from "@/lib/financeiro/formato";
-import { conferirParcelas, dividirEmDuasFormas, gerarPlano, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
+import {
+  conferirParcelas,
+  dividirEmDuasFormas,
+  gerarPlano,
+  primeiroValorDaDivisao,
+  type PlanoDePagamento,
+} from "@/lib/financeiro/parcelas";
 import {
   CHAVE_RASCUNHO_DESPESA,
   lerRascunhoDespesa,
@@ -38,6 +45,9 @@ import {
   TITULO_O_QUE_CHEGOU,
   TITULO_PAGAMENTO_DESPESA,
   TITULO_QUE_DESPESA_E,
+  FRASE_FALHA_AO_SALVAR,
+  fraseCorrecaoSemRede,
+  rotuloLancarCorrecao,
   textoDataRetroativa,
   type FormaDePagamento,
 } from "@/lib/financeiro/textos";
@@ -58,9 +68,12 @@ import type { FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
 import { BlocoPagamento, type ParcelaDoBloco } from "./bloco-pagamento";
 import { CampoFornecedor } from "./campo-fornecedor";
 import { EfeitoEstoque } from "./efeito-estoque";
+import { ErroDaCorrecao } from "./erro-da-correcao";
+import { FaixaDaCorrecao } from "./faixa-da-correcao";
 import { GradeCatalogo } from "./grade-catalogo";
 import { LinhaCompra } from "./linha-compra";
 import { ListaCompleta } from "./lista-completa";
+import type { CorrecaoNoPainel, RecusaNaTela } from "./painel-venda";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 const FORMAS_EM_ORDEM: readonly FormaDePagamento[] = ["dinheiro", "pix", "cartao"];
@@ -81,8 +94,110 @@ function novaChave(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function centavosParaTexto(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
+// A quantidade gravada (`numeric` com três casas, “5.000”) no formato do campo “quantos” (“5”, “2,25”).
+function quantidadeParaCampo(quantidade: string | null): string {
+  if (quantidade === null) {
+    return "";
+  }
+  const numero = Number(quantidade);
+  return Number.isFinite(numero) && numero > 0 ? String(numero).replace(".", ",") : "";
+}
+
+// O ponto de partida do painel. Na correção (Fase 06.5, plano 18 — D-18/UI-D9, POL-08 “inclusive o
+// fornecedor”): a original como estava — o modo pelas linhas (material → Compra; a linha única sem item →
+// Outra despesa, que é o que `lancarDespesa` grava nesse modo), as linhas de material com a quantidade de
+// estoque e o valor da linha antiga (UI-D11), o fornecedor (ligado quando ainda ativo, com o nome de HOJE
+// do cadastro — é o que o servidor grava —, senão o nome como texto livre), a data e o pagamento. Fora da
+// correção, a Despesa vazia de sempre (o rascunho comum é lido depois, ao montar).
+type InicioDaDespesa = {
+  modo: ModoDespesa;
+  data: string;
+  pessoa: string;
+  fornecedorId: string | null;
+  linhasCompra: LinhaDeCompraLocal[];
+  descricaoOutra: string;
+  categoriaOutraId: string | null;
+  valorOutraTexto: string;
+  plano: PlanoDePagamento;
+  forma: FormaDePagamento;
+  duasFormas: boolean;
+  pagoAVista: boolean;
+  vencimentoAvistaAberto: string | null;
+  parcelas: ParcelaDoBloco[];
+};
+
+function inicioDaDespesa(
+  hoje: string,
+  rascunho: RascunhoDaCorrecao | null,
+  catalogoDaCompra: readonly ItemDoCatalogoParaCompra[],
+  fornecedores: readonly FornecedorParaSeletor[] | null,
+  fornecedorIdInicial: string | null,
+): InicioDaDespesa {
+  if (rascunho === null) {
+    return {
+      modo: "compra",
+      data: hoje,
+      pessoa: "",
+      fornecedorId: null,
+      linhasCompra: [],
+      descricaoOutra: "",
+      categoriaOutraId: null,
+      valorOutraTexto: "",
+      plano: "avista",
+      forma: "dinheiro",
+      duasFormas: false,
+      pagoAVista: true,
+      vencimentoAvistaAberto: null,
+      parcelas: [],
+    };
+  }
+  const itemPorId = new Map(catalogoDaCompra.map((item) => [item.id, item]));
+  const linhasCompra = rascunho.linhas.flatMap((linha, indice): LinhaDeCompraLocal[] => {
+    if (linha.tipo !== "item") {
+      return [];
+    }
+    const item = itemPorId.get(linha.itemId);
+    return [
+      {
+        chave: `correcao-${indice}`,
+        itemId: linha.itemId,
+        nome: item?.nome ?? linha.descricao,
+        area: item?.area ?? "geral",
+        unidade: item?.unidade ?? "un",
+        quantidadeEstoqueTexto: quantidadeParaCampo(linha.quantidadeEstoque),
+        valorTotalTexto: centavosParaCampo(linha.valorCentavos),
+      },
+    ];
+  });
+  const livre = rascunho.linhas.find((linha) => linha.tipo === "livre");
+  const modo: ModoDespesa = linhasCompra.length === 0 && livre !== undefined ? "outra" : "compra";
+  const fornecedorLigado =
+    fornecedorIdInicial === null
+      ? undefined
+      : (fornecedores ?? []).find((fornecedor) => fornecedor.id === fornecedorIdInicial);
+  const primeira = rascunho.pagamento.parcelas[0];
+  const pagoAVista = primeira?.pago ?? true;
+  return {
+    modo,
+    data: rascunho.data,
+    pessoa: fornecedorLigado?.nome ?? rascunho.pessoa,
+    fornecedorId: fornecedorLigado?.id ?? null,
+    linhasCompra,
+    descricaoOutra: modo === "outra" && livre ? livre.descricao : "",
+    categoriaOutraId: modo === "outra" && livre ? livre.categoriaId : null,
+    valorOutraTexto: modo === "outra" && livre ? centavosParaCampo(livre.valorCentavos) : "",
+    plano: rascunho.pagamento.plano,
+    forma: rascunho.pagamento.forma,
+    duasFormas: rascunho.pagamento.duasFormas,
+    pagoAVista,
+    vencimentoAvistaAberto: !pagoAVista && primeira ? primeira.vencimento : null,
+    parcelas: rascunho.pagamento.parcelas.map((parcela) => ({
+      vencimento: parcela.vencimento,
+      valorTexto: centavosParaCampo(parcela.valorCentavos),
+      forma: parcela.forma,
+      pago: parcela.pago,
+    })),
+  };
 }
 
 export type PainelDespesaProps = {
@@ -97,6 +212,11 @@ export type PainelDespesaProps = {
   // Fase 06.2, planos 10 e 12 (D-04): os fornecedores ATIVOS para o campo "Fornecedor" dos dois modos;
   // `null` quando a leitura falhou (o campo funciona como texto livre — nunca bloqueia o lançamento).
   fornecedores?: FornecedorParaSeletor[] | null;
+  // Fase 06.5, plano 18: a Despesa aberta por “Corrigir” — a original (`rascunhoDaCorrecao`, calculado na
+  // página) e o fornecedor ligado dela, quando ainda está entre os ativos. Sem os dois, a Despesa comum.
+  correcao?: CorrecaoNoPainel | null;
+  rascunhoInicial?: RascunhoDaCorrecao | null;
+  fornecedorIdInicial?: string | null;
 };
 
 // O painel de Despesa completo (04.4-07-PLAN.md): as duas pílulas (compra · outra), compra de
@@ -117,47 +237,82 @@ export function PainelDespesa({
   configuracao,
   saldos = null,
   fornecedores = null,
+  correcao = null,
+  rascunhoInicial = null,
+  fornecedorIdInicial = null,
 }: PainelDespesaProps) {
-  const [modo, setModo] = useState<ModoDespesa>("compra");
+  // A Despesa da correção (plano 18): começa da original e nunca lê nem grava o rascunho comum — a despesa
+  // em montagem fica intacta, como na Venda da correção (plano 17).
+  const comCorrecao = correcao !== null && rascunhoInicial !== null;
+  const inicio = inicioDaDespesa(
+    hoje,
+    comCorrecao ? rascunhoInicial : null,
+    catalogoDaCompra,
+    fornecedores,
+    fornecedorIdInicial,
+  );
+  const categoriaOutraInicial = inicio.categoriaOutraId ?? categoriasParaDespesa[0]?.id ?? "";
+  const [modo, setModo] = useState<ModoDespesa>(inicio.modo);
 
-  const [dataCompra, setDataCompra] = useState(hoje);
-  const [pessoaCompra, setPessoaCompra] = useState("");
+  const [dataCompra, setDataCompra] = useState(inicio.data);
+  const [pessoaCompra, setPessoaCompra] = useState(inicio.modo === "compra" ? inicio.pessoa : "");
   // O fornecedor ESCOLHIDO na lista do campo "Fornecedor" (D-04) — `null` = texto livre ou campo vazio.
   // Vai para o rascunho (plano 12); ao ler, um id que não está mais entre os ativos é descartado e o
   // nome volta como texto livre (Pitfall 15).
-  const [fornecedorCompra, setFornecedorCompra] = useState<string | null>(null);
-  const [linhasCompra, setLinhasCompra] = useState<LinhaDeCompraLocal[]>([]);
+  const [fornecedorCompra, setFornecedorCompra] = useState<string | null>(
+    inicio.modo === "compra" ? inicio.fornecedorId : null,
+  );
+  const [linhasCompra, setLinhasCompra] = useState<LinhaDeCompraLocal[]>(inicio.linhasCompra);
   const [buscaCompra, setBuscaCompra] = useState("");
   const [dialogoListaCompraAberto, setDialogoListaCompraAberto] = useState(false);
 
-  const [dataOutra, setDataOutra] = useState(hoje);
-  const [pessoaOutra, setPessoaOutra] = useState("");
+  const [dataOutra, setDataOutra] = useState(inicio.data);
+  const [pessoaOutra, setPessoaOutra] = useState(inicio.modo === "outra" ? inicio.pessoa : "");
   // O mesmo vínculo no modo "Outra despesa" (plano 12, FRN-12 "em todos os modos"): cada modo guarda o seu.
-  const [fornecedorOutra, setFornecedorOutra] = useState<string | null>(null);
-  const [descricaoOutra, setDescricaoOutra] = useState("");
-  const [categoriaOutraId, setCategoriaOutraId] = useState(categoriasParaDespesa[0]?.id ?? "");
-  const [valorOutraTexto, setValorOutraTexto] = useState("");
+  const [fornecedorOutra, setFornecedorOutra] = useState<string | null>(
+    inicio.modo === "outra" ? inicio.fornecedorId : null,
+  );
+  const [descricaoOutra, setDescricaoOutra] = useState(inicio.descricaoOutra);
+  const [categoriaOutraId, setCategoriaOutraId] = useState(categoriaOutraInicial);
+  const [valorOutraTexto, setValorOutraTexto] = useState(inicio.valorOutraTexto);
 
-  const [plano, setPlano] = useState<PlanoDePagamento>("avista");
-  const [formaPagamento, setFormaPagamento] = useState<FormaDePagamento>("dinheiro");
-  const [duasFormas, setDuasFormas] = useState(false);
+  const [plano, setPlano] = useState<PlanoDePagamento>(inicio.plano);
+  const [formaPagamento, setFormaPagamento] = useState<FormaDePagamento>(inicio.forma);
+  const [duasFormas, setDuasFormas] = useState(inicio.duasFormas);
   // A INTENÇÃO do dono sobre o à vista de uma parcela só (04.4-12-PLAN.md) — mesma disciplina da
   // Venda: nasce marcada e sobrevive à regeneração do plano quando o carrinho, a data ou o plano
   // mudam.
-  const [pagoAVista, setPagoAVista] = useState(true);
+  const [pagoAVista, setPagoAVista] = useState(inicio.pagoAVista);
   // O "Vence em" digitado à mão para o à vista em aberto — mesma disciplina da Venda: sobrevive à
   // regeneração do plano quando o carrinho, a data ou o plano mudam.
-  const [vencimentoAvistaAberto, setVencimentoAvistaAberto] = useState<string | null>(null);
-  const [parcelasPagamento, setParcelasPagamento] = useState<ParcelaDoBloco[]>([]);
+  const [vencimentoAvistaAberto, setVencimentoAvistaAberto] = useState<string | null>(
+    inicio.vencimentoAvistaAberto,
+  );
+  const [parcelasPagamento, setParcelasPagamento] = useState<ParcelaDoBloco[]>(inicio.parcelas);
+  // Na correção, o pagamento começa COMO ESTAVA na original, e a primeira passada do efeito que regenera o
+  // plano (abaixo) não pode apagá-lo — o mesmo cuidado da Venda (plano 17): `marcaDaAbertura` guarda plano,
+  // total e data da primeira passada, e só a primeira mudança de verdade regenera. Comparar valores deixa o
+  // efeito idempotente no modo estrito do React.
+  const pagamentoDaOriginalIntacto = useRef(comCorrecao);
+  const marcaDaAbertura = useRef<{ plano: PlanoDePagamento; totalCentavos: number; data: string } | null>(null);
   const [erroDoPlano, setErroDoPlano] = useState<string | null>(null);
 
   const [erro, setErro] = useState<string | null>(null);
+  // A recusa da correção e o “Lançar como despesa nova” (plano 18) — o mesmo molde da Venda.
+  const [recusa, setRecusa] = useState<RecusaNaTela | null>(null);
+  const [desligada, setDesligada] = useState(false);
+  const vinculada = comCorrecao && !desligada;
+  const botaoLancarRef = useRef<HTMLButtonElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
 
   // Lê o rascunho UMA vez, ao montar — os dois modos reconstruídos ao mesmo tempo (chave própria,
   // separada da Venda).
   useEffect(() => {
+    if (comCorrecao) {
+      // A correção nunca lê nem grava o rascunho comum (`rascunhoCarregado` fica falso).
+      return;
+    }
     const texto = window.sessionStorage.getItem(CHAVE_RASCUNHO_DESPESA) ?? "";
     const catalogoPorId = new Map(catalogoDaCompra.map((item) => [item.id, item]));
     const lido = lerRascunhoDespesa(
@@ -279,6 +434,13 @@ export function PainelDespesa({
   // de dependências (mesma exceção já usada na Venda, 04.4-12-PLAN.md): a regeneração usa a
   // intenção CORRENTE do dono, e alternar a caixinha nunca dispara este efeito sozinho.
   useEffect(() => {
+    if (pagamentoDaOriginalIntacto.current) {
+      const abertura = (marcaDaAbertura.current ??= { plano, totalCentavos, data: dataAtual });
+      if (abertura.plano === plano && abertura.totalCentavos === totalCentavos && abertura.data === dataAtual) {
+        return;
+      }
+      pagamentoDaOriginalIntacto.current = false;
+    }
     if (totalCentavos <= 0) {
       setParcelasPagamento([]);
       setErroDoPlano(null);
@@ -307,7 +469,7 @@ export function PainelDespesa({
           indice === 0 && plano === "avista" && !pagoAVista && vencimentoAvistaAberto
             ? vencimentoAvistaAberto
             : parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -336,7 +498,7 @@ export function PainelDespesa({
     // Semeia as duas linhas com a intenção ATUAL do à vista (04.4-12-PLAN.md).
     const resultado = dividirEmDuasFormas({
       totalCentavos,
-      primeiroValorCentavos: Math.ceil(totalCentavos / 2),
+      primeiroValorCentavos: primeiroValorDaDivisao(totalCentavos),
       data: dataAtual,
       formas: [formaPagamento, outraForma],
       pagas: [pagoAVista, pagoAVista],
@@ -350,7 +512,7 @@ export function PainelDespesa({
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
         vencimento: parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -375,7 +537,7 @@ export function PainelDespesa({
     setParcelasPagamento(
       resultado.parcelas.map((parcela) => ({
         vencimento: !pagoAVista && vencimentoAvistaAberto ? vencimentoAvistaAberto : parcela.vencimento,
-        valorTexto: centavosParaTexto(parcela.valorCentavos),
+        valorTexto: centavosParaCampo(parcela.valorCentavos),
         forma: parcela.forma,
         pago: parcela.paga,
       })),
@@ -477,31 +639,51 @@ export function PainelDespesa({
     setLinhasCompra((atual) => atual.filter((linha) => linha.chave !== chave));
   }
 
+  // Na correção, “Limpar” volta à original inteira (linhas, fornecedor, data e o pagamento como estava) e
+  // não toca no rascunho comum. Fora dela, a Despesa vazia de sempre.
   function limpar() {
-    setLinhasCompra([]);
-    setDataCompra(hoje);
-    setPessoaCompra("");
-    setFornecedorCompra(null);
+    if (comCorrecao) {
+      setModo(inicio.modo);
+    }
+    setLinhasCompra(inicio.linhasCompra);
+    setDataCompra(inicio.data);
+    setPessoaCompra(inicio.modo === "compra" ? inicio.pessoa : "");
+    setFornecedorCompra(inicio.modo === "compra" ? inicio.fornecedorId : null);
     setBuscaCompra("");
-    setDescricaoOutra("");
-    setCategoriaOutraId(categoriasParaDespesa[0]?.id ?? "");
-    setValorOutraTexto("");
-    setDataOutra(hoje);
-    setPessoaOutra("");
-    setFornecedorOutra(null);
+    setDescricaoOutra(inicio.descricaoOutra);
+    setCategoriaOutraId(categoriaOutraInicial);
+    setValorOutraTexto(inicio.valorOutraTexto);
+    setDataOutra(inicio.data);
+    setPessoaOutra(inicio.modo === "outra" ? inicio.pessoa : "");
+    setFornecedorOutra(inicio.modo === "outra" ? inicio.fornecedorId : null);
     setErro(null);
-    setPlano("avista");
-    setFormaPagamento("dinheiro");
-    setDuasFormas(false);
-    setPagoAVista(true);
-    setVencimentoAvistaAberto(null);
-    setParcelasPagamento([]);
+    setRecusa(null);
+    setPlano(inicio.plano);
+    setFormaPagamento(inicio.forma);
+    setDuasFormas(inicio.duasFormas);
+    setPagoAVista(inicio.pagoAVista);
+    setVencimentoAvistaAberto(inicio.vencimentoAvistaAberto);
+    setParcelasPagamento(inicio.parcelas);
+    pagamentoDaOriginalIntacto.current = comCorrecao;
     setErroDoPlano(null);
-    window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
+    if (!comCorrecao) {
+      window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
+    }
+  }
+
+  // “Lançar como despesa nova” (plano 18, só na recusa `cancelada`) — o mesmo molde da Venda: sai do modo
+  // correção sem perder o que foi digitado (`history.replaceState`, sem recarregar nem remontar o painel), a
+  // faixa troca a 2ª linha, o “Lançar” volta ao herdado, e o próximo lançamento é comum (T-06.5-52).
+  function lancarComoNova() {
+    setDesligada(true);
+    setRecusa(null);
+    window.history.replaceState(null, "", rotaDeGestao("/financeiro?aba=despesa"));
+    botaoLancarRef.current?.focus();
   }
 
   async function aoLancar() {
     setErro(null);
+    setRecusa(null);
     setEnviando(true);
 
     const parcelasParaEnviar = parcelasPagamento.map((parcela) => ({
@@ -511,41 +693,82 @@ export function PainelDespesa({
       pago: parcela.pago,
     }));
 
-    const resposta =
-      modo === "compra"
-        ? await lancarDespesa({
-            modo: "compra",
-            data: dataCompra,
-            pessoa: pessoaCompra.trim() === "" ? undefined : pessoaCompra,
-            // Só quando ligado: o servidor confere o fornecedor e grava o nome do CADASTRO.
-            fornecedorId: fornecedorCompra ?? undefined,
-            linhas: linhasCompra.map((linha) => ({
-              itemId: linha.itemId,
-              quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
-              valorTotalTexto: linha.valorTotalTexto,
-            })),
-            parcelas: parcelasParaEnviar,
-          })
-        : await lancarDespesa({
-            modo: "outra",
-            data: dataOutra,
-            pessoa: pessoaOutra.trim() === "" ? undefined : pessoaOutra,
-            // Só quando ligado (plano 12): o mesmo caminho da compra — o servidor confere e congela o nome.
-            fornecedorId: fornecedorOutra ?? undefined,
-            descricao: descricaoOutra,
-            categoriaId: categoriaOutraId,
-            valorTexto: valorOutraTexto,
-            parcelas: parcelasParaEnviar,
-          });
+    // A correção (plano 18): só o id e a versão que a página leu — o servidor trava a original, reconfere e
+    // a cancela na mesma transação em que lança esta (plano 16). Desligada, nada de `correcao`.
+    const vinculo =
+      correcao !== null && vinculada
+        ? { correcao: { documentoId: correcao.documentoId, versao: correcao.versao } }
+        : {};
+
+    const tentativa = Date.now();
+    let resposta: Awaited<ReturnType<typeof lancarDespesa>>;
+    try {
+      resposta =
+        modo === "compra"
+          ? await lancarDespesa({
+              modo: "compra",
+              data: dataCompra,
+              pessoa: pessoaCompra.trim() === "" ? undefined : pessoaCompra,
+              // Só quando ligado: o servidor confere o fornecedor e grava o nome do CADASTRO.
+              fornecedorId: fornecedorCompra ?? undefined,
+              linhas: linhasCompra.map((linha) => ({
+                itemId: linha.itemId,
+                quantidadeEstoqueTexto: linha.quantidadeEstoqueTexto,
+                valorTotalTexto: linha.valorTotalTexto,
+              })),
+              parcelas: parcelasParaEnviar,
+              ...vinculo,
+            })
+          : await lancarDespesa({
+              modo: "outra",
+              data: dataOutra,
+              pessoa: pessoaOutra.trim() === "" ? undefined : pessoaOutra,
+              // Só quando ligado (plano 12): o mesmo caminho da compra — o servidor confere e congela o nome.
+              fornecedorId: fornecedorOutra ?? undefined,
+              descricao: descricaoOutra,
+              categoriaId: categoriaOutraId,
+              valorTexto: valorOutraTexto,
+              parcelas: parcelasParaEnviar,
+              ...vinculo,
+            });
+    } catch {
+      // A chamada nem chegou (internet, servidor fora): nada foi gravado. Na correção, a frase diz que a
+      // original continua valendo (`data-motivo="rede"`); fora dela, a frase de sempre.
+      setEnviando(false);
+      if (correcao !== null && vinculada) {
+        setRecusa({ motivo: "rede", frase: fraseCorrecaoSemRede("despesa", correcao.numero), tentativa });
+      } else {
+        setErro(FRASE_FALHA_AO_SALVAR);
+      }
+      return;
+    }
 
     setEnviando(false);
 
     if (!resposta.ok) {
-      setErro(resposta.erro);
+      // A recusa da correção leva o motivo (plano 16): a tela decide a frase e o caminho só por ele.
+      if (vinculada && resposta.motivoDaCorrecao) {
+        setRecusa({ motivo: resposta.motivoDaCorrecao, frase: resposta.erro, tentativa });
+      } else {
+        setErro(resposta.erro);
+      }
       return;
     }
 
-    window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
+    if (vinculada) {
+      // A volta à Despesa comum (sem a faixa, sem `?corrige=`): a página monta o toast “Despesa nº {37}
+      // cancelada e nº {39} lançada no lugar · {R$}” lendo o vínculo no banco. `replace`: o “voltar” não
+      // reabre a correção de uma original que acabou de ser cancelada. O rascunho comum não foi tocado.
+      window.location.replace(
+        rotaDeGestao(`/financeiro?aba=despesa&aviso=corrigido&documento=${resposta.dados.id}`),
+      );
+      return;
+    }
+
+    // A despesa que saiu de uma correção desligada nunca leu o rascunho comum — ele continua guardado.
+    if (!comCorrecao) {
+      window.sessionStorage.removeItem(CHAVE_RASCUNHO_DESPESA);
+    }
     window.location.assign(rotaDeGestao(`/financeiro?aba=despesa&aviso=lancado&documento=${resposta.dados.id}`));
   }
 
@@ -569,6 +792,19 @@ export function PainelDespesa({
 
   return (
     <>
+      {comCorrecao && correcao !== null ? (
+        // A faixa da correção, ANTES das pílulas e do carrinho na ordem de leitura (UI-SPEC §Teclado).
+        <div className="px-6 pt-6 md:px-8">
+          <FaixaDaCorrecao
+            tipo="despesa"
+            originalId={correcao.documentoId}
+            numeroOriginal={correcao.numero}
+            comEstoque={correcao.comEstoque}
+            deFora={correcao.deFora}
+            desligada={desligada}
+          />
+        </div>
+      ) : null}
       {/* Respiro maior ACIMA (16px) do que ABAIXO (8px) desta fila — Considerações do dono
           (26/09/2026): as pílulas nasciam encostadas na barra de navegação de cima; agora se
           ligam ao conteúdo que controlam, não a ela. */}
@@ -810,6 +1046,16 @@ export function PainelDespesa({
             </p>
           )}
 
+          {recusa && (
+            <ErroDaCorrecao
+              key={recusa.tentativa}
+              tipo="despesa"
+              motivo={recusa.motivo}
+              frase={recusa.frase}
+              aoLancarComoNova={lancarComoNova}
+            />
+          )}
+
           <div className="flex gap-2">
             <Button type="button" variant="outline" className="min-h-[44px]" onClick={limpar}>
               {ROTULO_LIMPAR}
@@ -820,8 +1066,10 @@ export function PainelDespesa({
               disabled={!podeLancar}
               className="min-h-[44px] flex-1"
               onClick={() => void aoLancar()}
+              ref={botaoLancarRef}
+              data-testid={vinculada ? "lancar-correcao" : undefined}
             >
-              {ROTULO_LANCAR_DESPESA}
+              {vinculada && correcao !== null ? rotuloLancarCorrecao(correcao.numero) : ROTULO_LANCAR_DESPESA}
             </Button>
           </div>
         </section>

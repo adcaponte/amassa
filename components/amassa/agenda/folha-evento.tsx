@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
 
 import type { EventoCarregado, EventoDaSemana } from "@/lib/agenda/consultas";
+import { dataAindaNaoChegou } from "@/lib/agenda/presenca";
 import { diaDaSemanaPorExtenso } from "@/lib/agenda/semana";
 import {
   caixaDataDeTurmaEmDiaFechado,
   DICA_FIM_OFICINA,
   DICA_FIM_TURMA,
+  fraseDataAindaNaoChegou,
   FRASE_NINGUEM_INSCRITO,
   ROTULO_ABRIR_A_TURMA,
   FRASE_ERRO_CARREGAR_AULA,
@@ -22,13 +24,19 @@ import {
   tituloQuemVem,
 } from "@/lib/agenda/textos";
 import { PRECO_GRATUITO } from "@/lib/agenda/publico/agenda";
+import { diaDaSemanaDe, NOMES_CURTOS_DOS_DIAS } from "@/lib/agenda/turma";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { ColocarAlguem } from "./colocar-alguem";
 import { CancelarEstaData } from "./confirmar-cancelar-data";
@@ -58,9 +66,17 @@ function subTitulo(evento: EventoDaSemana, precoCentavos: number | null): string
   }
   if (evento.tipo === "avulsa" && precoCentavos !== null) {
     // IN-04 da revisão B: preço zero é a oficina gratuita.
-    partes.push(precoCentavos === 0 ? PRECO_GRATUITO : `${formatarReais(precoCentavos)} por pessoa`);
+    partes.push(
+      precoCentavos === 0 ? PRECO_GRATUITO : `${formatarReais(precoCentavos)} por pessoa`,
+    );
   }
   return partes.join(" · ");
+}
+
+// "qui, 07/10" — o dia curto do aviso de presença antes do dia (D-05), com os formatadores que a Agenda
+// já tem (o dia abreviado da lista de Pessoas e o dd/mm do sub-título).
+function diaCurto(data: string): string {
+  return `${NOMES_CURTOS_DOS_DIAS[diaDaSemanaDe(data)]}, ${formatarDiaMes(data)}`;
 }
 
 export type FolhaEventoProps = {
@@ -68,6 +84,9 @@ export type FolhaEventoProps = {
   cabecalho: EventoDaSemana;
   // A lista, quando o servidor já respondeu; `null` enquanto carrega.
   carregado: EventoCarregado | null;
+  // O "hoje" de Brasília, decidido no servidor (a semana já o recebe) — D-05: a data depois de hoje avisa
+  // antes do "Veio · Faltou".
+  hoje: string;
   // A leitura falhou (WR-04 da revisão B): no lugar do esqueleto, a frase e "Tentar de novo".
   erroAoCarregar?: boolean;
   aoFechar: () => void;
@@ -79,13 +98,23 @@ export type FolhaEventoProps = {
 // celular, centrado `max-w-lg` a partir de `md` (o mesmo contêiner das folhas do Estoque), fechar
 // 44×44 e rodapé preso por flex com "Pronto". Da folha aberta à presença marcada é UM toque por
 // pessoa — nenhuma confirmação, campo ou teclado no caminho (Valor central).
-export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFechar, aoAbrirTurma }: FolhaEventoProps) {
+export function FolhaEvento({
+  cabecalho,
+  carregado,
+  hoje,
+  erroAoCarregar = false,
+  aoFechar,
+  aoAbrirTurma,
+}: FolhaEventoProps) {
   const router = useRouter();
   const evento = carregado ?? cabecalho;
   // D-13: data de turma (não cancelada) num dia fechado — o "Cancelar esta data" sobe para a caixa
   // do topo, visível sem rolar, e o rodapé fica só com "Pronto" (o botão existe uma vez só).
   const cancelarNaCaixa =
-    carregado !== null && carregado.tipo === "turma" && !carregado.cancelado && carregado.diaFechadoMotivo !== null;
+    carregado !== null &&
+    carregado.tipo === "turma" &&
+    !carregado.cancelado &&
+    carregado.diaFechadoMotivo !== null;
 
   return (
     <Dialog
@@ -96,21 +125,22 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-evento"
         data-evento-id={evento.id}
         onOpenAutoFocus={(eventoDeFoco) => eventoDeFoco.preventDefault()}
         // Esc com a lista do seletor de pessoa aberta fecha só a lista, não a folha.
         onEscapeKeyDown={naoFecharComOSeletorAberto}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <div className="flex min-w-0 flex-col gap-1">
             <DialogTitle className="text-titulo text-tinta flex items-center gap-2 break-words">
               <span
                 aria-hidden="true"
-                className={cn("inline-block size-2 shrink-0 rounded-full", PONTO_DO_TIPO[evento.tipo])}
+                className={cn(
+                  "inline-block size-2 shrink-0 rounded-full",
+                  PONTO_DO_TIPO[evento.tipo],
+                )}
               />
               {evento.titulo}
             </DialogTitle>
@@ -150,9 +180,12 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
           </button>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+        <FolhaCorpo>
           {carregado === null && erroAoCarregar ? (
-            <div className="flex flex-col items-start gap-3" data-testid="folha-evento-erro">
+            <div
+              className="flex flex-col items-start gap-3"
+              data-testid="folha-evento-erro"
+            >
               <p role="alert" className="text-corpo text-erro">
                 {FRASE_ERRO_CARREGAR_AULA}
               </p>
@@ -166,7 +199,11 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
               </Button>
             </div>
           ) : carregado === null ? (
-            <div aria-busy="true" className="flex flex-col gap-3" data-testid="folha-evento-carregando">
+            <div
+              aria-busy="true"
+              className="flex flex-col gap-3"
+              data-testid="folha-evento-carregando"
+            >
               <Skeleton className="h-4 w-40" />
               {LINHAS_DO_ESQUELETO.map((linha) => (
                 <Skeleton key={linha} className="h-11 w-full" />
@@ -181,7 +218,10 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
                   className="bg-atencao-fundo text-atencao flex flex-col gap-3 rounded-md p-4"
                 >
                   <p className="text-apoio flex items-start gap-2 font-semibold [overflow-wrap:anywhere]">
-                    <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    <AlertTriangle
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0"
+                    />
                     {caixaDataDeTurmaEmDiaFechado(carregado.diaFechadoMotivo ?? "")}
                   </p>
                   <CancelarEstaData key={carregado.id} evento={carregado} />
@@ -196,24 +236,45 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
                 {tituloQuemVem(carregado.inscricoes.length, carregado.vagas ?? 0)}
               </h3>
               {carregado.inscricoes.length === 0 ? (
-                <p data-testid="folha-evento-vazia" className="text-corpo text-tinta-fraca">
+                <p
+                  data-testid="folha-evento-vazia"
+                  className="text-corpo text-tinta-fraca"
+                >
                   {FRASE_NINGUEM_INSCRITO}
                 </p>
               ) : (
-                <ul className="flex flex-col" data-testid="folha-evento-lista">
-                  {carregado.inscricoes.map((inscrito) => (
-                    <LinhaInscrito
-                      key={inscrito.id}
-                      inscrito={inscrito}
-                      tipoDoEvento={carregado.tipo}
-                      somenteLeitura={carregado.cancelado}
-                    />
-                  ))}
-                </ul>
+                <>
+                  {/* D-05 / UI-D13: data DEPOIS de hoje — avisa e deixa. Uma vez por data, acima do
+                      "Veio · Faltou" de todos; o segmentado continua habilitado e nenhum toast novo. */}
+                  {!carregado.cancelado && dataAindaNaoChegou(carregado.data, hoje) ? (
+                    <div
+                      data-testid="presenca-aviso-futuro"
+                      role="status"
+                      className="bg-atencao-fundo text-atencao text-apoio flex items-start gap-2 rounded-md p-4"
+                    >
+                      <AlertTriangle
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0"
+                      />
+                      <span>{fraseDataAindaNaoChegou(diaCurto(carregado.data))}</span>
+                    </div>
+                  ) : null}
+                  <ul className="flex flex-col" data-testid="folha-evento-lista">
+                    {carregado.inscricoes.map((inscrito) => (
+                      <LinhaInscrito
+                        key={inscrito.id}
+                        inscrito={inscrito}
+                        tipoDoEvento={carregado.tipo}
+                        somenteLeitura={carregado.cancelado}
+                      />
+                    ))}
+                  </ul>
+                </>
               )}
               {/* "Colocar alguém" só em data não cancelada (UI E7·empty): na oficina (inscrição ou
                   reposição) e na data de turma (reposição ou experimental — plano 08). */}
-              {!carregado.cancelado && (carregado.tipo === "avulsa" || carregado.tipo === "turma") ? (
+              {!carregado.cancelado &&
+              (carregado.tipo === "avulsa" || carregado.tipo === "turma") ? (
                 <ColocarAlguem key={carregado.id} evento={carregado} />
               ) : null}
               <p className="text-apoio text-tinta-fraca">
@@ -221,12 +282,12 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
               </p>
             </>
           )}
-        </div>
+        </FolhaCorpo>
 
         {/* Rodapé preso (`justify-between`): "Cancelar esta data" / "Desfazer cancelamento" à esquerda
             (só depois de a folha saber o que se perderia), "Pronto" à direita. `flex-wrap`: a 320px
             os dois quebram em duas linhas, cada um com 44px, nunca rolagem lateral. */}
-        <div className="border-border bg-popover flex flex-wrap items-start justify-between gap-2 border-t px-6 py-4">
+        <FolhaRodape className="flex-row flex-wrap items-start justify-between gap-2">
           {carregado !== null && !cancelarNaCaixa ? (
             <CancelarEstaData key={carregado.id} evento={carregado} />
           ) : (
@@ -241,8 +302,8 @@ export function FolhaEvento({ cabecalho, carregado, erroAoCarregar = false, aoFe
           >
             {ROTULO_PRONTO}
           </Button>
-        </div>
-      </DialogContent>
+        </FolhaRodape>
+      </Folha>
     </Dialog>
   );
 }

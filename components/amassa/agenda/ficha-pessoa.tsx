@@ -27,9 +27,9 @@ import { formatarReais } from "@/lib/financeiro/formato";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { TagDePagamento } from "./cartao-evento";
 import { TurmasDaPessoa } from "./turmas-da-pessoa";
@@ -87,13 +87,11 @@ export function FichaPessoa({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="ficha-pessoa"
         data-cliente-id={pessoa?.id}
         {...(pessoa === null ? { "aria-describedby": undefined } : {})}
         onOpenAutoFocus={(evento) => evento.preventDefault()}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-2 border-b px-6 py-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -128,7 +126,7 @@ export function FichaPessoa({
           </div>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+        <FolhaCorpo>
           {falhou ? (
             <div role="alert" className="flex flex-col items-start gap-3" data-testid="ficha-erro">
               <p className="text-corpo text-tinta">{FRASE_ERRO_CARREGAR_FICHA}</p>
@@ -244,9 +242,9 @@ export function FichaPessoa({
               </section>
             </>
           )}
-        </div>
+        </FolhaCorpo>
 
-        <div className="border-border bg-popover flex justify-end border-t px-6 py-4">
+        <FolhaRodape className="flex-row justify-end">
           <Button
             type="button"
             variant="default"
@@ -256,8 +254,8 @@ export function FichaPessoa({
           >
             {ROTULO_PRONTO}
           </Button>
-        </div>
-      </DialogContent>
+        </FolhaRodape>
+      </Folha>
     </Dialog>
   );
 }

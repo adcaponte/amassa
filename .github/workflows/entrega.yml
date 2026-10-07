@@ -2,9 +2,18 @@ name: Entrega contínua
 
 # Fecha o caminho automático entre um `git push` na `main` e uma imagem publicada e
 # implantada. Ver amassa-plataforma/01-ARQUITETURA.md §6 — a sequência de deploy e as
-# armadilhas do build. Quatro portões encadeados por `needs`, nesta ordem:
-# qualidade -> e2e -> imagem -> implantar. Um teste quebrado interrompe a fila antes de
-# qualquer publicação.
+# armadilhas do build. Portões encadeados por `needs`, nesta fila (desde 06/10/2026, plano
+# 06.5-22, D-22 — antes eram quatro em fila: qualidade -> e2e -> imagem -> implantar):
+#
+#   qualidade ∥ construir  ->  e2e (desktop) ∥ e2e (celular) ∥ banco  ->  publicar  ->  implantar
+#
+# - `construir` monta a imagem UMA vez (com cache) e a sobe ao GHCR só com a tag do commit
+#   (`:<sha>` e `:ferramentas-<sha>`) — nenhuma dessas tags é implantada;
+# - as duas fatias do e2e baixam e testam ESSA imagem; `banco` prova migrações e backup;
+# - `publicar` não monta nada: só dá às mesmas imagens as tags `:latest` e `:ferramentas`, que são
+#   as que o servidor baixa. O pipeline publica a mesma imagem que testou.
+#
+# Um teste quebrado interrompe a fila antes de `:latest` mudar.
 on:
   push:
     branches: [main]
@@ -43,13 +52,84 @@ jobs:
       - run: npm run verificar-acoes
       - run: npm test
 
-  # Depende de `qualidade`. O Postgres de teste chega como service container do runner —
+  # Fase 06.5 (D-22, P5): a imagem é montada AQUI, uma vez, e em paralelo com `qualidade` (sem
+  # `needs`) — ganha os minutos do build enquanto o lint e os unitários rodam. Antes ela era montada
+  # duas vezes: um `docker build` sem cache dentro do e2e e outro no job de publicar, depois dos
+  # testes — a imagem publicada NÃO era o mesmo artefato que o e2e tinha testado, só o mesmo
+  # Dockerfile.
+  #
+  # As tags daqui são só as do commit (`:<sha>`, `:ferramentas-<sha>`). Publicá-las antes do lint é
+  # seguro: o servidor só baixa `:latest`/`:ferramentas` (o `.env` do VPS não muda), e essas só
+  # mudam em `publicar`, depois de e2e e banco verdes. A tag do commit serve para rastrear qual
+  # imagem cada run testou e para voltar uma versão à mão.
+  #
+  # NEXT_PUBLIC_SITE_URL entra como build-arg — é embutida no JavaScript durante o `next build`,
+  # nunca lida em tempo de execução; tratá-la como variável de runtime faria tudo funcionar em
+  # localhost e falhar em produção, porque a imagem nasce aqui e o .env vive no VPS. Nenhum
+  # segredo de runtime (conexão com o banco, chave de sessão) aparece em lugar nenhum deste job —
+  # esses vivem só no .env do servidor.
+  #
+  # Cache `gha` com um escopo por alvo: antes os dois alvos gravavam no MESMO escopo padrão, e o
+  # segundo `cache-to` sobrescrevia o primeiro. O primeiro run depois desta mudança parte de cache
+  # frio (escopos novos); do segundo em diante, só as camadas que mudaram são refeitas.
+  construir:
+    name: Construir a imagem (tag do commit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR com o token efêmero do runner
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir e subir a imagem app com a tag do commit
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: app
+          push: true
+          tags: ${{ env.IMAGEM_BASE }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+
+      - name: Construir e subir a imagem ferramentas com a tag do commit
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: ferramentas
+          push: true
+          tags: ${{ env.IMAGEM_BASE }}:ferramentas-${{ github.sha }}
+          cache-from: type=gha,scope=ferramentas
+          cache-to: type=gha,scope=ferramentas,mode=max
+
+  # Depende de `qualidade` e de `construir`. O Postgres de teste chega como service container do runner —
   # mesma imagem e versão do banco de produção (postgres:17-alpine), sem publicar porta para
   # fora do runner. O E2E roda só aqui, no GitHub Actions (D-10): o VPS não carrega peso
   # extra e o pipeline continua sendo o único portão antes da publicação.
+  #
+  # Fase 06.5 (D-22, P5): o job virou uma MATRIZ de dois jobs paralelos, um por fatia da suíte —
+  # `desktop` e `celular` —, cada um com o seu Postgres efêmero (o `services` abaixo vale por job da
+  # matriz) e o seu contêiner. `E2E_FATIA` (playwright.config.ts, `projetosDaFatia`) escolhe a metade:
+  # cada fatia roda a cadeia do vazio + o seu projeto + os `parametros-*` dela. Juntas, as duas cobrem
+  # exatamente a suíte de antes (conferido por `--list` no plano 06.5-22). `fail-fast: false`: uma
+  # fatia vermelha não cancela a outra — o log das duas é o que diz se o defeito é de um viewport só.
   e2e:
-    name: E2E contra a imagem real
-    needs: qualidade
+    name: E2E (${{ matrix.fatia }}) contra a imagem real
+    needs: [qualidade, construir]
+    strategy:
+      fail-fast: false
+      matrix:
+        fatia: [desktop, celular]
     runs-on: ubuntu-latest
     # 25, não 15: a suíte chegou a 804 testes na Fase 04.5 e o runner roda com 2 workers (metade
     # dos núcleos), não os 8 da máquina de desenvolvimento. O run do commit `bb39df4` foi
@@ -71,7 +151,15 @@ jobs:
     # 04/10/2026: a Fase 06.4 (Queimas) acrescentou ~10,7% de tempo de teste; a estimativa no CI ficou em
     # 30–35 min, sem folga para retries contra os 40. Subido para 50 (decisão do dono: "pode subir como
     # for melhor"). A divisão do job por projeto continua anotada no Polimento.
-    timeout-minutes: 50
+    # 06/10/2026 (plano 06.5-22, D-22): a divisão foi feita — cada job da matriz roda 897 dos 1714
+    # testes (a cadeia do vazio, 80 testes, roda nas duas fatias; o resto se divide ao meio). Pela
+    # taxa medida em 03/10 (~1325 testes em 22,5 min de Playwright, ~1 s por teste com 2 workers),
+    # 897 testes dão ~15–18 min de Playwright por fatia, mais uns 3 min de preparo (npm ci,
+    # navegador, imagem, migração). 35 deixa folga para os
+    # `retries` sem voltar a esconder uma suíte que cresce: se uma fatia encostar nos 35, o
+    # problema volta a ser o tamanho da suíte, não o número. A primeira medida real é o run do
+    # push do dono (portão 06.5-30).
+    timeout-minutes: 35
     services:
       postgres_teste:
         image: postgres:17-alpine
@@ -108,37 +196,23 @@ jobs:
         env:
           DATABASE_URL: ${{ env.DATABASE_URL_TESTE }}
 
-      # Confere de fora — extensão, funções de data, trigger de atualizado_em e o papel
-      # amassa_app com os grants certos — contra o mesmo banco de teste que o passo acima
-      # acabou de migrar. DATABASE_URL_TESTE já vem do env do job; em CI (variável CI, que o
-      # runner sempre define) o script não sobe outro banco, só reaplica a migração
-      # (idempotente) e confere.
-      - name: Conferir a base comum do banco (npm run test:migracoes)
-        run: npm run test:migracoes
-
-      # Roda backup.sh e restaurar.sh de ponta a ponta DENTRO do service container acima —
-      # scripts/testar-backup.mjs descobre o nome real do contêiner pela imagem
-      # (postgres:17-alpine) em vez de supor um nome fixo que o runner não garante. Custo baixo
-      # (o runner já tem Docker e o banco de teste no ar) para um backup que não apodrece em
-      # silêncio entre uma fase e outra.
-      - name: Provar backup e restauração de ponta a ponta (npm run test:backup)
-        run: npm run test:backup
+      # `test:migracoes` e `test:backup` moravam aqui, entre a migração e o Playwright. Desde o plano
+      # 06.5-22 eles rodam no job `banco`, em paralelo com as duas fatias — repeti-los nos dois jobs
+      # da matriz seria pagar duas vezes pela mesma prova.
 
       - name: Instalar navegadores do Playwright
         run: npx playwright install --with-deps chromium
 
-      # A imagem testada aqui é a MESMA que o job `imagem` publica logo depois — mesmo
-      # Dockerfile, mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
+      # A imagem testada aqui é a MESMA que o job `publicar` promove a `:latest` logo depois — não
+      # outra montagem do mesmo Dockerfile, o MESMO artefato, pela tag do commit que `construir`
+      # acabou de subir (D-22). Mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
       # `standalone`). Testar com `next start` validaria um processo diferente do que sobe em
       # produção — "next start" nem é compatível com `output: "standalone"` (o Next avisa e
-      # ignora a saída standalone). Ver a seção "Deviations" do SUMMARY deste plano.
-      - name: Build da imagem app (mesmo Dockerfile do job imagem, sem publicar)
-        run: |
-          docker build \
-            --target app \
-            --build-arg NEXT_PUBLIC_SITE_URL="${{ vars.NEXT_PUBLIC_SITE_URL }}" \
-            -t amassa-app:e2e \
-            -f docker/Dockerfile .
+      # ignora a saída standalone). Ver a seção "Deviations" do SUMMARY do plano 01-05.
+      #
+      # Sem `docker login`: o pacote do GHCR é público (D-07), como para o VPS.
+      - name: Baixar a imagem app do commit (a que `construir` montou)
+        run: docker pull "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
 
       # --network host: o contêiner enxerga o Postgres do runner em 127.0.0.1:5432 do mesmo
       # jeito que os passos deste job enxergam, e a porta 3000 fica exposta direto para o
@@ -154,7 +228,7 @@ jobs:
             -e AUTH_SECRET="segredo-de-teste-efemero-sem-valor-real" \
             -e AUTH_TRUST_HOST="true" \
             -e PORT=3000 \
-            amassa-app:e2e
+            "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
 
       - name: Esperar /api/health responder
         run: |
@@ -172,8 +246,12 @@ jobs:
       # playwright.config.ts está com `reuseExistingServer: true`: como já existe um servidor
       # respondendo em http://127.0.0.1:3000 (o contêiner acima), o Playwright reaproveita e
       # NUNCA chega a rodar o comando de fallback `npm run build && npm run start`.
-      - name: Rodar Playwright contra o contêiner
+      # `E2E_FATIA` escolhe a metade da suíte deste job da matriz (playwright.config.ts). Um valor
+      # fora de `desktop`/`celular` derruba a carga da config com erro — nunca roda zero testes verde.
+      - name: Rodar Playwright contra o contêiner (fatia ${{ matrix.fatia }})
         run: npx playwright test
+        env:
+          E2E_FATIA: ${{ matrix.fatia }}
 
       # Sem estes dois passos o pipeline falha CEGO: quando o Playwright reprovava, restavam
       # so as mensagens de assercao no log, sem o que a pagina de fato mostrou e sem o log do
@@ -187,7 +265,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-falhas
+          # Um nome por fatia: dois jobs da matriz enviando o MESMO nome colidem no upload-artifact@v4.
+          name: playwright-falhas-${{ matrix.fatia }}
           path: |
             test-results/
             playwright-report/
@@ -198,20 +277,78 @@ jobs:
         if: always()
         run: docker rm -f amassa_app_e2e || true
 
-  # Depende de `e2e`. Publica duas tags a partir do mesmo Dockerfile: o alvo `app` e o alvo
-  # `ferramentas`. NEXT_PUBLIC_SITE_URL entra como build-arg — é embutida no JavaScript
-  # durante o `next build`, nunca lida em tempo de execução; tratá-la como variável de
-  # runtime faria tudo funcionar em localhost e falhar em produção, porque a imagem nasce
-  # aqui e o .env vive no VPS. Nenhum segredo de runtime (conexão com o banco, chave de
-  # sessão) aparece em lugar nenhum deste job — esses vivem só no .env do servidor.
-  imagem:
-    name: Publicar imagens no GHCR
-    needs: e2e
+  # Fase 06.5 (D-22): as duas provas do banco que moravam no job `e2e`, num job próprio, em paralelo
+  # com as duas fatias do e2e. Mesmo serviço Postgres efêmero (postgres:17-alpine, a imagem e a versão
+  # de produção), mesma migração do banco de teste, os mesmos dois scripts, na mesma ordem.
+  banco:
+    name: Banco — migrações e backup de ponta a ponta
+    needs: qualidade
     runs-on: ubuntu-latest
+    # Os dois scripts levavam poucos minutos dentro do job `e2e` (npm ci + migração + as provas em
+    # bancos próprios do test:migracoes + o backup/restauração). 15 é folga larga para isso.
     timeout-minutes: 15
+    services:
+      postgres_teste:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: amassa_teste
+          POSTGRES_PASSWORD: efemero_de_teste_sem_valor_real
+          POSTGRES_DB: amassa_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U amassa_teste -d amassa_teste"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL_TESTE: postgresql://amassa_teste:efemero_de_teste_sem_valor_real@127.0.0.1:5432/amassa_teste
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24.19.0"
+          cache: npm
+
+      - run: npm ci
+
+      # O mesmo passo do job `e2e` (e o mesmo porquê: o módulo do Drizzle direto, sem o alias de npm
+      # reservado ao banco real — este arquivo continua sem nenhuma menção a ele). Alvo: só o
+      # Postgres efêmero deste job.
+      - name: Aplicar schema no banco de teste
+        run: npx tsx db/migrate.ts
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TESTE }}
+
+      # Confere de fora — extensão, funções de data, trigger de atualizado_em e o papel
+      # amassa_app com os grants certos — contra o mesmo banco de teste que o passo acima
+      # acabou de migrar. DATABASE_URL_TESTE já vem do env do job; em CI (variável CI, que o
+      # runner sempre define) o script não sobe outro banco, só reaplica a migração
+      # (idempotente) e confere.
+      - name: Conferir a base comum do banco (npm run test:migracoes)
+        run: npm run test:migracoes
+
+      # Roda backup.sh e restaurar.sh de ponta a ponta DENTRO do service container acima —
+      # scripts/testar-backup.mjs descobre o nome real do contêiner pela imagem
+      # (postgres:17-alpine) em vez de supor um nome fixo que o runner não garante. Custo baixo
+      # (o runner já tem Docker e o banco de teste no ar) para um backup que não apodrece em
+      # silêncio entre uma fase e outra.
+      - name: Provar backup e restauração de ponta a ponta (npm run test:backup)
+        run: npm run test:backup
+
+  # Depende de `e2e` (as duas fatias) e de `banco`. NÃO monta imagem nenhuma (D-22): só dá às
+  # imagens que `construir` subiu com a tag do commit — e que as duas fatias do e2e baixaram e
+  # testaram — as tags que o servidor baixa, `:latest` e `:ferramentas`.
+  # O `imagetools` do buildx copia o manifesto no próprio registro: o conteúdo (digest) de
+  # `:latest` passa a ser exatamente o de `:<sha>`, sem nenhum build entre o teste e a publicação.
+  # Se um teste reprovou, este job não roda e `:latest` continua a imagem do último run verde.
+  publicar:
+    name: Publicar as imagens testadas no GHCR
+    needs: [e2e, banco]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
       - uses: docker/setup-buildx-action@v3
 
       - name: Login no GHCR com o token efêmero do runner
@@ -221,31 +358,26 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build e publicar imagem app
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          target: app
-          push: true
-          tags: ${{ env.IMAGEM_BASE }}:latest
-          build-args: |
-            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Promover a imagem app testada a :latest
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.IMAGEM_BASE }}:latest" \
+            "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
 
-      - name: Build e publicar imagem ferramentas
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          target: ferramentas
-          push: true
-          tags: ${{ env.IMAGEM_BASE }}:ferramentas
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Promover a imagem ferramentas do mesmo commit a :ferramentas
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.IMAGEM_BASE }}:ferramentas" \
+            "${{ env.IMAGEM_BASE }}:ferramentas-${{ github.sha }}"
 
-  # Depende de `imagem` e só roda quando a variável de repositório DEPLOY_ATIVO vale "true" —
+      # O que foi publicado, pelo digest — é a linha a comparar com o `docker images --digests` do
+      # servidor se um dia houver dúvida sobre qual imagem está no ar.
+      - name: Conferir os digests publicados
+        run: |
+          docker buildx imagetools inspect "${{ env.IMAGEM_BASE }}:latest"
+          docker buildx imagetools inspect "${{ env.IMAGEM_BASE }}:ferramentas"
+
+  # Depende de `publicar` e só roda quando a variável de repositório DEPLOY_ATIVO vale "true" —
   # o dono liga isso no plano 01-07, depois de preparar o servidor. Antes disso, este job
   # aparece pulado (skipped), nunca vermelho, porque o VPS ainda não existe.
   #
@@ -254,7 +386,7 @@ jobs:
   # arquivo — migração é aplicada à mão, depois de um backup, por alguém que está olhando.
   implantar:
     name: Implantar no VPS
-    needs: imagem
+    needs: publicar
     if: vars.DEPLOY_ATIVO == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -318,8 +450,8 @@ jobs:
       # O nome do serviço é obrigatório: `up -d` sem ele recria todos os contêineres
       # declarados, inclusive o postgres — e é exatamente isso que INFRA-06 proíbe.
       #
-      # `pull ferramentas` junto com `pull app`: a imagem de ferramentas é publicada pelo job
-      # `imagem` mas nunca era baixada aqui, e `docker compose run` usa o cache local sem
+      # `pull ferramentas` junto com `pull app`: a imagem de ferramentas era publicada pelo job
+      # `imagem` (desde 06.5-22, `publicar` dá a tag `:ferramentas`) mas nunca era baixada aqui, e `docker compose run` usa o cache local sem
       # consultar o registro. O servidor rodou desde a Fase 2a com a imagem de ferramentas
       # daquela época — as migrações de qualquer fase seguinte simplesmente não existiam dentro
       # dela (WINDOWS.md id 13). Pull só baixa; nenhum contêiner de ferramentas sobe aqui, e

@@ -2,10 +2,9 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
 import { toast } from "sonner";
 
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import type { CategoriaDeCompraAtiva } from "@/lib/estoque/consultas";
 import type { CategoriaDeVenda } from "@/lib/precificacao/consultas";
 import { concluirOrdem } from "@/lib/producao/acoes";
@@ -28,14 +27,8 @@ import {
   tituloDaFolhaDeConclusao,
 } from "@/lib/producao/textos";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Dialog } from "@/components/ui/dialog";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import {
   SecaoPecaConclusao,
@@ -52,12 +45,6 @@ const CAMPOS_DA_PECA = [
   "preco",
   "categoriaCompra",
 ] as const;
-
-// "9000" centavos → "90,00" — o preço praticado da ficha no campo "Preço de venda" (D-12), no
-// formato que `converterReaisParaCentavos` lê de volta (a mesma técnica do diálogo da ficha).
-function textoDeCentavos(centavos: number | null): string {
-  return centavos === null ? "" : (centavos / 100).toFixed(2).replace(".", ",");
-}
 
 // A conferência do passo D-12 antes de enviar (conveniência — o servidor confere de novo): a
 // categoria escolhida e o preço de venda > 0.
@@ -136,7 +123,7 @@ export function FolhaConclusao({
           destino: null,
           custoTexto: "",
           categoriaVendaId: categoriaPecasProntasId ?? "",
-          precoTexto: textoDeCentavos(peca.precoPraticadoCentavos),
+          precoTexto: centavosParaCampo(peca.precoPraticadoCentavos),
           categoriaCompraId: categoriaProducaoDaCasaId ?? "",
         },
       ]),
@@ -281,8 +268,7 @@ export function FolhaConclusao({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-conclusao"
         onOpenAutoFocus={(evento) => {
           // No celular nada recebe foco ao abrir — o teclado cobriria a folha.
@@ -291,24 +277,16 @@ export function FolhaConclusao({
             camposPerdidas.current[0]?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <DialogTitle className="text-titulo text-tinta">{tituloDaFolhaDeConclusao(tipo)}</DialogTitle>
-            <DialogDescription className="text-apoio text-tinta-media">{DICA_CONCLUSAO}</DialogDescription>
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar"
-            data-testid="folha-conclusao-fechar"
-            disabled={enviando}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+        <FolhaCabecalho
+          titulo={tituloDaFolhaDeConclusao(tipo)}
+          descricao={DICA_CONCLUSAO}
+          descricaoVisivel
+          classeDescricao="text-tinta-media"
+          aoFechar={aoFechar}
+          fecharDesabilitado={enviando}
+          dataTestIdFechar="folha-conclusao-fechar"
+        />
 
         <form
           noValidate
@@ -318,7 +296,8 @@ export function FolhaConclusao({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-2">
+          {/* As seções das peças sempre foram coladas (sem `gap`) e com `py-2`. */}
+          <FolhaCorpo className="gap-0 py-2">
             {pecas.map((peca, indice) => (
               <SecaoPecaConclusao
                 key={peca.id}
@@ -346,15 +325,10 @@ export function FolhaConclusao({
             <p data-testid="conclusao-nota" className="text-apoio text-tinta-media py-4">
               {tipo === "encomenda" ? textoNotaDaEncomenda(vendaNumero) : textoNotaDaCasa(boasDaCasa)}
             </p>
-          </div>
+          </FolhaCorpo>
 
           {/* Rodapé preso por FLEX, fora da área rolável: o erro de gravação e os dois botões. */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-            {erroGeral ? (
-              <p role="alert" data-testid="conclusao-erro" className="text-apoio text-erro">
-                {erroGeral}
-              </p>
-            ) : null}
+          <FolhaRodape erro={erroGeral} dataTestIdErro="conclusao-erro">
             <div className="flex gap-3">
               <Button
                 type="button"
@@ -377,9 +351,9 @@ export function FolhaConclusao({
                 {enviando ? ROTULO_CONCLUINDO : parcial ? ROTULO_CONCLUIR_PARCIAL : ROTULO_CONCLUIR_ORDEM}
               </button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

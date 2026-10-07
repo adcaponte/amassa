@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { carregarCatalogoDaNovaOrdem, criarOrdem } from "@/lib/producao/acoes";
+import { ehDataCivil, formatarDiaMes } from "@/lib/producao/calendario";
 import type { CatalogoDaNovaOrdem } from "@/lib/producao/consultas";
 import type { CaminhoOrdem, TipoOrdem } from "@/lib/producao/etapas";
 import {
@@ -13,15 +15,17 @@ import {
   validarNovaOrdem,
   type ErrosDaNovaOrdem,
 } from "@/lib/producao/esquemas";
+import { hrefDaAbaPecas } from "@/lib/precificacao/navegacao";
+import { previsaoDaNovaOrdem } from "@/lib/producao/leitura";
 import {
   DICA_FIM_NOVA_ORDEM,
   DICA_PECA_CASA,
   DICA_PECA_ENCOMENDA,
   FRASE_CATALOGO_CARREGANDO,
-  FRASE_CATALOGO_VAZIO_CASA,
   FRASE_ERRO_CARREGAR_CATALOGO,
   FRASE_FALHA_AO_CRIAR,
   FRASE_PECAS_TIRADAS,
+  FRASE_SEM_PECA_DE_CERAMICA,
   PLACEHOLDER_NOME_DA_ORDEM,
   ROTULO_CAMINHO_BISCOITO,
   ROTULO_CAMINHO_COMPLETO,
@@ -32,6 +36,7 @@ import {
   ROTULO_ENTREGA_PROMETIDA,
   ROTULO_FECHAR,
   ROTULO_NOME_DA_ORDEM,
+  ROTULO_ONDE_CADASTRAR_PECA,
   ROTULO_OUTRA_PECA,
   ROTULO_TENTAR_DE_NOVO,
   ROTULO_TIPO_CASA,
@@ -39,38 +44,24 @@ import {
   ROTULO_TIPO_ENCOMENDA,
   ROTULO_VOLTAR,
   TITULO_NOVA_ORDEM,
+  TEXTO_AVISO_PRAZO_CORPO,
   TITULO_PECAS_DA_NOVA_ORDEM,
   TOAST_ORDEM_CRIADA,
+  textoAvisoPrazoManchete,
 } from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Folha, FolhaCabecalho, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
-import {
-  ESCOLHA_LIVRE,
-  LinhaPecaNovaOrdem,
-  lerEscolha,
-  nomeDaEscolha,
-  type LinhaDaNovaOrdem,
-} from "./linha-peca-nova-ordem";
+import { LinhaPecaNovaOrdem, lerEscolha, type LinhaDaNovaOrdem } from "./linha-peca-nova-ordem";
 
-// O contêiner: tela toda abaixo de 768px (desliza de baixo), modal `max-w-lg` e até 85svh a partir
-// de `md` — o mesmo desenho das folhas do Estoque. Rodapé preso por flex, nunca `position: sticky`.
-const CLASSE_DA_FOLHA = cn(
-  "inset-x-0 top-auto bottom-0 left-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none rounded-t-none border-0 border-t p-0 data-open:slide-in-from-bottom-10 data-open:zoom-in-100 data-closed:slide-out-to-bottom-10 data-closed:zoom-out-100",
-  "md:top-1/2 md:right-auto md:bottom-auto md:left-1/2 md:h-auto md:max-h-[85svh] md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border md:data-open:zoom-in-95 md:data-closed:zoom-out-95",
-);
-
+// O contêiner é a `Folha` comum (D-24): tela toda abaixo de 768px (desliza de baixo), modal `max-w-lg`
+// e até 85svh a partir de `md`. Rodapé preso por flex, nunca `position: sticky`.
 const CLASSE_DO_CAMPO = "text-corpo md:text-corpo min-h-[44px]";
 
 type Segmento<V extends string> = { valor: V; rotulo: string };
@@ -139,6 +130,18 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
   const [aviso, setAviso] = useState("");
   const [enviando, setEnviando] = useState(false);
 
+  // D-11: a entrega que não cabe é avisada antes de criar, com a mesma conta do "vai atrasar" do
+  // cartão e o "hoje" do servidor. Recalcula a cada data e caminho. Data no passado ou inválida não
+  // avisa — essa vira o erro do campo ao criar, e a ordem não nasceria.
+  const previsao =
+    ehDataCivil(entregaPrometida) && entregaPrometida >= hoje
+      ? previsaoDaNovaOrdem({ caminho, hoje, entregaPrometida })
+      : null;
+  const avisoDePrazo =
+    previsao !== null && previsao.diasDepoisDaEntrega !== null
+      ? { ...previsao, diasDepoisDaEntrega: previsao.diasDepoisDaEntrega }
+      : null;
+
   // Guarda síncrona contra o toque duplo: o `disabled` só vale depois do próximo desenho; a
   // referência vale já no segundo clique do mesmo gesto.
   const emVoo = useRef(false);
@@ -166,8 +169,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
   const catalogoDaCasaVazio =
     tipo === "casa" &&
     catalogoPronto !== null &&
-    catalogoPronto.fichasDeLinha.length === 0 &&
-    catalogoPronto.itensDoEstoque.length === 0;
+    catalogoPronto.fichasDeLinha.length === 0;
   // Revisão 06.1, WR-107: sem o catálogo pronto as linhas de peça não existem na tela — um toque em
   // "Criar ordem" daria um erro preso a um campo que não está lá (nada visível acontecia). O botão
   // fica desligado e aponta para o texto que diz por quê (carregando, ou o erro com "Tentar de novo").
@@ -223,8 +225,8 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
 
   // Trocar Encomenda → Produção da casa tira o que só serve à encomenda (texto livre e fichas
   // exclusivas) e avisa em `role="status"`. O caminho de volta (casa → encomenda) não perde nada:
-  // o item do estoque sem ficha vira texto livre com o nome dele — na encomenda, peça sem ficha é
-  // texto livre (D-04), com a mesma nota.
+  // as peças de linha da casa servem também à encomenda. (Até a 06.5 o item do estoque sem ficha
+  // virava texto livre aqui; com a D-01 a casa já não oferece item.)
   function escolherTipo(novo: TipoOrdem) {
     if (novo === tipo) {
       return;
@@ -251,13 +253,6 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
       return;
     }
     setAviso("");
-    setPecas((atuais) =>
-      atuais.map((linha) =>
-        lerEscolha(linha.escolha).origem === "item"
-          ? { ...linha, escolha: ESCOLHA_LIVRE, descricao: nomeDaEscolha(linha, catalogoPronto) ?? "" }
-          : linha,
-      ),
-    );
   }
 
   // Setas movem a escolha num segmentado (padrão de `radiogroup`).
@@ -336,9 +331,6 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
         }
         if (lida.origem === "ficha") {
           return { origem: "ficha", fichaId: lida.id, quantidadeTexto: linha.quantidade };
-        }
-        if (lida.origem === "item") {
-          return { origem: "item", itemCatalogoId: lida.id, quantidadeTexto: linha.quantidade };
         }
         return { origem: "", quantidadeTexto: linha.quantidade };
       }),
@@ -493,14 +485,24 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
       );
     }
     if (catalogoDaCasaVazio) {
+      // Fase 06.5, D-01 ("a-ficha", dono em 06/10/2026): só peça com ficha vira ordem da casa —
+      // sem nenhuma, a frase e o link para onde a ficha se cadastra (Financeiro → Peças).
       return (
-        <p
-          id="nova-ordem-catalogo-vazio"
+        <div
           data-testid="nova-ordem-catalogo-vazio"
-          className="text-apoio text-tinta-media bg-superficie-2 rounded-md p-4"
+          className="bg-superficie-2 flex flex-col items-start gap-2 rounded-md p-4"
         >
-          {FRASE_CATALOGO_VAZIO_CASA}
-        </p>
+          <p id="nova-ordem-catalogo-vazio" className="text-apoio text-tinta-media">
+            {FRASE_SEM_PECA_DE_CERAMICA}
+          </p>
+          <Link
+            href={hrefDaAbaPecas()}
+            data-testid="nova-ordem-catalogo-vazio-link"
+            className="text-apoio text-tinta flex min-h-[44px] items-center font-medium underline underline-offset-3"
+          >
+            {ROTULO_ONDE_CADASTRAR_PECA}
+          </Link>
+        </div>
       );
     }
     const doCatalogo = catalogo.catalogo;
@@ -548,8 +550,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-nova-ordem"
         onOpenAutoFocus={(evento) => {
           evento.preventDefault();
@@ -559,22 +560,15 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
             campos.current.nome?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
-        <DialogHeader className="border-border flex flex-row items-center justify-between gap-4 border-b px-6 py-4">
-          <DialogTitle className="text-titulo text-tinta">{TITULO_NOVA_ORDEM}</DialogTitle>
-          <DialogDescription className="sr-only">{DICA_FIM_NOVA_ORDEM}</DialogDescription>
-          <button
-            type="button"
-            aria-label={ROTULO_FECHAR}
-            data-testid="nova-ordem-fechar"
-            disabled={enviando}
-            onClick={aoFechar}
-            className="hover:bg-muted text-tinta flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </DialogHeader>
+        <FolhaCabecalho
+          titulo={TITULO_NOVA_ORDEM}
+          descricao={DICA_FIM_NOVA_ORDEM}
+          aoFechar={aoFechar}
+          rotuloFechar={ROTULO_FECHAR}
+          fecharDesabilitado={enviando}
+          dataTestIdFechar="nova-ordem-fechar"
+        />
 
         <form
           noValidate
@@ -584,7 +578,7 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          <FolhaCorpo>
             <div className="flex flex-col gap-2">
               <label htmlFor="nova-ordem-nome" className="text-corpo text-tinta font-semibold">
                 {ROTULO_NOME_DA_ORDEM}
@@ -679,6 +673,25 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
                 />
                 {mensagemDe("entregaPrometida")}
               </div>
+              {avisoDePrazo ? (
+                <div
+                  role="status"
+                  data-testid="nova-ordem-aviso-prazo"
+                  className="bg-atencao-fundo text-atencao text-apoio flex items-start gap-2 rounded-md p-4 md:col-span-2"
+                >
+                  <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                  <p className="flex flex-col gap-1">
+                    <span className="font-semibold">
+                      {textoAvisoPrazoManchete(
+                        avisoDePrazo.diasDasEtapas,
+                        formatarDiaMes(avisoDePrazo.prontaEm),
+                        avisoDePrazo.diasDepoisDaEntrega,
+                      )}
+                    </span>
+                    <span>{TEXTO_AVISO_PRAZO_CORPO}</span>
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <section aria-labelledby="nova-ordem-pecas-titulo" className="flex flex-col gap-3">
@@ -697,10 +710,11 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
             </section>
 
             <p className="text-apoio text-tinta-fraca">{DICA_FIM_NOVA_ORDEM}</p>
-          </div>
+          </FolhaCorpo>
 
-          {/* Rodapé preso por FLEX, fora da área rolável: o erro de gravação e os dois botões. */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
+          {/* Rodapé preso por FLEX, fora da área rolável: o erro de gravação e os dois botões. O erro
+              segue como filho (leva `data-campo="geral"`, que a prop `erro` não produz). */}
+          <FolhaRodape>
             {erroGeral ? (
               <p
                 role="alert"
@@ -733,9 +747,9 @@ function FormularioNovaOrdem({ hoje, aoFechar }: FormularioNovaOrdemProps) {
                 {enviando ? ROTULO_CRIANDO : ROTULO_CRIAR_ORDEM}
               </button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

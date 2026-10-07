@@ -1,5 +1,12 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 
+import { CONTEUDO_SITE } from "@/conteudo/site";
+import { placeholdersNoAr } from "@/lib/site/placeholder";
+import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
+
+import { medirCaixa } from "./apoio/medir-caixa";
+import { hojeNoAtelie } from "./apoio/semear-financeiro";
+
 // A varredura da página INTEIRA do site público, nos dois viewports (SIT-01, SIT-04, SIT-07,
 // SIT-08, SIT-09, SIT-10) — a continuação de tests/e2e/site-abertura.spec.ts (plano 03, o
 // traçador), agora que #espaco, #agenda, #encomendas e #onde existem. O caso da âncora que
@@ -47,21 +54,22 @@ test.describe("site secoes", () => {
 
     await barra.getByTestId("site-botao-agenda").click();
     await expect(page).toHaveURL(/#agenda$/);
-    const caixaAgenda = await page.getByTestId("site-agenda").locator("h2").boundingBox();
-    expect(caixaAgenda).not.toBeNull();
-    expect(caixaAgenda!.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
+    const caixaAgenda = await medirCaixa(page.getByTestId("site-agenda").locator("h2"), "título da Agenda");
+    expect(caixaAgenda.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
     const rolagemNaAgenda = await page.evaluate(() => window.scrollY);
 
     await barra.getByTestId("site-botao-encomendas").click();
     await expect(page).toHaveURL(/#encomendas$/);
-    const caixaEncomendas = await page.getByTestId("site-encomendas").locator("h2").boundingBox();
-    expect(caixaEncomendas).not.toBeNull();
-    expect(caixaEncomendas!.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
+    const caixaEncomendas = await medirCaixa(
+      page.getByTestId("site-encomendas").locator("h2"),
+      "título de Encomendas",
+    );
+    expect(caixaEncomendas.y).toBeGreaterThanOrEqual(alturaDaBarraFixa - 1);
     const rolagemNoEncomendas = await page.evaluate(() => window.scrollY);
 
     // As duas âncoras não param na MESMA seção: por design (scroll-margin-top compartilhado,
     // components/site/secao.tsx), qualquer alvo pousa na MESMA posição RELATIVA à barra fixa —
-    // por isso não é o boundingBox() da viewport que prova seções diferentes, é a posição de
+    // por isso não é a caixa medida na viewport que prova seções diferentes, é a posição de
     // rolagem ABSOLUTA do documento, que necessariamente difere entre duas seções distintas.
     expect(rolagemNaAgenda).not.toBeCloseTo(rolagemNoEncomendas, 0);
   });
@@ -115,10 +123,39 @@ test.describe("site secoes", () => {
     }
   });
 
-  test("(e) o endereço com colchete aparece literal na seção onde", async ({ page }) => {
+  // Fase 06.5 (D-32, 06/10/2026): o caso VIROU — até aqui exigia "Rua [nome da rua]" literal (D-14
+  // da 04.6). Agora o endereço é slot do dono: vazio, o par "Endereço" não existe; preenchido,
+  // aparece sem colchete. Nenhum colchete em "Onde fica" nem no rodapé.
+  test("(e) o endereço vazio não aparece e nenhum colchete aparece em site-contato nem no rodapé", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByTestId("site-contato")).toContainText("Rua [nome da rua]");
+    const contato = page.getByTestId("site-contato");
+    await expect(contato).toBeVisible();
+    const textoDoContato = await contato.innerText();
+    if (CONTEUDO_SITE.contato.endereco.trim().length === 0) {
+      expect(textoDoContato.toLowerCase()).not.toContain("endereço");
+    } else {
+      expect(textoDoContato).toContain(CONTEUDO_SITE.contato.endereco);
+    }
+    expect(textoDoContato).not.toMatch(/[[\]]/);
+
+    const rodape = page.getByTestId("site-rodape");
+    await expect(rodape).toContainText(CONTEUDO_SITE.rodape.quemSomos);
+    expect(await rodape.innerText()).not.toMatch(/[[\]]/);
+  });
+
+  // D-30 / UI-D16 (Fase 06.5): o horário de funcionamento saiu; no lugar, "Abertura · Abrimos em
+  // dezembro.".
+  test("(l) “Onde fica” mostra Abertura · Abrimos em dezembro. e nenhum Horário", async ({ page }) => {
+    await page.goto("/");
+
+    const abertura = page.getByTestId("site-abertura-data");
+    await expect(abertura).toBeVisible();
+    await expect(abertura).toContainText("Abertura");
+    await expect(abertura).toContainText("Abrimos em dezembro.");
+
+    const textoDoContato = (await page.getByTestId("site-contato").innerText()).toLowerCase();
+    expect(textoDoContato).not.toContain("horário");
   });
 
   test("(f) @vazio-global sem evento público, nenhum valor em dinheiro aparece em nenhuma seção", async ({ page }) => {
@@ -170,9 +207,8 @@ test.describe("site secoes", () => {
       for (let indice = 0; indice < total; indice++) {
         const alvo = alvos.nth(indice);
         if (!(await alvo.isVisible())) continue; // barra inferior some no desktop, e vice-versa.
-        const caixa = await alvo.boundingBox();
-        expect(caixa, "alvo de toque visível sem boundingBox mensurável").not.toBeNull();
-        expect(caixa!.height, `${await alvo.textContent()} mede menos de 44px`).toBeGreaterThanOrEqual(44);
+        const caixa = await medirCaixa(alvo, "alvo de toque visível");
+        expect(caixa.height,`${await alvo.textContent()} mede menos de 44px`).toBeGreaterThanOrEqual(44);
       }
     }
   });
@@ -193,13 +229,64 @@ test.describe("site secoes", () => {
   }) => {
     await page.goto("/");
 
+    // Fase 06.5, plano 21 (D-29, 06/10/2026): a imagem de compartilhamento é o recorte 1200×630 da
+    // foto de abertura (`abertura-og.jpg`); até 06/10 era a própria `abertura.jpg` em retrato. O
+    // detalhe (dimensões, canonical, og:url) está em tests/e2e/polimento-site.spec.ts.
     const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
-    expect(ogImage).toMatch(/\/site\/abertura\.jpg$/);
+    expect(ogImage).toMatch(/\/site\/abertura-og\.jpg$/);
 
     const ogTitle = await page.locator('meta[property="og:title"]').getAttribute("content");
     const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
     expect(ogTitle).toContain("AMASSA CERRADO");
     expect(ogTitle).toContain("cerâmica");
     expect(ogDescription).toContain("Pirenópolis");
+  });
+
+  // D-28 / UI-D19 (Fase 06.5): o telefone exibido é derivado do `zap` — o esperado sai da constante
+  // e da mesma função, nunca escrito aqui (repositório público).
+  test("(k) o telefone do contato é o do zap, formatado — em / e em /privacidade, sem 0000-0000", async ({ page }) => {
+    const telefone = rotuloTelefoneDoZap(CONTEUDO_SITE.zap);
+    expect(telefone).toMatch(/^\(\d{2}\) 9 \d{4}-\d{4}$/);
+
+    await page.goto("/");
+    const contato = page.getByTestId("site-contato");
+    await expect(contato).toContainText(telefone);
+    const linkDoTelefone = contato.getByRole("link", { name: telefone });
+    await expect(linkDoTelefone).toHaveAttribute("href", new RegExp(`^https://wa\\.me/${CONTEUDO_SITE.zap}`));
+    expect(await page.locator("body").innerText()).not.toContain("0000-0000");
+
+    await page.goto("/privacidade");
+    const textoDaPrivacidade = await page.locator("body").innerText();
+    expect(textoDaPrivacidade).toContain(`ou pelo WhatsApp ${telefone}.`);
+    expect(textoDaPrivacidade).toMatch(/\(\d{2}\) 9 \d{4}-\d{4}/);
+    expect(textoDaPrivacidade).not.toContain("0000-0000");
+  });
+
+  // D-28 (Fase 06.5): a guarda de 01/12/2026 sobre o texto RENDERIZADO de / e /privacidade — o que a
+  // pessoa lê, mais o título e as descrições do <head>. Antes de 01/12 `placeholdersNoAr` não acusa
+  // nada (e o caso passa); a partir dela, um colchete ou um "0000-0000" no ar reprova a varredura.
+  // @vazio-global: a seção de aulas mostra eventos públicos do banco, e os testes que semeiam eventos
+  // os nomeiam "[e2e] …" — rodar com o banco intacto mede o conteúdo do site, não o que outro teste
+  // publicou ao mesmo tempo (a mesma razão dos casos (c) e (f)).
+  test("(m) @vazio-global guarda de 01/12: nenhum placeholder no texto de / nem de /privacidade", async ({ page }) => {
+    const hoje = hojeNoAtelie();
+
+    for (const caminho of ["/", "/privacidade"]) {
+      await page.goto(caminho);
+      // O rodapé é o último bloco das duas páginas: visível, a página inteira já chegou.
+      await expect(page.getByTestId("site-rodape")).toBeVisible();
+
+      const textos = await page.evaluate(() => {
+        const doHead = Array.from(
+          document.querySelectorAll(
+            'meta[name="description"], meta[property="og:title"], meta[property="og:description"]',
+          ),
+        ).map((meta) => meta.getAttribute("content") ?? "");
+        return [document.title, ...doHead, document.body.innerText];
+      });
+      expect(textos.at(-1)!.length, `${caminho} sem texto renderizado`).toBeGreaterThan(0);
+
+      expect(placeholdersNoAr(textos, hoje), `placeholder no ar em ${caminho} (${hoje})`).toEqual([]);
+    }
   });
 });

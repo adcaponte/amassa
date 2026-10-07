@@ -1,5 +1,6 @@
-import { formatarReais, nomeDoMes } from "@/lib/abertura/formato";
+import { formatarReais } from "@/lib/abertura/formato";
 import type { MesDoFluxo } from "@/lib/abertura/parcelas";
+import { nomeDoMesNoTitulo } from "@/lib/financeiro/formato";
 import { FRASE_VAZIO_CORPO_MESES, FRASE_VAZIO_TITULO_MESES } from "@/lib/abertura/textos";
 import { cn } from "@/lib/utils";
 import { EstadoVazio } from "@/components/amassa/estado-vazio";
@@ -54,8 +55,8 @@ function CartaoDoMes({ mes }: { mes: MesDoFluxo }) {
       data-mes={mes.chave}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-corpo font-semibold capitalize">
-          {nomeDoMes(mes.chave)}
+        <span className="text-corpo font-semibold">
+          {nomeDoMesNoTitulo(mes.chave)}
           {mes.ehMesAtual && " · este mês"}
         </span>
         <span className="text-titulo font-bold tabular-nums">

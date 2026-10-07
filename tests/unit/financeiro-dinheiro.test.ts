@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  centavosParaCampo,
   converterPercentualParaPontosBase,
   converterQuantidade,
   converterReaisParaCentavos,
@@ -121,5 +122,51 @@ describe("converterQuantidade — { aceitaZero: true }", () => {
 
   it.each(["-1", "1,2345", "1000000", ""])('"%s" continua recusado mesmo com a opção', (texto) => {
     expect(converterQuantidade(texto, { aceitaZero: true }).ok).toBe(false);
+  });
+});
+
+// 06.5-15 (D-21, P4): a conversão de centavos para o texto de um campo editável, que antes era
+// repetida em 13 componentes como `(centavos / 100).toFixed(2).replace(".", ",")`.
+describe("centavosParaCampo", () => {
+  it.each([
+    [9000, "90,00"],
+    [5, "0,05"],
+    [0, "0,00"],
+    [1, "0,01"],
+    [99, "0,99"],
+    [15001, "150,01"],
+    [123456, "1234,56"],
+    [1_000_000_000, "10000000,00"],
+  ])("%d centavos viram \"%s\" — duas casas, vírgula, sem R$ e sem milhar", (centavos, texto) => {
+    expect(centavosParaCampo(centavos)).toBe(texto);
+  });
+
+  it("null vira campo vazio, nunca \"0,00\"", () => {
+    expect(centavosParaCampo(null)).toBe("");
+  });
+
+  // A refatoração não pode mudar nenhum texto: a função comum devolve EXATAMENTE o que a
+  // expressão que morava nos componentes devolvia — inclusive para negativo, que nenhum campo
+  // deveria receber mas a expressão antiga aceitava.
+  it("devolve o mesmo texto que a expressão antiga dos componentes, de -100000 a 100000 e nos valores grandes", () => {
+    const expressaoAntiga = (centavos: number) => (centavos / 100).toFixed(2).replace(".", ",");
+    const valores: number[] = [];
+    for (let n = -100_000; n <= 100_000; n++) valores.push(n);
+    valores.push(123_456_789, 999_999_999, 1_000_000_000, -123_456_789);
+    for (const n of valores) {
+      expect(centavosParaCampo(n)).toBe(expressaoAntiga(n));
+    }
+  });
+
+  it("ida e volta: converterReaisParaCentavos(centavosParaCampo(n)) devolve n", () => {
+    const valores: number[] = [1, 99, 123456, 1_000_000_000, 999_999_999, 123_456_789];
+    for (let n = 0; n <= 100_000; n++) valores.push(n);
+    for (const n of valores) {
+      expect(converterReaisParaCentavos(centavosParaCampo(n))).toEqual({ ok: true, centavos: n });
+    }
+  });
+
+  it("ida e volta do vazio: null vira \"\" e \"\" volta null", () => {
+    expect(converterReaisParaCentavos(centavosParaCampo(null))).toEqual({ ok: true, centavos: null });
   });
 });

@@ -28,3 +28,11 @@ export function codigoDoErroPostgres(erro: unknown): string | undefined {
 export function ehViolacaoDeChaveEstrangeira(erro: unknown): boolean {
   return codigoDoErroPostgres(erro) === "23503";
 }
+
+// SQLSTATE 42P01 = undefined_table — a tabela ainda não existe no banco. Só serve para a leitura
+// TOLERANTE de uma tabela nova na janela entre o deploy do código e o `db:migrate` à mão (Fase 06.5,
+// plano 17: `correcoes_de_documento`, Roteiro 22): quem lê trata ESTE código como “sem dado” e deixa
+// qualquer outro erro subir.
+export function ehTabelaAusente(erro: unknown): boolean {
+  return codigoDoErroPostgres(erro) === "42P01";
+}

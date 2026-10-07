@@ -75,6 +75,8 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
   const ativa = leitura.tipo === "em-andamento";
   const etapaParaTerminar =
     leitura.tipo === "em-andamento" && leitura.indice < etapas.length - 1 ? leitura.etapa : null;
+  // O parcial da etapa atual — com o total, decide se o "Terminei" já pode (D-02, Fase 06.5).
+  const passaramNaAtual = leitura.tipo === "em-andamento" ? etapas[leitura.indice].passaram : null;
   // A etapa atual é a última (Entrega): "Entreguei" / "Guardar no estoque" abre a conclusão (plano
   // 11). As peças com a ficha, o item e o custo pela ficha (e, com peça exclusiva, as categorias de
   // venda do passo D-12, plano 12) são lidos só então — e de novo, sob a trava, pela ação.
@@ -225,6 +227,8 @@ export default async function PaginaOrdem({ params }: { params: Promise<{ id: st
             ativa={ativa}
             tipo={ordem.tipo}
             etapaParaTerminar={etapaParaTerminar}
+            totalDeFeitas={total}
+            passaramNaAtual={passaramNaAtual}
             conclusao={
               dadosParaConcluir ? { ...dadosParaConcluir, vendaNumero: ordem.vendaNumero } : null
             }

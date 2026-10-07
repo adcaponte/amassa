@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { cobrancaParaVenda, type CobrancaParaVenda } from "@/lib/agenda/consultas";
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
+import { textoContasGeradas } from "@/lib/cadastros/textos";
 import {
   abaDaUrl,
   ehOrigemDaAgenda,
@@ -20,21 +21,33 @@ import {
   listarDocumentosDoMes,
   listarDocumentosParaDetalhe,
   listarItensParaEfeito,
+  haContaFixaAtiva,
   listarMovimentos,
-  listarParcelasEmAberto,
   listarParcelasPagasNoMes,
   obterConfiguracaoFinanceira,
+  obterCorrecaoParaAviso,
   obterDocumentoParaAviso,
+  obterDocumentoParaCorrecao,
+  type DocumentoParaCorrecao,
+  mesesComContasFixasGeradas,
   obterParcelaParaAviso,
+  somarMovimentosAntesDe,
 } from "@/lib/financeiro/consultas";
-import { mesAnterior, mesSeguinte } from "@/lib/financeiro/calendario";
-import { filtrarExtrato, montarExtrato, resumoDoCaixa } from "@/lib/financeiro/extrato";
-import { formatarReais, hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { mesAnterior, mesSeguinte, primeiroDiaDoMes } from "@/lib/financeiro/calendario";
+import { filtrarExtrato, montarExtrato, resumoDoCaixa, saldoAntesDaJanela } from "@/lib/financeiro/extrato";
+import { formatarReais, hojeEmBrasilia, nomeDoMes, nomeDoMesSemAno } from "@/lib/financeiro/formato";
+import { janelaDoCaixa, mesesDaJanela, mesesSemContasFixas, separarPelaJanela } from "@/lib/financeiro/janela";
 import { resumoDoMes } from "@/lib/financeiro/mes";
+import { ORCAMENTO_NOVO_NA_URL } from "@/lib/financeiro/navegacao";
 import { listarSaldos } from "@/lib/estoque/consultas";
 import { listarFornecedoresParaSeletor, type FornecedorParaSeletor } from "@/lib/fornecedores/consultas";
+import { rascunhoDaCorrecao, type RascunhoDaCorrecao } from "@/lib/financeiro/correcao";
 import {
+  fraseCorrecaoDeCancelada,
+  fraseCorrecaoNaoAchada,
+  fraseSemCorrecaoPorOrigem,
   textoCancelado,
+  textoCorrecaoLancada,
   textoDespesaLancada,
   textoDoDesfazer,
   textoDoPagamento,
@@ -68,9 +81,11 @@ import {
 } from "@/lib/precificacao/consultas";
 import { TOAST_PECA_SALVA } from "@/lib/precificacao/textos";
 import { AbasFinanceiro } from "@/components/amassa/financeiro/abas-financeiro";
+import { AvisoContasFixas } from "@/components/amassa/financeiro/aviso-contas-fixas";
 import { AvisoFinanceiro } from "@/components/amassa/financeiro/aviso-financeiro";
 import { ExtratoCaixa } from "@/components/amassa/financeiro/extrato-caixa";
 import { OrigemIndisponivel } from "@/components/amassa/financeiro/faixa-da-agenda";
+import { CorrecaoIndisponivel } from "@/components/amassa/financeiro/faixa-da-correcao";
 import { ListasCaixa } from "@/components/amassa/financeiro/listas-caixa";
 import { PainelDespesa } from "@/components/amassa/financeiro/painel-despesa";
 import { PainelMes } from "@/components/amassa/financeiro/painel-mes";
@@ -78,11 +93,17 @@ import { PainelVenda } from "@/components/amassa/financeiro/painel-venda";
 import { TilesCaixa } from "@/components/amassa/financeiro/tiles-caixa";
 import { EditorOrcamento } from "@/components/amassa/orcamentos/editor-orcamento";
 import { ListaOrcamentos } from "@/components/amassa/orcamentos/lista-orcamentos";
+import { OrcamentoNovo } from "@/components/amassa/orcamentos/orcamento-novo";
 import { DialogoFicha } from "@/components/amassa/precificacao/dialogo-ficha";
 import { ListaPecas } from "@/components/amassa/precificacao/lista-pecas";
+import { formatarDiaMes } from "@/lib/producao/calendario";
 import { queimaParaVenda, type VendaDaQueima } from "@/lib/queimas/consultas";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
-import type { OrigemNoPainel, RascunhoInicialDaVenda } from "@/components/amassa/financeiro/painel-venda";
+import type {
+  CorrecaoNoPainel,
+  OrigemNoPainel,
+  RascunhoInicialDaVenda,
+} from "@/components/amassa/financeiro/painel-venda";
 
 const FORMAS_DO_FILTRO_EXTRATO = ["todas", "dinheiro", "pix", "cartao"] as const;
 
@@ -128,11 +149,14 @@ export default async function PaginaFinanceiro({
     parcela?: string;
     parcelaFoco?: string;
     mes?: string;
+    quantidade?: string;
+    mesGerado?: string;
     forma?: string;
     peca?: string;
     exclusivas?: string;
     orcamento?: string;
     origem?: string | string[];
+    corrige?: string | string[];
   }>;
 }) {
   await exigirUsuario();
@@ -145,11 +169,14 @@ export default async function PaginaFinanceiro({
     parcela,
     parcelaFoco,
     mes,
+    quantidade,
+    mesGerado,
     forma,
     peca,
     exclusivas,
     orcamento,
     origem,
+    corrige,
   } = await searchParams;
   const abaAtual = abaDaUrl(aba);
   const abaVenda = abaAtual === "venda";
@@ -182,6 +209,9 @@ export default async function PaginaFinanceiro({
   const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const orcamentoIdParaEditor =
     abaOrcamentos && orcamento && REGEX_UUID.test(orcamento) ? orcamento : null;
+  // `?orcamento=novo` (06.5-14, D-15): o editor vazio, sem registro até o primeiro campo — nenhuma
+  // consulta do editor nem da lista.
+  const orcamentoNovo = abaOrcamentos && orcamento === ORCAMENTO_NOVO_NA_URL;
 
   // `?peca=novo` abre o diálogo em branco; `?peca=<uuid>` abre em edição; qualquer outra coisa
   // (ausente, lixo) mantém o diálogo fechado. Disponível na aba Peças OU dentro do editor de um
@@ -198,7 +228,12 @@ export default async function PaginaFinanceiro({
   const mesAtual = mesDaUrl(mes, hoje);
   const formaDoExtrato = formaDaUrl(forma);
 
-  const avisoResolvido = avisoDaUrl({ aviso, documento, parcela });
+  const avisoResolvido = avisoDaUrl({ aviso, documento, parcela, quantidade, mesGerado });
+
+  // D-03 / UI-D7 (06.5-12): a janela do Caixa — vencidas e as que vencem até hoje + 30 dias, com o
+  // `hoje` do servidor. Os meses que ela toca são os que podem pedir o aviso das contas fixas.
+  const janela = janelaDoCaixa(hoje);
+  const mesesDaJanelaDoCaixa = mesesDaJanela(hoje, janela.ate);
 
   // A Venda aberta por outro módulo — a Agenda (Fase 05, plano 12 — AGE-15, mecanismo B da pesquisa,
   // UI-D26) e as Queimas (Fase 06.4, plano 05 — QMC-08, D-07): com `?origem=` na aba Venda, a origem é
@@ -206,8 +241,27 @@ export default async function PaginaFinanceiro({
   // despacho é pelo MÓDULO da origem: Agenda → `cobrancaParaVenda` (como antes); Queimas →
   // `queimaParaVenda`. Origem mal formada conta como não achada (nunca um carrinho com dado inventado);
   // a origem que já virou venda mostra o número e o caminho do Caixa.
-  const origemDaVenda = abaVenda ? origemDaUrl(origem) : null;
-  const pediuOrigem = abaVenda && origem !== undefined && origem !== "";
+  //
+  // O “Corrigir” (Fase 06.5, plano 17 — D-18/UI-D9): `?corrige=<uuid>` na aba Venda abre a Venda
+  // preenchida com a original, que continua valendo até o lançamento. A página só LÊ — nenhuma ação ao
+  // abrir. O id é validado como uuid ANTES de qualquer consulta (T-06.5-47); lixo conta como “não achei”.
+  // Com `?corrige=` e `?origem=` juntos, vale a correção (a origem nem é lida).
+  // A Despesa (plano 18) trata `?corrige=` do mesmo jeito, com as frases de despesa.
+  const tipoDaCorrecao = abaVenda ? ("venda" as const) : abaDespesa ? ("despesa" as const) : null;
+  const pediuCorrecao = tipoDaCorrecao !== null && corrige !== undefined && corrige !== "";
+  const correcaoId =
+    pediuCorrecao && typeof corrige === "string" && REGEX_UUID_DOCUMENTO.test(corrige) ? corrige : null;
+  // Mesma disciplina da origem (WR-07): a promessa nasce aqui com o `catch` preso, e uma falha vira “não
+  // achei” — nunca um carrinho montado com dado desconhecido.
+  const documentoParaCorrecaoPromessa: Promise<DocumentoParaCorrecao | null> = correcaoId
+    ? obterDocumentoParaCorrecao(correcaoId).catch((erro: unknown) => {
+        console.error("Falha ao ler a original para a correção:", erro);
+        return null;
+      })
+    : Promise.resolve(null);
+
+  const origemDaVenda = abaVenda && !pediuCorrecao ? origemDaUrl(origem) : null;
+  const pediuOrigem = abaVenda && !pediuCorrecao && origem !== undefined && origem !== "";
   const moduloPedido = origemDaVenda
     ? ehOrigemDaAgenda(origemDaVenda)
       ? "agenda"
@@ -253,10 +307,13 @@ export default async function PaginaFinanceiro({
     saldosParaEfeito,
     configuracao,
     movimentos,
-    parcelasEmAberto,
+    gruposPagosAntes,
     contasEmAberto,
+    mesesJaGerados,
+    existeContaFixaAtiva,
     documentoDoAviso,
     parcelaDoAviso,
+    correcaoDoAviso,
     documentosDoMes,
     parcelasPagasNoMes,
     orcamentos,
@@ -280,20 +337,32 @@ export default async function PaginaFinanceiro({
     // a taxa do cartão e a data do saldo inicial para o aviso do cartão e a conferência das
     // parcelas.
     abaVenda || abaDespesa || abaCaixa ? obterConfiguracaoFinanceira() : Promise.resolve(null),
-    abaCaixa ? listarMovimentos() : Promise.resolve([]),
-    abaCaixa ? listarParcelasEmAberto() : Promise.resolve([]),
+    // D-27 (06.5-12): linha a linha só do 1º dia do mês que o extrato mostra em diante; o que foi
+    // pago antes chega SOMADO e vira saldo de partida (`saldoAntesDaJanela`, logo abaixo). O saldo
+    // de cada linha continua global por construção — nada mais lê o histórico pago inteiro.
+    abaCaixa ? listarMovimentos({ desde: primeiroDiaDoMes(mesAtual) }) : Promise.resolve([]),
+    abaCaixa ? somarMovimentosAntesDe(primeiroDiaDoMes(mesAtual)) : Promise.resolve([]),
     abaCaixa ? listarContasEmAberto() : Promise.resolve([]),
+    // D-03 / UI-D8 (06.5-12): o aviso do mês da janela sem contas fixas geradas — só na aba Caixa.
+    abaCaixa ? mesesComContasFixasGeradas(mesesDaJanelaDoCaixa) : Promise.resolve([]),
+    abaCaixa ? haContaFixaAtiva() : Promise.resolve(false),
     avisoResolvido && (avisoResolvido.tipo === "lancado" || avisoResolvido.tipo === "cancelado")
       ? obterDocumentoParaAviso(avisoResolvido.documentoId)
       : Promise.resolve(null),
     avisoResolvido && (avisoResolvido.tipo === "pago" || avisoResolvido.tipo === "desfeito")
       ? obterParcelaParaAviso(avisoResolvido.parcelaId)
       : Promise.resolve(null),
+    // A correção lançada (06.5-17): o número da original vem do vínculo, nunca da URL.
+    avisoResolvido?.tipo === "corrigido"
+      ? obterCorrecaoParaAviso(avisoResolvido.documentoId)
+      : Promise.resolve(null),
     abaMes ? listarDocumentosDoMes(mesAtual) : Promise.resolve([]),
     abaMes ? listarParcelasPagasNoMes(mesAtual) : Promise.resolve([]),
     // Fase 04.5 — Tarefa 4: só carrega quando a aba Orçamentos está ativa (a lista), mesma
     // disciplina das demais listas acima.
-    abaOrcamentos && !orcamentoIdParaEditor ? listarOrcamentos() : Promise.resolve([]),
+    abaOrcamentos && !orcamentoIdParaEditor && !orcamentoNovo
+      ? listarOrcamentos()
+      : Promise.resolve([]),
     // 04.5-06-PLAN.md — o editor: o orçamento e as linhas com a ficha de cada uma.
     orcamentoIdParaEditor ? obterOrcamentoParaEdicao(orcamentoIdParaEditor) : Promise.resolve(null),
     // "Atualizar preços" (04.5-09-PLAN.md) — o histórico de revisões, para o painel "Só para
@@ -319,6 +388,49 @@ export default async function PaginaFinanceiro({
     abaDespesa ? carregarFornecedoresParaDespesa() : Promise.resolve(null),
   ]);
   const vendaDaOrigem = await vendaDaOrigemPromessa;
+
+  // A correção, decidida AQUI (servidor): não achada (ou de outro tipo), cancelada (inclusive já
+  // corrigida) ou de uma origem que não se corrige por aqui (UI-D10) → a frase no lugar do carrinho; senão
+  // a Venda/Despesa preenchida pelo `rascunhoDaCorrecao` (puro), com a versão de `obterDocumentoParaCorrecao`.
+  const documentoParaCorrecao = await documentoParaCorrecaoPromessa;
+  let fraseCorrecaoIndisponivel: string | null = null;
+  let correcaoNoPainel: CorrecaoNoPainel | null = null;
+  let rascunhoDaCorrecaoNoPainel: RascunhoDaCorrecao | null = null;
+  // Na Despesa, o fornecedor da original: ligado (o id) quando ainda está entre os ativos desta página; senão
+  // `null`, e o nome entra como texto livre (o campo diz que não liga a ninguém) — `lancarDespesa` reconfere o
+  // fornecedor sob trava de qualquer jeito (T-06.5-53).
+  let fornecedorDaCorrecao: string | null = null;
+  if (pediuCorrecao && tipoDaCorrecao !== null) {
+    if (!documentoParaCorrecao || documentoParaCorrecao.tipo !== tipoDaCorrecao) {
+      fraseCorrecaoIndisponivel = fraseCorrecaoNaoAchada(tipoDaCorrecao);
+    } else if (documentoParaCorrecao.cancelado) {
+      fraseCorrecaoIndisponivel = fraseCorrecaoDeCancelada(tipoDaCorrecao, documentoParaCorrecao.numero);
+    } else if (documentoParaCorrecao.origem !== null) {
+      fraseCorrecaoIndisponivel = fraseSemCorrecaoPorOrigem(
+        tipoDaCorrecao,
+        documentoParaCorrecao.origem,
+        documentoParaCorrecao.numeroDoOrcamento,
+      );
+    } else {
+      // “Ativo” = está na lista que a tela oferece: a da Venda ou a da Compra (material ativo com estoque).
+      rascunhoDaCorrecaoNoPainel = rascunhoDaCorrecao(
+        documentoParaCorrecao,
+        new Set((tipoDaCorrecao === "venda" ? catalogo : catalogoDaCompra).map((item) => item.id)),
+      );
+      correcaoNoPainel = {
+        documentoId: documentoParaCorrecao.id,
+        numero: documentoParaCorrecao.numero,
+        versao: documentoParaCorrecao.versao,
+        comEstoque: documentoParaCorrecao.comEstoque,
+        deFora: rascunhoDaCorrecaoNoPainel.deFora,
+      };
+      const fornecedorId = documentoParaCorrecao.fornecedorId;
+      fornecedorDaCorrecao =
+        fornecedorId !== null && (fornecedoresParaDespesa ?? []).some((fornecedor) => fornecedor.id === fornecedorId)
+          ? fornecedorId
+          : null;
+    }
+  }
   // UM objeto para o painel, montado pelo módulo da origem — o `PainelVenda` só olha `modulo`.
   const origemNoPainel: OrigemNoPainel | null =
     vendaDaOrigem && origemDaVenda && vendaDaOrigem.venda.situacao === "livre"
@@ -385,6 +497,13 @@ export default async function PaginaFinanceiro({
             formatarReais(documentoDoAviso.totalCentavos),
             documentoDoAviso.parcelasEmAberto,
           )
+      : avisoResolvido?.tipo === "corrigido" && correcaoDoAviso
+        ? textoCorrecaoLancada(
+            correcaoDoAviso.tipo,
+            correcaoDoAviso.numeroOriginal,
+            correcaoDoAviso.numero,
+            formatarReais(correcaoDoAviso.totalCentavos),
+          )
       : avisoResolvido?.tipo === "cancelado" && documentoDoAviso
         ? textoCancelado(documentoDoAviso.numero)
         : avisoResolvido?.tipo === "pago" && pagamentoAindaValido && parcelaDoAviso
@@ -422,7 +541,9 @@ export default async function PaginaFinanceiro({
                                 orcamentoParaEditar.documentoNumero,
                                 orcamentoParaEditar.encomendaId !== null,
                               )
-                            : null;
+                            : avisoResolvido?.tipo === "contas-geradas"
+                              ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes))
+                              : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.
   const desfazerDoAviso =
@@ -430,11 +551,30 @@ export default async function PaginaFinanceiro({
 
   // O tile "Saldo em caixa" e o extrato saem da MESMA função (`montarExtrato`) sobre a MESMA
   // lista de movimentos lida acima — é isso que torna "o tile bate com o saldo depois do
-  // movimento mais recente" verdadeiro por construção (critério 7 do ROADMAP).
-  const extrato = abaCaixa && configuracao ? montarExtrato(movimentos, configuracao.saldoInicialCentavos) : null;
+  // movimento mais recente" verdadeiro por construção (critério 7 do ROADMAP). D-27 (06.5-12): a
+  // lista começa no 1º dia do mês do extrato, e o saldo de partida é o inicial MAIS o que as pagas
+  // de antes deixaram — o mesmo saldo por linha e o mesmo saldo atual de montar o histórico inteiro
+  // (teste de equivalência em `tests/unit/financeiro-extrato.test.ts`).
+  const extrato =
+    abaCaixa && configuracao
+      ? montarExtrato(movimentos, configuracao.saldoInicialCentavos + saldoAntesDaJanela(gruposPagosAntes))
+      : null;
+  // D-03 / UI-D7 (06.5-12): "A pagar", "A receber" e os três tiles que somam o futuro falam das
+  // vencidas e das que vencem até hoje + 30 dias — `hoje` é o do servidor (`hojeEmBrasilia`). As
+  // de depois ficam a um toque no fim de cada lista e NÃO entram nos tiles; o "Saldo em caixa" não
+  // muda. A mesma lista (`listarContasEmAberto`) alimenta as listas e os tiles.
+  const janelaAte = formatarDiaMes(janela.ate);
+  const contasPelaJanela = separarPelaJanela(contasEmAberto, janela);
   const resumo = extrato
-    ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: parcelasEmAberto })
+    ? resumoDoCaixa({ saldoAtualCentavos: extrato.saldoAtualCentavos, abertas: contasPelaJanela.daJanela })
     : null;
+  const mesesParaAvisar = abaCaixa
+    ? mesesSemContasFixas({
+        meses: mesesDaJanelaDoCaixa,
+        gerados: mesesJaGerados,
+        haContaFixaAtiva: existeContaFixaAtiva,
+      })
+    : [];
 
   // D-11/D-12: `filtrarExtrato` recebe as linhas JÁ com o saldo global de `montarExtrato` — só
   // escolhe quais mostrar (mês + forma), nunca recalcula saldo.
@@ -491,9 +631,23 @@ export default async function PaginaFinanceiro({
 
       {abaCaixa ? (
         <div className="flex flex-col gap-6 px-6 py-6 md:px-8">
-          {resumo ? <TilesCaixa resumo={resumo} /> : null}
+          {resumo ? <TilesCaixa resumo={resumo} janelaAte={janelaAte} /> : null}
+          {mesesParaAvisar.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {mesesParaAvisar.map((mesSemContas) => (
+                <AvisoContasFixas
+                  key={mesSemContas}
+                  mes={mesSemContas}
+                  mesPorExtenso={nomeDoMes(mesSemContas)}
+                  nomeDoMes={nomeDoMesSemAno(mesSemContas)}
+                />
+              ))}
+            </div>
+          ) : null}
           <ListasCaixa
-            contas={contasEmAberto}
+            contas={contasPelaJanela.daJanela}
+            contasDepois={contasPelaJanela.depois}
+            janelaAte={janelaAte}
             documentos={documentosParaDetalhe}
             hoje={hoje}
             documentoParaAbrirId={documentoParaAbrirId}
@@ -518,8 +672,16 @@ export default async function PaginaFinanceiro({
           hrefMesAnterior={hrefMesAnteriorDaTela}
           hrefMesSeguinte={hrefMesSeguinteDaTela}
         />
+      ) : abaDespesa && fraseCorrecaoIndisponivel ? (
+        <CorrecaoIndisponivel frase={fraseCorrecaoIndisponivel} />
       ) : abaDespesa ? (
         <PainelDespesa
+          // A `key` separa a Despesa comum da Despesa da correção: o painel monta de novo e começa do lugar
+          // certo, nunca do estado da tela anterior.
+          key={correcaoNoPainel ? `corrige-${correcaoNoPainel.documentoId}` : "comum"}
+          correcao={correcaoNoPainel}
+          rascunhoInicial={correcaoNoPainel ? rascunhoDaCorrecaoNoPainel : null}
+          fornecedorIdInicial={fornecedorDaCorrecao}
           hoje={hoje}
           categoriasParaDespesa={categoriasParaDespesa}
           catalogoDaCompra={catalogoDaCompra}
@@ -532,7 +694,9 @@ export default async function PaginaFinanceiro({
           }}
         />
       ) : abaOrcamentos ? (
-        orcamentoIdParaEditor ? (
+        orcamentoNovo ? (
+          <OrcamentoNovo />
+        ) : orcamentoIdParaEditor ? (
           // O editor de um orçamento (04.5-06-PLAN.md). Sem o orçamento (id inexistente, ou
           // apagado por outra aba entre a navegação e o carregamento): estado de erro nomeando o
           // que aconteceu, com o caminho de volta — nunca uma tela em branco.
@@ -599,6 +763,8 @@ export default async function PaginaFinanceiro({
             </p>
           ) : null}
         </>
+      ) : fraseCorrecaoIndisponivel ? (
+        <CorrecaoIndisponivel frase={fraseCorrecaoIndisponivel} />
       ) : origemIndisponivel ? (
         <OrigemIndisponivel
           modulo={origemIndisponivel.modulo}
@@ -609,7 +775,13 @@ export default async function PaginaFinanceiro({
         <PainelVenda
           // A `key` separa a Venda manual da Venda de uma origem (e uma origem da outra): o painel monta de
           // novo e começa do carrinho certo, nunca do estado da tela anterior.
-          key={origemNoPainel ? origemNoPainel.origem : "manual"}
+          key={
+            correcaoNoPainel
+              ? `corrige-${correcaoNoPainel.documentoId}`
+              : origemNoPainel
+                ? origemNoPainel.origem
+                : "manual"
+          }
           hoje={hoje}
           categorias={categoriasParaValorLivre}
           catalogo={catalogo}
@@ -619,8 +791,11 @@ export default async function PaginaFinanceiro({
             taxaCartaoPontosBase: configuracao?.taxaCartaoPontosBase ?? 0,
             dataSaldoInicial: configuracao?.dataSaldoInicial ?? null,
           }}
-          origem={origemNoPainel}
-          rascunhoInicial={origemNoPainel ? rascunhoDaOrigem : null}
+          origem={correcaoNoPainel ? null : origemNoPainel}
+          rascunhoInicial={
+            correcaoNoPainel ? rascunhoDaCorrecaoNoPainel : origemNoPainel ? rascunhoDaOrigem : null
+          }
+          correcao={correcaoNoPainel}
         />
       )}
     </>

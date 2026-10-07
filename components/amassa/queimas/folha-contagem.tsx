@@ -72,14 +72,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { ConfirmarApagarContagem } from "./confirmar-apagar-contagem";
 import { ContadorTamanho } from "./contador-tamanho";
@@ -149,7 +143,7 @@ function dentroDoAviso(alvo: EventTarget | null): boolean {
 }
 
 // A folha "O que queimou?" (06.4-UI-SPEC.md §"A folha"; QMC-01/QMC-03): tela toda no celular,
-// diálogo `max-w-lg` a partir de 768 px (`CLASSE_DA_FOLHA`), com o pé a 104 px da janela no
+// diálogo `max-w-lg` a partir de 768 px (a `Folha` comum), com o pé a 104 px da janela no
 // computador (o `max-h` do `DialogContent`, 104 px acima e abaixo) para o aviso caber embaixo (UI-D12). Seis contadores
 // com a faixa da régua VIGENTE e "O forno saiu cheio" (marcado por padrão; não existe em ouro — D-02,
 // UI-D8 — e a contagem de ouro grava `saiu_cheio = true`); "Pular" fecha sem gravar; "Salvar" grava
@@ -492,9 +486,10 @@ function FolhaAberta({
         }
       }}
     >
-      <DialogContent
+      {/* O cabeçalho continua à mão: a contagem não tem o "X" do `FolhaCabecalho` (fecha pelo "Pular"
+          ou "Fechar sem salvar") e empilha título (com testid), subtítulo e a frase da régua. */}
+      <Folha
         ref={conteudo}
-        showCloseButton={false}
         data-folha-contagem=""
         data-testid="folha-contagem"
         data-queima-id={queima.id}
@@ -511,7 +506,7 @@ function FolhaAberta({
         }}
         onInteractOutside={tratarToqueFora}
         onPointerDownOutside={tratarToqueFora}
-        className={cn(CLASSE_DA_FOLHA, "md:max-h-[calc(100svh-208px)]")}
+        className="md:max-h-[calc(100svh-208px)]"
       >
         <DialogHeader className="border-border flex flex-col gap-1 border-b px-6 py-4 text-left">
           <DialogTitle data-testid="contagem-titulo" className="text-titulo text-tinta">
@@ -529,7 +524,7 @@ function FolhaAberta({
           </p>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+        <FolhaCorpo>
           {chips.length > 0 ? (
             <div className="flex flex-col gap-2" data-testid="contagem-chips">
               <p className="text-apoio text-tinta-media">{ROTULO_CHIPS}</p>
@@ -658,9 +653,11 @@ function FolhaAberta({
               <span className="text-apoio text-tinta-fraca">{DICA_SAIU_CHEIO}</span>
             </label>
           )}
-        </div>
+        </FolhaCorpo>
 
-        <div className="border-border bg-popover flex flex-wrap items-center gap-2 border-t px-6 py-4">
+        {/* O pé da contagem é uma fileira (resumo à esquerda, botões à direita) com `gap-2`; o erro
+            segue como filho, com `basis-full`. */}
+        <FolhaRodape className="flex-row flex-wrap items-center gap-2">
           {erro !== null ? (
             <p
               role="alert"
@@ -701,8 +698,8 @@ function FolhaAberta({
               {salvando ? ROTULO_SALVANDO : ROTULO_SALVAR}
             </Button>
           </div>
-        </div>
-      </DialogContent>
+        </FolhaRodape>
+      </Folha>
       {esperada !== null ? (
         <ConfirmarApagarContagem
           queimaId={queima.id}

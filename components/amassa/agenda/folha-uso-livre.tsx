@@ -48,10 +48,10 @@ import { formatarReais } from "@/lib/financeiro/formato";
 import { hrefDaVendaComOrigem } from "@/lib/financeiro/navegacao";
 import { formatarDiaMes } from "@/lib/producao/calendario";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { TagDePagamento, TagDoUsoLivre } from "./cartao-evento";
 import { CLASSE_DO_CAMPO_DA_AGENDA } from "./campos-turma";
@@ -129,13 +129,11 @@ export function FolhaUsoLivre({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-uso-livre"
         data-uso-id={uso?.id}
         data-estado={carregado?.estado}
         onOpenAutoFocus={(evento) => evento.preventDefault()}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <div className="flex min-w-0 flex-col gap-1">
@@ -169,7 +167,7 @@ export function FolhaUsoLivre({
 
         {carregado === null ? (
           <>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+            <FolhaCorpo>
               {erroAoCarregar ? (
                 <div className="flex flex-col items-start gap-3" data-testid="folha-uso-livre-erro">
                   <p role="alert" className="text-corpo text-erro">
@@ -191,8 +189,8 @@ export function FolhaUsoLivre({
                   ))}
                 </div>
               )}
-            </div>
-            <div className="border-border bg-popover flex flex-wrap justify-end gap-2 border-t px-6 py-4">
+            </FolhaCorpo>
+            <FolhaRodape className="flex-row flex-wrap justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -201,7 +199,7 @@ export function FolhaUsoLivre({
               >
                 {ROTULO_VOLTAR_A_AGENDA}
               </Button>
-            </div>
+            </FolhaRodape>
           </>
         ) : carregado.estado === "reservado" ? (
           <Reservado
@@ -213,7 +211,7 @@ export function FolhaUsoLivre({
         ) : (
           <UsoIniciado key={`${carregado.id}-${carregado.estado}`} uso={carregado} agora={agora} aoFechar={aoFechar} />
         )}
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }
@@ -305,7 +303,7 @@ function Reservado({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+      <FolhaCorpo>
         <div className="flex flex-col" data-testid="uso-conta">
           <LinhaDaConta rotulo={ROTULO_CONTA_PESSOAS} valor={String(uso.pessoas)} />
         </div>
@@ -322,8 +320,8 @@ function Reservado({
           }}
         />
         <p className="text-apoio text-tinta-fraca">{DICA_RESERVADO}</p>
-      </div>
-      <div className="border-border bg-popover flex flex-wrap items-start justify-between gap-2 border-t px-6 py-4">
+      </FolhaCorpo>
+      <FolhaRodape className="flex-row flex-wrap items-start justify-between gap-2">
         <ConfirmarCancelarReserva
           usoLivreId={uso.id}
           nome={uso.titulo}
@@ -343,7 +341,7 @@ function Reservado({
         >
           {enviando ? ROTULO_MARCANDO : ROTULO_CHEGOU}
         </Button>
-      </div>
+      </FolhaRodape>
     </>
   );
 }
@@ -473,7 +471,7 @@ function UsoIniciado({
       (cobranca.situacao === "a_receber" || cobranca.situacao === "venda_cancelada");
     return (
       <>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+        <FolhaCorpo>
           <div className="flex flex-col" data-testid="uso-conta">
             <LinhaDaConta rotulo={ROTULO_CONTA_PESSOAS} valor={String(uso.pessoas)} />
             <LinhaDaConta
@@ -507,8 +505,8 @@ function UsoIniciado({
             editavel={false}
             desabilitado
           />
-        </div>
-        <div className="border-border bg-popover flex flex-wrap justify-end gap-2 border-t px-6 py-4">
+        </FolhaCorpo>
+        <FolhaRodape className="flex-row flex-wrap justify-end gap-2">
           <Button
             type="button"
             variant="outline"
@@ -539,7 +537,7 @@ function UsoIniciado({
               </Link>
             </Button>
           ) : null}
-        </div>
+        </FolhaRodape>
         {recebendo && cobranca !== null ? (
           <FolhaRecebiAgora
             cobranca={{
@@ -579,7 +577,7 @@ function UsoIniciado({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+      <FolhaCorpo>
         <div className="flex flex-col" data-testid="uso-conta" aria-live="polite">
           <LinhaDaConta rotulo={ROTULO_CONTA_PESSOAS} valor={String(uso.pessoas)} />
           <LinhaDaConta
@@ -648,13 +646,8 @@ function UsoIniciado({
             <span>{FRASE_SEM_PRECO_DA_HORA}</span>
           </div>
         ) : null}
-      </div>
-      <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-        {erroGeral ? (
-          <p role="alert" data-testid="uso-erro" className="text-apoio text-erro">
-            {erroGeral}
-          </p>
-        ) : null}
+      </FolhaCorpo>
+      <FolhaRodape erro={erroGeral} dataTestIdErro="uso-erro">
         <div className="flex flex-wrap items-start justify-end gap-2">
           <Button
             type="button"
@@ -668,7 +661,7 @@ function UsoIniciado({
             {encerrando ? ROTULO_ENCERRANDO : ROTULO_ENCERRAR_E_COBRAR}
           </Button>
         </div>
-      </div>
+      </FolhaRodape>
     </>
   );
 }

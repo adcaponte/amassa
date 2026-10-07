@@ -39,7 +39,7 @@ export const FRASE_NINGUEM_INSCRITO = "Ninguém inscrito ainda.";
 export const DICA_FIM_TURMA =
   "Turma fixa: o pagamento é a mensalidade do mês (aparece ao lado do nome). Quem vem repor não paga de novo. Aula experimental é cobrada ou não na hora de colocar a pessoa.";
 export const DICA_FIM_OFICINA =
-  "Oficina avulsa: cada inscrição é paga à parte — o que falta aparece em “A receber”.";
+  "Oficina avulsa: cada inscrição é paga à parte — o que falta aparece em “Receber”.";
 
 // Presença — o segmentado "Veio · Faltou".
 export const ROTULO_VEIO = "Veio";
@@ -185,9 +185,9 @@ export function corpoConfirmarCancelarTurma(presencas: number): string {
 export function corpoConfirmarCancelarOficina(inscricoesAReceber: number, presencas: number): string {
   const partes = ["A data fica riscada e sai do site."];
   if (inscricoesAReceber === 1) {
-    partes.push("1 inscrição ainda não lançada sai de “A receber”.");
+    partes.push("1 inscrição ainda não lançada sai de “Receber”.");
   } else if (inscricoesAReceber > 1) {
-    partes.push(`${inscricoesAReceber} inscrições ainda não lançadas saem de “A receber”.`);
+    partes.push(`${inscricoesAReceber} inscrições ainda não lançadas saem de “Receber”.`);
   }
   if (presencas > 0) {
     partes.push(`${frasePresencasPerdidas(presencas)} Desfazer o cancelamento não as devolve.`);
@@ -250,7 +250,7 @@ export const FRASE_MES_VAZIO = "Nada marcado neste mês.";
 export const ARIA_PARTES_DA_AGENDA = "Partes da Agenda";
 export const ROTULO_ABA_AGENDA = "Agenda";
 export const ROTULO_ABA_PESSOAS = "Pessoas";
-export const ROTULO_ABA_RECEBER = "A receber";
+export const ROTULO_ABA_RECEBER = "Receber";
 export const ROTULO_ABA_NUMEROS = "Números";
 export const ROTULO_ABA_SITE = "No site";
 
@@ -260,7 +260,8 @@ export const DICA_NO_SITE =
 export const FRASE_NO_SITE_VAZIO =
   "Nenhuma aula ou oficina pública de hoje em diante — o site mostra o texto abaixo, sem calendário. Marque “Mostrar no calendário público do site” ao lançar para ela aparecer.";
 
-// "A receber" sem contador com 0; " · {N}" com 1 ou mais (UI E15·zero-one-many).
+// "Receber" sem contador com 0; " · {N}" com 1 ou mais (UI E15·zero-one-many). Até 05/10/2026 era
+// "A receber" — "A receber · 9" não cabia numa linha a 375 px (D-12, Fase 06.5).
 export function rotuloDaAbaReceber(quantos: number): string {
   return quantos > 0 ? `${ROTULO_ABA_RECEBER} · ${quantos}` : ROTULO_ABA_RECEBER;
 }
@@ -334,7 +335,6 @@ export function rotuloDoGrupoDoSeletor(tipoDoEvento: "turma" | "avulsa" | "fecha
 
 export const FRASE_DIGITE_PARA_BUSCAR = "Digite para buscar.";
 export const FRASE_NINGUEM_CADASTRADO_NO_SELETOR = "Ninguém cadastrado ainda. Digite o nome para cadastrar.";
-export const FRASE_NINGUEM_COM_ESSE_NOME = "Ninguém com esse nome.";
 // Backstop E8·overflow (decisão do plano 05): a última linha de um grupo que passou do teto.
 export const FRASE_HA_MAIS_PESSOAS = "Há mais pessoas com esse nome — continue digitando.";
 export const FRASE_ERRO_CARREGAR_PESSOAS =
@@ -347,13 +347,13 @@ export function rotuloCadastrarTexto(texto: string): string {
 // Colocar alguém numa oficina (AGE-10, AGE-12): a faixa de confirmação, o botão e o aviso de lista
 // cheia (UI-D16 — âmbar, nunca vermelho: avisa e não bloqueia).
 export function faixaInscricaoNaOficina(nome: string, valor: string): string {
-  return `${nome} entra como inscrição de ${valor} — vai para “A receber”.`;
+  return `${nome} entra como inscrição de ${valor} — vai para “Receber”.`;
 }
 
 export const ROTULO_COLOCAR_NA_LISTA = "Colocar na lista";
 export const ROTULO_COLOCANDO = "Colocando…";
 export const AVISO_LISTA_CHEIA = "A lista já está cheia — dá para colocar mesmo assim, é só um aviso.";
-export const TOAST_INSCRITO_NA_OFICINA = "Inscrito. A inscrição foi para “A receber”.";
+export const TOAST_INSCRITO_NA_OFICINA = "Inscrito. A inscrição foi para “Receber”.";
 export const FRASE_FALHA_AO_COLOCAR = "Não deu para colocar na lista. Verifique a internet e tente de novo.";
 
 export function fraseJaEstaNaLista(nome: string): string {
@@ -365,7 +365,7 @@ export const ROTULO_TIRAR_DA_LISTA_LINK = "tirar da lista";
 export const ROTULO_TIRAR_DA_LISTA = "Tirar da lista";
 export const ROTULO_TIRANDO_DA_LISTA = "Tirando…";
 export const ROTULO_MANTER_NA_LISTA = "Manter na lista";
-export const CORPO_TIRAR_INSCRICAO_DA_LISTA = "A inscrição sai desta data e de “A receber”.";
+export const CORPO_TIRAR_INSCRICAO_DA_LISTA = "A inscrição sai desta data e de “Receber”.";
 export const FRASE_FALHA_AO_TIRAR_DA_LISTA =
   "Não deu para tirar da lista. Verifique a internet e tente de novo.";
 // IN-02 da revisão A: recusas de REGRA, não de rede — dizem o que fazer, nunca "verifique a internet".
@@ -572,7 +572,7 @@ export function corpoConfirmarDesativarTurma(perdas: {
     junto.length === 0
       ? ""
       : ` ${junto.length === 1 ? junto[0] : `${junto.slice(0, -1).join(", ")} e ${junto[junto.length - 1]}`}.`;
-  return `${datasQueSaem}${alemDisso} O que já aconteceu fica, e as mensalidades já nascidas continuam em “A receber”. Não dá para reativar.`;
+  return `${datasQueSaem}${alemDisso} O que já aconteceu fica, e as mensalidades já nascidas continuam em “Receber”. Não dá para reativar.`;
 }
 
 // WR-03 (revisão B): idem, na confirmação de "Cancelar esta data".
@@ -670,7 +670,7 @@ export function corpoConfirmarSairDaTurma(aulas: number, mes: string, mensalidad
         ? "Sai da aula daqui para frente."
         : `Sai das ${aulas} aulas daqui para frente.`;
   const resto = mensalidadeAReceber
-    ? ` O que já aconteceu fica, e a mensalidade de ${mes} continua em “A receber” — dispense lá se não for cobrar.`
+    ? ` O que já aconteceu fica, e a mensalidade de ${mes} continua em “Receber” — dispense lá se não for cobrar.`
     : " O que já aconteceu fica.";
   return `${aulasQueSaem}${resto}`;
 }
@@ -695,6 +695,14 @@ export const FRASE_FALHA_AO_SAIR_DA_TURMA = "Não deu para tirar da turma. Verif
 // pessoa", §Copywriting "Erros"). Plural de verdade: "1 aula a repor" / "2 aulas a repor"; a tag curta
 // "{n} a repor" não tem substantivo, então serve a qualquer n.
 export const TAG_MARCAR_PRESENCA = "marcar presença";
+
+// D-05 (Fase 06.5, 06.5-UI-SPEC.md §Copywriting "Agenda — presença antes do dia"; UI-D13): acima do
+// "Veio · Faltou" de uma data DEPOIS de hoje, uma vez por data. Avisa e deixa — o segmentado continua
+// habilitado. `diaCurto` = "qui, 07/10".
+export function fraseDataAindaNaoChegou(diaCurto: string): string {
+  return `Esta data ainda não chegou (${diaCurto}). Dá para marcar a presença, mas confira se é a data certa.`;
+}
+
 export const ROTULO_DIREITO_A_REPOR = "tem direito a repor esta aula";
 export const TAG_REPOE = "repõe";
 export const ROTULO_QUADRO_A_REPOR = "A REPOR";
@@ -772,7 +780,7 @@ export const TOAST_ENTROU_EXPERIMENTAL =
   "Entrou só nesta data (experimental). Para virar aluno fixo, é pela ficha da pessoa.";
 
 export function complementoToastExperimentalCobrada(valor: string): string {
-  return ` A aula de ${valor} foi para “A receber”.`;
+  return ` A aula de ${valor} foi para “Receber”.`;
 }
 
 // Tirar uma experimental gratuita: não há cobrança a perder.
@@ -1024,7 +1032,7 @@ export const FRASE_FALHA_AO_RECEBER =
   "Não deu para registrar. Nenhuma venda foi criada — verifique a internet e tente de novo.";
 // Sem frase própria na UI-SPEC: a cobrança sumiu (pessoa tirada da lista, data cancelada) ou foi
 // dispensada em outro celular entre abrir a lista e tocar a forma.
-export const FRASE_COBRANCA_SUMIU = "Este item não está mais em “A receber” — a tela foi atualizada.";
+export const FRASE_COBRANCA_SUMIU = "Este item não está mais em “Receber” — a tela foi atualizada.";
 export const FRASE_COBRANCA_DISPENSADA = "Esta cobrança foi dispensada — a tela foi atualizada.";
 // Decisão do dono no chat, 02/10/2026 (VERIFICACAO-COWORK-05 §2 item 2): o uso livre só se dispensa com a
 // venda cancelada. A recusa ao uso livre ainda sem venda diz o que fazer no lugar.
@@ -1107,11 +1115,11 @@ export function tituloConfirmarDispensar(tipo: "mensalidade" | "inscricao" | "us
   return `Dispensar ${oQue} de ${nome}?`;
 }
 export const CORPO_CONFIRMAR_DISPENSAR =
-  "Ela sai de “A receber” e não vira venda. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
+  "Ela sai de “Receber” e não vira venda. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
 // O uso livre só se dispensa com a venda cancelada (decisão do dono no chat, 02/10/2026) — o corpo diz que
 // a venda cancelada continua no Caixa, intocada.
 export const CORPO_CONFIRMAR_DISPENSAR_USO_LIVRE =
-  "A cobrança sai de “A receber”. A venda cancelada continua no Caixa, como está. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
+  "A cobrança sai de “Receber”. A venda cancelada continua no Caixa, como está. Fica registrado quem dispensou e quando, e dá para desfazer em “Dispensadas”, no fim da lista.";
 export function corpoConfirmarDispensar(tipo: "mensalidade" | "inscricao" | "uso_livre"): string {
   return tipo === "uso_livre" ? CORPO_CONFIRMAR_DISPENSAR_USO_LIVRE : CORPO_CONFIRMAR_DISPENSAR;
 }
@@ -1121,7 +1129,7 @@ export const PLACEHOLDER_MOTIVO_DISPENSA = "ex.: bolsa, saiu da turma no começo
 export const FRASE_MOTIVO_DISPENSA_LONGO = "O motivo pode ter até 200 caracteres.";
 export const ROTULO_DISPENSANDO = "Dispensando…";
 export const TOAST_DISPENSADA = "Dispensada. Ela não vai virar venda.";
-export const TOAST_DISPENSA_DESFEITA = "Voltou para “A receber”.";
+export const TOAST_DISPENSA_DESFEITA = "Voltou para “Receber”.";
 // A frase genérica de erro (§Erros, última linha), DENTRO da confirmação, que continua aberta.
 export const FRASE_FALHA_AO_DISPENSAR = "Não deu para dispensar. Verifique a internet e tente de novo.";
 // Decisão E29: o “Desfazer” do toast que falha diz onde desfazer de novo.

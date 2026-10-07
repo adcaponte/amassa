@@ -13,7 +13,6 @@ import {
   FRASE_ERRO_CARREGAR_PESSOAS,
   FRASE_HA_MAIS_PESSOAS,
   FRASE_NINGUEM_CADASTRADO_NO_SELETOR,
-  FRASE_NINGUEM_COM_ESSE_NOME,
   PLACEHOLDER_BUSCAR_PELO_NOME,
   ROTULO_TENTAR_DE_NOVO,
   rotuloCadastrarTexto,
@@ -24,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormularioCliente } from "@/components/amassa/clientes/formulario-cliente";
+import { BuscaVazia } from "@/components/amassa/busca-vazia";
 
 // A espera depois da última tecla antes de buscar (a mesma da busca de Pessoas).
 const ESPERA_DA_BUSCA_MS = 300;
@@ -246,15 +246,15 @@ export function SeletorPessoa({
       );
     }
     const { grupos, ninguemCadastrado } = estado.dados;
-    let mensagem: string | null = null;
-    if (estado.busca === "") {
-      mensagem = ninguemCadastrado ? FRASE_NINGUEM_CADASTRADO_NO_SELETOR : FRASE_DIGITE_PARA_BUSCAR;
-    } else if (grupos.length === 0) {
-      mensagem = FRASE_NINGUEM_COM_ESSE_NOME;
+    if (estado.busca !== "" && grupos.length === 0) {
+      // A busca não achou ninguém: o termo e a regra da busca (D-17). O "Cadastrar “…”" continua
+      // logo abaixo, na lista.
+      return <BuscaVazia termo={estado.busca} className="px-3 py-2" />;
     }
-    if (mensagem === null) {
+    if (estado.busca !== "") {
       return null;
     }
+    const mensagem = ninguemCadastrado ? FRASE_NINGUEM_CADASTRADO_NO_SELETOR : FRASE_DIGITE_PARA_BUSCAR;
     return (
       <p className="text-apoio text-tinta-fraca px-3 py-2" data-testid="seletor-mensagem">
         {mensagem}

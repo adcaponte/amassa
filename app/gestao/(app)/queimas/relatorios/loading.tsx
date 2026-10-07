@@ -26,7 +26,11 @@ export default function CarregandoRelatoriosDeQueimas() {
           ))}
         </div>
 
-        <Skeleton className="h-72 w-full rounded-xl" />
+        {/* Fase 06.5: a legenda do gráfico por tipo virou HTML acima do contêiner que rola. */}
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-72 w-full rounded-xl" />
+        </div>
         <Skeleton className="h-40 w-full rounded-xl" />
       </div>
     </div>

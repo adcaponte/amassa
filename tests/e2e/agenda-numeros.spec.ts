@@ -4,6 +4,7 @@ import { DIAS_DAS_BARRAS } from "@/lib/agenda/numeros";
 import { segundaDaSemana } from "@/lib/agenda/semana";
 import { diasEntre } from "@/lib/producao/calendario";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import {
   agoraNoAtelie,
   marcarFaltaComDireitoNoBanco,
@@ -190,11 +191,7 @@ test.describe.serial("agenda numeros @vazio-historico", () => {
 
     const caixas = await Promise.all(
       ["uso", "presenca", "repor", "pessoas"].map(async (quadro) => {
-        const caixa = await page.getByTestId(`numeros-quadro-${quadro}`).boundingBox();
-        if (!caixa) {
-          throw new Error(`O quadro ${quadro} não está na tela.`);
-        }
-        return caixa;
+        return medirCaixa(page.getByTestId(`numeros-quadro-${quadro}`), `o quadro ${quadro}`);
       }),
     );
     // 2 × 2: o 1º e o 2º na mesma fileira, o 3º e o 4º embaixo.

@@ -14,12 +14,14 @@ import {
   ROTULO_FILTRO_TODAS,
   ROTULO_FORMA,
   ROTULO_VER,
+  rotuloVerLinhaDoExtrato,
   textoParcelaDoExtrato,
   textoTotalDoMes,
   textoTotalFiltrado,
   TITULO_EXTRATO,
 } from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
+import { LinhaDeRegistro } from "@/components/amassa/linha-de-registro";
 import { DialogoDocumento } from "./dialogo-documento";
 import { NavegacaoMes } from "./navegacao-mes";
 
@@ -110,61 +112,74 @@ export function ExtratoCaixa({
           {motivoVazio === "sem-movimento-na-forma" ? FRASE_VAZIO_EXTRATO_NA_FORMA : FRASE_VAZIO_EXTRATO}
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        // `@container`: a régua da `LinhaDeRegistro` é a largura desta lista, não a da tela (UI-D1).
+        <ul aria-label={TITULO_EXTRATO} className="@container flex flex-col gap-2">
           {linhas.map((linha) => {
             const sinal = linha.tipo === "venda" ? "+" : "−";
             return (
-              <li
+              <LinhaDeRegistro
                 key={linha.parcelaId}
-                data-testid="extrato-linha"
-                className={
-                  "border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border px-3 py-2" +
-                  (linha.cancelado ? " text-muted-foreground line-through" : "")
+                variante="extrato"
+                dataTestId="extrato-linha"
+                riscada={linha.cancelado}
+                titulo={
+                  <>
+                    {linha.titulo}
+                    {linha.deQuantas > 1 && (
+                      <span data-testid="extrato-parcela" className="text-apoio text-muted-foreground ml-2">
+                        {textoParcelaDoExtrato(linha.numeroParcela, linha.deQuantas)}
+                      </span>
+                    )}
+                  </>
                 }
-              >
-                <span className="text-corpo min-w-0 flex-1 truncate">
-                  {linha.titulo}
-                  {linha.deQuantas > 1 && (
-                    <span data-testid="extrato-parcela" className="text-apoio text-muted-foreground ml-2">
-                      {textoParcelaDoExtrato(linha.numeroParcela, linha.deQuantas)}
-                    </span>
-                  )}
-                </span>
-                <span
-                  className={
-                    "text-corpo tabular-nums " +
-                    (linha.cancelado
-                      ? ""
-                      : linha.tipo === "venda"
-                        ? "text-sucesso"
-                        : "text-erro")
-                  }
-                >
-                  {sinal} {formatarReais(linha.liquidoCentavos)}
-                </span>
-                <span className="text-apoio text-muted-foreground flex items-center gap-2">
-                  <button
-                    type="button"
-                    data-testid="extrato-ver"
-                    className="hover:text-foreground underline underline-offset-2"
-                    onClick={() => setDocumentoAbertoId(linha.documentoId)}
+                valor={
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      linha.cancelado
+                        ? "text-muted-foreground line-through"
+                        : linha.tipo === "venda"
+                          ? "text-sucesso"
+                          : "text-erro",
+                    )}
                   >
-                    {ROTULO_VER.toLowerCase()}
-                  </button>
-                  {formatarDataCurta(linha.pagoEm)} · {ROTULO_FORMA[linha.forma]}
-                  {linha.cancelado ? " · cancelada" : ""}
-                </span>
-                {linha.taxaPontosBase != null && (
-                  <span data-testid="extrato-taxa" className="text-apoio text-muted-foreground">
-                    taxa {formatarReais(taxaEmCentavos(linha.valorCentavos, linha.taxaPontosBase))}
+                    {sinal} {formatarReais(linha.liquidoCentavos)}
                   </span>
-                )}
-                {linha.saldoDepoisCentavos !== null ? (
-                  <span data-testid="extrato-saldo-depois" className="text-apoio tabular-nums">
-                    saldo {formatarReais(linha.saldoDepoisCentavos)}
+                }
+                meta={
+                  <span className="flex flex-wrap items-center gap-x-2">
+                    <button
+                      type="button"
+                      data-testid="extrato-ver"
+                      aria-label={rotuloVerLinhaDoExtrato(linha.titulo)}
+                      className="hover:text-foreground inline-flex min-h-[44px] items-center underline underline-offset-2"
+                      onClick={() => setDocumentoAbertoId(linha.documentoId)}
+                    >
+                      {ROTULO_VER.toLowerCase()}
+                    </button>
+                    <span>
+                      {formatarDataCurta(linha.pagoEm)} · {ROTULO_FORMA[linha.forma]}
+                      {linha.cancelado ? " · cancelada" : ""}
+                    </span>
                   </span>
-                ) : null}
-              </li>
+                }
+                extra={
+                  linha.taxaPontosBase != null || linha.saldoDepoisCentavos !== null ? (
+                    <span className="flex flex-wrap gap-x-2">
+                      {linha.taxaPontosBase != null && (
+                        <span data-testid="extrato-taxa">
+                          taxa {formatarReais(taxaEmCentavos(linha.valorCentavos, linha.taxaPontosBase))}
+                        </span>
+                      )}
+                      {linha.saldoDepoisCentavos !== null ? (
+                        <span data-testid="extrato-saldo-depois" className="text-foreground tabular-nums">
+                          saldo {formatarReais(linha.saldoDepoisCentavos)}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : undefined
+                }
+              />
             );
           })}
         </ul>

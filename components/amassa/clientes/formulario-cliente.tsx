@@ -23,9 +23,9 @@ import {
   type ContextoDoCadastro,
 } from "@/lib/clientes/textos";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 import { AvisoHomonimo } from "./aviso-homonimo";
 
@@ -152,8 +152,7 @@ export function FormularioCliente({
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="formulario-cliente"
         aria-describedby={undefined}
         onOpenAutoFocus={(evento) => {
@@ -163,7 +162,6 @@ export function FormularioCliente({
             campos.current.nome?.focus();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <DialogTitle className="text-titulo text-tinta min-w-0 break-words">{titulo}</DialogTitle>
@@ -191,7 +189,7 @@ export function FormularioCliente({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          <FolhaCorpo>
             <div className="flex flex-col gap-2">
               <label htmlFor="cliente-nome" className="text-apoio text-tinta font-semibold">
                 {ROTULO_NOME}
@@ -255,15 +253,10 @@ export function FormularioCliente({
               aoUsarExistente={aoUsarExistente}
               aoCriarOutra={() => void gravar(true)}
             />
-          </div>
+          </FolhaCorpo>
 
           {/* Rodapé preso por flex, fora da área rolável: "Voltar" · o primário. */}
-          <div className="border-border bg-popover flex flex-col gap-3 border-t px-6 py-4">
-            {erroGeral ? (
-              <p role="alert" data-testid="cliente-erro-geral" className="text-apoio text-erro">
-                {erroGeral}
-              </p>
-            ) : null}
+          <FolhaRodape erro={erroGeral} dataTestIdErro="cliente-erro-geral">
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -285,9 +278,9 @@ export function FormularioCliente({
                 {gravando ? ROTULO_SALVANDO : confirmarPeloPrimario ? ROTULO_SALVAR_MESMO_ASSIM : textos.salvar}
               </Button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

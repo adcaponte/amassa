@@ -17,6 +17,18 @@ export const FRASE_SEM_CLIENTE = "sem cliente";
 export const FRASE_FALHA_AO_CRIAR =
   "Não deu para criar o orçamento. Verifique a internet e tente de novo.";
 
+// O orçamento novo, ainda não salvo (06.5-UI-SPEC.md §Estados, D-15 — verbatim): nada é gravado
+// até o primeiro campo; sair sem preencher não cria nada nem diz nada.
+export const TITULO_ORCAMENTO_NOVO = "Novo orçamento";
+export const FRASE_NADA_SALVO_ATE_PREENCHER = "Nada é salvo até você preencher um campo.";
+// A primeira gravação do orçamento novo falhou (06.5-UI-SPEC.md §Erros, verbatim): o texto digitado
+// fica no campo, e sair dele de novo tenta outra vez.
+export const FRASE_FALHA_AO_CRIAR_NOVO =
+  "Não deu para criar o orçamento. O que você escreveu continua aqui — verifique a internet e tente de novo.";
+// Só o servidor mostra esta: a tela nunca chama `criarOrcamento` com os dois campos vazios.
+export const FRASE_NOVO_ORCAMENTO_SEM_CAMPO =
+  "Escreva o cliente ou o título do pedido para começar o orçamento.";
+
 // O chip de situação da lista (04.5-UI-SPEC.md §Copywriting) — só "rascunho" é usado nesta fase
 // (o traçador só cria rascunhos); os demais chips (enviado/aprovado/recusado/expirado) chegam com
 // os planos que implementam o resto do ciclo de vida do orçamento.
@@ -398,6 +410,10 @@ export const ARIA_ADICIONAR_FOTO_DE_REFERENCIA = "adicionar foto de referência"
 export const FRASE_NAO_AUTORIZADO = "Não autorizado.";
 export const FRASE_FOTO_NAO_ENCONTRADA = "Essa foto não existe.";
 export const FRASE_NAO_DEU_PARA_LER_FOTO = "Não deu para ler essa foto.";
+// 06.5-19 (D-20): a sessão não pôde ser CONFERIDA (o banco fora, `auth()` lançando) — falha do
+// servidor, nunca "Não autorizado.". O detalhe vai só ao `console.error` da rota.
+export const FRASE_FOTO_NAO_ABRIU =
+  "Não deu para abrir essa foto agora — o servidor não respondeu. Recarregue a página em instantes.";
 
 // ---------------------------------------------------------------------------------------------
 // "Ver como o cliente vê" / o documento do cliente / "Baixar PDF" (04.5-11-PLAN.md)
@@ -426,6 +442,9 @@ export const FRASE_ERRO_GERAR_PDF = "Não deu para gerar o PDF agora. Tente de n
 // `app/api/orcamentos/fotos/[id]/route.ts`: nunca citam caminho, stack ou mensagem do sistema).
 export const FRASE_ORCAMENTO_NAO_ENCONTRADO_PARA_PDF = "Esse orçamento não existe mais.";
 export const FRASE_NAO_DEU_PARA_GERAR_PDF_NO_SERVIDOR = "Não deu para gerar o PDF agora.";
+// 06.5-19 (D-20): o mesmo para o PDF — a sessão não pôde ser conferida; não é "Não autorizado.".
+export const FRASE_PDF_NAO_SAIU =
+  "Não deu para gerar o PDF agora — o servidor não respondeu. Tente de novo em instantes.";
 
 // ---------------------------------------------------------------------------------------------
 // Aprovação — a venda e a encomenda, numa transação só (04.5-12-PLAN.md, D-25/ORC-11)

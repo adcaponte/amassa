@@ -5,12 +5,17 @@ import { useState } from "react";
 import type { DocumentoParaDetalhe } from "@/lib/financeiro/consultas";
 import { nomeDaLinha } from "@/lib/financeiro/documento";
 import { formatarDataCurta, formatarInstanteCurto, formatarReais } from "@/lib/financeiro/formato";
+import { hrefDaCorrecao } from "@/lib/financeiro/navegacao";
 import {
   DICA_CANCELAR_NAO_APAGA,
   ROTULO_FECHAR,
+  fraseSemCorrecaoPorOrigem,
   rotuloCancelar,
+  rotuloCorrigir,
   textoCabecalhoDocumento,
   textoCanceladoPor,
+  textoCorrige,
+  textoCorrigidaPor,
   textoParcelaDetalhe,
   textoPagoEm,
 } from "@/lib/financeiro/textos";
@@ -139,6 +144,30 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
                 <p className="text-apoio text-muted-foreground">{DICA_CANCELAR_NAO_APAGA}</p>
               )}
 
+              {/* O vínculo da correção (06.5-17, UI-SPEC §“Corrigir” passo 5), em Apoio: a original
+                  (riscada) diz quem a corrigiu; a nova diz quem ela corrige. */}
+              {documento.corrigidaPorNumero !== null && (
+                <p data-testid="documento-corrigida-por" className="text-apoio text-muted-foreground">
+                  {textoCorrigidaPor(documento.tipo, documento.corrigidaPorNumero)}
+                </p>
+              )}
+              {documento.corrigeNumero !== null && (
+                <p data-testid="documento-corrige" className="text-apoio text-muted-foreground">
+                  {textoCorrige(documento.tipo, documento.corrigeNumero)}
+                </p>
+              )}
+              {/* UI-D10: o documento que não se corrige por aqui (Agenda, Queimas, orçamento, conta fixa)
+                  diz por onde corrigir, no lugar do botão. Cancelado: nem botão nem frase. */}
+              {!documento.cancelado && documento.origemParaCorrecao !== null && (
+                <p data-testid="documento-sem-corrigir" className="text-apoio text-muted-foreground">
+                  {fraseSemCorrecaoPorOrigem(
+                    documento.tipo,
+                    documento.origemParaCorrecao,
+                    documento.origemOrcamento?.numero ?? null,
+                  )}
+                </p>
+              )}
+
               {/* A aprovação de um orçamento (04.5-12-PLAN.md, D-25) — acréscimo pequeno à tela
                   de detalhe, não uma reformulação (04.5-UI-SPEC.md, Assunção 6). Sem esta linha o
                   vínculo gravado em `orcamentos.documento_id` existiria só no banco. */}
@@ -174,6 +203,22 @@ export function DialogoDocumento({ documentoId, documentos, aoFechar }: DialogoD
               )}
 
               <div className="flex flex-wrap justify-end gap-2">
+                {/* O “Corrigir” (Fase 06.5, plano 17 — D-18/UI-D9): só em documento NÃO cancelado (o já
+                    corrigido está cancelado) e SEM origem que a Venda/Despesa não recria (UI-D10). O toque só
+                    NAVEGA para a Venda/Despesa preenchida — nenhuma ação, nenhum diálogo, nenhum toast; a
+                    original continua valendo até “Lançar e cancelar a nº {N}”. Um `<a>` comum: navegação
+                    completa, como o resto do módulo depois de uma tela de servidor. */}
+                {!documento.cancelado && documento.origemParaCorrecao === null && (
+                  <Button asChild variant="outline" className="min-h-[44px] font-semibold">
+                    <a
+                      data-testid="documento-corrigir"
+                      href={hrefDaCorrecao(documento.tipo, documento.id)}
+                      onClick={aoFechar}
+                    >
+                      {rotuloCorrigir(documento.tipo)}
+                    </a>
+                  </Button>
+                )}
                 {!documento.cancelado && (
                   <Button
                     type="button"

@@ -83,16 +83,18 @@ export function VerComoOClienteVe({ orcamentoId, documento }: VerComoOClienteVeP
             <table data-testid="folha-tabela-peca" className="w-full text-[14px]">
               <thead>
                 <tr>
-                  <th className="text-left">{ROTULO_COLUNA_PECA}</th>
-                  <th className="text-right">{ROTULO_COLUNA_QUANTIDADE}</th>
-                  <th className="text-right">{ROTULO_COLUNA_CADA}</th>
-                  <th className="text-right">{ROTULO_TOTAL}</th>
+                  <th className="px-4 text-left first:pl-0">{ROTULO_COLUNA_PECA}</th>
+                  <th data-testid="documento-coluna-qtd" className="min-w-12 px-4 text-right tabular-nums">
+                    {ROTULO_COLUNA_QUANTIDADE}
+                  </th>
+                  <th className="px-4 text-right tabular-nums">{ROTULO_COLUNA_CADA}</th>
+                  <th className="px-4 text-right tabular-nums last:pr-0">{ROTULO_TOTAL}</th>
                 </tr>
               </thead>
               <tbody>
                 {documento.linhas.map((linha, indice) => (
                   <tr key={indice}>
-                    <td className="whitespace-normal">
+                    <td className="px-4 whitespace-normal first:pl-0">
                       {linha.nome}
                       {linha.cor ? (
                         <small className="block text-[12.5px] text-[#6E5F56]">{linha.cor}</small>
@@ -103,32 +105,34 @@ export function VerComoOClienteVe({ orcamentoId, documento }: VerComoOClienteVeP
                         </small>
                       ) : null}
                     </td>
-                    <td className="text-right tabular-nums">{linha.quantidadeTexto}</td>
-                    <td className="text-right tabular-nums">{linha.precoUnitarioFormatado}</td>
-                    <td className="text-right tabular-nums">{linha.totalFormatado}</td>
+                    <td className="min-w-12 px-4 text-right tabular-nums">{linha.quantidadeTexto}</td>
+                    <td className="px-4 text-right tabular-nums">{linha.precoUnitarioFormatado}</td>
+                    <td className="px-4 text-right tabular-nums last:pr-0">{linha.totalFormatado}</td>
                   </tr>
                 ))}
                 {documento.projeto.map((item, indice) => (
                   <tr key={`projeto-${indice}`}>
-                    <td>{item.descricao}</td>
-                    <td></td>
-                    <td></td>
-                    <td className="text-right tabular-nums">{item.valorFormatado}</td>
+                    <td className="px-4 first:pl-0">{item.descricao}</td>
+                    <td className="px-4"></td>
+                    <td className="px-4"></td>
+                    <td className="px-4 text-right tabular-nums last:pr-0">{item.valorFormatado}</td>
                   </tr>
                 ))}
                 {documento.freteFormatado ? (
                   <tr>
-                    <td>Frete</td>
-                    <td></td>
-                    <td></td>
-                    <td className="text-right tabular-nums">{documento.freteFormatado}</td>
+                    <td className="px-4 first:pl-0">Frete</td>
+                    <td className="px-4"></td>
+                    <td className="px-4"></td>
+                    <td className="px-4 text-right tabular-nums last:pr-0">{documento.freteFormatado}</td>
                   </tr>
                 ) : null}
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-[#1D2221] text-[17px]">
-                  <td colSpan={3}>{ROTULO_TOTAL}</td>
-                  <td data-testid="folha-total" className="text-right tabular-nums">
+                  <td colSpan={3} className="px-4 first:pl-0">
+                    {ROTULO_TOTAL}
+                  </td>
+                  <td data-testid="folha-total" className="px-4 text-right tabular-nums last:pr-0">
                     {documento.totalFormatado}
                   </td>
                 </tr>

@@ -11,8 +11,8 @@ import {
   type PecaDerivada,
 } from "@/lib/producao/conclusao";
 import {
-  fraseItemNaoGuardaPecas,
   fraseItemNaoGuardaPecasNaConclusao,
+  fraseSoCeramicaViraOrdem,
   textoItemVaiControlarEstoque,
 } from "@/lib/producao/textos";
 
@@ -215,14 +215,18 @@ describe("itemGuardaPecas", () => {
   });
 
   it("as frases dizem a unidade e o que fazer", () => {
-    expect(fraseItemNaoGuardaPecas("[teste] Argila vermelha", "kg")).toBe(
-      "[teste] Argila vermelha é contado em kg no Estoque, e a produção da casa guarda peças inteiras. Escolha um item contado em unidades.",
-    );
     expect(fraseItemNaoGuardaPecasNaConclusao("[teste] Argila vermelha", "kg", "encomenda")).toContain(
       "mande as extras desta peça para “sem destino”",
     );
     expect(fraseItemNaoGuardaPecasNaConclusao("[teste] Argila vermelha", "kg", "casa")).toContain(
       "cancele esta ordem e crie outra com um item contado em unidades",
+    );
+  });
+
+  // Fase 06.5, D-01 ("a-ficha", dono em 06/10/2026): a recusa de `criarOrdem` para item sem ficha.
+  it("a recusa de item que não é peça de cerâmica diz o nome e o que fazer (D-01)", () => {
+    expect(fraseSoCeramicaViraOrdem("[teste] Bolo do dia")).toBe(
+      "Só peça de cerâmica vira ordem de produção — “[teste] Bolo do dia” não é. Escolha uma peça do Catálogo.",
     );
   });
 });

@@ -4,14 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { terminarEtapa } from "@/lib/producao/acoes";
+import { registrarParcial, terminarEtapa } from "@/lib/producao/acoes";
 import { rotuloDaEtapa, type EtapaProducao, type TipoOrdem } from "@/lib/producao/etapas";
 import {
   FRASE_FALHA_AO_MARCAR,
+  FRASE_FALHA_AO_SALVAR_PARCIAL,
   ROTULO_MARCANDO,
+  ROTULO_SALVANDO,
+  ariaPassaramTodas,
+  motivoTermineiDesabilitado,
+  rotuloPassaramTodas,
   rotuloTerminei,
   textoToastTerminei,
 } from "@/lib/producao/textos";
+import { podeTerminarEtapa } from "@/lib/producao/transicoes";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -31,7 +37,15 @@ export type BotaoTermineiProps = {
   // quando não há o que terminar (a Entrega se conclui; a ordem saiu do andamento): sem botão, só a
   // frase da última recusa — quem desenha o mantém montado (revisão 06.1, WR-104).
   etapa: EtapaProducao | null;
+  // Σ (quantidade + a mais) das peças e o parcial da etapa atual (nulo = campo vazio). Com mais de
+  // uma peça, o "Terminei" só libera quando todas passaram pela etapa (D-02, UI-D12 — dono,
+  // 05/10/2026); a mesma `podeTerminarEtapa` decide de novo no servidor, sob a trava.
+  total: number;
+  passaram: number | null;
 };
+
+// O `id` do motivo — um "Terminei" por página (a da ordem).
+const ID_DO_MOTIVO = "terminei-motivo";
 
 // "Terminei: {Etapa}" (UI-SPEC §Ações): primário, sem confirmação, sem campo, sem teclado — o
 // segundo toque do caminho do quadro à etapa marcada (Valor central). Mora na fileira do fim do
@@ -49,7 +63,12 @@ export type BotaoTermineiProps = {
 // muda (marcada aqui, desfeita, ou mudada noutro celular e trazida por uma recarga), o botão novo
 // ignora toques por 1000 ms. O componente NÃO muda de chave quando a etapa muda: a frase de erro e
 // as travas sobrevivem.
-export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
+//
+// A regra da etapa (D-02, UI-D12): com mais de uma peça e o parcial vazio ou menor que o total, o
+// botão fica `disabled` — continua visível, 52px — e o motivo aparece embaixo, numa linha própria da
+// fileira (`w-full`: no celular a coluna do "Terminei" divide a largura com o "Desfazer" e seria
+// estreita demais para a frase), ligado ao botão por `aria-describedby`.
+export function BotaoTerminei({ ordemId, tipo, etapa, total, passaram }: BotaoTermineiProps) {
   const router = useRouter();
   const emVoo = useRef(false);
   const [gravando, setGravando] = useState(false);
@@ -58,6 +77,11 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
   const [inicioDaEspera, setInicioDaEspera] = useState(0);
   const [etapaVista, setEtapaVista] = useState(etapa);
   const [erro, setErro] = useState<string | null>(null);
+  // "Passaram todas as {N}" (UI-D12): o estado mora aqui, e não no atalho, para a frase de uma
+  // falha sobreviver à recarga que tira o atalho da tela (WR-104).
+  const atalhoEmVoo = useRef(false);
+  const [salvandoAtalho, setSalvandoAtalho] = useState(false);
+  const [erroDoAtalho, setErroDoAtalho] = useState<string | null>(null);
   // A etapa que ESTE botão acabou de marcar, enquanto a tela ainda não trouxe a seguinte. Guardar a
   // etapa (e não um "sim/não") resolve a ordem incerta entre a resposta da ação e o desenho novo: se
   // a tela nova chegou antes do `await` voltar, a etapa mostrada já é outra e nada fica travado.
@@ -125,6 +149,42 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
     }
   }
 
+  // "Passaram todas as {N}": grava o parcial = total pelo MESMO caminho do campo (`registrarParcial`,
+  // contra a etapa que a tela mostra) — sem toast, sem confirmação. No sucesso, a ação já revalida
+  // a página e a resposta traz o parcial novo: o campo mostra o total e o "Terminei" habilita pela
+  // prop (WR-106 — a recarga é daqui só na recusa ou na falha, como no `CampoParcial`).
+  async function aoTocarPassaramTodas() {
+    if (etapa === null || atalhoEmVoo.current) {
+      return;
+    }
+    atalhoEmVoo.current = true;
+    setSalvandoAtalho(true);
+    setErroDoAtalho(null);
+    try {
+      const resultado = await registrarParcial({
+        ordemId,
+        etapaEsperada: etapa,
+        passaramTexto: String(total),
+      });
+      if (!resultado.ok) {
+        setErroDoAtalho(resultado.erro);
+        router.refresh();
+      }
+    } catch {
+      setErroDoAtalho(FRASE_FALHA_AO_SALVAR_PARCIAL);
+      router.refresh();
+    } finally {
+      atalhoEmVoo.current = false;
+      setSalvandoAtalho(false);
+    }
+  }
+
+  const fraseDoAtalho = erroDoAtalho ? (
+    <p data-testid="passaram-todas-erro" role="alert" className="text-apoio text-erro w-full">
+      {erroDoAtalho}
+    </p>
+  ) : null;
+
   // A frase fica no fluxo, embaixo do botão (sem barra fixa, não há bolha a ancorar). Com o botão,
   // segue a coluna dele (à direita no desktop); sem botão, `w-full` — na fileira, que quebra linha,
   // ela ganha a própria linha depois dos botões.
@@ -140,22 +200,65 @@ export function BotaoTerminei({ ordemId, tipo, etapa }: BotaoTermineiProps) {
 
   if (etapa === null) {
     // Sem botão: só a frase da última recusa, se houver (WR-104).
-    return frase;
+    return (
+      <>
+        {frase}
+        {fraseDoAtalho}
+      </>
+    );
   }
 
+  const regra = podeTerminarEtapa(total, passaram);
+  const rotuloEtapa = rotuloDaEtapa(etapa, tipo);
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
-      <Button
-        type="button"
-        data-testid="ordem-terminei"
-        className="text-corpo h-auto min-h-[52px] px-6 font-semibold leading-tight whitespace-normal"
-        disabled={gravando || esperando || aguardandoTela}
-        aria-busy={gravando ? "true" : undefined}
-        onClick={aoTocar}
-      >
-        {gravando ? ROTULO_MARCANDO : rotuloTerminei(rotuloDaEtapa(etapa, tipo))}
-      </Button>
-      {frase}
-    </div>
+    <>
+      <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 md:flex-none md:items-end">
+        <Button
+          type="button"
+          data-testid="ordem-terminei"
+          className="text-corpo h-auto min-h-[52px] px-6 font-semibold leading-tight whitespace-normal"
+          disabled={!regra.pode || gravando || esperando || aguardandoTela}
+          aria-describedby={regra.pode ? undefined : ID_DO_MOTIVO}
+          aria-busy={gravando ? "true" : undefined}
+          onClick={aoTocar}
+        >
+          {gravando ? ROTULO_MARCANDO : rotuloTerminei(rotuloEtapa)}
+        </Button>
+        {frase}
+      </div>
+      {regra.pode ? (
+        fraseDoAtalho
+      ) : (
+        // `@container`: a régua do "à esquerda do motivo / embaixo dele" é a largura da fileira,
+        // não a da tela. Abaixo de `@sm`, o motivo e, embaixo, o atalho; a partir de `@sm`, o atalho
+        // à esquerda do motivo (`flex-row-reverse`: no DOM o motivo vem primeiro — lê-se o porquê
+        // antes da ação), alinhados à direita no desktop, como a fileira.
+        <div className="@container flex w-full flex-col gap-2">
+          <div className="flex flex-col gap-2 @sm:flex-row-reverse @sm:items-center @sm:justify-end md:justify-start">
+            <p
+              id={ID_DO_MOTIVO}
+              data-testid="terminei-motivo"
+              className="text-apoio text-tinta-fraca md:text-right"
+            >
+              {motivoTermineiDesabilitado(rotuloEtapa, total, passaram)}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="passaram-todas"
+              aria-label={ariaPassaramTodas(total, rotuloEtapa)}
+              aria-busy={salvandoAtalho ? "true" : undefined}
+              disabled={salvandoAtalho}
+              onClick={() => void aoTocarPassaramTodas()}
+              className="text-corpo h-auto min-h-[44px] shrink-0 px-4 font-semibold whitespace-normal"
+            >
+              {salvandoAtalho ? ROTULO_SALVANDO : rotuloPassaramTodas(total)}
+            </Button>
+          </div>
+          {fraseDoAtalho}
+        </div>
+      )}
+    </>
   );
 }

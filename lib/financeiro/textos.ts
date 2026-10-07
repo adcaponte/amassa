@@ -5,6 +5,8 @@
 // `gantt.ts`/`textos.ts` de Encomendas e de `lib/queimas/textos.ts`).
 import type { areaFinanceira, formaPagamento, grupoCategoria } from "@/db/schema";
 
+import type { MotivoDaRecusaDaCorrecao, OrigemSemCorrecao } from "./correcao";
+
 export type GrupoDeCategoria = (typeof grupoCategoria.enumValues)[number];
 export type AreaFinanceira = (typeof areaFinanceira.enumValues)[number];
 export type FormaDePagamento = (typeof formaPagamento.enumValues)[number];
@@ -134,7 +136,6 @@ export const ROTULO_TODOS_OS_ATALHOS = "Todos os atalhos";
 export const ROTULO_LISTA_COMPLETA_E_ATALHOS = "Lista completa e atalhos";
 export const FRASE_NENHUM_ATALHO =
   "Nenhum atalho aqui. Abra a lista completa e marque ★ nos itens que quer ver nesta tela.";
-export const FRASE_NADA_ENCONTRADO = "Nada encontrado.";
 export const TITULO_LISTA_COMPLETA = "Tudo o que se vende";
 export const DICA_LISTA_COMPLETA =
   "Toque no nome para pôr na venda. A ★ escolhe o que aparece como atalho na tela.";
@@ -305,7 +306,9 @@ export const ROTULO_FORNECEDOR_OPCIONAL = "Fornecedor (opcional)";
 
 // O campo "Fornecedor" da Despesa (Fase 06.2, plano 10 — D-04; 06.2-UI-SPEC.md §Copywriting e "Despesa
 // do Financeiro — o campo Fornecedor"). O rótulo continua `ROTULO_FORNECEDOR_OPCIONAL`, sem mudança.
-export const PLACEHOLDER_CAMPO_FORNECEDOR = "Escolha da lista ou escreva o nome";
+// Até 06/10/2026: "Escolha da lista ou escreva o nome" — cortava no celular de 375 px (D-14, achado 19;
+// 06.5-UI-SPEC.md §Copywriting). O e2e `polimento-textos` mede que o texto novo cabe no campo.
+export const PLACEHOLDER_CAMPO_FORNECEDOR = "Escolha ou escreva o nome";
 // No `role="alert"` acima de "Lançar despesa": o fornecedor escolhido foi desativado (ou não existe
 // mais) entre abrir o painel e lançar — nada é lançado (Pitfall 15).
 export const FRASE_FORNECEDOR_DESATIVADO_NA_DESPESA =
@@ -357,6 +360,13 @@ export const DICA_LISTA_COMPLETA_COMPRA =
 // O Caixa que age (04.4-08-PLAN.md): as listas "A pagar"/"A receber", o cartão de conta, o
 // detalhe do documento e o cancelamento que risca sem apagar (FNC-07, FNC-10).
 export const ROTULO_VER = "Ver";
+
+// O "ver" de cada linha do extrato (Fase 06.5, `LinhaDeRegistro`): o texto visível continua "ver";
+// o nome acessível nomeia a linha — dez "ver" iguais numa lista não dizem a quem pertencem.
+export function rotuloVerLinhaDoExtrato(titulo: string): string {
+  return `${ROTULO_VER} ${titulo}`;
+}
+
 export const ROTULO_VOLTAR = "Voltar";
 export const ROTULO_FECHAR = "Fechar";
 export const ROTULO_TAG_VENCIDA = "vencida";
@@ -384,6 +394,63 @@ export function textoVence(dataFormatada: string): string {
 
 export const FRASE_VAZIO_A_PAGAR = "Nenhuma conta em aberto.";
 export const FRASE_VAZIO_A_RECEBER = "Ninguém deve nada.";
+
+// A janela de 30 dias do Caixa (06.5-12, D-03 / UI-D7 — 06.5-UI-SPEC.md §Rótulos, §Ações, §Estados
+// vazios), verbatim. `{dd/mm}` chega já formatado de quem chama (este módulo não importa valor).
+// Sob o número dos tiles "A receber", "A pagar" e "Se tudo se cumprir" (o "Saldo em caixa" não
+// ganha nada).
+export function textoJanelaAte(diaMes: string): string {
+  return `até ${diaMes}`;
+}
+
+// Sob os títulos "A pagar" e "A receber".
+export function textoSubtituloDaJanela(diaMes: string): string {
+  return `Vencidas e as que vencem até ${diaMes}.`;
+}
+
+// O botão no fim de cada lista — plural de verdade; com zero contas depois, o botão nem aparece.
+export function rotuloVerDepois(quantidade: number, diaMes: string): string {
+  return quantidade === 1
+    ? `Ver a que vence depois de ${diaMes}`
+    : `Ver as ${quantidade} que vencem depois de ${diaMes}`;
+}
+
+// O mesmo botão, com as de depois abertas.
+export function rotuloMostrarSoAte(diaMes: string): string {
+  return `Mostrar só até ${diaMes}`;
+}
+
+// A linha Apoio que separa, na mesma lista, as contas da janela das de depois.
+export function textoDepoisDe(diaMes: string): string {
+  return `Depois de ${diaMes}`;
+}
+
+// Vazios da janela quando há contas depois dela (sem conta nenhuma, valem os dois acima).
+export function fraseVazioAPagarNaJanela(diaMes: string): string {
+  return `Nada vence até ${diaMes}.`;
+}
+
+export function fraseVazioAReceberNaJanela(diaMes: string): string {
+  return `Ninguém deve nada até ${diaMes}.`;
+}
+
+// O aviso âmbar do mês da janela sem contas fixas geradas (06.5-12, D-03 / UI-D8), verbatim da
+// UI-SPEC: manchete com o mês por extenso e o ano; corpo só com o nome do mês, minúsculo no meio
+// da frase. O botão usa `rotuloGerarContas` dos Cadastros — a mesma ação, o mesmo rótulo.
+export function textoAvisoContasFixasManchete(mesPorExtenso: string): string {
+  return `As contas fixas de ${mesPorExtenso} ainda não foram geradas.`;
+}
+
+export function textoAvisoContasFixasCorpo(nomeDoMes: string): string {
+  return `O que vence em ${nomeDoMes} não aparece em “A pagar” nem conta em “Se tudo se cumprir”.`;
+}
+
+export const ROTULO_VER_EM_CONTAS_FIXAS = "ver em Contas fixas";
+export const ROTULO_GERANDO_CONTAS = "Gerando…";
+// A ação nem respondeu (rede caiu no meio): o aviso continua, e dá para tocar de novo — "Gerar" é
+// idempotente no servidor. A recusa da própria ação chega com a frase dela (`resposta.erro`).
+export const FRASE_FALHA_AO_GERAR_CONTAS =
+  "Não deu para gerar as contas. Verifique a internet e tente de novo.";
 
 // O cabeçalho do detalhe: "Venda nº 12 · 18/12/26 · Maria" (protótipo `folhaDoc`).
 export function textoCabecalhoDocumento(
@@ -448,6 +515,153 @@ export function textoCancelado(numero: number): string {
   return `Lançamento nº ${numero} cancelado. Continua visível, riscado.`;
 }
 
+// O “Corrigir” um lançamento (Fase 06.5, plano 16 — D-18 com a UI-D9 do dono, 05/10/2026), verbatim da
+// 06.5-UI-SPEC.md (§Toasts “Correção — lançou”, §Erros “Lançar a correção”, §Rótulos “documento que não se
+// corrige por aqui”, UI-D10). Venda e despesa são femininas: só o substantivo muda.
+
+// “Venda nº 33 cancelada e nº 38 lançada no lugar · R$ 70,00” — o toast do sucesso. O total chega já
+// formatado (`formatarReais`), como em `textoVendaLancada`: este módulo nunca formata dinheiro sozinho.
+export function textoCorrecaoLancada(
+  tipo: TipoDeDocumentoParaTexto,
+  numeroOriginal: number,
+  numeroNova: number,
+  totalFormatado: string,
+): string {
+  const rotulo = tipo === "venda" ? "Venda" : "Despesa";
+  return `${rotulo} nº ${numeroOriginal} cancelada e nº ${numeroNova} lançada no lugar · ${totalFormatado}`;
+}
+
+// As recusas sob a trava, no erro do painel (`role="alert"`). `origem` tem a frase própria
+// (`fraseSemCorrecaoPorOrigem`). `numeroOriginal` nulo = a original não existe (a frase de “não achei”).
+// Em `mudou`, a UI-SPEC sugere dizer o que mudou (“uma parcela foi recebida”): o servidor só sabe que a
+// versão é outra, então a frase não chuta o motivo.
+export function fraseCorrecaoRecusada(
+  motivo: Exclude<MotivoDaRecusaDaCorrecao, "origem">,
+  tipo: TipoDeDocumentoParaTexto,
+  numeroOriginal: number | null,
+  numeroNova?: number,
+): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  if (numeroOriginal === null) {
+    return `Não achei a ${nome} a corrigir. Volte ao Caixa e toque em “Corrigir esta ${nome}” de novo.`;
+  }
+  if (motivo === "cancelada") {
+    return `Nada foi lançado: a ${nome} nº ${numeroOriginal} já tinha sido cancelada (talvez em outro celular). Os dados continuam aqui — se esta ${nome} ainda vale, toque em “Lançar como ${nome} nova”.`;
+  }
+  if (motivo === "ja_corrigida") {
+    return numeroNova === undefined
+      ? `Nada foi lançado: a ${nome} nº ${numeroOriginal} já foi corrigida.`
+      : `Nada foi lançado: a ${nome} nº ${numeroOriginal} já foi corrigida pela nº ${numeroNova}.`;
+  }
+  return `Nada foi lançado: a ${nome} nº ${numeroOriginal} mudou depois que você abriu a correção. Volte ao Caixa e toque em “Corrigir esta ${nome}” de novo, para partir do que vale agora.`;
+}
+
+// A falha inesperada (rede, banco) com a correção: a transação desfez tudo, a original continua valendo.
+// Sem o número (nem ele deu para ler), “a original”.
+export function fraseCorrecaoSemRede(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number | null): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  const alvo = numeroOriginal === null ? `A ${nome} original` : `A ${nome} nº ${numeroOriginal}`;
+  return `Não deu para lançar. ${alvo} continua valendo e nada novo foi gravado — verifique a internet e tente de novo.`;
+}
+
+// UI-D10 e as contas fixas: no lugar do “Corrigir” (detalhe) e na recusa `origem` (lançamento).
+// `numeroDoOrcamento` chega pronto (“ORC-2026-004”, `numeroDeOrcamento` de lib/orcamentos/formato.ts).
+export function fraseSemCorrecaoPorOrigem(
+  tipo: TipoDeDocumentoParaTexto,
+  origem: OrigemSemCorrecao,
+  numeroDoOrcamento?: string | null,
+): string {
+  const rotulo = tipo === "venda" ? "Esta venda" : "Esta despesa";
+  if (origem === "conta_fixa") {
+    return `${rotulo} veio das Contas fixas. Para corrigir, cancele aqui e gere o mês de novo em Contas fixas.`;
+  }
+  const deOnde =
+    origem === "agenda"
+      ? "da Agenda"
+      : origem === "queimas"
+        ? "das Queimas"
+        : numeroDoOrcamento
+          ? `do orçamento ${numeroDoOrcamento}`
+          : "de um orçamento";
+  return `${rotulo} veio ${deOnde}. Para corrigir, cancele aqui e lance de novo por lá.`;
+}
+
+// A tela do “Corrigir” (Fase 06.5, plano 17 — UI-D9), verbatim da 06.5-UI-SPEC.md §Rótulos “faixa da
+// correção” e “item que não volta”, §Erros “Abrir a correção”. Vocabulário: “Corrigir”, “original”,
+// “cancelada” — nunca “editar” nem “estornar” na tela.
+
+// O botão no detalhe do documento, à esquerda de “Cancelar esta venda/despesa”.
+export function rotuloCorrigir(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Corrigir esta venda" : "Corrigir esta despesa";
+}
+
+// O “Lançar” herdado, com o rótulo que diz o que acontece com a original — é ele a confirmação (UI-D9).
+export function rotuloLancarCorrecao(numeroOriginal: number): string {
+  return `Lançar e cancelar a nº ${numeroOriginal}`;
+}
+
+export function tituloDaFaixaDaCorrecao(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  return `Corrigindo a ${tipo === "venda" ? "venda" : "despesa"} nº ${numeroOriginal}`;
+}
+
+// O trecho do estoque só entra quando a original mexeu no estoque.
+export function linha2DaFaixaDaCorrecao(
+  tipo: TipoDeDocumentoParaTexto,
+  numeroOriginal: number,
+  comEstoque: boolean,
+): string {
+  const estoque = !comEstoque
+    ? ""
+    : tipo === "venda"
+      ? ", e o material dela volta ao estoque"
+      : ", e as entradas de material dela saem do estoque";
+  return `A nº ${numeroOriginal} continua valendo até você lançar esta. Ao lançar, ela é cancelada (fica riscada no extrato${estoque}) e esta entra no lugar, com outro número.`;
+}
+
+// A 2ª linha da faixa depois de “Lançar como venda/despesa nova” (Fase 06.5, plano 18 — §Erros “a original
+// já foi cancelada”): o vínculo saiu, e a faixa diz isso no lugar da explicação do lançamento.
+export function linha2DaFaixaDesligada(numeroOriginal: number): string {
+  return `A nº ${numeroOriginal} já foi cancelada — esta não está mais ligada a ela.`;
+}
+
+// O botão `outline` que só aparece na recusa `cancelada`: tira o vínculo e deixa o “Lançar” herdado.
+export function rotuloLancarComoNova(tipo: TipoDeDocumentoParaTexto): string {
+  return tipo === "venda" ? "Lançar como venda nova" : "Lançar como despesa nova";
+}
+
+export const FRASE_FAIXA_DA_CORRECAO_SAIR = "Se sair sem lançar, nada muda.";
+export const ROTULO_VOLTAR_AO_CAIXA = "Voltar ao Caixa";
+
+// A 4ª linha da faixa: o item que não está mais ativo no Catálogo ficou de fora. `nomeOuLista` chega
+// pronto (“A e B”, `listaEmPortugues`) — este módulo não importa valor.
+export function fraseItensDeForaDaCorrecao(quantidade: number, nomeOuLista: string): string {
+  return quantidade === 1
+    ? `${nomeOuLista} não está mais ativa no Catálogo e ficou de fora.`
+    : `${quantidade} itens não estão mais ativos no Catálogo e ficaram de fora: ${nomeOuLista}.`;
+}
+
+// `?corrige=` que aponta para uma original já cancelada (molde `OrigemIndisponivel`).
+export function fraseCorrecaoDeCancelada(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  return `A ${nome} nº ${numeroOriginal} já foi cancelada — não há o que corrigir. Se precisar, lance uma ${nome} nova.`;
+}
+
+// O vínculo no detalhe do documento (06.5-UI-SPEC.md §“Corrigir”, passo 5): na original (riscada) e na
+// nova.
+export function textoCorrigidaPor(tipo: TipoDeDocumentoParaTexto, numeroNova: number): string {
+  return `Corrigida pela ${tipo === "venda" ? "venda" : "despesa"} nº ${numeroNova}`;
+}
+
+export function textoCorrige(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  return `Corrige a ${tipo === "venda" ? "venda" : "despesa"} nº ${numeroOriginal}`;
+}
+
+// `?corrige=` que não acha a original (id inválido, inexistente ou de outro tipo).
+export function fraseCorrecaoNaoAchada(tipo: TipoDeDocumentoParaTexto): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  return `Não achei a ${nome} a corrigir. Volte ao Caixa e toque em “Corrigir esta ${nome}” de novo.`;
+}
+
 // "Paguei"/"Recebi" com a linha de diferença (D-01/D-02) e o "Desfazer" (D-03).
 export const ROTULO_QUANDO = "Quando";
 export const ROTULO_FORMA_CAMPO = "Forma";
@@ -505,6 +719,13 @@ export const ROTULO_COLUNA_VENDEU = "Vendeu";
 export const ROTULO_COLUNA_CUSTOU = "Custou";
 export const ROTULO_COLUNA_DEIXOU = "Deixou";
 export const ROTULO_JUNTAS = "Juntas";
+
+// A segunda fileira de cada área na forma lista do Mês (Fase 06.5, `TabelaResponsiva`): o "Deixou"
+// fica à direita da primeira fileira, onde o olho pousa; as duas parcelas da conta vêm embaixo.
+// Os dois valores chegam prontos de `formatarReais` (este módulo nunca importa formato.ts).
+export function textoVendeuCustou(vendeuFormatado: string, custouFormatado: string): string {
+  return `vendeu ${vendeuFormatado} · custou ${custouFormatado}`;
+}
 export const DICA_CUSTOU_DA_AREA =
   '"Custou" é só o que é daquela área: insumo do café, argila e esmalte, mercadoria da loja. Compra de material conta no mês em que foi comprada.';
 

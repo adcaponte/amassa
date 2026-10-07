@@ -49,10 +49,10 @@ import {
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
 
 // Os rótulos dos quatro tipos, conferidos contra o enum: um tipo novo sem rótulo não compila.
 const ROTULOS_DOS_TIPOS: Record<TipoDeAnexo, string> = ROTULO_TIPO_DE_ANEXO;
@@ -384,8 +384,7 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicia
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      <Folha
         data-testid="folha-anexo"
         aria-describedby={undefined}
         aria-busy={enviando ? "true" : undefined}
@@ -408,7 +407,6 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicia
             evento.preventDefault();
           }
         }}
-        className={CLASSE_DA_FOLHA}
       >
         <DialogHeader className="border-border flex flex-row items-start justify-between gap-4 border-b px-6 py-4">
           <DialogTitle className="text-titulo text-tinta min-w-0 break-words">{TITULO_FOLHA_ANEXO}</DialogTitle>
@@ -436,7 +434,7 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicia
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4">
+          <FolhaCorpo>
             <div
               data-testid="anexo-zona"
               data-arrastando={arrastando ? "true" : undefined}
@@ -588,10 +586,11 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicia
             </div>
 
             <p className="text-apoio text-tinta-fraca">{DICA_BACKUP_DO_ANEXO}</p>
-          </div>
+          </FolhaCorpo>
 
-          {/* Rodapé preso por flex, fora da área rolável: a recusa do servidor + "Voltar" · o primário. */}
-          <div className="border-border bg-popover flex flex-col gap-2 border-t px-6 py-4">
+          {/* Rodapé preso por flex, fora da área rolável: a recusa do servidor + "Voltar" · o primário.
+              A recusa segue como filho (leva o link "Entrar de novo"); o respiro é o `gap-2` de sempre. */}
+          <FolhaRodape className="gap-2">
             {recusa ? (
               <p role="alert" data-testid="anexo-erro" className="text-apoio text-erro">
                 {recusa.frase}
@@ -630,9 +629,9 @@ export function FolhaAnexo({ fornecedorId, hoje, aoFechar, aoGuardar, tipoInicia
                 {enviando ? ROTULO_ENVIANDO : ROTULO_GUARDAR_ANEXO}
               </Button>
             </div>
-          </div>
+          </FolhaRodape>
         </form>
-      </DialogContent>
+      </Folha>
     </Dialog>
   );
 }

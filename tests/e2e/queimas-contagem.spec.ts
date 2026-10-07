@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import { idDoUsuarioDoTeste } from "./apoio/semear-fornecedores";
 import {
@@ -373,11 +374,11 @@ test.describe("contagem — aviso e folha", () => {
     }));
     expect(larguras.rolagem).toBeLessThanOrEqual(larguras.tela);
 
-    const pular = await folha.getByTestId("contagem-pular").boundingBox();
-    const salvar = await folha.getByTestId("contagem-salvar").boundingBox();
-    expect(pular?.height ?? 0).toBeGreaterThanOrEqual(44);
-    expect(salvar?.height ?? 0).toBeGreaterThanOrEqual(44);
-    expect(Math.abs((pular?.y ?? 0) - (salvar?.y ?? -100))).toBeLessThan(1);
+    const pular = await medirCaixa(folha.getByTestId("contagem-pular"), "Pular");
+    const salvar = await medirCaixa(folha.getByTestId("contagem-salvar"), "Salvar");
+    expect(pular.height).toBeGreaterThanOrEqual(44);
+    expect(salvar.height).toBeGreaterThanOrEqual(44);
+    expect(Math.abs(pular.y - salvar.y)).toBeLessThan(1);
     await pularContagem(page);
   });
 

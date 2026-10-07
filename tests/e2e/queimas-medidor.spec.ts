@@ -1,15 +1,17 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa, type CaixaMedida } from "./apoio/medir-caixa";
 import { idDoForno, semearQueimas } from "./apoio/semear-queimas";
 
 // O medidor sem rótulos sobrepostos (D-04, UI-D2) e a linha “Contagem: …” do cartão e do detalhe
 // (QMC-09, UI-D1) — 06.4-06-PLAN.md, Tarefa 2. A vistoria de 19/09 achou “atenção 90” em cima de
 // “limite 100” no celular; o conserto pôs “atenção N” numa segunda fileira, ancorado na marca. Aqui a
-// prova é GEOMÉTRICA, pelas `boundingBox` reais: a 320 px e a 1280 px, com limite 10, 100 e 1000, as
-// caixas de `medidor-rotulo-zero`, `-atencao` e `-limite` não se cruzam duas a duas, nenhuma passa das
-// bordas horizontais de `medidor-trilho`, e o cartão não rola de lado. Os três rótulos continuam lá
-// (FOR-05). Cada forno é criado pelo formulário, com nome único; as queimas de fundo vêm do banco
-// (`semearQueimas`). Sem etiqueta de vazio: roda em `desktop`/`celular` depois da cadeia `vazio-*`.
+// prova é GEOMÉTRICA, pelas caixas reais medidas por `medirCaixa` (que espera a visibilidade antes de
+// medir — D-23): a 320 px e a 1280 px, com limite 10, 100 e 1000, as caixas de `medidor-rotulo-zero`,
+// `-atencao` e `-limite` não se cruzam duas a duas, nenhuma passa das bordas horizontais de
+// `medidor-trilho`, e o cartão não rola de lado. Os três rótulos continuam lá (FOR-05). Cada forno é
+// criado pelo formulário, com nome único; as queimas de fundo vêm do banco (`semearQueimas`). Sem
+// etiqueta de vazio: roda em `desktop`/`celular` depois da cadeia `vazio-*`.
 
 async function fazerLogin(page: Page) {
   await page.goto("/gestao/login");
@@ -31,22 +33,7 @@ async function cadastrarForno(page: Page, nome: string, limite: number): Promise
   await expect(page).toHaveURL(/\/gestao\/queimas$/, { timeout: 10000 });
 }
 
-type Caixa = { x: number; y: number; width: number; height: number };
-
-// `boundingBox()` não espera nada: mede o que houver no instante. O detalhe do forno tem
-// `loading.tsx`, e o conteúdo chega por streaming num `<div hidden>` antes de o React trocá-lo pelo
-// esqueleto — `toHaveText` já casa nesse intervalo (não exige visibilidade), e medir ali dá `null`.
-// Esperar a visibilidade primeiro mede o que a pessoa vê; não afrouxa nada.
-async function caixa(alvo: Locator): Promise<Caixa> {
-  await expect(alvo).toBeVisible();
-  const medida = await alvo.boundingBox();
-  if (medida === null) {
-    throw new Error("Sem caixa: o elemento não está visível.");
-  }
-  return medida;
-}
-
-function seCruzam(a: Caixa, b: Caixa): boolean {
+function seCruzam(a: CaixaMedida, b: CaixaMedida): boolean {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
@@ -56,11 +43,11 @@ const FOLGA_SUBPIXEL = 0.5;
 
 // As três caixas não se cruzam duas a duas e cada uma fica entre as bordas horizontais do trilho.
 async function conferirRotulos(medidor: Locator, contexto: string): Promise<void> {
-  const trilho = await caixa(medidor.getByTestId("medidor-trilho"));
+  const trilho = await medirCaixa(medidor.getByTestId("medidor-trilho"));
   const rotulos = {
-    zero: await caixa(medidor.getByTestId("medidor-rotulo-zero")),
-    atencao: await caixa(medidor.getByTestId("medidor-rotulo-atencao")),
-    limite: await caixa(medidor.getByTestId("medidor-rotulo-limite")),
+    zero: await medirCaixa(medidor.getByTestId("medidor-rotulo-zero")),
+    atencao: await medirCaixa(medidor.getByTestId("medidor-rotulo-atencao")),
+    limite: await medirCaixa(medidor.getByTestId("medidor-rotulo-limite")),
   };
   expect(seCruzam(rotulos.zero, rotulos.atencao), `${contexto}: “0” × “atenção”`).toBe(false);
   expect(seCruzam(rotulos.zero, rotulos.limite), `${contexto}: “0” × “limite”`).toBe(false);
@@ -139,7 +126,7 @@ test.describe("medidor sem sobreposição", () => {
 
     const link = page.getByRole("link", { name: "ver os números" });
     await expect(link).toHaveAttribute("href", "#numeros-do-forno");
-    const alturaDoLink = (await caixa(link)).height;
+    const alturaDoLink = (await medirCaixa(link)).height;
     expect(alturaDoLink).toBeGreaterThanOrEqual(44);
     await link.click();
     await expect(page).toHaveURL(/#numeros-do-forno$/);
@@ -147,7 +134,7 @@ test.describe("medidor sem sobreposição", () => {
 
     // O voltar do cabeçalho leva ao índice das Queimas (achado do dono na caminhada, 04/10/2026).
     const voltar = page.getByRole("link", { name: "Voltar às Queimas" });
-    expect((await caixa(voltar)).height).toBeGreaterThanOrEqual(44);
+    expect((await medirCaixa(voltar)).height).toBeGreaterThanOrEqual(44);
     await voltar.click();
     await expect(page).toHaveURL(/\/gestao\/queimas$/);
     await expect(page.getByTestId(`cartao-forno-${id}`)).toBeVisible();

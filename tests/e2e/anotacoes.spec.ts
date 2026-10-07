@@ -2,6 +2,7 @@ import { test, expect, type Browser, type Page } from "@playwright/test";
 
 import { CONVITE_DA_CAIXA_VAZIA } from "@/lib/anotacoes/textos";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { destravarAnotacoesDeTeste, travarAnotacoesParaTeste } from "./apoio/travar-anotacoes";
 
 // As Anotações da casa (04.6-07-PLAN.md, D-08/GES-10): uma folha só, que salva sozinha, guarda
@@ -253,10 +254,10 @@ test.describe("anotacoes", () => {
     );
 
     try {
-      const caixaManterOMeu = await paginaB.getByTestId("anotacoes-manter-o-meu").boundingBox();
-      const caixaVerODela = await paginaB.getByTestId("anotacoes-ver-o-dela").boundingBox();
-      expect(caixaManterOMeu?.height ?? 0).toBeGreaterThanOrEqual(44);
-      expect(caixaVerODela?.height ?? 0).toBeGreaterThanOrEqual(44);
+      const caixaManterOMeu = await medirCaixa(paginaB.getByTestId("anotacoes-manter-o-meu"), "Manter o meu");
+      const caixaVerODela = await medirCaixa(paginaB.getByTestId("anotacoes-ver-o-dela"), "Ver o dela");
+      expect(caixaManterOMeu.height).toBeGreaterThanOrEqual(44);
+      expect(caixaVerODela.height).toBeGreaterThanOrEqual(44);
     } finally {
       await contextoB.close();
     }

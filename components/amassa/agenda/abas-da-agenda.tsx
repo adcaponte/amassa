@@ -16,11 +16,16 @@ import {
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { cn } from "@/lib/utils";
 
-// As cinco abas (UI-D1, completa no plano 15): Agenda · Pessoas · A receber (+ " · {N}" quando há o que
-// receber) | No site · Números. Abaixo de 768px elas quebram em 3 + 2 com o espaçador
-// `basis-full md:hidden` entre a terceira e a quarta — o mesmo mecanismo de
+// As cinco abas (UI-D1, completa no plano 15): Agenda · Pessoas · Receber (+ " · {N}" quando há o que
+// receber; até 05/10/2026 "A receber") | No site · Números. Abaixo de 768px elas quebram em 3 + 2 com o
+// espaçador `basis-full md:hidden` entre a terceira e a quarta — o mesmo mecanismo de
 // `abas-financeiro.tsx`/`sub-abas-cadastros.tsx`; a partir de 768px, uma fileira (`md:max-w-xl`).
 // Nunca rolagem lateral: cada aba quebra o próprio rótulo, nunca a página.
+//
+// D-12 (Fase 06.5): "Receber · {N}" cabe numa linha a 375 px até N = 99. Medido com a Inter da casa a
+// 16px: o pior caso de dois dígitos ("Receber · 44") tem 98,0 px, e a aba tem 103,7 px
+// ((327 − 8 − 2 × 4) ÷ 3). Com `p-1` sobravam 95,7 px de texto e "Receber · 20" (97,2) já quebrava em
+// duas linhas; com `px-0.5` sobram 99,7. Por isso o recuo lateral da aba é 2px; o vertical continua 4px.
 const ABAS: readonly { valor: AbaDaAgenda; rotulo: (quantosAReceber: number) => string; href: string }[] = [
   { valor: "agenda", rotulo: () => ROTULO_ABA_AGENDA, href: rotaDeGestao("/agenda") },
   { valor: "pessoas", rotulo: () => ROTULO_ABA_PESSOAS, href: rotaDeGestao("/agenda?aba=pessoas") },
@@ -30,13 +35,13 @@ const ABAS: readonly { valor: AbaDaAgenda; rotulo: (quantosAReceber: number) => 
 ];
 
 const CLASSE_DA_ABA =
-  "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm p-1 text-center font-medium break-words transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
+  "text-corpo flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-sm px-0.5 py-1 text-center font-medium break-words transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
 
 export type AbasDaAgendaProps = {
   // A página passa a aba que ela leu da URL; o `loading.tsx` não recebe a URL e deixa sem — aí a aba
   // vem do endereço atual.
   abaAtual?: AbaDaAgenda;
-  // Quantas cobranças estão em "A receber" (UI E15·zero-one-many): 0 ou ausente → "A receber" sem
+  // Quantas cobranças estão em "Receber" (UI E15·zero-one-many): 0 ou ausente → "Receber" sem
   // contador. A página lê no servidor, num `Suspense` próprio — as abas aparecem sem esperar a conta.
   quantosAReceber?: number;
 };

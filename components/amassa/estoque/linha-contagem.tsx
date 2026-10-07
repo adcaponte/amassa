@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 
 import { ROTULO_UNIDADE } from "@/lib/cadastros/catalogo";
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { ROTULO_AREA } from "@/lib/financeiro/textos";
 import { confirmarContagem } from "@/lib/estoque/acoes";
 import type { MaterialDaContagem } from "@/lib/estoque/consultas";
@@ -58,10 +58,6 @@ type Gravada = {
 };
 
 type ErroDaLinha = { texto: string; campo: "contado" | "custou" | null };
-
-function centavosParaCampo(centavos: number): string {
-  return (centavos / 100).toFixed(2).replace(".", ",");
-}
 
 // O "Contado" que vem depois deste, na ordem da tela — lido ANTES de gravar (depois, esta linha
 // fica compacta e o campo dela some).

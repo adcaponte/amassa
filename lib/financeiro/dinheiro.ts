@@ -114,6 +114,16 @@ export function converterReaisParaCentavos(textoBruto: string): ResultadoDeConve
   return finalizarConversao(Number(digitosInteiros) * 100);
 }
 
+// O inverso de `converterReaisParaCentavos`, para PREENCHER um campo editável (D-21, P4 da análise
+// estrutural — 06.5-15): 9000 → "90,00", 5 → "0,05", `null` → "" (campo vazio, nunca "0,00").
+// Duas casas e vírgula decimal, SEM "R$" e SEM separador de milhar — a conversão aceita os dois,
+// mas o campo fica mais fácil de editar assim. Não é exibição: para mostrar valor ("R$ 90,00")
+// continua `formatarReais` (`./formato`). A ida e volta `converterReaisParaCentavos(
+// centavosParaCampo(n))` devolve `n` — o teste trava.
+export function centavosParaCampo(centavos: number | null): string {
+  return centavos === null ? "" : (centavos / 100).toFixed(2).replace(".", ",");
+}
+
 export type ResultadoDeConversaoDePercentual =
   | { ok: true; pontosBase: number }
   | { ok: false; erro: string };

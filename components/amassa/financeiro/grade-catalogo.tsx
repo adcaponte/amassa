@@ -1,8 +1,8 @@
 "use client";
 
+import { casaComBusca, palavrasDaBusca } from "@/lib/busca/casa-com-busca";
 import { formatarReais } from "@/lib/financeiro/formato";
 import {
-  FRASE_NADA_ENCONTRADO,
   FRASE_NENHUM_ATALHO,
   ROTULO_AREA,
   ROTULO_BUSCAR_MATERIAL_DO_ESTOQUE,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { BuscaVazia } from "@/components/amassa/busca-vazia";
 
 // As 4 áreas de venda de verdade, na ordem fixa do resto do sistema — "Geral" nunca aparece aqui
 // porque nenhuma categoria de RECEITA/CUSTO usa a área Geral (categorias_grupo_area_coerente).
@@ -69,7 +70,8 @@ export function GradeCatalogo<T extends ItemCatalogoParaGrade>({
   aoMudarFiltro,
   aoTocarItem,
 }: GradeCatalogoProps<T>) {
-  const buscaNormalizada = busca.trim().toLowerCase();
+  // Com alguma palavra digitada, a lista agrupada; sem nenhuma (vazio ou só espaços), os atalhos.
+  const temBusca = palavrasDaBusca(busca).length > 0;
   const testIdPrefixo = modo === "venda" ? "venda" : "compra";
 
   function ehAtalho(item: T): boolean {
@@ -128,9 +130,10 @@ export function GradeCatalogo<T extends ItemCatalogoParaGrade>({
         </div>
       )}
 
-      {buscaNormalizada ? (
+      {temBusca ? (
         <ListaAgrupadaPorArea
-          itens={catalogo.filter((item) => item.nome.toLowerCase().includes(buscaNormalizada))}
+          itens={catalogo.filter((item) => casaComBusca(item.nome, busca))}
+          busca={busca}
           aoTocarItem={aoTocarItem}
           testIdPrefixo={testIdPrefixo}
           rotuloValor={rotuloValor}
@@ -184,17 +187,19 @@ function GradeDeAtalhos<T extends ItemCatalogoParaGrade>({
 
 function ListaAgrupadaPorArea<T extends ItemCatalogoParaGrade>({
   itens,
+  busca,
   aoTocarItem,
   testIdPrefixo,
   rotuloValor,
 }: {
   itens: readonly T[];
+  busca: string;
   aoTocarItem: (item: T) => void;
   testIdPrefixo: string;
   rotuloValor: (item: T) => string;
 }) {
   if (itens.length === 0) {
-    return <p className="text-corpo text-muted-foreground">{FRASE_NADA_ENCONTRADO}</p>;
+    return <BuscaVazia termo={busca} />;
   }
   return (
     <div className="flex flex-col gap-2">

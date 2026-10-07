@@ -16,11 +16,15 @@ export function Decoracao({ arquivo, className, espelhar }: DecoracaoProps) {
   return (
     // Arte vetorial decorativa (SVG puro em public/site/decoracao/) — next/image otimiza
     // JPEG/PNG por raster, não se aplica aqui, e o `next.config.ts` não libera SVG remoto.
+    // D-29 (Fase 06.5, 06/10/2026): `loading="lazy"` e `decoding="async"` — as flores nunca
+    // disputam a banda com a foto de abertura; o desenho não muda.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={`/site/decoracao/${arquivo}`}
       alt=""
       aria-hidden="true"
+      loading="lazy"
+      decoding="async"
       className={`pointer-events-none absolute z-0 opacity-85 ${espelhar ? "-scale-x-100" : ""} ${className ?? ""}`}
     />
   );

@@ -60,14 +60,28 @@ test.describe("banner de fornos e alerta do painel inicial", () => {
     return page.locator('[data-testid^="cartao-forno-"]').filter({ hasText: nome });
   }
 
-  // Mesmo mecanismo de `tests/e2e/queimas-cartao.spec.ts`: `force: true` porque toasts
-  // empilhados podem cobrir o botão dependendo de onde o cartão cai na grade; o portão para o
-  // próximo toque é o próprio botão "Queimar" reaparecer, não o contador (que depende de
-  // `revalidatePath`/`router.refresh()` contra o servidor Next único compartilhado da suíte).
+  // Toque de verdade, SEM `force: true` (o mesmo que `tests/e2e/queimas-cartao.spec.ts` já faz).
+  // O clique forçado não atravessa o que está por cima do botão: ele só pula as checagens
+  // "estável" e "recebe eventos" do Playwright e despacha o mouse no ponto calculado antes — quem
+  // recebe é o elemento que estiver lá naquele instante. Neste teste há três coisas que passam
+  // por cima ou deslocam o botão: (1) a pilha de avisos do sonner no canto inferior direito, que
+  // cobre o "Queimar" quando o cartão cai na coluna da direita (os retries acumulam fornos e o
+  // crítico novo vai para lá); (2) o próprio botão descendo 54 px quando o forno entra em
+  // atenção (o banner e o cartão crescem) — a árvore nova chega por um fetch RSC SEPARADO,
+  // depois de a ação já ter respondido e a folha já ter aberto, e sob carga pode cair no meio
+  // dos toques do registro seguinte; (3) o overlay do "Novo forno" em fade-out. O toque engolido
+  // não deixa rastro: o seletor nunca abre (estoura esperando `tipo-queima-biscoito`, 180 s) ou a
+  // folha nunca abre (10 s em `pularContagem`). Sem `force`, o Playwright espera o botão parar,
+  // confere o alvo no ponto antes de despachar (sem mover o mouse — o aviso não fica "pausado"
+  // por hover) e repete o toque se algo mudou no meio.
+  // Sessão de debug: `.planning/debug/resolved/queimas-banner-144-intermitente.md`.
+  //
+  // O portão para o próximo toque continua sendo o próprio "Queimar" reaparecer, não o contador
+  // (que depende de `revalidatePath`/`router.refresh()` contra o servidor Next único da suíte).
   async function registrarQueima(cartao: Locator): Promise<void> {
     await cartao.scrollIntoViewIfNeeded();
-    await cartao.getByRole("button", { name: "Queimar" }).click({ force: true });
-    await cartao.getByTestId("tipo-queima-biscoito").click({ force: true });
+    await cartao.getByRole("button", { name: "Queimar" }).click();
+    await cartao.getByTestId("tipo-queima-biscoito").click();
     // Fase 06.4: a folha "O que queimou?" abre depois do registro — "Pular" fecha sem gravar.
     await pularContagem(cartao.page());
     await expect(cartao.getByRole("button", { name: "Queimar" })).toBeVisible({ timeout: 10000 });

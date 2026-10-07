@@ -7,8 +7,10 @@
 // Nenhum import que alcance React, Next, drizzle-orm, pg ou `@/db`; não lê o relógio. Os imports
 // de valor são só de módulos também puros (`custo.ts`, `textos.ts`, e — desde o plano 06-05, para a
 // prévia do rodapé — `lib/financeiro/formato.ts` e `ROTULO_UNIDADE` de `lib/cadastros/catalogo.ts`,
-// ambos sem import de valor nenhum). As funções da lista (banner, contador) recebem o formatador de
+// ambos sem import de valor nenhum; desde a 06.5-09, `lib/busca/casa-com-busca.ts`, que não importa
+// nada). As funções da lista (banner, contador) recebem o formatador de
 // quem chama; a prévia formata aqui porque a frase inteira é a regra.
+import { normalizarParaBusca } from "@/lib/busca/casa-com-busca";
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
 import { formatarQuantidade, formatarReais } from "@/lib/financeiro/formato";
@@ -119,13 +121,12 @@ export function areaDoItemNoEstoque({
   return compra ?? venda ?? "geral";
 }
 
-// Busca sem acento e sem caixa: NFD, fora os diacríticos, minúsculas pt-BR, sem espaço nas pontas.
+// Busca sem acento e sem caixa: NFD, fora os diacríticos, minúsculas, sem espaço nas pontas — e,
+// desde a 06.5-09, com os espaços do meio colapsados, porque delega ao normalizador único do sistema
+// (`lib/busca/casa-com-busca.ts`, a regra de `nome_normalizado()` do banco). A busca dos Saldos
+// continua por TRECHO, como era.
 export function normalizarBusca(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLocaleLowerCase("pt-BR")
-    .trim();
+  return normalizarParaBusca(texto);
 }
 
 export type FiltroDaLista = {

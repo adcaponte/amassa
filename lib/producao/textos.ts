@@ -39,6 +39,49 @@ export const FRASE_ULTIMA_ETAPA =
   "A última etapa se conclui pela conclusão da ordem, não por “Terminei”. A tela foi atualizada.";
 export const FRASE_ORDEM_NAO_EXISTE = "Esta ordem não existe mais. A tela foi atualizada.";
 
+// "Terminei" com a regra da etapa (D-02, UI-D12 — dono, 05/10/2026). Quem decide se pode é
+// `podeTerminarEtapa` (`transicoes.ts`); estas só escrevem as frases. `passaram` nulo ou zero = o
+// campo parcial está vazio. O rótulo da etapa é feminino em todas ("pela Secagem", "pela Queima de
+// biscoito").
+//
+// O motivo embaixo do "Terminei" desabilitado (Apoio, `tinta-fraca`, ligado por `aria-describedby`).
+export function motivoTermineiDesabilitado(
+  rotuloDaEtapa: string,
+  total: number,
+  passaram: number | null,
+): string {
+  if (passaram === null || passaram <= 0) {
+    return `Diga quantas das ${total} peças já passaram pela ${rotuloDaEtapa} — a etapa só termina quando todas passarem.`;
+  }
+  const faltam = total - passaram;
+  return faltam === 1
+    ? `Falta 1 das ${total} peças passar pela ${rotuloDaEtapa}.`
+    : `Faltam ${faltam} das ${total} peças passarem pela ${rotuloDaEtapa}.`;
+}
+// A recusa do servidor (tela velha, outro celular): o parcial lido sob a trava não chegou ao total.
+export function fraseTermineiRecusado(
+  rotuloDaEtapa: string,
+  total: number,
+  passaram: number | null,
+): string {
+  const jaPassaram =
+    passaram === null || passaram <= 0
+      ? "nenhuma passou ainda"
+      : passaram === 1
+        ? "já passou 1"
+        : `já passaram ${passaram}`;
+  return `A ${rotuloDaEtapa} só termina quando as ${total} peças passaram por ela — ${jaPassaram}. A tela foi atualizada.`;
+}
+// O atalho ao lado do motivo (UI-D12): grava o parcial = total pelo mesmo caminho do campo — sem
+// toast, sem confirmação (o número aparece no campo e o "Terminei" habilita). Durante o envio,
+// `ROTULO_SALVANDO`; se falhar, `FRASE_FALHA_AO_SALVAR_PARCIAL` (verbatim do campo).
+export function rotuloPassaramTodas(total: number): string {
+  return `Passaram todas as ${total}`;
+}
+export function ariaPassaramTodas(total: number, rotuloDaEtapa: string): string {
+  return `Passaram todas as ${total} peças pela ${rotuloDaEtapa}`;
+}
+
 // Plural.
 export function dias(n: number): string {
   return n === 1 ? "1 dia" : `${n} dias`;
@@ -447,7 +490,6 @@ export const PLACEHOLDER_PECA = "Escolha a peça";
 export const GRUPO_PECAS_DE_LINHA = "Peças de linha";
 export const GRUPO_PECAS_EXCLUSIVAS = "Peças exclusivas";
 export const GRUPO_PECAS_PRECIFICADAS = "Peças precificadas";
-export const GRUPO_ITENS_DO_ESTOQUE = "Itens do estoque";
 export const OPCAO_OUTRA_PECA = "Outra peça — escrever o nome";
 export const ROTULO_NOME_DA_PECA = "Nome da peça";
 export const ROTULO_QUANTAS = "Quantas";
@@ -459,11 +501,16 @@ export const ROTULO_FECHAR = "Fechar";
 export function ariaTirarPeca(numero: number, nomeDaPeca: string | null): string {
   return nomeDaPeca ? `Tirar ${nomeDaPeca}` : `Tirar a peça ${numero}`;
 }
-// D-04 / D-14 — embaixo da peça em texto livre ou do item do estoque sem ficha; não bloqueia.
+// D-04 — embaixo da peça em texto livre da encomenda; não bloqueia. (Até a 06.5 valia também para o
+// item do estoque sem ficha da casa, D-14 da 06.1 — que deixou de ser oferecido, D-01 da 06.5.)
 export const NOTA_PECA_SEM_FICHA =
   "Sem ficha de precificação: esta peça fica sem material previsto e fora da estimativa do forno.";
-export const FRASE_CATALOGO_VAZIO_CASA =
-  "Nenhuma peça no catálogo ainda. Precifique uma peça de linha em Financeiro → Peças, ou ligue o estoque de um item contado em unidades em Cadastros → Catálogo.";
+// Fase 06.5, D-01 — opção "a-ficha", escolhida pelo dono em 06/10/2026: peça de cerâmica é a que
+// tem ficha de precificação. Sem nenhuma ficha de linha, a produção da casa mostra isto e o link
+// para onde a ficha se cadastra (UI-SPEC §Estados vazios, ajustada à opção escolhida).
+export const FRASE_SEM_PECA_DE_CERAMICA =
+  "Nenhuma peça de cerâmica precificada ainda. Cadastre a ficha em Financeiro → Peças.";
+export const ROTULO_ONDE_CADASTRAR_PECA = "abrir Financeiro → Peças";
 export const FRASE_PECAS_TIRADAS = "As peças que só servem a encomenda foram tiradas.";
 // Revisão 06.1, WR-107: enquanto o catálogo carrega, "Criar ordem" fica desligado e diz por quê.
 export const FRASE_CATALOGO_CARREGANDO = "Carregando as peças do catálogo…";
@@ -472,6 +519,18 @@ export const FRASE_ERRO_CARREGAR_CATALOGO =
 export const DICA_FIM_NOVA_ORDEM =
   "Encomenda normalmente nasce sozinha, do orçamento aprovado. Aqui é para produção da casa e para o pedido combinado de boca.";
 export const TOAST_ORDEM_CRIADA = "Ordem criada.";
+
+// Fase 06.5 (D-11): o aviso âmbar logo abaixo da entrega, quando a previsão (`previsaoDaNovaOrdem`,
+// a mesma conta do "vai atrasar") passa dela. Some quando a data cabe ou é apagada; não bloqueia.
+export function textoAvisoPrazoManchete(
+  diasDasEtapas: number,
+  prontaEmDiaMes: string,
+  diasDepois: number,
+): string {
+  return `As etapas somam ${dias(diasDasEtapas)} — a ordem fica pronta em ${prontaEmDiaMes}, ${dias(diasDepois)} depois da entrega.`;
+}
+export const TEXTO_AVISO_PRAZO_CORPO =
+  "Dá para criar assim mesmo; ela já nasce atrasada. Para caber, mude a entrega ou ajuste os dias das etapas depois de criar.";
 
 // Erros da Nova ordem — embaixo do campo, `role="alert"` (UI-SPEC §Erros). As frases de "passa de N
 // letras" seguem as do Orçamento (`lib/orcamentos/textos.ts`).
@@ -490,10 +549,12 @@ export const FRASE_CASA_PRECISA_DO_CATALOGO =
 export const FRASE_ENCOMENDA_SEM_ITEM =
   "Na encomenda, a peça vem de uma ficha de precificação ou é escrita à mão. Escolha outra.";
 export const FRASE_PECA_SAIU_DO_CATALOGO = "Essa peça não está mais no catálogo. Escolha outra.";
-// Revisão 06.1, WR-03: a produção da casa guarda peças (1 peça = 1 unidade) — item contado em kg, g,
-// ml, L ou m é material. `unidade` chega já escrita (`ROTULO_UNIDADE`).
-export function fraseItemNaoGuardaPecas(nome: string, unidade: string): string {
-  return `${nome} é contado em ${unidade} no Estoque, e a produção da casa guarda peças inteiras. Escolha um item contado em unidades.`;
+// Fase 06.5, D-01 ("a-ficha", 06/10/2026): só peça de cerâmica — a que tem ficha de precificação —
+// vira ordem. `criarOrdem` recusa um item do catálogo sem ficha (envio forçado: o seletor já não o
+// oferece) com esta frase, presa à peça (UI-SPEC §Erros). `nome` é o do BANCO, nunca o enviado.
+// (Substitui a frase do WR-03 da 06.1 — "contado em kg…" —, que só existia para o item do estoque.)
+export function fraseSoCeramicaViraOrdem(nome: string): string {
+  return `Só peça de cerâmica vira ordem de produção — “${nome}” não é. Escolha uma peça do Catálogo.`;
 }
 export function textoPecasDemais(limite: number): string {
   return `Uma ordem cabe até ${limite} peças. Crie outra ordem para o resto.`;
@@ -586,6 +647,11 @@ export function ariaLabelAbrirOrdem(nome: string): string {
 export const CHIP_CANCELADA = "cancelada";
 export const CHIP_ENTREGA_PARCIAL = "Entrega parcial";
 export const ARIA_LISTA_CONCLUIDAS = "Ordens concluídas e canceladas";
+// Fase 06.5 (D-11): quanto a concluída levou, do início ao fim, no lugar do número solto — "levou
+// 23 dias", "levou 1 dia" e, no zero, "no mesmo dia" (nunca "0 dias").
+export function textoLevou(n: number): string {
+  return n === 0 ? "no mesmo dia" : `levou ${dias(n)}`;
+}
 // "05/03/2026" a partir de `YYYY-MM-DD` (sem `Date` — o fuso do runtime nunca desloca o dia).
 export function formatarDataCompleta(data: string): string {
   const [ano, mes, dia] = data.split("-");
@@ -1020,6 +1086,9 @@ export const ROTULO_IMPRIMIR_FOLHA_GERAL = "Imprimir folha geral";
 export const ROTULO_VOLTAR_ORDEM = "Voltar à ordem";
 export const FRASE_ERRO_MONTAR_FOLHA =
   "Não deu para montar a folha. Verifique a internet e tente de novo.";
+// Fase 06.5 (D-11): na barra das duas folhas, só abaixo de 768 px e nunca no papel.
+export const TEXTO_AVISO_IMPRESSAO_A4 =
+  "Esta folha é para imprimir em A4 — no celular a prévia fica apertada, mas o papel sai certo.";
 
 // A marca das duas folhas.
 export const MARCA_DA_FOLHA = "AMASSA CERRADO";

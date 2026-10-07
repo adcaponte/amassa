@@ -3,7 +3,12 @@ import { test, expect, type Page } from "@playwright/test";
 import { mesDaGeracao, mesesParaGeracao, tituloDaContaFixa } from "@/lib/cadastros/contas-fixas";
 import { nomeDoMes } from "@/lib/financeiro/formato";
 
+import { abrirContasDepoisDaJanela } from "./apoio/caixa-janela";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
+
+// O toast de "Gerar" que criou contas, no singular ou no plural de verdade (06.5-12): "1 conta de
+// {mês} criada no Caixa." / "{N ≥ 2} contas de {mês} criadas no Caixa." — "1 contas" não casa.
+const CONTAS_CRIADAS = /^(1 conta de .+ criada|([2-9]|\d{2,}) contas de .+ criadas) no Caixa\.$/;
 
 // Contas fixas com CRUD completo (04.4-10-PLAN.md, D-13): criar, ajustar o valor esperado na
 // própria linha, desativar/reativar, e "Gerar as contas de {mês}" que nunca duplica (critério 6
@@ -160,11 +165,12 @@ test.describe("cadastros contas fixas", () => {
     // "Gerar as contas de {mês}" — primeira vez: cria a do Aluguel, nunca a da Internet
     // (desativada).
     await page.getByTestId("gerar-contas").click();
-    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
       timeout: 10000,
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloInternetGerado)).toHaveCount(0);
 
@@ -176,6 +182,7 @@ test.describe("cadastros contas fixas", () => {
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloInternetGerado)).toHaveCount(0);
 
@@ -202,6 +209,8 @@ test.describe("cadastros contas fixas", () => {
     await expect(
       page.getByText("Desfeito. A conta voltou a R$ 1.500,00 em aberto."),
     ).toBeVisible({ timeout: 10000 });
+    // O "Desfazer" recarrega a página; a conta do mês seguinte pode estar depois da janela (06.5-12).
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloAluguelGerado)).toContainText("R$ 1.500,00");
 
     // Reativa a Internet.
@@ -276,11 +285,12 @@ test.describe("cadastros contas fixas", () => {
     const tituloDesativadaTerceiroMes = tituloDaContaFixa(nomeDesativada, terceiroMes);
 
     await page.getByTestId("gerar-contas").click();
-    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
       timeout: 10000,
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloDesativadaTerceiroMes)).toHaveCount(0);
 
@@ -291,11 +301,12 @@ test.describe("cadastros contas fixas", () => {
     await irParaContasFixas(page);
     await page.getByTestId("gerar-contas-mes").selectOption(quartoMes);
     await page.getByTestId("gerar-contas").click();
-    await expect(page.getByText(/conta\(s\) de .+ criada\(s\) no Caixa\.$/)).toBeVisible({
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
       timeout: 10000,
     });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
     await expect(cartaoDaConta(page, tituloContabilidadeQuartoMes)).toHaveCount(1);
 
@@ -309,6 +320,7 @@ test.describe("cadastros contas fixas", () => {
     ).toBeVisible({ timeout: 10000 });
 
     await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
     await expect(cartaoDaConta(page, tituloContabilidadeTerceiroMes)).toHaveCount(1);
 
     // A PRIMEIRA opção é o mês CORRENTE — a suposição que a excluía caiu (resposta do dono,

@@ -102,7 +102,7 @@ export function DialogoCalcularHora({ aberto, onFechar }: DialogoCalcularHoraPro
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && onFechar()}>
       <DialogContent
         aria-label={TITULO_DIALOGO_CALCULAR_HORA}
-        className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-md"
+        className="flex max-h-[85svh] flex-col overflow-y-auto sm:max-w-md"
       >
         <DialogHeader>
           <DialogTitle className="text-titulo">{TITULO_DIALOGO_CALCULAR_HORA}</DialogTitle>

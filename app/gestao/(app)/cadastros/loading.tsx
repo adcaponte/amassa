@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Esqueleto no formato do conteúdo — a segunda fileira de pílulas (6 sub-abas desde a Fase 5, D-01:
-// Catálogo · Categorias · Clientes | Contas fixas · Taxas · Parâmetros, 3 + 3 abaixo de 768px, uma
-// fileira acima, o mesmo desenho de `sub-abas-cadastros.tsx`) e uma lista, nunca "carregando..."
+// Esqueleto no formato do conteúdo — a fileira de pílulas (desde a Fase 06.5, D-09: UMA fileira com
+// rolagem lateral, o mesmo desenho de `sub-abas-cadastros.tsx` — três pílulas inteiras e uma quarta
+// cortada na borda, o sinal de que a fileira continua) e uma lista, nunca "carregando..."
 // solto (04.4-UI-SPEC.md §UI Considerations, "loading"). A barra de pílulas do Financeiro vive em
 // `layout.tsx`, fora do limite de Suspense que este arquivo cobre — `loading.tsx` só envolve
 // `{children}` do layout, nunca o próprio conteúdo dele (mesmo achado de
@@ -14,20 +14,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 // sem o dono" — mesmo precedente de `app/(app)/financeiro/error.tsx`, que também ficou genérico
 // depois de a Fase 04.5-01 acrescentar Orçamentos/Peças). Clientes tem, além deste, o esqueleto
 // PRÓPRIO dentro da página (`EsqueletoDosClientes`), num `Suspense` da sub-aba.
-const PILULAS_DE_CIMA = [0, 1, 2] as const;
-const PILULAS_DE_BAIXO = [0, 1, 2] as const;
+const PILULAS_INTEIRAS = [0, 1, 2] as const;
 
 export default function CarregandoCadastros() {
   return (
     <div className="flex flex-col">
-      <div className="mx-6 mt-6 flex flex-wrap gap-1 rounded-md bg-muted p-1 md:mx-8 md:max-w-xl">
-        {PILULAS_DE_CIMA.map((pilula) => (
-          <Skeleton key={`cima-${pilula}`} className="h-11 flex-1 rounded-sm" />
+      <div className="mx-6 mt-6 flex gap-1 overflow-hidden rounded-md bg-muted p-1 md:mx-8">
+        {PILULAS_INTEIRAS.map((pilula) => (
+          <Skeleton key={pilula} className="h-11 w-24 shrink-0 rounded-sm" />
         ))}
-        <span aria-hidden="true" className="basis-full md:hidden" />
-        {PILULAS_DE_BAIXO.map((pilula) => (
-          <Skeleton key={`baixo-${pilula}`} className="h-11 flex-1 rounded-sm" />
-        ))}
+        <Skeleton className="h-11 w-12 shrink-0 rounded-sm" />
       </div>
 
       <div className="flex flex-col gap-3 px-6 py-6 md:px-8">

@@ -4,9 +4,17 @@
 // o cliente. O identificador é validado por expressão regular (não Zod — módulo sem dependência),
 // a mesma forma de UUID usada em outros módulos do projeto.
 const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// `?aviso=contas-geradas` (06.5-12): a mesma validação de `lib/cadastros/avisos.ts`, redeclarada
+// (este módulo não importa nada) — inteiro de 0 a 500 e um mês `YYYY-MM` que existe. Inválido =
+// sem aviso (T-06.5-30); o texto é montado pelo servidor, nunca refletido da URL.
+const REGEX_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+const QUANTIDADE_MAXIMA_DE_CONTAS = 500;
 
 export type AvisoDaUrl =
   | { tipo: "lancado"; documentoId: string }
+  // A correção lançada (06.5-17, UI-D9): `documentoId` é a NOVA; o número da original vem do vínculo no
+  // banco (`obterCorrecaoParaAviso`), nunca da URL.
+  | { tipo: "corrigido"; documentoId: string }
   | { tipo: "cancelado"; documentoId: string }
   | { tipo: "pago"; parcelaId: string }
   | { tipo: "desfeito"; parcelaId: string }
@@ -30,14 +38,36 @@ export type AvisoDaUrl =
   // nenhum identificador próprio no aviso. O número da venda e se a ordem foi aberta vêm do
   // PRÓPRIO `orcamentoParaEditar` recarregado (`documentoNumero`/`encomendaId`, já gravados pela
   // transação antes da navegação completa) — nunca da URL, que o cliente poderia forjar.
-  | { tipo: "orcamento-aprovado" };
+  | { tipo: "orcamento-aprovado" }
+  // "Gerar as contas de {mês}" pelo aviso do Caixa (06.5-12, UI-D8): quantas a ação criou e de que
+  // mês — o toast é `textoContasGeradas`, o mesmo dos Cadastros.
+  | { tipo: "contas-geradas"; quantidade: number; mes: string };
 
 export function avisoDaUrl(parametros: {
   aviso?: string | null;
   documento?: string | null;
   parcela?: string | null;
+  quantidade?: string | null;
+  // Não é `?mes=`: essa chave já escolhe o mês do extrato nesta página.
+  mesGerado?: string | null;
 }): AvisoDaUrl | null {
-  if (parametros.aviso === "lancado" || parametros.aviso === "cancelado") {
+  if (parametros.aviso === "contas-geradas") {
+    const quantidadeTexto = parametros.quantidade;
+    if (!quantidadeTexto || !/^\d+$/.test(quantidadeTexto)) {
+      return null;
+    }
+    const quantidade = Number(quantidadeTexto);
+    if (quantidade > QUANTIDADE_MAXIMA_DE_CONTAS) {
+      return null;
+    }
+    const mes = parametros.mesGerado;
+    if (!mes || !REGEX_MES.test(mes)) {
+      return null;
+    }
+    return { tipo: "contas-geradas", quantidade, mes };
+  }
+
+  if (parametros.aviso === "lancado" || parametros.aviso === "cancelado" || parametros.aviso === "corrigido") {
     const documentoId = parametros.documento;
     if (!documentoId || !REGEX_UUID.test(documentoId)) {
       return null;

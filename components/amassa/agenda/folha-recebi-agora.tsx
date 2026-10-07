@@ -5,30 +5,26 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { receberAgora } from "@/lib/agenda/acoes";
-import { FORMAS_DE_RECEBER, type FormaDeReceber } from "@/lib/agenda/esquemas";
+import type { FormaDeReceber } from "@/lib/agenda/esquemas";
 import type { TipoDeCobranca } from "@/lib/agenda/receber";
 import {
-  ARIA_FORMAS_DE_RECEBER,
   DICA_RECEBI_AGORA,
   FRASE_COBRANCA_DISPENSADA,
   FRASE_COBRANCA_SUMIU,
   FRASE_DATA_CANCELADA,
   FRASE_FALHA_AO_RECEBER,
-  ROTULO_FORMA_DE_RECEBER,
-  ROTULO_REGISTRANDO,
   ROTULO_VER_NO_CAIXA,
   ROTULO_VOLTAR,
   TITULO_RECEBI_AGORA,
-  taxaDaMaquininha,
   toastRecebiAgora,
   topoRecebiAgora,
 } from "@/lib/agenda/textos";
-import { formatarPercentual, formatarReais } from "@/lib/financeiro/formato";
+import { formatarReais } from "@/lib/financeiro/formato";
 import { hrefDoCaixa } from "@/lib/financeiro/navegacao";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CLASSE_DA_FOLHA } from "@/components/amassa/estoque/folha-movimentacao";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Folha, FolhaCorpo, FolhaRodape } from "@/components/amassa/folha";
+import { FormasDeReceber } from "@/components/amassa/formas-de-receber";
 
 // O que a folha precisa saber da cobrança: a referência (a ÚNICA coisa que vai ao servidor, com a forma)
 // e o que o topo mostra.
@@ -110,13 +106,14 @@ export function FolhaRecebiAgora({ cobranca, taxaCartaoPontosBase, aoFechar }: F
         }
       }}
     >
-      <DialogContent
-        showCloseButton={false}
+      {/* O cabeçalho continua à mão: o "Recebi agora" não tem o "X" do `FolhaCabecalho` (fecha pelo
+          "Voltar", pelo Esc e por fora) e empilha título, topo e dica — pôr o fechar mudaria a tela. */}
+      <Folha
+        tamanho="estreita"
         data-testid="folha-recebi-agora"
         data-cobranca-tipo={cobranca.tipo}
         data-cobranca-id={cobranca.id}
         onOpenAutoFocus={(evento) => evento.preventDefault()}
-        className={cn(CLASSE_DA_FOLHA, "md:max-w-sm")}
       >
         <DialogHeader className="border-border flex flex-col gap-1 border-b px-6 py-4 text-left">
           <DialogTitle className="text-titulo text-tinta">{TITULO_RECEBI_AGORA}</DialogTitle>
@@ -130,36 +127,20 @@ export function FolhaRecebiAgora({ cobranca, taxaCartaoPontosBase, aoFechar }: F
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4">
-          <div role="group" aria-label={ARIA_FORMAS_DE_RECEBER} className="flex flex-col gap-3">
-            {FORMAS_DE_RECEBER.map((forma) => (
-              <div key={forma} className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-testid={`forma-${forma}`}
-                  disabled={registrando !== null}
-                  onClick={() => void receber(forma)}
-                  className="text-corpo h-auto min-h-[52px] w-full px-4 font-semibold"
-                >
-                  {registrando === forma ? ROTULO_REGISTRANDO : ROTULO_FORMA_DE_RECEBER[forma]}
-                </Button>
-                {forma === "cartao" ? (
-                  <p data-testid="recebi-agora-taxa" className="text-apoio text-tinta-fraca text-center">
-                    {taxaDaMaquininha(formatarPercentual(taxaCartaoPontosBase))}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
+        <FolhaCorpo className="gap-3">
+          <FormasDeReceber
+            registrando={registrando}
+            aoReceber={(forma) => void receber(forma)}
+            taxaCartaoPontosBase={taxaCartaoPontosBase}
+          />
           {erro !== null ? (
             <p role="alert" data-testid="recebi-agora-erro" className="text-corpo text-erro">
               {erro}
             </p>
           ) : null}
-        </div>
+        </FolhaCorpo>
 
-        <div className="border-border bg-popover flex flex-col border-t px-6 py-4">
+        <FolhaRodape>
           <Button
             type="button"
             variant="outline"
@@ -170,8 +151,8 @@ export function FolhaRecebiAgora({ cobranca, taxaCartaoPontosBase, aoFechar }: F
           >
             {ROTULO_VOLTAR}
           </Button>
-        </div>
-      </DialogContent>
+        </FolhaRodape>
+      </Folha>
     </Dialog>
   );
 }

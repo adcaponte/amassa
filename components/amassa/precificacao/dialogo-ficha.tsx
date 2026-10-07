@@ -7,7 +7,7 @@ import { acrescentarLinha } from "@/lib/orcamentos/acoes";
 import { criarFicha, editarFicha } from "@/lib/precificacao/acoes";
 import { hrefDaAbaPecas } from "@/lib/precificacao/navegacao";
 import { calcularPeca, farolDoPreco, type ParametrosDoCalculo } from "@/lib/precificacao/calculo";
-import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
+import { centavosParaCampo, converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import type { CategoriaDeVenda, FichaParaCopiar, FichaParaEdicao } from "@/lib/precificacao/consultas";
 import {
   converterContagemDaFicha,
@@ -118,15 +118,6 @@ function textoDeMedida(valorInteiro: number, escala: number): string {
   return String(valorInteiro / escala).replace(".", ",");
 }
 
-// "350" centavos → "3,50". Mesma técnica de
-// `components/amassa/cadastros/dialogo-item-catalogo.tsx` para o campo de preço.
-function textoDeCentavos(valorCentavos: number | null): string {
-  if (valorCentavos === null) {
-    return "";
-  }
-  return (valorCentavos / 100).toFixed(2).replace(".", ",");
-}
-
 function camposDeTextoDaFicha(ficha: FichaParaEdicao): CamposDeTexto {
   return {
     nome: ficha.nome,
@@ -136,9 +127,9 @@ function camposDeTextoDaFicha(ficha: FichaParaEdicao): CamposDeTexto {
     larguraTexto: textoDeMedida(ficha.larguraMm, 10),
     profundidadeTexto: textoDeMedida(ficha.profundidadeMm, 10),
     alturaTexto: textoDeMedida(ficha.alturaMm, 10),
-    embalagemTexto: textoDeCentavos(ficha.embalagemCentavos),
-    precoPraticadoTexto: textoDeCentavos(ficha.precoPraticadoEfetivoCentavos),
-    precoMercadoTexto: textoDeCentavos(ficha.precoMercadoCentavos),
+    embalagemTexto: centavosParaCampo(ficha.embalagemCentavos),
+    precoPraticadoTexto: centavosParaCampo(ficha.precoPraticadoEfetivoCentavos),
+    precoMercadoTexto: centavosParaCampo(ficha.precoMercadoCentavos),
     cabemBiscoitoTexto: ficha.cabemBiscoitoInformado !== null ? String(ficha.cabemBiscoitoInformado) : "",
     cabemEsmalteTexto: ficha.cabemEsmalteInformado !== null ? String(ficha.cabemEsmalteInformado) : "",
   };
@@ -240,7 +231,7 @@ export function DialogoFicha({
       larguraTexto: textoDeMedida(copiados.larguraMm, 10),
       profundidadeTexto: textoDeMedida(copiados.profundidadeMm, 10),
       alturaTexto: textoDeMedida(copiados.alturaMm, 10),
-      embalagemTexto: textoDeCentavos(copiados.embalagemCentavos),
+      embalagemTexto: centavosParaCampo(copiados.embalagemCentavos),
       cabemBiscoitoTexto:
         copiados.cabemBiscoitoInformado !== null ? String(copiados.cabemBiscoitoInformado) : "",
       cabemEsmalteTexto:
@@ -459,7 +450,7 @@ export function DialogoFicha({
 
   return (
     <Dialog open={aberto} onOpenChange={(novoValor) => !novoValor && fechar()}>
-      <DialogContent aria-label={titulo} className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-2xl">
+      <DialogContent aria-label={titulo} className="flex max-h-[85svh] flex-col overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-titulo">{titulo}</DialogTitle>
         </DialogHeader>

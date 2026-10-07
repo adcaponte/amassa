@@ -5,17 +5,27 @@ import {
   ROTULO_TILE_A_RECEBER,
   ROTULO_TILE_SALDO,
   ROTULO_TILE_SE_TUDO_SE_CUMPRIR,
+  textoJanelaAte,
 } from "@/lib/financeiro/textos";
 
 export type TilesCaixaProps = {
   resumo: ResumoDoCaixa;
+  // O fim da janela de 30 dias, já em `dd/mm` (06.5-12, UI-D7): "A receber", "A pagar" e "Se tudo
+  // se cumprir" somam só a janela e dizem até quando, embaixo do número; o saldo não muda.
+  janelaAte: string;
 };
 
 // Os quatro tiles do Caixa (protótipo `telaCaixa`) — grade `auto-fit minmax(150px,1fr)` para um
 // valor alto ("R$ 123.456,78") crescer na vertical em vez de rolar a página na horizontal
 // (04.4-UI-SPEC.md, backstop de overflow). "Saldo em caixa" é o único de fundo escuro
 // (`--color-tinta`) — o foco visual principal da tela (04.4-UI-SPEC.md §Foco Visual Principal).
-export function TilesCaixa({ resumo }: TilesCaixaProps) {
+export function TilesCaixa({ resumo, janelaAte }: TilesCaixaProps) {
+  const ate = (
+    <span data-testid="caixa-janela-ate" className="text-apoio text-muted-foreground">
+      {textoJanelaAte(janelaAte)}
+    </span>
+  );
+
   return (
     <div
       className="grid gap-3"
@@ -43,6 +53,7 @@ export function TilesCaixa({ resumo }: TilesCaixaProps) {
         <strong className="text-display text-foreground tabular-nums whitespace-nowrap">
           {formatarReais(resumo.aReceberCentavos)}
         </strong>
+        {ate}
       </div>
 
       <div
@@ -55,6 +66,7 @@ export function TilesCaixa({ resumo }: TilesCaixaProps) {
         <strong className="text-display text-foreground tabular-nums whitespace-nowrap">
           {formatarReais(resumo.aPagarCentavos)}
         </strong>
+        {ate}
       </div>
 
       <div
@@ -67,6 +79,7 @@ export function TilesCaixa({ resumo }: TilesCaixaProps) {
         <strong className="text-display text-foreground tabular-nums whitespace-nowrap">
           {formatarReais(resumo.seTudoSeCumprirCentavos)}
         </strong>
+        {ate}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa } from "./apoio/medir-caixa";
 import { hojeNoAtelie, somarDiasAoHoje } from "./apoio/semear-financeiro";
 import {
   criarPessoaDeTeste,
@@ -180,7 +181,7 @@ test.describe("lembretes todos", () => {
     const mostrarMais = pagina(page).getByTestId("lembretes-mostrar-mais");
     await expect(mostrarMais).toBeVisible();
     await expect(mostrarMais).toHaveText("Mostrar mais 50");
-    expect((await mostrarMais.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect((await medirCaixa(mostrarMais, "Mostrar mais 50")).height).toBeGreaterThanOrEqual(44);
 
     await mostrarMais.click();
     await expect(page).toHaveURL(/\/gestao\/lembretes\?quantos=100$/);
@@ -201,9 +202,9 @@ test.describe("lembretes todos", () => {
     await expect(vazio).toHaveText("Nenhum lembrete aqui.");
     const campo = pagina(page).getByTestId("lembretes-novo-texto");
     await expect(campo).toBeVisible();
-    const caixaDoCampo = await campo.boundingBox();
-    const caixaDoVazio = await vazio.boundingBox();
-    expect(caixaDoCampo?.y ?? Infinity).toBeLessThan(caixaDoVazio?.y ?? -Infinity);
+    const caixaDoCampo = await medirCaixa(campo, "linha de criar");
+    const caixaDoVazio = await medirCaixa(vazio, "Nenhum lembrete aqui.");
+    expect(caixaDoCampo.y).toBeLessThan(caixaDoVazio.y);
     await expect(
       pagina(page).getByText(/^Lembrete feito fica guardado com quem marcou e quando\./),
     ).toBeVisible();
@@ -372,9 +373,9 @@ test.describe("lembretes todos", () => {
       const quantidade = await pilulas.count();
       expect(quantidade).toBeGreaterThanOrEqual(9);
       for (let indice = 0; indice < quantidade; indice += 1) {
-        const caixa = await pilulas.nth(indice).boundingBox();
-        expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
-        expect((caixa?.x ?? 0) + (caixa?.width ?? 0)).toBeLessThanOrEqual(clientWidth);
+        const caixa = await medirCaixa(pilulas.nth(indice), `pílula de filtro ${indice}`);
+        expect(caixa.height).toBeGreaterThanOrEqual(44);
+        expect(caixa.x + caixa.width).toBeLessThanOrEqual(clientWidth);
       }
     } finally {
       for (const id of pessoas) {

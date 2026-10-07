@@ -31,7 +31,10 @@ export type ExtensaoNoDisco = "pdf" | "jpg" | "xlsx" | "xls" | "csv";
 export function diretorioDeAnexos(): string {
   const doAmbiente = process.env.CAMINHO_ANEXOS_FORNECEDORES;
   if (doAmbiente) return doAmbiente;
-  return path.join(process.cwd(), ".dados/anexos-fornecedores");
+  // Fase 06.5 (D-22, P6): `turbopackIgnore` — o caminho é decidido em tempo de execução, e sem o
+  // comentário o rastreador do `next build` copiava o projeto inteiro (com `.dados/`) para
+  // `.next/standalone`. Na imagem a pasta é montada no contêiner (`CAMINHO_ANEXOS_FORNECEDORES`).
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), ".dados/anexos-fornecedores");
 }
 
 // Porta única de travessia de caminho (T-06.2-17): recebe o NOME do arquivo (nunca um caminho), recusa

@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
+import { medirCaixa, type CaixaMedida } from "./apoio/medir-caixa";
 import { diaEmBrasilia, semearFicha, semearOrdem } from "./apoio/semear-producao";
 
 // O quadro da Produção (plano 08, critério 3 do ROADMAP; PRD-01, PRD-05, PRD-13).
@@ -118,8 +119,8 @@ test.describe("producao quadro", () => {
     await expect(tudo).toHaveAttribute("aria-pressed", "true");
     await expect(encomendas).toHaveAttribute("aria-pressed", "false");
     for (const pilula of [tudo, encomendas, daCasa]) {
-      const caixa = await pilula.boundingBox();
-      expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+      const caixa = await medirCaixa(pilula);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
     }
 
     await expect(cartaoNoQuadro(page, encomendaAtiva)).toBeVisible();
@@ -211,25 +212,25 @@ test.describe("producao quadro", () => {
     await page.goto("/gestao/producao");
 
     const etapas = ["producao", "secagem", "queima1", "esmaltacao", "queima2", "entrega"];
-    const caixas = [];
+    const caixas: CaixaMedida[] = [];
     for (const etapa of etapas) {
       const coluna = page.getByTestId(`producao-coluna-${etapa}`);
       await expect(coluna).toBeVisible();
-      caixas.push(await coluna.boundingBox());
+      caixas.push(await medirCaixa(coluna, `coluna ${etapa}`));
     }
     const noCelular = test.info().project.name === "celular";
     if (noCelular) {
       // Empilhadas: mesma coluna x, cada uma abaixo da anterior.
       for (let i = 1; i < caixas.length; i++) {
-        expect(Math.round(caixas[i]?.x ?? -1)).toBe(Math.round(caixas[0]?.x ?? -2));
-        expect(caixas[i]?.y ?? 0).toBeGreaterThan(caixas[i - 1]?.y ?? 0);
+        expect(Math.round(caixas[i].x)).toBe(Math.round(caixas[0].x));
+        expect(caixas[i].y).toBeGreaterThan(caixas[i - 1].y);
       }
     } else {
       // Desktop Chrome = 1280px de largura: seis colunas na mesma linha, da esquerda para a direita.
       expect(page.viewportSize()?.width).toBeGreaterThanOrEqual(1280);
       for (let i = 1; i < caixas.length; i++) {
-        expect(Math.round(caixas[i]?.y ?? -1)).toBe(Math.round(caixas[0]?.y ?? -2));
-        expect(caixas[i]?.x ?? 0).toBeGreaterThan(caixas[i - 1]?.x ?? 0);
+        expect(Math.round(caixas[i].y)).toBe(Math.round(caixas[0].y));
+        expect(caixas[i].x).toBeGreaterThan(caixas[i - 1].x);
       }
     }
     // A coluna vazia mostra "—" e diz o porquê ao leitor de tela; o h2 diz quantas.

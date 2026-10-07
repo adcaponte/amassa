@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   filtrarExtrato,
+  saldoAntesDaJanela,
+  type GrupoDePagas,
   montarExtrato,
   resumoDoCaixa,
   type MovimentoParaExtrato,
@@ -382,5 +384,183 @@ describe("formaDaUrl", () => {
     expect(formaDaUrl("outracoisa")).toBe("todas");
     expect(formaDaUrl(undefined)).toBe("todas");
     expect(formaDaUrl(null)).toBe("todas");
+  });
+});
+
+// D-27 (06.5-12): o Caixa lê linha a linha só do 1º dia do mês do extrato em diante; o que foi
+// pago antes chega AGREGADO por (tipo, valor, taxa) e vira saldo de partida. Esta suíte prova que
+// nenhum número que a tela mostra muda: saldo de cada linha, saldo atual (tile), total filtrado.
+describe("saldoAntesDaJanela — equivalência com o histórico inteiro (D-27)", () => {
+  // O que `somarMovimentosAntesDe` faz no banco, reproduzido em memória: pagas antes de `desde`,
+  // de documento não cancelado, agrupadas por (tipo, valor, taxa) com a contagem. A chave usa o
+  // valor CRU da taxa (`null` e `0` são grupos diferentes, como no `group by` do Postgres).
+  function agruparAntesDe(movimentos: readonly MovimentoParaExtrato[], desde: string): GrupoDePagas[] {
+    const grupos = new Map<string, GrupoDePagas>();
+    for (const m of movimentos) {
+      if (m.pagoEm >= desde || m.cancelado) {
+        continue;
+      }
+      const chave = `${m.tipo}|${m.valorCentavos}|${m.taxaPontosBase ?? "nulo"}`;
+      const grupo = grupos.get(chave);
+      if (grupo) {
+        grupo.quantidade += 1;
+      } else {
+        grupos.set(chave, {
+          tipo: m.tipo,
+          valorCentavos: m.valorCentavos,
+          taxaPontosBase: m.taxaPontosBase ?? null,
+          quantidade: 1,
+        });
+      }
+    }
+    return [...grupos.values()];
+  }
+
+  // Monta das duas formas — a de antes (tudo) e a de agora (agregado + do mês em diante) — e
+  // compara tudo que a tela lê, para o mês mostrado e cada forma do filtro.
+  function conferirEquivalencia(
+    movimentos: readonly MovimentoParaExtrato[],
+    saldoInicial: number,
+    mes: string,
+  ) {
+    const desde = `${mes}-01`;
+    const antes = montarExtrato(movimentos, saldoInicial);
+    const agora = montarExtrato(
+      movimentos.filter((m) => m.pagoEm >= desde),
+      saldoInicial + saldoAntesDaJanela(agruparAntesDe(movimentos, desde)),
+    );
+
+    expect(agora.saldoAtualCentavos).toBe(antes.saldoAtualCentavos);
+    for (const forma of ["todas", "dinheiro", "pix", "cartao"] as const) {
+      expect(filtrarExtrato(agora.linhas, { mes, forma })).toEqual(
+        filtrarExtrato(antes.linhas, { mes, forma }),
+      );
+    }
+    // As linhas do mês em diante, uma a uma, com o mesmo saldo depois (inclusive `null` da cancelada).
+    expect(agora.linhas).toEqual(antes.linhas.filter((l) => l.pagoEm >= desde));
+    // E os tiles (`resumoDoCaixa`) saem os mesmos, com as mesmas abertas.
+    const abertas = [
+      { tipo: "venda" as const, valorCentavos: 4321 },
+      { tipo: "despesa" as const, valorCentavos: 1234 },
+    ];
+    expect(resumoDoCaixa({ saldoAtualCentavos: agora.saldoAtualCentavos, abertas })).toEqual(
+      resumoDoCaixa({ saldoAtualCentavos: antes.saldoAtualCentavos, abertas }),
+    );
+  }
+
+  it("lista vazia de grupos soma zero", () => {
+    expect(saldoAntesDaJanela([])).toBe(0);
+  });
+
+  it("venda soma o líquido (taxa arredondada por parcela, vezes a quantidade); despesa subtrai inteira", () => {
+    // 333 com 350 pb: taxa 11,655 → 12; líquido 321 — três parcelas iguais dão 963, não
+    // 999 − round(34,965) = 964 (a taxa NUNCA é calculada sobre a soma do grupo).
+    expect(
+      saldoAntesDaJanela([
+        { tipo: "venda", valorCentavos: 333, taxaPontosBase: 350, quantidade: 3 },
+        { tipo: "despesa", valorCentavos: 500, taxaPontosBase: 350, quantidade: 2 },
+        { tipo: "venda", valorCentavos: 1000, taxaPontosBase: null, quantidade: 1 },
+      ]),
+    ).toBe(963 - 1000 + 1000);
+  });
+
+  // Três meses (fev, mar, abr de 2027): vendas com e sem taxa, despesas (com taxa informada, que
+  // não vale para despesa), canceladas antes e dentro da janela, empates no mesmo dia, e
+  // pagamentos colados na borda (último dia do mês anterior e dia 1º do mês mostrado).
+  const fixture: MovimentoParaExtrato[] = [
+    movimento({ tipo: "venda", pagoEm: "2027-02-03", valorCentavos: 15000, taxaPontosBase: 350, forma: "cartao" }),
+    movimento({ tipo: "venda", pagoEm: "2027-02-03", valorCentavos: 333, taxaPontosBase: 350, forma: "cartao" }),
+    movimento({ tipo: "venda", pagoEm: "2027-02-10", valorCentavos: 333, taxaPontosBase: 350, forma: "cartao" }),
+    movimento({ tipo: "venda", pagoEm: "2027-02-11", valorCentavos: 333, taxaPontosBase: 0, forma: "pix" }),
+    movimento({ tipo: "despesa", pagoEm: "2027-02-12", valorCentavos: 8000, taxaPontosBase: 350, forma: "cartao" }),
+    movimento({ tipo: "venda", pagoEm: "2027-02-20", valorCentavos: 99999, cancelado: true }),
+    movimento({ tipo: "despesa", pagoEm: "2027-02-28", valorCentavos: 70000, cancelado: true }),
+    movimento({ tipo: "venda", pagoEm: "2027-02-28", valorCentavos: 2500, forma: "dinheiro" }),
+    // Borda: 1º de março, com empate de dia e de documento.
+    movimento({ tipo: "despesa", pagoEm: "2027-03-01", valorCentavos: 1200, numeroDocumento: 900, numeroParcela: 2 }),
+    movimento({ tipo: "despesa", pagoEm: "2027-03-01", valorCentavos: 1200, numeroDocumento: 900, numeroParcela: 1 }),
+    movimento({
+      tipo: "venda",
+      pagoEm: "2027-03-01",
+      valorCentavos: 777,
+      taxaPontosBase: 299,
+      forma: "cartao",
+      numeroDocumento: 899,
+    }),
+    movimento({ tipo: "venda", pagoEm: "2027-03-15", valorCentavos: 4000, cancelado: true, forma: "pix" }),
+    movimento({ tipo: "venda", pagoEm: "2027-03-31", valorCentavos: 5050, taxaPontosBase: 199, forma: "cartao" }),
+    movimento({ tipo: "despesa", pagoEm: "2027-04-01", valorCentavos: 300000, forma: "pix" }),
+    movimento({ tipo: "venda", pagoEm: "2027-04-02", valorCentavos: 1, taxaPontosBase: 5000, forma: "cartao" }),
+    movimento({ tipo: "venda", pagoEm: "2027-04-30", valorCentavos: 12345, forma: "dinheiro", cancelado: true }),
+  ];
+
+  it("três meses: para cada mês mostrado, o mesmo saldo por linha, o mesmo saldo atual e o mesmo total filtrado", () => {
+    for (const mes of ["2027-01", "2027-02", "2027-03", "2027-04", "2027-05"]) {
+      conferirEquivalencia(fixture, 100000, mes);
+      conferirEquivalencia(fixture, -5000, mes);
+    }
+  });
+
+  it("março conferido à mão: saldo de antes, saldo depois de cada linha e total do mês", () => {
+    const desde = "2027-03-01";
+    const grupos = agruparAntesDe(fixture, desde);
+    // Fevereiro: 15000−525 = 14475; 333−12 = 321 (duas, um grupo de 2); 333 com taxa 0 = 333;
+    // −8000 (despesa no cartão entra inteira); +2500. = 14475 + 642 + 333 − 8000 + 2500 = 9950.
+    // As duas canceladas de fevereiro não entram.
+    expect(grupos.find((g) => g.valorCentavos === 333 && g.taxaPontosBase === 350)?.quantidade).toBe(2);
+    expect(saldoAntesDaJanela(grupos)).toBe(9950);
+
+    const agora = montarExtrato(
+      fixture.filter((m) => m.pagoEm >= desde),
+      0 + saldoAntesDaJanela(grupos),
+    );
+    const marco = filtrarExtrato(agora.linhas, { mes: "2027-03", forma: "todas" });
+    // Da mais recente para a mais antiga: 31/03 (5050−100 = 4950), 15/03 cancelada,
+    // 01/03 doc 900 p2, doc 900 p1, doc 899 (777−23 = 754).
+    expect(marco.linhas.map((l) => l.saldoDepoisCentavos)).toEqual([
+      9950 + 754 - 1200 - 1200 + 4950,
+      null,
+      9950 + 754 - 1200 - 1200,
+      9950 + 754 - 1200,
+      9950 + 754,
+    ]);
+    expect(marco.totalFiltradoCentavos).toBe(754 - 2400 + 4950);
+  });
+
+  it("muitos históricos sorteados (semente fixa): nenhum número muda em mês nenhum", () => {
+    // Gerador MINSTD (Park–Miller) com semente fixa — determinístico, nunca intermitente; o produto
+    // fica abaixo de 2^53, então a conta é exata em ponto flutuante.
+    let semente = 20261006;
+    const sortear = (n: number) => {
+      semente = (semente * 48271) % 2147483647;
+      return semente % n;
+    };
+    const formas = ["dinheiro", "pix", "cartao"] as const;
+    const taxas = [null, 0, 199, 299, 350, 499];
+    for (let rodada = 0; rodada < 40; rodada += 1) {
+      const movimentos: MovimentoParaExtrato[] = [];
+      const quantos = 1 + sortear(60);
+      for (let i = 0; i < quantos; i += 1) {
+        const mesDoMovimento = 1 + sortear(6);
+        const dia = 1 + sortear(28);
+        movimentos.push(
+          movimento({
+            tipo: sortear(3) === 0 ? "despesa" : "venda",
+            pagoEm: `2027-${String(mesDoMovimento).padStart(2, "0")}-${String(dia).padStart(2, "0")}`,
+            // Valores repetidos de propósito (grupos com quantidade > 1).
+            valorCentavos: [333, 1000, 777, 5050, 1 + sortear(50000)][sortear(5)],
+            taxaPontosBase: taxas[sortear(taxas.length)],
+            forma: formas[sortear(3)],
+            cancelado: sortear(8) === 0,
+            numeroDocumento: 1 + sortear(5),
+            numeroParcela: 1 + sortear(3),
+          }),
+        );
+      }
+      const saldoInicial = sortear(200000) - 100000;
+      for (const mes of ["2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06", "2027-07"]) {
+        conferirEquivalencia(movimentos, saldoInicial, mes);
+      }
+    }
   });
 });

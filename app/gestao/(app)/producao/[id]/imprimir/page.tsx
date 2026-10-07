@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Printer } from "lucide-react";
 
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 import { ordemParaAFolha } from "@/lib/producao/consultas";
 import { linhasDaFolhaDaOrdem } from "@/lib/producao/folhas";
-import { ROTULO_VOLTAR_ORDEM, formatarDataCompleta } from "@/lib/producao/textos";
+import {
+  ROTULO_VOLTAR_ORDEM,
+  TEXTO_AVISO_IMPRESSAO_A4,
+  formatarDataCompleta,
+} from "@/lib/producao/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { Button } from "@/components/ui/button";
 import { BotaoImprimirFolha } from "@/components/amassa/producao/botao-imprimir-folha";
@@ -43,6 +47,15 @@ export default async function PaginaFolhaDaOrdem({ params }: { params: Promise<{
           </Link>
         </Button>
         <BotaoImprimirFolha />
+        {/* D-11: a prévia no celular vem explicada. A barra inteira já sai do papel (`.barra` no
+            `@media print` do módulo); o `md:hidden` tira o aviso do desktop. */}
+        <p
+          data-testid="folha-aviso-a4"
+          className="text-apoio text-tinta-media flex w-full items-center gap-2 md:hidden print:hidden"
+        >
+          <Printer aria-hidden="true" className="size-4 shrink-0" />
+          {TEXTO_AVISO_IMPRESSAO_A4}
+        </p>
       </div>
       <FolhaDaOrdemA4 folha={folha} impressaEm={formatarDataCompleta(hoje)} />
     </div>

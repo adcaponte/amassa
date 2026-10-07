@@ -1,6 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
 import { formatarDataCurta } from "@/lib/financeiro/formato";
+import { medirCaixa } from "./apoio/medir-caixa";
+import { criarOrcamentoPelaTela } from "./apoio/novo-orcamento";
 import { hojeNoAtelie } from "./apoio/semear-financeiro";
 import {
   cancelarOrdemNoBanco,
@@ -31,29 +33,10 @@ function sufixoUnico(): string {
   return `${test.info().project.name}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-async function criarOrcamento(page: Page): Promise<string> {
-  await page.goto("/gestao/financeiro?aba=orcamentos");
-  await page.getByRole("button", { name: "Novo orçamento" }).click();
-  await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=orcamentos&orcamento=/, { timeout: 10000 });
-  return orcamentoIdDaUrl(page);
-}
-
-function orcamentoIdDaUrl(page: Page): string {
-  const url = new URL(page.url());
-  return url.searchParams.get("orcamento") ?? "";
-}
-
 // Sai do campo e espera a navegação de verdade — mesma armadilha documentada em
 // `orcamentos-total.spec.ts`/`orcamentos-ciclo.spec.ts` (a URL final pode ser IDÊNTICA à atual).
 async function blurEEsperarNavegacao(page: Page, campo: Locator): Promise<void> {
   await Promise.all([page.waitForNavigation({ waitUntil: "load" }), campo.blur()]);
-}
-
-async function preencherCliente(page: Page, orcamentoId: string, nome: string): Promise<void> {
-  const campo = page.getByTestId("orcamento-campo-cliente");
-  await campo.fill(nome);
-  await blurEEsperarNavegacao(page, campo);
-  await expect(page).toHaveURL(new RegExp(`orcamento=${orcamentoId}$`));
 }
 
 async function preencherTitulo(page: Page, orcamentoId: string, titulo: string): Promise<void> {
@@ -170,8 +153,7 @@ test.describe("orcamentos aprovacao", () => {
     suf = sufixoUnico();
     await fazerLogin(page);
 
-    orcamentoId = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoId, `[e2e] Cliente Aprovação ${suf}`);
+    orcamentoId = await criarOrcamentoPelaTela(page, `[e2e] Cliente Aprovação ${suf}`);
     await preencherTitulo(page, orcamentoId, `[e2e] Jogo Aprovação ${suf}`);
 
     nomeDaPeca1 = `[e2e] Aprovação Caneca ${suf}`;
@@ -406,8 +388,7 @@ test.describe("orcamentos aprovacao", () => {
   }) => {
     await fazerLogin(page);
 
-    const orcamentoId2 = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoId2, `[e2e] Cliente Sem Ordem ${suf}`);
+    const orcamentoId2 = await criarOrcamentoPelaTela(page, `[e2e] Cliente Sem Ordem ${suf}`);
     await acrescentarPecaExclusiva(page, orcamentoId2, `[e2e] Sem Ordem Caneca ${suf}`, "80");
     await marcarComoEnviado(page);
 
@@ -428,8 +409,7 @@ test.describe("orcamentos aprovacao", () => {
   }) => {
     await fazerLogin(page);
 
-    const orcamentoId3 = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoId3, `[e2e] Cliente Oito Peças ${suf}`);
+    const orcamentoId3 = await criarOrcamentoPelaTela(page, `[e2e] Cliente Oito Peças ${suf}`);
     for (let indice = 1; indice <= 8; indice += 1) {
       await acrescentarPecaExclusiva(page, orcamentoId3, `[e2e] Peça ${indice} ${suf}`, "30");
     }
@@ -450,19 +430,17 @@ test.describe("orcamentos aprovacao", () => {
     await expect(botaoCriar).toBeVisible();
 
     for (const botao of [botaoVoltar, botaoCriar]) {
-      const caixa = await botao.boundingBox();
-      expect(caixa).not.toBeNull();
-      expect(caixa!.height).toBeGreaterThanOrEqual(44);
-      expect(caixa!.y).toBeLessThan(700);
+      const caixa = await medirCaixa(botao);
+      expect(caixa.height).toBeGreaterThanOrEqual(44);
+      expect(caixa.y).toBeLessThan(700);
     }
 
-    const caixaDoCheckbox = await page
-      .getByTestId("aprovar-ordem")
-      .locator("xpath=..")
-      .boundingBox();
-    expect(caixaDoCheckbox).not.toBeNull();
-    expect(caixaDoCheckbox!.height).toBeGreaterThanOrEqual(44);
-    expect(caixaDoCheckbox!.width).toBeGreaterThanOrEqual(44);
+    const caixaDoCheckbox = await medirCaixa(
+      page.getByTestId("aprovar-ordem").locator("xpath=.."),
+      "rótulo da caixa de abrir ordem",
+    );
+    expect(caixaDoCheckbox.height).toBeGreaterThanOrEqual(44);
+    expect(caixaDoCheckbox.width).toBeGreaterThanOrEqual(44);
   });
 
   // 04.5-14-PLAN.md — o achado 14 da verificação humana: "na produção ela fica cancelada e vai
@@ -476,8 +454,10 @@ test.describe("orcamentos aprovacao", () => {
     const sufDaOrdem = sufixoUnico();
     await fazerLogin(page);
 
-    const orcamentoId4 = await criarOrcamento(page);
-    await preencherCliente(page, orcamentoId4, `[e2e] Cliente Ordem Cancelada ${sufDaOrdem}`);
+    const orcamentoId4 = await criarOrcamentoPelaTela(
+      page,
+      `[e2e] Cliente Ordem Cancelada ${sufDaOrdem}`,
+    );
     await acrescentarPecaExclusiva(page, orcamentoId4, `[e2e] Ordem Cancelada Caneca ${sufDaOrdem}`, "70");
     await marcarComoEnviado(page);
 
