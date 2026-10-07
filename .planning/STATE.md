@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 06.5  # 05/10/2026; ate entao dizia 06.4
 current_phase_name: Polimento  # 05/10/2026; ate entao dizia Queimas — contagem
 status: awaiting-owner  # 06/10/2026 ~12h40 UTC: 06.5 executada no branch até o portão (01-29 + Tarefas 1-2 do 30), NÃO publicada, 0031 não aplicada; até então dizia executing (planos 01-05 concluídos)
-stopped_at: "06/10/2026 ~12h40 UTC: Fase 06.5 EXECUTADA no branch gsd/phase-06.5-polimento ATÉ O PORTÃO DO DONO — planos 01-29 com SUMMARY e as Tarefas 1 e 2 do 06.5-30 (varredura e2e completa 1655 passed/13 failed, todas classificadas, 3 defeitos da fase corrigidos; Roteiro 22 completo; 06.5-VERIFICACAO-HUMANA.md). Nada publicado (git log main..branch = 131 commits; origin/main..main = 5 só docs), 0031 não aplicada (/api/health/polimento 404). Falta o dono: Parte 0 → Roteiro 22 → caminhada → aprovado. Até 06/10 ~12h40 UTC dizia: planos 01 a 05 concluidos, pausa pedida pelo dono no comeco do 06.5-06."
+stopped_at: "07/10/2026 ~19h UTC: Fase 06.5 NO AR E MIGRADA — merge 741e2d7, run 37667733188 verde em 23m13s, 0031 aplicada pelo dono (exit 0), /api/health/polimento 200, 6 cabecalhos de seguranca, SQL do Passo 5 conferido (32 migracoes, 4 indices, contagens iguais). Falta a caminhada do dono (formulario https://claude.ai/artifact/FEtQpmUb7rLwqHq3zPyWDh) e o aprovado; depois revisao, verificacao e fechamento."
 last_updated: "2026-10-06T12:40:00.000Z"  # até 06/10/2026 dizia 2026-10-04T18:20
 progress:
   total_phases: 15  # 05/10/2026: entra a 06.5; ate entao dizia 14
