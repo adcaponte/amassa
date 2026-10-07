@@ -7,11 +7,20 @@ name: Entrega contínua
 #
 #   qualidade ∥ construir  ->  e2e (desktop) ∥ e2e (celular) ∥ banco  ->  publicar  ->  implantar
 #
-# - `construir` monta a imagem UMA vez (com cache) e a sobe ao GHCR só com a tag do commit
-#   (`:<sha>` e `:ferramentas-<sha>`) — nenhuma dessas tags é implantada;
-# - as duas fatias do e2e baixam e testam ESSA imagem; `banco` prova migrações e backup;
-# - `publicar` não monta nada: só dá às mesmas imagens as tags `:latest` e `:ferramentas`, que são
-#   as que o servidor baixa. O pipeline publica a mesma imagem que testou.
+# - `construir` monta as duas imagens UMA vez (com cache), sobe ao GHCR com a tag do commit
+#   (`:<sha>` e `:ferramentas-<sha>`, só para rastrear e voltar à mão — nenhuma é implantada nem
+#   consumida por outro job) e devolve o DIGEST de cada uma (`digest_app`, `digest_ferramentas`);
+# - as duas fatias do e2e baixam e testam a app PELO DIGEST; `banco` migra o Postgres efêmero PELA
+#   imagem `ferramentas` (pelo digest), confere pelo hash de cada arquivo que ela aplicou exatamente as
+#   migrações do commit, e prova migrações e backup;
+# - `publicar` não monta nada: dá aos MESMOS digests as tags `:latest` e `:ferramentas`, que são as
+#   que o servidor baixa, e confere que as tags apontam para eles. O pipeline publica as mesmas
+#   imagens que testou — as duas.
+#
+# 07/10/2026 (quick 261007-shs, 06.5-WR-04, decisão do dono): as duas imagens passaram a circular pelo
+# digest e a `ferramentas` passou a migrar o banco efêmero antes de ser promovida. *Até 07/10/2026 a
+# `ferramentas` era promovida sem ser executada, e os jobs consumiam a tag mutável `:<sha>`* — um re-run
+# de `construir` podia trocar o conteúdo dela entre o teste e a promoção.
 #
 # Um teste quebrado interrompe a fila antes de `:latest` mudar.
 on:
@@ -72,10 +81,18 @@ jobs:
   # Cache `gha` com um escopo por alvo: antes os dois alvos gravavam no MESMO escopo padrão, e o
   # segundo `cache-to` sobrescrevia o primeiro. O primeiro run depois desta mudança parte de cache
   # frio (escopos novos); do segundo em diante, só as camadas que mudaram são refeitas.
+  #
+  # 06.5-WR-04 (quick 261007-shs): os dois passos de build têm `id`, e o job devolve o DIGEST de cada
+  # imagem — é por ele que `e2e`, `banco` e `publicar` as consomem (quem lê as saídas tem `construir` no
+  # `needs`). Medido no run 37667733188: o `outputs.digest` do build-push-action é o mesmo digest que
+  # `docker pull IMAGEM@digest` baixa e que `imagetools create` preserva em `:latest`.
   construir:
     name: Construir a imagem (tag do commit)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      digest_app: ${{ steps.app.outputs.digest }}
+      digest_ferramentas: ${{ steps.ferramentas.outputs.digest }}
     steps:
       - uses: actions/checkout@v5
 
@@ -89,6 +106,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Construir e subir a imagem app com a tag do commit
+        id: app
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -102,6 +120,7 @@ jobs:
           cache-to: type=gha,scope=app,mode=max
 
       - name: Construir e subir a imagem ferramentas com a tag do commit
+        id: ferramentas
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -177,6 +196,18 @@ jobs:
     env:
       DATABASE_URL_TESTE: postgresql://amassa_teste:efemero_de_teste_sem_valor_real@127.0.0.1:5432/amassa_teste
     steps:
+      # 06.5-WR-04: sem o digest, o job pararia mais adiante com um `docker pull` de nome inválido. Para
+      # aqui, dizendo o porquê.
+      - name: Conferir que o digest da imagem app chegou de construir
+        env:
+          DIGEST_APP: ${{ needs.construir.outputs.digest_app }}
+        run: |
+          if [ -z "$DIGEST_APP" ]; then
+            echo "::error::O job construir não devolveu o digest da imagem app — nada a testar."
+            exit 1
+          fi
+          echo "Imagem app a testar: $IMAGEM_BASE@$DIGEST_APP"
+
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
@@ -204,15 +235,16 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # A imagem testada aqui é a MESMA que o job `publicar` promove a `:latest` logo depois — não
-      # outra montagem do mesmo Dockerfile, o MESMO artefato, pela tag do commit que `construir`
-      # acabou de subir (D-22). Mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
+      # outra montagem do mesmo Dockerfile, o MESMO artefato, PELO DIGEST que `construir` acabou de
+      # subir (D-22; desde 07/10/2026, 06.5-WR-04, pelo digest e não pela tag `:<sha>`, que um re-run de
+      # `construir` poderia trocar no meio). Mesmo alvo `app`, mesmo entrypoint (`node server.js` da saída
       # `standalone`). Testar com `next start` validaria um processo diferente do que sobe em
       # produção — "next start" nem é compatível com `output: "standalone"` (o Next avisa e
       # ignora a saída standalone). Ver a seção "Deviations" do SUMMARY do plano 01-05.
       #
       # Sem `docker login`: o pacote do GHCR é público (D-07), como para o VPS.
-      - name: Baixar a imagem app do commit (a que `construir` montou)
-        run: docker pull "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
+      - name: Baixar a imagem app do commit pelo digest (a que `construir` montou)
+        run: docker pull "${{ env.IMAGEM_BASE }}@${{ needs.construir.outputs.digest_app }}"
 
       # --network host: o contêiner enxerga o Postgres do runner em 127.0.0.1:5432 do mesmo
       # jeito que os passos deste job enxergam, e a porta 3000 fica exposta direto para o
@@ -228,7 +260,7 @@ jobs:
             -e AUTH_SECRET="segredo-de-teste-efemero-sem-valor-real" \
             -e AUTH_TRUST_HOST="true" \
             -e PORT=3000 \
-            "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
+            "${{ env.IMAGEM_BASE }}@${{ needs.construir.outputs.digest_app }}"
 
       - name: Esperar /api/health responder
         run: |
@@ -279,10 +311,18 @@ jobs:
 
   # Fase 06.5 (D-22): as duas provas do banco que moravam no job `e2e`, num job próprio, em paralelo
   # com as duas fatias do e2e. Mesmo serviço Postgres efêmero (postgres:17-alpine, a imagem e a versão
-  # de produção), mesma migração do banco de teste, os mesmos dois scripts, na mesma ordem.
+  # de produção), os mesmos dois scripts, na mesma ordem.
+  #
+  # 06.5-WR-04 (quick 261007-shs, 07/10/2026): o Postgres efêmero deste job é migrado PELA imagem
+  # `ferramentas` — a que o dono roda à mão em produção, depois do backup —, pelo digest que `construir`
+  # subiu, e não mais pelo checkout. Em seguida `conferir-migracoes-da-imagem.mjs` confere, pelo hash de
+  # cada `.sql`, que ela aplicou exatamente as migrações do commit, e um `node -e` dentro da imagem confere
+  # que o atalho de migração do `package.json` dela aponta para o mesmo `db/migrate.ts`. Só depois vêm
+  # `test:migracoes` e `test:backup`. Por isso `banco` passou a esperar `construir`; o `e2e` já esperava,
+  # então o caminho mais longo do pipeline não muda.
   banco:
     name: Banco — migrações e backup de ponta a ponta
-    needs: qualidade
+    needs: [qualidade, construir]
     runs-on: ubuntu-latest
     # Os dois scripts levavam poucos minutos dentro do job `e2e` (npm ci + migração + as provas em
     # bancos próprios do test:migracoes + o backup/restauração). 15 é folga larga para isso.
@@ -313,13 +353,43 @@ jobs:
 
       - run: npm ci
 
-      # O mesmo passo do job `e2e` (e o mesmo porquê: o módulo do Drizzle direto, sem o alias de npm
-      # reservado ao banco real — este arquivo continua sem nenhuma menção a ele). Alvo: só o
-      # Postgres efêmero deste job.
-      - name: Aplicar schema no banco de teste
-        run: npx tsx db/migrate.ts
+      - name: Conferir que o digest da imagem ferramentas chegou de construir
+        env:
+          DIGEST_FERRAMENTAS: ${{ needs.construir.outputs.digest_ferramentas }}
+        run: |
+          if [ -z "$DIGEST_FERRAMENTAS" ]; then
+            echo "::error::O job construir não devolveu o digest da imagem ferramentas — nada a conferir."
+            exit 1
+          fi
+          echo "Imagem ferramentas a exercitar: $IMAGEM_BASE@$DIGEST_FERRAMENTAS"
+
+      - name: Baixar a imagem ferramentas do commit pelo digest
+        run: docker pull "${{ env.IMAGEM_BASE }}@${{ needs.construir.outputs.digest_ferramentas }}"
+
+      # O MESMO arquivo que o atalho de migração do npm roda no Roteiro, chamado direto (`npx tsx
+      # db/migrate.ts`) para este arquivo continuar sem nenhuma menção ao alias reservado ao banco real
+      # (01-ARQUITETURA §8). `--network host`: o contêiner enxerga o Postgres do runner em 127.0.0.1:5432.
+      # Alvo: SÓ o Postgres efêmero deste job — nenhuma migração de produção pelo pipeline.
+      - name: Aplicar o schema no banco de teste PELA imagem ferramentas
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL="${{ env.DATABASE_URL_TESTE }}" \
+            "${{ env.IMAGEM_BASE }}@${{ needs.construir.outputs.digest_ferramentas }}" \
+            npx tsx db/migrate.ts
+
+      - name: Conferir que a imagem aplicou exatamente as migrações do commit
+        run: node scripts/conferir-migracoes-da-imagem.mjs
         env:
           DATABASE_URL: ${{ env.DATABASE_URL_TESTE }}
+
+      # O Roteiro roda o atalho do npm dentro da imagem; ele precisa apontar para o mesmo arquivo que o
+      # passo acima exercitou. Confere sem escrever o nome do atalho: algum valor de `scripts` do
+      # `package.json` DA IMAGEM tem de ser exatamente `tsx db/migrate.ts`.
+      - name: Conferir que o atalho de migração da imagem aponta para o mesmo arquivo
+        run: |
+          docker run --rm \
+            "${{ env.IMAGEM_BASE }}@${{ needs.construir.outputs.digest_ferramentas }}" \
+            node -e "const s = require('./package.json').scripts || {}; if (!Object.values(s).includes('tsx db/migrate.ts')) { console.error('O package.json da imagem não tem atalho para tsx db/migrate.ts.'); process.exit(1); } console.log('Atalho de migração da imagem: tsx db/migrate.ts.');"
 
       # Confere de fora — extensão, funções de data, trigger de atualizado_em e o papel
       # amassa_app com os grants certos — contra o mesmo banco de teste que o passo acima
@@ -337,15 +407,21 @@ jobs:
       - name: Provar backup e restauração de ponta a ponta (npm run test:backup)
         run: npm run test:backup
 
-  # Depende de `e2e` (as duas fatias) e de `banco`. NÃO monta imagem nenhuma (D-22): só dá às
-  # imagens que `construir` subiu com a tag do commit — e que as duas fatias do e2e baixaram e
-  # testaram — as tags que o servidor baixa, `:latest` e `:ferramentas`.
+  # Depende de `e2e` (as duas fatias) e de `banco`. NÃO monta imagem nenhuma (D-22): só dá aos
+  # DIGESTS que `construir` subiu — a app que as duas fatias do e2e testaram e a ferramentas que o
+  # `banco` executou — as tags que o servidor baixa, `:latest` e `:ferramentas`.
   # O `imagetools` do buildx copia o manifesto no próprio registro: o conteúdo (digest) de
-  # `:latest` passa a ser exatamente o de `:<sha>`, sem nenhum build entre o teste e a publicação.
+  # `:latest` passa a ser exatamente o digest testado, sem nenhum build entre o teste e a publicação.
   # Se um teste reprovou, este job não roda e `:latest` continua a imagem do último run verde.
+  #
+  # 06.5-WR-04 (quick 261007-shs): pelo digest, não pela tag `:<sha>`; `construir` no `needs` porque as
+  # saídas só são lidas de `needs` diretos; e a conferência final compara a tag com o digest de entrada.
+  # Resíduo aceito: um run cancelado ENTRE os dois `create` (o `cancel-in-progress` do topo) pode deixar
+  # `:latest` e `:ferramentas` de commits diferentes. O `implantar` não roda nesse caso, e o Roteiro 23 diz
+  # para não usar a `ferramentas` até o próximo run verde.
   publicar:
     name: Publicar as imagens testadas no GHCR
-    needs: [e2e, banco]
+    needs: [construir, e2e, banco]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -358,24 +434,50 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promover a imagem app testada a :latest
+      - name: Conferir que os digests chegaram de construir
+        env:
+          DIGEST_APP: ${{ needs.construir.outputs.digest_app }}
+          DIGEST_FERRAMENTAS: ${{ needs.construir.outputs.digest_ferramentas }}
         run: |
-          docker buildx imagetools create \
-            -t "${{ env.IMAGEM_BASE }}:latest" \
-            "${{ env.IMAGEM_BASE }}:${{ github.sha }}"
+          if [ -z "$DIGEST_APP" ] || [ -z "$DIGEST_FERRAMENTAS" ]; then
+            echo "::error::O job construir não devolveu os dois digests — nada a promover."
+            exit 1
+          fi
 
-      - name: Promover a imagem ferramentas do mesmo commit a :ferramentas
+      - name: Promover a imagem app testada a :latest (pelo digest)
+        env:
+          DIGEST_APP: ${{ needs.construir.outputs.digest_app }}
         run: |
           docker buildx imagetools create \
-            -t "${{ env.IMAGEM_BASE }}:ferramentas" \
-            "${{ env.IMAGEM_BASE }}:ferramentas-${{ github.sha }}"
+            -t "$IMAGEM_BASE:latest" \
+            "$IMAGEM_BASE@$DIGEST_APP"
+
+      - name: Promover a imagem ferramentas exercitada a :ferramentas (pelo digest)
+        env:
+          DIGEST_FERRAMENTAS: ${{ needs.construir.outputs.digest_ferramentas }}
+        run: |
+          docker buildx imagetools create \
+            -t "$IMAGEM_BASE:ferramentas" \
+            "$IMAGEM_BASE@$DIGEST_FERRAMENTAS"
 
       # O que foi publicado, pelo digest — é a linha a comparar com o `docker images --digests` do
-      # servidor se um dia houver dúvida sobre qual imagem está no ar.
-      - name: Conferir os digests publicados
+      # servidor se um dia houver dúvida sobre qual imagem está no ar. A linha `Digest:` do inspect
+      # (formato medido no run 37667733188) tem de ser o digest de entrada; diferente → vermelho.
+      - name: Conferir que as tags apontam para os digests testados
+        env:
+          DIGEST_APP: ${{ needs.construir.outputs.digest_app }}
+          DIGEST_FERRAMENTAS: ${{ needs.construir.outputs.digest_ferramentas }}
         run: |
-          docker buildx imagetools inspect "${{ env.IMAGEM_BASE }}:latest"
-          docker buildx imagetools inspect "${{ env.IMAGEM_BASE }}:ferramentas"
+          conferir() {
+            publicado=$(docker buildx imagetools inspect "$IMAGEM_BASE:$1" | awk '/^Digest:/ { print $2; exit }')
+            if [ "$publicado" != "$2" ]; then
+              echo "::error::$IMAGEM_BASE:$1 aponta para ${publicado:-nada}, não para o digest testado $2."
+              exit 1
+            fi
+            echo "$IMAGEM_BASE:$1 = $publicado (o digest testado)."
+          }
+          conferir latest "$DIGEST_APP"
+          conferir ferramentas "$DIGEST_FERRAMENTAS"
 
   # Depende de `publicar` e só roda quando a variável de repositório DEPLOY_ATIVO vale "true" —
   # o dono liga isso no plano 01-07, depois de preparar o servidor. Antes disso, este job
