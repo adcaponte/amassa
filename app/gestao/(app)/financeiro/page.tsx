@@ -151,6 +151,8 @@ export default async function PaginaFinanceiro({
     mes?: string;
     quantidade?: string;
     mesGerado?: string;
+    // 06.5-WR-03 (quick 261007-shs): quantas canceladas no mês continuaram canceladas.
+    mantidas?: string;
     forma?: string;
     peca?: string;
     exclusivas?: string;
@@ -171,6 +173,7 @@ export default async function PaginaFinanceiro({
     mes,
     quantidade,
     mesGerado,
+    mantidas,
     forma,
     peca,
     exclusivas,
@@ -228,7 +231,7 @@ export default async function PaginaFinanceiro({
   const mesAtual = mesDaUrl(mes, hoje);
   const formaDoExtrato = formaDaUrl(forma);
 
-  const avisoResolvido = avisoDaUrl({ aviso, documento, parcela, quantidade, mesGerado });
+  const avisoResolvido = avisoDaUrl({ aviso, documento, parcela, quantidade, mesGerado, mantidas });
 
   // D-03 / UI-D7 (06.5-12): a janela do Caixa — vencidas e as que vencem até hoje + 30 dias, com o
   // `hoje` do servidor. Os meses que ela toca são os que podem pedir o aviso das contas fixas.
@@ -544,7 +547,7 @@ export default async function PaginaFinanceiro({
                                 orcamentoParaEditar.encomendaId !== null,
                               )
                             : avisoResolvido?.tipo === "contas-geradas"
-                              ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes))
+                              ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes), avisoResolvido.mantidas)
                               : null;
 
   // O "Desfazer" (D-03) só é oferecido junto do aviso `pago` ENQUANTO ele continuar válido.

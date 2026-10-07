@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, count, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -18,7 +18,7 @@ import {
 import { exigirUsuario } from "@/lib/auth/exigir-usuario";
 import { codigoDoErroPostgres } from "@/lib/erro/postgres";
 import { primeiroDiaDoMes } from "@/lib/financeiro/calendario";
-import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { hojeEmBrasilia, nomeDoMes } from "@/lib/financeiro/formato";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 import {
@@ -29,7 +29,13 @@ import {
   type InsumoDisponivel,
 } from "./catalogo";
 import { podeMudarGrupoEArea } from "./categorias";
-import { mesPermitidoParaGeracao, tituloDaContaFixa, vencimentoNoMes } from "./contas-fixas";
+import {
+  mesPermitidoParaGeracao,
+  planejarGeracaoDoMes,
+  tituloDaContaFixa,
+  vencimentoNoMes,
+  type ContaCanceladaNoMes,
+} from "./contas-fixas";
 import {
   esquemaAtivacao,
   esquemaAtivacaoDeContaFixa,
@@ -56,6 +62,7 @@ import {
   FRASE_ITEM_NAO_EXISTE_MAIS,
   FRASE_MES_DE_GERACAO_INVALIDO,
   FRASE_NOME_REPETIDO,
+  frasePerguntaContasCanceladas,
 } from "./textos";
 
 // Mesma forma de `lib/financeiro/acoes.ts`/`lib/abertura/acoes.ts` — cada módulo redeclara hoje,
@@ -889,16 +896,34 @@ export async function definirContaFixaAtiva(
 // BANCO, não uma leitura prévia de "já existe?", que garante a idempotência (T-04.4-61), inclusive
 // sob dois gestores gerando o MESMO mês ao mesmo tempo. `exigirUsuario()` é a PRIMEIRA instrução
 // do corpo.
-export async function gerarContasDoMes(
-  entradaBruta: unknown,
-): Promise<ResultadoDeAcao<{ criadas: number; mes: string }>> {
+//
+// 06.5-WR-03 (quick 261007-shs; decisão do dono, 07/10/2026 — “perguntar antes”; a D-26 continua): conta
+// cuja despesa do mês foi CANCELADA não volta em silêncio. Antes de gravar QUALQUER coisa, a transação lê,
+// numa consulta agrupada, quem tem despesa ativa e quem tem cancelada no mês, e `planejarGeracaoDoMes`
+// decide: se há conta “só cancelada” que a pessoa não viu, devolve a lista (`pergunta`) e NADA é gravado —
+// gravar as outras antes faria a pessoa decidir com metade do mês já gerado, e a aba velha recriaria tudo.
+// A frase do `erro` serve à aba aberta antes da publicação (toast, nada gravado). Escolhida, a geração é a
+// de sempre para `criar ∪ recriar`, e a conta `mantida` não é tocada. O índice parcial da 0031
+// (`documentos_conta_fixa_mes_ativo_uk … where cancelado_em is null`) continua segurando duas ativas: o
+// `insert` e o predicado do `on conflict` não mudaram (a constante `CONFLITO_DA_GERACAO_DE_CONTAS` do
+// `test:migracoes`). Resíduo aceito (T-shs-06): outra pessoa gerar E cancelar a mesma conta entre a leitura
+// e o `insert`, no mesmo instante — o resultado visível é uma conta em “A pagar” que ela acabou de gerar.
+export type ResultadoDaGeracao =
+  | { ok: true; dados: { criadas: number; mes: string; mantidas: number } }
+  | {
+      ok: false;
+      erro: string;
+      pergunta?: { canceladas: ContaCanceladaNoMes[]; novas: number };
+    };
+
+export async function gerarContasDoMes(entradaBruta: unknown): Promise<ResultadoDaGeracao> {
   const usuario = await exigirUsuario();
 
   const resultado = esquemaGeracao.safeParse(entradaBruta);
   if (!resultado.success) {
     return { ok: false, erro: primeiraMensagemDeErro(resultado) };
   }
-  const { mes } = resultado.data;
+  const { mes, canceladasVistas, recriar } = resultado.data;
 
   // T-04.4-72: o servidor só aceita um mês dentro da faixa (o mês corrente até onze meses à
   // frente, `mesPermitidoParaGeracao`) — o seletor nunca oferece outro, mas um envio forçado (DOM
@@ -909,7 +934,8 @@ export async function gerarContasDoMes(
   }
 
   try {
-    const criadas = await db.transaction(async (tx) => {
+    const desfecho = await db.transaction(async (tx) => {
+      // Em ordem de `id`: a mesma ordem de inserção em toda geração (nenhuma depende da ordem de leitura).
       const contasAtivas = await tx
         .select({
           id: contasFixas.id,
@@ -919,12 +945,45 @@ export async function gerarContasDoMes(
           diaVencimento: contasFixas.diaVencimento,
         })
         .from(contasFixas)
-        .where(eq(contasFixas.ativa, true));
+        .where(eq(contasFixas.ativa, true))
+        .orderBy(asc(contasFixas.id));
 
       const mesReferencia = primeiroDiaDoMes(mes);
+
+      // WR-03: UMA consulta agrupada — por conta, se tem despesa ativa e se tem cancelada neste mês.
+      const estadoDoMes = await tx
+        .select({
+          contaFixaId: documentos.contaFixaId,
+          temAtiva: sql<boolean>`bool_or(${documentos.canceladoEm} is null)`,
+          temCancelada: sql<boolean>`bool_or(${documentos.canceladoEm} is not null)`,
+        })
+        .from(documentos)
+        .where(and(eq(documentos.mesReferencia, mesReferencia), isNotNull(documentos.contaFixaId)))
+        .groupBy(documentos.contaFixaId);
+      const estadoPorConta = new Map(estadoDoMes.map((linha) => [linha.contaFixaId, linha]));
+
+      const plano = planejarGeracaoDoMes({
+        contas: contasAtivas.map((conta) => ({
+          id: conta.id,
+          nome: conta.nome,
+          valorCentavos: conta.valorEsperadoCentavos,
+          temAtiva: estadoPorConta.get(conta.id)?.temAtiva === true,
+          temCancelada: estadoPorConta.get(conta.id)?.temCancelada === true,
+        })),
+        canceladasVistas,
+        recriar,
+      });
+      if (plano.tipo === "perguntar") {
+        return plano;
+      }
+
+      const aGerar = new Set([...plano.criar, ...plano.recriar]);
       let total = 0;
 
       for (const conta of contasAtivas) {
+        if (!aGerar.has(conta.id)) {
+          continue;
+        }
         const vencimento = vencimentoNoMes(conta.diaVencimento, mes);
 
         const [documentoCriado] = await tx
@@ -976,12 +1035,23 @@ export async function gerarContasDoMes(
         total += 1;
       }
 
-      return total;
+      return { tipo: "gerado" as const, criadas: total, mantidas: plano.mantidas.length };
     });
+
+    if (desfecho.tipo === "perguntar") {
+      return {
+        ok: false,
+        erro: frasePerguntaContasCanceladas(
+          desfecho.canceladas.map((conta) => conta.nome),
+          nomeDoMes(mes),
+        ),
+        pergunta: { canceladas: desfecho.canceladas, novas: desfecho.novas },
+      };
+    }
 
     revalidatePath("/gestao/financeiro");
     revalidatePath("/gestao/cadastros");
-    return { ok: true, dados: { criadas, mes } };
+    return { ok: true, dados: { criadas: desfecho.criadas, mes, mantidas: desfecho.mantidas } };
   } catch (erro) {
     console.error("Falha ao gerar as contas do mês:", erro);
     return { ok: false, erro: FRASE_FALHA_AO_SALVAR };

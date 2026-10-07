@@ -12,12 +12,27 @@ describe("avisoDaUrl — contas-geradas", () => {
       tipo: "contas-geradas",
       quantidade: 3,
       mes: "2026-11",
+      mantidas: 0,
     });
     expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "0", mesGerado: "2027-01" })).toEqual({
       tipo: "contas-geradas",
       quantidade: 0,
       mes: "2027-01",
+      mantidas: 0,
     });
+  });
+
+  // 06.5-WR-03 (quick 261007-shs): quantas contas canceladas no mês continuaram canceladas.
+  it("aceita mantidas inteiro de 0 a 500; ausente = 0; inválido = sem aviso", () => {
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "0", mesGerado: "2026-11", mantidas: "1" })).toEqual({
+      tipo: "contas-geradas",
+      quantidade: 0,
+      mes: "2026-11",
+      mantidas: 1,
+    });
+    for (const mantidas of ["-1", "1.5", "501", "", "uma"]) {
+      expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "1", mesGerado: "2026-11", mantidas })).toBeNull();
+    }
   });
 
   it("recusa quantidade negativa, fracionária, acima de 500 ou ausente", () => {

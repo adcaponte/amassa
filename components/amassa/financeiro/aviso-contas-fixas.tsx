@@ -2,13 +2,9 @@
 
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { toast } from "sonner";
 
-import { gerarContasDoMes } from "@/lib/cadastros/acoes";
 import { rotuloGerarContas } from "@/lib/cadastros/textos";
 import {
-  FRASE_FALHA_AO_GERAR_CONTAS,
   ROTULO_GERANDO_CONTAS,
   ROTULO_VER_EM_CONTAS_FIXAS,
   textoAvisoContasFixasCorpo,
@@ -16,6 +12,7 @@ import {
 } from "@/lib/financeiro/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 import { Button } from "@/components/ui/button";
+import { useGeracaoDeContas } from "@/components/amassa/cadastros/geracao-de-contas";
 
 export type AvisoContasFixasProps = {
   // A chave `YYYY-MM` do mês da janela sem contas fixas geradas — a que a ação recebe.
@@ -28,40 +25,21 @@ export type AvisoContasFixasProps = {
 // O aviso âmbar do Caixa (06.5-12, D-03 / UI-D8): um por mês da janela de 30 dias cujas contas
 // fixas ainda não foram geradas, entre os tiles e as listas. Molde `aviso-sem-preco-hora`, com
 // manchete (600) e corpo (400). O botão chama a MESMA ação dos Cadastros (`gerarContasDoMes`, que
-// confere a faixa permitida e é idempotente) — sem confirmação, como lá: não apaga nada. Deu certo:
+// confere a faixa permitida e é idempotente), pelo MESMO fluxo (`useGeracaoDeContas`). Sem conta cancelada
+// no mês, sem confirmação, como lá: não apaga nada. Com conta cancelada no mês (06.5-WR-03, quick
+// 261007-shs), o diálogo pergunta antes quais voltam — nada é gravado antes da escolha. Deu certo:
 // navegação COMPLETA com o aviso na URL, e o servidor deixa de devolver este aviso. Recusa: o toast
 // com a frase da própria ação, e o aviso fica.
 export function AvisoContasFixas({ mes, mesPorExtenso, nomeDoMes }: AvisoContasFixasProps) {
-  const [enviando, setEnviando] = useState(false);
-
-  async function gerar() {
-    if (enviando) {
-      return;
-    }
-    setEnviando(true);
-
-    let resposta: Awaited<ReturnType<typeof gerarContasDoMes>>;
-    try {
-      resposta = await gerarContasDoMes({ mes });
-    } catch {
-      setEnviando(false);
-      toast.error(FRASE_FALHA_AO_GERAR_CONTAS);
-      return;
-    }
-
-    if (!resposta.ok) {
-      setEnviando(false);
-      toast.error(resposta.erro);
-      return;
-    }
-
-    // `mesGerado`, não `mes`: nesta página `?mes=` escolhe o mês do extrato.
-    window.location.assign(
-      rotaDeGestao(
-        `/financeiro?aba=caixa&aviso=contas-geradas&quantidade=${resposta.dados.criadas}&mesGerado=${resposta.dados.mes}`,
+  // `mesGerado`, não `mes`: nesta página `?mes=` escolhe o mês do extrato.
+  const { gerar, enviando, dialogo } = useGeracaoDeContas({
+    aoGerar: (dados) =>
+      window.location.assign(
+        rotaDeGestao(
+          `/financeiro?aba=caixa&aviso=contas-geradas&quantidade=${dados.criadas}&mesGerado=${dados.mes}&mantidas=${dados.mantidas}`,
+        ),
       ),
-    );
-  }
+  });
 
   return (
     <div
@@ -86,7 +64,7 @@ export function AvisoContasFixas({ mes, mesPorExtenso, nomeDoMes }: AvisoContasF
             // 320 px a frase ficava numa linha só e o Caixa rolava de lado (328 px; varredura do 06.5-30).
             // O mesmo molde do "Ver as {N}…" de `listas-caixa.tsx`.
             className="h-auto min-h-[44px] max-w-full py-2 text-left font-semibold whitespace-normal"
-            onClick={() => void gerar()}
+            onClick={() => void gerar(mes, mesPorExtenso)}
           >
             {enviando ? ROTULO_GERANDO_CONTAS : rotuloGerarContas(mesPorExtenso)}
           </Button>
@@ -98,6 +76,7 @@ export function AvisoContasFixas({ mes, mesPorExtenso, nomeDoMes }: AvisoContasF
           </Link>
         </div>
       </div>
+      {dialogo}
     </div>
   );
 }

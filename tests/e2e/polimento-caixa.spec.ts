@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 
+import { tituloDaContaFixa } from "@/lib/cadastros/contas-fixas";
 import { nomeDoMes, nomeDoMesSemAno } from "@/lib/financeiro/formato";
 import { janelaDoCaixa, mesesDaJanela } from "@/lib/financeiro/janela";
 import { formatarDiaMes } from "@/lib/producao/calendario";
@@ -294,6 +295,94 @@ test.describe("polimento caixa — aviso das contas fixas @vazio-historico", () 
       for (const mes of mesesDaJanelaDeHoje.slice(1)) {
         await expect(page.getByTestId(`caixa-aviso-fixas-${mes}`)).toBeVisible();
       }
+    } finally {
+      await devolverOBanco(contaFixaId, mesCorrente);
+    }
+  });
+
+  // 06.5-WR-03 (quick 261007-shs; decisão do dono, 07/10/2026 — “perguntar antes”), pelo atalho do Caixa. As
+  // afirmações são sobre a conta C pelo `data-conta-id`, nunca pela contagem de opções: outras contas canceladas
+  // do banco podem aparecer — e ficam desmarcadas e canceladas.
+  test("uma conta cancelada no mês corrente: gerar pergunta, Voltar não grava, marcada volta uma vez", async ({
+    page,
+  }) => {
+    const hoje = hojeNoAtelie();
+    const mesCorrente = hoje.slice(0, 7);
+    const nome = `[e2e] Internet cancelada inventada ${sufixoUnico()}`;
+    const contaFixaId = await criarContaFixaAtiva(nome);
+    // A despesa de C no mês corrente, já CANCELADA no Caixa.
+    const semeada = await semearContaAPagar({
+      titulo: tituloDaContaFixa(nome, mesCorrente),
+      categoria: "Aluguel",
+      valorCentavos: 43210,
+      vencimento: hoje,
+      tipo: "despesa",
+    });
+    await comCliente((cliente) =>
+      cliente.query(
+        `update documentos
+            set conta_fixa_id = $2, mes_referencia = $3::date, cancelado_em = now(),
+                cancelado_por = (select id from usuarios where lower(email) = lower($4) limit 1)
+          where id = $1`,
+        [semeada.documentoId, contaFixaId, `${mesCorrente}-01`, process.env.E2E_EMAIL_TESTE ?? ""],
+      ),
+    );
+    const ativasDeC = () =>
+      comCliente(async (cliente) => {
+        const { rows } = await cliente.query<{ total: string }>(
+          `select count(*)::text as total from documentos
+            where conta_fixa_id = $1 and mes_referencia = $2::date and cancelado_em is null`,
+          [contaFixaId, `${mesCorrente}-01`],
+        );
+        return Number(rows[0]?.total ?? 0);
+      });
+
+    try {
+      await fazerLogin(page);
+      await page.goto("/gestao/financeiro?aba=caixa");
+      const aviso = page.getByTestId(`caixa-aviso-fixas-${mesCorrente}`);
+      await expect(aviso).toBeVisible();
+      const botao = page.getByTestId(`caixa-gerar-fixas-${mesCorrente}`);
+      const dialogo = page.getByTestId("gerar-canceladas");
+      const opcaoDeC = dialogo.locator(`[data-testid="gerar-cancelada-opcao"][data-conta-id="${contaFixaId}"]`);
+
+      // O clique pode chegar antes da hidratação: repete só enquanto o diálogo não abriu.
+      const abrirDialogo = async () => {
+        await expect(async () => {
+          if (!(await dialogo.isVisible()) && (await botao.isEnabled())) {
+            await botao.click({ timeout: 2000 });
+          }
+          await expect(dialogo).toBeVisible({ timeout: 3000 });
+        }).toPass({ timeout: 30000 });
+      };
+
+      // Gerar pergunta antes: C aparece pelo nome, desmarcada. Nada foi gravado.
+      await abrirDialogo();
+      await expect(opcaoDeC).toContainText(nome);
+      await expect(opcaoDeC.getByRole("checkbox")).not.toBeChecked();
+      expect((await medirCaixa(opcaoDeC, "a opção de C")).height).toBeGreaterThanOrEqual(44);
+      expect(await ativasDeC()).toBe(0);
+
+      // “Voltar”: fecha sem gravar — C continua sem despesa ativa e o aviso continua.
+      await dialogo.getByTestId("gerar-canceladas-voltar").click();
+      await expect(dialogo).toHaveCount(0);
+      expect(await ativasDeC()).toBe(0);
+      await expect(aviso).toBeVisible();
+
+      // Gerar de novo, marcando C: ela volta, uma vez.
+      await abrirDialogo();
+      await opcaoDeC.getByRole("checkbox").click();
+      await expect(opcaoDeC.getByRole("checkbox")).toBeChecked();
+      await dialogo.getByTestId("gerar-canceladas-confirmar").click();
+      const mesPorExtenso = nomeDoMes(mesCorrente);
+      await expect(
+        page.getByText(
+          new RegExp(`^(1 conta de ${mesPorExtenso} criada|([2-9]|\\d{2,}) contas de ${mesPorExtenso} criadas) no Caixa\\.`),
+        ),
+      ).toBeVisible({ timeout: 10000 });
+      expect(await ativasDeC()).toBe(1);
+      await expect(page.getByTestId("caixa-a-pagar")).toBeVisible();
+      await expect(page.getByTestId(`caixa-aviso-fixas-${mesCorrente}`)).toHaveCount(0);
     } finally {
       await devolverOBanco(contaFixaId, mesCorrente);
     }

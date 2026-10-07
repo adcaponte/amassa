@@ -59,6 +59,8 @@ export function AvisoFinanceiro({ texto, desfazer }: AvisoFinanceiroProps) {
     // O aviso das contas geradas pelo Caixa (06.5-12).
     url.searchParams.delete("quantidade");
     url.searchParams.delete("mesGerado");
+    // 06.5-WR-03 (quick 261007-shs).
+    url.searchParams.delete("mantidas");
     window.history.replaceState(null, "", url.toString());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [texto]);

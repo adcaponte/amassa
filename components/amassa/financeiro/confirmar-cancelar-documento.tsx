@@ -4,9 +4,12 @@ import { useState } from "react";
 
 import { cancelarDocumento } from "@/lib/financeiro/acoes";
 import type { DocumentoParaDetalhe } from "@/lib/financeiro/consultas";
+import { hrefDaCorrecao } from "@/lib/financeiro/navegacao";
 import {
+  fraseCancelarCorrecao,
   fraseConfirmarCancelamento,
   rotuloConfirmarCancelamento,
+  rotuloCorrigir,
   ROTULO_VOLTAR,
 } from "@/lib/financeiro/textos";
 import {
@@ -18,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
 
 export type ConfirmarCancelarDocumentoProps = {
@@ -32,6 +36,11 @@ export type ConfirmarCancelarDocumentoProps = {
 // lança de novo" (briefing §5). O botão de confirmar não fecha antes da resposta do servidor
 // (mesma disciplina de `ConfirmarCancelar`/`ConfirmarRemoverCategoria`); sucesso é uma NAVEGAÇÃO
 // COMPLETA para o aviso `cancelado` — nunca uma atualização de roteador do Next.
+//
+// 06.5-WR-02 (quick 261007-shs; decisão do dono, 07/10/2026): quando o documento CORRIGE outro, a confirmação
+// diz que a original continua cancelada e que cancelar este não a traz de volta (não existe “descancelar”, e
+// o vínculo da correção não se desfaz), e oferece “Corrigir esta venda/despesa” — a saída indicada quando a
+// correção é que estava errada. Fora desse caso, o diálogo é o de sempre. Nenhum dado muda de forma.
 export function ConfirmarCancelarDocumento({
   documento,
   aberto,
@@ -82,6 +91,12 @@ export function ConfirmarCancelarDocumento({
               </AlertDialogTitle>
             </AlertDialogHeader>
 
+            {documento.corrigeNumero !== null && (
+              <p data-testid="cancelar-correcao-aviso" className="text-corpo text-foreground">
+                {fraseCancelarCorrecao(documento.tipo, documento.corrigeNumero)}
+              </p>
+            )}
+
             {erro && (
               <p role="alert" className="text-apoio text-erro">
                 {erro}
@@ -90,6 +105,16 @@ export function ConfirmarCancelarDocumento({
 
             <AlertDialogFooter>
               <AlertDialogCancel disabled={enviando}>{ROTULO_VOLTAR}</AlertDialogCancel>
+              {documento.corrigeNumero !== null && documento.origemParaCorrecao === null && (
+                <Button
+                  asChild
+                  variant="outline"
+                  data-testid="cancelar-correcao-corrigir"
+                  className="h-auto min-h-[44px] whitespace-normal"
+                >
+                  <a href={hrefDaCorrecao(documento.tipo, documento.id)}>{rotuloCorrigir(documento.tipo)}</a>
+                </Button>
+              )}
               <AlertDialogAction variant="destructive" disabled={enviando} onClick={confirmar}>
                 {enviando ? "Cancelando…" : rotuloConfirmarCancelamento(documento.tipo)}
               </AlertDialogAction>

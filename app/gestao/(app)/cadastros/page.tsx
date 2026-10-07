@@ -178,6 +178,7 @@ export default async function PaginaCadastros({
     aviso?: string;
     quantidade?: string;
     mes?: string;
+    mantidas?: string;
     busca?: string | string[];
     quantos?: string | string[];
     fornecedor?: string | string[];
@@ -185,9 +186,9 @@ export default async function PaginaCadastros({
 }) {
   await exigirUsuario();
 
-  const { sub, aviso, quantidade, mes, busca, quantos, fornecedor } = await searchParams;
+  const { sub, aviso, quantidade, mes, mantidas, busca, quantos, fornecedor } = await searchParams;
   const subAtual = subDaUrl(sub);
-  const avisoResolvido = avisoDaUrl({ aviso, quantidade, mes });
+  const avisoResolvido = avisoDaUrl({ aviso, quantidade, mes, mantidas });
   // A faixa que "Gerar as contas de {mês}" oferece (resposta do dono, 2026-09-20): o mês corrente
   // e os onze seguintes, já formatados por extenso — o componente nunca formata data sozinho. O
   // mês PRÉ-SELECIONADO continua o seguinte ao de hoje (`mesDaGeracao`), mantendo o uso de sempre
@@ -206,7 +207,7 @@ export default async function PaginaCadastros({
           : avisoResolvido?.tipo === "conta-fixa-reativada"
             ? TOAST_CONTA_FIXA_REATIVADA
             : avisoResolvido?.tipo === "contas-geradas"
-              ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes))
+              ? textoContasGeradas(avisoResolvido.quantidade, nomeDoMes(avisoResolvido.mes), avisoResolvido.mantidas)
               : avisoResolvido?.tipo === "hora-atualizada"
                 ? TOAST_HORA_ATUALIZADA
                 : avisoResolvido?.tipo === "anexo-sumiu"

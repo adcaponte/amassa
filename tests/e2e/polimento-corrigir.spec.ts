@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 
+import { fraseCancelarCorrecao } from "@/lib/financeiro/textos";
+
 import { medirCaixa } from "./apoio/medir-caixa";
 import { ligarVendaAInscricao, semearCliente, semearInscricao, semearOficina } from "./apoio/semear-agenda";
 import { semearContaAPagar } from "./apoio/semear-conta-a-pagar";
@@ -370,6 +372,21 @@ test.describe("polimento corrigir — detalhe", () => {
     await expect(detalhe.getByTestId("documento-corrige")).toHaveText(`Corrige a venda nº ${original.numero}`);
     await expect(detalhe.getByTestId("documento-corrigida-por")).toHaveCount(0);
     await expect(detalhe.getByTestId("documento-corrigir")).toBeVisible();
+
+    // 06.5-WR-02 (quick 261007-shs): cancelar a NOVA avisa que a original continua cancelada e oferece
+    // “Corrigir esta venda”. “Voltar” não cancela nada.
+    await detalhe.getByRole("button", { name: "Cancelar esta venda" }).click();
+    const confirmacao = page.getByRole("alertdialog");
+    await expect(confirmacao.getByTestId("cancelar-correcao-aviso")).toHaveText(
+      fraseCancelarCorrecao("venda", original.numero),
+    );
+    const corrigirEm = confirmacao.getByTestId("cancelar-correcao-corrigir");
+    await expect(corrigirEm).toHaveText("Corrigir esta venda");
+    await expect(corrigirEm).toHaveAttribute("href", `/gestao/financeiro?aba=venda&corrige=${nova.id}`);
+    expect((await medirCaixa(corrigirEm, "o “Corrigir” da confirmação")).height).toBeGreaterThanOrEqual(44);
+    await confirmacao.getByRole("button", { name: "Voltar" }).click();
+    await expect(confirmacao).toHaveCount(0);
+    expect((await documentoNoBanco(nova.id)).cancelado).toBe(false);
 
     // `?corrige=` da original já cancelada: a frase, com “Voltar ao Caixa” — nenhum carrinho.
     await page.goto(`/gestao/financeiro?aba=venda&corrige=${original.documentoId}`);

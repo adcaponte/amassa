@@ -21,7 +21,7 @@ export type AvisoDeCadastros =
   | { tipo: "categoria-reativada" }
   | { tipo: "conta-fixa-desativada" }
   | { tipo: "conta-fixa-reativada" }
-  | { tipo: "contas-geradas"; quantidade: number; mes: string }
+  | { tipo: "contas-geradas"; quantidade: number; mes: string; mantidas: number }
   | { tipo: "hora-atualizada" }
   | { tipo: "anexo-sumiu" }
   | { tipo: "anexo-nao-encontrado" }
@@ -47,6 +47,7 @@ export function avisoDaUrl(parametros: {
   aviso?: string | null;
   quantidade?: string | null;
   mes?: string | null;
+  mantidas?: string | null;
 }): AvisoDeCadastros | null {
   const encontrado = TIPOS_SEM_PARAMETRO.find((tipo) => tipo === parametros.aviso);
   if (encontrado) {
@@ -68,7 +69,19 @@ export function avisoDaUrl(parametros: {
       return null;
     }
 
-    return { tipo: "contas-geradas", quantidade, mes };
+    // 06.5-WR-03 (quick 261007-shs): quantas canceladas no mês continuaram canceladas; ausente = 0.
+    let mantidas = 0;
+    if (parametros.mantidas !== undefined && parametros.mantidas !== null) {
+      if (!/^\d+$/.test(parametros.mantidas)) {
+        return null;
+      }
+      mantidas = Number(parametros.mantidas);
+      if (mantidas > QUANTIDADE_MAXIMA) {
+        return null;
+      }
+    }
+
+    return { tipo: "contas-geradas", quantidade, mes, mantidas };
   }
 
   return null;

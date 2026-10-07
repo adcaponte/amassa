@@ -13,7 +13,7 @@ import {
 import { saldoAntesDaJanela, type GrupoDePagas } from "@/lib/financeiro/extrato";
 import { resumoDoMes, type DocumentoParaMes, type ParcelaPagaParaMes } from "@/lib/financeiro/mes";
 import { liquidoDaParcela } from "@/lib/financeiro/taxa";
-import { textoAvisoCartaoHerdado, textoAvisoCartaoMisto } from "@/lib/financeiro/textos";
+import { fraseCancelarCorrecao, textoAvisoCartaoHerdado, textoAvisoCartaoMisto } from "@/lib/financeiro/textos";
 
 // 06.5-16-PLAN.md, Tarefa 1 — a versão do documento que a página manda à tela e que a transação relê
 // sob a trava: a MESMA leitura e o MESMO normalizador nos dois lados. Representações diferentes do
@@ -515,6 +515,19 @@ describe("a correção não mexe no dinheiro do passado (BL-01)", () => {
     expect(liquidoDaPrimeira(nova)).not.toBe(liquidoDaPrimeira(antes));
     expect(saldoAntesDaJanela(gruposAntesDeSetembro(nova))).not.toBe(saldoAntesDaJanela(gruposAntesDeSetembro(antes)));
     expect(resumoDeAgosto(nova)).not.toEqual(resumoDeAgosto(antes));
+  });
+});
+
+// 06.5-WR-02 (quick 261007-shs; decisão do dono, 07/10/2026): cancelar o documento que corrigiu outro não traz a
+// original de volta — a confirmação diz isso e oferece “Corrigir”.
+describe("fraseCancelarCorrecao (WR-02)", () => {
+  it("venda e despesa", () => {
+    expect(fraseCancelarCorrecao("venda", 33)).toBe(
+      "Esta venda corrige a nº 33, que continua cancelada — cancelar esta não traz a nº 33 de volta. Se a correção é que estava errada, use “Corrigir esta venda”.",
+    );
+    expect(fraseCancelarCorrecao("despesa", 12)).toBe(
+      "Esta despesa corrige a nº 12, que continua cancelada — cancelar esta não traz a nº 12 de volta. Se a correção é que estava errada, use “Corrigir esta despesa”.",
+    );
   });
 });
 

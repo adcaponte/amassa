@@ -41,7 +41,7 @@ export type AvisoDaUrl =
   | { tipo: "orcamento-aprovado" }
   // "Gerar as contas de {mês}" pelo aviso do Caixa (06.5-12, UI-D8): quantas a ação criou e de que
   // mês — o toast é `textoContasGeradas`, o mesmo dos Cadastros.
-  | { tipo: "contas-geradas"; quantidade: number; mes: string };
+  | { tipo: "contas-geradas"; quantidade: number; mes: string; mantidas: number };
 
 export function avisoDaUrl(parametros: {
   aviso?: string | null;
@@ -50,6 +50,7 @@ export function avisoDaUrl(parametros: {
   quantidade?: string | null;
   // Não é `?mes=`: essa chave já escolhe o mês do extrato nesta página.
   mesGerado?: string | null;
+  mantidas?: string | null;
 }): AvisoDaUrl | null {
   if (parametros.aviso === "contas-geradas") {
     const quantidadeTexto = parametros.quantidade;
@@ -64,7 +65,18 @@ export function avisoDaUrl(parametros: {
     if (!mes || !REGEX_MES.test(mes)) {
       return null;
     }
-    return { tipo: "contas-geradas", quantidade, mes };
+    // 06.5-WR-03 (quick 261007-shs): quantas canceladas no mês continuaram canceladas; ausente = 0.
+    let mantidas = 0;
+    if (parametros.mantidas !== undefined && parametros.mantidas !== null) {
+      if (!/^\d+$/.test(parametros.mantidas)) {
+        return null;
+      }
+      mantidas = Number(parametros.mantidas);
+      if (mantidas > QUANTIDADE_MAXIMA_DE_CONTAS) {
+        return null;
+      }
+    }
+    return { tipo: "contas-geradas", quantidade, mes, mantidas };
   }
 
   if (parametros.aviso === "lancado" || parametros.aviso === "cancelado" || parametros.aviso === "corrigido") {

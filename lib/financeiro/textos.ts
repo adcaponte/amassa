@@ -526,6 +526,14 @@ export function fraseConfirmarCancelamento(
   return `Cancelar ${alvo} nº ${numero} «${titulo}»? Ela fica riscada no extrato, sai do saldo e do Mês. Quem cancelou e quando ficam registrados. Isso não pode ser desfeito — se foi engano, lance de novo depois.`;
 }
 
+// 06.5-WR-02 (quick 261007-shs; decisão do dono, 07/10/2026): a confirmação de cancelar um documento que
+// CORRIGE outro diz que a original continua cancelada — não existe “descancelar”, e o vínculo não se desfaz.
+// A saída indicada, se a correção é que estava errada, é corrigir esta de novo.
+export function fraseCancelarCorrecao(tipo: TipoDeDocumentoParaTexto, numeroOriginal: number): string {
+  const nome = tipo === "venda" ? "venda" : "despesa";
+  return `Esta ${nome} corrige a nº ${numeroOriginal}, que continua cancelada — cancelar esta não traz a nº ${numeroOriginal} de volta. Se a correção é que estava errada, use “Corrigir esta ${nome}”.`;
+}
+
 export const FRASE_LANCAMENTO_JA_CANCELADO = "Esse lançamento já foi cancelado.";
 export const FRASE_LANCAMENTO_NAO_EXISTE_MAIS =
   "Esse lançamento não existe mais. Recarregue a página e tente de novo.";

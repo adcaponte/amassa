@@ -62,16 +62,32 @@ function cartaoDaConta(page: Page, titulo: string) {
   return page.getByTestId("conta-cartao").filter({ hasText: titulo });
 }
 
+// Só toca “Gerar”: quem chama afirma o que vem — o toast (1ª geração) ou o diálogo das canceladas (06.5-WR-03,
+// quick 261007-shs: a conta cancelada no mês só volta se alguém a marcar).
 async function gerarContasDoMes(page: Page, mes: string) {
   await irParaContasFixas(page);
   await page.getByTestId("gerar-contas-mes").selectOption(mes);
   await page.getByTestId("gerar-contas").click();
-  // "{N} contas de {mês} criadas no Caixa." (ou "1 conta … criada") — nunca "já existiam": a conta deste teste é nova
-  // (primeira geração) ou acabou de ser cancelada (segunda), e nos dois casos o mês é criado.
-  await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({
-    timeout: 10000,
-  });
 }
+
+async function idDaContaFixa(nome: string): Promise<string> {
+  const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
+  await cliente.connect();
+  try {
+    const { rows } = await cliente.query<{ id: string }>("select id from contas_fixas where nome = $1", [nome]);
+    if (!rows[0]) {
+      throw new Error(`idDaContaFixa: nenhuma conta fixa "${nome}".`);
+    }
+    return rows[0].id;
+  } finally {
+    await cliente.end();
+  }
+}
+
+// O toast quando nada da conta voltou: “… A cancelada continua cancelada.” ou “… As N canceladas continuam canceladas.”
+const CANCELADAS_FICARAM = /(A cancelada continua cancelada|As \d+ canceladas continuam canceladas)\.$/;
+// “criada(s)” — com ou sem a frase das canceladas que ficaram depois (outras contas canceladas do banco).
+const CONTAS_CRIADAS_COM_OU_SEM_MANTIDAS = /^(1 conta de .+ criada|([2-9]|\d{2,}) contas de .+ criadas) no Caixa\./;
 
 test.describe("polimento banco — conta fixa", () => {
   // "Gerar" é GLOBAL (toda conta fixa ativa do banco). Para não disputar mês com
@@ -84,6 +100,8 @@ test.describe("polimento banco — conta fixa", () => {
   // `cadastros-contas-fixas` (o 3º mês, gerado de novo, criou 1 em vez de "já existiam") quando os
   // dois rodaram juntos. Rodando antes de `desktop`/`celular`, e desativando a conta no fim, este
   // teste nunca está ativo ao mesmo tempo que o `cadastros-contas-fixas`.
+  // Desde o quick 261007-shs (06.5-WR-03, “perguntar antes”): a 2ª geração mostra a conta cancelada no diálogo,
+  // desmarcada, e confirmar sem marcar NÃO a recria; a 3ª, marcando, recria uma vez.
   test("uma conta fixa cancelada no Caixa é gerada de novo para o mesmo mês @vazio-historico", async ({
     page,
   }) => {
@@ -104,9 +122,11 @@ test.describe("polimento banco — conta fixa", () => {
     await page.getByLabel("Dia de vencimento").fill("12");
     await page.getByRole("button", { name: "Salvar" }).click();
     await expect(linhaDaContaFixa(page, nome)).toBeVisible();
+    const contaId = await idDaContaFixa(nome);
 
     // 1ª geração: a conta aparece em "A pagar".
     await gerarContasDoMes(page, mes);
+    await expect(page.getByText(CONTAS_CRIADAS)).toBeVisible({ timeout: 10000 });
     await page.goto("/gestao/financeiro?aba=caixa");
     // O mês gerado fica no fim da faixa, depois da janela de 30 dias do Caixa (06.5-12).
     await abrirContasDepoisDaJanela(page);
@@ -117,6 +137,8 @@ test.describe("polimento banco — conta fixa", () => {
     const detalhe = page.getByTestId("documento-detalhe");
     await expect(detalhe).toBeVisible();
     await detalhe.getByRole("button", { name: "Cancelar esta despesa" }).click();
+    // Não é uma correção: a confirmação não fala de original (06.5-WR-02).
+    await expect(page.getByRole("alertdialog").getByTestId("cancelar-correcao-aviso")).toHaveCount(0);
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Cancelar despesa", exact: true })
@@ -132,8 +154,27 @@ test.describe("polimento banco — conta fixa", () => {
     await expect(page.getByTestId("caixa-a-pagar")).toBeVisible();
     await expect(cartaoDaConta(page, titulo)).toHaveCount(0);
 
-    // 2ª geração do MESMO mês: a cancelada não segura o mês (D-26) — a conta volta, uma vez só.
+    // 2ª geração do MESMO mês: a cancelada aparece no diálogo, DESMARCADA. Confirmar sem marcar não a recria.
     await gerarContasDoMes(page, mes);
+    const dialogo = page.getByTestId("gerar-canceladas");
+    await expect(dialogo).toBeVisible({ timeout: 10000 });
+    const opcao = dialogo.locator(`[data-testid="gerar-cancelada-opcao"][data-conta-id="${contaId}"]`);
+    await expect(opcao).toContainText(nome);
+    await expect(opcao.getByRole("checkbox")).not.toBeChecked();
+    await dialogo.getByTestId("gerar-canceladas-confirmar").click();
+    await expect(page.getByText(CANCELADAS_FICARAM)).toBeVisible({ timeout: 10000 });
+    await page.goto("/gestao/financeiro?aba=caixa");
+    await abrirContasDepoisDaJanela(page);
+    await expect(page.getByTestId("caixa-a-pagar")).toBeVisible();
+    await expect(cartaoDaConta(page, titulo)).toHaveCount(0);
+
+    // 3ª geração: marcada, a cancelada não segura o mês (D-26) — a conta volta, uma vez só.
+    await gerarContasDoMes(page, mes);
+    await expect(dialogo).toBeVisible({ timeout: 10000 });
+    await opcao.getByRole("checkbox").click();
+    await expect(opcao.getByRole("checkbox")).toBeChecked();
+    await dialogo.getByTestId("gerar-canceladas-confirmar").click();
+    await expect(page.getByText(CONTAS_CRIADAS_COM_OU_SEM_MANTIDAS)).toBeVisible({ timeout: 10000 });
     await page.goto("/gestao/financeiro?aba=caixa");
     // O mês gerado fica no fim da faixa, depois da janela de 30 dias do Caixa (06.5-12).
     await abrirContasDepoisDaJanela(page);

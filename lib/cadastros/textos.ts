@@ -268,12 +268,76 @@ export function rotuloGerarContas(mesPorExtenso: string): string {
 // "As contas de janeiro de 2027 já existiam." — plural de verdade desde o 06.5-12 (UI-SPEC da 06.5,
 // §Toasts); o mesmo texto serve aos Cadastros e ao aviso do Caixa. `mesPorExtenso` já formatado
 // por quem chama, mesma disciplina de `rotuloGerarContas`.
-export function textoContasGeradas(quantidade: number, mesPorExtenso: string): string {
+//
+// 06.5-WR-03 (quick 261007-shs): `mantidas` = quantas contas canceladas no mês a pessoa deixou canceladas no
+// diálogo. Com `mantidas = 0` (o padrão), os textos de antes, idênticos.
+export function textoContasGeradas(quantidade: number, mesPorExtenso: string, mantidas = 0): string {
+  const sobreAsCanceladas =
+    mantidas === 0
+      ? ""
+      : mantidas === 1
+        ? " A cancelada continua cancelada."
+        : ` As ${mantidas} canceladas continuam canceladas.`;
   if (quantidade === 0) {
-    return `As contas de ${mesPorExtenso} já existiam.`;
+    return mantidas === 0
+      ? `As contas de ${mesPorExtenso} já existiam.`
+      : `Nenhuma conta de ${mesPorExtenso} criada.${sobreAsCanceladas}`;
   }
   if (quantidade === 1) {
-    return `1 conta de ${mesPorExtenso} criada no Caixa.`;
+    return `1 conta de ${mesPorExtenso} criada no Caixa.${sobreAsCanceladas}`;
   }
-  return `${quantidade} contas de ${mesPorExtenso} criadas no Caixa.`;
+  return `${quantidade} contas de ${mesPorExtenso} criadas no Caixa.${sobreAsCanceladas}`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// 06.5-WR-03 (quick 261007-shs; decisão do dono, 07/10/2026 — “perguntar antes”): o diálogo que lista as
+// contas fixas canceladas no mês antes de gerar. `mesPorExtenso` já formatado por quem chama.
+
+// "Uma conta de novembro de 2026 foi cancelada no Caixa" / "2 contas de … foram canceladas no Caixa".
+export function tituloContasCanceladas(quantidade: number, mesPorExtenso: string): string {
+  if (quantidade === 1) {
+    return `Uma conta de ${mesPorExtenso} foi cancelada no Caixa`;
+  }
+  return `${quantidade} contas de ${mesPorExtenso} foram canceladas no Caixa`;
+}
+
+export function dicaContasCanceladas(quantidade: number): string {
+  if (quantidade === 1) {
+    return "Marque se ela deve voltar para “A pagar”. Desmarcada, continua cancelada.";
+  }
+  return "Marque as que devem voltar para “A pagar”. As desmarcadas continuam canceladas.";
+}
+
+// O que acontece com as OUTRAS contas do mês (as que não têm despesa nenhuma ainda) ao confirmar.
+export function textoOutrasContasDoMes(novas: number, mesPorExtenso: string): string {
+  if (novas === 0) {
+    return `As outras contas de ${mesPorExtenso} já estão no Caixa.`;
+  }
+  if (novas === 1) {
+    return `A outra conta que falta em ${mesPorExtenso} será criada.`;
+  }
+  return `As outras ${novas} contas que faltam em ${mesPorExtenso} serão criadas.`;
+}
+
+function listaDeNomes(nomes: readonly string[]): string {
+  if (nomes.length <= 1) {
+    return nomes[0] ?? "";
+  }
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
+// A aba aberta antes da publicação não sabe mostrar o diálogo: recebe esta frase num toast, e nada é
+// gravado.
+export function frasePerguntaContasCanceladas(nomes: readonly string[], mesPorExtenso: string): string {
+  if (nomes.length === 1) {
+    return `${nomes[0]} foi cancelada em ${mesPorExtenso} — recarregue a página e gere de novo para escolher se ela volta.`;
+  }
+  return `${listaDeNomes(nomes)} foram canceladas em ${mesPorExtenso} — recarregue a página e gere de novo para escolher quais voltam.`;
+}
+
+export const FRASE_CANCELADAS_MUDARAM =
+  "Outra conta deste mês foi cancelada enquanto você escolhia — a lista foi atualizada. Confira e gere de novo.";
+export const FRASE_ESCOLHA_DE_CANCELADAS_INVALIDA =
+  "Essa escolha não vale mais — recarregue a página e tente de novo.";
+export const FRASE_CANCELADAS_DEMAIS = "Contas demais nesta escolha — recarregue a página e tente de novo.";
+export const ROTULO_VOLTAR_SEM_GERAR = "Voltar";

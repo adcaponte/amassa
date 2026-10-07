@@ -13,7 +13,7 @@ import {
 import { esquemaId } from "@/lib/financeiro/esquemas";
 
 import { MAXIMO_DE_INSUMOS_POR_ITEM, validarItem, type InsumoDisponivel } from "./catalogo";
-import { FRASE_TAXA_ACIMA_DE_30 } from "./textos";
+import { FRASE_CANCELADAS_DEMAIS, FRASE_ESCOLHA_DE_CANCELADAS_INVALIDA, FRASE_TAXA_ACIMA_DE_30 } from "./textos";
 
 export { esquemaId };
 
@@ -282,6 +282,23 @@ export const esquemaAtivacaoDeContaFixa = z.object({
 
 // O único mês que a tela oferece: "YYYY-MM" — a ação confere de novo que é exatamente
 // `mesDaGeracao(hoje)` (T-04.4-62 do threat model), este esquema só garante o FORMATO.
-export const esquemaGeracao = z.object({
-  mes: z.string().regex(/^\d{4}-\d{2}$/, "Esse mês não é válido."),
-});
+//
+// 06.5-WR-03 (quick 261007-shs; decisão do dono, 07/10/2026 — “perguntar antes”): `canceladasVistas` = as
+// contas canceladas no mês que o diálogo listou; `recriar` = as que a pessoa marcou para voltar, sempre
+// dentro das vistas. O padrão `[]` existe para a aba aberta antes da publicação, que não manda as chaves:
+// o servidor PERGUNTA (devolve a lista e não grava nada) — nunca recria em silêncio. O servidor recalcula
+// quem está “só cancelada” na transação; id fora desse conjunto é ignorado.
+const listaDeContasDoMes = z.array(esquemaId).max(500, FRASE_CANCELADAS_DEMAIS).default([]);
+
+export const esquemaGeracao = z
+  .object({
+    mes: z.string().regex(/^\d{4}-\d{2}$/, "Esse mês não é válido."),
+    canceladasVistas: listaDeContasDoMes,
+    recriar: listaDeContasDoMes,
+  })
+  .superRefine((dados, contexto) => {
+    const vistas = new Set(dados.canceladasVistas);
+    if (dados.recriar.some((id) => !vistas.has(id))) {
+      contexto.addIssue({ code: "custom", path: ["recriar"], message: FRASE_ESCOLHA_DE_CANCELADAS_INVALIDA });
+    }
+  });

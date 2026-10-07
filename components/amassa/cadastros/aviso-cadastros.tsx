@@ -28,6 +28,10 @@ export function AvisoCadastros({ texto, tom = "sucesso" }: AvisoCadastrosProps) 
 
     const url = new URL(window.location.href);
     url.searchParams.delete("aviso");
+    // Os parâmetros do aviso das contas geradas (06.5-WR-03, quick 261007-shs: `mantidas`) saem junto.
+    url.searchParams.delete("quantidade");
+    url.searchParams.delete("mes");
+    url.searchParams.delete("mantidas");
     window.history.replaceState(null, "", url.toString());
   }, [texto, tom]);
 

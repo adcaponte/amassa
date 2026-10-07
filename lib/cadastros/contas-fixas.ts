@@ -83,3 +83,65 @@ export function mesDaGeracao(hojeIso: string): string {
   const chaveDoMesAtual = hojeIso.slice(0, 7);
   return mesSeguinte(chaveDoMesAtual);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// 06.5-WR-03 (quick 261007-shs; decisão do dono, 07/10/2026 — “perguntar antes”). Desde a D-26 (0031), o
+// índice único é PARCIAL (`where cancelado_em is null`): uma conta cuja despesa do mês foi cancelada pode
+// nascer de novo — é o caminho “cancele e gere de novo” para corrigir uma conta. Mas o botão é por MÊS, e
+// “Gerar” recriava em silêncio toda conta cancelada de propósito naquele mês (pagável duas vezes). Agora
+// nada se grava antes de a pessoa ver essas contas pelo nome e escolher quais voltam.
+
+export type ContaParaPlanejarGeracao = {
+  id: string;
+  nome: string;
+  valorCentavos: number;
+  // Tem despesa NÃO cancelada no mês (o índice parcial já segura: nunca entra em lista nenhuma).
+  temAtiva: boolean;
+  // Tem despesa CANCELADA no mês.
+  temCancelada: boolean;
+};
+
+export type ContaCanceladaNoMes = { id: string; nome: string; valorCentavos: number };
+
+export type PlanoDaGeracao =
+  | { tipo: "perguntar"; canceladas: ContaCanceladaNoMes[]; novas: number }
+  | { tipo: "gerar"; criar: string[]; recriar: string[]; mantidas: string[] };
+
+// A decisão, sobre o estado lido NA transação (`gerarContasDoMes`):
+// - “só cancelada” no mês = sem ativa e com cancelada; “sem nada” = nem uma nem outra (é criada, como sempre);
+// - se alguma “só cancelada” de AGORA não está em `canceladasVistas` (a pessoa não a viu — inclusive a aba
+//   aberta antes da publicação, que não manda as listas), PERGUNTA: a lista inteira de agora, em ordem de
+//   nome, e quantas seriam criadas. Nada a gravar;
+// - senão GERA: `recriar` = as “só canceladas” de agora que vieram marcadas; `mantidas` = as outras; uma
+//   marcada que deixou de ser “só cancelada” (alguém a gerou no meio) não entra em lista nenhuma.
+export function planejarGeracaoDoMes({
+  contas,
+  canceladasVistas,
+  recriar,
+}: {
+  contas: readonly ContaParaPlanejarGeracao[];
+  canceladasVistas: readonly string[];
+  recriar: readonly string[];
+}): PlanoDaGeracao {
+  const vistas = new Set(canceladasVistas);
+  const marcadas = new Set(recriar);
+  const soCanceladas = contas
+    .filter((conta) => !conta.temAtiva && conta.temCancelada)
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const criar = contas.filter((conta) => !conta.temAtiva && !conta.temCancelada).map((conta) => conta.id);
+
+  if (soCanceladas.some((conta) => !vistas.has(conta.id))) {
+    return {
+      tipo: "perguntar",
+      canceladas: soCanceladas.map(({ id, nome, valorCentavos }) => ({ id, nome, valorCentavos })),
+      novas: criar.length,
+    };
+  }
+
+  return {
+    tipo: "gerar",
+    criar,
+    recriar: soCanceladas.filter((conta) => marcadas.has(conta.id)).map((conta) => conta.id),
+    mantidas: soCanceladas.filter((conta) => !marcadas.has(conta.id)).map((conta) => conta.id),
+  };
+}

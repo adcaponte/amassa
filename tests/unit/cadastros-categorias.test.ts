@@ -82,17 +82,35 @@ describe("avisoDaUrl (Cadastros)", () => {
       tipo: "contas-geradas",
       quantidade: 3,
       mes: "2027-01",
+      mantidas: 0,
     });
     expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "0", mes: "2027-01" })).toEqual({
       tipo: "contas-geradas",
       quantidade: 0,
       mes: "2027-01",
+      mantidas: 0,
     });
     expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "-1", mes: "2027-01" })).toBeNull();
     expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "501", mes: "2027-01" })).toBeNull();
     expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "3", mes: "não-é-mês" })).toBeNull();
     expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "3" })).toBeNull();
     expect(avisoDaUrl({ aviso: "contas-geradas" })).toBeNull();
+  });
+
+  // 06.5-WR-03 (quick 261007-shs): quantas contas canceladas no mês continuaram canceladas.
+  it("contas-geradas aceita mantidas inteiro de 0 a 500; ausente = 0; inválido = sem aviso", () => {
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "1", mes: "2027-01", mantidas: "2" })).toEqual({
+      tipo: "contas-geradas",
+      quantidade: 1,
+      mes: "2027-01",
+      mantidas: 2,
+    });
+    expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "1", mes: "2027-01", mantidas: "500" })).toMatchObject({
+      mantidas: 500,
+    });
+    for (const mantidas of ["-1", "1.5", "501", "", "duas"]) {
+      expect(avisoDaUrl({ aviso: "contas-geradas", quantidade: "1", mes: "2027-01", mantidas })).toBeNull();
+    }
   });
 
   // 06.2-WR-02 (quick 261005-2yu): o anexo que não abriu volta à ficha com um destes avisos.

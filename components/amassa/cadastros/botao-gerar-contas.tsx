@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 
-import { gerarContasDoMes } from "@/lib/cadastros/acoes";
 import { ROTULO_MES_DA_GERACAO, rotuloGerarContas } from "@/lib/cadastros/textos";
 import { rotaDeGestao } from "@/lib/rotas/gestao";
+
+import { useGeracaoDeContas } from "./geracao-de-contas";
 
 export type OpcaoDeMesParaGeracao = {
   // "YYYY-MM" — a chave que a ação de fato recebe.
@@ -35,33 +35,25 @@ export type BotaoGerarContasProps = {
 // desabilitado junto com o botão (sem conta ativa, ou enviando); duplo toque no botão não dispara
 // duas vezes NESTA tela, e mesmo que disparasse, o `on conflict do nothing` do servidor
 // (`gerarContasDoMes`) segura a idempotência de qualquer jeito.
+//
+// 06.5-WR-03 (quick 261007-shs): “sem confirmação” deixou de ser verdade quando há conta fixa CANCELADA no
+// mês — o fluxo compartilhado (`useGeracaoDeContas`) pergunta antes quais voltam, e nada é gravado antes da
+// escolha. Sem conta cancelada, continua um toque só.
 export function BotaoGerarContas({ meses, mesInicial, existeContaAtiva }: BotaoGerarContasProps) {
   const [mes, setMes] = useState(mesInicial);
-  const [enviando, setEnviando] = useState(false);
 
   const mesEscolhido = meses.find((opcao) => opcao.chave === mes) ?? meses[0];
 
-  async function gerar() {
-    if (enviando) {
-      return;
-    }
-    setEnviando(true);
-
-    const resposta = await gerarContasDoMes({ mes });
-
-    setEnviando(false);
-
-    if (!resposta.ok) {
-      toast.error(resposta.erro);
-      return;
-    }
-
-    // Navegação COMPLETA com o aviso na URL — o servidor monta o texto certo ("N criada(s)" ou
-    // "já existiam"), nunca um toast local antes de a lista real ter carregado.
-    window.location.assign(
-      rotaDeGestao(`/cadastros?sub=fixas&aviso=contas-geradas&quantidade=${resposta.dados.criadas}&mes=${resposta.dados.mes}`),
-    );
-  }
+  // Navegação COMPLETA com o aviso na URL — o servidor monta o texto certo ("N criadas", "já existiam",
+  // e quantas canceladas ficaram), nunca um toast local antes de a lista real ter carregado.
+  const { gerar, enviando, dialogo } = useGeracaoDeContas({
+    aoGerar: (dados) =>
+      window.location.assign(
+        rotaDeGestao(
+          `/cadastros?sub=fixas&aviso=contas-geradas&quantidade=${dados.criadas}&mes=${dados.mes}&mantidas=${dados.mantidas}`,
+        ),
+      ),
+  });
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -87,11 +79,12 @@ export function BotaoGerarContas({ meses, mesInicial, existeContaAtiva }: BotaoG
         data-testid="gerar-contas"
         disabled={!existeContaAtiva || enviando}
         aria-busy={enviando}
-        onClick={() => void gerar()}
+        onClick={() => void gerar(mes, mesEscolhido?.rotulo ?? "")}
         className="bg-primary text-primary-foreground hover:bg-primary/80 text-corpo flex min-h-[44px] items-center rounded-md px-4 font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
         {enviando ? "Gerando…" : rotuloGerarContas(mesEscolhido?.rotulo ?? "")}
       </button>
+      {dialogo}
     </div>
   );
 }
