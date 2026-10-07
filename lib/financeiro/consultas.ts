@@ -31,7 +31,7 @@ import { motivoSemCorrecao, type LinhaDaOriginal, type OrigemSemCorrecao, type P
 import type { ItemParaEfeito } from "./efeito-estoque";
 import { totalDasLinhas, tituloDoDocumento } from "./documento";
 import type { GrupoDePagas, MovimentoParaExtrato } from "./extrato";
-import { versaoAtualDoDocumento } from "./gravacao";
+import { versaoAtualDoDocumento, type LeitorDaVersao, type TransacaoDoBanco } from "./gravacao";
 import type { DocumentoParaMes, LinhaDeDocumentoParaMes, ParcelaPagaParaMes } from "./mes";
 import type { AreaFinanceira, FormaDePagamento, GrupoDeCategoria, TipoDeDocumentoParaTexto } from "./textos";
 
@@ -542,31 +542,34 @@ async function vinculosDeCorrecao(ids: readonly string[]): Promise<VinculoDeCorr
 
 // As origens da Agenda (inscrição, mensalidade, uso livre) e das Queimas de uma LISTA de documentos, numa
 // consulta só (`union all`) — o detalhe do Caixa e a abertura da correção leem a mesma coisa. O orçamento
-// e a conta fixa moram no próprio documento/join de quem chama.
+// e a conta fixa moram no próprio documento/join de quem chama. O `leitor` (padrão: o `db`) é a transação
+// do retrato quando quem chama é a abertura da correção (WR-01, quick 261007-shs).
 async function origensDaAgendaEDasQueimas(
   ids: readonly string[],
+  leitor: LeitorDaVersao = db,
 ): Promise<Map<string, { temAgenda: boolean; temQueima: boolean }>> {
   const mapa = new Map<string, { temAgenda: boolean; temQueima: boolean }>();
   if (ids.length === 0) {
     return mapa;
   }
+  const consulta = leitor as Pick<TransacaoDoBanco, "select">;
   const lista = ids as string[];
   const deOnde = (coluna: AnyPgColumn, modulo: "agenda" | "queimas") => ({
     documentoId: sql<string>`${coluna}`.as("documento_id"),
     modulo: sql<"agenda" | "queimas">`${sql.raw(`'${modulo}'`)}`.as("modulo"),
   });
-  const linhas = await db
+  const linhas = await consulta
     .select(deOnde(inscricoes.documentoId, "agenda"))
     .from(inscricoes)
     .where(inArray(inscricoes.documentoId, lista))
     .unionAll(
-      db.select(deOnde(mensalidades.documentoId, "agenda")).from(mensalidades).where(inArray(mensalidades.documentoId, lista)),
+      consulta.select(deOnde(mensalidades.documentoId, "agenda")).from(mensalidades).where(inArray(mensalidades.documentoId, lista)),
     )
     .unionAll(
-      db.select(deOnde(usosLivres.documentoId, "agenda")).from(usosLivres).where(inArray(usosLivres.documentoId, lista)),
+      consulta.select(deOnde(usosLivres.documentoId, "agenda")).from(usosLivres).where(inArray(usosLivres.documentoId, lista)),
     )
     .unionAll(
-      db.select(deOnde(queimaVendas.documentoId, "queimas")).from(queimaVendas).where(inArray(queimaVendas.documentoId, lista)),
+      consulta.select(deOnde(queimaVendas.documentoId, "queimas")).from(queimaVendas).where(inArray(queimaVendas.documentoId, lista)),
     );
   for (const linha of linhas) {
     const atual = mapa.get(linha.documentoId) ?? { temAgenda: false, temQueima: false };
@@ -731,8 +734,16 @@ export async function listarDocumentosParaDetalhe(
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // A abertura do “Corrigir” (Fase 06.5, plano 17 — D-18/UI-D9): a página lê a original para preencher a
 // Venda/Despesa. Só LEITURA — nada é travado nem gravado ao abrir. A VERSÃO vem de
-// `versaoAtualDoDocumento(db, id)` (plano 16): a mesma leitura e o mesmo normalizador que a transação usa
-// sob a trava; nenhum outro código calcula versão.
+// `versaoAtualDoDocumento(leitor, id)` (plano 16): a mesma leitura e o mesmo normalizador que a transação
+// usa sob a trava; nenhum outro código calcula versão.
+//
+// WR-01 da revisão 06.5 (decisão do dono, 07/10/2026; quick 261007-shs): TODAS as leituras — o rascunho
+// (documento, linhas, parcelas, origens, livro) E a versão — saem do MESMO retrato do banco, numa transação
+// `repeatable read, read only`. Antes eram seis leituras em paralelo sobre o pool, e um “Recebi” de outro
+// celular confirmado no meio podia fazer o rascunho mostrar a parcela em aberto e a versão já incluir o
+// recebimento: a correção passava sob a trava, e o dinheiro recebido voltava para “A receber” sem frase.
+// Com o retrato, o par é sempre coerente — e se o “Recebi” entrar depois, a versão confere sob a trava e
+// cai em `mudou`. Não se recalcula a versão a partir das linhas da página: a regra do plano 16 continua.
 export type DocumentoParaCorrecao = {
   id: string;
   tipo: TipoDeDocumentoParaTexto;
@@ -754,54 +765,68 @@ export type DocumentoParaCorrecao = {
 };
 
 export async function obterDocumentoParaCorrecao(id: string): Promise<DocumentoParaCorrecao | null> {
-  const [documentosLidos, linhas, parcelasLidas, origens, movimentacoes, versao] = await Promise.all([
-    db
-      .select({
-        tipo: documentos.tipo,
-        numero: documentos.numero,
-        data: documentos.data,
-        pessoaNome: documentos.pessoaNome,
-        clienteId: documentos.clienteId,
-        fornecedorId: documentos.fornecedorId,
-        canceladoEm: documentos.canceladoEm,
-        contaFixaId: documentos.contaFixaId,
-        orcamentoAno: orcamentos.ano,
-        orcamentoSequencial: orcamentos.sequencial,
-      })
-      .from(documentos)
-      .leftJoin(orcamentos, eq(orcamentos.documentoId, documentos.id))
-      .where(eq(documentos.id, id))
-      .limit(1),
-    db
-      .select({
-        itemId: documentoLinhas.itemId,
-        descricao: documentoLinhas.descricao,
-        categoriaId: documentoLinhas.categoriaId,
-        quantidade: documentoLinhas.quantidade,
-        valorCentavos: documentoLinhas.valorCentavos,
-        quantidadeEstoque: documentoLinhas.quantidadeEstoque,
-        parcelaDiferencaId: documentoLinhas.parcelaDiferencaId,
-      })
-      .from(documentoLinhas)
-      .where(eq(documentoLinhas.documentoId, id))
-      .orderBy(asc(documentoLinhas.ordem)),
-    db
-      .select({
-        vencimento: parcelas.vencimento,
-        valorCentavos: parcelas.valorCentavos,
-        forma: parcelas.forma,
-        pagoEm: parcelas.pagoEm,
-      })
-      .from(parcelas)
-      .where(eq(parcelas.documentoId, id))
-      .orderBy(asc(parcelas.numero)),
-    origensDaAgendaEDasQueimas([id]),
-    db
-      .select({ total: count() })
-      .from(movimentacoesEstoque)
-      .where(eq(movimentacoesEstoque.documentoId, id)),
-    versaoAtualDoDocumento(db, id),
-  ]);
+  return db.transaction((tx) => lerDocumentoParaCorrecao(tx, id), {
+    isolationLevel: "repeatable read",
+    accessMode: "read only",
+  });
+}
+
+// As leituras da abertura da correção, EM SEQUÊNCIA e todas pelo `leitor` (a transação é UMA conexão). Com
+// o `db`, cada uma vê o banco no seu instante; com a `tx` de `obterDocumentoParaCorrecao`, todas veem o
+// mesmo retrato. Exportada para a prova de corrida (`scripts/provar-corridas-da-correcao.ts`, caso (g)).
+export async function lerDocumentoParaCorrecao(
+  leitor: LeitorDaVersao,
+  id: string,
+): Promise<DocumentoParaCorrecao | null> {
+  const consulta = leitor as Pick<TransacaoDoBanco, "select">;
+  const documentosLidos = await consulta
+    .select({
+      tipo: documentos.tipo,
+      numero: documentos.numero,
+      data: documentos.data,
+      pessoaNome: documentos.pessoaNome,
+      clienteId: documentos.clienteId,
+      fornecedorId: documentos.fornecedorId,
+      canceladoEm: documentos.canceladoEm,
+      contaFixaId: documentos.contaFixaId,
+      orcamentoAno: orcamentos.ano,
+      orcamentoSequencial: orcamentos.sequencial,
+    })
+    .from(documentos)
+    .leftJoin(orcamentos, eq(orcamentos.documentoId, documentos.id))
+    .where(eq(documentos.id, id))
+    .limit(1);
+  const linhas = await consulta
+    .select({
+      itemId: documentoLinhas.itemId,
+      descricao: documentoLinhas.descricao,
+      categoriaId: documentoLinhas.categoriaId,
+      quantidade: documentoLinhas.quantidade,
+      valorCentavos: documentoLinhas.valorCentavos,
+      quantidadeEstoque: documentoLinhas.quantidadeEstoque,
+      parcelaDiferencaId: documentoLinhas.parcelaDiferencaId,
+    })
+    .from(documentoLinhas)
+    .where(eq(documentoLinhas.documentoId, id))
+    .orderBy(asc(documentoLinhas.ordem));
+  const parcelasLidas = await consulta
+    .select({
+      numero: parcelas.numero,
+      vencimento: parcelas.vencimento,
+      valorCentavos: parcelas.valorCentavos,
+      forma: parcelas.forma,
+      pagoEm: parcelas.pagoEm,
+      taxaPontosBase: parcelas.taxaPontosBase,
+    })
+    .from(parcelas)
+    .where(eq(parcelas.documentoId, id))
+    .orderBy(asc(parcelas.numero));
+  const origens = await origensDaAgendaEDasQueimas([id], leitor);
+  const movimentacoes = await consulta
+    .select({ total: count() })
+    .from(movimentacoesEstoque)
+    .where(eq(movimentacoesEstoque.documentoId, id));
+  const versao = await versaoAtualDoDocumento(leitor, id);
 
   const documento = documentosLidos[0];
   if (!documento || versao === null) {
@@ -838,10 +863,12 @@ export async function obterDocumentoParaCorrecao(id: string): Promise<DocumentoP
       ehDiferenca: linha.parcelaDiferencaId !== null,
     })),
     parcelas: parcelasLidas.map((parcela) => ({
+      numero: parcela.numero,
       vencimento: parcela.vencimento,
       valorCentavos: parcela.valorCentavos,
       forma: parcela.forma as FormaDePagamento,
       pagoEm: parcela.pagoEm,
+      taxaPontosBase: parcela.taxaPontosBase,
     })),
     versao,
   };

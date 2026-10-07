@@ -124,6 +124,26 @@ export function textoAvisoCartao(
   return `Cartão: a maquininha fica com ${percentualFormatado}% (${taxaFormatada}). Entram ${entramFormatado} no caixa e a taxa vira custo do mês. A taxa muda em Cadastros → Taxas.`;
 }
 
+// BL-01 (quick 261007-shs): na Venda aberta por “Corrigir”, o aviso diz a taxa que de fato vai ser gravada.
+// Todas as parcelas no cartão já tinham sido recebidas, com a MESMA taxa: a correção a mantém.
+export function textoAvisoCartaoHerdado(
+  percentualFormatado: string,
+  taxaFormatada: string,
+  entramFormatado: string,
+): string {
+  return `Cartão: a maquininha ficou com ${percentualFormatado}% (${taxaFormatada}) — a taxa de quando a venda foi recebida, que a correção mantém. Entram ${entramFormatado} no caixa e a taxa vira custo do mês.`;
+}
+
+// BL-01: há parcela já recebida (com a taxa dela) E parcela nova no cartão (com a de hoje), ou recebidas
+// com taxas diferentes — o total da taxa, sem um percentual só.
+export function textoAvisoCartaoMisto(
+  taxaFormatada: string,
+  entramFormatado: string,
+  percentualDeHojeFormatado: string,
+): string {
+  return `Cartão: a maquininha fica com ${taxaFormatada} — as parcelas já recebidas mantêm a taxa de quando entraram, e as novas usam a de hoje (${percentualDeHojeFormatado}%). Entram ${entramFormatado} no caixa e a taxa vira custo do mês. A taxa muda em Cadastros → Taxas.`;
+}
+
 // "1 de 3" — a etiqueta de parcela do extrato (zero-one-many: 1 parcela não mostra "1 de 1", só
 // 2+ mostram "k de N", 04.4-UI-SPEC.md).
 export function textoParcelaDoExtrato(numero: number, deQuantas: number): string {

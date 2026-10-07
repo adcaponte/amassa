@@ -23,7 +23,7 @@
 // Desde a Fase 06.5 (plano 16) este arquivo também tem o escritor da DESPESA (`gravarDespesa`), o miolo
 // do cancelamento (`cancelarDocumentoNaTransacao`), a leitura da versão do documento e o núcleo do
 // “Corrigir” — todos sem a diretiva, pelo mesmo motivo.
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 
 import type { db } from "@/db";
 import {
@@ -51,10 +51,12 @@ import { cancelarOrdemDaVendaCancelada } from "@/lib/producao/gravacao";
 import {
   motivoSemCorrecao,
   normalizarParaVersao,
+  taxasHerdadasDaCorrecao,
   versaoDoDocumento,
   type LeituraParaVersao,
   type MotivoDaRecusaDaCorrecao,
   type OrigemSemCorrecao,
+  type ParcelaPagaDaOriginal,
 } from "./correcao";
 import type { FormaDePagamento } from "./textos";
 
@@ -101,6 +103,10 @@ export type ContextoDaVenda = {
   // A taxa de Cadastros no momento do lançamento (`obterConfiguracaoFinanceira`), lida por quem
   // chama FORA da transação.
   taxaCartaoPontosBase: number;
+  // Só o “Corrigir” (BL-01, quick 261007-shs): as parcelas JÁ RECEBIDAS da original, lidas do banco por
+  // `lancarCorrecaoNaTransacao` sob a trava — a parcela recebida que é “a mesma” herda a taxa congelada
+  // dela (`taxasHerdadasDaCorrecao`). Ausente (Agenda, Queimas, lote, Venda comum) = tudo como sempre.
+  pagasDaOriginal?: readonly ParcelaPagaDaOriginal[];
 };
 
 export async function gravarVenda(
@@ -189,6 +195,11 @@ export async function gravarVenda(
     await gravarMovimentacoes(tx, pedidos, { registradoPor: contexto.registradoPor });
   }
 
+  // BL-01: na correção, qual parcela paga no cartão herda a taxa congelada da original.
+  const herancas = contexto.pagasDaOriginal
+    ? taxasHerdadasDaCorrecao(contexto.pagasDaOriginal, pedido.parcelas)
+    : null;
+
   await tx.insert(parcelas).values(
     pedido.parcelas.map((parcela, indice) => {
       // Parcela paga no cartão de VENDA congela a taxa da configuração no momento do
@@ -196,8 +207,17 @@ export async function gravarVenda(
       // Só `taxaPontosBase` é gravado aqui, nunca os centavos: o valor líquido de verdade
       // (`taxaEmCentavos`/`liquidoDaParcela`, lib/financeiro/taxa.ts) é calculado sempre que
       // a parcela é LIDA (extrato, Mês) — se ele fosse gravado aqui, mudar a taxa depois
-      // reescreveria silenciosamente o passado.
+      // reescreveria silenciosamente o passado. Pela mesma regra, na correção (BL-01, decisão do
+      // dono de 07/10/2026) a parcela JÁ RECEBIDA que é a mesma da original grava a taxa com que
+      // foi recebida — inclusive `null` —, e só a parcela nova (ou em aberto marcada paga agora)
+      // congela a taxa de hoje.
       const pagaNoCartao = parcela.pago && parcela.forma === "cartao";
+      const heranca = herancas?.[indice];
+      const taxaDaParcela = !pagaNoCartao
+        ? null
+        : heranca && heranca.herdada
+          ? heranca.pontosBase
+          : contexto.taxaCartaoPontosBase;
       return {
         documentoId: documento.id,
         numero: indice + 1,
@@ -206,7 +226,7 @@ export async function gravarVenda(
         forma: parcela.forma,
         pagoEm: parcela.pago ? parcela.vencimento : null,
         pagoPor: parcela.pago ? contexto.registradoPor : null,
-        taxaPontosBase: pagaNoCartao ? contexto.taxaCartaoPontosBase : null,
+        taxaPontosBase: taxaDaParcela,
       };
     }),
   );
@@ -405,7 +425,7 @@ export async function cancelarDocumentoNaTransacao(
 // as linhas que NÃO são de diferença (id, quantidade, valor, quantidade de estoque) e as parcelas (id,
 // valor, forma, vencimento, pago em) —, com o `db` (a página do plano 17, para mandar a versão à tela)
 // ou com a `tx` (a correção, sob a trava). A conta é a de `lib/financeiro/correcao.ts`.
-type LeitorDaVersao = Pick<typeof db, "select"> | Pick<TransacaoDoBanco, "select">;
+export type LeitorDaVersao = Pick<typeof db, "select"> | Pick<TransacaoDoBanco, "select">;
 
 export async function lerParaVersao(
   leitor: LeitorDaVersao,
@@ -461,6 +481,17 @@ export async function versaoAtualDoDocumento(
 // Ordem de travas: DOCUMENTO original (`for update`, primeiro) → ORDEM (no núcleo do cancelamento) →
 // ITENS (estorno) → documento NOVO → ITENS (efeito da nova). É a mesma de `cancelarDocumento`; a prova de
 // corrida (`scripts/provar-corridas-da-correcao.ts`) denuncia 40P01 se for invertida.
+//
+// A ordem das leituras e escritas (o quick 261007-shs acrescentou 4b e 6b — BL-01):
+// (1) trava da original; (2) cancelada / já corrigida; (3) as origens; (4) a versão relida sob a trava;
+// (4b) as parcelas JÁ RECEBIDAS da original, sob a mesma trava (nenhum “Recebi” entra no meio:
+// `registrarPagamento` trava o documento antes da parcela); (5) o cancelamento; (6) a nova, com as pagas
+// em mãos; (6b) a defesa: as parcelas GRAVADAS da nova relidas e conferidas contra a herança — uma parcela
+// recebida com a taxa diferente da original desfaz tudo; (7) o vínculo.
+//
+// O erro da defesa (6b) não é recusa da tela: é um chamador que esqueceu a herança. A ação cai no
+// `console.error` + frase de sempre.
+export const ERRO_TAXA_REESCRITA_NA_CORRECAO = "Correção recusada: a taxa de uma parcela já recebida mudaria";
 export class RecusaDaCorrecao extends Error {
   constructor(
     readonly motivo: MotivoDaRecusaDaCorrecao,
@@ -485,7 +516,12 @@ export async function lancarCorrecaoNaTransacao(
     versao: string;
     tipo: "venda" | "despesa";
     usuarioId: string;
-    gravarNova: (tx: TransacaoDoBanco) => Promise<{ id: string; numero: number }>;
+    // As pagas da original (4b) chegam aqui: a venda as passa a `gravarVenda`; a despesa as ignora (nunca
+    // tem taxa).
+    gravarNova: (
+      tx: TransacaoDoBanco,
+      pagasDaOriginal: readonly ParcelaPagaDaOriginal[],
+    ) => Promise<{ id: string; numero: number }>;
   },
 ): Promise<{ numeroOriginal: number; id: string; numero: number }> {
   // (1) A trava da ORIGINAL, antes de qualquer outra coisa. O que a decisão usa — tipo, número,
@@ -568,11 +604,58 @@ export async function lancarCorrecaoNaTransacao(
     throw new RecusaDaCorrecao("mudou", { numeroOriginal: original.numero });
   }
 
+  // (4b) BL-01: as parcelas JÁ RECEBIDAS da original, lidas sob a trava, depois da versão conferida.
+  const pagasLidas = await tx
+    .select({
+      numero: parcelas.numero,
+      pagoEm: parcelas.pagoEm,
+      forma: parcelas.forma,
+      valorCentavos: parcelas.valorCentavos,
+      taxaPontosBase: parcelas.taxaPontosBase,
+    })
+    .from(parcelas)
+    .where(and(eq(parcelas.documentoId, pedido.originalId), isNotNull(parcelas.pagoEm)))
+    .orderBy(asc(parcelas.numero));
+  const pagasDaOriginal: ParcelaPagaDaOriginal[] = pagasLidas.flatMap((parcela) =>
+    parcela.pagoEm === null ? [] : [{ ...parcela, pagoEm: parcela.pagoEm }],
+  );
+
   // (5) O cancelamento pelo MESMO núcleo de `cancelarDocumento` (ordem da venda, estorno, quem/quando).
   await cancelarDocumentoNaTransacao(tx, pedido.originalId, pedido.usuarioId);
 
-  // (6) A nova, pelo escritor de sempre (`gravarVenda`/`gravarDespesa`).
-  const nova = await pedido.gravarNova(tx);
+  // (6) A nova, pelo escritor de sempre (`gravarVenda`/`gravarDespesa`), com as pagas em mãos.
+  const nova = await pedido.gravarNova(tx, pagasDaOriginal);
+
+  // (6b) A defesa no núcleo, no molde da restrição adiada da soma (duas camadas): relê as parcelas GRAVADAS
+  // da nova e confere a herança. Um chamador futuro que esqueça de passar as pagas a `gravarVenda` não
+  // reescreve o passado — a transação desfaz tudo. Vale para venda e despesa (a despesa grava `null`, e a
+  // original dela também tem `null`).
+  const gravadas = await tx
+    .select({
+      vencimento: parcelas.vencimento,
+      valorCentavos: parcelas.valorCentavos,
+      forma: parcelas.forma,
+      pagoEm: parcelas.pagoEm,
+      taxaPontosBase: parcelas.taxaPontosBase,
+    })
+    .from(parcelas)
+    .where(eq(parcelas.documentoId, nova.id))
+    .orderBy(asc(parcelas.numero));
+  const esperadas = taxasHerdadasDaCorrecao(
+    pagasDaOriginal,
+    gravadas.map((parcela) => ({
+      vencimento: parcela.pagoEm ?? parcela.vencimento,
+      valorCentavos: parcela.valorCentavos,
+      forma: parcela.forma,
+      pago: parcela.pagoEm !== null,
+    })),
+  );
+  gravadas.forEach((parcela, indice) => {
+    const esperada = esperadas[indice];
+    if (esperada.herdada && parcela.taxaPontosBase !== esperada.pontosBase) {
+      throw new Error(ERRO_TAXA_REESCRITA_NA_CORRECAO);
+    }
+  });
 
   // (7) O vínculo. `original_id` único: o banco segura uma segunda correção da mesma original mesmo
   // que um caminho futuro esqueça a trava.

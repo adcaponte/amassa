@@ -18,16 +18,31 @@
 // O que se afirma, em todos os casos: nenhum estado em que a original está cancelada sem a nova (ou a
 // nova existe sem a original cancelada), nenhuma segunda correção da mesma original, nenhum impasse
 // (40P01), e toda recusa sem NADA gravado.
+//
+// Desde o quick 261007-shs (07/10/2026, revisão 06.5 — decisão do dono): (f1)–(f4) provam o BL-01 — a
+// parcela já recebida no cartão mantém, na corrigida, a taxa com que foi recebida, e o líquido, o saldo
+// e o Mês do passado não mudam; (g) prova o WR-01 — o rascunho e a versão saem do mesmo retrato.
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Client } from "pg";
 
 import { db, pool } from "@/db";
 import { documentos } from "@/db/schema";
+import { mesSeguinte, primeiroDiaDoMes, somarDias } from "@/lib/financeiro/calendario";
+import {
+  lerDocumentoParaCorrecao,
+  listarDocumentosDoMes,
+  listarParcelasPagasNoMes,
+  somarMovimentosAntesDe,
+} from "@/lib/financeiro/consultas";
+import { saldoAntesDaJanela } from "@/lib/financeiro/extrato";
 import {
   cancelarDocumentoNaTransacao,
   DocumentoJaCancelado,
+  ERRO_TAXA_REESCRITA_NA_CORRECAO,
+  gravarDespesa,
   gravarVenda,
   lancarCorrecaoNaTransacao,
   RecusaDaCorrecao,
@@ -35,6 +50,8 @@ import {
   type TransacaoDoBanco,
 } from "@/lib/financeiro/gravacao";
 import type { MotivoDaRecusaDaCorrecao } from "@/lib/financeiro/correcao";
+import { resumoDoMes, type ResumoDoMes } from "@/lib/financeiro/mes";
+import { liquidoDaParcela } from "@/lib/financeiro/taxa";
 
 const BANCO_DE_PRODUCAO = "amassa";
 
@@ -123,11 +140,13 @@ function semImpasse(contexto: string, ...desfechos: Desfecho<unknown>[]): void {
 type Semente = {
   usuarioId: string;
   categoriaId: string;
+  // A categoria de custo da despesa do (f3).
+  categoriaDespesaId: string;
   documentoIds: string[];
   orcamentoIds: string[];
 };
 
-const semente: Semente = { usuarioId: "", categoriaId: "", documentoIds: [], orcamentoIds: [] };
+const semente: Semente = { usuarioId: "", categoriaId: "", categoriaDespesaId: "", documentoIds: [], orcamentoIds: [] };
 
 // Uma venda de valor livre, pelo escritor da aplicação. `paga`: à vista já recebida (o caso comum).
 async function semearVenda(pessoaNome: string, opcoes: { paga: boolean }): Promise<{ id: string; numero: number }> {
@@ -401,6 +420,398 @@ async function provarCancelamentoXCorrecao(conexao: Client, observador: Client):
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// BL-01 (quick 261007-shs; decisão do dono, 07/10/2026). A taxa de Cadastros mudou entre o recebimento e a
+// correção: a parcela já recebida no cartão continua com a taxa de quando entrou.
+//
+// As leituras do saldo e do Mês são GLOBAIS (todas as parcelas pagas antes do mês seguinte, todos os
+// documentos do mês). Vale aqui porque os casos rodam em sequência e nada mais escreve neste banco de
+// teste enquanto este script roda: o “antes” e o “depois” só diferem pelo que a correção fez.
+const TAXA_DA_ORIGINAL = 499;
+const TAXA_DE_HOJE = 349;
+
+// Hoje − 40 dias: sempre num mês anterior ao de hoje, para a parcela “recebida hoje” da nova ficar fora do
+// saldo de antes do mês seguinte e do Mês do dia da original.
+function diaDaOriginal(): string {
+  return somarDias(hojeEmBrasilia(), -40);
+}
+
+// A venda de R$ 200,00 em duas de R$ 100,00 no cartão, gravada a 4,99%: a 1/2 recebida no dia, a 2/2 em
+// aberto.
+async function semearVendaNoCartao(
+  pessoaNome: string,
+  dia: string,
+): Promise<{ id: string; numero: number }> {
+  const venda = await db.transaction((tx) =>
+    gravarVenda(
+      tx,
+      {
+        data: dia,
+        pessoaNome,
+        linhas: [
+          {
+            tipo: "livre",
+            descricao: "Prova da taxa da correção",
+            categoriaId: semente.categoriaId,
+            valorCentavos: 20000,
+          },
+        ],
+        parcelas: [
+          { vencimento: dia, valorCentavos: 10000, forma: "cartao", pago: true },
+          {
+            vencimento: somarDias(dia, 30),
+            valorCentavos: 10000,
+            forma: "cartao",
+            pago: false,
+          },
+        ],
+      },
+      { registradoPor: semente.usuarioId, taxaCartaoPontosBase: TAXA_DA_ORIGINAL },
+    ),
+  );
+  semente.documentoIds.push(venda.id);
+  return venda;
+}
+
+// A correção como `lancarVenda` a faz: a pessoa trocada, a mesma data e a mesma linha; a parcela do dia
+// recebida como estava e a 2/2 marcada recebida HOJE. `herdar: false` é o chamador que esquece as pagas
+// (o (f4)): a nova vai com a taxa de hoje em tudo.
+function corrigirNoCartao(
+  tx: TransacaoDoBanco,
+  originalId: string,
+  versao: string,
+  marca: string,
+  dia: string,
+  taxaDeHoje: number,
+  herdar: boolean,
+) {
+  const hoje = hojeEmBrasilia();
+  return lancarCorrecaoNaTransacao(tx, {
+    originalId,
+    versao,
+    tipo: "venda",
+    usuarioId: semente.usuarioId,
+    gravarNova: async (txDaNova, pagasDaOriginal) => {
+      const nova = await gravarVenda(
+        txDaNova,
+        {
+          data: dia,
+          pessoaNome: marca,
+          linhas: [
+            {
+              tipo: "livre",
+              descricao: "Prova da taxa da correção",
+              categoriaId: semente.categoriaId,
+              valorCentavos: 20000,
+            },
+          ],
+          parcelas: [
+            { vencimento: dia, valorCentavos: 10000, forma: "cartao", pago: true },
+            { vencimento: hoje, valorCentavos: 10000, forma: "cartao", pago: true },
+          ],
+        },
+        {
+          registradoPor: semente.usuarioId,
+          taxaCartaoPontosBase: taxaDeHoje,
+          pagasDaOriginal: herdar ? pagasDaOriginal : undefined,
+        },
+      );
+      semente.documentoIds.push(nova.id);
+      return nova;
+    },
+  });
+}
+
+async function taxasDasParcelas(
+  conexao: Client,
+  documentoId: string,
+): Promise<(number | null)[]> {
+  const { rows } = await conexao.query<{ taxa: number | null }>(
+    "select taxa_pontos_base as taxa from parcelas where documento_id = $1 order by numero",
+    [documentoId],
+  );
+  return rows.map((linha) => linha.taxa);
+}
+
+type DinheiroDoPassado = { liquido: number; saldo: number; resumo: ResumoDoMes };
+
+// O dinheiro do passado de um documento pago no cartão no `dia`: o líquido da parcela daquele dia, o saldo
+// de tudo o que foi pago antes do mês seguinte e o resumo do Mês daquele dia — pelas MESMAS consultas e
+// funções puras que a tela usa.
+async function dinheiroDoPassado(
+  conexao: Client,
+  documentoId: string,
+  dia: string,
+): Promise<DinheiroDoPassado> {
+  const { rows } = await conexao.query<{
+    tipo: "venda" | "despesa";
+    valor: number;
+    taxa: number | null;
+  }>(
+    `select d.tipo::text as tipo, p.valor_centavos as valor, p.taxa_pontos_base as taxa
+       from parcelas p join documentos d on d.id = p.documento_id
+      where p.documento_id = $1 and p.pago_em = $2::date
+      order by p.numero limit 1`,
+    [documentoId, dia],
+  );
+  afirmar(
+    rows[0],
+    `dinheiroDoPassado: o documento ${documentoId} não tem parcela paga em ${dia}.`,
+  );
+  const mes = dia.slice(0, 7);
+  return {
+    liquido: liquidoDaParcela({
+      tipo: rows[0].tipo,
+      valorCentavos: rows[0].valor,
+      taxaPontosBase: rows[0].taxa,
+    }),
+    saldo: saldoAntesDaJanela(
+      await somarMovimentosAntesDe(primeiroDiaDoMes(mesSeguinte(mes))),
+    ),
+    resumo: resumoDoMes({
+      mes,
+      documentos: await listarDocumentosDoMes(mes),
+      parcelasPagas: await listarParcelasPagasNoMes(mes),
+    }),
+  };
+}
+
+function afirmarDinheiroIgual(
+  contexto: string,
+  antes: DinheiroDoPassado,
+  depois: DinheiroDoPassado,
+): void {
+  afirmar(
+    antes.liquido === depois.liquido,
+    `${contexto}: o líquido da parcela recebida mudou de ${antes.liquido} para ${depois.liquido}.`,
+  );
+  afirmar(
+    antes.saldo === depois.saldo,
+    `${contexto}: o saldo antes do mês seguinte mudou de ${antes.saldo} para ${depois.saldo}.`,
+  );
+  afirmar(
+    isDeepStrictEqual(antes.resumo, depois.resumo),
+    `${contexto}: o resumo do Mês mudou — antes ${JSON.stringify(antes.resumo)}, depois ${JSON.stringify(depois.resumo)}.`,
+  );
+}
+
+// A nova do (f1), que o (f2) corrige de novo (a cadeia).
+let novaDoF1: { id: string; dia: string } | null = null;
+
+// (f1) A venda recebida no cartão a 4,99%, corrigida com a taxa de hoje a 3,49%.
+async function provarTaxaHerdada(conexao: Client): Promise<void> {
+  console.log(
+    "    (f1) BL-01 — recebida a 4,99%, corrigida com a de hoje a 3,49%: a recebida mantém 4,99%...",
+  );
+  const dia = diaDaOriginal();
+  const original = await semearVendaNoCartao("[mig] Original (f1)", dia);
+  const antes = await dinheiroDoPassado(conexao, original.id, dia);
+  const versao = await versaoAtualDoDocumento(db, original.id);
+  afirmar(versao !== null, "(f1): a versão da original deveria existir.");
+  const marca = marcaNova("(f1)");
+  const desfecho = await semRejeicaoSolta(
+    db.transaction((tx) =>
+      corrigirNoCartao(tx, original.id, versao, marca, dia, TAXA_DE_HOJE, true),
+    ),
+  );
+  afirmar(desfecho.ok, `(f1): a correção deveria passar — ${descrever(desfecho)}`);
+  afirmarTudoOuNada("(f1)", await estado(conexao, original.id, marca), "tudo");
+  const taxas = await taxasDasParcelas(conexao, desfecho.valor.id);
+  afirmar(
+    taxas[0] === TAXA_DA_ORIGINAL && taxas[1] === TAXA_DE_HOJE,
+    `(f1): a 1/2 (recebida em ${dia}) deveria ter ${TAXA_DA_ORIGINAL} e a 2/2 (recebida hoje) ${TAXA_DE_HOJE}, veio ${JSON.stringify(taxas)}.`,
+  );
+  const depois = await dinheiroDoPassado(conexao, desfecho.valor.id, dia);
+  afirmarDinheiroIgual("(f1)", antes, depois);
+  console.log(
+    `      (f1) taxas da nova ${JSON.stringify(taxas)}; líquido ${antes.liquido} → ${depois.liquido}; saldo antes de ${primeiroDiaDoMes(mesSeguinte(dia.slice(0, 7)))} ${antes.saldo} → ${depois.saldo}; Mês ${dia.slice(0, 7)} entrou ${antes.resumo.entrouCentavos} → ${depois.resumo.entrouCentavos}, vendeu ${antes.resumo.vendeuTotalCentavos} → ${depois.resumo.vendeuTotalCentavos} (resumo idêntico)`,
+  );
+  novaDoF1 = { id: desfecho.valor.id, dia };
+}
+
+// (f2) A cadeia: a nova do (f1) corrigida de novo, agora com a taxa de hoje a 3,00%. A 1/2 continua com
+// 4,99%, e a 2/2 (recebida no (f1) a 3,49%) continua com 3,49%.
+async function provarCadeiaDeCorrecoes(conexao: Client): Promise<void> {
+  console.log(
+    "    (f2) BL-01 — a cadeia: corrigir a corrigida com a de hoje a 3,00% mantém 4,99% e 3,49%...",
+  );
+  afirmar(novaDoF1 !== null, "(f2): depende do (f1), que falhou.");
+  const { id: originalId, dia } = novaDoF1;
+  const antes = await dinheiroDoPassado(conexao, originalId, dia);
+  const versao = await versaoAtualDoDocumento(db, originalId);
+  afirmar(versao !== null, "(f2): a versão da nova do (f1) deveria existir.");
+  const marca = marcaNova("(f2)");
+  const desfecho = await semRejeicaoSolta(
+    db.transaction((tx) =>
+      corrigirNoCartao(tx, originalId, versao, marca, dia, 300, true),
+    ),
+  );
+  afirmar(
+    desfecho.ok,
+    `(f2): a correção da correção deveria passar — ${descrever(desfecho)}`,
+  );
+  afirmarTudoOuNada("(f2)", await estado(conexao, originalId, marca), "tudo");
+  const taxas = await taxasDasParcelas(conexao, desfecho.valor.id);
+  afirmar(
+    taxas[0] === TAXA_DA_ORIGINAL && taxas[1] === TAXA_DE_HOJE,
+    `(f2): as taxas deveriam continuar ${TAXA_DA_ORIGINAL} e ${TAXA_DE_HOJE}, veio ${JSON.stringify(taxas)}.`,
+  );
+  afirmarDinheiroIgual(
+    "(f2)",
+    antes,
+    await dinheiroDoPassado(conexao, desfecho.valor.id, dia),
+  );
+  console.log(
+    `      (f2) taxas da nova da nova ${JSON.stringify(taxas)} (a de hoje era 300)`,
+  );
+}
+
+// (f3) A despesa paga no cartão: corrigida, continua sem taxa, e o saldo do passado fica igual.
+async function provarDespesaSemTaxa(conexao: Client): Promise<void> {
+  console.log(
+    "    (f3) BL-01 — a despesa paga no cartão corrigida continua sem taxa, o saldo igual...",
+  );
+  const dia = diaDaOriginal();
+  const pedido = (pessoaNome: string) => ({
+    modo: "outra" as const,
+    data: dia,
+    pessoaNome,
+    fornecedorId: null,
+    linhas: [
+      {
+        itemId: null,
+        descricao: "Prova da taxa (despesa)",
+        categoriaId: semente.categoriaDespesaId,
+        quantidadeEstoque: null,
+        valorCentavos: 5000,
+      },
+    ],
+    parcelas: [
+      { vencimento: dia, valorCentavos: 5000, forma: "cartao" as const, pago: true },
+    ],
+  });
+  const original = await db.transaction((tx) =>
+    gravarDespesa(tx, pedido("[mig] Original (f3)"), {
+      registradoPor: semente.usuarioId,
+    }),
+  );
+  semente.documentoIds.push(original.id);
+  const antes = await dinheiroDoPassado(conexao, original.id, dia);
+  const versao = await versaoAtualDoDocumento(db, original.id);
+  afirmar(versao !== null, "(f3): a versão da original deveria existir.");
+  const marca = marcaNova("(f3)");
+  const desfecho = await semRejeicaoSolta(
+    db.transaction((tx) =>
+      lancarCorrecaoNaTransacao(tx, {
+        originalId: original.id,
+        versao,
+        tipo: "despesa",
+        usuarioId: semente.usuarioId,
+        gravarNova: async (txDaNova) => {
+          const nova = await gravarDespesa(txDaNova, pedido(marca), {
+            registradoPor: semente.usuarioId,
+          });
+          semente.documentoIds.push(nova.id);
+          return nova;
+        },
+      }),
+    ),
+  );
+  afirmar(
+    desfecho.ok,
+    `(f3): a correção da despesa deveria passar — ${descrever(desfecho)}`,
+  );
+  afirmarTudoOuNada("(f3)", await estado(conexao, original.id, marca), "tudo");
+  const taxas = await taxasDasParcelas(conexao, desfecho.valor.id);
+  afirmar(
+    taxas.length === 1 && taxas[0] === null,
+    `(f3): a despesa deveria continuar sem taxa, veio ${JSON.stringify(taxas)}.`,
+  );
+  afirmarDinheiroIgual(
+    "(f3)",
+    antes,
+    await dinheiroDoPassado(conexao, desfecho.valor.id, dia),
+  );
+}
+
+// (f4) A defesa do núcleo: um chamador que IGNORA as pagas da original (grava 3,49% na parcela recebida a
+// 4,99%) é recusado por `lancarCorrecaoNaTransacao`, e nada fica gravado.
+async function provarDefesaDoNucleo(conexao: Client): Promise<void> {
+  console.log(
+    "    (f4) BL-01 — o núcleo recusa a nova que reescreveria a taxa de uma parcela recebida...",
+  );
+  const dia = diaDaOriginal();
+  const original = await semearVendaNoCartao("[mig] Original (f4)", dia);
+  const versao = await versaoAtualDoDocumento(db, original.id);
+  afirmar(versao !== null, "(f4): a versão da original deveria existir.");
+  const marca = marcaNova("(f4)");
+  const desfecho = await semRejeicaoSolta(
+    db.transaction((tx) =>
+      corrigirNoCartao(tx, original.id, versao, marca, dia, TAXA_DE_HOJE, false),
+    ),
+  );
+  afirmar(
+    !desfecho.ok &&
+      desfecho.erro instanceof Error &&
+      desfecho.erro.message === ERRO_TAXA_REESCRITA_NA_CORRECAO,
+    `(f4): a correção deveria ser recusada pela taxa, veio ${descrever(desfecho)}.`,
+  );
+  afirmarTudoOuNada("(f4)", await estado(conexao, original.id, marca), "nada");
+  const taxas = await taxasDasParcelas(conexao, original.id);
+  afirmar(
+    taxas[0] === TAXA_DA_ORIGINAL,
+    `(f4): a original deveria continuar com ${TAXA_DA_ORIGINAL}, veio ${JSON.stringify(taxas)}.`,
+  );
+}
+
+// (g) WR-01: o rascunho e a versão da abertura do “Corrigir” saem do MESMO retrato. Um “Recebi” de outro
+// celular confirmado no meio da leitura não separa os dois: o par lido é o de antes, coerente, e lançar
+// com ele é recusado com `mudou` sob a trava — o recebimento nunca some.
+async function provarRetratoDaAbertura(conexao: Client): Promise<void> {
+  console.log(
+    "    (g) WR-01 — um “Recebi” no meio da leitura não separa o rascunho da versão...",
+  );
+  const original = await semearVenda("[mig] Original (g)", { paga: false });
+  const versaoAntes = await versaoAtualDoDocumento(db, original.id);
+  afirmar(versaoAntes !== null, "(g): a versão da original deveria existir.");
+  const lido = await db.transaction(
+    async (tx) => {
+      // O retrato do `repeatable read` nasce no PRIMEIRO comando da transação, não no `begin`.
+      await tx.execute(sql`select 1`);
+      // O “Recebi” de outro celular, confirmado agora, fora desta transação.
+      await conexao.query(
+        "update parcelas set pago_em = $2, pago_por = $3 where documento_id = $1",
+        [original.id, hojeEmBrasilia(), semente.usuarioId],
+      );
+      return lerDocumentoParaCorrecao(tx, original.id);
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
+  afirmar(lido !== null, "(g): a leitura dentro do retrato deveria achar a original.");
+  afirmar(
+    lido.parcelas.length === 1 &&
+      lido.parcelas[0].pagoEm === null &&
+      lido.versao === versaoAntes,
+    `(g): o rascunho e a versão deveriam ser os de ANTES do recebimento, veio parcelas ${JSON.stringify(lido.parcelas)} e versão ${lido.versao} (antes ${versaoAntes}).`,
+  );
+  const marca = marcaNova("(g)");
+  const desfecho = await semRejeicaoSolta(
+    db.transaction((tx) => corrigir(tx, original.id, lido.versao, marca)),
+  );
+  afirmar(
+    motivo(desfecho) === "mudou",
+    `(g): lançar com o par velho deveria ser recusado com mudou, veio ${descrever(desfecho)}.`,
+  );
+  afirmarTudoOuNada("(g)", await estado(conexao, original.id, marca), "nada");
+  const relido = await lerDocumentoParaCorrecao(db, original.id);
+  afirmar(
+    relido !== null &&
+      relido.parcelas[0]?.pagoEm !== null &&
+      relido.versao !== versaoAntes,
+    `(g): relida fora do retrato, a parcela deveria vir paga e a versão outra, veio ${JSON.stringify(relido)}.`,
+  );
+}
+
 async function faxina(conexao: Client): Promise<void> {
   try {
     await conexao.query("begin");
@@ -419,8 +830,10 @@ async function faxina(conexao: Client): Promise<void> {
     await conexao.query("delete from documentos where id = any($1::uuid[])", [semente.documentoIds]);
     await conexao.query("alter table documento_linhas enable trigger conferir_soma_apos_linha");
     await conexao.query("alter table parcelas enable trigger conferir_soma_apos_parcela");
-    if (semente.categoriaId !== "") {
-      await conexao.query("delete from categorias where id = $1", [semente.categoriaId]);
+    for (const categoriaId of [semente.categoriaId, semente.categoriaDespesaId]) {
+      if (categoriaId !== "") {
+        await conexao.query("delete from categorias where id = $1", [categoriaId]);
+      }
     }
     // A usuária de prova FICA (e-mail único por execução): nenhum caminho de código apaga linha de
     // `usuarios` (AUTH-09) — o banco de teste é efêmero.
@@ -454,8 +867,15 @@ async function main(): Promise<void> {
       [`[mig] Receita da correção ${randomUUID().slice(0, 8)}`],
     );
     semente.categoriaId = categoria.rows[0].id;
+    const categoriaDespesa = await conexao.query<{ id: string }>(
+      "insert into categorias (nome, grupo, area) values ($1, 'custo', 'pecas') returning id",
+      [`[mig] Custo da correção ${randomUUID().slice(0, 8)}`],
+    );
+    semente.categoriaDespesaId = categoriaDespesa.rows[0].id;
 
-    console.log("  Corridas da correção (06.5-16, D-18/UI-D9), com transações sobrepostas de verdade:");
+    console.log(
+      "  Corridas da correção (06.5-16, D-18/UI-D9; BL-01 e WR-01 do quick 261007-shs), com transações sobrepostas de verdade:",
+    );
     // Cada caso semeia a sua original: uma falha não contamina o seguinte. Roda TODOS e junta as falhas.
     const casos: [string, () => Promise<void>][] = [
       ["(a)", () => provarCorrecaoSimples(conexao)],
@@ -463,6 +883,11 @@ async function main(): Promise<void> {
       ["(c)", () => provarVersaoVelha(conexao)],
       ["(d)", () => provarOrigemDoOrcamento(conexao)],
       ["(e)", () => provarCancelamentoXCorrecao(conexao, observador)],
+      ["(f1)", () => provarTaxaHerdada(conexao)],
+      ["(f2)", () => provarCadeiaDeCorrecoes(conexao)],
+      ["(f3)", () => provarDespesaSemTaxa(conexao)],
+      ["(f4)", () => provarDefesaDoNucleo(conexao)],
+      ["(g)", () => provarRetratoDaAbertura(conexao)],
     ];
     const falhas: string[] = [];
     for (const [nome, caso] of casos) {

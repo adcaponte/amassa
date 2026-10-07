@@ -423,6 +423,8 @@ export default async function PaginaFinanceiro({
         versao: documentoParaCorrecao.versao,
         comEstoque: documentoParaCorrecao.comEstoque,
         deFora: rascunhoDaCorrecaoNoPainel.deFora,
+        // BL-01 (quick 261007-shs): só para o aviso do cartão dizer a taxa verdadeira.
+        pagasDaOriginal: rascunhoDaCorrecaoNoPainel.pagasDaOriginal,
       };
       const fornecedorId = documentoParaCorrecao.fornecedorId;
       fornecedorDaCorrecao =

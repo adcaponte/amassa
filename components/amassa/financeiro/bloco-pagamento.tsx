@@ -1,5 +1,6 @@
 "use client";
 
+import { taxasHerdadasDaCorrecao, type ParcelaPagaDaOriginal } from "@/lib/financeiro/correcao";
 import { converterReaisParaCentavos } from "@/lib/financeiro/dinheiro";
 import { formatarPercentual, formatarReais } from "@/lib/financeiro/formato";
 import { conferirParcelas, PLANOS_DE_PAGAMENTO, type PlanoDePagamento } from "@/lib/financeiro/parcelas";
@@ -19,6 +20,8 @@ import {
   ROTULO_VENCE_EM,
   rotuloDoPlano,
   textoAvisoCartao,
+  textoAvisoCartaoHerdado,
+  textoAvisoCartaoMisto,
   type FormaDePagamento,
 } from "@/lib/financeiro/textos";
 import { cn } from "@/lib/utils";
@@ -41,6 +44,9 @@ export type BlocoPagamentoProps = {
   tipo: "venda" | "despesa";
   totalCentavos: number;
   taxaPontosBase: number;
+  // BL-01 (quick 261007-shs): só na Venda aberta por “Corrigir” — as parcelas já recebidas da original,
+  // com a taxa congelada. A parcela que as herda leva ao aviso a taxa dela, não a de hoje.
+  pagasDaOriginal?: readonly ParcelaPagaDaOriginal[];
   hoje: string;
   dataSaldoInicial: string | null;
   // Estado controlado pelo painel: `gerarPlano`/`dividirEmDuasFormas` (a REGRA do plano em si)
@@ -72,6 +78,7 @@ export function BlocoPagamento({
   tipo,
   totalCentavos,
   taxaPontosBase,
+  pagasDaOriginal,
   hoje,
   dataSaldoInicial,
   plano,
@@ -117,10 +124,45 @@ export function BlocoPagamento({
   // Aviso do cartão (BRIEFING §5): só em VENDA com alguma parcela no cartão, estimativa com a
   // taxa de hoje (`taxaEmCentavos`, chamada dentro de `avisoDoCartao`) — a taxa de VERDADE só é
   // congelada no servidor, no instante em que a parcela é paga.
+  //
+  // BL-01 (quick 261007-shs): na correção, a parcela já recebida que é “a mesma” da original vai ao aviso
+  // com a taxa CONGELADA dela — a MESMA regra pura (`taxasHerdadasDaCorrecao`) que o servidor aplica sob a
+  // trava. O aviso não pode afirmar a taxa de hoje quando o servidor vai gravar a de quando foi recebida.
+  const herancas = pagasDaOriginal ? taxasHerdadasDaCorrecao(pagasDaOriginal, parcelasConvertidas) : null;
+  const parcelasParaAviso = parcelasConvertidas.map((parcela, indice) => {
+    const heranca = herancas?.[indice];
+    return heranca && heranca.herdada ? { ...parcela, taxaPontosBase: heranca.pontosBase } : parcela;
+  });
   const aviso =
     tipo === "venda"
-      ? avisoDoCartao({ tipo: "venda", parcelas: parcelasConvertidas, taxaPontosBase })
+      ? avisoDoCartao({ tipo: "venda", parcelas: parcelasParaAviso, taxaPontosBase })
       : null;
+  // Qual dos três textos: nenhuma herdada → o de sempre; todas as do cartão herdadas, com a mesma taxa →
+  // “ficou com”; herdadas E (novas no cartão OU taxas herdadas diferentes) → o misto, sem percentual único.
+  const taxasHerdadasNoCartao = parcelasConvertidas.flatMap((parcela, indice) => {
+    const heranca = herancas?.[indice];
+    return parcela.forma === "cartao" && heranca && heranca.herdada ? [heranca.pontosBase ?? 0] : [];
+  });
+  const noCartao = parcelasConvertidas.filter((parcela) => parcela.forma === "cartao").length;
+  const textoDoAviso = !aviso
+    ? null
+    : taxasHerdadasNoCartao.length === 0
+      ? textoAvisoCartao(
+          formatarPercentual(taxaPontosBase),
+          formatarReais(aviso.taxaCentavos),
+          formatarReais(aviso.entramCentavos),
+        )
+      : taxasHerdadasNoCartao.length === noCartao && new Set(taxasHerdadasNoCartao).size === 1
+        ? textoAvisoCartaoHerdado(
+            formatarPercentual(taxasHerdadasNoCartao[0]),
+            formatarReais(aviso.taxaCentavos),
+            formatarReais(aviso.entramCentavos),
+          )
+        : textoAvisoCartaoMisto(
+            formatarReais(aviso.taxaCentavos),
+            formatarReais(aviso.entramCentavos),
+            formatarPercentual(taxaPontosBase),
+          );
 
   return (
     <div className="flex flex-col gap-3">
@@ -253,13 +295,9 @@ export function BlocoPagamento({
         </div>
       )}
 
-      {aviso && (
+      {textoDoAviso && (
         <p data-testid="pagamento-aviso-cartao" className="text-apoio text-muted-foreground">
-          {textoAvisoCartao(
-            formatarPercentual(taxaPontosBase),
-            formatarReais(aviso.taxaCentavos),
-            formatarReais(aviso.entramCentavos),
-          )}
+          {textoDoAviso}
         </p>
       )}
 

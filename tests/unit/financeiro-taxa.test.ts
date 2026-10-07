@@ -51,3 +51,34 @@ describe("avisoDoCartao", () => {
     ).toBeNull();
   });
 });
+
+// BL-01 (quick 261007-shs): na correção, a parcela já recebida leva ao aviso a taxa CONGELADA dela; as
+// outras, a de hoje. `null` conta zero; sem o campo, tudo como antes.
+describe("avisoDoCartao — taxa por parcela (BL-01)", () => {
+  it("a parcela com taxa própria usa a dela; a sem o campo usa a global", () => {
+    const aviso = avisoDoCartao({
+      tipo: "venda",
+      parcelas: [
+        { valorCentavos: 10000, forma: "cartao", taxaPontosBase: 499 },
+        { valorCentavos: 10000, forma: "cartao" },
+      ],
+      taxaPontosBase: 349,
+    });
+    expect(aviso).toEqual({ taxaCentavos: 499 + 349, entramCentavos: 20000 - 499 - 349 });
+  });
+
+  it("taxa própria nula conta zero", () => {
+    const aviso = avisoDoCartao({
+      tipo: "venda",
+      parcelas: [{ valorCentavos: 10000, forma: "cartao", taxaPontosBase: null }],
+      taxaPontosBase: 349,
+    });
+    expect(aviso).toEqual({ taxaCentavos: 0, entramCentavos: 10000 });
+  });
+
+  it("sem o campo, o resultado é o de antes", () => {
+    expect(
+      avisoDoCartao({ tipo: "venda", parcelas: [{ valorCentavos: 10000, forma: "cartao" }], taxaPontosBase: 350 }),
+    ).toEqual({ taxaCentavos: 350, entramCentavos: 9650 });
+  });
+});

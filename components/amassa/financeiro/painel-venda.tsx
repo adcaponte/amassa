@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { DICA_PESSOA_TRAVADA, ROTULO_PESSOA_DA_AGENDA } from "@/lib/agenda/textos";
 import type { LinhaDaVendaDaAgenda } from "@/lib/agenda/receber";
 import { lancarVenda, type MotivoDaCorrecaoNaTela } from "@/lib/financeiro/acoes";
-import type { PagamentoDaCorrecao } from "@/lib/financeiro/correcao";
+import type { PagamentoDaCorrecao, ParcelaPagaDaOriginal } from "@/lib/financeiro/correcao";
 import type { CategoriaParaEscolha, ItemDoCatalogoParaVenda } from "@/lib/financeiro/consultas";
 import { repartirDesconto, type Desconto } from "@/lib/financeiro/desconto";
 import {
@@ -133,6 +133,9 @@ export type CorrecaoNoPainel = {
   versao: string;
   comEstoque: boolean;
   deFora: readonly string[];
+  // BL-01 (quick 261007-shs): as parcelas já recebidas da original, com a taxa congelada — só para o aviso
+  // do cartão dizer a taxa que vai ser gravada. O servidor relê tudo sob a trava; nada disto volta.
+  pagasDaOriginal: readonly ParcelaPagaDaOriginal[];
 };
 
 // A recusa do lançamento da correção (plano 18), como o painel a guarda: o motivo e a frase prontos (da ação,
@@ -1039,6 +1042,9 @@ export function PainelVenda({
           tipo="venda"
           totalCentavos={totalCentavos}
           taxaPontosBase={configuracao.taxaCartaoPontosBase}
+          // BL-01: só enquanto a venda está ligada à correção. Depois de “Lançar como venda nova” (plano 18)
+          // o lançamento é uma venda comum, com a taxa de hoje em tudo.
+          pagasDaOriginal={vinculada && correcao !== null ? correcao.pagasDaOriginal : undefined}
           hoje={hoje}
           dataSaldoInicial={configuracao.dataSaldoInicial}
           plano={plano}

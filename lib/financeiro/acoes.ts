@@ -323,10 +323,15 @@ export async function lancarVenda(
           versao: correcao.versao,
           tipo: "venda",
           usuarioId: usuario.id,
-          gravarNova: (txDaNova: TransacaoDoBanco) =>
+          // BL-01 (quick 261007-shs): as parcelas já recebidas da original vêm do BANCO, lidas por
+          // `lancarCorrecaoNaTransacao` sob a trava — nada do navegador entra na taxa. A recebida que é a
+          // mesma mantém a taxa com que foi recebida; só a nova (ou em aberto marcada paga agora) usa a de
+          // hoje.
+          gravarNova: (txDaNova: TransacaoDoBanco, pagasDaOriginal) =>
             gravarVenda(txDaNova, pedido, {
               registradoPor: usuario.id,
               taxaCartaoPontosBase: configuracao.taxaCartaoPontosBase,
+              pagasDaOriginal,
             }),
         });
         numeroCorrigido = lancada.numeroOriginal;
@@ -605,7 +610,9 @@ export async function lancarDespesa(
           versao: correcao.versao,
           tipo: "despesa",
           usuarioId: usuario.id,
-          gravarNova: gravarEstaDespesa,
+          // A despesa nunca tem taxa (`gravarDespesa` grava `null` sempre): as pagas da original que o núcleo
+          // passa são ignoradas de propósito — e o núcleo confere depois que a nova continua com `null`.
+          gravarNova: (txDaNova) => gravarEstaDespesa(txDaNova),
         });
         numeroCorrigido = lancada.numeroOriginal;
         return { id: lancada.id, numero: lancada.numero };

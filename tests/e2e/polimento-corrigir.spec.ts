@@ -256,6 +256,74 @@ test.describe("polimento corrigir — venda", () => {
     await expect(linhasDoExtrato.filter({ hasText: "cancelada" })).toHaveCount(1);
     await expect(linhasDoExtrato.filter({ hasText: /R\$\s150,00/ })).not.toContainText("cancelada");
   });
+
+  // BL-01 da revisão 06.5 (decisão do dono, 07/10/2026; quick 261007-shs). A taxa GLOBAL nunca muda aqui (seria
+  // `@parametro-global`): a original é semeada com uma taxa DIFERENTE da de hoje (hoje + 1,5 ponto), o que
+  // equivale a “a taxa de Cadastros mudou depois do recebimento”. No código de antes a nova gravaria a taxa de
+  // hoje na parcela recebida; agora grava a da original.
+  test("(c) uma venda recebida no cartão corrigida mantém a taxa com que foi recebida", async ({ page }) => {
+    const suf = sufixoUnico();
+    const titulo = `[e2e] Tigela da Iracema Inventada ${suf}`;
+    const hoje = hojeNoAtelie();
+    const taxaDeHoje = await comCliente(async (cliente) => {
+      const { rows } = await cliente.query<{ taxa: number }>(
+        "select taxa_cartao_pontos_base as taxa from configuracao_financeira limit 1",
+      );
+      return rows[0]?.taxa ?? 0;
+    });
+    const taxaDaOriginal = taxaDeHoje + 150;
+    const original = await semearContaAPagar({
+      titulo,
+      pessoa: "Iracema Inventada",
+      categoria: "Bebidas e comidas",
+      valorCentavos: 10000,
+      vencimento: hoje,
+      tipo: "venda",
+    });
+    // Recebida hoje no cartão, com a taxa da original congelada.
+    await comCliente((cliente) =>
+      cliente.query(
+        `update parcelas
+            set forma = 'cartao', pago_em = $2,
+                pago_por = (select id from usuarios where lower(email) = lower($3) limit 1),
+                taxa_pontos_base = $4
+          where id = $1`,
+        [original.parcelaId, hoje, process.env.E2E_EMAIL_TESTE ?? "", taxaDaOriginal],
+      ),
+    );
+    const percentualDaOriginal = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(
+      taxaDaOriginal / 100,
+    );
+
+    await fazerLogin(page);
+    await abrirCorrecao(page, original.documentoId);
+    // O aviso do cartão diz a taxa que de fato vai ser gravada: a da original.
+    const aviso = page.getByTestId("pagamento-aviso-cartao");
+    await expect(aviso).toContainText(`${percentualDaOriginal}%`);
+    await expect(aviso).toContainText("a taxa de quando a venda foi recebida");
+
+    // Só a pessoa muda.
+    await page.getByPlaceholder("quem comprou").fill("Iracema Corrigida Inventada");
+    const lancar = page.getByTestId("lancar-correcao");
+    await expect(lancar).toBeEnabled();
+    await lancar.click();
+    await expect(
+      page.getByText(new RegExp(`^Venda nº ${original.numero} cancelada e nº \\d+ lançada no lugar · R\\$\\s100,00$`)),
+    ).toBeVisible({ timeout: 10000 });
+
+    const novaId = await corrigidaPor(original.documentoId);
+    expect(novaId).not.toBeNull();
+    expect((await documentoNoBanco(original.documentoId)).cancelado).toBe(true);
+    const parcelasDaNova = await comCliente(async (cliente) => {
+      const { rows } = await cliente.query<{ forma: string; pago_em: string | null; taxa: number | null }>(
+        `select forma::text as forma, to_char(pago_em, 'YYYY-MM-DD') as pago_em, taxa_pontos_base as taxa
+           from parcelas where documento_id = $1 order by numero`,
+        [novaId],
+      );
+      return rows;
+    });
+    expect(parcelasDaNova).toEqual([{ forma: "cartao", pago_em: hoje, taxa: taxaDaOriginal }]);
+  });
 });
 
 // O detalhe conta a história da correção e diz por onde corrigir o que não se corrige aqui (06.5-17,

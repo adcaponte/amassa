@@ -37,6 +37,9 @@ export type FormaDeParcelaParaAviso = "dinheiro" | "pix" | "cartao";
 export type ParcelaParaAvisoDoCartao = {
   valorCentavos: number;
   forma: FormaDeParcelaParaAviso;
+  // BL-01 (quick 261007-shs): a taxa PRÓPRIA da parcela — na correção, a congelada da parcela já recebida
+  // que ela herda. `undefined` (o caso de sempre) usa a taxa global; `null` conta zero.
+  taxaPontosBase?: number | null;
 };
 
 export type AvisoDoCartao = { taxaCentavos: number; entramCentavos: number };
@@ -47,7 +50,8 @@ export type AvisoDoCartao = { taxaCentavos: number; entramCentavos: number };
 // tela é montada) — a taxa de VERDADE só é congelada na parcela quando ela é paga no cartão
 // (`lib/financeiro/acoes.ts::lancarVenda`), e mudar a taxa depois nunca reescreve o que já foi
 // lançado. `entramCentavos` soma TODAS as parcelas, descontando a taxa só das que são no cartão —
-// é o mesmo cálculo de `liquidoDaParcela` acima, repetido parcela a parcela.
+// é o mesmo cálculo de `liquidoDaParcela` acima, repetido parcela a parcela. Desde o quick 261007-shs
+// (BL-01), a parcela pode trazer a sua taxa (a herdada na correção), que vale no lugar da global.
 export function avisoDoCartao({
   tipo,
   parcelas,
@@ -66,15 +70,17 @@ export function avisoDoCartao({
     return null;
   }
 
+  const taxaDa = (parcela: ParcelaParaAvisoDoCartao): number =>
+    parcela.taxaPontosBase === undefined ? taxaPontosBase : (parcela.taxaPontosBase ?? 0);
   const taxaCentavos = parcelasNoCartao.reduce(
-    (total, parcela) => total + taxaEmCentavos(parcela.valorCentavos, taxaPontosBase),
+    (total, parcela) => total + taxaEmCentavos(parcela.valorCentavos, taxaDa(parcela)),
     0,
   );
   const entramCentavos = parcelas.reduce((total, parcela) => {
     if (parcela.forma !== "cartao") {
       return total + parcela.valorCentavos;
     }
-    return total + parcela.valorCentavos - taxaEmCentavos(parcela.valorCentavos, taxaPontosBase);
+    return total + parcela.valorCentavos - taxaEmCentavos(parcela.valorCentavos, taxaDa(parcela));
   }, 0);
 
   return { taxaCentavos, entramCentavos };

@@ -15,7 +15,8 @@
 // nunca cai em `mudou` por representação.
 //
 // Desde o plano 17, também o RASCUNHO da correção (`rascunhoDaCorrecao`): os únicos imports são os
-// dois módulos puros irmãos do pagamento (`./parcelas`, `./calendario`).
+// dois módulos puros irmãos do pagamento (`./parcelas`, `./calendario`). Desde o quick 261007-shs
+// (BL-01), também a herança da taxa congelada (`taxasHerdadasDaCorrecao`).
 import { somarDias, somarMeses } from "./calendario";
 import { PLANOS_DE_PAGAMENTO, type FormaDePagamento, type PlanoDePagamento } from "./parcelas";
 
@@ -201,11 +202,100 @@ export type LinhaDaOriginal = {
 };
 
 export type ParcelaDaOriginal = {
+  numero: number;
   vencimento: string;
   valorCentavos: number;
   forma: FormaDePagamento;
   pagoEm: string | null;
+  // A taxa congelada no recebimento (só venda paga no cartão; `null` em todo o resto) — BL-01.
+  taxaPontosBase: number | null;
 };
+
+// BL-01 (quick 261007-shs): a parcela JÁ RECEBIDA da original, como a correção a herda. Lida do banco —
+// pela página (só para o aviso estimado da tela) e, sob a trava, por `lancarCorrecaoNaTransacao` (a que
+// vale). `pagoEm` aceita `Date` ou texto, pelo mesmo motivo da versão.
+export type ParcelaPagaDaOriginal = {
+  numero: number;
+  pagoEm: Date | string;
+  forma: string;
+  valorCentavos: number;
+  taxaPontosBase: number | null;
+};
+
+export type TaxaDaParcelaDaCorrecao = { herdada: true; pontosBase: number | null } | { herdada: false };
+
+export type ParcelaDaNovaParaHeranca = {
+  vencimento: Date | string;
+  valorCentavos: number;
+  forma: string;
+  pago: boolean;
+};
+
+// O dia civil, ou `null` quando não é data (o campo de data da tela pode estar vazio) — a herança nunca
+// lança por causa de um campo em edição; só não casa.
+function diaOuNulo(valor: Date | string): string | null {
+  try {
+    return dataCivil(valor);
+  } catch {
+    return null;
+  }
+}
+
+// BL-01 da revisão 06.5 — decisão do dono, 07/10/2026 (quick 261007-shs; D-18/UI-D9). A regra da casa,
+// escrita em `gravarVenda`: “mudar a taxa em Cadastros depois não reescreve o passado”. A corrigida nasce
+// com parcelas NOVAS, então a parcela que já tinha sido recebida no cartão precisa levar a taxa com que
+// foi recebida — senão o líquido dela, o extrato daquele dia, o saldo de toda linha posterior e o Mês do
+// passado mudam em silêncio. Só parcela nova, ou em aberto que foi marcada paga agora, usa a taxa de hoje.
+//
+// Qual parcela da nova é “a mesma” recebida da original (o array devolvido é alinhado com
+// `parcelasDaNova`):
+// - só concorre parcela da nova PAGA no CARTÃO; todas as outras → `{ herdada: false }`;
+// - candidatas: as recebidas da original no CARTÃO, na ordem do número; cada uma casa UMA vez;
+// - 1ª passada: o mesmo dia (a parcela paga vence no dia do pagamento — `gravarVenda` grava
+//   `pago_em = vencimento`) e o MESMO valor;
+// - 2ª passada, para as que sobraram: o mesmo dia, com qualquer valor. Existe porque o dinheiro daquele
+//   dia passou pela maquininha com a taxa daquele dia: mudar o valor de uma parcela recebida é uma escolha
+//   VISÍVEL na tela; trocar a taxa junto não seria;
+// - o que casou herda o `taxaPontosBase` da original, MESMO `null` (recebida no cartão sem taxa gravada
+//   continua sem taxa — nunca vira a taxa de hoje).
+export function taxasHerdadasDaCorrecao(
+  pagasDaOriginal: readonly ParcelaPagaDaOriginal[],
+  parcelasDaNova: readonly ParcelaDaNovaParaHeranca[],
+): TaxaDaParcelaDaCorrecao[] {
+  const candidatas = pagasDaOriginal
+    .filter((parcela) => parcela.forma === "cartao")
+    .map((parcela) => ({
+      numero: parcela.numero,
+      dia: diaOuNulo(parcela.pagoEm),
+      valorCentavos: parcela.valorCentavos,
+      taxaPontosBase: parcela.taxaPontosBase,
+      livre: true,
+    }))
+    .sort((a, b) => a.numero - b.numero);
+  const resultado: TaxaDaParcelaDaCorrecao[] = parcelasDaNova.map(() => ({ herdada: false }));
+  const concorrentes = parcelasDaNova.flatMap((parcela, indice) => {
+    const dia = parcela.pago && parcela.forma === "cartao" ? diaOuNulo(parcela.vencimento) : null;
+    return dia === null ? [] : [{ indice, dia, valorCentavos: parcela.valorCentavos }];
+  });
+  const casadas = new Set<number>();
+  for (const mesmoValor of [true, false]) {
+    for (const nova of concorrentes) {
+      if (casadas.has(nova.indice)) {
+        continue;
+      }
+      const candidata = candidatas.find(
+        (original) =>
+          original.livre && original.dia === nova.dia && (!mesmoValor || original.valorCentavos === nova.valorCentavos),
+      );
+      if (candidata) {
+        candidata.livre = false;
+        casadas.add(nova.indice);
+        resultado[nova.indice] = { herdada: true, pontosBase: candidata.taxaPontosBase };
+      }
+    }
+  }
+  return resultado;
+}
 
 export type OriginalParaRascunho = {
   data: string;
@@ -250,6 +340,9 @@ export type RascunhoDaCorrecao = {
   pagamento: PagamentoDaCorrecao;
   // O nome (da linha da original) de cada item que não está mais ativo no Catálogo — ficou de fora.
   deFora: string[];
+  // BL-01: as parcelas JÁ RECEBIDAS da original, com a taxa congelada — só para o aviso do cartão da tela
+  // dizer a taxa que de fato vai ser gravada. Quem grava relê sob a trava; nada disto volta do navegador.
+  pagasDaOriginal: ParcelaPagaDaOriginal[];
 };
 
 const PLANOS_EM_N: readonly PlanoDePagamento[] = PLANOS_DE_PAGAMENTO.filter(
@@ -331,6 +424,19 @@ export function rascunhoDaCorrecao(
     linhas,
     pagamento: { plano, forma: parcelas[0]?.forma ?? "pix", duasFormas, parcelas },
     deFora,
+    pagasDaOriginal: original.parcelas.flatMap((parcela) =>
+      parcela.pagoEm === null
+        ? []
+        : [
+            {
+              numero: parcela.numero,
+              pagoEm: parcela.pagoEm,
+              forma: parcela.forma,
+              valorCentavos: parcela.valorCentavos,
+              taxaPontosBase: parcela.taxaPontosBase,
+            },
+          ],
+    ),
   };
 }
 

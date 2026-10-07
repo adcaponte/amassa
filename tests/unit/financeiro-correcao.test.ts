@@ -4,10 +4,16 @@ import {
   motivoSemCorrecao,
   normalizarParaVersao,
   rascunhoDaCorrecao,
+  taxasHerdadasDaCorrecao,
   versaoDoDocumento,
   type LeituraParaVersao,
   type OriginalParaRascunho,
+  type ParcelaPagaDaOriginal,
 } from "@/lib/financeiro/correcao";
+import { saldoAntesDaJanela, type GrupoDePagas } from "@/lib/financeiro/extrato";
+import { resumoDoMes, type DocumentoParaMes, type ParcelaPagaParaMes } from "@/lib/financeiro/mes";
+import { liquidoDaParcela } from "@/lib/financeiro/taxa";
+import { textoAvisoCartaoHerdado, textoAvisoCartaoMisto } from "@/lib/financeiro/textos";
 
 // 06.5-16-PLAN.md, Tarefa 1 — a versão do documento que a página manda à tela e que a transação relê
 // sob a trava: a MESMA leitura e o MESMO normalizador nos dois lados. Representações diferentes do
@@ -228,7 +234,9 @@ describe("rascunhoDaCorrecao — a Venda preenchida com a original", () => {
           ehDiferenca: true,
         },
       ],
-      parcelas: [{ vencimento: "2026-10-01", valorCentavos: 12734, forma: "pix", pagoEm: "2026-10-01" }],
+      parcelas: [
+        { numero: 1, vencimento: "2026-10-01", valorCentavos: 12734, forma: "pix", pagoEm: "2026-10-01", taxaPontosBase: null },
+      ],
     };
   }
 
@@ -287,8 +295,8 @@ describe("rascunhoDaCorrecao — a Venda preenchida com a original", () => {
       {
         ...original(),
         parcelas: [
-          { vencimento: "2026-10-01", valorCentavos: 6000, forma: "pix", pagoEm: "2026-10-01" },
-          { vencimento: "2026-10-01", valorCentavos: 6734, forma: "dinheiro", pagoEm: null },
+          { numero: 1, vencimento: "2026-10-01", valorCentavos: 6000, forma: "pix", pagoEm: "2026-10-01", taxaPontosBase: null },
+          { numero: 2, vencimento: "2026-10-01", valorCentavos: 6734, forma: "dinheiro", pagoEm: null, taxaPontosBase: null },
         ],
       },
       new Set([ITEM_ATIVO]),
@@ -307,9 +315,9 @@ describe("rascunhoDaCorrecao — a Venda preenchida com a original", () => {
       {
         ...original(),
         parcelas: [
-          { vencimento: "2026-10-01", valorCentavos: 4245, forma: "cartao", pagoEm: "2026-10-03" },
-          { vencimento: "2026-11-01", valorCentavos: 4245, forma: "cartao", pagoEm: null },
-          { vencimento: "2026-12-01", valorCentavos: 4244, forma: "cartao", pagoEm: null },
+          { numero: 1, vencimento: "2026-10-01", valorCentavos: 4245, forma: "cartao", pagoEm: "2026-10-03", taxaPontosBase: null },
+          { numero: 2, vencimento: "2026-11-01", valorCentavos: 4245, forma: "cartao", pagoEm: null, taxaPontosBase: null },
+          { numero: 3, vencimento: "2026-12-01", valorCentavos: 4244, forma: "cartao", pagoEm: null, taxaPontosBase: null },
         ],
       },
       new Set([ITEM_ATIVO]),
@@ -327,12 +335,199 @@ describe("rascunhoDaCorrecao — a Venda preenchida com a original", () => {
       {
         ...original(),
         parcelas: [
-          { vencimento: "2026-10-01", valorCentavos: 6367, forma: "pix", pagoEm: "2026-10-01" },
-          { vencimento: "2026-10-31", valorCentavos: 6367, forma: "pix", pagoEm: null },
+          { numero: 1, vencimento: "2026-10-01", valorCentavos: 6367, forma: "pix", pagoEm: "2026-10-01", taxaPontosBase: null },
+          { numero: 2, vencimento: "2026-10-31", valorCentavos: 6367, forma: "pix", pagoEm: null, taxaPontosBase: null },
         ],
       },
       new Set([ITEM_ATIVO]),
     );
     expect(pagamento.plano).toBe("sinal");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// BL-01 da revisão 06.5 (decisão do dono, 07/10/2026; quick 261007-shs): a parcela JÁ RECEBIDA no
+// cartão mantém, na corrigida, a taxa com que foi recebida. Só parcela nova (ou em aberto marcada paga
+// agora) usa a taxa de hoje.
+
+describe("rascunhoDaCorrecao — pagasDaOriginal (BL-01)", () => {
+  it("só as parcelas pagas, com número, dia, forma, valor e a taxa congelada da original", () => {
+    const rascunho = rascunhoDaCorrecao(
+      {
+        data: "2026-08-20",
+        pessoaNome: "Lia Inventada",
+        linhas: [],
+        parcelas: [
+          { numero: 1, vencimento: "2026-08-20", valorCentavos: 10000, forma: "cartao", pagoEm: "2026-08-20", taxaPontosBase: 499 },
+          { numero: 2, vencimento: "2026-09-20", valorCentavos: 10000, forma: "cartao", pagoEm: null, taxaPontosBase: null },
+          { numero: 3, vencimento: "2026-10-20", valorCentavos: 5000, forma: "pix", pagoEm: "2026-10-02", taxaPontosBase: null },
+        ],
+      },
+      new Set(),
+    );
+    expect(rascunho.pagasDaOriginal).toEqual([
+      { numero: 1, pagoEm: "2026-08-20", forma: "cartao", valorCentavos: 10000, taxaPontosBase: 499 },
+      { numero: 3, pagoEm: "2026-10-02", forma: "pix", valorCentavos: 5000, taxaPontosBase: null },
+    ]);
+  });
+});
+
+describe("taxasHerdadasDaCorrecao — BL-01", () => {
+  const D = "2026-08-20";
+  const D2 = "2026-08-21";
+  const paga = (
+    numero: number,
+    valorCentavos: number,
+    taxaPontosBase: number | null,
+    forma = "cartao",
+    pagoEm: Date | string = D,
+  ): ParcelaPagaDaOriginal => ({ numero, pagoEm, forma, valorCentavos, taxaPontosBase });
+  const nova = (vencimento: string, valorCentavos: number, forma = "cartao", pago = true) => ({
+    vencimento,
+    valorCentavos,
+    forma,
+    pago,
+  });
+
+  it("a parcela recebida no cartão no mesmo dia e com o mesmo valor herda a taxa da original", () => {
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, 499)], [nova(D, 10000)])).toEqual([{ herdada: true, pontosBase: 499 }]);
+  });
+
+  it("taxa nula na original é herdada como nula — nunca vira a taxa de hoje", () => {
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, null)], [nova(D, 10000)])).toEqual([{ herdada: true, pontosBase: null }]);
+  });
+
+  it("outro dia, em aberto ou em pix não herdam", () => {
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, 499)], [nova(D2, 10000)])).toEqual([{ herdada: false }]);
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, 499)], [nova(D, 10000, "cartao", false)])).toEqual([{ herdada: false }]);
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, 499)], [nova(D, 10000, "pix")])).toEqual([{ herdada: false }]);
+  });
+
+  it("original paga em pix e nova paga no cartão no mesmo dia: a forma mudou, é pagamento novo", () => {
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, null, "pix")], [nova(D, 10000)])).toEqual([{ herdada: false }]);
+  });
+
+  it("cada original casa UMA vez, na ordem do número", () => {
+    expect(
+      taxasHerdadasDaCorrecao([paga(2, 10000, 450), paga(1, 10000, 499)], [nova(D, 10000), nova(D, 10000)]),
+    ).toEqual([
+      { herdada: true, pontosBase: 499 },
+      { herdada: true, pontosBase: 450 },
+    ]);
+  });
+
+  it("segunda passada: mesmo dia e cartão com valor diferente ainda herda", () => {
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, 499)], [nova(D, 15000)])).toEqual([{ herdada: true, pontosBase: 499 }]);
+  });
+
+  it("a primeira passada (mesmo valor) tem prioridade sobre a ordem", () => {
+    expect(
+      taxasHerdadasDaCorrecao([paga(1, 10000, 499), paga(2, 5000, 450)], [nova(D, 5000), nova(D, 10000)]),
+    ).toEqual([
+      { herdada: true, pontosBase: 450 },
+      { herdada: true, pontosBase: 499 },
+    ]);
+  });
+
+  it("pagoEm como Date (00:00 UTC ou 03:00 UTC do dia) casa com o vencimento em texto", () => {
+    expect(
+      taxasHerdadasDaCorrecao([paga(1, 10000, 499, "cartao", new Date("2026-08-20T00:00:00Z"))], [nova(D, 10000)]),
+    ).toEqual([{ herdada: true, pontosBase: 499 }]);
+    expect(
+      taxasHerdadasDaCorrecao([paga(1, 10000, 499, "cartao", new Date("2026-08-20T03:00:00Z"))], [nova(D, 10000)]),
+    ).toEqual([{ herdada: true, pontosBase: 499 }]);
+  });
+
+  it("vencimento vazio (campo de data limpo na tela) não casa e não lança", () => {
+    expect(taxasHerdadasDaCorrecao([paga(1, 10000, 499)], [nova("", 10000)])).toEqual([{ herdada: false }]);
+  });
+});
+
+describe("a correção não mexe no dinheiro do passado (BL-01)", () => {
+  // A venda: R$ 200,00 em duas de R$ 100,00 no cartão; a 1/2 recebida em 20/08 com 4,99% congelado; a 2/2
+  // em aberto. Em outubro a taxa de Cadastros vai a 3,49% e alguém corrige a venda (troca a pessoa),
+  // marcando a 2/2 como recebida hoje.
+  const DIA_PAGO = "2026-08-20";
+  const HOJE = "2026-10-07";
+  const TAXA_ORIGINAL = 499;
+  const TAXA_DE_HOJE = 349;
+  const pagasDaOriginal: ParcelaPagaDaOriginal[] = [
+    { numero: 1, pagoEm: DIA_PAGO, forma: "cartao", valorCentavos: 10000, taxaPontosBase: TAXA_ORIGINAL },
+  ];
+  const parcelasDaNova = [
+    { vencimento: DIA_PAGO, valorCentavos: 10000, forma: "cartao", pago: true },
+    { vencimento: HOJE, valorCentavos: 10000, forma: "cartao", pago: true },
+  ];
+  const documento: DocumentoParaMes = {
+    data: DIA_PAGO,
+    tipo: "venda",
+    cancelado: false,
+    linhas: [{ grupo: "receita", area: "pecas", categoriaNome: "Peças prontas", valorCentavos: 20000 }],
+  };
+  type Paga = { pagoEm: string; valorCentavos: number; taxa: number | null };
+
+  // A taxa que `gravarVenda` grava em cada parcela da nova: herdada, ou a de hoje.
+  function depois(comHeranca: boolean): Paga[] {
+    const herancas = taxasHerdadasDaCorrecao(comHeranca ? pagasDaOriginal : [], parcelasDaNova);
+    return parcelasDaNova.map((parcela, indice) => {
+      const heranca = herancas[indice];
+      return {
+        pagoEm: parcela.vencimento,
+        valorCentavos: parcela.valorCentavos,
+        taxa: heranca.herdada ? heranca.pontosBase : TAXA_DE_HOJE,
+      };
+    });
+  }
+  const antes: Paga[] = [{ pagoEm: DIA_PAGO, valorCentavos: 10000, taxa: TAXA_ORIGINAL }];
+
+  function gruposAntesDeSetembro(pagas: Paga[]): GrupoDePagas[] {
+    return pagas
+      .filter((paga) => paga.pagoEm < "2026-09-01")
+      .map((paga) => ({ tipo: "venda", valorCentavos: paga.valorCentavos, taxaPontosBase: paga.taxa, quantidade: 1 }));
+  }
+
+  function resumoDeAgosto(pagas: Paga[]) {
+    const parcelasPagas: ParcelaPagaParaMes[] = pagas.map((paga) => ({
+      pagoEm: paga.pagoEm,
+      tipo: "venda",
+      cancelado: false,
+      forma: "cartao",
+      valorCentavos: paga.valorCentavos,
+      taxaPontosBase: paga.taxa,
+    }));
+    return resumoDoMes({ mes: "2026-08", documentos: [documento], parcelasPagas });
+  }
+
+  function liquidoDaPrimeira(pagas: Paga[]): number {
+    return liquidoDaParcela({ tipo: "venda", valorCentavos: pagas[0].valorCentavos, taxaPontosBase: pagas[0].taxa });
+  }
+
+  it("com a herança: o líquido, o saldo antes de setembro e o Mês de agosto ficam IDÊNTICOS", () => {
+    const nova = depois(true);
+    expect(nova.map((paga) => paga.taxa)).toEqual([TAXA_ORIGINAL, TAXA_DE_HOJE]);
+    expect(liquidoDaPrimeira(nova)).toBe(liquidoDaPrimeira(antes));
+    expect(saldoAntesDaJanela(gruposAntesDeSetembro(nova))).toBe(saldoAntesDaJanela(gruposAntesDeSetembro(antes)));
+    expect(resumoDeAgosto(nova)).toEqual(resumoDeAgosto(antes));
+  });
+
+  it("controle sem a herança (3,49% na nova): os três DIFEREM — o teste morde", () => {
+    const nova = depois(false);
+    expect(liquidoDaPrimeira(nova)).not.toBe(liquidoDaPrimeira(antes));
+    expect(saldoAntesDaJanela(gruposAntesDeSetembro(nova))).not.toBe(saldoAntesDaJanela(gruposAntesDeSetembro(antes)));
+    expect(resumoDeAgosto(nova)).not.toEqual(resumoDeAgosto(antes));
+  });
+});
+
+describe("os textos do aviso do cartão na correção (BL-01)", () => {
+  it("todas herdadas com a mesma taxa: a maquininha FICOU com a taxa de quando a venda foi recebida", () => {
+    expect(textoAvisoCartaoHerdado("4,99", "R$ 4,99", "R$ 95,01")).toBe(
+      "Cartão: a maquininha ficou com 4,99% (R$ 4,99) — a taxa de quando a venda foi recebida, que a correção mantém. Entram R$ 95,01 no caixa e a taxa vira custo do mês.",
+    );
+  });
+
+  it("misto: as já recebidas mantêm a taxa de quando entraram; as novas usam a de hoje", () => {
+    expect(textoAvisoCartaoMisto("R$ 8,48", "R$ 191,52", "3,49")).toBe(
+      "Cartão: a maquininha fica com R$ 8,48 — as parcelas já recebidas mantêm a taxa de quando entraram, e as novas usam a de hoje (3,49%). Entram R$ 191,52 no caixa e a taxa vira custo do mês. A taxa muda em Cadastros → Taxas.",
+    );
   });
 });
