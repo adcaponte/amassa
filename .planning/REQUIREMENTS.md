@@ -253,20 +253,20 @@
 
 Decisões do dono no artefato "Decisões do Polimento" (05/10/2026); base em `Claude outputs/polimento/ACHADOS-COWORK.md` e `ANALISE-ESTRUTURAL.md`.
 
-- [ ] **POL-01**: **Celular, por sistema:** as telas que não cabem a 375 px (lista do Caixa, "Quanto cada área deixou", nomes das Contas fixas, botão do lote da Agenda › A receber, gráfico das Queimas › Relatórios abrindo na semana atual) e a tabela de saldos do Estoque passam a usar peças comuns — linha de registro com o nome em linha própria no celular e tabela que vira lista abaixo de `sm` — sem rolagem lateral a 320 e 375 px
-- [ ] **POL-02**: **Abas dos Cadastros numa fileira só, com rolagem lateral, na ordem:** Catálogo · Clientes · Fornecedores · Contas Fixas · Categorias · Parâmetros · Taxas. As abas do Financeiro ficam como estão
-- [ ] **POL-03**: **Lembretes:** as opções de data e de dono ficam junto do campo; o aviso com "Desfazer" dura mais e não cobre os cartões do Início (um toque atrasado não troca de módulo); em "Ver todos", os filtros de situação e de dono ficam em grupos separados, com título. Enter **não** grava (o campo é bloco de notas e quebra linha)
-- [ ] **POL-04**: **Produção:** o seletor "Peça" oferece só peças de cerâmica; "Terminei" só fica disponível quando todas as peças passaram pela etapa; a folha avisa, ao escolher a data, que as etapas não cabem até a entrega; a impressão vista no celular avisa que é para A4; Concluídas mostram "levou N dias"
-- [ ] **POL-05**: **Agenda:** a aba "A receber" vira "Receber" e as abas cabem numa linha a 375 px; marcar presença antes do dia do evento avisa e deixa
-- [ ] **POL-06**: **Estoque:** custo vazio na entrada vale R$ 0 e a lista mostra "sem custo" (não "R$ 0,00/kg"); a contagem continua cega; "Registrar movimentação" acha o material por busca, com sanfonas por categoria como nas outras buscas
-- [ ] **POL-07**: **Financeiro:** no Caixa, "a pagar" e "a receber" mostram os próximos 30 dias (com um jeito de ver o resto) e avisam, com atalho, quando esses 30 dias entram num mês sem as contas fixas geradas; "Outubro de 2026" com "de" minúsculo; placeholder do fornecedor que cabe no celular; "Qtd." e "Cada" separados no documento do orçamento; "Novo orçamento" só cria o registro quando algo é preenchido; a conta do preço de galeria/consignado é conferida e mostrada ao dono antes de qualquer mudança
-- [ ] **POL-08**: **Corrigir lançamento:** venda e despesa ganham "Corrigir" = cancelar o documento (com estorno de estoque e histórico) e abrir a Venda/Despesa já preenchida com os dados antigos, inclusive o fornecedor
-- [ ] **POL-09**: **Busca por palavras e sem acento** numa função pura compartilhada: Venda, Compra e busca de pessoas ("cowork Caneca" acha "[teste cowork] Caneca"; "cafe" acha "Café")
-- [ ] **POL-10**: **Segurança:** cabeçalhos HTTP (HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors`/`X-Frame-Options`, `Permissions-Policy`; sem `X-Powered-By`; CSP só em report-only) e as rotas de foto e PDF do orçamento com 401 só para falta de sessão
-- [ ] **POL-11**: **Estrutura:** `exigirUsuario` com uma leitura por requisição; mensalidades da Agenda garantidas uma vez por requisição; regras de dinheiro dos painéis em `lib/financeiro/` com teste; uma `Folha` comum sobre o Dialog (altura `svh`, rolagem, rodapé fixo); o "Recebi agora" com forma de pagamento e taxa comum à Agenda e às Queimas; os arquivos de 1.700–2.100 linhas divididos por assunto
-- [ ] **POL-12**: **CI e imagem:** e2e em dois jobs paralelos (desktop e celular); a imagem montada uma vez com cache e publicada também com a tag do commit; o trace do Turbopack sem levar o projeto para a imagem; um auxiliar de teste que espera a visibilidade antes de medir caixa e uma regra que proíbe `boundingBox()` direto
-- [ ] **POL-13**: **Banco:** a soma do orçamento não estoura (`bigint`); conta fixa cancelada libera o mês para ser gerada de novo e os índices de `movimentacoes_estoque(encomenda_id)` e por pessoa entram na mesma migração nova (0031), com `TABELAS_ESPERADAS`/`test:migracoes` e roteiro de aplicação; o Caixa deixa de carregar todo o histórico pago
-- [ ] **POL-14**: **Site público:** o telefone exibido vem do número real (`zap`), também na /privacidade; um teste impede placeholder no ar a partir de 01/12/2026 (e os testes atuais deixam de exigir o placeholder); canonical, `og:url`, sitemap com /privacidade e imagem de compartilhamento 1200×630; foto de abertura com prioridade e `<main>` com "pular para o conteúdo"; horário de funcionamento sai — só "Abrimos em dezembro"; textos corrigidos; endereço, "quem somos", fotos e uma faixa de fotos do Instagram com o conteúdo que o dono fornecer
+- [x] **POL-01**: **Celular, por sistema:** as telas que não cabem a 375 px (lista do Caixa, "Quanto cada área deixou", nomes das Contas fixas, botão do lote da Agenda › A receber, gráfico das Queimas › Relatórios abrindo na semana atual) e a tabela de saldos do Estoque passam a usar peças comuns — linha de registro com o nome em linha própria no celular e tabela que vira lista abaixo de `sm` — sem rolagem lateral a 320 e 375 px
+- [x] **POL-02**: **Abas dos Cadastros numa fileira só, com rolagem lateral, na ordem:** Catálogo · Clientes · Fornecedores · Contas Fixas · Categorias · Parâmetros · Taxas. As abas do Financeiro ficam como estão
+- [x] **POL-03**: **Lembretes:** as opções de data e de dono ficam junto do campo; o aviso com "Desfazer" dura mais e não cobre os cartões do Início (um toque atrasado não troca de módulo); em "Ver todos", os filtros de situação e de dono ficam em grupos separados, com título. Enter **não** grava (o campo é bloco de notas e quebra linha) *— nota de 07/10/2026: a D-07 foi esclarecida pelo dono em 06/10 (a quebra de linha era da folha da casa); nos lembretes o Enter **continua gravando**, como já era, e nada mudou nisso*
+- [x] **POL-04**: **Produção:** o seletor "Peça" oferece só peças de cerâmica; "Terminei" só fica disponível quando todas as peças passaram pela etapa; a folha avisa, ao escolher a data, que as etapas não cabem até a entrega; a impressão vista no celular avisa que é para A4; Concluídas mostram "levou N dias"
+- [x] **POL-05**: **Agenda:** a aba "A receber" vira "Receber" e as abas cabem numa linha a 375 px; marcar presença antes do dia do evento avisa e deixa
+- [x] **POL-06**: **Estoque:** custo vazio na entrada vale R$ 0 e a lista mostra "sem custo" (não "R$ 0,00/kg"); a contagem continua cega; "Registrar movimentação" acha o material por busca, com sanfonas por categoria como nas outras buscas
+- [x] **POL-07**: **Financeiro:** no Caixa, "a pagar" e "a receber" mostram os próximos 30 dias (com um jeito de ver o resto) e avisam, com atalho, quando esses 30 dias entram num mês sem as contas fixas geradas; "Outubro de 2026" com "de" minúsculo; placeholder do fornecedor que cabe no celular; "Qtd." e "Cada" separados no documento do orçamento; "Novo orçamento" só cria o registro quando algo é preenchido; a conta do preço de galeria/consignado é conferida e mostrada ao dono antes de qualquer mudança
+- [x] **POL-08**: **Corrigir lançamento:** venda e despesa ganham "Corrigir" = cancelar o documento (com estorno de estoque e histórico) e abrir a Venda/Despesa já preenchida com os dados antigos, inclusive o fornecedor
+- [x] **POL-09**: **Busca por palavras e sem acento** numa função pura compartilhada: Venda, Compra e busca de pessoas ("cowork Caneca" acha "[teste cowork] Caneca"; "cafe" acha "Café")
+- [x] **POL-10**: **Segurança:** cabeçalhos HTTP (HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors`/`X-Frame-Options`, `Permissions-Policy`; sem `X-Powered-By`; CSP só em report-only) e as rotas de foto e PDF do orçamento com 401 só para falta de sessão
+- [x] **POL-11**: **Estrutura:** `exigirUsuario` com uma leitura por requisição; mensalidades da Agenda garantidas uma vez por requisição; regras de dinheiro dos painéis em `lib/financeiro/` com teste; uma `Folha` comum sobre o Dialog (altura `svh`, rolagem, rodapé fixo); o "Recebi agora" com forma de pagamento e taxa comum à Agenda e às Queimas; os arquivos de 1.700–2.100 linhas divididos por assunto
+- [x] **POL-12**: **CI e imagem:** e2e em dois jobs paralelos (desktop e celular); a imagem montada uma vez com cache e publicada também com a tag do commit; o trace do Turbopack sem levar o projeto para a imagem; um auxiliar de teste que espera a visibilidade antes de medir caixa e uma regra que proíbe `boundingBox()` direto
+- [x] **POL-13**: **Banco:** a soma do orçamento não estoura (`bigint`); conta fixa cancelada libera o mês para ser gerada de novo e os índices de `movimentacoes_estoque(encomenda_id)` e por pessoa entram na mesma migração nova (0031), com `TABELAS_ESPERADAS`/`test:migracoes` e roteiro de aplicação; o Caixa deixa de carregar todo o histórico pago
+- [x] **POL-14**: **Site público:** o telefone exibido vem do número real (`zap`), também na /privacidade; um teste impede placeholder no ar a partir de 01/12/2026 (e os testes atuais deixam de exigir o placeholder); canonical, `og:url`, sitemap com /privacidade e imagem de compartilhamento 1200×630; foto de abertura com prioridade e `<main>` com "pular para o conteúdo"; horário de funcionamento sai — só "Abrimos em dezembro"; textos corrigidos; endereço, "quem somos", fotos e uma faixa de fotos do Instagram com o conteúdo que o dono fornecer
 
 ### Agenda de Aulas (registro — modelo antigo, substituído em 01/10/2026)
 
@@ -783,20 +783,20 @@ Preenchida durante a criação do roadmap (ver `.planning/ROADMAP.md`).
 | QMC-09 | Phase 06.4 — Queimas contagem | Complete |
 | QMC-10 | Phase 06.4 — Queimas contagem | Complete |
 | QMC-11 | Phase 06.4 — Queimas contagem | Complete |
-| POL-01 | Phase 06.5 — Polimento | Pending |
-| POL-02 | Phase 06.5 — Polimento | Pending |
-| POL-03 | Phase 06.5 — Polimento | Pending |
-| POL-04 | Phase 06.5 — Polimento | Pending |
-| POL-05 | Phase 06.5 — Polimento | Pending |
-| POL-06 | Phase 06.5 — Polimento | Pending |
-| POL-07 | Phase 06.5 — Polimento | Pending |
-| POL-08 | Phase 06.5 — Polimento | Pending |
-| POL-09 | Phase 06.5 — Polimento | Pending |
-| POL-10 | Phase 06.5 — Polimento | Pending |
-| POL-11 | Phase 06.5 — Polimento | Pending |
-| POL-12 | Phase 06.5 — Polimento | Pending |
-| POL-13 | Phase 06.5 — Polimento | Pending |
-| POL-14 | Phase 06.5 — Polimento | Pending |
+| POL-01 | Phase 06.5 — Polimento | Complete |
+| POL-02 | Phase 06.5 — Polimento | Complete |
+| POL-03 | Phase 06.5 — Polimento | Complete |
+| POL-04 | Phase 06.5 — Polimento | Complete |
+| POL-05 | Phase 06.5 — Polimento | Complete |
+| POL-06 | Phase 06.5 — Polimento | Complete |
+| POL-07 | Phase 06.5 — Polimento | Complete |
+| POL-08 | Phase 06.5 — Polimento | Complete |
+| POL-09 | Phase 06.5 — Polimento | Complete |
+| POL-10 | Phase 06.5 — Polimento | Complete |
+| POL-11 | Phase 06.5 — Polimento | Complete |
+| POL-12 | Phase 06.5 — Polimento | Complete |
+| POL-13 | Phase 06.5 — Polimento | Complete |
+| POL-14 | Phase 06.5 — Polimento | Complete |
 | EST-01 | Phase 6 — Estoque | Complete |
 | EST-02 | Phase 6 — Estoque | Complete |
 | EST-03 | Phase 6 — Estoque | Complete |
