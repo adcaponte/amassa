@@ -1,4 +1,8 @@
-# Próxima sessão — ATUALIZADO em 2026-10-08 (~18h UTC: os três avisos confirmados da auditoria CORRIGIDOS no `main` local pela quick 261008-pmi, NÃO publicados — próximo, o Theo publica quando quiser; sem migração)
+# Próxima sessão — ATUALIZADO em 2026-10-08 (~18h45 UTC: os três avisos da auditoria NO AR — run 37823880528; AVISO-01 do Financeiro decidido pelo Theo: fica como está)
+
+*Até ~18h45 UTC de 08/10/2026 este título dizia: Próxima sessão — ATUALIZADO em 2026-10-08 (~18h UTC: os três avisos confirmados da auditoria CORRIGIDOS no `main` local pela quick 261008-pmi, NÃO publicados — próximo, o Theo publica quando quiser; sem migração)*
+
+> **✅ ATUALIZAÇÃO DE 08/10/2026, ~18h45 UTC — OS TRÊS AVISOS DA AUDITORIA CORRIGIDOS E NO AR (quick `261008-pmi`); AVISO-01 DO FINANCEIRO DECIDIDO: FICA COMO ESTÁ.** *Como sei (08/10/2026, 18:44 UTC):* push `5d0e145..f8b52d7` autorizado pelo Theo ("Push."); run `37823880528` verde nos 7 jobs em 20m58s (`gh run view`); `/api/health`, `/api/health/queimas`, `/api/health/backup` e `/` = 200 depois do deploy. Sem migração. O Theo decidiu no chat (08/10): "Pode deixar como está.. vai ser muito dificil eu precisar mudar uma venda assim apos alterar a taxa do cartão" — o "Corrigir" com mudança de data segue usando a taxa de hoje. A regra provisória "contar o material antes da primeira baixa" deixou de ser necessária com o deploy. **Abertos:** P1–P3 (`Claude outputs/auditoria/ACOMPANHAMENTO.md`), a nota da Agenda, as próximas rodadas da auditoria (Orçamentos, Produção, Caixa, Fornecedores, Cotações) e o conteúdo do site (Theo).
 
 *Até ~18h UTC de 08/10/2026 este título dizia: Próxima sessão — ATUALIZADO em 2026-10-08 (~06h15 UTC: item 10, a limpeza geral dos dados, FEITO EM PRODUÇÃO pelo Theo — Roteiro 24; próximo, os avisos da auditoria)*
 
