@@ -35,7 +35,7 @@
 // seria tirado no primeiro comando da transação, ANTES da trava, e o `SUM` sairia velho.
 import { randomUUID } from "node:crypto";
 
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 
 import type { db } from "@/db";
 import {
@@ -55,6 +55,7 @@ import {
   conferirSaldoDoCusto,
   modoDoMaterial,
   planejarContagem,
+  tiraDaPrimeiraContagem,
   type ModoDaContagem,
 } from "./contagem";
 import {
@@ -123,7 +124,8 @@ export async function travarItens(
 // de 2^53. Item sem nenhuma linha no livro não aparece no mapa: quem lê usa `ESTADO_VAZIO`.
 //
 // "Última entrada com preço" = a linha de `tipo = 'entrada'` SEM `estorno_de_id` (o estorno de
-// venda não conta — WR-02) de maior `numero` (a ordem do livro, nunca `criado_em`). Toda linha de entrada tem `valor_informado_centavos` (check da 0023): é o
+// venda não conta — WR-02) e com `valor_informado_centavos > 0` (a entrada de R$ 0 não conta —
+// auditoria 08/10, aviso 1, quick 261008-pmi) de maior `numero` (a ordem do livro, nunca `criado_em`). Toda linha de entrada tem `valor_informado_centavos` (check da 0023): é o
 // preço pago P daquela entrada, o mesmo que `custo.ts` guarda em `estadoDepois`.
 export async function lerEstados(
   tx: TransacaoDoBanco,
@@ -159,6 +161,9 @@ export async function lerEstados(
         // O estorno de venda não conta (WR-02, decidido pelo dono em 29/09/2026) — a mesma regra
         // de `valorarMovimento`, que não o guarda como última entrada com preço.
         isNull(movimentacoesEstoque.estornoDeId),
+        // A entrada de R$ 0 (doação, sobra) não é referência de custo — a mesma regra de
+        // `valorarMovimento` (quick 261008-pmi, auditoria 08/10 — Estoque, aviso 1).
+        gt(movimentacoesEstoque.valorInformadoCentavos, 0),
       ),
     )
     .orderBy(movimentacoesEstoque.itemId, desc(movimentacoesEstoque.numero));
@@ -485,9 +490,12 @@ export type ResultadoDaContagem =
       diferencaMilesimos: number;
     };
 
-// D-17 refinado + D-18: trava o item; DEPOIS da trava lê o estado e se o item já tem movimentação
-// `manual` — o MODO é decidido aqui, dentro da transação, nunca pelo cliente (T-06-45: fingir
-// "primeira" para gravar uma entrada com custo não funciona, porque quem diz é o livro). Depois
+// D-17 refinado + D-18: trava o item; DEPOIS da trava lê o estado e as linhas `manual` do item — o
+// MODO é decidido aqui, dentro da transação, nunca pelo cliente (T-06-45: fingir "primeira" para gravar
+// uma entrada com custo não funciona, porque quem diz é o livro). Desde a quick 261008-pmi (auditoria
+// 08/10 — Estoque, aviso 2), não basta existir linha manual: as combinações (tipo, motivo, comCusto)
+// delas passam pela MESMA `tiraDaPrimeiraContagem` da tela (`listarParaContagem`) — uma saída manual
+// antes de contar não tira o material da primeira contagem. Depois
 // `planejarContagem` contra o saldo DO INSTANTE (T-06-46): uma venda no meio da contagem fica certa
 // nas duas ordens — antes da trava, a diferença já sai com ela; depois, a venda espera a trava.
 // "nada" não insere; "recusa" (custo faltando numa primeira contagem que ficou positiva) devolve a
@@ -508,15 +516,23 @@ export async function gravarContagem(
   await travarItens(tx, [dados.itemId]);
   // Em sequência, não em paralelo: as duas leituras usam a MESMA conexão da transação.
   const estados = await lerEstados(tx, [dados.itemId]);
-  const manual = await tx
-    .select({ id: movimentacoesEstoque.id })
+  // No máximo 3 tipos × 3 motivos × 2 = 18 combinações por item (T-pmi-08).
+  const manuais = await tx
+    .selectDistinct({
+      tipo: movimentacoesEstoque.tipo,
+      motivo: movimentacoesEstoque.motivo,
+      comCusto: sql<boolean>`coalesce(${movimentacoesEstoque.valorInformadoCentavos} > 0, false)`,
+    })
     .from(movimentacoesEstoque)
     .where(
-      and(eq(movimentacoesEstoque.itemId, dados.itemId), eq(movimentacoesEstoque.origem, "manual")),
-    )
-    .limit(1);
+      and(
+        eq(movimentacoesEstoque.itemId, dados.itemId),
+        eq(movimentacoesEstoque.origem, "manual"),
+        isNull(movimentacoesEstoque.estornoDeId),
+      ),
+    );
   const estado = estados.get(dados.itemId) ?? ESTADO_VAZIO;
-  const modo = modoDoMaterial({ temManual: manual.length > 0 });
+  const modo = modoDoMaterial({ jaTemReferencia: manuais.some(tiraDaPrimeiraContagem) });
 
   const plano = planejarContagem({
     modo,

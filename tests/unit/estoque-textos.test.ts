@@ -12,13 +12,15 @@ import { formatarReais } from "@/lib/financeiro/formato";
 // aparece como "sem custo"; o "—" fica para o custo DESCONHECIDO (material sem nenhuma entrada).
 // Nunca "R$ 0,00/kg". O caminho é o mesmo da tela: o estado do livro → `custoMedioParaExibir` →
 // `rotuloDoCustoMedio` (que o `textoDoCustoMedio` do cartão, da tabela e da folha do material chama).
-function rotuloDoEstado(estado: typeof ESTADO_VAZIO): string {
-  return rotuloDoCustoMedio(custoMedioParaExibir(estado), "kg", formatarReais);
+// `teveEntrada` (quick 261008-pmi): houve alguma entrada no livro, de qualquer valor — o banco o lê
+// (`lerSaldos`); aqui, o teste diz.
+function rotuloDoEstado(estado: typeof ESTADO_VAZIO, teveEntrada: boolean): string {
+  return rotuloDoCustoMedio(custoMedioParaExibir({ ...estado, teveEntrada }), "kg", formatarReais);
 }
 
 describe("o custo médio na tela — D-04", () => {
   it("material sem nenhuma entrada → “—”", () => {
-    expect(rotuloDoEstado(ESTADO_VAZIO)).toBe(SEM_CUSTO_CONHECIDO);
+    expect(rotuloDoEstado(ESTADO_VAZIO, false)).toBe(SEM_CUSTO_CONHECIDO);
   });
 
   it("entrada de 5 kg com 0 (o vazio vira 0 no esquema) → “sem custo”", () => {
@@ -27,10 +29,10 @@ describe("o custo médio na tela — D-04", () => {
       milesimos: 5000,
       pagoCentavos: 0,
     });
-    expect(rotuloDoEstado(entrada.estadoDepois)).toBe(SEM_CUSTO);
+    expect(rotuloDoEstado(entrada.estadoDepois, true)).toBe(SEM_CUSTO);
   });
 
-  it("a doação saiu toda: o saldo zera e continua “sem custo” (a última entrada foi a R$ 0)", () => {
+  it("a doação saiu toda: o saldo zera e continua “sem custo” (só entrou de graça)", () => {
     const entrada = valorarMovimento(ESTADO_VAZIO, {
       tipo: "entrada_com_preco",
       milesimos: 2000,
@@ -38,7 +40,7 @@ describe("o custo médio na tela — D-04", () => {
     });
     const saida = valorarMovimento(entrada.estadoDepois, { tipo: "saida", milesimos: 2000 });
     expect(saida.estadoDepois.saldoMilesimos).toBe(0);
-    expect(rotuloDoEstado(saida.estadoDepois)).toBe(SEM_CUSTO);
+    expect(rotuloDoEstado(saida.estadoDepois, true)).toBe(SEM_CUSTO);
   });
 
   it("uma compra paga depois da doação volta a mostrar o preço", () => {
@@ -53,7 +55,7 @@ describe("o custo médio na tela — D-04", () => {
       pagoCentavos: 4200,
     });
     // 10 kg valendo R$ 42,00 → R$ 4,20/kg.
-    expect(rotuloDoEstado(compra.estadoDepois).replace(/ /g, " ")).toBe("R$ 4,20/kg");
+    expect(rotuloDoEstado(compra.estadoDepois, true).replace(/ /g, " ")).toBe("R$ 4,20/kg");
   });
 
   it("lib/estoque/textos.ts continua sem nenhum import", () => {

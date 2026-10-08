@@ -10,7 +10,8 @@
 //
 //   Estado: Q (Σ quantidade, milésimos, pode ser negativo), V (Σ valor, centavos), e a última
 //   entrada com preço (compra, entrada manual, peça pronta ou contagem — NUNCA o estorno de uma
-//   venda: WR-02, decidido pelo dono em 29/09/2026). Movimento com Δ (milésimos, com sinal);
+//   venda: WR-02, decidido pelo dono em 29/09/2026; NEM uma entrada de R$ 0 — doação, sobra —,
+//   auditoria 08/10/2026, aviso 1, quick 261008-pmi). Movimento com Δ (milésimos, com sinal);
 //   Q' = Q + Δ.
 //   Taxa corrente A: Q ≠ 0 → V/Q; Q = 0 → a da última entrada com preço; sem nenhuma → 0 (D-26).
 //
@@ -50,7 +51,9 @@ export const ESTADO_VAZIO: EstadoDoItem = {
 
 // Milésimos SEMPRE positivos; o sinal vem do tipo. União fechada: não existe um quinto caso.
 // - `entrada_com_preco`: compra, entrada manual ("quanto custou ao todo"), saldo inicial e peça
-//   pronta. Só ela vira a "última entrada com preço".
+//   pronta. Só ela vira a "última entrada com preço" — e só com `pagoCentavos > 0`: a de R$ 0 (D-04,
+//   doação, sobra) soma quantidade e dilui o médio (R2/R3), mas não é referência de custo (auditoria
+//   08/10, aviso 1). As duas leituras do banco (`lerEstados`, `lerSaldos`) filtram `valor > 0` igual.
 // - `entrada_sem_preco`: ajuste para mais.
 // - `saida`: saída manual, venda, ajuste para menos e estorno de compra.
 // - `estorno_de_venda`: a volta de uma saída cancelada, com o valor que ela levou (R7). Grava no
@@ -155,9 +158,11 @@ export function valorarMovimento(estado: EstadoDoItem, movimento: Movimento): Mo
     valor = arredondarRazao(delta * taxa.numerador, taxa.denominador);
   }
 
-  // O estorno de venda NÃO atualiza a última entrada com preço (WR-02).
+  // O estorno de venda NÃO atualiza a última entrada com preço (WR-02). A entrada de R$ 0 também não
+  // (quick 261008-pmi, auditoria 08/10 — Estoque, aviso 1): com o saldo zerado, a próxima saída sairia a
+  // R$ 0 e o cartão mostraria "R$ 0,00/kg" em vez do custo da última compra.
   const ultimaEntradaComPreco =
-    movimento.tipo === "entrada_com_preco"
+    movimento.tipo === "entrada_com_preco" && movimento.pagoCentavos > 0
       ? { valorCentavos: movimento.pagoCentavos, milesimos: movimento.milesimos }
       : estado.ultimaEntradaComPreco;
 

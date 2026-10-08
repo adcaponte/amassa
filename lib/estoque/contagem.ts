@@ -5,10 +5,18 @@
 // — uma regra, duas leituras. A diferença é o saldo: a tela usa o carregado com a página; o
 // servidor, o lido sob a trava no instante da gravação. Se alguém vendeu no meio, vale o servidor.
 //
-// O modo é POR MATERIAL, nunca por visita (UI-D2): material sem nenhuma movimentação `manual` está
-// na primeira contagem (o "saldo inicial" do D-17); com uma, na conferência (o "inventário" do
-// D-18). Não existe bandeira global de "estoque iniciado" nem rascunho de contagem: cada material
-// grava ao ser confirmado (D-18), e parar no meio não perde nada.
+// O modo é POR MATERIAL, nunca por visita (UI-D2): o material está na primeira contagem (o "saldo
+// inicial" do D-17) até ter uma REFERÊNCIA — ter sido contado (uma linha manual de motivo
+// `saldo_inicial` ou um ajuste) ou ter recebido uma entrada manual com custo > 0; aí vai para a
+// conferência (o "inventário" do D-18). Compra, venda e produção (origens que não são `manual`) não
+// mexem no modo. Não existe bandeira global de "estoque iniciado" nem rascunho de contagem: cada
+// material grava ao ser confirmado (D-18), e parar no meio não perde nada.
+//
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 2. Até aqui, QUALQUER linha manual
+// tirava o material da primeira contagem: uma baixa para aula antes de contar o punha em conferência,
+// e a contagem gravava um ajuste à taxa corrente — sem custo nenhum, o material passava a valer R$ 0. A
+// tela (`listarParaContagem`) e o servidor (`gravarContagem`, sob a trava) decidem pela MESMA
+// `tiraDaPrimeiraContagem`, aplicada às combinações (tipo, motivo, comCusto) das linhas manuais.
 import type { AreaFinanceira } from "@/lib/cadastros/categorias";
 import { ROTULO_UNIDADE, type Unidade } from "@/lib/cadastros/catalogo";
 
@@ -23,8 +31,32 @@ import {
 
 export type ModoDaContagem = "primeira" | "conferencia";
 
-export function modoDoMaterial({ temManual }: { temManual: boolean }): ModoDaContagem {
-  return temManual ? "conferencia" : "primeira";
+// Uma linha manual do livro, reduzida ao que decide o modo: o tipo, o motivo e se custou mais que R$ 0
+// (`valor_informado_centavos > 0`).
+export type MovimentacaoParaOModo = {
+  tipo: "entrada" | "saida" | "ajuste";
+  motivo: "saldo_inicial" | "peca_pronta" | null;
+  comCusto: boolean;
+};
+
+// Esta linha manual dá referência ao material (o tira da primeira contagem)? Uma contagem (motivo
+// `saldo_inicial` — a entrada da primeira contagem, mesmo de R$ 0, ou o ajuste dela) e qualquer ajuste
+// (conferência, "Ajustar pelo contado") — sim; uma entrada com custo > 0 (manual ou peça pronta) — sim:
+// dela nasce o custo médio. Uma saída manual e uma entrada de R$ 0 sem contagem — não: o material
+// continua sem saldo conhecido nem custo, e a primeira contagem ainda pergunta "Custou ao todo".
+export function tiraDaPrimeiraContagem(movimentacao: MovimentacaoParaOModo): boolean {
+  if (movimentacao.motivo === "saldo_inicial") {
+    return true;
+  }
+  if (movimentacao.tipo === "ajuste") {
+    return true;
+  }
+  return movimentacao.tipo === "entrada" && movimentacao.comCusto;
+}
+
+// `jaTemReferencia` = alguma linha manual do material passa em `tiraDaPrimeiraContagem`.
+export function modoDoMaterial({ jaTemReferencia }: { jaTemReferencia: boolean }): ModoDaContagem {
+  return jaTemReferencia ? "conferencia" : "primeira";
 }
 
 // O que a contagem decide gravar. `saldoAntesMilesimos` é o saldo contra o qual se decidiu (na
@@ -163,7 +195,8 @@ export type MaterialParaContagem = {
   readonly area: AreaFinanceira;
   readonly categoriaCompraNome: string | null;
   readonly ativo: boolean;
-  readonly temManual: boolean;
+  // Alguma linha manual dá referência ao material (`tiraDaPrimeiraContagem`) — quick 261008-pmi.
+  readonly jaTemReferencia: boolean;
 };
 
 export type FiltroDaContagem = {

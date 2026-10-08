@@ -68,18 +68,22 @@ export type ListaContagemProps = {
 // seu `outline`.
 //
 // O GRUPO de cada material é o da carga da página, guardado no primeiro render: confirmar uma
-// primeira contagem revalida a rota (o material passa a ter movimentação manual), e sem isso a
-// linha pularia de grupo — e perderia a linha compacta — no meio da contagem. Material que chega
+// primeira contagem revalida a rota (a contagem dá referência ao material — `jaTemReferencia`, quick
+// 261008-pmi), e sem isso a linha pularia de grupo — e perderia a linha compacta — no meio da contagem. Material que chega
 // depois (cadastrado nesta tela) entra pelo que o servidor disser.
 export function ListaContagem({ itens }: ListaContagemProps) {
   const [busca, setBusca] = useState("");
   const [area, setArea] = useState<AreaFinanceira | null>(null);
   const [confirmadosAgora, setConfirmadosAgora] = useState<ReadonlySet<string>>(() => new Set());
-  const [manualNaCarga] = useState(() => new Map(itens.map((item) => [item.id, item.temManual])));
+  const [referenciaNaCarga] = useState(() => new Map(itens.map((item) => [item.id, item.jaTemReferencia])));
 
   const estaveis = useMemo(
-    () => itens.map((item) => ({ ...item, temManual: manualNaCarga.get(item.id) ?? item.temManual })),
-    [itens, manualNaCarga],
+    () =>
+      itens.map((item) => ({
+        ...item,
+        jaTemReferencia: referenciaNaCarga.get(item.id) ?? item.jaTemReferencia,
+      })),
+    [itens, referenciaNaCarga],
   );
   const grupos = useMemo(() => agruparContagem(estaveis, { busca, area }), [estaveis, busca, area]);
   const areas = useMemo(() => areasComMaterial(itens), [itens]);

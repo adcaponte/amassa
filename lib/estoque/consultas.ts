@@ -6,7 +6,7 @@
 // `SUM(quantidade_milesimos)` e `SUM(valor_centavos)` sobre `movimentacoes_estoque`, calculados
 // AQUI, na hora da leitura. A lista, o banner, o bloco do Início, a contagem e o painel de Venda
 // (planos seguintes) leem esta mesma função.
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { cache } from "react";
 
@@ -28,6 +28,7 @@ import { parametrosVigentes } from "@/lib/precificacao/consultas";
 import { quantasCabem } from "@/lib/precificacao/forno";
 
 import type { TipoDoHistorico } from "./abas";
+import { tiraDaPrimeiraContagem } from "./contagem";
 import type { EntradaComPreco } from "./custo";
 import {
   ordenarGastoPor,
@@ -56,16 +57,21 @@ export type SaldoDoItem = {
   // (D-29), sem depender de nome de categoria.
   ehPecaPronta: boolean;
   // A última entrada do livro com preço — a mesma leitura de `lerEstados` (gravacao.ts), aqui sem
-  // trava e fora de transação. `null` = nunca houve entrada com preço (custo médio "—", D-26).
+  // trava e fora de transação. `null` = nunca houve entrada com preço > 0 (desde a quick 261008-pmi,
+  // a entrada de R$ 0 não conta — auditoria 08/10, aviso 1).
   ultimaEntradaComPreco: EntradaComPreco | null;
+  // Houve alguma entrada (não estorno), de QUALQUER valor — inclusive R$ 0 (quick 261008-pmi). É o que
+  // separa “—” (nunca entrou nada, D-26) de “sem custo” (só doação, 06.5) em `custoMedioParaExibir`: o
+  // significado que `ultimaEntradaComPreco !== null` tinha até a correção.
+  teveEntrada: boolean;
 };
 
 // Todo item do catálogo com estoque próprio, com o saldo e o valor somados do livro. Ordem por nome
 // (a ordem de alerta — negativo, acabando, resto — é de `ordenarSaldos`, em `saldo.ts`).
 //
-// Quatro consultas, casadas por `Map` — nunca uma por item: (1) itens com as duas categorias por
-// `alias`; depois, em paralelo, (2) as somas do livro, (3) a última entrada de cada item e (4) quais
-// itens têm ficha de precificação.
+// Cinco consultas, casadas por `Map`/`Set` — nunca uma por item: (1) itens com as duas categorias por
+// `alias`; depois, em paralelo, (2) as somas do livro, (3) a última entrada com preço > 0 de cada item,
+// (4) quais itens têm ficha de precificação e (5) quais itens tiveram alguma entrada (quick 261008-pmi).
 export async function listarSaldos(): Promise<SaldoDoItem[]> {
   return lerSaldos(undefined);
 }
@@ -99,7 +105,7 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
 
   const ids = itens.map((item) => item.id);
 
-  const [somas, ultimasEntradas, fichas] = await Promise.all([
+  const [somas, ultimasEntradas, fichas, comEntrada] = await Promise.all([
     db
       .select({
         itemId: movimentacoesEstoque.itemId,
@@ -110,8 +116,8 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
       .where(inArray(movimentacoesEstoque.itemId, ids))
       .groupBy(movimentacoesEstoque.itemId),
     // A mesma regra de `lerEstados`: a última linha de tipo "entrada" que NÃO é estorno de venda
-    // (WR-02, decidido pelo dono em 29/09/2026), pela ordem do livro (`numero`); com
-    // `valor_informado_centavos`, ela é a última entrada com preço.
+    // (WR-02, decidido pelo dono em 29/09/2026) e que custou mais que R$ 0 (quick 261008-pmi, auditoria
+    // 08/10 — Estoque, aviso 1), pela ordem do livro (`numero`): a última entrada com preço.
     db
       .selectDistinctOn([movimentacoesEstoque.itemId], {
         itemId: movimentacoesEstoque.itemId,
@@ -124,6 +130,8 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
           inArray(movimentacoesEstoque.itemId, ids),
           eq(movimentacoesEstoque.tipo, "entrada"),
           isNull(movimentacoesEstoque.estornoDeId),
+          // A mesma regra de `valorarMovimento`: a entrada de R$ 0 não é referência de custo.
+          gt(movimentacoesEstoque.valorInformadoCentavos, 0),
         ),
       )
       .orderBy(movimentacoesEstoque.itemId, desc(movimentacoesEstoque.numero)),
@@ -136,11 +144,24 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
           inArray(fichasPrecificacao.itemCatalogoId, ids),
         ),
       ),
+    // Quais itens tiveram alguma entrada que não é estorno, de qualquer valor (quick 261008-pmi): “—” ×
+    // “sem custo” na tela.
+    db
+      .selectDistinct({ itemId: movimentacoesEstoque.itemId })
+      .from(movimentacoesEstoque)
+      .where(
+        and(
+          inArray(movimentacoesEstoque.itemId, ids),
+          eq(movimentacoesEstoque.tipo, "entrada"),
+          isNull(movimentacoesEstoque.estornoDeId),
+        ),
+      ),
   ]);
 
   const somaPorItem = new Map(somas.map((soma) => [soma.itemId, soma]));
   const ultimaPorItem = new Map(ultimasEntradas.map((linha) => [linha.itemId, linha]));
   const comFicha = new Set(fichas.map((linha) => linha.itemId));
+  const teveEntrada = new Set(comEntrada.map((linha) => linha.itemId));
 
   // `controla_estoque` exige unidade no banco (check `itens_catalogo_controla_exige_unidade_e_
   // categoria_compra`) — o filtro abaixo só estreita o tipo; nenhuma linha real é descartada.
@@ -169,6 +190,7 @@ async function lerSaldos(filtroExtra: SQL | undefined): Promise<SaldoDoItem[]> {
           ultima && ultima.valorInformadoCentavos !== null
             ? { valorCentavos: ultima.valorInformadoCentavos, milesimos: ultima.quantidadeMilesimos }
             : null,
+        teveEntrada: teveEntrada.has(item.id),
       },
     ];
   });
@@ -627,9 +649,12 @@ export type MaterialDaContagem = {
   area: AreaFinanceira;
   categoriaCompraNome: string | null;
   ativo: boolean;
-  // Já tem movimentação `manual` → está em "Conferência"; senão em "Ainda sem contagem" (UI-D2).
-  // A tela usa só para agrupar e para a prévia — quem DECIDE o modo é `gravarContagem`, sob a trava.
-  temManual: boolean;
+  // Alguma linha `manual` dá referência ao material (`tiraDaPrimeiraContagem`: uma contagem, um ajuste
+  // ou uma entrada com custo > 0) → está em "Conferência"; senão em "Ainda sem contagem" (UI-D2). Até a
+  // quick 261008-pmi (auditoria 08/10 — Estoque, aviso 2) bastava QUALQUER linha manual, e uma saída
+  // antes de contar punha o material em conferência. A tela usa só para agrupar e para a prévia — quem
+  // DECIDE o modo é `gravarContagem`, sob a trava, com a MESMA função pura.
+  jaTemReferencia: boolean;
   // O saldo de agora. A tela só o mostra DEPOIS de a pessoa digitar (UI-D16, contagem às cegas).
   saldoMilesimos: number;
   // A contagem mais recente de HOJE (dia civil de Brasília): uma movimentação manual com motivo
@@ -641,8 +666,9 @@ export type MaterialDaContagem = {
 };
 
 // Os materiais ATIVOS com estoque próprio, para a tela de contagem — lidos da mesma `listarSaldos`
-// (a mesma regra de saldo e de área de toda tela), mais duas consultas casadas por `Map`: quem já
-// tem movimentação manual, e a contagem de hoje de cada um. "Contado hoje" vem do banco, não de um
+// (a mesma regra de saldo e de área de toda tela), mais duas consultas casadas por `Map`: as
+// combinações (tipo, motivo, comCusto) das linhas manuais de cada um — que `tiraDaPrimeiraContagem`
+// transforma em `jaTemReferencia`, como faz `gravarContagem` —, e a contagem de hoje de cada um. "Contado hoje" vem do banco, não de um
 // rascunho (D-18): sobrevive a recarregar a página. `hoje` ("AAAA-MM-DD", de `hojeEmBrasilia`)
 // chega por argumento — este módulo não lê o relógio; o corte do dia é a meia-noite de Brasília.
 export async function listarParaContagem(hoje: string): Promise<MaterialDaContagem[]> {
@@ -652,12 +678,23 @@ export async function listarParaContagem(hoje: string): Promise<MaterialDaContag
   }
   const ids = saldos.map((item) => item.id);
 
-  const [comManual, contagensDeHoje, custos] = await Promise.all([
+  const [manuais, contagensDeHoje, custos] = await Promise.all([
+    // A mesma leitura de `gravarContagem` (lá, de um item, sob a trava): no máximo 18 combinações por
+    // item, uma consulta para a lista inteira (T-pmi-08).
     db
-      .selectDistinct({ itemId: movimentacoesEstoque.itemId })
+      .selectDistinct({
+        itemId: movimentacoesEstoque.itemId,
+        tipo: movimentacoesEstoque.tipo,
+        motivo: movimentacoesEstoque.motivo,
+        comCusto: sql<boolean>`coalesce(${movimentacoesEstoque.valorInformadoCentavos} > 0, false)`,
+      })
       .from(movimentacoesEstoque)
       .where(
-        and(inArray(movimentacoesEstoque.itemId, ids), eq(movimentacoesEstoque.origem, "manual")),
+        and(
+          inArray(movimentacoesEstoque.itemId, ids),
+          eq(movimentacoesEstoque.origem, "manual"),
+          isNull(movimentacoesEstoque.estornoDeId),
+        ),
       ),
     db
       .selectDistinctOn([movimentacoesEstoque.itemId], {
@@ -683,7 +720,9 @@ export async function listarParaContagem(hoje: string): Promise<MaterialDaContag
     ),
   ]);
 
-  const manuais = new Set(comManual.map((linha) => linha.itemId));
+  const comReferencia = new Set(
+    manuais.filter((linha) => tiraDaPrimeiraContagem(linha)).map((linha) => linha.itemId),
+  );
   const contagemPorItem = new Map(contagensDeHoje.map((linha) => [linha.itemId, linha]));
 
   return saldos.map((item) => {
@@ -695,7 +734,7 @@ export async function listarParaContagem(hoje: string): Promise<MaterialDaContag
       area: item.area,
       categoriaCompraNome: item.categoriaCompraNome,
       ativo: item.ativo,
-      temManual: manuais.has(item.id),
+      jaTemReferencia: comReferencia.has(item.id),
       saldoMilesimos: item.saldoMilesimos,
       contadoHojeEm: contagem ? new Date(Number(contagem.instanteMs)).toISOString() : null,
       contadoHojeMilesimos:

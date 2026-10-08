@@ -46,6 +46,8 @@ export type SaldoParaLista = {
   readonly estoqueMinimoMilesimos: number;
   readonly valorCentavos: number;
   readonly ultimaEntradaComPreco: EntradaComPreco | null;
+  // Houve alguma entrada (não estorno), de qualquer valor — inclusive R$ 0 (quick 261008-pmi).
+  readonly teveEntrada: boolean;
 };
 
 // A ordem fixa das áreas do Financeiro (04.4-UI-SPEC.md), nas pílulas e em todo agrupamento.
@@ -288,18 +290,26 @@ export function estoqueNuncaContado({
 }
 
 // O custo médio que a tela mostra, em centavos por unidade — `null` ("—") quando o material nunca
-// teve entrada com preço (D-26: a saída dele grava custo zero, e "R$ 0,00/kg" seria mentira).
+// teve entrada nenhuma (D-26: a saída dele grava custo zero, e "R$ 0,00/kg" seria mentira); `0`
+// ("sem custo", 06.5) quando só entrou de graça (doação, sobra) e o saldo está zerado.
+//
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 1: a entrada de R$ 0 deixou de ser a
+// "última entrada com preço" (`valorarMovimento`, `lerEstados`, `lerSaldos`), então "nunca entrou" é
+// decidido por `teveEntrada` (lido do banco), não mais pela última entrada com preço. Compra, doação e
+// baixa total: o cartão mostra o custo da última compra (R$ 4,20/kg no cenário do auditor), nunca R$ 0.
 export function custoMedioParaExibir(
-  item: Pick<SaldoParaLista, "saldoMilesimos" | "valorCentavos" | "ultimaEntradaComPreco">,
+  item: Pick<SaldoParaLista, "saldoMilesimos" | "valorCentavos" | "ultimaEntradaComPreco" | "teveEntrada">,
 ): number | null {
-  if (item.ultimaEntradaComPreco === null) {
+  if (!item.teveEntrada) {
     return null;
   }
-  return custoMedioCentavosPorUnidade({
-    saldoMilesimos: item.saldoMilesimos,
-    valorCentavos: item.valorCentavos,
-    ultimaEntradaComPreco: item.ultimaEntradaComPreco,
-  });
+  return (
+    custoMedioCentavosPorUnidade({
+      saldoMilesimos: item.saldoMilesimos,
+      valorCentavos: item.valorCentavos,
+      ultimaEntradaComPreco: item.ultimaEntradaComPreco,
+    }) ?? 0
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

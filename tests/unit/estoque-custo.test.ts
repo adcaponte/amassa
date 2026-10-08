@@ -555,12 +555,13 @@ describe("WR-01 e WR-02 — decididos pelo dono em 29/09/2026 (a alternativa da 
 
   it("WR-02 decidido pelo dono em 29/09: cancelar uma venda de material nunca comprado continua mostrando “—”", () => {
     // Nunca houve entrada com preço: a tela mostra "—".
-    expect(custoMedioParaExibir(ESTADO_VAZIO)).toBeNull();
+    // `teveEntrada: false` — nenhuma linha de entrada (o estorno de venda não conta; quick 261008-pmi).
+    expect(custoMedioParaExibir({ ...ESTADO_VAZIO, teveEntrada: false })).toBeNull();
 
     // A venda sai a R$ 0,00 (D-26: sem nenhuma entrada com preço, custo zero).
     const venda = valorarMovimento(ESTADO_VAZIO, { tipo: "saida", milesimos: 1000 });
     expect(venda.valorCentavos).toBe(0);
-    expect(custoMedioParaExibir(venda.estadoDepois)).toBeNull();
+    expect(custoMedioParaExibir({ ...venda.estadoDepois, teveEntrada: false })).toBeNull();
 
     // O cancelamento não é "entrada com preço": o custo continua desconhecido.
     const estorno = valorarMovimento(
@@ -572,7 +573,7 @@ describe("WR-01 e WR-02 — decididos pelo dono em 29/09/2026 (a alternativa da 
       valorCentavos: 0,
       ultimaEntradaComPreco: null,
     });
-    expect(custoMedioParaExibir(estorno.estadoDepois)).toBeNull();
+    expect(custoMedioParaExibir({ ...estorno.estadoDepois, teveEntrada: false })).toBeNull();
   });
 });
 

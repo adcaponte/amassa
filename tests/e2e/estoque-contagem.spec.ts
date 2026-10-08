@@ -382,6 +382,49 @@ test.describe("estoque contagem", () => {
     expect(await saldoNoBanco(itemId)).toBe(3000);
   });
 
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 2: uma saída manual antes da primeira
+  // contagem não tira o material de “Ainda sem contagem” — a contagem ainda pergunta “Custou ao todo” e
+  // grava a entrada `saldo_inicial` com o custo (antes: conferência, ajuste a taxa 0, material a R$ 0).
+  test("(auditoria 08/10) uma saída manual antes da primeira contagem: a contagem ainda pergunta o custo e grava o saldo inicial", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Argila da aula ${suf}`;
+    const itemId = await semearMaterialSemMovimentacao({
+      nome,
+      unidade: "kg",
+      categoriaCompra: CATEGORIA_DE_COMPRA,
+    });
+
+    await fazerLogin(page);
+    await page.goto("/gestao/estoque");
+    await page.getByTestId("estoque-busca").fill(suf);
+    await saidaPelaFolha(page, itemId, "0,5", "perda");
+    expect(await saldoNoBanco(itemId)).toBe(-500);
+
+    await abrirContagem(page, suf);
+    const linha = page
+      .getByTestId("contagem-grupo-primeira")
+      .locator(`[data-testid="contagem-linha"][data-item-id="${itemId}"]`);
+    await expect(linha).toBeVisible();
+    await linha.getByTestId("contagem-contado").fill("10");
+    await expect(linha.getByTestId("contagem-custou")).toBeVisible();
+    await linha.getByTestId("contagem-custou").fill("40,00");
+    await linha.getByTestId("contagem-confirmar").click();
+    await expect(linha.getByTestId("contagem-feito")).toContainText("✓ Contado: 10 kg");
+
+    const gravadas = await contagensDoItem(itemId);
+    expect(gravadas[gravadas.length - 1]).toEqual({
+      origem: "manual",
+      tipo: "entrada",
+      motivo: "saldo_inicial",
+      quantidadeMilesimos: 10500,
+      valorInformadoCentavos: 4000,
+      saldoContadoMilesimos: 10000,
+    });
+    expect(await saldoNoBanco(itemId)).toBe(10000);
+  });
+
   test("(c) conferência com contado zero deixa o saldo em zero (D-32)", async ({ page }) => {
     const suf = sufixoUnico();
     const itemId = await semearMaterialSemMovimentacao({

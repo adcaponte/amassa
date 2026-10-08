@@ -116,6 +116,8 @@ function saldoDoMaterialNovo(material: MaterialCadastrado): SaldoDoItem {
     categoriaCompraNome: material.categoriaCompraNome,
     ehPecaPronta: false,
     ultimaEntradaComPreco: null,
+    // Material recém-cadastrado: nada entrou ainda (“—”, quick 261008-pmi).
+    teveEntrada: false,
   };
 }
 

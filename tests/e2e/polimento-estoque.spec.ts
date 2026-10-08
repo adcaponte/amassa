@@ -7,6 +7,7 @@ import {
   semearMaterial,
   semearMaterialSemMovimentacao,
 } from "./apoio/semear-estoque";
+import { formatarReais } from "@/lib/financeiro/formato";
 
 // Fase 06.5, plano 10 (D-04, D-06, D-13, D-17 no seletor; POL-06). O Estoque aceita a entrada sem
 // custo (doação, sobra) como R$ 0 e a lista diz "sem custo"; a contagem continua cega; o "Qual
@@ -55,6 +56,18 @@ async function registrarEntrada(page: Page, itemId: string, nome: string, quanti
   await expect(folha).toBeHidden();
 }
 
+// Saída pela folha, a partir do cartão (molde de `estoque-contagem.spec.ts`).
+async function saidaPelaFolha(page: Page, itemId: string, quantidade: string, destino: string) {
+  await cartaoDoItem(page, itemId).getByTestId("estoque-dar-baixa").click();
+  const folha = page.getByTestId("folha-movimentacao");
+  await expect(folha).toBeVisible();
+  await folha.getByTestId("folha-tipo-saida").click();
+  await folha.getByTestId("folha-quantidade").fill(quantidade);
+  await folha.getByTestId(`folha-destino-${destino}`).click();
+  await folha.getByTestId("folha-registrar").click();
+  await expect(folha).toBeHidden({ timeout: 10000 });
+}
+
 test.describe("polimento estoque — custo", () => {
   test("a entrada sem “Quanto custou ao todo” grava R$ 0 e o material diz “sem custo”, nunca “R$ 0,00”", async ({
     page,
@@ -90,6 +103,34 @@ test.describe("polimento estoque — custo", () => {
     await expect(custoMedio).toHaveText("sem custo");
     await expect(custoMedio.getByTestId("estoque-sem-custo")).toHaveText("sem custo");
     await expect(cartao).not.toContainText("R$ 0,00/kg");
+  });
+
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 1: a doação (R$ 0) soma quantidade,
+  // mas não vira a referência de custo. Com o saldo zerado, o cartão mostra o custo da última COMPRA, e a
+  // saída seguinte sai a esse custo — nunca R$ 0.
+  test("(auditoria 08/10) compra 5 kg R$ 21, doação 1 kg, baixa 6 kg: o cartão mostra R$ 4,20/kg e a saída de 1 kg vale R$ 4,20", async ({
+    page,
+  }) => {
+    const suf = sufixoUnico();
+    const nome = `[e2e] Argila comprada e doada ${suf}`;
+    const itemId = await semearMaterial({ nome, unidade: "kg", categoriaCompra: CATEGORIA_DE_COMPRA });
+    await abrirEstoque(page);
+    await page.getByTestId("estoque-busca").fill(suf);
+
+    await registrarEntrada(page, itemId, nome, "5", "21,00");
+    await registrarEntrada(page, itemId, nome, "1", "");
+    await saidaPelaFolha(page, itemId, "6", "perda");
+    expect(await saldoNoBanco(itemId)).toBe(0);
+
+    const cartao = cartaoDoItem(page, itemId);
+    await expect(cartao.getByTestId("estoque-cartao-custo")).toHaveText(`${formatarReais(420)}/kg`);
+    await expect(cartao).not.toContainText("sem custo");
+    await expect(cartao).not.toContainText("R$ 0,00/kg");
+
+    await saidaPelaFolha(page, itemId, "1", "perda");
+    const linhas = await movimentacoesDoItem(itemId);
+    expect(linhas).toHaveLength(4);
+    expect(linhas[linhas.length - 1]).toMatchObject({ tipo: "saida", quantidadeMilesimos: -1000, valorCentavos: -420 });
   });
 });
 
